@@ -1,0 +1,89 @@
+// Test script for rskt list utility //
+
+log librlist_log.txt
+
+listi
+
+lists
+
+listp 1
+listp 2
+listp 3
+listp 4
+listp 5
+listp 6
+listp 7
+listp 8
+listp 9
+listp 10
+listp 11
+listd
+
+lists
+
+listP
+listP
+listP
+listP
+listP
+listP
+listP
+listP
+listP
+listP
+listP
+listP
+listP
+listP
+
+lista 3
+lista 4
+lista 7
+lista 8
+lista 2
+lista 5
+lista 6
+
+lists
+
+listf 2
+listr
+listf 8
+listr
+listf 4
+listr
+listf 5
+listr
+listf 6
+listr
+listf 3
+listr
+listf 7
+listr
+
+lists
+
+lista 1
+lista 2
+lista 3
+lista 4
+lista 5
+lista 6
+lista 7
+
+listh
+listn
+listn
+listn
+listn
+listn
+listn
+listn
+listn
+listn
+listn
+listn
+
+listd
+
+close
