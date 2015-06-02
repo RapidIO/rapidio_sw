@@ -17,7 +17,7 @@ CLILIB_OBJS = cli_base_init.o cli_cmd_db.o cli_cmd_line.o\
 		cli_parse.o cli_console.o
 
 # The CLI library
-libcli.so: $(CLILIB_SOURCES) src/*.h ../../rdma/daemon/inc/rdmad_console.h
+libcli.so: $(CLILIB_SOURCES) src/*.h ../../rdma/daemon/inc/*_console.h
 	@echo ---------- Building libcli.so...
 	g++ $(CLILIB_CFLAGS) $(CLILIB_SOURCES)
 	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(CLILIB_OBJS) $(SO_LIB_LKFLAGS)

@@ -48,8 +48,10 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -D$(debug) -I../../samples/latency/common/ -Iinc/ -O3
 
 # RDMA Daemon flags & sources
-RDMAD_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -g -ggdb -O3 -DRDMA_LL=$(level) -D$(debug)\
-		-I$(KERNINC) -I$(MPORTLIB_INC) -I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc 
+RDMAD_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -g -ggdb -O3 \
+		-DRDMA_LL=$(level) -D$(debug) -I$(KERNINC) -I$(MPORTLIB_INC) \
+		-I../common/libcli/inc \
+		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
 
 RDMAD_SOURCES = rdmad_rpc.c rdmad_xdr.c \
 		src/rdma_mq_msg.c \
@@ -64,11 +66,13 @@ RDMAD_SOURCES = rdmad_rpc.c rdmad_xdr.c \
 
 # RDMA Library flags, sources and objects
 RDMALIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
-		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I.\
+		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
 		-D$(debug) -DRDMA_LL=$(level) -O3 -rdynamic -lnsl
 
-RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c src/librdma.cpp\
-		src/librdma_db.cpp src/rdma_mq_msg.c
+RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c \
+		lib/src/librdma.cpp \
+		lib/src/librdma_db.cpp \
+		src/rdma_mq_msg.c
 
 RDMALIB_OBJS    = rdmad_xdr.o rdmalib_rpc.o librdma.o librdma_db.o rdma_mq_msg.o
 
@@ -77,20 +81,20 @@ all: rdmad librdma.so
 
 # The RDMA library (the RPC client)
 librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
-	inc/*.h src/*.h ../common/liblog/liblog.so
+	lib/src/*.h ../common/liblog/liblog.so
 	@echo ---------- Building librdma.so...
 	g++ $(RDMALIB_CFLAGS) $(RDMALIB_SOURCES)
-	g++ -L$(MPORTLIB_PATH) -L$(shell pwd) -Wl,-rpath=$(MPORTLIB_PATH) \
-	-Wl,-rpath=$(shell pwd) -o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog
+	g++ -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
+	-Wl,-rpath=$(LIBLOG_PATH) -o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog
 
 # The RDMA daemon (the RPC server)
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \
 	daemon/src/*.h $(LIBCLI_PATH)/libcli.so $(LIBLOG_PATH)/liblog.so
 
 	@echo ---------- Building the RDMA Daemon...
-	g++ -L$(MPORTLIB_PATH) -L$(shell pwd) -Wl,-rpath=$(MPORTLIB_PATH) \
-	 -Wl,-rpath=$(shell pwd) -o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) \
-	-lmport -lrt -lcli -llog
+	g++ -L$(MPORTLIB_PATH) -L$(LIBCLI_PATH) -L$(LIBLOG_PATH) \
+	-Wl,-rpath=$(MPORTLIB_PATH) -Wl,-rpath=$(LIBCLI_PATH) -Wl,-rpath=$(LIBLOG_PATH) \
+	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -lmport -lrt -lcli -llog
 
 # RPC-generated files
 rdmalib_rpc.c: rdmad.x rdmad.h
