@@ -1,0 +1,3 @@
+The daemon and the lib must be built together using the Makefile in this
+directory. This is necessary due to the use of RPC where the interface file
+generates stubs that are linked with both the daemon and the library.
