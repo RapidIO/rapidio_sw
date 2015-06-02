@@ -43,7 +43,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "riodp_mport_lib.h"
 #include "rdma_logger.h"
-#include "rdmad_cm.h"
 
 #define	CM_MSG_OFFSET 20
 #define	CM_BUF_SIZE	4096
@@ -95,7 +94,7 @@ private:
 	void dump_buffer(uint8_t *buffer)
 	{
 		unsigned offset = 0;
-		const auto chars_per_line = 32;
+		const uint8_t chars_per_line = 32;
 
 		cout << hex << setfill('0') << setw(2);
 
