@@ -110,5 +110,5 @@ rdmad_xdr.c: rdmad.x rdmad.h
 	./remove_buf.pl
 
 clean:
-	rm -f rdmalib_rpc.c rdmad_rpc.c rdmad_xdr.c rdmad.h rdmad *.o rdmad_xdr.b
+	rm -f rdmalib_rpc.c rdmad_rpc.c rdmad_xdr.c rdmad.h rdmad *.o rdmad_xdr.b librmda.so
 
