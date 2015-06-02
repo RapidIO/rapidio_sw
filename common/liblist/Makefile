@@ -7,14 +7,16 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 # LIST library flags, sources and objects
 LISTLIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-D$(debug) -DRDMA_LL=$(level) -O2 -rdynamic -lnsl \
-		-I./inc 
-LISTLIB_SOURCES = src/liblist.c
-LISTLIB_OBJS = liblist.o
+		-I./inc \
+		-I../libcli/inc \
+## LISTLIB_SOURCES = src/liblist.c src/liblist_test.c
+LISTLIB_OBJS = liblist.o liblist_test.o
 
-# The listger library
-liblist.so: $(LISTLIB_SOURCES) 
+# The list library
+liblist.so: 
 	@echo ---------- Building liblist.so...
-	g++ $(LISTLIB_CFLAGS) $(LISTLIB_SOURCES)
+	g++ $(LISTLIB_CFLAGS) src/liblist.c
+	g++ $(LISTLIB_CFLAGS) src/liblist_test.c
 	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(LISTLIB_OBJS) $(SO_LIB_LKFLAGS)
 
 clean:
