@@ -9,7 +9,6 @@ LISTLIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-D$(debug) -DRDMA_LL=$(level) -O2 -rdynamic -lnsl \
 		-I./inc \
 		-I../libcli/inc \
-## LISTLIB_SOURCES = src/liblist.c src/liblist_test.c
 LISTLIB_OBJS = liblist.o liblist_test.o
 
 # The list library
