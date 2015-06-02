@@ -89,7 +89,7 @@ librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 
 # The RDMA daemon (the RPC server)
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \
-	daemon/src/*.h $(LIBCLI_PATH)/libcli.so $(LIBLOG_PATH)/liblog.so
+	daemon/src/*.h $(LIBCLI_PATH)/libcli.so $(LIBLOG_PATH)/liblog.so ../common/include
 
 	@echo ---------- Building the RDMA Daemon...
 	g++ -L$(MPORTLIB_PATH) -L$(LIBCLI_PATH) -L$(LIBLOG_PATH) \
