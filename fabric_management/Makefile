@@ -62,7 +62,7 @@ daemon: $(DAEMON_OBJS)
 all: $(LIB_DEPS) daemon 
 
 clean:
-	rm -f *.o *~ *.exe core $(LD_LIBRARY_PATH)/*.so
+	rm -f fmd *.o *~ *.exe core $(LD_LIBRARY_PATH)/*.so
 	$(MAKE) clean -C librio_switch
 	$(MAKE) clean -C librio_maint
 	$(MAKE) clean -C cli

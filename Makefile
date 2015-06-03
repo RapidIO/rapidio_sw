@@ -46,6 +46,8 @@ export TOP_LEVEL
 
 TARGETS = common libmport rdma fabric_management
 
+all: $(TARGETS)
+
 fabric_management: common FORCE
 	$(MAKE) all -C fabric_management
 		
@@ -59,9 +61,6 @@ libmport:  FORCE
 	$(MAKE) all LDFLAGS= -C libmport
 
 FORCE:
-		
-
-all: $(TARGETS)
 
 clean: FORCE
 	$(MAKE) clean -C common
