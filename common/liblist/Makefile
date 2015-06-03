@@ -8,7 +8,7 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 LISTLIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-D$(debug) -DRDMA_LL=$(level) -O2 -rdynamic -lnsl \
 		-I./inc \
-		-I../libcli/inc \
+		-I../libcli/inc
 LISTLIB_OBJS = liblist.o liblist_test.o
 
 # The list library
