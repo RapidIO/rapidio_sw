@@ -1,0 +1,515 @@
+/* Fabric Management Daemon Device Directory Implementation */
+/*
+****************************************************************************
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*************************************************************************
+*/
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <semaphore.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/sem.h>
+#include <fcntl.h>
+
+#ifdef __WINDOWS__
+#include "stdafx.h"
+#include <io.h>
+#include <windows.h>
+#include "tsi721api.h"
+#include "IDT_Tsi721.h"
+#endif
+
+// #ifdef __LINUX__
+#include <stdint.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+// #endif
+
+#include "librio_fmd.h"
+#include "librio_fmd_internal.h"
+#include "dev_db.h"
+#include "cli_cmd_db.h"
+#include "cli_cmd_line.h"
+#include "cli_parse.h"
+
+int fmd_dd_open_rw(struct fmd_cfg_parms *cfg, struct fmd_state *st)
+{
+	int sz = strlen(cfg->dd_fn)+1;
+	int rc;
+
+	st->dd_fn = malloc(sz);
+	memset(st->dd_fn, 0, sz);
+	strcpy(st->dd_fn, cfg->dd_fn);
+
+        st->dd_fd = shm_open(st->dd_fn, O_RDWR | O_CREAT | O_EXCL, 
+                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
+        if (-1 == st->dd_fd) {
+		if (EEXIST == errno ) {
+        		st->dd_fd = shm_open(st->dd_fn, O_RDWR, 
+                        		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+		}
+	};
+
+        if (-1 == st->dd_fd) {
+        	fprintf( stderr, "rw shm_open failed: 0x%x %s\n",
+            		errno, strerror( errno ) );
+                goto exit;
+	}
+
+        rc = ftruncate(st->dd_fd, sizeof(struct fmd_dd));
+        if (-1 == rc) {
+        	fprintf(stderr, "rw ftruncate failed: 0x%x %s\n",
+            		errno, strerror(errno));
+                shm_unlink(st->dd_fn);
+                goto exit;
+        };
+
+        st->dd = mmap(NULL, sizeof(struct fmd_dd), PROT_READ|PROT_WRITE,
+                MAP_SHARED, st->dd_fd, 0);
+
+        if (MAP_FAILED == st->dd) {
+        	fprintf(stderr, "rw mmap failed:0x%x %s\n",
+            		errno, strerror(errno));
+                st->dd = NULL;
+                shm_unlink(st->dd_fn);
+                goto exit;
+        };
+	st->fmd_rw = 1;
+
+	return 0;
+exit:
+        return -1;
+};
+
+int fmd_dd_open_ro(struct fmd_cfg_parms *cfg, struct fmd_state *st)
+{
+	int sz = strlen(cfg->dd_fn)+1;
+
+	st->dd_fn = malloc(sz);
+	memset(st->dd_fn, 0, sz);
+	strcpy(st->dd_fn, cfg->dd_fn);
+
+	st->dd_fd = shm_open(st->dd_fn, O_RDONLY, 0);
+        if (-1 == st->dd_fd) {
+        	fprintf( stderr, "RO shm_open failed: 0x%x %s\n",
+            		errno, strerror( errno ) );
+                goto exit;
+	}
+
+        st->dd = mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
+                MAP_SHARED, st->dd_fd, 0);
+
+        if (MAP_FAILED == st->dd) {
+        	fprintf(stderr, "RO mmap failed:0x%x %s\n",
+            		errno, strerror(errno));
+                st->dd = NULL;
+                goto exit;
+        };
+
+	if ((NULL != st->dd) && (NULL != st->dd_mtx)) {
+		if (st->dd->chg_idx && st->dd_mtx->dd_ref_cnt) {
+			st->dd_mtx->dd_ref_cnt++;
+			goto exit;
+		};
+	};
+	return 0;
+exit:
+	return -1;
+};
+
+int fmd_dd_mtx_open(struct fmd_cfg_parms *cfg, struct fmd_state *st)
+{
+        int rc;
+	int sz = strlen(cfg->dd_mtx_fn)+1;
+
+	st->dd_mtx_fn = malloc(sz);
+	memset(st->dd_mtx_fn, 0, sz);
+	strncpy(st->dd_mtx_fn, cfg->dd_mtx_fn, sz);
+
+        st->dd_mtx_fd = shm_open(st->dd_mtx_fn, O_RDWR | O_CREAT | O_EXCL, 
+                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
+        if (-1 == st->dd_mtx_fd)
+		if (EEXIST == errno)
+        		st->dd_mtx_fd = shm_open(st->dd_mtx_fn, O_RDWR, 
+                        		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
+        if (-1 == st->dd_mtx_fd) {
+        	fprintf( stderr, "rw mutex shm_open failed: 0x%x %s\n",
+            		errno, strerror( errno ) );
+                goto fail;
+	}
+
+        rc = ftruncate(st->dd_mtx_fd, sizeof(struct fmd_dd_mtx));
+        if (-1 == rc) {
+        	fprintf( stderr, "rw mutex ftruncate failed: 0x%x %s\n",
+            		errno, strerror( errno ) );
+                goto fail;
+        };
+
+        st->dd_mtx = mmap(NULL, sizeof(struct fmd_dd_mtx), 
+			PROT_READ|PROT_WRITE, MAP_SHARED, st->dd_mtx_fd, 0);
+
+        if (MAP_FAILED == st->dd_mtx) {
+        	fprintf( stderr, "rw mutex mmap failed:0x%x %s\n",
+            		errno, strerror( errno ) );
+                st->dd_mtx = NULL;
+                goto fail;
+        };
+
+	if (st->dd_mtx->dd_ref_cnt && st->dd_mtx->init_done) {
+		st->dd_mtx->mtx_ref_cnt++;
+	} else {
+		sem_init(&st->dd_mtx->sem, 1, 1);
+		st->dd_mtx->mtx_ref_cnt = 1;
+		st->dd_mtx->init_done = TRUE;
+	};
+	return 0;
+fail:
+	return -1;
+};
+
+int fmd_dd_init(struct fmd_cfg_parms *cfg, struct fmd_state **st)
+{
+	int rc;
+	int idx;
+
+	*st = malloc(sizeof(struct fmd_state));
+	(*st)->cfg = cfg;
+	(*st)->fmd_rw = 1;
+
+       	rc = fmd_dd_mtx_open(cfg, *st);
+	rc |= fmd_dd_open_rw(cfg, *st);
+	if (rc)
+		goto fail;
+
+	/* Previously created dd, add reference, do not initialize */
+	if ((*st)->dd->chg_idx && (*st)->dd_mtx->dd_ref_cnt) {
+		(*st)->dd_mtx->dd_ref_cnt++;
+		goto exit;
+	};
+
+	if ((*st)->fmd_rw) {
+		(*st)->dd_mtx->dd_ref_cnt = 1;
+		(*st)->dd->chg_idx = 0;
+		(*st)->dd->md_ct = FMD_INVALID_CT;
+		(*st)->dd->num_devs = 0;
+		for (idx = 0; idx <= FMD_MAX_DEVS+1; idx++) {
+			(*st)->dd->devs[idx].ct = FMD_INVALID_CT;
+			(*st)->dd->devs[idx].destID = FMD_INVALID_CT;
+			(*st)->dd->devs[idx].hc = 0xFF;
+		};
+		fmd_dd_incr_chg_idx(*st);
+	};
+exit:
+	return 0;
+fail:
+	return -1;
+};
+
+void fmd_dd_cleanup(struct fmd_state *st)
+{
+	if ((NULL != st->dd) && (NULL != st->dd_mtx)) {
+		if (st->dd->chg_idx && st->dd_mtx->dd_ref_cnt) {
+			if (!--st->dd_mtx->dd_ref_cnt) {
+				if (st->fmd_rw)
+					st->dd->chg_idx = 0;
+				shm_unlink(st->dd_fn);
+			};
+		}
+		st->dd = NULL;
+	};
+
+	if (NULL != st->dd_mtx) {
+		if (st->dd_mtx->init_done && st->dd_mtx->mtx_ref_cnt) {
+			if (!--st->dd_mtx->mtx_ref_cnt) {
+				sem_destroy(&st->dd_mtx->sem);
+				st->dd_mtx->init_done = FALSE;
+				shm_unlink(st->dd_mtx_fn);
+			};
+		};
+		st->dd_mtx = NULL;
+	};
+};
+	
+void fmd_dd_update(struct fmd_state *st)
+{
+	struct dev_db_entry *dbe = db_get_md();
+
+	if (NULL == st->dd)
+		goto exit;
+
+	sem_wait(&st->dd_mtx->sem);
+	st->dd->num_devs = 0;
+	
+	while ((NULL != dbe) && (st->dd->num_devs <= FMD_MAX_DEVS)) {
+		st->dd->devs[st->dd->num_devs].ct     = dbe->ct;
+		st->dd->devs[st->dd->num_devs].destID = dbe->mpr.req.destID;
+		st->dd->devs[st->dd->num_devs].hc     = dbe->mpr.req.hc;
+		st->dd->num_devs++;
+		dbe = next_dbe(dbe);
+	};
+	fmd_dd_incr_chg_idx(st);
+	sem_post(&st->dd_mtx->sem);
+exit:
+	return;
+};
+
+void fmd_dd_incr_chg_idx(struct fmd_state *st)
+{
+	if ((NULL != st->dd) && st->fmd_rw) {
+		uint32_t next_idx = st->dd->chg_idx+1;
+		if (!next_idx)
+			next_idx = 1;
+		st->dd->chg_idx = next_idx;
+		clock_gettime(CLOCK_REALTIME, &st->dd->chg_time);
+	};
+};
+
+uint32_t fmd_dd_get_chg_idx(struct fmd_state *st)
+{
+	if (NULL != st->dd)
+		return st->dd->chg_idx;
+
+	return 0;
+};
+
+/* Note that get_first_dev and get_next_dev will block until
+ * enumeration has been completed.
+ */
+
+uint32_t fmd_dd_atomic_copy(struct fmd_state *st,
+			uint32_t *num_devs,
+			struct fmd_dd_dev_info *devs)
+{
+	uint32_t idx;
+
+	sem_wait(&st->dd_mtx->sem);
+	for (idx = 0; idx < st->dd->num_devs; idx++) 
+		devs[idx] = st->dd->devs[idx];
+	*num_devs = st->dd->num_devs;
+	sem_post(&st->dd_mtx->sem);
+
+	return *num_devs;
+};
+struct fmd_state *cli_st;
+
+const struct cli_cmd CLIChgCnt;
+
+int CLIChgCntCmd(struct cli_env *env, int argc, char **argv)
+{
+	if (NULL == cli_st) {
+		sprintf(env->output, "\nState pointer is null.\n");
+		goto exit;
+	};
+	if (0)
+		argv[0][0] = argc;
+
+	if (NULL == cli_st->dd) {
+		sprintf(env->output, "\nDevice Directory not available.\n");
+		goto exit;
+	} else {
+		printf(env->output, "\nTime %lld.%.9ld ChgIdx: 0x%8x\n", 
+			(long long)cli_st->dd->chg_time.tv_sec,
+			cli_st->dd->chg_time.tv_nsec,  cli_st->dd->chg_idx);
+		logMsg(env);
+		printf(env->output, "fmd_dd: md_ct %x num_devs %x\n", 
+			cli_st->dd->md_ct, cli_st->dd->num_devs);
+		logMsg(env);
+	};
+
+	if (NULL == cli_st->dd_mtx)
+		sprintf(env->output, 
+			"\nDevice Directory Mutex not available.\n");
+	else 
+		sprintf(env->output, 
+			"Mutex: mtx_ref_cnt %x dd_ref_cnt %x init_done %x\n",
+			cli_st->dd_mtx->mtx_ref_cnt, cli_st->dd_mtx->dd_ref_cnt,
+			cli_st->dd_mtx->init_done );
+exit:
+	logMsg(env);
+	return 0;
+};
+
+const struct cli_cmd CLIChgCnt = {
+"chg",
+3,
+0,
+"Change index command, no parameters.",
+"Prints current change index for the device database.",
+CLIChgCntCmd,
+ATTR_NONE
+};
+
+const struct cli_cmd CLIIncCnt;
+
+int CLIIncCntCmd(struct cli_env *env, int argc, char **argv)
+{
+	if (NULL == cli_st) {
+		sprintf(env->output, "\nState pointer is null.\n");
+		goto exit;
+	};
+	if (0)
+		argv[0][0] = argc;
+
+	fmd_dd_incr_chg_idx(cli_st);
+	sprintf(env->output, "\nIncrement idx value: 0x%8x\n", 
+		fmd_dd_get_chg_idx(cli_st));
+exit:
+	logMsg(env);
+	return 0;
+};
+
+const struct cli_cmd CLIIncCnt = {
+"inc",
+3,
+0,
+"Increment change index, no parameters.",
+"Increments and prints current change index for the device database.",
+CLIIncCntCmd,
+ATTR_NONE
+};
+
+const struct cli_cmd CLIDevs;
+
+int CLIDevsCmd(struct cli_env *env, int argc, char **argv)
+{
+	struct fmd_dd_dev_info devs[FMD_MAX_DEVS+1];
+	uint32_t num_devs, idx;
+
+	if (0)
+		argv[0][0] = argc;
+	if (NULL == cli_st) {
+		sprintf(env->output, "\nState pointer is null.\n");
+		goto exit;
+	};
+	num_devs = fmd_dd_atomic_copy(cli_st, &num_devs, devs);
+
+	if (num_devs) {
+		sprintf(env->output, "\nIdx   CT    DevID   HC\n");
+		for (idx = 0; idx < num_devs; idx++) {
+			logMsg(env);
+			sprintf(env->output, "%2d %8x  %2x     %2x\n", idx, 
+				devs[idx].ct, devs[idx].destID, devs[idx].hc);
+		};
+	} else {
+		sprintf(env->output, "\nNo devices returned.\n");
+	};
+exit:
+	logMsg(env);
+	return 0;
+};
+
+const struct cli_cmd CLIDevs = {
+"devs",
+2,
+0,
+"Skelton device list.",
+"Prints current list of devices in device database.",
+CLIDevsCmd,
+ATTR_NONE
+};
+
+const struct cli_cmd CLIClean;
+
+int CLICleanCmd(struct cli_env *env, int argc, char **argv)
+{
+
+	if (NULL == cli_st) {
+		sprintf(env->output, "\nState pointer is null.\n");
+		goto exit;
+	};  
+	argv[0] = NULL;
+	if (argc) {
+		sprintf(env->output, "\nFreeing Mutex, current state:\n");
+		logMsg(env);
+		if (NULL == cli_st->dd_mtx) {
+			sprintf(env->output, "\ndd_mtx is NULL\n");
+		} else {
+			sprintf(env->output, "dd_ref_cnt   : %x\n",
+				cli_st->dd_mtx->dd_ref_cnt);
+			logMsg(env);
+			sprintf(env->output, "mtx_ref_cnt: %x\n",
+				cli_st->dd_mtx->mtx_ref_cnt);
+			logMsg(env);
+			sprintf(env->output, "init_done : %x\n",
+				cli_st->dd_mtx->init_done);
+		};
+		shm_unlink(cli_st->dd_mtx_fn);
+	} else {
+		sprintf(env->output, "\nFreeing dd, current state:\n");
+		logMsg(env);
+		if (NULL == cli_st->dd) {
+			sprintf(env->output, "\ndd is NULL\n");
+		} else {
+			sprintf(env->output, "dd_ref_cnt   : %x\n",
+				cli_st->dd_mtx->dd_ref_cnt);
+			logMsg(env);
+			sprintf(env->output, "mtx_ref_cnt: %x\n",
+				cli_st->dd_mtx->mtx_ref_cnt);
+			logMsg(env);
+			sprintf(env->output, "init_done : %x\n",
+				cli_st->dd_mtx->init_done);
+		};
+		shm_unlink(cli_st->dd_fn);
+	};
+exit:
+	logMsg(env);
+	return 0;
+};
+
+const struct cli_cmd CLIClean = {
+"clean",
+3,
+0,
+"Drops shared memory blocks.",
+"No parms drops sm block, any part drops mutex.",
+CLICleanCmd,
+ATTR_NONE
+};
+
+const struct cli_cmd *sm_cmds[4] = 
+	{&CLIChgCnt, 
+	 &CLIIncCnt,
+	 &CLIDevs,
+	 &CLIClean };
+
+void bind_dd_cmds(struct fmd_state *st)
+{
+	cli_st = st;
+	add_commands_to_cmd_db(4, &sm_cmds[0]);
+}

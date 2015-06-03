@@ -1,0 +1,35 @@
+log CLI_base/test_result.txt
+d 0 20
+
+
+w 68 24
+
+
+REW 68 24 200
+
+
+W 6c 12345678
+
+
+
+exp 6c 12345678
+
+
+
+W 6c 87654321
+
+
+
+expn 6c 12345678
+
+
+
+exp 6c 87654321
+
+
+
+r 6c
+
+
+
+close

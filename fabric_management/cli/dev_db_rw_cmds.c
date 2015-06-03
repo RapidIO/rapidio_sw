@@ -1,0 +1,557 @@
+/*
+****************************************************************************
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*************************************************************************
+*/
+#ifdef WINDOWS
+#include <io.h>
+#endif
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+
+#include "riocp_pe_internal.h"
+#include "dev_db_rw_cmds.h"
+#include "cli_cmd_db.h"
+#include "cli_cmd_line.h"
+#include "cli_parse.h"
+
+// Globals used by repeatable commands
+static UINT32 store_address;
+static UINT32 store_numbytes;
+static UINT32 store_numacc;
+static UINT32 store_data;
+
+void aligningAddress(struct cli_env *env, UINT32 address)
+{
+	sprintf(env->output,
+		"\nNote: Converting address 0x%08x to multiple of %d bytes\n",
+		address, 4);
+	logMsg(env);
+};
+
+void failedReading(struct cli_env *env, UINT32 address, STATUS rc)
+{
+	sprintf(env->output, "\nFAILED reading, Address 0x%08x, rc 0x%08x\n",
+		address, rc);
+	logMsg(env);
+};
+
+void failedWrite(struct cli_env *env, UINT32 address, UINT32 data, STATUS rc)
+{
+	sprintf(env->output,
+		"\nFAILED writing, Address 0x%08x, Data 0x%08x, rc = 0x%08x\n",
+	address, data, rc);
+	logMsg(env);
+};
+
+/* If the structure or syntax of this command changes,
+ * please update the Help structure following the procedure.
+ */
+
+int CLIRegReadCmd(struct cli_env *env, int argc, char **argv)
+{
+	int errorStat = 0;
+	UINT32 address;
+	UINT32 data, prevRead;
+	UINT32 numReads = 1, i;
+	STATUS rc;
+        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+        DAR_DEV_INFO_t *dev_h;
+
+        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
+                printf("Current device invalid.\n");
+                goto exit;
+        };
+
+	if (argc) {
+		address = getHex(argv[0], 0);
+		if (argc > 1)
+			numReads = getHex(argv[1], 1);
+
+		if ((address % 4) != 0) {
+			aligningAddress(env, address);
+			address = address - (address % 4);
+		}
+		store_address = address;
+		store_numacc = numReads;
+	} else {
+		address = store_address;
+		numReads= store_numacc;
+	};
+
+	for (i = 0; i < numReads; i++) {
+		rc = DARRegRead(dev_h, address, &data);
+		if (RIO_SUCCESS != rc) {
+			failedReading(env, address, rc);
+			goto exit;
+		}
+		if (!i) {
+			sprintf(env->output, "\t0x%08x\t0x%08x\n",
+				address, data);
+			logMsg(env);
+		} else if (data != prevRead) {
+			sprintf(env->output,
+				"\t0x%08x\t0x%08x (iteration 0x%x)*\n",
+				address, data, i);
+			logMsg(env);
+		}
+		prevRead = data;
+	}
+exit:
+	return errorStat;
+}
+
+const struct cli_cmd CLIRegRead = {
+"read",
+1,
+1,
+"read register",
+"<address> {<numreads>}\n"
+	"<address> : Register offset.  Must be 4 byte aligned.\n"
+	"<repeat>  : Optional, number of times to read <address>\n"
+	"            Default <repeat> is 1.\n",
+CLIRegReadCmd,
+ATTR_RPT
+};
+
+/* If the structure or syntax of this command changes,
+ * please update the Help structure following the procedure.
+ */
+
+int CLIRegWriteCmd(struct cli_env *env, int argc, char **argv)
+
+{
+	int errorStat = 0;
+	UINT32 address;
+	UINT32 data;
+	STATUS rc;
+        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+        DAR_DEV_INFO_t *dev_h;
+
+        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
+                printf("Current device invalid.\n");
+                goto exit;
+        };
+
+
+	if (argc) {
+		address = getHex(argv[0], 0);
+		data    = getHex(argv[1], 0);
+		if ((address % 4) != 0) {
+			/*ensure that the address is a multiple of n bytes*/
+			aligningAddress(env, address);
+			address = address - (address % 4);
+		};
+		store_address = address;
+		store_data    = data;
+	} else {
+		address = store_address;
+		data = store_data ;
+	};
+
+	/* Command arguments are syntactically correct - do write */
+	rc = DARRegWrite(dev_h, address, data);
+	if (RIO_SUCCESS != rc) {
+		failedWrite(env, address, data, rc);
+		goto exit;
+	}
+
+	/* read data back */
+	rc = DARRegRead(dev_h, address, &data);
+	if (RIO_SUCCESS != rc) {
+		failedReading(env, address, rc);
+		goto exit;
+	} else {
+		sprintf(env->output, "\nRead back %08x\n", data);
+		logMsg(env);
+	}
+
+exit:
+	return errorStat;
+}
+
+const struct cli_cmd CLIRegWrite = {
+"write",
+1,
+2,
+"write register, then read back updated register value",
+"<address> <data>\n"
+	"Write <data> at <address> for current device.\n"
+	"<address> must be 4 byte aligned.\n"
+	"<data> is 4 bytes.\n",
+CLIRegWriteCmd,
+ATTR_RPT
+};
+
+/* If the structure or syntax of this command changes,
+ * please update the Help structure following the procedure.
+ */
+
+int CLIRegReWriteCmd(struct cli_env *env, int argc, char **argv)
+{
+	int errorStat = 0;
+	UINT32 address;
+	UINT32 data;
+	UINT32 repeat, i;
+	STATUS rc;
+        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+        DAR_DEV_INFO_t *dev_h;
+
+        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
+                printf("Current device invalid.\n");
+                goto exit;
+        };
+
+	if (argc) {
+		address = getHex(argv[0], 0);
+		data    = getHex(argv[1], 0);
+		repeat  = getHex(argv[2], 0);
+		if ((address % 4) != 0) {
+			aligningAddress(env, address);
+			address = address - (address % 4);
+		};
+		store_address = address;
+		store_data = data;
+		store_numacc = repeat;
+	} else {
+		address = store_address;
+		data    = store_data;
+		repeat  = store_numacc;
+	};
+
+
+	for (i = 0; i < repeat; i++) {
+		rc = DARRegWrite(dev_h, address, data);
+		if (RIO_SUCCESS != rc) {
+			failedWrite(env, address, data, rc);
+			goto exit;
+		};
+	};
+
+	rc = DARRegRead(dev_h, address, &data);
+	if (RIO_SUCCESS != rc) {
+		failedReading(env, address, rc);
+		goto exit;
+	} else {
+		sprintf(env->output, "\nRead back 0x%08x\n", data);
+		logMsg(env);
+	}
+exit:
+	return errorStat;
+}
+
+const struct cli_cmd CLIRegReWrite = {
+"REWrite",
+3,
+3,
+"write register repeatedly, then read back updated value",
+"<address> <data> <repeat>\n"
+"Write <data> at <address> for current device <repeat> times.\n"
+	"<address> must be 4 byte aligned.\n"
+	"<data> is 4 bytes.\n"
+	"<repeat> can be up to 0xFFFFFFFF",
+CLIRegReWriteCmd,
+ATTR_RPT
+};
+
+/* If the structure or syntax of this command changes,
+ * please update the Help structure following the procedure.
+ */
+
+int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
+
+{
+	int errorStat = 0;
+	UINT32 address;
+	UINT32 data;
+	STATUS rc;
+        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+        DAR_DEV_INFO_t *dev_h;
+
+        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
+                printf("Current device invalid.\n");
+                goto exit;
+        };
+
+
+	if (argc) {
+		address = getHex(argv[0], 0);
+		data    = getHex(argv[1], 0);
+
+		if ((address % 4) != 0) {
+			/*ensure that the address is a multiple of n bytes*/
+			aligningAddress(env, address);
+			address = address - (address % 4);
+		};
+		store_address = address;
+		store_data = data;
+	} else {
+		address = store_address;
+		data = store_data;
+	};
+
+	/* Command arguments are syntactically correct - do write */
+	rc = DARRegWrite(dev_h, address, data);
+	if (RIO_SUCCESS != rc) {
+		failedWrite(env, address, data, rc);
+		goto exit;
+	} else {
+		sprintf(env->output, "\nWrite successful\n");
+		logMsg(env);
+	}
+exit:
+	return errorStat;
+}
+
+const struct cli_cmd CLIRegWriteNoReadback = {
+"Write",
+1,
+2,
+"write register",
+"<address> <data>\n"
+"Write <data> at <address> for current device\n"
+"<address> must be 4 byte aligned.\n"
+"<data> is 4 bytes.",
+CLIRegWriteNoReadbackCmd,
+ATTR_RPT
+};
+
+int expect(struct cli_env *env, int argc, char **argv, int inverse)
+{
+	int errorStat = 0;
+	UINT32 address;
+	UINT32 data, expdata;
+	STATUS rc;
+        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+        DAR_DEV_INFO_t *dev_h;
+
+        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
+                printf("Current device invalid.\n");
+                goto exit;
+        };
+
+
+	if (argc) {
+		address = getHex(argv[0], 0);
+		expdata = getHex(argv[1], 1);
+
+		if ((address % 4) != 0) {
+			aligningAddress(env, address);
+			address = address - (address % 4);
+		};
+		store_address = address;
+		store_data = expdata;
+	} else {
+		address = store_address;
+		expdata = store_data;
+	};
+
+	rc = DARRegRead(dev_h, address, &data);
+	if (RIO_SUCCESS != rc) {
+		failedReading(env, address, rc);
+		goto exit;
+	};
+
+	if (((data == expdata) && (!inverse)) ||
+	    ((data != expdata) &&  (inverse))) {
+		sprintf(env->output,
+		"\nPASSED: Address: 0x%08x Data 0x%08x ExpData 0x%08x\n",
+		address, data, expdata);
+	} else {
+		sprintf(env->output,
+		"\nFAILED: Address: 0x%08x Data 0x%08x ExpData 0x%08x\n",
+		address, data, expdata);
+	}
+	logMsg(env);
+exit:
+	return errorStat;
+}
+
+/* If the structure or syntax of this command changes,
+ * please update the Help structure following the procedure.
+ */
+
+int CLIRegExpectNotCmd(struct cli_env *env, int argc, char **argv)
+{
+	return expect(env, argc, argv, 1);
+}
+
+const struct cli_cmd CLIRegExpectNot = {
+"expnot",
+4,
+2,
+"check register does not match specified value",
+"<address> <data>\n"
+	"Read register at <address> on current device, compare to <data>\n"
+	"Print an error message if value read is equal to <data>\n"
+	"<address> must be 4 byte aligned.\n"
+	"<data> is 4 bytes.",
+CLIRegExpectNotCmd,
+ATTR_RPT
+};
+
+/* If the structure or syntax of this command changes,
+ * please update the Help structure following the procedure.
+ */
+
+int CLIRegExpectCmd(struct cli_env *env, int argc, char **argv)
+{
+	return expect(env, argc, argv, 0);
+}
+
+const struct cli_cmd CLIRegExpect = {
+"expect",
+2,
+2,
+"check register matches expected value",
+"<address> <data>\n"
+	"Read register at <address> on current device, compare to <data>\n"
+	"Print an error message if value read is not equal to <data>\n"
+	"<address> must be 4 byte aligned.\n"
+	"<data> is 4 bytes.",
+CLIRegExpectCmd,
+ATTR_RPT
+};
+
+/* If the structure or syntax of this command changes,
+ * please update the Help structure following the procedure.
+ */
+
+int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
+
+{
+	int errorStat = 0;
+	UINT32 address, data;
+	UINT32 numbytes;
+	UINT32 i;
+	STATUS rc;
+	static UINT32 store_address, store_numbytes;
+        riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+        DAR_DEV_INFO_t *dev_h;
+
+        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
+                printf("Current device invalid.\n");
+                goto exit;
+        };
+
+
+	if (argc) {
+		address  = getHex(argv[0], 0);
+		numbytes = getHex(argv[1], 1);
+	} else {
+		/* in the special case of a continous dump command,
+		 * this function is called with argc == 0
+		 */
+		address = store_address;
+		numbytes = store_numbytes;
+	}
+
+	if ((address % 4) != 0) {
+		/* ensure that the address is a multiple of n bytes */
+		aligningAddress(env, address);
+		address = address - (address % 4);
+	}
+
+	/* Dump columnar data for 16 bytes at a time.
+	 * First get the output alinged for the entered address
+	 */
+
+
+	sprintf(env->output, "\nAddress  00____03 04____07 08____0B 0C____0F");
+	logMsg(env);
+	sprintf(env->output, "\n%8x", address & 0xFFFFFFF0);
+	logMsg(env);
+	for (i = 0; i < (address & 0xF); i += 4) {
+		sprintf(env->output, "         ");
+		logMsg(env);
+	};
+	for (i = 0; i < numbytes; i += 4) {
+		rc = DARRegRead(dev_h, address + i, &data);
+		if (RIO_SUCCESS != rc) {
+			failedReading(env, address, rc);
+			goto exit;
+		}
+		sprintf(env->output, " %08x", data);
+		logMsg(env);
+		if ((0xC == ((address + i) & 0xF)) &&
+			((i + 4) < numbytes)) {
+			sprintf(env->output, "\n%8x",
+				(address+i+4) & 0xFFFFFFF0);
+			logMsg(env);
+		};
+	};
+	sprintf(env->output, "\n");
+	logMsg(env);
+
+	/* store data for continuous dump command */
+	store_address = address + numbytes;
+	store_numbytes =  numbytes;
+
+exit:
+	return errorStat;
+}
+
+const struct cli_cmd CLIRegDump = {
+"dump",
+1,
+2,
+"display a block of memory/registers",
+"<address> <numbytes>\n"
+"Read 4 byte registers starting at <address> on current device\n"
+	"<address> will be rounded down to 4 byte alignment.\n"
+	"<numbytes> will be rounded up to 4 byte alignment.\n",
+CLIRegDumpCmd,
+ATTR_RPT
+};
+
+const struct cli_cmd *reg_cmd_list[] = {
+&CLIRegRead,
+&CLIRegWrite,
+&CLIRegReWrite,
+&CLIRegWriteNoReadback,
+&CLIRegExpect,
+&CLIRegExpectNot,
+&CLIRegDump
+};
+
+int bind_dev_db_rw_cmds(void)
+{
+	// Init globals used by repeatable commands
+	store_address = 0;
+	store_numbytes = 4;
+	store_numacc = 1;
+	store_data = 0;
+
+	return add_commands_to_cmd_db(sizeof(reg_cmd_list)/
+			sizeof(struct cli_cmd *), reg_cmd_list);
+};

@@ -44,8 +44,11 @@ export DEBUG
 TOP_LEVEL = $(shell pwd)
 export TOP_LEVEL
 
-TARGETS = common libmport rdma
+TARGETS = common libmport rdma fabric_management
 
+fabric_management: common FORCE
+	$(MAKE) all -C fabric_management
+		
 rdma: common FORCE
 	$(MAKE) all -C rdma
 		
@@ -64,3 +67,4 @@ clean: FORCE
 	$(MAKE) clean -C common
 	$(MAKE) clean -C libmport
 	$(MAKE) clean -C rdma
+	$(MAKE) clean -C fabric_management

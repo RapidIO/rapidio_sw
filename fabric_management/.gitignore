@@ -1,0 +1,9 @@
+*.o
+*.a
+*.so
+bin/
+libs/
+fab_daemon.exe
+
+*.swp
+tags
