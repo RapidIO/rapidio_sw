@@ -35,15 +35,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __LIBRSKTD_DMN_TEST_H__
 #define __LIBRSKTD_DMN_TEST_H__
 
-int d_rdma_get_mso_h(char *name, mso_h *mso);
-int d_rdma_drop_mso_h(mso_h *mso);
-int d_rdma_drop_ms_h(struct ms_info *msi, mso_h msoh);
-int d_rdma_get_ms_h(struct ms_info *msi, const char *name,
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern int d_rdma_get_mso_h(char *name, mso_h *mso);
+extern int d_rdma_drop_mso_h(mso_h *mso);
+extern int d_rdma_drop_ms_h(struct ms_info *msi, mso_h msoh);
+extern int d_rdma_get_ms_h(struct ms_info *msi, const char *name,
                         mso_h msoh, uint32_t ms_size, uint32_t flags);
-int d_rdma_drop_msub_h(struct ms_info *msi);
-int d_rdma_get_msub_h(struct ms_info *msi, int offset, int size,
+extern int d_rdma_drop_msub_h(struct ms_info *msi);
+extern int d_rdma_get_msub_h(struct ms_info *msi, int offset, int size,
                                 uint32_t flags);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LIBRSKTD_DMN_TEST_H__ */
 

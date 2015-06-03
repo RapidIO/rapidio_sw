@@ -2,6 +2,8 @@
 level?=6
 debug?=DEBUG
 
+AR:=$(CROSS_COMPILE)ar
+
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 
@@ -16,13 +18,16 @@ CLILIB_SOURCES = src/cli_base_init.c src/cli_cmd_db.c src/cli_cmd_line.c\
 CLILIB_OBJS = cli_base_init.o cli_cmd_db.o cli_cmd_line.o\
 		cli_parse.o cli_console.o
 
+all: libcli.so libcli.a
+
 # The CLI library
 libcli.so: $(CLILIB_SOURCES) src/*.h ../../rdma/daemon/inc/*_console.h
 	@echo ---------- Building libcli.so...
 	g++ $(CLILIB_CFLAGS) $(CLILIB_SOURCES)
 	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(CLILIB_OBJS) $(SO_LIB_LKFLAGS)
 
-all: libcli.so
+%.a: 
+	$(AR) rcs $@ $(CLILIB_OBJS)
 
 clean:
-	@rm -f *.o libcli.so *~
+	@rm -f *.o libcli.so *~ libcli.a

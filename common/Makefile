@@ -43,12 +43,18 @@ TARGETS = libcli liblist liblog
 
 libcli: FORCE
 	$(MAKE) all -C libcli
+	cp libcli/libcli.a libs_a/
+	cp libcli/libcli.so libs_so/
 		
 liblist: FORCE
 	$(MAKE) all -C liblist
+	cp liblist/liblist.a libs_a/
+	cp liblist/liblist.so libs_so/
 		
 liblog: FORCE
 	$(MAKE) all -C liblog
+	cp liblog/liblog.a libs_a/
+	cp liblog/liblog.so libs_so/
 		
 FORCE:
 

@@ -37,10 +37,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __LIBRSKT_TEST_H__
 #define __LIBRSKT_TEST_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
                         struct librskt_rsktd_to_app_msg *rx);
 extern struct librskt_resp_msg test_resp;
 extern uint32_t test_err;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LIBRSKT_TEST_H__ */
 

@@ -43,6 +43,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/un.h>
 #include <semaphore.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RSKT_FLAG_INIT 0x01
 #define RSKT_FLAG_SHUTDOWN 0x02
 #define RSKT_FLAG_CLOSING 0x04
@@ -231,6 +235,10 @@ void librskt_setup_ptrs(rskt_h skt);
 
 #define LIBRSKT_MAX_CMD_LEN 256
 int rskt_send_cli_cmd(struct cli_env *env, char *cmd);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LIBRSKT_PRIVATE_H__ */
 

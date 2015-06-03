@@ -1,6 +1,8 @@
 level?=7
 debug?=DEBUG
 
+AR:=$(CROSS_COMPILE)ar
+
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 
@@ -12,12 +14,16 @@ LOGLIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 LOGLIB_SOURCES = src/rdma_logger.cpp
 LOGLIB_OBJS = rdma_logger.o
 
+all: liblog.so liblog.a
+
 # The logger library
 liblog.so: $(LOGLIB_SOURCES) ../include/rdma_logger.h
 	@echo ---------- Building liblog.so...
 	g++ $(LOGLIB_CFLAGS) $(LOGLIB_SOURCES)
 	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(LOGLIB_OBJS) $(SO_LIB_LKFLAGS)
 
-all: liblog.so
+%.a: 
+	$(AR) rcs $@ $(LOGLIB_OBJS)
+
 clean:
-	@rm -f *.o *~ liblog.so
+	@rm -f *.o *~ *.so *.a

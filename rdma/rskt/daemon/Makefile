@@ -14,6 +14,7 @@ TOP_LEVEL ?= ../../..
 
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
+A_LIB_LKFLAGS = -lnsl -fPIC -g -ggdb
 
 CROSS_COMPILE?=/usr/bin/
 LINUX_INCLUDE_DIR?=/usr/src/linux/include
@@ -21,6 +22,12 @@ INCDIR=$(LINUX_INCLUDE_DIR)
 
 COMMON_DIR?=$(TOP_LEVEL)/common
 MPORT_DIR?=$(TOP_LEVEL)/libmport
+RDMA_DIR?=$(TOP_LEVEL)/rdma
+RSKT_DIR?=../lib
+
+LIB_DIRS?=-L$(COMMON_DIR)/libs_a -L$(COMMON_DIR)/libs_so \
+	-L$(RSKT_DIR) -L$(RDMA_DIR) -L$(MPORT_DIR) 
+	
 
 CC:=$(CROSS_COMPILE)gcc
 AR:=$(CROSS_COMPILE)ar
@@ -35,23 +42,21 @@ src/%.o: src/%.c
 	-I../../../include \
 	-I$(LINUX_INCLUDE_DIR)
 
-RSKTD_SOURCES = src/librsktd_cli.c src/librsktd_dmn.c src/librsktd_lib.c \
+RSKTD_SOURCES = src/librsktd_dmn.c src/librsktd_cli.c src/librsktd_lib.c \
 	src/librsktd_msg_proc.c src/librsktd_sn.c src/librsktd_speer.c  \
-	src/librsktd_wpeer.c src/rsktd.c
+	src/librsktd_wpeer.c src/rsktd.c 
 
-RSKTD_OBJECTS = src/librsktd_cli.o src/librsktd_dmn.o src/librsktd_lib.o \
+RSKTD_OBJECTS = src/librsktd_dmn.o src/librsktd_cli.o src/librsktd_lib.o \
 	src/librsktd_msg_proc.o src/librsktd_sn.o src/librsktd_speer.o  \
-	src/librsktd_wpeer.o src/rsktd.o
+	src/librsktd_wpeer.o src/rsktd.o 
 
 # The RDMA Sockets Daemon
 rsktd:  $(RSKTD_OBJECTS) src/*.h
 	@echo ---------- Building rsktd...
-	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(RSKTD_OBJECTS) \
-	-L$(MPORT_DIR)/ -lmport \
-	-L$(COMMON_DIR)/liblog -llog \
-	-L$(COMMON_DIR)/libcli -lcli \
-	-L$(COMMON_DIR)/liblist -llist \
-	$(SO_LIB_LKFLAGS)
+	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(shell pwd) \
+	-o $@ $(RSKTD_OBJECTS) $(LIB_DIRS) \
+	-lrskt -lcli -lrt -lmport \
+	-llist -llog -lrdma 
 
 
 all: rsktd

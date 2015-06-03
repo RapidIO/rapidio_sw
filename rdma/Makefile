@@ -38,8 +38,9 @@ MPORTLIB_PATH=../libmport
 MPORTLIB_INC=../include
 MPORTLIB=libmport.so
 MPORTLIB_HEADER=riodp_mport_lib.h
-LIBCLI_PATH=../common/libcli
-LIBLOG_PATH=../common/liblog
+LIBCLI_PATH=../common/libs_a
+LIBLOG_PATH=../common/libs_a
+
 
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
@@ -77,16 +78,16 @@ RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c \
 RDMALIB_OBJS    = rdmad_xdr.o rdmalib_rpc.o librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: rsktd rdmad librdma.so
+all: librdma.so rdmad rsktd 
 
-rsktd: FORCE
+rsktd: rdmad
 	$(MAKE) all -C rskt
 
 FORCE:
 
 # The RDMA library (the RPC client)
 librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
-	lib/src/*.h ../common/liblog/liblog.so
+	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.so...
 	g++ $(RDMALIB_CFLAGS) $(RDMALIB_SOURCES)
 	g++ -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
@@ -94,7 +95,7 @@ librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 
 # The RDMA daemon (the RPC server)
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \
-	daemon/src/*.h $(LIBCLI_PATH)/libcli.so $(LIBLOG_PATH)/liblog.so ../common/include
+	daemon/src/*.h $(LIBCLI_PATH)/libcli.a $(LIBLOG_PATH)/liblog.a ../common/include
 
 	@echo ---------- Building the RDMA Daemon...
 	g++ -L$(MPORTLIB_PATH) -L$(LIBCLI_PATH) -L$(LIBLOG_PATH) \
@@ -115,6 +116,6 @@ rdmad_xdr.c: rdmad.x rdmad.h
 	perl remove_buf.pl
 
 clean:
-	rm -f rdmalib_rpc.c rdmad_rpc.c rdmad_xdr.c rdmad.h rdmad *.o rdmad_xdr.b librmda.so
+	rm -f rdmalib_rpc.c rdmad_rpc.c rdmad_xdr.c rdmad.h rdmad *.o rdmad_xdr.b librdma.so
 	$(MAKE) clean -C rskt
 

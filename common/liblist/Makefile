@@ -1,6 +1,8 @@
 level?=7
 debug?=DEBUG
 
+AR:=$(CROSS_COMPILE)ar
+
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 
@@ -11,6 +13,8 @@ LISTLIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-I../include
 LISTLIB_OBJS = liblist.o liblist_test.o
 
+all: liblist.so liblist.a
+
 # The list library
 liblist.so: 
 	@echo ---------- Building liblist.so...
@@ -18,7 +22,7 @@ liblist.so:
 	g++ $(LISTLIB_CFLAGS) src/liblist_test.c
 	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(LISTLIB_OBJS) $(SO_LIB_LKFLAGS)
 
-all: liblist.so
-
+%.a: 
+	$(AR) rcs $@ $(LISTLIB_OBJS)
 clean:
-	@rm -f *.o *~ liblist.so
+	@rm -f *.o *~ liblist.so liblist.a

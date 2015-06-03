@@ -44,7 +44,7 @@ TARGETS = librskt rsktd
 librskt: FORCE
 	$(MAKE) all -C lib
 		
-rsktd: FORCE
+rsktd: librskt FORCE
 	$(MAKE) all -C daemon
 		
 FORCE:

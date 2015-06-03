@@ -63,7 +63,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librdma.h"
 #include "librsktd.h"
 #include "librsktd_private.h"
-#include "liblist_private.h"
 #include "rdma_logger.h"
 
 #define DFLT_DMN_E_CLI_SKT 3333
@@ -383,7 +382,6 @@ void *console(void *cons_parm)
 	set_prompt( &cons_env );
 
 	cli_init_base(quit_command_customization);
-	librlist_bind_cli_cmds();
 	librsktd_bind_cli_cmds();
 
 	splashScreen((char *)"RDMA Socket Daemon Console");
