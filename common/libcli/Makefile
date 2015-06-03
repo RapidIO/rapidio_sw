@@ -7,7 +7,7 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 
 # CLI library flags, sources and objects
 CLILIB_CFLAGS = -Wall -std=gnu++0x -c -g -ggdb -fPIC \
-		-Iinc/ -Isrc/ -I../../rdma/daemon/inc \
+		-I../include -Isrc/ -I../../rdma/daemon/inc \
 		-D$(debug) -DRDMA_LL=$(level) -O2 -rdynamic -lnsl
 
 CLILIB_SOURCES = src/cli_base_init.c src/cli_cmd_db.c src/cli_cmd_line.c\
