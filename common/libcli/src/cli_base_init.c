@@ -34,10 +34,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cli_cmd_line.h"
 #include "cli_cmd_db.h"
 
-int cli_init_base(void)
+extern void (*cons_cleanup)(struct cli_env *env);
+
+void default_cons_cleanup(struct cli_env *env)
+{
+	sprintf(env->output, "No additional cleanup performed.\n");
+	logMsg(env);
+};
+
+int cli_init_base(void (*console_cleanup)(struct cli_env *env))
 {
 	init_cmd_db();
 	bind_cli_cmd_line_cmds();
 
+	if (NULL != console_cleanup)
+		cons_cleanup = console_cleanup;
+	else
+		cons_cleanup = default_cons_cleanup;
 	return 0;
 };

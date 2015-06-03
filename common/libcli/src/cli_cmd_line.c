@@ -44,15 +44,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-#include "cli_console.h"
 #include "cli_cmd_db.h"
+#include "rdma_logger.h"
 
-void printVersion(struct cli_env *e)
+void (*cons_cleanup)(struct cli_env *env);
+
+void splashScreen(char *app_name)
 {
-	sprintf(e->output, "---            Version: %2s.%2s (%s-%s)      ---\n",
+        printf("-----------------------------------------------------------\n");
+        printf("---      %s     ---\n", app_name);
+
+	printf("-----------------------------------------------------------\n");
+	printf("---            Version: %2s.%2s (%s-%s)      ---\n",
                 CLI_VERSION_YR, CLI_VERSION_MO, __DATE__, __TIME__);
-	logMsg(e);
-}
+        printf("-----------------------------------------------------------\n");
+        printf("\t\tRapidIO Trade Association\n");
+        printf("\t\tCopyright 2015\n");
+
+        fflush(stdout);
+};
 
 const char *delimiter = " ,\t\n";   /* Input token delimiter */
 
@@ -279,7 +289,6 @@ int CLIDebugCmd(struct cli_env *env, int argc, char **argv)
 	};
 	sprintf(env->output, "Debug level: %d\n", env->DebugLevel);
 	logMsg(env);
-	LOG_LEVEL = env->DebugLevel;
 	return 0;
 }
 
@@ -450,7 +459,7 @@ int CLIQuitCmd(struct cli_env *env, int argc, char **argv)
 		cli_print_help(env, &CLIQuit);
 		goto exit;
 	};
-	CUSTOM_QUIT_FUNC;
+	(*cons_cleanup)(env);
 	return 1;
 exit:
 	return 0;

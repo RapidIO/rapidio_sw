@@ -13,7 +13,7 @@ LOGLIB_SOURCES = src/rdma_logger.cpp
 LOGLIB_OBJS = rdma_logger.o
 
 # The logger library
-liblog.so: $(LOGLIB_SOURCES) ../../rdma/inc/rdma_logger.h
+liblog.so: $(LOGLIB_SOURCES) ../include/rdma_logger.h
 	@echo ---------- Building liblog.so...
 	g++ $(LOGLIB_CFLAGS) $(LOGLIB_SOURCES)
 	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(LOGLIB_OBJS) $(SO_LIB_LKFLAGS)

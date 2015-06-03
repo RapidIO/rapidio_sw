@@ -97,21 +97,7 @@ struct cli_cmd {
 #define TRUE !FALSE
 #endif
 
-/******************************************************************************
- *  FUNCTION: getHexParm()
- *
- *  DESCRIPTION:
- *		parse next token as a hex parameter and return value
- *
- *  PARAMETERS:
- *      parameters    (for $0, $1, ...)
- *      nParms        (number of non-null parameters)
- *      defaultData   data returned if parse successful
- *
- *  return VALUE:
- *      parameter value decoded or defaultValue
- *
- *****************************************************************************/
+/* parsing support routines */
 extern unsigned long getHexParm(char *dollarParameters[], 
 			unsigned int nDollarParms,
 			char *token, unsigned int defaultData);
@@ -119,25 +105,46 @@ extern unsigned long getHexParm(char *dollarParameters[],
 extern unsigned long getHex(char *token, unsigned long defaultData);
 int getDecParm(char *token, int defaultData);
 
-extern int cli_init_base(void);
+/* CLI initialization/command binding routine.
+ * The console_cleanup function is invoked by the "quit" command
+ * on exit from the CLI.
+ */
+extern int cli_init_base(void (*console_cleanup)(struct cli_env *env));
 
 extern int add_commands_to_cmd_db(int num_cmds,
 				  struct cli_cmd **cmd_list);
 
+/* Display help for a command */
 extern int cli_print_help(struct cli_env *env, struct cli_cmd *cmd);
-
 extern const char *delimiter;
 
-void __attribute__((weak)) splashScreen(struct cli_env *e);
+/* Display routines for start of a console or cli_terminal call */
+/* NOTE: These messages are sent to stdout */
+extern void splashScreen(char *app_name);
 
-extern int cli_terminal(struct cli_env *env);
-
+/* Send string to one/all of the many output streams supported by cli_env */
 extern void logMsg(struct cli_env *env);
+
+/* UNTESTED */
 extern int send_cmd(struct cli_env *env, int argc, char **argv, 
 			int cmd(struct cli_env *env, char *cmd_line),
 			char *saved_cmd_line, int max_cmd_len);
 
+/* Command processing:
+ * process_command accepts a string and processes a command, if any is present
+ * cli_terminal processes commands from a specified input stream until "quit"
+ *              is entered.
+ * console runs cli_terminal in a separate thread, accepting commands from
+ *          stdin, until "quit" is entered.
+ */
 extern int process_command(struct cli_env *env, char *input);
+
+extern int cli_terminal(struct cli_env *env);
+
+/* cons_parm must be "void" to match up with pthread types.
+ * The cons_parm should be the prompt string to be used.
+ */
+void *console(void *cons_parm);
 
 #ifdef __cplusplus
 }

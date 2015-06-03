@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 
 #include "libclidb.h"
-#include "cli_console.h"
 
 void *console(void *cons_parm)
 {
@@ -52,13 +51,10 @@ void *console(void *cons_parm)
 	cons_env.h = NULL;
 	cons_env.cmd_prev = NULL;
 	bzero(cons_env.prompt, PROMPTLEN+1);
-	strncpy(cons_env.prompt, PROMPT_STR, PROMPTLEN);
-
-	cli_init_base();
-
- 	add_commands_to_cmd_db(CLI_CMDS_SIZE/sizeof(cli_cmd *), CLI_CMDS);
-
-	splashScreen(&cons_env);
+	if (NULL == cons_parm)
+		strcpy(cons_env.prompt, "PROMPT> ");
+	else
+		strcpy(cons_env.prompt, (char *)cons_parm);
 
 	rc = cli_terminal(&cons_env);
 

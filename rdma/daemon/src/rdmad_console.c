@@ -40,7 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdmad_svc.h"
 #include "rdmad_main.h"
-#include "cli_console.h"
+#include "libclidb.h"
 
 int ibwin_info_cmd_f(struct cli_env *env, int argc, char **argv)
 {
@@ -135,31 +135,8 @@ unsigned rdmad_cmds_size(void)
 	return sizeof(rdmad_cmds);
 }
 
-void custom_quit(void)
+void custom_quit(struct cli_env *e)
 {
+	(void)e;
 	shutdown(&peer);
 }
-
-void splashScreen(struct cli_env *e)
-{
-        sprintf(e->output,
-		"-------------------------------------------------------------\n");
-	logMsg(e);
-        sprintf(e->output,
-		"---            RDMA Daemon Command Line Interface         ---\n");
-	logMsg(e);
-
-        printVersion(e);
-
-        sprintf(e->output,
-		"-------------------------------------------------------------\n");
-	logMsg(e);
-        sprintf(e->output,
-		"\t\tRapidIO Trade Association\n");
-	logMsg(e);
-        sprintf(e->output,
-		"\t\tCopyright 2015\n");
-	logMsg(e);
-
-        fflush(stdout);
-};

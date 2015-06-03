@@ -360,6 +360,11 @@ struct console_globals cli;
 
 void rskt_daemon_shutdown(void);
 
+void quit_command_customization(struct cli_env *env)
+{
+	rskt_daemon_shutdown();
+};
+	
 void *console(void *cons_parm)
 {
 	struct cli_env cons_env;
@@ -377,11 +382,11 @@ void *console(void *cons_parm)
 	bzero(cons_env.prompt, PROMPTLEN+1);
 	set_prompt( &cons_env );
 
-	cli_init_base();
+	cli_init_base(quit_command_customization);
 	librlist_bind_cli_cmds();
 	librsktd_bind_cli_cmds();
 
-	splashScreen(&cons_env);
+	splashScreen((char *)"RDMA Socket Daemon Console");
 
 	cli.cons_alive = 1;
 	

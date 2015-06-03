@@ -40,6 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdarg.h>
 #include "libclidb.h"
 
+extern void (*cons_cleanup)(struct cli_env *env);
+
 int find_cmd(char *cmd_name, struct cli_cmd **cmd);
 int init_cmd_db();
 

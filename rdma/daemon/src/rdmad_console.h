@@ -33,21 +33,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMAD_CONSOLE_H
 #define RDMAD_CONSOLE_H
 
-/* Edit the following to use your own names */
-#define CLI_CMDS_SIZE	rdmad_cmds_size()
-#define CUSTOM_QUIT_FUNC custom_quit()
-#define LOG_LEVEL	g_level
-#define CLI_CMDS	rdmad_cmds	/* Name of array of command pointers */
-#define PROMPT_STR	"RDMADaemon>"	/* Prompt string to use in the console */
+#include "libclidb.h"
 
-unsigned __attribute__((weak)) rdmad_cmds_size();
-void __attribute__((weak)) custom_quit();
+void custom_quit(struct cli_env *e);
+extern struct cli_cmd *rdmad_cmds[];
+unsigned rdmad_cmds_size(void);
 
 /* Logging level */
 extern unsigned g_level;
-
-/* RDMAD specific commands */
-extern struct cli_cmd *rdmad_cmds[];
 
 #endif
 

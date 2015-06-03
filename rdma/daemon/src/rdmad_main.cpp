@@ -49,7 +49,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdmad_peer_utils.h"
 #include "rdmad_svc.h"
-#include "cli_console.h"
+#include "rdmad_console.h"
+#include "libclidb.h"
 #include "rdmad.h"
 
 struct peer_info	peer;
@@ -234,13 +235,15 @@ int main (int argc, char **argv)
 
 	/* Prepare and start console thread, if applicable */
 	if (peer.run_cons) {
-		pass_cons_ret = (int *)(malloc(sizeof(int)));
-		*pass_cons_ret = 0;
+		cli_init_base(custom_quit);
+
+		add_commands_to_cmd_db(rdmad_cmds_size()/sizeof(rdmad_cmds[0]),
+				rdmad_cmds);
+		splashScreen((char *)"RDMA Daemon Command Line Interface");
 		cons_ret = pthread_create( &console_thread, NULL, 
-				console, (void *)(pass_cons_ret));
+				console, (void *)((char *)"RDMADaemon> "));
 		if(cons_ret) {
 			CRIT("Error cons_thread rc: %d\n", cons_ret);
-			free(pass_cons_ret);
 			exit(EXIT_FAILURE);
 		}
 	}
