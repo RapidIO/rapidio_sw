@@ -272,8 +272,8 @@ int main (int argc, char **argv)
 	/* Create inbound space */
 	try {
 		the_inbound = new inbound(peer.mport_fd,
-				 4,		/* No. of windows */
-				 4*1024*1024);	/* Size in MB */
+				 1,		/* No. of windows */
+				 16*1024*1024);	/* Size in MB */
 	}
 	catch(std::bad_alloc e) {
 		CRIT("Failed to allocate the_inbound\n");
