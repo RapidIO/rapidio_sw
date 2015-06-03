@@ -77,7 +77,12 @@ RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c \
 RDMALIB_OBJS    = rdmad_xdr.o rdmalib_rpc.o librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: rdmad librdma.so
+all: rsktd rdmad librdma.so
+
+rsktd: FORCE
+	$(MAKE) all -C rskt
+
+FORCE:
 
 # The RDMA library (the RPC client)
 librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
@@ -107,8 +112,9 @@ rdmad_xdr.c: rdmad.x rdmad.h
 	rpcgen rdmad.x -c > rdmad_xdr.c
 	rm -f rdmad_xdr.b
 	mv rdmad_xdr.c rdmad_xdr.b
-	./remove_buf.pl
+	perl remove_buf.pl
 
 clean:
 	rm -f rdmalib_rpc.c rdmad_rpc.c rdmad_xdr.c rdmad.h rdmad *.o rdmad_xdr.b librmda.so
+	$(MAKE) clean -C rskt
 

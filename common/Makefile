@@ -29,38 +29,33 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-KDIR=/usr/src/linux
-export KDIR
+KDIR ?= /usr/src/linux
 
 LINUX_INCLUDE_DIR ?= $(KDIR)/include
-export LINUX_INCLUDE_DIR
 
-LOG_LEVEL?=6
-export LOG_LEVEL
+LOG_LEVEL ?= 6
 
-DEBUG?=DEBUG
-export DEBUG
+DEBUG ?= DEBUG
 
-TOP_LEVEL = $(shell pwd)
-export TOP_LEVEL
+TOP_LEVEL ?= $(shell pwd)
 
-TARGETS = common libmport rdma
+TARGETS = libcli liblist liblog
 
-rdma: common FORCE
-	$(MAKE) all -C rdma
+libcli: FORCE
+	$(MAKE) all -C libcli
 		
-common: libmport FORCE
-	$(MAKE) all -C common
+liblist: FORCE
+	$(MAKE) all -C liblist
 		
-libmport:  FORCE
-	$(MAKE) all LDFLAGS= -C libmport
-
+liblog: FORCE
+	$(MAKE) all -C liblog
+		
 FORCE:
-		
 
 all: $(TARGETS)
 
-clean: FORCE
-	$(MAKE) clean -C common
-	$(MAKE) clean -C libmport
-	$(MAKE) clean -C rdma
+clean:
+	$(MAKE) clean -C libcli
+	$(MAKE) clean -C liblist
+	$(MAKE) clean -C liblog
+

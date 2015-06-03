@@ -8,7 +8,7 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 LISTLIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-D$(debug) -DRDMA_LL=$(level) -O2 -rdynamic -lnsl \
 		-I./inc \
-		-I../libcli/inc
+		-I../include
 LISTLIB_OBJS = liblist.o liblist_test.o
 
 # The list library
@@ -17,6 +17,8 @@ liblist.so:
 	g++ $(LISTLIB_CFLAGS) src/liblist.c
 	g++ $(LISTLIB_CFLAGS) src/liblist_test.c
 	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(LISTLIB_OBJS) $(SO_LIB_LKFLAGS)
+
+all: liblist.so
 
 clean:
 	@rm -f *.o *~ liblist.so

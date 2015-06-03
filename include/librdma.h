@@ -42,7 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-struct timespec FOREVER;
+extern struct timespec FOREVER;
 
 /**
  * Initialize RDMA library

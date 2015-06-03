@@ -18,5 +18,6 @@ liblog.so: $(LOGLIB_SOURCES) ../../rdma/inc/rdma_logger.h
 	g++ $(LOGLIB_CFLAGS) $(LOGLIB_SOURCES)
 	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(LOGLIB_OBJS) $(SO_LIB_LKFLAGS)
 
+all: liblog.so
 clean:
 	@rm -f *.o *~ liblog.so

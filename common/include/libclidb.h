@@ -133,6 +133,11 @@ void __attribute__((weak)) splashScreen(struct cli_env *e);
 extern int cli_terminal(struct cli_env *env);
 
 extern void logMsg(struct cli_env *env);
+extern int send_cmd(struct cli_env *env, int argc, char **argv, 
+			int cmd(struct cli_env *env, char *cmd_line),
+			char *saved_cmd_line, int max_cmd_len);
+
+extern int process_command(struct cli_env *env, char *input);
 
 #ifdef __cplusplus
 }
