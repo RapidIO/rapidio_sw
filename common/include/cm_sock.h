@@ -153,21 +153,13 @@ protected:
 	/* Receive bytes to 'recv_buf' on specified socket */
 	int receive(riodp_socket_t socket)
 	{
-		/* Receive and if errno is set to EAGAIN, retry once before giving up */
-		if (riodp_socket_receive(socket, (void **)&recv_buf, CM_BUF_SIZE, 0)) {
-			if (errno == EAGAIN) {
-				WARN("Retrying riodp_socket_receive() for '%s'\n", name);
-				if (riodp_socket_receive(socket,
-							 (void **)&recv_buf,
-							 CM_BUF_SIZE,
-							 0)) {
-					ERR("riodp_socket_receive failed for '%s': %s\n",
-								name, strerror(errno));
-					return -1;
-				}
-			}
+		int rc = 0;
+		rc = riodp_socket_receive(socket, (void **)&recv_buf, CM_BUF_SIZE, 0);
+		if (rc) {
+			ERR("riodp_socket_receive failed for '%s': %s\n",
+						name, strerror(errno));
 		}
-		return 0;
+		return rc;
 	} /* receive() */
 
 	/* If returns ETIME then it timed out. 0 means success, anything else
@@ -268,18 +260,22 @@ public:
 		DBG("accept_socket = 0x%X\n", accept_socket);
 
 		/* Wait for connection request from a client */
-		int rc;
+		int rc = 0;
 		do {
+			/* riodp_socket_accept() returns errno where appropriate */
 			rc = riodp_socket_accept(listen_socket, &accept_socket, 3*60*1000);
-		} while(rc == ETIME);
+		} while (rc == ETIME);
 
 		if (rc) {	/* failed */
-			ERR("Failed to accept connections for '%s' (0x%X)\n",
-							name, accept_socket);
-			return -2;
+			if (rc == EINTR) {
+				INFO("accept() aborted due to killing thread\n");
+			} else {
+				ERR("Failed to accept connections for '%s' (0x%X)\n",
+								name, accept_socket);
+			}
+			accept_socket = 0;	/* Do not try to close in destructor */
 		}
-
-		return 0;
+		return rc;
 	} /* accept() */
 
 	/* Receive bytes to 'recv_buf' */
