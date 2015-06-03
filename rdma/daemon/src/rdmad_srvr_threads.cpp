@@ -70,19 +70,33 @@ void *accept_thread_f(void *arg)
 
 		/* Kill the thread? */
 		if (kill_the_threads) {
-			CRIT("Terminating\n");
+			CRIT("Terminating thread via global flag\n");
 			pthread_exit(0);
 		}
 
 		/* Wait for connect request from client */
 		INFO("Calling main_server->accept()\n");
-		if (main_server->accept())
-			goto exit;
+		ret = main_server->accept();
+		if (ret) {
+			if (ret == EINTR) {
+				WARN("pthread_kill() was called. Exiting thread\n");
+			} else {
+				ERR("%s\n", strerror(ret));
+			}
+			pthread_exit(0);
+		}
 		INFO("Connection from other RDMA daemon!!!\n");
 
 		/* Wait for cm_connect_msg from client */
-		if (main_server->receive())
-			goto exit;
+		ret = main_server->receive();
+		if (ret) {
+			if (ret == EINTR) {
+				WARN("pthread_kill() was called. Exiting thread\n");
+			} else {
+				ERR("%s\n", strerror(ret));
+			}
+			pthread_exit(0);
+		}
 
 		/* Obtain memory space name */
 		struct cm_connect_msg *c = (struct cm_connect_msg *)cm_recv_buf;
@@ -180,20 +194,32 @@ void *server_wait_disc_thread_f(void *arg)
 	aux_server->get_recv_buffer(&cm_recv_buf);
 
 	while (1) {
+		int	ret;
 		/* Wait for the CM disconnect message containing rem_msh */
 		DBG("Calling aux_server->accept()\n");
-		if (aux_server->accept())
+		ret = aux_server->accept();
+		if (ret) {
+			if (ret == EINTR) {
+				WARN("pthread_kill() was called. Exiting thread\n");
+			} else {
+				ERR("%s\n", strerror(ret));
+			}
 			goto thread_exit;
+		}
 		INFO("Connection from RDMA daemon on AUX!\n");
 
 		/* Flush receive buffer of previous message */
 		aux_server->flush_recv_buffer();
 
 		/* Wait for 'disconnect' CM from client's RDMA daemon */
-		if (aux_server->receive()) {
-			CRIT("Failed to receive CM 'disconnect'..\n");
-			CRIT("..back to accepting connections..\n");
-			continue;	/* Maybe from another daemon? */
+		ret = aux_server->receive();
+		if (ret) {
+			if (ret == EINTR) {
+				WARN("pthread_kill() was called. Exiting thread\n");
+			} else {
+				ERR("%s\n", strerror(ret));
+			}
+			goto thread_exit;
 		}
 
 		/* Extract CM message */
@@ -228,17 +254,17 @@ void *server_wait_disc_thread_f(void *arg)
 		/* Open POSIX message queue */
 		mqd_t	disc_mq = mq_open(mq_name,O_RDWR, 0644, &attr);
 		if (disc_mq == (mqd_t)-1) {
-			WARN("Failed to open %s\n", mq_name);
+			ERR("Failed to open %s\n", mq_name);
 			goto thread_exit;
 		}
 
 		/* Send 'disconnect' POSIX message contents to the RDMA library */
-		int ret = mq_send(disc_mq,
-				  (const char *)&disconnect_msg,
-				  sizeof(struct mq_disconnect_msg),
-				  1);
+		ret = mq_send(disc_mq,
+			      (const char *)&disconnect_msg,
+			      sizeof(struct mq_disconnect_msg),
+			      1);
 		if (ret < 0) {
-			WARN("Failed to send message: %s\n", strerror(errno));
+			ERR("Failed to send message: %s\n", strerror(errno));
 			mq_close(disc_mq);
 			goto thread_exit;
 		}
@@ -250,7 +276,7 @@ void *server_wait_disc_thread_f(void *arg)
 	} /* while */
 
 thread_exit:
-	CRIT("Exit\n");
+	CRIT("Exiting!!!!!\n");
 	pthread_exit(0);
 } /* server_wait_disc_thread() */
 

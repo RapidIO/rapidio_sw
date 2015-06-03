@@ -205,6 +205,7 @@ void *client_wait_destroy_thread_f(void *arg)
 	/* Initiate 'listen' */
 	if (destroy_server->listen()) {
 		CRIT("destroy_server: failed to listen. EXITING\n");
+		delete destroy_server;
 		pthread_exit(0);
 	}
 

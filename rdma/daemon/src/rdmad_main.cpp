@@ -65,8 +65,6 @@ static 	pthread_t console_thread;
 static	pthread_t server_wait_disc_thread;
 static	pthread_t client_wait_destroy_thread;
 
-static	int *pass_cons_ret;
-
 static void init_peer()
 {
 	peer.destid = 0xFFFF;
@@ -132,6 +130,42 @@ void configure_rpc()
 
 void shutdown(struct peer_info *peer)
 {
+	/* Kill the threads */
+	kill_the_threads = true;
+
+	/* Wake up the accept_thread_f hread if necessary */
+	sem_post(&peer->cm_wait_connect_sem);
+
+	/* If the thread is still alive (because it is in a CM accept,
+	 * then kill it. */
+	int ret = pthread_kill(cm_accept_thread, SIGUSR1);
+	if (ret == EINVAL) {
+		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+	} else if (ret == ESRCH) {
+		WARN("It is possible that cm_accept_thread already killed\n");
+	}
+	pthread_join(cm_accept_thread, NULL);
+
+	/* Next, kill server_wait_disc_thread */
+	ret = pthread_kill(server_wait_disc_thread, SIGUSR1);
+	if (ret == EINVAL) {
+		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+	}
+	pthread_join(server_wait_disc_thread, NULL);
+
+	/* Next, kill client_wait_destroy_thread */
+	ret = pthread_kill(client_wait_destroy_thread, SIGUSR1);
+	if (ret == EINVAL) {
+		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+	}
+	pthread_join(client_wait_destroy_thread, NULL);
+
+	/* Post the semaphore of each of the client remote daemon threads
+	 * if any. This causes the threads to see 'kill_the_threads' has
+	 * been set and they self-exit */
+	rdaemon_sem_post	rsp;
+	for_each(begin(client_rdaemon_list), end(client_rdaemon_list), rsp);
+
 	/* Delete the inbound object */
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
@@ -143,17 +177,6 @@ void shutdown(struct peer_info *peer)
 	INFO("Deleting aux_server\n");
 	delete aux_server;
 
-	/* Kill the threads */
-	kill_the_threads = true;
-
-	/* Post the semaphore of each of the client remote daemon threads
-	 * if any. This causes the threads to see 'kill_the_threads' has
-	 * been set and they self-exit */
-	rdaemon_sem_post	rsp;
-	for_each(begin(client_rdaemon_list), end(client_rdaemon_list), rsp);
-
-	sem_post(&peer->cm_wait_connect_sem);
-
 	/* Close mport device */
 	if (peer->mport_fd > 0) {
 		INFO("Closing mport fd\n");
@@ -161,8 +184,7 @@ void shutdown(struct peer_info *peer)
 	}
 	INFO("Mport %d closed\n", peer->mport_id);
 
-	free(pass_cons_ret);
-	rdma_log_close();
+//	rdma_log_close();
 	exit(1);
 } /* shutdown() */
 
@@ -177,6 +199,10 @@ void end_handler(int sig)
 	break;
 	case SIGABRT:
 		puts("SIGABRT");
+	break;
+	case SIGUSR1:
+		puts("SIGUSR1");
+		return;
 	break;
 	default:
 		puts("UNKNOWN SIGNAL");
@@ -203,6 +229,7 @@ int main (int argc, char **argv)
 	signal(SIGQUIT, end_handler);
 	signal(SIGINT, end_handler);
 	signal(SIGABRT, end_handler);
+	signal(SIGUSR1, end_handler);
 
 	/* Parse command-line parameters */
 	while ((c = getopt(argc, argv, "hnc:m:")) != -1)
@@ -383,6 +410,5 @@ out_close_mport:
 	close(peer.mport_fd);
 out:
 	pthread_join(console_thread, NULL);
-	free(pass_cons_ret);
 	return rc;	
 } /* main() */
