@@ -10,6 +10,10 @@
 				goto free_bat_server; \
 			}
 
+/*
+ * TODO: Multiple threads for receiving client test signalling commands
+ * allowing multiple connections to memory spaces */
+
 using namespace std;
 
 cm_server	*bat_server;
