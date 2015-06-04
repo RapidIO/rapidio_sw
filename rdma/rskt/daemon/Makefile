@@ -42,24 +42,49 @@ src/%.o: src/%.c
 	-I../../../include \
 	-I$(LINUX_INCLUDE_DIR)
 
-RSKTD_SOURCES = src/librsktd_dmn.c src/librsktd_cli.c src/librsktd_lib.c \
+RSKTLIB_SOURCES = src/librsktd_dmn.c src/librsktd_lib.c \
 	src/librsktd_msg_proc.c src/librsktd_sn.c src/librsktd_speer.c  \
-	src/librsktd_wpeer.c src/rsktd.c 
+	src/librsktd_wpeer.c
 
-RSKTD_OBJECTS = src/librsktd_dmn.o src/librsktd_cli.o src/librsktd_lib.o \
+RSKTLIB_OBJECTS = src/librsktd_dmn.o src/librsktd_lib.o \
 	src/librsktd_msg_proc.o src/librsktd_sn.o src/librsktd_speer.o  \
-	src/librsktd_wpeer.o src/rsktd.o 
+	src/librsktd_wpeer.o 
+
+RSKTD_SOURCE = src/rsktd.c src/librsktd_cli.c 
+RSKTD_OBJECTS = src/rsktd.o src/librsktd_cli.o 
+
+RSKTS_SOURCE = src/rskts.c
+RSKTS_OBJECTS = src/rskts.o
+
+REMDBG_SOURCE = src/remdbg.c
+REMDBG_OBJECTS = src/remdbg.o
 
 # The RDMA Sockets Daemon
-rsktd:  $(RSKTD_OBJECTS) src/*.h
+rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 	@echo ---------- Building rsktd...
 	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(shell pwd) \
-	-o $@ $(RSKTD_OBJECTS) $(LIB_DIRS) \
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) $(LIB_DIRS) \
+	-lrskt -lcli -lrt -lmport \
+	-llist -llog -lrdma 
+
+# The RDMA Sockets Test Server
+rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
+	@echo ---------- Building rskt test server...
+	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(shell pwd) \
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) $(LIB_DIRS) \
+	-lrskt -lcli -lrt -lmport \
+	-llist -llog -lrdma 
+
+# The Remote Debug shellsrc/librsktd_cli.c 
+remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
+	@echo ---------- Building rskt test server...
+	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(shell pwd) \
+	-o $@ $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma 
 
 
-all: rsktd
+all: rsktd rskts remdbg
 
 clean:
 	rm -f *.o src/*.o *~ *.exe core rsktd remdbg rskts

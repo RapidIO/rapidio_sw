@@ -69,11 +69,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_lib_info.h"
 #include "librsktd_msg_proc.h"
 
-#define RIO_MPORT_DEV_PATH "/dev/rio_mport"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 
 struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 { 

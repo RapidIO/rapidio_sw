@@ -31,11 +31,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <sys/socket.h>
+#include <time.h>
+
 #ifndef __LIBRSKT_H__
 #define __LIBRSKT_H__
 
-#include <sys/socket.h>
-#include <time.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define LIBRSKT_H_INVALID NULL
 typedef struct rskt_handle_t *rskt_h;
@@ -67,6 +71,10 @@ int rskt_flush(rskt_h skt_h, struct timespec timeout);
 
 int rskt_shutdown(rskt_h skt_h);
 int rskt_close(rskt_h skt_h);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LIBRSKT_H__ */
 
