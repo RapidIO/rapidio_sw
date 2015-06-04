@@ -84,6 +84,7 @@ void rskt_clear_skt(struct rskt_socket_t *skt)
         skt->sai.rtstat = 0;
         skt->sa.ct = 0;
         skt->sa.sn = 0;
+	skt->connector = skt_rmda_uninit;
 	memset(skt->msoh_name, 0, MAX_MS_NAME);
 	skt->msoh_valid = 0;
 	memset(skt->msh_name, 0, MAX_MS_NAME);
@@ -345,28 +346,33 @@ void lib_rem_skt_from_list(rskt_h skt_h, struct rskt_socket_t *skt);
 
 void cleanup_skt(rskt_h skt_h, struct rskt_socket_t *skt)
 {
-	// FIXME: Should this be done or not?
-	rdma_disc_ms_h(skt->con_msh, skt->msubh);
-
-	if (NULL != skt->msub_p)  {
-		rdma_munmap_msub(skt->msubh, (void **)&skt->msub_p);
-		skt->msub_p = NULL;
-		skt->rx_buf = NULL;
-		skt->tx_buf = NULL;
-		skt->con_sz = 0;
-		skt->msub_sz = 0;
-	};
-	if (skt->msubh_valid) {
-		rdma_destroy_msub_h(skt->msh, skt->msubh);
-		skt->msubh_valid = 0;
-	};
-	if (skt->msh_valid) {
-		rdma_close_ms_h(skt->msoh, skt->msh);
-		skt->msh_valid = 0;
-	};
-	if (skt->msoh_valid) {
-		rdma_close_mso_h(skt->msoh);
-		skt->msoh_valid = 0;
+	if (skt_rmda_uninit != skt->connector) { 
+		if (NULL != skt->msub_p)  {
+			rdma_munmap_msub(skt->msubh, (void **)&skt->msub_p);
+			skt->msub_p = NULL;
+			skt->rx_buf = NULL;
+			skt->tx_buf = NULL;
+			skt->con_sz = 0;
+			skt->msub_sz = 0;
+		};
+		if (skt_rdma_connector != skt->connector) { 
+			rdma_disc_ms_h(skt->con_msh, skt->msubh);
+			skt->msubh_valid = 0;
+			skt->msh_valid = 0;
+		} else {
+			if (skt->msubh_valid) {
+				rdma_destroy_msub_h(skt->msh, skt->msubh);
+				skt->msubh_valid = 0;
+			};
+			if (skt->msh_valid) {
+				rdma_close_ms_h(skt->msoh, skt->msh);
+				skt->msh_valid = 0;
+			};
+		};
+		if (skt->msoh_valid) {
+			rdma_close_mso_h(skt->msoh);
+			skt->msoh_valid = 0;
+		};
 	};
 	lib_rem_skt_from_list(skt_h, skt);
 	free(skt);
@@ -810,6 +816,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	*skt = *l_skt;
 	skt->max_backlog = 0;
 	skt->st = rskt_connecting;
+	skt->connector = skt_rdma_acceptor;
 	skt->sa.sn = ntohl(rx->a_rsp.msg.accept.new_sn);
 	skt->sa.ct = ntohl(rx->a_rsp.msg.accept.new_ct);
 	skt->sai.sa.ct = ntohl(rx->a_rsp.msg.accept.peer_sa.ct);
@@ -960,6 +967,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	}
 
 	skt->st = rskt_connecting;
+	skt->connector = skt_rdma_connector;
 	skt->sa.ct = ntohl(rx->a_rsp.msg.conn.new_ct);
 	skt->sa.sn = ntohl(rx->a_rsp.msg.conn.new_sn);
 	skt->sai.sa.sn = ntohl(rx->a_rsp.msg.conn.rem_sn);

@@ -142,12 +142,19 @@ struct rskt_socket_stats_t {
 	uint32_t rx_trans; /* number of "reads/recvs" */
 };
 
+enum skt_cleanup_ctl {
+	skt_rmda_uninit,
+	skt_rdma_connector,
+	skt_rdma_acceptor
+};
+
 struct rskt_socket_t {
 	enum rskt_state st; /* Must own mtx to change st */
 	uint8_t debug; /* controls debug for write/read/recv/flush */
 	uint32_t max_backlog;
 	struct rskt_sockaddr sa; /* address of local socket */
 	struct rskt_sockaddr_internal sai; /* Remote socket connection */
+	enum skt_cleanup_ctl connector; /* 0 if acceptor, 1 if connector */
 	/* Local MSOH */
 	char msoh_name[MAX_MS_NAME];
 	int msoh_valid;
