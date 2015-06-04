@@ -104,7 +104,8 @@ void configure_rpc()
 	}
 	if (!svc_register(transp, RDMAD, RDMAD_1, rdmad_1, IPPROTO_UDP)) {
 		CRIT("Unable to register (RDMAD, RDMAD_1, UDP).\n");
-		CRIT("Make sure you have run 'rpcbind'.\n");
+		CRIT("Make sure you have run 'sudo rpcbind'.\n");
+		CRIT("Also make sure you are running this application as 'sudo'.\n");
 		exit(1);
 	}
 
@@ -117,16 +118,19 @@ void configure_rpc()
 		CRIT("Unable to register (RDMAD, RDMAD_1, TCP).");
 		exit(1);
 	}
+} /* configure_rpc() */
 
+void run_rpc()
+{
 	INFO("Running svc_run...\n");
 
 	svc_run ();
 
+	/* NOTREACHED */
+
 	CRIT("svc_run returned\n");
 	exit (1);
-
-	/* NOTREACHED */
-} /* configure_rpc() */
+} /* run_rpc() */
 
 void shutdown(struct peer_info *peer)
 {
@@ -225,6 +229,7 @@ int main (int argc, char **argv)
  	 * may override some of the default values assigned here */
 	init_peer();
 
+
 	/* Register end handler */
 	signal(SIGQUIT, end_handler);
 	signal(SIGINT, end_handler);
@@ -274,6 +279,9 @@ int main (int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
+
+	/* Configure RPC as a listener */
+	configure_rpc();
 
 	/* Open mport */
 	peer.mport_fd = riodp_mport_open(peer.mport_id, 0);
@@ -388,9 +396,7 @@ int main (int argc, char **argv)
 		goto out_free_aux_server;
 	}
 
-	/* Configure RPC as a listener */
-	configure_rpc();
-
+	run_rpc();
 	/* Never reached */
 
 out_free_aux_server:
