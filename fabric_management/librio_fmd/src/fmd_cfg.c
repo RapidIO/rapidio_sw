@@ -191,10 +191,6 @@ print_help:
 	return cfg;
 }
 
-const char *delim = " 	";
-#define LINE_SIZE 256
-char *line;
-
 void strip_crlf(char *tok)
 {
 	char *temp;
@@ -209,6 +205,8 @@ void strip_crlf(char *tok)
 		temp[0] = '\0';
 };
 
+const char *delim = " 	";
+
 void flush_comment(char *tok)
 {
 	while (NULL != tok) {
@@ -217,6 +215,9 @@ void flush_comment(char *tok)
 		strip_crlf(tok);
 	};
 };
+
+#define LINE_SIZE 256
+char *line;
 
 char *try_get_next_token(struct fmd_cfg_parms *cfg)
 {
@@ -227,7 +228,12 @@ char *try_get_next_token(struct fmd_cfg_parms *cfg)
 	if (cfg->init_err)
 		goto fail;
 
-	rc = strtok(NULL, delim);
+	if (NULL == line) {
+		line = malloc(LINE_SIZE);
+		rc = NULL;
+	} else {
+		rc = strtok(NULL, delim);
+	};
 
 	while (!done) {
 		while ((NULL == rc) && (byte_cnt > 0)) {
@@ -1079,7 +1085,6 @@ void fmd_parse_cfg(struct fmd_cfg_parms *cfg)
 	char *tok;
 	// size_t byte_cnt = LINE_SIZE;
 
-	line = malloc(LINE_SIZE);
 	tok = try_get_next_token(cfg);
 
 	while ((NULL != tok) && !cfg->init_err) {
