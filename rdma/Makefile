@@ -78,7 +78,10 @@ RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c \
 RDMALIB_OBJS    = rdmad_xdr.o rdmalib_rpc.o librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: librdma.so rdmad rsktd samples
+all: librdma.so rdmad rsktd samples test
+
+test: rdmad librdma.so
+	$(MAKE) all -C test
 
 samples: rdmad librdma.so
 	$(MAKE) all -C samples
@@ -122,4 +125,5 @@ clean:
 	rm -f rdmalib_rpc.c rdmad_rpc.c rdmad_xdr.c rdmad.h rdmad *.o rdmad_xdr.b librdma.so
 	$(MAKE) clean -C rskt
 	$(MAKE) clean -C samples
+	$(MAKE) clean -C test
 
