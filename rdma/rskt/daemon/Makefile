@@ -59,10 +59,12 @@ RSKTS_OBJECTS = src/rskts.o
 REMDBG_SOURCE = src/remdbg.c
 REMDBG_OBJECTS = src/remdbg.o
 
+all: rsktd rskts remdbg
+
 # The RDMA Sockets Daemon
 rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 	@echo ---------- Building rsktd...
-	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(shell pwd) \
+	g++ -pthread -Wl,-rpath=$(MPORT_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma 
@@ -70,7 +72,7 @@ rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 # The RDMA Sockets Test Server
 rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	@echo ---------- Building rskt test server...
-	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(shell pwd) \
+	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(MPORT_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma 
@@ -78,13 +80,10 @@ rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 # The Remote Debug shellsrc/librsktd_cli.c 
 remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
 	@echo ---------- Building rskt test server...
-	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(shell pwd) \
+	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(MPORT_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma 
-
-
-all: rsktd rskts remdbg
 
 clean:
 	rm -f *.o src/*.o *~ *.exe core rsktd remdbg rskts
