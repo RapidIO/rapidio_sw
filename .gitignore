@@ -25,3 +25,11 @@
 # Editor files
 *~
 *swp
+
+# Log files
+*.log
+
+# Eclipse-specific files
+.project
+.cproject
+
