@@ -1,0 +1,17 @@
+#!/usr/bin/sh
+
+# Script for running Batch Automated Tests (BATs).
+#
+# 1. On one computer run 'bat_server'
+# 2. On a second computer run this script
+./bat_client -d1 -c9 -ta
+./bat_client -d1 -c9 -tb
+./bat_client -d1 -c9 -tc
+./bat_client -d1 -c9 -tg
+./bat_client -d1 -c9 -th
+./bat_client -d1 -c9 -ti
+./bat_client -d1 -c9 -t1
+./bat_client -d1 -c9 -t2
+./bat_client -d1 -c9 -t3
+./bat_client -d1 -c9 -t4
+./bat_client -d1 -c9 -t5
