@@ -320,7 +320,7 @@ int cleanup_dmn(void)
 	if (dmn.skt_valid) {
 		/* FIXME: */
 		/* segflt avoided by commenting the following line */
-		// rc = riodp_socket_close(&dmn.cm_acc_h);
+		rc = riodp_socket_close(&dmn.cm_acc_h);
 		if (rc)
 			printf("speer_conn: riodp_socket_close ERR %d\n", rc);
 		dmn.skt_valid = 0;
