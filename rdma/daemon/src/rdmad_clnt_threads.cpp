@@ -189,6 +189,7 @@ void *client_wait_destroy_thread_f(void *arg)
 	cm_server *destroy_server;
 	void	*cm_recv_buf;
 	void	*cm_send_buf;
+	int	ret;
 
 	/* Create server object for 'destroy' messages */
 	try {
@@ -218,8 +219,13 @@ void *client_wait_destroy_thread_f(void *arg)
 	while (1) {
 		/* Wait for the CM destroy message containing msid, and ms_name */
 		DBG("Waiting for 'destroy' message from remote daemon\n");
-		if (destroy_server->accept()) {
-			ERR("Failed to accept(). EXITING\n");
+		ret = destroy_server->accept();
+		if (ret) {
+			if (ret == EINTR) {
+				INFO("pthread_kill was called. Exiting thread\n");
+			} else {
+				ERR("Failed to accept(). EXITING\n");
+			}
 			delete destroy_server;
 			pthread_exit(0);
 		}
