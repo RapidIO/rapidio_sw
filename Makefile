@@ -29,8 +29,10 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
+ifndef KDIR
 KDIR=/usr/src/linux
 export KDIR
+endif
 
 LINUX_INCLUDE_DIR ?= $(KDIR)/include
 export LINUX_INCLUDE_DIR
