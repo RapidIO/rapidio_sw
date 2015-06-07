@@ -66,9 +66,13 @@ RDMAD_SOURCES = rdmad_rpc.c rdmad_xdr.c \
 		daemon/src/rdmad_clnt_threads.cpp
 
 # RDMA Library flags, sources and objects
-RDMALIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
+RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
 		-D$(debug) -DRDMA_LL=$(level) -O3 -rdynamic -lnsl
+
+RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb \
+		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
+		-D$(debug) -DRDMA_LL=$(level) -O3
 
 RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c \
 		lib/src/librdma.cpp \
@@ -78,7 +82,7 @@ RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c \
 RDMALIB_OBJS    = rdmad_xdr.o rdmalib_rpc.o librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: librdma.so rdmad rsktd samples test
+all: librdma.so librdma.a rdmad rsktd samples test
 
 test: rdmad librdma.so
 	$(MAKE) all -C test
@@ -91,13 +95,20 @@ rsktd: rdmad
 
 FORCE:
 
-# The RDMA library (the RPC client)
+# The RDMA shared library (the RPC client)
 librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
-	@echo ---------- Building librdma.so...
-	g++ $(RDMALIB_CFLAGS) $(RDMALIB_SOURCES)
+	@echo ---------- Building librdma.so ----------
+	g++ $(RDMALIB_SHARED_CFLAGS) $(RDMALIB_SOURCES)
 	g++ -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
 	-Wl,-rpath=$(LIBLOG_PATH) -o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog
+
+# The RDMA static library
+librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
+	lib/src/*.h $(LIBLOG_PATH)/liblog.a
+	@echo ---------- Building librdma.a ----------
+	g++ $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES)
+	ar rcs librdma.a $(RDMALIB_OBJS)
 
 # The RDMA daemon (the RPC server)
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \
