@@ -186,16 +186,14 @@ public:
 		listen_socket(0), accept_socket(0)
 	{
 		/* Create mailbox, throw exception if failed */
-		printf("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
+		DBG("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
 			name, mport_id, mbox_id, channel);
-		puts("Create mailbox");
 		if (create_mailbox()) {
 			CRIT("Failed to create mailbox for '%s'\n", name);
 			throw cm_exception("Failed to create mailbox");
 		}
 
 		/* Create listen socket, throw exception if failed */
-		puts("Create listen socket");
 		if (riodp_socket_socket(mailbox, &listen_socket)) {
 			CRIT("Failed to create listen socket for '%s'\n", name);
 			close_mailbox();
@@ -204,13 +202,13 @@ public:
 		DBG("listen_socket = 0x%X\n", listen_socket);
 
 		/* Bind listen socket, throw exception if failed */
-		puts("Bind listen socket");
 		if (riodp_socket_bind(listen_socket, channel)) {
 			CRIT("Failed to bind listen socket for '%s'\n", name);
 			riodp_socket_close(&listen_socket);
 			close_mailbox();
 			throw cm_exception("Failed to bind listen socket");
 		}
+		DBG("Listen socket bound\n");
 	}
 
 	~cm_server()
@@ -224,13 +222,14 @@ public:
 			}
 		
 		/* Close listen socket, opened during construction */
-		DBG("listen_socket = 0x%X\n", listen_socket);
+		DBG("Closing listen_socket = 0x%X\n", listen_socket);
 		if (riodp_socket_close(&listen_socket)) {
 			WARN("Failed to close listen socket: for '%s': %s\n",
 							name, strerror(errno));
 		}
 
 		/* Destroy mailbox handle, opened during construction */
+		DBG("Destroying mailbox\n");
 		if (close_mailbox()) {
 			WARN("Failed to close mailbox for '%s'\n", name);
 		}
@@ -245,7 +244,7 @@ public:
 							name, strerror(rc));
 			return -1;
 		}
-
+		DBG("Listen successful on '%s'\n", name);
 		return 0;
 	} /* listen() */
 
@@ -257,7 +256,7 @@ public:
 			ERR("Failed to create accept socket for '%s'\n", name);
 			return -1;
 		}
-		DBG("accept_socket = 0x%X\n", accept_socket);
+		DBG("Created accept_socket = 0x%X\n", accept_socket);
 
 		/* Wait for connection request from a client */
 		int rc = 0;
@@ -308,16 +307,15 @@ public:
 		cm_base(name, mport_id, mbox_id, channel), client_socket(0)
 	{
 		/* Create mailbox, throw exception if failed */
-		printf("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
+		DBG("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
 					name, mport_id, mbox_id, channel);
-		puts("Create mailbox");
+
 		if (create_mailbox()) {
 			CRIT("Failed to create mailbox for '%s'\n", name);
 			throw cm_exception("Failed to create mailbox");
 		}
 
 		/* Create client socket, throw exception if failed */
-		puts("Create client socket");
 		if (riodp_socket_socket(mailbox, &client_socket)) {
 			CRIT("Failed to create socket for '%s'\n", name);
 			close_mailbox();
@@ -334,11 +332,12 @@ public:
 			WARN("Failed to close client socket for '%s': %s\n",
 							name, strerror(errno));
 		}
-		
+		DBG("Client socket closed\n");
 		/* Destroy mailbox handle, opened during construction */
 		if (close_mailbox()) {
 			WARN("Failed to close mailbox for '%s'\n", name);
 		}
+		DBG("Mailbox destroyed\n");
 	} /* Destructor */
 
 	/* Connect to server specified by RapidIO destination ID */
