@@ -65,6 +65,7 @@ all: rsktd rskts remdbg
 rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 	@echo ---------- Building rsktd...
 	g++ -pthread -Wl,-rpath=$(MPORT_DIR) \
+	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma 
