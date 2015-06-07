@@ -74,6 +74,7 @@ rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	@echo ---------- Building rskt test server...
 	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(MPORT_DIR) \
+	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma 
