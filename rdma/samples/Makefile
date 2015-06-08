@@ -5,7 +5,7 @@ LIBLOG_PATH=../../common/liblog
 
 RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -D$(debug) -I../../include -O3
 
-BUILD_STRING = gcc -L$(LIBRDMA_PATH) -L$(LIBLOG_PATH) -L$(LIBMPORT_PATH) \
+BUILD_STRING = $(CC) -L$(LIBRDMA_PATH) -L$(LIBLOG_PATH) -L$(LIBMPORT_PATH) \
 	-Wl,-rpath=$(LIBRDMA_PATH) -Wl,-rpath=$(LIBLOG_PATH) -Wl,-rpath=$(LIBMPORT_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) src/$@.c -lrdma
 

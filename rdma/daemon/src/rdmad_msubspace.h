@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MSUBSPACE_H
 
 #include <stdint.h>
+#include <inttypes.h>
 
 #include "rdma_types.h"
 #include "rdma_logger.h"
@@ -62,7 +63,7 @@ public:
 	}
 
 	void dump_info() {
-		printf("%08X %016lX %08X %08X %016lX\n", msubid, rio_addr, size,
+		printf("%08X %016" PRIu64 " %08X %08X %016" PRIu64 "\n", msubid, rio_addr, size,
 							msid, phys_addr);
 	}
 

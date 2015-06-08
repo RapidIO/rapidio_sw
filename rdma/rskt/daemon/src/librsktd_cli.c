@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <inttypes.h>
 #include <semaphore.h>
 #include <pthread.h>
 #include <sys/types.h>
@@ -448,7 +449,7 @@ int RSKTMsohCmd(struct cli_env *env, int argc, char **argv)
 	sprintf(env->output, "Current mso_h name: \"%s\"\n", 
 			mso->msoh_name);
 	logMsg(env);
-	sprintf(env->output, "Current mso_h value: %16lx\n", 
+	sprintf(env->output, "Current mso_h value: %16" PRIu64 "\n",
 			(uint64_t)(mso->rskt_mso));
 	logMsg(env);
 

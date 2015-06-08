@@ -23,8 +23,8 @@ all: libcli.so libcli.a
 # The CLI library
 libcli.so: $(CLILIB_SOURCES) src/*.h ../../rdma/daemon/inc/*_console.h
 	@echo ---------- Building libcli.so...
-	g++ $(CLILIB_CFLAGS) $(CLILIB_SOURCES)
-	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(CLILIB_OBJS) $(SO_LIB_LKFLAGS)
+	$(CXX) $(CLILIB_CFLAGS) $(CLILIB_SOURCES)
+	$(CXX) -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(CLILIB_OBJS) $(SO_LIB_LKFLAGS)
 
 %.a: 
 	$(AR) rcs $@ $(CLILIB_OBJS)

@@ -33,3 +33,5 @@
 .project
 .cproject
 
+# ctags tags file
+tags

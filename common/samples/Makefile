@@ -4,7 +4,7 @@ KINC=$(KDIR)/include
 LIBMPORT_PATH=../../libmport
 LIBLOG_PATH=../liblog
 
-CM_BUILD_STRING = g++ -L$(LIBMPORT_PATH) -L$(LIBLOG_PATH) \
+CM_BUILD_STRING = $(CXX) -L$(LIBMPORT_PATH) -L$(LIBLOG_PATH) \
 	-Wl,-rpath=$(LIBMPORT_PATH) -Wl,-rpath=$(LIBLOG_PATH) \
 	-I../../common/include -I../../include -I$(KINC) -o $@ $(RDMAD_CFLAGS) \
 	 src/$@.cpp -lmport -llog -lrt
