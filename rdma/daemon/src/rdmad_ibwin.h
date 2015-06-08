@@ -38,6 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 
 #include <cstdio>
+#include <cinttypes>
 
 #include "rdma_types.h"
 #include "riodp_mport_lib.h"
@@ -133,7 +134,7 @@ public:
 
 	void dump_info()
 	{
-		printf("%8d %16lX %16lX %16lX\n", win_num, size, rio_addr, phys_addr);
+		printf("%8d %16" PRIu64 " %16" PRIu64 " %16" PRIu64 "\n", win_num, size, rio_addr, phys_addr);
 	} /* dump_info() */
 
 	void print_mspace_header()

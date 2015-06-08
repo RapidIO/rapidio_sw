@@ -3,7 +3,7 @@
 *.so
 bin/
 libs/
-fab_daemon.exe
+fmd
 
 *.swp
 tags
