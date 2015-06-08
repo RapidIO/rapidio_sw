@@ -272,7 +272,6 @@ public:
 				ERR("Failed to accept connections for '%s' (0x%X)\n",
 								name, accept_socket);
 			}
-			accept_socket = 0;	/* Do not try to close in destructor */
 		}
 		return rc;
 	} /* accept() */
