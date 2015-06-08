@@ -51,7 +51,7 @@ using namespace std;
 
 extern inbound *the_inbound;
 extern ms_owners owners;
-extern bool kill_the_threads;
+extern bool shutting_down;
 extern ts_map<string, cm_accept_msg> accept_msg_map;
 extern vector<rdaemon_t*> client_rdaemon_list;
 extern sem_t client_rdaemon_list_sem;

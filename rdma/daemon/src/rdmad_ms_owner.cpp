@@ -46,7 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_logger.h"
 
 #include "rdma_mq_msg.h"
-
+#include "rdmad_svc.h"
 #include "rdmad_ms_owner.h"
 
 struct close_conn_to_mso {
@@ -71,8 +71,10 @@ private:
 int ms_owner::close_connections()
 {
 	close_conn_to_mso	cctm(msoid);
-
-	INFO("Sending messages for all apps which have 'open'ed this mso\n");
+	
+	if (!shutting_down) {
+		INFO("Sending messages for all apps which have 'open'ed this mso\n");
+	}
 
 	/* Send messages for all connections indicating mso will be dropped */
 	for_each(begin(mq_list), end(mq_list), cctm);
@@ -84,8 +86,10 @@ int ms_owner::close_connections()
 
 ms_owner::~ms_owner()
 {
-	if (close_connections()) {
-		WARN("One or more connection to msoid(0x%X) failed to close\n", msoid);
+	/* Do not bother with warning if we are shutting down. It causes Valgrind
+	 * issues as well. */
+	if (!shutting_down && close_connections()) {
+		WARN("One or more connections to msoid(0x%X) failed to close\n", msoid);
 	}
 
 	/* Is it safe to close and unlink the message queues right away or do
