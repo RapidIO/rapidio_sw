@@ -188,7 +188,7 @@ void shutdown(struct peer_info *peer)
 	}
 	INFO("Mport %d closed\n", peer->mport_id);
 
-//	rdma_log_close();
+	rdma_log_close();
 	exit(1);
 } /* shutdown() */
 
