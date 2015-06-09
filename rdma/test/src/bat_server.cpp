@@ -33,7 +33,7 @@ void show_help()
 int main(int argc, char *argv[])
 {
 	int channel = BAT_CM_CHANNEL;
-	char 	c;
+	int c;
 
 	signal(SIGINT, sig_handler);
 	signal(SIGABRT, sig_handler);

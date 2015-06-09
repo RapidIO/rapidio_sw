@@ -36,6 +36,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstdio>
 #include <cstring>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include <algorithm>
 #include <utility>
 #include <vector>
@@ -144,7 +147,7 @@ int mspace::remove_destid(uint16_t destid)
 /* Debugging */
 void mspace::dump_info()
 {
-	printf("%34s %08X %016lX %08X\n", name.c_str(),msid, rio_addr, size);
+	printf("%34s %08X %016" PRIu64 " %08X\n", name.c_str(),msid, rio_addr, size);
 	printf("destids: ");
 	for_each(begin(destids), end(destids), [](uint16_t destid) { printf("%u ", destid); });
 	printf("\n");

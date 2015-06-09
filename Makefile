@@ -43,6 +43,12 @@ export LOG_LEVEL
 DEBUG?=DEBUG
 export DEBUG
 
+CC = $(CROSS_COMPILE)gcc
+export CC
+
+CXX = $(CROSS_COMPILE)g++
+export CXX
+
 TOP_LEVEL = $(shell pwd)
 export TOP_LEVEL
 

@@ -9,7 +9,7 @@ RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -I../../include -I../../common/i
 
 BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.so ../src/* ../inc/* ../daemon/src/* ../daemon/inc/* 
 
-BAT_BUILD_STRING = g++ --std=gnu++0x \
+BAT_BUILD_STRING = $(CXX) --std=gnu++0x \
 	-L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(LIBLOG_PATH) \
 	-Wl,-rpath=$(LIBRDMA_PATH) -Wl,-rpath=$(LIBMPORT_PATH) \
 	-Wl,-rpath=$(LIBLOG_PATH) \
