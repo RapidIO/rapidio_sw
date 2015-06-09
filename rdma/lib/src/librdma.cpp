@@ -1127,6 +1127,7 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		WARN("mmap(0x%lX) failed: %s\n", pmsub->paddr, strerror(errno));
 		return -3;
 	}
+	DBG("msub mapped to vaddr(%p)\n", *vaddr);
 
 	/* Zero-out a subspace before passing it to the app */
 	memset((uint8_t *)*vaddr, 0, pmsub->bytes);
@@ -1148,6 +1149,7 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 		return -2;
 	}
 
+	DBG("Unmapping vaddr(%p), of size %u\n", vaddr, pmsub->bytes);
 	if (munmap(vaddr, pmsub->bytes) == -1) {
 	        ERR("munmap(): %s\n", strerror(errno));
 		return -3;
