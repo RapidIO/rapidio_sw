@@ -135,7 +135,7 @@ void run_rpc()
 void shutdown(struct peer_info *peer)
 {
 	/* Kill the threads */
-	kill_the_threads = true;
+	shutting_down = true;
 
 	/* Wake up the accept_thread_f hread if necessary */
 	sem_post(&peer->cm_wait_connect_sem);
@@ -165,7 +165,7 @@ void shutdown(struct peer_info *peer)
 	pthread_join(client_wait_destroy_thread, NULL);
 
 	/* Post the semaphore of each of the client remote daemon threads
-	 * if any. This causes the threads to see 'kill_the_threads' has
+	 * if any. This causes the threads to see 'shutting_down' has
 	 * been set and they self-exit */
 	rdaemon_sem_post	rsp;
 	for_each(begin(client_rdaemon_list), end(client_rdaemon_list), rsp);
@@ -188,7 +188,7 @@ void shutdown(struct peer_info *peer)
 	}
 	INFO("Mport %d closed\n", peer->mport_id);
 
-//	rdma_log_close();
+	rdma_log_close();
 	exit(1);
 } /* shutdown() */
 

@@ -76,7 +76,7 @@ public:
 	~ms_owners()
 	{
 		/* Delete owners */
-		for_each(begin(owners), end(owners), [](ms_owner *p) { delete p;});
+		for_each(begin(owners), end(owners), [](ms_owner *p) { if (p) delete p;});
 	}
 
 	void dump_info()

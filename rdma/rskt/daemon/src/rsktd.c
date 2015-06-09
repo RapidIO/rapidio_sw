@@ -368,6 +368,7 @@ void *console(void *cons_parm)
 {
 	struct cli_env cons_env;
 	int rc;
+	int *prc;
 
 	cons_env.script = NULL;
 	cons_env.fout = NULL;
@@ -391,18 +392,22 @@ void *console(void *cons_parm)
 	rc = cli_terminal(&cons_env);
 
 	rskt_daemon_shutdown();
-	if (NULL == cons_parm)
-		cons_parm = malloc(sizeof(int));
-	*(int *)(cons_parm) = rc;
+
 	printf("\nConsole EXITING\n");
 	cli.cons_alive = 0;
-	pthread_exit(cons_parm);
-};
+
+	/* For return code to be checked in pthread_join() */
+	prc = (int *)malloc(sizeof(int));
+	if (prc)
+		*prc = rc;
+	pthread_exit(prc);
+}; /* console() */
 
 void *cli_session( void *rc_ptr )
 {
 	char buffer[256];
 	int one = 1;
+	int *prc;
 
 	cli.cli_portno = ctrls.e_cli_skt;
 
@@ -477,11 +482,12 @@ fail:
 		cli.cli_fd = 0;
 	};
 
-	rc_ptr = malloc(sizeof(int));
-	*(int *)(rc_ptr) = cli.cli_portno;
-	pthread_exit((void *)rc_ptr);
-	return (void *)rc_ptr;
-}
+	/* For return code to be checked in pthread_join() */
+	prc = (int *)malloc(sizeof(int));
+	if (prc)
+		*prc = cli.cli_portno;
+	pthread_exit(prc);
+} /* cli_session() */
 
 void spawn_threads(void)
 {
@@ -498,7 +504,7 @@ void spawn_threads(void)
 		console_ret = pthread_create( &cli.cons_thread, NULL, 
 						console, NULL);
 		if(console_ret) {
-			CRIT("Error console_thread rc: %d\n", console_ret);
+			CRIT("Failed to create console_thread: %s\n", strerror(console_ret));
 			exit(EXIT_FAILURE);
 		}
 	};
@@ -509,7 +515,7 @@ void spawn_threads(void)
 	cli_ret = pthread_create( &cli.cli_thread, NULL, cli_session, 
 				NULL);
 	if(cli_ret) {
-		ERR("Error - cli_session_thread rc: %d\n",cli_ret);
+		CRIT("Failed to create cli_thread: %s\n", strerror(cli_ret));
 		exit(EXIT_FAILURE);
 	}
 	INFO("CLI thread started\n");
@@ -548,6 +554,7 @@ void sig_handler(int signo)
 int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
+	int *prc;
 
 	ctrls.debug = 0;
 
@@ -576,14 +583,18 @@ int main(int argc, char *argv[])
 
 	/* If console thread is running, wait for it to terminate */
 	if (ctrls.run_cons && cli.cons_alive) {
-		pthread_join(cli.cons_thread, NULL);
-		DBG("Waiting for console thread to exit..\n");
+		pthread_join(cli.cons_thread, (void **)&prc);
+		DBG("console thread exit with rc = %d\n", *prc);
+		if (prc)
+			free(prc);
 	}
  
 	/* Ditto for CLI thread */
 	if (cli.cli_alive) {
-		pthread_join(cli.cli_thread, NULL);
-		DBG("Waiting for CLI thread to exit..\n");
+		pthread_join(cli.cli_thread, (void **)&prc);
+		DBG("CLI thread exit with rc = %d\n", *prc);
+		if (prc)
+			free(prc);
 	}
 
 	printf("\nRDMA Socket Server EXITING!!!!\n");

@@ -69,7 +69,7 @@ void *accept_thread_f(void *arg)
 		}
 
 		/* Kill the thread? */
-		if (kill_the_threads) {
+		if (shutting_down) {
 			CRIT("Terminating thread via global flag\n");
 			pthread_exit(0);
 		}

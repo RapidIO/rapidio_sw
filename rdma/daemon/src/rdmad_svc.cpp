@@ -75,8 +75,8 @@ ms_owners owners;
 /* Inbound space */
 inbound *the_inbound;
 
-/* Global flag for killing threads */
-bool kill_the_threads = false;
+/* Global flag for shutting down */
+bool shutting_down = false;
 
 /* Map of accept messages awaiting connect. Keyed by message queue name */
 ts_map<string, cm_accept_msg>	accept_msg_map;

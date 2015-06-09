@@ -117,15 +117,9 @@ void close_speer(struct rskt_dmn_speer *speer)
 
 	speer->comm_fail = 1;
 
-	if (speer->rx_buff_used && !dmn.cm_skt_tst)
-        	riodp_socket_release_receive_buffer(speer->cm_skt_h, 
-						speer->rx_buff);
 	if (NULL != speer->rx_buff)
 		free(speer->rx_buff);
 	
-	if (speer->tx_buff_used && !dmn.cm_skt_tst)
-        	riodp_socket_release_send_buffer(speer->cm_skt_h, 
-						speer->tx_buff);
 	if (NULL != speer->tx_buff)
 		free(speer->tx_buff);
 
