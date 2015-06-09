@@ -1172,7 +1172,6 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 
 	if (!time_remains) {
 		errno = ETIMEDOUT;
-		WARN("Timed out\n");
 		goto skt_ok;
 	};
 
@@ -1256,7 +1255,6 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	uint32_t first_offset;
 	struct rskt_socket_t *skt;
 
-	DBG("ENTER\n");
 	if (lib_uninit()) {
 		ERR("lib_uninit() failed\n");
 		goto fail;
@@ -1290,7 +1288,6 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	};
 
 	if (!time_remains) {
-		WARN("Timed out\n");
 		errno = ETIMEDOUT;
 		goto skt_ok;
 	};
