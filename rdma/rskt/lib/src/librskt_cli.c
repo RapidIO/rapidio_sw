@@ -724,8 +724,9 @@ int RSKTAcceptCmd(struct cli_env *env, int argc, char **argv)
 	logMsg(env);
 
 	rc = rskt_accept(a_skt_h, t_skt_h, &t_sa);
-	sprintf(env->output, "%s,%u: rc = %d, errno = %d:%s\n", __func__, __LINE__,
-			rc, errno, strerror(errno)); 
+	if (rc)
+		sprintf(env->output, "%s,%u: rc = %d, errno = %d:%s\n",
+			__func__, __LINE__, rc, errno, strerror(errno));
 	logMsg(env);
 	sprintf(env->output, "\nAccepting Socket Status:\n");
 	logMsg(env);
@@ -776,8 +777,9 @@ int RSKTConnectCmd(struct cli_env *env, int argc, char **argv)
 	logMsg(env);
 
 	rc = rskt_connect(t_skt_h, &t_sa);
-	sprintf(env->output, "%s,%u: rc = %d, errno = %d:%s\n", __func__, __LINE__,
-			rc, errno, strerror(errno)); 
+	if (rc)
+		sprintf(env->output, "%s,%u: rc = %d, errno = %d:%s\n",
+			__func__, __LINE__, rc, errno, strerror(errno));
 	logMsg(env);
 	librskt_display_skt(env, t_skt_h->skt, 0, 1);
 	return 0;
