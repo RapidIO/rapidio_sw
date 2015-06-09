@@ -253,15 +253,9 @@ void close_wpeer(struct rskt_dmn_wpeer *wpeer)
 	sem_post(&wpeer->started);
 
 	/* FIXME: Close the socket here? */
-	if (wpeer->rx_buff_used)
-        	riodp_socket_release_receive_buffer(wpeer->cm_skt_h, 
-						wpeer->rx_buff);
 	if (NULL != wpeer->rx_buff)
 		free(wpeer->rx_buff);
 	
-	if (wpeer->tx_buff_used)
-        	riodp_socket_release_send_buffer(wpeer->cm_skt_h, 
-						wpeer->tx_buff);
 	if (NULL != wpeer->tx_buff)
 		free(wpeer->tx_buff);
 
