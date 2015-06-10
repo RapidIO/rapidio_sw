@@ -105,7 +105,7 @@ librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 
 # The RDMA static library
 librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
-	lib/src/*.h $(LIBLOG_PATH)/liblog.a
+	lib/src/*.h $(LIBLOG_PATH)/liblog.a librdma.so
 	@echo ---------- Building librdma.a ----------
 	$(CXX) $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES)
 	ar rcs librdma.a $(RDMALIB_OBJS)

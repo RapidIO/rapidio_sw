@@ -22,7 +22,7 @@ liblog.so: $(LOGLIB_SOURCES) ../include/rdma_logger.h
 	$(CXX) $(LOGLIB_CFLAGS) $(LOGLIB_SOURCES)
 	$(CXX) -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(LOGLIB_OBJS) $(SO_LIB_LKFLAGS)
 
-%.a: 
+%.a: liblog.so
 	$(AR) rcs $@ $(LOGLIB_OBJS)
 
 clean:

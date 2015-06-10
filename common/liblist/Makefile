@@ -22,7 +22,7 @@ liblist.so:
 	$(CXX) $(LISTLIB_CFLAGS) src/liblist_test.c
 	$(CXX) -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(LISTLIB_OBJS) $(SO_LIB_LKFLAGS)
 
-%.a: 
+%.a: liblist.so
 	$(AR) rcs $@ $(LISTLIB_OBJS)
 clean:
 	@rm -f *.o *~ liblist.so liblist.a

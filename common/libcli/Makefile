@@ -26,7 +26,7 @@ libcli.so: $(CLILIB_SOURCES) src/*.h ../../rdma/daemon/inc/*_console.h
 	$(CXX) $(CLILIB_CFLAGS) $(CLILIB_SOURCES)
 	$(CXX) -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(CLILIB_OBJS) $(SO_LIB_LKFLAGS)
 
-%.a: 
+%.a: libcli.so
 	$(AR) rcs $@ $(CLILIB_OBJS)
 
 clean:
