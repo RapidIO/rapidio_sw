@@ -13,7 +13,7 @@ else
 CFLAGS=-O2 -Wall -Wsign-compare -fPIC -DNDEBUG
 endif
 
-LIBS=rt	mport pthread
+LIBS=rt	pthread
 LDFLAGS?=-static
 INCLUDES=$(INCDIR) $(KDIR)/include
 LIBPATHS=$(LIBDIR) $(O)
@@ -38,7 +38,7 @@ libmport.a: src/riodp_mport_lib.o
 	$(AR) -r $@ $^
 
 $(O)/%: $(O)/samples/%.o libmport.so libmport.a
-	$(CC) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS))
+	$(CC) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) libmport.a
 
 $(O)/%: $(O)/src/%.o
 	$(CC) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS))
