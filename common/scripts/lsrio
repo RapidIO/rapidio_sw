@@ -3,13 +3,27 @@
 use strict;
 use warnings;
 
+# Loaded drivers. If none loaded just exit as there would
+# be no devices enumeratred if rio_scan was NOT loaded.
+my @loaded_drivers = `lsmod | grep rio`;
+if( !scalar @loaded_drivers ) {
+    print "No RapidIO drivers loaded.\n";
+    exit;
+}
+
+# Print drivers that start with 'rio'. Excludes 'serio_raw' for example
+print "\nLoaded Rapid I/O drivers:\n";
+foreach my $rio_driver(@loaded_drivers) {
+        if( $rio_driver =~ /^rio/ ) { print $rio_driver; }
+}
+
 # Local Rapid I/O devices
 my @rapidio_ports = `ls /sys/class/rapidio_port`;
 if( !scalar @rapidio_ports ) {
     print "No RapidIO devices detected.\n";
     exit;
-} 
-print "\nLocal Rapid I/O devices:\n\n";
+}
+print "\nLocal Rapid I/O devices:\n";
 print "Master port\tDevice ID\n";
 print "-----------\t---------\n";
 my @local_destids;
@@ -29,7 +43,7 @@ if( !scalar @sys_bus_rapidio_devices ) {
     exit;
 } 
 
-print "\n\nRemote Rapid I/O devices:\n\n";
+print "\nRemote Rapid I/O devices:\n";
 print "Endpoint   \tDest ID\n";
 print "-----------\t---------\n";
 foreach my $rapidio_device(@sys_bus_rapidio_devices) {
@@ -42,7 +56,7 @@ foreach my $rapidio_device(@sys_bus_rapidio_devices) {
 }
 
 # Switches
-print "\n\nSwitches:\n\n";
+print "\nSwitches:\n";
 print "Switch   \tDest ID\n";
 print "-----------\t---------\n";
 foreach my $rapidio_device(@sys_bus_rapidio_devices) {
