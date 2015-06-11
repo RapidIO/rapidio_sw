@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <linux/limits.h>
 
 #include <iostream>
 
@@ -20,40 +21,44 @@
 
 #define BAT_SEND(bat_client) if (bat_client->send()) { \
 			fprintf(stderr, "bat_client->send() failed\n"); \
-			printf("%s FAILED, line %d\n", __func__, __LINE__); \
+			fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 			return -1; \
 		   }
 
 #define BAT_RECEIVE(bat_client) if (bat_client->receive()) { \
 			fprintf(stderr, "bat_client->receive() failed\n"); \
-			printf("%s FAILED, line %d\n", __func__, __LINE__); \
+			fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 			return -2; \
 		   }
 
 #define BAT_CHECK_RX_TYPE(bm_rx, bat_type) if (bm_rx->type != bat_type) { \
 			fprintf(stderr, "Receive message with wrong type 0x%lX\n", bm_rx->type); \
-			printf("%s FAILED, line %d\n", __func__, __LINE__); \
+			fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 			return -3; \
 		   }
 
 #define BAT_EXPECT_RET(ret, value, label) if (ret != value) { \
-			printf("%s FAILED, line %d\n", __func__, __LINE__); \
+			fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 			goto label; \
 		   }
 
 #define BAT_EXPECT_FAIL(ret) if (ret) { \
-				printf("%s PASSED\n", __func__); \
+				fprintf(fp, "%s PASSED\n", __func__); \
 			     } else { \
-				printf("%s FAILED, line %d\n", __func__, __LINE__); \
+				fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 			     }
 
 #define BAT_EXPECT_PASS(ret) if (!ret) { \
-				printf("%s PASSED\n", __func__); \
+				fprintf(fp, "%s PASSED\n", __func__); \
 			     } else { \
-				printf("%s FAILED, line %d\n", __func__, __LINE__); \
+				fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 			     }
 
 using namespace std;
+
+/* Log file, name and handle */
+static char log_filename[PATH_MAX];
+static FILE *fp;
 
 /* First client, buffers, message structs..etc. */
 static cm_client *bat_first_client;
@@ -729,7 +734,7 @@ exit:
 static void show_help(void)
 {
 	// TODO: mport_id should be a command-line parameter
-	puts("bat_client -c<channel> -d<destid> -t<test_case> [-l] [-h]");
+	puts("bat_client -c<channel> -d<destid> -t<test_case> -o<output-file> [-l] [-h]");
 	puts("-l List all test cases");
 	puts("-h Help");
 }
@@ -928,7 +933,7 @@ int main(int argc, char *argv[])
 		show_help();
 		exit(1);
 	}
-	while ((c = getopt(argc, argv, "hlc:d:t:")) != -1)
+	while ((c = getopt(argc, argv, "hlc:d:o:t:")) != -1)
 		switch (c) {
 		case 'c':
 			first_channel = atoi(optarg);
@@ -938,6 +943,9 @@ int main(int argc, char *argv[])
 			destid = atoi(optarg);
 			break;
 		case 'l':
+			break;
+		case 'o':
+			strcpy(log_filename, optarg);
 			break;
 		case 't':
 			tc = optarg[0];
@@ -961,6 +969,13 @@ int main(int argc, char *argv[])
 				     &bm_first_rx);
 	if (ret)
 		return 1;
+
+	/* Open log file for 'append'. Create if non-existent. */
+	fp = fopen(log_filename, "a");
+	if (!fp) {
+		fprintf(stderr, "Failed to open log file '%s'\n", log_filename);
+		return 2;
+	}
 
 	switch(tc) {
 
@@ -1009,6 +1024,7 @@ int main(int argc, char *argv[])
 
 	delete bat_first_client;
 
+	fclose(fp);
 	puts("Goodbye!");
 	return 0;
 }
