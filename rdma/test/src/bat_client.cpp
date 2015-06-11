@@ -996,21 +996,27 @@ int main(int argc, char *argv[])
 		test_case_h_i(tc);
 		break;
 	case '1':
+		fprintf(fp, "test_case%c ", tc);
 		test_case_dma(0x00, 0x00, 0x00, rdma_sync_chk);
 		break;
 	case '2':
+		fprintf(fp, "test_case%c ", tc);
 		test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
 		break;
 	case '3':
+		fprintf(fp, "test_case%c ", tc);
 		test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
 		break;
 	case '4':
+		fprintf(fp, "test_case%c ", tc);
 		test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
 		break;
 	case '5':
+		fprintf(fp, "test_case%c ", tc);
 		test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
 		break;
 	case '6':
+		fprintf(fp, "test_case%c ", tc);
 		test_case_6();
 		break;
 	default:
