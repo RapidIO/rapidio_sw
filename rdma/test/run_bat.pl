@@ -9,18 +9,12 @@
 open(my $fh, ">", "bat.log")
 	or die "cannot open > bat.log $!";
 
-print $fh, "Test case A:\n";
 system("sudo ./bat_client -d1 -c9 -ta -obat.log");
-print $fh, "Test case B:\n";
 system("sudo ./bat_client -d1 -c9 -tb -obat.log");
-#./bat_client -d1 -c9 -tb
-#./bat_client -d1 -c9 -tc
-#./bat_client -d1 -c9 -tg
-#./bat_client -d1 -c9 -th
-#./bat_client -d1 -c9 -ti
-#./bat_client -d1 -c9 -t1
-#./bat_client -d1 -c9 -t2
-#./bat_client -d1 -c9 -t3
-#./bat_client -d1 -c9 -t4
-#./bat_client -d1 -c9 -t5
+system("sudo ./bat_client -d1 -c9 -tc -obat.log");
+system("sudo ./bat_client -d1 -c9 -t1 -obat.log");
+system("sudo ./bat_client -d1 -c9 -t2 -obat.log");
+system("sudo ./bat_client -d1 -c9 -t3 -obat.log");
+system("sudo ./bat_client -d1 -c9 -t4 -obat.log");
+system("sudo ./bat_client -d1 -c9 -t5 -obat.log");
 close($fh);
