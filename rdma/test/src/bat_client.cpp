@@ -903,7 +903,8 @@ exit:
 
 int main(int argc, char *argv[])
 {
-	char tc = 'a', c;
+	char tc = 'a';
+	int c;
 
 
 	/* List and help are special cases */

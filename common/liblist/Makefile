@@ -18,11 +18,11 @@ all: liblist.so liblist.a
 # The list library
 liblist.so: 
 	@echo ---------- Building liblist.so...
-	g++ $(LISTLIB_CFLAGS) src/liblist.c
-	g++ $(LISTLIB_CFLAGS) src/liblist_test.c
-	g++ -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(LISTLIB_OBJS) $(SO_LIB_LKFLAGS)
+	$(CXX) $(LISTLIB_CFLAGS) src/liblist.c
+	$(CXX) $(LISTLIB_CFLAGS) src/liblist_test.c
+	$(CXX) -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(LISTLIB_OBJS) $(SO_LIB_LKFLAGS)
 
-%.a: 
+%.a: liblist.so
 	$(AR) rcs $@ $(LISTLIB_OBJS)
 clean:
 	@rm -f *.o *~ liblist.so liblist.a

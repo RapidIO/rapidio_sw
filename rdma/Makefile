@@ -99,15 +99,15 @@ FORCE:
 librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.so ----------
-	g++ $(RDMALIB_SHARED_CFLAGS) $(RDMALIB_SOURCES)
-	g++ -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
-	-Wl,-rpath=$(LIBLOG_PATH) -o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog
+	$(CXX) $(RDMALIB_SHARED_CFLAGS) $(RDMALIB_SOURCES)
+	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
+	-Wl,-rpath=$(LIBLOG_PATH) -o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog -pthread
 
 # The RDMA static library
 librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
-	lib/src/*.h $(LIBLOG_PATH)/liblog.a
+	lib/src/*.h $(LIBLOG_PATH)/liblog.a librdma.so
 	@echo ---------- Building librdma.a ----------
-	g++ $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES)
+	$(CXX) $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES)
 	ar rcs librdma.a $(RDMALIB_OBJS)
 
 # The RDMA daemon (the RPC server)
@@ -115,9 +115,9 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \
 	daemon/src/*.h $(LIBCLI_PATH)/libcli.a $(LIBLOG_PATH)/liblog.a ../common/include
 
 	@echo ---------- Building the RDMA Daemon...
-	g++ -L$(MPORTLIB_PATH) -L$(LIBCLI_PATH) -L$(LIBLOG_PATH) \
+	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBCLI_PATH) -L$(LIBLOG_PATH) \
 	-Wl,-rpath=$(MPORTLIB_PATH) -Wl,-rpath=$(LIBCLI_PATH) -Wl,-rpath=$(LIBLOG_PATH) \
-	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -lmport -lrt -lcli -llog
+	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -lmport -lrt -lcli -llog -pthread
 
 # RPC-generated files
 rdmalib_rpc.c: rdmad.x rdmad.h

@@ -56,6 +56,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
 #include "riodp_mport_lib.h"
 #include "linux/rio_mport_cdev.h"
 #include "linux/rio_cm_cdev.h"
@@ -448,7 +451,7 @@ int RSKTMsohCmd(struct cli_env *env, int argc, char **argv)
 	sprintf(env->output, "Current mso_h name: \"%s\"\n", 
 			mso->msoh_name);
 	logMsg(env);
-	sprintf(env->output, "Current mso_h value: %16lx\n", 
+	sprintf(env->output, "Current mso_h value: %16" PRIu64 "\n",
 			(uint64_t)(mso->rskt_mso));
 	logMsg(env);
 

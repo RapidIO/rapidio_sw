@@ -35,7 +35,7 @@ AR:=$(CROSS_COMPILE)ar
 DAEMON_OBJS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 src/%.o: src/%.c
-	g++ -o $@ $< -c -g -ggdb -fPIC -Wall -Werror -O2 \
+	$(CXX) -o $@ $< -c -g -ggdb -fPIC -Wall -Werror -O2 \
 	-I./src -I./inc -I../inc \
 	-I$(COMMON_DIR)/include \
 	-I$(COMMON_DIR)/liblist/inc \
@@ -64,7 +64,7 @@ all: rsktd rskts remdbg
 # The RDMA Sockets Daemon
 rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 	@echo ---------- Building rsktd...
-	g++ -pthread -Wl,-rpath=$(MPORT_DIR) \
+	$(CXX) -pthread -Wl,-rpath=$(MPORT_DIR) \
 	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
@@ -73,7 +73,7 @@ rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 # The RDMA Sockets Test Server
 rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	@echo ---------- Building rskt test server...
-	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(MPORT_DIR) \
+	$(CXX) -L$(shell pwd) -pthread -Wl,-rpath=$(MPORT_DIR) \
 	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
@@ -82,7 +82,7 @@ rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 # The Remote Debug shellsrc/librsktd_cli.c 
 remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
 	@echo ---------- Building rskt test server...
-	g++ -L$(shell pwd) -pthread -Wl,-rpath=$(MPORT_DIR) \
+	$(CXX) -L$(shell pwd) -pthread -Wl,-rpath=$(MPORT_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma 
