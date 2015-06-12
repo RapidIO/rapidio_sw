@@ -1,5 +1,5 @@
 level?=7
-debug?=DEBUG
+debug?=NDEBUG
 
 AR:=$(CROSS_COMPILE)ar
 
