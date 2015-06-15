@@ -273,20 +273,21 @@ static int close_or_destroy_action(uint32_t msid)
 		INFO("Sent cm_destroy_msg for %s to remote daemon\n",
 							dm->server_msname);
 
-		/* FIXME: Is there a way to have a timeout here? */
-		/* Wait for destroy acknowledge message */
+		/* Wait for destroy acknowledge message, but with timeout.
+		 * If no ACK within say 2 seconds, then move on */
 		cm_destroy_ack_msg *dam = (cm_destroy_ack_msg *)cm_recv_buf;
-		if (destroy_client->receive()) {
-			ERR("Did not receive destroy_ack from destid(0x%X)\n",
-									*it);
+		if (destroy_client->timed_receive(2000)) {
+			/* In this case whether the return value is ETIME or a failure
+			 * code is irrelevant. The main thing is NOT to be stuck here.
+			 */
+			ERR("Did not receive destroy_ack from destid(0x%X)\n", *it);
 			continue;
 		}
 		if (dam->server_msid != dm->server_msid)
 			ERR("Received destroy_ack with wrong msid(0x%X)\n",
 							dam->server_msid);
 		else {
-			INFO("destroy_ack received from daemon destid(0x%X)\n",
-									*it);
+			INFO("destroy_ack received from daemon destid(0x%X)\n", *it);
 		}
 	}
 
