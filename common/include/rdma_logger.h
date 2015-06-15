@@ -45,31 +45,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMA_LL_INFO	 6
 #define RDMA_LL_DBG	 7
 
-/* If DEBUG is defined, then the debug level is RDMA_LL_DBG */
-#ifdef DEBUG
-#undef RDMA_LL
-#define RDMA_LL  RDMA_LL_DBG
-#endif
-
-/* If 'level' is not specified in the build, default to 'INFO' */
+/* If 'level' is not specified in the build generate an error */
 #ifndef RDMA_LL
-#define RDMA_LL RDMA_LL_INFO
+#error RDMA_LL not defined. Please specify in Makefile
 #endif
 
-#if RDMA_LL >= RDMA_LL_CRITICAL
-#define CRIT(format, ...) __rdma_log(RDMA_LL, "CRIT", format, ## __VA_ARGS__)
-#endif
-
-#if RDMA_LL >= RDMA_LL_ERR
-#define ERR(format, ...) __rdma_log(RDMA_LL, "ERR", format, ## __VA_ARGS__)
+#if RDMA_LL >= RDMA_LL_DBG
+#define DBG(format, ...) __rdma_log(RDMA_LL, "DBG", format, ## __VA_ARGS__)
 #else
-#define ERR(format, ...)
-#endif
-
-#if RDMA_LL >= RDMA_LL_WARN
-#define WARN(format, ...) __rdma_log(RDMA_LL, "WARN", format, ## __VA_ARGS__)
-#else
-#define WARN(format, ...)
+#define DBG(format, ...)
 #endif
 
 #if RDMA_LL >= RDMA_LL_INFO
@@ -78,10 +62,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define INFO(format, ...)
 #endif
 
-#if RDMA_LL >= RDMA_LL_DBG
-#define DBG(format, ...) __rdma_log(RDMA_LL, "DBG", format, ## __VA_ARGS__)
+#if RDMA_LL >= RDMA_LL_WARN
+#define WARN(format, ...) __rdma_log(RDMA_LL, "WARN", format, ## __VA_ARGS__)
 #else
-#define DBG(format, ...)
+#define WARN(format, ...)
+#endif
+
+#if RDMA_LL >= RDMA_LL_ERR
+#define ERR(format, ...) __rdma_log(RDMA_LL, "ERR", format, ## __VA_ARGS__)
+#else
+#define ERR(format, ...)
+#endif
+
+#if RDMA_LL >= RDMA_LL_CRITICAL
+#define CRIT(format, ...) __rdma_log(RDMA_LL, "CRIT", format, ## __VA_ARGS__)
 #endif
 
 #ifdef __cplusplus
