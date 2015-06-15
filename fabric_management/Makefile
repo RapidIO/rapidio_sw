@@ -9,6 +9,8 @@ CXX ?= $(CROSS_COMPILE)g++
 
 LOCAL_LIBRARY_DIR="libs"
 
+level ?= $(LOG_LEVEL)
+
 export LOCAL_LIBRARY_DIR
 export LINUX_INCLUDE_DIR
 
@@ -18,7 +20,7 @@ CCFLAGS= -c -g -ggdb -fPIC -Wall -Werror -O2 -I. \
 	-I./librio_switch/inc \
 	-I./cli -I./libriocp_pe/inc -I./librio_maint/inc \
 	-I./libriocp_pe/src -I./librio_fmd/inc -I$(LINUX_INCLUDE_DIR) \
-	-I../common/include
+	-I../common/include -DRDMA_LL=$(level)
 
 CLI_DEPS= compile_constants.h
 
@@ -26,7 +28,7 @@ CLI_OBJS= LIN_RTA_CLI.o
 
 DAEMON_DEPS= compile_constants.h
 
-DAEMON_OBJS= rio_daemon.o
+DAEMON_OBJS= fmd.o
 
 LIB_DEPS= libriocp_pe libcli librio_maint libswitch_api librio_fmd
 .PHONY: $(LIB_DEPS)
@@ -63,8 +65,8 @@ libswitch_api:
 
 daemon: $(DAEMON_OBJS) 
 	$(CXX) -o fmd $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_DIR) \
-	-lrio_fmd -llog -lriocp_pe -lclidb -lrio_maint -lswitch_api -lrt \
-	-D__CLI_LINUX__ 
+	-lrio_fmd -llog -llist -lriocp_pe -lclidb -lrio_maint -lswitch_api \
+	-lrt -D__CLI_LINUX__ 
 
 all: $(LIB_DEPS) daemon 
 
