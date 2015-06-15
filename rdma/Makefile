@@ -29,9 +29,21 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------------------------------------------------------------------------***
 
-# Default configurations
+# LOG_LEVEL is set by the master Makefile. If this Makefile is run alone, 
+# it can override the loglevel on the command line by specifying 'level=XXX'
+ifndef LOG_LEVEL
 level?=6
+else
+level=$(LOG_LEVEL)
+endif
+
+# Same thing with debugging. Set by master Makefile or overridden at cmd line.
+ifndef DEBUG
 debug?=DEBUG
+else
+debug =$(DEBUG)
+endif
+
 KDIR?=/usr/src/linux
 KERNINC=$(KDIR)/include
 MPORTLIB_PATH=../libmport
