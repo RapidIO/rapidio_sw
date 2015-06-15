@@ -16,6 +16,7 @@ CFLAGS+=$(addprefix -W,all extra error) -fPIC
 CFLAGS+=-O2 -DDEBUG -g
 CFLAGS+=-I../inc -I../../../include 
 CFLAGS+=-I../../../common/include
+CFLAGS+=-DRDMA_LL=7
 CFLAGS+=$(addprefix -I,inc $(INCDIR))
 LDFLAGS+=-L. -l$(NAME)
 

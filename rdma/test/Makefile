@@ -5,7 +5,7 @@ KDIR?=/usr/src/linux
 KINC=$(KDIR)/include
 
 # Common flags for all applications
-RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -I../../include -I../../common/include -I$(KINC) -O3
+RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=7 -I../../include -I../../common/include -I$(KINC) -O3
 
 BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.so ../src/* ../inc/* ../daemon/src/* ../daemon/inc/* 
 

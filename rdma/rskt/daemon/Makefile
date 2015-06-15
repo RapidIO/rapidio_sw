@@ -40,6 +40,7 @@ src/%.o: src/%.c
 	-I$(COMMON_DIR)/include \
 	-I$(COMMON_DIR)/liblist/inc \
 	-I../../../include \
+	-DRDMA_LL=7 \
 	-I$(LINUX_INCLUDE_DIR)
 
 RSKTLIB_SOURCES = src/librsktd_dmn.c src/librsktd_lib.c \
