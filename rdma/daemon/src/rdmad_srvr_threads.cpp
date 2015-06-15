@@ -270,9 +270,9 @@ void *server_wait_disc_thread_f(void *arg)
 		}
 
 		/* Now close POSIX queue */
-		/* FIXME: Can we close the queue or should we have a delay,
-		 * to allow the message to arrive first? */
-		mq_close(disc_mq);
+		if (mq_close(disc_mq)) {
+			ERR("Failed to close '%s': %s\n", mq_name, strerror(errno));
+		}
 	} /* while */
 
 thread_exit:

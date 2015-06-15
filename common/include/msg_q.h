@@ -37,11 +37,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <mqueue.h>
 
+#include <cstring>
 #include <iostream>
 #include <typeinfo>
 #include <string>
 
 #include "rdma_mq_msg.h"
+#include "rdma_logger.h"
 
 /* TODO: Copy from rdma_mq_msg.h */
 #define MQ_SEND_BUF_SIZE	MQ_RCV_BUF_SIZE
@@ -79,9 +81,11 @@ public:
 
 		/* Determine open flags and ownership */
 		if (mq_of == MQ_CREATE) {
+			INFO("Creating '%s'\n", name.c_str());
 			is_owner = true;
 			oflag = O_RDWR | O_CREAT;
 		} else if (mq_of == MQ_OPEN) {
+			INFO("Opening '%s'\n", name.c_str());
 			is_owner = false;
 			oflag = O_RDWR;
 		} else {
@@ -96,15 +100,20 @@ public:
 
 		mq = mq_open(name.c_str(), oflag, 0644, &attr);
 		if (mq == (mqd_t)-1) {
+			ERR("mq_open('%s') failed: %s\n", name.c_str(), strerror(errno));
 			throw msg_q_exception("mq_open() failed");
 		}
 	}
 
 	~msg_q()
 	{
-		mq_close(mq);
+		if (mq_close(mq)) {
+			ERR("mq_close('%s') failed: %s\n", name.c_str(), strerror(errno));
+		}
 		if (is_owner)
-			mq_unlink((const char *)name.c_str());
+			if (mq_unlink((const char *)name.c_str())) {
+				ERR("mq_unlink('%s') failed: %s\n", name.c_str(), strerror(errno));
+			}
 		delete [] send_buf;
 		delete [] recv_buf;
 	}
@@ -114,16 +123,20 @@ public:
 	int receive()
 	{
 		/* On success, mq_receive() returns number of bytes received */
-		if (mq_receive(mq, recv_buf, MQ_RCV_BUF_SIZE, NULL) == -1)
+		if (mq_receive(mq, recv_buf, MQ_RCV_BUF_SIZE, NULL) == -1) {
+			ERR("mq_receive('%s') failed: %s\n", name.c_str(), strerror(errno));
 			return MSG_Q_RECV_ERR;
+		}
 		return 0;
 	}
 
 	int timed_receive(struct timespec *tm)
 	{
 		/* On success, mq_timedreceive() returns number of bytes received */
-		if (mq_timedreceive(mq, recv_buf, MQ_RCV_BUF_SIZE, NULL, tm) == -1)
+		if (mq_timedreceive(mq, recv_buf, MQ_RCV_BUF_SIZE, NULL, tm) == -1) {
+			ERR("mq_timedreceive('%s') failed: %s\n", name.c_str(), strerror(errno));
 			return MSG_Q_TIMED_RECV_ERR;
+		}
 		return 0;
 	}
 
@@ -131,10 +144,13 @@ public:
 	{
 		/* TODO: Move this to constructor and use default args */
 		if (sizeof(T) > MQ_SEND_BUF_SIZE) {
+			ERR("Data size (%u) larger than send buffer (%u)\n",
+					sizeof(T), MQ_SEND_BUF_SIZE);
 			return MSG_Q_DATA_TOO_LARGE;
 		}
 
 		if (mq_send(mq, send_buf, sizeof(T), 1) == -1) {
+			ERR("mq_send('%s') failed: %s\n", name.c_str(), strerror(errno));
 			return MSG_Q_SEND_ERR;
 		}
 
