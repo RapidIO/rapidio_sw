@@ -37,7 +37,7 @@ endif
 LINUX_INCLUDE_DIR ?= $(KDIR)/include
 export LINUX_INCLUDE_DIR
 
-LOG_LEVEL?=6
+LOG_LEVEL?=4
 export LOG_LEVEL
 
 DEBUG?=DEBUG
