@@ -227,11 +227,6 @@ public:
 		uint64_t new_phys_addr = (*orig_free)->get_phys_addr() + size;
 		uint64_t new_size = (*orig_free)->get_size() - size;
 
-		/* The new free memory space has no owner, but has a win_num the same
-		 * as the original free one, and has a new index */
-		uint32_t new_msid = ((*orig_free)->get_msid() & MSID_WIN_MASK) |
-				 (fmlit - begin(msindex_free_list));
-
 		/* Modify original memory space with new parameters */
 		(*orig_free)->set_size(size);
 		(*orig_free)->set_used();
@@ -239,15 +234,24 @@ public:
 		(*orig_free)->set_name(name);
 		*msid = (*orig_free)->get_msid();	/* Return as output param */
 
-		/* Create a new space for unused portion */
-		mspace	 *new_free = new mspace("freemspace",
-						new_msid,
-						new_rio_addr,
-						new_phys_addr,
-						new_size);
+		/* Create memory space for the remaining free inbound space, but
+		 * only if that space is non-zero in size */
+		if (new_size) {
+			/* The new free memory space has no owner, but has a win_num the same
+			 * as the original free one, and has a new index */
+			uint32_t new_msid = ((*orig_free)->get_msid() & MSID_WIN_MASK) |
+					 (fmlit - begin(msindex_free_list));
 
-		/* Add new free memory space to list */
-		mspaces.push_back(new_free);
+			/* Create a new space for unused portion */
+			mspace	 *new_free = new mspace("freemspace",
+							new_msid,
+							new_rio_addr,
+							new_phys_addr,
+							new_size);
+
+			/* Add new free memory space to list */
+			mspaces.push_back(new_free);
+		}
 
 		/* Mark new memory space index as unavailable */
 		*fmlit = false;
