@@ -46,6 +46,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int getDecParm(char *token, int defaultData)
 {
 	unsigned long data;
@@ -93,3 +97,7 @@ unsigned long getHex(char *token, unsigned long defaultData)
 
 	return data;
 }
+
+#ifdef __cplusplus
+}
+#endif

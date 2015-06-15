@@ -19,8 +19,12 @@
 
 #include "inc/riocp_pe_internal.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static FILE *riocp_log_file;
-static enum riocp_log_level loglevel = RIOCP_LOG_NONE;
+static enum riocp_log_level loglevel = RIOCP_LOG_TRACE;
 static riocp_log_output_func_t riocp_log_output_func;
 
 /**
@@ -119,19 +123,19 @@ void riocp_log_exit(void)
 static char *riocp_log_level2str(enum riocp_log_level level)
 {
 	if (level == RIOCP_LOG_NONE)
-		return "NONE";
+		return (char *)"NONE";
 	else if (level == RIOCP_LOG_ERROR)
-		return "ERROR";
+		return (char *)"ERROR";
 	else if (level == RIOCP_LOG_WARN)
-		return "WARN";
+		return (char *)"WARN";
 	else if (level == RIOCP_LOG_INFO)
-		return "INFO";
+		return (char *)"INFO";
 	else if (level == RIOCP_LOG_DEBUG)
-		return "DEBUG";
+		return (char *)"DEBUG";
 	else if (level == RIOCP_LOG_TRACE)
-		return "TRACE";
+		return (char *)"TRACE";
 
-	return "Invalid log level";
+	return (char *)"Invalid log level";
 }
 
 /**
@@ -185,3 +189,7 @@ int RIOCP_SO_ATTR riocp_log(enum riocp_log_level level, const char *func, const 
 
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

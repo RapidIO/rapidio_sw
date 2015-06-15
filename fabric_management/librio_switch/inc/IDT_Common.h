@@ -35,6 +35,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "DAR_Basic_Defs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Controls what device drivers are bound into the DAR 
 */
 #define IDT_TSI57X_DAR_WANTED
@@ -108,4 +112,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 extern STATUS IDT_bind_DAR_routines( void );
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* __IDT_COMMON_H__ */

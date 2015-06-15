@@ -57,9 +57,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include "IDT_Routing_Table_Config_API.h"
 #include "IDT_Port_Config_API.h"
+#include "riocp_pe_internal.h"
 
 #ifndef _LIBRIO_FMD_INTERNAL_H_
 #define _LIBRIO_FMD_INTERNAL_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define FMD_OP_MODE_SLAVE 0
 #define FMD_OP_MODE_MASTER 1
@@ -74,6 +79,7 @@ struct fmd_mport_info {
 };
 
 #define FMD_MAX_MPORTS 4
+#define FMD_DFLT_INIT_DD 0
 #define FMD_DFLT_CLI_PORT_NUM 2222
 #define FMD_DFLT_RUN_CONS 1
 #define FMD_DFLT_MAST_DEVID_SZ FMD_DEV08
@@ -157,6 +163,7 @@ struct fmd_cfg_conn {
 struct fmd_cfg_parms {
 	int init_err;		/* If asserted, abort initialization */
 	int init_and_quit;	/* If asserted, exit after completing init */
+	int simple_init;	/* If asserted, do not init device directory */
 	int cli_port_num;	/* POSIX Socket for remote CLI session */
 	int run_cons;		/* Run a console on this daemon. */
 	int mast_idx;		/* Idx of the mport_info that is master */
@@ -209,6 +216,7 @@ struct fmd_dd_mtx {
 };
 
 struct fmd_state {
+	riocp_pe_handle *mp_h;
 	struct fmd_cfg_parms *cfg;
 	int fmd_rw;
 	char *app_name;
@@ -236,5 +244,9 @@ extern uint32_t fmd_dd_get_chg_idx(struct fmd_state *st);
 extern int fmd_dd_change_notfn(struct fmd_state *st);
 
 extern void bind_dd_cmds(struct fmd_state *st);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _LIBRIO_FMD_INTERNAL_H_ */

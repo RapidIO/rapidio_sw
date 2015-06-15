@@ -35,7 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // #include "librlist_private.h"
 #include "liblist.h"
 #include "assert.h"
-#include "libclidb.h"
+#include "libcli.h"
 
 #ifdef __cplusplus
 extern "C" {

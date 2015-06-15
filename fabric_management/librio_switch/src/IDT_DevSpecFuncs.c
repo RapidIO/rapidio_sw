@@ -44,6 +44,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_Tsi721_API.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 UINT32 num_idt_drivers_in_use;
 IDT_DSF_DB_t IDT_DB[DAR_DB_MAX_DRIVERS];
@@ -763,3 +766,6 @@ STATUS IDT_DSF_bind_DAR_routines(
     return RIO_SUCCESS;
 }
 
+#ifdef __cplusplus
+}
+#endif

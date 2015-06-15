@@ -1,6 +1,8 @@
-CC=$(CROSS_COMPILE)gcc
+CXX ?= $(CROSS_COMPILE)g++
 AR=$(CROSS_COMPILE)ar
 KDIR?=/usr/src/linux
+LINUX_INCLUDE_DIR ?= $(KDIR)/include
+LOG_LEVEL ?= 4
 PREFIX?=/usr
 LIBDIR=$(DESTDIR)$(PREFIX)/lib
 BINDIR=$(DESTDIR)$(PREFIX)/bin
@@ -15,7 +17,7 @@ endif
 
 LIBS=rt	pthread
 LDFLAGS?=-static
-INCLUDES=$(INCDIR) $(KDIR)/include
+INCLUDES=$(INCDIR) $(LINUX_INCLUDE_DIR)
 LIBPATHS=$(LIBDIR) $(O)
 
 SAMPLES_TARGETS=$(addprefix $(O)/, riodp_test_dma riodp_test_misc \
@@ -32,19 +34,19 @@ all: $(LIB_TARGETS) $(SAMPLES_TARGETS)
 samples: $(SAMPLES_TARGETS)
 
 libmport.so: src/riodp_mport_lib.o
-	$(CC) -shared -o $@ $^
+	$(CXX) -shared -o $@ $^
 
 libmport.a: src/riodp_mport_lib.o
 	$(AR) -r $@ $^
 
 $(O)/%: $(O)/samples/%.o libmport.so libmport.a
-	$(CC) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) libmport.a
+	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) libmport.a
 
 $(O)/%: $(O)/src/%.o
-	$(CC) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS))
+	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS))
 
 $(O)/%.o: %.c
-	$(CC) -c -o $@ $(addprefix -I, $(INCLUDES)) $(CFLAGS) $<
+	$(CXX) -c -o $@ $(addprefix -I, $(INCLUDES)) $(CFLAGS) $<
 
 clean:
 	rm -rf $(SAMPLES_TARGETS) $(LIB_TARGETS) $(O)/src/*.o $(O)/samples/*.o

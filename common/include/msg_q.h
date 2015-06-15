@@ -43,7 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 
 #include "rdma_mq_msg.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 /* TODO: Copy from rdma_mq_msg.h */
 #define MQ_SEND_BUF_SIZE	MQ_RCV_BUF_SIZE

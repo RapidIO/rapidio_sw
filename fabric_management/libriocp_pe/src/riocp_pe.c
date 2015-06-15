@@ -32,6 +32,11 @@
 #include "comptag.h"
 #include "rio_regs.h"
 #include "rio_devs.h"
+#include "liblog.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 static struct riocp_pe_llist_item _riocp_mport_list_head; /**< List of created mport lists */
 
@@ -109,7 +114,7 @@ static int riocp_pe_mport_list(size_t *count, uint8_t **list)
 
 	rewinddir(dev_dir);
 
-	_list = malloc(_count * sizeof(*_list));
+	_list = (uint8_t *)malloc(_count * sizeof(*_list));
 
 	/* Iteration 2, get the devices */
 	while ((dev_ent = readdir(dev_dir)) != NULL) {
@@ -235,13 +240,12 @@ int RIOCP_SO_ATTR riocp_mport_get_pe_list(riocp_pe_handle mport, size_t *count, 
 
 	/* Count amount of handles in mport handles list */
 	riocp_pe_llist_foreach(item, &mport->minfo->handles) {
-		p = item->data;
-		if (!p)
-			continue;
-		handle_counter++;
+		p = (struct riocp_pe *)item->data;
+		if (p)
+			handle_counter++;
 	}
 
-	_pe_list = calloc(handle_counter, sizeof(riocp_pe_handle));
+	_pe_list = (struct riocp_pe **)calloc(handle_counter, sizeof(riocp_pe_handle));
 	if (_pe_list == NULL) {
 		RIOCP_TRACE("Could not allocate handle list\n");
 		return -ENOMEM;
@@ -253,10 +257,10 @@ int RIOCP_SO_ATTR riocp_mport_get_pe_list(riocp_pe_handle mport, size_t *count, 
 	/* Copy mport handles list pointers to newlist */
 	n = 1;
 	riocp_pe_llist_foreach(item, &mport->minfo->handles) {
-		if (n <= handle_counter)
+		if (n >= handle_counter)
 			break;
 
-		p = item->data;
+		p = (struct riocp_pe *)item->data;
 		if (!p)
 			continue;
 
@@ -706,7 +710,8 @@ int RIOCP_SO_ATTR riocp_pe_get_peer_list(riocp_pe_handle pe,
 		return -EINVAL;
 	}
 
-	_peer_list = calloc(RIOCP_PE_PORT_COUNT(pe->cap), sizeof(riocp_pe_handle));
+	_peer_list = (struct riocp_pe **)
+		calloc(RIOCP_PE_PORT_COUNT(pe->cap), sizeof(riocp_pe_handle));
 	if (_peer_list == NULL) {
 		RIOCP_TRACE("Could not allocate peer handle list\n");
 		return -ENOMEM;
@@ -1482,3 +1487,7 @@ int RIOCP_SO_ATTR riocp_pe_get_comptag(riocp_pe_handle pe,
 
         return ret;
 }
+
+#ifdef __cplusplus
+}
+#endif

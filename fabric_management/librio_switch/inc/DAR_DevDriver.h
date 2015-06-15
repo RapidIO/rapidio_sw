@@ -309,6 +309,7 @@ struct DAR_ptl {
 };
 
 #define PTL_ALL_PORTS { RIO_ALL_PORTS, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}}
+extern const struct DAR_ptl ptl_all_ports;
 
 STATUS DARrioGetPortList ( DAR_DEV_INFO_t  *dev_info ,
 		                struct DAR_ptl	*ptl_in,  

@@ -35,6 +35,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <IDT_DSF_DB_Private.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CPS1_MAX_SHARED_PORTS_TO_PLL                4
 #define CPS1_MAX_QUAD_NO                            10
 #define CPS1_10Q_MAX_QUAD_NO                        10
@@ -189,5 +193,8 @@ STATUS bind_CPSGEN1_DAR_support( void );
 */
 UINT32 bind_CPSGEN1_DSF_support( void );
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __IDT_CPS_GEN1_API_H__ */

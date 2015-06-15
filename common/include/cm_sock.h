@@ -42,7 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iterator>
 
 #include "riodp_mport_lib.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 #define	CM_MSG_OFFSET 20
 #define	CM_BUF_SIZE	4096

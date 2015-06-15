@@ -43,7 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librskt_private.h"
 #include "librsktd_private.h"
 #include "librskt_test.h"
-#include "libclidb.h"
+#include "libcli.h"
 #include <netinet/in.h>
 
 #ifdef __cplusplus
@@ -178,7 +178,7 @@ con msub:    01234567                                   F 0x01234567
         logMsg(env);
 };
 			
-struct cli_cmd RSKTLStatus;
+extern struct cli_cmd RSKTLStatus;
 
 int RSKTLStatusCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -195,14 +195,14 @@ int RSKTLStatusCmd(struct cli_env *env, int argc, char **argv)
 		lib.addr.sun_path);
         logMsg(env);
 
-	skt_h = l_head(&lib.skts, &li);
+	skt_h = (rskt_h)l_head(&lib.skts, &li);
 	while (NULL != skt_h) {
 		if (!got_one) {
 			librskt_display_skt(env, skt_h->skt, 1, 1);
 			got_one = 1;
 		};
 		librskt_display_skt(env, skt_h->skt, 1, 0);
-		skt_h = l_next(&li);
+		skt_h = (rskt_h)l_next(&li);
 	};
 
 	if (!got_one) {
@@ -231,7 +231,7 @@ RSKTLStatusCmd,
 ATTR_NONE
 };
 
-struct cli_cmd RSKTLTest;
+extern struct cli_cmd RSKTLTest;
 
 int RSKTLTestCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -266,7 +266,7 @@ ATTR_NONE
 struct librskt_rsktd_to_app_msg trx;
 uint32_t test_err;
 
-struct cli_cmd RSKTLResp;
+extern struct cli_cmd RSKTLResp;
 
 int RSKTLRespCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -374,7 +374,7 @@ void check_test_socket(struct cli_env *env, rskt_h *skt_h)
 	};
 };
 
-struct cli_cmd RSKTLibinit;
+extern struct cli_cmd RSKTLibinit;
 
 int RSKTLibInitCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -479,7 +479,7 @@ void display_buff(struct cli_env *env, const char *label, int disp_tx,
 };
 
 
-struct cli_cmd RSKTDataDump;
+extern struct cli_cmd RSKTDataDump;
 
 int RSKTDataDumpCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -567,7 +567,7 @@ RSKTDataDumpCmd,
 ATTR_RPT
 };
 
-struct cli_cmd RSKTSocketDump;
+extern struct cli_cmd RSKTSocketDump;
 
 int RSKTSocketDumpCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -611,7 +611,7 @@ RSKTSocketDumpCmd,
 ATTR_RPT
 };
 
-struct cli_cmd RSKTBind;
+extern struct cli_cmd RSKTBind;
 
 int RSKTBindCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -658,7 +658,7 @@ RSKTBindCmd,
 ATTR_NONE
 };
 
-struct cli_cmd RSKTListen;
+extern struct cli_cmd RSKTListen;
 
 int RSKTListenCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -703,7 +703,7 @@ RSKTListenCmd,
 ATTR_NONE
 };
 
-struct cli_cmd RSKTAccept;
+extern struct cli_cmd RSKTAccept;
 
 int RSKTAcceptCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -755,7 +755,7 @@ RSKTAcceptCmd,
 ATTR_NONE
 };
 
-struct cli_cmd RSKTConnect;
+extern struct cli_cmd RSKTConnect;
 
 int RSKTConnectCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -808,8 +808,10 @@ char saved_cmd_line[LIBRSKT_MAX_CMD_LEN];
 
 int rskt_send_cli_cmd(struct cli_env *env, char *cmd_line)
 {
-        struct librskt_app_to_rsktd_msg *tx = malloc(A2RSKTD_SZ);
-        struct librskt_rsktd_to_app_msg *rx = malloc(RSKTD2A_SZ);
+        struct librskt_app_to_rsktd_msg *tx = 
+			(struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
+        struct librskt_rsktd_to_app_msg *rx = 
+			(struct librskt_rsktd_to_app_msg *)malloc(RSKTD2A_SZ);
         int rc;
 
         tx->msg_type = htonl(LIBRSKTD_CLI);
@@ -854,7 +856,7 @@ ATTR_RPT
 uint32_t rskt_wr_cnt;
 uint8_t rskt_wr_data;
 
-struct cli_cmd RSKTWrite;
+extern struct cli_cmd RSKTWrite;
 int RSKTWriteCmd(struct cli_env *env, int argc, char **argv)
 {
 	uint8_t *data_buf, value;
@@ -873,7 +875,7 @@ int RSKTWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	value = rskt_wr_data;
 
-	data_buf = malloc(rskt_wr_cnt);
+	data_buf = (uint8_t *)malloc(rskt_wr_cnt);
 
 	for (i = 0; i < rskt_wr_cnt; i++)
 		data_buf[i] = value--;
@@ -919,7 +921,7 @@ ATTR_RPT
 
 uint32_t rskt_rd_cnt;
 
-struct cli_cmd RSKTRead;
+extern struct cli_cmd RSKTRead;
 int RSKTReadCmd(struct cli_env *env, int argc, char **argv)
 {
         uint8_t *data_buf;
@@ -939,7 +941,7 @@ int RSKTReadCmd(struct cli_env *env, int argc, char **argv)
 
         sprintf(env->output, "Byte Cnt: %x\n", rskt_rd_cnt);
         logMsg(env);
-        data_buf = malloc(rskt_rd_cnt);
+        data_buf = (uint8_t *)malloc(rskt_rd_cnt);
         for (r = 0; r < repeat; r++) {
                 do {
                         rc = rskt_read(t_skt_h, data_buf, rskt_rd_cnt);
@@ -987,7 +989,7 @@ RSKTReadCmd,
 ATTR_RPT
 };
 
-struct cli_cmd RSKTTxTest;
+extern struct cli_cmd RSKTTxTest;
 #define TEST_BUFF_SIZE 4096
 int RSKTTxTestCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -1079,7 +1081,7 @@ RSKTTxTestCmd,
 ATTR_RPT
 };
 
-struct cli_cmd RSKTRxTest;
+extern struct cli_cmd RSKTRxTest;
 #define TEST_BUFF_SIZE 4096
 
 int RSKTRxTestCmd(struct cli_env *env, int argc, char **argv)
@@ -1166,7 +1168,7 @@ RSKTRxTestCmd,
 ATTR_RPT
 };
 
-struct cli_cmd RSKTClose;
+extern struct cli_cmd RSKTClose;
 
 int RSKTCloseCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -1209,7 +1211,7 @@ RSKTCloseCmd,
 ATTR_NONE
 };
 
-struct cli_cmd RSKTDestroy;
+extern struct cli_cmd RSKTDestroy;
 
 int RSKTDestroyCmd(struct cli_env *env, int argc, char **argv)
 {

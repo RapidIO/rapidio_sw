@@ -24,6 +24,10 @@
 #include "rio_regs.h"
 #include "rio_devs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Read the capabilities into the handle
  * @param pe Target PE
@@ -493,3 +497,7 @@ int riocp_pe_probe_initialize_peer(struct riocp_pe *peer)
 
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

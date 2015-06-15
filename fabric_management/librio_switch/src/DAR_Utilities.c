@@ -1003,14 +1003,15 @@ STATUS CS_bytes_to_fields( CS_bytes_t *bytes_in, CS_field_t *fields_out)
 }
 
 char *stype0_strings[8] = { 
- "Packet-Accepted", 
- "Packet-Retry", 
- "Packet-no-Accepted", 
- "Reserved", 
- "Status", 
- "VC_Status", 
- "Link_response", 
- "Imp_Spec" };
+ (char *)"Packet-Accepted", 
+ (char *)"Packet-Retry", 
+ (char *)"Packet-no-Accepted", 
+ (char *)"Reserved", 
+ (char *)"Status", 
+ (char *)"VC_Status", 
+ (char *)"Link_response", 
+ (char *)"Imp_Spec"
+};
 
 /* Strings which name the 8 types of STYPE0 control symbols */
 char *get_stype0_descr( CS_field_t *fields_in ) 
@@ -1022,15 +1023,16 @@ char *get_stype0_descr( CS_field_t *fields_in )
 #define MAX_PNA_CAUSE_IDX 8
 
 char *pna_cause_strings[MAX_PNA_CAUSE_IDX+1] = { 
- "Reserved", 
- "Unexpected AckID", 
- "Bad CS CRC", 
- "Non-mtc RX stopped", 
- "Bad Pkt CRC", 
- "Bad 10b char", 
- "Lack of resources", 
- "Lost Descrambler Sync", 
- "General Error" };
+ (char *)"Reserved", 
+ (char *)"Unexpected AckID", 
+ (char *)"Bad CS CRC", 
+ (char *)"Non-mtc RX stopped", 
+ (char *)"Bad Pkt CRC", 
+ (char *)"Bad 10b char", 
+ (char *)"Lack of resources", 
+ (char *)"Lost Descrambler Sync", 
+ (char *)"General Error"
+};
 
 /* Strings which describe the cause of a PNA */
 char *get_stype0_PNA_cause_parm1( CS_field_t *fields_in )
@@ -1054,11 +1056,12 @@ char *get_stype0_PNA_cause_parm1( CS_field_t *fields_in )
 
 /* Strings which describe the port status field of a LR */
 char *lr_port_status_strings[5] = { 
- "Reserved", 
- "Error", 
- "Retry-stopped", 
- "Error-stopped", 
- "OK" };
+ (char *)"Reserved", 
+ (char *)"Error", 
+ (char *)"Retry-stopped", 
+ (char *)"Error-stopped", 
+ (char *)"OK" 
+};
 
 char *get_stype0_LR_port_status_parm1( CS_field_t *fields_in )
 {
@@ -1087,14 +1090,15 @@ char *get_stype0_LR_port_status_parm1( CS_field_t *fields_in )
 /* Strings which name the 8 types of STYPE1 control symbols */
 char *stype1_strings[ 8 ] = 
 { 
-  "Start of Packet", 
-  "Stomp", 
-  "End-of-packet", 
-  "restart-from-retry", 
-  "Link-Request", 
-  "Multicast-Event", 
-  "Reserved", 
-  "NOP" };
+  (char *)"Start of Packet", 
+  (char *)"Stomp", 
+  (char *)"End-of-packet", 
+  (char *)"restart-from-retry", 
+  (char *)"Link-Request", 
+  (char *)"Multicast-Event", 
+  (char *)"Reserved", 
+  (char *)"NOP" 
+};
 
 char *get_stype1_descr( CS_field_t *fields_in )  
 {
@@ -1103,7 +1107,11 @@ char *get_stype1_descr( CS_field_t *fields_in )
 
 /* Strings which describe the 8 Link Request command values. */
 
-char *lreq_cmd_strings[3] = { "Reserved", "reset-device", "input-status" };
+char *lreq_cmd_strings[3] = {
+ (char *)"Reserved",
+ (char *)"reset-device",
+ (char *)"input-status" 
+};
 
 char *get_stype1_lreq_cmd( CS_field_t *fields_in )
 {
@@ -1121,7 +1129,11 @@ char *get_stype1_lreq_cmd( CS_field_t *fields_in )
 }
 
 /* Strings which name the 8 types of STYPE2 control symbols */
-char *stype2_strings[3] = {"NOP", "VoQ Backpressure", "Reserved" };
+char *stype2_strings[3] = {
+(char *)"NOP",
+(char *)"VoQ Backpressure",
+(char *)"Reserved"
+};
 
 char *get_stype2_descr( CS_field_t *fields_in )
 {
@@ -1163,22 +1175,22 @@ int prev_CRC_bits[16] =
 
 int curr_data_bits[16] =
 {
-    0x1c581911, /* 0 */
-    0x38b03222, /* 1 */
-    0x71606444, /* 2 */ 
-    0xe2c0c888, /* 3 */
-    0xc5819110, /* 4 */
-    0x975b3b31, /* 5 */
-    0x2eb67662, /* 6 */
-    0x5d6cecc4, /* 7 */
-    0xbad9d988, /* 8 */
-    0x75b3b310, /* 9 */
-    0x7b676620, /* 10 */
-    0xd6cecc40, /* 11 */
-    0xb1c58191, /* 12 */
-    0x638b0322, /* 13 */
-    0xc7160644, /* 14 */
-    0x8e2c0c88  /* 15 */
+    (int)0x1c581911, /* 0 */
+    (int)0x38b03222, /* 1 */
+    (int)0x71606444, /* 2 */ 
+    (int)0xe2c0c888, /* 3 */
+    (int)0xc5819110, /* 4 */
+    (int)0x975b3b31, /* 5 */
+    (int)0x2eb67662, /* 6 */
+    (int)0x5d6cecc4, /* 7 */
+    (int)0xbad9d988, /* 8 */
+    (int)0x75b3b310, /* 9 */
+    (int)0x7b676620, /* 10 */
+    (int)0xd6cecc40, /* 11 */
+    (int)0xb1c58191, /* 12 */
+    (int)0x638b0322, /* 13 */
+    (int)0xc7160644, /* 14 */
+    (int)0x8e2c0c88  /* 15 */
 };
 
 
@@ -2449,23 +2461,23 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
 }
 
 /* Returns string naming packet FTYPE. */
-char *pkt_ftype_strings[17] = { "Implementation Specific", 
-                                 "Reserved", 
-                                 "NRead", 
-                                 "Reserved", 
-                                 "Reserved", 
-                                 "NWrite", 
-                                 "SWrite", 
-                                 "Flow Control",
-                                 "Maintenance", 
-                                 "Data Streaming", 
-                                 "Doorbell", 
-                                 "Message",
-                                 "Reserved", 
-                                 "Response", 
-                                 "Reserved", 
-                                 "Implementation Specific",
-                                 "RAW" 
+char *pkt_ftype_strings[17] = { (char *)"Implementation Specific", 
+                                 (char *)"Reserved", 
+                                 (char *)"NRead", 
+                                 (char *)"Reserved", 
+                                 (char *)"Reserved", 
+                                 (char *)"NWrite", 
+                                 (char *)"SWrite", 
+                                 (char *)"Flow Control",
+                                 (char *)"Maintenance", 
+                                 (char *)"Data Streaming", 
+                                 (char *)"Doorbell", 
+                                 (char *)"Message",
+                                 (char *)"Reserved", 
+                                 (char *)"Response", 
+                                 (char *)"Reserved", 
+                                 (char *)"Implementation Specific",
+                                 (char *)"RAW" 
                               };
 
 char *DAR_pkt_ftype_descr( DAR_pkt_fields_t *pkt_fields )  
@@ -2484,12 +2496,30 @@ char *DAR_pkt_ftype_descr( DAR_pkt_fields_t *pkt_fields )
        this routine returns NULL.
 */
 char *pkt_trans_strings[(int)(pkt_last_type)] = 
-    { 0, "NREAD", "ATOMIC inc", "ATOMIC dec", "ATOMIC set", "ATOMIC clr",
-      "NWRITE", "NWRITE_R", "ATOMIC swap", "ATOMIC cmp swap", "ATOMIC tst swap",
-      0,
-      0,
-      "MtcRead", "MtcWrite", "MtcReadResp", "MtcWriteResp", "Port-Write",
-      0, 0, 0, 0, "Resp with Data", "Msg Response"
+    { (char *)"", 
+	(char *)"NREAD", 
+	(char *)"ATOMIC inc", 
+	(char *)"ATOMIC dec", 
+	(char *)"ATOMIC set", 
+	(char *)"ATOMIC clr",
+	(char *)"NWRITE", 
+	(char *)"NWRITE_R", 
+	(char *)"ATOMIC swap", 
+	(char *)"ATOMIC cmp swap", 
+	(char *)"ATOMIC tst swap",
+	(char *)"",
+	(char *)"",
+	(char *)"MtcRead", 
+	(char *)"MtcWrite", 
+	(char *)"MtcReadResp", 
+	(char *)"MtcWriteResp", 
+	(char *)"Port-Write",
+	(char *)"",
+	(char *)"",
+	(char *)"",
+	(char *)"",
+	(char *)"Resp with Data", 
+	(char *)"Msg Response"
     };
 
 char *DAR_pkt_trans_descr( DAR_pkt_fields_t *pkt_fields )
@@ -2504,7 +2534,12 @@ char *DAR_pkt_trans_descr( DAR_pkt_fields_t *pkt_fields )
    If the status field is invalid, this routine
        returns "UNKNOWN"
 */
-char *status_strings[4] = { "Done", "Retry", "Error", "Unknown" };
+char *status_strings[4] = {
+	(char *)"Done",
+	(char *)"Retry",
+	(char *)"Error",
+	(char *)"Unknown"
+};
 
 char *DAR_pkt_resp_status_descr( DAR_pkt_fields_t *pkt_fields )
 {

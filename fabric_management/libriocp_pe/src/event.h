@@ -12,6 +12,10 @@
 
 #include "pe.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RIOCP_PE_EVENT_PW_PORT_ID(portwrite) (portwrite.payload[2] & 0xff)
 
 int RIOCP_WU riocp_pe_event_init(struct riocp_pe *pe);
@@ -22,5 +26,9 @@ void riocp_pe_event_get_port_mask(riocp_pe_handle pe, uint8_t port,
 void riocp_pe_event_set_port_mask(riocp_pe_handle pe,
 	uint8_t port,
 	riocp_pe_event_mask_t mask);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RIOCP_PE_EVENT_H__ */

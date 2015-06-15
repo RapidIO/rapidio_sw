@@ -15,6 +15,10 @@
 #include "rio_regs.h"
 #include "rio_devs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CPS1xxx_DEBUG_INT_STATUS 1
 
 #define CPS1xxx_RTE_PORT_SEL			(0x00010070)
@@ -1431,17 +1435,20 @@ struct riocp_pe_device_id cps1848_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
 };
 struct riocp_pe_switch riocp_pe_switch_cps1848 = {
-	.name      = "cps1848",
-	.id_table  = cps1848_id_table,
-	.init      = cps1xxx_init,
-	.init_em   = cps1xxx_init_em,
-	.set_route_entry = cps1xxx_set_route_entry,
-	.get_route_entry = cps1xxx_get_route_entry,
-	.clear_lut = cps1xxx_clear_lut,
-	.get_lane_width = cps1xxx_get_lane_width,
-	.get_port_state = cps1xxx_get_port_state,
-	.get_lane_speed = cps1xxx_get_lane_speed,
-	.event_handler = cps1xxx_event_handler,
+	-1,
+	"cps1848",
+	NULL,
+	cps1848_id_table,
+	cps1xxx_init,
+	cps1xxx_init_em,
+	cps1xxx_set_route_entry,
+	cps1xxx_get_route_entry,
+	cps1xxx_clear_lut,
+	cps1xxx_get_lane_speed,
+	cps1xxx_get_lane_width,
+	cps1xxx_get_port_state,
+	cps1xxx_event_handler,
+	NULL
 };
 
 struct riocp_pe_device_id cps1616_id_table[] = {
@@ -1449,15 +1456,22 @@ struct riocp_pe_device_id cps1616_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
 };
 struct riocp_pe_switch riocp_pe_switch_cps1616 = {
-	.name      = "cps1616",
-	.id_table  = cps1616_id_table,
-	.init      = cps1xxx_init,
-	.init_em   = cps1xxx_init_em,
-	.set_route_entry = cps1xxx_set_route_entry,
-	.get_route_entry = cps1xxx_get_route_entry,
-	.clear_lut = cps1xxx_clear_lut,
-	.get_lane_width = cps1xxx_get_lane_width,
-	.get_port_state = cps1xxx_get_port_state,
-	.get_lane_speed = cps1xxx_get_lane_speed,
-	.event_handler = cps1xxx_event_handler,
+	-1,
+	"cps1616",
+	NULL,
+	cps1616_id_table,
+	cps1xxx_init,
+	cps1xxx_init_em,
+	cps1xxx_set_route_entry,
+	cps1xxx_get_route_entry,
+	cps1xxx_clear_lut,
+	cps1xxx_get_lane_speed,
+	cps1xxx_get_lane_width,
+	cps1xxx_get_port_state,
+	cps1xxx_event_handler,
+	NULL
 };
+
+#ifdef __cplusplus
+}
+#endif

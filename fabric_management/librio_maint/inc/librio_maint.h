@@ -9,6 +9,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define LIBRIO_MAINT_REV_NR	1
 
 typedef struct rio_maint *rio_maint_handle;
@@ -19,5 +23,9 @@ int rio_maint_read_local(rio_maint_handle handle, uint32_t offset, uint32_t *dat
 int rio_maint_write_local(rio_maint_handle handle, uint32_t offset, uint32_t data);
 int rio_maint_read_remote(rio_maint_handle handle, uint32_t dest_id, uint8_t hop_count, uint32_t offset, uint32_t *data, uint32_t word_count);
 int rio_maint_write_remote(rio_maint_handle handle, uint32_t dest_id, uint8_t hop_count, uint32_t offset, uint32_t *data, uint32_t word_count);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _LIBRIO_MAINT_H_ */

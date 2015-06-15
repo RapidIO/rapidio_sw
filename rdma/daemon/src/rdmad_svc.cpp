@@ -63,7 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riodp_mport_lib.h"
 #include "rdma_types.h"
 #include "rdma_mq_msg.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 using std::vector;
 using std::string;

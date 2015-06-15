@@ -39,6 +39,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <DAR_Basic_Defs.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Offsets, field masks and value definitions for Device CARs and CSRs
 */
 #define RIO_DEV_ID_CAR            (0x000000)     /* Device Identity CAR
@@ -790,6 +794,10 @@ typedef UINT32 RIO_PORT_ERROR_STATUS;
 */
 
 #define RIO_EXT_FEAT_VC_VOQ                    0x000B
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __DAR_REGDEFS_H__ */
 

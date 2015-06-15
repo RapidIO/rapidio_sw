@@ -38,7 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include "libclidb.h"
+#include "libcli.h"
 
 extern void (*cons_cleanup)(struct cli_env *env);
 

@@ -17,6 +17,10 @@
 #include "rio_regs.h"
 #include "switch.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static int std_set_route_entry(struct riocp_pe *sw, uint8_t __attribute__((unused))lut,
 	uint32_t destid, uint8_t port)
 {
@@ -171,13 +175,22 @@ static int std_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_port_s
 }
 
 struct riocp_pe_switch riocp_pe_switch_std = {
-	.name      = "std",
-	.id_table  = NULL,
-	.init      = std_init,
-	.init_em   = std_init_em,
-	.set_route_entry = std_set_route_entry,
-	.get_route_entry = std_get_route_entry,
-	.get_port_state = std_get_port_state,
-	.get_lane_width = std_get_lane_width,
-	.clear_lut = std_clear_lut
+	0,
+	"std",
+	NULL,
+	NULL,
+	std_init,
+	std_init_em,
+	std_set_route_entry,
+	std_get_route_entry,
+	std_clear_lut,
+	NULL,
+	std_get_lane_width,
+	std_get_port_state,
+	NULL,
+	NULL
 };
+
+#ifdef __cplusplus
+}
+#endif

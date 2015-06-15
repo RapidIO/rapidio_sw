@@ -41,6 +41,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_Error_Management_API.h>
 #include <IDT_Statistics_Counter_API.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Utility routines, useful for implementing DSF functions
  */
 
@@ -242,6 +246,10 @@ STATUS IDT_DSF_bind_DAR_routines(
     VOID   (*WaitSec) ( UINT32 delay_nsec,
                         UINT32 delay_sec ) );
 #define NULL_CHECK if ((!dev_info) || (!in_parms) || (!out_parms)) return RIO_ERR_NULL_PARM_PTR;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __IDT_DSF_DB_PRIVATE_H__ */
 

@@ -7,15 +7,20 @@ NAME:=switch_api
 TARGETS:=lib$(NAME).a
 HEADERS:=inc
 
-CROSS_COMPILE?=/usr/bin/
-INCDIR?=/usr/include/
+LINUX_INCLUDE_DIR ?= $(KDIR)/include
+LOG_LEVEL?=4
+DEBUG?=DEBUG
+TOP_LEVEL = $(shell pwd)
 
-CC:=$(CROSS_COMPILE)gcc
-AR:=$(CROSS_COMPILE)ar
+CROSS_COMPILE ?= /usr/bin/
+
+CXX ?= $(CROSS_COMPILE)g++
+AR ?= $(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
 CFLAGS+=-O2 -DNDEBUG -g -DIDT_TSI721_SUPPORT
-CFLAGS+=$(addprefix -I,inc $(INCDIR))
+CFLAGS+=-I$(LINUX_INCLUDE_DIR)
+CFLAGS+=-I./inc
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) 
@@ -26,7 +31,7 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 src/%.o: src/%.c $(HEADERS)
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CFLAGS) $< -o $@
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS)

@@ -32,34 +32,38 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <IDT_DSF_DB_Private.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 char *idt_em_events_names[ idt_em_last ] = {
-    "FLossOfSig"  ,
-    "FPortErr"    ,
-    "F2ManyReTx"  , 
-    "F2ManyPNA"   ,
-    "FErrRate"    ,
-    "DropTTL"     , 
-    "DropOnPurp"  ,
-    "DropLogErr"  ,
-    "ISigDet"     ,
-    "IRstReq"     ,
-    "IInitFail"   ,
-    "AClrPwPnd"   , 
-    "ANoEvent"  
+    (char *)"FLossOfSig"  ,
+    (char *)"FPortErr"    ,
+    (char *)"F2ManyReTx"  , 
+    (char *)"F2ManyPNA"   ,
+    (char *)"FErrRate"    ,
+    (char *)"DropTTL"     , 
+    (char *)"DropOnPurp"  ,
+    (char *)"DropLogErr"  ,
+    (char *)"ISigDet"     ,
+    (char *)"IRstReq"     ,
+    (char *)"IInitFail"   ,
+    (char *)"AClrPwPnd"   , 
+    (char *)"ANoEvent"  
 };
 
 char *idt_em_notfn_names[ idt_em_notfn_last ] = {
-     "NtfnNone"   ,
-     "NtfnInt"    ,
-     "NtfnPW"     ,
-     "NtfnBoth"   ,
-     "NtfnNoChg"  
+     (char *)"NtfnNone"   ,
+     (char *)"NtfnInt"    ,
+     (char *)"NtfnPW"     ,
+     (char *)"NtfnBoth"   ,
+     (char *)"NtfnNoChg"  
 };
 
 char *idt_em_detect_names[ idt_em_detect_last] = {
-     "DetOff"   ,
-     "DetOn"    ,
-     "DetNoChg" 
+     (char *)"DetOff"   ,
+     (char *)"DetOn"    ,
+     (char *)"DetNoChg" 
 };
 
 #define IDT_EM_REC_ERR_SET_LINK_TO       ((UINT32)(0x0001))
@@ -371,3 +375,6 @@ STATUS idt_em_create_events  ( DAR_DEV_INFO_t       *dev_info,
     return rc;
 };
 
+#ifdef __cplusplus
+}
+#endif

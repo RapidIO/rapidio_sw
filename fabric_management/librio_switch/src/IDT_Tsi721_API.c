@@ -43,6 +43,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // #include "IDT_Traffic_Gen_API.h"
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // CHANGES
 //
 // Check port width computation for get_config and set_config
@@ -1530,3 +1534,6 @@ UINT32 bind_tsi721_DSF_support( void )
     return RIO_SUCCESS;
 }
 
+#ifdef __cplusplus
+}
+#endif

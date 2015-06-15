@@ -36,9 +36,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void *fmd_h;
 
 void *fmd_get_handle(char *my_name);
 void fmd_bind_fmd_h_cli_cmds(fmd_h h);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _LIBRIO_FMD_H_ */

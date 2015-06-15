@@ -33,7 +33,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _TS_Tsi575_I2C_H_ 
 #define _TS_Tsi575_I2C_H_ 
 
-                                                                               
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define Tsi575_I2C_NUM_REGS_TO_TEST                                 0x00000034
 
                                                                                
@@ -531,5 +534,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
                                                                                
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _TS_Tsi575_H_ */

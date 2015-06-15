@@ -60,17 +60,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "librio_fmd.h"
 #include "librio_fmd_internal.h"
+#include "liblog.h"
 #include "dev_db.h"
 #include "cli_cmd_db.h"
 #include "cli_cmd_line.h"
 #include "cli_parse.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int fmd_dd_open_rw(struct fmd_cfg_parms *cfg, struct fmd_state *st)
 {
 	int sz = strlen(cfg->dd_fn)+1;
 	int rc;
 
-	st->dd_fn = malloc(sz);
+	st->dd_fn = (char *)malloc(sz);
 	memset(st->dd_fn, 0, sz);
 	strcpy(st->dd_fn, cfg->dd_fn);
 
@@ -98,7 +103,8 @@ int fmd_dd_open_rw(struct fmd_cfg_parms *cfg, struct fmd_state *st)
                 goto exit;
         };
 
-        st->dd = mmap(NULL, sizeof(struct fmd_dd), PROT_READ|PROT_WRITE,
+        st->dd = (fmd_dd *)
+		mmap(NULL, sizeof(struct fmd_dd), PROT_READ|PROT_WRITE,
                 MAP_SHARED, st->dd_fd, 0);
 
         if (MAP_FAILED == st->dd) {
@@ -119,7 +125,7 @@ int fmd_dd_open_ro(struct fmd_cfg_parms *cfg, struct fmd_state *st)
 {
 	int sz = strlen(cfg->dd_fn)+1;
 
-	st->dd_fn = malloc(sz);
+	st->dd_fn = (char *)malloc(sz);
 	memset(st->dd_fn, 0, sz);
 	strcpy(st->dd_fn, cfg->dd_fn);
 
@@ -130,7 +136,7 @@ int fmd_dd_open_ro(struct fmd_cfg_parms *cfg, struct fmd_state *st)
                 goto exit;
 	}
 
-        st->dd = mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
+        st->dd = (fmd_dd *)mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
                 MAP_SHARED, st->dd_fd, 0);
 
         if (MAP_FAILED == st->dd) {
@@ -156,7 +162,7 @@ int fmd_dd_mtx_open(struct fmd_cfg_parms *cfg, struct fmd_state *st)
         int rc;
 	int sz = strlen(cfg->dd_mtx_fn)+1;
 
-	st->dd_mtx_fn = malloc(sz);
+	st->dd_mtx_fn = (char *)malloc(sz);
 	memset(st->dd_mtx_fn, 0, sz);
 	strncpy(st->dd_mtx_fn, cfg->dd_mtx_fn, sz);
 
@@ -181,7 +187,7 @@ int fmd_dd_mtx_open(struct fmd_cfg_parms *cfg, struct fmd_state *st)
                 goto fail;
         };
 
-        st->dd_mtx = mmap(NULL, sizeof(struct fmd_dd_mtx), 
+        st->dd_mtx = (fmd_dd_mtx *)mmap(NULL, sizeof(struct fmd_dd_mtx), 
 			PROT_READ|PROT_WRITE, MAP_SHARED, st->dd_mtx_fd, 0);
 
         if (MAP_FAILED == st->dd_mtx) {
@@ -208,7 +214,7 @@ int fmd_dd_init(struct fmd_cfg_parms *cfg, struct fmd_state **st)
 	int rc;
 	int idx;
 
-	*st = malloc(sizeof(struct fmd_state));
+	*st = (fmd_state *)malloc(sizeof(struct fmd_state));
 	(*st)->cfg = cfg;
 	(*st)->fmd_rw = 1;
 
@@ -268,20 +274,50 @@ void fmd_dd_cleanup(struct fmd_state *st)
 	
 void fmd_dd_update(struct fmd_state *st)
 {
-	struct dev_db_entry *dbe = db_get_md();
+        size_t pe_cnt;
+        riocp_pe_handle *pe = NULL;
+        int rc, idx;
+        uint32_t comptag, destid;
+        uint8_t hopcount;
 
-	if (NULL == st->dd)
+	if (NULL == st->mp_h) {
+                WARN("\nMaster port is NULL, device directory not updated\n");
 		goto exit;
+	};
+
+        rc = riocp_mport_get_pe_list(*st->mp_h, &pe_cnt, &pe);
+        if (rc) {
+                CRIT("\nCannot get pe list rc %d...\n", rc);
+		goto exit;
+        };
+
+	if (pe_cnt > FMD_MAX_DEVS) {
+                WARN("\nToo many PEs for DD %d %d...\n", pe_cnt, FMD_MAX_DEVS);
+		pe_cnt = FMD_MAX_DEVS;
+	};
 
 	sem_wait(&st->dd_mtx->sem);
 	st->dd->num_devs = 0;
+
+        for (idx = 0; idx < (int) pe_cnt; idx++) {
+                rc = riocp_pe_get_comptag(pe[idx], &comptag);
+                if (rc) {
+                        WARN("\nCannot get comptag rc %d...\n", rc);
+                        comptag = 0xFFFFFFFF;
+			continue;
+                };
+                rc = riocp_pe_get_destid(pe[idx], &destid);
+                if (rc) {
+                        WARN("\nCannot get comptag rc %d...\n", rc);
+                        destid = 0xFFFFFFFF;
+			continue;
+                };
+                hopcount = pe[idx]->hopcount;
 	
-	while ((NULL != dbe) && (st->dd->num_devs <= FMD_MAX_DEVS)) {
-		st->dd->devs[st->dd->num_devs].ct     = dbe->ct;
-		st->dd->devs[st->dd->num_devs].destID = dbe->mpr.req.destID;
-		st->dd->devs[st->dd->num_devs].hc     = dbe->mpr.req.hc;
+		st->dd->devs[st->dd->num_devs].ct     = comptag;
+		st->dd->devs[st->dd->num_devs].destID = destid;
+		st->dd->devs[st->dd->num_devs].hc     = hopcount;
 		st->dd->num_devs++;
-		dbe = next_dbe(dbe);
 	};
 	fmd_dd_incr_chg_idx(st);
 	sem_post(&st->dd_mtx->sem);
@@ -328,7 +364,7 @@ uint32_t fmd_dd_atomic_copy(struct fmd_state *st,
 };
 struct fmd_state *cli_st;
 
-const struct cli_cmd CLIChgCnt;
+extern const struct cli_cmd CLIChgCnt;
 
 int CLIChgCntCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -366,16 +402,16 @@ exit:
 };
 
 const struct cli_cmd CLIChgCnt = {
-"chg",
+(char *)"chg",
 3,
 0,
-"Change index command, no parameters.",
-"Prints current change index for the device database.",
+(char *)"Change index command, no parameters.",
+(char *)"Prints current change index for the device database.",
 CLIChgCntCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd CLIIncCnt;
+extern const struct cli_cmd CLIIncCnt;
 
 int CLIIncCntCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -395,18 +431,18 @@ exit:
 };
 
 const struct cli_cmd CLIIncCnt = {
-"inc",
+(char *)"inc",
 3,
 0,
-"Increment change index, no parameters.",
-"Increments and prints current change index for the device database.",
+(char *)"Increment change index, no parameters.",
+(char *)"Increments and prints current change index for the device database.",
 CLIIncCntCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd CLIDevs;
+extern const struct cli_cmd CLIDevDir;
 
-int CLIDevsCmd(struct cli_env *env, int argc, char **argv)
+int CLIDevDirCmd(struct cli_env *env, int argc, char **argv)
 {
 	struct fmd_dd_dev_info devs[FMD_MAX_DEVS+1];
 	uint32_t num_devs, idx;
@@ -434,17 +470,17 @@ exit:
 	return 0;
 };
 
-const struct cli_cmd CLIDevs = {
-"devs",
+const struct cli_cmd CLIDevDir = {
+(char *)"dd",
 2,
 0,
-"Skelton device list.",
-"Prints current list of devices in device database.",
-CLIDevsCmd,
+(char *)"Device directory display",
+(char *)"Prints current list of devices in device directory.",
+CLIDevDirCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd CLIClean;
+extern const struct cli_cmd CLIClean;
 
 int CLICleanCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -493,11 +529,11 @@ exit:
 };
 
 const struct cli_cmd CLIClean = {
-"clean",
+(char *)"clean",
 3,
 0,
-"Drops shared memory blocks.",
-"No parms drops sm block, any part drops mutex.",
+(char *)"Drops shared memory blocks.",
+(char *)"No parms drops sm block, any part drops mutex.",
 CLICleanCmd,
 ATTR_NONE
 };
@@ -505,7 +541,7 @@ ATTR_NONE
 const struct cli_cmd *sm_cmds[4] = 
 	{&CLIChgCnt, 
 	 &CLIIncCnt,
-	 &CLIDevs,
+	 &CLIDevDir,
 	 &CLIClean };
 
 void bind_dd_cmds(struct fmd_state *st)
@@ -513,3 +549,7 @@ void bind_dd_cmds(struct fmd_state *st)
 	cli_st = st;
 	add_commands_to_cmd_db(4, &sm_cmds[0]);
 }
+
+#ifdef __cplusplus
+}
+#endif

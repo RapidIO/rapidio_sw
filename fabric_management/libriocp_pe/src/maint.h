@@ -13,6 +13,10 @@
 #include <sys/types.h>
 #include "inc/riocp_pe.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int RIOCP_WU riocp_pe_maint_write_local(struct riocp_pe *mport, uint32_t offset, uint32_t val);
 int RIOCP_WU riocp_pe_maint_read_local(struct riocp_pe *mport, uint32_t offset, uint32_t *val);
 int RIOCP_WU riocp_pe_maint_write_remote(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount,
@@ -22,5 +26,9 @@ int RIOCP_WU riocp_pe_maint_read_remote(struct riocp_pe *mport, uint32_t destid,
 
 int RIOCP_WU riocp_pe_maint_set_anyid_route(struct riocp_pe *pe);
 int RIOCP_WU riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RIOCP_PE_MAINT_H__ */

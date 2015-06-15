@@ -42,6 +42,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <DAR_DB_Private.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define DAR_DB_MAX_INDEX (DAR_DB_MAX_DRIVERS-1)
 
 DAR_DB_Driver_t driver_db[DAR_DB_MAX_DRIVERS];
@@ -986,3 +990,6 @@ STATUS DARDB_Bind_Driver( DAR_DB_Driver_t *dev_info )
     return RIO_SUCCESS;
 }
 
+#ifdef __cplusplus
+}
+#endif

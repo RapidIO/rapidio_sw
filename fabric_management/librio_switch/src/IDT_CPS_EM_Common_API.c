@@ -38,6 +38,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <CPS1848_registers.h>
 #include <CPS1616_registers.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define EM_SET_EVENT_EN_0     (EM_FIRST_SUBROUTINE_0+0x2100) // 202100
 #define EM_SET_EVENT_PW_0     (EM_FIRST_SUBROUTINE_0+0x2200) // 202200
 #define EM_SET_EVENT_INT_0    (EM_FIRST_SUBROUTINE_0+0x2300) // 202300
@@ -3122,3 +3126,7 @@ STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
 idt_CPS_em_create_events_exit:
    return rc;
 };
+
+#ifdef __cplusplus
+}
+#endif

@@ -59,11 +59,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riodp_mport_lib.h"
 #include "linux/rio_cm_cdev.h"
 #include "linux/rio_mport_cdev.h"
-#include "libclidb.h"
+#include "libcli.h"
 #include "librdma.h"
 #include "librsktd.h"
 #include "librsktd_private.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 #define DFLT_DMN_E_CLI_SKT 3333
 

@@ -43,6 +43,7 @@ void test_case1(uint16_t destid,
 	int status;
 	struct rdma_xfer_ms_in	 in;
 	struct rdma_xfer_ms_out out;
+	uint8_t	*p;
 
 	/* Create owner */
 	status = rdma_create_mso_h(MSO_NAME, &msoh);
@@ -71,7 +72,7 @@ void test_case1(uint16_t destid,
 
 
 	/* Prepare DMA data */
-	uint8_t	*p = (uint8_t *)vaddr1;
+	p = (uint8_t *)vaddr1;
 	for (j = 0; j < reps; j = (j + 1) & (CIRC_BUF_LEN-1)) {
 		for (i = 0; i < CIRC_BUF_LEN; i++) {
 			p[i] = circ_buf[j][i];

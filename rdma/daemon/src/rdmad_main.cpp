@@ -45,12 +45,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riodp_mport_lib.h"
 #include "cm_sock.h"
 #include "rdma_mq_msg.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 #include "rdmad_peer_utils.h"
 #include "rdmad_svc.h"
 #include "rdmad_console.h"
-#include "libclidb.h"
+#include "libcli.h"
 #include "rdmad.h"
 
 struct peer_info	peer;

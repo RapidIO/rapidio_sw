@@ -41,6 +41,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <CPS1616_registers.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static DSF_Handle_t cpsgen1_driver_handle;
 static UINT32 num_cpsgen1_driver_instances;
 
@@ -232,4 +236,7 @@ STATUS bind_CPSGEN1_DAR_support( void )
 }
 
 
+#ifdef __cplusplus
+}
+#endif
 

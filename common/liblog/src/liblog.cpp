@@ -45,7 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstdarg>
 
 #include "circ_buf.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 using std::string;
 

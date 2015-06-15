@@ -15,6 +15,10 @@
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RIOCP_PE_PE_DEVICE(dev, ven) \
 	.did = (dev), .vid = (ven), \
 	.asm_did = ANY_ID, .asm_vid = ANY_ID
@@ -44,5 +48,9 @@ int RIOCP_WU riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, uint8_
 int RIOCP_WU riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port);
 int RIOCP_WU riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_pe *peer);
 int RIOCP_WU riocp_pe_probe_initialize_peer(struct riocp_pe *peer);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RIOCP_PE_PE_H__ */

@@ -19,6 +19,10 @@
  */
 #include "inc/riocp_pe.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RIOCP_PE_HANDLE_FD_UNSET -1
 
 int RIOCP_WU riocp_pe_handle_addr_aton(char *addr, uint8_t **address, size_t *address_len);
@@ -32,5 +36,9 @@ void riocp_pe_handle_mport_put(struct riocp_pe **mport);
 int RIOCP_WU riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag,
 	struct riocp_pe **peer);
 int RIOCP_WU riocp_pe_handle_mport_exists(uint8_t mport, bool is_host, struct riocp_pe **pe);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RIOCP_PE_HANDLE_H__ */

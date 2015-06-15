@@ -33,25 +33,29 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_DSF_DB_Private.h>
 #include <IDT_Statistics_Counter_API.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 char *sc_names[(UINT8)(idt_sc_last)+2] = {
-    "Disabled  ",
-    "Enabled   ",
-    "UnicastReq",
-    "UnicastPkt",
-    "Retry   CS",
-    "All     CS",
-    "UC 4B Data",
-    "MltcastPkt",
-    "MECS    CS",
-    "MC 4B Data",
-    "PktAcc  CS",
-    "ALL    Pkt",
-    "PktNotA CS",
-    "CPB    Pkt",
-    "Drop   Pkt",
-    "DropTTLPkt",
-    "Last      ",
-    "Invalid   "
+    (char *)"Disabled  ",
+    (char *)"Enabled   ",
+    (char *)"UnicastReq",
+    (char *)"UnicastPkt",
+    (char *)"Retry   CS",
+    (char *)"All     CS",
+    (char *)"UC 4B Data",
+    (char *)"MltcastPkt",
+    (char *)"MECS    CS",
+    (char *)"MC 4B Data",
+    (char *)"PktAcc  CS",
+    (char *)"ALL    Pkt",
+    (char *)"PktNotA CS",
+    (char *)"CPB    Pkt",
+    (char *)"Drop   Pkt",
+    (char *)"DropTTLPkt",
+    (char *)"Last      ",
+    (char *)"Invalid   "
 };
 
 /* User function calls for a routing table configuration */
@@ -94,3 +98,7 @@ STATUS idt_sc_read_ctrs(
 
     return rc;
 }
+
+#ifdef __cplusplus
+}
+#endif

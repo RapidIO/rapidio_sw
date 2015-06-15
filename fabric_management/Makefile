@@ -1,4 +1,12 @@
-LINUX_INCLUDE_DIR ?= /usr/src/linux/include
+KDIR ?= /usr/src/linux
+LINUX_INCLUDE_DIR ?= $(KDIR)/include
+LOG_LEVEL ?= 6
+DEBUG ?= DEBUG
+TOP_LEVEL ?= $(shell pwd)
+COMMON_DIR = ../common/libs_a
+
+CXX ?= $(CROSS_COMPILE)g++
+
 LOCAL_LIBRARY_DIR="libs"
 
 export LOCAL_LIBRARY_DIR
@@ -6,7 +14,6 @@ export LINUX_INCLUDE_DIR
 
 TOP_LEVEL = $(shell pwd)
 
-CC= $(CROSS_COMPILE)gcc
 CCFLAGS= -c -g -ggdb -fPIC -Wall -Werror -O2 -I. \
 	-I./librio_switch/inc \
 	-I./cli -I./libriocp_pe/inc -I./librio_maint/inc \
@@ -26,7 +33,7 @@ LIB_DEPS= libriocp_pe libcli librio_maint libswitch_api librio_fmd
 
 
 %.o: %.c $(CLI_DEPS) $(DAEMON_DEPS) $(LIB_DEPS)
-	$(CC) -o $@ $< $(CCFLAGS)
+	$(CXX) -o $@ $< $(CCFLAGS)
 
 libriocp_pe:
 	$(MAKE) all -C libriocp_pe
@@ -36,7 +43,7 @@ libriocp_pe:
 libcli:
 	$(MAKE) all -C cli
 	mkdir -p $(LOCAL_LIBRARY_DIR)
-	cp cli/libclidb.so $(LOCAL_LIBRARY_DIR)
+	cp cli/libclidb.a $(LOCAL_LIBRARY_DIR)
 
 librio_maint:
 	$(MAKE) all -C librio_maint
@@ -55,14 +62,15 @@ libswitch_api:
 	
 
 daemon: $(DAEMON_OBJS) 
-	$(CC) -o fmd $^ -pthread -L$(LOCAL_LIBRARY_DIR) \
-	-lrio_fmd -lriocp_pe -lclidb -lrio_maint -lswitch_api -lrt \
+	$(CXX) -o fmd $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_DIR) \
+	-lrio_fmd -llog -lriocp_pe -lclidb -lrio_maint -lswitch_api -lrt \
 	-D__CLI_LINUX__ 
 
 all: $(LIB_DEPS) daemon 
 
 clean:
-	rm -f fmd *.o *~ *.exe core $(LD_LIBRARY_PATH)/*.so
+	rm -f fmd *.o *~ *.exe core $(LOCAL_LIBRARY_DIR)/*.so \
+		$(LOCAL_LIBRARY_DIR)/*.a
 	$(MAKE) clean -C librio_switch
 	$(MAKE) clean -C librio_maint
 	$(MAKE) clean -C cli

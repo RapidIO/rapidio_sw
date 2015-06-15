@@ -43,6 +43,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <DAR_DB.h>
 #include <DAR_DevDriver.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern DAR_DB_Driver_t driver_db[DAR_DB_MAX_DRIVERS];
 
 /* Hide these two macros in order to preserve details of
@@ -65,5 +69,8 @@ extern DAR_DB_Driver_t driver_db[DAR_DB_MAX_DRIVERS];
 
 #define DECODE_DEVICE_ID(device) ((UINT16)((device & RIO_DEV_ID_DEV_ID) >> 16))
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* __DAR_DB_PRIVATE_H__ */
 

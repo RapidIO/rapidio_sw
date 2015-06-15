@@ -20,6 +20,10 @@
 #include "rio_regs.h"
 #include "rio_devs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define TSI5xx_ROUTE_UNMAPPED			0xff
 #define TSI5xx_RIO_PW_DESTID			0x1028
 #define TSI5xx_RIO_SET_PW_DESTID(destid)	((destid) << 16)
@@ -548,15 +552,22 @@ struct riocp_pe_device_id tsi57x_id_table[] = {
 };
 
 struct riocp_pe_switch riocp_pe_switch_tsi57x = {
-	.name      = "tsi57x",
-	.id_table  = tsi57x_id_table,
-	.init      = tsi57x_init,
-	.init_em   = tsi57x_init_em,
-	.set_route_entry = tsi57x_set_route_entry,
-	.get_route_entry = tsi57x_get_route_entry,
-	.clear_lut = tsi57x_clear_lut,
-	.get_lane_width = tsi57x_get_lane_width,
-	.get_port_state = tsi57x_get_port_state,
-	.get_lane_speed = tsi57x_get_lane_speed,
-	.event_handler = tsi57x_event_handler,
+	-1,
+	"tsi57x",
+	NULL,
+	tsi57x_id_table,
+	tsi57x_init,
+	tsi57x_init_em,
+	tsi57x_set_route_entry,
+	tsi57x_get_route_entry,
+	tsi57x_clear_lut,
+	tsi57x_get_lane_speed,
+	tsi57x_get_lane_width,
+	tsi57x_get_port_state,
+	tsi57x_event_handler,
+	NULL
 };
+
+#ifdef __cplusplus
+}
+#endif

@@ -14,6 +14,10 @@
 #include "maint.h"
 #include "rio_regs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Write lock at hopcount, destid. Make sure the route is programmed!
  */
@@ -145,3 +149,7 @@ int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, uint8_t hopcoun
 
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -39,7 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <string.h>
 
-#include "libclidb.h"
+#include "libcli.h"
 
 int getDecParm(char *token, int defaultData)
 {

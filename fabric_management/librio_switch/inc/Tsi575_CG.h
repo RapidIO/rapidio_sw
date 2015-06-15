@@ -34,6 +34,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _TS_Tsi575_CG_H_ 
 
                                                                                
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define Tsi575_CG_NUM_REGS_TO_TEST                                 0x00000009
 
                                                                                
@@ -125,5 +129,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
                                                                                
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _TS_Tsi575_H_ */

@@ -38,6 +38,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <CPS1616_registers.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct cps_sc_info_t_TAG {
    idt_sc_ctr_val_t sc_info;
    UINT32           reg_base; // Port 0 address for this counter
@@ -362,3 +366,6 @@ idt_sc_cfg_cps_ctr_exit:
    return rc;        
 };
 
+#ifdef __cplusplus
+}
+#endif

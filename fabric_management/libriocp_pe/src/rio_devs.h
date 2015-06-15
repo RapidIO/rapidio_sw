@@ -8,6 +8,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* VIDs & DIDs */
 #define RIO_VID_RESERVED	0xffff
 #define RIO_DID_RESERVED	0xffff
@@ -168,5 +172,9 @@ static const struct riocp_pe_dev_id riocp_pe_device_ids[] = {
 	/* End of list */
 	{RIO_VID_RESERVED, RIO_DID_RESERVED, "Unknown"},
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RIOCP_PE_VENDOR_H__ */

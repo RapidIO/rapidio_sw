@@ -62,7 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riodp_mport_lib.h"
 #include "linux/rio_cm_cdev.h"
 #include "linux/rio_mport_cdev.h"
-#include "libclidb.h"
+#include "libcli.h"
 #include "librskt_private.h"
 #include "librdma.h"
 #include "librsktd_sn.h"
@@ -73,7 +73,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_msg_proc.h"
 #include "librsktd_wpeer.h"
 #include "librsktd_speer.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 

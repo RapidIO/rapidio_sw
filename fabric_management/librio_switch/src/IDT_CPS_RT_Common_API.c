@@ -37,6 +37,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <CPS1848_registers.h>
 #include <CPS1616_registers.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RTE_SET_COMMON_0      (RT_FIRST_SUBROUTINE_0+0x0100) // 0x100100
 #define PROGRAM_RTE_ENTRIES_0 (RT_FIRST_SUBROUTINE_0+0x1900)
 #define PROGRAM_MC_MASKS_0    (RT_FIRST_SUBROUTINE_0+0x1A00)
@@ -920,3 +924,7 @@ STATUS IDT_CPS_rt_change_mc_mask(
 idt_CPS_rt_change_mc_mask_exit:
    return rc;
 }
+
+#ifdef __cplusplus
+}
+#endif

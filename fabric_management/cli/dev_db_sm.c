@@ -65,6 +65,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cli_cmd_line.h"
 #include "cli_parse.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct dev_db_entry md; /* Master device.  Allows access to all master ports
                          * on the device. Head of all lists of all devices.
                          * NOTE: When rio_mport_cdev is loaded, the master
@@ -147,7 +151,8 @@ struct sm_db_devs *sm_db_get_rw(void)
                 goto exit;
         };
 
-        sm_ptr = mmap(NULL, sizeof(struct sm_db_devs), PROT_READ|PROT_WRITE,
+        sm_ptr = (struct sm_db_devs *)
+		mmap(NULL, sizeof(struct sm_db_devs), PROT_READ|PROT_WRITE,
                 MAP_SHARED, sm_fd, 0);
 
         if (MAP_FAILED == sm_ptr) {
@@ -177,7 +182,8 @@ struct sm_db_devs *sm_db_get_ro(void)
                 goto exit;
 	}
 
-        sm_ptr = mmap(NULL, sizeof(struct sm_db_devs), PROT_READ,
+        sm_ptr = (struct sm_db_devs *)
+		mmap(NULL, sizeof(struct sm_db_devs), PROT_READ,
                 MAP_SHARED, sm_fd, 0);
 
         if (MAP_FAILED == sm_ptr) {
@@ -224,7 +230,8 @@ struct sm_db_mtx *sm_db_get_mutex(void)
                 goto exit;
         };
 
-        mtx_ptr = mmap(NULL, sizeof(struct sm_db_mtx), 
+        mtx_ptr = (struct sm_db_mtx *)
+		mmap(NULL, sizeof(struct sm_db_mtx), 
 			PROT_READ|PROT_WRITE, MAP_SHARED, mtx_fd, 0);
 
         if (MAP_FAILED == mtx_ptr) {
@@ -334,7 +341,7 @@ UINT32 sm_db_get_chg_idx(void)
 
 UINT32 sm_db_atomic_copy(int max_devs, struct sm_db_dev_info *devs)
 {
-	int idx;
+	UINT32 idx;
 	UINT32 num_devs;
 
 	sem_wait(&sm_db_mutex->sm_db_mutex);
@@ -346,9 +353,9 @@ UINT32 sm_db_atomic_copy(int max_devs, struct sm_db_dev_info *devs)
 	return num_devs;
 };
 
-const struct cli_cmd CLIChgCnt;
+extern const struct cli_cmd SMChgCnt;
 
-int CLIChgCntCmd(struct cli_env *env, int argc, char **argv)
+int SMChgCntCmd(struct cli_env *env, int argc, char **argv)
 {
 
 	if (NULL == sm_db) {
@@ -375,19 +382,19 @@ int CLIChgCntCmd(struct cli_env *env, int argc, char **argv)
 	return 0;
 };
 
-const struct cli_cmd CLIChgCnt = {
-"chg",
+const struct cli_cmd SMChgCnt = {
+(char *)"chg",
 3,
 0,
-"Change index command, no parameters.",
-"Prints current change index for the device database.",
-CLIChgCntCmd,
+(char *)"Change index command, no parameters.",
+(char *)"Prints current change index for the device database.",
+SMChgCntCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd CLIIncCnt;
+extern const struct cli_cmd SMIncCnt;
 
-int CLIIncCntCmd(struct cli_env *env, int argc, char **argv)
+int SMIncCntCmd(struct cli_env *env, int argc, char **argv)
 {
 	sm_db_incr_chg_idx();
 	sprintf(env->output, "\nIncrement idx value: 0x%8x\n", 
@@ -396,19 +403,19 @@ int CLIIncCntCmd(struct cli_env *env, int argc, char **argv)
 	return 0;
 };
 
-const struct cli_cmd CLIIncCnt = {
-"inc",
+const struct cli_cmd SMIncCnt = {
+(char *)"inc",
 3,
 0,
-"Increment change index, no parameters.",
-"Increments and prints current change index for the device database.",
-CLIIncCntCmd,
+(char *)"Increment change index, no parameters.",
+(char *)"Increments and prints current change index for the device database.",
+SMIncCntCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd CLIDevs;
+extern const struct cli_cmd SMDevs;
 
-int CLIDevsCmd(struct cli_env *env, int argc, char **argv)
+int SMDevsCmd(struct cli_env *env, int argc, char **argv)
 {
 	struct sm_db_dev_info devs[MAX_SM_DEVS];
 	int num_devs, idx;
@@ -430,19 +437,19 @@ int CLIDevsCmd(struct cli_env *env, int argc, char **argv)
 	return 0;
 };
 
-const struct cli_cmd CLIDevs = {
-"devs",
+const struct cli_cmd SMDevs = {
+(char *)"devs",
 2,
 0,
-"Skelton device list.",
-"Prints current list of devices in device database.",
-CLIDevsCmd,
+(char *)"Skelton device list.",
+(char *)"Prints current list of devices in device database.",
+SMDevsCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd CLIClean;
+extern const struct cli_cmd SMClean;
 
-int CLICleanCmd(struct cli_env *env, int argc, char **argv)
+int SMCleanCmd(struct cli_env *env, int argc, char **argv)
 {
 
 	if (argc) {
@@ -485,23 +492,27 @@ int CLICleanCmd(struct cli_env *env, int argc, char **argv)
 	return 0;
 };
 
-const struct cli_cmd CLIClean = {
-"clean",
+const struct cli_cmd SMClean = {
+(char *)"clean",
 3,
 0,
-"Drops shared memory blocks.",
-"No parms drops sm block, any part drops mutex.",
-CLICleanCmd,
+(char *)"Drops shared memory blocks.",
+(char *)"No parms drops sm block, any part drops mutex.",
+SMCleanCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd *sm_cmds[4] = 
-	{&CLIChgCnt, 
-	 &CLIIncCnt,
-	 &CLIDevs,
-	 &CLIClean };
+const struct cli_cmd *sm_sm_cmds[4] = 
+	{&SMChgCnt, 
+	 &SMIncCnt,
+	 &SMDevs,
+	 &SMClean };
 
 void bind_dev_db_sm_cmds(void)
 {
 	// add_commands_to_cmd_db(4, &sm_cmds[0]);
 }
+
+#ifdef __cplusplus
+}
+#endif

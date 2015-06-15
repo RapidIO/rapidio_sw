@@ -31,28 +31,33 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 #include <IDT_DSF_DB_Private.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 char *idt_em_disc_reason_names[ (UINT8)(idt_rt_disc_last) ] = {
-   "NoDiscard" ,  // idt_rt_disc_not
-   "RteInvalid",  // idt_rt_disc_rt_invalid
-   "Deliberate",   // idt_rt_disc_deliberately
-   "PrtUnavail",   // idt_rt_disc_port_unavail
-   "PrtPwrDwn" ,   // idt_rt_disc_port_pwdn
-   "PrtFail"   ,   // idt_rt_disc_port_fail
-   "PrtNoLp"   ,   // idt_rt_disc_port_no_lp
-   "LkoutOrDis",   // idt_rt_disc_port_lkout_or_dis
-   "InpOutpDis",   // idt_rt_disc_port_in_out_dis
-   "MCEmpty"   ,   // idt_rt_disc_mc_empty
-   "MC1bit"    ,   // idt_rt_disc_mc_one_bit
-   "MCMultMask",   // idt_rt_disc_mc_mult_masks
-   "DPInvalid" ,   // idt_rt_disc_dflt_pt_invalid
-   "DPDelibrat",   // idt_rt_disc_dflt_pt_deliberately
-   "DPPrtUaval",   // idt_rt_disc_dflt_pt_unavail
-   "DPPwrDwn"  ,   // idt_rt_disc_dflt_pt_pwdn
-   "DPFail"    ,   // idt_rt_disc_dflt_pt_fail
-   "DPNoLp"    ,   // idt_rt_disc_dflt_pt_no_lp
-   "DPLkoutDis",   // idt_rt_disc_dflt_pt_lkout_or_dis
-   "DPInpOutpD",   // idt_rt_disc_dflt_pt_in_out_dis
-   "ProbeABORT"    // idt_rt_disc_probe_abort
+   (char *)"NoDiscard" ,  // idt_rt_disc_not
+   (char *)"RteInvalid",  // idt_rt_disc_rt_invalid
+   (char *)"Deliberate",   // idt_rt_disc_deliberately
+   (char *)"PrtUnavail",   // idt_rt_disc_port_unavail
+   (char *)"PrtPwrDwn" ,   // idt_rt_disc_port_pwdn
+   (char *)"PrtFail"   ,   // idt_rt_disc_port_fail
+   (char *)"PrtNoLp"   ,   // idt_rt_disc_port_no_lp
+   (char *)"LkoutOrDis",   // idt_rt_disc_port_lkout_or_dis
+   (char *)"InpOutpDis",   // idt_rt_disc_port_in_out_dis
+   (char *)"MCEmpty"   ,   // idt_rt_disc_mc_empty
+   (char *)"MC1bit"    ,   // idt_rt_disc_mc_one_bit
+   (char *)"MCMultMask",   // idt_rt_disc_mc_mult_masks
+   (char *)"DPInvalid" ,   // idt_rt_disc_dflt_pt_invalid
+   (char *)"DPDelibrat",   // idt_rt_disc_dflt_pt_deliberately
+   (char *)"DPPrtUaval",   // idt_rt_disc_dflt_pt_unavail
+   (char *)"DPPwrDwn"  ,   // idt_rt_disc_dflt_pt_pwdn
+   (char *)"DPFail"    ,   // idt_rt_disc_dflt_pt_fail
+   (char *)"DPNoLp"    ,   // idt_rt_disc_dflt_pt_no_lp
+   (char *)"DPLkoutDis",   // idt_rt_disc_dflt_pt_lkout_or_dis
+   (char *)"DPInpOutpD",   // idt_rt_disc_dflt_pt_in_out_dis
+   (char *)"ProbeABORT"    // idt_rt_disc_probe_abort
 };
 
 /* User function calls for a routing table configuration */
@@ -225,3 +230,6 @@ STATUS idt_rt_change_mc_mask( DAR_DEV_INFO_t        *dev_info,
     return rc;
 }
 
+#ifdef __cplusplus
+}
+#endif

@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <pthread.h>
 
-#include "libclidb.h"
+#include "libcli.h"
 
 void *console(void *cons_parm)
 {

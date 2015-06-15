@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "msg_q.h"
 #include "rdma_types.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 #define MSO_CONN_ID_START	0x1
 

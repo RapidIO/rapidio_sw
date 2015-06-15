@@ -29,6 +29,10 @@
 #include "handle.h"
 #include "rio_regs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Program the ANY_ID route from hopcount 0 to pe->hopcount in the global switch LUT
  *  it will program according to route in variable pe->address.
@@ -371,3 +375,7 @@ int riocp_pe_maint_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_t 
 
 	return ret;
 }
+
+#ifdef __cplusplus
+}
+#endif

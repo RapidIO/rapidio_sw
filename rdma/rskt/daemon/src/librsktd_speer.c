@@ -63,7 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riodp_mport_lib.h"
 #include "linux/rio_cm_cdev.h"
 #include "linux/rio_mport_cdev.h"
-#include "libclidb.h"
+#include "libcli.h"
 #include "librskt_private.h"
 #include "librdma.h"
 #include "librsktd_sn.h"

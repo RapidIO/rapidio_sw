@@ -35,6 +35,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <IDT_DSF_DB_Private.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Routine to bind in all CPS GEN2 specific DAR support routines.
    Supports CPS1848, CPS1616, VPS1616, SPS1616
 */
@@ -44,5 +48,9 @@ STATUS bind_CPSGEN2_DAR_support( void );
    Supports CPS1848, CPS1616, VPS1616, SPS1616
 */
 UINT32 bind_CPSGEN2_DSF_support( void );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __IDT_CPS_GEN2_API_H__ */

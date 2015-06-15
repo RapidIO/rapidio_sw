@@ -36,11 +36,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 #include <pthread.h>
 
-#include "rdma_logger.h"
+#include "liblog.h"
 
 #include "rdmad_svc.h"
 #include "rdmad_main.h"
-#include "libclidb.h"
+#include "libcli.h"
 
 int ibwin_info_cmd_f(struct cli_env *env, int argc, char **argv)
 {

@@ -34,6 +34,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* CPS1616 : Register address offset definitions  */
 /**************************************************/
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CPS1616_DEV_IDENT_CAR                                      (0x00000000)
 #define CPS1616_DEV_INF_CAR                                        (0x00000004)
 #define CPS1616_ASSY_IDENT_CAR                                     (0x00000008)
@@ -1629,3 +1633,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CPS1616_BCAST_PORT_ERR_RATE_EN_UNEXP_ACKID_EN              (0x00200000)
 #define CPS1616_BCAST_PORT_ERR_RATE_EN_CS_CRC_ERR_EN               (0x00400000)
 #define CPS1616_BCAST_PORT_ERR_RATE_EN_IMP_SPEC_ERR_EN             (0x80000000)
+
+#ifdef __cplusplus
+}
+#endif

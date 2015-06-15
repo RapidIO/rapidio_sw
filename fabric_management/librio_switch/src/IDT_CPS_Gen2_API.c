@@ -41,6 +41,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <CPS1616_registers.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define EM_SET_EVENT_PW_0     (DAR_FIRST_IMP_SPEC_ERROR+0x12900)
 #define EM_SET_EVENT_INT_0    (DAR_FIRST_IMP_SPEC_ERROR+0x12A00)
 #define EM_EN_ERR_CTR_0       (DAR_FIRST_IMP_SPEC_ERROR+0x12B00)
@@ -310,3 +314,6 @@ UINT32 bind_CPSGEN2_DSF_support( void )
     return RIO_SUCCESS;
 }
 
+#ifdef __cplusplus
+}
+#endif

@@ -63,7 +63,7 @@ rdma: common FORCE
 	$(MAKE) all -C rdma
 		
 common: libmport FORCE
-	$(MAKE) all -C common
+	$(MAKE) all -C common 
 		
 libmport:  FORCE
 	$(MAKE) all LDFLAGS= -C libmport

@@ -21,6 +21,10 @@
 
 #include <DAR_Basic_Defs.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Routine to bind in all Tsi721 specific DAR support routines.
 */
 STATUS bind_tsi721_DAR_support( void );
@@ -28,4 +32,9 @@ STATUS bind_tsi721_DAR_support( void );
 /* Routine to bind in all Tsi721 specific Device Specific Function routines.
 */
 UINT32 bind_tsi721_DSF_support( void );
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* __IDT_TSI721_API_H__ */

@@ -48,6 +48,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void printVersion(struct cli_env *e)
 {
 	sprintf(e->output, "---          Version: %2s.%2s (%s-%s)     ---\n",
@@ -79,7 +83,7 @@ void splashScreen(struct cli_env *e)
         fflush(stdout);
 };
 
-char *delimiter = " ,\t\n";   /* Input token delimiter */
+char *delimiter = (char *)" ,\t\n";   /* Input token delimiter */
 
 void logMsg(struct cli_env *env)
 {
@@ -306,11 +310,11 @@ int CLIDebugCmd(struct cli_env *env, int argc, char **argv)
 }
 
 const struct cli_cmd CLIDebug = {
-"debug",
+(char *)"debug",
 1,
 0,
-"Set/query CLI debug output level",
-"<debug level>\n"
+(char *)"Set/query CLI debug output level",
+(char *)"<debug level>\n"
 	"<debug level> is the new debug level.\n"
 	"If <debug_level> is omitted, print the current debug level.\n",
 CLIDebugCmd,
@@ -346,11 +350,11 @@ int CLIOpenLogFileCmd(struct cli_env *env, int argc, char **argv)
 }
 
 const struct cli_cmd CLIOpenLogFile = {
-"log",
+(char *)"log",
 3,
 1,
-"Open a log file",
-"<file name> <verbose>\n"
+(char *)"Open a log file",
+(char *)"<file name> <verbose>\n"
 "<file name> is the log file name.  No spaces are allowed in the name.\n"
 	"<verbose> is 0 or non-zero, and controls how much detail is\n"
 	"printed to the log file.\n",
@@ -377,11 +381,11 @@ int CLICloseLogFileCmd(struct cli_env *env, int argc, char **argv)
 }
 
 const struct cli_cmd CLICloseLogFile = {
-"close",
+(char *)"close",
 1,
 0,
-"Close a currently open log file",
-"No Parameters\n"
+(char *)"Close a currently open log file",
+(char *)"No Parameters\n"
 	"Close the currently open log file, if one exists.",
 CLICloseLogFileCmd,
 ATTR_NONE
@@ -418,11 +422,11 @@ int CLIScriptCmd(struct cli_env *env, int argc, char **argv)
 }
 
 const struct cli_cmd CLIRScript = {
-"script",
+(char *)"script",
 3,
 1,
-"execute commands in a script file",
-"<filename> <verbose>\n"
+(char *)"execute commands in a script file",
+(char *)"<filename> <verbose>\n"
 	"<filename> : File name of the script\n"
 	"<verbose>  : zero/non-zero value to control amount of output.",
 CLIScriptCmd,
@@ -435,11 +439,11 @@ int CLIQuitCmd(struct cli_env *env, int argc, char **argv)
 }
 
 const struct cli_cmd CLIQuit = {
-"quit",
+(char *)"quit",
 4,
 0,
-"exit the CLI session",
-"No Parameters\n"
+(char *)"exit the CLI session",
+(char *)"No Parameters\n"
 "Exit from the current CLI",
 CLIQuitCmd,
 ATTR_NONE
@@ -451,7 +455,7 @@ void printProgress(struct cli_env *env)
 	char progress[] = {'/', '-', '|', '-', '\\'};
 
 	printf("%c\b", progress[env->progressState++]);
-	if (env->progressState >= sizeof(progress) / sizeof(progress[0]))
+	if ((size_t)env->progressState >= sizeof(progress)/sizeof(progress[0]))
 		env->progressState = 0;
 }
 
@@ -469,3 +473,7 @@ int bind_cli_cmd_line_cmds(void)
 				cmd_line_cmds);
 	return 0;
 };
+
+#ifdef __cplusplus
+}
+#endif

@@ -19,6 +19,10 @@
 #include "switch.h"
 #include "rio_regs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static struct riocp_pe_switch *riocp_pe_switch_drv_list[] = {
 	&riocp_pe_switch_tsi57x,
 	&riocp_pe_switch_cps1616,
@@ -277,3 +281,7 @@ int riocp_pe_switch_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_p
 	else
 		return -ENOSYS;
 }
+
+#ifdef __cplusplus
+}
+#endif

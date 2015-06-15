@@ -18,6 +18,10 @@
 #include "comptag.h"
 #include "rio_regs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RIOCP_PE_COMPTAG_POOL_REALLOC_SIZE 32 /**< Amount of elements to grow the pool */
 
 /**
@@ -39,7 +43,7 @@ static int riocp_pe_comptag_grow_pool(struct riocp_pe *pe, size_t size)
 	if (new_size >= UINT16_MAX)
 		return -E2BIG;
 
-	pe->mport->minfo->comptag_pool = realloc(
+	pe->mport->minfo->comptag_pool = (struct riocp_pe **)realloc(
 			pe->mport->minfo->comptag_pool,
 			new_size * sizeof(struct riocp_pe *));
 
@@ -255,3 +259,8 @@ int riocp_pe_comptag_init(struct riocp_pe *pe)
 
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
+

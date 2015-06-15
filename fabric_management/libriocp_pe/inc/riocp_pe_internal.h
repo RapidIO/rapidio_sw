@@ -18,6 +18,10 @@
 #include <linux/rio_mport_cdev.h>
 #include <librio_maint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RIOCP_PE_HANDLE_REV 1
 
 #define ANY_ID 0xff /* @todo To be removed, any_id will be stored in mport handle after get/calculation of sys_size */
@@ -177,5 +181,9 @@ int riocp_pe_handle_get_private(riocp_pe_handle pe, void **data);
 
 /* Dot graph */
 int riocp_pe_dot_dump(char *filename, riocp_pe_handle mport);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RIOCP_PE_INTERNAL_H__ */

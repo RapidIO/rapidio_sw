@@ -6,11 +6,11 @@ TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h inc/lib$(NAME)_private.h src/*.h
 
 CROSS_COMPILE?=/usr/bin/
-#INCDIR?=/usr/src/linux/include
 INCDIR=$(LINUX_INCLUDE_DIR)
 
-CC:=$(CROSS_COMPILE)gcc
-AR:=$(CROSS_COMPILE)ar
+CXX=$(CROSS_COMPILE)g++
+CC=$(CROSS_COMPILE)g++
+AR=$(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
 CFLAGS+=-O2 -DDEBUG -g
@@ -28,7 +28,7 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 src/%.o: src/%.c $(HEADERS)
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CFLAGS) $< -o $@
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a

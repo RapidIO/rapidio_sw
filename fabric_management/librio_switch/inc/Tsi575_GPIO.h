@@ -33,7 +33,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _TS_Tsi575_GPIO_H_ 
 #define _TS_Tsi575_GPIO_H_ 
 
-                                                                               
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define Tsi575_GPIO_NUM_REGS_TO_TEST                               0x00000008
 
                                                                                
@@ -78,4 +81,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
                                                                                
 
 
+#ifdef __cplusplus
+}
+#endif
+                                                                               
 #endif /* _TS_Tsi575_H_ */

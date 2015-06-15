@@ -34,6 +34,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _TS_Tsi575_EM_H_ 
 
                                                                                
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define Tsi575_EM_NUM_REGS_TO_TEST                                  0x00000004
 
                                                                                
@@ -92,5 +96,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* Tsi575_BLOCK_GEN : Register Bits Masks Definitions */
 #define Tsi575_BLOCK_GEN_PCI_ERR                                   (0x00000100)
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _TS_Tsi575_H_ */

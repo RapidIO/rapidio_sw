@@ -36,6 +36,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <IDT_Common.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Definitions of parameter structures for IDT Port Configuration routines.
 
    Generic structure which contains the parameters which describe the
@@ -239,5 +243,9 @@ extern STATUS idt_sc_cfg_cps_ctrs(
     idt_sc_cfg_cps_ctrs_in_t  *in_parms,
     idt_sc_cfg_cps_ctrs_out_t *out_parms
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __IDT_STATISTICS_COUNTER_API_H__ */

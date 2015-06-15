@@ -40,7 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librskt.h"
 #include "librskt_private.h"
 #include "librsktd_sn.h"
-#include "libclidb.h"
+#include "libcli.h"
 
 #ifdef __cplusplus
 extern "C" {

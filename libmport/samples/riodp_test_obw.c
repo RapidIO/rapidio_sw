@@ -188,6 +188,8 @@ static void obwtest_buf_free(void *buf)
 	free(buf);
 }
 
+#define U8P uint8_t*
+
 static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 			 int verify)
 {
@@ -219,7 +221,7 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	if (exit_no_dev)
 		printf(">>> Device removal signaled <<<\n");
 	if (verify)
-		dmatest_verify(ibmap, 0, ib_size, 0, PATTERN_SRC | PATTERN_COPY, 0);
+		dmatest_verify((U8P)ibmap, 0, ib_size, 0, PATTERN_SRC | PATTERN_COPY, 0);
 
 	if (munmap(ibmap, ib_size))
 		perror("munmap");
@@ -313,20 +315,20 @@ static int do_obwin_test(int random, int verify, int loop_count)
 			i, len, src_off, dst_off);
 
 		if (verify) {
-			dmatest_init_srcs(buf_src, src_off, len, tbuf_size);
-			dmatest_init_dsts(buf_dst, dst_off, len, tbuf_size);
+			dmatest_init_srcs((U8P)buf_src, src_off, len, tbuf_size);
+			dmatest_init_dsts((U8P)buf_dst, dst_off, len, tbuf_size);
 		}
 
 		if (debug)
 			printf("\tWrite %d bytes from src offset 0x%x\n", len, src_off);
 		clock_gettime(CLOCK_MONOTONIC, &wr_starttime);
-		memcpy(obw_ptr, buf_src + src_off, len);
+		memcpy(obw_ptr, (U8P)buf_src + src_off, len);
 		clock_gettime(CLOCK_MONOTONIC, &wr_endtime);
 		if (debug)
 			printf("\tRead %d bytes to dst offset 0x%x\n", len, dst_off);
 
 		clock_gettime(CLOCK_MONOTONIC, &rd_starttime);
-		memcpy(buf_dst + dst_off, obw_ptr, len);
+		memcpy((U8P)buf_dst + dst_off, obw_ptr, len);
 		clock_gettime(CLOCK_MONOTONIC, &rd_endtime);
 
 		rd_time = timediff(rd_starttime, rd_endtime);
@@ -336,23 +338,23 @@ static int do_obwin_test(int random, int verify, int loop_count)
 
 			if (debug)
 				printf("\tVerifying source buffer...\n");
-			error_count = dmatest_verify(buf_src, 0, src_off,
+			error_count = dmatest_verify((U8P)buf_src, 0, src_off,
 					0, PATTERN_SRC, 1);
-			error_count += dmatest_verify(buf_src, src_off,
+			error_count += dmatest_verify((U8P)buf_src, src_off,
 					src_off + len, src_off,
 					PATTERN_SRC | PATTERN_COPY, 1);
-			error_count += dmatest_verify(buf_src, src_off + len,
+			error_count += dmatest_verify((U8P)buf_src, src_off + len,
 					tbuf_size, src_off + len,
 					PATTERN_SRC, 1);
 
 			if (debug)
 				printf("\tVerifying destination buffer...\n");
-			error_count += dmatest_verify(buf_dst, 0, dst_off,
+			error_count += dmatest_verify((U8P)buf_dst, 0, dst_off,
 					0, PATTERN_DST, 0);
-			error_count += dmatest_verify(buf_dst, dst_off,
+			error_count += dmatest_verify((U8P)buf_dst, dst_off,
 					dst_off + len, src_off,
 					PATTERN_SRC | PATTERN_COPY, 0);
-			error_count += dmatest_verify(buf_dst, dst_off + len,
+			error_count += dmatest_verify((U8P)buf_dst, dst_off + len,
 					tbuf_size, dst_off + len,
 					PATTERN_DST, 0);
 			if (error_count) {

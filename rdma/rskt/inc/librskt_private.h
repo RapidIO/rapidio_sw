@@ -38,7 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_types.h"
 #include "librdma.h"
 #include "librskt.h"
-#include "libclidb.h"
+#include "libcli.h"
 #include "liblist.h"
 #include <sys/un.h>
 #include <semaphore.h>

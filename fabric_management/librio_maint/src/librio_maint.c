@@ -13,6 +13,10 @@
 #include <stdio.h>
 #include <linux/rio_mport_cdev.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MAINT_SO_ATTR __attribute__((visibility("default")))
 
 struct rio_maint {
@@ -28,7 +32,7 @@ int MAINT_SO_ATTR rio_maint_init(uint8_t mport_id, rio_maint_handle *handle)
 		return -EINVAL;
 
 	sprintf(dev, "/dev/rio_mport%u", mport_id);
-	h = malloc(sizeof(*h));
+	h = (rio_maint *)malloc(sizeof(*h));
 	if (!h)
 		return -ENOMEM;
 
@@ -54,14 +58,9 @@ void MAINT_SO_ATTR rio_maint_shutdown(rio_maint_handle *handle)
 int MAINT_SO_ATTR rio_maint_read_local(rio_maint_handle handle, uint32_t offset, uint32_t *data)
 {
 	uint32_t loc_data;
-	struct rio_mport_maint_io io = {
-		.rioid = 0,
-		.hopcount = 0,
-		.offset = offset,
-		.length = 4,
-		.u.buffer = &loc_data,
-	};
+	struct rio_mport_maint_io io = {0, 0, offset, 4, 0 };
 
+	io.u.buffer = &loc_data;
 	if (!handle)
 		return -EINVAL;
 
@@ -75,14 +74,9 @@ int MAINT_SO_ATTR rio_maint_read_local(rio_maint_handle handle, uint32_t offset,
 int MAINT_SO_ATTR rio_maint_write_local(rio_maint_handle handle, uint32_t offset, uint32_t data)
 {
 	uint32_t loc_data = data;
-	struct rio_mport_maint_io io = {
-		.rioid = 0,
-		.hopcount = 0,
-		.offset = offset,
-		.length = 4,
-		.u.buffer = &loc_data,
-	};
+	struct rio_mport_maint_io io = {0, 0, offset, 4, 0};
 
+	io.u.buffer = &loc_data;
 	if (!handle)
 		return -EINVAL;
 
@@ -97,13 +91,9 @@ int MAINT_SO_ATTR rio_maint_read_remote(rio_maint_handle handle, uint32_t dest_i
 		uint32_t *data, uint32_t word_count)
 {
 	uint32_t loc_data;
-	struct rio_mport_maint_io io = {
-		.rioid = dest_id,
-		.hopcount = hop_count,
-		.offset = offset,
-		.length = 4,
-		.u.buffer = &loc_data,
-	};
+	struct rio_mport_maint_io io = {dest_id, hop_count, offset, 4, 0};
+
+	io.u.buffer = &loc_data;
 
 	if (!handle || (word_count != 1))
 		return -EINVAL;
@@ -119,13 +109,8 @@ int MAINT_SO_ATTR rio_maint_write_remote(rio_maint_handle handle, uint32_t dest_
 		uint32_t offset, uint32_t *data, uint32_t word_count)
 {
 	uint32_t loc_data = *data;
-	struct rio_mport_maint_io io = {
-		.rioid = dest_id,
-		.hopcount = hop_count,
-		.offset = offset,
-		.length = 4,
-		.u.buffer = &loc_data,
-	};
+	struct rio_mport_maint_io io = {dest_id, hop_count, offset, 4, 0};
+	io.u.buffer = &loc_data;
 
 	if (!handle || (word_count != 1))
 		return -EINVAL;
@@ -135,3 +120,7 @@ int MAINT_SO_ATTR rio_maint_write_remote(rio_maint_handle handle, uint32_t dest_
 
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

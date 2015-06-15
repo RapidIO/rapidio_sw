@@ -17,6 +17,10 @@
 
 #include "llist.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Add entry to linked list
  * @param head List head
@@ -35,7 +39,8 @@ int RIOCP_SO_ATTR riocp_pe_llist_add(struct riocp_pe_llist_item *head, void *dat
 	while (cur->next != NULL)
 		cur = cur->next;
 
-	cur->next = calloc(1, sizeof(struct riocp_pe_llist_item));
+	cur->next = (struct riocp_pe_llist_item *)
+		calloc(1, sizeof(struct riocp_pe_llist_item));
 	cur->next->next = NULL;
 	cur->next->data = data;
 
@@ -120,3 +125,7 @@ int RIOCP_SO_ATTR riocp_pe_llist_free(struct riocp_pe_llist_item *head)
 
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

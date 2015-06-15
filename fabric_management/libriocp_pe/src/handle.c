@@ -13,8 +13,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-
-#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 #include <sys/ioctl.h>
@@ -32,6 +30,10 @@
 #include "switch.h"
 #include "rio_regs.h"
 #include "rio_devs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /** List of created PE handles behind every MPort */
 static struct riocp_pe_llist_item riocp_pe_mport_handles;
@@ -135,7 +137,7 @@ int RIOCP_SO_ATTR riocp_pe_handle_check(riocp_pe_handle handle)
 
 	/* Search handle in every mport handles list */
 	riocp_pe_llist_foreach(item, &riocp_pe_mport_handles) {
-		mport = item->data;
+		mport = (struct riocp_pe *)item->data;
 		if (mport && mport->minfo) {
 			RIOCP_TRACE("Search handle in mport %u\n", mport->minfo->id);
 			if (riocp_pe_llist_find(&mport->minfo->handles, handle)) {
@@ -254,7 +256,7 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 			*handle, (*handle)->comptag);
 		rio_maint_shutdown(&((*handle)->minfo->maint));
 		riocp_pe_llist_foreach_safe(item, next, &(*handle)->minfo->handles) {
-			p = item->data;
+			p = (struct riocp_pe *)item->data;
 			if (p)
 				riocp_pe_handle_destroy(&p);
 		}
@@ -331,12 +333,12 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 	RIOCP_TRACE("Creating new handle\n");
 
 	/* Create new empty handle */
-	h = calloc(1, sizeof(struct riocp_pe));
+	h = (struct riocp_pe *)calloc(1, sizeof(struct riocp_pe));
 	if (h == NULL)
 		return -ENOMEM;
 
 	/* Create port field */
-	h->port = calloc(1, sizeof(struct riocp_pe_port));
+	h->port = (struct riocp_pe_port *)calloc(1, sizeof(struct riocp_pe_port));
 	if (h->port == NULL) {
 		ret = -ENOMEM;
 		goto err;
@@ -352,7 +354,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 	/* Allocate space for address used to access this PE
 		and copy port list from PE to new peer handle */
 	if (hopcount > 0) {
-		h->address = malloc(sizeof(*h->address) * hopcount);
+		h->address = (uint8_t *)malloc(sizeof(*h->address) * hopcount);
 		if (h->address == NULL) {
 			RIOCP_ERROR("Unable to allocate memory for h->address\n");
 			ret = -ENOMEM;
@@ -438,7 +440,8 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 	/* Initialize switch port event mask and attach switch driver */
 	if (RIOCP_PE_IS_SWITCH(h->cap)) {
 		if (RIOCP_PE_IS_HOST(h)) {
-			h->port_event_mask = calloc(RIOCP_PE_PORT_COUNT(h->cap),
+			h->port_event_mask = (riocp_pe_event_mask_t *)
+				calloc(RIOCP_PE_PORT_COUNT(h->cap),
 				sizeof(*h->port_event_mask));
 			if (h->port_event_mask == NULL) {
 				RIOCP_ERROR("Unable to allocate memory for h->port_event_mask\n");
@@ -462,7 +465,9 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 	}
 
 	/* Create PE peers placeholders and connect new handle (h) to PE */
-	h->peers = calloc(RIOCP_PE_PORT_COUNT(h->cap), sizeof(struct riocp_pe_peer));
+	h->peers = (struct riocp_pe_peer *)
+		calloc(RIOCP_PE_PORT_COUNT(h->cap),
+						sizeof(struct riocp_pe_peer));
 	if (h->peers == NULL) {
 		RIOCP_ERROR("Unable to allocate memory for h->peers\n");
 		ret = -ENOMEM;
@@ -507,19 +512,19 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 	RIOCP_TRACE("Creating mport %d handle\n", mport);
 
 	/* Create new empty handle */
-	h = calloc(1, sizeof(struct riocp_pe));
+	h = (struct riocp_pe *)calloc(1, sizeof(struct riocp_pe));
 	if (h == NULL)
 		return -ENOMEM;
 
 	/* Create port field */
-	h->port = calloc(1, sizeof(struct riocp_pe_port));
+	h->port = (struct riocp_pe_port *)calloc(1, sizeof(struct riocp_pe_port));
 	if (h->port == NULL) {
 		ret = -ENOMEM;
 		goto err;
 	}
 
 	/* Create mport information */
-	h->minfo = calloc(1, sizeof(*h->minfo));
+	h->minfo = (struct riocp_pe_mport *)calloc(1, sizeof(*h->minfo));
 	if (h->minfo == NULL) {
 		ret = -ENOMEM;
 		goto err;
@@ -597,7 +602,8 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 		goto err;
 	}
 
-	h->peers = calloc(RIOCP_PE_PORT_COUNT(h->cap), sizeof(struct riocp_pe_peer));
+	h->peers = (struct riocp_pe_peer *)calloc(RIOCP_PE_PORT_COUNT(h->cap),
+						sizeof(struct riocp_pe_peer));
 	if (h->peers == NULL) {
 		RIOCP_ERROR("Unable to allocate memory for h->peers\n");
 		ret = -ENOMEM;
@@ -671,7 +677,7 @@ int riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag, struct r
 
 	/* Loop trough all mport handles */
 	riocp_pe_llist_foreach(item, &riocp_pe_mport_handles) {
-		p = item->data;
+		p = (struct riocp_pe *)item->data;
 		if (p)
 			if (p->comptag == comptag &&
 				p->mport->minfo->is_host == mport->minfo->is_host)
@@ -708,7 +714,7 @@ int riocp_pe_handle_mport_exists(uint8_t mport, bool is_host, struct riocp_pe **
 	struct riocp_pe *p;
 
 	riocp_pe_llist_foreach(item, &riocp_pe_mport_handles) {
-		p = item->data;
+		p = (struct riocp_pe *)item->data;
 		if (p) {
 			if (is_host == p->mport->minfo->is_host &&
 				mport == p->mport->minfo->id) {
@@ -757,13 +763,13 @@ int RIOCP_SO_ATTR riocp_pe_handle_get_list(riocp_pe_handle mport,
 
         /* Count amount of handles in mport handles list */
         riocp_pe_llist_foreach(item, &mport->minfo->handles) {
-                p = item->data;
+                p = (struct riocp_pe *)item->data;
                 if (!p)
                         continue;
                 handle_counter++;
         }
 
-        _pe_list = calloc(handle_counter, sizeof(riocp_pe_handle));
+        _pe_list = (struct riocp_pe **)calloc(handle_counter, sizeof(riocp_pe_handle));
         if (_pe_list == NULL) {
                 RIOCP_TRACE("Could not allocate handle list\n");
                 return -ENOMEM;
@@ -775,7 +781,7 @@ int RIOCP_SO_ATTR riocp_pe_handle_get_list(riocp_pe_handle mport,
         /* Copy mport handles list pointers to newlist */
         _pe_list_size = 1;
         riocp_pe_llist_foreach(item, &mport->minfo->handles) {
-                p = item->data;
+                p = (struct riocp_pe *)item->data;
                 if (!p)
                         continue;
                 _pe_list[_pe_list_size] = p;
@@ -877,7 +883,8 @@ int RIOCP_SO_ATTR riocp_pe_handle_get_peer_list(riocp_pe_handle pe,
 		return -EINVAL;
 	}
 
-	_peer_list = calloc(RIOCP_PE_PORT_COUNT(pe->cap), sizeof(riocp_pe_handle));
+	_peer_list = (struct riocp_pe **)
+		calloc(RIOCP_PE_PORT_COUNT(pe->cap), sizeof(riocp_pe_handle));
 	if (_peer_list == NULL) {
 		RIOCP_TRACE("Could not allocate peer handle list\n");
 		return -ENOMEM;
@@ -909,3 +916,7 @@ int RIOCP_SO_ATTR riocp_pe_handle_free_list(riocp_pe_handle **list)
 
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

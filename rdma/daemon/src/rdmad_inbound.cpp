@@ -39,7 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 
 #include "rdma_types.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 #include "rdmad_msubspace.h"
 #include "rdmad_mspace.h"

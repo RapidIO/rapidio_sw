@@ -14,6 +14,10 @@
 
 #include "pe.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RIOCP_PE_SWITCH_PORT_UNMAPPED 0xff
 
 extern struct riocp_pe_switch riocp_pe_switch_std;
@@ -39,5 +43,9 @@ int RIOCP_WU riocp_pe_switch_get_lane_width(struct riocp_pe *sw, uint8_t port, u
 int RIOCP_WU riocp_pe_switch_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_port_state_t *state);
 int RIOCP_WU riocp_pe_switch_handle_event(struct riocp_pe *sw, struct rio_event *revent,
 	struct riocp_pe_event *event);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RIOCP_PE_SWITCH_H__ */

@@ -48,9 +48,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd.h"
 #include "librsktd_private.h"
 #include "liblist.h"
-#include "libclidb.h"
+#include "libcli.h"
 
-#include "rdma_logger.h"
+#include "liblog.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,18 +59,18 @@ extern "C" {
 struct librskt_globals lib;
 
 char *rskt_state_strs[rskt_max_state] = {
-	"UNINIT",
-	"Allocd",
-	"Bound ",
-	"NoConn",
-	"Listen",
-	"Accept",
-	"Coning",
-	"CONNED",
-	"Shutng",
-	"Closng",
-	"SHTDWN",
-	"CLOSED"
+	(char *)"UNINIT",
+	(char *)"Allocd",
+	(char *)"Bound ",
+	(char *)"NoConn",
+	(char *)"Listen",
+	(char *)"Accept",
+	(char *)"Coning",
+	(char *)"CONNED",
+	(char *)"Shutng",
+	(char *)"Closng",
+	(char *)"SHTDWN",
+	(char *)"CLOSED"
 };
 
 void rskt_clear_skt(struct rskt_socket_t *skt) 
@@ -125,7 +125,7 @@ int librskt_wait_for_sem(sem_t *sema, int err_code)
 int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx, 
 			struct librskt_rsktd_to_app_msg *rx)
 {
-	struct rsvp_li *rsvp = malloc(sizeof(struct rsvp_li));
+	struct rsvp_li *rsvp = (struct rsvp_li *)malloc(sizeof(struct rsvp_li));
 	int rc = 0;
 	struct l_item_t *li = NULL;
 	uint32_t seq_num;
@@ -282,7 +282,9 @@ void rsvp_loop_req(struct librskt_rsktd_to_app_msg *rxd)
 void *rsvp_loop(void *unused)
 {
 	int rc;
-	struct librskt_rsktd_to_app_msg *rxd = malloc(RSKTD2A_SZ);
+	struct librskt_rsktd_to_app_msg *rxd = 
+			(struct librskt_rsktd_to_app_msg *)
+			malloc(RSKTD2A_SZ);
 
 	while (!lib.all_must_die) {
 		memset((void *)rxd, 0, RSKTD2A_SZ);
@@ -295,7 +297,8 @@ void *rsvp_loop(void *unused)
 			rsvp_loop_resp(rxd);
 		} else {
 			rsvp_loop_req(rxd);
-			rxd = malloc(RSKTD2A_SZ);
+			rxd = (struct librskt_rsktd_to_app_msg *)
+				malloc(RSKTD2A_SZ);
 		};
 	};
 exit:
@@ -573,7 +576,8 @@ int rskt_alloc_skt(rskt_h skt_h)
 {
 	int rc = 1;
 
-       	skt_h->skt = malloc(sizeof(struct rskt_socket_t));
+       	skt_h->skt = (struct rskt_socket_t *)
+		malloc(sizeof(struct rskt_socket_t));
 	if (NULL == skt_h->skt) {
 		goto fail;
 	};
@@ -588,7 +592,7 @@ fail:
 
 rskt_h rskt_create_socket(void) 
 {
-	rskt_h skt_h = malloc(sizeof(struct rskt_handle_t));
+	rskt_h skt_h = (rskt_h)malloc(sizeof(struct rskt_handle_t));
 
 	if (NULL == skt_h)
 		goto fail;
@@ -637,7 +641,7 @@ void lib_rem_skt_from_list(rskt_h skt_h, struct rskt_socket_t *skt)
 
 	if (librskt_wait_for_sem(&lib.skts_mtx, 0x1080))
 		return;
-	l_skt = l_find(&lib.skts, skt->sa.sn, &li);
+	l_skt = (rskt_h)l_find(&lib.skts, skt->sa.sn, &li);
 	if (skt_h == l_skt)
 		l_lremove(&lib.skts, li); /* Do not deallocate socket */
 	sem_post(&lib.skts_mtx);
@@ -670,8 +674,8 @@ int rskt_bind(rskt_h skt_h, struct rskt_sockaddr *sock_addr)
 	skt->sa.ct = lib.ct;
 	skt->sai.sa.ct = sock_addr->ct;
 
-	tx = malloc(A2RSKTD_SZ);
-	rx = malloc(RSKTD2A_SZ);
+	tx = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
+	rx = (struct librskt_rsktd_to_app_msg *)malloc(RSKTD2A_SZ);
 
 	tx->msg_type = LIBRSKTD_BIND;
 	tx->a_rq.msg.bind.sn = htonl(sock_addr->sn);
@@ -720,8 +724,8 @@ int rskt_listen(rskt_h skt_h, int max_backlog)
 
 	skt->max_backlog = max_backlog;
 
-	tx = malloc(A2RSKTD_SZ);
-	rx = malloc(RSKTD2A_SZ);
+	tx = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
+	rx = (struct librskt_rsktd_to_app_msg *)malloc(RSKTD2A_SZ);
 
 	tx->msg_type = LIBRSKTD_LISTEN;
 	tx->a_rq.msg.listen.sn = htonl(skt->sa.sn);
@@ -812,8 +816,8 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		goto exit;
 	}
 
-	tx = malloc(A2RSKTD_SZ);
-	rx = malloc(RSKTD2A_SZ);
+	tx = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
+	rx = (struct librskt_rsktd_to_app_msg *)malloc(RSKTD2A_SZ);
 
 	tx->msg_type = LIBRSKTD_ACCEPT;
 	tx->a_rq.msg.accept.sn = htonl(l_skt->sa.sn);
@@ -947,12 +951,12 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		goto exit;
 	}
 
-	tx = malloc(A2RSKTD_SZ);
+	tx = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
 	if (!tx) {
 		CRIT("Failed to malloc() tx..exiting\n");
 		goto exit;
 	}
-	rx = malloc(RSKTD2A_SZ);
+	rx = (struct librskt_rsktd_to_app_msg *)malloc(RSKTD2A_SZ);
 	if (!rx) {
 		CRIT("Failed to malloc() rx..exiting\n");
 		goto exit;
@@ -1426,8 +1430,8 @@ int rskt_close(rskt_h skt_h)
 	if (NULL == skt)
 		return 0;
 
-	tx = malloc(A2RSKTD_SZ);
-	rx = malloc(RSKTD2A_SZ);
+	tx = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
+	rx = (struct librskt_rsktd_to_app_msg *)malloc(RSKTD2A_SZ);
 
 	tx->msg_type = LIBRSKTD_CLOSE;
 	tx->a_rq.msg.close.sn = htonl(skt->sa.sn);

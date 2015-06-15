@@ -36,6 +36,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dev_db_rw_cmds.h"
 #include "dev_db_sm.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int cli_init_base(void)
 {
 	init_cmd_db();
@@ -46,3 +50,7 @@ int cli_init_base(void)
 
 	return 0;
 };
+
+#ifdef __cplusplus
+}
+#endif

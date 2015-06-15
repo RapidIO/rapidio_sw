@@ -34,6 +34,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cli_cmd_line.h"
 #include "string.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MAX_CMDS 100
 #define MIN(a, b) ((a < b)?a:b)
 
@@ -83,7 +87,7 @@ int add_commands_to_cmd_db(int num_cmds, const struct cli_cmd **cmd_list)
 int find_cmd(char *cmd_name, const struct cli_cmd **cmd)
 {
 	int    i;
-	size_t numChars;
+	int numChars;
 	int    foundIndex = -1;
 
 	*cmd = NULL;
@@ -170,11 +174,11 @@ int CLIHelpCmd(struct cli_env *env, int argc, char **argv)
 };
 
 const struct cli_cmd CLIHelp = {
-"?",
+(char *)"?",
 1,
 0,
-"Help command, lists all commands or detailed help for one command",
-"<cmd>\n"
+(char *)"Help command, lists all commands or detailed help for one command",
+(char *)"<cmd>\n"
 	"If no command is entered, briefly lists all available commands.\n"
 	"If a command name is entered, gives detailed help for that command.\n",
 CLIHelpCmd,
@@ -190,3 +194,7 @@ int init_cmd_db(void)
 
 	return 0;
 };
+
+#ifdef __cplusplus
+}
+#endif

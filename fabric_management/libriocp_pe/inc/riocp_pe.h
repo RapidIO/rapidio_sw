@@ -10,6 +10,10 @@
 #include <errno.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RIOCP_PE_LIB_REV 0
 #define RIOCP_WU __attribute__((warn_unused_result))
 
@@ -135,5 +139,9 @@ int riocp_pe_maint_read(riocp_pe_handle pe, uint32_t offset, uint32_t *val);
 int riocp_pe_maint_write(riocp_pe_handle pe, uint32_t offset, uint32_t val);
 const char *riocp_pe_get_device_name(riocp_pe_handle pe);
 const char *riocp_pe_get_vendor_name(riocp_pe_handle pe);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* RIOCP_H_ */

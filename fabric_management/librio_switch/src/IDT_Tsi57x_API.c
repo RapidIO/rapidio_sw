@@ -34,6 +34,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tsi578.h"
 #include "Tsi575.h"
 #include <string.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // CHANGES
 //
@@ -162,7 +167,7 @@ void getTsiName(DAR_DEV_INFO_t *dev_info)
 #define SCRPAD_FIRST_IDX    0
 #define SCRPAD_MASK_IDX     (SCRPAD_FIRST_IDX+Tsi578_MAX_MC_MASKS)
 
-#define ALL_BITS ((UINT32)(0xFFFFFFFF))
+#define ALL_BITS ((uint32_t)(0xFFFFFFFF))
 #define MC_IDX_MASK (Tsi578_RIO_MC_IDX_MC_ID| \
 		Tsi578_RIO_MC_IDX_LARGE_SYS| \
 		Tsi578_RIO_MC_IDX_MC_EN)
@@ -943,9 +948,9 @@ determine_ports_to_skip_exit:
 
 typedef struct powerup_reg_offsets_t_TAG
 {
-   UINT32 offset;          // Base register address
-   UINT32 per_port_offset; // If there is a per-port offset
-   UINT32 mask;            // Mask applied to zero out fields 
+   uint32_t offset;          // Base register address
+   uint32_t per_port_offset; // If there is a per-port offset
+   uint32_t mask;            // Mask applied to zero out fields 
                            //    that should not be preserved.
 } powerup_reg_offsets_t;
 
@@ -953,33 +958,33 @@ powerup_reg_offsets_t reg_offsets[]=
 // Start of global registers with per-port copies that must be preserved
 { 
 // Start of per-port registers that must be preserved
-  { Tsi578_SPX_CTL(0)             , 0x20, ALL_BITS  },
-  { Tsi578_SPX_RATE_EN(0)         , 0x40, ALL_BITS  },
-  { Tsi578_SPX_ERR_RATE(0)        , 0x40, ~Tsi578_SPX_ERR_RATE_ERR_RATE_CNT  },
-  { Tsi578_SPX_ERR_THRESH(0)      , 0x40, ALL_BITS  },
-  { Tsi578_SPX_DISCOVERY_TIMER(0) , 0x100, ALL_BITS },
-  { Tsi578_SPX_MODE(0)            , 0x100, ALL_BITS },
-  { Tsi578_SPX_RIO_WM(0)          , 0x100, ALL_BITS },
-  { Tsi578_SPX_ROUTE_CFG_DESTID(0), 0x100, ALL_BITS },
-  { Tsi578_SPX_ROUTE_BASE(0)      , 0x100, ALL_BITS },
-  { Tsi578_SPX_CTL_INDEP(0)       , 0x100, ALL_BITS },
-  { Tsi578_SPX_SILENCE_TIMER(0)   , 0x100, ALL_BITS },
-  { Tsi578_RIOX_MC_LAT_LIMIT(0)   , 0x100, ALL_BITS },
-  { Tsi578_SPX_PSC0n1_CTRL(0)     , 0x100, ALL_BITS }, 
-  { Tsi578_SPX_PSC2n3_CTRL(0)     , 0x100, ALL_BITS }, 
-  { Tsi578_SPX_PSC4n5_CTRL(0)     , 0x100, ALL_BITS },
-  { Tsi578_SPX_TX_Q_D_THRESH(0)   , 0x100, ALL_BITS },
-  { Tsi578_SPX_TX_Q_STATUS(0)     , 0x100, Tsi578_SPX_TX_Q_STATUS_CONG_THRESH }, //  MASK
-  { Tsi578_SPX_TX_Q_PERIOD(0)     , 0x100, ALL_BITS },
-  { Tsi578_SPX_RX_Q_D_THRESH(0)   , 0x100, ALL_BITS },
-  { Tsi578_SPX_RX_Q_STATUS(0)     , 0x100, Tsi578_SPX_RX_Q_STATUS_CONG_THRESH }, //  MASK
-  { Tsi578_SPX_RX_Q_PERIOD(0)     , 0x100, ALL_BITS },
-  { Tsi578_SPX_REORDER_CTR(0)     , 0x100, Tsi578_SPX_REORDER_CTR_THRESH  }, //  MASK
-  { Tsi578_SPX_ISF_WM(0)          , 0x100, ALL_BITS },
-  { Tsi578_SPX_WRR_0(0)           , 0x100, ALL_BITS }, 
-  { Tsi578_SPX_WRR_1(0)           , 0x100, ALL_BITS },
-  { Tsi578_SPX_WRR_2(0)           , 0x100, ALL_BITS },
-  { Tsi578_SPX_WRR_3(0)           , 0x100, ALL_BITS } 
+  { (uint32_t)Tsi578_SPX_CTL(0)             , (uint32_t)0x20, ALL_BITS  },
+  { (uint32_t)Tsi578_SPX_RATE_EN(0)         , (uint32_t)0x40, ALL_BITS  },
+  { (uint32_t)Tsi578_SPX_ERR_RATE(0)        , (uint32_t)0x40, (uint32_t)~Tsi578_SPX_ERR_RATE_ERR_RATE_CNT  },
+  { (uint32_t)Tsi578_SPX_ERR_THRESH(0)      , (uint32_t)0x40, ALL_BITS  },
+  { (uint32_t)Tsi578_SPX_DISCOVERY_TIMER(0) , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_MODE(0)            , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_RIO_WM(0)          , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_ROUTE_CFG_DESTID(0), (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_ROUTE_BASE(0)      , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_CTL_INDEP(0)       , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_SILENCE_TIMER(0)   , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_RIOX_MC_LAT_LIMIT(0)   , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_PSC0n1_CTRL(0)     , (uint32_t)0x100, ALL_BITS }, 
+  { (uint32_t)Tsi578_SPX_PSC2n3_CTRL(0)     , (uint32_t)0x100, ALL_BITS }, 
+  { (uint32_t)Tsi578_SPX_PSC4n5_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_TX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_TX_Q_STATUS(0)     , (uint32_t)0x100, (uint32_t)Tsi578_SPX_TX_Q_STATUS_CONG_THRESH }, //  MASK
+  { (uint32_t)Tsi578_SPX_TX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_RX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_RX_Q_STATUS(0)     , (uint32_t)0x100, (uint32_t)Tsi578_SPX_RX_Q_STATUS_CONG_THRESH }, //  MASK
+  { (uint32_t)Tsi578_SPX_RX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_REORDER_CTR(0)     , (uint32_t)0x100, (uint32_t)Tsi578_SPX_REORDER_CTR_THRESH  }, //  MASK
+  { (uint32_t)Tsi578_SPX_ISF_WM(0)          , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_WRR_0(0)           , (uint32_t)0x100, ALL_BITS }, 
+  { (uint32_t)Tsi578_SPX_WRR_1(0)           , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_WRR_2(0)           , (uint32_t)0x100, ALL_BITS },
+  { (uint32_t)Tsi578_SPX_WRR_3(0)           , (uint32_t)0x100, ALL_BITS } 
 };
 
 #define PRESERVED_REGS_SIZE ((UINT32)(sizeof(reg_offsets)/sizeof(reg_offsets[0])))
@@ -5771,3 +5776,6 @@ UINT32 bind_tsi57x_DSF_support( void )
     return RIO_SUCCESS;
 }
 
+#ifdef __cplusplus
+}
+#endif

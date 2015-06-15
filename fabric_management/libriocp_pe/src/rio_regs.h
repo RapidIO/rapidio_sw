@@ -18,6 +18,10 @@
 #ifndef LINUX_RIO_REGS_H
 #define LINUX_RIO_REGS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * In RapidIO, each device has a 16MB configuration space that is
  * accessed via maintenance transactions.  Portions of configuration
@@ -323,5 +327,9 @@
 #define RIO_EM_PN_PKT_CAP_3(x)	(0x058 + x*0x40) /* Port N Packet Capture 3 CSR */
 #define RIO_EM_PN_ERRRATE(x)	(0x068 + x*0x40) /* Port N Error Rate CSR */
 #define RIO_EM_PN_ERRRATE_TR(x) (0x06c + x*0x40) /* Port N Error Rate Threshold CSR */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif				/* LINUX_RIO_REGS_H */

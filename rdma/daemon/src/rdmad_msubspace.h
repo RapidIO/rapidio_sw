@@ -39,7 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <inttypes.h>
 
 #include "rdma_types.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 
 class msubspace

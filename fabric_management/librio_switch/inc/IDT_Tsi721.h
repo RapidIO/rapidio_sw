@@ -28,6 +28,10 @@
 #ifndef _IDT_TSI721_H_
 #define _IDT_TSI721_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*****************************************************/
 /* TSI721 : PCIe Register address offset definitions */
 /*****************************************************/
@@ -3439,5 +3443,9 @@
 #define TSI721_NUM_WA_REGS            4
 #define TSI721_WA_VAL_5G              0x0000006F
 #define TSI721_WA_VAL_3G              0x0000000F
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _IDT_TSI721_H_  */

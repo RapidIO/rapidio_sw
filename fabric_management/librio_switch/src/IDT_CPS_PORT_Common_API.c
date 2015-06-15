@@ -37,6 +37,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <CPS1848_registers.h>
 #include <CPS1616_registers.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define INVALID_PLL 0xFF
 #define MAX_CPS_PLL 2
 #define MAX_CPS_DEP_PORTS 3
@@ -2685,3 +2689,6 @@ IDT_CPS_pc_dev_reset_config_exit:
     return rc;
 }
 
+#ifdef __cplusplus
+}
+#endif

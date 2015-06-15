@@ -70,4 +70,6 @@ clean:
 	$(MAKE) clean -C libcli
 	$(MAKE) clean -C liblist
 	$(MAKE) clean -C liblog
+	rm -f libs_a/*
+	rm -f libs_so/*
 

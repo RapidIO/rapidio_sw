@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <pthread.h>
 
-#include "rdma_logger.h"
+#include "liblog.h"
 #include "rdmad_cm.h"
 #include "rdma_mq_msg.h"
 #include "cm_sock.h"

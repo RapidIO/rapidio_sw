@@ -5,7 +5,7 @@
 #include <iostream>
 #include <memory>
 
-#include "rdma_logger.h"
+#include "liblog.h"
 #include "cm_sock.h"
 
 using namespace std;

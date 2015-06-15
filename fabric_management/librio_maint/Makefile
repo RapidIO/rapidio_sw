@@ -6,11 +6,20 @@ NAME:=rio_maint
 TARGETS:=lib$(NAME).a $(NAME)
 HEADERS:=inc/lib$(NAME).h
 
-CROSS_COMPILE?=/usr/bin/
-INCDIR?=/usr/src/linux/include
+KDIR=/usr/src/linux
 
-CC:=$(CROSS_COMPILE)gcc
-AR:=$(CROSS_COMPILE)ar
+LINUX_INCLUDE_DIR ?= $(KDIR)/include
+
+LOG_LEVEL?=6
+
+DEBUG?=DEBUG
+
+TOP_LEVEL = $(shell pwd)
+
+CROSS_COMPILE?=/usr/bin/
+
+CXX ?= $(CROSS_COMPILE)g++
+AR?=$(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
 CFLAGS+=-O2 -DNDEBUG -g
@@ -26,10 +35,10 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 $(NAME): lib$(NAME).a
-	$(CC) $(CFLAGS) -o $@ tests/*.c $(LDFLAGS)
+	$(CXX) $(CFLAGS) -o $@ tests/*.c $(LDFLAGS)
 
 src/%.o: src/%.c $(HEADERS)
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CFLAGS) $< -o $@
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS)

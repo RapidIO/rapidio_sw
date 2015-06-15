@@ -29,8 +29,8 @@ LIB_DIRS?=-L$(COMMON_DIR)/libs_a -L$(COMMON_DIR)/libs_so \
 	-L$(RSKT_DIR) -L$(RDMA_DIR) -L$(MPORT_DIR) 
 	
 
-CC:=$(CROSS_COMPILE)gcc
-AR:=$(CROSS_COMPILE)ar
+CXX ?= $(CROSS_COMPILE)g++
+AR ?= $(CROSS_COMPILE)ar
 
 DAEMON_OBJS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 

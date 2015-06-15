@@ -33,6 +33,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _CPS1848_REGISTERS_H_
 #define _CPS1848_REGISTERS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CPS_MAX_MC_MASKS 40
 
 /**************************************************/
@@ -1775,5 +1779,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CPS1848_BCAST_PORT_ERR_RATE_EN_UNEXP_ACKID_EN              (0x00200000)
 #define CPS1848_BCAST_PORT_ERR_RATE_EN_CS_CRC_ERR_EN               (0x00400000)
 #define CPS1848_BCAST_PORT_ERR_RATE_EN_IMP_SPEC_ERR_EN             (0x80000000)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

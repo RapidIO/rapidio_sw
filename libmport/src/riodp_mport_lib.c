@@ -605,7 +605,7 @@ int riodp_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 	/* TODO claim mbox_id */
 
 	/* Create handle */
-	lhandle = malloc(sizeof(struct riodp_mailbox));
+	lhandle = (struct riodp_mailbox *)malloc(sizeof(struct riodp_mailbox));
 	if(!(lhandle)) {
 		close(fd);
 		return -1;
@@ -622,7 +622,7 @@ int riodp_socket_socket(riodp_mailbox_t mailbox, riodp_socket_t *socket_handle)
 	struct riodp_socket *handle = NULL;
 
 	/* Create handle */
-	handle = calloc(1, sizeof(struct riodp_socket));
+	handle = (struct riodp_socket *)calloc(1, sizeof(struct riodp_socket));
 	if(!handle) {
 		printf("error in calloc\n");
 		return -1;

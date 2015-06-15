@@ -64,6 +64,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cli_cmd_line.h"
 #include "cli_parse.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void fmd_print_help(void)
 {
 	printf("\nThe RapidIO Fabric Management Daemon (\"FMD\") manages a\n");
@@ -80,6 +84,8 @@ void fmd_print_help(void)
 	printf("-n, -N: Do not start console CLI.\n");
 	printf("-p<port>: POSIX Ethernet socket for remote CLI.\n");
 	printf("       Default is %d\n", FMD_DFLT_CLI_PORT_NUM);
+	printf("-s, -S: Simple initialization, do not populate device dir.\n");
+	printf("       Default is %d\n", FMD_DFLT_INIT_DD);
 	printf("-x, -X: Initialize and then immediately exit.\n");
 };
 
@@ -87,7 +93,7 @@ void update_string(char **value, char *parm, int len)
 {
 	if (NULL != *value)
 		free(*value);
-	*value = malloc(len+1);
+	*value = (char *)malloc(len+1);
 	(*value)[len] = 0;
 	memcpy(*value, parm, len);
 };
@@ -112,14 +118,15 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 {
 	int idx, i;
 
-	char *dflt_fmd_cfg = FMD_DFLT_CFG_FN;
-	char *dflt_dd_fn = FMD_DFLT_DD_FN;
-	char *dflt_dd_mtx_fn = FMD_DFLT_DD_MTX_FN;
+	char *dflt_fmd_cfg = (char *)FMD_DFLT_CFG_FN;
+	char *dflt_dd_fn = (char *)FMD_DFLT_DD_FN;
+	char *dflt_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	struct fmd_cfg_parms *cfg;
 
-	cfg = calloc(sizeof(struct fmd_cfg_parms), 1);
+	cfg = (struct fmd_cfg_parms *)malloc(sizeof(struct fmd_cfg_parms));
 	cfg->init_err = 0;
 	cfg->init_and_quit = 0;
+	cfg->simple_init = 0;
 	cfg->cli_port_num = FMD_DFLT_CLI_PORT_NUM;
 	cfg->run_cons = 1;
 	cfg->mast_idx = FMD_SLAVE;
@@ -133,16 +140,9 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 	cfg->mast_devid = FMD_DFLT_MAST_DEVID;
 	cfg->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
 	cfg->mast_interval = FMD_DFLT_MAST_INTERVAL;
-
-	/* set default filenames */
-	cfg->fmd_cfg = malloc(strlen(dflt_fmd_cfg) + 1);
-	strcpy(cfg->fmd_cfg , dflt_fmd_cfg);
-
-	cfg->dd_fn = malloc(strlen(dflt_dd_fn) + 1);
-	strcpy(cfg->dd_fn, dflt_dd_fn);
-
-	cfg->dd_mtx_fn = malloc(strlen(dflt_dd_mtx_fn) + 1);
-	strcpy(cfg->dd_mtx_fn, dflt_dd_mtx_fn);
+	update_string(&cfg->fmd_cfg, dflt_fmd_cfg, strlen(dflt_fmd_cfg));
+	update_string(&cfg->dd_fn, dflt_dd_fn, strlen(dflt_dd_fn));
+	update_string(&cfg->dd_mtx_fn, dflt_dd_mtx_fn, strlen(dflt_dd_mtx_fn));
 
 	for (idx = 0; idx < argc; idx++) {
 		if (strnlen(argv[idx], 4) < 2)
@@ -178,6 +178,9 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 
 			case 'p': 
 			case 'P': cfg->cli_port_num= atoi(&argv[idx][2]);
+				  break;
+			case 's': 
+			case 'S': cfg->simple_init = 1;
 				  break;
 			case 'x': 
 			case 'X': cfg->init_and_quit = 1;
@@ -233,7 +236,7 @@ char *try_get_next_token(struct fmd_cfg_parms *cfg)
 		goto fail;
 
 	if (NULL == line) {
-		line = malloc(LINE_SIZE);
+		line = (char *)malloc(LINE_SIZE);
 		rc = NULL;
 	} else {
 		rc = strtok(NULL, delim);
@@ -285,7 +288,7 @@ int get_next_token(struct fmd_cfg_parms *cfg, char **token)
 	*token = try_get_next_token(cfg);
 
        	if (NULL == *token) 
-		parse_err(cfg, "Unexpected end of file.");
+		parse_err(cfg, (char *)"Unexpected end of file.");
 
 	return (NULL == *token);
 };
@@ -324,7 +327,7 @@ int get_devid_sz(struct fmd_cfg_parms *cfg, int *devID_sz)
 	if (get_next_token(cfg, &tok))
 		goto fail;
 
-	switch (parm_idx(tok, DEVID_SZ_TOKENS)) {
+	switch (parm_idx(tok, (char *)DEVID_SZ_TOKENS)) {
 	case 0: // "dev08"
 		*devID_sz |= FMD_DEV08;
 		break;
@@ -335,7 +338,7 @@ int get_devid_sz(struct fmd_cfg_parms *cfg, int *devID_sz)
 		*devID_sz |= FMD_DEV32;
 		break;
 	default:
-		parse_err(cfg, "Unknown devID size.");
+		parse_err(cfg, (char *)"Unknown devID size.");
 		goto fail;
 	};
 
@@ -362,7 +365,7 @@ int get_port_num(struct fmd_cfg_parms *cfg, int *pnum)
 		return 1;
 
 	if (*pnum > 17) {
-		parse_err(cfg, "Illegal portnum.");
+		parse_err(cfg, (char *)"Illegal portnum.");
 		goto fail;
 	};
 	return 0;
@@ -396,12 +399,12 @@ int get_rt_v(struct fmd_cfg_parms *cfg, int *rt_val)
 
 	if (get_next_token(cfg, &tok))
 		goto fail;
-	switch (parm_idx(tok, "MC NEXT_BYTE DEFAULT DROP")) {
+	switch (parm_idx(tok, (char *)"MC NEXT_BYTE DEFAULT DROP")) {
 	case 0: // MC
 		if (get_dec_int(cfg, rt_val))
 			goto fail;
 		if (*rt_val >= IDT_DSF_MAX_MC_MASK) {
-			parse_err(cfg, "Illegal MC Mask number.");
+			parse_err(cfg, (char *)"Illegal MC Mask number.");
 			goto fail;
 		};
 		*rt_val = *rt_val + IDT_DSF_FIRST_MC_MASK;
@@ -418,7 +421,7 @@ int get_rt_v(struct fmd_cfg_parms *cfg, int *rt_val)
 	default:
 		*rt_val = atoi(tok);
 		if (*rt_val >= IDT_DSF_FIRST_MC_MASK) {
-			parse_err(cfg, "Illegal port number.");
+			parse_err(cfg, (char *)"Illegal port number.");
 			goto fail;
 		};
 	};
@@ -473,7 +476,7 @@ int find_ep_and_port(struct fmd_cfg_parms *cfg, char *tok,
 		temp[0] = '\0';
 		*port = atoi(&temp[1]);
 		if ((*port < 0) || (*port >= FMD_MAX_EP_PORT)) {
-			parse_err(cfg, "Illegal port index.");
+			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
 		};
 	};
@@ -482,7 +485,7 @@ int find_ep_and_port(struct fmd_cfg_parms *cfg, char *tok,
 		goto fail;
 
 	if (!(*ep)->ports[*port].valid) {
-		parse_err(cfg, "Invalid port selected.");
+		parse_err(cfg, (char *)"Invalid port selected.");
 		goto fail;
 	};
 	return 0;
@@ -503,7 +506,7 @@ int find_sw_and_port(struct fmd_cfg_parms *cfg, char *tok,
 		temp[0] = '\0';
 		*port = atoi(&temp[1]);
 		if ((*port < 0) || (*port >= FMD_MAX_EP_PORT)) {
-			parse_err(cfg, "Illegal port index.");
+			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
 		};
 	};
@@ -512,7 +515,7 @@ int find_sw_and_port(struct fmd_cfg_parms *cfg, char *tok,
 		goto fail;
 
 	if (!(*sw)->ports[*port].valid) {
-		parse_err(cfg, "Invalid port selected.");
+		parse_err(cfg, (char *)"Invalid port selected.");
 		goto fail;
 	};
 	return 0;
@@ -536,18 +539,18 @@ int get_ep_sw_and_port(struct fmd_cfg_parms *cfg, struct fmd_cfg_conn_pe *pe)
 		temp[0] = '\0';
 		pe->port_num = atoi(&temp[1]);
 		if (pe->port_num < 0) {
-			parse_err(cfg, "Illegal port index.");
+			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
 		};
 	};
 
 	if (!find_ep_name(cfg, tok, &pe->ep_h)) {
 		if (pe->port_num >= FMD_MAX_EP_PORT) {
-			parse_err(cfg, "Illegal port index.");
+			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
 		};
 		if (!pe->ep_h->ports[pe->port_num].valid) {
-			parse_err(cfg, "Invalid port selected.");
+			parse_err(cfg, (char *)"Invalid port selected.");
 			goto fail;
 		};
 		return 0;
@@ -555,11 +558,11 @@ int get_ep_sw_and_port(struct fmd_cfg_parms *cfg, struct fmd_cfg_conn_pe *pe)
 
 	if (!find_sw_name(cfg, tok, &pe->sw_h)) {
 		if (pe->port_num >= FMD_MAX_SW_PORT) {
-			parse_err(cfg, "Illegal port index.");
+			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
 		};
 		if (!pe->sw_h->ports[pe->port_num].valid) {
-			parse_err(cfg, "Invalid port selected.");
+			parse_err(cfg, (char *)"Invalid port selected.");
 			goto fail;
 		};
 		return 0;
@@ -585,7 +588,7 @@ int get_destid(struct fmd_cfg_parms *cfg, int *destid, int devid_sz)
 	};
 
 	if (!ep->ports[port].devids[devid_sz].valid) {
-		parse_err(cfg, "Unconfigured devid selected.");
+		parse_err(cfg, (char *)"Unconfigured devid selected.");
 		goto fail;
 	};
 	*destid = ep->ports[port].devids[devid_sz].devid;
@@ -599,7 +602,7 @@ int parse_devid_sizes(struct fmd_cfg_parms *cfg, int *dev_id_szs)
 	int done = 0, devid_sz;
 
 	while (!done) {
-		devid_sz = get_parm_idx(cfg, DEVID_SZ_TOKENS_END);
+		devid_sz = get_parm_idx(cfg, (char *)DEVID_SZ_TOKENS_END);
 		switch (devid_sz) {
 			case 0: // dev08
 				*dev_id_szs |= FMD_DEV08;
@@ -633,7 +636,7 @@ int parse_ep_devids(struct fmd_cfg_parms *cfg, struct dev_id *devids)
 	};
 
 	while (!done) {
-		devid_sz = get_parm_idx(cfg, DEVID_SZ_TOKENS_END);
+		devid_sz = get_parm_idx(cfg, (char *)DEVID_SZ_TOKENS_END);
 		switch (devid_sz) {
 			case 0: // dev08
 			case 1: // dev16
@@ -661,7 +664,7 @@ int parse_mport_info(struct fmd_cfg_parms *cfg)
 	int idx, i;
 
 	if (cfg->max_mport_info_idx >= FMD_MAX_MPORTS) {
-		parse_err(cfg, "Too many MPORTs.");
+		parse_err(cfg, (char *)"Too many MPORTs.");
 		goto fail;
 	};
 
@@ -673,15 +676,16 @@ int parse_mport_info(struct fmd_cfg_parms *cfg)
 
 	for (i = 0; i < idx; i++) {
 		if (cfg->mport_info[i].num == cfg->mport_info[idx].num) {
-			parse_err(cfg, "Duplicate mport number.");
+			parse_err(cfg, (char *)"Duplicate mport number.");
 			goto fail;
 		};
 	};
 
-	switch (get_parm_idx(cfg, "master slave")) {
+	switch (get_parm_idx(cfg, (char *)"master slave")) {
 	case 0: // "master"
 		if (FMD_SLAVE != cfg->mast_idx) {
-			parse_err(cfg, "Only one MPORT can be master for now.");
+			parse_err(cfg, 
+			(char *)"Only one MPORT can be master for now.");
 			goto fail;
 		};
 		cfg->mport_info[idx].op_mode = FMD_OP_MODE_MASTER;
@@ -691,7 +695,7 @@ int parse_mport_info(struct fmd_cfg_parms *cfg)
 		cfg->mport_info[idx].op_mode = FMD_OP_MODE_SLAVE;
 		break;
 	default:
-		parse_err(cfg, "Unknown operating mode.");
+		parse_err(cfg, (char *)"Unknown operating mode.");
 		goto fail;
 	};
 
@@ -724,7 +728,7 @@ int parse_mc_mask(struct fmd_cfg_parms *cfg, idt_rt_mc_info_t *mc_info)
 	if (get_dec_int(cfg, &mc_mask_idx))
 		goto fail;
 	if (mc_mask_idx >= IDT_DSF_MAX_MC_MASK) {
-		parse_err(cfg, "Illegal multicast mask index.");
+		parse_err(cfg, (char *)"Illegal multicast mask index.");
 		goto fail;
 	};
 
@@ -735,14 +739,15 @@ int parse_mc_mask(struct fmd_cfg_parms *cfg, idt_rt_mc_info_t *mc_info)
 	while (!done) {
 		if (get_next_token(cfg, &tok))
 			goto fail;
-		switch (parm_idx(tok, "END")) {
+		switch (parm_idx(tok, (char *)"END")) {
 		case 0: // END
 			done = 1;
 			break;
 		default: 
 			pnum = atoi(tok);
 			if ((pnum < 0) || (pnum >= FMD_MAX_SW_PORT)) {
-				parse_err(cfg, "Illegal multicast port.");
+				parse_err(cfg, 
+					(char *)"Illegal multicast port.");
 				goto fail;
 			};
 			mc_info[mc_mask_idx].mc_mask |= (1 << pnum);
@@ -772,7 +777,7 @@ int parse_rapidio(struct fmd_cfg_parms *cfg, struct fmd_cfg_rapidio *rio)
 	if (get_idle_seq(cfg, &rio->idle2))
 		goto fail;
 
-	switch (get_parm_idx(cfg, "EM_OFF EM_ON")) {
+	switch (get_parm_idx(cfg, (char *)"EM_OFF EM_ON")) {
 	case 0: // "OFF" 
 		rio->em = 0;
 		break;
@@ -780,7 +785,7 @@ int parse_rapidio(struct fmd_cfg_parms *cfg, struct fmd_cfg_rapidio *rio)
 		rio->em = 1;
 		break;
 	default:
-		parse_err(cfg, "Unknown error management config.");
+		parse_err(cfg, (char *)"Unknown error management config.");
 		goto fail;
 	};
 
@@ -812,7 +817,7 @@ int parse_endpoint(struct fmd_cfg_parms *cfg)
 	int done = 0;
 
 	if (i >= FMD_MAX_EP) {
-		parse_err(cfg, "Too many endpoints.");
+		parse_err(cfg, (char *)"Too many endpoints.");
 		goto fail;
 	};
 
@@ -824,10 +829,10 @@ int parse_endpoint(struct fmd_cfg_parms *cfg)
 		int pt_i;
 	       	pt_i = cfg->eps[i].port_cnt;
 		if (cfg->eps[i].port_cnt >= FMD_MAX_EP_PORT) {
-			parse_err(cfg, "Too many ports!");
+			parse_err(cfg, (char *)"Too many ports!");
 			goto fail;
 		};
-		switch (get_parm_idx(cfg, "PORT PEND")) {
+		switch (get_parm_idx(cfg, (char *)"PORT PEND")) {
 		case 0: // "PORT"
 			if (parse_ep_port(cfg, &cfg->eps[i].ports[pt_i]))
 				goto fail;
@@ -837,7 +842,7 @@ int parse_endpoint(struct fmd_cfg_parms *cfg)
 			done = 1;
 			break;
 		default:
-			parse_err(cfg, "Unknown parameter.");
+			parse_err(cfg, (char *)"Unknown parameter.");
 			goto fail;
 		};
 	};
@@ -858,7 +863,7 @@ int assign_rt_v(int rt_sz, int st_destid, int end_destid, int rtv,
 	case 0: // dev08
 		if ((st_destid >= IDT_DAR_RT_DEV_TABLE_SIZE) ||
 			(end_destid >= IDT_DAR_RT_DEV_TABLE_SIZE)) {
-			parse_err(cfg, "DestID value too large.");
+			parse_err(cfg, (char *)"DestID value too large.");
 			goto fail;
 		};
 		if (st_destid > end_destid) {
@@ -874,13 +879,13 @@ int assign_rt_v(int rt_sz, int st_destid, int end_destid, int rtv,
 		};
 		break;
 	case 1: // dev16
-		parse_err(cfg, "Dev16 not supported yet.");
+		parse_err(cfg, (char *)"Dev16 not supported yet.");
 		goto fail;
 	case 2: // dev32
-		parse_err(cfg, "Dev32 not supported yet.");
+		parse_err(cfg, (char *)"Dev32 not supported yet.");
 		goto fail;
 	default:
-		parse_err(cfg, "Unknown rt size.");
+		parse_err(cfg, (char *)"Unknown rt size.");
 		goto fail;
 	};
 	return 0;
@@ -890,7 +895,7 @@ fail:
 
 int get_lane_speed(struct fmd_cfg_parms *cfg, idt_pc_ls_t *ls)
 {
-	switch (get_parm_idx(cfg, "1p25 2p5 3p125 5p0 6p25")) {
+	switch (get_parm_idx(cfg, (char *)"1p25 2p5 3p125 5p0 6p25")) {
 	case 0: // 1p25
 		*ls = idt_pc_ls_1p25;
 		break;
@@ -907,7 +912,7 @@ int get_lane_speed(struct fmd_cfg_parms *cfg, idt_pc_ls_t *ls)
 		*ls = idt_pc_ls_6p25;
 		break;
 	default:
-		parse_err(cfg, "Unknown lane speed.");
+		parse_err(cfg, (char *)"Unknown lane speed.");
 		goto fail;
 	};
 
@@ -918,7 +923,7 @@ fail:
 
 int get_port_width(struct fmd_cfg_parms *cfg, idt_pc_pw_t *pw)
 {
-	switch (get_parm_idx(cfg, "1x 2x 4x 1x_l0 1x_l1 1x_l2")) {
+	switch (get_parm_idx(cfg, (char *)"1x 2x 4x 1x_l0 1x_l1 1x_l2")) {
 	case 0: // 1x
 		*pw = idt_pc_pw_1x;
 		break;
@@ -938,7 +943,7 @@ int get_port_width(struct fmd_cfg_parms *cfg, idt_pc_pw_t *pw)
 		*pw = idt_pc_pw_1x_l2;
 		break;
 	default:
-		parse_err(cfg, "Unknown port width.");
+		parse_err(cfg, (char *)"Unknown port width.");
 		goto fail;
 	};
 	return 0;
@@ -948,9 +953,9 @@ fail:
 
 int get_idle_seq(struct fmd_cfg_parms *cfg, int *idle)
 {
-	*idle = get_parm_idx(cfg, "IDLE1 IDLE2");
+	*idle = get_parm_idx(cfg, (char *)"IDLE1 IDLE2");
 	if ((*idle < 0) || (*idle > 1)) {
-		parse_err(cfg, "Unknown idle sequence.");
+		parse_err(cfg, (char *)"Unknown idle sequence.");
 		goto fail;
 	};
 	return 0;
@@ -985,7 +990,7 @@ int parse_switch(struct fmd_cfg_parms *cfg)
 	int rtv;
 
 	if (cfg->sw_cnt >= FMD_MAX_SW) {
-		parse_err(cfg, "Too many switches.");
+		parse_err(cfg, (char *)"Too many switches.");
 		goto fail;
 	};
 	i = cfg->sw_cnt;
@@ -1004,16 +1009,16 @@ int parse_switch(struct fmd_cfg_parms *cfg)
 		goto fail;
 
 	while (!done) {
-		switch(get_parm_idx(cfg,
+		switch(get_parm_idx(cfg, (char *)
 		"PORT ROUTING_TABLE DFLTPORT DESTID RANGE MCMASK END")) {
 		case 0: // PORT
 			if (parse_sw_port(cfg))
 				goto fail;
 			break;
 		case 1: // ROUTING_TABLE
-			rt_sz = get_parm_idx(cfg, DEVID_SZ_TOKENS);
+			rt_sz = get_parm_idx(cfg, (char *)DEVID_SZ_TOKENS);
 			if ((rt_sz < 0) || (rt_sz > 2)) {
-				parse_err(cfg, "Unknown devID size.");
+				parse_err(cfg, (char *)"Unknown devID size.");
 				goto fail;
 			};
 			break;
@@ -1029,7 +1034,7 @@ int parse_switch(struct fmd_cfg_parms *cfg)
 				goto fail;
 			if (assign_rt_v(rt_sz, destid, destid, rtv, 
 					&cfg->sws[i].rt[rt_sz], cfg)) {
-				parse_err(cfg, "Illegal destID/rtv.");
+				parse_err(cfg, (char *)"Illegal destID/rtv.");
 				goto fail;
 			};
 			break;
@@ -1042,7 +1047,7 @@ int parse_switch(struct fmd_cfg_parms *cfg)
 				goto fail;
 			if (assign_rt_v(rt_sz, destid, destid1, rtv, 
 					&cfg->sws[i].rt[rt_sz], cfg)) {
-				parse_err(cfg, "Illegal destID/rtv.");
+				parse_err(cfg, (char *)"Illegal destID/rtv.");
 				goto fail;
 			};
 			break;
@@ -1054,7 +1059,7 @@ int parse_switch(struct fmd_cfg_parms *cfg)
 			done = 1;
 			break;
 		default:
-			parse_err(cfg, "Unknown parameter.");
+			parse_err(cfg, (char *)"Unknown parameter.");
 			goto fail;
 		};
 	};
@@ -1070,7 +1075,7 @@ int parse_connect(struct fmd_cfg_parms *cfg)
 	int idx = cfg->conn_cnt;
 
 	if (cfg->conn_cnt >= FMD_MAX_CONN) {
-		parse_err(cfg, "Too many connections.");
+		parse_err(cfg, (char *)"Too many connections.");
 		goto fail;
 	};
 	if (get_ep_sw_and_port(cfg, &cfg->cons[idx].ends[0]))
@@ -1092,7 +1097,7 @@ void fmd_parse_cfg(struct fmd_cfg_parms *cfg)
 	tok = try_get_next_token(cfg);
 
 	while ((NULL != tok) && !cfg->init_err) {
-		switch (parm_idx(tok,
+		switch (parm_idx(tok, (char *)
 	"// DEV_DIR DEV_DIR_MTX MPORT MASTER_INFO ENDPOINT SWITCH CONNECT EOF")) {
 		case 0: // "//"
 			flush_comment(tok);
@@ -1101,13 +1106,13 @@ void fmd_parse_cfg(struct fmd_cfg_parms *cfg)
 			if (get_next_token(cfg, &tok))
 				break;
 			if (fmd_v_str(&cfg->dd_fn, tok, 1))
-				parse_err(cfg, "Bad directory name.");
+				parse_err(cfg, (char *)"Bad directory name.");
 			break;
 		case 2: // "DEV_DIR_MTX"
 			if (get_next_token(cfg, &tok))
 				break;
 			if (fmd_v_str(&cfg->dd_mtx_fn, tok, 1))
-				parse_err(cfg, "Bad directory name.");
+				parse_err(cfg, (char *)"Bad directory name.");
 			break;
 		case 3: // "MPORT"
 			parse_mport_info(cfg);
@@ -1125,11 +1130,11 @@ void fmd_parse_cfg(struct fmd_cfg_parms *cfg)
 			parse_connect(cfg);
 			break;
 		case 8: // "EOF"
-			printf("\n");
+			printf((char *)"\n");
 			goto exit;
 			break;
 		default:
-			parse_err(cfg, "Unknown parameter.");
+			parse_err(cfg, (char *)"Unknown parameter.");
 			break;
 		};
 		tok = try_get_next_token(cfg);
@@ -1163,3 +1168,8 @@ void fmd_process_cfg_file(struct fmd_cfg_parms *cfg)
 		cfg->init_and_quit = 1;
 	};
 };
+
+#ifdef __cplusplus
+}
+#endif
+

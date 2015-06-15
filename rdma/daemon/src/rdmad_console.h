@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMAD_CONSOLE_H
 #define RDMAD_CONSOLE_H
 
-#include "libclidb.h"
+#include "libcli.h"
 
 void custom_quit(struct cli_env *e);
 extern struct cli_cmd *rdmad_cmds[];

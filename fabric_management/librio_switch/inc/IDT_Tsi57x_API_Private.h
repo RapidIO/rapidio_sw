@@ -49,6 +49,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_DSF_DB_Private.h>
 #include <IDT_Tsi57x_API.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MAX_OTHER_MAC_PORTS 3
 
 typedef struct port_mac_relations_t_TAG {
@@ -80,5 +84,9 @@ struct scrpad_info {
 };
 
 const struct scrpad_info *get_scrpad_info( void );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __IDT_TSI57X_API_PRIVATE_H__ */

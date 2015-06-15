@@ -59,7 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include "libclidb.h"
+#include "libcli.h"
 #include "riodp_mport_lib.h"
 
 #ifdef __cplusplus

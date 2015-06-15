@@ -31,7 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 #include <string.h>
-#include "libclidb.h"
+#include "libcli.h"
 
 #define MAX_CMDS 100
 #define MIN(a, b) ((a < b)?a:b)

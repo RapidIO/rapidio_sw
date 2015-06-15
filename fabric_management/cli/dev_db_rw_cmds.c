@@ -45,6 +45,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cli_cmd_line.h"
 #include "cli_parse.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Globals used by repeatable commands
 static UINT32 store_address;
 static UINT32 store_numbytes;
@@ -132,11 +136,11 @@ exit:
 }
 
 const struct cli_cmd CLIRegRead = {
-"read",
+(char *)"read",
 1,
 1,
-"read register",
-"<address> {<numreads>}\n"
+(char *)"read register",
+(char *)"<address> {<numreads>}\n"
 	"<address> : Register offset.  Must be 4 byte aligned.\n"
 	"<repeat>  : Optional, number of times to read <address>\n"
 	"            Default <repeat> is 1.\n",
@@ -201,11 +205,11 @@ exit:
 }
 
 const struct cli_cmd CLIRegWrite = {
-"write",
+(char *)"write",
 1,
 2,
-"write register, then read back updated register value",
-"<address> <data>\n"
+(char *)"write register, then read back updated register value",
+(char *)"<address> <data>\n"
 	"Write <data> at <address> for current device.\n"
 	"<address> must be 4 byte aligned.\n"
 	"<data> is 4 bytes.\n",
@@ -271,11 +275,11 @@ exit:
 }
 
 const struct cli_cmd CLIRegReWrite = {
-"REWrite",
+(char *)"REWrite",
 3,
 3,
-"write register repeatedly, then read back updated value",
-"<address> <data> <repeat>\n"
+(char *)"write register repeatedly, then read back updated value",
+(char *)"<address> <data> <repeat>\n"
 "Write <data> at <address> for current device <repeat> times.\n"
 	"<address> must be 4 byte aligned.\n"
 	"<data> is 4 bytes.\n"
@@ -334,11 +338,11 @@ exit:
 }
 
 const struct cli_cmd CLIRegWriteNoReadback = {
-"Write",
+(char *)"Write",
 1,
 2,
-"write register",
-"<address> <data>\n"
+(char *)"write register",
+(char *)"<address> <data>\n"
 "Write <data> at <address> for current device\n"
 "<address> must be 4 byte aligned.\n"
 "<data> is 4 bytes.",
@@ -407,11 +411,11 @@ int CLIRegExpectNotCmd(struct cli_env *env, int argc, char **argv)
 }
 
 const struct cli_cmd CLIRegExpectNot = {
-"expnot",
+(char *)"expnot",
 4,
 2,
-"check register does not match specified value",
-"<address> <data>\n"
+(char *)"check register does not match specified value",
+(char *)"<address> <data>\n"
 	"Read register at <address> on current device, compare to <data>\n"
 	"Print an error message if value read is equal to <data>\n"
 	"<address> must be 4 byte aligned.\n"
@@ -430,11 +434,11 @@ int CLIRegExpectCmd(struct cli_env *env, int argc, char **argv)
 }
 
 const struct cli_cmd CLIRegExpect = {
-"expect",
+(char *)"expect",
 2,
 2,
-"check register matches expected value",
-"<address> <data>\n"
+(char *)"check register matches expected value",
+(char *)"<address> <data>\n"
 	"Read register at <address> on current device, compare to <data>\n"
 	"Print an error message if value read is not equal to <data>\n"
 	"<address> must be 4 byte aligned.\n"
@@ -522,11 +526,11 @@ exit:
 }
 
 const struct cli_cmd CLIRegDump = {
-"dump",
+(char *)"dump",
 1,
 2,
-"display a block of memory/registers",
-"<address> <numbytes>\n"
+(char *)"display a block of memory/registers",
+(char *)"<address> <numbytes>\n"
 "Read 4 byte registers starting at <address> on current device\n"
 	"<address> will be rounded down to 4 byte alignment.\n"
 	"<numbytes> will be rounded up to 4 byte alignment.\n",
@@ -555,3 +559,7 @@ int bind_dev_db_rw_cmds(void)
 	return add_commands_to_cmd_db(sizeof(reg_cmd_list)/
 			sizeof(struct cli_cmd *), reg_cmd_list);
 };
+
+#ifdef __cplusplus
+}
+#endif

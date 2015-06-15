@@ -33,6 +33,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include<DAR_DB.h>
 #include<DAR_DB_Private.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 const struct DAR_ptl ptl_all_ports = PTL_ALL_PORTS;
 
 /* Device Access Routine (DAR) Device Driver routines
@@ -462,3 +466,6 @@ STATUS DARrioDeviceRemoved( DAR_DEV_INFO_t *dev_info )
    return rc;
 }
 
+#ifdef __cplusplus
+}
+#endif

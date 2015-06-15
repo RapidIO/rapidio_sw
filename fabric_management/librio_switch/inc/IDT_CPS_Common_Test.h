@@ -47,6 +47,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_Error_Management_API.h>
 #include <IDT_Statistics_Counter_API.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Common implementation of rioSetAssmblyInfo for all CPS Gen 1 & 2
 //
 extern STATUS CPS_rioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info, 
@@ -283,5 +287,8 @@ typedef struct reset_reg_vals_t_TAG {
 #define ARRAY_SIZE_CPS_RESET_REG_VALS 65
 extern reset_reg_vals_t CPS_reset_reg_vals[ARRAY_SIZE_CPS_RESET_REG_VALS];
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __IDT_CPS_COMMON_TEST_H__ */

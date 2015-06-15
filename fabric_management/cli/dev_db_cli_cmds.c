@@ -46,6 +46,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cli_parse.h"
 #include "IDT_Port_Config_API.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* If the structure or syntax of this command changes,
  * please update the Help structure following the procedure.
  */
@@ -58,11 +62,11 @@ int CLILsRioCmd(struct cli_env *env, int argc, char **argv)
 };
 
 const struct cli_cmd CLILsRio = {
-"lsrio",
+(char *)"lsrio",
 2,
 0,
-"list devices in DB.\n",
-"{<mport#> {<CT> {<port>}}}\n"
+(char *)"list devices in DB.\n",
+(char *)"{<mport#> {<CT> {<port>}}}\n"
 	"<CT>     : Component tag of device to start from.\n"
 	"           Optional, if omitted list all devices\n"
 	"<port>   : Limit display to this port.\n"
@@ -72,7 +76,7 @@ CLILsRioCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd CLIProbe;
+extern const struct cli_cmd CLIProbe;
 
 int CLIProbeCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -82,14 +86,11 @@ int CLIProbeCmd(struct cli_env *env, int argc, char **argv)
 }
 
 const struct cli_cmd CLIProbe = {
-"probe",
+(char *)"probe",
 5,
 1,
-"Probe command, attempts to access a device.",
-#ifdef __CLI_LINUX__
-"</devfilename>, "
-#endif
-"<compTag>, or P <port>\n"
+(char *)"Probe command, attempts to access a device.",
+(char *)"<compTag>, or P <port>\n"
 	"If <compTag> is entered, change focus to existing device\n"
 	"If \"P\" <port> is entered, probe <port> on the current device\n",
 CLIProbeCmd,
@@ -104,7 +105,7 @@ int CLIRstPtCmd(struct cli_env *env, int argc, char **argv)
 	riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 	DAR_DEV_INFO_t *dev_h;
 
-	if (riocp_pe_handle_get_private(pe_h, (void *)&dev_h)) {
+	if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
 		printf("Current device invalid, port not reset.\n");
 		goto exit;
 	};
@@ -131,11 +132,11 @@ exit:
 };
 
 const struct cli_cmd CLIRstPt = {
-"rstpt",
+(char *)"rstpt",
 3,
 3,
-"Reset port on device.\n",
-"<port> <lp> <clrcfg>\n"
+(char *)"Reset port on device.\n",
+(char *)"<port> <lp> <clrcfg>\n"
 	"<port>  : port number on current device to be reset\n"
 	"<lp>    : non zero value will reset link partner\n" 
 	"<clrcfg>: non zero value clears registers on this port\n",
@@ -154,3 +155,8 @@ int bind_dev_db_cli_cmds(void)
 	return add_commands_to_cmd_db(sizeof(dev_db_cmd_list)/
 			sizeof(struct cli_cmd *), dev_db_cmd_list);
 };
+
+#ifdef __cplusplus
+}
+#endif
+

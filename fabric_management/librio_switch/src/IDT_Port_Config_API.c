@@ -32,10 +32,23 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <DAR_DB_Private.h>
 #include <IDT_DSF_DB_Private.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Converts idt_pc_pw_t to lane count
 int         pw_to_lanes[ (int)(idt_pc_pw_last)+1] = {1, 2, 4, 1, 2, 4, 0}; 
 // Converts idt_pc_pw_t to string
-char       *pw_to_str[(int)(idt_pc_pw_last)+1] = {"1x", "2x", "4x", "1xL0", "1xL1", "1xL2", "FAIL"}; 
+char       *pw_to_str[(int)(idt_pc_pw_last)+1] = {
+	(char *)"1x",
+	(char *)"2x",
+	(char *)"4x",
+	(char *)"1xL0",
+	(char *)"1xL1",
+	(char *)"1xL2",
+	(char *)"FAIL"
+}; 
 // Converts lane count to idt_pc_pw_t
 idt_pc_pw_t lanes_to_pw[5] = { idt_pc_pw_last, // 0, illegal
 	                       idt_pc_pw_1x  , // 1
@@ -45,10 +58,22 @@ idt_pc_pw_t lanes_to_pw[5] = { idt_pc_pw_last, // 0, illegal
 			     };
 
 // Converts lane speed to a string
-char  *ls_to_str[(int)(idt_pc_ls_last )  +1] = {"1.25", "2.5", "3.125", "5.0", "6.25", "FAIL" };
+char  *ls_to_str[(int)(idt_pc_ls_last )  +1] = {
+	(char *)"1.25",
+	(char *)"2.5",
+	(char *)"3.125",
+	(char *)"5.0",
+	(char *)"6.25",
+	(char *)"FAIL" };
 
 // Converts reset configuration to a string
-char *rst_to_str[(int)(idt_pc_rst_ignore)+1] = {"Dev ", "Port", "Int ", "PtWr", "Ignr"};
+char *rst_to_str[(int)(idt_pc_rst_ignore)+1] = {
+	(char *)"Dev ",
+	(char *)"Port",
+	(char *)"Int ",
+	(char *)"PtWr",
+	(char *)"Ignr"
+};
 
 STATUS idt_pc_get_config( DAR_DEV_INFO_t           *dev_info, 
                           idt_pc_get_config_in_t   *in_parms, 
@@ -227,4 +252,6 @@ STATUS idt_pc_probe( DAR_DEV_INFO_t      *dev_info,
     return rc;
 }
 
-
+#ifdef __cplusplus
+}
+#endif

@@ -45,7 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 
 #include "cli_cmd_db.h"
-#include "rdma_logger.h"
+#include "liblog.h"
 
 void (*cons_cleanup)(struct cli_env *env);
 

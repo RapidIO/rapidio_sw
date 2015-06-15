@@ -26,6 +26,10 @@
 #include "handle.h"
 #include "switch.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Open the mport for a new filedescriptor for the PE
  *  and set the port-write filter on the comptag
@@ -188,3 +192,7 @@ void riocp_pe_event_set_port_mask(riocp_pe_handle pe, uint8_t port,
 	else
 		pe->port_event_mask[port] = mask;
 }
+
+#ifdef __cplusplus
+}
+#endif
