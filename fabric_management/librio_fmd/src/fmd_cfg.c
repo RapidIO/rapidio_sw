@@ -117,7 +117,7 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 	char *dflt_dd_mtx_fn = FMD_DFLT_DD_MTX_FN;
 	struct fmd_cfg_parms *cfg;
 
-	cfg = malloc(sizeof(struct fmd_cfg_parms));
+	cfg = calloc(sizeof(struct fmd_cfg_parms), 1);
 	cfg->init_err = 0;
 	cfg->init_and_quit = 0;
 	cfg->cli_port_num = FMD_DFLT_CLI_PORT_NUM;
@@ -133,12 +133,16 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 	cfg->mast_devid = FMD_DFLT_MAST_DEVID;
 	cfg->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
 	cfg->mast_interval = FMD_DFLT_MAST_INTERVAL;
-	cfg->fmd_cfg = malloc(strlen(dflt_fmd_cfg));
-	memcpy(cfg->fmd_cfg , dflt_fmd_cfg, strlen(dflt_fmd_cfg));
-	cfg->dd_fn = malloc(strlen(dflt_dd_fn));
-	memcpy(cfg->dd_fn, dflt_dd_fn, strlen(dflt_dd_fn));
-	cfg->dd_mtx_fn = malloc(strlen(dflt_dd_mtx_fn));
-	memcpy(cfg->dd_mtx_fn, dflt_dd_mtx_fn, strlen(dflt_dd_mtx_fn));
+
+	/* set default filenames */
+	cfg->fmd_cfg = malloc(strlen(dflt_fmd_cfg) + 1);
+	strcpy(cfg->fmd_cfg , dflt_fmd_cfg);
+
+	cfg->dd_fn = malloc(strlen(dflt_dd_fn) + 1);
+	strcpy(cfg->dd_fn, dflt_dd_fn);
+
+	cfg->dd_mtx_fn = malloc(strlen(dflt_dd_mtx_fn) + 1);
+	strcpy(cfg->dd_mtx_fn, dflt_dd_mtx_fn);
 
 	for (idx = 0; idx < argc; idx++) {
 		if (strnlen(argv[idx], 4) < 2)
