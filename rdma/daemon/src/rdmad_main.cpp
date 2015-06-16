@@ -271,6 +271,7 @@ int main (int argc, char **argv)
 
 		add_commands_to_cmd_db(rdmad_cmds_size()/sizeof(rdmad_cmds[0]),
 				rdmad_cmds);
+		liblog_bind_cli_cmds();
 		splashScreen((char *)"RDMA Daemon Command Line Interface");
 		cons_ret = pthread_create( &console_thread, NULL, 
 				console, (void *)((char *)"RDMADaemon> "));

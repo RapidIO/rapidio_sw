@@ -11,8 +11,8 @@ LOGLIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-D$(debug) -DRDMA_LL=$(level) -O2 -rdynamic -lnsl \
 		-I../include \
 		-I../../rdma/inc
-LOGLIB_SOURCES = src/liblog.cpp
-LOGLIB_OBJS = liblog.o
+LOGLIB_SOURCES = src/liblog.cpp src/liblog_cli.c
+LOGLIB_OBJS = liblog.o liblog_cli.o
 
 all: liblog.so liblog.a
 
