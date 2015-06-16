@@ -1,6 +1,7 @@
-# Default configurations
-level?=6
-debug?=DEBUG
+# Read values from ones exported in master Makefile. Or, override on the command
+# line if building separately.
+level?=$(LOG_LEVEL)
+debug?=$(DEBUG)
 
 AR:=$(CROSS_COMPILE)ar
 

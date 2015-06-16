@@ -1,29 +1,37 @@
+# Paths to libraries
 LIBRDMA_PATH=..
 LIBMPORT_PATH=../../libmport
 COMMON_LIBS_PATH=../../common/libs_a
+KDIR?=/usr/src/linux
+KINC=$(KDIR)/include
 
-RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=7 -I../../include -I../../common/include -I$(KINC) -O3
+# Build flags and include paths
+RDMAAPP_CFLAGS = --std=gnu++0x -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=7 -O3 \
+	 -I../../include -I../../common/include -I$(KINC)
 
-BUILD_STRING = $(CXX) --std=gnu++0x \
-	-L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
+# Common dependencies
+RDMA_APP_DEPS=$(LIBRDMA_PATH)/librdma.a $(COMMON_LIBS_PATH)/liblog.a \
+	$(LIBMPORT_PATH)/libmport.a ../../include/*.h
+
+# Common build string for all apps
+BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
 	-Wl,-rpath=$(LIBMPORT_PATH) \
-	-o $@ -I$(KERNINC) $(RDMAAPP_CFLAGS) \
-	src/$@.c -lrt -llog -lmport -lrdma
+	-o $@ $(RDMAAPP_CFLAGS) src/$@.c -lrt -llog -lmport -lrdma
 
 all: rdma_server rdma_client rdma_user
 
 # RDMA Server App
-rdma_server: $(LIBRDMA_PATH)/librdma.a $(COMMON_LIBS_PATH)/liblog.a src/rdma_server.c ../../include/*.h
+rdma_server: src/rdma_server.c $(RDMA_APP_DEPS)
 	@echo ---------- Building rdma_server...
 	$(BUILD_STRING)
 
 # RDMA User App
-rdma_user: $(LIBRDMA_PATH)/librdma.a $(COMMON_LIBS_PATH)/liblog.a src/rdma_user.c ../../include/*.h
+rdma_user: src/rdma_user.c $(RDMA_APP_DEPS)
 	@echo ---------- Building rdma_user...
 	$(BUILD_STRING)
 
 # RDMA Client App
-rdma_client: $(LIBRDMA_PATH)/librdma.a $(COMMON_LIBS_PATH)/liblog.a src/rdma_client.c ../../include/*.h
+rdma_client: src/rdma_client.c $(RDMA_APP_DEPS)
 	@echo ---------- Building rdma_client...
 	$(BUILD_STRING)
 
