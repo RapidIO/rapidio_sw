@@ -76,7 +76,7 @@ foreach my $bat(@tests) {
 }
 
 # Run tests, in a random order
-for (my $i = 0; $i < $num_bat*10; $i++) {
+for (my $i = 0; $i < $num_bat*1000; $i++) {
 	my $j = int(rand($num_bat));
 	print "Running $tests[$j] at " . localtime() ."\n";
 	system($tests[$j]);
