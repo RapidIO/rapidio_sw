@@ -5,12 +5,11 @@ KDIR?=/usr/src/linux
 KINC=$(KDIR)/include
 
 # Common flags for all applications
-RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=7 -I../../include -I../../common/include -I$(KINC) -O3
+RDMAAPP_CFLAGS = --std=gnu++0x -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=7 -O3 -I../../include -I../../common/include -I$(KINC)
 
 BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a ../src/* ../inc/* ../daemon/src/* ../daemon/inc/*
 
-BAT_BUILD_STRING = $(CXX) --std=gnu++0x \
-	-L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
+BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
 	-Wl,-rpath=$(LIBMPORT_PATH) \
 	-o $@ -I$(KERNINC) $(RDMAAPP_CFLAGS) \
 	src/$@.cpp -lrt -llog -lmport -lrdma
