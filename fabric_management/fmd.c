@@ -439,6 +439,7 @@ int main(int argc, char *argv[])
 
 	cli_init_base();
 	bind_dd_cmds(fmd);
+	liblog_bind_cli_cmds();
 	setup_mport(fmd);
 	if (!fmd->cfg->simple_init)
 		fmd_dd_update(fmd);

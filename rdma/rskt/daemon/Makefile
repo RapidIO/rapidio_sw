@@ -6,7 +6,7 @@ KDIR ?= /usr/src/linux
 
 LINUX_INCLUDE_DIR ?= $(KDIR)/include
 
-LOG_LEVEL ?= 6
+LOG_LEVEL ?= 1
 
 DEBUG ?= DEBUG
 

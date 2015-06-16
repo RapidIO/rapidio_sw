@@ -384,6 +384,7 @@ void *console(void *cons_parm)
 
 	cli_init_base(quit_command_customization);
 	librsktd_bind_cli_cmds();
+	liblog_bind_cli_cmds();
 
 	splashScreen((char *)"RDMA Socket Daemon Console");
 

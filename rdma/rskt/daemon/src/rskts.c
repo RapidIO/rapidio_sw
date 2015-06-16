@@ -63,6 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librskt_private.h"
 #include "librsktd_private.h"
 #include "librdma.h"
+#include "liblog.h"
 #include "rskts_info.h"
 
 #ifdef __cplusplus
@@ -397,6 +398,7 @@ void bind_server_cmds(void)
         add_commands_to_cmd_db(sizeof(server_cmds)/sizeof(server_cmds[0]), 
 				server_cmds);
 	librskt_bind_cli_cmds();
+	liblog_bind_cli_cmds();
 
         return;
 };

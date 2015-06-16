@@ -1011,8 +1011,11 @@ int RSKTTxTestCmd(struct cli_env *env, int argc, char **argv)
 	for (r = 0; r < TEST_BUFF_SIZE; r++)
 		data_buf[r] = (r % 0xFD) + 1; /* NO 0's, no FF's */
 
+	sprintf(env->output, "\nStarting transmit test...\n");
+	logMsg(env);
+
 	for (r = 0; r < repeat; r++) {
-		sprintf(env->output, "\nRepeat %d", r);
+		sprintf(env->output, "Repeat %d\n", r);
 		logMsg(env);
 		for (sz = 1; sz <= TEST_BUFF_SIZE; sz++) {
 			if (check)
@@ -1078,7 +1081,7 @@ struct cli_cmd RSKTTxTest = {
 	"<repeat> Optional number of times to repeat the test, default is 1\n"
 	"<nocheck> Any value disables data checking\n",
 RSKTTxTestCmd,
-ATTR_RPT
+ATTR_NONE
 };
 
 extern struct cli_cmd RSKTRxTest;
@@ -1104,8 +1107,11 @@ int RSKTRxTestCmd(struct cli_env *env, int argc, char **argv)
         for (r = 0; r < TEST_BUFF_SIZE; r++)
                 data_buf[r] = (r % 0xFD) + 1; /* NO 0's, no FF's */
 
+	sprintf(env->output, "\nStarting Receive Test\n");
+	logMsg(env);
+
         for (r = 0; r < repeat; r++) {
-		sprintf(env->output, "\nRepeat %d", r);
+		sprintf(env->output, "Repeat %d\n", r);
 		logMsg(env);
                 for (sz = 1; sz <= TEST_BUFF_SIZE; sz++) {
                         if (check)
@@ -1165,7 +1171,7 @@ struct cli_cmd RSKTRxTest = {
         "<repeat> Optional number of times to repeat the test, default is 1\n"
         "<nocheck> Any value disables data checking\n",
 RSKTRxTestCmd,
-ATTR_RPT
+ATTR_NONE
 };
 
 extern struct cli_cmd RSKTClose;
