@@ -113,6 +113,9 @@ protected:
 		send_buf(new uint8_t[CM_BUF_SIZE]),
 		recv_buf(new uint8_t[CM_BUF_SIZE])
 	{
+		/* Initialize buffers to 0 -- for Valgrind */
+		memset(send_buf, 0, CM_BUF_SIZE);
+		memset(recv_buf, 0, CM_BUF_SIZE);
 	}
 
 	~cm_base()

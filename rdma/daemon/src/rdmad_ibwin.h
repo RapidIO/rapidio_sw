@@ -95,7 +95,8 @@ class ibwin
 public:
 	/* Constructor */
 	ibwin(int mport_fd, unsigned win_num, uint64_t size) :
-	mport_fd(mport_fd), win_num(win_num), rio_addr(RIO_MAP_ANY_ADDR), size(size)
+	mport_fd(mport_fd), win_num(win_num), rio_addr(RIO_MAP_ANY_ADDR),
+	phys_addr(0), size(size)
 	{
 
 		/* First, obtain an inbound handle from the mport driver */

@@ -103,6 +103,7 @@ void *accept_thread_f(void *arg)
 
 		/* Form message queue name from memory space name */
 		char mq_name[CM_MS_NAME_MAX_LEN+2];
+		memset(mq_name, '\0', CM_MS_NAME_MAX_LEN+2);
 		mq_name[0] = '/';
 		strcpy(&mq_name[1], c->server_msname);
 		string mq_str(mq_name);
@@ -116,6 +117,7 @@ void *accept_thread_f(void *arg)
 
 		/* Send 'connect' POSIX message contents to the RDMA library */
 		struct mq_connect_msg	connect_msg;
+		memset(&connect_msg, 0, sizeof(connect_msg));
 		connect_msg.rem_msid		= c->client_msid;
 		connect_msg.rem_msubid		= c->client_msubid;
 		connect_msg.rem_bytes		= c->client_bytes;
