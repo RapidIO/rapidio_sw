@@ -31,79 +31,85 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef RDMA_LOGGER_H
-#define RDMA_LOGGER_H
-
-#define NUM_LOG_LINES	100
-#define LOG_LINE_SIZE	192
-#define DEFAULT_LOG_DIR	 "./"
-
-/* Log levels */
-#define RDMA_LL_CRIT	 2
-#define RDMA_LL_ERR	 3
-#define RDMA_LL_WARN     4
-#define RDMA_LL_INFO	 6
-#define RDMA_LL_DBG	 7
-
-/* If 'level' is not specified in the build generate an error */
-#ifndef RDMA_LL
-#error RDMA_LL not defined. Please specify in Makefile
-#endif
-
-#if RDMA_LL >= RDMA_LL_DBG
-#define DBG(format, ...) __rdma_log(RDMA_LL_DBG, "DBG", format, ## __VA_ARGS__)
-#else
-#define DBG(format, ...)
-#endif
-
-#if RDMA_LL >= RDMA_LL_INFO
-#define INFO(format, ...) __rdma_log(RDMA_LL_INFO, "INFO", format, ## __VA_ARGS__)
-#else
-#define INFO(format, ...)
-#endif
-
-#if RDMA_LL >= RDMA_LL_WARN
-#define WARN(format, ...) __rdma_log(RDMA_LL_WARN, "WARN", format, ## __VA_ARGS__)
-#else
-#define WARN(format, ...)
-#endif
-
-#if RDMA_LL >= RDMA_LL_ERR
-#define ERR(format, ...) __rdma_log(RDMA_LL_ERR, "ERR", format, ## __VA_ARGS__)
-#else
-#define ERR(format, ...)
-#endif
-
-#if RDMA_LL >= RDMA_LL_CRITICAL
-#define CRIT(format, ...) __rdma_log(RDMA_LL_CRIT, "CRIT", format, ## __VA_ARGS__)
-#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include "liblog.h"
+#include "libcli.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int rdma_log_init(const char *log_filename, unsigned circ_buf_en);
+extern struct cli_cmd LogLevel;
 
-int rdma_log( unsigned level,
-	      const char *level_str,
-	      const char *file,
-	      int line_num,
-	      const char *func,
-	      const char *format, ...);
+extern unsigned g_level;
 
-void rdma_log_dump();
+char *level_strings[RDMA_LL_DBG+1] {
+	(char *)"NOLOG",
+	(char *)"NOLOG",
+	(char *)"CRIT",
+	(char *)"ERR",
+	(char *)"WARN",
+	(char *)"WARN",
+	(char *)"INFO",
+	(char *)"DBG"
+};
 
-void rdma_log_close();
+#define LOG_STR(x) ((x>RDMA_LL_DBG)?level_strings[RDMA_LL_DBG]:level_strings[x])
 
-void liblog_bind_cli_cmds();
+int LogLevelCmd(struct cli_env *env, int argc, char **argv)
+{
+        uint8_t temp;
+
+	if (argc) {
+		temp = getHex(argv[0], 0);
+		if (temp < RDMA_LL_CRIT)
+			temp = RDMA_LL_CRIT - 1;
+		if (temp > RDMA_LL)
+			temp = RDMA_LL;
+		g_level = temp;
+	};
+
+	sprintf(env->output, "\nCompiled log level %d: %s\n", RDMA_LL, 
+		LOG_STR(RDMA_LL));
+	logMsg(env);
+	sprintf(env->output, "Current  log level %d: %s\n", g_level, 
+		LOG_STR(g_level));
+	logMsg(env);
+
+	return 0;
+};
+
+struct cli_cmd LogLevel = {
+"levelog",
+3,
+0,
+"Display or set current log level.",
+"{<level>}\n"
+        "1: Logging disabled.\n"
+        "2: Critical, Failure critical to correct operation\n"
+        "3: Error   , Error occurred, may not affect operation\n"
+        "4: Warning , Something a bit strange occurred\n"
+        "5: Info    , Informational, trace operation of the system\n"
+        "6: Debug   , Detailed information about system operation\n" 
+        "   NOTE: Levels above \"Error\" impact performance significantly.\n"
+        "   NOTE: Maximum level available is set through the \"LOG_LEVEL\"\n"
+        "         Makefile compile option.",
+LogLevelCmd,
+ATTR_NONE
+};
+
+struct cli_cmd *liblog_cmds[] = 
+	{ &LogLevel
+	};
+
+void liblog_bind_cli_cmds(void)
+{
+        add_commands_to_cmd_db(sizeof(liblog_cmds)/sizeof(liblog_cmds[0]), 
+				liblog_cmds);
+        return;
+};
 
 #ifdef __cplusplus
 }
 #endif
-
-#define __rdma_log(level, level_str, format, ...) rdma_log(level, level_str,\
-			 __FILE__, __LINE__, __func__, format, ## __VA_ARGS__)
-
-#endif
-
-
