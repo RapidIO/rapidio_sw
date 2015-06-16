@@ -4,10 +4,14 @@ COMMON_LIBS_PATH=../../common/libs_a
 KDIR?=/usr/src/linux
 KINC=$(KDIR)/include
 
-# Common flags for all applications
-RDMAAPP_CFLAGS = --std=gnu++0x -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=7 -O3 -I../../include -I../../common/include -I$(KINC)
+level?=$(LOG_LEVEL)
 
-BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a ../src/* ../inc/* ../daemon/src/* ../daemon/inc/*
+# Common flags for all applications
+RDMAAPP_CFLAGS = --std=gnu++0x -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
+		-I../../include -I../../common/include -I$(KINC)
+
+BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a ../src/* \
+	../inc/* ../daemon/src/* ../daemon/inc/*
 
 BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
 	-Wl,-rpath=$(LIBMPORT_PATH) \

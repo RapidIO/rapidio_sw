@@ -31,18 +31,7 @@
 
 # LOG_LEVEL is set by the master Makefile. If this Makefile is run alone, 
 # it can override the loglevel on the command line by specifying 'level=XXX'
-ifndef LOG_LEVEL
-level?=6
-else
-level=$(LOG_LEVEL)
-endif
-
-# Same thing with debugging. Set by master Makefile or overridden at cmd line.
-ifndef DEBUG
-debug?=DEBUG
-else
-debug =$(DEBUG)
-endif
+level?=$(LOG_LEVEL)
 
 KDIR?=/usr/src/linux
 KERNINC=$(KDIR)/include
@@ -58,11 +47,11 @@ LIBLOG_PATH=../common/libs_a
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 
 # Common flags for all applications
-RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -D$(debug) -I../../samples/latency/common/ -Iinc/ -O3
+RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -I../../samples/latency/common/ -Iinc/ -O3
 
 # RDMA Daemon flags & sources
 RDMAD_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -g -ggdb -O3 \
-		-DRDMA_LL=$(level) -D$(debug) -I$(KERNINC) -I$(MPORTLIB_INC) \
+		-DRDMA_LL=$(level) -I$(KERNINC) -I$(MPORTLIB_INC) \
 		-I../common/libcli/inc \
 		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
 
@@ -80,11 +69,11 @@ RDMAD_SOURCES = rdmad_rpc.c rdmad_xdr.c \
 # RDMA Library flags, sources and objects
 RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
-		-D$(debug) -DRDMA_LL=$(level) -O3 -rdynamic -lnsl
+		-DRDMA_LL=$(level) -O3 -rdynamic -lnsl
 
 RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb \
 		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
-		-D$(debug) -DRDMA_LL=$(level) -O3
+		-DRDMA_LL=$(level) -O3
 
 RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c \
 		lib/src/librdma.cpp \

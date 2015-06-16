@@ -29,17 +29,26 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
+# Paths specified by parent Makefile as environment variables, but can be
+# overriden on the command line, and are also provided with default values
 KDIR ?= /usr/src/linux
-
 LINUX_INCLUDE_DIR ?= $(KDIR)/include
-
-LOG_LEVEL ?= 6
-
-DEBUG ?= DEBUG
-
 TOP_LEVEL ?= $(shell pwd)
 
-TARGETS = libcli liblist liblog
+# Specified in master Makefile. Note that DEBUG is only relevant to 'liblog'
+# Override on the command line if building 'common' by itself.
+ifndef LOG_LEVEL
+LOG_LEVEL ?= 7
+export LOG_LEVEL
+endif
+
+ifndef DEBUG
+DEBUG ?= DEBUG
+export DEBUG
+endif
+
+
+all: libcli liblist liblog
 
 libcli: FORCE
 	$(MAKE) all -C libcli
@@ -63,8 +72,6 @@ liblog: FORCE
 	cp liblog/liblog.so libs_so/
 		
 FORCE:
-
-all: $(TARGETS)
 
 clean:
 	$(MAKE) clean -C libcli
