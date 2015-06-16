@@ -94,12 +94,12 @@ RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c \
 RDMALIB_OBJS    = rdmad_xdr.o rdmalib_rpc.o librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: librdma.so librdma.a rdmad rsktd samples test
+all: librdma.a rdmad rsktd test
 
-test: rdmad librdma.so
+test: rdmad librdma.a
 	$(MAKE) all -C test
 
-samples: rdmad librdma.so
+samples: rdmad librdma.a
 	$(MAKE) all -C samples
 
 rsktd: rdmad
@@ -117,7 +117,7 @@ librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 
 # The RDMA static library
 librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
-	lib/src/*.h $(LIBLOG_PATH)/liblog.a librdma.so
+	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.a ----------
 	$(CXX) $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES)
 	ar rcs librdma.a $(RDMALIB_OBJS)
