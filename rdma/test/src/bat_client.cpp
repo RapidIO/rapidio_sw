@@ -1,9 +1,10 @@
 #include <stdint.h>
-#include <stdlib.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <linux/limits.h>
 
-#include <iostream>
+#include <cstdlib>
+#include <cstdio>
 
 #include "librdma.h"
 #include "cm_sock.h"
@@ -14,10 +15,7 @@
 #define MS1_FLAGS	0
 #define MS2_FLAGS	0
 
-#define MSO_NAME1 "owner1"
-#define MSO_NAME2 "owner2"
-#define MS_NAME1 "mspace1"
-#define MS_NAME2 "mspace2"
+#define MAX_NAME	80
 
 #define BAT_SEND(bat_client) if (bat_client->send()) { \
 			fprintf(stderr, "bat_client->send() failed\n"); \
@@ -74,6 +72,14 @@ static bat_msg_t *bm_second_rx;
 static uint32_t destid;
 static int first_channel;
 static int second_channel;
+char first_channel_str[4];	/* 000 to 999 + '\0' */
+
+static char loc_mso_name[MAX_NAME];
+static char loc_ms_name[MAX_NAME];
+static char rem_mso_name[MAX_NAME];
+static char rem_ms_name1[MAX_NAME];
+static char rem_ms_name2[MAX_NAME];
+static char rem_ms_name3[MAX_NAME];
 
 /* ------------------------------- Remote Functions -------------------------------*/
 
@@ -282,14 +288,14 @@ static int test_case_a(void)
 	ret = create_mso_f(bat_first_client,
 			   bm_first_tx,
 			   bm_first_rx,
-			   MSO_NAME1, &msoh1);
+			   rem_mso_name, &msoh1);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create second mso and make sure it fails */
 	ret = create_mso_f(bat_first_client,
 			   bm_first_tx,
 			   bm_first_rx,
-			   MSO_NAME1, &msoh2);
+			   rem_mso_name, &msoh2);
 	BAT_EXPECT_FAIL(ret);
 
 	/* Either way, we must delete the mso */
@@ -311,7 +317,7 @@ static int test_case_b(void)
 	ret = create_mso_f(bat_first_client,
 			   bm_first_tx,
 			   bm_first_rx,
-			   MSO_NAME1, &msoh1);
+			   rem_mso_name, &msoh1);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create first ms */
@@ -319,7 +325,7 @@ static int test_case_b(void)
 	ret = create_ms_f(bat_first_client,
 			  bm_first_tx,
 			  bm_first_rx,
-			  MS_NAME1, msoh1, MS1_SIZE, 0, &msh1, NULL);
+			  rem_ms_name1, msoh1, MS1_SIZE, 0, &msh1, NULL);
 	BAT_EXPECT_RET(ret, 0, destroy_mso);
 
 	/* Create second ms with same name */
@@ -327,7 +333,7 @@ static int test_case_b(void)
 	ret = create_ms_f(bat_first_client,
 			  bm_first_tx,
 			  bm_first_rx,
-			  MS_NAME1, msoh1, MS2_SIZE, 0, &msh2, NULL);
+			  rem_ms_name1, msoh1, MS2_SIZE, 0, &msh2, NULL);
 
 	/* Creating the second ms should fail */
 	BAT_EXPECT_FAIL(ret);
@@ -352,7 +358,7 @@ static int test_case_c(void)
 	ret = create_mso_f(bat_first_client,
 			   bm_first_tx,
 			   bm_first_rx,
-			   MSO_NAME1, &msoh1);
+			   rem_mso_name, &msoh1);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create first ms */
@@ -360,7 +366,7 @@ static int test_case_c(void)
 	ret = create_ms_f(bat_first_client,
 			  bm_first_tx,
 			  bm_first_rx,
-			  "mspace1", msoh1, 1024*1024, 0, &msh1, NULL);
+			  rem_ms_name1, msoh1, 1024*1024, 0, &msh1, NULL);
 	BAT_EXPECT_RET(ret, 0, free_mso);
 
 	/* Create second ms */
@@ -368,7 +374,7 @@ static int test_case_c(void)
 	ret = create_ms_f(bat_first_client,
 			  bm_first_tx,
 			  bm_first_rx,
-			  "mspace2", msoh1, 1024*1024, 0, &msh2, NULL);
+			  rem_ms_name2, msoh1, 1024*1024, 0, &msh2, NULL);
 	BAT_EXPECT_RET(ret, 0, free_mso);
 
 	/* Create third ms */
@@ -376,7 +382,7 @@ static int test_case_c(void)
 	ret = create_ms_f(bat_first_client,
 			  bm_first_tx,
 			  bm_first_rx,
-			  "mspace3", msoh1, 1024*1024, 0, &msh3, NULL);
+			  rem_ms_name3, msoh1, 1024*1024, 0, &msh3, NULL);
 	BAT_EXPECT_PASS(ret);
 
 free_mso:
@@ -400,9 +406,9 @@ static int test_case_g(void)
 	/* Create mso */
 	mso_h	msoh1;
 	ret = create_mso_f(bat_first_client,
-					   bm_first_tx,
-					   bm_first_rx,
-					   MSO_NAME1, &msoh1);
+			   bm_first_tx,
+			   bm_first_rx,
+			   rem_mso_name, &msoh1);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create ms */
@@ -410,7 +416,7 @@ static int test_case_g(void)
 	ret = create_ms_f(bat_first_client,
 			  bm_first_tx,
 			  bm_first_rx,
-			  MS_NAME1, msoh1, MS1_SIZE, 0, &msh1, NULL);
+			  rem_ms_name1, msoh1, MS1_SIZE, 0, &msh1, NULL);
 	BAT_EXPECT_RET(ret, 0, free_mso);
 
 	/* Create 1st msub */
@@ -459,7 +465,8 @@ static int test_case_h_i(char ch)
 	ret = create_mso_f(bat_first_client,
 			   bm_first_tx,
 			   bm_first_rx,
-			   MSO_NAME1, &server_msoh);
+			   rem_mso_name,
+			   &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create server ms */
@@ -467,7 +474,11 @@ static int test_case_h_i(char ch)
 	ret = create_ms_f(bat_first_client,
 			  bm_first_tx,
 			  bm_first_rx,
-			  MS_NAME1, server_msoh, MS1_SIZE, 0 , &server_msh,NULL);
+			  rem_ms_name1,
+			  server_msoh,
+			  MS1_SIZE,
+			  0,
+			  &server_msh,NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create msub on server */
@@ -480,12 +491,12 @@ static int test_case_h_i(char ch)
 
 	/* Create a client mso */
 	mso_h	client_msoh;
-	ret = rdma_create_mso_h(MSO_NAME2, &client_msoh);
+	ret = rdma_create_mso_h(loc_mso_name, &client_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create a client ms */
 	ms_h	client_msh;
-	ret = rdma_create_ms_h(MS_NAME2, client_msoh, MS2_SIZE, 0, &client_msh,
+	ret = rdma_create_ms_h(loc_ms_name, client_msoh, MS2_SIZE, 0, &client_msh,
 									NULL);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
@@ -504,7 +515,7 @@ static int test_case_h_i(char ch)
 	msub_h	server_msubh_rb;
 	uint32_t  server_msub_len_rb;
 	ms_h	server_msh_rb;
-	ret = rdma_conn_ms_h(16, destid, MS_NAME1,
+	ret = rdma_conn_ms_h(16, destid, rem_ms_name1,
 			     client_msubh,
 			     &server_msubh_rb, &server_msub_len_rb,
 			     &server_msh_rb,
@@ -648,7 +659,7 @@ static int test_case_dma(uint32_t loc_msub_ofs_in_ms,
 	ret = create_mso_f(bat_first_client,
 			   bm_first_tx,
 			   bm_first_rx,
-			   MSO_NAME1, &server_msoh);
+			   rem_mso_name, &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create server ms */
@@ -656,7 +667,7 @@ static int test_case_dma(uint32_t loc_msub_ofs_in_ms,
 	ret = create_ms_f(bat_first_client,
 			  bm_first_tx,
 			  bm_first_rx,
-			  MS_NAME1, server_msoh, MS1_SIZE, 0, &server_msh,NULL);
+			  rem_ms_name1, server_msoh, MS1_SIZE, 0, &server_msh,NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create msub on server */
@@ -669,12 +680,12 @@ static int test_case_dma(uint32_t loc_msub_ofs_in_ms,
 
 	/* Create a client mso */
 	mso_h	client_msoh;
-	ret = rdma_create_mso_h(MSO_NAME2, &client_msoh);
+	ret = rdma_create_mso_h(loc_mso_name, &client_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create a client ms */
 	ms_h	client_msh;
-	ret = rdma_create_ms_h(MS_NAME2, client_msoh, MS2_SIZE, 0, &client_msh,
+	ret = rdma_create_ms_h(loc_ms_name, client_msoh, MS2_SIZE, 0, &client_msh,
 									NULL);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
@@ -694,7 +705,7 @@ static int test_case_dma(uint32_t loc_msub_ofs_in_ms,
 	msub_h	server_msubh_rb;
 	uint32_t  server_msub_len_rb;
 	ms_h	server_msh_rb;
-	ret = rdma_conn_ms_h(16, destid, MS_NAME1,
+	ret = rdma_conn_ms_h(16, destid, rem_ms_name1,
 			     client_msubh,
 			     &server_msubh_rb, &server_msub_len_rb,
 			     &server_msh_rb,
@@ -775,6 +786,7 @@ int connect_to_channel(int channel,
 	return 0;
 } /* connect_to_channel() */
 
+/* NOTE: test_case_6() is BROKEN. Need to review ms names ..etc. */
 int test_case_6()
 {
 	const unsigned MSUB_SIZE = 4096;
@@ -785,7 +797,7 @@ int test_case_6()
 	int ret = create_mso_f(bat_first_client,
 			      bm_first_tx,
 			      bm_first_rx,
-			      MSO_NAME1,
+			      rem_mso_name,
 			      &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
@@ -794,7 +806,7 @@ int test_case_6()
 	ret = create_ms_f(bat_first_client,
 			  bm_first_tx,
 			  bm_first_rx,
-			  MS_NAME1, server_msoh, MS1_SIZE, 0, &server_msh, NULL);
+			  rem_ms_name1, server_msoh, MS1_SIZE, 0, &server_msh, NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Now connect to the 'user' application on the second channel */
@@ -810,7 +822,7 @@ int test_case_6()
 	ret = open_mso_f(bat_second_client,
 			 bm_second_tx,
 			 bm_second_rx,
-			 MSO_NAME1, &user_msoh);
+			 rem_mso_name, &user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_second_bat_client);
 
 	ms_h	user_msh;
@@ -818,7 +830,7 @@ int test_case_6()
 	ret = open_ms_f(bat_second_client,
 			bm_second_tx,
 			bm_second_rx,
-			MS_NAME1, user_msoh, 0, &user_msh_size, &user_msh);
+			rem_ms_name1, user_msoh, 0, &user_msh_size, &user_msh);
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
 
 	/* On the 'user' create an msub, and then do accept on the ms */
@@ -836,12 +848,12 @@ int test_case_6()
 
 	/* Now create client mso, ms, and msub */
 	mso_h	client_msoh;
-	ret = rdma_create_mso_h(MSO_NAME2, &client_msoh);
+	ret = rdma_create_mso_h(loc_mso_name, &client_msoh);
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
 
 	/* Create a client ms */
 	ms_h	client_msh;
-	ret = rdma_create_ms_h(MS_NAME2, client_msoh, MS2_SIZE, 0,
+	ret = rdma_create_ms_h(loc_ms_name, client_msoh, MS2_SIZE, 0,
 							&client_msh,NULL);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
@@ -855,7 +867,7 @@ int test_case_6()
 	msub_h	user_msubh_rb;
 	uint32_t  user_msub_len_rb;
 	ms_h	user_msh_rb;
-	ret = rdma_conn_ms_h(16, destid, MS_NAME1,
+	ret = rdma_conn_ms_h(16, destid, rem_ms_name1,
 			     client_msubh,
 			     &user_msubh_rb, &user_msub_len_rb,
 			     &user_msh_rb,
@@ -901,6 +913,33 @@ exit:
 	return ret;
 } /* test_case_6() */
 
+void init_names(void)
+{
+	/* For the local names, they are not shared so any randomness
+	 * would work. Let's use the PID */
+	int my_pid;
+	char pid_str[10];
+
+	memset(pid_str, 0, sizeof(pid_str));
+
+	my_pid = getpid();
+	sprintf(pid_str, "%d", my_pid);
+
+	/* Local names */
+	strcpy(loc_mso_name, "MSO_NAME");
+	strcat(loc_mso_name, pid_str);
+
+	/* For remote names we append the channel number */
+	strcpy(rem_mso_name, "MSO_NAME");
+	strcat(rem_mso_name, first_channel_str);
+	strcpy(rem_ms_name1, "MS_NAME1");
+	strcat(rem_ms_name1, first_channel_str);
+	strcpy(rem_ms_name2, "MS_NAME2");
+	strcat(rem_ms_name2, first_channel_str);
+	strcpy(rem_ms_name3, "MS_NAME3");
+	strcat(rem_ms_name3, first_channel_str);
+} /* init_names() */
+
 int main(int argc, char *argv[])
 {
 	char tc = 'a';
@@ -934,10 +973,20 @@ int main(int argc, char *argv[])
 		show_help();
 		exit(1);
 	}
+
+
 	while ((c = getopt(argc, argv, "hlc:d:o:t:")) != -1)
 		switch (c) {
 		case 'c':
 			first_channel = atoi(optarg);
+			if (strlen(optarg) <= (sizeof(first_channel_str)-1)) {
+				strcpy(first_channel_str, optarg);
+			}
+			if (first_channel < 9 || first_channel > 255 ){
+				printf("Invalid channel number: %s. ", optarg);
+				printf("Enter a value between 9 and 254\n");
+				exit(1);
+			}
 			second_channel = first_channel + 1;
 			break;
 		case 'd':
@@ -977,6 +1026,9 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Failed to open log file '%s'\n", log_filename);
 		return 2;
 	}
+
+	/* Prep the memory space and owner names */
+	init_names();
 
 	switch(tc) {
 
