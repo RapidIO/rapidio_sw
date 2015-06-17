@@ -50,23 +50,26 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 void *wait_accept_thread_f(void *arg)
 {
 	uint32_t destid = *((uint32_t *)arg);
-	DBG("destid = 0x%X\n", destid);
 
 	/* Wait until main thread says it is OK to access the list */
-	DBG("Waiting to search client_rdaemon_list\n");
+	HIGH("BEFORE sem_wait(&client_rdaemon_list_sem)\n");
 	sem_wait(&client_rdaemon_list_sem);	/* Lock client_rdaemon_list */
+	HIGH("AFTER sem_wait(&client_rdaemon_list_sem)\n");
+
 	/* Find the rdaemon entry in client_rdaemon_list (by destid) */
 	rdaemon_has_destid	rdhd(destid);
 	auto rdit = find_if(begin(client_rdaemon_list), end(client_rdaemon_list), rdhd);
 	if (rdit != end(client_rdaemon_list)) {
-		INFO("FOUND daemon in the list\n");
+		INFO("FOUND daemon for destid (0x%X) in the list\n", destid);
 	} else {
 		CRIT("Daemon for destid(0x%X) not found. EXITING\n", destid);
 		sem_post(&client_rdaemon_list_sem); /* Unlock */
+		HIGH("AFTER sem_post(&client_rdaemon_list_sem)\n");
 		pthread_exit(0);
 	}
 	rdaemon_t *rdaemon = (*rdit);
 	sem_post(&client_rdaemon_list_sem); /* Unlock client_rdaemon_list */
+	HIGH("AFTER sem_post(&client_rdaemon_list_sem)\n");
 
 	/* Initialize CM receive buffer */
 	cm_client *main_client = rdaemon->main_client;
@@ -76,17 +79,18 @@ void *wait_accept_thread_f(void *arg)
 	while (1) {
 
 		/* Block until there is an 'accept' pending reception */
-		INFO("Waiting for cm_wait_accept_sem (0x%X) to post\n",
+		HIGH("Waiting for cm_wait_accept_sem (0x%X) to post\n",
 						rdaemon->cm_wait_accept_sem);
 		if (sem_wait(&rdaemon->cm_wait_accept_sem) == -1) {
 			WARN("sem_wait(&cm_wait_accept_sem), %s\n",
 							strerror(errno));
 			goto exit;
 		}
+		HIGH("rdaemon->cm_wait_accept_sem has posted\n");
 
 		/* Kill the thread? */
 		if (shutting_down) {
-			CRIT("Terminating\n");
+			CRIT("Terminating since daemon is shutting down\n");
 			pthread_exit(0);
 		}
 
@@ -94,9 +98,10 @@ void *wait_accept_thread_f(void *arg)
 		main_client->flush_recv_buffer();
 
 		/* Wait for incoming accept CM from server's RDMA daemon */
+		HIGH("main_client->receive() waiting for accept from server daemon\n");
 		if (main_client->receive())
 			continue;
-		INFO("Received accept from %s\n", accept_cm_msg->server_ms_name);
+		HIGH("Received accept from %s\n", accept_cm_msg->server_ms_name);
 
 		/* Form message queue name from memory space name */
 		char mq_name[CM_MS_NAME_MAX_LEN+2];
@@ -218,7 +223,7 @@ void *client_wait_destroy_thread_f(void *arg)
 
 	while (1) {
 		/* Wait for the CM destroy message containing msid, and ms_name */
-		DBG("Waiting for 'destroy' message from remote daemon\n");
+		HIGH("Waiting for 'destroy' message from remote daemon\n");
 		ret = destroy_server->accept();
 		if (ret) {
 			if (ret == EINTR) {
@@ -229,12 +234,13 @@ void *client_wait_destroy_thread_f(void *arg)
 			delete destroy_server;
 			pthread_exit(0);
 		}
-		INFO("Connection from RDMA daemon on DESTROY!\n");
+		HIGH("Connection from RDMA daemon on DESTROY!\n");
 
 		/* Flush receive buffer of previous message */
 		destroy_server->flush_recv_buffer();
 
-		/* Wait for incoming accept CM from server's RDMA daemon */
+		/* Wait for incoming destroy CM from server's RDMA daemon */
+		HIGH("Waiting for destroy message from server daemon\n");
 		if (destroy_server->receive()) {
 			ERR("Failed to receive(). EXITING\n");
 			delete destroy_server;
@@ -243,7 +249,7 @@ void *client_wait_destroy_thread_f(void *arg)
 
 		/* Extract message */
 		cm_destroy_msg	*destroy_msg = (cm_destroy_msg *)cm_recv_buf;
-		INFO("Received CM destroy  containing '%s'\n",
+		HIGH("Received CM destroy  containing '%s'\n",
 						destroy_msg->server_msname);
 
 		/* Prep POSIX message queue name */
@@ -285,38 +291,30 @@ void *client_wait_destroy_thread_f(void *arg)
 		 * stuck here if the library fails to send the 'destroy_ack' */
 		struct timespec tm;
 		clock_gettime(CLOCK_REALTIME, &tm);
-		tm.tv_sec += 1;
-		if (destroy_mq->timed_receive(&tm))
-			/**
-			 * FIXME: Normally failure to receive the ACK to the
-			 * destroy should keep us from sending the CM destroy
-			 * ACK to the remote daemon. However we don't have
-			 * a timeout mechanism for CM messages yet so that would
-			 * mean we will keep the remote daemon stuck waiting for
-			 * an ACK from one daemon although it may get ACKs from
-			 * other daemons if it is allowed to continue. Therefore
-			 * for now, we will just issue a warning and send back
-			 * an ACK to the remote daemon.
+		tm.tv_sec += 5;
+		if (destroy_mq->timed_receive(&tm)) {
+			/* The server daemon will timeout on the destory-ack
+			 * reception since it is now using a timed receive CM call.
 			 */
-			WARN("Timed out without receiving ACK to destroy\n");
-		else {
-			INFO("destroy_ack received for %s\n",
+			HIGH("Timed out without receiving ACK to destroy\n");
+		} else {
+			HIGH("destroy_ack received for %s\n",
 						destroy_msg->server_msname);
+			/* Flush CM send buffer of previous message */
+			destroy_server->flush_send_buffer();
+
+			/* Now send back a destroy_ack CM message */
+			cm_destroy_ack_msg *dam = (cm_destroy_ack_msg *)cm_send_buf;
+			strcpy(dam->server_msname, destroy_msg->server_msname);
+			dam->server_msid = destroy_msg->server_msid;
+			if (destroy_server->send()) {
+				WARN("Failed to send destroy_ack to server daemon\n");
+			}
+			HIGH("Sent destroy_ack to server daemon\n");
 		}
 
 		/* Done with the destroy POSIX message queue */
 		delete destroy_mq;
-
-		/* Flush CM send buffer of previous message */
-		destroy_server->flush_send_buffer();
-
-		/* Now send back a destroy_ack CM message */
-		cm_destroy_ack_msg *dam = (cm_destroy_ack_msg *)cm_send_buf;
-		strcpy(dam->server_msname, destroy_msg->server_msname);
-		dam->server_msid = destroy_msg->server_msid;
-		if (destroy_server->send()) {
-			WARN("Failed to send destroy_ack to server daemon\n");
-		}
 	} /* while */
 
 	pthread_exit(0);

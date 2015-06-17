@@ -61,7 +61,7 @@ void *accept_thread_f(void *arg)
 
 	while (1) {
 		/* Block until there is a 'connect' pending reception */
-		INFO("Waiting for cm_wait_connect_sem\n");
+		HIGH("Waiting for cm_wait_connect_sem\n");
 		if (sem_wait(&peer.cm_wait_connect_sem) == -1) {
 			WARN("sem_wait(&peer.cm_wait_connect_sem): %s\n",
 							strerror(errno));
@@ -75,7 +75,7 @@ void *accept_thread_f(void *arg)
 		}
 
 		/* Wait for connect request from client */
-		INFO("Calling main_server->accept()\n");
+		HIGH("Calling main_server->accept()\n");
 		ret = main_server->accept();
 		if (ret) {
 			if (ret == EINTR) {
@@ -85,9 +85,10 @@ void *accept_thread_f(void *arg)
 			}
 			pthread_exit(0);
 		}
-		INFO("Connection from other RDMA daemon!!!\n");
+		HIGH("Connection from other RDMA daemon!!!\n");
 
-		/* Wait for cm_connect_msg from client */
+		/* Wait for cm_connect_msg from client daemon */
+		HIGH("Waiting for cm_connect_msg from client daemon\n");
 		ret = main_server->receive();
 		if (ret) {
 			if (ret == EINTR) {
@@ -97,7 +98,7 @@ void *accept_thread_f(void *arg)
 			}
 			pthread_exit(0);
 		}
-
+		HIGH("Got cm_connect_msg from client daemon\n");
 		/* Obtain memory space name */
 		struct cm_connect_msg *c = (struct cm_connect_msg *)cm_recv_buf;
 
@@ -198,7 +199,7 @@ void *server_wait_disc_thread_f(void *arg)
 	while (1) {
 		int	ret;
 		/* Wait for the CM disconnect message containing rem_msh */
-		DBG("Calling aux_server->accept()\n");
+		HIGH("Calling aux_server->accept()\n");
 		ret = aux_server->accept();
 		if (ret) {
 			if (ret == EINTR) {
@@ -208,12 +209,13 @@ void *server_wait_disc_thread_f(void *arg)
 			}
 			goto thread_exit;
 		}
-		INFO("Connection from RDMA daemon on AUX!\n");
+		HIGH("Connection from RDMA daemon on AUX!\n");
 
 		/* Flush receive buffer of previous message */
 		aux_server->flush_recv_buffer();
 
 		/* Wait for 'disconnect' CM from client's RDMA daemon */
+		HIGH("Waiting for 'disconnect' CM from client daemon\n");
 		ret = aux_server->receive();
 		if (ret) {
 			if (ret == EINTR) {
@@ -223,6 +225,7 @@ void *server_wait_disc_thread_f(void *arg)
 			}
 			goto thread_exit;
 		}
+		HIGH("Received cm_disconnect_msg from client daemon\n");
 
 		/* Extract CM message */
 		cm_disconnect_msg *disc_msg = (cm_disconnect_msg *)cm_recv_buf;
