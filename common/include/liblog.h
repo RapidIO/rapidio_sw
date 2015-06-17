@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define NUM_LOG_LINES	100
 #define LOG_LINE_SIZE	192
-#define DEFAULT_LOG_DIR	 "./"
+#define DEFAULT_LOG_DIR	 "/var/log/rdma/"
 
 /* Log levels */
 #define RDMA_LL_CRIT	 2

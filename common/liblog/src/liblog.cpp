@@ -67,14 +67,18 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 
 	::circ_buf_en = circ_buf_en;
 
-	/* Create /var/log/rdma if not already present */
+	/* Directory name */
+	string filename(DEFAULT_LOG_DIR);
+
+	/* Create log directory if not already present on system */
 	struct stat st;
 	if (stat(DEFAULT_LOG_DIR, &st) < 0) {
-		system("mkdir /var/log/rdma");
+		string create_dir(filename);
+		create_dir.insert(0, "mkdir ");
+		system(create_dir.c_str());
 	}
 
 	/* Open log file */
-	string filename(DEFAULT_LOG_DIR);
 	filename.append(log_filename);
 	log_file = fopen(filename.c_str(), "a");
 	if (!log_file) {
