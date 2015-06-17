@@ -49,7 +49,7 @@ char *level_strings[RDMA_LL_DBG+1] {
 	(char *)"NOLOG",
 	(char *)"CRIT",
 	(char *)"ERR",
-	(char *)"WARN",
+	(char *)"HIGH",
 	(char *)"WARN",
 	(char *)"INFO",
 	(char *)"DBG"
@@ -90,8 +90,9 @@ struct cli_cmd LogLevel = {
         "2: Critical, Failure critical to correct operation\n"
         "3: Error   , Error occurred, may not affect operation\n"
         "4: Warning , Something a bit strange occurred\n"
-        "5: Info    , Informational, trace operation of the system\n"
-        "6: Debug   , Detailed information about system operation\n" 
+        "5: High priority info, mainly thread synchronization info\n"
+        "6: Info    , Informational, trace operation of the system\n"
+        "7: Debug   , Detailed information about system operation\n"
         "   NOTE: Levels above \"Error\" impact performance significantly.\n"
         "   NOTE: Maximum level available is set through the \"LOG_LEVEL\"\n"
         "         Makefile compile option.",
