@@ -49,8 +49,8 @@ char *level_strings[RDMA_LL_DBG+1] {
 	(char *)"NOLOG",
 	(char *)"CRIT",
 	(char *)"ERR",
-	(char *)"HIGH",
 	(char *)"WARN",
+	(char *)"HIGH",
 	(char *)"INFO",
 	(char *)"DBG"
 };
