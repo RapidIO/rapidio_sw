@@ -78,6 +78,33 @@ void failedWrite(struct cli_env *env, UINT32 address, UINT32 data, STATUS rc)
 	logMsg(env);
 };
 
+int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
+{
+	uint32_t temp;
+	int rc = 0;
+
+        if (RIOCP_PE_IS_MPORT(pe_h))
+                rc = rio_maint_read_local(pe_h->minfo->maint, offset,  &temp)?1:0;
+        else
+                rc = rio_maint_read_remote(pe_h->mport->minfo->maint, pe_h->destid,
+                        	pe_h->hopcount, offset, &temp, 1)?1:0;
+	if (!rc)
+		*data = temp;
+	return rc;
+};
+
+int mport_write(riocp_pe_handle pe_h, uint32_t addr, uint32_t data)
+{
+	int rc = 0;
+
+        if (RIOCP_PE_IS_MPORT(pe_h))
+                rc = rio_maint_write_local(pe_h->minfo->maint, addr, data)?1:0;
+        else
+                rc = rio_maint_write_remote(pe_h->mport->minfo->maint,
+			pe_h->destid, pe_h->hopcount, addr, &data, 1)?1:0;
+	return rc;
+};
+
 /* If the structure or syntax of this command changes,
  * please update the Help structure following the procedure.
  */
@@ -85,17 +112,11 @@ void failedWrite(struct cli_env *env, UINT32 address, UINT32 data, STATUS rc)
 int CLIRegReadCmd(struct cli_env *env, int argc, char **argv)
 {
 	int errorStat = 0;
-	UINT32 address;
-	UINT32 data, prevRead;
-	UINT32 numReads = 1, i;
-	STATUS rc;
+	uint32_t address;
+	uint32_t data, prevRead;
+	uint32_t numReads = 1, i;
+	int rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
-        DAR_DEV_INFO_t *dev_h;
-
-        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
-                printf("Current device invalid.\n");
-                goto exit;
-        };
 
 	if (argc) {
 		address = getHex(argv[0], 0);
@@ -114,8 +135,9 @@ int CLIRegReadCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	for (i = 0; i < numReads; i++) {
-		rc = DARRegRead(dev_h, address, &data);
-		if (RIO_SUCCESS != rc) {
+		rc = mport_read(pe_h, address, &data);
+
+		if (rc) {
 			failedReading(env, address, rc);
 			goto exit;
 		}
@@ -160,13 +182,6 @@ int CLIRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	UINT32 data;
 	STATUS rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
-        DAR_DEV_INFO_t *dev_h;
-
-        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
-                printf("Current device invalid.\n");
-                goto exit;
-        };
-
 
 	if (argc) {
 		address = getHex(argv[0], 0);
@@ -184,14 +199,14 @@ int CLIRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	/* Command arguments are syntactically correct - do write */
-	rc = DARRegWrite(dev_h, address, data);
+	rc = mport_write(pe_h, address, data);
 	if (RIO_SUCCESS != rc) {
 		failedWrite(env, address, data, rc);
 		goto exit;
 	}
 
 	/* read data back */
-	rc = DARRegRead(dev_h, address, &data);
+	rc = mport_read(pe_h, address, &data);
 	if (RIO_SUCCESS != rc) {
 		failedReading(env, address, rc);
 		goto exit;
@@ -229,12 +244,6 @@ int CLIRegReWriteCmd(struct cli_env *env, int argc, char **argv)
 	UINT32 repeat, i;
 	STATUS rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
-        DAR_DEV_INFO_t *dev_h;
-
-        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
-                printf("Current device invalid.\n");
-                goto exit;
-        };
 
 	if (argc) {
 		address = getHex(argv[0], 0);
@@ -255,14 +264,14 @@ int CLIRegReWriteCmd(struct cli_env *env, int argc, char **argv)
 
 
 	for (i = 0; i < repeat; i++) {
-		rc = DARRegWrite(dev_h, address, data);
+		rc = mport_write(pe_h, address, data);
 		if (RIO_SUCCESS != rc) {
 			failedWrite(env, address, data, rc);
 			goto exit;
 		};
 	};
 
-	rc = DARRegRead(dev_h, address, &data);
+	rc = mport_read(pe_h, address, &data);
 	if (RIO_SUCCESS != rc) {
 		failedReading(env, address, rc);
 		goto exit;
@@ -300,13 +309,6 @@ int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
 	UINT32 data;
 	STATUS rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
-        DAR_DEV_INFO_t *dev_h;
-
-        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
-                printf("Current device invalid.\n");
-                goto exit;
-        };
-
 
 	if (argc) {
 		address = getHex(argv[0], 0);
@@ -325,7 +327,7 @@ int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	/* Command arguments are syntactically correct - do write */
-	rc = DARRegWrite(dev_h, address, data);
+	rc = mport_write(pe_h, address, data);
 	if (RIO_SUCCESS != rc) {
 		failedWrite(env, address, data, rc);
 		goto exit;
@@ -357,13 +359,6 @@ int expect(struct cli_env *env, int argc, char **argv, int inverse)
 	UINT32 data, expdata;
 	STATUS rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
-        DAR_DEV_INFO_t *dev_h;
-
-        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
-                printf("Current device invalid.\n");
-                goto exit;
-        };
-
 
 	if (argc) {
 		address = getHex(argv[0], 0);
@@ -380,7 +375,7 @@ int expect(struct cli_env *env, int argc, char **argv, int inverse)
 		expdata = store_data;
 	};
 
-	rc = DARRegRead(dev_h, address, &data);
+	rc = mport_read(pe_h, address, &data);
 	if (RIO_SUCCESS != rc) {
 		failedReading(env, address, rc);
 		goto exit;
@@ -461,13 +456,6 @@ int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
 	STATUS rc;
 	static UINT32 store_address, store_numbytes;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
-        DAR_DEV_INFO_t *dev_h;
-
-        if (riocp_pe_handle_get_private(pe_h, (void **)&dev_h)) {
-                printf("Current device invalid.\n");
-                goto exit;
-        };
-
 
 	if (argc) {
 		address  = getHex(argv[0], 0);
@@ -500,7 +488,7 @@ int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
 		logMsg(env);
 	};
 	for (i = 0; i < numbytes; i += 4) {
-		rc = DARRegRead(dev_h, address + i, &data);
+		rc = mport_read(pe_h, address + i, &data);
 		if (RIO_SUCCESS != rc) {
 			failedReading(env, address, rc);
 			goto exit;

@@ -68,14 +68,25 @@ extern "C" {
 
 #define FMD_OP_MODE_SLAVE 0
 #define FMD_OP_MODE_MASTER 1
-#define FMD_DEV08 1
-#define FMD_DEV16 2
-#define FMD_DEV32 4
+#define FMD_DEV08 0
+#define FMD_DEV16 1
+#define FMD_DEV32 2
+#define FMD_DEVID_MAX (FMD_DEV32+1)
+
+struct dev_id {
+	int devid;
+	int hc;
+	int valid;
+};
+
+struct fmd_cfg_ep;
 
 struct fmd_mport_info {
 	int num;
 	int op_mode;
-	int devid_sizes;
+	struct dev_id devids[FMD_DEVID_MAX];
+	struct fmd_cfg_ep *ep; /* Link to endpoint definition for this MPORT */
+	int ep_pnum; /* EP port number that matches this MPORT */
 };
 
 #define FMD_MAX_MPORTS 4
@@ -100,12 +111,6 @@ struct fmd_mport_info {
 
 #define FMD_SLAVE -1
 
-struct dev_id {
-	int devid;
-	int hc;
-	int valid;
-};
-
 struct fmd_cfg_rapidio {
 	idt_pc_pw_t max_pw;
 	idt_pc_pw_t op_pw;
@@ -119,7 +124,8 @@ struct fmd_cfg_ep_port {
 	int port;
 	int ct;
 	struct fmd_cfg_rapidio rio;
-	struct dev_id devids[3];
+	struct dev_id devids[FMD_DEVID_MAX];
+	struct fmd_cfg_conn *conn;
 };
 
 struct fmd_cfg_ep {
@@ -133,6 +139,7 @@ struct fmd_cfg_sw_port {
 	int valid;
 	int port;
 	struct fmd_cfg_rapidio rio;
+	struct fmd_cfg_conn *conn;
 };
 
 struct fmd_cfg_sw {
@@ -144,7 +151,8 @@ struct fmd_cfg_sw {
 	int hc;
 	int ct;
 	struct fmd_cfg_sw_port ports[FMD_MAX_SW_PORT];
-	idt_rt_state_t rt[3]; // One routing table for each devID size
+	// One routing table for each devID size
+	idt_rt_state_t rt[FMD_DEVID_MAX]; 
 };
 
 struct fmd_cfg_conn_pe {
@@ -230,6 +238,8 @@ struct fmd_state {
 
 extern struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[]);
 extern void fmd_process_cfg_file(struct fmd_cfg_parms *cfg);
+extern struct fmd_cfg_sw *find_cfg_sw_by_ct(uint32_t ct, 
+					struct fmd_cfg_parms *cfg);
 
 extern int fmd_dd_init(struct fmd_cfg_parms *cfg,
 				struct fmd_state **st);
