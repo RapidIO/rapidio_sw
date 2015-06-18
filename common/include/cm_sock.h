@@ -204,13 +204,6 @@ public:
 		}
 		DBG("listen_socket = 0x%X\n", listen_socket);
 
-		/* Create accept socket */
-		if( riodp_socket_socket(mailbox, &accept_socket)) {
-			ERR("Failed to create accept socket for '%s'\n", name);
-			throw cm_exception("Failed to create accept socket");
-		}
-		DBG("Created accept_socket = 0x%X\n", accept_socket);
-
 		/* Bind listen socket, throw exception if failed */
 		if (riodp_socket_bind(listen_socket, channel)) {
 			CRIT("Failed to bind listen socket for '%s'\n", name);
@@ -225,12 +218,12 @@ public:
 	{
 		/* Close accept socket, if open */
 		DBG("accept_socket = 0x%X\n", accept_socket);
-		if (accepted)
+		if (accept_socket && accepted)
 			if (riodp_socket_close(&accept_socket)) {
 				WARN("Failed to close accept socket for '%s': %s\n",
 							name, strerror(errno));
 			}
-		
+
 		/* Close listen socket, opened during construction */
 		DBG("Closing listen_socket = 0x%X\n", listen_socket);
 		if (riodp_socket_close(&listen_socket)) {
@@ -261,6 +254,20 @@ public:
 	/* Accept connection from client */
 	int accept()
 	{
+		/* Close previously created accept socket, if applicable */
+		if (accept_socket && accepted)
+			if (riodp_socket_close(&accept_socket)) {
+				WARN("Failed to close accept socket for '%s': %s\n",
+							name, strerror(errno));
+		}
+
+		/* Create accept socket */
+		if( riodp_socket_socket(mailbox, &accept_socket)) {
+			ERR("Failed to create accept socket for '%s'\n", name);
+			return -1;
+		}
+		DBG("Created accept_socket = 0x%X\n", accept_socket);
+
 		/* Wait for connection request from a client */
 		int rc = 0;
 		do {
@@ -277,6 +284,7 @@ public:
 			}
 		} else
 			accepted = true;
+
 		return rc;
 	} /* accept() */
 
@@ -301,7 +309,7 @@ public:
 private:
 	riodp_socket_t listen_socket;
 	riodp_socket_t accept_socket;
-	bool	       accepted;
+	bool accepted;
 }; /* cm_server */
 
 class cm_client : public cm_base {
