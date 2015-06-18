@@ -64,7 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #if RDMA_LL >= RDMA_LL_HIGH
-#define HIGH(format, ...) __rdma_log(RDMA_LL_INFO, "HIGH", format, ## __VA_ARGS__)
+#define HIGH(format, ...) __rdma_log(RDMA_LL_HIGH, "HIGH", format, ## __VA_ARGS__)
 #else
 #define HIGH(format, ...)
 #endif
