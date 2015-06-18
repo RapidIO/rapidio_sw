@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 /* System includes */
+#include <sys/time.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -114,6 +115,7 @@ int rdma_log( unsigned level,
 	va_list	args;
 	int	n;
 	time_t	cur_time;
+	struct timeval tv;
 	char	asc_time[26];
 	
 	/* Ignore log messages with level higher than the global level */
@@ -121,11 +123,13 @@ int rdma_log( unsigned level,
 		return 0;
 
 	/* Prefix with level_str, timestamp, filename, line no., and func. name */
+
 	time(&cur_time);
 	ctime_r(&cur_time, asc_time);
 	asc_time[strlen(asc_time) - 1] = '\0';
-	n = sprintf(buffer, "%s %s %s,%d,%s(): ",
-					level_str, asc_time, file, line_num, func);
+	gettimeofday(&tv, NULL);
+	n = sprintf(buffer, "%s %s.%03ld %s,%d,%s(): ",
+					level_str, asc_time, tv.tv_usec/1000, file, line_num, func);
 	
 	/* Handle format and variable arguments */
 	va_start(args, format);
