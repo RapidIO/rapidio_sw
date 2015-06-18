@@ -119,6 +119,10 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \
 	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBCLI_PATH) -L$(LIBLOG_PATH) \
 	-Wl,-rpath=$(MPORTLIB_PATH) -Wl,-rpath=$(LIBCLI_PATH) -Wl,-rpath=$(LIBLOG_PATH) \
 	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -lmport -lrt -lcli -llog -pthread
+	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_main.cpp > rdmad_main.i
+	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_svc.cpp > rdmad_svc.i
+	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_srvr_threads.cpp > rdmad_srvr_threads.i
+	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_clnt_threads.cpp > rdmad_clnt_threads.i
 
 # RPC-generated files
 rdmalib_rpc.c: rdmad.x rdmad.h
@@ -134,7 +138,7 @@ rdmad_xdr.c: rdmad.x rdmad.h
 	perl remove_buf.pl
 
 clean:
-	rm -f rdmalib_rpc.c rdmad_rpc.c rdmad_xdr.c rdmad.h rdmad *.o rdmad_xdr.b librdma.so
+	rm -f rdmalib_rpc.c rdmad_rpc.c rdmad_xdr.c rdmad.h rdmad *.o rdmad_xdr.b librdma.so *.i
 	$(MAKE) clean -C rskt
 	$(MAKE) clean -C samples
 	$(MAKE) clean -C test
