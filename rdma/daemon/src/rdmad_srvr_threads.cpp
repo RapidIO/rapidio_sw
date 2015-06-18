@@ -203,11 +203,12 @@ void *server_wait_disc_thread_f(void *arg)
 		ret = aux_server->accept();
 		if (ret) {
 			if (ret == EINTR) {
-				WARN("pthread_kill() was called. Exiting thread\n");
+				HIGH("pthread_kill() was called. Exiting thread\n");
+				pthread_exit(0);
 			} else {
-				ERR("%s\n", strerror(ret));
+				ERR("aux_server->accept() failed: %s\n", strerror(ret));
 			}
-			goto thread_exit;
+			continue;
 		}
 		HIGH("Connection from RDMA daemon on AUX!\n");
 
@@ -219,11 +220,12 @@ void *server_wait_disc_thread_f(void *arg)
 		ret = aux_server->receive();
 		if (ret) {
 			if (ret == EINTR) {
-				WARN("pthread_kill() was called. Exiting thread\n");
+				HIGH("pthread_kill() was called. Exiting thread\n");
+				pthread_exit(0);
 			} else {
-				ERR("%s\n", strerror(ret));
+				ERR("aux_server->receive() failed: %s\n", strerror(ret));
 			}
-			goto thread_exit;
+			continue;
 		}
 		HIGH("Received cm_disconnect_msg from client daemon\n");
 
@@ -233,10 +235,10 @@ void *server_wait_disc_thread_f(void *arg)
 		/* Remove client_destid from 'ms' identified by server_msid */
 		mspace *ms = the_inbound->get_mspace(disc_msg->server_msid);
 		if (!ms) {
-			WARN("Failed to find ms(0x%X)\n", disc_msg->server_msid);
+			ERR("Failed to find ms(0x%X)\n", disc_msg->server_msid);
 		} else {
 			if (ms->remove_destid(disc_msg->client_destid) < 0)
-				WARN("Failed to remove destid(0x%X)\n",
+				ERR("Failed to remove destid(0x%X)\n",
 							disc_msg->client_destid);
 			else {
 				INFO("Removed desitd(0x%X) from msid(0x%X)\n",
@@ -260,7 +262,7 @@ void *server_wait_disc_thread_f(void *arg)
 		mqd_t	disc_mq = mq_open(mq_name,O_RDWR, 0644, &attr);
 		if (disc_mq == (mqd_t)-1) {
 			ERR("Failed to open %s\n", mq_name);
-			goto thread_exit;
+			continue;
 		}
 
 		/* Send 'disconnect' POSIX message contents to the RDMA library */
@@ -271,17 +273,17 @@ void *server_wait_disc_thread_f(void *arg)
 		if (ret < 0) {
 			ERR("Failed to send message: %s\n", strerror(errno));
 			mq_close(disc_mq);
-			goto thread_exit;
+			continue;
 		}
 
 		/* Now close POSIX queue */
 		if (mq_close(disc_mq)) {
 			ERR("Failed to close '%s': %s\n", mq_name, strerror(errno));
+			continue;
 		}
+		INFO("'Disconnect' message relayed to 'server'..back to accepting\n");
 	} /* while */
 
-thread_exit:
-	CRIT("Exiting!!!!!\n");
 	pthread_exit(0);
 } /* server_wait_disc_thread() */
 
