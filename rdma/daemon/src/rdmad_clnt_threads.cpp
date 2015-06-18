@@ -229,10 +229,9 @@ void *client_wait_destroy_thread_f(void *arg)
 			if (ret == EINTR) {
 				INFO("pthread_kill was called. Exiting thread\n");
 			} else {
-				ERR("Failed to accept(). EXITING\n");
+				ERR("Failed to accept(). Retrying...\n");
 			}
-			delete destroy_server;
-			pthread_exit(0);
+			continue;
 		}
 		HIGH("Connection from RDMA daemon on DESTROY!\n");
 
@@ -242,9 +241,8 @@ void *client_wait_destroy_thread_f(void *arg)
 		/* Wait for incoming destroy CM from server's RDMA daemon */
 		HIGH("Waiting for destroy message from server daemon\n");
 		if (destroy_server->receive()) {
-			ERR("Failed to receive(). EXITING\n");
-			delete destroy_server;
-			pthread_exit(0);
+			ERR("Failed to receive(). Retrying...\n");
+			continue;
 		}
 
 		/* Extract message */
@@ -309,8 +307,9 @@ void *client_wait_destroy_thread_f(void *arg)
 			dam->server_msid = destroy_msg->server_msid;
 			if (destroy_server->send()) {
 				WARN("Failed to send destroy_ack to server daemon\n");
+			} else {
+				HIGH("Sent destroy_ack to server daemon\n");
 			}
-			HIGH("Sent destroy_ack to server daemon\n");
 		}
 
 		/* Done with the destroy POSIX message queue */
