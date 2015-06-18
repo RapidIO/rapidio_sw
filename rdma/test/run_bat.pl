@@ -46,29 +46,29 @@ if (!defined($options{d})) {
 } else {
 	$destid = $options{d};
 }
+# Open log file for storing PASS/FAIL results of tests
+my $logfilename = "bat" . $channel . ".log";
+open(my $fh, ">", $logfilename)
+	or die "cannot open $logfilename!";
 
 # List of tests
 my @tests = (
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -ta -obat.log",	# 0
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -tb -obat.log",	# 1
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -tc -obat.log",	# 2
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -tg -obat.log",	# 3
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -th -obat.log",	# 4
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -ti -obat.log",	# 5
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t1 -obat.log",	# 6
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t2 -obat.log",	# 7
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t3 -obat.log",	# 8
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t4 -obat.log",	# 9
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t5 -obat.log",	# 10
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -ta -o" . $logfilename, # 0
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -tb -o" . $logfilename, # 1
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -tc -o" . $logfilename, # 2
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -tg -o" . $logfilename, # 3
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -th -o" . $logfilename, # 4
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -ti -o" . $logfilename, # 5
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t1 -o" . $logfilename, # 6
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t2 -o" . $logfilename, # 7
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t3 -o" . $logfilename, # 8
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t4 -o" . $logfilename, # 9
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t5 -o" . $logfilename, # 10
 );
 
 my $num_bat = scalar@tests;
 print "There are $num_bat tests to run\n";
 
-# Open log file for storing PASS/FAIL results of tests
-my $logfilename = "bat" . $channel . ".log";
-open(my $fh, ">", $logfilename)
-	or die "cannot open $logfilename!";
 
 # Run tests, in sequence
 foreach my $bat(@tests) {
@@ -77,7 +77,7 @@ foreach my $bat(@tests) {
 }
 
 # Run tests, in a random order
-for (my $i = 0; $i < $num_bat*1000; $i++) {
+for (my $i = 0; $i < $num_bat; $i++) {
 	my $j = int(rand($num_bat));
 	print "Running $tests[$j] at " . localtime() ."\n";
 	system($tests[$j]);
