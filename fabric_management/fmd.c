@@ -281,13 +281,58 @@ void spawn_threads(struct fmd_cfg_parms *cfg)
  
 }
  
-int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate)
+int set_ep_destids(struct fmd_cfg_parms *cfg, 
+		riocp_pe_handle new_pe, 
+		struct fmd_cfg_sw *cfg_sw,
+		int sw_pnum)
+{
+	int rc;
+	struct fmd_cfg_conn *con;
+	struct fmd_cfg_ep *ep_h;
+	struct fmd_cfg_ep_port *ep_p;
+	int end_i;
+	int ep_pnum;
+
+	if (NULL == cfg_sw)
+		return 0;
+
+	con = cfg_sw->ports[sw_pnum].conn;
+	if (con->ends[0].ep)
+		end_i = 0;
+	else
+		end_i = 1;
+	ep_h = con->ends[end_i].ep_h;
+	ep_pnum = con->ends[end_i].port_num;
+	ep_p = &ep_h->ports[ep_pnum];
+
+	if (!ep_p->valid) {
+		WARN("Switch %s invalid connection on EP %s, destID not set", 
+			cfg_sw->name, ep_h->name);
+		return 0;
+	};
+
+	if (!ep_p->devids[0].valid) {
+		WARN("EP %s Port %d dev8 destID invalid, destID not set", 
+			cfg_sw->name, ep_h->name);
+		return 0;
+	};
+
+	rc = riocp_pe_set_destid(new_pe, ep_p->devids[0].devid);
+	if (rc)
+		CRIT("Set DestID for EP %s err p %d d %d rc %d\n", 
+			ep_pnum, ep_p->devids[0].devid, rc);
+	return rc;
+};
+
+int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate,
+			struct fmd_cfg_parms *cfg)
 {
 	struct l_head_t sw;
-	riocp_pe_handle new_pe, curr_pe;
-	int port_cnt, rc, cur_port;
+	riocp_pe_handle new_pe, curr_pe, curr_sw = NULL;
+	int port_cnt, rc, pnum;
 	struct riocp_pe_capabilities capabilities;
 	uint32_t comptag, new_comptag;
+	struct fmd_cfg_sw *cfg_sw = NULL;
 
 	l_init(&sw);
 
@@ -313,23 +358,22 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate)
 			goto exit;
 		};
 
-		for (cur_port = 0; cur_port < port_cnt; cur_port++) {
+		for (pnum = 0; pnum < port_cnt; pnum++) {
 			new_pe = NULL;
 			if (enumerate)
-				rc = riocp_pe_probe(curr_pe, cur_port, &new_pe);
+				rc = riocp_pe_probe(curr_pe, pnum, &new_pe);
 			else
-				rc = riocp_pe_discover(curr_pe, cur_port,
-								&new_pe);
+				rc = riocp_pe_discover(curr_pe, pnum, &new_pe);
 
 			if (rc) {
 				if ((-ENODEV != rc) && (-EIO != rc)) {
 					CRIT(
 					"Port %d probe or discover failed %d\n",
-						cur_port, rc);
+						pnum, rc);
 					goto exit;
 				};
 				INFO("Comp tag %x Port %d NO DEVICE\n",
-					comptag, cur_port);
+					comptag, pnum);
 				continue;
 			};
 
@@ -342,21 +386,38 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate)
 				goto exit;
 			};
 			INFO("Comp tag %x Port %d Found %x \n", 
-				comptag, cur_port, new_comptag);
+				comptag, pnum, new_comptag);
 
 			rc = riocp_pe_get_capabilities(new_pe, &capabilities);
 			if (rc) {
 				CRIT("new_pe get cap ERR, port %d rc %d\n", 
-					cur_port, rc);
+					pnum, rc);
 				goto exit;
 			};
 			if (RIOCP_PE_IS_SWITCH(capabilities)) {
 				INFO("New device is switch!\n");
 				l_push_tail(&sw, new_pe);
+			} else {
+				INFO("New device is an endpoint.\n");
+				if (set_ep_destids(cfg, new_pe, cfg_sw, pnum))
+					goto exit;
 			};
 		};
 
 		curr_pe = (riocp_pe_handle)l_pop_head(&sw);
+		curr_sw = curr_pe;
+		if (NULL == curr_pe)
+			continue;
+		rc = riocp_pe_get_comptag(curr_sw, &comptag);
+		if (rc) {
+			CRIT("Could not get switch component tag  %d\n", rc);
+			goto exit;
+		};
+		cfg_sw = find_cfg_sw_by_ct(comptag, cfg);
+		if (NULL == cfg_sw) {
+			WARN("Switch with unexpected comp tag %x\n", comptag);
+		};
+			
 	};
 	return 0;
 exit:
@@ -406,10 +467,36 @@ void setup_mport(struct fmd_state *fmd)
 		exit(EXIT_FAILURE);
 	};
 
+	/* FIXME: Change this to support other master ports etc... */
+	if (fmd->cfg->mast_idx != FMD_SLAVE) {
+		struct fmd_cfg_ep *ep;
+
+		if (riocp_pe_set_destid(mport_pe, 
+			fmd->cfg->mport_info[0].devids[FMD_DEV08].devid)) {
+			CRIT("\nCannot set mport0 destID\n");
+			exit(EXIT_FAILURE);
+		};
+
+		ep = fmd->cfg->mport_info[0].ep;
+		if (NULL == ep) {
+			CRIT("\nNo endpoint defined for master port.\n");
+			exit(EXIT_FAILURE);
+		};
+/* FIXME: Need a way to set the component tag equal to the configured
+ * component tag.
+ */
+/*
+		if (riocp_pe_set_comptag(mport_pe, ep->ports[ep_pnum].ct)) {
+			CRIT("\nCannot set mport0 Component Tag\n");
+			exit(EXIT_FAILURE);
+		};
+*/
+	};
+
 	if (FMD_SLAVE == fmd->cfg->mast_idx)
-		rc = fmd_traverse_network(mport_pe, 0, DISCOVER);
+		rc = fmd_traverse_network(mport_pe, 0, DISCOVER, fmd->cfg);
 	else
-		rc = fmd_traverse_network(mport_pe, 0, ENUMERATE);
+		rc = fmd_traverse_network(mport_pe, 0, ENUMERATE, fmd->cfg);
 
 	if (rc) {
 		CRIT("\nNetwork initialization failed...\n");

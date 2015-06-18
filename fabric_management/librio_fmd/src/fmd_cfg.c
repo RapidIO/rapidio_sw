@@ -116,7 +116,7 @@ int fmd_v_str(char **value, char *parm, int chk_slash)
 
 struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 {
-	int idx, i;
+	int idx, i, j;
 
 	char *dflt_fmd_cfg = (char *)FMD_DFLT_CFG_FN;
 	char *dflt_dd_fn = (char *)FMD_DFLT_DD_FN;
@@ -134,7 +134,13 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 	for (i = 0; i < FMD_MAX_MPORTS; i++) {
 		cfg->mport_info[i].num = -1;
 		cfg->mport_info[i].op_mode = -1;
-		cfg->mport_info[i].devid_sizes = 0;
+		for (j = 0; j < FMD_DEVID_MAX; j++) {
+			cfg->mport_info[i].devids[j].devid = 0;
+			cfg->mport_info[i].devids[j].hc = 0xFF;
+			cfg->mport_info[i].devids[j].valid = 0;
+		};
+		cfg->mport_info[i].ep = NULL;
+		cfg->mport_info[i].ep_pnum = -1;
 	};
 	cfg->mast_devid_sz = FMD_DFLT_MAST_DEVID_SZ;
 	cfg->mast_devid = FMD_DFLT_MAST_DEVID;
@@ -523,13 +529,14 @@ fail:
 	return 1;
 };
 
-int get_ep_sw_and_port(struct fmd_cfg_parms *cfg, struct fmd_cfg_conn_pe *pe)
+int get_ep_sw_and_port(struct fmd_cfg_parms *cfg, struct fmd_cfg_conn *conn, 
+			int idx)
 {
 	char *temp, *tok;
 
-	pe->port_num = 0;
-	pe->ep = 1;
-	pe->ep_h = NULL;
+	conn->ends[idx].port_num = 0;
+	conn->ends[idx].ep = 1;
+	conn->ends[idx].ep_h = NULL;
 
 	if (get_next_token(cfg, &tok))
 		goto fail;
@@ -537,34 +544,36 @@ int get_ep_sw_and_port(struct fmd_cfg_parms *cfg, struct fmd_cfg_conn_pe *pe)
 	temp = strchr(tok, '.');
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
-		pe->port_num = atoi(&temp[1]);
-		if (pe->port_num < 0) {
+		conn->ends[idx].port_num = atoi(&temp[1]);
+		if (conn->ends[idx].port_num < 0) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
 		};
 	};
 
-	if (!find_ep_name(cfg, tok, &pe->ep_h)) {
-		if (pe->port_num >= FMD_MAX_EP_PORT) {
+	if (!find_ep_name(cfg, tok, &conn->ends[idx].ep_h)) {
+		if (conn->ends[idx].port_num >= FMD_MAX_EP_PORT) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
 		};
-		if (!pe->ep_h->ports[pe->port_num].valid) {
+		if (!conn->ends[idx].ep_h->ports[conn->ends[idx].port_num].valid) {
 			parse_err(cfg, (char *)"Invalid port selected.");
 			goto fail;
 		};
+		conn->ends[idx].ep_h->ports[conn->ends[idx].port_num].conn = conn;
 		return 0;
 	};
 
-	if (!find_sw_name(cfg, tok, &pe->sw_h)) {
-		if (pe->port_num >= FMD_MAX_SW_PORT) {
+	if (!find_sw_name(cfg, tok, &conn->ends[idx].sw_h)) {
+		if (conn->ends[idx].port_num >= FMD_MAX_SW_PORT) {
 			parse_err(cfg, (char *)"Illegal port index.");
 			goto fail;
 		};
-		if (!pe->sw_h->ports[pe->port_num].valid) {
+		if (!conn->ends[idx].sw_h->ports[conn->ends[idx].port_num].valid) {
 			parse_err(cfg, (char *)"Invalid port selected.");
 			goto fail;
 		};
+		conn->ends[idx].sw_h->ports[conn->ends[idx].port_num].conn = conn;
 		return 0;
 	};
 fail:
@@ -659,6 +668,49 @@ fail:
 	return 1;
 };
 
+int check_match (struct dev_id *mp_did, struct dev_id *ep_did,
+		struct fmd_mport_info *mpi, struct fmd_cfg_parms *cfg, 
+		struct fmd_cfg_ep *ep, int pnum)
+{
+	if (!mp_did->valid)
+		goto exit;
+	if (!ep_did->valid)
+		goto exit;
+	if (mp_did->devid != ep_did->devid)
+		goto exit;
+	if (mp_did->hc != ep_did->hc)
+		goto exit;
+	if (mpi->ep != NULL) {
+		parse_err(cfg, (char *)"Duplicate MPORT definitions");
+		goto fail;
+	};
+	mpi->ep = ep;
+	mpi->ep_pnum = pnum;
+
+exit:
+	return 0;
+fail:
+	return -1;
+};
+
+int match_ep_to_mports(struct fmd_cfg_parms *cfg, struct fmd_cfg_ep_port *ep_p,
+			int pt_i, struct fmd_cfg_ep *ep)
+{
+	int mp_i, did_sz;
+	struct dev_id *mp_did;
+	struct dev_id *ep_did = ep_p->devids;
+
+	for (mp_i = 0; mp_i < cfg->max_mport_info_idx; mp_i++) {
+		mp_did = cfg->mport_info[mp_i].devids;
+		for (did_sz = 0; did_sz < FMD_DEVID_MAX; did_sz++) {
+			if (check_match( &mp_did[did_sz], &ep_did[did_sz],
+					&cfg->mport_info[mp_i], cfg, ep, pt_i))
+				return -1;
+		};
+	};
+	return 0;
+};
+
 int parse_mport_info(struct fmd_cfg_parms *cfg)
 {
 	int idx, i;
@@ -699,7 +751,7 @@ int parse_mport_info(struct fmd_cfg_parms *cfg)
 		goto fail;
 	};
 
-	return parse_devid_sizes(cfg, &cfg->mport_info[idx].devid_sizes);
+	return parse_ep_devids(cfg, cfg->mport_info[idx].devids);
 fail:
 	return 1;
 };
@@ -837,6 +889,9 @@ int parse_endpoint(struct fmd_cfg_parms *cfg)
 			if (parse_ep_port(cfg, &cfg->eps[i].ports[pt_i]))
 				goto fail;
 			cfg->eps[i].port_cnt++;
+			if (match_ep_to_mports(cfg, &cfg->eps[i].ports[pt_i], 
+						pt_i, &cfg->eps[i]))
+				goto fail;
 			break;
 		case 1: // "PEND"
 			done = 1;
@@ -1078,9 +1133,9 @@ int parse_connect(struct fmd_cfg_parms *cfg)
 		parse_err(cfg, (char *)"Too many connections.");
 		goto fail;
 	};
-	if (get_ep_sw_and_port(cfg, &cfg->cons[idx].ends[0]))
+	if (get_ep_sw_and_port(cfg, &cfg->cons[idx], 0))
 		goto fail;
-	if (get_ep_sw_and_port(cfg, &cfg->cons[idx].ends[1]))
+	if (get_ep_sw_and_port(cfg, &cfg->cons[idx], 1))
 		goto fail;
 	cfg->conn_cnt++;
 
@@ -1167,6 +1222,21 @@ void fmd_process_cfg_file(struct fmd_cfg_parms *cfg)
 				errno, strerror(errno));
 		cfg->init_and_quit = 1;
 	};
+};
+
+struct fmd_cfg_sw *find_cfg_sw_by_ct(uint32_t ct, struct fmd_cfg_parms *cfg)
+{
+	struct fmd_cfg_sw *ret = NULL;
+	int i;
+
+	for (i = 0; i < cfg->sw_cnt; i++) {
+		if ((uint32_t)cfg->sws[i].ct == ct) {
+			ret = &cfg->sws[i];
+			break;
+		};
+	};
+
+	return ret;
 };
 
 #ifdef __cplusplus
