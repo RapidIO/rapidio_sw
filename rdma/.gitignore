@@ -1,5 +1,7 @@
 rdmad
 
+*.i
+
 # auto generated files
 rdmad.h
 rdmad_rpc.c

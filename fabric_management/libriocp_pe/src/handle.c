@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 #include <sys/ioctl.h>

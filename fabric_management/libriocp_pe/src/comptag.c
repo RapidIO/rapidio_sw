@@ -9,6 +9,8 @@
  */
 #define _XOPEN_SOURCE 500
 
+#define __STDC_LIMIT_MACROS
+
 #include <stdlib.h>
 #include <stdint.h>
 
