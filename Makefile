@@ -75,3 +75,8 @@ clean: FORCE
 	$(MAKE) clean -C libmport
 	$(MAKE) clean -C rdma
 	$(MAKE) clean -C fabric_management
+
+test: fabric_management_test
+
+fabric_management_test: all
+	$(MAKE) test -C fabric_management

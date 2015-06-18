@@ -515,6 +515,9 @@ int main(int argc, char *argv[])
 	rdma_log_init("fmd_log", 0);
 	cfg = fmd_parse_options(argc, argv);
 	fmd_process_cfg_file(cfg);
+
+	if (cfg->parse_and_quit)
+		return 0;
 	
 	if ((NULL == cfg) || (cfg->init_err))
 		goto fail;

@@ -171,6 +171,7 @@ struct fmd_cfg_conn {
 struct fmd_cfg_parms {
 	int init_err;		/* If asserted, abort initialization */
 	int init_and_quit;	/* If asserted, exit after completing init */
+	int parse_and_quit;	/* If asserted, exit after completing cfg parse */
 	int simple_init;	/* If asserted, do not init device directory */
 	int cli_port_num;	/* POSIX Socket for remote CLI session */
 	int run_cons;		/* Run a console on this daemon. */

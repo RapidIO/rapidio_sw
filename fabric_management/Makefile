@@ -78,3 +78,7 @@ clean:
 	$(MAKE) clean -C cli
 	$(MAKE) clean -C librio_fmd
 	$(MAKE) clean -C libriocp_pe
+
+test: daemon
+	perl test/run_tests.pl
+

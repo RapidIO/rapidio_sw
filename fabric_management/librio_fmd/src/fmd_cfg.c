@@ -126,6 +126,7 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 	cfg = (struct fmd_cfg_parms *)malloc(sizeof(struct fmd_cfg_parms));
 	cfg->init_err = 0;
 	cfg->init_and_quit = 0;
+	cfg->parse_and_quit = 0;
 	cfg->simple_init = 0;
 	cfg->cli_port_num = FMD_DFLT_CLI_PORT_NUM;
 	cfg->run_cons = 1;
@@ -187,6 +188,9 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 				  break;
 			case 's': 
 			case 'S': cfg->simple_init = 1;
+				  break;
+			case 't':
+			case 'T': cfg->parse_and_quit = 1;
 				  break;
 			case 'x': 
 			case 'X': cfg->init_and_quit = 1;
