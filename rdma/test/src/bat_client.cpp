@@ -928,6 +928,8 @@ void init_names(void)
 	/* Local names */
 	strcpy(loc_mso_name, "MSO_NAME");
 	strcat(loc_mso_name, pid_str);
+	strcpy(loc_ms_name, "MS_NAME");
+	strcat(loc_ms_name, pid_str);
 
 	/* For remote names we append the channel number */
 	strcpy(rem_mso_name, "MSO_NAME");
