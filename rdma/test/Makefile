@@ -16,7 +16,7 @@ BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a ../src/* \
 BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
 	-Wl,-rpath=$(LIBMPORT_PATH) \
 	-o $@ -I$(KERNINC) $(RDMAAPP_CFLAGS) \
-	src/$@.cpp -lrt -llog -lmport -lrdma
+	src/$@.cpp -lrt -llog -lmport -lrdma -pthread
 
 all: bat_server bat_client
 
