@@ -66,8 +66,9 @@ my $num_bat = scalar@tests;
 print "There are $num_bat tests to run\n";
 
 # Open log file for storing PASS/FAIL results of tests
-open(my $fh, ">", "bat.log")
-	or die "cannot open > bat.log $!";
+my $logfilename = "bat" . $channel . ".log";
+open(my $fh, ">", $logfilename)
+	or die "cannot open $logfilename!";
 
 # Run tests, in sequence
 foreach my $bat(@tests) {
@@ -76,7 +77,7 @@ foreach my $bat(@tests) {
 }
 
 # Run tests, in a random order
-for (my $i = 0; $i < $num_bat*10; $i++) {
+for (my $i = 0; $i < $num_bat*1000; $i++) {
 	my $j = int(rand($num_bat));
 	print "Running $tests[$j] at " . localtime() ."\n";
 	system($tests[$j]);

@@ -274,9 +274,9 @@ static int close_or_destroy_action(uint32_t msid)
 							dm->server_msname);
 
 		/* Wait for destroy acknowledge message, but with timeout.
-		 * If no ACK within say 2 seconds, then move on */
+		 * If no ACK within say 5 seconds, then move on */
 		cm_destroy_ack_msg *dam = (cm_destroy_ack_msg *)cm_recv_buf;
-		if (destroy_client->timed_receive(2000)) {
+		if (destroy_client->timed_receive(5000)) {
 			/* In this case whether the return value is ETIME or a failure
 			 * code is irrelevant. The main thing is NOT to be stuck here.
 			 */
@@ -287,7 +287,7 @@ static int close_or_destroy_action(uint32_t msid)
 			ERR("Received destroy_ack with wrong msid(0x%X)\n",
 							dam->server_msid);
 		else {
-			INFO("destroy_ack received from daemon destid(0x%X)\n", *it);
+			HIGH("destroy_ack received from daemon destid(0x%X)\n", *it);
 		}
 	}
 

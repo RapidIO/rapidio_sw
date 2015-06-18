@@ -36,12 +36,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define NUM_LOG_LINES	100
 #define LOG_LINE_SIZE	192
-#define DEFAULT_LOG_DIR	 "./"
+#define DEFAULT_LOG_DIR	 "/var/log/rdma/"
 
 /* Log levels */
 #define RDMA_LL_CRIT	 2
 #define RDMA_LL_ERR	 3
 #define RDMA_LL_WARN     4
+#define RDMA_LL_HIGH	 5
 #define RDMA_LL_INFO	 6
 #define RDMA_LL_DBG	 7
 
@@ -60,6 +61,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define INFO(format, ...) __rdma_log(RDMA_LL_INFO, "INFO", format, ## __VA_ARGS__)
 #else
 #define INFO(format, ...)
+#endif
+
+#if RDMA_LL >= RDMA_LL_HIGH
+#define HIGH(format, ...) __rdma_log(RDMA_LL_INFO, "HIGH", format, ## __VA_ARGS__)
+#else
+#define HIGH(format, ...)
 #endif
 
 #if RDMA_LL >= RDMA_LL_WARN
