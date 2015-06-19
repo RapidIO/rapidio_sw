@@ -8,7 +8,8 @@ level?=$(LOG_LEVEL)
 
 # Common flags for all applications
 RDMAAPP_CFLAGS = --std=gnu++0x -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
-		-I../../include -I../../common/include -I$(KINC)
+		-I../../include -I../../common/include -I$(KINC) \
+		-D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
 BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a ../src/* \
 	../inc/* ../daemon/src/* ../daemon/inc/*
