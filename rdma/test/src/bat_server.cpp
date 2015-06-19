@@ -1,5 +1,6 @@
 #include <iostream>
 #include <signal.h>
+#include <inttypes.h>
 
 #include "librdma.h"
 #include "cm_sock.h"
@@ -195,7 +196,7 @@ int main(int argc, char *argv[])
 				goto free_bat_server;
 
 			default:
-				fprintf(stderr, "Message type 0x%llX ignored\n", bm_rx->type);
+				fprintf(stderr, "Message type 0x%" PRIu64 " ignored\n", bm_rx->type);
 				break;
 			}
 		} /* while .. within test case */
