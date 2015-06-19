@@ -1039,15 +1039,17 @@ int rdma_create_msub_h(ms_h	msh,
 	in.offset	= offset;
 	in.req_bytes	= req_bytes;
 
+	DBG("msid = 0x%X, offset = 0x%X, req_bytes = 0x%x\n",
+		in.msid, in.offset, in.req_bytes);
 	/* RPC call to create a memory subspace, and check return value */
 	CALL_RPC(create_msub, in, out, -1, -2);
 
-	INFO("out->bytes=%d, peer.mport_fd=%d, out->phys_addr=0x%lX\n",
+	INFO("out->bytes=0x%X, peer.mport_fd=%d, out->phys_addr=0x%lX\n",
 				out->bytes, peer.mport_fd, out->phys_addr);
 
 	/* Store msubh in database, obtain pointer thereto, convert to msub_h */
 	*msubh = (msub_h)add_loc_msub(out->msubid,
-				      ((loc_ms *)msh)->msid,
+				      in.msid,
 				      out->bytes,
 				      64,	/* 64-bit RIO address */
 				      out->rio_addr,
