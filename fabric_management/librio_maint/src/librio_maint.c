@@ -58,7 +58,7 @@ void MAINT_SO_ATTR rio_maint_shutdown(rio_maint_handle *handle)
 int MAINT_SO_ATTR rio_maint_read_local(rio_maint_handle handle, uint32_t offset, uint32_t *data)
 {
 	uint32_t loc_data;
-	struct rio_mport_maint_io io = {0, 0, offset, 4, 0 };
+	struct rio_mport_maint_io io = {0, 0, offset, 4, {0} };
 
 	io.u.buffer = &loc_data;
 	if (!handle)
@@ -74,7 +74,7 @@ int MAINT_SO_ATTR rio_maint_read_local(rio_maint_handle handle, uint32_t offset,
 int MAINT_SO_ATTR rio_maint_write_local(rio_maint_handle handle, uint32_t offset, uint32_t data)
 {
 	uint32_t loc_data = data;
-	struct rio_mport_maint_io io = {0, 0, offset, 4, 0};
+	struct rio_mport_maint_io io = {0, 0, offset, 4, {0}};
 
 	io.u.buffer = &loc_data;
 	if (!handle)
@@ -91,7 +91,7 @@ int MAINT_SO_ATTR rio_maint_read_remote(rio_maint_handle handle, uint32_t dest_i
 		uint32_t *data, uint32_t word_count)
 {
 	uint32_t loc_data;
-	struct rio_mport_maint_io io = {dest_id, hop_count, offset, 4, 0};
+	struct rio_mport_maint_io io = {dest_id, hop_count, offset, 4, {0}};
 
 	io.u.buffer = &loc_data;
 
@@ -109,7 +109,7 @@ int MAINT_SO_ATTR rio_maint_write_remote(rio_maint_handle handle, uint32_t dest_
 		uint32_t offset, uint32_t *data, uint32_t word_count)
 {
 	uint32_t loc_data = *data;
-	struct rio_mport_maint_io io = {dest_id, hop_count, offset, 4, 0};
+	struct rio_mport_maint_io io = {dest_id, hop_count, offset, 4, {0}};
 	io.u.buffer = &loc_data;
 
 	if (!handle || (word_count != 1))

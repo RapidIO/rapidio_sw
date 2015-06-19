@@ -27,7 +27,7 @@ CFLAGS+=-I. -I./inc
 CFLAGS+=-I../librio_maint/inc
 CFLAGS+=-I./src
 CFLAGS+=-I../../common/include
-CFLAGS+=-DRDMA_LL=$(level)
+CFLAGS+=-DRDMA_LL=$(level) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) $(patsubst src/switches/%.c,src/switches/%.o,$(wildcard src/switches/*.c))

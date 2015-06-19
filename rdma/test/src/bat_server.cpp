@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
 				goto free_bat_server;
 
 			default:
-				fprintf(stderr, "Message type 0x%lX ignored\n", bm_rx->type);
+				fprintf(stderr, "Message type 0x%llX ignored\n", bm_rx->type);
 				break;
 			}
 		} /* while .. within test case */

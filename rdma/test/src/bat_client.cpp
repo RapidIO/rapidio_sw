@@ -30,7 +30,7 @@
 		   }
 
 #define BAT_CHECK_RX_TYPE(bm_rx, bat_type) if (bm_rx->type != bat_type) { \
-			fprintf(stderr, "Receive message with wrong type 0x%lX\n", bm_rx->type); \
+			fprintf(stderr, "Receive message with wrong type 0x%llX\n", bm_rx->type); \
 			fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 			return -3; \
 		   }
