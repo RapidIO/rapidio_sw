@@ -228,6 +228,8 @@ void *client_wait_destroy_thread_f(void *arg)
 		if (ret) {
 			if (ret == EINTR) {
 				INFO("pthread_kill was called. Exiting thread\n");
+				delete destroy_server;
+				pthread_exit(0);
 			} else {
 				ERR("Failed to accept(). Retrying...\n");
 			}
