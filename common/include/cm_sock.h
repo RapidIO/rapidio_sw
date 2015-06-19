@@ -228,7 +228,7 @@ public:
 			throw cm_exception("Failed to listen on socket");
 		}
 		DBG("Listen successful on '%s'\n", name);
-	}
+	} /* cm_server() */
 
 	~cm_server()
 	{
@@ -252,12 +252,7 @@ public:
 		if (close_mailbox()) {
 			WARN("Failed to close mailbox for '%s'\n", name);
 		}
-	}
-
-	int listen()
-	{
-		return 0;
-	} /* listen() */
+	} /* ~cm_server() */
 
 	/* Accept connection from client */
 	int accept()

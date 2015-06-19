@@ -208,13 +208,6 @@ void *client_wait_destroy_thread_f(void *arg)
 		pthread_exit(0);
 	}
 
-	/* Initiate 'listen' */
-	if (destroy_server->listen()) {
-		CRIT("destroy_server: failed to listen. EXITING\n");
-		delete destroy_server;
-		pthread_exit(0);
-	}
-
 	/* Get pointer to the recieve buffer */
 	destroy_server->get_recv_buffer(&cm_recv_buf);
 
