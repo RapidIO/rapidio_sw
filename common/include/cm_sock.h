@@ -188,6 +188,8 @@ public:
 		cm_base(name, mport_id, mbox_id, channel),
 		listen_socket(0), accept_socket(0), accepted(false)
 	{
+		int rc;
+
 		/* Create mailbox, throw exception if failed */
 		DBG("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
 			name, mport_id, mbox_id, channel);
@@ -198,20 +200,34 @@ public:
 
 		/* Create listen socket, throw exception if failed */
 		if (riodp_socket_socket(mailbox, &listen_socket)) {
-			CRIT("Failed to create listen socket for '%s'\n", name);
+			CRIT("Failed to create listen socket for '%s'\n",name);
 			close_mailbox();
 			throw cm_exception("Failed to create listen socket");
 		}
 		DBG("listen_socket = 0x%X\n", listen_socket);
 
 		/* Bind listen socket, throw exception if failed */
-		if (riodp_socket_bind(listen_socket, channel)) {
-			CRIT("Failed to bind listen socket for '%s'\n", name);
+		rc = riodp_socket_bind(listen_socket, channel);
+		if (rc) {
+			CRIT("Failed to bind listen socket for '%s': %s\n",
+							name, strerror(errno));
 			riodp_socket_close(&listen_socket);
 			close_mailbox();
 			throw cm_exception("Failed to bind listen socket");
 		}
+
 		DBG("Listen socket bound\n");
+
+		/* Listen for connection from client, throw exception if fail */
+		rc = riodp_socket_listen(listen_socket);
+		if (rc) {
+			ERR("Failed in riodp_socket_listen() for '%s': %s\n",
+							name, strerror(rc));
+			riodp_socket_close(&listen_socket);
+			close_mailbox();
+			throw cm_exception("Failed to listen on socket");
+		}
+		DBG("Listen successful on '%s'\n", name);
 	}
 
 	~cm_server()
@@ -238,16 +254,8 @@ public:
 		}
 	}
 
-	/* Listen for connection from client */
 	int listen()
 	{
-		int rc = riodp_socket_listen(listen_socket);
-		if(rc) {
-			ERR("Failed in riodp_socket_listen() for '%s': %s\n",
-							name, strerror(rc));
-			return -1;
-		}
-		DBG("Listen successful on '%s'\n", name);
 		return 0;
 	} /* listen() */
 
