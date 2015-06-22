@@ -213,14 +213,15 @@ struct fmd_dd_events {
 	sem_t dd_event; /* sem_post() whenever the dd changes */
 };
 
-#define FMD_MAX_EVENTS 10
+#define FMD_MAX_APPS 10
 
 struct fmd_dd_mtx {
 	int mtx_ref_cnt;
 	int dd_ref_cnt; /* Read write field for reference count to fmd_dd */
 	int init_done;
 	sem_t sem;
-	struct fmd_dd_events dd_ev[FMD_MAX_EVENTS];
+	// FIXME: Is this needed?
+	struct fmd_dd_events dd_ev[FMD_MAX_APPS];
 };
 
 struct fmd_state {

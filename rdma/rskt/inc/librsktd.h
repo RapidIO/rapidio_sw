@@ -39,6 +39,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __LIBRSKTD_H__
 #define __LIBRSKTD_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define LIBRSKTD_RESP 0x80000000
 #define LIBRSKTD_FAIL 0x40000000
 
@@ -203,6 +207,10 @@ struct librskt_rsktd_to_app_msg {
 #define RSKTD2A_SZ MSG_SZ(sizeof(struct librskt_rsktd_to_app_msg))
 
 #define LIBRSKTD_SKT_FMT "/usr/tmp/RSKTD%04d.%1d"
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LIBRSKTD_H__ */
 
