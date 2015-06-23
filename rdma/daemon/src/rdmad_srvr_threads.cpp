@@ -51,8 +51,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 struct prov_daemon_info {
 	uint16_t destid;
-	riodp_socket_t	socket;	/* TODO: Needed ? */
-	pthread_t	tid;	/* TODO: For cleanup */
+	riodp_socket_t	socket;
+	pthread_t	tid;
+	sem_t		started;
 	bool operator==(uint16_t destid) { return this->destid == destid; }
 };
 
@@ -68,22 +69,36 @@ using namespace std;
  */
 void *conn_disc_thread_f(void *arg)
 {
+	prov_daemon_info	*pdi;
+
 	DBG("ENTER\n");
 	if (!arg) {
 		CRIT("NULL argument. Exiting\n");
 		pthread_exit(0);
 	}
 
-	riodp_socket_t	*acc_socket = (riodp_socket_t *)arg;
+	pdi = (prov_daemon_info *)arg;
+
+
 	cm_server	*conn_disc_server;
 	try {
-		conn_disc_server = new cm_server("conn_disc", *acc_socket);
+		conn_disc_server = new cm_server("conn_disc", pdi->socket);
 	}
 	catch(cm_exception e) {
 		CRIT("conn_disc_server: %s\n", e.err);
-		free(acc_socket);
+		free(pdi);
 		pthread_exit(0);
 	}
+
+	/* Store info about the remote daemon/destid in list */
+	DBG("Storing info for destid=0x%X\n", pdi->destid);
+	prov_daemon_info_list.push_back(*pdi);
+
+	/* Tell provisioning thread that we are up and running (and also
+	 * that we are done with prov_daemon_info_list.
+	 */
+	sem_post(&pdi->started);
+
 	while(1) {
 		int	ret;
 		/* Receive CONNECT_MS or DISCONNECT_MS message */
@@ -211,8 +226,6 @@ void *conn_disc_thread_f(void *arg)
  */
 void *prov_thread_f(void *arg)
 {
-	riodp_socket_t	accept_socket;
-
 	DBG("ENTER\n");
 	if (!arg) {
 		CRIT("NULL argument. Exiting\n");
@@ -221,7 +234,6 @@ void *prov_thread_f(void *arg)
 	struct peer_info *peer = (peer_info *)arg;
 
 	cm_server *prov_server;
-
 	try {
 		prov_server = new cm_server("prov_server",
 					peer->mport_id,
@@ -235,6 +247,7 @@ void *prov_thread_f(void *arg)
 	DBG("prov_server created.\n");
 
 	while(1) {
+		riodp_socket_t	accept_socket;
 		int ret;
 		/* Accept connections from other daemons */
 		DBG("Accepting HELLO from other daemons...\n");
@@ -275,26 +288,25 @@ void *prov_thread_f(void *arg)
 							hello_msg->destid);
 		} else {
 			/* Add new entry to list */
-			prov_daemon_info	pdi;
+			prov_daemon_info	*pdi;
 
-			/* Make a copy of the accept socket for use by the thread */
-			riodp_socket_t 	*acc_socket =
-				(riodp_socket_t *)malloc(sizeof(riodp_socket_t));
-			*acc_socket = accept_socket;
+			pdi = (prov_daemon_info *)malloc(sizeof(prov_daemon_info));
+
+			sem_init(&pdi->started, 0, 0);
+			pdi->socket = accept_socket;
+			pdi->destid = hello_msg->destid;
+
 			DBG("Creating connect/disconnect thread\n");
-			ret = pthread_create(&pdi.tid, NULL, conn_disc_thread_f,
-								&acc_socket);
-			if (pdi.tid) {
+			ret = pthread_create(&pdi->tid, NULL, conn_disc_thread_f,
+								&pdi);
+			if (ret) {
 				CRIT("Failed to create conn_disc thread\n");
+				free(pdi);
 				continue;	/* Better luck next time? */
 			}
+			sem_wait(&pdi->started);
 			DBG("connect/disconnect thread created\n");
-			/* Store info about the remote daemon/destid in list */
-			pdi.destid = hello_msg->destid;
-			pdi.socket = accept_socket;
-			DBG("Storing pdi, destid=0x%X, socket=0x%X\n",
-						pdi.destid, pdi.socket);
-			prov_daemon_info_list.push_back(pdi);
+
 		}
 	} /* while(1) */
 	pthread_exit(0);
