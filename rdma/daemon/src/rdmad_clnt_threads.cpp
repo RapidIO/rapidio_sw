@@ -298,6 +298,7 @@ void *client_wait_destroy_thread_f(void *arg)
 
 			/* Now send back a destroy_ack CM message */
 			cm_destroy_ack_msg *dam = (cm_destroy_ack_msg *)cm_send_buf;
+			dam->type	= DESTROY_ACK_MS;
 			strcpy(dam->server_msname, destroy_msg->server_msname);
 			dam->server_msid = destroy_msg->server_msid;
 			if (destroy_server->send()) {

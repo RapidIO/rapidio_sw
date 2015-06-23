@@ -262,6 +262,7 @@ static int close_or_destroy_action(uint32_t msid)
 
 		/* Prepare destroy message */
 		cm_destroy_msg	*dm = (cm_destroy_msg *)cm_send_buf;
+		dm->type	= DESTROY_MS;
 		strcpy(dm->server_msname, ms->get_name());
 		dm->server_msid = msid;
 
@@ -417,6 +418,7 @@ accept_1_svc(accept_input *in, struct svc_req *rqstp)
 
 	/* Prepare accept message from input parameters */
 	struct cm_accept_msg	cmam;
+	cmam.type		= ACCEPT_MS;
 	strcpy(cmam.server_ms_name, in->loc_ms_name);
 	cmam.server_msid	= ms->get_msid();
 	cmam.server_msubid	= in->loc_msubid;
@@ -574,6 +576,7 @@ send_connect_1_svc(send_connect_input *in, struct svc_req *rqstp)
 
 	/* Populate send buffer with cm_connect_msg */
 	struct cm_connect_msg *c = (struct cm_connect_msg *)send_buf;
+	c->type			= CONNECT_MS;
 	strcpy(c->server_msname, in->server_msname);
 	c->client_msid		= in->client_msid;
 	c->client_msubid	= in->client_msubid;
@@ -670,6 +673,7 @@ send_disconnect_1_svc(send_disconnect_input *in, struct svc_req *rqstp)
 
 	/* Put CM disconnect message in send buffer */
 	c = (struct cm_disconnect_msg *)send_buf;
+	c->type		  = DISCONNECT_MS;
 	c->client_msubid  = in->loc_msubid;	/* For removal from server database */
 	c->server_msid    = in->rem_msid;	/* For removing client's destid from server's
 						 * info on the daemon */

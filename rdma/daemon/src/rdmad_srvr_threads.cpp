@@ -51,14 +51,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 struct prov_daemon_info {
 	uint16_t destid;
-	riodp_socket_t	socket;
-	pthread_t	tid;
+	riodp_socket_t	socket;	/* TODO: Needed ? */
+	pthread_t	tid;	/* TODO: For cleanup */
 	bool operator==(uint16_t destid) { return this->destid == destid; }
 };
 
-struct hello_msg_t {
-	uint16_t destid;
-};
+
 
 vector<prov_daemon_info>	prov_daemon_info_list;
 
@@ -87,9 +85,120 @@ void *conn_disc_thread_f(void *arg)
 		pthread_exit(0);
 	}
 	while(1) {
-		if (conn_disc_server->receive()) {
-			CRIT("Failed in conn_disc_server->receive\n");
-			continue;
+		int	ret;
+		/* Receive CONNECT_MS or DISCONNECT_MS message */
+		ret = conn_disc_server->receive();
+		if (ret) {
+			if (ret == EINTR) {
+				WARN("pthread_kill() called. Exiting!\n");
+			} else {
+				CRIT("Failed to receive conn_disc_server: %s\n",
+								strerror(ret));
+			}
+			continue;	/* Don't exit. Perhaps temp failure? */
+		}
+		cm_connect_msg	*cm;
+		cm_disconnect_msg *dm;
+		conn_disc_server->get_recv_buffer((void **)&cm);
+		/* Determine message type */
+		if (cm->type == CONNECT_MS) {
+			INFO("Received CONNECT_MS '%s'\n", cm->server_msname);
+
+			/* Form message queue name from memory space name */
+			char mq_name[CM_MS_NAME_MAX_LEN+2];
+			memset(mq_name, '\0', CM_MS_NAME_MAX_LEN+2);
+			mq_name[0] = '/';
+			strcpy(&mq_name[1], cm->server_msname);
+			string mq_str(mq_name);
+			DBG("mq_name = %s\n", mq_name);
+
+			/* Compare message queue name with list. If no match ignore! */
+			if (!accept_msg_map.contains(mq_str)) {
+				WARN("cm_connect_msg to %s ignored!\n", cm->server_msname);
+				continue;
+			}
+
+			/* Send 'connect' POSIX message contents to the RDMA library */
+			struct mq_connect_msg	connect_msg;
+			memset(&connect_msg, 0, sizeof(connect_msg));
+			connect_msg.rem_msid		= cm->client_msid;
+			connect_msg.rem_msubid		= cm->client_msubid;
+			connect_msg.rem_bytes		= cm->client_bytes;
+			connect_msg.rem_rio_addr_len	= cm->client_rio_addr_len;
+			connect_msg.rem_rio_addr_lo	= cm->client_rio_addr_lo;
+			connect_msg.rem_rio_addr_hi	= cm->client_rio_addr_hi;
+			connect_msg.rem_destid_len	= cm->client_destid_len;
+			connect_msg.rem_destid		= cm->client_destid;
+
+			/* Open message queue */
+			mqd_t cm_mq = mq_open(mq_name, O_RDWR, 0644, &attr);
+			if (cm_mq == (mqd_t)-1) {
+				ERR("mq_open() failed: %s\n", strerror(errno));
+				/* Don't remove MS from accept_msg_map; the
+				 * client may retry connecting. However, don't also
+				 * send an ACCEPT_MS since the server didn't get
+				 * the message. */
+				continue;
+			}
+
+			/* Send connect message to RDMA library/app */
+			ret = mq_send(cm_mq,
+				      (const char *)&connect_msg,
+				      sizeof(struct mq_connect_msg),
+				      1);
+			if (ret < 0) {
+				ERR("mq_send failed: %s\n", strerror(errno));
+				mq_close(cm_mq);
+				/* Don't remove MS from accept_msg_map; the
+				 * client may retry connecting. However, don't also
+				 * send an ACCEPT_MS since the server didn't get
+				 * the message. */
+				mq_close(cm_mq);
+				continue;
+			}
+			mq_close(cm_mq);
+
+			/* Request a send buffer */
+			void *cm_send_buf;
+			conn_disc_server->get_send_buffer(&cm_send_buf);
+			conn_disc_server->flush_send_buffer();
+
+			/* Copy the corresponding accept message from map */
+			cm_accept_msg	accept_message = accept_msg_map.get_item(mq_str);
+			memcpy( cm_send_buf,
+				(void *)&accept_message,
+				sizeof(cm_accept_msg));
+
+			/* Send 'accept' message to remote daemon */
+			if (conn_disc_server->send()) {
+				/* The server was already notified of the CONNECT_MS
+				 * via the POSIX message. Now that we are failing
+				 * to notify the client's daemon then we should remove
+				 * the memory space from the map because there is
+				 * no rdma_accept_ms_h() to receive a another CONNECT
+				 * notification.
+				 */
+				accept_msg_map.remove(mq_str);
+				continue;
+			}
+
+			INFO("cm_accept_msg sent back to remote daemon!\n");
+
+			/* Now the destination ID must be added to the memory space.
+			 * This is for the case where the memory space is destroyed
+			 * and the remote users of that space need to be notified. */
+			mspace	*ms;
+			ms = the_inbound->get_mspace(cm->server_msname);
+			if (ms)
+				ms->add_destid(cm->client_destid);
+
+			/* Erase cm_accept_msg from map */
+			accept_msg_map.remove(mq_str);
+		} else if (cm->type == DISCONNECT_MS) {
+			conn_disc_server->get_recv_buffer((void **)&dm);
+			INFO("Received DISCONNECT_MS msid(0x%X)\n",
+							dm->server_msid);
+
 		}
 	}
 	pthread_exit(0);
@@ -120,7 +229,7 @@ void *prov_thread_f(void *arg)
 					peer->prov_channel);
 	}
 	catch(cm_exception e) {
-		CRIT("prov_server: %s\n", e.err);
+		CRIT("Failed to create prov_server: %s\n", e.err);
 		pthread_exit(0);
 	}
 	DBG("prov_server created.\n");
@@ -128,10 +237,11 @@ void *prov_thread_f(void *arg)
 	while(1) {
 		int ret;
 		/* Accept connections from other daemons */
+		DBG("Accepting HELLO from other daemons...\n");
 		ret = prov_server->accept(&accept_socket);
 		if (ret) {
 			if (ret == EINTR) {
-				WARN("pthread_kill() was called. Exiting thread\n");
+				WARN("pthread_kill() called. Exiting!\n");
 			} else {
 				CRIT("Failed to accept on prov_server: %s\n",
 								strerror(ret));
@@ -142,12 +252,19 @@ void *prov_thread_f(void *arg)
 		DBG("Received connection from a remote daemon\n");
 
 		/* Now receive HELLO message */
-		if (prov_server->receive()) {
-			CRIT("Failed to receive HELLO messge\n");
+		ret = prov_server->receive();
+		if (ret) {
+			if (ret == EINTR) {
+				WARN("pthread_kill() called. Exiting!\n");
+			} else {
+				CRIT("Failed to receive HELLO message: %s\n",
+								strerror(ret));
+			}
 			delete prov_server;
 			pthread_exit(0);
 		}
 		DBG("Received HELLO message from remote daemon\n");
+
 		hello_msg_t	*hello_msg;
 		prov_server->get_recv_buffer((void **)&hello_msg);
 
@@ -164,15 +281,19 @@ void *prov_thread_f(void *arg)
 			riodp_socket_t 	*acc_socket =
 				(riodp_socket_t *)malloc(sizeof(riodp_socket_t));
 			*acc_socket = accept_socket;
+			DBG("Creating connect/disconnect thread\n");
 			ret = pthread_create(&pdi.tid, NULL, conn_disc_thread_f,
 								&acc_socket);
 			if (pdi.tid) {
 				CRIT("Failed to create conn_disc thread\n");
 				continue;	/* Better luck next time? */
 			}
+			DBG("connect/disconnect thread created\n");
 			/* Store info about the remote daemon/destid in list */
 			pdi.destid = hello_msg->destid;
 			pdi.socket = accept_socket;
+			DBG("Storing pdi, destid=0x%X, socket=0x%X\n",
+						pdi.destid, pdi.socket);
 			prov_daemon_info_list.push_back(pdi);
 		}
 	} /* while(1) */
