@@ -3,11 +3,14 @@ KDIR?=/usr/src/linux
 KINC=$(KDIR)/include
 LIBMPORT_PATH=../../libmport
 LIBLOG_PATH=../liblog
+LIBCLI_PATH=../libcli
 
-CM_BUILD_STRING = $(CXX) -L$(LIBMPORT_PATH) -L$(LIBLOG_PATH) \
+CM_BUILD_STRING = $(CXX) -L$(LIBMPORT_PATH) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
 	-Wl,-rpath=$(LIBMPORT_PATH) -Wl,-rpath=$(LIBLOG_PATH) \
+	-Wl,-rpath=$(LIBCLI_PATH) -Wl,-rpath=$(LIBCLI_PATH) \
+	-DRDMA_LL=6 \
 	-I../../common/include -I../../include -I$(KINC) -o $@ $(RDMAD_CFLAGS) \
-	 src/$@.cpp -lmport -llog -lrt
+	 src/$@.cpp -lmport -llog -lcli -lrt
 
 all: cm_sock_server cm_sock_client
 

@@ -70,11 +70,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riocp_pe_internal.h"
 #include "librio_maint.h"
 #include "DAR_DevDriver.h"
-#include "comptag.h"
-#include "librio_fmd_internal.h"
+#include "fmd_dd.h"
+#include "fmd_msg.h"
 #include "dev_db.h"
 #include "liblist.h"
 #include "liblog.h"
+#include "fmd_cfg.h"
+#include "fmd_state.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -116,7 +118,7 @@ void set_prompt(struct cli_env *e)
 
 	if (riocp_pe_get_comptag(pe_h, &comptag))
 		comptag = 0xFFFFFFFF;
-	pe_uid = RIOCP_PE_COMPTAG_GET_NR(comptag);
+	pe_uid = (comptag & 0xFFFF0000) >> 16;
 
 	name = riocp_pe_handle_get_device_str(pe_h);
 
@@ -144,7 +146,8 @@ void *console(void *cons_parm)
 	splashScreen(&cons_env);
 	*(int *)(cons_parm) = cli_terminal(&cons_env);
 
-	fmd_dd_cleanup(fmd);
+	fmd_dd_cleanup(fmd->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
+			fmd->dd_fn, &fmd->dd_fd, &fmd->dd, fmd->fmd_rw);
 	exit(EXIT_SUCCESS);
 
 	return cons_parm;
@@ -519,17 +522,31 @@ int main(int argc, char *argv[])
 	if ((NULL == cfg) || (cfg->init_err))
 		goto fail;
 
-	fmd_dd_init(cfg, &fmd);
+        fmd = (fmd_state *)malloc(sizeof(struct fmd_state));
+        fmd->cfg = cfg;
+        fmd->fmd_rw = 1;
+
+
+        fmd->dd_mtx_fn = (char *)malloc(strlen(cfg->dd_mtx_fn)+1);
+        memset(fmd->dd_mtx_fn, 0, strlen(cfg->dd_mtx_fn)+1);
+        strncpy(fmd->dd_mtx_fn, cfg->dd_mtx_fn, strlen(cfg->dd_mtx_fn));
+
+        fmd->dd_fn = (char *)malloc(strlen(cfg->dd_fn)+1);
+        memset(fmd->dd_fn, 0, strlen(cfg->dd_fn)+1);
+        strncpy(fmd->dd_fn, cfg->dd_fn, strlen(cfg->dd_fn));
+
+	fmd_dd_init(fmd->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
+		fmd->dd_fn, &fmd->dd_fd, &fmd->dd);
 	if ((NULL == fmd) || (cfg->init_err))
 		goto fail;
 
 
 	cli_init_base();
-	bind_dd_cmds(fmd);
+	bind_dd_cmds(fmd->dd, fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
 	liblog_bind_cli_cmds();
 	setup_mport(fmd);
 	if (!fmd->cfg->simple_init)
-		fmd_dd_update(fmd);
+		fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx);
 
 	if (!cfg->init_and_quit) {
 		spawn_threads(cfg);

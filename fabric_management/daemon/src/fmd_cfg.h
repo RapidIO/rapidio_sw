@@ -58,9 +58,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_Routing_Table_Config_API.h"
 #include "IDT_Port_Config_API.h"
 #include "riocp_pe_internal.h"
+#include "fmd_dd.h"
 
-#ifndef _LIBRIO_FMD_INTERNAL_H_
-#define _LIBRIO_FMD_INTERNAL_H_
+#ifndef _FMD_CFG_H_
+#define _FMD_CFG_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -193,71 +194,13 @@ struct fmd_cfg_parms {
 	struct fmd_cfg_conn cons[FMD_MAX_CONN];
 };
 
-struct fmd_dd_dev_info {
-	uint32_t ct;
-	uint32_t destID;
-	uint32_t hc;
-};
-
-struct fmd_dd {
-	uint32_t chg_idx;
-	struct timespec chg_time;
-	uint32_t md_ct;  
-	uint32_t num_devs;
-	struct fmd_dd_dev_info devs[FMD_MAX_DEVS+1];
-};
-
-struct fmd_dd_events {
-	int in_use; /* 0 - Unallocated, 1 - Allocated */
-	pthread_t dd_ev_thr; /* Identifier for thread waiting on dd_event */
-	sem_t dd_event; /* sem_post() whenever the dd changes */
-};
-
-#define FMD_MAX_APPS 10
-
-struct fmd_dd_mtx {
-	int mtx_ref_cnt;
-	int dd_ref_cnt; /* Read write field for reference count to fmd_dd */
-	int init_done;
-	sem_t sem;
-	// FIXME: Is this needed?
-	struct fmd_dd_events dd_ev[FMD_MAX_APPS];
-};
-
-struct fmd_state {
-	riocp_pe_handle *mp_h;
-	struct fmd_cfg_parms *cfg;
-	int fmd_rw;
-	char *app_name;
-	char *dd_fn;
-	int dd_fd;
-	struct fmd_dd *dd;
-	char *dd_mtx_fn;
-	int dd_mtx_fd;
-	struct fmd_dd_mtx *dd_mtx;
-};
-
 extern struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[]);
 extern void fmd_process_cfg_file(struct fmd_cfg_parms *cfg);
 extern struct fmd_cfg_sw *find_cfg_sw_by_ct(uint32_t ct, 
 					struct fmd_cfg_parms *cfg);
 
-extern int fmd_dd_init(struct fmd_cfg_parms *cfg,
-				struct fmd_state **st);
-extern void fmd_dd_cleanup(struct fmd_state *st);
-extern void fmd_dd_update(struct fmd_state *st);
-extern uint32_t fmd_dd_atomic_copy(struct fmd_state *st,
-			uint32_t *num_devs,
-			struct fmd_dd_dev_info *devs);
-
-extern void fmd_dd_incr_chg_idx(struct fmd_state *st);
-extern uint32_t fmd_dd_get_chg_idx(struct fmd_state *st);
-extern int fmd_dd_change_notfn(struct fmd_state *st);
-
-extern void bind_dd_cmds(struct fmd_state *st);
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _LIBRIO_FMD_INTERNAL_H_ */
+#endif /* _FMD_CFG_H_ */

@@ -37,6 +37,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __LIBRSKTD_PRIVATE_H__
 #define __LIBRSKTD_PRIVATE_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define DFLT_DMN_MPORT 0
 #define MAX_DMN_MPORT 7
 
@@ -89,6 +93,10 @@ int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers);
 void kill_daemon_threads(void);
 
 void librsktd_bind_cli_cmds(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LIBRSKTD_PRIVATE_H__ */
 

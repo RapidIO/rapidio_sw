@@ -36,14 +36,148 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <pthread.h>
 
+#include <vector>
+#include <algorithm>
+
 #include "liblog.h"
 #include "rdmad_cm.h"
 #include "rdma_mq_msg.h"
 #include "cm_sock.h"
+#include "ts_vector.h"
 
 #include "rdmad_main.h"
 #include "rdmad_svc.h"
+#include "rdmad_peer_utils.h"
 
+struct prov_daemon_info {
+	uint16_t destid;
+	riodp_socket_t	socket;
+	pthread_t	tid;
+	bool operator==(uint16_t destid) { return this->destid == destid; }
+};
+
+struct hello_msg_t {
+	uint16_t destid;
+};
+
+vector<prov_daemon_info>	prov_daemon_info_list;
+
+using namespace std;
+
+/**
+ * New thread for handling connection to memory spaces and disconnections
+ * therefrom.
+ */
+void *conn_disc_thread_f(void *arg)
+{
+	DBG("ENTER\n");
+	if (!arg) {
+		CRIT("NULL argument. Exiting\n");
+		pthread_exit(0);
+	}
+
+	riodp_socket_t	*acc_socket = (riodp_socket_t *)arg;
+	cm_server	*conn_disc_server;
+	try {
+		conn_disc_server = new cm_server("conn_disc", *acc_socket);
+	}
+	catch(cm_exception e) {
+		CRIT("conn_disc_server: %s\n", e.err);
+		free(acc_socket);
+		pthread_exit(0);
+	}
+	while(1) {
+		if (conn_disc_server->receive()) {
+			CRIT("Failed in conn_disc_server->receive\n");
+			continue;
+		}
+	}
+	pthread_exit(0);
+} /* conn_disc_thread_f() */
+
+/**
+ * Provisioning thread.
+ * For waiting for HELLO messages from other daemons and updating the
+ * provisioned daemon info list.
+ */
+void *prov_thread_f(void *arg)
+{
+	riodp_socket_t	accept_socket;
+
+	DBG("ENTER\n");
+	if (!arg) {
+		CRIT("NULL argument. Exiting\n");
+		pthread_exit(0);
+	}
+	struct peer_info *peer = (peer_info *)arg;
+
+	cm_server *prov_server;
+
+	try {
+		prov_server = new cm_server("prov_server",
+					peer->mport_id,
+					peer->prov_mbox_id,
+					peer->prov_channel);
+	}
+	catch(cm_exception e) {
+		CRIT("prov_server: %s\n", e.err);
+		pthread_exit(0);
+	}
+	DBG("prov_server created.\n");
+
+	while(1) {
+		int ret;
+		/* Accept connections from other daemons */
+		ret = prov_server->accept(&accept_socket);
+		if (ret) {
+			if (ret == EINTR) {
+				WARN("pthread_kill() was called. Exiting thread\n");
+			} else {
+				CRIT("Failed to accept on prov_server: %s\n",
+								strerror(ret));
+			}
+			delete prov_server;
+			pthread_exit(0);
+		}
+		DBG("Received connection from a remote daemon\n");
+
+		/* Now receive HELLO message */
+		if (prov_server->receive()) {
+			CRIT("Failed to receive HELLO messge\n");
+			delete prov_server;
+			pthread_exit(0);
+		}
+		DBG("Received HELLO message from remote daemon\n");
+		hello_msg_t	*hello_msg;
+		prov_server->get_recv_buffer((void **)&hello_msg);
+
+		auto it = find(begin(prov_daemon_info_list),
+			       end(prov_daemon_info_list), hello_msg->destid);
+		if (it != end(prov_daemon_info_list)) {
+			WARN("Received HELLO msg for known destid(0x%X\n",
+							hello_msg->destid);
+		} else {
+			/* Add new entry to list */
+			prov_daemon_info	pdi;
+
+			/* Make a copy of the accept socket for use by the thread */
+			riodp_socket_t 	*acc_socket =
+				(riodp_socket_t *)malloc(sizeof(riodp_socket_t));
+			*acc_socket = accept_socket;
+			ret = pthread_create(&pdi.tid, NULL, conn_disc_thread_f,
+								&acc_socket);
+			if (pdi.tid) {
+				CRIT("Failed to create conn_disc thread\n");
+				continue;	/* Better luck next time? */
+			}
+			/* Store info about the remote daemon/destid in list */
+			pdi.destid = hello_msg->destid;
+			pdi.socket = accept_socket;
+			prov_daemon_info_list.push_back(pdi);
+		}
+	} /* while(1) */
+	pthread_exit(0);
+} /* prov_thread() */
 
 /**
  * In this thread we wait for a connect request from client and we send

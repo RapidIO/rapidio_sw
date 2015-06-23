@@ -72,8 +72,8 @@ extern "C" {
 
 int fmd_dd_open_rw(struct fmd_cfg_parms *cfg, struct fmd_state *st)
 {
-	int sz = strlen(cfg->dd_fn)+1;
 	int rc;
+	int sz = strlen(cfg->dd_fn)+1;
 
 	st->dd_fn = (char *)malloc(sz);
 	memset(st->dd_fn, 0, sz);
@@ -121,88 +121,80 @@ exit:
         return -1;
 };
 
-int fmd_dd_open_ro(struct fmd_cfg_parms *cfg, struct fmd_state *st)
+int fmd_dd_open_ro(char *dd_fn, int *dd_fd, struct fmd_dd **dd, 
+					struct fmd_dd_mtx *dd_mtx)
 {
-	int sz = strlen(cfg->dd_fn)+1;
-
-	st->dd_fn = (char *)malloc(sz);
-	memset(st->dd_fn, 0, sz);
-	strcpy(st->dd_fn, cfg->dd_fn);
-
-	st->dd_fd = shm_open(st->dd_fn, O_RDONLY, 0);
-        if (-1 == st->dd_fd) {
+	*dd_fd = shm_open(dd_fn, O_RDONLY, 0);
+        if (-1 == *dd_fd) {
         	fprintf( stderr, "RO shm_open failed: 0x%x %s\n",
             		errno, strerror( errno ) );
                 goto exit;
 	}
 
-        st->dd = (fmd_dd *)mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
-                MAP_SHARED, st->dd_fd, 0);
+        *dd = (fmd_dd *)mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
+                MAP_SHARED, *dd_fd, 0);
 
-        if (MAP_FAILED == st->dd) {
+        if (MAP_FAILED == *dd) {
         	fprintf(stderr, "RO mmap failed:0x%x %s\n",
             		errno, strerror(errno));
-                st->dd = NULL;
+                *dd = NULL;
                 goto exit;
         };
 
-	if ((NULL != st->dd) && (NULL != st->dd_mtx)) {
-		if (st->dd->chg_idx && st->dd_mtx->dd_ref_cnt) {
-			st->dd_mtx->dd_ref_cnt++;
-			goto exit;
-		};
-	};
+	if ((NULL != *dd) && (NULL != dd_mtx))
+		if ((*dd)->chg_idx && dd_mtx->dd_ref_cnt)
+			dd_mtx->dd_ref_cnt++;
 	return 0;
 exit:
 	return -1;
 };
 
-int fmd_dd_mtx_open(struct fmd_cfg_parms *cfg, struct fmd_state *st)
+int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx)
 {
         int rc;
-	int sz = strlen(cfg->dd_mtx_fn)+1;
 
-	st->dd_mtx_fn = (char *)malloc(sz);
-	memset(st->dd_mtx_fn, 0, sz);
-	strncpy(st->dd_mtx_fn, cfg->dd_mtx_fn, sz);
+	if ((NULL == dd_mtx_fn) || (NULL == dd_mtx_fd) || (NULL == dd_mtx)) {
+		errno = -EINVAL;
+		goto fail;
+	};
 
-        st->dd_mtx_fd = shm_open(st->dd_mtx_fn, O_RDWR | O_CREAT | O_EXCL, 
+        *dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR | O_CREAT | O_EXCL, 
                         S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
-        if (-1 == st->dd_mtx_fd)
+        if (-1 == *dd_mtx_fd)
 		if (EEXIST == errno)
-        		st->dd_mtx_fd = shm_open(st->dd_mtx_fn, O_RDWR, 
+        		*dd_mtx_fd = shm_open(dd_mtx_fn, O_RDWR, 
                         		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
-        if (-1 == st->dd_mtx_fd) {
+        if (-1 == *dd_mtx_fd) {
         	fprintf( stderr, "rw mutex shm_open failed: 0x%x %s\n",
             		errno, strerror( errno ) );
                 goto fail;
 	}
 
-        rc = ftruncate(st->dd_mtx_fd, sizeof(struct fmd_dd_mtx));
+        rc = ftruncate(*dd_mtx_fd, sizeof(struct fmd_dd_mtx));
         if (-1 == rc) {
         	fprintf( stderr, "rw mutex ftruncate failed: 0x%x %s\n",
             		errno, strerror( errno ) );
                 goto fail;
         };
 
-        st->dd_mtx = (fmd_dd_mtx *)mmap(NULL, sizeof(struct fmd_dd_mtx), 
-			PROT_READ|PROT_WRITE, MAP_SHARED, st->dd_mtx_fd, 0);
+        *dd_mtx = (fmd_dd_mtx *)mmap(NULL, sizeof(struct fmd_dd_mtx), 
+			PROT_READ|PROT_WRITE, MAP_SHARED, *dd_mtx_fd, 0);
 
-        if (MAP_FAILED == st->dd_mtx) {
+        if (MAP_FAILED == *dd_mtx) {
         	fprintf( stderr, "rw mutex mmap failed:0x%x %s\n",
             		errno, strerror( errno ) );
-                st->dd_mtx = NULL;
+                *dd_mtx = NULL;
                 goto fail;
         };
 
-	if (st->dd_mtx->dd_ref_cnt && st->dd_mtx->init_done) {
-		st->dd_mtx->mtx_ref_cnt++;
+	if (dd_mtx->dd_ref_cnt && dd_mtx->init_done) {
+		dd_mtx->mtx_ref_cnt++;
 	} else {
-		sem_init(&st->dd_mtx->sem, 1, 1);
-		st->dd_mtx->mtx_ref_cnt = 1;
-		st->dd_mtx->init_done = TRUE;
+		sem_init(&dd_mtx->sem, 1, 1);
+		dd_mtx->mtx_ref_cnt = 1;
+		dd_mtx->init_done = TRUE;
 	};
 	return 0;
 fail:
@@ -213,12 +205,18 @@ int fmd_dd_init(struct fmd_cfg_parms *cfg, struct fmd_state **st)
 {
 	int rc;
 	int idx;
+	int sz = strlen(cfg->dd_mtx_fn)+1;
 
 	*st = (fmd_state *)malloc(sizeof(struct fmd_state));
 	(*st)->cfg = cfg;
 	(*st)->fmd_rw = 1;
 
-       	rc = fmd_dd_mtx_open(cfg, *st);
+
+	st->dd_mtx_fn = (char *)malloc(sz);
+	memset(st->dd_mtx_fn, 0, sz);
+	strncpy(st->dd_mtx_fn, cfg->dd_mtx_fn, sz);
+
+       	rc = fmd_dd_mtx_open(st->dd_fn, &st->dd_mtx_fd, &st->dd_mtx);
 	rc |= fmd_dd_open_rw(cfg, *st);
 	if (rc)
 		goto fail;

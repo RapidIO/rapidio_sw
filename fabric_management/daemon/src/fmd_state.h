@@ -1,7 +1,7 @@
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -31,68 +31,68 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef PEER_UTILS_H
-#define PEER_UTILS_H
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <semaphore.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/sem.h>
+#include <fcntl.h>
+#include <signal.h>
 
 #include <stdint.h>
-#include <semaphore.h>
-
-#define CONFIG_RAPIDIO_DMA_ENGINE
+#include <unistd.h>
+#include <dirent.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
 #include "linux/rio_cm_cdev.h"
 #include "linux/rio_mport_cdev.h"
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <pthread.h>
+// #include "IDT_Routing_Table_Config_API.h"
+// #include "IDT_Port_Config_API.h"
+#include "riocp_pe_internal.h"
+#include "fmd_dd.h"
 
-#include "riodp_mport_lib.h"
+#ifndef _FMD_STATE_H_
+#define _FMD_STATE_H_
 
-struct peer_info {
-	/* Device ID */
-	uint8_t	destid_len;
-	uint32_t destid;
-
-	/* MPORT */
-	int mport_id;
-	int mport_fd;
-
-	/* RIO */
-	#define DEFAULT_RIO_ADDRESS     0x00000000 
-
-	/* INBOUND WINDOW */
-	#define DEFAULT_INBOUND_WINDOW_SIZE     0x00200000
-
-	/* Messaging */
-	#define DEFAULT_LOC_CHANNEL	2
-	uint16_t	loc_channel;
-
-	#define DEFAULT_AUX_CHANNEL	3
-	uint16_t	aux_channel;
-
-	#define DEFAULT_DESTROY_CHANNEL	4
-	uint16_t	destroy_channel;
-
-	#define DEFAULT_PROV_CHANNEL		10
-	uint16_t	prov_channel;
-
-	#define DEFAULT_MAILBOX_ID	0
-	uint8_t		mbox_id;
-
-	#define DEFAULT_AUX_MAILBOX_ID  0
-	uint8_t		aux_mbox_id;
-
-	#define DEFAULT_PROV_MBOX_ID 0
-	uint8_t		prov_mbox_id;
-
-	#define DEFAULT_DESTROY_MAILBOX_ID  0
-	uint8_t		destroy_mbox_id;
-
-	sem_t	cm_wait_connect_sem;
-
-	/* Daemon CLI connection */
-	int	cons_skt;	/* Console socket number, default 4444 */
-	int	run_cons;	/* Run console on Daemon? */
-};
-
-void init_peer_info(int num_peers,struct peer_info peers[]);
-
-extern struct peer_info peer;
-
+#ifdef __cplusplus
+extern "C" {
 #endif
 
+struct app_state {
+	int fd; /* File descriptor for connection to application. */
+	int idx; /* Index of this app state entry. */
+	int in_use; /* 0 when free, 1 when the thread is valid. */
+	pthread_t app_thr; /* Thread listening to this application */
+	int waiting; /* 0 when processing a request, 1 when blocked */
+};
+
+struct fmd_state {
+	riocp_pe_handle *mp_h;
+	struct fmd_cfg_parms *cfg;
+	int fmd_rw;
+	char *app_name;
+	char *dd_fn;
+	int dd_fd;
+	struct fmd_dd *dd;
+	char *dd_mtx_fn;
+	int dd_mtx_fd;
+	struct fmd_dd_mtx *dd_mtx;
+	struct app_state apps[FMD_MAX_APPS];
+};
+
+extern struct fmd_state *fmd;
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* _FMD_STATE_H_ */

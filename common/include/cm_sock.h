@@ -110,6 +110,7 @@ private:
 protected:
 	cm_base(const char *name, int mport_id, uint8_t mbox_id, uint16_t channel) :
 		name(name), mport_id(mport_id), mbox_id(mbox_id), channel(channel),
+		mailbox(0),
 		send_buf(new uint8_t[CM_BUF_SIZE]),
 		recv_buf(new uint8_t[CM_BUF_SIZE])
 	{
@@ -215,12 +216,11 @@ public:
 			close_mailbox();
 			throw cm_exception("Failed to bind listen socket");
 		}
-
 		DBG("Listen socket bound\n");
 
-		/* Listen for connection from client, throw exception if fail */
+		/* Prepare listen socket */
 		rc = riodp_socket_listen(listen_socket);
-		if (rc) {
+		if(rc) {
 			ERR("Failed in riodp_socket_listen() for '%s': %s\n",
 							name, strerror(rc));
 			riodp_socket_close(&listen_socket);
@@ -229,6 +229,13 @@ public:
 		}
 		DBG("Listen successful on '%s'\n", name);
 	} /* cm_server() */
+
+	/* Construct from accept socket. Other attributes are unused */
+	cm_server(const char *name, riodp_socket_t accept_socket) :
+		cm_base(name, 0, 0, 0),
+		accept_socket(accept_socket)
+	{
+	}
 
 	~cm_server()
 	{
@@ -242,20 +249,23 @@ public:
 
 		/* Close listen socket, opened during construction */
 		DBG("Closing listen_socket = 0x%X\n", listen_socket);
-		if (riodp_socket_close(&listen_socket)) {
-			WARN("Failed to close listen socket: for '%s': %s\n",
+		if (listen_socket)
+			if (riodp_socket_close(&listen_socket)) {
+				WARN("Failed to close listen socket: for '%s': %s\n",
 							name, strerror(errno));
-		}
+			}
 
 		/* Destroy mailbox handle, opened during construction */
-		DBG("Destroying mailbox\n");
-		if (close_mailbox()) {
-			WARN("Failed to close mailbox for '%s'\n", name);
+		if (mailbox) {
+			DBG("Destroying mailbox\n");
+			if (close_mailbox()) {
+				WARN("Failed to close mailbox for '%s'\n", name);
+			}
 		}
 	} /* ~cm_server() */
 
 	/* Accept connection from client */
-	int accept()
+	int accept(riodp_socket_t *acc_socket)
 	{
 		/* Close previously created accept socket, if applicable */
 		if (accept_socket && accepted)
@@ -285,10 +295,18 @@ public:
 				ERR("Failed to accept connections for '%s' (0x%X)\n",
 								name, accept_socket);
 			}
-		} else
+		} else {
+			if (acc_socket)
+				*acc_socket = accept_socket;
 			accepted = true;
+		}
 
 		return rc;
+	} /* accept() */
+
+	int accept()
+	{
+		return accept(NULL);
 	} /* accept() */
 
 	/* Receive bytes to 'recv_buf' */

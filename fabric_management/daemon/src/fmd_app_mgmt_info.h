@@ -1,3 +1,4 @@
+/* Global state information for RSKTD threads handling library connections */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -31,68 +32,71 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef PEER_UTILS_H
-#define PEER_UTILS_H
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <semaphore.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/sem.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <time.h>
 
 #include <stdint.h>
-#include <semaphore.h>
-
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include "linux/rio_cm_cdev.h"
-#include "linux/rio_mport_cdev.h"
+#include <unistd.h>
+#include <dirent.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <pthread.h>
 
 #include "riodp_mport_lib.h"
+#include "linux/rio_cm_cdev.h"
+#include "linux/rio_mport_cdev.h"
+#include "libcli.h"
+#include "librskt_private.h"
+#include "librsktd.h"
+#include "librdma.h"
+#include "liblist.h"
+#include "librsktd_dmn_info.h"
 
-struct peer_info {
-	/* Device ID */
-	uint8_t	destid_len;
-	uint32_t destid;
+#ifndef __LIBRSKTD_LIB_INFO_H__
+#define __LIBRSKTD_LIB_INFO_H__
 
-	/* MPORT */
-	int mport_id;
-	int mport_fd;
-
-	/* RIO */
-	#define DEFAULT_RIO_ADDRESS     0x00000000 
-
-	/* INBOUND WINDOW */
-	#define DEFAULT_INBOUND_WINDOW_SIZE     0x00200000
-
-	/* Messaging */
-	#define DEFAULT_LOC_CHANNEL	2
-	uint16_t	loc_channel;
-
-	#define DEFAULT_AUX_CHANNEL	3
-	uint16_t	aux_channel;
-
-	#define DEFAULT_DESTROY_CHANNEL	4
-	uint16_t	destroy_channel;
-
-	#define DEFAULT_PROV_CHANNEL		10
-	uint16_t	prov_channel;
-
-	#define DEFAULT_MAILBOX_ID	0
-	uint8_t		mbox_id;
-
-	#define DEFAULT_AUX_MAILBOX_ID  0
-	uint8_t		aux_mbox_id;
-
-	#define DEFAULT_PROV_MBOX_ID 0
-	uint8_t		prov_mbox_id;
-
-	#define DEFAULT_DESTROY_MAILBOX_ID  0
-	uint8_t		destroy_mbox_id;
-
-	sem_t	cm_wait_connect_sem;
-
-	/* Daemon CLI connection */
-	int	cons_skt;	/* Console socket number, default 4444 */
-	int	run_cons;	/* Run console on Daemon? */
-};
-
-void init_peer_info(int num_peers,struct peer_info peers[]);
-
-extern struct peer_info peer;
-
+#ifdef __cplusplus
+extern "C" {
 #endif
 
+/* Information about applications which have registered with the FMD */
+
+struct fmd_app_info {
+        int app_fd;
+        socklen_t addr_size;
+        struct sockaddr_un addr;
+        pthread_t thread; /* Thread of communicating process */
+        int alive;
+        sem_t started;
+        volatile int i_must_die;
+	sem_t app_resp_mutex;
+	uint32_t dmn_req_num;
+	uint32_t rx_req_num; /* Sequence number for last received app req */
+	struct l_head_t app_resp_q; /* List of responses for requests sent
+					* to the APP.  Ordered by rsktd_seq_num
+					* Struct librsktd_unified_msg.
+					*/
+	char app_name[MAX_APP_NAME];
+	int32_t proc_num;
+};
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __LIBRSKTD_LIB_INFO_H__ */

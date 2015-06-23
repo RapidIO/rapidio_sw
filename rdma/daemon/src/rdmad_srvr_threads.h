@@ -34,8 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_SRVR_THREADS_H
 
 void *accept_thread_f(void *arg);
-
 void *server_wait_disc_thread_f(void *arg);
+void *prov_thread_f(void *arg);
 
 #endif
 
