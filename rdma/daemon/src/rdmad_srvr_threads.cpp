@@ -214,8 +214,64 @@ void *conn_disc_thread_f(void *arg)
 			INFO("Received DISCONNECT_MS msid(0x%X)\n",
 							dm->server_msid);
 
-		}
-	}
+			/* Remove client_destid from 'ms' identified by server_msid */
+			mspace *ms = the_inbound->get_mspace(dm->server_msid);
+			if (!ms) {
+				ERR("Failed to find ms(0x%X)\n", dm->server_msid);
+				continue;	/* Not much else to do without the ms */
+			} else {
+				if (ms->remove_destid(dm->client_destid) < 0)
+					ERR("Failed to remove destid(0x%X)\n",
+							dm->client_destid);
+					/* Although this should not happen, we can still
+					 * proceed with the disconnection at least. This
+					 * may in the future result in spurious destroy
+					 * messages, but those can be discarded.
+					 */
+				else {
+					INFO("Removed desitd(0x%X) from msid(0x%X)\n",
+								dm->client_destid, dm->server_msid);
+				}
+			}
+
+			/* Consider this memory space disconnected. Allow accepting */
+			ms->set_accepted(false);
+
+			/* Prepare POSIX disconnect message from CM disconnect message */
+			struct mq_disconnect_msg	disconnect_msg;
+			disconnect_msg.client_msubid = dm->client_msubid;
+
+			/* Form message queue name from memory space name */
+			char mq_name[CM_MS_NAME_MAX_LEN+2];
+			mq_name[0] = '/';
+			strcpy(&mq_name[1], ms->get_name());
+
+			/* Open POSIX message queue */
+			mqd_t	disc_mq = mq_open(mq_name,O_RDWR, 0644, &attr);
+			if (disc_mq == (mqd_t)-1) {
+				ERR("Failed to open %s\n", mq_name);
+				continue;
+			}
+
+			/* Send 'disconnect' POSIX message contents to the RDMA library */
+			ret = mq_send(disc_mq,
+				      (const char *)&disconnect_msg,
+				      sizeof(struct mq_disconnect_msg),
+				      1);
+			if (ret < 0) {
+				ERR("Failed to send message: %s\n", strerror(errno));
+				mq_close(disc_mq);
+				continue;
+			}
+
+			/* Now close POSIX queue */
+			if (mq_close(disc_mq)) {
+				ERR("Failed to close '%s': %s\n", mq_name, strerror(errno));
+				continue;
+			}
+			INFO("'Disconnect' message relayed to 'server'\n");
+		} /* DISCONNECT_MS message */
+	} /* while(1) */
 	pthread_exit(0);
 } /* conn_disc_thread_f() */
 
