@@ -213,6 +213,17 @@ public:
 			throw cm_exception("Failed to bind listen socket");
 		}
 		DBG("Listen socket bound\n");
+
+		/* Prepare listen socket */
+		int rc = riodp_socket_listen(listen_socket);
+		if(rc) {
+			ERR("Failed in riodp_socket_listen() for '%s': %s\n",
+							name, strerror(rc));
+			riodp_socket_close(&listen_socket);
+			close_mailbox();
+			throw cm_exception("Failed to listen on socket");
+		}
+		DBG("Listen successful on '%s'\n", name);
 	}
 
 	/* Construct from accept socket. Other attributes are unused */
@@ -248,19 +259,6 @@ public:
 			}
 		}
 	}
-
-	/* Listen for connection from client */
-	int listen()
-	{
-		int rc = riodp_socket_listen(listen_socket);
-		if(rc) {
-			ERR("Failed in riodp_socket_listen() for '%s': %s\n",
-							name, strerror(rc));
-			return -1;
-		}
-		DBG("Listen successful on '%s'\n", name);
-		return 0;
-	} /* listen() */
 
 	/* Accept connection from client */
 	int accept(riodp_socket_t *acc_socket)

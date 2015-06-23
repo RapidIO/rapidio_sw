@@ -19,7 +19,7 @@ static cm_server *other_server;
 void sig_handler(int sig)
 {
 	delete server;
-	printf("sig_handler got sig(%d)...exiting", sig);
+	printf("sig_handler got sig(%d)...exiting\n", sig);
 	exit(1);
 }
 
@@ -68,13 +68,6 @@ int main(int argc, char *argv[])
 	catch(cm_exception e) {
 		cout << e.err << endl;
 		return 1;
-	}
-
-	/* Listen for clients */
-	puts("Listening for clients...");
-	if (server->listen()) {
-		puts("Failed to listen");
-		goto out;
 	}
 
 	/* Wait for client to connect */

@@ -357,18 +357,6 @@ int main (int argc, char **argv)
 		goto out_free_main_server;
 	}
 
-	if (main_server->listen()) {
-		WARN("main_server: failed to listen\n");
-		goto out_free_aux_server;
-	}
-	INFO("Listening on main_server...\n");
-
-	if (aux_server->listen()) {
-		WARN("aux_server: failed to listen\n");
-		goto out_free_aux_server;
-	}
-	INFO("Listening on aux_server...\n");
-
 	/* Create threads */
 	rc = pthread_create(&cm_accept_thread, NULL, accept_thread_f, NULL);
 	if (rc) {
