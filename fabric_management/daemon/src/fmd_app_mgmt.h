@@ -1,3 +1,4 @@
+/* Application (library) routines for internal use by RSKTD */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -8,10 +9,10 @@ Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice, this
-l of conditions and the following disclaimer.
+list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
-this l of conditions and the following disclaimer in the documentation
+this list of conditions and the following disclaimer in the documentation
 and/or other materials provided with the distribution.
 
 3. Neither the name of the copyright holder nor the names of its contributors
@@ -30,42 +31,76 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-
-#ifndef __LIBRLIST_H__
-#define __LIBRLIST_H__
-
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <semaphore.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/sem.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <time.h>
+#include "fmd_msg.h"
+
+#ifndef __RSKTD_APP_MGMT_H__
+#define __RSKTD_APP_MGMT_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct l_item_t {
-	struct l_item_t *next;
-	struct l_item_t *prev;
-	uint32_t key;
-	void *item;
+struct fmd_app_mgmt_state {
+	int index;
+	int alloced;
+        int app_fd;
+        socklen_t addr_size;
+        struct sockaddr_un addr;
+        pthread_t app_thr;
+        int alive;
+        sem_t started;
+        volatile int i_must_die;
+	uint32_t proc_num;
+	char app_name[MAX_APP_NAME+1];
+	struct libfmd_dmn_app_msg req;
+	struct libfmd_dmn_app_msg resp;
 };
 
-struct l_head_t {
-	int cnt;
-	struct l_item_t *head;
-	struct l_item_t *tail;
+struct app_mgmt_globals {
+        int port;
+        int bklg;
+	char *dd_fn;
+	char *dd_mtx_fn;
+
+        pthread_t conn_thread;
+        int loop_alive;
+        sem_t loop_started;
+        volatile int all_must_die;
+	uint32_t ct; /* Component tag of RSKTD mport */
+
+        int fd; /* File number library instance connect to */
+        struct sockaddr_un addr;
+	sem_t apps_avail;
+	struct fmd_app_mgmt_state apps[FMD_MAX_APPS];
 };
 
-void l_init(struct l_head_t *l);
-void l_push_tail(struct l_head_t *l, void *item);
-void *l_pop_head(struct l_head_t *l);
-struct l_item_t *l_add(struct l_head_t *l, uint32_t key, void *item);
-void l_remove(struct l_head_t *l, struct l_item_t *l_item);
-void l_lremove(struct l_head_t *l, struct l_item_t *l_item);
-void *l_find(struct l_head_t *l, uint32_t key, struct l_item_t **l_item);
-int l_size(struct l_head_t *l);
-void *l_head(struct l_head_t *l, struct l_item_t **l_item);
-void *l_next(struct l_item_t **l_item);
+int start_fmd_app_handler(uint32_t port, uint32_t backlog, int tst,
+			char *dd_fn, char *dd_mtx_fn);
+void halt_fmd_app_handler(void);
+
+void cleanup_app_handler(void);
+
+void fmd_notify_apps(void);
+
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __LIBRLIST_H__ */
+#endif /* __RSKTD_APP_MGMT_H__ */
