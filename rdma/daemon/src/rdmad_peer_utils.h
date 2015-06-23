@@ -68,11 +68,17 @@ struct peer_info {
 	#define DEFAULT_DESTROY_CHANNEL	4
 	uint16_t	destroy_channel;
 
+	#define DEFAULT_PROV_CHANNEL		10
+	uint16_t	prov_channel;
+
 	#define DEFAULT_MAILBOX_ID	0
 	uint8_t		mbox_id;
 
 	#define DEFAULT_AUX_MAILBOX_ID  0
 	uint8_t		aux_mbox_id;
+
+	#define DEFAULT_PROV_MBOX_ID 0
+	uint8_t		prov_mbox_id;
 
 	#define DEFAULT_DESTROY_MAILBOX_ID  0
 	uint8_t		destroy_mbox_id;
