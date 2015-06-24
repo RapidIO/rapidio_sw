@@ -72,12 +72,6 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		if (bat_server->listen()) {
-			fprintf(stderr, "bat_server->listen() failed\n");
-			delete bat_server;
-			return 2;
-		}
-
 		/* Set up buffers for BAT messages */
 		void	*buf_rx, *buf_tx;
 		bat_server->get_recv_buffer(&buf_rx);

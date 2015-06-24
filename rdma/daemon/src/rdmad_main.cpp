@@ -48,6 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 
 #include "rdmad_peer_utils.h"
+#include "rdmad_srvr_threads.h"
 #include "rdmad_svc.h"
 #include "rdmad_console.h"
 #include "libcli.h"
@@ -64,6 +65,7 @@ static	pthread_t cm_accept_thread;
 static 	pthread_t console_thread;
 static	pthread_t server_wait_disc_thread;
 static	pthread_t client_wait_destroy_thread;
+static	pthread_t prov_thread;
 
 static void init_peer()
 {
@@ -78,10 +80,12 @@ static void init_peer()
 	peer.loc_channel	= DEFAULT_LOC_CHANNEL;
 	peer.aux_channel	= DEFAULT_AUX_CHANNEL;
 	peer.destroy_channel	= DEFAULT_DESTROY_CHANNEL;
+	peer.prov_channel	= DEFAULT_PROV_CHANNEL;
 
 	peer.mbox_id		= DEFAULT_MAILBOX_ID;
 	peer.aux_mbox_id	= DEFAULT_AUX_MAILBOX_ID;
 	peer.destroy_mbox_id	= DEFAULT_DESTROY_MAILBOX_ID;
+	peer.prov_mbox_id	= DEFAULT_PROV_MBOX_ID;
 
 	/* CLI */
 	peer.cons_skt = 4444;
@@ -357,18 +361,6 @@ int main (int argc, char **argv)
 		goto out_free_main_server;
 	}
 
-	if (main_server->listen()) {
-		WARN("main_server: failed to listen\n");
-		goto out_free_aux_server;
-	}
-	INFO("Listening on main_server...\n");
-
-	if (aux_server->listen()) {
-		WARN("aux_server: failed to listen\n");
-		goto out_free_aux_server;
-	}
-	INFO("Listening on aux_server...\n");
-
 	/* Create threads */
 	rc = pthread_create(&cm_accept_thread, NULL, accept_thread_f, NULL);
 	if (rc) {
@@ -397,7 +389,17 @@ int main (int argc, char **argv)
 		goto out_free_aux_server;
 	}
 
+	/* Create provisioning thread */
+	rc = pthread_create(&prov_thread, NULL, prov_thread_f, &peer);
+	if (rc) {
+		CRIT("Failed to create prov_thread: %s\n", strerror(errno));
+		rc = 7;
+		shutdown(&peer);
+		goto out_free_aux_server;
+	}
+
 	run_rpc();
+
 	/* Never reached */
 
 out_free_aux_server:

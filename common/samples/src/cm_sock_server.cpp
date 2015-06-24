@@ -14,11 +14,12 @@ static int channel;
 static int mbox_id;
 static int mport_id;
 static cm_server *server;
+static cm_server *other_server;
 
 void sig_handler(int sig)
 {
 	delete server;
-	printf("sig_handler got sig(%d)...exiting", sig);
+	printf("sig_handler got sig(%d)...exiting\n", sig);
 	exit(1);
 }
 
@@ -66,39 +67,46 @@ int main(int argc, char *argv[])
 
 	catch(cm_exception e) {
 		cout << e.err << endl;
-		return 0;
-	}
-
-	/* Listen for clients */
-	puts("Listening for clients...");
-	if (server->listen()) {
-		puts("Failed to listen");
-		goto out;
+		return 1;
 	}
 
 	/* Wait for client to connect */
-	if (server->accept()) {
+	puts("Wait for client to connect..");
+	riodp_socket_t	accept_socket;
+
+	if (server->accept(&accept_socket)) {
 		puts("Failed to accept");
 		goto out;
 	}
+	printf("After accept() call, accept_socket = 0x%X\n", accept_socket);
 	
+	puts("Creating other server object...");
+	try {
+		other_server = new cm_server("other_server", accept_socket);
+	}
+	catch(cm_exception e) {
+		cout << e.err << endl;
+		delete server;
+		return 2;
+	}
+
 	/* Wait for data from clients */
-	if (server->receive()) {
+	if (other_server->receive()) {
 		puts("Failed to receive");
 		goto out;
 	}
 
 	/* Get & display the data */
 	void *recv_buf;
-	server->get_recv_buffer(&recv_buf);
+	other_server->get_recv_buffer(&recv_buf);
 	puts((char *)recv_buf);
 
 	/* Echo data back to client */
 	void *send_buf;
-	server->get_send_buffer(&send_buf);
+	other_server->get_send_buffer(&send_buf);
 	strcpy((char *)send_buf, (char *)recv_buf);
 
-	if (server->send()) {
+	if (other_server->send()) {
 		puts("Failed to send back");
 		goto out;
 	}
@@ -106,6 +114,7 @@ int main(int argc, char *argv[])
 	getchar();
 out:	
 	delete server;
+	delete other_server;
 
 	return 0;
 }
