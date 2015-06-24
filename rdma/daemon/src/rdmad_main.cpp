@@ -168,6 +168,13 @@ void shutdown(struct peer_info *peer)
 	}
 	pthread_join(client_wait_destroy_thread, NULL);
 
+	/* Next, kill provisioning thread */
+	ret = pthread_kill(prov_thread, SIGUSR1);
+	if (ret == EINVAL) {
+		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+	}
+	pthread_join(prov_thread, NULL);
+
 	/* Post the semaphore of each of the client remote daemon threads
 	 * if any. This causes the threads to see 'shutting_down' has
 	 * been set and they self-exit */
