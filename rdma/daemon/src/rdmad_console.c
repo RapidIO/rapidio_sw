@@ -85,11 +85,6 @@ int log_dump_cmd_f(struct cli_env *env, int argc, char **argv)
 	return 0;
 } /* log_dump_cmd_f() */
 
-struct peer_rsktd_addr {
-	uint32_t ct;
-        uint32_t cm_skt;
-};
-
 extern struct cli_cmd hello_rdaemon_cmd ;
 
 int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
@@ -161,12 +156,17 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
 
 	/* Call provisioning command to send HELLO to remote daemon */
 	ret = provision_rdaemon(destid);
+	if (ret == -7) {
+		sprintf(env->output, "destid(0x%X) already provisioned\n", destid);
+		logMsg(env);
+		return ret;
+	}
 
 	sprintf(env->output, "Return code %d:%s\n", ret, strerror(ret));
 	logMsg(env);
 
 	return 0;
-}
+} /* hello_rdaemon_cmd_f() */
 
 struct cli_cmd ibwin_info_cmd = {
 	"ibinfo",

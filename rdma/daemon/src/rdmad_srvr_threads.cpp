@@ -99,6 +99,8 @@ void *conn_disc_thread_f(void *arg)
 	 */
 	sem_post(&pdi->started);
 
+	free(pdi);	/* We have a copy in prov_daemon_info_list */
+
 	while(1) {
 		int	ret;
 		/* Receive CONNECT_MS or DISCONNECT_MS message */
@@ -373,6 +375,15 @@ int provision_rdaemon(uint32_t destid)
 {
 	/* Create provision client to connect to remote daemon's provisioning thread */
 	cm_client	*prov_client;
+	prov_daemon_info	pdi;
+
+	/* FOR NOW, fail if the 'destid' already has an entry/thread */
+	auto it = find(begin(prov_daemon_info_list), end(prov_daemon_info_list),
+			destid);
+	if (it != end(prov_daemon_info_list)) {
+		WARN("destid(0x%X) is already known\n", destid);
+		return -7;	/* TODO: should be #define'd in a header */
+	}
 
 	try {
 		prov_client = new cm_client("prov_client", peer.mport_id, 0, peer.loc_channel);
@@ -383,7 +394,7 @@ int provision_rdaemon(uint32_t destid)
 	}
 
 	/* Connect to remote daemon */
-	int ret = prov_client->connect(destid);
+	int ret = prov_client->connect(destid, &pdi.socket);
 	if (ret) {
 		CRIT("Failed to connect to destid(0x%X)\n", destid);
 		delete prov_client;
