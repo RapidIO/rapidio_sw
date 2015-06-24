@@ -110,7 +110,8 @@ void *conn_disc_thread_f(void *arg)
 				CRIT("Failed to receive conn_disc_server: %s\n",
 								strerror(ret));
 			}
-			continue;	/* Don't exit. Perhaps temp failure? */
+			delete conn_disc_server;
+			pthread_exit(0);
 		}
 		cm_connect_msg	*cm;
 		cm_disconnect_msg *dm;
@@ -332,10 +333,10 @@ void *prov_thread_f(void *arg)
 			delete prov_server;
 			pthread_exit(0);
 		}
-		DBG("Received HELLO message from remote daemon\n");
 
 		hello_msg_t	*hello_msg;
 		prov_server->get_recv_buffer((void **)&hello_msg);
+		DBG("Received HELLO message from destid(0x%X)\n", hello_msg->destid);
 
 		auto it = find(begin(prov_daemon_info_list),
 			       end(prov_daemon_info_list), hello_msg->destid);
@@ -354,7 +355,7 @@ void *prov_thread_f(void *arg)
 
 			DBG("Creating connect/disconnect thread\n");
 			ret = pthread_create(&pdi->tid, NULL, conn_disc_thread_f,
-								&pdi);
+								pdi);
 			if (ret) {
 				CRIT("Failed to create conn_disc thread\n");
 				free(pdi);
