@@ -42,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdmad_svc.h"
 #include "rdmad_main.h"
+#include "rdmad_srvr_threads.h"
 #include "rdmad_cm.h"
 #include "libcli.h"
 
@@ -154,45 +155,12 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
 		return 0;
 	}
 
-	uint16_t destid   = getDecParm(argv[0], 0);
+	/* Extract parameters from command */
+	uint32_t destid   = getDecParm(argv[0], 0);
 	peer.loc_channel  = getDecParm(argv[1], 0);
 
-	sprintf(env->output, "Sending HELLO to destid(0x%X) on channel(%d)\n",
-								destid, peer.loc_channel);
-	logMsg(env);
-
-	/* Create provision client to connect to remote daemon's provisioning thread */
-	cm_client	*prov_client;
-	try {
-		prov_client = new cm_client("prov_client", peer.mport_id, 0, peer.loc_channel);
-	}
-	catch(cm_exception e) {
-		sprintf(env->output, "%s\n", e.err);
-		return -1;
-	}
-
-	/* Connect to remote daemon */
-	ret = prov_client->connect(destid);
-	if (ret) {
-		sprintf(env->output, "Failed to connect to destid(0x%X)\n", destid);
-		logMsg(env);
-		delete prov_client;
-		return -2;
-	}
-
-	/* Send HELLO message containing our destid */
-	hello_msg_t	*hm;
-	prov_client->get_recv_buffer((void **)&hm);
-	hm->destid = peer.destid;
-	ret = prov_client->send();
-	if (ret) {
-		sprintf(env->output, "Failed to send HELLO to destid(0x%X)\n", destid);
-		logMsg(env);
-		delete prov_client;
-		return -3;
-	}
-
-	delete prov_client;
+	/* Call provisioning command to send HELLO to remote daemon */
+	ret = provision_rdaemon(destid);
 
 	sprintf(env->output, "Return code %d:%s\n", ret, strerror(ret));
 	logMsg(env);
