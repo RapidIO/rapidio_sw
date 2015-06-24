@@ -133,7 +133,6 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
                 ret = riodp_mport_free_ep_list(&ep_list);
                 if (ret)
                         printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
-
         }
 
         printf("\n");
@@ -152,7 +151,6 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
 
 	/* Extract parameters from command */
 	uint32_t destid   = getDecParm(argv[0], 0);
-	peer.loc_channel  = getDecParm(argv[1], 0);
 
 	/* Call provisioning command to send HELLO to remote daemon */
 	ret = provision_rdaemon(destid);
@@ -214,12 +212,11 @@ struct cli_cmd log_dump_cmd = {
 
 struct cli_cmd hello_rdaemon_cmd = {
 	"hello",
-	2,
+	1,
 	0,
 	"Display known remote daemons, or attempts to connect to remote daemon.\n",
-	"{<destid> <channel>}\n"
+	"{<destid>}\n"
 	"<destid>: Destination ID of remote daemon.\n"
-	"<channel>: Channel number on which remote daemon listens.\n"
 	"Note: If not parms are entered, display available peers.\n",
 	hello_rdaemon_cmd_f,
 	ATTR_NONE

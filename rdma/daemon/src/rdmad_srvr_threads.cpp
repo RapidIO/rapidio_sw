@@ -50,14 +50,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_peer_utils.h"
 
 struct prov_daemon_info {
-	uint16_t destid;
-	riodp_socket_t	socket;
-	pthread_t	tid;
-	sem_t		started;
+	/* TODO: Add constructor and destructor */
+	uint16_t 	destid;
+	cm_base		*cm_obj;
+	pthread_t	tid;		/* Used if provisioned by prov_thread */
+	sem_t		started;	/* Used only by prov_thread */
 	bool operator==(uint16_t destid) { return this->destid == destid; }
 };
-
-
 
 vector<prov_daemon_info>	prov_daemon_info_list;
 
@@ -79,16 +78,15 @@ void *conn_disc_thread_f(void *arg)
 
 	pdi = (prov_daemon_info *)arg;
 
-
-	cm_server	*conn_disc_server;
-	try {
-		conn_disc_server = new cm_server("conn_disc", pdi->socket);
-	}
-	catch(cm_exception e) {
-		CRIT("conn_disc_server: %s\n", e.err);
-		free(pdi);
+	if (!pdi->cm_obj) {
+		CRIT("NULL argument. Exiting\n");
 		pthread_exit(0);
 	}
+
+	/* conn_disc_server maybe a cm_server or a cm_client depending on the
+	 * method used to provision it. Hence we use a polymorphic object pointer.
+	 */
+	cm_base	*conn_disc_server = pdi->cm_obj;
 
 	/* Store info about the remote daemon/destid in list */
 	DBG("Storing info for destid=0x%X\n", pdi->destid);
@@ -346,13 +344,23 @@ void *prov_thread_f(void *arg)
 			WARN("Received HELLO msg for known destid(0x%X\n",
 							hello_msg->destid);
 		} else {
-			/* Add new entry to list */
+			/* Create new entry for this destid */
 			prov_daemon_info	*pdi;
 
 			pdi = (prov_daemon_info *)malloc(sizeof(prov_daemon_info));
 
 			sem_init(&pdi->started, 0, 0);
-			pdi->socket = accept_socket;
+
+			/* Create CM server object based on the accept socket */
+			try {
+				pdi->cm_obj = new cm_server("conn_disc", accept_socket);
+			}
+			catch(cm_exception e) {
+				CRIT("pdi->cm_obj: %s\n", e.err);
+				free(pdi);
+				continue;
+			}
+
 			pdi->destid = hello_msg->destid;
 
 			DBG("Creating connect/disconnect thread\n");
@@ -365,7 +373,6 @@ void *prov_thread_f(void *arg)
 			}
 			sem_wait(&pdi->started);
 			DBG("connect/disconnect thread created\n");
-
 		}
 	} /* while(1) */
 	pthread_exit(0);
@@ -386,7 +393,7 @@ int provision_rdaemon(uint32_t destid)
 	}
 
 	try {
-		prov_client = new cm_client("prov_client", peer.mport_id, 0, peer.loc_channel);
+		prov_client = new cm_client("prov_client", peer.mport_id, 0, peer.prov_channel);
 	}
 	catch(cm_exception e) {
 		CRIT("%s\n", e.err);
@@ -394,12 +401,13 @@ int provision_rdaemon(uint32_t destid)
 	}
 
 	/* Connect to remote daemon */
-	int ret = prov_client->connect(destid, &pdi.socket);
+	int ret = prov_client->connect(destid);
 	if (ret) {
 		CRIT("Failed to connect to destid(0x%X)\n", destid);
 		delete prov_client;
 		return -2;
 	}
+	INFO("Connected to remote daemon on destid(0x%X\n", destid);
 
 	/* Send HELLO message containing our destid */
 	hello_msg_t	*hm;
@@ -412,10 +420,10 @@ int provision_rdaemon(uint32_t destid)
 		return -3;
 	}
 
-/* TODO: Create a client thread for the remote destid */
-/* Wait on semaphore */
-
-	delete prov_client;
+	/* Create entry for 'destid' */
+	DBG("Storing info for destid=0x%X\n", pdi.destid);
+	pdi.cm_obj = prov_client;
+	prov_daemon_info_list.push_back(pdi);
 
 	return 0;
 } /* provision_rdaemon() */
