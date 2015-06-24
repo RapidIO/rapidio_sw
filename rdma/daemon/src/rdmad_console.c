@@ -38,9 +38,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "liblog.h"
 
+#include "cm_sock.h"
+
 #include "rdmad_svc.h"
 #include "rdmad_main.h"
+#include "rdmad_cm.h"
 #include "libcli.h"
+
+using namespace std;
 
 int ibwin_info_cmd_f(struct cli_env *env, int argc, char **argv)
 {
@@ -78,6 +83,122 @@ int log_dump_cmd_f(struct cli_env *env, int argc, char **argv)
 	rdma_log_dump();
 	return 0;
 } /* log_dump_cmd_f() */
+
+struct peer_rsktd_addr {
+	uint32_t ct;
+        uint32_t cm_skt;
+};
+
+extern struct cli_cmd hello_rdaemon_cmd ;
+
+int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
+{
+        uint32_t *mport_list = NULL;
+        uint32_t *ep_list = NULL;
+        uint32_t *list_ptr;
+        uint32_t number_of_eps = 0;
+        uint8_t  number_of_mports = RIODP_MAX_MPORTS;
+        uint32_t ep = 0;
+        int i;
+        int mport_id;
+        int ret = 0;
+
+        ret = riodp_mport_get_mport_list(&mport_list, &number_of_mports);
+        if (ret) {
+                printf("ERR: riodp_mport_get_mport_list() ERR %d\n", ret);
+                return 0;
+        }
+
+        printf("\nAvailable %d local mport(s):\n", number_of_mports);
+        if (number_of_mports > RIODP_MAX_MPORTS) {
+                printf("WARNING: Only %d out of %d have been retrieved\n",
+                        RIODP_MAX_MPORTS, number_of_mports);
+        }
+
+        list_ptr = mport_list;
+        for (i = 0; i < number_of_mports; i++, list_ptr++) {
+                mport_id = *list_ptr >> 16;
+                printf("+++ mport_id: %u dest_id: %u\n",
+                                mport_id, *list_ptr & 0xffff);
+
+                /* Display EPs for this MPORT */
+
+                ret = riodp_mport_get_ep_list(mport_id, &ep_list, &number_of_eps);
+                if (ret) {
+                        printf("ERR: riodp_ep_get_list() ERR %d\n", ret);
+                        break;
+                }
+
+                printf("\t%u Endpoints (dest_ID): ", number_of_eps);
+                for (ep = 0; ep < number_of_eps; ep++)
+                        printf("%u ", *(ep_list + ep));
+                printf("\n");
+
+                ret = riodp_mport_free_ep_list(&ep_list);
+                if (ret)
+                        printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
+
+        }
+
+        printf("\n");
+
+        ret = riodp_mport_free_mport_list(&mport_list);
+        if (ret)
+                printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
+
+	if (!argc)
+		return 0;
+
+	if (argc != 2) {
+		cli_print_help(env, &hello_rdaemon_cmd);
+		return 0;
+	}
+
+	uint16_t destid   = getDecParm(argv[0], 0);
+	uint32_t channel  = getDecParm(argv[1], 0);
+
+	sprintf(env->output, "Sending HELLO to destid(0x%X) on channel(%d)\n",
+								destid, channel);
+	logMsg(env);
+
+	/* Create provision client to connect to remote daemon's provisioning thread */
+	cm_client	*prov_client;
+	try {
+		prov_client = new cm_client("prov_client", peer.mport_id, 0, channel);
+	}
+	catch(cm_exception e) {
+		sprintf(env->output, "%s\n", e.err);
+		return -1;
+	}
+
+	/* Connect to remote daemon */
+	ret = prov_client->connect(destid);
+	if (ret) {
+		sprintf(env->output, "Failed to connect to destid(0x%X)\n", destid);
+		logMsg(env);
+		delete prov_client;
+		return -2;
+	}
+
+	/* Send HELLO message containing our destid */
+	hello_msg_t	*hm;
+	prov_client->get_recv_buffer((void **)&hm);
+	hm->destid = peer.destid;
+	ret = prov_client->send();
+	if (ret) {
+		sprintf(env->output, "Failed to send HELLO to destid(0x%X)\n", destid);
+		logMsg(env);
+		delete prov_client;
+		return -3;
+	}
+
+	delete prov_client;
+
+	sprintf(env->output, "Return code %d:%s\n", ret, strerror(ret));
+	logMsg(env);
+
+	return 0;
+}
 
 struct cli_cmd ibwin_info_cmd = {
 	"ibinfo",
@@ -123,11 +244,25 @@ struct cli_cmd log_dump_cmd = {
 	ATTR_NONE
 };
 
+struct cli_cmd hello_rdaemon_cmd = {
+	"hello",
+	2,
+	0,
+	"Display known remote daemons, or attempts to connect to remote daemon.\n",
+	"{<destid> <channel>}\n"
+	"<destid>: Destination ID of remote daemon.\n"
+	"<channel>: Channel number on which remote daemon listens.\n"
+	"Note: If not parms are entered, display available peers.\n",
+	hello_rdaemon_cmd_f,
+	ATTR_NONE
+};
+
 struct cli_cmd *rdmad_cmds[] = {
 	&ibwin_info_cmd,
 	&all_ms_info_cmd,
 	&all_ms_msub_info_cmd,
 	&log_dump_cmd,
+	&hello_rdaemon_cmd
 };
 
 unsigned rdmad_cmds_size(void)
