@@ -155,16 +155,16 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
 	}
 
 	uint16_t destid   = getDecParm(argv[0], 0);
-	uint32_t channel  = getDecParm(argv[1], 0);
+	peer.loc_channel  = getDecParm(argv[1], 0);
 
 	sprintf(env->output, "Sending HELLO to destid(0x%X) on channel(%d)\n",
-								destid, channel);
+								destid, peer.loc_channel);
 	logMsg(env);
 
 	/* Create provision client to connect to remote daemon's provisioning thread */
 	cm_client	*prov_client;
 	try {
-		prov_client = new cm_client("prov_client", peer.mport_id, 0, channel);
+		prov_client = new cm_client("prov_client", peer.mport_id, 0, peer.loc_channel);
 	}
 	catch(cm_exception e) {
 		sprintf(env->output, "%s\n", e.err);
