@@ -53,8 +53,8 @@ struct prov_daemon_info {
 	/* TODO: Add constructor and destructor */
 	uint16_t 	destid;
 	cm_base		*cm_obj;
-	pthread_t	tid;		/* Used if provisioned by prov_thread */
-	sem_t		started;	/* Used only by prov_thread */
+	pthread_t	tid;
+	sem_t		started;
 	bool operator==(uint16_t destid) { return this->destid == destid; }
 };
 
@@ -382,7 +382,6 @@ int provision_rdaemon(uint32_t destid)
 {
 	/* Create provision client to connect to remote daemon's provisioning thread */
 	cm_client	*prov_client;
-	prov_daemon_info	pdi;
 
 	/* FOR NOW, fail if the 'destid' already has an entry/thread */
 	auto it = find(begin(prov_daemon_info_list), end(prov_daemon_info_list),
@@ -419,11 +418,24 @@ int provision_rdaemon(uint32_t destid)
 		delete prov_client;
 		return -3;
 	}
+	DBG("HELLO message successfully sent to destid(0x%X\n", destid);
 
-	/* Create entry for 'destid' */
-	DBG("Storing info for destid=0x%X\n", pdi.destid);
-	pdi.cm_obj = prov_client;
-	prov_daemon_info_list.push_back(pdi);
+	/* Create and populate prov_daemon_info struct */
+	prov_daemon_info *pdi = (prov_daemon_info *)malloc(sizeof(prov_daemon_info));
+	sem_init(&pdi->started, 0, 0);
+	pdi->destid = destid;
+	pdi->cm_obj = prov_client;
+
+	DBG("Creating connect/disconnect thread\n");
+	ret = pthread_create(&pdi->tid, NULL, conn_disc_thread_f, pdi);
+	if (ret) {
+		CRIT("Failed to create conn_disc thread\n");
+		free(pdi);
+		return -4;
+	}
+
+	sem_wait(&pdi->started);
+	DBG("connect/disconnect thread created\n");
 
 	return 0;
 } /* provision_rdaemon() */

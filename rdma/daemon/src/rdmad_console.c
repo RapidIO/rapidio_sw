@@ -144,7 +144,7 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
 	if (!argc)
 		return 0;
 
-	if (argc != 2) {
+	if (argc != 1) {
 		cli_print_help(env, &hello_rdaemon_cmd);
 		return 0;
 	}
