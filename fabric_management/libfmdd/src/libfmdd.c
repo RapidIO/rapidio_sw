@@ -254,12 +254,6 @@ fail:
 	return 1;
 };
 
-void fmdd_bind_dbg_cmds(fmdd_h h)
-{
-	if (h == &fml)
-		bind_dd_cmds(fml.dd, fml.dd_mtx, fml.dd_fn, fml.dd_mtx_fn);
-};
-
 #ifdef __cplusplus
 }
 #endif

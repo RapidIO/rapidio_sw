@@ -9,7 +9,7 @@ LOG_LEVEL ?= 1
 
 DEBUG ?= DEBUG
 
-TOP_LEVEL = ../../
+TOP_LEVEL ?= ../..
 
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
@@ -18,13 +18,13 @@ A_LIB_LKFLAGS = -lnsl -fPIC -g -ggdb
 CROSS_COMPILE?=/usr/bin/
 INCDIR=$(LINUX_INCLUDE_DIR)
 
-COMMON_DIR=$(TOP_LEVEL)/common
+COMMON_DIR=$(TOP_LEVEL)/common/
 MPORT_DIR=$(TOP_LEVEL)/libmport
 DAEMON=./
 
 LOCAL_LIBRARY_DIR ?= "libs_a"
 
-LIB_DIRS?=-L$(COMMON_DIR)/libs_a -L$(COMMON_DIR)/libs_so \
+LIB_DIRS?=-L$(COMMON_DIR)libs_a -L$(COMMON_DIR)libs_so \
 	-L../$(LOCAL_LIBRARY_DIR) -L$(MPORT_DIR) 
 	
 
@@ -44,9 +44,9 @@ src/%.o: src/%.c
 	-DRDMA_LL=7 \
 	-I$(LINUX_INCLUDE_DIR)
 
-FMD_SOURCES = src/fmd_app_mgmt.c src/fmd_cfg.c src/fmd.c
+FMD_SOURCES = src/fmd_app_mgmt.c src/fmd_cfg.c src/fmd.c src/fmd_cfg_cli.c
 
-FMD_OBJECTS = src/fmd_app_mgmt.o src/fmd_cfg.o src/fmd.o
+FMD_OBJECTS = src/fmd_app_mgmt.o src/fmd_cfg.o src/fmd.o src/fmd_cfg_cli.o
 
 all: fmd
 

@@ -61,6 +61,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_dd.h"
 #include "liblog.h"
 #include "dev_db.h"
+#include "riocp_pe.h"
 #include "riocp_pe_internal.h"
 #include "cli_cmd_db.h"
 #include "cli_cmd_line.h"
@@ -227,6 +228,7 @@ int fmd_dd_init(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx,
 		(*dd)->devs[idx].ct = 0;
 		(*dd)->devs[idx].destID = 0;
 		(*dd)->devs[idx].hc = 0xFF;
+		(*dd)->devs[idx].is_mast_pt = 0;
 	};
 	fmd_dd_incr_chg_idx(*dd, 1);
 exit:
@@ -278,7 +280,7 @@ void fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
                         struct fmd_dd_mtx *dd_mtx)
 {
         size_t pe_cnt;
-        riocp_pe_handle *pe;
+        struct riocp_pe **pe;
         int rc, idx;
         uint32_t comptag, destid;
         uint8_t hopcount;
@@ -288,14 +290,15 @@ void fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
 		goto exit;
 	};
 
+	pe = NULL;
         rc = riocp_mport_get_pe_list(mp_h, &pe_cnt, &pe);
         if (rc) {
-                CRIT("\nCannot get pe list rc %d...\n", rc);
+                CRIT("Cannot get pe list rc %d...\n", rc);
 		goto exit;
         };
 
 	if (pe_cnt > FMD_MAX_DEVS) {
-                WARN("\nToo many PEs for DD %d %d...\n", pe_cnt, FMD_MAX_DEVS);
+                WARN("Too many PEs for DD %d %d...\n", pe_cnt, FMD_MAX_DEVS);
 		pe_cnt = FMD_MAX_DEVS;
 	};
 
@@ -305,21 +308,24 @@ void fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
         for (idx = 0; idx < (int) pe_cnt; idx++) {
                 rc = riocp_pe_get_comptag(pe[idx], &comptag);
                 if (rc) {
-                        WARN("\nCannot get comptag rc %d...\n", rc);
+                        WARN("Cannot get comptag rc %d...\n", rc);
                         comptag = 0xFFFFFFFF;
 			continue;
                 };
                 rc = riocp_pe_get_destid(pe[idx], &destid);
                 if (rc) {
-                        WARN("\nCannot get comptag rc %d...\n", rc);
+                        WARN("Cannot get comptag rc %d...\n", rc);
                         destid = 0xFFFFFFFF;
 			continue;
                 };
                 hopcount = pe[idx]->hopcount;
+		
 	
 		dd->devs[dd->num_devs].ct     = comptag;
 		dd->devs[dd->num_devs].destID = destid;
 		dd->devs[dd->num_devs].hc     = hopcount;
+		dd->devs[dd->num_devs].is_mast_pt = 
+					(RIOCP_PE_IS_MPORT(pe[idx])?1:0);
 		dd->num_devs++;
 	};
 	fmd_dd_incr_chg_idx(dd, 1);

@@ -100,8 +100,29 @@ LogLevelCmd,
 ATTR_NONE
 };
 
+int log_dump_cmd_f(struct cli_env *env, int argc, char **argv)
+{
+        (void)env;
+        (void)argc;
+        (void)argv;
+        rdma_log_dump();
+        return 0;
+} /* log_dump_cmd_f() */
+
+struct cli_cmd log_dump_cmd = {
+        "dlog",
+        4,
+        0,
+        "Dump log to screen.",
+        "{None}\n"
+        "Dumps log to screen.\n",
+        log_dump_cmd_f,
+        ATTR_NONE
+};
+
 struct cli_cmd *liblog_cmds[] = 
-	{ &LogLevel
+	{ &LogLevel,
+	  &log_dump_cmd 
 	};
 
 void liblog_bind_cli_cmds(void)

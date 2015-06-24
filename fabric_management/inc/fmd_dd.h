@@ -55,6 +55,7 @@ struct fmd_dd_dev_info {
 	uint32_t ct;
 	uint32_t destID;
 	uint32_t hc;
+	uint32_t is_mast_pt;
 };
 
 struct fmd_dd {

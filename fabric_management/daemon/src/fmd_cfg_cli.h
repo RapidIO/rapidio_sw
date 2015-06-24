@@ -1,7 +1,8 @@
+/* Fabric Management Daemon Configuration display and section commands */
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -30,92 +31,18 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include <cstdio>
-#include <cstring>
 
-#include <signal.h>
-#include <pthread.h>
+#ifndef _FMD_H_
+#define _FMD_H_
 
-#include "liblog.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include "rdmad_svc.h"
-#include "rdmad_main.h"
-#include "libcli.h"
+void fmd_bind_dbg_cmds(void);
 
-int ibwin_info_cmd_f(struct cli_env *env, int argc, char **argv)
-{
-	(void)env;
-	(void)argc;
-	(void)argv;
-
-	the_inbound->dump_info();
-	return 0;
-} /* ibwin_info_cmd_f() */
-
-int all_ms_info_cmd_f(struct cli_env *env, int argc, char **argv)
-{
-	(void)env;
-	(void)argc;
-	(void)argv;
-	the_inbound->dump_all_mspace_info();
-	return 0;
-} /* all_ms_info_cmd_f() */
-
-int all_ms_msub_info_cmd_f(struct cli_env *env, int argc, char **argv)
-{
-	(void)env;
-	(void)argc;
-	(void)argv;
-	the_inbound->dump_all_mspace_with_msubs_info();
-	return 0;
-} /* all_ms_info_cmd_f() */
-
-struct cli_cmd ibwin_info_cmd = {
-	"ibinfo",
-	1,
-	0,
-	"Inbound Window Info.",
-	"{None}\n"
-	"Displays info about all inbound windows.\n",
-	ibwin_info_cmd_f,
-	ATTR_NONE
-};
-
-struct cli_cmd all_ms_info_cmd = {
-	"allmsinfo",
-	1,
-	0,
-	"Memory Space Info.",
-	"{None}\n"
-	"Displays info about all memory spaces.\n",
-	all_ms_info_cmd_f,
-	ATTR_NONE
-};
-
-struct cli_cmd all_ms_msub_info_cmd = {
-	"msmsub",
-	1,
-	0,
-	"Memory Space & Subspace Info.",
-	"{None}\n"
-	"Displays info about all memory spaces and subspaces.\n",
-	all_ms_msub_info_cmd_f,
-	ATTR_NONE
-};
-
-struct cli_cmd *rdmad_cmds[] = {
-	&ibwin_info_cmd,
-	&all_ms_info_cmd,
-	&all_ms_msub_info_cmd,
-};
-
-unsigned rdmad_cmds_size(void)
-{
-	return sizeof(rdmad_cmds);
+#ifdef __cplusplus
 }
+#endif
 
-void custom_quit(struct cli_env *e)
-{
-	(void)e;
-	shutdown(&peer);
-}
+#endif /* _FMD_H_ */
