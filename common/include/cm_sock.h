@@ -374,7 +374,7 @@ public:
 	} /* Destructor */
 
 	/* Connect to server specified by RapidIO destination ID */
-	int connect(uint16_t destid)
+	int connect(uint16_t destid, riodp_socket_t *socket)
 	{
 		int rc = riodp_socket_connect(client_socket,
 					      destid,
@@ -389,7 +389,16 @@ public:
 						channel, mbox_id, destid);
 			return -1;
 		}
+		/* Return the socket, now that we know it works */
+		if (socket)
+			*socket = this->client_socket;
 		return 0;
+	} /* connect() */
+
+	/* Connect to the server specified by RapidIO destination ID */
+	int connect(uint16_t destid)
+	{
+		return connect(destid, NULL);
 	} /* connect() */
 
 	/* Send bytes from 'send_buf' */
