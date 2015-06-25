@@ -62,6 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cli_cmd_line.h"
 #include "cli_cmd_db.h"
 #include "cli_parse.h"
+#include "fmd_app_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -234,9 +235,36 @@ CLIFSelectCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd *fmd_cli_cmds[2] = {
+extern struct cli_cmd CLIFStatus;
+
+int CLIFStatusCmd(struct cli_env *env, int argc, char **argv)
+{
+	sprintf(env->output,
+		"\nApp Thread: Alive %1d Must Die %d FD %d Port %d\n",
+		app_st.loop_alive, app_st.all_must_die, app_st.fd, 
+		app_st.port);
+	logMsg(env);
+	sprintf(env->output, "App Thread: Skt %s\n", app_st.addr.sun_path);
+	logMsg(env);
+
+	return 0;
+};
+
+struct cli_cmd CLIFStatus = {
+(char *)"fstat",
+2,
+0,
+(char *)"Fabric Management Status command.",
+(char *)"No Parameters\n"
+	"Prints current status of application connection thread.\n",
+CLIFStatusCmd,
+ATTR_NONE
+};
+
+const struct cli_cmd *fmd_cli_cmds[3] = {
 	&CLIFCDump,
-	&CLIFSelect
+	&CLIFSelect,
+	&CLIFStatus
 };
 
 void fmd_bind_dbg_cmds(void)

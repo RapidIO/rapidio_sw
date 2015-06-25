@@ -78,6 +78,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_cfg.h"
 #include "fmd_cfg_cli.h"
 #include "fmd_state.h"
+#include "fmd_app_mgmt.h"
+#include "riodp_mport_lib.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -244,6 +246,7 @@ void spawn_threads(struct fmd_cfg_parms *cfg)
 {
 	int  poll_ret, cli_ret, cons_ret;
 	int *pass_sock_num, *pass_poll_interval, *pass_cons_ret;
+	int ret;
 
 	sem_init(&cons_owner, 0, 0);
 	pass_sock_num = (int *)(malloc(sizeof(int)));
@@ -283,51 +286,14 @@ void spawn_threads(struct fmd_cfg_parms *cfg)
 		printf("pthread_create() for console returns: %d\n",
 			cons_ret);
  
+	ret = start_fmd_app_handler(cfg->app_port_num, 50, 0, 
+					cfg->dd_fn, cfg->dd_mtx_fn); 
+	if (ret) {
+		fprintf(stderr,"Error - start_fmd_app_handler rc: %d\n", ret);
+		exit(EXIT_FAILURE);
+	}
 }
  
-int set_ep_destids(struct fmd_cfg_parms *cfg, 
-		riocp_pe_handle new_pe, 
-		struct fmd_cfg_sw *cfg_sw,
-		int sw_pnum)
-{
-	int rc;
-	struct fmd_cfg_conn *con;
-	struct fmd_cfg_ep *ep_h;
-	struct fmd_cfg_ep_port *ep_p;
-	int end_i;
-	int ep_pnum;
-
-	if (NULL == cfg_sw)
-		return 0;
-
-	con = cfg_sw->ports[sw_pnum].conn;
-	if (con->ends[0].ep)
-		end_i = 0;
-	else
-		end_i = 1;
-	ep_h = con->ends[end_i].ep_h;
-	ep_pnum = con->ends[end_i].port_num;
-	ep_p = &ep_h->ports[ep_pnum];
-
-	if (!ep_p->valid) {
-		WARN("Switch %s invalid connection on EP %s, destID not set", 
-			cfg_sw->name, ep_h->name);
-		return 0;
-	};
-
-	if (!ep_p->devids[0].valid) {
-		WARN("EP %s Port %d dev8 destID invalid, destID not set", 
-			cfg_sw->name, ep_h->name);
-		return 0;
-	};
-
-	rc = riocp_pe_set_destid(new_pe, ep_p->devids[0].devid);
-	if (rc)
-		CRIT("Set DestID for EP %s err p %d d %d rc %d\n", 
-			ep_pnum, ep_p->devids[0].devid, rc);
-	return rc;
-};
-
 int fmd_init_switch(riocp_pe_handle pe, struct fmd_cfg_sw *sw)
 {
 	enum riocp_sw_default_route_action dft_act = 
@@ -375,7 +341,7 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate,
 	riocp_pe_handle new_pe, curr_pe, swtch;
 	int port_cnt, rc, pnum;
 	struct riocp_pe_capabilities capabilities;
-	uint32_t comptag, ep_ct, con_end, conn_did;
+	uint32_t comptag, ep_ct, con_end, conn_did, conn_hc;
 	struct fmd_cfg_ep *conn_ep; 
 
 	/* Initialize master port */
@@ -449,6 +415,7 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate,
 		con_end = OTHER_END(fmd->cfg->sws[0].ports[pnum].conn_end);
 		conn_ep = fmd->cfg->sws[0].ports[pnum].conn->ends[con_end].ep_h;
 		conn_did = conn_ep->ports[0].devids[FMD_DEV08].devid;
+		conn_hc = conn_ep->ports[0].devids[FMD_DEV08].hc;
 
 		rc = riocp_pe_update_comptag(new_pe, &ep_ct, conn_did, 1);
 		if (rc) {
@@ -456,6 +423,22 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate,
 			exit(EXIT_FAILURE);
 		};
 		conn_ep->ep_h = new_pe;
+
+		rc = riocp_pe_get_comptag(new_pe, &ep_ct);
+		if (rc) {
+			CRIT("Get updated comptag failed, rc %d\n", rc);
+			goto exit;
+		};
+
+		if (!RIOCP_PE_IS_MPORT(new_pe)) {
+			rc = riodp_device_add(new_pe->mport->minfo->maint->fd, 
+					conn_did, conn_hc,
+					ep_ct, conn_ep->name);
+			if (rc) {
+				CRIT("ridp_device_add, rc %d\n", rc);
+				goto exit;
+			};
+		};
 	};
 	return 0;
 exit:
@@ -521,7 +504,6 @@ void setup_mport(struct fmd_state *fmd)
 		};
 		fmd->cfg->mport_info[0].mp_h = mport_pe;
 		
-
 		ep = fmd->cfg->mport_info[0].ep;
 		if (NULL == ep) {
 			CRIT("\nNo endpoint defined for master port.\n");

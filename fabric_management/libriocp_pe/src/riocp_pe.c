@@ -33,6 +33,7 @@
 #include "rio_regs.h"
 #include "rio_devs.h"
 #include "liblog.h"
+#include "riodp_mport_lib.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1117,7 +1118,11 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 		return -ENOSYS;
 	}
 
-	ret = riocp_pe_maint_write(pe, RIO_DID_CSR, (destid << 16) & 0x00ff0000);
+	if (RIOCP_PE_IS_MPORT(pe))
+		ret = riodp_destid_set(pe->minfo->maint->fd, destid);
+	else
+		ret = riocp_pe_maint_write(pe, RIO_DID_CSR, 
+						(destid << 16) & 0x00ff0000);
 	if (ret)
 		return ret;
 

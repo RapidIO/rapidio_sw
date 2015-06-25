@@ -15,6 +15,10 @@ extern "C" {
 
 #define LIBRIO_MAINT_REV_NR	1
 
+struct rio_maint {
+        int fd;
+};
+
 typedef struct rio_maint *rio_maint_handle;
 
 int rio_maint_init(uint8_t mport_id, rio_maint_handle *handle);

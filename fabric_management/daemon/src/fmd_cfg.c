@@ -72,6 +72,8 @@ void fmd_print_help(void)
 {
 	printf("\nThe RapidIO Fabric Management Daemon (\"FMD\") manages a\n");
 	printf("RapidIO fabric.  Options are:\n");
+	printf("-a, -A<port>: POSIX Ethernet socket for App connections.\n");
+	printf("       Default is %d\n", FMD_DFLT_APP_PORT_NUM);
 	printf("-c, -C<filename>: FMD configuration file name.\n");
 	printf("       Default is \"%s\"\n", FMD_DFLT_CFG_FN);
 	printf("-d, -D<filename>: Device directory Posix SM file name.\n");
@@ -128,6 +130,7 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 	cfg->init_and_quit = 0;
 	cfg->simple_init = 0;
 	cfg->cli_port_num = FMD_DFLT_CLI_PORT_NUM;
+	cfg->app_port_num = FMD_DFLT_APP_PORT_NUM;
 	cfg->run_cons = 1;
 	cfg->mast_idx = FMD_SLAVE;
 	cfg->max_mport_info_idx = 0;
@@ -167,6 +170,9 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 
 		if ('-' == argv[idx][0]) {
 			switch(argv[idx][1]) {
+			case 'a': 
+			case 'A': cfg->app_port_num= atoi(&argv[idx][2]);
+				  break;
 			case 'c': 
 			case 'C': if (fmd_v_str(&cfg->fmd_cfg, 
 							  &argv[idx][2], 0))

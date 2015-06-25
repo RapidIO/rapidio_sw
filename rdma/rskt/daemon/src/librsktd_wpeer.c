@@ -366,6 +366,67 @@ void close_all_wpeers(void)
 	};
 };
 
+void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
+{
+	uint32_t i, found;
+	struct rskt_dmn_wpeer **wp_p, **next_wp_p;
+	struct rskt_dmn_wpeer *wp;
+	struct l_item_t *li;
+
+	/* Search for workers for destIDs that no longer exist */
+
+	sem_wait(&dmn.wpeers_mtx);
+	wp_p = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
+	while (wp_p != NULL) {
+		next_wp_p = (struct rskt_dmn_wpeer **)l_next(&li);
+		wp = *wp_p;
+		if (NULL == wp) {
+			wp_p = next_wp_p;
+			continue;
+		};
+		found = 0;
+		for (i = 0; (i < destid_cnt) && !found; i++) {
+			if (wp->ct == destids[i])
+				found = 1;
+		};
+
+		if (found) {
+			wp_p = next_wp_p;
+			continue;
+		};
+
+		sem_post(&dmn.wpeers_mtx);
+		close_wpeer(wp);
+		sem_wait(&dmn.wpeers_mtx);
+		wp_p = next_wp_p;
+	};
+	sem_post(&dmn.wpeers_mtx);
+	
+	/* Search for destIDs without associated workers */
+
+	for (i = 0; i < destid_cnt; i++) {
+		struct peer_rsktd_addr new_wpeer;
+		found = 0;
+		sem_wait(&dmn.wpeers_mtx);
+		wp_p = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
+		while ((wp_p != NULL) && !found) {
+			wp = *wp_p;
+			if ((NULL != wp) && (wp->ct == destids[i]))
+				found = 1;
+			wp_p = (struct rskt_dmn_wpeer **)l_next(&li);
+		};
+		sem_post(&dmn.wpeers_mtx);
+
+		if (found)
+			continue;
+
+		new_wpeer.ct = destids[i];
+		new_wpeer.cm_skt = DFLT_DMN_CM_CONN_SKT;
+		
+		open_wpeers_for_requests(1, &new_wpeer);
+	};
+};
+		
 #ifdef __cplusplus
 }
 #endif

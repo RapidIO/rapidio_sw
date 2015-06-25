@@ -207,7 +207,7 @@ void *app_conn_loop( void *unused )
 
 		sem_wait(&app_st.apps_avail);
 		found = 0;
-		for (i = 0; i < FMD_MAX_APPS; i++) {
+		for (i = 0; (i < FMD_MAX_APPS) && !found; i++) {
 			if (!app_st.apps[i].alloced) {
 				new_app_i = i;
 				found = 1;

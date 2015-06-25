@@ -94,6 +94,7 @@ struct fmd_mport_info {
 #define FMD_MAX_MPORTS 4
 #define FMD_DFLT_INIT_DD 0
 #define FMD_DFLT_CLI_PORT_NUM 2222
+#define FMD_DFLT_APP_PORT_NUM 3434
 #define FMD_DFLT_RUN_CONS 1
 #define FMD_DFLT_MAST_DEVID_SZ FMD_DEV08
 #define FMD_DFLT_MAST_DEVID 1
@@ -183,6 +184,7 @@ struct fmd_cfg_parms {
 	int init_and_quit;	/* If asserted, exit after completing init */
 	int simple_init;	/* If asserted, do not init device directory */
 	int cli_port_num;	/* POSIX Socket for remote CLI session */
+	int app_port_num;	/* POSIX Socket for applications to connect */
 	int run_cons;		/* Run a console on this daemon. */
 	int mast_idx;		/* Idx of the mport_info that is master */
 	int max_mport_info_idx; /* Maximum number of mports */

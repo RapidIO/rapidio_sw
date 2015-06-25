@@ -64,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd.h"
 #include "librsktd_private.h"
 #include "liblog.h"
+#include "libfmdd.h"
 
 #define DFLT_DMN_E_CLI_SKT 3333
 

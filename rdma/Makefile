@@ -41,6 +41,7 @@ MPORTLIB=libmport.so
 MPORTLIB_HEADER=riodp_mport_lib.h
 LIBCLI_PATH=../common/libs_a
 LIBLOG_PATH=../common/libs_a
+TOP_LEVEL?=..
 
 
 # Common link flags for all shared libraries
@@ -110,6 +111,8 @@ librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	@echo ---------- Building librdma.a ----------
 	$(CXX) $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES)
 	ar rcs librdma.a $(RDMALIB_OBJS)
+	mkdir -p $(TOP_LEVEL)/include/libs_a
+	cp librdma.a $(TOP_LEVEL)/include/libs_a
 
 # The RDMA daemon (the RPC server)
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \

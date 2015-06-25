@@ -65,10 +65,10 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 all: $(TARGETS)
 
 %.a: $(OBJECTS)
-	$(AR) rcs $@ $^
+	$(AR) rcs $@ $^ 
 
 src/%.o: src/%.c $(HEADERS)
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@ -ldd -L../libs_a
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a

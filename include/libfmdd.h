@@ -1,3 +1,4 @@
+/* Fabric Management Daemon Device Directory Library for applications */
 /*
 ****************************************************************************
 Copyright (c) 2014, Integrated Device Technology Inc.
@@ -30,23 +31,37 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef _LIBRIO_FMD_H_
-#define _LIBRIO_FMD_H_
 
 #include <stdio.h>
-#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+
+#ifndef _LIBFMDD_H_
+#define _LIBFMDD_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef void *fmd_h;
+typedef void *fmdd_h;
+fmdd_h fmdd_get_handle(char *my_name);
+void fmdd_destroy_handle(fmdd_h *dd_h);
 
-void *fmd_get_handle(char *my_name);
-void fmd_bind_fmd_h_cli_cmds(fmd_h h);
+#define CHK_NOK -1
+#define CHK_OK 0
+#define CHK_OK_MP 1
+
+int fmdd_check_ct(fmdd_h h, uint32_t ct); /* OK if >= 0 */
+int fmdd_check_did(fmdd_h h, uint32_t did); /* OK if >= 0 */
+int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list);
+int fmdd_free_did_list(fmdd_h h, uint32_t **did_list);
+int fmdd_wait_for_dd_change(fmdd_h h); /* Blocks until the DD changes */
+
+void fmdd_bind_dbg_cmds(void *fmdd_h);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _LIBRIO_FMD_H_ */
+#endif /* _LIBFMDD_H_ */
