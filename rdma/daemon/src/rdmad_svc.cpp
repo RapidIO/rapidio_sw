@@ -432,8 +432,9 @@ accept_1_svc(accept_input *in, struct svc_req *rqstp)
 	/* Add accept message content to map indexed by message queue name */
 	accept_msg_map.add(s, cmam);
 
+#if 0
 	/* Increment semaphore in thread. This way the thread will keep
-	 * checking for CM messages as many times as accept_1_svc() is called
+	* checking for CM messages as many times as accept_1_svc() is called
 	 * , then when all messages have been received the thread will block
 	 * waiting on cm_wait_connect_sem to be incremented again.
 	 */
@@ -444,6 +445,9 @@ accept_1_svc(accept_input *in, struct svc_req *rqstp)
 	} else {
 		out.status = 0;
 	}
+#else
+	out.status = 0;
+#endif
 
 	return &out;
 } /* accept_1_svc() */
@@ -492,8 +496,47 @@ send_connect_1_svc(send_connect_input *in, struct svc_req *rqstp)
 {
 	(void)rqstp;
 	static send_connect_output out;
-	void *send_buf;
 
+	/**
+	 * Per Barry, requests are to be handled using the sockets created
+	 * via the HELLO, while responses are to be handled using the sockets
+	 * created by the provisioning thread.
+	 */
+	/* Do we have an entry for that destid ? */
+	sem_wait(&hello_daemon_info_list_sem);
+	auto it = find(begin(hello_daemon_info_list),
+		       end(hello_daemon_info_list),
+		       in->server_destid);
+	sem_post(&hello_daemon_info_list_sem);
+
+	/* If the server's destid is not found, just fail */
+	if (it == end(hello_daemon_info_list)) {
+		ERR("destid(0x%X) was not provisioned\n", in->server_destid);
+		out.status = -1;
+		return &out;
+	}
+
+	/* Obtain pointer to socket object already connected to destid */
+	cm_client *main_client = it->client;
+
+	/* Obtain and flush send buffer for sending CONNECT_MS message */
+	cm_connect_msg *c;
+	main_client->get_send_buffer((void **)&c);
+	main_client->flush_send_buffer();
+
+	/* Compose CONNECT_MS message */
+	c->type			= CONNECT_MS;
+	strcpy(c->server_msname, in->server_msname);
+	c->client_msid		= in->client_msid;
+	c->client_msubid	= in->client_msubid;
+	c->client_bytes		= in->client_bytes;
+	c->client_rio_addr_len	= in->client_rio_addr_len;
+	c->client_rio_addr_lo	= in->client_rio_addr_lo;
+	c->client_rio_addr_hi	= in->client_rio_addr_hi;
+	c->client_destid_len	= peer.destid_len;
+	c->client_destid	= peer.destid;
+
+#if 0
 	/* See if we already have a remote daemon entry for the destid */
 	rdaemon_has_destid	rdhd(in->server_destid);
 	auto it = find_if(begin(client_rdaemon_list), end(client_rdaemon_list), rdhd);
@@ -610,6 +653,7 @@ send_connect_1_svc(send_connect_input *in, struct svc_req *rqstp)
 		DBG("rdaemon->cm_wait_accept_sem = 0x%X\n", rdaemon->cm_wait_accept_sem);
 		out.status = 0;
 	}
+#endif
 	DBG("EXIT\n");
 	return &out;
 

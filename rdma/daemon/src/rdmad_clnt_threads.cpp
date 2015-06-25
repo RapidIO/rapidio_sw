@@ -41,7 +41,133 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cm_sock.h"
 #include "rdmad_svc.h"
 #include "rdmad_main.h"
+#include "rdmad_clnt_threads.h"
 #include "rdmad_rdaemon.h"
+
+using namespace std;
+
+/* List of destids provisioned via the HELLO command/message */
+vector<hello_daemon_info>	hello_daemon_info_list;
+sem_t	hello_daemon_info_list_sem;
+
+struct request_thread_info {
+	request_thread_info(hello_daemon_info *hdi) : hdi(hdi)
+	{
+		sem_init(&started, 0, 0);
+	}
+	hello_daemon_info *hdi;
+	sem_t		started;
+};
+
+/**
+ * Request for handling requests such as RDMA connection request, and
+ * RDMA disconnection requests.
+ */
+void *request_thread_f(void *arg)
+{
+	DBG("ENTER\n");
+	if (!arg) {
+		CRIT("NULL argument. Exiting\n");
+		pthread_exit(0);
+	}
+
+	request_thread_info *rti = (request_thread_info *)arg;
+
+	/* Post semaphore to caller to indicate thread is up */
+	sem_post(&rti->started);
+
+	pthread_exit(0);
+} /* request_thread_f() */
+
+/**
+ * Provision a remote daemon by sending a HELLO message.
+ */
+int provision_rdaemon(uint32_t destid)
+{
+	/* Create provision client to connect to remote daemon's provisioning thread */
+	cm_client	*prov_client;
+
+	/* FOR NOW, fail if the 'destid' already has an entry/thread */
+	auto it = find(begin(hello_daemon_info_list), end(hello_daemon_info_list),
+			destid);
+	if (it != end(hello_daemon_info_list)) {
+		WARN("destid(0x%X) is already known\n", destid);
+		return -7;	/* TODO: should be #define'd in a header */
+	}
+
+	try {
+		prov_client = new cm_client("prov_client", peer.mport_id, 0, peer.prov_channel);
+	}
+	catch(cm_exception e) {
+		CRIT("%s\n", e.err);
+		return -1;
+	}
+
+	/* Connect to remote daemon */
+	int ret = prov_client->connect(destid);
+	if (ret) {
+		CRIT("Failed to connect to destid(0x%X)\n", destid);
+		delete prov_client;
+		return -2;
+	}
+	INFO("Connected to remote daemon on destid(0x%X\n", destid);
+
+	/* Send HELLO message containing our destid */
+	hello_msg_t	*hm;
+	prov_client->get_send_buffer((void **)&hm);
+	hm->destid = peer.destid;
+	if (prov_client->send()) {
+		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
+		delete prov_client;
+		return -3;
+	}
+	DBG("HELLO message successfully sent to destid(0x%X\n", destid);
+
+	/* Receive HELLO (ack) message back with remote destid */
+	hello_msg_t 	*ham;	/* HELLO-ACK message */
+	prov_client->get_recv_buffer((void **)&ham);
+	if (prov_client->timed_receive(5000)) {
+		ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
+		delete prov_client;
+		return -4;
+	}
+	if (ham->destid != destid) {
+		WARN("hello-ack destid(0x%X) != destid(0x%X)\n", ham->destid, destid);
+	}
+	DBG("HELLO ACK successfully received from destid(0x%X\n", destid);
+
+	/* Create and initialize hello_daemon_info struct */
+	hello_daemon_info *hdi = new hello_daemon_info(destid, prov_client);
+	if (!hdi) {
+		CRIT("Failed to allocate hello_daemon_info\n");
+		delete prov_client;
+		return -5;
+	}
+
+	/* Create thread for sending requests from client to server */
+	request_thread_info	*rti = new request_thread_info(hdi);
+	if (!rti) {
+		CRIT("Failed to allocate hello_daemon_info\n");
+		delete prov_client;
+		delete hdi;
+		return -5;
+	}
+
+	DBG("Creating request thread\n");
+	ret = pthread_create(&rti->hdi->tid, NULL, request_thread_f, rti);
+	if (ret) {
+		CRIT("Failed to create request thread\n");
+		delete prov_client;
+		delete hdi;
+		delete rti;
+		return -6;
+	}
+	sem_wait(&rti->started);
+	DBG("Request thread started successully\n");
+
+	return 0;
+} /* provision_rdaemon() */
+
 
 /**
  * This thread waits for an accept reply from a server that we

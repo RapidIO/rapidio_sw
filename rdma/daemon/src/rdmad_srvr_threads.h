@@ -36,7 +36,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 void *accept_thread_f(void *arg);
 void *server_wait_disc_thread_f(void *arg);
 void *prov_thread_f(void *arg);
-int provision_rdaemon(uint32_t destid);
 
 #endif
 

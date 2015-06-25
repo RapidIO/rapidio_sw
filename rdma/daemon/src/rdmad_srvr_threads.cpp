@@ -50,53 +50,93 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_peer_utils.h"
 
 struct prov_daemon_info {
-	/* TODO: Add constructor and destructor */
-	uint16_t 	destid;
-	cm_base		*cm_obj;
+	uint32_t 	destid;
+	cm_server	*conn_disc_server;
 	pthread_t	tid;
-	sem_t		started;
-	bool operator==(uint16_t destid) { return this->destid == destid; }
+	bool operator==(uint32_t destid) { return this->destid == destid; }
 };
 
+/* List of destids provisioned via the provisioning thread */
 vector<prov_daemon_info>	prov_daemon_info_list;
+
 
 using namespace std;
 
+struct conn_disc_thread_info {
+	cm_server *prov_server;
+	pthread_t	tid;
+};
+
 /**
- * New thread for handling connection to memory spaces and disconnections
- * therefrom.
+ * New thread for handing RDMA connections to memory spaces and for
+ * handling RDMA disconnections from memory spaces.
  */
 void *conn_disc_thread_f(void *arg)
 {
-	prov_daemon_info	*pdi;
-
 	DBG("ENTER\n");
+
 	if (!arg) {
 		CRIT("NULL argument. Exiting\n");
 		pthread_exit(0);
 	}
 
-	pdi = (prov_daemon_info *)arg;
+	conn_disc_thread_info	*cdti = (conn_disc_thread_info *)arg;
 
-	if (!pdi->cm_obj) {
+	if (!cdti->prov_server) {
 		CRIT("NULL argument. Exiting\n");
 		pthread_exit(0);
 	}
 
-	/* conn_disc_server maybe a cm_server or a cm_client depending on the
-	 * method used to provision it. Hence we use a polymorphic object pointer.
-	 */
-	cm_base	*conn_disc_server = pdi->cm_obj;
+	cm_server *prov_server = cdti->prov_server;
+
+	/* Now receive HELLO message */
+	int ret = prov_server->receive();
+	if (ret) {
+		if (ret == EINTR) {
+			WARN("pthread_kill() called. Exiting!\n");
+		} else {
+			CRIT("Failed to receive HELLO message: %s. EXITING\n",
+							strerror(ret));
+		}
+		pthread_exit(0);
+	}
+
+	hello_msg_t	*hello_msg;
+	prov_server->get_recv_buffer((void **)&hello_msg);
+	DBG("Received HELLO message from destid(0x%X)\n", hello_msg->destid);
+
+	/* If destid already in our list, just exit thread */
+	auto it = find(begin(prov_daemon_info_list),
+		       end(prov_daemon_info_list), hello_msg->destid);
+	if (it != end(prov_daemon_info_list)) {
+		WARN("Received HELLO msg for known destid(0x%X. EXITING\n",
+						hello_msg->destid);
+		pthread_exit(0);
+	}
+
+	/* Create CM server object based on the accept socket */
+	cm_server *conn_disc_server;
+	try {
+		conn_disc_server = new cm_server("conn_disc_server",
+				prov_server->get_accept_socket());
+	}
+	catch(cm_exception e) {
+		CRIT("Failed to create conn_disc_server: %s\n", e.err);
+		pthread_exit(0);
+	}
+
+	/* Create new entry for this destid */
+	prov_daemon_info	*pdi;
+	pdi = (prov_daemon_info *)malloc(sizeof(prov_daemon_info));
+	pdi->destid = hello_msg->destid;
+	pdi->tid = cdti->tid;
+	pdi->conn_disc_server = conn_disc_server;
 
 	/* Store info about the remote daemon/destid in list */
 	DBG("Storing info for destid=0x%X\n", pdi->destid);
 	prov_daemon_info_list.push_back(*pdi);
 
-	/* Tell provisioning thread that we are up and running (and also
-	 * that we are done with prov_daemon_info_list.
-	 */
-	sem_post(&pdi->started);
-
+	free(cdti);	/* was just for passing the arguments */
 	free(pdi);	/* We have a copy in prov_daemon_info_list */
 
 	while(1) {
@@ -298,17 +338,15 @@ void *prov_thread_f(void *arg)
 					peer->prov_channel);
 	}
 	catch(cm_exception e) {
-		CRIT("Failed to create prov_server: %s\n", e.err);
+		CRIT("Failed to create prov_server: %s. EXITING\n", e.err);
 		pthread_exit(0);
 	}
 	DBG("prov_server created.\n");
 
 	while(1) {
-		riodp_socket_t	accept_socket;
-		int ret;
 		/* Accept connections from other daemons */
-		DBG("Accepting HELLO from other daemons...\n");
-		ret = prov_server->accept(&accept_socket);
+		DBG("Accepting connections from other daemons...\n");
+		int ret = prov_server->accept();
 		if (ret) {
 			if (ret == EINTR) {
 				WARN("pthread_kill() called. Exiting!\n");
@@ -319,126 +357,26 @@ void *prov_thread_f(void *arg)
 			delete prov_server;
 			pthread_exit(0);
 		}
-		DBG("Received connection from a remote daemon\n");
 
-		/* Now receive HELLO message */
-		ret = prov_server->receive();
-		if (ret) {
-			if (ret == EINTR) {
-				WARN("pthread_kill() called. Exiting!\n");
-			} else {
-				CRIT("Failed to receive HELLO message: %s\n",
-								strerror(ret));
-			}
-			delete prov_server;
-			pthread_exit(0);
+		DBG("Creating connect/disconnect thread\n");
+		conn_disc_thread_info	*cdti =
+			(conn_disc_thread_info *)malloc(sizeof(conn_disc_thread_info));
+		if (!cdti) {
+			CRIT("Failed to allocate cdti\n");
+			continue;
 		}
-
-		hello_msg_t	*hello_msg;
-		prov_server->get_recv_buffer((void **)&hello_msg);
-		DBG("Received HELLO message from destid(0x%X)\n", hello_msg->destid);
-
-		auto it = find(begin(prov_daemon_info_list),
-			       end(prov_daemon_info_list), hello_msg->destid);
-		if (it != end(prov_daemon_info_list)) {
-			WARN("Received HELLO msg for known destid(0x%X\n",
-							hello_msg->destid);
-		} else {
-			/* Create new entry for this destid */
-			prov_daemon_info	*pdi;
-
-			pdi = (prov_daemon_info *)malloc(sizeof(prov_daemon_info));
-
-			sem_init(&pdi->started, 0, 0);
-
-			/* Create CM server object based on the accept socket */
-			try {
-				pdi->cm_obj = new cm_server("conn_disc", accept_socket);
-			}
-			catch(cm_exception e) {
-				CRIT("pdi->cm_obj: %s\n", e.err);
-				free(pdi);
-				continue;
-			}
-
-			pdi->destid = hello_msg->destid;
-
-			DBG("Creating connect/disconnect thread\n");
-			ret = pthread_create(&pdi->tid, NULL, conn_disc_thread_f,
-								pdi);
-			if (ret) {
-				CRIT("Failed to create conn_disc thread\n");
-				free(pdi);
-				continue;	/* Better luck next time? */
-			}
-			sem_wait(&pdi->started);
-			DBG("connect/disconnect thread created\n");
+		cdti->prov_server = prov_server;
+		ret = pthread_create(&cdti->tid, NULL, conn_disc_thread_f, prov_server);
+		if (ret) {
+			CRIT("Failed to create conn_disc thread\n");
+			free(cdti);
+			continue;	/* Better luck next time? */
 		}
 	} /* while(1) */
 	pthread_exit(0);
 } /* prov_thread() */
 
-int provision_rdaemon(uint32_t destid)
-{
-	/* Create provision client to connect to remote daemon's provisioning thread */
-	cm_client	*prov_client;
 
-	/* FOR NOW, fail if the 'destid' already has an entry/thread */
-	auto it = find(begin(prov_daemon_info_list), end(prov_daemon_info_list),
-			destid);
-	if (it != end(prov_daemon_info_list)) {
-		WARN("destid(0x%X) is already known\n", destid);
-		return -7;	/* TODO: should be #define'd in a header */
-	}
-
-	try {
-		prov_client = new cm_client("prov_client", peer.mport_id, 0, peer.prov_channel);
-	}
-	catch(cm_exception e) {
-		CRIT("%s\n", e.err);
-		return -1;
-	}
-
-	/* Connect to remote daemon */
-	int ret = prov_client->connect(destid);
-	if (ret) {
-		CRIT("Failed to connect to destid(0x%X)\n", destid);
-		delete prov_client;
-		return -2;
-	}
-	INFO("Connected to remote daemon on destid(0x%X\n", destid);
-
-	/* Send HELLO message containing our destid */
-	hello_msg_t	*hm;
-	prov_client->get_recv_buffer((void **)&hm);
-	hm->destid = peer.destid;
-	ret = prov_client->send();
-	if (ret) {
-		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
-		delete prov_client;
-		return -3;
-	}
-	DBG("HELLO message successfully sent to destid(0x%X\n", destid);
-
-	/* Create and populate prov_daemon_info struct */
-	prov_daemon_info *pdi = (prov_daemon_info *)malloc(sizeof(prov_daemon_info));
-	sem_init(&pdi->started, 0, 0);
-	pdi->destid = destid;
-	pdi->cm_obj = prov_client;
-
-	DBG("Creating connect/disconnect thread\n");
-	ret = pthread_create(&pdi->tid, NULL, conn_disc_thread_f, pdi);
-	if (ret) {
-		CRIT("Failed to create conn_disc thread\n");
-		free(pdi);
-		return -4;
-	}
-
-	sem_wait(&pdi->started);
-	DBG("connect/disconnect thread created\n");
-
-	return 0;
-} /* provision_rdaemon() */
 
 /**
  * In this thread we wait for a connect request from client and we send

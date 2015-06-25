@@ -42,7 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdmad_svc.h"
 #include "rdmad_main.h"
-#include "rdmad_srvr_threads.h"
+#include "rdmad_clnt_threads.h"
 #include "rdmad_cm.h"
 #include "libcli.h"
 

@@ -58,21 +58,6 @@ struct cm_exception {
 class cm_base {
 
 public:
-	virtual ~cm_base()
-	{
-		/* Delete send buffer */
-		if (send_buf)
-			delete[] send_buf;
-
-		/* Delete recv buffer */
-		if (recv_buf)
-			delete[] recv_buf;
-	}
-
-	virtual int receive() = 0;
-
-	virtual int send() = 0;
-
 	/* Return pointer to pre-allocated send buffer */
 	void get_send_buffer(void **buf)
 	{
@@ -134,7 +119,16 @@ protected:
 		memset(recv_buf, 0, CM_BUF_SIZE);
 	}
 
+	~cm_base()
+	{
+		/* Delete send buffer */
+		if (send_buf)
+			delete[] send_buf;
 
+		/* Delete recv buffer */
+		if (recv_buf)
+			delete[] recv_buf;
+	}
 
 	/* Returns 0 if successful, < 0 otherwise */
 	int create_mailbox()
@@ -243,7 +237,7 @@ public:
 	{
 	}
 
-	virtual ~cm_server()
+	~cm_server()
 	{
 		/* Close accept socket, if open */
 		DBG("accept_socket = 0x%X\n", accept_socket);
@@ -269,6 +263,8 @@ public:
 			}
 		}
 	} /* ~cm_server() */
+
+	riodp_socket_t get_accept_socket() { return accept_socket; }
 
 	/* Accept connection from client */
 	int accept(riodp_socket_t *acc_socket)
@@ -363,7 +359,13 @@ public:
 		DBG("client_socket = 0x%X\n", client_socket);
 	} /* Constructor */
 
-	virtual ~cm_client()
+	/* construct from client socket only */
+	cm_client(const char *name, riodp_socket_t socket) :
+		cm_base(name, 0, 0, 0), client_socket(socket)
+	{
+	}
+
+	~cm_client()
 	{
 		/* Close client socket */
 		DBG("client_socket = 0x%X\n", client_socket);
@@ -380,7 +382,7 @@ public:
 	} /* Destructor */
 
 	/* Connect to server specified by RapidIO destination ID */
-	int connect(uint16_t destid)
+	int connect(uint16_t destid, riodp_socket_t *socket)
 	{
 		int rc = riodp_socket_connect(client_socket,
 					      destid,
@@ -395,7 +397,16 @@ public:
 						channel, mbox_id, destid);
 			return -1;
 		}
+		/* Return the socket, now that we know it works */
+		if (socket)
+			*socket = this->client_socket;
 		return 0;
+	} /* connect() */
+
+	/* Connect to the server specified by RapidIO destination ID */
+	int connect(uint16_t destid)
+	{
+		return connect(destid, NULL);
 	} /* connect() */
 
 	/* Send bytes from 'send_buf' */

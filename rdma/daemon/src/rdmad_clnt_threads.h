@@ -33,8 +33,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMAD_CLNT_THREADS_H
 #define RDMAD_CLNT_THREADS_H
 
+#include <stdint.h>
+
+#include "ts_vector.h"
+
 void *wait_accept_thread_f(void *arg);
 void *client_wait_destroy_thread_f(void *arg);
+int provision_rdaemon(uint32_t destid);
+
+struct hello_daemon_info {
+	hello_daemon_info(uint32_t destid, cm_client *client) :
+		client(client), destid(destid), tid(0) {}
+	cm_client	*client;
+	uint32_t	destid;
+	pthread_t	tid;
+	bool operator==(uint32_t destid) { return this->destid == destid; }
+};
+
+extern vector<hello_daemon_info>	hello_daemon_info_list;
+extern sem_t hello_daemon_info_list_sem;
 
 #endif
 
