@@ -130,7 +130,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			if (ret == EINTR) {
 				WARN("pthread_kill() called. Exiting!\n");
 			} else {
-				CRIT("Failed to receive on rx_accept_dest_client: %s\n",
+				CRIT("Failed to receive on hello_client: %s\n",
 								strerror(ret));
 			}
 			pthread_exit(0);
