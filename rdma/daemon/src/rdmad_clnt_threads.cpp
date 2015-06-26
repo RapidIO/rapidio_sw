@@ -51,12 +51,10 @@ vector<hello_daemon_info>	hello_daemon_info_list;
 sem_t	hello_daemon_info_list_sem;
 
 struct wait_accept_destroy_thread_info {
-	wait_accept_destroy_thread_info(hello_daemon_info *hdi) : hdi(hdi)
-	{
-		sem_init(&started, 0, 0);
-	}
-	hello_daemon_info *hdi;
+	cm_client	*hello_client;
+	pthread_t	tid;
 	sem_t		started;
+	uint32_t	destid;
 };
 
 /**
@@ -71,29 +69,63 @@ void *wait_accept_destroy_thread_f(void *arg)
 		pthread_exit(0);
 	}
 
+
 	wait_accept_destroy_thread_info *wadti =
 			(wait_accept_destroy_thread_info *)arg;
+	uint32_t destid = wadti->destid;
 
-	/* Post semaphore to caller to indicate thread is up */
-	sem_post(&wadti->started);
-
-	if (!wadti->hdi) {
+	/* Obtain pointer to hello_client */
+	if (!wadti->hello_client) {
 		CRIT("NULL argument. Exiting\n");
+		free(wadti);
+		pthread_exit(0);
+	}
+	cm_client *hello_client = wadti->hello_client;
+
+	/* Send HELLO message containing our destid */
+	hello_msg_t	*hm;
+	hello_client->get_send_buffer((void **)&hm);
+	hm->destid = peer.destid;
+	if (hello_client->send()) {
+		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
+		free(wadti);
+		pthread_exit(0);
+	}
+	DBG("HELLO message successfully sent to destid(0x%X\n", destid);
+
+	/* Receive HELLO (ack) message back with remote destid */
+	hello_msg_t 	*ham;	/* HELLO-ACK message */
+	hello_client->get_recv_buffer((void **)&ham);
+	if (hello_client->timed_receive(5000)) {
+		ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
+		free(wadti);
+		pthread_exit(0);
+	}
+	if (ham->destid != destid) {
+		WARN("hello-ack destid(0x%X) != destid(0x%X)\n", ham->destid, destid);
+	}
+	DBG("HELLO ACK successfully received from destid(0x%X\n", destid);
+
+	/* Create and initialize hello_daemon_info struct */
+	hello_daemon_info *hdi = new hello_daemon_info(destid, hello_client, wadti->tid);
+	if (!hdi) {
+		CRIT("Failed to allocate hello_daemon_info\n");
+		free(wadti);
 		pthread_exit(0);
 	}
 
 	/* Store remote daemon info in the 'hello' daemon list */
-	hello_daemon_info *hdi = wadti->hdi;
 	sem_wait(&hello_daemon_info_list_sem);
 	hello_daemon_info_list.push_back(*hdi);
 	sem_post(&hello_daemon_info_list_sem);
 
-	cm_client	*rx_accept_dest_client = hdi->client;
+	/* Post semaphore to caller to indicate thread is up */
+	sem_post(&wadti->started);
 
 	while(1) {
 		int	ret;
 		/* Receive ACCEPT_MS, or DESTROY_MS message */
-		ret = rx_accept_dest_client->receive();
+		ret = hello_client->receive();
 		if (ret) {
 			if (ret == EINTR) {
 				WARN("pthread_kill() called. Exiting!\n");
@@ -106,7 +138,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 		/* Read all messages as ACCEPT_MS first, then if the
 		 * type is different then cast message buffer accordingly. */
 		cm_accept_msg	*accept_msg;
-		rx_accept_dest_client->get_recv_buffer((void **)&accept_msg);
+		hello_client->get_recv_buffer((void **)&accept_msg);
 		if (accept_msg->type == ACCEPT_MS) {
 			HIGH("Received ACCEPT_MS from %s\n",
 						accept_msg->server_ms_name);
@@ -183,7 +215,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			wait_accept_mq_names.remove(mq_str);
 		} else if (accept_msg->type == DESTROY_MS) {
 			cm_destroy_msg	*destroy_msg;
-			rx_accept_dest_client->get_recv_buffer((void **)&destroy_msg);
+			hello_client->get_recv_buffer((void **)&destroy_msg);
 
 			HIGH("Received CM destroy  containing '%s'\n",
 								destroy_msg->server_msname);
@@ -237,14 +269,14 @@ void *wait_accept_destroy_thread_f(void *arg)
 				cm_destroy_ack_msg *dam;
 
 				/* Flush CM send buffer of previous message */
-				rx_accept_dest_client->get_send_buffer((void **) &dam);
-				rx_accept_dest_client->flush_send_buffer();
+				hello_client->get_send_buffer((void **) &dam);
+				hello_client->flush_send_buffer();
 
 				/* Now send back a destroy_ack CM message */
 				dam->type	= DESTROY_ACK_MS;
 				strcpy(dam->server_msname, destroy_msg->server_msname);
 				dam->server_msid = destroy_msg->server_msid;
-				if (rx_accept_dest_client->send()) {
+				if (hello_client->send()) {
 					WARN("Failed to send destroy_ack to server daemon\n");
 				} else {
 					HIGH("Sent destroy_ack to server daemon\n");
@@ -278,10 +310,13 @@ int provision_rdaemon(uint32_t destid)
 	sem_post(&hello_daemon_info_list_sem);
 
 	try {
-		hello_client = new cm_client("prov_client", peer.mport_id, 0, peer.prov_channel);
+		hello_client = new cm_client("hello_client",
+						peer.mport_id,
+						peer.prov_mbox_id,
+						peer.prov_channel);
 	}
 	catch(cm_exception e) {
-		CRIT("%s\n", e.err);
+		CRIT("Failed to create hello_client %s\n", e.err);
 		return -1;
 	}
 
@@ -294,37 +329,36 @@ int provision_rdaemon(uint32_t destid)
 	}
 	INFO("Connected to remote daemon on destid(0x%X\n", destid);
 
-	/* Send HELLO message containing our destid */
-	hello_msg_t	*hm;
-	hello_client->get_send_buffer((void **)&hm);
-	hm->destid = peer.destid;
-	if (hello_client->send()) {
-		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
-		delete hello_client;
+	wait_accept_destroy_thread_info *wadti =
+	(wait_accept_destroy_thread_info *)malloc(sizeof(wait_accept_destroy_thread_info));
+	if (!wadti) {
+		CRIT("Failed to allocate wadti\n");
 		return -3;
 	}
-	DBG("HELLO message successfully sent to destid(0x%X\n", destid);
+	wadti->hello_client = hello_client;
+	wadti->destid	    = destid;
+	sem_init(&wadti->started, 0, 0);
 
-	/* Receive HELLO (ack) message back with remote destid */
-	hello_msg_t 	*ham;	/* HELLO-ACK message */
-	hello_client->get_recv_buffer((void **)&ham);
-	if (hello_client->timed_receive(5000)) {
-		ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
+	DBG("Creating wait_accept_destroy_thread\n");
+	ret = pthread_create(&wadti->tid,
+			     NULL,
+			     wait_accept_destroy_thread_f,
+			     wadti);
+	if (ret) {
+		CRIT("Failed to create request thread\n");
 		delete hello_client;
-		return -4;
+		delete wadti;
+		return -6;
 	}
-	if (ham->destid != destid) {
-		WARN("hello-ack destid(0x%X) != destid(0x%X)\n", ham->destid, destid);
-	}
-	DBG("HELLO ACK successfully received from destid(0x%X\n", destid);
 
-	/* Create and initialize hello_daemon_info struct */
-	hello_daemon_info *hdi = new hello_daemon_info(destid, hello_client);
-	if (!hdi) {
-		CRIT("Failed to allocate hello_daemon_info\n");
-		delete hello_client;
-		return -5;
-	}
+	sem_wait(&wadti->started);
+	DBG("Request thread started successully\n");
+#if 0
+
+
+
+
+
 
 	/* Create thread for sending requests from client to server */
 	wait_accept_destroy_thread_info	*wadti =
@@ -347,8 +381,8 @@ int provision_rdaemon(uint32_t destid)
 		delete wadti;
 		return -6;
 	}
-	sem_wait(&wadti->started);
-	DBG("Request thread started successully\n");
+#endif
+
 
 	return 0;
 } /* provision_rdaemon() */

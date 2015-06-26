@@ -129,6 +129,7 @@ void *wait_conn_disc_thread_f(void *arg)
 		free(wcdti);
 		pthread_exit(0);
 	}
+	DBG("Sent HELLO_ACK message back\n");
 
 	/* Create CM server object based on the accept socket */
 	cm_server *rx_conn_disc_server;
@@ -163,6 +164,7 @@ void *wait_conn_disc_thread_f(void *arg)
 	while(1) {
 		int	ret;
 		/* Receive CONNECT_MS, or DISCONNECT_MS */
+		DBG("Entering receive() on same socket...");
 		ret = rx_conn_disc_server->receive();
 		if (ret) {
 			if (ret == EINTR) {
@@ -396,7 +398,7 @@ void *prov_thread_f(void *arg)
 		wait_conn_disc_thread_info	*wcdti =
 				(wait_conn_disc_thread_info *)malloc(sizeof(wait_conn_disc_thread_info));
 		if (!wcdti) {
-			CRIT("Failed to allocate cdti\n");
+			CRIT("Failed to allocate wcdti\n");
 			continue;
 		}
 		wcdti->prov_server = prov_server;

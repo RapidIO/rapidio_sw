@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_CLNT_THREADS_H
 
 #include <stdint.h>
+#include <pthread.h>
 
 #include "ts_vector.h"
 
@@ -42,8 +43,8 @@ void *client_wait_destroy_thread_f(void *arg);
 int provision_rdaemon(uint32_t destid);
 
 struct hello_daemon_info {
-	hello_daemon_info(uint32_t destid, cm_client *client) :
-		client(client), destid(destid), tid(0) {}
+	hello_daemon_info(uint32_t destid, cm_client *client, pthread_t tid) :
+		client(client), destid(destid), tid(tid) {}
 	cm_client	*client;
 	uint32_t	destid;
 	pthread_t	tid;
