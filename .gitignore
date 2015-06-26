@@ -32,6 +32,8 @@
 # Eclipse-specific files
 .project
 .cproject
+.metadata/
+.settings/
 
 # ctags tags file
 tags
