@@ -60,6 +60,7 @@ sem_t prov_daemon_info_list_sem;
 struct wait_conn_disc_thread_info {
 	cm_server *prov_server;
 	pthread_t	tid;
+	sem_t		started;
 };
 
 /**
@@ -94,6 +95,8 @@ void *wait_conn_disc_thread_f(void *arg)
 			CRIT("Failed to receive HELLO message: %s. EXITING\n",
 							strerror(ret));
 		}
+		delete prov_server;
+		free(wcdti);
 		pthread_exit(0);
 	}
 
@@ -109,6 +112,8 @@ void *wait_conn_disc_thread_f(void *arg)
 		WARN("Received HELLO msg for known destid(0x%X. EXITING\n",
 						hello_msg->destid);
 		sem_post(&prov_daemon_info_list_sem);
+		delete prov_server;
+		free(wcdti);
 		pthread_exit(0);
 	}
 	sem_post(&prov_daemon_info_list_sem);
@@ -120,6 +125,8 @@ void *wait_conn_disc_thread_f(void *arg)
 	if (prov_server->send()) {
 		CRIT("Failed to send HELLO_ACK message: %s. EXITING\n",
 							strerror(ret));
+		delete prov_server;
+		free(wcdti);
 		pthread_exit(0);
 	}
 
@@ -131,6 +138,8 @@ void *wait_conn_disc_thread_f(void *arg)
 	}
 	catch(cm_exception e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
+		delete prov_server;
+		free(wcdti);
 		pthread_exit(0);
 	}
 
@@ -147,7 +156,8 @@ void *wait_conn_disc_thread_f(void *arg)
 	prov_daemon_info_list.push_back(*pdi);
 	sem_post(&prov_daemon_info_list_sem);
 
-	free(wcdti);	/* was just for passing the arguments */
+	sem_post(&wcdti->started);
+
 	free(pdi);	/* We have a copy in prov_daemon_info_list */
 
 	while(1) {
@@ -390,12 +400,15 @@ void *prov_thread_f(void *arg)
 			continue;
 		}
 		wcdti->prov_server = prov_server;
-		ret = pthread_create(&wcdti->tid, NULL, wait_conn_disc_thread_f, prov_server);
+		sem_init(&wcdti->started, 0, 0);
+		ret = pthread_create(&wcdti->tid, NULL, wait_conn_disc_thread_f, wcdti);
 		if (ret) {
 			CRIT("Failed to create conn_disc thread\n");
 			free(wcdti);
 			continue;	/* Better luck next time? */
 		}
+		sem_wait(&wcdti->started);
+		free(wcdti);	/* was just for passing the arguments */
 	} /* while(1) */
 	pthread_exit(0);
 } /* prov_thread() */
