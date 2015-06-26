@@ -59,13 +59,17 @@ struct peer_info	peer;
 
 using namespace std;
 
+#if 0
 cm_server *main_server;
 cm_server *aux_server;
 
 static	pthread_t cm_accept_thread;
+#endif
 static 	pthread_t console_thread;
+#if 0
 static	pthread_t server_wait_disc_thread;
 static	pthread_t client_wait_destroy_thread;
+#endif
 static	pthread_t prov_thread;
 
 static void init_peer()
@@ -78,14 +82,18 @@ static void init_peer()
 	peer.mport_fd = -1;
 
 	/* Messaging */
+#if 0
 	peer.loc_channel	= DEFAULT_LOC_CHANNEL;
 	peer.aux_channel	= DEFAULT_AUX_CHANNEL;
 	peer.destroy_channel	= DEFAULT_DESTROY_CHANNEL;
+#endif
 	peer.prov_channel	= DEFAULT_PROV_CHANNEL;
 
+#if 0
 	peer.mbox_id		= DEFAULT_MAILBOX_ID;
 	peer.aux_mbox_id	= DEFAULT_AUX_MAILBOX_ID;
 	peer.destroy_mbox_id	= DEFAULT_DESTROY_MAILBOX_ID;
+#endif
 	peer.prov_mbox_id	= DEFAULT_PROV_MBOX_ID;
 
 	/* CLI */
@@ -141,7 +149,7 @@ void shutdown(struct peer_info *peer)
 {
 	/* Kill the threads */
 	shutting_down = true;
-
+#if 0
 	/* Wake up the accept_thread_f hread if necessary */
 	sem_post(&peer->cm_wait_connect_sem);
 
@@ -168,9 +176,9 @@ void shutdown(struct peer_info *peer)
 		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
 	}
 	pthread_join(client_wait_destroy_thread, NULL);
-
+#endif
 	/* Next, kill provisioning thread */
-	ret = pthread_kill(prov_thread, SIGUSR1);
+	int ret = pthread_kill(prov_thread, SIGUSR1);
 	if (ret == EINVAL) {
 		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
 	}
@@ -185,14 +193,14 @@ void shutdown(struct peer_info *peer)
 	/* Delete the inbound object */
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
-
+#if 0
 	/* Delete messaging objects */
 	INFO("Deleting main_server\n");
 	delete main_server;
 
 	INFO("Deleting aux_server\n");
 	delete aux_server;
-
+#endif
 	/* Close mport device */
 	if (peer->mport_fd > 0) {
 		INFO("Closing mport fd\n");
@@ -240,7 +248,6 @@ int main (int argc, char **argv)
  	 * before parsing command line parameters as command line parameters
  	 * may override some of the default values assigned here */
 	init_peer();
-
 
 	/* Register end handler */
 	signal(SIGQUIT, end_handler);
@@ -351,7 +358,12 @@ int main (int argc, char **argv)
 							strerror(errno));
 		goto out_free_inbound;
 	}
-
+	if (sem_init(&prov_daemon_info_list_sem, 0, 1) == -1) {
+		CRIT("Failed to initialize prov_daemon_info_list_sem: %s\n",
+							strerror(errno));
+		goto out_free_inbound;
+	}
+#if 0
 	/* Initialize messaging */
 	try {
 		INFO("Create main_server\n");
@@ -403,20 +415,20 @@ int main (int argc, char **argv)
 		shutdown(&peer);
 		goto out_free_aux_server;
 	}
-
+#endif
 	/* Create provisioning thread */
 	rc = pthread_create(&prov_thread, NULL, prov_thread_f, &peer);
 	if (rc) {
 		CRIT("Failed to create prov_thread: %s\n", strerror(errno));
 		rc = 7;
 		shutdown(&peer);
-		goto out_free_aux_server;
+		goto out_free_inbound;
 	}
 
 	run_rpc();
 
 	/* Never reached */
-
+#if 0
 out_free_aux_server:
 	pthread_join(console_thread, NULL);
 	delete aux_server;
@@ -424,7 +436,7 @@ out_free_aux_server:
 out_free_main_server:
 	pthread_join(console_thread, NULL);
 	delete main_server;
-
+#endif
 out_free_inbound:
 	pthread_join(console_thread, NULL);
 	delete the_inbound;
