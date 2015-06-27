@@ -143,6 +143,7 @@ void *wait_conn_disc_thread_f(void *arg)
 		free(wcdti);
 		pthread_exit(0);
 	}
+	DBG("Created rx_conn_disc_server cm_sock\n", rx_conn_disc_server);
 
 	/* Create new entry for this destid */
 	prov_daemon_info	*pdi;
@@ -157,6 +158,11 @@ void *wait_conn_disc_thread_f(void *arg)
 	prov_daemon_info_list.push_back(*pdi);
 	sem_post(&prov_daemon_info_list_sem);
 
+	/**
+	 * FIXME: The following statement causes the prov_thread_f() to go back
+	 * to calling (CM) accept. This seems to corrupt the socket we use
+	 * to receive below in rx_conn_disc_server->receive().
+	 */
 	sem_post(&wcdti->started);
 
 	free(pdi);	/* We have a copy in prov_daemon_info_list */
@@ -164,7 +170,7 @@ void *wait_conn_disc_thread_f(void *arg)
 	while(1) {
 		int	ret;
 		/* Receive CONNECT_MS, or DISCONNECT_MS */
-		DBG("Entering receive() on same socket...");
+		DBG("Entering receive() on rx_conn_disc_server...\n");
 		ret = rx_conn_disc_server->receive();
 		if (ret) {
 			if (ret == EINTR) {
