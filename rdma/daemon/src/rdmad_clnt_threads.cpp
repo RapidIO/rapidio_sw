@@ -80,13 +80,26 @@ void *wait_accept_destroy_thread_f(void *arg)
 		free(wadti);
 		pthread_exit(0);
 	}
-	cm_client *hello_client = wadti->hello_client;
+
+	/* Create a new cm_client based on the hello client socket */
+	riodp_socket_t	client_socket = wadti->hello_client->get_socket();
+	cm_client *accept_destroy_client;
+	try {
+		accept_destroy_client = new cm_client("accept_destroy_client",
+						      client_socket);
+	}
+	catch(cm_exception e) {
+		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
+		delete wadti->hello_client;
+		free(wadti);
+		pthread_exit(0);
+	}
 
 	/* Send HELLO message containing our destid */
 	hello_msg_t	*hm;
-	hello_client->get_send_buffer((void **)&hm);
+	accept_destroy_client->get_send_buffer((void **)&hm);
 	hm->destid = peer.destid;
-	if (hello_client->send()) {
+	if (accept_destroy_client->send()) {
 		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
 		free(wadti);
 		pthread_exit(0);
@@ -95,8 +108,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 	/* Receive HELLO (ack) message back with remote destid */
 	hello_msg_t 	*ham;	/* HELLO-ACK message */
-	hello_client->get_recv_buffer((void **)&ham);
-	if (hello_client->timed_receive(5000)) {
+	accept_destroy_client->get_recv_buffer((void **)&ham);
+	if (accept_destroy_client->timed_receive(5000)) {
 		ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
 		free(wadti);
 		pthread_exit(0);
@@ -107,7 +120,9 @@ void *wait_accept_destroy_thread_f(void *arg)
 	DBG("HELLO ACK successfully received from destid(0x%X\n", destid);
 
 	/* Create and initialize hello_daemon_info struct */
-	hello_daemon_info *hdi = new hello_daemon_info(destid, hello_client, wadti->tid);
+	hello_daemon_info *hdi = new hello_daemon_info(destid,
+							accept_destroy_client,
+							wadti->tid);
 	if (!hdi) {
 		CRIT("Failed to allocate hello_daemon_info\n");
 		free(wadti);
@@ -125,7 +140,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 	while(1) {
 		int	ret;
 		/* Receive ACCEPT_MS, or DESTROY_MS message */
-		ret = hello_client->receive();
+		ret = accept_destroy_client->receive();
 		if (ret) {
 			if (ret == EINTR) {
 				WARN("pthread_kill() called. Exiting!\n");
@@ -138,7 +153,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 		/* Read all messages as ACCEPT_MS first, then if the
 		 * type is different then cast message buffer accordingly. */
 		cm_accept_msg	*accept_msg;
-		hello_client->get_recv_buffer((void **)&accept_msg);
+		accept_destroy_client->get_recv_buffer((void **)&accept_msg);
 		if (accept_msg->type == ACCEPT_MS) {
 			HIGH("Received ACCEPT_MS from %s\n",
 						accept_msg->server_ms_name);
@@ -215,7 +230,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			wait_accept_mq_names.remove(mq_str);
 		} else if (accept_msg->type == DESTROY_MS) {
 			cm_destroy_msg	*destroy_msg;
-			hello_client->get_recv_buffer((void **)&destroy_msg);
+			accept_destroy_client->get_recv_buffer((void **)&destroy_msg);
 
 			HIGH("Received CM destroy  containing '%s'\n",
 								destroy_msg->server_msname);
@@ -269,14 +284,14 @@ void *wait_accept_destroy_thread_f(void *arg)
 				cm_destroy_ack_msg *dam;
 
 				/* Flush CM send buffer of previous message */
-				hello_client->get_send_buffer((void **) &dam);
-				hello_client->flush_send_buffer();
+				accept_destroy_client->get_send_buffer((void **) &dam);
+				accept_destroy_client->flush_send_buffer();
 
 				/* Now send back a destroy_ack CM message */
 				dam->type	= DESTROY_ACK_MS;
 				strcpy(dam->server_msname, destroy_msg->server_msname);
 				dam->server_msid = destroy_msg->server_msid;
-				if (hello_client->send()) {
+				if (accept_destroy_client->send()) {
 					WARN("Failed to send destroy_ack to server daemon\n");
 				} else {
 					HIGH("Sent destroy_ack to server daemon\n");

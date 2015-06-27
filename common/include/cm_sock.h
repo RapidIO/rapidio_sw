@@ -365,6 +365,8 @@ public:
 	{
 	}
 
+	riodp_socket_t get_socket() const { return client_socket; }
+
 	~cm_client()
 	{
 		/* Close client socket */
