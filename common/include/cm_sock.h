@@ -270,14 +270,7 @@ public:
 	int accept(riodp_socket_t *acc_socket)
 	{
 		accepted = false;
-#if 0
-		/* Close previously created accept socket, if applicable */
-		if (accept_socket && accepted)
-			if (riodp_socket_close(&accept_socket)) {
-				WARN("Failed to close accept socket for '%s': %s\n",
-							name, strerror(errno));
-		}
-#endif
+
 		/* Create accept socket */
 		if( riodp_socket_socket(mailbox, &accept_socket)) {
 			ERR("Failed to create accept socket for '%s'\n", name);
