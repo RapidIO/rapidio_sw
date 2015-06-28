@@ -255,6 +255,8 @@ void *wait_conn_disc_thread_f(void *arg)
 			memcpy( cm_send_buf,
 				(void *)&accept_msg,
 				sizeof(cm_accept_msg));
+			DBG("cm_accept_msg has server_destid = 0x%X\n", accept_msg.server_destid);
+			DBG("cm_accept_msg has server_destid_len = 0x%X\n", accept_msg.server_destid_len);
 
 			/* Send 'accept' message to remote daemon */
 			DBG("Sending back ACCEPT_MS for '%s'\n", mq_str.c_str());

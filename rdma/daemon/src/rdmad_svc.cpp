@@ -413,9 +413,11 @@ accept_1_svc(accept_input *in, struct svc_req *rqstp)
 	cmam.server_rio_addr_hi	= in->loc_rio_addr_hi;
 	cmam.server_destid_len	= 16;
 	cmam.server_destid	= peer.destid;
-	DBG("cm_accept_msg has server_destid = 0x%X", cmam.server_destid);
+	DBG("cm_accept_msg has server_destid = 0x%X\n", cmam.server_destid);
+	DBG("cm_accept_msg has server_destid_len = 0x%X\n", cmam.server_destid_len);
 
 	/* Add accept message content to map indexed by message queue name */
+	DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
 	accept_msg_map.add(s, cmam);
 
 #if 0

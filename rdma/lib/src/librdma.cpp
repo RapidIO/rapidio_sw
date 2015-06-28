@@ -1409,6 +1409,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	if (accept_msg->server_destid != rem_destid) {
 		WARN("WRONG destid(0x%X) in accept message!\n", accept_msg->server_destid);
 		accept_msg->server_destid = rem_destid;	/* FIXME: should not need to do that */
+		accept_msg->server_destid_len = 16;	/* FIXME: should not need to do that */
 	}
 	/* Store info about remote msub in database and return handle */
 	*rem_msubh = (msub_h)add_rem_msub(accept_msg->server_msubid,
