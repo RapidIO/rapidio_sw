@@ -511,6 +511,7 @@ static int test_case_h_i(char ch)
 			  bm_first_tx,
 			  server_msh, server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
 
 	/* Connect to server */
 	msub_h	server_msubh_rb;
