@@ -1050,7 +1050,10 @@ int main(int argc, char *argv[])
 		test_case_g();
 		break;
 	case 'h':
+		fprintf(fp, "test_caseh ");
 	case 'i':
+		if (tc == 'i')
+			fprintf(fp, "test_casei ");
 		test_case_h_i(tc);
 		break;
 	case '1':
