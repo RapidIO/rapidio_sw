@@ -76,7 +76,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblist.h"
 #include "liblog.h"
 #include "fmd_cfg.h"
+#include "fmd_cfg_cli.h"
 #include "fmd_state.h"
+#include "fmd_app_mgmt.h"
+#include "riodp_mport_lib.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -107,7 +110,7 @@ void set_prompt(struct cli_env *e)
         riocp_pe_handle pe_h;
         uint32_t comptag = 0;
         const char *name = NULL;
-        uint16_t pe_uid = 0;
+        uint16_t pe_did = 0;
 
         if (NULL == e) {
                 strncpy(e->prompt, "UNINIT>", PROMPTLEN);
@@ -118,11 +121,11 @@ void set_prompt(struct cli_env *e)
 
 	if (riocp_pe_get_comptag(pe_h, &comptag))
 		comptag = 0xFFFFFFFF;
-	pe_uid = (comptag & 0xFFFF0000) >> 16;
+	pe_did = comptag & 0x0000FFFF;
 
 	name = riocp_pe_handle_get_device_str(pe_h);
 
-	snprintf(e->prompt, PROMPTLEN,  "%4x_%s>", pe_uid, name);
+	snprintf(e->prompt, PROMPTLEN,  "%4x_%s>", pe_did, name);
 };
 
 void *console(void *cons_parm)
@@ -243,6 +246,7 @@ void spawn_threads(struct fmd_cfg_parms *cfg)
 {
 	int  poll_ret, cli_ret, cons_ret;
 	int *pass_sock_num, *pass_poll_interval, *pass_cons_ret;
+	int ret;
 
 	sem_init(&cons_owner, 0, 0);
 	pass_sock_num = (int *)(malloc(sizeof(int)));
@@ -282,145 +286,159 @@ void spawn_threads(struct fmd_cfg_parms *cfg)
 		printf("pthread_create() for console returns: %d\n",
 			cons_ret);
  
+	ret = start_fmd_app_handler(cfg->app_port_num, 50, 0, 
+					cfg->dd_fn, cfg->dd_mtx_fn); 
+	if (ret) {
+		fprintf(stderr,"Error - start_fmd_app_handler rc: %d\n", ret);
+		exit(EXIT_FAILURE);
+	}
 }
  
-int set_ep_destids(struct fmd_cfg_parms *cfg, 
-		riocp_pe_handle new_pe, 
-		struct fmd_cfg_sw *cfg_sw,
-		int sw_pnum)
+int fmd_init_switch(riocp_pe_handle pe, struct fmd_cfg_sw *sw)
 {
-	int rc;
-	struct fmd_cfg_conn *con;
-	struct fmd_cfg_ep *ep_h;
-	struct fmd_cfg_ep_port *ep_p;
-	int end_i;
-	int ep_pnum;
+	enum riocp_sw_default_route_action dft_act = 
+						RIOCP_SW_DEFAULT_ROUTE_DROP;
+	idt_rt_state_t *rt;
+	uint32_t ret, did;
 
-	if (NULL == cfg_sw)
+	if (NULL == sw)
 		return 0;
 
-	con = cfg_sw->ports[sw_pnum].conn;
-	if (con->ends[0].ep)
-		end_i = 0;
-	else
-		end_i = 1;
-	ep_h = con->ends[end_i].ep_h;
-	ep_pnum = con->ends[end_i].port_num;
-	ep_p = &ep_h->ports[ep_pnum];
+	sw->sw_h = pe;
+	rt = &sw->rt[FMD_DEV08];
 
-	if (!ep_p->valid) {
-		WARN("Switch %s invalid connection on EP %s, destID not set", 
-			cfg_sw->name, ep_h->name);
-		return 0;
+	if (rt->default_route < RIOCP_SW_DEFAULT_ROUTE_DROP)
+		dft_act = RIOCP_SW_DEFAULT_ROUTE_UNICAST;
+	
+	ret = riocp_sw_set_default_route_action(pe, dft_act, rt->default_route);
+	if (ret < 0) {
+		CRIT("Could not set default route for sw\n");
+		goto exit;
 	};
 
-	if (!ep_p->devids[0].valid) {
-		WARN("EP %s Port %d dev8 destID invalid, destID not set", 
-			cfg_sw->name, ep_h->name);
-		return 0;
+	for (did = 0; did < ANY_ID; did++) {
+		ret = riocp_sw_set_route_entry(pe, RIOCP_PE_ANY_PORT, did, 
+						rt->dev_table[did].rte_val);
+		if (ret) {
+			CRIT("Could not set route for did %d\n", did);
+			goto exit;
+		};
 	};
-
-	rc = riocp_pe_set_destid(new_pe, ep_p->devids[0].devid);
-	if (rc)
-		CRIT("Set DestID for EP %s err p %d d %d rc %d\n", 
-			ep_pnum, ep_p->devids[0].devid, rc);
-	return rc;
+	ret = 0;
+	sw->valid = 1;
+	
+exit:
+	return ret;
 };
+
+/* FIXME: Currently limited to supporting probe of mport, one switch, and
+ * connected endpoints.
+ */
 
 int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate,
 			struct fmd_cfg_parms *cfg)
 {
-	struct l_head_t sw;
-	riocp_pe_handle new_pe, curr_pe, curr_sw = NULL;
+	riocp_pe_handle new_pe, curr_pe, swtch;
 	int port_cnt, rc, pnum;
 	struct riocp_pe_capabilities capabilities;
-	uint32_t comptag, new_comptag;
-	struct fmd_cfg_sw *cfg_sw = NULL;
+	uint32_t comptag, ep_ct, con_end, conn_did, conn_hc;
+	struct fmd_cfg_ep *conn_ep; 
 
-	l_init(&sw);
-
+	/* Initialize master port */
 	curr_pe = mport_pe;
 
-	while (NULL != curr_pe) {
-		rc = riocp_pe_get_comptag(curr_pe, &comptag);
+	rc = riocp_pe_probe(curr_pe, 0, &swtch);
+	if (rc) {
+		if ((-ENODEV != rc) && (-EIO != rc)) {
+			CRIT("Mport probe failed %d\n", rc);
+			goto exit;
+		};
+		INFO("Mport %x Probe NO DEVICE\n", comptag);
+		goto exit;
+	};
+
+	rc = riocp_pe_get_comptag(swtch, &comptag);
+	if (rc) {
+		CRIT("Get switch comptag failed, rc %d\n", rc);
+		goto exit;
+	};
+	INFO("Updating SwitchCompTag %x\n", comptag);
+
+	if (riocp_pe_update_comptag(swtch, &comptag, fmd->cfg->sws[0].did, 0)) {
+		CRIT("\nFailed to update switch component tag\n");
+		exit(EXIT_FAILURE);
+	};
+
+	INFO("Initializing Switch %x\n", comptag);
+	if (fmd_init_switch(swtch, &cfg->sws[0])) {
+		CRIT("\nFailed to initialize switch\n");
+		exit(EXIT_FAILURE);
+	};
+
+	rc = riocp_pe_get_capabilities(swtch, &capabilities);
+	if (rc) {
+		CRIT("Get switch capabilities failed, rc %d\n", rc);
+		goto exit;
+	};
+
+	port_cnt = RIOCP_PE_PORT_COUNT(capabilities);
+
+	for (pnum = 0; pnum < port_cnt; pnum++) {
+		new_pe = NULL;
+		rc = riocp_pe_probe(swtch, pnum, &new_pe);
+
 		if (rc) {
-			CRIT("Get comptag failed, rc %d\n", rc);
-			goto exit;
-		};
-		INFO("Checking CompTag %x\n", comptag);
-
-		rc = riocp_pe_get_capabilities(curr_pe, &capabilities);
-		if (rc) {
-			CRIT("Get capabilities failed, rc %d\n", rc);
-			goto exit;
-		};
-
-		port_cnt = RIOCP_PE_PORT_COUNT(capabilities);
-		if (18 < port_cnt) {
-			CRIT("Illegal port count of %d\n", port_cnt);
-			goto exit;
-		};
-
-		for (pnum = 0; pnum < port_cnt; pnum++) {
-			new_pe = NULL;
-			if (enumerate)
-				rc = riocp_pe_probe(curr_pe, pnum, &new_pe);
-			else
-				rc = riocp_pe_discover(curr_pe, pnum, &new_pe);
-
-			if (rc) {
-				if ((-ENODEV != rc) && (-EIO != rc)) {
-					CRIT(
-					"Port %d probe or discover failed %d\n",
-						pnum, rc);
-					goto exit;
-				};
-				INFO("Comp tag %x Port %d NO DEVICE\n",
-					comptag, pnum);
-				continue;
-			};
-
-			if (NULL == new_pe)
-				continue;
-
-			rc = riocp_pe_get_comptag(new_pe, &new_comptag);
-			if (rc) {
-				CRIT("Get new comptag failed, rc %d\n", rc);
+			if ((-ENODEV != rc) && (-EIO != rc)) {
+				CRIT("Port %d probe failed %d\n", pnum, rc);
 				goto exit;
 			};
-			INFO("Comp tag %x Port %d Found %x \n", 
-				comptag, pnum, new_comptag);
-
-			rc = riocp_pe_get_capabilities(new_pe, &capabilities);
-			if (rc) {
-				CRIT("new_pe get cap ERR, port %d rc %d\n", 
-					pnum, rc);
-				goto exit;
-			};
-			if (RIOCP_PE_IS_SWITCH(capabilities)) {
-				INFO("New device is switch!\n");
-				l_push_tail(&sw, new_pe);
-			} else {
-				INFO("New device is an endpoint.\n");
-				if (set_ep_destids(cfg, new_pe, cfg_sw, pnum))
-					goto exit;
-			};
-		};
-
-		curr_pe = (riocp_pe_handle)l_pop_head(&sw);
-		curr_sw = curr_pe;
-		if (NULL == curr_pe)
+			INFO("Switch Port %d NO DEVICE\n", pnum);
 			continue;
-		rc = riocp_pe_get_comptag(curr_sw, &comptag);
+		};
+
+		if (NULL == new_pe)
+			continue;
+
+		rc = riocp_pe_get_comptag(new_pe, &ep_ct);
 		if (rc) {
-			CRIT("Could not get switch component tag  %d\n", rc);
+			CRIT("Get new comptag failed, rc %d\n", rc);
 			goto exit;
 		};
-		cfg_sw = find_cfg_sw_by_ct(comptag, cfg);
-		if (NULL == cfg_sw) {
-			WARN("Switch with unexpected comp tag %x\n", comptag);
+		INFO("Switch Port %d Found %x \n", pnum, ep_ct);
+		if (NULL == fmd->cfg->sws[0].ports[pnum].conn) {
+			INFO("Switch Port %d Found Unexpected Endpoint %x \n",
+				pnum, ep_ct);
+			INFO("Switch Port %d Unconfigured!!!\n", pnum);
+			continue;
 		};
 			
+		con_end = OTHER_END(fmd->cfg->sws[0].ports[pnum].conn_end);
+		conn_ep = fmd->cfg->sws[0].ports[pnum].conn->ends[con_end].ep_h;
+		conn_did = conn_ep->ports[0].devids[FMD_DEV08].devid;
+		conn_hc = conn_ep->ports[0].devids[FMD_DEV08].hc;
+
+		rc = riocp_pe_update_comptag(new_pe, &ep_ct, conn_did, 1);
+		if (rc) {
+			CRIT("\nFailed to update EP component tag\n");
+			exit(EXIT_FAILURE);
+		};
+		conn_ep->ep_h = new_pe;
+
+		rc = riocp_pe_get_comptag(new_pe, &ep_ct);
+		if (rc) {
+			CRIT("Get updated comptag failed, rc %d\n", rc);
+			goto exit;
+		};
+
+		if (!RIOCP_PE_IS_MPORT(new_pe)) {
+			rc = riodp_device_add(new_pe->mport->minfo->maint->fd, 
+					conn_did, conn_hc,
+					ep_ct, conn_ep->name);
+			if (rc) {
+				CRIT("ridp_device_add, rc %d\n", rc);
+				goto exit;
+			};
+		};
 	};
 	return 0;
 exit:
@@ -473,32 +491,27 @@ void setup_mport(struct fmd_state *fmd)
 	/* FIXME: Change this to support other master ports etc... */
 	if (fmd->cfg->mast_idx != FMD_SLAVE) {
 		struct fmd_cfg_ep *ep;
+		uint32_t comptag;
 
-		if (riocp_pe_set_destid(mport_pe, 
-			fmd->cfg->mport_info[0].devids[FMD_DEV08].devid)) {
+		if (riocp_pe_get_comptag(mport_pe, &comptag)) {
+			CRIT("\nCannot read mport0 comptag\n");
+			exit(EXIT_FAILURE);
+		};
+		if (riocp_pe_update_comptag(mport_pe, &comptag, 
+			fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 1)) {
 			CRIT("\nCannot set mport0 destID\n");
 			exit(EXIT_FAILURE);
 		};
-
+		fmd->cfg->mport_info[0].mp_h = mport_pe;
+		
 		ep = fmd->cfg->mport_info[0].ep;
 		if (NULL == ep) {
 			CRIT("\nNo endpoint defined for master port.\n");
 			exit(EXIT_FAILURE);
 		};
-/* FIXME: Need a way to set the component tag equal to the configured
- * component tag.
- */
-/*
-		if (riocp_pe_set_comptag(mport_pe, ep->ports[ep_pnum].ct)) {
-			CRIT("\nCannot set mport0 Component Tag\n");
-			exit(EXIT_FAILURE);
-		};
-*/
 	};
 
-	if (FMD_SLAVE == fmd->cfg->mast_idx)
-		rc = fmd_traverse_network(mport_pe, 0, DISCOVER, fmd->cfg);
-	else
+	if (FMD_SLAVE != fmd->cfg->mast_idx)
 		rc = fmd_traverse_network(mport_pe, 0, ENUMERATE, fmd->cfg);
 
 	if (rc) {
@@ -515,7 +528,7 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
 
-	rdma_log_init("fmd_log", 0);
+	rdma_log_init("fmd.log", 1);
 	cfg = fmd_parse_options(argc, argv);
 	fmd_process_cfg_file(cfg);
 	
@@ -544,6 +557,7 @@ int main(int argc, char *argv[])
 	cli_init_base();
 	bind_dd_cmds(fmd->dd, fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
 	liblog_bind_cli_cmds();
+	fmd_bind_dbg_cmds();
 	setup_mport(fmd);
 	if (!fmd->cfg->simple_init)
 		fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx);

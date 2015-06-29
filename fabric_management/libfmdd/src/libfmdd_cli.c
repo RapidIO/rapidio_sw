@@ -190,12 +190,15 @@ struct cli_cmd *libfmdd_cmds[3] = {
 
 void fmdd_bind_dbg_cmds(void *fmdd_h)
 {
-	struct fml_globals *fml = (struct fml_globals *)fmdd_h;
+	struct fml_globals *t_fml = (struct fml_globals *)fmdd_h;
 
-	ddl_h_cli = fmdd_h;
-	add_commands_to_cmd_db(sizeof(libfmdd_cmds)/sizeof(libfmdd_cmds[0]), 
-				&libfmdd_cmds[0]);
-	bind_dd_cmds(fml->dd, fml->dd_mtx, fml->dd_fn, fml->dd_mtx_fn);
+	if  (&fml == t_fml) {
+		ddl_h_cli = fmdd_h;
+		add_commands_to_cmd_db(sizeof(libfmdd_cmds)/
+					sizeof(libfmdd_cmds[0]), 
+					&libfmdd_cmds[0]);
+		bind_dd_cmds(fml.dd, fml.dd_mtx, fml.dd_fn, fml.dd_mtx_fn);
+	};
 }
 
 #ifdef __cplusplus

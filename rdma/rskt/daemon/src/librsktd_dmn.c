@@ -73,6 +73,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_msg_proc.h"
 #include "librsktd_wpeer.h"
 #include "librsktd_speer.h"
+#include "librsktd_fm.h"
 #include "liblog.h"
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
@@ -348,6 +349,8 @@ int cleanup_dmn(void)
         rc = d_rdma_drop_mso_h();
         if (rc)
                 printf("\rdma_ndrop_mso_h: %d: %s", rc, strerror(rc));
+
+	halt_fm_thread();
 	return rc;
 };
 
@@ -478,6 +481,9 @@ fail:
 
 void spawn_daemon_threads(struct control_list *ctrls)
 {
+	/* Start fabric management thread */
+	if (start_fm_thread())
+		fprintf(stderr, "ERR:start_fm_thread failed\n");
 	/* Starts wpeer, speer, and app TX threads */
 	if (start_msg_tx_threads())
 		fprintf(stderr, "ERR:start_msg_tx_threads failed\n");
@@ -496,7 +502,6 @@ void spawn_daemon_threads(struct control_list *ctrls)
 		fprintf(stderr,"Error - start_lib_handler failed\n");
 
 	open_wpeers_for_requests(ctrls->num_peers, ctrls->peers);
-
 };
 
 int daemon_threads_failed(void)

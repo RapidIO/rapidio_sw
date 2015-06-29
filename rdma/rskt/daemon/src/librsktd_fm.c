@@ -1,4 +1,4 @@
-/* Implementation of Fabric Management Device Directory Library */
+/* Implementation of the RDMA Socket Daemon fabric management thread */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -34,78 +34,89 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdio.h>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <errno.h>
 #include <time.h>
 #include <string.h>
-#include <semaphore.h>
-#include <pthread.h>
-#include <netinet/in.h>
-
-#include "libcli.h"
-#include "fmd_msg.h"
-#include "fmd_dd.h"
-#include "liblog.h"
+#include "librsktd.h"
+#include "librdma.h"
+#include "librsktd.h"
+#include "librsktd_sn.h"
+#include "librsktd_dmn.h"
+#include "librsktd_lib_info.h"
+#include "librsktd_msg_proc.h"
+#include "librsktd_wpeer.h"
 #include "liblist.h"
+#include "librsktd_fm.h"
 #include "libfmdd.h"
-
-#ifndef __LIBFMDD_INFO_H__
-#define __LIBFMDD_INFO_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define FMD_DEFAULT_PORT 4545
-#define FML_MAX_DESTIDS 256
+sem_t fm_started;
+sem_t fm_update;
+uint32_t fm_alive;
+uint32_t fm_must_die;
+pthread_t fm_thread;
+fmdd_h dd_h;
 
-struct fml_wait_4_chg {
-	sem_t sema;
-};
+/* Sends requests and responses to all apps */
+void *fm_loop(void *unused)
+{
+	uint32_t did_list_sz;
+	uint32_t *did_list;
+	uint32_t rc;
 
-struct fml_globals {
-        int portno;     /* FMD port number to connect to */
-        int init_ok;    /* Equal to portno when initialization is successful */
-	char app_name[MAX_APP_NAME+1];
-
-        struct sockaddr_un addr; /* FMD Linux socket address */
-        int addr_sz;    /* size of addr */
-        int fd;         /* Connection to FMD */
-
-	struct libfmd_dmn_app_msg req;
-	struct libfmd_dmn_app_msg resp;
-
-	char   dd_fn[MAX_DD_FN_SZ+1];
-	char   dd_mtx_fn[MAX_DD_MTX_FN_SZ+1];
-	int dd_fd;
-	int dd_mtx_fd;
-	struct fmd_dd *dd;
-	struct fmd_dd_mtx *dd_mtx;
-
-        int all_must_die; /* When non-zero, all threads exit immediately */
-                        /* FMD must cleanup */
-
-	int app_idx;
-        pthread_t mon_thr;  /* Thread for monitoring DD */
-	sem_t mon_started;
-	int mon_must_die;
-	int mon_alive;
-
-	uint32_t num_devs;
-	struct fmd_dd_dev_info devs[FMD_MAX_DEVS+1];
-	int8_t devid_status[FML_MAX_DESTIDS];
-
-	sem_t pend_waits_mtx;
-	struct l_head_t pend_waits;
-};
+	dd_h = fmdd_get_handle((char *)"RSKTD");
+	if (NULL != dd_h)
+		fm_alive = 1;
+	sem_post(&fm_started);
 	
-extern struct fml_globals fml;
+	while (!fm_must_die && (NULL != dd_h)) {
+		if (fmdd_wait_for_dd_change(dd_h))
+			goto exit;
+		if (fm_must_die)
+			goto exit;
+		rc = fmdd_get_did_list(dd_h, &did_list_sz, &did_list);
+		if (rc)
+			goto exit;
+		update_wpeer_list(did_list_sz, did_list);
+		free(did_list);
+	}
+exit:
+	fm_alive = 0;
+	fmdd_destroy_handle(&dd_h);
+	pthread_exit(unused);
+};
+
+int start_fm_thread(void)
+{
+	int ret;
+
+        /* Prepare and start library connection handling threads */
+
+        sem_init(&fm_started, 0, 0);
+	fm_alive = 0;
+	fm_must_die = 0;
+
+        ret = pthread_create(&fm_thread, NULL, fm_loop, NULL);
+        if (ret)
+                printf("Error - fm_thread rc: %d\n", ret);
+	else
+		sem_wait(&fm_started);
+
+	return ret;
+};
+
+void halt_fm_thread(void)
+{
+	fm_must_die = 1;
+	pthread_kill(fm_thread, SIGHUP);
+
+	pthread_join(fm_thread, NULL);
+};
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __LIBFMDD_INFO_H__ */
-

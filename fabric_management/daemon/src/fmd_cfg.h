@@ -75,15 +75,16 @@ extern "C" {
 #define FMD_DEVID_MAX (FMD_DEV32+1)
 
 struct dev_id {
-	int devid;
-	int hc;
-	int valid;
+	uint32_t devid;
+	uint32_t hc;
+	uint32_t valid;
 };
 
 struct fmd_cfg_ep;
 
 struct fmd_mport_info {
-	int num;
+	uint32_t num;
+	riocp_pe_handle mp_h;
 	int op_mode;
 	struct dev_id devids[FMD_DEVID_MAX];
 	struct fmd_cfg_ep *ep; /* Link to endpoint definition for this MPORT */
@@ -93,6 +94,7 @@ struct fmd_mport_info {
 #define FMD_MAX_MPORTS 4
 #define FMD_DFLT_INIT_DD 0
 #define FMD_DFLT_CLI_PORT_NUM 2222
+#define FMD_DFLT_APP_PORT_NUM 3434
 #define FMD_DFLT_RUN_CONS 1
 #define FMD_DFLT_MAST_DEVID_SZ FMD_DEV08
 #define FMD_DFLT_MAST_DEVID 1
@@ -102,13 +104,15 @@ struct fmd_mport_info {
 #define FMD_DFLT_DD_FN "/RIO_DEV_DIR_SM"
 #define FMD_DFLT_DD_MTX_FN "/RIO_DEV_DIR_MTX_SM"
 #define FMD_INVALID_CT 0
-#define FMD_MAX_EP 8
-#define FMD_MAX_EP_PORT 4
-#define FMD_MAX_SW 2
+#define FMD_MAX_EP 4
+#define FMD_MAX_EP_PORT 1
+#define FMD_MAX_SW 1
 #define FMD_MAX_SW_PORT 18
 #define FMD_MAX_CONN 10
 #define FMD_MAX_CONN_PORT 18
 #define FMD_MAX_DEVS 20
+
+#define OTHER_END(x) ((1 == x)?0:((0==x)?1:2))
 
 #define FMD_SLAVE -1
 
@@ -122,15 +126,17 @@ struct fmd_cfg_rapidio {
 
 struct fmd_cfg_ep_port {
 	int valid;
-	int port;
-	int ct;
+	uint32_t port;
+	uint32_t ct;
 	struct fmd_cfg_rapidio rio;
 	struct dev_id devids[FMD_DEVID_MAX];
 	struct fmd_cfg_conn *conn;
+	int conn_end; /* index of *conn for this switch */
 };
 
 struct fmd_cfg_ep {
 	int valid;
+	riocp_pe_handle ep_h;
 	char *name;
 	int port_cnt;
 	struct fmd_cfg_ep_port ports[FMD_MAX_EP_PORT];
@@ -141,16 +147,19 @@ struct fmd_cfg_sw_port {
 	int port;
 	struct fmd_cfg_rapidio rio;
 	struct fmd_cfg_conn *conn;
+	int conn_end; /* index of *conn for this switch */
 };
 
 struct fmd_cfg_sw {
 	int valid;
+	riocp_pe_handle sw_h;
 	char *name;
 	char *dev_type;
-	int destid_sz;
-	int destid;
-	int hc;
-	int ct;
+	uint32_t did_sz;
+	uint32_t did;
+	uint32_t hc;
+	uint32_t ct;
+	uint32_t traversed;
 	struct fmd_cfg_sw_port ports[FMD_MAX_SW_PORT];
 	// One routing table for each devID size
 	idt_rt_state_t rt[FMD_DEVID_MAX]; 
@@ -166,6 +175,7 @@ struct fmd_cfg_conn_pe {
 };
 
 struct fmd_cfg_conn {
+	int valid;
 	struct fmd_cfg_conn_pe ends[2];
 };
 
@@ -174,23 +184,24 @@ struct fmd_cfg_parms {
 	int init_and_quit;	/* If asserted, exit after completing init */
 	int simple_init;	/* If asserted, do not init device directory */
 	int cli_port_num;	/* POSIX Socket for remote CLI session */
+	int app_port_num;	/* POSIX Socket for applications to connect */
 	int run_cons;		/* Run a console on this daemon. */
 	int mast_idx;		/* Idx of the mport_info that is master */
 	int max_mport_info_idx; /* Maximum number of mports */
 	struct fmd_mport_info mport_info[FMD_MAX_MPORTS]; 
-	int mast_devid_sz;	/* Master FMD location information */
-	int mast_devid;		/* Master FMD location information */
-	int mast_cm_port; 	/* Master FMD location information */
+	uint32_t mast_devid_sz;	/* Master FMD location information */
+	uint32_t mast_devid;		/* Master FMD location information */
+	uint32_t mast_cm_port; 	/* Master FMD location information */
 	int mast_interval;	/* Master FMD location information */
 	char *fmd_cfg; /* FMD configuration file */
 	FILE *fmd_cfg_fd; /* FMD configuration file file descriptor */
 	char *dd_fn; /* Device directory file name */
 	char *dd_mtx_fn; /* Device directory mutext file name */
-	int ep_cnt;
+	uint32_t ep_cnt;
 	struct fmd_cfg_ep eps[FMD_MAX_EP];
-	int sw_cnt;
+	uint32_t sw_cnt;
 	struct fmd_cfg_sw sws[FMD_MAX_SW];
-	int conn_cnt;
+	uint32_t conn_cnt;
 	struct fmd_cfg_conn cons[FMD_MAX_CONN];
 };
 

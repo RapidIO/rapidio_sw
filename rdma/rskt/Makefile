@@ -43,6 +43,8 @@ TARGETS = librskt rsktd
 
 librskt: FORCE
 	$(MAKE) all -C lib
+	mkdir -p $(TOP_LEVEL)/include/libs_a
+	cp lib/librskt.a $(TOP_LEVEL)/include/libs_a
 		
 rsktd: librskt FORCE
 	$(MAKE) all -C daemon

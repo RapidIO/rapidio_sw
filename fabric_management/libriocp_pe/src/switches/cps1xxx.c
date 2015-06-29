@@ -1451,6 +1451,27 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	NULL
 };
 
+struct riocp_pe_device_id cps1432_id_table[] = {
+	{RIOCP_PE_PE_DEVICE(RIO_DID_IDT_CPS1432, RIO_VID_IDT)},
+	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
+};
+struct riocp_pe_switch riocp_pe_switch_cps1432 = {
+	-1,
+	"cps1432",
+	NULL,
+	cps1432_id_table,
+	cps1xxx_init,
+	cps1xxx_init_em,
+	cps1xxx_set_route_entry,
+	cps1xxx_get_route_entry,
+	cps1xxx_clear_lut,
+	cps1xxx_get_lane_speed,
+	cps1xxx_get_lane_width,
+	cps1xxx_get_port_state,
+	cps1xxx_event_handler,
+	NULL
+};
+
 struct riocp_pe_device_id cps1616_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(RIO_DID_IDT_CPS1616, RIO_VID_IDT)},
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}

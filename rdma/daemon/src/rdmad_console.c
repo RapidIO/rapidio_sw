@@ -76,14 +76,6 @@ int all_ms_msub_info_cmd_f(struct cli_env *env, int argc, char **argv)
 	return 0;
 } /* all_ms_info_cmd_f() */
 
-int log_dump_cmd_f(struct cli_env *env, int argc, char **argv)
-{
-	(void)env;
-	(void)argc;
-	(void)argv;
-	rdma_log_dump();
-	return 0;
-} /* log_dump_cmd_f() */
 
 extern struct cli_cmd hello_rdaemon_cmd ;
 
@@ -199,16 +191,6 @@ struct cli_cmd all_ms_msub_info_cmd = {
 	ATTR_NONE
 };
 
-struct cli_cmd log_dump_cmd = {
-	"dlog",
-	1,
-	0,
-	"Dump log to screen.",
-	"{None}\n"
-	"Dumps log to screen.\n",
-	log_dump_cmd_f,
-	ATTR_NONE
-};
 
 struct cli_cmd hello_rdaemon_cmd = {
 	"hello",
@@ -226,7 +208,6 @@ struct cli_cmd *rdmad_cmds[] = {
 	&ibwin_info_cmd,
 	&all_ms_info_cmd,
 	&all_ms_msub_info_cmd,
-	&log_dump_cmd,
 	&hello_rdaemon_cmd
 };
 

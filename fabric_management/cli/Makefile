@@ -45,7 +45,8 @@ CCFLAGS = -c -g -ggdb -fPIC -Wall -Werror -I. -I.. \
 	-I../librio_switch/inc \
 	-I../libriocp_pe/inc \
 	-I../librio_maint/inc \
-	-I../Linux_Include \
+	-I../../common/include \
+	-DRDMA_LL=$(LOG_LEVEL) \
 	-O2 -I$(LINUX_INCLUDE_DIR) -rdynamic -DIDT_TSI721_SUPPORT
 
 LKFLAGS= -shared -fPIC -g -ggdb

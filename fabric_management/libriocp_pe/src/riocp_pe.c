@@ -33,6 +33,7 @@
 #include "rio_regs.h"
 #include "rio_devs.h"
 #include "liblog.h"
+#include "riodp_mport_lib.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1117,7 +1118,11 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 		return -ENOSYS;
 	}
 
-	ret = riocp_pe_maint_write(pe, RIO_DID_CSR, (destid << 16) & 0x00ff0000);
+	if (RIOCP_PE_IS_MPORT(pe))
+		ret = riodp_destid_set(pe->minfo->maint->fd, destid);
+	else
+		ret = riocp_pe_maint_write(pe, RIO_DID_CSR, 
+						(destid << 16) & 0x00ff0000);
 	if (ret)
 		return ret;
 
@@ -1188,8 +1193,12 @@ int RIOCP_SO_ATTR riocp_sw_set_default_route_action(riocp_pe_handle sw,
 		return -EPERM;
 	if (!RIOCP_PE_IS_SWITCH(sw->cap))
 		return -ENOSYS;
+/*
+ * FIXME; Validate only "good" port numbers, or link this with
+ * the RapidIO Switch API driver.
 	if (port >= RIOCP_PE_PORT_COUNT(sw->cap))
 		return -EINVAL;
+ */
 
 	switch (action) {
 	case RIOCP_SW_DEFAULT_ROUTE_DROP:
@@ -1275,8 +1284,12 @@ int RIOCP_SO_ATTR riocp_sw_set_route_entry(riocp_pe_handle sw,
 		return -EPERM;
 	if (!RIOCP_PE_IS_SWITCH(sw->cap))
 		return -ENOSYS;
+/*
+ * FIXME: Change this to validate the correct range of devices, or better
+ * yet, to use the RapidIO switch APIs...
 	if (port > RIOCP_PE_PORT_COUNT(sw->cap) && port != 0xff)
 		return -EINVAL;
+*/
 	if (destid == ANY_ID)
 		return -EACCES;
 
@@ -1443,6 +1456,69 @@ const char RIOCP_SO_ATTR *riocp_pe_get_vendor_name(riocp_pe_handle pe)
 
 out:
 	return "unknown vendor";
+}
+
+/**
+ * Change the component tag of the given PE.
+ * The compent tag is stored in its Component Tag CSR.
+ * @param pe      Target PE
+ * @param comptag Component tag
+ * @param destid  Destination ID for the PE
+ * @retval -EINVAL Invalid argument
+ * @retval -EBADF  Component tag in device doesn't match with handle
+ */
+int RIOCP_SO_ATTR riocp_pe_update_comptag(riocp_pe_handle pe,
+        uint32_t *comptag, uint32_t did, uint32_t wr_did)
+{
+        int ret = 0;
+        uint32_t ct = 0, new_ct;
+
+        if (riocp_pe_handle_check(pe))
+                return -EINVAL;
+
+	if (pe->comptag != *comptag)
+                return -EINVAL;
+
+	RIOCP_TRACE("Updating PE handle %p CompTag %x *ct %x\n",
+		pe, pe->comptag, *comptag);
+	ret = riocp_pe_maint_read(pe, RIO_COMPONENT_TAG_CSR, &ct);
+	if (ret) {
+		RIOCP_ERROR("Unable to read PE %p component tag", pe);
+		return ret;
+	}
+
+	if (pe->comptag != ct) {
+		RIOCP_ERROR("pe->comptag(0x%08x) != ct(0x%08x)\n", 
+			pe->comptag, ct);
+		*comptag = ct;
+		return -EBADF;
+	}
+
+	new_ct = RIOCP_PE_COMPTAG_DESTID(did) |
+		(RIOCP_PE_COMPTAG_NR(RIOCP_PE_COMPTAG_GET_NR((*comptag))));
+
+	RIOCP_TRACE("Changing ct %x to %x\n", pe->comptag, new_ct);
+	
+	ret = riocp_pe_maint_write(pe, RIO_COMPONENT_TAG_CSR, new_ct);
+	if (ret) {
+		RIOCP_ERROR("Unable to write PE %p component tag\n", pe);
+		return ret;
+	}
+
+	pe->comptag = new_ct;
+	*comptag = new_ct;
+
+	RIOCP_TRACE("Changed pe ct to %x\n", pe->comptag);
+
+	if (wr_did) {
+		RIOCP_TRACE("Writing device ID to  %x\n", pe->destid);
+		ret = riocp_pe_set_destid(pe, did);
+		if (ret) 
+			RIOCP_ERROR("Unable to update device ID\n");
+	};
+	pe->destid = did;
+
+        return ret;
 }
 
 /**

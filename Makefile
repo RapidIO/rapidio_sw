@@ -59,7 +59,7 @@ all: $(TARGETS)
 fabric_management: common FORCE
 	$(MAKE) all -C fabric_management
 		
-rdma: common FORCE
+rdma: common fabric_management FORCE
 	$(MAKE) all -C rdma
 		
 common: libmport FORCE
@@ -75,3 +75,4 @@ clean: FORCE
 	$(MAKE) clean -C libmport
 	$(MAKE) clean -C rdma
 	$(MAKE) clean -C fabric_management
+	rm -rf include/libs_a/*

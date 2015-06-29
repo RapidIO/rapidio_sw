@@ -1,3 +1,4 @@
+/* Fabric Management Daemon central routines for use by other FMD files */
 /*
 ****************************************************************************
 Copyright (c) 2014, Integrated Device Technology Inc.
@@ -30,23 +31,48 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef _LIBRIO_FMD_H_
-#define _LIBRIO_FMD_H_
 
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <semaphore.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/sem.h>
+#include <fcntl.h>
+#include <signal.h>
+
 #include <stdint.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include "linux/rio_cm_cdev.h"
+#include "linux/rio_mport_cdev.h"
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <pthread.h>
+#include "IDT_Routing_Table_Config_API.h"
+#include "IDT_Port_Config_API.h"
+#include "riocp_pe_internal.h"
+#include "fmd_dd.h"
+
+#ifndef _FMD_H_
+#define _FMD_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef void *fmd_h;
-
-void *fmd_get_handle(char *my_name);
-void fmd_bind_fmd_h_cli_cmds(fmd_h h);
+extern struct fmd_state *fmd;
+void set_prompt(struct cli_env *e);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _LIBRIO_FMD_H_ */
+#endif /* _FMD_H_ */

@@ -99,6 +99,7 @@ void cleanup_app_handler(void);
 
 void fmd_notify_apps(void);
 
+extern struct app_mgmt_globals app_st;
 
 #ifdef __cplusplus
 }

@@ -43,6 +43,7 @@ CXX ?= $(CROSS_COMPILE)g++
 export CXX
 
 LOCAL_LIBRARY_DIR="libs_a"
+TOP_LEVEL?=..
 
 level ?= $(LOG_LEVEL)
 
@@ -88,10 +89,10 @@ libdd:
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libdd/libdd.a $(LOCAL_LIBRARY_DIR)
 	
-libfmdd:
+libfmdd: FORCE
 	$(MAKE) all -C libfmdd
-	mkdir -p $(LOCAL_LIBRARY_DIR)
-	cp libfmdd/libfmdd.a $(LOCAL_LIBRARY_DIR)
+	mkdir -p $(TOP_LEVEL)/include/libs_a
+	cp libfmdd/libfmdd.a $(TOP_LEVEL)/include/libs_a
 	
 
 daemon: $(LIB_DEPS)

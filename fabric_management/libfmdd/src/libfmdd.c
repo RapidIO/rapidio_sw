@@ -128,10 +128,15 @@ fail:
 
 void shutdown_fml(void)
 {
+	fml.mon_must_die = 1;
+
 	if (fml.dd_mtx != NULL) {
-		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
-		fml.dd_mtx->dd_ev[fml.app_idx].proc = 0;
-		fml.dd_mtx->dd_ev[fml.app_idx].in_use = 0;
+		if (fml.dd_mtx->dd_ev[fml.app_idx].waiting) {
+			fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
+			fml.dd_mtx->dd_ev[fml.app_idx].proc = 0;
+			fml.dd_mtx->dd_ev[fml.app_idx].in_use = 0;
+			sem_post(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event);
+		};
 	};
 
 	fmd_dd_cleanup( fml.dd_mtx_fn, &fml.dd_mtx_fd, &fml.dd_mtx, 
@@ -157,51 +162,124 @@ void shutdown_fml(void)
 	fml.init_ok = 0;
 };
 
+void init_devid_status(void)
+{
+        uint32_t i;
+
+        for (i = 0; i < FMD_MAX_DEVS; i++)
+                fml.devid_status[i] = CHK_NOK;
+};
+
+void update_devid_status(void)
+{
+        uint32_t i, j, found;
+
+        for (i = 0; i < FMD_MAX_DEVS; i++) {
+                found = 0;
+                for (j = 0; j < fml.num_devs; j++) {
+                        if (fml.devs[j].destID == i) {
+				if (fml.devs[j].is_mast_pt) 
+                                	fml.devid_status[i] = CHK_OK_MP;
+				else
+                                	fml.devid_status[i] = CHK_OK;
+                                found = 1;
+                                break;
+                        };
+                };
+                if (!found)
+                        fml.devid_status[i] = CHK_NOK;
+        };
+};
+
+void notify_app_of_events(void)
+{
+	struct fml_wait_4_chg *wt;	
+
+	sem_wait(&fml.pend_waits_mtx);
+	wt = (struct fml_wait_4_chg *)l_pop_head(&fml.pend_waits);
+
+	while (NULL != wt) {
+		sem_post(&wt->sema);
+		wt = (struct fml_wait_4_chg *)l_pop_head(&fml.pend_waits);
+	};
+	sem_post(&fml.pend_waits_mtx);
+};
+
 void *mon_loop(void *parms)
 {
+	int rc;
+ 
 	fml.dd_mtx->dd_ev[fml.app_idx].in_use = 1;
 	fml.dd_mtx->dd_ev[fml.app_idx].proc = getpid();
 
+	if (0 >= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
+					fml.devs, FMD_MAX_DEVS)) {
+		sem_post(&fml.mon_started);
+		goto exit;
+	};
+	update_devid_status();
+	fml.mon_alive = 1;
+	sem_post(&fml.mon_started);
 	do {
 		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 1;
-		if (sem_wait(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event))
-			break;
-		if (fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
-					fml.devs, FMD_MAX_DEVS))
-			break;
-	} while (fml.num_devs);
+		rc = sem_wait(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event);
+		if (rc || (NULL == fml.dd_mtx))
+			goto exit;
+		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
 
+		if (0 >= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
+					fml.devs, FMD_MAX_DEVS))
+			goto exit;
+		update_devid_status();
+		notify_app_of_events();
+	} while (fml.num_devs && !fml.mon_must_die && fml.mon_alive);
+exit:
+	fml.mon_alive = 0;
 	shutdown_fml();
 	return parms;
 };
 
-fmdd_h fmdd_get_handle(char *my_name, int port)
+fmdd_h fmdd_get_handle(char *my_name)
 {
 	if (!fml.portno) {
-		fml.portno = port;
+		fml.portno = FMD_DEFAULT_SKT;
 		strncpy(fml.app_name, my_name, MAX_APP_NAME+1);
 	};
 
-	if (open_socket_to_fmd())
-		goto fail;
-	if (get_dd_names_from_fmd())
-		goto fail;
-	if (open_dd())
-		goto fail;
-	fml.all_must_die = 0;
+	if (!fml.mon_alive) {
+		sem_init(&fml.pend_waits_mtx, 0, 1);
+		l_init(&fml.pend_waits);
+		if (open_socket_to_fmd())
+			goto fail;
+		if (get_dd_names_from_fmd())
+			goto fail;
+		if (open_dd())
+			goto fail;
+		sem_init(&fml.mon_started, 0, 0);
+		fml.all_must_die = 0;
+		fml.mon_alive = 0;
 
-	/* Startup the connection monitoring thread */
-	if (pthread_create( &fml.mon_thr, NULL, mon_loop, NULL)) {
-		fml.all_must_die = 1;
-		perror("ERROR:fmdd_get_handle, mon_loop thread");
-		goto fail;
+		/* Startup the connection monitoring thread */
+		if (pthread_create( &fml.mon_thr, NULL, mon_loop, NULL)) {
+			fml.all_must_die = 1;
+			perror("ERROR:fmdd_get_handle, mon_loop thread");
+			goto fail;
+		};
+		sem_wait(&fml.mon_started);
+		sem_post(&fml.mon_started);
 	};
-	return (void *)&fml;
+	if (fml.mon_alive)
+		return (void *)&fml;
 fail:
 	shutdown_fml();
 	return NULL;
 };
 
+void fmdd_destroy_handle(fmdd_h *dd_h)
+{
+	shutdown_fml();
+	*dd_h = NULL;
+};
 
 int fmdd_check_ct(fmdd_h h, uint32_t ct)
 {
@@ -210,25 +288,30 @@ int fmdd_check_ct(fmdd_h h, uint32_t ct)
 	if (h != &fml)
 		goto fail;
 
-	for (i = 0; i < fml.num_devs; i++)
-		if (fml.devs[i].ct == ct)
-			return 0;
+	for (i = 0; i < fml.num_devs; i++) {
+		if (fml.devs[i].ct == ct) {
+			if (fml.devs[i].is_mast_pt)
+				return CHK_OK_MP;
+			else
+				return CHK_OK;
+		};
+	};
 fail:
-	return -1;
+	return CHK_NOK;
 };
 
 int fmdd_check_did(fmdd_h h, uint32_t did)
 {
-	uint32_t i;
-
 	if (h != &fml)
 		goto fail;
 
-	for (i = 0; i < fml.num_devs; i++)
-		if (fml.devs[i].destID == did)
-			return 0;
+	if (did >= FMD_MAX_DEVS)
+		goto fail;
+
+	return fml.devid_status[did];
+
 fail:
-	return -1;
+	return CHK_NOK;
 };
 
 int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
@@ -254,10 +337,47 @@ fail:
 	return 1;
 };
 
-void fmdd_bind_dbg_cmds(fmdd_h h)
+int fmdd_free_did_list(fmdd_h h, uint32_t **did_list)
 {
-	if (h == &fml)
-		bind_dd_cmds(fml.dd, fml.dd_mtx, fml.dd_fn, fml.dd_mtx_fn);
+	if (h != &fml)
+		goto fail;
+
+	free(*did_list);
+	*did_list = NULL;
+
+	return 0;
+fail:
+	return 1;
+};
+
+int fmdd_wait_for_dd_change(fmdd_h h)
+{
+	struct fml_wait_4_chg *chg_sem;
+	int rc;
+
+	if ((h != &fml) || fml.mon_must_die || !fml.mon_alive)
+		goto fail;
+
+	chg_sem = (struct fml_wait_4_chg *)
+			malloc(sizeof(struct fml_wait_4_chg));
+
+	sem_init(&chg_sem->sema, 0, 0);
+
+	sem_wait(&fml.pend_waits_mtx);
+	l_push_tail(&fml.pend_waits, (void *)&chg_sem);
+	sem_post(&fml.pend_waits_mtx);
+
+	rc = sem_wait(&chg_sem->sema);
+
+	/* Note: The notification process removes all items from the list. */
+	free(chg_sem);
+	
+	if (fml.mon_must_die || !fml.mon_alive || rc)
+		goto fail;
+
+	return 0;
+fail:
+	return 1;
 };
 
 #ifdef __cplusplus

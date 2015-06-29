@@ -1,5 +1,4 @@
-/* Procedures for managing RSKTD Worker Peer connections */
-/* A Worker Peer is one that accepts commands and returns responses */
+/* Fabric management routines for internal use by RSKTD */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -33,61 +32,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#include <semaphore.h>
-#include <pthread.h>
 #include <stdint.h>
 
-#include "librsktd_msg_proc.h"
-#include "librsktd_private.h"
-#include "liblist.h"
-
-#ifndef __RSKTD_WPEER_H__
-#define __RSKTD_WPEER_H__
+#ifndef __LIBRSKTD_FM_H__
+#define __LIBRSKTD_FM_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct rskt_dmn_wpeer {
-	uint32_t ct;
-	uint32_t cm_skt;
-
-	struct rskt_dmn_wpeer **self_ref;
-	riodp_socket_t cm_skt_h;
-	int wpeer_alive;
-	int i_must_die;
-	struct l_item_t *wp_li; /* WPEER entry in dmn.wpeers */
-
-	int tx_buff_used;
-	int tx_rc;
-	union {
-		void *tx_buff;
-        	struct rsktd_req_msg *req; /* alias for tx_buff */
-	};
-	int rx_buff_used;
-	union {
-		void *rx_buff;
-        	struct rsktd_resp_msg *resp; /* alias for tx_buff */
-	};
-	pthread_t w_rx; /* Thread listening for wpeer responses */
-	sem_t started;
-	sem_t w_rsp_mutex; /* Mutual exclusion on w_rsp queue */
-	struct l_head_t w_rsp; /* List of responses expected from this wpeer */
-				/* Item is librsktd_unified_msg, */
-				/* ordered by w_seq_num */
-	uint32_t w_seq_num; /* Sequence number for requests sent to wpeer */
-	uint32_t peer_pid; /* Status in hello response */
-};
-
-int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers);
-void enqueue_wpeer_msg(struct librsktd_unified_msg *msg);
-void *wpeer_tx_loop(void *unused);
-void close_wpeer(struct rskt_dmn_wpeer *wpeer);
-void close_all_wpeers(void);
-void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids);
+extern int start_fm_thread(void);
+extern void halt_fm_thread(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __RSKTD_WPEER_H__ */
+#endif /* __LIBRSKTD_FM_H__ */

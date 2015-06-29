@@ -19,9 +19,11 @@ extern "C" {
 
 #define MAINT_SO_ATTR __attribute__((visibility("default")))
 
+/*
 struct rio_maint {
 	int fd;
 };
+*/
 
 int MAINT_SO_ATTR rio_maint_init(uint8_t mport_id, rio_maint_handle *handle)
 {

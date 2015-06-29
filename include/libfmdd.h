@@ -1,9 +1,8 @@
-/* Procedures for managing RSKTD Worker Peer connections */
-/* A Worker Peer is one that accepts commands and returns responses */
+/* Fabric Management Daemon Device Directory Library for applications */
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,61 +32,36 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#include <semaphore.h>
-#include <pthread.h>
-#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
 
-#include "librsktd_msg_proc.h"
-#include "librsktd_private.h"
-#include "liblist.h"
-
-#ifndef __RSKTD_WPEER_H__
-#define __RSKTD_WPEER_H__
+#ifndef _LIBFMDD_H_
+#define _LIBFMDD_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct rskt_dmn_wpeer {
-	uint32_t ct;
-	uint32_t cm_skt;
+typedef void *fmdd_h;
+fmdd_h fmdd_get_handle(char *my_name);
+void fmdd_destroy_handle(fmdd_h *dd_h);
 
-	struct rskt_dmn_wpeer **self_ref;
-	riodp_socket_t cm_skt_h;
-	int wpeer_alive;
-	int i_must_die;
-	struct l_item_t *wp_li; /* WPEER entry in dmn.wpeers */
+#define CHK_NOK -1
+#define CHK_OK 0
+#define CHK_OK_MP 1
 
-	int tx_buff_used;
-	int tx_rc;
-	union {
-		void *tx_buff;
-        	struct rsktd_req_msg *req; /* alias for tx_buff */
-	};
-	int rx_buff_used;
-	union {
-		void *rx_buff;
-        	struct rsktd_resp_msg *resp; /* alias for tx_buff */
-	};
-	pthread_t w_rx; /* Thread listening for wpeer responses */
-	sem_t started;
-	sem_t w_rsp_mutex; /* Mutual exclusion on w_rsp queue */
-	struct l_head_t w_rsp; /* List of responses expected from this wpeer */
-				/* Item is librsktd_unified_msg, */
-				/* ordered by w_seq_num */
-	uint32_t w_seq_num; /* Sequence number for requests sent to wpeer */
-	uint32_t peer_pid; /* Status in hello response */
-};
+int fmdd_check_ct(fmdd_h h, uint32_t ct); /* OK if >= 0 */
+int fmdd_check_did(fmdd_h h, uint32_t did); /* OK if >= 0 */
+int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list);
+int fmdd_free_did_list(fmdd_h h, uint32_t **did_list);
+int fmdd_wait_for_dd_change(fmdd_h h); /* Blocks until the DD changes */
 
-int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers);
-void enqueue_wpeer_msg(struct librsktd_unified_msg *msg);
-void *wpeer_tx_loop(void *unused);
-void close_wpeer(struct rskt_dmn_wpeer *wpeer);
-void close_all_wpeers(void);
-void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids);
+void fmdd_bind_dbg_cmds(void *fmdd_h);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __RSKTD_WPEER_H__ */
+#endif /* _LIBFMDD_H_ */

@@ -90,13 +90,14 @@ int CLIDDDumpCmd(struct cli_env *env, int argc, char **argv)
 		cli_dd->md_ct, cli_dd->num_devs);
 	logMsg(env);
 	if (cli_dd->num_devs > 0)  {
-		sprintf(env->output, "Idx ---CT--- -destID- HC\n");
+		sprintf(env->output, "Idx ---CT--- -destID- HC MP\n");
 		logMsg(env);
 		for (i = 0; (i < cli_dd->num_devs) && (i < FMD_MAX_DEVS); i++) {
-			sprintf(env->output, "%3d %8x %2x\n", 
+			sprintf(env->output, "%3d %8x %8x %2x %2s\n", i, 
 				cli_dd->devs[i].ct, 
 				cli_dd->devs[i].destID, 
-				cli_dd->devs[i].hc);
+				cli_dd->devs[i].hc,
+				cli_dd->devs[i].is_mast_pt?"MP":"..");
 			logMsg(env);
 		};
 	};
@@ -173,47 +174,6 @@ CLIDDIncCmd,
 ATTR_NONE
 };
 
-extern const struct cli_cmd CLIDevDir;
-
-int CLIDevDirCmd(struct cli_env *env, int argc, char **argv)
-{
-	struct fmd_dd_dev_info devs[FMD_MAX_DEVS+1];
-	uint32_t num_devs, idx;
-
-	if (0)
-		argv[0][0] = argc;
-	if ((NULL == cli_dd) || (NULL == cli_dd_mtx)) {
-		sprintf(env->output, "\nState pointer is null.\n");
-		goto exit;
-	};
-	num_devs = fmd_dd_atomic_copy(cli_dd, cli_dd_mtx, &num_devs, devs,
-			FMD_MAX_DEVS);
-
-	if (num_devs) {
-		sprintf(env->output, "\nIdx   CT    DevID   HC\n");
-		for (idx = 0; idx < num_devs; idx++) {
-			logMsg(env);
-			sprintf(env->output, "%2d %8x  %2x     %2x\n", idx, 
-				devs[idx].ct, devs[idx].destID, devs[idx].hc);
-		};
-	} else {
-		sprintf(env->output, "\nNo devices returned.\n");
-	};
-exit:
-	logMsg(env);
-	return 0;
-};
-
-const struct cli_cmd CLIDevDir = {
-(char *)"dd",
-2,
-0,
-(char *)"Device directory display",
-(char *)"Prints current list of devices in device directory.",
-CLIDevDirCmd,
-ATTR_NONE
-};
-
 extern const struct cli_cmd CLIClean;
 
 int CLICleanCmd(struct cli_env *env, int argc, char **argv)
@@ -273,10 +233,9 @@ CLICleanCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd *dd_cmds[4] = 
+const struct cli_cmd *dd_cmds[3] = 
 	{&CLIDDDump, 
 	 &CLIDDInc,
-	 &CLIDevDir,
 	 &CLIClean };
 
 void bind_dd_cmds(struct fmd_dd *dd, struct fmd_dd_mtx *dd_mtx,

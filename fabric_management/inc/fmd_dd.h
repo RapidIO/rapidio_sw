@@ -45,6 +45,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+#define FMD_DEFAULT_SKT 3434
+
 #define FMD_DEV08 0
 #define FMD_DEV16 1
 #define FMD_DEV32 2
@@ -55,6 +57,7 @@ struct fmd_dd_dev_info {
 	uint32_t ct;
 	uint32_t destID;
 	uint32_t hc;
+	uint32_t is_mast_pt;
 };
 
 struct fmd_dd {

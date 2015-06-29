@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cli_cmd_db.h"
 #include "cli_cmd_line.h"
 #include "cli_parse.h"
+#include "liblog.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -85,9 +86,12 @@ int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
 
         if (RIOCP_PE_IS_MPORT(pe_h))
                 rc = rio_maint_read_local(pe_h->minfo->maint, offset,  &temp)?1:0;
-        else
-                rc = rio_maint_read_remote(pe_h->mport->minfo->maint, pe_h->destid,
-                        	pe_h->hopcount, offset, &temp, 1)?1:0;
+        else {
+		INFO("MTC READ: DID %x HC %X O %x\n", 
+                        pe_h->destid, pe_h->hopcount, offset);
+                rc = rio_maint_read_remote(pe_h->mport->minfo->maint,
+			pe_h->destid, pe_h->hopcount, offset, &temp, 1)?1:0;
+	}
 	if (!rc)
 		*data = temp;
 	return rc;
