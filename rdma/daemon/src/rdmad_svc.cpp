@@ -420,22 +420,7 @@ accept_1_svc(accept_input *in, struct svc_req *rqstp)
 	DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
 	accept_msg_map.add(s, cmam);
 
-#if 0
-	/* Increment semaphore in thread. This way the thread will keep
-	* checking for CM messages as many times as accept_1_svc() is called
-	 * , then when all messages have been received the thread will block
-	 * waiting on cm_wait_connect_sem to be incremented again.
-	 */
-	DBG("cm_wait_connect_sem now posting!\n");
-	if (sem_post(&peer.cm_wait_connect_sem) == -1) {
-		WARN("sem_post(&peer.cm_wait_connect_sem): %s\n", strerror(errno));
-		out.status = -1;
-	} else {
-		out.status = 0;
-	}
-#else
 	out.status = 0;
-#endif
 
 	return &out;
 } /* accept_1_svc() */
@@ -537,135 +522,7 @@ send_connect_1_svc(send_connect_input *in, struct svc_req *rqstp)
 	wait_accept_mq_names.push_back(mq_name);
 
 	out.status = 0;
-#if 0
 
-
-	/* See if we already have a remote daemon entry for the destid */
-	rdaemon_has_destid	rdhd(in->server_destid);
-	auto it = find_if(begin(client_rdaemon_list), end(client_rdaemon_list), rdhd);
-
-	rdaemon_t *rdaemon;
-
-	/* Not found, must create a client and a thread for that remote daemon */
-	/* TODO: Can we create multiple clients with the same mbox_id on the same
-	 * channel? */
-	if (it == end(client_rdaemon_list)) {
-		/* Prepare an rdaemon struct for storage in the list */
-		rdaemon = new rdaemon_t();
-		rdaemon->destid = in->server_destid;
-		rdaemon->destid_len = 16;
-
-		/* Create main_client cm_sock object */
-		try {
-			DBG("Create main_client\n");
-			rdaemon->main_client =  new cm_client("rdaemon_main_client",
-							      peer.mport_id,
-							      peer.mbox_id,
-							      peer.loc_channel);
-		}
-		catch(cm_exception e) {
-			CRIT("main_client: %s\n", e.err);
-			out.status = -1;
-			return &out;
-		}
-
-		/* Connect to server's RDMA daemon via CM sockets */
-		DBG("destid=0x%lX, mailbox %d, channel %d\n", in->server_destid,
-						peer.mbox_id, peer.loc_channel);
-
-		if (rdaemon->main_client->connect(in->server_destid)) {
-			ERR("Failed to connect to destid(%u)\n", in->server_destid);
-			out.status = -2;
-			return &out;
-		}
-		INFO("main_client->connect() succeeded for destid(0x%X)\n",
-							in->server_destid);
-		
-		/* Initialize semaphore */
-		if (sem_init(&rdaemon->cm_wait_accept_sem, 0, 0) == -1) {
-			ERR("Failed to init cm_wait_accept_sem\n");
-			delete rdaemon->main_client;
-			out.status = -3;
-			return &out;
-		}
-		DBG("rdaemon->cm_wait_accept_sem = 0x%X\n", rdaemon->cm_wait_accept_sem);
-
-		/* Lock access to global client_rdaemon_list_sem so it is not
-		 * accessed when the thread is started until we are done here.
-		 * This maybe unnecessary but better safe than sorry. */ 
-		sem_wait(&client_rdaemon_list_sem);	/* Lock access */
-
-		/* Store entry for destid in client_rdaemon_list */
-		client_rdaemon_list.push_back(rdaemon);
-		
-		/* Create a pthread for that remote daemon */
-		if (pthread_create(&rdaemon->wait_accept_thread, NULL,
-				wait_accept_thread_f, &rdaemon->destid)) {
-			CRIT("Failed to create cm_wait_accept_thread: %s\n",
-								strerror(errno));
-			delete rdaemon->main_client;
-			/* Remove from list since we can't start the thread */
-			client_rdaemon_list.pop_back();
-			sem_post(&client_rdaemon_list_sem);
-			out.status = -4;
-			return &out;
-		}
-		INFO("wait_accept_thread created\n");
-		sem_post(&client_rdaemon_list_sem);
-	} else {
-		rdaemon = *it;
-	}
-
-	/* Request a send buffer */
-	rdaemon->main_client->get_send_buffer(&send_buf);
-	rdaemon->main_client->flush_send_buffer();
-
-	/* Populate send buffer with cm_connect_msg */
-	struct cm_connect_msg *c = (struct cm_connect_msg *)send_buf;
-	c->type			= CONNECT_MS;
-	strcpy(c->server_msname, in->server_msname);
-	c->client_msid		= in->client_msid;
-	c->client_msubid	= in->client_msubid;
-	c->client_bytes		= in->client_bytes;
-	c->client_rio_addr_len	= in->client_rio_addr_len;
-	c->client_rio_addr_lo	= in->client_rio_addr_lo;
-	c->client_rio_addr_hi	= in->client_rio_addr_hi;
-	c->client_destid_len	= peer.destid_len;
-	c->client_destid	= peer.destid;
-
-	/* Send buffer to server */
-	if (rdaemon->main_client->send()) {
-		out.status = -3;
-		return &out;
-	}
-	INFO("cm_connect_msg sent to remote daemon\n");
-
-	/* Add POSIX message queue name to list of queue names */
-	string	mq_name(in->server_msname);
-	mq_name.insert(0, 1, '/');
-
-	/* Add to list of message queue names awaiting an 'accept' to 'connect' */
-	wait_accept_mq_names.push_back(mq_name);
-
-	/* Wake up wait_accept_thread */
-	DBG("cm_wait_accept_sem (0x%X) now posting!\n", rdaemon->cm_wait_accept_sem);
-	if (sem_post(&rdaemon->cm_wait_accept_sem) == -1) {
-		WARN("sem_post(&rdaemon.cm_wait_accept_sem): %s\n", strerror(errno));
-		out.status = -1;
-	} else {
-		DBG("rdaemon->cm_wait_accept_sem = 0x%X\n", rdaemon->cm_wait_accept_sem);
-		out.status = 0;
-	}
-	/* Wake up wait_accept_thread */
-	DBG("cm_wait_accept_sem (0x%X) now posting!\n", rdaemon->cm_wait_accept_sem);
-	if (sem_post(&rdaemon->cm_wait_accept_sem) == -1) {
-		WARN("sem_post(&rdaemon.cm_wait_accept_sem): %s\n", strerror(errno));
-		out.status = -1;
-	} else {
-		DBG("rdaemon->cm_wait_accept_sem = 0x%X\n", rdaemon->cm_wait_accept_sem);
-		out.status = 0;
-	}
-#endif
 	DBG("EXIT\n");
 	return &out;
 
@@ -693,9 +550,6 @@ send_disconnect_1_svc(send_disconnect_input *in, struct svc_req *rqstp)
 	(void)rqstp;
 	static send_disconnect_output out;
 
-#if 0
-	cm_client *aux_client;
-#endif
 	out.status = 0;
 
 	DBG("Client to disconnect from destid = 0x%X\n", in->rem_destid);
@@ -737,58 +591,7 @@ send_disconnect_1_svc(send_disconnect_input *in, struct svc_req *rqstp)
 	}
 	DBG("Sent DISCONNECT_MS for msid = 0x%lX, client_destid = 0x%lX\n",
 				disc_msg->server_msid, disc_msg->client_destid);
-	return &out;
 
-#if 0
-	/* Create aux_client cm_sock object */
-	try {
-		DBG("Create aux_client\n");
-		aux_client = new cm_client("aux_client",
-					   peer.mport_id,
-					   peer.aux_mbox_id,
-					   peer.aux_channel);
-	}
-	catch(cm_exception e) {
-		CRIT("aux_client: %s\n", e.err);
-		out.status = -1;
-		goto out;
-	}
-
-	/* Connect to server's RDMA daemon via CM sockets */
-	/* Using auxiliary mailbox/sockets for disconnect message */
-	DBG("Calling aux_client->connect()\n");
-	if (aux_client->connect(in->rem_destid)) {
-		out.status = -1;
-		goto out;
-	}
-	INFO("Client connected to server on aux channel\n");
-
-	/* Get and flush send buffer */
-	aux_client->flush_send_buffer();
-	aux_client->get_send_buffer(&send_buf);
-
-	/* Put CM disconnect message in send buffer */
-	c = (struct cm_disconnect_msg *)send_buf;
-	c->type		  = DISCONNECT_MS;
-	c->client_msubid  = in->loc_msubid;	/* For removal from server database */
-	c->server_msid    = in->rem_msid;	/* For removing client's destid from server's
-						 * info on the daemon */
-	c->client_destid = peer.destid;		/* For knowing which destid to remove */
-	c->client_destid_len = 16;
-
-	/* Send buffer to server */
-	if (aux_client->send()) {
-		out.status = -1;
-		goto out;
-	}
-	DBG("Sent CM disconnect: msid = 0x%lX, client_destid = 0x%lX\n",
-						c->server_msid, c->client_destid);
-	/* Now delete aux_client since we don't wait for an acknowledgement
-	 * for a disconnect message */
-	DBG("delete aux_client\n");
-	delete aux_client;
-out:
-#endif
 	return &out;
 } /* send_disconnect_1_svc() */
 
