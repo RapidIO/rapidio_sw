@@ -152,23 +152,23 @@ void *wait_accept_destroy_thread_f(void *arg)
 		}
 		/* Read all messages as ACCEPT_MS first, then if the
 		 * type is different then cast message buffer accordingly. */
-		cm_accept_msg	*accept_msg;
-		accept_destroy_client->get_recv_buffer((void **)&accept_msg);
-		if (accept_msg->type == ACCEPT_MS) {
+		cm_accept_msg	*accept_cm_msg;
+		accept_destroy_client->get_recv_buffer((void **)&accept_cm_msg);
+		if (accept_cm_msg->type == ACCEPT_MS) {
 			HIGH("Received ACCEPT_MS from %s\n",
-						accept_msg->server_ms_name);
+						accept_cm_msg->server_ms_name);
 
 			/* Form message queue name from memory space name */
 			char mq_name[CM_MS_NAME_MAX_LEN+2];
 			mq_name[0] = '/';
-			strcpy(&mq_name[1], accept_msg->server_ms_name);
+			strcpy(&mq_name[1], accept_cm_msg->server_ms_name);
 			string mq_str(mq_name);
 
 			/* Is the message queue name in wait_accept_mq_names? */
 			/* Not found. Ignore message since no one is waiting for it */
 			if (!wait_accept_mq_names.contains(mq_str)) {
 				WARN("Ignoring message from ms('%s')!\n",
-						accept_msg->server_ms_name);
+						accept_cm_msg->server_ms_name);
 				continue;
 			}
 
@@ -189,15 +189,15 @@ void *wait_accept_destroy_thread_f(void *arg)
 			DBG("Opened POSIX queue '%s'\n", mq_name);
 
 			/* POSIX accept message preparation */
-			mq_accept_msg	*accept_cm_msg;
-			accept_mq->get_send_buffer(&accept_cm_msg);
-			accept_msg->server_msid		= accept_cm_msg->server_msid;
-			accept_msg->server_bytes	= accept_cm_msg->server_bytes;
-			accept_msg->server_rio_addr_len	= accept_cm_msg->server_rio_addr_len;
-			accept_msg->server_rio_addr_lo	= accept_cm_msg->server_rio_addr_lo;
-			accept_msg->server_rio_addr_hi	= accept_cm_msg->server_rio_addr_hi;
-			accept_msg->server_destid_len	= accept_cm_msg->server_destid_len;
-			accept_msg->server_destid	= accept_cm_msg->server_destid;
+			mq_accept_msg	*accept_mq_msg;
+			accept_mq->get_send_buffer(&accept_mq_msg);
+			accept_mq_msg->server_msid		= accept_cm_msg->server_msid;
+			accept_mq_msg->server_bytes	= accept_cm_msg->server_bytes;
+			accept_mq_msg->server_rio_addr_len	= accept_cm_msg->server_rio_addr_len;
+			accept_mq_msg->server_rio_addr_lo	= accept_cm_msg->server_rio_addr_lo;
+			accept_mq_msg->server_rio_addr_hi	= accept_cm_msg->server_rio_addr_hi;
+			accept_mq_msg->server_destid_len	= accept_cm_msg->server_destid_len;
+			accept_mq_msg->server_destid	= accept_cm_msg->server_destid;
 			DBG("CM Accept: msid= 0x%X, destid=0x%X, destid_len = 0x%X, rio=0x%lX\n",
 							accept_cm_msg->server_msid,
 							accept_cm_msg->server_destid,
@@ -207,13 +207,13 @@ void *wait_accept_destroy_thread_f(void *arg)
 							accept_cm_msg->server_bytes,
 							accept_cm_msg->server_rio_addr_len);
 			DBG("MQ Accept: msid= 0x%X, destid=0x%X, destid_len = 0x%X, rio=0x%lX\n",
-								accept_msg->server_msid,
-								accept_msg->server_destid,
-								accept_msg->server_destid_len,
-								accept_msg->server_rio_addr_lo);
+								accept_mq_msg->server_msid,
+								accept_mq_msg->server_destid,
+								accept_mq_msg->server_destid_len,
+								accept_mq_msg->server_rio_addr_lo);
 			DBG("MQ Accept: bytes = %u, rio_addr_len = %u\n",
-								accept_msg->server_bytes,
-								accept_msg->server_rio_addr_len);
+								accept_mq_msg->server_bytes,
+								accept_mq_msg->server_rio_addr_len);
 			/* Send POSIX accept back to conn_ms_h() */
 			if (accept_mq->send()) {
 				WARN("Failed to send accept_msg on '%s': %s\n", strerror(errno));
@@ -228,7 +228,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			 * wait_accept_mq_names list and go back and wait for the
 			 * next accept message */
 			wait_accept_mq_names.remove(mq_str);
-		} else if (accept_msg->type == DESTROY_MS) {
+		} else if (accept_cm_msg->type == DESTROY_MS) {
 			cm_destroy_msg	*destroy_msg;
 			accept_destroy_client->get_recv_buffer((void **)&destroy_msg);
 
