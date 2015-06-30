@@ -280,10 +280,13 @@ public:
 	try : unix_base(name, sun_path)
 	{
 	}
-
 	catch(...)	/* Catch failures in unix_base::unix_base() */
 	{
 		throw unix_sock_exception("Failed in base constructor");
+	}
+
+	~unix_client()
+	{
 	}
 
 	int connect()
