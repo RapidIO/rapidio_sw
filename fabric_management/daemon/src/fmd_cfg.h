@@ -85,6 +85,7 @@ struct fmd_cfg_ep;
 struct fmd_mport_info {
 	uint32_t num;
 	riocp_pe_handle mp_h;
+	uint32_t ct; /* Updated when MPORT is initialized */
 	int op_mode;
 	struct dev_id devids[FMD_DEVID_MAX];
 	struct fmd_cfg_ep *ep; /* Link to endpoint definition for this MPORT */
@@ -183,11 +184,12 @@ struct fmd_cfg_parms {
 	int init_err;		/* If asserted, abort initialization */
 	int init_and_quit;	/* If asserted, exit after completing init */
 	int simple_init;	/* If asserted, do not init device directory */
+	int print_help;		/* If asserted, print help and exit */
 	int cli_port_num;	/* POSIX Socket for remote CLI session */
 	int app_port_num;	/* POSIX Socket for applications to connect */
 	int run_cons;		/* Run a console on this daemon. */
 	int mast_idx;		/* Idx of the mport_info that is master */
-	int max_mport_info_idx; /* Maximum number of mports */
+	uint32_t max_mport_info_idx; /* Maximum number of mports */
 	struct fmd_mport_info mport_info[FMD_MAX_MPORTS]; 
 	uint32_t mast_devid_sz;	/* Master FMD location information */
 	uint32_t mast_devid;		/* Master FMD location information */
@@ -208,6 +210,8 @@ struct fmd_cfg_parms {
 extern struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[]);
 extern void fmd_process_cfg_file(struct fmd_cfg_parms *cfg);
 extern struct fmd_cfg_sw *find_cfg_sw_by_ct(uint32_t ct, 
+					struct fmd_cfg_parms *cfg);
+extern struct fmd_cfg_ep *find_cfg_ep_by_ct(uint32_t ct, 
 					struct fmd_cfg_parms *cfg);
 
 #ifdef __cplusplus

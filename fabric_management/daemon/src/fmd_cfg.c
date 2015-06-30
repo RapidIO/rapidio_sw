@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <semaphore.h>
 #include <sys/types.h>
@@ -60,9 +61,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "fmd_dd.h"
 #include "fmd_cfg.h"
-#include "cli_cmd_db.h"
-#include "cli_cmd_line.h"
-#include "cli_parse.h"
+// #include "cli_cmd_db.h"
+// #include "cli_cmd_line.h"
+// #include "cli_parse.h"
+#include "libcli.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,7 +73,8 @@ extern "C" {
 void fmd_print_help(void)
 {
 	printf("\nThe RapidIO Fabric Management Daemon (\"FMD\") manages a\n");
-	printf("RapidIO fabric.  Options are:\n");
+	printf("RapidIO fabric defined in a configuration file.\n");
+	printf("Options are:\n");
 	printf("-a, -A<port>: POSIX Ethernet socket for App connections.\n");
 	printf("       Default is %d\n", FMD_DFLT_APP_PORT_NUM);
 	printf("-c, -C<filename>: FMD configuration file name.\n");
@@ -128,6 +131,7 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 	cfg = (struct fmd_cfg_parms *)malloc(sizeof(struct fmd_cfg_parms));
 	cfg->init_err = 0;
 	cfg->init_and_quit = 0;
+	cfg->print_help = 0;
 	cfg->simple_init = 0;
 	cfg->cli_port_num = FMD_DFLT_CLI_PORT_NUM;
 	cfg->app_port_num = FMD_DFLT_APP_PORT_NUM;
@@ -217,6 +221,7 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 
 print_help:
 	cfg->init_and_quit = 1;
+	cfg->print_help = 1;
 	fmd_print_help();
 	return cfg;
 }
@@ -377,6 +382,27 @@ int get_dec_int(struct fmd_cfg_parms *cfg, uint32_t *dec_int)
 	if (cfg->init_err || get_next_token(cfg, &tok))
 		goto fail;
 	*dec_int = atoi(tok);
+	return 0;
+fail:
+	return 1;
+};
+
+int get_hex_int(struct fmd_cfg_parms *cfg, uint32_t *hex_int)
+{
+	char *tok, *endptr;
+
+	if (cfg->init_err || get_next_token(cfg, &tok))
+		goto fail;
+	errno = 0;
+	*hex_int = strtol(tok, &endptr, 16);
+
+	if ((errno == ERANGE && (*hex_int == LONG_MAX || *hex_int == LONG_MIN))
+		|| ((errno != 0) && (*hex_int == 0)))
+		goto fail;
+
+	if (endptr == tok)
+		goto fail;
+
 	return 0;
 fail:
 	return 1;
@@ -719,7 +745,7 @@ fail:
 int match_ep_to_mports(struct fmd_cfg_parms *cfg, struct fmd_cfg_ep_port *ep_p,
 			int pt_i, struct fmd_cfg_ep *ep)
 {
-	int mp_i, did_sz;
+	uint32_t mp_i, did_sz;
 	struct dev_id *mp_did;
 	struct dev_id *ep_did = ep_p->devids;
 
@@ -874,7 +900,7 @@ int parse_ep_port(struct fmd_cfg_parms *cfg, struct fmd_cfg_ep_port *prt)
 
 	if (get_dec_int(cfg, &prt->port))
 		goto fail;
-	if (get_dec_int(cfg, &prt->ct))
+	if (get_hex_int(cfg, &prt->ct))
 		goto fail;
 	if (parse_rapidio(cfg, &prt->rio))
 		goto fail;
@@ -1258,6 +1284,32 @@ struct fmd_cfg_sw *find_cfg_sw_by_ct(uint32_t ct, struct fmd_cfg_parms *cfg)
 			ret = &cfg->sws[i];
 			break;
 		};
+	};
+
+	return ret;
+};
+
+struct fmd_cfg_ep *find_cfg_ep_by_ct(uint32_t ct, struct fmd_cfg_parms *cfg)
+{
+	struct fmd_cfg_ep *ret = NULL;
+	uint32_t i, p;
+
+	for (i = 0; (i < cfg->ep_cnt) && (NULL == ret); i++) {
+		if (!cfg->eps[i].valid)
+			continue;
+		for (p = 0; (p < FMD_MAX_EP_PORT) && (NULL == ret); p++) {
+			if (!cfg->eps[i].ports[p].valid)
+				continue;
+			if (cfg->eps[i].ports[p].ct == ct) {
+				ret = &cfg->eps[i];
+				break;
+			};
+		};
+	};
+
+	for (i = 0; (i < cfg->max_mport_info_idx) && (NULL == ret); i++) {
+		if (cfg->mport_info[i].ct == ct)
+			ret = cfg->mport_info[i].ep;
 	};
 
 	return ret;

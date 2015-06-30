@@ -53,10 +53,23 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "fmd_dd.h"
 #include "liblog.h"
-#include "dev_db.h"
-#include "cli_cmd_db.h"
-#include "cli_cmd_line.h"
-#include "cli_parse.h"
+// #include "dev_db.h"
+// #include "cli_cmd_db.h"
+// #include "cli_cmd_line.h"
+// #include "cli_parse.h"
+#include "libcli.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <semaphore.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/sem.h>
+#include <fcntl.h>
+#include <time.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -68,7 +81,7 @@ struct fmd_dd_mtx *cli_dd_mtx;
 char *cli_dd_fn;
 char *cli_dd_mtx_fn;
 
-extern const struct cli_cmd CLIDDDump;
+extern struct cli_cmd CLIDDDump;
 
 int CLIDDDumpCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -90,14 +103,16 @@ int CLIDDDumpCmd(struct cli_env *env, int argc, char **argv)
 		cli_dd->md_ct, cli_dd->num_devs);
 	logMsg(env);
 	if (cli_dd->num_devs > 0)  {
-		sprintf(env->output, "Idx ---CT--- -destID- HC MP\n");
+		sprintf(env->output, "Idx ---CT--- -destID- SZ HC MP Name\n");
 		logMsg(env);
 		for (i = 0; (i < cli_dd->num_devs) && (i < FMD_MAX_DEVS); i++) {
-			sprintf(env->output, "%3d %8x %8x %2x %2s\n", i, 
-				cli_dd->devs[i].ct, 
+			sprintf(env->output, "%3d %8x %8x %2x %2x %2s %30s\n",
+				i, cli_dd->devs[i].ct, 
 				cli_dd->devs[i].destID, 
+				cli_dd->devs[i].destID_sz, 
 				cli_dd->devs[i].hc,
-				cli_dd->devs[i].is_mast_pt?"MP":"..");
+				cli_dd->devs[i].is_mast_pt?"MP":"..",
+				cli_dd->devs[i].name);
 			logMsg(env);
 		};
 	};
@@ -140,7 +155,7 @@ exit:
 	return 0;
 };
 
-const struct cli_cmd CLIDDDump = {
+struct cli_cmd CLIDDDump = {
 (char *)"dddump",
 3,
 0,
@@ -150,7 +165,7 @@ CLIDDDumpCmd,
 ATTR_RPT
 };
 
-extern const struct cli_cmd CLIDDInc;
+extern struct cli_cmd CLIDDInc;
 
 int CLIDDIncCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -164,7 +179,7 @@ int CLIDDIncCmd(struct cli_env *env, int argc, char **argv)
 	return 0;
 };
 
-const struct cli_cmd CLIDDInc = {
+struct cli_cmd CLIDDInc = {
 (char *)"inc",
 3,
 0,
@@ -174,7 +189,7 @@ CLIDDIncCmd,
 ATTR_NONE
 };
 
-extern const struct cli_cmd CLIClean;
+extern struct cli_cmd CLIClean;
 
 int CLICleanCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -223,7 +238,7 @@ exit:
 	return 0;
 };
 
-const struct cli_cmd CLIClean = {
+struct cli_cmd CLIClean = {
 (char *)"clean",
 3,
 0,
@@ -233,7 +248,7 @@ CLICleanCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd *dd_cmds[3] = 
+struct cli_cmd *dd_cmds[3] = 
 	{&CLIDDDump, 
 	 &CLIDDInc,
 	 &CLIClean };

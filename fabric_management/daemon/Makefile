@@ -44,10 +44,13 @@ src/%.o: src/%.c
 	-DRDMA_LL=7 \
 	-I$(LINUX_INCLUDE_DIR)
 
-FMD_SOURCES = src/fmd_app_mgmt.c src/fmd_cfg.c src/fmd.c src/fmd_cfg_cli.c
+FMD_SOURCES = src/fmd_app_mgmt.c src/fmd_cfg.c src/fmd.c src/fmd_cfg_cli.c \
+	src/fmd_mgmt_master.c src/fmd_mgmt_slave.c src/fmd_mgmt_cli.c \
+	src/fmd_dev_rw_cli.c 
 
-FMD_OBJECTS = src/fmd_app_mgmt.o src/fmd_cfg.o src/fmd.o src/fmd_cfg_cli.o
-
+FMD_OBJECTS = src/fmd_app_mgmt.o src/fmd_cfg.o src/fmd.o src/fmd_cfg_cli.o \
+	src/fmd_mgmt_master.o src/fmd_mgmt_slave.o src/fmd_mgmt_cli.o \
+	src/fmd_dev_rw_cli.o 
 all: fmd
 
 # The Fabric Management Daemon
@@ -55,7 +58,7 @@ fmd:  $(FMD_OBJECTS) $(FMD_OBJECTS) src/*.h
 	@echo ---------- Building fmd...
 	$(CXX) -pthread \
 	-o $@ $(FMD_OBJECTS) $(LIB_DIRS) \
-	-lclidb -ldd -llist -lrt -lmport -llog -lriocp_pe \
+	-lcli -ldd -llist -lrt -lmport -llog -lriocp_pe \
 	-lswitch_api -lrio_maint
 
 clean:

@@ -52,12 +52,15 @@ extern "C" {
 #define FMD_DEV32 2
 #define FMD_DEVID_MAX (FMD_DEV32+1)
 #define FMD_MAX_DEVS 20
+#define FMD_MAX_NAME 47
 
 struct fmd_dd_dev_info {
 	uint32_t ct;
 	uint32_t destID;
+	uint32_t destID_sz;
 	uint32_t hc;
 	uint32_t is_mast_pt;
+	char name[FMD_MAX_NAME+1];
 };
 
 struct fmd_dd {
@@ -96,8 +99,6 @@ extern void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
                         struct fmd_dd_mtx **dd_mtx_p,
                         char *dd_fn, int *dd_fd, struct fmd_dd **dd_p,
 			int dd_rw);
-extern void fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
-                        struct fmd_dd_mtx *dd_mtx_p);
 extern uint32_t fmd_dd_atomic_copy(struct fmd_dd *dd,
                         struct fmd_dd_mtx *dd_mtx,
                         uint32_t *num_devs,

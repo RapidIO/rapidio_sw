@@ -52,7 +52,7 @@ export LINUX_INCLUDE_DIR
 
 CCFLAGS= -c -g -ggdb -fPIC -Wall -Werror -O2 -I. \
 	-I./librio_switch/inc \
-	-I./cli -I./libriocp_pe/inc -I./librio_maint/inc \
+	-I./libriocp_pe/inc -I./librio_maint/inc \
 	-I./libriocp_pe/src -I$(LINUX_INCLUDE_DIR) \
 	-I../common/include -DRDMA_LL=$(level)
 
@@ -68,11 +68,6 @@ libriocp_pe:
 	$(MAKE) all -C libriocp_pe
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libriocp_pe/libriocp_pe.a $(LOCAL_LIBRARY_DIR)
-
-libcli:
-	$(MAKE) all -C cli
-	mkdir -p $(LOCAL_LIBRARY_DIR)
-	cp cli/libclidb.a $(LOCAL_LIBRARY_DIR)
 
 librio_maint:
 	$(MAKE) all -C librio_maint
@@ -105,7 +100,6 @@ clean:
 		$(LOCAL_LIBRARY_DIR)/*.a
 	$(MAKE) clean -C librio_switch
 	$(MAKE) clean -C librio_maint
-	$(MAKE) clean -C cli
 	$(MAKE) clean -C libriocp_pe
 	$(MAKE) clean -C daemon
 	$(MAKE) clean -C libfmdd

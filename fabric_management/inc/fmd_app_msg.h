@@ -35,15 +35,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 
-#ifndef __FMD_MSG_H__
-#define __FMD_MSG_H__
+#ifndef __FMD_APP_MSG_H__
+#define __FMD_APP_MSG_H__
 
-#define FMD_MSG_RESP 0x80000000
-#define FMD_MSG_FAIL 0x40000000
+#define FMD_APP_MSG_RESP 0x80000000
+#define FMD_APP_MSG_FAIL 0x40000000
 
 #define FMD_REQ_HELLO 6
-#define FMD_RESP_HELLO (FMD_REQ_HELLO|FMD_MSG_RESP)
-#define FMD_MSG_LAST_MSG_TYPE 0x10;
+#define FMD_RESP_HELLO (FMD_REQ_HELLO|FMD_APP_MSG_RESP)
+#define FMD_APP_MSG_LAST_MSG_TYPE 0x10;
 
 #define MAX_APP_NAME 48
 
@@ -73,7 +73,7 @@ struct libfmd_dmn_app_msg { /* Messages sent FROM application TO RSKTD */
 	};
 };
 
-#define FMD_MSG_SKT_FMT "/usr/tmp/FMD%04d"
+#define FMD_APP_MSG_SKT_FMT "/usr/tmp/FMD%04d"
 
-#endif /* __FMD_MSG_H__ */
+#endif /* __FMD_APP_MSG_H__ */
 

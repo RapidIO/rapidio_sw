@@ -40,23 +40,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 #include "riocp_pe_internal.h"
-#include "dev_db_rw_cmds.h"
-#include "cli_cmd_db.h"
-#include "cli_cmd_line.h"
-#include "cli_parse.h"
+#include "fmd_dev_rw_cli.h"
 #include "liblog.h"
+#include "libcli.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 // Globals used by repeatable commands
-static UINT32 store_address;
-static UINT32 store_numbytes;
-static UINT32 store_numacc;
-static UINT32 store_data;
+static uint32_t store_address;
+static uint32_t store_numbytes;
+static uint32_t store_numacc;
+static uint32_t store_data;
 
-void aligningAddress(struct cli_env *env, UINT32 address)
+void aligningAddress(struct cli_env *env, uint32_t address)
 {
 	sprintf(env->output,
 		"\nNote: Converting address 0x%08x to multiple of %d bytes\n",
@@ -64,14 +62,14 @@ void aligningAddress(struct cli_env *env, UINT32 address)
 	logMsg(env);
 };
 
-void failedReading(struct cli_env *env, UINT32 address, STATUS rc)
+void failedReading(struct cli_env *env, uint32_t address, uint32_t rc)
 {
 	sprintf(env->output, "\nFAILED reading, Address 0x%08x, rc 0x%08x\n",
 		address, rc);
 	logMsg(env);
 };
 
-void failedWrite(struct cli_env *env, UINT32 address, UINT32 data, STATUS rc)
+void failedWrite(struct cli_env *env, uint32_t address, uint32_t data, uint32_t rc)
 {
 	sprintf(env->output,
 		"\nFAILED writing, Address 0x%08x, Data 0x%08x, rc = 0x%08x\n",
@@ -122,6 +120,12 @@ int CLIRegReadCmd(struct cli_env *env, int argc, char **argv)
 	int rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
 
+	if (NULL == pe_h) {
+		sprintf(env->output, "\nNo Device Selected...\n");
+		logMsg(env);
+		goto exit;
+	};
+
 	if (argc) {
 		address = getHex(argv[0], 0);
 		if (argc > 1)
@@ -161,7 +165,7 @@ exit:
 	return errorStat;
 }
 
-const struct cli_cmd CLIRegRead = {
+struct cli_cmd CLIRegRead = {
 (char *)"read",
 1,
 1,
@@ -182,10 +186,16 @@ int CLIRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 {
 	int errorStat = 0;
-	UINT32 address;
-	UINT32 data;
-	STATUS rc;
+	uint32_t address;
+	uint32_t data;
+	uint32_t rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+
+	if (NULL == pe_h) {
+		sprintf(env->output, "\nNo Device Selected...\n");
+		logMsg(env);
+		goto exit;
+	};
 
 	if (argc) {
 		address = getHex(argv[0], 0);
@@ -204,14 +214,14 @@ int CLIRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	/* Command arguments are syntactically correct - do write */
 	rc = mport_write(pe_h, address, data);
-	if (RIO_SUCCESS != rc) {
+	if (0 != rc) {
 		failedWrite(env, address, data, rc);
 		goto exit;
 	}
 
 	/* read data back */
 	rc = mport_read(pe_h, address, &data);
-	if (RIO_SUCCESS != rc) {
+	if (0 != rc) {
 		failedReading(env, address, rc);
 		goto exit;
 	} else {
@@ -223,7 +233,7 @@ exit:
 	return errorStat;
 }
 
-const struct cli_cmd CLIRegWrite = {
+struct cli_cmd CLIRegWrite = {
 (char *)"write",
 1,
 2,
@@ -243,11 +253,17 @@ ATTR_RPT
 int CLIRegReWriteCmd(struct cli_env *env, int argc, char **argv)
 {
 	int errorStat = 0;
-	UINT32 address;
-	UINT32 data;
-	UINT32 repeat, i;
-	STATUS rc;
+	uint32_t address;
+	uint32_t data;
+	uint32_t repeat, i;
+	uint32_t rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+
+	if (NULL == pe_h) {
+		sprintf(env->output, "\nNo Device Selected...\n");
+		logMsg(env);
+		goto exit;
+	};
 
 	if (argc) {
 		address = getHex(argv[0], 0);
@@ -269,14 +285,14 @@ int CLIRegReWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	for (i = 0; i < repeat; i++) {
 		rc = mport_write(pe_h, address, data);
-		if (RIO_SUCCESS != rc) {
+		if (0 != rc) {
 			failedWrite(env, address, data, rc);
 			goto exit;
 		};
 	};
 
 	rc = mport_read(pe_h, address, &data);
-	if (RIO_SUCCESS != rc) {
+	if (0 != rc) {
 		failedReading(env, address, rc);
 		goto exit;
 	} else {
@@ -287,7 +303,7 @@ exit:
 	return errorStat;
 }
 
-const struct cli_cmd CLIRegReWrite = {
+struct cli_cmd CLIRegReWrite = {
 (char *)"REWrite",
 3,
 3,
@@ -309,10 +325,16 @@ int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
 
 {
 	int errorStat = 0;
-	UINT32 address;
-	UINT32 data;
-	STATUS rc;
+	uint32_t address;
+	uint32_t data;
+	uint32_t rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+
+	if (NULL == pe_h) {
+		sprintf(env->output, "\nNo Device Selected...\n");
+		logMsg(env);
+		goto exit;
+	};
 
 	if (argc) {
 		address = getHex(argv[0], 0);
@@ -332,7 +354,7 @@ int CLIRegWriteNoReadbackCmd(struct cli_env *env, int argc, char **argv)
 
 	/* Command arguments are syntactically correct - do write */
 	rc = mport_write(pe_h, address, data);
-	if (RIO_SUCCESS != rc) {
+	if (0 != rc) {
 		failedWrite(env, address, data, rc);
 		goto exit;
 	} else {
@@ -343,7 +365,7 @@ exit:
 	return errorStat;
 }
 
-const struct cli_cmd CLIRegWriteNoReadback = {
+struct cli_cmd CLIRegWriteNoReadback = {
 (char *)"Write",
 1,
 2,
@@ -359,10 +381,16 @@ ATTR_RPT
 int expect(struct cli_env *env, int argc, char **argv, int inverse)
 {
 	int errorStat = 0;
-	UINT32 address;
-	UINT32 data, expdata;
-	STATUS rc;
+	uint32_t address;
+	uint32_t data, expdata;
+	uint32_t rc;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+
+	if (NULL == pe_h) {
+		sprintf(env->output, "\nNo Device Selected...\n");
+		logMsg(env);
+		goto exit;
+	};
 
 	if (argc) {
 		address = getHex(argv[0], 0);
@@ -380,7 +408,7 @@ int expect(struct cli_env *env, int argc, char **argv, int inverse)
 	};
 
 	rc = mport_read(pe_h, address, &data);
-	if (RIO_SUCCESS != rc) {
+	if (0 != rc) {
 		failedReading(env, address, rc);
 		goto exit;
 	};
@@ -409,7 +437,7 @@ int CLIRegExpectNotCmd(struct cli_env *env, int argc, char **argv)
 	return expect(env, argc, argv, 1);
 }
 
-const struct cli_cmd CLIRegExpectNot = {
+struct cli_cmd CLIRegExpectNot = {
 (char *)"expnot",
 4,
 2,
@@ -432,7 +460,7 @@ int CLIRegExpectCmd(struct cli_env *env, int argc, char **argv)
 	return expect(env, argc, argv, 0);
 }
 
-const struct cli_cmd CLIRegExpect = {
+struct cli_cmd CLIRegExpect = {
 (char *)"expect",
 2,
 2,
@@ -454,12 +482,18 @@ int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
 
 {
 	int errorStat = 0;
-	UINT32 address, data;
-	UINT32 numbytes;
-	UINT32 i;
-	STATUS rc;
-	static UINT32 store_address, store_numbytes;
+	uint32_t address, data;
+	uint32_t numbytes;
+	uint32_t i;
+	uint32_t rc;
+	static uint32_t store_address, store_numbytes;
         riocp_pe_handle pe_h = (riocp_pe_handle)(env->h);
+
+	if (NULL == pe_h) {
+		sprintf(env->output, "\nNo Device Selected...\n");
+		logMsg(env);
+		goto exit;
+	};
 
 	if (argc) {
 		address  = getHex(argv[0], 0);
@@ -493,7 +527,7 @@ int CLIRegDumpCmd(struct cli_env *env, int argc, char **argv)
 	};
 	for (i = 0; i < numbytes; i += 4) {
 		rc = mport_read(pe_h, address + i, &data);
-		if (RIO_SUCCESS != rc) {
+		if (0 != rc) {
 			failedReading(env, address, rc);
 			goto exit;
 		}
@@ -517,7 +551,7 @@ exit:
 	return errorStat;
 }
 
-const struct cli_cmd CLIRegDump = {
+struct cli_cmd CLIRegDump = {
 (char *)"dump",
 1,
 2,
@@ -530,7 +564,7 @@ CLIRegDumpCmd,
 ATTR_RPT
 };
 
-const struct cli_cmd *reg_cmd_list[] = {
+struct cli_cmd *reg_cmd_list[] = {
 &CLIRegRead,
 &CLIRegWrite,
 &CLIRegReWrite,
@@ -540,7 +574,7 @@ const struct cli_cmd *reg_cmd_list[] = {
 &CLIRegDump
 };
 
-int bind_dev_db_rw_cmds(void)
+void fmd_bind_dev_rw_cmds(void)
 {
 	// Init globals used by repeatable commands
 	store_address = 0;
@@ -548,7 +582,7 @@ int bind_dev_db_rw_cmds(void)
 	store_numacc = 1;
 	store_data = 0;
 
-	return add_commands_to_cmd_db(sizeof(reg_cmd_list)/
+	add_commands_to_cmd_db(sizeof(reg_cmd_list)/
 			sizeof(struct cli_cmd *), reg_cmd_list);
 };
 

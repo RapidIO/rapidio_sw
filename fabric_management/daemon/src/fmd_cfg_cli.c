@@ -53,15 +53,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 
 #include "fmd_dd.h"
-#include "fmd_msg.h"
+#include "fmd_app_msg.h"
 #include "liblog.h"
 #include "fmd_app_mgmt.h"
 #include "fmd_cfg.h"
 #include "fmd_state.h"
 #include "fmd.h"
-#include "cli_cmd_line.h"
-#include "cli_cmd_db.h"
-#include "cli_parse.h"
+// #include "cli_cmd_line.h"
+// #include "cli_cmd_db.h"
+// #include "cli_parse.h"
+#include "libcli.h"
 #include "fmd_app_mgmt.h"
 
 #ifdef __cplusplus
@@ -111,7 +112,7 @@ int CLIFCfgDumpCmd(struct cli_env *env, int argc, char **argv)
 	};
 	
 	sprintf(env->output, 
-"\nidx V  -SWITCH-HANDLE-- ------NAME----- --TYPE-- SZ --DID-- ---HC--- ---CT---\n");
+"\nidx V  -SWITCH-HANDLE-- ------NAME----- --TYPE-- SZ ---DID-- ---HC--- ---CT---\n");
 	logMsg(env);
 	for (i = 0; i < fmd->cfg->sw_cnt; i++) {
 		struct fmd_cfg_sw *sw;
@@ -261,7 +262,7 @@ CLIFStatusCmd,
 ATTR_NONE
 };
 
-const struct cli_cmd *fmd_cli_cmds[3] = {
+struct cli_cmd *fmd_cli_cmds[3] = {
 	&CLIFCDump,
 	&CLIFSelect,
 	&CLIFStatus

@@ -1,3 +1,4 @@
+/* Fabric Management Daemon Register read/write commands */
 /*
 ****************************************************************************
 Copyright (c) 2014, Integrated Device Technology Inc.
@@ -30,17 +31,18 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef __DEV_DB_RW_CMDS_H__
-#define __DEV_DB_RW_CMDS_H__
+
+#ifndef __FMD_DEV_RW_CLI_H__
+#define __FMD_DEV_RW_CLI_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int bind_dev_db_rw_cmds(void);
+void fmd_bind_dev_rw_cmds(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __DEV_DB_RW_CMDS_H__ */
+#endif /* __FMD_DEV_RW_CLI_H__ */

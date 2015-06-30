@@ -57,22 +57,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 
 #include "compile_constants.h"
-#include "dev_db_sm.h"
+// #include "dev_db_sm.h"
 #include "DAR_DevDriver.h"
 #include "DAR_RegDefs.h"
 
 #include "IDT_DSF_DB_Private.h"
 #include "DAR_Utilities.h"
 
-#include "cli_cmd_line.h"
-#include "cli_base_init.h"
+#include "libcli.h"
 #include "riocp_pe.h"
 #include "riocp_pe_internal.h"
 #include "librio_maint.h"
 #include "DAR_DevDriver.h"
 #include "fmd_dd.h"
-#include "fmd_msg.h"
-#include "dev_db.h"
+#include "fmd_app_msg.h"
+// #include "dev_db.h"
 #include "liblist.h"
 #include "liblog.h"
 #include "fmd_cfg.h"
@@ -80,6 +79,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_state.h"
 #include "fmd_app_mgmt.h"
 #include "riodp_mport_lib.h"
+#include "fmd_mgmt_cli.h"
+#include "fmd_mgmt_master.h"
+#include "fmd_dev_rw_cli.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -92,10 +94,21 @@ DAR_DEV_INFO_t *dev_h;
 struct fmd_cfg_parms *cfg;
 struct fmd_state *fmd;
 
+void custom_quit(cli_env *env)
+{
+	env = env;
+	shutdown_mgmt();
+	halt_app_handler();
+	cleanup_app_handler();
+	fmd_dd_cleanup(fmd->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
+			fmd->dd_fn, &fmd->dd_fd, &fmd->dd, fmd->fmd_rw);
+};
+
 void sig_handler(int signo)
 {
 	printf("\nRx Signal %x\n", signo);
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
+		custom_quit(NULL);
 		exit(EXIT_SUCCESS);
 		kill(getpid(), SIGKILL);
 	};
@@ -128,34 +141,6 @@ void set_prompt(struct cli_env *e)
 	snprintf(e->prompt, PROMPTLEN,  "%4x_%s>", pe_did, name);
 };
 
-void *console(void *cons_parm)
-{
-	struct cli_env cons_env;
-
-	cons_env.script = NULL;
-	cons_env.fout = NULL;
-	bzero(cons_env.output, BUFLEN);
-	bzero(cons_env.input, BUFLEN);
-	cons_env.DebugLevel = 0;
-	cons_env.progressState = 0;
-	cons_env.sess_socket = -1;
-	cons_env.h = mport_pe;
-	bzero(cons_env.prompt, PROMPTLEN+1);
-	set_prompt( &cons_env );
-
-	sem_wait(&cons_owner);
-	sem_wait(&cons_owner);
-
-	splashScreen(&cons_env);
-	*(int *)(cons_parm) = cli_terminal(&cons_env);
-
-	fmd_dd_cleanup(fmd->dd_mtx_fn, &fmd->dd_mtx_fd, &fmd->dd_mtx,
-			fmd->dd_fn, &fmd->dd_fd, &fmd->dd, fmd->fmd_rw);
-	exit(EXIT_SUCCESS);
-
-	return cons_parm;
-};
-
 void *poll_loop( void *poll_interval ) 
 {
 	int wait_time = ((int *)(poll_interval))[0];
@@ -165,7 +150,7 @@ void *poll_loop( void *poll_interval )
 	printf("RIO_DEMON: Poll interval %d seconds\n", wait_time);
 	sem_post(&cons_owner);
 	while(TRUE) {
-		sm_db_incr_chg_idx();
+		fmd_dd_incr_chg_idx(fmd->dd, 1);
 		sleep(wait_time);
 		if (!console)
 			printf("\nTick!");
@@ -273,8 +258,16 @@ void spawn_threads(struct fmd_cfg_parms *cfg)
 	}
 
 	if (cfg->run_cons) {
+		cli_init_base(custom_quit);
+		bind_dd_cmds(fmd->dd, fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
+		liblog_bind_cli_cmds();
+		fmd_bind_dbg_cmds();
+		fmd_bind_mgmt_dbg_cmds();
+		fmd_bind_dev_rw_cmds();
+
+		splashScreen((char *)"FMD Daemon Command Line Interface");
 		cons_ret = pthread_create( &console_thread, NULL, 
-				console, (void*)(pass_cons_ret));
+			console, (void *)((char *)"RSKTD > "));
 		if(cons_ret) {
 			fprintf(stderr,"Error - cons_thread rc: %d\n",cli_ret);
 			exit(EXIT_FAILURE);
@@ -288,6 +281,12 @@ void spawn_threads(struct fmd_cfg_parms *cfg)
  
 	ret = start_fmd_app_handler(cfg->app_port_num, 50, 0, 
 					cfg->dd_fn, cfg->dd_mtx_fn); 
+	if (ret) {
+		fprintf(stderr,"Error - start_fmd_app_handler rc: %d\n", ret);
+		exit(EXIT_FAILURE);
+	}
+	ret = start_peer_mgmt(cfg->mast_cm_port, 0, cfg->mast_devid, 
+			FMD_SLAVE != cfg->mast_idx);
 	if (ret) {
 		fprintf(stderr,"Error - start_fmd_app_handler rc: %d\n", ret);
 		exit(EXIT_FAILURE);
@@ -335,7 +334,7 @@ exit:
  * connected endpoints.
  */
 
-int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate,
+int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, 
 			struct fmd_cfg_parms *cfg)
 {
 	riocp_pe_handle new_pe, curr_pe, swtch;
@@ -369,6 +368,7 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate,
 		exit(EXIT_FAILURE);
 	};
 
+	fmd->cfg->sws[0].ct = comptag;
 	INFO("Initializing Switch %x\n", comptag);
 	if (fmd_init_switch(swtch, &cfg->sws[0])) {
 		CRIT("\nFailed to initialize switch\n");
@@ -434,11 +434,12 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, int enumerate,
 			rc = riodp_device_add(new_pe->mport->minfo->maint->fd, 
 					conn_did, conn_hc,
 					ep_ct, conn_ep->name);
-			if (rc) {
-				CRIT("ridp_device_add, rc %d\n", rc);
+			if (rc && (EEXIST != rc)) {
+				CRIT("riodp_device_add, rc %d\n", rc);
 				goto exit;
 			};
 		};
+		conn_ep->ports[0].ct = ep_ct;	
 	};
 	return 0;
 exit:
@@ -483,6 +484,8 @@ void setup_mport(struct fmd_state *fmd)
 		exit(EXIT_FAILURE);
 	};
 
+	fmd->fd = mport_pe->fd;
+
 	if (!(RIOCP_PE_IS_MPORT(mport_pe))) {
 		CRIT("\nHost port is not an MPORT, wazzup?...\n");
 		exit(EXIT_FAILURE);
@@ -499,26 +502,105 @@ void setup_mport(struct fmd_state *fmd)
 		};
 		if (riocp_pe_update_comptag(mport_pe, &comptag, 
 			fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 1)) {
-			CRIT("\nCannot set mport0 destID\n");
+			CRIT("\nCannot update mport0 comptag\n");
+			exit(EXIT_FAILURE);
+		};
+		if (riocp_pe_get_comptag(mport_pe, &comptag)) {
+			CRIT("\nCannot read mport0 comptag\n");
 			exit(EXIT_FAILURE);
 		};
 		fmd->cfg->mport_info[0].mp_h = mport_pe;
+		fmd->cfg->mport_info[0].ct = comptag;
 		
 		ep = fmd->cfg->mport_info[0].ep;
 		if (NULL == ep) {
 			CRIT("\nNo endpoint defined for master port.\n");
 			exit(EXIT_FAILURE);
 		};
+		ep->valid = 1;
+		ep->ep_h = mport_pe;
+		ep->ports[0].ct = comptag;
 	};
 
 	if (FMD_SLAVE != fmd->cfg->mast_idx)
-		rc = fmd_traverse_network(mport_pe, 0, ENUMERATE, fmd->cfg);
+		rc = fmd_traverse_network(mport_pe, 0, fmd->cfg);
 
 	if (rc) {
 		CRIT("\nNetwork initialization failed...\n");
 		exit(EXIT_FAILURE);
 	};
 }
+
+void fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
+                        struct fmd_dd_mtx *dd_mtx)
+{
+        size_t pe_cnt;
+        struct riocp_pe **pe;
+        int rc, idx;
+        uint32_t comptag, destid;
+        uint8_t hopcount;
+
+        if (NULL == mp_h) {
+                WARN("\nMaster port is NULL, device directory not updated\n");
+                goto exit;
+        };
+
+        pe = NULL;
+        rc = riocp_mport_get_pe_list(mp_h, &pe_cnt, &pe);
+        if (rc) {
+                CRIT("Cannot get pe list rc %d...\n", rc);
+                goto exit;
+        };
+
+        if (pe_cnt > FMD_MAX_DEVS) {
+                WARN("Too many PEs for DD %d %d...\n", pe_cnt, FMD_MAX_DEVS);
+                pe_cnt = FMD_MAX_DEVS;
+        };
+
+        sem_wait(&dd_mtx->sem);
+        dd->num_devs = 0;
+
+        for (idx = 0; idx < (int) pe_cnt; idx++) {
+                struct fmd_cfg_ep *cfg_ep;
+
+		if (RIOCP_PE_IS_SWITCH(pe[idx]->cap))
+			continue;
+
+                rc = riocp_pe_get_comptag(pe[idx], &comptag);
+                if (rc) {
+                        WARN("Cannot get comptag idx %d rc %d...\n", idx, rc);
+                        comptag = 0xFFFFFFFF;
+                        continue;
+                };
+                rc = riocp_pe_get_destid(pe[idx], &destid);
+                if (rc) {
+                        WARN("Cannot get destid idx %d rc %d...\n", idx, rc);
+                        destid = 0xFFFFFFFF;
+                        continue;
+                };
+                hopcount = pe[idx]->hopcount;
+
+                dd->devs[dd->num_devs].ct     = comptag;
+                dd->devs[dd->num_devs].destID = destid;
+                dd->devs[dd->num_devs].destID_sz = FMD_DEV08;
+                dd->devs[dd->num_devs].hc     = hopcount;
+                dd->devs[dd->num_devs].is_mast_pt =
+                                        (RIOCP_PE_IS_MPORT(pe[idx])?1:0);
+                memset(dd->devs[dd->num_devs].name, 0, FMD_MAX_NAME+1);
+                cfg_ep = find_cfg_ep_by_ct(comptag, fmd->cfg);
+                if (NULL == cfg_ep)
+                        strncpy(dd->devs[dd->num_devs].name, "UNKNOWN",
+                                        FMD_MAX_NAME);
+                else
+                        strncpy(dd->devs[dd->num_devs].name, cfg_ep->name,
+                                        FMD_MAX_NAME);
+                dd->num_devs++;
+        };
+        fmd_dd_incr_chg_idx(dd, 1);
+        sem_post(&dd_mtx->sem);
+exit:
+        return;
+};
 
 int main(int argc, char *argv[])
 {
@@ -530,6 +612,8 @@ int main(int argc, char *argv[])
 
 	rdma_log_init("fmd.log", 1);
 	cfg = fmd_parse_options(argc, argv);
+	if ((cfg->init_and_quit) && (cfg->print_help))
+		goto fail;
 	fmd_process_cfg_file(cfg);
 	
 	if ((NULL == cfg) || (cfg->init_err))
@@ -554,10 +638,13 @@ int main(int argc, char *argv[])
 		goto fail;
 
 
+/*
 	cli_init_base();
 	bind_dd_cmds(fmd->dd, fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
 	liblog_bind_cli_cmds();
 	fmd_bind_dbg_cmds();
+	fmd_bind_mgmt_dbg_cmds();
+*/
 	setup_mport(fmd);
 	if (!fmd->cfg->simple_init)
 		fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx);
@@ -570,6 +657,9 @@ int main(int argc, char *argv[])
 		if (cfg->run_cons)
 			pthread_join(console_thread, NULL);
 	};
+	shutdown_mgmt();
+	halt_app_handler();
+	cleanup_app_handler();
  
 fail:
 	exit(EXIT_SUCCESS);
