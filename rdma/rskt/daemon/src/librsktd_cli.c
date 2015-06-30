@@ -808,7 +808,7 @@ void display_speers_list(struct cli_env *env)
 			speer = (struct rskt_dmn_speer *)l_next(&li);
 		};
 	} else {
-		sprintf(env->output, "\nRDMN Socket Peers: None");
+		sprintf(env->output, "\nRDMN Socket Peers: None\n");
         	logMsg(env);
 	};
 	sem_post(&dmn.speers_mtx);
@@ -839,7 +839,7 @@ void display_wpeers_list(struct cli_env *env)
 			wpeer = (struct rskt_dmn_wpeer **)l_next(&li);
 		};
 	} else {
-		sprintf(env->output, "\nRDMN Socket WPeers: None");
+		sprintf(env->output, "\nRDMN Socket WPeers: None\n");
         	logMsg(env);
 	};
 	sem_post(&dmn.wpeers_mtx);

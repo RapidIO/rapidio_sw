@@ -209,9 +209,32 @@ CLIAppCmd,
 ATTR_NONE
 };
 
-struct cli_cmd *fmd_mgmt_cli_cmds[2] = {
+extern struct cli_cmd CLINotify;
+
+int CLINotifyCmd(struct cli_env *env, int argc, char **argv)
+{
+	if (0)
+		argv[0][0] = argc;
+
+	fmd_notify_apps();
+
+	return 0;
+};
+
+struct cli_cmd CLINotify  = {
+(char *)"notify",
+3,
+0,
+(char *)"Nofifies all applications of a change in the device directory\n",
+(char *)"<No Parameters>\n",
+CLINotifyCmd,
+ATTR_NONE
+};
+
+struct cli_cmd *fmd_mgmt_cli_cmds[3] = {
 	&CLIStatus,
-	&CLIApp
+	&CLIApp,
+	&CLINotify
 };
 
 void fmd_bind_mgmt_dbg_cmds(void)
