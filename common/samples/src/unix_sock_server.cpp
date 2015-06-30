@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Wait for data from clients */
+	puts("Waiting to receive from client...");
 	size_t	received_len;
 	if (other_server->receive(&received_len)) {
 		puts("Failed to receive");

@@ -52,6 +52,8 @@ int main(int argc, char *argv[])
 	client->get_send_buffer(&send_buf);
 
 	/* Send data to server */
+	puts("Press ENTER to send data");
+	getchar();
 	puts("Sending data...");
 	strcpy((char *)send_buf, "Hello");
 	if (client->send(strlen("Hello" + 1))) {
