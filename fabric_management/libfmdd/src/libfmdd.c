@@ -45,12 +45,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 
 #include "libcli.h"
-#include "fmd_msg.h"
+#include "fmd_app_msg.h"
 #include "fmd_dd.h"
 #include "liblog.h"
 #include "libfmdd_info.h"
 #include "libfmdd.h"
-#include "fmd_msg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,7 +70,7 @@ int open_socket_to_fmd(void )
 
 		fml.addr.sun_family = AF_UNIX;
 		snprintf(fml.addr.sun_path, sizeof(fml.addr.sun_path) - 1,
-			FMD_MSG_SKT_FMT, fml.portno);
+			FMD_APP_MSG_SKT_FMT, fml.portno);
 		if (connect(fml.fd, (struct sockaddr *) &fml.addr, 
 				fml.addr_sz)) {
 			perror("ERROR on libfm_init connect");

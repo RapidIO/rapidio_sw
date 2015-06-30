@@ -60,6 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_Port_Config_API.h"
 #include "riocp_pe_internal.h"
 #include "fmd_dd.h"
+#include "fmd_state.h"
 
 #ifndef _FMD_H_
 #define _FMD_H_
@@ -68,7 +69,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-extern struct fmd_state *fmd;
 void set_prompt(struct cli_env *e);
 
 #ifdef __cplusplus

@@ -42,8 +42,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_msg_proc.h"
 #include "librsktd_private.h"
 
-#ifndef __RSKTD_SPEER_H__
-#define __RSKTD_SPEER_H__
+#ifndef __LIBRSKTD_SPEER_H__
+#define __LIBRSKTD_SPEER_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -92,4 +92,4 @@ void close_all_speers(void);
 }
 #endif
 
-#endif /* __RSKTD_SPEER_H__ */
+#endif /* __LIBRSKTD_SPEER_H__ */

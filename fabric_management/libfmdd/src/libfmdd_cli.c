@@ -53,7 +53,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // #endif
 
 #include "fmd_dd.h"
-#include "fmd_msg.h"
+#include "fmd_app_msg.h"
 #include "liblog.h"
 // #include "dev_db.h"
 // #include "cli_cmd_db.h"

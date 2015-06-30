@@ -45,7 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 
 #include "libcli.h"
-#include "fmd_msg.h"
+#include "fmd_app_msg.h"
 #include "fmd_dd.h"
 #include "liblog.h"
 #include "liblist.h"

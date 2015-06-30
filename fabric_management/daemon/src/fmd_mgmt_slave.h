@@ -1,7 +1,9 @@
+/* Data Structure for connection to FMD in slave mode */
+/* A Slave is an FMD that accepts commands and returns responses */
 /*
 ****************************************************************************
-Copyright (c) 2014, Integrated Device Technology Inc.
-Copyright (c) 2014, RapidIO Trade Association
+Copyright (c) 2015, Integrated Device Technology Inc.
+Copyright (c) 2015, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -30,17 +32,56 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef __DEV_DB_CLI_CMDS_H__
-#define __DEV_DB_CLI_CMDS_H__
+
+#include <semaphore.h>
+#include <pthread.h>
+#include <stdint.h>
+#include "fmd_peer_msg.h"
+#include "riodp_mport_lib.h"
+
+#ifndef __FMD_MGMT_SLAVE_H__
+#define __FMD_MGMT_SLAVE_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int bind_dev_db_cli_cmds(void);
+struct fmd_slave {
+	int fd; /* MPORT file descriptor for register access */
+	pthread_t slave_thr; /* Slave FMDR, handles Master FMD cmds */
+	sem_t started; 
+	int slave_alive;
+	int slave_must_die;
+
+        uint32_t mp_num;
+	uint32_t mast_did;
+        uint32_t mast_skt_num; /* Socket number to connect to */
+        uint32_t mb_valid;
+        riodp_mailbox_t mb;
+	uint32_t skt_valid;
+        riodp_socket_t skt_h; /* Connected socket */
+        int tx_buff_used;
+        int tx_rc;
+        union {
+                void *tx_buff;
+                struct fmd_slv_to_mast_msg *s2m; /* alias for tx_buff */
+        };
+        int rx_buff_used;
+        int rx_rc;
+        union {
+                void *rx_buff;
+                struct fmd_mast_to_slv_msg *m2s; /* alias for rx_buff */
+        };
+	struct fmd_p_hello m_h_rsp;
+};
+
+extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
+			uint32_t  mp_num, struct fmd_slave *slave, int fd);
+
+extern void shutdown_slave_mgmt(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __DEV_DB_CLI_CMDS_H__ */
+#endif /* __FMD_MGMT_SLAVE_H__ */

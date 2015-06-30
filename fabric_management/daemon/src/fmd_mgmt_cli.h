@@ -30,74 +30,47 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-/* cli_parse.c : routines for parsing command line parameters
- * Note: this excludes recognition of a command, which is done by the
- * command database.
- */
-
-#include "cli_parse.h"
 
 #include <stdio.h>
 #include <string.h>
-
-#ifdef __CLI_WINDOWS__
-#include <io.h>
-#endif
-
 #include <stdlib.h>
+#include <stdarg.h>
+#include <semaphore.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/sem.h>
+#include <fcntl.h>
+#include <signal.h>
+
+#include <stdint.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include "linux/rio_cm_cdev.h"
+#include "linux/rio_mport_cdev.h"
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <pthread.h>
+#include "IDT_Routing_Table_Config_API.h"
+#include "IDT_Port_Config_API.h"
+#include "riocp_pe_internal.h"
+#include "fmd_dd.h"
+
+#ifndef _FMD_MGMT_CLI_H_
+#define _FMD_MGMT_CLI_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int getDecParm(char *token, int defaultData)
-{
-	unsigned long data;
-
-	if (token == NULL || token[0] == '/')
-		data = defaultData;
-	else if (sscanf(token, "%ld", &data) <= 0)
-		data = defaultData;
-	return data;
-}
-
-unsigned long getHexParm(char *dollarParameters[], unsigned int nDollarParms,
-				char *token, unsigned int defaultData)
-{
-	unsigned long dollarIndex;
-	unsigned long data;
-
-	if (token == NULL || token[0] == '/') {
-		data = defaultData;
-		goto exit;
-	};
-
-	if (sscanf(token, "%lX", &data) > 0)
-		goto exit;
-
-	if ((sscanf(token, "$%ld", &dollarIndex) > 0) &&
-	    (dollarIndex < nDollarParms)) {
-		if (1 == sscanf(dollarParameters[dollarIndex], "%lX", &data))
-			goto exit;
-	}
-
-	data = defaultData;
-exit:
-	return data;
-}
-
-unsigned long getHex(char *token, unsigned long defaultData)
-
-{
-	unsigned long data = defaultData;
-
-	if ((token != NULL) && (token[0] != '/'))
-		if (1 != sscanf(token, "%lX", &data))
-			data = defaultData;
-
-	return data;
-}
+void fmd_bind_mgmt_dbg_cmds(void);
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* _FMD_MGMT_CLI_H_ */
