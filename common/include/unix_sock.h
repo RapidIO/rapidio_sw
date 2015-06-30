@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 
 /* Default paramters for RDMA */
-#define UNIX_PATH_RDMA	"/usr/tmp/rdma-X24zJo7"
+#define UNIX_PATH_RDMA	"rdma"
 #define UNIX_SOCK_DEFAULT_BUFFER_SIZE	512
 #define UNIX_SOCK_DEFAULT_BACKLOG	5
 
@@ -100,23 +100,16 @@ protected:
 		send_buf(new uint8_t[UNIX_SOCK_DEFAULT_BUFFER_SIZE]),
 		recv_buf(new uint8_t[UNIX_SOCK_DEFAULT_BUFFER_SIZE])
 	{
-		puts("1");
-		printf("unix_base: name = %s\n", name);
 		/* Create listen socket */
 		if( (the_socket = socket(AF_UNIX, SOCK_SEQPACKET, 0)) == -1) {
-			puts("2");
 			ERR("Failed to create socket: s\n", strerror(errno));
 			throw unix_sock_exception("Failed to create socket");
 		}
-		printf("the_socket = 0x%X\n", the_socket);
-		printf("sun_path = %s\n", sun_path);
-		puts("3");
+
 		/* Set up address parameters */
 		addr.sun_family = AF_UNIX;
 		strcpy(addr.sun_path, sun_path);
-
-		addr_len = strlen(addr.sun_path) + sizeof(addr.sun_family);
-		puts("4");
+		addr_len = sizeof(addr);
 	}
 
 	unix_base(const char *name) :
@@ -124,12 +117,10 @@ protected:
 		send_buf(new uint8_t[UNIX_SOCK_DEFAULT_BUFFER_SIZE]),
 		recv_buf(new uint8_t[UNIX_SOCK_DEFAULT_BUFFER_SIZE])
 	{
-		puts("CHILD BASE CONSTRUCTOR");
 	}
 
 	~unix_base()
 	{
-		cout << __func__ << endl;
 		/* Delete send buffer */
 		if (send_buf)
 			delete[] send_buf;
@@ -152,6 +143,7 @@ protected:
 			ERR("'%s' failed in send(): %s\n", name, strerror(errno));
 			return -errno;
 		}
+		return 0;
 	}
 
 	int receive(int sock, size_t *rcvd_len)
@@ -199,37 +191,28 @@ public:
 		    int backlog = UNIX_SOCK_DEFAULT_BACKLOG)
 	try : unix_base(name, sun_path), accepted(false)
 	{
-		printf("unix_server: name = %s\n", name);
-
-		/* Create log directory if not already present on system */
-		printf("checking if %s exists...\n", addr.sun_path);
+		/* If file exists, delete it before binding */
 		struct stat st;
 		if (stat(UNIX_PATH_RDMA, &st) >= 0) {
-			puts("Exists and deleting it!");
 			if (unlink(addr.sun_path) == -1) {
-				puts("b2");
 				WARN("'%s' failed to unlink '%s': '%s'\n",
 						name, addr.sun_path, strerror(errno));
 			}
 		}
 
-		puts("x");
 		/* Bind listen socket to the address */
 		if ( bind(the_socket, (struct sockaddr *)&addr, addr_len) == -1) {
-			puts("d");
 			ERR("'%s' failed to bind socket to address: %s\n",
 						name, strerror(errno));
 			throw unix_sock_exception("Failed to bind socket");
 		}
-		puts("e");
+
 		/* Listen */
 		if (listen(the_socket, backlog) == -1) {
-			puts("f");
 			ERR("'%s' failed to listen on socket: %s\n",
 							name, strerror(errno));
 			throw unix_sock_exception("Failed to listen on socket");
 		}
-		puts("exiting constructor");
 	} /* constructor */
 	catch(...)	/* Catch failures in unix_base::unix_base() */
 	{
@@ -239,7 +222,6 @@ public:
 	unix_server(const char *name, int accept_socket)
 	try : unix_base(name), accept_socket(accept_socket)
 	{
-		puts("CHILD SERVER CONSTRUCTOR");
 	}
 	catch(...)	/* Catch failures in unix_base::unix_base() */
 	{
@@ -264,14 +246,14 @@ public:
 		struct sockaddr_un	client_addr;
 		socklen_t len = sizeof(client_addr);
 
-		printf("Accepting connections on socket %d\n", the_socket);
+
+		/* Accept connections */
 		accept_socket = ::accept(the_socket, (struct sockaddr *)&client_addr, &len);
-		printf("accept_socket returned = %d\n", accept_socket);
 		if( accept_socket == -1) {
-			perror("accept");
 			ERR("'%s' failed in accept(): %s\n", name, strerror(errno));
 			return -errno;
 		}
+
 		return 0;
 	}
 
@@ -297,7 +279,6 @@ public:
 		    const char *sun_path = UNIX_PATH_RDMA)
 	try : unix_base(name, sun_path)
 	{
-		printf("the_socket = 0x%X\n", the_socket);
 	}
 
 	catch(...)	/* Catch failures in unix_base::unix_base() */
@@ -307,13 +288,10 @@ public:
 
 	int connect()
 	{
-		printf("Connecting to %s on socket %d\n", addr.sun_path, the_socket);
-		printf("sun_path = %s, addr_len = %d\n", addr.sun_path, addr_len);
 		if (::connect(the_socket, (struct sockaddr *)&addr, addr_len) == -1) {
 			ERR("%s: failed to connect: %s\n", name, strerror(errno));
 		        return -errno;
 		}
-		INFO("%s connected to %s\n", addr.sun_path);
 		return 0;
 	}
 

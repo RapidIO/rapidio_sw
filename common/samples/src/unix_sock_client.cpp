@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 	getchar();
 	puts("Sending data...");
 	strcpy((char *)send_buf, "Hello");
-	if (client->send(strlen("Hello" + 1))) {
+	if (client->send(strlen("Hello") + 1)) {
 		puts("Failed to send to server");
 		goto out;
 	}
