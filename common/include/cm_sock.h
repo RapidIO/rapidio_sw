@@ -178,6 +178,7 @@ protected:
 	uint8_t mbox_id;
 	uint16_t channel;
 	riodp_mailbox_t mailbox;
+private:
 	uint8_t *send_buf;
 	uint8_t *recv_buf;
 }; /* cm_base */
