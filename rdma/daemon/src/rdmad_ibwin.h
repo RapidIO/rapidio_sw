@@ -43,7 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cinttypes>
 
 #include "rdma_types.h"
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 #include "liblog.h"
 
 #include "rdmad_mspace.h"

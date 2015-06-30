@@ -41,7 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "linux/rio_cm_cdev.h"
 #include "linux/rio_mport_cdev.h"
 
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 struct peer_info {
 	/* Device ID */

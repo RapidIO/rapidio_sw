@@ -60,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netdb.h>
 
 #include "libcli.h"
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 #ifdef __cplusplus
 extern "C" {

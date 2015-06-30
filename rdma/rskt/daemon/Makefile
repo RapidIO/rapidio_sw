@@ -29,7 +29,8 @@ INCLUDE_DIR?=$(TOP_LEVEL)/include
 LIB_DIRS?=-L$(COMMON_DIR)/libs_a -L$(INCLUDE_DIR)/libs_a \
 	-L$(COMMON_DIR)/libs_so -L$(TOP_LEVEL)/fabric_management/libriocp_pe \
 	-L$(TOP_LEVEL)/fabric_management/libdd \
-	-L$(TOP_LEVEL)/fabric_management/librio_maint 
+	-L$(TOP_LEVEL)/fabric_management/librio_maint \
+	-L$(MPORT_DIR)
 
 CXX ?= $(CROSS_COMPILE)g++
 AR ?= $(CROSS_COMPILE)ar

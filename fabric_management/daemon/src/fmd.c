@@ -79,7 +79,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_cfg_cli.h"
 #include "fmd_state.h"
 #include "fmd_app_mgmt.h"
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"  //FIXME: Layering broken, must be removed !!!
 
 #ifdef __cplusplus
 extern "C" {

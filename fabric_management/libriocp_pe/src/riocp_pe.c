@@ -33,7 +33,7 @@
 #include "rio_regs.h"
 #include "rio_devs.h"
 #include "liblog.h"
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 #ifdef __cplusplus
 extern "C" {

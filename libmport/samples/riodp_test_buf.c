@@ -37,7 +37,7 @@
 #include <time.h>
 #include <signal.h>
 
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 #define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 

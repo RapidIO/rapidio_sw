@@ -1,5 +1,5 @@
-#ifndef _RIODP_MPORT_LIB_H_
-#define _RIODP_MPORT_LIB_H_
+#ifndef _RAPIDIO_MPORT_LIB_H_
+#define _RAPIDIO_MPORT_LIB_H_
 /*
  * Copyright 2014 Integrated Device Technology, Inc.
  *

@@ -41,7 +41,7 @@
 #define CONFIG_RAPIDIO_DMA_ENGINE
 #include <linux/rio_mport_cdev.h>
 
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"

@@ -60,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_rdaemon.h"
 #include "rdmad_clnt_threads.h"
 
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 #include "rdma_types.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"

@@ -9,7 +9,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 

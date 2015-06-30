@@ -31,7 +31,7 @@
 #include <time.h>
 #include <signal.h>
 
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 static int debug = 0;
 static int exit_no_dev;

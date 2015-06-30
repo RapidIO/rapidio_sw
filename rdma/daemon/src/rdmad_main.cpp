@@ -42,7 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <pthread.h>
 
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 #include "cm_sock.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"
