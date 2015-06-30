@@ -7,14 +7,21 @@ LIBCLI_PATH=../libcli
 
 CM_BUILD_STRING = $(CXX) -L$(LIBMPORT_PATH) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
 	-Wl,-rpath=$(LIBMPORT_PATH) -Wl,-rpath=$(LIBLOG_PATH) \
-	-Wl,-rpath=$(LIBCLI_PATH) -Wl,-rpath=$(LIBCLI_PATH) \
+	-Wl,-rpath=$(LIBCLI_PATH) \
 	-DRDMA_LL=6 \
 	-I../../common/include -I../../include -I$(KINC) -o $@ $(RDMAD_CFLAGS) \
 	 src/$@.cpp -lmport -llog -lcli -lrt
 
-all: cm_sock_server cm_sock_client
+UNIX_BUILD_STRING = $(CXX) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
+	-Wl,-rpath=$(LIBLOG_PATH) \
+	-Wl,-rpath=$(LIBCLI_PATH) \
+	-DRDMA_LL=6 \
+	-I../../common/include -I../../include -I$(KINC) -o $@ $(RDMAD_CFLAGS) \
+	 src/$@.cpp -llog -lcli -lrt -pthread
 
-# Test app for CM socket wrapper class
+all: cm_sock_server cm_sock_client unix_sock_client unix_sock_server 
+
+# Test apps for CM socket wrapper class
 cm_sock_server: $(LIBMPORT_PATH)/libmport.so $(LIBLOG_PATH)/liblog.so src/cm_sock_server.cpp ../../common/include/*.h
 	@echo ---------- Building cm_sock_server ...
 	$(CM_BUILD_STRING)
@@ -23,5 +30,14 @@ cm_sock_client: $(LIBMPORT_PATH)/libmport.so $(LIBLOG_PATH)/liblog.so src/cm_soc
 	@echo ---------- Building cm_sock_client ...
 	$(CM_BUILD_STRING)
 
+# Test apps for UNIX socket wrapper class
+unix_sock_server: $(LIBLOG_PATH)/liblog.so src/unix_sock_server.cpp ../../common/include/*.h
+	@echo ---------- Building unix_sock_server ...
+	$(UNIX_BUILD_STRING)
+
+unix_sock_client: $(LIBLOG_PATH)/liblog.so src/unix_sock_client.cpp ../../common/include/*.h
+	@echo ---------- Building uinx_sock_client ...
+	$(UNIX_BUILD_STRING)
+
 clean:
-	@rm -f cm_sock_server cm_sock_client *.o *~
+	@rm -f cm_sock_server cm_sock_client unix_sock_server unix_sock_client *.o *~
