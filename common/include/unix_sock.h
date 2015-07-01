@@ -138,7 +138,7 @@ protected:
 			ERR("'s' failed in send() due to large message size\n", name);
 			return -1;
 		}
-
+		printf("unix_sock.h:send() type = 0x%X\n", *(uint32_t *)send_buf);
 		if (::send(sock, send_buf, len, MSG_EOR) == -1) {
 			ERR("'%s' failed in send(): %s\n", name, strerror(errno));
 			return -errno;

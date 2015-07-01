@@ -100,7 +100,7 @@ static uint32_t round_up_to_4k(uint32_t length)
 static int alt_rpc_call()
 {
 	/* Send input parameters */
-	if (client->send(sizeof(in_msg))) {
+	if (client->send(sizeof(*in_msg))) {
 		ERR("Failed to send message to RDMA daemon\n");
 		return -3;
 	}
@@ -110,7 +110,7 @@ static int alt_rpc_call()
 		ERR("Failed to receive output from RDMA daemon");
 		return -4;
 	}
-
+	INFO("Received %d bytes\n", received_len);
 	return 0;
 }
 
@@ -120,6 +120,8 @@ static int open_mport(struct peer_info *peer)
 	get_mport_id_input	in;
 	int flags = 0;
 	struct rio_mport_properties prop;
+
+	DBG("ENTER\n");
 
 	/* Set up Unix message parameters */
 	in.dummy = 0x1234;
@@ -303,6 +305,7 @@ __attribute__((constructor)) int rdma_lib_init(void)
 		CRIT("Failed to connect to Unix socket server on RDMA daemon\n");
 		return -3;
 	}
+	INFO("Successfully connected to RDMA daemon\n");
 
 	client->get_recv_buffer((void **)&in_msg);
 	client->get_send_buffer((void **)&out_msg);
@@ -330,6 +333,8 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 {
 	create_mso_input	in;
 	create_mso_output	out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -421,6 +426,8 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 {
 	open_mso_input	in;
 	open_mso_output	out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -524,6 +531,8 @@ int rdma_close_mso_h(mso_h msoh)
 	close_mso_input		in;
 	close_mso_output	out;
 	close_ms		cms(msoh);
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -637,6 +646,8 @@ int rdma_destroy_mso_h(mso_h msoh)
 	destroy_mso_output	out;
 	destroy_ms		dms(msoh);
 
+	DBG("ENTER\n");
+
 	/* Check that library has been intialized */
 	if (!init) {
 		CRIT("RDMA library not initialized\n");
@@ -696,6 +707,8 @@ int rdma_create_ms_h(const char *ms_name,
 	create_ms_input	 in;
 	create_ms_output out;
 	uint32_t	dummy_bytes;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -809,6 +822,8 @@ int rdma_open_ms_h(const char *ms_name,
 {
 	open_ms_input in;
 	open_ms_output out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been initialized */
 	if (!init) {
@@ -937,6 +952,8 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	close_ms_input	in;
 	close_ms_output	out;
 
+	DBG("ENTER\n");
+
 	/* Check that library has been intialized */
 	if (!init) {
 		CRIT("RDMA library not initialized\n");
@@ -1029,6 +1046,8 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	destroy_msub		dmsub(msh);
 	loc_ms 			*ms;
 
+	DBG("ENTER\n");
+
 	/* Check that library has been intialized */
 	if (!init) {
 		CRIT("RDMA library not initialized\n");
@@ -1120,6 +1139,8 @@ int rdma_create_msub_h(ms_h	msh,
 	create_msub_input	in;
 	create_msub_output	out;
 
+	DBG("ENTER\n");
+
 	/* Check that library has been intialized */
 	if (!init) {
 		CRIT("RDMA library not initialized\n");
@@ -1187,6 +1208,8 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	destroy_msub_output	out;
 	struct loc_msub 	*msub;
 
+	DBG("ENTER\n");
+
 	/* Check that library has been intialized */
 	if (!init) {
 		WARN("RDMA library not initialized\n");
@@ -1229,6 +1252,8 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 {
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
 
+	DBG("ENTER\n");
+
 	if (!pmsub) {
 		WARN("msubh is NULL\n");
 		return -1;
@@ -1264,6 +1289,8 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 {
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
 
+	DBG("ENTER\n");
+
 	if (!pmsub) {
 		ERR("msubh is NULL\n");
 		return -1;
@@ -1293,6 +1320,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	accept_output		accept_out;
 	undo_accept_input	undo_accept_in;
 	undo_accept_output	undo_accept_out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -1621,6 +1650,8 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 	send_disconnect_input	in;
 	send_disconnect_output	out;
 
+	DBG("ENTER\n");
+
 	/* Check that library has been intialized */
 	if (!init) {
 		WARN("RDMA library not initialized\n");
@@ -1721,6 +1752,8 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 	struct loc_msub *lmsub;
 	struct rem_msub *rmsub;
 
+	DBG("ENTER\n");
+
 	/* Check for NULL pointers */
 	if (!in || !out) {
 		ERR("%s: NULL. in=%p, out=%p", in, out);
@@ -1808,6 +1841,8 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 	(void)priority;
 	struct rem_msub *rmsub;
 
+	DBG("ENTER\n");
+
 	/* Check for NULL pointer */
 	if (!buf || !out || !rem_msubh) {
 		ERR("NULL param(s). buf=%p, out=%p, rem_msubh = %u\n",
@@ -1886,6 +1921,8 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 {
 	struct loc_msub *lmsub;
 	struct rem_msub *rmsub;
+
+	DBG("ENTER\n");
 
 	/* Check for NULL pointers */
 	if (!in || !out) {
@@ -1970,6 +2007,8 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 {
 	(void)priority;
 	struct rem_msub *rmsub;
+
+	DBG("ENTER\n");
 
 	/* Check for NULL pointers */
 	if (!buf || !out || !rem_msubh) {
@@ -2069,6 +2108,8 @@ int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 			    const struct timespec *wait)
 {
 	dma_async_wait_param	wait_param;
+
+	DBG("ENTER\n");
 
 	/* Make sure handle is valid */
 	if (!chk_handle) {

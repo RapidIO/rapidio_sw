@@ -114,18 +114,19 @@ struct rpc_ti
 void *rpc_thread_f(void *arg)
 {
 	if (!arg) {
+		CRIT("Null argument.\n");
 		pthread_exit(0);
 	}
 
 	rpc_ti *ti = (rpc_ti *)arg;
 
-	puts("Creating other server object...");
+	INFO("Creating other server object...\n");
 	unix_server *other_server;
 	try {
 		other_server = new unix_server("other_server", ti->accept_socket);
 	}
 	catch(unix_sock_exception e) {
-		cout << e.err << endl;
+		CRIT("Failed to create unix_server:%:\n", e.err);
 		sem_post(&ti->started);
 		pthread_exit(0);
 	}
@@ -134,22 +135,23 @@ void *rpc_thread_f(void *arg)
 
 	while (1) {
 		/* Wait for data from clients */
-		puts("Waiting to receive from client...");
+		DBG("Waiting to receive API call library...\n");
 		size_t	received_len = 0;	/* For build warning */
 		if (other_server->receive(&received_len)) {
-			puts("Failed to receive");
+			CRIT("Failed to receive");
 			delete other_server;
 			pthread_exit(0);
 		}
 		if (received_len > 0) {
-			printf("received_len = %d\n", (int)received_len);
+			DBG("received_len = %d\n", (int)received_len);
 
 			unix_msg_t	*in_msg;
 			unix_msg_t	*out_msg;
 
 			other_server->get_recv_buffer((void **)&in_msg);
 			other_server->get_send_buffer((void **)&out_msg);
-
+			DBG("in_msg->type = 0x%X\n", in_msg->type);
+			DBG("in_msg other 4 bytes 0x%X\n", *((uint32_t *)in_msg +4));
 			switch(in_msg->type) {
 				case GET_MPORT_ID:
 				{
@@ -326,15 +328,18 @@ void *rpc_thread_f(void *arg)
 					delete out;
 				}
 				break;
+
+				default:
+					ERR("UNKNOWN MESSAGE TYPE: 0x%X\n", in_msg->type);
 			} /* switch */
 
 			if (other_server->send(sizeof(unix_msg_t))) {
-				puts("Failed to send back");
+				CRIT("Failed to send API output parameters back to library\n");
 				delete other_server;
 				pthread_exit(0);
 			}
 		} else {
-			puts("Remote daemon has closed connection..BYTE");
+			INFO("RDMA library has closed connection!\n");
 			pthread_exit(0);
 		}
 	} /* while */
