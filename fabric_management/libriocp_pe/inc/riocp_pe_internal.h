@@ -16,7 +16,7 @@
 
 #include <riocp_pe.h>
 #include <linux/rio_mport_cdev.h>
-#include <librio_maint.h>
+#include <rapidio_mport_lib.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,7 +103,7 @@ struct riocp_pe_peer {
 struct riocp_pe_mport {
 	uint32_t ref;				/**< Reference counter */
 	uint8_t id;				/**< Device node id e.g /dev/rio_mport0 */
-	rio_maint_handle maint;			/**< Maintenance access handle for mport e.g /dev/rio_mport0 */
+	int maint;			/**< Maintenance access handle for mport e.g /dev/rio_mport0 */
 	struct rio_mport_properties prop;	/**< Mport properties */
 	bool is_host;				/**< Is mport host/agent */
 	struct riocp_pe *any_id_target;		/**< Current programmed ANY_ID route to this PE*/

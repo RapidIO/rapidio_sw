@@ -17,7 +17,7 @@
 
 #include <sys/ioctl.h>
 
-#include <librio_maint.h>
+#include <rapidio_mport_lib.h>
 
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
@@ -254,7 +254,7 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 	if (RIOCP_PE_IS_MPORT(*handle)) {
 		RIOCP_TRACE("Destroying mport handle %p (ct: 0x%08x)\n",
 			*handle, (*handle)->comptag);
-		rio_maint_shutdown(&((*handle)->minfo->maint));
+		riodp_mport_close((*handle)->minfo->maint);
 		riocp_pe_llist_foreach_safe(item, next, &(*handle)->minfo->handles) {
 			p = (struct riocp_pe *)item->data;
 			if (p)
@@ -531,9 +531,11 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 	}
 
 	/* Initialize maintainance access */
-	if (rio_maint_init(mport, &(h->minfo->maint))) {
-		ret = -EIO;
+	ret = riodp_mport_open(mport, 0);
+	if (ret < 0) {
 		goto err;
+	} else {
+		h->minfo->maint = ret;
 	}
 
 	/* Initialize handle attributes */

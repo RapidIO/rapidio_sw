@@ -67,7 +67,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "riocp_pe.h"
 #include "riocp_pe_internal.h"
-#include "librio_maint.h"
 #include "DAR_DevDriver.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
@@ -88,7 +87,7 @@ extern "C" {
 #endif
 
 riocp_pe_handle mport_pe;
-rio_maint_handle reg_acc_h;
+int reg_acc_hnd;
 DAR_DEV_INFO_t *dev_h;
 
 struct fmd_cfg_parms *cfg;
@@ -96,7 +95,6 @@ struct fmd_state *fmd;
 
 void custom_quit(cli_env *env)
 {
-	env = env;
 	shutdown_mgmt();
 	halt_app_handler();
 	cleanup_app_handler();
@@ -431,7 +429,7 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num,
 		};
 
 		if (!RIOCP_PE_IS_MPORT(new_pe)) {
-			rc = riodp_device_add(new_pe->mport->minfo->maint->fd, 
+			rc = riodp_device_add(new_pe->mport->minfo->maint,
 					conn_did, conn_hc,
 					ep_ct, conn_ep->name);
 			if (rc && (EEXIST != rc)) {
@@ -474,7 +472,8 @@ void setup_mport(struct fmd_state *fmd)
 		exit(EXIT_FAILURE);
 	};
 
-	if (rio_maint_init(mport, &reg_acc_h)) {
+	reg_acc_hnd = riodp_mport_open(mport, 0);
+	if (reg_acc_hnd < 0) {
 		CRIT("\nCannot open mport %d, exiting...\n", mport);
 		exit(EXIT_FAILURE);
 	};
@@ -679,11 +678,11 @@ STATUS SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info,
 
 
 	if (RIOCP_PE_IS_MPORT(pe_h))
-		rc = rio_maint_read_local(reg_acc_h, offset,  &x)?
+		rc = riodp_lcfg_read(reg_acc_hnd, offset, sizeof(x), &x)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
 	else
-		rc = rio_maint_read_remote(reg_acc_h, pe_h->destid, 
-			pe_h->hopcount, offset, &x, 1)?
+		rc = riodp_maint_read(reg_acc_hnd, pe_h->destid, pe_h->hopcount, offset,
+				     sizeof(x), &x)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
 	if (RIO_SUCCESS == rc)
 		*readdata = x;
@@ -706,11 +705,11 @@ STATUS SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info,
 
 
 	if (RIOCP_PE_IS_MPORT(pe_h))
-		rc = rio_maint_write_local(reg_acc_h, offset,  writedata)?
+		rc = riodp_lcfg_write(reg_acc_hnd, offset, sizeof(writedata), writedata)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
 	else
-		rc = rio_maint_write_remote(reg_acc_h, pe_h->destid, 
-			pe_h->hopcount, offset, &writedata, 4)?
+		rc = riodp_maint_write(reg_acc_hnd, pe_h->destid, pe_h->hopcount, offset,
+				      sizeof(writedata), writedata)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
 exit:
 	return rc;

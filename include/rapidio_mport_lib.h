@@ -94,6 +94,8 @@ typedef struct riodp_socket   *riodp_socket_t;
 
 
 int riodp_mport_open(uint32_t mport_id, int flags);
+int riodp_mport_close(int fd);
+
 int riodp_cm_open(void);
 int riodp_mport_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports);
 int riodp_mport_free_mport_list(uint32_t **dev_ids);

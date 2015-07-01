@@ -1119,7 +1119,7 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 	}
 
 	if (RIOCP_PE_IS_MPORT(pe))
-		ret = riodp_destid_set(pe->minfo->maint->fd, destid);
+		ret = riodp_destid_set(pe->minfo->maint, destid);
 	else
 		ret = riocp_pe_maint_write(pe, RIO_DID_CSR, 
 						(destid << 16) & 0x00ff0000);

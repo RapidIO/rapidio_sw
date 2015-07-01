@@ -82,28 +82,29 @@ int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
 	uint32_t temp;
 	int rc = 0;
 
-        if (RIOCP_PE_IS_MPORT(pe_h))
-                rc = rio_maint_read_local(pe_h->minfo->maint, offset,  &temp)?1:0;
-        else {
-		INFO("MTC READ: DID %x HC %X O %x\n", 
-                        pe_h->destid, pe_h->hopcount, offset);
-                rc = rio_maint_read_remote(pe_h->mport->minfo->maint,
-			pe_h->destid, pe_h->hopcount, offset, &temp, 1)?1:0;
+	if (RIOCP_PE_IS_MPORT(pe_h))
+		rc = riodp_lcfg_read(pe_h->minfo->maint, offset, sizeof(temp), &temp)?1:0;
+	else {
+		INFO("MTC READ: DID %x HC %X O %x\n",
+					pe_h->destid, pe_h->hopcount, offset);
+		rc = riodp_maint_read(pe_h->mport->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
+				 sizeof(temp), &temp)?1:0;
 	}
+
 	if (!rc)
 		*data = temp;
 	return rc;
 };
 
-int mport_write(riocp_pe_handle pe_h, uint32_t addr, uint32_t data)
+int mport_write(riocp_pe_handle pe_h, uint32_t offset, uint32_t data)
 {
 	int rc = 0;
 
         if (RIOCP_PE_IS_MPORT(pe_h))
-                rc = rio_maint_write_local(pe_h->minfo->maint, addr, data)?1:0;
+        	rc = riodp_lcfg_write(pe_h->minfo->maint, offset, sizeof(data), data)?1:0;
         else
-                rc = rio_maint_write_remote(pe_h->mport->minfo->maint,
-			pe_h->destid, pe_h->hopcount, addr, &data, 1)?1:0;
+        	rc = riodp_maint_write(pe_h->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
+        			      sizeof(data), data)?1:0;
 	return rc;
 };
 

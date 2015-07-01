@@ -39,7 +39,6 @@ src/%.o: src/%.c
 	-I../ \
 	-I../librio_switch/inc \
 	-I../libriocp_pe/inc \
-	-I../librio_maint/inc \
 	-I../cli \
 	-DRDMA_LL=7 \
 	-I$(LINUX_INCLUDE_DIR)
@@ -59,7 +58,7 @@ fmd:  $(FMD_OBJECTS) $(FMD_SOURCES) src/*.h
 	$(CXX) -pthread \
 	-o $@ $(FMD_OBJECTS) $(LIB_DIRS) \
 	-lcli -ldd -llist -lrt -lmport -llog -lriocp_pe \
-	-lswitch_api -lrio_maint
+	-lswitch_api
 
 clean:
 	rm -f *.o src/*.o *~ *.exe core fmd

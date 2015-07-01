@@ -55,6 +55,11 @@ int riodp_mport_open(uint32_t mport_id, int flags)
 	return open(path, O_RDWR | flags);
 }
 
+int riodp_mport_close(int fd)
+{
+	return close(fd);
+}
+
 int riodp_cm_open(void)
 {
 	return open(RIO_CMDEV_PATH, O_RDWR);

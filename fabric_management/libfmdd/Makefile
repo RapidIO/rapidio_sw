@@ -53,7 +53,6 @@ CFLAGS+=-O2 -D$(DEBUG) -g
 CFLAGS+=-I$(LINUX_INCLUDE_DIR)
 CFLAGS+=-I. -I../inc
 CFLAGS+=-I../libriocp_pe/inc
-CFLAGS+=-I../librio_maint/inc
 CFLAGS+=-I../librio_switch/inc
 CFLAGS+=-I../../common/include
 CFLAGS+=-I../../include

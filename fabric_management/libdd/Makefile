@@ -54,7 +54,6 @@ CFLAGS+=-I$(LINUX_INCLUDE_DIR)
 CFLAGS+=-I. -I../inc
 CFLAGS+=-I../cli
 CFLAGS+=-I../libriocp_pe/inc
-CFLAGS+=-I../librio_maint/inc
 CFLAGS+=-I../librio_switch/inc
 CFLAGS+=-I../../common/include
 CFLAGS+=-DRDMA_LL=$(level)

@@ -62,7 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 // #include "dev_db.h"
 #include "riocp_pe.h"
-#include "riocp_pe_internal.h"
+//#include "riocp_pe_internal.h"
 // #include "cli_cmd_db.h"
 // #include "cli_cmd_line.h"
 // #include "cli_parse.h"

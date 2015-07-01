@@ -56,7 +56,7 @@ CCFLAGS= -c -g -ggdb -fPIC -Wall -Werror -O2 -I. \
 	-I./libriocp_pe/src -I$(LINUX_INCLUDE_DIR) \
 	-I../common/include -DRDMA_LL=$(level)
 
-LIB_DEPS= libriocp_pe libcli librio_maint libswitch_api libdd
+LIB_DEPS= libriocp_pe libcli libswitch_api libdd
 .PHONY: $(LIB_DEPS)
 
 all: daemon libfmdd
