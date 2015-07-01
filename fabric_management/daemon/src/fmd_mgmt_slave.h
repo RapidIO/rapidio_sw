@@ -37,7 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <stdint.h>
 #include "fmd_peer_msg.h"
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 #ifndef __FMD_MGMT_SLAVE_H__
 #define __FMD_MGMT_SLAVE_H__
