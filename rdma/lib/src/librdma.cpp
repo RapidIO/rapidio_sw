@@ -307,8 +307,8 @@ __attribute__((constructor)) int rdma_lib_init(void)
 	}
 	INFO("Successfully connected to RDMA daemon\n");
 
-	client->get_recv_buffer((void **)&in_msg);
-	client->get_send_buffer((void **)&out_msg);
+	client->get_recv_buffer((void **)&out_msg);
+	client->get_send_buffer((void **)&in_msg);
 
 	/* Initialize message queue attributes */
 	init_mq_attribs();
