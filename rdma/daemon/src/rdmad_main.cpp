@@ -41,6 +41,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <semaphore.h>
+#include <signal.h>
 
 #include "riodp_mport_lib.h"
 #include "cm_sock.h"
@@ -53,7 +55,28 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_svc.h"
 #include "rdmad_console.h"
 #include "libcli.h"
+#if 0
 #include "rdmad.h"
+#endif
+#include "unix_sock.h"
+#include "rdmad_unix_msg.h"
+
+extern  get_mport_id_output * get_mport_id_1_svc(get_mport_id_input *in);
+extern  create_mso_output * create_mso_1_svc(create_mso_input *in);
+extern  open_mso_output * open_mso_1_svc(open_mso_input *in);
+extern  close_mso_output * close_mso_1_svc(close_mso_input *in);
+extern  destroy_mso_output * destroy_mso_1_svc(destroy_mso_input *in);
+extern  create_ms_output * create_ms_1_svc(create_ms_input *in);
+extern  open_ms_output * open_ms_1_svc(open_ms_input *in);
+extern  close_ms_output * close_ms_1_svc(close_ms_input *in);
+extern  destroy_ms_output * destroy_ms_1_svc(destroy_ms_input *in);
+extern  create_msub_output * create_msub_1_svc(create_msub_input *in);
+extern  destroy_msub_output * destroy_msub_1_svc(destroy_msub_input *in);
+extern  accept_output * accept_1_svc(accept_input *in);
+extern  undo_accept_output * undo_accept_1_svc(undo_accept_input *in);
+extern  send_connect_output * send_connect_1_svc(send_connect_input *in);
+extern  undo_connect_output * undo_connect_1_svc(undo_connect_input *in);
+extern  send_disconnect_output * send_disconnect_1_svc(send_disconnect_input *in);
 
 struct peer_info	peer;
 
@@ -61,6 +84,8 @@ using namespace std;
 
 static 	pthread_t console_thread;
 static	pthread_t prov_thread;
+
+static unix_server *server;
 
 static void init_peer()
 {
@@ -79,7 +104,7 @@ static void init_peer()
 	peer.cons_skt = 4444;
 	peer.run_cons = 1;
 }
-
+#if 0
 void
 rdmad_1(struct svc_req *rqstp, register SVCXPRT *transp);
 
@@ -123,6 +148,294 @@ void run_rpc()
 	CRIT("svc_run returned\n");
 	exit (1);
 } /* run_rpc() */
+#endif
+struct rpc_ti
+{
+	rpc_ti(int accept_socket) : accept_socket(accept_socket)
+	{}
+	int accept_socket;
+	sem_t	started;
+	pthread_t tid;
+};
+
+void *rpc_thread_f(void *arg)
+{
+	if (!arg) {
+		pthread_exit(0);
+	}
+
+	rpc_ti *ti = (rpc_ti *)arg;
+
+	puts("Creating other server object...");
+	unix_server *other_server;
+	try {
+		other_server = new unix_server("other_server", ti->accept_socket);
+	}
+	catch(unix_sock_exception e) {
+		cout << e.err << endl;
+		sem_post(&ti->started);
+		pthread_exit(0);
+	}
+
+	sem_post(&ti->started);
+
+	while (1) {
+		/* Wait for data from clients */
+		puts("Waiting to receive from client...");
+		size_t	received_len = 0;	/* For build warning */
+		if (other_server->receive(&received_len)) {
+			puts("Failed to receive");
+			delete other_server;
+			pthread_exit(0);
+		}
+		if (received_len > 0) {
+			printf("receveived_len = %d\n", (int)received_len);
+
+			unix_msg_t	*in_msg;
+			unix_msg_t	*out_msg;
+
+			other_server->get_recv_buffer((void **)&in_msg);
+			other_server->get_send_buffer((void **)&out_msg);
+
+			switch(in_msg->type) {
+				case GET_MPORT_ID:
+				{
+					get_mport_id_input in = in_msg->get_mport_id_in;
+					get_mport_id_output *out;
+					out = get_mport_id_1_svc(&in);
+					out_msg->get_mport_id_out = *out;
+					out_msg->type = GET_MPORT_ID_ACK;
+					delete out;
+				}
+				break;
+
+				case CREATE_MSO:
+				{
+					create_mso_input in = in_msg->create_mso_in;
+					create_mso_output *out;
+					out = create_mso_1_svc(&in);
+					out_msg->create_mso_out = *out;
+					out_msg->type = CREATE_MSO_ACK;
+					delete out;
+				}
+				break;
+
+				case OPEN_MSO:
+				{
+					open_mso_input	in = in_msg->open_mso_in;
+					open_mso_output *out;
+					out = open_mso_1_svc(&in);
+					out_msg->open_mso_out = *out;
+					out_msg->type = OPEN_MSO_ACK;
+					delete out;
+				}
+				break;
+
+				case CLOSE_MSO:
+				{
+					close_mso_input in = in_msg->close_mso_in;
+					close_mso_output *out;
+					out = close_mso_1_svc(&in);
+					out_msg->close_mso_out = *out;
+					out_msg->type = CLOSE_MSO_ACK;
+					delete out;
+				}
+				break;
+
+				case DESTROY_MSO:
+				{
+					destroy_mso_input in = in_msg->destroy_mso_in;
+					destroy_mso_output *out;
+					out = destroy_mso_1_svc(&in);
+					out_msg->destroy_mso_out = *out;
+					out_msg->type = DESTROY_MSO_ACK;
+					delete out;
+				}
+				break;
+
+				case CREATE_MS:
+				{
+					create_ms_input in = in_msg->create_ms_in;
+					create_ms_output *out;
+					out = create_ms_1_svc(&in);
+					out_msg->create_ms_out = *out;
+					out_msg->type = CREATE_MS_ACK;
+					delete out;
+				}
+				break;
+
+				case OPEN_MS:
+				{
+					open_ms_input in = in_msg->open_ms_in;
+					open_ms_output *out;
+					out = open_ms_1_svc(&in);
+					out_msg->open_ms_out = *out;
+					out_msg->type = OPEN_MS_ACK;
+					delete out;
+				}
+				break;
+
+				case CLOSE_MS:
+				{
+					close_ms_input in = in_msg->close_ms_in;
+					close_ms_output *out;
+					out = close_ms_1_svc(&in);
+					out_msg->close_ms_out = *out;
+					out_msg->type = CLOSE_MS_ACK;
+					delete out;
+				}
+				break;
+
+				case DESTROY_MS:
+				{
+					destroy_ms_input in = in_msg->destroy_ms_in;
+					destroy_ms_output *out;
+					out = destroy_ms_1_svc(&in);
+					out_msg->destroy_ms_out = *out;
+					out_msg->type = DESTROY_MS_ACK;
+					delete out;
+				}
+				break;
+
+				case CREATE_MSUB:
+				{
+					create_msub_input in = in_msg->create_msub_in;
+					create_msub_output *out;
+					out = create_msub_1_svc(&in);
+					out_msg->create_msub_out = *out;
+					out_msg->type = CREATE_MSUB_ACK;
+					delete out;
+				}
+				break;
+
+				case DESTROY_MSUB:
+				{
+					destroy_msub_input in = in_msg->destroy_msub_in;
+					destroy_msub_output *out;
+					out = destroy_msub_1_svc(&in);
+					out_msg->destroy_msub_out = *out;
+					out_msg->type = DESTROY_MSUB_ACK;
+					delete out;
+				}
+				break;
+
+				case ACCEPT_MS:
+				{
+					accept_input in = in_msg->accept_in;
+					accept_output *out;
+					out = accept_1_svc(&in);
+					out_msg->accept_out = *out;
+					out_msg->type = ACCEPT_MS_ACK;
+					delete out;
+				}
+				break;
+
+				case UNDO_ACCEPT:
+				{
+					undo_accept_input in = in_msg->undo_accept_in;
+					undo_accept_output *out;
+					out = undo_accept_1_svc(&in);
+					out_msg->undo_accept_out = *out;
+					out_msg->type = UNDO_ACCEPT_ACK;
+					delete out;
+				}
+				break;
+
+				case SEND_CONNECT:
+				{
+					send_connect_input in = in_msg->send_connect_in;
+					send_connect_output *out;
+					out = send_connect_1_svc(&in);
+					out_msg->send_connect_out = *out;
+					out_msg->type = SEND_CONNECT_ACK;
+					delete out;
+				}
+				break;
+
+				case UNDO_CONNECT:
+				{
+					undo_connect_input in = in_msg->undo_connect_in;
+					undo_connect_output *out;
+					out = undo_connect_1_svc(&in);
+					out_msg->undo_connect_out = *out;
+					out_msg->type = UNDO_CONNECT_ACK;
+					delete out;
+				}
+				break;
+
+				case SEND_DISCONNECT:
+				{
+					send_disconnect_input in = in_msg->send_connect_in;
+					send_disconnect_output *out;
+					out = send_disconnect_1_svc(&in);
+					out_msg->send_connect_out = *out;
+					out_msg->type = SEND_DISCONNECT_ACK;
+					delete out;
+				}
+				break;
+			} /* switch */
+
+			if (other_server->send(sizeof(unix_msg_t))) {
+				puts("Failed to send back");
+				delete other_server;
+				pthread_exit(0);
+			}
+		} else {
+			puts("Remote daemon has closed connection..BYTE");
+			pthread_exit(0);
+		}
+	} /* while */
+	pthread_exit(0);
+}
+
+int run_rpc_alternative()
+{
+	/* Create a server */
+	puts("Creating server object...");
+	try {
+		server = new unix_server();
+	}
+	catch(unix_sock_exception e) {
+		cout << e.err << endl;
+		return 1;
+	}
+
+	/* Wait for client to connect */
+	puts("Wait for client to connect..");
+
+	while (1) {
+		if (server->accept()) {
+			puts("Failed to accept");
+			delete server;
+			return 2;
+		}
+
+		int accept_socket = server->get_accept_socket();
+		printf("After accept() call, accept_socket = 0x%X\n", accept_socket);
+
+		rpc_ti	*ti;
+		try {
+			ti = new rpc_ti(accept_socket);
+		}
+		catch(...) {
+			puts("Failed to create rpc_ti");
+			delete server;
+			return 3;
+		}
+
+		int ret = pthread_create(&ti->tid,
+					 NULL,
+					 rpc_thread_f,
+					 ti);
+		if (ret) {
+			puts("Failed to create request thread\n");
+			delete server;
+			delete ti;
+			return -6;
+		}
+		sem_wait(&ti->started);
+	} /* while */
+} /* run_rpc_alternative() */
 
 void shutdown(struct peer_info *peer)
 {
@@ -244,10 +557,10 @@ int main (int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
-
+#if 0
 	/* Configure RPC as a listener */
 	configure_rpc();
-
+#endif
 	/* Open mport */
 	peer.mport_fd = riodp_mport_open(peer.mport_id, 0);
 	if (peer.mport_fd <= 0) {
@@ -318,8 +631,10 @@ int main (int argc, char **argv)
 		goto out_free_inbound;
 	}
 
+	run_rpc_alternative();
+#if 0
 	run_rpc();
-
+#endif
 	/* Never reached */
 
 out_free_inbound:

@@ -39,11 +39,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define	CM_MS_NAME_MAX_LEN	31
 
-#define	CONNECT_MS	1
-#define	ACCEPT_MS	2
-#define	DISCONNECT_MS	3
-#define	DESTROY_MS	4
-#define DESTROY_ACK_MS	5
+#define	CM_CONNECT_MS	1
+#define	CM_ACCEPT_MS	2
+#define	CM_DISCONNECT_MS	3
+#define	CM_DESTROY_MS	4
+#define CM_DESTROY_ACK_MS	5
 
 struct hello_msg_t {
 	uint64_t destid;

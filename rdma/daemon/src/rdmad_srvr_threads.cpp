@@ -184,7 +184,7 @@ void *wait_conn_disc_thread_f(void *arg)
 		 * type is different then cast message buffer accordingly. */
 		cm_connect_msg	*conn_msg;
 		rx_conn_disc_server->get_recv_buffer((void **)&conn_msg);
-		if (conn_msg->type == CONNECT_MS) {
+		if (conn_msg->type == CM_CONNECT_MS) {
 			HIGH("Received CONNECT_MS '%s'\n", conn_msg->server_msname);
 
 			/* Form message queue name from memory space name */
@@ -289,7 +289,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			accept_msg_map.remove(mq_str);
 			DBG("%s now removed from the accept message map\n",
 							mq_str.c_str());
-		} else if (conn_msg->type == DISCONNECT_MS) {
+		} else if (conn_msg->type == CM_DISCONNECT_MS) {
 			cm_disconnect_msg	*disc_msg;
 
 			rx_conn_disc_server->get_recv_buffer((void **)&disc_msg);

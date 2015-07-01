@@ -154,7 +154,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 		 * type is different then cast message buffer accordingly. */
 		cm_accept_msg	*accept_cm_msg;
 		accept_destroy_client->get_recv_buffer((void **)&accept_cm_msg);
-		if (accept_cm_msg->type == ACCEPT_MS) {
+		if (accept_cm_msg->type == CM_ACCEPT_MS) {
 			HIGH("Received ACCEPT_MS from %s\n",
 						accept_cm_msg->server_ms_name);
 
@@ -228,7 +228,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			 * wait_accept_mq_names list and go back and wait for the
 			 * next accept message */
 			wait_accept_mq_names.remove(mq_str);
-		} else if (accept_cm_msg->type == DESTROY_MS) {
+		} else if (accept_cm_msg->type == CM_DESTROY_MS) {
 			cm_destroy_msg	*destroy_msg;
 			accept_destroy_client->get_recv_buffer((void **)&destroy_msg);
 
@@ -288,7 +288,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 				accept_destroy_client->flush_send_buffer();
 
 				/* Now send back a destroy_ack CM message */
-				dam->type	= DESTROY_ACK_MS;
+				dam->type	= CM_DESTROY_ACK_MS;
 				strcpy(dam->server_msname, destroy_msg->server_msname);
 				dam->server_msid = destroy_msg->server_msid;
 				if (accept_destroy_client->send()) {

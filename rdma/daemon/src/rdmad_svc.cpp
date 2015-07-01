@@ -90,53 +90,51 @@ vector<rdaemon_t*>	client_rdaemon_list;
 sem_t			client_rdaemon_list_sem;
 
 get_mport_id_output *
-get_mport_id_1_svc(get_mport_id_input *in, struct svc_req *rqstp)
+get_mport_id_1_svc(get_mport_id_input *in)
 {
-	static get_mport_id_output out;
 	(void)in;
-	(void)rqstp;
 
-	out.mport_id = peer.mport_id;
+	get_mport_id_output *out = new get_mport_id_output();
 
-	out.status = 0;	/* Alway successful */
+	out->mport_id = peer.mport_id;
+	out->status = 0;	/* Alway successful */
 
-	return &out;
+	return out;
 } /* get_mport_id_1_svc() */
 
 create_mso_output *
-create_mso_1_svc(create_mso_input *in, struct svc_req *rqstp)
+create_mso_1_svc(create_mso_input *in)
 {
-	(void)rqstp;
-	static create_mso_output	out;
+	create_mso_output *out = new create_mso_output;
  
 	DBG("ENTER\n");
-	int ret = owners.create_mso(in->owner_name, &out.msoid);
+	int ret = owners.create_mso(in->owner_name, &out->msoid);
 
-	out.status = (ret > 0) ? 0 : ret;
-	DBG("owners.create_mso() %s\n", out.status ? "FAILED" : "PASSED");
+	out->status = (ret > 0) ? 0 : ret;
+	DBG("owners.create_mso() %s\n", out->status ? "FAILED" : "PASSED");
 
-        return &out;
+        return out;
 } /* create_mso_1_svc() */
 
 open_mso_output *
-open_mso_1_svc(open_mso_input *in, struct svc_req *rqstp)
+open_mso_1_svc(open_mso_input *in)
 {
-	(void)rqstp;
-	static open_mso_output	out;
+	open_mso_output	*out = new open_mso_output();
 
 	DBG("ENTER\n");
-	int ret = owners.open_mso(in->owner_name, &out.msoid, &out.mso_conn_id);
+	int ret = owners.open_mso(in->owner_name,
+			&out->msoid,
+			&out->mso_conn_id);
 
-	out.status = (ret > 0) ? 0 : ret;
-	DBG("owners.open_mso() %s\n", out.status ? "FAILED" : "PASSED");
+	out->status = (ret > 0) ? 0 : ret;
+	DBG("owners.open_mso() %s\n", out->status ? "FAILED" : "PASSED");
 
-	return &out;
+	return out;
 } /* open_mso_1_svc() */
 
 close_mso_output *
-close_mso_1_svc(close_mso_input *in, struct svc_req *rqstp)
+close_mso_1_svc(close_mso_input *in)
 {
-	(void)rqstp;
 	static close_mso_output	out;
 
 	DBG("ENTER\n");
@@ -150,10 +148,9 @@ close_mso_1_svc(close_mso_input *in, struct svc_req *rqstp)
 } /* close_mso_1_svc() */
 
 destroy_mso_output *
-destroy_mso_1_svc(destroy_mso_input *in, struct svc_req *rqstp)
+destroy_mso_1_svc(destroy_mso_input *in)
 {
-	(void)rqstp;
-	static destroy_mso_output	out;
+	static destroy_mso_output out;
 
 	DBG("ENTER\n");
 
@@ -172,9 +169,8 @@ destroy_mso_1_svc(destroy_mso_input *in, struct svc_req *rqstp)
 } /* destroy_mso_1_svc() */
 
 create_ms_output *
-create_ms_1_svc(create_ms_input *in, struct svc_req *rqstp)
+create_ms_1_svc(create_ms_input *in)
 {
-	(void)rqstp;
 	static create_ms_output	out;
 
 	DBG("ENTER\n");
@@ -195,9 +191,8 @@ create_ms_1_svc(create_ms_input *in, struct svc_req *rqstp)
 } /* create_ms_1_svc() */
 
 open_ms_output *
-open_ms_1_svc(open_ms_input *in, struct svc_req *rqstp)
+open_ms_1_svc(open_ms_input *in)
 {
-	(void)rqstp;
 	static open_ms_output	out;
 
 	DBG("ENTER\n");
@@ -276,9 +271,8 @@ static int close_or_destroy_action(mspace *ms)
 } /* close or destroy action() */
 
 close_ms_output *
-close_ms_1_svc(close_ms_input *in, struct svc_req *rqstp)
+close_ms_1_svc(close_ms_input *in)
 {
-	(void)rqstp;
 	static close_ms_output	out;
 
 	DBG("ENTER, msid=%u, ms_conn_id=%u\n", in->msid, in->ms_conn_id);
@@ -309,9 +303,8 @@ close_ms_1_svc(close_ms_input *in, struct svc_req *rqstp)
 } /* close_ms_1_svc() */
 
 destroy_ms_output *
-destroy_ms_1_svc(destroy_ms_input *in, struct svc_req *rqstp)
+destroy_ms_1_svc(destroy_ms_input *in)
 {
-	(void)rqstp;
 	static destroy_ms_output	out;
 	mspace *ms = the_inbound->get_mspace(in->msid);
 	if (!ms) {
@@ -340,9 +333,8 @@ destroy_ms_1_svc(destroy_ms_input *in, struct svc_req *rqstp)
 } /* destroy_ms_1_svc() */
 
 create_msub_output *
-create_msub_1_svc(create_msub_input *in, struct svc_req *rqstp)
+create_msub_1_svc(create_msub_input *in)
 {
-	(void)rqstp;
 	static create_msub_output	out;
 
 	int ret = the_inbound->create_msubspace(in->msid,
@@ -360,9 +352,8 @@ create_msub_1_svc(create_msub_input *in, struct svc_req *rqstp)
 } /* create_msub_1_svc() */
 
 destroy_msub_output *
-destroy_msub_1_svc(destroy_msub_input *in, struct svc_req *rqstp)
+destroy_msub_1_svc(destroy_msub_input *in)
 {
-	(void)rqstp;
 	static destroy_msub_output	out;
 
 	int ret = the_inbound->destroy_msubspace(in->msid, in->msubid);
@@ -373,9 +364,8 @@ destroy_msub_1_svc(destroy_msub_input *in, struct svc_req *rqstp)
 } /* destroy_msub_1_svc() */
 
 accept_output *
-accept_1_svc(accept_input *in, struct svc_req *rqstp)
+accept_1_svc(accept_input *in)
 {
-	(void)rqstp;
 	static accept_output	out;
 
 	DBG("ENTER with msname = %s\n", in->loc_ms_name);
@@ -403,7 +393,7 @@ accept_1_svc(accept_input *in, struct svc_req *rqstp)
 
 	/* Prepare accept message from input parameters */
 	struct cm_accept_msg	cmam;
-	cmam.type		= ACCEPT_MS;
+	cmam.type		= CM_ACCEPT_MS;
 	strcpy(cmam.server_ms_name, in->loc_ms_name);
 	cmam.server_msid	= ms->get_msid();
 	cmam.server_msubid	= in->loc_msubid;
@@ -426,9 +416,8 @@ accept_1_svc(accept_input *in, struct svc_req *rqstp)
 } /* accept_1_svc() */
 
 undo_accept_output *
-undo_accept_1_svc(undo_accept_input *in, struct svc_req *rqstp)
+undo_accept_1_svc(undo_accept_input *in)
 {
-	(void)rqstp;
 	static undo_accept_output out;
 
 	DBG("ENTER with msname = %s\n", in->server_ms_name);
@@ -465,9 +454,8 @@ undo_accept_1_svc(undo_accept_input *in, struct svc_req *rqstp)
 } /* undo_accept_1_svc() */
 
 send_connect_output *
-send_connect_1_svc(send_connect_input *in, struct svc_req *rqstp)
+send_connect_1_svc(send_connect_input *in)
 {
-	(void)rqstp;
 	static send_connect_output out;
 
 	/* Do we have an entry for that destid ? */
@@ -488,13 +476,13 @@ send_connect_1_svc(send_connect_input *in, struct svc_req *rqstp)
 	/* Obtain pointer to socket object already connected to destid */
 	cm_client *main_client = it->client;
 
-	/* Obtain and flush send buffer for sending CONNECT_MS message */
+	/* Obtain and flush send buffer for sending CM_CONNECT_MS message */
 	cm_connect_msg *c;
 	main_client->get_send_buffer((void **)&c);
 	main_client->flush_send_buffer();
 
 	/* Compose CONNECT_MS message */
-	c->type			= CONNECT_MS;
+	c->type			= CM_CONNECT_MS;
 	strcpy(c->server_msname, in->server_msname);
 	c->client_msid		= in->client_msid;
 	c->client_msubid	= in->client_msubid;
@@ -529,9 +517,8 @@ send_connect_1_svc(send_connect_input *in, struct svc_req *rqstp)
 } /* send_connect_1_svc() */
 
 undo_connect_output *
-undo_connect_1_svc(undo_connect_input *in, struct svc_req *rqstp)
+undo_connect_1_svc(undo_connect_input *in)
 {
-	(void)rqstp;
 	static undo_connect_output out;
 
 	/* Add POSIX message queue name to list of queue names */
@@ -545,9 +532,8 @@ undo_connect_1_svc(undo_connect_input *in, struct svc_req *rqstp)
 } /* undo_connect_1_svc() */
 
 send_disconnect_output *
-send_disconnect_1_svc(send_disconnect_input *in, struct svc_req *rqstp)
+send_disconnect_1_svc(send_disconnect_input *in)
 {
-	(void)rqstp;
 	static send_disconnect_output out;
 
 	out.status = 0;
@@ -577,7 +563,7 @@ send_disconnect_1_svc(send_disconnect_input *in, struct svc_req *rqstp)
 	the_client->flush_send_buffer();
 	the_client->get_send_buffer((void **)&disc_msg);
 
-	disc_msg->type		= DISCONNECT_MS;
+	disc_msg->type		= CM_DISCONNECT_MS;
 	disc_msg->client_msubid	= in->loc_msubid;	/* For removal from server database */
 	disc_msg->server_msid    = in->rem_msid;	/* For removing client's destid from server's
 							 * info on the daemon */

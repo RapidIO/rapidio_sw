@@ -56,7 +56,7 @@ RDMAD_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -g -ggdb -O3 \
 		-I../common/libcli/inc \
 		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
 
-RDMAD_SOURCES = rdmad_rpc.c rdmad_xdr.c \
+RDMAD_SOURCES = rdmad_xdr.c \
 		src/rdma_mq_msg.c \
 		daemon/src/rdmad_svc.cpp \
 		daemon/src/rdmad_main.cpp \
