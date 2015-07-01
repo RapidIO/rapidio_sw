@@ -1,7 +1,0 @@
-RapidIO fabric management - (c) 2014 Prodrive Technologies
-SPDX-License-Identifier: BSD-3-Clause
-==========================================================
-
-The purpose of this directory is to provide the placeholder for the command
-line interfaces for the RapidIO fabric management software stack.
-

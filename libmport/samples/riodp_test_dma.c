@@ -704,7 +704,10 @@ int main(int argc, char** argv)
 		printf("\tsync=%d (%s)\n", sync,
 			(sync == RIO_TRANSFER_SYNC)?"SYNC":(sync == RIO_TRANSFER_FAF)?"FAF":"ASYNC");
 
-		do_dma_test(do_rand, kbuf_mode, verify, repeat, sync);
+		if (do_dma_test(do_rand, kbuf_mode, verify, repeat, sync)) {
+		    printf("DMA test FAILED\n\n");
+		    rc = EXIT_FAILURE;
+        }
 	} else {
 		printf("No DMA support. Test aborted.\n\n");
 		rc = EXIT_FAILURE;

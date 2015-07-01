@@ -69,6 +69,7 @@ all: rsktd rskts remdbg
 rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 	@echo ---------- Building rsktd...
 	$(CXX) -pthread -Wl,-rpath=$(MPORT_DIR) \
+	-L$(MPORT_DIR) \
 	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
@@ -77,7 +78,8 @@ rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 # The RDMA Sockets Test Server
 rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	@echo ---------- Building rskt test server...
-	$(CXX) -L$(shell pwd) -pthread -Wl,-rpath=$(MPORT_DIR) \
+	$(CXX) -L$(MPORT_DIR) -L$(shell pwd) -pthread \
+	-Wl,-rpath=$(MPORT_DIR) \
 	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
@@ -86,7 +88,8 @@ rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 # The Remote Debug shellsrc/librsktd_cli.c 
 remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
 	@echo ---------- Building remote debug CLI ...
-	$(CXX) -L$(shell pwd) -pthread -Wl,-rpath=$(MPORT_DIR) \
+	$(CXX) -L$(shell pwd) -L$(MPORT_DIR) \
+	-pthread -Wl,-rpath=$(MPORT_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe -lrio_maint

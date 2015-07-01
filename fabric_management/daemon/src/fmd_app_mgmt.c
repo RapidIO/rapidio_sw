@@ -41,7 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_state.h"
 #include "fmd_app_mgmt.h"
 #include "fmd_dd.h"
-#include "fmd_msg.h"
+#include "fmd_app_msg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -95,14 +95,14 @@ void handle_app_msg(struct fmd_app_mgmt_state *app)
 {
 	memset((void *)&app->resp, sizeof(struct libfmd_dmn_app_msg), 0);
 
-	app->resp.msg_type = app->req.msg_type | htonl(FMD_MSG_RESP);
+	app->resp.msg_type = app->req.msg_type | htonl(FMD_APP_MSG_RESP);
 
 	if (htonl(FMD_REQ_HELLO) != app->req.msg_type) {
-		app->resp.msg_type |= htonl(FMD_MSG_FAIL);
+		app->resp.msg_type |= htonl(FMD_APP_MSG_FAIL);
 		return;
 	};
 
-	app->proc_num = ntohl(app->proc_num);
+	app->proc_num = ntohl(app->req.hello_req.app_pid);
 	strncpy(app->app_name, app->req.hello_req.app_name, MAX_APP_NAME);
 
 	app->resp.hello_resp.sm_dd_mtx_idx = htonl(app->index);
@@ -166,14 +166,14 @@ int open_app_conn_socket(void)
 	};
 
 	snprintf(app_st.addr.sun_path, sizeof(app_st.addr.sun_path) - 1,
-		FMD_MSG_SKT_FMT, app_st.port);
+		FMD_APP_MSG_SKT_FMT, app_st.port);
 
 	if (remove(app_st.addr.sun_path))
 		if (ENOENT != errno)
 			perror("ERROR on app_conn remove");
 
 	snprintf(app_st.addr.sun_path, sizeof(app_st.addr.sun_path) - 1,
-		FMD_MSG_SKT_FMT, app_st.port);
+		FMD_APP_MSG_SKT_FMT, app_st.port);
 
 	if (-1 == bind(app_st.fd, (struct sockaddr *) &app_st.addr, 
 			sizeof(struct sockaddr_un))) {
@@ -220,7 +220,6 @@ void *app_conn_loop( void *unused )
 		new_app = &app_st.apps[new_app_i];
 		init_app_mgmt(new_app, NO_SEM);
 
-		new_app->alloced = 2;
 		new_app->addr_size = sizeof(struct sockaddr_un);
 		new_app->app_fd = accept(app_st.fd, 
 			(struct sockaddr *)&new_app->addr,
@@ -232,6 +231,7 @@ void *app_conn_loop( void *unused )
 			goto fail;
 		};
 
+		new_app->alloced = 2;
         	rc = pthread_create(&new_app->app_thr, NULL, app_loop,
 				(void *)new_app);
         	if (rc) {

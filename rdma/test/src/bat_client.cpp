@@ -511,6 +511,7 @@ static int test_case_h_i(char ch)
 			  bm_first_tx,
 			  server_msh, server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
 
 	/* Connect to server */
 	msub_h	server_msubh_rb;
@@ -701,6 +702,7 @@ static int test_case_dma(uint32_t loc_msub_ofs_in_ms,
 			  bm_first_tx,
 			  server_msh, server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
 
 	/* Connect to server */
 	msub_h	server_msubh_rb;
@@ -1048,7 +1050,10 @@ int main(int argc, char *argv[])
 		test_case_g();
 		break;
 	case 'h':
+		fprintf(fp, "test_caseh ");
 	case 'i':
+		if (tc == 'i')
+			fprintf(fp, "test_casei ");
 		test_case_h_i(tc);
 		break;
 	case '1':

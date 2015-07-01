@@ -41,8 +41,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_private.h"
 #include "liblist.h"
 
-#ifndef __RSKTD_WPEER_H__
-#define __RSKTD_WPEER_H__
+#ifndef __LIBRSKTD_WPEER_H__
+#define __LIBRSKTD_WPEER_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -90,4 +90,4 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids);
 }
 #endif
 
-#endif /* __RSKTD_WPEER_H__ */
+#endif /* __LIBRSKTD_WPEER_H__ */

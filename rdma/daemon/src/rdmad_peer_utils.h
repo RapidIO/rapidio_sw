@@ -58,30 +58,11 @@ struct peer_info {
 	/* INBOUND WINDOW */
 	#define DEFAULT_INBOUND_WINDOW_SIZE     0x00200000
 
-	/* Messaging */
-	#define DEFAULT_LOC_CHANNEL	2
-	uint16_t	loc_channel;
-
-	#define DEFAULT_AUX_CHANNEL	3
-	uint16_t	aux_channel;
-
-	#define DEFAULT_DESTROY_CHANNEL	4
-	uint16_t	destroy_channel;
-
 	#define DEFAULT_PROV_CHANNEL		10
 	uint16_t	prov_channel;
 
-	#define DEFAULT_MAILBOX_ID	0
-	uint8_t		mbox_id;
-
-	#define DEFAULT_AUX_MAILBOX_ID  0
-	uint8_t		aux_mbox_id;
-
 	#define DEFAULT_PROV_MBOX_ID 0
 	uint8_t		prov_mbox_id;
-
-	#define DEFAULT_DESTROY_MAILBOX_ID  0
-	uint8_t		destroy_mbox_id;
 
 	sem_t	cm_wait_connect_sem;
 

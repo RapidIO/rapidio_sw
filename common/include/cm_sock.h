@@ -178,6 +178,7 @@ protected:
 	uint8_t mbox_id;
 	uint16_t channel;
 	riodp_mailbox_t mailbox;
+private:
 	uint8_t *send_buf;
 	uint8_t *recv_buf;
 }; /* cm_base */
@@ -189,6 +190,8 @@ public:
 		cm_base(name, mport_id, mbox_id, channel),
 		listen_socket(0), accept_socket(0), accepted(false)
 	{
+		int rc;
+
 		/* Create mailbox, throw exception if failed */
 		DBG("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
 			name, mport_id, mbox_id, channel);
@@ -199,15 +202,17 @@ public:
 
 		/* Create listen socket, throw exception if failed */
 		if (riodp_socket_socket(mailbox, &listen_socket)) {
-			CRIT("Failed to create listen socket for '%s'\n", name);
+			CRIT("Failed to create listen socket for '%s'\n",name);
 			close_mailbox();
 			throw cm_exception("Failed to create listen socket");
 		}
 		DBG("listen_socket = 0x%X\n", listen_socket);
 
 		/* Bind listen socket, throw exception if failed */
-		if (riodp_socket_bind(listen_socket, channel)) {
-			CRIT("Failed to bind listen socket for '%s'\n", name);
+		rc = riodp_socket_bind(listen_socket, channel);
+		if (rc) {
+			CRIT("Failed to bind listen socket for '%s': %s\n",
+							name, strerror(errno));
 			riodp_socket_close(&listen_socket);
 			close_mailbox();
 			throw cm_exception("Failed to bind listen socket");
@@ -215,7 +220,7 @@ public:
 		DBG("Listen socket bound\n");
 
 		/* Prepare listen socket */
-		int rc = riodp_socket_listen(listen_socket);
+		rc = riodp_socket_listen(listen_socket);
 		if(rc) {
 			ERR("Failed in riodp_socket_listen() for '%s': %s\n",
 							name, strerror(rc));
@@ -224,7 +229,7 @@ public:
 			throw cm_exception("Failed to listen on socket");
 		}
 		DBG("Listen successful on '%s'\n", name);
-	}
+	} /* cm_server() */
 
 	/* Construct from accept socket. Other attributes are unused */
 	cm_server(const char *name, riodp_socket_t accept_socket) :
@@ -258,17 +263,14 @@ public:
 				WARN("Failed to close mailbox for '%s'\n", name);
 			}
 		}
-	}
+	} /* ~cm_server() */
+
+	riodp_socket_t get_accept_socket() { return accept_socket; }
 
 	/* Accept connection from client */
 	int accept(riodp_socket_t *acc_socket)
 	{
-		/* Close previously created accept socket, if applicable */
-		if (accept_socket && accepted)
-			if (riodp_socket_close(&accept_socket)) {
-				WARN("Failed to close accept socket for '%s': %s\n",
-							name, strerror(errno));
-		}
+		accepted = false;
 
 		/* Create accept socket */
 		if( riodp_socket_socket(mailbox, &accept_socket)) {
@@ -326,7 +328,7 @@ public:
 private:
 	riodp_socket_t listen_socket;
 	riodp_socket_t accept_socket;
-	bool accepted;
+	bool	accepted;
 }; /* cm_server */
 
 class cm_client : public cm_base {
@@ -353,6 +355,14 @@ public:
 		DBG("client_socket = 0x%X\n", client_socket);
 	} /* Constructor */
 
+	/* construct from client socket only */
+	cm_client(const char *name, riodp_socket_t socket) :
+		cm_base(name, 0, 0, 0), client_socket(socket)
+	{
+	}
+
+	riodp_socket_t get_socket() const { return client_socket; }
+
 	~cm_client()
 	{
 		/* Close client socket */
@@ -370,7 +380,7 @@ public:
 	} /* Destructor */
 
 	/* Connect to server specified by RapidIO destination ID */
-	int connect(uint16_t destid)
+	int connect(uint16_t destid, riodp_socket_t *socket)
 	{
 		int rc = riodp_socket_connect(client_socket,
 					      destid,
@@ -385,7 +395,16 @@ public:
 						channel, mbox_id, destid);
 			return -1;
 		}
+		/* Return the socket, now that we know it works */
+		if (socket)
+			*socket = this->client_socket;
 		return 0;
+	} /* connect() */
+
+	/* Connect to the server specified by RapidIO destination ID */
+	int connect(uint16_t destid)
+	{
+		return connect(destid, NULL);
 	} /* connect() */
 
 	/* Send bytes from 'send_buf' */

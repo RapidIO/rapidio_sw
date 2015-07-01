@@ -425,9 +425,9 @@ void halt_lib_handler(void)
 	struct librsktd_unified_msg *msg;
 
 	if (lib_st.loop_alive && !lib_st.all_must_die) {
-		pthread_kill(lib_st.conn_thread, SIGHUP);
 		lib_st.all_must_die = 1;
 		lib_st.loop_alive = 0;
+		pthread_kill(lib_st.conn_thread, SIGHUP);
 	}
 
 	if (NULL != lib_st.new_app)

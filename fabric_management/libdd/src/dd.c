@@ -60,12 +60,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "fmd_dd.h"
 #include "liblog.h"
-#include "dev_db.h"
+// #include "dev_db.h"
 #include "riocp_pe.h"
 #include "riocp_pe_internal.h"
-#include "cli_cmd_db.h"
-#include "cli_cmd_line.h"
-#include "cli_parse.h"
+// #include "cli_cmd_db.h"
+// #include "cli_cmd_line.h"
+// #include "cli_parse.h"
+#include "libcli.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <semaphore.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/sem.h>
+#include <fcntl.h>
+#include <time.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -150,7 +163,7 @@ exit:
 
 int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx)
 {
-        int rc;
+        int rc, i;
 
 	if ((NULL == dd_mtx_fn) || (NULL == dd_mtx_fd) || (NULL == dd_mtx)) {
 		errno = -EINVAL;
@@ -188,12 +201,21 @@ int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx)
                 goto fail;
         };
 
-	if ((*dd_mtx)->dd_ref_cnt && (*dd_mtx)->init_done) {
+	if (((*dd_mtx)->dd_ref_cnt == (*dd_mtx)->dd_ref_cnt) &&
+						(*dd_mtx)->init_done) {
 		(*dd_mtx)->mtx_ref_cnt++;
+		(*dd_mtx)->dd_ref_cnt++;	
 	} else {
-		sem_init(&(*dd_mtx)->sem, 1, 1);
+		sem_init(&(*dd_mtx)->sem, 1, 0);
 		(*dd_mtx)->mtx_ref_cnt = 1;
 		(*dd_mtx)->init_done = TRUE;
+		for (i = 0; i < FMD_MAX_APPS; i++) {
+			(*dd_mtx)->dd_ev[i].in_use = 0;
+			(*dd_mtx)->dd_ev[i].proc = 0;
+			(*dd_mtx)->dd_ev[i].waiting = 0;
+			sem_init(&(*dd_mtx)->dd_ev[i].dd_event, 1, 0);
+		};
+		sem_post(&(*dd_mtx)->sem);
 	};
 	return 0;
 fail:
@@ -227,8 +249,10 @@ int fmd_dd_init(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx,
 	for (idx = 0; idx < FMD_MAX_DEVS; idx++) {
 		(*dd)->devs[idx].ct = 0;
 		(*dd)->devs[idx].destID = 0;
+		(*dd)->devs[idx].destID_sz = FMD_DEV08;
 		(*dd)->devs[idx].hc = 0xFF;
 		(*dd)->devs[idx].is_mast_pt = 0;
+		memset((*dd)->devs[idx].name, 0, FMD_MAX_NAME+1);
 	};
 	fmd_dd_incr_chg_idx(*dd, 1);
 exit:
@@ -276,64 +300,6 @@ void fmd_dd_cleanup(char *dd_mtx_fn, int *dd_mtx_fd,
 	};
 };
 	
-void fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
-                        struct fmd_dd_mtx *dd_mtx)
-{
-        size_t pe_cnt;
-        struct riocp_pe **pe;
-        int rc, idx;
-        uint32_t comptag, destid;
-        uint8_t hopcount;
-
-	if (NULL == mp_h) {
-                WARN("\nMaster port is NULL, device directory not updated\n");
-		goto exit;
-	};
-
-	pe = NULL;
-        rc = riocp_mport_get_pe_list(mp_h, &pe_cnt, &pe);
-        if (rc) {
-                CRIT("Cannot get pe list rc %d...\n", rc);
-		goto exit;
-        };
-
-	if (pe_cnt > FMD_MAX_DEVS) {
-                WARN("Too many PEs for DD %d %d...\n", pe_cnt, FMD_MAX_DEVS);
-		pe_cnt = FMD_MAX_DEVS;
-	};
-
-	sem_wait(&dd_mtx->sem);
-	dd->num_devs = 0;
-
-        for (idx = 0; idx < (int) pe_cnt; idx++) {
-                rc = riocp_pe_get_comptag(pe[idx], &comptag);
-                if (rc) {
-                        WARN("Cannot get comptag rc %d...\n", rc);
-                        comptag = 0xFFFFFFFF;
-			continue;
-                };
-                rc = riocp_pe_get_destid(pe[idx], &destid);
-                if (rc) {
-                        WARN("Cannot get comptag rc %d...\n", rc);
-                        destid = 0xFFFFFFFF;
-			continue;
-                };
-                hopcount = pe[idx]->hopcount;
-		
-	
-		dd->devs[dd->num_devs].ct     = comptag;
-		dd->devs[dd->num_devs].destID = destid;
-		dd->devs[dd->num_devs].hc     = hopcount;
-		dd->devs[dd->num_devs].is_mast_pt = 
-					(RIOCP_PE_IS_MPORT(pe[idx])?1:0);
-		dd->num_devs++;
-	};
-	fmd_dd_incr_chg_idx(dd, 1);
-	sem_post(&dd_mtx->sem);
-exit:
-	return;
-};
-
 void fmd_dd_incr_chg_idx(struct fmd_dd *dd, int dd_rw)
 {
 	if ((NULL != dd) && dd_rw) {

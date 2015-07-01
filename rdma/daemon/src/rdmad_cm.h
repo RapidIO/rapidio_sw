@@ -39,7 +39,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define	CM_MS_NAME_MAX_LEN	31
 
+#define	CONNECT_MS	1
+#define	ACCEPT_MS	2
+#define	DISCONNECT_MS	3
+#define	DESTROY_MS	4
+#define DESTROY_ACK_MS	5
+
+struct hello_msg_t {
+	uint64_t destid;
+};
+
 struct cm_connect_msg {
+	uint64_t	type;
 	char		server_msname[CM_MS_NAME_MAX_LEN+1];
 	ms_h		client_msid;	  /* Client msid */
 	uint64_t	client_msubid;	  /* Client msub ID */
@@ -53,6 +64,7 @@ struct cm_connect_msg {
 };
 
 struct cm_accept_msg {
+	uint64_t	type;
 	char		server_ms_name[CM_MS_NAME_MAX_LEN+1];
 	uint64_t	server_msid;	/* Server msid */
 	uint64_t	server_msubid;
@@ -65,18 +77,21 @@ struct cm_accept_msg {
 };
 
 struct cm_disconnect_msg {
-	uint64_t client_msubid;
-	uint64_t client_destid;
-	uint64_t client_destid_len;
-	uint64_t server_msid;
+	uint64_t	type;
+	uint64_t 	client_msubid;
+	uint64_t 	client_destid;
+	uint64_t 	client_destid_len;
+	uint64_t 	server_msid;
 };
 
 struct cm_destroy_msg {
+	uint64_t	type;
 	char server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t server_msid;
 };
 
 struct cm_destroy_ack_msg {
+	uint64_t	type;
 	char server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t server_msid;
 };

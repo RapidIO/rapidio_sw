@@ -45,12 +45,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 
 #include "libcli.h"
-#include "fmd_msg.h"
+#include "fmd_app_msg.h"
 #include "fmd_dd.h"
 #include "liblog.h"
 #include "libfmdd_info.h"
 #include "libfmdd.h"
-#include "fmd_msg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,7 +70,7 @@ int open_socket_to_fmd(void )
 
 		fml.addr.sun_family = AF_UNIX;
 		snprintf(fml.addr.sun_path, sizeof(fml.addr.sun_path) - 1,
-			FMD_MSG_SKT_FMT, fml.portno);
+			FMD_APP_MSG_SKT_FMT, fml.portno);
 		if (connect(fml.fd, (struct sockaddr *) &fml.addr, 
 				fml.addr_sz)) {
 			perror("ERROR on libfm_init connect");
@@ -126,9 +125,13 @@ fail:
 	return -1;
 };
 
+void notify_app_of_events(void);
+
 void shutdown_fml(void)
 {
 	fml.mon_must_die = 1;
+
+	notify_app_of_events();
 
 	if (fml.dd_mtx != NULL) {
 		if (fml.dd_mtx->dd_ev[fml.app_idx].waiting) {
@@ -223,7 +226,7 @@ void *mon_loop(void *parms)
 	do {
 		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 1;
 		rc = sem_wait(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event);
-		if (rc || (NULL == fml.dd_mtx))
+		if (rc || (NULL == fml.dd_mtx) || fml.mon_must_die )
 			goto exit;
 		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
 
@@ -235,6 +238,7 @@ void *mon_loop(void *parms)
 	} while (fml.num_devs && !fml.mon_must_die && fml.mon_alive);
 exit:
 	fml.mon_alive = 0;
+	notify_app_of_events();
 	shutdown_fml();
 	return parms;
 };
@@ -316,21 +320,29 @@ fail:
 
 int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 {
-	uint32_t i;
+	uint32_t i, cnt = 0, idx = 0;
 
 	if (h != &fml)
 		goto fail;
 
-	*did_list_sz = fml.num_devs;
+	for (i = 0; i < fml.num_devs; i++)
+		if (!(fml.devs[i].is_mast_pt) && !(0xff == fml.devs[i].hc))
+			cnt++;
 
-	if (!fml.num_devs) {
+	*did_list_sz = cnt;
+
+	if (!cnt) {
 		*did_list = NULL;
 		goto exit;
 	};
 
 	*did_list = (uint32_t *)malloc(sizeof(uint32_t) * fml.num_devs);
-	for (i = 0; i < fml.num_devs; i++)
-		(*did_list)[i] = fml.devs[i].destID;
+	for (i = 0; i < fml.num_devs; i++) {
+		if (!(fml.devs[i].is_mast_pt) && !(0xff == fml.devs[i].hc)) {
+			(*did_list)[idx] = fml.devs[i].destID;
+			idx++;
+		};
+	};
 exit:
 	return 0;
 fail:
@@ -364,7 +376,7 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 	sem_init(&chg_sem->sema, 0, 0);
 
 	sem_wait(&fml.pend_waits_mtx);
-	l_push_tail(&fml.pend_waits, (void *)&chg_sem);
+	l_push_tail(&fml.pend_waits, (void *)chg_sem);
 	sem_post(&fml.pend_waits_mtx);
 
 	rc = sem_wait(&chg_sem->sema);

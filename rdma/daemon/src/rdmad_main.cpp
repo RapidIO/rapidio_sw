@@ -49,6 +49,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdmad_peer_utils.h"
 #include "rdmad_srvr_threads.h"
+#include "rdmad_clnt_threads.h"
 #include "rdmad_svc.h"
 #include "rdmad_console.h"
 #include "libcli.h"
@@ -58,13 +59,7 @@ struct peer_info	peer;
 
 using namespace std;
 
-cm_server *main_server;
-cm_server *aux_server;
-
-static	pthread_t cm_accept_thread;
 static 	pthread_t console_thread;
-static	pthread_t server_wait_disc_thread;
-static	pthread_t client_wait_destroy_thread;
 static	pthread_t prov_thread;
 
 static void init_peer()
@@ -77,14 +72,7 @@ static void init_peer()
 	peer.mport_fd = -1;
 
 	/* Messaging */
-	peer.loc_channel	= DEFAULT_LOC_CHANNEL;
-	peer.aux_channel	= DEFAULT_AUX_CHANNEL;
-	peer.destroy_channel	= DEFAULT_DESTROY_CHANNEL;
 	peer.prov_channel	= DEFAULT_PROV_CHANNEL;
-
-	peer.mbox_id		= DEFAULT_MAILBOX_ID;
-	peer.aux_mbox_id	= DEFAULT_AUX_MAILBOX_ID;
-	peer.destroy_mbox_id	= DEFAULT_DESTROY_MAILBOX_ID;
 	peer.prov_mbox_id	= DEFAULT_PROV_MBOX_ID;
 
 	/* CLI */
@@ -141,32 +129,12 @@ void shutdown(struct peer_info *peer)
 	/* Kill the threads */
 	shutting_down = true;
 
-	/* Wake up the accept_thread_f hread if necessary */
-	sem_post(&peer->cm_wait_connect_sem);
-
-	/* If the thread is still alive (because it is in a CM accept,
-	 * then kill it. */
-	int ret = pthread_kill(cm_accept_thread, SIGUSR1);
-	if (ret == EINVAL) {
-		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
-	} else if (ret == ESRCH) {
-		WARN("It is possible that cm_accept_thread already killed\n");
-	}
-	pthread_join(cm_accept_thread, NULL);
-
-	/* Next, kill server_wait_disc_thread */
-	ret = pthread_kill(server_wait_disc_thread, SIGUSR1);
+	/* Next, kill provisioning thread */
+	int ret = pthread_kill(prov_thread, SIGUSR1);
 	if (ret == EINVAL) {
 		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
 	}
-	pthread_join(server_wait_disc_thread, NULL);
-
-	/* Next, kill client_wait_destroy_thread */
-	ret = pthread_kill(client_wait_destroy_thread, SIGUSR1);
-	if (ret == EINVAL) {
-		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
-	}
-	pthread_join(client_wait_destroy_thread, NULL);
+	pthread_join(prov_thread, NULL);
 
 	/* Post the semaphore of each of the client remote daemon threads
 	 * if any. This causes the threads to see 'shutting_down' has
@@ -177,13 +145,6 @@ void shutdown(struct peer_info *peer)
 	/* Delete the inbound object */
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
-
-	/* Delete messaging objects */
-	INFO("Deleting main_server\n");
-	delete main_server;
-
-	INFO("Deleting aux_server\n");
-	delete aux_server;
 
 	/* Close mport device */
 	if (peer->mport_fd > 0) {
@@ -232,7 +193,6 @@ int main (int argc, char **argv)
  	 * before parsing command line parameters as command line parameters
  	 * may override some of the default values assigned here */
 	init_peer();
-
 
 	/* Register end handler */
 	signal(SIGQUIT, end_handler);
@@ -329,64 +289,24 @@ int main (int argc, char **argv)
 
 	/* Initialize semaphores */
 	if (sem_init(&peer.cm_wait_connect_sem, 0, 0) == -1) {
-		CRIT("Failed to initialize cm_wait_connect_sem: %s\n", strerror(errno));
+		CRIT("Failed to initialize cm_wait_connect_sem: %s\n",
+							strerror(errno));
 		goto out_free_inbound;
 	}
 	if (sem_init(&client_rdaemon_list_sem, 0, 1) == -1) {
-		CRIT("Failed to initialize client_rdaemon_list_sem: %s\n", strerror(errno));
+		CRIT("Failed to initialize client_rdaemon_list_sem: %s\n",
+							strerror(errno));
 		goto out_free_inbound;
 	}
-	
-	/* Initialize messaging */
-	try {
-		INFO("Create main_server\n");
-		main_server = new cm_server("main_server",
-					    peer.mport_id,
-					    peer.mbox_id,
-					    peer.loc_channel);
-	}
-	catch(cm_exception e) {
-		CRIT("main_server: %s\n", e.err);
+	if (sem_init(&hello_daemon_info_list_sem, 0, 1) == -1) {
+		CRIT("Failed to initialize hello_daemon_info_list_sem: %s\n",
+							strerror(errno));
 		goto out_free_inbound;
 	}
-	try {
-		INFO("Create aux_server\n");
-		aux_server = new cm_server("aux_server",
-					   peer.mport_id,
-					   peer.aux_mbox_id,
-					   peer.aux_channel);
-	}
-	catch(cm_exception e) {
-		CRIT("aux_server: %s\n", e.err);
-		goto out_free_main_server;
-	}
-
-	/* Create threads */
-	rc = pthread_create(&cm_accept_thread, NULL, accept_thread_f, NULL);
-	if (rc) {
-		CRIT("Failed to create cm_accept_thread: %s\n", strerror(errno));
-		rc = 5;
-		shutdown(&peer);
-		goto out_free_aux_server;
-	}
-	rc = pthread_create(&server_wait_disc_thread,
-					NULL, server_wait_disc_thread_f, NULL);
-	if (rc) {
-		CRIT("Failed to create server_wait_disc_thread: %s\n",
-								strerror(errno));
-		rc = 7;
-		shutdown(&peer);
-		goto out_free_aux_server;
-	}
-
-	rc = pthread_create(&client_wait_destroy_thread,
-				NULL, client_wait_destroy_thread_f, NULL);
-	if (rc) {
-		CRIT("Failed to create client_wait_destroy_thread: %s\n",
-								strerror(errno));
-		rc = 7;
-		shutdown(&peer);
-		goto out_free_aux_server;
+	if (sem_init(&prov_daemon_info_list_sem, 0, 1) == -1) {
+		CRIT("Failed to initialize prov_daemon_info_list_sem: %s\n",
+							strerror(errno));
+		goto out_free_inbound;
 	}
 
 	/* Create provisioning thread */
@@ -395,20 +315,12 @@ int main (int argc, char **argv)
 		CRIT("Failed to create prov_thread: %s\n", strerror(errno));
 		rc = 7;
 		shutdown(&peer);
-		goto out_free_aux_server;
+		goto out_free_inbound;
 	}
 
 	run_rpc();
 
 	/* Never reached */
-
-out_free_aux_server:
-	pthread_join(console_thread, NULL);
-	delete aux_server;
-
-out_free_main_server:
-	pthread_join(console_thread, NULL);
-	delete main_server;
 
 out_free_inbound:
 	pthread_join(console_thread, NULL);

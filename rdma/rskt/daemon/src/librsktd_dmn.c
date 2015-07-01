@@ -321,17 +321,17 @@ int cleanup_dmn(void)
 	if (dmn.skt_valid) {
 		/* FIXME: */
 		/* segflt avoided by commenting the following line */
+		dmn.skt_valid = 0;
 		rc = riodp_socket_close(&dmn.cm_acc_h);
 		if (rc)
 			printf("speer_conn: riodp_socket_close ERR %d\n", rc);
-		dmn.skt_valid = 0;
 	};
 
 	if (dmn.mb_valid) {
+		dmn.mb_valid = 0;
 		rc = riodp_mbox_destroy_handle(&dmn.mb);
 		if (rc)
 			printf("speer_conn: riodp_mbox_shutdown ERR: %d\n", rc);
-		dmn.mb_valid = 0;
 	};
 
 	if (dmn.mpfd > 0) {

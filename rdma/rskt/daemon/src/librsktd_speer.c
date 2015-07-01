@@ -117,6 +117,7 @@ void close_speer(struct rskt_dmn_speer *speer)
 
 	speer->comm_fail = 1;
 
+/* FIXME: Should these be riodp_* calls? */
 	if (NULL != speer->rx_buff)
 		free(speer->rx_buff);
 	

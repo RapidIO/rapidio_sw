@@ -59,6 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad.h"
 #include "rdmad_rdaemon.h"
 #include "rdmad_clnt_threads.h"
+#include "rdmad_srvr_threads.h"
 
 #include "rapidio_mport_lib.h"
 #include "rdma_types.h"
@@ -214,69 +215,49 @@ open_ms_1_svc(open_ms_input *in, struct svc_req *rqstp)
 } /* open_ms_1_svc() */
 
 
-static int close_or_destroy_action(uint32_t msid)
+static int close_or_destroy_action(mspace *ms)
 {
-	void *cm_send_buf;
-	void *cm_recv_buf;
-	cm_client *destroy_client;
-
-	/* Create client object for 'destroy' messages */
-	try {
-		destroy_client = new cm_client("destroy_client",
-					       peer.mport_id,
-					       peer.destroy_mbox_id,
-					       peer.destroy_channel);
-	}
-	catch(cm_exception e) {
-		CRIT("destroy_client: %s\n", e.err);
-		return -1;
-	}
-	INFO("destroy_client cm_sock object created\n");
-
-	destroy_client->get_send_buffer(&cm_send_buf);
-	destroy_client->get_recv_buffer(&cm_recv_buf);
-
-	/* Find the memory space */
-	mspace *ms = the_inbound->get_mspace(msid);
-	if (!ms) {
-		WARN("Failed to find msid(0x%X)\n", msid);
-		DBG("delete destroy_client\n");
-		delete destroy_client;
-		return -2;
-	}
-	DBG("mspace with msid(0x%X) found\n", msid);
-
 	/* Get list of destids connected to memory space */
 	vector<uint16_t> destids = ms->get_destids();
-	DBG("msid(0x%X) has %u destids associated therewith\n", msid,
+	DBG("msid(0x%X) has %u destids associated therewith\n", ms->get_msid(),
 							destids.size());
 
 	/* For each element in the destids list, send a destroy message */
 	for (auto it = begin(destids); it != end(destids); it++) {
-		/* TODO: Can the same client connect to multiple destids ? */
-		if (destroy_client->connect(*it)) {
-			WARN("Failed to connect to destid(0x%X)\n", *it);
-			continue;
+		uint32_t destid = *it;
+
+		/* Need to use a 'prov' socket to send the DESTROY_MS */
+		sem_wait(&prov_daemon_info_list_sem);
+		auto prov_it = find(begin(prov_daemon_info_list), end(prov_daemon_info_list), destid);
+		if (prov_it == end(prov_daemon_info_list)) {
+			ERR("Could not find socket for destid(0x%X)\n", destid);
+			sem_post(&prov_daemon_info_list_sem);
+			continue;	/* Better luck next time? */
 		}
-		INFO("Connected to remote daemon at destid(0x%X)\n", *it);
+		cm_server *destroy_server = prov_it->conn_disc_server;
+		sem_post(&prov_daemon_info_list_sem);
 
 		/* Prepare destroy message */
-		cm_destroy_msg	*dm = (cm_destroy_msg *)cm_send_buf;
+		cm_destroy_msg	*dm;
+		destroy_server->get_send_buffer((void **)&dm);
+		dm->type	= DESTROY_MS;
 		strcpy(dm->server_msname, ms->get_name());
-		dm->server_msid = msid;
+		dm->server_msid = ms->get_msid();
 
 		/* Send to remote daemon @ 'destid' */
-		if (destroy_client->send()) {
-			WARN("Failed to send destroy to destid(0x%X)\n", *it);
+		if (destroy_server->send()) {
+			WARN("Failed to send destroy to destid(0x%X)\n", destid);
 			continue;
 		}
 		INFO("Sent cm_destroy_msg for %s to remote daemon\n",
 							dm->server_msname);
 
 		/* Wait for destroy acknowledge message, but with timeout.
-		 * If no ACK within say 5 seconds, then move on */
-		cm_destroy_ack_msg *dam = (cm_destroy_ack_msg *)cm_recv_buf;
-		if (destroy_client->timed_receive(5000)) {
+		 * If no ACK within say 1 second, then move on */
+		cm_destroy_ack_msg *dam;
+		destroy_server->flush_send_buffer();
+		destroy_server->get_send_buffer((void **)&dam);
+		if (destroy_server->timed_receive(1000)) {
 			/* In this case whether the return value is ETIME or a failure
 			 * code is irrelevant. The main thing is NOT to be stuck here.
 			 */
@@ -289,11 +270,7 @@ static int close_or_destroy_action(uint32_t msid)
 		else {
 			HIGH("destroy_ack received from daemon destid(0x%X)\n", *it);
 		}
-	}
-
-	/* Delete the socket object */
-	DBG("delete destroy_client\n");
-	delete destroy_client;
+	} /* for() */
 
 	return 0;
 } /* close or destroy action() */
@@ -305,18 +282,22 @@ close_ms_1_svc(close_ms_input *in, struct svc_req *rqstp)
 	static close_ms_output	out;
 
 	DBG("ENTER, msid=%u, ms_conn_id=%u\n", in->msid, in->ms_conn_id);
+	mspace *ms = the_inbound->get_mspace(in->msid);
+	if (!ms) {
+		ERR("Could not find mspace with msid(0x%X)\n", in->msid);
+		out.status = -1;
+		return &out;
+	}
 
-	/* Before closing the memory space, tell the clients
-	 * of the memory space that it is being closed and
-	 * have them acknowledge that */
-	out.status = close_or_destroy_action(in->msid);
+	/* Before closing the memory space, tell the clients the memory space
+	 *  that it is being closed and have them acknowledge that */
+	out.status = close_or_destroy_action(ms);
 	if (out.status)
 		return &out;
 
 	/* If the memory space was in accepted state, clear that state */
 	/* FIXME: This assumes only 1 'open' to the ms and that the creator
 	 * of the ms does not call 'accept' on it. */
-	mspace *ms = the_inbound->get_mspace(in->msid);
 	ms->set_accepted(false);
 
 	/* Now close the memory space */
@@ -332,11 +313,16 @@ destroy_ms_1_svc(destroy_ms_input *in, struct svc_req *rqstp)
 {
 	(void)rqstp;
 	static destroy_ms_output	out;
+	mspace *ms = the_inbound->get_mspace(in->msid);
+	if (!ms) {
+		ERR("Could not find mspace with msid(0x%X)\n", in->msid);
+		out.status = -1;
+		return &out;
+	}
 
-	/* Before destroying the memory space, tell the clients
-	 * of the memory space that it is being destroyed and
-	 * have them acknowledge that */
-	out.status = close_or_destroy_action(in->msid);
+	/* Before destroying a memory space, tell its clients that it is being
+	 * destroyed and have them acknowledge that */
+	out.status = close_or_destroy_action(ms);
 	if (out.status)
 		return &out;
 
@@ -417,6 +403,7 @@ accept_1_svc(accept_input *in, struct svc_req *rqstp)
 
 	/* Prepare accept message from input parameters */
 	struct cm_accept_msg	cmam;
+	cmam.type		= ACCEPT_MS;
 	strcpy(cmam.server_ms_name, in->loc_ms_name);
 	cmam.server_msid	= ms->get_msid();
 	cmam.server_msubid	= in->loc_msubid;
@@ -426,22 +413,14 @@ accept_1_svc(accept_input *in, struct svc_req *rqstp)
 	cmam.server_rio_addr_hi	= in->loc_rio_addr_hi;
 	cmam.server_destid_len	= 16;
 	cmam.server_destid	= peer.destid;
+	DBG("cm_accept_msg has server_destid = 0x%X\n", cmam.server_destid);
+	DBG("cm_accept_msg has server_destid_len = 0x%X\n", cmam.server_destid_len);
 
 	/* Add accept message content to map indexed by message queue name */
+	DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
 	accept_msg_map.add(s, cmam);
 
-	/* Increment semaphore in thread. This way the thread will keep
-	 * checking for CM messages as many times as accept_1_svc() is called
-	 * , then when all messages have been received the thread will block
-	 * waiting on cm_wait_connect_sem to be incremented again.
-	 */
-	DBG("cm_wait_connect_sem now posting!\n");
-	if (sem_post(&peer.cm_wait_connect_sem) == -1) {
-		WARN("sem_post(&peer.cm_wait_connect_sem): %s\n", strerror(errno));
-		out.status = -1;
-	} else {
-		out.status = 0;
-	}
+	out.status = 0;
 
 	return &out;
 } /* accept_1_svc() */
@@ -490,90 +469,32 @@ send_connect_1_svc(send_connect_input *in, struct svc_req *rqstp)
 {
 	(void)rqstp;
 	static send_connect_output out;
-	void *send_buf;
 
-	/* See if we already have a remote daemon entry for the destid */
-	rdaemon_has_destid	rdhd(in->server_destid);
-	auto it = find_if(begin(client_rdaemon_list), end(client_rdaemon_list), rdhd);
+	/* Do we have an entry for that destid ? */
+	sem_wait(&hello_daemon_info_list_sem);
+	auto it = find(begin(hello_daemon_info_list),
+		       end(hello_daemon_info_list),
+		       in->server_destid);
 
-	rdaemon_t *rdaemon;
-
-	/* Not found, must create a client and a thread for that remote daemon */
-	/* TODO: Can we create multiple clients with the same mbox_id on the same
-	 * channel? */
-	if (it == end(client_rdaemon_list)) {
-		/* Prepare an rdaemon struct for storage in the list */
-		rdaemon = new rdaemon_t();
-		rdaemon->destid = in->server_destid;
-		rdaemon->destid_len = 16;
-
-		/* Create main_client cm_sock object */
-		try {
-			DBG("Create main_client\n");
-			rdaemon->main_client =  new cm_client("rdaemon_main_client",
-							      peer.mport_id,
-							      peer.mbox_id,
-							      peer.loc_channel);
-		}
-		catch(cm_exception e) {
-			CRIT("main_client: %s\n", e.err);
-			out.status = -1;
-			return &out;
-		}
-
-		/* Connect to server's RDMA daemon via CM sockets */
-		DBG("destid=0x%lX, mailbox %d, channel %d\n", in->server_destid,
-						peer.mbox_id, peer.loc_channel);
-
-		if (rdaemon->main_client->connect(in->server_destid)) {
-			ERR("Failed to connect to destid(%u)\n", in->server_destid);
-			out.status = -2;
-			return &out;
-		}
-		INFO("main_client->connect() succeeded for destid(0x%X)\n",
-							in->server_destid);
-		
-		/* Initialize semaphore */
-		if (sem_init(&rdaemon->cm_wait_accept_sem, 0, 0) == -1) {
-			ERR("Failed to init cm_wait_accept_sem\n");
-			delete rdaemon->main_client;
-			out.status = -3;
-			return &out;
-		}
-		DBG("rdaemon->cm_wait_accept_sem = 0x%X\n", rdaemon->cm_wait_accept_sem);
-
-		/* Lock access to global client_rdaemon_list_sem so it is not
-		 * accessed when the thread is started until we are done here.
-		 * This maybe unnecessary but better safe than sorry. */ 
-		sem_wait(&client_rdaemon_list_sem);	/* Lock access */
-
-		/* Store entry for destid in client_rdaemon_list */
-		client_rdaemon_list.push_back(rdaemon);
-		
-		/* Create a pthread for that remote daemon */
-		if (pthread_create(&rdaemon->wait_accept_thread, NULL,
-				wait_accept_thread_f, &rdaemon->destid)) {
-			CRIT("Failed to create cm_wait_accept_thread: %s\n",
-								strerror(errno));
-			delete rdaemon->main_client;
-			/* Remove from list since we can't start the thread */
-			client_rdaemon_list.pop_back();
-			sem_post(&client_rdaemon_list_sem);
-			out.status = -4;
-			return &out;
-		}
-		INFO("wait_accept_thread created\n");
-		sem_post(&client_rdaemon_list_sem);
-	} else {
-		rdaemon = *it;
+	/* If the server's destid is not found, just fail */
+	if (it == end(hello_daemon_info_list)) {
+		ERR("destid(0x%X) was not provisioned\n", in->server_destid);
+		sem_post(&hello_daemon_info_list_sem);
+		out.status = -1;
+		return &out;
 	}
+	sem_post(&hello_daemon_info_list_sem);
 
-	/* Request a send buffer */
-	rdaemon->main_client->get_send_buffer(&send_buf);
-	rdaemon->main_client->flush_send_buffer();
+	/* Obtain pointer to socket object already connected to destid */
+	cm_client *main_client = it->client;
 
-	/* Populate send buffer with cm_connect_msg */
-	struct cm_connect_msg *c = (struct cm_connect_msg *)send_buf;
+	/* Obtain and flush send buffer for sending CONNECT_MS message */
+	cm_connect_msg *c;
+	main_client->get_send_buffer((void **)&c);
+	main_client->flush_send_buffer();
+
+	/* Compose CONNECT_MS message */
+	c->type			= CONNECT_MS;
 	strcpy(c->server_msname, in->server_msname);
 	c->client_msid		= in->client_msid;
 	c->client_msubid	= in->client_msubid;
@@ -585,7 +506,9 @@ send_connect_1_svc(send_connect_input *in, struct svc_req *rqstp)
 	c->client_destid	= peer.destid;
 
 	/* Send buffer to server */
-	if (rdaemon->main_client->send()) {
+	if (main_client->send()) {
+		ERR("Failed to send CONNECT_MS to destid(0x%X)\n",
+							in->server_destid);
 		out.status = -3;
 		return &out;
 	}
@@ -598,15 +521,8 @@ send_connect_1_svc(send_connect_input *in, struct svc_req *rqstp)
 	/* Add to list of message queue names awaiting an 'accept' to 'connect' */
 	wait_accept_mq_names.push_back(mq_name);
 
-	/* Wake up wait_accept_thread */
-	DBG("cm_wait_accept_sem (0x%X) now posting!\n", rdaemon->cm_wait_accept_sem);
-	if (sem_post(&rdaemon->cm_wait_accept_sem) == -1) {
-		WARN("sem_post(&rdaemon.cm_wait_accept_sem): %s\n", strerror(errno));
-		out.status = -1;
-	} else {
-		DBG("rdaemon->cm_wait_accept_sem = 0x%X\n", rdaemon->cm_wait_accept_sem);
-		out.status = 0;
-	}
+	out.status = 0;
+
 	DBG("EXIT\n");
 	return &out;
 
@@ -633,61 +549,49 @@ send_disconnect_1_svc(send_disconnect_input *in, struct svc_req *rqstp)
 {
 	(void)rqstp;
 	static send_disconnect_output out;
-	void *send_buf;
-	struct cm_disconnect_msg *c;
-	cm_client *aux_client;
 
 	out.status = 0;
 
 	DBG("Client to disconnect from destid = 0x%X\n", in->rem_destid);
+	/* Do we have an entry for that destid ? */
+	sem_wait(&hello_daemon_info_list_sem);
+	auto it = find(begin(hello_daemon_info_list),
+		       end(hello_daemon_info_list),
+		       in->rem_destid);
 
-	/* Create aux_client cm_sock object */
-	try {
-		DBG("Create aux_client\n");
-		aux_client = new cm_client("aux_client",
-					   peer.mport_id,
-					   peer.aux_mbox_id,
-					   peer.aux_channel);
-	}
-	catch(cm_exception e) {
-		CRIT("aux_client: %s\n", e.err);
+	/* If the server's destid is not found, just fail */
+	if (it == end(hello_daemon_info_list)) {
+		ERR("destid(0x%X) was not provisioned\n", in->rem_destid);
+		sem_post(&hello_daemon_info_list_sem);
 		out.status = -1;
-		goto out;
+		return &out;
 	}
+	sem_post(&hello_daemon_info_list_sem);
 
-	/* Connect to server's RDMA daemon via CM sockets */
-	/* Using auxiliary mailbox/sockets for disconnect message */
-	DBG("Calling aux_client->connect()\n");
-	if (aux_client->connect(in->rem_destid)) {
-		out.status = -1;
-		goto out;
-	}
-	INFO("Client connected to server on aux channel\n");
+	/* Obtain pointer to socket object already connected to destid */
+	cm_client *the_client = it->client;
+
+	cm_disconnect_msg *disc_msg;
 
 	/* Get and flush send buffer */
-	aux_client->flush_send_buffer();
-	aux_client->get_send_buffer(&send_buf);
+	the_client->flush_send_buffer();
+	the_client->get_send_buffer((void **)&disc_msg);
 
-	/* Put CM disconnect message in send buffer */
-	c = (struct cm_disconnect_msg *)send_buf;
-	c->client_msubid  = in->loc_msubid;	/* For removal from server database */
-	c->server_msid    = in->rem_msid;	/* For removing client's destid from server's
-						 * info on the daemon */
-	c->client_destid = peer.destid;		/* For knowing which destid to remove */
-	c->client_destid_len = 16;
+	disc_msg->type		= DISCONNECT_MS;
+	disc_msg->client_msubid	= in->loc_msubid;	/* For removal from server database */
+	disc_msg->server_msid    = in->rem_msid;	/* For removing client's destid from server's
+							 * info on the daemon */
+	disc_msg->client_destid = peer.destid;		/* For knowing which destid to remove */
+	disc_msg->client_destid_len = 16;
 
 	/* Send buffer to server */
-	if (aux_client->send()) {
+	if (the_client->send()) {
 		out.status = -1;
-		goto out;
+		return &out;
 	}
-	DBG("Sent CM disconnect: msid = 0x%lX, client_destid = 0x%lX\n",
-						c->server_msid, c->client_destid);
-	/* Now delete aux_client since we don't wait for an acknowledgement
-	 * for a disconnect message */
-	DBG("delete aux_client\n");
-	delete aux_client;
-out:
+	DBG("Sent DISCONNECT_MS for msid = 0x%lX, client_destid = 0x%lX\n",
+				disc_msg->server_msid, disc_msg->client_destid);
+
 	return &out;
 } /* send_disconnect_1_svc() */
 

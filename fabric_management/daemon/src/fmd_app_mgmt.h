@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fcntl.h>
 #include <signal.h>
 #include <time.h>
-#include "fmd_msg.h"
+#include "fmd_app_msg.h"
 
 #ifndef __RSKTD_APP_MGMT_H__
 #define __RSKTD_APP_MGMT_H__
@@ -93,7 +93,7 @@ struct app_mgmt_globals {
 
 int start_fmd_app_handler(uint32_t port, uint32_t backlog, int tst,
 			char *dd_fn, char *dd_mtx_fn);
-void halt_fmd_app_handler(void);
+void halt_app_handler(void);
 
 void cleanup_app_handler(void);
 
