@@ -56,8 +56,7 @@ RDMAD_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -g -ggdb -O3 \
 		-I../common/libcli/inc \
 		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
 
-RDMAD_SOURCES = rdmad_xdr.c \
-		src/rdma_mq_msg.c \
+RDMAD_SOURCES = src/rdma_mq_msg.c \
 		daemon/src/rdmad_svc.cpp \
 		daemon/src/rdmad_main.cpp \
 		daemon/src/rdmad_console.c \
@@ -78,12 +77,11 @@ RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb \
 		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3
 
-RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c \
-		lib/src/librdma.cpp \
+RDMALIB_SOURCES = lib/src/librdma.cpp \
 		lib/src/librdma_db.cpp \
 		src/rdma_mq_msg.c
 
-RDMALIB_OBJS    = rdmad_xdr.o rdmalib_rpc.o librdma.o librdma_db.o rdma_mq_msg.o
+RDMALIB_OBJS    = librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
 all: librdma.a rdmad rsktd test
@@ -129,21 +127,8 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_srvr_threads.cpp > rdmad_srvr_threads.i
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_clnt_threads.cpp > rdmad_clnt_threads.i
 
-# RPC-generated files
-rdmalib_rpc.c: rdmad.x rdmad.h
-	rpcgen rdmad.x -l > rdmalib_rpc.c
-rdmad_rpc.c: rdmad.x rdmad.h
-	rpcgen rdmad.x -m > rdmad_rpc.c
-rdmad.h: rdmad.x
-	rpcgen rdmad.x -h > rdmad.h
-rdmad_xdr.c: rdmad.x rdmad.h
-	rpcgen rdmad.x -c > rdmad_xdr.c
-	rm -f rdmad_xdr.b
-	mv rdmad_xdr.c rdmad_xdr.b
-	perl remove_buf.pl
-
 clean:
-	rm -f rdmalib_rpc.c rdmad_rpc.c rdmad_xdr.c rdmad.h rdmad *.o rdmad_xdr.b librdma.so *.i
+	rm -f rdmad *.o librdma.so *.i
 	$(MAKE) clean -C rskt
 	$(MAKE) clean -C samples
 	$(MAKE) clean -C test
