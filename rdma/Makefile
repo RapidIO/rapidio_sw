@@ -69,10 +69,12 @@ RDMAD_SOURCES = rdmad_xdr.c \
 
 # RDMA Library flags, sources and objects
 RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
+		-Idaemon/inc \
 		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3 -rdynamic -lnsl
 
 RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb \
+		-Idaemon/inc \
 		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3
 

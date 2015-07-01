@@ -189,7 +189,7 @@ void *rpc_thread_f(void *arg)
 			pthread_exit(0);
 		}
 		if (received_len > 0) {
-			printf("receveived_len = %d\n", (int)received_len);
+			printf("received_len = %d\n", (int)received_len);
 
 			unix_msg_t	*in_msg;
 			unix_msg_t	*out_msg;
@@ -365,10 +365,10 @@ void *rpc_thread_f(void *arg)
 
 				case SEND_DISCONNECT:
 				{
-					send_disconnect_input in = in_msg->send_connect_in;
+					send_disconnect_input in = in_msg->send_disconnect_in;
 					send_disconnect_output *out;
 					out = send_disconnect_1_svc(&in);
-					out_msg->send_connect_out = *out;
+					out_msg->send_disconnect_out = *out;
 					out_msg->type = SEND_DISCONNECT_ACK;
 					delete out;
 				}
