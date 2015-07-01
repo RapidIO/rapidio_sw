@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 
 /* Default paramters for RDMA */
-#define UNIX_PATH_RDMA	"rdma"
+#define UNIX_PATH_RDMA	"/usr/tmp/rdma"
 #define UNIX_SOCK_DEFAULT_BUFFER_SIZE	512
 #define UNIX_SOCK_DEFAULT_BACKLOG	5
 
