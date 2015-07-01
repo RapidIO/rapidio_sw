@@ -52,9 +52,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riodp_mport_lib.h"
 #include "rdma_types.h"
 #include "liblog.h"
-#if 0
-#include "rdmad.h"
-#endif
 #include "rdma_mq_msg.h"
 #include "msg_q.h"
 
@@ -63,38 +60,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
 
-/* Macro to simplify RPC calls */
-#if 0
-#define CALL_RPC(func, in, out, ret_if_null, ret_if_fail) \
-out = func##_1(&in, rpc_client);			  \
-if (out == (func##_output *)NULL) {	\
-	ERR(#func "_1() call failed\n");	\
-	clnt_perror(rpc_client, "call failed");	\
-	return ret_if_null; \
-}	\
-if (out->status) { \
-	ERR(#func "_1() failed with code: %d\n", out->status);	\
-	return ret_if_fail;	\
-}
-#endif
-
-#define CALL_RPC(func, in, out, ret_if_null, ret_if_fail)
-
 using namespace std;
 
 static unsigned init = 0;	/* Global flag indicating library initialized */
 
-#if 0
-static const char *rpc_host = "localhost";
-
-static CLIENT *rpc_client;	/* RPC client */
-#endif
-
 /* Unix socket client */
 static unix_client *client;
-static unix_msg_t	*in_msg;
-static unix_msg_t	*out_msg;
-static size_t	received_len;
+static unix_msg_t  *in_msg;
+static unix_msg_t  *out_msg;
+static size_t	    received_len;
 
 /** 
  * Global info related to mports and channelized messages.
@@ -311,32 +285,11 @@ static void *wait_for_disc_thread_f(void *arg)
 
 __attribute__((constructor)) int rdma_lib_init(void)
 {
-#if 0
-	struct timeval	timeout;
-#endif
 	/* Initialize the logger */
 	rdma_log_init("librdma.log", 0);
-#if 0
-	/* Create RPC client */
-	client = clnt_create(rpc_host, RDMAD, RDMAD_1, "udp");
-	if (client == NULL) {
-		CRIT("RPC clnt_create() call failed\n");
-		clnt_pcreateerror(rpc_host);
-		return -1;
-	}
 
-	/* Set RPC timeout value */
-	timeout.tv_sec = 3600;	/* One hour! */	
-	timeout.tv_usec = 0;
-	clnt_control(client, CLSET_TIMEOUT, (char *)&timeout);
-
-	/* Read back and verify RPC timeout value */
-	timeout.tv_sec = 0;	/* Clear before reading */
-	clnt_control(client, CLGET_TIMEOUT, (char *)&timeout);
-	DBG("RPC timeout = %lu seconds\n", timeout.tv_sec);
-#endif
 	/* Create a client */
-	DBG("Creating client object...");
+	DBG("Creating client object...\n");
 	try {
 		client = new unix_client();
 	}
@@ -347,7 +300,7 @@ __attribute__((constructor)) int rdma_lib_init(void)
 
 	/* Connect to server */
 	if( client->connect()) {
-		CRIT("Failed to connect to Unix socket server on RDMA daemon");
+		CRIT("Failed to connect to Unix socket server on RDMA daemon\n");
 		return -3;
 	}
 
@@ -410,10 +363,6 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 	}
 
 	out = out_msg->create_mso_out;
-#if 0
-	/* RPC call, and check return value */
-	CALL_RPC(create_mso, in, out, -3, -4);
-#endif
 	/* Store in database. mso_conn_id = 0 and owned = true */
 	*msoh = add_loc_mso(owner_name, out.msoid, 0, true, (pthread_t)0, nullptr);
 	if (!*msoh) {
@@ -505,11 +454,6 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	}
 
 	out = out_msg->open_mso_out;
-
-#if 0
-	/* RPC call, and check return value */
-	CALL_RPC(open_mso, in, out, -3, -4);
-#endif
 
 	/* Open message queue for receiving mso close messages. Such messages are
 	 * sent when the owner of an 'mso' decides to destroy the mso. The close
@@ -642,9 +586,7 @@ int rdma_close_mso_h(mso_h msoh)
 
 	/* close_mso_1() will remove the message queue corresponding to the mso
 	 * user from the ms_owner struct in the daemon */
-#if 0
-	CALL_RPC(close_mso, in, out, -4, -5);
-#endif
+
 	/* Set up Unix message parameters */
 	in_msg->type = CLOSE_MSO;
 	in_msg->close_mso_in = in;
@@ -725,11 +667,6 @@ int rdma_destroy_mso_h(mso_h msoh)
 	/* Set up input parameters */
 	in.msoid = ((struct loc_mso *)msoh)->msoid;
 
-#if 0
-	/* RPC call, and check return value */
-	CALL_RPC(destroy_mso, in, out, -4, -5);
-#endif
-
 	/* Set up Unix message parameters */
 	in_msg->type = DESTROY_MSO;
 	in_msg->destroy_mso_in = in;
@@ -799,10 +736,7 @@ int rdma_create_ms_h(const char *ms_name,
 	in.msoid   = ((struct loc_mso *)msoh)->msoid;
 	in.bytes   = *bytes;
 	in.flags   = flags;
-#if 0
-	/* RPC call, and check return value */
-	CALL_RPC(create_ms, in, out, -3, -4);
-#endif
+
 	/* Set up Unix message parameters */
 	in_msg->type = CREATE_MS;
 	in_msg->create_ms_in = in;
@@ -893,10 +827,6 @@ int rdma_open_ms_h(const char *ms_name,
 	strcpy(in.ms_name, ms_name);
 	in.msoid   = ((struct loc_mso *)msoh)->msoid;
 	in.flags   = flags;
-#if 0
-	/* RPC call, and check return value */
-	CALL_RPC(open_ms, in, out, -2, -3);
-#endif
 
 	/* Set up Unix message parameters */
 	in_msg->type = OPEN_MS;
@@ -1070,9 +1000,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 
 	/* close_ms_1() will remove the message queue corresponding to the ms
 	 * user from the ms_owner struct in the daemon, and close the queue */
-#if 0
-	CALL_RPC(close_ms, in, out, -4, -5);
-#endif
+
 	/* Set up Unix message parameters */
 	in_msg->type = CLOSE_MS;
 	in_msg->close_ms_in = in;
@@ -1129,10 +1057,6 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	 * when it connected to the server using rdma_conn_ms_h() */
 	remove_rem_msub_by_loc_msh(msh);
 
-#if 0
-	/* RPC call, and check return value */
-	CALL_RPC(destroy_ms, in, out, -4, -5);
-#endif
 	/* Set up Unix message parameters */
 	in_msg->type = DESTROY_MS;
 	in_msg->destroy_ms_in = in;
@@ -1225,10 +1149,7 @@ int rdma_create_msub_h(ms_h	msh,
 
 	DBG("msid = 0x%X, offset = 0x%X, req_bytes = 0x%x\n",
 		in.msid, in.offset, in.req_bytes);
-#if 0
-	/* RPC call to create a memory subspace, and check return value */
-	CALL_RPC(create_msub, in, out, -1, -2);
-#endif
+
 	/* Set up Unix message parameters */
 	in_msg->type = CREATE_MSUB;
 	in_msg->create_msub_in = in;
@@ -1285,10 +1206,6 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	in.msid		= ((struct loc_ms *)msh)->msid;
 	in.msubid	= msub->msubid;
 
-#if 0
-	/* RPC call to destroy the memory subspace, and check return value */
-	CALL_RPC(destroy_msub, in, out, -5, -6);
-#endif
 	/* Set up Unix message parameters */
 	in_msg->type = DESTROY_MSUB;
 	in_msg->destroy_msub_in = in;
@@ -1431,10 +1348,6 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	}
 	INFO("Message queue %s created for connection from %s\n",
 						mq_name.c_str(), ms->name);
-#if 0
-	/* Call the accept() code in the daemon */
-	CALL_RPC(accept, accept_in, accept_out, -3, -4);
-#endif
 	/* Set up Unix message parameters */
 	in_msg->type = ACCEPT_MS;
 	in_msg->accept_in = accept_in;
@@ -1461,9 +1374,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			 * of memory spaces awaiting a connect message from a remote daemon.
 			 */
 			strcpy(undo_accept_in.server_ms_name, ms->name);
-#if 0
-			CALL_RPC(undo_accept, undo_accept_in, undo_accept_out, -6, -7);
-#endif
+
 			/* Set up Unix message parameters */
 			in_msg->type = UNDO_ACCEPT;
 			in_msg->undo_accept_in = undo_accept_in;
@@ -1596,22 +1507,6 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	}
 	INFO("Created 'accept' message queue: '%s'\n", mq_name.c_str());
 
-
-#if 0
-	/* Call send_connect_1(). If it fails delete the message queue */
-	out = send_connect_1(&in, client);
-	if (out == (send_connect_output *)NULL) {
-		ERR("send_connect_1() call failed\n");
-		clnt_perror(client, "call failed");
-		delete accept_mq;
-		return -4;
-	}
-	if (out->status) {
-		ERR("send_connect_1() failed with code: %d\n", out->status);
-		delete accept_mq;
-		return -5;
-	}
-#endif
 	/* Set up Unix message parameters */
 	in_msg->type = SEND_CONNECT;
 	in_msg->send_connect_in = in;
@@ -1638,9 +1533,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			undo_connect_output	undo_connect_out;
 
 			strcpy(undo_connect_in.server_ms_name, rem_msname);
-#if 0
-			CALL_RPC(undo_connect, undo_connect_in, undo_connect_out, -5, -6);
-#endif
+
 			/* Set up Unix message parameters */
 			in_msg->type = UNDO_CONNECT;
 			in_msg->undo_connect_in = undo_connect_in;
@@ -1808,10 +1701,7 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 									msid);
 		return -4;
 	}
-#if 0
-	/* Call send_disconnect_1() */
-	CALL_RPC(send_disconnect, in, out, -5, -6);
-#endif
+
 	/* Set up Unix message parameters */
 	in_msg->type = SEND_DISCONNECT;
 	in_msg->send_disconnect_in = in;

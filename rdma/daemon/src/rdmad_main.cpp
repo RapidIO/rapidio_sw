@@ -55,9 +55,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_svc.h"
 #include "rdmad_console.h"
 #include "libcli.h"
-#if 0
-#include "rdmad.h"
-#endif
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
 
@@ -104,51 +101,7 @@ static void init_peer()
 	peer.cons_skt = 4444;
 	peer.run_cons = 1;
 }
-#if 0
-void
-rdmad_1(struct svc_req *rqstp, register SVCXPRT *transp);
 
-void configure_rpc()
-{
-	register SVCXPRT *transp;
-
-	pmap_unset (RDMAD, RDMAD_1);
-
-	transp = svcudp_create(RPC_ANYSOCK);
-	if (transp == NULL) {
-		CRIT("Cannot create UDP RPC service.");
-		exit(1);
-	}
-	if (!svc_register(transp, RDMAD, RDMAD_1, rdmad_1, IPPROTO_UDP)) {
-		CRIT("Unable to register (RDMAD, RDMAD_1, UDP).\n");
-		CRIT("Make sure you have run 'sudo rpcbind'.\n");
-		CRIT("Also make sure you are running this application as 'sudo'.\n");
-		exit(1);
-	}
-
-	transp = svctcp_create(RPC_ANYSOCK, 0, 0);
-	if (transp == NULL) {
-		CRIT("Cannot create TCP RPC service.");
-		exit(1);
-	}
-	if (!svc_register(transp, RDMAD, RDMAD_1, rdmad_1, IPPROTO_TCP)) {
-		CRIT("Unable to register (RDMAD, RDMAD_1, TCP).");
-		exit(1);
-	}
-} /* configure_rpc() */
-
-void run_rpc()
-{
-	INFO("Running svc_run...\n");
-
-	svc_run ();
-
-	/* NOTREACHED */
-
-	CRIT("svc_run returned\n");
-	exit (1);
-} /* run_rpc() */
-#endif
 struct rpc_ti
 {
 	rpc_ti(int accept_socket) : accept_socket(accept_socket)
@@ -557,10 +510,7 @@ int main (int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
-#if 0
-	/* Configure RPC as a listener */
-	configure_rpc();
-#endif
+
 	/* Open mport */
 	peer.mport_fd = riodp_mport_open(peer.mport_id, 0);
 	if (peer.mport_fd <= 0) {
@@ -632,9 +582,7 @@ int main (int argc, char **argv)
 	}
 
 	run_rpc_alternative();
-#if 0
-	run_rpc();
-#endif
+
 	/* Never reached */
 
 out_free_inbound:
