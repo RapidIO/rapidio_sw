@@ -57,6 +57,9 @@ static FILE *log_file;
 
 /* Default log level from build */
 unsigned g_level = RDMA_LL;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 {
@@ -150,3 +153,8 @@ int rdma_log( unsigned level,
 	/* Return 0 if there is no error */
 	return (n < 0) ? n : 0;
 } /* rdma_log() */
+
+#ifdef __cplusplus
+}
+#endif
+

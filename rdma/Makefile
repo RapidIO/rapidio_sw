@@ -84,7 +84,7 @@ RDMALIB_SOURCES = lib/src/librdma.cpp \
 RDMALIB_OBJS    = librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: librdma.a rdmad rsktd test
+all: librdma.a rdmad rsktd test samples
 
 test: rdmad librdma.a
 	$(MAKE) all -C test
@@ -113,6 +113,7 @@ librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	ar rcs librdma.a $(RDMALIB_OBJS)
 	mkdir -p $(TOP_LEVEL)/include/libs_a
 	cp librdma.a $(TOP_LEVEL)/include/libs_a
+	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I$(KERNINC) -I../common/include -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
 
 # The RDMA daemon (the RPC server)
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \

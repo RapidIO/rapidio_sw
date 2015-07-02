@@ -142,6 +142,7 @@ void *rpc_thread_f(void *arg)
 			delete other_server;
 			pthread_exit(0);
 		}
+
 		if (received_len > 0) {
 			DBG("received_len = %d\n", (int)received_len);
 
@@ -337,6 +338,8 @@ void *rpc_thread_f(void *arg)
 				CRIT("Failed to send API output parameters back to library\n");
 				delete other_server;
 				pthread_exit(0);
+			} else {
+				INFO("API processing completed!\n");
 			}
 		} else {
 			INFO("RDMA library has closed connection!\n");
