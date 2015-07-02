@@ -76,7 +76,7 @@ void *rpc_thread_f(void *arg)
 				pthread_exit(0);
 			}
 		} else {
-			puts("Remote daemon has closed connection..BYTE");
+			puts("Remote daemon has closed connection..BYE");
 			pthread_exit(0);
 		}
 	}
