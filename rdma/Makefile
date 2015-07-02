@@ -103,7 +103,7 @@ librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	@echo ---------- Building librdma.so ----------
 	$(CXX) $(RDMALIB_SHARED_CFLAGS) $(RDMALIB_SOURCES)
 	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
-	-Wl,-rpath=$(LIBLOG_PATH) -o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog -pthread
+	-o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog -pthread
 
 # The RDMA static library
 librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
@@ -120,7 +120,7 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \
 
 	@echo ---------- Building the RDMA Daemon...
 	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBCLI_PATH) -L$(LIBLOG_PATH) \
-	-Wl,-rpath=$(MPORTLIB_PATH) -Wl,-rpath=$(LIBCLI_PATH) -Wl,-rpath=$(LIBLOG_PATH) \
+	-Wl,-rpath=$(MPORTLIB_PATH) \
 	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -lmport -lrt -lcli -llog -pthread
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_main.cpp > rdmad_main.i
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_svc.cpp > rdmad_svc.i
