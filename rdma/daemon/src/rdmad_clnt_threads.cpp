@@ -367,7 +367,7 @@ int provision_rdaemon(uint32_t destid)
 	}
 
 	sem_wait(&wadti->started);
-	DBG("Request thread started successully\n");
+	DBG("wait_accept_destroy_thread started successully\n");
 	return 0;
 } /* provision_rdaemon() */
 
