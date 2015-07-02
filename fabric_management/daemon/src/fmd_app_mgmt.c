@@ -102,7 +102,7 @@ void handle_app_msg(struct fmd_app_mgmt_state *app)
 		return;
 	};
 
-	app->proc_num = ntohl(app->proc_num);
+	app->proc_num = ntohl(app->req.hello_req.app_pid);
 	strncpy(app->app_name, app->req.hello_req.app_name, MAX_APP_NAME);
 
 	app->resp.hello_resp.sm_dd_mtx_idx = htonl(app->index);

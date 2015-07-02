@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdint.h>
+#include "libfmdd.h"
 
 #ifndef __LIBRSKTD_FM_H__
 #define __LIBRSKTD_FM_H__
@@ -43,6 +44,8 @@ extern "C" {
 
 extern int start_fm_thread(void);
 extern void halt_fm_thread(void);
+
+extern fmdd_h dd_h;
 
 #ifdef __cplusplus
 }

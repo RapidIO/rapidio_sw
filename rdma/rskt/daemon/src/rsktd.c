@@ -65,6 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_private.h"
 #include "liblog.h"
 #include "libfmdd.h"
+#include "librsktd_fm.h"
 
 #define DFLT_DMN_E_CLI_SKT 3333
 
@@ -386,6 +387,7 @@ void *console(void *cons_parm)
 	cli_init_base(quit_command_customization);
 	librsktd_bind_cli_cmds();
 	liblog_bind_cli_cmds();
+	fmdd_bind_dbg_cmds(dd_h);
 
 	splashScreen((char *)"RDMA Socket Daemon Console");
 
@@ -527,12 +529,14 @@ void spawn_threads(void)
 
 int init_srio_api(uint8_t mport_id);
 
-void rskt_daemon_shutdown(void) {
+void rskt_daemon_shutdown(void)
+{
 	kill_daemon_threads();
 
-	if (!cli.all_must_die && cli.cli_alive)
+	if (!cli.all_must_die && cli.cli_alive) {
+		cli.all_must_die = 1;
 		pthread_kill(cli.cli_thread, SIGHUP);
-	cli.all_must_die = 1;
+	};
 
 	if (cli.cli_sess_fd > 0) {
 		close(cli.cli_sess_fd);

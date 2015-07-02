@@ -54,7 +54,7 @@ FMD_OBJECTS = src/fmd_app_mgmt.o src/fmd_cfg.o src/fmd.o src/fmd_cfg_cli.o \
 all: fmd
 
 # The Fabric Management Daemon
-fmd:  $(FMD_OBJECTS) $(FMD_OBJECTS) src/*.h 
+fmd:  $(FMD_OBJECTS) $(FMD_SOURCES) src/*.h 
 	@echo ---------- Building fmd...
 	$(CXX) -pthread \
 	-o $@ $(FMD_OBJECTS) $(LIB_DIRS) \

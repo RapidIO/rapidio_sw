@@ -64,6 +64,7 @@ rdma: common fabric_management FORCE
 		
 common: libmport FORCE
 	$(MAKE) all -C common 
+	cp libmport/libmport.a common/libs_a/libmport.a
 		
 libmport:  FORCE
 	$(MAKE) all LDFLAGS= -C libmport
