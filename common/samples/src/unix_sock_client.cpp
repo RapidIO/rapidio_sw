@@ -81,9 +81,6 @@ int main(int argc, char *argv[])
 
 		printf("%u characters received: ", received_len);
 		puts((char *)recv_buf);
-		
-		if (ch > '9')
-			break;
 	}
 	delete client;
 
