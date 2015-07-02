@@ -62,6 +62,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace std;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static unsigned init = 0;	/* Global flag indicating library initialized */
 
 /* Unix socket client */
@@ -2147,3 +2151,6 @@ int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 	return wait_param.err;
 } /* rdma_sync_chk_push_pull() */
 
+#ifdef __cplusplus
+}
+#endif
