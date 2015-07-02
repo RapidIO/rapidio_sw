@@ -158,11 +158,11 @@ protected:
 	int receive(riodp_socket_t socket)
 	{
 		int rc = 0;
-		rc = riodp_socket_receive(socket, (void **)&recv_buf, CM_BUF_SIZE, 0);
-		if (rc) {
-			ERR("riodp_socket_receive failed for '%s': %s\n",
-						name, strerror(errno));
-		}
+		do {
+			rc = riodp_socket_receive(socket,
+					(void **)&recv_buf, CM_BUF_SIZE, 0);
+		} while (rc && errno==EINTR);
+
 		return rc;
 	} /* receive() */
 
@@ -170,7 +170,14 @@ protected:
 	 * is an error. */
 	int timed_receive(riodp_socket_t socket, uint32_t timeout_ms)
 	{
-		return riodp_socket_receive(socket, (void **)&recv_buf, CM_BUF_SIZE, timeout_ms);
+		int rc = 0;
+		do {
+			rc = riodp_socket_receive(socket,
+					(void **)&recv_buf, CM_BUF_SIZE,
+					timeout_ms);
+		} while (rc && errno==EINTR);
+
+		return rc;
 	} /* timed_receive() */
 
 	const char *name;
@@ -284,15 +291,11 @@ public:
 		do {
 			/* riodp_socket_accept() returns errno where appropriate */
 			rc = riodp_socket_accept(listen_socket, &accept_socket, 3*60*1000);
-		} while (rc == ETIME);
+		} while (rc && ((errno == ETIME) || (errno == EINTR)));
 
 		if (rc) {	/* failed */
-			if (rc == EINTR) {
-				INFO("accept() aborted due to killing thread\n");
-			} else {
-				ERR("Failed to accept connections for '%s' (0x%X)\n",
+			ERR("Failed to accept connections for '%s' (0x%X)\n",
 								name, accept_socket);
-			}
 		} else {
 			if (acc_socket)
 				*acc_socket = accept_socket;
