@@ -75,6 +75,9 @@ extern  send_connect_output * send_connect_1_svc(send_connect_input *in);
 extern  undo_connect_output * undo_connect_1_svc(undo_connect_input *in);
 extern  send_disconnect_output * send_disconnect_1_svc(send_disconnect_input *in);
 
+/* FIXME: Move to rdmad_svc.h */
+extern int close_or_destroy_action(mspace *ms);
+
 struct peer_info	peer;
 
 using namespace std;
@@ -186,7 +189,6 @@ void *rpc_thread_f(void *arg)
 							&out->mso_conn_id);
 					out->status = (ret > 0) ? 0 : ret;
 					out_msg->type = OPEN_MSO_ACK;
-
 					DBG("OPEN_MSO done\n");
 				}
 				break;
@@ -217,20 +219,23 @@ void *rpc_thread_f(void *arg)
 						/* Check if the memory space owner
 						 * still owns memory spaces */
 						if (owner->owns_mspaces()) {
-							WARN("msoid(0x%X) owns spaces!\n", in->msoid);
+							WARN("msoid(0x%X) owns spaces!\n",
+										in->msoid);
 							out->status = -1;
 						} else {
 							/* No memory spaces owned by mso,
 							 * just destroy it */
-							int ret = owners.destroy_mso(in->msoid);
+							int ret = owners.destroy_mso(
+									in->msoid);
 							out->status = (ret > 0) ? 0 : ret;
 							DBG("owners.destroy_mso() %s\n",
-								out->status ? "FAILED":"PASSED");
+							out->status ? "FAILED":"PASSED");
 						}
 						out_msg->type = DESTROY_MSO_ACK;
 					}
 					catch(...) {
-						ERR("Invalid msoid(0x%X) caused segfault\n", in->msoid);
+						ERR("Invalid msoid(0x%X) caused segfault\n",
+								in->msoid);
 						out->status = -1;
 					}
 					out_msg->type = DESTROY_MSO_ACK;
@@ -240,45 +245,123 @@ void *rpc_thread_f(void *arg)
 
 				case CREATE_MS:
 				{
-					create_ms_input in = in_msg->create_ms_in;
-					create_ms_output *out;
-					out = create_ms_1_svc(&in);
-					out_msg->create_ms_out = *out;
+					DBG("CREATE_MS\n");
+					create_ms_input *in = &in_msg->create_ms_in;
+					create_ms_output *out = &out_msg->create_ms_out;
+
+					/* Create memory space in the inbound space */
+					int ret = the_inbound->create_mspace(
+							in->ms_name,
+							in->bytes, in->msoid,
+							&out->msid);
+					out->status = (ret > 0) ? 0 : ret;
+					DBG("the_inbound->create_mspace(%s) %s\n",
+						in->ms_name,
+						out->status ? "FAILED" : "PASSED");
+
+
+					if (!out->status)
+						/* Add the memory space handle to owner */
+						owners[in->msoid]->add_msid(out->msid);
 					out_msg->type = CREATE_MS_ACK;
-					delete out;
+					DBG("CREATE_MS done\n");
 				}
 				break;
 
 				case OPEN_MS:
 				{
-					open_ms_input in = in_msg->open_ms_in;
-					open_ms_output *out;
-					out = open_ms_1_svc(&in);
-					out_msg->open_ms_out = *out;
+					DBG("OPEN_MS\n");
+					open_ms_input  *in = &in_msg->open_ms_in;
+					open_ms_output *out = &out_msg->open_ms_out;
+
+					/* Find memory space, return its msid,
+					 *  ms_conn_id, and size in bytes */
+					int ret = the_inbound->open_mspace(
+								in->ms_name,
+								in->msoid,
+								&out->msid,
+								&out->ms_conn_id,
+								&out->bytes);
+					out->status = (ret > 0) ? 0 : ret;
+					DBG("the_inbound->open_mspace(%s) %s\n",
+							in->ms_name,
+							out->status ? "FAILED":"PASSED");					out_msg->open_ms_out = *out;
 					out_msg->type = OPEN_MS_ACK;
-					delete out;
+					DBG("OPEN_MS done\n");
 				}
 				break;
 
 				case CLOSE_MS:
 				{
-					close_ms_input in = in_msg->close_ms_in;
-					close_ms_output *out;
-					out = close_ms_1_svc(&in);
-					out_msg->close_ms_out = *out;
+					DBG("CLOSE_MS\n");
+					close_ms_input *in = &in_msg->close_ms_in;
+					close_ms_output *out = &out_msg->close_ms_out;
+					DBG("ENTER, msid=%u, ms_conn_id=%u\n", in->msid,
+									in->ms_conn_id);
+					mspace *ms = the_inbound->get_mspace(in->msid);
+					if (!ms) {
+						ERR("Could not find mspace with msid(0x%X)\n",
+										in->msid);
+						out->status = -1;
+						break;
+					}
+
+					/* Before closing the memory space, tell the clients the memory space
+					 *  that it is being closed and have them acknowledge that */
+					out->status = close_or_destroy_action(ms);
+					if (out->status) {
+						ERR("Failed in close_or_destroy_action\n");
+						break;
+					}
+					/* If the memory space was in accepted state, clear that state */
+					/* FIXME: This assumes only 1 'open' to the ms and that the creator
+					 * of the ms does not call 'accept' on it. */
+					ms->set_accepted(false);
+
+					/* Now close the memory space */
+					int ret = the_inbound->close_mspace(in->msid,
+									in->ms_conn_id);
+					out->status = (ret > 0) ? 0 : ret;
+					DBG("the_inbound->close_mspace() %s\n",
+							out->status ? "FAILED":"PASSED");
 					out_msg->type = CLOSE_MS_ACK;
-					delete out;
+					DBG("CLOSE_MS done\n");
 				}
 				break;
 
 				case DESTROY_MS:
 				{
-					destroy_ms_input in = in_msg->destroy_ms_in;
-					destroy_ms_output *out;
-					out = destroy_ms_1_svc(&in);
-					out_msg->destroy_ms_out = *out;
+					DBG("DESTROY_MS\n");
+					destroy_ms_input *in = &in_msg->destroy_ms_in;
+					destroy_ms_output *out = &out_msg->destroy_ms_out;
+
+					mspace *ms = the_inbound->get_mspace(in->msid);
+					if (!ms) {
+						ERR("Could not find mspace with msid(0x%X)\n", in->msid);
+						out->status = -1;
+						break;;
+					}
+
+					/* Before destroying a memory space, tell its clients that it is being
+					 * destroyed and have them acknowledge that */
+					out->status = close_or_destroy_action(ms);
+					if (out->status) {
+						ERR("Failed in close_or_destroy_action\n");
+						break;
+					}
+
+					/* Now destroy the memory space */
+					int ret  = the_inbound->destroy_mspace(in->msoid, in->msid);
+					out->status = (ret > 0) ? 0 : ret;
+
+					/* Remove memory space identifier from owner */
+					if (!out->status)
+						if (owners[in->msoid]->remove_msid(in->msid) < 0) {
+							WARN("Failed to remove msid from owner\n");
+						}
+
 					out_msg->type = DESTROY_MS_ACK;
-					delete out;
+					DBG("DESTROY_MS done\n");
 				}
 				break;
 

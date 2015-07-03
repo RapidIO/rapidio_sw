@@ -172,7 +172,7 @@ destroy_mso_1_svc(destroy_mso_input *in)
 
 	return &out;
 } /* destroy_mso_1_svc() */
-#endif
+
 
 create_ms_output *
 create_ms_1_svc(create_ms_input *in)
@@ -214,9 +214,9 @@ open_ms_1_svc(open_ms_input *in)
 						out.status ? "FAILED":"PASSED");
 	return &out;
 } /* open_ms_1_svc() */
+#endif
 
-
-static int close_or_destroy_action(mspace *ms)
+int close_or_destroy_action(mspace *ms)
 {
 	/* Get list of destids connected to memory space */
 	vector<uint16_t> destids = ms->get_destids();
@@ -276,6 +276,7 @@ static int close_or_destroy_action(mspace *ms)
 	return 0;
 } /* close or destroy action() */
 
+#if 0
 close_ms_output *
 close_ms_1_svc(close_ms_input *in)
 {
@@ -337,6 +338,7 @@ destroy_ms_1_svc(destroy_ms_input *in)
 
 	return &out;
 } /* destroy_ms_1_svc() */
+#endif
 
 create_msub_output *
 create_msub_1_svc(create_msub_input *in)
