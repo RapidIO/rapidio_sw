@@ -215,6 +215,8 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
                         uint32_t  mp_num, struct fmd_slave *slave, int fd)
 {
 	int rc = 1;
+	struct timespec dly = {5, 0};
+	int conn_rc;
 
 	slv = slave;
 	slv->fd = fd;
@@ -246,12 +248,24 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 		goto fail;
 	};
 
-	rc = riodp_socket_connect(slv->skt_h, slv->mast_did, 0,
-				fmd->cfg->mast_cm_port);
-	if (rc) {
-		ERR("riodp_socket_connect ERR %d\n", rc);
-		goto fail;
-	};
+	do {
+		conn_rc = riodp_socket_connect(slv->skt_h, slv->mast_did, 0,
+					fmd->cfg->mast_cm_port);
+		if (ETIME == conn_rc) {
+			ERR("riodp_socket_connect ERR %d\n", conn_rc);
+			nanosleep(&dly, NULL);
+		};
+		rc = riodp_socket_close(&slv->skt_h);
+		if (rc)
+			ERR("riodp_socket_close ERR %d\n", rc);
+		rc = riodp_socket_socket(slv->mb, &slv->skt_h);
+		if (rc)
+			ERR("riodp_socket_socket ERR %d\n", rc);
+	} while (conn_rc);
+
+	if (conn_rc)
+		ERR("riodp_socket_connect ERR %d\n", conn_rc);
+
 	slv->skt_valid = 1;
 	
         if (riodp_socket_request_send_buffer(slv->skt_h, &slv->tx_buff)) {
