@@ -127,15 +127,12 @@ void *rpc_thread_f(void *arg)
 		}
 
 		if (received_len > 0) {
-			DBG("received_len = %d\n", (int)received_len);
-
 			unix_msg_t	*in_msg;
 			unix_msg_t	*out_msg;
 
 			other_server->get_recv_buffer((void **)&in_msg);
 			other_server->get_send_buffer((void **)&out_msg);
-			DBG("in_msg->type = 0x%X\n", in_msg->type);
-			DBG("in_msg other 4 bytes 0x%X\n", *((uint32_t *)in_msg +4));
+
 			switch(in_msg->type) {
 				case GET_MPORT_ID:
 				{
