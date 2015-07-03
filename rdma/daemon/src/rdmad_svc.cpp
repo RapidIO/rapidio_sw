@@ -338,7 +338,6 @@ destroy_ms_1_svc(destroy_ms_input *in)
 
 	return &out;
 } /* destroy_ms_1_svc() */
-#endif
 
 create_msub_output *
 create_msub_1_svc(create_msub_input *in)
@@ -588,4 +587,5 @@ send_disconnect_1_svc(send_disconnect_input *in)
 
 	return &out;
 } /* send_disconnect_1_svc() */
+#endif
 
