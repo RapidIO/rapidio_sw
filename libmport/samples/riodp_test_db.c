@@ -56,6 +56,7 @@ static void db_sig_handler(int signum)
 
 static int do_dbrcv_test(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 {
+#if 0
 	int ret;
 	struct rio_event evt;
 
@@ -93,12 +94,13 @@ static int do_dbrcv_test(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 		printf("Failed to disable DB range, err=%d\n", ret);
 		return ret;
 	}
-
+#endif
 	return 0;
 }
 
 static int do_dbsnd_test(int fd, uint32_t rioid, uint16_t dbval)
 {
+#if 0
 	struct rio_event evt;
 	int ret = 0;
 
@@ -113,6 +115,9 @@ static int do_dbsnd_test(int fd, uint32_t rioid, uint16_t dbval)
 		ret = 0;
 
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 static void display_help(char *program)
@@ -171,7 +176,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct rio_mport_properties prop;
+	struct riodp_mport_properties prop;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
 
@@ -229,8 +234,8 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_query_mport(fd, &prop)) {
-		display_mport_info(&prop);
+	if (!riodp_mport_query(fd, &prop)) {
+		riodp_mport_display_info(&prop);
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");
@@ -250,7 +255,7 @@ int main(int argc, char** argv)
 	signal(SIGTERM, db_sig_handler);
 	signal(SIGUSR1, db_sig_handler);
 
-	riodp_set_event_mask(fd, RIO_DOORBELL);
+	riodp_set_event_mask(fd, RIO_EVENT_DOORBELL);
 
 	if (do_dbrecv) {
 		printf("+++ RapidIO Doorbell Receive Mode +++\n");

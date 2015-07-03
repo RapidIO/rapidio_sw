@@ -45,11 +45,15 @@ extern "C" {
 #include <linux/rio_cm_cdev.h>
 
 #define CONFIG_RAPIDIO_DMA_ENGINE
-#include <linux/rio_mport_cdev.h>
+//#include <linux/rio_mport_cdev.h>
 
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
+#define RIO_MAP_ANY_ADDR	(uint64_t)(~((uint64_t) 0))
+
+#define RIO_EVENT_DOORBELL	(1 << 0)
+#define RIO_EVENT_PORTWRITE	(1 << 1)
 
 enum rio_link_speed {
 	RIO_LINK_DOWN = 0, /* SRIO Link not initialized */
@@ -87,32 +91,72 @@ struct riodp_socket {
 	uint8_t	*tx_buffer;
 };
 
+struct riodp_mport_properties {
+	uint16_t hdid;
+	uint8_t id;			/* Physical port ID */
+	uint8_t  index;
+	uint32_t flags;
+	uint32_t sys_size;		/* Default addressing size */
+	uint8_t  port_ok;
+	uint8_t  link_speed;
+	uint8_t  link_width;
+	uint32_t dma_max_sge;
+	uint32_t dma_max_size;
+	uint32_t dma_align;
+	uint32_t transfer_mode;		/* Default transfer mode */
+	uint32_t cap_sys_size;		/* Capable system sizes */
+	uint32_t cap_addr_size;		/* Capable addressing sizes */
+	uint32_t cap_transfer_mode;	/* Capable transfer modes */
+	uint32_t cap_mport;		/* Mport capabilities */
+};
+
+enum riodp_directio_type {
+	//RIO_DIRECTIO_TYPE_DEFAULT,	/* Default method */
+	RIO_DIRECTIO_TYPE_NWRITE,		/* All packets using NWRITE */
+	RIO_DIRECTIO_TYPE_SWRITE,		/* All packets using SWRITE */
+	RIO_DIRECTIO_TYPE_NWRITE_R,		/* Last packet NWRITE_R, others NWRITE */
+	RIO_DIRECTIO_TYPE_SWRITE_R,		/* Last packet NWRITE_R, others SWRITE */
+	RIO_DIRECTIO_TYPE_NWRITE_R_ALL,	/* All packets using NWRITE_R */
+};
+
+enum riodp_directio_transfer_sync {
+	RIO_DIRECTIO_TRANSFER_SYNC,		/* synchronous transfer */
+	RIO_DIRECTIO_TRANSFER_ASYNC,	/* asynchronous transfer */
+	RIO_DIRECTIO_TRANSFER_FAF,		/* fire-and-forget transfer only for write transactions */
+};
+
+
 typedef struct riodp_mailbox  *riodp_mailbox_t;
 typedef struct riodp_socket   *riodp_socket_t;
 
 
+int riodp_mport_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports);
+int riodp_mport_free_mport_list(uint32_t **dev_ids);
+int riodp_mport_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *number_of_eps);
+int riodp_mport_free_ep_list(uint32_t **destids);
 
 
 int riodp_mport_open(uint32_t mport_id, int flags);
 int riodp_mport_close(int fd);
 
+int riodp_mport_query(int fd, struct riodp_mport_properties *qresp);
+void riodp_mport_display_info(struct riodp_mport_properties *prop);
+
+
 int riodp_cm_open(void);
-int riodp_mport_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports);
-int riodp_mport_free_mport_list(uint32_t **dev_ids);
-int riodp_mport_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *number_of_eps);
-int riodp_mport_free_ep_list(uint32_t **destids);
+
 int riodp_dma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
-		    uint32_t size, enum rio_exchange wr_mode,
-		    enum rio_transfer_sync sync);
+		    uint32_t size, enum riodp_directio_type wr_mode,
+		    enum riodp_directio_transfer_sync sync);
 int riodp_dma_write_d(int fd, uint16_t destid, uint64_t tgt_addr,
 		      uint64_t handle, uint32_t offset, uint32_t size,
-		      enum rio_exchange wr_mode, enum rio_transfer_sync sync);
+		      enum riodp_directio_type wr_mode, enum riodp_directio_transfer_sync sync);
 int riodp_dma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
-		   uint32_t size, enum rio_transfer_sync sync);
+		   uint32_t size, enum riodp_directio_transfer_sync sync);
 int riodp_dma_read_d(int fd, uint16_t destid, uint64_t tgt_addr,
 		     uint64_t handle, uint32_t offset, uint32_t size,
-		     enum rio_transfer_sync sync);
-int riodp_wait_async(int fd, uint32_t cookie, uint32_t tmo);
+		     enum riodp_directio_transfer_sync sync);
+int riodp_dma_wait_async(int fd, uint32_t cookie, uint32_t tmo);
 int riodp_ibwin_map(int fd, uint64_t *rio_base, uint32_t size, uint64_t *handle);
 int riodp_ibwin_free(int fd, uint64_t *handle);
 int riodp_obwin_map(int fd, uint16_t destid, uint64_t rio_base, uint32_t size,
@@ -120,7 +164,6 @@ int riodp_obwin_map(int fd, uint16_t destid, uint64_t rio_base, uint32_t size,
 int riodp_obwin_free(int fd, uint64_t *handle);
 int riodp_dbuf_alloc(int fd, uint32_t size, uint64_t *handle);
 int riodp_dbuf_free(int fd, uint64_t *handle);
-int riodp_query_mport(int fd, struct rio_mport_properties *qresp);
 int riodp_lcfg_read(int fd, uint32_t offset, uint32_t size, uint32_t *data);
 int riodp_lcfg_write(int fd, uint32_t offset, uint32_t size, uint32_t data);
 int riodp_maint_read(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
@@ -157,7 +200,6 @@ int riodp_socket_connect(riodp_socket_t socket_handle, uint32_t remote_destid,
 int riodp_socket_request_send_buffer(riodp_socket_t socket_handle, void **buf);
 int riodp_socket_release_send_buffer(riodp_socket_t socket_handle, void *buf);
 
-void display_mport_info(struct rio_mport_properties *prop);
 
 #ifdef __cplusplus
 }

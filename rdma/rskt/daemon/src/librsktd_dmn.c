@@ -202,12 +202,12 @@ int init_mport_and_mso_ms()
         };
 	INFO("Mport %d opened\n", dmn.mpnum);
 
-        if (riodp_query_mport(dmn.mpfd, &dmn.qresp)) {
+        if (riodp_mport_query(dmn.mpfd, &dmn.qresp)) {
                 CRIT("Unable to query mport %d...\n", dmn.mpnum);
                 goto exit;
         };
 
-	display_mport_info(&dmn.qresp);
+	riodp_mport_display_info(&dmn.qresp);
 
         if (!(dmn.qresp.flags & RIO_MPORT_DMA)) {
                 CRIT("Mport %d has no DMA support...\n", dmn.mpnum);

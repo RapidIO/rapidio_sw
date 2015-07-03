@@ -56,6 +56,7 @@ static void db_sig_handler(int signum)
 
 static int do_pwrcv_test(int fd, uint32_t mask, uint32_t low, uint32_t high)
 {
+#if 0
 	int ret;
 	struct rio_event evt;
 
@@ -103,7 +104,7 @@ static int do_pwrcv_test(int fd, uint32_t mask, uint32_t low, uint32_t high)
 		printf("Failed to disable PW range, err=%d\n", ret);
 		return ret;
 	}
-
+#endif
 	return 0;
 }
 
@@ -152,7 +153,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct rio_mport_properties prop;
+	struct riodp_mport_properties prop;
 	struct sigaction action;
 	unsigned int evt_mask;
 	int err;
@@ -201,8 +202,8 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_query_mport(fd, &prop)) {
-		display_mport_info(&prop);
+	if (!riodp_mport_query(fd, &prop)) {
+		riodp_mport_display_info(&prop);
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");
@@ -229,7 +230,7 @@ int main(int argc, char** argv)
 		goto out;
 	}
 
-	riodp_set_event_mask(fd, evt_mask | RIO_PORTWRITE);
+	riodp_set_event_mask(fd, evt_mask | RIO_EVENT_PORTWRITE);
 
 	printf("+++ RapidIO PortWrite Event Receive Mode +++\n");
 	printf("\tmport%d PID:%d\n", mport_id, (int)getpid());

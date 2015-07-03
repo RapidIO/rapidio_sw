@@ -257,9 +257,9 @@ int main (int argc, char **argv)
     	}
 
 	/* Query device information, and store destid */
-	struct rio_mport_properties prop;
+	struct riodp_mport_properties prop;
 
-	rc = riodp_query_mport(peer.mport_fd, &prop);
+	rc = riodp_mport_query(peer.mport_fd, &prop);
 	if (rc != 0) {
 		CRIT("Failed in riodp_query_mport(): %s\n", strerror(errno));
 		rc = 2;

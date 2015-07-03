@@ -277,13 +277,13 @@ void *dma_async_wait(void *arg)
 	struct dma_async_wait_param *param = (struct dma_async_wait_param *)arg;
 	int ret;
 
-	ret = riodp_wait_async(fd, param->token, 3000);
+	ret = riodp_dma_wait_async(fd, param->token, 3000);
 	param->err = ret;
 	return &param->err;
 }
 
 static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
-		       enum rio_transfer_sync sync)
+		       enum riodp_directio_transfer_sync sync)
 {
 	void *buf_src = NULL;
 	void *buf_dst = NULL;
@@ -292,7 +292,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 	uint64_t dst_handle = 0;
 	int i, ret = 0;
 	uint32_t max_hw_size; /* max DMA transfer size supported by HW */
-	enum rio_transfer_sync rd_sync;
+	enum riodp_directio_transfer_sync rd_sync;
 	struct timespec wr_starttime, wr_endtime;
 	struct timespec rd_starttime, rd_endtime;
 	float totaltime;
@@ -375,13 +375,13 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		if (kbuf_mode)
 			ret = riodp_dma_write_d(fd, tgt_destid, tgt_addr,
 						src_handle, src_off, len,
-						RIO_EXCHANGE_NWRITE_R, sync);
+						RIO_DIRECTIO_TYPE_NWRITE_R, sync);
 		else
 			ret = riodp_dma_write(fd, tgt_destid, tgt_addr,
 					      (U8P)buf_src + src_off, len,
-					      RIO_EXCHANGE_NWRITE_R, sync);
+					      RIO_DIRECTIO_TYPE_NWRITE_R, sync);
 
-		if (sync == RIO_TRANSFER_ASYNC) {
+		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
 			if (ret >=0) {
 				wr_wait.token = ret;
 				wr_wait.err = -1;
@@ -401,7 +401,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 			printf("\tRead %d bytes to dst offset 0x%x\n", len, dst_off);
 
 		/* RIO_TRANSFER_FAF is not available for read operations. Force SYNC instead. */
-		rd_sync = (sync == RIO_TRANSFER_FAF)?RIO_TRANSFER_SYNC:sync;
+		rd_sync = (sync == RIO_DIRECTIO_TRANSFER_FAF)?RIO_DIRECTIO_TRANSFER_SYNC:sync;
 
 		clock_gettime(CLOCK_MONOTONIC, &rd_starttime);
 
@@ -412,7 +412,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 			ret = riodp_dma_read(fd, tgt_destid, tgt_addr,
 					(U8P)buf_dst + dst_off, len, rd_sync);
 
-		if (sync == RIO_TRANSFER_ASYNC) {
+		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
 			if (ret >=0) {
 				rd_wait.token = ret;
 				rd_wait.err = -1;
@@ -430,7 +430,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 
 		rd_time = timediff(rd_starttime, rd_endtime);
 
-		if (sync == RIO_TRANSFER_ASYNC) {
+		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
 			pthread_join(wr_thr, NULL);
 			pthread_join(rd_thr, NULL);
 			clock_gettime(CLOCK_MONOTONIC, &rd_endtime);
@@ -476,13 +476,13 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 
 		time = timediff(wr_starttime, wr_endtime);
 		totaltime = ((double) time.tv_sec + (time.tv_nsec / 1000000000.0));
-		if (sync != RIO_TRANSFER_SYNC)
+		if (sync != RIO_DIRECTIO_TRANSFER_SYNC)
 			printf("\t\tWR time: %4f s\n", totaltime);
 		else
 			printf("\t\tWR time: %4f s @ %4.2f MB/s\n",
 				totaltime, (len/totaltime)/(1024*1024));
 		totaltime = ((double) rd_time.tv_sec + (rd_time.tv_nsec / 1000000000.0));
-		if (sync != RIO_TRANSFER_SYNC)
+		if (sync != RIO_DIRECTIO_TRANSFER_SYNC)
 			printf("\t\tRD time: %4f s\n", totaltime);
 		else
 			printf("\t\tRD time: %4f s @ %4.2f MB/s\n",
@@ -566,7 +566,7 @@ int main(int argc, char** argv)
 	int verify = 1;
 	unsigned int repeat = 1;
 	uint64_t rio_base = RIO_MAP_ANY_ADDR;
-	enum rio_transfer_sync sync = RIO_TRANSFER_SYNC;
+	enum riodp_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
 	static const struct option options[] = {
 		{ "destid", required_argument, NULL, 'D' },
 		{ "taddr",  required_argument, NULL, 'A' },
@@ -584,7 +584,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct rio_mport_properties prop;
+	struct riodp_mport_properties prop;
 	int has_dma = 1;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
@@ -624,10 +624,10 @@ int main(int argc, char** argv)
 			do_rand = 1;
 			break;
 		case 'F':
-			sync = RIO_TRANSFER_FAF;
+			sync = RIO_DIRECTIO_TRANSFER_FAF;
 			break;
 		case 'Y':
-			sync = RIO_TRANSFER_ASYNC;
+			sync = RIO_DIRECTIO_TRANSFER_ASYNC;
 			break;
 			/* Inbound Memory (window) Mode options */
 		case 'I':
@@ -668,8 +668,8 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_query_mport(fd, &prop)) {
-		display_mport_info(&prop);
+	if (!riodp_mport_query(fd, &prop)) {
+		riodp_mport_display_info(&prop);
 
 		if (prop.flags & RIO_MPORT_DMA) {
 			align = prop.dma_align;
@@ -702,7 +702,7 @@ int main(int argc, char** argv)
 		printf("\tmport%d destID=%d rio_addr=0x%llx align=%d repeat=%d PID:%d\n",
 			mport_id, tgt_destid, (unsigned long long)tgt_addr, align, repeat, (int)getpid());
 		printf("\tsync=%d (%s)\n", sync,
-			(sync == RIO_TRANSFER_SYNC)?"SYNC":(sync == RIO_TRANSFER_FAF)?"FAF":"ASYNC");
+			(sync == RIO_DIRECTIO_TRANSFER_SYNC)?"SYNC":(sync == RIO_DIRECTIO_TRANSFER_FAF)?"FAF":"ASYNC");
 
 		if (do_dma_test(do_rand, kbuf_mode, verify, repeat, sync)) {
 		    printf("DMA test FAILED\n\n");

@@ -470,7 +470,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct rio_mport_properties prop;
+	struct riodp_mport_properties prop;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
 
@@ -544,8 +544,8 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_query_mport(fd, &prop)) {
-		display_mport_info(&prop);
+	if (!riodp_mport_query(fd, &prop)) {
+		riodp_mport_display_info(&prop);
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");

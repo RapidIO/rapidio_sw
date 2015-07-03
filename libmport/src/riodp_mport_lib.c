@@ -175,13 +175,34 @@ int riodp_mport_free_ep_list(uint32_t **destids)
 	return 0;
 }
 
+static inline enum rio_exchange convert_directio_type(enum riodp_directio_type type)
+{
+	switch(type) {
+	case RIO_DIRECTIO_TYPE_NWRITE: return RIO_EXCHANGE_NWRITE;
+	case RIO_DIRECTIO_TYPE_NWRITE_R: return RIO_EXCHANGE_NWRITE_R;
+	case RIO_DIRECTIO_TYPE_NWRITE_R_ALL: return RIO_EXCHANGE_NWRITE_R_ALL;
+	case RIO_DIRECTIO_TYPE_SWRITE: return RIO_EXCHANGE_SWRITE;
+	case RIO_DIRECTIO_TYPE_SWRITE_R: return RIO_EXCHANGE_SWRITE_R;
+	default: return RIO_EXCHANGE_DEFAULT;
+	}
+}
+
+static inline enum rio_transfer_sync convert_directio_sync(enum riodp_directio_transfer_sync sync)
+{
+	switch(sync) {
+	default: /* sync as default is the smallest pitfall */
+	case RIO_DIRECTIO_TRANSFER_SYNC: return RIO_TRANSFER_SYNC;
+	case RIO_DIRECTIO_TRANSFER_ASYNC: return RIO_TRANSFER_ASYNC;
+	case RIO_DIRECTIO_TRANSFER_FAF: return RIO_TRANSFER_FAF;
+	}
+}
 
 /*
  * Perform DMA data write to target transfer using user space source buffer
  */
 int riodp_dma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
-		uint32_t size, enum rio_exchange wr_mode,
-		enum rio_transfer_sync sync)
+		uint32_t size, enum riodp_directio_type wr_mode,
+		enum riodp_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
@@ -193,10 +214,10 @@ int riodp_dma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
 	xfer.length = size;
 	xfer.handle = 0;
 	xfer.offset = 0;
-	xfer.method = wr_mode;
+	xfer.method = convert_directio_type(wr_mode);
 
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
-	tran.sync = sync;
+	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
 	tran.count = 1;
 	tran.block = &xfer;
@@ -210,8 +231,8 @@ int riodp_dma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
  */
 int riodp_dma_write_d(int fd, uint16_t destid, uint64_t tgt_addr,
 		      uint64_t handle, uint32_t offset, uint32_t size,
-		      enum rio_exchange wr_mode,
-		      enum rio_transfer_sync sync)
+		      enum riodp_directio_type wr_mode,
+		      enum riodp_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
@@ -223,10 +244,10 @@ int riodp_dma_write_d(int fd, uint16_t destid, uint64_t tgt_addr,
 	xfer.length = size;
 	xfer.handle = handle;
 	xfer.offset = offset;
-	xfer.method = wr_mode;
+	xfer.method = convert_directio_type(wr_mode);
 
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
-	tran.sync = sync;
+	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
 	tran.count = 1;
 	tran.block = &xfer;
@@ -239,7 +260,7 @@ int riodp_dma_write_d(int fd, uint16_t destid, uint64_t tgt_addr,
  * Perform DMA data read from target transfer using user space destination buffer
  */
 int riodp_dma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
-		   uint32_t size, enum rio_transfer_sync sync)
+		   uint32_t size, enum riodp_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
@@ -253,7 +274,7 @@ int riodp_dma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
 	xfer.offset = 0;
 
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
-	tran.sync = sync;
+	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_READ;
 	tran.count = 1;
 	tran.block = &xfer;
@@ -267,7 +288,7 @@ int riodp_dma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
  */
 int riodp_dma_read_d(int fd, uint16_t destid, uint64_t tgt_addr,
 		     uint64_t handle, uint32_t offset, uint32_t size,
-		     enum rio_transfer_sync sync)
+		     enum riodp_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
@@ -281,7 +302,7 @@ int riodp_dma_read_d(int fd, uint16_t destid, uint64_t tgt_addr,
 	xfer.offset = offset;
 
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
-	tran.sync = sync;
+	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_READ;
 	tran.count = 1;
 	tran.block = &xfer;
@@ -293,7 +314,7 @@ int riodp_dma_read_d(int fd, uint16_t destid, uint64_t tgt_addr,
 /*
  * Wait for DMA transfer completion
  */
-int riodp_wait_async(int fd, uint32_t cookie, uint32_t tmo)
+int riodp_dma_wait_async(int fd, uint32_t cookie, uint32_t tmo)
 {
 	struct rio_async_tx_wait wparam;
 
@@ -385,10 +406,33 @@ int riodp_dbuf_free(int fd, uint64_t *handle)
 /*
  * Query mport status/capabilities
  */
-int riodp_query_mport(int fd, struct rio_mport_properties *qresp)
+int riodp_mport_query(int fd, struct riodp_mport_properties *qresp)
 {
-	if (ioctl(fd, RIO_MPORT_GET_PROPERTIES, qresp))
+	struct rio_mport_properties prop;
+	if (!qresp)
+		return -EINVAL;
+
+	memset(&prop, 0, sizeof(prop));
+	if (ioctl(fd, RIO_MPORT_GET_PROPERTIES, &prop))
 		return errno;
+
+	qresp->hdid               = prop.hdid;
+	qresp->id                 = prop.id;
+	qresp->index              = prop.index;
+	qresp->flags              = prop.flags;
+	qresp->sys_size           = prop.sys_size;
+	qresp->port_ok            = prop.port_ok;
+	qresp->link_speed         = prop.link_speed;
+	qresp->link_width         = prop.link_width;
+	qresp->dma_max_sge        = prop.dma_max_sge;
+	qresp->dma_max_size       = prop.dma_max_size;
+	qresp->dma_align          = prop.dma_align;
+	qresp->transfer_mode      = prop.transfer_mode;
+	qresp->cap_sys_size       = prop.cap_sys_size;
+	qresp->cap_addr_size      = prop.cap_addr_size;
+	qresp->cap_transfer_mode  = prop.cap_transfer_mode;
+	qresp->cap_mport          = prop.cap_mport;
+
 	return 0;
 }
 
@@ -533,7 +577,10 @@ int riodp_pwrange_disable(int fd, uint32_t mask, uint32_t low, uint32_t high)
  */
 int riodp_set_event_mask(int fd, unsigned int mask)
 {
-	if (ioctl(fd, RIO_SET_EVENT_MASK, mask))
+	unsigned int evt_mask = 0;
+	if (mask & RIO_EVENT_DOORBELL) evt_mask |= RIO_DOORBELL;
+	if (mask & RIO_EVENT_PORTWRITE) evt_mask |= RIO_PORTWRITE;
+	if (ioctl(fd, RIO_SET_EVENT_MASK, evt_mask))
 		return errno;
 	return 0;
 }
@@ -543,8 +590,13 @@ int riodp_set_event_mask(int fd, unsigned int mask)
  */
 int riodp_get_event_mask(int fd, unsigned int *mask)
 {
-	if (ioctl(fd, RIO_GET_EVENT_MASK, mask))
+	int evt_mask = 0;
+	if (!mask) return -EINVAL;
+	if (ioctl(fd, RIO_GET_EVENT_MASK, &evt_mask))
 		return errno;
+	*mask = 0;
+	if (evt_mask & RIO_DOORBELL) *mask |= RIO_EVENT_DOORBELL;
+	if (evt_mask & RIO_PORTWRITE) *mask |= RIO_EVENT_PORTWRITE;
 	return 0;
 }
 
@@ -868,7 +920,7 @@ const char *width_to_string(int width)
 	}
 }
 
-void display_mport_info(struct rio_mport_properties *attr)
+void riodp_mport_display_info(struct riodp_mport_properties *attr)
 {
 	printf("\n+++ SRIO mport configuration +++\n");
 	printf("mport: hdid=%d, id=%d, idx=%d, flags=0x%x, sys_size=%s\n",
