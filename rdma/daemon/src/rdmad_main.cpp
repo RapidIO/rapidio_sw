@@ -58,26 +58,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
 
-extern  get_mport_id_output * get_mport_id_1_svc(get_mport_id_input *in);
-extern  create_mso_output * create_mso_1_svc(create_mso_input *in);
-extern  open_mso_output * open_mso_1_svc(open_mso_input *in);
-extern  close_mso_output * close_mso_1_svc(close_mso_input *in);
-extern  destroy_mso_output * destroy_mso_1_svc(destroy_mso_input *in);
-extern  create_ms_output * create_ms_1_svc(create_ms_input *in);
-extern  open_ms_output * open_ms_1_svc(open_ms_input *in);
-extern  close_ms_output * close_ms_1_svc(close_ms_input *in);
-extern  destroy_ms_output * destroy_ms_1_svc(destroy_ms_input *in);
-extern  create_msub_output * create_msub_1_svc(create_msub_input *in);
-extern  destroy_msub_output * destroy_msub_1_svc(destroy_msub_input *in);
-extern  accept_output * accept_1_svc(accept_input *in);
-extern  undo_accept_output * undo_accept_1_svc(undo_accept_input *in);
-extern  send_connect_output * send_connect_1_svc(send_connect_input *in);
-extern  undo_connect_output * undo_connect_1_svc(undo_connect_input *in);
-extern  send_disconnect_output * send_disconnect_1_svc(send_disconnect_input *in);
-
-/* FIXME: Move to rdmad_svc.h */
-extern int close_or_destroy_action(mspace *ms);
-
 struct peer_info	peer;
 
 using namespace std;

@@ -58,9 +58,7 @@ extern sem_t client_rdaemon_list_sem;
 
 extern ts_vector<string> wait_accept_mq_names;
 
-void *accept_thread_f(void *arg);
-void *server_wait_disc_thread_f(void *arg);
-void *client_wait_destroy_thread_f(void *arg);
+int close_or_destroy_action(mspace *ms);
 
 #endif
 
