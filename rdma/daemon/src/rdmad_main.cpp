@@ -156,56 +156,71 @@ void *rpc_thread_f(void *arg)
 			switch(in_msg->type) {
 				case GET_MPORT_ID:
 				{
-					get_mport_id_input in = in_msg->get_mport_id_in;
-					get_mport_id_output *out;
-					out = get_mport_id_1_svc(&in);
-					out_msg->get_mport_id_out = *out;
+					DBG("GET_MPORT_ID\n");
+					out_msg->get_mport_id_out.mport_id = peer.mport_id;
+					out_msg->get_mport_id_out.status = 0;
 					out_msg->type = GET_MPORT_ID_ACK;
-					delete out;
+					DBG("GET_MPORT_ID done\n");
 				}
 				break;
 
 				case CREATE_MSO:
 				{
-					create_mso_input in = in_msg->create_mso_in;
-					create_mso_output *out;
-					out = create_mso_1_svc(&in);
-					out_msg->create_mso_out = *out;
+					DBG("CREATE_MSO\n");
+					create_mso_input *in = &in_msg->create_mso_in;
+					create_mso_output *out = &out_msg->create_mso_out;
+					int ret = owners.create_mso(in->owner_name, &out->msoid);
+					out->status = (ret > 0) ? 0 : ret;
 					out_msg->type = CREATE_MSO_ACK;
-					delete out;
+					DBG("CREATE_MSO done\n");
 				}
 				break;
 
 				case OPEN_MSO:
 				{
-					open_mso_input	in = in_msg->open_mso_in;
-					open_mso_output *out;
-					out = open_mso_1_svc(&in);
-					out_msg->open_mso_out = *out;
+					DBG("OPEN_MSO\n");
+					open_mso_input	*in = &in_msg->open_mso_in;
+					open_mso_output *out = &out_msg->open_mso_out;
+					int ret = owners.open_mso(in->owner_name,
+							&out->msoid,
+							&out->mso_conn_id);
+					out->status = (ret > 0) ? 0 : ret;
 					out_msg->type = OPEN_MSO_ACK;
-					delete out;
+
+					DBG("OPEN_MSO done\n");
 				}
 				break;
 
 				case CLOSE_MSO:
 				{
-					close_mso_input in = in_msg->close_mso_in;
-					close_mso_output *out;
-					out = close_mso_1_svc(&in);
-					out_msg->close_mso_out = *out;
+					DBG("CLOSE_MSO\n");
+					close_mso_input *in = &in_msg->close_mso_in;
+					close_mso_output *out = &out_msg->close_mso_out;
+					int ret = owners.close_mso(in->msoid, in->mso_conn_id);
+					out->status = (ret > 0) ? 0 : ret;
 					out_msg->type = CLOSE_MSO_ACK;
-					delete out;
+					DBG("CLOSE_MSO done\n");
 				}
 				break;
 
 				case DESTROY_MSO:
 				{
-					destroy_mso_input in = in_msg->destroy_mso_in;
-					destroy_mso_output *out;
-					out = destroy_mso_1_svc(&in);
-					out_msg->destroy_mso_out = *out;
+					DBG("DESTROY_MSO\n");
+					destroy_mso_input *in = &in_msg->destroy_mso_in;
+					destroy_mso_output *out = &out_msg->destroy_mso_out;
+
+					/* Check if the memory space owner still owns memory spaces */
+					if (owners[in->msoid]->owns_mspaces()) {
+						WARN("msoid(0x%X) still owns memory spaces!\n", in->msoid);
+						out->status = -1;
+					} else {
+						/* No memory spaces owned by mso, just destroy it */
+						int ret = owners.destroy_mso(in->msoid);
+						out->status = (ret > 0) ? 0 : ret;
+						DBG("owners.destroy_mso() %s\n", out->status ? "FAILED":"PASSED");
+					}
 					out_msg->type = DESTROY_MSO_ACK;
-					delete out;
+					DBG("DESTROY_MSO done\n");
 				}
 				break;
 

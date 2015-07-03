@@ -88,6 +88,9 @@ public:
 
 	int create_mso(const char *name, uint32_t *msoid)
 	{
+		(void)name;
+		(void)msoid;
+#if 0
 		/* Find a free memory space owner handle */
 		bool *fmsoid = find(msoid_free_list,
 				    msoid_free_list + MSOID_MAX + 1,
@@ -111,7 +114,7 @@ public:
 
 		/* Store in owners list */
 		owners.push_back(mso);	
-
+#endif
 		return 1;
 	} /* get_mso() */
 

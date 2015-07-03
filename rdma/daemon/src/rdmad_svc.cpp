@@ -88,7 +88,7 @@ ts_vector<string>	wait_accept_mq_names;
 /* Remote daemon info */
 vector<rdaemon_t*>	client_rdaemon_list;
 sem_t			client_rdaemon_list_sem;
-
+#if 0
 get_mport_id_output *
 get_mport_id_1_svc(get_mport_id_input *in)
 {
@@ -102,19 +102,25 @@ get_mport_id_1_svc(get_mport_id_input *in)
 	return out;
 } /* get_mport_id_1_svc() */
 
+
 create_mso_output *
 create_mso_1_svc(create_mso_input *in)
 {
-	create_mso_output *out = new create_mso_output;
+	(void)in;
+	create_mso_output *out = new create_mso_output();
  
 	DBG("ENTER\n");
+	printf("in->owner_name = %s\n", in->owner_name);
+
 	int ret = owners.create_mso(in->owner_name, &out->msoid);
 
 	out->status = (ret > 0) ? 0 : ret;
 	DBG("owners.create_mso() %s\n", out->status ? "FAILED" : "PASSED");
 
+	printf("out = %p\n", out);
         return out;
 } /* create_mso_1_svc() */
+
 
 open_mso_output *
 open_mso_1_svc(open_mso_input *in)
@@ -131,7 +137,6 @@ open_mso_1_svc(open_mso_input *in)
 
 	return out;
 } /* open_mso_1_svc() */
-
 close_mso_output *
 close_mso_1_svc(close_mso_input *in)
 {
@@ -167,6 +172,7 @@ destroy_mso_1_svc(destroy_mso_input *in)
 
 	return &out;
 } /* destroy_mso_1_svc() */
+#endif
 
 create_ms_output *
 create_ms_1_svc(create_ms_input *in)
