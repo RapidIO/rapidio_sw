@@ -396,7 +396,7 @@ int get_hex_int(struct fmd_cfg_parms *cfg, uint32_t *hex_int)
 	errno = 0;
 	*hex_int = strtol(tok, &endptr, 16);
 
-	if ((errno == ERANGE && (*hex_int == LONG_MAX || *hex_int == LONG_MIN))
+	if ((errno == ERANGE && (*hex_int == UINT32_MAX || *hex_int == 0))
 		|| ((errno != 0) && (*hex_int == 0)))
 		goto fail;
 
