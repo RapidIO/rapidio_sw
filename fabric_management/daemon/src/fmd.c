@@ -130,6 +130,11 @@ void set_prompt(struct cli_env *e)
                 return;
         };
 
+        if (NULL == e->h) {
+                strncpy(e->prompt, "HUNINIT>", PROMPTLEN);
+                return;
+        };
+
 	pe_h = (riocp_pe_handle)(e->h);
 
 	if (riocp_pe_get_comptag(pe_h, &comptag))
@@ -446,6 +451,143 @@ exit:
 	return -1;
 };
 
+int setup_mport_master(int mport)
+{
+	/* FIXME: Change this to support other master ports etc... */
+	struct fmd_cfg_ep *ep;
+	uint32_t comptag;
+
+	if (riocp_pe_create_host_handle(&mport_pe, mport, 0)) {
+		CRIT("\nCannot create host handle, exiting...\n");
+		exit(EXIT_FAILURE);
+	};
+
+	fmd->fd = mport_pe->fd;
+
+	if (!(RIOCP_PE_IS_MPORT(mport_pe))) {
+		CRIT("\nHost port is not an MPORT, wazzup?...\n");
+		exit(EXIT_FAILURE);
+	};
+
+	if (riocp_pe_get_comptag(mport_pe, &comptag)) {
+		CRIT("\nCannot read mport0 comptag\n");
+		exit(EXIT_FAILURE);
+	};
+	if (riocp_pe_update_comptag(mport_pe, &comptag, 
+		fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 1)) {
+		CRIT("\nCannot update mport0 comptag\n");
+		exit(EXIT_FAILURE);
+	};
+	if (riocp_pe_get_comptag(mport_pe, &comptag)) {
+		CRIT("\nCannot read mport0 comptag\n");
+		exit(EXIT_FAILURE);
+	};
+	fmd->cfg->mport_info[0].mp_h = mport_pe;
+	fmd->cfg->mport_info[0].ct = comptag;
+		
+	ep = fmd->cfg->mport_info[0].ep;
+	if (NULL == ep) {
+		CRIT("\nNo endpoint defined for master port.\n");
+		exit(EXIT_FAILURE);
+	};
+	ep->valid = 1;
+	ep->ep_h = mport_pe;
+	ep->ports[0].ct = comptag;
+
+	return fmd_traverse_network(mport_pe, 0, fmd->cfg);
+};
+
+int setup_mport_slave(int mport)
+{
+	uint32_t comptag, temp;
+	struct fmd_cfg_ep *ep;
+	int rc;
+
+	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0)) {
+		CRIT("\nCannot create agent handle, exiting...\n");
+		exit(EXIT_FAILURE);
+	};
+
+	fmd->fd = mport_pe->fd;
+	fmd->cfg->mport_info[0].mp_h = mport_pe;
+		
+	ep = fmd->cfg->mport_info[0].ep;
+	if (NULL == ep) {
+		CRIT("\nNo endpoint defined for master port.\n");
+		exit(EXIT_FAILURE);
+	};
+	ep->valid = 1;
+	ep->ep_h = mport_pe;
+
+	/* Write MPORT device ID */
+	rc = riodp_destid_set(reg_acc_h->fd, 
+		(uint16_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid); 
+
+	if (rc) {
+		CRIT("\nriodp_destid_set rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+	};
+		
+	/* Write MPORT Component Tag */
+	rc = riodp_lcfg_read(reg_acc_h->fd, 0x6c, 4, &comptag);
+	if (rc) {
+		CRIT("\nriodp_lcfg_read 1 rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+	};
+
+	comptag = (comptag & 0xFFFF0000) | 
+		(uint32_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid; 
+
+	rc = riodp_lcfg_write(reg_acc_h->fd, 0x6c, 4, comptag);
+	if (rc) {
+		CRIT("\nriodp_lcfg_write 1 rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+	};
+
+	fmd->cfg->mport_info[0].ct = comptag;
+	ep->ports[0].ct = comptag;
+
+	/* Add the mport */
+/*
+	rc = riodp_device_add(reg_acc_h->fd, 
+		(uint16_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 
+		(uint8_t)0xFF, comptag, "MPORT0");
+	if (EEXIST == rc)
+		rc = 0;
+	if (rc) {
+		CRIT("\nCannot add mport0 object %d %d: %s\n", 
+				rc, errno, strerror(errno));
+		// exit(EXIT_FAILURE);
+	};
+*/
+	rc = riodp_maint_read(reg_acc_h->fd, 5, 0, 0, 4, &temp);
+	if (rc) {
+		CRIT("\nriodp_maint_read switch rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+	} else {
+		INFO("\nriodp_maint_read switch value: %x \n", temp);
+	};
+
+	rc = riodp_maint_read(reg_acc_h->fd, 5, 1, 0, 4, &temp);
+	if (rc) {
+		CRIT("\nriodp_maint_read FMD master rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+	} else {
+		INFO("\nriodp_maint_read Endpoint value rc: %x\n",  temp);
+	};
+
+	rc = riodp_device_add(reg_acc_h->fd,
+		(uint16_t)cfg->mast_devid, 1, 0x00010005, "GRY05");
+	if (EEXIST == rc)
+		rc = 0;
+	if (rc) {
+		CRIT("\nCannot add FMD Master device %d %d: %s\n", 
+				rc, errno, strerror(errno));
+		// exit(EXIT_FAILURE);
+	};
+	return rc;
+};
+
 void setup_mport(struct fmd_state *fmd)
 {
 	uint8_t *mport_list;
@@ -479,55 +621,20 @@ void setup_mport(struct fmd_state *fmd)
 		exit(EXIT_FAILURE);
 	};
 
-	if (riocp_pe_create_host_handle(&mport_pe, mport, 0)) {
-		CRIT("\nCannot create host handle, exiting...\n");
-		exit(EXIT_FAILURE);
+	rc = riodp_lcfg_write(reg_acc_h->fd, 0x13c, 4, 0xE0000000);
+	if (rc) {
+		CRIT("\nSet MAST_EN failed rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
 	};
-
-	fmd->fd = mport_pe->fd;
-
-	if (!(RIOCP_PE_IS_MPORT(mport_pe))) {
-		CRIT("\nHost port is not an MPORT, wazzup?...\n");
-		exit(EXIT_FAILURE);
-	};
-
-	/* FIXME: Change this to support other master ports etc... */
-	if (fmd->cfg->mast_idx != FMD_SLAVE) {
-		struct fmd_cfg_ep *ep;
-		uint32_t comptag;
-
-		if (riocp_pe_get_comptag(mport_pe, &comptag)) {
-			CRIT("\nCannot read mport0 comptag\n");
-			exit(EXIT_FAILURE);
-		};
-		if (riocp_pe_update_comptag(mport_pe, &comptag, 
-			fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 1)) {
-			CRIT("\nCannot update mport0 comptag\n");
-			exit(EXIT_FAILURE);
-		};
-		if (riocp_pe_get_comptag(mport_pe, &comptag)) {
-			CRIT("\nCannot read mport0 comptag\n");
-			exit(EXIT_FAILURE);
-		};
-		fmd->cfg->mport_info[0].mp_h = mport_pe;
-		fmd->cfg->mport_info[0].ct = comptag;
-		
-		ep = fmd->cfg->mport_info[0].ep;
-		if (NULL == ep) {
-			CRIT("\nNo endpoint defined for master port.\n");
-			exit(EXIT_FAILURE);
-		};
-		ep->valid = 1;
-		ep->ep_h = mport_pe;
-		ep->ports[0].ct = comptag;
-	};
-
-	if (FMD_SLAVE != fmd->cfg->mast_idx)
-		rc = fmd_traverse_network(mport_pe, 0, fmd->cfg);
+	
+	if (FMD_SLAVE == fmd->cfg->mast_idx)
+		rc = setup_mport_slave(mport);
+	else
+		rc = setup_mport_master(mport);
 
 	if (rc) {
 		CRIT("\nNetwork initialization failed...\n");
-		exit(EXIT_FAILURE);
+//		exit(EXIT_FAILURE);
 	};
 }
 

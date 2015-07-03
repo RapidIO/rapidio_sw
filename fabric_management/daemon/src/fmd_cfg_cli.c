@@ -94,6 +94,11 @@ int CLIFCfgDumpCmd(struct cli_env *env, int argc, char **argv)
 		logMsg(env);
 	};
 
+	if (!fmd->cfg->ep_cnt) {
+		sprintf(env->output,  "\nNo endpoints to display\n");
+		goto switches;
+	};
+		
 	sprintf(env->output, 
 "\nidx V ENDPOINT-HANDLE- ------NAME------ PCnt V P# ---CT--- V --DevId- ---HC---\n");
 	logMsg(env);
@@ -111,6 +116,12 @@ int CLIFCfgDumpCmd(struct cli_env *env, int argc, char **argv)
 		logMsg(env);
 	};
 	
+switches:
+	if (!fmd->cfg->sw_cnt) {
+		sprintf(env->output,  "\nNo Switches to display\n");
+		goto connections;
+	};
+		
 	sprintf(env->output, 
 "\nidx V  -SWITCH-HANDLE-- ------NAME----- --TYPE-- SZ ---DID-- ---HC--- ---CT---\n");
 	logMsg(env);
@@ -123,6 +134,12 @@ int CLIFCfgDumpCmd(struct cli_env *env, int argc, char **argv)
 			i, sw->valid, sw->sw_h, sw->name, sw->dev_type,
 			sw->did_sz, sw->did, sw->hc, sw->ct);
 		logMsg(env);
+	};
+
+connections:
+	if (!fmd->cfg->conn_cnt) {
+		sprintf(env->output,  "\nNo connections to display\n");
+		goto exit;
 	};
 
 	sprintf(env->output, "\nCN V  ----Name---- Pt ----Name---- Pt\n");
@@ -156,6 +173,7 @@ int CLIFCfgDumpCmd(struct cli_env *env, int argc, char **argv)
 		logMsg(env);
 	};
  
+exit:
 	return 0;
 };
 
