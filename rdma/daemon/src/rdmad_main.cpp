@@ -209,15 +209,29 @@ void *rpc_thread_f(void *arg)
 					destroy_mso_input *in = &in_msg->destroy_mso_in;
 					destroy_mso_output *out = &out_msg->destroy_mso_out;
 
-					/* Check if the memory space owner still owns memory spaces */
-					if (owners[in->msoid]->owns_mspaces()) {
-						WARN("msoid(0x%X) still owns memory spaces!\n", in->msoid);
+					DBG("in->msoid = 0x%X\n", in->msoid);
+					ms_owner *owner;
+
+					try {
+						owner = owners[in->msoid];
+						/* Check if the memory space owner
+						 * still owns memory spaces */
+						if (owner->owns_mspaces()) {
+							WARN("msoid(0x%X) owns spaces!\n", in->msoid);
+							out->status = -1;
+						} else {
+							/* No memory spaces owned by mso,
+							 * just destroy it */
+							int ret = owners.destroy_mso(in->msoid);
+							out->status = (ret > 0) ? 0 : ret;
+							DBG("owners.destroy_mso() %s\n",
+								out->status ? "FAILED":"PASSED");
+						}
+						out_msg->type = DESTROY_MSO_ACK;
+					}
+					catch(...) {
+						ERR("Invalid msoid(0x%X) caused segfault\n", in->msoid);
 						out->status = -1;
-					} else {
-						/* No memory spaces owned by mso, just destroy it */
-						int ret = owners.destroy_mso(in->msoid);
-						out->status = (ret > 0) ? 0 : ret;
-						DBG("owners.destroy_mso() %s\n", out->status ? "FAILED":"PASSED");
 					}
 					out_msg->type = DESTROY_MSO_ACK;
 					DBG("DESTROY_MSO done\n");

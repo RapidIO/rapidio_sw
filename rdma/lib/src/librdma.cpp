@@ -686,6 +686,8 @@ int rdma_destroy_mso_h(mso_h msoh)
 	in_msg->type = DESTROY_MSO;
 	in_msg->destroy_mso_in = in;
 
+	DBG("in.msoid = 0x%X\n", in.msoid);
+
 	if (alt_rpc_call()) {
 		ERR("Call to RDMA daemon failed\n");
 		return -1;
