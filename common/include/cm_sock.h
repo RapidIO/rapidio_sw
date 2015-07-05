@@ -117,6 +117,8 @@ protected:
 		/* Initialize buffers to 0 -- for Valgrind */
 		memset(send_buf, 0, CM_BUF_SIZE);
 		memset(recv_buf, 0, CM_BUF_SIZE);
+
+		gdb = is_debugger_present();
 	}
 
 	~cm_base()
@@ -157,17 +159,12 @@ protected:
 	/* Receive bytes to 'recv_buf' on specified socket */
 	int receive(riodp_socket_t socket)
 	{
-		int rc = 0;
-		do {
-			rc = riodp_socket_receive(socket,
-					(void **)&recv_buf, CM_BUF_SIZE, 0);
-		} while (rc && errno==EINTR);
-
-		return rc;
+		return timed_receive(socket, 0);
 	} /* receive() */
 
-	/* If returns ETIME then it timed out. 0 means success, anything else
-	 * is an error. */
+	/* If returns ETIME then it timed out. 0 means success,
+	 * EINTR means thread was killed (if not in gdb mode)
+	 * anything else is an error. */
 	int timed_receive(riodp_socket_t socket, uint32_t timeout_ms)
 	{
 		int rc = 0;
@@ -175,8 +172,15 @@ protected:
 			rc = riodp_socket_receive(socket,
 					(void **)&recv_buf, CM_BUF_SIZE,
 					timeout_ms);
-		} while (rc && errno==EINTR);
-
+		} while (rc && (errno==EINTR) && gdb);
+		if (rc) {
+			if (errno == EINTR) {
+				WARN("Aborting receive() due to killing thread\n");
+				rc = EINTR;
+			} else {
+				WARN("receive() failed, errno = %d: %s\n", strerror(errno));
+			}
+		}
 		return rc;
 	} /* timed_receive() */
 
@@ -185,7 +189,35 @@ protected:
 	uint8_t mbox_id;
 	uint16_t channel;
 	riodp_mailbox_t mailbox;
+	bool	gdb;
+
 private:
+
+	int is_debugger_present(void)
+	{
+	    char buf[1024];
+	    int debugger_present = 0;
+
+	    int status_fd = open("/proc/self/status", O_RDONLY);
+	    if (status_fd == -1)
+	        return 0;
+
+	    ssize_t num_read = read(status_fd, buf, sizeof(buf));
+
+	    if (num_read > 0)
+	    {
+	        static const char TracerPid[] = "TracerPid:";
+	        char *tracer_pid;
+
+	        buf[num_read] = 0;
+	        tracer_pid    = strstr(buf, TracerPid);
+	        if (tracer_pid)
+	            debugger_present = !!atoi(tracer_pid + sizeof(TracerPid) - 1);
+	    }
+
+	    return debugger_present;
+	}
+
 	uint8_t *send_buf;
 	uint8_t *recv_buf;
 }; /* cm_base */
@@ -291,11 +323,20 @@ public:
 		do {
 			/* riodp_socket_accept() returns errno where appropriate */
 			rc = riodp_socket_accept(listen_socket, &accept_socket, 3*60*1000);
-		} while (rc && ((errno == ETIME) || (errno == EINTR)));
+			/* If ETIME, retry. If EINTR & NOT running gdb then that means
+			 * the thread was killed. Exit with EINTR so the calling thread
+			 * can clean up the socket and exit.
+			 */
+		} while (rc && ((errno == ETIME) || ((errno == EINTR) && gdb)));
 
 		if (rc) {	/* failed */
-			ERR("Failed to accept connections for '%s' (0x%X)\n",
+			if (errno == EINTR) {
+				WARN("terminated due to killing thread\n");
+				rc = EINTR;
+			} else {
+				ERR("Failed to accept connections for '%s' (0x%X)\n",
 								name, accept_socket);
+			}
 		} else {
 			if (acc_socket)
 				*acc_socket = accept_socket;
