@@ -699,12 +699,6 @@ void shutdown(struct peer_info *peer)
 	}
 	pthread_join(prov_thread, NULL);
 
-	/* Post the semaphore of each of the client remote daemon threads
-	 * if any. This causes the threads to see 'shutting_down' has
-	 * been set and they self-exit */
-	rdaemon_sem_post	rsp;
-	for_each(begin(client_rdaemon_list), end(client_rdaemon_list), rsp);
-
 	/* Delete the inbound object */
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
@@ -850,11 +844,6 @@ int main (int argc, char **argv)
 	/* Initialize semaphores */
 	if (sem_init(&peer.cm_wait_connect_sem, 0, 0) == -1) {
 		CRIT("Failed to initialize cm_wait_connect_sem: %s\n",
-							strerror(errno));
-		goto out_free_inbound;
-	}
-	if (sem_init(&client_rdaemon_list_sem, 0, 1) == -1) {
-		CRIT("Failed to initialize client_rdaemon_list_sem: %s\n",
 							strerror(errno));
 		goto out_free_inbound;
 	}

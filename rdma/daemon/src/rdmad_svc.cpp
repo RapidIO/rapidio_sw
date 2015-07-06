@@ -85,10 +85,6 @@ ts_map<string, cm_accept_msg>	accept_msg_map;
 /* List of queue names awaiting accept */
 ts_vector<string>	wait_accept_mq_names;
 
-/* Remote daemon info */
-vector<rdaemon_t*>	client_rdaemon_list;
-sem_t			client_rdaemon_list_sem;
-
 
 int close_or_destroy_action(mspace *ms)
 {
