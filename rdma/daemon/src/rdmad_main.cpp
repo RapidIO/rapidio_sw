@@ -321,7 +321,7 @@ void *rpc_thread_f(void *arg)
 					if (!ms) {
 						ERR("Could not find mspace with msid(0x%X)\n", in->msid);
 						out->status = -1;
-						break;;
+						break;
 					}
 
 					/* Before destroying a memory space, tell its clients that it is being
@@ -337,10 +337,27 @@ void *rpc_thread_f(void *arg)
 					out->status = (ret > 0) ? 0 : ret;
 
 					/* Remove memory space identifier from owner */
-					if (!out->status)
-						if (owners[in->msoid]->remove_msid(in->msid) < 0) {
-							WARN("Failed to remove msid from owner\n");
+					if (!out->status) {
+						ms_owner *owner;
+						try {
+							owner = owners[in->msoid];
 						}
+						catch(...) {
+							ERR("Failed to find owner(0x%X\n",
+									in->msoid);
+							out->status = -10;
+							break;
+						}
+						if (!owner) {
+							ERR("Failed to find owner(0x%X\n",
+									in->msoid);
+							out->status = -11;
+						}
+						if (owner->remove_msid(in->msid) < 0) {
+							WARN("Failed to remove msid from owner\n");
+							out->status = -12;
+						}
+					}
 
 					DBG("DESTROY_MS done\n");
 				}

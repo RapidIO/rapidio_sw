@@ -94,8 +94,8 @@ int close_or_destroy_action(mspace *ms)
 {
 	/* Get list of destids connected to memory space */
 	vector<uint16_t> destids = ms->get_destids();
-	DBG("msid(0x%X) has %u destids associated therewith\n", ms->get_msid(),
-							destids.size());
+	DBG("msid(0x%X) '%s' has %u destids associated therewith\n",
+			ms->get_msid(), ms->get_name(), destids.size());
 
 	/* For each element in the destids list, send a destroy message */
 	for (auto it = begin(destids); it != end(destids); it++) {
