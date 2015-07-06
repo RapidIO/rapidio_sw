@@ -234,8 +234,15 @@ public:
 		/* Create mailbox, throw exception if failed */
 		DBG("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
 			name, mport_id, mbox_id, channel);
-		if (create_mailbox()) {
+		rc = create_mailbox();
+		if (rc) {
 			CRIT("Failed to create mailbox for '%s'\n", name);
+			if (rc == -1) {
+				CRIT("Failed in riodp_cm_open(): %s\n",
+						strerror(errno));
+			} else if (rc == -2) {
+				CRIT("Failed to allocate mailbox handle\n");
+			}
 			throw cm_exception("Failed to create mailbox");
 		}
 
