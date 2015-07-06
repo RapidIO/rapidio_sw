@@ -258,6 +258,7 @@ static void *wait_for_disc_thread_f(void *arg)
 	INFO("Waiting for DISconnect message...\n");
 	if (mq_receive(mq, mq_rcv_buf, MQ_RCV_BUF_SIZE, NULL) == -1) {
 		ERR("mq_receive() failed: %s", strerror(errno));
+		mq_close(mq);
 		pthread_exit(0);
 	}
 
@@ -285,6 +286,7 @@ static void *wait_for_disc_thread_f(void *arg)
 						disc_msg->client_msubid);
 	}
 
+	mq_close(mq);
 	INFO("Exiting\n");
 	pthread_exit(0);
 } /* wait_for_disc_thread_f() */
@@ -1389,6 +1391,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 
 	if (alt_rpc_call()) {
 		ERR("Call to RDMA daemon failed\n");
+		delete connect_mq;
 		return -1;
 	}
 	accept_out = out_msg->accept_out;
