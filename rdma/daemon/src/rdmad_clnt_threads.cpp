@@ -42,7 +42,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_svc.h"
 #include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
-#include "rdmad_rdaemon.h"
 
 using namespace std;
 
