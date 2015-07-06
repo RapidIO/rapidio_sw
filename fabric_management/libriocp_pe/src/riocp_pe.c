@@ -1118,11 +1118,17 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 		return -ENOSYS;
 	}
 
-	if (RIOCP_PE_IS_MPORT(pe))
+	if (RIOCP_PE_IS_MPORT(pe)) {
 		ret = riodp_destid_set(pe->minfo->maint->fd, destid);
-	else
+		if ((0x80ab0038 == pe->cap.dev_id) && !ret)
+			ret = riocp_pe_maint_write_local(pe, 0x60020, destid);
+		
+	} else {
 		ret = riocp_pe_maint_write(pe, RIO_DID_CSR, 
 						(destid << 16) & 0x00ff0000);
+		if ((0x80ab0038 == pe->cap.dev_id) && !ret)
+			ret = riocp_pe_maint_write(pe, 0x60020, destid);
+	};
 	if (ret)
 		return ret;
 
