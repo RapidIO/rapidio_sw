@@ -435,13 +435,11 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num,
 			goto exit;
 		};
 
-		if (!RIOCP_PE_IS_MPORT(new_pe)) {
-			rc = riodp_device_add(new_pe->mport->minfo->maint->fd, 
-				conn_did, conn_hc, ep_ct, conn_ep->name);
-			if (rc && (EEXIST != rc)) {
-				CRIT("riodp_device_add, rc %d\n", rc);
-				goto exit;
-			};
+		rc = riodp_device_add(new_pe->mport->minfo->maint->fd, 
+			conn_did, conn_hc, ep_ct, conn_ep->name);
+		if (rc && (EEXIST != rc)) {
+			CRIT("riodp_device_add, rc %d\n", rc);
+			goto exit;
 		};
 		conn_ep->ports[0].ct = ep_ct;	
 	};
