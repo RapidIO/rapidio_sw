@@ -352,13 +352,11 @@ void *rpc_thread_f(void *arg)
 							ERR("Failed to find owner(0x%X\n",
 									in->msoid);
 							out->status = -11;
-						}
-						if (owner->remove_msid(in->msid) < 0) {
+						} else  if (owner->remove_msid(in->msid) < 0) {
 							WARN("Failed to remove msid from owner\n");
 							out->status = -12;
 						}
 					}
-
 					DBG("DESTROY_MS done\n");
 				}
 				break;
