@@ -43,6 +43,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_dev_rw_cli.h"
 #include "liblog.h"
 #include "libcli.h"
+#include "riodp_mport_lib.h"
+#include "fmd_state.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,6 +56,13 @@ static uint32_t store_numbytes;
 static uint32_t store_numacc;
 static uint32_t store_data;
 
+static uint32_t mstore_address;
+static uint32_t mstore_numbytes;
+static uint32_t mstore_numacc;
+static uint32_t mstore_data;
+static uint32_t mstore_did;
+static uint32_t mstore_hc;
+
 void aligningAddress(struct cli_env *env, uint32_t address)
 {
 	sprintf(env->output,
@@ -64,8 +73,8 @@ void aligningAddress(struct cli_env *env, uint32_t address)
 
 void failedReading(struct cli_env *env, uint32_t address, uint32_t rc)
 {
-	sprintf(env->output, "\nFAILED reading, Address 0x%08x, rc 0x%08x\n",
-		address, rc);
+	sprintf(env->output,
+		"\nFAILED reading, Address 0x%08x, rc 0x%08x\n", address, rc);
 	logMsg(env);
 };
 
@@ -564,6 +573,174 @@ CLIRegDumpCmd,
 ATTR_RPT
 };
 
+int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
+{
+	int errorStat = 0;
+	uint32_t address;
+	uint32_t data, prevRead;
+	uint32_t numReads = 1, i;
+	uint32_t did;
+	uint32_t hc;
+	int rc;
+
+	if (argc) {
+		address = getHex(argv[0], 0);
+		if(argc > 2) {
+			did = getHex(argv[1], 0);
+			hc = getHex(argv[2], 0);
+		} else {
+			did = mstore_did;
+			hc = mstore_hc;
+		};
+		
+		if(argc > 3)
+			numReads = getHex(argv[3], 1);
+
+		if ((address % 4) != 0) {
+			aligningAddress(env, address);
+			address = address - (address % 4);
+		}
+		mstore_address = address;
+		mstore_numacc = numReads;
+		mstore_did = did;
+		mstore_hc = hc;
+	} else {
+		address = mstore_address;
+		numReads= mstore_numacc;
+		did = mstore_did;
+		hc = mstore_hc;
+	};
+
+	for (i = 0; i < numReads; i++) {
+		if (0xFF == hc) {
+			rc = riodp_lcfg_read(fmd->fd, address, 4, &data);
+		} else {
+			rc = riodp_maint_read(fmd->fd, did, hc,
+				address, 4, &data);
+		};
+
+		if (rc) {
+			failedReading(env, address, rc);
+			goto exit;
+		}
+		if (!i) {
+			sprintf(env->output, "\t0x%08x\t0x%08x\n",
+				address, data);
+			logMsg(env);
+		} else if (data != prevRead) {
+			sprintf(env->output,
+				"\t0x%08x\t0x%08x (iteration 0x%x)*\n",
+				address, data, i);
+			logMsg(env);
+		}
+		prevRead = data;
+	}
+exit:
+	return errorStat;
+}
+
+struct cli_cmd CLIMRegRead = {
+(char *)"mread",
+2,
+1,
+(char *)"maintenance read register",
+(char *)"<address> {<devid> <hc> {<numreads>}}\n"
+	"<address> : Register offset.  Must be 4 byte aligned.\n"
+	"<devid>   : Optional, device ID to read.\n"
+	"            If not present, use last entered devid.\n"
+	"<hc>      : Hop count. Specify FF to access mport.\n"
+	"            If not present, use last entered hc.\n"
+	"<repeat>  : Optional, number of times to read <address>\n"
+	"            Default <repeat> is 1.\n",
+CLIMRegReadCmd,
+ATTR_RPT
+};
+
+int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
+
+{
+	int errorStat = 0;
+	uint32_t address;
+	uint32_t did;
+	uint32_t hc;
+	uint32_t data;
+	uint32_t rc;
+
+	if (argc) {
+		address = getHex(argv[0], 0);
+		data    = getHex(argv[1], 0);
+		if (argc > 3) {
+			did = getHex(argv[2], 0);
+			hc = getHex(argv[3], 0);
+		} else {
+			did = mstore_did;
+			hc = mstore_hc;
+		};
+		if ((address % 4) != 0) {
+			/*ensure that the address is a multiple of n bytes*/
+			aligningAddress(env, address);
+			address = address - (address % 4);
+		};
+		mstore_address = address;
+		mstore_data    = data;
+		mstore_did     = did;
+		mstore_hc    = hc;
+	} else {
+		address = mstore_address;
+		data = mstore_data;
+		did = mstore_did;
+		hc = mstore_hc;
+	};
+
+	/* Command arguments are syntactically correct - do write */
+
+	if (0xFF == hc) {
+		rc = riodp_lcfg_write(fmd->fd, address, 4, data);
+	} else {
+		rc = riodp_maint_write(fmd->fd, did, hc,
+				address, 4, data);
+	};
+	if (0 != rc) {
+		failedWrite(env, address, data, rc);
+		goto exit;
+	}
+
+	/* read data back */
+	if (0xFF == hc) {
+		rc = riodp_lcfg_read(fmd->fd, address, 4, &data);
+	} else {
+		rc = riodp_maint_read(fmd->fd, did, hc,
+			address, 4, &data);
+	};
+	if (0 != rc) {
+		failedReading(env, address, rc);
+		goto exit;
+	} else {
+		sprintf(env->output, "\nRead back %08x\n", data);
+		logMsg(env);
+	}
+
+exit:
+	return errorStat;
+}
+
+struct cli_cmd CLIMRegWrite = {
+(char *)"mwrite",
+2,
+2,
+(char *)"write register, then read back updated register value",
+(char *)"<address> <data> {<devid> <hc>}\n"
+	"Write <data> at <address> for device <devid> at <hc> hops away.\n"
+	"<address>: must be 4 byte aligned.\n"
+	"<data>   : 4 byte value to write.\n"
+	"<did>    : device ID to access.\n"
+	"           If not present, use last did entered.\n"
+	"<hc>     : Hop count.  Use FF to access local mport registers.\n"
+	"           If not present, use last did entered.\n",
+CLIMRegWriteCmd,
+ATTR_RPT
+};
+
 struct cli_cmd *reg_cmd_list[] = {
 &CLIRegRead,
 &CLIRegWrite,
@@ -571,7 +748,9 @@ struct cli_cmd *reg_cmd_list[] = {
 &CLIRegWriteNoReadback,
 &CLIRegExpect,
 &CLIRegExpectNot,
-&CLIRegDump
+&CLIRegDump,
+&CLIMRegRead,
+&CLIMRegWrite
 };
 
 void fmd_bind_dev_rw_cmds(void)
@@ -581,6 +760,13 @@ void fmd_bind_dev_rw_cmds(void)
 	store_numbytes = 4;
 	store_numacc = 1;
 	store_data = 0;
+
+	mstore_address = 0;
+	mstore_did = 0;
+	mstore_hc = 0xFF;
+	mstore_numbytes = 4;
+	mstore_numacc = 1;
+	mstore_data = 0;
 
 	add_commands_to_cmd_db(sizeof(reg_cmd_list)/
 			sizeof(struct cli_cmd *), reg_cmd_list);
