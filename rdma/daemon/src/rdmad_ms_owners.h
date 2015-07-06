@@ -76,6 +76,10 @@ public:
 	{
 		/* Initially all memory space owner handles are free */
 		fill(msoid_free_list,msoid_free_list + MSOID_MAX + 1, true);
+
+		if (pthread_mutex_init(&lock, NULL)) {
+			throw -1;
+		}
 	} /* Constructor */
 
 	~ms_owners()
@@ -88,7 +92,9 @@ public:
 	{
 		printf("%8s %32s %8s\n", "msoid", "name", "MSIDs owned by mso");
 		printf("%8s %32s %8s\n", "-----", "----", "------------------");
+		pthread_mutex_lock(&lock);
 		for_each(owners.begin(), owners.end(), call_dump_info<ms_owner *>());
+		pthread_mutex_unlock(&lock);
 	} /* dump_info() */
 
 	int create_mso(const char *name, uint32_t *msoid)
@@ -100,6 +106,7 @@ public:
 
 
 		/* Find a free memory space owner handle */
+		pthread_mutex_lock(&lock);
 		bool *fmsoid = find(msoid_free_list,
 				    msoid_free_list + MSOID_MAX + 1,
 				    true);
@@ -122,6 +129,7 @@ public:
 
 		/* Store in owners list */
 		owners.push_back(mso);	
+		pthread_mutex_unlock(&lock);
 
 		return 1;
 	} /* get_mso() */
@@ -131,17 +139,21 @@ public:
 		has_mso_name	hmn(name);
 
 		/* Find the owner having specified name */
+		pthread_mutex_lock(&lock);
 		auto mso_it = find_if(owners.begin(), owners.end(), hmn);
 		if (mso_it == owners.end()) {
 			ERR("%s is not a memory space owner's name\n", name);
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 
 		/* Open the memory space owner */
 		if ((*mso_it)->open(msoid, mso_conn_id) < 0) {
 			ERR("Failed to open memory space owner %s\n", name);
+			pthread_mutex_unlock(&lock);
 			return -2;
 		}
+		pthread_mutex_unlock(&lock);
 
 		return 1;
 	} /* open_mso() */
@@ -151,15 +163,21 @@ public:
 		has_msoid	hmi(msoid);
 
 		/* Find the mso */
+		pthread_mutex_lock(&lock);
 		auto it = find_if(begin(owners), end(owners), hmi);
 		if (it == end(owners)) {
 			ERR("msoid(0x%X) not found\n", msoid);
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 
 		/* Close the connection */
-		if ((*it)->close(mso_conn_id) < 0)
+		if ((*it)->close(mso_conn_id) < 0) {
+			ERR("Failed to close connection (0x%X)\n", mso_conn_id);
+			pthread_mutex_unlock(&lock);
 			return -1;
+		}
+		pthread_mutex_unlock(&lock);
 
 		return 1;
 	} /* close_mso() */
@@ -169,18 +187,22 @@ public:
 		has_msoid	hmi(msoid);
 
 		/* Find the owner belonging to msoid */
+		pthread_mutex_lock(&lock);
 		auto mso_it = find_if(owners.begin(), owners.end(), hmi);
 		
 		/* Not found, return error */
 		if (mso_it == owners.end()) {
 			fprintf(stderr, "%s: 0x%X not found\n", __func__, msoid);
+			pthread_mutex_unlock(&lock);
 			return -1;
 		}	
+		pthread_mutex_unlock(&lock);
 
 		/* Check if owner still owns memory spaces */
 		if ((*mso_it)->owns_mspaces()) {
 			fprintf(stderr, "%s: 0x%X still owns memory spaces\n",
 								__func__, msoid);
+			pthread_mutex_unlock(&lock);
 			return -2;
 		}
 
@@ -190,6 +212,8 @@ public:
 
 		/* Mark msoid as being free */
 		msoid_free_list[msoid] = true;
+
+		pthread_mutex_unlock(&lock);
 
 		return 1;
 	} /* destroy_msoid() */
@@ -202,6 +226,7 @@ public:
 private:
 	bool msoid_free_list[MSOID_MAX+1];
 	vector<ms_owner *>	owners;
+	pthread_mutex_t		lock;
 };
 
 
