@@ -620,7 +620,7 @@ int riodp_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 	lhandle = (struct riodp_mailbox *)malloc(sizeof(struct riodp_mailbox));
 	if(!(lhandle)) {
 		close(fd);
-		return -1;
+		return -2;
 	}
 
 	lhandle->fd = fd;
