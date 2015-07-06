@@ -437,8 +437,7 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num,
 
 		if (!RIOCP_PE_IS_MPORT(new_pe)) {
 			rc = riodp_device_add(new_pe->mport->minfo->maint->fd, 
-					conn_did, conn_hc,
-					ep_ct, conn_ep->name);
+				conn_did, conn_hc, ep_ct, conn_ep->name);
 			if (rc && (EEXIST != rc)) {
 				CRIT("riodp_device_add, rc %d\n", rc);
 				goto exit;
@@ -482,17 +481,21 @@ int setup_mport_master(int mport)
 		CRIT("\nCannot read mport0 comptag\n");
 		exit(EXIT_FAILURE);
 	};
+
 	fmd->cfg->mport_info[0].mp_h = mport_pe;
 	fmd->cfg->mport_info[0].ct = comptag;
+
 		
 	ep = fmd->cfg->mport_info[0].ep;
 	if (NULL == ep) {
 		CRIT("\nNo endpoint defined for master port.\n");
 		exit(EXIT_FAILURE);
 	};
+/*
 	ep->valid = 1;
 	ep->ep_h = mport_pe;
 	ep->ports[0].ct = comptag;
+*/
 
 	return fmd_traverse_network(mport_pe, 0, fmd->cfg);
 };
@@ -588,6 +591,39 @@ int setup_mport_slave(int mport)
 	return rc;
 };
 
+int do_mport_fixups(void)
+{
+	int rc;
+
+	rc = riodp_lcfg_write(reg_acc_h->fd, 0x13c, 4, 0xE0000000);
+	if (rc) {
+		CRIT("\nSet MAST_EN failed rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+		goto exit;
+	};
+	
+	rc = riodp_lcfg_write(reg_acc_h->fd, 0x120, 4, 0x0000FF00);
+	if (rc) {
+		CRIT("\nSet Link response timeout failed rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+		goto exit;
+	};
+	
+	rc = riodp_lcfg_write(reg_acc_h->fd, 0x124, 4, 0x0000FF00);
+	if (rc) {
+		CRIT("\nSet Packet response timeout failed rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+		goto exit;
+	};
+	
+	rc = riodp_lcfg_write(reg_acc_h->fd, 0x10a04, 4, 0x00000000);
+	if (rc) {
+		CRIT("\nSet Port-Write handling mode failed rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+	};
+exit:
+	return rc;
+};
 void setup_mport(struct fmd_state *fmd)
 {
 	uint8_t *mport_list;
@@ -621,11 +657,12 @@ void setup_mport(struct fmd_state *fmd)
 		exit(EXIT_FAILURE);
 	};
 
-	rc = riodp_lcfg_write(reg_acc_h->fd, 0x13c, 4, 0xE0000000);
+	rc = do_mport_fixups();
 	if (rc) {
-		CRIT("\nSet MAST_EN failed rc: %d %d: %s\n", 
-			rc, errno, strerror(errno));
+		CRIT("\nCannot do mport %d fixups, exiting...\n", mport);
+		exit(EXIT_FAILURE);
 	};
+
 	
 	if (FMD_SLAVE == fmd->cfg->mast_idx)
 		rc = setup_mport_slave(mport);
