@@ -41,11 +41,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "ts_vector.h"
 #include "ts_map.h"
+#include "cm_sock.h"
 
 #include "rdmad_inbound.h"
 #include "rdmad_ms_owners.h"
-#include "rdmad_rdaemon.h"
-#include "cm_sock.h"
+#include "rdmad_cm.h"
 
 using namespace std;
 
@@ -53,9 +53,6 @@ extern inbound *the_inbound;
 extern ms_owners owners;
 extern bool shutting_down;
 extern ts_map<string, cm_accept_msg> accept_msg_map;
-extern vector<rdaemon_t*> client_rdaemon_list;
-extern sem_t client_rdaemon_list_sem;
-
 extern ts_vector<string> wait_accept_mq_names;
 
 int close_or_destroy_action(mspace *ms);

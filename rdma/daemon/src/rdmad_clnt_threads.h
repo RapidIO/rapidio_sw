@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <pthread.h>
 
+#include "cm_sock.h"
 #include "ts_vector.h"
 
 void *wait_accept_thread_f(void *arg);

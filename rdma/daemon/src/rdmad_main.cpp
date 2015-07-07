@@ -121,7 +121,7 @@ void *rpc_thread_f(void *arg)
 		DBG("Waiting to receive API call library...\n");
 		size_t	received_len = 0;	/* For build warning */
 		if (other_server->receive(&received_len)) {
-			CRIT("Failed to receive");
+			CRIT("Failed to receive\n");
 			delete other_server;
 			pthread_exit(0);
 		}
@@ -352,13 +352,11 @@ void *rpc_thread_f(void *arg)
 							ERR("Failed to find owner(0x%X\n",
 									in->msoid);
 							out->status = -11;
-						}
-						if (owner->remove_msid(in->msid) < 0) {
+						} else  if (owner->remove_msid(in->msid) < 0) {
 							WARN("Failed to remove msid from owner\n");
 							out->status = -12;
 						}
 					}
-
 					DBG("DESTROY_MS done\n");
 				}
 				break;
@@ -643,7 +641,7 @@ void *rpc_thread_f(void *arg)
 int run_rpc_alternative()
 {
 	/* Create a server */
-	puts("Creating server object...");
+	DBG("Creating server object...\n");
 	try {
 		server = new unix_server();
 	}
@@ -653,24 +651,24 @@ int run_rpc_alternative()
 	}
 
 	/* Wait for client to connect */
-	puts("Wait for client to connect..");
+	DBG("Wait for client to connect..\n");
 
 	while (1) {
 		if (server->accept()) {
-			puts("Failed to accept");
+			CRIT("Failed to accept\n");
 			delete server;
 			return 2;
 		}
 
 		int accept_socket = server->get_accept_socket();
-		printf("After accept() call, accept_socket = 0x%X\n", accept_socket);
+		DBG("After accept() call, accept_socket = 0x%X\n", accept_socket);
 
 		rpc_ti	*ti;
 		try {
 			ti = new rpc_ti(accept_socket);
 		}
 		catch(...) {
-			puts("Failed to create rpc_ti");
+			CRIT("Failed to create rpc_ti\n");
 			delete server;
 			return 3;
 		}
@@ -680,7 +678,7 @@ int run_rpc_alternative()
 					 rpc_thread_f,
 					 ti);
 		if (ret) {
-			puts("Failed to create request thread\n");
+			CRIT("Failed to create request thread\n");
 			delete server;
 			delete ti;
 			return -6;
@@ -701,11 +699,27 @@ void shutdown(struct peer_info *peer)
 	}
 	pthread_join(prov_thread, NULL);
 
-	/* Post the semaphore of each of the client remote daemon threads
-	 * if any. This causes the threads to see 'shutting_down' has
-	 * been set and they self-exit */
-	rdaemon_sem_post	rsp;
-	for_each(begin(client_rdaemon_list), end(client_rdaemon_list), rsp);
+	/* Kill threads for remote daemons provisioned via incoming HELLO */
+	for (auto it = begin(prov_daemon_info_list);
+	    it != end(prov_daemon_info_list);
+	    it++) {
+		pthread_kill(it->tid, SIGUSR1);
+		if (ret == EINVAL) {
+			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+		}
+		pthread_join(it->tid, NULL);
+	}
+
+	/* Kill threads for remote daemons provisioned via outgoing HELLO */
+	for (auto it = begin(hello_daemon_info_list);
+	    it != end(hello_daemon_info_list);
+	    it++) {
+		pthread_kill(it->tid, SIGUSR1);
+		if (ret == EINVAL) {
+			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+		}
+		pthread_join(it->tid, NULL);
+	}
 
 	/* Delete the inbound object */
 	INFO("Deleting the_inbound\n");
@@ -852,11 +866,6 @@ int main (int argc, char **argv)
 	/* Initialize semaphores */
 	if (sem_init(&peer.cm_wait_connect_sem, 0, 0) == -1) {
 		CRIT("Failed to initialize cm_wait_connect_sem: %s\n",
-							strerror(errno));
-		goto out_free_inbound;
-	}
-	if (sem_init(&client_rdaemon_list_sem, 0, 1) == -1) {
-		CRIT("Failed to initialize client_rdaemon_list_sem: %s\n",
 							strerror(errno));
 		goto out_free_inbound;
 	}

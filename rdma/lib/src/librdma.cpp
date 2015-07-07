@@ -881,6 +881,7 @@ int rdma_open_ms_h(const char *ms_name,
 	pthread_t  ms_close_thread;
 	if (pthread_create(&ms_close_thread, NULL, ms_close_thread_f, close_mq)) {
 		WARN("Failed to create ms_close_thread: %s\n", strerror(errno));
+		delete close_mq;
 		return -7;
 	}
 	INFO("Created ms_close_thread\n");
@@ -1550,6 +1551,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	in_msg->send_connect_in = in;
 	if (alt_rpc_call()) {
 		ERR("Call to RDMA daemon failed\n");
+		delete accept_mq;
 		return -1;
 	}
 	out = out_msg->send_connect_out;
@@ -1575,10 +1577,11 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			/* Set up Unix message parameters */
 			in_msg->type = UNDO_CONNECT;
 			in_msg->undo_connect_in = undo_connect_in;
-				if (alt_rpc_call()) {
-					ERR("Call to RDMA daemon failed\n");
-					return -1;
-				}
+			if (alt_rpc_call()) {
+				ERR("Call to RDMA daemon failed\n");
+				delete accept_mq;
+				return -1;
+			}
 			undo_connect_out = out_msg->undo_connect_out;
 			delete accept_mq;
 			return -7;

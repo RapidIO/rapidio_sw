@@ -53,6 +53,14 @@
 				fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 			     }
 
+#define LOG(fmt, args...)    fprintf(fp, fmt, ## args)
+
+/* Signal end-of-test to server */
+#define BAT_EOT() { \
+	bm_first_tx->type = BAT_END; \
+	bat_first_client->send(); \
+}
+
 using namespace std;
 
 /* Log file, name and handle */
@@ -74,6 +82,8 @@ static uint32_t destid;
 static int first_channel;
 static int second_channel;
 char first_channel_str[4];	/* 000 to 999 + '\0' */
+
+static unsigned repetitions = 1;	/* Default is once */
 
 static char loc_mso_name[MAX_NAME];
 static char loc_ms_name[MAX_NAME];
@@ -616,6 +626,7 @@ static int do_dma(msub_h client_msubh,
 
 	/* If async mode, must call rdma_sync_chk_push_pull() */
 	if (sync_type == rdma_async_chk) {
+		LOG("ASYNC DMA: ");
 		ret = rdma_sync_chk_push_pull(out.chk_handle, NULL);
 		BAT_EXPECT_RET(ret, 0, unmap_msubh);
 	}
@@ -748,9 +759,12 @@ exit:
 static void show_help(void)
 {
 	// TODO: mport_id should be a command-line parameter
-	puts("bat_client -c<channel> -d<destid> -t<test_case> -o<output-file> [-l] [-h]");
+	puts("bat_client -c<channel> -d<destid> -t<test_case> -n<repetitions> -o<output-file> [-l] [-h]");
 	puts("-l List all test cases");
 	puts("-h Help");
+	puts("if <test_case> is 'z', all tests are run");
+	puts("if <test_case> is 'z', <repetitions> is the number of times the tests are run");
+	puts("<repetitions> is ignored for all other cases");
 }
 
 int connect_to_channel(int channel,
@@ -848,6 +862,7 @@ int test_case_6()
 			  bm_second_tx,
 			  user_msh, user_msubh);
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
+	sleep(1);
 
 	/* Now create client mso, ms, and msub */
 	mso_h	client_msoh;
@@ -967,6 +982,7 @@ int main(int argc, char *argv[])
 			puts("'4' As '1' but data offset in rem_msub");
 			puts("'5' As '1' but async mode");
 			puts("'6' Create mso+ms on one, open and DMA on another");
+			puts("'z' RUN ALL TESTS");
 			exit(1);
 		}
 		show_help();
@@ -980,7 +996,7 @@ int main(int argc, char *argv[])
 	}
 
 
-	while ((c = getopt(argc, argv, "hlc:d:o:t:")) != -1)
+	while ((c = getopt(argc, argv, "hlc:d:o:t:n:")) != -1)
 		switch (c) {
 		case 'c':
 			first_channel = atoi(optarg);
@@ -1008,6 +1024,10 @@ int main(int argc, char *argv[])
 		case 'h':
 			show_help();
 			exit(1);
+			break;
+		case 'n':
+			repetitions = atoi(optarg);
+			printf("Tests will be run %d times!\n", repetitions);
 			break;
 		case '?':
 			/* Invalid command line option */
@@ -1039,15 +1059,19 @@ int main(int argc, char *argv[])
 
 	case 'a':
 		test_case_a();
+		BAT_EOT();
 		break;
 	case 'b':
 		test_case_b();
+		BAT_EOT();
 		break;
 	case 'c':
 		test_case_c();
+		BAT_EOT();
 		break;
 	case 'g':
 		test_case_g();
+		BAT_EOT();
 		break;
 	case 'h':
 		fprintf(fp, "test_caseh ");
@@ -1055,39 +1079,68 @@ int main(int argc, char *argv[])
 		if (tc == 'i')
 			fprintf(fp, "test_casei ");
 		test_case_h_i(tc);
+		BAT_EOT();
 		break;
 	case '1':
 		fprintf(fp, "test_case%c ", tc);
 		test_case_dma(0x00, 0x00, 0x00, rdma_sync_chk);
+		BAT_EOT();
 		break;
 	case '2':
 		fprintf(fp, "test_case%c ", tc);
 		test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
+		BAT_EOT();
 		break;
 	case '3':
 		fprintf(fp, "test_case%c ", tc);
 		test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
+		BAT_EOT();
 		break;
 	case '4':
 		fprintf(fp, "test_case%c ", tc);
 		test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
+		BAT_EOT();
 		break;
 	case '5':
 		fprintf(fp, "test_case%c ", tc);
 		test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
+		BAT_EOT();
 		break;
 	case '6':
 		fprintf(fp, "test_case%c ", tc);
 		test_case_6();
+		BAT_EOT();
+		break;
+	case 'z':
+		for (unsigned i = 0; i < repetitions; i++) {
+			test_case_a();
+			test_case_b();
+			test_case_c();
+			test_case_g();
+			test_case_h_i('h');
+			test_case_h_i('i');
+			test_case_dma(0x00, 0x00, 0x00, rdma_sync_chk);
+			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
+			test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
+			test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
+			test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
+			test_case_b();
+			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
+			test_case_h_i('h');
+			test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
+			test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
+			test_case_c();
+			test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
+			test_case_h_i('i');
+			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
+		}
 		break;
 	default:
 		fprintf(stderr, "Invalid test case '%c'\n", tc);
 		break;
 	}
 
-	/* Signal end-of-test to server */
-	bm_first_tx->type = BAT_END;
-	bat_first_client->send();
+	BAT_EOT();
 
 	delete bat_first_client;
 

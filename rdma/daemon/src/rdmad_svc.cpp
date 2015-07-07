@@ -57,7 +57,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_cm.h"
 #include "rdmad_main.h"
 #include "rdmad.h"
-#include "rdmad_rdaemon.h"
 #include "rdmad_clnt_threads.h"
 #include "rdmad_srvr_threads.h"
 
@@ -84,10 +83,6 @@ ts_map<string, cm_accept_msg>	accept_msg_map;
 
 /* List of queue names awaiting accept */
 ts_vector<string>	wait_accept_mq_names;
-
-/* Remote daemon info */
-vector<rdaemon_t*>	client_rdaemon_list;
-sem_t			client_rdaemon_list_sem;
 
 
 int close_or_destroy_action(mspace *ms)
