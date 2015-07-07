@@ -848,6 +848,7 @@ int test_case_6()
 			  bm_second_tx,
 			  user_msh, user_msubh);
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
+	sleep(1);
 
 	/* Now create client mso, ms, and msub */
 	mso_h	client_msoh;
