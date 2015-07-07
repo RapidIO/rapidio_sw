@@ -699,6 +699,28 @@ void shutdown(struct peer_info *peer)
 	}
 	pthread_join(prov_thread, NULL);
 
+	/* Kill threads for remote daemons provisioned via incoming HELLO */
+	for (auto it = begin(prov_daemon_info_list);
+	    it != end(prov_daemon_info_list);
+	    it++) {
+		pthread_kill(it->tid, SIGUSR1);
+		if (ret == EINVAL) {
+			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+		}
+		pthread_join(it->tid, NULL);
+	}
+
+	/* Kill threads for remote daemons provisioned via outgoing HELLO */
+	for (auto it = begin(hello_daemon_info_list);
+	    it != end(hello_daemon_info_list);
+	    it++) {
+		pthread_kill(it->tid, SIGUSR1);
+		if (ret == EINVAL) {
+			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+		}
+		pthread_join(it->tid, NULL);
+	}
+
 	/* Delete the inbound object */
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
