@@ -177,6 +177,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				CRIT("Failed to receive on rx_conn_disc_server: %s\n",
 								strerror(ret));
 			}
+			delete rx_conn_disc_server;
 			pthread_exit(0);
 		}
 

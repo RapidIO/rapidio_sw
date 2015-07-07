@@ -100,6 +100,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 	hm->destid = peer.destid;
 	if (accept_destroy_client->send()) {
 		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
+		delete wadti->hello_client;
 		free(wadti);
 		pthread_exit(0);
 	}
@@ -110,6 +111,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 	accept_destroy_client->get_recv_buffer((void **)&ham);
 	if (accept_destroy_client->timed_receive(5000)) {
 		ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
+		delete wadti->hello_client;
 		free(wadti);
 		pthread_exit(0);
 	}
@@ -124,9 +126,14 @@ void *wait_accept_destroy_thread_f(void *arg)
 							wadti->tid);
 	if (!hdi) {
 		CRIT("Failed to allocate hello_daemon_info\n");
+		delete wadti->hello_client;
 		free(wadti);
 		pthread_exit(0);
 	}
+
+	/* Free hello_client and the wadti struct */
+	delete wadti->hello_client;
+	free(wadti);
 
 	/* Store remote daemon info in the 'hello' daemon list */
 	sem_wait(&hello_daemon_info_list_sem);
@@ -147,6 +154,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 				CRIT("Failed to receive on hello_client: %s\n",
 								strerror(ret));
 			}
+			delete accept_destroy_client;
 			pthread_exit(0);
 		}
 		/* Read all messages as ACCEPT_MS first, then if the
@@ -347,6 +355,7 @@ int provision_rdaemon(uint32_t destid)
 	(wait_accept_destroy_thread_info *)malloc(sizeof(wait_accept_destroy_thread_info));
 	if (!wadti) {
 		CRIT("Failed to allocate wadti\n");
+		delete hello_client;
 		return -3;
 	}
 	wadti->hello_client = hello_client;
