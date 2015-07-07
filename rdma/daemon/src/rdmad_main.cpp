@@ -653,39 +653,38 @@ int run_rpc_alternative()
 	/* Wait for client to connect */
 	DBG("Wait for client to connect..");
 
-	if (server->accept()) {
-		CRIT("Failed to accept\n");
-		delete server;
-		return 2;
-	}
+	while (1) {
+		if (server->accept()) {
+			CRIT("Failed to accept\n");
+			delete server;
+			return 2;
+		}
 
-	int accept_socket = server->get_accept_socket();
-	DBG("After accept() call, accept_socket = 0x%X\n", accept_socket);
+		int accept_socket = server->get_accept_socket();
+		DBG("After accept() call, accept_socket = 0x%X\n", accept_socket);
 
-	rpc_ti	*ti;
-	try {
-		ti = new rpc_ti(accept_socket);
-	}
-	catch(...) {
-		CRIT("Failed to create rpc_ti");
-		delete server;
-		return 3;
-	}
+		rpc_ti	*ti;
+		try {
+			ti = new rpc_ti(accept_socket);
+		}
+		catch(...) {
+			CRIT("Failed to create rpc_ti");
+			delete server;
+			return 3;
+		}
 
-	int ret = pthread_create(&ti->tid,
-				 NULL,
-				 rpc_thread_f,
-				 ti);
-	if (ret) {
-		CRIT("Failed to create request thread\n");
-		delete server;
-		delete ti;
-		return -6;
-	}
-	sem_wait(&ti->started);
-	pthread_join(ti->tid, NULL);
-
-	return 0;
+		int ret = pthread_create(&ti->tid,
+					 NULL,
+					 rpc_thread_f,
+					 ti);
+		if (ret) {
+			CRIT("Failed to create request thread\n");
+			delete server;
+			delete ti;
+			return -6;
+		}
+		sem_wait(&ti->started);
+	} /* while */
 } /* run_rpc_alternative() */
 
 void shutdown(struct peer_info *peer)
