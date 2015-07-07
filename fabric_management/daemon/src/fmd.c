@@ -500,9 +500,10 @@ int setup_mport_master(int mport)
 
 int setup_mport_slave(int mport)
 {
-	uint32_t comptag, temp;
+	uint32_t comptag;
 	struct fmd_cfg_ep *ep;
 	int rc;
+	struct timespec dly = {5, 0}; /* 5 seconds */
 
 	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0)) {
 		CRIT("\nCannot create agent handle, exiting...\n");
@@ -548,44 +549,31 @@ int setup_mport_slave(int mport)
 	fmd->cfg->mport_info[0].ct = comptag;
 	ep->ports[0].ct = comptag;
 
-	/* Add the mport */
-/*
-	rc = riodp_device_add(reg_acc_h->fd, 
+	/* Poll to add the mport  and FMD master devices until the master
+	* completes network initialization.
+	*/
+	do {
+		rc = riodp_device_add(reg_acc_h->fd, 
 		(uint16_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 
-		(uint8_t)0xFF, comptag, "MPORT0");
-	if (EEXIST == rc)
-		rc = 0;
-	if (rc) {
-		CRIT("\nCannot add mport0 object %d %d: %s\n", 
+			(uint8_t)0xFF, comptag, "MPORT0");
+		if (EEXIST == rc)
+			rc = 0;
+		if (rc) {
+			INFO("\nCannot add mport0 object %d %d: %s\n", 
 				rc, errno, strerror(errno));
-		// exit(EXIT_FAILURE);
-	};
-*/
-	rc = riodp_maint_read(reg_acc_h->fd, 5, 0, 0, 4, &temp);
-	if (rc) {
-		CRIT("\nriodp_maint_read switch rc: %d %d: %s\n", 
-			rc, errno, strerror(errno));
-	} else {
-		INFO("\nriodp_maint_read switch value: %x \n", temp);
-	};
+			nanosleep(&dly, NULL);
+			continue;
+		};
 
-	rc = riodp_maint_read(reg_acc_h->fd, 5, 1, 0, 4, &temp);
-	if (rc) {
-		CRIT("\nriodp_maint_read FMD master rc: %d %d: %s\n", 
-			rc, errno, strerror(errno));
-	} else {
-		INFO("\nriodp_maint_read Endpoint value rc: %x\n",  temp);
-	};
-
-	rc = riodp_device_add(reg_acc_h->fd,
-		(uint16_t)cfg->mast_devid, 1, 0x00010005, "GRY05");
-	if (EEXIST == rc)
-		rc = 0;
-	if (rc) {
-		CRIT("\nCannot add FMD Master device %d %d: %s\n", 
+		rc = riodp_device_add(reg_acc_h->fd,
+		(uint16_t)cfg->mast_devid, 1, cfg->mast_devid, "FMD_MAST");
+		if (EEXIST == rc)
+			rc = 0;
+		if (rc) {
+			CRIT("\nCannot add FMD Master device %d %d: %s\n", 
 				rc, errno, strerror(errno));
-		// exit(EXIT_FAILURE);
-	};
+		};
+	} while (EIO == rc);
 	return rc;
 };
 
@@ -669,7 +657,6 @@ void setup_mport(struct fmd_state *fmd)
 
 	if (rc) {
 		CRIT("\nNetwork initialization failed...\n");
-//		exit(EXIT_FAILURE);
 	};
 }
 
@@ -779,14 +766,6 @@ int main(int argc, char *argv[])
 	if ((NULL == fmd) || (cfg->init_err))
 		goto fail;
 
-
-/*
-	cli_init_base();
-	bind_dd_cmds(fmd->dd, fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
-	liblog_bind_cli_cmds();
-	fmd_bind_dbg_cmds();
-	fmd_bind_mgmt_dbg_cmds();
-*/
 	setup_mport(fmd);
 	if (!fmd->cfg->simple_init)
 		fmd_dd_update(*fmd->mp_h, fmd->dd, fmd->dd_mtx);
