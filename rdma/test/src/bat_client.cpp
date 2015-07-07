@@ -53,6 +53,8 @@
 				fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 			     }
 
+#define LOG(fmt, args...)    fprintf(fp, fmt, ## args)
+
 /* Signal end-of-test to server */
 #define BAT_EOT() { \
 	bm_first_tx->type = BAT_END; \
@@ -624,6 +626,7 @@ static int do_dma(msub_h client_msubh,
 
 	/* If async mode, must call rdma_sync_chk_push_pull() */
 	if (sync_type == rdma_async_chk) {
+		LOG("ASYNC DMA: ");
 		ret = rdma_sync_chk_push_pull(out.chk_handle, NULL);
 		BAT_EXPECT_RET(ret, 0, unmap_msubh);
 	}
