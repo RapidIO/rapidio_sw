@@ -121,7 +121,7 @@ void *rpc_thread_f(void *arg)
 		DBG("Waiting to receive API call library...\n");
 		size_t	received_len = 0;	/* For build warning */
 		if (other_server->receive(&received_len)) {
-			CRIT("Failed to receive");
+			CRIT("Failed to receive\n");
 			delete other_server;
 			pthread_exit(0);
 		}
@@ -641,7 +641,7 @@ void *rpc_thread_f(void *arg)
 int run_rpc_alternative()
 {
 	/* Create a server */
-	DBG("Creating server object...");
+	DBG("Creating server object...\n");
 	try {
 		server = new unix_server();
 	}
@@ -651,7 +651,7 @@ int run_rpc_alternative()
 	}
 
 	/* Wait for client to connect */
-	DBG("Wait for client to connect..");
+	DBG("Wait for client to connect..\n");
 
 	while (1) {
 		if (server->accept()) {
@@ -668,7 +668,7 @@ int run_rpc_alternative()
 			ti = new rpc_ti(accept_socket);
 		}
 		catch(...) {
-			CRIT("Failed to create rpc_ti");
+			CRIT("Failed to create rpc_ti\n");
 			delete server;
 			return 3;
 		}
