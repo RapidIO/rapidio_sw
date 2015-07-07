@@ -152,7 +152,8 @@ void *peer_rx_loop(void *p_i)
 		switch (ntohl(peer->s2m->msg_type)) {
 		case FMD_P_REQ_HELLO:
 			master_process_hello_peer(peer);
-			INFO("Peer(%x) RX HELLO Req %s %x %x %x %x %x\n",
+			INFO(
+			"Peer(%x) RX HELLO Req %s 0x%x 0x%x 0x%x 0x%x 0x%x\n",
 				peer->p_ct,
 				peer->s2m->hello_rq.peer_name,
 				ntohl(peer->s2m->hello_rq.pid),
@@ -163,12 +164,14 @@ void *peer_rx_loop(void *p_i)
 			break;
 		case FMD_P_RESP_MOD:
 			/* Nothing to do for a modification response */
-			INFO("Peer(%x) RX MOD Resp %x %x %x %x %x\n",
+			INFO(
+			"Peer(%x) RX MOD Resp 0x%x 0x%x 0x%x 0x%x 0x%x rc %d\n",
 				peer->p_ct,
 				ntohl(peer->s2m->mod_rsp.did),
 				ntohl(peer->s2m->mod_rsp.did_sz),
 				ntohl(peer->s2m->mod_rsp.ct),
 				ntohl(peer->s2m->mod_rsp.hc),
+				ntohl(peer->s2m->mod_rsp.is_mp),
 				ntohl(peer->s2m->mod_rsp.rc));
 			break;
 		default:
@@ -197,6 +200,70 @@ void *peer_rx_loop(void *p_i)
 	pthread_exit(NULL);
 };
 
+void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
+{
+	sem_wait(&peer->tx_mtx);
+	peer->m2s->msg_type = htonl(FMD_P_REQ_MOD);
+	peer->m2s->dest_did = htonl(peer->p_did);
+	peer->m2s->mod_rq.op = htonl(FMD_P_OP_ADD);
+	peer->m2s->mod_rq.did = htonl(dev->destID);
+	peer->m2s->mod_rq.did_sz = htonl(dev->destID_sz);
+	peer->m2s->mod_rq.hc = htonl(dev->hc);
+	peer->m2s->mod_rq.ct = htonl(dev->ct);
+	peer->m2s->mod_rq.is_mp = 0;
+
+	if (dev->is_mast_pt) {
+		strncpy(peer->m2s->mod_rq.name, FMD_SLAVE_MASTER_NAME, 
+			MAX_P_NAME);
+	} else {
+		if (dev->destID == peer->p_did) {
+			strncpy(peer->m2s->mod_rq.name, FMD_SLAVE_MPORT_NAME,
+				MAX_P_NAME);
+			peer->m2s->mod_rq.is_mp = htonl(1);
+		} else {
+			struct l_item_t *li;
+			struct fmd_peer *t_peer;
+
+			sem_wait(&fmp.peers_mtx);
+			t_peer = (struct fmd_peer *)
+				l_find(&fmp.peers, dev->destID, &li);
+			sem_post(&fmp.peers_mtx);
+
+			/* Only tell peers about other connected peers */
+			if (NULL == t_peer)
+				goto exit;
+			strncpy(peer->m2s->mod_rq.name, dev->name, MAX_P_NAME);
+		};
+	};
+	peer->tx_rc = riodp_socket_send(peer->cm_skt_h, 
+				peer->tx_buff, FMD_P_M2S_CM_SZ);
+exit:
+	sem_post(&peer->tx_mtx);
+};
+
+void tell_others_about_new_peer(struct fmd_peer *peer,
+				struct fmd_dd_dev_info *devs, 
+				struct fmd_dd_dev_info *new_dev,
+				uint32_t num_devs)
+{
+	uint32_t i;
+	struct fmd_peer *t_peer;
+	struct l_item_t *li;
+
+	for (i = 0; i < num_devs; i++) {
+		/* no need to tell other peers about this device */
+		if (devs[i].is_mast_pt)
+			continue;
+		if (&devs[i] == new_dev)
+			continue;
+		t_peer = (struct fmd_peer *)
+			l_find(&fmp.peers, devs[i].destID, &li);
+		/* no need to tell the peer about itself */
+		if ((t_peer == peer) || (NULL == t_peer))
+			continue;
+		send_add_dev_msg(t_peer, new_dev);
+	};
+};
 
 int start_new_peer(riodp_socket_t new_skt)
 {
@@ -205,6 +272,7 @@ int start_new_peer(riodp_socket_t new_skt)
 	uint32_t i;
 	struct fmd_dd_dev_info devs[FMD_MAX_DEVS];
 	uint32_t num_devs;
+	uint32_t new_peer_dev_idx = FMD_MAX_DEVS;
 
 	peer = (struct fmd_peer *) malloc(sizeof(struct fmd_peer));
 
@@ -247,25 +315,15 @@ int start_new_peer(riodp_socket_t new_skt)
 	/* FIXME: */
 	/* The loop below could be more elegant, but it should do for now */
 	while (!peer->init_cplt) {
+		new_peer_dev_idx = FMD_MAX_DEVS;
 		fmd_dd_atomic_copy(fmd->dd, fmd->dd_mtx, 
 				&num_devs, devs, FMD_MAX_DEVS);
 
 		for (i = 0; (i < num_devs) && !peer->restart_init && 
 				!peer->tx_rc && !peer->rx_must_die; i++) {
-			if (devs[i].is_mast_pt || 
-					(devs[i].destID == peer->p_did))
-				continue;
-			sem_wait(&peer->tx_mtx);
-			peer->m2s->msg_type = htonl(FMD_P_REQ_MOD);
-			peer->m2s->dest_did = htonl(peer->p_did);
-			peer->m2s->mod_rq.op = htonl(FMD_P_OP_ADD);
-			peer->m2s->mod_rq.did = htonl(devs[i].destID);
-			peer->m2s->mod_rq.did_sz = htonl(devs[i].destID_sz);
-			peer->m2s->mod_rq.hc = htonl(devs[i].hc);
-			peer->m2s->mod_rq.ct = htonl(devs[i].ct);
-			peer->tx_rc = riodp_socket_send(peer->cm_skt_h, 
-				peer->tx_buff, FMD_P_M2S_CM_SZ);
-			sem_post(&peer->tx_mtx);
+			send_add_dev_msg(peer, &devs[i]);
+			if (devs[i].destID == peer->p_did)
+				new_peer_dev_idx = i;
 		};
 
 		if (peer->tx_rc)
@@ -302,6 +360,10 @@ int start_new_peer(riodp_socket_t new_skt)
 		peer->init_cplt = 0;
 		sem_post(&peer->init_cplt_mtx);
 	};
+
+	if (FMD_MAX_DEVS != new_peer_dev_idx)
+		tell_others_about_new_peer(peer, devs, &devs[new_peer_dev_idx],
+			num_devs);
 
 	return 0;
 fail:

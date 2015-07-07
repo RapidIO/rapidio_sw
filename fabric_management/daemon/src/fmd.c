@@ -555,7 +555,7 @@ int setup_mport_slave(int mport)
 	do {
 		rc = riodp_device_add(reg_acc_h->fd, 
 		(uint16_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 
-			(uint8_t)0xFF, comptag, "MPORT0");
+			(uint8_t)0xFF, comptag, FMD_SLAVE_MPORT_NAME);
 		if (EEXIST == rc)
 			rc = 0;
 		if (rc) {
@@ -566,7 +566,8 @@ int setup_mport_slave(int mport)
 		};
 
 		rc = riodp_device_add(reg_acc_h->fd,
-		(uint16_t)cfg->mast_devid, 1, cfg->mast_devid, "FMD_MAST");
+		(uint16_t)cfg->mast_devid, 1, cfg->mast_devid,
+			FMD_SLAVE_MASTER_NAME);
 		if (EEXIST == rc)
 			rc = 0;
 		if (rc) {

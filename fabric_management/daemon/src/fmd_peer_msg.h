@@ -64,12 +64,16 @@ typedef struct fmd_p_hello fmd_m_hello_resp;
 #define FMD_P_OP_ADD ((uint32_t)(0xADD1BEEF))  
 #define FMD_P_OP_DEL ((uint32_t)(0xDEADBEEF))
 
+#define FMD_SLAVE_MPORT_NAME "MPORT0"
+#define FMD_SLAVE_MASTER_NAME "FMD_MAST"
+
 struct fmd_m_peer_mod_req {
 	uint32_t op;
 	uint32_t did;
 	uint32_t did_sz;
 	uint32_t hc;
 	uint32_t ct;
+	uint32_t is_mp;
 	char name[MAX_P_NAME+1];
 };
 
@@ -78,6 +82,7 @@ struct fmd_s_peer_mod_resp {
 	uint32_t did_sz;
 	uint32_t hc;
 	uint32_t ct;
+	uint32_t is_mp;
 	uint32_t rc; /* 0 means success */
 };
 
