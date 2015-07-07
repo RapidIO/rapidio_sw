@@ -623,11 +623,11 @@ static int do_dma(msub_h client_msubh,
 	in.sync_type = sync_type;
 
 	/* Temporarily to determine failure cause */
-	LOG("client_msubh = 0x%016" PRIx64 ", server_msubh = 0x%16" PRIx64 "\n",
+	LOG("client_msubh = 0x%016" PRIx64 ", server_msubh = 0x%016" PRIx64 "\n",
 			client_msubh, server_msubh);
 	LOG("ofs_in_loc_msub = 0x%X, ofs_in_rem_msub = 0x%X\n",
 			ofs_in_loc_msub, ofs_in_rem_msub);
-	LOG("num_bytes = 0x%X, sync_type: ", DMA_DATA_SIZE);
+	LOG("num_bytes = 0x%X, sync_type: %d\n", DMA_DATA_SIZE, sync_type);
 
 	/* Push the RDMA data */
 	ret = rdma_push_msub(&in, &out);
@@ -1091,32 +1091,32 @@ int main(int argc, char *argv[])
 		BAT_EOT();
 		break;
 	case '1':
-		fprintf(fp, "test_case%c ", tc);
+		LOG("test_case%c\n", tc);
 		test_case_dma(0x00, 0x00, 0x00, rdma_sync_chk);
 		BAT_EOT();
 		break;
 	case '2':
-		fprintf(fp, "test_case%c ", tc);
+		LOG("test_case%c\n", tc);
 		test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
 		BAT_EOT();
 		break;
 	case '3':
-		fprintf(fp, "test_case%c ", tc);
+		LOG("test_case%c\n", tc);
 		test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
 		BAT_EOT();
 		break;
 	case '4':
-		fprintf(fp, "test_case%c ", tc);
+		LOG("test_case%c\n", tc);
 		test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
 		BAT_EOT();
 		break;
 	case '5':
-		fprintf(fp, "test_case%c ", tc);
+		LOG("test_case%c\n", tc);
 		test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
 		BAT_EOT();
 		break;
 	case '6':
-		fprintf(fp, "test_case%c ", tc);
+		LOG("test_case%c\n", tc);
 		test_case_6();
 		BAT_EOT();
 		break;
@@ -1128,19 +1128,33 @@ int main(int argc, char *argv[])
 			test_case_g();
 			test_case_h_i('h');
 			test_case_h_i('i');
+			LOG("test_case1\n");
 			test_case_dma(0x00, 0x00, 0x00, rdma_sync_chk);
+			LOG("test_case2\n");
 			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
+			LOG("test_case3\n");
 			test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
+			LOG("test_case4\n");
 			test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
+			LOG("test_case5\n");
 			test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
+			LOG("test_caseb\n");
 			test_case_b();
+			LOG("test_case2\n");
 			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
+			LOG("test_caseh\n");
 			test_case_h_i('h');
+			LOG("test_case5\n");
 			test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
+			LOG("test_case3\n");
 			test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
+			LOG("test_casec\n");
 			test_case_c();
+			LOG("test_case4\n");
 			test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
+			LOG("test_casei\n");
 			test_case_h_i('i');
+			LOG("test_case2\n");
 			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
 		}
 		break;
