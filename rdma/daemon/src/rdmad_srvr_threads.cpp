@@ -413,6 +413,7 @@ void *prov_thread_f(void *arg)
 		ret = pthread_create(&wcdti->tid, NULL, wait_conn_disc_thread_f, wcdti);
 		if (ret) {
 			CRIT("Failed to create conn_disc thread\n");
+			delete prov_server;
 			free(wcdti);
 			continue;	/* Better luck next time? */
 		}
