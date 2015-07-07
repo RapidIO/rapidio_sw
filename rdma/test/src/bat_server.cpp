@@ -21,16 +21,6 @@ cm_server	*bat_server;
 
 void sig_handler(int sig)
 {
-	if (sig == SIGINT) {
-		char ch1, ch2;
-
-		printf("Are you sure you want to break out of the test? (y/n)? ");
-		ch1 = getchar();
-		ch2 = getchar();
-		printf("Got %c %c\n", ch1, ch2);
-		if (ch1 == 'n')
-			return;
-	}
 	printf("Got sig(%d) ..exiting\n", sig);
 	delete bat_server;
 	exit(0);
