@@ -271,7 +271,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				accept_msg_map.remove(mq_str);
 				continue;
 			}
-			INFO("ACCEPT_MS sent back to remote daemon!\n");
+			HIGH("ACCEPT_MS sent back to remote daemon!\n");
 
 			/* Now the destination ID must be added to the memory space.
 			 * This is for the case where the memory space is destroyed
@@ -294,7 +294,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			cm_disconnect_msg	*disc_msg;
 
 			rx_conn_disc_server->get_recv_buffer((void **)&disc_msg);
-			INFO("Received DISCONNECT_MS for msid(0x%X)\n",
+			HIGH("Received DISCONNECT_MS for msid(0x%X)\n",
 							disc_msg->server_msid);
 
 			/* Remove client_destid from 'ms' identified by server_msid */
@@ -352,7 +352,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				ERR("Failed to close '%s': %s\n", mq_name, strerror(errno));
 				continue;
 			}
-			INFO("'Disconnect' message relayed to 'server'\n");
+			HIGH("'Disconnect' message relayed to 'server'\n");
 		}
 
 	} /* while(1) */

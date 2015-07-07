@@ -628,10 +628,10 @@ void *rpc_thread_f(void *arg)
 				delete other_server;
 				pthread_exit(0);
 			} else {
-				INFO("API processing completed!\n");
+				DBG("API processing completed!\n");
 			}
 		} else {
-			INFO("RDMA library has closed connection!\n");
+			HIGH("RDMA library has closed connection!\n");
 			pthread_exit(0);
 		}
 	} /* while */
