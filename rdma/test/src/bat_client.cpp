@@ -1151,6 +1151,7 @@ int main(int argc, char *argv[])
 			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
 			BAT_EOT();
 		}
+		break;
 	default:
 		fprintf(stderr, "Invalid test case '%c'\n", tc);
 		break;
