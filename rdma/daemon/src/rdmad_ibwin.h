@@ -137,7 +137,7 @@ public:
 
 	void dump_info()
 	{
-		printf("%8d %16" PRIu64 " %16" PRIu64 " %16" PRIu64 "\n", win_num, size, rio_addr, phys_addr);
+		printf("%8d %16" PRIx64 " %16" PRIx64 " %16" PRIx64 "\n", win_num, size, rio_addr, phys_addr);
 	} /* dump_info() */
 
 	void print_mspace_header()
