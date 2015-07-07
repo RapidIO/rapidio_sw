@@ -1127,7 +1127,7 @@ int main(int argc, char *argv[])
 			test_case_c();
 			test_case_g();
 			test_case_h_i('h');
-			test_case_h_i('i');
+//			test_case_h_i('i');
 			LOG("test_case1\n");
 			test_case_dma(0x00, 0x00, 0x00, rdma_sync_chk);
 			LOG("test_case2\n");
@@ -1152,8 +1152,8 @@ int main(int argc, char *argv[])
 			test_case_c();
 			LOG("test_case4\n");
 			test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
-			LOG("test_casei\n");
-			test_case_h_i('i');
+//			LOG("test_casei\n");
+//			test_case_h_i('i');
 			LOG("test_case2\n");
 			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
 		}
