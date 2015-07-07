@@ -641,7 +641,7 @@ void *rpc_thread_f(void *arg)
 int run_rpc_alternative()
 {
 	/* Create a server */
-	puts("Creating server object...");
+	DBG("Creating server object...");
 	try {
 		server = new unix_server();
 	}
@@ -651,24 +651,24 @@ int run_rpc_alternative()
 	}
 
 	/* Wait for client to connect */
-	puts("Wait for client to connect..");
+	DBG("Wait for client to connect..");
 
 	while (1) {
 		if (server->accept()) {
-			puts("Failed to accept");
+			CRIT("Failed to accept\n");
 			delete server;
 			return 2;
 		}
 
 		int accept_socket = server->get_accept_socket();
-		printf("After accept() call, accept_socket = 0x%X\n", accept_socket);
+		DBG("After accept() call, accept_socket = 0x%X\n", accept_socket);
 
 		rpc_ti	*ti;
 		try {
 			ti = new rpc_ti(accept_socket);
 		}
 		catch(...) {
-			puts("Failed to create rpc_ti");
+			CRIT("Failed to create rpc_ti");
 			delete server;
 			return 3;
 		}
@@ -678,7 +678,7 @@ int run_rpc_alternative()
 					 rpc_thread_f,
 					 ti);
 		if (ret) {
-			puts("Failed to create request thread\n");
+			CRIT("Failed to create request thread\n");
 			delete server;
 			delete ti;
 			return -6;
