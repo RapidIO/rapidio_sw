@@ -1831,8 +1831,9 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 				    in->num_bytes,
 				    RIO_EXCHANGE_NWRITE_R,
 				    rd_sync);
-	if (ret < 0)
+	if (ret < 0) {
 		ERR("riodp_dma_write_d() failed:(%d) %s\n", ret, strerror(ret));
+	}
 
 	/* If synchronous, the return value is the xfer status. If async,
 	 * the return value of riodp_dma_write_d() is the token (if >= 0) */

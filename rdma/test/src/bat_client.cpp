@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <inttypes.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <linux/limits.h>
@@ -602,6 +603,7 @@ static int do_dma(msub_h client_msubh,
 	void *vaddr;
 	uint8_t *dma_data;
 
+	LOG("do_dma ENTER\n");
 	int ret = rdma_mmap_msub(client_msubh, &vaddr);
 	BAT_EXPECT_RET(ret, 0, exit);
 
@@ -619,6 +621,13 @@ static int do_dma(msub_h client_msubh,
 	in.rem_offset = ofs_in_rem_msub;
 	in.priority = 1;
 	in.sync_type = sync_type;
+
+	/* Temporarily to determine failure cause */
+	LOG("client_msubh = 0x%016" PRIx64 ", server_msubh = 0x%16" PRIx64 "\n",
+			client_msubh, server_msubh);
+	LOG("ofs_in_loc_msub = 0x%X, ofs_in_rem_msub = 0x%X\n",
+			ofs_in_loc_msub, ofs_in_rem_msub);
+	LOG("num_bytes = 0x%X, sync_type: ", DMA_DATA_SIZE);
 
 	/* Push the RDMA data */
 	ret = rdma_push_msub(&in, &out);
