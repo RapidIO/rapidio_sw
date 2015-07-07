@@ -64,12 +64,16 @@ typedef struct fmd_p_hello fmd_m_hello_resp;
 #define FMD_P_OP_ADD ((uint32_t)(0xADD1BEEF))  
 #define FMD_P_OP_DEL ((uint32_t)(0xDEADBEEF))
 
+#define FMD_SLAVE_MPORT_NAME "MPORT0"
+#define FMD_SLAVE_MASTER_NAME "FMD_MAST"
+
 struct fmd_m_peer_mod_req {
 	uint32_t op;
 	uint32_t did;
 	uint32_t did_sz;
 	uint32_t hc;
 	uint32_t ct;
+	uint32_t is_mp;
 	char name[MAX_P_NAME+1];
 };
 
@@ -78,12 +82,14 @@ struct fmd_s_peer_mod_resp {
 	uint32_t did_sz;
 	uint32_t hc;
 	uint32_t ct;
+	uint32_t is_mp;
 	uint32_t rc; /* 0 means success */
 };
 
 /* Format of messages that can be sent by the Master FMD  to the Slave FMD */
 
 struct fmd_mast_to_slv_msg {
+	uint8_t unused[20];
         uint32_t msg_type;
 	uint32_t dest_did;
 	union {
@@ -97,6 +103,7 @@ struct fmd_mast_to_slv_msg {
 #define FMD_P_M2S_CM_SZ (FMD_P_M2S_SZ+(FMD_P_M2S_SZ%8))
 
 struct fmd_slv_to_mast_msg {
+	uint8_t unused[20];
         uint32_t msg_type;
 	uint32_t src_did;
 	union {

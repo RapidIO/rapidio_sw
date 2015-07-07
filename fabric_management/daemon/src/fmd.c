@@ -555,7 +555,7 @@ int setup_mport_slave(int mport)
 	do {
 		rc = riodp_device_add(reg_acc_h->fd, 
 		(uint16_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 
-			(uint8_t)0xFF, comptag, "MPORT0");
+			(uint8_t)0xFF, comptag, FMD_SLAVE_MPORT_NAME);
 		if (EEXIST == rc)
 			rc = 0;
 		if (rc) {
@@ -566,7 +566,8 @@ int setup_mport_slave(int mport)
 		};
 
 		rc = riodp_device_add(reg_acc_h->fd,
-		(uint16_t)cfg->mast_devid, 1, cfg->mast_devid, "FMD_MAST");
+		(uint16_t)cfg->mast_devid, 1, cfg->mast_devid,
+			FMD_SLAVE_MASTER_NAME);
 		if (EEXIST == rc)
 			rc = 0;
 		if (rc) {
@@ -580,6 +581,7 @@ int setup_mport_slave(int mport)
 int do_mport_fixups(void)
 {
 	int rc;
+	uint32_t port_ctl;
 
 	rc = riodp_lcfg_write(reg_acc_h->fd, 0x13c, 4, 0xE0000000);
 	if (rc) {
@@ -605,6 +607,18 @@ int do_mport_fixups(void)
 	rc = riodp_lcfg_write(reg_acc_h->fd, 0x10a04, 4, 0x00000000);
 	if (rc) {
 		CRIT("\nSet Port-Write handling mode failed rc: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+	};
+
+	rc = riodp_lcfg_read(reg_acc_h->fd, 0x15C, 4, &port_ctl);
+	if (rc) {
+		CRIT("\nCannot read Port 0 control CSR: %d %d: %s\n", 
+			rc, errno, strerror(errno));
+	};
+	port_ctl |= 0x00600000;
+	rc = riodp_lcfg_write(reg_acc_h->fd, 0x15C, 4, port_ctl);
+	if (rc) {
+		CRIT("\nCannot write Port 0 control CSR: %d %d: %s\n", 
 			rc, errno, strerror(errno));
 	};
 exit:
