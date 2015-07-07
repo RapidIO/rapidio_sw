@@ -1111,43 +1111,24 @@ int main(int argc, char *argv[])
 	case 'z':
 		for (unsigned i = 0; i < repetitions; i++) {
 			test_case_a();
-			BAT_EOT();
 			test_case_b();
-			BAT_EOT();
 			test_case_c();
-			BAT_EOT();
 			test_case_g();
-			BAT_EOT();
 			test_case_h_i('h');
-			BAT_EOT();
 			test_case_h_i('i');
-			BAT_EOT();
 			test_case_dma(0x00, 0x00, 0x00, rdma_sync_chk);
-			BAT_EOT();
 			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
-			BAT_EOT();
 			test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
-			BAT_EOT();
 			test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
-			BAT_EOT();
 			test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
-			BAT_EOT();
 			test_case_b();
-			BAT_EOT();
 			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
-			BAT_EOT();
 			test_case_h_i('h');
-			BAT_EOT();
 			test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
-			BAT_EOT();
 			test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
-			BAT_EOT();
 			test_case_c();
-			BAT_EOT();
 			test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
-			BAT_EOT();
 			test_case_h_i('i');
-			BAT_EOT();
 			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
 			BAT_EOT();
 		}
