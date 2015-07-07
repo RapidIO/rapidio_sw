@@ -129,7 +129,7 @@ void peer_rx_req(struct fmd_peer *peer)
 	peer->rx_buff_used = 1;
 	do {
 		peer->rx_rc = riodp_socket_receive(peer->cm_skt_h, 
-			&peer->rx_buff, FMD_P_S2M_CM_SZ, 0);
+			&peer->rx_buff, FMD_P_S2M_CM_SZ, 3*60*1000);
 	} while ((peer->rx_rc) && ((errno == EINTR) || (errno == ETIME)));
 
 	if (peer->rx_rc) {
@@ -268,7 +268,7 @@ int start_new_peer(riodp_socket_t new_skt)
 			sem_post(&peer->tx_mtx);
 		};
 
-		if (!peer->tx_rc)
+		if (peer->tx_rc)
 			goto fail;
 
 		sem_wait(&peer->init_cplt_mtx);
@@ -401,6 +401,7 @@ int start_peer_mgmt_master(uint32_t mast_acc_skt_num, uint32_t mp_num,
 	fmp.acc.mp_num = mp_num;
 
 	sem_init(&fmp.acc.started, 0, 0);
+	sem_init(&fmp.peers_mtx, 0, 1);
 
         rc = pthread_create(&fmp.acc.acc, NULL, mast_acc, NULL);
         if (rc)
@@ -455,7 +456,6 @@ void shutdown_master_mgmt(void)
 		if (!peer->rx_alive) {
 			/* Should never get here */
 			DBG("Peer %d dead but still in list?", peer->p_did);
-			continue;
 		};
 
 		if (peer->tx_buff_used) {

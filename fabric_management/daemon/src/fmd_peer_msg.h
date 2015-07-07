@@ -84,6 +84,7 @@ struct fmd_s_peer_mod_resp {
 /* Format of messages that can be sent by the Master FMD  to the Slave FMD */
 
 struct fmd_mast_to_slv_msg {
+	uint8_t unused[20];
         uint32_t msg_type;
 	uint32_t dest_did;
 	union {
@@ -97,6 +98,7 @@ struct fmd_mast_to_slv_msg {
 #define FMD_P_M2S_CM_SZ (FMD_P_M2S_SZ+(FMD_P_M2S_SZ%8))
 
 struct fmd_slv_to_mast_msg {
+	uint8_t unused[20];
         uint32_t msg_type;
 	uint32_t src_did;
 	union {

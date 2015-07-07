@@ -140,7 +140,7 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	sprintf(env->output, "         ---CT--- ---DID--- HC A D I R\n");
+	sprintf(env->output, "         ---CT--- ---DID-- HC A D I R\n");
 	logMsg(env);
 
 	peer = (struct fmd_peer *)l_head(&fmp.peers, &li);
