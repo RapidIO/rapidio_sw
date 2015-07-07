@@ -131,9 +131,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 		pthread_exit(0);
 	}
 
-	/* Free hello_client and the wadti struct */
-	delete wadti->hello_client;
-	free(wadti);
+
 
 	/* Store remote daemon info in the 'hello' daemon list */
 	sem_wait(&hello_daemon_info_list_sem);
@@ -375,6 +373,11 @@ int provision_rdaemon(uint32_t destid)
 	}
 
 	sem_wait(&wadti->started);
+
+	/* Free hello_client and the wadti struct */
+	delete wadti->hello_client;
+	free(wadti);
+
 	DBG("wait_accept_destroy_thread started successully\n");
 	return 0;
 } /* provision_rdaemon() */
