@@ -375,7 +375,6 @@ int provision_rdaemon(uint32_t destid)
 	sem_wait(&wadti->started);
 
 	/* Free hello_client and the wadti struct */
-	delete wadti->hello_client;
 	free(wadti);
 
 	DBG("wait_accept_destroy_thread started successully\n");
