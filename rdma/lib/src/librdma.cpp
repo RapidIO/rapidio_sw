@@ -1914,8 +1914,9 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 				  num_bytes,
 				  RIO_EXCHANGE_NWRITE_R,
 				  rd_sync);
-	if (ret < 0)
+	if (ret < 0) {
 		ERR("riodp_dma_write() failed:(%d) %s\n", ret, strerror(ret));
+	}
 
 	/* If synchronous, the return value is the xfer status. If async,
 	 * the return value riodp_dma_write() is the token (if >= 0) */
@@ -1999,8 +2000,9 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 				   in->loc_offset,
 				   in->num_bytes,
 				   rd_sync);
-	if (ret < 0)
+	if (ret < 0) {
 		ERR("riodp_dma_read_d() failed:(%d) %s\n", ret, strerror(ret));
+	}
 
 	/* If synchronous, the return value is the xfer status. If async,
 	 * the return value of riodp_dma_read_d() is the token (if >= 0) */
@@ -2083,8 +2085,9 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 				 buf,
 				 num_bytes,
 				 rd_sync);
-	if (ret < 0)
+	if (ret < 0) {
 		ERR("riodp_dma_read() failed:(%d) %s\n", ret, strerror(ret));
+	}
 
 	/* If synchronous, the return value is the xfer status. If async,
 	 * the return value of riodp_dma_read() is the token (if >= 0) */
