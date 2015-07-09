@@ -123,8 +123,9 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 	display_apps_dd(env);
 
 	if (!fmp.mode) {
-		sprintf(env->output, "PeerMgmt %1d %1d      SLAVE\n", 
-			fmp.slv.slave_alive, fmp.slv.slave_must_die);
+		sprintf(env->output, "PeerMgmt %1d %1d      SLAVE %s\n", 
+			fmp.slv.slave_alive, fmp.slv.slave_must_die,
+			fmp.slv.m_h_resp_valid?"OK":"No Hello Rsp");
 		logMsg(env);
 		goto exit;
 	};

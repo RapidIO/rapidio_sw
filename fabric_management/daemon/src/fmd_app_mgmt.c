@@ -140,7 +140,7 @@ void mod_dd_mp_flag(uint8_t flag, int add_it)
 	} else {
 		ERR("DD Index %d is not master port!", i);
 	};
-		
+
 	sem_post(&fmd->dd_mtx->sem);
 };
 

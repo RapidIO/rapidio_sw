@@ -76,8 +76,9 @@ extern "C" {
 
 struct fmd_slave *slv;
 
-int slave_hello_message_exchange(void)
+int send_slave_hello_message(void)
 {
+	sem_wait(&slv->tx_mtx);
 	slv->s2m->msg_type = htonl(FMD_P_REQ_HELLO);
 	slv->s2m->src_did = htonl(slv->mast_did);
 	memset(slv->s2m->hello_rq.peer_name, 0, MAX_P_NAME+1);
@@ -92,24 +93,11 @@ int slave_hello_message_exchange(void)
 		htonl(fmd->cfg->eps[0].ports[0].devids[FMD_DEV08].hc);
 
 	slv->tx_buff_used = 1;
-	slv->tx_rc = riodp_socket_send(slv->skt_h, slv->tx_buff,
+	slv->tx_rc |= riodp_socket_send(slv->skt_h, slv->tx_buff,
 				FMD_P_S2M_CM_SZ);
 	if (slv->tx_rc)
 		goto fail;
-
-	slv->rx_buff_used = 1;
-	do {
-		slv->rx_rc = riodp_socket_receive(slv->skt_h, &slv->rx_buff,
-				FMD_P_M2S_CM_SZ, 3*60*1000);
-	} while (slv->rx_rc && ((errno == EINTR) || (errno == ETIME)));
-	
-	if (slv->rx_rc || (htonl(FMD_P_RESP_HELLO) != slv->m2s->msg_type))
-		goto fail;
-
-	slv->m_h_rsp = slv->m2s->hello_rsp;
-	if (!slv->m2s->hello_rsp.pid && !slv->m2s->hello_rsp.did 
-			&& !slv->m2s->hello_rsp.ct)
-		goto fail;
+	sem_post(&slv->tx_mtx);
 	
 	return 0;
 fail:
@@ -253,7 +241,7 @@ void slave_process_mod(void)
 	};
 
 	slv->tx_buff_used = 1;
-	slv->tx_rc = riodp_socket_send(slv->skt_h, slv->tx_buff, 
+	slv->tx_rc |= riodp_socket_send(slv->skt_h, slv->tx_buff, 
 		FMD_P_S2M_CM_SZ);
 	sem_post(&slv->tx_mtx);
 	if (!rc)
@@ -329,10 +317,19 @@ void *mgmt_slave(void *unused)
 	while (!slv->slave_must_die && !slv->tx_rc && !slv->rx_rc) {
 		slave_rx_req();
 
-		if (slv->slave_must_die || slv->rx_rc)
+		if (slv->slave_must_die || slv->rx_rc || slv->tx_rc)
 			break;
 
 		switch (ntohl(slv->m2s->msg_type)) {
+		case FMD_P_RESP_HELLO:
+			slv->m_h_rsp = slv->m2s->hello_rsp;
+			if (!slv->m2s->hello_rsp.pid &&
+			!slv->m2s->hello_rsp.did && !slv->m2s->hello_rsp.ct) {
+				ERR("Hello pi, did, ct all 0!\n");
+				goto fail;
+			}
+			slv->m_h_resp_valid = 1;
+			break;
 		case FMD_P_REQ_MOD:
 			slave_process_mod();
 			break;
@@ -346,6 +343,7 @@ void *mgmt_slave(void *unused)
 		};
 	};
 
+fail:
 	close_slave();
 	INFO("FMD Slave EXITING\n");
 	pthread_exit(unused);
@@ -375,6 +373,7 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 	slv->rx_buff_used = 0;
 	slv->rx_rc = 0;
 	slv->rx_buff = NULL;
+	slv->m_h_resp_valid = 0;
 
 	rc = riodp_mbox_create_handle(slv->mp_num, 0, &slv->mb);
 	if (rc) {
@@ -405,8 +404,10 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 		};
 	} while (conn_rc);
 
-	if (conn_rc)
+	if (conn_rc) {
 		ERR("riodp_socket_connect ERR %d\n", conn_rc);
+		goto fail;
+	};
 
 	slv->skt_valid = 1;
 	
@@ -416,13 +417,6 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
         };
 	slv->rx_buff = malloc(4096);
 
-	rc = slave_hello_message_exchange();
-
-	if (rc) {
-		ERR("hello message fail ERR %d\n", rc);
-		goto fail;
-	};
-
         rc = pthread_create(&slv->slave_thr, NULL, mgmt_slave, NULL);
 	if (rc) {
 		ERR("pthread_create ERR %d\n", rc);
@@ -430,7 +424,13 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 	};
 	sem_wait(&slv->started);
 
-	return 0;
+	rc = send_slave_hello_message();
+	if (rc) {
+		ERR("hello message tx fail ERR %d\n", rc);
+		goto fail;
+	};
+
+	return rc;
 fail:
 	return 1;
 	
@@ -480,7 +480,7 @@ void update_master_flags_from_peer(void)
 	slv->s2m->fset.flag = htonl(flag);
 	
 	slv->tx_buff_used = 1;
-	slv->tx_rc = riodp_socket_send(slv->skt_h, slv->tx_buff,
+	slv->tx_rc |= riodp_socket_send(slv->skt_h, slv->tx_buff,
 				FMD_P_S2M_CM_SZ);
 	sem_post(&slv->tx_mtx);
 };

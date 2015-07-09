@@ -61,9 +61,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "fmd_dd.h"
 #include "fmd_cfg.h"
-// #include "cli_cmd_db.h"
-// #include "cli_cmd_line.h"
-// #include "cli_parse.h"
 #include "libcli.h"
 
 #ifdef __cplusplus
@@ -84,6 +81,8 @@ void fmd_print_help(void)
 	printf("-h, -H, -?: Print this message.\n");
 	printf("-i<interval>: Interval between Device Directory updates.\n");
 	printf("       Default is %d\n", FMD_DFLT_MAST_INTERVAL);
+	printf("-l, -L<level>: Set starting logging level.\n");
+	printf("       Default is %x\n", RDMA_LL);
 	printf("-m, -M<filename>: Device directory Mutex SM file name.\n");
 	printf("       Default is \"%s\"\n", FMD_DFLT_DD_MTX_FN);
 	printf("-n, -N: Do not start console CLI.\n");
@@ -136,6 +135,7 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 	cfg->cli_port_num = FMD_DFLT_CLI_PORT_NUM;
 	cfg->app_port_num = FMD_DFLT_APP_PORT_NUM;
 	cfg->run_cons = 1;
+	cfg->log_level = RDMA_LL;
 	cfg->mast_idx = FMD_SLAVE;
 	cfg->max_mport_info_idx = 0;
 	for (i = 0; i < FMD_MAX_MPORTS; i++) {
@@ -241,6 +241,9 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 
 			case 'i': 
 			case 'I': cfg->mast_interval = atoi(&argv[idx][2]);
+				  break;
+			case 'l': 
+			case 'L': cfg->log_level = atoi(&argv[idx][2]);
 				  break;
 			case 'm': 
 			case 'M': if (fmd_v_str(&cfg->dd_mtx_fn,
