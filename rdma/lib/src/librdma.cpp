@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/signal.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include <algorithm>
 #include <iostream>
@@ -1473,6 +1474,29 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	return 0;
 } /* rdma_accept_ms_h() */
 
+/**
+ * Given two timespec structs, subtract them and return a timespec containing
+ * the difference
+ *
+ * @start     start time
+ * @end       end time
+ *
+ * @returns         difference
+ */
+static struct timespec time_difference( struct timespec start, struct timespec end )
+{
+	struct timespec temp;
+
+	if ((end.tv_nsec-start.tv_nsec)<0) {
+		temp.tv_sec = end.tv_sec-start.tv_sec-1;
+		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+	} else {
+		temp.tv_sec = end.tv_sec-start.tv_sec;
+		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+	}
+	return temp;
+} /* time_difference() */
+
 int rdma_conn_ms_h(uint8_t rem_destid_len,
 		   uint32_t rem_destid,
 		   const char *rem_msname,
@@ -1484,6 +1508,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 {
 	send_connect_input	in;
 	send_connect_output	out;
+	struct timespec	before, after, rtt;
 	struct loc_msub		*loc_msub = (struct loc_msub *)loc_msubh;
 
 	INFO("ENTER\n");
@@ -1546,6 +1571,10 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	}
 	INFO("Created 'accept' message queue: '%s'\n", mq_name.c_str());
 
+__sync_synchronize();
+	clock_gettime( CLOCK_MONOTONIC, &before );
+__sync_synchronize();
+
 	/* Set up Unix message parameters */
 	in_msg->type = SEND_CONNECT;
 	in_msg->send_connect_in = in;
@@ -1594,7 +1623,12 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		}
 	}
 	INFO(" Accept message received!\n");
-
+__sync_synchronize();
+	clock_gettime(CLOCK_MONOTONIC, &after);
+__sync_synchronize();
+	rtt = time_difference(before, after);
+	HIGH("Round-trip-time for accept/connect = %u seconds and %u microseconds\n",
+			rtt.tv_sec, rtt.tv_nsec/1000);
 	if (accept_msg->server_destid != rem_destid) {
 		WARN("WRONG destid(0x%X) in accept message!\n", accept_msg->server_destid);
 		accept_msg->server_destid = rem_destid;	/* FIXME: should not need to do that */
