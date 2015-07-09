@@ -87,7 +87,7 @@ int speer_rx_req(struct rskt_dmn_speer *speer)
 	do {
 		rc = riodp_socket_receive(speer->cm_skt_h, 
 			&speer->rx_buff, RSKTD_CM_MSG_SIZE, 0);
-	} while ((rc) && !speer->i_must_die && !dmn.all_must_die &&
+	} while (rc && !speer->i_must_die && !dmn.all_must_die &&
 		((errno == EINTR) || (errno == ETIME) || (errno == EAGAIN)));
 
 	if (rc) {
@@ -112,8 +112,6 @@ void rsktd_prep_resp(struct librsktd_unified_msg *msg)
 
 void close_speer(struct rskt_dmn_speer *speer)
 {
-	int rc;
-
 	speer->alive = 0;
 	sem_post(&speer->started);
 
@@ -134,13 +132,6 @@ void close_speer(struct rskt_dmn_speer *speer)
 	pthread_kill(speer->s_rx, SIGHUP);
 	pthread_join(speer->s_rx, NULL);
 
-	if (NULL != speer->cm_skt_h) {
-        	rc = riodp_socket_close(&speer->cm_skt_h);
-        	if (rc)
-			CRIT("SPEER(%p): riodp_socket_close(): %d (%d)\n",
-				speer, rc, errno);
-		speer->cm_skt_h = NULL;
-	};
 	sem_post(&speer->resp_ready);
 };
 
@@ -167,7 +158,7 @@ void *speer_rx_loop(void *p_i)
 		rc = speer_rx_req(speer);
 
 		if (speer->i_must_die || speer->comm_fail || dmn.all_must_die 
-		|| rc)
+				|| rc)
 			break;
 
 		rsktd_prep_resp(msg);
@@ -188,7 +179,20 @@ void *speer_rx_loop(void *p_i)
 		enqueue_mproc_msg(msg);
 	};
 
-	close_speer(speer);
+	speer->comm_fail = 1;
+
+	if (NULL != speer->rx_buff) {
+		riodp_socket_release_receive_buffer(speer->cm_skt_h,
+							speer->rx_buff);
+		speer->rx_buff = NULL;
+	};
+	
+	if (NULL != speer->tx_buff) {
+		riodp_socket_release_send_buffer(speer->cm_skt_h, 
+							speer->tx_buff);
+		speer->tx_buff = NULL;
+	};
+
 	pthread_exit(NULL);
 };
 
@@ -268,6 +272,9 @@ void *speer_tx_loop(void *unused)
 
 		/* Can't send response if connection has closed */
 		if (NULL == s)
+			continue;
+
+		if (s->comm_fail)
 			continue;
 
 		/* Send response to speer */

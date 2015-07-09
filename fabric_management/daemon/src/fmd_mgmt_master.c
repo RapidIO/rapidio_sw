@@ -319,7 +319,7 @@ void *peer_rx_loop(void *p_i)
 	while (!peer->rx_must_die && !peer->tx_rc && !peer->rx_rc) {
 		peer_rx_req(peer);
 
-		if (peer->rx_must_die || peer->rx_rc)
+		if (peer->rx_must_die || peer->rx_rc || peer->tx_rc)
 			break;
 
 		switch (ntohl(peer->s2m->msg_type)) {
