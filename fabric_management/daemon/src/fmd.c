@@ -711,6 +711,7 @@ int main(int argc, char *argv[])
 
 	rdma_log_init("fmd.log", 1);
 	cfg = fmd_parse_options(argc, argv);
+	g_level = cfg->log_level;
 	if ((cfg->init_and_quit) && (cfg->print_help))
 		goto fail;
 	fmd_process_cfg_file(cfg);

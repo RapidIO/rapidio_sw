@@ -73,6 +73,7 @@ struct fmd_slave {
                 void *rx_buff;
                 struct fmd_mast_to_slv_msg *m2s; /* alias for rx_buff */
         };
+	int m_h_resp_valid;
 	struct fmd_p_hello m_h_rsp;
 };
 
