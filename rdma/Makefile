@@ -35,14 +35,24 @@ level?=$(LOG_LEVEL)
 
 KDIR?=/usr/src/linux
 KERNINC=$(KDIR)/include
+TOP_LEVEL?=..
+COMMON_DIR?=$(TOP_LEVEL)/common
+INCLUDE_DIR?=$(TOP_LEVEL)/include
 MPORTLIB_PATH=../libmport
 MPORTLIB_INC=../include
 MPORTLIB=libmport.so
 MPORTLIB_HEADER=riodp_mport_lib.h
 LIBCLI_PATH=../common/libs_a
 LIBLOG_PATH=../common/libs_a
-TOP_LEVEL?=..
-
+LIBFMDD_PATH=../fabric_management/libfmdd
+LIB_DIRS = \
+	-L$(COMMON_DIR)/libs_a \
+	-L$(INCLUDE_DIR)/libs_a \
+	-L$(COMMON_DIR)/libs_so \
+	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
+	-L$(TOP_LEVEL)/fabric_management/libdd \
+	-L$(TOP_LEVEL)/fabric_management/libfmdd \
+	-L$(TOP_LEVEL)/fabric_management/librio_maint 
 
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
@@ -64,7 +74,8 @@ RDMAD_SOURCES = src/rdma_mq_msg.c \
 		daemon/src/rdmad_mspace.cpp \
 		daemon/src/rdmad_inbound.cpp \
 		daemon/src/rdmad_srvr_threads.cpp \
-		daemon/src/rdmad_clnt_threads.cpp
+		daemon/src/rdmad_clnt_threads.cpp \
+		daemon/src/rdmad_fm.cpp
 
 # RDMA Library flags, sources and objects
 RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
@@ -116,13 +127,13 @@ librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I$(KERNINC) -I../common/include -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
 
 # The RDMA daemon (the RPC server)
-rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \
+rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR)/libs_a/* \
 	daemon/src/*.h $(LIBCLI_PATH)/libcli.a $(LIBLOG_PATH)/liblog.a ../common/include
 
 	@echo ---------- Building the RDMA Daemon...
-	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBCLI_PATH) -L$(LIBLOG_PATH) \
+	$(CXX) -L$(MPORTLIB_PATH) $(LIB_DIRS)\
 	-Wl,-rpath=$(MPORTLIB_PATH) \
-	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -lmport -lrt -lcli -llog -pthread
+	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -lmport -lrt -lcli -llist -llog -lfmdd -ldd -lriocp_pe -lrio_maint -pthread 
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_main.cpp > rdmad_main.i
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_svc.cpp > rdmad_svc.i
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_srvr_threads.cpp > rdmad_srvr_threads.i
