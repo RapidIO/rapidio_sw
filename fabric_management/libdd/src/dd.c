@@ -60,12 +60,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "fmd_dd.h"
 #include "liblog.h"
-// #include "dev_db.h"
 #include "riocp_pe.h"
 #include "riocp_pe_internal.h"
-// #include "cli_cmd_db.h"
-// #include "cli_cmd_line.h"
-// #include "cli_parse.h"
 #include "libcli.h"
 #include <stdio.h>
 #include <string.h>
@@ -100,15 +96,13 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 	};
 
         if (-1 == *dd_fd) {
-        	fprintf( stderr, "rw shm_open failed: 0x%x %s\n",
-            		errno, strerror( errno ) );
+        	CRIT("rw shm_open failed: 0x%x %s\n", errno, strerror(errno));
                 goto exit;
 	}
 
         rc = ftruncate(*dd_fd, sizeof(struct fmd_dd));
         if (-1 == rc) {
-        	fprintf(stderr, "rw ftruncate failed: 0x%x %s\n",
-            		errno, strerror(errno));
+        	CRIT("rw ftruncate failed: 0x%x %s\n", errno, strerror(errno));
                 shm_unlink(dd_fn);
                 goto exit;
         };
@@ -118,8 +112,7 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
                 MAP_SHARED, *dd_fd, 0);
 
         if (MAP_FAILED == *dd) {
-        	fprintf(stderr, "rw mmap failed:0x%x %s\n",
-            		errno, strerror(errno));
+        	CRIT("rw mmap failed:0x%x %s\n", errno, strerror(errno));
                 *dd = NULL;
                 shm_unlink(dd_fn);
                 goto exit;
@@ -138,7 +131,7 @@ int fmd_dd_open_ro(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
 {
 	*dd_fd = shm_open(dd_fn, O_RDONLY, 0);
         if (-1 == *dd_fd) {
-        	fprintf( stderr, "RO shm_open failed: 0x%x %s\n",
+        	CRIT("RO shm_open failed: 0x%x %s\n",
             		errno, strerror( errno ) );
                 goto exit;
 	}
@@ -147,7 +140,7 @@ int fmd_dd_open_ro(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
                 MAP_SHARED, *dd_fd, 0);
 
         if (MAP_FAILED == *dd) {
-        	fprintf(stderr, "RO mmap failed:0x%x %s\n",
+        	CRIT("RO mmap failed:0x%x %s\n",
             		errno, strerror(errno));
                 *dd = NULL;
                 goto exit;
@@ -179,14 +172,14 @@ int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx)
                         		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
         if (-1 == *dd_mtx_fd) {
-        	fprintf( stderr, "rw mutex shm_open failed: 0x%x %s\n",
+        	CRIT("rw mutex shm_open failed: 0x%x %s\n",
             		errno, strerror( errno ) );
                 goto fail;
 	}
 
         rc = ftruncate(*dd_mtx_fd, sizeof(struct fmd_dd_mtx));
         if (-1 == rc) {
-        	fprintf( stderr, "rw mutex ftruncate failed: 0x%x %s\n",
+        	CRIT("rw mutex ftruncate failed: 0x%x %s\n",
             		errno, strerror( errno ) );
                 goto fail;
         };
@@ -195,8 +188,7 @@ int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx)
 			PROT_READ|PROT_WRITE, MAP_SHARED, *dd_mtx_fd, 0);
 
         if (MAP_FAILED == *dd_mtx) {
-        	fprintf( stderr, "rw mutex mmap failed:0x%x %s\n",
-            		errno, strerror( errno ) );
+        	CRIT("rw mutex mmap failed:0x%x %s\n", errno, strerror(errno));
                 *dd_mtx = NULL;
                 goto fail;
         };
@@ -237,21 +229,27 @@ int fmd_dd_init(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx,
 		goto fail;
 
 	/* Previously created dd, add reference, do not initialize */
-	if ((*dd)->chg_idx && (*dd_mtx)->dd_ref_cnt) {
+	if ((*dd)->chg_idx && (*dd_mtx)->dd_ref_cnt &&
+		((*dd_mtx)->mtx_ref_cnt == (*dd_mtx)->dd_ref_cnt)) {
+
 		(*dd_mtx)->dd_ref_cnt++;
+		(*dd_mtx)->mtx_ref_cnt++;
 		goto exit;
 	};
 
 	(*dd_mtx)->dd_ref_cnt = 1;
+	(*dd_mtx)->mtx_ref_cnt = 1;
 	(*dd)->chg_idx = 0;
 	(*dd)->md_ct = 0;
 	(*dd)->num_devs = 0;
+	(*dd)->loc_mp_idx = FMD_MAX_DEVS;
 	for (idx = 0; idx < FMD_MAX_DEVS; idx++) {
 		(*dd)->devs[idx].ct = 0;
 		(*dd)->devs[idx].destID = 0;
 		(*dd)->devs[idx].destID_sz = FMD_DEV08;
 		(*dd)->devs[idx].hc = 0xFF;
 		(*dd)->devs[idx].is_mast_pt = 0;
+		(*dd)->devs[idx].flag = 0;
 		memset((*dd)->devs[idx].name, 0, FMD_MAX_NAME+1);
 	};
 	fmd_dd_incr_chg_idx(*dd, 1);

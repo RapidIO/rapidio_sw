@@ -67,6 +67,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_cfg.h"
 #include "liblog.h"
 #include "fmd_dd.h"
+#include "fmd_app_mgmt.h"
+#include "libfmdd.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -109,19 +111,107 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->m2s->hello_rsp.ct = htonl(mpi->ep->ports[0].ct);
 		peer->m2s->hello_rsp.hc = htonl(0);
 		add_to_list = 1;
+		peer->p_hc = peer_ep->ports[0].devids[FMD_DEV08].hc;
 	};
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riodp_socket_send(peer->cm_skt_h, peer->tx_buff,
 				FMD_P_M2S_CM_SZ);
-	
+	sem_post(&peer->tx_mtx);
+
 	if (!peer->tx_rc && add_to_list) {
 		peer->rx_alive = 1;
 		sem_post(&peer->started);
 		sem_wait(&fmp.peers_mtx);
 		peer->li = l_add(&fmp.peers, peer->p_did, peer);
 		sem_post(&fmp.peers_mtx);
+		add_device_to_dd(peer->p_ct, peer->p_did, peer->p_did_sz,
+			peer->p_hc, 0, FMDD_FLAG_OK, peer_ep->name);
 	};
+};
+
+void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
+{
+	uint8_t flag;
+
+	sem_wait(&peer->tx_mtx);
+	peer->m2s->msg_type = htonl(FMD_P_REQ_FSET);
+	peer->m2s->dest_did = htonl(peer->p_did);
+	peer->m2s->fset.did = htonl(dev->destID);
+	peer->m2s->fset.did_sz = htonl(dev->destID_sz);
+	peer->m2s->fset.ct = htonl(dev->ct);
+	flag = dev->flag;
+
+	if (dev->is_mast_pt)
+		flag &= ~FMDD_FLAG_MP;
+
+	peer->m2s->fset.flag = htonl(flag);
+
+	peer->tx_buff_used = 1;
+	peer->tx_rc = riodp_socket_send(peer->cm_skt_h, 
+				peer->tx_buff, FMD_P_M2S_CM_SZ);
 	sem_post(&peer->tx_mtx);
+};
+
+void update_peer_flags_from_master(void)
+{
+	uint32_t src, tgt;
+	struct fmd_peer *t_peer;
+	struct l_item_t *li;
+	uint32_t num_devs;
+	struct fmd_dd_dev_info devs[FMD_MAX_DEVS];
+
+	if (0 >= fmd_dd_atomic_copy(fmd->dd, fmd->dd_mtx, &num_devs, devs,
+				FMD_MAX_DEVS))
+		return;
+
+	for (src = 0; src < num_devs; src++) {
+		for (tgt = 0; tgt < num_devs; tgt++) {
+			if (src == tgt)
+				continue;
+			if (devs[tgt].is_mast_pt)
+				continue;
+			t_peer = (struct fmd_peer *)
+				l_find(&fmp.peers, devs[tgt].destID, &li);
+			if (NULL == t_peer)
+				continue;
+			send_m2s_flag_update(t_peer, &devs[src]);
+		};
+	};
+};
+
+void master_process_flag_set(struct fmd_peer *peer)
+{
+	uint32_t did, ct;
+	uint8_t flag;
+	uint32_t i;
+	int tell_peers = 0;
+
+	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
+		return;
+
+	did = ntohl(peer->s2m->fset.did);
+	ct = ntohl(peer->s2m->fset.ct);
+	flag = ntohl(peer->s2m->fset.flag);
+
+	if ((did != peer->p_did) || (ct != peer->p_ct))
+		return;
+
+	sem_wait(&fmd->dd_mtx->sem);
+
+	for (i = 0; i < fmd->dd->num_devs; i++) {
+		if ((did == fmd->dd->devs[i].destID) &&
+				(ct == fmd->dd->devs[i].ct)) {
+			fmd->dd->devs[i].flag = flag;
+			tell_peers = 1;
+			break;
+		};
+	};
+	sem_post(&fmd->dd_mtx->sem);
+
+	if (tell_peers) {
+		update_peer_flags_from_master();
+		fmd_notify_apps();
+	};
 };
 
 void peer_rx_req(struct fmd_peer *peer)
@@ -174,6 +264,9 @@ void *peer_rx_loop(void *p_i)
 				ntohl(peer->s2m->mod_rsp.is_mp),
 				ntohl(peer->s2m->mod_rsp.rc));
 			break;
+		case FMD_P_REQ_FSET:
+			master_process_flag_set(peer);
+			break;
 		default:
 			WARN("Peer(%x) RX Msg type %x\n", peer->p_ct,
 					ntohl(peer->s2m->msg_type));
@@ -202,7 +295,11 @@ void *peer_rx_loop(void *p_i)
 
 void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 {
+	uint8_t flag;
+
 	sem_wait(&peer->tx_mtx);
+ 	flag = (dev->flag & ~FMDD_FLAG_OK_MP) | FMDD_FLAG_OK;
+
 	peer->m2s->msg_type = htonl(FMD_P_REQ_MOD);
 	peer->m2s->dest_did = htonl(peer->p_did);
 	peer->m2s->mod_rq.op = htonl(FMD_P_OP_ADD);
@@ -220,6 +317,7 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 			strncpy(peer->m2s->mod_rq.name, FMD_SLAVE_MPORT_NAME,
 				MAX_P_NAME);
 			peer->m2s->mod_rq.is_mp = htonl(1);
+			flag |= FMDD_FLAG_OK_MP;
 		} else {
 			struct l_item_t *li;
 			struct fmd_peer *t_peer;
@@ -235,6 +333,8 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 			strncpy(peer->m2s->mod_rq.name, dev->name, MAX_P_NAME);
 		};
 	};
+	peer->m2s->mod_rq.flag = htonl(flag);
+	peer->tx_buff_used = 1;
 	peer->tx_rc = riodp_socket_send(peer->cm_skt_h, 
 				peer->tx_buff, FMD_P_M2S_CM_SZ);
 exit:
@@ -263,6 +363,7 @@ void tell_others_about_new_peer(struct fmd_peer *peer,
 			continue;
 		send_add_dev_msg(t_peer, new_dev);
 	};
+	fmd_notify_apps();
 };
 
 int start_new_peer(riodp_socket_t new_skt)
@@ -308,7 +409,6 @@ int start_new_peer(riodp_socket_t new_skt)
 	if (rc || !peer->rx_alive)
 		goto fail;
 
-	/* Send all device creation messages to new peer */
 	if (NULL == fmd->dd)
 		goto fail;
 
@@ -561,6 +661,15 @@ void shutdown_mgmt(void)
 		shutdown_slave_mgmt();
 };
 
+	
+
+void update_peer_flags(void)
+{
+	if (fmp.mode)
+		update_peer_flags_from_master();
+	else
+		update_master_flags_from_peer();
+};
 
 #ifdef __cplusplus
 }

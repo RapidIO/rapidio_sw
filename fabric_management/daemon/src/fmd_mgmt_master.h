@@ -125,6 +125,8 @@ int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
 
 void shutdown_mgmt(void);
 
+void update_peer_flags(void);
+
 #ifdef __cplusplus
 }
 #endif

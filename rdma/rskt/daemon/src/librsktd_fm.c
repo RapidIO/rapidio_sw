@@ -68,22 +68,23 @@ void *fm_loop(void *unused)
 	uint32_t *did_list;
 	uint32_t rc;
 
-	dd_h = fmdd_get_handle((char *)"RSKTD");
+	dd_h = fmdd_get_handle((char *)"RSKTD", FMDD_RSKT_FLAG);
+	fmdd_bind_dbg_cmds(dd_h);
+
 	if (NULL != dd_h)
 		fm_alive = 1;
 	sem_post(&fm_started);
 	
-	while (!fm_must_die && (NULL != dd_h)) {
-		if (fmdd_wait_for_dd_change(dd_h))
-			goto exit;
-		if (fm_must_die)
-			goto exit;
+	do {
 		rc = fmdd_get_did_list(dd_h, &did_list_sz, &did_list);
 		if (rc)
 			goto exit;
 		update_wpeer_list(did_list_sz, did_list);
-		free(did_list);
-	}
+		fmdd_free_did_list(dd_h, &did_list);
+
+		if (fmdd_wait_for_dd_change(dd_h))
+			break;
+	} while (!fm_must_die && (NULL != dd_h));
 exit:
 	fm_alive = 0;
 	fmdd_destroy_handle(&dd_h);
@@ -112,8 +113,8 @@ int start_fm_thread(void)
 void halt_fm_thread(void)
 {
 	fm_must_die = 1;
+	fmdd_destroy_handle(&dd_h);
 	pthread_kill(fm_thread, SIGHUP);
-
 	pthread_join(fm_thread, NULL);
 };
 

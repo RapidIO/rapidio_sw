@@ -1,4 +1,4 @@
-/* Application (library) routines for internal use by RSKTD */
+/* Application (library) routines for internal use by FMD */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -50,8 +50,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include "fmd_app_msg.h"
 
-#ifndef __RSKTD_APP_MGMT_H__
-#define __RSKTD_APP_MGMT_H__
+#ifndef __FMD_APP_MGMT_H__
+#define __FMD_APP_MGMT_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -68,6 +68,7 @@ struct fmd_app_mgmt_state {
         sem_t started;
         volatile int i_must_die;
 	uint32_t proc_num;
+	uint32_t flag;
 	char app_name[MAX_APP_NAME+1];
 	struct libfmd_dmn_app_msg req;
 	struct libfmd_dmn_app_msg resp;
@@ -83,7 +84,7 @@ struct app_mgmt_globals {
         int loop_alive;
         sem_t loop_started;
         volatile int all_must_die;
-	uint32_t ct; /* Component tag of RSKTD mport */
+	uint32_t ct; /* Component tag of FMD mport */
 
         int fd; /* File number library instance connect to */
         struct sockaddr_un addr;
@@ -104,4 +105,5 @@ extern struct app_mgmt_globals app_st;
 #ifdef __cplusplus
 }
 #endif
-#endif /* __RSKTD_APP_MGMT_H__ */
+
+#endif /* __FMD_APP_MGMT_H__ */

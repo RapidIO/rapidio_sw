@@ -481,9 +481,12 @@ fail:
 
 void spawn_daemon_threads(struct control_list *ctrls)
 {
-	/* Start fabric management thread */
-	if (start_fm_thread())
-		fprintf(stderr, "ERR:start_fm_thread failed\n");
+/*
+	uint32_t did_list_sz;
+	uint32_t *did_list;
+	uint32_t rc;
+*/
+
 	/* Starts wpeer, speer, and app TX threads */
 	if (start_msg_tx_threads())
 		fprintf(stderr, "ERR:start_msg_tx_threads failed\n");
@@ -501,7 +504,20 @@ void spawn_daemon_threads(struct control_list *ctrls)
 			ctrls->rsktd_u_bklg, ctrls->rsktd_uskt_tst))
 		fprintf(stderr,"Error - start_lib_handler failed\n");
 
+	/* Start fabric management thread */
+	if (start_fm_thread())
+		fprintf(stderr, "ERR:start_fm_thread failed\n");
+
+	/* Now that everything is running, try openning wpeers... */
+	/* First, the wpeers configured from the command line... */
 	open_wpeers_for_requests(ctrls->num_peers, ctrls->peers);
+
+/*
+	rc = fmdd_get_did_list(dd_h, &did_list_sz, &did_list);
+	if (!rc)
+		update_wpeer_list(did_list_sz, did_list);
+	fmdd_free_did_list(dd_h, &did_list);
+*/
 };
 
 int daemon_threads_failed(void)

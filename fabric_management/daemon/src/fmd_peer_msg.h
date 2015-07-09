@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define FMD_P_REQ_HELLO 3
 #define FMD_P_REQ_MOD   7
+#define FMD_P_REQ_FSET  9
 #define FMD_P_RESP_HELLO (FMD_P_REQ_HELLO|FMD_P_MSG_RESP)
 #define FMD_P_RESP_MOD   (FMD_P_REQ_MOD|FMD_P_MSG_RESP)
 #define FMD_P_MSG_LAST_MSG_TYPE 0x10;
@@ -74,6 +75,7 @@ struct fmd_m_peer_mod_req {
 	uint32_t hc;
 	uint32_t ct;
 	uint32_t is_mp;
+	uint32_t flag;
 	char name[MAX_P_NAME+1];
 };
 
@@ -83,7 +85,17 @@ struct fmd_s_peer_mod_resp {
 	uint32_t hc;
 	uint32_t ct;
 	uint32_t is_mp;
+	uint32_t flag;
 	uint32_t rc; /* 0 means success */
+};
+
+/* Note, this message is sent from master to slave and from slave to master */
+/* No response. */
+struct fmd_flag_set_req {
+	uint32_t did;
+	uint32_t did_sz;
+	uint32_t ct;
+	uint32_t flag;
 };
 
 /* Format of messages that can be sent by the Master FMD  to the Slave FMD */
@@ -95,6 +107,7 @@ struct fmd_mast_to_slv_msg {
 	union {
 		fmd_m_hello_resp hello_rsp;
 		struct fmd_m_peer_mod_req mod_rq;
+		struct fmd_flag_set_req fset;
 	};
 };
 
@@ -109,6 +122,7 @@ struct fmd_slv_to_mast_msg {
 	union {
 		fmd_s_hello_req hello_rq;
 		struct fmd_s_peer_mod_resp mod_rsp;
+		struct fmd_flag_set_req fset;
 	};
 };
 

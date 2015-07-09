@@ -1,4 +1,4 @@
-/* Implementation of Fabric Management Device Directory Library */
+/* Information structure of Fabric Management Device Directory Library */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -69,6 +69,7 @@ struct fml_globals {
         int portno;     /* FMD port number to connect to */
         int init_ok;    /* Equal to portno when initialization is successful */
 	char app_name[MAX_APP_NAME+1];
+	uint8_t flag;   /* Flag for this app. FMDD_NO_FLAG means what is says */
 
         struct sockaddr_un addr; /* FMD Linux socket address */
         int addr_sz;    /* size of addr */
@@ -95,8 +96,9 @@ struct fml_globals {
 
 	uint32_t num_devs;
 	struct fmd_dd_dev_info devs[FMD_MAX_DEVS+1];
-	int8_t devid_status[FML_MAX_DESTIDS];
+	uint8_t devid_status[FML_MAX_DESTIDS];
 
+	
 	sem_t pend_waits_mtx;
 	struct l_head_t pend_waits;
 };

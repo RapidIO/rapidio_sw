@@ -62,6 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "linux/rio_mport_cdev.h"
 #include "libcli.h"
 #include "liblog.h"
+#include "libfmdd.h"
 #include "fmd_mgmt_master.h"
 #include "fmd_mgmt_slave.h"
 #include "fmd_state.h"
@@ -116,7 +117,7 @@ fail:
 };
 
 int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
-		uint32_t is_mast_pt, char *name)
+		uint32_t is_mast_pt, uint32_t flag, char *name)
 {
 	uint32_t idx, found_one = 0;
 
@@ -130,6 +131,9 @@ int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
 			fmd->dd->devs[idx].destID_sz = did_sz;
 			fmd->dd->devs[idx].hc = hc;
 			fmd->dd->devs[idx].is_mast_pt = is_mast_pt;
+			fmd->dd->devs[idx].flag |= flag;
+			if (is_mast_pt)
+				fmd->dd->loc_mp_idx = idx;
 			strncpy(fmd->dd->devs[idx].name, name, FMD_MAX_NAME);
 			found_one = 1;
 		};
@@ -148,7 +152,10 @@ int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
 	fmd->dd->devs[idx].destID_sz = did_sz;
 	fmd->dd->devs[idx].hc = hc;
 	fmd->dd->devs[idx].is_mast_pt = is_mast_pt;
+	fmd->dd->devs[idx].flag = flag;
 	strncpy(fmd->dd->devs[idx].name, name, FMD_MAX_NAME);
+	if (is_mast_pt)
+		fmd->dd->loc_mp_idx = idx;
 	fmd->dd->num_devs++;
 		
 exit:
@@ -199,12 +206,15 @@ void slave_process_mod(void)
 {
 	uint32_t rc = 0xFFFFFFFF;
 
+	sem_wait(&slv->tx_mtx);
+
 	slv->s2m->msg_type = slv->m2s->msg_type | htonl(FMD_P_MSG_RESP);
 	slv->s2m->mod_rsp.did = slv->m2s->mod_rq.did;
 	slv->s2m->mod_rsp.did_sz = slv->m2s->mod_rq.did_sz;
 	slv->s2m->mod_rsp.hc = slv->m2s->mod_rq.hc;
 	slv->s2m->mod_rsp.ct = slv->m2s->mod_rq.ct;
 	slv->s2m->mod_rsp.is_mp = slv->m2s->mod_rq.is_mp;
+	slv->s2m->mod_rsp.flag = slv->m2s->mod_rq.flag;
 	slv->s2m->mod_rsp.rc = 0;
 
 	switch (ntohl(slv->m2s->mod_rq.op)) {
@@ -222,6 +232,7 @@ void slave_process_mod(void)
 				FMD_DEV08, 
 				ntohl(slv->m2s->mod_rq.hc),
 				ntohl(slv->m2s->mod_rq.is_mp),
+				ntohl(slv->m2s->mod_rq.flag),
 				slv->m2s->mod_rq.name);
 		slv->s2m->mod_rsp.rc = htonl(rc);
 		break;
@@ -244,8 +255,32 @@ void slave_process_mod(void)
 	slv->tx_buff_used = 1;
 	slv->tx_rc = riodp_socket_send(slv->skt_h, slv->tx_buff, 
 		FMD_P_S2M_CM_SZ);
+	sem_post(&slv->tx_mtx);
 	if (!rc)
 		fmd_notify_apps();
+};
+
+void slave_process_fset(void)
+{
+        uint32_t i;
+	uint32_t did = ntohl(slv->m2s->fset.did); 
+	uint32_t ct = ntohl(slv->m2s->fset.ct);
+	uint32_t flag = ntohl(slv->m2s->fset.flag);
+
+        if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
+                return;
+
+        sem_wait(&fmd->dd_mtx->sem);
+	for (i = 0; i < fmd->dd->num_devs; i++) {
+        	if ((fmd->dd->devs[i].destID == did) &&
+        			(fmd->dd->devs[i].ct == ct)) {
+                        fmd->dd->devs[i].flag = flag;
+			break;
+		};
+	};
+        sem_post(&fmd->dd_mtx->sem);
+
+	fmd_notify_apps();
 };
 
 void close_slave(void)
@@ -301,6 +336,9 @@ void *mgmt_slave(void *unused)
 		case FMD_P_REQ_MOD:
 			slave_process_mod();
 			break;
+		case FMD_P_REQ_FSET:
+			slave_process_fset();
+			break;
 		default:
 			WARN("Slave RX Msg type %x\n", 
 					ntohl(slv->m2s->msg_type));
@@ -330,6 +368,7 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 	slv->mast_skt_num = mast_acc_skt_num;
 	slv->mb_valid = 0;
 	slv->skt_valid = 0;
+	sem_init(&slv->tx_mtx, 0, 1);
 	slv->tx_buff_used = 0;
 	slv->tx_rc = 0;
 	slv->tx_buff = NULL;
@@ -407,6 +446,43 @@ void shutdown_slave_mgmt(void)
 	};
 
 	close_slave();
+};
+
+void update_master_flags_from_peer(void)
+{
+	uint32_t did, did_sz, ct, flag, i;
+
+	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
+		return;
+
+	sem_wait(&fmd->dd_mtx->sem);
+
+	if (fmd->dd->loc_mp_idx >= fmd->dd->num_devs) {
+		sem_post(&fmd->dd_mtx->sem);
+		return;
+	}
+
+	i = fmd->dd->loc_mp_idx;
+	did = fmd->dd->devs[i].destID;
+	did_sz = fmd->dd->devs[i].destID_sz;
+	ct = fmd->dd->devs[i].ct;
+	flag = (fmd->dd->devs[i].flag & ~FMDD_FLAG_OK_MP) | FMDD_FLAG_OK;
+
+	sem_post(&fmd->dd_mtx->sem);
+	
+	sem_wait(&slv->tx_mtx);
+
+	slv->s2m->msg_type = htonl(FMD_P_REQ_FSET);
+	slv->s2m->src_did = htonl(did);
+	slv->s2m->fset.did = htonl(did);
+	slv->s2m->fset.did_sz = htonl(did_sz);
+	slv->s2m->fset.ct = htonl(ct);
+	slv->s2m->fset.flag = htonl(flag);
+	
+	slv->tx_buff_used = 1;
+	slv->tx_rc = riodp_socket_send(slv->skt_h, slv->tx_buff,
+				FMD_P_S2M_CM_SZ);
+	sem_post(&slv->tx_mtx);
 };
 
 

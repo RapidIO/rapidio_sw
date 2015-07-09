@@ -57,7 +57,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 
 #include "compile_constants.h"
-// #include "dev_db_sm.h"
 #include "DAR_DevDriver.h"
 #include "DAR_RegDefs.h"
 
@@ -71,7 +70,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "DAR_DevDriver.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
-// #include "dev_db.h"
 #include "liblist.h"
 #include "liblog.h"
 #include "fmd_cfg.h"
@@ -82,6 +80,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_mgmt_cli.h"
 #include "fmd_mgmt_master.h"
 #include "fmd_dev_rw_cli.h"
+#include "libfmdd.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -272,7 +271,7 @@ void spawn_threads(struct fmd_cfg_parms *cfg)
 
 		splashScreen((char *)"FMD Daemon Command Line Interface");
 		cons_ret = pthread_create( &console_thread, NULL, 
-			console, (void *)((char *)"RSKTD > "));
+			console, (void *)((char *)"FMD > "));
 		if(cons_ret) {
 			fprintf(stderr,"Error - cons_thread rc: %d\n",cli_ret);
 			exit(EXIT_FAILURE);
@@ -489,11 +488,6 @@ int setup_mport_master(int mport)
 		CRIT("\nNo endpoint defined for master port.\n");
 		exit(EXIT_FAILURE);
 	};
-/*
-	ep->valid = 1;
-	ep->ep_h = mport_pe;
-	ep->ports[0].ct = comptag;
-*/
 
 	return fmd_traverse_network(mport_pe, 0, fmd->cfg);
 };
@@ -675,70 +669,32 @@ void setup_mport(struct fmd_state *fmd)
 }
 
 void fmd_dd_update(riocp_pe_handle mp_h, struct fmd_dd *dd,
-                        struct fmd_dd_mtx *dd_mtx)
+			struct fmd_dd_mtx *dd_mtx)
 {
-        size_t pe_cnt;
-        struct riocp_pe **pe;
-        int rc, idx;
-        uint32_t comptag, destid;
-        uint8_t hopcount;
+        int rc;
+        uint32_t comptag;
+	struct fmd_cfg_ep *cfg_ep;
 
         if (NULL == mp_h) {
                 WARN("\nMaster port is NULL, device directory not updated\n");
                 goto exit;
         };
 
-        pe = NULL;
-        rc = riocp_mport_get_pe_list(mp_h, &pe_cnt, &pe);
-        if (rc) {
-                CRIT("Cannot get pe list rc %d...\n", rc);
-                goto exit;
-        };
+	rc = riocp_pe_get_comptag(mp_h, &comptag);
+	if (rc) {
+		WARN("Cannot get mport comptag rc %d...\n", rc);
+		comptag = 0xFFFFFFFF;
+	};
 
-        if (pe_cnt > FMD_MAX_DEVS) {
-                WARN("Too many PEs for DD %d %d...\n", pe_cnt, FMD_MAX_DEVS);
-                pe_cnt = FMD_MAX_DEVS;
-        };
+	cfg_ep = find_cfg_ep_by_ct(comptag, fmd->cfg);
 
-        sem_wait(&dd_mtx->sem);
-        dd->num_devs = 0;
+	add_device_to_dd(cfg_ep->ports[0].ct, 
+			cfg_ep->ports[0].devids[FMD_DEV08].devid, 
+			FMD_DEV08, cfg_ep->ports[0].devids[FMD_DEV08].hc,
+			1,
+			FMDD_FLAG_OK_MP,
+			cfg_ep->name); 
 
-        for (idx = 0; idx < (int) pe_cnt; idx++) {
-                struct fmd_cfg_ep *cfg_ep;
-
-		if (RIOCP_PE_IS_SWITCH(pe[idx]->cap))
-			continue;
-
-                rc = riocp_pe_get_comptag(pe[idx], &comptag);
-                if (rc) {
-                        WARN("Cannot get comptag idx %d rc %d...\n", idx, rc);
-                        comptag = 0xFFFFFFFF;
-                        continue;
-                };
-                rc = riocp_pe_get_destid(pe[idx], &destid);
-                if (rc) {
-                        WARN("Cannot get destid idx %d rc %d...\n", idx, rc);
-                        destid = 0xFFFFFFFF;
-                        continue;
-                };
-                hopcount = pe[idx]->hopcount;
-
-                dd->devs[dd->num_devs].ct     = comptag;
-                dd->devs[dd->num_devs].destID = destid;
-                dd->devs[dd->num_devs].destID_sz = FMD_DEV08;
-                dd->devs[dd->num_devs].hc     = hopcount;
-                dd->devs[dd->num_devs].is_mast_pt =
-                                        (RIOCP_PE_IS_MPORT(pe[idx])?1:0);
-                memset(dd->devs[dd->num_devs].name, 0, FMD_MAX_NAME+1);
-                cfg_ep = find_cfg_ep_by_ct(comptag, fmd->cfg);
-                if (NULL == cfg_ep)
-                        strncpy(dd->devs[dd->num_devs].name, "UNKNOWN",
-                                        FMD_MAX_NAME);
-                else
-                        strncpy(dd->devs[dd->num_devs].name, cfg_ep->name,
-                                        FMD_MAX_NAME);
-                dd->num_devs++;
-        };
         fmd_dd_incr_chg_idx(dd, 1);
         sem_post(&dd_mtx->sem);
 exit:

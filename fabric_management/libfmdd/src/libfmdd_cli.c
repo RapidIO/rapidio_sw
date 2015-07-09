@@ -72,18 +72,20 @@ extern struct cli_cmd CLIDDLCheckCT;
 int CLIDDLCheckCTCmd(struct cli_env *env, int argc, char **argv)
 {
 	uint32_t ct;
+	uint8_t flag;
 	int rc;
 
 	if (0)
 		argv[0][0] = argc;
 	ct = getHex(argv[0], 0);
+	flag = getHex(argv[1], 1);
 
-	sprintf(env->output, "\nChecking component tag %8x\n", ct);
+	sprintf(env->output, "\nChecking ct %8x flag %x\n", ct, flag);
 	logMsg(env);
 
-	rc = fmdd_check_ct(ddl_h_cli, ct);
+	rc = fmdd_check_ct(ddl_h_cli, ct, flag);
 
-	sprintf(env->output, "Return code was      : %8x\n", rc);
+	sprintf(env->output, "Return code was      : 0x%8x\n", rc);
 	logMsg(env);
 
 	return 0;
@@ -92,10 +94,15 @@ int CLIDDLCheckCTCmd(struct cli_env *env, int argc, char **argv)
 struct cli_cmd CLIDDLCheckCT = {
 (char *)"ddlct",
 5,
-1,
+2,
 (char *)"Device Directory Library CT check.",
-(char *)"<ct>\n"
-	"Checks whether or not an entered component tag is present\n",
+(char *)"<ct> <flag>\n"
+	"Checks whether or not an entered component tag is present\n"
+	"<flag> is a bitmask with the following values: \n"
+	"0x01 - Device is OK\n"
+	"0x02 - Device is local master port\n"
+	"0x08 - RSKT application is active\n"
+	"0x10 - RDMA application is active\n",
 CLIDDLCheckCTCmd,
 ATTR_NONE
 };
@@ -105,19 +112,22 @@ extern struct cli_cmd CLIDDLCheckDID;
 int CLIDDLCheckDIDCmd(struct cli_env *env, int argc, char **argv)
 {
 	uint32_t did;
+	uint8_t flag;
 	int rc;
 
 	if (0)
 		argv[0][0] = argc;
 
 	did = getHex(argv[0], 0);
+	flag = getHex(argv[1], 0);
 
-	sprintf(env->output, "\nChecking Device ID : %8x\n", did);
+	sprintf(env->output, "\nChecking Device ID : 0x%x Flag 0x%x\n",
+		did, flag);
 	logMsg(env);
 
-	rc = fmdd_check_did(ddl_h_cli, did);
+	rc = fmdd_check_did(ddl_h_cli, did, flag);
 
-	sprintf(env->output,   "Return code was    : %8x\n", rc);
+	sprintf(env->output,   "Return code was    : 0x%x\n", rc);
 	logMsg(env);
 
 	return 0;
@@ -126,10 +136,15 @@ int CLIDDLCheckDIDCmd(struct cli_env *env, int argc, char **argv)
 struct cli_cmd CLIDDLCheckDID = {
 (char *)"ddldid",
 5,
-1,
+2,
 (char *)"Device Directory Library Device ID check.",
-(char *)"<did>\n"
-	"Checks whether or not an entered device ID is present\n",
+(char *)"<did> <flag>\n"
+	"Checks whether or not an entered device ID is present\n"
+	"<flag> is a bitmask with the following values: \n"
+	"0x01 - Device is OK\n"
+	"0x02 - Device is local master port\n"
+	"0x08 - RSKT application is active\n"
+	"0x10 - RDMA application is active\n",
 CLIDDLCheckDIDCmd,
 ATTR_NONE
 };

@@ -44,19 +44,35 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+#define FMDD_FLAG_NOK  0x00
+#define FMDD_FLAG_OK   0x01
+#define FMDD_FLAG_MP   0x02
+#define FMDD_RSVD_FLAG 0x04
+#define FMDD_RSKT_FLAG 0x08
+#define FMDD_RDMA_FLAG 0x10
+#define FMDD_APP1_FLAG 0x20
+#define FMDD_APP2_FLAG 0x40
+#define FMDD_APP3_FLAG 0x80
+
+#define FMDD_FLAG_OK_MP (FMDD_FLAG_OK | 2)
+
+#define FMDD_NO_FLAG   0x00
+#define FMDD_ANY_FLAG  0xFF
+
 typedef void *fmdd_h;
-fmdd_h fmdd_get_handle(char *my_name);
+fmdd_h fmdd_get_handle(char *my_name, uint8_t flag);
 void fmdd_destroy_handle(fmdd_h *dd_h);
 
-#define CHK_NOK -1
-#define CHK_OK 0
-#define CHK_OK_MP 1
 
-int fmdd_check_ct(fmdd_h h, uint32_t ct); /* OK if >= 0 */
-int fmdd_check_did(fmdd_h h, uint32_t did); /* OK if >= 0 */
+uint8_t fmdd_check_ct(fmdd_h h, uint32_t ct, uint8_t flag); /* OK if > 0 */
+uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag); /* OK if > 0 */
+
+/* Blocks until the device list changes, or a requested flag changes
+* for at least one node.
+*/
+int fmdd_wait_for_dd_change(fmdd_h h);
 int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list);
 int fmdd_free_did_list(fmdd_h h, uint32_t **did_list);
-int fmdd_wait_for_dd_change(fmdd_h h); /* Blocks until the DD changes */
 
 void fmdd_bind_dbg_cmds(void *fmdd_h);
 
