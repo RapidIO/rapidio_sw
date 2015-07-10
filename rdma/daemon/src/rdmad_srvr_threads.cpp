@@ -48,6 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 #include "rdmad_svc.h"
 #include "rdmad_srvr_threads.h"
+#include "rdmad_clnt_threads.h"
 #include "rdmad_peer_utils.h"
 
 using std::vector;
@@ -180,6 +181,25 @@ void *wait_conn_disc_thread_f(void *arg)
 								strerror(ret));
 			}
 			delete rx_conn_disc_server;
+			/* Remote daemon is gone. Remote it from our list. It needs to
+			 * provision again in order for another instance of this thread
+			 * is created for it.
+			 */
+			it = find(begin(prov_daemon_info_list),
+				       end(prov_daemon_info_list), remote_destid);
+			if (it != end(prov_daemon_info_list)) {
+				CRIT("destid(0x%X) removed from prov_daemon_list\n",
+								remote_destid);
+				prov_daemon_info_list.erase(it);
+			}
+			auto hit = find(begin(hello_daemon_info_list),
+					end(hello_daemon_info_list),
+					remote_destid);
+			if (hit != end(hello_daemon_info_list)) {
+				CRIT("destid(0x%X) removed from hello_daemon_list\n",
+									remote_destid);
+				hello_daemon_info_list.erase(hit);
+			}
 			CRIT("Exiting %s\n", __func__);
 			pthread_exit(0);
 		}
