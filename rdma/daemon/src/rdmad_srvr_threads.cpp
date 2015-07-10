@@ -104,13 +104,15 @@ void *wait_conn_disc_thread_f(void *arg)
 	prov_server->get_recv_buffer((void **)&hello_msg);
 	DBG("Received HELLO message from destid(0x%X)\n", hello_msg->destid);
 
+	uint32_t remote_destid = hello_msg->destid;
+
 	/* If destid already in our list, just exit thread */
 	sem_wait(&prov_daemon_info_list_sem);
 	auto it = find(begin(prov_daemon_info_list),
-		       end(prov_daemon_info_list), hello_msg->destid);
+		       end(prov_daemon_info_list), remote_destid);
 	if (it != end(prov_daemon_info_list)) {
 		WARN("Received HELLO msg for known destid(0x%X). EXITING\n",
-						hello_msg->destid);
+						remote_destid);
 		sem_post(&prov_daemon_info_list_sem);
 		delete prov_server;
 		free(wcdti);
@@ -148,7 +150,7 @@ void *wait_conn_disc_thread_f(void *arg)
 	/* Create new entry for this destid */
 	prov_daemon_info	*pdi;
 	pdi = (prov_daemon_info *)malloc(sizeof(prov_daemon_info));
-	pdi->destid = hello_msg->destid;
+	pdi->destid = remote_destid;
 	pdi->tid = wcdti->tid;
 	pdi->conn_disc_server = rx_conn_disc_server;
 
