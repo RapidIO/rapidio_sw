@@ -129,11 +129,12 @@ fail:
 
 void notify_app_of_events(void);
 
-void shutdown_fml(void)
+void shutdown_fml(fmdd_h dd_h)
 {
 	fml.mon_must_die = 1;
 
-	notify_app_of_events();
+	if (dd_h == &fml)
+		notify_app_of_events();
 
 	if (fml.dd_mtx != NULL) {
 		if (fml.dd_mtx->dd_ev[fml.app_idx].waiting) {
@@ -253,7 +254,7 @@ void *mon_loop(void *parms)
 exit:
 	fml.mon_alive = 0;
 	notify_app_of_events();
-	shutdown_fml();
+	shutdown_fml(&fml);
 	return parms;
 };
 
@@ -290,13 +291,13 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 	if (fml.mon_alive)
 		return (void *)&fml;
 fail:
-	shutdown_fml();
+	shutdown_fml(NULL);
 	return NULL;
 };
 
 void fmdd_destroy_handle(fmdd_h *dd_h)
 {
-	shutdown_fml();
+	shutdown_fml(dd_h);
 	*dd_h = NULL;
 };
 

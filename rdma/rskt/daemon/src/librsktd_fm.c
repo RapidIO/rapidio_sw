@@ -58,6 +58,7 @@ sem_t fm_started;
 sem_t fm_update;
 uint32_t fm_alive;
 uint32_t fm_must_die;
+int fm_thread_valid;
 pthread_t fm_thread;
 fmdd_h dd_h;
 
@@ -100,12 +101,15 @@ int start_fm_thread(void)
         sem_init(&fm_started, 0, 0);
 	fm_alive = 0;
 	fm_must_die = 0;
+	fm_thread_valid = 0;
 
         ret = pthread_create(&fm_thread, NULL, fm_loop, NULL);
         if (ret)
                 printf("Error - fm_thread rc: %d\n", ret);
-	else
+	else {
 		sem_wait(&fm_started);
+		fm_thread_valid = 1;
+	};
 
 	return ret;
 };
@@ -114,8 +118,11 @@ void halt_fm_thread(void)
 {
 	fm_must_die = 1;
 	fmdd_destroy_handle(&dd_h);
-	pthread_kill(fm_thread, SIGHUP);
-	pthread_join(fm_thread, NULL);
+	if (fm_thread_valid) {
+		fm_thread_valid  = 0;
+		pthread_kill(fm_thread, SIGHUP);
+		pthread_join(fm_thread, NULL);
+	};
 };
 
 #ifdef __cplusplus

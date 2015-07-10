@@ -300,6 +300,10 @@ int cleanup_dmn(void)
 
 	dmn.all_must_die = 1;
 
+	/* Just in case we are dying way early */
+	sem_post(&dmn.loop_started);
+	sem_post(&dmn.loop_started);
+
 	/* Ensure all TX threads see the call to terminate. */
 	sem_post(&dmn.wpeer_tx_cnt);
 	sem_post(&dmn.speer_tx_cnt);

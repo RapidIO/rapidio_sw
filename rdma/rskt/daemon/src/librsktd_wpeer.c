@@ -106,6 +106,7 @@ struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 };
 
 void close_wpeer(struct rskt_dmn_wpeer *wpeer);
+void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer);
 
 void *wpeer_rx_loop(void *p_i)
 {
@@ -153,7 +154,7 @@ void *wpeer_rx_loop(void *p_i)
 	};
 
 	/* Stop others from using the wpeer */
-	close_wpeer(w);
+	cleanup_wpeer(w);
 
 	pthread_exit(NULL);
 };
@@ -260,27 +261,24 @@ void enqueue_wpeer_msg(struct librsktd_unified_msg *msg)
 	sem_post(&dmn.wpeer_tx_cnt);
 };
 
-void close_wpeer(struct rskt_dmn_wpeer *wpeer)
+void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 {
 	struct librsktd_unified_msg *msg;
-	int rc;
 
-	wpeer->i_must_die = 0;
-	wpeer->self_ref = NULL;
+	wpeer->i_must_die = 1;
+	*wpeer->self_ref = NULL;
 	sem_post(&wpeer->started);
 
-	/* FIXME: Close the socket here? */
-	if (NULL != wpeer->rx_buff)
-		free(wpeer->rx_buff);
+	if (NULL != wpeer->rx_buff) {
+		riodp_socket_release_receive_buffer(wpeer->cm_skt_h, 
+							wpeer->rx_buff);
+		wpeer->rx_buff = NULL;
+	};
 	
-	if (NULL != wpeer->tx_buff)
-		free(wpeer->tx_buff);
-
-	if (NULL != wpeer->cm_skt_h) {
-        	rc = riodp_socket_close(&wpeer->cm_skt_h);
-        	if (rc)
-			printf("WPEER(%p): riodp_socket_close(): %d (%d)\n",
-				wpeer, rc, errno);
+	if (NULL != wpeer->tx_buff) {
+		riodp_socket_release_send_buffer(wpeer->cm_skt_h,
+							wpeer->tx_buff);
+		wpeer->tx_buff = NULL;
 	};
 
 	sem_wait(&wpeer->w_rsp_mutex);
@@ -300,6 +298,14 @@ void close_wpeer(struct rskt_dmn_wpeer *wpeer)
 	sem_wait(&dmn.wpeers_mtx);
 	l_remove(&dmn.wpeers, wpeer->wp_li);
 	sem_post(&dmn.wpeers_mtx);
+};
+
+void close_wpeer(struct rskt_dmn_wpeer *wpeer)
+{
+	cleanup_wpeer(wpeer);
+
+	pthread_kill(wpeer->w_rx, SIGHUP);
+	pthread_join(wpeer->w_rx, NULL);
 };
 
 void *wpeer_tx_loop(void *unused)
@@ -369,16 +375,23 @@ void *wpeer_tx_loop(void *unused)
 
 void close_all_wpeers(void)
 {
-	void *l;
+	void **l;
 
 	sem_wait(&dmn.wpeers_mtx);
-	l = l_pop_head(&dmn.wpeers);
+	l = (void **)l_pop_head(&dmn.wpeers);
 	sem_post(&dmn.wpeers_mtx);
 
 	while (NULL != l) {
-		close_wpeer((struct rskt_dmn_wpeer *)l);
+		struct rskt_dmn_wpeer *w;
+		if (NULL == *l)
+			continue;
+		w = *(struct rskt_dmn_wpeer **)l;
+		close_wpeer(w);
+		pthread_kill(w->w_rx, SIGHUP);
+		pthread_join(w->w_rx, NULL);
+
 		sem_wait(&dmn.wpeers_mtx);
-		l = l_pop_head(&dmn.wpeers);
+		l = (void **)l_pop_head(&dmn.wpeers);
 		sem_post(&dmn.wpeers_mtx);
 	};
 };
