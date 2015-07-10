@@ -63,7 +63,7 @@ int open_socket_to_fmd(void)
 	if (!fml.fd) {
 		fml.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 		if (-1 == fml.fd) {
-			CRIT("ERROR on libfm_init socket");
+			CRIT("ERROR on libfm_init socket\n");
 			goto fail;
 		};
 		fml.addr_sz = sizeof(struct sockaddr_un);
@@ -74,7 +74,7 @@ int open_socket_to_fmd(void)
 			FMD_APP_MSG_SKT_FMT, fml.portno);
 		if (connect(fml.fd, (struct sockaddr *) &fml.addr, 
 				fml.addr_sz)) {
-			CRIT("ERROR on libfm_init connect");
+			CRIT("ERROR on libfm_init connect\n");
 			goto fail;
 		};
 	};
@@ -282,7 +282,7 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 		/* Startup the connection monitoring thread */
 		if (pthread_create( &fml.mon_thr, NULL, mon_loop, NULL)) {
 			fml.all_must_die = 1;
-			CRIT("ERROR:fmdd_get_handle, mon_loop thread");
+			CRIT("ERROR:fmdd_get_handle, mon_loop thread\n");
 			goto fail;
 		};
 		sem_wait(&fml.mon_started);
