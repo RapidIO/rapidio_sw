@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <netinet/in.h>
 
+#include "liblist.h"
 #include "libcli.h"
 #include "fmd_app_msg.h"
 #include "fmd_dd.h"

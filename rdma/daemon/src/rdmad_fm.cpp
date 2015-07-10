@@ -4,8 +4,8 @@
 #include <semaphore.h>
 
 #include "liblog.h"
-
 #include "libfmdd.h"
+#include "rdmad_clnt_threads.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,7 +46,11 @@ void *fm_loop(void *unused)
 		for (unsigned i = 0; i < did_list_sz; i++) {
 			/* Check if daemon is running */
 			if (fmdd_check_did(dd_h, did_list[i], FMDD_RDMA_FLAG)) {
-				; /* SEND HELLO */
+				/* SEND HELLO */
+				if (provision_rdaemon(did_list[i])) {
+					CRIT("Failed to provision daemon at destid(0x%X)\n",
+							did_list[i]);
+				}
 			}
 		}
 		fmdd_free_did_list(dd_h, &did_list);

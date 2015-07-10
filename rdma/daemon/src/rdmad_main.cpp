@@ -54,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_clnt_threads.h"
 #include "rdmad_svc.h"
 #include "rdmad_console.h"
+#include "rdmad_fm.h"
 #include "libcli.h"
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
@@ -699,6 +700,9 @@ void shutdown(struct peer_info *peer)
 	}
 	pthread_join(prov_thread, NULL);
 
+	/* Kill the fabric management thread */
+	halt_fm_thread();
+
 	/* Kill threads for remote daemons provisioned via incoming HELLO */
 	for (auto it = begin(prov_daemon_info_list);
 	    it != end(prov_daemon_info_list);
@@ -885,6 +889,15 @@ int main (int argc, char **argv)
 	if (rc) {
 		CRIT("Failed to create prov_thread: %s\n", strerror(errno));
 		rc = 7;
+		shutdown(&peer);
+		goto out_free_inbound;
+	}
+
+	/* Create fabric management thread */
+	rc = start_fm_thread();
+	if (rc) {
+		CRIT("Failed to create prov_thread: %s\n", strerror(errno));
+		rc = 8;
 		shutdown(&peer);
 		goto out_free_inbound;
 	}
