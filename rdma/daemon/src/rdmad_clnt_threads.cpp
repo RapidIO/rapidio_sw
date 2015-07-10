@@ -104,7 +104,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 		free(wadti);
 		pthread_exit(0);
 	}
-	HIGH("HELLO message successfully sent to destid(0x%X\n", destid);
+	HIGH("HELLO message successfully sent to destid(0x%X)\n", destid);
 
 	/* Receive HELLO (ack) message back with remote destid */
 	hello_msg_t 	*ham;	/* HELLO-ACK message */
@@ -118,7 +118,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 	if (ham->destid != destid) {
 		WARN("hello-ack destid(0x%X) != destid(0x%X)\n", ham->destid, destid);
 	}
-	HIGH("HELLO ACK successfully received from destid(0x%X\n", destid);
+	HIGH("HELLO ACK successfully received from destid(0x%X)\n", destid);
 
 	/* Create and initialize hello_daemon_info struct */
 	hello_daemon_info *hdi = new hello_daemon_info(destid,
@@ -346,7 +346,7 @@ int provision_rdaemon(uint32_t destid)
 		delete hello_client;
 		return -2;
 	}
-	HIGH("Connected to remote daemon on destid(0x%X\n", destid);
+	HIGH("Connected to remote daemon on destid(0x%X)\n", destid);
 
 	wait_accept_destroy_thread_info *wadti =
 	(wait_accept_destroy_thread_info *)malloc(sizeof(wait_accept_destroy_thread_info));

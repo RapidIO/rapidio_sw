@@ -178,6 +178,7 @@ void *wait_conn_disc_thread_f(void *arg)
 								strerror(ret));
 			}
 			delete rx_conn_disc_server;
+			CRIT("Exiting %s\n", __func__);
 			pthread_exit(0);
 		}
 

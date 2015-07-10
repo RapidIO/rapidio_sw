@@ -84,7 +84,6 @@ int start_fm_thread(void)
                 CRIT("Error - fm_thread rc: %d\n", ret);
         } else {
 		sem_wait(&fm_started);
-		HIGH("fm_thread started\n");
         }
 
 	return ret;
