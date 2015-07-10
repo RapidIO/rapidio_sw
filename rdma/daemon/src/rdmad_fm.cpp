@@ -42,14 +42,17 @@ void *fm_loop(void *unused)
 			CRIT("Failed to get device ID list from FM. Exiting.\n");
 			goto exit;
 		}
-
+		INFO("Fabman reported %u remote endpoints\n", did_list_sz);
 		for (unsigned i = 0; i < did_list_sz; i++) {
+			INFO("Provisioning 0x%X\n", did_list[i]);
 			/* Check if daemon is running */
 			if (fmdd_check_did(dd_h, did_list[i], FMDD_RDMA_FLAG)) {
 				/* SEND HELLO */
 				if (provision_rdaemon(did_list[i])) {
 					CRIT("Failed to provision daemon at destid(0x%X)\n",
 							did_list[i]);
+				} else {
+					HIGH("Provisioned desitd(0x%X)\n", did_list[i]);
 				}
 			}
 		}
@@ -77,10 +80,12 @@ int start_fm_thread(void)
 	fm_must_die = 0;
 
         ret = pthread_create(&fm_thread, NULL, fm_loop, NULL);
-        if (ret)
-                printf("Error - fm_thread rc: %d\n", ret);
-	else
+        if (ret) {
+                CRIT("Error - fm_thread rc: %d\n", ret);
+        } else {
 		sem_wait(&fm_started);
+		HIGH("fm_thread started\n");
+        }
 
 	return ret;
 };

@@ -109,7 +109,7 @@ void *wait_conn_disc_thread_f(void *arg)
 	auto it = find(begin(prov_daemon_info_list),
 		       end(prov_daemon_info_list), hello_msg->destid);
 	if (it != end(prov_daemon_info_list)) {
-		WARN("Received HELLO msg for known destid(0x%X. EXITING\n",
+		WARN("Received HELLO msg for known destid(0x%X). EXITING\n",
 						hello_msg->destid);
 		sem_post(&prov_daemon_info_list_sem);
 		delete prov_server;
@@ -153,11 +153,11 @@ void *wait_conn_disc_thread_f(void *arg)
 	pdi->conn_disc_server = rx_conn_disc_server;
 
 	/* Store info about the remote daemon/destid in list */
-	DBG("Storing info for destid=0x%X\n", pdi->destid);
+	HIGH("Storing info for destid=0x%X\n", pdi->destid);
 	sem_wait(&prov_daemon_info_list_sem);
 	prov_daemon_info_list.push_back(*pdi);
 	sem_post(&prov_daemon_info_list_sem);
-
+	DBG("prov_daemon_info_list now has %u destids\n", prov_daemon_info_list.size());
 	/* Tell prov_thread that we started so it can start accepting
 	 * from other sockets without waiting for this one to get a HELLO.
 	 */

@@ -1584,6 +1584,11 @@ __sync_synchronize();
 		return -1;
 	}
 	out = out_msg->send_connect_out;
+	if (out.status) {
+		ERR("Connection to destid(0x%X) failed\n", rem_destid);
+		delete accept_mq;
+		return out.status;
+	}
 
 	/* Map the accept_msg to the receive buffer of the queue */
 	mq_accept_msg 	*accept_msg;

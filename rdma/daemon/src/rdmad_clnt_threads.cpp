@@ -131,11 +131,10 @@ void *wait_accept_destroy_thread_f(void *arg)
 		pthread_exit(0);
 	}
 
-
-
 	/* Store remote daemon info in the 'hello' daemon list */
 	sem_wait(&hello_daemon_info_list_sem);
 	hello_daemon_info_list.push_back(*hdi);
+	HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n", hdi->destid);
 	sem_post(&hello_daemon_info_list_sem);
 
 	/* Post semaphore to caller to indicate thread is up */
@@ -366,7 +365,7 @@ int provision_rdaemon(uint32_t destid)
 			     wait_accept_destroy_thread_f,
 			     wadti);
 	if (ret) {
-		CRIT("Failed to create request thread\n");
+		CRIT("Failed to create wait_accept_destroy_thread\n");
 		delete hello_client;
 		delete wadti;
 		return -6;
@@ -374,7 +373,7 @@ int provision_rdaemon(uint32_t destid)
 
 	sem_wait(&wadti->started);
 
-	/* Free hello_client and the wadti struct */
+	/* Free the wadti struct */
 	free(wadti);
 
 	DBG("wait_accept_destroy_thread started successully\n");
