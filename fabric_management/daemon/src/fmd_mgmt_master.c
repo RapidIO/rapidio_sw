@@ -153,6 +153,27 @@ exit:
 	sem_post(&peer->tx_mtx);
 };
 
+void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
+{
+	sem_wait(&peer->tx_mtx);
+
+	peer->m2s->msg_type = htonl(FMD_P_REQ_MOD);
+	peer->m2s->dest_did = htonl(peer->p_did);
+	peer->m2s->mod_rq.op = htonl(FMD_P_OP_DEL);
+	peer->m2s->mod_rq.did = htonl(del_peer->p_did);
+	peer->m2s->mod_rq.did_sz = htonl(del_peer->p_did_sz);
+	peer->m2s->mod_rq.hc = htonl(del_peer->p_hc);
+	peer->m2s->mod_rq.ct = htonl(del_peer->p_ct);
+	peer->m2s->mod_rq.is_mp = 0;
+	memcpy(peer->m2s->mod_rq.name, del_peer->peer_name, MAX_P_NAME+1);
+
+	peer->m2s->mod_rq.flag = 0;
+	peer->tx_buff_used = 1;
+	peer->tx_rc = riodp_socket_send(peer->cm_skt_h, 
+				peer->tx_buff, FMD_P_M2S_CM_SZ);
+	sem_post(&peer->tx_mtx);
+};
+
 void update_all_peer_dd_and_flags(uint32_t add_dev)
 {
 	uint32_t src, tgt;
@@ -192,6 +213,23 @@ void update_all_peer_dd_and_flags(uint32_t add_dev)
 			}
 		};
 	};
+};
+
+/* Assumes that peer has already been removed from fmp.peers... */
+void send_peer_removal_messages(struct fmd_peer *del_peer)
+{
+	struct fmd_peer *t_peer;
+	struct l_item_t *li;
+
+	sem_wait(&fmp.peers_mtx);
+
+	t_peer = (struct fmd_peer *)l_head(&fmp.peers, &li);
+	while (NULL != t_peer) {
+		send_del_dev_msg(t_peer, del_peer);
+		t_peer = (struct fmd_peer *)l_next(&li);
+	};
+
+	sem_post(&fmp.peers_mtx);
 };
 
 void master_process_hello_peer(struct fmd_peer *peer)
@@ -247,6 +285,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 
 	if (!peer->tx_rc && add_to_list) {
 		peer->rx_alive = 1;
+		peer->got_hello = 1;
 		sem_post(&peer->started);
 		sem_wait(&fmp.peers_mtx);
 		peer->li = l_add(&fmp.peers, peer->p_did, peer);
@@ -312,6 +351,43 @@ void peer_rx_req(struct fmd_peer *peer)
 	};
 };
 
+void cleanup_peer(struct fmd_peer *peer) 
+{
+	peer->rx_alive = 0;
+
+	if (NULL != peer->li) {
+		sem_wait(&fmp.peers_mtx);
+		l_lremove(&fmp.peers, peer->li);
+		peer->li = NULL;
+		sem_post(&fmp.peers_mtx);
+	};
+
+	del_device_from_dd(peer->p_ct, peer->p_did);
+	send_peer_removal_messages(peer);
+
+	if (peer->tx_buff_used) {
+		riodp_socket_release_send_buffer(peer->cm_skt_h,
+						peer->tx_buff);
+		peer->tx_buff = NULL;
+		peer->tx_buff_used = 0;
+	};
+	
+	if (peer->rx_buff_used) {
+		riodp_socket_release_receive_buffer(peer->cm_skt_h,
+						peer->rx_buff);
+		peer->rx_buff = NULL;
+		peer->rx_buff_used = 0;
+	};
+
+	if (peer->skt_h_valid) {
+		int rc = riodp_socket_close(&peer->cm_skt_h);
+		if (rc) {
+			ERR("socket close rc %d: %s\n", rc, strerror(errno));
+		};
+		peer->skt_h_valid= 0;
+	};
+};
+
 void *peer_rx_loop(void *p_i)
 {
 	struct fmd_peer *peer = (struct fmd_peer *)p_i;
@@ -348,48 +424,10 @@ void *peer_rx_loop(void *p_i)
 		};
 	};
 
-	peer->rx_alive = 0;
-	if (peer->tx_buff_used) {
-		riodp_socket_release_send_buffer(peer->cm_skt_h,
-						peer->tx_buff);
-		peer->tx_buff = NULL;
-		peer->tx_buff_used = 0;
-	};
-	
-	if (peer->rx_buff_used) {
-		riodp_socket_release_receive_buffer(peer->cm_skt_h,
-						peer->rx_buff);
-		peer->rx_buff = NULL;
-		peer->rx_buff_used = 0;
-	};
+	cleanup_peer(peer);
 
 	INFO("Peer(%x) EXITING\n", peer->p_ct);
 	pthread_exit(NULL);
-};
-
-void tell_others_about_new_peer(struct fmd_peer *peer,
-				struct fmd_dd_dev_info *devs, 
-				struct fmd_dd_dev_info *new_dev,
-				uint32_t num_devs)
-{
-	uint32_t i;
-	struct fmd_peer *t_peer;
-	struct l_item_t *li;
-
-	for (i = 0; i < num_devs; i++) {
-		/* no need to tell other peers about this device */
-		if (devs[i].is_mast_pt)
-			continue;
-		if (&devs[i] == new_dev)
-			continue;
-		t_peer = (struct fmd_peer *)
-			l_find(&fmp.peers, devs[i].destID, &li);
-		/* no need to tell the peer about itself */
-		if ((t_peer == peer) || (NULL == t_peer))
-			continue;
-		send_add_dev_msg(t_peer, new_dev);
-	};
-	fmd_notify_apps();
 };
 
 int start_new_peer(riodp_socket_t new_skt)
@@ -405,6 +443,7 @@ int start_new_peer(riodp_socket_t new_skt)
 	peer->p_ct = 0;
 	peer->p_hc = 0;
 	peer->cm_skt = 0;
+	peer->skt_h_valid= 1;
 	peer->cm_skt_h = new_skt;
 	sem_init(&peer->started, 0, 0);
 	peer->got_hello = 0;
@@ -431,13 +470,23 @@ int start_new_peer(riodp_socket_t new_skt)
 	if (rc || !peer->rx_alive)
 		goto fail;
 
-	if (NULL == fmd->dd)
-		goto fail;
-
-
 	return 0;
 fail:
 	return 1;
+};
+
+void cleanup_acc_handler(void)
+{
+	fmp.acc.acc_alive = 0;
+	if (fmp.acc.cm_acc_valid) {
+		riodp_socket_close(&fmp.acc.cm_acc_h);
+		fmp.acc.cm_acc_valid = 0;
+	};
+
+	if (fmp.acc.mb_valid) {
+		riodp_mbox_destroy_handle(&fmp.acc.mb);
+		fmp.acc.mb_valid = 0;
+	};
 };
 
 void *mast_acc(void *unused)
@@ -514,11 +563,8 @@ void *mast_acc(void *unused)
 		free((void *)new_skt);
 
 exit:
-	fmp.acc.acc_alive = 0;
-	if (fmp.acc.cm_acc_valid) {
-		riodp_socket_close(&fmp.acc.cm_acc_h);
-		fmp.acc.cm_acc_valid = 0;
-	};
+	cleanup_acc_handler();
+
 	CRIT("\nFMD Peer Connection Handler EXITING\n");
 	sem_post(&fmp.acc.started);
 	pthread_exit(unused);
@@ -585,42 +631,14 @@ void shutdown_master_mgmt(void)
 	peer = (struct fmd_peer *)l_pop_head(&fmp.peers);
 	while (peer != NULL) {
 		peer->li = NULL;
-		if (!peer->rx_alive) {
-			/* Should never get here */
-			DBG("Peer %d dead but still in list?", peer->p_did);
-		};
-
-		if (peer->tx_buff_used) {
-			riodp_socket_release_send_buffer(peer->cm_skt_h,
-							peer->tx_buff);
-			peer->tx_buff = NULL;
-			peer->tx_buff_used = 0;
-		};
-	
-		if (peer->rx_buff_used) {
-			riodp_socket_release_receive_buffer(peer->cm_skt_h,
-							peer->rx_buff);
-			peer->rx_buff = NULL;
-			peer->rx_buff_used = 0;
-		};
+		cleanup_peer(peer);
 	
 		pthread_kill(peer->rx_thr, SIGHUP);
 		pthread_join(peer->rx_thr, &unused);
 		free(peer);
 		peer = (struct fmd_peer *)l_pop_head(&fmp.peers);
 	};
-	/* Cleanup CM accept socket */
-	if (fmp.acc.cm_acc_valid) {
-		riodp_socket_close(&fmp.acc.cm_acc_h);
-		fmp.acc.cm_acc_valid = 0;
-	};
-
-	/* Cleanup mailbox */
-	if (fmp.acc.mb_valid) {
-		riodp_mbox_destroy_handle(&fmp.acc.mb);
-		fmp.acc.mb_valid = 0;
-	};
-
+	cleanup_acc_handler();
 };
 
 void shutdown_mgmt(void)
