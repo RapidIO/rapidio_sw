@@ -225,7 +225,9 @@ void slave_process_mod(void)
 		slv->s2m->mod_rsp.rc = htonl(rc);
 		break;
 				 
-	case FMD_P_OP_DEL: rc = riodp_device_del(slv->fd, 
+	case FMD_P_OP_DEL: 
+		/* FIXME: Commented out for now as this can kill the platform.
+			rc = riodp_device_del(slv->fd, 
 				ntohl(slv->m2s->mod_rq.did), 
 				ntohl(slv->m2s->mod_rq.hc), 
 				ntohl(slv->m2s->mod_rq.ct));
@@ -233,6 +235,8 @@ void slave_process_mod(void)
 			slv->s2m->mod_rsp.rc = htonl(rc);
 			break;
 		};
+		FIXME: END COMMENT
+		*/
 		rc = del_device_from_dd(ntohl(slv->m2s->mod_rq.ct),
 				ntohl(slv->m2s->mod_rq.did));
 		slv->s2m->mod_rsp.rc = htonl(rc);
@@ -271,7 +275,7 @@ void slave_process_fset(void)
 	fmd_notify_apps();
 };
 
-void close_slave(void)
+void cleanup_slave(void)
 {
 	if (NULL == slv)
 		return;
@@ -288,6 +292,14 @@ void close_slave(void)
 		slv->rx_buff_used = 0;
 	};
 	
+	if (slv->skt_valid) {
+		int rc = riodp_socket_close(&slv->skt_h);
+		if (rc) {
+			ERR("Close RC is %d: %s\n", rc, strerror(errno));
+		};
+		slv->skt_valid = 0;
+	};
+
 	if (slv->mb_valid) {
 		riodp_mbox_destroy_handle(&slv->mb);
 		slv->mb_valid = 0;
@@ -344,7 +356,7 @@ void *mgmt_slave(void *unused)
 	};
 
 fail:
-	close_slave();
+	cleanup_slave();
 	INFO("FMD Slave EXITING\n");
 	pthread_exit(unused);
 };
@@ -444,8 +456,7 @@ void shutdown_slave_mgmt(void)
 		pthread_join(slv->slave_thr, NULL);
 		slv->slave_alive = 0;
 	};
-
-	close_slave();
+	cleanup_slave();
 };
 
 void update_master_flags_from_peer(void)
@@ -469,7 +480,6 @@ void update_master_flags_from_peer(void)
 	flag = (fmd->dd->devs[i].flag & ~FMDD_FLAG_OK_MP) | FMDD_FLAG_OK;
 
 	sem_post(&fmd->dd_mtx->sem);
-	
 	sem_wait(&slv->tx_mtx);
 
 	slv->s2m->msg_type = htonl(FMD_P_REQ_FSET);
