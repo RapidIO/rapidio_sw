@@ -204,7 +204,7 @@ int open_app_conn_socket(void)
 
 	app_st.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 	if (-1 == app_st.fd) {
-		perror("ERROR on open_app_conn socket");
+		CRIT("ERROR on open_app_conn socket");
 		goto fail;
 	};
 
@@ -213,19 +213,19 @@ int open_app_conn_socket(void)
 
 	if (remove(app_st.addr.sun_path))
 		if (ENOENT != errno)
-			perror("ERROR on app_conn remove");
+			CRIT("ERROR on app_conn remove");
 
 	snprintf(app_st.addr.sun_path, sizeof(app_st.addr.sun_path) - 1,
 		FMD_APP_MSG_SKT_FMT, app_st.port);
 
 	if (-1 == bind(app_st.fd, (struct sockaddr *) &app_st.addr, 
 			sizeof(struct sockaddr_un))) {
-		perror("ERROR on app_conn bind");
+		CRIT("ERROR on app_conn bind");
 		goto fail;
 	};
 
 	if (listen(app_st.fd, app_st.bklg) == -1) {
-		perror("ERROR on app_conn listen");
+		CRIT("ERROR on app_conn listen");
 		goto fail;
 	};
 	rc = 0;
@@ -257,7 +257,7 @@ void *app_conn_loop( void *unused )
 			};
 		};
 		if (!found) {
-			perror("FMD could not find free app!");
+			CRIT("FMD could not find free app!");
 			goto fail;
 		};
 		new_app = &app_st.apps[new_app_i];
@@ -270,7 +270,7 @@ void *app_conn_loop( void *unused )
 			
 		if (-1 == new_app->app_fd) {
 			if (app_st.fd) 
-				perror("ERROR on app_conn accept");
+				CRIT("ERROR on app_conn accept");
 			goto fail;
 		};
 

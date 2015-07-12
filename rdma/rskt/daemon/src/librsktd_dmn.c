@@ -134,12 +134,12 @@ int d_rdma_get_ms_h(struct ms_info *msi, const char *name,
         rc = rdma_create_ms_h(name, msoh, req_ms_size, flags, &msi->ms, 
 				&act_ms_size);
 	if (rc) {
-		printf("Could not get ms \"%s\": Bailing out...\n",name);
+		CRIT("Could not get ms \"%s\": Bailing out...\n",name);
 		return rc;
 	};
 
 	if (act_ms_size < req_ms_size) {
-		printf("WARNING: MS %s got %d bytes not %d bytes.\n",
+		CRIT("WARNING: MS %s got %d bytes not %d bytes.\n",
 			name, act_ms_size, req_ms_size);
 	};
 	msi->valid = 1;
@@ -176,8 +176,8 @@ int d_rdma_get_msub_h(struct ms_info *msi, int size,
 				&msi->skt.msubh);
 
         if (rc) {
-		printf("Could not get msub for MS %s.\n", msi->ms_name);
-		printf("Bailing out...\n");
+		CRIT("Could not get msub for MS %s.\n", msi->ms_name);
+		CRIT("Bailing out...\n");
                 rskt_clear_skt(&msi->skt);
         } else {
                 msi->skt.msub_sz = size;
@@ -238,7 +238,7 @@ int init_mport_and_mso_ms()
 	
 		rc = riodp_socket_listen(dmn.cm_acc_h);
 		if (rc) {
-			printf("speer_conn:riodp_socket_listen() ERR %d\n", rc);
+			CRIT("speer_conn:riodp_socket_listen() ERR %d\n", rc);
 			goto exit;
 		};
 	};
@@ -269,7 +269,7 @@ int init_mport_and_mso_ms()
 	rc = -1;
 	snprintf(dmn.mso.msoh_name, MAX_MS_NAME, "RSKT_DAEMON%d", getpid());
         if (d_rdma_get_mso_h(dmn.mso.msoh_name, &dmn.mso.rskt_mso)) {
-		printf("\nCould not get mso_h. Bailing out...\n");
+		CRIT("\nCould not get mso_h. Bailing out...\n");
 		goto exit;
         };
 
@@ -328,14 +328,14 @@ int cleanup_dmn(void)
 		dmn.skt_valid = 0;
 		rc = riodp_socket_close(&dmn.cm_acc_h);
 		if (rc)
-			printf("speer_conn: riodp_socket_close ERR %d\n", rc);
+			CRIT("speer_conn: riodp_socket_close ERR %d\n", rc);
 	};
 
 	if (dmn.mb_valid) {
 		dmn.mb_valid = 0;
 		rc = riodp_mbox_destroy_handle(&dmn.mb);
 		if (rc)
-			printf("speer_conn: riodp_mbox_shutdown ERR: %d\n", rc);
+			CRIT("speer_conn: riodp_mbox_shutdown ERR: %d\n", rc);
 	};
 
 	if (dmn.mpfd > 0) {
@@ -346,13 +346,13 @@ int cleanup_dmn(void)
         for (i = 0; i < MAX_DMN_NUM_MS; i++) {
                 rc = d_rdma_drop_ms_h(&dmn.mso.ms[i]);
                 if (rc)
-                        printf("\nd_rdma_drop_ms_h returned %d: %s", rc,
+                        CRIT("\nd_rdma_drop_ms_h returned %d: %s", rc,
                                         strerror(rc));
         };
 
         rc = d_rdma_drop_mso_h();
         if (rc)
-                printf("\rdma_ndrop_mso_h: %d: %s", rc, strerror(rc));
+                CRIT("\rdma_ndrop_mso_h: %d: %s", rc, strerror(rc));
 
 	halt_fm_thread();
 	return rc;
@@ -376,7 +376,7 @@ __sync_synchronize();
 		if (!dmn.cm_skt_tst && (NULL == new_socket)) {
 			rc = riodp_socket_socket(dmn.mb, &new_socket);
 			if (rc) {
-				printf("speer_conn: socket() ERR %d\n", rc);
+				CRIT("speer_conn: socket() ERR %d\n", rc);
 				break;
 			};
 		};
@@ -389,7 +389,7 @@ repeat:
 		if (rc) {
 			if ((errno == ETIME) || (errno == EINTR))
 				goto repeat;
-			printf("speer_conn: riodp_accept() ERR %d\n", rc);
+			CRIT("speer_conn: riodp_accept() ERR %d\n", rc);
 			break;
 		}
 
@@ -411,7 +411,7 @@ repeat:
 exit:
 	dmn.speer_conn_alive = 0;
 	cleanup_dmn();
-	printf("\nRSKTD Peer Connection Handler EXITING\n");
+	CRIT("\nRSKTD Peer Connection Handler EXITING\n");
 	sem_post(&dmn.loop_started);
 	pthread_exit(unused);
 };
@@ -485,43 +485,30 @@ fail:
 
 void spawn_daemon_threads(struct control_list *ctrls)
 {
-/*
-	uint32_t did_list_sz;
-	uint32_t *did_list;
-	uint32_t rc;
-*/
-
 	/* Starts wpeer, speer, and app TX threads */
 	if (start_msg_tx_threads())
-		fprintf(stderr, "ERR:start_msg_tx_threads failed\n");
+		CRIT("ERR:start_msg_tx_threads failed\n");
 
 	if (start_msg_proc_q_thread())
-		fprintf(stderr, "ERR:start_msg_proc_q_thread failed\n");
+		CRIT("ERR:start_msg_proc_q_thread failed\n");
 
 	if (start_speer_conn(ctrls->rsktd_cskt, ctrls->rsktd_c_mp,
 			ctrls->num_ms, ctrls->ms_size, !ctrls->init_ms,
 			ctrls->rsktd_cskt_tst))
-		fprintf(stderr, "ERR:start_speer_conn failed\n");
+		CRIT("ERR:start_speer_conn failed\n");
 
 	/* Prepare and start library connection handling thread */
 	if (start_lib_handler(ctrls->rsktd_uskt, ctrls->rsktd_u_mp,
 			ctrls->rsktd_u_bklg, ctrls->rsktd_uskt_tst))
-		fprintf(stderr,"Error - start_lib_handler failed\n");
+		CRIT("Error - start_lib_handler failed\n");
 
 	/* Start fabric management thread */
 	if (start_fm_thread())
-		fprintf(stderr, "ERR:start_fm_thread failed\n");
+		CRIT("ERR:start_fm_thread failed\n");
 
 	/* Now that everything is running, try openning wpeers... */
 	/* First, the wpeers configured from the command line... */
 	open_wpeers_for_requests(ctrls->num_peers, ctrls->peers);
-
-/*
-	rc = fmdd_get_did_list(dd_h, &did_list_sz, &did_list);
-	if (!rc)
-		update_wpeer_list(did_list_sz, did_list);
-	fmdd_free_did_list(dd_h, &did_list);
-*/
 };
 
 int daemon_threads_failed(void)

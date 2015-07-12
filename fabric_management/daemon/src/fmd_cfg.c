@@ -62,6 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_dd.h"
 #include "fmd_cfg.h"
 #include "libcli.h"
+#include "liblog.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -296,7 +297,7 @@ const char *delim = " 	";
 void flush_comment(char *tok)
 {
 	while (NULL != tok) {
-		printf("%s ", tok);
+		DBG("%s ", tok);
 		tok = strtok(NULL, delim);
 		strip_crlf(tok);
 	};
@@ -323,7 +324,7 @@ char *try_get_next_token(struct fmd_cfg_parms *cfg)
 
 	while (!done) {
 		while ((NULL == rc) && (byte_cnt > 0)) {
-			printf("\n");
+			DBG("\n");
 			byte_cnt = LINE_SIZE;
 			byte_cnt = getline(&line, &byte_cnt, cfg->fmd_cfg_fd);
 			strip_crlf(line);
@@ -345,7 +346,7 @@ char *try_get_next_token(struct fmd_cfg_parms *cfg)
 	};
 
 	if (NULL != rc)
-		printf("%s ", rc);
+		DBG("%s ", rc);
 
 fail:
 	return rc;
@@ -353,7 +354,7 @@ fail:
 
 void parse_err(struct fmd_cfg_parms *cfg, char *err_msg)
 {
-	printf("\n%s\n", err_msg);
+	ERR("\n%s\n", err_msg);
 	cfg->init_err = 1;
 };
 
@@ -1286,7 +1287,7 @@ void fmd_parse_cfg(struct fmd_cfg_parms *cfg)
 			parse_connect(cfg);
 			break;
 		case 8: // "EOF"
-			printf((char *)"\n");
+			DBG((char *)"\n");
 			goto exit;
 			break;
 		default:
@@ -1304,22 +1305,22 @@ void fmd_process_cfg_file(struct fmd_cfg_parms *cfg)
 	if (NULL == cfg->fmd_cfg)
 		return;
 
-	printf("\nFMD: Openning configuration file \"%s\"...\n", cfg->fmd_cfg);
+	INFO("\nFMD: Openning configuration file \"%s\"...\n", cfg->fmd_cfg);
 	cfg->fmd_cfg_fd = fopen(cfg->fmd_cfg, "r");
 	if (NULL == cfg->fmd_cfg_fd) {
-		printf("FMD: Config file open failed, errno %d : %s\n",
+		CRIT("FMD: Config file open failed, errno %d : %s\n",
 				errno, strerror(errno));
 		cfg->init_and_quit = 1;
 		return;
 	};
 
-	printf("\nFMD: Config file contents:");
+	DBG("\nFMD: Config file contents:");
 	fmd_parse_cfg(cfg);
 
 	fclose(cfg->fmd_cfg_fd);
 	cfg->fmd_cfg_fd = NULL;
 	if (cfg->fmd_cfg_fd) {
-		printf("FMD: Config file close failed, errno %d : %s\n",
+		ERR("FMD: Config file close failed, errno %d : %s\n",
 				errno, strerror(errno));
 		cfg->init_and_quit = 1;
 	};

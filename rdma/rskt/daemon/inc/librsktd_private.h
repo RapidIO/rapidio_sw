@@ -60,6 +60,8 @@ extern "C" {
 #define DFLT_DMN_SBUF_SIZE 64
 #define DFLT_DMN_MS_SIZE 64
 
+#define DFLT_DMN_E_CLI_SKT 4343
+
 struct peer_rsktd_addr {
 	uint32_t ct;
         uint32_t cm_skt;
@@ -69,6 +71,7 @@ struct control_list {
         int debug;
         int print_help; /* -H, -h, ? If true, display help and exit */
         int run_cons; /* -B If true, run a local console thread */
+	int log_level; /* -l<x> Sets default log level, 0 for silence */
         int e_cli_skt; /* -e AF_INET socket for Ethernet remote console */
         int num_ms; /* -s Number of memory spaces to allocate */
         int ms_size; /* -S Size of each memory space */
@@ -77,7 +80,7 @@ struct control_list {
         int rsktd_uskt_tst; /* -t Test uskt mode */
         int rsktd_uskt; /* -u RSKTD AF_LOCAL socket for rskt library conns */
         int rsktd_u_mp; /* -m Local mport of RSKTD for rskt library conns */
-        int rsktd_u_bklg; /* -L Maximum backlog of connect requests */
+        int rsktd_u_bklg; /* -K Maximum backlog of connect requests */
         int rsktd_cskt_tst; /* -T Test uskt mode */
         int rsktd_cskt; /* -C CM socket for RSKTD peer connections */
         int rsktd_c_mp; /* -M Local mport of RSKTD peer connections */
