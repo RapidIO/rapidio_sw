@@ -101,7 +101,7 @@ struct fmd_mport_info {
 #define FMD_DFLT_MAST_DEVID 1
 #define FMD_DFLT_MAST_CM_PORT 4545
 #define FMD_DFLT_MAST_INTERVAL 5
-#define FMD_DFLT_CFG_FN "cfg/fmd.cfg"
+#define FMD_DFLT_CFG_FN "/etc/rapidio/fmd.conf"
 #define FMD_DFLT_DD_FN "/RIO_DEV_DIR_SM"
 #define FMD_DFLT_DD_MTX_FN "/RIO_DEV_DIR_MTX_SM"
 #define FMD_INVALID_CT 0
@@ -188,6 +188,7 @@ struct fmd_cfg_parms {
 	int cli_port_num;	/* POSIX Socket for remote CLI session */
 	int app_port_num;	/* POSIX Socket for applications to connect */
 	int run_cons;		/* Run a console on this daemon. */
+	int log_level;		/* Starting log level */
 	int mast_idx;		/* Idx of the mport_info that is master */
 	uint32_t max_mport_info_idx; /* Maximum number of mports */
 	struct fmd_mport_info mport_info[FMD_MAX_MPORTS]; 

@@ -65,7 +65,7 @@ public:
 	}
 
 	void dump_info() {
-		printf("%08X %016" PRIu64 " %08X %08X %016" PRIu64 "\n", msubid, rio_addr, size,
+		printf("%08X %016" PRIx64 " %08X %08X %016" PRIx64 "\n", msubid, rio_addr, size,
 							msid, phys_addr);
 	}
 

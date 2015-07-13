@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 
 /* Default paramters for RDMA */
-#define UNIX_PATH_RDMA	"rdma"
+#define UNIX_PATH_RDMA	"/usr/tmp/rdma"
 #define UNIX_SOCK_DEFAULT_BUFFER_SIZE	512
 #define UNIX_SOCK_DEFAULT_BACKLOG	5
 
@@ -138,7 +138,6 @@ protected:
 			ERR("'s' failed in send() due to large message size\n", name);
 			return -1;
 		}
-
 		if (::send(sock, send_buf, len, MSG_EOR) == -1) {
 			ERR("'%s' failed in send(): %s\n", name, strerror(errno));
 			return -errno;
@@ -280,10 +279,13 @@ public:
 	try : unix_base(name, sun_path)
 	{
 	}
-
 	catch(...)	/* Catch failures in unix_base::unix_base() */
 	{
 		throw unix_sock_exception("Failed in base constructor");
+	}
+
+	~unix_client()
+	{
 	}
 
 	int connect()

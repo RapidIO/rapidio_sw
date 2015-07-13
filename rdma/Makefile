@@ -35,14 +35,23 @@ level?=$(LOG_LEVEL)
 
 KDIR?=/usr/src/linux
 KERNINC=$(KDIR)/include
+TOP_LEVEL?=..
+COMMON_DIR?=$(TOP_LEVEL)/common
+INCLUDE_DIR?=$(TOP_LEVEL)/include
 MPORTLIB_PATH=../libmport
 MPORTLIB_INC=../include
 MPORTLIB=libmport.so
 MPORTLIB_HEADER=rapidio_mport_lib.h
-LIBCLI_PATH=../common/libs_a
+#LIBCLI_PATH=../common/libs_a
 LIBLOG_PATH=../common/libs_a
-TOP_LEVEL?=..
-
+LIB_DIRS = \
+	-L$(TOP_LEVEL)/fabric_management/libfmdd \
+	-L$(COMMON_DIR)/libs_a \
+	-L$(INCLUDE_DIR)/libs_a \
+	-L$(COMMON_DIR)/libs_so \
+	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
+	-L$(TOP_LEVEL)/fabric_management/libdd \
+	-L$(TOP_LEVEL)/fabric_management/librio_maint 
 
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
@@ -56,8 +65,7 @@ RDMAD_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -g -ggdb -O3 \
 		-I../common/libcli/inc \
 		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
 
-RDMAD_SOURCES = rdmad_rpc.c rdmad_xdr.c \
-		src/rdma_mq_msg.c \
+RDMAD_SOURCES = src/rdma_mq_msg.c \
 		daemon/src/rdmad_svc.cpp \
 		daemon/src/rdmad_main.cpp \
 		daemon/src/rdmad_console.c \
@@ -65,26 +73,28 @@ RDMAD_SOURCES = rdmad_rpc.c rdmad_xdr.c \
 		daemon/src/rdmad_mspace.cpp \
 		daemon/src/rdmad_inbound.cpp \
 		daemon/src/rdmad_srvr_threads.cpp \
-		daemon/src/rdmad_clnt_threads.cpp
+		daemon/src/rdmad_clnt_threads.cpp \
+		daemon/src/rdmad_fm.cpp
 
 # RDMA Library flags, sources and objects
 RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
+		-Idaemon/inc \
 		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3 -rdynamic -lnsl
 
 RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb \
+		-Idaemon/inc \
 		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3
 
-RDMALIB_SOURCES = rdmad_xdr.c rdmalib_rpc.c \
-		lib/src/librdma.cpp \
+RDMALIB_SOURCES = lib/src/librdma.cpp \
 		lib/src/librdma_db.cpp \
 		src/rdma_mq_msg.c
 
-RDMALIB_OBJS    = rdmad_xdr.o rdmalib_rpc.o librdma.o librdma_db.o rdma_mq_msg.o
+RDMALIB_OBJS    = librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: librdma.a rdmad rsktd test
+all: librdma.a rdmad rsktd test samples
 
 test: rdmad librdma.a
 	$(MAKE) all -C test
@@ -103,7 +113,7 @@ librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	@echo ---------- Building librdma.so ----------
 	$(CXX) $(RDMALIB_SHARED_CFLAGS) $(RDMALIB_SOURCES)
 	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
-	-Wl,-rpath=$(LIBLOG_PATH) -o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog -pthread
+	-o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog -pthread
 
 # The RDMA static library
 librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
@@ -113,35 +123,25 @@ librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	ar rcs librdma.a $(RDMALIB_OBJS)
 	mkdir -p $(TOP_LEVEL)/include/libs_a
 	cp librdma.a $(TOP_LEVEL)/include/libs_a
+#Generate preprocessor output
+	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I$(KERNINC) -I../common/include -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
 
 # The RDMA daemon (the RPC server)
-rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h \
-	daemon/src/*.h $(LIBCLI_PATH)/libcli.a $(LIBLOG_PATH)/liblog.a ../common/include
+rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR)/libs_a/* $(INCLUDE_DIR)/libs_a/* \
+	daemon/src/*.h $(INCLUDE_DIR)/*.h
 
 	@echo ---------- Building the RDMA Daemon...
-	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBCLI_PATH) -L$(LIBLOG_PATH) \
-	-Wl,-rpath=$(MPORTLIB_PATH) -Wl,-rpath=$(LIBCLI_PATH) -Wl,-rpath=$(LIBLOG_PATH) \
-	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -lmport -lrt -lcli -llog -pthread
+	$(CXX) -L../common/liblist/ $(LIB_DIRS) -L$(MPORTLIB_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
+	-Wl,-rpath=$(TOP_LEVEL)/common/liblist \
+	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -llist -lmport -lrt -lcli -llog -lfmdd -ldd -lriocp_pe -pthread
+# Building preprocessor output for select files.
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_main.cpp > rdmad_main.i
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_svc.cpp > rdmad_svc.i
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_srvr_threads.cpp > rdmad_srvr_threads.i
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_clnt_threads.cpp > rdmad_clnt_threads.i
 
-# RPC-generated files
-rdmalib_rpc.c: rdmad.x rdmad.h
-	rpcgen rdmad.x -l > rdmalib_rpc.c
-rdmad_rpc.c: rdmad.x rdmad.h
-	rpcgen rdmad.x -m > rdmad_rpc.c
-rdmad.h: rdmad.x
-	rpcgen rdmad.x -h > rdmad.h
-rdmad_xdr.c: rdmad.x rdmad.h
-	rpcgen rdmad.x -c > rdmad_xdr.c
-	rm -f rdmad_xdr.b
-	mv rdmad_xdr.c rdmad_xdr.b
-	perl remove_buf.pl
-
 clean:
-	rm -f rdmalib_rpc.c rdmad_rpc.c rdmad_xdr.c rdmad.h rdmad *.o rdmad_xdr.b librdma.so *.i
+	rm -f rdmad *.o librdma.so *.i
 	$(MAKE) clean -C rskt
 	$(MAKE) clean -C samples
 	$(MAKE) clean -C test

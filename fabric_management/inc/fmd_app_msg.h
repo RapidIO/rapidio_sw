@@ -50,11 +50,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MAX_DD_FN_SZ 63
 #define MAX_DD_MTX_FN_SZ 63
 
-/* Requests sent from library to RSKTD */
+/* Requests sent from library to FMD */
 
 struct fmd_app_hello_req {
 	char app_name[MAX_APP_NAME+1];
 	uint32_t app_pid;
+	uint32_t flag;
 };
 
 struct fmd_app_hello_resp {
@@ -65,7 +66,7 @@ struct fmd_app_hello_resp {
 
 /* Format of messages that can be sent by the library */
 
-struct libfmd_dmn_app_msg { /* Messages sent FROM application TO RSKTD */
+struct libfmd_dmn_app_msg { /* Messages sent FROM application TO FMD */
         uint32_t msg_type;
 	union {
 		struct fmd_app_hello_req hello_req;

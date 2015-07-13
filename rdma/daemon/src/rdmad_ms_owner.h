@@ -86,12 +86,11 @@ public:
 	}
 
 	/* Removes handle of memory space from list of owned spaces */
-	int remove_msid(uint32_t msid) {
-		vector<uint32_t>::iterator it;
-
+	int remove_msid(uint32_t msid)
+	{
 		/* Find memory space by the handle, return error if not there */
-		it = find(msid_list.begin(), msid_list.end(), msid);
-		if (it == msid_list.end()) {
+		auto it = find(begin(msid_list), end(msid_list), msid);
+		if (it == end(msid_list)) {
 			WARN("0x%X not owned by 0x%X\n", msid, msoid);
 			return -1;
 		}

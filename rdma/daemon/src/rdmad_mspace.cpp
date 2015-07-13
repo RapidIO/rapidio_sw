@@ -79,7 +79,7 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 		name(name), msid(msid), rio_addr(rio_addr), phys_addr(phys_addr),
 		size(size), free(true), ms_open_id(MS_OPEN_ID_START), accepted(false)
 {
-	DBG("name=%s, msid=0x%08X, rio_addr=0x%lX, size=0x%lX\n",
+	INFO("name=%s, msid=0x%08X, rio_addr=0x%lX, size=0x%lX\n",
 					name, msid, rio_addr, size);
 
 	/* Initially all free list sub-indexes are available */
@@ -147,7 +147,7 @@ int mspace::remove_destid(uint16_t destid)
 /* Debugging */
 void mspace::dump_info()
 {
-	printf("%34s %08X %016" PRIu64 " %08X\n", name.c_str(),msid, rio_addr, size);
+	printf("%34s %08X %016" PRIx64 " %08X\n", name.c_str(),msid, rio_addr, size);
 	printf("destids: ");
 	for_each(begin(destids), end(destids), [](uint16_t destid) { printf("%u ", destid); });
 	printf("\n");
@@ -248,7 +248,8 @@ int mspace::close_connections()
 {
 	send_close_msg	send_close(msid);
 
-	INFO("Sending messages for all apps which have 'open'ed this ms\n");
+	HIGH("Sending close messages to apps which have 'open'ed '%s'\n",
+			name.c_str());
 
 	/* Send messages for all connections indicating mso will be destroyed */
 	for_each(begin(users_mq_list), end(users_mq_list), send_close);

@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <netinet/in.h>
 
+#include "liblist.h"
 #include "libcli.h"
 #include "fmd_app_msg.h"
 #include "fmd_dd.h"
@@ -57,12 +58,12 @@ extern "C" {
 
 struct fml_globals fml;
 
-int open_socket_to_fmd(void )
+int open_socket_to_fmd(void)
 {
 	if (!fml.fd) {
 		fml.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 		if (-1 == fml.fd) {
-			perror("ERROR on libfm_init socket");
+			CRIT("ERROR on libfm_init socket\n");
 			goto fail;
 		};
 		fml.addr_sz = sizeof(struct sockaddr_un);
@@ -73,7 +74,7 @@ int open_socket_to_fmd(void )
 			FMD_APP_MSG_SKT_FMT, fml.portno);
 		if (connect(fml.fd, (struct sockaddr *) &fml.addr, 
 				fml.addr_sz)) {
-			perror("ERROR on libfm_init connect");
+			CRIT("ERROR on libfm_init connect\n");
 			goto fail;
 		};
 	};
@@ -85,6 +86,7 @@ fail:
 int get_dd_names_from_fmd(void)
 {
 	fml.req.msg_type = htonl(FMD_REQ_HELLO);
+	fml.req.hello_req.flag = htonl(fml.flag);
 	fml.req.hello_req.app_pid = htonl(getpid());
 	memset(fml.req.hello_req.app_name, 0, MAX_APP_NAME+1);
 	strncpy(fml.req.hello_req.app_name, fml.app_name, MAX_APP_NAME);
@@ -127,11 +129,12 @@ fail:
 
 void notify_app_of_events(void);
 
-void shutdown_fml(void)
+void shutdown_fml(fmdd_h dd_h)
 {
 	fml.mon_must_die = 1;
 
-	notify_app_of_events();
+	if (dd_h == &fml)
+		notify_app_of_events();
 
 	if (fml.dd_mtx != NULL) {
 		if (fml.dd_mtx->dd_ev[fml.app_idx].waiting) {
@@ -170,28 +173,40 @@ void init_devid_status(void)
         uint32_t i;
 
         for (i = 0; i < FMD_MAX_DEVS; i++)
-                fml.devid_status[i] = CHK_NOK;
+                fml.devid_status[i] = FMDD_FLAG_NOK;
 };
 
-void update_devid_status(void)
+int update_devid_status(void)
 {
         uint32_t i, j, found;
+	uint32_t changed = 0;
 
         for (i = 0; i < FMD_MAX_DEVS; i++) {
                 found = 0;
                 for (j = 0; j < fml.num_devs; j++) {
                         if (fml.devs[j].destID == i) {
+				uint8_t temp_flag = FMDD_FLAG_OK;
+				temp_flag |= fml.devs[j].flag;
+
 				if (fml.devs[j].is_mast_pt) 
-                                	fml.devid_status[i] = CHK_OK_MP;
-				else
-                                	fml.devid_status[i] = CHK_OK;
+                                	temp_flag |= FMDD_FLAG_OK_MP;
+
+				if (fml.devid_status[i] != temp_flag) {
+                                	fml.devid_status[i] = temp_flag;
+					changed = 1;
+				};
                                 found = 1;
                                 break;
                         };
                 };
-                if (!found)
-                        fml.devid_status[i] = CHK_NOK;
+                if (!found) {
+			if (FMDD_FLAG_NOK != fml.devid_status[i]) {
+                        	fml.devid_status[i] = FMDD_FLAG_NOK;
+				changed = 1;
+			};
+		};
         };
+	return changed;
 };
 
 void notify_app_of_events(void)
@@ -233,17 +248,17 @@ void *mon_loop(void *parms)
 		if (0 >= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
 					fml.devs, FMD_MAX_DEVS))
 			goto exit;
-		update_devid_status();
-		notify_app_of_events();
+		if (update_devid_status())
+			notify_app_of_events();
 	} while (fml.num_devs && !fml.mon_must_die && fml.mon_alive);
 exit:
 	fml.mon_alive = 0;
 	notify_app_of_events();
-	shutdown_fml();
+	shutdown_fml(&fml);
 	return parms;
 };
 
-fmdd_h fmdd_get_handle(char *my_name)
+fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 {
 	if (!fml.portno) {
 		fml.portno = FMD_DEFAULT_SKT;
@@ -252,6 +267,7 @@ fmdd_h fmdd_get_handle(char *my_name)
 
 	if (!fml.mon_alive) {
 		sem_init(&fml.pend_waits_mtx, 0, 1);
+		fml.flag = flag;
 		l_init(&fml.pend_waits);
 		if (open_socket_to_fmd())
 			goto fail;
@@ -266,7 +282,7 @@ fmdd_h fmdd_get_handle(char *my_name)
 		/* Startup the connection monitoring thread */
 		if (pthread_create( &fml.mon_thr, NULL, mon_loop, NULL)) {
 			fml.all_must_die = 1;
-			perror("ERROR:fmdd_get_handle, mon_loop thread");
+			CRIT("ERROR:fmdd_get_handle, mon_loop thread\n");
 			goto fail;
 		};
 		sem_wait(&fml.mon_started);
@@ -275,17 +291,17 @@ fmdd_h fmdd_get_handle(char *my_name)
 	if (fml.mon_alive)
 		return (void *)&fml;
 fail:
-	shutdown_fml();
+	shutdown_fml(NULL);
 	return NULL;
 };
 
 void fmdd_destroy_handle(fmdd_h *dd_h)
 {
-	shutdown_fml();
+	shutdown_fml(dd_h);
 	*dd_h = NULL;
 };
 
-int fmdd_check_ct(fmdd_h h, uint32_t ct)
+uint8_t fmdd_check_ct(fmdd_h h, uint32_t ct, uint8_t flag)
 {
 	uint32_t i;
 
@@ -294,17 +310,14 @@ int fmdd_check_ct(fmdd_h h, uint32_t ct)
 
 	for (i = 0; i < fml.num_devs; i++) {
 		if (fml.devs[i].ct == ct) {
-			if (fml.devs[i].is_mast_pt)
-				return CHK_OK_MP;
-			else
-				return CHK_OK;
+			return flag & fml.devid_status[fml.devs[i].destID];
 		};
 	};
 fail:
-	return CHK_NOK;
+	return FMDD_FLAG_NOK;
 };
 
-int fmdd_check_did(fmdd_h h, uint32_t did)
+uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag)
 {
 	if (h != &fml)
 		goto fail;
@@ -312,22 +325,24 @@ int fmdd_check_did(fmdd_h h, uint32_t did)
 	if (did >= FMD_MAX_DEVS)
 		goto fail;
 
-	return fml.devid_status[did];
-
+	return flag & fml.devid_status[did];
 fail:
-	return CHK_NOK;
+	return FMDD_FLAG_NOK;
 };
 
 int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 {
 	uint32_t i, cnt = 0, idx = 0;
+	uint8_t flag;
 
 	if (h != &fml)
 		goto fail;
 
-	for (i = 0; i < fml.num_devs; i++)
-		if (!(fml.devs[i].is_mast_pt) && !(0xff == fml.devs[i].hc))
+	for (i = 0; i < FML_MAX_DESTIDS; i++) {
+		flag = fmdd_check_did(h, i, FMDD_FLAG_OK_MP);
+		if (flag && (FMDD_FLAG_OK_MP != flag))
 			cnt++;
+	};
 
 	*did_list_sz = cnt;
 
@@ -336,10 +351,11 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 		goto exit;
 	};
 
-	*did_list = (uint32_t *)malloc(sizeof(uint32_t) * fml.num_devs);
-	for (i = 0; i < fml.num_devs; i++) {
-		if (!(fml.devs[i].is_mast_pt) && !(0xff == fml.devs[i].hc)) {
-			(*did_list)[idx] = fml.devs[i].destID;
+	*did_list = (uint32_t *)malloc(sizeof(uint32_t) * cnt);
+	for (i = 0; i < FML_MAX_DESTIDS; i++) {
+		flag = fmdd_check_did(h, i, FMDD_FLAG_OK_MP);
+		if (flag && (FMDD_FLAG_OK_MP != flag)) {
+			(*did_list)[idx] = i;
 			idx++;
 		};
 	};
@@ -354,7 +370,8 @@ int fmdd_free_did_list(fmdd_h h, uint32_t **did_list)
 	if (h != &fml)
 		goto fail;
 
-	free(*did_list);
+	if (NULL != *did_list)
+		free(*did_list);
 	*did_list = NULL;
 
 	return 0;

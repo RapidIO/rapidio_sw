@@ -1,7 +1,7 @@
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -30,40 +30,54 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef RDMAD_RDAEMON_H
-#define RDMAD_RDAEMON_H
+
+#ifndef PCIE_UTILS_H
+#define PCIE_UTILS_H
 
 #include <stdint.h>
-#include <pthread.h>
-#include <semaphore.h>
 
-#include "rdmad_cm.h"
-#include "cm_sock.h"
-#include "msg_q.h"
+#include "peer_utils.h"
+#include "debug.h"
+
+int pcie_bar0_map(struct peer_info *peer);
+
+void pcie_bar0_unmap(struct peer_info *peer);
+
+int pcie_bar2_map(struct peer_info *peer);
+
+void pcie_bar2_unmap(struct peer_info *peer);
 
 
-struct rdaemon_t {
-	uint32_t destid;
-	uint8_t destid_len;
-	cm_client *main_client;
-	pthread_t wait_accept_thread;
-	sem_t	cm_wait_accept_sem;
-};
+static inline void bar2_write_8(struct peer_info *peer, uint32_t offset, uint8_t data)
+{
+   *((volatile uint8_t *)((uint8_t *)peer->bar2_base_ptr + offset)) = data;
+}
 
-struct rdaemon_has_destid {
-	rdaemon_has_destid(uint32_t destid) : destid(destid) {}
+static inline void bar2_write_16(struct peer_info *peer, uint32_t offset, uint16_t data)
+{
+   *((volatile uint16_t *)((uint8_t *)peer->bar2_base_ptr + offset)) = data;
+}
 
-	bool operator()(rdaemon_t *rdp) {
-		return rdp->destid == this->destid;
-	}
-private:
-	uint32_t destid;
-};
+static inline void bar2_write_32(struct peer_info *peer, uint32_t offset, uint32_t data)
+{
+   *((volatile uint32_t *)((uint8_t *)peer->bar2_base_ptr + offset)) = data;
+}
 
-struct rdaemon_sem_post {
-	void operator()(rdaemon_t *rdp) {
-		sem_post(&rdp->cm_wait_accept_sem);
-	}
-};
+static inline uint8_t bar2_read_8(struct peer_info *peer, uint32_t offset)
+{
+   return *((volatile uint8_t *)((uint8_t *)peer->bar2_base_ptr + offset));
+}
+
+static inline uint16_t bar2_read_16(struct peer_info *peer, uint32_t offset)
+{
+   return *((volatile uint16_t *)((uint8_t *)peer->bar2_base_ptr + offset));
+}
+
+static inline uint32_t bar2_read_32(struct peer_info *peer, uint32_t offset)
+{
+   return *((volatile uint32_t *)((uint8_t *)peer->bar2_base_ptr + offset));
+}
+
 
 #endif
+

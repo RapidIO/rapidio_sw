@@ -67,8 +67,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libfmdd.h"
 #include "librsktd_fm.h"
 
-#define DFLT_DMN_E_CLI_SKT 3333
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -116,10 +114,13 @@ void print_daemon_help(void)
 	printf("	 The default value is %d.\n", DFLT_DMN_LSKT_MPORT);
 	printf("	 The u_skt and Umport value must be correct for\n");
 	printf("	 the rskt library to operate correctly.\n");
-	printf("-L <bklg>: Maximum connect request backlog for uskt.\n");
+	printf("-K <bklg>: Maximum connect request backlog for uskt.\n");
 	printf("	 The default value is %d.\n", DFLT_DMN_LSKT_BACKLOG);
 	printf("	 The u_skt and Umport value must be correct for\n");
 	printf("	 the rskt library to operate correctly.\n");
+	printf("-l<loglv>: Current logging level to use.\n");
+	printf("	   Default is set to match makefile RDMA_LL parm.\n");
+	printf("	   Current default value is %d\n", RDMA_LL);
 	printf("-C <cm_skt>: The RSKT daemon listens for connect requests\n");
 	printf("	 on RapidIO Channel Manager socket <cm_skt>.\n");
 	printf("	 The default value is %d.\n", DFLT_DMN_CM_CONN_SKT);
@@ -144,6 +145,7 @@ void parse_options(int argc, char *argv[])
 	ctrls.debug = 0;
 	ctrls.print_help = 0;
 	ctrls.run_cons = 1;
+	ctrls.log_level = RDMA_LL;
 	ctrls.e_cli_skt = DFLT_DMN_E_CLI_SKT;
 	ctrls.num_ms = DFLT_DMN_NUM_MS;
 	ctrls.ms_size = DFLT_DMN_MS_SIZE;
@@ -265,7 +267,7 @@ void parse_options(int argc, char *argv[])
 				printf("\n<mport> invalid\n");
 				ctrls.print_help = 1;
 				goto exit;
-			case 'L': if (argc < (idx+1)) {
+			case 'K': if (argc < (idx+1)) {
 					  printf("\n<bklg> not specified\n");
 					  ctrls.print_help = 1;
 					  goto exit;
@@ -277,6 +279,14 @@ void parse_options(int argc, char *argv[])
 					  ctrls.print_help = 1;
 					  goto exit;
 				};
+				break;
+			case 'l': if ((argv[idx][2] <'0') ||
+					(argv[idx][2] >'7')) {
+					  printf("\n<loglvl> not specified\n");
+					  ctrls.print_help = 1;
+					  goto exit;
+				};
+				ctrls.log_level = argv[idx][2] - '0';
 				break;
 			case 'C': if (argc < (idx+1)) {
 					  printf("\n<cm_skt> not specified\n");
@@ -366,47 +376,6 @@ void quit_command_customization(struct cli_env *env)
 	rskt_daemon_shutdown();
 };
 	
-void *console(void *cons_parm)
-{
-	struct cli_env cons_env;
-	int rc;
-	int *prc;
-
-	cons_env.script = NULL;
-	cons_env.fout = NULL;
-	bzero(cons_env.output, BUFLEN);
-	bzero(cons_env.input, BUFLEN);
-	cons_env.DebugLevel = 0;
-	cons_env.progressState = 0;
-	cons_env.sess_socket = -1;
-	cons_env.h = NULL;
-	cons_env.cmd_prev = NULL;
-	bzero(cons_env.prompt, PROMPTLEN+1);
-	set_prompt( &cons_env );
-
-	cli_init_base(quit_command_customization);
-	librsktd_bind_cli_cmds();
-	liblog_bind_cli_cmds();
-	fmdd_bind_dbg_cmds(dd_h);
-
-	splashScreen((char *)"RDMA Socket Daemon Console");
-
-	cli.cons_alive = 1;
-	
-	rc = cli_terminal(&cons_env);
-
-	rskt_daemon_shutdown();
-
-	printf("\nConsole EXITING\n");
-	cli.cons_alive = 0;
-
-	/* For return code to be checked in pthread_join() */
-	prc = (int *)malloc(sizeof(int));
-	if (prc)
-		*prc = rc;
-	pthread_exit(prc);
-}; /* console() */
-
 void *cli_session( void *rc_ptr )
 {
 	char buffer[256];
@@ -464,9 +433,9 @@ void *cli_session( void *rc_ptr )
 			goto fail;
 		};
 		env.sess_socket = cli.cli_sess_fd;
-		printf("\nRSKTD Starting session %d\n", cli.cli_sess_num);
+		INFO("\nRSKTD Starting session %d\n", cli.cli_sess_num);
 		cli_terminal( &env );
-		printf("\nRSKTD Finishing session %d\n", cli.cli_sess_num);
+		INFO("\nRSKTD Finishing session %d\n", cli.cli_sess_num);
 		if (cli.cli_sess_fd > 0)
 			close(cli.cli_sess_fd);
 		cli.cli_sess_fd = -1;
@@ -475,7 +444,7 @@ void *cli_session( void *rc_ptr )
 fail:
 	cli.cli_alive = 0;
 	if (ctrls.debug)
-		printf("\nRSKTD REMOTE CLI Thread Exiting\n");
+		INFO("\nRSKTD REMOTE CLI Thread Exiting\n");
 
 	if (cli.cli_sess_fd > 0) {
 		close(cli.cli_sess_fd);
@@ -503,10 +472,20 @@ void spawn_threads(void)
 	cli.cli_alive = 0;
 	cli.cons_alive = 0;
 
+	cli_init_base(quit_command_customization);
+	librsktd_bind_cli_cmds();
+	liblog_bind_cli_cmds();
+	/* FIXME: The call to fmdd_bind_dbg_cmds(dd_h);  should go here,
+	* but due to the exigencies of the initialization sequence it's
+	* actually done in librkstd_fm.c.
+	*/
+
 	/* Prepare and start console thread */
 	if (ctrls.run_cons) {
+		splashScreen((char *)"RDMA Socket Daemon Console");
 		console_ret = pthread_create( &cli.cons_thread, NULL, 
-						console, NULL);
+						console, 
+					(void *)((char *)"RSKTD > "));
 		if(console_ret) {
 			CRIT("Failed to create console_thread: %s\n", strerror(console_ret));
 			exit(EXIT_FAILURE);
@@ -550,9 +529,9 @@ void rskt_daemon_shutdown(void)
 
 void sig_handler(int signo)
 {
-	printf("\nRx Signal %x\n", signo);
+	INFO("\nRx Signal %x\n", signo);
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
-		printf("Shutting down\n");
+		INFO("Shutting down\n");
 		rskt_daemon_shutdown();
 	};
 };
@@ -569,10 +548,14 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
 
+	rdma_log_init("rsktd_log.txt", 1);
+
 	cli.all_must_die = 0;
 	cli.cli_alive = 0;
 
 	parse_options(argc, argv);
+
+	g_level = ctrls.log_level;
 	
 	if (ctrls.print_help) {
 		print_daemon_help();

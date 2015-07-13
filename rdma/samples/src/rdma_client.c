@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "test_macros.h"
 
@@ -25,6 +27,29 @@ uint8_t circ_buf[8][8] ={ {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11},
 			};
 #define CIRC_BUF_LEN	8
 
+/**
+ * Given two timespec structs, subtract them and return a timespec containing
+ * the difference
+ *
+ * @start     start time
+ * @end       end time
+ *
+ * @returns         difference
+ */
+struct timespec time_difference( struct timespec start, struct timespec end )
+{
+	struct timespec temp;
+
+	if ((end.tv_nsec-start.tv_nsec)<0) {
+		temp.tv_sec = end.tv_sec-start.tv_sec-1;
+		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+	} else {
+		temp.tv_sec = end.tv_sec-start.tv_sec;
+		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+	}
+	return temp;
+} /* time_difference() */
+
 void test_case1(uint16_t destid,
 		uint32_t msub_ofs,
 		uint32_t ofs_in_loc_msub,
@@ -44,6 +69,7 @@ void test_case1(uint16_t destid,
 	struct rdma_xfer_ms_in	 in;
 	struct rdma_xfer_ms_out out;
 	uint8_t	*p;
+	struct timespec before, after, diff;
 
 	/* Create owner */
 	status = rdma_create_mso_h(MSO_NAME, &msoh);
@@ -62,14 +88,30 @@ void test_case1(uint16_t destid,
 	CHECK_AND_GOTO(status, "rdma_create_msub_h", destroy_msubh1);
 
 	/* Connect to server */
+	clock_gettime(CLOCK_MONOTONIC, &before);
 	status = rdma_conn_ms_h(16, destid, "sspace1", msubh1, &rem_msubh,
 						&rem_msub_len, &rem_msh, 0);
+	clock_gettime(CLOCK_MONOTONIC, &after);
 	CHECK_AND_GOTO(status, "rdma_conn_ms_h", unmap_subspace1);
+	diff = time_difference(before, after);
+	printf("Time to connect = %ld seconds, %ld nanoseconds\n",
+			diff.tv_sec, diff.tv_nsec);
 
 	/* Pause, and get user input to sync with server */
 	puts("Press ENTER to send DMA data to server...");
 	getchar();
 
+	printf("Sync type is: ");
+	switch(sync_type) {
+	case rdma_no_wait:
+		printf("FAF\n");
+		break;
+	case rdma_async_chk:
+		printf("ASYNC\n");
+		break;
+	case rdma_sync_chk:
+		printf("SYNC\n");
+	}
 
 	/* Prepare DMA data */
 	p = (uint8_t *)vaddr1;
@@ -88,6 +130,7 @@ void test_case1(uint16_t destid,
 		in.sync_type = sync_type;
 
 		/* Transfer DMA data */
+		clock_gettime(CLOCK_MONOTONIC, &before);
 		status = rdma_push_msub(&in, &out);
 		CHECK_AND_GOTO(status, "rdma_push_msub", disconnect_rem_msh);
 
@@ -98,6 +141,10 @@ void test_case1(uint16_t destid,
 				return;
 			}
 		}
+		clock_gettime(CLOCK_MONOTONIC, &after);
+		diff = time_difference(before, after);
+		printf("Time to push %d bytes = %ld seconds, %ld nanoseconds\n",
+				in.num_bytes, diff.tv_sec, diff.tv_nsec);
 
 		/* Pause, and get user input to sync with server */
 		puts("Press ENTER to recieve DMA data from server...");
@@ -118,6 +165,7 @@ void test_case1(uint16_t destid,
 		in.sync_type  = sync_type; /* Blocking */
 
 		/* Read DMA data */
+		clock_gettime(CLOCK_MONOTONIC, &before);
 		status = rdma_pull_msub(&in, &out);
 		CHECK_AND_GOTO(status, "rdma_pull_msub", disconnect_rem_msh);
 
@@ -128,6 +176,10 @@ void test_case1(uint16_t destid,
 				return;
 			}
 		}
+		clock_gettime(CLOCK_MONOTONIC, &after);
+		diff = time_difference(before, after);
+		printf("Time to pull %d bytes = %ld seconds, %ld nanoseconds\n",
+				in.num_bytes, diff.tv_sec, diff.tv_nsec);
 
 		/* Display received data */
 		for (i = 0; i < CIRC_BUF_LEN; i++) {
@@ -139,7 +191,12 @@ void test_case1(uint16_t destid,
 	getchar();
 
 disconnect_rem_msh:
+	clock_gettime(CLOCK_MONOTONIC, &before);
 	status = rdma_disc_ms_h(rem_msh, msubh1);
+	clock_gettime(CLOCK_MONOTONIC, &after);
+	diff = time_difference(before, after);
+	printf("Send disconnect: %ld seconds, %ld nanoseconds\n",
+			diff.tv_sec, diff.tv_nsec);
 	CHECK(status, "rdma_disc_ms_h");
 
 unmap_subspace1:

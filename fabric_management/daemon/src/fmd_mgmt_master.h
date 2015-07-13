@@ -50,6 +50,7 @@ extern "C" {
 struct fmd_peer {
 	uint32_t cm_skt;
 
+	int skt_h_valid;
 	riodp_socket_t cm_skt_h;
 	char peer_name[MAX_P_NAME+1];
 	uint32_t p_pid;
@@ -124,6 +125,8 @@ int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
 	uint32_t mast_did, uint32_t master);
 
 void shutdown_mgmt(void);
+
+void update_peer_flags(void);
 
 #ifdef __cplusplus
 }

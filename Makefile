@@ -52,7 +52,7 @@ export CXX
 TOP_LEVEL = $(shell pwd)
 export TOP_LEVEL
 
-TARGETS = common libmport rdma fabric_management
+TARGETS = common libmport fabric_management rdma 
 
 all: $(TARGETS)
 

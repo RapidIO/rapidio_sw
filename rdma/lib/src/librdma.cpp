@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/signal.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include <algorithm>
 #include <iostream>
@@ -52,33 +53,27 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_lib.h"
 #include "rdma_types.h"
 #include "liblog.h"
-#include "rdmad.h"
 #include "rdma_mq_msg.h"
 #include "msg_q.h"
 
 #include "librdma.h"
 #include "librdma_db.h"
-
-/* Macro to simplify RPC calls */
-#define CALL_RPC(func, in, out, ret_if_null, ret_if_fail) \
-out = func##_1(&in, client);			  \
-if (out == (func##_output *)NULL) {	\
-	ERR(#func "_1() call failed\n");	\
-	clnt_perror(client, "call failed");	\
-	return ret_if_null; \
-}	\
-if (out->status) { \
-	ERR(#func "_1() failed with code: %d\n", out->status);	\
-	return ret_if_fail;	\
-}
+#include "unix_sock.h"
+#include "rdmad_unix_msg.h"
 
 using namespace std;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static unsigned init = 0;	/* Global flag indicating library initialized */
 
-static const char *rpc_host = "localhost";
-
-static CLIENT *client;	/* RPC client */
+/* Unix socket client */
+static unix_client *client;
+static unix_msg_t  *in_msg;
+static unix_msg_t  *out_msg;
+static size_t	    received_len;
 
 /** 
  * Global info related to mports and channelized messages.
@@ -107,18 +102,46 @@ static uint32_t round_up_to_4k(uint32_t length)
 	return (r == 0) ? FOUR_K*q : FOUR_K*(q + 1);
 } /* round_up_to_4k() */
 
+static int alt_rpc_call()
+{
+	/* Send input parameters */
+	if (client->send(sizeof(*in_msg))) {
+		ERR("Failed to send message to RDMA daemon\n");
+		return -3;
+	}
+
+	/* Receive output parameters */
+	if (client->receive(&received_len)) {
+		ERR("Failed to receive output from RDMA daemon");
+		return -4;
+	}
+	INFO("Received %d bytes\n", received_len);
+	return 0;
+}
+
 static int open_mport(struct peer_info *peer)
 {
-	get_mport_id_output	*out;
+	get_mport_id_output	out;
 	get_mport_id_input	in;
 	int flags = 0;
 	struct riodp_mport_properties prop;
 
-	/* RPC call, and check return value */
-	CALL_RPC(get_mport_id, in, out, -1, -2);
+	DBG("ENTER\n");
+
+	/* Set up Unix message parameters */
+	in.dummy = 0x1234;
+	in_msg->type = GET_MPORT_ID;
+	in_msg->get_mport_id_in = in;
+
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+
+	out = out_msg->get_mport_id_out;
 
 	/* Get the mport ID */
-	peer->mport_id = out->mport_id;
+	peer->mport_id = out.mport_id;
 	INFO("Using mport_id = %d\n", peer->mport_id);
 
 	/* Now open the port */
@@ -236,6 +259,7 @@ static void *wait_for_disc_thread_f(void *arg)
 	INFO("Waiting for DISconnect message...\n");
 	if (mq_receive(mq, mq_rcv_buf, MQ_RCV_BUF_SIZE, NULL) == -1) {
 		ERR("mq_receive() failed: %s", strerror(errno));
+		mq_close(mq);
 		pthread_exit(0);
 	}
 
@@ -263,34 +287,35 @@ static void *wait_for_disc_thread_f(void *arg)
 						disc_msg->client_msubid);
 	}
 
+	mq_close(mq);
 	INFO("Exiting\n");
 	pthread_exit(0);
 } /* wait_for_disc_thread_f() */
 
 __attribute__((constructor)) int rdma_lib_init(void)
 {
-	struct timeval	timeout;
-
 	/* Initialize the logger */
 	rdma_log_init("librdma.log", 0);
 
-	/* Create RPC client */
-	client = clnt_create(rpc_host, RDMAD, RDMAD_1, "udp");
-	if (client == NULL) {
-		CRIT("RPC clnt_create() call failed\n");
-		clnt_pcreateerror(rpc_host);
-		return -1;
+	/* Create a client */
+	DBG("Creating client object...\n");
+	try {
+		client = new unix_client();
+	}
+	catch(unix_sock_exception e) {
+		CRIT("%s\n", e.err);
+		return -2;
 	}
 
-	/* Set RPC timeout value */
-	timeout.tv_sec = 3600;	/* One hour! */	
-	timeout.tv_usec = 0;
-	clnt_control(client, CLSET_TIMEOUT, (char *)&timeout);
+	/* Connect to server */
+	if( client->connect()) {
+		CRIT("Failed to connect to Unix socket server on RDMA daemon\n");
+		return -3;
+	}
+	INFO("Successfully connected to RDMA daemon\n");
 
-	/* Read back and verify RPC timeout value */
-	timeout.tv_sec = 0;	/* Clear before reading */
-	clnt_control(client, CLGET_TIMEOUT, (char *)&timeout);
-	DBG("RPC timeout = %lu seconds\n", timeout.tv_sec);
+	client->get_recv_buffer((void **)&out_msg);
+	client->get_send_buffer((void **)&in_msg);
 
 	/* Initialize message queue attributes */
 	init_mq_attribs();
@@ -314,7 +339,9 @@ __attribute__((constructor)) int rdma_lib_init(void)
 int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 {
 	create_mso_input	in;
-	create_mso_output	*out;
+	create_mso_output	out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -328,20 +355,34 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 		return -2;
 	}
 
-	/* Set up input parameters */
-	in.owner_name 	= (char *)owner_name;
-
-	/* RPC call, and check return value */
-	CALL_RPC(create_mso, in, out, -3, -4);
-
-	/* Store in database. mso_conn_id = 0 and owned = true */
-	*msoh = add_loc_mso(owner_name, out->msoid, 0, true, (pthread_t)0, nullptr);
-	if (!*msoh) {
-		WARN("add_loc_mso() failed, msoid = 0x%X\n", out->msoid);
-		return -5;
+	/* Prevent buffer overflow due to very long name */
+	size_t len = strlen(owner_name);
+	if (len > UNIX_MS_NAME_MAX_LEN) {
+		ERR("String 'owner_name' is too long (%d)\n", len);
+		return -3;
 	}
 
-	return out->status;
+	/* Set up input parameters */
+	strcpy(in.owner_name, owner_name);
+
+	/* Set up Unix message parameters */
+	in_msg->type = CREATE_MSO;
+	in_msg->create_mso_in = in;
+
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+
+	out = out_msg->create_mso_out;
+	/* Store in database. mso_conn_id = 0 and owned = true */
+	*msoh = add_loc_mso(owner_name, out.msoid, 0, true, (pthread_t)0, nullptr);
+	if (!*msoh) {
+		WARN("add_loc_mso() failed, msoid = 0x%X\n", out.msoid);
+		return -6;
+	}
+
+	return out.status;
 } /* rdma_create_mso_h() */
 
 /**
@@ -391,7 +432,9 @@ static void *mso_close_thread_f(void *arg)
 int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 {
 	open_mso_input	in;
-	open_mso_output	*out;
+	open_mso_output	out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -405,25 +448,40 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		return -2;
 	}
 
-	/* Set up input parameters */
-	in.owner_name 	= (char *)owner_name;
+	/* Prevent buffer overflow due to very long name */
+	size_t len = strlen(owner_name);
+	if (len > UNIX_MS_NAME_MAX_LEN) {
+		ERR("String 'owner_name' is too long (%d)\n", len);
+		return -3;
+	}
 
-	/* RPC call, and check return value */
-	CALL_RPC(open_mso, in, out, -3, -4);
+	/* Set up input parameters */
+	strcpy(in.owner_name, owner_name);
+
+	/* Set up Unix message parameters */
+	in_msg->type = OPEN_MSO;
+	in_msg->open_mso_in = in;
+
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+
+	out = out_msg->open_mso_out;
 
 	/* Open message queue for receiving mso close messages. Such messages are
 	 * sent when the owner of an 'mso' decides to destroy the mso. The close
 	 * messages are sent to users of the mso who have opened the mso.
 	 * The message instruct those users to close the mso since it will be gone. */
 	stringstream	qname;
-	qname << '/' << owner_name << out->mso_conn_id;
+	qname << '/' << owner_name << out.mso_conn_id;
 	msg_q<mq_close_mso_msg>	*mso_close_mq;
 	try {
 		mso_close_mq = new msg_q<mq_close_mso_msg>(qname.str(), MQ_OPEN);
 	}
 	catch(msg_q_exception e) {
 		e.print();
-		return -5;
+		return -4;
 	}
 	INFO("Opened message queue '%s'\n", qname.str().c_str());
 
@@ -432,7 +490,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	if (pthread_create(&mso_close_thread, NULL, mso_close_thread_f, (void *)mso_close_mq)) {
 		WARN("Failed to create mso_close_thread: %s\n", strerror(errno));
 		delete mso_close_mq;
-		return -7;
+		return -5;
 	}
 	INFO("Created mso_close_thread with argument %d passed to it\n", mso_close_mq);
 
@@ -440,14 +498,14 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	 * thread and message queue to be used to notify app when mso is destroyed
 	 * by its owner. */
 	*msoh = add_loc_mso(owner_name,
-			    out->msoid,
-			    out->mso_conn_id,
+			    out.msoid,
+			    out.mso_conn_id,
 			    false,
 			    mso_close_thread,
 			    mso_close_mq);
 	if (!*msoh) {
-		WARN("add_loc_mso() failed, msoid = 0x%X\n", out->msoid);
-		return -4;
+		WARN("add_loc_mso() failed, msoid = 0x%X\n", out.msoid);
+		return -6;
 	}
 
 	return 0;
@@ -478,8 +536,10 @@ private:
 int rdma_close_mso_h(mso_h msoh)
 {
 	close_mso_input		in;
-	close_mso_output	*out;
+	close_mso_output	out;
 	close_ms		cms(msoh);
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -542,7 +602,17 @@ int rdma_close_mso_h(mso_h msoh)
 
 	/* close_mso_1() will remove the message queue corresponding to the mso
 	 * user from the ms_owner struct in the daemon */
-	CALL_RPC(close_mso, in, out, -4, -5);
+
+	/* Set up Unix message parameters */
+	in_msg->type = CLOSE_MSO;
+	in_msg->close_mso_in = in;
+
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+
+	out = out_msg->close_mso_out;
 
 	/* Take it out of databse */
 	if (remove_loc_mso(msoh) < 0) {
@@ -551,7 +621,7 @@ int rdma_close_mso_h(mso_h msoh)
 	}
 	INFO("msoh(0x%lX) removed from local database\n", msoh);
 
-	return out->status;
+	return out.status;
 } /* rdma_close_mso_h() */
 
 /**
@@ -580,8 +650,10 @@ private:
 int rdma_destroy_mso_h(mso_h msoh)
 {
 	destroy_mso_input	in;
-	destroy_mso_output	*out;
+	destroy_mso_output	out;
 	destroy_ms		dms(msoh);
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -613,15 +685,25 @@ int rdma_destroy_mso_h(mso_h msoh)
 	/* Set up input parameters */
 	in.msoid = ((struct loc_mso *)msoh)->msoid;
 
-	/* RPC call, and check return value */
-	CALL_RPC(destroy_mso, in, out, -4, -5);
+	/* Set up Unix message parameters */
+	in_msg->type = DESTROY_MSO;
+	in_msg->destroy_mso_in = in;
+
+	DBG("in.msoid = 0x%X\n", in.msoid);
+
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+
+	out = out_msg->destroy_mso_out;
 
 	/* Remove from database */
 	if (remove_loc_mso(msoh)) {
 		CRIT("Failed to remove mso from database\n");
 		return -6;
 	}
-	return out->status;
+	return out.status;
 } /* rdma_destroy_mso_h() */
 
 int rdma_create_ms_h(const char *ms_name,
@@ -632,8 +714,10 @@ int rdma_create_ms_h(const char *ms_name,
 		  uint32_t *bytes)
 {
 	create_ms_input	 in;
-	create_ms_output *out;
+	create_ms_output out;
 	uint32_t	dummy_bytes;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -662,16 +746,31 @@ int rdma_create_ms_h(const char *ms_name,
 		bytes = &dummy_bytes;
 	*bytes = round_up_to_4k(req_bytes);
 
+	/* Prevent buffer overflow due to very long name */
+	size_t len = strlen(ms_name);
+	if (len > UNIX_MS_NAME_MAX_LEN) {
+		ERR("String 'ms_name' is too long (%d)\n", len);
+		return -3;
+	}
+
 	/* Set up input parameters */
-	in.ms_name = (char *)ms_name;
+	strcpy(in.ms_name, ms_name);
 	in.msoid   = ((struct loc_mso *)msoh)->msoid;
 	in.bytes   = *bytes;
 	in.flags   = flags;
 
-	/* RPC call, and check return value */
-	CALL_RPC(create_ms, in, out, -3, -4);
+	/* Set up Unix message parameters */
+	in_msg->type = CREATE_MS;
+	in_msg->create_ms_in = in;
 
-	*msh = add_loc_ms(ms_name,*bytes, msoh, out->msid, 0, true, 
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+
+	out = out_msg->create_ms_out;
+
+	*msh = add_loc_ms(ms_name,*bytes, msoh, out.msid, 0, true,
 				0, -1,
 				0, nullptr);
 	if (!*msh) {
@@ -731,7 +830,9 @@ int rdma_open_ms_h(const char *ms_name,
 		   ms_h *msh)
 {
 	open_ms_input in;
-	open_ms_output *out;
+	open_ms_output out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been initialized */
 	if (!init) {
@@ -739,18 +840,33 @@ int rdma_open_ms_h(const char *ms_name,
 		return -1;
 	}
 
+	/* Prevent buffer overflow due to very long name */
+	size_t len = strlen(ms_name);
+	if (len > UNIX_MS_NAME_MAX_LEN) {
+		ERR("String 'ms_name' is too long (%d)\n", len);
+		return -3;
+	}
+
 	/* Set up input parameters */
-	in.ms_name = (char *)ms_name;
+	strcpy(in.ms_name, ms_name);
 	in.msoid   = ((struct loc_mso *)msoh)->msoid;
 	in.flags   = flags;
 
-	/* RPC call, and check return value */
-	CALL_RPC(open_ms, in, out, -2, -3);
+	/* Set up Unix message parameters */
+	in_msg->type = OPEN_MS;
+	in_msg->open_ms_in = in;
+
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+
+	out = out_msg->open_ms_out;
 	INFO("Opened '%s' in the daemon\n", ms_name);
 
 	/* Create message queue for receiving ms close messages. */
 	stringstream  qname;
-	qname << '/' << ms_name << out->ms_conn_id;
+	qname << '/' << ms_name << out.ms_conn_id;
 	msg_q<mq_close_ms_msg>	*close_mq;
 	try {
 		/* Call to open_ms_1() creates the message queue, so open it */
@@ -766,16 +882,17 @@ int rdma_open_ms_h(const char *ms_name,
 	pthread_t  ms_close_thread;
 	if (pthread_create(&ms_close_thread, NULL, ms_close_thread_f, close_mq)) {
 		WARN("Failed to create ms_close_thread: %s\n", strerror(errno));
+		delete close_mq;
 		return -7;
 	}
 	INFO("Created ms_close_thread\n");
 
 	/* Store memory space info in database */
 	*msh = add_loc_ms(ms_name,
-			  out->bytes,
+			  out.bytes,
 			  msoh,
-			  out->msid,
-			  out->ms_conn_id,
+			  out.msid,
+			  out.ms_conn_id,
 			  false,
 			  0,
 			  -1,
@@ -787,7 +904,7 @@ int rdma_open_ms_h(const char *ms_name,
 	}
 	INFO("Stored info about '%s' in database\n", ms_name);
 
-	*bytes = out->bytes;
+	*bytes = out.bytes;
 
 	return 0;
 } /* rdma_open_ms_h() */
@@ -843,7 +960,9 @@ static int destroy_msubs_in_msh(ms_h msh)
 int rdma_close_ms_h(mso_h msoh, ms_h msh)
 {
 	close_ms_input	in;
-	close_ms_output	*out;
+	close_ms_output	out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -908,7 +1027,16 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 
 	/* close_ms_1() will remove the message queue corresponding to the ms
 	 * user from the ms_owner struct in the daemon, and close the queue */
-	CALL_RPC(close_ms, in, out, -4, -5);
+
+	/* Set up Unix message parameters */
+	in_msg->type = CLOSE_MS;
+	in_msg->close_ms_in = in;
+
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+	out = out_msg->close_ms_out;
 
 	/* Take it out of databse */
 	if (remove_loc_ms(msh) < 0) {
@@ -924,9 +1052,11 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 {
 	destroy_ms_input	in;
-	destroy_ms_output	*out;
+	destroy_ms_output	out;
 	destroy_msub		dmsub(msh);
 	loc_ms 			*ms;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -956,8 +1086,15 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	 * when it connected to the server using rdma_conn_ms_h() */
 	remove_rem_msub_by_loc_msh(msh);
 
-	/* RPC call, and check return value */
-	CALL_RPC(destroy_ms, in, out, -4, -5);
+	/* Set up Unix message parameters */
+	in_msg->type = DESTROY_MS;
+	in_msg->destroy_ms_in = in;
+
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+	out = out_msg->destroy_ms_out;
 
 	/* Kill the disconnection thread, if it exists */
 	pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
@@ -1010,7 +1147,9 @@ int rdma_create_msub_h(ms_h	msh,
 {
 	(void)flags;
 	create_msub_input	in;
-	create_msub_output	*out;
+	create_msub_output	out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -1041,20 +1180,28 @@ int rdma_create_msub_h(ms_h	msh,
 
 	DBG("msid = 0x%X, offset = 0x%X, req_bytes = 0x%x\n",
 		in.msid, in.offset, in.req_bytes);
-	/* RPC call to create a memory subspace, and check return value */
-	CALL_RPC(create_msub, in, out, -1, -2);
 
-	INFO("out->bytes=0x%X, peer.mport_fd=%d, out->phys_addr=0x%lX\n",
-				out->bytes, peer.mport_fd, out->phys_addr);
+	/* Set up Unix message parameters */
+	in_msg->type = CREATE_MSUB;
+	in_msg->create_msub_in = in;
+
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+	out = out_msg->create_msub_out;
+
+	INFO("out->bytes=0x%X, peer.mport_fd=%d, out.phys_addr=0x%lX\n",
+				out.bytes, peer.mport_fd, out.phys_addr);
 
 	/* Store msubh in database, obtain pointer thereto, convert to msub_h */
-	*msubh = (msub_h)add_loc_msub(out->msubid,
+	*msubh = (msub_h)add_loc_msub(out.msubid,
 				      in.msid,
-				      out->bytes,
+				      out.bytes,
 				      64,	/* 64-bit RIO address */
-				      out->rio_addr,
+				      out.rio_addr,
 				      0,	/* Bits 66 and 65 */
-				      out->phys_addr);
+				      out.phys_addr);
 
 	/* Adding to database should never fail, but just in case... */
 	if (!*msubh) {
@@ -1068,8 +1215,10 @@ int rdma_create_msub_h(ms_h	msh,
 int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 {
 	destroy_msub_input	in;
-	destroy_msub_output	*out;
+	destroy_msub_output	out;
 	struct loc_msub 	*msub;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -1090,8 +1239,15 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	in.msid		= ((struct loc_ms *)msh)->msid;
 	in.msubid	= msub->msubid;
 
-	/* RPC call to destroy the memory subspace, and check return value */
-	CALL_RPC(destroy_msub, in, out, -5, -6);
+	/* Set up Unix message parameters */
+	in_msg->type = DESTROY_MSUB;
+	in_msg->destroy_msub_in = in;
+
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+	out = out_msg->destroy_msub_out;
 
 	/* Remove msub from database */
 	if (remove_loc_msub(msubh) < 0) {
@@ -1105,6 +1261,8 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 int rdma_mmap_msub(msub_h msubh, void **vaddr)
 {
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
+
+	DBG("ENTER\n");
 
 	if (!pmsub) {
 		WARN("msubh is NULL\n");
@@ -1141,6 +1299,8 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 {
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
 
+	DBG("ENTER\n");
+
 	if (!pmsub) {
 		ERR("msubh is NULL\n");
 		return -1;
@@ -1167,9 +1327,11 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		     uint64_t timeout_secs)
 {
 	accept_input		accept_in;
-	accept_output		*accept_out;
+	accept_output		accept_out;
 	undo_accept_input	undo_accept_in;
-	undo_accept_output	*undo_accept_out;
+	undo_accept_output	undo_accept_out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -1196,7 +1358,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	 * over RPC. This triggers channelized message reception waiting for 
 	 * a connection on the specified memory space. Then sends the accept
 	 * parameters also in a channelized message, to the remote daemon */
-	accept_in.loc_ms_name		= (char *)ms->name;
+	strcpy(accept_in.loc_ms_name, ms->name);
 	accept_in.loc_msid		= ms->msid;
 	accept_in.loc_msubid		= ((struct loc_msub *)loc_msubh)->msubid;
 	accept_in.loc_bytes		= ((struct loc_msub *)loc_msubh)->bytes;
@@ -1225,9 +1387,16 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	}
 	INFO("Message queue %s created for connection from %s\n",
 						mq_name.c_str(), ms->name);
+	/* Set up Unix message parameters */
+	in_msg->type = ACCEPT_MS;
+	in_msg->accept_in = accept_in;
 
-	/* Call the accept() code in the daemon */
-	CALL_RPC(accept, accept_in, accept_out, -3, -4);
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		delete connect_mq;
+		return -1;
+	}
+	accept_out = out_msg->accept_out;
 
 	/* Await 'connect()' from client */
 	mq_connect_msg	*conn_msg;
@@ -1244,8 +1413,16 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			/* Calling undo_accept() to remove the memory space from the list
 			 * of memory spaces awaiting a connect message from a remote daemon.
 			 */
-			undo_accept_in.server_ms_name = (char *)ms->name;
-			CALL_RPC(undo_accept, undo_accept_in, undo_accept_out, -6, -7);
+			strcpy(undo_accept_in.server_ms_name, ms->name);
+
+			/* Set up Unix message parameters */
+			in_msg->type = UNDO_ACCEPT;
+			in_msg->undo_accept_in = undo_accept_in;
+			if (alt_rpc_call()) {
+				ERR("Call to RDMA daemon failed\n");
+				return -1;
+			}
+			undo_accept_out = out_msg->undo_accept_out;
 			return -5;
 		}
 	} else {
@@ -1297,6 +1474,29 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	return 0;
 } /* rdma_accept_ms_h() */
 
+/**
+ * Given two timespec structs, subtract them and return a timespec containing
+ * the difference
+ *
+ * @start     start time
+ * @end       end time
+ *
+ * @returns         difference
+ */
+static struct timespec time_difference( struct timespec start, struct timespec end )
+{
+	struct timespec temp;
+
+	if ((end.tv_nsec-start.tv_nsec)<0) {
+		temp.tv_sec = end.tv_sec-start.tv_sec-1;
+		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+	} else {
+		temp.tv_sec = end.tv_sec-start.tv_sec;
+		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+	}
+	return temp;
+} /* time_difference() */
+
 int rdma_conn_ms_h(uint8_t rem_destid_len,
 		   uint32_t rem_destid,
 		   const char *rem_msname,
@@ -1307,7 +1507,8 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		   uint64_t timeout_secs)
 {
 	send_connect_input	in;
-	send_connect_output	*out;
+	send_connect_output	out;
+	struct timespec	before, after, rtt;
 	struct loc_msub		*loc_msub = (struct loc_msub *)loc_msubh;
 
 	INFO("ENTER\n");
@@ -1329,9 +1530,17 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		WARN("Invalid destid 0x%X\n", rem_destid);
 		return -3;
 	}
+
+	/* Prevent buffer overflow due to very long name */
+	size_t len = strlen(rem_msname);
+	if (len > UNIX_MS_NAME_MAX_LEN) {
+		ERR("String 'ms_name' is too long (%d)\n", len);
+		return -3;
+	}
+
 	INFO("Connecting to '%s' on destid(0x%X)\n", rem_msname, rem_destid);
 	/* Set up parameters for RPC call */
-	in.server_msname	= (char *)rem_msname;
+	strcpy(in.server_msname, rem_msname);
 	in.server_destid_len	= rem_destid_len;
 	in.server_destid	= rem_destid;
 	in.client_destid_len	= 16;
@@ -1362,18 +1571,23 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	}
 	INFO("Created 'accept' message queue: '%s'\n", mq_name.c_str());
 
-	/* Call send_connect_1(). If it fails delete the message queue */
-	out = send_connect_1(&in, client);
-	if (out == (send_connect_output *)NULL) {
-		ERR("send_connect_1() call failed\n");
-		clnt_perror(client, "call failed");
+__sync_synchronize();
+	clock_gettime( CLOCK_MONOTONIC, &before );
+__sync_synchronize();
+
+	/* Set up Unix message parameters */
+	in_msg->type = SEND_CONNECT;
+	in_msg->send_connect_in = in;
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
 		delete accept_mq;
-		return -4;
+		return -1;
 	}
-	if (out->status) {
-		ERR("send_connect_1() failed with code: %d\n", out->status);
+	out = out_msg->send_connect_out;
+	if (out.status) {
+		ERR("Connection to destid(0x%X) failed\n", rem_destid);
 		delete accept_mq;
-		return -5;
+		return out.status;
 	}
 
 	/* Map the accept_msg to the receive buffer of the queue */
@@ -1390,10 +1604,19 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			ERR("Failed to receive accept message after timeout\n");
 			/* Remove the message queue from the awaiting-accept list */
 			undo_connect_input	undo_connect_in;
-			undo_connect_output *undo_connect_out;
+			undo_connect_output	undo_connect_out;
 
-			undo_connect_in.server_ms_name = (char *)rem_msname;
-			CALL_RPC(undo_connect, undo_connect_in, undo_connect_out, -5, -6);
+			strcpy(undo_connect_in.server_ms_name, rem_msname);
+
+			/* Set up Unix message parameters */
+			in_msg->type = UNDO_CONNECT;
+			in_msg->undo_connect_in = undo_connect_in;
+			if (alt_rpc_call()) {
+				ERR("Call to RDMA daemon failed\n");
+				delete accept_mq;
+				return -1;
+			}
+			undo_connect_out = out_msg->undo_connect_out;
 			delete accept_mq;
 			return -7;
 		}
@@ -1405,7 +1628,12 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		}
 	}
 	INFO(" Accept message received!\n");
-
+__sync_synchronize();
+	clock_gettime(CLOCK_MONOTONIC, &after);
+__sync_synchronize();
+	rtt = time_difference(before, after);
+	HIGH("Round-trip-time for accept/connect = %u seconds and %u microseconds\n",
+			rtt.tv_sec, rtt.tv_nsec/1000);
 	if (accept_msg->server_destid != rem_destid) {
 		WARN("WRONG destid(0x%X) in accept message!\n", accept_msg->server_destid);
 		accept_msg->server_destid = rem_destid;	/* FIXME: should not need to do that */
@@ -1471,7 +1699,9 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 {
 	send_disconnect_input	in;
-	send_disconnect_output	*out;
+	send_disconnect_output	out;
+
+	DBG("ENTER\n");
 
 	/* Check that library has been intialized */
 	if (!init) {
@@ -1554,8 +1784,14 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 		return -4;
 	}
 
-	/* Call send_disconnect_1() */
-	CALL_RPC(send_disconnect, in, out, -5, -6);
+	/* Set up Unix message parameters */
+	in_msg->type = SEND_DISCONNECT;
+	in_msg->send_disconnect_in = in;
+	if (alt_rpc_call()) {
+		ERR("Call to RDMA daemon failed\n");
+		return -1;
+	}
+	out = out_msg->send_disconnect_out;
 	INFO("send_disconnect_1() called, now exiting\n");
 
 	return 0;
@@ -1566,6 +1802,8 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 {
 	struct loc_msub *lmsub;
 	struct rem_msub *rmsub;
+
+	DBG("ENTER\n");
 
 	/* Check for NULL pointers */
 	if (!in || !out) {
@@ -1632,8 +1870,9 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 				    in->num_bytes,
 					RIO_DIRECTIO_TYPE_NWRITE_R,
 				    rd_sync);
-	if (ret < 0)
+	if (ret < 0) {
 		ERR("riodp_dma_write_d() failed:(%d) %s\n", ret, strerror(ret));
+	}
 
 	/* If synchronous, the return value is the xfer status. If async,
 	 * the return value of riodp_dma_write_d() is the token (if >= 0) */
@@ -1653,6 +1892,8 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 {
 	(void)priority;
 	struct rem_msub *rmsub;
+
+	DBG("ENTER\n");
 
 	/* Check for NULL pointer */
 	if (!buf || !out || !rem_msubh) {
@@ -1712,8 +1953,9 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 				  num_bytes,
 				  RIO_DIRECTIO_TYPE_NWRITE_R,
 				  rd_sync);
-	if (ret < 0)
+	if (ret < 0) {
 		ERR("riodp_dma_write() failed:(%d) %s\n", ret, strerror(ret));
+	}
 
 	/* If synchronous, the return value is the xfer status. If async,
 	 * the return value riodp_dma_write() is the token (if >= 0) */
@@ -1732,6 +1974,8 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 {
 	struct loc_msub *lmsub;
 	struct rem_msub *rmsub;
+
+	DBG("ENTER\n");
 
 	/* Check for NULL pointers */
 	if (!in || !out) {
@@ -1795,8 +2039,9 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 				   in->loc_offset,
 				   in->num_bytes,
 				   rd_sync);
-	if (ret < 0)
+	if (ret < 0) {
 		ERR("riodp_dma_read_d() failed:(%d) %s\n", ret, strerror(ret));
+	}
 
 	/* If synchronous, the return value is the xfer status. If async,
 	 * the return value of riodp_dma_read_d() is the token (if >= 0) */
@@ -1816,6 +2061,8 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 {
 	(void)priority;
 	struct rem_msub *rmsub;
+
+	DBG("ENTER\n");
 
 	/* Check for NULL pointers */
 	if (!buf || !out || !rem_msubh) {
@@ -1877,8 +2124,9 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 				 buf,
 				 num_bytes,
 				 rd_sync);
-	if (ret < 0)
+	if (ret < 0) {
 		ERR("riodp_dma_read() failed:(%d) %s\n", ret, strerror(ret));
+	}
 
 	/* If synchronous, the return value is the xfer status. If async,
 	 * the return value of riodp_dma_read() is the token (if >= 0) */
@@ -1916,6 +2164,8 @@ int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 {
 	dma_async_wait_param	wait_param;
 
+	DBG("ENTER\n");
+
 	/* Make sure handle is valid */
 	if (!chk_handle) {
 		ERR("Invalid chk_handle(%d)\n", chk_handle);
@@ -1952,3 +2202,6 @@ int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 	return wait_param.err;
 } /* rdma_sync_chk_push_pull() */
 
+#ifdef __cplusplus
+}
+#endif

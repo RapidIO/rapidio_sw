@@ -50,6 +50,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::string;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 static circ_buf<string,NUM_LOG_LINES>	log_buf;
 static unsigned circ_buf_en = 1;
 static sem_t log_buf_sem;
@@ -57,7 +62,6 @@ static FILE *log_file;
 
 /* Default log level from build */
 unsigned g_level = RDMA_LL;
-
 int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 {
 	/* Semaphore for protecting access to log_buf */
@@ -150,3 +154,8 @@ int rdma_log( unsigned level,
 	/* Return 0 if there is no error */
 	return (n < 0) ? n : 0;
 } /* rdma_log() */
+
+#ifdef __cplusplus
+}
+#endif
+

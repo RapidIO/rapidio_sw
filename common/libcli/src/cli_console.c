@@ -40,6 +40,7 @@ void *console(void *cons_parm)
 {
 	struct cli_env cons_env;
 	int rc;
+	int *ret = (int *)malloc(sizeof(int));
 
 	cons_env.script = NULL;
 	cons_env.fout = NULL;
@@ -58,12 +59,9 @@ void *console(void *cons_parm)
 
 	rc = cli_terminal(&cons_env);
 
-	if (NULL == cons_parm)
-		cons_parm = malloc(sizeof(int));
-	*(int *)(cons_parm) = rc;
-	printf("\nConsole EXITING\n");
+	*ret = rc;
 
-	pthread_exit(cons_parm);
+	pthread_exit((void *)ret);
 } /* console */
 
 

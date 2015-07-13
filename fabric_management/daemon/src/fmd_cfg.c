@@ -61,10 +61,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "fmd_dd.h"
 #include "fmd_cfg.h"
-// #include "cli_cmd_db.h"
-// #include "cli_cmd_line.h"
-// #include "cli_parse.h"
 #include "libcli.h"
+#include "liblog.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,6 +82,8 @@ void fmd_print_help(void)
 	printf("-h, -H, -?: Print this message.\n");
 	printf("-i<interval>: Interval between Device Directory updates.\n");
 	printf("       Default is %d\n", FMD_DFLT_MAST_INTERVAL);
+	printf("-l, -L<level>: Set starting logging level.\n");
+	printf("       Default is %x\n", RDMA_LL);
 	printf("-m, -M<filename>: Device directory Mutex SM file name.\n");
 	printf("       Default is \"%s\"\n", FMD_DFLT_DD_MTX_FN);
 	printf("-n, -N: Do not start console CLI.\n");
@@ -131,16 +131,18 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 	cfg = (struct fmd_cfg_parms *)malloc(sizeof(struct fmd_cfg_parms));
 	cfg->init_err = 0;
 	cfg->init_and_quit = 0;
-	cfg->print_help = 0;
 	cfg->simple_init = 0;
+	cfg->print_help = 0;
 	cfg->cli_port_num = FMD_DFLT_CLI_PORT_NUM;
 	cfg->app_port_num = FMD_DFLT_APP_PORT_NUM;
 	cfg->run_cons = 1;
+	cfg->log_level = RDMA_LL;
 	cfg->mast_idx = FMD_SLAVE;
 	cfg->max_mport_info_idx = 0;
 	for (i = 0; i < FMD_MAX_MPORTS; i++) {
 		cfg->mport_info[i].num = -1;
 		cfg->mport_info[i].mp_h = NULL;
+		cfg->mport_info[i].ct = 0;
 		cfg->mport_info[i].op_mode = -1;
 		for (j = 0; j < FMD_DEVID_MAX; j++) {
 			cfg->mport_info[i].devids[j].devid = 0;
@@ -157,6 +159,53 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 	update_string(&cfg->fmd_cfg, dflt_fmd_cfg, strlen(dflt_fmd_cfg));
 	update_string(&cfg->dd_fn, dflt_dd_fn, strlen(dflt_dd_fn));
 	update_string(&cfg->dd_mtx_fn, dflt_dd_mtx_fn, strlen(dflt_dd_mtx_fn));
+
+	for (i = 0; i < FMD_MAX_EP; i++) {
+		cfg->eps[i].valid = 0;
+		cfg->eps[i].ep_h = NULL;
+		cfg->eps[i].name = NULL;
+		cfg->eps[i].port_cnt = 0;
+		for (j = 0; j < FMD_MAX_EP_PORT; j++) {
+			int k;
+			cfg->eps[i].ports[j].valid = 0;
+			cfg->eps[i].ports[j].port = 0;
+			cfg->eps[i].ports[j].ct = 0;
+			cfg->eps[i].ports[j].rio.max_pw = idt_pc_pw_last;
+			cfg->eps[i].ports[j].rio.op_pw = idt_pc_pw_last;
+			cfg->eps[i].ports[j].rio.ls = idt_pc_ls_last;
+			cfg->eps[i].ports[j].rio.idle2 = 0;
+			cfg->eps[i].ports[j].rio.em = 0;
+			for (k = 0; k < FMD_DEVID_MAX; k++) {
+				cfg->eps[i].ports[j].devids[k].hc = 0xff;
+				cfg->eps[i].ports[j].devids[k].devid = 0;
+				cfg->eps[i].ports[j].devids[k].valid = 0;
+			}
+			cfg->eps[i].ports[j].conn = NULL;
+			cfg->eps[i].ports[j].conn_end = -1;
+		};
+	};
+
+	for (i = 0; i < FMD_MAX_SW; i++) {
+		cfg->sws[i].valid = 0;
+		cfg->sws[i].sw_h = NULL;
+		cfg->sws[i].name = NULL;
+		cfg->sws[i].dev_type = NULL;
+		cfg->sws[i].did_sz = 0;
+		cfg->sws[i].did = 0;
+		cfg->sws[i].hc = 0;
+		cfg->sws[i].ct = 0;
+		cfg->sws[i].traversed = 0;
+		for (j = 0; j < FMD_MAX_SW_PORT; j++) {
+			cfg->sws[i].ports[j].valid = 0;
+			cfg->sws[i].ports[j].rio.max_pw = idt_pc_pw_last;
+			cfg->sws[i].ports[j].rio.op_pw = idt_pc_pw_last;
+			cfg->sws[i].ports[j].rio.ls = idt_pc_ls_last;
+			cfg->sws[i].ports[j].rio.idle2 = 0;
+			cfg->sws[i].ports[j].rio.em = 0;
+			cfg->sws[i].ports[j].conn = NULL;
+			cfg->sws[i].ports[j].conn_end = -1;
+		};
+	};
 
 	for (i = 0; i < FMD_MAX_CONN; i++) {
 		int e;
@@ -193,6 +242,9 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 
 			case 'i': 
 			case 'I': cfg->mast_interval = atoi(&argv[idx][2]);
+				  break;
+			case 'l': 
+			case 'L': cfg->log_level = atoi(&argv[idx][2]);
 				  break;
 			case 'm': 
 			case 'M': if (fmd_v_str(&cfg->dd_mtx_fn,
@@ -245,7 +297,7 @@ const char *delim = " 	";
 void flush_comment(char *tok)
 {
 	while (NULL != tok) {
-		printf("%s ", tok);
+		DBG("%s ", tok);
 		tok = strtok(NULL, delim);
 		strip_crlf(tok);
 	};
@@ -272,7 +324,7 @@ char *try_get_next_token(struct fmd_cfg_parms *cfg)
 
 	while (!done) {
 		while ((NULL == rc) && (byte_cnt > 0)) {
-			printf("\n");
+			DBG("\n");
 			byte_cnt = LINE_SIZE;
 			byte_cnt = getline(&line, &byte_cnt, cfg->fmd_cfg_fd);
 			strip_crlf(line);
@@ -294,7 +346,7 @@ char *try_get_next_token(struct fmd_cfg_parms *cfg)
 	};
 
 	if (NULL != rc)
-		printf("%s ", rc);
+		DBG("%s ", rc);
 
 fail:
 	return rc;
@@ -302,7 +354,7 @@ fail:
 
 void parse_err(struct fmd_cfg_parms *cfg, char *err_msg)
 {
-	printf("\n%s\n", err_msg);
+	ERR("\n%s\n", err_msg);
 	cfg->init_err = 1;
 };
 
@@ -1235,7 +1287,7 @@ void fmd_parse_cfg(struct fmd_cfg_parms *cfg)
 			parse_connect(cfg);
 			break;
 		case 8: // "EOF"
-			printf((char *)"\n");
+			DBG((char *)"\n");
 			goto exit;
 			break;
 		default:
@@ -1253,22 +1305,22 @@ void fmd_process_cfg_file(struct fmd_cfg_parms *cfg)
 	if (NULL == cfg->fmd_cfg)
 		return;
 
-	printf("\nFMD: Openning configuration file \"%s\"...\n", cfg->fmd_cfg);
+	INFO("\nFMD: Openning configuration file \"%s\"...\n", cfg->fmd_cfg);
 	cfg->fmd_cfg_fd = fopen(cfg->fmd_cfg, "r");
 	if (NULL == cfg->fmd_cfg_fd) {
-		printf("FMD: Config file open failed, errno %d : %s\n",
+		CRIT("FMD: Config file open failed, errno %d : %s\n",
 				errno, strerror(errno));
 		cfg->init_and_quit = 1;
 		return;
 	};
 
-	printf("\nFMD: Config file contents:");
+	DBG("\nFMD: Config file contents:");
 	fmd_parse_cfg(cfg);
 
 	fclose(cfg->fmd_cfg_fd);
 	cfg->fmd_cfg_fd = NULL;
 	if (cfg->fmd_cfg_fd) {
-		printf("FMD: Config file close failed, errno %d : %s\n",
+		ERR("FMD: Config file close failed, errno %d : %s\n",
 				errno, strerror(errno));
 		cfg->init_and_quit = 1;
 	};

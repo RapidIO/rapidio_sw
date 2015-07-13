@@ -104,6 +104,8 @@ void rdma_log_close();
 
 void liblog_bind_cli_cmds();
 
+extern unsigned g_level;
+
 #ifdef __cplusplus
 }
 #endif

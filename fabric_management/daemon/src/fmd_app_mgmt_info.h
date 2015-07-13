@@ -1,4 +1,4 @@
-/* Global state information for RSKTD threads handling library connections */
+/* Global state information for FMD threads handling library connections */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -67,8 +67,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblist.h"
 #include "librsktd_dmn_info.h"
 
-#ifndef __LIBRSKTD_LIB_INFO_H__
-#define __LIBRSKTD_LIB_INFO_H__
+#ifndef __FMD_APP_MGMT_INFO_H__
+#define __FMD_APP_MGMT_INFO_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -99,4 +99,4 @@ struct fmd_app_info {
 }
 #endif
 
-#endif /* __LIBRSKTD_LIB_INFO_H__ */
+#endif /* __FMD_APP_MGMT_INFO_H__ */

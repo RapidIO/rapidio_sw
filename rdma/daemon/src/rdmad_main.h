@@ -34,11 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_MAIN_H
 
 #include "rdmad_peer_utils.h"
-#include "cm_sock.h"
 
 extern struct peer_info	peer;
-extern cm_server *main_server;
-extern cm_server *aux_server;
 
 void shutdown(struct peer_info *peer);
 

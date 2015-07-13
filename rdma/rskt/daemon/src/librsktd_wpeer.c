@@ -68,6 +68,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_dmn_info.h"
 #include "librsktd_lib_info.h"
 #include "librsktd_msg_proc.h"
+#include "libfmdd.h"
+#include "librsktd_fm.h"
+#include "liblog.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -103,6 +106,7 @@ struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 };
 
 void close_wpeer(struct rskt_dmn_wpeer *wpeer);
+void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer);
 
 void *wpeer_rx_loop(void *p_i)
 {
@@ -125,9 +129,10 @@ void *wpeer_rx_loop(void *p_i)
 			w->i_must_die = 0;
 			w->i_must_die = riodp_socket_receive(w->cm_skt_h, 
 				&w->rx_buff, DMN_RESP_SZ, 0);
-		} while ((-1 == w->i_must_die) && (EINTR == errno));
+		} while ((w->i_must_die) && !dmn.all_must_die && 
+		((EINTR == errno) || (EAGAIN == errno) || (ETIME == errno)));
 
-		if (w->i_must_die)
+		if (w->i_must_die || dmn.all_must_die)
 			break;
 
 		seq_num = ntohl(w->resp->msg_seq);
@@ -149,7 +154,7 @@ void *wpeer_rx_loop(void *p_i)
 	};
 
 	/* Stop others from using the wpeer */
-	close_wpeer(w);
+	cleanup_wpeer(w);
 
 	pthread_exit(NULL);
 };
@@ -158,29 +163,42 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 {
 	int rc;
 	struct rskt_dmn_wpeer *w;
+	int conn_rc;
 
 	w = alloc_wpeer(ct, cm_skt);
 	*wp = w;
 
-	sem_wait(&dmn.mb_mtx);
-	rc = riodp_socket_socket(dmn.mb, &w->cm_skt_h);
-	sem_post(&dmn.mb_mtx);
+	do {
+		sem_wait(&dmn.mb_mtx);
+		rc = riodp_socket_socket(dmn.mb, &w->cm_skt_h);
+		sem_post(&dmn.mb_mtx);
 
-        rc = riodp_socket_connect(w->cm_skt_h, ct, 0, cm_skt);
-        if (rc == EADDRINUSE) {
-                printf("init_wpeer %d: Requested channel %d reusing...\n",
+        	conn_rc = riodp_socket_connect(w->cm_skt_h, ct, 0, cm_skt);
+
+                if (!conn_rc)
+                        break;
+
+                rc = riodp_socket_close(&w->cm_skt_h);
+                if (rc) {
+                        ERR("riodp_socket_close ERR %d\n", rc);
+                };
+	} while (conn_rc && ((EINTR == errno) || (ETIME == errno)));
+
+        if (conn_rc == EADDRINUSE) {
+                CRIT("init_wpeer %d: Requested channel %d in use...\n",
 			ct, cm_skt);
         } else {
-		if (rc) {
-               		printf("init_wpeer %d connect %d error: %d\n",
-				ct, cm_skt, rc);
-			goto exit;
+		if (conn_rc) {
+               		CRIT("init_wpeer %d connect %d error: %d\n",
+				ct, cm_skt, conn_rc);
         	}
         }
+	if (conn_rc)
+		goto exit;
 
         rc = riodp_socket_request_send_buffer(w->cm_skt_h, &w->tx_buff);
         if (rc) {
-               	printf("init_wpeer %d: req_buffer: %d\n", ct, rc);
+               	CRIT("init_wpeer %d: req_buffer: %d\n", ct, rc);
 		goto exit;
         }
 
@@ -243,27 +261,24 @@ void enqueue_wpeer_msg(struct librsktd_unified_msg *msg)
 	sem_post(&dmn.wpeer_tx_cnt);
 };
 
-void close_wpeer(struct rskt_dmn_wpeer *wpeer)
+void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 {
 	struct librsktd_unified_msg *msg;
-	int rc;
 
-	wpeer->i_must_die = 0;
-	wpeer->self_ref = NULL;
+	wpeer->i_must_die = 1;
+	*wpeer->self_ref = NULL;
 	sem_post(&wpeer->started);
 
-	/* FIXME: Close the socket here? */
-	if (NULL != wpeer->rx_buff)
-		free(wpeer->rx_buff);
+	if (NULL != wpeer->rx_buff) {
+		riodp_socket_release_receive_buffer(wpeer->cm_skt_h, 
+							wpeer->rx_buff);
+		wpeer->rx_buff = NULL;
+	};
 	
-	if (NULL != wpeer->tx_buff)
-		free(wpeer->tx_buff);
-
-	if (NULL != wpeer->cm_skt_h) {
-        	rc = riodp_socket_close(&wpeer->cm_skt_h);
-        	if (rc)
-			printf("WPEER(%p): riodp_socket_close(): %d (%d)\n",
-				wpeer, rc, errno);
+	if (NULL != wpeer->tx_buff) {
+		riodp_socket_release_send_buffer(wpeer->cm_skt_h,
+							wpeer->tx_buff);
+		wpeer->tx_buff = NULL;
 	};
 
 	sem_wait(&wpeer->w_rsp_mutex);
@@ -283,6 +298,14 @@ void close_wpeer(struct rskt_dmn_wpeer *wpeer)
 	sem_wait(&dmn.wpeers_mtx);
 	l_remove(&dmn.wpeers, wpeer->wp_li);
 	sem_post(&dmn.wpeers_mtx);
+};
+
+void close_wpeer(struct rskt_dmn_wpeer *wpeer)
+{
+	cleanup_wpeer(wpeer);
+
+	pthread_kill(wpeer->w_rx, SIGHUP);
+	pthread_join(wpeer->w_rx, NULL);
 };
 
 void *wpeer_tx_loop(void *unused)
@@ -352,16 +375,23 @@ void *wpeer_tx_loop(void *unused)
 
 void close_all_wpeers(void)
 {
-	void *l;
+	void **l;
 
 	sem_wait(&dmn.wpeers_mtx);
-	l = l_pop_head(&dmn.wpeers);
+	l = (void **)l_pop_head(&dmn.wpeers);
 	sem_post(&dmn.wpeers_mtx);
 
 	while (NULL != l) {
-		close_wpeer((struct rskt_dmn_wpeer *)l);
+		struct rskt_dmn_wpeer *w;
+		if (NULL == *l)
+			continue;
+		w = *(struct rskt_dmn_wpeer **)l;
+		close_wpeer(w);
+		pthread_kill(w->w_rx, SIGHUP);
+		pthread_join(w->w_rx, NULL);
+
 		sem_wait(&dmn.wpeers_mtx);
-		l = l_pop_head(&dmn.wpeers);
+		l = (void **)l_pop_head(&dmn.wpeers);
 		sem_post(&dmn.wpeers_mtx);
 	};
 };
@@ -374,6 +404,7 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 	struct l_item_t *li;
 
 	/* Search for workers for destIDs that no longer exist */
+	/* OR where the peer RSKTD has died... */
 
 	sem_wait(&dmn.wpeers_mtx);
 	wp_p = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
@@ -387,7 +418,8 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 		found = 0;
 		for (i = 0; (i < destid_cnt) && !found; i++) {
 			if (wp->ct == destids[i])
-				found = 1;
+				found = fmdd_check_did(dd_h, wp->ct, 
+								FMDD_RSKT_FLAG);
 		};
 
 		if (found) {
@@ -418,6 +450,10 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 		sem_post(&dmn.wpeers_mtx);
 
 		if (found)
+			continue;
+
+		/* Check that RSKTD is running on the peer... */
+		if (!fmdd_check_did(dd_h, destids[i], FMDD_RSKT_FLAG))
 			continue;
 
 		new_wpeer.ct = destids[i];

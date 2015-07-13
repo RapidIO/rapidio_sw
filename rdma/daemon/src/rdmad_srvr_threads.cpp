@@ -48,6 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 #include "rdmad_svc.h"
 #include "rdmad_srvr_threads.h"
+#include "rdmad_clnt_threads.h"
 #include "rdmad_peer_utils.h"
 
 using std::vector;
@@ -104,13 +105,15 @@ void *wait_conn_disc_thread_f(void *arg)
 	prov_server->get_recv_buffer((void **)&hello_msg);
 	DBG("Received HELLO message from destid(0x%X)\n", hello_msg->destid);
 
+	uint32_t remote_destid = hello_msg->destid;
+
 	/* If destid already in our list, just exit thread */
 	sem_wait(&prov_daemon_info_list_sem);
 	auto it = find(begin(prov_daemon_info_list),
-		       end(prov_daemon_info_list), hello_msg->destid);
+		       end(prov_daemon_info_list), remote_destid);
 	if (it != end(prov_daemon_info_list)) {
-		WARN("Received HELLO msg for known destid(0x%X. EXITING\n",
-						hello_msg->destid);
+		WARN("Received HELLO msg for known destid(0x%X). EXITING\n",
+						remote_destid);
 		sem_post(&prov_daemon_info_list_sem);
 		delete prov_server;
 		free(wcdti);
@@ -148,16 +151,16 @@ void *wait_conn_disc_thread_f(void *arg)
 	/* Create new entry for this destid */
 	prov_daemon_info	*pdi;
 	pdi = (prov_daemon_info *)malloc(sizeof(prov_daemon_info));
-	pdi->destid = hello_msg->destid;
+	pdi->destid = remote_destid;
 	pdi->tid = wcdti->tid;
 	pdi->conn_disc_server = rx_conn_disc_server;
 
 	/* Store info about the remote daemon/destid in list */
-	DBG("Storing info for destid=0x%X\n", pdi->destid);
+	HIGH("Storing info for destid=0x%X\n", pdi->destid);
 	sem_wait(&prov_daemon_info_list_sem);
 	prov_daemon_info_list.push_back(*pdi);
 	sem_post(&prov_daemon_info_list_sem);
-
+	DBG("prov_daemon_info_list now has %u destids\n", prov_daemon_info_list.size());
 	/* Tell prov_thread that we started so it can start accepting
 	 * from other sockets without waiting for this one to get a HELLO.
 	 */
@@ -177,6 +180,27 @@ void *wait_conn_disc_thread_f(void *arg)
 				CRIT("Failed to receive on rx_conn_disc_server: %s\n",
 								strerror(ret));
 			}
+			delete rx_conn_disc_server;
+			/* Remote daemon is gone. Remote it from our list. It needs to
+			 * provision again in order for another instance of this thread
+			 * is created for it.
+			 */
+			it = find(begin(prov_daemon_info_list),
+				       end(prov_daemon_info_list), remote_destid);
+			if (it != end(prov_daemon_info_list)) {
+				CRIT("destid(0x%X) removed from prov_daemon_list\n",
+								remote_destid);
+				prov_daemon_info_list.erase(it);
+			}
+			auto hit = find(begin(hello_daemon_info_list),
+					end(hello_daemon_info_list),
+					remote_destid);
+			if (hit != end(hello_daemon_info_list)) {
+				CRIT("destid(0x%X) removed from hello_daemon_list\n",
+									remote_destid);
+				hello_daemon_info_list.erase(hit);
+			}
+			CRIT("Exiting %s\n", __func__);
 			pthread_exit(0);
 		}
 
@@ -184,7 +208,7 @@ void *wait_conn_disc_thread_f(void *arg)
 		 * type is different then cast message buffer accordingly. */
 		cm_connect_msg	*conn_msg;
 		rx_conn_disc_server->get_recv_buffer((void **)&conn_msg);
-		if (conn_msg->type == CONNECT_MS) {
+		if (conn_msg->type == CM_CONNECT_MS) {
 			HIGH("Received CONNECT_MS '%s'\n", conn_msg->server_msname);
 
 			/* Form message queue name from memory space name */
@@ -270,7 +294,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				accept_msg_map.remove(mq_str);
 				continue;
 			}
-			INFO("ACCEPT_MS sent back to remote daemon!\n");
+			HIGH("ACCEPT_MS sent back to remote daemon!\n");
 
 			/* Now the destination ID must be added to the memory space.
 			 * This is for the case where the memory space is destroyed
@@ -289,11 +313,11 @@ void *wait_conn_disc_thread_f(void *arg)
 			accept_msg_map.remove(mq_str);
 			DBG("%s now removed from the accept message map\n",
 							mq_str.c_str());
-		} else if (conn_msg->type == DISCONNECT_MS) {
+		} else if (conn_msg->type == CM_DISCONNECT_MS) {
 			cm_disconnect_msg	*disc_msg;
 
 			rx_conn_disc_server->get_recv_buffer((void **)&disc_msg);
-			INFO("Received DISCONNECT_MS for msid(0x%X)\n",
+			HIGH("Received DISCONNECT_MS for msid(0x%X)\n",
 							disc_msg->server_msid);
 
 			/* Remove client_destid from 'ms' identified by server_msid */
@@ -351,7 +375,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				ERR("Failed to close '%s': %s\n", mq_name, strerror(errno));
 				continue;
 			}
-			INFO("'Disconnect' message relayed to 'server'\n");
+			HIGH("'Disconnect' message relayed to 'server'\n");
 		}
 
 	} /* while(1) */
@@ -412,6 +436,7 @@ void *prov_thread_f(void *arg)
 		ret = pthread_create(&wcdti->tid, NULL, wait_conn_disc_thread_f, wcdti);
 		if (ret) {
 			CRIT("Failed to create conn_disc thread\n");
+			delete prov_server;
 			free(wcdti);
 			continue;	/* Better luck next time? */
 		}

@@ -60,6 +60,7 @@ struct fmd_dd_dev_info {
 	uint32_t destID_sz;
 	uint32_t hc;
 	uint32_t is_mast_pt;
+	uint32_t flag;
 	char name[FMD_MAX_NAME+1];
 };
 
@@ -68,6 +69,7 @@ struct fmd_dd {
 	struct timespec chg_time;
 	uint32_t md_ct;  
 	uint32_t num_devs;
+	uint32_t loc_mp_idx;
 	struct fmd_dd_dev_info devs[FMD_MAX_DEVS];
 };
 
@@ -108,6 +110,7 @@ extern uint32_t fmd_dd_atomic_copy(struct fmd_dd *dd,
 extern void fmd_dd_incr_chg_idx(struct fmd_dd *dd, int dd_rw);
 extern uint32_t fmd_dd_get_chg_idx(struct fmd_dd *dd);
 extern int fmd_dd_change_notfn(struct fmd_state *st);
+
 extern void bind_dd_cmds(struct fmd_dd *dd, struct fmd_dd_mtx *dd_mtx,
 			char *dd_fn, char *dd_mtx_fn);
 

@@ -60,6 +60,7 @@ struct fmd_slave {
         riodp_mailbox_t mb;
 	uint32_t skt_valid;
         riodp_socket_t skt_h; /* Connected socket */
+	sem_t tx_mtx;
         int tx_buff_used;
         int tx_rc;
         union {
@@ -72,6 +73,7 @@ struct fmd_slave {
                 void *rx_buff;
                 struct fmd_mast_to_slv_msg *m2s; /* alias for rx_buff */
         };
+	int m_h_resp_valid;
 	struct fmd_p_hello m_h_rsp;
 };
 
@@ -79,6 +81,13 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 			uint32_t  mp_num, struct fmd_slave *slave, int fd);
 
 extern void shutdown_slave_mgmt(void);
+
+int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
+                uint32_t is_mast_pt, uint32_t flag, char *name);
+
+int del_device_from_dd(uint32_t ct, uint32_t did);
+
+void update_master_flags_from_peer(void);
 
 #ifdef __cplusplus
 }

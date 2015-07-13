@@ -1,0 +1,117 @@
+Boot Parameters
+---------------
+The "rapidio.hdid" boot command line parameter is used to control the behavior
+of enumerating and discovering processors:
+- If the "rapidio.hdid" parameter is present, the processor will enumerate the 
+system when the rio-scan module is loaded (see below)
+- If the "rapidio.hdid" parameter is not present, the processor will 
+discover the system when the rio-scan module is loaded (see below)
+
+Tsi721 devices must be initialized by the enumerating processor before 
+they can be used by software for messaging or DMA.
+
+The format of the rapidio.hdid parameter is:
+rapidio.hdid=<destID list>
+
+DestID list is a comma separated list of destIDs to be assigned to each
+Tsi721 in order of device enumeration on the PSIe bus.
+The special value of "-1" indicates that RapidIO part of the Tsi721 will be
+enumerated by an external host. Values >= 0 indicate that given interface will
+act as an SRIO enumerator with its own destination ID set to the specified value.
+
+For example, if a processor has four Tsi721 connected to it 
+and the rapidio.hdid parameter is specified as "rapidio.hdid=1,2,-1,5", 
+- /dev/rio_mport0 is assigned destID 1.
+- /dev/rio_mport1 is assigned destID 2.
+- /dev/rio_mport2 remains uninitialized until enumerated by an external node
+                  and can be used by the demos only after enumeration process
+				  is completed.
+- /dev/rio_mport3 is assigned destID 5.
+
+The enumerating processor must be booted first.  
+The discovering processor(s) must be booted after the enumerating processor.
+
+To access/set the rapidio.hdid boot command line parameter:
+- On powerup, when the list of boot images appears, press the up and down 
+  arrow keys to abort the boot timeout.
+- Use the up and down arrow keys to select the boot image
+- Press the 'e' key to edit the boot command file.
+- Use the up and down arrow keys to move to the line which begins "BOOT_IMAGE="
+- If this is the enumerating processor, ensure that the "rapidio.hdid" 
+  parameter is present and correctly set.  Note that if the Tsi721 is not
+  connected to a link partner, the destination ID assigned does not matter.
+- If this is a discovering processor, ensure that the "rapidio.hdid" 
+  parameter is not present. 
+- Press the "F10" key to continue the boot process
+
+Note: Configurations where the enumerating processor does not have direct
+access to all Tsi721's in the system are not supported.
+
+System Configuration
+--------------------
+After rebooting all processors(s), start a console session on the enumerating
+processor.
+
+Enter superuser mode by entering the "su" command.
+Enter the password when requested ("pass").
+
+At the prompt, type the following commands:
+modprobe rio-scan scan=1
+modprobe rio-mport-cdev
+modprobe rio-cm
+ls /dev/rio*
+
+The last command should have the following output:
+- rio_cm
+- at least one file name of the form "rio_mportN", where "N" is the 
+  master port number.  Master ports are numbered starting at 0.
+
+You can run the script list_rio.pl to list all local and 
+remote Rapid I/O devices.
+
+For more information see below.
+
+Software Delivery Structure
+---------------------------
+The software is delivered in three directories:
+Fab_Man: Fabric management library, only uses "include" files.
+Data_Path_Lib: Directories for Kernel mode and User mode latency measurement
+Linux_Include: Directory of include files for kernel mode "raw driver"
+
+Software Installation Instructions
+----------------------------------
+
+1) Create install directory on target machine.  This guide assumes the name 
+   of this directory is "DPath".
+2) Copy the Fab_Man, Data_Path_Lib, and Linux_Include directories into "DPath"
+3) Compile the kernel mode test by entering the
+   "DPath/Data_Path_Lib/samples/latency" directory and typing "make"
+4) Make sure Perl is installed under /usr/bin.
+
+Running the list_rio Perl script
+--------------------------------
+The provided list_rio.pl script provides information about local and remote
+Rapid I/O devices.
+
+For local devices, it provides a table listing the master port, and the 
+device (destination) ID of each local device.
+
+For remote devices, it provides the endpoint information, 
+and the destination ID.
+
+This information is useful when specifying a master port or destination ID to
+the latency tests.
+
+To run:
+./list_rio.pl
+
+Running the Latency Measurement Tests
+-------------------------------------
+The tests must be run when in superuser mode.
+
+Instructions for running all tests are found in 
+"DPath/Data_Path_Lib/samples/latency/read_me".
+
+Kernel mode dma     : kmda_read_me.txt
+User   mode dma     : udma_read_me.txt
+User   mode bridging: ubridge_read_me.txt

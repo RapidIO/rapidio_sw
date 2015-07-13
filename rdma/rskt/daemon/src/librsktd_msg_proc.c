@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_lib_info.h"
 #include "liblist.h"
 #include "librsktd_msg_proc.h"
+#include "liblog.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -317,12 +318,12 @@ void msg_q_handle_areq(struct librsktd_unified_msg *msg)
 				perform_cli_cmd(msg->rx->a_rq.msg.cli.cmd_line);
 				break;
 		default:
-			printf("\nAREQ Rx Msg Type: %d\n", msg->msg_type);
+			CRIT("\nAREQ Rx Msg Type: %d\n", msg->msg_type);
 			msg->tx->msg_type |= htonl(LIBRSKTD_FAIL);
 		};
 		break;
 	default:
-		printf("\nAREQ Stage: %d\n", msg->proc_stage);
+		CRIT("\nAREQ Stage: %d\n", msg->proc_stage);
 		msg->tx->msg_type |= htonl(LIBRSKTD_FAIL);
 	};
 
@@ -622,7 +623,7 @@ void msg_q_handle_a2w(struct librsktd_unified_msg *r)
 				    send_app_resp = rsktd_a2w_close_req(r);
 				    break;
 		default:
-			printf("\nA2W Msg Type: %d\n", r->msg_type);
+			CRIT("\nA2W Msg Type: %d\n", r->msg_type);
 			r->tx->msg_type |= htonl(LIBRSKTD_FAIL);
 		};
 		memcpy((void *)&r->dresp->req, (void *)&r->dreq->msg,
@@ -638,12 +639,12 @@ void msg_q_handle_a2w(struct librsktd_unified_msg *r)
 		case LIBRSKTD_CLOSE: rsktd_a2w_close_resp(r);
 				    break;
 		default:
-			printf("\nA2W Msg Type: %d\n", r->msg_type);
+			CRIT("\nA2W Msg Type: %d\n", r->msg_type);
 			r->dresp->msg_type |= htonl(LIBRSKTD_FAIL);
 		};
 		break;
 	default:
-		printf("\nA2W Stage: %d\n", r->proc_stage);
+		CRIT("\nA2W Stage: %d\n", r->proc_stage);
 		send_app_resp = 1;
 	};
 	/* After message processing, must send response message to app
@@ -740,12 +741,12 @@ void msg_q_handle_sreq(struct librsktd_unified_msg *msg)
 			perform_cli_cmd(msg->dreq->msg.cli.cmd_line);
 			break;
 		default:
-			printf("\nSREQ Msg_type: %d\n", msg->msg_type);
+			CRIT("\nSREQ Msg_type: %d\n", msg->msg_type);
 			break;
 		};
 		break;
 	default:
-		printf("\nSREQ Stage: %d\n", msg->proc_stage);
+		CRIT("\nSREQ Stage: %d\n", msg->proc_stage);
 	};
 	if (send_resp_now)
 		enqueue_speer_msg(msg);
@@ -830,7 +831,7 @@ void msg_q_handle_s2a(struct librsktd_unified_msg *msg)
 			send_resp_now = rsktd_s2a_close_req(msg);
 			break;
 		default:
-			printf("\nS2A Req Msg_type: %d\n", msg->msg_type);
+			CRIT("\nS2A Req Msg_type: %d\n", msg->msg_type);
 			break;
 		};
 		msg->dresp->msg_type = msg->dreq->msg_type |
@@ -842,12 +843,12 @@ void msg_q_handle_s2a(struct librsktd_unified_msg *msg)
 			rsktd_s2a_close_resp(msg);
 			break;
 		default:
-			printf("\nS2A Msg_type: %d\n", msg->msg_type);
+			CRIT("\nS2A Msg_type: %d\n", msg->msg_type);
 			break;
 		};
 		break;
 	default:
-		printf("\nS2A Stage: %d\n", msg->proc_stage);
+		CRIT("\nS2A Stage: %d\n", msg->proc_stage);
 	};
 
 	if (send_resp_now)
@@ -892,7 +893,7 @@ void *msg_q_loop(void *unused)
 		case RSKTD_PROC_S2A: msg_q_handle_s2a(msg);
 					break;
 		default: 
-			printf("\nMSG_Q_LOOP: Unknown proc type %d\n",
+			CRIT("\nMSG_Q_LOOP: Unknown proc type %d\n",
 					msg->proc_type);
 		}
 	};

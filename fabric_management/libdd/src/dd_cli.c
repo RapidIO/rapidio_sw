@@ -53,10 +53,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "fmd_dd.h"
 #include "liblog.h"
-// #include "dev_db.h"
-// #include "cli_cmd_db.h"
-// #include "cli_cmd_line.h"
-// #include "cli_parse.h"
 #include "libcli.h"
 #include <stdio.h>
 #include <string.h>
@@ -103,15 +99,18 @@ int CLIDDDumpCmd(struct cli_env *env, int argc, char **argv)
 		cli_dd->md_ct, cli_dd->num_devs);
 	logMsg(env);
 	if (cli_dd->num_devs > 0)  {
-		sprintf(env->output, "Idx ---CT--- -destID- SZ HC MP Name\n");
+		sprintf(env->output, 
+			"Idx ---CT--- -destID- SZ HC MP FL Name\n");
 		logMsg(env);
 		for (i = 0; (i < cli_dd->num_devs) && (i < FMD_MAX_DEVS); i++) {
-			sprintf(env->output, "%3d %8x %8x %2x %2x %2s %30s\n",
+			sprintf(env->output,
+				"%3d %8x %8x %2x %2x %2s %2x %30s\n",
 				i, cli_dd->devs[i].ct, 
 				cli_dd->devs[i].destID, 
 				cli_dd->devs[i].destID_sz, 
 				cli_dd->devs[i].hc,
 				cli_dd->devs[i].is_mast_pt?"MP":"..",
+				cli_dd->devs[i].flag,
 				cli_dd->devs[i].name);
 			logMsg(env);
 		};

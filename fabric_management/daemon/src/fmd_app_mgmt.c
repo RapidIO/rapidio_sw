@@ -42,6 +42,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_app_mgmt.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
+#include "liblog.h"
+#include "libfmdd.h"
+#include "fmd_mgmt_master.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -91,7 +94,7 @@ void init_app_mgmt_st(void)
 	sem_init(&app_st.apps_avail, 0, FMD_MAX_APPS);
 };
 
-void handle_app_msg(struct fmd_app_mgmt_state *app)
+int handle_app_msg(struct fmd_app_mgmt_state *app)
 {
 	memset((void *)&app->resp, sizeof(struct libfmd_dmn_app_msg), 0);
 
@@ -99,16 +102,46 @@ void handle_app_msg(struct fmd_app_mgmt_state *app)
 
 	if (htonl(FMD_REQ_HELLO) != app->req.msg_type) {
 		app->resp.msg_type |= htonl(FMD_APP_MSG_FAIL);
-		return;
+		return 0;
 	};
 
 	app->proc_num = ntohl(app->req.hello_req.app_pid);
+	app->flag = ntohl(app->req.hello_req.flag);
 	strncpy(app->app_name, app->req.hello_req.app_name, MAX_APP_NAME);
 
 	app->resp.hello_resp.sm_dd_mtx_idx = htonl(app->index);
 	strncpy(app->resp.hello_resp.dd_fn, app_st.dd_fn, MAX_DD_FN_SZ);
 	strncpy(app->resp.hello_resp.dd_mtx_fn, app_st.dd_mtx_fn, 
 		MAX_DD_MTX_FN_SZ);
+	return 1;
+};
+
+void mod_dd_mp_flag(uint8_t flag, int add_it)
+{
+	uint32_t i;
+
+	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
+		return;
+
+	if ((flag == FMDD_NO_FLAG) || (flag == FMDD_ANY_FLAG))
+		return;
+
+	i = fmd->dd->loc_mp_idx;
+	if (i >= fmd->dd->num_devs)
+		return;
+
+	sem_wait(&fmd->dd_mtx->sem);
+
+	if (fmd->dd->devs[i].is_mast_pt) { 
+		if (add_it)
+			fmd->dd->devs[i].flag |= flag;
+		else
+			fmd->dd->devs[i].flag &= ~flag;
+	} else {
+		ERR("DD Index %d is not master port!", i);
+	};
+
+	sem_post(&fmd->dd_mtx->sem);
 };
 
 
@@ -122,6 +155,7 @@ void *app_loop(void *ip)
 	struct fmd_app_mgmt_state *app = (struct fmd_app_mgmt_state *)ip;
 	int msg_size = sizeof(struct libfmd_dmn_app_msg); 
 	int rc;
+	int update_reqd;
 
 	memset((void *)&app->app_name, 0, MAX_APP_NAME);
 	app->alive = 1;
@@ -135,11 +169,17 @@ void *app_loop(void *ip)
                 if ((rc <= 0) || app->i_must_die)
                         break;
 
-		handle_app_msg(app);
+		update_reqd = handle_app_msg(app);
 
 		rc = send(app->app_fd, &app->resp, msg_size, 0);
 		if ((rc != msg_size) || app->i_must_die)
 			break;
+
+		if (update_reqd) {
+			mod_dd_mp_flag(app->flag, 1);
+			fmd_notify_apps();
+			update_peer_flags();
+		};
 	}
 
 	if (app->app_fd) {
@@ -150,6 +190,9 @@ void *app_loop(void *ip)
 	app->alloced = 0;
 	app->alive = 0;
 	sem_post(&app_st.apps_avail);
+	mod_dd_mp_flag(app->flag, 0);
+	fmd_notify_apps();
+	update_peer_flags();
 
 	pthread_exit(NULL);
 }
@@ -161,7 +204,7 @@ int open_app_conn_socket(void)
 
 	app_st.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 	if (-1 == app_st.fd) {
-		perror("ERROR on open_app_conn socket");
+		CRIT("ERROR on open_app_conn socket");
 		goto fail;
 	};
 
@@ -170,19 +213,19 @@ int open_app_conn_socket(void)
 
 	if (remove(app_st.addr.sun_path))
 		if (ENOENT != errno)
-			perror("ERROR on app_conn remove");
+			CRIT("ERROR on app_conn remove");
 
 	snprintf(app_st.addr.sun_path, sizeof(app_st.addr.sun_path) - 1,
 		FMD_APP_MSG_SKT_FMT, app_st.port);
 
 	if (-1 == bind(app_st.fd, (struct sockaddr *) &app_st.addr, 
 			sizeof(struct sockaddr_un))) {
-		perror("ERROR on app_conn bind");
+		CRIT("ERROR on app_conn bind");
 		goto fail;
 	};
 
 	if (listen(app_st.fd, app_st.bklg) == -1) {
-		perror("ERROR on app_conn listen");
+		CRIT("ERROR on app_conn listen");
 		goto fail;
 	};
 	rc = 0;
@@ -214,7 +257,7 @@ void *app_conn_loop( void *unused )
 			};
 		};
 		if (!found) {
-			perror("FMD could not find free app!");
+			CRIT("FMD could not find free app!");
 			goto fail;
 		};
 		new_app = &app_st.apps[new_app_i];
@@ -227,7 +270,7 @@ void *app_conn_loop( void *unused )
 			
 		if (-1 == new_app->app_fd) {
 			if (app_st.fd) 
-				perror("ERROR on app_conn accept");
+				CRIT("ERROR on app_conn accept");
 			goto fail;
 		};
 
