@@ -740,22 +740,20 @@ void shutdown(struct peer_info *peer)
 	exit(1);
 } /* shutdown() */
 
-void end_handler(int sig)
+void sig_handler(int sig)
 {
 	switch (sig) {
-	case SIGQUIT:
-		puts("SIGQUIT");
+	case SIGQUIT:	/* ctrl-\ */
+	case SIGINT:	/* ctrl-c */
+	case SIGABRT:	/* abort() */
+	case SIGTERM:	/* kill <pid> */
 	break;
-	case SIGINT:
-		puts("SIGINT");
-	break;
-	case SIGABRT:
-		puts("SIGABRT");
-	break;
-	case SIGUSR1:
-		puts("SIGUSR1");
+
+	case SIGUSR1:	/* pthread_kill() */
+		/* Ignore signal */
 		return;
 	break;
+
 	default:
 		puts("UNKNOWN SIGNAL");
 	}
@@ -786,11 +784,16 @@ int main (int argc, char **argv)
 	if (!foreground())
 		peer.run_cons = 0;
 
-	/* Register end handler */
-	signal(SIGQUIT, end_handler);
-	signal(SIGINT, end_handler);
-	signal(SIGABRT, end_handler);
-	signal(SIGUSR1, end_handler);
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
+	sigaction(SIGTERM, &sig_action, NULL);
+	sigaction(SIGQUIT, &sig_action, NULL);
+	sigaction(SIGABRT, &sig_action, NULL);
+	sigaction(SIGUSR1, &sig_action, NULL);
 
 	/* Parse command-line parameters */
 	while ((c = getopt(argc, argv, "hnc:m:")) != -1)
