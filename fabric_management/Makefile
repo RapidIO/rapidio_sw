@@ -64,11 +64,6 @@ libriocp_pe:
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libriocp_pe/libriocp_pe.a $(LOCAL_LIBRARY_DIR)
 
-librio_maint:
-	$(MAKE) all -C librio_maint
-	mkdir -p $(LOCAL_LIBRARY_DIR)
-	cp librio_maint/librio_maint.a $(LOCAL_LIBRARY_DIR)
-
 libswitch_api:
 	$(MAKE) all -C librio_switch
 	mkdir -p $(LOCAL_LIBRARY_DIR)
@@ -94,7 +89,6 @@ clean:
 	rm -f fmd *.o *~ inc/*~ *.exe core $(LOCAL_LIBRARY_DIR)/*.so \
 		$(LOCAL_LIBRARY_DIR)/*.a
 	$(MAKE) clean -C librio_switch
-	$(MAKE) clean -C librio_maint
 	$(MAKE) clean -C libriocp_pe
 	$(MAKE) clean -C daemon
 	$(MAKE) clean -C libfmdd
