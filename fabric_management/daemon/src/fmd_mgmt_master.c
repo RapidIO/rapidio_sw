@@ -58,7 +58,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 
 #include "rapidio_mport_lib.h"
-#include "linux/rio_cm_cdev.h"
+
 #include "libcli.h"
 #include "fmd_mgmt_master.h"
 #include "fmd_mgmt_slave.h"

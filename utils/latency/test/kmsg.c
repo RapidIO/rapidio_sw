@@ -56,9 +56,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <dirent.h>
 
-#include <linux/rio_cm_cdev.h>
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include "riodp_mport_lib.h"
+
+#include "rapidio_mport_lib.h"
 
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 

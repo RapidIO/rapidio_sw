@@ -54,11 +54,9 @@ extern "C" {
 #include <time.h>
 #include <signal.h>
 
-#include <linux/rio_cm_cdev.h>
+
 
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
-#define RIO_MPORT_DEV_PATH "/dev/rio_mport"
-#define RIO_CMDEV_PATH "/dev/rio_cm"
 #define RIO_MAP_ANY_ADDR	(uint64_t)(~((uint64_t) 0))
 
 #define RIO_EVENT_DOORBELL	(1 << 0)
@@ -93,9 +91,17 @@ struct riodp_mailbox {
 	uint8_t mport_id;
 };
 
+struct rio_channel {
+	uint16_t id;
+	uint32_t remote_destid;
+	uint32_t remote_mbox;
+	uint16_t remote_channel;
+	uint8_t mport_id;
+};
+
 struct riodp_socket {
 	struct riodp_mailbox *mbox;
-	struct rio_cm_channel cdev;
+	struct rio_channel ch;
 	uint8_t	*rx_buffer;
 	uint8_t	*tx_buffer;
 };

@@ -49,15 +49,13 @@
 #include <signal.h>
 
 #include <linux/rio_cm_cdev.h>
-
 #define CONFIG_RAPIDIO_DMA_ENGINE
 #include <linux/rio_mport_cdev.h>
 
 #include "rapidio_mport_lib.h"
 
-#define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
-
+#define RIO_CMDEV_PATH "/dev/rio_cm"
 
 int riodp_mport_open(uint32_t mport_id, int flags)
 {
@@ -728,7 +726,7 @@ int riodp_socket_socket(riodp_mailbox_t mailbox, riodp_socket_t *socket_handle)
 	}
 
 	handle->mbox = mailbox;
-	handle->cdev.id = 0;
+	handle->ch.id = 0;
 	*socket_handle = handle;
 	return 0;
 }
@@ -739,7 +737,7 @@ int riodp_socket_send(riodp_socket_t socket_handle, void *buf, uint32_t size)
 	struct riodp_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
 
-	msg.ch_num = handle->cdev.id;
+	msg.ch_num = handle->ch.id;
 	msg.size = size;
 	msg.msg = buf;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_SEND, &msg);
@@ -758,7 +756,7 @@ int riodp_socket_receive(riodp_socket_t socket_handle, void **buf,
 	struct riodp_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
 
-	msg.ch_num = handle->cdev.id;
+	msg.ch_num = handle->ch.id;
 	msg.size = size;
 	msg.msg = *buf;
 	msg.rxto = timeout;
@@ -785,10 +783,10 @@ int riodp_socket_close(riodp_socket_t *socket_handle)
 	if(!handle)
 		return -1;
 
-	ch_num = handle->cdev.id;
+	ch_num = handle->ch.id;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CLOSE, &ch_num);
 	if (ret < 0) {
-		printf("CLOSE IOCTL: returned %d for ch_num=%d (errno=%d)\n", ret, (*socket_handle)->cdev.id, errno);
+		printf("CLOSE IOCTL: returned %d for ch_num=%d (errno=%d)\n", ret, (*socket_handle)->ch.id, errno);
 		ret = errno;
 	}
 
@@ -815,6 +813,7 @@ int riodp_socket_bind(riodp_socket_t socket_handle, uint16_t local_channel)
 	struct riodp_socket *handle = socket_handle;
 	uint16_t ch_num;
 	int ret;
+	struct rio_cm_channel cdev;
 
 	ch_num = local_channel;
 
@@ -822,10 +821,12 @@ int riodp_socket_bind(riodp_socket_t socket_handle, uint16_t local_channel)
 	if (ret < 0)
 		return errno;
 
-	handle->cdev.id = ch_num;
-	handle->cdev.mport_id = handle->mbox->mport_id;
+	cdev.id = ch_num;
+	cdev.mport_id = handle->mbox->mport_id;
+	handle->ch.id = cdev.id;
+	handle->ch.mport_id = cdev.mport_id;
 
-	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_BIND, &(handle->cdev));
+	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_BIND, &cdev);
 	if (ret < 0)
 		return errno;
 
@@ -838,7 +839,7 @@ int riodp_socket_listen(riodp_socket_t socket_handle)
 	uint16_t ch_num;
 	int ret;
 
-	ch_num = handle->cdev.id;
+	ch_num = handle->ch.id;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_LISTEN, &ch_num);
 	if (ret)
 		return errno;
@@ -858,7 +859,7 @@ int riodp_socket_accept(riodp_socket_t socket_handle, riodp_socket_t *conn,
 	if(!handle || !conn)
 		return -1;
 
-	param.ch_num = handle->cdev.id;
+	param.ch_num = handle->ch.id;
 	param.wait_to = timeout;
 
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_ACCEPT, &param);//&ch_num);
@@ -870,7 +871,7 @@ int riodp_socket_accept(riodp_socket_t socket_handle, riodp_socket_t *conn,
 #endif
 
 	if (new_handle)
-		new_handle->cdev.id = param.ch_num;
+		new_handle->ch.id = param.ch_num;
 
 	return 0;
 }
@@ -880,19 +881,25 @@ int riodp_socket_connect(riodp_socket_t socket_handle, uint32_t remote_destid,
 {
 	struct riodp_socket *handle = socket_handle;
 	uint16_t ch_num = 0;
+	struct rio_cm_channel cdev;
 
-	if (handle->cdev.id == 0) {
+	if (handle->ch.id == 0) {
 		if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CREATE, &ch_num))
 			return errno;
-		handle->cdev.id = ch_num;
+		handle->ch.id = ch_num;
 	}
 
 	/* Configure and Send Connect IOCTL */
-	handle->cdev.remote_destid  = remote_destid;
-	handle->cdev.remote_mbox    = remote_mbox;
-	handle->cdev.remote_channel = remote_channel;
-	handle->cdev.mport_id = handle->mbox->mport_id;
-	if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &(handle->cdev))) {
+	handle->ch.remote_destid  = remote_destid;
+	handle->ch.remote_mbox    = remote_mbox;
+	handle->ch.remote_channel = remote_channel;
+	handle->ch.mport_id = handle->mbox->mport_id;
+	cdev.remote_destid  = remote_destid;
+	cdev.remote_mbox    = remote_mbox;
+	cdev.remote_channel = remote_channel;
+	cdev.mport_id = handle->mbox->mport_id;
+	cdev.id = handle->ch.id;
+	if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &cdev)) {
 #ifdef DEBUG
 		printf("ioctl rc(%d): %s\n", ret, strerror(errno));
 #endif

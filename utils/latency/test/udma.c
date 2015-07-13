@@ -46,8 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/mman.h>
 #include <sys/time.h>
 
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include "linux/rio_cm_cdev.h"
+
 
 #include "pcie_utils.h"
 #include "rio_register_utils.h"
@@ -56,7 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tsi721_config.h"
 #include "dma_utils.h"
 #include "time_utils.h"
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 #include "debug.h"
 

@@ -40,7 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_Tsi721.h"
 #include "rio_register_utils.h"
 #include "peer_utils.h"
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 #ifdef __cplusplus
 extern "C" {

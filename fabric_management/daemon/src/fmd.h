@@ -51,7 +51,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include "linux/rio_cm_cdev.h"
+
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>

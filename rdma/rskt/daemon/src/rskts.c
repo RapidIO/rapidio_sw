@@ -57,7 +57,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 
 #include "rapidio_mport_lib.h"
-#include "linux/rio_cm_cdev.h"
+
 #include "libcli.h"
 #include "librskt_private.h"
 #include "librsktd_private.h"

@@ -46,7 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tsi721_dma.h"
 #include "dma_utils.h"
 #include "inbound_utils.h"
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 
 int roundup_pow_of_two( int n )

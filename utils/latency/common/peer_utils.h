@@ -40,9 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tsi721_dma.h"
 #include "tsi721_msg.h"
 
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include "linux/rio_cm_cdev.h"
-#include "riodp_mport_lib.h"
+
+#include "rapidio_mport_lib.h"
 
 /* DEMO MODE */
 #define LOOPBACK           0

@@ -50,8 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //#include <linux/types.h>
 #include <sys/ioctl.h>
 
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include <linux/rio_cm_cdev.h>
+
 
 // TSI721 includes
 #include "CPS1848_registers.h"
@@ -66,7 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rio_register_utils.h"
 #include "time_utils.h"
 #include "debug.h"
-#include "riodp_mport_lib.h"
+#include "rapidio_mport_lib.h"
 
 // PCIE offset (to be added to distinguish RIO from PCIE accesses
 #define PCIE_ADDRESS_OFFSET 0x70000

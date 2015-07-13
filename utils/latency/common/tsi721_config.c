@@ -48,10 +48,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_Tsi721.h>
 #include <tsi721_config.h>
 
-#include <linux/rio_cm_cdev.h>
 
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include "riodp_mport_lib.h"
+
+#include "rapidio_mport_lib.h"
 
 #include "tsi721_config.h"
 
