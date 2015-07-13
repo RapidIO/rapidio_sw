@@ -766,6 +766,11 @@ void end_handler(int sig)
 	shutdown(&peer);
 } /* end_handler() */
 
+bool foreground(void)
+{
+	return (tcgetpgrp(STDIN_FILENO) == getpgrp());
+}
+
 int main (int argc, char **argv)
 {
 	int c;
@@ -776,6 +781,10 @@ int main (int argc, char **argv)
  	 * before parsing command line parameters as command line parameters
  	 * may override some of the default values assigned here */
 	init_peer();
+
+	/* Do no show console if started in background mode (rdmad &) */
+	if (!foreground())
+		peer.run_cons = 0;
 
 	/* Register end handler */
 	signal(SIGQUIT, end_handler);
@@ -790,7 +799,11 @@ int main (int argc, char **argv)
 			peer.cons_skt = atoi(optarg);
 		break;
 		case 'h':
-			puts("rdmad -h -m<port> -c<socket num>");
+			puts("rdmad -h -m<port> -c<socket num>|-n");
+			puts("-h		Display this help message");
+			puts("-m<mport>		Use specified master port number");
+			puts("-c<sock num>	Use specified socket number for console");
+			puts("-n		Do not display console (for background operation");
 			exit(1);
 		break;
 		case 'm':
