@@ -42,7 +42,7 @@ int RIOCP_WU riocp_pe_switch_clear_lut(struct riocp_pe *sw, uint8_t lut);
 int RIOCP_WU riocp_pe_switch_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *speed);
 int RIOCP_WU riocp_pe_switch_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width);
 int RIOCP_WU riocp_pe_switch_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_port_state_t *state);
-int RIOCP_WU riocp_pe_switch_handle_event(struct riocp_pe *sw, struct rio_event *revent,
+int RIOCP_WU riocp_pe_switch_handle_event(struct riocp_pe *sw, struct riodp_event *revent,
 	struct riocp_pe_event *event);
 
 #ifdef __cplusplus

@@ -56,9 +56,6 @@ extern "C" {
 
 #include <linux/rio_cm_cdev.h>
 
-#define CONFIG_RAPIDIO_DMA_ENGINE
-//#include <linux/rio_mport_cdev.h>
-
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
@@ -137,6 +134,23 @@ enum riodp_directio_transfer_sync {
 	RIO_DIRECTIO_TRANSFER_FAF,		/* fire-and-forget transfer only for write transactions */
 };
 
+struct riodp_doorbell {
+	uint32_t rioid;
+	uint16_t payload;
+};
+
+struct riodp_portwrite {
+	uint32_t payload[16];
+};
+
+struct riodp_event {
+	unsigned int header;	/* event kind, e.g. RIO_EVENT_DOORBELL or RIO_EVENT_PORTWRITE */
+	union {
+		struct riodp_doorbell doorbell;	/* header is RIO_EVENT_DOORBELL */
+		struct riodp_portwrite portwrite; /* header is RIO_EVENT_PORTWRITE */
+	} u;
+};
+
 
 typedef struct riodp_mailbox  *riodp_mailbox_t;
 typedef struct riodp_socket   *riodp_socket_t;
@@ -189,6 +203,8 @@ int riodp_pwrange_enable(int fd, uint32_t mask, uint32_t low, uint32_t high);
 int riodp_pwrange_disable(int fd, uint32_t mask, uint32_t low, uint32_t high);
 int riodp_set_event_mask(int fd, unsigned int mask);
 int riodp_get_event_mask(int fd, unsigned int *mask);
+int riodp_get_event(int fd, struct riodp_event *evt);
+
 int riodp_destid_set(int fd, uint16_t destid);
 int riodp_device_add(int fd, uint16_t destid, uint8_t hc, uint32_t ctag,
 		     const char *name);

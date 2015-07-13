@@ -45,7 +45,7 @@ int riocp_pe_event_init(struct riocp_pe *pe)
 		return ret;
 	}
 
-	ret = ioctl(pe->fd, RIO_SET_EVENT_MASK, RIO_PORTWRITE);
+	ret = riodp_set_event_mask(pe->fd, RIO_EVENT_PORTWRITE);
 	if (ret < 0) {
 		RIOCP_ERROR("Could not set portwrite event mask with ioctl (err: %s)\n",
 			strerror(errno));
@@ -53,12 +53,7 @@ int riocp_pe_event_init(struct riocp_pe *pe)
 		goto err;
 	}
 
-	memset(&pe->pwfilter, 0, sizeof(pe->pwfilter));
-	pe->pwfilter.mask = 0xffffffff;
-	pe->pwfilter.low  = pe->comptag;
-	pe->pwfilter.high = pe->comptag;
-
-	ret = ioctl(pe->fd, RIO_ENABLE_PORTWRITE_RANGE, &pe->pwfilter);
+	ret = riodp_pwrange_enable(pe->fd, 0xffffffff, pe->comptag, pe->comptag);
 	if (ret < 0) {
 		RIOCP_ERROR("Could not enable port write range with ioctl (err: %s)\n",
 			strerror(errno));
@@ -110,19 +105,14 @@ int riocp_pe_event_receive(struct riocp_pe *pe, struct riocp_pe_event *e)
 {
 	int ret;
 	struct riocp_pe_event _e;
-	struct rio_event revent;
-	ssize_t bytes = 0;
+	struct riodp_event revent;
 
-	bytes = read(pe->fd, &revent, sizeof(revent));
-	if (bytes == -1)
-		return -ENOMSG;
-	if (bytes != sizeof(revent)) {
-		RIOCP_ERROR("Read incorrect number of %zu bytes from fd %d\n",
-			bytes, pe->fd);
-		return -EIO;
-	}
-	if (!(revent.header & RIO_PORTWRITE)) {
-		RIOCP_ERROR("Event not of type RIO_PORTWRITE\n", bytes, pe->fd);
+
+	ret = riodp_get_event(pe->fd, &revent);
+	if (ret < 0)
+		return ret;
+	if (revent.header != RIO_EVENT_PORTWRITE) {
+		RIOCP_ERROR("Event not of type RIO_EVENT_PORTWRITE\n");
 		return -ENOMSG;
 	}
 

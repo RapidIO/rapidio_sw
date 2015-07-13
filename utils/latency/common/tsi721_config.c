@@ -51,7 +51,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <linux/rio_cm_cdev.h>
 
 #define CONFIG_RAPIDIO_DMA_ENGINE
-#include <linux/rio_mport_cdev.h>
 #include "riodp_mport_lib.h"
 
 #include "tsi721_config.h"

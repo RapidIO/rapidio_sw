@@ -597,7 +597,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 		goto err;
 	}
 
-	ret = ioctl(h->fd, RIO_MPORT_GET_PROPERTIES, &h->mport->minfo->prop);
+	ret = riodp_mport_query(h->fd, &h->mport->minfo->prop);
 	if (ret) {
 		RIOCP_ERROR("failed to get mport properties: %s (%d)\n",
 			strerror(errno), errno);

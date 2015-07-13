@@ -427,7 +427,7 @@ static int tsi57x_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_por
 	return 0;
 }
 
-static int tsi57x_event_handler(struct riocp_pe *sw, struct rio_event *revent, struct riocp_pe_event *event)
+static int tsi57x_event_handler(struct riocp_pe *sw, struct riodp_event *revent, struct riocp_pe_event *event)
 {
 	int ret;
 	uint8_t port;

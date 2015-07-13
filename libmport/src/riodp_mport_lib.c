@@ -613,6 +613,36 @@ int riodp_get_event_mask(int fd, unsigned int *mask)
 }
 
 /*
+ * Get current event data
+ */
+int riodp_get_event(int fd, struct riodp_event *evt)
+{
+	struct rio_event revent;
+	ssize_t bytes = 0;
+
+	if (!evt) return -EINVAL;
+
+	bytes = read(fd, &revent, sizeof(revent));
+	if (bytes == -1)
+		return -ENOMSG;
+	if (bytes != sizeof(revent)) {
+		return -EIO;
+	}
+
+	if (revent.header == RIO_EVENT_DOORBELL) {
+		evt->u.doorbell.payload = revent.u.doorbell.payload;
+		evt->u.doorbell.rioid = revent.u.doorbell.rioid;
+	} else if (revent.header == RIO_EVENT_PORTWRITE) {
+		memcpy(&evt->u.portwrite.payload, &revent.u.portwrite.payload, sizeof(evt->u.portwrite.payload));
+	} else {
+		return -EIO;
+	}
+	evt->header = revent.header;
+
+	return 0;
+}
+
+/*
  * Set destination ID of local mport device
  */
 int riodp_destid_set(int fd, uint16_t destid)
