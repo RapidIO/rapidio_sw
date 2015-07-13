@@ -33,8 +33,6 @@
 # it can override the loglevel on the command line by specifying 'level=XXX'
 level?=$(LOG_LEVEL)
 
-KDIR?=/usr/src/linux
-KERNINC=$(KDIR)/include
 TOP_LEVEL?=..
 COMMON_DIR?=$(TOP_LEVEL)/common
 INCLUDE_DIR?=$(TOP_LEVEL)/include
@@ -50,8 +48,7 @@ LIB_DIRS = \
 	-L$(INCLUDE_DIR)/libs_a \
 	-L$(COMMON_DIR)/libs_so \
 	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
-	-L$(TOP_LEVEL)/fabric_management/libdd \
-	-L$(TOP_LEVEL)/fabric_management/librio_maint 
+	-L$(TOP_LEVEL)/fabric_management/libdd
 
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
@@ -61,7 +58,7 @@ RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -I../../samples/latency/common/ 
 
 # RDMA Daemon flags & sources
 RDMAD_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -g -ggdb -O3 \
-		-DRDMA_LL=$(level) -I$(KERNINC) -I$(MPORTLIB_INC) \
+		-DRDMA_LL=$(level) -I$(MPORTLIB_INC) \
 		-I../common/libcli/inc \
 		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
 
@@ -79,12 +76,12 @@ RDMAD_SOURCES = src/rdma_mq_msg.c \
 # RDMA Library flags, sources and objects
 RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-Idaemon/inc \
-		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
+		-I$(MPORTLIB_INC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3 -rdynamic -lnsl
 
 RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb \
 		-Idaemon/inc \
-		-I$(MPORTLIB_INC) -I$(KERNINC) -Iinc -I../include -I../common/include \
+		-I$(MPORTLIB_INC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3
 
 RDMALIB_SOURCES = lib/src/librdma.cpp \
@@ -124,7 +121,7 @@ librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	mkdir -p $(TOP_LEVEL)/include/libs_a
 	cp librdma.a $(TOP_LEVEL)/include/libs_a
 #Generate preprocessor output
-	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I$(KERNINC) -I../common/include -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
+	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I../common/include -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
 
 # The RDMA daemon (the RPC server)
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR)/libs_a/* $(INCLUDE_DIR)/libs_a/* \

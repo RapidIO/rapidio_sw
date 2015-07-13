@@ -2,10 +2,6 @@
 #
 # Default configurations
 
-KDIR ?= /usr/src/linux
-
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
-
 LOG_LEVEL ?= 1
 
 DEBUG ?= DEBUG
@@ -17,8 +13,6 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 A_LIB_LKFLAGS = -lnsl -fPIC -g -ggdb
 
 CROSS_COMPILE?=/usr/bin/
-LINUX_INCLUDE_DIR?=/usr/src/linux/include
-INCDIR=$(LINUX_INCLUDE_DIR)
 
 COMMON_DIR?=$(TOP_LEVEL)/common
 MPORT_DIR?=$(TOP_LEVEL)/libmport
@@ -42,8 +36,7 @@ src/%.o: src/%.c
 	-I$(COMMON_DIR)/include \
 	-I$(COMMON_DIR)/liblist/inc \
 	-I../../../include \
-	-DRDMA_LL=7 \
-	-I$(LINUX_INCLUDE_DIR)
+	-DRDMA_LL=7
 
 RSKTLIB_SOURCES = src/librsktd_dmn.c src/librsktd_lib.c \
 	src/librsktd_msg_proc.c src/librsktd_sn.c src/librsktd_speer.c  \

@@ -31,8 +31,6 @@
 
 # Paths specified by parent Makefile as environment variables, but can be
 # overriden on the command line, and are also provided with default values
-KDIR ?= /usr/src/linux
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
 TOP_LEVEL ?= $(shell pwd)
 
 # Specified in master Makefile. Note that DEBUG is only relevant to 'liblog'

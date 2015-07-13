@@ -29,8 +29,6 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-KDIR?=/usr/src/linux
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
 LOG_LEVEL?=4
 DEBUG?=DEBUG
 CC = $(CROSS_COMPILE)gcc
@@ -50,7 +48,6 @@ AR:=$(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
 CFLAGS+=-O2 -D$(DEBUG) -g
-CFLAGS+=-I$(LINUX_INCLUDE_DIR)
 CFLAGS+=-I. -I../inc
 CFLAGS+=-I../cli
 CFLAGS+=-I../libriocp_pe/inc

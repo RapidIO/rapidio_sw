@@ -28,10 +28,6 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-KDIR ?= /usr/src/linux
-export KDIR
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
-export LINUX_INCLUDE_DIR
 LOG_LEVEL ?= 6
 export LOG_LEVEL
 DEBUG ?= DEBUG
@@ -48,12 +44,11 @@ TOP_LEVEL?=..
 level ?= $(LOG_LEVEL)
 
 export LOCAL_LIBRARY_DIR
-export LINUX_INCLUDE_DIR
 
 CCFLAGS= -c -g -ggdb -fPIC -Wall -Werror -O2 -I. \
 	-I./librio_switch/inc \
 	-I./libriocp_pe/inc -I./librio_maint/inc \
-	-I./libriocp_pe/src -I$(LINUX_INCLUDE_DIR) \
+	-I./libriocp_pe/src \
 	-I../common/include -DRDMA_LL=$(level)
 
 LIB_DEPS= libriocp_pe libcli libswitch_api libdd

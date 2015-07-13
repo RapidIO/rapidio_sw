@@ -7,7 +7,6 @@ NAME:=switch_api
 TARGETS:=lib$(NAME).a
 HEADERS:=inc
 
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
 LOG_LEVEL?=4
 DEBUG?=DEBUG
 TOP_LEVEL = $(shell pwd)
@@ -19,7 +18,6 @@ AR ?= $(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
 CFLAGS+=-O2 -DNDEBUG -g -DIDT_TSI721_SUPPORT
-CFLAGS+=-I$(LINUX_INCLUDE_DIR)
 CFLAGS+=-I./inc
 LDFLAGS+=-L. -l$(NAME)
 
