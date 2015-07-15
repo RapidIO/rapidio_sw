@@ -297,8 +297,7 @@ void test_case1(uint32_t msub_ofs)
 	status = rdma_mmap_msub(loc_msubh, &vaddr);
 	CHECK_AND_GOTO(status, "rdma_mmap_msub", destroy_msoh);
 
-	puts("Press ENTER to accept connections..");
-	getchar();
+	puts("Accepting connections..");
 
 	/* Accept connection from client */
 	status = rdma_accept_ms_h(msh1, loc_msubh, &rem_msubh, &rem_msub_len, 0);
