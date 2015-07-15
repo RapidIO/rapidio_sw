@@ -143,6 +143,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 	while(1) {
 		int	ret;
 		/* Receive ACCEPT_MS, or DESTROY_MS message */
+		DBG("Waiting for ACCEPT_MS or DESTROY_MS\n");
 		ret = accept_destroy_client->receive();
 		if (ret) {
 			if (ret == EINTR) {
