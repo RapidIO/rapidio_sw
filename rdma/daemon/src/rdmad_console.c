@@ -76,6 +76,14 @@ int all_ms_msub_info_cmd_f(struct cli_env *env, int argc, char **argv)
 	return 0;
 } /* all_ms_info_cmd_f() */
 
+int owners_cmd_f(struct cli_env *env, int argc, char **argv)
+{
+	(void)env;
+	(void)argc;
+	(void)argv;
+	owners.dump_info();
+	return 0;
+}
 
 extern struct cli_cmd hello_rdaemon_cmd ;
 
@@ -149,7 +157,7 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
 	if (ret == -7) {
 		sprintf(env->output, "destid(0x%X) already provisioned\n", destid);
 		logMsg(env);
-		return ret;
+		return 0;
 	}
 
 	sprintf(env->output, "Return code %d:%s\n", ret, strerror(ret));
@@ -204,11 +212,23 @@ struct cli_cmd hello_rdaemon_cmd = {
 	ATTR_NONE
 };
 
+struct cli_cmd list_owners_cmd = {
+	"owners",
+	1,
+	0,
+	"Memory space owner information.",
+	"{None}\n"
+	"Displays info about memory space owners.\n",
+	owners_cmd_f,
+	ATTR_NONE
+};
+
 struct cli_cmd *rdmad_cmds[] = {
 	&ibwin_info_cmd,
 	&all_ms_info_cmd,
 	&all_ms_msub_info_cmd,
-	&hello_rdaemon_cmd
+	&hello_rdaemon_cmd,
+	&list_owners_cmd
 };
 
 unsigned rdmad_cmds_size(void)
