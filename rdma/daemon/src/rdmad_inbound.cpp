@@ -143,6 +143,22 @@ mspace* inbound::get_mspace(uint32_t msid)
 	return NULL;
 } /* get_mspace() */
 
+/* get_mspace by msoid & msid */
+mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
+{
+	sem_wait(&ibwins_sem);
+	for (auto& ibwin : ibwins) {
+		mspace *ms = ibwin.get_mspace(msoid, msid);
+		if (ms) {
+			sem_post(&ibwins_sem);
+			return ms;
+		}
+	}
+	WARN("msid(0x%X) with msoid(0x%X) not found\n", msid, msoid);
+	sem_post(&ibwins_sem);
+	return NULL;
+} /* get_mspace() */
+
 /* Dump memory space info for a memory space specified by name */
 int inbound::dump_mspace_info(const char *name)
 {
@@ -222,27 +238,6 @@ int inbound::open_mspace(const char *name,
 	DBG("EXIT\n");
 	return 1;
 } /* open_mspace() */
-
-int inbound::close_mspace(uint32_t msid, uint32_t ms_conn_id)
-{
-	uint8_t	win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
-
-	sem_wait(&ibwins_sem);
-	int ret = ibwins[win_num].close_mspace(msid, ms_conn_id);
-	sem_post(&ibwins_sem);
-	return ret;
-} /* close_mspace() */
-
-/* Destroy memory space */
-int inbound::destroy_mspace(uint32_t msoid, uint32_t msid)
-{
-	uint8_t	win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
-
-	sem_wait(&ibwins_sem);
-	int ret = ibwins[win_num].destroy_mspace(msoid, msid);
-	sem_post(&ibwins_sem);
-	return ret;
-} /* destroy_mspace() */
 
 /* Create a memory subspace */
 int inbound::create_msubspace(uint32_t msid, uint32_t offset, uint32_t req_bytes,

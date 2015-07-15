@@ -59,7 +59,6 @@ struct ibwin_map_exception {
 	const char *err;
 };
 
-
 /* Memory space is free and is equal to or larger than 'size'  */
 struct has_room
 {
@@ -124,15 +123,16 @@ public:
 	} /* Constructor */
 
 	/* Called from destructor ~inbound() */
-	void free() {
+	void free()
+	{
+		/* Delete all memory spaces */
+		for_each(begin(mspaces), end(mspaces), [](mspace *p){ delete p;});
+		mspaces.clear();
+
 		/* Free inbound window */
 		INFO("win_num = %d, phys_addr = 0x%lX\n", win_num, phys_addr);
 		if (riodp_ibwin_free(mport_fd, &phys_addr))
 			perror("free(): riodp_ibwin_free()");
-
-		/* Delete all memory spaces */
-		for_each(begin(mspaces), end(mspaces), [](mspace *p){ delete p;});
-		mspaces.clear();
 	} /* free() */
 
 	void dump_info()
@@ -158,46 +158,24 @@ public:
 	void dump_mspace_and_subs_info()
 	{
 		print_mspace_header();
-		for_each(mspaces.begin(), mspaces.end(), call_dump_info_with_msubs<mspace *>());
+		for_each(mspaces.begin(),
+			 mspaces.end(),
+			 call_dump_info_with_msubs<mspace *>());
 	} /* dump_mspace_and_subs_info() */
 
 	/* Returns iterator to memory space large enough to hold 'size' */
-	vector<mspace *>::iterator free_ms_large_enough(uint64_t size) {
+	vector<mspace *>::iterator free_ms_large_enough(uint64_t size)
+	{
 		has_room	hr(size);
 		return find_if(mspaces.begin(), mspaces.end(), hr);
 	} /* free_ms_large_enough() */
 
 	/* Returns whether there is a memory space large enough to hold 'size' */
-	bool has_room_for_ms(uint64_t size) {
+	bool has_room_for_ms(uint64_t size)
+	{
 		has_room	hr(size);
 		return find_if(mspaces.begin(), mspaces.end(), hr) != mspaces.end();
 	} /* has_room_for_ms() */
-
-	/* Destroy memory space */
-	int destroy_mspace(uint32_t msoid, uint32_t msid)
-	{
-		has_msid	hmsid(msid);
-
-		/* Find memory space in list within this inbound window */
-		auto ms_it = find_if(mspaces.begin(), mspaces.end(), hmsid);
-
-		/* Not found, return with error */
-		if ( ms_it == mspaces.end()) {
-			ERR("Memspace 0x%08X not found\n", msid);
-			return -1;
-		}
-
-		/* Verify the owner */
-		if ((*ms_it)->get_msoid() != msoid) {
-			ERR("Memspace 0x%08X not owned by 0x%X\n", msid, msoid);
-			return -2;
-		}
-
-		/* Call the destroy method */
-		(*ms_it)->destroy();
-
-		return 1;
-	} /* destroy_mspace() */
 
 	/* Create memory space */
 	int create_mspace(const char *name,
@@ -238,8 +216,9 @@ public:
 		/* Create memory space for the remaining free inbound space, but
 		 * only if that space is non-zero in size */
 		if (new_size) {
-			/* The new free memory space has no owner, but has a win_num the same
-			 * as the original free one, and has a new index */
+			/* The new free memory space has no owner, but has a
+			 * win_num the same as the original free one, and has a
+			 * new index */
 			uint32_t new_msid = ((*orig_free)->get_msid() & MSID_WIN_MASK) |
 					 (fmlit - begin(msindex_free_list));
 
@@ -260,29 +239,13 @@ public:
 		return 1;
 	} /* create_mspace() */
 
-	int close_mspace(uint32_t msid, uint32_t ms_conn_id)
-	{
-		has_msid	hmsid(msid);
-
-		auto it = find_if(begin(mspaces), end(mspaces), hmsid);
-		if (it == end(mspaces)) {
-			ERR("msid(0x%X) not found\n", msid);
-			return -1;
-		}
-
-		/* Close the connection */
-		if ((*it)->close(ms_conn_id) < 0)
-			return -1;
-		return 1;
-	}
-
 	mspace* get_mspace(const char *name)
 	{
 		has_ms_name	hmn(name);
 
 		auto msit = find_if(begin(mspaces), end(mspaces), hmn);
 		return (msit == end(mspaces)) ? NULL : *msit;
-	}
+	} /* get_mspace() */
 
 	mspace* get_mspace(uint32_t msid)
 	{
@@ -290,7 +253,26 @@ public:
 
 		auto it = find_if(begin(mspaces), end(mspaces), hmsid);
 		return (it == end(mspaces)) ? NULL : *it;
-	}
+	} /* get_mspace() */
+
+	mspace* get_mspace(uint32_t msoid, uint32_t msid)
+	{
+		has_msid	hmsid(msid);
+
+		auto it = find_if(begin(mspaces), end(mspaces), hmsid);
+
+		if (it == end(mspaces)) {
+			WARN("Mspace with msid(0x%X) not found\n", msid);
+			return NULL;
+		}
+
+		if ((*it)->get_msoid() != msoid) {
+			ERR("Memspace with msi(0x%X) not owned by msoid(0x%X)\n",
+								msid,msoid);
+			return NULL;
+		}
+		return *it;
+	} /* get_mspace() */
 
 	bool find_mspace(const char *name, vector<mspace *>::iterator& msit)
 	{
@@ -302,7 +284,7 @@ public:
 			DBG("Found %s\n", name);
 		}
 		return (msit != end(mspaces)) ? true : false;
-	}
+	} /* find_mspace() */
 
 	bool find_mspace(uint32_t msid, vector<mspace *>::iterator& msit)
 	{
@@ -310,7 +292,7 @@ public:
 
 		msit = find_if(begin(mspaces), end(mspaces), hmsid);
 		return (msit != end(mspaces)) ? true : false;
-	}
+	} /* find_mspace() */
 
 	vector<mspace *>& get_mspaces() { return mspaces; };
 

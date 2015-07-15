@@ -289,24 +289,9 @@ void *rpc_thread_f(void *arg)
 						break;
 					}
 
-					/* Before closing the memory space, tell the clients the memory space
-					 *  that it is being closed and have them acknowledge that */
-					out->status = close_or_destroy_action(ms);
-					if (out->status) {
-						ERR("Failed in close_or_destroy_action\n");
-						break;
-					}
-					/* If the memory space was in accepted state, clear that state */
-					/* FIXME: This assumes only 1 'open' to the ms and that the creator
-					 * of the ms does not call 'accept' on it. */
-					ms->set_accepted(false);
-
 					/* Now close the memory space */
-					int ret = the_inbound->close_mspace(in->msid,
-									in->ms_conn_id);
+					int ret = ms->close(in->ms_conn_id);
 					out->status = (ret > 0) ? 0 : ret;
-					DBG("the_inbound->close_mspace() %s\n",
-							out->status ? "FAILED":"PASSED");
 					DBG("CLOSE_MS done\n");
 				}
 				break;
@@ -318,46 +303,15 @@ void *rpc_thread_f(void *arg)
 					destroy_ms_output *out = &out_msg->destroy_ms_out;
 					out_msg->type = DESTROY_MS_ACK;
 
-					mspace *ms = the_inbound->get_mspace(in->msid);
+					mspace *ms = the_inbound->get_mspace(in->msoid, in->msid);
 					if (!ms) {
 						ERR("Could not find mspace with msid(0x%X)\n", in->msid);
 						out->status = -1;
 						break;
 					}
 
-					/* Before destroying a memory space, tell its clients that it is being
-					 * destroyed and have them acknowledge that */
-					out->status = close_or_destroy_action(ms);
-					if (out->status) {
-						ERR("Failed in close_or_destroy_action\n");
-						break;
-					}
-
 					/* Now destroy the memory space */
-					int ret  = the_inbound->destroy_mspace(in->msoid, in->msid);
-					out->status = (ret > 0) ? 0 : ret;
-
-					/* Remove memory space identifier from owner */
-					if (!out->status) {
-						ms_owner *owner;
-						try {
-							owner = owners[in->msoid];
-						}
-						catch(...) {
-							ERR("Failed to find owner(0x%X\n",
-									in->msoid);
-							out->status = -10;
-							break;
-						}
-						if (!owner) {
-							ERR("Failed to find owner(0x%X\n",
-									in->msoid);
-							out->status = -11;
-						} else  if (owner->remove_msid(in->msid) < 0) {
-							WARN("Failed to remove msid from owner\n");
-							out->status = -12;
-						}
-					}
+					out->status = ms->destroy();
 					DBG("DESTROY_MS done\n");
 				}
 				break;
@@ -693,6 +647,10 @@ void shutdown(struct peer_info *peer)
 	/* Kill the threads */
 	shutting_down = true;
 
+	/* Delete the inbound object */
+	INFO("Deleting the_inbound\n");
+	delete the_inbound;
+
 	/* Next, kill provisioning thread */
 	int ret = pthread_kill(prov_thread, SIGUSR1);
 	if (ret == EINVAL) {
@@ -725,9 +683,6 @@ void shutdown(struct peer_info *peer)
 		pthread_join(it->tid, NULL);
 	}
 
-	/* Delete the inbound object */
-	INFO("Deleting the_inbound\n");
-	delete the_inbound;
 
 	/* Close mport device */
 	if (peer->mport_fd > 0) {

@@ -91,7 +91,7 @@ public:
 		/* Find memory space by the handle, return error if not there */
 		auto it = find(begin(msid_list), end(msid_list), msid);
 		if (it == end(msid_list)) {
-			WARN("0x%X not owned by 0x%X\n", msid, msoid);
+			WARN("msid(0x%X) not owned by msoid(0x%X)\n", msid, msoid);
 			return -1;
 		}
 
