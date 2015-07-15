@@ -93,7 +93,7 @@ RDMALIB_SOURCES = lib/src/librdma.cpp \
 RDMALIB_OBJS    = librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: librdma.a rdmad rsktd test
+all: librdma.a rdmad rsktd test samples
 
 test: rdmad librdma.a
 	$(MAKE) all -C test

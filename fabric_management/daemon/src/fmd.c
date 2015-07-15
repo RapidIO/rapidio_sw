@@ -105,7 +105,7 @@ void custom_quit(cli_env *env)
 
 void sig_handler(int signo)
 {
-	printf("\nRx Signal %x\n", signo);
+	INFO("\nRx Signal %x\n", signo);
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		custom_quit(NULL);
 		exit(EXIT_SUCCESS);
@@ -125,12 +125,12 @@ void set_prompt(struct cli_env *e)
         uint16_t pe_did = 0;
 
         if (NULL == e) {
-                strncpy(e->prompt, "UNINIT>", PROMPTLEN);
+                strncpy(e->prompt, "UNINIT> ", PROMPTLEN);
                 return;
         };
 
         if (NULL == e->h) {
-                strncpy(e->prompt, "HUNINIT>", PROMPTLEN);
+                strncpy(e->prompt, "HUNINIT> ", PROMPTLEN);
                 return;
         };
 
@@ -142,7 +142,7 @@ void set_prompt(struct cli_env *e)
 
 	name = riocp_pe_handle_get_device_str(pe_h);
 
-	snprintf(e->prompt, PROMPTLEN,  "%4x_%s>", pe_did, name);
+	snprintf(e->prompt, PROMPTLEN,  "%4x_%s> ", pe_did, name);
 };
 
 void *poll_loop( void *poll_interval ) 
@@ -151,13 +151,13 @@ void *poll_loop( void *poll_interval )
 	int console = ((int*)(poll_interval))[1];
 	free(poll_interval);
 
-	printf("RIO_DEMON: Poll interval %d seconds\n", wait_time);
+	INFO("RIO_DEMON: Poll interval %d seconds\n", wait_time);
 	sem_post(&cons_owner);
 	while(TRUE) {
 		fmd_dd_incr_chg_idx(fmd->dd, 1);
 		sleep(wait_time);
 		if (!console)
-			printf("\nTick!");
+			INFO("\nTick!");
 	}
 	return poll_interval;
 }
@@ -177,7 +177,7 @@ void *cli_session( void *sock_num )
 
      sockfd = socket(AF_INET, SOCK_STREAM, 0);
      	if (sockfd < 0) {
-        	perror("ERROR opening socket");
+        	CRIT("ERROR opening socket");
 		goto fail;
 	}
      bzero((char *) &serv_addr, sizeof(serv_addr));
@@ -187,11 +187,11 @@ void *cli_session( void *sock_num )
      setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
      setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
      if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-        	perror("ERROR on binding");
+        	CRIT("ERROR on binding");
 		goto fail;
 	}
 
-	printf("\nRIO_DEMON bound to socket %d\n", portno);
+	INFO("\nFMD bound to socket %d\n", portno);
 	sem_post(&cons_owner);
 	while (strncmp(buffer, "done", 4)) {
 		struct cli_env env;
@@ -213,17 +213,17 @@ void *cli_session( void *sock_num )
 				(struct sockaddr *) &cli_addr, 
 				&clilen);
 		if (env.sess_socket < 0) {
-			perror("ERROR on accept");
+			CRIT("ERROR on accept");
 			goto fail;
 		};
-		printf("\nStarting session %d\n", session_num);
+		INFO("\nStarting session %d\n", session_num);
 		cli_terminal( &env );
-		printf("\nFinishing session %d\n", session_num);
+		INFO("\nFinishing session %d\n", session_num);
 		close(env.sess_socket);
 		session_num++;
 	};
 fail:
-	printf("\nRIO_DEMON CLI Thread Exiting\n");
+	INFO("\nRIO_DEMON CLI Thread Exiting\n");
 	if (newsockfd >=0)
 		close(newsockfd);
      	close(sockfd);
@@ -246,53 +246,54 @@ void spawn_threads(struct fmd_cfg_parms *cfg)
 	pass_poll_interval[1] = cfg->run_cons;
 	*pass_cons_ret = cfg->run_cons;
 
+	cli_init_base(custom_quit);
+	bind_dd_cmds(fmd->dd, fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
+	liblog_bind_cli_cmds();
+	fmd_bind_dbg_cmds();
+	fmd_bind_mgmt_dbg_cmds();
+	fmd_bind_dev_rw_cmds();
+
 	/* Create independent threads each of which will execute function */
 	poll_ret = pthread_create( &poll_thread, NULL, poll_loop, 
 				(void*)(pass_poll_interval));
 	if(poll_ret) {
-		fprintf(stderr,"Error - poll_thread rc: %d\n",poll_ret);
+		CRIT("Error - poll_thread rc: %d\n",poll_ret);
 		exit(EXIT_FAILURE);
 	}
  
 	cli_ret = pthread_create( &cli_session_thread, NULL, 
 		cli_session, (void*)(pass_sock_num));
 	if(cli_ret) {
-		fprintf(stderr,"Error - cli_session_thread rc: %d\n",cli_ret);
+		CRIT("Error - cli_session_thread rc: %d\n",cli_ret);
 		exit(EXIT_FAILURE);
 	}
 
 	if (cfg->run_cons) {
-		cli_init_base(custom_quit);
-		bind_dd_cmds(fmd->dd, fmd->dd_mtx, fmd->dd_fn, fmd->dd_mtx_fn);
-		liblog_bind_cli_cmds();
-		fmd_bind_dbg_cmds();
-		fmd_bind_mgmt_dbg_cmds();
-		fmd_bind_dev_rw_cmds();
 
 		splashScreen((char *)"FMD Daemon Command Line Interface");
 		cons_ret = pthread_create( &console_thread, NULL, 
 			console, (void *)((char *)"FMD > "));
 		if(cons_ret) {
-			fprintf(stderr,"Error - cons_thread rc: %d\n",cli_ret);
+			CRIT("Error - cons_thread rc: %d\n",cli_ret);
 			exit(EXIT_FAILURE);
 		}
 	};
-	printf("pthread_create() for poll_loop returns: %d\n",poll_ret);
-	printf("pthread_create() for cli_session_thread returns: %d\n",cli_ret);
+	INFO("pthread_create() for poll_loop returns: %d\n",poll_ret);
+	INFO("pthread_create() for cli_session_thread returns: %d\n",cli_ret);
 	if (cfg->run_cons) 
-		printf("pthread_create() for console returns: %d\n",
+		CRIT("pthread_create() for console returns: %d\n",
 			cons_ret);
  
 	ret = start_fmd_app_handler(cfg->app_port_num, 50, 0, 
 					cfg->dd_fn, cfg->dd_mtx_fn); 
 	if (ret) {
-		fprintf(stderr,"Error - start_fmd_app_handler rc: %d\n", ret);
+		CRIT("Error - start_fmd_app_handler rc: %d\n", ret);
 		exit(EXIT_FAILURE);
 	}
 	ret = start_peer_mgmt(cfg->mast_cm_port, 0, cfg->mast_devid, 
 			FMD_SLAVE != cfg->mast_idx);
 	if (ret) {
-		fprintf(stderr,"Error - start_fmd_app_handler rc: %d\n", ret);
+		CRIT("Error - start_fmd_app_handler rc: %d\n", ret);
 		exit(EXIT_FAILURE);
 	}
 }

@@ -1,7 +1,7 @@
 # Paths to libraries
 LIBRDMA_PATH=..
 LIBMPORT_PATH=../../libmport
-COMMON_LIBS_PATH=../../common/libs_a
+COMMON_LIBS_PATH=../../common/libs_so
 
 level?=$(LOG_LEVEL)
 
@@ -15,10 +15,11 @@ RDMA_APP_DEPS= $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a ../src/* \
 	../inc/* ../daemon/src/* ../daemon/inc/*
 
 # Common build string for all apps
-BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
+BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) -L../../common/libs_so \
 	-Wl,-rpath=$(LIBMPORT_PATH) \
+	-Wl,-rpath=$(COMMON_LIBS_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
-	src/$@.c -lrt -llog -lmport -lrdma -pthread
+	src/$@.c -lrt -lcli -llist -llog -lmport -lrdma -pthread
 
 all: rdma_server rdma_client rdma_user
 

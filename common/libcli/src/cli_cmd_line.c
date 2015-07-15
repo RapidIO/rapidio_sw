@@ -136,11 +136,13 @@ int process_command(struct cli_env *env, char *input)
 		rc = find_cmd(cmd, &cmd_p);
 
 		if (rc == -1) {
-			printf(
+			sprintf(env->output,
 			"Unknown command: Type '?' for a list of commands\n");
+			logMsg(env);
 		} else if (rc == -2) {
-			printf(
+			sprintf(env->output,
 			"Ambiguous command: Type '?' for command usage\n");
+			logMsg(env);
 		} else if (!rc && (cmd_p->func != NULL)) {
 			argc = 0;
 			while ((argv[argc] = strtok(NULL, delimiter)) != NULL)
@@ -495,7 +497,8 @@ int CLIQuitCmd(struct cli_env *env, int argc, char **argv)
 		cli_print_help(env, &CLIQuit);
 		goto exit;
 	};
-	(*cons_cleanup)(env);
+	if (-1 == env->sess_socket)
+		(*cons_cleanup)(env);
 	return 1;
 exit:
 	return 0;

@@ -695,22 +695,20 @@ void shutdown(struct peer_info *peer)
 	exit(1);
 } /* shutdown() */
 
-void end_handler(int sig)
+void sig_handler(int sig)
 {
 	switch (sig) {
-	case SIGQUIT:
-		puts("SIGQUIT");
+	case SIGQUIT:	/* ctrl-\ */
+	case SIGINT:	/* ctrl-c */
+	case SIGABRT:	/* abort() */
+	case SIGTERM:	/* kill <pid> */
 	break;
-	case SIGINT:
-		puts("SIGINT");
-	break;
-	case SIGABRT:
-		puts("SIGABRT");
-	break;
-	case SIGUSR1:
-		puts("SIGUSR1");
+
+	case SIGUSR1:	/* pthread_kill() */
+		/* Ignore signal */
 		return;
 	break;
+
 	default:
 		puts("UNKNOWN SIGNAL");
 	}
@@ -720,6 +718,11 @@ void end_handler(int sig)
 	the_inbound->dump_all_mspace_with_msubs_info();
 	shutdown(&peer);
 } /* end_handler() */
+
+bool foreground(void)
+{
+	return (tcgetpgrp(STDIN_FILENO) == getpgrp());
+}
 
 int main (int argc, char **argv)
 {
@@ -732,11 +735,20 @@ int main (int argc, char **argv)
  	 * may override some of the default values assigned here */
 	init_peer();
 
-	/* Register end handler */
-	signal(SIGQUIT, end_handler);
-	signal(SIGINT, end_handler);
-	signal(SIGABRT, end_handler);
-	signal(SIGUSR1, end_handler);
+	/* Do no show console if started in background mode (rdmad &) */
+	if (!foreground())
+		peer.run_cons = 0;
+
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
+	sigaction(SIGTERM, &sig_action, NULL);
+	sigaction(SIGQUIT, &sig_action, NULL);
+	sigaction(SIGABRT, &sig_action, NULL);
+	sigaction(SIGUSR1, &sig_action, NULL);
 
 	/* Parse command-line parameters */
 	while ((c = getopt(argc, argv, "hnc:m:")) != -1)
@@ -745,7 +757,11 @@ int main (int argc, char **argv)
 			peer.cons_skt = atoi(optarg);
 		break;
 		case 'h':
-			puts("rdmad -h -m<port> -c<socket num>");
+			puts("rdmad -h -m<port> -c<socket num>|-n");
+			puts("-h		Display this help message");
+			puts("-m<mport>		Use specified master port number");
+			puts("-c<sock num>	Use specified socket number for console");
+			puts("-n		Do not display console (for background operation");
 			exit(1);
 		break;
 		case 'm':
