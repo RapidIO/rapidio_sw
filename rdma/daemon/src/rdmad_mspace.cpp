@@ -46,7 +46,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "cm_sock.h"
 #include "rdmad_cm.h"
-#include "rdmad_unix_msg.h"
 #include "rdma_mq_msg.h"
 #include "rdmad_mspace.h"
 #include "rdmad_msubspace.h"
@@ -112,7 +111,7 @@ int mspace::notify_remote_clients()
 	for (auto it = begin(destids); it != end(destids); it++) {
 		uint32_t destid = *it;
 
-		/* Need to use a 'prov' socket to send the DESTROY_MS */
+		/* Need to use a 'prov' socket to send the CM_DESTROY_MS */
 		sem_wait(&prov_daemon_info_list_sem);
 		auto prov_it = find(begin(prov_daemon_info_list),
 				end(prov_daemon_info_list), destid);
@@ -132,7 +131,7 @@ int mspace::notify_remote_clients()
 		/* Prepare destroy message */
 		cm_destroy_msg	*dm;
 		destroy_server->get_send_buffer((void **)&dm);
-		dm->type	= DESTROY_MS;
+		dm->type	= CM_DESTROY_MS;
 		strcpy(dm->server_msname, name.c_str());
 		dm->server_msid = msid;
 
