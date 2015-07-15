@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
-#include <rpc/pmap_clnt.h>
 #include <string.h>
 #include <memory.h>
 #include <sys/socket.h>
