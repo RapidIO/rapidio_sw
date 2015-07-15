@@ -305,7 +305,10 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 			/* Done with the destroy POSIX message queue */
 			delete destroy_mq;
-		} /* if DESTROY_MS */
+		} else {
+			CRIT("Got an unknown message code (0x%X)\n",
+					accept_cm_msg->type);
+		}
 	} /* while(1) */
 	pthread_exit(0);
 } /* wait_accept_destroy_thread_f() */
