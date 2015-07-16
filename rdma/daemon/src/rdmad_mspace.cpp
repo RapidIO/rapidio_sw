@@ -324,7 +324,7 @@ int mspace::open(uint32_t *msid, uint32_t *ms_open_id, uint32_t *bytes)
 		close_mq = new msg_q<mq_close_ms_msg>(qname.str(), MQ_CREATE);
 	}
 	catch(msg_q_exception e) {
-		e.print();
+		CRIT("Failed to create close_mq: %s\n", e.msg.c_str());
 		return -1;
 	}
 

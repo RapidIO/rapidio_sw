@@ -115,7 +115,7 @@ int ms_owner::open(uint32_t *msoid, uint32_t *mso_conn_id)
 		close_mq = new msg_q<mq_close_mso_msg>(qname.str(), MQ_CREATE);
 	}
 	catch(msg_q_exception e) {
-		e.print();
+		CRIT("Failed to create close_mq: %s\n", e.msg.c_str());
 		return -1;
 	}
 	INFO("Message queue %s created\n", qname.str().c_str());

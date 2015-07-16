@@ -60,8 +60,7 @@ class msg_q_exception {
 
 public:
 	msg_q_exception(const char *msg) : msg(msg) {}
-	void print() { cout << msg << endl; }
-private:
+
 	string msg;
 };
 

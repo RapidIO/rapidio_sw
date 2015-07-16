@@ -186,9 +186,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 				    new msg_q<mq_accept_msg>(mq_name, MQ_OPEN);
 			}
 			catch(msg_q_exception e) {
-				e.print();
-				WARN("Failed to open POSIX queue '%s': %s\n",
-							mq_name, strerror(errno));
+				ERR("Failed to open POSIX queue '%s': %s\n",
+						mq_name, e.msg.c_str());
 				continue;
 			}
 			DBG("Opened POSIX queue '%s'\n", mq_name);
@@ -251,9 +250,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 				destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_OPEN);
 			}
 			catch(msg_q_exception e) {
-				e.print();
 				ERR("Failed to open 'destroy' POSIX queue (%s): %s\n",
-								mq_name, strerror(errno));
+							mq_name, e.msg.c_str());
 				continue;
 			}
 

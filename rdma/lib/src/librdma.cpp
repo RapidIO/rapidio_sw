@@ -115,7 +115,6 @@ static int alt_rpc_call()
 		ERR("Failed to receive output from RDMA daemon");
 		return -4;
 	}
-	INFO("Received %d bytes\n", received_len);
 	return 0;
 }
 
@@ -201,7 +200,7 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 	INFO("Waiting for destroy POSIX message on %s\n",
 						destroy_mq->get_name().c_str());
 	if (destroy_mq->receive()) {
-		ERR("Failed to receive 'destroy' POSIX message\n");
+		CRIT("Failed to receive 'destroy' POSIX message\n");
 		pthread_exit(0);
 	}
 	INFO("Got 'destroy' POSIX message\n");
@@ -229,7 +228,7 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 	destroy_mq->get_send_buffer(&dam);
 	dam->server_msid = dm->server_msid;
 	if (destroy_mq->send()) {
-		ERR("Failed to send destroy ack on %s\n", destroy_mq->get_name().c_str());
+		CRIT("Failed to send destroy ack on %s\n", destroy_mq->get_name().c_str());
 		delete destroy_mq;
 		pthread_exit(0);
 	}
@@ -258,7 +257,7 @@ static void *wait_for_disc_thread_f(void *arg)
 	/* Wait for the POSIX disconnect message containing rem_msh */
 	INFO("Waiting for DISconnect message...\n");
 	if (mq_receive(mq, mq_rcv_buf, MQ_RCV_BUF_SIZE, NULL) == -1) {
-		ERR("mq_receive() failed: %s", strerror(errno));
+		CRIT("mq_receive() failed: %s", strerror(errno));
 		mq_close(mq);
 		pthread_exit(0);
 	}
@@ -309,7 +308,7 @@ __attribute__((constructor)) int rdma_lib_init(void)
 
 	/* Connect to server */
 	if( client->connect()) {
-		CRIT("Failed to connect to Unix socket server on RDMA daemon\n");
+		CRIT("Failed to connect to RDMA daemon. Is it running?\n");
 		return -3;
 	}
 	INFO("Successfully connected to RDMA daemon\n");
@@ -392,16 +391,23 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
  */
 static void *mso_close_thread_f(void *arg)
 {
+	/* Check for NULL argument */
+	if (!arg) {
+		CRIT("NULL argument. Exiting\n");
+		pthread_exit(0);
+	}
+
 	msg_q<mq_close_mso_msg>	*mq = (msg_q<mq_close_mso_msg> *)arg;
 
 	/* Wait for the POSIX mq_close_mso_msg */
 	INFO("Waiting for mq_close_mso_msg message...\n");
 	mq_close_mso_msg 	*close_msg;
-
 	mq->get_recv_buffer(&close_msg);
-
-	if (mq->receive())
+	if (mq->receive()) {
+		CRIT("Failed to receive mq_mso_close_msg\n");
+		delete mq;
 		pthread_exit(0);
+	}
 
 	INFO("Got mq_close_mso_msg for msoid= 0x%X\n", close_msg->msoid);
 
@@ -424,10 +430,8 @@ static void *mso_close_thread_f(void *arg)
 	/* Delete the message queue */
 	INFO("Deleting '%s'\n", mq->get_name().c_str());
 	delete mq;
-
 	pthread_exit(0);
 } /* mso_close_thread_f() */
-
 
 int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 {
@@ -480,7 +484,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		mso_close_mq = new msg_q<mq_close_mso_msg>(qname.str(), MQ_OPEN);
 	}
 	catch(msg_q_exception e) {
-		e.print();
+		CRIT("Failed to create mso_close_mq: %s\n", e.msg.c_str());
 		return -4;
 	}
 	INFO("Opened message queue '%s'\n", qname.str().c_str());
@@ -782,13 +786,63 @@ int rdma_create_ms_h(const char *ms_name,
 	return 0;
 } /* rdma_create_ms_h() */
 
+/**
+ * Destroys memory sub-space for a particular space.
+ */
+struct destroy_msub {
+	destroy_msub(ms_h msh) :  ok(true), msh(msh) {}
+
+	void operator()(struct loc_msub * msub) {
+		if (rdma_destroy_msub_h(msh, msub_h(msub))) {
+			WARN("rdma_destroy_msub_h failed: msh=0x%lX, msubh=0x%lX",
+							msh, msub_h(msub));
+			ok = false;
+		} else {
+			INFO("msubh(0x%lX) of msh(0x%lX) destroyed\n", msub_h(msub), msh);
+		}
+	}
+
+	bool	ok;
+
+private:
+	ms_h	msh;
+}; /* destroy_msub */
+
+static int destroy_msubs_in_msh(ms_h msh)
+{
+	uint32_t 	msid = ((struct loc_ms *)msh)->msid;
+	destroy_msub	dmsub(msh);
+
+	/* Get list of memory sub-spaces belonging to this msh */
+	list<struct loc_msub *>	msub_list(get_num_loc_msub_in_ms(msid));
+	get_list_loc_msub_in_msid(msid, msub_list);
+
+	DBG("%d msub(s) in msh(0x%lX):\n", msub_list.size(), msh);
+#ifdef DEBUG
+	copy(msub_list.begin(),
+	     msub_list.end(),
+	     ostream_iterator<loc_msub *>(cout, "\n"));
+#endif
+
+	/* For each one of the memory sub-spaces, call destroy */
+	for_each(msub_list.begin(), msub_list.end(), dmsub);
+
+	/* Fail on any error */
+	if (!dmsub.ok) {
+		ERR("Failure during destroying one of the msubs\n");
+		return -2;
+	}
+
+	return 0;
+} /* destroy_msubs_in_msh */
+
 static void *ms_close_thread_f(void *arg)
 {
 	msg_q<mq_close_ms_msg>	*close_mq = (msg_q<mq_close_ms_msg> *)arg;
 
 	/* Check for NULL */
 	if (!arg) {
-		CRIT("Null 'arg' passed. Failing\n");
+		CRIT("Null 'arg' passed. Exiting\n");
 		pthread_exit(0);
 	}
 
@@ -797,6 +851,7 @@ static void *ms_close_thread_f(void *arg)
 	mq_close_ms_msg *close_msg;
 	close_mq->get_recv_buffer(&close_msg);
 	if (close_mq->receive()) {
+		CRIT("Failed to receive close message\n");
 		delete close_mq;
 		pthread_exit(0);
 	}
@@ -805,9 +860,16 @@ static void *ms_close_thread_f(void *arg)
 	/* Find the ms in local database */
 	ms_h msh = find_loc_ms(close_msg->msid);
 	if (!msh) {
-		ERR("Could not find ms(0x%X)\n", close_msg->msid);
+		CRIT("Could not find ms(0x%X)\n", close_msg->msid);
 		delete close_mq;
 		pthread_exit(0);
+	}
+
+	/* If this 'user' had created any msubs for that 'ms', then
+	 * those msubs should be destroyed as well.
+	 */
+	if (destroy_msubs_in_msh(msh)) {
+		WARN("Failed to destroy msubs in msid(0x%X)\n", close_msg->msid);
 	}
 
 	/* Remove ms with specified msid from database */
@@ -873,7 +935,7 @@ int rdma_open_ms_h(const char *ms_name,
 		close_mq = new msg_q<mq_close_ms_msg>(qname.str(), MQ_OPEN);
 	}
 	catch(msg_q_exception e) {
-		e.print();
+		CRIT("Failed to create message queue: %s\n", e.msg.c_str());
 		return -6;
 	}
 	INFO("Created message queue '%s'\n", qname.str().c_str());
@@ -881,7 +943,7 @@ int rdma_open_ms_h(const char *ms_name,
 	/* Create thread for handling ms close requests (destory notifications) */
 	pthread_t  ms_close_thread;
 	if (pthread_create(&ms_close_thread, NULL, ms_close_thread_f, close_mq)) {
-		WARN("Failed to create ms_close_thread: %s\n", strerror(errno));
+		CRIT("Failed to create ms_close_thread: %s\n", strerror(errno));
 		delete close_mq;
 		return -7;
 	}
@@ -899,7 +961,9 @@ int rdma_open_ms_h(const char *ms_name,
 			  ms_close_thread,
 			  close_mq);
 	if (!*msh) {
-		WARN("Failed to store ms in database\n");
+		CRIT("Failed to store ms in database\n");
+		pthread_cancel(ms_close_thread);
+		delete close_mq;
 		return -3;
 	}
 	INFO("Stored info about '%s' in database\n", ms_name);
@@ -909,53 +973,6 @@ int rdma_open_ms_h(const char *ms_name,
 	return 0;
 } /* rdma_open_ms_h() */
 
-/**
- * Destroys memory sub-space for a particular space.
- */
-struct destroy_msub {
-	destroy_msub(ms_h msh) :  ok(true), msh(msh) {}
-
-	void operator()(struct loc_msub * msub) {
-		if (rdma_destroy_msub_h(msh, msub_h(msub))) {
-			WARN("rdma_destroy_msub_h failed: msh=0x%lX, msubh=0x%lX",
-							msh, msub_h(msub));
-			ok = false;
-		} else {
-			INFO("msubh(0x%lX) of msh(0x%lX) destroyed\n", msub_h(msub), msh);
-		}
-	}
-
-	bool	ok;
-
-private:
-	ms_h	msh;
-}; /* destroy_msub */
-
-static int destroy_msubs_in_msh(ms_h msh)
-{
-	uint32_t 	msid = ((struct loc_ms *)msh)->msid;
-	destroy_msub	dmsub(msh);
-
-	/* Get list of memory sub-spaces belonging to this msh */
-	list<struct loc_msub *>	msub_list(get_num_loc_msub_in_ms(msid));
-	get_list_loc_msub_in_msid(msid, msub_list);
-
-	DBG("%d msub(s) in msh(0x%lX):\n", msub_list.size(), msh);
-#ifdef DEBUG
-	copy(msub_list.begin(),
-	     msub_list.end(),
-	     ostream_iterator<loc_msub *>(cout, "\n"));
-#endif
-
-	/* For each one of the memory sub-spaces, call destroy */
-	for_each(msub_list.begin(), msub_list.end(), dmsub);
-
-	/* Fail on any error */
-	if (!dmsub.ok)
-		return -2;
-
-	return 0;
-} /* destroy_msubs_in_msh */
 
 int rdma_close_ms_h(mso_h msoh, ms_h msh)
 {
@@ -996,11 +1013,12 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
 	if (!disc_thread)
 		WARN("disc_thread is NULL.\n");
-	else
+	else {
 		if (pthread_cancel(disc_thread)) {
 			WARN("Failed to kill disc_thread for msh(0x%X):%s\n",
 						msh, strerror(errno));
 		}
+	}
 
 	/* Since we are closing the ms ourselves, the ms_close_thread_f
 	 * should be killed. We do this before closing the message queue
@@ -1012,7 +1030,8 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	} else {
 		if (pthread_cancel(close_thread)) {
 			WARN("phread_cancel(close_thread): %s\n",
-							strerror(errno)); }
+							strerror(errno));
+		}
 	}
 
 	/* Since the daemon created the 'close_mq', closing it BEFORE
@@ -1040,7 +1059,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 
 	/* Take it out of databse */
 	if (remove_loc_ms(msh) < 0) {
-		WARN("Failed to find msh(0x%lX) in db\n", msh);
+		ERR("Failed to find msh(0x%lX) in db\n", msh);
 		return -6;
 	}
 	INFO("msh(0x%lX) removed from local database\n", msh);
@@ -1066,7 +1085,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 
 	/* Check for NULL parameters */
 	if (!msoh || !msh) {
-		WARN("Invalid param(s): msoh=0x%lX, msh=0x%lX\n", msoh, msh);
+		ERR("Invalid param(s): msoh=0x%lX, msh=0x%lX\n", msoh, msh);
 		return -2;
 	}
 
@@ -1098,21 +1117,22 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 
 	/* Kill the disconnection thread, if it exists */
 	pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
-	if (!disc_thread)
+	if (!disc_thread) {
 		WARN("disc_thread is NULL.\n");
-	else
+	} else {
 		if (pthread_cancel(disc_thread)) {
 			WARN("Failed to kill disc_thread for msh(0x%X):%s\n",
 						msh, strerror(errno));
 		}
+	}
 
 	/**
 	 * Daemon should have closed the message queue so we can close and
 	 * unlink it here. */
 	mqd_t	disc_mq = loc_ms_get_disc_notify_mq(msh);
-	if (disc_mq == -1)
+	if (disc_mq == -1) {
 		WARN("disc_mq is -1\n");
-	else {
+	} else {
 		if (mq_close(disc_mq) == -1)
 			WARN("Cannot close disc_mq: %s\n", strerror(errno));
 		else {
@@ -1222,13 +1242,13 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 
 	/* Check that library has been intialized */
 	if (!init) {
-		WARN("RDMA library not initialized\n");
+		CRIT("RDMA library not initialized\n");
 		return -1;
 	}
 
 	/* Check for NULL handles */
 	if (!msh || !msubh) {
-		WARN("Invalid param(s): msh=0x%lX, msubh=0x%lX\n", msh, msubh);
+		ERR("Invalid param(s): msh=0x%lX, msubh=0x%lX\n", msh, msubh);
 		return -2;
 	}
 
@@ -1265,12 +1285,12 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 	DBG("ENTER\n");
 
 	if (!pmsub) {
-		WARN("msubh is NULL\n");
+		ERR("msubh is NULL\n");
 		return -1;
 	}
 
 	if (!vaddr) {
-		WARN("vaddr is NULL\n");
+		ERR("vaddr is NULL\n");
 		return -2;
 	}
 
@@ -1284,7 +1304,7 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		 pmsub->paddr);
 
 	if (*vaddr == MAP_FAILED) {
-		WARN("mmap(0x%lX) failed: %s\n", pmsub->paddr, strerror(errno));
+		ERR("mmap(0x%lX) failed: %s\n", pmsub->paddr, strerror(errno));
 		return -3;
 	}
 	DBG("msub mapped to vaddr(%p)\n", *vaddr);
@@ -1381,8 +1401,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		connect_mq = new msg_q<mq_connect_msg>(mq_name, MQ_CREATE);
 	}
 	catch(msg_q_exception e) {
-		e.print();
-		ERR("Failed to create connect_mq\n");
+		ERR("Failed to create connect_mq: %s\n", e.msg.c_str());
 		return -5;
 	}
 	INFO("Message queue %s created for connection from %s\n",
@@ -1566,7 +1585,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		accept_mq = new msg_q<mq_accept_msg>(mq_name, MQ_CREATE);
 	}
 	catch(msg_q_exception e) {
-		e.print();
+		CRIT("Failed to create accept_mq: %s\n", e.msg.c_str());
 		return -6;
 	}
 	INFO("Created 'accept' message queue: '%s'\n", mq_name.c_str());
@@ -1669,7 +1688,7 @@ __sync_synchronize();
 		destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_CREATE);
 	}
 	catch(msg_q_exception e) {
-		e.print();
+		CRIT("Failed to create destroy_mq: %s\n", e.msg.c_str());
 		return -6;
 	}
 	INFO("destroy_mq (%s) created\n", destroy_mq->get_name().c_str());
