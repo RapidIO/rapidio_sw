@@ -207,7 +207,7 @@ int riodp_mport_free_ep_list(uint32_t **destids)
 	return 0;
 }
 
-static inline enum rio_exchange convert_directio_type(enum riodp_directio_type type)
+static inline enum rio_exchange convert_directio_type(enum riomp_rdma_directio_type type)
 {
 	switch(type) {
 	case RIO_DIRECTIO_TYPE_NWRITE: return RIO_EXCHANGE_NWRITE;
@@ -219,7 +219,7 @@ static inline enum rio_exchange convert_directio_type(enum riodp_directio_type t
 	}
 }
 
-static inline enum rio_transfer_sync convert_directio_sync(enum riodp_directio_transfer_sync sync)
+static inline enum rio_transfer_sync convert_directio_sync(enum riomp_rdma_directio_transfer_sync sync)
 {
 	switch(sync) {
 	default: /* sync as default is the smallest pitfall */
@@ -232,9 +232,9 @@ static inline enum rio_transfer_sync convert_directio_sync(enum riodp_directio_t
 /*
  * Perform DMA data write to target transfer using user space source buffer
  */
-int riodp_dma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
-		uint32_t size, enum riodp_directio_type wr_mode,
-		enum riodp_directio_transfer_sync sync)
+int riomp_rdma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
+		uint32_t size, enum riomp_rdma_directio_type wr_mode,
+		enum riomp_rdma_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
@@ -261,10 +261,10 @@ int riodp_dma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
 /*
  * Perform DMA data write to target transfer using kernel space source buffer
  */
-int riodp_dma_write_d(int fd, uint16_t destid, uint64_t tgt_addr,
+int riomp_rdma_write_d(int fd, uint16_t destid, uint64_t tgt_addr,
 		      uint64_t handle, uint32_t offset, uint32_t size,
-		      enum riodp_directio_type wr_mode,
-		      enum riodp_directio_transfer_sync sync)
+		      enum riomp_rdma_directio_type wr_mode,
+		      enum riomp_rdma_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
@@ -291,8 +291,8 @@ int riodp_dma_write_d(int fd, uint16_t destid, uint64_t tgt_addr,
 /*
  * Perform DMA data read from target transfer using user space destination buffer
  */
-int riodp_dma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
-		   uint32_t size, enum riodp_directio_transfer_sync sync)
+int riomp_rdma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
+		   uint32_t size, enum riomp_rdma_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
@@ -318,9 +318,9 @@ int riodp_dma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
 /*
  * Perform DMA data read from target transfer using kernel space destination buffer
  */
-int riodp_dma_read_d(int fd, uint16_t destid, uint64_t tgt_addr,
+int riomp_rdma_read_d(int fd, uint16_t destid, uint64_t tgt_addr,
 		     uint64_t handle, uint32_t offset, uint32_t size,
-		     enum riodp_directio_transfer_sync sync)
+		     enum riomp_rdma_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
@@ -346,7 +346,7 @@ int riodp_dma_read_d(int fd, uint16_t destid, uint64_t tgt_addr,
 /*
  * Wait for DMA transfer completion
  */
-int riodp_dma_wait_async(int fd, uint32_t cookie, uint32_t tmo)
+int riomp_rdma_wait_async(int fd, uint32_t cookie, uint32_t tmo)
 {
 	struct rio_async_tx_wait wparam;
 
@@ -363,7 +363,7 @@ int riodp_dma_wait_async(int fd, uint32_t cookie, uint32_t tmo)
  * Allocate and map into RapidIO space a local kernel space data buffer
  * (for inbound RapidIO data read/write requests)
  */
-int riodp_ibwin_map(int fd, uint64_t *rio_base, uint32_t size, uint64_t *handle)
+int riomp_rdma_ibwin_map(int fd, uint64_t *rio_base, uint32_t size, uint64_t *handle)
 {
 	struct rio_mmap ib;
 
@@ -380,14 +380,14 @@ int riodp_ibwin_map(int fd, uint64_t *rio_base, uint32_t size, uint64_t *handle)
 /*
  * Free and unmap from RapidIO space a local kernel space data buffer
  */
-int riodp_ibwin_free(int fd, uint64_t *handle)
+int riomp_rdma_ibwin_free(int fd, uint64_t *handle)
 {
 	if (ioctl(fd, RIO_UNMAP_INBOUND, handle))
 		return errno;
 	return 0;
 }
 
-int riodp_obwin_map(int fd, uint16_t destid, uint64_t rio_base, uint32_t size,
+int riomp_rdma_obwin_map(int fd, uint16_t destid, uint64_t rio_base, uint32_t size,
 		    uint64_t *handle)
 {
 	struct rio_mmap ob;
@@ -402,7 +402,7 @@ int riodp_obwin_map(int fd, uint16_t destid, uint64_t rio_base, uint32_t size,
 	return 0;
 }
 
-int riodp_obwin_free(int fd, uint64_t *handle)
+int riomp_rdma_obwin_free(int fd, uint64_t *handle)
 {
 	if (ioctl(fd, RIO_UNMAP_OUTBOUND, handle))
 		return errno;
@@ -412,7 +412,7 @@ int riodp_obwin_free(int fd, uint64_t *handle)
 /*
  * Allocate a local kernel space data buffer for DMA data transfers
  */
-int riodp_dbuf_alloc(int fd, uint32_t size, uint64_t *handle)
+int riomp_rdma_dbuf_alloc(int fd, uint32_t size, uint64_t *handle)
 {
 	struct rio_dma_mem db;
 
@@ -427,7 +427,7 @@ int riodp_dbuf_alloc(int fd, uint32_t size, uint64_t *handle)
 /*
  * Free previously allocated local kernel space data buffer
  */
-int riodp_dbuf_free(int fd, uint64_t *handle)
+int riomp_rdma_dbuf_free(int fd, uint64_t *handle)
 {
 	if (ioctl(fd, RIO_FREE_DMA, handle))
 		return errno;

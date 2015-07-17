@@ -186,10 +186,10 @@ static void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 	int ret;
 
 	if (handle) {
-		ret = riodp_dbuf_alloc(fd, size, &h);
+		ret = riomp_rdma_dbuf_alloc(fd, size, &h);
 		if (ret) {
 			if (debug)
-				printf("riodp_dbuf_alloc failed err=%d\n", ret);
+				printf("riomp_rdma_dbuf_alloc failed err=%d\n", ret);
 			return NULL;
 		}
 
@@ -197,9 +197,9 @@ static void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 		if (buf_ptr == MAP_FAILED) {
 			perror("mmap");
 			buf_ptr = NULL;
-			ret = riodp_dbuf_free(fd, handle);
+			ret = riomp_rdma_dbuf_free(fd, handle);
 			if (ret && debug)
-				printf("riodp_dbuf_free failed err=%d\n", ret);
+				printf("riomp_rdma_dbuf_free failed err=%d\n", ret);
 		} else
 			*handle = h;
 	} else {
@@ -219,9 +219,9 @@ static void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle)
 		if (munmap(buf, size))
 			perror("munmap");
 
-		ret = riodp_dbuf_free(fd, handle);
+		ret = riomp_rdma_dbuf_free(fd, handle);
 		if (ret)
-			printf("riodp_dbuf_free failed err=%d\n", ret);
+			printf("riomp_rdma_dbuf_free failed err=%d\n", ret);
 	} else if (buf)
 		free(buf);
 }
@@ -235,7 +235,7 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	uint64_t ib_handle;
 	void *ibmap;
 
-	ret = riodp_ibwin_map(fd, &rio_base, ib_size, &ib_handle);
+	ret = riomp_rdma_ibwin_map(fd, &rio_base, ib_size, &ib_handle);
 	if (ret) {
 		printf("Failed to allocate/map IB buffer err=%d\n", ret);
 		close(fd);
@@ -264,7 +264,7 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	if (munmap(ibmap, ib_size))
 		perror("munmap");
 out:
-	ret = riodp_ibwin_free(fd, &ib_handle);
+	ret = riomp_rdma_ibwin_free(fd, &ib_handle);
 	if (ret)
 		printf("Failed to release IB buffer err=%d\n", ret);
 
@@ -276,13 +276,13 @@ void *dma_async_wait(void *arg)
 	struct dma_async_wait_param *param = (struct dma_async_wait_param *)arg;
 	int ret;
 
-	ret = riodp_dma_wait_async(fd, param->token, 3000);
+	ret = riomp_rdma_wait_async(fd, param->token, 3000);
 	param->err = ret;
 	return &param->err;
 }
 
 static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
-		       enum riodp_directio_transfer_sync sync)
+		       enum riomp_rdma_directio_transfer_sync sync)
 {
 	void *buf_src = NULL;
 	void *buf_dst = NULL;
@@ -291,7 +291,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 	uint64_t dst_handle = 0;
 	int i, ret = 0;
 	uint32_t max_hw_size; /* max DMA transfer size supported by HW */
-	enum riodp_directio_transfer_sync rd_sync;
+	enum riomp_rdma_directio_transfer_sync rd_sync;
 	struct timespec wr_starttime, wr_endtime;
 	struct timespec rd_starttime, rd_endtime;
 	float totaltime;
@@ -372,11 +372,11 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		clock_gettime(CLOCK_MONOTONIC, &wr_starttime);
 
 		if (kbuf_mode)
-			ret = riodp_dma_write_d(fd, tgt_destid, tgt_addr,
+			ret = riomp_rdma_write_d(fd, tgt_destid, tgt_addr,
 						src_handle, src_off, len,
 						RIO_DIRECTIO_TYPE_NWRITE_R, sync);
 		else
-			ret = riodp_dma_write(fd, tgt_destid, tgt_addr,
+			ret = riomp_rdma_write(fd, tgt_destid, tgt_addr,
 					      (U8P)buf_src + src_off, len,
 					      RIO_DIRECTIO_TYPE_NWRITE_R, sync);
 
@@ -405,10 +405,10 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		clock_gettime(CLOCK_MONOTONIC, &rd_starttime);
 
 		if (kbuf_mode)
-			ret = riodp_dma_read_d(fd, tgt_destid, tgt_addr,
+			ret = riomp_rdma_read_d(fd, tgt_destid, tgt_addr,
 					dst_handle, dst_off, len, rd_sync);
 		else
-			ret = riodp_dma_read(fd, tgt_destid, tgt_addr,
+			ret = riomp_rdma_read(fd, tgt_destid, tgt_addr,
 					(U8P)buf_dst + dst_off, len, rd_sync);
 
 		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
@@ -565,7 +565,7 @@ int main(int argc, char** argv)
 	int verify = 1;
 	unsigned int repeat = 1;
 	uint64_t rio_base = RIO_MAP_ANY_ADDR;
-	enum riodp_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
+	enum riomp_rdma_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
 	static const struct option options[] = {
 		{ "destid", required_argument, NULL, 'D' },
 		{ "taddr",  required_argument, NULL, 'A' },

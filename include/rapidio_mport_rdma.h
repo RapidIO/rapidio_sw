@@ -40,28 +40,7 @@
 extern "C" {
 #endif
 
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <time.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <stdint.h> /* For size_t */
-#include <unistd.h>
-#include <getopt.h>
-#include <time.h>
-#include <signal.h>
-
-
-enum rio_mport_flags {
-	RIO_MPORT_DMA	 = (1 << 0), /* supports DMA data transfers */
-	RIO_MPORT_DMA_SG = (1 << 1), /* DMA supports HW SG mode */
-	RIO_MPORT_IBSG	 = (1 << 2), /* inbound mapping supports SG */
-};
-
-enum riodp_directio_type {
+enum riomp_rdma_directio_type {
 	//RIO_DIRECTIO_TYPE_DEFAULT,	/* Default method */
 	RIO_DIRECTIO_TYPE_NWRITE,		/* All packets using NWRITE */
 	RIO_DIRECTIO_TYPE_SWRITE,		/* All packets using SWRITE */
@@ -70,38 +49,23 @@ enum riodp_directio_type {
 	RIO_DIRECTIO_TYPE_NWRITE_R_ALL,	/* All packets using NWRITE_R */
 };
 
-enum riodp_directio_transfer_sync {
+enum riomp_rdma_directio_transfer_sync {
 	RIO_DIRECTIO_TRANSFER_SYNC,		/* synchronous transfer */
 	RIO_DIRECTIO_TRANSFER_ASYNC,	/* asynchronous transfer */
 	RIO_DIRECTIO_TRANSFER_FAF,		/* fire-and-forget transfer only for write transactions */
 };
 
-
-int riodp_mport_open(uint32_t mport_id, int flags);
-int riodp_mport_close(int fd);
-
-
-int riodp_dma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
-		    uint32_t size, enum riodp_directio_type wr_mode,
-		    enum riodp_directio_transfer_sync sync);
-int riodp_dma_write_d(int fd, uint16_t destid, uint64_t tgt_addr,
-		      uint64_t handle, uint32_t offset, uint32_t size,
-		      enum riodp_directio_type wr_mode, enum riodp_directio_transfer_sync sync);
-int riodp_dma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
-		   uint32_t size, enum riodp_directio_transfer_sync sync);
-int riodp_dma_read_d(int fd, uint16_t destid, uint64_t tgt_addr,
-		     uint64_t handle, uint32_t offset, uint32_t size,
-		     enum riodp_directio_transfer_sync sync);
-int riodp_dma_wait_async(int fd, uint32_t cookie, uint32_t tmo);
-int riodp_ibwin_map(int fd, uint64_t *rio_base, uint32_t size, uint64_t *handle);
-int riodp_ibwin_free(int fd, uint64_t *handle);
-int riodp_obwin_map(int fd, uint16_t destid, uint64_t rio_base, uint32_t size,
-		    uint64_t *handle);
-int riodp_obwin_free(int fd, uint64_t *handle);
-int riodp_dbuf_alloc(int fd, uint32_t size, uint64_t *handle);
-int riodp_dbuf_free(int fd, uint64_t *handle);
-
-
+int riomp_rdma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf, uint32_t size, enum riomp_rdma_directio_type wr_mode, enum riomp_rdma_directio_transfer_sync sync);
+int riomp_rdma_write_d(int fd, uint16_t destid, uint64_t tgt_addr, uint64_t handle, uint32_t offset, uint32_t size, enum riomp_rdma_directio_type wr_mode, enum riomp_rdma_directio_transfer_sync sync);
+int riomp_rdma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf, uint32_t size, enum riomp_rdma_directio_transfer_sync sync);
+int riomp_rdma_read_d(int fd, uint16_t destid, uint64_t tgt_addr, uint64_t handle, uint32_t offset, uint32_t size, enum riomp_rdma_directio_transfer_sync sync);
+int riomp_rdma_wait_async(int fd, uint32_t cookie, uint32_t tmo);
+int riomp_rdma_ibwin_map(int fd, uint64_t *rio_base, uint32_t size, uint64_t *handle);
+int riomp_rdma_ibwin_free(int fd, uint64_t *handle);
+int riomp_rdma_obwin_map(int fd, uint16_t destid, uint64_t rio_base, uint32_t size, uint64_t *handle);
+int riomp_rdma_obwin_free(int fd, uint64_t *handle);
+int riomp_rdma_dbuf_alloc(int fd, uint32_t size, uint64_t *handle);
+int riomp_rdma_dbuf_free(int fd, uint64_t *handle);
 
 #ifdef __cplusplus
 }

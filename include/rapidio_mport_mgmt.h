@@ -80,13 +80,11 @@ enum rio_link_width {
 	RIO_LINK_16X = 5
 };
 
-#if 0
 enum rio_mport_flags {
 	RIO_MPORT_DMA	 = (1 << 0), /* supports DMA data transfers */
 	RIO_MPORT_DMA_SG = (1 << 1), /* DMA supports HW SG mode */
 	RIO_MPORT_IBSG	 = (1 << 2), /* inbound mapping supports SG */
 };
-#endif
 
 struct riodp_mport_properties {
 	uint16_t hdid;

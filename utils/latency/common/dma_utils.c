@@ -85,9 +85,9 @@ void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 	int ret;
 
 	if (handle) {
-		ret = riodp_dbuf_alloc(fd, size, &h);
+		ret = riomp_rdma_dbuf_alloc(fd, size, &h);
 		if (ret) {
-			fprintf(stderr,"riodp_dbuf_alloc failed err=%d\n", ret);
+			fprintf(stderr,"riomp_rdma_dbuf_alloc failed err=%d\n", ret);
 			return NULL;
 		}
 
@@ -95,9 +95,9 @@ void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 		if (buf_ptr == MAP_FAILED) {
 			perror("mmap");
 			buf_ptr = NULL;
-			ret = riodp_dbuf_free(fd, handle);
+			ret = riomp_rdma_dbuf_free(fd, handle);
 			if (ret)
-				fprintf(stderr, "riodp_dbuf_free failed err=%d\n", ret);
+				fprintf(stderr, "riomp_rdma_dbuf_free failed err=%d\n", ret);
 		} else
 			*handle = h;
 	} else {
@@ -121,9 +121,9 @@ void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle)
 		if (munmap(buf, size))
 			perror("munmap");
 
-		ret = riodp_dbuf_free(fd, handle);
+		ret = riomp_rdma_dbuf_free(fd, handle);
 		if (ret)
-			fprintf(stderr,"%s:riodp_dbuf_free failed err=%d\n", __FUNCTION__,
+			fprintf(stderr,"%s:riomp_rdma_dbuf_free failed err=%d\n", __FUNCTION__,
                                                                  ret);
 	} 
 } /* dmatest_buf_free() */

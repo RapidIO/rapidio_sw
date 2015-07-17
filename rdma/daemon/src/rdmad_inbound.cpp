@@ -98,7 +98,7 @@ inbound::inbound(int mport_fd,
 /* Destructor */
 inbound::~inbound()
 {
-	/* Free inbound windows mapped with riodp_ibwin_map() */
+	/* Free inbound windows mapped with riomp_rdma_ibwin_map() */
 	for_each(ibwins.begin(), ibwins.end(), ibw_free());
 } /* destructor */
 

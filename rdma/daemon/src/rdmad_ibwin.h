@@ -101,10 +101,10 @@ public:
 	{
 
 		/* First, obtain an inbound handle from the mport driver */
-		if (riodp_ibwin_map(mport_fd, &rio_addr, size, &phys_addr)) {
-			CRIT("riodp_ibwin_map() failed: %s\n", strerror(errno));
+		if (riomp_rdma_ibwin_map(mport_fd, &rio_addr, size, &phys_addr)) {
+			CRIT("riomp_rdma_ibwin_map() failed: %s\n", strerror(errno));
 			throw ibwin_map_exception(
-				"ibwin::ibwin() failed in riodp_ibwin_map");
+				"ibwin::ibwin() failed in riomp_rdma_ibwin_map");
 		}
 
 		INFO("%d, rio_addr = 0x%lX, size = 0x%lX, phys_addr = 0x%lX\n",
@@ -128,8 +128,8 @@ public:
 	void free() {
 		/* Free inbound window */
 		INFO("win_num = %d, phys_addr = 0x%lX\n", win_num, phys_addr);
-		if (riodp_ibwin_free(mport_fd, &phys_addr))
-			perror("free(): riodp_ibwin_free()");
+		if (riomp_rdma_ibwin_free(mport_fd, &phys_addr))
+			perror("free(): riomp_rdma_ibwin_free()");
 
 		/* Delete all memory spaces */
 		for_each(begin(mspaces), end(mspaces), [](mspace *p){ delete p;});

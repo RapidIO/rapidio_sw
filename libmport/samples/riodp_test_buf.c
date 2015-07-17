@@ -112,9 +112,9 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	pid_t pid, wpid;
 
 	if (buf_mode)
-		ret = riodp_ibwin_map(fd, &rio_base, ib_size, &ib_handle);
+		ret = riomp_rdma_ibwin_map(fd, &rio_base, ib_size, &ib_handle);
 	else
-		ret = riodp_dbuf_alloc(fd, ib_size, &ib_handle);
+		ret = riomp_rdma_dbuf_alloc(fd, ib_size, &ib_handle);
 
 	if (ret) {
 		printf("Failed to allocate/map IB buffer err=%d\n", ret);
@@ -199,9 +199,9 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 		perror("munmap");
 out:
 	if (buf_mode)
-		ret = riodp_ibwin_free(fd, &ib_handle);
+		ret = riomp_rdma_ibwin_free(fd, &ib_handle);
 	else
-		ret = riodp_dbuf_free(fd, &ib_handle);
+		ret = riomp_rdma_dbuf_free(fd, &ib_handle);
 
 
 	if (ret)

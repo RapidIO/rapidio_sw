@@ -216,10 +216,10 @@ static void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 	int ret;
 
 	if (handle) {
-		ret = riodp_dbuf_alloc(fd, size, &h);
+		ret = riomp_rdma_dbuf_alloc(fd, size, &h);
 		if (ret) {
 			if (ep[0].debug)
-				printf("riodp_dbuf_alloc failed err=%d\n", ret);
+				printf("riomp_rdma_dbuf_alloc failed err=%d\n", ret);
 			return NULL;
 		}
 
@@ -228,9 +228,9 @@ static void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 		if (buf_ptr == MAP_FAILED) {
 			perror("mmap");
 			buf_ptr = NULL;
-			ret = riodp_dbuf_free(fd, handle);
+			ret = riomp_rdma_dbuf_free(fd, handle);
 			if (ret && ep[0].debug)
-				printf("riodp_dbuf_free failed err=%d\n", ret);
+				printf("riomp_rdma_dbuf_free failed err=%d\n", ret);
 		} else
 			*handle = h;
 	} else {
@@ -250,9 +250,9 @@ static void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle)
 		if (munmap(buf, size))
 			perror("munmap");
 
-		ret = riodp_dbuf_free(fd, handle);
+		ret = riomp_rdma_dbuf_free(fd, handle);
 		if (ret)
-			printf("riodp_dbuf_free failed err=%d\n", ret);
+			printf("riomp_rdma_dbuf_free failed err=%d\n", ret);
 	} else if (buf)
 		free(buf);
 }
@@ -262,7 +262,7 @@ static int config_ibwin(int idx )
 	int rc = EXIT_FAILURE;
 	int ret;
 
-	ret = riodp_ibwin_map(ep[idx].fd, &ep[idx].rio_base, ep[idx].ib_size, 
+	ret = riomp_rdma_ibwin_map(ep[idx].fd, &ep[idx].rio_base, ep[idx].ib_size, 
 						&ep[idx].ib_handle);
 	if (ret) {
 		printf("Failed to allocate IB buffer %d err=%d\n", idx, ret);
@@ -307,7 +307,7 @@ void cleanup_ibwin(int max_idx)
 		}
 
 		if (ep[idx].ib_handle != 0xFFFFFFFFFFFFFFFF) {
-			ret = riodp_ibwin_free(ep[idx].fd, &ep[idx].ib_handle);
+			ret = riomp_rdma_ibwin_free(ep[idx].fd, &ep[idx].ib_handle);
 			if (ret)
 			   printf("\n\tFailed to free %d IB buffer err=%d\n",
 					idx, ret);
@@ -800,11 +800,11 @@ __sync_synchronize();
 __sync_synchronize();
 
 	if (ep[0].kbuf_mode)
-		ret = riodp_dma_write_d(ep[0].fd, ep[0].tgt_destid, 
+		ret = riomp_rdma_write_d(ep[0].fd, ep[0].tgt_destid, 
 			ep[0].tgt_addr, ep[0].src_handle, ep[0].offset, 
 			ep[0].dma_size, RIO_EXCHANGE_NWRITE, RIO_TRANSFER_SYNC);
 	else
-		ret = riodp_dma_write(ep[0].fd, ep[0].tgt_destid, 
+		ret = riomp_rdma_write(ep[0].fd, ep[0].tgt_destid, 
 						ep[0].tgt_addr, (void *)(ep[0].buf_src + ep[0].offset),
 						ep[0].dma_size, RIO_EXCHANGE_NWRITE, RIO_TRANSFER_SYNC);
 
@@ -840,11 +840,11 @@ void do_dma_xfer_1_rx(void)
 	while (ep[0].ibmap[last_idx] == last_val) {};
 
 	if (ep[0].kbuf_mode)
-		ret = riodp_dma_write_d(ep[0].fd, ep[0].tgt_destid, 
+		ret = riomp_rdma_write_d(ep[0].fd, ep[0].tgt_destid, 
 			ep[0].tgt_addr, ep[0].src_handle, ep[0].offset, 
 			ep[0].dma_size, RIO_EXCHANGE_NWRITE, RIO_TRANSFER_SYNC);
 	else
-		ret = riodp_dma_write(ep[0].fd, ep[0].tgt_destid, 
+		ret = riomp_rdma_write(ep[0].fd, ep[0].tgt_destid, 
 						ep[0].tgt_addr, (void *)(ep[0].buf_src + ep[0].offset),
 						ep[0].dma_size, RIO_EXCHANGE_NWRITE, RIO_TRANSFER_SYNC);
 
