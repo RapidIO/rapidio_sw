@@ -27,7 +27,8 @@ static struct riocp_pe_switch *riocp_pe_switch_drv_list[] = {
 	&riocp_pe_switch_tsi57x,
 	&riocp_pe_switch_cps1616,
 	&riocp_pe_switch_cps1432,
-	&riocp_pe_switch_cps1848
+	&riocp_pe_switch_cps1848,
+	&riocp_pe_switch_sps1616
 };
 
 /**

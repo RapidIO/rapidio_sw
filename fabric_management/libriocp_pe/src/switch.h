@@ -25,6 +25,7 @@ extern struct riocp_pe_switch riocp_pe_switch_tsi57x;
 extern struct riocp_pe_switch riocp_pe_switch_cps1848;
 extern struct riocp_pe_switch riocp_pe_switch_cps1432;
 extern struct riocp_pe_switch riocp_pe_switch_cps1616;
+extern struct riocp_pe_switch riocp_pe_switch_sps1616;
 
 int RIOCP_WU riocp_pe_switch_attach_driver(struct riocp_pe *sw, bool initialize);
 int RIOCP_WU riocp_pe_switch_port_is_enumerated(struct riocp_pe *sw, uint8_t port);
