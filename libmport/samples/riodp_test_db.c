@@ -48,7 +48,7 @@
 #include <time.h>
 #include <signal.h>
 
-#include "rapidio_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
 
 static int debug = 0;
 static int exit_no_dev;

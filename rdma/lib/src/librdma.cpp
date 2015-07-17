@@ -50,7 +50,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <iterator>
 
-#include "rapidio_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_rdma.h>
 #include "rdma_types.h"
 #include "liblog.h"
 #include "rdma_mq_msg.h"

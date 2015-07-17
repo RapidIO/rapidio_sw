@@ -39,6 +39,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <stdint.h>
 
+#include <rapidio_mport_sock.h>
+
 #include "librsktd_msg_proc.h"
 #include "librsktd_private.h"
 

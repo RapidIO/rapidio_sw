@@ -41,7 +41,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iomanip>
 #include <iterator>
 
-#include "rapidio_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
+//#include <rapidio_mport_rdma.h>
+#include <rapidio_mport_sock.h>
 #include "liblog.h"
 
 #define	CM_MSG_OFFSET 20

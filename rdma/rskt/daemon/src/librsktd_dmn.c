@@ -59,7 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
-#include "rapidio_mport_lib.h"
+#include <rapidio_mport_rdma.h>
 
 #include "libcli.h"
 #include "librskt_private.h"
@@ -75,7 +75,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_fm.h"
 #include "liblog.h"
 
-#define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 
 #ifdef __cplusplus
 extern "C" {

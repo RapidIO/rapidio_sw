@@ -52,7 +52,9 @@
 #define CONFIG_RAPIDIO_DMA_ENGINE
 #include <linux/rio_mport_cdev.h>
 
-#include "rapidio_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_rdma.h>
+#include <rapidio_mport_sock.h>
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"

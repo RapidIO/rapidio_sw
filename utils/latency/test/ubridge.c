@@ -65,7 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rio_register_utils.h"
 #include "time_utils.h"
 #include "debug.h"
-#include "rapidio_mport_lib.h"
+#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
 
 // PCIE offset (to be added to distinguish RIO from PCIE accesses
 #define PCIE_ADDRESS_OFFSET 0x70000

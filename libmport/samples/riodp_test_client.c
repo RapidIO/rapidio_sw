@@ -44,9 +44,9 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
-#include "rapidio_mport_lib.h"
-
-#define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_rdma.h>
+#include <rapidio_mport_sock.h>
 
 struct args {
 	uint32_t mport_id;

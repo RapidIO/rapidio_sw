@@ -46,9 +46,9 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include "rapidio_mport_lib.h"
-
-#define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_rdma.h>
+#include <rapidio_mport_sock.h>
 
 /*
  * Initialization patterns. All bytes in the source buffer has bit 7

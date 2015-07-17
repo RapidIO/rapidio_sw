@@ -39,11 +39,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 
 
-#include "riocp_pe_internal.h"
+//#include "riocp_pe_internal.h"
 #include "fmd_dev_rw_cli.h"
 #include "liblog.h"
 #include "libcli.h"
-#include "rapidio_mport_lib.h"
+//#include <rapidio_mport_mgmt.h>
+//#include <rapidio_mport_rdma.h>
+//#include <rapidio_mport_sock.h>
 #include "fmd_state.h"
 
 #ifdef __cplusplus

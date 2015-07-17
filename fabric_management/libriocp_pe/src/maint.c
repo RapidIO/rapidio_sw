@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <libgen.h>
 
-#include <rapidio_mport_lib.h>
+#include <rapidio_mport_mgmt.h>
 
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"

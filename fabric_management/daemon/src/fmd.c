@@ -74,7 +74,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_cfg_cli.h"
 #include "fmd_state.h"
 #include "fmd_app_mgmt.h"
-#include "rapidio_mport_lib.h"  //FIXME: Layering broken, must be removed !!!
+#include <rapidio_mport_mgmt.h>
 #include "fmd_mgmt_cli.h"
 #include "fmd_mgmt_master.h"
 #include "fmd_dev_rw_cli.h"

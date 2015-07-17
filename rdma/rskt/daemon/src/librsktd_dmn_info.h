@@ -59,6 +59,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include <rapidio_mport_mgmt.h>
+
 #include "librsktd_dmn.h"
 #include "librsktd_private.h"
 #include "liblist.h"

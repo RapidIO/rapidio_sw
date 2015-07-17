@@ -15,7 +15,7 @@
 #include <stddef.h>
 
 #include <riocp_pe.h>
-#include <rapidio_mport_lib.h>
+#include <rapidio_mport_mgmt.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -49,7 +49,8 @@
 #include <time.h>
 #include <signal.h>
 
-#include "rapidio_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_rdma.h>
 
 #define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 
