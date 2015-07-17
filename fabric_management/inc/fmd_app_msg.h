@@ -74,7 +74,7 @@ struct libfmd_dmn_app_msg { /* Messages sent FROM application TO FMD */
 	};
 };
 
-#define FMD_APP_MSG_SKT_FMT "/usr/tmp/FMD%04d"
+#define FMD_APP_MSG_SKT_FMT "/var/tmp/FMD%04d"
 
 #endif /* __FMD_APP_MSG_H__ */
 

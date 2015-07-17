@@ -206,7 +206,7 @@ struct librskt_rsktd_to_app_msg {
 #define A2RSKTD_SZ MSG_SZ(sizeof(struct librskt_app_to_rsktd_msg))
 #define RSKTD2A_SZ MSG_SZ(sizeof(struct librskt_rsktd_to_app_msg))
 
-#define LIBRSKTD_SKT_FMT "/usr/tmp/RSKTD%04d.%1d"
+#define LIBRSKTD_SKT_FMT "/var/tmp/RSKTD%04d.%1d"
 
 #ifdef __cplusplus
 }

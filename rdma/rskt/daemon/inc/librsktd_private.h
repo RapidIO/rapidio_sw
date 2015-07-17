@@ -44,7 +44,7 @@ extern "C" {
 #define DFLT_DMN_MPORT 0
 #define MAX_DMN_MPORT 7
 
-#define DMN_LSKT_FMT "/usr/tmp/RSKTD%04d.%1d"
+#define DMN_LSKT_FMT "/var/tmp/RSKTD%04d.%1d"
 #define DFLT_DMN_LSKT_SKT 3333
 #define DFLT_DMN_LSKT_MPORT DFLT_DMN_MPORT
 #define DFLT_DMN_LSKT_BACKLOG 50
