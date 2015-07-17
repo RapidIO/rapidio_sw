@@ -40,73 +40,26 @@
 extern "C" {
 #endif
 
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <time.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <stdint.h> /* For size_t */
-#include <unistd.h>
-#include <getopt.h>
-#include <time.h>
-#include <signal.h>
+typedef struct rapidio_mport_mailbox  *riomp_mailbox_t;
+typedef struct rapidio_mport_socket   *riomp_sock_t;
 
+int riomp_sock_mbox_init(void);
+int riomp_sock_mbox_exit(void);
 
+int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id, riomp_mailbox_t *mailbox);
+int riomp_sock_mbox_destroy_handle(riomp_mailbox_t *mailbox);
 
-#define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
-#define RIO_MAP_ANY_ADDR	(uint64_t)(~((uint64_t) 0))
-
-
-struct riodp_mailbox {
-	int fd;
-	uint8_t mport_id;
-};
-
-struct rio_channel {
-	uint16_t id;
-	uint32_t remote_destid;
-	uint32_t remote_mbox;
-	uint16_t remote_channel;
-	uint8_t mport_id;
-};
-
-struct riodp_socket {
-	struct riodp_mailbox *mbox;
-	struct rio_channel ch;
-	uint8_t	*rx_buffer;
-	uint8_t	*tx_buffer;
-};
-
-
-
-typedef struct riodp_mailbox  *riodp_mailbox_t;
-typedef struct riodp_socket   *riodp_socket_t;
-
-
-int riodp_cm_open(void);
-
-
-int riodp_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
-			     riodp_mailbox_t *mailbox);
-int riodp_socket_socket(riodp_mailbox_t mailbox, riodp_socket_t *socket_handle);
-int riodp_socket_send(riodp_socket_t socket_handle, void *buf, uint32_t size);
-int riodp_socket_receive(riodp_socket_t socket_handle, void **buf,
-			 uint32_t size, uint32_t timeout);
-int riodp_socket_release_receive_buffer(riodp_socket_t socket_handle, void *buf);
-int riodp_socket_close(riodp_socket_t *socket_handle);
-int riodp_mbox_destroy_handle(riodp_mailbox_t *mailbox);
-int riodp_socket_bind(riodp_socket_t socket_handle, uint16_t local_channel);
-int riodp_socket_listen(riodp_socket_t socket_handle);
-int riodp_socket_accept(riodp_socket_t socket_handle, riodp_socket_t *conn,
-			uint32_t timeout);
-int riodp_socket_connect(riodp_socket_t socket_handle, uint32_t remote_destid,
-			 uint8_t remote_mbox, uint16_t remote_channel);
-int riodp_socket_request_send_buffer(riodp_socket_t socket_handle, void **buf);
-int riodp_socket_release_send_buffer(riodp_socket_t socket_handle, void *buf);
-
+int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle);
+int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size);
+int riomp_sock_receive(riomp_sock_t socket_handle, void **buf, uint32_t size, uint32_t timeout);
+int riomp_sock_release_receive_buffer(riomp_sock_t socket_handle, void *buf);
+int riomp_sock_close(riomp_sock_t *socket_handle);
+int riomp_sock_bind(riomp_sock_t socket_handle, uint16_t local_channel);
+int riomp_sock_listen(riomp_sock_t socket_handle);
+int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn, uint32_t timeout);
+int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid, uint8_t remote_mbox, uint16_t remote_channel);
+int riomp_sock_request_send_buffer(riomp_sock_t socket_handle, void **buf);
+int riomp_sock_release_send_buffer(riomp_sock_t socket_handle, void *buf);
 
 #ifdef __cplusplus
 }

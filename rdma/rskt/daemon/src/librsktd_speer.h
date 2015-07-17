@@ -52,7 +52,7 @@ extern "C" {
 #endif
 
 struct rskt_dmn_speer {
-	riodp_socket_t cm_skt_h;
+	riomp_sock_t cm_skt_h;
 	int i_must_die;
 	int comm_fail;
 	struct rskt_dmn_speer **self_ref;
@@ -86,7 +86,7 @@ struct rskt_dmn_speer {
 	sem_t resp_ready;
 };
 
-void start_new_speer(riodp_socket_t new_socket);
+void start_new_speer(riomp_sock_t new_socket);
 void *speer_tx_loop(void *unused);
 void close_all_speers(void);
 

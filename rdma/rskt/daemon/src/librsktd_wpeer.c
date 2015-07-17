@@ -126,7 +126,7 @@ void *wpeer_rx_loop(void *p_i)
 		w->rx_buff_used = 1;
                 do {
 			w->i_must_die = 0;
-			w->i_must_die = riodp_socket_receive(w->cm_skt_h, 
+			w->i_must_die = riomp_sock_receive(w->cm_skt_h, 
 				&w->rx_buff, DMN_RESP_SZ, 0);
 		} while ((w->i_must_die) && !dmn.all_must_die && 
 		((EINTR == errno) || (EAGAIN == errno) || (ETIME == errno)));
@@ -169,17 +169,17 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 
 	do {
 		sem_wait(&dmn.mb_mtx);
-		rc = riodp_socket_socket(dmn.mb, &w->cm_skt_h);
+		rc = riomp_sock_socket(dmn.mb, &w->cm_skt_h);
 		sem_post(&dmn.mb_mtx);
 
-        	conn_rc = riodp_socket_connect(w->cm_skt_h, ct, 0, cm_skt);
+        	conn_rc = riomp_sock_connect(w->cm_skt_h, ct, 0, cm_skt);
 
                 if (!conn_rc)
                         break;
 
-                rc = riodp_socket_close(&w->cm_skt_h);
+                rc = riomp_sock_close(&w->cm_skt_h);
                 if (rc) {
-                        ERR("riodp_socket_close ERR %d\n", rc);
+                        ERR("riomp_sock_close ERR %d\n", rc);
                 };
 	} while (conn_rc && ((EINTR == errno) || (ETIME == errno)));
 
@@ -195,7 +195,7 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 	if (conn_rc)
 		goto exit;
 
-        rc = riodp_socket_request_send_buffer(w->cm_skt_h, &w->tx_buff);
+        rc = riomp_sock_request_send_buffer(w->cm_skt_h, &w->tx_buff);
         if (rc) {
                	CRIT("init_wpeer %d: req_buffer: %d\n", ct, rc);
 		goto exit;
@@ -269,13 +269,13 @@ void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 	sem_post(&wpeer->started);
 
 	if (NULL != wpeer->rx_buff) {
-		riodp_socket_release_receive_buffer(wpeer->cm_skt_h, 
+		riomp_sock_release_receive_buffer(wpeer->cm_skt_h, 
 							wpeer->rx_buff);
 		wpeer->rx_buff = NULL;
 	};
 	
 	if (NULL != wpeer->tx_buff) {
-		riodp_socket_release_send_buffer(wpeer->cm_skt_h,
+		riomp_sock_release_send_buffer(wpeer->cm_skt_h,
 							wpeer->tx_buff);
 		wpeer->tx_buff = NULL;
 	};
@@ -362,7 +362,7 @@ void *wpeer_tx_loop(void *unused)
 			memcpy((void *)w->tx_buff, (void *)msg->dreq,
 				DMN_REQ_SZ);
         		w->tx_buff_used = 1;
-        		w->tx_rc = riodp_socket_send(w->cm_skt_h, w->tx_buff,
+        		w->tx_rc = riomp_sock_send(w->cm_skt_h, w->tx_buff,
 						DMN_REQ_SZ);
 			if (w->tx_rc)
 				close_wpeer(w);

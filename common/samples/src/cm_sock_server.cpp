@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 
 	/* Wait for client to connect */
 	puts("Wait for client to connect..");
-	riodp_socket_t	accept_socket;
+	riomp_sock_t	accept_socket;
 
 	if (server->accept(&accept_socket)) {
 		puts("Failed to accept");

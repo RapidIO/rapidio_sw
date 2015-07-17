@@ -94,7 +94,7 @@ void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 	peer->m2s->fset.flag = htonl(flag);
 
 	peer->tx_buff_used = 1;
-	peer->tx_rc = riodp_socket_send(peer->cm_skt_h, 
+	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
 				peer->tx_buff, FMD_P_M2S_CM_SZ);
 	sem_post(&peer->tx_mtx);
 	INFO("Sent M2S update to %s for %s, flags 0x%2x, tx rc %x\n",
@@ -147,7 +147,7 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 	};
 	peer->m2s->mod_rq.flag = htonl(flag);
 	peer->tx_buff_used = 1;
-	peer->tx_rc = riodp_socket_send(peer->cm_skt_h, 
+	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
 				peer->tx_buff, FMD_P_M2S_CM_SZ);
 exit:
 	sem_post(&peer->tx_mtx);
@@ -169,7 +169,7 @@ void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 
 	peer->m2s->mod_rq.flag = 0;
 	peer->tx_buff_used = 1;
-	peer->tx_rc = riodp_socket_send(peer->cm_skt_h, 
+	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
 				peer->tx_buff, FMD_P_M2S_CM_SZ);
 	sem_post(&peer->tx_mtx);
 };
@@ -279,7 +279,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->p_hc = peer_ep->ports[0].devids[FMD_DEV08].hc;
 	};
 	peer->tx_buff_used = 1;
-	peer->tx_rc = riodp_socket_send(peer->cm_skt_h, peer->tx_buff,
+	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, peer->tx_buff,
 				FMD_P_M2S_CM_SZ);
 	sem_post(&peer->tx_mtx);
 
@@ -340,7 +340,7 @@ void peer_rx_req(struct fmd_peer *peer)
 {
 	peer->rx_buff_used = 1;
 	do {
-		peer->rx_rc = riodp_socket_receive(peer->cm_skt_h, 
+		peer->rx_rc = riomp_sock_receive(peer->cm_skt_h, 
 			&peer->rx_buff, FMD_P_S2M_CM_SZ, 3*60*1000);
 	} while ((peer->rx_rc) && ((errno == EINTR) || (errno == ETIME)));
 
@@ -366,21 +366,21 @@ void cleanup_peer(struct fmd_peer *peer)
 	send_peer_removal_messages(peer);
 
 	if (peer->tx_buff_used) {
-		riodp_socket_release_send_buffer(peer->cm_skt_h,
+		riomp_sock_release_send_buffer(peer->cm_skt_h,
 						peer->tx_buff);
 		peer->tx_buff = NULL;
 		peer->tx_buff_used = 0;
 	};
 	
 	if (peer->rx_buff_used) {
-		riodp_socket_release_receive_buffer(peer->cm_skt_h,
+		riomp_sock_release_receive_buffer(peer->cm_skt_h,
 						peer->rx_buff);
 		peer->rx_buff = NULL;
 		peer->rx_buff_used = 0;
 	};
 
 	if (peer->skt_h_valid) {
-		int rc = riodp_socket_close(&peer->cm_skt_h);
+		int rc = riomp_sock_close(&peer->cm_skt_h);
 		if (rc) {
 			ERR("socket close rc %d: %s\n", rc, strerror(errno));
 		};
@@ -430,7 +430,7 @@ void *peer_rx_loop(void *p_i)
 	pthread_exit(NULL);
 };
 
-int start_new_peer(riodp_socket_t new_skt)
+int start_new_peer(riomp_sock_t new_skt)
 {
 	int rc;
 	struct fmd_peer *peer;
@@ -458,8 +458,8 @@ int start_new_peer(riodp_socket_t new_skt)
 	peer->rx_buff_used = 0;
 	peer->rx_buff = malloc(4096);
 
-	if (riodp_socket_request_send_buffer(new_skt, &peer->tx_buff)) {
-		riodp_socket_close(&new_skt);
+	if (riomp_sock_request_send_buffer(new_skt, &peer->tx_buff)) {
+		riomp_sock_close(&new_skt);
 		goto fail;
 	};
 
@@ -479,12 +479,12 @@ void cleanup_acc_handler(void)
 {
 	fmp.acc.acc_alive = 0;
 	if (fmp.acc.cm_acc_valid) {
-		riodp_socket_close(&fmp.acc.cm_acc_h);
+		riomp_sock_close(&fmp.acc.cm_acc_h);
 		fmp.acc.cm_acc_valid = 0;
 	};
 
 	if (fmp.acc.mb_valid) {
-		riodp_mbox_destroy_handle(&fmp.acc.mb);
+		riomp_sock_mbox_destroy_handle(&fmp.acc.mb);
 		fmp.acc.mb_valid = 0;
 	};
 };
@@ -492,11 +492,11 @@ void cleanup_acc_handler(void)
 void *mast_acc(void *unused)
 {
 	int rc = 1;
-	riodp_socket_t new_skt = NULL;
+	riomp_sock_t new_skt = NULL;
 
 	fmp.acc.mb_valid = 0;
 	fmp.acc.cm_acc_valid = 0;
-	rc = riodp_mbox_create_handle(fmp.acc.mp_num, 0, &fmp.acc.mb);
+	rc = riomp_sock_mbox_create_handle(fmp.acc.mp_num, 0, &fmp.acc.mb);
 	if (rc) {
 		ERR("riodp_mbox_create ERR %d\n", rc);
 		goto exit;
@@ -504,24 +504,24 @@ void *mast_acc(void *unused)
 	fmp.acc.mb_valid = 1;
 	sem_init(&fmp.acc.mb_mtx, 0, 1);
 
-	rc = riodp_socket_socket(fmp.acc.mb, &fmp.acc.cm_acc_h);
+	rc = riomp_sock_socket(fmp.acc.mb, &fmp.acc.cm_acc_h);
 	if (rc) {
-		ERR("riodp_socket_socket ERR %d %d: %s\n", rc, errno,
+		ERR("riomp_sock_socket ERR %d %d: %s\n", rc, errno,
 			strerror(errno));
 		goto exit;
 	};
 
-	rc = riodp_socket_bind(fmp.acc.cm_acc_h, fmp.acc.cm_skt_num);
+	rc = riomp_sock_bind(fmp.acc.cm_acc_h, fmp.acc.cm_skt_num);
 	if (rc) {
-		ERR("riodp_socket_bind() ERR %d errno %d: %s\n", rc, errno,
+		ERR("riomp_sock_bind() ERR %d errno %d: %s\n", rc, errno,
 			strerror(errno));
 		goto exit;
 	};
 	fmp.acc.cm_acc_valid = 1;
 
-	rc = riodp_socket_listen(fmp.acc.cm_acc_h);
+	rc = riomp_sock_listen(fmp.acc.cm_acc_h);
 	if (rc) {
-		ERR("riodp_socket_listen() ERR %d %d: %s\n", rc, errno,
+		ERR("riomp_sock_listen() ERR %d %d: %s\n", rc, errno,
 			strerror(errno));
 		goto exit;
 	};
@@ -530,14 +530,14 @@ void *mast_acc(void *unused)
 
 	while (!fmp.acc.acc_must_die) {
 		if (NULL == new_skt) {
-			rc = riodp_socket_socket(fmp.acc.mb, &new_skt);
+			rc = riomp_sock_socket(fmp.acc.mb, &new_skt);
 			if (rc) {
 				ERR("socket() ERR %d\n", rc);
 				break;
 			};
 		};
 		do {
-			rc = riodp_socket_accept(fmp.acc.cm_acc_h,
+			rc = riomp_sock_accept(fmp.acc.cm_acc_h,
 				&new_skt, 3*60*1000);
 		} while (rc && ((errno == ETIME) || (errno == EINTR)));
 
@@ -547,7 +547,7 @@ void *mast_acc(void *unused)
 		};
 
 		if (fmp.acc.acc_must_die) {
-			riodp_socket_close(&new_skt);
+			riomp_sock_close(&new_skt);
 			continue;
 		};
 

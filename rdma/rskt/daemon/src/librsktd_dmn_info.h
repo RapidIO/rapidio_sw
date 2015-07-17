@@ -109,9 +109,9 @@ struct dmn_globals {
 	pthread_t thread; 
 	int mb_valid;
 	sem_t mb_mtx;
-	riodp_mailbox_t mb;
+	riomp_mailbox_t mb;
 	int skt_valid;
-	riodp_socket_t cm_acc_h;
+	riomp_sock_t cm_acc_h;
 
 	/* RDMA Memory Space Database for this RSKT Daemon */
 	struct mso_info mso;

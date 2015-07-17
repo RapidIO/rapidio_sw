@@ -58,9 +58,9 @@ struct fmd_slave {
 	uint32_t mast_did;
         uint32_t mast_skt_num; /* Socket number to connect to */
         uint32_t mb_valid;
-        riodp_mailbox_t mb;
+        riomp_mailbox_t mb;
 	uint32_t skt_valid;
-        riodp_socket_t skt_h; /* Connected socket */
+        riomp_sock_t skt_h; /* Connected socket */
 	sem_t tx_mtx;
         int tx_buff_used;
         int tx_rc;

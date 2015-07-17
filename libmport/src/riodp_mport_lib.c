@@ -59,6 +59,26 @@
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
 
+struct rapidio_mport_mailbox {
+	int fd;
+	uint8_t mport_id;
+};
+
+struct rio_channel {
+	uint16_t id;
+	uint32_t remote_destid;
+	uint32_t remote_mbox;
+	uint16_t remote_channel;
+	uint8_t mport_id;
+};
+
+struct rapidio_mport_socket {
+	struct rapidio_mport_mailbox *mbox;
+	struct rio_channel ch;
+	uint8_t	*rx_buffer;
+	uint8_t	*tx_buffer;
+};
+
 int riodp_mport_open(uint32_t mport_id, int flags)
 {
 	char path[32];
@@ -72,7 +92,7 @@ int riodp_mport_close(int fd)
 	return close(fd);
 }
 
-int riodp_cm_open(void)
+int riomp_sock_mbox_init(void)
 {
 	return open(RIO_CMDEV_PATH, O_RDWR);
 }
@@ -87,7 +107,7 @@ int riodp_mport_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 
 
 	/* Open RapidIO Channel Manager */
-	fd = riodp_cm_open();
+	fd = riomp_sock_mbox_init();
 	if (fd < 0)
 		return -1;
 
@@ -133,7 +153,7 @@ int riodp_mport_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numb
 	uint32_t *list;
 
 	/* Open mport */
-	fd = riodp_cm_open();
+	fd = riomp_sock_mbox_init();
 	if (fd < 0)
 		return -1;
 
@@ -690,21 +710,21 @@ int riodp_device_del(int fd, uint16_t destid, uint8_t hc, uint32_t ctag)
 }
 
 /* Mailbox functions */
-int riodp_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
-			     riodp_mailbox_t *mailbox)
+int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
+			     riomp_mailbox_t *mailbox)
 {
 	int fd;
-	struct riodp_mailbox *lhandle = NULL;
+	struct rapidio_mport_mailbox *lhandle = NULL;
 
 	/* Open mport */
-	fd = riodp_cm_open();
+	fd = riomp_sock_mbox_init();
 	if (fd < 0)
 		return -1;
 
 	/* TODO claim mbox_id */
 
 	/* Create handle */
-	lhandle = (struct riodp_mailbox *)malloc(sizeof(struct riodp_mailbox));
+	lhandle = (struct rapidio_mport_mailbox *)malloc(sizeof(struct rapidio_mport_mailbox));
 	if(!(lhandle)) {
 		close(fd);
 		return -2;
@@ -716,12 +736,12 @@ int riodp_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 	return 0;
 }
 
-int riodp_socket_socket(riodp_mailbox_t mailbox, riodp_socket_t *socket_handle)
+int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 {
-	struct riodp_socket *handle = NULL;
+	struct rapidio_mport_socket *handle = NULL;
 
 	/* Create handle */
-	handle = (struct riodp_socket *)calloc(1, sizeof(struct riodp_socket));
+	handle = (struct rapidio_mport_socket *)calloc(1, sizeof(struct rapidio_mport_socket));
 	if(!handle) {
 		printf("error in calloc\n");
 		return -1;
@@ -733,10 +753,10 @@ int riodp_socket_socket(riodp_mailbox_t mailbox, riodp_socket_t *socket_handle)
 	return 0;
 }
 
-int riodp_socket_send(riodp_socket_t socket_handle, void *buf, uint32_t size)
+int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 {
 	int ret;
-	struct riodp_socket *handle = socket_handle;
+	struct rapidio_mport_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
 
 	msg.ch_num = handle->ch.id;
@@ -751,11 +771,11 @@ int riodp_socket_send(riodp_socket_t socket_handle, void *buf, uint32_t size)
 	return 0;
 }
 
-int riodp_socket_receive(riodp_socket_t socket_handle, void **buf,
+int riomp_sock_receive(riomp_sock_t socket_handle, void **buf,
 			 uint32_t size, uint32_t timeout)
 {
 	int ret;
-	struct riodp_socket *handle = socket_handle;
+	struct rapidio_mport_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
 
 	msg.ch_num = handle->ch.id;
@@ -769,17 +789,17 @@ int riodp_socket_receive(riodp_socket_t socket_handle, void **buf,
 	return 0;
 }
 
-int riodp_socket_release_receive_buffer(riodp_socket_t socket_handle,
+int riomp_sock_release_receive_buffer(riomp_sock_t socket_handle,
 					void *buf) /* always 4k aligned buffers */
 {
 	free(buf);
 	return 0;
 }
 
-int riodp_socket_close(riodp_socket_t *socket_handle)
+int riomp_sock_close(riomp_sock_t *socket_handle)
 {
 	int ret;
-	struct riodp_socket *handle = *socket_handle;
+	struct rapidio_mport_socket *handle = *socket_handle;
 	uint16_t ch_num;
 
 	if(!handle)
@@ -796,9 +816,9 @@ int riodp_socket_close(riodp_socket_t *socket_handle)
 	return ret;
 }
 
-int riodp_mbox_destroy_handle(riodp_mailbox_t *mailbox)
+int riomp_sock_mbox_destroy_handle(riomp_mailbox_t *mailbox)
 {
-	struct riodp_mailbox *mbox = *mailbox;
+	struct rapidio_mport_mailbox *mbox = *mailbox;
 
 	if(mbox != NULL) {
 		close(mbox->fd);
@@ -810,9 +830,9 @@ int riodp_mbox_destroy_handle(riodp_mailbox_t *mailbox)
 
 }
 
-int riodp_socket_bind(riodp_socket_t socket_handle, uint16_t local_channel)
+int riomp_sock_bind(riomp_sock_t socket_handle, uint16_t local_channel)
 {
-	struct riodp_socket *handle = socket_handle;
+	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num;
 	int ret;
 	struct rio_cm_channel cdev;
@@ -835,9 +855,9 @@ int riodp_socket_bind(riodp_socket_t socket_handle, uint16_t local_channel)
 	return 0;
 }
 
-int riodp_socket_listen(riodp_socket_t socket_handle)
+int riomp_sock_listen(riomp_sock_t socket_handle)
 {
-	struct riodp_socket *handle = socket_handle;
+	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num;
 	int ret;
 
@@ -849,11 +869,11 @@ int riodp_socket_listen(riodp_socket_t socket_handle)
 	return 0;
 }
 
-int riodp_socket_accept(riodp_socket_t socket_handle, riodp_socket_t *conn,
+int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 			uint32_t timeout)
 {
-	struct riodp_socket *handle = socket_handle;
-	struct riodp_socket *new_handle = *conn;
+	struct rapidio_mport_socket *handle = socket_handle;
+	struct rapidio_mport_socket *new_handle = *conn;
 	struct rio_cm_accept param;
 //	uint16_t ch_num;
 	int ret;
@@ -878,10 +898,10 @@ int riodp_socket_accept(riodp_socket_t socket_handle, riodp_socket_t *conn,
 	return 0;
 }
 
-int riodp_socket_connect(riodp_socket_t socket_handle, uint32_t remote_destid,
+int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 			 uint8_t remote_mbox, uint16_t remote_channel)
 {
-	struct riodp_socket *handle = socket_handle;
+	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num = 0;
 	struct rio_cm_channel cdev;
 
@@ -911,7 +931,7 @@ int riodp_socket_connect(riodp_socket_t socket_handle, uint32_t remote_destid,
 	return 0;
 }
 
-int riodp_socket_request_send_buffer(riodp_socket_t socket_handle,
+int riomp_sock_request_send_buffer(riomp_sock_t socket_handle,
 				     void **buf) //always 4k aligned buffers
 {
 	/* socket_handle won't be used for now */
@@ -923,7 +943,7 @@ int riodp_socket_request_send_buffer(riodp_socket_t socket_handle,
 	return 0;
 }
 
-int riodp_socket_release_send_buffer(riodp_socket_t socket_handle,
+int riomp_sock_release_send_buffer(riomp_sock_t socket_handle,
 				     void *buf) /* always 4k aligned buffers */
 {
 	free(buf);

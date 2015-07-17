@@ -128,8 +128,8 @@ struct rskts_conn_globals {
 
 	/* CM connection request handler from other RSKT Daemons */
 	pthread_t thread; 
-	riodp_mailbox_t mb;
-	riodp_socket_t skt;
+	riomp_mailbox_t mb;
+	riomp_sock_t skt;
 
 	sem_t loop_started;
 	int loop_alive;
@@ -171,7 +171,7 @@ struct lib_accepting {
 
 struct req_list_t {
 	struct req_list_t *next;
-	riodp_socket_t *skt;
+	riomp_sock_t *skt;
 };
 
 /* NOTE: list is empty when HEAD == NULL.
