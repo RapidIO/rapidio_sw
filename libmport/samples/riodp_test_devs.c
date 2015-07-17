@@ -67,7 +67,7 @@ void test_create(void)
 {
 	int ret;
 
-	ret = riodp_device_add(fd, tgt_destid, tgt_hop, comptag,
+	ret = riomp_mgmt_device_add(fd, tgt_destid, tgt_hop, comptag,
 			       (*dev_name == '\0')?NULL:dev_name);
 	if(ret)
 		printf("Failed to create device object, err=%d\n", ret);
@@ -77,7 +77,7 @@ void test_delete(void)
 {
 	int ret;
 
-	ret = riodp_device_del(fd, tgt_destid, tgt_hop, comptag);
+	ret = riomp_mgmt_device_del(fd, tgt_destid, tgt_hop, comptag);
 	if(ret)
 		printf("Failed to delete device object, err=%d\n", ret);
 }
@@ -136,7 +136,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct riodp_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
 	int err;
@@ -187,15 +187,15 @@ int main(int argc, char** argv)
 	action.sa_flags = SA_SIGINFO;
 	sigaction(SIGIO, &action, NULL);
 
-	fd = riodp_mport_open(mport_id, 0);
+	fd = riomp_mgmt_mport_open(mport_id, 0);
 	if (fd < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
 			mport_id, errno);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_mport_query(fd, &prop)) {
-		riodp_mport_display_info(&prop);
+	if (!riomp_mgmt_query(fd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");
@@ -210,7 +210,7 @@ int main(int argc, char** argv)
 	fcntl(fd, F_SETOWN, getpid());
 	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | FASYNC);
 
-	err = riodp_lcfg_read(fd, 0x13c, sizeof(uint32_t), &regval);
+	err = riomp_mgmt_lcfg_read(fd, 0x13c, sizeof(uint32_t), &regval);
 	if (err) {
 		printf("Failed to read from PORT_GEN_CTL_CSR, err=%d\n", err);
 		rc = EXIT_FAILURE;
@@ -223,9 +223,9 @@ int main(int argc, char** argv)
 		printf("ATTN: Port DISCOVERED flag is not set\n");
 
 	if (discovered && prop.hdid == 0xffff ) {
-		err = riodp_lcfg_read(fd, 0x60, sizeof(uint32_t), &regval);
+		err = riomp_mgmt_lcfg_read(fd, 0x60, sizeof(uint32_t), &regval);
 		prop.hdid = (regval >> 16) & 0xff;
-		err = riodp_destid_set(fd, prop.hdid);
+		err = riomp_mgmt_destid_set(fd, prop.hdid);
 		if (err)
 			printf("Failed to update local destID, err=%d\n", err);
 		else

@@ -200,9 +200,9 @@ static int init_mport(int demo_mode,
     }
 
     /* Open mport device */
-    peer->mport_fd = riodp_mport_open(mportid, 0);
+    peer->mport_fd = riomp_mgmt_mport_open(mportid, 0);
     if (peer->mport_fd <= 0) {
-        perror("riodp_mport_open()");
+        perror("riomp_mgmt_mport_open()");
         fprintf(stderr,"Failed to open mport%d. Aborting!\n", mportid);
         cleanup_msg_test(num_devices,peers);
         return -1;

@@ -844,17 +844,17 @@ int main (int argc, char **argv)
 	}
 
 	/* Open mport */
-	peer.mport_fd = riodp_mport_open(peer.mport_id, 0);
+	peer.mport_fd = riomp_mgmt_mport_open(peer.mport_id, 0);
 	if (peer.mport_fd <= 0) {
-		CRIT("Failed in riodp_mport_open(): %s\n", strerror(errno));
+		CRIT("Failed in riomp_mgmt_mport_open(): %s\n", strerror(errno));
 	        rc = 1;
 		goto out;
     	}
 
 	/* Query device information, and store destid */
-	struct riodp_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 
-	rc = riodp_mport_query(peer.mport_fd, &prop);
+	rc = riomp_mgmt_query(peer.mport_fd, &prop);
 	if (rc != 0) {
 		CRIT("Failed in riodp_query_mport(): %s\n", strerror(errno));
 		rc = 2;

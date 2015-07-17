@@ -45,7 +45,7 @@ int riocp_pe_event_init(struct riocp_pe *pe)
 		return ret;
 	}
 
-	ret = riodp_set_event_mask(pe->fd, RIO_EVENT_PORTWRITE);
+	ret = riomp_mgmt_set_event_mask(pe->fd, RIO_EVENT_PORTWRITE);
 	if (ret < 0) {
 		RIOCP_ERROR("Could not set portwrite event mask with ioctl (err: %s)\n",
 			strerror(errno));
@@ -53,7 +53,7 @@ int riocp_pe_event_init(struct riocp_pe *pe)
 		goto err;
 	}
 
-	ret = riodp_pwrange_enable(pe->fd, 0xffffffff, pe->comptag, pe->comptag);
+	ret = riomp_mgmt_pwrange_enable(pe->fd, 0xffffffff, pe->comptag, pe->comptag);
 	if (ret < 0) {
 		RIOCP_ERROR("Could not enable port write range with ioctl (err: %s)\n",
 			strerror(errno));
@@ -105,10 +105,10 @@ int riocp_pe_event_receive(struct riocp_pe *pe, struct riocp_pe_event *e)
 {
 	int ret;
 	struct riocp_pe_event _e;
-	struct riodp_event revent;
+	struct riomp_mgmt_event revent;
 
 
-	ret = riodp_get_event(pe->fd, &revent);
+	ret = riomp_mgmt_get_event(pe->fd, &revent);
 	if (ret < 0)
 		return ret;
 	if (revent.header != RIO_EVENT_PORTWRITE) {

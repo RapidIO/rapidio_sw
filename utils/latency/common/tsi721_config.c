@@ -56,22 +56,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 static int r_721(int fd, uint32_t offset, uint32_t *value)
 {
-		return riodp_lcfg_read(fd, offset, sizeof(uint32_t), value);
+		return riomp_mgmt_lcfg_read(fd, offset, sizeof(uint32_t), value);
 };
 
 static int w_721(int fd, uint32_t offset, uint32_t value)
 {
-		return riodp_lcfg_write(fd, offset, sizeof(uint32_t), value);
+		return riomp_mgmt_lcfg_write(fd, offset, sizeof(uint32_t), value);
 };
 
 static int r_mtc(int fd, uint32_t offset, uint32_t *value)
 {
-		return riodp_maint_read(fd, 0, 0, offset, sizeof(uint32_t), value);
+		return riomp_mgmt_rcfg_read(fd, 0, 0, offset, sizeof(uint32_t), value);
 };
 
 static int w_mtc(int fd, uint32_t offset, uint32_t value)
 {
-		return riodp_maint_write(fd, 0, 0, offset, sizeof(uint32_t), value);
+		return riomp_mgmt_rcfg_write(fd, 0, 0, offset, sizeof(uint32_t), value);
 };
 
 int check_port_ok (int fd, int debug)

@@ -79,7 +79,7 @@ static int do_pwrcv_test(int fd, uint32_t mask, uint32_t low, uint32_t high)
 	int ret;
 	struct rio_event evt;
 
-	ret = riodp_pwrange_enable(fd, mask, low, high);
+	ret = riomp_mgmt_pwrange_enable(fd, mask, low, high);
 	if (ret) {
 		printf("Failed to enable PW filter, err=%d\n", ret);
 		return ret;
@@ -118,7 +118,7 @@ static int do_pwrcv_test(int fd, uint32_t mask, uint32_t low, uint32_t high)
 			printf("\tIgnoring event type %d)\n", evt.header);
 	}
 
-	ret = riodp_pwrange_disable(fd, mask, low, high);
+	ret = riomp_mgmt_pwrange_disable(fd, mask, low, high);
 	if (ret) {
 		printf("Failed to disable PW range, err=%d\n", ret);
 		return ret;
@@ -172,7 +172,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct riodp_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 	struct sigaction action;
 	unsigned int evt_mask;
 	int err;
@@ -214,15 +214,15 @@ int main(int argc, char** argv)
 	action.sa_flags = SA_SIGINFO;
 	sigaction(SIGIO, &action, NULL);
 
-	fd = riodp_mport_open(mport_id, flags);
+	fd = riomp_mgmt_mport_open(mport_id, flags);
 	if (fd < 0) {
 		printf("DB Test: unable to open mport%d device err=%d\n",
 			mport_id, errno);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_mport_query(fd, &prop)) {
-		riodp_mport_display_info(&prop);
+	if (!riomp_mgmt_query(fd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");
@@ -242,14 +242,14 @@ int main(int argc, char** argv)
 	signal(SIGTERM, db_sig_handler);
 	signal(SIGUSR1, db_sig_handler);
 
-	err = riodp_get_event_mask(fd, &evt_mask);
+	err = riomp_mgmt_get_event_mask(fd, &evt_mask);
 	if (err) {
 		printf("Failed to obtain current event mask, err=%d\n", err);
 		rc = EXIT_FAILURE;
 		goto out;
 	}
 
-	riodp_set_event_mask(fd, evt_mask | RIO_EVENT_PORTWRITE);
+	riomp_mgmt_set_event_mask(fd, evt_mask | RIO_EVENT_PORTWRITE);
 
 	printf("+++ RapidIO PortWrite Event Receive Mode +++\n");
 	printf("\tmport%d PID:%d\n", mport_id, (int)getpid());
@@ -258,7 +258,7 @@ int main(int argc, char** argv)
 
 	do_pwrcv_test(fd, pw_mask, pw_low, pw_high);
 
-	riodp_set_event_mask(fd, evt_mask);
+	riomp_mgmt_set_event_mask(fd, evt_mask);
 
 out:
 	close(fd);

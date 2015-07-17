@@ -125,7 +125,7 @@ static int open_mport(struct peer_info *peer)
 	get_mport_id_output	out;
 	get_mport_id_input	in;
 	int flags = 0;
-	struct riodp_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 
 	DBG("ENTER\n");
 
@@ -146,9 +146,9 @@ static int open_mport(struct peer_info *peer)
 	INFO("Using mport_id = %d\n", peer->mport_id);
 
 	/* Now open the port */
-	peer->mport_fd = riodp_mport_open(peer->mport_id, flags);
+	peer->mport_fd = riomp_mgmt_mport_open(peer->mport_id, flags);
 	if (peer->mport_fd <= 0) {
-		CRIT("riodp_mport_open(): %s\n", strerror(errno));
+		CRIT("riomp_mgmt_mport_open(): %s\n", strerror(errno));
 		CRIT("Cannot open mport%d, is rio_mport_cdev loaded?\n",
 								peer->mport_id);
 		return -errno;
@@ -156,8 +156,8 @@ static int open_mport(struct peer_info *peer)
 	INFO("mport_fd = %d\n", peer->mport_fd);
 
 	/* Read the properties. */
-	if (!riodp_mport_query(peer->mport_fd, &prop)) {
-		riodp_mport_display_info(&prop);
+	if (!riomp_mgmt_query(peer->mport_fd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 		if (prop.flags &RIO_MPORT_DMA) {
 			INFO("DMA is ENABLED\n");
 		} else {

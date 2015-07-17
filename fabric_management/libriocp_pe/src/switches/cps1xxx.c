@@ -1228,7 +1228,7 @@ found_port_error:
 	return ret;
 }
 
-static int cps1xxx_cfg_event_handler(struct riocp_pe *sw, struct riodp_event *revent, struct riocp_pe_event *event)
+static int cps1xxx_cfg_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, struct riocp_pe_event *event)
 {
 	int ret;
 	uint8_t event_code;
@@ -1287,7 +1287,7 @@ static int cps1xxx_cfg_event_handler(struct riocp_pe *sw, struct riodp_event *re
  * This function verifies if it comes from CPS1616 and then calls
  * the Port event or CFG event handler.
  */
-static int cps1xxx_rpw_event(struct riocp_pe *sw, struct riodp_event *revent,
+static int cps1xxx_rpw_event(struct riocp_pe *sw, struct riomp_mgmt_event *revent,
 	struct riocp_pe_event *event)
 {
 	int ret = 0;
@@ -1311,7 +1311,7 @@ static int cps1xxx_rpw_event(struct riocp_pe *sw, struct riodp_event *revent,
 	return ret;
 }
 
-int cps1xxx_event_handler(struct riocp_pe *sw, struct riodp_event *revent, struct riocp_pe_event *event)
+int cps1xxx_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, struct riocp_pe_event *event)
 {
 	int ret = 0;
 

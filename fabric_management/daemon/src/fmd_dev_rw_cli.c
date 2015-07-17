@@ -94,11 +94,11 @@ int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
 	int rc = 0;
 
 	if (RIOCP_PE_IS_MPORT(pe_h))
-		rc = riodp_lcfg_read(pe_h->minfo->maint, offset, sizeof(temp), &temp)?1:0;
+		rc = riomp_mgmt_lcfg_read(pe_h->minfo->maint, offset, sizeof(temp), &temp)?1:0;
 	else {
 		INFO("MTC READ: DID %x HC %X O %x\n",
 					pe_h->destid, pe_h->hopcount, offset);
-		rc = riodp_maint_read(pe_h->mport->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
+		rc = riomp_mgmt_rcfg_read(pe_h->mport->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
 				 sizeof(temp), &temp)?1:0;
 	}
 
@@ -112,9 +112,9 @@ int mport_write(riocp_pe_handle pe_h, uint32_t offset, uint32_t data)
 	int rc = 0;
 
         if (RIOCP_PE_IS_MPORT(pe_h))
-        	rc = riodp_lcfg_write(pe_h->minfo->maint, offset, sizeof(data), data)?1:0;
+        	rc = riomp_mgmt_lcfg_write(pe_h->minfo->maint, offset, sizeof(data), data)?1:0;
         else
-        	rc = riodp_maint_write(pe_h->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
+        	rc = riomp_mgmt_rcfg_write(pe_h->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
         			      sizeof(data), data)?1:0;
 	return rc;
 };
@@ -616,9 +616,9 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 
 	for (i = 0; i < numReads; i++) {
 		if (0xFF == hc) {
-			rc = riodp_lcfg_read(fmd->fd, address, 4, &data);
+			rc = riomp_mgmt_lcfg_read(fmd->fd, address, 4, &data);
 		} else {
-			rc = riodp_maint_read(fmd->fd, did, hc,
+			rc = riomp_mgmt_rcfg_read(fmd->fd, did, hc,
 				address, 4, &data);
 		};
 
@@ -698,9 +698,9 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	/* Command arguments are syntactically correct - do write */
 
 	if (0xFF == hc) {
-		rc = riodp_lcfg_write(fmd->fd, address, 4, data);
+		rc = riomp_mgmt_lcfg_write(fmd->fd, address, 4, data);
 	} else {
-		rc = riodp_maint_write(fmd->fd, did, hc,
+		rc = riomp_mgmt_rcfg_write(fmd->fd, did, hc,
 				address, 4, data);
 	};
 	if (0 != rc) {
@@ -710,9 +710,9 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	/* read data back */
 	if (0xFF == hc) {
-		rc = riodp_lcfg_read(fmd->fd, address, 4, &data);
+		rc = riomp_mgmt_lcfg_read(fmd->fd, address, 4, &data);
 	} else {
-		rc = riodp_maint_read(fmd->fd, did, hc,
+		rc = riomp_mgmt_rcfg_read(fmd->fd, did, hc,
 			address, 4, &data);
 	};
 	if (0 != rc) {

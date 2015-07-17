@@ -40,21 +40,7 @@
 extern "C" {
 #endif
 
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <time.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <stdint.h> /* For size_t */
-#include <unistd.h>
-#include <getopt.h>
-#include <time.h>
-#include <signal.h>
-
-
+#include <stdint.h>
 
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 #define RIO_MAP_ANY_ADDR	(uint64_t)(~((uint64_t) 0))
@@ -62,7 +48,7 @@ extern "C" {
 #define RIO_EVENT_DOORBELL	(1 << 0)
 #define RIO_EVENT_PORTWRITE	(1 << 1)
 
-enum rio_link_speed {
+enum riomp_mgmt_link_speed {
 	RIO_LINK_DOWN = 0, /* SRIO Link not initialized */
 	RIO_LINK_125 = 1, /* 1.25 GBaud  */
 	RIO_LINK_250 = 2, /* 2.5 GBaud   */
@@ -71,7 +57,7 @@ enum rio_link_speed {
 	RIO_LINK_625 = 5  /* 6.25 GBaud  */
 };
 
-enum rio_link_width {
+enum riomp_mgmt_link_width {
 	RIO_LINK_1X  = 0,
 	RIO_LINK_1XR = 1,
 	RIO_LINK_2X  = 3,
@@ -80,13 +66,13 @@ enum rio_link_width {
 	RIO_LINK_16X = 5
 };
 
-enum rio_mport_flags {
+enum riomp_mgmt_mport_flags {
 	RIO_MPORT_DMA	 = (1 << 0), /* supports DMA data transfers */
 	RIO_MPORT_DMA_SG = (1 << 1), /* DMA supports HW SG mode */
 	RIO_MPORT_IBSG	 = (1 << 2), /* inbound mapping supports SG */
 };
 
-struct riodp_mport_properties {
+struct riomp_mgmt_mport_properties {
 	uint16_t hdid;
 	uint8_t id;			/* Physical port ID */
 	uint8_t  index;
@@ -105,58 +91,53 @@ struct riodp_mport_properties {
 	uint32_t cap_mport;		/* Mport capabilities */
 };
 
-
-struct riodp_doorbell {
+struct riomp_mgmt_doorbell {
 	uint32_t rioid;
 	uint16_t payload;
 };
 
-struct riodp_portwrite {
+struct riomp_mgmt_portwrite {
 	uint32_t payload[16];
 };
 
-struct riodp_event {
+struct riomp_mgmt_event {
 	unsigned int header;	/* event kind, e.g. RIO_EVENT_DOORBELL or RIO_EVENT_PORTWRITE */
 	union {
-		struct riodp_doorbell doorbell;	/* header is RIO_EVENT_DOORBELL */
-		struct riodp_portwrite portwrite; /* header is RIO_EVENT_PORTWRITE */
+		struct riomp_mgmt_doorbell doorbell;	/* header is RIO_EVENT_DOORBELL */
+		struct riomp_mgmt_portwrite portwrite; /* header is RIO_EVENT_PORTWRITE */
 	} u;
 };
 
 
-int riodp_mport_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports);
-int riodp_mport_free_mport_list(uint32_t **dev_ids);
-int riodp_mport_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *number_of_eps);
-int riodp_mport_free_ep_list(uint32_t **destids);
+int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports);
+int riomp_mgmt_free_mport_list(uint32_t **dev_ids);
+int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *number_of_eps);
+int riomp_mgmt_free_ep_list(uint32_t **destids);
 
 
-int riodp_mport_open(uint32_t mport_id, int flags);
-int riodp_mport_close(int fd);
+int riomp_mgmt_mport_open(uint32_t mport_id, int flags);
+int riomp_mgmt_mport_close(int fd);
 
-int riodp_mport_query(int fd, struct riodp_mport_properties *qresp);
-void riodp_mport_display_info(struct riodp_mport_properties *prop);
+int riomp_mgmt_query(int fd, struct riomp_mgmt_mport_properties *qresp);
+void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *prop);
 
+int riomp_mgmt_destid_set(int fd, uint16_t destid);
 
-int riodp_lcfg_read(int fd, uint32_t offset, uint32_t size, uint32_t *data);
-int riodp_lcfg_write(int fd, uint32_t offset, uint32_t size, uint32_t data);
-int riodp_maint_read(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
-		     uint32_t size, uint32_t *data);
-int riodp_maint_write(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
-		      uint32_t size, uint32_t data);
+int riomp_mgmt_lcfg_read(int fd, uint32_t offset, uint32_t size, uint32_t *data);
+int riomp_mgmt_lcfg_write(int fd, uint32_t offset, uint32_t size, uint32_t data);
+int riomp_mgmt_rcfg_read(int fd, uint32_t destid, uint32_t hc, uint32_t offset, uint32_t size, uint32_t *data);
+int riomp_mgmt_rcfg_write(int fd, uint32_t destid, uint32_t hc, uint32_t offset, uint32_t size, uint32_t data);
 
-int riodp_dbrange_enable(int fd, uint32_t rioid, uint16_t start, uint16_t end);
-int riodp_dbrange_disable(int fd, uint32_t rioid, uint16_t start, uint16_t end);
-int riodp_pwrange_enable(int fd, uint32_t mask, uint32_t low, uint32_t high);
-int riodp_pwrange_disable(int fd, uint32_t mask, uint32_t low, uint32_t high);
-int riodp_set_event_mask(int fd, unsigned int mask);
-int riodp_get_event_mask(int fd, unsigned int *mask);
-int riodp_get_event(int fd, struct riodp_event *evt);
+int riomp_mgmt_dbrange_enable(int fd, uint32_t rioid, uint16_t start, uint16_t end);
+int riomp_mgmt_dbrange_disable(int fd, uint32_t rioid, uint16_t start, uint16_t end);
+int riomp_mgmt_pwrange_enable(int fd, uint32_t mask, uint32_t low, uint32_t high);
+int riomp_mgmt_pwrange_disable(int fd, uint32_t mask, uint32_t low, uint32_t high);
+int riomp_mgmt_set_event_mask(int fd, unsigned int mask);
+int riomp_mgmt_get_event_mask(int fd, unsigned int *mask);
+int riomp_mgmt_get_event(int fd, struct riomp_mgmt_event *evt);
 
-int riodp_destid_set(int fd, uint16_t destid);
-int riodp_device_add(int fd, uint16_t destid, uint8_t hc, uint32_t ctag,
-		     const char *name);
-int riodp_device_del(int fd, uint16_t destid, uint8_t hc, uint32_t ctag);
-
+int riomp_mgmt_device_add(int fd, uint16_t destid, uint8_t hc, uint32_t ctag, const char *name);
+int riomp_mgmt_device_del(int fd, uint16_t destid, uint8_t hc, uint32_t ctag);
 
 #ifdef __cplusplus
 }

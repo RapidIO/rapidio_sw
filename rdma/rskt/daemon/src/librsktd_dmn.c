@@ -193,19 +193,19 @@ int init_mport_and_mso_ms()
 	dmn.mb_valid = 0;
 	dmn.skt_valid = 0;
 
-        dmn.mpfd = riodp_mport_open(dmn.mpnum, RIO_MPORT_DMA);
+        dmn.mpfd = riomp_mgmt_mport_open(dmn.mpnum, RIO_MPORT_DMA);
         if (dmn.mpfd < 0) {
                 CRIT("Unable to open mport %d...\n", dmn.mpfd);
                 goto exit;
         };
 	INFO("Mport %d opened\n", dmn.mpnum);
 
-        if (riodp_mport_query(dmn.mpfd, &dmn.qresp)) {
+        if (riomp_mgmt_query(dmn.mpfd, &dmn.qresp)) {
                 CRIT("Unable to query mport %d...\n", dmn.mpnum);
                 goto exit;
         };
 
-	riodp_mport_display_info(&dmn.qresp);
+	riomp_mgmt_display_info(&dmn.qresp);
 
         if (!(dmn.qresp.flags & RIO_MPORT_DMA)) {
                 CRIT("Mport %d has no DMA support...\n", dmn.mpnum);

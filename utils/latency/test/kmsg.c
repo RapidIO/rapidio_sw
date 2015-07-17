@@ -263,7 +263,7 @@ static void show_rio_devs(void)
 	int mport_id;
 	int ret = 0;
 
-	if (riodp_mport_get_mport_list(&mport_list, &number_of_mports))
+	if (riomp_mgmt_get_mport_list(&mport_list, &number_of_mports))
 		return;
 
 	printf("\nAvailable %d local mport(s):\n", number_of_mports);
@@ -280,7 +280,7 @@ static void show_rio_devs(void)
 
 		/* Display EPs for this MPORT */
 
-		if (riodp_mport_get_ep_list(mport_id, &ep_list, &number_of_eps))
+		if (riomp_mgmt_get_ep_list(mport_id, &ep_list, &number_of_eps))
 			break;
 
 		printf("\t%u Endpoints (dest_ID): ", number_of_eps);
@@ -288,13 +288,13 @@ static void show_rio_devs(void)
 			printf("%u ", *(ep_list + ep));
 		printf("\n");
 
-		if (riodp_mport_free_ep_list(&ep_list))
+		if (riomp_mgmt_free_ep_list(&ep_list))
 			printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
 	}
 
 	printf("\n");
 
-	riodp_mport_free_mport_list(&mport_list);
+	riomp_mgmt_free_mport_list(&mport_list);
 };
 
 
@@ -304,7 +304,7 @@ int open_mports(int last_idx)
 	int rc = EXIT_FAILURE;
 
 	for (idx = 0; idx <= last_idx; idx++) {
-		demo.ep[idx].fd = riodp_mport_open(demo.ep[idx].mport_id, 0);
+		demo.ep[idx].fd = riomp_mgmt_mport_open(demo.ep[idx].mport_id, 0);
 		if (demo.ep[idx].fd < 0) {
 			printf("Unable to open idx %d mport%d device "
 				"err=%d:%s\n",
@@ -381,7 +381,7 @@ static int fixup_options(void)
 
 	for (idx = 0; (idx < max_idx) && (demo.cfg != CFG_LPBK); idx++) {
 		/* Verify existence of remote RapidIO Endpoint */
-		if (riodp_mport_get_ep_list(demo.ep[idx].mport_id, &ep_list,
+		if (riomp_mgmt_get_ep_list(demo.ep[idx].mport_id, &ep_list,
 				&number_of_eps))
 			exit(1);
 
@@ -391,7 +391,7 @@ static int fixup_options(void)
 				ep_found = 1;
 		}
 
-		riodp_mport_free_ep_list(&ep_list);
+		riomp_mgmt_free_ep_list(&ep_list);
 
 		if (!ep_found) {
 			printf("Index %d: Could not find remote destID %d\n",
@@ -421,7 +421,7 @@ static int fixup_options(void)
 					dp = opendir(rio_device);
 					if (dp == NULL)	{
 						sprintf(rio_device, "mport%d_lb", idx);
-						err = riodp_device_add(demo.ep[idx].fd, demo.ep[idx].props.hdid,
+						err = riomp_mgmt_device_add(demo.ep[idx].fd, demo.ep[idx].props.hdid,
 												0xff, 0x11223344, rio_device);
 						if (err)
 							printf("Failed to create loopback device. ERR=%d\n", err);

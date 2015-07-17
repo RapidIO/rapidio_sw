@@ -91,9 +91,9 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
         int mport_id;
         int ret = 0;
 
-        ret = riodp_mport_get_mport_list(&mport_list, &number_of_mports);
+        ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
         if (ret) {
-                printf("ERR: riodp_mport_get_mport_list() ERR %d\n", ret);
+                printf("ERR: riomp_mgmt_get_mport_list() ERR %d\n", ret);
                 return 0;
         }
 
@@ -111,7 +111,7 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
 
                 /* Display EPs for this MPORT */
 
-                ret = riodp_mport_get_ep_list(mport_id, &ep_list, &number_of_eps);
+                ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, &number_of_eps);
                 if (ret) {
                         printf("ERR: riodp_ep_get_list() ERR %d\n", ret);
                         break;
@@ -122,14 +122,14 @@ int hello_rdaemon_cmd_f(struct cli_env *env, int argc, char **argv)
                         printf("%u ", *(ep_list + ep));
                 printf("\n");
 
-                ret = riodp_mport_free_ep_list(&ep_list);
+                ret = riomp_mgmt_free_ep_list(&ep_list);
                 if (ret)
                         printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
         }
 
         printf("\n");
 
-        ret = riodp_mport_free_mport_list(&mport_list);
+        ret = riomp_mgmt_free_mport_list(&mport_list);
         if (ret)
                 printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
 

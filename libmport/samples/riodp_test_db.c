@@ -77,7 +77,7 @@ static int do_dbrcv_test(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 	int ret;
 	struct rio_event evt;
 
-	ret = riodp_dbrange_enable(fd, rioid, start, end);
+	ret = riomp_mgmt_dbrange_enable(fd, rioid, start, end);
 	if (ret) {
 		printf("Failed to enable DB range, err=%d\n", ret);
 		return ret;
@@ -106,7 +106,7 @@ static int do_dbrcv_test(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 			printf("\tIgnoring event type %d)\n", evt.header);
 	}
 
-	ret = riodp_dbrange_disable(fd, rioid, start, end);
+	ret = riomp_mgmt_dbrange_disable(fd, rioid, start, end);
 	if (ret) {
 		printf("Failed to disable DB range, err=%d\n", ret);
 		return ret;
@@ -193,7 +193,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct riodp_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
 
@@ -244,15 +244,15 @@ int main(int argc, char** argv)
 	action.sa_flags = SA_SIGINFO;
 	sigaction(SIGIO, &action, NULL);
 
-	fd = riodp_mport_open(mport_id, flags);
+	fd = riomp_mgmt_mport_open(mport_id, flags);
 	if (fd < 0) {
 		printf("DB Test: unable to open mport%d device err=%d\n",
 			mport_id, errno);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_mport_query(fd, &prop)) {
-		riodp_mport_display_info(&prop);
+	if (!riomp_mgmt_query(fd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");
@@ -272,7 +272,7 @@ int main(int argc, char** argv)
 	signal(SIGTERM, db_sig_handler);
 	signal(SIGUSR1, db_sig_handler);
 
-	riodp_set_event_mask(fd, RIO_EVENT_DOORBELL);
+	riomp_mgmt_set_event_mask(fd, RIO_EVENT_DOORBELL);
 
 	if (do_dbrecv) {
 		printf("+++ RapidIO Doorbell Receive Mode +++\n");

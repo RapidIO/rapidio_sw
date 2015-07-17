@@ -254,7 +254,7 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 	if (RIOCP_PE_IS_MPORT(*handle)) {
 		RIOCP_TRACE("Destroying mport handle %p (ct: 0x%08x)\n",
 			*handle, (*handle)->comptag);
-		riodp_mport_close((*handle)->minfo->maint);
+		riomp_mgmt_mport_close((*handle)->minfo->maint);
 		riocp_pe_llist_foreach_safe(item, next, &(*handle)->minfo->handles) {
 			p = (struct riocp_pe *)item->data;
 			if (p)
@@ -531,7 +531,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 	}
 
 	/* Initialize maintainance access */
-	ret = riodp_mport_open(mport, 0);
+	ret = riomp_mgmt_mport_open(mport, 0);
 	if (ret < 0) {
 		goto err;
 	} else {
@@ -597,7 +597,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 		goto err;
 	}
 
-	ret = riodp_mport_query(h->fd, &h->mport->minfo->prop);
+	ret = riomp_mgmt_query(h->fd, &h->mport->minfo->prop);
 	if (ret) {
 		RIOCP_ERROR("failed to get mport properties: %s (%d)\n",
 			strerror(errno), errno);

@@ -125,7 +125,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct riodp_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 	int fd;
 	uint32_t tgt_destid = 0;
 	uint32_t tgt_hc = 0xff;
@@ -176,7 +176,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	fd = riodp_mport_open(mport_id, 0);
+	fd = riomp_mgmt_mport_open(mport_id, 0);
 	if (fd < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
 			mport_id, errno);
@@ -184,9 +184,9 @@ int main(int argc, char** argv)
 	}
 
 	if (do_query) {
-		rc = riodp_mport_query(fd, &prop);
+		rc = riomp_mgmt_query(fd, &prop);
 		if (!rc) {
-			riodp_mport_display_info(&prop);
+			riomp_mgmt_display_info(&prop);
 			if (prop.link_speed == 0)
 				printf("SRIO link is down. Test aborted.\n");
 		}
@@ -199,13 +199,13 @@ int main(int argc, char** argv)
 			if (debug)
 				printf("Write to dest=0x%x hc=0x%x offset=0x%x data=0x%08x\n",
 					tgt_destid, tgt_hc, offset, data);
-			rc = riodp_maint_write(fd, tgt_destid, tgt_hc, offset,
+			rc = riomp_mgmt_rcfg_write(fd, tgt_destid, tgt_hc, offset,
 						op_size, data);
 		} else {
 			if (debug)
 				printf("Read from dest=0x%x hc=0x%x offset=0x%x\n",
 					tgt_destid, tgt_hc, offset);
-			rc = riodp_maint_read(fd, tgt_destid, tgt_hc, offset,
+			rc = riomp_mgmt_rcfg_read(fd, tgt_destid, tgt_hc, offset,
 						op_size, &data);
 			if (!rc)
 				printf("\tdata = 0x%08x\n", data);
@@ -215,11 +215,11 @@ int main(int argc, char** argv)
 			if (debug)
 				printf("Write to local offset=0x%x data=0x%08x\n",
 					offset, data);
-			rc = riodp_lcfg_write(fd, offset, op_size, data);
+			rc = riomp_mgmt_lcfg_write(fd, offset, op_size, data);
 		} else {
 			if (debug)
 				printf("Read from local offset=0x%x\n", offset);
-			rc = riodp_lcfg_read(fd, offset, op_size, &data);
+			rc = riomp_mgmt_lcfg_read(fd, offset, op_size, &data);
 			if (!rc)
 				printf("\tdata = 0x%08x\n", data);
 		}

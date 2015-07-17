@@ -65,7 +65,7 @@ static int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint
 
 	printf("FILL process %d (%d) started\n", seg_id, (int)getpid());
 
-	fd = riodp_mport_open(mport_id, 0);
+	fd = riomp_mgmt_mport_open(mport_id, 0);
 	if (fd < 0) {
 		printf("(%d): unable to open mport%d device err=%d\n",
 			(int)getpid(), mport_id, errno);
@@ -272,7 +272,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	fd = riodp_mport_open(mport_id, 0);
+	fd = riomp_mgmt_mport_open(mport_id, 0);
 	if (fd < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
 			mport_id, errno);

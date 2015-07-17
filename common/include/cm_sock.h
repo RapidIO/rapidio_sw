@@ -35,6 +35,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <cstring>
 #include <iostream>
@@ -42,7 +45,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iterator>
 
 #include <rapidio_mport_mgmt.h>
-//#include <rapidio_mport_rdma.h>
 #include <rapidio_mport_sock.h>
 #include "liblog.h"
 

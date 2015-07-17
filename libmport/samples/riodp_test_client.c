@@ -74,9 +74,9 @@ static void show_rio_devs(void)
 	int mport_id;
 	int ret = 0;
 
-	ret = riodp_mport_get_mport_list(&mport_list, &number_of_mports);
+	ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
 	if (ret) {
-		printf("ERR: riodp_mport_get_mport_list() ERR %d\n", ret);
+		printf("ERR: riomp_mgmt_get_mport_list() ERR %d\n", ret);
 		return;
 	}
 
@@ -94,7 +94,7 @@ static void show_rio_devs(void)
 
 		/* Display EPs for this MPORT */
 
-		ret = riodp_mport_get_ep_list(mport_id, &ep_list, &number_of_eps);
+		ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, &number_of_eps);
 		if (ret) {
 			printf("ERR: riodp_ep_get_list() ERR %d\n", ret);
 			break;
@@ -105,7 +105,7 @@ static void show_rio_devs(void)
 			printf("%u ", *(ep_list + ep));
 		printf("\n");
 
-		ret = riodp_mport_free_ep_list(&ep_list);
+		ret = riomp_mgmt_free_ep_list(&ep_list);
 		if (ret)
 			printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
 
@@ -113,7 +113,7 @@ static void show_rio_devs(void)
 
 	printf("\n");
 
-	ret = riodp_mport_free_mport_list(&mport_list);
+	ret = riomp_mgmt_free_mport_list(&mport_list);
 	if (ret)
 		printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
 }
@@ -170,7 +170,7 @@ int main(int argc, char** argv)
 	if (eth_emu == NULL) /* no IP-prefix set, so RapidIO is used */
 	{
 		/* Verify existence of remote RapidIO Endpoint */
-		ret = riodp_mport_get_ep_list(arg.mport_id, &ep_list, &number_of_eps);
+		ret = riomp_mgmt_get_ep_list(arg.mport_id, &ep_list, &number_of_eps);
 		if (ret) {
 			printf("riodp_ep_get_list error: %d\n", ret);
 			exit(1);
@@ -181,7 +181,7 @@ int main(int argc, char** argv)
 				ep_found = 1;
 		}
 
-		ret = riodp_mport_free_ep_list(&ep_list);
+		ret = riomp_mgmt_free_ep_list(&ep_list);
 		if (ret) {
 			printf("ERROR: riodp_ep_free_list error: %d\n",	ret);
 		}

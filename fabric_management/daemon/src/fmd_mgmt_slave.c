@@ -206,7 +206,7 @@ void slave_process_mod(void)
 	slv->s2m->mod_rsp.rc = 0;
 
 	switch (ntohl(slv->m2s->mod_rq.op)) {
-	case FMD_P_OP_ADD: rc = riodp_device_add(slv->fd, 
+	case FMD_P_OP_ADD: rc = riomp_mgmt_device_add(slv->fd, 
 				ntohl(slv->m2s->mod_rq.did), 
 				ntohl(slv->m2s->mod_rq.hc), 
 				ntohl(slv->m2s->mod_rq.ct),
@@ -227,7 +227,7 @@ void slave_process_mod(void)
 				 
 	case FMD_P_OP_DEL: 
 		/* FIXME: Commented out for now as this can kill the platform.
-			rc = riodp_device_del(slv->fd, 
+			rc = riomp_mgmt_device_del(slv->fd, 
 				ntohl(slv->m2s->mod_rq.did), 
 				ntohl(slv->m2s->mod_rq.hc), 
 				ntohl(slv->m2s->mod_rq.ct));

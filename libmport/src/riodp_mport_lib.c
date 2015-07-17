@@ -79,7 +79,7 @@ struct rapidio_mport_socket {
 	uint8_t	*tx_buffer;
 };
 
-int riodp_mport_open(uint32_t mport_id, int flags)
+int riomp_mgmt_mport_open(uint32_t mport_id, int flags)
 {
 	char path[32];
 
@@ -87,7 +87,7 @@ int riodp_mport_open(uint32_t mport_id, int flags)
 	return open(path, O_RDWR | flags);
 }
 
-int riodp_mport_close(int fd)
+int riomp_mgmt_mport_close(int fd)
 {
 	return close(fd);
 }
@@ -98,7 +98,7 @@ int riomp_sock_mbox_init(void)
 }
 
 
-int riodp_mport_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
+int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 {
 	int fd;
 	uint32_t entries = *number_of_mports;
@@ -131,7 +131,7 @@ outfd:
 	return ret;
 }
 
-int riodp_mport_free_mport_list(uint32_t **dev_ids)
+int riomp_mgmt_free_mport_list(uint32_t **dev_ids)
 {
 	/* Get head of the list, because we did hide the list size and mport ID
 	 * parameters
@@ -145,7 +145,7 @@ int riodp_mport_free_mport_list(uint32_t **dev_ids)
 	return 0;
 }
 
-int riodp_mport_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *number_of_eps)
+int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *number_of_eps)
 {
 	int fd;
 	int ret = 0;
@@ -193,7 +193,7 @@ outfd:
 	return ret;
 }
 
-int riodp_mport_free_ep_list(uint32_t **destids)
+int riomp_mgmt_free_ep_list(uint32_t **destids)
 {
 	/* Get head of the list, because we did hide the list size and mport ID
 	 * parameters
@@ -438,7 +438,7 @@ int riomp_rdma_dbuf_free(int fd, uint64_t *handle)
 /*
  * Query mport status/capabilities
  */
-int riodp_mport_query(int fd, struct riodp_mport_properties *qresp)
+int riomp_mgmt_query(int fd, struct riomp_mgmt_mport_properties *qresp)
 {
 	struct rio_mport_properties prop;
 	if (!qresp)
@@ -471,7 +471,7 @@ int riodp_mport_query(int fd, struct riodp_mport_properties *qresp)
 /*
  * Read from local (mport) device register
  */
-int riodp_lcfg_read(int fd, uint32_t offset, uint32_t size, uint32_t *data)
+int riomp_mgmt_lcfg_read(int fd, uint32_t offset, uint32_t size, uint32_t *data)
 {
 	struct rio_mport_maint_io mt;
 
@@ -487,7 +487,7 @@ int riodp_lcfg_read(int fd, uint32_t offset, uint32_t size, uint32_t *data)
 /*
  * Write to local (mport) device register
  */
-int riodp_lcfg_write(int fd, uint32_t offset, uint32_t size, uint32_t data)
+int riomp_mgmt_lcfg_write(int fd, uint32_t offset, uint32_t size, uint32_t data)
 {
 	struct rio_mport_maint_io mt;
 
@@ -504,7 +504,7 @@ int riodp_lcfg_write(int fd, uint32_t offset, uint32_t size, uint32_t data)
 /*
  * Maintenance read from target RapidIO device register
  */
-int riodp_maint_read(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
+int riomp_mgmt_rcfg_read(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
 		     uint32_t size, uint32_t *data)
 {
 	struct rio_mport_maint_io mt;
@@ -524,7 +524,7 @@ int riodp_maint_read(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
 /*
  * Maintenance write to target RapidIO device register
  */
-int riodp_maint_write(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
+int riomp_mgmt_rcfg_write(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
 		      uint32_t size, uint32_t data)
 {
 	struct rio_mport_maint_io mt;
@@ -543,7 +543,7 @@ int riodp_maint_write(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
 /*
  * Enable (register) receiving range of RapidIO doorbell events
  */
-int riodp_dbrange_enable(int fd, uint32_t rioid, uint16_t start, uint16_t end)
+int riomp_mgmt_dbrange_enable(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 {
 	struct rio_doorbell_filter dbf;
 
@@ -559,7 +559,7 @@ int riodp_dbrange_enable(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 /*
  * Disable (unregister) range of inbound RapidIO doorbell events
  */
-int riodp_dbrange_disable(int fd, uint32_t rioid, uint16_t start, uint16_t end)
+int riomp_mgmt_dbrange_disable(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 {
 	struct rio_doorbell_filter dbf;
 
@@ -575,7 +575,7 @@ int riodp_dbrange_disable(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 /*
  * Enable (register) filter for RapidIO port-write events
  */
-int riodp_pwrange_enable(int fd, uint32_t mask, uint32_t low, uint32_t high)
+int riomp_mgmt_pwrange_enable(int fd, uint32_t mask, uint32_t low, uint32_t high)
 {
 	struct rio_pw_filter pwf;
 
@@ -591,7 +591,7 @@ int riodp_pwrange_enable(int fd, uint32_t mask, uint32_t low, uint32_t high)
 /*
  * Disable (unregister) filter for RapidIO port-write events
  */
-int riodp_pwrange_disable(int fd, uint32_t mask, uint32_t low, uint32_t high)
+int riomp_mgmt_pwrange_disable(int fd, uint32_t mask, uint32_t low, uint32_t high)
 {
 	struct rio_pw_filter pwf;
 
@@ -607,7 +607,7 @@ int riodp_pwrange_disable(int fd, uint32_t mask, uint32_t low, uint32_t high)
 /*
  * Set event notification mask
  */
-int riodp_set_event_mask(int fd, unsigned int mask)
+int riomp_mgmt_set_event_mask(int fd, unsigned int mask)
 {
 	unsigned int evt_mask = 0;
 	if (mask & RIO_EVENT_DOORBELL) evt_mask |= RIO_DOORBELL;
@@ -620,7 +620,7 @@ int riodp_set_event_mask(int fd, unsigned int mask)
 /*
  * Get current value of event mask
  */
-int riodp_get_event_mask(int fd, unsigned int *mask)
+int riomp_mgmt_get_event_mask(int fd, unsigned int *mask)
 {
 	int evt_mask = 0;
 	if (!mask) return -EINVAL;
@@ -635,7 +635,7 @@ int riodp_get_event_mask(int fd, unsigned int *mask)
 /*
  * Get current event data
  */
-int riodp_get_event(int fd, struct riodp_event *evt)
+int riomp_mgmt_get_event(int fd, struct riomp_mgmt_event *evt)
 {
 	struct rio_event revent;
 	ssize_t bytes = 0;
@@ -665,7 +665,7 @@ int riodp_get_event(int fd, struct riodp_event *evt)
 /*
  * Set destination ID of local mport device
  */
-int riodp_destid_set(int fd, uint16_t destid)
+int riomp_mgmt_destid_set(int fd, uint16_t destid)
 {
 	if (ioctl(fd, RIO_MPORT_MAINT_HDID_SET, &destid))
 		return errno;
@@ -675,7 +675,7 @@ int riodp_destid_set(int fd, uint16_t destid)
 /*
  * Create a new kernel device object
  */
-int riodp_device_add(int fd, uint16_t destid, uint8_t hc, uint32_t ctag,
+int riomp_mgmt_device_add(int fd, uint16_t destid, uint8_t hc, uint32_t ctag,
 		    const char *name)
 {
 	struct rio_rdev_info dev;
@@ -696,7 +696,7 @@ int riodp_device_add(int fd, uint16_t destid, uint8_t hc, uint32_t ctag,
 /*
  * Delete existing kernel device object
  */
-int riodp_device_del(int fd, uint16_t destid, uint8_t hc, uint32_t ctag)
+int riomp_mgmt_device_del(int fd, uint16_t destid, uint8_t hc, uint32_t ctag)
 {
 	struct rio_rdev_info dev;
 
@@ -991,7 +991,7 @@ const char *width_to_string(int width)
 	}
 }
 
-void riodp_mport_display_info(struct riodp_mport_properties *attr)
+void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *attr)
 {
 	printf("\n+++ SRIO mport configuration +++\n");
 	printf("mport: hdid=%d, id=%d, idx=%d, flags=0x%x, sys_size=%s\n",

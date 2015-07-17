@@ -124,7 +124,7 @@ struct rskts_conn_globals {
 	uint8_t mpnum;
 	int mpfd;
 	int bklg;
-	struct riodp_mport_properties qresp;
+	struct riomp_mgmt_mport_properties qresp;
 
 	/* CM connection request handler from other RSKT Daemons */
 	pthread_t thread; 

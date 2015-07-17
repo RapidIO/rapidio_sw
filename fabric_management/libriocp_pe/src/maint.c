@@ -198,7 +198,7 @@ int RIOCP_SO_ATTR riocp_pe_maint_read(struct riocp_pe *pe, uint32_t offset, uint
 			return -EIO;
 		}
 
-		ret = riodp_maint_read(pe->mport->minfo->maint, destid, pe->hopcount, offset,
+		ret = riomp_mgmt_rcfg_read(pe->mport->minfo->maint, destid, pe->hopcount, offset,
 				     sizeof(*val), val);
 		if (ret) {
 			RIOCP_ERROR("Read remote error, h: %u, d: %u (0x%08x), o: 0x%08x\n",
@@ -258,7 +258,7 @@ int RIOCP_SO_ATTR riocp_pe_maint_write(struct riocp_pe *pe, uint32_t offset, uin
 		RIOCP_TRACE("Write h: %u, d: %u (0x%08x), o: 0x%08x, v: 0x%08x\n",
 			pe->hopcount, destid, destid, offset, val);
 
-		ret = riodp_maint_write(pe->mport->minfo->maint, destid, pe->hopcount, offset, sizeof(val), val);
+		ret = riomp_mgmt_rcfg_write(pe->mport->minfo->maint, destid, pe->hopcount, offset, sizeof(val), val);
 		if (ret) {
 			RIOCP_ERROR("Remote maint write returned error: %s\n", strerror(-ret));
 			return -EIO;
@@ -286,7 +286,7 @@ int riocp_pe_maint_write_local(struct riocp_pe *mport, uint32_t offset, uint32_t
 {
 	int ret;
 
-	ret = riodp_lcfg_write(mport->minfo->maint, offset, sizeof(val), val);
+	ret = riomp_mgmt_lcfg_write(mport->minfo->maint, offset, sizeof(val), val);
 	if (ret) {
 		RIOCP_ERROR("Error in local write (o: 0x%08x, v: 0x%08x), %s\n",
 			offset, val, strerror(-ret));
@@ -309,7 +309,7 @@ int riocp_pe_maint_read_local(struct riocp_pe *mport, uint32_t offset, uint32_t 
 {
 	int ret;
 
-	ret = riodp_lcfg_read(mport->minfo->maint, offset, sizeof(*val), val);
+	ret = riomp_mgmt_lcfg_read(mport->minfo->maint, offset, sizeof(*val), val);
 	if (ret) {
 		RIOCP_ERROR("Error in local read (o: 0x%08x), %s\n",
 			offset, strerror(-ret));
@@ -335,7 +335,7 @@ int riocp_pe_maint_write_remote(struct riocp_pe *mport, uint32_t destid, uint8_t
 {
 	int ret;
 
-	ret = riodp_maint_write(mport->minfo->maint, destid, hopcount, offset, sizeof(val), val);
+	ret = riomp_mgmt_rcfg_write(mport->minfo->maint, destid, hopcount, offset, sizeof(val), val);
 	if (ret) {
 		RIOCP_ERROR("Error in remote write (d: %u (0x%08x), h: %u, o: 0x%08x, v: 0x%08x), %s\n",
 			destid, destid, hopcount, offset, val, strerror(-ret));
@@ -362,7 +362,7 @@ int riocp_pe_maint_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_t 
 {
 	int ret;
 
-	ret = riodp_maint_read(mport->minfo->maint, destid, hopcount, offset, sizeof(*val), val);
+	ret = riomp_mgmt_rcfg_read(mport->minfo->maint, destid, hopcount, offset, sizeof(*val), val);
 	if (ret) {
 		RIOCP_ERROR("Error in remote read (d: %u (0x%08x), h: %u, o: 0x%08x), %s\n",
 			destid, destid, hopcount, offset, strerror(-ret));

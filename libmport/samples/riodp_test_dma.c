@@ -583,7 +583,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct riodp_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 	int has_dma = 1;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
@@ -660,15 +660,15 @@ int main(int argc, char** argv)
 	action.sa_flags = SA_SIGINFO;
 	sigaction(SIGIO, &action, NULL);
 
-	fd = riodp_mport_open(mport_id, 0);
+	fd = riomp_mgmt_mport_open(mport_id, 0);
 	if (fd < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
 			mport_id, errno);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_mport_query(fd, &prop)) {
-		riodp_mport_display_info(&prop);
+	if (!riomp_mgmt_query(fd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 
 		if (prop.flags & RIO_MPORT_DMA) {
 			align = prop.dma_align;

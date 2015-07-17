@@ -103,7 +103,7 @@ struct riocp_pe_mport {
 	uint32_t ref;				/**< Reference counter */
 	uint8_t id;				/**< Device node id e.g /dev/rio_mport0 */
 	int maint;			/**< Maintenance access handle for mport e.g /dev/rio_mport0 */
-	struct riodp_mport_properties prop;	/**< Mport properties */
+	struct riomp_mgmt_mport_properties prop;	/**< Mport properties */
 	bool is_host;				/**< Is mport host/agent */
 	struct riocp_pe *any_id_target;		/**< Current programmed ANY_ID route to this PE*/
 	struct riocp_pe_llist_item handles;	/**< Handles of PEs behind this mport */
@@ -126,7 +126,7 @@ struct riocp_pe_switch {
 	int (*get_lane_speed)(struct riocp_pe *sw, uint8_t port, uint32_t *speed);
 	int (*get_lane_width)(struct riocp_pe *sw, uint8_t port, uint8_t *width);
 	int (*get_port_state)(struct riocp_pe *sw, uint8_t port, riocp_pe_port_state_t *state);
-	int (*event_handler)(struct riocp_pe *sw, struct riodp_event *revent, struct riocp_pe_event *event);
+	int (*event_handler)(struct riocp_pe *sw, struct riomp_mgmt_event *revent, struct riocp_pe_event *event);
 	int (*destroy)(struct riocp_pe *sw);	/**< Cleanup of switch driver */
 };
 

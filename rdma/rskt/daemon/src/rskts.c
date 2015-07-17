@@ -248,10 +248,10 @@ int RSKTMpdevsCmd(struct cli_env *env, int argc, char **argv)
 		logMsg(env);
 	};
 
-        ret = riodp_mport_get_mport_list(&mport_list, &number_of_mports);
+        ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
         if (ret) {
                 sprintf(env->output,
-			"ERR: riodp_mport_get_mport_list() ERR %d\n", ret);
+			"ERR: riomp_mgmt_get_mport_list() ERR %d\n", ret);
 		logMsg(env);
                 return 0;
        }
@@ -273,7 +273,7 @@ int RSKTMpdevsCmd(struct cli_env *env, int argc, char **argv)
 
                 /* Display EPs for this MPORT */
 
-                ret = riodp_mport_get_ep_list(mport_id, &ep_list, 
+                ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, 
 						&number_of_eps);
                 if (ret) {
                 	sprintf(env->output,
@@ -293,7 +293,7 @@ int RSKTMpdevsCmd(struct cli_env *env, int argc, char **argv)
                 sprintf(env->output, "\n");
 		logMsg(env);
 
-                ret = riodp_mport_free_ep_list(&ep_list);
+                ret = riomp_mgmt_free_ep_list(&ep_list);
                 if (ret) {
                 	sprintf(env->output,
                         	"ERR: riodp_ep_free_list() ERR %d\n", ret);
@@ -305,7 +305,7 @@ int RSKTMpdevsCmd(struct cli_env *env, int argc, char **argv)
 	sprintf(env->output, "\n");
 	logMsg(env);
 
-        ret = riodp_mport_free_mport_list(&mport_list);
+        ret = riomp_mgmt_free_mport_list(&mport_list);
         if (ret) {
 		sprintf(env->output,
                 	"ERR: riodp_ep_free_list() ERR %d\n", ret);
