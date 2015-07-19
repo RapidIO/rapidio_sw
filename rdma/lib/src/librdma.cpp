@@ -36,7 +36,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <assert.h>
 #include <unistd.h>
-#include <mqueue.h>
 #include <pthread.h>
 #include <errno.h>
 #include <signal.h>
@@ -250,43 +249,57 @@ static void *client_wait_for_destroy_thread_f(void *arg)
  */
 static void *wait_for_disc_thread_f(void *arg)
 {
-	char	mq_rcv_buf[MQ_RCV_BUF_SIZE];
-	struct  mq_disconnect_msg *disc_msg;
-	mqd_t mq = *((mqd_t *)arg);
+	if (!arg) {
+		CRIT("Null arg passed to thread function. Exiting\n");
+		pthread_exit(0);
+	}
+
+	msg_q<mq_disconnect_msg> *mq = (msg_q<mq_disconnect_msg> *)arg;
 
 	/* Wait for the POSIX disconnect message containing rem_msh */
 	INFO("Waiting for DISconnect message...\n");
-	if (mq_receive(mq, mq_rcv_buf, MQ_RCV_BUF_SIZE, NULL) == -1) {
-		CRIT("mq_receive() failed: %s", strerror(errno));
-		mq_close(mq);
+	if (mq->receive()) {
+		CRIT("mq->receive() failed: %s", strerror(errno));
+		delete mq;
 		pthread_exit(0);
 	}
 
 	/* Extract message contents */
-	disc_msg  = (struct mq_disconnect_msg *)mq_rcv_buf;
-	INFO("Rx disconnect to remove client_msubid(0x%X)\n",
-						disc_msg->client_msubid);
-	/* Find the msub in the database */
+	mq_disconnect_msg *disc_msg;
+	mq->get_recv_buffer(&disc_msg);
+	INFO("Received mq_disconnect on '%s' with client_msubid(0x%X)\n",
+			mq->get_name().c_str(),	disc_msg->client_msubid);
+
+	/* Find the msub in the database, and remote it */
 	msub_h client_msubh = find_rem_msub(disc_msg->client_msubid);
 	if (!client_msubh) {
-		WARN("client_msubid(0x%X) not found!\n",
+		ERR("client_msubid(0x%X) not found!\n",
 						disc_msg->client_msubid);
 	} else {
-		/* Find the memory space and mark it as not 'accepted' */
-		rem_msub *msub = (rem_msub *)client_msubh;
-		ms_h loc_msh = msub->loc_msh;
-		if (!loc_msh)
-			WARN("Could not find the memory space!!!!\n");
-		else
-			((loc_ms *)loc_msh)->accepted = false;
-
 		/* Remove client subspace from remote msub database */
 		remove_rem_msub(client_msubh);
 		INFO("client_msubid(0x%X) removed from database\n",
 						disc_msg->client_msubid);
 	}
 
-	mq_close(mq);
+	/* Obtain memory space name from queue name and locate in database */
+	string ms_name = mq->get_name();
+	ms_name.erase(0, 1);
+	ms_h loc_msh = find_loc_ms_by_name(ms_name.c_str());
+	if (!loc_msh) {
+		CRIT("Failed to find ms(%s) in database\n", ms_name.c_str());
+	} else {
+		/* Mark memory space as NOT accepted */
+		((loc_ms *)loc_msh)->accepted = false;
+
+		/* Delete message queue and mark as nullptr */
+		delete mq;
+		((loc_ms *)loc_msh)->disc_notify_mq = nullptr;
+
+		/* Mark thread as dead */
+		((loc_ms *)loc_msh)->disc_thread = 0;
+	}
+
 	INFO("Exiting\n");
 	pthread_exit(0);
 } /* wait_for_disc_thread_f() */
@@ -775,7 +788,7 @@ int rdma_create_ms_h(const char *ms_name,
 	out = out_msg->create_ms_out;
 
 	*msh = add_loc_ms(ms_name,*bytes, msoh, out.msid, 0, true,
-				0, -1,
+				0, nullptr,
 				0, nullptr);
 	if (!*msh) {
 		ERR("Failed to store ms in database\n");
@@ -957,7 +970,7 @@ int rdma_open_ms_h(const char *ms_name,
 			  out.ms_conn_id,
 			  false,
 			  0,
-			  -1,
+			  nullptr,
 			  ms_close_thread,
 			  close_mq);
 	if (!*msh) {
@@ -1129,23 +1142,11 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	/**
 	 * Daemon should have closed the message queue so we can close and
 	 * unlink it here. */
-	mqd_t	disc_mq = loc_ms_get_disc_notify_mq(msh);
-	if (disc_mq == -1) {
-		WARN("disc_mq is -1\n");
+	msg_q<mq_disconnect_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
+	if (disc_mq == nullptr) {
+		WARN("disc_mq is NULL\n");
 	} else {
-		if (mq_close(disc_mq) == -1)
-			WARN("Cannot close disc_mq: %s\n", strerror(errno));
-		else {
-			INFO("disc_mq successfully closed\n");
-			string mq_name(ms->name);
-			mq_name.insert(0, 1, '/');
-			if (mq_unlink(mq_name.c_str())) {
-				WARN("Cannot unlink '%s': %s\n", mq_name.c_str(),
-								strerror(errno));
-			} else {
-				INFO("'%s' unlinked\n", mq_name.c_str());
-			}
-		}
+		delete disc_mq;
 	}
 
 	/* Memory space removed in daemon, remove from databse as well */
@@ -1471,15 +1472,18 @@ int rdma_accept_ms_h(ms_h loc_msh,
 
 	/* Done with 'connect' message queue. Delete & create a disconnect mq */
 	delete connect_mq;
-	static mqd_t mq;
-	mq = mq_open(mq_name.c_str(), O_RDWR | O_CREAT, 0644, &attr);
-	if (mq == (mqd_t)-1) {
-		WARN("Failed to create disconnection mq: %s\n", strerror(errno));
+
+	msg_q<mq_disconnect_msg>	*disc_mq;
+	try {
+		disc_mq = new msg_q<mq_disconnect_msg>(mq_name, MQ_CREATE);
+	}
+	catch(msg_q_exception e) {
+		ERR("Failed to create disc_mq: %s\n", e.msg.c_str());
 		return -5;
 	}
 
 	pthread_t wait_for_disc_thread;
-	if (pthread_create(&wait_for_disc_thread, NULL, wait_for_disc_thread_f, &mq)) {
+	if (pthread_create(&wait_for_disc_thread, NULL, wait_for_disc_thread_f, disc_mq)) {
 		WARN("Failed to create wait_for_disc_thread: %s\n", strerror(errno));
 		return -6;
 	}
@@ -1487,7 +1491,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 
 	/* Add conn/disc message queue and disc thread to database entry */
 	ms->disc_thread = wait_for_disc_thread;
-	ms->disc_notify_mq = mq;
+	ms->disc_notify_mq = disc_mq;
 	ms->accepted = true;
 
 	return 0;

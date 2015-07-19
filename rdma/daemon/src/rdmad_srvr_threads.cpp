@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <stdint.h>
 
-#include <mqueue.h>
 #include <semaphore.h>
 #include <pthread.h>
 
@@ -42,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "rdmad_cm.h"
 #include "rdma_mq_msg.h"
+#include "msg_q.h"
 #include "cm_sock.h"
 #include "ts_vector.h"
 
@@ -226,22 +226,15 @@ void *wait_conn_disc_thread_f(void *arg)
 				continue;
 			}
 
-			/* Send 'connect' POSIX message contents to the RDMA library */
-			struct mq_connect_msg	connect_msg;
-			memset(&connect_msg, 0, sizeof(connect_msg));	/* For Valgrind */
-			connect_msg.rem_msid		= conn_msg->client_msid;
-			connect_msg.rem_msubid		= conn_msg->client_msubid;
-			connect_msg.rem_bytes		= conn_msg->client_bytes;
-			connect_msg.rem_rio_addr_len	= conn_msg->client_rio_addr_len;
-			connect_msg.rem_rio_addr_lo	= conn_msg->client_rio_addr_lo;
-			connect_msg.rem_rio_addr_hi	= conn_msg->client_rio_addr_hi;
-			connect_msg.rem_destid_len	= conn_msg->client_destid_len;
-			connect_msg.rem_destid		= conn_msg->client_destid;
 
 			/* Open message queue */
-			mqd_t connect_msg_mq = mq_open(mq_name, O_RDWR, 0644, &attr);
-			if (connect_msg_mq == (mqd_t)-1) {
-				ERR("mq_open() failed: %s\n", strerror(errno));
+			msg_q<mq_connect_msg>	*connect_mq;
+			try {
+				connect_mq = new msg_q<mq_connect_msg>(mq_name, MQ_OPEN);
+
+			}
+			catch(msg_q_exception e) {
+				ERR("Failed to open connect_mq: %s\n", e.msg.c_str());
 				/* Don't remove MS from accept_msg_map; the
 				 * client may retry connecting. However, don't also
 				 * send an ACCEPT_MS since the server didn't get
@@ -250,14 +243,22 @@ void *wait_conn_disc_thread_f(void *arg)
 			}
 			DBG("Opened POSIX message queue: '%s'\n", mq_name);
 
+			/* Send 'connect' POSIX message contents to the RDMA library */
+			mq_connect_msg	*connect_msg;
+			connect_mq->get_send_buffer(&connect_msg);
+			connect_msg->rem_msid		= conn_msg->client_msid;
+			connect_msg->rem_msubid		= conn_msg->client_msubid;
+			connect_msg->rem_bytes		= conn_msg->client_bytes;
+			connect_msg->rem_rio_addr_len	= conn_msg->client_rio_addr_len;
+			connect_msg->rem_rio_addr_lo	= conn_msg->client_rio_addr_lo;
+			connect_msg->rem_rio_addr_hi	= conn_msg->client_rio_addr_hi;
+			connect_msg->rem_destid_len	= conn_msg->client_destid_len;
+			connect_msg->rem_destid		= conn_msg->client_destid;
+
 			/* Send connect message to RDMA library/app */
-			ret = mq_send(connect_msg_mq,
-				      (const char *)&connect_msg,
-				      sizeof(struct mq_connect_msg),
-				      1);
-			if (ret < 0) {
-				ERR("mq_send failed: %s\n", strerror(errno));
-				mq_close(connect_msg_mq);
+			if (connect_mq->send()) {
+				ERR("connect_mq->send() failed: %s\n", strerror(errno));
+				delete connect_mq;
 				/* Don't remove MS from accept_msg_map; the
 				 * client may retry connecting. However, don't also
 				 * send an ACCEPT_MS since the server didn't get
@@ -265,7 +266,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				continue;
 			}
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()n");
-			mq_close(connect_msg_mq);
+			delete connect_mq;
 
 			/* Request a send buffer */
 			void *cm_send_buf;
