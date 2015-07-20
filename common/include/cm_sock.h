@@ -175,10 +175,12 @@ protected:
 		} while (rc && (errno==EINTR) && gdb);
 		if (rc) {
 			if (errno == EINTR) {
-				WARN("Aborting receive() due to killing thread\n");
+				WARN("%s: Abort receive() for pthread_kill()\n",
+									name);
 				rc = EINTR;
 			} else {
-				WARN("receive() failed, errno = %d: %s\n", strerror(errno));
+				WARN("%s: receive() failed, errno = %d: %s\n",
+						name, errno, strerror(errno));
 			}
 		}
 		return rc;
