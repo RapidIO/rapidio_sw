@@ -85,7 +85,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 	cm_client *accept_destroy_client;
 	try {
 		accept_destroy_client = new cm_client("accept_destroy_client",
-						      client_socket);
+						      client_socket,
+						      &shutting_down);
 	}
 	catch(cm_exception e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
@@ -334,7 +335,8 @@ int provision_rdaemon(uint32_t destid)
 		hello_client = new cm_client("hello_client",
 						peer.mport_id,
 						peer.prov_mbox_id,
-						peer.prov_channel);
+						peer.prov_channel,
+						&shutting_down);
 	}
 	catch(cm_exception e) {
 		CRIT("Failed to create hello_client %s\n", e.err);

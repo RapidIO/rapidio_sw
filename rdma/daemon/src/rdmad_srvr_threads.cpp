@@ -137,7 +137,8 @@ void *wait_conn_disc_thread_f(void *arg)
 	cm_server *rx_conn_disc_server;
 	try {
 		rx_conn_disc_server = new cm_server("rx_conn_disc_server",
-				prov_server->get_accept_socket());
+				prov_server->get_accept_socket(),
+				&shutting_down);
 	}
 	catch(cm_exception e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
@@ -401,7 +402,8 @@ void *prov_thread_f(void *arg)
 		prov_server = new cm_server("prov_server",
 					peer->mport_id,
 					peer->prov_mbox_id,
-					peer->prov_channel);
+					peer->prov_channel,
+					&shutting_down);
 	}
 	catch(cm_exception e) {
 		CRIT("Failed to create prov_server: %s. EXITING\n", e.err);

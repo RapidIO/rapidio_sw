@@ -18,9 +18,11 @@
 using namespace std;
 
 cm_server	*bat_server;
+bool shutting_down = false;
 
 void sig_handler(int sig)
 {
+	shutting_down = true;
 	printf("Got sig(%d) ..exiting\n", sig);
 	delete bat_server;
 	exit(0);
@@ -65,7 +67,11 @@ int main(int argc, char *argv[])
 
 	while (1) {
 		try {
-			bat_server = new cm_server("bat_server", BAT_MPORT_ID, BAT_MBOX_ID, channel);
+			bat_server = new cm_server("bat_server",
+					BAT_MPORT_ID,
+					BAT_MBOX_ID,
+					channel,
+					&shutting_down);
 		}
 		catch(cm_exception e) {
 			fprintf(stderr, "bat_server: %s\n", e.err);
