@@ -46,8 +46,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 
 #include "rdma_mq_msg.h"
-#include "rdmad_svc.h"
 #include "rdmad_ms_owner.h"
+#include "rdmad_main.h"
 
 struct close_conn_to_mso {
 	close_conn_to_mso(uint32_t msoid) : ok(true), msoid(msoid) {}

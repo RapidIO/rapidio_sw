@@ -49,9 +49,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_mq_msg.h"
 #include "rdmad_mspace.h"
 #include "rdmad_msubspace.h"
+#include "rdmad_ms_owner.h"
+#include "rdmad_ms_owners.h"
 #include "rdmad_functors.h"
 #include "rdmad_srvr_threads.h"
-#include "rdmad_svc.h"
+#include "rdmad_main.h"
 
 struct send_close_msg {
 	send_close_msg(uint32_t msid) :	ok(true),

@@ -39,7 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_mq_msg.h"
 #include "liblog.h"
 #include "cm_sock.h"
-#include "rdmad_svc.h"
+#include "rdmad_cm.h"
 #include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
 

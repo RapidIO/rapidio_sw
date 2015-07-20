@@ -46,7 +46,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ts_vector.h"
 
 #include "rdmad_main.h"
-#include "rdmad_svc.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_clnt_threads.h"
 #include "rdmad_peer_utils.h"

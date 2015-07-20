@@ -47,11 +47,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cm_sock.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"
+#include "ts_map.h"
 
+#include "rdmad_cm.h"
+#include "rdmad_inbound.h"
+#include "rdmad_ms_owners.h"
 #include "rdmad_peer_utils.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_clnt_threads.h"
-#include "rdmad_svc.h"
 #include "rdmad_console.h"
 #include "rdmad_fm.h"
 #include "libcli.h"
@@ -61,6 +64,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 struct peer_info	peer;
 
 using namespace std;
+
+/* Memory Space Owner data */
+ms_owners owners;
+
+/* Inbound space */
+inbound *the_inbound;
+
+/* Global flag for shutting down */
+bool shutting_down = false;
+
+/* Map of accept messages awaiting connect. Keyed by message queue name */
+ts_map<string, cm_accept_msg>	accept_msg_map;
+
+/* List of queue names awaiting accept */
+ts_vector<string>	wait_accept_mq_names;
 
 static 	pthread_t console_thread;
 static	pthread_t prov_thread;
