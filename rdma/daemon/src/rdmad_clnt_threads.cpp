@@ -155,9 +155,23 @@ void *wait_accept_destroy_thread_f(void *arg)
 				CRIT("Failed to receive on hello_client: %s\n",
 								strerror(ret));
 			}
+
+			/* Free the cm_client object */
 			delete accept_destroy_client;
+
+			/* Remove entry from hello_daemon_info_list */
+			sem_wait(&hello_daemon_info_list_sem);
+			auto it = find(begin(hello_daemon_info_list),
+					end(hello_daemon_info_list),
+					destid);
+			if (it != end(hello_daemon_info_list)) {
+				HIGH("Erasing old entry for destid(0x%X)\n", destid);
+				hello_daemon_info_list.erase(it);
+			}
+			sem_post(&hello_daemon_info_list_sem);
 			pthread_exit(0);
 		}
+
 		/* Read all messages as ACCEPT_MS first, then if the
 		 * type is different then cast message buffer accordingly. */
 		cm_accept_msg	*accept_cm_msg;
@@ -322,14 +336,13 @@ int provision_rdaemon(uint32_t destid)
 	/* Create provision client to connect to remote daemon's provisioning thread */
 	cm_client	*hello_client;
 
-	/* FOR NOW, fail if the 'destid' already has an entry/thread */
+	/* If the 'destid' is already known, kill its thread */
 	sem_wait(&hello_daemon_info_list_sem);
 	auto it = find(begin(hello_daemon_info_list), end(hello_daemon_info_list),
 			destid);
 	if (it != end(hello_daemon_info_list)) {
 		WARN("destid(0x%X) is already known\n", destid);
-		sem_post(&hello_daemon_info_list_sem);
-		return -7;	/* TODO: should be #define'd in a header */
+		pthread_kill(it->tid, SIGUSR1);
 	}
 	sem_post(&hello_daemon_info_list_sem);
 

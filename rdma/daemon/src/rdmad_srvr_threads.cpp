@@ -95,7 +95,6 @@ void *wait_conn_disc_thread_f(void *arg)
 			CRIT("Failed to receive HELLO message: %s. EXITING\n",
 							strerror(ret));
 		}
-		delete prov_server;
 		free(wcdti);
 		pthread_exit(0);
 	}
@@ -106,20 +105,6 @@ void *wait_conn_disc_thread_f(void *arg)
 
 	uint32_t remote_destid = hello_msg->destid;
 
-	/* If destid already in our list, just exit thread */
-	sem_wait(&prov_daemon_info_list_sem);
-	auto it = find(begin(prov_daemon_info_list),
-		       end(prov_daemon_info_list), remote_destid);
-	if (it != end(prov_daemon_info_list)) {
-		WARN("Received HELLO msg for known destid(0x%X). EXITING\n",
-						remote_destid);
-		sem_post(&prov_daemon_info_list_sem);
-		delete prov_server;
-		free(wcdti);
-		pthread_exit(0);
-	}
-	sem_post(&prov_daemon_info_list_sem);
-
 	/* Send HELLO ACK withour own destid */
 	prov_server->get_send_buffer((void **)&hello_msg);
 	prov_server->flush_send_buffer();
@@ -127,11 +112,21 @@ void *wait_conn_disc_thread_f(void *arg)
 	if (prov_server->send()) {
 		CRIT("Failed to send HELLO_ACK message: %s. EXITING\n",
 							strerror(ret));
-		delete prov_server;
 		free(wcdti);
 		pthread_exit(0);
 	}
 	DBG("Sent HELLO_ACK message back\n");
+
+	/* If destid already in our list, kill its thread; we are replacing it */
+	sem_wait(&prov_daemon_info_list_sem);
+	auto it = find(begin(prov_daemon_info_list),
+		       end(prov_daemon_info_list), remote_destid);
+	if (it != end(prov_daemon_info_list)) {
+		WARN("Killing thread for known destid(0x%X).\n",
+						remote_destid);
+		pthread_kill(it->tid, SIGUSR1);
+	}
+	sem_post(&prov_daemon_info_list_sem);
 
 	/* Create CM server object based on the accept socket */
 	cm_server *rx_conn_disc_server;
@@ -142,7 +137,6 @@ void *wait_conn_disc_thread_f(void *arg)
 	}
 	catch(cm_exception e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
-		delete prov_server;
 		free(wcdti);
 		pthread_exit(0);
 	}
@@ -182,7 +176,17 @@ void *wait_conn_disc_thread_f(void *arg)
 				CRIT("Failed to receive on rx_conn_disc_server: %s\n",
 								strerror(ret));
 			}
+			/* Delete the cm_server object */
 			delete rx_conn_disc_server;
+
+			/* Remove the corresponding entry from the prov_daemon_info_list */
+			sem_wait(&prov_daemon_info_list_sem);
+			auto it = find(begin(prov_daemon_info_list),
+				       end(prov_daemon_info_list), remote_destid);
+			if (it != end(prov_daemon_info_list)) {
+				prov_daemon_info_list.erase(it);
+			}
+			sem_post(&prov_daemon_info_list_sem);
 			CRIT("Exiting %s\n", __func__);
 			pthread_exit(0);
 		}
