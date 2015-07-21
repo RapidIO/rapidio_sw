@@ -34,7 +34,6 @@ void test_case_a(void)
 		status = rdma_create_mso_h(MSO_NAME, &msoh1);
 		CHECK_AND_RET(status, "rdma_create_mso_h");
 	}
-	printf("msoh1 = %016" PRIx64 "\n", msoh1);
 
 	/* Try to create owner AGAIN */
 	if (rdma_create_mso_h(MSO_NAME, &msoh2))
