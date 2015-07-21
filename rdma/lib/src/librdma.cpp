@@ -109,6 +109,17 @@ static int alt_rpc_call()
 	ret = client->send(sizeof(*in_msg));
 	if (ret) {
 		ERR("Failed to send message to RDMA daemon, ret = %d\n", ret);
+		/* If it is a broken pipe, then the daemon has died. Delete the
+		 * socket client and set the initialization flag to 0. The client
+		 * application will be notified that the daemon is dead. Furthermore,
+		 * no more API calls will be possible until the library is
+		 * re-initialized.
+		 */
+		if (ret == EPIPE) {
+			CRIT("Daemon has died. Terminating socket connection\n");
+			delete client;
+			init = 0;
+		}
 		return ret;
 	}
 
@@ -308,11 +319,8 @@ static void *wait_for_disc_thread_f(void *arg)
 	pthread_exit(0);
 } /* wait_for_disc_thread_f() */
 
-__attribute__((constructor)) int rdma_lib_init(void)
+int rdma_lib_init(void)
 {
-	/* Initialize the logger */
-	rdma_log_init("librdma.log", 0);
-
 	/* Create a client */
 	DBG("Creating client object...\n");
 	try {
@@ -333,11 +341,23 @@ __attribute__((constructor)) int rdma_lib_init(void)
 	client->get_recv_buffer((void **)&out_msg);
 	client->get_send_buffer((void **)&in_msg);
 
-	/* Initialize message queue attributes */
-	init_mq_attribs();
-
 	if (open_mport(&peer))
 		return -2;
+
+	/* Set initialization flag */
+	init = 1;
+	DBG("Library fully initialized\n ");
+
+	return 0;
+} /* rdma_lib_init() */
+
+__attribute__((constructor)) int lib_init(void)
+{
+	/* Initialize the logger */
+	rdma_log_init("librdma.log", 0);
+
+	/* Initialize message queue attributes */
+	init_mq_attribs();
 
 	/* Make threads cancellable at some points (e.g. mq_receive) */
 	if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)) {
@@ -345,11 +365,7 @@ __attribute__((constructor)) int rdma_lib_init(void)
 		return -3;
 	}
 
-	/* Set initialization flag */
-	init = 1;
-	DBG("Library fully initialized\n ");
-
-	return 0;
+	return rdma_lib_init();
 } /* rdma_lib_init() */
 
 int rdma_create_mso_h(const char *owner_name, mso_h *msoh)

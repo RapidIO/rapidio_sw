@@ -25,7 +25,13 @@ void test_case_a(void)
 
 	/* Create owner */
 	status = rdma_create_mso_h(MSO_NAME, &msoh1);
-	CHECK_AND_RET(status, "rdma_create_mso_h");
+	if (status == EPIPE) {
+		puts("Daemon died/restarted. Re-initializing RDMA library");
+		if (rdma_lib_init()) {
+			puts("RDMA library won't initialized. Giving up!");
+			return;
+		}
+	}
 
 	/* Try to create owner AGAIN */
 	if (rdma_create_mso_h(MSO_NAME, &msoh2))
