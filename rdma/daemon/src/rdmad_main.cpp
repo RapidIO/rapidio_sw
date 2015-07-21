@@ -210,9 +210,11 @@ void *rpc_thread_f(void *arg)
 
 					try {
 						owner = owners[in->msoid];
-						/* Check if the memory space owner
-						 * still owns memory spaces */
-						if (owner->owns_mspaces()) {
+						if (owner==nullptr) {
+							ERR("Invalid msoid(0x%X)\n",
+									in->msoid);
+							out->status = -1;
+						} else if (owner->owns_mspaces()) {
 							WARN("msoid(0x%X) owns spaces!\n",
 										in->msoid);
 							out->status = -1;
@@ -295,12 +297,11 @@ void *rpc_thread_f(void *arg)
 						ERR("Could not find mspace with msid(0x%X)\n",
 										in->msid);
 						out->status = -1;
-						break;
+					} else {
+						/* Now close the memory space */
+						int ret = ms->close(in->ms_conn_id);
+						out->status = (ret > 0) ? 0 : ret;
 					}
-
-					/* Now close the memory space */
-					int ret = ms->close(in->ms_conn_id);
-					out->status = (ret > 0) ? 0 : ret;
 				}
 				break;
 
@@ -315,11 +316,10 @@ void *rpc_thread_f(void *arg)
 					if (!ms) {
 						ERR("Could not find mspace with msid(0x%X)\n", in->msid);
 						out->status = -1;
-						break;
+					} else {
+						/* Now destroy the memory space */
+						out->status = ms->destroy();
 					}
-
-					/* Now destroy the memory space */
-					out->status = ms->destroy();
 				}
 				break;
 
