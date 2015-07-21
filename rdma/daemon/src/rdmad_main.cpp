@@ -732,22 +732,29 @@ void shutdown(struct peer_info *peer)
 void sig_handler(int sig)
 {
 	switch (sig) {
+
 	case SIGQUIT:	/* ctrl-\ */
+		puts("SIGQUIT - CTRL-\\ signal");
+	break;
+
 	case SIGINT:	/* ctrl-c */
+		puts("SIGINT - CTRL-C signal");
+	break;
+
 	case SIGABRT:	/* abort() */
+		puts("SIGABRT - abort() signal");
+	break;
+
 	case SIGTERM:	/* kill <pid> */
+		puts("SIGTERM - kill <pid> signal");
 	break;
 
 	case SIGUSR1:	/* pthread_kill() */
-		/* Ignore signal */
-		return;
-	case SIGHUP:	/* pthread_kill() of FM thread */
-		/* Ignore signal */
-		return;
-	break;
+	/* Ignore signal */
+	return;
 
 	default:
-		puts("UNKNOWN SIGNAL");
+		printf("UNKNOWN SIGNAL (%d)\n", sig);
 	}
 
 	owners.dump_info();
