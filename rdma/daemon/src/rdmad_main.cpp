@@ -675,7 +675,7 @@ void shutdown(struct peer_info *peer)
 	for (auto it = begin(prov_daemon_info_list);
 	    it != end(prov_daemon_info_list);
 	    it++) {
-		pthread_kill(it->tid, SIGUSR1);
+		ret = pthread_kill(it->tid, SIGUSR1);
 		if (ret == EINVAL) {
 			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
 		}
@@ -683,11 +683,11 @@ void shutdown(struct peer_info *peer)
 	}
 
 	/* Kill threads for remote daemons provisioned via outgoing HELLO */
-	HIGH("Killing remote daemon threads provisioned via incoming HELLO\n");
+	HIGH("Killing remote daemon threads provisioned via outgoing HELLO\n");
 	for (auto it = begin(hello_daemon_info_list);
 	    it != end(hello_daemon_info_list);
 	    it++) {
-		pthread_kill(it->tid, SIGUSR1);
+		ret = pthread_kill(it->tid, SIGUSR1);
 		if (ret == EINVAL) {
 			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
 		}
