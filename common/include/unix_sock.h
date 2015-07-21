@@ -149,7 +149,8 @@ protected:
 	{
 		int ret = ::recv(sock, recv_buf, UNIX_SOCK_DEFAULT_BUFFER_SIZE, 0);
 		if (ret < 0) {
-			ERR("'%s': failed in recv(): %s\n", name, strerror(errno));
+			ERR("'%s': failed in recv(): %s, errno = %d\n",
+					name, strerror(errno), errno);
 			return errno;
 		}
 		*rcvd_len = ret;
