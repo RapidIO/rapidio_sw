@@ -121,7 +121,7 @@ void *rpc_thread_f(void *arg)
 
 	rpc_ti *ti = (rpc_ti *)arg;
 
-	INFO("Creating other server object...\n");
+	DBG("Creating application-specific server object...\n");
 	unix_server *other_server;
 	try {
 		other_server = new unix_server("other_server", ti->accept_socket);
@@ -158,7 +158,6 @@ void *rpc_thread_f(void *arg)
 					out_msg->get_mport_id_out.mport_id = peer.mport_id;
 					out_msg->get_mport_id_out.status = 0;
 					out_msg->type = GET_MPORT_ID_ACK;
-					DBG("GET_MPORT_ID done\n");
 				}
 				break;
 
@@ -171,7 +170,6 @@ void *rpc_thread_f(void *arg)
 
 					int ret = owners.create_mso(in->owner_name, &out->msoid);
 					out->status = (ret > 0) ? 0 : ret;
-					DBG("CREATE_MSO done\n");
 				}
 				break;
 
@@ -186,7 +184,6 @@ void *rpc_thread_f(void *arg)
 							&out->msoid,
 							&out->mso_conn_id);
 					out->status = (ret > 0) ? 0 : ret;
-					DBG("OPEN_MSO done\n");
 				}
 				break;
 
@@ -199,7 +196,6 @@ void *rpc_thread_f(void *arg)
 
 					int ret = owners.close_mso(in->msoid, in->mso_conn_id);
 					out->status = (ret > 0) ? 0 : ret;
-					DBG("CLOSE_MSO done\n");
 				}
 				break;
 
@@ -210,7 +206,6 @@ void *rpc_thread_f(void *arg)
 					destroy_mso_output *out = &out_msg->destroy_mso_out;
 					out_msg->type = DESTROY_MSO_ACK;
 
-					DBG("in->msoid = 0x%X\n", in->msoid);
 					ms_owner *owner;
 
 					try {
@@ -237,7 +232,6 @@ void *rpc_thread_f(void *arg)
 								in->msoid);
 						out->status = -1;
 					}
-					DBG("DESTROY_MSO done\n");
 				}
 				break;
 
@@ -262,7 +256,6 @@ void *rpc_thread_f(void *arg)
 					if (!out->status)
 						/* Add the memory space handle to owner */
 						owners[in->msoid]->add_msid(out->msid);
-					DBG("CREATE_MS done\n");
 				}
 				break;
 
@@ -285,7 +278,6 @@ void *rpc_thread_f(void *arg)
 					DBG("the_inbound->open_mspace(%s) %s\n",
 							in->ms_name,
 							out->status ? "FAILED":"PASSED");					out_msg->open_ms_out = *out;
-					DBG("OPEN_MS done\n");
 				}
 				break;
 
@@ -309,7 +301,6 @@ void *rpc_thread_f(void *arg)
 					/* Now close the memory space */
 					int ret = ms->close(in->ms_conn_id);
 					out->status = (ret > 0) ? 0 : ret;
-					DBG("CLOSE_MS done\n");
 				}
 				break;
 
@@ -329,7 +320,6 @@ void *rpc_thread_f(void *arg)
 
 					/* Now destroy the memory space */
 					out->status = ms->destroy();
-					DBG("DESTROY_MS done\n");
 				}
 				break;
 
@@ -353,7 +343,6 @@ void *rpc_thread_f(void *arg)
 								out->msubid,
 								out->bytes,
 								out->rio_addr);
-					DBG("CREATE_MSUB done\n");
 				}
 				break;
 
@@ -366,13 +355,12 @@ void *rpc_thread_f(void *arg)
 
 					int ret = the_inbound->destroy_msubspace(in->msid, in->msubid);
 					out->status = (ret > 0) ? 0 : ret;
-
-					DBG("DESTROY_MSUB done\n");
 				}
 				break;
 
 				case ACCEPT_MS:
 				{
+					DBG("ACCEPT_MS\n");
 					accept_input  *in = &in_msg->accept_in;
 					accept_output *out = &out_msg->accept_out;
 					out_msg->type = ACCEPT_MS_ACK;
@@ -428,6 +416,7 @@ void *rpc_thread_f(void *arg)
 
 				case UNDO_ACCEPT:
 				{
+					DBG("UNDO_ACCEPT\n");
 					undo_accept_input *in = &in_msg->undo_accept_in;
 					undo_accept_output *out = &out_msg->undo_accept_out;
 					out_msg->type = UNDO_ACCEPT_ACK;
@@ -466,6 +455,7 @@ void *rpc_thread_f(void *arg)
 
 				case SEND_CONNECT:
 				{
+					DBG("SEND_CONNECT\n");
 					send_connect_input *in = &in_msg->send_connect_in;
 					send_connect_output *out = &out_msg->send_connect_out;
 					out_msg->type = SEND_CONNECT_ACK;
@@ -527,6 +517,7 @@ void *rpc_thread_f(void *arg)
 
 				case UNDO_CONNECT:
 				{
+					DBG("UNDO_CONNECT\n");
 					undo_connect_input *in = &in_msg->undo_connect_in;
 					undo_connect_output *out = &out_msg->undo_connect_out;
 					out_msg->type = UNDO_CONNECT_ACK;
@@ -543,6 +534,7 @@ void *rpc_thread_f(void *arg)
 
 				case SEND_DISCONNECT:
 				{
+					DBG("SEND_DISCONNECT\n");
 					send_disconnect_input *in = &in_msg->send_disconnect_in;
 					send_disconnect_output *out = &out_msg->send_disconnect_out;
 					out_msg->type = SEND_DISCONNECT_ACK;
@@ -563,7 +555,8 @@ void *rpc_thread_f(void *arg)
 					}
 					sem_post(&hello_daemon_info_list_sem);
 
-					/* Obtain pointer to socket object already connected to destid */
+					/* Obtain pointer to socket object
+					 * already connected to destid */
 					cm_client *the_client = it->client;
 
 					cm_disconnect_msg *disc_msg;
@@ -592,28 +585,26 @@ void *rpc_thread_f(void *arg)
 				break;
 
 				default:
-					ERR("UNKNOWN MESSAGE TYPE: 0x%X\n", in_msg->type);
+					CRIT("UNKNOWN MESSAGE TYPE: 0x%X\n", in_msg->type);
 			} /* switch */
 
 			if (other_server->send(sizeof(unix_msg_t))) {
 				CRIT("Failed to send API output parameters back to library\n");
 				delete other_server;
 				pthread_exit(0);
-			} else {
-				DBG("API processing completed!\n");
 			}
 		} else {
-			HIGH("RDMA library has closed connection!\n");
+			HIGH("Application has closed connection. Exiting!\n");
 			pthread_exit(0);
 		}
 	} /* while */
 	pthread_exit(0);
-}
+} /* rpc_thread_f() */
 
 int run_rpc_alternative()
 {
 	/* Create a server */
-	DBG("Creating server object...\n");
+	DBG("Creating Unix socket server object...\n");
 	try {
 		server = new unix_server();
 	}
@@ -622,18 +613,16 @@ int run_rpc_alternative()
 		return 1;
 	}
 
-	/* Wait for client to connect */
-	DBG("Wait for client to connect..\n");
-
 	while (1) {
+		/* Wait for client to connect */
+		HIGH("Waiting for (another) RDMA application to connect..\n");
 		if (server->accept()) {
 			CRIT("Failed to accept\n");
 			delete server;
 			return 2;
 		}
-
+		HIGH("Application connected!\n");
 		int accept_socket = server->get_accept_socket();
-		DBG("After accept() call, accept_socket = 0x%X\n", accept_socket);
 
 		rpc_ti	*ti;
 		try {
@@ -645,6 +634,7 @@ int run_rpc_alternative()
 			return 3;
 		}
 
+		/* Create thread that will handle requests from the new application */
 		int ret = pthread_create(&ti->tid,
 					 NULL,
 					 rpc_thread_f,
@@ -655,6 +645,7 @@ int run_rpc_alternative()
 			delete ti;
 			return -6;
 		}
+		/* Wait for RPC processing thread to start */
 		sem_wait(&ti->started);
 	} /* while */
 } /* run_rpc_alternative() */

@@ -223,7 +223,6 @@ void *wait_conn_disc_thread_f(void *arg)
 				continue;
 			}
 
-
 			/* Open message queue */
 			msg_q<mq_connect_msg>	*connect_mq;
 			try {
