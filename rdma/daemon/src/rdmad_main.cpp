@@ -672,27 +672,47 @@ void shutdown(struct peer_info *peer)
 
 	/* Kill threads for remote daemons provisioned via incoming HELLO */
 	HIGH("Killing remote daemon threads provisioned via incoming HELLO\n");
+	sem_wait(&prov_daemon_info_list_sem);
 	for (auto it = begin(prov_daemon_info_list);
 	    it != end(prov_daemon_info_list);
 	    it++) {
+		/* We must post the semaphore so that the thread can access
+		 * the list. Otherwise we'll have a deadlock with the thread waiting
+		 * on the semaphore while we wait in pthread_join below!
+		 */
+		sem_post(&prov_daemon_info_list_sem);
 		ret = pthread_kill(it->tid, SIGUSR1);
 		if (ret == EINVAL) {
 			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
 		}
 		pthread_join(it->tid, NULL);
+		/* Thread has terminated and posted the semaphore. Lock again */
+		sem_wait(&prov_daemon_info_list_sem);
 	}
+	prov_daemon_info_list.clear();	/* Not really needed; we are exiting anyway */
+	sem_post(&prov_daemon_info_list_sem);
 
 	/* Kill threads for remote daemons provisioned via outgoing HELLO */
 	HIGH("Killing remote daemon threads provisioned via outgoing HELLO\n");
+	sem_wait(&hello_daemon_info_list_sem);
 	for (auto it = begin(hello_daemon_info_list);
 	    it != end(hello_daemon_info_list);
 	    it++) {
+		/* We must post the semaphore so that the thread can access
+		 * the list. Otherwise we'll have a deadlock with the thread waiting
+		 * on the semaphore while we wait in pthread_join below!
+		 */
+		sem_post(&hello_daemon_info_list_sem);
 		ret = pthread_kill(it->tid, SIGUSR1);
 		if (ret == EINVAL) {
 			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
 		}
 		pthread_join(it->tid, NULL);
+		/* Thread has terminated and posted the semaphore. Lock again */
+		sem_wait(&hello_daemon_info_list_sem);
 	}
+	hello_daemon_info_list.clear();	/* Not really needed; we are exiting anyway */
+	sem_post(&hello_daemon_info_list_sem);
 
 	/* Next, kill provisioning thread */
 	HIGH("Killing provisioning thread\n");

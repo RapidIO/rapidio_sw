@@ -167,27 +167,37 @@ void *wait_conn_disc_thread_f(void *arg)
 	while(1) {
 		int	ret;
 		/* Receive CONNECT_MS, or DISCONNECT_MS */
-		DBG("Entering receive() on rx_conn_disc_server...\n");
+		DBG("Waiting for CONNECT_MS or DISCONNECT_MS\n");
 		ret = rx_conn_disc_server->receive();
 		if (ret) {
 			if (ret == EINTR) {
-				WARN("pthread_kill() called. Exiting!\n");
+				WARN("pthread_kill() called\n");
 			} else {
 				CRIT("Failed to receive on rx_conn_disc_server: %s\n",
 								strerror(ret));
 			}
+
 			/* Delete the cm_server object */
 			delete rx_conn_disc_server;
 
-			/* Remove the corresponding entry from the prov_daemon_info_list */
-			sem_wait(&prov_daemon_info_list_sem);
-			auto it = find(begin(prov_daemon_info_list),
-				       end(prov_daemon_info_list), remote_destid);
-			if (it != end(prov_daemon_info_list)) {
-				prov_daemon_info_list.erase(it);
+			/* If we just failed to receive() then we should also
+			 * clear the entry in prov_daemon_info_list. If we are
+			 * shutting down, the shutdown function would be accessing
+			 * the list so we should NOT erase an element from it.
+			 */
+			if (!shutting_down) {
+				/* Remove the corresponding entry from the
+				 * prov_daemon_info_list */
+				WARN("Removing entry from prov_daemon_info_list\n");
+				sem_wait(&prov_daemon_info_list_sem);
+				auto it = find(begin(prov_daemon_info_list),
+					       end(prov_daemon_info_list),
+					       remote_destid);
+				if (it != end(prov_daemon_info_list))
+					prov_daemon_info_list.erase(it);
+				sem_post(&prov_daemon_info_list_sem);
 			}
-			sem_post(&prov_daemon_info_list_sem);
-			CRIT("Exiting %s\n", __func__);
+			CRIT("Exiting thread\n");
 			pthread_exit(0);
 		}
 

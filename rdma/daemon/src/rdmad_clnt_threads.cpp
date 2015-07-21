@@ -150,7 +150,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 		ret = accept_destroy_client->receive();
 		if (ret) {
 			if (ret == EINTR) {
-				WARN("pthread_kill() called. Exiting!\n");
+				WARN("pthread_kill() called\n");
 			} else {
 				CRIT("Failed to receive on hello_client: %s\n",
 								strerror(ret));
@@ -159,16 +159,23 @@ void *wait_accept_destroy_thread_f(void *arg)
 			/* Free the cm_client object */
 			delete accept_destroy_client;
 
-			/* Remove entry from hello_daemon_info_list */
-			sem_wait(&hello_daemon_info_list_sem);
-			auto it = find(begin(hello_daemon_info_list),
-					end(hello_daemon_info_list),
-					destid);
-			if (it != end(hello_daemon_info_list)) {
-				HIGH("Erasing old entry for destid(0x%X)\n", destid);
-				hello_daemon_info_list.erase(it);
+			/* If we just failed to receive() then we should also
+			 * clear the entry in hello_daemon_info_list. If we are
+			 * shutting down, the shutdown function would be accessing
+			 * the list so we should NOT erase an element from it.
+			 */
+			if (!shutting_down) {
+				/* Remove entry from hello_daemon_info_list */
+				WARN("Removing entry from hello_daemon_info_list\n");
+				sem_wait(&hello_daemon_info_list_sem);
+				auto it = find(begin(hello_daemon_info_list),
+					       end(hello_daemon_info_list),
+					       destid);
+				if (it != end(hello_daemon_info_list))
+					hello_daemon_info_list.erase(it);
+				sem_post(&hello_daemon_info_list_sem);
 			}
-			sem_post(&hello_daemon_info_list_sem);
+			CRIT("Exiting thread\n");
 			pthread_exit(0);
 		}
 
