@@ -161,12 +161,14 @@ void *wait_conn_disc_thread_f(void *arg)
 	prov_daemon_info_list.push_back(*pdi);
 	sem_post(&prov_daemon_info_list_sem);
 	DBG("prov_daemon_info_list now has %u destids\n", prov_daemon_info_list.size());
+
+	free(pdi);
+
 	/* Tell prov_thread that we started so it can start accepting
 	 * from other sockets without waiting for this one to get a HELLO.
 	 */
 	sem_post(&wcdti->started);
 
-	free(pdi);	/* We have a copy in prov_daemon_info_list */
 
 	while(1) {
 		int	ret;
@@ -181,25 +183,6 @@ void *wait_conn_disc_thread_f(void *arg)
 								strerror(ret));
 			}
 			delete rx_conn_disc_server;
-			/* Remote daemon is gone. Remote it from our list. It needs to
-			 * provision again in order for another instance of this thread
-			 * is created for it.
-			 */
-			it = find(begin(prov_daemon_info_list),
-				       end(prov_daemon_info_list), remote_destid);
-			if (it != end(prov_daemon_info_list)) {
-				CRIT("destid(0x%X) removed from prov_daemon_list\n",
-								remote_destid);
-				prov_daemon_info_list.erase(it);
-			}
-			auto hit = find(begin(hello_daemon_info_list),
-					end(hello_daemon_info_list),
-					remote_destid);
-			if (hit != end(hello_daemon_info_list)) {
-				CRIT("destid(0x%X) removed from hello_daemon_list\n",
-									remote_destid);
-				hello_daemon_info_list.erase(hit);
-			}
 			CRIT("Exiting %s\n", __func__);
 			pthread_exit(0);
 		}

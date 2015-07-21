@@ -138,6 +138,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 	HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n", hdi->destid);
 	sem_post(&hello_daemon_info_list_sem);
 
+	delete hdi;	/* Copied into hello_daemon_info_list */
+
 	/* Post semaphore to caller to indicate thread is up */
 	sem_post(&wadti->started);
 

@@ -661,6 +661,8 @@ int run_rpc_alternative()
 
 void shutdown(struct peer_info *peer)
 {
+	int	ret = 0;
+
 	/* Kill the threads */
 	shutting_down = true;
 
@@ -668,17 +670,8 @@ void shutdown(struct peer_info *peer)
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
 
-	/* Next, kill provisioning thread */
-	int ret = pthread_kill(prov_thread, SIGUSR1);
-	if (ret == EINVAL) {
-		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
-	}
-	pthread_join(prov_thread, NULL);
-
-	/* Kill the fabric management thread */
-	halt_fm_thread();
-
 	/* Kill threads for remote daemons provisioned via incoming HELLO */
+	HIGH("Killing remote daemon threads provisioned via incoming HELLO\n");
 	for (auto it = begin(prov_daemon_info_list);
 	    it != end(prov_daemon_info_list);
 	    it++) {
@@ -690,6 +683,7 @@ void shutdown(struct peer_info *peer)
 	}
 
 	/* Kill threads for remote daemons provisioned via outgoing HELLO */
+	HIGH("Killing remote daemon threads provisioned via incoming HELLO\n");
 	for (auto it = begin(hello_daemon_info_list);
 	    it != end(hello_daemon_info_list);
 	    it++) {
@@ -700,7 +694,19 @@ void shutdown(struct peer_info *peer)
 		pthread_join(it->tid, NULL);
 	}
 
+	/* Next, kill provisioning thread */
+	HIGH("Killing provisioning thread\n");
+	ret = pthread_kill(prov_thread, SIGUSR1);
+	if (ret == EINVAL) {
+		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+	}
+	pthread_join(prov_thread, NULL);
+	HIGH("Provisioning thread is dead\n");
 
+	/* Kill the fabric management thread */
+	HIGH("Killing fabric management thread\n");
+	halt_fm_thread();
+	HIGH("Fabric management thread is dead\n");
 	/* Close mport device */
 	if (peer->mport_fd > 0) {
 		INFO("Closing mport fd\n");
@@ -722,6 +728,9 @@ void sig_handler(int sig)
 	break;
 
 	case SIGUSR1:	/* pthread_kill() */
+		/* Ignore signal */
+		return;
+	case SIGHUP:	/* pthread_kill() of FM thread */
 		/* Ignore signal */
 		return;
 	break;
