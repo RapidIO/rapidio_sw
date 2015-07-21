@@ -103,10 +103,13 @@ static uint32_t round_up_to_4k(uint32_t length)
 
 static int alt_rpc_call()
 {
+	int ret;
+
 	/* Send input parameters */
-	if (client->send(sizeof(*in_msg))) {
-		ERR("Failed to send message to RDMA daemon\n");
-		return -3;
+	ret = client->send(sizeof(*in_msg));
+	if (ret) {
+		ERR("Failed to send message to RDMA daemon, ret = %d\n", ret);
+		return ret;
 	}
 
 	/* Receive output parameters */
@@ -115,7 +118,7 @@ static int alt_rpc_call()
 		return -4;
 	}
 	return 0;
-}
+} /* alt_rpc_call() */
 
 static int open_mport(struct peer_info *peer)
 {
@@ -131,9 +134,10 @@ static int open_mport(struct peer_info *peer)
 	in_msg->type = GET_MPORT_ID;
 	in_msg->get_mport_id_in = in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 
 	out = out_msg->get_mport_id_out;
@@ -381,9 +385,10 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 	in_msg->type = CREATE_MSO;
 	in_msg->create_mso_in = in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 
 	out = out_msg->create_mso_out;
@@ -479,9 +484,10 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	in_msg->type = OPEN_MSO;
 	in_msg->open_mso_in = in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 
 	out = out_msg->open_mso_out;
@@ -624,9 +630,10 @@ int rdma_close_mso_h(mso_h msoh)
 	in_msg->type = CLOSE_MSO;
 	in_msg->close_mso_in = in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 
 	out = out_msg->close_mso_out;
@@ -708,9 +715,10 @@ int rdma_destroy_mso_h(mso_h msoh)
 
 	DBG("in.msoid = 0x%X\n", in.msoid);
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 
 	out = out_msg->destroy_mso_out;
@@ -780,9 +788,10 @@ int rdma_create_ms_h(const char *ms_name,
 	in_msg->type = CREATE_MS;
 	in_msg->create_ms_in = in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 
 	out = out_msg->create_ms_out;
@@ -931,9 +940,10 @@ int rdma_open_ms_h(const char *ms_name,
 	in_msg->type = OPEN_MS;
 	in_msg->open_ms_in = in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 
 	out = out_msg->open_ms_out;
@@ -1064,9 +1074,10 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	in_msg->type = CLOSE_MS;
 	in_msg->close_ms_in = in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 	out = out_msg->close_ms_out;
 
@@ -1122,9 +1133,10 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	in_msg->type = DESTROY_MS;
 	in_msg->destroy_ms_in = in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 	out = out_msg->destroy_ms_out;
 
@@ -1206,9 +1218,10 @@ int rdma_create_msub_h(ms_h	msh,
 	in_msg->type = CREATE_MSUB;
 	in_msg->create_msub_in = in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 	out = out_msg->create_msub_out;
 
@@ -1264,9 +1277,10 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	in_msg->type = DESTROY_MSUB;
 	in_msg->destroy_msub_in = in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 	out = out_msg->destroy_msub_out;
 
@@ -1411,10 +1425,11 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	in_msg->type = ACCEPT_MS;
 	in_msg->accept_in = accept_in;
 
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		delete connect_mq;
-		return -1;
+		return ret;
 	}
 	accept_out = out_msg->accept_out;
 
@@ -1601,10 +1616,11 @@ __sync_synchronize();
 	/* Set up Unix message parameters */
 	in_msg->type = SEND_CONNECT;
 	in_msg->send_connect_in = in;
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		delete accept_mq;
-		return -1;
+		return ret;
 	}
 	out = out_msg->send_connect_out;
 	if (out.status) {
@@ -1810,9 +1826,10 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 	/* Set up Unix message parameters */
 	in_msg->type = SEND_DISCONNECT;
 	in_msg->send_disconnect_in = in;
-	if (alt_rpc_call()) {
+	int ret = alt_rpc_call();
+	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		return -1;
+		return ret;
 	}
 	out = out_msg->send_disconnect_out;
 	INFO("send_disconnect_1() called, now exiting\n");
