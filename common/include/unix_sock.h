@@ -140,7 +140,7 @@ protected:
 		}
 		if (::send(sock, send_buf, len, MSG_EOR) == -1) {
 			ERR("'%s' failed in send(): %s\n", name, strerror(errno));
-			return -errno;
+			return errno;
 		}
 		return 0;
 	}
@@ -150,7 +150,7 @@ protected:
 		int ret = ::recv(sock, recv_buf, UNIX_SOCK_DEFAULT_BUFFER_SIZE, 0);
 		if (ret < 0) {
 			ERR("'%s': failed in recv(): %s\n", name, strerror(errno));
-			return -errno;
+			return errno;
 		}
 		*rcvd_len = ret;
 		return 0;
@@ -250,7 +250,7 @@ public:
 		accept_socket = ::accept(the_socket, (struct sockaddr *)&client_addr, &len);
 		if( accept_socket == -1) {
 			ERR("'%s' failed in accept(): %s\n", name, strerror(errno));
-			return -errno;
+			return errno;
 		}
 
 		return 0;
@@ -292,7 +292,7 @@ public:
 	{
 		if (::connect(the_socket, (struct sockaddr *)&addr, addr_len) == -1) {
 			ERR("%s: failed to connect: %s\n", name, strerror(errno));
-		        return -errno;
+		        return errno;
 		}
 		return 0;
 	}
