@@ -43,6 +43,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "librdma.h"
 
+#include "multi_common.h"
+
 using std::vector;
 
 #define MSO_NAME	"mso1"
@@ -50,7 +52,6 @@ using std::vector;
 struct ti {
 	ti(mso_h msoh, unsigned ms_number) : msoh(msoh), ms_number(ms_number)
 	{
-		printf("msoh = 0x%lX, ms_number = %u\n", this->msoh, this->ms_number);
 		sem_init(&started, 0, 0);
 	}
 	pthread_t	tid;
@@ -75,7 +76,7 @@ void *ms_thread_f(void *arg)
 	printf("ms_thread_f(%u) started\n", tio->ms_number);
 
 	char ms_name[128];
-	sprintf(ms_name, "sspace%u", tio->ms_number);
+	sprintf(ms_name, "%s%u", MSPACE_PREFIX, tio->ms_number);
 
 	/* Create memory space */
 	puts("Create memory space");
