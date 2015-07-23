@@ -132,6 +132,7 @@ void *ms_thread_f(void *arg)
 
 	/* Poll on received data and stay alive until 'shutting down' */
 	uint32_t *vaddr32 = (uint32_t *)vaddr;
+	printf("%d waiting for DMA data..\n", tio->ms_number);
 	while (1) {
 		while (!shutting_down && *vaddr32 != 0xDEADBEEF) {
 			usleep(100);

@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "librdma.h"
 
@@ -42,6 +43,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define MSO_NAME	"client_mso"
 #define MS_NAME		"client_ms"
+
+static	mso_h	msoh;
+static bool shutting_down = false;
 
 void show_help()
 {
@@ -56,7 +60,6 @@ int run_test(uint32_t destid, unsigned ms_number, unsigned count)
 	int ret;
 
 	/* Create memory space owner */
-	mso_h	msoh;
 	ret = rdma_create_mso_h(MSO_NAME, &msoh);
 	if(ret) {
 		printf("Failed to create mso('%s'), ret = %d\n",
@@ -133,6 +136,7 @@ int run_test(uint32_t destid, unsigned ms_number, unsigned count)
 							MSO_NAME, ret);
 		return -5;
 	}
+	printf("Connected to '%s' on destid(0x%X)\n", ms_name, destid);
 
 	/* Push the minimal DMA data to the server */
 	struct rdma_xfer_ms_in	 in;
@@ -157,17 +161,26 @@ int run_test(uint32_t destid, unsigned ms_number, unsigned count)
 		}
 		usleep(100);
 	}
+	puts("Test completed");
 
-	/* Destroy mso (and its ms, and msub children) */
-	ret = rdma_destroy_mso_h(msoh);
-	if (ret) {
-		printf("Failed to destroy mso('%s'), ret = %d\n",
-						MSO_NAME, ret);
-		return -6;
-	}
+	while(!shutting_down)
+		usleep(100);
 
 	return 0;
 } /* run_test */
+
+void sig_handler(int sig)
+{
+	if (sig == SIGINT)
+		puts("ctrl-c hit. Exiting");
+
+	if (rdma_destroy_mso_h(msoh)) {
+		puts("Failed to destroy msoh");
+	}
+
+	/* Set global flag so test would exit */
+	shutting_down = true;
+} /* sig_handler() */
 
 
 int main(int argc, char *argv[])
@@ -222,6 +235,13 @@ int main(int argc, char *argv[])
 		show_help();
 		exit(1);
 	}
+
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
 
 	puts("Test properties:");
 	printf("mspace('%s%u') on destid(0x%X)\n", MSPACE_PREFIX, i, destid);
