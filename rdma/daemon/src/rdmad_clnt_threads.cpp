@@ -39,7 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_mq_msg.h"
 #include "liblog.h"
 #include "cm_sock.h"
-#include "rdmad_svc.h"
+#include "rdmad_cm.h"
 #include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
 
@@ -85,7 +85,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 	cm_client *accept_destroy_client;
 	try {
 		accept_destroy_client = new cm_client("accept_destroy_client",
-						      client_socket);
+						      client_socket,
+						      &shutting_down);
 	}
 	catch(cm_exception e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
@@ -137,23 +138,47 @@ void *wait_accept_destroy_thread_f(void *arg)
 	HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n", hdi->destid);
 	sem_post(&hello_daemon_info_list_sem);
 
+	delete hdi;	/* Copied into hello_daemon_info_list */
+
 	/* Post semaphore to caller to indicate thread is up */
 	sem_post(&wadti->started);
 
 	while(1) {
 		int	ret;
 		/* Receive ACCEPT_MS, or DESTROY_MS message */
+		DBG("Waiting for ACCEPT_MS or DESTROY_MS\n");
 		ret = accept_destroy_client->receive();
 		if (ret) {
 			if (ret == EINTR) {
-				WARN("pthread_kill() called. Exiting!\n");
+				WARN("pthread_kill() called\n");
 			} else {
 				CRIT("Failed to receive on hello_client: %s\n",
 								strerror(ret));
 			}
+
+			/* Free the cm_client object */
 			delete accept_destroy_client;
+
+			/* If we just failed to receive() then we should also
+			 * clear the entry in hello_daemon_info_list. If we are
+			 * shutting down, the shutdown function would be accessing
+			 * the list so we should NOT erase an element from it.
+			 */
+			if (!shutting_down) {
+				/* Remove entry from hello_daemon_info_list */
+				WARN("Removing entry from hello_daemon_info_list\n");
+				sem_wait(&hello_daemon_info_list_sem);
+				auto it = find(begin(hello_daemon_info_list),
+					       end(hello_daemon_info_list),
+					       destid);
+				if (it != end(hello_daemon_info_list))
+					hello_daemon_info_list.erase(it);
+				sem_post(&hello_daemon_info_list_sem);
+			}
+			CRIT("Exiting thread\n");
 			pthread_exit(0);
 		}
+
 		/* Read all messages as ACCEPT_MS first, then if the
 		 * type is different then cast message buffer accordingly. */
 		cm_accept_msg	*accept_cm_msg;
@@ -185,9 +210,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 				    new msg_q<mq_accept_msg>(mq_name, MQ_OPEN);
 			}
 			catch(msg_q_exception e) {
-				e.print();
-				WARN("Failed to open POSIX queue '%s': %s\n",
-							mq_name, strerror(errno));
+				ERR("Failed to open POSIX queue '%s': %s\n",
+						mq_name, e.msg.c_str());
 				continue;
 			}
 			DBG("Opened POSIX queue '%s'\n", mq_name);
@@ -250,9 +274,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 				destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_OPEN);
 			}
 			catch(msg_q_exception e) {
-				e.print();
 				ERR("Failed to open 'destroy' POSIX queue (%s): %s\n",
-								mq_name, strerror(errno));
+							mq_name, e.msg.c_str());
 				continue;
 			}
 
@@ -304,7 +327,10 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 			/* Done with the destroy POSIX message queue */
 			delete destroy_mq;
-		} /* if DESTROY_MS */
+		} else {
+			CRIT("Got an unknown message code (0x%X)\n",
+					accept_cm_msg->type);
+		}
 	} /* while(1) */
 	pthread_exit(0);
 } /* wait_accept_destroy_thread_f() */
@@ -317,14 +343,13 @@ int provision_rdaemon(uint32_t destid)
 	/* Create provision client to connect to remote daemon's provisioning thread */
 	cm_client	*hello_client;
 
-	/* FOR NOW, fail if the 'destid' already has an entry/thread */
+	/* If the 'destid' is already known, kill its thread */
 	sem_wait(&hello_daemon_info_list_sem);
 	auto it = find(begin(hello_daemon_info_list), end(hello_daemon_info_list),
 			destid);
 	if (it != end(hello_daemon_info_list)) {
 		WARN("destid(0x%X) is already known\n", destid);
-		sem_post(&hello_daemon_info_list_sem);
-		return -7;	/* TODO: should be #define'd in a header */
+		pthread_kill(it->tid, SIGUSR1);
 	}
 	sem_post(&hello_daemon_info_list_sem);
 
@@ -332,7 +357,8 @@ int provision_rdaemon(uint32_t destid)
 		hello_client = new cm_client("hello_client",
 						peer.mport_id,
 						peer.prov_mbox_id,
-						peer.prov_channel);
+						peer.prov_channel,
+						&shutting_down);
 	}
 	catch(cm_exception e) {
 		CRIT("Failed to create hello_client %s\n", e.err);

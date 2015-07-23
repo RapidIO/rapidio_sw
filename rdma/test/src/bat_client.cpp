@@ -64,6 +64,8 @@
 
 using namespace std;
 
+static bool shutting_down = false;
+
 /* Log file, name and handle */
 static char log_filename[PATH_MAX];
 static FILE *fp;
@@ -789,7 +791,8 @@ int connect_to_channel(int channel,
 		*bat_client = new cm_client(name,
 					    BAT_MPORT_ID,
 					    BAT_MBOX_ID,
-					    channel);
+					    channel,
+					    &shutting_down);
 	}
 	catch(cm_exception e) {
 		fprintf(stderr, "%s: %s\n", name, e.err);
@@ -1165,6 +1168,7 @@ int main(int argc, char *argv[])
 
 	BAT_EOT();
 
+	shutting_down = true;
 	delete bat_first_client;
 
 	fclose(fp);

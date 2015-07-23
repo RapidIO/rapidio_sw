@@ -54,7 +54,7 @@ struct has_msoid {
 			return false;
 		}
 
-		return *mso == msoid;
+		return mso->get_msoid() == msoid;
 	}
 private:
 	uint32_t msoid;
@@ -224,7 +224,13 @@ public:
 	ms_owner* operator[](uint32_t msoid)
 	{
 		has_msoid	hmi(msoid);
-		return *find_if(begin(owners), end(owners), hmi);
+		auto it = find_if(begin(owners), end(owners), hmi);
+		if (it == end(owners)) {
+			ERR("Could not find owner with msoid(0x%X)\n", msoid);
+			return NULL;
+		} else {
+			return *it;
+		}
 	}
 private:
 	bool msoid_free_list[MSOID_MAX+1];

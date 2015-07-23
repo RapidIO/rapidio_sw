@@ -60,8 +60,7 @@ class msg_q_exception {
 
 public:
 	msg_q_exception(const char *msg) : msg(msg) {}
-	void print() { cout << msg << endl; }
-private:
+
 	string msg;
 };
 
@@ -93,7 +92,7 @@ public:
 		}
 
 		/* Default attributes */
-		attr.mq_flags	= 0;
+		attr.mq_flags	= O_NONBLOCK;
 		attr.mq_maxmsg	= 1;	/* one message at a time */ 
 		attr.mq_msgsize	= MQ_MSG_SIZE;
 		attr.mq_curmsgs	= 0;

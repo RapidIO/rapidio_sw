@@ -45,6 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 
 #include "rdmad_msubspace.h"
+#include "prov_daemon_info.h"
 #include "msg_q.h"
 
 using namespace std;
@@ -74,7 +75,10 @@ public:
 	mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 	       uint64_t phys_addr, uint64_t size);
 
-	void destroy();
+	/* Destructor */
+	~mspace();
+
+	int destroy();
 
 	/* Accessors */
 	uint64_t get_size() const { return size; }
@@ -118,7 +122,7 @@ public:
 
 	int open(uint32_t *msid, uint32_t *ms_conn_id, uint32_t *bytes);
 
-	int close_connections();
+
 
 	int close(uint32_t ms_conn_id);
 
@@ -133,6 +137,9 @@ public:
 	int destroy_msubspace(uint32_t msubid);
 
 private:
+	int notify_remote_clients();
+	int close_connections();
+
 	string		name;
 	uint32_t	msid;
 	uint64_t	rio_addr;

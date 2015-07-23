@@ -66,6 +66,9 @@ public:
 	/* get_mspace by msid */
 	mspace *get_mspace(uint32_t msid);
 
+	/* get_mspace by msoid, msid */
+	mspace *get_mspace(uint32_t msoid, uint32_t msid);
+
 	/* Dump memory space info for a memory space specified by name */
 	int dump_mspace_info(const char *name);
 
@@ -87,12 +90,6 @@ public:
 			uint32_t *msid,
 			uint32_t *ms_conn_id,
 			uint32_t *bytes);
-
-	/* Close memory space */
-	int close_mspace(uint32_t msid, uint32_t ms_conn_id);
-
-	/* Destroy memory space */
-	int destroy_mspace(uint32_t msoid, uint32_t msid);
 
 	/* Create a memory subspace */
 	int create_msubspace(uint32_t msid, uint32_t offset, uint32_t req_bytes,

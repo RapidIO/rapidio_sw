@@ -33,11 +33,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMAD_MAIN_H
 #define RDMAD_MAIN_H
 
-#include "rdmad_peer_utils.h"
+#include "ts_map.h"
+#include "ts_vector.h"
 
-extern struct peer_info	peer;
+#include "rdmad_peer_utils.h"
+#include "rdmad_inbound.h"
+#include "rdmad_ms_owners.h"
+#include "rdmad_cm.h"
 
 void shutdown(struct peer_info *peer);
+
+extern struct peer_info	peer;
+extern inbound *the_inbound;
+extern ms_owners owners;
+extern bool shutting_down;
+extern ts_map<string, cm_accept_msg> accept_msg_map;
+extern ts_vector<string> wait_accept_mq_names;
 
 #endif
 

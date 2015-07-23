@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define LIBRDMA_H
 
 #include <time.h>
+#include <errno.h>
 
 #include "rdma_types.h"
 
@@ -42,13 +43,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-extern struct timespec FOREVER;
-
 /**
  * Initialize RDMA library
  *
- * rdma_lib_init() is called when the library is loaded in response to a call
- * to one of its functions. It is only run once.
+ * rdma_lib_init() is automatically called once, when the library is loaded
+ * in response to a call to one the RDMA APIs. rdma_lib_init() needs to be
+ * called again whenever an API fails to communicate with the RDMA daemon
+ * and returns EPIPE (broken pipe).
  *
  * @return: 0 if successful, < 0 if unsuccessful
  */

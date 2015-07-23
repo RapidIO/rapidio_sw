@@ -46,8 +46,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 
 #include "rdma_mq_msg.h"
-#include "rdmad_svc.h"
 #include "rdmad_ms_owner.h"
+#include "rdmad_main.h"
 
 struct close_conn_to_mso {
 	close_conn_to_mso(uint32_t msoid) : ok(true), msoid(msoid) {}
@@ -115,7 +115,7 @@ int ms_owner::open(uint32_t *msoid, uint32_t *mso_conn_id)
 		close_mq = new msg_q<mq_close_mso_msg>(qname.str(), MQ_CREATE);
 	}
 	catch(msg_q_exception e) {
-		e.print();
+		CRIT("Failed to create close_mq: %s\n", e.msg.c_str());
 		return -1;
 	}
 	INFO("Message queue %s created\n", qname.str().c_str());

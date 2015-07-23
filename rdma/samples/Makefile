@@ -21,7 +21,7 @@ BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH)
 	-o $@ $(RDMAAPP_CFLAGS) \
 	src/$@.c -lrt -lcli -llist -llog -lmport -lrdma -pthread
 
-all: rdma_server rdma_client rdma_user
+all: rdma_server rdma_client rdma_user multi_ms_server
 
 # RDMA Server App
 rdma_server: src/rdma_server.c $(RDMA_APP_DEPS)
@@ -38,5 +38,15 @@ rdma_client: src/rdma_client.c $(RDMA_APP_DEPS)
 	@echo ---------- Building rdma_client...
 	$(BUILD_STRING)
 
+# RDMA multi memory space server app
+multi_ms_server: src/multi_ms_server.c $(RDMA_APP_DEPS)
+	@echo ---------- Building multi_ms_server ...
+	$(BUILD_STRING)
+
+# RDMA multi memory space client app
+multi_ms_client: src/multi_ms_client.c $(RDMA_APP_DEPS)
+	@echo ---------- Building multi_ms_client ...
+	$(BUILD_STRING)
+
 clean:
-	@rm -Rf *.o *~ rdma_server rdma_client rdma_user
+	@rm -Rf *.o *~ rdma_server rdma_client rdma_user multi_ms_server

@@ -30,33 +30,24 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+#ifndef PROV_DAEMON_INFO_H_
+#define PROV_DAEMON_INFO_H_
 
-#ifndef RDMAD_SVC_H
-#define RDMAD_SVC_H
-
+#include <stdint.h>
 #include <pthread.h>
-#include <semaphore.h>
 
-#include <string>
-
-#include "ts_vector.h"
-#include "ts_map.h"
 #include "cm_sock.h"
 
-#include "rdmad_inbound.h"
-#include "rdmad_ms_owners.h"
-#include "rdmad_cm.h"
 
-using namespace std;
-
-extern inbound *the_inbound;
-extern ms_owners owners;
-extern bool shutting_down;
-extern ts_map<string, cm_accept_msg> accept_msg_map;
-extern ts_vector<string> wait_accept_mq_names;
-
-int close_or_destroy_action(mspace *ms);
+/**
+ * Info for remote daemons provisined by the provisioning thread
+ * (i.e. by receiving a HELLO message).
+ */
+struct prov_daemon_info {
+	uint32_t 	destid;
+	cm_server	*conn_disc_server;
+	pthread_t	tid;
+	bool operator==(uint32_t destid) { return this->destid == destid; }
+};
 
 #endif
-
-

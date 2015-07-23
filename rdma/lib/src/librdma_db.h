@@ -36,7 +36,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <pthread.h>
-#include <mqueue.h>
 
 #include <cstring>
 
@@ -92,7 +91,7 @@ struct loc_ms {
 
 	/* The following fields are used for connect/disconnect notification. */
 	pthread_t  disc_thread;
-	mqd_t	   disc_notify_mq;
+	msg_q<mq_disconnect_msg> *disc_notify_mq;
 
 	/* If opened ONLY, they are used to indicate the ms must be closed because it is
 	 * being destroyed. */
@@ -107,7 +106,7 @@ ms_h add_loc_ms(const char *ms_name,
 		uint32_t mso_conn_id,
 		bool owned,
 		pthread_t disc_thread,
-		mqd_t disc_notify_mq,
+		msg_q<mq_disconnect_msg> *disc_msg,
 		pthread_t close_thread,
 		msg_q<mq_close_ms_msg> *close_mq);
 
@@ -122,7 +121,7 @@ pthread_t loc_ms_get_close_thread(ms_h msh);
 msg_q<mq_close_ms_msg>  *loc_ms_get_destroy_notify_mq(ms_h msh);
 
 pthread_t loc_ms_get_disc_thread(ms_h msh);
-mqd_t loc_ms_get_disc_notify_mq(ms_h msh);
+msg_q<mq_disconnect_msg> *loc_ms_get_disc_notify_mq(ms_h msh);
 
 bool loc_ms_exists(ms_h msh);
 

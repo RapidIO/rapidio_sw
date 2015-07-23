@@ -37,21 +37,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <vector>
 
+#include "cm_sock.h"
+#include "prov_daemon_info.h"
+
 using namespace std;
 
 void *accept_thread_f(void *arg);
 void *server_wait_disc_thread_f(void *arg);
 void *prov_thread_f(void *arg);
-/**
- * Info for remote daemons provisined by the provisioning thread
- * (i.e. by receiving a HELLO message).
- */
-struct prov_daemon_info {
-	uint32_t 	destid;
-	cm_server	*conn_disc_server;
-	pthread_t	tid;
-	bool operator==(uint32_t destid) { return this->destid == destid; }
-};
+
 
 /* List of destids provisioned via the provisioning thread */
 extern vector<prov_daemon_info>	prov_daemon_info_list;

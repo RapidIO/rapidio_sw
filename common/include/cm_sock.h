@@ -112,9 +112,10 @@ private:
 	}
 
 protected:
-	cm_base(const char *name, int mport_id, uint8_t mbox_id, uint16_t channel) :
+	cm_base(const char *name, int mport_id,
+		uint8_t mbox_id, uint16_t channel, bool *shutting_down) :
 		name(name), mport_id(mport_id), mbox_id(mbox_id), channel(channel),
-		mailbox(0),
+		shutting_down(shutting_down), mailbox(0),
 		send_buf(new uint8_t[CM_BUF_SIZE]),
 		recv_buf(new uint8_t[CM_BUF_SIZE])
 	{
@@ -167,8 +168,8 @@ protected:
 	} /* receive() */
 
 	/* If returns ETIME then it timed out. 0 means success,
-	 * EINTR means thread was killed (if not in gdb mode)
-	 * anything else is an error. */
+	 * EINTR means thread was killed (if not in gdb mode AND the)
+	 * shutting_down flag is set) anything else is an error. */
 	int timed_receive(riomp_sock_t socket, uint32_t timeout_ms)
 	{
 		int rc = 0;
@@ -176,13 +177,15 @@ protected:
 			rc = riomp_sock_receive(socket,
 					(void **)&recv_buf, CM_BUF_SIZE,
 					timeout_ms);
-		} while (rc && (errno==EINTR) && gdb);
+		} while (rc && (errno==EINTR) && gdb && !*shutting_down);
 		if (rc) {
 			if (errno == EINTR) {
-				WARN("Aborting receive() due to killing thread\n");
+				WARN("%s: Abort receive() for pthread_kill()\n",
+									name);
 				rc = EINTR;
 			} else {
-				WARN("receive() failed, errno = %d: %s\n", strerror(errno));
+				WARN("%s: receive() failed, errno = %d: %s\n",
+						name, errno, strerror(errno));
 			}
 		}
 		return rc;
@@ -193,6 +196,7 @@ protected:
 	uint8_t mbox_id;
 	uint16_t channel;
 	riomp_mailbox_t mailbox;
+	bool	*shutting_down;
 	bool	gdb;
 
 private:
@@ -229,8 +233,9 @@ private:
 class cm_server : public cm_base {
 
 public:
-	cm_server(const char *name, int mport_id, uint8_t mbox_id, uint16_t channel) :
-		cm_base(name, mport_id, mbox_id, channel),
+	cm_server(const char *name, int mport_id, uint8_t mbox_id, uint16_t channel,
+		  bool *shutting_down) :
+		cm_base(name, mport_id, mbox_id, channel, shutting_down),
 		listen_socket(0), accept_socket(0), accepted(false)
 	{
 		int rc;
@@ -282,8 +287,9 @@ public:
 	} /* cm_server() */
 
 	/* Construct from accept socket. Other attributes are unused */
-	cm_server(const char *name, riomp_sock_t accept_socket) :
-		cm_base(name, 0, 0, 0),
+	cm_server(const char *name, riomp_sock_t accept_socket,
+		  bool *shutting_down) :
+		cm_base(name, 0, 0, 0, shutting_down),
 		accept_socket(accept_socket)
 	{
 	}
@@ -338,7 +344,7 @@ public:
 			 * the thread was killed. Exit with EINTR so the calling thread
 			 * can clean up the socket and exit.
 			 */
-		} while (rc && ((errno == ETIME) || ((errno == EINTR) && gdb)));
+		} while (rc && ((errno == ETIME) || ((errno == EINTR) && gdb && !*shutting_down)));
 
 		if (rc) {	/* failed */
 			if (errno == EINTR) {
@@ -389,8 +395,10 @@ private:
 class cm_client : public cm_base {
 
 public:
-	cm_client(const char *name, int mport_id, uint8_t mbox_id, uint16_t channel) :
-		cm_base(name, mport_id, mbox_id, channel), client_socket(0)
+	cm_client(const char *name, int mport_id, uint8_t mbox_id,
+		  uint16_t channel, bool *shutting_down) :
+		cm_base(name, mport_id, mbox_id, channel, shutting_down),
+		client_socket(0)
 	{
 		/* Create mailbox, throw exception if failed */
 		DBG("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
@@ -411,8 +419,8 @@ public:
 	} /* Constructor */
 
 	/* construct from client socket only */
-	cm_client(const char *name, riomp_sock_t socket) :
-		cm_base(name, 0, 0, 0), client_socket(socket)
+	cm_client(const char *name, riomp_sock_t socket, bool *shutting_down) :
+		cm_base(name, 0, 0, 0, shutting_down), client_socket(socket)
 	{
 	}
 

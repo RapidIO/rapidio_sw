@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
+#include <signal.h>
 
 #include "test_macros.h"
 
@@ -250,6 +251,23 @@ destroy_msoh:
 	CHECK(status, "rdma_destroy_mso_h");
 } /* test_case5() */
 
+void sig_handler(int sig)
+{
+	switch (sig) {
+	case SIGQUIT:	/* ctrl-\ */
+	case SIGINT:	/* ctrl-c */
+	case SIGABRT:	/* abort() */
+	case SIGTERM:	/* kill <pid> */
+	break;
+
+	break;
+
+	default:
+		puts("UNKNOWN SIGNAL");
+	}
+	exit(0);
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
@@ -260,6 +278,18 @@ int main(int argc, char *argv[])
 		puts("rdmad -h -d<destid>");
 		exit(1);
 	}
+
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
+	sigaction(SIGTERM, &sig_action, NULL);
+	sigaction(SIGQUIT, &sig_action, NULL);
+	sigaction(SIGABRT, &sig_action, NULL);
+	sigaction(SIGUSR1, &sig_action, NULL);
+
 	while ((c = getopt(argc, argv, "hd:")) != -1)
 		switch (c) {
 		case 'd':

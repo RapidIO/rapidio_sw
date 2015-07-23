@@ -11,6 +11,11 @@
 				goto free_bat_server; \
 			}
 
+#define CHECK_BROKEN_PIPE(ret) 	if ((ret) == EPIPE) { \
+					printf("DAEMON has died/restarted..Exiting\n"); \
+					delete bat_server; \
+					exit(1); \
+				}
 /*
  * TODO: Multiple threads for receiving client test signalling commands
  * allowing multiple connections to memory spaces */
@@ -18,9 +23,11 @@
 using namespace std;
 
 cm_server	*bat_server;
+bool shutting_down = false;
 
 void sig_handler(int sig)
 {
+	shutting_down = true;
 	printf("Got sig(%d) ..exiting\n", sig);
 	delete bat_server;
 	exit(0);
@@ -65,7 +72,11 @@ int main(int argc, char *argv[])
 
 	while (1) {
 		try {
-			bat_server = new cm_server("bat_server", BAT_MPORT_ID, BAT_MBOX_ID, channel);
+			bat_server = new cm_server("bat_server",
+					BAT_MPORT_ID,
+					BAT_MBOX_ID,
+					channel,
+					&shutting_down);
 		}
 		catch(cm_exception e) {
 			fprintf(stderr, "bat_server: %s\n", e.err);
@@ -104,6 +115,7 @@ int main(int argc, char *argv[])
 				bm_tx->create_mso_ack.ret = rdma_create_mso_h(
 						bm_rx->create_mso.name,
 						&bm_tx->create_mso_ack.msoh);
+				CHECK_BROKEN_PIPE(bm_tx->create_mso_ack.ret);
 				bm_tx->type = CREATE_MSO_ACK;
 				BAT_SEND();
 				break;
@@ -111,6 +123,7 @@ int main(int argc, char *argv[])
 			case DESTROY_MSO:
 				bm_tx->destroy_mso_ack.ret = rdma_destroy_mso_h(
 							bm_rx->destroy_mso.msoh);
+				CHECK_BROKEN_PIPE(bm_tx->destroy_mso_ack.ret);
 				bm_tx->type = DESTROY_MSO_ACK;
 				BAT_SEND();
 				break;
@@ -119,6 +132,7 @@ int main(int argc, char *argv[])
 				bm_tx->open_mso_ack.ret = rdma_open_mso_h(
 							bm_rx->open_mso.name,
 							&bm_tx->open_mso_ack.msoh);
+				CHECK_BROKEN_PIPE(bm_tx->open_mso_ack.ret);
 				bm_tx->type = OPEN_MSO_ACK;
 				BAT_SEND();
 				break;
@@ -126,6 +140,7 @@ int main(int argc, char *argv[])
 			case CLOSE_MSO:
 				bm_tx->close_mso_ack.ret = rdma_close_mso_h(
 							bm_rx->close_mso.msoh);
+				CHECK_BROKEN_PIPE(bm_tx->close_mso_ack.ret);
 				bm_tx->type = CLOSE_MSO_ACK;
 				BAT_SEND();
 				break;
@@ -138,6 +153,7 @@ int main(int argc, char *argv[])
 							bm_rx->create_ms.flags,
 							&bm_tx->create_ms_ack.msh,
 							NULL);
+				CHECK_BROKEN_PIPE(bm_tx->create_ms_ack.ret);
 				bm_tx->type = CREATE_MS_ACK;
 				BAT_SEND();
 				break;
@@ -149,6 +165,7 @@ int main(int argc, char *argv[])
 							bm_rx->open_ms.flags,
 							(uint32_t *)&bm_tx->open_ms_ack.size,
 							&bm_tx->open_ms_ack.msh);
+				CHECK_BROKEN_PIPE(bm_tx->open_ms_ack.ret);
 				bm_tx->type = OPEN_MS_ACK;
 				BAT_SEND();
 				break;
@@ -157,6 +174,7 @@ int main(int argc, char *argv[])
 				bm_tx->close_ms_ack.ret = rdma_close_ms_h(
 							bm_rx->close_ms.msoh,
 							bm_rx->close_ms.msh);
+				CHECK_BROKEN_PIPE(bm_tx->close_ms_ack.ret);
 				bm_tx->type = CLOSE_MS_ACK;
 				BAT_SEND();
 				break;
@@ -168,6 +186,7 @@ int main(int argc, char *argv[])
 							bm_rx->create_msub.req_size,
 							bm_rx->create_msub.flags,
 							&bm_tx->create_msub_ack.msubh);
+				CHECK_BROKEN_PIPE(bm_tx->create_msub_ack.ret);
 				bm_tx->type = CREATE_MSUB_ACK;
 				BAT_SEND();
 				break;
@@ -177,11 +196,12 @@ int main(int argc, char *argv[])
 					uint32_t dummy_client_msub_len;
 					msub_h	 dummy_client_msubh;
 					/* This call is blocking. */
-					rdma_accept_ms_h(bm_rx->accept_ms.server_msh,
+					int ret = rdma_accept_ms_h(bm_rx->accept_ms.server_msh,
 							 bm_rx->accept_ms.server_msubh,
 							 &dummy_client_msubh,
 							 &dummy_client_msub_len,
-							 0);
+							 30);
+					CHECK_BROKEN_PIPE(ret);
 				}
 				break;
 

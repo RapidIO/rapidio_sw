@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
-#include <rpc/pmap_clnt.h>
 #include <string.h>
 #include <memory.h>
 #include <sys/socket.h>
@@ -50,11 +49,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cm_sock.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"
+#include "ts_map.h"
 
+#include "rdmad_cm.h"
+#include "rdmad_inbound.h"
+#include "rdmad_ms_owners.h"
 #include "rdmad_peer_utils.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_clnt_threads.h"
-#include "rdmad_svc.h"
 #include "rdmad_console.h"
 #include "rdmad_fm.h"
 #include "libcli.h"
@@ -64,6 +66,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 struct peer_info	peer;
 
 using namespace std;
+
+/* Memory Space Owner data */
+ms_owners owners;
+
+/* Inbound space */
+inbound *the_inbound;
+
+/* Global flag for shutting down */
+bool shutting_down = false;
+
+/* Map of accept messages awaiting connect. Keyed by message queue name */
+ts_map<string, cm_accept_msg>	accept_msg_map;
+
+/* List of queue names awaiting accept */
+ts_vector<string>	wait_accept_mq_names;
 
 static 	pthread_t console_thread;
 static	pthread_t prov_thread;
@@ -106,7 +123,7 @@ void *rpc_thread_f(void *arg)
 
 	rpc_ti *ti = (rpc_ti *)arg;
 
-	INFO("Creating other server object...\n");
+	DBG("Creating application-specific server object...\n");
 	unix_server *other_server;
 	try {
 		other_server = new unix_server("other_server", ti->accept_socket);
@@ -143,7 +160,6 @@ void *rpc_thread_f(void *arg)
 					out_msg->get_mport_id_out.mport_id = peer.mport_id;
 					out_msg->get_mport_id_out.status = 0;
 					out_msg->type = GET_MPORT_ID_ACK;
-					DBG("GET_MPORT_ID done\n");
 				}
 				break;
 
@@ -156,7 +172,6 @@ void *rpc_thread_f(void *arg)
 
 					int ret = owners.create_mso(in->owner_name, &out->msoid);
 					out->status = (ret > 0) ? 0 : ret;
-					DBG("CREATE_MSO done\n");
 				}
 				break;
 
@@ -171,7 +186,6 @@ void *rpc_thread_f(void *arg)
 							&out->msoid,
 							&out->mso_conn_id);
 					out->status = (ret > 0) ? 0 : ret;
-					DBG("OPEN_MSO done\n");
 				}
 				break;
 
@@ -184,7 +198,6 @@ void *rpc_thread_f(void *arg)
 
 					int ret = owners.close_mso(in->msoid, in->mso_conn_id);
 					out->status = (ret > 0) ? 0 : ret;
-					DBG("CLOSE_MSO done\n");
 				}
 				break;
 
@@ -195,14 +208,15 @@ void *rpc_thread_f(void *arg)
 					destroy_mso_output *out = &out_msg->destroy_mso_out;
 					out_msg->type = DESTROY_MSO_ACK;
 
-					DBG("in->msoid = 0x%X\n", in->msoid);
 					ms_owner *owner;
 
 					try {
 						owner = owners[in->msoid];
-						/* Check if the memory space owner
-						 * still owns memory spaces */
-						if (owner->owns_mspaces()) {
+						if (owner==nullptr) {
+							ERR("Invalid msoid(0x%X)\n",
+									in->msoid);
+							out->status = -1;
+						} else if (owner->owns_mspaces()) {
 							WARN("msoid(0x%X) owns spaces!\n",
 										in->msoid);
 							out->status = -1;
@@ -222,7 +236,6 @@ void *rpc_thread_f(void *arg)
 								in->msoid);
 						out->status = -1;
 					}
-					DBG("DESTROY_MSO done\n");
 				}
 				break;
 
@@ -247,7 +260,6 @@ void *rpc_thread_f(void *arg)
 					if (!out->status)
 						/* Add the memory space handle to owner */
 						owners[in->msoid]->add_msid(out->msid);
-					DBG("CREATE_MS done\n");
 				}
 				break;
 
@@ -270,7 +282,6 @@ void *rpc_thread_f(void *arg)
 					DBG("the_inbound->open_mspace(%s) %s\n",
 							in->ms_name,
 							out->status ? "FAILED":"PASSED");					out_msg->open_ms_out = *out;
-					DBG("OPEN_MS done\n");
 				}
 				break;
 
@@ -288,28 +299,11 @@ void *rpc_thread_f(void *arg)
 						ERR("Could not find mspace with msid(0x%X)\n",
 										in->msid);
 						out->status = -1;
-						break;
+					} else {
+						/* Now close the memory space */
+						int ret = ms->close(in->ms_conn_id);
+						out->status = (ret > 0) ? 0 : ret;
 					}
-
-					/* Before closing the memory space, tell the clients the memory space
-					 *  that it is being closed and have them acknowledge that */
-					out->status = close_or_destroy_action(ms);
-					if (out->status) {
-						ERR("Failed in close_or_destroy_action\n");
-						break;
-					}
-					/* If the memory space was in accepted state, clear that state */
-					/* FIXME: This assumes only 1 'open' to the ms and that the creator
-					 * of the ms does not call 'accept' on it. */
-					ms->set_accepted(false);
-
-					/* Now close the memory space */
-					int ret = the_inbound->close_mspace(in->msid,
-									in->ms_conn_id);
-					out->status = (ret > 0) ? 0 : ret;
-					DBG("the_inbound->close_mspace() %s\n",
-							out->status ? "FAILED":"PASSED");
-					DBG("CLOSE_MS done\n");
 				}
 				break;
 
@@ -320,47 +314,14 @@ void *rpc_thread_f(void *arg)
 					destroy_ms_output *out = &out_msg->destroy_ms_out;
 					out_msg->type = DESTROY_MS_ACK;
 
-					mspace *ms = the_inbound->get_mspace(in->msid);
+					mspace *ms = the_inbound->get_mspace(in->msoid, in->msid);
 					if (!ms) {
 						ERR("Could not find mspace with msid(0x%X)\n", in->msid);
 						out->status = -1;
-						break;
+					} else {
+						/* Now destroy the memory space */
+						out->status = ms->destroy();
 					}
-
-					/* Before destroying a memory space, tell its clients that it is being
-					 * destroyed and have them acknowledge that */
-					out->status = close_or_destroy_action(ms);
-					if (out->status) {
-						ERR("Failed in close_or_destroy_action\n");
-						break;
-					}
-
-					/* Now destroy the memory space */
-					int ret  = the_inbound->destroy_mspace(in->msoid, in->msid);
-					out->status = (ret > 0) ? 0 : ret;
-
-					/* Remove memory space identifier from owner */
-					if (!out->status) {
-						ms_owner *owner;
-						try {
-							owner = owners[in->msoid];
-						}
-						catch(...) {
-							ERR("Failed to find owner(0x%X\n",
-									in->msoid);
-							out->status = -10;
-							break;
-						}
-						if (!owner) {
-							ERR("Failed to find owner(0x%X\n",
-									in->msoid);
-							out->status = -11;
-						} else  if (owner->remove_msid(in->msid) < 0) {
-							WARN("Failed to remove msid from owner\n");
-							out->status = -12;
-						}
-					}
-					DBG("DESTROY_MS done\n");
 				}
 				break;
 
@@ -384,7 +345,6 @@ void *rpc_thread_f(void *arg)
 								out->msubid,
 								out->bytes,
 								out->rio_addr);
-					DBG("CREATE_MSUB done\n");
 				}
 				break;
 
@@ -397,13 +357,12 @@ void *rpc_thread_f(void *arg)
 
 					int ret = the_inbound->destroy_msubspace(in->msid, in->msubid);
 					out->status = (ret > 0) ? 0 : ret;
-
-					DBG("DESTROY_MSUB done\n");
 				}
 				break;
 
 				case ACCEPT_MS:
 				{
+					DBG("ACCEPT_MS\n");
 					accept_input  *in = &in_msg->accept_in;
 					accept_output *out = &out_msg->accept_out;
 					out_msg->type = ACCEPT_MS_ACK;
@@ -459,6 +418,7 @@ void *rpc_thread_f(void *arg)
 
 				case UNDO_ACCEPT:
 				{
+					DBG("UNDO_ACCEPT\n");
 					undo_accept_input *in = &in_msg->undo_accept_in;
 					undo_accept_output *out = &out_msg->undo_accept_out;
 					out_msg->type = UNDO_ACCEPT_ACK;
@@ -497,6 +457,7 @@ void *rpc_thread_f(void *arg)
 
 				case SEND_CONNECT:
 				{
+					DBG("SEND_CONNECT\n");
 					send_connect_input *in = &in_msg->send_connect_in;
 					send_connect_output *out = &out_msg->send_connect_out;
 					out_msg->type = SEND_CONNECT_ACK;
@@ -558,6 +519,7 @@ void *rpc_thread_f(void *arg)
 
 				case UNDO_CONNECT:
 				{
+					DBG("UNDO_CONNECT\n");
 					undo_connect_input *in = &in_msg->undo_connect_in;
 					undo_connect_output *out = &out_msg->undo_connect_out;
 					out_msg->type = UNDO_CONNECT_ACK;
@@ -574,6 +536,7 @@ void *rpc_thread_f(void *arg)
 
 				case SEND_DISCONNECT:
 				{
+					DBG("SEND_DISCONNECT\n");
 					send_disconnect_input *in = &in_msg->send_disconnect_in;
 					send_disconnect_output *out = &out_msg->send_disconnect_out;
 					out_msg->type = SEND_DISCONNECT_ACK;
@@ -594,7 +557,8 @@ void *rpc_thread_f(void *arg)
 					}
 					sem_post(&hello_daemon_info_list_sem);
 
-					/* Obtain pointer to socket object already connected to destid */
+					/* Obtain pointer to socket object
+					 * already connected to destid */
 					cm_client *the_client = it->client;
 
 					cm_disconnect_msg *disc_msg;
@@ -623,28 +587,26 @@ void *rpc_thread_f(void *arg)
 				break;
 
 				default:
-					ERR("UNKNOWN MESSAGE TYPE: 0x%X\n", in_msg->type);
+					CRIT("UNKNOWN MESSAGE TYPE: 0x%X\n", in_msg->type);
 			} /* switch */
 
 			if (other_server->send(sizeof(unix_msg_t))) {
 				CRIT("Failed to send API output parameters back to library\n");
 				delete other_server;
 				pthread_exit(0);
-			} else {
-				DBG("API processing completed!\n");
 			}
 		} else {
-			HIGH("RDMA library has closed connection!\n");
+			HIGH("Application has closed connection. Exiting!\n");
 			pthread_exit(0);
 		}
 	} /* while */
 	pthread_exit(0);
-}
+} /* rpc_thread_f() */
 
 int run_rpc_alternative()
 {
 	/* Create a server */
-	DBG("Creating server object...\n");
+	DBG("Creating Unix socket server object...\n");
 	try {
 		server = new unix_server();
 	}
@@ -653,18 +615,16 @@ int run_rpc_alternative()
 		return 1;
 	}
 
-	/* Wait for client to connect */
-	DBG("Wait for client to connect..\n");
-
 	while (1) {
+		/* Wait for client to connect */
+		HIGH("Waiting for (another) RDMA application to connect..\n");
 		if (server->accept()) {
 			CRIT("Failed to accept\n");
 			delete server;
 			return 2;
 		}
-
+		HIGH("Application connected!\n");
 		int accept_socket = server->get_accept_socket();
-		DBG("After accept() call, accept_socket = 0x%X\n", accept_socket);
 
 		rpc_ti	*ti;
 		try {
@@ -676,6 +636,7 @@ int run_rpc_alternative()
 			return 3;
 		}
 
+		/* Create thread that will handle requests from the new application */
 		int ret = pthread_create(&ti->tid,
 					 NULL,
 					 rpc_thread_f,
@@ -686,51 +647,79 @@ int run_rpc_alternative()
 			delete ti;
 			return -6;
 		}
+		/* Wait for RPC processing thread to start */
 		sem_wait(&ti->started);
 	} /* while */
 } /* run_rpc_alternative() */
 
 void shutdown(struct peer_info *peer)
 {
+	int	ret = 0;
+
 	/* Kill the threads */
 	shutting_down = true;
-
-	/* Next, kill provisioning thread */
-	int ret = pthread_kill(prov_thread, SIGUSR1);
-	if (ret == EINVAL) {
-		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
-	}
-	pthread_join(prov_thread, NULL);
-
-	/* Kill the fabric management thread */
-	halt_fm_thread();
-
-	/* Kill threads for remote daemons provisioned via incoming HELLO */
-	for (auto it = begin(prov_daemon_info_list);
-	    it != end(prov_daemon_info_list);
-	    it++) {
-		pthread_kill(it->tid, SIGUSR1);
-		if (ret == EINVAL) {
-			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
-		}
-		pthread_join(it->tid, NULL);
-	}
-
-	/* Kill threads for remote daemons provisioned via outgoing HELLO */
-	for (auto it = begin(hello_daemon_info_list);
-	    it != end(hello_daemon_info_list);
-	    it++) {
-		pthread_kill(it->tid, SIGUSR1);
-		if (ret == EINVAL) {
-			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
-		}
-		pthread_join(it->tid, NULL);
-	}
 
 	/* Delete the inbound object */
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
 
+	/* Kill threads for remote daemons provisioned via incoming HELLO */
+	HIGH("Killing remote daemon threads provisioned via incoming HELLO\n");
+	sem_wait(&prov_daemon_info_list_sem);
+	for (auto it = begin(prov_daemon_info_list);
+	    it != end(prov_daemon_info_list);
+	    it++) {
+		/* We must post the semaphore so that the thread can access
+		 * the list. Otherwise we'll have a deadlock with the thread waiting
+		 * on the semaphore while we wait in pthread_join below!
+		 */
+		sem_post(&prov_daemon_info_list_sem);
+		ret = pthread_kill(it->tid, SIGUSR1);
+		if (ret == EINVAL) {
+			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+		}
+		pthread_join(it->tid, NULL);
+		/* Thread has terminated and posted the semaphore. Lock again */
+		sem_wait(&prov_daemon_info_list_sem);
+	}
+	prov_daemon_info_list.clear();	/* Not really needed; we are exiting anyway */
+	sem_post(&prov_daemon_info_list_sem);
+
+	/* Kill threads for remote daemons provisioned via outgoing HELLO */
+	HIGH("Killing remote daemon threads provisioned via outgoing HELLO\n");
+	sem_wait(&hello_daemon_info_list_sem);
+	for (auto it = begin(hello_daemon_info_list);
+	    it != end(hello_daemon_info_list);
+	    it++) {
+		/* We must post the semaphore so that the thread can access
+		 * the list. Otherwise we'll have a deadlock with the thread waiting
+		 * on the semaphore while we wait in pthread_join below!
+		 */
+		sem_post(&hello_daemon_info_list_sem);
+		ret = pthread_kill(it->tid, SIGUSR1);
+		if (ret == EINVAL) {
+			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+		}
+		pthread_join(it->tid, NULL);
+		/* Thread has terminated and posted the semaphore. Lock again */
+		sem_wait(&hello_daemon_info_list_sem);
+	}
+	hello_daemon_info_list.clear();	/* Not really needed; we are exiting anyway */
+	sem_post(&hello_daemon_info_list_sem);
+
+	/* Next, kill provisioning thread */
+	HIGH("Killing provisioning thread\n");
+	ret = pthread_kill(prov_thread, SIGUSR1);
+	if (ret == EINVAL) {
+		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+	}
+	pthread_join(prov_thread, NULL);
+	HIGH("Provisioning thread is dead\n");
+
+	/* Kill the fabric management thread */
+	HIGH("Killing fabric management thread\n");
+	halt_fm_thread();
+	HIGH("Fabric management thread is dead\n");
 	/* Close mport device */
 	if (peer->mport_fd > 0) {
 		INFO("Closing mport fd\n");
@@ -742,24 +731,32 @@ void shutdown(struct peer_info *peer)
 	exit(1);
 } /* shutdown() */
 
-void end_handler(int sig)
+void sig_handler(int sig)
 {
 	switch (sig) {
-	case SIGQUIT:
-		puts("SIGQUIT");
+
+	case SIGQUIT:	/* ctrl-\ */
+		puts("SIGQUIT - CTRL-\\ signal");
 	break;
-	case SIGINT:
-		puts("SIGINT");
+
+	case SIGINT:	/* ctrl-c */
+		puts("SIGINT - CTRL-C signal");
 	break;
-	case SIGABRT:
-		puts("SIGABRT");
+
+	case SIGABRT:	/* abort() */
+		puts("SIGABRT - abort() signal");
 	break;
-	case SIGUSR1:
-		puts("SIGUSR1");
-		return;
+
+	case SIGTERM:	/* kill <pid> */
+		puts("SIGTERM - kill <pid> signal");
 	break;
+
+	case SIGUSR1:	/* pthread_kill() */
+	/* Ignore signal */
+	return;
+
 	default:
-		puts("UNKNOWN SIGNAL");
+		printf("UNKNOWN SIGNAL (%d)\n", sig);
 	}
 
 	owners.dump_info();
@@ -788,11 +785,16 @@ int main (int argc, char **argv)
 	if (!foreground())
 		peer.run_cons = 0;
 
-	/* Register end handler */
-	signal(SIGQUIT, end_handler);
-	signal(SIGINT, end_handler);
-	signal(SIGABRT, end_handler);
-	signal(SIGUSR1, end_handler);
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
+	sigaction(SIGTERM, &sig_action, NULL);
+	sigaction(SIGQUIT, &sig_action, NULL);
+	sigaction(SIGABRT, &sig_action, NULL);
+	sigaction(SIGUSR1, &sig_action, NULL);
 
 	/* Parse command-line parameters */
 	while ((c = getopt(argc, argv, "hnc:m:")) != -1)

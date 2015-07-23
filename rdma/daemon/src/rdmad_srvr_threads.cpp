@@ -32,7 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <stdint.h>
 
-#include <mqueue.h>
 #include <semaphore.h>
 #include <pthread.h>
 
@@ -42,11 +41,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "rdmad_cm.h"
 #include "rdma_mq_msg.h"
+#include "msg_q.h"
 #include "cm_sock.h"
 #include "ts_vector.h"
 
 #include "rdmad_main.h"
-#include "rdmad_svc.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_clnt_threads.h"
 #include "rdmad_peer_utils.h"
@@ -96,7 +95,6 @@ void *wait_conn_disc_thread_f(void *arg)
 			CRIT("Failed to receive HELLO message: %s. EXITING\n",
 							strerror(ret));
 		}
-		delete prov_server;
 		free(wcdti);
 		pthread_exit(0);
 	}
@@ -107,20 +105,6 @@ void *wait_conn_disc_thread_f(void *arg)
 
 	uint32_t remote_destid = hello_msg->destid;
 
-	/* If destid already in our list, just exit thread */
-	sem_wait(&prov_daemon_info_list_sem);
-	auto it = find(begin(prov_daemon_info_list),
-		       end(prov_daemon_info_list), remote_destid);
-	if (it != end(prov_daemon_info_list)) {
-		WARN("Received HELLO msg for known destid(0x%X). EXITING\n",
-						remote_destid);
-		sem_post(&prov_daemon_info_list_sem);
-		delete prov_server;
-		free(wcdti);
-		pthread_exit(0);
-	}
-	sem_post(&prov_daemon_info_list_sem);
-
 	/* Send HELLO ACK withour own destid */
 	prov_server->get_send_buffer((void **)&hello_msg);
 	prov_server->flush_send_buffer();
@@ -128,21 +112,31 @@ void *wait_conn_disc_thread_f(void *arg)
 	if (prov_server->send()) {
 		CRIT("Failed to send HELLO_ACK message: %s. EXITING\n",
 							strerror(ret));
-		delete prov_server;
 		free(wcdti);
 		pthread_exit(0);
 	}
 	DBG("Sent HELLO_ACK message back\n");
 
+	/* If destid already in our list, kill its thread; we are replacing it */
+	sem_wait(&prov_daemon_info_list_sem);
+	auto it = find(begin(prov_daemon_info_list),
+		       end(prov_daemon_info_list), remote_destid);
+	if (it != end(prov_daemon_info_list)) {
+		WARN("Killing thread for known destid(0x%X).\n",
+						remote_destid);
+		pthread_kill(it->tid, SIGUSR1);
+	}
+	sem_post(&prov_daemon_info_list_sem);
+
 	/* Create CM server object based on the accept socket */
 	cm_server *rx_conn_disc_server;
 	try {
 		rx_conn_disc_server = new cm_server("rx_conn_disc_server",
-				prov_server->get_accept_socket());
+				prov_server->get_accept_socket(),
+				&shutting_down);
 	}
 	catch(cm_exception e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
-		delete prov_server;
 		free(wcdti);
 		pthread_exit(0);
 	}
@@ -161,46 +155,49 @@ void *wait_conn_disc_thread_f(void *arg)
 	prov_daemon_info_list.push_back(*pdi);
 	sem_post(&prov_daemon_info_list_sem);
 	DBG("prov_daemon_info_list now has %u destids\n", prov_daemon_info_list.size());
+
+	free(pdi);
+
 	/* Tell prov_thread that we started so it can start accepting
 	 * from other sockets without waiting for this one to get a HELLO.
 	 */
 	sem_post(&wcdti->started);
 
-	free(pdi);	/* We have a copy in prov_daemon_info_list */
 
 	while(1) {
 		int	ret;
 		/* Receive CONNECT_MS, or DISCONNECT_MS */
-		DBG("Entering receive() on rx_conn_disc_server...\n");
+		DBG("Waiting for CONNECT_MS or DISCONNECT_MS\n");
 		ret = rx_conn_disc_server->receive();
 		if (ret) {
 			if (ret == EINTR) {
-				WARN("pthread_kill() called. Exiting!\n");
+				WARN("pthread_kill() called\n");
 			} else {
 				CRIT("Failed to receive on rx_conn_disc_server: %s\n",
 								strerror(ret));
 			}
+
+			/* Delete the cm_server object */
 			delete rx_conn_disc_server;
-			/* Remote daemon is gone. Remote it from our list. It needs to
-			 * provision again in order for another instance of this thread
-			 * is created for it.
+
+			/* If we just failed to receive() then we should also
+			 * clear the entry in prov_daemon_info_list. If we are
+			 * shutting down, the shutdown function would be accessing
+			 * the list so we should NOT erase an element from it.
 			 */
-			it = find(begin(prov_daemon_info_list),
-				       end(prov_daemon_info_list), remote_destid);
-			if (it != end(prov_daemon_info_list)) {
-				CRIT("destid(0x%X) removed from prov_daemon_list\n",
-								remote_destid);
-				prov_daemon_info_list.erase(it);
+			if (!shutting_down) {
+				/* Remove the corresponding entry from the
+				 * prov_daemon_info_list */
+				WARN("Removing entry from prov_daemon_info_list\n");
+				sem_wait(&prov_daemon_info_list_sem);
+				auto it = find(begin(prov_daemon_info_list),
+					       end(prov_daemon_info_list),
+					       remote_destid);
+				if (it != end(prov_daemon_info_list))
+					prov_daemon_info_list.erase(it);
+				sem_post(&prov_daemon_info_list_sem);
 			}
-			auto hit = find(begin(hello_daemon_info_list),
-					end(hello_daemon_info_list),
-					remote_destid);
-			if (hit != end(hello_daemon_info_list)) {
-				CRIT("destid(0x%X) removed from hello_daemon_list\n",
-									remote_destid);
-				hello_daemon_info_list.erase(hit);
-			}
-			CRIT("Exiting %s\n", __func__);
+			CRIT("Exiting thread\n");
 			pthread_exit(0);
 		}
 
@@ -226,22 +223,14 @@ void *wait_conn_disc_thread_f(void *arg)
 				continue;
 			}
 
-			/* Send 'connect' POSIX message contents to the RDMA library */
-			struct mq_connect_msg	connect_msg;
-			memset(&connect_msg, 0, sizeof(connect_msg));	/* For Valgrind */
-			connect_msg.rem_msid		= conn_msg->client_msid;
-			connect_msg.rem_msubid		= conn_msg->client_msubid;
-			connect_msg.rem_bytes		= conn_msg->client_bytes;
-			connect_msg.rem_rio_addr_len	= conn_msg->client_rio_addr_len;
-			connect_msg.rem_rio_addr_lo	= conn_msg->client_rio_addr_lo;
-			connect_msg.rem_rio_addr_hi	= conn_msg->client_rio_addr_hi;
-			connect_msg.rem_destid_len	= conn_msg->client_destid_len;
-			connect_msg.rem_destid		= conn_msg->client_destid;
-
 			/* Open message queue */
-			mqd_t connect_msg_mq = mq_open(mq_name, O_RDWR, 0644, &attr);
-			if (connect_msg_mq == (mqd_t)-1) {
-				ERR("mq_open() failed: %s\n", strerror(errno));
+			msg_q<mq_connect_msg>	*connect_mq;
+			try {
+				connect_mq = new msg_q<mq_connect_msg>(mq_name, MQ_OPEN);
+
+			}
+			catch(msg_q_exception e) {
+				ERR("Failed to open connect_mq: %s\n", e.msg.c_str());
 				/* Don't remove MS from accept_msg_map; the
 				 * client may retry connecting. However, don't also
 				 * send an ACCEPT_MS since the server didn't get
@@ -250,14 +239,22 @@ void *wait_conn_disc_thread_f(void *arg)
 			}
 			DBG("Opened POSIX message queue: '%s'\n", mq_name);
 
+			/* Send 'connect' POSIX message contents to the RDMA library */
+			mq_connect_msg	*connect_msg;
+			connect_mq->get_send_buffer(&connect_msg);
+			connect_msg->rem_msid		= conn_msg->client_msid;
+			connect_msg->rem_msubid		= conn_msg->client_msubid;
+			connect_msg->rem_bytes		= conn_msg->client_bytes;
+			connect_msg->rem_rio_addr_len	= conn_msg->client_rio_addr_len;
+			connect_msg->rem_rio_addr_lo	= conn_msg->client_rio_addr_lo;
+			connect_msg->rem_rio_addr_hi	= conn_msg->client_rio_addr_hi;
+			connect_msg->rem_destid_len	= conn_msg->client_destid_len;
+			connect_msg->rem_destid		= conn_msg->client_destid;
+
 			/* Send connect message to RDMA library/app */
-			ret = mq_send(connect_msg_mq,
-				      (const char *)&connect_msg,
-				      sizeof(struct mq_connect_msg),
-				      1);
-			if (ret < 0) {
-				ERR("mq_send failed: %s\n", strerror(errno));
-				mq_close(connect_msg_mq);
+			if (connect_mq->send()) {
+				ERR("connect_mq->send() failed: %s\n", strerror(errno));
+				delete connect_mq;
 				/* Don't remove MS from accept_msg_map; the
 				 * client may retry connecting. However, don't also
 				 * send an ACCEPT_MS since the server didn't get
@@ -265,7 +262,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				continue;
 			}
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()n");
-			mq_close(connect_msg_mq);
+			delete connect_mq;
 
 			/* Request a send buffer */
 			void *cm_send_buf;
@@ -401,7 +398,8 @@ void *prov_thread_f(void *arg)
 		prov_server = new cm_server("prov_server",
 					peer->mport_id,
 					peer->prov_mbox_id,
-					peer->prov_channel);
+					peer->prov_channel,
+					&shutting_down);
 	}
 	catch(cm_exception e) {
 		CRIT("Failed to create prov_server: %s. EXITING\n", e.err);

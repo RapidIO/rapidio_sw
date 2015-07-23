@@ -44,10 +44,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <sstream>
 
+#include "cm_sock.h"
+#include "rdmad_cm.h"
 #include "rdma_mq_msg.h"
 #include "rdmad_mspace.h"
 #include "rdmad_msubspace.h"
+#include "rdmad_ms_owner.h"
+#include "rdmad_ms_owners.h"
 #include "rdmad_functors.h"
+#include "rdmad_srvr_threads.h"
+#include "rdmad_main.h"
 
 struct send_close_msg {
 	send_close_msg(uint32_t msid) :	ok(true),
@@ -92,27 +98,97 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 	}
 } /* constructor */
 
-void mspace::destroy()
+mspace::~mspace()
 {
-	/* Close connections, if any */
-	if (close_connections()) {
-		WARN("Connection(s) to msid(0x%X) did not close\n", msid);
+	if (!free)
+		destroy();
+} /* destructor */
+
+int mspace::notify_remote_clients()
+{
+	DBG("msid(0x%X) '%s' has %u destids associated therewith\n",
+		msid, name.c_str(), destids.size());
+
+	/* For each element in the destids list, send a destroy message */
+	for (auto it = begin(destids); it != end(destids); it++) {
+		uint32_t destid = *it;
+
+		/* Need to use a 'prov' socket to send the CM_DESTROY_MS */
+		sem_wait(&prov_daemon_info_list_sem);
+		auto prov_it = find(begin(prov_daemon_info_list),
+				end(prov_daemon_info_list), destid);
+		if (prov_it == end(prov_daemon_info_list)) {
+			ERR("Could not find entry for destid(0x%X)\n", destid);
+			sem_post(&prov_daemon_info_list_sem);
+			continue;	/* Better luck next time? */
+		}
+		if (!prov_it->conn_disc_server) {
+			ERR("conn_disc_server for destid(0x%X) is NULL", destid);
+			sem_post(&prov_daemon_info_list_sem);
+			continue;	/* Better luck next time? */
+		}
+		cm_server *destroy_server = prov_it->conn_disc_server;
+		sem_post(&prov_daemon_info_list_sem);
+
+		/* Prepare destroy message */
+		cm_destroy_msg	*dm;
+		destroy_server->get_send_buffer((void **)&dm);
+		dm->type	= CM_DESTROY_MS;
+		strcpy(dm->server_msname, name.c_str());
+		dm->server_msid = msid;
+
+		/* Send to remote daemon @ 'destid' */
+		if (destroy_server->send()) {
+			WARN("Failed to send destroy to destid(0x%X)\n", destid);
+			continue;
+		}
+		INFO("Sent cm_destroy_msg for %s to remote daemon on destid(0x%X)\n",
+						dm->server_msname, destid);
+
+		/* Wait for destroy acknowledge message, but with timeout.
+		 * If no ACK within say 1 second, then move on */
+		cm_destroy_ack_msg *dam;
+		destroy_server->flush_recv_buffer();
+		destroy_server->get_recv_buffer((void **)&dam);
+		if (destroy_server->timed_receive(1000)) {
+			/* In this case whether the return value is ETIME or a failure
+			 * code is irrelevant. The main thing is NOT to be stuck here.
+			 */
+			ERR("Did not receive destroy_ack from destid(0x%X)\n", *it);
+			continue;
+		}
+		if (dam->server_msid != dm->server_msid)
+			ERR("Received destroy_ack with wrong msid(0x%X)\n",
+							dam->server_msid);
+		else {
+			HIGH("destroy_ack received from daemon destid(0x%X)\n", *it);
+		}
+	} /* for() */
+	return 0;
+} /* notify_remote_clients() */
+
+int mspace::destroy()
+{
+	/* Before destroying a memory space, tell its clients that it is being
+	 * destroyed and have them acknowledge that. Then remove their destids */
+	if (notify_remote_clients()) {
+		WARN("Failed to notify some or all remote clients\n");
+		return -1;
 	}
-
-	/* Is it safe to close the message queues right away or do
-	 * we need to wait for an ack message? If the ack doesn't arrive
-	 * should we have a timeout ? TODO */
-	usleep(100000);	/* 100 ms */
-
-	/* Delete message queues before dying! */
-	for(auto mq_ptr: users_mq_list)
-		delete mq_ptr;
-
-	/* NOTE: All destids connected to that memory space were notified
-	 * in destroy_ms_1_svc(). Now clear the list of destids */
 	sem_wait(&destids_sem);
 	destids.clear();
 	sem_post(&destids_sem);
+
+	/* Close connections from other local 'user' applications and
+	 * delete message queues used to communicate with those apps.
+	 */
+	if (close_connections()) {
+		WARN("Connection(s) to msid(0x%X) did not close\n", msid);
+		return -2;
+	}
+	for(auto mq_ptr: users_mq_list)
+		delete mq_ptr;
+
 
 	/* Mark the memory space as free, and having no owner */
 	free = true;
@@ -121,6 +197,26 @@ void mspace::destroy()
 	accepted = false;	/* No connections */
 	DBG("name=%s, msid=0x%08X, rio_addr=0x%lX, size=0x%lX\n",
 					name.c_str(), msid, rio_addr, size);
+
+	/* Remove memory space identifier from owner */
+	ms_owner *owner;
+	try {
+		owner = owners[msoid];
+	}
+	catch(...) {
+		ERR("Failed to find owner msoid(0x%X)\n", msoid);
+		return -3;
+
+	}
+	if (!owner) {
+		ERR("Failed to find owner msoid(0x%X)\n", msoid);
+		return -4;
+	} else  if (owner->remove_msid(msid) < 0) {
+		WARN("Failed to remove msid from owner\n");
+		return -5;
+	}
+
+	return 0;
 } /* destroy() */
 
 void mspace::add_destid(uint16_t destid)
@@ -230,7 +326,7 @@ int mspace::open(uint32_t *msid, uint32_t *ms_open_id, uint32_t *bytes)
 		close_mq = new msg_q<mq_close_ms_msg>(qname.str(), MQ_CREATE);
 	}
 	catch(msg_q_exception e) {
-		e.print();
+		CRIT("Failed to create close_mq: %s\n", e.msg.c_str());
 		return -1;
 	}
 
@@ -270,6 +366,17 @@ private:
 
 int mspace::close(uint32_t ms_open_id)
 {
+	/* Before closing a memory space, tell its clients that it is being
+	 * closed (connection must be dropped) and have them acknowledge. */
+	if (notify_remote_clients()) {
+		WARN("Failed to notify some or all remote clients\n");
+	}
+
+	/* If the memory space was in accepted state, clear that state */
+	/* FIXME: This assumes only 1 'open' to the ms and that the creator
+	 * of the ms does not call 'accept' on it. */
+	accepted = false;
+
 	stringstream    	qname;
 
 	/* Prepare queue name */
