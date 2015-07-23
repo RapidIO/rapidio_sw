@@ -173,21 +173,25 @@ int run_test(uint32_t destid, unsigned ms_number, unsigned count)
 int main(int argc, char *argv[])
 {
 	char c;
-	unsigned i;
-	unsigned count;
-	uint32_t destid;
+	unsigned i = 0;
+	unsigned count = 1;
+	uint32_t destid = ~0;
 
-	while ((c = getopt(argc, argv, "hd:i:")) != -1)
+	/* At a minimum we need the 'destid' and memory space number 'i' */
+	if (argc < 3) {
+		show_help();
+		exit(1);
+	}
+
+	while ((c = getopt(argc, argv, "hc:d:i:")) != -1)
 		switch (c) {
 
 		case 'c':
 			count = atoi(optarg);
-			printf("Doing DMA transfers %d times\n", count);
 			break;
 
 		case 'd':
 			destid = atoi(optarg);
-			printf("Connecting to destid(0x%X)\n", destid);
 			break;
 
 		case 'h':
@@ -197,7 +201,6 @@ int main(int argc, char *argv[])
 
 		case 'i':
 			i = atoi(optarg);
-			printf("Creating %u memory spaces!\n", i);
 			break;
 
 		case '?':
@@ -207,6 +210,21 @@ int main(int argc, char *argv[])
 		default:
 			abort();
 		}
+
+	if (i < 1) {
+		printf("Invalid memory space index %u\n", i);
+		show_help();
+		exit(1);
+	}
+
+	if (destid > 255) {
+		printf("Invalid destid 0x%X\n", destid);
+		show_help();
+		exit(1);
+	}
+
+	puts("Test properties:");
+	printf("mspace('%s%u') on destid(0x%X)\n", MSPACE_PREFIX, i, destid);
 
 	return run_test(destid, i, count);
 } /* main() */
