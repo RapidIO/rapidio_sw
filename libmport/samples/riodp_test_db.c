@@ -71,8 +71,9 @@ static void db_sig_handler(int signum)
 	}
 }
 
-static int do_dbrcv_test(int fd, uint32_t rioid, uint16_t start, uint16_t end)
+static int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start, uint16_t end)
 {
+	/* TODO: check implementation */
 #if 0
 	int ret;
 	struct rio_event evt;
@@ -115,8 +116,9 @@ static int do_dbrcv_test(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 	return 0;
 }
 
-static int do_dbsnd_test(int fd, uint32_t rioid, uint16_t dbval)
+static int do_dbsnd_test(riomp_mport_t hnd, uint32_t rioid, uint16_t dbval)
 {
+	/* TODO: check implementation */
 #if 0
 	struct rio_event evt;
 	int ret = 0;
@@ -181,7 +183,7 @@ int main(int argc, char** argv)
 	uint32_t db_info = 0x5a5a;
 	uint32_t db_start = 0x5a5a;
 	uint32_t db_end = 0x5a5a;
-	int fd;
+	riomp_mport_t mport_hnd;
 	int flags = 0;
 	int option;
 	int do_dbrecv = 0;
@@ -196,6 +198,7 @@ int main(int argc, char** argv)
 	struct riomp_mgmt_mport_properties prop;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
+	int fdes;
 
 	while (1) {
 		option = getopt_long_only(argc, argv,
@@ -244,14 +247,14 @@ int main(int argc, char** argv)
 	action.sa_flags = SA_SIGINFO;
 	sigaction(SIGIO, &action, NULL);
 
-	fd = riomp_mgmt_mport_open(mport_id, flags);
-	if (fd < 0) {
+	rc = riomp_mgmt_mport_create_handle(mport_id, flags, &mport_hnd);
+	if (rc < 0) {
 		printf("DB Test: unable to open mport%d device err=%d\n",
-			mport_id, errno);
+			mport_id, rc);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riomp_mgmt_query(fd, &prop)) {
+	if (!riomp_mgmt_query(mport_hnd, &prop)) {
 		riomp_mgmt_display_info(&prop);
 
 		if (prop.link_speed == 0) {
@@ -264,15 +267,22 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
-	fcntl(fd, F_SETOWN, getpid());
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | FASYNC);
+	rc = riomp_mgmt_get_fd(mport_hnd, &fdes);
+	if (rc) {
+		printf("fileio not supported.\n");
+		rc = EXIT_FAILURE;
+		goto out;
+	}
+
+	fcntl(fdes, F_SETOWN, getpid());
+	fcntl(fdes, F_SETFL, fcntl(fdes, F_GETFL) | FASYNC);
 
 	/* Trap signals that we expect to receive */
 	signal(SIGINT,  db_sig_handler);
 	signal(SIGTERM, db_sig_handler);
 	signal(SIGUSR1, db_sig_handler);
 
-	riomp_mgmt_set_event_mask(fd, RIO_EVENT_DOORBELL);
+	riomp_mgmt_set_event_mask(mport_hnd, RIO_EVENT_DOORBELL);
 
 	if (do_dbrecv) {
 		printf("+++ RapidIO Doorbell Receive Mode +++\n");
@@ -280,16 +290,16 @@ int main(int argc, char** argv)
 		printf("\tfilter: destid=%x start=%x end=%x\n",
 			rio_destid, db_start, db_end);
 
-		do_dbrcv_test(fd, rio_destid, db_start, db_end);
+		do_dbrcv_test(mport_hnd, rio_destid, db_start, db_end);
 	} else {
 		printf("+++ RapidIO Doorbell Send +++\n");
 		printf("\tmport%d destID=%d db_info=0x%x\n",
 			mport_id, rio_destid, db_info);
 
-		do_dbsnd_test(fd, rio_destid, db_info);
+		do_dbsnd_test(mport_hnd, rio_destid, db_info);
 	}
 
 out:
-	close(fd);
+	riomp_mgmt_mport_destroy_handle(mport_hnd);
 	exit(rc);
 }

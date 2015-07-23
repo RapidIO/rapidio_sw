@@ -616,9 +616,9 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 
 	for (i = 0; i < numReads; i++) {
 		if (0xFF == hc) {
-			rc = riomp_mgmt_lcfg_read(fmd->fd, address, 4, &data);
+			rc = riomp_mgmt_lcfg_read(fmd->mp_hnd, address, 4, &data);
 		} else {
-			rc = riomp_mgmt_rcfg_read(fmd->fd, did, hc,
+			rc = riomp_mgmt_rcfg_read(fmd->mp_hnd, did, hc,
 				address, 4, &data);
 		};
 
@@ -698,9 +698,9 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	/* Command arguments are syntactically correct - do write */
 
 	if (0xFF == hc) {
-		rc = riomp_mgmt_lcfg_write(fmd->fd, address, 4, data);
+		rc = riomp_mgmt_lcfg_write(fmd->mp_hnd, address, 4, data);
 	} else {
-		rc = riomp_mgmt_rcfg_write(fmd->fd, did, hc,
+		rc = riomp_mgmt_rcfg_write(fmd->mp_hnd, did, hc,
 				address, 4, data);
 	};
 	if (0 != rc) {
@@ -710,9 +710,9 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	/* read data back */
 	if (0xFF == hc) {
-		rc = riomp_mgmt_lcfg_read(fmd->fd, address, 4, &data);
+		rc = riomp_mgmt_lcfg_read(fmd->mp_hnd, address, 4, &data);
 	} else {
-		rc = riomp_mgmt_rcfg_read(fmd->fd, did, hc,
+		rc = riomp_mgmt_rcfg_read(fmd->mp_hnd, did, hc,
 			address, 4, &data);
 	};
 	if (0 != rc) {

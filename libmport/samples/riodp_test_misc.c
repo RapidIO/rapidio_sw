@@ -126,7 +126,7 @@ int main(int argc, char** argv)
 	};
 	char *program = argv[0];
 	struct riomp_mgmt_mport_properties prop;
-	int fd;
+	riomp_mport_t mport_hnd;
 	uint32_t tgt_destid = 0;
 	uint32_t tgt_hc = 0xff;
 	uint32_t tgt_remote = 0, tgt_write = 0, do_query = 0;
@@ -176,15 +176,15 @@ int main(int argc, char** argv)
 		}
 	}
 
-	fd = riomp_mgmt_mport_open(mport_id, 0);
-	if (fd < 0) {
+	rc = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
+	if (rc < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
-			mport_id, errno);
+			mport_id, rc);
 		exit(EXIT_FAILURE);
 	}
 
 	if (do_query) {
-		rc = riomp_mgmt_query(fd, &prop);
+		rc = riomp_mgmt_query(mport_hnd, &prop);
 		if (!rc) {
 			riomp_mgmt_display_info(&prop);
 			if (prop.link_speed == 0)
@@ -199,13 +199,13 @@ int main(int argc, char** argv)
 			if (debug)
 				printf("Write to dest=0x%x hc=0x%x offset=0x%x data=0x%08x\n",
 					tgt_destid, tgt_hc, offset, data);
-			rc = riomp_mgmt_rcfg_write(fd, tgt_destid, tgt_hc, offset,
+			rc = riomp_mgmt_rcfg_write(mport_hnd, tgt_destid, tgt_hc, offset,
 						op_size, data);
 		} else {
 			if (debug)
 				printf("Read from dest=0x%x hc=0x%x offset=0x%x\n",
 					tgt_destid, tgt_hc, offset);
-			rc = riomp_mgmt_rcfg_read(fd, tgt_destid, tgt_hc, offset,
+			rc = riomp_mgmt_rcfg_read(mport_hnd, tgt_destid, tgt_hc, offset,
 						op_size, &data);
 			if (!rc)
 				printf("\tdata = 0x%08x\n", data);
@@ -215,11 +215,11 @@ int main(int argc, char** argv)
 			if (debug)
 				printf("Write to local offset=0x%x data=0x%08x\n",
 					offset, data);
-			rc = riomp_mgmt_lcfg_write(fd, offset, op_size, data);
+			rc = riomp_mgmt_lcfg_write(mport_hnd, offset, op_size, data);
 		} else {
 			if (debug)
 				printf("Read from local offset=0x%x\n", offset);
-			rc = riomp_mgmt_lcfg_read(fd, offset, op_size, &data);
+			rc = riomp_mgmt_lcfg_read(mport_hnd, offset, op_size, &data);
 			if (!rc)
 				printf("\tdata = 0x%08x\n", data);
 		}
@@ -233,6 +233,6 @@ out:
 		rc = EXIT_SUCCESS;
 	}
 
-	close(fd);
+	riomp_mgmt_mport_destroy_handle(mport_hnd);
 	exit(rc);
 }

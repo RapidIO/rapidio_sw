@@ -55,7 +55,7 @@
 
 #define RIODP_MAX_DEV_NAME_SZ 20 /* max number of RIO mports supported by platform */
 
-static int fd;
+static riomp_mport_t mport_hnd;
 static uint16_t tgt_destid;
 static uint8_t tgt_hop;
 static uint32_t comptag = 0;
@@ -67,7 +67,7 @@ void test_create(void)
 {
 	int ret;
 
-	ret = riomp_mgmt_device_add(fd, tgt_destid, tgt_hop, comptag,
+	ret = riomp_mgmt_device_add(mport_hnd, tgt_destid, tgt_hop, comptag,
 			       (*dev_name == '\0')?NULL:dev_name);
 	if(ret)
 		printf("Failed to create device object, err=%d\n", ret);
@@ -77,7 +77,7 @@ void test_delete(void)
 {
 	int ret;
 
-	ret = riomp_mgmt_device_del(fd, tgt_destid, tgt_hop, comptag);
+	ret = riomp_mgmt_device_del(mport_hnd, tgt_destid, tgt_hop, comptag);
 	if(ret)
 		printf("Failed to delete device object, err=%d\n", ret);
 }
@@ -139,7 +139,7 @@ int main(int argc, char** argv)
 	struct riomp_mgmt_mport_properties prop;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
-	int err;
+	int err, fdes;
 
 	while (1) {
 		option = getopt_long_only(argc, argv,
@@ -187,14 +187,14 @@ int main(int argc, char** argv)
 	action.sa_flags = SA_SIGINFO;
 	sigaction(SIGIO, &action, NULL);
 
-	fd = riomp_mgmt_mport_open(mport_id, 0);
-	if (fd < 0) {
+	err = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
+	if (err < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
-			mport_id, errno);
+			mport_id, err);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riomp_mgmt_query(fd, &prop)) {
+	if (!riomp_mgmt_query(mport_hnd, &prop)) {
 		riomp_mgmt_display_info(&prop);
 
 		if (prop.link_speed == 0) {
@@ -207,10 +207,17 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
-	fcntl(fd, F_SETOWN, getpid());
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | FASYNC);
+	err = riomp_mgmt_get_fd(mport_hnd, &fdes);
+	if (err) {
+		printf("fileio not supported.\n");
+		rc = EXIT_FAILURE;
+		goto out;
+	}
 
-	err = riomp_mgmt_lcfg_read(fd, 0x13c, sizeof(uint32_t), &regval);
+	fcntl(fdes, F_SETOWN, getpid());
+	fcntl(fdes, F_SETFL, fcntl(fdes, F_GETFL) | FASYNC);
+
+	err = riomp_mgmt_lcfg_read(mport_hnd, 0x13c, sizeof(uint32_t), &regval);
 	if (err) {
 		printf("Failed to read from PORT_GEN_CTL_CSR, err=%d\n", err);
 		rc = EXIT_FAILURE;
@@ -223,9 +230,9 @@ int main(int argc, char** argv)
 		printf("ATTN: Port DISCOVERED flag is not set\n");
 
 	if (discovered && prop.hdid == 0xffff ) {
-		err = riomp_mgmt_lcfg_read(fd, 0x60, sizeof(uint32_t), &regval);
+		err = riomp_mgmt_lcfg_read(mport_hnd, 0x60, sizeof(uint32_t), &regval);
 		prop.hdid = (regval >> 16) & 0xff;
-		err = riomp_mgmt_destid_set(fd, prop.hdid);
+		err = riomp_mgmt_destid_set(mport_hnd, prop.hdid);
 		if (err)
 			printf("Failed to update local destID, err=%d\n", err);
 		else
@@ -258,6 +265,7 @@ int main(int argc, char** argv)
 		printf("Please specify the action to perform\n");
 
 out:
-	close(fd);
+
+	riomp_mgmt_mport_destroy_handle(mport_hnd);
 	exit(rc);
 }

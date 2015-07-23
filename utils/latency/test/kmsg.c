@@ -304,7 +304,7 @@ int open_mports(int last_idx)
 	int rc = EXIT_FAILURE;
 
 	for (idx = 0; idx <= last_idx; idx++) {
-		demo.ep[idx].fd = riomp_mgmt_mport_open(demo.ep[idx].mport_id, 0);
+		demo.ep[idx].fd = riomp_mgmt_mport_create_handle(demo.ep[idx].mport_id, 0);
 		if (demo.ep[idx].fd < 0) {
 			printf("Unable to open idx %d mport%d device "
 				"err=%d:%s\n",

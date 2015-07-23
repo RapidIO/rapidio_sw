@@ -48,7 +48,7 @@ extern "C" {
 #endif
 
 struct fmd_slave {
-	int fd; /* MPORT file descriptor for register access */
+	riomp_mport_t mp_hnd; /* MPORT handle for register access */
 	pthread_t slave_thr; /* Slave FMDR, handles Master FMD cmds */
 	sem_t started; 
 	int slave_alive;
@@ -79,7 +79,7 @@ struct fmd_slave {
 };
 
 extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
-			uint32_t  mp_num, struct fmd_slave *slave, int fd);
+			uint32_t  mp_num, struct fmd_slave *slave, riomp_mport_t hnd);
 
 extern void shutdown_slave_mgmt(void);
 

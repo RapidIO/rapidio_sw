@@ -391,7 +391,7 @@ int open_mports(int last_idx)
 	int rc = EXIT_FAILURE;
 
 	for (idx = 0; idx <= last_idx; idx++) {
-		ep[idx].fd = riomp_mgmt_mport_open(ep[idx].mport_id, 0);
+		ep[idx].fd = riomp_mgmt_mport_create_handle(ep[idx].mport_id, 0);
 		if (ep[idx].fd < 0) {
 			printf("DMA Test: unable to open idx %d mport%d device err=%d\n",
 				idx, ep[idx].mport_id, errno);

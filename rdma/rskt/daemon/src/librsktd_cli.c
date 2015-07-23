@@ -91,16 +91,16 @@ int RSKTIbwinCmd(struct cli_env *env, int argc, char **argv)
         uint8_t idx;
 	int rc;
 
-	if (dmn.mpfd <= 0) {
-		dmn.mpfd = riomp_mgmt_mport_open(dmn.mpnum, RIO_MPORT_DMA);
-		if (dmn.mpfd < 0) {
+//	if (dmn.mp_hnd == 0) {
+		rc = riomp_mgmt_mport_create_handle(dmn.mpnum, RIO_MPORT_DMA, &dmn.mp_hnd);
+		if (rc < 0) {
                         sprintf(env->output, 
 				"\nFAILED: Unable to open mport %d...\n",
 				dmn.mpnum );
                         logMsg(env);
 			return 0;
 		};
-	};
+//	};
 
 
 	if (argc)
@@ -112,11 +112,11 @@ int RSKTIbwinCmd(struct cli_env *env, int argc, char **argv)
 	if (idx < MAX_IBWIN) {
 		int rc;
 		uint32_t data = 0;
-		rc = riomp_mgmt_lcfg_write(dmn.mpfd, IBWIN_LB(idx), 4, data);
-		rc |= riomp_mgmt_lcfg_write(dmn.mpfd, IBWIN_UB(idx), 4, data);
-		rc |= riomp_mgmt_lcfg_write(dmn.mpfd, IBWIN_SZ(idx), 4, data);
-		rc |= riomp_mgmt_lcfg_write(dmn.mpfd, IBWIN_TLA(idx), 4, data);
-		rc |= riomp_mgmt_lcfg_write(dmn.mpfd, IBWIN_TUA(idx), 4, data);
+		rc = riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_LB(idx), 4, data);
+		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_UB(idx), 4, data);
+		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_SZ(idx), 4, data);
+		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_TLA(idx), 4, data);
+		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_TUA(idx), 4, data);
 		if (rc) {
                         sprintf(env->output, 
 				"\nFAILED: Could not clear ibwin %d\n", idx);
@@ -136,11 +136,11 @@ int RSKTIbwinCmd(struct cli_env *env, int argc, char **argv)
 
 	for (idx = 0; idx < MAX_IBWIN; idx++) {
 		uint32_t la, ua, sz, tla, tua;
-		rc = riomp_mgmt_lcfg_read(dmn.mpfd, IBWIN_LB(idx), 4, &la);
-		rc |= riomp_mgmt_lcfg_read(dmn.mpfd, IBWIN_UB(idx), 4, &ua);
-		rc |= riomp_mgmt_lcfg_read(dmn.mpfd, IBWIN_SZ(idx), 4, &sz);
-		rc |= riomp_mgmt_lcfg_read(dmn.mpfd, IBWIN_TLA(idx), 4, &tla);
-		rc |= riomp_mgmt_lcfg_read(dmn.mpfd, IBWIN_TUA(idx), 4, &tua);
+		rc = riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_LB(idx), 4, &la);
+		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_UB(idx), 4, &ua);
+		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_SZ(idx), 4, &sz);
+		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_TLA(idx), 4, &tla);
+		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_TUA(idx), 4, &tua);
 		if (rc)
 			sprintf(env->output, 
 				"\nFAILED: Could not read bwin %d\n", idx);

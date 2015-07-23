@@ -73,8 +73,9 @@ static void db_sig_handler(int signum)
 	}
 }
 
-static int do_pwrcv_test(int fd, uint32_t mask, uint32_t low, uint32_t high)
+static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_t high)
 {
+	/* TODO: check implementation */
 #if 0
 	int ret;
 	struct rio_event evt;
@@ -162,7 +163,7 @@ int main(int argc, char** argv)
 	uint32_t pw_mask = 0xffffffff;
 	uint32_t pw_low = 0;
 	uint32_t pw_high = 0xffffffff;
-	int fd;
+	riomp_mport_t mport_hnd;
 	int flags = 0;
 	int option;
 	static const struct option options[] = {
@@ -175,7 +176,7 @@ int main(int argc, char** argv)
 	struct riomp_mgmt_mport_properties prop;
 	struct sigaction action;
 	unsigned int evt_mask;
-	int err;
+	int err, fdes;
 	int rc = EXIT_SUCCESS;
 
 	while (1) {
@@ -214,14 +215,14 @@ int main(int argc, char** argv)
 	action.sa_flags = SA_SIGINFO;
 	sigaction(SIGIO, &action, NULL);
 
-	fd = riomp_mgmt_mport_open(mport_id, flags);
-	if (fd < 0) {
+	rc = riomp_mgmt_mport_create_handle(mport_id, flags, &mport_hnd);
+	if (rc < 0) {
 		printf("DB Test: unable to open mport%d device err=%d\n",
-			mport_id, errno);
+			mport_id, rc);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riomp_mgmt_query(fd, &prop)) {
+	if (!riomp_mgmt_query(mport_hnd, &prop)) {
 		riomp_mgmt_display_info(&prop);
 
 		if (prop.link_speed == 0) {
@@ -234,33 +235,40 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
-	fcntl(fd, F_SETOWN, getpid());
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | FASYNC);
+	rc = riomp_mgmt_get_fd(mport_hnd, &fdes);
+	if (rc) {
+		printf("fileio not supported.\n");
+		rc = EXIT_FAILURE;
+		goto out;
+	}
+
+	fcntl(fdes, F_SETOWN, getpid());
+	fcntl(fdes, F_SETFL, fcntl(fdes, F_GETFL) | FASYNC);
 
 	/* Trap signals that we expect to receive */
 	signal(SIGINT,  db_sig_handler);
 	signal(SIGTERM, db_sig_handler);
 	signal(SIGUSR1, db_sig_handler);
 
-	err = riomp_mgmt_get_event_mask(fd, &evt_mask);
+	err = riomp_mgmt_get_event_mask(mport_hnd, &evt_mask);
 	if (err) {
 		printf("Failed to obtain current event mask, err=%d\n", err);
 		rc = EXIT_FAILURE;
 		goto out;
 	}
 
-	riomp_mgmt_set_event_mask(fd, evt_mask | RIO_EVENT_PORTWRITE);
+	riomp_mgmt_set_event_mask(mport_hnd, evt_mask | RIO_EVENT_PORTWRITE);
 
 	printf("+++ RapidIO PortWrite Event Receive Mode +++\n");
 	printf("\tmport%d PID:%d\n", mport_id, (int)getpid());
 	printf("\tfilter: mask=%x low=%x high=%x\n",
 		pw_mask, pw_low, pw_high);
 
-	do_pwrcv_test(fd, pw_mask, pw_low, pw_high);
+	do_pwrcv_test(mport_hnd, pw_mask, pw_low, pw_high);
 
-	riomp_mgmt_set_event_mask(fd, evt_mask);
+	riomp_mgmt_set_event_mask(mport_hnd, evt_mask);
 
 out:
-	close(fd);
+	riomp_mgmt_mport_destroy_handle(mport_hnd);
 	exit(rc);
 }

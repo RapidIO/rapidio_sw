@@ -96,7 +96,7 @@ struct dmn_globals {
 	uint32_t num_ms;
 	uint32_t ms_size;
 
-	int mpfd;
+	riomp_mport_t mp_hnd;
 	struct riomp_mgmt_mport_properties qresp;
 	int all_must_die;
 

@@ -85,7 +85,7 @@ extern "C" {
 #endif
 
 riocp_pe_handle mport_pe;
-int reg_acc_hnd;
+riomp_mport_t reg_acc_hnd;
 DAR_DEV_INFO_t *dev_h;
 
 struct fmd_cfg_parms *cfg;
@@ -456,7 +456,7 @@ int setup_mport_master(int mport)
 		exit(EXIT_FAILURE);
 	};
 
-	fmd->fd = mport_pe->fd;
+	fmd->mp_hnd = mport_pe->mp_hnd;
 
 	if (!(RIOCP_PE_IS_MPORT(mport_pe))) {
 		CRIT("\nHost port is not an MPORT, wazzup?...\n");
@@ -502,7 +502,7 @@ int setup_mport_slave(int mport)
 		exit(EXIT_FAILURE);
 	};
 
-	fmd->fd = mport_pe->fd;
+	fmd->mp_hnd = mport_pe->mp_hnd;
 	fmd->cfg->mport_info[0].mp_h = mport_pe;
 		
 	ep = fmd->cfg->mport_info[0].ep;
@@ -644,8 +644,8 @@ void setup_mport(struct fmd_state *fmd)
 		exit(EXIT_FAILURE);
 	};
 
-	reg_acc_hnd = riomp_mgmt_mport_open(mport, 0);
-	if (reg_acc_hnd < 0) {
+	rc = riomp_mgmt_mport_create_handle(mport, 0, &reg_acc_hnd);
+	if (rc < 0) {
 		CRIT("\nCannot open mport %d, exiting...\n", mport);
 		exit(EXIT_FAILURE);
 	};

@@ -607,7 +607,7 @@ int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
 		rc = start_peer_mgmt_master(mast_acc_skt_num, mp_num, mast_did);
 	else
 		rc = start_peer_mgmt_slave(mast_acc_skt_num, mast_did, mp_num, 
-			&fmp.slv, fmd->fd);
+			&fmp.slv, fmd->mp_hnd);
 
 	if (rc)
 		shutdown_mgmt();

@@ -50,7 +50,7 @@ class inbound
 {
 public:
 	/* Constructor */
-	inbound(int mport_fd,
+	inbound(riomp_mport_t mport_hnd,
 		unsigned num_wins,
 		uint64_t win_size);
 

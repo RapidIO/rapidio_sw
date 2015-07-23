@@ -81,7 +81,7 @@ static size_t	    received_len;
  */
 struct peer_info {
 	int mport_id;
-	int mport_fd;
+	riomp_mport_t mport_hnd;
 	uint16_t destid;
 }; /* peer_info */
 
@@ -139,6 +139,7 @@ static int open_mport(struct peer_info *peer)
 	get_mport_id_input	in;
 	int flags = 0;
 	struct riomp_mgmt_mport_properties prop;
+	riomp_mport_t mport_hnd;
 
 	DBG("ENTER\n");
 
@@ -160,23 +161,22 @@ static int open_mport(struct peer_info *peer)
 	INFO("Using mport_id = %d\n", peer->mport_id);
 
 	/* Now open the port */
-	peer->mport_fd = riomp_mgmt_mport_open(peer->mport_id, flags);
-	if (peer->mport_fd <= 0) {
-		CRIT("riomp_mgmt_mport_open(): %s\n", strerror(errno));
+	ret = riomp_mgmt_mport_create_handle(peer->mport_id, flags, &mport_hnd);
+	if (ret < 0) {
+		CRIT("riomp_mgmt_mport_create_handle(): %s\n", strerror(errno));
 		CRIT("Cannot open mport%d, is rio_mport_cdev loaded?\n",
 								peer->mport_id);
 		return -errno;
 	}
-	INFO("mport_fd = %d\n", peer->mport_fd);
 
 	/* Read the properties. */
-	if (!riomp_mgmt_query(peer->mport_fd, &prop)) {
+	if (!riomp_mgmt_query(peer->mport_hnd, &prop)) {
 		riomp_mgmt_display_info(&prop);
 		if (prop.flags &RIO_MPORT_DMA) {
 			INFO("DMA is ENABLED\n");
 		} else {
 			CRIT("DMA capability DISABLED\n");
-			close(peer->mport_fd);
+			riomp_mgmt_mport_destroy_handle(peer->mport_hnd);
 			return -3;
 		}
 		peer->destid = prop.hdid;
@@ -1243,8 +1243,8 @@ int rdma_create_msub_h(ms_h	msh,
 	}
 	out = out_msg->create_msub_out;
 
-	INFO("out->bytes=0x%X, peer.mport_fd=%d, out.phys_addr=0x%lX\n",
-				out.bytes, peer.mport_fd, out.phys_addr);
+	INFO("out->bytes=0x%X, out.phys_addr=0x%lX\n",
+				out.bytes, out.phys_addr);
 
 	/* Store msubh in database, obtain pointer thereto, convert to msub_h */
 	*msubh = (msub_h)add_loc_msub(out.msubid,
@@ -1314,6 +1314,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 int rdma_mmap_msub(msub_h msubh, void **vaddr)
 {
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
+	int ret, fdes;
 
 	DBG("ENTER\n");
 
@@ -1327,13 +1328,19 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		return -2;
 	}
 
+	ret = riomp_mgmt_get_fd(peer.mport_hnd, &fdes);
+	if (ret) {
+		ERR("cannot get fd for mport handle\n");
+		return ret;
+	}
+
 	INFO("mmap() mport_fd = %d, phys_addr = 0x%lX\n",
-						peer.mport_fd, pmsub->paddr);
+						fdes, pmsub->paddr);
 	*vaddr = mmap(NULL,
 		 pmsub->bytes,
 		 PROT_READ|PROT_WRITE,
 		 MAP_SHARED,
-		 peer.mport_fd,
+		 fdes,
 		 pmsub->paddr);
 
 	if (*vaddr == MAP_FAILED) {
@@ -1920,7 +1927,7 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 					rmsub->rio_addr_lo + in->rem_offset,
 					lmsub->paddr);
 
-	int ret = riomp_dma_write_d(peer.mport_fd,
+	int ret = riomp_dma_write_d(peer.mport_hnd,
 				    (uint16_t)rmsub->destid,
 				    rmsub->rio_addr_lo + in->rem_offset,
 				    lmsub->paddr,
@@ -2004,7 +2011,7 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 				rmsub->destid,
 				rmsub->rio_addr_lo + rem_offset);
 
-	int ret = riomp_dma_write(peer.mport_fd,
+	int ret = riomp_dma_write(peer.mport_hnd,
 				  (uint16_t)rmsub->destid,
 				  rmsub->rio_addr_lo + rem_offset,
 				  buf,
@@ -2090,7 +2097,7 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 				rmsub->rio_addr_lo + in->rem_offset,
 				lmsub->paddr);
 
-	int ret = riomp_dma_read_d(peer.mport_fd,
+	int ret = riomp_dma_read_d(peer.mport_hnd,
 				   (uint16_t)rmsub->destid,
 				   rmsub->rio_addr_lo + in->rem_offset,
 				   lmsub->paddr,
@@ -2176,7 +2183,7 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 					rmsub->destid,
 					rmsub->rio_addr_lo + rem_offset);
 
-	int ret = riomp_dma_read(peer.mport_fd,
+	int ret = riomp_dma_read(peer.mport_hnd,
 				 (uint16_t)rmsub->destid,
 				 rmsub->rio_addr_lo + rem_offset,
 				 buf,
@@ -2209,7 +2216,7 @@ void *compl_thread_f(void *arg)
 	dma_async_wait_param	*wait_param = (dma_async_wait_param *)arg;
 
 	/* Wait for transfer to complete or times out (-ETIMEDOUT returned) */
-	wait_param->err = riomp_dma_wait_async(peer.mport_fd,
+	wait_param->err = riomp_dma_wait_async(peer.mport_hnd,
 					   wait_param->token,
 					   wait_param->timeout);
 

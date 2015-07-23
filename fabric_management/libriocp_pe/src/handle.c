@@ -254,7 +254,7 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 	if (RIOCP_PE_IS_MPORT(*handle)) {
 		RIOCP_TRACE("Destroying mport handle %p (ct: 0x%08x)\n",
 			*handle, (*handle)->comptag);
-		riomp_mgmt_mport_close((*handle)->minfo->maint);
+		riomp_mgmt_mport_destroy_handle((*handle)->minfo->maint);
 		riocp_pe_llist_foreach_safe(item, next, &(*handle)->minfo->handles) {
 			p = (struct riocp_pe *)item->data;
 			if (p)
@@ -269,8 +269,8 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 		riocp_pe_llist_del(&(*handle)->mport->minfo->handles, *handle);
 	}
 
-	if ((*handle)->fd != RIOCP_PE_HANDLE_FD_UNSET)
-		close((*handle)->fd);
+	if ((*handle)->mp_hnd != RIOCP_PE_HANDLE_FD_UNSET)
+		riomp_mgmt_mport_destroy_handle((*handle)->mp_hnd);
 
 	free((*handle)->port);
 	free((*handle)->port_event_mask);
@@ -281,31 +281,40 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 }
 
 /**
- * Open handle pe->fd
+ * Open handle pe mport handle
  * @param pe Target PE
  */
 int riocp_pe_handle_open_mport(struct riocp_pe *pe)
 {
 	char mport[64] = { 0 };
+	int ret, mport_id;
+	riomp_mport_t mport_handle;
 
 	RIOCP_TRACE("Open mport for PE 0x%08x\n", pe->comptag);
 
-	if (pe->fd != -1) {
-		RIOCP_ERROR("fd already open\n");
+	if (pe->mp_hnd != RIOCP_PE_HANDLE_FD_UNSET) {
+		RIOCP_ERROR("mport already open\n");
 		return -EEXIST;
 	}
 
 	snprintf(mport, sizeof(mport) - 1, "%s/%s%u", RIOCP_PE_DEV_DIR,
 		RIOCP_PE_DEV_NAME, pe->mport->minfo->id);
 
-	pe->fd = open(mport, O_RDWR | O_NONBLOCK);
-	if (pe->fd < 0) {
-		RIOCP_ERROR("Failed to open %s\n", mport);
+	ret = riomp_mgmt_mport_create_handle(pe->mport->minfo->id, 0, &mport_handle);
+	if (ret < 0) {
+		RIOCP_ERROR("Failed to open mport %d\n", pe->mport->minfo->id);
 		return -ENOENT;
 	}
 
-	RIOCP_TRACE("Opened mport %s got fd %u\n",
-		mport, pe->fd);
+	ret = riomp_mgmt_get_handle_id(mport_handle, &mport_id);
+	if (ret < 0) {
+		RIOCP_ERROR("Failed to get mport %d handle identifier\n", pe->mport->minfo->id);
+		riomp_mgmt_mport_destroy_handle(mport_handle);
+		return ret;
+	}
+
+	RIOCP_TRACE("Opened mport %d got handle id %d\n",
+		mport, mport_id);
 
 	return 0;
 }
@@ -346,7 +355,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 
 	/* Initialize handle attributes */
 	h->version  = RIOCP_PE_HANDLE_REV;
-	h->fd       = RIOCP_PE_HANDLE_FD_UNSET;
+	h->mp_hnd   = RIOCP_PE_HANDLE_FD_UNSET;
 	h->mport    = pe->mport;
 	h->hopcount = hopcount;
 	h->destid   = destid;
@@ -508,6 +517,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 {
 	int ret = 0;
 	struct riocp_pe *h = NULL;
+	riomp_mport_t mport_hnd;
 
 	RIOCP_TRACE("Creating mport %d handle\n", mport);
 
@@ -531,16 +541,16 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 	}
 
 	/* Initialize maintainance access */
-	ret = riomp_mgmt_mport_open(mport, 0);
+	ret = riomp_mgmt_mport_create_handle(mport, 0, &mport_hnd);
 	if (ret < 0) {
 		goto err;
 	} else {
-		h->minfo->maint = ret;
+		h->minfo->maint = mport_hnd;
 	}
 
 	/* Initialize handle attributes */
 	h->version        = RIOCP_PE_HANDLE_REV;
-	h->fd             = RIOCP_PE_HANDLE_FD_UNSET;
+	h->mp_hnd         = RIOCP_PE_HANDLE_FD_UNSET;
 	h->hopcount       = 0;
 	h->mport          = h;
 	h->minfo->ref     = 1; /* Initialize reference count */
@@ -593,11 +603,11 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 
 	ret = riocp_pe_handle_open_mport(h);
 	if (ret) {
-		RIOCP_ERROR("failed to open mport fd\n");
+		RIOCP_ERROR("failed to open mport\n");
 		goto err;
 	}
 
-	ret = riomp_mgmt_query(h->fd, &h->mport->minfo->prop);
+	ret = riomp_mgmt_query(h->mp_hnd, &h->mport->minfo->prop);
 	if (ret) {
 		RIOCP_ERROR("failed to get mport properties: %s (%d)\n",
 			strerror(errno), errno);

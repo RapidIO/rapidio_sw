@@ -1392,9 +1392,7 @@ int RIOCP_SO_ATTR riocp_pe_get_event_fd(riocp_pe_handle pe,
 	if (RIOCP_PE_IS_MPORT(pe) || !RIOCP_PE_IS_HOST(pe) || !RIOCP_PE_IS_SWITCH(pe->cap))
 		return -ENOSYS;
 
-	*fd = pe->fd;
-
-	return 0;
+	return riomp_mgmt_get_fd(pe->mp_hnd, fd);
 }
 
 /**

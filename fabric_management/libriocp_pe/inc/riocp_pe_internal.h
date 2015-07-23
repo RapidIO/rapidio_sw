@@ -101,8 +101,8 @@ struct riocp_pe_peer {
 /** RapidIO Master port information */
 struct riocp_pe_mport {
 	uint32_t ref;				/**< Reference counter */
-	uint8_t id;				/**< Device node id e.g /dev/rio_mport0 */
-	int maint;			/**< Maintenance access handle for mport e.g /dev/rio_mport0 */
+	uint8_t id;					/**< Device node id e.g /dev/rio_mport0 */
+	riomp_mport_t maint;		/**< Maintenance access handle for mport e.g /dev/rio_mport0 */
 	struct riomp_mgmt_mport_properties prop;	/**< Mport properties */
 	bool is_host;				/**< Is mport host/agent */
 	struct riocp_pe *any_id_target;		/**< Current programmed ANY_ID route to this PE*/
@@ -133,7 +133,7 @@ struct riocp_pe_switch {
 /** RapidIO Processing element */
 struct riocp_pe {
 	uint32_t version;			/**< Internal handle revision */
-	int fd;					/**< File descriptor for this PE */
+	riomp_mport_t mp_hnd;   	/**< mport handle for this PE */
 	uint8_t hopcount;			/**< RapidIO hopcount */
 	uint32_t destid;			/**< RapidIO destination ID */
 	uint32_t comptag;			/**< RapidIO component tag */

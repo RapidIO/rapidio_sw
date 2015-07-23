@@ -48,7 +48,7 @@ struct peer_info {
 
 	/* MPORT */
 	int mport_id;
-	int mport_fd;
+	riomp_mport_t mport_hnd;
 
 	/* RIO */
 	#define DEFAULT_RIO_ADDRESS     0x00000000 

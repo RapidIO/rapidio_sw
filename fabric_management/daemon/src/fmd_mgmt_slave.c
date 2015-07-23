@@ -206,7 +206,7 @@ void slave_process_mod(void)
 	slv->s2m->mod_rsp.rc = 0;
 
 	switch (ntohl(slv->m2s->mod_rq.op)) {
-	case FMD_P_OP_ADD: rc = riomp_mgmt_device_add(slv->fd, 
+	case FMD_P_OP_ADD: rc = riomp_mgmt_device_add(slv->mp_hnd,
 				ntohl(slv->m2s->mod_rq.did), 
 				ntohl(slv->m2s->mod_rq.hc), 
 				ntohl(slv->m2s->mod_rq.ct),
@@ -361,15 +361,15 @@ fail:
 	pthread_exit(unused);
 };
 
-extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
-                        uint32_t  mp_num, struct fmd_slave *slave, int fd)
+int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
+                        uint32_t  mp_num, struct fmd_slave *slave, riomp_mport_t hnd)
 {
 	int rc = 1;
 	struct timespec dly = {5, 0};
 	int conn_rc;
 
 	slv = slave;
-	slv->fd = fd;
+	slv->mp_hnd = hnd;
 	sem_init(&slv->started, 0, 0);
 	slv->slave_alive = 0;
 	slv->slave_must_die = 0;

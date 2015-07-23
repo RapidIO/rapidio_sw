@@ -188,18 +188,17 @@ int init_mport_and_mso_ms()
 	int rc = -1;
 	uint32_t i;
 
-	dmn.mpfd = -1;
 	dmn.mb_valid = 0;
 	dmn.skt_valid = 0;
 
-        dmn.mpfd = riomp_mgmt_mport_open(dmn.mpnum, RIO_MPORT_DMA);
-        if (dmn.mpfd < 0) {
-                CRIT("Unable to open mport %d...\n", dmn.mpfd);
+        rc = riomp_mgmt_mport_create_handle(dmn.mpnum, RIO_MPORT_DMA, &dmn.mp_hnd);
+        if (rc < 0) {
+                CRIT("Unable to open mport %d...\n", rc);
                 goto exit;
         };
 	INFO("Mport %d opened\n", dmn.mpnum);
 
-        if (riomp_mgmt_query(dmn.mpfd, &dmn.qresp)) {
+        if (riomp_mgmt_query(dmn.mp_hnd, &dmn.qresp)) {
                 CRIT("Unable to query mport %d...\n", dmn.mpnum);
                 goto exit;
         };
@@ -335,9 +334,9 @@ int cleanup_dmn(void)
 			CRIT("speer_conn: riodp_mbox_shutdown ERR: %d\n", rc);
 	};
 
-	if (dmn.mpfd > 0) {
-                close(dmn.mpfd);
-                dmn.mpfd = 0;
+	if (dmn.mp_hnd > 0) {
+				riomp_mgmt_mport_destroy_handle(dmn.mp_hnd);
+                dmn.mp_hnd = 0;
         };
 
         for (i = 0; i < MAX_DMN_NUM_MS; i++) {

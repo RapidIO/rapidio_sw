@@ -108,6 +108,8 @@ struct riomp_mgmt_event {
 	} u;
 };
 
+typedef struct rapidio_mport_handle *riomp_mport_t;
+
 
 int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports);
 int riomp_mgmt_free_mport_list(uint32_t **dev_ids);
@@ -115,29 +117,32 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 int riomp_mgmt_free_ep_list(uint32_t **destids);
 
 
-int riomp_mgmt_mport_open(uint32_t mport_id, int flags);
-int riomp_mgmt_mport_close(int fd);
+int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle);
+int riomp_mgmt_mport_destroy_handle(riomp_mport_t mport_handle);
 
-int riomp_mgmt_query(int fd, struct riomp_mgmt_mport_properties *qresp);
+int riomp_mgmt_get_fd(riomp_mport_t mport_handle, int *fd);
+int riomp_mgmt_get_handle_id(riomp_mport_t mport_handle, int *id);
+
+int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_properties *qresp);
 void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *prop);
 
-int riomp_mgmt_destid_set(int fd, uint16_t destid);
+int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid);
 
-int riomp_mgmt_lcfg_read(int fd, uint32_t offset, uint32_t size, uint32_t *data);
-int riomp_mgmt_lcfg_write(int fd, uint32_t offset, uint32_t size, uint32_t data);
-int riomp_mgmt_rcfg_read(int fd, uint32_t destid, uint32_t hc, uint32_t offset, uint32_t size, uint32_t *data);
-int riomp_mgmt_rcfg_write(int fd, uint32_t destid, uint32_t hc, uint32_t offset, uint32_t size, uint32_t data);
+int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t size, uint32_t *data);
+int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t size, uint32_t data);
+int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t hc, uint32_t offset, uint32_t size, uint32_t *data);
+int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t hc, uint32_t offset, uint32_t size, uint32_t data);
 
-int riomp_mgmt_dbrange_enable(int fd, uint32_t rioid, uint16_t start, uint16_t end);
-int riomp_mgmt_dbrange_disable(int fd, uint32_t rioid, uint16_t start, uint16_t end);
-int riomp_mgmt_pwrange_enable(int fd, uint32_t mask, uint32_t low, uint32_t high);
-int riomp_mgmt_pwrange_disable(int fd, uint32_t mask, uint32_t low, uint32_t high);
-int riomp_mgmt_set_event_mask(int fd, unsigned int mask);
-int riomp_mgmt_get_event_mask(int fd, unsigned int *mask);
-int riomp_mgmt_get_event(int fd, struct riomp_mgmt_event *evt);
+int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16_t start, uint16_t end);
+int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint16_t start, uint16_t end);
+int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_t low, uint32_t high);
+int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32_t low, uint32_t high);
+int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask);
+int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask);
+int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt);
 
-int riomp_mgmt_device_add(int fd, uint16_t destid, uint8_t hc, uint32_t ctag, const char *name);
-int riomp_mgmt_device_del(int fd, uint16_t destid, uint8_t hc, uint32_t ctag);
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag, const char *name);
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag);
 
 #ifdef __cplusplus
 }
