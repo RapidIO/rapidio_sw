@@ -64,7 +64,7 @@ int map_inbound_window(struct peer_info *peer)
     DPRINT("%s: &inbound_handle = %p\n",__FUNCTION__, &peer->inbound_handle);
 
     /* First, obtain an inbound handle from the mport driver */
-    ret = riomp_rdma_ibwin_map(peer->mport_fd,
+    ret = riomp_dma_ibwin_map(peer->mport_fd,
                           &peer->rio_address,
                           peer->inbound_window_size,
                           &peer->inbound_handle);
@@ -109,7 +109,7 @@ int unmap_inbound_window(struct peer_info *peer)
     }
 
     /* Free the inbound window via the mport driver */
-    if (riomp_rdma_ibwin_free(peer->mport_fd, &peer->inbound_handle)) {
+    if (riomp_dma_ibwin_free(peer->mport_fd, &peer->inbound_handle)) {
         perror( "Failed to free inbound window in TSI721" );
         return -1;
     }     

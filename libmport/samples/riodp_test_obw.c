@@ -196,7 +196,7 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	uint64_t ib_handle;
 	void *ibmap;
 
-	ret = riomp_rdma_ibwin_map(fd, &rio_base, ib_size, &ib_handle);
+	ret = riomp_dma_ibwin_map(fd, &rio_base, ib_size, &ib_handle);
 	if (ret) {
 		printf("Failed to allocate/map IB buffer err=%d\n", ret);
 		close(fd);
@@ -225,7 +225,7 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	if (munmap(ibmap, ib_size))
 		perror("munmap");
 out:
-	ret = riomp_rdma_ibwin_free(fd, &ib_handle);
+	ret = riomp_dma_ibwin_free(fd, &ib_handle);
 	if (ret)
 		printf("Failed to release IB buffer err=%d\n", ret);
 
@@ -275,9 +275,9 @@ static int do_obwin_test(int random, int verify, int loop_count)
 		goto out;
 	}
 
-	ret = riomp_rdma_obwin_map(fd, tgt_destid, tgt_addr, tbuf_size, &obw_handle);
+	ret = riomp_dma_obwin_map(fd, tgt_destid, tgt_addr, tbuf_size, &obw_handle);
 	if (ret) {
-		printf("riomp_rdma_obwin_map failed err=%d\n", ret);
+		printf("riomp_dma_obwin_map failed err=%d\n", ret);
 		goto out;
 	}
 
@@ -379,7 +379,7 @@ static int do_obwin_test(int random, int verify, int loop_count)
 	if (munmap(obw_ptr, tbuf_size))
 		perror("munmap");
 out_unmap:
-	ret = riomp_rdma_obwin_free(fd, &obw_handle);
+	ret = riomp_dma_obwin_free(fd, &obw_handle);
 	if (ret)
 		printf("Failed to release OB window err=%d\n", ret);
 out:

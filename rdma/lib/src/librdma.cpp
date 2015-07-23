@@ -1891,7 +1891,7 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 	}
 
 	/* Determine sync type */
-	enum riomp_rdma_directio_transfer_sync rd_sync;
+	enum riomp_dma_directio_transfer_sync rd_sync;
 
 	switch (in->sync_type) {
 
@@ -1919,7 +1919,7 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 					rmsub->rio_addr_lo + in->rem_offset,
 					lmsub->paddr);
 
-	int ret = riomp_rdma_write_d(peer.mport_fd,
+	int ret = riomp_dma_write_d(peer.mport_fd,
 				    (uint16_t)rmsub->destid,
 				    rmsub->rio_addr_lo + in->rem_offset,
 				    lmsub->paddr,
@@ -1928,11 +1928,11 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 					RIO_DIRECTIO_TYPE_NWRITE_R,
 				    rd_sync);
 	if (ret < 0) {
-		ERR("riomp_rdma_write_d() failed:(%d) %s\n", ret, strerror(ret));
+		ERR("riomp_dma_write_d() failed:(%d) %s\n", ret, strerror(ret));
 	}
 
 	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value of riomp_rdma_write_d() is the token (if >= 0) */
+	 * the return value of riomp_dma_write_d() is the token (if >= 0) */
 	if (in->sync_type == rdma_sync_chk)
 		out->dma_xfr_status = ret;
 	else if (in->sync_type == rdma_async_chk && ret >= 0) {
@@ -1976,7 +1976,7 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 	}
 
 	/* Determine sync type */
-	enum riomp_rdma_directio_transfer_sync rd_sync;
+	enum riomp_dma_directio_transfer_sync rd_sync;
 
 	switch (sync_type) {
 
@@ -2003,7 +2003,7 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 				rmsub->destid,
 				rmsub->rio_addr_lo + rem_offset);
 
-	int ret = riomp_rdma_write(peer.mport_fd,
+	int ret = riomp_dma_write(peer.mport_fd,
 				  (uint16_t)rmsub->destid,
 				  rmsub->rio_addr_lo + rem_offset,
 				  buf,
@@ -2011,11 +2011,11 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 				  RIO_DIRECTIO_TYPE_NWRITE_R,
 				  rd_sync);
 	if (ret < 0) {
-		ERR("riomp_rdma_write() failed:(%d) %s\n", ret, strerror(ret));
+		ERR("riomp_dma_write() failed:(%d) %s\n", ret, strerror(ret));
 	}
 
 	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value riomp_rdma_write() is the token (if >= 0) */
+	 * the return value riomp_dma_write() is the token (if >= 0) */
 	if (sync_type == rdma_sync_chk)
 		out->dma_xfr_status = ret;
 	else if (sync_type == rdma_async_chk && ret >= 0 ) {
@@ -2063,7 +2063,7 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 	}
 
 	/* Determine sync type */
-	enum riomp_rdma_directio_transfer_sync rd_sync;
+	enum riomp_dma_directio_transfer_sync rd_sync;
 
 	switch (in->sync_type) {
 
@@ -2089,7 +2089,7 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 				rmsub->rio_addr_lo + in->rem_offset,
 				lmsub->paddr);
 
-	int ret = riomp_rdma_read_d(peer.mport_fd,
+	int ret = riomp_dma_read_d(peer.mport_fd,
 				   (uint16_t)rmsub->destid,
 				   rmsub->rio_addr_lo + in->rem_offset,
 				   lmsub->paddr,
@@ -2097,11 +2097,11 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 				   in->num_bytes,
 				   rd_sync);
 	if (ret < 0) {
-		ERR("riomp_rdma_read_d() failed:(%d) %s\n", ret, strerror(ret));
+		ERR("riomp_dma_read_d() failed:(%d) %s\n", ret, strerror(ret));
 	}
 
 	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value of riomp_rdma_read_d() is the token (if >= 0) */
+	 * the return value of riomp_dma_read_d() is the token (if >= 0) */
 	if (in->sync_type == rdma_sync_chk)
 		out->dma_xfr_status = ret;
 	else if (in->sync_type == rdma_async_chk && ret >= 0) {
@@ -2150,7 +2150,7 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 	}
 
 	/* Determine sync type */
-	enum riomp_rdma_directio_transfer_sync rd_sync;
+	enum riomp_dma_directio_transfer_sync rd_sync;
 
 	switch (sync_type) {
 
@@ -2175,18 +2175,18 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 					rmsub->destid,
 					rmsub->rio_addr_lo + rem_offset);
 
-	int ret = riomp_rdma_read(peer.mport_fd,
+	int ret = riomp_dma_read(peer.mport_fd,
 				 (uint16_t)rmsub->destid,
 				 rmsub->rio_addr_lo + rem_offset,
 				 buf,
 				 num_bytes,
 				 rd_sync);
 	if (ret < 0) {
-		ERR("riomp_rdma_read() failed:(%d) %s\n", ret, strerror(ret));
+		ERR("riomp_dma_read() failed:(%d) %s\n", ret, strerror(ret));
 	}
 
 	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value of riomp_rdma_read() is the token (if >= 0) */
+	 * the return value of riomp_dma_read() is the token (if >= 0) */
 	if (sync_type == rdma_sync_chk)
 		out->dma_xfr_status = ret;
 	else if (sync_type == rdma_async_chk && ret >= 0) {
@@ -2208,7 +2208,7 @@ void *compl_thread_f(void *arg)
 	dma_async_wait_param	*wait_param = (dma_async_wait_param *)arg;
 
 	/* Wait for transfer to complete or times out (-ETIMEDOUT returned) */
-	wait_param->err = riomp_rdma_wait_async(peer.mport_fd,
+	wait_param->err = riomp_dma_wait_async(peer.mport_fd,
 					   wait_param->token,
 					   wait_param->timeout);
 
