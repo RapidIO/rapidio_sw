@@ -45,10 +45,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 void show_help()
 {
-	puts("multi_ms_client -d<destid>  -i<mspace number> | -h");
+	puts("multi_ms_client -d<destid>  -i<mspace number> -c<count>| -h");
+	puts("-d<destid>     Destination ID of server application owning memory space");
+	puts("-i<mspace number>   sspace1, sspace2...etc.");
+	puts("-c<count>	     Number of times to send DMA data to memory space");
 } /* show_help() */
 
-int run_test(uint32_t destid, unsigned ms_number)
+int run_test(uint32_t destid, unsigned ms_number, unsigned count)
 {
 	int ret;
 
@@ -97,7 +100,7 @@ int run_test(uint32_t destid, unsigned ms_number)
 	}
 	puts("Subspace created");
 
-	/* Memory map memory sub-space 1 */
+	/* Memory map memory sub-space and put some minimal DMA data */
 	void *vaddr;
 	ret = rdma_mmap_msub(msubh, &vaddr);
 	if (ret) {
@@ -108,6 +111,8 @@ int run_test(uint32_t destid, unsigned ms_number)
 							MSO_NAME, ret);
 		return -4;
 	}
+	uint32_t *vaddr32 = (uint32_t *)vaddr;
+	*vaddr32 = 0xDEADBEEF;
 
 	/* Prepare server memory space name */
 	char ms_name[128];
@@ -129,7 +134,32 @@ int run_test(uint32_t destid, unsigned ms_number)
 		return -5;
 	}
 
+	/* Push the minimal DMA data to the server */
+	struct rdma_xfer_ms_in	 in;
+	struct rdma_xfer_ms_out out;
+	in.loc_msubh  = msubh;
+	in.loc_offset = 0;
+	in.num_bytes  = 4*1024;	/* Arbitrary */
+	in.rem_msubh  = rem_msubh;
+	in.rem_offset = 0;
+	in.priority   = 1;
+	in.sync_type = rdma_sync_chk;
+	for (unsigned i = 0; i < count; i++) {
+		ret = rdma_push_msub(&in, &out);
+		if (ret) {
+			printf("Failed to push data to '%s' on destid(0x%X), ret = %d\n",
+					ms_name, destid, ret);
+			ret = rdma_destroy_mso_h(msoh);
+			if (ret)
+				printf("Failed to destroy mso('%s'), ret = %d\n",
+							MSO_NAME, ret);
+			return -6;
+		}
+		usleep(100);
+	}
+
 	/* Destroy mso (and its ms, and msub children) */
+	ret = rdma_destroy_mso_h(msoh);
 	if (ret) {
 		printf("Failed to destroy mso('%s'), ret = %d\n",
 						MSO_NAME, ret);
@@ -144,10 +174,16 @@ int main(int argc, char *argv[])
 {
 	char c;
 	unsigned i;
+	unsigned count;
 	uint32_t destid;
 
 	while ((c = getopt(argc, argv, "hd:i:")) != -1)
 		switch (c) {
+
+		case 'c':
+			count = atoi(optarg);
+			printf("Doing DMA transfers %d times\n", count);
+			break;
 
 		case 'd':
 			destid = atoi(optarg);
@@ -172,5 +208,5 @@ int main(int argc, char *argv[])
 			abort();
 		}
 
-	return run_test(destid, i);
+	return run_test(destid, i, count);
 } /* main() */

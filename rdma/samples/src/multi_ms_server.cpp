@@ -62,8 +62,9 @@ struct ti {
 	sem_t		started;
 };
 
-vector<pthread_t>	tid_list;
-bool		shutting_down = false;
+static vector<pthread_t> tid_list;
+static bool shutting_down = false;
+static mso_h  msoh;
 
 void *ms_thread_f(void *arg)
 {
@@ -80,12 +81,7 @@ void *ms_thread_f(void *arg)
 
 	/* Create memory space */
 	puts("Create memory space");
-	int ret = rdma_create_ms_h(ms_name,
-				   tio->msoh,
-				   1024*1024,
-				   0,
-				   &tio->msh,
-				   NULL);
+	int ret = rdma_create_ms_h(ms_name, tio->msoh, 1024*1024, 0, &tio->msh, NULL);
 	if (ret) {
 		printf("rdma_create_ms_h() for %s failed, ret = %d\n", ms_name, ret);
 		delete tio;
@@ -113,21 +109,38 @@ void *ms_thread_f(void *arg)
 	unsigned client_msub_len;
 	msub_h	client_msubh;
 	puts("Accepting connections...");
-	ret = rdma_accept_ms_h(tio->msh,
-			       tio->msubh,
-			       &client_msubh,
-			       &client_msub_len,
-			       0);
+	ret = rdma_accept_ms_h(tio->msh, tio->msubh, &client_msubh, &client_msub_len, 0);
 	if (ret) {
 		printf("rdma_accept_ms_h() failed, ret = %d\n", ret);
 		delete tio;
 		pthread_exit(0);
 	}
+	printf("'%s' connected!", ms_name);
 
-	/* Stay alive until 'shutting down' */
-	while (!shutting_down) {
-		sleep(1);
+	/* Map msub to virtual address */
+	void *vaddr;
+	ret = rdma_mmap_msub(tio->msubh, &vaddr);
+	if (ret) {
+		printf("Failed to map msubh, ret = %d\n", ret);
+		ret = rdma_destroy_mso_h(msoh);
+		if (ret)
+			printf("Failed to destroy mso('%s'), ret = %d\n",
+							MSO_NAME, ret);
+		delete tio;
+		pthread_exit(0);
 	}
+
+	/* Poll on received data and stay alive until 'shutting down' */
+	uint32_t *vaddr32 = (uint32_t *)vaddr;
+	while (1) {
+		while (!shutting_down && *vaddr32 != 0xDEADBEEF) {
+			usleep(100);
+		}
+		if (*vaddr32 == 0xDEADBEEF) {
+			putchar(24+tio->ms_number);
+			continue;
+		}
+	} /* while(1) */
 	pthread_exit(0);
 } /* ms_thread_f() */
 
@@ -143,8 +156,6 @@ void show_help()
 
 void sig_handler(int sig)
 {
-	puts("sig_handler");
-
 	/* Ignore SIGUSR1 */
 	if (sig == SIGUSR1)
 		return;
@@ -159,6 +170,10 @@ void sig_handler(int sig)
 	for (auto it = begin(tid_list); it != end(tid_list); it++) {
 		pthread_kill(*it, SIGUSR1);
 		pthread_join(*it, NULL);
+	}
+
+	if (rdma_destroy_mso_h(msoh)) {
+		puts("Failed to destroy msoh");
 	}
 
 	/* Terminate process */
@@ -202,7 +217,6 @@ int main(int argc, char *argv[])
 		}
 
 	/* Create memory space owner */
-	mso_h	msoh;
 	if (rdma_create_mso_h(MSO_NAME, &msoh)) {
 		printf("Failed to create mso('%s')\n", MSO_NAME);
 		return 1;
@@ -229,10 +243,7 @@ int main(int argc, char *argv[])
 		sleep(1);
 	}
 
-	if (rdma_destroy_mso_h(msoh)) {
-		puts("Failed to destroy msoh");
-	}
-
+	/* Never reached. Exit via ctrl-c */
 	return 0;
 } /* main() */
 
