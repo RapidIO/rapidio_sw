@@ -195,8 +195,8 @@ protected:
 	int mport_id;
 	uint8_t mbox_id;
 	uint16_t channel;
-	riomp_mailbox_t mailbox;
 	bool	*shutting_down;
+	riomp_mailbox_t mailbox;
 	bool	gdb;
 
 private:

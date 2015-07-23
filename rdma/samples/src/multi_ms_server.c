@@ -50,7 +50,7 @@ using std::vector;
 struct ti {
 	ti(mso_h msoh, unsigned ms_number) : msoh(msoh), ms_number(ms_number)
 	{
-		printf("msoh = 0x%lX, ms_number = %u\n", this->msoh, this->ms_number);
+		printf("msoh = 0x%lX, ms_number = %u\n", (unsigned long)this->msoh, this->ms_number);
 		sem_init(&started, 0, 0);
 	}
 	pthread_t	tid;
@@ -166,7 +166,7 @@ void sig_handler(int sig)
 
 int main(int argc, char *argv[])
 {
-	char c;
+	int c;
 	unsigned n;
 
 	/* Register signal handler */
