@@ -101,7 +101,7 @@ int RIODP_WU riodp_mport_create_handle(uint8_t mport_id, riodp_mport_t *mport);
 * This API returns 0 on successfully completion or standard error codes on failure.
 *
 ******************************************************************************/
-int riodp_mport_destroy_handle(riodp_mport_t *mport);
+int RIODP_WU riodp_mport_destroy_handle(riodp_mport_t *mport);
 
 
 /******************************************************************************
@@ -126,8 +126,8 @@ int riodp_mport_destroy_handle(riodp_mport_t *mport);
 * On successful completion of this API, the parameter data contains a user
 * mapped address to the mapped memory buffer.
 ******************************************************************************/
-int RIODP_WU riodp_mport_mmap_inb(riodp_mport_t mport, rio_addr_t rio_addr,
-	rio_addr_t size, void **data);
+int RIODP_WU riodp_mport_mmap_inb(riodp_mport_t mport, rio_addr_t *rio_addr,
+	rio_addr_t *size, void **data);
 
 /******************************************************************************
 *
@@ -146,7 +146,7 @@ int RIODP_WU riodp_mport_mmap_inb(riodp_mport_t mport, rio_addr_t rio_addr,
 * Return:
 * This API returns 0 on successfully completion or standard error codes on failure.
 ******************************************************************************/
-int riodp_mport_munmap_inb(riodp_mport_t mport, rio_addr_t rio_addr,
+int RIODP_WU riodp_mport_munmap_inb(riodp_mport_t mport, rio_addr_t rio_addr,
 	rio_addr_t size, void **data);
 
 /******************************************************************************
@@ -189,7 +189,7 @@ int RIODP_WU riodp_mport_alloc_dma_buf(riodp_mport_t mport, rio_addr_t size,
 *
 *
 ******************************************************************************/
-int riodp_mport_free_dma_buf(riodp_mport_t mport, void **dma_ptr);
+int RIODP_WU riodp_mport_free_dma_buf(riodp_mport_t mport, void **dma_ptr);
 
 /******************************************************************************
 *
@@ -232,7 +232,7 @@ int RIODP_WU riodp_mport_get_ep_list(riodp_mport_t mport, uint32_t **destids, ui
 * This API returns 0 on successfully completion or standard error codes on failure.
 *
 ******************************************************************************/
-int riodp_mport_free_ep_list(riodp_mport_t mport,uint32_t **destids);
+int RIODP_WU riodp_mport_free_ep_list(riodp_mport_t mport,uint32_t **destids);
 
 /******************************************************************************
 *
@@ -269,7 +269,7 @@ int RIODP_WU riodp_ep_create_handle(riodp_mport_t mport, uint32_t destid,
 * RETURNS:
 * This API returns 0 on successfully completion or standard error codes on failure.
 ******************************************************************************/
-int riodp_ep_destroy_handle(riodp_endpoint_t *endpoint);
+int RIODP_WU riodp_ep_destroy_handle(riodp_endpoint_t *endpoint);
 
 /******************************************************************************
 *
@@ -337,8 +337,8 @@ int RIODP_WU riodp_ep_get_rio_id(riodp_endpoint_t endpoint, uint32_t *destid);
 *
 *
 ******************************************************************************/
-int RIODP_WU riodp_ep_mmap(riodp_endpoint_t endpoint, rio_addr_t rio_addr,
-	rio_addr_t size, void **data);
+int RIODP_WU riodp_ep_mmap(riodp_endpoint_t endpoint, rio_addr_t *rio_addr,
+	rio_addr_t *size, void **data);
 
 /******************************************************************************
 *
@@ -358,7 +358,7 @@ int RIODP_WU riodp_ep_mmap(riodp_endpoint_t endpoint, rio_addr_t rio_addr,
 *
 *
 ******************************************************************************/
-int riodp_ep_munmap(riodp_endpoint_t endpoint, rio_addr_t rio_addr,
+int RIODP_WU riodp_ep_munmap(riodp_endpoint_t endpoint, rio_addr_t rio_addr,
 	rio_addr_t size, void **data);
 
 /******************************************************************************
