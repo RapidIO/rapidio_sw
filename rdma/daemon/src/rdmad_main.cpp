@@ -40,12 +40,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <rapidio_mport_dma.h>
 #include <semaphore.h>
 #include <signal.h>
 
 //#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_rdma.h>
-
 #include "cm_sock.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"

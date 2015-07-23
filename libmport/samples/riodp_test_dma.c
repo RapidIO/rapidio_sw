@@ -36,9 +36,9 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+#include <rapidio_mport_dma.h>
 
 #include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_rdma.h>
 
 /*
  * Initialization patterns. All bytes in the source buffer has bit 7

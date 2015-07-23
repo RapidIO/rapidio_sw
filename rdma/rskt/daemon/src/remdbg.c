@@ -57,11 +57,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <rapidio_mport_dma.h>
 
 #include "libcli.h"
 
 //#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_rdma.h>
 //#include <rapidio_mport_sock.h>
 
 #ifdef __cplusplus

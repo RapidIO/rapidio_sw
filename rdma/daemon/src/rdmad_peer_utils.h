@@ -38,7 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 
 //#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_rdma.h>
+#include "../../../include/rapidio_mport_dma.h"
 //#include <rapidio_mport_sock.h>
 
 struct peer_info {

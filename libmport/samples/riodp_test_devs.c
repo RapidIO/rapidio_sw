@@ -48,9 +48,9 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+#include <rapidio_mport_dma.h>
 
 #include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_rdma.h>
 #include <rapidio_mport_sock.h>
 
 #define RIODP_MAX_DEV_NAME_SZ 20 /* max number of RIO mports supported by platform */

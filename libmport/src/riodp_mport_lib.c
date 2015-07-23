@@ -53,7 +53,7 @@
 #include <linux/rio_mport_cdev.h>
 
 #include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_rdma.h>
+#include <rapidio_mport_dma.h>
 #include <rapidio_mport_sock.h>
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"

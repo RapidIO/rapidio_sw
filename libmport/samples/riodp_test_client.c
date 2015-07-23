@@ -42,10 +42,10 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <fcntl.h>
+#include <rapidio_mport_dma.h>
 #include <sys/ioctl.h>
 
 #include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_rdma.h>
 #include <rapidio_mport_sock.h>
 
 struct args {
