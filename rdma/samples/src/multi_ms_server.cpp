@@ -138,8 +138,13 @@ void *ms_thread_f(void *arg)
 			usleep(100);
 		}
 		if (*vaddr32 == 0xDEADBEEF) {
-			putchar(24+tio->ms_number);
+			printf("Got DMA data for #%d\n", tio->ms_number);
+			*vaddr32 = 0xb19b00b5;
 			continue;
+		}
+		if (shutting_down) {
+			delete tio;
+			pthread_exit(0);
 		}
 	} /* while(1) */
 	pthread_exit(0);
@@ -184,7 +189,7 @@ void sig_handler(int sig)
 int main(int argc, char *argv[])
 {
 	char c;
-	unsigned n;
+	unsigned n = 1;
 
 	/* Register signal handler */
 	struct sigaction sig_action;
