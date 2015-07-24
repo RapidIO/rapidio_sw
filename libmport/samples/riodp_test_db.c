@@ -73,12 +73,10 @@ static void db_sig_handler(int signum)
 
 static int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start, uint16_t end)
 {
-	/* TODO: check implementation */
-#if 0
 	int ret;
-	struct rio_event evt;
+	struct riomp_mgmt_event evt;
 
-	ret = riomp_mgmt_dbrange_enable(fd, rioid, start, end);
+	ret = riomp_mgmt_dbrange_enable(hnd, rioid, start, end);
 	if (ret) {
 		printf("Failed to enable DB range, err=%d\n", ret);
 		return ret;
@@ -90,53 +88,46 @@ static int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start, uint
 			break;
 		}
 
-		ret = read(fd, &evt, sizeof(struct rio_event));
+		ret = riomp_mgmt_get_event(hnd, &evt);
 		if (ret < 0) {
-			if (errno == EAGAIN)
+			if (ret == -EAGAIN)
 				continue;
 			else {
-				printf("Failed to read event, err=%d\n", errno);
+				printf("Failed to read event, err=%d\n", ret);
 				break;
 			}
 		}
 
-		if (evt.header == RIO_DOORBELL)
+		if (evt.header == RIO_EVENT_DOORBELL)
 			printf("\tDB 0x%04x from destID %d\n",
 				evt.u.doorbell.payload, evt.u.doorbell.rioid);
 		else
 			printf("\tIgnoring event type %d)\n", evt.header);
 	}
 
-	ret = riomp_mgmt_dbrange_disable(fd, rioid, start, end);
+	ret = riomp_mgmt_dbrange_disable(hnd, rioid, start, end);
 	if (ret) {
 		printf("Failed to disable DB range, err=%d\n", ret);
 		return ret;
 	}
-#endif
+
 	return 0;
 }
 
 static int do_dbsnd_test(riomp_mport_t hnd, uint32_t rioid, uint16_t dbval)
 {
-	/* TODO: check implementation */
-#if 0
-	struct rio_event evt;
+	struct riomp_mgmt_event evt;
 	int ret = 0;
 
-	evt.header = RIO_DOORBELL;
+	evt.header = RIO_EVENT_DOORBELL;
 	evt.u.doorbell.rioid = rioid;
 	evt.u.doorbell.payload = dbval;
 
-	ret = write(fd, &evt, sizeof(evt));
+	ret = riomp_mgmt_send_event(hnd, &evt);
 	if (ret < 0)
-		printf("Write DB event failed, err=%d\n", errno);
-	else
-		ret = 0;
+		printf("Write DB event failed, err=%d\n", ret);
 
 	return ret;
-#else
-	return 0;
-#endif
 }
 
 static void display_help(char *program)

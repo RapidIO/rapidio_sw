@@ -140,6 +140,7 @@ int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32
 int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask);
 int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask);
 int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt);
+int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt);
 
 int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag, const char *name);
 int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag);

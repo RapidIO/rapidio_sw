@@ -797,7 +797,7 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *ev
 
 	bytes = read(hnd->fd, &revent, sizeof(revent));
 	if (bytes == -1)
-		return -ENOMSG;
+		return -errno;
 	if (bytes != sizeof(revent)) {
 		return -EIO;
 	}
@@ -811,6 +811,40 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *ev
 		return -EIO;
 	}
 	evt->header = revent.header;
+
+	return 0;
+}
+
+/*
+ * send an event (only doorbell supported)
+ */
+int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt)
+{
+	struct rapidio_mport_handle *hnd = mport_handle;
+	struct rio_event sevent;
+	char *p = (char*)&sevent;
+	ssize_t ret;
+	unsigned int len=0;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	if (!evt) return -EINVAL;
+
+	if (evt->header != RIO_EVENT_DOORBELL) return -ENOTSUPP;
+
+	sevent.header = RIO_DOORBELL;
+	sevent.u.doorbell.rioid = evt->u.doorbell.rioid;
+	sevent.u.doorbell.payload = evt->u.doorbell.payload;
+
+	while (len < sizeof(sevent)) {
+		ret = write(hnd->fd, p+len, sizeof(sevent)-len);
+		if (ret == -1) {
+			return -errno;
+		} else {
+			len += ret;
+		}
+	}
 
 	return 0;
 }

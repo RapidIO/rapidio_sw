@@ -75,12 +75,10 @@ static void db_sig_handler(int signum)
 
 static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_t high)
 {
-	/* TODO: check implementation */
-#if 0
 	int ret;
-	struct rio_event evt;
+	struct riomp_mgmt_event evt;
 
-	ret = riomp_mgmt_pwrange_enable(fd, mask, low, high);
+	ret = riomp_mgmt_pwrange_enable(hnd, mask, low, high);
 	if (ret) {
 		printf("Failed to enable PW filter, err=%d\n", ret);
 		return ret;
@@ -92,17 +90,17 @@ static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_
 			break;
 		}
 
-		ret = read(fd, &evt, sizeof(struct rio_event));
+		ret = riomp_mgmt_get_event(hnd, &evt);
 		if (ret < 0) {
-			if (errno == EAGAIN)
+			if (ret == -EAGAIN)
 				continue;
 			else {
-				printf("Failed to read event, err=%d\n", errno);
+				printf("Failed to read event, err=%d\n", ret);
 				break;
 			}
 		}
 
-		if (evt.header == RIO_PORTWRITE) {
+		if (evt.header == RIO_EVENT_PORTWRITE) {
 			int i;
 
 			printf("\tPort-Write message:\n");
@@ -119,12 +117,12 @@ static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_
 			printf("\tIgnoring event type %d)\n", evt.header);
 	}
 
-	ret = riomp_mgmt_pwrange_disable(fd, mask, low, high);
+	ret = riomp_mgmt_pwrange_disable(hnd, mask, low, high);
 	if (ret) {
 		printf("Failed to disable PW range, err=%d\n", ret);
 		return ret;
 	}
-#endif
+
 	return 0;
 }
 
