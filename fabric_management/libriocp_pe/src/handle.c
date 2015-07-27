@@ -254,7 +254,7 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 	if (RIOCP_PE_IS_MPORT(*handle)) {
 		RIOCP_TRACE("Destroying mport handle %p (ct: 0x%08x)\n",
 			*handle, (*handle)->comptag);
-		riomp_mgmt_mport_destroy_handle((*handle)->minfo->maint);
+		riomp_mgmt_mport_destroy_handle(&(*handle)->minfo->maint);
 		riocp_pe_llist_foreach_safe(item, next, &(*handle)->minfo->handles) {
 			p = (struct riocp_pe *)item->data;
 			if (p)
@@ -270,7 +270,7 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 	}
 
 	if ((*handle)->mp_hnd != RIOCP_PE_HANDLE_FD_UNSET)
-		riomp_mgmt_mport_destroy_handle((*handle)->mp_hnd);
+		riomp_mgmt_mport_destroy_handle(&(*handle)->mp_hnd);
 
 	free((*handle)->port);
 	free((*handle)->port_event_mask);
@@ -309,7 +309,7 @@ int riocp_pe_handle_open_mport(struct riocp_pe *pe)
 	ret = riomp_mgmt_get_handle_id(mport_handle, &mport_id);
 	if (ret < 0) {
 		RIOCP_ERROR("Failed to get mport %d handle identifier\n", pe->mport->minfo->id);
-		riomp_mgmt_mport_destroy_handle(mport_handle);
+		riomp_mgmt_mport_destroy_handle(&mport_handle);
 		return ret;
 	}
 

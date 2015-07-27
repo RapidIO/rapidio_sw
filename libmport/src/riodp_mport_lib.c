@@ -111,9 +111,9 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	return 0;
 }
 
-int riomp_mgmt_mport_destroy_handle(riomp_mport_t mport_handle)
+int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
 {
-	struct rapidio_mport_handle *hnd = mport_handle;
+	struct rapidio_mport_handle *hnd = *mport_handle;
 
 	if(hnd == NULL)
 		return -EINVAL;

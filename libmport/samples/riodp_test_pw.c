@@ -267,6 +267,6 @@ int main(int argc, char** argv)
 	riomp_mgmt_set_event_mask(mport_hnd, evt_mask);
 
 out:
-	riomp_mgmt_mport_destroy_handle(mport_hnd);
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

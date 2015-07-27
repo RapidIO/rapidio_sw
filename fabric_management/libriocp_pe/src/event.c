@@ -67,7 +67,7 @@ int riocp_pe_event_init(struct riocp_pe *pe)
 	return 0;
 
 err:
-	riomp_mgmt_mport_destroy_handle(pe->mp_hnd);
+	riomp_mgmt_mport_destroy_handle(&pe->mp_hnd);
 
 	RIOCP_TRACE("Error \"%s\"(%d) in eventfd for %08x\n", strerror(ret), ret, pe->comptag);
 

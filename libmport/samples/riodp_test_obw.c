@@ -595,6 +595,6 @@ int main(int argc, char** argv)
 	}
 
 out:
-	riomp_mgmt_mport_destroy_handle(mport_hnd);
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

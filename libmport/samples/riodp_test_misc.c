@@ -233,6 +233,6 @@ out:
 		rc = EXIT_SUCCESS;
 	}
 
-	riomp_mgmt_mport_destroy_handle(mport_hnd);
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

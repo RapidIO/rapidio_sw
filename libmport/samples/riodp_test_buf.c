@@ -77,7 +77,7 @@ static int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint
 	if (ret) {
 		printf("(%d): fileio not supported err=%d\n",
 			(int)getpid(), ret);
-		riomp_mgmt_mport_destroy_handle(mphnd);
+		riomp_mgmt_mport_destroy_handle(&mphnd);
 		return -1;
 	}
 
@@ -98,7 +98,7 @@ static int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint
 		perror("munmap");
 
 out:
-	riomp_mgmt_mport_destroy_handle(mphnd);
+	riomp_mgmt_mport_destroy_handle(&mphnd);
 	return 0;
 }
 
@@ -301,6 +301,6 @@ int main(int argc, char** argv)
 
 	do_buf_test(mport_id, rio_base, ibwin_size, buf_mode);
 	
-	riomp_mgmt_mport_destroy_handle(mport_hnd);
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

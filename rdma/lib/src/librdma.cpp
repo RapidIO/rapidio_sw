@@ -176,7 +176,7 @@ static int open_mport(struct peer_info *peer)
 			INFO("DMA is ENABLED\n");
 		} else {
 			CRIT("DMA capability DISABLED\n");
-			riomp_mgmt_mport_destroy_handle(peer->mport_hnd);
+			riomp_mgmt_mport_destroy_handle(&peer->mport_hnd);
 			return -3;
 		}
 		peer->destid = prop.hdid;

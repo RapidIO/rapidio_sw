@@ -722,7 +722,7 @@ void shutdown(struct peer_info *peer)
 	/* Close mport device */
 	if (peer->mport_hnd != 0) {
 		INFO("Closing mport\n");
-		riomp_mgmt_mport_destroy_handle(peer->mport_hnd);
+		riomp_mgmt_mport_destroy_handle(&peer->mport_hnd);
 	}
 	INFO("Mport %d closed\n", peer->mport_id);
 
@@ -928,7 +928,7 @@ out_free_inbound:
 
 out_close_mport:
 	pthread_join(console_thread, NULL);
-	riomp_mgmt_mport_destroy_handle(peer.mport_hnd);
+	riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
 out:
 	pthread_join(console_thread, NULL);
 	return rc;	

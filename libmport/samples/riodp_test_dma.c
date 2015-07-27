@@ -245,14 +245,14 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
 	if (ret) {
 		printf("Failed to allocate/map IB buffer err=%d\n", ret);
-		riomp_mgmt_mport_destroy_handle(mport_hnd);
+		riomp_mgmt_mport_destroy_handle(&mport_hnd);
 		return ret;
 	}
 
 	ret = riomp_mgmt_get_fd(mport_hnd, &fdes);
 	if (ret) {
 		printf("mport does not support fileio err=%d\n", ret);
-		riomp_mgmt_mport_destroy_handle(mport_hnd);
+		riomp_mgmt_mport_destroy_handle(&mport_hnd);
 		return ret;
 	}
 
@@ -730,6 +730,6 @@ int main(int argc, char** argv)
 	}
 
 out:
-	riomp_mgmt_mport_destroy_handle(mport_hnd);
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

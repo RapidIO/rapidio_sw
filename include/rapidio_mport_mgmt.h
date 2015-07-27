@@ -118,7 +118,7 @@ int riomp_mgmt_free_ep_list(uint32_t **destids);
 
 
 int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle);
-int riomp_mgmt_mport_destroy_handle(riomp_mport_t mport_handle);
+int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle);
 
 int riomp_mgmt_get_fd(riomp_mport_t mport_handle, int *fd);
 int riomp_mgmt_get_handle_id(riomp_mport_t mport_handle, int *id);
