@@ -596,6 +596,7 @@ void *rpc_thread_f(void *arg)
 			}
 		} else {
 			HIGH("Application has closed connection. Exiting!\n");
+			delete other_server;
 			pthread_exit(0);
 		}
 	} /* while */
