@@ -44,6 +44,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <sys/time.h>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include <algorithm>
 #include <iostream>
 #include <sstream>
@@ -1917,7 +1920,7 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 
 	INFO("Sending %u bytes over DMA to destid=0x%X\n", in->num_bytes,
 								rmsub->destid);
-	INFO("Dest RIO addr = 0x%X\n, lmsub->paddr = 0x%lX\n",
+	INFO("Dest RIO addr =  %016" PRIx64 ", lmsub->paddr = %016" PRIx64 "\n",
 					rmsub->rio_addr_lo + in->rem_offset,
 					lmsub->paddr);
 
