@@ -148,7 +148,7 @@ remdbg:  $(REMDBG_SOURCES)
 	-lcli -lrt -lmport -llog -pthread
 
 clean:
-	rm -f rdmad *.o librdma.so *.i
+	rm -f rdmad remdbg *.o librdma.so *.i
 	$(MAKE) clean -C rskt
 	$(MAKE) clean -C samples
 	$(MAKE) clean -C test
