@@ -1896,12 +1896,15 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 
 	case rdma_no_wait:
 		rd_sync = RIO_TRANSFER_FAF;
+		INFO("RIO_TRANSFER_FAF\n");
 		break;
 	case rdma_sync_chk:
 		rd_sync = RIO_TRANSFER_SYNC;
+		INFO("RIO_TRANSFER_SYNC\n");
 		break;
 	case rdma_async_chk:
 		rd_sync = RIO_TRANSFER_ASYNC;
+		INFO("RIO_TRANSFER_ASYNC\n");
 		break;
 	default:
 		ERR("Invalid sync_type\n", in->sync_type);
