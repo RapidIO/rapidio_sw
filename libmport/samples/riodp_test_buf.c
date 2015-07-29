@@ -60,7 +60,7 @@ static uint32_t ibwin_size = DEFAULT_IBWIN_SIZE;
 static int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint32_t seg_size)
 {
 	riomp_mport_t mphnd;
-	int fdes, ret;
+	int ret;
 	uint8_t fill;
 	void *ibmap;
 
@@ -73,28 +73,23 @@ static int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint
 		return -1;
 	}
 
-	ret = riomp_mgmt_get_fd(mphnd, &fdes);
-	if (ret) {
-		printf("(%d): fileio not supported err=%d\n",
-			(int)getpid(), ret);
-		riomp_mgmt_mport_destroy_handle(&mphnd);
-		return -1;
-	}
-
-	printf("\t(%d): fd=%d h=0x%x_%x sz=0x%x\n", (int)getpid(), fdes,
+	printf("\t(%d): h=0x%x_%x sz=0x%x\n", (int)getpid(),
 		(uint32_t)(seg_handle >> 32),
 		(uint32_t)(seg_handle & 0xffffffff), seg_size);
 
-	ibmap = mmap(NULL, seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, fdes, seg_handle);
-	if (ibmap == MAP_FAILED) {
-		perror("mmap");
+	ret = riomp_dma_map_memory(mphnd, seg_size, seg_handle, &ibmap);
+	if (ret) {
+		printf("(%d): map failed err=%d\n",
+			(int)getpid(), ret);
 		goto out;
 	}
 
 	fill = 0xc0 | (uint8_t)seg_id;
 	memset(ibmap, fill, seg_size);
 
-	if (munmap(ibmap, seg_size))
+	ret = riomp_dma_unmap_memory(mphnd, seg_size, ibmap);
+
+	if (ret)
 		perror("munmap");
 
 out:
@@ -111,7 +106,7 @@ out:
 static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 			 int buf_mode)
 {
-	int ret, fdes;
+	int ret;
 	uint64_t ib_handle;
 	uint64_t seg_handle;
 	uint32_t seg_size;
@@ -119,12 +114,6 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	int i, err_count = 0;;
 	int status = 0;
 	pid_t pid, wpid;
-
-	ret = riomp_mgmt_get_fd(mport_hnd, &fdes);
-	if (ret) {
-		printf("fileio not supported, err=%d\n", ret);
-		return ret;
-	}
 
 	if (buf_mode)
 		ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
@@ -136,14 +125,14 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 		return ret;
 	}
 
-	ibmap = mmap(NULL, ib_size, PROT_READ | PROT_WRITE, MAP_SHARED, fdes, ib_handle);
-	if (ibmap == MAP_FAILED) {
+	ret = riomp_dma_map_memory(mport_hnd, ib_size, ib_handle, &ibmap);
+	if (ret) {
 		perror("mmap");
 		goto out;
 	}
 
-	printf("\tSuccessfully allocated/mapped %s buffer from fd=%d\n",
-		buf_mode?"IBwin":"DMA", fdes);
+	printf("\tSuccessfully allocated/mapped %s buffer\n",
+		buf_mode?"IBwin":"DMA");
 	if (buf_mode)
 		printf("\t\trio_base=0x%x_%x\n", (uint32_t)(rio_base >> 32),
 			(uint32_t)(rio_base & 0xffffffff));
@@ -210,7 +199,8 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	printf("\t.... press Enter key to exit ....\n");
 	getchar();
 
-	if (munmap(ibmap, ib_size))
+	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
+	if (ret)
 		perror("munmap");
 out:
 	if (buf_mode)

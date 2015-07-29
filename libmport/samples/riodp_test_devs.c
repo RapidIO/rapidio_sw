@@ -59,7 +59,6 @@ static riomp_mport_t mport_hnd;
 static uint16_t tgt_destid;
 static uint8_t tgt_hop;
 static uint32_t comptag = 0;
-static int exit_no_dev;
 
 static char dev_name[RIODP_MAX_DEV_NAME_SZ + 1];
 
@@ -109,14 +108,6 @@ static void display_help(char *program)
 	printf("\n");
 }
 
-static void test_sigaction(int sig, siginfo_t *siginfo, void *context)
-{
-	printf ("SIGIO info PID: %ld, UID: %ld CODE: 0x%x BAND: 0x%lx FD: %d\n",
-			(long)siginfo->si_pid, (long)siginfo->si_uid, siginfo->si_code,
-			siginfo->si_band, siginfo->si_fd);
-	exit_no_dev = 1;
-}
-
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
@@ -137,9 +128,8 @@ int main(int argc, char** argv)
 	};
 	char *program = argv[0];
 	struct riomp_mgmt_mport_properties prop;
-	struct sigaction action;
 	int rc = EXIT_SUCCESS;
-	int err, fdes;
+	int err;
 
 	while (1) {
 		option = getopt_long_only(argc, argv,
@@ -182,11 +172,6 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	memset(&action, 0, sizeof(action));
-	action.sa_sigaction = test_sigaction;
-	action.sa_flags = SA_SIGINFO;
-	sigaction(SIGIO, &action, NULL);
-
 	err = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
 	if (err < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
@@ -206,16 +191,6 @@ int main(int argc, char** argv)
 		printf("Failed to obtain mport information\n");
 		printf("Using default configuration\n\n");
 	}
-
-	err = riomp_mgmt_get_fd(mport_hnd, &fdes);
-	if (err) {
-		printf("fileio not supported.\n");
-		rc = EXIT_FAILURE;
-		goto out;
-	}
-
-	fcntl(fdes, F_SETOWN, getpid());
-	fcntl(fdes, F_SETFL, fcntl(fdes, F_GETFL) | FASYNC);
 
 	err = riomp_mgmt_lcfg_read(mport_hnd, 0x13c, sizeof(uint32_t), &regval);
 	if (err) {

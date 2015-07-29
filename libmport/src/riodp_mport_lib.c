@@ -123,20 +123,6 @@ int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
 	return 0;
 }
 
-int riomp_mgmt_get_fd(riomp_mport_t mport_handle, int *fd)
-{
-	struct rapidio_mport_handle *hnd = mport_handle;
-
-	if(hnd == NULL)
-		return -EINVAL;
-
-	/*
-	 * if the architecture does not support posix file handles return -EOPNOTSUPP here.
-	 */
-	*fd = hnd->fd;
-	return 0;
-}
-
 int riomp_mgmt_get_handle_id(riomp_mport_t mport_handle, int *id)
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
@@ -539,6 +525,33 @@ int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle)
 		return errno;
 
 	return 0;
+}
+
+/*
+ * map phys address range to process virtual memory
+ */
+int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, void **vaddr)
+{
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL || !size || !vaddr)
+		return -EINVAL;
+
+	*vaddr = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, hnd->fd, paddr);
+
+	if (*vaddr == MAP_FAILED) {
+		return -errno;
+	}
+
+	return 0;
+}
+
+/*
+ * unmap phys address range to process virtual memory
+ */
+int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr)
+{
+	return munmap(vaddr, size);
 }
 
 /*

@@ -1377,25 +1377,6 @@ int RIOCP_SO_ATTR riocp_pe_set_event_mask(riocp_pe_handle pe,
 }
 
 /**
- * Retreive a file descriptor to poll/select for events on the given PE. Use
- * riocp_receive_event for actual event reception
- * @param pe This host or any switch
- * @param fd File descriptor to use in poll/select loop
- */
-int RIOCP_SO_ATTR riocp_pe_get_event_fd(riocp_pe_handle pe,
-	int *fd)
-{
-	if (fd == NULL)
-		return -EINVAL;
-	if (riocp_pe_handle_check(pe))
-		return -EINVAL;
-	if (RIOCP_PE_IS_MPORT(pe) || !RIOCP_PE_IS_HOST(pe) || !RIOCP_PE_IS_SWITCH(pe->cap))
-		return -ENOSYS;
-
-	return riomp_mgmt_get_fd(pe->mp_hnd, fd);
-}
-
-/**
  * Read an event off the event queue for the given PE.
  * @param pe This host or any switch
  * @param e  Event received from this device

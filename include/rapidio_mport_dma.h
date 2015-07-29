@@ -68,6 +68,8 @@ int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid, uint64_t ri
 int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle);
 int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *handle);
 int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle);
+int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, void **vaddr);
+int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr);
 
 #ifdef __cplusplus
 }

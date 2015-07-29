@@ -1314,7 +1314,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 int rdma_mmap_msub(msub_h msubh, void **vaddr)
 {
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
-	int ret, fdes;
+	int ret;
 
 	DBG("ENTER\n");
 
@@ -1328,24 +1328,14 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		return -2;
 	}
 
-	ret = riomp_mgmt_get_fd(peer.mport_hnd, &fdes);
+	ret = riomp_dma_map_memory(peer.mport_hnd, pmsub->bytes, pmsub->paddr, vaddr);
+
+	INFO("map() phys_addr = 0x%lX, virt_addr = %p, size = %l\n",
+						pmsub->paddr, *vaddr, pmsub->bytes);
+
 	if (ret) {
-		ERR("cannot get fd for mport handle\n");
+		ERR("map(0x%lX) failed: %s\n", pmsub->paddr, strerror(-ret));
 		return ret;
-	}
-
-	INFO("mmap() mport_fd = %d, phys_addr = 0x%lX\n",
-						fdes, pmsub->paddr);
-	*vaddr = mmap(NULL,
-		 pmsub->bytes,
-		 PROT_READ|PROT_WRITE,
-		 MAP_SHARED,
-		 fdes,
-		 pmsub->paddr);
-
-	if (*vaddr == MAP_FAILED) {
-		ERR("mmap(0x%lX) failed: %s\n", pmsub->paddr, strerror(errno));
-		return -3;
 	}
 	DBG("msub mapped to vaddr(%p)\n", *vaddr);
 

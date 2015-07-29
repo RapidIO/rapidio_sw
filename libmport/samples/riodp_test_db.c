@@ -189,7 +189,6 @@ int main(int argc, char** argv)
 	struct riomp_mgmt_mport_properties prop;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
-	int fdes;
 
 	while (1) {
 		option = getopt_long_only(argc, argv,
@@ -257,16 +256,6 @@ int main(int argc, char** argv)
 		printf("Failed to obtain mport information\n");
 		printf("Using default configuration\n\n");
 	}
-
-	rc = riomp_mgmt_get_fd(mport_hnd, &fdes);
-	if (rc) {
-		printf("fileio not supported.\n");
-		rc = EXIT_FAILURE;
-		goto out;
-	}
-
-	fcntl(fdes, F_SETOWN, getpid());
-	fcntl(fdes, F_SETFL, fcntl(fdes, F_GETFL) | FASYNC);
 
 	/* Trap signals that we expect to receive */
 	signal(SIGINT,  db_sig_handler);

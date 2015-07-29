@@ -76,7 +76,6 @@ static int align = 0;
 static uint32_t dma_size = 0;
 static uint32_t ibwin_size;
 static int debug = 0;
-static int exit_no_dev;
 static uint32_t tbuf_size = TEST_BUF_SIZE;
 
 /* Max data block length that can be transferred by DMA channel
@@ -183,7 +182,7 @@ static void *dmatest_buf_alloc(riomp_mport_t mport_hnd, uint32_t size, uint64_t 
 {
 	void *buf_ptr = NULL;
 	uint64_t h;
-	int ret, fdes;
+	int ret;
 
 	if (handle) {
 		ret = riomp_dma_dbuf_alloc(mport_hnd, size, &h);
@@ -193,15 +192,8 @@ static void *dmatest_buf_alloc(riomp_mport_t mport_hnd, uint32_t size, uint64_t 
 			return NULL;
 		}
 
-		ret = riomp_mgmt_get_fd(mport_hnd, &fdes);
+		ret = riomp_dma_map_memory(mport_hnd, size, h, &buf_ptr);
 		if (ret) {
-			if (debug)
-				printf("riomp_dma_dbuf_alloc failed, mport does not support fileio, err=%d\n", ret);
-			return NULL;
-		}
-
-		buf_ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fdes, h);
-		if (buf_ptr == MAP_FAILED) {
 			perror("mmap");
 			buf_ptr = NULL;
 			ret = riomp_dma_dbuf_free(mport_hnd, handle);
@@ -223,7 +215,8 @@ static void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size, 
 	if (handle && *handle) {
 		int ret;
 
-		if (munmap(buf, size))
+		ret = riomp_dma_unmap_memory(mport_hnd, size, handle);
+		if (ret)
 			perror("munmap");
 
 		ret = riomp_dma_dbuf_free(mport_hnd, handle);
@@ -238,7 +231,7 @@ static void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size, 
 static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 			 int verify)
 {
-	int ret, fdes;
+	int ret;
 	uint64_t ib_handle;
 	void *ibmap;
 
@@ -249,15 +242,8 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 		return ret;
 	}
 
-	ret = riomp_mgmt_get_fd(mport_hnd, &fdes);
+	ret = riomp_dma_map_memory(mport_hnd, ib_size, ib_handle, &ibmap);
 	if (ret) {
-		printf("mport does not support fileio err=%d\n", ret);
-		riomp_mgmt_mport_destroy_handle(&mport_hnd);
-		return ret;
-	}
-
-	ibmap = mmap(NULL, ib_size, PROT_READ | PROT_WRITE, MAP_SHARED, fdes, ib_handle);
-	if (ibmap == MAP_FAILED) {
 		perror("mmap");
 		goto out;
 	}
@@ -270,12 +256,11 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 			(uint32_t)(ib_handle & 0xffffffff), ibmap);
 	printf("\t.... press Enter key to exit ....\n");
 	getchar();
-	if (exit_no_dev)
-		printf(">>> Device removal signaled <<<\n");
 	if (verify)
 		dmatest_verify((U8P)ibmap, 0, ib_size, 0, PATTERN_SRC | PATTERN_COPY, 0);
 
-	if (munmap(ibmap, ib_size))
+	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
+	if (ret)
 		perror("munmap");
 out:
 	ret = riomp_dma_ibwin_free(mport_hnd, &ib_handle);
@@ -562,14 +547,6 @@ static void display_help(char *program)
 	printf("\n");
 }
 
-static void test_sigaction(int sig, siginfo_t *siginfo, void *context)
-{
-	printf ("SIGIO info PID: %ld, UID: %ld CODE: 0x%x BAND: 0x%lx FD: %d\n",
-			(long)siginfo->si_pid, (long)siginfo->si_uid, siginfo->si_code,
-			siginfo->si_band, siginfo->si_fd);
-	exit_no_dev = 1;
-}
-
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
@@ -599,9 +576,8 @@ int main(int argc, char** argv)
 	char *program = argv[0];
 	struct riomp_mgmt_mport_properties prop;
 	int has_dma = 1;
-	struct sigaction action;
 	int rc = EXIT_SUCCESS;
-	int ret, fdes;
+	int ret;
 
 	while (1) {
 		option = getopt_long_only(argc, argv,
@@ -670,11 +646,6 @@ int main(int argc, char** argv)
 		}
 	}
 
-	memset(&action, 0, sizeof(action));
-	action.sa_sigaction = test_sigaction;
-	action.sa_flags = SA_SIGINFO;
-	sigaction(SIGIO, &action, NULL);
-
 	ret = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
 	if (ret < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
@@ -700,11 +671,6 @@ int main(int argc, char** argv)
 	} else {
 		printf("Failed to obtain mport information\n");
 		printf("Using default configuration\n\n");
-	}
-
-	if (riomp_mgmt_get_fd(mport_hnd, &fdes) == 0) {
-		fcntl(fdes, F_SETOWN, getpid());
-		fcntl(fdes, F_SETFL, fcntl(fdes, F_GETFL) | FASYNC);
 	}
 
 	if (ibwin_size) {

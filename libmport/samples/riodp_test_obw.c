@@ -77,7 +77,6 @@ static uint32_t copy_size = TEST_BUF_SIZE;
 static uint32_t ibwin_size;
 static uint32_t tbuf_size = TEST_BUF_SIZE;
 static int debug = 0;
-static int exit_no_dev;
 
 struct timespec timediff(struct timespec start, struct timespec end)
 {
@@ -192,15 +191,9 @@ static void obwtest_buf_free(void *buf)
 static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 			 int verify)
 {
-	int ret, fdes;
+	int ret;
 	uint64_t ib_handle;
 	void *ibmap;
-
-	ret = riomp_mgmt_get_fd(mport_hnd, &fdes);
-	if (ret) {
-		printf("fileio not supported.\n");
-		return ret;
-	}
 
 	ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
 	if (ret) {
@@ -208,8 +201,8 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 		return ret;
 	}
 
-	ibmap = mmap(NULL, ib_size, PROT_READ | PROT_WRITE, MAP_SHARED, fdes, ib_handle);
-	if (ibmap == MAP_FAILED) {
+	ret = riomp_dma_map_memory(mport_hnd, ib_size, ib_handle, &ibmap);
+	if (ret) {
 		perror("mmap");
 		goto out;
 	}
@@ -222,12 +215,11 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 			(uint32_t)(ib_handle & 0xffffffff), ibmap);
 	printf("\t.... press Enter key to exit ....\n");
 	getchar();
-	if (exit_no_dev)
-		printf(">>> Device removal signaled <<<\n");
 	if (verify)
 		dmatest_verify((U8P)ibmap, 0, ib_size, 0, PATTERN_SRC | PATTERN_COPY, 0);
 
-	if (munmap(ibmap, ib_size))
+	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
+	if (ret)
 		perror("munmap");
 out:
 	ret = riomp_dma_ibwin_free(mport_hnd, &ib_handle);
@@ -248,13 +240,6 @@ static int do_obwin_test(int random, int verify, int loop_count)
 	struct timespec wr_starttime, wr_endtime;
 	struct timespec rd_starttime, rd_endtime;
 	float totaltime;
-	int fdes;
-
-	ret = riomp_mgmt_get_fd(mport_hnd, &fdes);
-	if (ret) {
-		printf("fileio not supported.\n");
-		return ret;
-	}
 
 	/* check specified DMA block size */
 	if (copy_size > tbuf_size || copy_size == 0) {
@@ -296,8 +281,9 @@ static int do_obwin_test(int random, int verify, int loop_count)
 	printf("OBW handle 0x%x_%08x\n", (uint32_t)(obw_handle >> 32),
 		(uint32_t)(obw_handle & 0xffffffff));
 
-	obw_ptr = mmap(NULL, tbuf_size, PROT_READ | PROT_WRITE, MAP_SHARED, fdes, obw_handle);
-	if (obw_ptr == MAP_FAILED) {
+
+	ret = riomp_dma_map_memory(mport_hnd, tbuf_size, obw_handle, &obw_ptr);
+	if (ret) {
 		perror("mmap");
 		obw_ptr = NULL;
 		goto out_unmap;
@@ -388,7 +374,8 @@ static int do_obwin_test(int random, int verify, int loop_count)
 		printf("\t\tFull Cycle time: %4f s\n", totaltime);
 	}
 
-	if (munmap(obw_ptr, tbuf_size))
+	ret = riomp_dma_unmap_memory(mport_hnd, tbuf_size, obw_ptr);
+	if (ret)
 		perror("munmap");
 out_unmap:
 	ret = riomp_dma_obwin_free(mport_hnd, &obw_handle);
@@ -448,14 +435,6 @@ static void display_help(char *program)
 	printf("\n");
 }
 
-static void test_sigaction(int sig, siginfo_t *siginfo, void *context)
-{
-	printf ("SIGIO info PID: %ld, UID: %ld CODE: 0x%x BAND: 0x%lx FD: %d\n",
-			(long)siginfo->si_pid, (long)siginfo->si_uid, siginfo->si_code,
-			siginfo->si_band, siginfo->si_fd);
-	exit_no_dev = 1;
-}
-
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
@@ -482,9 +461,7 @@ int main(int argc, char** argv)
 	};
 	char *program = argv[0];
 	struct riomp_mgmt_mport_properties prop;
-	struct sigaction action;
 	int rc = EXIT_SUCCESS;
-	int fdes;
 
 	while (1) {
 		option = getopt_long_only(argc, argv,
@@ -544,11 +521,6 @@ int main(int argc, char** argv)
 		}
 	}
 
-	memset(&action, 0, sizeof(action));
-	action.sa_sigaction = test_sigaction;
-	action.sa_flags = SA_SIGINFO;
-	sigaction(SIGIO, &action, NULL);
-
 	rc = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
 	if (rc < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
@@ -568,16 +540,6 @@ int main(int argc, char** argv)
 		printf("Failed to obtain mport information\n");
 		printf("Using default configuration\n\n");
 	}
-
-	rc = riomp_mgmt_get_fd(mport_hnd, &fdes);
-	if (rc) {
-		printf("fileio not supported.\n");
-		rc = EXIT_FAILURE;
-		goto out;
-	}
-
-	fcntl(fdes, F_SETOWN, getpid());
-	fcntl(fdes, F_SETFL, fcntl(fdes, F_GETFL) | FASYNC);
 
 	if (ibwin_size) {
 		printf("+++ RapidIO Inbound Window Mode +++\n");

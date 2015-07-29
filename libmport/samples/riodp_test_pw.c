@@ -53,7 +53,6 @@
 #include <rapidio_mport_sock.h>
 
 static int debug = 0;
-static int exit_no_dev;
 
 static volatile sig_atomic_t rcv_exit;
 static volatile sig_atomic_t report_status;
@@ -91,11 +90,6 @@ static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_
 			printf("port writes count: %lu\n", pw_count);
 			printf("ignored events count: %lu\n", ignored_count);
 			report_status = 0;
-		}
-
-		if (exit_no_dev) {
-			printf(">>> Device removal signaled <<<\n");
-			break;
 		}
 
 		ret = riomp_mgmt_get_event(hnd, &evt);
@@ -157,14 +151,6 @@ static void display_help(char *program)
 	printf("\n");
 }
 
-static void test_sigaction(int sig, siginfo_t *siginfo, void *context)
-{
-	printf ("SIGIO info PID: %ld, UID: %ld CODE: 0x%x BAND: 0x%lx FD: %d\n",
-			(long)siginfo->si_pid, (long)siginfo->si_uid, siginfo->si_code,
-			siginfo->si_band, siginfo->si_fd);
-	exit_no_dev = 1;
-}
-
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
@@ -182,9 +168,8 @@ int main(int argc, char** argv)
 	};
 	char *program = argv[0];
 	struct riomp_mgmt_mport_properties prop;
-	struct sigaction action;
 	unsigned int evt_mask;
-	int err, fdes;
+	int err;
 	int rc = EXIT_SUCCESS;
 
 	while (1) {
@@ -218,11 +203,6 @@ int main(int argc, char** argv)
 		}
 	}
 
-	memset(&action, 0, sizeof(action));
-	action.sa_sigaction = test_sigaction;
-	action.sa_flags = SA_SIGINFO;
-	sigaction(SIGIO, &action, NULL);
-
 	rc = riomp_mgmt_mport_create_handle(mport_id, flags, &mport_hnd);
 	if (rc < 0) {
 		printf("DB Test: unable to open mport%d device err=%d\n",
@@ -242,16 +222,6 @@ int main(int argc, char** argv)
 		printf("Failed to obtain mport information\n");
 		printf("Using default configuration\n\n");
 	}
-
-	rc = riomp_mgmt_get_fd(mport_hnd, &fdes);
-	if (rc) {
-		printf("fileio not supported.\n");
-		rc = EXIT_FAILURE;
-		goto out;
-	}
-
-	fcntl(fdes, F_SETOWN, getpid());
-	fcntl(fdes, F_SETFL, fcntl(fdes, F_GETFL) | FASYNC);
 
 	/* Trap signals that we expect to receive */
 	signal(SIGINT,  db_sig_handler);
