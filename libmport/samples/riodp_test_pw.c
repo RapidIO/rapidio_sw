@@ -77,6 +77,7 @@ static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_
 {
 	int ret;
 	struct riomp_mgmt_event evt;
+	unsigned long pw_count = 0, ignored_count = 0;
 
 	ret = riomp_mgmt_pwrange_enable(hnd, mask, low, high);
 	if (ret) {
@@ -85,6 +86,13 @@ static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_
 	}
 
 	while (!rcv_exit) {
+
+		if (report_status) {
+			printf("port writes count: %lu\n", pw_count);
+			printf("ignored events count: %lu\n", ignored_count);
+			report_status = 0;
+		}
+
 		if (exit_no_dev) {
 			printf(">>> Device removal signaled <<<\n");
 			break;
@@ -112,9 +120,11 @@ static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_
 					evt.u.portwrite.payload[i + 3]);
 			}
 			printf("\n");
-		}
-		else
+			pw_count++;
+		} else {
 			printf("\tIgnoring event type %d)\n", evt.header);
+			ignored_count++;
+		}
 	}
 
 	ret = riomp_mgmt_pwrange_disable(hnd, mask, low, high);
