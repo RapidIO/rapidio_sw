@@ -185,7 +185,7 @@ void sig_handler(int sig)
 
 int main(int argc, char *argv[])
 {
-	char c;
+	int c;
 	unsigned i = 0;
 	unsigned count = 1;
 	uint32_t destid = ~0;
