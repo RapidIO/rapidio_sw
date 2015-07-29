@@ -44,6 +44,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <sys/time.h>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include <algorithm>
 #include <iostream>
 #include <sstream>
@@ -1895,12 +1898,15 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 
 	case rdma_no_wait:
 		rd_sync = RIO_DIRECTIO_TRANSFER_FAF;
+		INFO("RIO_DIRECTIO_TRANSFER_FAF\n");
 		break;
 	case rdma_sync_chk:
 		rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
+		INFO("RIO_DIRECTIO_TRANSFER_SYNC\n");
 		break;
 	case rdma_async_chk:
 		rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
+		INFO("RIO_DIRECTIO_TRANSFER_ASYNC\n");
 		break;
 	default:
 		ERR("Invalid sync_type\n", in->sync_type);
@@ -1913,7 +1919,7 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 
 	INFO("Sending %u bytes over DMA to destid=0x%X\n", in->num_bytes,
 								rmsub->destid);
-	INFO("Dest RIO addr = 0x%X\n, lmsub->paddr = 0x%lX\n",
+	INFO("Dest RIO addr =  %016" PRIx64 ", lmsub->paddr = %016" PRIx64 "\n",
 					rmsub->rio_addr_lo + in->rem_offset,
 					lmsub->paddr);
 

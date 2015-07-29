@@ -99,7 +99,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 	/* Send HELLO message containing our destid */
 	hello_msg_t	*hm;
 	accept_destroy_client->get_send_buffer((void **)&hm);
-	hm->destid = peer.destid;
+	hm->destid = htobe64(peer.destid);
 	if (accept_destroy_client->send()) {
 		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
 		delete wadti->hello_client;
@@ -117,8 +117,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 		free(wadti);
 		pthread_exit(0);
 	}
-	if (ham->destid != destid) {
-		WARN("hello-ack destid(0x%X) != destid(0x%X)\n", ham->destid, destid);
+	if (be64toh(ham->destid) != destid) {
+		WARN("hello-ack destid(0x%X) != destid(0x%X)\n", be64toh(ham->destid), destid);
 	}
 	HIGH("HELLO ACK successfully received from destid(0x%X)\n", destid);
 
@@ -184,7 +184,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 		 * type is different then cast message buffer accordingly. */
 		cm_accept_msg	*accept_cm_msg;
 		accept_destroy_client->get_recv_buffer((void **)&accept_cm_msg);
-		if (accept_cm_msg->type == CM_ACCEPT_MS) {
+		if (be64toh(accept_cm_msg->type) == CM_ACCEPT_MS) {
 			HIGH("Received ACCEPT_MS from %s\n",
 						accept_cm_msg->server_ms_name);
 
@@ -220,21 +220,21 @@ void *wait_accept_destroy_thread_f(void *arg)
 			/* POSIX accept message preparation */
 			mq_accept_msg	*accept_mq_msg;
 			accept_mq->get_send_buffer(&accept_mq_msg);
-			accept_mq_msg->server_msid		= accept_cm_msg->server_msid;
-			accept_mq_msg->server_bytes	= accept_cm_msg->server_bytes;
-			accept_mq_msg->server_rio_addr_len	= accept_cm_msg->server_rio_addr_len;
-			accept_mq_msg->server_rio_addr_lo	= accept_cm_msg->server_rio_addr_lo;
-			accept_mq_msg->server_rio_addr_hi	= accept_cm_msg->server_rio_addr_hi;
-			accept_mq_msg->server_destid_len	= accept_cm_msg->server_destid_len;
-			accept_mq_msg->server_destid	= accept_cm_msg->server_destid;
+			accept_mq_msg->server_msid		= be64toh(accept_cm_msg->server_msid);
+			accept_mq_msg->server_bytes		= be64toh(accept_cm_msg->server_bytes);
+			accept_mq_msg->server_rio_addr_len	= be64toh(accept_cm_msg->server_rio_addr_len);
+			accept_mq_msg->server_rio_addr_lo	= be64toh(accept_cm_msg->server_rio_addr_lo);
+			accept_mq_msg->server_rio_addr_hi	= be64toh(accept_cm_msg->server_rio_addr_hi);
+			accept_mq_msg->server_destid_len	= be64toh(accept_cm_msg->server_destid_len);
+			accept_mq_msg->server_destid		= be64toh(accept_cm_msg->server_destid);
 			DBG("CM Accept: msid= 0x%X, destid=0x%X, destid_len = 0x%X, rio=0x%lX\n",
-							accept_cm_msg->server_msid,
-							accept_cm_msg->server_destid,
-							accept_cm_msg->server_destid_len,
-							accept_cm_msg->server_rio_addr_lo);
+							be64toh(accept_cm_msg->server_msid),
+							be64toh(accept_cm_msg->server_destid),
+							be64toh(accept_cm_msg->server_destid_len),
+							be64toh(accept_cm_msg->server_rio_addr_lo));
 			DBG("CM Accept: bytes = %u, rio_addr_len = %u\n",
-							accept_cm_msg->server_bytes,
-							accept_cm_msg->server_rio_addr_len);
+							be64toh(accept_cm_msg->server_bytes),
+							be64toh(accept_cm_msg->server_rio_addr_len));
 			DBG("MQ Accept: msid= 0x%X, destid=0x%X, destid_len = 0x%X, rio=0x%lX\n",
 								accept_mq_msg->server_msid,
 								accept_mq_msg->server_destid,
@@ -257,7 +257,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			 * wait_accept_mq_names list and go back and wait for the
 			 * next accept message */
 			wait_accept_mq_names.remove(mq_str);
-		} else if (accept_cm_msg->type == CM_DESTROY_MS) {
+		} else if (be64toh(accept_cm_msg->type) == CM_DESTROY_MS) {
 			cm_destroy_msg	*destroy_msg;
 			accept_destroy_client->get_recv_buffer((void **)&destroy_msg);
 
@@ -283,7 +283,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			/* Send 'destroy' POSIX message to the RDMA library */
 			mq_destroy_msg	*dest_msg;
 			destroy_mq->get_send_buffer(&dest_msg);
-			dest_msg->server_msid = destroy_msg->server_msid;
+			dest_msg->server_msid = be64toh(destroy_msg->server_msid);
 			if (destroy_mq->send()) {
 				ERR("Failed to send 'destroy' message to client.\n");
 				/* Don't exit; there maybe a problem with that memory space
@@ -318,7 +318,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 				/* Now send back a destroy_ack CM message */
 				dam->type	= CM_DESTROY_ACK_MS;
 				strcpy(dam->server_msname, destroy_msg->server_msname);
-				dam->server_msid = destroy_msg->server_msid;
+				dam->server_msid = destroy_msg->server_msid; /* Both are BE */
 				if (accept_destroy_client->send()) {
 					WARN("Failed to send destroy_ack to server daemon\n");
 				} else {

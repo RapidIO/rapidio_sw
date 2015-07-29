@@ -112,7 +112,13 @@ protected:
 		addr_len = sizeof(addr);
 	}
 
+	/**
+	 * When constructing a server using this constructor, the resulting
+	 * server never calls accept() so it has no valid 'the_socket'.
+	 * Initialize it to -1 here.
+	 */
 	unix_base(const char *name) :
+		the_socket(-1),
 		name(name),
 		send_buf(new uint8_t[UNIX_SOCK_DEFAULT_BUFFER_SIZE]),
 		recv_buf(new uint8_t[UNIX_SOCK_DEFAULT_BUFFER_SIZE])
@@ -129,7 +135,12 @@ protected:
 		if (recv_buf)
 			delete[] recv_buf;
 
-		close(the_socket);
+		/* For classes derived using the minimal constructor which
+		 * does NOT create a socket, there is no socket to close since
+		 * it is set to -1.
+		 */
+		if (the_socket != -1)
+			close(the_socket);
 	}
 
 	int send(int sock, size_t len)
@@ -181,7 +192,7 @@ private:
 
 	uint8_t *send_buf;
 	uint8_t *recv_buf;
-};
+}; /* unix_base */
 
 class unix_server : public unix_base
 {
@@ -189,7 +200,7 @@ public:
 	unix_server(const char *name = "server",
 		    const char *sun_path = UNIX_PATH_RDMA,
 		    int backlog = UNIX_SOCK_DEFAULT_BACKLOG)
-	try : unix_base(name, sun_path), accepted(false)
+	try : unix_base(name, sun_path), accepted(false), can_accept(true)
 	{
 		/* If file exists, delete it before binding */
 		struct stat st;
@@ -219,8 +230,13 @@ public:
 		throw unix_sock_exception("Failed in base constructor");
 	}
 
+	/* Minimal constructor for creating objects that ONLY have an
+	 * accept socket. Such objects may receive and send but may NOT
+	 * accept new connections. Deleting those objects does NOT kill
+	 * the base class socket ('the_socket').
+	 */
 	unix_server(const char *name, int accept_socket)
-	try : unix_base(name), accept_socket(accept_socket)
+	try : unix_base(name), accept_socket(accept_socket), can_accept(false)
 	{
 	}
 	catch(...)	/* Catch failures in unix_base::unix_base() */
@@ -237,9 +253,14 @@ public:
 
 	int accept()
 	{
+		if (!can_accept) {
+			CRIT("'%s': Can't accept since created with wrong ctor\n");
+			return -1;
+		}
+
 		if (accepted) {
 			CRIT("'%s': Object created with an accept socket!\n", name);
-			return -1;
+			return -2;
 		}
 
 		/* The client address is not used for anything post the accept() */
@@ -270,6 +291,7 @@ public:
 private:
 	int	accept_socket;
 	bool	accepted;
+	bool	can_accept;	/* Objects created with the minimal constructor can't */
 };
 
 class unix_client : public unix_base

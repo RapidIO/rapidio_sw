@@ -7,7 +7,7 @@ COMMONINC=common
 
 # The following assumes Fab_Man was cloned at the same level
 # as Data_Path_Lib, but can be overriden on the command-line.
-APIINC?=../../../Fab_Man/RAPIDIO_SWITCH_API/inc
+APIINC?=../../fabric_management/librio_switch/inc
 
 # User-mode flags
 UCFLAGS = -O3 -Wall -g -I$(APIINC) -I$(COMMONINC) -I../../include -lrt -D$(config) -std=gnu++0x

@@ -1,0 +1,13 @@
+*.o
+*.a
+*.so
+bin/
+libs/
+kdma
+kmsg
+ubridge
+udma
+umsg
+
+*.swp
+tags

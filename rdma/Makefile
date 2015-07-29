@@ -72,6 +72,8 @@ RDMAD_SOURCES = src/rdma_mq_msg.c \
 		daemon/src/rdmad_clnt_threads.cpp \
 		daemon/src/rdmad_fm.cpp
 
+REMDBG_SOURCES	= daemon/src/remdbg.c
+
 # RDMA Library flags, sources and objects
 RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-Idaemon/inc \
@@ -90,7 +92,7 @@ RDMALIB_SOURCES = lib/src/librdma.cpp \
 RDMALIB_OBJS    = librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: librdma.a rdmad rsktd test samples
+all: librdma.a rdmad rsktd test samples remdbg
 
 test: rdmad librdma.a
 	$(MAKE) all -C test
@@ -135,8 +137,16 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_srvr_threads.cpp > rdmad_srvr_threads.i
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_clnt_threads.cpp > rdmad_clnt_threads.i
 
+# Remote debug
+remdbg:  $(REMDBG_SOURCES)
+	@echo ---------- Building remote debug CLI ...
+	$(CXX) $(RDMAD_CFLAGS) -L$(MPORT_DIR) $(LIB_DIRS) \
+	-Wl,-rpath=$(MPORT_DIR) \
+	-o $@ $(REMDBG_SOURCES) \
+	-lcli -lrt -lmport -llog -pthread
+
 clean:
-	rm -f rdmad *.o librdma.so *.i
+	rm -f rdmad remdbg *.o librdma.so *.i
 	$(MAKE) clean -C rskt
 	$(MAKE) clean -C samples
 	$(MAKE) clean -C test

@@ -392,20 +392,20 @@ void *rpc_thread_f(void *arg)
 
 					/* Prepare accept message from input parameters */
 					struct cm_accept_msg	cmam;
-					cmam.type		= CM_ACCEPT_MS;
+					cmam.type		= htobe64(CM_ACCEPT_MS);
 					strcpy(cmam.server_ms_name, in->loc_ms_name);
-					cmam.server_msid	= ms->get_msid();
-					cmam.server_msubid	= in->loc_msubid;
-					cmam.server_bytes	= in->loc_bytes;
-					cmam.server_rio_addr_len= in->loc_rio_addr_len;
-					cmam.server_rio_addr_lo	= in->loc_rio_addr_lo;
-					cmam.server_rio_addr_hi	= in->loc_rio_addr_hi;
-					cmam.server_destid_len	= 16;
-					cmam.server_destid	= peer.destid;
+					cmam.server_msid	= htobe64(ms->get_msid());
+					cmam.server_msubid	= htobe64(in->loc_msubid);
+					cmam.server_bytes	= htobe64(in->loc_bytes);
+					cmam.server_rio_addr_len= htobe64(in->loc_rio_addr_len);
+					cmam.server_rio_addr_lo	= htobe64(in->loc_rio_addr_lo);
+					cmam.server_rio_addr_hi	= htobe64(in->loc_rio_addr_hi);
+					cmam.server_destid_len	= htobe64(16);
+					cmam.server_destid	= htobe64(peer.destid);
 					DBG("cm_accept_msg has server_destid = 0x%X\n",
-							cmam.server_destid);
+							be64toh(cmam.server_destid));
 					DBG("cm_accept_msg has server_destid_len = 0x%X\n",
-							cmam.server_destid_len);
+							be64toh(cmam.server_destid_len));
 
 					/* Add accept message content to map indexed by message queue name */
 					DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
@@ -485,16 +485,16 @@ void *rpc_thread_f(void *arg)
 					main_client->flush_send_buffer();
 
 					/* Compose CONNECT_MS message */
-					c->type			= CM_CONNECT_MS;
+					c->type			= htobe64(CM_CONNECT_MS);
 					strcpy(c->server_msname, in->server_msname);
-					c->client_msid		= in->client_msid;
-					c->client_msubid	= in->client_msubid;
-					c->client_bytes		= in->client_bytes;
-					c->client_rio_addr_len	= in->client_rio_addr_len;
-					c->client_rio_addr_lo	= in->client_rio_addr_lo;
-					c->client_rio_addr_hi	= in->client_rio_addr_hi;
-					c->client_destid_len	= peer.destid_len;
-					c->client_destid	= peer.destid;
+					c->client_msid		= htobe64(in->client_msid);
+					c->client_msubid	= htobe64(in->client_msubid);
+					c->client_bytes		= htobe64(in->client_bytes);
+					c->client_rio_addr_len	= htobe64(in->client_rio_addr_len);
+					c->client_rio_addr_lo	= htobe64(in->client_rio_addr_lo);
+					c->client_rio_addr_hi	= htobe64(in->client_rio_addr_hi);
+					c->client_destid_len	= htobe64(peer.destid_len);
+					c->client_destid	= htobe64(peer.destid);
 
 					/* Send buffer to server */
 					if (main_client->send()) {
@@ -566,12 +566,12 @@ void *rpc_thread_f(void *arg)
 					the_client->flush_send_buffer();
 					the_client->get_send_buffer((void **)&disc_msg);
 
-					disc_msg->type		= CM_DISCONNECT_MS;
-					disc_msg->client_msubid	= in->loc_msubid;	/* For removal from server database */
-					disc_msg->server_msid    = in->rem_msid;	/* For removing client's destid from server's
+					disc_msg->type		= htobe64(CM_DISCONNECT_MS);
+					disc_msg->client_msubid	= htobe64(in->loc_msubid);	/* For removal from server database */
+					disc_msg->server_msid   = htobe64(in->rem_msid);	/* For removing client's destid from server's
 												 * info on the daemon */
-					disc_msg->client_destid = peer.destid;		/* For knowing which destid to remove */
-					disc_msg->client_destid_len = 16;
+					disc_msg->client_destid = htobe64(peer.destid);		/* For knowing which destid to remove */
+					disc_msg->client_destid_len = htobe64(16);
 
 					/* Send buffer to server */
 					if (the_client->send()) {
@@ -579,7 +579,8 @@ void *rpc_thread_f(void *arg)
 						break;
 					}
 					DBG("Sent DISCONNECT_MS for msid = 0x%lX, client_destid = 0x%lX\n",
-						disc_msg->server_msid, disc_msg->client_destid);
+						be64toh(disc_msg->server_msid),
+						be64toh(disc_msg->client_destid));
 
 					out->status = 0;
 				}
@@ -596,6 +597,7 @@ void *rpc_thread_f(void *arg)
 			}
 		} else {
 			HIGH("Application has closed connection. Exiting!\n");
+			delete other_server;
 			pthread_exit(0);
 		}
 	} /* while */
