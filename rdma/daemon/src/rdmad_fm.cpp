@@ -75,6 +75,8 @@ void *fm_loop(void *unused)
 				} else {
 					HIGH("Provisioned desitd(0x%X)\n", did);
 				}
+			} else {
+				CRIT("FM daemon is not running on did(0x%X)\n", did);
 			}
 		}
 
