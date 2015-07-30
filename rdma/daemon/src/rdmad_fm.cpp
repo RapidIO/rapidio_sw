@@ -3,6 +3,11 @@
 #include <signal.h>
 #include <semaphore.h>
 
+#include <algorithm>
+#include <vector>
+#include <set>
+
+using namespace std;
 #include "liblog.h"
 #include "libfmdd.h"
 #include "rdmad_clnt_threads.h"
@@ -12,7 +17,6 @@ extern "C" {
 #endif
 
 static sem_t fm_started;
-//static csem_t fm_update;
 uint32_t fm_alive;
 static uint32_t fm_must_die;
 static pthread_t fm_thread;
@@ -21,49 +25,76 @@ static fmdd_h dd_h;
 /* Sends requests and responses to all apps */
 void *fm_loop(void *unused)
 {
-	uint32_t did_list_sz;
-	uint32_t *did_list;
-	uint32_t rc;
+	uint32_t old_did_list_size = 0;
+	uint32_t *old_did_list = NULL;
+	uint32_t new_did_list_size = 0;
+	uint32_t *new_did_list = NULL;
 
 	dd_h = fmdd_get_handle((char *)"RDMAD", FMDD_RDMA_FLAG);
-	fmdd_bind_dbg_cmds(dd_h);
 
 	if (dd_h != NULL) {
+		fmdd_bind_dbg_cmds(dd_h);
 		fm_alive = 1;
 		HIGH("FM is alive\n");
+	} else {
+		CRIT("Cannot obtain dd_h. Exiting\n");
+		pthread_exit(0);
 	}
 
 	/* FM thread is up and running */
 	sem_post(&fm_started);
 
 	do {
-		rc = fmdd_get_did_list(dd_h, &did_list_sz, &did_list);
-		if (rc) {
+		/* Get fresh list of dids */
+		if (fmdd_get_did_list(dd_h, &new_did_list_size, &new_did_list)) {
 			CRIT("Failed to get device ID list from FM. Exiting.\n");
-			goto exit;
+			break;
 		}
-		INFO("Fabman reported %u remote endpoints\n", did_list_sz);
-		for (unsigned i = 0; i < did_list_sz; i++) {
-			INFO("Provisioning 0x%X\n", did_list[i]);
+		INFO("Fabman reported %u remote endpoints\n", new_did_list_size);
+		sort(new_did_list, new_did_list + new_did_list_size);
+
+		/* Determine which dids are new since last time */
+		vector<uint32_t> result(new_did_list_size);
+		vector<uint32_t>::iterator end_result = set_difference(
+				new_did_list, new_did_list + new_did_list_size,
+				old_did_list, old_did_list + old_did_list_size,
+				begin(result));
+		result.resize(end_result - begin(result));
+		INFO("%d new endpoints detected\n", result.size());
+		fmdd_free_did_list(dd_h, &new_did_list);
+
+		/* Provision new dids */
+		for (uint32_t& did : result) {
+			INFO("Provisioning 0x%X\n", did);
 			/* Check if daemon is running */
-			if (fmdd_check_did(dd_h, did_list[i], FMDD_RDMA_FLAG)) {
+			if (fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
 				/* SEND HELLO */
-				if (provision_rdaemon(did_list[i])) {
-					CRIT("Failed to provision daemon at destid(0x%X)\n",
-							did_list[i]);
+				if (provision_rdaemon(did)) {
+					CRIT("Fail to provision destid(0x%X)\n",
+									did);
 				} else {
-					HIGH("Provisioned desitd(0x%X)\n", did_list[i]);
+					HIGH("Provisioned desitd(0x%X)\n", did);
 				}
 			}
 		}
-		fmdd_free_did_list(dd_h, &did_list);
 
-		if (fmdd_wait_for_dd_change(dd_h)) {
-			ERR("Failed in fmdd_wait_for_dd_change()\n");
+		/* Save a copy of the current list for comparison next time */
+		if (old_did_list == NULL)
+			fmdd_free_did_list(dd_h, &old_did_list);
+		if (fmdd_get_did_list(dd_h, &old_did_list_size, &old_did_list)) {
+			CRIT("Failed to get device ID list from FM. Exiting.\n");
 			break;
 		}
-	} while (!fm_must_die && (NULL != dd_h));
-exit:
+		sort(old_did_list, old_did_list + old_did_list_size);
+
+		/* Loop again only if Fabric Management reports change */
+		DBG("Waiting for FM to report change...\n");
+		if (fmdd_wait_for_dd_change(dd_h)) {
+			ERR("Failed in fmdd_wait_for_dd_change(). Exiting\n");
+			break;
+		}
+	} while (!fm_must_die);
+
 	fm_alive = 0;
 	fmdd_destroy_handle(&dd_h);
 	pthread_exit(unused);
