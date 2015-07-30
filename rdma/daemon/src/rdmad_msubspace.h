@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdma_types.h"
 #include "liblog.h"
+#include "libcli.h"
 
 
 class msubspace
@@ -64,9 +65,10 @@ public:
 		return this->msubid == msubid;
 	}
 
-	void dump_info() {
-		printf("%08X %016" PRIx64 " %08X %08X %016" PRIx64 "\n", msubid, rio_addr, size,
+	void dump_info(struct cli_env *env) {
+		sprintf(env->output, "%08X %016" PRIx64 " %08X %08X %016" PRIx64 "\n", msubid, rio_addr, size,
 							msid, phys_addr);
+		logMsg(env);
 	}
 
 private:

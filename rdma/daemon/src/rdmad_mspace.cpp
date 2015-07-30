@@ -51,7 +51,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_msubspace.h"
 #include "rdmad_ms_owner.h"
 #include "rdmad_ms_owners.h"
-#include "rdmad_functors.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_main.h"
 
@@ -241,31 +240,44 @@ int mspace::remove_destid(uint16_t destid)
 } /* remove_destid() */
 
 /* Debugging */
-void mspace::dump_info()
+void mspace::dump_info(struct cli_env *env)
 {
-	printf("%34s %08X %016" PRIx64 " %08X\n", name.c_str(),msid, rio_addr, size);
-	printf("destids: ");
-	for_each(begin(destids), end(destids), [](uint16_t destid) { printf("%u ", destid); });
-	printf("\n");
+	sprintf(env->output, "%34s %08X %016" PRIx64 " %08X\n", name.c_str(),msid, rio_addr, size);
+	logMsg(env);
+	sprintf(env->output, "destids: ");
+	logMsg(env);
+
+	for (auto& destid : destids) {
+		sprintf(env->output, "%u ", destid);
+		logMsg(env);
+	}
+	sprintf(env->output, "\n");
+	logMsg(env);
 } /* dump_info() */
 
-void mspace::dump_info_msubs_only()
+void mspace::dump_info_msubs_only(struct cli_env *env)
 {
-	printf("%8s %16s %8s %8s %16s\n", "msubid", "rio_addr", "size", "msid", "phys_addr");
-	printf("%8s %16s %8s %8s %16s\n", "------", "--------", "----", "----", "---------");
-	for_each(msubspaces.begin(), msubspaces.end(), call_dump_info<msubspace>());
+	sprintf(env->output, "%8s %16s %8s %8s %16s\n", "msubid", "rio_addr", "size", "msid", "phys_addr");
+	logMsg(env);
+	sprintf(env->output, "%8s %16s %8s %8s %16s\n", "------", "--------", "----", "----", "---------");
+	logMsg(env);
+
+	for (auto& msub : msubspaces) {
+		msub.dump_info(env);
+	}
 } /* dump_info_msubs_only() */
 
-void mspace::dump_info_with_msubs()
+void mspace::dump_info_with_msubs(struct cli_env *env)
 {
-	dump_info();
+	dump_info(env);
 	if (msubspaces.size() ) {
-		dump_info_msubs_only();
+		dump_info_msubs_only(env);
 	} else {
 		puts("No subspaces in above memory space");
 	}
-	puts("");	/* Extra line */
-}
+	sprintf(env->output, "\n");	/* Extra line */
+	logMsg(env);
+} /* dump_info_with_msubs() */
 
 /* For creating a memory sub-space */
 int mspace::create_msubspace(uint32_t offset,

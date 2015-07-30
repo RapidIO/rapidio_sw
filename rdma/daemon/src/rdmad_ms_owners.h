@@ -39,7 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 
 #include "rdmad_ms_owner.h"
-#include "rdmad_functors.h"
+#include "libcli.h"
 
 using namespace std;
 
@@ -88,12 +88,16 @@ public:
 		for_each(begin(owners), end(owners), [](ms_owner *p) { if (p) delete p;});
 	}
 
-	void dump_info()
+	void dump_info(struct cli_env *env)
 	{
-		printf("%8s %32s %8s\n", "msoid", "name", "MSIDs owned by mso");
-		printf("%8s %32s %8s\n", "-----", "----", "------------------");
+		sprintf(env->output, "%8s %32s %8s\n", "msoid", "name", "MSIDs owned by mso");
+		logMsg(env);
+		sprintf(env->output, "%8s %32s %8s\n", "-----", "----", "------------------");
+		logMsg(env);
 		pthread_mutex_lock(&lock);
-		for_each(owners.begin(), owners.end(), call_dump_info<ms_owner *>());
+		for (auto& owner : owners) {
+			owner->dump_info(env);
+		}
 		pthread_mutex_unlock(&lock);
 	} /* dump_info() */
 

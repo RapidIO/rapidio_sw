@@ -44,6 +44,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <vector>
 
+#include "libcli.h"
+
 #include "rdmad_msubspace.h"
 #include "prov_daemon_info.h"
 #include "msg_q.h"
@@ -110,9 +112,9 @@ public:
 	int remove_destid(uint16_t destid);
 
 	/* Debugging */
-	void dump_info();
-	void dump_info_msubs_only();
-	void dump_info_with_msubs();
+	void dump_info(struct cli_env *env);
+	void dump_info_msubs_only(struct cli_env *env);
+	void dump_info_with_msubs(struct cli_env *env);
 
 	/* For finding a memory space by its msid */
 	bool operator==(uint32_t msid) { return this->msid == msid; }

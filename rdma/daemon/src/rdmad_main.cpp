@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <memory.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -82,7 +83,7 @@ ts_vector<string>	wait_accept_mq_names;
 
 static 	pthread_t console_thread;
 static	pthread_t prov_thread;
-
+static	pthread_t cli_session_thread;
 static unix_server *server;
 
 static void init_peer()
@@ -759,16 +760,105 @@ void sig_handler(int sig)
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
 	}
 
-	owners.dump_info();
-	the_inbound->dump_info();
-	the_inbound->dump_all_mspace_with_msubs_info();
 	shutdown(&peer);
-} /* end_handler() */
+} /* sig_handler() */
 
 bool foreground(void)
 {
 	return (tcgetpgrp(STDIN_FILENO) == getpgrp());
 }
+
+/**
+ * Server for remote debug (remdbg) application.
+ */
+void *cli_session(void *arg)
+{
+	int sockfd;
+	int portno;
+	socklen_t clilen;
+	char buffer[256];
+	struct sockaddr_in serv_addr;
+	struct sockaddr_in cli_addr;
+	int one = 1;
+	int session_num = 0;
+
+	/* Check for NULL */
+	if (arg == NULL) {
+		CRIT("Argument is NULL. Exiting\n");
+		pthread_exit(0);
+	}
+
+	/* TCP port number */
+	portno = *((int *)arg);
+
+	/* Create listen socket */
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0) {
+		CRIT("ERROR opening socket. Exiting\n");
+		pthread_exit(0);
+	}
+
+	/* Prepare the family, address, and port */
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serv_addr.sin_port = htons(portno);
+
+	/* Enable reuse of addresses as long as there is no active accept() */
+	setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
+
+	/* For socket to send data in buffer right away */
+	setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
+
+	/* Bind socket to address */
+	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+		CRIT("ERROR on binding. Exiting\n");
+		close(sockfd);
+		pthread_exit(0);
+	}
+
+	INFO("RDMAD bound to socket on port number %d\n", portno);
+
+	while (strncmp(buffer, "done", 4)) {
+		struct cli_env env;
+
+		/* Initialize the environment */
+		env.script = NULL;
+		env.fout = NULL;
+		bzero(env.output, BUFLEN);
+		bzero(env.input, BUFLEN);
+		env.DebugLevel = 0;
+		env.progressState = 0;
+		env.sess_socket = -1;
+
+		/* Set the prompt for the CLI */
+		bzero(env.prompt, PROMPTLEN+1);
+		strcpy(env.prompt, "RRDMAD> ");
+
+		/* Prepare socket for listening */
+		listen(sockfd,5);
+
+		/* Accept connections from remdbg apps */
+		clilen = sizeof(cli_addr);
+		env.sess_socket = accept(sockfd,
+				(struct sockaddr *) &cli_addr,
+				&clilen);
+		if (env.sess_socket < 0) {
+			CRIT("ERROR on accept\n");
+			close(sockfd);
+			pthread_exit(0);
+		}
+
+		/* Start the session */
+		INFO("\nStarting session %d\n", session_num);
+		cli_terminal(&env);
+		INFO("\nFinishing session %d\n", session_num);
+		close(env.sess_socket);
+		session_num++;
+	}
+
+	pthread_exit(0);
+} /* cli_session() */
 
 int main (int argc, char **argv)
 {
@@ -915,6 +1005,15 @@ int main (int argc, char **argv)
 	if (rc) {
 		CRIT("Failed to create prov_thread: %s\n", strerror(errno));
 		rc = 8;
+		shutdown(&peer);
+		goto out_free_inbound;
+	}
+
+	/* Create remote CLI terminal thread */
+	rc = pthread_create(&cli_session_thread, NULL, cli_session, (void*)(&peer.cons_skt));
+	if(rc) {
+		CRIT("Failed to create cli_session_thread: %s\n", strerror(errno));
+		rc = 9;
 		shutdown(&peer);
 		goto out_free_inbound;
 	}

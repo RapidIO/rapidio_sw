@@ -45,9 +45,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_types.h"
 #include "riodp_mport_lib.h"
 #include "liblog.h"
+#include "libcli.h"
 
 #include "rdmad_mspace.h"
-#include "rdmad_functors.h"
 
 using namespace std;
 
@@ -135,32 +135,37 @@ public:
 			perror("free(): riodp_ibwin_free()");
 	} /* free() */
 
-	void dump_info()
+	void dump_info(struct cli_env *env)
 	{
-		printf("%8d %16" PRIx64 " %16" PRIx64 " %16" PRIx64 "\n", win_num, size, rio_addr, phys_addr);
+		sprintf(env->output, "%8d %16" PRIx64 " %16" PRIx64 " %16" PRIx64 "\n", win_num, size, rio_addr, phys_addr);
+		logMsg(env);
 	} /* dump_info() */
 
-	void print_mspace_header()
+	void print_mspace_header(struct cli_env *env)
 	{
-		printf("\n%8s %8d %16s %8s %16s %8s\n", "Window", win_num, "Name",
+		sprintf(env->output, "\n%8s %8d %16s %8s %16s %8s\n", "Window", win_num, "Name",
 						"msid", "rio_addr", "size");
-		printf("%8s %8s %16s %8s %16s %8s\n", "-------", "-------",
+		logMsg(env);
+		sprintf(env->output, "%8s %8s %16s %8s %16s %8s\n", "-------", "-------",
 					"----------------", "--------",
 					"----------------", "--------");
+		logMsg(env);
 	} /* print_mspace_header() */
 
-	void dump_mspace_info()
+	void dump_mspace_info(struct cli_env *env)
 	{
-		print_mspace_header();
-		for_each(mspaces.begin(), mspaces.end(), call_dump_info<mspace *>());
+		print_mspace_header(env);
+		for (auto& ms : mspaces) {
+			ms->dump_info(env);
+		}
 	} /* dump_mspace_info() */
 
-	void dump_mspace_and_subs_info()
+	void dump_mspace_and_subs_info(cli_env *env)
 	{
-		print_mspace_header();
-		for_each(mspaces.begin(),
-			 mspaces.end(),
-			 call_dump_info_with_msubs<mspace *>());
+		print_mspace_header(env);
+		for (auto& ms : mspaces) {
+			ms->dump_info_with_msubs(env);
+		}
 	} /* dump_mspace_and_subs_info() */
 
 	/* Returns iterator to memory space large enough to hold 'size' */

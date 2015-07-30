@@ -49,38 +49,34 @@ using namespace std;
 
 int ibwin_info_cmd_f(struct cli_env *env, int argc, char **argv)
 {
-	(void)env;
 	(void)argc;
 	(void)argv;
 
-	the_inbound->dump_info();
+	the_inbound->dump_info(env);
 	return 0;
 } /* ibwin_info_cmd_f() */
 
 int all_ms_info_cmd_f(struct cli_env *env, int argc, char **argv)
 {
-	(void)env;
 	(void)argc;
 	(void)argv;
-	the_inbound->dump_all_mspace_info();
+	the_inbound->dump_all_mspace_info(env);
 	return 0;
 } /* all_ms_info_cmd_f() */
 
 int all_ms_msub_info_cmd_f(struct cli_env *env, int argc, char **argv)
 {
-	(void)env;
 	(void)argc;
 	(void)argv;
-	the_inbound->dump_all_mspace_with_msubs_info();
+	the_inbound->dump_all_mspace_with_msubs_info(env);
 	return 0;
 } /* all_ms_info_cmd_f() */
 
 int owners_cmd_f(struct cli_env *env, int argc, char **argv)
 {
-	(void)env;
 	(void)argc;
 	(void)argv;
-	owners.dump_info();
+	owners.dump_info(env);
 	return 0;
 }
 

@@ -49,14 +49,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "msg_q.h"
 #include "rdma_types.h"
 #include "liblog.h"
+#include "libcli.h"
 
 #define MSO_CONN_ID_START	0x1
 
 using namespace std;
-
-struct dump_msid {
-	void operator ()(uint32_t msid) { printf("%8X ", msid); }
-};
 
 class ms_owner
 {
@@ -108,11 +105,16 @@ public:
 		return msid_list.size() != 0;
 	} /* owns_mspaces() */
 
-	void dump_info()
+	void dump_info(struct cli_env *env)
 	{
-		printf("%8X %32s\t", msoid, name.c_str());
-		for_each(msid_list.begin(), msid_list.end(), dump_msid());
-		puts("");	/* New line */
+		sprintf(env->output, "%8X %32s\t", msoid, name.c_str());
+		logMsg(env);
+		for (auto& msid : msid_list) {
+			sprintf(env->output, "%8X ", msid);
+			logMsg(env);
+		}
+		sprintf(env->output, "\n");
+		logMsg(env);
 	} /* dump_info() */
 
 	int open(uint32_t *msoid, uint32_t *mso_conn_id);

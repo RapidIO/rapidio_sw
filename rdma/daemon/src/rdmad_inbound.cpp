@@ -44,7 +44,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_msubspace.h"
 #include "rdmad_mspace.h"
 #include "rdmad_ibwin.h"
-#include "rdmad_functors.h"
 #include "rdmad_inbound.h"
 
 using namespace std;
@@ -52,14 +51,6 @@ using namespace std;
 
 struct ibw_free {
 	void operator()(ibwin& ibw) { ibw.free(); }
-};
-
-struct ibw_dump_mspaces {
-	void operator()(ibwin& ibw) { ibw.dump_mspace_info(); }
-};
-
-struct ibw_dump_mspaces_with_msubs {
-	void operator()(ibwin& ibw) { ibw.dump_mspace_and_subs_info(); }
 };
 
 /* Does inbound window have room for a memory space of specified size? */
@@ -102,12 +93,16 @@ inbound::~inbound()
 	for_each(ibwins.begin(), ibwins.end(), ibw_free());
 } /* destructor */
 
-void inbound::dump_info()
+void inbound::dump_info(struct cli_env *env)
 {
-	printf("%8s %16s %16s %16s\n", "Win num", "Win size", "RIO Addr", "PCIe Addr");
-	printf("%8s %16s %16s %16s\n", "-------", "--------", "--------", "---------");
+	sprintf(env->output, "%8s %16s %16s %16s\n", "Win num", "Win size", "RIO Addr", "PCIe Addr");
+	logMsg(env);
+	sprintf(env->output, "%8s %16s %16s %16s\n", "-------", "--------", "--------", "---------");
+	logMsg(env);
 	sem_wait(&ibwins_sem);
-	for_each(ibwins.begin(), ibwins.end(), call_dump_info<ibwin>());
+	for (auto& ibwin : ibwins) {
+		ibwin.dump_info(env);
+	}
 	sem_post(&ibwins_sem);
 } /* dump_info */
 
@@ -160,7 +155,7 @@ mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
 } /* get_mspace() */
 
 /* Dump memory space info for a memory space specified by name */
-int inbound::dump_mspace_info(const char *name)
+int inbound::dump_mspace_info(struct cli_env *env, const char *name)
 {
 	/* Find the memory space by name */
 	mspace	*ms = get_mspace(name);
@@ -168,23 +163,27 @@ int inbound::dump_mspace_info(const char *name)
 		WARN("%s not found\n", name);
 		return -1;
 	}
-	ms->dump_info();
+	ms->dump_info(env);
 	return 0;
 } /* dump_mspace_info() */
 
 /* Dump memory space info for all memory spaces */
-void inbound::dump_all_mspace_info()
+void inbound::dump_all_mspace_info(struct cli_env *env)
 {
 	sem_wait(&ibwins_sem);
-	for_each(ibwins.begin(), ibwins.end(), ibw_dump_mspaces());
+	for (auto& ibwin : ibwins) {
+		ibwin.dump_mspace_info(env);
+	}
 	sem_post(&ibwins_sem);
 } /* dump_all_mspace_info() */
 
 /* Dump memory space info for all memory spaces and their msubs */
-void inbound::dump_all_mspace_with_msubs_info()
+void inbound::dump_all_mspace_with_msubs_info(struct cli_env *env)
 {
 	sem_wait(&ibwins_sem);
-	for_each(ibwins.begin(), ibwins.end(), ibw_dump_mspaces_with_msubs());
+	for (auto& ibw : ibwins) {
+		ibw.dump_mspace_and_subs_info(env);
+	}
 	sem_post(&ibwins_sem);
 } /* dump_all_mspace_with_msubs_info() */
 
