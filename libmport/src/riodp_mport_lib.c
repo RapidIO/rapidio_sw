@@ -844,7 +844,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *e
 
 	if (!evt) return -EINVAL;
 
-	if (evt->header != RIO_EVENT_DOORBELL) return -ENOTSUPP;
+	if (evt->header != RIO_EVENT_DOORBELL) return -EOPNOTSUPP;
 
 	sevent.header = RIO_DOORBELL;
 	sevent.u.doorbell.rioid = evt->u.doorbell.rioid;

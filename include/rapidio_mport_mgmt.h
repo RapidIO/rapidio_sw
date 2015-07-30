@@ -136,7 +136,7 @@ typedef struct rapidio_mport_handle *riomp_mport_t;
  * @brief read number of mports in the system
  *
  * @param[out] dev_ids mport list pointer
- * @param[inout] number_of_mports number of elements in dev_ids, will be upated by number of found items
+ * @param[inout] number_of_mports number of elements in dev_ids, will be updated by number of found items
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
@@ -158,7 +158,7 @@ int riomp_mgmt_free_mport_list(uint32_t **dev_ids);
  *
  * @param[in] mport_id mport ID number
  * @param[out] destids endpoint list pointer
- * @param[inout] number_of_eps number of elements in destids, will be upated by number of found items
+ * @param[inout] number_of_eps number of elements in destids, will be updated by number of found items
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error

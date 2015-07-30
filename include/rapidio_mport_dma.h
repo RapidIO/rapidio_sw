@@ -53,7 +53,7 @@ enum riomp_dma_directio_type {
 	RIO_DIRECTIO_TYPE_NWRITE_R_ALL,	/**< All packets using NWRITE_R */
 };
 
-/** @brief DirectIO transfer syncronization method */
+/** @brief DirectIO transfer synchronization method */
 enum riomp_dma_directio_transfer_sync {
 	RIO_DIRECTIO_TRANSFER_SYNC,		/**< synchronous transfer */
 	RIO_DIRECTIO_TRANSFER_ASYNC,	/**< asynchronous transfer */
@@ -69,7 +69,7 @@ enum riomp_dma_directio_transfer_sync {
  * @param[in] buf pointer to userspace source buffer
  * @param[in] size number of bytes to transfer
  * @param[in] wr_mode DirectIO write mode
- * @param[in] sync transfer syncronization flag
+ * @param[in] sync transfer synchronization flag
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
@@ -86,7 +86,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
  * @param[in] offset kernelspace buffer offset
  * @param[in] size number of bytes to transfer
  * @param[in] wr_mode DirectIO write mode
- * @param[in] sync transfer syncronization flag
+ * @param[in] sync transfer synchronization flag
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
@@ -101,7 +101,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
  * @param[in] tgt_addr target memory address
  * @param[in] buf pointer to userspace source buffer
  * @param[in] size number of bytes to transfer
- * @param[in] sync transfer syncronization flag
+ * @param[in] sync transfer synchronization flag
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
@@ -117,7 +117,7 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_add
  * @param[in] handle kernelspace buffer handle
  * @param[in] offset kernelspace buffer offset
  * @param[in] size number of bytes to transfer
- * @param[in] sync transfer syncronization flag
+ * @param[in] sync transfer synchronization flag
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
