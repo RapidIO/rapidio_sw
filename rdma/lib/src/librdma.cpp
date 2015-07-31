@@ -188,6 +188,8 @@ static int open_mport(struct peer_info *peer)
 		WARN("%s: Error reading properties from mport!\n");
 	}
 
+	peer->mport_hnd = mport_hnd;
+
 	return 0;
 } /* open_mport() */
 
@@ -1333,7 +1335,7 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 
 	ret = riomp_dma_map_memory(peer.mport_hnd, pmsub->bytes, pmsub->paddr, vaddr);
 
-	INFO("map() phys_addr = 0x%lX, virt_addr = %p, size = %l\n",
+	INFO("map() phys_addr = 0x%lX, virt_addr = %p, size = 0x%x\n",
 						pmsub->paddr, *vaddr, pmsub->bytes);
 
 	if (ret) {
