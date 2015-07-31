@@ -89,8 +89,9 @@ void *fm_loop(void *unused)
 				 * did, then it must NOT be in the old did list so that next time
 				 * around it gets provisioned.
 				 */
-				CRIT("FM daemon is not running on did(0x%X)\n", did);
+				WARN("FM daemon is not running on did(0x%X)\n", did);
 				remove(old_did_list, old_did_list + old_did_list_size, did);
+				old_did_list_size--;
 			}
 		}
 
