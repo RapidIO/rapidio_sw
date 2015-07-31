@@ -63,6 +63,15 @@ void *fm_loop(void *unused)
 		INFO("%d new endpoints detected\n", result.size());
 		fmdd_free_did_list(dd_h, &new_did_list);
 
+		/* Save a copy of the current list for comparison next time */
+		if (old_did_list == NULL)
+			fmdd_free_did_list(dd_h, &old_did_list);
+		if (fmdd_get_did_list(dd_h, &old_did_list_size, &old_did_list)) {
+			CRIT("Failed to get device ID list from FM. Exiting.\n");
+			break;
+		}
+		sort(old_did_list, old_did_list + old_did_list_size);
+
 		/* Provision new dids */
 		for (uint32_t& did : result) {
 			INFO("Provisioning 0x%X\n", did);
@@ -76,18 +85,14 @@ void *fm_loop(void *unused)
 					HIGH("Provisioned desitd(0x%X)\n", did);
 				}
 			} else {
+				/* If the daemon isn't running and we can't provision the
+				 * did, then it must NOT be in the old did list so that next time
+				 * around it gets provisioned.
+				 */
 				CRIT("FM daemon is not running on did(0x%X)\n", did);
+				remove(old_did_list, old_did_list + old_did_list_size, did);
 			}
 		}
-
-		/* Save a copy of the current list for comparison next time */
-		if (old_did_list == NULL)
-			fmdd_free_did_list(dd_h, &old_did_list);
-		if (fmdd_get_did_list(dd_h, &old_did_list_size, &old_did_list)) {
-			CRIT("Failed to get device ID list from FM. Exiting.\n");
-			break;
-		}
-		sort(old_did_list, old_did_list + old_did_list_size);
 
 		/* Loop again only if Fabric Management reports change */
 		DBG("Waiting for FM to report change...\n");
