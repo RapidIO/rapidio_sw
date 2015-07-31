@@ -39,11 +39,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 
 
-#include "riocp_pe_internal.h"
+//#include "riocp_pe_internal.h"
 #include "fmd_dev_rw_cli.h"
 #include "liblog.h"
 #include "libcli.h"
-#include "riodp_mport_lib.h"
+//#include <rapidio_mport_mgmt.h>
+//#include <rapidio_mport_rdma.h>
+//#include <rapidio_mport_sock.h>
 #include "fmd_state.h"
 
 #ifdef __cplusplus
@@ -91,28 +93,29 @@ int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
 	uint32_t temp;
 	int rc = 0;
 
-        if (RIOCP_PE_IS_MPORT(pe_h))
-                rc = rio_maint_read_local(pe_h->minfo->maint, offset,  &temp)?1:0;
-        else {
-		INFO("MTC READ: DID %x HC %X O %x\n", 
-                        pe_h->destid, pe_h->hopcount, offset);
-                rc = rio_maint_read_remote(pe_h->mport->minfo->maint,
-			pe_h->destid, pe_h->hopcount, offset, &temp, 1)?1:0;
+	if (RIOCP_PE_IS_MPORT(pe_h))
+		rc = riomp_mgmt_lcfg_read(pe_h->minfo->maint, offset, sizeof(temp), &temp)?1:0;
+	else {
+		INFO("MTC READ: DID %x HC %X O %x\n",
+					pe_h->destid, pe_h->hopcount, offset);
+		rc = riomp_mgmt_rcfg_read(pe_h->mport->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
+				 sizeof(temp), &temp)?1:0;
 	}
+
 	if (!rc)
 		*data = temp;
 	return rc;
 };
 
-int mport_write(riocp_pe_handle pe_h, uint32_t addr, uint32_t data)
+int mport_write(riocp_pe_handle pe_h, uint32_t offset, uint32_t data)
 {
 	int rc = 0;
 
         if (RIOCP_PE_IS_MPORT(pe_h))
-                rc = rio_maint_write_local(pe_h->minfo->maint, addr, data)?1:0;
+        	rc = riomp_mgmt_lcfg_write(pe_h->minfo->maint, offset, sizeof(data), data)?1:0;
         else
-                rc = rio_maint_write_remote(pe_h->mport->minfo->maint,
-			pe_h->destid, pe_h->hopcount, addr, &data, 1)?1:0;
+        	rc = riomp_mgmt_rcfg_write(pe_h->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
+        			      sizeof(data), data)?1:0;
 	return rc;
 };
 
@@ -613,9 +616,9 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 
 	for (i = 0; i < numReads; i++) {
 		if (0xFF == hc) {
-			rc = riodp_lcfg_read(fmd->fd, address, 4, &data);
+			rc = riomp_mgmt_lcfg_read(fmd->mp_hnd, address, 4, &data);
 		} else {
-			rc = riodp_maint_read(fmd->fd, did, hc,
+			rc = riomp_mgmt_rcfg_read(fmd->mp_hnd, did, hc,
 				address, 4, &data);
 		};
 
@@ -695,9 +698,9 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	/* Command arguments are syntactically correct - do write */
 
 	if (0xFF == hc) {
-		rc = riodp_lcfg_write(fmd->fd, address, 4, data);
+		rc = riomp_mgmt_lcfg_write(fmd->mp_hnd, address, 4, data);
 	} else {
-		rc = riodp_maint_write(fmd->fd, did, hc,
+		rc = riomp_mgmt_rcfg_write(fmd->mp_hnd, did, hc,
 				address, 4, data);
 	};
 	if (0 != rc) {
@@ -707,9 +710,9 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	/* read data back */
 	if (0xFF == hc) {
-		rc = riodp_lcfg_read(fmd->fd, address, 4, &data);
+		rc = riomp_mgmt_lcfg_read(fmd->mp_hnd, address, 4, &data);
 	} else {
-		rc = riodp_maint_read(fmd->fd, did, hc,
+		rc = riomp_mgmt_rcfg_read(fmd->mp_hnd, did, hc,
 			address, 4, &data);
 	};
 	if (0 != rc) {

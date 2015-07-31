@@ -73,14 +73,14 @@ private:
 }; /* ibwin_has_room */
 
 /* Constructor */
-inbound::inbound(int mport_fd,
+inbound::inbound(riomp_mport_t mport_hnd,
 		 unsigned num_wins,
 		 uint64_t win_size)
 {
 	/* Initialize inbound windows */
 	for (unsigned i = 0; i < num_wins; i++) {
 		try {
-			ibwin win(mport_fd, i, win_size);
+			ibwin win(mport_hnd, i, win_size);
 			ibwins.push_back(win);
 		}
 		catch(ibwin_map_exception e) {
@@ -98,7 +98,7 @@ inbound::inbound(int mport_fd,
 /* Destructor */
 inbound::~inbound()
 {
-	/* Free inbound windows mapped with riodp_ibwin_map() */
+	/* Free inbound windows mapped with riomp_dma_ibwin_map() */
 	for_each(ibwins.begin(), ibwins.end(), ibw_free());
 } /* destructor */
 

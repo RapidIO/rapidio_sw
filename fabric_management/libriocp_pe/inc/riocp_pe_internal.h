@@ -15,8 +15,7 @@
 #include <stddef.h>
 
 #include <riocp_pe.h>
-#include <linux/rio_mport_cdev.h>
-#include <librio_maint.h>
+#include <rapidio_mport_mgmt.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,9 +101,9 @@ struct riocp_pe_peer {
 /** RapidIO Master port information */
 struct riocp_pe_mport {
 	uint32_t ref;				/**< Reference counter */
-	uint8_t id;				/**< Device node id e.g /dev/rio_mport0 */
-	rio_maint_handle maint;			/**< Maintenance access handle for mport e.g /dev/rio_mport0 */
-	struct rio_mport_properties prop;	/**< Mport properties */
+	uint8_t id;					/**< Device node id e.g /dev/rio_mport0 */
+	riomp_mport_t maint;		/**< Maintenance access handle for mport e.g /dev/rio_mport0 */
+	struct riomp_mgmt_mport_properties prop;	/**< Mport properties */
 	bool is_host;				/**< Is mport host/agent */
 	struct riocp_pe *any_id_target;		/**< Current programmed ANY_ID route to this PE*/
 	struct riocp_pe_llist_item handles;	/**< Handles of PEs behind this mport */
@@ -127,14 +126,14 @@ struct riocp_pe_switch {
 	int (*get_lane_speed)(struct riocp_pe *sw, uint8_t port, uint32_t *speed);
 	int (*get_lane_width)(struct riocp_pe *sw, uint8_t port, uint8_t *width);
 	int (*get_port_state)(struct riocp_pe *sw, uint8_t port, riocp_pe_port_state_t *state);
-	int (*event_handler)(struct riocp_pe *sw, struct rio_event *revent, struct riocp_pe_event *event);
+	int (*event_handler)(struct riocp_pe *sw, struct riomp_mgmt_event *revent, struct riocp_pe_event *event);
 	int (*destroy)(struct riocp_pe *sw);	/**< Cleanup of switch driver */
 };
 
 /** RapidIO Processing element */
 struct riocp_pe {
 	uint32_t version;			/**< Internal handle revision */
-	int fd;					/**< File descriptor for this PE */
+	riomp_mport_t mp_hnd;   	/**< mport handle for this PE */
 	uint8_t hopcount;			/**< RapidIO hopcount */
 	uint32_t destid;			/**< RapidIO destination ID */
 	uint32_t comptag;			/**< RapidIO component tag */
@@ -144,7 +143,7 @@ struct riocp_pe {
 	uint32_t efptr_phys;			/**< RapidIO Physical extended feature pointer */
 	uint32_t efptr_em;			/**< RapidIO Error Management feature pointer */
 	riocp_pe_event_mask_t *port_event_mask;	/**< Event mask */
-	struct rio_pw_filter pwfilter; 		/**< TODO Mport driver port-write filter */
+	//struct rio_pw_filter pwfilter; 		/**< TODO Mport driver port-write filter */
 	struct riocp_pe *mport;			/**< Mport that created this PE */
 	struct riocp_pe_mport *minfo;		/**< Mport information (set when PE is mport) */
 	struct riocp_pe_switch *sw;		/**< Switch specific operations */

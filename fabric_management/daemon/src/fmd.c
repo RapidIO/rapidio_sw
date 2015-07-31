@@ -50,8 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include "linux/rio_cm_cdev.h"
-#include "linux/rio_mport_cdev.h"
+
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
@@ -66,7 +65,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "riocp_pe.h"
 #include "riocp_pe_internal.h"
-#include "librio_maint.h"
 #include "DAR_DevDriver.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
@@ -76,7 +74,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_cfg_cli.h"
 #include "fmd_state.h"
 #include "fmd_app_mgmt.h"
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
 #include "fmd_mgmt_cli.h"
 #include "fmd_mgmt_master.h"
 #include "fmd_dev_rw_cli.h"
@@ -87,7 +85,7 @@ extern "C" {
 #endif
 
 riocp_pe_handle mport_pe;
-rio_maint_handle reg_acc_h;
+riomp_mport_t reg_acc_hnd;
 DAR_DEV_INFO_t *dev_h;
 
 struct fmd_cfg_parms *cfg;
@@ -95,7 +93,6 @@ struct fmd_state *fmd;
 
 void custom_quit(cli_env *env)
 {
-	env = env;
 	shutdown_mgmt();
 	halt_app_handler();
 	cleanup_app_handler();
@@ -435,10 +432,10 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num,
 			goto exit;
 		};
 
-		rc = riodp_device_add(new_pe->mport->minfo->maint->fd, 
+		rc = riomp_mgmt_device_add(new_pe->mport->minfo->maint,
 			conn_did, conn_hc, ep_ct, conn_ep->name);
 		if (rc && (EEXIST != rc)) {
-			CRIT("riodp_device_add, rc %d\n", rc);
+			CRIT("riomp_mgmt_device_add, rc %d\n", rc);
 			goto exit;
 		};
 		conn_ep->ports[0].ct = ep_ct;	
@@ -459,7 +456,7 @@ int setup_mport_master(int mport)
 		exit(EXIT_FAILURE);
 	};
 
-	fmd->fd = mport_pe->fd;
+	fmd->mp_hnd = mport_pe->mp_hnd;
 
 	if (!(RIOCP_PE_IS_MPORT(mport_pe))) {
 		CRIT("\nHost port is not an MPORT, wazzup?...\n");
@@ -505,7 +502,7 @@ int setup_mport_slave(int mport)
 		exit(EXIT_FAILURE);
 	};
 
-	fmd->fd = mport_pe->fd;
+	fmd->mp_hnd = mport_pe->mp_hnd;
 	fmd->cfg->mport_info[0].mp_h = mport_pe;
 		
 	ep = fmd->cfg->mport_info[0].ep;
@@ -517,27 +514,27 @@ int setup_mport_slave(int mport)
 	ep->ep_h = mport_pe;
 
 	/* Write MPORT device ID */
-	rc = riodp_destid_set(reg_acc_h->fd, 
+	rc = riomp_mgmt_destid_set(reg_acc_hnd,
 		(uint16_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid); 
 
 	if (rc) {
-		CRIT("\nriodp_destid_set rc: %d %d: %s\n", 
+		CRIT("\nriomp_mgmt_destid_set rc: %d %d: %s\n", 
 			rc, errno, strerror(errno));
 	};
 		
 	/* Write MPORT Component Tag */
-	rc = riodp_lcfg_read(reg_acc_h->fd, 0x6c, 4, &comptag);
+	rc = riomp_mgmt_lcfg_read(reg_acc_hnd, 0x6c, 4, &comptag);
 	if (rc) {
-		CRIT("\nriodp_lcfg_read 1 rc: %d %d: %s\n", 
+		CRIT("\nriomp_mgmt_lcfg_read 1 rc: %d %d: %s\n", 
 			rc, errno, strerror(errno));
 	};
 
 	comptag = (comptag & 0xFFFF0000) | 
 		(uint32_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid; 
 
-	rc = riodp_lcfg_write(reg_acc_h->fd, 0x6c, 4, comptag);
+	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x6c, 4, comptag);
 	if (rc) {
-		CRIT("\nriodp_lcfg_write 1 rc: %d %d: %s\n", 
+		CRIT("\nriomp_mgmt_lcfg_write 1 rc: %d %d: %s\n", 
 			rc, errno, strerror(errno));
 	};
 
@@ -548,7 +545,7 @@ int setup_mport_slave(int mport)
 	* completes network initialization.
 	*/
 	do {
-		rc = riodp_device_add(reg_acc_h->fd, 
+		rc = riomp_mgmt_device_add(reg_acc_hnd,
 		(uint16_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 
 			(uint8_t)0xFF, comptag, FMD_SLAVE_MPORT_NAME);
 		if (EEXIST == rc)
@@ -560,7 +557,7 @@ int setup_mport_slave(int mport)
 			continue;
 		};
 
-		rc = riodp_device_add(reg_acc_h->fd,
+		rc = riomp_mgmt_device_add(reg_acc_hnd,
 		(uint16_t)cfg->mast_devid, 1, cfg->mast_devid,
 			FMD_SLAVE_MASTER_NAME);
 		if (EEXIST == rc)
@@ -578,40 +575,40 @@ int do_mport_fixups(void)
 	int rc;
 	uint32_t port_ctl;
 
-	rc = riodp_lcfg_write(reg_acc_h->fd, 0x13c, 4, 0xE0000000);
+	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x13c, 4, 0xE0000000);
 	if (rc) {
 		CRIT("\nSet MAST_EN failed rc: %d %d: %s\n", 
 			rc, errno, strerror(errno));
 		goto exit;
 	};
 	
-	rc = riodp_lcfg_write(reg_acc_h->fd, 0x120, 4, 0x0000FF00);
+	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x120, 4, 0x0000FF00);
 	if (rc) {
 		CRIT("\nSet Link response timeout failed rc: %d %d: %s\n", 
 			rc, errno, strerror(errno));
 		goto exit;
 	};
 	
-	rc = riodp_lcfg_write(reg_acc_h->fd, 0x124, 4, 0x0000FF00);
+	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x124, 4, 0x0000FF00);
 	if (rc) {
 		CRIT("\nSet Packet response timeout failed rc: %d %d: %s\n", 
 			rc, errno, strerror(errno));
 		goto exit;
 	};
 	
-	rc = riodp_lcfg_write(reg_acc_h->fd, 0x10a04, 4, 0x00000000);
+	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x10a04, 4, 0x00000000);
 	if (rc) {
 		CRIT("\nSet Port-Write handling mode failed rc: %d %d: %s\n", 
 			rc, errno, strerror(errno));
 	};
 
-	rc = riodp_lcfg_read(reg_acc_h->fd, 0x15C, 4, &port_ctl);
+	rc = riomp_mgmt_lcfg_read(reg_acc_hnd, 0x15C, 4, &port_ctl);
 	if (rc) {
 		CRIT("\nCannot read Port 0 control CSR: %d %d: %s\n", 
 			rc, errno, strerror(errno));
 	};
 	port_ctl |= 0x00600000;
-	rc = riodp_lcfg_write(reg_acc_h->fd, 0x15C, 4, port_ctl);
+	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x15C, 4, port_ctl);
 	if (rc) {
 		CRIT("\nCannot write Port 0 control CSR: %d %d: %s\n", 
 			rc, errno, strerror(errno));
@@ -647,7 +644,8 @@ void setup_mport(struct fmd_state *fmd)
 		exit(EXIT_FAILURE);
 	};
 
-	if (rio_maint_init(mport, &reg_acc_h)) {
+	rc = riomp_mgmt_mport_create_handle(mport, 0, &reg_acc_hnd);
+	if (rc < 0) {
 		CRIT("\nCannot open mport %d, exiting...\n", mport);
 		exit(EXIT_FAILURE);
 	};
@@ -772,11 +770,11 @@ STATUS SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info,
 
 
 	if (RIOCP_PE_IS_MPORT(pe_h))
-		rc = rio_maint_read_local(reg_acc_h, offset,  &x)?
+		rc = riomp_mgmt_lcfg_read(reg_acc_hnd, offset, sizeof(x), &x)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
 	else
-		rc = rio_maint_read_remote(reg_acc_h, pe_h->destid, 
-			pe_h->hopcount, offset, &x, 1)?
+		rc = riomp_mgmt_rcfg_read(reg_acc_hnd, pe_h->destid, pe_h->hopcount, offset,
+				     sizeof(x), &x)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
 	if (RIO_SUCCESS == rc)
 		*readdata = x;
@@ -799,11 +797,11 @@ STATUS SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info,
 
 
 	if (RIOCP_PE_IS_MPORT(pe_h))
-		rc = rio_maint_write_local(reg_acc_h, offset,  writedata)?
+		rc = riomp_mgmt_lcfg_write(reg_acc_hnd, offset, sizeof(writedata), writedata)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
 	else
-		rc = rio_maint_write_remote(reg_acc_h, pe_h->destid, 
-			pe_h->hopcount, offset, &writedata, 4)?
+		rc = riomp_mgmt_rcfg_write(reg_acc_hnd, pe_h->destid, pe_h->hopcount, offset,
+				      sizeof(writedata), writedata)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
 exit:
 	return rc;

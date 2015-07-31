@@ -35,13 +35,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <cstring>
 #include <iostream>
 #include <iomanip>
 #include <iterator>
 
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_sock.h>
 #include "liblog.h"
 
 #define	CM_MSG_OFFSET 20
@@ -136,29 +140,29 @@ protected:
 	/* Returns 0 if successful, < 0 otherwise */
 	int create_mailbox()
 	{
-		return riodp_mbox_create_handle(mport_id, mbox_id, &mailbox);
+		return riomp_sock_mbox_create_handle(mport_id, mbox_id, &mailbox);
 	}
 
 	/* Returns 0 if successful, < 0 otherwise */
 	int close_mailbox()
 	{
-		return riodp_mbox_destroy_handle(&mailbox);
+		return riomp_sock_mbox_destroy_handle(&mailbox);
 	}
 
 	/* Send CM_BUF_SIZE bytes from 'send_buf' on specified socket */
-	int send(riodp_socket_t socket)
+	int send(riomp_sock_t socket)
 	{
 		int rc;
-		rc = riodp_socket_send(socket, (void *)send_buf, CM_BUF_SIZE);
+		rc = riomp_sock_send(socket, (void *)send_buf, CM_BUF_SIZE);
 		if (rc) {
-			ERR("riodp_socket_send failed for '%s': %s\n", name, strerror(rc));
+			ERR("riomp_sock_send failed for '%s': %s\n", name, strerror(rc));
 			return -1;
 		}
 		return 0;
 	} /* send() */
 
 	/* Receive bytes to 'recv_buf' on specified socket */
-	int receive(riodp_socket_t socket)
+	int receive(riomp_sock_t socket)
 	{
 		return timed_receive(socket, 0);
 	} /* receive() */
@@ -166,11 +170,11 @@ protected:
 	/* If returns ETIME then it timed out. 0 means success,
 	 * EINTR means thread was killed (if not in gdb mode AND the)
 	 * shutting_down flag is set) anything else is an error. */
-	int timed_receive(riodp_socket_t socket, uint32_t timeout_ms)
+	int timed_receive(riomp_sock_t socket, uint32_t timeout_ms)
 	{
 		int rc = 0;
 		do {
-			rc = riodp_socket_receive(socket,
+			rc = riomp_sock_receive(socket,
 					(void **)&recv_buf, CM_BUF_SIZE,
 					timeout_ms);
 		} while (rc && (errno==EINTR) && gdb && !*shutting_down);
@@ -192,7 +196,7 @@ protected:
 	uint8_t mbox_id;
 	uint16_t channel;
 	bool	*shutting_down;
-	riodp_mailbox_t mailbox;
+	riomp_mailbox_t mailbox;
 	bool	gdb;
 
 private:
@@ -243,7 +247,7 @@ public:
 		if (rc) {
 			CRIT("Failed to create mailbox for '%s'\n", name);
 			if (rc == -1) {
-				CRIT("Failed in riodp_cm_open(): %s\n",
+				CRIT("Failed in riomp_sock_mbox_init(): %s\n",
 						strerror(errno));
 			} else if (rc == -2) {
 				CRIT("Failed to allocate mailbox handle\n");
@@ -252,7 +256,7 @@ public:
 		}
 
 		/* Create listen socket, throw exception if failed */
-		if (riodp_socket_socket(mailbox, &listen_socket)) {
+		if (riomp_sock_socket(mailbox, &listen_socket)) {
 			CRIT("Failed to create listen socket for '%s'\n",name);
 			close_mailbox();
 			throw cm_exception("Failed to create listen socket");
@@ -260,22 +264,22 @@ public:
 		DBG("listen_socket = 0x%X\n", listen_socket);
 
 		/* Bind listen socket, throw exception if failed */
-		rc = riodp_socket_bind(listen_socket, channel);
+		rc = riomp_sock_bind(listen_socket, channel);
 		if (rc) {
 			CRIT("Failed to bind listen socket for '%s': %s\n",
 							name, strerror(errno));
-			riodp_socket_close(&listen_socket);
+			riomp_sock_close(&listen_socket);
 			close_mailbox();
 			throw cm_exception("Failed to bind listen socket");
 		}
 		DBG("Listen socket bound\n");
 
 		/* Prepare listen socket */
-		rc = riodp_socket_listen(listen_socket);
+		rc = riomp_sock_listen(listen_socket);
 		if(rc) {
-			ERR("Failed in riodp_socket_listen() for '%s': %s\n",
+			ERR("Failed in riomp_sock_listen() for '%s': %s\n",
 							name, strerror(rc));
-			riodp_socket_close(&listen_socket);
+			riomp_sock_close(&listen_socket);
 			close_mailbox();
 			throw cm_exception("Failed to listen on socket");
 		}
@@ -283,7 +287,7 @@ public:
 	} /* cm_server() */
 
 	/* Construct from accept socket. Other attributes are unused */
-	cm_server(const char *name, riodp_socket_t accept_socket,
+	cm_server(const char *name, riomp_sock_t accept_socket,
 		  bool *shutting_down) :
 		cm_base(name, 0, 0, 0, shutting_down),
 		accept_socket(accept_socket)
@@ -295,7 +299,7 @@ public:
 		/* Close accept socket, if open */
 		DBG("accept_socket = 0x%X\n", accept_socket);
 		if (accept_socket && accepted)
-			if (riodp_socket_close(&accept_socket)) {
+			if (riomp_sock_close(&accept_socket)) {
 				WARN("Failed to close accept socket for '%s': %s\n",
 							name, strerror(errno));
 			}
@@ -303,7 +307,7 @@ public:
 		/* Close listen socket, opened during construction */
 		DBG("Closing listen_socket = 0x%X\n", listen_socket);
 		if (listen_socket)
-			if (riodp_socket_close(&listen_socket)) {
+			if (riomp_sock_close(&listen_socket)) {
 				WARN("Failed to close listen socket: for '%s': %s\n",
 							name, strerror(errno));
 			}
@@ -317,15 +321,15 @@ public:
 		}
 	} /* ~cm_server() */
 
-	riodp_socket_t get_accept_socket() { return accept_socket; }
+	riomp_sock_t get_accept_socket() { return accept_socket; }
 
 	/* Accept connection from client */
-	int accept(riodp_socket_t *acc_socket)
+	int accept(riomp_sock_t *acc_socket)
 	{
 		accepted = false;
 
 		/* Create accept socket */
-		if( riodp_socket_socket(mailbox, &accept_socket)) {
+		if( riomp_sock_socket(mailbox, &accept_socket)) {
 			ERR("Failed to create accept socket for '%s'\n", name);
 			return -1;
 		}
@@ -334,8 +338,8 @@ public:
 		/* Wait for connection request from a client */
 		int rc = 0;
 		do {
-			/* riodp_socket_accept() returns errno where appropriate */
-			rc = riodp_socket_accept(listen_socket, &accept_socket, 3*60*1000);
+			/* riomp_sock_accept() returns errno where appropriate */
+			rc = riomp_sock_accept(listen_socket, &accept_socket, 3*60*1000);
 			/* If ETIME, retry. If EINTR & NOT running gdb then that means
 			 * the thread was killed. Exit with EINTR so the calling thread
 			 * can clean up the socket and exit.
@@ -383,8 +387,8 @@ public:
 	} /* send() */
 
 private:
-	riodp_socket_t listen_socket;
-	riodp_socket_t accept_socket;
+	riomp_sock_t listen_socket;
+	riomp_sock_t accept_socket;
 	bool	accepted;
 }; /* cm_server */
 
@@ -406,7 +410,7 @@ public:
 		}
 
 		/* Create client socket, throw exception if failed */
-		if (riodp_socket_socket(mailbox, &client_socket)) {
+		if (riomp_sock_socket(mailbox, &client_socket)) {
 			CRIT("Failed to create socket for '%s'\n", name);
 			close_mailbox();
 			throw cm_exception("Failed to create client socket");
@@ -415,18 +419,18 @@ public:
 	} /* Constructor */
 
 	/* construct from client socket only */
-	cm_client(const char *name, riodp_socket_t socket, bool *shutting_down) :
+	cm_client(const char *name, riomp_sock_t socket, bool *shutting_down) :
 		cm_base(name, 0, 0, 0, shutting_down), client_socket(socket)
 	{
 	}
 
-	riodp_socket_t get_socket() const { return client_socket; }
+	riomp_sock_t get_socket() const { return client_socket; }
 
 	~cm_client()
 	{
 		/* Close client socket */
 		DBG("client_socket = 0x%X\n", client_socket);
-		if (riodp_socket_close(&client_socket)) {
+		if (riomp_sock_close(&client_socket)) {
 			WARN("Failed to close client socket for '%s': %s\n",
 							name, strerror(errno));
 		}
@@ -439,16 +443,16 @@ public:
 	} /* Destructor */
 
 	/* Connect to server specified by RapidIO destination ID */
-	int connect(uint16_t destid, riodp_socket_t *socket)
+	int connect(uint16_t destid, riomp_sock_t *socket)
 	{
-		int rc = riodp_socket_connect(client_socket,
+		int rc = riomp_sock_connect(client_socket,
 					      destid,
 					      mbox_id,
 					      channel);
 		if (rc == EADDRINUSE) {
 			INFO("Requested channel already in use, reusing..");
 		} else if (rc) {
-			ERR("riodp_socket_connect failed for '%s':  %s\n",
+			ERR("riomp_sock_connect failed for '%s':  %s\n",
 							name, strerror(errno));
 			ERR("channel = %d, mailbox = %d, destid = 0x%X\n",
 						channel, mbox_id, destid);
@@ -485,7 +489,7 @@ public:
 	} /* receive() */
 
 private:
-	riodp_socket_t client_socket;
+	riomp_sock_t client_socket;
 }; /* cm_client */
 
 #endif

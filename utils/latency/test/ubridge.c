@@ -50,9 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //#include <linux/types.h>
 #include <sys/ioctl.h>
 
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include <linux/rio_cm_cdev.h>
-#include <linux/rio_mport_cdev.h>
+
 
 // TSI721 includes
 #include "CPS1848_registers.h"
@@ -67,7 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rio_register_utils.h"
 #include "time_utils.h"
 #include "debug.h"
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
 
 // PCIE offset (to be added to distinguish RIO from PCIE accesses
 #define PCIE_ADDRESS_OFFSET 0x70000
@@ -145,9 +143,9 @@ int init_mport(int demo_mode,
                                                   peer->bar2_base_ptr);
 
     /* Open mport device */
-    peer->mport_fd = riodp_mport_open(mportid, 0);
+    peer->mport_fd = riomp_mgmt_mport_create_handle(mportid, 0);
     if (peer->mport_fd <= 0) {
-        perror("riodp_mport_open()");
+        perror("riomp_mgmt_mport_create_handle()");
         fprintf(stderr,"Failed to open mport%d. Aborting!\n", mportid);
         cleanup_latency_test(num_devices,peers);
         return -1;

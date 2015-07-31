@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CM_RDMA_H
 
 #include <stdint.h>
+#include <endian.h>
 #include "rdma_types.h"
 
 #define	CM_MS_NAME_MAX_LEN	31

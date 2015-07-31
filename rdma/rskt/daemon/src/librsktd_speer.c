@@ -60,9 +60,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
-#include "riodp_mport_lib.h"
-#include "linux/rio_cm_cdev.h"
-#include "linux/rio_mport_cdev.h"
+#include <rapidio_mport_sock.h>
+
 #include "libcli.h"
 #include "librskt_private.h"
 #include "librdma.h"
@@ -85,13 +84,13 @@ int speer_rx_req(struct rskt_dmn_speer *speer)
 
 	speer->rx_buff_used = 1;
 	do {
-		rc = riodp_socket_receive(speer->cm_skt_h, 
+		rc = riomp_sock_receive(speer->cm_skt_h, 
 			&speer->rx_buff, RSKTD_CM_MSG_SIZE, 0);
 	} while (rc && !speer->i_must_die && !dmn.all_must_die &&
 		((errno == EINTR) || (errno == ETIME) || (errno == EAGAIN)));
 
 	if (rc) {
-		CRIT("SPEER(%p): riodp_socket_receive: %d (%d:%s)\n",
+		CRIT("SPEER(%p): riomp_sock_receive: %d (%d:%s)\n",
 			speer, rc, errno, strerror(errno));
 		speer->i_must_die = 1;
 	};
@@ -118,13 +117,13 @@ void close_speer(struct rskt_dmn_speer *speer)
 	speer->comm_fail = 1;
 
 	if (NULL != speer->rx_buff) {
-		riodp_socket_release_receive_buffer(speer->cm_skt_h,
+		riomp_sock_release_receive_buffer(speer->cm_skt_h,
 							speer->rx_buff);
 		speer->rx_buff = NULL;
 	};
 	
 	if (NULL != speer->tx_buff) {
-		riodp_socket_release_send_buffer(speer->cm_skt_h, 
+		riomp_sock_release_send_buffer(speer->cm_skt_h, 
 							speer->tx_buff);
 		speer->tx_buff = NULL;
 	};
@@ -182,13 +181,13 @@ void *speer_rx_loop(void *p_i)
 	speer->comm_fail = 1;
 
 	if (NULL != speer->rx_buff) {
-		riodp_socket_release_receive_buffer(speer->cm_skt_h,
+		riomp_sock_release_receive_buffer(speer->cm_skt_h,
 							speer->rx_buff);
 		speer->rx_buff = NULL;
 	};
 	
 	if (NULL != speer->tx_buff) {
-		riodp_socket_release_send_buffer(speer->cm_skt_h, 
+		riomp_sock_release_send_buffer(speer->cm_skt_h, 
 							speer->tx_buff);
 		speer->tx_buff = NULL;
 	};
@@ -196,7 +195,7 @@ void *speer_rx_loop(void *p_i)
 	pthread_exit(NULL);
 };
 
-void start_new_speer(riodp_socket_t new_socket)
+void start_new_speer(riomp_sock_t new_socket)
 {
 	int rc;
 	struct rskt_dmn_speer *speer;
@@ -220,8 +219,8 @@ void start_new_speer(riodp_socket_t new_socket)
 	speer->rx_buff = malloc(RSKTD_CM_MSG_SIZE);
 	speer->tx_buff_used = 0;
 
-	if (riodp_socket_request_send_buffer(new_socket, &speer->tx_buff)) {
-		riodp_socket_close(&new_socket);
+	if (riomp_sock_request_send_buffer(new_socket, &speer->tx_buff)) {
+		riomp_sock_close(&new_socket);
 	};
 	speer->req = (struct rsktd_req_msg *)speer->rx_buff;
 	speer->resp = (struct rsktd_resp_msg *)speer->tx_buff;
@@ -281,7 +280,7 @@ void *speer_tx_loop(void *unused)
 		memcpy((void *)s->tx_buff, (void *)msg->dresp,
 				sizeof(struct rsktd_resp_msg));
         	s->tx_buff_used = 1;
-        	s->tx_rc = riodp_socket_send(s->cm_skt_h, s->tx_buff,
+        	s->tx_rc = riomp_sock_send(s->cm_skt_h, s->tx_buff,
 						DMN_RESP_SZ);
 	};
 	dmn.speer_tx_alive = 0;

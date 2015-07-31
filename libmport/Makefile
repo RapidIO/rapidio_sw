@@ -1,6 +1,6 @@
 CXX ?= $(CROSS_COMPILE)g++
 AR=$(CROSS_COMPILE)ar
-KDIR?=/usr/src/linux
+KDIR?=/home/dems0n16/rio/linux-rapidio
 LINUX_INCLUDE_DIR ?= $(KDIR)/include
 LOG_LEVEL ?= 4
 PREFIX?=/usr
@@ -9,7 +9,7 @@ BINDIR=$(DESTDIR)$(PREFIX)/bin
 INCDIR=../include
 O?=.
 
-ifdef debug
+ifdef DEBUG
 CFLAGS=-Wall -Wsign-compare -fPIC -DDEBUG -g
 else
 CFLAGS=-O2 -Wall -Wsign-compare -fPIC -DNDEBUG

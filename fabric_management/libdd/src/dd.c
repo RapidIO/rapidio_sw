@@ -61,7 +61,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_dd.h"
 #include "liblog.h"
 #include "riocp_pe.h"
-#include "riocp_pe_internal.h"
+//#include "riocp_pe_internal.h"
 #include "libcli.h"
 #include <stdio.h>
 #include <string.h>

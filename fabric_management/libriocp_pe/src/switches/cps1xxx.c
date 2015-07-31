@@ -482,7 +482,7 @@ static int cps1xxx_init_bdc(struct riocp_pe *sw)
 
 	/* use repeated port-write sending for CPS1616.*/
 	/* For the CPS1848 a work-around is used. See pw_workaround for more information */
-	if (did == RIO_DID_IDT_CPS1616) {
+	if (did == RIO_DID_IDT_CPS1616 || did == RIO_DID_IDT_SPS1616) {
 		ret = riocp_pe_maint_write(sw, CPS1616_DEVICE_PW_TIMEOUT, CPS1616_PW_TIMER);
 		if (ret < 0)
 			return ret;
@@ -657,6 +657,7 @@ static int cps1xxx_port_get_first_lane(struct riocp_pe *sw,
 	uint8_t _lane = 0;
 
 	switch (RIOCP_PE_DID(sw->cap)) {
+	case RIO_DID_IDT_SPS1616:
 	case RIO_DID_IDT_CPS1616: /* fall through */
 		if (port <= 15)
 			_lane = port;
@@ -907,6 +908,7 @@ int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *speed)
 
 
 	switch (RIOCP_PE_DID(sw->cap)) {
+	case RIO_DID_IDT_SPS1616:
 	case RIO_DID_IDT_CPS1616:
 		ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(lane), &ctl);
 		if (ret < 0) {
@@ -1226,7 +1228,7 @@ found_port_error:
 	return ret;
 }
 
-static int cps1xxx_cfg_event_handler(struct riocp_pe *sw, struct rio_event *revent, struct riocp_pe_event *event)
+static int cps1xxx_cfg_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, struct riocp_pe_event *event)
 {
 	int ret;
 	uint8_t event_code;
@@ -1285,7 +1287,7 @@ static int cps1xxx_cfg_event_handler(struct riocp_pe *sw, struct rio_event *reve
  * This function verifies if it comes from CPS1616 and then calls
  * the Port event or CFG event handler.
  */
-static int cps1xxx_rpw_event(struct riocp_pe *sw, struct rio_event *revent,
+static int cps1xxx_rpw_event(struct riocp_pe *sw, struct riomp_mgmt_event *revent,
 	struct riocp_pe_event *event)
 {
 	int ret = 0;
@@ -1309,7 +1311,7 @@ static int cps1xxx_rpw_event(struct riocp_pe *sw, struct rio_event *revent,
 	return ret;
 }
 
-int cps1xxx_event_handler(struct riocp_pe *sw, struct rio_event *revent, struct riocp_pe_event *event)
+int cps1xxx_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, struct riocp_pe_event *event)
 {
 	int ret = 0;
 
@@ -1481,6 +1483,27 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	"cps1616",
 	NULL,
 	cps1616_id_table,
+	cps1xxx_init,
+	cps1xxx_init_em,
+	cps1xxx_set_route_entry,
+	cps1xxx_get_route_entry,
+	cps1xxx_clear_lut,
+	cps1xxx_get_lane_speed,
+	cps1xxx_get_lane_width,
+	cps1xxx_get_port_state,
+	cps1xxx_event_handler,
+	NULL
+};
+
+struct riocp_pe_device_id sps1616_id_table[] = {
+	{RIOCP_PE_PE_DEVICE(RIO_DID_IDT_SPS1616, RIO_VID_IDT)},
+	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
+};
+struct riocp_pe_switch riocp_pe_switch_sps1616 = {
+	-1,
+	"sps1616",
+	NULL,
+	sps1616_id_table,
 	cps1xxx_init,
 	cps1xxx_init_em,
 	cps1xxx_set_route_entry,

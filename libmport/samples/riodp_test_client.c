@@ -42,11 +42,11 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <fcntl.h>
+#include <rapidio_mport_dma.h>
 #include <sys/ioctl.h>
 
-#include "riodp_mport_lib.h"
-
-#define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_sock.h>
 
 struct args {
 	uint32_t mport_id;
@@ -74,9 +74,9 @@ static void show_rio_devs(void)
 	int mport_id;
 	int ret = 0;
 
-	ret = riodp_mport_get_mport_list(&mport_list, &number_of_mports);
+	ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
 	if (ret) {
-		printf("ERR: riodp_mport_get_mport_list() ERR %d\n", ret);
+		printf("ERR: riomp_mgmt_get_mport_list() ERR %d\n", ret);
 		return;
 	}
 
@@ -94,7 +94,7 @@ static void show_rio_devs(void)
 
 		/* Display EPs for this MPORT */
 
-		ret = riodp_mport_get_ep_list(mport_id, &ep_list, &number_of_eps);
+		ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, &number_of_eps);
 		if (ret) {
 			printf("ERR: riodp_ep_get_list() ERR %d\n", ret);
 			break;
@@ -105,7 +105,7 @@ static void show_rio_devs(void)
 			printf("%u ", *(ep_list + ep));
 		printf("\n");
 
-		ret = riodp_mport_free_ep_list(&ep_list);
+		ret = riomp_mgmt_free_ep_list(&ep_list);
 		if (ret)
 			printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
 
@@ -113,7 +113,7 @@ static void show_rio_devs(void)
 
 	printf("\n");
 
-	ret = riodp_mport_free_mport_list(&mport_list);
+	ret = riomp_mgmt_free_mport_list(&mport_list);
 	if (ret)
 		printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
 }
@@ -141,8 +141,8 @@ int main(int argc, char** argv)
 	void *msg_rx = NULL; 
 	void *msg_tx = NULL;
 	struct args arg;
-	riodp_mailbox_t mailbox;
-	riodp_socket_t socket;
+	riomp_mailbox_t mailbox;
+	riomp_sock_t socket;
 	uint32_t i;
 	struct timespec starttime;
 	struct timespec endtime;
@@ -170,7 +170,7 @@ int main(int argc, char** argv)
 	if (eth_emu == NULL) /* no IP-prefix set, so RapidIO is used */
 	{
 		/* Verify existence of remote RapidIO Endpoint */
-		ret = riodp_mport_get_ep_list(arg.mport_id, &ep_list, &number_of_eps);
+		ret = riomp_mgmt_get_ep_list(arg.mport_id, &ep_list, &number_of_eps);
 		if (ret) {
 			printf("riodp_ep_get_list error: %d\n", ret);
 			exit(1);
@@ -181,7 +181,7 @@ int main(int argc, char** argv)
 				ep_found = 1;
 		}
 
-		ret = riodp_mport_free_ep_list(&ep_list);
+		ret = riomp_mgmt_free_ep_list(&ep_list);
 		if (ret) {
 			printf("ERROR: riodp_ep_free_list error: %d\n",	ret);
 		}
@@ -195,32 +195,32 @@ int main(int argc, char** argv)
 		printf("CM_CLIENT: RIODP_EMU_IP_PREFIX found, using ethernet...\n");
 	}
 
-	/* Create riodp_mailbox control structure */
-	ret = riodp_mbox_create_handle(arg.mport_id, 0, &mailbox);
+	/* Create rapidio_mport_mailbox control structure */
+	ret = riomp_sock_mbox_create_handle(arg.mport_id, 0, &mailbox);
 	if (ret) {
 		printf("riodp_mbox_init error: %d\n", ret);
 		exit(1);
 	}
 
 	/* Create a socket  structure associated with given mailbox */
-	ret = riodp_socket_socket(mailbox, &socket);
+	ret = riomp_sock_socket(mailbox, &socket);
 	if (ret) {
-		printf("riodp_socket_socket error: %d\n", ret);
+		printf("riomp_sock_socket error: %d\n", ret);
 		goto out;
 	}
 
-	ret = riodp_socket_connect(socket, arg.remote_destid, 0,
+	ret = riomp_sock_connect(socket, arg.remote_destid, 0,
 				   arg.remote_channel);
 	if (ret == EADDRINUSE)
-		printf("riodp_socket_connect: Requested channel already in use, reusing...\n");
+		printf("riomp_sock_connect: Requested channel already in use, reusing...\n");
 	else if (ret) {
-		printf("riodp_socket_connect error: %d\n", ret);
+		printf("riomp_sock_connect error: %d\n", ret);
 		goto out;
 	}
 
-	ret = riodp_socket_request_send_buffer(socket, &msg_tx);
+	ret = riomp_sock_request_send_buffer(socket, &msg_tx);
 	if (ret) {
-		printf("riodp_socket_request_send_buffer error: %d\n", ret);
+		printf("riomp_sock_request_send_buffer error: %d\n", ret);
 		goto out;
 	}
 
@@ -237,20 +237,20 @@ int main(int argc, char** argv)
 		/* Place message into buffer with space reserved for msg_header */
 		sprintf((char *)((char *)msg_tx + 20), "%d:%d\n", i, (int)getpid());
 
-		ret = riodp_socket_send(socket, msg_tx, 0x1000);
+		ret = riomp_sock_send(socket, msg_tx, 0x1000);
 		if (ret) {
-			printf("CM_CLIENT(%d): riodp_socket_send() ERR %d\n",
+			printf("CM_CLIENT(%d): riomp_sock_send() ERR %d\n",
 				(int)getpid(), ret);
 			break;
 		}
 
 		/* Get echo response from the server (blocking call, no timeout) */
-		ret = riodp_socket_receive(socket, &msg_rx, 0x1000, 0);
+		ret = riomp_sock_receive(socket, &msg_rx, 0x1000, 0);
 		if (ret) {
-			printf("CM_CLIENT(%d): riodp_socket_receive() ERR %d on roundtrip %d\n",
+			printf("CM_CLIENT(%d): riomp_sock_receive() ERR %d on roundtrip %d\n",
 				(int)getpid(), ret, i);
 			if (msg_rx)
-				riodp_socket_release_receive_buffer(socket, msg_rx);
+				riomp_sock_release_receive_buffer(socket, msg_rx);
 			break;
 		}
 
@@ -261,14 +261,14 @@ int main(int argc, char** argv)
 				(int)getpid(), (char *)msg_tx + 20);
 			printf("CM_CLIENT(%d): MSG IN: %s\n",
 				(int)getpid(), (char *)msg_rx + 20);
-			riodp_socket_release_receive_buffer(socket, msg_rx);
+			riomp_sock_release_receive_buffer(socket, msg_rx);
 			ret = -1;
 			break;
 		}
 	}
 
-	riodp_socket_release_receive_buffer(socket, msg_rx);
-	riodp_socket_release_send_buffer(socket, msg_tx);
+	riomp_sock_release_receive_buffer(socket, msg_rx);
+	riomp_sock_release_send_buffer(socket, msg_tx);
 
 	clock_gettime(CLOCK_MONOTONIC, &endtime);
 
@@ -292,12 +292,12 @@ int main(int argc, char** argv)
 	       ((4096*i)/totaltime)/(1024*1024));
 
 
-	ret = riodp_socket_close(&socket);
+	ret = riomp_sock_close(&socket);
 	if (ret)
-		printf("riodp_socket_close error: %d\n", ret);
+		printf("riomp_sock_close error: %d\n", ret);
 
 out:
-	ret = riodp_mbox_destroy_handle(&mailbox);
+	ret = riomp_sock_mbox_destroy_handle(&mailbox);
 	if (ret)
 		printf("riodp_mbox_shutdown error: %d\n", ret);
 	return ret;

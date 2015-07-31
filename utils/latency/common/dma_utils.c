@@ -46,7 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tsi721_dma.h"
 #include "dma_utils.h"
 #include "inbound_utils.h"
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
 
 
 int roundup_pow_of_two( int n )
@@ -85,9 +85,9 @@ void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 	int ret;
 
 	if (handle) {
-		ret = riodp_dbuf_alloc(fd, size, &h);
+		ret = riomp_dma_dbuf_alloc(fd, size, &h);
 		if (ret) {
-			fprintf(stderr,"riodp_dbuf_alloc failed err=%d\n", ret);
+			fprintf(stderr,"riomp_dma_dbuf_alloc failed err=%d\n", ret);
 			return NULL;
 		}
 
@@ -95,9 +95,9 @@ void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 		if (buf_ptr == MAP_FAILED) {
 			perror("mmap");
 			buf_ptr = NULL;
-			ret = riodp_dbuf_free(fd, handle);
+			ret = riomp_dma_dbuf_free(fd, handle);
 			if (ret)
-				fprintf(stderr, "riodp_dbuf_free failed err=%d\n", ret);
+				fprintf(stderr, "riomp_dma_dbuf_free failed err=%d\n", ret);
 		} else
 			*handle = h;
 	} else {
@@ -121,9 +121,9 @@ void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle)
 		if (munmap(buf, size))
 			perror("munmap");
 
-		ret = riodp_dbuf_free(fd, handle);
+		ret = riomp_dma_dbuf_free(fd, handle);
 		if (ret)
-			fprintf(stderr,"%s:riodp_dbuf_free failed err=%d\n", __FUNCTION__,
+			fprintf(stderr,"%s:riomp_dma_dbuf_free failed err=%d\n", __FUNCTION__,
                                                                  ret);
 	} 
 } /* dmatest_buf_free() */

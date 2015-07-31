@@ -2,10 +2,6 @@
 #
 # Default configurations
 
-KDIR ?= /usr/src/linux
-
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
-
 LOG_LEVEL ?= 1
 
 DEBUG ?= DEBUG
@@ -17,8 +13,6 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 A_LIB_LKFLAGS = -lnsl -fPIC -g -ggdb
 
 CROSS_COMPILE?=/usr/bin/
-LINUX_INCLUDE_DIR?=/usr/src/linux/include
-INCDIR=$(LINUX_INCLUDE_DIR)
 
 COMMON_DIR?=$(TOP_LEVEL)/common
 MPORT_DIR?=$(TOP_LEVEL)/libmport
@@ -29,7 +23,7 @@ INCLUDE_DIR?=$(TOP_LEVEL)/include
 LIB_DIRS?=-L$(COMMON_DIR)/libs_a -L$(INCLUDE_DIR)/libs_a \
 	-L$(COMMON_DIR)/libs_so -L$(TOP_LEVEL)/fabric_management/libriocp_pe \
 	-L$(TOP_LEVEL)/fabric_management/libdd \
-	-L$(TOP_LEVEL)/fabric_management/librio_maint 
+	-L$(MPORT_DIR)
 
 CXX ?= $(CROSS_COMPILE)g++
 AR ?= $(CROSS_COMPILE)ar
@@ -42,8 +36,7 @@ src/%.o: src/%.c
 	-I$(COMMON_DIR)/include \
 	-I$(COMMON_DIR)/liblist/inc \
 	-I../../../include \
-	-DRDMA_LL=7 \
-	-I$(LINUX_INCLUDE_DIR)
+	-DRDMA_LL=7
 
 RSKTLIB_SOURCES = src/librsktd_dmn.c src/librsktd_lib.c \
 	src/librsktd_msg_proc.c src/librsktd_sn.c src/librsktd_speer.c  \
@@ -72,7 +65,7 @@ rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
-	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe -lrio_maint
+	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
 # The RDMA Sockets Test Server
 rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
@@ -82,7 +75,7 @@ rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
-	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe -lrio_maint
+	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
 # The Remote Debug shellsrc/librsktd_cli.c 
 remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
@@ -91,7 +84,7 @@ remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
 	-pthread -Wl,-rpath=$(MPORT_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
-	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe -lrio_maint
+	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
 clean:
 	rm -f *.o src/*.o *~ *.exe core rsktd remdbg rskts

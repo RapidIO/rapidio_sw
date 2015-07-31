@@ -1,8 +1,6 @@
 LIBRDMA_PATH=..
 LIBMPORT_PATH=../../libmport
 COMMON_LIBS_PATH=../../common/libs_a
-KDIR?=/usr/src/linux
-KINC=$(KDIR)/include
 
 level?=$(LOG_LEVEL)
 

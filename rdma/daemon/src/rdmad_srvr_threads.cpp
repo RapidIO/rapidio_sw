@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <semaphore.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include <vector>
 #include <algorithm>
@@ -103,12 +104,12 @@ void *wait_conn_disc_thread_f(void *arg)
 	prov_server->get_recv_buffer((void **)&hello_msg);
 	DBG("Received HELLO message from destid(0x%X)\n", hello_msg->destid);
 
-	uint32_t remote_destid = hello_msg->destid;
+	uint32_t remote_destid = be64toh(hello_msg->destid);
 
 	/* Send HELLO ACK withour own destid */
 	prov_server->get_send_buffer((void **)&hello_msg);
 	prov_server->flush_send_buffer();
-	hello_msg->destid = peer.destid;
+	hello_msg->destid = htobe64(peer.destid);
 	if (prov_server->send()) {
 		CRIT("Failed to send HELLO_ACK message: %s. EXITING\n",
 							strerror(ret));
@@ -205,7 +206,7 @@ void *wait_conn_disc_thread_f(void *arg)
 		 * type is different then cast message buffer accordingly. */
 		cm_connect_msg	*conn_msg;
 		rx_conn_disc_server->get_recv_buffer((void **)&conn_msg);
-		if (conn_msg->type == CM_CONNECT_MS) {
+		if (be64toh(conn_msg->type) == CM_CONNECT_MS) {
 			HIGH("Received CONNECT_MS '%s'\n", conn_msg->server_msname);
 
 			/* Form message queue name from memory space name */
@@ -242,14 +243,14 @@ void *wait_conn_disc_thread_f(void *arg)
 			/* Send 'connect' POSIX message contents to the RDMA library */
 			mq_connect_msg	*connect_msg;
 			connect_mq->get_send_buffer(&connect_msg);
-			connect_msg->rem_msid		= conn_msg->client_msid;
-			connect_msg->rem_msubid		= conn_msg->client_msubid;
-			connect_msg->rem_bytes		= conn_msg->client_bytes;
-			connect_msg->rem_rio_addr_len	= conn_msg->client_rio_addr_len;
-			connect_msg->rem_rio_addr_lo	= conn_msg->client_rio_addr_lo;
-			connect_msg->rem_rio_addr_hi	= conn_msg->client_rio_addr_hi;
-			connect_msg->rem_destid_len	= conn_msg->client_destid_len;
-			connect_msg->rem_destid		= conn_msg->client_destid;
+			connect_msg->rem_msid		= be64toh(conn_msg->client_msid);
+			connect_msg->rem_msubid		= be64toh(conn_msg->client_msubid);
+			connect_msg->rem_bytes		= be64toh(conn_msg->client_bytes);
+			connect_msg->rem_rio_addr_len	= be64toh(conn_msg->client_rio_addr_len);
+			connect_msg->rem_rio_addr_lo	= be64toh(conn_msg->client_rio_addr_lo);
+			connect_msg->rem_rio_addr_hi	= be64toh(conn_msg->client_rio_addr_hi);
+			connect_msg->rem_destid_len	= be64toh(conn_msg->client_destid_len);
+			connect_msg->rem_destid		= be64toh(conn_msg->client_destid);
 
 			/* Send connect message to RDMA library/app */
 			if (connect_mq->send()) {
@@ -274,8 +275,8 @@ void *wait_conn_disc_thread_f(void *arg)
 			memcpy( cm_send_buf,
 				(void *)&accept_msg,
 				sizeof(cm_accept_msg));
-			DBG("cm_accept_msg has server_destid = 0x%X\n", accept_msg.server_destid);
-			DBG("cm_accept_msg has server_destid_len = 0x%X\n", accept_msg.server_destid_len);
+			DBG("cm_accept_msg has server_destid = 0x%X\n", be64toh(accept_msg.server_destid));
+			DBG("cm_accept_msg has server_destid_len = 0x%X\n", be64toh(accept_msg.server_destid_len));
 
 			/* Send 'accept' message to remote daemon */
 			DBG("Sending back ACCEPT_MS for '%s'\n", mq_str.c_str());
@@ -298,9 +299,9 @@ void *wait_conn_disc_thread_f(void *arg)
 			 * and the remote users of that space need to be notified. */
 			mspace	*ms = the_inbound->get_mspace(conn_msg->server_msname);
 			if (ms) {
-				ms->add_destid(conn_msg->client_destid);
+				ms->add_destid(be64toh(conn_msg->client_destid));
 				DBG("Added destid(0x%X) as one that is connected to '%s'\n",
-						conn_msg->client_destid, conn_msg->server_msname);
+						be64toh(conn_msg->client_destid), conn_msg->server_msname);
 			} else {
 				WARN("memory space '%s' NOT found!\n",
 						conn_msg->server_msname);
@@ -310,22 +311,22 @@ void *wait_conn_disc_thread_f(void *arg)
 			accept_msg_map.remove(mq_str);
 			DBG("%s now removed from the accept message map\n",
 							mq_str.c_str());
-		} else if (conn_msg->type == CM_DISCONNECT_MS) {
+		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS) {
 			cm_disconnect_msg	*disc_msg;
 
 			rx_conn_disc_server->get_recv_buffer((void **)&disc_msg);
 			HIGH("Received DISCONNECT_MS for msid(0x%X)\n",
-							disc_msg->server_msid);
+							be64toh(disc_msg->server_msid));
 
 			/* Remove client_destid from 'ms' identified by server_msid */
-			mspace *ms = the_inbound->get_mspace(disc_msg->server_msid);
+			mspace *ms = the_inbound->get_mspace(be64toh(disc_msg->server_msid));
 			if (!ms) {
-				CRIT("Failed to find ms(0x%X)\n", disc_msg->server_msid);
+				CRIT("Failed to find ms(0x%X)\n", be64toh(disc_msg->server_msid));
 				continue;	/* Not much else to do without the ms */
 			} else {
-				if (ms->remove_destid(disc_msg->client_destid) < 0)
+				if (ms->remove_destid(be64toh(disc_msg->client_destid)) < 0)
 					ERR("Failed to remove destid(0x%X)\n",
-							disc_msg->client_destid);
+							be64toh(disc_msg->client_destid));
 					/* Although this should not happen, we can still
 					 * proceed with the disconnection at least. This
 					 * may in the future result in spurious destroy
@@ -333,7 +334,8 @@ void *wait_conn_disc_thread_f(void *arg)
 					 */
 				else {
 					INFO("Removed desitd(0x%X) from msid(0x%X)\n",
-					disc_msg->client_destid, disc_msg->server_msid);
+					be64toh(disc_msg->client_destid),
+					be64toh(disc_msg->server_msid));
 				}
 			}
 
@@ -342,7 +344,7 @@ void *wait_conn_disc_thread_f(void *arg)
 
 			/* Prepare POSIX disconnect message from CM disconnect message */
 			mq_disconnect_msg	disconnect_msg;
-			disconnect_msg.client_msubid = disc_msg->client_msubid;
+			disconnect_msg.client_msubid = be64toh(disc_msg->client_msubid);
 
 			/* Form message queue name from memory space name */
 			char mq_name[CM_MS_NAME_MAX_LEN+2];

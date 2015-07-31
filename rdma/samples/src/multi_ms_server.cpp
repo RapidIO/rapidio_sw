@@ -188,7 +188,7 @@ void sig_handler(int sig)
 
 int main(int argc, char *argv[])
 {
-	char c;
+	int c;
 	unsigned n = 1;
 
 	/* Register signal handler */

@@ -37,11 +37,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <semaphore.h>
 
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include "linux/rio_cm_cdev.h"
-#include "linux/rio_mport_cdev.h"
-
-#include "riodp_mport_lib.h"
+//#include <rapidio_mport_mgmt.h>
+#include "../../../include/rapidio_mport_dma.h"
+//#include <rapidio_mport_sock.h>
 
 struct peer_info {
 	/* Device ID */
@@ -50,7 +48,7 @@ struct peer_info {
 
 	/* MPORT */
 	int mport_id;
-	int mport_fd;
+	riomp_mport_t mport_hnd;
 
 	/* RIO */
 	#define DEFAULT_RIO_ADDRESS     0x00000000 

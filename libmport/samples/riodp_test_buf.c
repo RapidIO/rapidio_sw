@@ -46,49 +46,54 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <getopt.h>
+#include <rapidio_mport_dma.h>
 #include <time.h>
 #include <signal.h>
 
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
 
 #define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 
-static int fd;
+static riomp_mport_t mport_hnd;
 static uint32_t ibwin_size = DEFAULT_IBWIN_SIZE;
 
 static int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint32_t seg_size)
 {
-	int fd;
+	riomp_mport_t mphnd;
+	int ret;
 	uint8_t fill;
 	void *ibmap;
 
 	printf("FILL process %d (%d) started\n", seg_id, (int)getpid());
 
-	fd = riodp_mport_open(mport_id, 0);
-	if (fd < 0) {
+	ret = riomp_mgmt_mport_create_handle(mport_id, 0, &mphnd);
+	if (ret < 0) {
 		printf("(%d): unable to open mport%d device err=%d\n",
-			(int)getpid(), mport_id, errno);
+			(int)getpid(), mport_id, ret);
 		return -1;
 	}
 
-	printf("\t(%d): fd=%d h=0x%x_%x sz=0x%x\n", (int)getpid(), fd,
+	printf("\t(%d): h=0x%x_%x sz=0x%x\n", (int)getpid(),
 		(uint32_t)(seg_handle >> 32),
 		(uint32_t)(seg_handle & 0xffffffff), seg_size);
 
-	ibmap = mmap(NULL, seg_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, seg_handle);
-	if (ibmap == MAP_FAILED) {
-		perror("mmap");
+	ret = riomp_dma_map_memory(mphnd, seg_size, seg_handle, &ibmap);
+	if (ret) {
+		printf("(%d): map failed err=%d\n",
+			(int)getpid(), ret);
 		goto out;
 	}
 
 	fill = 0xc0 | (uint8_t)seg_id;
 	memset(ibmap, fill, seg_size);
 
-	if (munmap(ibmap, seg_size))
+	ret = riomp_dma_unmap_memory(mphnd, seg_size, ibmap);
+
+	if (ret)
 		perror("munmap");
 
 out:
-	close(fd);
+	riomp_mgmt_mport_destroy_handle(&mphnd);
 	return 0;
 }
 
@@ -111,23 +116,23 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	pid_t pid, wpid;
 
 	if (buf_mode)
-		ret = riodp_ibwin_map(fd, &rio_base, ib_size, &ib_handle);
+		ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
 	else
-		ret = riodp_dbuf_alloc(fd, ib_size, &ib_handle);
+		ret = riomp_dma_dbuf_alloc(mport_hnd, ib_size, &ib_handle);
 
 	if (ret) {
 		printf("Failed to allocate/map IB buffer err=%d\n", ret);
 		return ret;
 	}
 
-	ibmap = mmap(NULL, ib_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, ib_handle);
-	if (ibmap == MAP_FAILED) {
+	ret = riomp_dma_map_memory(mport_hnd, ib_size, ib_handle, &ibmap);
+	if (ret) {
 		perror("mmap");
 		goto out;
 	}
 
-	printf("\tSuccessfully allocated/mapped %s buffer from fd=%d\n",
-		buf_mode?"IBwin":"DMA", fd);
+	printf("\tSuccessfully allocated/mapped %s buffer\n",
+		buf_mode?"IBwin":"DMA");
 	if (buf_mode)
 		printf("\t\trio_base=0x%x_%x\n", (uint32_t)(rio_base >> 32),
 			(uint32_t)(rio_base & 0xffffffff));
@@ -194,13 +199,14 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	printf("\t.... press Enter key to exit ....\n");
 	getchar();
 
-	if (munmap(ibmap, ib_size))
+	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
+	if (ret)
 		perror("munmap");
 out:
 	if (buf_mode)
-		ret = riodp_ibwin_free(fd, &ib_handle);
+		ret = riomp_dma_ibwin_free(mport_hnd, &ib_handle);
 	else
-		ret = riodp_dbuf_free(fd, &ib_handle);
+		ret = riomp_dma_dbuf_free(mport_hnd, &ib_handle);
 
 
 	if (ret)
@@ -271,10 +277,10 @@ int main(int argc, char** argv)
 		}
 	}
 
-	fd = riodp_mport_open(mport_id, 0);
-	if (fd < 0) {
+	rc = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
+	if (rc < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
-			mport_id, errno);
+			mport_id, rc);
 		exit(EXIT_FAILURE);
 	}
 
@@ -285,6 +291,6 @@ int main(int argc, char** argv)
 
 	do_buf_test(mport_id, rio_base, ibwin_size, buf_mode);
 	
-	close(fd);
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

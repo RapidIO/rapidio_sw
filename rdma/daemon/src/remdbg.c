@@ -38,7 +38,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
@@ -57,12 +56,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <rapidio_mport_dma.h>
 
 #include "libcli.h"
-
-//#include <rapidio_mport_mgmt.h>
-//#include <rapidio_mport_sock.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -80,6 +75,9 @@ int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
 	int one = 1;
 	int zero = 0;
 	uint8_t session_over = 0;
+
+	(void)env;
+	(void)argc;
 
 	server = gethostbyname(argv[0]);
 	if (server == NULL) {
@@ -179,6 +177,8 @@ int main(int argc, char *argv[])
 	struct cli_env env;
 	struct cli_cmd *temp_ptr = &CLIConnect;
 	
+	(void)argc;
+	(void)argv;
 
 	cli_init_base(NULL);
 	add_commands_to_cmd_db(1, &temp_ptr);

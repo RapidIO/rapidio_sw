@@ -58,10 +58,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <rapidio_mport_dma.h>
 
-#include "riodp_mport_lib.h"
-#include "linux/rio_cm_cdev.h"
-#include "linux/rio_mport_cdev.h"
 #include "libcli.h"
 #include "librskt_private.h"
 #include "librdma.h"
@@ -76,7 +74,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_fm.h"
 #include "liblog.h"
 
-#define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 
 #ifdef __cplusplus
 extern "C" {
@@ -191,23 +188,22 @@ int init_mport_and_mso_ms()
 	int rc = -1;
 	uint32_t i;
 
-	dmn.mpfd = -1;
 	dmn.mb_valid = 0;
 	dmn.skt_valid = 0;
 
-        dmn.mpfd = riodp_mport_open(dmn.mpnum, RIO_MPORT_DMA);
-        if (dmn.mpfd < 0) {
-                CRIT("Unable to open mport %d...\n", dmn.mpfd);
+        rc = riomp_mgmt_mport_create_handle(dmn.mpnum, RIO_MPORT_DMA, &dmn.mp_hnd);
+        if (rc < 0) {
+                CRIT("Unable to open mport %d...\n", rc);
                 goto exit;
         };
 	INFO("Mport %d opened\n", dmn.mpnum);
 
-        if (riodp_query_mport(dmn.mpfd, &dmn.qresp)) {
+        if (riomp_mgmt_query(dmn.mp_hnd, &dmn.qresp)) {
                 CRIT("Unable to query mport %d...\n", dmn.mpnum);
                 goto exit;
         };
 
-	display_mport_info(&dmn.qresp);
+	riomp_mgmt_display_info(&dmn.qresp);
 
         if (!(dmn.qresp.flags & RIO_MPORT_DMA)) {
                 CRIT("Mport %d has no DMA support...\n", dmn.mpnum);
@@ -215,7 +211,7 @@ int init_mport_and_mso_ms()
         };
 
 	if (!dmn.cm_skt_tst) {
-		rc = riodp_mbox_create_handle(dmn.mpnum, 0, &dmn.mb);
+		rc = riomp_sock_mbox_create_handle(dmn.mpnum, 0, &dmn.mb);
 		if (rc) {
 			ERR("riodp_mbox_create_ ERR %d\n", rc);
 			goto exit;
@@ -223,22 +219,22 @@ int init_mport_and_mso_ms()
 		dmn.mb_valid = 1;
 		sem_init(&dmn.mb_mtx, 0, 1);
 
-		rc = riodp_socket_socket(dmn.mb, &dmn.cm_acc_h);
+		rc = riomp_sock_socket(dmn.mb, &dmn.cm_acc_h);
 		if (rc) {
-			ERR("riodp_socket_socket ERR %d\n", rc);
+			ERR("riomp_sock_socket ERR %d\n", rc);
 			goto exit;
 		};
 	
-		rc = riodp_socket_bind(dmn.cm_acc_h, dmn.cm_skt);
+		rc = riomp_sock_bind(dmn.cm_acc_h, dmn.cm_skt);
 		if (rc) {
-			ERR("speer_conn: riodp_socket_bind() ERR %d\n", rc);
+			ERR("speer_conn: riomp_sock_bind() ERR %d\n", rc);
 			goto exit;
 		};
 		dmn.skt_valid = 1;
 	
-		rc = riodp_socket_listen(dmn.cm_acc_h);
+		rc = riomp_sock_listen(dmn.cm_acc_h);
 		if (rc) {
-			CRIT("speer_conn:riodp_socket_listen() ERR %d\n", rc);
+			CRIT("speer_conn:riomp_sock_listen() ERR %d\n", rc);
 			goto exit;
 		};
 	};
@@ -313,7 +309,7 @@ int cleanup_dmn(void)
 	sem_post(&mproc.msg_q_cnt);
 
 	/* Ensure that the speer connection handling thread terminates */
-	//riodp_socket_close(&dmn.cm_acc_h);
+	//riomp_sock_close(&dmn.cm_acc_h);
 
 	/* Ensure that the app connection handling thread terminates */
 	halt_lib_handler();
@@ -326,21 +322,21 @@ int cleanup_dmn(void)
 		/* FIXME: */
 		/* segflt avoided by commenting the following line */
 		dmn.skt_valid = 0;
-		rc = riodp_socket_close(&dmn.cm_acc_h);
+		rc = riomp_sock_close(&dmn.cm_acc_h);
 		if (rc)
-			CRIT("speer_conn: riodp_socket_close ERR %d\n", rc);
+			CRIT("speer_conn: riomp_sock_close ERR %d\n", rc);
 	};
 
 	if (dmn.mb_valid) {
 		dmn.mb_valid = 0;
-		rc = riodp_mbox_destroy_handle(&dmn.mb);
+		rc = riomp_sock_mbox_destroy_handle(&dmn.mb);
 		if (rc)
 			CRIT("speer_conn: riodp_mbox_shutdown ERR: %d\n", rc);
 	};
 
-	if (dmn.mpfd > 0) {
-                close(dmn.mpfd);
-                dmn.mpfd = 0;
+	if (dmn.mp_hnd > 0) {
+				riomp_mgmt_mport_destroy_handle(&dmn.mp_hnd);
+                dmn.mp_hnd = 0;
         };
 
         for (i = 0; i < MAX_DMN_NUM_MS; i++) {
@@ -361,7 +357,7 @@ int cleanup_dmn(void)
 void *speer_conn(void *unused)
 {
 	int rc = 1;
-	riodp_socket_t new_socket = NULL;
+	riomp_sock_t new_socket = NULL;
 	
 	dmn.speer_conn_alive = 0;
 	if (init_mport_and_mso_ms()) 
@@ -374,7 +370,7 @@ __sync_synchronize();
 
 	while (!dmn.all_must_die) {
 		if (!dmn.cm_skt_tst && (NULL == new_socket)) {
-			rc = riodp_socket_socket(dmn.mb, &new_socket);
+			rc = riomp_sock_socket(dmn.mb, &new_socket);
 			if (rc) {
 				CRIT("speer_conn: socket() ERR %d\n", rc);
 				break;
@@ -384,7 +380,7 @@ repeat:
 		if (dmn.cm_skt_tst)
 			rc = 0;
 		else
-			rc = riodp_socket_accept(dmn.cm_acc_h, &new_socket, 3*60*1000);
+			rc = riomp_sock_accept(dmn.cm_acc_h, &new_socket, 3*60*1000);
 
 		if (rc) {
 			if ((errno == ETIME) || (errno == EINTR))
@@ -394,7 +390,7 @@ repeat:
 		}
 
 		if (dmn.all_must_die) {
-			riodp_socket_close(&new_socket);
+			riomp_sock_close(&new_socket);
 			continue;
 		};
 

@@ -3,9 +3,6 @@
 
 CXX ?= $(CROSS_COMPILE)g++
 config?=NODEBUG
-KDIR?=/usr/src/linux
-LKDIR = "../../../Linux_Include/"
-KERNINC = $(KDIR)/include
 COMMONINC=common
 
 # The following assumes Fab_Man was cloned at the same level
@@ -13,7 +10,7 @@ COMMONINC=common
 APIINC?=../../fabric_management/librio_switch/inc
 
 # User-mode flags
-UCFLAGS = -O3 -Wall -g -I$(KERNINC) -I$(APIINC) -I$(LKDIR) -I$(COMMONINC) -I../../include -lrt -D$(config) -std=gnu++0x
+UCFLAGS = -O3 -Wall -g -I$(APIINC) -I$(COMMONINC) -I../../include -lrt -D$(config) -std=gnu++0x
 
 KMFLAGS = -pthread
 

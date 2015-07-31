@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-#define RIOCP_PE_HANDLE_FD_UNSET -1
+#define RIOCP_PE_HANDLE_FD_UNSET 0
 
 int RIOCP_WU riocp_pe_handle_addr_aton(char *addr, uint8_t **address, size_t *address_len);
 const char RIOCP_WU * riocp_pe_handle_addr_ntoa(uint8_t *address, size_t address_len);

@@ -48,32 +48,30 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <IDT_Tsi721.h>
 #include <tsi721_config.h>
 
-#include <linux/rio_cm_cdev.h>
 
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include <linux/rio_mport_cdev.h>
-#include "riodp_mport_lib.h"
+
+#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
 
 #include "tsi721_config.h"
 
 static int r_721(int fd, uint32_t offset, uint32_t *value)
 {
-		return riodp_lcfg_read(fd, offset, sizeof(uint32_t), value);
+		return riomp_mgmt_lcfg_read(fd, offset, sizeof(uint32_t), value);
 };
 
 static int w_721(int fd, uint32_t offset, uint32_t value)
 {
-		return riodp_lcfg_write(fd, offset, sizeof(uint32_t), value);
+		return riomp_mgmt_lcfg_write(fd, offset, sizeof(uint32_t), value);
 };
 
 static int r_mtc(int fd, uint32_t offset, uint32_t *value)
 {
-		return riodp_maint_read(fd, 0, 0, offset, sizeof(uint32_t), value);
+		return riomp_mgmt_rcfg_read(fd, 0, 0, offset, sizeof(uint32_t), value);
 };
 
 static int w_mtc(int fd, uint32_t offset, uint32_t value)
 {
-		return riodp_maint_write(fd, 0, 0, offset, sizeof(uint32_t), value);
+		return riomp_mgmt_rcfg_write(fd, 0, 0, offset, sizeof(uint32_t), value);
 };
 
 int check_port_ok (int fd, int debug)

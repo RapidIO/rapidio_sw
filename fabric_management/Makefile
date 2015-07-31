@@ -28,10 +28,6 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-KDIR ?= /usr/src/linux
-export KDIR
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
-export LINUX_INCLUDE_DIR
 LOG_LEVEL ?= 6
 export LOG_LEVEL
 DEBUG ?= DEBUG
@@ -48,15 +44,14 @@ TOP_LEVEL?=..
 level ?= $(LOG_LEVEL)
 
 export LOCAL_LIBRARY_DIR
-export LINUX_INCLUDE_DIR
 
 CCFLAGS= -c -g -ggdb -fPIC -Wall -Werror -O2 -I. \
 	-I./librio_switch/inc \
 	-I./libriocp_pe/inc -I./librio_maint/inc \
-	-I./libriocp_pe/src -I$(LINUX_INCLUDE_DIR) \
+	-I./libriocp_pe/src \
 	-I../common/include -DRDMA_LL=$(level)
 
-LIB_DEPS= libriocp_pe libcli librio_maint libswitch_api libdd
+LIB_DEPS= libriocp_pe libcli libswitch_api libdd
 .PHONY: $(LIB_DEPS)
 
 all: daemon libfmdd
@@ -68,11 +63,6 @@ libriocp_pe:
 	$(MAKE) all -C libriocp_pe
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libriocp_pe/libriocp_pe.a $(LOCAL_LIBRARY_DIR)
-
-librio_maint:
-	$(MAKE) all -C librio_maint
-	mkdir -p $(LOCAL_LIBRARY_DIR)
-	cp librio_maint/librio_maint.a $(LOCAL_LIBRARY_DIR)
 
 libswitch_api:
 	$(MAKE) all -C librio_switch
@@ -99,7 +89,6 @@ clean:
 	rm -f fmd *.o *~ inc/*~ *.exe core $(LOCAL_LIBRARY_DIR)/*.so \
 		$(LOCAL_LIBRARY_DIR)/*.a
 	$(MAKE) clean -C librio_switch
-	$(MAKE) clean -C librio_maint
 	$(MAKE) clean -C libriocp_pe
 	$(MAKE) clean -C daemon
 	$(MAKE) clean -C libfmdd

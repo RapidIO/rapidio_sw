@@ -40,10 +40,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <rapidio_mport_dma.h>
 #include <semaphore.h>
 #include <signal.h>
 
-#include "riodp_mport_lib.h"
+//#include <rapidio_mport_mgmt.h>
 #include "cm_sock.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"
@@ -92,7 +93,7 @@ static void init_peer()
 
 	/* MPORT */
 	peer.mport_id = 0;	/* Overriden on the command line */
-	peer.mport_fd = -1;
+	peer.mport_hnd = 0;
 
 	/* Messaging */
 	peer.prov_channel	= DEFAULT_PROV_CHANNEL;
@@ -391,20 +392,20 @@ void *rpc_thread_f(void *arg)
 
 					/* Prepare accept message from input parameters */
 					struct cm_accept_msg	cmam;
-					cmam.type		= CM_ACCEPT_MS;
+					cmam.type		= htobe64(CM_ACCEPT_MS);
 					strcpy(cmam.server_ms_name, in->loc_ms_name);
-					cmam.server_msid	= ms->get_msid();
-					cmam.server_msubid	= in->loc_msubid;
-					cmam.server_bytes	= in->loc_bytes;
-					cmam.server_rio_addr_len= in->loc_rio_addr_len;
-					cmam.server_rio_addr_lo	= in->loc_rio_addr_lo;
-					cmam.server_rio_addr_hi	= in->loc_rio_addr_hi;
-					cmam.server_destid_len	= 16;
-					cmam.server_destid	= peer.destid;
+					cmam.server_msid	= htobe64(ms->get_msid());
+					cmam.server_msubid	= htobe64(in->loc_msubid);
+					cmam.server_bytes	= htobe64(in->loc_bytes);
+					cmam.server_rio_addr_len= htobe64(in->loc_rio_addr_len);
+					cmam.server_rio_addr_lo	= htobe64(in->loc_rio_addr_lo);
+					cmam.server_rio_addr_hi	= htobe64(in->loc_rio_addr_hi);
+					cmam.server_destid_len	= htobe64(16);
+					cmam.server_destid	= htobe64(peer.destid);
 					DBG("cm_accept_msg has server_destid = 0x%X\n",
-							cmam.server_destid);
+							be64toh(cmam.server_destid));
 					DBG("cm_accept_msg has server_destid_len = 0x%X\n",
-							cmam.server_destid_len);
+							be64toh(cmam.server_destid_len));
 
 					/* Add accept message content to map indexed by message queue name */
 					DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
@@ -484,16 +485,16 @@ void *rpc_thread_f(void *arg)
 					main_client->flush_send_buffer();
 
 					/* Compose CONNECT_MS message */
-					c->type			= CM_CONNECT_MS;
+					c->type			= htobe64(CM_CONNECT_MS);
 					strcpy(c->server_msname, in->server_msname);
-					c->client_msid		= in->client_msid;
-					c->client_msubid	= in->client_msubid;
-					c->client_bytes		= in->client_bytes;
-					c->client_rio_addr_len	= in->client_rio_addr_len;
-					c->client_rio_addr_lo	= in->client_rio_addr_lo;
-					c->client_rio_addr_hi	= in->client_rio_addr_hi;
-					c->client_destid_len	= peer.destid_len;
-					c->client_destid	= peer.destid;
+					c->client_msid		= htobe64(in->client_msid);
+					c->client_msubid	= htobe64(in->client_msubid);
+					c->client_bytes		= htobe64(in->client_bytes);
+					c->client_rio_addr_len	= htobe64(in->client_rio_addr_len);
+					c->client_rio_addr_lo	= htobe64(in->client_rio_addr_lo);
+					c->client_rio_addr_hi	= htobe64(in->client_rio_addr_hi);
+					c->client_destid_len	= htobe64(peer.destid_len);
+					c->client_destid	= htobe64(peer.destid);
 
 					/* Send buffer to server */
 					if (main_client->send()) {
@@ -565,12 +566,12 @@ void *rpc_thread_f(void *arg)
 					the_client->flush_send_buffer();
 					the_client->get_send_buffer((void **)&disc_msg);
 
-					disc_msg->type		= CM_DISCONNECT_MS;
-					disc_msg->client_msubid	= in->loc_msubid;	/* For removal from server database */
-					disc_msg->server_msid    = in->rem_msid;	/* For removing client's destid from server's
+					disc_msg->type		= htobe64(CM_DISCONNECT_MS);
+					disc_msg->client_msubid	= htobe64(in->loc_msubid);	/* For removal from server database */
+					disc_msg->server_msid   = htobe64(in->rem_msid);	/* For removing client's destid from server's
 												 * info on the daemon */
-					disc_msg->client_destid = peer.destid;		/* For knowing which destid to remove */
-					disc_msg->client_destid_len = 16;
+					disc_msg->client_destid = htobe64(peer.destid);		/* For knowing which destid to remove */
+					disc_msg->client_destid_len = htobe64(16);
 
 					/* Send buffer to server */
 					if (the_client->send()) {
@@ -578,7 +579,8 @@ void *rpc_thread_f(void *arg)
 						break;
 					}
 					DBG("Sent DISCONNECT_MS for msid = 0x%lX, client_destid = 0x%lX\n",
-						disc_msg->server_msid, disc_msg->client_destid);
+						be64toh(disc_msg->server_msid),
+						be64toh(disc_msg->client_destid));
 
 					out->status = 0;
 				}
@@ -595,6 +597,7 @@ void *rpc_thread_f(void *arg)
 			}
 		} else {
 			HIGH("Application has closed connection. Exiting!\n");
+			delete other_server;
 			pthread_exit(0);
 		}
 	} /* while */
@@ -719,9 +722,9 @@ void shutdown(struct peer_info *peer)
 	halt_fm_thread();
 	HIGH("Fabric management thread is dead\n");
 	/* Close mport device */
-	if (peer->mport_fd > 0) {
-		INFO("Closing mport fd\n");
-		close(peer->mport_fd);
+	if (peer->mport_hnd != 0) {
+		INFO("Closing mport\n");
+		riomp_mgmt_mport_destroy_handle(&peer->mport_hnd);
 	}
 	INFO("Mport %d closed\n", peer->mport_id);
 
@@ -844,29 +847,29 @@ int main (int argc, char **argv)
 	}
 
 	/* Open mport */
-	peer.mport_fd = riodp_mport_open(peer.mport_id, 0);
-	if (peer.mport_fd <= 0) {
-		CRIT("Failed in riodp_mport_open(): %s\n", strerror(errno));
+	rc = riomp_mgmt_mport_create_handle(peer.mport_id, 0, &peer.mport_hnd);
+	if (rc < 0) {
+		CRIT("Failed in riomp_mgmt_mport_create_handle(): %s\n", strerror(-rc));
 	        rc = 1;
 		goto out;
     	}
 
 	/* Query device information, and store destid */
-	struct rio_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 
-	rc = riodp_query_mport(peer.mport_fd, &prop);
+	rc = riomp_mgmt_query(peer.mport_hnd, &prop);
 	if (rc != 0) {
 		CRIT("Failed in riodp_query_mport(): %s\n", strerror(errno));
 		rc = 2;
 		goto out_close_mport;
 	}
 	peer.destid = prop.hdid;
-	INFO("mport(%d), destid = 0x%X, fd = %d\n",
-				peer.mport_id, peer.destid, peer.mport_fd);
+	INFO("mport(%d), destid = 0x%X\n",
+				peer.mport_id, peer.destid);
 
 	/* Create inbound space */
 	try {
-		the_inbound = new inbound(peer.mport_fd,
+		the_inbound = new inbound(peer.mport_hnd,
 				 2,		/* No. of windows */
 				 4*1024*1024);	/* Size in MB */
 	}
@@ -927,7 +930,7 @@ out_free_inbound:
 
 out_close_mport:
 	pthread_join(console_thread, NULL);
-	close(peer.mport_fd);
+	riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
 out:
 	pthread_join(console_thread, NULL);
 	return rc;	
