@@ -39,7 +39,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 
 #include "rdmad_ms_owner.h"
+
 #include "libcli.h"
+#include "unix_sock.h"
 
 using namespace std;
 
@@ -67,6 +69,15 @@ struct has_mso_name {
 	}
 private:
 	const char *name;
+};
+
+struct has_socket {
+	has_socket(unix_server *other_server) : other_server(other_server) {}
+	bool operator()(ms_owner *mso) {
+		return mso->other_server == this->other_server;
+	}
+private:
+	unix_server *other_server;
 };
 
 class ms_owners
@@ -101,7 +112,7 @@ public:
 		pthread_mutex_unlock(&lock);
 	} /* dump_info() */
 
-	int create_mso(const char *name, uint32_t *msoid)
+	int create_mso(const char *name, unix_server *other_server, uint32_t *msoid)
 	{
 		if (!name || !msoid) {
 			ERR("Null parameter passed: %p, %p\n", name, msoid);
@@ -129,7 +140,7 @@ public:
 		*fmsoid = false;
 
 		/* Create an owner with the free ID */
-		ms_owner *mso = new ms_owner(name, *msoid);
+		ms_owner *mso = new ms_owner(name, other_server, *msoid);
 
 		/* Store in owners list */
 		owners.push_back(mso);	
@@ -185,6 +196,37 @@ public:
 
 		return 1;
 	} /* close_mso() */
+
+	int destroy_mso(unix_server *other_server)
+	{
+		has_socket	msohs(other_server);
+
+		pthread_mutex_lock(&lock);
+
+		auto mso_it = find_if(begin(owners), end(owners), msohs);
+		/* Not found, return error */
+		if (mso_it == owners.end()) {
+			ERR("Could not find any MSOs with the specified socket!\n");
+			pthread_mutex_unlock(&lock);
+			return -1;
+		}
+
+		DBG("mso with specified socket found, name='%s'\n",
+				(*mso_it)->get_mso_name());
+
+		/* Mark msoid as being free */
+		msoid_free_list[(*mso_it)->get_msoid()] = true;
+		DBG("msoid(0x%X) now marked as 'free'\n");
+
+		/* Remove owner */
+		delete *mso_it;
+		owners.erase(mso_it);
+		DBG("mso object deleted, and removed from owners list\n");
+
+		pthread_mutex_unlock(&lock);
+
+		return 1;
+	} /* destroy_mso() */
 
 	int destroy_mso(uint32_t msoid)
 	{

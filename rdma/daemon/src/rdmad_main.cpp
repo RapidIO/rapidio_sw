@@ -169,7 +169,9 @@ void *rpc_thread_f(void *arg)
 					create_mso_output *out = &out_msg->create_mso_out;
 					out_msg->type = CREATE_MSO_ACK;
 
-					int ret = owners.create_mso(in->owner_name, &out->msoid);
+					int ret = owners.create_mso(in->owner_name,
+								    other_server,
+								    &out->msoid);
 					out->status = (ret > 0) ? 0 : ret;
 				}
 				break;

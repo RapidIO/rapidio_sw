@@ -47,6 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 
 #include "msg_q.h"
+#include "unix_sock.h"
 #include "rdma_types.h"
 #include "liblog.h"
 #include "libcli.h"
@@ -60,8 +61,8 @@ class ms_owner
 {
 public:
 	/* Constructor */
-	ms_owner(const char *owner_name, uint32_t msoid) :
-		name(owner_name), msoid(msoid), mso_conn_id(MSO_CONN_ID_START) {}
+	ms_owner(const char *owner_name, unix_server *other_server, uint32_t msoid) :
+		other_server(other_server), name(owner_name), msoid(msoid), mso_conn_id(MSO_CONN_ID_START) {}
 
 	/* Destructor */
 	~ms_owner();
@@ -124,6 +125,8 @@ public:
 	int open(uint32_t *msoid, uint32_t *mso_conn_id);
 
 	int close(uint32_t mso_conn_id);
+
+	unix_server	*other_server;
 
 private:
 	int close_connections();
