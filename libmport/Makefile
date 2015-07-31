@@ -9,7 +9,7 @@ BINDIR=$(DESTDIR)$(PREFIX)/bin
 INCDIR=../include
 O?=.
 
-ifdef debug
+ifdef DEBUG
 CFLAGS=-Wall -Wsign-compare -fPIC -DDEBUG -g
 else
 CFLAGS=-O2 -Wall -Wsign-compare -fPIC -DNDEBUG

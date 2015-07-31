@@ -1088,7 +1088,6 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	struct rapidio_mport_socket *handle = socket_handle;
 	struct rapidio_mport_socket *new_handle = *conn;
 	struct rio_cm_accept param;
-//	uint16_t ch_num;
 	int ret;
 
 	if(!handle || !conn)
@@ -1097,12 +1096,12 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	param.ch_num = handle->ch.id;
 	param.wait_to = timeout;
 
-	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_ACCEPT, &param);//&ch_num);
+	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_ACCEPT, &param);
 	if (ret)
 		return errno;
 
 #ifdef DEBUG
-	printf("%s: new ch_num=%d\n", __func__, ch_num);
+	printf("%s: new ch_num=%d\n", __func__, param.ch_num);
 #endif
 
 	if (new_handle)
@@ -1117,6 +1116,7 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num = 0;
 	struct rio_cm_channel cdev;
+	int ret;
 
 	if (handle->ch.id == 0) {
 		if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CREATE, &ch_num))
@@ -1134,7 +1134,8 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 	cdev.remote_channel = remote_channel;
 	cdev.mport_id = handle->mbox->mport_id;
 	cdev.id = handle->ch.id;
-	if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &cdev)) {
+	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &cdev);
+	if (ret) {
 #ifdef DEBUG
 		printf("ioctl rc(%d): %s\n", ret, strerror(errno));
 #endif

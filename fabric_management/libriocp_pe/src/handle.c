@@ -314,7 +314,8 @@ int riocp_pe_handle_open_mport(struct riocp_pe *pe)
 	}
 
 	RIOCP_TRACE("Opened mport %d got handle id %d\n",
-		mport, mport_id);
+		pe->mport->minfo->id, mport_id);
+	pe->mp_hnd = mport_handle;
 
 	return 0;
 }
