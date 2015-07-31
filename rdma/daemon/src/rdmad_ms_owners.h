@@ -193,28 +193,21 @@ public:
 		/* Find the owner belonging to msoid */
 		pthread_mutex_lock(&lock);
 		auto mso_it = find_if(owners.begin(), owners.end(), hmi);
-		DBG("mso with msoid(0x%X) found, name='%s'\n", msoid,
-				(*mso_it)->get_mso_name());
 		/* Not found, return error */
 		if (mso_it == owners.end()) {
-			fprintf(stderr, "%s: 0x%X not found\n", __func__, msoid);
+			ERR("msoid(0x%X) not found\n", msoid);
 			pthread_mutex_unlock(&lock);
 			return -1;
 		}	
 
-		/* Check if owner still owns memory spaces */
-		if ((*mso_it)->owns_mspaces()) {
-			fprintf(stderr, "%s: 0x%X still owns memory spaces\n",
-								__func__, msoid);
-			pthread_mutex_unlock(&lock);
-			return -2;
-		}
+		DBG("mso with msoid(0x%X) found, name='%s'\n", msoid,
+				(*mso_it)->get_mso_name());
 
 		/* Remove owner */
 		delete *mso_it;
 		owners.erase(mso_it);
 		DBG("mso(0x%X) object deleted, and removed from owners list\n",
-				msoid);
+									msoid);
 
 		/* Mark msoid as being free */
 		msoid_free_list[msoid] = true;

@@ -186,14 +186,17 @@ public:
 	int create_mspace(const char *name,
 			  uint64_t size,
 			  uint32_t msoid,
-			  uint32_t *msid) 
+			  uint32_t *msid,
+			  mspace **ms)
 	{
 		/* Find the free memory space to use to allocate ours */
-		auto orig_free = free_ms_large_enough(size);
-		if (orig_free == mspaces.end()) {
+		auto it = free_ms_large_enough(size);
+		if (it == mspaces.end()) {
 			ERR("No memory space large enough\n");
 			return -1;
 		}
+
+		*ms = *it;
 
 		/* Determine index of new, free, memory space */
 		bool *fmlit  = find(begin(msindex_free_list),
@@ -207,16 +210,16 @@ public:
 		}
 
 		/* Compute values for new memory space */
-		uint64_t new_rio_addr = (*orig_free)->get_rio_addr() + size;
-		uint64_t new_phys_addr = (*orig_free)->get_phys_addr() + size;
-		uint64_t new_size = (*orig_free)->get_size() - size;
+		uint64_t new_rio_addr = (*ms)->get_rio_addr() + size;
+		uint64_t new_phys_addr = (*ms)->get_phys_addr() + size;
+		uint64_t new_size = (*ms)->get_size() - size;
 
 		/* Modify original memory space with new parameters */
-		(*orig_free)->set_size(size);
-		(*orig_free)->set_used();
-		(*orig_free)->set_msoid(msoid);
-		(*orig_free)->set_name(name);
-		*msid = (*orig_free)->get_msid();	/* Return as output param */
+		(*ms)->set_size(size);
+		(*ms)->set_used();
+		(*ms)->set_msoid(msoid);
+		(*ms)->set_name(name);
+		*msid = (*ms)->get_msid();	/* Return as output param */
 
 		/* Create memory space for the remaining free inbound space, but
 		 * only if that space is non-zero in size */
@@ -224,7 +227,7 @@ public:
 			/* The new free memory space has no owner, but has a
 			 * win_num the same as the original free one, and has a
 			 * new index */
-			uint32_t new_msid = ((*orig_free)->get_msid() & MSID_WIN_MASK) |
+			uint32_t new_msid = ((*ms)->get_msid() & MSID_WIN_MASK) |
 					 (fmlit - begin(msindex_free_list));
 
 			/* Create a new space for unused portion */

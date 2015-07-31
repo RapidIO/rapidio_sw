@@ -246,19 +246,20 @@ void *rpc_thread_f(void *arg)
 					out_msg->type = CREATE_MS_ACK;
 
 					/* Create memory space in the inbound space */
+					mspace *ms;
 					int ret = the_inbound->create_mspace(
 							in->ms_name,
 							in->bytes, in->msoid,
-							&out->msid);
+							&out->msid,
+							&ms);
 					out->status = (ret > 0) ? 0 : ret;
 					DBG("the_inbound->create_mspace(%s) %s\n",
 						in->ms_name,
 						out->status ? "FAILED" : "PASSED");
 
-
+					/* Add the memory space to the owner */
 					if (!out->status)
-						/* Add the memory space handle to owner */
-						owners[in->msoid]->add_msid(out->msid);
+						owners[in->msoid]->add_ms(ms);
 				}
 				break;
 

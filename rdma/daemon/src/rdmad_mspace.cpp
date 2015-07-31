@@ -188,6 +188,10 @@ int mspace::destroy()
 	for(auto mq_ptr: users_mq_list)
 		delete mq_ptr;
 
+	/* Remove all subspaces; they can't exist when the memory space is
+	 * marked as free.
+	 */
+	msubspaces.clear();
 
 	/* Mark the memory space as free, and having no owner */
 	free = true;
@@ -210,8 +214,8 @@ int mspace::destroy()
 	if (!owner) {
 		ERR("Failed to find owner msoid(0x%X)\n", msoid);
 		return -4;
-	} else  if (owner->remove_msid(msid) < 0) {
-		WARN("Failed to remove msid from owner\n");
+	} else  if (owner->remove_ms(this) < 0) {
+		WARN("Failed to remove ms from owner\n");
 		return -5;
 	}
 

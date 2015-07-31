@@ -191,7 +191,8 @@ void inbound::dump_all_mspace_with_msubs_info(struct cli_env *env)
 int inbound::create_mspace(const char *name,
 			   uint64_t size,
 			   uint32_t msoid,
-			   uint32_t *msid)
+			   uint32_t *msid,
+			   mspace **ms)
 {
 	ibwin_has_room	ibwhr(size);
 
@@ -207,7 +208,7 @@ int inbound::create_mspace(const char *name,
 	}
 
 	/* Create the space */
-	int ret = win_it->create_mspace(name, size, msoid, msid);
+	int ret = win_it->create_mspace(name, size, msoid, msid, ms);
 	sem_post(&ibwins_sem);
 	return ret;
 } /* create_mspace() */

@@ -84,7 +84,8 @@ public:
 	int create_mspace(const char *name,
 			  uint64_t size,
 			  uint32_t msoid,
-			  uint32_t *msid);
+			  uint32_t *msid,
+			  mspace **ms);
 
 	/* Open memory space */
 	int open_mspace(const char *name,

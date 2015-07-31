@@ -51,6 +51,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "libcli.h"
 
+#include "rdmad_mspace.h"
 #define MSO_CONN_ID_START	0x1
 
 using namespace std;
@@ -77,24 +78,27 @@ public:
 	bool operator ==(const char *owner_name) { return this->name == owner_name; }
 
 	/* Stores handle of memory spaces currently owned by owner */
-	void add_msid(uint32_t msid) {
-		INFO("Adding msid(0x%X) to msoid(0x%X)\n", msid, msoid);
-		msid_list.push_back(msid);
+	void add_ms(mspace *ms)
+	{
+		INFO("Adding msid(0x%X) to msoid(0x%X)\n", ms->get_msid(), msoid);
+		ms_list.push_back(ms);
 	}
 
 	/* Removes handle of memory space from list of owned spaces */
-	int remove_msid(uint32_t msid)
+	int remove_ms(mspace* ms)
 	{
 		/* Find memory space by the handle, return error if not there */
-		auto it = find(begin(msid_list), end(msid_list), msid);
-		if (it == end(msid_list)) {
-			WARN("msid(0x%X) not owned by msoid(0x%X)\n", msid, msoid);
+		auto it = find(begin(ms_list), end(ms_list), ms);
+		if (it == end(ms_list)) {
+			WARN("ms('%s', 0x%X) not owned by msoid('%s',0x%X)\n",
+					ms->get_name(), ms->get_msid(),
+					name.c_str(), msoid);
 			return -1;
 		}
 
 		/* Erase memory space handle from list */
-		INFO("Removing msid(0x%X) from msoid(0x%X)\n", msid, msoid);
-		msid_list.erase(it);
+		INFO("Removing msid(0x%X) from msoid(0x%X)\n", ms->get_msid(), msoid);
+		ms_list.erase(it);
 
 		return 1;
 	} /* remove_ms_h() */
@@ -102,15 +106,15 @@ public:
 	/* Returns whether this owner sill owns some memory spaces */
 	bool owns_mspaces()
 	{
-		return msid_list.size() != 0;
+		return ms_list.size() != 0;
 	} /* owns_mspaces() */
 
 	void dump_info(struct cli_env *env)
 	{
 		sprintf(env->output, "%8X %32s\t", msoid, name.c_str());
 		logMsg(env);
-		for (auto& msid : msid_list) {
-			sprintf(env->output, "%8X ", msid);
+		for (auto& ms : ms_list) {
+			sprintf(env->output, "%8X ", ms->get_msid());
 			logMsg(env);
 		}
 		sprintf(env->output, "\n");
@@ -127,7 +131,7 @@ private:
 	string		name;
 	uint32_t	msoid;
 	uint32_t	mso_conn_id;
-	vector<uint32_t>	msid_list;
+	vector<mspace *>	ms_list;
 	vector<msg_q<mq_close_mso_msg> *> mq_list;
 };
 

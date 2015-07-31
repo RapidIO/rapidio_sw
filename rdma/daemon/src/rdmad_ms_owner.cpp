@@ -47,6 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdma_mq_msg.h"
 #include "rdmad_ms_owner.h"
+#include "rdmad_mspace.h"
 #include "rdmad_main.h"
 
 struct close_conn_to_mso {
@@ -89,13 +90,15 @@ ms_owner::~ms_owner()
 	/* Do not bother with warning if we are shutting down. It causes Valgrind
 	 * issues as well. */
 	if (!shutting_down && close_connections()) {
-		WARN("One or more connections to msoid(0x%X) failed to close\n", msoid);
+		WARN("One or more connections to msoid(0x%X) failed to close\n",
+				msoid);
 	}
 
-	/* Is it safe to close and unlink the message queues right away or do
-	 * we need to wait for an ack message? If the ack doesn't arrive 
-	 * should we have a timeout ? TODO */
-	usleep(100000);	/* 100 ms */
+	/* Destroy all memory spaces */
+	for (mspace* ms : ms_list) {
+		DBG("Destroying '%s'\n", ms->get_name());
+		ms->destroy();
+	}
 
 	/* Destroy message queues before dying! */
 	for (auto mq_ptr : mq_list)
