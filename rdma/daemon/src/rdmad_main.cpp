@@ -128,7 +128,7 @@ void *rpc_thread_f(void *arg)
 	try {
 		other_server = new unix_server("other_server", ti->accept_socket);
 	}
-	catch(unix_sock_exception e) {
+	catch(unix_sock_exception& e) {
 		CRIT("Failed to create unix_server:%:\n", e.err);
 		sem_post(&ti->started);
 		pthread_exit(0);
@@ -875,7 +875,7 @@ int main (int argc, char **argv)
 	int rc = 0;
 	int cons_ret;
 
-	/* Initialize peer_info struct with defautl values. This must be done
+	/* Initialize peer_info struct with default values. This must be done
  	 * before parsing command line parameters as command line parameters
  	 * may override some of the default values assigned here */
 	init_peer();
@@ -971,11 +971,11 @@ int main (int argc, char **argv)
 				 2,		/* No. of windows */
 				 4*1024*1024);	/* Size in MB */
 	}
-	catch(std::bad_alloc e) {
+	catch(std::bad_alloc& e) {
 		CRIT("Failed to allocate the_inbound\n");
 		goto out_close_mport;
 	}
-	catch(inbound_exception e) {
+	catch(inbound_exception& e) {
 		CRIT("%s\n", e.err);
 		goto out_free_inbound;
 	}
