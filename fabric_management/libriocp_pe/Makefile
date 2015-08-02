@@ -7,8 +7,6 @@ TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h
 
 CROSS_COMPILE?=/usr/bin/
-KDIR=/usr/src/linux
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
 LOG_LEVEL?=4
 DEBUG?=DEBUG
 TOP_LEVEL?=../..
@@ -22,10 +20,7 @@ AR = $(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
 CFLAGS+=-O2 -DNDEBUG -g
-CFLAGS+= -I $(LINUX_INCLUDE_DIR)
 CFLAGS+=-I. -I./inc
-CFLAGS+=-I../librio_maint/inc
-CFLAGS+=-I../librio_maint/inc
 CFLAGS+=-I./src
 CFLAGS+=-I$(TOP_LEVEL)/include
 CFLAGS+=-I../../common/include

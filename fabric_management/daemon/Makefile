@@ -2,9 +2,6 @@
 #
 # Default configurations
 
-KDIR ?= /usr/src/linux
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
-
 LOG_LEVEL ?= 1
 
 DEBUG ?= DEBUG
@@ -16,7 +13,6 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 A_LIB_LKFLAGS = -lnsl -fPIC -g -ggdb
 
 CROSS_COMPILE?=/usr/bin/
-INCDIR=$(LINUX_INCLUDE_DIR)
 
 COMMON_DIR=$(TOP_LEVEL)/common/
 MPORT_DIR=$(TOP_LEVEL)/libmport
@@ -39,10 +35,8 @@ src/%.o: src/%.c
 	-I../ \
 	-I../librio_switch/inc \
 	-I../libriocp_pe/inc \
-	-I../librio_maint/inc \
 	-I../cli \
-	-DRDMA_LL=7 \
-	-I$(LINUX_INCLUDE_DIR)
+	-DRDMA_LL=7
 
 FMD_SOURCES = src/fmd_app_mgmt.c src/fmd_cfg.c src/fmd.c src/fmd_cfg_cli.c \
 	src/fmd_mgmt_master.c src/fmd_mgmt_slave.c src/fmd_mgmt_cli.c \
@@ -59,7 +53,7 @@ fmd:  $(FMD_OBJECTS) $(FMD_SOURCES) src/*.h
 	$(CXX) -pthread \
 	-o $@ $(FMD_OBJECTS) $(LIB_DIRS) \
 	-lcli -ldd -llist -lrt -lmport -llog -lriocp_pe \
-	-lswitch_api -lrio_maint
+	-lswitch_api
 
 clean:
 	rm -f *.o src/*.o *~ *.exe core fmd

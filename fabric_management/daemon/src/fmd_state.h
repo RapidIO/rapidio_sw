@@ -50,8 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include "linux/rio_cm_cdev.h"
-#include "linux/rio_mport_cdev.h"
+
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
@@ -77,7 +76,7 @@ struct app_state {
 };
 
 struct fmd_state {
-	int fd; /* MPORT file descriptor, used for register access */
+	riomp_mport_t mp_hnd; /* MPORT handle, used for register access */
 	riocp_pe_handle *mp_h;
 	struct fmd_cfg_parms *cfg;
 	int fmd_rw;

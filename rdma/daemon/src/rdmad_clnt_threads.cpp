@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <mqueue.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include "rdma_mq_msg.h"
 #include "liblog.h"
@@ -81,7 +82,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 	}
 
 	/* Create a new cm_client based on the hello client socket */
-	riodp_socket_t	client_socket = wadti->hello_client->get_socket();
+	riomp_sock_t	client_socket = wadti->hello_client->get_socket();
 	cm_client *accept_destroy_client;
 	try {
 		accept_destroy_client = new cm_client("accept_destroy_client",

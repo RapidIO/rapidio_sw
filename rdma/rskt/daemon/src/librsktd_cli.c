@@ -59,9 +59,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#include "riodp_mport_lib.h"
-#include "linux/rio_mport_cdev.h"
-#include "linux/rio_cm_cdev.h"
+#include <rapidio_mport_dma.h>
+
 #include "libcli.h"
 #include "librskt_private.h"
 #include "librdma.h"
@@ -92,16 +91,16 @@ int RSKTIbwinCmd(struct cli_env *env, int argc, char **argv)
         uint8_t idx;
 	int rc;
 
-	if (dmn.mpfd <= 0) {
-		dmn.mpfd = riodp_mport_open(dmn.mpnum, RIO_MPORT_DMA);
-		if (dmn.mpfd < 0) {
+//	if (dmn.mp_hnd == 0) {
+		rc = riomp_mgmt_mport_create_handle(dmn.mpnum, RIO_MPORT_DMA, &dmn.mp_hnd);
+		if (rc < 0) {
                         sprintf(env->output, 
 				"\nFAILED: Unable to open mport %d...\n",
 				dmn.mpnum );
                         logMsg(env);
 			return 0;
 		};
-	};
+//	};
 
 
 	if (argc)
@@ -113,11 +112,11 @@ int RSKTIbwinCmd(struct cli_env *env, int argc, char **argv)
 	if (idx < MAX_IBWIN) {
 		int rc;
 		uint32_t data = 0;
-		rc = riodp_lcfg_write(dmn.mpfd, IBWIN_LB(idx), 4, data);
-		rc |= riodp_lcfg_write(dmn.mpfd, IBWIN_UB(idx), 4, data);
-		rc |= riodp_lcfg_write(dmn.mpfd, IBWIN_SZ(idx), 4, data);
-		rc |= riodp_lcfg_write(dmn.mpfd, IBWIN_TLA(idx), 4, data);
-		rc |= riodp_lcfg_write(dmn.mpfd, IBWIN_TUA(idx), 4, data);
+		rc = riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_LB(idx), 4, data);
+		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_UB(idx), 4, data);
+		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_SZ(idx), 4, data);
+		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_TLA(idx), 4, data);
+		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_TUA(idx), 4, data);
 		if (rc) {
                         sprintf(env->output, 
 				"\nFAILED: Could not clear ibwin %d\n", idx);
@@ -137,11 +136,11 @@ int RSKTIbwinCmd(struct cli_env *env, int argc, char **argv)
 
 	for (idx = 0; idx < MAX_IBWIN; idx++) {
 		uint32_t la, ua, sz, tla, tua;
-		rc = riodp_lcfg_read(dmn.mpfd, IBWIN_LB(idx), 4, &la);
-		rc |= riodp_lcfg_read(dmn.mpfd, IBWIN_UB(idx), 4, &ua);
-		rc |= riodp_lcfg_read(dmn.mpfd, IBWIN_SZ(idx), 4, &sz);
-		rc |= riodp_lcfg_read(dmn.mpfd, IBWIN_TLA(idx), 4, &tla);
-		rc |= riodp_lcfg_read(dmn.mpfd, IBWIN_TUA(idx), 4, &tua);
+		rc = riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_LB(idx), 4, &la);
+		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_UB(idx), 4, &ua);
+		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_SZ(idx), 4, &sz);
+		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_TLA(idx), 4, &tla);
+		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_TUA(idx), 4, &tua);
 		if (rc)
 			sprintf(env->output, 
 				"\nFAILED: Could not read bwin %d\n", idx);
@@ -341,10 +340,10 @@ int RSKTMpdevsCmd(struct cli_env *env, int argc, char **argv)
 		logMsg(env);
 	};
 
-        ret = riodp_mport_get_mport_list(&mport_list, &number_of_mports);
+        ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
         if (ret) {
                 sprintf(env->output,
-			"ERR: riodp_mport_get_mport_list() ERR %d\n", ret);
+			"ERR: riomp_mgmt_get_mport_list() ERR %d\n", ret);
 		logMsg(env);
                 return 0;
        }
@@ -366,7 +365,7 @@ int RSKTMpdevsCmd(struct cli_env *env, int argc, char **argv)
 
                 /* Display EPs for this MPORT */
 
-                ret = riodp_mport_get_ep_list(mport_id, &ep_list, 
+                ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, 
 						&number_of_eps);
                 if (ret) {
                 	sprintf(env->output,
@@ -386,7 +385,7 @@ int RSKTMpdevsCmd(struct cli_env *env, int argc, char **argv)
                 sprintf(env->output, "\n");
 		logMsg(env);
 
-                ret = riodp_mport_free_ep_list(&ep_list);
+                ret = riomp_mgmt_free_ep_list(&ep_list);
                 if (ret) {
                 	sprintf(env->output,
                         	"ERR: riodp_ep_free_list() ERR %d\n", ret);
@@ -398,7 +397,7 @@ int RSKTMpdevsCmd(struct cli_env *env, int argc, char **argv)
 	sprintf(env->output, "\n");
 	logMsg(env);
 
-        ret = riodp_mport_free_mport_list(&mport_list);
+        ret = riomp_mgmt_free_mport_list(&mport_list);
         if (ret) {
 		sprintf(env->output,
                 	"ERR: riodp_ep_free_list() ERR %d\n", ret);
@@ -1564,9 +1563,9 @@ int DMNWpeerCmd(struct cli_env *env, int argc, char **argv)
         int mport_id;
         int ret = 0;
 
-        ret = riodp_mport_get_mport_list(&mport_list, &number_of_mports);
+        ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
         if (ret) {
-                printf("ERR: riodp_mport_get_mport_list() ERR %d\n", ret);
+                printf("ERR: riomp_mgmt_get_mport_list() ERR %d\n", ret);
                 return 0;
         }
 
@@ -1584,7 +1583,7 @@ int DMNWpeerCmd(struct cli_env *env, int argc, char **argv)
 
                 /* Display EPs for this MPORT */
 
-                ret = riodp_mport_get_ep_list(mport_id, &ep_list, &number_of_eps);
+                ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, &number_of_eps);
                 if (ret) {
                         printf("ERR: riodp_ep_get_list() ERR %d\n", ret);
                         break;
@@ -1595,7 +1594,7 @@ int DMNWpeerCmd(struct cli_env *env, int argc, char **argv)
                         printf("%u ", *(ep_list + ep));
                 printf("\n");
 
-                ret = riodp_mport_free_ep_list(&ep_list);
+                ret = riomp_mgmt_free_ep_list(&ep_list);
                 if (ret)
                         printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
 
@@ -1603,7 +1602,7 @@ int DMNWpeerCmd(struct cli_env *env, int argc, char **argv)
 
         printf("\n");
 
-        ret = riodp_mport_free_mport_list(&mport_list);
+        ret = riomp_mgmt_free_mport_list(&mport_list);
         if (ret)
                 printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
  

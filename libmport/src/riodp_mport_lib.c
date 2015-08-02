@@ -49,31 +49,101 @@
 #include <signal.h>
 
 #include <linux/rio_cm_cdev.h>
-
 #define CONFIG_RAPIDIO_DMA_ENGINE
 #include <linux/rio_mport_cdev.h>
 
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_dma.h>
+#include <rapidio_mport_sock.h>
 
-#define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
+#define RIO_CMDEV_PATH "/dev/rio_cm"
 
+struct rapidio_mport_mailbox {
+	int fd;
+	uint8_t mport_id;
+};
 
-int riodp_mport_open(uint32_t mport_id, int flags)
+struct rio_channel {
+	uint16_t id;
+	uint32_t remote_destid;
+	uint32_t remote_mbox;
+	uint16_t remote_channel;
+	uint8_t mport_id;
+};
+
+struct rapidio_mport_socket {
+	struct rapidio_mport_mailbox *mbox;
+	struct rio_channel ch;
+	uint8_t	*rx_buffer;
+	uint8_t	*tx_buffer;
+};
+
+/**
+ * @brief mport opaque handle structure
+ */
+struct rapidio_mport_handle {
+	int fd;				/**< posix api compatible fd to be used with poll/select */
+};
+
+int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle)
 {
 	char path[32];
+	int fd, ret;
+	struct rapidio_mport_handle *hnd = NULL;
 
 	snprintf(path, sizeof(path), RIO_MPORT_DEV_PATH "%d", mport_id);
-	return open(path, O_RDWR | flags);
+	fd = open(path, O_RDWR | flags);
+	if (fd == -1)
+		return -errno;
+
+	hnd = (struct rapidio_mport_handle *)malloc(sizeof(struct rapidio_mport_handle));
+	if(!(hnd)) {
+		ret = -errno;
+		close(fd);
+		return ret;
+	}
+
+	hnd->fd = fd;
+
+	*mport_handle = hnd;
+
+	return 0;
 }
 
-int riodp_cm_open(void)
+int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
+{
+	struct rapidio_mport_handle *hnd = *mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	close(hnd->fd);
+	free(hnd);
+	return 0;
+}
+
+int riomp_mgmt_get_handle_id(riomp_mport_t mport_handle, int *id)
+{
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	/*
+	 * if the architecture does not support posix file handles return a different identifier.
+	 */
+	*id = hnd->fd;
+	return 0;
+}
+
+int riomp_sock_mbox_init(void)
 {
 	return open(RIO_CMDEV_PATH, O_RDWR);
 }
 
 
-int riodp_mport_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
+int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 {
 	int fd;
 	uint32_t entries = *number_of_mports;
@@ -82,7 +152,7 @@ int riodp_mport_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 
 
 	/* Open RapidIO Channel Manager */
-	fd = riodp_cm_open();
+	fd = riomp_sock_mbox_init();
 	if (fd < 0)
 		return -1;
 
@@ -106,7 +176,7 @@ outfd:
 	return ret;
 }
 
-int riodp_mport_free_mport_list(uint32_t **dev_ids)
+int riomp_mgmt_free_mport_list(uint32_t **dev_ids)
 {
 	/* Get head of the list, because we did hide the list size and mport ID
 	 * parameters
@@ -120,7 +190,7 @@ int riodp_mport_free_mport_list(uint32_t **dev_ids)
 	return 0;
 }
 
-int riodp_mport_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *number_of_eps)
+int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *number_of_eps)
 {
 	int fd;
 	int ret = 0;
@@ -128,7 +198,7 @@ int riodp_mport_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numb
 	uint32_t *list;
 
 	/* Open mport */
-	fd = riodp_cm_open();
+	fd = riomp_sock_mbox_init();
 	if (fd < 0)
 		return -1;
 
@@ -168,7 +238,7 @@ outfd:
 	return ret;
 }
 
-int riodp_mport_free_ep_list(uint32_t **destids)
+int riomp_mgmt_free_ep_list(uint32_t **destids)
 {
 	/* Get head of the list, because we did hide the list size and mport ID
 	 * parameters
@@ -182,17 +252,42 @@ int riodp_mport_free_ep_list(uint32_t **destids)
 	return 0;
 }
 
+static inline enum rio_exchange convert_directio_type(enum riomp_dma_directio_type type)
+{
+	switch(type) {
+	case RIO_DIRECTIO_TYPE_NWRITE: return RIO_EXCHANGE_NWRITE;
+	case RIO_DIRECTIO_TYPE_NWRITE_R: return RIO_EXCHANGE_NWRITE_R;
+	case RIO_DIRECTIO_TYPE_NWRITE_R_ALL: return RIO_EXCHANGE_NWRITE_R_ALL;
+	case RIO_DIRECTIO_TYPE_SWRITE: return RIO_EXCHANGE_SWRITE;
+	case RIO_DIRECTIO_TYPE_SWRITE_R: return RIO_EXCHANGE_SWRITE_R;
+	default: return RIO_EXCHANGE_DEFAULT;
+	}
+}
+
+static inline enum rio_transfer_sync convert_directio_sync(enum riomp_dma_directio_transfer_sync sync)
+{
+	switch(sync) {
+	default: /* sync as default is the smallest pitfall */
+	case RIO_DIRECTIO_TRANSFER_SYNC: return RIO_TRANSFER_SYNC;
+	case RIO_DIRECTIO_TRANSFER_ASYNC: return RIO_TRANSFER_ASYNC;
+	case RIO_DIRECTIO_TRANSFER_FAF: return RIO_TRANSFER_FAF;
+	}
+}
 
 /*
  * Perform DMA data write to target transfer using user space source buffer
  */
-int riodp_dma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
-		uint32_t size, enum rio_exchange wr_mode,
-		enum rio_transfer_sync sync)
+int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_addr, void *buf,
+		uint32_t size, enum riomp_dma_directio_type wr_mode,
+		enum riomp_dma_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
 	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
@@ -200,29 +295,33 @@ int riodp_dma_write(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
 	xfer.length = size;
 	xfer.handle = 0;
 	xfer.offset = 0;
-	xfer.method = wr_mode;
+	xfer.method = convert_directio_type(wr_mode);
 
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
-	tran.sync = sync;
+	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
 	tran.count = 1;
 	tran.block = &xfer;
 
-	ret = ioctl(fd, RIO_TRANSFER, &tran);
+	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)?errno:ret;
 }
 
 /*
  * Perform DMA data write to target transfer using kernel space source buffer
  */
-int riodp_dma_write_d(int fd, uint16_t destid, uint64_t tgt_addr,
+int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_addr,
 		      uint64_t handle, uint32_t offset, uint32_t size,
-		      enum rio_exchange wr_mode,
-		      enum rio_transfer_sync sync)
+		      enum riomp_dma_directio_type wr_mode,
+		      enum riomp_dma_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
 	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
@@ -230,27 +329,31 @@ int riodp_dma_write_d(int fd, uint16_t destid, uint64_t tgt_addr,
 	xfer.length = size;
 	xfer.handle = handle;
 	xfer.offset = offset;
-	xfer.method = wr_mode;
+	xfer.method = convert_directio_type(wr_mode);
 
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
-	tran.sync = sync;
+	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
 	tran.count = 1;
 	tran.block = &xfer;
 
-	ret = ioctl(fd, RIO_TRANSFER, &tran);
+	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)?errno:ret;
 }
 
 /*
  * Perform DMA data read from target transfer using user space destination buffer
  */
-int riodp_dma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
-		   uint32_t size, enum rio_transfer_sync sync)
+int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_addr, void *buf,
+		   uint32_t size, enum riomp_dma_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
 	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
@@ -260,25 +363,29 @@ int riodp_dma_read(int fd, uint16_t destid, uint64_t tgt_addr, void *buf,
 	xfer.offset = 0;
 
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
-	tran.sync = sync;
+	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_READ;
 	tran.count = 1;
 	tran.block = &xfer;
 
-	ret = ioctl(fd, RIO_TRANSFER, &tran);
+	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)?errno:ret;
 }
 
 /*
  * Perform DMA data read from target transfer using kernel space destination buffer
  */
-int riodp_dma_read_d(int fd, uint16_t destid, uint64_t tgt_addr,
+int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_addr,
 		     uint64_t handle, uint32_t offset, uint32_t size,
-		     enum rio_transfer_sync sync)
+		     enum riomp_dma_directio_transfer_sync sync)
 {
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
 	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
@@ -288,26 +395,30 @@ int riodp_dma_read_d(int fd, uint16_t destid, uint64_t tgt_addr,
 	xfer.offset = offset;
 
 	tran.transfer_mode = RIO_TRANSFER_MODE_TRANSFER;
-	tran.sync = sync;
+	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_READ;
 	tran.count = 1;
 	tran.block = &xfer;
 
-	ret = ioctl(fd, RIO_TRANSFER, &tran);
+	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)?errno:ret;
 }
 
 /*
  * Wait for DMA transfer completion
  */
-int riodp_wait_async(int fd, uint32_t cookie, uint32_t tmo)
+int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t tmo)
 {
 	struct rio_async_tx_wait wparam;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	wparam.token = cookie;
 	wparam.timeout = tmo;
 
-	if (ioctl(fd, RIO_WAIT_FOR_ASYNC, &wparam))
+	if (ioctl(hnd->fd, RIO_WAIT_FOR_ASYNC, &wparam))
 		return errno;
 	return 0;
 }
@@ -317,14 +428,18 @@ int riodp_wait_async(int fd, uint32_t cookie, uint32_t tmo)
  * Allocate and map into RapidIO space a local kernel space data buffer
  * (for inbound RapidIO data read/write requests)
  */
-int riodp_ibwin_map(int fd, uint64_t *rio_base, uint32_t size, uint64_t *handle)
+int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t size, uint64_t *handle)
 {
 	struct rio_mmap ib;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	ib.rio_addr = *rio_base;
 	ib.length = size;
 
-	if (ioctl(fd, RIO_MAP_INBOUND, &ib))
+	if (ioctl(hnd->fd, RIO_MAP_INBOUND, &ib))
 		return errno;
 	*handle = ib.handle;
 	*rio_base = ib.rio_addr;
@@ -334,31 +449,45 @@ int riodp_ibwin_map(int fd, uint64_t *rio_base, uint32_t size, uint64_t *handle)
 /*
  * Free and unmap from RapidIO space a local kernel space data buffer
  */
-int riodp_ibwin_free(int fd, uint64_t *handle)
+int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 {
-	if (ioctl(fd, RIO_UNMAP_INBOUND, handle))
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	if (ioctl(hnd->fd, RIO_UNMAP_INBOUND, handle))
 		return errno;
 	return 0;
 }
 
-int riodp_obwin_map(int fd, uint16_t destid, uint64_t rio_base, uint32_t size,
+int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid, uint64_t rio_base, uint32_t size,
 		    uint64_t *handle)
 {
 	struct rio_mmap ob;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	ob.rioid = destid;
 	ob.rio_addr = rio_base;
 	ob.length = size;
 
-	if (ioctl(fd, RIO_MAP_OUTBOUND, &ob))
+	if (ioctl(hnd->fd, RIO_MAP_OUTBOUND, &ob))
 		return errno;
 	*handle = ob.handle;
 	return 0;
 }
 
-int riodp_obwin_free(int fd, uint64_t *handle)
+int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 {
-	if (ioctl(fd, RIO_UNMAP_OUTBOUND, handle))
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	if (ioctl(hnd->fd, RIO_UNMAP_OUTBOUND, handle))
 		return errno;
 	return 0;
 }
@@ -366,13 +495,17 @@ int riodp_obwin_free(int fd, uint64_t *handle)
 /*
  * Allocate a local kernel space data buffer for DMA data transfers
  */
-int riodp_dbuf_alloc(int fd, uint32_t size, uint64_t *handle)
+int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *handle)
 {
 	struct rio_dma_mem db;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	db.length = size;
 
-	if (ioctl(fd, RIO_ALLOC_DMA, &db))
+	if (ioctl(hnd->fd, RIO_ALLOC_DMA, &db))
 		return errno;
 	*handle = db.dma_handle;
 	return 0;
@@ -381,36 +514,96 @@ int riodp_dbuf_alloc(int fd, uint32_t size, uint64_t *handle)
 /*
  * Free previously allocated local kernel space data buffer
  */
-int riodp_dbuf_free(int fd, uint64_t *handle)
+int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle)
 {
-	if (ioctl(fd, RIO_FREE_DMA, handle))
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	if (ioctl(hnd->fd, RIO_FREE_DMA, handle))
 		return errno;
 
 	return 0;
 }
 
 /*
+ * map phys address range to process virtual memory
+ */
+int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, void **vaddr)
+{
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL || !size || !vaddr)
+		return -EINVAL;
+
+	*vaddr = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, hnd->fd, paddr);
+
+	if (*vaddr == MAP_FAILED) {
+		return -errno;
+	}
+
+	return 0;
+}
+
+/*
+ * unmap phys address range to process virtual memory
+ */
+int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr)
+{
+	return munmap(vaddr, size);
+}
+
+/*
  * Query mport status/capabilities
  */
-int riodp_query_mport(int fd, struct rio_mport_properties *qresp)
+int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_properties *qresp)
 {
-	if (ioctl(fd, RIO_MPORT_GET_PROPERTIES, qresp))
+	struct rapidio_mport_handle *hnd = mport_handle;
+	struct rio_mport_properties prop;
+	if (!qresp || !hnd)
+		return -EINVAL;
+
+	memset(&prop, 0, sizeof(prop));
+	if (ioctl(hnd->fd, RIO_MPORT_GET_PROPERTIES, &prop))
 		return errno;
+
+	qresp->hdid               = prop.hdid;
+	qresp->id                 = prop.id;
+	qresp->index              = prop.index;
+	qresp->flags              = prop.flags;
+	qresp->sys_size           = prop.sys_size;
+	qresp->port_ok            = prop.port_ok;
+	qresp->link_speed         = prop.link_speed;
+	qresp->link_width         = prop.link_width;
+	qresp->dma_max_sge        = prop.dma_max_sge;
+	qresp->dma_max_size       = prop.dma_max_size;
+	qresp->dma_align          = prop.dma_align;
+	qresp->transfer_mode      = prop.transfer_mode;
+	qresp->cap_sys_size       = prop.cap_sys_size;
+	qresp->cap_addr_size      = prop.cap_addr_size;
+	qresp->cap_transfer_mode  = prop.cap_transfer_mode;
+	qresp->cap_mport          = prop.cap_mport;
+
 	return 0;
 }
 
 /*
  * Read from local (mport) device register
  */
-int riodp_lcfg_read(int fd, uint32_t offset, uint32_t size, uint32_t *data)
+int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t size, uint32_t *data)
 {
 	struct rio_mport_maint_io mt;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	mt.offset = offset;
 	mt.length = size;
 	mt.u.buffer = data;
 
-	if (ioctl(fd, RIO_MPORT_MAINT_READ_LOCAL, &mt))
+	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_LOCAL, &mt))
 		return errno;
 	return 0;
 }
@@ -418,16 +611,20 @@ int riodp_lcfg_read(int fd, uint32_t offset, uint32_t size, uint32_t *data)
 /*
  * Write to local (mport) device register
  */
-int riodp_lcfg_write(int fd, uint32_t offset, uint32_t size, uint32_t data)
+int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t size, uint32_t data)
 {
 	struct rio_mport_maint_io mt;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	mt.offset = offset;
 	mt.length = size;
 //		uint32_t __user value; /* when length == 0 */
 	mt.u.buffer = &data;   /* when length != 0 */
 
-	if (ioctl(fd, RIO_MPORT_MAINT_WRITE_LOCAL, &mt))
+	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_LOCAL, &mt))
 		return errno;
 	return 0;
 }
@@ -435,10 +632,14 @@ int riodp_lcfg_write(int fd, uint32_t offset, uint32_t size, uint32_t data)
 /*
  * Maintenance read from target RapidIO device register
  */
-int riodp_maint_read(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
+int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t hc, uint32_t offset,
 		     uint32_t size, uint32_t *data)
 {
 	struct rio_mport_maint_io mt;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	mt.rioid = destid;
 	mt.hopcount = hc;
@@ -446,7 +647,7 @@ int riodp_maint_read(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
 	mt.length = size;
 	mt.u.buffer = data;   /* when length != 0 */
 
-	if (ioctl(fd, RIO_MPORT_MAINT_READ_REMOTE, &mt))
+	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_REMOTE, &mt))
 		return errno;
 	return 0;
 }
@@ -455,10 +656,14 @@ int riodp_maint_read(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
 /*
  * Maintenance write to target RapidIO device register
  */
-int riodp_maint_write(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
+int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t hc, uint32_t offset,
 		      uint32_t size, uint32_t data)
 {
 	struct rio_mport_maint_io mt;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	mt.rioid = destid;
 	mt.hopcount = hc;
@@ -466,7 +671,7 @@ int riodp_maint_write(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
 	mt.length = size;
 	mt.u.buffer = &data;   /* when length != 0 */
 
-	if (ioctl(fd, RIO_MPORT_MAINT_WRITE_REMOTE, &mt))
+	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_REMOTE, &mt))
 		return errno;
 	return 0;
 }
@@ -474,15 +679,19 @@ int riodp_maint_write(int fd, uint32_t destid, uint32_t hc, uint32_t offset,
 /*
  * Enable (register) receiving range of RapidIO doorbell events
  */
-int riodp_dbrange_enable(int fd, uint32_t rioid, uint16_t start, uint16_t end)
+int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16_t start, uint16_t end)
 {
 	struct rio_doorbell_filter dbf;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	dbf.rioid = rioid;
 	dbf.low = start;
 	dbf.high = end;
 
-	if (ioctl(fd, RIO_ENABLE_DOORBELL_RANGE, &dbf))
+	if (ioctl(hnd->fd, RIO_ENABLE_DOORBELL_RANGE, &dbf))
 		return errno;
 	return 0;
 }
@@ -490,15 +699,19 @@ int riodp_dbrange_enable(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 /*
  * Disable (unregister) range of inbound RapidIO doorbell events
  */
-int riodp_dbrange_disable(int fd, uint32_t rioid, uint16_t start, uint16_t end)
+int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint16_t start, uint16_t end)
 {
 	struct rio_doorbell_filter dbf;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	dbf.rioid = rioid;
 	dbf.low = start;
 	dbf.high = end;
 
-	if (ioctl(fd, RIO_DISABLE_DOORBELL_RANGE, &dbf))
+	if (ioctl(hnd->fd, RIO_DISABLE_DOORBELL_RANGE, &dbf))
 		return errno;
 	return 0;
 }
@@ -506,15 +719,19 @@ int riodp_dbrange_disable(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 /*
  * Enable (register) filter for RapidIO port-write events
  */
-int riodp_pwrange_enable(int fd, uint32_t mask, uint32_t low, uint32_t high)
+int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_t low, uint32_t high)
 {
 	struct rio_pw_filter pwf;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	pwf.mask = mask;
 	pwf.low = low;
 	pwf.high = high;
 
-	if (ioctl(fd, RIO_ENABLE_PORTWRITE_RANGE, &pwf))
+	if (ioctl(hnd->fd, RIO_ENABLE_PORTWRITE_RANGE, &pwf))
 		return errno;
 	return 0;
 }
@@ -522,15 +739,19 @@ int riodp_pwrange_enable(int fd, uint32_t mask, uint32_t low, uint32_t high)
 /*
  * Disable (unregister) filter for RapidIO port-write events
  */
-int riodp_pwrange_disable(int fd, uint32_t mask, uint32_t low, uint32_t high)
+int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32_t low, uint32_t high)
 {
 	struct rio_pw_filter pwf;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	pwf.mask = mask;
 	pwf.low = low;
 	pwf.high = high;
 
-	if (ioctl(fd, RIO_DISABLE_PORTWRITE_RANGE, &pwf))
+	if (ioctl(hnd->fd, RIO_DISABLE_PORTWRITE_RANGE, &pwf))
 		return errno;
 	return 0;
 }
@@ -538,9 +759,17 @@ int riodp_pwrange_disable(int fd, uint32_t mask, uint32_t low, uint32_t high)
 /*
  * Set event notification mask
  */
-int riodp_set_event_mask(int fd, unsigned int mask)
+int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask)
 {
-	if (ioctl(fd, RIO_SET_EVENT_MASK, mask))
+	unsigned int evt_mask = 0;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	if (mask & RIO_EVENT_DOORBELL) evt_mask |= RIO_DOORBELL;
+	if (mask & RIO_EVENT_PORTWRITE) evt_mask |= RIO_PORTWRITE;
+	if (ioctl(hnd->fd, RIO_SET_EVENT_MASK, evt_mask))
 		return errno;
 	return 0;
 }
@@ -548,19 +777,102 @@ int riodp_set_event_mask(int fd, unsigned int mask)
 /*
  * Get current value of event mask
  */
-int riodp_get_event_mask(int fd, unsigned int *mask)
+int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask)
 {
-	if (ioctl(fd, RIO_GET_EVENT_MASK, mask))
+	int evt_mask = 0;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	if (!mask) return -EINVAL;
+	if (ioctl(hnd->fd, RIO_GET_EVENT_MASK, &evt_mask))
 		return errno;
+	*mask = 0;
+	if (evt_mask & RIO_DOORBELL) *mask |= RIO_EVENT_DOORBELL;
+	if (evt_mask & RIO_PORTWRITE) *mask |= RIO_EVENT_PORTWRITE;
+	return 0;
+}
+
+/*
+ * Get current event data
+ */
+int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt)
+{
+	struct rio_event revent;
+	ssize_t bytes = 0;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	if (!evt) return -EINVAL;
+
+	bytes = read(hnd->fd, &revent, sizeof(revent));
+	if (bytes == -1)
+		return -errno;
+	if (bytes != sizeof(revent)) {
+		return -EIO;
+	}
+
+	if (revent.header == RIO_EVENT_DOORBELL) {
+		evt->u.doorbell.payload = revent.u.doorbell.payload;
+		evt->u.doorbell.rioid = revent.u.doorbell.rioid;
+	} else if (revent.header == RIO_EVENT_PORTWRITE) {
+		memcpy(&evt->u.portwrite.payload, &revent.u.portwrite.payload, sizeof(evt->u.portwrite.payload));
+	} else {
+		return -EIO;
+	}
+	evt->header = revent.header;
+
+	return 0;
+}
+
+/*
+ * send an event (only doorbell supported)
+ */
+int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt)
+{
+	struct rapidio_mport_handle *hnd = mport_handle;
+	struct rio_event sevent;
+	char *p = (char*)&sevent;
+	ssize_t ret;
+	unsigned int len=0;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	if (!evt) return -EINVAL;
+
+	if (evt->header != RIO_EVENT_DOORBELL) return -EOPNOTSUPP;
+
+	sevent.header = RIO_DOORBELL;
+	sevent.u.doorbell.rioid = evt->u.doorbell.rioid;
+	sevent.u.doorbell.payload = evt->u.doorbell.payload;
+
+	while (len < sizeof(sevent)) {
+		ret = write(hnd->fd, p+len, sizeof(sevent)-len);
+		if (ret == -1) {
+			return -errno;
+		} else {
+			len += ret;
+		}
+	}
+
 	return 0;
 }
 
 /*
  * Set destination ID of local mport device
  */
-int riodp_destid_set(int fd, uint16_t destid)
+int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 {
-	if (ioctl(fd, RIO_MPORT_MAINT_HDID_SET, &destid))
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	if (ioctl(hnd->fd, RIO_MPORT_MAINT_HDID_SET, &destid))
 		return errno;
 	return 0;
 }
@@ -568,10 +880,14 @@ int riodp_destid_set(int fd, uint16_t destid)
 /*
  * Create a new kernel device object
  */
-int riodp_device_add(int fd, uint16_t destid, uint8_t hc, uint32_t ctag,
+int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag,
 		    const char *name)
 {
 	struct rio_rdev_info dev;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	dev.destid = destid;
 	dev.hopcount = hc;
@@ -581,7 +897,7 @@ int riodp_device_add(int fd, uint16_t destid, uint8_t hc, uint32_t ctag,
 	else
 		*dev.name = '\0';
 
-	if (ioctl(fd, RIO_DEV_ADD, &dev))
+	if (ioctl(hnd->fd, RIO_DEV_ADD, &dev))
 		return errno;
 	return 0;
 }
@@ -589,35 +905,39 @@ int riodp_device_add(int fd, uint16_t destid, uint8_t hc, uint32_t ctag,
 /*
  * Delete existing kernel device object
  */
-int riodp_device_del(int fd, uint16_t destid, uint8_t hc, uint32_t ctag)
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag)
 {
 	struct rio_rdev_info dev;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
 
 	dev.destid = destid;
 	dev.hopcount = hc;
 	dev.comptag = ctag;
 
-	if (ioctl(fd, RIO_DEV_DEL, &dev))
+	if (ioctl(hnd->fd, RIO_DEV_DEL, &dev))
 		return errno;
 	return 0;
 }
 
 /* Mailbox functions */
-int riodp_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
-			     riodp_mailbox_t *mailbox)
+int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
+			     riomp_mailbox_t *mailbox)
 {
 	int fd;
-	struct riodp_mailbox *lhandle = NULL;
+	struct rapidio_mport_mailbox *lhandle = NULL;
 
 	/* Open mport */
-	fd = riodp_cm_open();
+	fd = riomp_sock_mbox_init();
 	if (fd < 0)
 		return -1;
 
 	/* TODO claim mbox_id */
 
 	/* Create handle */
-	lhandle = (struct riodp_mailbox *)malloc(sizeof(struct riodp_mailbox));
+	lhandle = (struct rapidio_mport_mailbox *)malloc(sizeof(struct rapidio_mport_mailbox));
 	if(!(lhandle)) {
 		close(fd);
 		return -2;
@@ -629,30 +949,30 @@ int riodp_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 	return 0;
 }
 
-int riodp_socket_socket(riodp_mailbox_t mailbox, riodp_socket_t *socket_handle)
+int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 {
-	struct riodp_socket *handle = NULL;
+	struct rapidio_mport_socket *handle = NULL;
 
 	/* Create handle */
-	handle = (struct riodp_socket *)calloc(1, sizeof(struct riodp_socket));
+	handle = (struct rapidio_mport_socket *)calloc(1, sizeof(struct rapidio_mport_socket));
 	if(!handle) {
 		printf("error in calloc\n");
 		return -1;
 	}
 
 	handle->mbox = mailbox;
-	handle->cdev.id = 0;
+	handle->ch.id = 0;
 	*socket_handle = handle;
 	return 0;
 }
 
-int riodp_socket_send(riodp_socket_t socket_handle, void *buf, uint32_t size)
+int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 {
 	int ret;
-	struct riodp_socket *handle = socket_handle;
+	struct rapidio_mport_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
 
-	msg.ch_num = handle->cdev.id;
+	msg.ch_num = handle->ch.id;
 	msg.size = size;
 	msg.msg = buf;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_SEND, &msg);
@@ -664,14 +984,14 @@ int riodp_socket_send(riodp_socket_t socket_handle, void *buf, uint32_t size)
 	return 0;
 }
 
-int riodp_socket_receive(riodp_socket_t socket_handle, void **buf,
+int riomp_sock_receive(riomp_sock_t socket_handle, void **buf,
 			 uint32_t size, uint32_t timeout)
 {
 	int ret;
-	struct riodp_socket *handle = socket_handle;
+	struct rapidio_mport_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
 
-	msg.ch_num = handle->cdev.id;
+	msg.ch_num = handle->ch.id;
 	msg.size = size;
 	msg.msg = *buf;
 	msg.rxto = timeout;
@@ -682,26 +1002,26 @@ int riodp_socket_receive(riodp_socket_t socket_handle, void **buf,
 	return 0;
 }
 
-int riodp_socket_release_receive_buffer(riodp_socket_t socket_handle,
+int riomp_sock_release_receive_buffer(riomp_sock_t socket_handle,
 					void *buf) /* always 4k aligned buffers */
 {
 	free(buf);
 	return 0;
 }
 
-int riodp_socket_close(riodp_socket_t *socket_handle)
+int riomp_sock_close(riomp_sock_t *socket_handle)
 {
 	int ret;
-	struct riodp_socket *handle = *socket_handle;
+	struct rapidio_mport_socket *handle = *socket_handle;
 	uint16_t ch_num;
 
 	if(!handle)
 		return -1;
 
-	ch_num = handle->cdev.id;
+	ch_num = handle->ch.id;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CLOSE, &ch_num);
 	if (ret < 0) {
-		printf("CLOSE IOCTL: returned %d for ch_num=%d (errno=%d)\n", ret, (*socket_handle)->cdev.id, errno);
+		printf("CLOSE IOCTL: returned %d for ch_num=%d (errno=%d)\n", ret, (*socket_handle)->ch.id, errno);
 		ret = errno;
 	}
 
@@ -709,9 +1029,9 @@ int riodp_socket_close(riodp_socket_t *socket_handle)
 	return ret;
 }
 
-int riodp_mbox_destroy_handle(riodp_mailbox_t *mailbox)
+int riomp_sock_mbox_destroy_handle(riomp_mailbox_t *mailbox)
 {
-	struct riodp_mailbox *mbox = *mailbox;
+	struct rapidio_mport_mailbox *mbox = *mailbox;
 
 	if(mbox != NULL) {
 		close(mbox->fd);
@@ -723,11 +1043,12 @@ int riodp_mbox_destroy_handle(riodp_mailbox_t *mailbox)
 
 }
 
-int riodp_socket_bind(riodp_socket_t socket_handle, uint16_t local_channel)
+int riomp_sock_bind(riomp_sock_t socket_handle, uint16_t local_channel)
 {
-	struct riodp_socket *handle = socket_handle;
+	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num;
 	int ret;
+	struct rio_cm_channel cdev;
 
 	ch_num = local_channel;
 
@@ -735,23 +1056,25 @@ int riodp_socket_bind(riodp_socket_t socket_handle, uint16_t local_channel)
 	if (ret < 0)
 		return errno;
 
-	handle->cdev.id = ch_num;
-	handle->cdev.mport_id = handle->mbox->mport_id;
+	cdev.id = ch_num;
+	cdev.mport_id = handle->mbox->mport_id;
+	handle->ch.id = cdev.id;
+	handle->ch.mport_id = cdev.mport_id;
 
-	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_BIND, &(handle->cdev));
+	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_BIND, &cdev);
 	if (ret < 0)
 		return errno;
 
 	return 0;
 }
 
-int riodp_socket_listen(riodp_socket_t socket_handle)
+int riomp_sock_listen(riomp_sock_t socket_handle)
 {
-	struct riodp_socket *handle = socket_handle;
+	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num;
 	int ret;
 
-	ch_num = handle->cdev.id;
+	ch_num = handle->ch.id;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_LISTEN, &ch_num);
 	if (ret)
 		return errno;
@@ -759,53 +1082,60 @@ int riodp_socket_listen(riodp_socket_t socket_handle)
 	return 0;
 }
 
-int riodp_socket_accept(riodp_socket_t socket_handle, riodp_socket_t *conn,
+int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 			uint32_t timeout)
 {
-	struct riodp_socket *handle = socket_handle;
-	struct riodp_socket *new_handle = *conn;
+	struct rapidio_mport_socket *handle = socket_handle;
+	struct rapidio_mport_socket *new_handle = *conn;
 	struct rio_cm_accept param;
-//	uint16_t ch_num;
 	int ret;
 
 	if(!handle || !conn)
 		return -1;
 
-	param.ch_num = handle->cdev.id;
+	param.ch_num = handle->ch.id;
 	param.wait_to = timeout;
 
-	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_ACCEPT, &param);//&ch_num);
+	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_ACCEPT, &param);
 	if (ret)
 		return errno;
 
 #ifdef DEBUG
-	printf("%s: new ch_num=%d\n", __func__, ch_num);
+	printf("%s: new ch_num=%d\n", __func__, param.ch_num);
 #endif
 
 	if (new_handle)
-		new_handle->cdev.id = param.ch_num;
+		new_handle->ch.id = param.ch_num;
 
 	return 0;
 }
 
-int riodp_socket_connect(riodp_socket_t socket_handle, uint32_t remote_destid,
+int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 			 uint8_t remote_mbox, uint16_t remote_channel)
 {
-	struct riodp_socket *handle = socket_handle;
+	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num = 0;
+	struct rio_cm_channel cdev;
+	int ret;
 
-	if (handle->cdev.id == 0) {
+	if (handle->ch.id == 0) {
 		if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CREATE, &ch_num))
 			return errno;
-		handle->cdev.id = ch_num;
+		handle->ch.id = ch_num;
 	}
 
 	/* Configure and Send Connect IOCTL */
-	handle->cdev.remote_destid  = remote_destid;
-	handle->cdev.remote_mbox    = remote_mbox;
-	handle->cdev.remote_channel = remote_channel;
-	handle->cdev.mport_id = handle->mbox->mport_id;
-	if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &(handle->cdev))) {
+	handle->ch.remote_destid  = remote_destid;
+	handle->ch.remote_mbox    = remote_mbox;
+	handle->ch.remote_channel = remote_channel;
+	handle->ch.mport_id = handle->mbox->mport_id;
+	cdev.remote_destid  = remote_destid;
+	cdev.remote_mbox    = remote_mbox;
+	cdev.remote_channel = remote_channel;
+	cdev.mport_id = handle->mbox->mport_id;
+	cdev.id = handle->ch.id;
+	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &cdev);
+	if (ret) {
 #ifdef DEBUG
 		printf("ioctl rc(%d): %s\n", ret, strerror(errno));
 #endif
@@ -815,7 +1145,7 @@ int riodp_socket_connect(riodp_socket_t socket_handle, uint32_t remote_destid,
 	return 0;
 }
 
-int riodp_socket_request_send_buffer(riodp_socket_t socket_handle,
+int riomp_sock_request_send_buffer(riomp_sock_t socket_handle,
 				     void **buf) //always 4k aligned buffers
 {
 	/* socket_handle won't be used for now */
@@ -827,7 +1157,7 @@ int riodp_socket_request_send_buffer(riodp_socket_t socket_handle,
 	return 0;
 }
 
-int riodp_socket_release_send_buffer(riodp_socket_t socket_handle,
+int riomp_sock_release_send_buffer(riomp_sock_t socket_handle,
 				     void *buf) /* always 4k aligned buffers */
 {
 	free(buf);
@@ -875,7 +1205,7 @@ const char *width_to_string(int width)
 	}
 }
 
-void display_mport_info(struct rio_mport_properties *attr)
+void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *attr)
 {
 	printf("\n+++ SRIO mport configuration +++\n");
 	printf("mport: hdid=%d, id=%d, idx=%d, flags=0x%x, sys_size=%s\n",

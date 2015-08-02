@@ -48,7 +48,7 @@
 #include <time.h>
 #include <signal.h>
 
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
 
 static int debug = 0;
 static int exit_no_dev;
@@ -71,12 +71,12 @@ static void db_sig_handler(int signum)
 	}
 }
 
-static int do_dbrcv_test(int fd, uint32_t rioid, uint16_t start, uint16_t end)
+static int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start, uint16_t end)
 {
 	int ret;
-	struct rio_event evt;
+	struct riomp_mgmt_event evt;
 
-	ret = riodp_dbrange_enable(fd, rioid, start, end);
+	ret = riomp_mgmt_dbrange_enable(hnd, rioid, start, end);
 	if (ret) {
 		printf("Failed to enable DB range, err=%d\n", ret);
 		return ret;
@@ -88,24 +88,24 @@ static int do_dbrcv_test(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 			break;
 		}
 
-		ret = read(fd, &evt, sizeof(struct rio_event));
+		ret = riomp_mgmt_get_event(hnd, &evt);
 		if (ret < 0) {
-			if (errno == EAGAIN)
+			if (ret == -EAGAIN)
 				continue;
 			else {
-				printf("Failed to read event, err=%d\n", errno);
+				printf("Failed to read event, err=%d\n", ret);
 				break;
 			}
 		}
 
-		if (evt.header == RIO_DOORBELL)
+		if (evt.header == RIO_EVENT_DOORBELL)
 			printf("\tDB 0x%04x from destID %d\n",
 				evt.u.doorbell.payload, evt.u.doorbell.rioid);
 		else
 			printf("\tIgnoring event type %d)\n", evt.header);
 	}
 
-	ret = riodp_dbrange_disable(fd, rioid, start, end);
+	ret = riomp_mgmt_dbrange_disable(hnd, rioid, start, end);
 	if (ret) {
 		printf("Failed to disable DB range, err=%d\n", ret);
 		return ret;
@@ -114,20 +114,18 @@ static int do_dbrcv_test(int fd, uint32_t rioid, uint16_t start, uint16_t end)
 	return 0;
 }
 
-static int do_dbsnd_test(int fd, uint32_t rioid, uint16_t dbval)
+static int do_dbsnd_test(riomp_mport_t hnd, uint32_t rioid, uint16_t dbval)
 {
-	struct rio_event evt;
+	struct riomp_mgmt_event evt;
 	int ret = 0;
 
-	evt.header = RIO_DOORBELL;
+	evt.header = RIO_EVENT_DOORBELL;
 	evt.u.doorbell.rioid = rioid;
 	evt.u.doorbell.payload = dbval;
 
-	ret = write(fd, &evt, sizeof(evt));
+	ret = riomp_mgmt_send_event(hnd, &evt);
 	if (ret < 0)
-		printf("Write DB event failed, err=%d\n", errno);
-	else
-		ret = 0;
+		printf("Write DB event failed, err=%d\n", ret);
 
 	return ret;
 }
@@ -176,7 +174,7 @@ int main(int argc, char** argv)
 	uint32_t db_info = 0x5a5a;
 	uint32_t db_start = 0x5a5a;
 	uint32_t db_end = 0x5a5a;
-	int fd;
+	riomp_mport_t mport_hnd;
 	int flags = 0;
 	int option;
 	int do_dbrecv = 0;
@@ -188,7 +186,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct rio_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 	struct sigaction action;
 	int rc = EXIT_SUCCESS;
 
@@ -239,15 +237,15 @@ int main(int argc, char** argv)
 	action.sa_flags = SA_SIGINFO;
 	sigaction(SIGIO, &action, NULL);
 
-	fd = riodp_mport_open(mport_id, flags);
-	if (fd < 0) {
+	rc = riomp_mgmt_mport_create_handle(mport_id, flags, &mport_hnd);
+	if (rc < 0) {
 		printf("DB Test: unable to open mport%d device err=%d\n",
-			mport_id, errno);
+			mport_id, rc);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_query_mport(fd, &prop)) {
-		display_mport_info(&prop);
+	if (!riomp_mgmt_query(mport_hnd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");
@@ -259,15 +257,12 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
-	fcntl(fd, F_SETOWN, getpid());
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | FASYNC);
-
 	/* Trap signals that we expect to receive */
 	signal(SIGINT,  db_sig_handler);
 	signal(SIGTERM, db_sig_handler);
 	signal(SIGUSR1, db_sig_handler);
 
-	riodp_set_event_mask(fd, RIO_DOORBELL);
+	riomp_mgmt_set_event_mask(mport_hnd, RIO_EVENT_DOORBELL);
 
 	if (do_dbrecv) {
 		printf("+++ RapidIO Doorbell Receive Mode +++\n");
@@ -275,16 +270,16 @@ int main(int argc, char** argv)
 		printf("\tfilter: destid=%x start=%x end=%x\n",
 			rio_destid, db_start, db_end);
 
-		do_dbrcv_test(fd, rio_destid, db_start, db_end);
+		do_dbrcv_test(mport_hnd, rio_destid, db_start, db_end);
 	} else {
 		printf("+++ RapidIO Doorbell Send +++\n");
 		printf("\tmport%d destID=%d db_info=0x%x\n",
 			mport_id, rio_destid, db_info);
 
-		do_dbsnd_test(fd, rio_destid, db_info);
+		do_dbsnd_test(mport_hnd, rio_destid, db_info);
 	}
 
 out:
-	close(fd);
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

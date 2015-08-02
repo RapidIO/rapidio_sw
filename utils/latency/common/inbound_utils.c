@@ -40,7 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_Tsi721.h"
 #include "rio_register_utils.h"
 #include "peer_utils.h"
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,7 +64,7 @@ int map_inbound_window(struct peer_info *peer)
     DPRINT("%s: &inbound_handle = %p\n",__FUNCTION__, &peer->inbound_handle);
 
     /* First, obtain an inbound handle from the mport driver */
-    ret = riodp_ibwin_map(peer->mport_fd,
+    ret = riomp_dma_ibwin_map(peer->mport_fd,
                           &peer->rio_address,
                           peer->inbound_window_size,
                           &peer->inbound_handle);
@@ -109,7 +109,7 @@ int unmap_inbound_window(struct peer_info *peer)
     }
 
     /* Free the inbound window via the mport driver */
-    if (riodp_ibwin_free(peer->mport_fd, &peer->inbound_handle)) {
+    if (riomp_dma_ibwin_free(peer->mport_fd, &peer->inbound_handle)) {
         perror( "Failed to free inbound window in TSI721" );
         return -1;
     }     

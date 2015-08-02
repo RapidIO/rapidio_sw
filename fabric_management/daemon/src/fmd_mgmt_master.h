@@ -51,7 +51,7 @@ struct fmd_peer {
 	uint32_t cm_skt;
 
 	int skt_h_valid;
-	riodp_socket_t cm_skt_h;
+	riomp_sock_t cm_skt_h;
 	char peer_name[MAX_P_NAME+1];
 	uint32_t p_pid;
 	uint32_t p_did;
@@ -90,11 +90,11 @@ struct fmd_peer {
 struct fmd_mast_acc {
 	uint32_t mp_num;
 	uint32_t mb_valid;
-	riodp_mailbox_t mb;
+	riomp_mailbox_t mb;
 	sem_t mb_mtx; /* FIXME: Do we need this? */
 	uint32_t cm_skt_num; /* Socket number to perform the accept on */
 	uint32_t cm_acc_valid; 
-	riodp_socket_t cm_acc_h; /* Listening socket */
+	riomp_sock_t cm_acc_h; /* Listening socket */
 
 	pthread_t acc; /* Listening thread for responses */
 	sem_t started; /* Wait in ths sema to ensure thread starts */

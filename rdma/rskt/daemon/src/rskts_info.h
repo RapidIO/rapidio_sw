@@ -59,8 +59,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
-#include "linux/rio_cm_cdev.h"
-#include "linux/rio_mport_cdev.h"
+#include <rapidio_mport_sock.h>
+
 #include "libcli.h"
 #include "librskt_private.h"
 #include "librdma.h"
@@ -124,12 +124,12 @@ struct rskts_conn_globals {
 	uint8_t mpnum;
 	int mpfd;
 	int bklg;
-	struct rio_mport_properties qresp;
+	struct riomp_mgmt_mport_properties qresp;
 
 	/* CM connection request handler from other RSKT Daemons */
 	pthread_t thread; 
-	riodp_mailbox_t mb;
-	riodp_socket_t skt;
+	riomp_mailbox_t mb;
+	riomp_sock_t skt;
 
 	sem_t loop_started;
 	int loop_alive;
@@ -171,7 +171,7 @@ struct lib_accepting {
 
 struct req_list_t {
 	struct req_list_t *next;
-	riodp_socket_t *skt;
+	riomp_sock_t *skt;
 };
 
 /* NOTE: list is empty when HEAD == NULL.

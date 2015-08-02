@@ -56,10 +56,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <dirent.h>
 
-#include <linux/rio_cm_cdev.h>
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include <linux/rio_mport_cdev.h>
-#include "riodp_mport_lib.h"
+
+#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
 
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 
@@ -86,7 +84,7 @@ struct demo_chan_setup {
 	uint16_t my_destid;
 	uint16_t remote_destid;
 
-	riodp_mailbox_t mailbox;
+	riomp_mailbox_t mailbox;
 
 	char *tx_buf;
 	char *rx_buf;
@@ -104,9 +102,9 @@ struct demo_setup {
 	uint16_t s_chan_no; /* Server channel number */
 	uint16_t s_c_chan_no; /* Server client channel number */
 
-	riodp_socket_t c_sock;
-	riodp_socket_t s_sock;
-	riodp_socket_t s_c_sock;
+	riomp_sock_t c_sock;
+	riomp_sock_t s_sock;
+	riomp_sock_t s_c_sock;
 
 	struct demo_chan_setup ep[2];
 };
@@ -265,7 +263,7 @@ static void show_rio_devs(void)
 	int mport_id;
 	int ret = 0;
 
-	if (riodp_mport_get_mport_list(&mport_list, &number_of_mports))
+	if (riomp_mgmt_get_mport_list(&mport_list, &number_of_mports))
 		return;
 
 	printf("\nAvailable %d local mport(s):\n", number_of_mports);
@@ -282,7 +280,7 @@ static void show_rio_devs(void)
 
 		/* Display EPs for this MPORT */
 
-		if (riodp_mport_get_ep_list(mport_id, &ep_list, &number_of_eps))
+		if (riomp_mgmt_get_ep_list(mport_id, &ep_list, &number_of_eps))
 			break;
 
 		printf("\t%u Endpoints (dest_ID): ", number_of_eps);
@@ -290,13 +288,13 @@ static void show_rio_devs(void)
 			printf("%u ", *(ep_list + ep));
 		printf("\n");
 
-		if (riodp_mport_free_ep_list(&ep_list))
+		if (riomp_mgmt_free_ep_list(&ep_list))
 			printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
 	}
 
 	printf("\n");
 
-	riodp_mport_free_mport_list(&mport_list);
+	riomp_mgmt_free_mport_list(&mport_list);
 };
 
 
@@ -306,7 +304,7 @@ int open_mports(int last_idx)
 	int rc = EXIT_FAILURE;
 
 	for (idx = 0; idx <= last_idx; idx++) {
-		demo.ep[idx].fd = riodp_mport_open(demo.ep[idx].mport_id, 0);
+		demo.ep[idx].fd = riomp_mgmt_mport_create_handle(demo.ep[idx].mport_id, 0);
 		if (demo.ep[idx].fd < 0) {
 			printf("Unable to open idx %d mport%d device "
 				"err=%d:%s\n",
@@ -383,7 +381,7 @@ static int fixup_options(void)
 
 	for (idx = 0; (idx < max_idx) && (demo.cfg != CFG_LPBK); idx++) {
 		/* Verify existence of remote RapidIO Endpoint */
-		if (riodp_mport_get_ep_list(demo.ep[idx].mport_id, &ep_list,
+		if (riomp_mgmt_get_ep_list(demo.ep[idx].mport_id, &ep_list,
 				&number_of_eps))
 			exit(1);
 
@@ -393,7 +391,7 @@ static int fixup_options(void)
 				ep_found = 1;
 		}
 
-		riodp_mport_free_ep_list(&ep_list);
+		riomp_mgmt_free_ep_list(&ep_list);
 
 		if (!ep_found) {
 			printf("Index %d: Could not find remote destID %d\n",
@@ -423,7 +421,7 @@ static int fixup_options(void)
 					dp = opendir(rio_device);
 					if (dp == NULL)	{
 						sprintf(rio_device, "mport%d_lb", idx);
-						err = riodp_device_add(demo.ep[idx].fd, demo.ep[idx].props.hdid,
+						err = riomp_mgmt_device_add(demo.ep[idx].fd, demo.ep[idx].props.hdid,
 												0xff, 0x11223344, rio_device);
 						if (err)
 							printf("Failed to create loopback device. ERR=%d\n", err);
@@ -490,16 +488,16 @@ void *client(void *client_rc)
 
 	p->tot_time = p->min_time = p->max_time = (struct timespec){0, 0};
 
-	/* Create riodp_mailbox control structure */
-	if (riodp_mbox_create_handle(demo.ep[idx].mport_id, 0, 
+	/* Create rapidio_mport_mailbox control structure */
+	if (riomp_sock_mbox_create_handle(demo.ep[idx].mport_id, 0, 
 				&demo.ep[idx].mailbox)) {
-		printf("%s: riodp_mbox_create_handle error\n", __func__);
+		printf("%s: riomp_sock_mbox_create_handle error\n", __func__);
 		exit(1);
 	}
 
 	/* Create a socket  structure associated with given mailbox */
-	if (riodp_socket_socket(demo.ep[idx].mailbox, &demo.c_sock)) {
-		printf("%s: riodp_socket_socket error\n", __func__);
+	if (riomp_sock_socket(demo.ep[idx].mailbox, &demo.c_sock)) {
+		printf("%s: riomp_sock_socket error\n", __func__);
 		goto cleanup_handle;
 	}
 
@@ -515,17 +513,17 @@ void *client(void *client_rc)
 			goto cleanup_handle;
 	}
 
-	ret = riodp_socket_connect(demo.c_sock, demo.ep[idx].remote_destid, 0,
+	ret = riomp_sock_connect(demo.c_sock, demo.ep[idx].remote_destid, 0,
 				   demo.s_chan_no);
 	if (ret == EADDRINUSE)
-		printf("riodp_socket_connect: Requested channel already in use,"
+		printf("riomp_sock_connect: Requested channel already in use,"
 			       " reusing...\n");
 	else if (ret) {
-		printf("%s: riodp_socket_connect error: %d\n", __func__, ret);
+		printf("%s: riomp_sock_connect error: %d\n", __func__, ret);
 		goto cleanup_socket;
 	}
 
-	if (riodp_socket_request_send_buffer(demo.c_sock, 
+	if (riomp_sock_request_send_buffer(demo.c_sock, 
 					(void **)&demo.ep[idx].tx_buf))
 		goto cleanup_buffers;
 
@@ -550,17 +548,17 @@ void *client(void *client_rc)
 		clock_gettime(CLOCK_MONOTONIC, &starttime);
 		__sync_synchronize();
 
-		if (riodp_socket_send(demo.c_sock, demo.ep[idx].tx_buf, 
+		if (riomp_sock_send(demo.c_sock, demo.ep[idx].tx_buf, 
 					demo.size)) {
-			printf("%s: riodp_socket_send() ERR\n", __func__ );
+			printf("%s: riomp_sock_send() ERR\n", __func__ );
 			break;
 		}
 
 		/* Get echo response from the server */
-		if (riodp_socket_receive(demo.c_sock, 
+		if (riomp_sock_receive(demo.c_sock, 
 					(void **)&demo.ep[idx].rx_buf, 
 					MAX_MSG_SIZE, 0)) {
-			printf("%s: riodp_socket_receive() ERR\n", __func__ );
+			printf("%s: riomp_sock_receive() ERR\n", __func__ );
 			break;
 		}
 
@@ -593,19 +591,19 @@ void *client(void *client_rc)
 
 cleanup_buffers:
 	if (demo.ep[idx].rx_buf)
-		riodp_socket_release_receive_buffer(demo.c_sock,
+		riomp_sock_release_receive_buffer(demo.c_sock,
 						demo.ep[idx].rx_buf);
 	if (demo.ep[idx].tx_buf)
-		riodp_socket_release_send_buffer(demo.c_sock,
+		riomp_sock_release_send_buffer(demo.c_sock,
 						demo.ep[idx].tx_buf);
 
 cleanup_socket:
-	if (riodp_socket_close(&demo.c_sock))
-		printf("%s: riodp_socket_close error\n", __func__);
+	if (riomp_sock_close(&demo.c_sock))
+		printf("%s: riomp_sock_close error\n", __func__);
 
 cleanup_handle:
-	if (riodp_mbox_destroy_handle(&demo.ep[idx].mailbox))
-		printf("%s: riodp_mbox_destroy_handle error\n", __func__);
+	if (riomp_sock_mbox_destroy_handle(&demo.ep[idx].mailbox))
+		printf("%s: riomp_sock_mbox_destroy_handle error\n", __func__);
 
 exit:
 	return client_rc;
@@ -656,34 +654,34 @@ void *server(void *server_rc)
 	printf("%s: Running on RapidIO rio_mport%d channel %d\n", __func__, 
 			demo.ep[idx].mport_id, demo.s_chan_no);
 
-	/* Create riodp_mailbox control structure */
-	if (riodp_mbox_create_handle(demo.ep[idx].mport_id, 0, 
+	/* Create rapidio_mport_mailbox control structure */
+	if (riomp_sock_mbox_create_handle(demo.ep[idx].mport_id, 0, 
 					&demo.ep[idx].mailbox)) {
-		printf("%s: riodp_mbox_create_handle ERR\n", __func__);
+		printf("%s: riomp_sock_mbox_create_handle ERR\n", __func__);
 		goto exit;
 	}
 
 	/* Create an unbound socket structure */
-	if (riodp_socket_socket(demo.ep[idx].mailbox, &demo.s_sock)) {
-		printf("%s: riodp_socket_socket s_sock ERR\n", __func__);
+	if (riomp_sock_socket(demo.ep[idx].mailbox, &demo.s_sock)) {
+		printf("%s: riomp_sock_socket s_sock ERR\n", __func__);
 		goto cleanup_handle;
 	}
 
 	/* Bind the listen channel to opened MPORT device */
-	if (riodp_socket_bind(demo.s_sock, demo.s_chan_no)) {
-		printf("%s: riodp_socket_bind ERR\n", __func__);
+	if (riomp_sock_bind(demo.s_sock, demo.s_chan_no)) {
+		printf("%s: riomp_sock_bind ERR\n", __func__);
 		goto cleanup_socket;
 	}
 
 	/* Initiate LISTEN on the specified channel */
-	if (riodp_socket_listen(demo.s_sock)) {
-		printf("%s: riodp_socket_listen ERR\n", __func__);
+	if (riomp_sock_listen(demo.s_sock)) {
+		printf("%s: riomp_sock_listen ERR\n", __func__);
 		goto cleanup_socket;
 	}
 
 	/* Create new socket object for accept */
-	if (riodp_socket_socket(demo.ep[idx].mailbox, &demo.s_c_sock)) {
-		printf("%s: riodp_socket_socket s_c_sock ERR\n", __func__);
+	if (riomp_sock_socket(demo.ep[idx].mailbox, &demo.s_c_sock)) {
+		printf("%s: riomp_sock_socket s_c_sock ERR\n", __func__);
 		goto cleanup_socket;
 	}
 
@@ -699,21 +697,21 @@ void *server(void *server_rc)
 
 	/* Wait for client to connect() */
 repeat:
-	ret = riodp_socket_accept(demo.s_sock, &demo.s_c_sock, 3*60000); // TO = 3 min
+	ret = riomp_sock_accept(demo.s_sock, &demo.s_c_sock, 3*60000); // TO = 3 min
 	if ((ret == ETIME) && !srv_exit)
 		goto repeat;
 
 	if (ret) {
-		printf("%s: riodp_socket_accept() ERR %d\n", __func__, ret);
+		printf("%s: riomp_sock_accept() ERR %d\n", __func__, ret);
 		goto cleanup_socket;
 	}
 
 	for (i = 0; (i < demo.repeat) && !srv_exit; i++) {
-		ret = riodp_socket_receive(demo.s_c_sock, 
+		ret = riomp_sock_receive(demo.s_c_sock, 
 				(void **)&demo.ep[idx].rx_buf, 
 				MAX_MSG_SIZE, 0);
 		if (ret) {
-			printf("%s: riodp_socket_receive() ERR %d (%d)\n",
+			printf("%s: riomp_sock_receive() ERR %d (%d)\n",
 				__func__, ret, errno);
 			break;
 		}
@@ -723,42 +721,42 @@ repeat:
 				__func__, demo.ep[idx].rx_buf + 20);
 
 		/* Send  a message back to the client */
-		ret = riodp_socket_send(demo.s_c_sock, demo.ep[idx].rx_buf, 
+		ret = riomp_sock_send(demo.s_c_sock, demo.ep[idx].rx_buf, 
 					demo.size);
 		if (ret) {
-			printf("%s: riodp_socket_send() ERR %d (%d)\n",
+			printf("%s: riomp_sock_send() ERR %d (%d)\n",
 				__func__, ret, errno);
 			break;
 		}
 	}
 
 	if (demo.ep[idx].rx_buf) 
-		riodp_socket_release_receive_buffer(demo.s_c_sock, 
+		riomp_sock_release_receive_buffer(demo.s_c_sock, 
 						demo.ep[idx].rx_buf);
 	ret = 0;
 
 	/* Exit closing listening channel */
 cleanup_socket:
 	if (demo.s_sock) {
-		ret = riodp_socket_close(&demo.s_sock);
+		ret = riomp_sock_close(&demo.s_sock);
 		if (ret)
-			printf("%s: riodp_socket_close() s_sock ERR\n", 
+			printf("%s: riomp_sock_close() s_sock ERR\n", 
 					__func__);
 	};
 	if (demo.s_c_sock) {
-		struct riodp_socket *handle = demo.s_c_sock;
+		struct rapidio_mport_socket *handle = demo.s_c_sock;
 		if (handle->cdev.id) {
-			ret = riodp_socket_close(&demo.s_c_sock);
+			ret = riomp_sock_close(&demo.s_c_sock);
 			if (ret)
-				printf("%s: riodp_socket_close()"
+				printf("%s: riomp_sock_close()"
 					" s_c_sock channel %d ERR\n",
 					__func__, handle->cdev.id);
 		};
 	};
 cleanup_handle:
-	/* Release riodp_mailbox control structure */
+	/* Release rapidio_mport_mailbox control structure */
 	if (demo.ep[idx].mailbox) {
-		ret = riodp_mbox_destroy_handle(&demo.ep[idx].mailbox);
+		ret = riomp_sock_mbox_destroy_handle(&demo.ep[idx].mailbox);
 		if (ret)
 			printf("riodp_mbox_shutdown error: %d\n", ret);
 	};

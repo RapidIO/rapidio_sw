@@ -48,17 +48,17 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+#include <rapidio_mport_dma.h>
 
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_sock.h>
 
-#define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 #define RIODP_MAX_DEV_NAME_SZ 20 /* max number of RIO mports supported by platform */
 
-static int fd;
+static riomp_mport_t mport_hnd;
 static uint16_t tgt_destid;
 static uint8_t tgt_hop;
 static uint32_t comptag = 0;
-static int exit_no_dev;
 
 static char dev_name[RIODP_MAX_DEV_NAME_SZ + 1];
 
@@ -66,7 +66,7 @@ void test_create(void)
 {
 	int ret;
 
-	ret = riodp_device_add(fd, tgt_destid, tgt_hop, comptag,
+	ret = riomp_mgmt_device_add(mport_hnd, tgt_destid, tgt_hop, comptag,
 			       (*dev_name == '\0')?NULL:dev_name);
 	if(ret)
 		printf("Failed to create device object, err=%d\n", ret);
@@ -76,7 +76,7 @@ void test_delete(void)
 {
 	int ret;
 
-	ret = riodp_device_del(fd, tgt_destid, tgt_hop, comptag);
+	ret = riomp_mgmt_device_del(mport_hnd, tgt_destid, tgt_hop, comptag);
 	if(ret)
 		printf("Failed to delete device object, err=%d\n", ret);
 }
@@ -108,14 +108,6 @@ static void display_help(char *program)
 	printf("\n");
 }
 
-static void test_sigaction(int sig, siginfo_t *siginfo, void *context)
-{
-	printf ("SIGIO info PID: %ld, UID: %ld CODE: 0x%x BAND: 0x%lx FD: %d\n",
-			(long)siginfo->si_pid, (long)siginfo->si_uid, siginfo->si_code,
-			siginfo->si_band, siginfo->si_fd);
-	exit_no_dev = 1;
-}
-
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
@@ -135,8 +127,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct rio_mport_properties prop;
-	struct sigaction action;
+	struct riomp_mgmt_mport_properties prop;
 	int rc = EXIT_SUCCESS;
 	int err;
 
@@ -181,20 +172,15 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	memset(&action, 0, sizeof(action));
-	action.sa_sigaction = test_sigaction;
-	action.sa_flags = SA_SIGINFO;
-	sigaction(SIGIO, &action, NULL);
-
-	fd = riodp_mport_open(mport_id, 0);
-	if (fd < 0) {
+	err = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
+	if (err < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
-			mport_id, errno);
+			mport_id, err);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_query_mport(fd, &prop)) {
-		display_mport_info(&prop);
+	if (!riomp_mgmt_query(mport_hnd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");
@@ -206,10 +192,7 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
-	fcntl(fd, F_SETOWN, getpid());
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | FASYNC);
-
-	err = riodp_lcfg_read(fd, 0x13c, sizeof(uint32_t), &regval);
+	err = riomp_mgmt_lcfg_read(mport_hnd, 0x13c, sizeof(uint32_t), &regval);
 	if (err) {
 		printf("Failed to read from PORT_GEN_CTL_CSR, err=%d\n", err);
 		rc = EXIT_FAILURE;
@@ -222,9 +205,9 @@ int main(int argc, char** argv)
 		printf("ATTN: Port DISCOVERED flag is not set\n");
 
 	if (discovered && prop.hdid == 0xffff ) {
-		err = riodp_lcfg_read(fd, 0x60, sizeof(uint32_t), &regval);
+		err = riomp_mgmt_lcfg_read(mport_hnd, 0x60, sizeof(uint32_t), &regval);
 		prop.hdid = (regval >> 16) & 0xff;
-		err = riodp_destid_set(fd, prop.hdid);
+		err = riomp_mgmt_destid_set(mport_hnd, prop.hdid);
 		if (err)
 			printf("Failed to update local destID, err=%d\n", err);
 		else
@@ -257,6 +240,7 @@ int main(int argc, char** argv)
 		printf("Please specify the action to perform\n");
 
 out:
-	close(fd);
+
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

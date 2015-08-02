@@ -38,8 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include <linux/rio_cm_cdev.h>
-#include <linux/rio_mport_cdev.h>
+
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
@@ -58,9 +57,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <rapidio_mport_dma.h>
 
 #include "libcli.h"
-#include "riodp_mport_lib.h"
+
+//#include <rapidio_mport_mgmt.h>
+//#include <rapidio_mport_sock.h>
 
 #ifdef __cplusplus
 extern "C" {

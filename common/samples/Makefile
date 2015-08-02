@@ -1,6 +1,4 @@
 debug?=NDEBUG
-KDIR?=/usr/src/linux
-KINC=$(KDIR)/include
 LIBMPORT_PATH=../../libmport
 LIBLOG_PATH=../liblog
 LIBCLI_PATH=../libcli

@@ -45,13 +45,14 @@
 #include <stdint.h> /* For size_t */
 #include <unistd.h>
 #include <getopt.h>
+#include <rapidio_mport_dma.h>
 #include <time.h>
 #include <signal.h>
 
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_sock.h>
 
 static int debug = 0;
-static int exit_no_dev;
 
 static volatile sig_atomic_t rcv_exit;
 static volatile sig_atomic_t report_status;
@@ -71,34 +72,37 @@ static void db_sig_handler(int signum)
 	}
 }
 
-static int do_pwrcv_test(int fd, uint32_t mask, uint32_t low, uint32_t high)
+static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_t high)
 {
 	int ret;
-	struct rio_event evt;
+	struct riomp_mgmt_event evt;
+	unsigned long pw_count = 0, ignored_count = 0;
 
-	ret = riodp_pwrange_enable(fd, mask, low, high);
+	ret = riomp_mgmt_pwrange_enable(hnd, mask, low, high);
 	if (ret) {
 		printf("Failed to enable PW filter, err=%d\n", ret);
 		return ret;
 	}
 
 	while (!rcv_exit) {
-		if (exit_no_dev) {
-			printf(">>> Device removal signaled <<<\n");
-			break;
+
+		if (report_status) {
+			printf("port writes count: %lu\n", pw_count);
+			printf("ignored events count: %lu\n", ignored_count);
+			report_status = 0;
 		}
 
-		ret = read(fd, &evt, sizeof(struct rio_event));
+		ret = riomp_mgmt_get_event(hnd, &evt);
 		if (ret < 0) {
-			if (errno == EAGAIN)
+			if (ret == -EAGAIN)
 				continue;
 			else {
-				printf("Failed to read event, err=%d\n", errno);
+				printf("Failed to read event, err=%d\n", ret);
 				break;
 			}
 		}
 
-		if (evt.header == RIO_PORTWRITE) {
+		if (evt.header == RIO_EVENT_PORTWRITE) {
 			int i;
 
 			printf("\tPort-Write message:\n");
@@ -110,12 +114,14 @@ static int do_pwrcv_test(int fd, uint32_t mask, uint32_t low, uint32_t high)
 					evt.u.portwrite.payload[i + 3]);
 			}
 			printf("\n");
-		}
-		else
+			pw_count++;
+		} else {
 			printf("\tIgnoring event type %d)\n", evt.header);
+			ignored_count++;
+		}
 	}
 
-	ret = riodp_pwrange_disable(fd, mask, low, high);
+	ret = riomp_mgmt_pwrange_disable(hnd, mask, low, high);
 	if (ret) {
 		printf("Failed to disable PW range, err=%d\n", ret);
 		return ret;
@@ -145,21 +151,13 @@ static void display_help(char *program)
 	printf("\n");
 }
 
-static void test_sigaction(int sig, siginfo_t *siginfo, void *context)
-{
-	printf ("SIGIO info PID: %ld, UID: %ld CODE: 0x%x BAND: 0x%lx FD: %d\n",
-			(long)siginfo->si_pid, (long)siginfo->si_uid, siginfo->si_code,
-			siginfo->si_band, siginfo->si_fd);
-	exit_no_dev = 1;
-}
-
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
 	uint32_t pw_mask = 0xffffffff;
 	uint32_t pw_low = 0;
 	uint32_t pw_high = 0xffffffff;
-	int fd;
+	riomp_mport_t mport_hnd;
 	int flags = 0;
 	int option;
 	static const struct option options[] = {
@@ -169,8 +167,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct rio_mport_properties prop;
-	struct sigaction action;
+	struct riomp_mgmt_mport_properties prop;
 	unsigned int evt_mask;
 	int err;
 	int rc = EXIT_SUCCESS;
@@ -206,20 +203,15 @@ int main(int argc, char** argv)
 		}
 	}
 
-	memset(&action, 0, sizeof(action));
-	action.sa_sigaction = test_sigaction;
-	action.sa_flags = SA_SIGINFO;
-	sigaction(SIGIO, &action, NULL);
-
-	fd = riodp_mport_open(mport_id, flags);
-	if (fd < 0) {
+	rc = riomp_mgmt_mport_create_handle(mport_id, flags, &mport_hnd);
+	if (rc < 0) {
 		printf("DB Test: unable to open mport%d device err=%d\n",
-			mport_id, errno);
+			mport_id, rc);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_query_mport(fd, &prop)) {
-		display_mport_info(&prop);
+	if (!riomp_mgmt_query(mport_hnd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");
@@ -231,33 +223,30 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
-	fcntl(fd, F_SETOWN, getpid());
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | FASYNC);
-
 	/* Trap signals that we expect to receive */
 	signal(SIGINT,  db_sig_handler);
 	signal(SIGTERM, db_sig_handler);
 	signal(SIGUSR1, db_sig_handler);
 
-	err = riodp_get_event_mask(fd, &evt_mask);
+	err = riomp_mgmt_get_event_mask(mport_hnd, &evt_mask);
 	if (err) {
 		printf("Failed to obtain current event mask, err=%d\n", err);
 		rc = EXIT_FAILURE;
 		goto out;
 	}
 
-	riodp_set_event_mask(fd, evt_mask | RIO_PORTWRITE);
+	riomp_mgmt_set_event_mask(mport_hnd, evt_mask | RIO_EVENT_PORTWRITE);
 
 	printf("+++ RapidIO PortWrite Event Receive Mode +++\n");
 	printf("\tmport%d PID:%d\n", mport_id, (int)getpid());
 	printf("\tfilter: mask=%x low=%x high=%x\n",
 		pw_mask, pw_low, pw_high);
 
-	do_pwrcv_test(fd, pw_mask, pw_low, pw_high);
+	do_pwrcv_test(mport_hnd, pw_mask, pw_low, pw_high);
 
-	riodp_set_event_mask(fd, evt_mask);
+	riomp_mgmt_set_event_mask(mport_hnd, evt_mask);
 
 out:
-	close(fd);
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

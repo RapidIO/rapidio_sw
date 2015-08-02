@@ -36,10 +36,9 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+#include <rapidio_mport_dma.h>
 
-#include "riodp_mport_lib.h"
-
-#define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
+#include <rapidio_mport_mgmt.h>
 
 /*
  * Initialization patterns. All bytes in the source buffer has bit 7
@@ -69,7 +68,7 @@ struct dma_async_wait_param {
 	int err;		/* error code returned to caller */
 };
 
-static int fd;
+static riomp_mport_t mport_hnd;
 static uint32_t tgt_destid;
 static uint64_t tgt_addr;
 static uint32_t offset = 0;
@@ -77,7 +76,6 @@ static int align = 0;
 static uint32_t dma_size = 0;
 static uint32_t ibwin_size;
 static int debug = 0;
-static int exit_no_dev;
 static uint32_t tbuf_size = TEST_BUF_SIZE;
 
 /* Max data block length that can be transferred by DMA channel
@@ -180,27 +178,27 @@ static unsigned int dmatest_verify(uint8_t *buf, unsigned int start,
 	return error_count;
 }
 
-static void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
+static void *dmatest_buf_alloc(riomp_mport_t mport_hnd, uint32_t size, uint64_t *handle)
 {
 	void *buf_ptr = NULL;
 	uint64_t h;
 	int ret;
 
 	if (handle) {
-		ret = riodp_dbuf_alloc(fd, size, &h);
+		ret = riomp_dma_dbuf_alloc(mport_hnd, size, &h);
 		if (ret) {
 			if (debug)
-				printf("riodp_dbuf_alloc failed err=%d\n", ret);
+				printf("riomp_dma_dbuf_alloc failed err=%d\n", ret);
 			return NULL;
 		}
 
-		buf_ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, h);
-		if (buf_ptr == MAP_FAILED) {
+		ret = riomp_dma_map_memory(mport_hnd, size, h, &buf_ptr);
+		if (ret) {
 			perror("mmap");
 			buf_ptr = NULL;
-			ret = riodp_dbuf_free(fd, handle);
+			ret = riomp_dma_dbuf_free(mport_hnd, handle);
 			if (ret && debug)
-				printf("riodp_dbuf_free failed err=%d\n", ret);
+				printf("riomp_dma_dbuf_free failed err=%d\n", ret);
 		} else
 			*handle = h;
 	} else {
@@ -212,17 +210,18 @@ static void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 	return buf_ptr;
 }
 
-static void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle)
+static void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size, uint64_t *handle)
 {
 	if (handle && *handle) {
 		int ret;
 
-		if (munmap(buf, size))
+		ret = riomp_dma_unmap_memory(mport_hnd, size, handle);
+		if (ret)
 			perror("munmap");
 
-		ret = riodp_dbuf_free(fd, handle);
+		ret = riomp_dma_dbuf_free(mport_hnd, handle);
 		if (ret)
-			printf("riodp_dbuf_free failed err=%d\n", ret);
+			printf("riomp_dma_dbuf_free failed err=%d\n", ret);
 	} else if (buf)
 		free(buf);
 }
@@ -236,15 +235,15 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	uint64_t ib_handle;
 	void *ibmap;
 
-	ret = riodp_ibwin_map(fd, &rio_base, ib_size, &ib_handle);
+	ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
 	if (ret) {
 		printf("Failed to allocate/map IB buffer err=%d\n", ret);
-		close(fd);
+		riomp_mgmt_mport_destroy_handle(&mport_hnd);
 		return ret;
 	}
 
-	ibmap = mmap(NULL, ib_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, ib_handle);
-	if (ibmap == MAP_FAILED) {
+	ret = riomp_dma_map_memory(mport_hnd, ib_size, ib_handle, &ibmap);
+	if (ret) {
 		perror("mmap");
 		goto out;
 	}
@@ -257,15 +256,14 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 			(uint32_t)(ib_handle & 0xffffffff), ibmap);
 	printf("\t.... press Enter key to exit ....\n");
 	getchar();
-	if (exit_no_dev)
-		printf(">>> Device removal signaled <<<\n");
 	if (verify)
 		dmatest_verify((U8P)ibmap, 0, ib_size, 0, PATTERN_SRC | PATTERN_COPY, 0);
 
-	if (munmap(ibmap, ib_size))
+	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
+	if (ret)
 		perror("munmap");
 out:
-	ret = riodp_ibwin_free(fd, &ib_handle);
+	ret = riomp_dma_ibwin_free(mport_hnd, &ib_handle);
 	if (ret)
 		printf("Failed to release IB buffer err=%d\n", ret);
 
@@ -277,13 +275,13 @@ void *dma_async_wait(void *arg)
 	struct dma_async_wait_param *param = (struct dma_async_wait_param *)arg;
 	int ret;
 
-	ret = riodp_wait_async(fd, param->token, 3000);
+	ret = riomp_dma_wait_async(mport_hnd, param->token, 3000);
 	param->err = ret;
 	return &param->err;
 }
 
 static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
-		       enum rio_transfer_sync sync)
+		       enum riomp_dma_directio_transfer_sync sync)
 {
 	void *buf_src = NULL;
 	void *buf_dst = NULL;
@@ -292,7 +290,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 	uint64_t dst_handle = 0;
 	int i, ret = 0;
 	uint32_t max_hw_size; /* max DMA transfer size supported by HW */
-	enum rio_transfer_sync rd_sync;
+	enum riomp_dma_directio_transfer_sync rd_sync;
 	struct timespec wr_starttime, wr_endtime;
 	struct timespec rd_starttime, rd_endtime;
 	float totaltime;
@@ -325,14 +323,14 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 	} else
 		printf("\tdma_size=%d offset=0x%x\n", dma_size, offset);
 
-	buf_src = dmatest_buf_alloc(fd, tbuf_size, kbuf_mode?&src_handle:NULL);
+	buf_src = dmatest_buf_alloc(mport_hnd, tbuf_size, kbuf_mode?&src_handle:NULL);
 	if (buf_src == NULL) {
 		printf("DMA Test: error allocating SRC buffer\n");
 		ret = -1;
 		goto out;
 	}
 
-	buf_dst = dmatest_buf_alloc(fd, tbuf_size, kbuf_mode?&dst_handle:NULL);
+	buf_dst = dmatest_buf_alloc(mport_hnd, tbuf_size, kbuf_mode?&dst_handle:NULL);
 	if (buf_dst == NULL) {
 		printf("DMA Test: error allocating DST buffer\n");
 		ret = -1;
@@ -373,15 +371,15 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		clock_gettime(CLOCK_MONOTONIC, &wr_starttime);
 
 		if (kbuf_mode)
-			ret = riodp_dma_write_d(fd, tgt_destid, tgt_addr,
+			ret = riomp_dma_write_d(mport_hnd, tgt_destid, tgt_addr,
 						src_handle, src_off, len,
-						RIO_EXCHANGE_NWRITE_R, sync);
+						RIO_DIRECTIO_TYPE_NWRITE_R, sync);
 		else
-			ret = riodp_dma_write(fd, tgt_destid, tgt_addr,
+			ret = riomp_dma_write(mport_hnd, tgt_destid, tgt_addr,
 					      (U8P)buf_src + src_off, len,
-					      RIO_EXCHANGE_NWRITE_R, sync);
+					      RIO_DIRECTIO_TYPE_NWRITE_R, sync);
 
-		if (sync == RIO_TRANSFER_ASYNC) {
+		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
 			if (ret >=0) {
 				wr_wait.token = ret;
 				wr_wait.err = -1;
@@ -401,18 +399,18 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 			printf("\tRead %d bytes to dst offset 0x%x\n", len, dst_off);
 
 		/* RIO_TRANSFER_FAF is not available for read operations. Force SYNC instead. */
-		rd_sync = (sync == RIO_TRANSFER_FAF)?RIO_TRANSFER_SYNC:sync;
+		rd_sync = (sync == RIO_DIRECTIO_TRANSFER_FAF)?RIO_DIRECTIO_TRANSFER_SYNC:sync;
 
 		clock_gettime(CLOCK_MONOTONIC, &rd_starttime);
 
 		if (kbuf_mode)
-			ret = riodp_dma_read_d(fd, tgt_destid, tgt_addr,
+			ret = riomp_dma_read_d(mport_hnd, tgt_destid, tgt_addr,
 					dst_handle, dst_off, len, rd_sync);
 		else
-			ret = riodp_dma_read(fd, tgt_destid, tgt_addr,
+			ret = riomp_dma_read(mport_hnd, tgt_destid, tgt_addr,
 					(U8P)buf_dst + dst_off, len, rd_sync);
 
-		if (sync == RIO_TRANSFER_ASYNC) {
+		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
 			if (ret >=0) {
 				rd_wait.token = ret;
 				rd_wait.err = -1;
@@ -430,7 +428,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 
 		rd_time = timediff(rd_starttime, rd_endtime);
 
-		if (sync == RIO_TRANSFER_ASYNC) {
+		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
 			pthread_join(wr_thr, NULL);
 			pthread_join(rd_thr, NULL);
 			clock_gettime(CLOCK_MONOTONIC, &rd_endtime);
@@ -476,13 +474,13 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 
 		time = timediff(wr_starttime, wr_endtime);
 		totaltime = ((double) time.tv_sec + (time.tv_nsec / 1000000000.0));
-		if (sync != RIO_TRANSFER_SYNC)
+		if (sync != RIO_DIRECTIO_TRANSFER_SYNC)
 			printf("\t\tWR time: %4f s\n", totaltime);
 		else
 			printf("\t\tWR time: %4f s @ %4.2f MB/s\n",
 				totaltime, (len/totaltime)/(1024*1024));
 		totaltime = ((double) rd_time.tv_sec + (rd_time.tv_nsec / 1000000000.0));
-		if (sync != RIO_TRANSFER_SYNC)
+		if (sync != RIO_DIRECTIO_TRANSFER_SYNC)
 			printf("\t\tRD time: %4f s\n", totaltime);
 		else
 			printf("\t\tRD time: %4f s @ %4.2f MB/s\n",
@@ -492,9 +490,9 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		printf("\t\tFull Cycle time: %4f s\n", totaltime);
 	}
 out:
-	dmatest_buf_free(fd, buf_src, tbuf_size,
+	dmatest_buf_free(mport_hnd, buf_src, tbuf_size,
 				kbuf_mode?&src_handle:NULL);
-	dmatest_buf_free(fd, buf_dst, tbuf_size,
+	dmatest_buf_free(mport_hnd, buf_dst, tbuf_size,
 				kbuf_mode?&dst_handle:NULL);
 	return ret;
 }
@@ -549,14 +547,6 @@ static void display_help(char *program)
 	printf("\n");
 }
 
-static void test_sigaction(int sig, siginfo_t *siginfo, void *context)
-{
-	printf ("SIGIO info PID: %ld, UID: %ld CODE: 0x%x BAND: 0x%lx FD: %d\n",
-			(long)siginfo->si_pid, (long)siginfo->si_uid, siginfo->si_code,
-			siginfo->si_band, siginfo->si_fd);
-	exit_no_dev = 1;
-}
-
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
@@ -566,7 +556,7 @@ int main(int argc, char** argv)
 	int verify = 1;
 	unsigned int repeat = 1;
 	uint64_t rio_base = RIO_MAP_ANY_ADDR;
-	enum rio_transfer_sync sync = RIO_TRANSFER_SYNC;
+	enum riomp_dma_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
 	static const struct option options[] = {
 		{ "destid", required_argument, NULL, 'D' },
 		{ "taddr",  required_argument, NULL, 'A' },
@@ -584,10 +574,10 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct rio_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 	int has_dma = 1;
-	struct sigaction action;
 	int rc = EXIT_SUCCESS;
+	int ret;
 
 	while (1) {
 		option = getopt_long_only(argc, argv,
@@ -624,10 +614,10 @@ int main(int argc, char** argv)
 			do_rand = 1;
 			break;
 		case 'F':
-			sync = RIO_TRANSFER_FAF;
+			sync = RIO_DIRECTIO_TRANSFER_FAF;
 			break;
 		case 'Y':
-			sync = RIO_TRANSFER_ASYNC;
+			sync = RIO_DIRECTIO_TRANSFER_ASYNC;
 			break;
 			/* Inbound Memory (window) Mode options */
 		case 'I':
@@ -656,20 +646,15 @@ int main(int argc, char** argv)
 		}
 	}
 
-	memset(&action, 0, sizeof(action));
-	action.sa_sigaction = test_sigaction;
-	action.sa_flags = SA_SIGINFO;
-	sigaction(SIGIO, &action, NULL);
-
-	fd = riodp_mport_open(mport_id, 0);
-	if (fd < 0) {
+	ret = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
+	if (ret < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
-			mport_id, errno);
+			mport_id, ret);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_query_mport(fd, &prop)) {
-		display_mport_info(&prop);
+	if (!riomp_mgmt_query(mport_hnd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 
 		if (prop.flags & RIO_MPORT_DMA) {
 			align = prop.dma_align;
@@ -688,9 +673,6 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
-	fcntl(fd, F_SETOWN, getpid());
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | FASYNC);
-
 	if (ibwin_size) {
 		printf("+++ RapidIO Inbound Window Mode +++\n");
 		printf("\tmport%d ib_size=0x%x PID:%d\n",
@@ -702,7 +684,7 @@ int main(int argc, char** argv)
 		printf("\tmport%d destID=%d rio_addr=0x%llx align=%d repeat=%d PID:%d\n",
 			mport_id, tgt_destid, (unsigned long long)tgt_addr, align, repeat, (int)getpid());
 		printf("\tsync=%d (%s)\n", sync,
-			(sync == RIO_TRANSFER_SYNC)?"SYNC":(sync == RIO_TRANSFER_FAF)?"FAF":"ASYNC");
+			(sync == RIO_DIRECTIO_TRANSFER_SYNC)?"SYNC":(sync == RIO_DIRECTIO_TRANSFER_FAF)?"FAF":"ASYNC");
 
 		if (do_dma_test(do_rand, kbuf_mode, verify, repeat, sync)) {
 		    printf("DMA test FAILED\n\n");
@@ -714,6 +696,6 @@ int main(int argc, char** argv)
 	}
 
 out:
-	close(fd);
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

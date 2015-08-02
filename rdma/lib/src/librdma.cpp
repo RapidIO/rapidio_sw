@@ -52,13 +52,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <iterator>
 
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
 #include "rdma_types.h"
 #include "liblog.h"
 #include "rdma_mq_msg.h"
 #include "msg_q.h"
 
 #include "librdma.h"
+
+#include "../../../include/rapidio_mport_dma.h"
 #include "librdma_db.h"
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
@@ -82,7 +84,7 @@ static size_t	    received_len;
  */
 struct peer_info {
 	int mport_id;
-	int mport_fd;
+	riomp_mport_t mport_hnd;
 	uint16_t destid;
 }; /* peer_info */
 
@@ -139,7 +141,8 @@ static int open_mport(struct peer_info *peer)
 	get_mport_id_output	out;
 	get_mport_id_input	in;
 	int flags = 0;
-	struct rio_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
+	riomp_mport_t mport_hnd;
 
 	DBG("ENTER\n");
 
@@ -161,23 +164,22 @@ static int open_mport(struct peer_info *peer)
 	INFO("Using mport_id = %d\n", peer->mport_id);
 
 	/* Now open the port */
-	peer->mport_fd = riodp_mport_open(peer->mport_id, flags);
-	if (peer->mport_fd <= 0) {
-		CRIT("riodp_mport_open(): %s\n", strerror(errno));
+	ret = riomp_mgmt_mport_create_handle(peer->mport_id, flags, &mport_hnd);
+	if (ret < 0) {
+		CRIT("riomp_mgmt_mport_create_handle(): %s\n", strerror(errno));
 		CRIT("Cannot open mport%d, is rio_mport_cdev loaded?\n",
 								peer->mport_id);
 		return -errno;
 	}
-	INFO("mport_fd = %d\n", peer->mport_fd);
 
 	/* Read the properties. */
-	if (!riodp_query_mport(peer->mport_fd, &prop)) {
-		display_mport_info(&prop);
+	if (!riomp_mgmt_query(peer->mport_hnd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 		if (prop.flags &RIO_MPORT_DMA) {
 			INFO("DMA is ENABLED\n");
 		} else {
 			CRIT("DMA capability DISABLED\n");
-			close(peer->mport_fd);
+			riomp_mgmt_mport_destroy_handle(&peer->mport_hnd);
 			return -3;
 		}
 		peer->destid = prop.hdid;
@@ -185,6 +187,8 @@ static int open_mport(struct peer_info *peer)
 		/* Unlikely we fail on reading properties, but warn! */
 		WARN("%s: Error reading properties from mport!\n");
 	}
+
+	peer->mport_hnd = mport_hnd;
 
 	return 0;
 } /* open_mport() */
@@ -1244,8 +1248,8 @@ int rdma_create_msub_h(ms_h	msh,
 	}
 	out = out_msg->create_msub_out;
 
-	INFO("out->bytes=0x%X, peer.mport_fd=%d, out.phys_addr=0x%lX\n",
-				out.bytes, peer.mport_fd, out.phys_addr);
+	INFO("out->bytes=0x%X, out.phys_addr=0x%lX\n",
+				out.bytes, out.phys_addr);
 
 	/* Store msubh in database, obtain pointer thereto, convert to msub_h */
 	*msubh = (msub_h)add_loc_msub(out.msubid,
@@ -1315,6 +1319,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 int rdma_mmap_msub(msub_h msubh, void **vaddr)
 {
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
+	int ret;
 
 	DBG("ENTER\n");
 
@@ -1328,18 +1333,14 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		return -2;
 	}
 
-	INFO("mmap() mport_fd = %d, phys_addr = 0x%lX\n",
-						peer.mport_fd, pmsub->paddr);
-	*vaddr = mmap(NULL,
-		 pmsub->bytes,
-		 PROT_READ|PROT_WRITE,
-		 MAP_SHARED,
-		 peer.mport_fd,
-		 pmsub->paddr);
+	ret = riomp_dma_map_memory(peer.mport_hnd, pmsub->bytes, pmsub->paddr, vaddr);
 
-	if (*vaddr == MAP_FAILED) {
-		ERR("mmap(0x%lX) failed: %s\n", pmsub->paddr, strerror(errno));
-		return -3;
+	INFO("map() phys_addr = 0x%lX, virt_addr = %p, size = 0x%x\n",
+						pmsub->paddr, *vaddr, pmsub->bytes);
+
+	if (ret) {
+		ERR("map(0x%lX) failed: %s\n", pmsub->paddr, strerror(-ret));
+		return ret;
 	}
 	DBG("msub mapped to vaddr(%p)\n", *vaddr);
 
@@ -1893,21 +1894,21 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 	}
 
 	/* Determine sync type */
-	enum rio_transfer_sync	rd_sync;
+	enum riomp_dma_directio_transfer_sync rd_sync;
 
 	switch (in->sync_type) {
 
 	case rdma_no_wait:
-		rd_sync = RIO_TRANSFER_FAF;
-		INFO("RIO_TRANSFER_FAF\n");
+		rd_sync = RIO_DIRECTIO_TRANSFER_FAF;
+		INFO("RIO_DIRECTIO_TRANSFER_FAF\n");
 		break;
 	case rdma_sync_chk:
-		rd_sync = RIO_TRANSFER_SYNC;
-		INFO("RIO_TRANSFER_SYNC\n");
+		rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
+		INFO("RIO_DIRECTIO_TRANSFER_SYNC\n");
 		break;
 	case rdma_async_chk:
-		rd_sync = RIO_TRANSFER_ASYNC;
-		INFO("RIO_TRANSFER_ASYNC\n");
+		rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
+		INFO("RIO_DIRECTIO_TRANSFER_ASYNC\n");
 		break;
 	default:
 		ERR("Invalid sync_type\n", in->sync_type);
@@ -1924,20 +1925,20 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 					rmsub->rio_addr_lo + in->rem_offset,
 					lmsub->paddr);
 
-	int ret = riodp_dma_write_d(peer.mport_fd,
+	int ret = riomp_dma_write_d(peer.mport_hnd,
 				    (uint16_t)rmsub->destid,
 				    rmsub->rio_addr_lo + in->rem_offset,
 				    lmsub->paddr,
 				    in->loc_offset,
 				    in->num_bytes,
-				    RIO_EXCHANGE_NWRITE_R,
+					RIO_DIRECTIO_TYPE_NWRITE_R,
 				    rd_sync);
 	if (ret < 0) {
-		ERR("riodp_dma_write_d() failed:(%d) %s\n", ret, strerror(ret));
+		ERR("riomp_dma_write_d() failed:(%d) %s\n", ret, strerror(ret));
 	}
 
 	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value of riodp_dma_write_d() is the token (if >= 0) */
+	 * the return value of riomp_dma_write_d() is the token (if >= 0) */
 	if (in->sync_type == rdma_sync_chk)
 		out->dma_xfr_status = ret;
 	else if (in->sync_type == rdma_async_chk && ret >= 0) {
@@ -1981,18 +1982,18 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 	}
 
 	/* Determine sync type */
-	enum rio_transfer_sync	rd_sync;
+	enum riomp_dma_directio_transfer_sync rd_sync;
 
 	switch (sync_type) {
 
 	case rdma_no_wait:
-		rd_sync = RIO_TRANSFER_FAF;
+		rd_sync = RIO_DIRECTIO_TRANSFER_FAF;
 		break;
 	case rdma_sync_chk:
-		rd_sync = RIO_TRANSFER_SYNC;
+		rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
 		break;
 	case rdma_async_chk:
-		rd_sync = RIO_TRANSFER_ASYNC;
+		rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
 		break;
 	default:
 		ERR("Invalid sync_type: %d\n", sync_type);
@@ -2008,19 +2009,19 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 				rmsub->destid,
 				rmsub->rio_addr_lo + rem_offset);
 
-	int ret = riodp_dma_write(peer.mport_fd,
+	int ret = riomp_dma_write(peer.mport_hnd,
 				  (uint16_t)rmsub->destid,
 				  rmsub->rio_addr_lo + rem_offset,
 				  buf,
 				  num_bytes,
-				  RIO_EXCHANGE_NWRITE_R,
+				  RIO_DIRECTIO_TYPE_NWRITE_R,
 				  rd_sync);
 	if (ret < 0) {
-		ERR("riodp_dma_write() failed:(%d) %s\n", ret, strerror(ret));
+		ERR("riomp_dma_write() failed:(%d) %s\n", ret, strerror(ret));
 	}
 
 	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value riodp_dma_write() is the token (if >= 0) */
+	 * the return value riomp_dma_write() is the token (if >= 0) */
 	if (sync_type == rdma_sync_chk)
 		out->dma_xfr_status = ret;
 	else if (sync_type == rdma_async_chk && ret >= 0 ) {
@@ -2068,16 +2069,16 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 	}
 
 	/* Determine sync type */
-	enum rio_transfer_sync	rd_sync;
+	enum riomp_dma_directio_transfer_sync rd_sync;
 
 	switch (in->sync_type) {
 
 	case rdma_no_wait:	/* No FAF in reads, change to synchronous */
 	case rdma_sync_chk:
-		rd_sync = RIO_TRANSFER_SYNC;
+		rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
 		break;
 	case rdma_async_chk:
-		rd_sync = RIO_TRANSFER_ASYNC;
+		rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
 		break;
 	default:
 		ERR("Invalid sync_type: %d\n", in->sync_type);
@@ -2094,7 +2095,7 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 				rmsub->rio_addr_lo + in->rem_offset,
 				lmsub->paddr);
 
-	int ret = riodp_dma_read_d(peer.mport_fd,
+	int ret = riomp_dma_read_d(peer.mport_hnd,
 				   (uint16_t)rmsub->destid,
 				   rmsub->rio_addr_lo + in->rem_offset,
 				   lmsub->paddr,
@@ -2102,11 +2103,11 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 				   in->num_bytes,
 				   rd_sync);
 	if (ret < 0) {
-		ERR("riodp_dma_read_d() failed:(%d) %s\n", ret, strerror(ret));
+		ERR("riomp_dma_read_d() failed:(%d) %s\n", ret, strerror(ret));
 	}
 
 	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value of riodp_dma_read_d() is the token (if >= 0) */
+	 * the return value of riomp_dma_read_d() is the token (if >= 0) */
 	if (in->sync_type == rdma_sync_chk)
 		out->dma_xfr_status = ret;
 	else if (in->sync_type == rdma_async_chk && ret >= 0) {
@@ -2155,16 +2156,16 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 	}
 
 	/* Determine sync type */
-	enum rio_transfer_sync	rd_sync;
+	enum riomp_dma_directio_transfer_sync rd_sync;
 
 	switch (sync_type) {
 
 	case rdma_no_wait:	/* No FAF in reads, change to synchronous */
 	case rdma_sync_chk:
-		rd_sync = RIO_TRANSFER_SYNC;
+		rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
 		break;
 	case rdma_async_chk:
-		rd_sync = RIO_TRANSFER_ASYNC;
+		rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
 		break;
 	default:
 		ERR("Invalid sync_type: %d\n", sync_type);
@@ -2180,18 +2181,18 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 					rmsub->destid,
 					rmsub->rio_addr_lo + rem_offset);
 
-	int ret = riodp_dma_read(peer.mport_fd,
+	int ret = riomp_dma_read(peer.mport_hnd,
 				 (uint16_t)rmsub->destid,
 				 rmsub->rio_addr_lo + rem_offset,
 				 buf,
 				 num_bytes,
 				 rd_sync);
 	if (ret < 0) {
-		ERR("riodp_dma_read() failed:(%d) %s\n", ret, strerror(ret));
+		ERR("riomp_dma_read() failed:(%d) %s\n", ret, strerror(ret));
 	}
 
 	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value of riodp_dma_read() is the token (if >= 0) */
+	 * the return value of riomp_dma_read() is the token (if >= 0) */
 	if (sync_type == rdma_sync_chk)
 		out->dma_xfr_status = ret;
 	else if (sync_type == rdma_async_chk && ret >= 0) {
@@ -2213,7 +2214,7 @@ void *compl_thread_f(void *arg)
 	dma_async_wait_param	*wait_param = (dma_async_wait_param *)arg;
 
 	/* Wait for transfer to complete or times out (-ETIMEDOUT returned) */
-	wait_param->err = riodp_wait_async(peer.mport_fd,
+	wait_param->err = riomp_dma_wait_async(peer.mport_hnd,
 					   wait_param->token,
 					   wait_param->timeout);
 

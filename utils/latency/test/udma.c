@@ -46,9 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/mman.h>
 #include <sys/time.h>
 
-#define CONFIG_RAPIDIO_DMA_ENGINE
-#include "linux/rio_cm_cdev.h"
-#include "linux/rio_mport_cdev.h"
+
 
 #include "pcie_utils.h"
 #include "rio_register_utils.h"
@@ -57,7 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tsi721_config.h"
 #include "dma_utils.h"
 #include "time_utils.h"
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
 
 #include "debug.h"
 
@@ -172,9 +170,9 @@ int init_mport(int demo_mode,
     }
 
     /* Open mport device */
-    peer->mport_fd = riodp_mport_open(mportid, 0);
+    peer->mport_fd = riomp_mgmt_mport_create_handle(mportid, 0);
     if (peer->mport_fd <= 0) {
-        perror("riodp_mport_open()");
+        perror("riomp_mgmt_mport_create_handle()");
         fprintf(stderr,"Failed to open mport%d. Aborting!\n", mportid);
         cleanup_dma_test(num_devices,peers);
         return -1;

@@ -33,7 +33,8 @@
 #include "rio_regs.h"
 #include "rio_devs.h"
 #include "liblog.h"
-#include "riodp_mport_lib.h"
+
+#include <rapidio_mport_mgmt.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -1119,7 +1120,7 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 	}
 
 	if (RIOCP_PE_IS_MPORT(pe)) {
-		ret = riodp_destid_set(pe->minfo->maint->fd, destid);
+		ret = riomp_mgmt_destid_set(pe->minfo->maint, destid);
 		if ((0x80ab0038 == pe->cap.dev_id) && !ret)
 			ret = riocp_pe_maint_write_local(pe, 0x60020, destid);
 		
@@ -1371,27 +1372,6 @@ int RIOCP_SO_ATTR riocp_pe_set_event_mask(riocp_pe_handle pe,
 		return -EINVAL;
 
 	riocp_pe_event_set_port_mask(pe, port, mask);
-
-	return 0;
-}
-
-/**
- * Retreive a file descriptor to poll/select for events on the given PE. Use
- * riocp_receive_event for actual event reception
- * @param pe This host or any switch
- * @param fd File descriptor to use in poll/select loop
- */
-int RIOCP_SO_ATTR riocp_pe_get_event_fd(riocp_pe_handle pe,
-	int *fd)
-{
-	if (fd == NULL)
-		return -EINVAL;
-	if (riocp_pe_handle_check(pe))
-		return -EINVAL;
-	if (RIOCP_PE_IS_MPORT(pe) || !RIOCP_PE_IS_HOST(pe) || !RIOCP_PE_IS_SWITCH(pe->cap))
-		return -ENOSYS;
-
-	*fd = pe->fd;
 
 	return 0;
 }

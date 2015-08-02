@@ -37,7 +37,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <stdint.h>
 #include "fmd_peer_msg.h"
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_sock.h>
 
 #ifndef __FMD_MGMT_SLAVE_H__
 #define __FMD_MGMT_SLAVE_H__
@@ -47,7 +48,7 @@ extern "C" {
 #endif
 
 struct fmd_slave {
-	int fd; /* MPORT file descriptor for register access */
+	riomp_mport_t mp_hnd; /* MPORT handle for register access */
 	pthread_t slave_thr; /* Slave FMDR, handles Master FMD cmds */
 	sem_t started; 
 	int slave_alive;
@@ -57,9 +58,9 @@ struct fmd_slave {
 	uint32_t mast_did;
         uint32_t mast_skt_num; /* Socket number to connect to */
         uint32_t mb_valid;
-        riodp_mailbox_t mb;
+        riomp_mailbox_t mb;
 	uint32_t skt_valid;
-        riodp_socket_t skt_h; /* Connected socket */
+        riomp_sock_t skt_h; /* Connected socket */
 	sem_t tx_mtx;
         int tx_buff_used;
         int tx_rc;
@@ -78,7 +79,7 @@ struct fmd_slave {
 };
 
 extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
-			uint32_t  mp_num, struct fmd_slave *slave, int fd);
+			uint32_t  mp_num, struct fmd_slave *slave, riomp_mport_t hnd);
 
 extern void shutdown_slave_mgmt(void);
 

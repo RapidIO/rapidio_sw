@@ -27,7 +27,8 @@ static struct riocp_pe_switch *riocp_pe_switch_drv_list[] = {
 	&riocp_pe_switch_tsi57x,
 	&riocp_pe_switch_cps1616,
 	&riocp_pe_switch_cps1432,
-	&riocp_pe_switch_cps1848
+	&riocp_pe_switch_cps1848,
+	&riocp_pe_switch_sps1616
 };
 
 /**
@@ -184,7 +185,7 @@ int riocp_pe_switch_port_clear_enumerated(struct riocp_pe *sw, uint8_t port)
  * @param sw    Target switch PE
  * @param[out] event Events occured on this port
  */
-int riocp_pe_switch_handle_event(struct riocp_pe *sw, struct rio_event *revent,
+int riocp_pe_switch_handle_event(struct riocp_pe *sw, struct riomp_mgmt_event *revent,
 	struct riocp_pe_event *event)
 {
 	if (sw->sw->event_handler)

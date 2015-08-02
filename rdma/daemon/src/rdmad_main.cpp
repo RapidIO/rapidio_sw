@@ -41,10 +41,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <rapidio_mport_dma.h>
 #include <semaphore.h>
 #include <signal.h>
 
-#include "riodp_mport_lib.h"
+//#include <rapidio_mport_mgmt.h>
 #include "cm_sock.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"
@@ -93,7 +94,7 @@ static void init_peer()
 
 	/* MPORT */
 	peer.mport_id = 0;	/* Overriden on the command line */
-	peer.mport_fd = -1;
+	peer.mport_hnd = 0;
 
 	/* Messaging */
 	peer.prov_channel	= DEFAULT_PROV_CHANNEL;
@@ -730,9 +731,9 @@ void shutdown(struct peer_info *peer)
 	halt_fm_thread();
 	HIGH("Fabric management thread is dead\n");
 	/* Close mport device */
-	if (peer->mport_fd > 0) {
-		INFO("Closing mport fd\n");
-		close(peer->mport_fd);
+	if (peer->mport_hnd != 0) {
+		INFO("Closing mport\n");
+		riomp_mgmt_mport_destroy_handle(&peer->mport_hnd);
 	}
 	INFO("Mport %d closed\n", peer->mport_id);
 
@@ -944,29 +945,29 @@ int main (int argc, char **argv)
 	}
 
 	/* Open mport */
-	peer.mport_fd = riodp_mport_open(peer.mport_id, 0);
-	if (peer.mport_fd <= 0) {
-		CRIT("Failed in riodp_mport_open(): %s\n", strerror(errno));
+	rc = riomp_mgmt_mport_create_handle(peer.mport_id, 0, &peer.mport_hnd);
+	if (rc < 0) {
+		CRIT("Failed in riomp_mgmt_mport_create_handle(): %s\n", strerror(-rc));
 	        rc = 1;
 		goto out;
     	}
 
 	/* Query device information, and store destid */
-	struct rio_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 
-	rc = riodp_query_mport(peer.mport_fd, &prop);
+	rc = riomp_mgmt_query(peer.mport_hnd, &prop);
 	if (rc != 0) {
 		CRIT("Failed in riodp_query_mport(): %s\n", strerror(errno));
 		rc = 2;
 		goto out_close_mport;
 	}
 	peer.destid = prop.hdid;
-	INFO("mport(%d), destid = 0x%X, fd = %d\n",
-				peer.mport_id, peer.destid, peer.mport_fd);
+	INFO("mport(%d), destid = 0x%X\n",
+				peer.mport_id, peer.destid);
 
 	/* Create inbound space */
 	try {
-		the_inbound = new inbound(peer.mport_fd,
+		the_inbound = new inbound(peer.mport_hnd,
 				 2,		/* No. of windows */
 				 4*1024*1024);	/* Size in MB */
 	}
@@ -1036,7 +1037,7 @@ out_free_inbound:
 
 out_close_mport:
 	pthread_join(console_thread, NULL);
-	close(peer.mport_fd);
+	riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
 out:
 	pthread_join(console_thread, NULL);
 	return rc;	

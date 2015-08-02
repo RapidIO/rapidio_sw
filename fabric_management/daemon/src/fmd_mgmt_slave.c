@@ -57,9 +57,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
-#include "riodp_mport_lib.h"
-#include "linux/rio_cm_cdev.h"
-#include "linux/rio_mport_cdev.h"
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_sock.h>
+
 #include "libcli.h"
 #include "liblog.h"
 #include "libfmdd.h"
@@ -93,7 +93,7 @@ int send_slave_hello_message(void)
 		htonl(fmd->cfg->eps[0].ports[0].devids[FMD_DEV08].hc);
 
 	slv->tx_buff_used = 1;
-	slv->tx_rc |= riodp_socket_send(slv->skt_h, slv->tx_buff,
+	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff,
 				FMD_P_S2M_CM_SZ);
 	if (slv->tx_rc)
 		goto fail;
@@ -206,7 +206,7 @@ void slave_process_mod(void)
 	slv->s2m->mod_rsp.rc = 0;
 
 	switch (ntohl(slv->m2s->mod_rq.op)) {
-	case FMD_P_OP_ADD: rc = riodp_device_add(slv->fd, 
+	case FMD_P_OP_ADD: rc = riomp_mgmt_device_add(slv->mp_hnd,
 				ntohl(slv->m2s->mod_rq.did), 
 				ntohl(slv->m2s->mod_rq.hc), 
 				ntohl(slv->m2s->mod_rq.ct),
@@ -227,7 +227,7 @@ void slave_process_mod(void)
 				 
 	case FMD_P_OP_DEL: 
 		/* FIXME: Commented out for now as this can kill the platform.
-			rc = riodp_device_del(slv->fd, 
+			rc = riomp_mgmt_device_del(slv->fd, 
 				ntohl(slv->m2s->mod_rq.did), 
 				ntohl(slv->m2s->mod_rq.hc), 
 				ntohl(slv->m2s->mod_rq.ct));
@@ -245,7 +245,7 @@ void slave_process_mod(void)
 	};
 
 	slv->tx_buff_used = 1;
-	slv->tx_rc |= riodp_socket_send(slv->skt_h, slv->tx_buff, 
+	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff, 
 		FMD_P_S2M_CM_SZ);
 	sem_post(&slv->tx_mtx);
 	if (!rc)
@@ -281,19 +281,19 @@ void cleanup_slave(void)
 		return;
 
 	if (slv->tx_buff_used) {
-		riodp_socket_release_send_buffer(slv->skt_h, slv->tx_buff);
+		riomp_sock_release_send_buffer(slv->skt_h, slv->tx_buff);
 		slv->tx_buff = NULL;
 		slv->tx_buff_used = 0;
 	};
 	
 	if (slv->rx_buff_used) {
-		riodp_socket_release_receive_buffer(slv->skt_h, slv->rx_buff);
+		riomp_sock_release_receive_buffer(slv->skt_h, slv->rx_buff);
 		slv->rx_buff = NULL;
 		slv->rx_buff_used = 0;
 	};
 	
 	if (slv->skt_valid) {
-		int rc = riodp_socket_close(&slv->skt_h);
+		int rc = riomp_sock_close(&slv->skt_h);
 		if (rc) {
 			ERR("Close RC is %d: %s\n", rc, strerror(errno));
 		};
@@ -301,7 +301,7 @@ void cleanup_slave(void)
 	};
 
 	if (slv->mb_valid) {
-		riodp_mbox_destroy_handle(&slv->mb);
+		riomp_sock_mbox_destroy_handle(&slv->mb);
 		slv->mb_valid = 0;
 	};
 };
@@ -310,7 +310,7 @@ void slave_rx_req(void)
 {
 	slv->rx_buff_used = 1;
 	do {
-		slv->rx_rc = riodp_socket_receive(slv->skt_h, 
+		slv->rx_rc = riomp_sock_receive(slv->skt_h, 
 			&slv->rx_buff, FMD_P_M2S_CM_SZ, 0);
 	} while ((slv->rx_rc) && ((errno == EINTR) || (errno == ETIME)));
 
@@ -361,15 +361,15 @@ fail:
 	pthread_exit(unused);
 };
 
-extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
-                        uint32_t  mp_num, struct fmd_slave *slave, int fd)
+int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
+                        uint32_t  mp_num, struct fmd_slave *slave, riomp_mport_t hnd)
 {
 	int rc = 1;
 	struct timespec dly = {5, 0};
 	int conn_rc;
 
 	slv = slave;
-	slv->fd = fd;
+	slv->mp_hnd = hnd;
 	sem_init(&slv->started, 0, 0);
 	slv->slave_alive = 0;
 	slv->slave_must_die = 0;
@@ -387,7 +387,7 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 	slv->rx_buff = NULL;
 	slv->m_h_resp_valid = 0;
 
-	rc = riodp_mbox_create_handle(slv->mp_num, 0, &slv->mb);
+	rc = riomp_sock_mbox_create_handle(slv->mp_num, 0, &slv->mb);
 	if (rc) {
 		ERR("riodp_mbox_create ERR %d\n", rc);
 		goto fail;
@@ -395,36 +395,36 @@ extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 	slv->mb_valid = 1;
 
 	do {
-		rc = riodp_socket_socket(slv->mb, &slv->skt_h);
+		rc = riomp_sock_socket(slv->mb, &slv->skt_h);
 		if (rc) {
-			ERR("riodp_socket_socket ERR %d\n", rc);
+			ERR("riomp_sock_socket ERR %d\n", rc);
 			goto fail;
 		};
 
-		conn_rc = riodp_socket_connect(slv->skt_h, slv->mast_did, 0,
+		conn_rc = riomp_sock_connect(slv->skt_h, slv->mast_did, 0,
 					fmd->cfg->mast_cm_port);
 		if (!conn_rc)
 			break;
 
 		if (ETIME == conn_rc) {
-			ERR("riodp_socket_connect ERR %d\n", conn_rc);
+			ERR("riomp_sock_connect ERR %d\n", conn_rc);
 			nanosleep(&dly, NULL);
 		};
-		rc = riodp_socket_close(&slv->skt_h);
+		rc = riomp_sock_close(&slv->skt_h);
 		if (rc) {
-			ERR("riodp_socket_close ERR %d\n", rc);
+			ERR("riomp_sock_close ERR %d\n", rc);
 		};
 	} while (conn_rc);
 
 	if (conn_rc) {
-		ERR("riodp_socket_connect ERR %d\n", conn_rc);
+		ERR("riomp_sock_connect ERR %d\n", conn_rc);
 		goto fail;
 	};
 
 	slv->skt_valid = 1;
 	
-        if (riodp_socket_request_send_buffer(slv->skt_h, &slv->tx_buff)) {
-                riodp_socket_close(&slv->skt_h);
+        if (riomp_sock_request_send_buffer(slv->skt_h, &slv->tx_buff)) {
+                riomp_sock_close(&slv->skt_h);
                 goto fail;
         };
 	slv->rx_buff = malloc(4096);
@@ -490,7 +490,7 @@ void update_master_flags_from_peer(void)
 	slv->s2m->fset.flag = htonl(flag);
 	
 	slv->tx_buff_used = 1;
-	slv->tx_rc |= riodp_socket_send(slv->skt_h, slv->tx_buff,
+	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff,
 				FMD_P_S2M_CM_SZ);
 	sem_post(&slv->tx_mtx);
 };

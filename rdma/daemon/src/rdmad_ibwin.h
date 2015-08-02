@@ -43,7 +43,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cinttypes>
 
 #include "rdma_types.h"
-#include "riodp_mport_lib.h"
+#include <rapidio_mport_mgmt.h>
+#include "../../../include/rapidio_mport_dma.h"
 #include "liblog.h"
 #include "libcli.h"
 
@@ -93,16 +94,16 @@ class ibwin
 {
 public:
 	/* Constructor */
-	ibwin(int mport_fd, unsigned win_num, uint64_t size) :
-	mport_fd(mport_fd), win_num(win_num), rio_addr(RIO_MAP_ANY_ADDR),
+	ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size) :
+	mport_hnd(mport_hnd), win_num(win_num), rio_addr(RIO_MAP_ANY_ADDR),
 	phys_addr(0), size(size)
 	{
 
 		/* First, obtain an inbound handle from the mport driver */
-		if (riodp_ibwin_map(mport_fd, &rio_addr, size, &phys_addr)) {
-			CRIT("riodp_ibwin_map() failed: %s\n", strerror(errno));
+		if (riomp_dma_ibwin_map(mport_hnd, &rio_addr, size, &phys_addr)) {
+			CRIT("riomp_dma_ibwin_map() failed: %s\n", strerror(errno));
 			throw ibwin_map_exception(
-				"ibwin::ibwin() failed in riodp_ibwin_map");
+				"ibwin::ibwin() failed in riomp_dma_ibwin_map");
 		}
 
 		INFO("%d, rio_addr = 0x%lX, size = 0x%lX, phys_addr = 0x%lX\n",
@@ -131,8 +132,8 @@ public:
 
 		/* Free inbound window */
 		INFO("win_num = %d, phys_addr = 0x%lX\n", win_num, phys_addr);
-		if (riodp_ibwin_free(mport_fd, &phys_addr))
-			perror("free(): riodp_ibwin_free()");
+		if (riomp_dma_ibwin_free(mport_hnd, &phys_addr))
+			perror("free(): riomp_dma_ibwin_free()");
 	} /* free() */
 
 	void dump_info(struct cli_env *env)
@@ -305,7 +306,7 @@ public:
 	vector<mspace *>& get_mspaces() { return mspaces; };
 
 private:
-	int		mport_fd;	/* Master port file descriptor */
+	riomp_mport_t mport_hnd;	/* Master port handle */
 	unsigned	win_num;	/* window number */
 	uint64_t	rio_addr;	/* starting address in RIO space */
 	uint64_t	phys_addr;	/* starting physical address */

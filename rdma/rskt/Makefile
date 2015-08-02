@@ -29,10 +29,6 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-KDIR ?= /usr/src/linux
-
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
-
 LOG_LEVEL ?= 6
 
 DEBUG ?= DEBUG

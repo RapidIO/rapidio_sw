@@ -36,10 +36,9 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+#include <rapidio_mport_dma.h>
 
-#include "riodp_mport_lib.h"
-
-#define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
+#include <rapidio_mport_mgmt.h>
 
 /*
  * Initialization patterns. All bytes in the source buffer has bit 7
@@ -69,7 +68,7 @@ struct dma_async_wait_param {
 	int err;		/* error code returned to caller */
 };
 
-static int fd;
+static riomp_mport_t mport_hnd;
 static uint32_t tgt_destid;
 static uint64_t tgt_addr;
 static uint32_t offset = 0;
@@ -78,7 +77,6 @@ static uint32_t copy_size = TEST_BUF_SIZE;
 static uint32_t ibwin_size;
 static uint32_t tbuf_size = TEST_BUF_SIZE;
 static int debug = 0;
-static int exit_no_dev;
 
 struct timespec timediff(struct timespec start, struct timespec end)
 {
@@ -197,15 +195,14 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	uint64_t ib_handle;
 	void *ibmap;
 
-	ret = riodp_ibwin_map(fd, &rio_base, ib_size, &ib_handle);
+	ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
 	if (ret) {
 		printf("Failed to allocate/map IB buffer err=%d\n", ret);
-		close(fd);
 		return ret;
 	}
 
-	ibmap = mmap(NULL, ib_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, ib_handle);
-	if (ibmap == MAP_FAILED) {
+	ret = riomp_dma_map_memory(mport_hnd, ib_size, ib_handle, &ibmap);
+	if (ret) {
 		perror("mmap");
 		goto out;
 	}
@@ -218,15 +215,14 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 			(uint32_t)(ib_handle & 0xffffffff), ibmap);
 	printf("\t.... press Enter key to exit ....\n");
 	getchar();
-	if (exit_no_dev)
-		printf(">>> Device removal signaled <<<\n");
 	if (verify)
 		dmatest_verify((U8P)ibmap, 0, ib_size, 0, PATTERN_SRC | PATTERN_COPY, 0);
 
-	if (munmap(ibmap, ib_size))
+	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
+	if (ret)
 		perror("munmap");
 out:
-	ret = riodp_ibwin_free(fd, &ib_handle);
+	ret = riomp_dma_ibwin_free(mport_hnd, &ib_handle);
 	if (ret)
 		printf("Failed to release IB buffer err=%d\n", ret);
 
@@ -276,17 +272,18 @@ static int do_obwin_test(int random, int verify, int loop_count)
 		goto out;
 	}
 
-	ret = riodp_obwin_map(fd, tgt_destid, tgt_addr, tbuf_size, &obw_handle);
+	ret = riomp_dma_obwin_map(mport_hnd, tgt_destid, tgt_addr, tbuf_size, &obw_handle);
 	if (ret) {
-		printf("riodp_obwin_map failed err=%d\n", ret);
+		printf("riomp_dma_obwin_map failed err=%d\n", ret);
 		goto out;
 	}
 
 	printf("OBW handle 0x%x_%08x\n", (uint32_t)(obw_handle >> 32),
 		(uint32_t)(obw_handle & 0xffffffff));
 
-	obw_ptr = mmap(NULL, tbuf_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, obw_handle);
-	if (obw_ptr == MAP_FAILED) {
+
+	ret = riomp_dma_map_memory(mport_hnd, tbuf_size, obw_handle, &obw_ptr);
+	if (ret) {
 		perror("mmap");
 		obw_ptr = NULL;
 		goto out_unmap;
@@ -377,10 +374,11 @@ static int do_obwin_test(int random, int verify, int loop_count)
 		printf("\t\tFull Cycle time: %4f s\n", totaltime);
 	}
 
-	if (munmap(obw_ptr, tbuf_size))
+	ret = riomp_dma_unmap_memory(mport_hnd, tbuf_size, obw_ptr);
+	if (ret)
 		perror("munmap");
 out_unmap:
-	ret = riodp_obwin_free(fd, &obw_handle);
+	ret = riomp_dma_obwin_free(mport_hnd, &obw_handle);
 	if (ret)
 		printf("Failed to release OB window err=%d\n", ret);
 out:
@@ -437,14 +435,6 @@ static void display_help(char *program)
 	printf("\n");
 }
 
-static void test_sigaction(int sig, siginfo_t *siginfo, void *context)
-{
-	printf ("SIGIO info PID: %ld, UID: %ld CODE: 0x%x BAND: 0x%lx FD: %d\n",
-			(long)siginfo->si_pid, (long)siginfo->si_uid, siginfo->si_code,
-			siginfo->si_band, siginfo->si_fd);
-	exit_no_dev = 1;
-}
-
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
@@ -470,8 +460,7 @@ int main(int argc, char** argv)
 		{ }
 	};
 	char *program = argv[0];
-	struct rio_mport_properties prop;
-	struct sigaction action;
+	struct riomp_mgmt_mport_properties prop;
 	int rc = EXIT_SUCCESS;
 
 	while (1) {
@@ -532,20 +521,15 @@ int main(int argc, char** argv)
 		}
 	}
 
-	memset(&action, 0, sizeof(action));
-	action.sa_sigaction = test_sigaction;
-	action.sa_flags = SA_SIGINFO;
-	sigaction(SIGIO, &action, NULL);
-
-	fd = riodp_mport_open(mport_id, 0);
-	if (fd < 0) {
+	rc = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
+	if (rc < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
-			mport_id, errno);
+			mport_id, rc);
 		exit(EXIT_FAILURE);
 	}
 
-	if (!riodp_query_mport(fd, &prop)) {
-		display_mport_info(&prop);
+	if (!riomp_mgmt_query(mport_hnd, &prop)) {
+		riomp_mgmt_display_info(&prop);
 
 		if (prop.link_speed == 0) {
 			printf("SRIO link is down. Test aborted.\n");
@@ -556,9 +540,6 @@ int main(int argc, char** argv)
 		printf("Failed to obtain mport information\n");
 		printf("Using default configuration\n\n");
 	}
-
-	fcntl(fd, F_SETOWN, getpid());
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | FASYNC);
 
 	if (ibwin_size) {
 		printf("+++ RapidIO Inbound Window Mode +++\n");
@@ -576,6 +557,6 @@ int main(int argc, char** argv)
 	}
 
 out:
-	close(fd);
+	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

@@ -59,6 +59,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include <rapidio_mport_mgmt.h>
+
 #include "librsktd_dmn.h"
 #include "librsktd_private.h"
 #include "liblist.h"
@@ -94,8 +96,8 @@ struct dmn_globals {
 	uint32_t num_ms;
 	uint32_t ms_size;
 
-	int mpfd;
-	struct rio_mport_properties qresp;
+	riomp_mport_t mp_hnd;
+	struct riomp_mgmt_mport_properties qresp;
 	int all_must_die;
 
 	sem_t loop_started;
@@ -107,9 +109,9 @@ struct dmn_globals {
 	pthread_t thread; 
 	int mb_valid;
 	sem_t mb_mtx;
-	riodp_mailbox_t mb;
+	riomp_mailbox_t mb;
 	int skt_valid;
-	riodp_socket_t cm_acc_h;
+	riomp_sock_t cm_acc_h;
 
 	/* RDMA Memory Space Database for this RSKT Daemon */
 	struct mso_info mso;
