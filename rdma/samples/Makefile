@@ -28,7 +28,7 @@ BUILD_STRING_CPP = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_P
 	-o $@ $(RDMAAPP_CFLAGS) \
 	src/$@.cpp -lrt -lcli -llist -llog -lmport -lrdma -pthread
 
-all: rdma_server rdma_client rdma_user multi_ms_server multi_ms_client
+all: rdma_server rdma_client rdma_user multi_ms_server multi_ms_client create_and_die
 
 # RDMA Server App
 rdma_server: src/rdma_server.c $(RDMA_APP_DEPS)
@@ -55,5 +55,11 @@ multi_ms_client: src/multi_ms_client.cpp $(RDMA_APP_DEPS)
 	@echo ---------- Building multi_ms_client ...
 	$(BUILD_STRING_CPP)
 
+# Tests auto-cleanup by the daemon of msos, ms's and msubs created by an app
+# that later dies
+create_and_die:	src/create_and_die.cpp $(RDMA_APP_DEPS)
+	@echo ---------- Building create_and_die
+	$(BUILD_STRING_CPP)
+
 clean:
-	@rm -Rf *.o *~ rdma_server rdma_client rdma_user multi_ms_server multi_ms_client
+	@rm -Rf *.o *~ rdma_server rdma_client rdma_user multi_ms_server multi_ms_client create_and_die

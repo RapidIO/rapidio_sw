@@ -600,7 +600,12 @@ void *rpc_thread_f(void *arg)
 			}
 		} else {
 			HIGH("Application has closed connection. Exiting!\n");
+			/* First destroy mso corresponding to socket */
+			if (owners.destroy_mso(other_server)) {
+				WARN("Failed to find mso using this sock conn\n");
+			}
 			delete other_server;
+
 			pthread_exit(0);
 		}
 	} /* while */
@@ -614,8 +619,8 @@ int run_rpc_alternative()
 	try {
 		server = new unix_server();
 	}
-	catch(unix_sock_exception e) {
-		cout << e.err << endl;
+	catch(unix_sock_exception& e) {
+		CRIT("Failed to create server: %s \n",  e.err);
 		return 1;
 	}
 

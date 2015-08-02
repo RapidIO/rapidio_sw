@@ -41,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_ms_owner.h"
 
 #include "libcli.h"
+#include "liblog.h"
 #include "unix_sock.h"
 
 using namespace std;
@@ -199,20 +200,20 @@ public:
 
 	int destroy_mso(unix_server *other_server)
 	{
-		has_socket	msohs(other_server);
-
 		pthread_mutex_lock(&lock);
 
+		has_socket msohs(other_server);
 		auto mso_it = find_if(begin(owners), end(owners), msohs);
-		/* Not found, return error */
+
+		/* Not found, warn and return code */
 		if (mso_it == owners.end()) {
-			ERR("Could not find any MSOs with the specified socket!\n");
+			WARN("Could not find any MSOs with the specified socket!\n");
 			pthread_mutex_unlock(&lock);
 			return -1;
 		}
 
 		DBG("mso with specified socket found, name='%s'\n",
-				(*mso_it)->get_mso_name());
+						(*mso_it)->get_mso_name());
 
 		/* Mark msoid as being free */
 		msoid_free_list[(*mso_it)->get_msoid()] = true;
@@ -225,7 +226,7 @@ public:
 
 		pthread_mutex_unlock(&lock);
 
-		return 1;
+		return 0;
 	} /* destroy_mso() */
 
 	int destroy_mso(uint32_t msoid)
