@@ -66,6 +66,7 @@ RDMAD_SOURCES = src/rdma_mq_msg.c \
 		daemon/src/rdmad_main.cpp \
 		daemon/src/rdmad_console.c \
 		daemon/src/rdmad_ms_owner.cpp \
+		daemon/src/rdmad_ms_owners.cpp \
 		daemon/src/rdmad_mspace.cpp \
 		daemon/src/rdmad_inbound.cpp \
 		daemon/src/rdmad_srvr_threads.cpp \

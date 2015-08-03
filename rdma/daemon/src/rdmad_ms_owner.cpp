@@ -161,3 +161,38 @@ int ms_owner::close(uint32_t mso_conn_id)
 	return 1;
 } /* close() */
 
+void ms_owner::add_ms(mspace *ms)
+{
+	INFO("Adding msid(0x%X) to msoid(0x%X)\n", ms->get_msid(), msoid);
+	ms_list.push_back(ms);
+} /* add_ms() */
+
+int ms_owner::remove_ms(mspace* ms)
+{
+	/* Find memory space by the handle, return error if not there */
+	auto it = find(begin(ms_list), end(ms_list), ms);
+	if (it == end(ms_list)) {
+		WARN("ms('%s', 0x%X) not owned by msoid('%s',0x%X)\n",
+				ms->get_name(), ms->get_msid(),
+				name.c_str(), msoid);
+		return -1;
+	}
+
+	/* Erase memory space handle from list */
+	INFO("Removing msid(0x%X) from msoid(0x%X)\n", ms->get_msid(), msoid);
+	ms_list.erase(it);
+
+	return 1;
+} /* remove_ms_h() */
+
+void ms_owner::dump_info(struct cli_env *env)
+{
+	sprintf(env->output, "%8X %32s\t", msoid, name.c_str());
+	logMsg(env);
+	for (auto& ms : ms_list) {
+		sprintf(env->output, "%8X ", ms->get_msid());
+		logMsg(env);
+	}
+	sprintf(env->output, "\n");
+	logMsg(env);
+} /* dump_info() */
