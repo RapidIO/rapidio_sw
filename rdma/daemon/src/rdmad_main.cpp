@@ -186,7 +186,8 @@ void *rpc_thread_f(void *arg)
 
 					int ret = owners.open_mso(in->owner_name,
 							&out->msoid,
-							&out->mso_conn_id);
+							&out->mso_conn_id,
+							other_server);
 					out->status = (ret > 0) ? 0 : ret;
 				}
 				break;
@@ -603,8 +604,15 @@ void *rpc_thread_f(void *arg)
 			HIGH("Application has closed connection. Exiting!\n");
 			/* First destroy mso corresponding to socket */
 			if (owners.destroy_mso(other_server)) {
-				WARN("Failed to find mso using this sock conn\n");
+				WARN("Failed to find owner mso using this sock conn\n");
 			}
+
+			/* Now find out if this socket is a user socket for an mso. If the
+			 * user app shuts down without closing the mso, we do it
+			 * here.
+			 */
+			owners.close_mso(other_server);
+
 			delete other_server;
 
 			pthread_exit(0);

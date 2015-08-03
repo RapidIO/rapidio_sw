@@ -57,12 +57,33 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace std;
 
+class mso_user
+{
+public:
+	mso_user(uint32_t mso_conn_id,
+		 unix_server *user_server, msg_q<mq_close_mso_msg> *mq) :
+		mso_conn_id(mso_conn_id), user_server(user_server), mq(mq) {}
+	bool operator==(uint32_t mso_conn_id) {
+		return this->mso_conn_id == mso_conn_id;
+	}
+	bool operator==(unix_server *user_server) {
+		return this->user_server == user_server;
+	}
+
+	msg_q<mq_close_mso_msg> *get_mq() { return mq; }
+	unix_server *get_server() { return user_server; }
+
+private:
+	uint32_t	mso_conn_id;
+	unix_server 	*user_server;
+	msg_q<mq_close_mso_msg>	*mq;
+};
+
 class ms_owner
 {
 public:
 	/* Constructor */
-	ms_owner(const char *owner_name, unix_server *other_server, uint32_t msoid) :
-		other_server(other_server), name(owner_name), msoid(msoid), mso_conn_id(MSO_CONN_ID_START) {}
+	ms_owner(const char *owner_name, unix_server *owner_server, uint32_t msoid);
 
 	/* Destructor */
 	~ms_owner();
@@ -81,7 +102,6 @@ public:
 	/* Stores handle of memory spaces currently owned by owner */
 	void add_ms(mspace *ms);
 
-
 	/* Removes handle of memory space from list of owned spaces */
 	int remove_ms(mspace* ms);
 
@@ -90,21 +110,29 @@ public:
 
 	void dump_info(struct cli_env *env);
 
-	int open(uint32_t *msoid, uint32_t *mso_conn_id);
+	int open(uint32_t *msoid, uint32_t *mso_conn_id, unix_server *user_server);
 
 	int close(uint32_t mso_conn_id);
 
-	unix_server	*other_server;
+	int close(unix_server *other_server);
+
+	unix_server *get_owner_server() const { return owner_server; }
+
+	bool has_user_server(unix_server *server)
+	{
+		auto it = find(begin(users), end(users), server);
+		return (it != end(users));
+	}
 
 private:
 	int close_connections();
 
-	string		name;
-	uint32_t	msoid;
-	uint32_t	mso_conn_id;
+	string			name;
+	unix_server		*owner_server;
+	uint32_t		msoid;
 	vector<mspace *>	ms_list;
-	vector<unix_server *>	user_list;
-	vector<msg_q<mq_close_mso_msg> *> mq_list;
+	vector<mso_user>	users;
+	uint32_t		mso_conn_id;	// Next available mso_conn_id
 };
 
 

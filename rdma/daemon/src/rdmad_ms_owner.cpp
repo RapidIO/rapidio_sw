@@ -50,40 +50,35 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_mspace.h"
 #include "rdmad_main.h"
 
-struct close_conn_to_mso {
-	close_conn_to_mso(uint32_t msoid) : ok(true), msoid(msoid) {}
-
-	void operator()(msg_q<mq_close_mso_msg> *close_mq)
-	{
-		struct mq_close_mso_msg	*close_msg;
-
-		close_mq->get_send_buffer(&close_msg);
-		close_msg->msoid = msoid;
-		if (close_mq->send())
-			ok = false;
-	}
-
-	bool ok;
-
-private:
-	uint32_t msoid;
-};
-
 int ms_owner::close_connections()
 {
-	close_conn_to_mso	cctm(msoid);
-	
 	if (!shutting_down) {
 		INFO("Sending messages for all apps which have 'open'ed this mso\n");
 	}
 
-	/* Send messages for all connections indicating mso will be dropped */
-	for_each(begin(mq_list), end(mq_list), cctm);
+	bool ok = true;
 
-	return cctm.ok ? 0 : -1;
+	/* Send messages for all connections indicating mso will be destroyed */
+	for (mso_user& user : users) {
+		struct mq_close_mso_msg	*close_msg;
 
+		user.get_mq()->get_send_buffer(&close_msg);
+		close_msg->msoid = msoid;
+		if (user.get_mq()->send()) {
+			ERR("Failed to send close message for mso_conn_id(0x%X)\n",
+					mso_conn_id);
+			ok = false;
+		}
+	}
+
+	return ok ? 0 : -1;
 } /* close_connections() */
 
+ms_owner::ms_owner(const char *owner_name, unix_server *owner_server, uint32_t msoid) :
+	 name(owner_name), owner_server(owner_server), msoid(msoid),
+	 mso_conn_id(MSO_CONN_ID_START)
+{
+}
 
 ms_owner::~ms_owner()
 {
@@ -100,13 +95,22 @@ ms_owner::~ms_owner()
 		ms->destroy();
 	}
 
-	/* Destroy message queues before dying! */
-	for (auto mq_ptr : mq_list)
-		delete mq_ptr;
+	/* Destroy message queues in the users' info */
+	for (auto user : users) {
+		delete user.get_mq();
+		/* Don't delete the server */
+	}
 } /* ~ms_owner() */
 
-int ms_owner::open(uint32_t *msoid, uint32_t *mso_conn_id)
+int ms_owner::open(uint32_t *msoid, uint32_t *mso_conn_id, unix_server *user_server)
 {
+	/* Don't allow the same application to open the same mso twice */
+	auto it = find(begin(users), end(users), user_server);
+	if (it != end(users)) {
+		ERR("mso('%s') already open by same app\n", name.c_str());
+		return -1;
+	}
+
 	stringstream		qname;
 
 	/* Prepare POSIX message queue name */
@@ -123,41 +127,46 @@ int ms_owner::open(uint32_t *msoid, uint32_t *mso_conn_id)
 	}
 	INFO("Message queue %s created\n", qname.str().c_str());
 
-	/* Add message queue info to list */
-	mq_list.push_back(close_mq);
-
 	/* Return msoid and mso_conn_id */
 	*mso_conn_id = this->mso_conn_id++;
 	*msoid = this->msoid;
-	
+	users.emplace_back(*mso_conn_id, user_server, close_mq);
+
 	return 1;
 } /* open() */
 
-struct close_mq_has_name {
-	close_mq_has_name(const string& name) : name(name) {}
-	bool operator()(msg_q<mq_close_mso_msg> *close_mq)
-	{
-		return close_mq->get_name() == name;
+int ms_owner::close(unix_server *other_server)
+{
+	auto it = find(begin(users), end(users), other_server);
+	if (it == end(users)) {
+		ERR("mso is not using specified socket server\n");
+		return -1;
 	}
-private:
-	string name;
-};
+
+	/* Destroy message queue used to notify user */
+	DBG("Destroying mq('%s')\n", it->get_mq()->get_name().c_str());
+	delete it->get_mq();
+
+	/* Erase user element containing user server socket and mso_conn_id */
+	users.erase(it);
+
+	return 1;
+} /* close() */
 
 int ms_owner::close(uint32_t mso_conn_id)
 {
-	stringstream		qname;
+	auto it = find(begin(users), end(users), mso_conn_id);
+	if (it == end(users)) {
+		ERR("Cannot find user with mso_conn_id(0x%X)\n", mso_conn_id);
+		return -1;
+	}
 
-	/* Prepare queue name */
-	qname << '/' << name << mso_conn_id;
-
-	/* Find entry with queue name */
-	close_mq_has_name	cmhn(qname.str());
-	auto it = find_if(begin(mq_list), end(mq_list), cmhn);
-
-	/* Delete queue corresponding to connection, & remove entry from list */
-	delete *it;
-	mq_list.erase(it);
+	/* Destroy message queue used to notify user */
+	DBG("Destroying mq('%s')\n", it->get_mq()->get_name().c_str());
+	delete it->get_mq();
 	
+	/* Erase user element containing user server socket and mso_conn_id */
+	users.erase(it);
 	return 1;
 } /* close() */
 
