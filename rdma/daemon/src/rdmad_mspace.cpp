@@ -45,6 +45,7 @@
 #include <sstream>
 
 #include "cm_sock.h"
+#include "liblog.h"
 #include "rdmad_cm.h"
 #include "rdma_mq_msg.h"
 #include "rdmad_mspace.h"
@@ -54,36 +55,13 @@
 #include "rdmad_srvr_threads.h"
 #include "rdmad_main.h"
 
-struct send_close_msg {
-	send_close_msg(uint32_t msid) :
-			ok(true), msid(msid) {
-	}
-
-	void operator()(msg_q<mq_close_ms_msg> *close_mq) {
-		struct mq_close_ms_msg *close_msg;
-
-		close_mq->get_send_buffer(&close_msg);
-		close_msg->msid = msid;
-
-		if (close_mq->send()) {
-			ERR("Failed to close message queue for msid(0x%X)\n",
-			                msid);
-			ok = false;
-		}
-	}
-	;
-
-	bool ok;
-
-private:
-	uint32_t msid;
-};
-
 mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
                 uint64_t phys_addr, uint64_t size) :
 		name(name), msid(msid), rio_addr(rio_addr), phys_addr(
-		                phys_addr), size(size), free(true), ms_open_id(
-		                MS_OPEN_ID_START), accepted(false) {
+		                phys_addr), size(size), free(true),
+		                current_ms_conn_id(MS_CONN_ID_START),
+		                accepted(false)
+{
 	INFO("name=%s, msid=0x%08X, rio_addr=0x%lX, size=0x%lX\n", name, msid,
 	                rio_addr, size);
 
@@ -91,10 +69,25 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 	fill(msubindex_free_list, msubindex_free_list + MSUBINDEX_MAX + 1,
 	                true);
 
-	/* Initialize semaphore that will protect the destids list */
+	/* Initialize semaphores that will protect the lists */
 	if (sem_init(&destids_sem, 0, 1) == -1) {
 		CRIT("Failed to initialize destids_sem: %s\n", strerror(errno));
 		throw mspace_exception("Failed to initialize destids_sem");
+	}
+
+	if (sem_init(&users_sem, 0, 1) == -1) {
+		CRIT("Failed to initialize users_sem: %s\n", strerror(errno));
+		throw mspace_exception("Failed to initialize users_sem");
+	}
+
+	if (sem_init(&msubspaces_sem, 0, 1) == -1) {
+		CRIT("Failed to initialize subspaces_sem: %s\n", strerror(errno));
+		throw mspace_exception("Failed to initialize subpaces_sem");
+	}
+
+	if (sem_init(&msubindex_free_list_sem, 0, 1) == -1) {
+		CRIT("Failed to initialize subspaces_sem: %s\n", strerror(errno));
+		throw mspace_exception("Failed to initialize msubindex_free_list_sem");
 	}
 } /* constructor */
 
@@ -108,9 +101,8 @@ int mspace::notify_remote_clients() {
 	                name.c_str(), destids.size());
 
 	/* For each element in the destids list, send a destroy message */
-	for (auto it = begin(destids); it != end(destids); it++) {
-		uint32_t destid = *it;
-
+	sem_wait(&destids_sem);
+	for (auto& destid : destids ) {
 		/* Need to use a 'prov' socket to send the CM_DESTROY_MS */
 		sem_wait(&prov_daemon_info_list_sem);
 		auto prov_it = find(begin(prov_daemon_info_list),
@@ -156,7 +148,7 @@ int mspace::notify_remote_clients() {
 			 * code is irrelevant. The main thing is NOT to be stuck here.
 			 */
 			ERR("Did not receive destroy_ack from destid(0x%X)\n",
-			                *it);
+			                destid);
 			continue;
 		}
 		if (dam->server_msid != dm->server_msid)
@@ -164,11 +156,44 @@ int mspace::notify_remote_clients() {
 			                dam->server_msid);
 		else {
 			HIGH("destroy_ack received from daemon destid(0x%X)\n",
-			                *it);
+			                destid);
 		}
 	} /* for() */
+
+	/* Now clear the list */
+	destids.clear();
+
+	sem_post(&destids_sem);
+
 	return 0;
 } /* notify_remote_clients() */
+
+int mspace::close_connections()
+{
+	sem_wait(&users_sem);
+
+	HIGH("Sending close messages to applications which have 'open'ed '%s'\n",
+	                name.c_str());
+
+	/* Tell local apps which have opened the ms that the ms will be destroyed */
+	for (ms_user& user : users) {
+		struct mq_close_ms_msg *close_msg;
+
+		user.get_mq()->get_send_buffer(&close_msg);
+		close_msg->msid = msid;
+
+		if (user.get_mq()->send()) {
+			ERR("Failed to close queue for msid(0x%X)\n", msid);
+		}
+		delete user.get_mq();
+	}
+
+	users.clear();
+
+	sem_post(&users_sem);
+
+	return 0;
+} /* close_connections() */
 
 int mspace::destroy() {
 	/* Before destroying a memory space, tell its clients that it is being
@@ -177,9 +202,6 @@ int mspace::destroy() {
 		WARN("Failed to notify some or all remote clients\n");
 		return -1;
 	}
-	sem_wait(&destids_sem);
-	destids.clear();
-	sem_post(&destids_sem);
 
 	/* Close connections from other local 'user' applications and
 	 * delete message queues used to communicate with those apps.
@@ -188,8 +210,6 @@ int mspace::destroy() {
 		WARN("Connection(s) to msid(0x%X) did not close\n", msid);
 		return -2;
 	}
-	for (auto mq_ptr : users_mq_list)
-		delete mq_ptr;
 
 	/* Remove all subspaces; they can't exist when the memory space is
 	 * marked as free.
@@ -252,10 +272,12 @@ void mspace::dump_info(struct cli_env *env) {
 	sprintf(env->output, "destids: ");
 	logMsg(env);
 
+	sem_wait(&destids_sem);
 	for (auto& destid : destids) {
 		sprintf(env->output, "%u ", destid);
 		logMsg(env);
 	}
+	sem_post(&destids_sem);
 	sprintf(env->output, "\n");
 	logMsg(env);
 } /* dump_info() */
@@ -268,25 +290,30 @@ void mspace::dump_info_msubs_only(struct cli_env *env) {
 	                "----", "----", "---------");
 	logMsg(env);
 
+	sem_wait(&msubspaces_sem);
 	for (auto& msub : msubspaces) {
 		msub.dump_info(env);
 	}
+	sem_post(&msubspaces_sem);
 } /* dump_info_msubs_only() */
 
 void mspace::dump_info_with_msubs(struct cli_env *env) {
 	dump_info(env);
+	sem_wait(&msubspaces_sem);
 	if (msubspaces.size()) {
 		dump_info_msubs_only(env);
 	} else {
 		puts("No subspaces in above memory space");
 	}
+	sem_post(&msubspaces_sem);
 	sprintf(env->output, "\n"); /* Extra line */
 	logMsg(env);
 } /* dump_info_with_msubs() */
 
 /* For creating a memory sub-space */
 int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
-                uint32_t *msubid, uint64_t *rio_addr, uint64_t *phys_addr) {
+                uint32_t *msubid, uint64_t *rio_addr, uint64_t *phys_addr)
+{
 	/* Make sure we don't straddle memory space boundaries */
 	if ((offset + req_size) > this->size) {
 		ERR("offset(0x%X)+req_size(0x%X) OOR\n", offset, req_size);
@@ -294,12 +321,15 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 	}
 
 	/* Determine index of new, free, memory sub-space */
+	sem_wait(&msubindex_free_list_sem);
 	bool *fmsubit = find(msubindex_free_list,
 	                msubindex_free_list + MSUBINDEX_MAX + 1, true);
 	if (fmsubit == (msubindex_free_list + MSUBINDEX_MAX + 1)) {
 		ERR("No free subspace handles!\n");
+		sem_post(&msubindex_free_list_sem);
 		return -2;
 	}
+	sem_post(&msubindex_free_list_sem);
 
 	/* Set msub ID as being used */
 	*fmsubit = false;
@@ -315,22 +345,25 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 	/* Determine actual size of msub */
 	*size = req_size;
 
-	/* Create subspace at specified offset */
-	msubspace msub(msid, *rio_addr, *phys_addr, *size, *msubid);
-
 	/* Add to list of subspaces */
-	msubspaces.push_back(msub);
+	sem_wait(&msubspaces_sem);
+	msubspaces.emplace_back(msid, *rio_addr, *phys_addr, *size, *msubid);
+	sem_post(&msubspaces_sem);
 
 	return 1;
 } /* create_msubspace() */
 
-int mspace::open(uint32_t *msid, uint32_t *ms_open_id, uint32_t *bytes) {
-	stringstream qname;
+int mspace::open(uint32_t *msid, uint32_t *ms_conn_id, uint32_t *bytes)
+{
+	/* Return msid, mso_open_id, and bytes */
+	*ms_conn_id 	= this->current_ms_conn_id++;
+	*msid 		= this->msid;
+	*bytes 		= this->size;
 
-	/* Prepare POSIX message queue name */
-	qname << '/' << name << this->ms_open_id;
 
 	/* Create POSIX message queue */
+	stringstream qname;
+	qname << '/' << name << *ms_conn_id;
 	msg_q<mq_close_ms_msg> *close_mq;
 	try {
 		close_mq = new msg_q<mq_close_ms_msg>(qname.str(), MQ_CREATE);
@@ -339,41 +372,29 @@ int mspace::open(uint32_t *msid, uint32_t *ms_open_id, uint32_t *bytes) {
 		return -1;
 	}
 
-	users_mq_list.push_back(close_mq);
-
-	/* Return msid, mso_open_id, and bytes */
-	*ms_open_id = this->ms_open_id++;
-	*msid = this->msid;
-	*bytes = size;
+	/* Store info about user that opened the ms in the 'users' list */
+	sem_wait(&users_sem);
+	users.emplace_back(this->msoid, *ms_conn_id, close_mq);
+	sem_post(&users_sem);
 
 	return 1;
 } /* open() */
 
-int mspace::close_connections() {
-	send_close_msg send_close(msid);
+bool mspace::has_user_with_msoid(uint32_t msoid, uint32_t *ms_conn_id)
+{
+	auto it = find(begin(users), end(users), msoid);
 
-	HIGH("Sending close messages to apps which have 'open'ed '%s'\n",
-	                name.c_str());
-
-	/* Send messages for all connections indicating mso will be destroyed */
-	for_each(begin(users_mq_list), end(users_mq_list), send_close);
-
-	return send_close.ok ? 0 : -1;
-} /* close_connections() */
-
-struct mq_has_name {
-	mq_has_name(const string& name) :
-			name(name) {
+	if (it != end(users)) {
+		*ms_conn_id = it->get_ms_conn_id();
+		return true;
 	}
+	return false;
+} /* has_user_with_msoid() */
 
-	bool operator()(msg_q<mq_close_ms_msg> *mq) {
-		return mq->get_name() == name;
-	}
-private:
-	string name;
-};
+int mspace::close(uint32_t ms_conn_id)
+{
+	int rc;
 
-int mspace::close(uint32_t ms_open_id) {
 	/* Before closing a memory space, tell its clients that it is being
 	 * closed (connection must be dropped) and have them acknowledge. */
 	if (notify_remote_clients()) {
@@ -382,43 +403,49 @@ int mspace::close(uint32_t ms_open_id) {
 
 	/* If the memory space was in accepted state, clear that state */
 	/* FIXME: This assumes only 1 'open' to the ms and that the creator
-	 * of the ms does not call 'accept' on it. */
+	 * of the ms does not call 'accept' on it.
+	 * There is another problem. If the owner of the ms does accept
+	 * and the user tries to accept and fails the user may try to close
+	 * the 'ms. The statement below will cause the 'ms' to have
+	 * accepted = false even though the owner had set it to true. Next
+	 * time a user tries to do accept the flag will be false and 2 accepts
+	 * will be in effect. This needs to be thought through */
 	accepted = false;
 
-	stringstream qname;
-
-	/* Prepare queue name */
-	qname << '/' << name << ms_open_id;
-
-	/* Find the queue corresponding to the connection */
-	mq_has_name mqhn(qname.str());
-
-	auto it = find_if(begin(users_mq_list), end(users_mq_list), mqhn);
-	if (it == end(users_mq_list)) {
-		WARN("%s not found in users_mq_list\n", qname.str().c_str());
-		return -1;
+	sem_wait(&users_sem);
+	auto it = find(begin(users), end(users), ms_conn_id);
+	if (it == end(users)) {
+		WARN("ms_conn_id(0x%X) not found in user list\n", ms_conn_id);
+		rc = -1;
+	} else {
+		delete (*it).get_mq();
+		users.erase(it);
+		rc = 1;
 	}
+	sem_post(&users_sem);
 
-	delete *it; /* Delete message queue object */
-
-	users_mq_list.erase(it); /* Remove entry (pointer) from list */
-
-	return 1;
+	return rc;
 } /* close() */
 
-int mspace::destroy_msubspace(uint32_t msubid) {
+int mspace::destroy_msubspace(uint32_t msubid)
+{
+	int rc;
+
+	sem_wait(&msubspaces_sem);
 	/* Find memory sub-space in list within this memory space */
 	auto msub_it = find(msubspaces.begin(), msubspaces.end(), msubid);
 
 	/* Not found, return with error */
 	if (msub_it == msubspaces.end()) {
 		ERR("msubid 0x%X not found in %s\n", msubid, name.c_str());
-		return -1;
+		rc = -1;
+	} else {
+		/* Erase the subspace */
+		msubspaces.erase(msub_it);
+		rc = 1;
 	}
+	sem_post(&msubspaces_sem);
 
-	/* Erase the subspace */
-	msubspaces.erase(msub_it);
-
-	return 1;
+	return rc;
 } /* destroy_msubspace() */
 

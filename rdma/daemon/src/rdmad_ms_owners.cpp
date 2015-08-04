@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdmad_ms_owner.h"
 #include "rdmad_ms_owners.h"
+#include "rdmad_main.h"
 
 #include "libcli.h"
 #include "liblog.h"
@@ -196,6 +197,22 @@ void ms_owners::close_mso(unix_server *user_server)
 {
 	for(auto& owner : owners) {
 		if (owner->has_user_server(user_server)) {
+			/**
+			 * Find memory spaces opened by that owner and close
+			 * them.
+			 */
+			uint32_t msoid = owner->get_msoid();
+			mspace *ms;
+			do {
+				uint32_t ms_conn_id;
+				ms = the_inbound->get_mspace_open_by_msoid(msoid, &ms_conn_id);
+				if (ms) {
+					if( ms->close(ms_conn_id) < 0) {
+						ERR("Failed to close ms_conn_id(0x%X)\n",
+										ms_conn_id);
+					}
+				}
+			} while (ms != NULL);
 			INFO("Closing conn to owner due to dead socket\n");
 			owner->close(user_server);
 		}

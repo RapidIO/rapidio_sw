@@ -52,7 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace std;
 
-#define MS_OPEN_ID_START	0x1
+#define MS_CONN_ID_START	0x1
 
 #define MSID_WIN_SHIFT  28
 #define MSID_WIN_MASK	0xF0000000
@@ -68,6 +68,24 @@ struct mspace_exception {
 	mspace_exception(const char *msg) : err(msg) {}
 
 	const char *err;
+};
+
+class ms_user
+{
+public:
+	ms_user(uint32_t msoid,
+		uint32_t ms_conn_id,
+		msg_q<mq_close_ms_msg> *close_mq) :
+	msoid(msoid), ms_conn_id(ms_conn_id), close_mq(close_mq)
+	{}
+
+	msg_q<mq_close_ms_msg> *get_mq() { return close_mq; }
+	uint32_t get_ms_conn_id() const { return ms_conn_id; }
+	bool operator ==(uint32_t ms_conn_id) { return ms_conn_id == this->ms_conn_id; }
+private:
+	uint32_t msoid;
+	uint32_t ms_conn_id;
+	msg_q<mq_close_ms_msg> *close_mq;
 };
 
 class mspace 
@@ -124,7 +142,7 @@ public:
 
 	int open(uint32_t *msid, uint32_t *ms_conn_id, uint32_t *bytes);
 
-
+	bool has_user_with_msoid(uint32_t msoid, uint32_t *ms_conn_id);
 
 	int close(uint32_t ms_conn_id);
 
@@ -149,19 +167,22 @@ private:
 	uint32_t	size;
 	uint32_t	msoid;
 	bool		free;
-	uint32_t	ms_open_id;
+	uint32_t	current_ms_conn_id;
 	bool		accepted;
 
-	/* List to keep track of users which have opened memory space */
-	vector<msg_q<mq_close_ms_msg> *> users_mq_list;
+	/* Info about users that have opened the ms */
+	vector<ms_user>		users;
+	sem_t			users_sem;
 
 	/* Memory sub-space indexes */
 	bool msubindex_free_list[MSUBINDEX_MAX+1];	/* List of memory sub-space IDs */
+	sem_t 			msubindex_free_list_sem;
 
 	/* Memory subspaces */
 	vector<msubspace>	msubspaces;
+	sem_t			msubspaces_sem;
 
-	/* List of destids of remote users of this memory space */
+	/* List of destids of remote clients of this memory space */
 	vector<uint16_t>	destids;
 	sem_t			destids_sem;
 }; /* mspace */

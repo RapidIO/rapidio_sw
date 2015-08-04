@@ -138,6 +138,22 @@ mspace* inbound::get_mspace(uint32_t msid)
 	return NULL;
 } /* get_mspace() */
 
+/* Get mspace OPENED by msoid */
+mspace* inbound::get_mspace_open_by_msoid(uint32_t msoid, uint32_t *ms_conn_id)
+{
+	sem_wait(&ibwins_sem);
+	for (auto& ibwin : ibwins) {
+		mspace *ms = ibwin.get_mspace_open_by_msoid(msoid, ms_conn_id);
+		if (ms) {
+			sem_post(&ibwins_sem);
+			return ms;
+		}
+	}
+	WARN("msid open with msoid(0x%X) not found\n", msoid);
+	sem_post(&ibwins_sem);
+	return NULL;
+} /* get_mspace_open_by_msoid() */
+
 /* get_mspace by msoid & msid */
 mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
 {
