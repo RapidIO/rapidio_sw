@@ -172,6 +172,8 @@ static int open_mport(struct peer_info *peer)
 		return -errno;
 	}
 
+	peer->mport_hnd = mport_hnd;
+
 	/* Read the properties. */
 	if (!riomp_mgmt_query(peer->mport_hnd, &prop)) {
 		riomp_mgmt_display_info(&prop);
@@ -187,8 +189,6 @@ static int open_mport(struct peer_info *peer)
 		/* Unlikely we fail on reading properties, but warn! */
 		WARN("%s: Error reading properties from mport!\n");
 	}
-
-	peer->mport_hnd = mport_hnd;
 
 	return 0;
 } /* open_mport() */
