@@ -1,6 +1,6 @@
 CXX ?= $(CROSS_COMPILE)g++
 AR=$(CROSS_COMPILE)ar
-KDIR?=/home/dems0n16/rio/linux-rapidio
+KDIR?=/usr/src/linux
 LINUX_INCLUDE_DIR ?= $(KDIR)/include
 LOG_LEVEL ?= 4
 PREFIX?=/usr

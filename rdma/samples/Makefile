@@ -1,6 +1,5 @@
 # Paths to libraries
 LIBRDMA_PATH=..
-LIBMPORT_PATH=../../libmport
 COMMON_LIBS_PATH=../../common/libs_so
 
 level?=$(LOG_LEVEL)
@@ -11,19 +10,17 @@ RDMAAPP_CFLAGS = --std=gnu++0x -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level)
 	-D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
 # Common dependencies
-RDMA_APP_DEPS= $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a ../src/* \
+RDMA_APP_DEPS= $(LIBRDMA_PATH)/librdma.a ../src/* \
 	../inc/* ../daemon/src/* ../daemon/inc/*
 
 # Common build strings
 # For C apps
-BUILD_STRING_C = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) -L../../common/libs_so \
-	-Wl,-rpath=$(LIBMPORT_PATH) \
+BUILD_STRING_C = $(CXX) -L$(LIBRDMA_PATH) -L$(COMMON_LIBS_PATH) \
 	-Wl,-rpath=$(COMMON_LIBS_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
 	src/$@.c -lrt -lcli -llist -llog -lmport -lrdma -pthread
 # For C++ apps
-BUILD_STRING_CPP = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) -L../../common/libs_so \
-	-Wl,-rpath=$(LIBMPORT_PATH) \
+BUILD_STRING_CPP = $(CXX) -L$(LIBRDMA_PATH) -L$(COMMON_LIBS_PATH) -L../../common/libs_so \
 	-Wl,-rpath=$(COMMON_LIBS_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
 	src/$@.cpp -lrt -lcli -llist -llog -lmport -lrdma -pthread

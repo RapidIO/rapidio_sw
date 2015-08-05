@@ -44,7 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdma_types.h"
 #include <rapidio_mport_mgmt.h>
-#include "../../../include/rapidio_mport_dma.h"
+#include "rapidio_mport_dma.h"
 #include "liblog.h"
 
 #include "rdmad_mspace.h"
