@@ -112,28 +112,31 @@ static int alt_rpc_call()
 
 	/* Send input parameters */
 	ret = client->send(sizeof(*in_msg));
-	if (ret) {
+	if (ret == 0) {
+		/* Receive output parameters */
+		ret = client->receive(&received_len);
+		if (ret) {
+			ERR("Failed to receive output from RDMA daemon");
+		}
+	} else {
 		ERR("Failed to send message to RDMA daemon, ret = %d\n", ret);
-		/* If it is a broken pipe, then the daemon has died. Delete the
-		 * socket client and set the initialization flag to 0. The client
-		 * application will be notified that the daemon is dead. Furthermore,
-		 * no more API calls will be possible until the library is
-		 * re-initialized.
-		 */
+	}
+
+	if (ret) {
 		if (ret == EPIPE) {
 			CRIT("Daemon has died. Terminating socket connection\n");
 			delete client;
+			client = nullptr;
+//			CRIT("Daemon has died. Purging local database!\n");
+//			purge_local_database();
 			init = 0;
+			ret = RDMA_DAEMON_UNREACHABLE;
+		} else {
+			CRIT("Failed: %s\n", strerror(errno));
 		}
-		return ret;
 	}
 
-	/* Receive output parameters */
-	if (client->receive(&received_len)) {
-		ERR("Failed to receive output from RDMA daemon");
-		return -4;
-	}
-	return 0;
+	return ret;
 } /* alt_rpc_call() */
 
 static int open_mport(struct peer_info *peer)
@@ -169,7 +172,7 @@ static int open_mport(struct peer_info *peer)
 		CRIT("riomp_mgmt_mport_create_handle(): %s\n", strerror(errno));
 		CRIT("Cannot open mport%d, is rio_mport_cdev loaded?\n",
 								peer->mport_id);
-		return -errno;
+		return RDMA_MPORT_OPEN_FAIL;
 	}
 
 	peer->mport_hnd = mport_hnd;
@@ -182,7 +185,7 @@ static int open_mport(struct peer_info *peer)
 		} else {
 			CRIT("DMA capability DISABLED\n");
 			riomp_mgmt_mport_destroy_handle(&peer->mport_hnd);
-			return -3;
+			return RDMA_NOT_SUPPORTED;
 		}
 		peer->destid = prop.hdid;
 	} else {
@@ -328,6 +331,13 @@ static void *wait_for_disc_thread_f(void *arg)
 
 int rdma_lib_init(void)
 {
+	int ret = 0;
+
+	if (init == 1) {
+		WARN("RDMA library already initialized\n");
+		return ret;
+	}
+
 	/* Create a client */
 	DBG("Creating client object...\n");
 	try {
@@ -335,27 +345,40 @@ int rdma_lib_init(void)
 	}
 	catch(unix_sock_exception e) {
 		CRIT("%s\n", e.err);
-		return -2;
+		client = nullptr;
+		ret = RDMA_MALLOC_FAIL;
 	}
 
 	/* Connect to server */
-	if( client->connect()) {
-		CRIT("Failed to connect to RDMA daemon. Is it running?\n");
-		return -3;
+	if (ret == 0) {
+		if (client->connect() == 0) {
+			INFO("Successfully connected to RDMA daemon\n");
+			client->get_recv_buffer((void **)&out_msg);
+			client->get_send_buffer((void **)&in_msg);
+		} else {
+			CRIT("Connect failed. Daemon running?\n");
+			ret = RDMA_DAEMON_UNREACHABLE;
+		}
 	}
-	INFO("Successfully connected to RDMA daemon\n");
 
-	client->get_recv_buffer((void **)&out_msg);
-	client->get_send_buffer((void **)&in_msg);
-
-	if (open_mport(&peer))
-		return -2;
+	/* Open mport */
+	if (ret == 0) {
+		ret = open_mport(&peer);
+		if (ret == 0) {
+			INFO("MPORT successfully opened\n");
+		} else {
+			CRIT("Failed to open mport\n");
+		}
+	}
 
 	/* Set initialization flag */
-	init = 1;
-	DBG("Library fully initialized\n ");
+	if (ret == 0) {
+		init = 1;
+		INFO("RDMA library fully initialized\n ");
+	} else if (client != nullptr)
+		delete client;
 
-	return 0;
+	return ret;
 } /* rdma_lib_init() */
 
 __attribute__((constructor)) int lib_init(void)
@@ -369,24 +392,31 @@ __attribute__((constructor)) int lib_init(void)
 	/* Make threads cancellable at some points (e.g. mq_receive) */
 	if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)) {
 		WARN("Failed to set cancel state:%s\n",strerror(errno));
-		return -3;
+		return RDMA_ERRNO;
 	}
 
 	return rdma_lib_init();
 } /* rdma_lib_init() */
 
+#define CHECK_LIB_INIT() if (!init) { \
+				WARN("RDMA library not initialized, re-initializing\n"); \
+				ret = rdma_lib_init(); \
+				if (ret) { \
+					ERR("Failed to re-initialize RDMA library\n"); \
+					return ret; \
+				} \
+			}
+
 int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 {
 	create_mso_input	in;
 	create_mso_output	out;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check that owner does not already exist */
 	if (find_mso_by_name(owner_name)) {
@@ -408,7 +438,7 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 	in_msg->type = CREATE_MSO;
 	in_msg->create_mso_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -478,14 +508,12 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 {
 	open_mso_input	in;
 	open_mso_output	out;
+	int		ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check that this owner isn't already open */
 	if (mso_is_open(owner_name)) {
@@ -507,7 +535,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	in_msg->type = OPEN_MSO;
 	in_msg->open_mso_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -583,15 +611,12 @@ int rdma_close_mso_h(mso_h msoh)
 {
 	close_mso_input		in;
 	close_mso_output	out;
-	close_ms		cms(msoh);
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL msoh */
 	if (!msoh) {
@@ -613,6 +638,7 @@ int rdma_close_mso_h(mso_h msoh)
 	DBG("ms_list now has %d elements\n", ms_list.size());
 
 	/* For each one of the memory spaces, close */
+	close_ms		cms(msoh);
 	for_each(ms_list.begin(), ms_list.end(), cms);
 
 	/* Fail on any error */
@@ -653,7 +679,7 @@ int rdma_close_mso_h(mso_h msoh)
 	in_msg->type = CLOSE_MSO;
 	in_msg->close_mso_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -661,7 +687,7 @@ int rdma_close_mso_h(mso_h msoh)
 
 	out = out_msg->close_mso_out;
 
-	/* Take it out of databse */
+	/* Take it out of database */
 	if (remove_loc_mso(msoh) < 0) {
 		WARN("Failed to find 0x%lX in db\n", msoh);
 		return -6;
@@ -698,15 +724,12 @@ int rdma_destroy_mso_h(mso_h msoh)
 {
 	destroy_mso_input	in;
 	destroy_mso_output	out;
-	destroy_ms		dms(msoh);
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 	
 	/* Check for NULL msoh */
 	if (!msoh) {
@@ -721,6 +744,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 	INFO("ms_list now has %d elements\n", ms_list.size());
 
 	/* For each one of the memory spaces, call destroy */
+	destroy_ms		dms(msoh);
 	for_each(ms_list.begin(), ms_list.end(), dms);
 
 	/* Fail on any error */
@@ -738,7 +762,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 
 	DBG("in.msoid = 0x%X\n", in.msoid);
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -764,14 +788,12 @@ int rdma_create_ms_h(const char *ms_name,
 	create_ms_input	 in;
 	create_ms_output out;
 	uint32_t	dummy_bytes;
+	int		ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL parameters */
 	if (!ms_name || !msoh || !msh) {
@@ -811,7 +833,7 @@ int rdma_create_ms_h(const char *ms_name,
 	in_msg->type = CREATE_MS;
 	in_msg->create_ms_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -839,7 +861,7 @@ struct destroy_msub {
 
 	void operator()(struct loc_msub * msub) {
 		if (rdma_destroy_msub_h(msh, msub_h(msub))) {
-			WARN("rdma_destroy_msub_h failed: msh=0x%lX, msubh=0x%lX",
+			WARN("rdma_destroy_msub_h failed: msh=0x%lX, msubh=0x%lX\n",
 							msh, msub_h(msub));
 			ok = false;
 		} else {
@@ -936,16 +958,14 @@ int rdma_open_ms_h(const char *ms_name,
 		   uint32_t *bytes,
 		   ms_h *msh)
 {
-	open_ms_input in;
-	open_ms_output out;
+	open_ms_input 	in;
+	open_ms_output 	out;
+	int		ret;
 
 	DBG("ENTER\n");
 
 	/* Check that library has been initialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
-	}
+	CHECK_LIB_INIT();
 
 	/* Prevent buffer overflow due to very long name */
 	size_t len = strlen(ms_name);
@@ -963,7 +983,7 @@ int rdma_open_ms_h(const char *ms_name,
 	in_msg->type = OPEN_MS;
 	in_msg->open_ms_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1024,14 +1044,12 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 {
 	close_ms_input	in;
 	close_ms_output	out;
+	int		ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL parameters */
 	if (!msoh || !msh) {
@@ -1097,7 +1115,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	in_msg->type = CLOSE_MS;
 	in_msg->close_ms_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1119,16 +1137,13 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 {
 	destroy_ms_input	in;
 	destroy_ms_output	out;
-	destroy_msub		dmsub(msh);
 	loc_ms 			*ms;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL parameters */
 	if (!msoh || !msh) {
@@ -1156,7 +1171,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	in_msg->type = DESTROY_MS;
 	in_msg->destroy_ms_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1204,14 +1219,12 @@ int rdma_create_msub_h(ms_h	msh,
 	(void)flags;
 	create_msub_input	in;
 	create_msub_output	out;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL */
 	if (!msh || !msubh) {
@@ -1241,7 +1254,7 @@ int rdma_create_msub_h(ms_h	msh,
 	in_msg->type = CREATE_MSUB;
 	in_msg->create_msub_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1274,14 +1287,12 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	destroy_msub_input	in;
 	destroy_msub_output	out;
 	struct loc_msub 	*msub;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL handles */
 	if (!msh || !msubh) {
@@ -1300,7 +1311,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	in_msg->type = DESTROY_MSUB;
 	in_msg->destroy_msub_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1385,14 +1396,12 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	accept_output		accept_out;
 	undo_accept_input	undo_accept_in;
 	undo_accept_output	undo_accept_out;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		ERR("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check that parameters are not NULL */
 	if (!loc_msh || !loc_msubh || !rem_msubh) {
@@ -1445,7 +1454,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	in_msg->type = ACCEPT_MS;
 	in_msg->accept_in = accept_in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		delete connect_mq;
@@ -1567,15 +1576,13 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	send_connect_input	in;
 	send_connect_output	out;
 	struct timespec	before, after, rtt;
+	int			ret;
 	struct loc_msub		*loc_msub = (struct loc_msub *)loc_msubh;
 
 	INFO("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		WARN("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Remote msubh pointer cannot point to NULL */
 	if (!rem_msubh) {
@@ -1636,7 +1643,7 @@ __sync_synchronize();
 	/* Set up Unix message parameters */
 	in_msg->type = SEND_CONNECT;
 	in_msg->send_connect_in = in;
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		delete accept_mq;
@@ -1759,14 +1766,12 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 {
 	send_disconnect_input	in;
 	send_disconnect_output	out;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		WARN("RDMA library not initialized\n");
-		return -1;
-	}
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check that parameters are not NULL */
 	if (!rem_msh) {
@@ -1846,7 +1851,7 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 	/* Set up Unix message parameters */
 	in_msg->type = SEND_DISCONNECT;
 	in_msg->send_disconnect_in = in;
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;

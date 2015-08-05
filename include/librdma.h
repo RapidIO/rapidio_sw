@@ -44,14 +44,22 @@ extern "C" {
 #endif
 
 /**
+ * Error codes
+ */
+#define RDMA_DAEMON_UNREACHABLE		0x1000
+#define RDMA_MALLOC_FAIL		0x1001
+#define RDMA_MPORT_OPEN_FAIL		0x1002
+#define RDMA_ERRNO			0x1003 /* Caller to check errno */
+#define RDMA_NOT_SUPPORTED		0x1004
+
+/**
  * Initialize RDMA library
  *
  * rdma_lib_init() is automatically called once, when the library is loaded
- * in response to a call to one the RDMA APIs. rdma_lib_init() needs to be
- * called again whenever an API fails to communicate with the RDMA daemon
- * and returns EPIPE (broken pipe).
+ * in response to a call to one the RDMA APIs. rdma_lib_init() may be
+ * called again whenever an API fails to retry or get a reason cod for failure.
  *
- * @return: 0 if successful, < 0 if unsuccessful
+ * @return: 0 if successful
  */
 int rdma_lib_init(void);
 
@@ -65,7 +73,7 @@ int rdma_lib_init(void);
  * @owner_name: [IN] Name of the memory space owner
  * @msoh: [OUT] Unique handle which is used to group ownership of memory spaces
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_create_mso_h(const char *owner_name, mso_h *msoh);
 
