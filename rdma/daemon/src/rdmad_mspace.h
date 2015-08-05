@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libcli.h"
 
+#include "unix_sock.h"
 #include "rdmad_msubspace.h"
 #include "prov_daemon_info.h"
 #include "msg_q.h"
@@ -73,17 +74,19 @@ struct mspace_exception {
 class ms_user
 {
 public:
-	ms_user(uint32_t msoid,
+	ms_user(unix_server *server,
 		uint32_t ms_conn_id,
 		msg_q<mq_close_ms_msg> *close_mq) :
-	msoid(msoid), ms_conn_id(ms_conn_id), close_mq(close_mq)
+	server(server), ms_conn_id(ms_conn_id), close_mq(close_mq)
 	{}
 
 	msg_q<mq_close_ms_msg> *get_mq() { return close_mq; }
 	uint32_t get_ms_conn_id() const { return ms_conn_id; }
 	bool operator ==(uint32_t ms_conn_id) { return ms_conn_id == this->ms_conn_id; }
+	bool operator ==(unix_server *server) { return server == this->server; }
+
 private:
-	uint32_t msoid;
+	unix_server *server;
 	uint32_t ms_conn_id;
 	msg_q<mq_close_ms_msg> *close_mq;
 };
@@ -140,9 +143,9 @@ public:
 	/* For finding a memory space by its name */
 	bool operator==(const char *name) { return this->name == name; }
 
-	int open(uint32_t *msid, uint32_t *ms_conn_id, uint32_t *bytes);
+	int open(uint32_t *msid, unix_server *user_server, uint32_t *ms_conn_id, uint32_t *bytes);
 
-	bool has_user_with_msoid(uint32_t msoid, uint32_t *ms_conn_id);
+	bool has_user_with_user_server(unix_server *server, uint32_t *ms_conn_id);
 
 	int close(uint32_t ms_conn_id);
 

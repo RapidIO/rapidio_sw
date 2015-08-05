@@ -71,8 +71,7 @@ public:
 	/* get_mspace by msoid, msid */
 	mspace *get_mspace(uint32_t msoid, uint32_t msid);
 
-	/* Get mspace OPENED by msoid */
-	mspace* get_mspace_open_by_msoid(uint32_t msoid, uint32_t *ms_conn_id);
+	mspace* get_mspace_open_by_server(unix_server *user_server, uint32_t *ms_conn_id);
 
 	/* Dump memory space info for a memory space specified by name */
 	int dump_mspace_info(struct cli_env *env, const char *name);
@@ -92,7 +91,7 @@ public:
 
 	/* Open memory space */
 	int open_mspace(const char *name,
-			uint32_t msoid,
+			unix_server *user_server,
 			uint32_t *msid,
 			uint32_t *ms_conn_id,
 			uint32_t *bytes);

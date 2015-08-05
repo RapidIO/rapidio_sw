@@ -353,13 +353,12 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 	return 1;
 } /* create_msubspace() */
 
-int mspace::open(uint32_t *msid, uint32_t *ms_conn_id, uint32_t *bytes)
+int mspace::open(uint32_t *msid, unix_server *user_server, uint32_t *ms_conn_id, uint32_t *bytes)
 {
 	/* Return msid, mso_open_id, and bytes */
 	*ms_conn_id 	= this->current_ms_conn_id++;
 	*msid 		= this->msid;
 	*bytes 		= this->size;
-
 
 	/* Create POSIX message queue */
 	stringstream qname;
@@ -374,22 +373,24 @@ int mspace::open(uint32_t *msid, uint32_t *ms_conn_id, uint32_t *bytes)
 
 	/* Store info about user that opened the ms in the 'users' list */
 	sem_wait(&users_sem);
-	users.emplace_back(this->msoid, *ms_conn_id, close_mq);
+	DBG("user with user_server(%p), ms_conn_id(0x%X) stored in msid(0x%X)\n",
+			user_server, *ms_conn_id, *msid);
+	users.emplace_back(user_server, *ms_conn_id, close_mq);
 	sem_post(&users_sem);
 
 	return 1;
 } /* open() */
 
-bool mspace::has_user_with_msoid(uint32_t msoid, uint32_t *ms_conn_id)
+bool mspace::has_user_with_user_server(unix_server *server, uint32_t *ms_conn_id)
 {
-	auto it = find(begin(users), end(users), msoid);
+	auto it = find(begin(users), end(users), server);
 
 	if (it != end(users)) {
 		*ms_conn_id = it->get_ms_conn_id();
 		return true;
 	}
 	return false;
-} /* has_user_with_msoid() */
+}
 
 int mspace::close(uint32_t ms_conn_id)
 {

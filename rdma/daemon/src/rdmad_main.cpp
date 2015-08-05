@@ -278,7 +278,7 @@ void *rpc_thread_f(void *arg)
 					 *  ms_conn_id, and size in bytes */
 					int ret = the_inbound->open_mspace(
 								in->ms_name,
-								in->msoid,
+								other_server,
 								&out->msid,
 								&out->ms_conn_id,
 								&out->bytes);
@@ -613,6 +613,11 @@ void *rpc_thread_f(void *arg)
 			 */
 			owners.close_mso(other_server);
 
+			uint32_t ms_conn_id;
+			mspace *ms = the_inbound->get_mspace_open_by_server(
+					other_server, &ms_conn_id);
+			if (ms)
+				ms->close(ms_conn_id);
 			delete other_server;
 
 			pthread_exit(0);

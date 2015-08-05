@@ -283,16 +283,15 @@ public:
 		return *it;
 	} /* get_mspace() */
 
-	mspace *get_mspace_open_by_msoid(uint32_t msoid, uint32_t *ms_conn_id)
+	mspace *get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id)
 	{
-
 		for (auto& ms : mspaces) {
-			if (ms->has_user_with_msoid(msoid, ms_conn_id)) {
+			if (ms->has_user_with_user_server(server, ms_conn_id)) {
 				return ms;
 			}
 		}
 		return NULL;
-	} /* get_mspace_open_by_msoid() */
+	}
 
 	bool find_mspace(const char *name, vector<mspace *>::iterator& msit)
 	{

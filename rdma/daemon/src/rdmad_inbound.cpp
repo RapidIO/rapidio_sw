@@ -139,17 +139,17 @@ mspace* inbound::get_mspace(uint32_t msid)
 } /* get_mspace() */
 
 /* Get mspace OPENED by msoid */
-mspace* inbound::get_mspace_open_by_msoid(uint32_t msoid, uint32_t *ms_conn_id)
+mspace* inbound::get_mspace_open_by_server(unix_server *user_server, uint32_t *ms_conn_id)
 {
 	sem_wait(&ibwins_sem);
 	for (auto& ibwin : ibwins) {
-		mspace *ms = ibwin.get_mspace_open_by_msoid(msoid, ms_conn_id);
+		mspace *ms = ibwin.get_mspace_open_by_server(user_server, ms_conn_id);
 		if (ms) {
 			sem_post(&ibwins_sem);
 			return ms;
 		}
 	}
-	WARN("msid open with msoid(0x%X) not found\n", msoid);
+	WARN("msid open with user_server not found\n");
 	sem_post(&ibwins_sem);
 	return NULL;
 } /* get_mspace_open_by_msoid() */
@@ -169,6 +169,7 @@ mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
 	sem_post(&ibwins_sem);
 	return NULL;
 } /* get_mspace() */
+
 
 /* Dump memory space info for a memory space specified by name */
 int inbound::dump_mspace_info(struct cli_env *env, const char *name)
@@ -231,12 +232,11 @@ int inbound::create_mspace(const char *name,
 
 /* Open memory space */
 int inbound::open_mspace(const char *name,
-			 uint32_t msoid,
+			 unix_server *user_server,
 			 uint32_t *msid,
 			 uint32_t *ms_conn_id,
 			 uint32_t *bytes)
 {
-	(void)msoid;
 	DBG("ENTER\n");
 
 	/* Find the memory space by name */
@@ -247,7 +247,7 @@ int inbound::open_mspace(const char *name,
 	}
 
 	/* Open the memory space */
-	if (ms->open(msid, ms_conn_id, bytes) < 0) {
+	if (ms->open(msid, user_server, ms_conn_id, bytes) < 0) {
 		WARN("Failed to open '\%s\'\n", name);
 		return -2;
 	}
