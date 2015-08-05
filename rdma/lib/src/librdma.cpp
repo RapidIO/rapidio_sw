@@ -60,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "librdma.h"
 
-#include "../../../include/rapidio_mport_dma.h"
+#include "rapidio_mport_dma.h"
 #include "librdma_db.h"
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
