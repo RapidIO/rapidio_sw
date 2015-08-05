@@ -38,6 +38,7 @@ void *fm_loop(void *unused)
 		HIGH("FM is alive\n");
 	} else {
 		CRIT("Cannot obtain dd_h. Exiting\n");
+		sem_post(&fm_started);	/* Don't block main thread */
 		pthread_exit(0);
 	}
 

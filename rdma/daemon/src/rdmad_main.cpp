@@ -1020,7 +1020,7 @@ int main (int argc, char **argv)
 	/* Create fabric management thread */
 	rc = start_fm_thread();
 	if (rc) {
-		CRIT("Failed to create prov_thread: %s\n", strerror(errno));
+		CRIT("Failed to create fm_thread: %s\n", strerror(errno));
 		rc = 8;
 		shutdown(&peer);
 		goto out_free_inbound;

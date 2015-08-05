@@ -285,6 +285,7 @@ public:
 
 	mspace *get_mspace_open_by_msoid(uint32_t msoid, uint32_t *ms_conn_id)
 	{
+
 		for (auto& ms : mspaces) {
 			if (ms->has_user_with_msoid(msoid, ms_conn_id)) {
 				return ms;
