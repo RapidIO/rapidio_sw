@@ -48,16 +48,59 @@
 #include <time.h>
 #include <signal.h>
 
+#if defined(LIBMPORT_TRACE) || defined(LIBMPORT_SIMULATOR)
+#include <stdarg.h>
+#endif
+
+#ifndef LIBMPORT_SIMULATOR
 #include <linux/rio_cm_cdev.h>
 #define CONFIG_RAPIDIO_DMA_ENGINE
 #include <linux/rio_mport_cdev.h>
+#define RIO_MPORT_DEV_PATH "/dev/rio_mport"
+#define RIO_CMDEV_PATH "/dev/rio_cm"
+#else
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <poll.h>
+#endif
 
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_sock.h>
 
-#define RIO_MPORT_DEV_PATH "/dev/rio_mport"
-#define RIO_CMDEV_PATH "/dev/rio_cm"
+#ifdef LIBMPORT_TRACE
+struct rapidio_libmport_trace {
+	FILE *output;
+};
+static struct rapidio_libmport_trace trace;
+
+unsigned long long get_ns_timestamp(void)
+{
+	unsigned long long ts;
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    ts = (unsigned long long)now.tv_sec * 1000000000ull + (unsigned long long)now.tv_nsec;
+    return ts;
+}
+
+#define LIBTRACE(fmt, ...) {if(trace.output) {fprintf(trace.output, "libmport TRC(%lluns):", get_ns_timestamp()); fprintf(trace.output, fmt, ##__VA_ARGS__);}}
+#define LIBPRINT(fmt, ...) {if(trace.output) {fprintf(trace.output, "libmport %s(): ", __func__); fprintf(trace.output, fmt, ##__VA_ARGS__);}}
+#define LIBERROR(fmt, ...) {if(trace.output) {fprintf(trace.output, "libmport ERROR %s(): ", __func__); fprintf(trace.output, fmt, ##__VA_ARGS__);}}
+#else
+#define LIBTRACE(fmt, ...)
+#define LIBPRINT(fmt, ...)
+#define LIBERROR(fmt, ...)
+#endif
+
+#ifdef LIBMPORT_SIMULATOR
+struct rapidio_libmport_simulator {
+	const char *tcp_port;
+	const char *tcp_server;
+	int timeout;
+};
+static struct rapidio_libmport_simulator simulator;
+#endif
 
 struct rapidio_mport_mailbox {
 	int fd;
@@ -86,28 +129,243 @@ struct rapidio_mport_handle {
 	int fd;				/**< posix api compatible fd to be used with poll/select */
 };
 
+#ifdef LIBMPORT_SIMULATOR
+#define RIO_MAX_ENC_PACKET (1024)
+
+enum packet_type {
+	pkt_local_maint_read_req,
+	pkt_local_maint_read_resp,
+	pkt_local_maint_write_req,
+	pkt_local_maint_write_resp,
+	pkt_remote_maint_read_req,
+	pkt_remote_maint_read_resp,
+	pkt_remote_maint_write_req,
+	pkt_remote_maint_write_resp,
+	pkt_port_write_req,
+	pkt_get_event_mask_req,
+	pkt_get_event_mask_resp,
+	pkt_set_event_mask_req,
+	pkt_set_event_mask_resp,
+	pkt_pwrange_enable_req,
+	pkt_pwrange_enable_resp,
+	pkt_pwrange_disable_req,
+	pkt_pwrange_disable_resp
+};
+
+const char *fmt_str[] = {
+		"maint_local_read_req,OFF=0x%x,SIZE=0x%x\n",
+		"maint_local_read_resp,DATA=0x%x\n",
+		"maint_local_write_req,OFF=0x%x,SIZE=0x%x,DATA=0x%x\n",
+		"maint_local_write_resp\n",
+		"maint_remote_read_req,DESTID=0x%x,HOP=%u,OFF=0x%x,SIZE=0x%x\n",
+		"maint_remote_read_resp,DATA=0x%x\n",
+		"maint_remote_write_req,DESTID=0x%x,HOP=%u,OFF=0x%x,SIZE=0x%x,DATA=0x%x\n",
+		"maint_remote_write_resp\n",
+		"port_write_req,ARRAY32=%ms\n",
+		"get_event_mask_req\n",
+		"get_event_mask_resp,DATA=0x%x\n",
+		"set_event_mask_req,DATA=0x%x\n",
+		"set_event_mask_resp\n",
+		"pwrange_enable_req,MASK=0x%x,LOW=0x%x,HIGH=0x%x\n",
+		"pwrange_enable_resp\n",
+		"pwrange_disable_req,MASK=0x%x,LOW=0x%x,HIGH=0x%x\n",
+		"pwrange_disable_resp\n"
+};
+
+static int encode_packet(enum packet_type t, char *buffer, size_t len, ...)
+{
+	va_list ap;
+	int ret;
+
+	va_start(ap, len);
+	ret = vsnprintf(buffer, len, fmt_str[t], ap);
+	va_end(ap);
+
+	return ret;
+}
+#endif
+
+void __attribute__ ((constructor)) trace_begin (void)
+{
+#ifdef LIBMPORT_SIMULATOR
+	simulator.tcp_server = getenv("LIBMPORT_TCP_SERVER");
+	if (!simulator.tcp_server) {
+		simulator.tcp_server = "localhost";
+	}
+	simulator.tcp_port = getenv("LIBMPORT_TCP_PORT");
+	if (!simulator.tcp_port) {
+		simulator.tcp_port = "4567";
+	}
+	simulator.timeout = 3; // 3 secs
+#endif
+#ifdef LIBMPORT_TRACE
+	char *trc_name = getenv("LIBMPORT_TRACE_FILE");
+	if (trc_name && strcmp(trc_name, "stderr") == 0)
+		trace.output = stderr;
+	else if (trc_name && strcmp(trc_name, "stdout") == 0)
+		trace.output = stdout;
+	else if (trc_name)
+		trace.output = fopen(trc_name, "a");
+	else
+		trace.output = NULL;
+	if (!trace.output)
+		fprintf(stderr, "ERROR: failed to init libmport trace\n");
+#endif
+	LIBTRACE("init\n");
+}
+
+void __attribute__ ((destructor)) trace_end (void)
+{
+	LIBTRACE("exit\n");
+#ifdef LIBMPORT_TRACE
+	if (trace.output && (trace.output != stderr || trace.output != stdout))
+		fclose(trace.output);
+#endif
+}
+
+#ifdef LIBMPORT_SIMULATOR
+static int send_packet(int sd, const char *pkt)
+{
+	int len, ret, sent = 0;
+
+	if (!pkt)
+		return -EINVAL;
+
+	len = strlen(pkt);
+
+	while(len > sent) {
+		ret = write(sd, pkt+sent, len-sent);
+		if (ret == -1)
+			return -errno;
+		sent += ret;
+	}
+
+	return sent;
+}
+
+static int recv_packet(int sd, char *pkt, size_t len)
+{
+	int ret, received = 0;
+	struct pollfd pfd;
+
+	if (!pkt || !len)
+		return -EINVAL;
+
+	while(received < (int)len) {
+		pfd.fd = sd;
+		pfd.revents = 0;
+		pfd.events = POLLIN | POLLPRI | POLLERR | POLLHUP;
+		ret = poll(&pfd, 1, 1000 * simulator.timeout);
+		if (ret == 0)
+			return -ETIMEDOUT;
+		else if (ret == -1)
+			return -errno;
+		else if (ret == 1) {
+			if (pfd.revents & (POLLERR | POLLHUP))
+				return -EIO;
+			else {
+				ret = recv(sd, pkt+received, len-received, 0);
+				if (ret == -1)
+					return -errno;
+				else
+					received += ret;
+				if (strchr(pkt, '\n'))
+					return received;
+			}
+		}
+	}
+
+	return received;
+}
+
+static int decode_packet(enum packet_type t, char *buffer, ...)
+{
+	va_list ap;
+	int ret;
+
+	va_start(ap, buffer);
+	ret = vsscanf(buffer, fmt_str[t], ap);
+	va_end(ap);
+
+	return (ret >= 0)?(0):(ret);
+}
+#endif
+
 int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle)
 {
+#ifndef LIBMPORT_SIMULATOR
 	char path[32];
 	int fd, ret;
 	struct rapidio_mport_handle *hnd = NULL;
 
 	snprintf(path, sizeof(path), RIO_MPORT_DEV_PATH "%d", mport_id);
 	fd = open(path, O_RDWR | flags);
-	if (fd == -1)
-		return -errno;
+	if (fd == -1) {
+		ret = -errno;
+		LIBERROR("%s --> %s\n", __func__, strerror(-ret));
+		return ret;
+	}
 
 	hnd = (struct rapidio_mport_handle *)malloc(sizeof(struct rapidio_mport_handle));
 	if(!(hnd)) {
 		ret = -errno;
+		LIBERROR("%s --> %s\n", __func__, strerror(-ret));
 		close(fd);
 		return ret;
 	}
 
+	LIBTRACE("%s mport%d hnd_id=%d\n", __func__, mport_id, fd);
 	hnd->fd = fd;
 
 	*mport_handle = hnd;
+#else
+	int ret, sd;
+	struct addrinfo *addrinf;
+	struct addrinfo hints;
+	struct rapidio_mport_handle *hnd = NULL;
 
+	memset(&hints,0,sizeof(hints));
+	hints.ai_family=AF_INET;
+	hints.ai_socktype=SOCK_STREAM;
+	hints.ai_protocol=0;
+	hints.ai_flags=AI_ADDRCONFIG;
+
+	ret = getaddrinfo(simulator.tcp_server, simulator.tcp_port, &hints, &addrinf);
+	if (ret != 0) {
+		LIBERROR("getaddrinfo failed with %s\n", gai_strerror(ret));
+		return ret;
+	}
+
+	sd = socket(addrinf->ai_family, addrinf->ai_socktype, addrinf->ai_protocol);
+	if (sd == -1) {
+		ret = -errno;
+		freeaddrinfo(addrinf);
+		LIBERROR("socket() failed with %s\n", strerror(-ret));
+		return ret;
+	}
+
+	ret = connect(sd, addrinf->ai_addr, addrinf->ai_addrlen);
+	if (ret == -1) {
+		ret = -errno;
+		close(sd);
+		freeaddrinfo(addrinf);
+		LIBERROR("socket() failed with %s\n", strerror(-ret));
+		return ret;
+	}
+
+	freeaddrinfo(addrinf);
+
+	hnd = (struct rapidio_mport_handle *)malloc(sizeof(struct rapidio_mport_handle));
+	if(!(hnd)) {
+		ret = -errno;
+		close(sd);
+		LIBERROR("malloc(%lu) failed with %s\n", sizeof(struct rapidio_mport_handle), strerror(-ret));
+		return ret;
+	}
+
+	hnd->fd = sd;
+	*mport_handle = hnd;
+#endif
 	return 0;
 }
 
@@ -115,11 +373,16 @@ int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
 {
 	struct rapidio_mport_handle *hnd = *mport_handle;
 
-	if(hnd == NULL)
+	if(hnd == NULL) {
+		LIBERROR("%s --> %s\n", __func__, strerror(EINVAL));
 		return -EINVAL;
+	}
+
+	LIBTRACE("%s hnd_id=%d\n", __func__, hnd->fd);
 
 	close(hnd->fd);
 	free(hnd);
+
 	return 0;
 }
 
@@ -139,12 +402,18 @@ int riomp_mgmt_get_handle_id(riomp_mport_t mport_handle, int *id)
 
 int riomp_sock_mbox_init(void)
 {
+#ifndef LIBMPORT_SIMULATOR
+	LIBTRACE("%s\n", __func__);
 	return open(RIO_CMDEV_PATH, O_RDWR);
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
-
 
 int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 {
+#ifndef LIBMPORT_SIMULATOR
 	int fd;
 	uint32_t entries = *number_of_mports;
 	uint32_t *list;
@@ -171,13 +440,19 @@ int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 	*dev_ids = &list[1]; /* pointer to the list */
 	*number_of_mports = *list; /* return real number of mports */
 	ret = 0;
+	LIBTRACE("%s\n", __func__);
 outfd:
 	close(fd);
 	return ret;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_mgmt_free_mport_list(uint32_t **dev_ids)
 {
+#ifndef LIBMPORT_SIMULATOR
 	/* Get head of the list, because we did hide the list size and mport ID
 	 * parameters
 	 */
@@ -187,11 +462,16 @@ int riomp_mgmt_free_mport_list(uint32_t **dev_ids)
 		return -1;
 	list = (*dev_ids) - 1;
 	free(list);
+	LIBTRACE("%s\n", __func__);
+#else
+	LIBERROR("not implemented\n");
+#endif
 	return 0;
 }
 
 int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *number_of_eps)
 {
+#ifndef LIBMPORT_SIMULATOR
 	int fd;
 	int ret = 0;
 	uint32_t entries;
@@ -233,13 +513,19 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 	*destids = &list[2];
 	*number_of_eps = entries;
 
+	LIBTRACE("%s\n", __func__);
 outfd:
 	close(fd);
 	return ret;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_mgmt_free_ep_list(uint32_t **destids)
 {
+#ifndef LIBMPORT_SIMULATOR
 	/* Get head of the list, because we did hide the list size and mport ID
 	 * parameters
 	 */
@@ -249,9 +535,14 @@ int riomp_mgmt_free_ep_list(uint32_t **destids)
 		return -1;
 	list = (*destids) - 2;
 	free(list);
+	LIBTRACE("%s\n", __func__);
+#else
+	LIBERROR("not implemented\n");
+#endif
 	return 0;
 }
 
+#ifndef LIBMPORT_SIMULATOR
 static inline enum rio_exchange convert_directio_type(enum riomp_dma_directio_type type)
 {
 	switch(type) {
@@ -273,6 +564,7 @@ static inline enum rio_transfer_sync convert_directio_sync(enum riomp_dma_direct
 	case RIO_DIRECTIO_TRANSFER_FAF: return RIO_TRANSFER_FAF;
 	}
 }
+#endif
 
 /*
  * Perform DMA data write to target transfer using user space source buffer
@@ -281,6 +573,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
 		uint32_t size, enum riomp_dma_directio_type wr_mode,
 		enum riomp_dma_directio_transfer_sync sync)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
 	int ret;
@@ -304,7 +597,12 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
 	tran.block = &xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
+	LIBTRACE("%s\n", __func__);
 	return (ret < 0)?errno:ret;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -315,6 +613,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 		      enum riomp_dma_directio_type wr_mode,
 		      enum riomp_dma_directio_transfer_sync sync)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
 	int ret;
@@ -338,7 +637,12 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	tran.block = &xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
+	LIBTRACE("%s\n", __func__);
 	return (ret < 0)?errno:ret;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -347,6 +651,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_addr, void *buf,
 		   uint32_t size, enum riomp_dma_directio_transfer_sync sync)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
 	int ret;
@@ -369,7 +674,12 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_add
 	tran.block = &xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
+	LIBTRACE("%s\n", __func__);
 	return (ret < 0)?errno:ret;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -379,6 +689,7 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 		     uint64_t handle, uint32_t offset, uint32_t size,
 		     enum riomp_dma_directio_transfer_sync sync)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_transaction tran;
 	struct rio_transfer_io xfer;
 	int ret;
@@ -401,7 +712,12 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	tran.block = &xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
+	LIBTRACE("%s\n", __func__);
 	return (ret < 0)?errno:ret;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -409,6 +725,7 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
  */
 int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t tmo)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_async_tx_wait wparam;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -420,9 +737,12 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 
 	if (ioctl(hnd->fd, RIO_WAIT_FOR_ASYNC, &wparam))
 		return errno;
+	LIBTRACE("%s\n", __func__);
+#else
+	LIBERROR("not implemented\n");
+#endif
 	return 0;
 }
-
 
 /*
  * Allocate and map into RapidIO space a local kernel space data buffer
@@ -430,6 +750,7 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
  */
 int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t size, uint64_t *handle)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_mmap ib;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -443,7 +764,12 @@ int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t
 		return errno;
 	*handle = ib.handle;
 	*rio_base = ib.rio_addr;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -451,6 +777,7 @@ int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t
  */
 int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_handle *hnd = mport_handle;
 
 	if(hnd == NULL)
@@ -458,12 +785,16 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 
 	if (ioctl(hnd->fd, RIO_UNMAP_INBOUND, handle))
 		return errno;
+	LIBTRACE("%s\n", __func__);
+#else
+#endif
 	return 0;
 }
 
 int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid, uint64_t rio_base, uint32_t size,
 		    uint64_t *handle)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_mmap ob;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -477,11 +808,17 @@ int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid, uint64_t ri
 	if (ioctl(hnd->fd, RIO_MAP_OUTBOUND, &ob))
 		return errno;
 	*handle = ob.handle;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_handle *hnd = mport_handle;
 
 	if(hnd == NULL)
@@ -489,6 +826,10 @@ int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 
 	if (ioctl(hnd->fd, RIO_UNMAP_OUTBOUND, handle))
 		return errno;
+	LIBTRACE("%s\n", __func__);
+#else
+	LIBERROR("not implemented\n");
+#endif
 	return 0;
 }
 
@@ -497,6 +838,7 @@ int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle)
  */
 int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *handle)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_dma_mem db;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -508,7 +850,12 @@ int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *ha
 	if (ioctl(hnd->fd, RIO_ALLOC_DMA, &db))
 		return errno;
 	*handle = db.dma_handle;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -516,6 +863,7 @@ int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *ha
  */
 int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_handle *hnd = mport_handle;
 
 	if(hnd == NULL)
@@ -523,7 +871,10 @@ int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle)
 
 	if (ioctl(hnd->fd, RIO_FREE_DMA, handle))
 		return errno;
-
+	LIBTRACE("%s\n", __func__);
+#else
+	LIBERROR("not implemented\n");
+#endif
 	return 0;
 }
 
@@ -532,6 +883,7 @@ int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle)
  */
 int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, void **vaddr)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_handle *hnd = mport_handle;
 
 	if(hnd == NULL || !size || !vaddr)
@@ -543,7 +895,12 @@ int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, v
 		return -errno;
 	}
 
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -551,7 +908,13 @@ int riomp_dma_map_memory(riomp_mport_t mport_handle, size_t size, off_t paddr, v
  */
 int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr)
 {
+#ifndef LIBMPORT_SIMULATOR
+	LIBTRACE("%s\n", __func__);
 	return munmap(vaddr, size);
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -559,6 +922,7 @@ int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr)
  */
 int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_properties *qresp)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_handle *hnd = mport_handle;
 	struct rio_mport_properties prop;
 	if (!qresp || !hnd)
@@ -584,7 +948,16 @@ int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_propert
 	qresp->cap_addr_size      = prop.cap_addr_size;
 	qresp->cap_transfer_mode  = prop.cap_transfer_mode;
 	qresp->cap_mport          = prop.cap_mport;
+	LIBTRACE("%s\n", __func__);
+#else
+	if (!qresp)
+		return -EINVAL;
 
+	bzero(qresp, sizeof(*qresp));
+	qresp->sys_size = 1;
+	qresp->link_speed = RIO_LINK_625;
+	qresp->link_width = RIO_LINK_16X;
+#endif
 	return 0;
 }
 
@@ -593,6 +966,7 @@ int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_propert
  */
 int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t size, uint32_t *data)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -605,7 +979,33 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t s
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_LOCAL, &mt))
 		return errno;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	char pkt[RIO_MAX_ENC_PACKET] = {0};
+	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL || size != 4)
+		return -EINVAL;
+
+	ret = encode_packet(pkt_local_maint_read_req, pkt, sizeof(pkt), offset, size);
+	if (ret > 0) {
+		LIBTRACE(pkt);
+		ret = send_packet(hnd->fd, pkt);
+		if (ret < 0)
+			return ret;
+		bzero(pkt, sizeof(pkt));
+		ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
+		if (ret < 0)
+			return ret;
+		ret = decode_packet(pkt_local_maint_read_resp, pkt, data);
+		if (ret < 0)
+			return ret;
+		LIBTRACE(pkt);
+	}
+	return (ret >= 0)?(0):(ret);
+#endif
 }
 
 /*
@@ -613,6 +1013,7 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t s
  */
 int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t size, uint32_t data)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -626,7 +1027,33 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t 
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_LOCAL, &mt))
 		return errno;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	char pkt[RIO_MAX_ENC_PACKET] = {0};
+	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL || size != 4)
+		return -EINVAL;
+
+	ret = encode_packet(pkt_local_maint_write_req, pkt, sizeof(pkt), offset, size, data);
+	if (ret > 0) {
+		LIBTRACE(pkt);
+		ret = send_packet(hnd->fd, pkt);
+		if (ret < 0)
+			return ret;
+		bzero(pkt, sizeof(pkt));
+		ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
+		if (ret < 0)
+			return ret;
+		ret = decode_packet(pkt_local_maint_write_resp, pkt);
+		if (ret < 0)
+			return ret;
+		LIBTRACE(pkt);
+	}
+	return (ret >= 0)?(0):(ret);
+#endif
 }
 
 /*
@@ -635,6 +1062,7 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t 
 int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t hc, uint32_t offset,
 		     uint32_t size, uint32_t *data)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -649,9 +1077,34 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t h
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_REMOTE, &mt))
 		return errno;
+	LIBTRACE("%s\n", __func__);
 	return 0;
-}
+#else
+	char pkt[RIO_MAX_ENC_PACKET] = {0};
+	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
 
+	if(hnd == NULL || size != 4)
+		return -EINVAL;
+
+	ret = encode_packet(pkt_remote_maint_read_req, pkt, sizeof(pkt), destid, hc, offset, size);
+	if (ret > 0) {
+		LIBTRACE(pkt);
+		ret = send_packet(hnd->fd, pkt);
+		if (ret < 0)
+			return ret;
+		bzero(pkt, sizeof(pkt));
+		ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
+		if (ret < 0)
+			return ret;
+		ret = decode_packet(pkt_remote_maint_read_resp, pkt, data);
+		if (ret < 0)
+			return ret;
+		LIBTRACE(pkt);
+	}
+	return (ret >= 0)?(0):(ret);
+#endif
+}
 
 /*
  * Maintenance write to target RapidIO device register
@@ -659,6 +1112,7 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t h
 int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t hc, uint32_t offset,
 		      uint32_t size, uint32_t data)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -673,7 +1127,33 @@ int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t 
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_REMOTE, &mt))
 		return errno;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	char pkt[RIO_MAX_ENC_PACKET] = {0};
+	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL || size != 4)
+		return -EINVAL;
+
+	ret = encode_packet(pkt_remote_maint_write_req, pkt, sizeof(pkt), destid, hc, offset, size, data);
+	if (ret > 0) {
+		LIBTRACE(pkt);
+		ret = send_packet(hnd->fd, pkt);
+		if (ret < 0)
+			return ret;
+		bzero(pkt, sizeof(pkt));
+		ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
+		if (ret < 0)
+			return ret;
+		ret = decode_packet(pkt_remote_maint_write_resp, pkt);
+		if (ret < 0)
+			return ret;
+		LIBTRACE(pkt);
+	}
+	return (ret >= 0)?(0):(ret);
+#endif
 }
 
 /*
@@ -681,6 +1161,7 @@ int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t 
  */
 int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16_t start, uint16_t end)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_doorbell_filter dbf;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -693,7 +1174,12 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16
 
 	if (ioctl(hnd->fd, RIO_ENABLE_DOORBELL_RANGE, &dbf))
 		return errno;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -701,6 +1187,7 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16
  */
 int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint16_t start, uint16_t end)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_doorbell_filter dbf;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -713,7 +1200,12 @@ int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint1
 
 	if (ioctl(hnd->fd, RIO_DISABLE_DOORBELL_RANGE, &dbf))
 		return errno;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -721,6 +1213,7 @@ int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint1
  */
 int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_t low, uint32_t high)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_pw_filter pwf;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -733,7 +1226,33 @@ int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_
 
 	if (ioctl(hnd->fd, RIO_ENABLE_PORTWRITE_RANGE, &pwf))
 		return errno;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	char pkt[RIO_MAX_ENC_PACKET] = {0};
+	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	ret = encode_packet(pkt_pwrange_enable_req, pkt, sizeof(pkt), mask, low, high);
+	if (ret > 0) {
+		LIBTRACE(pkt);
+		ret = send_packet(hnd->fd, pkt);
+		if (ret < 0)
+			return ret;
+		bzero(pkt, sizeof(pkt));
+		ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
+		if (ret < 0)
+			return ret;
+		ret = decode_packet(pkt_pwrange_enable_resp, pkt);
+		if (ret < 0)
+			return ret;
+		LIBTRACE(pkt);
+	}
+	return (ret >= 0)?(0):(ret);
+#endif
 }
 
 /*
@@ -741,6 +1260,7 @@ int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_
  */
 int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32_t low, uint32_t high)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_pw_filter pwf;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -753,7 +1273,33 @@ int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32
 
 	if (ioctl(hnd->fd, RIO_DISABLE_PORTWRITE_RANGE, &pwf))
 		return errno;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	char pkt[RIO_MAX_ENC_PACKET] = {0};
+	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	ret = encode_packet(pkt_pwrange_disable_req, pkt, sizeof(pkt), mask, low, high);
+	if (ret > 0) {
+		LIBTRACE(pkt);
+		ret = send_packet(hnd->fd, pkt);
+		if (ret < 0)
+			return ret;
+		bzero(pkt, sizeof(pkt));
+		ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
+		if (ret < 0)
+			return ret;
+		ret = decode_packet(pkt_pwrange_disable_resp, pkt);
+		if (ret < 0)
+			return ret;
+		LIBTRACE(pkt);
+	}
+	return (ret >= 0)?(0):(ret);
+#endif
 }
 
 /*
@@ -761,6 +1307,7 @@ int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32
  */
 int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask)
 {
+#ifndef LIBMPORT_SIMULATOR
 	unsigned int evt_mask = 0;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -771,7 +1318,33 @@ int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask)
 	if (mask & RIO_EVENT_PORTWRITE) evt_mask |= RIO_PORTWRITE;
 	if (ioctl(hnd->fd, RIO_SET_EVENT_MASK, evt_mask))
 		return errno;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	char pkt[RIO_MAX_ENC_PACKET] = {0};
+	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL || !mask)
+		return -EINVAL;
+
+	ret = encode_packet(pkt_set_event_mask_req, pkt, sizeof(pkt), mask);
+	if (ret > 0) {
+		LIBTRACE(pkt);
+		ret = send_packet(hnd->fd, pkt);
+		if (ret < 0)
+			return ret;
+		bzero(pkt, sizeof(pkt));
+		ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
+		if (ret < 0)
+			return ret;
+		ret = decode_packet(pkt_set_event_mask_resp, pkt);
+		if (ret < 0)
+			return ret;
+		LIBTRACE(pkt);
+	}
+	return (ret >= 0)?(0):(ret);
+#endif
 }
 
 /*
@@ -779,6 +1352,7 @@ int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask)
  */
 int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask)
 {
+#ifndef LIBMPORT_SIMULATOR
 	int evt_mask = 0;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -791,7 +1365,33 @@ int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask)
 	*mask = 0;
 	if (evt_mask & RIO_DOORBELL) *mask |= RIO_EVENT_DOORBELL;
 	if (evt_mask & RIO_PORTWRITE) *mask |= RIO_EVENT_PORTWRITE;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	char pkt[RIO_MAX_ENC_PACKET] = {0};
+	int ret;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL || !mask)
+		return -EINVAL;
+
+	ret = encode_packet(pkt_get_event_mask_req, pkt, sizeof(pkt));
+	if (ret > 0) {
+		LIBTRACE(pkt);
+		ret = send_packet(hnd->fd, pkt);
+		if (ret < 0)
+			return ret;
+		bzero(pkt, sizeof(pkt));
+		ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
+		if (ret < 0)
+			return ret;
+		ret = decode_packet(pkt_get_event_mask_resp, pkt, mask);
+		if (ret < 0)
+			return ret;
+		LIBTRACE(pkt);
+	}
+	return (ret >= 0)?(0):(ret);
+#endif
 }
 
 /*
@@ -799,6 +1399,7 @@ int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask)
  */
 int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_event revent;
 	ssize_t bytes = 0;
 	struct rapidio_mport_handle *hnd = mport_handle;
@@ -825,7 +1426,39 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *ev
 	}
 	evt->header = revent.header;
 
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	struct rapidio_mport_handle *hnd = mport_handle;
+	int ret;
+	unsigned int i;
+	char pkt[RIO_MAX_ENC_PACKET] = {0}, *p, *p2;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	if (!evt) return -EINVAL;
+
+	ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
+	if (ret < 0)
+		return ret;
+	ret = decode_packet(pkt_port_write_req, pkt, &p);
+	if (ret < 0)
+		return ret;
+	LIBTRACE(pkt);
+	//LIBPRINT("payload (%p): %s\n", p, p);
+	evt->header = RIO_EVENT_PORTWRITE;
+	p2 = p;
+	for (i=0;i<(sizeof(evt->u.portwrite.payload)/sizeof(evt->u.portwrite.payload[0]));i++) {
+		evt->u.portwrite.payload[i] = strtoul(p2, &p2, 0);
+		if(!p2)
+			break;
+		p2++;
+	}
+	free(p);
+
+	return (ret >= 0)?(0):(ret);
+#endif
 }
 
 /*
@@ -833,6 +1466,7 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *ev
  */
 int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_handle *hnd = mport_handle;
 	struct rio_event sevent;
 	char *p = (char*)&sevent;
@@ -859,7 +1493,12 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *e
 		}
 	}
 
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 /*
@@ -867,6 +1506,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *e
  */
 int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_handle *hnd = mport_handle;
 
 	if(hnd == NULL)
@@ -874,7 +1514,12 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_HDID_SET, &destid))
 		return errno;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -EIO;
+#endif
 }
 
 /*
@@ -883,6 +1528,7 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag,
 		    const char *name)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_rdev_info dev;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -899,6 +1545,10 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 
 	if (ioctl(hnd->fd, RIO_DEV_ADD, &dev))
 		return errno;
+	LIBTRACE("%s\n", __func__);
+#else
+	LIBERROR("not implemented\n");
+#endif
 	return 0;
 }
 
@@ -907,6 +1557,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
  */
 int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rio_rdev_info dev;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
@@ -919,6 +1570,10 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 
 	if (ioctl(hnd->fd, RIO_DEV_DEL, &dev))
 		return errno;
+	LIBTRACE("%s\n", __func__);
+#else
+	LIBERROR("not implemented\n");
+#endif
 	return 0;
 }
 
@@ -926,6 +1581,7 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 			     riomp_mailbox_t *mailbox)
 {
+#ifndef LIBMPORT_SIMULATOR
 	int fd;
 	struct rapidio_mport_mailbox *lhandle = NULL;
 
@@ -946,11 +1602,17 @@ int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 	lhandle->fd = fd;
 	lhandle->mport_id = mport_id;
 	*mailbox = lhandle;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_socket *handle = NULL;
 
 	/* Create handle */
@@ -963,11 +1625,17 @@ int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 	handle->mbox = mailbox;
 	handle->ch.id = 0;
 	*socket_handle = handle;
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 {
+#ifndef LIBMPORT_SIMULATOR
 	int ret;
 	struct rapidio_mport_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
@@ -981,12 +1649,18 @@ int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 		return errno;
 	}
 
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_receive(riomp_sock_t socket_handle, void **buf,
 			 uint32_t size, uint32_t timeout)
 {
+#ifndef LIBMPORT_SIMULATOR
 	int ret;
 	struct rapidio_mport_socket *handle = socket_handle;
 	struct rio_cm_msg msg;
@@ -999,18 +1673,30 @@ int riomp_sock_receive(riomp_sock_t socket_handle, void **buf,
 	if (ret)
 		return errno;
 
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_release_receive_buffer(riomp_sock_t socket_handle,
 					void *buf) /* always 4k aligned buffers */
 {
+#ifndef LIBMPORT_SIMULATOR
 	free(buf);
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_close(riomp_sock_t *socket_handle)
 {
+#ifndef LIBMPORT_SIMULATOR
 	int ret;
 	struct rapidio_mport_socket *handle = *socket_handle;
 	uint16_t ch_num;
@@ -1026,25 +1712,36 @@ int riomp_sock_close(riomp_sock_t *socket_handle)
 	}
 
 	free(handle);
+	LIBTRACE("%s\n", __func__);
 	return ret;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_mbox_destroy_handle(riomp_mailbox_t *mailbox)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_mailbox *mbox = *mailbox;
 
 	if(mbox != NULL) {
 		close(mbox->fd);
 		free(mbox);
+		LIBTRACE("%s\n", __func__);
 		return 0;
 	}
 
 	return -1;
-
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_bind(riomp_sock_t socket_handle, uint16_t local_channel)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num;
 	int ret;
@@ -1065,11 +1762,17 @@ int riomp_sock_bind(riomp_sock_t socket_handle, uint16_t local_channel)
 	if (ret < 0)
 		return errno;
 
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_listen(riomp_sock_t socket_handle)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num;
 	int ret;
@@ -1079,12 +1782,18 @@ int riomp_sock_listen(riomp_sock_t socket_handle)
 	if (ret)
 		return errno;
 
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 			uint32_t timeout)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_socket *handle = socket_handle;
 	struct rapidio_mport_socket *new_handle = *conn;
 	struct rio_cm_accept param;
@@ -1107,12 +1816,18 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	if (new_handle)
 		new_handle->ch.id = param.ch_num;
 
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 			 uint8_t remote_mbox, uint16_t remote_channel)
 {
+#ifndef LIBMPORT_SIMULATOR
 	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num = 0;
 	struct rio_cm_channel cdev;
@@ -1142,28 +1857,44 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 		return errno;
 	}
 
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_request_send_buffer(riomp_sock_t socket_handle,
 				     void **buf) //always 4k aligned buffers
 {
+#ifndef LIBMPORT_SIMULATOR
 	/* socket_handle won't be used for now */
 
 	*buf = malloc(0x1000); /* Always allocate maximum size buffers */
 	if (*buf == NULL)
 		return -1;
 
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
 
 int riomp_sock_release_send_buffer(riomp_sock_t socket_handle,
 				     void *buf) /* always 4k aligned buffers */
 {
+#ifndef LIBMPORT_SIMULATOR
 	free(buf);
+	LIBTRACE("%s\n", __func__);
 	return 0;
+#else
+	LIBERROR("not implemented\n");
+	return -ENOTSUP;
+#endif
 }
-
 
 const char *speed_to_string(int speed)
 {
