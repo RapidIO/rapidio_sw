@@ -49,7 +49,7 @@ void init_peer_info(int num_peers,struct peer_info peers[])
 
         /* MPORT */
         peers[i].mport_num = i;
-        peers[i].mport_fd = -1;
+        peers[i].mp_h = NULL;
         memset(&peers[i].props, 0, sizeof(peers[i].props));
 
         /* BAR0 */

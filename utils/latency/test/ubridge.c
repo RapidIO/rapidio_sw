@@ -65,7 +65,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rio_register_utils.h"
 #include "time_utils.h"
 #include "debug.h"
-#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_dma.h>
+#include <rapidio_mport_sock.h>
 
 // PCIE offset (to be added to distinguish RIO from PCIE accesses
 #define PCIE_ADDRESS_OFFSET 0x70000
@@ -107,8 +109,10 @@ void cleanup_latency_test(int num_devices, struct peer_info peers[])
             pcie_bar2_unmap(&peers[i]);
 
         /* Close mport driver device */
-        if( peers[i].mport_fd > 0)
-            close(peers[i].mport_fd);
+	if (peers[i].mp_h_valid) {
+            riomp_mgmt_mport_destroy_handle(&peers[i].mp_h);
+	    peers[i].mp_h_valid = 0;
+	};
 
     } /* for */
 
@@ -143,18 +147,21 @@ int init_mport(int demo_mode,
                                                   peer->bar2_base_ptr);
 
     /* Open mport device */
-    peer->mport_fd = riomp_mgmt_mport_create_handle(mportid, 0);
-    if (peer->mport_fd <= 0) {
+    peer->mp_h_valid = 0;
+    ret = riomp_mgmt_mport_create_handle(mportid, 0, &peer->mp_h);
+    if (ret) {
         perror("riomp_mgmt_mport_create_handle()");
         fprintf(stderr,"Failed to open mport%d. Aborting!\n", mportid);
         cleanup_latency_test(num_devices,peers);
         return -1;
-    }
-    DPRINT("%s:peer->mport_fd = %d\n",__FUNCTION__,peer->mport_fd);
+    } else {
+	peer->mp_h_valid = 1;
+    };
+    DPRINT("%s:peer->mp_h = %d\n",__FUNCTION__,peer->mp_h);
         
 
     /* Query device information, and store device_id */
-    ret = riodp_query_mport(peer->mport_fd, &peer->props);
+    ret = riomp_mgmt_query(peer->mp_h, &peer->props);
     if (ret != 0) {
         perror("riodp_query_mport()");
         fprintf(stderr,"Failed to query mport%d. Aborting!\n", mportid);
@@ -168,7 +175,7 @@ int init_mport(int demo_mode,
     /* Configure TSI721 */
     ret = config_tsi721(demo_mode == LOOPBACK,
                         has_switch,
-                        peer->mport_fd,
+                        peer->mp_h,
                         0,  /* debug */
                         peer->props.link_speed >= RIO_LINK_500
                        );
@@ -579,7 +586,7 @@ int main( int argc, char *argv[] )
 
             /* Clean-up the TSI721 state */
             if (EXIT_FAILURE == cleanup_tsi721(has_switch,
-                                               peers[mportid].mport_fd,
+                                               peers[mportid].mp_h,
                                                0,  /* debug */
                                                peers[mportid].props.hdid,
                                                do_reset)
@@ -611,7 +618,7 @@ int main( int argc, char *argv[] )
 
             /* Clean-up the TSI721 state */
             if (EXIT_FAILURE == cleanup_tsi721(has_switch,
-                                               peers[0].mport_fd,
+                                               peers[0].mp_h,
                                                0,  /* debug */
                                                peers[0].props.hdid,
                                                0)
@@ -621,7 +628,7 @@ int main( int argc, char *argv[] )
                 return 1;
             }
             if (EXIT_FAILURE == cleanup_tsi721(has_switch,
-                                               peers[1].mport_fd,
+                                               peers[1].mp_h,
                                                0,  /* debug */
                                                peers[1].props.hdid,
                                                do_reset)
@@ -643,7 +650,7 @@ int main( int argc, char *argv[] )
             }
             /* Clean-up the TSI721 state */
             if (EXIT_FAILURE == cleanup_tsi721(has_switch,
-                                               peers[mportid].mport_fd,
+                                               peers[mportid].mp_h,
                                                0,  /* debug */
                                                peers[mportid].props.hdid,
                                                do_reset)
@@ -665,7 +672,7 @@ int main( int argc, char *argv[] )
             }
             /* Clean-up the TSI721 state */
             if (EXIT_FAILURE == cleanup_tsi721(has_switch,
-                                               peers[mportid].mport_fd,
+                                               peers[mportid].mp_h,
                                                0,  /* debug */
                                                peers[mportid].props.hdid,
                                                0)

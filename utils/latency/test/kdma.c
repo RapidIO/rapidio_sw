@@ -55,7 +55,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 
-#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_dma.h>
+#include <rapidio_mport_sock.h>
 
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 
@@ -95,9 +97,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 struct dma_demo_setup {
 	int use_thr;
-	int fd;
+	int mp_h_valid;
+	riomp_mport_t mp_h;
 	uint32_t mport_id;
-	struct rio_mport_properties prop;
+	struct riomp_mgmt_mport_properties prop;
 	int has_dma;
 	int has_switch;
 
@@ -209,26 +212,25 @@ static unsigned int dmatest_verify(volatile uint8_t *buf, unsigned int start,
 	return error_count;
 }
 
-static void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
+static void *dmatest_buf_alloc(riomp_mport_t mp_h, uint32_t size, uint64_t *handle)
 {
 	void *buf_ptr = NULL;
 	uint64_t h;
 	int ret;
 
 	if (handle) {
-		ret = riomp_dma_dbuf_alloc(fd, size, &h);
+		ret = riomp_dma_dbuf_alloc(mp_h, size, &h);
 		if (ret) {
 			if (ep[0].debug)
 				printf("riomp_dma_dbuf_alloc failed err=%d\n", ret);
 			return NULL;
 		}
 
-		buf_ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, 
-				MAP_SHARED, fd, h);
-		if (buf_ptr == MAP_FAILED) {
-			perror("mmap");
+		ret = riomp_dma_map_memory(mp_h, size, h, &buf_ptr);
+		if (ret) {
+			perror("riomp_dma_map_memory");
 			buf_ptr = NULL;
-			ret = riomp_dma_dbuf_free(fd, handle);
+			ret = riomp_dma_dbuf_free(mp_h, handle);
 			if (ret && ep[0].debug)
 				printf("riomp_dma_dbuf_free failed err=%d\n", ret);
 		} else
@@ -242,7 +244,7 @@ static void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 	return buf_ptr;
 }
 
-static void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle)
+static void dmatest_buf_free(riomp_mport_t mp_h, void *buf, uint32_t size, uint64_t *handle)
 {
 	if (handle && *handle) {
 		int ret;
@@ -250,7 +252,7 @@ static void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle)
 		if (munmap(buf, size))
 			perror("munmap");
 
-		ret = riomp_dma_dbuf_free(fd, handle);
+		ret = riomp_dma_dbuf_free(mp_h, handle);
 		if (ret)
 			printf("riomp_dma_dbuf_free failed err=%d\n", ret);
 	} else if (buf)
@@ -262,19 +264,18 @@ static int config_ibwin(int idx )
 	int rc = EXIT_FAILURE;
 	int ret;
 
-	ret = riomp_dma_ibwin_map(ep[idx].fd, &ep[idx].rio_base, ep[idx].ib_size, 
+	ret = riomp_dma_ibwin_map(ep[idx].mp_h, &ep[idx].rio_base, ep[idx].ib_size, 
 						&ep[idx].ib_handle);
 	if (ret) {
 		printf("Failed to allocate IB buffer %d err=%d\n", idx, ret);
 		goto exit;
 	}
 
-	ep[idx].ibmap = (volatile uint8_t *)mmap(NULL, ep[idx].ib_size, PROT_READ | PROT_WRITE, 
-				MAP_SHARED, 
-				ep[idx].fd, ep[idx].ib_handle);
-	if (ep[idx].ibmap == MAP_FAILED) {
+	ret = riomp_dma_map_memory(ep[idx].mp_h, ep[idx].ib_size,
+				ep[idx].ib_handle, (void **)&ep[idx].ibmap);
+	if (ret) {
 		printf("Failed to mmap IB buffer %d err=%d\n", idx, ret);
-		perror("mmap");
+		perror("riomp_dma_map_memory");
 		goto exit;
 	}
 
@@ -307,7 +308,7 @@ void cleanup_ibwin(int max_idx)
 		}
 
 		if (ep[idx].ib_handle != 0xFFFFFFFFFFFFFFFF) {
-			ret = riomp_dma_ibwin_free(ep[idx].fd, &ep[idx].ib_handle);
+			ret = riomp_dma_ibwin_free(ep[idx].mp_h, &ep[idx].ib_handle);
 			if (ret)
 			   printf("\n\tFailed to free %d IB buffer err=%d\n",
 					idx, ret);
@@ -348,14 +349,14 @@ static int config_buffs(int max_idx )
 			printf("\tdma_size=%d offset=0x%x\n", ep[e_i].dma_size,
 				ep[e_i].offset);
 
-		ep[e_i].buf_src = (volatile uint8_t *)dmatest_buf_alloc(ep[e_i].fd, TEST_BUF_SIZE, 
+		ep[e_i].buf_src = (volatile uint8_t *)dmatest_buf_alloc(ep[e_i].mp_h, TEST_BUF_SIZE, 
 				ep[e_i].kbuf_mode?&ep[e_i].src_handle:NULL);
 		if (ep[e_i].buf_src == NULL) {
 			printf("DMA Test: error allocating SRC buffer\n");
 			goto exit;
 		}
 
-		ep[e_i].buf_dst = (volatile uint8_t *)dmatest_buf_alloc(ep[e_i].fd, TEST_BUF_SIZE,
+		ep[e_i].buf_dst = (volatile uint8_t *)dmatest_buf_alloc(ep[e_i].mp_h, TEST_BUF_SIZE,
 				ep[e_i].kbuf_mode?&ep[e_i].dst_handle:NULL);
 		if (ep[e_i].buf_dst == NULL) {
 			printf("DMA Test: error allocating DST buffer\n");
@@ -375,11 +376,11 @@ void cleanup_buffs(int max_idx)
 	printf("\nFreeing source buffers...");
 	for (idx = 0; idx <= max_idx; idx++) {
 		if (ep[idx].buf_src)
-			dmatest_buf_free(ep[idx].fd, (void *)ep[idx].buf_src, 
+			dmatest_buf_free(ep[idx].mp_h, (void *)ep[idx].buf_src, 
 				TEST_BUF_SIZE,
 				ep[idx].kbuf_mode?&ep[idx].src_handle:NULL);
 		if (ep[idx].buf_dst)
-			dmatest_buf_free(ep[idx].fd, (void *)ep[idx].buf_dst, 
+			dmatest_buf_free(ep[idx].mp_h, (void *)ep[idx].buf_dst, 
 				TEST_BUF_SIZE,
 				ep[idx].kbuf_mode?&ep[idx].dst_handle:NULL);
 	};
@@ -388,18 +389,21 @@ void cleanup_buffs(int max_idx)
 int open_mports(int last_idx) 
 {
 	int idx;
-	int rc = EXIT_FAILURE;
+	int rc = EXIT_FAILURE, ret;
 
 	for (idx = 0; idx <= last_idx; idx++) {
-		ep[idx].fd = riomp_mgmt_mport_create_handle(ep[idx].mport_id, 0);
-		if (ep[idx].fd < 0) {
+		ep[idx].mp_h_valid = 0;
+		ret = riomp_mgmt_mport_create_handle(ep[idx].mport_id, 0, 
+						&ep[idx].mp_h);
+		if (ret) {
 			printf("DMA Test: unable to open idx %d mport%d device err=%d\n",
 				idx, ep[idx].mport_id, errno);
 			goto exit;
 		}
+		ep[idx].mp_h_valid = 1;
 
-		if (!riodp_query_mport(ep[idx].fd, &ep[idx].prop)) {
-			display_mport_info(&ep[idx].prop);
+		if (!riomp_mgmt_query(ep[idx].mp_h, &ep[idx].prop)) {
+			riomp_mgmt_display_info(&ep[idx].prop);
 
 			if (ep[idx].prop.flags & RIO_MPORT_DMA) {
 				ep[idx].align = ep[idx].prop.dma_align;
@@ -434,8 +438,10 @@ void close_mports(int last_idx)
 
 	printf("\nClosing master port(s)...\n");
 	for (idx = 0; idx <= last_idx; idx++) {
-		if (ep[idx].fd > 0)
-			close(ep[idx].fd);
+		if (ep[idx].mp_h_valid) {
+			riomp_mgmt_mport_destroy_handle(&ep[idx].mp_h);
+			ep[idx].mp_h_valid = 0;
+		};
 	}
 };
 
@@ -544,11 +550,11 @@ void parse_options(int argc, char** argv, int *config)
 	*config = 0;
 	for (idx = 0; idx < 2; idx++) {
 		ep[idx].use_thr = 0;
-		ep[idx].fd = -1;
+		ep[idx].mp_h = NULL;
 		ep[idx].mport_id = 0;
 		ep[idx].has_dma = 1;
 		ep[idx].has_switch = 0;
-		ep[idx].fd = -1;
+		ep[idx].mp_h = NULL;
 
 		ep[idx].tgt_destid = idx ^ 1;
 		ep[idx].tgt_addr = 0x01000000;
@@ -800,13 +806,15 @@ __sync_synchronize();
 __sync_synchronize();
 
 	if (ep[0].kbuf_mode)
-		ret = riomp_dma_write_d(ep[0].fd, ep[0].tgt_destid, 
+		ret = riomp_dma_write_d(ep[0].mp_h, ep[0].tgt_destid, 
 			ep[0].tgt_addr, ep[0].src_handle, ep[0].offset, 
-			ep[0].dma_size, RIO_EXCHANGE_NWRITE, RIO_TRANSFER_SYNC);
+			ep[0].dma_size, RIO_DIRECTIO_TYPE_NWRITE,
+			RIO_DIRECTIO_TRANSFER_SYNC);
 	else
-		ret = riomp_dma_write(ep[0].fd, ep[0].tgt_destid, 
-						ep[0].tgt_addr, (void *)(ep[0].buf_src + ep[0].offset),
-						ep[0].dma_size, RIO_EXCHANGE_NWRITE, RIO_TRANSFER_SYNC);
+		ret = riomp_dma_write(ep[0].mp_h, ep[0].tgt_destid, 
+			ep[0].tgt_addr, (void *)(ep[0].buf_src + ep[0].offset),
+			ep[0].dma_size, RIO_DIRECTIO_TYPE_NWRITE,
+			RIO_DIRECTIO_TRANSFER_SYNC);
 
 	if (ret) {
 		printf("\nDMA Transfer failure, err= %d", ret);
@@ -840,13 +848,13 @@ void do_dma_xfer_1_rx(void)
 	while (ep[0].ibmap[last_idx] == last_val) {};
 
 	if (ep[0].kbuf_mode)
-		ret = riomp_dma_write_d(ep[0].fd, ep[0].tgt_destid, 
+		ret = riomp_dma_write_d(ep[0].mp_h, ep[0].tgt_destid, 
 			ep[0].tgt_addr, ep[0].src_handle, ep[0].offset, 
-			ep[0].dma_size, RIO_EXCHANGE_NWRITE, RIO_TRANSFER_SYNC);
+			ep[0].dma_size, RIO_DIRECTIO_TYPE_NWRITE, RIO_DIRECTIO_TRANSFER_SYNC);
 	else
-		ret = riomp_dma_write(ep[0].fd, ep[0].tgt_destid, 
+		ret = riomp_dma_write(ep[0].mp_h, ep[0].tgt_destid, 
 						ep[0].tgt_addr, (void *)(ep[0].buf_src + ep[0].offset),
-						ep[0].dma_size, RIO_EXCHANGE_NWRITE, RIO_TRANSFER_SYNC);
+						ep[0].dma_size, RIO_DIRECTIO_TYPE_NWRITE, RIO_DIRECTIO_TRANSFER_SYNC);
 
 	if (ret)
 		printf("\nDMA Transfer failure, err= %d", ret);
@@ -1028,7 +1036,7 @@ int main(int argc, char** argv)
 	 */
 	for (i = 0; i <= last_idx; i++)
 		if (EXIT_FAILURE == config_tsi721(config == CFG_LPBK, 
-				ep[i].has_switch, ep[i].fd, 
+				ep[i].has_switch, ep[i].mp_h, 
 				ep[i].debug,
 				ep[i].prop.link_speed >= RIO_LINK_500 ))
 			goto close_buffs;
@@ -1037,7 +1045,7 @@ int main(int argc, char** argv)
 		int rst_lp = (i == last_idx) && 
 			((config == CFG_1_TX) || (config == CFG_DUAL));
 		if (EXIT_FAILURE == cleanup_tsi721( ep[i].has_switch,
-				ep[i].fd, ep[i].debug, 
+				ep[i].mp_h, ep[i].debug, 
 				ep[i].prop.hdid, rst_lp))
 			goto close_buffs;
 	}

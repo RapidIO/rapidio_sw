@@ -31,6 +31,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include "rapidio_mport_mgmt.h"
+
 #ifndef __TSI721_CONFIG__
 #define __TSI721_CONFIG__
 
@@ -41,7 +43,7 @@ extern int config_tsi721(
 	int got_switch,	/* 1 => Tsi721 connected to switch
 			*  0 => Tsi721 not connected to switch
 			*/ 
-	int fd,		/* Mport file descriptor, 
+	riomp_mport_t mp_h,/* Mport handle,
 			* access to raw driver (reg r/w) routines */
 	int debug,	/* <> 0 => Print debug messages
 			*/ 
@@ -54,7 +56,7 @@ extern int cleanup_tsi721(
 	int got_switch,	/* 1 => Tsi721 connected to switch
 			*  0 => Tsi721 not connected to switch
 			*/ 
-	int fd,		/* Mport file descriptor, 
+	riomp_mport_t mp_h,/* Mport handle,
 			* access to raw driver (reg r/w) routines */
 	int debug,	/* <> 0 => Print debug messages
 			*/ 

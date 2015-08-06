@@ -55,7 +55,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tsi721_config.h"
 #include "dma_utils.h"
 #include "time_utils.h"
-#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_dma.h>
+#include <rapidio_mport_sock.h>
 
 #include "debug.h"
 
@@ -129,7 +131,7 @@ void cleanup_dma_test(int num_devices, struct peer_info peers[])
                 free((void *)peers[i].src);
         } else {
             if (peers[i].dma_data_v) 
-                dmatest_buf_free(peers[i].mport_fd,
+                dmatest_buf_free(peers[i].mp_h,
                                  (void *)peers[i].dma_data_v,
                                  peers[i].dma_alloc_data_length,
                                  &peers[i].dma_data_p);
@@ -145,8 +147,10 @@ void cleanup_dma_test(int num_devices, struct peer_info peers[])
             pcie_bar0_unmap(&peers[i]);
 
         /* Close mport driver device */
-        if( peers[i].mport_fd > 0)
-            close(peers[i].mport_fd);
+        if (peers[i].mp_h_valid) {
+            riomp_mgmt_mport_destroy_handle(&peers[i].mp_h);
+            peers[i].mp_h_valid = 0;
+        };
 
     } /* for */
 } /* cleanup_dma_test() */
@@ -170,18 +174,18 @@ int init_mport(int demo_mode,
     }
 
     /* Open mport device */
-    peer->mport_fd = riomp_mgmt_mport_create_handle(mportid, 0);
-    if (peer->mport_fd <= 0) {
+    ret = riomp_mgmt_mport_create_handle(mportid, 0, &peer->mp_h);
+    if (ret) {
         perror("riomp_mgmt_mport_create_handle()");
         fprintf(stderr,"Failed to open mport%d. Aborting!\n", mportid);
         cleanup_dma_test(num_devices,peers);
         return -1;
     }
-    DPRINT("%s: peer->mport_fd = %d\n", __FUNCTION__, peer->mport_fd);
+    DPRINT("%s: peer->mp_h = %d\n", __FUNCTION__, peer->mp_h);
         
 
     /* Query device information, and store device_id */
-    ret = riodp_query_mport(peer->mport_fd, &peer->props);
+    ret = riomp_mgmt_query(peer->mp_h, &peer->props);
     if (ret != 0) {
         perror("riodp_query_mport()");
         fprintf(stderr,"Failed to query mport%d. Aborting!\n", mportid);
@@ -196,7 +200,7 @@ int init_mport(int demo_mode,
     /* Configure TSI721 */
     ret = config_tsi721(demo_mode == LOOPBACK,
                         has_switch,
-                        peer->mport_fd,
+                        peer->mp_h,
                         0,  /* debug */
                         peer->props.link_speed >= RIO_LINK_500); 
     if (ret) {
@@ -234,7 +238,7 @@ int init_mport(int demo_mode,
         peer->dma_alloc_data_length = dma_get_alloc_data_length(
                                                          peer->dma_data_length);
         /* Allocate coherent memory via rio_mport_cdev call */
-        peer->dma_data_v = dmatest_buf_alloc(peer->mport_fd,
+        peer->dma_data_v = dmatest_buf_alloc(peer->mp_h,
                                              peer->dma_alloc_data_length,
                                             &peer->dma_data_p);
         if (!peer->dma_data_v) {
@@ -310,7 +314,7 @@ int init_dma_test(int demo_mode,
 
         /* Clean-up the TSI721 state */
         if (EXIT_FAILURE == cleanup_tsi721(has_switch,
-                                           peers[mportid].mport_fd,
+                                           peers[mportid].mp_h,
                                            0,  /* debug */
                                            peers[mportid].props.hdid,
                                            do_reset)
@@ -340,7 +344,7 @@ int init_dma_test(int demo_mode,
 
         /* Clean-up the TSI721 state */
         if (EXIT_FAILURE == cleanup_tsi721(has_switch,
-                                           peers[0].mport_fd,
+                                           peers[0].mp_h,
                                            0,  /* debug */
                                            peers[0].props.hdid,
                                            do_reset)
@@ -350,7 +354,7 @@ int init_dma_test(int demo_mode,
             return 1;
         }
         if (EXIT_FAILURE == cleanup_tsi721(has_switch,
-                                           peers[1].mport_fd,
+                                           peers[1].mp_h,
                                            0,  /* debug */
                                            peers[1].props.hdid,
                                            do_reset)
