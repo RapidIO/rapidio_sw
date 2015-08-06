@@ -31,7 +31,12 @@
 
 # LOG_LEVEL is set by the master Makefile. If this Makefile is run alone, 
 # it can override the loglevel on the command line by specifying 'level=XXX'
+# otherwise it defaults to 7
+ifndef LOG_LEVEL
+level?=7
+else
 level?=$(LOG_LEVEL)
+endif
 
 TOP_LEVEL?=..
 COMMON_DIR?=$(TOP_LEVEL)/common
@@ -40,7 +45,6 @@ MPORTLIB_PATH=../common/libmport
 MPORTLIB_INC=../common/include
 MPORTLIB=libmport.so
 MPORTLIB_HEADER=rapidio_mport_dma.h
-#LIBCLI_PATH=../common/libs_a
 LIBLOG_PATH=../common/libs_a
 LIB_DIRS = \
 	-L$(TOP_LEVEL)/fabric_management/libfmdd \
