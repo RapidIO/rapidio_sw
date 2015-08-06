@@ -77,7 +77,7 @@ public:
 
 	void dump_mspace_and_subs_info(cli_env *env);
 
-	vector<mspace *>::iterator free_ms_large_enough(uint64_t size);
+	mspace* free_ms_large_enough(uint64_t size);
 
 	bool has_room_for_ms(uint64_t size);
 
@@ -95,11 +95,6 @@ public:
 	mspace* get_mspace(uint32_t msoid, uint32_t msid);
 
 	mspace *get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id);
-
-	bool find_mspace(const char *name, vector<mspace *>::iterator& msit);
-
-
-	bool find_mspace(uint32_t msid, vector<mspace *>::iterator& msit);
 
 	vector<mspace *>& get_mspaces() { return mspaces; };
 
