@@ -123,17 +123,13 @@ static int alt_rpc_call()
 	}
 
 	if (ret) {
-		if (ret == EPIPE) {
 			CRIT("Daemon has died. Terminating socket connection\n");
 			delete client;
 			client = nullptr;
-//			CRIT("Daemon has died. Purging local database!\n");
-//			purge_local_database();
+			CRIT("Daemon has died. Purging local database!\n");
+			purge_local_database();
 			init = 0;
 			ret = RDMA_DAEMON_UNREACHABLE;
-		} else {
-			CRIT("Failed: %s\n", strerror(errno));
-		}
 	}
 
 	return ret;
