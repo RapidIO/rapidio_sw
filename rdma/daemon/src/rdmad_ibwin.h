@@ -50,7 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdmad_mspace.h"
 
-using namespace std;
+using std::vector;
 
 struct ibwin_map_exception {
 	ibwin_map_exception(const char *msg) : err(msg)
@@ -60,324 +60,46 @@ struct ibwin_map_exception {
 	const char *err;
 };
 
-/* Memory space is free and is equal to or larger than 'size'  */
-struct has_room
-{
-	has_room(uint64_t size) : size(size) {}
-
-	bool operator()(mspace* ms) {
-		return (ms->get_size() >= size) && ms->is_free();
-	}
-private:
-	uint64_t size;
-};
-
-struct has_msid {
-	has_msid(uint32_t msid) : msid(msid) {}
-	bool operator()(mspace *ms) {
-		return ms->get_msid() == msid;
-	}
-private:
-	uint32_t msid;
-};
-
-struct has_ms_name {
-	has_ms_name(const char *name) : name(name) {}
-	bool operator()(mspace *ms) {
-		return *ms == name;	/* mspace::operator==(const char *s) */
-	}
-private:
-	const char *name;
-};
-
 class ibwin 
 {
 public:
 	/* Constructor */
-	ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size) :
-	mport_hnd(mport_hnd), win_num(win_num), rio_addr(RIO_MAP_ANY_ADDR),
-	phys_addr(0), size(size)
-	{
-
-		/* First, obtain an inbound handle from the mport driver */
-		if (riomp_dma_ibwin_map(mport_hnd, &rio_addr, size, &phys_addr)) {
-			CRIT("riomp_dma_ibwin_map() failed: %s\n", strerror(errno));
-			throw ibwin_map_exception(
-				"ibwin::ibwin() failed in riomp_dma_ibwin_map");
-		}
-
-		INFO("%d, rio_addr = 0x%lX, size = 0x%lX, phys_addr = 0x%lX\n",
-			win_num, rio_addr, size, phys_addr);
-
-		/* Create first memory space. It is free, has no owner, has
-		 * msindex of 0x0000 and occupies the entire window */
-		mspace	*ms = new mspace("freemspace",
-					win_num << MSID_WIN_SHIFT,
-					rio_addr,
-					phys_addr,
-					size);
-		mspaces.push_back(ms);
-
-		/* Initially all free list indexes are available except the first */
-		fill(msindex_free_list, msindex_free_list + MSINDEX_MAX + 1, true);
-		msindex_free_list[0] = false;
-
-		if (pthread_mutex_init(&mspaces_lock, NULL)) {
-			CRIT("Failed to init mspaces_lock mutex\n");
-			throw -1;
-		}
-
-		if (pthread_mutex_init(&msindex_lock, NULL)) {
-			CRIT("Failed to init msindex_lock mutex\n");
-			throw -1;
-		}
-	} /* Constructor */
+	ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size);
 
 	/* Called from destructor ~inbound() */
-	void free()
-	{
-		/* Delete all memory spaces */
-		for_each(begin(mspaces), end(mspaces), [](mspace *p){ delete p;});
-		mspaces.clear();
+	void free();
 
-		/* Free inbound window */
-		INFO("win_num = %d, phys_addr = 0x%lX\n", win_num, phys_addr);
-		if (riomp_dma_ibwin_free(mport_hnd, &phys_addr)) {
-			CRIT("free(): riomp_dma_ibwin_free()\n");
-		}
-	} /* free() */
+	void dump_info(struct cli_env *env);
 
-	void dump_info(struct cli_env *env)
-	{
-		sprintf(env->output, "%8d %16" PRIx64 " %16" PRIx64 " %16" PRIx64 "\n", win_num, size, rio_addr, phys_addr);
-		logMsg(env);
-	} /* dump_info() */
+	void print_mspace_header(struct cli_env *env);
 
-	void print_mspace_header(struct cli_env *env)
-	{
-		sprintf(env->output, "\n%8s %8d %16s %8s %16s %8s\n", "Window", win_num, "Name",
-						"msid", "rio_addr", "size");
-		logMsg(env);
-		sprintf(env->output, "%8s %8s %16s %8s %16s %8s\n", "-------", "-------",
-					"----------------", "--------",
-					"----------------", "--------");
-		logMsg(env);
-	} /* print_mspace_header() */
+	void dump_mspace_info(struct cli_env *env);
 
-	void dump_mspace_info(struct cli_env *env)
-	{
-		print_mspace_header(env);
-		pthread_mutex_lock(&mspaces_lock);
-		for (auto& ms : mspaces) {
-			ms->dump_info(env);
-		}
-		pthread_mutex_unlock(&mspaces_lock);
-	} /* dump_mspace_info() */
+	void dump_mspace_and_subs_info(cli_env *env);
 
-	void dump_mspace_and_subs_info(cli_env *env)
-	{
-		pthread_mutex_lock(&mspaces_lock);
-		print_mspace_header(env);
-		for (auto& ms : mspaces) {
-			ms->dump_info_with_msubs(env);
-		}
-		pthread_mutex_unlock(&mspaces_lock);
-	} /* dump_mspace_and_subs_info() */
+	vector<mspace *>::iterator free_ms_large_enough(uint64_t size);
 
-	/* Returns iterator to memory space large enough to hold 'size' */
-	/* FIXME: I don't like the idea of ever returning an iterator since
-	 * the list maybe resized and that iterator would be pointing to another
-	 * memory space. It is better to return a pointer to the ms.
-	 */
-	vector<mspace *>::iterator free_ms_large_enough(uint64_t size)
-	{
-		has_room	hr(size);
-
-		pthread_mutex_lock(&mspaces_lock);
-		auto it = find_if(mspaces.begin(), mspaces.end(), hr);
-		pthread_mutex_unlock(&mspaces_lock);
-
-		return it;
-	} /* free_ms_large_enough() */
-
-	/* Returns whether there is a memory space large enough to hold 'size' */
-	bool has_room_for_ms(uint64_t size)
-	{
-		has_room	hr(size);
-
-		pthread_mutex_lock(&mspaces_lock);
-		bool mspace_has_room = find_if(mspaces.begin(), mspaces.end(), hr)
-						!= mspaces.end();
-		pthread_mutex_unlock(&mspaces_lock);
-
-		return mspace_has_room;
-	} /* has_room_for_ms() */
+	bool has_room_for_ms(uint64_t size);
 
 	/* Create memory space */
 	int create_mspace(const char *name,
 			  uint64_t size,
 			  uint32_t msoid,
 			  uint32_t *msid,
-			  mspace **ms)
-	{
-		/* Find the free memory space to use to allocate ours */
-		auto it = free_ms_large_enough(size);
-		if (it == end(mspaces)) {
-			ERR("No memory space large enough\n");
-			return -1;
-		}
+			  mspace **ms);
 
-		*ms = *it;
+	mspace* get_mspace(const char *name);
 
-		/* Determine index of new, free, memory space */
-		pthread_mutex_lock(&msindex_lock);
-		bool *fmlit  = find(begin(msindex_free_list),
-				    end(msindex_free_list),
-			    	    true);
+	mspace* get_mspace(uint32_t msid);
 
-		/* If none found, return error */
-		if (fmlit == (end(msindex_free_list))) {
-			CRIT("No free memory space indexes\n");
-			pthread_mutex_unlock(&msindex_lock);
-			return -2;
-		}
-		pthread_mutex_unlock(&msindex_lock);
+	mspace* get_mspace(uint32_t msoid, uint32_t msid);
 
-		/* Compute values for new memory space */
-		uint64_t new_rio_addr	= (*ms)->get_rio_addr() + size;
-		uint64_t new_phys_addr 	= (*ms)->get_phys_addr() + size;
-		uint64_t new_size 	= (*ms)->get_size() - size;
+	mspace *get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id);
 
-		/* Modify original memory space with new parameters */
-		(*ms)->set_size(size);
-		(*ms)->set_used();
-		(*ms)->set_msoid(msoid);
-		(*ms)->set_name(name);
-		*msid = (*ms)->get_msid();	/* Return as output param */
-
-		/* Create memory space for the remaining free inbound space, but
-		 * only if that space is non-zero in size */
-		if (new_size) {
-			/* The new free memory space has no owner, but has a
-			 * win_num the same as the original free one, and has a
-			 * new index */
-			uint32_t new_msid = ((*ms)->get_msid() & MSID_WIN_MASK) |
-					 (fmlit - begin(msindex_free_list));
-
-			/* Create a new space for unused portion */
-			mspace	 *new_free = new mspace("freemspace",
-							new_msid,
-							new_rio_addr,
-							new_phys_addr,
-							new_size);
-
-			/* Add new free memory space to list */
-			pthread_mutex_lock(&mspaces_lock);
-			mspaces.push_back(new_free);
-			pthread_mutex_unlock(&mspaces_lock);
-		}
-
-		/* Mark new memory space index as unavailable */
-		*fmlit = false;
-
-		return 1;
-	} /* create_mspace() */
-
-	mspace* get_mspace(const char *name)
-	{
-		has_ms_name	hmn(name);
-
-		pthread_mutex_lock(&mspaces_lock);
-		auto msit = find_if(begin(mspaces), end(mspaces), hmn);
-		mspace *ms = (msit == end(mspaces)) ? NULL : *msit;
-		pthread_mutex_unlock(&mspaces_lock);
-
-		return ms;
-	} /* get_mspace() */
-
-	mspace* get_mspace(uint32_t msid)
-	{
-		has_msid	hmsid(msid);
-
-		pthread_mutex_lock(&mspaces_lock);
-		auto it = find_if(begin(mspaces), end(mspaces), hmsid);
-		mspace *ms = (it == end(mspaces)) ? NULL : *it;
-		pthread_mutex_unlock(&mspaces_lock);
-
-		return ms;
-	} /* get_mspace() */
-
-	mspace* get_mspace(uint32_t msoid, uint32_t msid)
-	{
-		has_msid	hmsid(msid);
-
-		pthread_mutex_lock(&mspaces_lock);
-		auto it = find_if(begin(mspaces), end(mspaces), hmsid);
-
-		mspace *ms;
-
-		if (it == end(mspaces)) {
-			WARN("Mspace with msid(0x%X) not found\n", msid);
-			ms = nullptr;
-		} else {
-			ms = *it;
-		}
-		pthread_mutex_unlock(&mspaces_lock);
+	bool find_mspace(const char *name, vector<mspace *>::iterator& msit);
 
 
-		if (ms->get_msoid() != msoid) {
-			ERR("msid(0x%X) not owned by msoid(0x%X)\n", msid,msoid);
-			ms = nullptr;;
-		}
-
-		return ms;
-	} /* get_mspace() */
-
-	mspace *get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id)
-	{
-		mspace *ms = nullptr;
-
-		pthread_mutex_lock(&mspaces_lock);
-		for (auto& ms : mspaces) {
-			if (ms->has_user_with_user_server(server, ms_conn_id))
-				break;
-		}
-		pthread_mutex_unlock(&mspaces_lock);
-
-		return ms;
-	} /* get_mspace_open_by_server() */
-
-	/**
-	 * FIXME: Again, we should not be returning an iterator, but rather
-	 * a pointer to the memory space.
-	 */
-	bool find_mspace(const char *name, vector<mspace *>::iterator& msit)
-	{
-		has_ms_name	hmn(name);
-
-		pthread_mutex_lock(&mspaces_lock);
-		msit = find_if(begin(mspaces), end(mspaces), hmn);
-		/* DEBUG */
-		if (msit != end(mspaces)) {
-			DBG("Found %s\n", name);
-		}
-		bool found = (msit != end(mspaces)) ? true : false;
-		pthread_mutex_unlock(&mspaces_lock);
-
-		return found;
-	} /* find_mspace() */
-
-	bool find_mspace(uint32_t msid, vector<mspace *>::iterator& msit)
-	{
-		has_msid	hmsid(msid);
-
-		pthread_mutex_lock(&mspaces_lock);
-		msit = find_if(begin(mspaces), end(mspaces), hmsid);
-		bool found = (msit != end(mspaces)) ? true : false;
-		pthread_mutex_unlock(&mspaces_lock);
-
-		return found;
-	} /* find_mspace() */
+	bool find_mspace(uint32_t msid, vector<mspace *>::iterator& msit);
 
 	vector<mspace *>& get_mspaces() { return mspaces; };
 
