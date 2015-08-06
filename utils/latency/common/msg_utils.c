@@ -49,7 +49,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tsi721_msg.h"
 #include "dma_utils.h"
 #include "peer_utils.h"
-#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_dma.h>
+#include <rapidio_mport_sock.h>
 
 
 /**
@@ -147,7 +149,7 @@ int open_outb_mbox(struct peer_info *peer, int mbox, uint32_t entries)
 	for (i = 0; i < entries; i++) {
         DPRINT("%s: Allocating buffer for entry %d\n", __FUNCTION__, i);
         /* 4K for each entry. For the demo it is 1 entry */
-		peer->omsg_ring[mbox].omq_base[i] = dmatest_buf_alloc(peer->mport_fd,
+		peer->omsg_ring[mbox].omq_base[i] = dmatest_buf_alloc(peer->mp_h,
                                                        ONE_PAGE_LENGTH,
                                            &peer->omsg_ring[mbox].omq_phys[i]);
         DPRINT("%s: peer->omsg_ring[mbox].omq_phys[%d] = 0x%lX",
@@ -164,7 +166,7 @@ int open_outb_mbox(struct peer_info *peer, int mbox, uint32_t entries)
 
 	/* Outbound message descriptor allocation */
     DPRINT("%s: Allocating descriptor for MBOX%d\n", __FUNCTION__, mbox);
-	peer->omsg_ring[mbox].omd_base =  dmatest_buf_alloc(peer->mport_fd, 
+	peer->omsg_ring[mbox].omd_base =  dmatest_buf_alloc(peer->mp_h, 
 				ONE_PAGE_LENGTH,  /* for all descriptors */
 				&peer->omsg_ring[mbox].omd_phys);
 	if (peer->omsg_ring[mbox].omd_base == NULL) {
@@ -187,7 +189,7 @@ int open_outb_mbox(struct peer_info *peer, int mbox, uint32_t entries)
     peer->omsg_ring[mbox].sts_size = sts_size;
     DPRINT("%s: Allocating status FIFO for MBOX%d\n", __FUNCTION__, mbox);
     peer->omsg_ring[mbox].sts_base = dmatest_buf_alloc(
-                                            peer->mport_fd,
+                                            peer->mp_h,
                                       		peer->omsg_ring[mbox].sts_size,
                                 			&peer->omsg_ring[mbox].sts_phys);
     if (peer->omsg_ring[mbox].sts_base == NULL) {
@@ -248,7 +250,7 @@ int open_outb_mbox(struct peer_info *peer, int mbox, uint32_t entries)
 
 out_desc:
     /* Free allocated descriptors */
-    dmatest_buf_free(peer->mport_fd,
+    dmatest_buf_free(peer->mp_h,
                      peer->omsg_ring[mbox].omd_base,
                      ONE_PAGE_LENGTH,
                      &peer->omsg_ring[mbox].omd_phys);
@@ -258,7 +260,7 @@ out_buf:
     /* Free allocated message buffers */
 	for (i = 0; i < peer->omsg_ring[mbox].size; i++) {
 		if (peer->omsg_ring[mbox].omq_base[i]) {
-            dmatest_buf_free( peer->mport_fd,
+            dmatest_buf_free( peer->mp_h,
                               peer->omsg_ring[mbox].omq_base[i],
                               TSI721_MSG_BUFFER_SIZE,
 				              &peer->omsg_ring[mbox].omq_phys[i]);
@@ -295,14 +297,14 @@ void close_outb_mbox(struct peer_info *peer, int mbox)
     peer->omsg_init[mbox] = 0;  /* Mark as uninitialized */
 
     /* Free status descriptors */
-    dmatest_buf_free(peer->mport_fd,
+    dmatest_buf_free(peer->mp_h,
                      peer->omsg_ring[mbox].sts_base,
                		 peer->omsg_ring[mbox].sts_size,
                      &peer->omsg_ring[mbox].sts_phys);
     peer->omsg_ring[mbox].sts_base = NULL;
 
     /* Free message descriptors */
-    dmatest_buf_free(peer->mport_fd,
+    dmatest_buf_free(peer->mp_h,
                      peer->omsg_ring[mbox].omd_base,
                      ONE_PAGE_LENGTH,
                      &peer->omsg_ring[mbox].omd_phys);
@@ -311,7 +313,7 @@ void close_outb_mbox(struct peer_info *peer, int mbox)
     /* Free allocated message buffers */
 	for (i = 0; i < entries; i++) {
 		if (peer->omsg_ring[mbox].omq_base[i]) {
-            dmatest_buf_free( peer->mport_fd,
+            dmatest_buf_free( peer->mp_h,
                               peer->omsg_ring[mbox].omq_base[i],
                               TSI721_MSG_BUFFER_SIZE,
 				              &peer->omsg_ring[mbox].omq_phys[i]);
@@ -540,7 +542,7 @@ int open_inb_mbox(struct peer_info *peer, int mbox, uint32_t entries)
   	/* Allocate buffers for incoming messages */
   	DPRINT("%s:Allocate buffers for incoming messages\n", __FUNCTION__); 
     peer->imsg_ring[mbox].buf_base = dmatest_buf_alloc(
-                                            peer->mport_fd,
+                                            peer->mp_h,
                                             entries * TSI721_MSG_BUFFER_SIZE,
                                             &peer->imsg_ring[mbox].buf_phys);
 	if (peer->imsg_ring[mbox].buf_base == NULL) {
@@ -554,7 +556,7 @@ int open_inb_mbox(struct peer_info *peer, int mbox, uint32_t entries)
 	/* Allocate memory for circular free list */
   	DPRINT("%s:Allocate memory for circular free list\n", __FUNCTION__); 
 	peer->imsg_ring[mbox].imfq_base = dmatest_buf_alloc(
-                                            peer->mport_fd,
+                                            peer->mp_h,
                                             ONE_PAGE_LENGTH,
                                             &peer->imsg_ring[mbox].imfq_phys);
 	if (peer->imsg_ring[mbox].imfq_base == NULL) {
@@ -569,7 +571,7 @@ int open_inb_mbox(struct peer_info *peer, int mbox, uint32_t entries)
 	/* Allocate memory for Inbound message descriptors */
   	DPRINT("%s:Allocate memory for inbound message descriptors\n", __FUNCTION__); 
 	peer->imsg_ring[mbox].imd_base = dmatest_buf_alloc(
-                                            peer->mport_fd,
+                                            peer->mp_h,
                                             4*ONE_PAGE_LENGTH,
                                             &peer->imsg_ring[mbox].imd_phys);
 	if (peer->imsg_ring[mbox].imd_base == NULL) {
@@ -651,13 +653,13 @@ int open_inb_mbox(struct peer_info *peer, int mbox, uint32_t entries)
 
 
 out_dma:
-    dmatest_buf_free(peer->mport_fd, peer->imsg_ring[mbox].imfq_base,
+    dmatest_buf_free(peer->mp_h, peer->imsg_ring[mbox].imfq_base,
                                      ONE_PAGE_LENGTH,
                                      &peer->imsg_ring[mbox].imfq_phys);
 	peer->imsg_ring[mbox].imfq_base = NULL;
 
 out_buf:
-    dmatest_buf_free(peer->mport_fd, peer->imsg_ring[mbox].buf_base,
+    dmatest_buf_free(peer->mp_h, peer->imsg_ring[mbox].buf_base,
                                      peer->imsg_ring[mbox].size * TSI721_MSG_BUFFER_SIZE,
 		                             &peer->imsg_ring[mbox].buf_phys);
 	peer->imsg_ring[mbox].buf_base = NULL;
@@ -686,21 +688,21 @@ void close_inb_mbox(struct peer_info *peer, int mbox)
 		peer->imsg_ring[mbox].imq_base[rx_slot] = NULL;
 
 	/* Free memory allocated for message buffers */
-    dmatest_buf_free(peer->mport_fd,
+    dmatest_buf_free(peer->mp_h,
                      peer->imsg_ring[mbox].buf_base,
                      peer->imsg_ring[mbox].size * TSI721_MSG_BUFFER_SIZE,
 		             &peer->imsg_ring[mbox].buf_phys);
 	peer->imsg_ring[mbox].buf_base = NULL;
 
 	/* Free memory allocated for free pointr list */
-    dmatest_buf_free(peer->mport_fd,
+    dmatest_buf_free(peer->mp_h,
                      peer->imsg_ring[mbox].imfq_base,
                      ONE_PAGE_LENGTH,
                      &peer->imsg_ring[mbox].imfq_phys);
 	peer->imsg_ring[mbox].imfq_base = NULL;
 
 	/* Free memory allocated for RX descriptors */
-    dmatest_buf_free(peer->mport_fd, 
+    dmatest_buf_free(peer->mp_h, 
                      peer->imsg_ring[mbox].imd_base,
                      ONE_PAGE_LENGTH,
 		             &peer->imsg_ring[mbox].imd_phys);
