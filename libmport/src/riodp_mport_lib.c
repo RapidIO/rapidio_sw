@@ -1834,8 +1834,11 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 	int ret;
 
 	if (handle->ch.id == 0) {
-		if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CREATE, &ch_num))
-			return errno;
+		if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CREATE, &ch_num)) {
+			ret = errno;
+			LIBERROR("ioctl RIO_CM_CHAN_CREATE rc(%d): %s\n", ret, strerror(ret));
+			return ret;
+		}
 		handle->ch.id = ch_num;
 	}
 
@@ -1851,10 +1854,9 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 	cdev.id = handle->ch.id;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &cdev);
 	if (ret) {
-#ifdef DEBUG
-		printf("ioctl rc(%d): %s\n", ret, strerror(errno));
-#endif
-		return errno;
+		ret = errno;
+		LIBERROR("ioctl RIO_CM_CHAN_CONNECT rc(%d): %s\n", ret, strerror(ret));
+		return ret;
 	}
 
 	LIBTRACE("%s\n", __func__);
