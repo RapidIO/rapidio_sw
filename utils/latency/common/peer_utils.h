@@ -41,7 +41,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tsi721_msg.h"
 
 
-#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_dma.h>
+#include <rapidio_mport_sock.h>
 
 /* DEMO MODE */
 #define LOOPBACK           0
@@ -62,8 +64,9 @@ struct peer_info {
 
     /* MPORT */
     int mport_num;
-    int mport_fd;
-	struct rio_mport_properties props;
+    int mp_h_valid;
+    riomp_mport_t mp_h;
+	struct riomp_mgmt_mport_properties props;
 
     /* BAR0 */
     int bar0_fd;

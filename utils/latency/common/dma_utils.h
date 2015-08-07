@@ -100,9 +100,9 @@ int roundup_pow_of_two( int n );
 
 uint32_t dma_get_alloc_data_length( uint32_t length );
 
-void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle);
+void *dmatest_buf_alloc(riomp_mport_t mp_h, uint32_t size, uint64_t *handle);
 
-void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle);
+void dmatest_buf_free(riomp_mport_t mp_h, void *buf, uint32_t size, uint64_t *handle);
 
 int dma_alloc_chan_resources(struct peer_info *peer);
 

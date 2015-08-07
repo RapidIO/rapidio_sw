@@ -1,6 +1,8 @@
 # Makefile for building latency test
 #
 
+KDIR?=
+LINUX_INCLUDE_DIR ?= $(KDIR)/include
 CXX ?= $(CROSS_COMPILE)g++
 config?=NODEBUG
 COMMONINC=common
@@ -10,30 +12,35 @@ COMMONINC=common
 APIINC?=../../fabric_management/librio_switch/inc
 
 # User-mode flags
-UCFLAGS = -O3 -Wall -g -I$(APIINC) -I$(COMMONINC) -I../../include -lrt -D$(config) -std=gnu++0x
+UCFLAGS = -O3 -Wall -g -I$(APIINC) -I$(COMMONINC) -I/usr/src/linux/include -I../../common/include -lrt -D$(config) -std=gnu++0x
 
-KMFLAGS = -pthread
+KMFLAGS = -I/usr/src/linux/include -pthread
 
 UBRIDGE_SOURCES = test/ubridge.c common/pcie_utils.c \
 	common/inbound_utils.c common/time_utils.c common/tsi721_config.c \
-	common/peer_utils.c common/obwin_utils.c  ../../libmport/libmport.a
+	common/peer_utils.c common/obwin_utils.c  \
+	../../common/libmport/libmport.a
 
 UDMA_SOURCES = test/udma.c common/pcie_utils.c \
 	common/inbound_utils.c common/time_utils.c common/tsi721_config.c \
-	common/peer_utils.c common/dma_utils.c  ../../libmport/libmport.a
+	common/peer_utils.c common/dma_utils.c \
+	../../common/libmport/libmport.a
 
 UMSG_SOURCES = test/umsg.c common/pcie_utils.c \
 	common/inbound_utils.c common/time_utils.c common/tsi721_config.c \
-	common/peer_utils.c common/dma_utils.c common/msg_utils.c  ../../libmport/libmport.a
+	common/peer_utils.c common/dma_utils.c common/msg_utils.c \
+	../../common/libmport/libmport.a
 
 
 KDMA_SOURCES = test/kdma.c common/pcie_utils.c \
 	common/inbound_utils.c common/time_utils.c common/tsi721_config.c \
-	common/peer_utils.c common/dma_utils.c common/latency_threads.c  ../../libmport/libmport.a
+	common/peer_utils.c common/dma_utils.c common/latency_threads.c  \
+	../../common/libmport/libmport.a
 
 KMSG_SOURCES = test/kmsg.c common/pcie_utils.c \
 	common/inbound_utils.c common/time_utils.c common/tsi721_config.c \
-	common/peer_utils.c common/dma_utils.c common/latency_threads.c	 ../../libmport/libmport.a
+	common/peer_utils.c common/dma_utils.c common/latency_threads.c	 \
+	../../common/libmport/libmport.a
 
 
 all: ubridge udma umsg kdma kmsg

@@ -46,7 +46,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tsi721_dma.h"
 #include "dma_utils.h"
 #include "inbound_utils.h"
-#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_dma.h>
+#include <rapidio_mport_sock.h>
 
 
 int roundup_pow_of_two( int n )
@@ -78,24 +80,24 @@ uint32_t dma_get_alloc_data_length( uint32_t length )
 } /* dma_get_alloc_data_length() */
 
 
-void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
+void *dmatest_buf_alloc(riomp_mport_t mp_h, uint32_t size, uint64_t *handle)
 {
 	void *buf_ptr = NULL;
 	uint64_t h;
 	int ret;
 
 	if (handle) {
-		ret = riomp_dma_dbuf_alloc(fd, size, &h);
+		ret = riomp_dma_dbuf_alloc(mp_h, size, &h);
 		if (ret) {
 			fprintf(stderr,"riomp_dma_dbuf_alloc failed err=%d\n", ret);
 			return NULL;
 		}
 
-		buf_ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, h);
-		if (buf_ptr == MAP_FAILED) {
+		ret = riomp_dma_map_memory(mp_h, size, h, &buf_ptr);
+		if (ret) {
 			perror("mmap");
 			buf_ptr = NULL;
-			ret = riomp_dma_dbuf_free(fd, handle);
+			ret = riomp_dma_dbuf_free(mp_h, handle);
 			if (ret)
 				fprintf(stderr, "riomp_dma_dbuf_free failed err=%d\n", ret);
 		} else
@@ -113,7 +115,7 @@ void *dmatest_buf_alloc(int fd, uint32_t size, uint64_t *handle)
 } /* dmatest_buf_alloc() */
 
 
-void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle)
+void dmatest_buf_free(riomp_mport_t mp_h, void *buf, uint32_t size, uint64_t *handle)
 {
 	if (handle && *handle) { 
 		int ret;
@@ -121,7 +123,7 @@ void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle)
 		if (munmap(buf, size))
 			perror("munmap");
 
-		ret = riomp_dma_dbuf_free(fd, handle);
+		ret = riomp_dma_dbuf_free(mp_h, handle);
 		if (ret)
 			fprintf(stderr,"%s:riomp_dma_dbuf_free failed err=%d\n", __FUNCTION__,
                                                                  ret);
@@ -132,7 +134,7 @@ void dmatest_buf_free(int fd, void *buf, uint32_t size, uint64_t *handle)
 static int dma_ch_init(struct peer_info *peer)
 {
     /* Parameters */
-    int mport_fd;
+    riomp_mport_t mp_h;
     struct tsi721_bdma_chan *bdma_chan;
     int bd_num;
     int channel;
@@ -156,7 +158,7 @@ static int dma_ch_init(struct peer_info *peer)
     }
 
     /* Extract parameters */
-    mport_fd  = peer->mport_fd;
+    mp_h  = peer->mp_h;
     bdma_chan = &peer->the_channel;
     bd_num    = peer->bd_num;
     channel   = peer->channel_num;
@@ -169,7 +171,7 @@ static int dma_ch_init(struct peer_info *peer)
 	 * Allocate space for DMA descriptors
 	 * (add an extra element for link descriptor)
 	 */
-    dma_descriptors_v = (struct tsi721_dma_desc *)dmatest_buf_alloc(mport_fd, 
+    dma_descriptors_v = (struct tsi721_dma_desc *)dmatest_buf_alloc(mp_h, 
                                           DMA_DESCRIPTORS_LENGTH,
                                           &dma_descriptors_p);
     if (dma_descriptors_v == NULL) {
@@ -194,12 +196,12 @@ static int dma_ch_init(struct peer_info *peer)
     /* If the rounded size is less than DMA_STATUS_LENGTH, use the latter */
     sts_size = (sts_size < DMA_STATUS_FIFO_LENGTH) ? DMA_STATUS_FIFO_LENGTH : sts_size;
 
-    sts_ptr  = (uint64_t *)dmatest_buf_alloc(mport_fd,
+    sts_ptr  = (uint64_t *)dmatest_buf_alloc(mp_h,
                                  sts_size,
                                  &sts_phys);
 	if (!sts_ptr) {
     	/* Free space allocated for DMA descriptors */
-        dmatest_buf_free(mport_fd,bdma_chan->bd_base,DMA_DESCRIPTORS_LENGTH,
+        dmatest_buf_free(mp_h,bdma_chan->bd_base,DMA_DESCRIPTORS_LENGTH,
                                                      &bdma_chan->bd_phys);
         bdma_chan->bd_base = NULL;
         perror("Failed to allocate descriptor status FIFO");
@@ -275,14 +277,14 @@ static int dma_ch_free(struct peer_info *peer)
     WriteDMARegister(peer,TSI721_DMAC_CTL, TSI721_DMAC_CTL_INIT);
 
     /* Free space allocated for DMA descriptors */
-    dmatest_buf_free(peer->mport_fd, 
+    dmatest_buf_free(peer->mp_h, 
                      bdma_chan->bd_base,
                      DMA_DESCRIPTORS_LENGTH,
                      &bdma_chan->bd_phys);
     bdma_chan->bd_base = NULL;
 
     /* Free space allocated for status FIFO */
-    dmatest_buf_free(peer->mport_fd, 
+    dmatest_buf_free(peer->mp_h, 
                      bdma_chan->sts_base,
                      bdma_chan->sts_size,
                      &bdma_chan->sts_phys);

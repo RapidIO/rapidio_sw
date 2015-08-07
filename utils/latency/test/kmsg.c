@@ -57,7 +57,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <dirent.h>
 
 
-#include <rapidio_mport_mgmt.h>#include <rapidio_mport_rdma.h>#include <rapidio_mport_sock.h>
+#include <rapidio_mport_mgmt.h>
+#include <rapidio_mport_dma.h>
+#include <rapidio_mport_sock.h>
 
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 
@@ -78,8 +80,9 @@ int srv_exit;
 
 struct demo_chan_setup {
 	uint32_t mport_id;
-	int fd;
-	struct rio_mport_properties props;
+	int mp_h_valid;
+	riomp_mport_t mp_h;
+	struct riomp_mgmt_mport_properties props;
 
 	uint16_t my_destid;
 	uint16_t remote_destid;
@@ -178,7 +181,7 @@ void parse_options(int argc, char** argv)
 
 	for (idx = 0; idx < 2; idx++) {
 		demo.ep[idx].mport_id = idx;
-		demo.ep[idx].fd = -1;
+		demo.ep[idx].mp_h = NULL;
 		demo.ep[idx].my_destid = -1;
 		demo.ep[idx].remote_destid = -1;
 		demo.ep[idx].tx_buf = NULL;
@@ -301,20 +304,23 @@ static void show_rio_devs(void)
 int open_mports(int last_idx) 
 {
 	int idx;
-	int rc = EXIT_FAILURE;
+	int rc = EXIT_FAILURE, ret;
 
 	for (idx = 0; idx <= last_idx; idx++) {
-		demo.ep[idx].fd = riomp_mgmt_mport_create_handle(demo.ep[idx].mport_id, 0);
-		if (demo.ep[idx].fd < 0) {
+		demo.ep[idx].mp_h_valid = 0;
+		ret = riomp_mgmt_mport_create_handle(demo.ep[idx].mport_id, 0,
+			&demo.ep[idx].mp_h);
+		if (ret) {
 			printf("Unable to open idx %d mport%d device "
 				"err=%d:%s\n",
 				idx, demo.ep[idx].mport_id, errno, 
 				strerror(errno));
 			goto exit;
 		}
+		demo.ep[idx].mp_h_valid = 1;
 
-		if (!riodp_query_mport(demo.ep[idx].fd, &demo.ep[idx].props)) {
-			display_mport_info(&demo.ep[idx].props);
+		if (!riomp_mgmt_query(demo.ep[idx].mp_h, &demo.ep[idx].props)) {
+			riomp_mgmt_display_info(&demo.ep[idx].props);
 		} else {
 			printf("Failed to obtain mport information\n");
 			printf("Using default configuration\n\n");
@@ -331,8 +337,10 @@ void close_mports(int last_idx)
 
         printf("\nClosing master port(s)...\n");
         for (idx = 0; idx <= last_idx; idx++) {
-                if (demo.ep[idx].fd > 0)
-                        close(demo.ep[idx].fd);
+                if (demo.ep[idx].mp_h_valid) {
+			riomp_mgmt_mport_destroy_handle(&demo.ep[idx].mp_h);
+                	demo.ep[idx].mp_h_valid = 0;
+		};
         }
 };
 
@@ -407,7 +415,7 @@ static int fixup_options(void)
 	rc = -1;
         for (i = 0; i < max_idx; i++) {
                 if (EXIT_FAILURE == config_tsi721(demo.cfg == CFG_LPBK,
-                                demo.got_switch, demo.ep[i].fd,
+                                demo.got_switch, demo.ep[i].mp_h,
                                 demo.debug,
                                 demo.ep[i].props.link_speed >= RIO_LINK_500 ))
                         goto exit;
@@ -421,7 +429,7 @@ static int fixup_options(void)
 					dp = opendir(rio_device);
 					if (dp == NULL)	{
 						sprintf(rio_device, "mport%d_lb", idx);
-						err = riomp_mgmt_device_add(demo.ep[idx].fd, demo.ep[idx].props.hdid,
+						err = riomp_mgmt_device_add(demo.ep[idx].mp_h, demo.ep[idx].props.hdid,
 												0xff, 0x11223344, rio_device);
 						if (err)
 							printf("Failed to create loopback device. ERR=%d\n", err);
@@ -435,7 +443,7 @@ static int fixup_options(void)
                 int rst_lp = (i == (max_idx-1)) &&
                         ((demo.cfg == CFG_1_CL) || (demo.cfg == CFG_DUAL));
                 if (EXIT_FAILURE == cleanup_tsi721( demo.got_switch,
-                                demo.ep[i].fd, demo.debug,
+                                demo.ep[i].mp_h, demo.debug,
                                 demo.ep[i].props.hdid, rst_lp))
                         goto exit;
         }
@@ -744,14 +752,10 @@ cleanup_socket:
 					__func__);
 	};
 	if (demo.s_c_sock) {
-		struct rapidio_mport_socket *handle = demo.s_c_sock;
-		if (handle->cdev.id) {
-			ret = riomp_sock_close(&demo.s_c_sock);
-			if (ret)
-				printf("%s: riomp_sock_close()"
-					" s_c_sock channel %d ERR\n",
-					__func__, handle->cdev.id);
-		};
+		ret = riomp_sock_close(&demo.s_c_sock);
+		if (ret)
+			printf("%s: riomp_sock_close() ERR\n", __func__);
+		demo.s_c_sock = NULL;
 	};
 cleanup_handle:
 	/* Release rapidio_mport_mailbox control structure */

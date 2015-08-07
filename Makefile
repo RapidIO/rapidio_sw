@@ -44,7 +44,7 @@ export CXX
 TOP_LEVEL = $(shell pwd)
 export TOP_LEVEL
 
-TARGETS = common libmport fabric_management rdma 
+TARGETS = common fabric_management rdma 
 
 all: $(TARGETS)
 
@@ -54,18 +54,13 @@ fabric_management: common FORCE
 rdma: common fabric_management FORCE
 	$(MAKE) all -C rdma
 		
-common: libmport FORCE
+common: FORCE
 	$(MAKE) all -C common 
-	cp libmport/libmport.a common/libs_a/libmport.a
 		
-libmport:  FORCE
-	$(MAKE) all LDFLAGS= -C libmport
-
 FORCE:
 
 clean: FORCE
 	$(MAKE) clean -C common
-	$(MAKE) clean -C libmport
 	$(MAKE) clean -C rdma
 	$(MAKE) clean -C fabric_management
 	rm -rf include/libs_a/*
