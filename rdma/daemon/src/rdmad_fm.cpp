@@ -7,9 +7,12 @@
 #include <vector>
 #include <set>
 
-using namespace std;
+using std::vector;
+using std::set;
+
 #include "liblog.h"
 #include "libfmdd.h"
+#include "rdmad_srvr_threads.h"
 #include "rdmad_clnt_threads.h"
 
 #ifdef __cplusplus
@@ -21,6 +24,122 @@ uint32_t fm_alive;
 static uint32_t fm_must_die;
 static pthread_t fm_thread;
 static fmdd_h dd_h;
+
+static void unprovision_did(uint32_t did)
+{
+	/* Unprovision from PROV list */
+	sem_wait(&prov_daemon_info_list_sem);
+	/* Delete entry for dead 'did' from both daemon lists */
+	auto it1 = find (begin(prov_daemon_info_list),
+			end(prov_daemon_info_list),
+			did);
+	if (it1 != end(prov_daemon_info_list))
+		if (pthread_kill(it1->tid, SIGUSR1)) {
+			ERR("Failed to kill wait_conn_disc_thread\n");
+		}
+	/* Note: It is OK if it is not found; it means we took care of
+	 * it in wait_conn_disc_thread_f() when the cm receive failed.
+	 */
+	sem_post(&prov_daemon_info_list_sem);
+
+	/* Unprovision from HELLO list */
+	sem_wait(&hello_daemon_info_list_sem);
+	auto it2 = find(begin(hello_daemon_info_list),
+			end(hello_daemon_info_list),
+			did);
+	if (it2 != end(hello_daemon_info_list))
+		if (pthread_kill(it2->tid, SIGUSR1)) {
+			ERR("Failed to kill wait_accept_destroy_thread\n");
+		}
+	/* Note: It is OK if it is not found; it means we took care of
+	 * it in wait_accept_destroy_thread_f() when the cm receive failed.
+	 */
+	sem_post(&hello_daemon_info_list_sem);
+} /* un_provision_did() */
+
+static int provision_new_dids(uint32_t old_did_list_size,
+			      uint32_t *old_did_list,
+			      uint32_t new_did_list_size,
+			      uint32_t *new_did_list)
+{
+	/* Determine which dids are new since last time */
+	vector<uint32_t> result(new_did_list_size);
+	vector<uint32_t>::iterator end_result = set_difference(
+			new_did_list, new_did_list + new_did_list_size,
+			old_did_list, old_did_list + old_did_list_size,
+			begin(result));
+	result.resize(end_result - begin(result));
+	INFO("%u new endpoints detected\n", result.size());
+
+	/* Provision new dids */
+	for (uint32_t& did : result) {
+		INFO("Provisioning 0x%X\n", did);
+		/* Check if daemon is running */
+		if (fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
+			/* SEND HELLO */
+			if (provision_rdaemon(did)) {
+				CRIT("Fail to provision destid(0x%X)\n", did);
+			} else {
+				HIGH("Provisioned destid(0x%X)\n", did);
+			}
+		}
+	}
+
+	return 0;
+} /* provision_new_dids() */
+
+static void unprovision_dead_dids(uint32_t old_did_list_size,
+				  uint32_t *old_did_list,
+				  uint32_t new_did_list_size,
+				  uint32_t *new_did_list)
+{
+	/* Determine which dids died since last time */
+	vector<uint32_t> result(old_did_list_size);
+	vector<uint32_t>::iterator end_result = set_difference(
+			old_did_list, old_did_list + old_did_list_size,
+			new_did_list, new_did_list + new_did_list_size,
+			begin(result));
+	result.resize(end_result - begin(result));
+	INFO("%u endpoints died\n", result.size());
+
+	/* Unprovision dead dids */
+
+	for (uint32_t& did : result) {
+		unprovision_did(did);
+	}
+} /* remove_dead_dids() */
+
+/**
+ * If daemon isn't running on 'did' then unprovision the 'did' and
+ * return true.
+ */
+bool daemon_not_running(uint32_t did)
+{
+	DBG("did = 0x%X\n", did);
+	if (!fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
+		HIGH("Daemon for did (0x%x) not running. Removing!\n");
+		unprovision_did(did);
+		return true;
+	} else {
+		return false;
+	}
+} /* daemon_not_running() */
+
+/**
+ * Call daemon_not_running on every element of the current 'did'
+ * list. If daemon_no_running() returns 'true' then remove the
+ * 'did' from the current list.
+ */
+static void validate_remote_daemons(uint32_t *old_did_list_size,
+		  	  	    uint32_t *old_did_list)
+{
+	DBG("*old_did_list_size = %u\n", *old_did_list_size);
+	uint32_t *old_did_list_end = remove_if(old_did_list,
+			      old_did_list + *old_did_list_size,
+			      daemon_not_running);
+	*old_did_list_size = old_did_list_end - old_did_list;
+	DBG("Now *old_did_list_size = %u\n", *old_did_list_size);
+} /* validate_remove_daemons() */
 
 /* Sends requests and responses to all apps */
 void *fm_loop(void *unused)
@@ -47,6 +166,8 @@ void *fm_loop(void *unused)
 
 	do {
 		/* Get fresh list of dids */
+		if (new_did_list != NULL)
+			fmdd_free_did_list(dd_h, &new_did_list);
 		if (fmdd_get_did_list(dd_h, &new_did_list_size, &new_did_list)) {
 			CRIT("Failed to get device ID list from FM. Exiting.\n");
 			break;
@@ -54,47 +175,33 @@ void *fm_loop(void *unused)
 		INFO("Fabman reported %u remote endpoints\n", new_did_list_size);
 		sort(new_did_list, new_did_list + new_did_list_size);
 
-		/* Determine which dids are new since last time */
-		vector<uint32_t> result(new_did_list_size);
-		vector<uint32_t>::iterator end_result = set_difference(
-				new_did_list, new_did_list + new_did_list_size,
-				old_did_list, old_did_list + old_did_list_size,
-				begin(result));
-		result.resize(end_result - begin(result));
-		INFO("%d new endpoints detected\n", result.size());
-		fmdd_free_did_list(dd_h, &new_did_list);
+		/* Provision new DIDs, if any */
+		provision_new_dids(old_did_list_size,
+				   old_did_list,
+				   new_did_list_size,
+				   new_did_list);
+
+		/* Remove any DIDs that dropped off, if any */
+		unprovision_dead_dids(old_did_list_size,
+				      old_did_list,
+				      new_did_list_size,
+				      new_did_list);
 
 		/* Save a copy of the current list for comparison next time */
-		if (old_did_list == NULL)
+		if (old_did_list != NULL)	/* Only first time would be NULL */
 			fmdd_free_did_list(dd_h, &old_did_list);
 		if (fmdd_get_did_list(dd_h, &old_did_list_size, &old_did_list)) {
 			CRIT("Failed to get device ID list from FM. Exiting.\n");
 			break;
 		}
 		sort(old_did_list, old_did_list + old_did_list_size);
+		DBG("old_did_list_size = %u\n", old_did_list_size);
 
-		/* Provision new dids */
-		for (uint32_t& did : result) {
-			INFO("Provisioning 0x%X\n", did);
-			/* Check if daemon is running */
-			if (fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
-				/* SEND HELLO */
-				if (provision_rdaemon(did)) {
-					CRIT("Fail to provision destid(0x%X)\n",
-									did);
-				} else {
-					HIGH("Provisioned desitd(0x%X)\n", did);
-				}
-			} else {
-				/* If the daemon isn't running and we can't provision the
-				 * did, then it must NOT be in the old did list so that next time
-				 * around it gets provisioned.
-				 */
-				WARN("FM daemon is not running on did(0x%X)\n", did);
-				remove(old_did_list, old_did_list + old_did_list_size, did);
-				old_did_list_size--;
-			}
-		}
+		/* Check that all the daemons are accessible in the current list.
+		 * If any of them isn't then remove it from the current list so
+		 * that we re-check them on the next iteration.
+		 */
+		validate_remote_daemons(&old_did_list_size, old_did_list);
 
 		/* Loop again only if Fabric Management reports change */
 		DBG("Waiting for FM to report change...\n");
