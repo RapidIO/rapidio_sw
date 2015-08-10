@@ -154,6 +154,14 @@ void *rpc_thread_f(void *arg)
 			other_server->get_send_buffer((void **)&out_msg);
 
 			switch(in_msg->type) {
+				case RDMAD_IS_ALIVE:
+				{
+					DBG("RDMAD_IS_ALIVE\n");
+					out_msg->type = RDMAD_IS_ALIVE_ACK;
+					out_msg->rdmad_is_alive_out.dummy = 0x5678;
+				}
+				break;
+
 				case GET_MPORT_ID:
 				{
 					DBG("GET_MPORT_ID\n");
@@ -476,7 +484,7 @@ void *rpc_thread_f(void *arg)
 					if (it == end(hello_daemon_info_list)) {
 						ERR("destid(0x%X) was not provisioned\n", in->server_destid);
 						sem_post(&hello_daemon_info_list_sem);
-						out->status = -1;
+						out->status = RDMA_REMOTE_UNREACHABLE;
 						break;
 					}
 					sem_post(&hello_daemon_info_list_sem);
@@ -556,7 +564,7 @@ void *rpc_thread_f(void *arg)
 					if (it == end(hello_daemon_info_list)) {
 						ERR("destid(0x%X) was not provisioned\n", in->rem_destid);
 						sem_post(&hello_daemon_info_list_sem);
-						out->status = -1;
+						out->status = RDMA_REMOTE_UNREACHABLE;
 						break;
 					}
 					sem_post(&hello_daemon_info_list_sem);

@@ -137,6 +137,18 @@ static int alt_rpc_call()
 	return ret;
 } /* alt_rpc_call() */
 
+static bool rdmad_is_alive(void)
+{
+	rdmad_is_alive_input	in;
+
+	in.dummy = 0x1234;
+
+	in_msg->type = RDMAD_IS_ALIVE;
+	in_msg->rdmad_is_alive_in = in;
+
+	return alt_rpc_call() != RDMA_DAEMON_UNREACHABLE;
+} /* rdmad_is_alive() */
+
 static int open_mport(struct peer_info *peer)
 {
 	get_mport_id_output	out;
@@ -1363,6 +1375,11 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		return RDMA_NULL_PARAM;
 	}
 
+	if (!rdmad_is_alive()) {
+		ERR("Local RDMA daemon is dead. Exiting\n");
+		return RDMA_DAEMON_UNREACHABLE;
+	}
+
 	ret = riomp_dma_map_memory(peer.mport_hnd, pmsub->bytes, pmsub->paddr, vaddr);
 
 	INFO("map() phys_addr = 0x%lX, virt_addr = %p, size = 0x%x\n",
@@ -1394,6 +1411,11 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 	if (!vaddr) {
 		ERR("vaddr is NULL\n");
 		return RDMA_NULL_PARAM;
+	}
+
+	if (!rdmad_is_alive()) {
+		ERR("Local RDMA daemon is dead. Exiting\n");
+		return RDMA_DAEMON_UNREACHABLE;
 	}
 
 	DBG("Unmapping vaddr(%p), of size %u\n", vaddr, pmsub->bytes);

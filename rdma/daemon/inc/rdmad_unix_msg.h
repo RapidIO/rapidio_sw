@@ -36,11 +36,24 @@
 #define GET_MPORT_ID_ACK	0x800F
 #define SEND_DISCONNECT		0x0010
 #define SEND_DISCONNECT_ACK	0x8010
+#define RDMAD_IS_ALIVE		0x001A
+#define RDMAD_IS_ALIVE_ACK	0x801A
+
+/* rdmad_is_alive() arguments */
+struct rdmad_is_alive_input {
+	int dummy;
+};
+
+/* rdmad_is_alive() arguments */
+struct rdmad_is_alive_output {
+	int dummy;
+};
 
 /* get_mport_id() arguments */
 struct get_mport_id_input {
 	int dummy;
 };
+
 struct get_mport_id_output {
 	int mport_id;
 	int status;
@@ -245,6 +258,8 @@ struct unix_msg_t {
 		struct undo_connect_output	undo_connect_out;
 		struct send_disconnect_input	send_disconnect_in;
 		struct send_disconnect_output	send_disconnect_out;
+		struct rdmad_is_alive_input	rdmad_is_alive_in;
+		struct rdmad_is_alive_output	rdmad_is_alive_out;
 	};
 };
 
