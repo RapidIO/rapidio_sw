@@ -1959,6 +1959,12 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 		return RDMA_INVALID_RIO_ADDR;
 	}
 
+	/* Check if local daemon is alive */
+	if (!rdmad_is_alive()) {
+		ERR("Local RDMA daemon is dead. Exiting\n");
+		return RDMA_DAEMON_UNREACHABLE;
+	}
+
 	/* Check if remote daemon is alive */
 	if (fm_alive && (dd_h != NULL))
 		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
@@ -2146,6 +2152,12 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 		ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
 		out->in_param_ok = -3;
 		return RDMA_INVALID_RIO_ADDR;
+	}
+
+	/* Check if local daemon is alive */
+	if (!rdmad_is_alive()) {
+		ERR("Local RDMA daemon is dead. Exiting\n");
+		return RDMA_DAEMON_UNREACHABLE;
 	}
 
 	/* Check if remote daemon is alive */
