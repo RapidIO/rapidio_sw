@@ -1019,7 +1019,7 @@ int rdma_open_ms_h(const char *ms_name,
 		/* Call to open_ms_1() creates the message queue, so open it */
 		close_mq = new msg_q<mq_close_ms_msg>(qname.str(), MQ_OPEN);
 	}
-	catch(msg_q_exception e) {
+	catch(msg_q_exception& e) {
 		CRIT("Failed to create message queue: %s\n", e.msg.c_str());
 		return -6;
 	}
@@ -1766,7 +1766,7 @@ __sync_synchronize();
 	try {
 		destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_CREATE);
 	}
-	catch(msg_q_exception e) {
+	catch(msg_q_exception& e) {
 		CRIT("Failed to create destroy_mq: %s\n", e.msg.c_str());
 		return -6;
 	}
