@@ -64,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librdma_db.h"
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
+#include "libfmdd.h"
 
 using namespace std;
 
@@ -78,6 +79,8 @@ static unix_client *client;
 static unix_msg_t  *in_msg;
 static unix_msg_t  *out_msg;
 static size_t	    received_len;
+static fmdd_h 	    dd_h;
+static uint32_t	    fm_alive;
 
 /** 
  * Global info related to mports and channelized messages.
@@ -123,15 +126,14 @@ static int alt_rpc_call()
 	}
 
 	if (ret) {
-			CRIT("Daemon has died. Terminating socket connection\n");
-			delete client;
-			client = nullptr;
-			CRIT("Daemon has died. Purging local database!\n");
-			purge_local_database();
-			init = 0;
-			ret = RDMA_DAEMON_UNREACHABLE;
+		CRIT("Daemon has died. Terminating socket connection\n");
+		delete client;
+		client = nullptr;
+		CRIT("Daemon has died. Purging local database!\n");
+		purge_local_database();
+		init = 0;
+		ret = RDMA_DAEMON_UNREACHABLE;
 	}
-
 	return ret;
 } /* alt_rpc_call() */
 
@@ -365,6 +367,18 @@ int rdma_lib_init(void)
 		} else {
 			CRIT("Failed to open mport\n");
 		}
+	}
+
+	/* Attempt to connect to FM daemon */
+	dd_h = fmdd_get_handle((char *)"RDMAD", FMDD_RDMA_FLAG);
+
+	if (dd_h != NULL) {
+		fmdd_bind_dbg_cmds(dd_h);
+		fm_alive = 1;
+		HIGH("FM is alive\n");
+	} else {
+		CRIT("Cannot obtain dd_h\n");
+		dd_h = NULL;
 	}
 
 	/* Set initialization flag */
@@ -1923,6 +1937,13 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 		return RDMA_INVALID_RIO_ADDR;
 	}
 
+	/* Check if remote daemon is alive */
+	if (fm_alive && (dd_h != NULL))
+		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+			ERR("Remote destination daemon NOT running!\n");
+			return RDMA_REMOTE_UNREACHABLE;
+		}
+
 	/* Determine sync type */
 	enum riomp_dma_directio_transfer_sync rd_sync;
 
@@ -2011,6 +2032,13 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		return RDMA_INVALID_RIO_ADDR;
 	}
 
+	/* Check if remote daemon is alive */
+	if (fm_alive && (dd_h != NULL))
+		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+			ERR("Remote destination daemon NOT running!\n");
+			return RDMA_REMOTE_UNREACHABLE;
+		}
+
 	/* Determine sync type */
 	enum riomp_dma_directio_transfer_sync rd_sync;
 
@@ -2098,6 +2126,13 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 		return RDMA_INVALID_RIO_ADDR;
 	}
 
+	/* Check if remote daemon is alive */
+	if (fm_alive && (dd_h != NULL))
+		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+			ERR("Remote destination daemon NOT running!\n");
+			return RDMA_REMOTE_UNREACHABLE;
+		}
+
 	/* Determine sync type */
 	enum riomp_dma_directio_transfer_sync rd_sync;
 
@@ -2184,6 +2219,13 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		out->in_param_ok = -3;
 		return RDMA_INVALID_RIO_ADDR;
 	}
+
+	/* Check if remote daemon is alive */
+	if (fm_alive && (dd_h != NULL))
+		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+			ERR("Remote destination daemon NOT running!\n");
+			return RDMA_REMOTE_UNREACHABLE;
+		}
 
 	/* Determine sync type */
 	enum riomp_dma_directio_transfer_sync rd_sync;

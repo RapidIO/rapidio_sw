@@ -1,7 +1,7 @@
 # Paths to libraries
 LIBRDMA_PATH=..
 COMMON_LIBS_PATH=../../common/libs_so
-
+TOP_LEVEL=../../
 level?=$(LOG_LEVEL)
 
 # Build flags and include paths
@@ -16,14 +16,21 @@ RDMA_APP_DEPS= $(LIBRDMA_PATH)/librdma.a ../src/* \
 # Common build strings
 # For C apps
 BUILD_STRING_C = $(CXX) -L$(LIBRDMA_PATH) -L$(COMMON_LIBS_PATH) \
+	-L$(TOP_LEVEL)/fabric_management/libfmdd \
+	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
+	-L$(TOP_LEVEL)/fabric_management/libdd \
 	-Wl,-rpath=$(COMMON_LIBS_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
-	src/$@.c -lrt -lcli -llist -llog -lmport -lrdma -pthread
+	src/$@.c -lrt -lcli -llist -llog -lmport -lrdma -pthread -lfmdd -ldd -lriocp_pe
+
 # For C++ apps
 BUILD_STRING_CPP = $(CXX) -L$(LIBRDMA_PATH) -L$(COMMON_LIBS_PATH) -L../../common/libs_so \
+	-L$(TOP_LEVEL)/fabric_management/libfmdd \
+	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
+	-L$(TOP_LEVEL)/fabric_management/libdd \
 	-Wl,-rpath=$(COMMON_LIBS_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
-	src/$@.cpp -lrt -lcli -llist -llog -lmport -lrdma -pthread
+	src/$@.cpp -lrt -lcli -llist -llog -lmport -lrdma -pthread -lfmdd -ldd -lriocp_pe
 
 all: rdma_server rdma_client rdma_user multi_ms_server multi_ms_client create_and_die
 

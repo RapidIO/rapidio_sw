@@ -1,7 +1,7 @@
 LIBRDMA_PATH=..
 LIBMPORT_PATH=../../common/libs_so
 COMMON_LIBS_PATH=../../common/libs_a
-
+TOP_LEVEL=../../
 # LOG_LEVEL is set by the master Makefile. If this Makefile is run alone, 
 # it can override the loglevel on the command line by specifying 'level=XXX'
 # otherwise it defaults to 7
@@ -20,9 +20,13 @@ BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a ../src/* \
 	../inc/* ../daemon/src/* ../daemon/inc/*
 
 BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
+	-L$(TOP_LEVEL)/fabric_management/libfmdd \
+	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
+	-L$(TOP_LEVEL)/fabric_management/libdd \
 	-Wl,-rpath=$(LIBMPORT_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
-	src/$@.cpp -lrt -llog -lmport -lrdma -lcli -pthread
+	src/$@.cpp -lrt -llist -llog -lmport -lrdma -lcli -pthread -lfmdd -ldd -lriocp_pe
+
 
 all: bat_server bat_client
 
