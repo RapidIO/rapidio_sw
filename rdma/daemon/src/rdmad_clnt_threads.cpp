@@ -89,7 +89,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 						      client_socket,
 						      &shutting_down);
 	}
-	catch(cm_exception e) {
+	catch(cm_exception& e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
 		delete wadti->hello_client;
 		free(wadti);
@@ -210,7 +210,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 				accept_mq =
 				    new msg_q<mq_accept_msg>(mq_name, MQ_OPEN);
 			}
-			catch(msg_q_exception e) {
+			catch(msg_q_exception& e) {
 				ERR("Failed to open POSIX queue '%s': %s\n",
 						mq_name, e.msg.c_str());
 				continue;
@@ -274,7 +274,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			try {
 				destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_OPEN);
 			}
-			catch(msg_q_exception e) {
+			catch(msg_q_exception& e) {
 				ERR("Failed to open 'destroy' POSIX queue (%s): %s\n",
 							mq_name, e.msg.c_str());
 				continue;
@@ -361,7 +361,7 @@ int provision_rdaemon(uint32_t destid)
 						peer.prov_channel,
 						&shutting_down);
 	}
-	catch(cm_exception e) {
+	catch(cm_exception& e) {
 		CRIT("Failed to create hello_client %s\n", e.err);
 		return -1;
 	}
