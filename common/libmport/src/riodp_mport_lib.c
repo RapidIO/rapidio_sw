@@ -1100,10 +1100,6 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	if (ret)
 		return errno;
 
-#ifdef DEBUG
-	printf("%s: new ch_num=%d\n", __func__, param.ch_num);
-#endif
-
 	if (new_handle)
 		new_handle->ch.id = param.ch_num;
 
@@ -1136,9 +1132,6 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 	cdev.id = handle->ch.id;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CONNECT, &cdev);
 	if (ret) {
-#ifdef DEBUG
-		printf("ioctl rc(%d): %s\n", ret, strerror(errno));
-#endif
 		return errno;
 	}
 
