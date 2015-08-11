@@ -525,6 +525,14 @@ void *rpc_thread_f(void *arg)
 					/* Add to list of message queue names awaiting an 'accept' to 'connect' */
 					wait_accept_mq_names.push_back(mq_name);
 
+					/* Also add to the connected_to_ms_info_list */
+					sem_wait(&connected_to_ms_info_list_sem);
+					connected_to_ms_info_list.emplace_back(
+							in->client_msubid,
+							in->server_msname,
+							in->server_destid);
+					sem_post(&connected_to_ms_info_list_sem);
+
 					out->status = 0;
 				}
 				break;
@@ -1017,6 +1025,11 @@ int main (int argc, char **argv)
 	}
 	if (sem_init(&prov_daemon_info_list_sem, 0, 1) == -1) {
 		CRIT("Failed to initialize prov_daemon_info_list_sem: %s\n",
+							strerror(errno));
+		goto out_free_inbound;
+	}
+	if (sem_init(&connected_to_ms_info_list_sem, 0, 1) == -1) {
+		CRIT("Failed to initialize connected_to_ms_info_list_sem: %s\n",
 							strerror(errno));
 		goto out_free_inbound;
 	}

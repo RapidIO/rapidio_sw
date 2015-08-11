@@ -27,6 +27,14 @@ static fmdd_h dd_h;
 
 static void unprovision_did(uint32_t did)
 {
+	/* For any clients connected to memory space on that remote daemon
+	 * we should send them destroy messages so they clear their spaces
+	 * and subspaces.
+	 */
+	if (send_destroy_ms_for_did(did)) {
+		ERR("Failed to send destroy message for did(0x%X)\n", did);
+	}
+
 	/* Unprovision from PROV list */
 	sem_wait(&prov_daemon_info_list_sem);
 	/* Delete entry for dead 'did' from both daemon lists */
