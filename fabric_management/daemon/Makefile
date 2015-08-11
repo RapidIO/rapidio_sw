@@ -36,7 +36,7 @@ src/%.o: src/%.c
 	-I../librio_switch/inc \
 	-I../libriocp_pe/inc \
 	-I../cli \
-	-DRDMA_LL=7
+	-DRDMA_LL=7 -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
 FMD_SOURCES = src/fmd_app_mgmt.c src/fmd_cfg.c src/fmd.c src/fmd_cfg_cli.c \
 	src/fmd_mgmt_master.c src/fmd_mgmt_slave.c src/fmd_mgmt_cli.c \

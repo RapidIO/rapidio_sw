@@ -37,7 +37,6 @@
 #include <signal.h>
 #include <pthread.h>
 #include <rapidio_mport_dma.h>
-
 #include <rapidio_mport_mgmt.h>
 
 /*
@@ -215,7 +214,7 @@ static void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size, 
 	if (handle && *handle) {
 		int ret;
 
-		ret = riomp_dma_unmap_memory(mport_hnd, size, handle);
+		ret = riomp_dma_unmap_memory(mport_hnd, size, buf);
 		if (ret)
 			perror("munmap");
 
@@ -238,7 +237,6 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
 	if (ret) {
 		printf("Failed to allocate/map IB buffer err=%d\n", ret);
-		riomp_mgmt_mport_destroy_handle(&mport_hnd);
 		return ret;
 	}
 
@@ -689,7 +687,7 @@ int main(int argc, char** argv)
 		if (do_dma_test(do_rand, kbuf_mode, verify, repeat, sync)) {
 		    printf("DMA test FAILED\n\n");
 		    rc = EXIT_FAILURE;
-        }
+		}
 	} else {
 		printf("No DMA support. Test aborted.\n\n");
 		rc = EXIT_FAILURE;
