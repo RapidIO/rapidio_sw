@@ -107,7 +107,7 @@ static void init_peer()
 
 struct rpc_ti
 {
-	rpc_ti(int accept_socket) : accept_socket(accept_socket)
+	rpc_ti(int accept_socket) : accept_socket(accept_socket), tid(0)
 	{}
 	int accept_socket;
 	sem_t	started;

@@ -136,7 +136,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				prov_server->get_accept_socket(),
 				&shutting_down);
 	}
-	catch(cm_exception e) {
+	catch(cm_exception& e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
 		free(wcdti);
 		pthread_exit(0);
@@ -230,7 +230,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				connect_mq = new msg_q<mq_connect_msg>(mq_name, MQ_OPEN);
 
 			}
-			catch(msg_q_exception e) {
+			catch(msg_q_exception& e) {
 				ERR("Failed to open connect_mq: %s\n", e.msg.c_str());
 				/* Don't remove MS from accept_msg_map; the
 				 * client may retry connecting. However, don't also
@@ -403,7 +403,7 @@ void *prov_thread_f(void *arg)
 					peer->prov_channel,
 					&shutting_down);
 	}
-	catch(cm_exception e) {
+	catch(cm_exception& e) {
 		CRIT("Failed to create prov_server: %s. EXITING\n", e.err);
 		pthread_exit(0);
 	}
