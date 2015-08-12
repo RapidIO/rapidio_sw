@@ -495,7 +495,7 @@ int CLIQuitCmd(struct cli_env *env, int argc, char **argv)
 		cli_print_help(env, &CLIQuit);
 		goto exit;
 	};
-	if (-1 == env->sess_socket)
+	if ((-1 == env->sess_socket) && (NULL != cons_cleanup))
 		(*cons_cleanup)(env);
 	return 1;
 exit:
