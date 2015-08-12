@@ -50,34 +50,11 @@ static struct riocp_pe_llist_item _riocp_mport_list_head; /**< List of created m
  */
 static bool riocp_pe_mport_available(uint8_t mport)
 {
-	int ret;
-	DIR *dev_dir;
-	struct dirent *dev_ent = NULL;
-	unsigned int _mport;
-
-	dev_dir = opendir(RIOCP_PE_DEV_DIR);
-	if (dev_dir == NULL) {
-		RIOCP_ERROR("Could not open %s\n", RIOCP_PE_DEV_DIR);
+	int ret = riomp_mgmt_mport_available(mport);
+	if(ret > 0)
+		return true;
+	else
 		return false;
-	}
-
-	while ((dev_ent = readdir(dev_dir)) != NULL) {
-		if (dev_ent->d_name[0] == '.' || strstr(dev_ent->d_name, RIOCP_PE_DEV_NAME) == NULL)
-			continue;
-		ret = sscanf(dev_ent->d_name, RIOCP_PE_DEV_NAME "%u", &_mport);
-		if (ret != 1)
-			goto err;
-		if (mport == _mport)
-			goto found;
-	}
-
-err:
-	closedir(dev_dir);
-	return false;
-
-found:
-	closedir(dev_dir);
-	return true;
 }
 
 /**
@@ -91,56 +68,32 @@ found:
 static int riocp_pe_mport_list(size_t *count, uint8_t **list)
 {
 	int ret;
-	DIR *dev_dir;
-	struct dirent *dev_ent = NULL;
-	unsigned int _mport;
-	unsigned int i = 0;
 	size_t _count = 0;
 	uint8_t *_list;
 
-	dev_dir = opendir(RIOCP_PE_DEV_DIR);
-	if (dev_dir == NULL) {
-		RIOCP_ERROR("Could not open %s\n", RIOCP_PE_DEV_DIR);
+	ret = riomp_mgmt_mport_list(&_count, NULL);
+	if(ret < 0) {
+		RIOCP_ERROR("Could not get mport list\n");
 		return false;
 	}
 
-	/* Iteration 1, find out how many devices */
-	while ((dev_ent = readdir(dev_dir)) != NULL) {
-		if (dev_ent->d_name[0] == '.' || strstr(dev_ent->d_name, RIOCP_PE_DEV_NAME) == NULL)
-			continue;
-		ret = sscanf(dev_ent->d_name, RIOCP_PE_DEV_NAME "%u", &_mport);
-		if (ret != 1)
-			goto err;
-		_count++;
-	}
-
-	rewinddir(dev_dir);
-
 	_list = (uint8_t *)malloc(_count * sizeof(*_list));
-
-	/* Iteration 2, get the devices */
-	while ((dev_ent = readdir(dev_dir)) != NULL) {
-		if (dev_ent->d_name[0] == '.' || strstr(dev_ent->d_name, RIOCP_PE_DEV_NAME) == NULL)
-			continue;
-		ret = sscanf(dev_ent->d_name, RIOCP_PE_DEV_NAME "%u", &_mport);
-		if (ret != 1)
-			goto err_pass2;
-		_list[i] = _mport;
-		i++;
+	if(!_list) {
+		RIOCP_ERROR("Memory allocation failed\n");
+		return false;
 	}
 
-	closedir(dev_dir);
+	ret = riomp_mgmt_mport_list(&_count, _list);
+	if(ret < 0) {
+		RIOCP_ERROR("Could not get mport list\n");
+		free(_list);
+		return false;
+	}
 
 	*count = _count;
 	*list  = _list;
 
 	return 0;
-
-err_pass2:
-	free(_list);
-err:
-	closedir(dev_dir);
-	return -1;
 }
 
 /**

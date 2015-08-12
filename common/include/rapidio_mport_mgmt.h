@@ -176,6 +176,28 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 int riomp_mgmt_free_ep_list(uint32_t **destids);
 
 /**
+ * @brief test if mport is available in the system
+ *
+ * @param[in] mport
+ * @return status of the function call
+ * @retval > on success
+ * @retval -errno on error
+ * @retval -ENODEV when mport is not in the system
+ */
+int riomp_mgmt_mport_available(uint8_t mport);
+
+/**
+ * @brief get the list of available mports in the system
+ *
+ * @param[inout] count number of items in list (will be updated by real available itemcount)
+ * @param[out] list mport ID items (when NULL only count is returned)
+ * @return status of the function call
+ * @retval 0 on success
+ * @retval -errno on error
+ */
+int riomp_mgmt_mport_list(size_t *count, uint8_t *list);
+
+/**
  * @brief create mport handle
  *
  * @param[in] mport_id mport ID number

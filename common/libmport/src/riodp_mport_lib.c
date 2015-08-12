@@ -58,6 +58,8 @@
 #include <linux/rio_mport_cdev.h>
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
+#define RIOCP_PE_DEV_DIR  "/dev"
+#define RIOCP_PE_DEV_NAME "rio_mport"
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -290,6 +292,70 @@ static int decode_packet(enum packet_type t, char *buffer, ...)
 	return (ret >= 0)?(0):(ret);
 }
 #endif
+
+int riomp_mgmt_mport_available(uint8_t mport)
+{
+#ifndef LIBMPORT_SIMULATOR
+	int ret;
+	DIR *dev_dir;
+	struct dirent *dev_ent = NULL;
+	unsigned int _mport;
+
+	dev_dir = opendir(RIOCP_PE_DEV_DIR);
+	if (dev_dir == NULL) {
+		ret = -errno;
+		RIOCP_ERROR("Could not open %s\n", RIOCP_PE_DEV_DIR);
+		return ret;
+	}
+
+	while ((dev_ent = readdir(dev_dir)) != NULL) {
+		if (dev_ent->d_name[0] == '.' || strstr(dev_ent->d_name, RIOCP_PE_DEV_NAME) == NULL)
+			continue;
+		ret = sscanf(dev_ent->d_name, RIOCP_PE_DEV_NAME "%u", &_mport);
+		if (ret != 1)
+			goto err;
+		if (mport == _mport)
+			goto found;
+	}
+
+err:
+	closedir(dev_dir);
+	return -ENODEV;
+
+found:
+	closedir(dev_dir);
+	return 1;
+#else
+	if(mport == 0)
+		return 1;
+	else
+		return -ENODEV;
+#endif
+}
+
+int riomp_mgmt_mport_list(size_t *count, uint8_t *list)
+{
+	uint8_t i,j=0;
+	int ret;
+
+	if(!count)
+		return -EINVAL;
+
+	for(i=0;i<RIODP_MAX_MPORTS;i++)	{
+		if(j < *count) {
+			ret = riomp_mgmt_mport_available(i);
+			if(ret > 0) {
+				if(list)
+					list[j] = i;
+				j++;
+			}
+		}
+	}
+
+	*count = j;
+
+	return 0;
+}
 
 int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle)
 {

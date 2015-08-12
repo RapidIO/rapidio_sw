@@ -286,7 +286,6 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
  */
 int riocp_pe_handle_open_mport(struct riocp_pe *pe)
 {
-	char mport[64] = { 0 };
 	int ret, mport_id;
 	riomp_mport_t mport_handle;
 
@@ -296,9 +295,6 @@ int riocp_pe_handle_open_mport(struct riocp_pe *pe)
 		RIOCP_ERROR("mport already open\n");
 		return -EEXIST;
 	}
-
-	snprintf(mport, sizeof(mport) - 1, "%s/%s%u", RIOCP_PE_DEV_DIR,
-		RIOCP_PE_DEV_NAME, pe->mport->minfo->id);
 
 	ret = riomp_mgmt_mport_create_handle(pe->mport->minfo->id, 0, &mport_handle);
 	if (ret < 0) {

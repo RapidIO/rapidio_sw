@@ -26,9 +26,6 @@ extern "C" {
 #define ANY_ID 0xff /* @todo To be removed, any_id will be stored in mport handle after get/calculation of sys_size */
 #define RIOCP_PE_ANY_PORT 0xff
 
-#define RIOCP_PE_DEV_DIR  "/dev"
-#define RIOCP_PE_DEV_NAME "rio_mport"
-
 #define RIOCP_PE_IS_MPORT(pe) ((pe)->minfo) /**< Check if pe is a master port handle */
 #define RIOCP_PE_IS_HOST(pe) ((pe)->mport->minfo->is_host) /**< Check if PE is host */
 #define RIOCP_SW_DRV_NAME(pe) ((pe)->sw->name) /**< Switch driver name */
