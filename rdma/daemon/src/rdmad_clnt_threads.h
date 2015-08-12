@@ -37,10 +37,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 
 #include "cm_sock.h"
+#include "unix_sock.h"
 #include "rdmad_cm.h"
 #include "ts_vector.h"
-
-
 
 struct hello_daemon_info {
 	hello_daemon_info(uint32_t destid, cm_client *client, pthread_t tid) :
@@ -62,12 +61,14 @@ extern sem_t 				hello_daemon_info_list_sem;
 struct connected_to_ms_info {
 	connected_to_ms_info(uint32_t client_msubid,
 			     const char *server_msname,
-			     uint32_t server_destid) :
+			     uint32_t server_destid,
+			     unix_server *other_server) :
 	connected(false),
 	client_msubid(client_msubid),
 	server_msname(server_msname),
 	server_msid(0xFFFF),
-	server_destid(server_destid)
+	server_destid(server_destid),
+	other_server(other_server)
 	{
 	}
 
@@ -81,11 +82,17 @@ struct connected_to_ms_info {
 		return this->server_msname.compare(server_msname) == 0;
 	}
 
+	bool operator==(unix_server *other_server)
+	{
+		return this->other_server == other_server;
+	}
+
 	bool	 connected;
 	uint32_t client_msubid;
 	string	 server_msname;
 	uint32_t server_msid;
 	uint32_t server_destid;
+	unix_server *other_server;
 };
 extern vector<connected_to_ms_info>	connected_to_ms_info_list;
 extern sem_t 				connected_to_ms_info_list_sem;

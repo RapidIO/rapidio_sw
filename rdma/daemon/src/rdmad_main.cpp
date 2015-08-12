@@ -114,6 +114,55 @@ struct rpc_ti
 	pthread_t tid;
 };
 
+static int send_disc_ms_cm(uint32_t server_destid,
+			   uint32_t server_msid,
+			   uint32_t client_msubid)
+{
+	cm_client *the_client;
+	int ret = 0;
+
+	/* Do we have an entry for that destid ? */
+	sem_wait(&hello_daemon_info_list_sem);
+	auto it = find(begin(hello_daemon_info_list),
+		       end(hello_daemon_info_list),
+		       server_destid);
+
+	/* If the server's destid is not found, just fail */
+	if (it == end(hello_daemon_info_list)) {
+		ERR("destid(0x%X) was not provisioned\n", server_destid);
+		ret = RDMA_REMOTE_UNREACHABLE;
+	} else {
+		/* Obtain pointer to socket object connected to destid */
+		the_client = it->client;
+	}
+	sem_post(&hello_daemon_info_list_sem);
+
+	if (ret == 0) {
+		cm_disconnect_msg *disc_msg;
+
+		/* Get and flush send buffer */
+		the_client->flush_send_buffer();
+		the_client->get_send_buffer((void **)&disc_msg);
+
+		disc_msg->type		    = htobe64(CM_DISCONNECT_MS);
+		disc_msg->client_msubid	    = htobe64(client_msubid);
+		disc_msg->server_msid       = htobe64(server_msid);
+		disc_msg->client_destid     = htobe64(peer.destid);
+		disc_msg->client_destid_len = htobe64(16);
+
+		/* Send buffer to server */
+		if (the_client->send()) {
+			ret = -1;
+		} else {
+			DBG("Sent DISCONNECT_MS for msid = 0x%lX, client_destid = 0x%lX\n",
+					be64toh(disc_msg->server_msid),
+					be64toh(disc_msg->client_destid));
+		}
+	}
+
+	return ret;
+} /* send_disc_ms_cm() */
+
 void *rpc_thread_f(void *arg)
 {
 	if (!arg) {
@@ -530,7 +579,8 @@ void *rpc_thread_f(void *arg)
 					connected_to_ms_info_list.emplace_back(
 							in->client_msubid,
 							in->server_msname,
-							in->server_destid);
+							in->server_destid,
+							other_server);
 					sem_post(&connected_to_ms_info_list_sem);
 
 					out->status = 0;
@@ -562,48 +612,11 @@ void *rpc_thread_f(void *arg)
 					out_msg->type = SEND_DISCONNECT_ACK;
 
 					DBG("Client to disconnect from destid = 0x%X\n", in->rem_destid);
-					/* Do we have an entry for that destid ? */
-					sem_wait(&hello_daemon_info_list_sem);
-					auto it = find(begin(hello_daemon_info_list),
-						       end(hello_daemon_info_list),
-						       in->rem_destid);
 
-					/* If the server's destid is not found, just fail */
-					if (it == end(hello_daemon_info_list)) {
-						ERR("destid(0x%X) was not provisioned\n", in->rem_destid);
-						sem_post(&hello_daemon_info_list_sem);
-						out->status = RDMA_REMOTE_UNREACHABLE;
-						break;
-					}
-					sem_post(&hello_daemon_info_list_sem);
-
-					/* Obtain pointer to socket object
-					 * already connected to destid */
-					cm_client *the_client = it->client;
-
-					cm_disconnect_msg *disc_msg;
-
-					/* Get and flush send buffer */
-					the_client->flush_send_buffer();
-					the_client->get_send_buffer((void **)&disc_msg);
-
-					disc_msg->type		= htobe64(CM_DISCONNECT_MS);
-					disc_msg->client_msubid	= htobe64(in->loc_msubid);	/* For removal from server database */
-					disc_msg->server_msid   = htobe64(in->rem_msid);	/* For removing client's destid from server's
-												 * info on the daemon */
-					disc_msg->client_destid = htobe64(peer.destid);		/* For knowing which destid to remove */
-					disc_msg->client_destid_len = htobe64(16);
-
-					/* Send buffer to server */
-					if (the_client->send()) {
-						out->status = -1;
-						break;
-					}
-					DBG("Sent DISCONNECT_MS for msid = 0x%lX, client_destid = 0x%lX\n",
-						be64toh(disc_msg->server_msid),
-						be64toh(disc_msg->client_destid));
-
-					out->status = 0;
+					out->status = send_disc_ms_cm(
+							in->rem_destid,
+							in->rem_msid,
+							in->loc_msubid);
 				}
 				break;
 
@@ -618,6 +631,21 @@ void *rpc_thread_f(void *arg)
 			}
 		} else {
 			HIGH("Application has closed connection. Exiting!\n");
+			/* Find out if that dead application was connected to a memory
+			 * space and if so send a disconnect message to free up the
+			 * msub entry on the server app.
+			 */
+			sem_wait(&connected_to_ms_info_list_sem);
+			auto it = find(begin(connected_to_ms_info_list),
+					end(connected_to_ms_info_list),
+					other_server);
+			if (it != end(connected_to_ms_info_list)) {
+				send_disc_ms_cm(it->server_destid,
+						it->server_msid,
+						it->client_msubid);
+			}
+			sem_post(&connected_to_ms_info_list_sem);
+
 			/* First destroy mso corresponding to socket */
 			if (owners.destroy_mso(other_server)) {
 				WARN("Failed to find owner mso using this sock conn\n");
