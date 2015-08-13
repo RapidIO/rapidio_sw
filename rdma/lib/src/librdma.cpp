@@ -137,7 +137,18 @@ static int alt_rpc_call()
 	return ret;
 } /* alt_rpc_call() */
 
-static bool rdmad_is_alive(void)
+int rdmad_kill_daemon()
+{
+	struct rdmad_kill_daemon_input	in;
+
+	in.dummy = 0x666;
+	in_msg->type = RDMAD_KILL_DAEMON;
+	in_msg->rdmad_kill_daemon_in = in;
+
+	return alt_rpc_call();
+}
+
+static bool rdmad_is_alive()
 {
 	rdmad_is_alive_input	in;
 

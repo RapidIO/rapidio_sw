@@ -617,6 +617,12 @@ void *rpc_thread_f(void *arg)
 				}
 				break;
 
+				case RDMAD_KILL_DAEMON:
+				{
+					raise(SIGTERM); /* Simulate 'kill' */
+				}
+				break;
+
 				default:
 					CRIT("UNKNOWN MESSAGE TYPE: 0x%X\n", in_msg->type);
 			} /* switch */

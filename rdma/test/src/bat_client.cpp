@@ -290,6 +290,26 @@ static int accept_ms_f(cm_client *bat_client,
 	return 0;
 } /* accept_ms_f() */
 
+static int kill_remote_app(cm_client *bat_client, bat_msg_t *bm_tx)
+{
+	bm_tx->type = KILL_REMOTE_APP;
+
+	/* Send message. No ACK excepted since remote app will die! */
+	BAT_SEND(bat_client);
+
+	return 0;
+} /* kill_remote_app() */
+
+static int kill_remote_daemon(cm_client *bat_client, bat_msg_t *bm_tx)
+{
+	bm_tx->type = KILL_REMOTE_DAEMON;
+
+	/* Send message. No ACK excepted since remote app will die! */
+	BAT_SEND(bat_client);
+
+	return 0;
+} /* kill_remote_daemon() */
+
 /* ------------------------------- Test Cases -------------------------------*/
 static int test_case_a(void)
 {
@@ -568,6 +588,129 @@ exit:
 	return 0;
 } /* test_case_h_i() */
 
+/**
+ * Test accept_ms_h()/conn_ms_h() then kill remote app
+ * The remote daemon, upon detecting that the remote app has died
+ * should self-destroy the remote ms and the local daemon should
+ * get notified causing the local database to be cleared of that ms
+ * and also of the local msub created to connect to the remote ms.
+ *
+ * If the remote daemon itself is killed, it, too should self-destroy
+ * the ms before dying.
+ *
+ * ch:	'j' or 'k'
+ * 'j'	Kill the remote app
+ * 'k'	Kill the remote daemon
+ */
+static int test_case_j_k(char ch)
+{
+	int ret;
+
+	/* Create server mso */
+	mso_h	server_msoh;
+	ret = create_mso_f(bat_first_client,
+			   bm_first_tx,
+			   bm_first_rx,
+			   rem_mso_name,
+			   &server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Create server ms */
+	ms_h	server_msh;
+	ret = create_ms_f(bat_first_client,
+			  bm_first_tx,
+			  bm_first_rx,
+			  rem_ms_name1,
+			  server_msoh,
+			  MS1_SIZE,
+			  0,
+			  &server_msh,NULL);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create msub on server */
+	msub_h  server_msubh;
+	ret = create_msub_f(bat_first_client,
+			    bm_first_tx,
+			    bm_first_rx,
+			    server_msh, 0, 4096, 0, &server_msubh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	ret = rdma_create_mso_h(loc_mso_name, &client_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create a client ms */
+	ms_h	client_msh;
+	ret = rdma_create_ms_h(loc_ms_name, client_msoh, MS2_SIZE, 0, &client_msh,
+									NULL);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	/* Create a client msub */
+	msub_h	client_msubh;
+	ret = rdma_create_msub_h(client_msh, 0, 4096, 0, &client_msubh);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	/* Accept on ms on the server */
+	ret = accept_ms_f(bat_first_client,
+			  bm_first_tx,
+			  server_msh, server_msubh);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
+
+	/* Connect to server */
+	msub_h	server_msubh_rb;
+	uint32_t  server_msub_len_rb;
+	ms_h	server_msh_rb;
+	ret = rdma_conn_ms_h(16, destid, rem_ms_name1,
+			     client_msubh,
+			     &server_msubh_rb, &server_msub_len_rb,
+			     &server_msh_rb,
+			     30);	/* 30 second-timeout */
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	if (ch == 'j') {
+		/* Kill remote app */
+		ret = kill_remote_app(bat_first_client, bm_first_tx);
+		BAT_EXPECT_RET(ret, 0, free_client_mso);
+	} else if (ch == 'k') {
+		/* Kill remote app */
+		ret = kill_remote_daemon(bat_first_client, bm_first_tx);
+		BAT_EXPECT_RET(ret, 0, free_client_mso);
+	} else {
+		ret = -1;	/* FAIL. Wrong parameter */
+		BAT_EXPECT_PASS(ret);
+	}
+
+	/* If the remote 'server_msh_rb' is not in the database
+	 * rdma_disc_ms_h() returns 0 which is a pass. If the database
+	 * was nor properly cleared then rdma_disc_ms_h() will fail
+	 * at another stage.
+	 */
+	ret = rdma_disc_ms_h(server_msh_rb, client_msubh);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+free_client_mso:
+	/* Delete the client mso */
+	ret = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+free_server_mso:
+	/* Delete the server mso */
+	ret = destroy_mso_f(bat_first_client,
+			    bm_first_tx,
+			    bm_first_rx,
+			    server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+exit:
+	/* If we reach till here without errors, then we have passed */
+	BAT_EXPECT_PASS(ret);
+
+	return 0;
+} /* test_case_j_k() */
+
+
 #define DMA_DATA_SIZE	64
 #define DMA_DATA_SECTION_SIZE	8
 
@@ -793,7 +936,7 @@ int connect_to_channel(int channel,
 					    channel,
 					    &shutting_down);
 	}
-	catch(cm_exception e) {
+	catch(cm_exception& e) {
 		fprintf(stderr, "%s: %s\n", name, e.err);
 		return -1;
 	}
@@ -987,6 +1130,8 @@ int main(int argc, char *argv[])
 			puts("'g' Create a number of overlapping msubs");
 			puts("'h' Accept/Connect/Disconnect test");
 			puts("'i' Accept/Connect/Destroy test");
+			puts("'j' Accept/Connect then kill remote app");
+			puts("'k' Accept/Connect then kill remote daemon");
 			puts("'1' Simple DMA transfer - 0 offsets, sync mode");
 			puts("'2' As '1' but loc_msub_of_in_ms is 4K");
 			puts("'3' As '1' but data offset in loc_msub");
@@ -1090,6 +1235,14 @@ int main(int argc, char *argv[])
 		if (tc == 'i')
 			fprintf(fp, "test_casei ");
 		test_case_h_i(tc);
+		BAT_EOT();
+		break;
+	case 'j':
+		test_case_j_k('j');
+		BAT_EOT();
+		break;
+	case 'k':
+		test_case_j_k('k');
 		BAT_EOT();
 		break;
 	case '1':
