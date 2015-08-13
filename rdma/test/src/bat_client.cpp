@@ -1311,6 +1311,10 @@ int main(int argc, char *argv[])
 //			test_case_h_i('i');
 			LOG("test_case2\n");
 			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
+			LOG("test_case_j\n");
+			test_case_j_k('j');
+			LOG("test_case_k\n");
+			test_case_j_k('k');	/* Must be last since it kills daemon! */
 		}
 		break;
 	default:
