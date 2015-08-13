@@ -688,12 +688,15 @@ static int test_case_j_k(char ch)
 	 * at another stage.
 	 */
 	ret = rdma_disc_ms_h(server_msh_rb, client_msubh);
-	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	BAT_EXPECT_PASS(ret);
+
+	/* Delete the client mso */
+	ret = rdma_destroy_mso_h(client_msoh);
+	return 0;
 
 free_client_mso:
 	/* Delete the client mso */
 	ret = rdma_destroy_mso_h(client_msoh);
-	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 free_server_mso:
 	/* Delete the server mso */
@@ -705,8 +708,6 @@ free_server_mso:
 
 exit:
 	/* If we reach till here without errors, then we have passed */
-	BAT_EXPECT_PASS(ret);
-
 	return 0;
 } /* test_case_j_k() */
 
@@ -1311,8 +1312,6 @@ int main(int argc, char *argv[])
 //			test_case_h_i('i');
 			LOG("test_case2\n");
 			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
-			LOG("test_case_j\n");
-			test_case_j_k('j');
 			LOG("test_case_k\n");
 			test_case_j_k('k');	/* Must be last since it kills daemon! */
 		}
