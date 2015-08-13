@@ -154,20 +154,47 @@ mspace* inbound::get_mspace_open_by_server(unix_server *user_server, uint32_t *m
 	return NULL;
 } /* get_mspace_open_by_msoid() */
 
+int inbound::get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces)
+{
+	vector<mspace *>::iterator ins_point = begin(mspaces);
+
+	sem_wait(&ibwins_sem);
+	for (auto& ibwin : ibwins) {
+		vector<mspace *>  ibw_mspaces;
+		DBG("Looking for mspaces connected to destid(0x%X)\n", destid);
+		ibwin.get_mspaces_connected_by_destid(destid, ibw_mspaces);
+
+		/* Insert each list of mspaces matching 'destid' in current IBW
+		 * in the 'mspaces' list for the entire inbound. The insertion
+		 * point is advanced after the mspaces for each IBW are copied
+		 * to the master 'mspaces' list.
+		 */
+		ins_point = copy(begin(ibw_mspaces),
+				 end(ibw_mspaces),
+				 ins_point);
+	}
+	sem_post(&ibwins_sem);
+
+	return 0;
+} /* get_mspaces_connected_by_destid */
+
 /* get_mspace by msoid & msid */
 mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
 {
+	mspace *ms = NULL;
+
 	sem_wait(&ibwins_sem);
 	for (auto& ibwin : ibwins) {
-		mspace *ms = ibwin.get_mspace(msoid, msid);
-		if (ms) {
-			sem_post(&ibwins_sem);
-			return ms;
-		}
+		ms = ibwin.get_mspace(msoid, msid);
+		if (ms)
+			break;
 	}
-	WARN("msid(0x%X) with msoid(0x%X) not found\n", msid, msoid);
 	sem_post(&ibwins_sem);
-	return NULL;
+
+	if (NULL) {
+		WARN("msid(0x%X) with msoid(0x%X) not found\n", msid, msoid);
+	}
+	return ms;
 } /* get_mspace() */
 
 

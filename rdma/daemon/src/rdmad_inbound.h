@@ -73,6 +73,8 @@ public:
 
 	mspace* get_mspace_open_by_server(unix_server *user_server, uint32_t *ms_conn_id);
 
+	int get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces);
+
 	/* Dump memory space info for a memory space specified by name */
 	int dump_mspace_info(struct cli_env *env, const char *name);
 

@@ -327,3 +327,14 @@ mspace* ibwin::get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_
 
 	return ms;
 } /* get_mspace_open_by_server() */
+
+void ibwin::get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces)
+{
+	pthread_mutex_lock(&mspaces_lock);
+	for (auto& ms : mspaces) {
+		if (ms->connected_by_destid(destid)) {
+			mspaces.push_back(ms);
+		}
+	}
+	pthread_mutex_unlock(&mspaces_lock);
+} /* get_mspaces_connected_by_destid() */

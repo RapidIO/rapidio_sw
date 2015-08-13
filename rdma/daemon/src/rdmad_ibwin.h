@@ -96,7 +96,11 @@ public:
 
 	mspace *get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id);
 
+	void get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces);
+
 	vector<mspace *>& get_mspaces() { return mspaces; };
+
+	unsigned get_win_num() const { return win_num; };
 
 private:
 	riomp_mport_t mport_hnd;	/* Master port handle */

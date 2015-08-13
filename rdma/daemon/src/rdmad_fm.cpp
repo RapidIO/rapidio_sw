@@ -12,7 +12,9 @@ using std::set;
 
 #include "liblog.h"
 #include "libfmdd.h"
+#include "rdmad_mspace.h"
 #include "rdmad_srvr_threads.h"
+#include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
 
 #ifdef __cplusplus
@@ -35,6 +37,18 @@ static void unprovision_did(uint32_t did)
 		ERR("Failed to send destroy message for did(0x%X)\n", did);
 	}
 
+	/* For any memory spaces that have remote clients connected to them
+	 * on the 'dead destid', relay a POSIX 'disc_ms' message to their
+	 * server apps to clean up local databases of the remote (client) msubs
+	 */
+	vector<mspace *> mspaces;
+	the_inbound->get_mspaces_connected_by_destid(did, mspaces);
+	for (auto& ms : mspaces) {
+		if(ms->disconnect_from_destid(did)) {
+			ERR("Failed to disconnect ms('%s') from did(0x%X)\n",
+				ms->get_name(), did);
+		}
+	}
 	/* Unprovision from PROV list */
 	sem_wait(&prov_daemon_info_list_sem);
 	/* Delete entry for dead 'did' from both daemon lists */

@@ -70,7 +70,7 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 	                true);
 
 	/* Initialize semaphores that will protect the lists */
-	if (sem_init(&destids_sem, 0, 1) == -1) {
+	if (sem_init(&rem_connections_sem, 0, 1) == -1) {
 		CRIT("Failed to initialize destids_sem: %s\n", strerror(errno));
 		throw mspace_exception("Failed to initialize destids_sem");
 	}
@@ -91,30 +91,33 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 	}
 } /* constructor */
 
-mspace::~mspace() {
+mspace::~mspace()
+{
 	if (!free)
 		destroy();
 } /* destructor */
 
-int mspace::notify_remote_clients() {
-	DBG("msid(0x%X) '%s' has %u destids associated therewith\n", msid,
-	                name.c_str(), destids.size());
+int mspace::notify_remote_clients()
+{
+	DBG("msid(0x%X) '%s' has %u remote clients associated therewith\n", msid,
+	                name.c_str(), rem_connections.size());
 
 	/* For each element in the destids list, send a destroy message */
-	sem_wait(&destids_sem);
-	for (auto& destid : destids ) {
+	sem_wait(&rem_connections_sem);
+	for (auto& rem_conn : rem_connections ) {
 		/* Need to use a 'prov' socket to send the CM_DESTROY_MS */
 		sem_wait(&prov_daemon_info_list_sem);
 		auto prov_it = find(begin(prov_daemon_info_list),
-		                end(prov_daemon_info_list), destid);
+		                end(prov_daemon_info_list), rem_conn.client_destid);
 		if (prov_it == end(prov_daemon_info_list)) {
-			ERR("Could not find entry for destid(0x%X)\n", destid);
+			ERR("Could not find entry for client_destid(0x%X)\n",
+							rem_conn.client_destid);
 			sem_post(&prov_daemon_info_list_sem);
 			continue; /* Better luck next time? */
 		}
 		if (!prov_it->conn_disc_server) {
-			ERR("conn_disc_server for destid(0x%X) is NULL",
-			                destid);
+			ERR("conn_disc_server for client_destid(0x%X) is NULL",
+					rem_conn.client_destid);
 			sem_post(&prov_daemon_info_list_sem);
 			continue; /* Better luck next time? */
 		}
@@ -128,14 +131,14 @@ int mspace::notify_remote_clients() {
 		strcpy(dm->server_msname, name.c_str());
 		dm->server_msid = htobe64(msid);
 
-		/* Send to remote daemon @ 'destid' */
+		/* Send to remote daemon @ 'client_destid' */
 		if (destroy_server->send()) {
-			WARN("Failed to send destroy to destid(0x%X)\n",
-			                destid);
+			WARN("Failed to send destroy to client_destid(0x%X)\n",
+					rem_conn.client_destid);
 			continue;
 		}
-		INFO("Sent cm_destroy_msg for %s to remote daemon on destid(0x%X)\n",
-		                dm->server_msname, destid);
+		INFO("Sent cm_destroy_msg for %s to remote daemon on client_destid(0x%X)\n",
+		                dm->server_msname, rem_conn.client_destid);
 
 		/* Wait for destroy acknowledge message, but with timeout.
 		 * If no ACK within say 1 second, then move on */
@@ -146,17 +149,17 @@ int mspace::notify_remote_clients() {
 			/* In this case whether the return value is ETIME or a failure
 			 * code is irrelevant. The main thing is NOT to be stuck here.
 			 */
-			ERR("Did not receive destroy_ack from destid(0x%X)\n",
-			                destid);
+			ERR("Did not receive destroy_ack from client_destid(0x%X)\n",
+					rem_conn.client_destid);
 			continue;
 		}
 		if (dam->type == htobe64(CM_DESTROY_ACK_MS)) {
 			if (dam->server_msid != dm->server_msid) { /* Both are BE */
-				ERR("Received destroy_ack with wrong msid(0x%X)\n",
+				ERR("Received destroy_ack with wrong server_msid(0x%X)\n",
 						dam->server_msid);
 			} else {
-				HIGH("destroy_ack received from daemon destid(0x%X)\n",
-						destid);
+				HIGH("destroy_ack received from daemon client_destid(0x%X)\n",
+						rem_conn.client_destid);
 			}
 		} else {
 			ERR("INVALID MESSAGE TYPE: 0x%X\n", htobe64(dam->type));
@@ -164,9 +167,9 @@ int mspace::notify_remote_clients() {
 	} /* for() */
 
 	/* Now clear the list */
-	destids.clear();
+	rem_connections.clear();
 
-	sem_post(&destids_sem);
+	sem_post(&rem_connections_sem);
 
 	return 0;
 } /* notify_remote_clients() */
@@ -198,7 +201,8 @@ int mspace::close_connections()
 	return 0;
 } /* close_connections() */
 
-int mspace::destroy() {
+int mspace::destroy()
+{
 	/* Before destroying a memory space, tell its clients that it is being
 	 * destroyed and have them acknowledge that. Then remove their destids */
 	if (notify_remote_clients()) {
@@ -248,39 +252,133 @@ int mspace::destroy() {
 	return 0;
 } /* destroy() */
 
-void mspace::add_destid(uint16_t destid) {
-	sem_wait(&destids_sem);
-	destids.push_back(destid);
-	sem_post(&destids_sem);
-} /* add_destid() */
+void mspace::add_rem_connection(uint16_t client_destid, uint32_t client_msubid)
+{
+	DBG("Adding destid(0x%X) and msubid(0x%X) to '%s'\n",
+			client_destid, client_msubid, name.c_str());
+	sem_wait(&rem_connections_sem);
+	rem_connections.emplace_back(client_destid, client_msubid);
+	sem_post(&rem_connections_sem);
+} /* add_rem_connection() */
 
-int mspace::remove_destid(uint16_t destid) {
-	sem_wait(&destids_sem);
-	auto it = find(begin(destids), end(destids), destid);
-	if (it == end(destids)) {
-		WARN("%u not found in %s\n", destid, name.c_str());
-		sem_post(&destids_sem);
+int mspace::remove_rem_connection(uint16_t client_destid, uint32_t client_msubid)
+{
+	auto it = begin(rem_connections);
+	int  ret = -1;
+
+	DBG("Removing destid(0x%X) and msubid(0x%X) from '%s'\n",
+			client_destid, client_msubid, name.c_str());
+
+	sem_wait(&rem_connections_sem);
+	do {
+		it = find(it, end(rem_connections), client_destid);
+		if (it != end(rem_connections) && *it == client_msubid) {
+			DBG("Found it and erasing it!\n");
+			rem_connections.erase(it);
+			ret = 0;
+			break;
+		}
+	} while (it != end(rem_connections));
+	sem_post(&rem_connections_sem);
+
+	if (ret) {
+		ERR("Could not find specified connection\n");
+	}
+	return ret;
+} /* remove_rem_connection() */
+
+/* Disconnect all connections from the specified client_destid */
+int mspace::disconnect_from_destid(uint16_t client_destid)
+{
+	auto it = begin(rem_connections);
+
+	sem_wait(&rem_connections_sem);
+	do {
+		it = find(it, end(rem_connections), client_destid);
+
+		if (it != end(rem_connections)) {
+			if (disconnect(it->client_msubid)) {
+				ERR("Failed to disconnect destid(0x%X), msubid(0x%X)\n",
+				client_destid, it->client_msubid);
+			} else {
+				rem_connections.erase(it);
+				it = begin(rem_connections);
+			}
+		}
+	} while (it != end(rem_connections));
+	sem_post(&rem_connections_sem);
+
+	return 0;
+}
+
+/* Disconnect only connection with specified client_msubid */
+int mspace::disconnect(uint32_t client_msubid)
+{
+	/* Prepare POSIX disconnect message from CM disconnect message */
+	int ret;
+	mq_disconnect_msg	disconnect_msg;
+	disconnect_msg.client_msubid = client_msubid;
+
+	/* Form message queue name from memory space name */
+	char mq_name[CM_MS_NAME_MAX_LEN+2];
+	mq_name[0] = '/';
+	strcpy(&mq_name[1], name.c_str());
+
+	/* Open POSIX message queue */
+	mqd_t	disc_mq = mq_open(mq_name,O_RDWR, 0644, &attr);
+	if (disc_mq == (mqd_t)-1) {
+		ERR("Failed to open %s\n", mq_name);
 		return -1;
 	}
-	destids.erase(it);
-	sem_post(&destids_sem);
-	return 1;
-} /* remove_destid() */
+
+	/* Send 'disconnect' POSIX message contents to the RDMA library */
+	ret = mq_send(disc_mq,
+		      (const char *)&disconnect_msg,
+		      sizeof(struct mq_disconnect_msg),
+		      1);
+	if (ret < 0) {
+		ERR("Failed to send message: %s\n", strerror(errno));
+		mq_close(disc_mq);
+		return -2;
+	}
+
+	/* Now close POSIX queue */
+	if (mq_close(disc_mq)) {
+		ERR("Failed to close '%s': %s\n", mq_name, strerror(errno));
+		return -3;
+	}
+	HIGH("'Disconnect' message relayed to 'server' msubid(0x%X)\n",
+			client_msubid);
+
+	return 0;
+}
+
+set<uint16_t> mspace::get_rem_destids()
+{
+	sem_wait(&rem_connections_sem);
+	set<uint16_t>	rem_destids;
+	for (auto &rem_conn : rem_connections) {
+		rem_destids.insert(rem_conn.client_destid);
+	}
+	sem_post(&rem_connections_sem);
+	return rem_destids;
+} /* get_rem_destids() */
 
 /* Debugging */
-void mspace::dump_info(struct cli_env *env) {
+void mspace::dump_info(struct cli_env *env)
+{
 	sprintf(env->output, "%34s %08X %016" PRIx64 " %08X\n", name.c_str(),
 	                msid, rio_addr, size);
 	logMsg(env);
 	sprintf(env->output, "destids: ");
 	logMsg(env);
 
-	sem_wait(&destids_sem);
-	for (auto& destid : destids) {
+	set<uint16_t> rem_destids = get_rem_destids();
+	for (auto& destid : rem_destids) {
 		sprintf(env->output, "%u ", destid);
 		logMsg(env);
 	}
-	sem_post(&destids_sem);
+
 	sprintf(env->output, "\n");
 	logMsg(env);
 } /* dump_info() */
@@ -386,14 +484,30 @@ int mspace::open(uint32_t *msid, unix_server *user_server, uint32_t *ms_conn_id,
 
 bool mspace::has_user_with_user_server(unix_server *server, uint32_t *ms_conn_id)
 {
+	bool has_user = false;
+
+	sem_wait(&users_sem);
 	auto it = find(begin(users), end(users), server);
 
 	if (it != end(users)) {
 		*ms_conn_id = it->get_ms_conn_id();
-		return true;
+		has_user = true;
 	}
-	return false;
-}
+	sem_post(&users_sem);
+
+	return has_user;
+} /* has_user_with_user_server() */
+
+bool mspace::connected_by_destid(uint16_t client_destid)
+{
+	bool connected;
+
+	sem_wait(&rem_connections_sem);
+	connected = find(begin(rem_connections), end(rem_connections), client_destid)!= end(rem_connections);
+	sem_post(&rem_connections_sem);
+
+	return connected;
+} /* connected_by_destid() */
 
 int mspace::close(uint32_t ms_conn_id)
 {
