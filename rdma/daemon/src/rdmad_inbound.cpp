@@ -46,8 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_ibwin.h"
 #include "rdmad_inbound.h"
 
-using namespace std;
-
+using std::vector;
 
 struct ibw_free {
 	void operator()(ibwin& ibw) { ibw.free(); }
@@ -74,7 +73,7 @@ inbound::inbound(riomp_mport_t mport_hnd,
 			ibwin win(mport_hnd, i, win_size);
 			ibwins.push_back(win);
 		}
-		catch(ibwin_map_exception e) {
+		catch(ibwin_map_exception& e) {
 			throw inbound_exception(e.err);
 		}
 	}

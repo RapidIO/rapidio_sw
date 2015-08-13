@@ -44,8 +44,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
 
-using namespace std;
-
 /* List of destids provisioned via the HELLO command/message */
 vector<hello_daemon_info>	hello_daemon_info_list;
 sem_t	hello_daemon_info_list_sem;

@@ -43,7 +43,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "unix_sock.h"
 
-using namespace std;
+using std::vector;
+using std::string;
+using std::fill;
+using std::find;
 
 struct has_msoid {
 	has_msoid(uint32_t msoid) : msoid(msoid) {}

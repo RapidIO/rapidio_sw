@@ -38,8 +38,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <mqueue.h>
 
 #include <cstring>
-#include <iostream>
-#include <typeinfo>
 #include <string>
 
 #include "rdma_mq_msg.h"
@@ -48,7 +46,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* TODO: Copy from rdma_mq_msg.h */
 #define MQ_SEND_BUF_SIZE	MQ_RCV_BUF_SIZE
 
-using namespace std;
+using std::string;
+using std::stringstream;
 
 const unsigned MSG_Q_RECV_ERR = -1;
 const unsigned MSG_Q_SEND_ERR = -2;

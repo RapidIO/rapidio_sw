@@ -17,10 +17,8 @@
 					exit(1); \
 				}
 /*
- * TODO: Multiple threads for receiving client test signalling commands
+ * TODO: Multiple threads for receiving client test signaling commands
  * allowing multiple connections to memory spaces */
-
-using namespace std;
 
 cm_server	*bat_server;
 bool shutting_down = false;

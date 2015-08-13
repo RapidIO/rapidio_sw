@@ -45,7 +45,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <signal.h>
 
-//#include <rapidio_mport_mgmt.h>
 #include "cm_sock.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"
@@ -64,8 +63,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_unix_msg.h"
 
 struct peer_info	peer;
-
-using namespace std;
 
 /* Memory Space Owner data */
 ms_owners owners;

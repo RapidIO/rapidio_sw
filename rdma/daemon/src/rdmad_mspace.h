@@ -52,8 +52,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "prov_daemon_info.h"
 #include "msg_q.h"
 
-using namespace std;	// TODO: Remove
-
 using std::set;
 using std::string;
 using std::vector;

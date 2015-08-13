@@ -55,10 +55,14 @@
 #include "rdmad_srvr_threads.h"
 #include "rdmad_main.h"
 
+using std::fill;
+using std::remove_if;
+using std::find;
+
 mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
                 uint64_t phys_addr, uint64_t size) :
 		name(name), msid(msid), rio_addr(rio_addr), phys_addr(
-		                phys_addr), size(size), free(true),
+		                phys_addr), size(size), msoid(0xFFFF), free(true),
 		                current_ms_conn_id(MS_CONN_ID_START),
 		                accepted(false)
 {
@@ -467,7 +471,7 @@ int mspace::open(uint32_t *msid, unix_server *user_server, uint32_t *ms_conn_id,
 	msg_q<mq_close_ms_msg> *close_mq;
 	try {
 		close_mq = new msg_q<mq_close_ms_msg>(qname.str(), MQ_CREATE);
-	} catch (msg_q_exception e) {
+	} catch (msg_q_exception& e) {
 		CRIT("Failed to create close_mq: %s\n", e.msg.c_str());
 		return -1;
 	}

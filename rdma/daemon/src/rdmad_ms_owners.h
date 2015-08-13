@@ -44,7 +44,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "unix_sock.h"
 
-using namespace std;
+using std::vector;
+using std::string;
 
 /* Owners are 12-bits */
 #define MSOID_MAX	0xFFF

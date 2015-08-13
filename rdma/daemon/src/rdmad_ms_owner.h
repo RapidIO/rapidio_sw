@@ -55,7 +55,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_mspace.h"
 #define MSO_CONN_ID_START	0x1
 
-using namespace std;
+using std::vector;
+using std::string;
 
 class mso_user
 {

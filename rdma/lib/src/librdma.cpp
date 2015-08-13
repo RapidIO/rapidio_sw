@@ -66,7 +66,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_unix_msg.h"
 #include "libfmdd.h"
 
-using namespace std;
+using std::iterator;
 
 #ifdef __cplusplus
 extern "C" {

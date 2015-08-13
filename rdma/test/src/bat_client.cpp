@@ -62,7 +62,6 @@
 	bat_first_client->send(); \
 }
 
-using namespace std;
 
 static bool shutting_down = false;
 

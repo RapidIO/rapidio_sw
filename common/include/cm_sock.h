@@ -51,7 +51,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define	CM_MSG_OFFSET 20
 #define	CM_BUF_SIZE	4096
 
-using namespace std;
+using std::iterator;
+using std::cout;
+using std::endl;
+using std::ostream_iterator;
+using std::setfill;
+using std::hex;
+using std::setw;
 
 struct cm_exception {
 	cm_exception(const char *msg) : err(msg) {}

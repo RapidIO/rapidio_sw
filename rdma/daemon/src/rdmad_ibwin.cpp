@@ -48,8 +48,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_ibwin.h"
 
 using std::vector;
-
-
+using std::find;
+using std::fill;
+using std::begin;
+using std::end;
 
 /* Memory space is free and is equal to or larger than 'size'  */
 struct has_room

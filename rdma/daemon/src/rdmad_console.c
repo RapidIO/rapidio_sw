@@ -45,8 +45,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_cm.h"
 #include "libcli.h"
 
-using namespace std;
-
 int ibwin_info_cmd_f(struct cli_env *env, int argc, char **argv)
 {
 	(void)argc;

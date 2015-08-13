@@ -37,7 +37,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iostream>
 #include <string>
 #include <array>
-using namespace std;
+
+using std::string;
+using std::array;
+using std::cout;
 
 template <typename T, size_t N>
 class circ_buf {

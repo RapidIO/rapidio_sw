@@ -7,15 +7,17 @@
 #include <vector>
 #include <set>
 
-using std::vector;
-using std::set;
-
 #include "liblog.h"
 #include "libfmdd.h"
 #include "rdmad_mspace.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
+
+using std::vector;
+using std::set;
+using std::remove_if;
+using std::sort;
 
 #ifdef __cplusplus
 extern "C" {
