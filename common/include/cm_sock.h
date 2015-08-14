@@ -467,6 +467,8 @@ public:
 		/* Return the socket, now that we know it works */
 		if (socket)
 			*socket = this->client_socket;
+
+		server_destid = destid;
 		return 0;
 	} /* connect() */
 
@@ -494,6 +496,7 @@ public:
 		return cm_base::timed_receive(client_socket, timeout_ms);
 	} /* receive() */
 
+	uint16_t server_destid;
 private:
 	riomp_sock_t client_socket;
 }; /* cm_client */
