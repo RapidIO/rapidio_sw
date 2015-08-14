@@ -146,6 +146,25 @@ exit_func:
 } /* send_destroy_ms_to_lib() */
 
 /**
+ * Functor for matching a memory space on both server_destid and
+ * server_msid.
+ */
+struct match_ms {
+	match_ms(uint16_t server_destid, uint32_t server_msid) :
+		server_destid(server_destid), server_msid(server_msid)
+	{}
+
+	bool operator()(connected_to_ms_info& cmi)
+	{
+		return (cmi.server_msid == this->server_msid) &&
+		       (cmi.server_destid == this->server_destid);
+	}
+
+	uint16_t server_destid;
+	uint32_t server_msid;
+};
+
+/**
  * Request for handling requests such as RDMA connection request, and
  * RDMA disconnection requests.
  */
@@ -370,12 +389,22 @@ void *wait_accept_destroy_thread_f(void *arg)
 								destroy_msg->server_msname);
 
 			/* Relay to library and get ACK back */
-			if (send_destroy_ms_to_lib(destroy_msg->server_msname, destroy_msg->server_msid)) {
+			if (send_destroy_ms_to_lib(destroy_msg->server_msname, be64toh(destroy_msg->server_msid))) {
 				ERR("Failed to send destroy message to library or get ack\n");
 				/* Don't exit; there maybe a problem with that memory space
 				 * but not with others */
 				continue;
 			}
+
+			/* Remove the entry relating to the destroy ms. Note that it has to match both
+			 * the server_destid and server_msid since multiple daemons can allocate the same
+			 * msid to different memory spaces and they are distinct only by the servers DID (destid)
+			 */
+			match_ms	mms(accept_destroy_client->server_destid,
+					be64toh(destroy_msg->server_msid));
+			sem_wait(&connected_to_ms_info_list_sem);
+			remove_if(begin(connected_to_ms_info_list), end(connected_to_ms_info_list), mms);
+			sem_post(&connected_to_ms_info_list_sem);
 
 			cm_destroy_ack_msg *dam;
 
