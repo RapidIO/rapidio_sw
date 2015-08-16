@@ -28,7 +28,7 @@ BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_P
 	src/$@.cpp -lrt -llist -llog -lmport -lrdma -lcli -pthread -lfmdd -ldd -lriocp_pe
 
 
-all: bat_server bat_client
+all: bat_server bat_client bat_child
 
 # Batch Automated Test (BAT)
 bat_server: $(BAT_DEPS) src/bat_server.cpp
@@ -37,6 +37,10 @@ bat_server: $(BAT_DEPS) src/bat_server.cpp
 
 bat_client: $(BAT_DEPS) src/bat_client.cpp
 	@echo ---------- Building bat_client...
+	$(BAT_BUILD_STRING)
+
+bat_child: $(BAT_DEPS) src/bat_child.cpp
+	@echo ---------- Building bat_child...
 	$(BAT_BUILD_STRING)
 
 clean:

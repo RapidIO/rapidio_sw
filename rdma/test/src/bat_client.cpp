@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <linux/limits.h>
 
@@ -682,6 +683,11 @@ static int test_case_j_k(char ch)
 		BAT_EXPECT_PASS(ret);
 	}
 
+	/* Give remote local daemon a chance to detect remote daemon's
+	 * death.
+	 */
+	sleep(1);
+
 	/* If the remote 'server_msh_rb' is not in the database
 	 * rdma_disc_ms_h() returns 0 which is a pass. If the database
 	 * was nor properly cleared then rdma_disc_ms_h() will fail
@@ -710,6 +716,42 @@ exit:
 	/* If we reach till here without errors, then we have passed */
 	return 0;
 } /* test_case_j_k() */
+
+static int test_case_l()
+{
+	pid_t child;
+	int	ret;
+
+	puts("test_case_1");
+	child = fork();
+
+	if (child == 0) { /* Child */
+		if (execl("./bat_child", "bat_child", loc_mso_name, NULL) == -1)
+			perror("test_case_l:");
+	} else {	/* Parent */
+		int status;
+		pid_t dead_child;
+		mso_h	opened_msoh;
+
+		dead_child = wait(&status);
+		if ((dead_child == child) && WEXITSTATUS(status) == 0) {
+			ret = rdma_open_mso_h(loc_mso_name, &opened_msoh);
+			if (ret) {
+				LOG("Can't open mso. PASS\n");
+				ret = 0;
+			} else {
+				LOG("mso wasn't destroyed. FAILED\n");
+			}
+		} else {
+			LOG("Failed during mso creation. FAIL\n");
+			ret = WEXITSTATUS(status);
+		}
+
+	}
+
+	return ret;
+} /* test_case_l() */
+
 
 
 #define DMA_DATA_SIZE	64
@@ -1133,6 +1175,7 @@ int main(int argc, char *argv[])
 			puts("'i' Accept/Connect/Destroy test");
 			puts("'j' Accept/Connect then kill remote app");
 			puts("'k' Accept/Connect then kill remote daemon");
+			puts("'l' Create local mso, die, then try to open");
 			puts("'1' Simple DMA transfer - 0 offsets, sync mode");
 			puts("'2' As '1' but loc_msub_of_in_ms is 4K");
 			puts("'3' As '1' but data offset in loc_msub");
@@ -1245,6 +1288,10 @@ int main(int argc, char *argv[])
 	case 'k':
 		test_case_j_k('k');
 		BAT_EOT();
+		break;
+	case 'l':
+		test_case_l();
+		/* No BAT_EOT(). This is a local test */
 		break;
 	case '1':
 		LOG("test_case%c\n", tc);
