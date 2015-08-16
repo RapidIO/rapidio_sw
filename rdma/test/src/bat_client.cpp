@@ -57,6 +57,8 @@
 
 #define LOG(fmt, args...)    fprintf(fp, fmt, ## args)
 
+extern "C" int rdmad_kill_daemon();
+
 /* Signal end-of-test to server */
 #define BAT_EOT() { \
 	bm_first_tx->type = BAT_END; \
@@ -752,7 +754,50 @@ static int test_case_l()
 	return ret;
 } /* test_case_l() */
 
+static int test_case_m()
+{
+	int ret;
+	pid_t child;
 
+	/* Create a client mso */
+	mso_h	client_msoh;
+	ret = rdma_create_mso_h(loc_mso_name, &client_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Kill local daemon */
+	ret = rdmad_kill_daemon();
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	/**
+	 * When the daemon is killed, it cleans up the memory space owners
+	 * and that includes notifying apps that own those memory space owners
+	 * that their msos are no longer valid.
+	 */
+
+	/* Restart local daemon */
+	child = fork();
+
+	if (child == 0) { /* Child */
+		if (execl("../rdmad", "rdmad", NULL) == -1)
+			perror("test_case_l:");
+	} else {
+		/* Parent doesn't wait for daemon to die but gives it
+		 * 1 second to start up and initialize its sockets..etc.
+		 */
+		sleep(1);
+
+		/* Create a client mso */
+		ret = rdma_create_mso_h(loc_mso_name, &client_msoh);
+		BAT_EXPECT_RET(ret, 0, exit);
+		LOG("mso created. PASS\n");
+		exit(0);
+	}
+
+free_client_mso:
+	rdma_destroy_mso_h(client_msoh);
+
+exit:
+	return ret;
+} /* test_case_ms() */
 
 #define DMA_DATA_SIZE	64
 #define DMA_DATA_SECTION_SIZE	8
@@ -1176,6 +1221,7 @@ int main(int argc, char *argv[])
 			puts("'j' Accept/Connect then kill remote app");
 			puts("'k' Accept/Connect then kill remote daemon");
 			puts("'l' Create local mso, die, then try to open");
+			puts("'m' Restart daemon and create the same mso");
 			puts("'1' Simple DMA transfer - 0 offsets, sync mode");
 			puts("'2' As '1' but loc_msub_of_in_ms is 4K");
 			puts("'3' As '1' but data offset in loc_msub");
@@ -1291,6 +1337,10 @@ int main(int argc, char *argv[])
 		break;
 	case 'l':
 		test_case_l();
+		/* No BAT_EOT(). This is a local test */
+		break;
+	case 'm':
+		test_case_m();
 		/* No BAT_EOT(). This is a local test */
 		break;
 	case '1':
