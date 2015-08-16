@@ -97,15 +97,17 @@ static int provision_new_dids(uint32_t old_did_list_size,
 
 	/* Provision new dids */
 	for (uint32_t& did : result) {
-		INFO("Provisioning 0x%X\n", did);
 		/* Check if daemon is running */
 		if (fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
 			/* SEND HELLO */
+			INFO("Provisioning 0x%X\n", did);
 			if (provision_rdaemon(did)) {
 				CRIT("Fail to provision destid(0x%X)\n", did);
 			} else {
 				HIGH("Provisioned destid(0x%X)\n", did);
 			}
+		} else {
+			INFO("NOT provisioning 0x%X since daemon not running\n");
 		}
 	}
 
