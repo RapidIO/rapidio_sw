@@ -59,6 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
+#include "liblog.h"
 
 #include "worker.h"
 #include "goodput.h"
@@ -118,6 +119,7 @@ void init_worker_info(struct worker *info, int first_time)
 
 void shutdown_worker_thread(struct worker *info)
 {
+	int rc;
 	if (info->stat) {
 		info->action = shutdown_worker;
 		info->stop_req = 2;
@@ -126,35 +128,45 @@ void shutdown_worker_thread(struct worker *info)
 	};
 		
 	if (info->ib_ptr && info->ib_valid) {
-		riomp_dma_unmap_memory(info->mp_h, info->ib_byte_cnt, 
+		rc = riomp_dma_unmap_memory(info->mp_h, info->ib_byte_cnt, 
 								info->ib_ptr);
 		info->ib_ptr = NULL;
+		if (rc)
+			ERR("Shutdown riomp_dma_unmap_memory ib rc %d: %s\n",
+				rc, strerror(errno));
 	};
 
 	if (info->ib_valid) {
 		info->ib_valid = 0;
-		riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
-	};
-
-	if (info->ib_valid) {
-		info->ib_valid = 0;
-		riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+		rc = riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+		if (rc)
+			ERR("Shutdown riomp_dma_ibwin_free rc %d: %s\n",
+				rc, strerror(errno));
 	};
 
 	if (info->ob_ptr && info->ob_valid) {
-		riomp_dma_unmap_memory(info->mp_h, info->ob_byte_cnt, 
+		rc = riomp_dma_unmap_memory(info->mp_h, info->ob_byte_cnt, 
 								info->ob_ptr);
 		info->ob_ptr = NULL;
+		if (rc)
+			ERR("Shutdown riomp_dma_unmap_memory OB rc %d: %s\n",
+				rc, strerror(errno));
 	};
 
 	if (info->ob_valid) {
 		info->ob_valid = 0;
-		riomp_dma_obwin_free(info->mp_h, &info->ob_handle);
+		rc = riomp_dma_obwin_free(info->mp_h, &info->ob_handle);
+		if (rc)
+			ERR("Shutdown riomp_dma_obwin_free rc %d: %s\n",
+				rc, strerror(errno));
 	};
 
 	if (info->rdma_kbuff) {
-		riomp_dma_dbuf_free(info->mp_h, &info->rdma_kbuff);
+		rc = riomp_dma_dbuf_free(info->mp_h, &info->rdma_kbuff);
 		info->rdma_kbuff = 0;
+		if (rc)
+			ERR("Shutdown riomp_dma_dbuf_free rdma_kbuff rc %d:%s\n",
+				rc, strerror(errno));
 	};
 
 	if (NULL != info->rdma_ptr) {
@@ -164,28 +176,46 @@ void shutdown_worker_thread(struct worker *info)
 
 	if (info->con_skt_valid) {
 		if (info->sock_rx_buf) {
-			riomp_sock_release_receive_buffer(info->con_skt, 
+			rc = riomp_sock_release_receive_buffer(info->con_skt, 
 						info->sock_rx_buf);
 			info->sock_rx_buf = NULL;
+			if (rc)
+				ERR("Shutdown riomp_sock_release_receive_buffer rc con_skt %d:%s\n",
+					rc, strerror(errno));
 		};
 		if (info->sock_tx_buf) {
-			riomp_sock_release_send_buffer(info->con_skt, 
+			rc = riomp_sock_release_send_buffer(info->con_skt, 
 						info->sock_tx_buf);
 			info->sock_tx_buf = NULL;
+			if (rc) {
+				ERR("Shutdown riomp_sock_release_send_buffer rc con_skt %d:%s\n",
+					rc, strerror(errno));
+			};
 		};
 
-		riomp_sock_close(&info->con_skt);
+		rc = riomp_sock_close(&info->con_skt);
 		info->con_skt_valid = 0;
+		if (rc) {
+			ERR("Shutdown riomp_sock_close rc con_skt %d:%s\n",
+					rc, strerror(errno));
+		};
 	};
 
 	if (info->acc_skt_valid) {
-		riomp_sock_close(&info->acc_skt);
+		rc = riomp_sock_close(&info->acc_skt);
 		info->acc_skt_valid = 0;
+		if (rc)
+			ERR("Shutdown riomp_sock_close rc ACC_skt %d:%s\n",
+					rc, strerror(errno));
 	};
 
 	if (info->mp_h_is_mine) {
-		riomp_mgmt_mport_destroy_handle(&info->mp_h);
+		rc = riomp_mgmt_mport_destroy_handle(&info->mp_h);
 		info->mp_h_is_mine = 0;
+		if (rc) {
+			ERR("Shutdown riomp_mgmt_mport_destroy_handle rc %d:%s\n",
+					rc, strerror(errno));
+		};
 	};
 	
 	init_worker_info(info, 0);
@@ -195,6 +225,7 @@ int migrate_thread_to_cpu(struct worker *info)
 {
         cpu_set_t cpuset;
         int chk_cpu_lim = 10;
+	int rc;
 
 	if (-1 == info->cpu_req) {
         	CPU_ZERO(&cpuset);
@@ -207,16 +238,24 @@ int migrate_thread_to_cpu(struct worker *info)
         	CPU_SET(info->cpu_req, &cpuset);
 	};
 
-        if (pthread_setaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset))
+        rc = pthread_setaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset);
+	if (rc) {
+		ERR("pthread_setaffinity_np rc %d:%s\n",
+					rc, strerror(errno));
                 return 1;
+	};
 
 	if (-1 == info->cpu_req) {
 		info->cpu_run = info->cpu_req;
 		return 0;
 	};
 		
-        if (pthread_getaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset))
+        rc = pthread_getaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset);
+	if (rc) {
+		ERR("pthread_getaffinity_np rc %d:%s\n",
+					rc, strerror(errno));
                 return 1;
+	};
 
         info->cpu_run = sched_getcpu();
         while ((info->cpu_run != info->cpu_req) && chk_cpu_lim) {
@@ -224,7 +263,12 @@ int migrate_thread_to_cpu(struct worker *info)
                 info->cpu_run = sched_getcpu();
                 chk_cpu_lim--;
         };
-	return (info->cpu_run != info->cpu_req);
+	rc = info->cpu_run != info->cpu_req;
+	if (rc) {
+		ERR("Unable to schedule thread on cpu %d\n", info->cpu_req);
+                return 1;
+	};
+	return rc;
 };
 
 void direct_io_goodput(struct worker *info)
@@ -233,23 +277,36 @@ void direct_io_goodput(struct worker *info)
 	uint16_t data16 = 0x3456;
 	uint32_t data32 = 0x789abcde;
 	uint64_t data64 = 0xf123456789abcdef;
+	int rc;
 
-	if (!info->rio_addr || !info->byte_cnt || !info->acc_size)
+	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
+		ERR("FAILED: rio_addr, window size or acc_size is 0\n");
 		return;
+	};
 
-	if (!info->ob_byte_cnt)
+	if (!info->ob_byte_cnt) {
+		ERR("FAILED: ob_byte_cnt is 0\n");
 		return;
+	};
 
-	if (riomp_dma_obwin_map(info->mp_h, info->did, info->rio_addr, 
-					info->ob_byte_cnt, &info->ob_handle))
+	rc = riomp_dma_obwin_map(info->mp_h, info->did, info->rio_addr, 
+					info->ob_byte_cnt, &info->ob_handle);
+	if (rc) {
+		ERR("FAILED: riomp_dma_obwin_map rc %d:%s\n",
+					rc, strerror(errno));
 		return;
+	};
 
 	info->ob_valid = 1;
 	info->perf_byte_cnt = 0;
 
-	if (riomp_dma_map_memory(info->mp_h, info->ob_byte_cnt, 
-					info->ob_handle, &info->ob_ptr))
+	rc = riomp_dma_map_memory(info->mp_h, info->ob_byte_cnt, 
+					info->ob_handle, &info->ob_ptr);
+	if (rc) {
+		ERR("FAILED: riomp_dma_map_memory rc %d:%s\n",
+					rc, strerror(errno));
 		return;
+	};
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
@@ -295,14 +352,25 @@ void direct_io_goodput(struct worker *info)
 	};
 
 	if (info->ob_ptr) {
-		riomp_dma_unmap_memory(info->mp_h, info->ob_byte_cnt, 
+		rc = riomp_dma_unmap_memory(info->mp_h, info->ob_byte_cnt, 
 								info->ob_ptr);
 		info->ob_ptr = NULL;
+		if (rc) {
+			ERR("FAILED: riomp_dma_unmap_memory rc %d:%s\n",
+						rc, strerror(errno));
+			return;
+		};
 	};
 
 
-	if (info->ob_valid)
-		riomp_dma_obwin_free(info->mp_h, &info->ob_handle);
+	if (info->ob_valid) {
+		rc = riomp_dma_obwin_free(info->mp_h, &info->ob_handle);
+		if (rc) {
+			ERR("FAILED: riomp_dma_obwin_free rc %d:%s\n",
+						rc, strerror(errno));
+			return;
+		};
+	};
 
 	info->ob_valid = 0;
 };
@@ -537,18 +605,27 @@ void dma_alloc_ibwin(struct worker *info)
 	uint64_t i;
 	int rc;
 
-	if (!info->ib_byte_cnt || info->ib_valid)
+	if (!info->ib_byte_cnt || info->ib_valid) {
+		ERR("FAILED: window size of 0 or ibwin already exists\n");
 		return; 
+	};
 
 	info->ib_rio_addr = (uint64_t)(~((uint64_t) 0)); /* RIO_MAP_ANY_ADDR */
 	rc = riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
 					info->ib_byte_cnt, &info->ib_handle);
-	if (rc)
+	if (rc) {
+		ERR("FAILED: riomp_dma_ibwin_map rc %d:%s\n",
+					rc, strerror(errno));
 		return;
+	};
 
-	if (riomp_dma_map_memory(info->mp_h, info->ib_byte_cnt, 
-					info->ib_handle, &info->ib_ptr))
+	rc = riomp_dma_map_memory(info->mp_h, info->ib_byte_cnt, 
+					info->ib_handle, &info->ib_ptr);
+	if (rc) {
+		ERR("FAILED: riomp_dma_ibwin_map rc %d:%s\n",
+					rc, strerror(errno));
 		return;
+	};
 
 	for (i = 0; i < info->ib_byte_cnt; i += 8) {
 		uint64_t *d_ptr;
@@ -562,10 +639,25 @@ void dma_alloc_ibwin(struct worker *info)
 
 void dma_free_ibwin(struct worker *info)
 {
+	int rc;
 	if (!info->ib_valid)
 		return; 
 
-	riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+	if (info->ib_ptr && info->ib_valid) {
+		rc = riomp_dma_unmap_memory(info->mp_h, info->ib_byte_cnt, 
+								info->ib_ptr);
+		info->ib_ptr = NULL;
+		if (rc)
+			ERR("riomp_dma_unmap_memory ib rc %d: %s\n",
+				rc, strerror(errno));
+	};
+
+	rc = riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+	if (rc) {
+		ERR("FAILED: riomp_dma_ibwin_free rc %d:%s\n",
+					rc, strerror(errno));
+		return;
+	};
 
 	info->ib_valid = 0;
 	info->ib_rio_addr = 0;

@@ -56,6 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 
 #include "libcli.h"
+#include "liblog.h"
 #include "worker.h"
 #include "goodput.h"
 #include "goodput_cli.h"
@@ -126,9 +127,7 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
 
-	cli_init_base(goodput_thread_shutdown);
-	bind_goodput_cmds();
-
+	rdma_log_init("goodput_log.txt", 1);
 	if (setup_mport(mport_num)) {
 		printf("\nCould not open mport %d, exiting\n", mport_num);
 		exit(EXIT_FAILURE);
@@ -140,6 +139,7 @@ int main(int argc, char *argv[])
 	riomp_sock_mbox_init();
         cli_init_base(goodput_thread_shutdown);
         bind_goodput_cmds();
+	liblog_bind_cli_cmds();
 	splashScreen((char *)"Goodput Evaluation Application");
 
 	console((void *)((char *)"GoodPut> "));

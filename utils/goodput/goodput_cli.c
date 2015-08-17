@@ -50,6 +50,10 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"LAST"
 };
 
+#define ACTION_STR(x) (char *)((x < last_action)?req_type_str[x]:"UNKWN!")
+#define MODE_STR(x) (char *)((x == kernel_action)?"KRNL":"User")
+#define THREAD_STR(x) (char *)((0 == x)?"  D":((1 == x)?" R ":"B  "))
+
 int StartCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, cpu, new_dma;
@@ -223,6 +227,7 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 
 	wkr[idx].action = alloc_ibwin;
 	wkr[idx].ib_byte_cnt = ib_size;
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -260,6 +265,7 @@ int IBDeallocCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	wkr[idx].action = free_ibwin;
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -314,6 +320,7 @@ int OBDIOCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].wr = wr;
 	wkr[idx].ob_byte_cnt = bytes;
 
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -388,6 +395,7 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].dma_sync_type = (enum riomp_dma_directio_transfer_sync)sync;
 	wkr[idx].rdma_buff_size = bytes;
 
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -453,6 +461,7 @@ int msgTxCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].sock_num = sock_num;
 	wkr[idx].msg_size = bytes;
 
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -506,6 +515,7 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].did = did;
 	wkr[idx].sock_num = sock_num;
 
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -524,6 +534,8 @@ msgRxCmd,
 ATTR_NONE
 };
 
+#define FLOAT_STR_SIZE 20
+
 int PerfCmd(struct cli_env *env, int argc, char **argv)
 {
 	int i;
@@ -531,9 +543,10 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 	uint64_t byte_cnt = 0;
 	float tot_MBps = 0, tot_Gbps = 0, tot_Msgpersec = 0;
 	uint64_t tot_byte_cnt = 0;
+	char MBps_str[FLOAT_STR_SIZE],  Gbps_str[FLOAT_STR_SIZE];
 
 	sprintf(env->output,
-        "\nW <<<<--Data-->>>> --MBps-- -Gbps- Msgs/Sec\n");
+        "\nW STS <<<<--Data-->>>> --MBps-- -Gbps- Msgs/Sec\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -561,8 +574,14 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 			((float)nsec / 1000000000.0);
 		Gbps = (MBps * 8.0) / 1000.0;
 
-		sprintf(env->output, "%1d %16lx %4.3f %2.3f %9.0f\n",
-			i, byte_cnt, MBps, Gbps, Msgpersec);
+		memset(MBps_str, 0, FLOAT_STR_SIZE);
+		memset(Gbps_str, 0, FLOAT_STR_SIZE);
+		sprintf(MBps_str, "%4.3f", MBps);
+		sprintf(Gbps_str, "%2.3f", Gbps);
+
+		sprintf(env->output, "%1d %3s %16lx %8s %6s %9.0f\n",
+			i,  THREAD_STR(wkr[i].stat),
+			byte_cnt, MBps_str, Gbps_str, Msgpersec);
         	logMsg(env);
 
 		if (byte_cnt) {
@@ -572,8 +591,13 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 		};
 		tot_Msgpersec += Msgpersec;
 	};
-	sprintf(env->output, "T %16lx %8.3f %2.3f %9.0f\n",
-		tot_byte_cnt, tot_MBps, tot_Gbps, tot_Msgpersec);
+	memset(MBps_str, 0, FLOAT_STR_SIZE);
+	memset(Gbps_str, 0, FLOAT_STR_SIZE);
+	sprintf(MBps_str, "%4.3f", tot_MBps);
+	sprintf(Gbps_str, "%2.3f", tot_Gbps);
+
+	sprintf(env->output, "T     %16lx %8s %6s %9.0f\n",
+		tot_byte_cnt, MBps_str, Gbps_str, tot_Msgpersec);
         logMsg(env);
 
         return 0;
@@ -586,12 +610,9 @@ struct cli_cmd Perf = {
 "Print current performance for threads.",
 "perf <no parameters>",
 PerfCmd,
-ATTR_NONE
+ATTR_RPT
 };
 
-
-#define ACTION_STR(x) (char *)((x < last_action)?req_type_str[x]:"UNKWN!")
-#define MODE_STR(x) (char *)((x == kernel_action)?"KRNL":"User")
 
 void display_gen_status(struct cli_env *env)
 {
@@ -602,12 +623,9 @@ void display_gen_status(struct cli_env *env)
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		int stat;
-		stat = wkr[i].stat;
-
 		sprintf(env->output,
 		"%1d %3s %3d %3d %6s %4s %16lx %7lx %7lx %1d %2d %2d %2d\n",
-			i, (0 == stat)?"DED":((1 == stat)?"RUN":"BLK"),
+			i, THREAD_STR(wkr[i].stat), 
 			wkr[i].cpu_req, wkr[i].cpu_run,
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
@@ -623,15 +641,13 @@ void display_ibwin_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-	"\nW S CPU RUN ACTION MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>>\n");
+	"\nW STS CPU RUN ACTION MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>>\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		int stat;
-		stat = wkr[i].stat;
 		sprintf(env->output,
-			"%1d %1s %3d %3d %6s %4s %2d %16lx %16lx %16lx\n",
-			i, (0 == stat)?"D":((1 == stat)?"R":"B"),
+			"%1d %3s %3d %3d %6s %4s %2d %16lx %16lx %16lx\n",
+			i, THREAD_STR(wkr[i].stat),
 			wkr[i].cpu_req, wkr[i].cpu_run,
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
@@ -646,15 +662,13 @@ void display_msg_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-	"\nW S CPU RUN ACTION MODE MB ACC CON Msg_Size SockNum TX RX\n");
+	"\nW STS CPU RUN ACTION MODE MB ACC CON Msg_Size SockNum TX RX\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		int stat;
-		stat = wkr[i].stat;
 		sprintf(env->output,
-			"%1d %1s %3d %3d %6s %4s %2d %3d %3d %7d %7d %2d %2d\n",
-			i,  (0 == stat)?"D":((1 == stat)?"R":"B"),
+			"%1d %1s %3d %3d %6s %4s %2d %3d %3d %8d %7d %2d %2d\n",
+			i, THREAD_STR(wkr[i].stat),
 			wkr[i].cpu_req, wkr[i].cpu_run,
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
@@ -687,7 +701,7 @@ int StatusCmd(struct cli_env *env, int argc, char **argv)
 		case 'G': 
 			display_gen_status(env);
 			break;
-		default: sprintf(env->output, "Unknown option \"%c\"", 
+		default: sprintf(env->output, "Unknown option \"%c\"\n", 
 				argv[0][0]);
         		logMsg(env);
 			return 0;
