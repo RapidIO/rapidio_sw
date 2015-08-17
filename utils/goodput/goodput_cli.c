@@ -443,12 +443,6 @@ int msgTxCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	if (!sock_num) {
-		sprintf(env->output, "\nSock_num must not be 0.\n");
-        	logMsg(env);
-		goto exit;
-	};
-
 	bytes = (bytes + 7) & 0xFF8;
 	if (bytes < 24)
 		bytes = 24;
@@ -708,13 +702,74 @@ struct cli_cmd Status = {
 0,
 "Display status of all threads",
 "status {i|o|s}\n"
-	"Optionally enter a character to select the status type:\n"
-	"i : IBWIN status\n"
-	"m : Messaging status\n"
-	"s : General status\n"
-	"Default is general status.\n",
+        "Optionally enter a character to select the status type:\n"
+        "i : IBWIN status\n"
+        "m : Messaging status\n"
+        "s : General status\n"
+        "Default is general status.\n",
 StatusCmd,
 ATTR_RPT
+};
+
+int DumpCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx;
+	uint64_t offset, base_offset;
+	uint64_t size;
+
+	idx = getDecParm(argv[0], 0);
+	base_offset = getHex(argv[1], 0);
+	size = getHex(argv[2], 0);
+
+	if ((idx < 0) || (idx >= MAX_WORKERS)) {
+		sprintf(env->output, "\nIndex must be 0 to %d...\n",
+							MAX_WORKERS);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
+		sprintf(env->output, "\nNo mapped inbound window present\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	if ((base_offset + size) > wkr[idx].ib_byte_cnt) {
+		sprintf(env->output, "\nOffset + size exceeds window bytes\n");
+        	logMsg(env);
+		goto exit;
+	}
+
+        sprintf(env->output,
+                "  Offset 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
+        logMsg(env);
+        for (offset = 0; offset < size; offset++) {
+                if (!(offset & 0xF)) {
+                        sprintf(env->output,"\n%8lx", offset);
+                        logMsg(env);
+                };
+                sprintf(env->output, " %2x", 
+			*(uint8_t *)(
+			(uint8_t *)wkr[idx].ib_ptr + base_offset + offset));
+                logMsg(env);
+        };
+        sprintf(env->output, "\n");
+        logMsg(env);
+exit:
+        return 0;
+};
+
+struct cli_cmd Dump = {
+"dump",
+2,
+3,
+"Dump inbound memory area",
+"Dump <idx> <offset> <size>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<offset> is the hexadecimal offset, in bytes, from the window start\n"
+	"<size> is the number of bytes to display, starting at <offset>\n",
+DumpCmd,
+ATTR_NONE
 };
 
 struct cli_cmd *goodput_cmds[] = {
@@ -728,7 +783,8 @@ struct cli_cmd *goodput_cmds[] = {
 	&Status,
 	&Start,
 	&Kill,
-	&Halt
+	&Halt,
+	&Dump
 };
 
 void bind_goodput_cmds(void)

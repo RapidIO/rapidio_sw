@@ -98,6 +98,7 @@ void init_worker_info(struct worker *info, int first_time)
 	info->ib_handle = 0;
         info->ib_rio_addr = 0;
         info->ib_byte_cnt = 0;
+	info->ib_ptr = NULL;
 
 	info->use_kbuf = 0;
 	info->dma_trans_type = RIO_DIRECTIO_TYPE_NWRITE;
@@ -124,6 +125,17 @@ void shutdown_worker_thread(struct worker *info)
 		pthread_join(info->thr, NULL);
 	};
 		
+	if (info->ib_ptr && info->ib_valid) {
+		riomp_dma_unmap_memory(info->mp_h, info->ib_byte_cnt, 
+								info->ib_ptr);
+		info->ib_ptr = NULL;
+	};
+
+	if (info->ib_valid) {
+		info->ib_valid = 0;
+		riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+	};
+
 	if (info->ib_valid) {
 		info->ib_valid = 0;
 		riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
@@ -522,13 +534,28 @@ void msg_tx_goodput(struct worker *info)
 
 void dma_alloc_ibwin(struct worker *info)
 {
+	uint64_t i;
+	int rc;
+
 	if (!info->ib_byte_cnt || info->ib_valid)
 		return; 
 
 	info->ib_rio_addr = (uint64_t)(~((uint64_t) 0)); /* RIO_MAP_ANY_ADDR */
-	if (riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
-					info->ib_byte_cnt, &info->ib_handle))
+	rc = riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
+					info->ib_byte_cnt, &info->ib_handle);
+	if (rc)
 		return;
+
+	if (riomp_dma_map_memory(info->mp_h, info->ib_byte_cnt, 
+					info->ib_handle, &info->ib_ptr))
+		return;
+
+	for (i = 0; i < info->ib_byte_cnt; i += 8) {
+		uint64_t *d_ptr;
+
+		d_ptr = (uint64_t *)((uint64_t)info->ib_ptr + i);
+		*d_ptr = i + (i << 32);
+	};
 
 	info->ib_valid = 1;
 };

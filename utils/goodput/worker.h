@@ -127,6 +127,7 @@ struct worker {
 	uint64_t ib_handle; /* Inbound window RapidIO handle */
 	uint64_t ib_rio_addr; /* Inbound window RapidIO address */
 	uint64_t ib_byte_cnt; /* Inbound window size */
+	void *ib_ptr; /* Pointer to mapped ib_handle */
 
 	int use_kbuf; 
 	enum riomp_dma_directio_type dma_trans_type;
