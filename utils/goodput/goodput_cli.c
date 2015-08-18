@@ -429,8 +429,8 @@ int msgTxCmd(struct cli_env *env, int argc, char **argv)
 
 	idx = getDecParm(argv[0], 0);
 	did = getDecParm(argv[1], 0);
-	sock_num = getHex(argv[2], 0);
-	bytes = getHex(argv[3], 0);
+	sock_num = getDecParm(argv[2], 0);
+	bytes = getDecParm(argv[3], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -476,7 +476,8 @@ struct cli_cmd msgTx = {
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO memory address to access\n"
-	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n",
+	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
+	"NOTE: All parameters are decimal numbers.\n",
 msgTxCmd,
 ATTR_NONE
 };
@@ -487,7 +488,7 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 	int sock_num;
 
 	idx = getDecParm(argv[0], 0);
-	sock_num = getHex(argv[1], 0);
+	sock_num = getDecParm(argv[1], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",

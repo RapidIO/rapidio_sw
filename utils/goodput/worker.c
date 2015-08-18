@@ -117,6 +117,10 @@ void init_worker_info(struct worker *info, int first_time)
         info->sock_rx_buf = NULL;
 };
 
+void msg_cleanup_con_skt(struct worker *info);
+void msg_cleanup_acc_skt(struct worker *info);
+void msg_cleanup_mb(struct worker *info);
+
 void shutdown_worker_thread(struct worker *info)
 {
 	int rc;
@@ -174,40 +178,9 @@ void shutdown_worker_thread(struct worker *info)
 		info->rdma_ptr = NULL;
 	};
 
-	if (info->con_skt_valid) {
-		if (info->sock_rx_buf) {
-			rc = riomp_sock_release_receive_buffer(info->con_skt, 
-						info->sock_rx_buf);
-			info->sock_rx_buf = NULL;
-			if (rc)
-				ERR("Shutdown riomp_sock_release_receive_buffer rc con_skt %d:%s\n",
-					rc, strerror(errno));
-		};
-		if (info->sock_tx_buf) {
-			rc = riomp_sock_release_send_buffer(info->con_skt, 
-						info->sock_tx_buf);
-			info->sock_tx_buf = NULL;
-			if (rc) {
-				ERR("Shutdown riomp_sock_release_send_buffer rc con_skt %d:%s\n",
-					rc, strerror(errno));
-			};
-		};
-
-		rc = riomp_sock_close(&info->con_skt);
-		info->con_skt_valid = 0;
-		if (rc) {
-			ERR("Shutdown riomp_sock_close rc con_skt %d:%s\n",
-					rc, strerror(errno));
-		};
-	};
-
-	if (info->acc_skt_valid) {
-		rc = riomp_sock_close(&info->acc_skt);
-		info->acc_skt_valid = 0;
-		if (rc)
-			ERR("Shutdown riomp_sock_close rc ACC_skt %d:%s\n",
-					rc, strerror(errno));
-	};
+	msg_cleanup_con_skt(info);
+	msg_cleanup_acc_skt(info);
+	msg_cleanup_mb(info);
 
 	if (info->mp_h_is_mine) {
 		rc = riomp_mgmt_mport_destroy_handle(&info->mp_h);
@@ -486,38 +459,119 @@ exit:
 	};
 };
 	
+
+void msg_cleanup_con_skt(struct worker *info) {
+	int rc;
+
+	if (info->sock_rx_buf) {
+		rc = riomp_sock_release_receive_buffer(info->con_skt, 
+					info->sock_rx_buf);
+		info->sock_rx_buf = NULL;
+		if (rc)
+			ERR("riomp_sock_release_receive_buffer rc con_skt %d:%s\n",
+				rc, strerror(errno));
+	};
+
+	if (info->sock_tx_buf) {
+		rc = riomp_sock_release_send_buffer(info->con_skt, 
+						info->sock_tx_buf);
+		info->sock_tx_buf = NULL;
+		if (rc) {
+			ERR("riomp_sock_release_send_buffer rc con_skt %d:%s\n",
+				rc, strerror(errno));
+		};
+	};
+
+	if (2 == info->con_skt_valid) {
+		rc = riomp_sock_close(&info->con_skt);
+		info->con_skt_valid = 0;
+		if (rc) {
+			ERR("riomp_sock_close rc con_skt %d:%s\n",
+					rc, strerror(errno));
+		};
+	};
+	info->con_skt_valid = 0;
+
+};
+
+void msg_cleanup_acc_skt(struct worker *info) {
+
+	if (info->acc_skt_valid) {
+		int rc = riomp_sock_close(&info->acc_skt);
+		if (rc)
+			ERR("riomp_sock_close acc_skt rc %d:%s\n",
+					rc, strerror(errno));
+		info->acc_skt_valid = 0;
+	};
+};
+
+void msg_cleanup_mb(struct worker *info) {
+	if (info->mb_valid) {
+        	int rc = riomp_sock_mbox_destroy_handle(&info->mb);
+		if (rc)
+			ERR("FAILED: riomp_sock_mbox_destroy_handle rc %d:%s\n",
+					rc, strerror(errno));
+		info->mb_valid = 0;
+	};
+};
+
 #define FOUR_KB 4096
 
 void msg_rx_goodput(struct worker *info)
 {
-	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid)
-		return;
+	int rc;
 
-	if (!info->sock_num)
+	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid) {
+		ERR("FAILED: mailbox, access socket, or con socket in use.\n");
 		return;
+	};
 
-        if (riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb))
+	if (!info->sock_num) {
+		ERR("FAILED: Socket number cannot be 0.\n");
 		return;
+	};
+
+        rc = riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb);
+	if (rc) {
+		ERR("FAILED: riomp_sock_mbox_create_handle rc %d:%s\n",
+			rc, strerror(errno));
+		return;
+	};
 
 	info->mb_valid = 1;
 
-        if (riomp_sock_socket(info->mb, &info->acc_skt))
+        rc = riomp_sock_socket(info->mb, &info->acc_skt);
+	if (rc) {
+		ERR("FAILED: riomp_sock_socket acc_skt rc %d:%s\n",
+			rc, strerror(errno));
 		return;
+	};
 
 	info->acc_skt_valid = 1;
 
-        if (riomp_sock_bind(info->acc_skt, info->sock_num))
+        rc = riomp_sock_bind(info->acc_skt, info->sock_num);
+	if (rc) {
+		ERR("FAILED: riomp_sock_bind rc %d:%s\n",
+			rc, strerror(errno));
 		return;
+	};
 
-        if (riomp_sock_listen(info->acc_skt))
+        rc = riomp_sock_listen(info->acc_skt);
+	if (rc) {
+		ERR("FAILED: riomp_sock_listen rc %d:%s\n", rc, strerror(errno));
 		return;
+	};
 
 	while (!info->stop_req) {
 		int rc;
 
 		if (!info->con_skt_valid) {
-                        if (riomp_sock_socket(info->mb, &info->con_skt))
+                        rc = riomp_sock_socket(info->mb, &info->con_skt);
+			if (rc) {
+				ERR("FAILED: riomp_sock_socket con_skt rc %d:%s\n",
+					rc, strerror(errno));
 				goto exit;
+			};
 			info->con_skt_valid = 1;
 		};
 
@@ -528,95 +582,106 @@ void msg_rx_goodput(struct worker *info)
                 if (rc) {
                         if ((errno == ETIME) || (errno == EINTR))
                                 continue;
+			ERR("FAILED: riomp_sock_accept rc %d:%s\n",
+				rc, strerror(errno));
                         break;
                 };
+
+		info->con_skt_valid = 2;
 
 		clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 		info->perf_byte_cnt = 0;
 		while (!rc && !info->stop_req) {
-			int ret = riomp_sock_receive(info->con_skt,
+			rc = riomp_sock_receive(info->con_skt,
 				&info->sock_rx_buf, FOUR_KB, 1000);
 
-                	if (ret) {
-                        	if ((errno == ETIME) || (errno == EINTR))
+                	if (rc) {
+                        	if ((errno == ETIME) || (errno == EINTR)) {
+					rc = 0;
                                 	continue;
+				};
                         	break;
                 	};
 			info->perf_byte_cnt++;
 			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 		};
-
-		riomp_sock_release_receive_buffer(info->con_skt,
-							info->sock_rx_buf);
-		info->sock_rx_buf = NULL;
-		riomp_sock_close(&info->con_skt);
-		info->con_skt_valid = 0;
+		msg_cleanup_con_skt(info);
         };
 exit:
-	if (info->acc_skt_valid) {
-        	riomp_sock_close(&info->acc_skt);
-		info->acc_skt_valid = 0;
-	};
+	msg_cleanup_con_skt(info);
+	msg_cleanup_acc_skt(info);
+	msg_cleanup_mb(info);
 
-	if (info->mb_valid) {
-        	riomp_sock_mbox_destroy_handle(&info->mb);
-		info->mb_valid = 0;
-	};
 };
 
 void msg_tx_goodput(struct worker *info)
 {
-	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid)
-		return;
+	int rc;
 
-	if (!info->sock_num)
+	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid) {
+		ERR("FAILED: mailbox, access socket, or con socket in use.\n");
 		return;
+	};
 
-        if (riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb))
+	if (!info->sock_num) {
+		ERR("FAILED: Socket number cannot be 0.\n");
 		return;
+	};
+
+        rc = riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb);
+	if (rc) {
+		ERR("FAILED: riomp_sock_mbox_create_handle rc %d:%s\n",
+			rc, strerror(errno));
+		return;
+	};
 
 	info->mb_valid = 1;
 
-        if (riomp_sock_socket(info->mb, &info->con_skt))
+        rc = riomp_sock_socket(info->mb, &info->con_skt);
+	if (rc) {
+		ERR("FAILED: riomp_sock_socket rc %d:%s\n",
+			rc, strerror(errno));
 		return;
-
-        if (riomp_sock_connect(info->con_skt, info->did, 0, info->sock_num))
-		return;
+	};
 
 	info->con_skt_valid = 1;
 
-	if (riomp_sock_request_send_buffer(info->con_skt, &info->sock_tx_buf))
+        rc = riomp_sock_connect(info->con_skt, info->did, 0, info->sock_num);
+	if (rc) {
+		ERR("FAILED: riomp_sock_connect rc %d:%s\n",
+			rc, strerror(errno));
 		return;
+	};
+
+	info->con_skt_valid = 2;
+
+	rc = riomp_sock_request_send_buffer(info->con_skt, &info->sock_tx_buf);
+	if (rc) {
+		ERR("FAILED: riomp_sock_request_send_buffer rc %d:%s\n",
+			rc, strerror(errno));
+		return;
+	};
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 	info->perf_byte_cnt = 0;
 
 	while (!info->stop_req) {
-		int ret = riomp_sock_send(info->con_skt,
+		rc = riomp_sock_send(info->con_skt,
 				info->sock_tx_buf, info->msg_size);
 
-                if (ret) {
+                if (rc) {
                         if ((errno == ETIME) || (errno == EINTR))
                                 continue;
+			ERR("FAILED: riomp_sock_send rc %d:%s\n",
+				rc, strerror(errno));
                         break;
                 };
 		info->perf_byte_cnt += info->msg_size;
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 	};
 
-	if (NULL != info->sock_tx_buf) {
-		riomp_sock_release_send_buffer(info->con_skt,
-						info->sock_tx_buf);
-		info->sock_tx_buf = NULL;
-	};
-
-	riomp_sock_close(&info->con_skt);
-	info->con_skt_valid = 0;
-
-	if (info->mb_valid) {
-        	riomp_sock_mbox_destroy_handle(&info->mb);
-		info->mb_valid = 0;
-	};
+	msg_cleanup_con_skt(info);
+	msg_cleanup_mb(info);
 };
 
 void dma_alloc_ibwin(struct worker *info)
