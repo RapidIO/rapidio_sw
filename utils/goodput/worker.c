@@ -380,22 +380,32 @@ void direct_io_goodput(struct worker *info)
 
 void dma_goodput(struct worker *info)
 {
-	int dma_rc;
+	int dma_rc, rc;
 
-	if (!info->rio_addr || !info->byte_cnt || !info->acc_size)
+	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
+		ERR("FAILED: rio_addr, byte_cnd or access size is 0!\n");
 		return;
+	};
 
-	if (!info->rdma_buff_size)
+	if (!info->rdma_buff_size) {
+		ERR("FAILED: rdma_buff_size is 0!\n");
 		return;
+	};
 
 	if (info->use_kbuf) {
-		if (riomp_dma_dbuf_alloc(info->mp_h, info->rdma_buff_size,
-					&info->rdma_kbuff))
+		rc = riomp_dma_dbuf_alloc(info->mp_h, info->rdma_buff_size,
+					&info->rdma_kbuff);
+		if (rc) {
+			ERR("FAILED: riomp_dma_dbuf_alloc rc %d:%s\n",
+						rc, strerror(errno));
 			return;
+		};
 	} else {
 		info->rdma_ptr = malloc(info->rdma_buff_size);
-		if (NULL == info->rdma_ptr)
+		if (NULL == info->rdma_ptr) {
+			ERR("FAILED: Could not allocate local memory!\n");
 			return;
+		}
 	};
 
 	info->perf_byte_cnt = 0;
@@ -408,8 +418,8 @@ void dma_goodput(struct worker *info)
 
 		for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
-			if (info->use_kbuf) {
-				if (info->wr)
+			do {
+				if (info->use_kbuf && info->wr)
 					dma_rc = riomp_dma_write_d(info->mp_h,
 						info->did,
 						ADDR_L(info->rio_addr, offset),
@@ -418,7 +428,8 @@ void dma_goodput(struct worker *info)
 						info->acc_size,
 						info->dma_trans_type,
 						info->dma_sync_type);
-				else 
+
+				if (info->use_kbuf && !info->wr)
 					dma_rc = riomp_dma_read_d(info->mp_h,
 						info->did,
 						ADDR_L(info->rio_addr, offset),
@@ -426,8 +437,8 @@ void dma_goodput(struct worker *info)
 						offset,
 						info->acc_size,
 						info->dma_sync_type);
-			} else {
-				if (info->wr)
+
+				if (!info->use_kbuf && info->wr)
 					dma_rc = riomp_dma_write(info->mp_h,
 						info->did,
 						ADDR_L(info->rio_addr, offset),
@@ -435,17 +446,24 @@ void dma_goodput(struct worker *info)
 						info->acc_size,
 						info->dma_trans_type,
 						info->dma_sync_type);
-				else 
+
+				if (!info->use_kbuf && info->wr)
 					dma_rc = riomp_dma_read(info->mp_h,
 						info->did,
 						ADDR_L(info->rio_addr, offset),
 						ADDR_P(info->rdma_ptr, offset),
 						info->acc_size,
 						info->dma_sync_type);
-			};
+			} while (EINTR == dma_rc);
 
 			if (RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
-				riomp_dma_wait_async(info->mp_h, dma_rc, 0);
+				dma_rc = riomp_dma_wait_async(info->mp_h,
+								dma_rc, 0);
+			if (dma_rc) {
+				ERR("FAILED: dma transfer rc %d:%s\n",
+						dma_rc, strerror(errno));
+				goto exit;
+			};
 
 			offset += info->acc_size;
 		};
@@ -454,6 +472,7 @@ void dma_goodput(struct worker *info)
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 	};
 
+exit:
 	if (info->use_kbuf) {
 		if (info->rdma_kbuff) {
 			riomp_dma_dbuf_free(info->mp_h, &info->rdma_kbuff);

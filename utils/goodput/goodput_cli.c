@@ -91,8 +91,8 @@ struct cli_cmd Start = {
 4,
 3,
 "Start a thread on a cpu",
-"start <wkr_idx> <cpu> <new_dma>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
+"start <idx> <cpu> <new_dma>\n"
+	"<idx> is a worker index from 0 to 7\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
 	"<new_dma> If <> 0, open mport again to get a new DMA channel\n",
 StartCmd,
@@ -238,8 +238,8 @@ struct cli_cmd IBAlloc = {
 3,
 2,
 "Allocate an inbound window",
-"IBAlloc <wkr_idx> <size>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
+"IBAlloc <idx> <size>\n"
+	"<idx> is a worker index from 0 to 7\n"
 	"<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n",
 IBAllocCmd,
 ATTR_NONE
@@ -276,8 +276,8 @@ struct cli_cmd IBDealloc = {
 3,
 1,
 "Deallocate an inbound window",
-"IBDealloc <wkr_idx>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n",
+"IBDealloc <idx>\n"
+	"<idx> is a worker index from 0 to 7\n",
 IBDeallocCmd,
 ATTR_NONE
 };
@@ -331,8 +331,8 @@ struct cli_cmd OBDIO = {
 5,
 6,
 "Perform reads/writes through an outbound window",
-"OBDIO <wkr_idx> <did> <rio_addr> <bytes> <acc_sz> <wr>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
+"OBDIO <idx> <did> <rio_addr> <bytes> <acc_sz> <wr>\n"
+	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
@@ -406,8 +406,8 @@ struct cli_cmd dma = {
 3,
 9,
 "Perform reads/writes with the DMA engines",
-"dma <wkr_idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
+"dma <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync>\n"
+	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
@@ -472,8 +472,8 @@ struct cli_cmd msgTx = {
 4,
 4,
 "Sends channelized messages as requested",
-"msgTx <wkr_idx> <did> <sock_num> <size>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
+"msgTx <idx> <did> <sock_num> <size>\n"
+	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO memory address to access\n"
 	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n",
@@ -484,12 +484,10 @@ ATTR_NONE
 int msgRxCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
-	int did;
 	int sock_num;
 
 	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	sock_num = getHex(argv[2], 0);
+	sock_num = getHex(argv[1], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -512,7 +510,7 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 
 	wkr[idx].action = message_rx;
 	wkr[idx].action_mode = kernel_action;
-	wkr[idx].did = did;
+	wkr[idx].did = 0;
 	wkr[idx].sock_num = sock_num;
 
 	wkr[idx].stop_req = 0;
@@ -524,12 +522,11 @@ exit:
 struct cli_cmd msgRx = {
 "msgRx",
 4,
-3,
+2,
 "Receives channelized messages as requested",
-"msgRx <wkr_idx> <did> <sock_num>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
-	"<did> target device ID\n"
-	"<sock_num> RapidIO memory address to access\n",
+"msgRx <idx> <sock_num>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<sock_num> Target socket number for connections from msgTx command\n",
 msgRxCmd,
 ATTR_NONE
 };
@@ -590,6 +587,9 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 			tot_Gbps += Gbps;
 		};
 		tot_Msgpersec += Msgpersec;
+
+		if (argc)
+			wkr[i].perf_byte_cnt = 0;
 	};
 	memset(MBps_str, 0, FLOAT_STR_SIZE);
 	memset(Gbps_str, 0, FLOAT_STR_SIZE);
@@ -608,7 +608,9 @@ struct cli_cmd Perf = {
 4,
 0,
 "Print current performance for threads.",
-"perf <no parameters>",
+"perf {<optional>}\n"
+	"Any parameter to perf causes the byte and message counts of all\n"
+	"   running threads to be zeroed after they are displayed.\n",
 PerfCmd,
 ATTR_RPT
 };
