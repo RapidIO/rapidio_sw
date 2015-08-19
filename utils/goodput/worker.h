@@ -146,6 +146,7 @@ struct worker {
 	uint16_t sock_num; /* RIO CM socket to connect to */
 	void *sock_tx_buf; 
 	void *sock_rx_buf; 
+	uint64_t perf_msg_cnt; /* Messages read/written */
 
 	uint64_t perf_byte_cnt; /* bytes read/written */
 	struct timespec st_time;

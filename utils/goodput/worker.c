@@ -271,6 +271,7 @@ void direct_io_goodput(struct worker *info)
 	};
 
 	info->ob_valid = 1;
+	info->perf_msg_cnt = 0;
 	info->perf_byte_cnt = 0;
 
 	rc = riomp_dma_map_memory(info->mp_h, info->ob_byte_cnt, 
@@ -381,6 +382,7 @@ void dma_goodput(struct worker *info)
 		}
 	};
 
+	info->perf_msg_cnt = 0;
 	info->perf_byte_cnt = 0;
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
@@ -590,6 +592,7 @@ void msg_rx_goodput(struct worker *info)
 		info->con_skt_valid = 2;
 
 		clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+		info->perf_msg_cnt = 0;
 		info->perf_byte_cnt = 0;
 		while (!rc && !info->stop_req) {
 			rc = riomp_sock_receive(info->con_skt,
@@ -602,7 +605,7 @@ void msg_rx_goodput(struct worker *info)
 				};
                         	break;
                 	};
-			info->perf_byte_cnt++;
+			info->perf_msg_cnt++;
 			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 		};
 		msg_cleanup_con_skt(info);
@@ -663,19 +666,27 @@ void msg_tx_goodput(struct worker *info)
 	};
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+	info->perf_msg_cnt = 0;
 	info->perf_byte_cnt = 0;
 
 	while (!info->stop_req) {
+		const struct timespec ten_usec = {0, 10 * 1000};
+		nanosleep(&ten_usec, NULL);
 		rc = riomp_sock_send(info->con_skt,
 				info->sock_tx_buf, info->msg_size);
 
                 if (rc) {
                         if ((errno == ETIME) || (errno == EINTR))
                                 continue;
+                        if (errno == EBUSY) {
+				nanosleep(&ten_usec, NULL);
+                                continue;
+			};
 			ERR("FAILED: riomp_sock_send rc %d:%s\n",
 				rc, strerror(errno));
                         break;
                 };
+		info->perf_msg_cnt++;
 		info->perf_byte_cnt += info->msg_size;
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 	};

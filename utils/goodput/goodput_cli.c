@@ -544,7 +544,7 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 	char MBps_str[FLOAT_STR_SIZE],  Gbps_str[FLOAT_STR_SIZE];
 
 	sprintf(env->output,
-        "\nW STS <<<<--Data-->>>> --MBps-- -Gbps- Msgs/Sec\n");
+        "\nW STS <<<<--Data-->>>> --MBps-- -Gbps- Messages\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -554,16 +554,8 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 		MBps = Gbps = Msgpersec = 0;
 		byte_cnt = 0;
 
-		if ((wkr[i].action == message_rx) ||
-						(wkr[i].action == message_tx)) {
-			Msgpersec = wkr[i].perf_byte_cnt;
-			if (wkr[i].action == message_tx)
-				byte_cnt = Msgpersec * wkr[i].msg_size;
-		};
-		if ((wkr[i].action == direct_io) ||
-						(wkr[i].action == dma_tx)) {
-			byte_cnt = wkr[i].perf_byte_cnt;
-		};
+		Msgpersec = wkr[i].perf_msg_cnt;
+		byte_cnt = wkr[i].perf_byte_cnt;
 
 		elapsed = time_difference(wkr[i].st_time, wkr[i].end_time);
 		nsec = elapsed.tv_nsec + (elapsed.tv_sec * 1000000000);
@@ -589,8 +581,11 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 		};
 		tot_Msgpersec += Msgpersec;
 
-		if (argc)
+		if (argc) {
 			wkr[i].perf_byte_cnt = 0;
+			wkr[i].perf_msg_cnt = 0;
+			clock_gettime(CLOCK_MONOTONIC, &wkr[i].st_time);
+		};
 	};
 	memset(MBps_str, 0, FLOAT_STR_SIZE);
 	memset(Gbps_str, 0, FLOAT_STR_SIZE);

@@ -976,10 +976,8 @@ int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 	msg.size = size;
 	msg.msg = buf;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_SEND, &msg);
-	if (ret) {
-		printf("SEND IOCTL: returned %d for ch_num=%d (errno=%d)\n", ret, msg.ch_num, errno);
+	if (ret)
 		return errno;
-	}
 
 	return 0;
 }
