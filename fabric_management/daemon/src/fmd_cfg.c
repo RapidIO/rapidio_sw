@@ -297,7 +297,7 @@ const char *delim = " 	";
 void flush_comment(char *tok)
 {
 	while (NULL != tok) {
-		DBG("%s ", tok);
+		DBG("%s\n", tok);
 		tok = strtok(NULL, delim);
 		strip_crlf(tok);
 	};
@@ -346,7 +346,7 @@ char *try_get_next_token(struct fmd_cfg_parms *cfg)
 	};
 
 	if (NULL != rc)
-		DBG("%s ", rc);
+		DBG("%s\n", rc);
 
 fail:
 	return rc;
