@@ -102,11 +102,10 @@ void *wait_conn_disc_thread_f(void *arg)
 
 	hello_msg_t	*hello_msg;
 	prov_server->get_recv_buffer((void **)&hello_msg);
-	DBG("Received HELLO message from destid(0x%X)\n", hello_msg->destid);
-
 	uint32_t remote_destid = be64toh(hello_msg->destid);
+	DBG("Received HELLO message from destid(0x%X)\n", remote_destid);
 
-	/* Send HELLO ACK withour own destid */
+	/* Send HELLO ACK without own destid */
 	prov_server->get_send_buffer((void **)&hello_msg);
 	prov_server->flush_send_buffer();
 	hello_msg->destid = htobe64(peer.destid);
