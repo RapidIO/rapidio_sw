@@ -59,6 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
+#include "liblog.h"
 
 #include "worker.h"
 #include "goodput.h"
@@ -98,6 +99,7 @@ void init_worker_info(struct worker *info, int first_time)
 	info->ib_handle = 0;
         info->ib_rio_addr = 0;
         info->ib_byte_cnt = 0;
+	info->ib_ptr = NULL;
 
 	info->use_kbuf = 0;
 	info->dma_trans_type = RIO_DIRECTIO_TYPE_NWRITE;
@@ -115,8 +117,13 @@ void init_worker_info(struct worker *info, int first_time)
         info->sock_rx_buf = NULL;
 };
 
+void msg_cleanup_con_skt(struct worker *info);
+void msg_cleanup_acc_skt(struct worker *info);
+void msg_cleanup_mb(struct worker *info);
+
 void shutdown_worker_thread(struct worker *info)
 {
+	int rc;
 	if (info->stat) {
 		info->action = shutdown_worker;
 		info->stop_req = 2;
@@ -124,25 +131,46 @@ void shutdown_worker_thread(struct worker *info)
 		pthread_join(info->thr, NULL);
 	};
 		
+	if (info->ib_ptr && info->ib_valid) {
+		rc = riomp_dma_unmap_memory(info->mp_h, info->ib_byte_cnt, 
+								info->ib_ptr);
+		info->ib_ptr = NULL;
+		if (rc)
+			ERR("Shutdown riomp_dma_unmap_memory ib rc %d: %s\n",
+				rc, strerror(errno));
+	};
+
 	if (info->ib_valid) {
 		info->ib_valid = 0;
-		riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+		rc = riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+		if (rc)
+			ERR("Shutdown riomp_dma_ibwin_free rc %d: %s\n",
+				rc, strerror(errno));
 	};
 
 	if (info->ob_ptr && info->ob_valid) {
-		riomp_dma_unmap_memory(info->mp_h, info->ob_byte_cnt, 
+		rc = riomp_dma_unmap_memory(info->mp_h, info->ob_byte_cnt, 
 								info->ob_ptr);
 		info->ob_ptr = NULL;
+		if (rc)
+			ERR("Shutdown riomp_dma_unmap_memory OB rc %d: %s\n",
+				rc, strerror(errno));
 	};
 
 	if (info->ob_valid) {
 		info->ob_valid = 0;
-		riomp_dma_obwin_free(info->mp_h, &info->ob_handle);
+		rc = riomp_dma_obwin_free(info->mp_h, &info->ob_handle);
+		if (rc)
+			ERR("Shutdown riomp_dma_obwin_free rc %d: %s\n",
+				rc, strerror(errno));
 	};
 
 	if (info->rdma_kbuff) {
-		riomp_dma_dbuf_free(info->mp_h, &info->rdma_kbuff);
+		rc = riomp_dma_dbuf_free(info->mp_h, &info->rdma_kbuff);
 		info->rdma_kbuff = 0;
+		if (rc)
+			ERR("Shutdown riomp_dma_dbuf_free rdma_kbuff rc %d:%s\n",
+				rc, strerror(errno));
 	};
 
 	if (NULL != info->rdma_ptr) {
@@ -150,30 +178,17 @@ void shutdown_worker_thread(struct worker *info)
 		info->rdma_ptr = NULL;
 	};
 
-	if (info->con_skt_valid) {
-		if (info->sock_rx_buf) {
-			riomp_sock_release_receive_buffer(info->con_skt, 
-						info->sock_rx_buf);
-			info->sock_rx_buf = NULL;
-		};
-		if (info->sock_tx_buf) {
-			riomp_sock_release_send_buffer(info->con_skt, 
-						info->sock_tx_buf);
-			info->sock_tx_buf = NULL;
-		};
-
-		riomp_sock_close(&info->con_skt);
-		info->con_skt_valid = 0;
-	};
-
-	if (info->acc_skt_valid) {
-		riomp_sock_close(&info->acc_skt);
-		info->acc_skt_valid = 0;
-	};
+	msg_cleanup_con_skt(info);
+	msg_cleanup_acc_skt(info);
+	msg_cleanup_mb(info);
 
 	if (info->mp_h_is_mine) {
-		riomp_mgmt_mport_destroy_handle(&info->mp_h);
+		rc = riomp_mgmt_mport_destroy_handle(&info->mp_h);
 		info->mp_h_is_mine = 0;
+		if (rc) {
+			ERR("Shutdown riomp_mgmt_mport_destroy_handle rc %d:%s\n",
+					rc, strerror(errno));
+		};
 	};
 	
 	init_worker_info(info, 0);
@@ -183,6 +198,7 @@ int migrate_thread_to_cpu(struct worker *info)
 {
         cpu_set_t cpuset;
         int chk_cpu_lim = 10;
+	int rc;
 
 	if (-1 == info->cpu_req) {
         	CPU_ZERO(&cpuset);
@@ -195,16 +211,24 @@ int migrate_thread_to_cpu(struct worker *info)
         	CPU_SET(info->cpu_req, &cpuset);
 	};
 
-        if (pthread_setaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset))
+        rc = pthread_setaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset);
+	if (rc) {
+		ERR("pthread_setaffinity_np rc %d:%s\n",
+					rc, strerror(errno));
                 return 1;
+	};
 
 	if (-1 == info->cpu_req) {
 		info->cpu_run = info->cpu_req;
 		return 0;
 	};
 		
-        if (pthread_getaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset))
+        rc = pthread_getaffinity_np(info->thr, sizeof(cpu_set_t), &cpuset);
+	if (rc) {
+		ERR("pthread_getaffinity_np rc %d:%s\n",
+					rc, strerror(errno));
                 return 1;
+	};
 
         info->cpu_run = sched_getcpu();
         while ((info->cpu_run != info->cpu_req) && chk_cpu_lim) {
@@ -212,7 +236,12 @@ int migrate_thread_to_cpu(struct worker *info)
                 info->cpu_run = sched_getcpu();
                 chk_cpu_lim--;
         };
-	return (info->cpu_run != info->cpu_req);
+	rc = info->cpu_run != info->cpu_req;
+	if (rc) {
+		ERR("Unable to schedule thread on cpu %d\n", info->cpu_req);
+                return 1;
+	};
+	return rc;
 };
 
 void direct_io_goodput(struct worker *info)
@@ -221,23 +250,37 @@ void direct_io_goodput(struct worker *info)
 	uint16_t data16 = 0x3456;
 	uint32_t data32 = 0x789abcde;
 	uint64_t data64 = 0xf123456789abcdef;
+	int rc;
 
-	if (!info->rio_addr || !info->byte_cnt || !info->acc_size)
+	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
+		ERR("FAILED: rio_addr, window size or acc_size is 0\n");
 		return;
+	};
 
-	if (!info->ob_byte_cnt)
+	if (!info->ob_byte_cnt) {
+		ERR("FAILED: ob_byte_cnt is 0\n");
 		return;
+	};
 
-	if (riomp_dma_obwin_map(info->mp_h, info->did, info->rio_addr, 
-					info->ob_byte_cnt, &info->ob_handle))
+	rc = riomp_dma_obwin_map(info->mp_h, info->did, info->rio_addr, 
+					info->ob_byte_cnt, &info->ob_handle);
+	if (rc) {
+		ERR("FAILED: riomp_dma_obwin_map rc %d:%s\n",
+					rc, strerror(errno));
 		return;
+	};
 
 	info->ob_valid = 1;
+	info->perf_msg_cnt = 0;
 	info->perf_byte_cnt = 0;
 
-	if (riomp_dma_map_memory(info->mp_h, info->ob_byte_cnt, 
-					info->ob_handle, &info->ob_ptr))
+	rc = riomp_dma_map_memory(info->mp_h, info->ob_byte_cnt, 
+					info->ob_handle, &info->ob_ptr);
+	if (rc) {
+		ERR("FAILED: riomp_dma_map_memory rc %d:%s\n",
+					rc, strerror(errno));
 		return;
+	};
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
@@ -283,14 +326,25 @@ void direct_io_goodput(struct worker *info)
 	};
 
 	if (info->ob_ptr) {
-		riomp_dma_unmap_memory(info->mp_h, info->ob_byte_cnt, 
+		rc = riomp_dma_unmap_memory(info->mp_h, info->ob_byte_cnt, 
 								info->ob_ptr);
 		info->ob_ptr = NULL;
+		if (rc) {
+			ERR("FAILED: riomp_dma_unmap_memory rc %d:%s\n",
+						rc, strerror(errno));
+			return;
+		};
 	};
 
 
-	if (info->ob_valid)
-		riomp_dma_obwin_free(info->mp_h, &info->ob_handle);
+	if (info->ob_valid) {
+		rc = riomp_dma_obwin_free(info->mp_h, &info->ob_handle);
+		if (rc) {
+			ERR("FAILED: riomp_dma_obwin_free rc %d:%s\n",
+						rc, strerror(errno));
+			return;
+		};
+	};
 
 	info->ob_valid = 0;
 };
@@ -300,24 +354,35 @@ void direct_io_goodput(struct worker *info)
 
 void dma_goodput(struct worker *info)
 {
-	int dma_rc;
+	int dma_rc, rc;
 
-	if (!info->rio_addr || !info->byte_cnt || !info->acc_size)
+	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
+		ERR("FAILED: rio_addr, byte_cnd or access size is 0!\n");
 		return;
-
-	if (!info->rdma_buff_size)
-		return;
-
-	if (info->use_kbuf) {
-		if (riomp_dma_dbuf_alloc(info->mp_h, info->rdma_buff_size,
-					&info->rdma_kbuff))
-			return;
-	} else {
-		info->rdma_ptr = malloc(info->rdma_buff_size);
-		if (NULL == info->rdma_ptr)
-			return;
 	};
 
+	if (!info->rdma_buff_size) {
+		ERR("FAILED: rdma_buff_size is 0!\n");
+		return;
+	};
+
+	if (info->use_kbuf) {
+		rc = riomp_dma_dbuf_alloc(info->mp_h, info->rdma_buff_size,
+					&info->rdma_kbuff);
+		if (rc) {
+			ERR("FAILED: riomp_dma_dbuf_alloc rc %d:%s\n",
+						rc, strerror(errno));
+			return;
+		};
+	} else {
+		info->rdma_ptr = malloc(info->rdma_buff_size);
+		if (NULL == info->rdma_ptr) {
+			ERR("FAILED: Could not allocate local memory!\n");
+			return;
+		}
+	};
+
+	info->perf_msg_cnt = 0;
 	info->perf_byte_cnt = 0;
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
@@ -328,8 +393,8 @@ void dma_goodput(struct worker *info)
 
 		for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
-			if (info->use_kbuf) {
-				if (info->wr)
+			do {
+				if (info->use_kbuf && info->wr)
 					dma_rc = riomp_dma_write_d(info->mp_h,
 						info->did,
 						ADDR_L(info->rio_addr, offset),
@@ -338,7 +403,8 @@ void dma_goodput(struct worker *info)
 						info->acc_size,
 						info->dma_trans_type,
 						info->dma_sync_type);
-				else 
+
+				if (info->use_kbuf && !info->wr)
 					dma_rc = riomp_dma_read_d(info->mp_h,
 						info->did,
 						ADDR_L(info->rio_addr, offset),
@@ -346,8 +412,8 @@ void dma_goodput(struct worker *info)
 						offset,
 						info->acc_size,
 						info->dma_sync_type);
-			} else {
-				if (info->wr)
+
+				if (!info->use_kbuf && info->wr)
 					dma_rc = riomp_dma_write(info->mp_h,
 						info->did,
 						ADDR_L(info->rio_addr, offset),
@@ -355,17 +421,24 @@ void dma_goodput(struct worker *info)
 						info->acc_size,
 						info->dma_trans_type,
 						info->dma_sync_type);
-				else 
+
+				if (!info->use_kbuf && info->wr)
 					dma_rc = riomp_dma_read(info->mp_h,
 						info->did,
 						ADDR_L(info->rio_addr, offset),
 						ADDR_P(info->rdma_ptr, offset),
 						info->acc_size,
 						info->dma_sync_type);
-			};
+			} while (EINTR == dma_rc);
 
 			if (RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
-				riomp_dma_wait_async(info->mp_h, dma_rc, 0);
+				dma_rc = riomp_dma_wait_async(info->mp_h,
+								dma_rc, 0);
+			if (dma_rc) {
+				ERR("FAILED: dma transfer rc %d:%s\n",
+						dma_rc, strerror(errno));
+				goto exit;
+			};
 
 			offset += info->acc_size;
 		};
@@ -374,6 +447,7 @@ void dma_goodput(struct worker *info)
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 	};
 
+exit:
 	if (info->use_kbuf) {
 		if (info->rdma_kbuff) {
 			riomp_dma_dbuf_free(info->mp_h, &info->rdma_kbuff);
@@ -387,38 +461,119 @@ void dma_goodput(struct worker *info)
 	};
 };
 	
+
+void msg_cleanup_con_skt(struct worker *info) {
+	int rc;
+
+	if (info->sock_rx_buf) {
+		rc = riomp_sock_release_receive_buffer(info->con_skt, 
+					info->sock_rx_buf);
+		info->sock_rx_buf = NULL;
+		if (rc)
+			ERR("riomp_sock_release_receive_buffer rc con_skt %d:%s\n",
+				rc, strerror(errno));
+	};
+
+	if (info->sock_tx_buf) {
+		rc = riomp_sock_release_send_buffer(info->con_skt, 
+						info->sock_tx_buf);
+		info->sock_tx_buf = NULL;
+		if (rc) {
+			ERR("riomp_sock_release_send_buffer rc con_skt %d:%s\n",
+				rc, strerror(errno));
+		};
+	};
+
+	if (2 == info->con_skt_valid) {
+		rc = riomp_sock_close(&info->con_skt);
+		info->con_skt_valid = 0;
+		if (rc) {
+			ERR("riomp_sock_close rc con_skt %d:%s\n",
+					rc, strerror(errno));
+		};
+	};
+	info->con_skt_valid = 0;
+
+};
+
+void msg_cleanup_acc_skt(struct worker *info) {
+
+	if (info->acc_skt_valid) {
+		int rc = riomp_sock_close(&info->acc_skt);
+		if (rc)
+			ERR("riomp_sock_close acc_skt rc %d:%s\n",
+					rc, strerror(errno));
+		info->acc_skt_valid = 0;
+	};
+};
+
+void msg_cleanup_mb(struct worker *info) {
+	if (info->mb_valid) {
+        	int rc = riomp_sock_mbox_destroy_handle(&info->mb);
+		if (rc)
+			ERR("FAILED: riomp_sock_mbox_destroy_handle rc %d:%s\n",
+					rc, strerror(errno));
+		info->mb_valid = 0;
+	};
+};
+
 #define FOUR_KB 4096
 
 void msg_rx_goodput(struct worker *info)
 {
-	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid)
-		return;
+	int rc;
 
-	if (!info->sock_num)
+	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid) {
+		ERR("FAILED: mailbox, access socket, or con socket in use.\n");
 		return;
+	};
 
-        if (riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb))
+	if (!info->sock_num) {
+		ERR("FAILED: Socket number cannot be 0.\n");
 		return;
+	};
+
+        rc = riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb);
+	if (rc) {
+		ERR("FAILED: riomp_sock_mbox_create_handle rc %d:%s\n",
+			rc, strerror(errno));
+		return;
+	};
 
 	info->mb_valid = 1;
 
-        if (riomp_sock_socket(info->mb, &info->acc_skt))
+        rc = riomp_sock_socket(info->mb, &info->acc_skt);
+	if (rc) {
+		ERR("FAILED: riomp_sock_socket acc_skt rc %d:%s\n",
+			rc, strerror(errno));
 		return;
+	};
 
 	info->acc_skt_valid = 1;
 
-        if (riomp_sock_bind(info->acc_skt, info->sock_num))
+        rc = riomp_sock_bind(info->acc_skt, info->sock_num);
+	if (rc) {
+		ERR("FAILED: riomp_sock_bind rc %d:%s\n",
+			rc, strerror(errno));
 		return;
+	};
 
-        if (riomp_sock_listen(info->acc_skt))
+        rc = riomp_sock_listen(info->acc_skt);
+	if (rc) {
+		ERR("FAILED: riomp_sock_listen rc %d:%s\n", rc, strerror(errno));
 		return;
+	};
 
 	while (!info->stop_req) {
 		int rc;
 
 		if (!info->con_skt_valid) {
-                        if (riomp_sock_socket(info->mb, &info->con_skt))
+                        rc = riomp_sock_socket(info->mb, &info->con_skt);
+			if (rc) {
+				ERR("FAILED: riomp_sock_socket con_skt rc %d:%s\n",
+					rc, strerror(errno));
 				goto exit;
+			};
 			info->con_skt_valid = 1;
 		};
 
@@ -429,116 +584,175 @@ void msg_rx_goodput(struct worker *info)
                 if (rc) {
                         if ((errno == ETIME) || (errno == EINTR))
                                 continue;
+			ERR("FAILED: riomp_sock_accept rc %d:%s\n",
+				rc, strerror(errno));
                         break;
                 };
 
+		info->con_skt_valid = 2;
+
 		clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+		info->perf_msg_cnt = 0;
 		info->perf_byte_cnt = 0;
 		while (!rc && !info->stop_req) {
-			int ret = riomp_sock_receive(info->con_skt,
+			rc = riomp_sock_receive(info->con_skt,
 				&info->sock_rx_buf, FOUR_KB, 1000);
 
-                	if (ret) {
-                        	if ((errno == ETIME) || (errno == EINTR))
+                	if (rc) {
+                        	if ((errno == ETIME) || (errno == EINTR)) {
+					rc = 0;
                                 	continue;
+				};
                         	break;
                 	};
-			info->perf_byte_cnt++;
+			info->perf_msg_cnt++;
 			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 		};
-
-		riomp_sock_release_receive_buffer(info->con_skt,
-							info->sock_rx_buf);
-		info->sock_rx_buf = NULL;
-		riomp_sock_close(&info->con_skt);
-		info->con_skt_valid = 0;
+		msg_cleanup_con_skt(info);
         };
 exit:
-	if (info->acc_skt_valid) {
-        	riomp_sock_close(&info->acc_skt);
-		info->acc_skt_valid = 0;
-	};
+	msg_cleanup_con_skt(info);
+	msg_cleanup_acc_skt(info);
+	msg_cleanup_mb(info);
 
-	if (info->mb_valid) {
-        	riomp_sock_mbox_destroy_handle(&info->mb);
-		info->mb_valid = 0;
-	};
 };
 
 void msg_tx_goodput(struct worker *info)
 {
-	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid)
-		return;
+	int rc;
 
-	if (!info->sock_num)
+	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid) {
+		ERR("FAILED: mailbox, access socket, or con socket in use.\n");
 		return;
+	};
 
-        if (riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb))
+	if (!info->sock_num) {
+		ERR("FAILED: Socket number cannot be 0.\n");
 		return;
+	};
+
+        rc = riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb);
+	if (rc) {
+		ERR("FAILED: riomp_sock_mbox_create_handle rc %d:%s\n",
+			rc, strerror(errno));
+		return;
+	};
 
 	info->mb_valid = 1;
 
-        if (riomp_sock_socket(info->mb, &info->con_skt))
+        rc = riomp_sock_socket(info->mb, &info->con_skt);
+	if (rc) {
+		ERR("FAILED: riomp_sock_socket rc %d:%s\n",
+			rc, strerror(errno));
 		return;
-
-        if (riomp_sock_connect(info->con_skt, info->did, 0, info->sock_num))
-		return;
+	};
 
 	info->con_skt_valid = 1;
 
-	if (riomp_sock_request_send_buffer(info->con_skt, &info->sock_tx_buf))
+        rc = riomp_sock_connect(info->con_skt, info->did, 0, info->sock_num);
+	if (rc) {
+		ERR("FAILED: riomp_sock_connect rc %d:%s\n",
+			rc, strerror(errno));
 		return;
+	};
+
+	info->con_skt_valid = 2;
+
+	rc = riomp_sock_request_send_buffer(info->con_skt, &info->sock_tx_buf);
+	if (rc) {
+		ERR("FAILED: riomp_sock_request_send_buffer rc %d:%s\n",
+			rc, strerror(errno));
+		return;
+	};
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+	info->perf_msg_cnt = 0;
 	info->perf_byte_cnt = 0;
 
 	while (!info->stop_req) {
-		int ret = riomp_sock_send(info->con_skt,
+		const struct timespec ten_usec = {0, 10 * 1000};
+		nanosleep(&ten_usec, NULL);
+		rc = riomp_sock_send(info->con_skt,
 				info->sock_tx_buf, info->msg_size);
 
-                if (ret) {
+                if (rc) {
                         if ((errno == ETIME) || (errno == EINTR))
                                 continue;
+                        if (errno == EBUSY) {
+				nanosleep(&ten_usec, NULL);
+                                continue;
+			};
+			ERR("FAILED: riomp_sock_send rc %d:%s\n",
+				rc, strerror(errno));
                         break;
                 };
+		info->perf_msg_cnt++;
 		info->perf_byte_cnt += info->msg_size;
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 	};
 
-	if (NULL != info->sock_tx_buf) {
-		riomp_sock_release_send_buffer(info->con_skt,
-						info->sock_tx_buf);
-		info->sock_tx_buf = NULL;
-	};
-
-	riomp_sock_close(&info->con_skt);
-	info->con_skt_valid = 0;
-
-	if (info->mb_valid) {
-        	riomp_sock_mbox_destroy_handle(&info->mb);
-		info->mb_valid = 0;
-	};
+	msg_cleanup_con_skt(info);
+	msg_cleanup_mb(info);
 };
 
 void dma_alloc_ibwin(struct worker *info)
 {
-	if (!info->ib_byte_cnt || info->ib_valid)
+	uint64_t i;
+	int rc;
+
+	if (!info->ib_byte_cnt || info->ib_valid) {
+		ERR("FAILED: window size of 0 or ibwin already exists\n");
 		return; 
+	};
 
 	info->ib_rio_addr = (uint64_t)(~((uint64_t) 0)); /* RIO_MAP_ANY_ADDR */
-	if (riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
-					info->ib_byte_cnt, &info->ib_handle))
+	rc = riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
+					info->ib_byte_cnt, &info->ib_handle);
+	if (rc) {
+		ERR("FAILED: riomp_dma_ibwin_map rc %d:%s\n",
+					rc, strerror(errno));
 		return;
+	};
+
+	rc = riomp_dma_map_memory(info->mp_h, info->ib_byte_cnt, 
+					info->ib_handle, &info->ib_ptr);
+	if (rc) {
+		ERR("FAILED: riomp_dma_ibwin_map rc %d:%s\n",
+					rc, strerror(errno));
+		return;
+	};
+
+	for (i = 0; i < info->ib_byte_cnt; i += 8) {
+		uint64_t *d_ptr;
+
+		d_ptr = (uint64_t *)((uint64_t)info->ib_ptr + i);
+		*d_ptr = i + (i << 32);
+	};
 
 	info->ib_valid = 1;
 };
 
 void dma_free_ibwin(struct worker *info)
 {
+	int rc;
 	if (!info->ib_valid)
 		return; 
 
-	riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+	if (info->ib_ptr && info->ib_valid) {
+		rc = riomp_dma_unmap_memory(info->mp_h, info->ib_byte_cnt, 
+								info->ib_ptr);
+		info->ib_ptr = NULL;
+		if (rc)
+			ERR("riomp_dma_unmap_memory ib rc %d: %s\n",
+				rc, strerror(errno));
+	};
+
+	rc = riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+	if (rc) {
+		ERR("FAILED: riomp_dma_ibwin_free rc %d:%s\n",
+					rc, strerror(errno));
+		return;
+	};
 
 	info->ib_valid = 0;
 	info->ib_rio_addr = 0;

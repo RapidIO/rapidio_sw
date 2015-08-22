@@ -50,6 +50,10 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"LAST"
 };
 
+#define ACTION_STR(x) (char *)((x < last_action)?req_type_str[x]:"UNKWN!")
+#define MODE_STR(x) (char *)((x == kernel_action)?"KRNL":"User")
+#define THREAD_STR(x) (char *)((0 == x)?"  D":((1 == x)?" R ":"B  "))
+
 int StartCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, cpu, new_dma;
@@ -87,8 +91,8 @@ struct cli_cmd Start = {
 4,
 3,
 "Start a thread on a cpu",
-"start <wkr_idx> <cpu> <new_dma>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
+"start <idx> <cpu> <new_dma>\n"
+	"<idx> is a worker index from 0 to 7\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
 	"<new_dma> If <> 0, open mport again to get a new DMA channel\n",
 StartCmd,
@@ -223,6 +227,7 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 
 	wkr[idx].action = alloc_ibwin;
 	wkr[idx].ib_byte_cnt = ib_size;
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -233,8 +238,8 @@ struct cli_cmd IBAlloc = {
 3,
 2,
 "Allocate an inbound window",
-"IBAlloc <wkr_idx> <size>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
+"IBAlloc <idx> <size>\n"
+	"<idx> is a worker index from 0 to 7\n"
 	"<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n",
 IBAllocCmd,
 ATTR_NONE
@@ -260,6 +265,7 @@ int IBDeallocCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	wkr[idx].action = free_ibwin;
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -270,8 +276,8 @@ struct cli_cmd IBDealloc = {
 3,
 1,
 "Deallocate an inbound window",
-"IBDealloc <wkr_idx>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n",
+"IBDealloc <idx>\n"
+	"<idx> is a worker index from 0 to 7\n",
 IBDeallocCmd,
 ATTR_NONE
 };
@@ -314,6 +320,7 @@ int OBDIOCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].wr = wr;
 	wkr[idx].ob_byte_cnt = bytes;
 
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -324,8 +331,8 @@ struct cli_cmd OBDIO = {
 5,
 6,
 "Perform reads/writes through an outbound window",
-"OBDIO <wkr_idx> <did> <rio_addr> <bytes> <acc_sz> <wr>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
+"OBDIO <idx> <did> <rio_addr> <bytes> <acc_sz> <wr>\n"
+	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
@@ -388,6 +395,7 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].dma_sync_type = (enum riomp_dma_directio_transfer_sync)sync;
 	wkr[idx].rdma_buff_size = bytes;
 
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -398,8 +406,8 @@ struct cli_cmd dma = {
 3,
 9,
 "Perform reads/writes with the DMA engines",
-"dma <wkr_idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
+"dma <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync>\n"
+	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
@@ -421,8 +429,8 @@ int msgTxCmd(struct cli_env *env, int argc, char **argv)
 
 	idx = getDecParm(argv[0], 0);
 	did = getDecParm(argv[1], 0);
-	sock_num = getHex(argv[2], 0);
-	bytes = getHex(argv[3], 0);
+	sock_num = getDecParm(argv[2], 0);
+	bytes = getDecParm(argv[3], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -443,12 +451,6 @@ int msgTxCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	if (!sock_num) {
-		sprintf(env->output, "\nSock_num must not be 0.\n");
-        	logMsg(env);
-		goto exit;
-	};
-
 	bytes = (bytes + 7) & 0xFF8;
 	if (bytes < 24)
 		bytes = 24;
@@ -459,6 +461,7 @@ int msgTxCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].sock_num = sock_num;
 	wkr[idx].msg_size = bytes;
 
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -469,11 +472,12 @@ struct cli_cmd msgTx = {
 4,
 4,
 "Sends channelized messages as requested",
-"msgTx <wkr_idx> <did> <sock_num> <size>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
+"msgTx <idx> <did> <sock_num> <size>\n"
+	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO memory address to access\n"
-	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n",
+	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
+	"NOTE: All parameters are decimal numbers.\n",
 msgTxCmd,
 ATTR_NONE
 };
@@ -481,12 +485,10 @@ ATTR_NONE
 int msgRxCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
-	int did;
 	int sock_num;
 
 	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	sock_num = getHex(argv[2], 0);
+	sock_num = getDecParm(argv[1], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -509,9 +511,10 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 
 	wkr[idx].action = message_rx;
 	wkr[idx].action_mode = kernel_action;
-	wkr[idx].did = did;
+	wkr[idx].did = 0;
 	wkr[idx].sock_num = sock_num;
 
+	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -520,15 +523,16 @@ exit:
 struct cli_cmd msgRx = {
 "msgRx",
 4,
-3,
+2,
 "Receives channelized messages as requested",
-"msgRx <wkr_idx> <did> <sock_num>\n"
-	"<wkr_idx> is a worker index from 0 to 7\n"
-	"<did> target device ID\n"
-	"<sock_num> RapidIO memory address to access\n",
+"msgRx <idx> <sock_num>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<sock_num> Target socket number for connections from msgTx command\n",
 msgRxCmd,
 ATTR_NONE
 };
+
+#define FLOAT_STR_SIZE 20
 
 int PerfCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -537,9 +541,10 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 	uint64_t byte_cnt = 0;
 	float tot_MBps = 0, tot_Gbps = 0, tot_Msgpersec = 0;
 	uint64_t tot_byte_cnt = 0;
+	char MBps_str[FLOAT_STR_SIZE],  Gbps_str[FLOAT_STR_SIZE];
 
 	sprintf(env->output,
-        "\nW <<<<--Data-->>>> --MBps-- -Gbps- Msgs/Sec\n");
+        "\nW STS <<<<--Data-->>>> --MBps-- -Gbps- Messages\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -549,16 +554,8 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 		MBps = Gbps = Msgpersec = 0;
 		byte_cnt = 0;
 
-		if ((wkr[i].action == message_rx) ||
-						(wkr[i].action == message_tx)) {
-			Msgpersec = wkr[i].perf_byte_cnt;
-			if (wkr[i].action == message_tx)
-				byte_cnt = Msgpersec * wkr[i].msg_size;
-		};
-		if ((wkr[i].action == direct_io) ||
-						(wkr[i].action == dma_tx)) {
-			byte_cnt = wkr[i].perf_byte_cnt;
-		};
+		Msgpersec = wkr[i].perf_msg_cnt;
+		byte_cnt = wkr[i].perf_byte_cnt;
 
 		elapsed = time_difference(wkr[i].st_time, wkr[i].end_time);
 		nsec = elapsed.tv_nsec + (elapsed.tv_sec * 1000000000);
@@ -567,8 +564,14 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 			((float)nsec / 1000000000.0);
 		Gbps = (MBps * 8.0) / 1000.0;
 
-		sprintf(env->output, "%1d %16lx %4.3f %2.3f %9.0f\n",
-			i, byte_cnt, MBps, Gbps, Msgpersec);
+		memset(MBps_str, 0, FLOAT_STR_SIZE);
+		memset(Gbps_str, 0, FLOAT_STR_SIZE);
+		sprintf(MBps_str, "%4.3f", MBps);
+		sprintf(Gbps_str, "%2.3f", Gbps);
+
+		sprintf(env->output, "%1d %3s %16lx %8s %6s %9.0f\n",
+			i,  THREAD_STR(wkr[i].stat),
+			byte_cnt, MBps_str, Gbps_str, Msgpersec);
         	logMsg(env);
 
 		if (byte_cnt) {
@@ -577,9 +580,20 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
 			tot_Gbps += Gbps;
 		};
 		tot_Msgpersec += Msgpersec;
+
+		if (argc) {
+			wkr[i].perf_byte_cnt = 0;
+			wkr[i].perf_msg_cnt = 0;
+			clock_gettime(CLOCK_MONOTONIC, &wkr[i].st_time);
+		};
 	};
-	sprintf(env->output, "T %16lx %8.3f %2.3f %9.0f\n",
-		tot_byte_cnt, tot_MBps, tot_Gbps, tot_Msgpersec);
+	memset(MBps_str, 0, FLOAT_STR_SIZE);
+	memset(Gbps_str, 0, FLOAT_STR_SIZE);
+	sprintf(MBps_str, "%4.3f", tot_MBps);
+	sprintf(Gbps_str, "%2.3f", tot_Gbps);
+
+	sprintf(env->output, "T     %16lx %8s %6s %9.0f\n",
+		tot_byte_cnt, MBps_str, Gbps_str, tot_Msgpersec);
         logMsg(env);
 
         return 0;
@@ -590,14 +604,13 @@ struct cli_cmd Perf = {
 4,
 0,
 "Print current performance for threads.",
-"perf <no parameters>",
+"perf {<optional>}\n"
+	"Any parameter to perf causes the byte and message counts of all\n"
+	"   running threads to be zeroed after they are displayed.\n",
 PerfCmd,
-ATTR_NONE
+ATTR_RPT
 };
 
-
-#define ACTION_STR(x) (char *)((x < last_action)?req_type_str[x]:"UNKWN!")
-#define MODE_STR(x) (char *)((x == kernel_action)?"KRNL":"User")
 
 void display_gen_status(struct cli_env *env)
 {
@@ -608,12 +621,9 @@ void display_gen_status(struct cli_env *env)
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		int stat;
-		stat = wkr[i].stat;
-
 		sprintf(env->output,
 		"%1d %3s %3d %3d %6s %4s %16lx %7lx %7lx %1d %2d %2d %2d\n",
-			i, (0 == stat)?"DED":((1 == stat)?"RUN":"BLK"),
+			i, THREAD_STR(wkr[i].stat), 
 			wkr[i].cpu_req, wkr[i].cpu_run,
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
@@ -629,15 +639,13 @@ void display_ibwin_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-	"\nW S CPU RUN ACTION MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>>\n");
+	"\nW STS CPU RUN ACTION MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>>\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		int stat;
-		stat = wkr[i].stat;
 		sprintf(env->output,
-			"%1d %1s %3d %3d %6s %4s %2d %16lx %16lx %16lx\n",
-			i, (0 == stat)?"D":((1 == stat)?"R":"B"),
+			"%1d %3s %3d %3d %6s %4s %2d %16lx %16lx %16lx\n",
+			i, THREAD_STR(wkr[i].stat),
 			wkr[i].cpu_req, wkr[i].cpu_run,
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
@@ -652,15 +660,13 @@ void display_msg_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-	"\nW S CPU RUN ACTION MODE MB ACC CON Msg_Size SockNum TX RX\n");
+	"\nW STS CPU RUN ACTION MODE MB ACC CON Msg_Size SockNum TX RX\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		int stat;
-		stat = wkr[i].stat;
 		sprintf(env->output,
-			"%1d %1s %3d %3d %6s %4s %2d %3d %3d %7d %7d %2d %2d\n",
-			i,  (0 == stat)?"D":((1 == stat)?"R":"B"),
+			"%1d %1s %3d %3d %6s %4s %2d %3d %3d %8d %7d %2d %2d\n",
+			i, THREAD_STR(wkr[i].stat),
 			wkr[i].cpu_req, wkr[i].cpu_run,
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
@@ -693,7 +699,7 @@ int StatusCmd(struct cli_env *env, int argc, char **argv)
 		case 'G': 
 			display_gen_status(env);
 			break;
-		default: sprintf(env->output, "Unknown option \"%c\"", 
+		default: sprintf(env->output, "Unknown option \"%c\"\n", 
 				argv[0][0]);
         		logMsg(env);
 			return 0;
@@ -708,13 +714,74 @@ struct cli_cmd Status = {
 0,
 "Display status of all threads",
 "status {i|o|s}\n"
-	"Optionally enter a character to select the status type:\n"
-	"i : IBWIN status\n"
-	"m : Messaging status\n"
-	"s : General status\n"
-	"Default is general status.\n",
+        "Optionally enter a character to select the status type:\n"
+        "i : IBWIN status\n"
+        "m : Messaging status\n"
+        "s : General status\n"
+        "Default is general status.\n",
 StatusCmd,
 ATTR_RPT
+};
+
+int DumpCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx;
+	uint64_t offset, base_offset;
+	uint64_t size;
+
+	idx = getDecParm(argv[0], 0);
+	base_offset = getHex(argv[1], 0);
+	size = getHex(argv[2], 0);
+
+	if ((idx < 0) || (idx >= MAX_WORKERS)) {
+		sprintf(env->output, "\nIndex must be 0 to %d...\n",
+							MAX_WORKERS);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
+		sprintf(env->output, "\nNo mapped inbound window present\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	if ((base_offset + size) > wkr[idx].ib_byte_cnt) {
+		sprintf(env->output, "\nOffset + size exceeds window bytes\n");
+        	logMsg(env);
+		goto exit;
+	}
+
+        sprintf(env->output,
+                "  Offset 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
+        logMsg(env);
+        for (offset = 0; offset < size; offset++) {
+                if (!(offset & 0xF)) {
+                        sprintf(env->output,"\n%8lx", offset);
+                        logMsg(env);
+                };
+                sprintf(env->output, " %2x", 
+			*(uint8_t *)(
+			(uint8_t *)wkr[idx].ib_ptr + base_offset + offset));
+                logMsg(env);
+        };
+        sprintf(env->output, "\n");
+        logMsg(env);
+exit:
+        return 0;
+};
+
+struct cli_cmd Dump = {
+"dump",
+2,
+3,
+"Dump inbound memory area",
+"Dump <idx> <offset> <size>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<offset> is the hexadecimal offset, in bytes, from the window start\n"
+	"<size> is the number of bytes to display, starting at <offset>\n",
+DumpCmd,
+ATTR_NONE
 };
 
 struct cli_cmd *goodput_cmds[] = {
@@ -728,7 +795,8 @@ struct cli_cmd *goodput_cmds[] = {
 	&Status,
 	&Start,
 	&Kill,
-	&Halt
+	&Halt,
+	&Dump
 };
 
 void bind_goodput_cmds(void)

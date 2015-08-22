@@ -98,8 +98,9 @@ int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
 	else {
 		INFO("MTC READ: DID %x HC %X O %x\n",
 					pe_h->destid, pe_h->hopcount, offset);
-		rc = riomp_mgmt_rcfg_read(pe_h->mport->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
-				 sizeof(temp), &temp)?1:0;
+		rc = riomp_mgmt_rcfg_read(pe_h->mport->minfo->maint,
+					pe_h->destid, pe_h->hopcount, offset,
+				 	sizeof(temp), &temp)?1:0;
 	}
 
 	if (!rc)
@@ -114,7 +115,7 @@ int mport_write(riocp_pe_handle pe_h, uint32_t offset, uint32_t data)
         if (RIOCP_PE_IS_MPORT(pe_h))
         	rc = riomp_mgmt_lcfg_write(pe_h->minfo->maint, offset, sizeof(data), data)?1:0;
         else
-        	rc = riomp_mgmt_rcfg_write(pe_h->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
+        	rc = riomp_mgmt_rcfg_write(pe_h->mport->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
         			      sizeof(data), data)?1:0;
 	return rc;
 };
