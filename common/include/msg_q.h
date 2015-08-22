@@ -114,7 +114,7 @@ public:
 			}
 		delete [] send_buf;
 		delete [] recv_buf;
-		INFO("'%s' destroyed\n");
+		INFO("'%s' destroyed\n", name.c_str());
 	}
 
 	const string& get_name() const { return name; }

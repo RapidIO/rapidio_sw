@@ -261,7 +261,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				 * the message. */
 				continue;
 			}
-			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()n");
+			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
 			delete connect_mq;
 
 			/* Request a send buffer */
@@ -371,6 +371,7 @@ void *prov_thread_f(void *arg)
 	}
 	catch(cm_exception& e) {
 		CRIT("Failed to create prov_server: %s. EXITING\n", e.err);
+		raise(SIGABRT);
 		pthread_exit(0);
 	}
 	DBG("prov_server created.\n");
@@ -387,6 +388,7 @@ void *prov_thread_f(void *arg)
 								strerror(ret));
 			}
 			delete prov_server;
+			raise(SIGABRT);
 			pthread_exit(0);
 		}
 
