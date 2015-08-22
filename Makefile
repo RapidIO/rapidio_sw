@@ -29,7 +29,7 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-LOG_LEVEL?=7
+LOG_LEVEL?=4
 export LOG_LEVEL
 
 DEBUG?=DEBUG
