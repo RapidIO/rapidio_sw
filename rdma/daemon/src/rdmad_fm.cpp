@@ -107,7 +107,7 @@ static int provision_new_dids(uint32_t old_did_list_size,
 				HIGH("Provisioned destid(0x%X)\n", did);
 			}
 		} else {
-			INFO("NOT provisioning 0x%X since daemon not running\n");
+			INFO("NOT provisioning 0x%X since daemon not running\n", did);
 		}
 	}
 
