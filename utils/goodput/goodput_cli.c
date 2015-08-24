@@ -52,7 +52,7 @@ char *req_type_str[(int)last_action+1] = {
 
 #define ACTION_STR(x) (char *)((x < last_action)?req_type_str[x]:"UNKWN!")
 #define MODE_STR(x) (char *)((x == kernel_action)?"KRNL":"User")
-#define THREAD_STR(x) (char *)((0 == x)?"  D":((1 == x)?" R ":"B  "))
+#define THREAD_STR(x) (char *)((0 == x)?"---":((1 == x)?"Run":"Hlt"))
 
 int StartCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -612,6 +612,16 @@ ATTR_RPT
 };
 
 
+void display_cpu(struct cli_env *env, int cpu)
+{
+	if (-1 == cpu)
+		sprintf(env->output, "Any ");
+	else
+		sprintf(env->output, "%3d ", cpu);
+        logMsg(env);
+};
+		
+
 void display_gen_status(struct cli_env *env)
 {
 	int i;
@@ -621,10 +631,12 @@ void display_gen_status(struct cli_env *env)
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
+		sprintf(env->output, "%1d %3s ", i, THREAD_STR(wkr[i].stat));
+        	logMsg(env);
+		display_cpu(env, wkr[i].cpu_req);
+		display_cpu(env, wkr[i].cpu_run);
 		sprintf(env->output,
-		"%1d %3s %3d %3d %6s %4s %16lx %7lx %7lx %1d %2d %2d %2d\n",
-			i, THREAD_STR(wkr[i].stat), 
-			wkr[i].cpu_req, wkr[i].cpu_run,
+			"%6s %4s %16lx %7lx %7lx %1d %2d %2d %2d\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
 			wkr[i].rio_addr, wkr[i].byte_cnt, wkr[i].acc_size, 
@@ -643,10 +655,12 @@ void display_ibwin_status(struct cli_env *env)
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
+		sprintf(env->output, "%1d %3s ", i, THREAD_STR(wkr[i].stat));
+        	logMsg(env);
+		display_cpu(env, wkr[i].cpu_req);
+		display_cpu(env, wkr[i].cpu_run);
 		sprintf(env->output,
-			"%1d %3s %3d %3d %6s %4s %2d %16lx %16lx %16lx\n",
-			i, THREAD_STR(wkr[i].stat),
-			wkr[i].cpu_req, wkr[i].cpu_run,
+			"%6s %4s %2d %16lx %16lx %16lx\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
 			wkr[i].ib_valid, wkr[i].ib_handle, wkr[i].ib_rio_addr, 
@@ -664,10 +678,12 @@ void display_msg_status(struct cli_env *env)
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
+		sprintf(env->output, "%1d %3s ", i, THREAD_STR(wkr[i].stat));
+        	logMsg(env);
+		display_cpu(env, wkr[i].cpu_req);
+		display_cpu(env, wkr[i].cpu_run);
 		sprintf(env->output,
-			"%1d %1s %3d %3d %6s %4s %2d %3d %3d %8d %7d %2d %2d\n",
-			i, THREAD_STR(wkr[i].stat),
-			wkr[i].cpu_req, wkr[i].cpu_run,
+			"%6s %4s %2d %3d %3d %8d %7d %2d %2d\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
 			wkr[i].mb_valid, wkr[i].acc_skt_valid,
@@ -784,6 +800,97 @@ DumpCmd,
 ATTR_NONE
 };
 
+int MpdevsCmd(struct cli_env *env, int argc, char **argv)
+{
+        uint32_t *mport_list = NULL;
+        uint32_t *ep_list = NULL;
+        uint32_t *list_ptr;
+        uint32_t number_of_eps = 0;
+        uint8_t  number_of_mports = RIODP_MAX_MPORTS;
+        uint32_t ep = 0;
+        int i;
+        int mport_id;
+        int ret = 0;
+
+        ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
+        if (ret) {
+                sprintf(env->output, "riomp_mgmt_get_mport_list ERR %d:%s\n",
+			ret, strerror(ret));
+        	logMsg(env);
+		goto exit;
+        }
+
+        sprintf(env->output, "\nAvailable %d local mport(s):\n",
+			number_of_mports);
+        logMsg(env);
+
+        if (number_of_mports > RIODP_MAX_MPORTS) {
+                sprintf(env->output, 
+			"WARNING: Only %d out of %d have been retrieved\n",
+                        RIODP_MAX_MPORTS, number_of_mports);
+        	logMsg(env);
+        }
+
+        list_ptr = mport_list;
+        for (i = 0; i < number_of_mports; i++, list_ptr++) {
+                mport_id = *list_ptr >> 16;
+                sprintf(env->output, "+++ mport_id: %u dest_id: %u\n",
+                                mport_id, *list_ptr & 0xffff);
+        	logMsg(env);
+
+                /* Display EPs for this MPORT */
+
+                ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, &number_of_eps);
+                if (ret) {
+                        sprintf(env->output, 
+				"ERR: riodp_ep_get_list() ERR %d: %s\n",
+				ret, strerror(ret));
+        		logMsg(env);
+                        break;
+                }
+
+                printf("\t%u Endpoints (dest_ID): ", number_of_eps);
+                for (ep = 0; ep < number_of_eps; ep++) {
+                        sprintf(env->output, "%u ", *(ep_list + ep));
+        		logMsg(env);
+		}
+                sprintf(env->output, "\n");
+        	logMsg(env);
+
+                ret = riomp_mgmt_free_ep_list(&ep_list);
+                if (ret) {
+                        sprintf(env->output, 
+				"ERR: riodp_ep_free_list() ERR %d: %s\n",
+				ret, strerror(ret));
+        		logMsg(env);
+		};
+
+        }
+
+	sprintf(env->output, "\n");
+        logMsg(env);
+
+        ret = riomp_mgmt_free_mport_list(&mport_list);
+        if (ret) {
+                sprintf(env->output,
+			"ERR: riodp_ep_free_list() ERR %d: %s\n",
+			ret, strerror(ret));
+        	logMsg(env);
+	};
+exit:
+        return 0;
+};
+
+struct cli_cmd Mpdevs = {
+"mpdevs",
+2,
+0,
+"Display mports and devices\n",
+"mpdevs <No Parameters>\n",
+MpdevsCmd,
+ATTR_NONE
+};
+
 struct cli_cmd *goodput_cmds[] = {
 	&IBAlloc,
 	&IBDealloc,
@@ -796,7 +903,8 @@ struct cli_cmd *goodput_cmds[] = {
 	&Start,
 	&Kill,
 	&Halt,
-	&Dump
+	&Dump,
+	&Mpdevs
 };
 
 void bind_goodput_cmds(void)
