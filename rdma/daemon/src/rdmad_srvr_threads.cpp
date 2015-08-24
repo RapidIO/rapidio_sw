@@ -341,6 +341,9 @@ void *wait_conn_disc_thread_f(void *arg)
 			} else {
 				HIGH("'Disconnect' message relayed to 'server'\n");
 			}
+		} else {
+			CRIT("Message of unknown type 0x%016" PRIx64 "\n",
+					conn_msg->type);
 		}
 
 	} /* while(1) */

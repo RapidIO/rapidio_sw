@@ -1670,6 +1670,12 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	in.client_destid_len	= 16;
 	in.client_destid	= peer.destid;
 
+	DBG("in.server_msname     = %s\n", rem_msname);
+	DBG("in.server_destid_len = 0x%X\n", in.server_destid_len);
+	DBG("in.server_destid     = 0x%X\n", in.server_destid);
+	DBG("in.client_destid_len = 0x%X\n", in.client_destid_len);
+	DBG("in.client_destid     = 0x%X\n", in.client_destid);
+
 	if (loc_msubh) {
 		in.client_msid		= loc_msub->msid;
 		in.client_msubid	= loc_msub->msubid;
@@ -1677,6 +1683,14 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		in.client_rio_addr_len	= loc_msub->rio_addr_len;
 		in.client_rio_addr_lo	= loc_msub->rio_addr_lo;
 		in.client_rio_addr_hi	= loc_msub->rio_addr_hi;
+		DBG("in.client_msid = 0x%X\n", in.client_msid);
+		DBG("in.client_msubid = 0x%X\n", in.client_msubid);
+		DBG("in.client_bytes = 0x%X\n", in.client_bytes);
+		DBG("in.client_rio_addr_len = 0x%X\n", in.client_rio_addr_len);
+		DBG("in.client_rio_addr_lo = 0x%016" PRIx64 "\n", in.client_rio_addr_lo);
+		DBG("in.client_rio_addr_hi = 0x%X\n", in.client_rio_addr_hi);
+	} else {
+		HIGH("Client has provided a NULL msubh\n");
 	}
 	
 	/* NOTE: MUST create the message queue before the RPC call to
