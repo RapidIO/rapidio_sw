@@ -515,7 +515,11 @@ void *rpc_thread_f(void *arg)
 					mq_name.insert(0, 1, '/');
 
 					/* Add to list of message queue names awaiting an 'accept' to 'connect' */
-					wait_accept_mq_names.push_back(mq_name);
+					if (wait_accept_mq_names.contains(mq_name)) {
+						WARN("'%s' already in wait_accept_mq_names\n", mq_name.c_str());
+					} else {
+						wait_accept_mq_names.push_back(mq_name);
+					}
 
 					out->status = 0;
 				}
