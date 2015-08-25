@@ -135,7 +135,7 @@ int mspace::notify_remote_clients()
 		destroy_server->get_send_buffer((void **)&dm);
 		dm->type	= htobe64(CM_DESTROY_MS);
 		strcpy(dm->server_msname, name.c_str());
-		dm->server_msid = msid;
+		dm->server_msid = htobe64(msid);
 
 		/* Send to remote daemon @ 'destid' */
 		if (destroy_server->send()) {
@@ -157,11 +157,16 @@ int mspace::notify_remote_clients()
 			ERR("Did not receive destroy_ack from destid(0x%X)\n", *it);
 			continue;
 		}
-		if (dam->server_msid != dm->server_msid)
-			ERR("Received destroy_ack with wrong msid(0x%X)\n",
+
+		if (dam->type == htobe64(CM_DESTROY_MS)) {
+			if (dam->server_msid != dm->server_msid)
+				ERR("Received destroy_ack with wrong msid(0x%X)\n",
 							dam->server_msid);
-		else {
-			HIGH("destroy_ack received from daemon destid(0x%X)\n", *it);
+			else {
+				HIGH("destroy_ack received from daemon destid(0x%X)\n", *it);
+			}
+		} else {
+			ERR("INVALID MESSAGE TYPE: 0x%X\n", htobe64(dam->type));
 		}
 	} /* for() */
 	return 0;

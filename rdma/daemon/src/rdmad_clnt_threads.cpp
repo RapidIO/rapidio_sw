@@ -316,7 +316,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 				accept_destroy_client->flush_send_buffer();
 
 				/* Now send back a destroy_ack CM message */
-				dam->type	= CM_DESTROY_ACK_MS;
+				dam->type	= htobe64(CM_DESTROY_ACK_MS);
 				strcpy(dam->server_msname, destroy_msg->server_msname);
 				dam->server_msid = destroy_msg->server_msid; /* Both are BE */
 				if (accept_destroy_client->send()) {
