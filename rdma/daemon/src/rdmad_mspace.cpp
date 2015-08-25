@@ -133,7 +133,7 @@ int mspace::notify_remote_clients()
 		/* Prepare destroy message */
 		cm_destroy_msg	*dm;
 		destroy_server->get_send_buffer((void **)&dm);
-		dm->type	= CM_DESTROY_MS;
+		dm->type	= htobe64(CM_DESTROY_MS);
 		strcpy(dm->server_msname, name.c_str());
 		dm->server_msid = msid;
 
