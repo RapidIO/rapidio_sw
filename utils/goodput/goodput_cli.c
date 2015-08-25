@@ -451,9 +451,11 @@ int msgTxCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	bytes = (bytes + 7) & 0xFF8;
-	if (bytes < 24)
-		bytes = 24;
+        if (bytes < 24)
+                bytes = 24;
+        if (bytes > 4096)
+                bytes = 4096;
+        bytes = (bytes + 7) & 0x1FF8;
 
 	wkr[idx].action = message_tx;
 	wkr[idx].action_mode = kernel_action;
