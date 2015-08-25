@@ -408,8 +408,13 @@ void *rpc_thread_f(void *arg)
 							be64toh(cmam.server_destid_len));
 
 					/* Add accept message content to map indexed by message queue name */
-					DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
-					accept_msg_map.add(s, cmam);
+					if (accept_msg_map.contains(s)) {
+						CRIT("%s is already in accept_msg_map\n");
+						out->status = -1;
+					} else {
+						DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
+						accept_msg_map.add(s, cmam);
+					}
 
 					out->status = 0;
 				}
