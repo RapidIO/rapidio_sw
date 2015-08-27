@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_lib_info.h"
 #include "librsktd_msg_proc.h"
 #include "liblist.h"
+#include "liblog.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -292,7 +293,7 @@ int open_lib_conn_socket(void )
 
 	lib_st.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 	if (-1 == lib_st.fd) {
-		perror("ERROR on lib_conn socket");
+		ERR("ERROR on lib_conn socket: %s\n", strerror(errno));
 		goto fail;
 	};
 
@@ -302,7 +303,7 @@ int open_lib_conn_socket(void )
 
 	if (remove(lib_st.addr.sun_path)) {
 		if (ENOENT != errno) {
-			perror("ERROR on lib_conn remove");
+			ERR("ERROR on lib_conn remove: %s\n", strerror(errno));
 		};
 	};
 
@@ -312,12 +313,12 @@ int open_lib_conn_socket(void )
 
 	if (-1 == bind(lib_st.fd, (struct sockaddr *) &lib_st.addr, 
 			sizeof(struct sockaddr_un))) {
-		perror("ERROR on lib_conn bind");
+		ERR("ERROR on lib_conn bind: %s\n", strerror(errno));
 		goto fail;
 	};
 
 	if (listen(lib_st.fd, lib_st.bklg) == -1) {
-		perror("ERROR on lib_conn listen");
+		ERR("ERROR on lib_conn listen: %s\n", strerror(errno));
 		goto fail;
 	};
 	rc = 0;
@@ -354,8 +355,10 @@ void *lib_conn_loop( void *unused )
                         &lib_st.new_app->addr_size);
 			
 		if (-1 == lib_st.new_app->app_fd) {
-			if (lib_st.fd) 
-				perror("ERROR on l_conn accept");
+			if (lib_st.fd) {
+				ERR("ERROR on l_conn accept: %s\n",
+							strerror(errno));
+			}
 			free(lib_st.new_app);
 			lib_st.new_app = NULL;
 			goto fail;
@@ -448,8 +451,9 @@ void halt_lib_handler(void)
 	};
 
 	if (lib_st.addr.sun_path[0]) {
-		if (-1 == unlink(lib_st.addr.sun_path))
-			perror("ERROR on l_conn unlink");
+		if (-1 == unlink(lib_st.addr.sun_path)) {
+			ERR("ERROR on l_conn unlink: %s\n", strerror(errno));
+		}
 		lib_st.addr.sun_path[0] = 0;
 	};
 

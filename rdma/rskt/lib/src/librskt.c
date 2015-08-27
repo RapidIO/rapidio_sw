@@ -564,10 +564,13 @@ int lib_uninit(void)
 {
 	int rc = !((lib.init_ok == lib.portno) && (lib.portno));
 
-	if (rc)
+	if (rc) {
+		DBG("lib.init_ok = %d, lib.portno = %d\n",
+				lib.init_ok, lib.portno);
 		errno = EHOSTDOWN;
-	else
+	} else {
 		errno = 0;
+	}
 
 	return rc;
 };
@@ -654,8 +657,10 @@ int rskt_bind(rskt_h skt_h, struct rskt_sockaddr *sock_addr)
 
 	struct rskt_socket_t *skt;
 
-	if (lib_uninit())
+	if (lib_uninit()) {
+		ERR("Fail due to lib_uninit()\n");
 		goto exit;
+	}
 
 	errno = EINVAL;
 	if ((NULL == skt_h) || (NULL == sock_addr))
@@ -1080,7 +1085,7 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	uint32_t dma_rd_offset, dma_wr_offset;
 	struct rskt_socket_t *skt = skt_h->skt;
 
-	DBG("ENTER");
+	DBG("ENTER\n");
 	dma_rd_offset = ntohl(skt->hdr->loc_tx_wr_ptr) + RSKT_TOT_HDR_SIZE;
 	dma_wr_offset = dma_rd_offset + skt->buf_sz;
 	DBG("dma_rd_offset = %u, dma_wr_offset = %u, byte_cnt = %u\n",

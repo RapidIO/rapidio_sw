@@ -83,11 +83,13 @@ REMDBG_SOURCES	= daemon/src/remdbg.c
 # RDMA Library flags, sources and objects
 RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
 		-Idaemon/inc \
+		-DCONNECT_BEFORE_ACCEPT_HACK \
 		-I$(MPORTLIB_INC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3 -rdynamic -lnsl
 
 RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb \
 		-Idaemon/inc \
+		-DCONNECT_BEFORE_ACCEPT_HACK \
 		-I$(MPORTLIB_INC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3
 

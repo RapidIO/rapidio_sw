@@ -1761,7 +1761,31 @@ __sync_synchronize();
 			return RDMA_CONNECT_TIMEOUT;
 		}
 	} else {
+#ifdef CONNECT_BEFORE_ACCEPT_HACK
+		auto retries = 10;
+		struct timespec tm;
+		clock_gettime(CLOCK_REALTIME, &tm);
+		tm.tv_sec += 1;
+
+		if (accept_mq->timed_receive(&tm) && retries--) {
+			DBG("Retrying...\n");
+			ret = alt_rpc_call();
+			if (ret) {
+				ERR("Call to RDMA daemon failed\n");
+				delete accept_mq;
+				return ret;
+			}
+			out = out_msg->send_connect_out;
+			if (out.status) {
+				ERR("Connection to destid(0x%X) failed\n", rem_destid);
+				delete accept_mq;
+				return out.status;
+			}
+		}
+		if (retries == 0) {
+#else
 		if (accept_mq->receive()) {
+#endif
 			ERR("Failed to receive accept message\n");
 			delete accept_mq;
 			return RDMA_CONNECT_FAIL;
@@ -2037,8 +2061,9 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 				    in->num_bytes,
 					RIO_DIRECTIO_TYPE_NWRITE_R,
 				    rd_sync);
-	if (ret < 0) {
-		ERR("riomp_dma_write_d() failed:(%d) %s\n", ret, strerror(ret));
+	if (ret) {
+		ERR("riomp_dma_write_d() failed:(%d) %s\n", ret, strerror(errno));
+		return ret;
 	}
 
 	/* If synchronous, the return value is the xfer status. If async,

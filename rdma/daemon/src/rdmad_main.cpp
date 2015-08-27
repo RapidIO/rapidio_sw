@@ -467,8 +467,13 @@ void *rpc_thread_f(void *arg)
 							be64toh(cmam.server_destid_len));
 
 					/* Add accept message content to map indexed by message queue name */
-					DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
-					accept_msg_map.add(s, cmam);
+					if (accept_msg_map.contains(s)) {
+						CRIT("%s is already in accept_msg_map\n");
+						out->status = -1;
+					} else {
+						DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
+						accept_msg_map.add(s, cmam);
+					}
 
 					out->status = 0;
 				}
@@ -579,7 +584,11 @@ void *rpc_thread_f(void *arg)
 					mq_name.insert(0, 1, '/');
 
 					/* Add to list of message queue names awaiting an 'accept' to 'connect' */
-					wait_accept_mq_names.push_back(mq_name);
+					if (wait_accept_mq_names.contains(mq_name)) {
+						WARN("'%s' already in wait_accept_mq_names\n", mq_name.c_str());
+					} else {
+						wait_accept_mq_names.push_back(mq_name);
+					}
 
 					/* Also add to the connected_to_ms_info_list */
 					sem_wait(&connected_to_ms_info_list_sem);

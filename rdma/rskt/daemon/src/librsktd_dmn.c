@@ -131,7 +131,7 @@ int d_rdma_get_ms_h(struct ms_info *msi, const char *name,
         rc = rdma_create_ms_h(name, msoh, req_ms_size, flags, &msi->ms, 
 				&act_ms_size);
 	if (rc) {
-		CRIT("Could not get ms \"%s\": Bailing out...\n",name);
+		CRIT("Could not get ms_h for '%s': Bailing out...\n",name);
 		return rc;
 	};
 
@@ -265,7 +265,8 @@ int init_mport_and_mso_ms()
 	rc = -1;
 	snprintf(dmn.mso.msoh_name, MAX_MS_NAME, "RSKT_DAEMON%d", getpid());
         if (d_rdma_get_mso_h(dmn.mso.msoh_name, &dmn.mso.rskt_mso)) {
-		CRIT("\nCould not get mso_h. Bailing out...\n");
+		CRIT("Could not get mso_h for '%s'. Bailing out...\n",
+				dmn.mso.msoh_name);
 		goto exit;
         };
 
