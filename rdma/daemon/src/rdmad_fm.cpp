@@ -143,7 +143,7 @@ bool daemon_not_running(uint32_t did)
 {
 	DBG("did = 0x%X\n", did);
 	if (!fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
-		HIGH("Daemon for did (0x%x) not running. Removing!\n");
+		HIGH("Daemon for did (0x%x) not running. Removing!\n", did);
 		unprovision_did(did);
 		return true;
 	} else {

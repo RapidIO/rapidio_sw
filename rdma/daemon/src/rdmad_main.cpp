@@ -633,6 +633,26 @@ void *rpc_thread_f(void *arg)
 							in->rem_destid,
 							in->rem_msid,
 							in->loc_msubid);
+
+					/* Remove from the connected_to_ms_info_list */
+					sem_wait(&connected_to_ms_info_list_sem);
+					vector<connected_to_ms_info>::iterator it;
+					for (it = begin(connected_to_ms_info_list);
+						  it != end(connected_to_ms_info_list);
+						  it++) {
+						if (it->server_msid == in->rem_msid) {
+							DBG("Found msid(0x%X)\n", in->rem_msid);
+							break;
+						}
+					}
+					if (it != end(connected_to_ms_info_list)) {
+						DBG("Removing msid(0x%X) from connected list\n",
+								in->rem_msid);
+						connected_to_ms_info_list.erase(it);
+					} else {
+						DBG("msid(0x%X) NOT FOUND\n", in->rem_msid);
+					}
+					sem_post(&connected_to_ms_info_list_sem);
 				}
 				break;
 
