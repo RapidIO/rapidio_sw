@@ -141,6 +141,7 @@ static void unprovision_dead_dids(uint32_t old_did_list_size,
  */
 bool daemon_not_running(uint32_t did)
 {
+#ifdef ENABLE_DAEMON_DETECTION
 	DBG("did = 0x%X\n", did);
 	if (!fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
 		HIGH("Daemon for did (0x%x) not running. Removing!\n", did);
@@ -149,6 +150,10 @@ bool daemon_not_running(uint32_t did)
 	} else {
 		return false;
 	}
+#else
+	(void)did;
+	return false;
+#endif
 } /* daemon_not_running() */
 
 /**
