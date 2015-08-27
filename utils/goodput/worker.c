@@ -61,6 +61,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_dma.h"
 #include "liblog.h"
 
+#include "time_utils.h"
 #include "worker.h"
 #include "goodput.h"
 
@@ -100,6 +101,16 @@ void init_worker_info(struct worker *info, int first_time)
         info->ib_rio_addr = 0;
         info->ib_byte_cnt = 0;
 	info->ib_ptr = NULL;
+
+        info->data8_tx = 0x12;
+        info->data16_tx= 0x3456;
+        info->data32_tx = 0x789abcde;
+        info->data64_tx = 0xf123456789abcdef;
+
+        info->data8_rx = info->data8_tx++;
+        info->data16_rx = info->data16_tx++;
+        info->data32_rx = info->data32_tx++;
+        info->data64_rx = info->data64_tx++;
 
 	info->use_kbuf = 0;
 	info->dma_trans_type = RIO_DIRECTIO_TYPE_NWRITE;
@@ -166,6 +177,11 @@ void shutdown_worker_thread(struct worker *info)
 	};
 
 	if (info->rdma_kbuff) {
+		if (NULL != info->rdma_ptr) {
+			riomp_dma_unmap_memory(info->mp_h, info->rdma_buff_size,
+				info->rdma_ptr);
+			info->rdma_ptr = NULL;
+		};
 		rc = riomp_dma_dbuf_free(info->mp_h, &info->rdma_kbuff);
 		info->rdma_kbuff = 0;
 		if (rc)
@@ -244,12 +260,132 @@ int migrate_thread_to_cpu(struct worker *info)
 	return rc;
 };
 
+void zero_stats(struct worker *info)
+{
+	info->perf_msg_cnt = 0;
+	info->perf_byte_cnt = 0;
+	info->perf_iter_cnt = 0;
+};
+
+void start_iter_stats(struct worker *info)
+{
+	clock_gettime(CLOCK_MONOTONIC, &info->iter_st_time);
+};
+
+void finish_iter_stats(struct worker *info)
+{
+	clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
+	time_track(info->perf_iter_cnt, 
+		info->iter_st_time, info->iter_end_time,
+		&info->tot_iter_time, &info->min_iter_time,
+		&info->max_iter_time);
+	info->perf_iter_cnt++;	
+};
+
+void direct_io_set_rx_buf(struct worker *info, volatile void * volatile ptr)
+{
+	if (!info->wr)
+		return;
+
+	switch (info->acc_size) {
+	case 1: *(uint8_t *)ptr = info->data8_tx;
+		break;
+
+	case 2: *(uint16_t *)ptr = info->data16_tx;
+		break;
+	case 3:
+	case 4: *(uint32_t *)ptr = info->data32_tx;
+		break;
+
+	default: *(uint64_t *)ptr = info->data64_tx;
+		break;
+	};
+};
+
+void direct_io_tx(struct worker *info, volatile void * volatile ptr)
+{
+	switch (info->acc_size) {
+	case 1: if (info->wr)
+			*(uint8_t *)ptr = info->data8_tx;
+		else
+			info->data8_rx = *(uint8_t *)ptr;
+		break;
+
+	case 2: if (info->wr)
+			*(uint16_t *)ptr = info->data16_tx;
+		else
+			info->data16_rx = *(uint16_t *)ptr;
+		break;
+	case 3:
+	case 4: if (info->wr)
+			*(uint32_t *)ptr = info->data32_tx;
+		else
+			info->data32_rx = *(uint32_t *)ptr;
+		break;
+
+	default: if (info->wr)
+			*(uint64_t *)ptr = info->data64_tx;
+		else
+			info->data64_rx = *(uint64_t *)ptr;
+		break;
+	};
+};
+
+int direct_io_wait_for_change(struct worker *info)
+{
+	volatile void * volatile ptr = info->ib_ptr;
+	uint64_t no_change = 1;
+	uint64_t limit = 0x100000;
+
+	if (!info->wr)
+		return 0;
+
+	while (!info->stop_req && no_change) {
+		limit = 0x100000;
+		do {
+			switch (info->acc_size) {
+			case 1: info->data8_rx = *(uint8_t *)ptr;
+				no_change = (info->data8_rx == info->data8_tx);
+				break;
+
+			case 2: info->data16_rx = *(uint16_t *)ptr;
+				no_change = (info->data16_rx == info->data16_tx);
+				break;
+			case 3:
+			case 4: info->data32_rx = *(uint32_t *)ptr;
+				no_change = (info->data32_rx == info->data32_tx);
+				break;
+
+			default: info->data64_rx = *(uint64_t *)ptr;
+				no_change = (info->data64_rx == info->data64_tx);
+				break;
+			};
+		} while (no_change && --limit);
+
+		if (!limit && (direct_io_tx_lat == info->action)) {
+			ERR("FAILED: Timeout waiting for response\n");
+			return 1;
+		};
+	};
+	return 0;
+};
+
+void incr_direct_io_data(struct worker *info)
+{
+        info->data8_tx++;
+        info->data16_tx++;
+        info->data32_tx++;
+        info->data64_tx++;
+
+        info->data8_rx = info->data8_tx + 1;
+        info->data16_tx= info->data16_tx + 1;
+        info->data32_tx = info->data32_tx + 1;
+        info->data64_tx = info->data64_tx + 1;
+};
+
 void direct_io_goodput(struct worker *info)
 {
-	uint8_t data8 = 0x12;
-	uint16_t data16 = 0x3456;
-	uint32_t data32 = 0x789abcde;
-	uint64_t data64 = 0xf123456789abcdef;
+	int set_rd_data = 0;
 	int rc;
 
 	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
@@ -262,6 +398,33 @@ void direct_io_goodput(struct worker *info)
 		return;
 	};
 
+	if ((direct_io_tx_lat == info->action) ||
+					(direct_io_rx_lat == info->action)) { 
+		if (info->byte_cnt != info->acc_size) {
+			ERR("WARNING: access size == byte count for latency\n");
+			info->acc_size = info->byte_cnt;
+		};
+	};
+
+	if (!info->ob_byte_cnt) {
+		ERR("FAILED: ob_byte_cnt is 0\n");
+		return;
+	};
+
+	if ((direct_io_tx_lat == info->action) ||
+					(direct_io_rx_lat == info->action)) { 
+		if (!info->ib_valid) {
+			ERR("FAILED: ibwin is not valid!\n");
+			return;
+		};
+
+		if (info->byte_cnt != info->acc_size) {
+			info->acc_size = info->byte_cnt;
+			ERR("WARNING: acc_size == byte_cnt for latency\n");
+		};
+		*(uint64_t *)info->ib_ptr = 0;
+	};
+		
 	rc = riomp_dma_obwin_map(info->mp_h, info->did, info->rio_addr, 
 					info->ob_byte_cnt, &info->ob_handle);
 	if (rc) {
@@ -271,8 +434,6 @@ void direct_io_goodput(struct worker *info)
 	};
 
 	info->ob_valid = 1;
-	info->perf_msg_cnt = 0;
-	info->perf_byte_cnt = 0;
 
 	rc = riomp_dma_map_memory(info->mp_h, info->ob_byte_cnt, 
 					info->ob_handle, &info->ob_ptr);
@@ -282,49 +443,54 @@ void direct_io_goodput(struct worker *info)
 		return;
 	};
 
+	set_rd_data = ((direct_io_tx_lat == info->action) ||
+			(direct_io_rx_lat == info->action))  && info->wr;
+	zero_stats(info);
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	while (!info->stop_req) {
 		
 		uint64_t cnt;
 
+		if (direct_io_tx_lat == info->action)
+			start_iter_stats(info);
+
 		for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
-			void *ptr;
+			volatile void * volatile ptr;
 
 			ptr = (void *)((uint64_t)info->ob_ptr + cnt);
 
-			switch (info->acc_size) {
-			case 1: if (info->wr)
-					*(uint8_t *)ptr = data8;
-				else
-					data8 = *(uint8_t *)ptr;
-				break;
+		
+			if (set_rd_data)
+				direct_io_set_rx_buf(info, ptr);
 
-			case 2: if (info->wr)
-					*(uint16_t *)ptr = data16;
-				else
-					data16 = *(uint16_t *)ptr;
+			switch (info->action) {
+			case direct_io_rx_lat:
+				if (direct_io_wait_for_change(info))
+					goto exit;
+				direct_io_tx(info, ptr);
 				break;
-			case 3:
-			case 4: if (info->wr)
-					*(uint32_t *)ptr = data32;
-				else
-					data32 = *(uint32_t *)ptr;
+			case direct_io_tx_lat:
+				direct_io_tx(info, ptr);
+				direct_io_wait_for_change(info);
 				break;
-
-			default: if (info->wr)
-					*(uint64_t *)ptr = data64;
-				else
-					data64 = *(uint64_t *)ptr;
+			case direct_io:
+				direct_io_tx(info, ptr);
 				break;
+			default: break;
 			};
+
+
+			if (direct_io_tx_lat == info->action)
+				finish_iter_stats(info);
 		};
 
 		info->perf_byte_cnt += info->byte_cnt;
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+		incr_direct_io_data(info);
 	};
-
+exit:
 	if (info->ob_ptr) {
 		rc = riomp_dma_unmap_memory(info->mp_h, info->ob_byte_cnt, 
 								info->ob_ptr);
@@ -352,19 +518,10 @@ void direct_io_goodput(struct worker *info)
 #define ADDR_L(x,y) ((uint64_t)((uint64_t)x + (uint64_t)y))
 #define ADDR_P(x,y) ((void *)((uint64_t)x + (uint64_t)y))
 
-void dma_goodput(struct worker *info)
+
+int alloc_dma_tx_buffer(struct worker *info)
 {
-	int dma_rc, rc;
-
-	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
-		ERR("FAILED: rio_addr, byte_cnd or access size is 0!\n");
-		return;
-	};
-
-	if (!info->rdma_buff_size) {
-		ERR("FAILED: rdma_buff_size is 0!\n");
-		return;
-	};
+	int rc = 0;
 
 	if (info->use_kbuf) {
 		rc = riomp_dma_dbuf_alloc(info->mp_h, info->rdma_buff_size,
@@ -372,83 +529,38 @@ void dma_goodput(struct worker *info)
 		if (rc) {
 			ERR("FAILED: riomp_dma_dbuf_alloc rc %d:%s\n",
 						rc, strerror(errno));
-			return;
+			goto exit;;
+		};
+		info->rdma_ptr = NULL;
+		rc = riomp_dma_map_memory(info->mp_h, info->rdma_buff_size,
+					info->rdma_kbuff, &info->rdma_ptr);
+		if (rc) {
+			ERR("FAILED: riomp_dma_map_memory rc %d:%s\n",
+						rc, strerror(errno));
+			goto exit;;
 		};
 	} else {
 		info->rdma_ptr = malloc(info->rdma_buff_size);
 		if (NULL == info->rdma_ptr) {
+			rc = 1;
 			ERR("FAILED: Could not allocate local memory!\n");
-			return;
+			goto exit;
 		}
 	};
 
-	info->perf_msg_cnt = 0;
-	info->perf_byte_cnt = 0;
-
-	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-
-	while (!info->stop_req) {
-		uint64_t offset = 0;
-		uint64_t cnt;
-
-		for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
-							cnt += info->acc_size) {
-			do {
-				if (info->use_kbuf && info->wr)
-					dma_rc = riomp_dma_write_d(info->mp_h,
-						info->did,
-						ADDR_L(info->rio_addr, offset),
-						info->rdma_kbuff,
-						offset,
-						info->acc_size,
-						info->dma_trans_type,
-						info->dma_sync_type);
-
-				if (info->use_kbuf && !info->wr)
-					dma_rc = riomp_dma_read_d(info->mp_h,
-						info->did,
-						ADDR_L(info->rio_addr, offset),
-						info->rdma_kbuff,
-						offset,
-						info->acc_size,
-						info->dma_sync_type);
-
-				if (!info->use_kbuf && info->wr)
-					dma_rc = riomp_dma_write(info->mp_h,
-						info->did,
-						ADDR_L(info->rio_addr, offset),
-						ADDR_P(info->rdma_ptr, offset),
-						info->acc_size,
-						info->dma_trans_type,
-						info->dma_sync_type);
-
-				if (!info->use_kbuf && info->wr)
-					dma_rc = riomp_dma_read(info->mp_h,
-						info->did,
-						ADDR_L(info->rio_addr, offset),
-						ADDR_P(info->rdma_ptr, offset),
-						info->acc_size,
-						info->dma_sync_type);
-			} while (EINTR == dma_rc);
-
-			if (RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
-				dma_rc = riomp_dma_wait_async(info->mp_h,
-								dma_rc, 0);
-			if (dma_rc) {
-				ERR("FAILED: dma transfer rc %d:%s\n",
-						dma_rc, strerror(errno));
-				goto exit;
-			};
-
-			offset += info->acc_size;
-		};
-
-		info->perf_byte_cnt += info->byte_cnt;
-		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
-	};
-
+	return 0;
 exit:
+	return rc;
+};
+
+void dealloc_dma_tx_buffer(struct worker *info)
+{
 	if (info->use_kbuf) {
+		if (NULL != info->rdma_ptr) {
+			riomp_dma_unmap_memory(info->mp_h, info->rdma_buff_size,
+				info->rdma_ptr);
+			info->rdma_ptr = NULL;
+		};
 		if (info->rdma_kbuff) {
 			riomp_dma_dbuf_free(info->mp_h, &info->rdma_kbuff);
 			info->rdma_kbuff = 0;
@@ -460,9 +572,209 @@ exit:
 		};
 	};
 };
-	
 
-void msg_cleanup_con_skt(struct worker *info) {
+int single_dma_access(struct worker *info, uint64_t offset)
+{
+	int dma_rc = 0;
+
+	do {
+		if (info->use_kbuf && info->wr)
+			dma_rc = riomp_dma_write_d(info->mp_h,
+						info->did,
+						ADDR_L(info->rio_addr, offset),
+						info->rdma_kbuff,
+						offset,
+						info->acc_size,
+						info->dma_trans_type,
+						info->dma_sync_type);
+
+		if (info->use_kbuf && !info->wr)
+			dma_rc = riomp_dma_read_d(info->mp_h,
+						info->did,
+						ADDR_L(info->rio_addr, offset),
+						info->rdma_kbuff,
+						offset,
+						info->acc_size,
+						info->dma_sync_type);
+
+		if (!info->use_kbuf && info->wr)
+			dma_rc = riomp_dma_write(info->mp_h,
+						info->did,
+						ADDR_L(info->rio_addr, offset),
+						ADDR_P(info->rdma_ptr, offset),
+						info->acc_size,
+						info->dma_trans_type,
+						info->dma_sync_type);
+
+		if (!info->use_kbuf && info->wr)
+			dma_rc = riomp_dma_read(info->mp_h,
+						info->did,
+						ADDR_L(info->rio_addr, offset),
+						ADDR_P(info->rdma_ptr, offset),
+						info->acc_size,
+						info->dma_sync_type);
+	} while (EINTR == dma_rc);
+
+	return dma_rc;
+};
+
+void dma_goodput(struct worker *info)
+{
+	int dma_rc;
+
+	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
+		ERR("FAILED: rio_addr, byte_cnd or access size is 0!\n");
+		return;
+	};
+
+	if (!info->rdma_buff_size) {
+		ERR("FAILED: rdma_buff_size is 0!\n");
+		return;
+	};
+
+	if (dma_tx_lat == info->action) {
+		if (!info->ib_valid || (NULL == info->ib_ptr))  {
+			ERR("FAILED: Must do IBA before measuring latency.\n");
+			return;
+		};
+		if (info->byte_cnt != info->acc_size)  {
+			ERR("WARNING: For latency, acc_size = byte count.\n");
+		};
+		info->acc_size = info->byte_cnt;
+	};
+
+
+	if (alloc_dma_tx_buffer(info))
+		goto exit;
+
+	zero_stats(info);
+
+	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+
+	while (!info->stop_req) {
+		uint64_t cnt;
+
+		if (dma_tx_lat == info->action) {
+			start_iter_stats(info);
+			memset(info->rdma_ptr, info->rdma_buff_size,
+					info->perf_iter_cnt);
+			*(uint8_t *)info->ib_ptr = info->perf_iter_cnt & 0xFF;
+		};
+
+		for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
+							cnt += info->acc_size) {
+			dma_rc = single_dma_access(info, cnt);
+
+			if (RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
+				dma_rc = riomp_dma_wait_async(info->mp_h,
+								dma_rc, 0);
+			if (dma_rc) {
+				ERR("FAILED: dma transfer rc %d:%s\n",
+						dma_rc, strerror(errno));
+				goto exit;
+			};
+		};
+
+		if (dma_tx_lat == info->action) {
+			uint64_t dlay = (info->byte_cnt * 100) + 10000;
+			uint64_t st_dlay = dlay;
+
+			if (info->wr) {
+				volatile uint8_t *ptr = 
+					(volatile uint8_t *)info->ib_ptr; 
+
+				while (dlay &&
+					(*ptr == (info->perf_iter_cnt & 0xFF)))
+					dlay--;
+			};
+			
+			finish_iter_stats(info);
+
+			if (dlay) {
+				INFO("Response after %d iterations.\n", 
+					st_dlay - dlay);
+			} else {
+				ERR("FAILED: No response in %d checks\n",
+					st_dlay);
+				break;
+			};
+		};
+		info->perf_byte_cnt += info->byte_cnt;
+		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+
+	};
+exit:
+	dealloc_dma_tx_buffer(info);
+};
+	
+void dma_rx_latency(struct worker *info)
+{
+	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
+		ERR("FAILED: rio_addr, byte_cnd or access size is 0!\n");
+		return;
+	};
+
+	if (!info->rdma_buff_size) {
+		ERR("FAILED: rdma_buff_size is 0!\n");
+		return;
+	};
+
+	if (!info->ib_valid || (NULL == info->ib_ptr))  {
+		ERR("FAILED: Must do IBA before measuring latency.\n");
+		return;
+	};
+
+	if (info->byte_cnt != info->acc_size)  {
+		ERR("WARNING: For latency, acc_size = byte count.\n");
+	};
+
+	if (alloc_dma_tx_buffer(info))
+		goto exit;
+
+	info->perf_iter_cnt = 0xFF;
+	*(uint8_t *)info->rdma_ptr = info->perf_iter_cnt;
+
+	while (!info->stop_req) {
+		int dma_rc;
+		volatile uint8_t *ptr = (volatile uint8_t *)info->ib_ptr; 
+		while ((*ptr == (info->perf_iter_cnt & 0xFF)) &&
+							!info->stop_req)
+			{};
+		info->perf_iter_cnt++;
+		*(uint8_t *)info->rdma_ptr = info->perf_iter_cnt & 0xFF;
+
+		dma_rc = single_dma_access(info, 0);
+		if (dma_rc) {
+			ERR("FAILED: dma transfer rc %d:%s\n",
+					dma_rc, strerror(errno));
+			goto exit;
+		};
+	};
+exit:
+	dealloc_dma_tx_buffer(info);
+};
+
+#define FOUR_KB 4096
+
+int alloc_msg_tx_rx_buffs(struct worker *info)
+{
+	int rc;
+
+	rc = riomp_sock_request_send_buffer(info->con_skt, &info->sock_tx_buf);
+	if (rc) {
+		ERR("FAILED: riomp_sock_request_send_buffer rc %d:%s\n",
+			rc, strerror(errno));
+		return rc;
+	};
+
+	if (NULL == info->sock_rx_buf)
+		info->sock_rx_buf = malloc(FOUR_KB);
+
+	return (NULL == info->sock_rx_buf);
+};
+
+void msg_cleanup_con_skt(struct worker *info)
+{
 	int rc;
 
 	if (info->sock_rx_buf) {
@@ -507,7 +819,8 @@ void msg_cleanup_acc_skt(struct worker *info) {
 	};
 };
 
-void msg_cleanup_mb(struct worker *info) {
+void msg_cleanup_mb(struct worker *info)
+{
 	if (info->mb_valid) {
         	int rc = riomp_sock_mbox_destroy_handle(&info->mb);
 		if (rc)
@@ -517,7 +830,33 @@ void msg_cleanup_mb(struct worker *info) {
 	};
 };
 
-#define FOUR_KB 4096
+int send_resp_msg(struct worker *info)
+{
+	int rc;
+	const struct timespec ten_usec = {0, 10 * 1000};
+	nanosleep(&ten_usec, NULL);
+	errno = 0;
+
+	do {
+		rc = riomp_sock_send(info->con_skt, info->sock_tx_buf,
+					info->msg_size);
+
+		if (rc) {
+			if ((errno == ETIME) || (errno == EINTR))
+				continue;
+			if (errno == EBUSY) {
+				nanosleep(&ten_usec, NULL);
+				break;
+			};
+			ERR("FAILED: riomp_sock_send rc %d:%s\n",
+							rc, strerror(errno));
+                        break;
+		};
+	} while (((errno == ETIME) || (errno == EINTR) || (errno == EBUSY)) &&
+		rc && !info->stop_req);
+
+	return rc;
+};
 
 void msg_rx_goodput(struct worker *info)
 {
@@ -577,8 +916,9 @@ void msg_rx_goodput(struct worker *info)
 			info->con_skt_valid = 1;
 		};
 
-		if (NULL == info->sock_rx_buf)
-			info->sock_rx_buf = malloc(FOUR_KB);
+		rc = alloc_msg_tx_rx_buffs(info);
+		if (rc)
+			break;
 
                 rc = riomp_sock_accept(info->acc_skt, &info->con_skt, 1000);
                 if (rc) {
@@ -591,9 +931,9 @@ void msg_rx_goodput(struct worker *info)
 
 		info->con_skt_valid = 2;
 
+		zero_stats(info);
 		clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-		info->perf_msg_cnt = 0;
-		info->perf_byte_cnt = 0;
+
 		while (!rc && !info->stop_req) {
 			rc = riomp_sock_receive(info->con_skt,
 				&info->sock_rx_buf, FOUR_KB, 1000);
@@ -606,6 +946,10 @@ void msg_rx_goodput(struct worker *info)
                         	break;
                 	};
 			info->perf_msg_cnt++;
+			if (message_rx_lat == info->action)
+				if (send_resp_msg(info))
+					break;
+
 			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 		};
 		msg_cleanup_con_skt(info);
@@ -658,20 +1002,17 @@ void msg_tx_goodput(struct worker *info)
 
 	info->con_skt_valid = 2;
 
-	rc = riomp_sock_request_send_buffer(info->con_skt, &info->sock_tx_buf);
-	if (rc) {
-		ERR("FAILED: riomp_sock_request_send_buffer rc %d:%s\n",
-			rc, strerror(errno));
-		return;
-	};
+	rc = alloc_msg_tx_rx_buffs(info);
 
+	zero_stats(info);
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-	info->perf_msg_cnt = 0;
-	info->perf_byte_cnt = 0;
 
 	while (!info->stop_req) {
 		const struct timespec ten_usec = {0, 10 * 1000};
 		nanosleep(&ten_usec, NULL);
+		if (message_tx_lat == info->action)
+			start_iter_stats(info);
+
 		rc = riomp_sock_send(info->con_skt,
 				info->sock_tx_buf, info->msg_size);
 
@@ -684,13 +1025,34 @@ void msg_tx_goodput(struct worker *info)
 			};
 			ERR("FAILED: riomp_sock_send rc %d:%s\n",
 				rc, strerror(errno));
-                        break;
+                        goto exit;
                 };
+
+		if (message_tx_lat == info->action) {
+			rc = 1;
+			while (rc && !info->stop_req) {
+				rc = riomp_sock_receive(info->con_skt,
+					&info->sock_rx_buf, FOUR_KB, 1000);
+
+                		if (rc) {
+                        		if ((errno == ETIME) ||
+							(errno == EINTR)) {
+                                		continue;
+					};
+					ERR(
+					"FAILED: riomp_sock_receive rc %d:%s\n",
+						rc, strerror(errno));
+                        		goto exit;
+                		};
+                	};
+			finish_iter_stats(info);
+		};
+
 		info->perf_msg_cnt++;
 		info->perf_byte_cnt += info->msg_size;
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 	};
-
+exit:
 	msg_cleanup_con_skt(info);
 	msg_cleanup_mb(info);
 };
@@ -772,15 +1134,25 @@ void *worker_thread(void *parm)
 			migrate_thread_to_cpu(info);
 
 		switch (info->action) {
+		case direct_io_tx_lat:
+		case direct_io_rx_lat:
         	case direct_io: direct_io_goodput(info);
 				break;
         	case dma_tx:	
 			dma_goodput(info);
 			break;
+        	case dma_tx_lat:	
+			dma_goodput(info);
+			break;
+        	case dma_rx_lat:	
+			dma_rx_latency(info);
+			break;
         	case message_tx:
+        	case message_tx_lat:
 				msg_tx_goodput(info);
 				break;
         	case message_rx:
+        	case message_rx_lat:
 				msg_rx_goodput(info);
 				break;
         	case alloc_ibwin:

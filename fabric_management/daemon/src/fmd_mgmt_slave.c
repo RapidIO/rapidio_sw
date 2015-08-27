@@ -406,8 +406,8 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 		if (!conn_rc)
 			break;
 
+		ERR("riomp_sock_connect ERR %d\n", conn_rc);
 		if (ETIME == conn_rc) {
-			ERR("riomp_sock_connect ERR %d\n", conn_rc);
 			nanosleep(&dly, NULL);
 		};
 		rc = riomp_sock_close(&slv->skt_h);

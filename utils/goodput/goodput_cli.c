@@ -41,9 +41,15 @@ extern "C" {
 char *req_type_str[(int)last_action+1] = {
 	(char *)"NO_ACT",
 	(char *)"DIO",
+	(char *)"ioTlat",
+	(char *)"ioRlat",
 	(char *)"DMA",
+	(char *)"dT_Lat",
+	(char *)"dR_Lat",
 	(char *)"MSG_Tx",
+	(char *)"mT_Lat",
 	(char *)"MSG_Rx",
+	(char *)"mR_Lat",
 	(char *)" IBWIN",
 	(char *)"~IBWIN",
 	(char *)"SHTDWN",
@@ -101,18 +107,23 @@ ATTR_NONE
 
 int KillCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx;
+	int st_idx = 0, end_idx = MAX_WORKERS-1, i;
 
-	idx = getDecParm(argv[0], 0);
+	if (strncmp(argv[0], "all", 3)) {
+		st_idx = getDecParm(argv[0], 0);
+		end_idx = st_idx;
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
+		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
+			sprintf(env->output, "\nIndex must be 0 to %d...\n",
 								MAX_WORKERS);
-        	logMsg(env);
-		goto exit;
+        		logMsg(env);
+			goto exit;
+		};
 	};
 
-	shutdown_worker_thread(&wkr[idx]);
+	for (i = st_idx; i <= end_idx; i++) {
+		shutdown_worker_thread(&wkr[i]);
+	};
 exit:
         return 0;
 };
@@ -123,25 +134,31 @@ struct cli_cmd Kill = {
 1,
 "Kill a thread",
 "kill <idx>\n"
-	"<idx> is a worker index from 0 to 7\n",
+	"<idx> is a worker index from 0 to 7, or \"all\"\n",
 KillCmd,
 ATTR_NONE
 };
 
 int HaltCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx;
+	int st_idx = 0, end_idx = MAX_WORKERS-1, i;
 
-	idx = getDecParm(argv[0], 0);
+	if (strncmp(argv[0], "all", 3)) {
+		st_idx = getDecParm(argv[0], 0);
+		end_idx = st_idx;
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
+		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
+			sprintf(env->output, "\nIndex must be 0 to %d...\n",
 								MAX_WORKERS);
-        	logMsg(env);
-		goto exit;
+        		logMsg(env);
+			goto exit;
+		};
 	};
 
-	wkr[idx].stop_req = 2;
+	for (i = st_idx; i <= end_idx; i++) {
+		wkr[i].stop_req = 2;
+	};
+
 exit:
         return 0;
 };
@@ -152,12 +169,12 @@ struct cli_cmd Halt = {
 1,
 "Halt execution of a thread command",
 "halt <idx>\n"
-	"<idx> is a worker index from 0 to 7\n",
+	"<idx> is a worker index from 0 to 7, or \"all\"\n",
 HaltCmd,
 ATTR_NONE
 };
 
-int SwitchCmd(struct cli_env *env, int argc, char **argv)
+int MoveCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, cpu;
 
@@ -178,19 +195,21 @@ int SwitchCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	wkr[idx].cpu_req = cpu;
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
 exit:
         return 0;
 };
 
-struct cli_cmd Switch = {
-"switch",
+struct cli_cmd Move = {
+"move",
 2,
 2,
-"Switch a thread to a different CPU\n",
-"switch <idx> <cpu>\n"
+"Move a thread to a different CPU",
+"move <idx> <cpu>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n",
-SwitchCmd,
+MoveCmd,
 ATTR_NONE
 };
 
@@ -220,7 +239,7 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	if (wkr[idx].stat != 2) {
-		sprintf(env->output, "\nWorker not stopped...\n");
+		sprintf(env->output, "\nWorker not halted...\n");
         	logMsg(env);
 		goto exit;
 	};
@@ -282,21 +301,22 @@ IBDeallocCmd,
 ATTR_NONE
 };
 
-int OBDIOCmd(struct cli_env *env, int argc, char **argv)
+int obdio_cmd(struct cli_env *env, int argc, char **argv, enum req_type action)
 {
 	int idx;
 	int did;
 	uint64_t rio_addr;
 	uint64_t bytes;
 	uint64_t acc_sz;
-	int wr;
+	int wr = 0;
 
 	idx = getDecParm(argv[0], 0);
 	did = getDecParm(argv[1], 0);
 	rio_addr = getHex(argv[2], 0);
 	bytes = getHex(argv[3], 0);
 	acc_sz = getHex(argv[4], 0);
-	wr = getDecParm(argv[5], 0);
+	if ( direct_io_rx_lat != action)
+		wr = getDecParm(argv[5], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -310,20 +330,27 @@ int OBDIOCmd(struct cli_env *env, int argc, char **argv)
         	logMsg(env);
 		goto exit;
 	};
-
-	wkr[idx].action = direct_io;
+	wkr[idx].action = action;
 	wkr[idx].action_mode = kernel_action;
 	wkr[idx].did = did;
 	wkr[idx].rio_addr = rio_addr;
 	wkr[idx].byte_cnt = bytes;
 	wkr[idx].acc_size = acc_sz;
 	wkr[idx].wr = wr;
-	wkr[idx].ob_byte_cnt = bytes;
+	if ( direct_io == action)
+		wkr[idx].ob_byte_cnt = bytes;
+	else
+		wkr[idx].ob_byte_cnt = 0x10000;
 
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
+};
+
+int OBDIOCmd(struct cli_env *env, int argc, char **argv)
+{
+	return obdio_cmd(env, argc, argv, direct_io);
 };
 
 struct cli_cmd OBDIO = {
@@ -339,6 +366,48 @@ struct cli_cmd OBDIO = {
 	"<acc_sz> Access size, values: 1, 2, 4, 8\n"
 	"<wr>  0: Read, <>0: Write\n",
 OBDIOCmd,
+ATTR_NONE
+};
+
+int OBDIOTxLatCmd(struct cli_env *env, int argc, char **argv)
+{
+	return obdio_cmd(env, argc, argv, direct_io_tx_lat);
+};
+
+struct cli_cmd OBDIOTxLat = {
+"DIOTxLat",
+8,
+6,
+"Perform reads/writes through an outbound window",
+"DIOTxLat <idx> <did> <rio_addr> <bytes> <acc_sz> <wr>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<did> target device ID\n"
+	"<rio_addr> RapidIO memory address to access\n"
+	"<bytes> total bytes to transfer\n"
+	"<acc_sz> Access size, values: 1, 2, 4, 8\n"
+	"<wr>  0: Read, <>0: Write\n"
+	"NOTE: For <wr>=1, there must be a <did> thread running OBDIORxLat!\n",
+OBDIOTxLatCmd,
+ATTR_NONE
+};
+
+int OBDIORxLatCmd(struct cli_env *env, int argc, char **argv)
+{
+	return obdio_cmd(env, argc, argv, direct_io_rx_lat);
+};
+
+struct cli_cmd OBDIORxLat = {
+"DIORxLat",
+10,
+6,
+"Perform reads/writes through an outbound window",
+"DIORxLat <idx> <did> <rio_addr> <bytes> <acc_sz>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<did> target device ID\n"
+	"<rio_addr> RapidIO memory address to access\n"
+	"<bytes> total bytes to transfer\n"
+	"<acc_sz> Access size, values: 1, 2, 4, 8\n",
+OBDIORxLatCmd,
 ATTR_NONE
 };
 
@@ -420,7 +489,145 @@ dmaCmd,
 ATTR_NONE
 };
 
-int msgTxCmd(struct cli_env *env, int argc, char **argv)
+int dmaTxLatCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx;
+	int did;
+	uint64_t rio_addr;
+	uint64_t bytes;
+	int wr;
+	int kbuf;
+	int trans;
+
+	idx = getDecParm(argv[0], 0);
+	did = getDecParm(argv[1], 0);
+	rio_addr = getHex(argv[2], 0);
+	bytes = getHex(argv[3], 0);
+	wr = getDecParm(argv[4], 0);
+	kbuf = getDecParm(argv[5], 0);
+	trans = getDecParm(argv[6], 0);
+
+	if ((idx < 0) || (idx >= MAX_WORKERS)) {
+		sprintf(env->output, "\nIndex must be 0 to %d...\n",
+								MAX_WORKERS);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (wkr[idx].stat != 2) {
+		sprintf(env->output, "\nWorker not stopped...\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (trans > (int)RIO_DIRECTIO_TYPE_NWRITE_R_ALL)
+		trans = RIO_DIRECTIO_TYPE_NWRITE;
+
+	wkr[idx].action = dma_tx_lat;
+	wkr[idx].action_mode = kernel_action;
+	wkr[idx].did = did;
+	wkr[idx].rio_addr = rio_addr;
+	wkr[idx].byte_cnt = bytes;
+	wkr[idx].acc_size = bytes;
+	wkr[idx].wr = wr;
+	wkr[idx].use_kbuf = kbuf;
+	wkr[idx].dma_trans_type = (enum riomp_dma_directio_type)trans;
+	if (wr)
+		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_ASYNC;
+	else
+		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
+	wkr[idx].rdma_buff_size = bytes;
+
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+exit:
+        return 0;
+};
+
+struct cli_cmd dmaTxLat = {
+"dmaTxLat",
+8,
+9,
+"Perform reads/writes with the DMA engines",
+"dmaTxLat <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<did> target device ID\n"
+	"<rio_addr> RapidIO memory address to access\n"
+	"<bytes> total bytes to transfer\n"
+	"<wr>  0: Read, <>0: Write\n"
+	"<kbuf>  0: User memory, <>0: Kernel buffer\n"
+	"<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
+	"NOTE: For <wr>=1, there must be a thread on <did> running dmaRxLat!\n",
+dmaTxLatCmd,
+ATTR_NONE
+};
+
+int dmaRxLatCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx;
+	int did;
+	uint64_t rio_addr;
+
+	idx = getDecParm(argv[0], 0);
+	did = getDecParm(argv[1], 0);
+	rio_addr = getHex(argv[2], 0);
+
+	if ((idx < 0) || (idx >= MAX_WORKERS)) {
+		sprintf(env->output, "\nIndex must be 0 to %d...\n",
+								MAX_WORKERS);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (wkr[idx].stat != 2) {
+		sprintf(env->output, "\nWorker not stopped...\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	wkr[idx].action = dma_rx_lat;
+	wkr[idx].action_mode = kernel_action;
+	wkr[idx].did = did;
+	wkr[idx].rio_addr = rio_addr;
+	wkr[idx].byte_cnt = 0x10000;
+	wkr[idx].acc_size = 0x1;
+	wkr[idx].wr = 1;
+	wkr[idx].use_kbuf = 1;
+	wkr[idx].dma_trans_type = RIO_DIRECTIO_TYPE_NWRITE;
+	wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_FAF;
+
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+exit:
+        return 0;
+};
+
+struct cli_cmd dmaRxLat = {
+"dmaRxLat",
+8,
+3,
+"Acknowledge DMA write completion for DMA Latency write test.",
+"dmaRxLat <idx> <did> <rio_addr>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<did> target device ID\n"
+	"<rio_addr> RapidIO memory address to access\n",
+dmaRxLatCmd,
+ATTR_NONE
+};
+
+void roundoff_message_size(int *bytes)
+{
+	if (*bytes > 4096)
+		*bytes = 4096;
+
+	if (*bytes < 24)
+		*bytes = 24;
+
+	*bytes = (*bytes + 7) & 0x1FF8;
+};
+
+
+int msg_tx_cmd(struct cli_env *env, int argc, char **argv, enum req_type req)
 {
 	int idx;
 	int did;
@@ -451,11 +658,9 @@ int msgTxCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	bytes = (bytes + 7) & 0xFF8;
-	if (bytes < 24)
-		bytes = 24;
+	roundoff_message_size(&bytes);
 
-	wkr[idx].action = message_tx;
+	wkr[idx].action = req;
 	wkr[idx].action_mode = kernel_action;
 	wkr[idx].did = did;
 	wkr[idx].sock_num = sock_num;
@@ -467,6 +672,12 @@ exit:
         return 0;
 };
 
+int msgTxCmd(struct cli_env *env, int argc, char **argv)
+{
+	msg_tx_cmd(env, argc, argv, message_tx);
+        return 0;
+};
+
 struct cli_cmd msgTx = {
 "msgTx",
 4,
@@ -475,10 +686,88 @@ struct cli_cmd msgTx = {
 "msgTx <idx> <did> <sock_num> <size>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
-	"<sock_num> RapidIO memory address to access\n"
+	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
 	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
 	"NOTE: All parameters are decimal numbers.\n",
 msgTxCmd,
+ATTR_NONE
+};
+
+int msgTxLatCmd(struct cli_env *env, int argc, char **argv)
+{
+	msg_tx_cmd(env, argc, argv, message_tx_lat);
+        return 0;
+};
+
+struct cli_cmd msgTxLat = {
+"mTxLat",
+2,
+4,
+"Measures latency of channelized messages as requested",
+"mTxLat <idx> <did> <sock_num> <size>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<did> target device ID\n"
+	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
+	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
+	"NOTE: All parameters are decimal numbers.\n",
+msgTxLatCmd,
+ATTR_NONE
+};
+
+int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx;
+	int sock_num;
+	int bytes;
+
+	idx = getDecParm(argv[0], 0);
+	sock_num = getDecParm(argv[1], 0);
+	bytes = getDecParm(argv[2], 0);
+
+	if ((idx < 0) || (idx >= MAX_WORKERS)) {
+		sprintf(env->output, "\nIndex must be 0 to %d...\n",
+								MAX_WORKERS);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (wkr[idx].stat != 2) {
+		sprintf(env->output, "\nWorker not stopped...\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (!sock_num) {
+		sprintf(env->output, "\nSock_num must not be 0.\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	roundoff_message_size(&bytes);
+
+	wkr[idx].action = message_rx_lat;
+	wkr[idx].action_mode = kernel_action;
+	wkr[idx].did = 0;
+	wkr[idx].sock_num = sock_num;
+	wkr[idx].msg_size = bytes;
+
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+exit:
+        return 0;
+};
+
+struct cli_cmd msgRxLat = {
+"mRxLat",
+2,
+3,
+"Loops back received messages to sender",
+"mRxLat <idx> <sock_num> <size>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
+	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
+	"NOTE: All parameters are decimal numbers.\n",
+msgRxLatCmd,
 ATTR_NONE
 };
 
@@ -611,6 +900,71 @@ PerfCmd,
 ATTR_RPT
 };
 
+int LatCmd(struct cli_env *env, int argc, char **argv)
+{
+	int i;
+	char min_lat_str[FLOAT_STR_SIZE];
+	char avg_lat_str[FLOAT_STR_SIZE];
+	char max_lat_str[FLOAT_STR_SIZE];
+
+
+	sprintf(env->output,
+        "\nW STS <<<<-Count-->>>> <<<<Min uSec>>>> <<<<Avg uSec>>>> <<<<Max uSec>>>>\n");
+        logMsg(env);
+
+	for (i = 0; i < MAX_WORKERS; i++) {
+		uint64_t tot_nsec;
+		uint64_t avg_nsec;
+
+		tot_nsec = wkr[i].tot_iter_time.tv_nsec +
+				(wkr[i].tot_iter_time.tv_sec * 1000000000);
+
+		/* Note: divide by 2 to account for round trip latency. */
+		if (wkr[i].perf_iter_cnt)
+			avg_nsec = tot_nsec/2/wkr[i].perf_iter_cnt;
+		else
+			avg_nsec = 0;
+
+		memset(min_lat_str, 0, FLOAT_STR_SIZE);
+		memset(avg_lat_str, 0, FLOAT_STR_SIZE);
+		memset(max_lat_str, 0, FLOAT_STR_SIZE);
+		sprintf(min_lat_str, "%4.3f",
+			(float)(wkr[i].min_iter_time.tv_nsec/2)/1000.0); 
+		sprintf(avg_lat_str, "%4.3f", (float)avg_nsec/1000.0);
+		sprintf(max_lat_str, "%4.3f",
+			(float)(wkr[i].max_iter_time.tv_nsec/2)/1000.0); 
+
+		sprintf(env->output, "%1d %3s %16ld %16s %16s %16s\n",
+			i,  THREAD_STR(wkr[i].stat),
+			wkr[i].perf_iter_cnt,
+			min_lat_str, avg_lat_str, max_lat_str);
+        	logMsg(env);
+
+
+		if (argc) {
+			wkr[i].perf_iter_cnt = 0;
+			wkr[i].min_iter_time.tv_nsec = 0;
+			wkr[i].max_iter_time.tv_nsec = 0;
+			wkr[i].tot_iter_time.tv_nsec = 0;
+			wkr[i].tot_iter_time.tv_sec = 0;
+		};
+	};
+
+        return 0;
+};
+
+struct cli_cmd Lat = {
+"Lat",
+3,
+0,
+"Print current latency for threads.",
+"lat {<optional>}\n"
+	"Any parameter to lat causes the latency information for all\n"
+	"   running threads to be zeroed after they are displayed.\n",
+LatCmd,
+ATTR_RPT
+};
+
 
 void display_cpu(struct cli_env *env, int cpu)
 {
@@ -739,15 +1093,25 @@ StatusCmd,
 ATTR_RPT
 };
 
+int dump_idx;
+uint64_t dump_base_offset;
+uint64_t dump_size;
+
 int DumpCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
 	uint64_t offset, base_offset;
 	uint64_t size;
 
-	idx = getDecParm(argv[0], 0);
-	base_offset = getHex(argv[1], 0);
-	size = getHex(argv[2], 0);
+	if (argc) {
+		idx = getDecParm(argv[0], 0);
+		base_offset = getHex(argv[1], 0);
+		size = getHex(argv[2], 0);
+	} else {
+		idx = dump_idx;
+		base_offset = dump_base_offset;
+		size = dump_size;
+	};
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -768,6 +1132,10 @@ int DumpCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	}
 
+	dump_idx = idx;
+	dump_base_offset = base_offset;
+	dump_size = size;
+
         sprintf(env->output,
                 "  Offset 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
         logMsg(env);
@@ -777,7 +1145,7 @@ int DumpCmd(struct cli_env *env, int argc, char **argv)
                         logMsg(env);
                 };
                 sprintf(env->output, " %2x", 
-			*(uint8_t *)(
+			*(volatile uint8_t * volatile)(
 			(uint8_t *)wkr[idx].ib_ptr + base_offset + offset));
                 logMsg(env);
         };
@@ -797,7 +1165,7 @@ struct cli_cmd Dump = {
 	"<offset> is the hexadecimal offset, in bytes, from the window start\n"
 	"<size> is the number of bytes to display, starting at <offset>\n",
 DumpCmd,
-ATTR_NONE
+ATTR_RPT
 };
 
 int MpdevsCmd(struct cli_env *env, int argc, char **argv)
@@ -885,7 +1253,7 @@ struct cli_cmd Mpdevs = {
 "mpdevs",
 2,
 0,
-"Display mports and devices\n",
+"Display mports and devices",
 "mpdevs <No Parameters>\n",
 MpdevsCmd,
 ATTR_NONE
@@ -895,20 +1263,32 @@ struct cli_cmd *goodput_cmds[] = {
 	&IBAlloc,
 	&IBDealloc,
 	&OBDIO,
+	&OBDIOTxLat,
+	&OBDIORxLat,
 	&dma,
+	&dmaTxLat,
+	&dmaRxLat,
 	&msgTx,
+	&msgTxLat,
 	&msgRx,
+	&msgRxLat,
 	&Perf,
+	&Lat,
 	&Status,
 	&Start,
 	&Kill,
 	&Halt,
+	&Move,
 	&Dump,
 	&Mpdevs
 };
 
 void bind_goodput_cmds(void)
 {
+	dump_idx = 0;
+	dump_base_offset = 0;
+	dump_size = 0x100;
+
         add_commands_to_cmd_db(sizeof(goodput_cmds)/sizeof(goodput_cmds[0]),
                                 goodput_cmds);
 };
