@@ -420,7 +420,6 @@ int CLICloseLogFileCmd(struct cli_env *env, int argc, char **argv)
 	if (env->fout == NULL) {
 		sprintf(env->output, "\t/*FAILED: No log file to close */\n");
 		logMsg(env);
-		errorStat = 1;
 	} else {
 		sprintf(env->output, "\t/*Log file closed*/\n");
 		logMsg(env);

@@ -36,7 +36,7 @@ COMMONLIB=../../common/libs_a
 
 
 # User-mode flags
-CCFLAGS = -O3 -Wall -g -I. -I$(COMMONINC) -D$(config) -std=gnu++0x -pthread \
+CCFLAGS = -O0 -Wall -g -I. -I$(COMMONINC) -D$(config) -std=gnu++0x -pthread \
 	-DRDMA_LL=7
 
 INCLUDES = time_utils.h worker.h goodput.h goodput_cli.h

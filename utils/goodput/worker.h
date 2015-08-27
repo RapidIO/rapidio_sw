@@ -85,9 +85,15 @@ extern "C" {
 enum req_type {
 	no_action,
 	direct_io,
+	direct_io_tx_lat,
+	direct_io_rx_lat,
 	dma_tx,
+	dma_tx_lat,
+	dma_rx_lat,
 	message_tx,
+	message_tx_lat,
 	message_rx,
+	message_rx_lat,
 	alloc_ibwin,
 	free_ibwin,
 	shutdown_worker,
@@ -129,6 +135,16 @@ struct worker {
 	uint64_t ib_byte_cnt; /* Inbound window size */
 	void *ib_ptr; /* Pointer to mapped ib_handle */
 
+	uint8_t data8_tx;
+	uint16_t data16_tx;
+	uint32_t data32_tx;
+	uint64_t data64_tx;
+
+	uint8_t data8_rx;
+	uint16_t data16_rx;
+	uint32_t data32_rx;
+	uint64_t data64_rx;
+
 	int use_kbuf; 
 	enum riomp_dma_directio_type dma_trans_type;
 	enum riomp_dma_directio_transfer_sync dma_sync_type;
@@ -146,11 +162,18 @@ struct worker {
 	uint16_t sock_num; /* RIO CM socket to connect to */
 	void *sock_tx_buf; 
 	void *sock_rx_buf; 
-	uint64_t perf_msg_cnt; /* Messages read/written */
 
+	uint64_t perf_msg_cnt; /* Messages read/written */
 	uint64_t perf_byte_cnt; /* bytes read/written */
-	struct timespec st_time;
-	struct timespec end_time;
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+
+	uint64_t perf_iter_cnt; /* Number of repititions */
+	struct timespec iter_st_time; /* Start of the iteration, latency */
+	struct timespec iter_end_time; /* End of the iteration, latency */
+	struct timespec tot_iter_time; /* Total time for all iterations */
+	struct timespec min_iter_time; /* Minimum time over all iterations */
+	struct timespec max_iter_time; /* Maximum time over all iterations */
 };
 
 /**

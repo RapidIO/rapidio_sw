@@ -205,6 +205,26 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 			cfg->sws[i].ports[j].conn = NULL;
 			cfg->sws[i].ports[j].conn_end = -1;
 		};
+		for (j = 0; j < FMD_DEVID_MAX; j++) {
+			int k;
+			cfg->sws[i].rt[j].default_route = 0xDF;
+			for (k = 0; k < IDT_DAR_RT_DEV_TABLE_SIZE; k++) {
+				cfg->sws[i].rt[j].dev_table[k].rte_val =
+							IDT_DSF_RT_NO_ROUTE;
+				cfg->sws[i].rt[j].dev_table[k].changed = 0;
+				cfg->sws[i].rt[j].dom_table[k].rte_val =
+							IDT_DSF_RT_NO_ROUTE;
+				cfg->sws[i].rt[j].dom_table[k].changed = 0;
+			};
+			for (k = 0; k < IDT_DSF_MAX_MC_MASK; k++) {
+				cfg->sws[i].rt[j].mc_masks[k].mc_destID = 0xFF;
+				cfg->sws[i].rt[j].mc_masks[k].tt = tt_dev8;
+				cfg->sws[i].rt[j].mc_masks[k].mc_mask = 0;
+				cfg->sws[i].rt[j].mc_masks[k].in_use = 0;
+				cfg->sws[i].rt[j].mc_masks[k].allocd = 0;
+				cfg->sws[i].rt[j].mc_masks[k].changed = 0;
+			};
+		};
 	};
 
 	for (i = 0; i < FMD_MAX_CONN; i++) {
