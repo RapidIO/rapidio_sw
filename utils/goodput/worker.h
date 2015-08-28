@@ -105,6 +105,8 @@ enum req_mode {
 	user_mode_action
 };
 
+#define MIN_RDMA_BUFF_SIZE 0x10000
+
 struct worker {
 	pthread_t thr;
 	sem_t started;

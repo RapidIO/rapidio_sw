@@ -213,6 +213,54 @@ MoveCmd,
 ATTR_NONE
 };
 
+int WaitCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx, state, limit = 10000;
+	const struct timespec ten_usec = {0, 10 * 1000};
+
+	idx = getDecParm(argv[0], 0);
+	state = getDecParm(argv[1], 0);
+
+	if ((idx < 0) || (idx >= MAX_WORKERS)) {
+		sprintf(env->output, "\nIndex must be 0 to %d...\n",
+								MAX_WORKERS);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if ((state < 0) || (state > 2)) {
+		sprintf(env->output, "\nCpu must be -1 to 3...\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	while ((wkr[idx].stat != state) && limit--)
+        	nanosleep(&ten_usec, NULL);
+
+	if (wkr[idx].stat == state)
+		sprintf(env->output, "\nPassed, CPU is now %s\n",
+			THREAD_STR(wkr[idx].stat));
+	else
+		sprintf(env->output, "\nFAILED, CPU is now %s\n",
+			THREAD_STR(wkr[idx].stat));
+        logMsg(env);
+
+exit:
+        return 0;
+};
+
+struct cli_cmd Wait = {
+"wait",
+2,
+2,
+"Wait until a thread reaches a particular state\n",
+"wait <idx> <state>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<state> 0 - Dead, 1 - Run, 2 - Halted\n",
+WaitCmd,
+ATTR_NONE
+};
+
 #define FOUR_KB (4*1024)
 #define SIXTEEN_MB (16*1024*1024)
 
@@ -533,7 +581,7 @@ int dmaTxLatCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].use_kbuf = kbuf;
 	wkr[idx].dma_trans_type = (enum riomp_dma_directio_type)trans;
 	if (wr)
-		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_ASYNC;
+		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
 	else
 		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
 	wkr[idx].rdma_buff_size = bytes;
@@ -545,11 +593,11 @@ exit:
 };
 
 struct cli_cmd dmaTxLat = {
-"dmaTxLat",
-8,
-9,
+"dTxLat",
+2,
+7,
 "Perform reads/writes with the DMA engines",
-"dmaTxLat <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync>\n"
+"dTxLat <idx> <did> <rio_addr> <bytes> <wr> <kbuf> <trans>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
@@ -557,7 +605,7 @@ struct cli_cmd dmaTxLat = {
 	"<wr>  0: Read, <>0: Write\n"
 	"<kbuf>  0: User memory, <>0: Kernel buffer\n"
 	"<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
-	"NOTE: For <wr>=1, there must be a thread on <did> running dmaRxLat!\n",
+	"NOTE: For <wr>=1, there must be a thread on <did> running dRxLat!\n",
 dmaTxLatCmd,
 ATTR_NONE
 };
@@ -567,10 +615,12 @@ int dmaRxLatCmd(struct cli_env *env, int argc, char **argv)
 	int idx;
 	int did;
 	uint64_t rio_addr;
+	uint64_t bytes;
 
 	idx = getDecParm(argv[0], 0);
 	did = getDecParm(argv[1], 0);
 	rio_addr = getHex(argv[2], 0);
+	bytes = getHex(argv[3], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -585,16 +635,26 @@ int dmaRxLatCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
+	if (!rio_addr || !bytes) {
+		sprintf(env->output, "\nrio_addr and bytes cannot be 0.\n");
+        	logMsg(env);
+		goto exit;
+	};
+
 	wkr[idx].action = dma_rx_lat;
 	wkr[idx].action_mode = kernel_action;
 	wkr[idx].did = did;
 	wkr[idx].rio_addr = rio_addr;
-	wkr[idx].byte_cnt = 0x10000;
-	wkr[idx].acc_size = 0x1;
+	wkr[idx].byte_cnt = bytes;
+	wkr[idx].acc_size = bytes;
 	wkr[idx].wr = 1;
 	wkr[idx].use_kbuf = 1;
 	wkr[idx].dma_trans_type = RIO_DIRECTIO_TYPE_NWRITE;
-	wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_FAF;
+	wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
+	if (bytes < MIN_RDMA_BUFF_SIZE) 
+		wkr[idx].rdma_buff_size = MIN_RDMA_BUFF_SIZE;
+	else
+		wkr[idx].rdma_buff_size = bytes;
 
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
@@ -603,14 +663,15 @@ exit:
 };
 
 struct cli_cmd dmaRxLat = {
-"dmaRxLat",
+"dRxLat",
 8,
-3,
+4,
 "Acknowledge DMA write completion for DMA Latency write test.",
-"dmaRxLat <idx> <did> <rio_addr>\n"
+"dRxLat <idx> <did> <rio_addr> <bytes>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
-	"<rio_addr> RapidIO memory address to access\n",
+	"<rio_addr> RapidIO memory address to access\n"
+	"<bytes> total bytes to transfer\n",
 dmaRxLatCmd,
 ATTR_NONE
 };
@@ -907,6 +968,8 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 	char avg_lat_str[FLOAT_STR_SIZE];
 	char max_lat_str[FLOAT_STR_SIZE];
 
+	if (0)
+		argv[0][0] = argc;
 
 	sprintf(env->output,
         "\nW STS <<<<-Count-->>>> <<<<Min uSec>>>> <<<<Avg uSec>>>> <<<<Max uSec>>>>\n");
@@ -915,13 +978,16 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 	for (i = 0; i < MAX_WORKERS; i++) {
 		uint64_t tot_nsec;
 		uint64_t avg_nsec;
+		uint64_t divisor;
+
+		divisor = (wkr[i].wr)?2:1;
 
 		tot_nsec = wkr[i].tot_iter_time.tv_nsec +
 				(wkr[i].tot_iter_time.tv_sec * 1000000000);
 
 		/* Note: divide by 2 to account for round trip latency. */
 		if (wkr[i].perf_iter_cnt)
-			avg_nsec = tot_nsec/2/wkr[i].perf_iter_cnt;
+			avg_nsec = tot_nsec/divisor/wkr[i].perf_iter_cnt;
 		else
 			avg_nsec = 0;
 
@@ -929,38 +995,27 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 		memset(avg_lat_str, 0, FLOAT_STR_SIZE);
 		memset(max_lat_str, 0, FLOAT_STR_SIZE);
 		sprintf(min_lat_str, "%4.3f",
-			(float)(wkr[i].min_iter_time.tv_nsec/2)/1000.0); 
+			(float)(wkr[i].min_iter_time.tv_nsec/divisor)/1000.0); 
 		sprintf(avg_lat_str, "%4.3f", (float)avg_nsec/1000.0);
 		sprintf(max_lat_str, "%4.3f",
-			(float)(wkr[i].max_iter_time.tv_nsec/2)/1000.0); 
+			(float)(wkr[i].max_iter_time.tv_nsec/divisor)/1000.0); 
 
 		sprintf(env->output, "%1d %3s %16ld %16s %16s %16s\n",
 			i,  THREAD_STR(wkr[i].stat),
 			wkr[i].perf_iter_cnt,
 			min_lat_str, avg_lat_str, max_lat_str);
         	logMsg(env);
-
-
-		if (argc) {
-			wkr[i].perf_iter_cnt = 0;
-			wkr[i].min_iter_time.tv_nsec = 0;
-			wkr[i].max_iter_time.tv_nsec = 0;
-			wkr[i].tot_iter_time.tv_nsec = 0;
-			wkr[i].tot_iter_time.tv_sec = 0;
-		};
 	};
 
         return 0;
 };
 
 struct cli_cmd Lat = {
-"Lat",
+"lat",
 3,
 0,
 "Print current latency for threads.",
-"lat {<optional>}\n"
-	"Any parameter to lat causes the latency information for all\n"
-	"   running threads to be zeroed after they are displayed.\n",
+"lat {No Parms}\n",
 LatCmd,
 ATTR_RPT
 };
@@ -981,7 +1036,7 @@ void display_gen_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-        "\nW STS CPU RUN ACTION MODE <<<<--ADDR-->>>> ByteCnt AccSize W OB IB MB\n");
+        "\nW STS CPU RUN ACTION MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W OB IB MB\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -990,9 +1045,9 @@ void display_gen_status(struct cli_env *env)
 		display_cpu(env, wkr[i].cpu_req);
 		display_cpu(env, wkr[i].cpu_run);
 		sprintf(env->output,
-			"%6s %4s %16lx %7lx %7lx %1d %2d %2d %2d\n",
+			"%6s %4s %3d %16lx %7lx %7lx %1d %2d %2d %2d\n",
 			ACTION_STR(wkr[i].action), 
-			MODE_STR(wkr[i].action_mode), 
+			MODE_STR(wkr[i].action_mode), wkr[i].did,
 			wkr[i].rio_addr, wkr[i].byte_cnt, wkr[i].acc_size, 
 			wkr[i].wr, wkr[i].ob_valid, wkr[i].ib_valid, 
 			wkr[i].mb_valid);
@@ -1141,7 +1196,7 @@ int DumpCmd(struct cli_env *env, int argc, char **argv)
         logMsg(env);
         for (offset = 0; offset < size; offset++) {
                 if (!(offset & 0xF)) {
-                        sprintf(env->output,"\n%8lx", offset);
+                        sprintf(env->output,"\n%8lx", base_offset + offset);
                         logMsg(env);
                 };
                 sprintf(env->output, " %2x", 
@@ -1265,9 +1320,9 @@ struct cli_cmd *goodput_cmds[] = {
 	&OBDIO,
 	&OBDIOTxLat,
 	&OBDIORxLat,
-	&dma,
 	&dmaTxLat,
 	&dmaRxLat,
+	&dma,
 	&msgTx,
 	&msgTxLat,
 	&msgRx,
@@ -1279,6 +1334,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&Kill,
 	&Halt,
 	&Move,
+	&Wait,
 	&Dump,
 	&Mpdevs
 };

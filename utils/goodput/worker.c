@@ -621,6 +621,8 @@ int single_dma_access(struct worker *info, uint64_t offset)
 void dma_goodput(struct worker *info)
 {
 	int dma_rc;
+	uint8_t * volatile rx_flag;
+	uint8_t * volatile tx_flag;
 
 	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
 		ERR("FAILED: rio_addr, byte_cnd or access size is 0!\n");
@@ -649,6 +651,10 @@ void dma_goodput(struct worker *info)
 
 	zero_stats(info);
 
+	rx_flag = (uint8_t * volatile)info->ib_ptr + info->byte_cnt - 1;
+	tx_flag = (uint8_t * volatile)info->rdma_ptr +
+			info->byte_cnt - 1;
+
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	while (!info->stop_req) {
@@ -656,11 +662,13 @@ void dma_goodput(struct worker *info)
 
 		if (dma_tx_lat == info->action) {
 			start_iter_stats(info);
-			memset(info->rdma_ptr, info->rdma_buff_size,
-					info->perf_iter_cnt);
-			*(uint8_t *)info->ib_ptr = info->perf_iter_cnt & 0xFF;
+			*tx_flag = info->perf_iter_cnt;
+			*rx_flag = info->perf_iter_cnt + 1;
 		};
 
+		/* Note: when info->action == dma_tx_lat, the loop below
+		* will go through one iteration.
+		*/
 		for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
 			dma_rc = single_dma_access(info, cnt);
@@ -674,25 +682,21 @@ void dma_goodput(struct worker *info)
 				goto exit;
 			};
 		};
-
 		if (dma_tx_lat == info->action) {
-			uint64_t dlay = (info->byte_cnt * 100) + 10000;
-			uint64_t st_dlay = dlay;
+			uint64_t dly = (info->byte_cnt * 100) + 10000;
+			uint64_t st_dlay = dly;
+			uint8_t iter_cnt_as_byte = info->perf_iter_cnt;
 
 			if (info->wr) {
-				volatile uint8_t *ptr = 
-					(volatile uint8_t *)info->ib_ptr; 
-
-				while (dlay &&
-					(*ptr == (info->perf_iter_cnt & 0xFF)))
-					dlay--;
+				while (dly && (*rx_flag != iter_cnt_as_byte))
+					dly--;
 			};
 			
 			finish_iter_stats(info);
 
-			if (dlay) {
+			if (dly) {
 				INFO("Response after %d iterations.\n", 
-					st_dlay - dlay);
+					st_dlay - dly);
 			} else {
 				ERR("FAILED: No response in %d checks\n",
 					st_dlay);
@@ -709,6 +713,9 @@ exit:
 	
 void dma_rx_latency(struct worker *info)
 {
+	uint8_t * volatile rx_flag;
+	uint8_t * volatile tx_flag;
+
 	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
 		ERR("FAILED: rio_addr, byte_cnd or access size is 0!\n");
 		return;
@@ -731,19 +738,27 @@ void dma_rx_latency(struct worker *info)
 	if (alloc_dma_tx_buffer(info))
 		goto exit;
 
-	info->perf_iter_cnt = 0xFF;
-	*(uint8_t *)info->rdma_ptr = info->perf_iter_cnt;
+	rx_flag = (uint8_t * volatile)info->ib_ptr + info->byte_cnt - 1;
+
+	tx_flag = (uint8_t * volatile)info->rdma_ptr +
+			info->byte_cnt - 1;
+	info->perf_iter_cnt = 0;
+	*tx_flag = info->perf_iter_cnt;
+	*rx_flag = info->perf_iter_cnt + 1;
 
 	while (!info->stop_req) {
 		int dma_rc;
-		volatile uint8_t *ptr = (volatile uint8_t *)info->ib_ptr; 
-		while ((*ptr == (info->perf_iter_cnt & 0xFF)) &&
-							!info->stop_req)
+		uint8_t iter_cnt_as_byte;
+
+		iter_cnt_as_byte = info->perf_iter_cnt;
+		*tx_flag = iter_cnt_as_byte;
+		while ((*rx_flag != iter_cnt_as_byte) && !info->stop_req)
 			{};
-		info->perf_iter_cnt++;
-		*(uint8_t *)info->rdma_ptr = info->perf_iter_cnt & 0xFF;
+		*rx_flag = info->perf_iter_cnt + 2;
 
 		dma_rc = single_dma_access(info, 0);
+		info->perf_iter_cnt ++;
+		*tx_flag = info->perf_iter_cnt;
 		if (dma_rc) {
 			ERR("FAILED: dma transfer rc %d:%s\n",
 					dma_rc, strerror(errno));
