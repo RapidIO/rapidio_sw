@@ -227,14 +227,16 @@ int init_mport_and_mso_ms()
 	
 		rc = riomp_sock_bind(dmn.cm_acc_h, dmn.cm_skt);
 		if (rc) {
-			ERR("speer_conn: riomp_sock_bind() ERR %d\n", rc);
+			ERR("speer_conn: riomp_sock_bind() %d ERR %d %d:%s\n",
+				dmn.cm_skt, rc, errno, strerror(errno));
 			goto exit;
 		};
 		dmn.skt_valid = 1;
 	
 		rc = riomp_sock_listen(dmn.cm_acc_h);
 		if (rc) {
-			CRIT("speer_conn:riomp_sock_listen() ERR %d\n", rc);
+			CRIT("speer_conn:riomp_sock_listen() ERR %d %d:%s\n",
+				rc, errno, strerror(errno));
 			goto exit;
 		};
 	};

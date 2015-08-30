@@ -142,7 +142,6 @@ static int open_mport(struct peer_info *peer)
 	get_mport_id_input	in;
 	int flags = 0;
 	struct riomp_mgmt_mport_properties prop;
-	riomp_mport_t mport_hnd;
 
 	DBG("ENTER\n");
 
@@ -164,8 +163,9 @@ static int open_mport(struct peer_info *peer)
 	INFO("Using mport_id = %d\n", peer->mport_id);
 
 	/* Now open the port */
-	ret = riomp_mgmt_mport_create_handle(peer->mport_id, flags, &mport_hnd);
-	if (ret < 0) {
+	ret = riomp_mgmt_mport_create_handle(peer->mport_id, flags,
+							&peer->mport_hnd);
+	if (ret) {
 		CRIT("riomp_mgmt_mport_create_handle(): %s\n", strerror(errno));
 		CRIT("Cannot open mport%d, is rio_mport_cdev loaded?\n",
 								peer->mport_id);
@@ -187,8 +187,6 @@ static int open_mport(struct peer_info *peer)
 		/* Unlikely we fail on reading properties, but warn! */
 		WARN("%s: Error reading properties from mport!\n");
 	}
-
-	peer->mport_hnd = mport_hnd;
 
 	return 0;
 } /* open_mport() */
