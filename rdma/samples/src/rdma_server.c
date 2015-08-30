@@ -235,8 +235,7 @@ void test_case_h()
 	status = rdma_create_msub_h(msh, 0, 4096, 0, &loc_msubh);
 	CHECK_AND_GOTO(status, "rdma_create_msub_h", destroy_msoh);
 
-	puts("Connect remote app to ms, then press ENTER");
-	getchar();
+	puts("Connect remote app to ms");
 
 	/* Accept connection from client */
 	status = rdma_accept_ms_h(msh, loc_msubh, &rem_msubh, &rem_msub_len, 3);
