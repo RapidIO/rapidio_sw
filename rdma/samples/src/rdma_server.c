@@ -238,7 +238,7 @@ void test_case_h()
 	puts("Connect remote app to ms");
 
 	/* Accept connection from client */
-	status = rdma_accept_ms_h(msh, loc_msubh, &rem_msubh, &rem_msub_len, 3);
+	status = rdma_accept_ms_h(msh, loc_msubh, &rem_msubh, &rem_msub_len, 0);
 	CHECK_AND_GOTO(status, "rdma_accept_ms_h", destroy_msoh);
 
 	puts("Exit all OTHER applications then shutdown computer\n");
