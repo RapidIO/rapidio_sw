@@ -113,6 +113,7 @@ int handle_app_msg(struct fmd_app_mgmt_state *app)
 	strncpy(app->resp.hello_resp.dd_fn, app_st.dd_fn, MAX_DD_FN_SZ);
 	strncpy(app->resp.hello_resp.dd_mtx_fn, app_st.dd_mtx_fn, 
 		MAX_DD_MTX_FN_SZ);
+	INFO("APP %s Connected!\n", app->app_name);
 	return 1;
 };
 
@@ -190,6 +191,7 @@ void *app_loop(void *ip)
 	app->alloced = 0;
 	app->alive = 0;
 	sem_post(&app_st.apps_avail);
+	INFO("APP %s DISCONNECTED!\n", app->app_name);
 	mod_dd_mp_flag(app->flag, 0);
 	fmd_notify_apps();
 	update_peer_flags();

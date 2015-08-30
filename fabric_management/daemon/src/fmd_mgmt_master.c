@@ -93,6 +93,9 @@ void send_m2s_flag_update(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 
 	peer->m2s->fset.flag = htonl(flag);
 
+	INFO("TX M2S FLAG UPDATE to did %x for did %x flag %x\n",
+		peer->p_did, dev->destID, flag);
+
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
 				peer->tx_buff, FMD_P_M2S_CM_SZ);
@@ -145,6 +148,9 @@ void send_add_dev_msg(struct fmd_peer *peer, struct fmd_dd_dev_info *dev)
 			strncpy(peer->m2s->mod_rq.name, dev->name, MAX_P_NAME);
 		};
 	};
+	INFO("TX ADD DEV MSG to did %x Name %s Adding did %x ct %x\n",
+		peer->p_did, peer->m2s->mod_rq.name, dev->destID, dev->ct, 0);
+
 	peer->m2s->mod_rq.flag = htonl(flag);
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, 
@@ -166,6 +172,9 @@ void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 	peer->m2s->mod_rq.ct = htonl(del_peer->p_ct);
 	peer->m2s->mod_rq.is_mp = 0;
 	memcpy(peer->m2s->mod_rq.name, del_peer->peer_name, MAX_P_NAME+1);
+
+	INFO("TX DEL DEV MSG to did %x Dropping did %x ct %x\n",
+		peer->p_did, del_peer->p_did, del_peer->p_ct, 0);
 
 	peer->m2s->mod_rq.flag = 0;
 	peer->tx_buff_used = 1;
@@ -292,6 +301,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		sem_post(&fmp.peers_mtx);
 		add_device_to_dd(peer->p_ct, peer->p_did, peer->p_did_sz,
 			peer->p_hc, 0, FMDD_FLAG_OK, peer_ep->name);
+		HIGH("New Peer %x: Updating all dd and flags\n", peer->p_ct);
 		update_all_peer_dd_and_flags(1);
 	};
 };
@@ -331,6 +341,9 @@ void master_process_flag_set(struct fmd_peer *peer)
 	sem_post(&fmd->dd_mtx->sem);
 
 	if (tell_peers) {
+		HIGH("Peer %x FLAG SET %x: Updating all dd and flags\n",
+			peer->p_ct, flag);
+
 		update_all_peer_dd_and_flags(0);
 		fmd_notify_apps();
 	};
