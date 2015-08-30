@@ -212,6 +212,45 @@ destroy_msoh:
 	getchar();
 } /* test_case_f() */
 
+void test_case_h()
+{
+	mso_h 	msoh;
+	ms_h	msh;
+	msub_h	loc_msubh;
+	msub_h	rem_msubh;
+	uint32_t rem_msub_len;
+	int	status;
+
+	/* Create owner */
+	status = rdma_create_mso_h(MSO_NAME, &msoh);
+	CHECK_AND_RET(status, "rdma_create_mso_h");
+
+	/* Create memory space1 */
+	status = rdma_create_ms_h("sspace1", msoh, 1024*1024, 0, &msh, 0);
+	CHECK_AND_GOTO(status, "rdma_create_ms_h", destroy_msoh);
+
+	/* Create memory sub-space. This subspace will also be created
+	 * by rdma_user and at the same offset within the mspace. Then
+	 * rdma_user can map the space and access the same data */
+	status = rdma_create_msub_h(msh, 0, 4096, 0, &loc_msubh);
+	CHECK_AND_GOTO(status, "rdma_create_msub_h", destroy_msoh);
+
+	puts("Connect remote app to ms, then press ENTER");
+	getchar();
+
+	/* Accept connection from client */
+	status = rdma_accept_ms_h(msh, loc_msubh, &rem_msubh, &rem_msub_len, 3);
+	CHECK_AND_GOTO(status, "rdma_accept_ms_h", destroy_msoh);
+
+	puts("Exit all OTHER applications then shutdown computer\n");
+	getchar();
+
+destroy_msoh:
+	/* Destroy owner */
+	status = rdma_destroy_mso_h(msoh);
+	CHECK(status, "rdma_destroy_mso_h");
+} /* test_case_h() */
+
 /**
  * Verifies that creation of an mso by the same name fails.
  */
@@ -416,6 +455,7 @@ int main()
 		puts("e Create mso/ms/msub and wait for user to open/open/DMA/close/close");
 		puts("f Two accept calls from same app on same ms fail\n");
 		puts("g Create same mso twice but restart RDMA daemon in between");
+		puts("h Accept connection to ms then die");
 		puts("0 Simple msub creation, mapping, unmapping, re-mapping");
 		puts("1 Simple accept/DMA transfer");
 		puts("2 Simple accept/DMA transfer with server msub offset within ms");
@@ -453,6 +493,10 @@ int main()
 			break;
 		case 'g':
 			test_case_g();
+			break;
+
+		case 'h':
+			test_case_h();
 			break;
 
 		case '0':
