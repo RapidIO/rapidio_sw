@@ -64,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librdma.h"
 #include "librsktd_sn.h"
 #include "librsktd.h"
+#include "librsktd_private.h"
 #include "librsktd_dmn_info.h"
 #include "librsktd_lib_info.h"
 #include "librsktd_msg_proc.h"
