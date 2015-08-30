@@ -240,7 +240,7 @@ void test_case5(uint16_t destid)
 	getchar();
 
 	status = rdma_conn_ms_h(16, destid, "sspace1", loc_msubh, &rem_msubh, &rem_msub_len, &rem_msh, 0);
-	CHECK_AND_GOTO(status, "rdma_create_msub_h", destroy_msoh);
+	CHECK_AND_GOTO(status, "rdma_conn_ms_h", destroy_msoh);
 	puts("CONNECTED");
 
 	printf("Press ENTER ** AFTER ** SERVER destroys %s\n", "sspace1");
@@ -251,6 +251,39 @@ destroy_msoh:
 	CHECK(status, "rdma_destroy_mso_h");
 } /* test_case5() */
 
+void test_case_g(uint16_t destid)
+{
+	mso_h 	msoh;
+	ms_h	msh1;
+	ms_h	rem_msh;
+	msub_h	loc_msubh;
+	msub_h	rem_msubh;
+	uint32_t rem_msub_len;
+	int	status;
+
+	status = rdma_create_mso_h(MSO_NAME, &msoh);
+	CHECK_AND_RET(status, "rdma_create_mso_h");
+
+	status = rdma_create_ms_h("cspace1", msoh, MS1_SIZE, MS1_FLAGS, &msh1, NULL);
+	CHECK_AND_GOTO(status, "rdma_create_ms_h", exit);
+
+	status = rdma_create_msub_h(msh1, 0x00, 4096, 0, &loc_msubh);
+	CHECK_AND_GOTO(status, "rdma_create_msub_h", exit);
+
+	puts("Press ENTER to connect to server");
+	getchar();
+
+	status = rdma_conn_ms_h(16, destid, "sspace1", loc_msubh, &rem_msubh, &rem_msub_len, &rem_msh, 0);
+	CHECK_AND_GOTO(status, "rdma_conn_ms_h", exit);
+	puts("CONNECTED");
+
+	puts("Shutdown the computer running the server. Press ENTER when done");
+	getchar();
+
+	status = rdma_disc_ms_h(rem_msh, loc_msubh);
+exit:
+	return;
+} /* test_case_g() */
 void sig_handler(int sig)
 {
 	switch (sig) {
@@ -312,6 +345,7 @@ int main(int argc, char *argv[])
 		char ch;
 
 		puts("Select test case:");
+		puts("g. Simple connect then disconnect (after remote daemon dies)");
 		puts("1 Simple connect/DMA transfer/disconnect");
 		puts("2 Simple connect/DMA transfer/disconnect with msub offset in ms");
 		puts("3 Simple connect/DMA transfer/disconnect with offset in loc msub");
@@ -325,6 +359,10 @@ int main(int argc, char *argv[])
 		getchar();
 
 		switch (ch) {
+
+		case 'g':
+			test_case_g(destid);
+		break;
 
 		case '1':
 			test_case1(destid, 0, 0, 0, 1, rdma_sync_chk);
