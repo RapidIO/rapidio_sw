@@ -31,6 +31,9 @@ void test_case_a(void)
 		CHECK_AND_RET(status, "rdma_create_mso_h");
 	}
 
+	puts("Press ENTER to create another MSO with same name");
+	getchar();
+
 	/* Try to create owner AGAIN */
 	if (rdma_create_mso_h(MSO_NAME, &msoh2))
 		puts("TEST PASSED. Duplicate mso creation disallowed");
@@ -210,6 +213,33 @@ destroy_msoh:
 } /* test_case_f() */
 
 /**
+ * Verifies that creation of an mso by the same name fails.
+ */
+void test_case_g(void)
+{
+	mso_h 	msoh1;
+	mso_h 	msoh2;
+	int	status;
+
+	/* Create owner */
+	status = rdma_create_mso_h(MSO_NAME, &msoh1);
+	puts("Kill and restart the RDMA Daemon!!");
+
+	puts("Press ENTER to create another MSO with same name");
+	getchar();
+
+	/* Try to create owner AGAIN. It should work since we have restarted the daemon
+	 * and that purged the database. */
+	if (rdma_create_mso_h(MSO_NAME, &msoh2))
+		puts("TEST FAILED. Restarting the daemon should have purged the database");
+	else
+		puts("TEST PASSED. Database was purged and owner created again.");
+
+	status = rdma_destroy_mso_h(msoh1);
+	CHECK(status, "rdma_destroy_mso_h");
+} /* test_case_g() */
+
+/**
  * This test case tries to map/unmap/map/unmap the same msub to see
  * if something is broken in that functionality.
  */
@@ -385,6 +415,7 @@ int main()
 		puts("d Create memory space to be opened by another app");
 		puts("e Create mso/ms/msub and wait for user to open/open/DMA/close/close");
 		puts("f Two accept calls from same app on same ms fail\n");
+		puts("g Create same mso twice but restart RDMA daemon in between");
 		puts("0 Simple msub creation, mapping, unmapping, re-mapping");
 		puts("1 Simple accept/DMA transfer");
 		puts("2 Simple accept/DMA transfer with server msub offset within ms");
@@ -420,6 +451,10 @@ int main()
 		case 'f':
 			test_case_f();
 			break;
+		case 'g':
+			test_case_g();
+			break;
+
 		case '0':
 			test_case0(0x00);
 		break;

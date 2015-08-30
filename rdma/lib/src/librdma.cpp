@@ -448,6 +448,11 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 
 	DBG("ENTER\n");
 
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
+
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
 
@@ -544,6 +549,11 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	int		ret;
 
 	DBG("ENTER\n");
+
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
 
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
@@ -652,6 +662,11 @@ int rdma_close_mso_h(mso_h msoh)
 	int			ret;
 
 	DBG("ENTER\n");
+
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
 
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
@@ -770,6 +785,11 @@ int rdma_destroy_mso_h(mso_h msoh)
 
 	DBG("ENTER\n");
 
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
+
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
 	
@@ -833,6 +853,11 @@ int rdma_create_ms_h(const char *ms_name,
 	int		ret;
 
 	DBG("ENTER\n");
+
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
 
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
@@ -1006,6 +1031,11 @@ int rdma_open_ms_h(const char *ms_name,
 
 	DBG("ENTER\n");
 
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
+
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
 
@@ -1089,6 +1119,11 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	int		ret;
 
 	DBG("ENTER\n");
+
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
 
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
@@ -1184,6 +1219,11 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 
 	DBG("ENTER\n");
 
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
+
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
 
@@ -1265,6 +1305,11 @@ int rdma_create_msub_h(ms_h	msh,
 
 	DBG("ENTER\n");
 
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
+
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
 
@@ -1333,6 +1378,11 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 
 	DBG("ENTER\n");
 
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
+
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
 
@@ -1386,10 +1436,13 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		return RDMA_NULL_PARAM;
 	}
 
+	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
-		ERR("Local RDMA daemon is dead. Exiting\n");
-		return RDMA_DAEMON_UNREACHABLE;
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	ret = riomp_dma_map_memory(peer.mport_hnd, pmsub->bytes, pmsub->paddr, vaddr);
 
@@ -1411,6 +1464,7 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 int rdma_munmap_msub(msub_h msubh, void *vaddr)
 {
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
+	int ret;
 
 	DBG("ENTER\n");
 
@@ -1424,10 +1478,13 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 		return RDMA_NULL_PARAM;
 	}
 
+	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
-		ERR("Local RDMA daemon is dead. Exiting\n");
-		return RDMA_DAEMON_UNREACHABLE;
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	DBG("Unmapping vaddr(%p), of size %u\n", vaddr, pmsub->bytes);
 	if (munmap(vaddr, pmsub->bytes) == -1) {
@@ -1451,6 +1508,11 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	int			ret;
 
 	DBG("ENTER\n");
+
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
 
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
@@ -1638,7 +1700,12 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	int			ret;
 	struct loc_msub		*loc_msub = (struct loc_msub *)loc_msubh;
 
-	INFO("ENTER\n");
+	DBG("ENTER\n");
+
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
 
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
@@ -1879,6 +1946,11 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 	int			ret;
 
 	DBG("ENTER\n");
+
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
 
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();

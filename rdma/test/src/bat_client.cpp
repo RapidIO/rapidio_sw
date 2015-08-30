@@ -724,7 +724,7 @@ static int test_case_l()
 	pid_t child;
 	int	ret;
 
-	puts("test_case_1");
+	puts("test_case_l");
 	child = fork();
 
 	if (child == 0) { /* Child */
