@@ -1,0 +1,15 @@
+echo Test script...
+scrp
+scrp ./scripts/
+scrp
+scrp unknown_dir
+scrp
+scrp unknown_dir\
+scrp failure_dir
+scr ./scripts/test.txt
+scrp scripts/
+st
+st i
+st m
+perf
+lat

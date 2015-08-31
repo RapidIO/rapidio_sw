@@ -288,16 +288,16 @@ void direct_io_set_rx_buf(struct worker *info, volatile void * volatile ptr)
 		return;
 
 	switch (info->acc_size) {
-	case 1: *(uint8_t *)ptr = info->data8_tx;
+	case 1: *(uint8_t *)ptr = info->data8_rx;
 		break;
 
-	case 2: *(uint16_t *)ptr = info->data16_tx;
+	case 2: *(uint16_t *)ptr = info->data16_rx;
 		break;
 	case 3:
-	case 4: *(uint32_t *)ptr = info->data32_tx;
+	case 4: *(uint32_t *)ptr = info->data32_rx;
 		break;
 
-	default: *(uint64_t *)ptr = info->data64_tx;
+	default: *(uint64_t *)ptr = info->data64_rx;
 		break;
 	};
 };
@@ -402,13 +402,8 @@ void direct_io_goodput(struct worker *info)
 					(direct_io_rx_lat == info->action)) { 
 		if (info->byte_cnt != info->acc_size) {
 			ERR("WARNING: access size == byte count for latency\n");
-			info->acc_size = info->byte_cnt;
+			info->byte_cnt = info->acc_size;
 		};
-	};
-
-	if (!info->ob_byte_cnt) {
-		ERR("FAILED: ob_byte_cnt is 0\n");
-		return;
 	};
 
 	if ((direct_io_tx_lat == info->action) ||
@@ -419,10 +414,9 @@ void direct_io_goodput(struct worker *info)
 		};
 
 		if (info->byte_cnt != info->acc_size) {
-			info->acc_size = info->byte_cnt;
-			ERR("WARNING: acc_size == byte_cnt for latency\n");
+			info->byte_cnt = info->acc_size;
+			ERR("WARNING: byte_cnt == acc_size for latency\n");
 		};
-		*(uint64_t *)info->ib_ptr = 0;
 	};
 		
 	rc = riomp_dma_obwin_map(info->mp_h, info->did, info->rio_addr, 
@@ -452,6 +446,11 @@ void direct_io_goodput(struct worker *info)
 		
 		uint64_t cnt;
 
+		if (set_rd_data) {
+			incr_direct_io_data(info);
+			direct_io_tx(info, info->ib_ptr);
+		};
+
 		if (direct_io_tx_lat == info->action)
 			start_iter_stats(info);
 
@@ -460,10 +459,6 @@ void direct_io_goodput(struct worker *info)
 			volatile void * volatile ptr;
 
 			ptr = (void *)((uint64_t)info->ob_ptr + cnt);
-
-		
-			if (set_rd_data)
-				direct_io_set_rx_buf(info, ptr);
 
 			switch (info->action) {
 			case direct_io_rx_lat:
@@ -482,7 +477,7 @@ void direct_io_goodput(struct worker *info)
 			};
 
 
-			if (direct_io_tx_lat == info->action)
+			if ((direct_io_tx_lat == info->action) && !info->wr)
 				finish_iter_stats(info);
 		};
 

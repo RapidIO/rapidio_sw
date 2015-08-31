@@ -31,16 +31,17 @@
 
 CXX ?= $(CROSS_COMPILE)g++
 config?=NODEBUG
-COMMONINC=../../common/include
-COMMONLIB=../../common/libs_a
+COMMONDIR=../../common
+COMMONINC=$(COMMONDIR)/include
+COMMONLIB=$(COMMONDIR)/libs_a
 
 
 # User-mode flags
-CCFLAGS = -O0 -Wall -g -I. -I$(COMMONINC) -D$(config) -std=gnu++0x -pthread \
-	-DRDMA_LL=7
+CCFLAGS = -O0 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
+	-pthread -DRDMA_LL=7
 
-INCLUDES = time_utils.h worker.h goodput.h goodput_cli.h
-SOURCES = goodput.c goodput_cli.c time_utils.c worker.c
+INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
+SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c
 LIBRARIES = -lcli -lmport -llog -lrt 
 
 all: goodput
