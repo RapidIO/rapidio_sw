@@ -31,7 +31,12 @@
 
 # LOG_LEVEL is set by the master Makefile. If this Makefile is run alone, 
 # it can override the loglevel on the command line by specifying 'level=XXX'
+# otherwise it defaults to 7
+ifndef LOG_LEVEL
+level?=7
+else
 level?=$(LOG_LEVEL)
+endif
 
 TOP_LEVEL?=..
 COMMON_DIR?=$(TOP_LEVEL)/common
@@ -40,7 +45,6 @@ MPORTLIB_PATH=../common/libmport
 MPORTLIB_INC=../common/include
 MPORTLIB=libmport.so
 MPORTLIB_HEADER=rapidio_mport_dma.h
-#LIBCLI_PATH=../common/libs_a
 LIBLOG_PATH=../common/libs_a
 LIB_DIRS = \
 	-L$(TOP_LEVEL)/fabric_management/libfmdd \
@@ -66,7 +70,9 @@ RDMAD_SOURCES = src/rdma_mq_msg.c \
 		daemon/src/rdmad_main.cpp \
 		daemon/src/rdmad_console.c \
 		daemon/src/rdmad_ms_owner.cpp \
+		daemon/src/rdmad_ms_owners.cpp \
 		daemon/src/rdmad_mspace.cpp \
+		daemon/src/rdmad_ibwin.cpp \
 		daemon/src/rdmad_inbound.cpp \
 		daemon/src/rdmad_srvr_threads.cpp \
 		daemon/src/rdmad_clnt_threads.cpp \
@@ -94,7 +100,7 @@ RDMALIB_SOURCES = lib/src/librdma.cpp \
 RDMALIB_OBJS    = librdma.o librdma_db.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
-all: librdma.a rdmad rsktd test samples remdbg
+all: librdma.a rdmad rsktd test samples rrdma
 
 test: rdmad librdma.a
 	$(MAKE) all -C test
@@ -113,7 +119,7 @@ librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	@echo ---------- Building librdma.so ----------
 	$(CXX) $(RDMALIB_SHARED_CFLAGS) $(RDMALIB_SOURCES)
 	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
-	-o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog -pthread
+	-o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog -pthread -lfmdd -ldd -lriocp_pe
 
 # The RDMA static library
 librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
@@ -140,7 +146,7 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_clnt_threads.cpp > rdmad_clnt_threads.i
 
 # Remote debug
-remdbg:  $(REMDBG_SOURCES)
+rrdma:  $(REMDBG_SOURCES)
 	@echo ---------- Building remote debug CLI ...
 	$(CXX) $(RDMAD_CFLAGS) -L$(MPORT_DIR) $(LIB_DIRS) \
 	-Wl,-rpath=$(MPORT_DIR) \
@@ -148,7 +154,7 @@ remdbg:  $(REMDBG_SOURCES)
 	-lcli -lrt -lmport -llog -pthread
 
 clean:
-	rm -f rdmad remdbg *.o librdma.so *.i
+	rm -f rdmad rrdma *.o librdma.so *.i
 	$(MAKE) clean -C rskt
 	$(MAKE) clean -C samples
 	$(MAKE) clean -C test

@@ -56,7 +56,7 @@ struct mq_connect_msg {
 
 struct mq_accept_msg {
 	uint32_t server_msubid;
-	uint32_t server_msid;	/* To be usd during disconnection to locate the
+	uint32_t server_msid;	/* To be used during disconnection to locate the
 				 * memory space and remove destids of client(s)
 				 * from it */
 	uint32_t server_bytes;

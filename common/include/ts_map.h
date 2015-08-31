@@ -5,7 +5,7 @@
 
 #include <map>
 
-using namespace std;
+using std::map;
 
 /* A thread-safe map */
 template <typename K, typename T>

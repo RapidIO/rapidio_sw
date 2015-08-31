@@ -102,11 +102,10 @@ void *wait_conn_disc_thread_f(void *arg)
 
 	hello_msg_t	*hello_msg;
 	prov_server->get_recv_buffer((void **)&hello_msg);
-	DBG("Received HELLO message from destid(0x%X)\n", hello_msg->destid);
-
 	uint32_t remote_destid = be64toh(hello_msg->destid);
+	DBG("Received HELLO message from destid(0x%X)\n", remote_destid);
 
-	/* Send HELLO ACK withour own destid */
+	/* Send HELLO ACK without own destid */
 	prov_server->get_send_buffer((void **)&hello_msg);
 	prov_server->flush_send_buffer();
 	hello_msg->destid = htobe64(peer.destid);
@@ -136,7 +135,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				prov_server->get_accept_socket(),
 				&shutting_down);
 	}
-	catch(cm_exception e) {
+	catch(cm_exception& e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
 		free(wcdti);
 		pthread_exit(0);
@@ -230,7 +229,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				connect_mq = new msg_q<mq_connect_msg>(mq_name, MQ_OPEN);
 
 			}
-			catch(msg_q_exception e) {
+			catch(msg_q_exception& e) {
 				ERR("Failed to open connect_mq: %s\n", e.msg.c_str());
 				/* Don't remove MS from accept_msg_map; the
 				 * client may retry connecting. However, don't also
@@ -262,7 +261,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				 * the message. */
 				continue;
 			}
-			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()n");
+			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
 			delete connect_mq;
 
 			/* Request a send buffer */
@@ -299,9 +298,12 @@ void *wait_conn_disc_thread_f(void *arg)
 			 * and the remote users of that space need to be notified. */
 			mspace	*ms = the_inbound->get_mspace(conn_msg->server_msname);
 			if (ms) {
-				ms->add_destid(be64toh(conn_msg->client_destid));
-				DBG("Added destid(0x%X) as one that is connected to '%s'\n",
-						be64toh(conn_msg->client_destid), conn_msg->server_msname);
+				ms->add_rem_connection(be64toh(conn_msg->client_destid),
+						       be64toh(conn_msg->client_msubid));
+				DBG("Added destid(0x%X),msubid(0x%X)  as one that is connected to '%s'\n",
+						be64toh(conn_msg->client_destid),
+						be64toh(conn_msg->client_msubid),
+						conn_msg->server_msname);
 			} else {
 				WARN("memory space '%s' NOT found!\n",
 						conn_msg->server_msname);
@@ -323,58 +325,25 @@ void *wait_conn_disc_thread_f(void *arg)
 			if (!ms) {
 				CRIT("Failed to find ms(0x%X)\n", be64toh(disc_msg->server_msid));
 				continue;	/* Not much else to do without the ms */
-			} else {
-				if (ms->remove_destid(be64toh(disc_msg->client_destid)) < 0)
-					ERR("Failed to remove destid(0x%X)\n",
-							be64toh(disc_msg->client_destid));
-					/* Although this should not happen, we can still
-					 * proceed with the disconnection at least. This
-					 * may in the future result in spurious destroy
-					 * messages, but those can be discarded.
-					 */
-				else {
-					INFO("Removed desitd(0x%X) from msid(0x%X)\n",
-					be64toh(disc_msg->client_destid),
-					be64toh(disc_msg->server_msid));
-				}
 			}
+
+			/* Remove the connection belonging to the client destid and msubid */
+			ret = ms->remove_rem_connection(be64toh(disc_msg->client_destid),
+						  be64toh(disc_msg->client_msubid));
 
 			/* Consider this memory space disconnected. Allow accepting */
 			ms->set_accepted(false);
 
-			/* Prepare POSIX disconnect message from CM disconnect message */
-			mq_disconnect_msg	disconnect_msg;
-			disconnect_msg.client_msubid = be64toh(disc_msg->client_msubid);
+			ret = ms->disconnect(be64toh(disc_msg->client_msubid));
 
-			/* Form message queue name from memory space name */
-			char mq_name[CM_MS_NAME_MAX_LEN+2];
-			mq_name[0] = '/';
-			strcpy(&mq_name[1], ms->get_name());
-
-			/* Open POSIX message queue */
-			mqd_t	disc_mq = mq_open(mq_name,O_RDWR, 0644, &attr);
-			if (disc_mq == (mqd_t)-1) {
-				ERR("Failed to open %s\n", mq_name);
-				continue;
+			if (ret) {
+				ERR("Failed to relay disconnect ms to app\n");
+			} else {
+				HIGH("'Disconnect' message relayed to 'server'\n");
 			}
-
-			/* Send 'disconnect' POSIX message contents to the RDMA library */
-			ret = mq_send(disc_mq,
-				      (const char *)&disconnect_msg,
-				      sizeof(struct mq_disconnect_msg),
-				      1);
-			if (ret < 0) {
-				ERR("Failed to send message: %s\n", strerror(errno));
-				mq_close(disc_mq);
-				continue;
-			}
-
-			/* Now close POSIX queue */
-			if (mq_close(disc_mq)) {
-				ERR("Failed to close '%s': %s\n", mq_name, strerror(errno));
-				continue;
-			}
-			HIGH("'Disconnect' message relayed to 'server'\n");
+		} else {
+			CRIT("Message of unknown type 0x%016" PRIx64 "\n",
+					conn_msg->type);
 		}
 
 	} /* while(1) */
@@ -403,8 +372,9 @@ void *prov_thread_f(void *arg)
 					peer->prov_channel,
 					&shutting_down);
 	}
-	catch(cm_exception e) {
+	catch(cm_exception& e) {
 		CRIT("Failed to create prov_server: %s. EXITING\n", e.err);
+		raise(SIGABRT);
 		pthread_exit(0);
 	}
 	DBG("prov_server created.\n");
@@ -421,6 +391,7 @@ void *prov_thread_f(void *arg)
 								strerror(ret));
 			}
 			delete prov_server;
+			raise(SIGABRT);
 			pthread_exit(0);
 		}
 

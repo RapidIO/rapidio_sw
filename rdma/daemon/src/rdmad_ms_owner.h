@@ -47,23 +47,44 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 
 #include "msg_q.h"
+#include "unix_sock.h"
 #include "rdma_types.h"
 #include "liblog.h"
+#include "libcli.h"
 
+#include "rdmad_mspace.h"
 #define MSO_CONN_ID_START	0x1
 
-using namespace std;
+using std::vector;
+using std::string;
 
-struct dump_msid {
-	void operator ()(uint32_t msid) { printf("%8X ", msid); }
+class mso_user
+{
+public:
+	mso_user(uint32_t mso_conn_id,
+		 unix_server *user_server, msg_q<mq_close_mso_msg> *mq) :
+		mso_conn_id(mso_conn_id), user_server(user_server), mq(mq) {}
+	bool operator==(uint32_t mso_conn_id) {
+		return this->mso_conn_id == mso_conn_id;
+	}
+	bool operator==(unix_server *user_server) {
+		return this->user_server == user_server;
+	}
+
+	msg_q<mq_close_mso_msg> *get_mq() { return mq; }
+	unix_server *get_server() { return user_server; }
+
+private:
+	uint32_t	mso_conn_id;
+	unix_server 	*user_server;
+	msg_q<mq_close_mso_msg>	*mq;
 };
 
 class ms_owner
 {
 public:
 	/* Constructor */
-	ms_owner(const char *owner_name, uint32_t msoid) :
-		name(owner_name), msoid(msoid), mso_conn_id(MSO_CONN_ID_START) {}
+	ms_owner(const char *owner_name, unix_server *owner_server, uint32_t msoid);
 
 	/* Destructor */
 	~ms_owner();
@@ -80,53 +101,39 @@ public:
 	bool operator ==(const char *owner_name) { return this->name == owner_name; }
 
 	/* Stores handle of memory spaces currently owned by owner */
-	void add_msid(uint32_t msid) {
-		INFO("Adding msid(0x%X) to msoid(0x%X)\n", msid, msoid);
-		msid_list.push_back(msid);
-	}
+	void add_ms(mspace *ms);
 
 	/* Removes handle of memory space from list of owned spaces */
-	int remove_msid(uint32_t msid)
-	{
-		/* Find memory space by the handle, return error if not there */
-		auto it = find(begin(msid_list), end(msid_list), msid);
-		if (it == end(msid_list)) {
-			WARN("msid(0x%X) not owned by msoid(0x%X)\n", msid, msoid);
-			return -1;
-		}
-
-		/* Erase memory space handle from list */
-		INFO("Removing msid(0x%X) from msoid(0x%X)\n", msid, msoid);
-		msid_list.erase(it);
-
-		return 1;
-	} /* remove_ms_h() */
+	int remove_ms(mspace* ms);
 
 	/* Returns whether this owner sill owns some memory spaces */
-	bool owns_mspaces()
-	{
-		return msid_list.size() != 0;
-	} /* owns_mspaces() */
+	bool owns_mspaces() { return ms_list.size() != 0; }
 
-	void dump_info()
-	{
-		printf("%8X %32s\t", msoid, name.c_str());
-		for_each(msid_list.begin(), msid_list.end(), dump_msid());
-		puts("");	/* New line */
-	} /* dump_info() */
+	void dump_info(struct cli_env *env);
 
-	int open(uint32_t *msoid, uint32_t *mso_conn_id);
+	int open(uint32_t *msoid, uint32_t *mso_conn_id, unix_server *user_server);
 
 	int close(uint32_t mso_conn_id);
+
+	int close(unix_server *other_server);
+
+	unix_server *get_owner_server() const { return owner_server; }
+
+	bool has_user_server(unix_server *server)
+	{
+		auto it = find(begin(users), end(users), server);
+		return (it != end(users));
+	}
 
 private:
 	int close_connections();
 
-	string		name;
-	uint32_t	msoid;
-	uint32_t	mso_conn_id;
-	vector<uint32_t>	msid_list;
-	vector<msg_q<mq_close_mso_msg> *> mq_list;
+	string			name;
+	unix_server		*owner_server;
+	uint32_t		msoid;
+	vector<mspace *>	ms_list;
+	vector<mso_user>	users;
+	uint32_t		mso_conn_id;	// Next available mso_conn_id
 };
 
 

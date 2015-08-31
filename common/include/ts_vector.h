@@ -6,7 +6,8 @@
 #include <vector>
 #include <string>
 
-using namespace std;
+using std::vector;
+using std::string;
 
 /* A thread-safe vector */
 template <typename T>

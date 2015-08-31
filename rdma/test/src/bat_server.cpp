@@ -11,16 +11,28 @@
 				goto free_bat_server; \
 			}
 
-#define CHECK_BROKEN_PIPE(ret) 	if ((ret) == EPIPE) { \
+#define CHECK_BROKEN_PIPE(ret) 	if ((ret) == RDMA_DAEMON_UNREACHABLE) { \
 					printf("DAEMON has died/restarted..Exiting\n"); \
 					delete bat_server; \
 					exit(1); \
 				}
-/*
- * TODO: Multiple threads for receiving client test signalling commands
- * allowing multiple connections to memory spaces */
 
-using namespace std;
+/* Internal function used only by test harness. This is why it is NOT defined
+ * in librdma.h which is exposed to applications.
+ */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern int rdmad_kill_daemon();
+
+#ifdef __cplusplus
+}
+#endif
+
+/*
+ * TODO: Multiple threads for receiving client test signaling commands
+ * allowing multiple connections to memory spaces */
 
 cm_server	*bat_server;
 bool shutting_down = false;
@@ -46,6 +58,7 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sig_handler);
 	signal(SIGABRT, sig_handler);
 	signal(SIGQUIT, sig_handler);
+	signal(SIGTERM, sig_handler);
 
 	/* Parse command-line parameters */
 	if (argc < 2) {
@@ -78,7 +91,7 @@ int main(int argc, char *argv[])
 					channel,
 					&shutting_down);
 		}
-		catch(cm_exception e) {
+		catch(cm_exception& e) {
 			fprintf(stderr, "bat_server: %s\n", e.err);
 			return 1;
 		}
@@ -201,6 +214,19 @@ int main(int argc, char *argv[])
 							 &dummy_client_msubh,
 							 &dummy_client_msub_len,
 							 30);
+					CHECK_BROKEN_PIPE(ret);
+				}
+				break;
+
+			case KILL_REMOTE_APP:
+				puts("App told to die. Committing suicide!");
+				sleep(1);
+				raise(SIGTERM);	/* Simulate 'kill' */
+				break;
+
+			case KILL_REMOTE_DAEMON:
+				{
+					int ret = rdmad_kill_daemon();
 					CHECK_BROKEN_PIPE(ret);
 				}
 				break;

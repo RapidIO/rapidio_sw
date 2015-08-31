@@ -39,12 +39,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <memory.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <pthread.h>
 #include <rapidio_mport_dma.h>
 #include <semaphore.h>
 #include <signal.h>
 
-//#include <rapidio_mport_mgmt.h>
 #include "cm_sock.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"
@@ -64,8 +64,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 struct peer_info	peer;
 
-using namespace std;
-
 /* Memory Space Owner data */
 ms_owners owners;
 
@@ -83,7 +81,7 @@ ts_vector<string>	wait_accept_mq_names;
 
 static 	pthread_t console_thread;
 static	pthread_t prov_thread;
-
+static	pthread_t cli_session_thread;
 static unix_server *server;
 
 static void init_peer()
@@ -106,12 +104,61 @@ static void init_peer()
 
 struct rpc_ti
 {
-	rpc_ti(int accept_socket) : accept_socket(accept_socket)
+	rpc_ti(int accept_socket) : accept_socket(accept_socket), tid(0)
 	{}
 	int accept_socket;
 	sem_t	started;
 	pthread_t tid;
 };
+
+static int send_disc_ms_cm(uint32_t server_destid,
+			   uint32_t server_msid,
+			   uint32_t client_msubid)
+{
+	cm_client *the_client;
+	int ret = 0;
+
+	/* Do we have an entry for that destid ? */
+	sem_wait(&hello_daemon_info_list_sem);
+	auto it = find(begin(hello_daemon_info_list),
+		       end(hello_daemon_info_list),
+		       server_destid);
+
+	/* If the server's destid is not found, just fail */
+	if (it == end(hello_daemon_info_list)) {
+		ERR("destid(0x%X) was not provisioned\n", server_destid);
+		ret = RDMA_REMOTE_UNREACHABLE;
+	} else {
+		/* Obtain pointer to socket object connected to destid */
+		the_client = it->client;
+	}
+	sem_post(&hello_daemon_info_list_sem);
+
+	if (ret == 0) {
+		cm_disconnect_msg *disc_msg;
+
+		/* Get and flush send buffer */
+		the_client->flush_send_buffer();
+		the_client->get_send_buffer((void **)&disc_msg);
+
+		disc_msg->type		    = htobe64(CM_DISCONNECT_MS);
+		disc_msg->client_msubid	    = htobe64(client_msubid);
+		disc_msg->server_msid       = htobe64(server_msid);
+		disc_msg->client_destid     = htobe64(peer.destid);
+		disc_msg->client_destid_len = htobe64(16);
+
+		/* Send buffer to server */
+		if (the_client->send()) {
+			ret = -1;
+		} else {
+			DBG("Sent DISCONNECT_MS for msid = 0x%lX, client_destid = 0x%lX\n",
+					be64toh(disc_msg->server_msid),
+					be64toh(disc_msg->client_destid));
+		}
+	}
+
+	return ret;
+} /* send_disc_ms_cm() */
 
 void *rpc_thread_f(void *arg)
 {
@@ -127,7 +174,7 @@ void *rpc_thread_f(void *arg)
 	try {
 		other_server = new unix_server("other_server", ti->accept_socket);
 	}
-	catch(unix_sock_exception e) {
+	catch(unix_sock_exception& e) {
 		CRIT("Failed to create unix_server:%:\n", e.err);
 		sem_post(&ti->started);
 		pthread_exit(0);
@@ -153,6 +200,14 @@ void *rpc_thread_f(void *arg)
 			other_server->get_send_buffer((void **)&out_msg);
 
 			switch(in_msg->type) {
+				case RDMAD_IS_ALIVE:
+				{
+					DBG("RDMAD_IS_ALIVE\n");
+					out_msg->type = RDMAD_IS_ALIVE_ACK;
+					out_msg->rdmad_is_alive_out.dummy = 0x5678;
+				}
+				break;
+
 				case GET_MPORT_ID:
 				{
 					DBG("GET_MPORT_ID\n");
@@ -169,7 +224,9 @@ void *rpc_thread_f(void *arg)
 					create_mso_output *out = &out_msg->create_mso_out;
 					out_msg->type = CREATE_MSO_ACK;
 
-					int ret = owners.create_mso(in->owner_name, &out->msoid);
+					int ret = owners.create_mso(in->owner_name,
+								    other_server,
+								    &out->msoid);
 					out->status = (ret > 0) ? 0 : ret;
 				}
 				break;
@@ -183,7 +240,8 @@ void *rpc_thread_f(void *arg)
 
 					int ret = owners.open_mso(in->owner_name,
 							&out->msoid,
-							&out->mso_conn_id);
+							&out->mso_conn_id,
+							other_server);
 					out->status = (ret > 0) ? 0 : ret;
 				}
 				break;
@@ -246,19 +304,20 @@ void *rpc_thread_f(void *arg)
 					out_msg->type = CREATE_MS_ACK;
 
 					/* Create memory space in the inbound space */
+					mspace *ms;
 					int ret = the_inbound->create_mspace(
 							in->ms_name,
 							in->bytes, in->msoid,
-							&out->msid);
+							&out->msid,
+							&ms);
 					out->status = (ret > 0) ? 0 : ret;
 					DBG("the_inbound->create_mspace(%s) %s\n",
 						in->ms_name,
 						out->status ? "FAILED" : "PASSED");
 
-
+					/* Add the memory space to the owner */
 					if (!out->status)
-						/* Add the memory space handle to owner */
-						owners[in->msoid]->add_msid(out->msid);
+						owners[in->msoid]->add_ms(ms);
 				}
 				break;
 
@@ -273,7 +332,7 @@ void *rpc_thread_f(void *arg)
 					 *  ms_conn_id, and size in bytes */
 					int ret = the_inbound->open_mspace(
 								in->ms_name,
-								in->msoid,
+								other_server,
 								&out->msid,
 								&out->ms_conn_id,
 								&out->bytes);
@@ -476,7 +535,7 @@ void *rpc_thread_f(void *arg)
 					if (it == end(hello_daemon_info_list)) {
 						ERR("destid(0x%X) was not provisioned\n", in->server_destid);
 						sem_post(&hello_daemon_info_list_sem);
-						out->status = -1;
+						out->status = RDMA_REMOTE_UNREACHABLE;
 						break;
 					}
 					sem_post(&hello_daemon_info_list_sem);
@@ -500,7 +559,17 @@ void *rpc_thread_f(void *arg)
 					c->client_rio_addr_hi	= htobe64(in->client_rio_addr_hi);
 					c->client_destid_len	= htobe64(peer.destid_len);
 					c->client_destid	= htobe64(peer.destid);
-
+					/* "%016" PRIx64 " */
+					DBG("c->type = 0x%016" PRIx64 "\n", c->type);
+					DBG("c->server_msname = %s\n", c->server_msname);
+					DBG("c->client_msid   = 0x%016" PRIx64 "\n", c->client_msid);
+					DBG("c->client_msubid   = 0x%016" PRIx64 "\n", c->client_msubid);
+					DBG("c->client_bytes   = 0x%016" PRIx64 "\n", c->client_bytes);
+					DBG("c->client_rio_addr_len = 0x%016" PRIx64 "\n", c->client_rio_addr_len);
+					DBG("c->client_rio_addr_lo = 0x%016" PRIx64 "\n", c->client_rio_addr_lo);
+					DBG("c->client_rio_addr_hi = 0x%016" PRIx64 "\n", c->client_rio_addr_hi);
+					DBG("c->client_destid_len = 0x%016" PRIx64 "\n", c->client_destid_len);
+					DBG("c->client_destid = 0x%016" PRIx64 "\n", c->client_destid);
 					/* Send buffer to server */
 					if (main_client->send()) {
 						ERR("Failed to send CONNECT_MS to destid(0x%X)\n",
@@ -521,6 +590,14 @@ void *rpc_thread_f(void *arg)
 						wait_accept_mq_names.push_back(mq_name);
 					}
 
+					/* Also add to the connected_to_ms_info_list */
+					sem_wait(&connected_to_ms_info_list_sem);
+					connected_to_ms_info_list.emplace_back(
+							in->client_msubid,
+							in->server_msname,
+							in->server_destid,
+							other_server);
+					sem_post(&connected_to_ms_info_list_sem);
 					out->status = 0;
 				}
 				break;
@@ -550,48 +627,37 @@ void *rpc_thread_f(void *arg)
 					out_msg->type = SEND_DISCONNECT_ACK;
 
 					DBG("Client to disconnect from destid = 0x%X\n", in->rem_destid);
-					/* Do we have an entry for that destid ? */
-					sem_wait(&hello_daemon_info_list_sem);
-					auto it = find(begin(hello_daemon_info_list),
-						       end(hello_daemon_info_list),
-						       in->rem_destid);
 
-					/* If the server's destid is not found, just fail */
-					if (it == end(hello_daemon_info_list)) {
-						ERR("destid(0x%X) was not provisioned\n", in->rem_destid);
-						sem_post(&hello_daemon_info_list_sem);
-						out->status = -1;
-						break;
+					out->status = send_disc_ms_cm(
+							in->rem_destid,
+							in->rem_msid,
+							in->loc_msubid);
+
+					/* Remove from the connected_to_ms_info_list */
+					sem_wait(&connected_to_ms_info_list_sem);
+					vector<connected_to_ms_info>::iterator it;
+					for (it = begin(connected_to_ms_info_list);
+						  it != end(connected_to_ms_info_list);
+						  it++) {
+						if (it->server_msid == in->rem_msid) {
+							DBG("Found msid(0x%X)\n", in->rem_msid);
+							break;
+						}
 					}
-					sem_post(&hello_daemon_info_list_sem);
-
-					/* Obtain pointer to socket object
-					 * already connected to destid */
-					cm_client *the_client = it->client;
-
-					cm_disconnect_msg *disc_msg;
-
-					/* Get and flush send buffer */
-					the_client->flush_send_buffer();
-					the_client->get_send_buffer((void **)&disc_msg);
-
-					disc_msg->type		= htobe64(CM_DISCONNECT_MS);
-					disc_msg->client_msubid	= htobe64(in->loc_msubid);	/* For removal from server database */
-					disc_msg->server_msid   = htobe64(in->rem_msid);	/* For removing client's destid from server's
-												 * info on the daemon */
-					disc_msg->client_destid = htobe64(peer.destid);		/* For knowing which destid to remove */
-					disc_msg->client_destid_len = htobe64(16);
-
-					/* Send buffer to server */
-					if (the_client->send()) {
-						out->status = -1;
-						break;
+					if (it != end(connected_to_ms_info_list)) {
+						DBG("Removing msid(0x%X) from connected list\n",
+								in->rem_msid);
+						connected_to_ms_info_list.erase(it);
+					} else {
+						DBG("msid(0x%X) NOT FOUND\n", in->rem_msid);
 					}
-					DBG("Sent DISCONNECT_MS for msid = 0x%lX, client_destid = 0x%lX\n",
-						be64toh(disc_msg->server_msid),
-						be64toh(disc_msg->client_destid));
+					sem_post(&connected_to_ms_info_list_sem);
+				}
+				break;
 
-					out->status = 0;
+				case RDMAD_KILL_DAEMON:
+				{
+					raise(SIGTERM); /* Simulate 'kill' */
 				}
 				break;
 
@@ -606,7 +672,39 @@ void *rpc_thread_f(void *arg)
 			}
 		} else {
 			HIGH("Application has closed connection. Exiting!\n");
+			/* Find out if that dead application was connected to a memory
+			 * space and if so send a disconnect message to free up the
+			 * msub entry on the server app.
+			 */
+			sem_wait(&connected_to_ms_info_list_sem);
+			auto it = find(begin(connected_to_ms_info_list),
+					end(connected_to_ms_info_list),
+					other_server);
+			if (it != end(connected_to_ms_info_list)) {
+				send_disc_ms_cm(it->server_destid,
+						it->server_msid,
+						it->client_msubid);
+			}
+			sem_post(&connected_to_ms_info_list_sem);
+
+			/* First destroy mso corresponding to socket */
+			if (owners.destroy_mso(other_server)) {
+				WARN("Failed to find owner mso using this sock conn\n");
+			}
+
+			/* Now find out if this socket is a user socket for an mso. If the
+			 * user app shuts down without closing the mso, we do it
+			 * here.
+			 */
+			owners.close_mso(other_server);
+
+			uint32_t ms_conn_id;
+			mspace *ms = the_inbound->get_mspace_open_by_server(
+					other_server, &ms_conn_id);
+			if (ms)
+				ms->close(ms_conn_id);
 			delete other_server;
+
 			pthread_exit(0);
 		}
 	} /* while */
@@ -620,8 +718,8 @@ int run_rpc_alternative()
 	try {
 		server = new unix_server();
 	}
-	catch(unix_sock_exception e) {
-		cout << e.err << endl;
+	catch(unix_sock_exception& e) {
+		CRIT("Failed to create server: %s \n",  e.err);
 		return 1;
 	}
 
@@ -769,16 +867,105 @@ void sig_handler(int sig)
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
 	}
 
-	owners.dump_info();
-	the_inbound->dump_info();
-	the_inbound->dump_all_mspace_with_msubs_info();
 	shutdown(&peer);
-} /* end_handler() */
+} /* sig_handler() */
 
 bool foreground(void)
 {
 	return (tcgetpgrp(STDIN_FILENO) == getpgrp());
 }
+
+/**
+ * Server for remote debug (remdbg) application.
+ */
+void *cli_session(void *arg)
+{
+	int sockfd;
+	int portno;
+	socklen_t clilen;
+	char buffer[256];
+	struct sockaddr_in serv_addr;
+	struct sockaddr_in cli_addr;
+	int one = 1;
+	int session_num = 0;
+
+	/* Check for NULL */
+	if (arg == NULL) {
+		CRIT("Argument is NULL. Exiting\n");
+		pthread_exit(0);
+	}
+
+	/* TCP port number */
+	portno = *((int *)arg);
+
+	/* Create listen socket */
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0) {
+		CRIT("ERROR opening socket. Exiting\n");
+		pthread_exit(0);
+	}
+
+	/* Prepare the family, address, and port */
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serv_addr.sin_port = htons(portno);
+
+	/* Enable reuse of addresses as long as there is no active accept() */
+	setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
+
+	/* For socket to send data in buffer right away */
+	setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
+
+	/* Bind socket to address */
+	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+		CRIT("ERROR on binding. Exiting\n");
+		close(sockfd);
+		pthread_exit(0);
+	}
+
+	INFO("RDMAD bound to socket on port number %d\n", portno);
+
+	while (strncmp(buffer, "done", 4)) {
+		struct cli_env env;
+
+		/* Initialize the environment */
+		env.script = NULL;
+		env.fout = NULL;
+		bzero(env.output, BUFLEN);
+		bzero(env.input, BUFLEN);
+		env.DebugLevel = 0;
+		env.progressState = 0;
+		env.sess_socket = -1;
+
+		/* Set the prompt for the CLI */
+		bzero(env.prompt, PROMPTLEN+1);
+		strcpy(env.prompt, "RRDMAD> ");
+
+		/* Prepare socket for listening */
+		listen(sockfd,5);
+
+		/* Accept connections from remdbg apps */
+		clilen = sizeof(cli_addr);
+		env.sess_socket = accept(sockfd,
+				(struct sockaddr *) &cli_addr,
+				&clilen);
+		if (env.sess_socket < 0) {
+			CRIT("ERROR on accept\n");
+			close(sockfd);
+			pthread_exit(0);
+		}
+
+		/* Start the session */
+		INFO("\nStarting session %d\n", session_num);
+		cli_terminal(&env);
+		INFO("\nFinishing session %d\n", session_num);
+		close(env.sess_socket);
+		session_num++;
+	}
+
+	pthread_exit(0);
+} /* cli_session() */
 
 int main (int argc, char **argv)
 {
@@ -786,7 +973,7 @@ int main (int argc, char **argv)
 	int rc = 0;
 	int cons_ret;
 
-	/* Initialize peer_info struct with defautl values. This must be done
+	/* Initialize peer_info struct with default values. This must be done
  	 * before parsing command line parameters as command line parameters
  	 * may override some of the default values assigned here */
 	init_peer();
@@ -882,11 +1069,11 @@ int main (int argc, char **argv)
 				 2,		/* No. of windows */
 				 4*1024*1024);	/* Size in MB */
 	}
-	catch(std::bad_alloc e) {
+	catch(std::bad_alloc& e) {
 		CRIT("Failed to allocate the_inbound\n");
 		goto out_close_mport;
 	}
-	catch(inbound_exception e) {
+	catch(inbound_exception& e) {
 		CRIT("%s\n", e.err);
 		goto out_free_inbound;
 	}
@@ -910,6 +1097,11 @@ int main (int argc, char **argv)
 							strerror(errno));
 		goto out_free_inbound;
 	}
+	if (sem_init(&connected_to_ms_info_list_sem, 0, 1) == -1) {
+		CRIT("Failed to initialize connected_to_ms_info_list_sem: %s\n",
+							strerror(errno));
+		goto out_free_inbound;
+	}
 
 	/* Create provisioning thread */
 	rc = pthread_create(&prov_thread, NULL, prov_thread_f, &peer);
@@ -923,8 +1115,17 @@ int main (int argc, char **argv)
 	/* Create fabric management thread */
 	rc = start_fm_thread();
 	if (rc) {
-		CRIT("Failed to create prov_thread: %s\n", strerror(errno));
+		CRIT("Failed to create fm_thread: %s\n", strerror(errno));
 		rc = 8;
+		shutdown(&peer);
+		goto out_free_inbound;
+	}
+
+	/* Create remote CLI terminal thread */
+	rc = pthread_create(&cli_session_thread, NULL, cli_session, (void*)(&peer.cons_skt));
+	if(rc) {
+		CRIT("Failed to create cli_session_thread: %s\n", strerror(errno));
+		rc = 9;
 		shutdown(&peer);
 		goto out_free_inbound;
 	}

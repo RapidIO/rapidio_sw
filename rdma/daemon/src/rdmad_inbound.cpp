@@ -44,22 +44,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_msubspace.h"
 #include "rdmad_mspace.h"
 #include "rdmad_ibwin.h"
-#include "rdmad_functors.h"
 #include "rdmad_inbound.h"
 
-using namespace std;
-
+using std::vector;
 
 struct ibw_free {
 	void operator()(ibwin& ibw) { ibw.free(); }
-};
-
-struct ibw_dump_mspaces {
-	void operator()(ibwin& ibw) { ibw.dump_mspace_info(); }
-};
-
-struct ibw_dump_mspaces_with_msubs {
-	void operator()(ibwin& ibw) { ibw.dump_mspace_and_subs_info(); }
 };
 
 /* Does inbound window have room for a memory space of specified size? */
@@ -83,7 +73,7 @@ inbound::inbound(riomp_mport_t mport_hnd,
 			ibwin win(mport_hnd, i, win_size);
 			ibwins.push_back(win);
 		}
-		catch(ibwin_map_exception e) {
+		catch(ibwin_map_exception& e) {
 			throw inbound_exception(e.err);
 		}
 	}
@@ -102,12 +92,16 @@ inbound::~inbound()
 	for_each(ibwins.begin(), ibwins.end(), ibw_free());
 } /* destructor */
 
-void inbound::dump_info()
+void inbound::dump_info(struct cli_env *env)
 {
-	printf("%8s %16s %16s %16s\n", "Win num", "Win size", "RIO Addr", "PCIe Addr");
-	printf("%8s %16s %16s %16s\n", "-------", "--------", "--------", "---------");
+	sprintf(env->output, "%8s %16s %16s %16s\n", "Win num", "Win size", "RIO Addr", "PCIe Addr");
+	logMsg(env);
+	sprintf(env->output, "%8s %16s %16s %16s\n", "-------", "--------", "--------", "---------");
+	logMsg(env);
 	sem_wait(&ibwins_sem);
-	for_each(ibwins.begin(), ibwins.end(), call_dump_info<ibwin>());
+	for (auto& ibwin : ibwins) {
+		ibwin.dump_info(env);
+	}
 	sem_post(&ibwins_sem);
 } /* dump_info */
 
@@ -143,24 +137,68 @@ mspace* inbound::get_mspace(uint32_t msid)
 	return NULL;
 } /* get_mspace() */
 
-/* get_mspace by msoid & msid */
-mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
+/* Get mspace OPENED by msoid */
+mspace* inbound::get_mspace_open_by_server(unix_server *user_server, uint32_t *ms_conn_id)
 {
 	sem_wait(&ibwins_sem);
 	for (auto& ibwin : ibwins) {
-		mspace *ms = ibwin.get_mspace(msoid, msid);
+		mspace *ms = ibwin.get_mspace_open_by_server(user_server, ms_conn_id);
 		if (ms) {
 			sem_post(&ibwins_sem);
 			return ms;
 		}
 	}
-	WARN("msid(0x%X) with msoid(0x%X) not found\n", msid, msoid);
+	WARN("msid open with user_server not found\n");
 	sem_post(&ibwins_sem);
 	return NULL;
+} /* get_mspace_open_by_msoid() */
+
+int inbound::get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces)
+{
+	vector<mspace *>::iterator ins_point = begin(mspaces);
+
+	sem_wait(&ibwins_sem);
+	for (auto& ibwin : ibwins) {
+		vector<mspace *>  ibw_mspaces;
+		DBG("Looking for mspaces connected to destid(0x%X)\n", destid);
+		ibwin.get_mspaces_connected_by_destid(destid, ibw_mspaces);
+
+		/* Insert each list of mspaces matching 'destid' in current IBW
+		 * in the 'mspaces' list for the entire inbound. The insertion
+		 * point is advanced after the mspaces for each IBW are copied
+		 * to the master 'mspaces' list.
+		 */
+		ins_point = copy(begin(ibw_mspaces),
+				 end(ibw_mspaces),
+				 ins_point);
+	}
+	sem_post(&ibwins_sem);
+
+	return 0;
+} /* get_mspaces_connected_by_destid */
+
+/* get_mspace by msoid & msid */
+mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
+{
+	mspace *ms = NULL;
+
+	sem_wait(&ibwins_sem);
+	for (auto& ibwin : ibwins) {
+		ms = ibwin.get_mspace(msoid, msid);
+		if (ms)
+			break;
+	}
+	sem_post(&ibwins_sem);
+
+	if (NULL) {
+		WARN("msid(0x%X) with msoid(0x%X) not found\n", msid, msoid);
+	}
+	return ms;
 } /* get_mspace() */
 
+
 /* Dump memory space info for a memory space specified by name */
-int inbound::dump_mspace_info(const char *name)
+int inbound::dump_mspace_info(struct cli_env *env, const char *name)
 {
 	/* Find the memory space by name */
 	mspace	*ms = get_mspace(name);
@@ -168,23 +206,27 @@ int inbound::dump_mspace_info(const char *name)
 		WARN("%s not found\n", name);
 		return -1;
 	}
-	ms->dump_info();
+	ms->dump_info(env);
 	return 0;
 } /* dump_mspace_info() */
 
 /* Dump memory space info for all memory spaces */
-void inbound::dump_all_mspace_info()
+void inbound::dump_all_mspace_info(struct cli_env *env)
 {
 	sem_wait(&ibwins_sem);
-	for_each(ibwins.begin(), ibwins.end(), ibw_dump_mspaces());
+	for (auto& ibwin : ibwins) {
+		ibwin.dump_mspace_info(env);
+	}
 	sem_post(&ibwins_sem);
 } /* dump_all_mspace_info() */
 
 /* Dump memory space info for all memory spaces and their msubs */
-void inbound::dump_all_mspace_with_msubs_info()
+void inbound::dump_all_mspace_with_msubs_info(struct cli_env *env)
 {
 	sem_wait(&ibwins_sem);
-	for_each(ibwins.begin(), ibwins.end(), ibw_dump_mspaces_with_msubs());
+	for (auto& ibw : ibwins) {
+		ibw.dump_mspace_and_subs_info(env);
+	}
 	sem_post(&ibwins_sem);
 } /* dump_all_mspace_with_msubs_info() */
 
@@ -192,7 +234,8 @@ void inbound::dump_all_mspace_with_msubs_info()
 int inbound::create_mspace(const char *name,
 			   uint64_t size,
 			   uint32_t msoid,
-			   uint32_t *msid)
+			   uint32_t *msid,
+			   mspace **ms)
 {
 	ibwin_has_room	ibwhr(size);
 
@@ -208,19 +251,18 @@ int inbound::create_mspace(const char *name,
 	}
 
 	/* Create the space */
-	int ret = win_it->create_mspace(name, size, msoid, msid);
+	int ret = win_it->create_mspace(name, size, msoid, msid, ms);
 	sem_post(&ibwins_sem);
 	return ret;
 } /* create_mspace() */
 
 /* Open memory space */
 int inbound::open_mspace(const char *name,
-			 uint32_t msoid,
+			 unix_server *user_server,
 			 uint32_t *msid,
 			 uint32_t *ms_conn_id,
 			 uint32_t *bytes)
 {
-	(void)msoid;
 	DBG("ENTER\n");
 
 	/* Find the memory space by name */
@@ -231,7 +273,7 @@ int inbound::open_mspace(const char *name,
 	}
 
 	/* Open the memory space */
-	if (ms->open(msid, ms_conn_id, bytes) < 0) {
+	if (ms->open(msid, user_server, ms_conn_id, bytes) < 0) {
 		WARN("Failed to open '\%s\'\n", name);
 		return -2;
 	}
