@@ -432,27 +432,38 @@ exit:
 	return errorStat;
 }
 
+#define SCRIPT_PATH_SIZE 256
+#define SCRIPT_PATH_LEN 255
+
+char script_path[SCRIPT_PATH_SIZE];
+
 int CLIScriptCmd(struct cli_env *env, int argc, char **argv)
 {
-	int errorStat = 0, i;
+	int errorStat = 0;
 	int verbose = 0;
+	char full_script_name[2*SCRIPT_PATH_SIZE];
 
 	if (argc > 1) {
 		verbose = getHex(argv[0], 0);
 	};
 
-	sprintf(env->output, "\t/*Script: %s ", argv[0]);
+	sprintf(env->output, "\tPrefix: \"%s\"\n", script_path);
+	logMsg(env);
+	sprintf(env->output, "\tScript: \"%s\"\n", argv[0]);
 	logMsg(env);
 
-	for (i = 1; i < argc; i++) {
-		sprintf(env->output, " %s", argv[i]);
-		logMsg(env);
-	}
+	memset(full_script_name, 0, 2*SCRIPT_PATH_SIZE);
+	if (argv[0][0] == '.' || argv[0][0] == '/' || argv[0][0] == '\\')
+		snprintf(full_script_name, 2*SCRIPT_PATH_SIZE - 1, "%s",
+			argv[0]);
+	else
+		snprintf(full_script_name, 2*SCRIPT_PATH_SIZE - 1, "%s%s",
+			script_path, argv[0]);
 
-	sprintf(env->output, "*/\n");
+	sprintf(env->output, "\tFile  : \"%s\"\n", full_script_name);
 	logMsg(env);
 
-	errorStat = cli_script(env, argv[0], verbose);
+	errorStat = cli_script(env, full_script_name, verbose);
 
 	env->output[0] = '\0';
 	sprintf(env->output, "script %s completed, status %x\n",
@@ -462,7 +473,7 @@ int CLIScriptCmd(struct cli_env *env, int argc, char **argv)
 	return errorStat;
 }
 
-struct cli_cmd CLIRScript = {
+struct cli_cmd CLIScript = {
 "script",
 3,
 1,
@@ -471,6 +482,49 @@ struct cli_cmd CLIRScript = {
 	"<filename> : File name of the script\n"
 	"<verbose>  : zero/non-zero value to control amount of output.",
 CLIScriptCmd,
+ATTR_NONE
+};
+
+int CLIScriptPathCmd(struct cli_env *env, int argc, char **argv)
+{
+	int errorStat = 0;
+	char endc = '\0';
+
+	if (argc) {
+		int len = strlen(argv[0]);
+		
+		if (!('/' == argv[0][len-1]) && !('\\' == argv[0][len-1])) {
+			len++;
+			endc = '/';
+		};
+			
+
+		if (len > SCRIPT_PATH_LEN) {
+			sprintf(env->output,
+			"FAILED: Maximum path length is %d characters\n",
+				SCRIPT_PATH_LEN);
+			logMsg(env);
+			goto exit;
+		}
+
+		snprintf(script_path, SCRIPT_PATH_LEN, "%s%c", argv[0], endc);
+	};
+
+	sprintf(env->output, "\tPrefix: \"%s\"\n", script_path);
+	logMsg(env);
+exit:
+	return errorStat;
+}
+
+struct cli_cmd CLIScriptPath = {
+"scrpath",
+4,
+0,
+"set directory prefix for script files",
+"{<path>}\n"
+	"<path> : Directory path used to find script files\n"
+	"If no path is supplied, the current path is printed.",
+CLIScriptPathCmd,
 ATTR_NONE
 };
 
@@ -503,6 +557,31 @@ exit:
 	return 0;
 }
 
+int CLIEchoCmd(struct cli_env *env, int argc, char **argv)
+{
+	int i;
+
+	for (i = 0; i < argc; i++) {
+		sprintf(env->output, "%s ", argv[i]);
+		logMsg(env);
+	};
+	sprintf(env->output, "\n");
+	logMsg(env);
+
+	return 0;
+}
+
+struct cli_cmd CLIEcho = {
+"echo",
+4,
+0,
+"Echo any entered parameters to the terminal",
+"{parms}\n"
+	"{parms} are printed to the terminal, followed by <CR><LF>\n",
+CLIEchoCmd,
+ATTR_NONE
+};
+
 
 void printProgress(struct cli_env *env)
 
@@ -518,12 +597,17 @@ struct cli_cmd *cmd_line_cmds[] = {
 &CLIDebug,
 &CLIOpenLogFile,
 &CLICloseLogFile,
-&CLIRScript,
+&CLIScript,
+&CLIScriptPath,
+&CLIEcho,
 &CLIQuit
 };
 
 int bind_cli_cmd_line_cmds(void)
 {
+	memset(script_path, 0, SCRIPT_PATH_SIZE);
+	snprintf(script_path, SCRIPT_PATH_SIZE, "scripts/");
+
 	add_commands_to_cmd_db(sizeof(cmd_line_cmds)/sizeof(struct cli_cmd *),
 				cmd_line_cmds);
 	return 0;
