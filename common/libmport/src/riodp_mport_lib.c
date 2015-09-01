@@ -263,9 +263,10 @@ static int recv_packet(int sd, char *pkt, size_t len)
 		else if (ret == -1)
 			return -errno;
 		else if (ret == 1) {
-			if (pfd.revents & (POLLERR | POLLHUP))
+			if (pfd.revents & (POLLERR | POLLHUP)) {
+				LIBTRACE("EIO\n");
 				return -EIO;
-			else {
+			} else {
 				ret = recv(sd, pkt+received, len-received, 0);
 				if (ret == -1)
 					return -errno;
@@ -380,9 +381,7 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 		return ret;
 	}
 
-	LIBTRACE("%s mport%d hnd_id=%d\n", __func__, mport_id, fd);
 	hnd->fd = fd;
-
 	*mport_handle = hnd;
 #else
 	int ret, sd;
@@ -421,6 +420,21 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 
 	freeaddrinfo(addrinf);
 
+#if 0
+	{
+		struct sockaddr_in sin;
+		socklen_t addrlen = sizeof(sin);
+		if(getsockname(sd, (struct sockaddr *)&sin, &addrlen) == 0 &&
+		   sin.sin_family == AF_INET &&
+		   addrlen == sizeof(sin)) {
+		    int local_port = ntohs(sin.sin_port);
+		    LIBTRACE("%s local_port=%d\n", __func__, local_port);
+		} else {
+			LIBERROR("getsockname() failed\n");
+		}
+	}
+#endif
+
 	hnd = (struct rapidio_mport_handle *)malloc(sizeof(struct rapidio_mport_handle));
 	if(!(hnd)) {
 		ret = -errno;
@@ -432,6 +446,8 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	hnd->fd = sd;
 	*mport_handle = hnd;
 #endif
+
+	LIBTRACE("%s mport%d hnd_id=%d\n", __func__, mport_id, hnd->fd);
 	return 0;
 }
 
