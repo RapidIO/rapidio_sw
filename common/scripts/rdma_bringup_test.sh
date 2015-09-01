@@ -158,11 +158,9 @@ do
 				ssh root@"$node" "kill -s 2 $proc"
 			done
 
-			# Unload then reload drivers
+			# Unload drivers
 			ssh root@"$node" "modprobe -r rio_mport_cdev"
 			ssh root@"$node" "modprobe -r rio_cm"
-			ssh root@"$node" "modprobe rio_cm"
-			ssh root@"$node" "modprobe rio_mport_cdev"
 		done
 	fi # 	if [ $OK -eq 0 ]
 done #for (( i=0; i<MAX_NO; i++ ))
