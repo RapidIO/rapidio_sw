@@ -154,6 +154,7 @@ static int riocp_pe_get_efptr_phys(struct riocp_pe *pe, uint32_t *efptr)
 	return -EIO;
 }
 
+#if 0
 /**
  * Get PE extended feature
  * @note The PE should already have efptr attribute initialized
@@ -193,6 +194,7 @@ static int riocp_pe_get_ef(struct riocp_pe *pe, uint32_t feature, uint32_t *valu
 
 	return -ENOENT;
 }
+#endif
 
 /**
  * Read and initialize handle extended feature pointers when available
@@ -212,14 +214,14 @@ int riocp_pe_read_features(struct riocp_pe *pe)
 		if (ret)
 			return ret;
 
-		ret = riocp_pe_get_ef(pe, RIO_EFB_ERR_MGMNT, &pe->efptr_em);
-		if (ret)
-			return ret;
+//		ret = riocp_pe_get_ef(pe, RIO_EFB_ERR_MGMNT, &pe->efptr_em);
+//		if (ret)
+//			return ret;
 
 		RIOCP_TRACE("PE has extended features\n");
 		RIOCP_TRACE(" - p->efptr      = 0x%04x\n", pe->efptr);
 		RIOCP_TRACE(" - p->efptr_phys = 0x%08x\n", pe->efptr_phys);
-		RIOCP_TRACE(" - p->efptr_em   = 0x%08x\n", pe->efptr_em);
+//		RIOCP_TRACE(" - p->efptr_em   = 0x%08x\n", pe->efptr_em);
 	}
 
 	return ret;

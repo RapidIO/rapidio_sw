@@ -138,7 +138,7 @@ struct riocp_pe {
 	struct riocp_pe_capabilities cap;	/**< RapidIO Capabilities */
 	uint16_t efptr;				/**< RapidIO extended feature pointer */
 	uint32_t efptr_phys;			/**< RapidIO Physical extended feature pointer */
-	uint32_t efptr_em;			/**< RapidIO Error Management feature pointer */
+//	uint32_t efptr_em;			/**< RapidIO Error Management feature pointer */
 	riocp_pe_event_mask_t *port_event_mask;	/**< Event mask */
 	//struct rio_pw_filter pwfilter; 		/**< TODO Mport driver port-write filter */
 	struct riocp_pe *mport;			/**< Mport that created this PE */
