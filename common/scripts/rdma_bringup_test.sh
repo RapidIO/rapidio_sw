@@ -14,17 +14,25 @@ do
 	echo -n "Iteration " $i
 	echo ""
 
-	# Start Fabric Management Daemon on each node
+	# Load all drivers FIRST
 	for node in $NODES
 	do
 		# Load the drivers
 		ssh root@"$node" "modprobe rio_cm"
+		sleep 1
 		ssh root@"$node" "modprobe rio_mport_cdev"
+		sleep 1
+	done
 
+	# Start Fabric Management Daemon on each node
+	for node in $NODES
+	do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
-		echo "Start fmd on $node destID=$DESTID"
+		echo "Starting fmd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS fmd $RDMA_ROOT_PATH/fabric_management/daemon/fmd -l7"
 		sleep 5
+		FMD_PID=$(ssh root@"$node" pgrep fmd)
+		echo "$node fmd pid=$FMD_PID"
 	done
 
 	# Start RDMAD on each node
@@ -35,18 +43,21 @@ do
 		ssh root@"$node" "screen -dmS rdmad $RDMA_ROOT_PATH/rdma/rdmad"
 		sleep 5
 		RDMAD_PID=$(ssh root@"$node" pgrep rdmad)
-		echo "$node RDMAD PID=$RDMAD_PID"
+		echo "$node rdmad pid=$RDMAD_PID"
 	done
 
 	# Start RSKTD on each node
 	for node in $NODES
 	do
-		echo "Start rsktd on $node"
+		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
+		echo "Start rsktd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rsktd $RDMA_ROOT_PATH/rdma/rskt/daemon/rsktd -l7"
 		sleep 5
+		RSKTD_PID=$(ssh root@"$node" pgrep rsktd)
+		echo "$node rsktd pid=$RSKTD_PID"
 	done
 
-	# Now check that everything is running OK
+	# Now check that everything is still running OK
 	
 	OK=1	# Set OK to true before the checks
 
@@ -71,33 +82,33 @@ do
 		echo "   mport destID=$DESTID"
 
 		# Check that rio_mport_cdev was loaded
-		MPORTCDEV=$(ssh root@"$node" "lsmod | grep rio_mport_cdev")
-		if [ -z "$MPORTCDEV" ]
+		RIO_MPORT_CDEV=$(ssh root@"$node" "lsmod | grep rio_mport_cdev")
+		if [ -z "$RIO_MPORT_CDEV" ]
 		then
-			echo "   MPORT_CDEV *NOT* loaded"
+			echo "   rio_mport_cdev *NOT* loaded"
 			OK=0
 		else
-			echo "   MPORT_CDEV loaded"
+			echo "   rio_mport_cdev loaded"
 		fi
 
 		# Check that rio_cm was loaded
-		MPORTCDEV=$(ssh root@"$node" "lsmod | grep rio_cm")
-		if [ -z "$MPORTCDEV" ]
+		RIO_CM=$(ssh root@"$node" "lsmod | grep rio_cm")
+		if [ -z "$RIO_CM" ]
 		then
-			echo "   RIO_CM     *NOT* loaded"
+			echo "   rio_cm     *NOT* loaded"
 			OK=0
 		else
-			echo "   RIO_CM     loaded"
+			echo "   rio_cm     loaded"
 		fi
 
 		# Check that fmd is running
-		RDMAD_PID=$(ssh root@"$node" pgrep fmd)
-		if [ -z "$RDMAD_PID" ]
+		FMD_PID=$(ssh root@"$node" pgrep fmd)
+		if [ -z "$FMD_PID" ]
 		then
 			echo "   FMD   *NOT* running"
 			OK=0
 		else
-			echo "   FMD   is running PID=$RDMAD_PID"
+			echo "   FMD   is running PID=$FMD_PID"
 		fi
 
 		# Check that rdmad is running
@@ -111,32 +122,32 @@ do
 		fi
 
 		# Check that rsktd is running
-		RDMAD_PID=$(ssh root@"$node" pgrep rsktd)
-		if [ -z "$RDMAD_PID" ]
+		RSKTD_PID=$(ssh root@"$node" pgrep rsktd)
+		if [ -z "$RSKTD_PID" ]
 		then
 			echo "   RSKTD *NOT* running"
 			OK=0
 		else
-			echo "   RSKTD is running PID=$RDMAD_PID"
+			echo "   RSKTD is running PID=$RSKTD_PID"
 		fi
 	done
 
 	# If there is any failure then stop so we can examine the logs
 	if [ $OK -eq 0 ]
 	then
-		echo "	Something failed. Ending test."
+		echo "	Something failed. Ending test. Check logs on failed node!"
 		echo ""
 		i=MAX_ITERATIONS
 	else
 		echo "	Everything worked. Retrying, but cleaning up first"
 		echo ""
 
-		# For each node, kill RSKTD RDMAD and FMD, and reload the drivers
+		# For each node, kill RSKTD RDMAD and FMD
 		for node in $NODES
 		do
 			# Kill RSKTD
 			THE_PID=$(ssh root@"$node" pgrep rsktd)
-			echo "$node RSKTD PID=$THE_PID"
+			echo "Killing rsktd on $node RSKTD PID=$THE_PID"
 			for proc in $THE_PID
 			do
 				ssh root@"$node" "kill -s 2 $proc"
@@ -144,7 +155,7 @@ do
 
 			# Kill RDMAD
 			THE_PID=$(ssh root@"$node" pgrep rdmad)
-			echo "$node RDMAD PID=$THE_PID"
+			echo "Killing rdmad on $node RDMAD PID=$THE_PID"
 			for proc in $THE_PID
 			do
 				ssh root@"$node" "kill -s 2 $proc"
@@ -152,15 +163,22 @@ do
 
 			# Kill FMD
 			THE_PID=$(ssh root@"$node" pgrep fmd)
-			echo "$node RDMAD PID=$THE_PID"
+			echo "Killing fmd on $node RDMAD PID=$THE_PID"
 			for proc in $THE_PID
 			do
 				ssh root@"$node" "kill -s 2 $proc"
 			done
+		done
 
+		# Unload all drivers from all nodes
+		for node in $NODES
+		do
 			# Unload drivers
+			echo "Unloading drivers on $node "
 			ssh root@"$node" "modprobe -r rio_mport_cdev"
+			sleep 1
 			ssh root@"$node" "modprobe -r rio_cm"
+			sleep 1
 		done
 	fi # 	if [ $OK -eq 0 ]
 done #for (( i=0; i<MAX_NO; i++ ))
