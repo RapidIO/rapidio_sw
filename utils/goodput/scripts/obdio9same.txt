@@ -7,14 +7,14 @@ wait 4 0
 wait 5 0
 wait 6 0
 wait 7 0
-start 0 0 0
-start 1 1 0
-start 2 2 0
-start 3 3 0
-start 4 -1 0
-start 5 -1 0
-start 6 -1 0
-start 7 -1 0
+t 0 0 0
+t 1 1 0
+t 2 2 0
+t 3 3 0
+t 4 -1 0
+t 5 -1 0
+t 6 -1 0
+t 7 -1 0
 wait 0 2
 wait 1 2
 wait 2 2
@@ -41,9 +41,9 @@ OBDIO 7 10 22f000000 100000 1 0
 wait 7 1
 st
 st i
-perf
-perf c
-perf
+g
+g c
+g
 halt all
 wait 0 2
 wait 1 2
@@ -71,9 +71,9 @@ OBDIO 7 10 22f400000 200000 1 0
 wait 7 1
 st
 st i
-perf
-perf c
-perf
+g
+g c
+g
 halt all
 wait 0 2
 wait 1 2
@@ -101,9 +101,9 @@ OBDIO 7 10 22f800000 400000 1 0
 wait 7 1
 st
 st i
-perf
-perf c
-perf
+g
+g c
+g
 halt all
 wait 0 2
 wait 1 2
@@ -131,9 +131,9 @@ OBDIO 7 10 230800000 800000 1 0
 wait 7 1
 st
 st i
-perf
-perf c
-perf
+g
+g c
+g
 
 halt all
 wait 0 2
@@ -162,9 +162,9 @@ OBDIO 7 10 230000000 1000000 1 0
 wait 7 1
 st
 st i
-perf
-perf c
-perf
+g
+g c
+g
 
 halt all
 wait 0 2
@@ -193,8 +193,8 @@ OBDIO 7 10 22f700000 100000 1 0
 wait 7 1
 st
 st i
-perf
-perf c
-perf
+g
+g c
+g
 
 

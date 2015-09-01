@@ -11,5 +11,5 @@ scrp scripts/
 st
 st i
 st m
-perf
+g
 lat

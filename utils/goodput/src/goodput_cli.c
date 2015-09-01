@@ -60,7 +60,7 @@ char *req_type_str[(int)last_action+1] = {
 #define MODE_STR(x) (char *)((x == kernel_action)?"KRNL":"User")
 #define THREAD_STR(x) (char *)((0 == x)?"---":((1 == x)?"Run":"Hlt"))
 
-int StartCmd(struct cli_env *env, int argc, char **argv)
+int ThreadCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, cpu, new_dma;
 
@@ -92,16 +92,16 @@ exit:
         return 0;
 };
 
-struct cli_cmd Start = {
-"start",
-4,
+struct cli_cmd Thread = {
+"thread",
+1,
 3,
 "Start a thread on a cpu",
 "start <idx> <cpu> <new_dma>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
 	"<new_dma> If <> 0, open mport again to get a new DMA channel\n",
-StartCmd,
+ThreadCmd,
 ATTR_NONE
 };
 
@@ -253,7 +253,7 @@ struct cli_cmd Wait = {
 "wait",
 2,
 2,
-"Wait until a thread reaches a particular state\n",
+"Wait until a thread reaches a particular state",
 "wait <idx> <state>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<state> 0 - Dead, 1 - Run, 2 - Halted\n",
@@ -361,10 +361,19 @@ int obdio_cmd(struct cli_env *env, int argc, char **argv, enum req_type action)
 	idx = getDecParm(argv[0], 0);
 	did = getDecParm(argv[1], 0);
 	rio_addr = getHex(argv[2], 0);
-	bytes = getHex(argv[3], 0);
-	acc_sz = getHex(argv[4], 0);
-	if ( direct_io_rx_lat != action)
+	if (direct_io == action) {
+		bytes = getHex(argv[3], 0);
+		acc_sz = getHex(argv[4], 0);
 		wr = getDecParm(argv[5], 0);
+	} else {
+		acc_sz = getHex(argv[3], 0);
+		bytes = acc_sz;
+		if (direct_io_tx_lat == action) 
+			wr = getDecParm(argv[4], 0);
+		else
+			wr = 1;
+	};
+		
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -405,14 +414,16 @@ struct cli_cmd OBDIO = {
 "OBDIO",
 5,
 6,
-"Perform reads/writes through an outbound window",
+"Measure goodput of reads/writes through an outbound window",
 "OBDIO <idx> <did> <rio_addr> <bytes> <acc_sz> <wr>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
-	"<acc_sz> Access size, values: 1, 2, 4, 8\n"
-	"<wr>  0: Read, <>0: Write\n",
+	"<acc_sz> Access size, values: 1, 2, 4, 8, 16\n"
+	"<wr>  0: Read, <>0: Write\n"
+	"NOTE: <acc_sz> == 16 is used to calibrate\n"
+	"       the software contribution to latency...\n",
 OBDIOCmd,
 ATTR_NONE
 };
@@ -425,15 +436,16 @@ int OBDIOTxLatCmd(struct cli_env *env, int argc, char **argv)
 struct cli_cmd OBDIOTxLat = {
 "DIOTxLat",
 8,
-6,
-"Perform reads/writes through an outbound window",
-"DIOTxLat <idx> <did> <rio_addr> <bytes> <acc_sz> <wr>\n"
+5,
+"Measure latency of reads/writes through an outbound window",
+"DIOTxLat <idx> <did> <rio_addr> <acc_sz> <wr>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<bytes> total bytes to transfer\n"
-	"<acc_sz> Access size, values: 1, 2, 4, 8\n"
+	"<acc_sz> Access size, values: 1, 2, 4, 8, 16\n"
 	"<wr>  0: Read, <>0: Write\n"
+	"NOTE: <acc_sz> == 16 is used to calibrate\n"
+	"       the software contribution to latency...\n"
 	"NOTE: For <wr>=1, there must be a <did> thread running OBDIORxLat!\n",
 OBDIOTxLatCmd,
 ATTR_NONE
@@ -446,15 +458,15 @@ int OBDIORxLatCmd(struct cli_env *env, int argc, char **argv)
 
 struct cli_cmd OBDIORxLat = {
 "DIORxLat",
-10,
-6,
-"Perform reads/writes through an outbound window",
-"DIORxLat <idx> <did> <rio_addr> <bytes> <acc_sz>\n"
+4,
+4,
+"Loop back DIOTxLat writes through an outbound window",
+"DIORxLat <idx> <did> <rio_addr> <acc_sz>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<bytes> total bytes to transfer\n"
-	"<acc_sz> Access size, values: 1, 2, 4, 8\n",
+	"<acc_sz> Access size, values: 1, 2, 4, 8\n"
+	"NOTE: DIORxLat must be run before OBDIOTxLat!\n",
 OBDIORxLatCmd,
 ATTR_NONE
 };
@@ -522,7 +534,7 @@ struct cli_cmd dma = {
 "dma",
 3,
 9,
-"Perform reads/writes with the DMA engines",
+"Measure goodput of DMA reads/writes",
 "dma <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
@@ -596,7 +608,7 @@ struct cli_cmd dmaTxLat = {
 "dTxLat",
 2,
 7,
-"Perform reads/writes with the DMA engines",
+"Measure lantecy of DMA reads/writes",
 "dTxLat <idx> <did> <rio_addr> <bytes> <wr> <kbuf> <trans>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
@@ -666,12 +678,13 @@ struct cli_cmd dmaRxLat = {
 "dRxLat",
 8,
 4,
-"Acknowledge DMA write completion for DMA Latency write test.",
+"Loop back DMA writes for dTxLat command.",
 "dRxLat <idx> <did> <rio_addr> <bytes>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
-	"<bytes> total bytes to transfer\n",
+	"<bytes> total bytes to transfer\n"
+	"NOTE: The dRxLat command must be run before dTxLat!\n",
 dmaRxLatCmd,
 ATTR_NONE
 };
@@ -743,13 +756,14 @@ struct cli_cmd msgTx = {
 "msgTx",
 4,
 4,
-"Sends channelized messages as requested",
+"Measure goodput of channelized messages",
 "msgTx <idx> <did> <sock_num> <size>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
 	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
-	"NOTE: All parameters are decimal numbers.\n",
+	"NOTE: All parameters are decimal numbers.\n"
+	"NOTE: msgTx must send to a corresponding msgRx!\n",
 msgTxCmd,
 ATTR_NONE
 };
@@ -764,13 +778,15 @@ struct cli_cmd msgTxLat = {
 "mTxLat",
 2,
 4,
-"Measures latency of channelized messages as requested",
+"Measures latency of channelized messages",
 "mTxLat <idx> <did> <sock_num> <size>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
 	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
-	"NOTE: All parameters are decimal numbers.\n",
+	"NOTE: All parameters are decimal numbers.\n"
+	"NOTE: mTxLat must be sending to a node running mRxLat!\n"
+	"NOTE: mRxLat must be run before mTxLat!\n",
 msgTxLatCmd,
 ATTR_NONE
 };
@@ -822,12 +838,13 @@ struct cli_cmd msgRxLat = {
 "mRxLat",
 2,
 3,
-"Loops back received messages to sender",
+"Loops back received messages to mTxLat sender",
 "mRxLat <idx> <sock_num> <size>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
 	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
-	"NOTE: All parameters are decimal numbers.\n",
+	"NOTE: All parameters are decimal numbers.\n"
+	"NOTE: mRxLat must be run before mTxLat!\n",
 msgRxLatCmd,
 ATTR_NONE
 };
@@ -877,14 +894,15 @@ struct cli_cmd msgRx = {
 "Receives channelized messages as requested",
 "msgRx <idx> <sock_num>\n"
 	"<idx> is a worker index from 0 to 7\n"
-	"<sock_num> Target socket number for connections from msgTx command\n",
+	"<sock_num> Target socket number for connections from msgTx command\n"
+	"NOTE: msgRx must be running before msgTx!\n",
 msgRxCmd,
 ATTR_NONE
 };
 
 #define FLOAT_STR_SIZE 20
 
-int PerfCmd(struct cli_env *env, int argc, char **argv)
+int GoodputCmd(struct cli_env *env, int argc, char **argv)
 {
 	int i;
 	float MBps, Gbps, Msgpersec; 
@@ -949,15 +967,15 @@ int PerfCmd(struct cli_env *env, int argc, char **argv)
         return 0;
 };
 
-struct cli_cmd Perf = {
-"perf",
-4,
+struct cli_cmd Goodput = {
+"goodput",
+1,
 0,
 "Print current performance for threads.",
-"perf {<optional>}\n"
-	"Any parameter to perf causes the byte and message counts of all\n"
+"goodput {<optional>}\n"
+	"Any parameter to goodput causes the byte and message counts of all\n"
 	"   running threads to be zeroed after they are displayed.\n",
-PerfCmd,
+GoodputCmd,
 ATTR_RPT
 };
 
@@ -1317,6 +1335,7 @@ ATTR_NONE
 struct cli_cmd *goodput_cmds[] = {
 	&IBAlloc,
 	&IBDealloc,
+	&Dump,
 	&OBDIO,
 	&OBDIOTxLat,
 	&OBDIORxLat,
@@ -1324,18 +1343,17 @@ struct cli_cmd *goodput_cmds[] = {
 	&dmaRxLat,
 	&dma,
 	&msgTx,
-	&msgTxLat,
 	&msgRx,
+	&msgTxLat,
 	&msgRxLat,
-	&Perf,
+	&Goodput,
 	&Lat,
 	&Status,
-	&Start,
+	&Thread,
 	&Kill,
 	&Halt,
 	&Move,
 	&Wait,
-	&Dump,
 	&Mpdevs
 };
 
