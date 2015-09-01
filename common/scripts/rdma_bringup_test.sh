@@ -17,6 +17,10 @@ do
 	# Start Fabric Management Daemon on each node
 	for node in $NODES
 	do
+		# Load the drivers
+		ssh root@"$node" "modprobe rio_cm"
+		ssh root@"$node" "modprobe rio_mport_cdev"
+
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		echo "Start fmd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS fmd $RDMA_ROOT_PATH/fabric_management/daemon/fmd -l7"
