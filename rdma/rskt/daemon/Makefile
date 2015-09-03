@@ -38,6 +38,14 @@ src/%.o: src/%.c
 	-I../../../include \
 	-DRDMA_LL=7
 
+src/%.o: src/%.cpp
+	$(CXX) -o $@ $< -c -g -ggdb -fPIC -Wall -Werror -O2 \
+	-I./src -I./inc -I../inc \
+	-I$(COMMON_DIR)/include \
+	-I$(COMMON_DIR)/liblist/inc \
+	-I../../../include \
+	-DRDMA_LL=7
+
 RSKTLIB_SOURCES = src/librsktd_dmn.c src/librsktd_lib.c \
 	src/librsktd_msg_proc.c src/librsktd_sn.c src/librsktd_speer.c  \
 	src/librsktd_wpeer.c

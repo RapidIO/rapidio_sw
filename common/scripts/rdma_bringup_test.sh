@@ -184,8 +184,5 @@ do
 	fi # 	if [ $OK -eq 0 ]
 done #for (( i=0; i<MAX_NO; i++ ))
 
-echo "All iterations done. Goodbye"
-echo ""
-
 exit 0
 
