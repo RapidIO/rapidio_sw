@@ -138,7 +138,7 @@ do
 	then
 		echo "	Something failed. Ending test. Check logs on failed node!"
 		echo ""
-		i=MAX_ITERATIONS
+		i=NUM_ITERATIONS
 	else
 		echo "	Everything worked. Retrying, but cleaning up first"
 		echo ""
@@ -182,7 +182,12 @@ do
 			sleep 1
 		done
 	fi # 	if [ $OK -eq 0 ]
-done #for (( i=0; i<MAX_NO; i++ ))
+done #for (( i=0; i<NUM_ITERATIONS; i++ ))
+
+echo -n "Iterations done: " $i
+echo ""
+echo "Goodbye"
+echo ""
 
 exit 0
 
