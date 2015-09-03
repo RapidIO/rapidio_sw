@@ -217,7 +217,7 @@ public:
 		if (rc) {
 			ERR("'%s': Failed to listen: %s\n",
 					name, strerror(-rc));
-			throw rskt_exception("Failed to listen on socket")
+			throw rskt_exception("Failed to listen on socket");
 		}
 	}
 
@@ -229,18 +229,15 @@ public:
 		if (rc) {
 			WARN("'%s': Failed to close listen_socket rc = %d\n", rc);
 		}
-		rskt_close(accept_socket);
+
+		rc = rskt_close(accept_socket);
 		if (rc) {
 			WARN("'%s': Failed to close accept_socket rc = %d\n", rc);
 		}
-		rskt_destroy_socket(listen_socket);
-		if (rc) {
-			WARN("'%s': Failed to destroy listen_socket rc = %d\n", rc);
-		}
-		rskt_destroy_socket(accept_socket);
-		if (rc) {
-			WARN("'%s': Failed to destroy accept_socket rc = %d\n", rc);
-		}
+		rskt_destroy_socket(&listen_socket);
+
+		rskt_destroy_socket(&accept_socket);
+
 	}
 
 private:
@@ -250,5 +247,5 @@ private:
 	rskt_h	accept_socket;
 }; /* rskt_server */
 
-};
+
 #endif /* RSKT_SOCK_H_ */
