@@ -191,8 +191,13 @@ public:
 		    uint32_t send_size = RSKT_DEFAULT_SEND_BUF_SIZE,
 		    uint32_t recv_size = RSKT_DEFAULT_RECV_BUF_SIZE) :
 	rskt_base(name, send_size, recv_size),
-	max_backlog(max_backlog)
+	listen_socket(0),
+	accept_socket(0),
+	max_backlog(max_backlog),
+	is_parent(false)
 	{
+		struct rskt_sockaddr sock_addr;
+
 		/* Create listen socket */
 		listen_socket = rskt_create_socket();
 		if (!listen_socket) {
@@ -219,33 +224,130 @@ public:
 					name, strerror(-rc));
 			throw rskt_exception("Failed to listen on socket");
 		}
-	}
+	} /* rskt_server() */
+
+	/* Construct from an accept socket */
+	rskt_server(const char *name,
+		    rskt_h accept_socket,
+		    uint32_t send_size = RSKT_DEFAULT_SEND_BUF_SIZE,
+		    uint32_t recv_size = RSKT_DEFAULT_RECV_BUF_SIZE) :
+		rskt_base(name, send_size, recv_size),
+		listen_socket(0),
+		accept_socket(accept_socket),
+		max_backlog(0),
+		is_parent(false)
+	{
+	} /* rskt_server() */
 
 	~rskt_server()
 	{
 		int rc;
 
-		rc = rskt_close(listen_socket);
-		if (rc) {
-			WARN("'%s': Failed to close listen_socket rc = %d\n", rc);
+		if (listen_socket) {
+			rc = rskt_close(listen_socket);
+			if (rc) {
+				WARN("'%s': Failed to close listen_socket rc = %d\n", rc);
+			}
+			rskt_destroy_socket(&listen_socket);
 		}
 
-		rc = rskt_close(accept_socket);
-		if (rc) {
-			WARN("'%s': Failed to close accept_socket rc = %d\n", rc);
+		/* If we are a parent, i.e. we provided the socket to a caller
+		 * then the caller owns that socket. We don't close or destroy it.
+		 */
+		if (accept_socket && !parent) {
+			rc = rskt_close(accept_socket);
+			if (rc) {
+				WARN("'%s': Failed to close accept_socket rc = %d\n", rc);
+			}
+			rskt_destroy_socket(&accept_socket);
 		}
-		rskt_destroy_socket(&listen_socket);
+	} /* ~rskt_server() */
 
-		rskt_destroy_socket(&accept_socket);
+	int accept(rskt_h *acc_socket = nullptr)
+	{
+		/* Create accept socket */
+		accept_socket = rskt_create_socket();
+		if (!accept_socket) {
+			ERR("'%s': Failed to create accept socket\n", name);
+			return -1;
+		}
+
+		/* Accept connections */
+		int rc = rskt_accept(listen_socket, accept_socket, &sock_addr);
+		if (rc) {
+			ERR("'s': Failed in rskt_accept: %s\n", name, strerror(errno));
+			return rc;
+		}
+
+		/* Return socket to caller if address of socket variable provided */
+		if (acc_socket != nullptr) {
+			*acc_socket = accept_socket;
+			is_parent = true;
+		} else {
+			is_parent = false;
+		}
+
+		return 0;
+	} /* accept() */
+
+	/* Receive bytes to 'recv_buf' */
+	int receive(uint32_t size)
+	{
+		return rskt_base::receive(accept_socket, size);
+	} /* receive() */
+
+	/* Send bytes from 'send_buf' */
+	int send(uint32_t size)
+	{
+		return rskt_base::send(accept_socket, size);
+	} /* send() */
+
+private:
+	rskt_h	listen_socket;
+	rskt_h	accept_socket;
+	int	max_backlog;
+	bool	is_parent;
+}; /* rskt_server */
+
+class rskt_client : public rskt_base {
+
+public:
+	/* Constructor */
+	rskt_client(const char *name,
+		    uint32_t destid,
+		    int socket_number,
+		    uint32_t send_size = RSKT_DEFAULT_SEND_BUF_SIZE,
+		    uint32_t recv_size = RSKT_DEFAULT_RECV_BUF_SIZE) :
+		socket_number(socket_number),
+		rskt_base(name, send_size, recv_size)
+	{
+		/* Create listen socket */
+		client_socket = rskt_create_socket();
+		if (!client_socket) {
+			CRIT("'%s': Failed to create client_socket\n", name);
+			throw rskt_exception("Failed to create client socket");
+		}
+
+		/* Prepare address from parameters */
+		sock_addr.ct = destid;
+		sock_addr.sn = socket_number;
+
+		int rc = rskt_connect(client_socket, &sock_addr);
+		if (rc) {
+			CRIT("'%s': Failed to connect to destid(%u) on socknum(%u)\n",
+					name, destid, socket_number);
+			return rc;
+		}
+	} /* Constructor */
+
+	~rskt_client()
+	{
 
 	}
 
 private:
-	int max_backlog;
+	rskt_h	client_socket;
 	struct rskt_sockaddr sock_addr;
-	rskt_h	listen_socket;
-	rskt_h	accept_socket;
-}; /* rskt_server */
-
+};
 
 #endif /* RSKT_SOCK_H_ */
