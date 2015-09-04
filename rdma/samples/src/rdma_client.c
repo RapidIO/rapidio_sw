@@ -251,7 +251,7 @@ destroy_msoh:
 	CHECK(status, "rdma_destroy_mso_h");
 } /* test_case5() */
 
-void test_case_g(uint16_t destid)
+void test_case_h(uint16_t destid)
 {
 	mso_h 	msoh;
 	ms_h	msh1;
@@ -283,7 +283,8 @@ void test_case_g(uint16_t destid)
 	status = rdma_disc_ms_h(rem_msh, loc_msubh);
 exit:
 	return;
-} /* test_case_g() */
+} /* test_case_h() */
+
 void sig_handler(int sig)
 {
 	switch (sig) {
@@ -345,7 +346,7 @@ int main(int argc, char *argv[])
 		char ch;
 
 		puts("Select test case:");
-		puts("g. Simple connect then disconnect (after remote daemon dies)");
+		puts("h. Simple connect then disconnect (after remote daemon dies)");
 		puts("1 Simple connect/DMA transfer/disconnect");
 		puts("2 Simple connect/DMA transfer/disconnect with msub offset in ms");
 		puts("3 Simple connect/DMA transfer/disconnect with offset in loc msub");
@@ -360,8 +361,8 @@ int main(int argc, char *argv[])
 
 		switch (ch) {
 
-		case 'g':
-			test_case_g(destid);
+		case 'h':
+			test_case_h(destid);
 		break;
 
 		case '1':

@@ -43,15 +43,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+
+
+
 /**
  * Initialize RDMA library
  *
  * rdma_lib_init() is automatically called once, when the library is loaded
- * in response to a call to one the RDMA APIs. rdma_lib_init() needs to be
- * called again whenever an API fails to communicate with the RDMA daemon
- * and returns EPIPE (broken pipe).
+ * in response to a call to one the RDMA APIs. rdma_lib_init() may be
+ * called again whenever an API fails to retry or get a reason cod for failure.
  *
- * @return: 0 if successful, < 0 if unsuccessful
+ * @return: 0 if successful
  */
 int rdma_lib_init(void);
 
@@ -65,7 +67,7 @@ int rdma_lib_init(void);
  * @owner_name: [IN] Name of the memory space owner
  * @msoh: [OUT] Unique handle which is used to group ownership of memory spaces
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_create_mso_h(const char *owner_name, mso_h *msoh);
 
@@ -88,7 +90,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh);
  *
  * @msoh: [IN] Memory space owner handle
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_close_mso_h(mso_h msoh);
 
@@ -99,7 +101,7 @@ int rdma_close_mso_h(mso_h msoh);
  *
  * @msoh: [IN] Memory space owner handle
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_destroy_mso_h(mso_h msoh);
 
@@ -116,7 +118,7 @@ int rdma_destroy_mso_h(mso_h msoh);
  * @msh: [OUT] Unique handle used to identify the created memory space
  * @bytes: [OUT] Actual number of bytes allocated for memory space
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_create_ms_h(const char *ms_name,
 		     mso_h msoh,
@@ -136,7 +138,7 @@ int rdma_create_ms_h(const char *ms_name,
  * @bytes: [OUT] Length, in bytes, of memory space to be opened
  * @msh: [OUT] Unique handle used to identify the created memory space
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_open_ms_h(const char *ms_name,
 		   mso_h msoh,
@@ -152,7 +154,7 @@ int rdma_open_ms_h(const char *ms_name,
  * @msoh: [IN] Memory space owner handle
  * @msh: [IN] Memory space handle
  *
- * @return  0 if successful, < 0 if unsuccessful
+ * @return  0 if successful
 */
 int rdma_close_ms_h(mso_h msoh, ms_h msh);
 
@@ -165,7 +167,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh);
  * @msoh: [IN] Memory space owner handle
  * @msh: [IN] Memory space handle
  *
- * @return  0 if successful, < 0 if unsuccessful
+ * @return  0 if successful
 */
 int rdma_destroy_ms_h(mso_h msoh, ms_h msh);
 
@@ -182,7 +184,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh);
  * @flags: [IN] Flags.
  * @msubh: [OUT] Unique handle used to identify the created memory sub-space
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_create_msub_h(ms_h msh,
 		       uint32_t offset,
@@ -201,7 +203,7 @@ int rdma_create_msub_h(ms_h msh,
  * @msh: [IN] Handle for memory space 
  * @msubh: [IN] Handle representing the memory sub-space to be destroyed
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_destroy_msub_h(ms_h msh, msub_h msubh);
 
@@ -214,7 +216,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh);
  * @msubh: [IN] Memory sub-space handle
  * @vaddr: [OUT] Pointer for holding virtual address
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_mmap_msub(msub_h msubh, void **vaddr);
 
@@ -224,7 +226,7 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr);
  * @msubh: [IN] Memory sub-space handle
  * @vaddr: [IN] Pointer to virtual address mapping memory subspace
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_munmap_msub(msub_h msubh, void *vaddr);
 
@@ -238,7 +240,7 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr);
  * @timeout_msecs: [IN] timeout in seconds after which function returns
  * regardless of success
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_accept_ms_h(ms_h msh,
 		     msub_h loc_msubh,
@@ -263,7 +265,7 @@ int rdma_accept_ms_h(ms_h msh,
  * @rem_msub_len [OUT] Remote memory subspace length in bytes
  * @rem_msh [OUT] Handle to remote memory space provided by server
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_conn_ms_h(uint8_t destid_len,
 		   uint32_t destid,
@@ -286,7 +288,7 @@ int rdma_conn_ms_h(uint8_t destid_len,
  * @rem_msh	Remote memory space to disconnect from
  * @loc_msubh	Local memory subspace provided to remote server. 0 if none.
  *
- * @return 0 if successful, < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh);
 
@@ -324,7 +326,7 @@ struct rdma_xfer_ms_out {
  * @in	Transfer parameters
  * @out	Transfer result
  *
- * @return 0 if successful < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_push_msub(const struct rdma_xfer_ms_in *in, struct rdma_xfer_ms_out *out);
 
@@ -336,7 +338,7 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in, struct rdma_xfer_ms_out *ou
  * @in	Transfer parameters
  * @out	Transfer result
  *
- * @return 0 if successful < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_pull_msub(const struct rdma_xfer_ms_in *in_parms, struct rdma_xfer_ms_out *out);
 
@@ -353,7 +355,7 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in_parms, struct rdma_xfer_ms_o
  * @sync_type	Sync type
  * @out		Transfer result
  *
- * @return 0 if successful < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		  int priority, rdma_sync_type_t sync_type,
@@ -372,7 +374,7 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
  * @sync_type	Sync type
  * @out		Transfer result
  *
- * @return 0 if successful < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		  int priority, rdma_sync_type_t sync_type,
@@ -392,7 +394,7 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
  * @chk_handle	Handle for checking completion of last async transfer
  * @wait	Timeout value
  *
- * @return 0 if successful < 0 if unsuccessful
+ * @return 0 if successful
  */
 int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 			    const struct timespec *wait);

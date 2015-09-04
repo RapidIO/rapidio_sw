@@ -1,8 +1,15 @@
 LIBRDMA_PATH=..
 LIBMPORT_PATH=../../common/libs_so
 COMMON_LIBS_PATH=../../common/libs_a
-
+TOP_LEVEL=../../
+# LOG_LEVEL is set by the master Makefile. If this Makefile is run alone, 
+# it can override the loglevel on the command line by specifying 'level=XXX'
+# otherwise it defaults to 7
+ifndef LOG_LEVEL
+level?=7
+else
 level?=$(LOG_LEVEL)
+endif
 
 # Common flags for all applications
 RDMAAPP_CFLAGS = --std=gnu++0x -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
@@ -13,11 +20,15 @@ BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a ../src/* \
 	../inc/* ../daemon/src/* ../daemon/inc/*
 
 BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
+	-L$(TOP_LEVEL)/fabric_management/libfmdd \
+	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
+	-L$(TOP_LEVEL)/fabric_management/libdd \
 	-Wl,-rpath=$(LIBMPORT_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
-	src/$@.cpp -lrt -llog -lmport -lrdma -lcli -pthread
+	src/$@.cpp -lrt -llist -llog -lmport -lrdma -lcli -pthread -lfmdd -ldd -lriocp_pe
 
-all: bat_server bat_client
+
+all: bat_server bat_client bat_child
 
 # Batch Automated Test (BAT)
 bat_server: $(BAT_DEPS) src/bat_server.cpp
@@ -26,6 +37,10 @@ bat_server: $(BAT_DEPS) src/bat_server.cpp
 
 bat_client: $(BAT_DEPS) src/bat_client.cpp
 	@echo ---------- Building bat_client...
+	$(BAT_BUILD_STRING)
+
+bat_child: $(BAT_DEPS) src/bat_child.cpp
+	@echo ---------- Building bat_child...
 	$(BAT_BUILD_STRING)
 
 clean:

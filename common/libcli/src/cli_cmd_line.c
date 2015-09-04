@@ -172,7 +172,6 @@ int process_command(struct cli_env *env, char *input)
 		if (env->cmd_prev != NULL)
 			exitStat = env->cmd_prev->func(env, 0, NULL);
 	}
-
 	return exitStat;
 }
 
@@ -215,7 +214,6 @@ int cli_terminal(struct cli_env *env)
      setsockopt (env->sess_socket, IPPROTO_TCP, TCP_CORK, &zero, sizeof (zero));
 			};
 		} else {
-
 			fflush(stdin);
 #ifdef USE_READLINE
 			/* Readline returns a buffer that it allocates.

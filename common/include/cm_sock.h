@@ -51,7 +51,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define	CM_MSG_OFFSET 20
 #define	CM_BUF_SIZE	4096
 
-using namespace std;
+using std::iterator;
+using std::cout;
+using std::endl;
+using std::ostream_iterator;
+using std::setfill;
+using std::hex;
+using std::setw;
 
 struct cm_exception {
 	cm_exception(const char *msg) : err(msg) {}
@@ -461,6 +467,8 @@ public:
 		/* Return the socket, now that we know it works */
 		if (socket)
 			*socket = this->client_socket;
+
+		server_destid = destid;
 		return 0;
 	} /* connect() */
 
@@ -488,6 +496,7 @@ public:
 		return cm_base::timed_receive(client_socket, timeout_ms);
 	} /* receive() */
 
+	uint16_t server_destid;
 private:
 	riomp_sock_t client_socket;
 }; /* cm_client */

@@ -38,6 +38,14 @@ src/%.o: src/%.c
 	-I../../../include \
 	-DRDMA_LL=7
 
+src/%.o: src/%.cpp
+	$(CXX) -o $@ $< -c -g -ggdb -fPIC -Wall -Werror -O2 \
+	-I./src -I./inc -I../inc \
+	-I$(COMMON_DIR)/include \
+	-I$(COMMON_DIR)/liblist/inc \
+	-I../../../include \
+	-DRDMA_LL=7
+
 RSKTLIB_SOURCES = src/librsktd_dmn.c src/librsktd_lib.c \
 	src/librsktd_msg_proc.c src/librsktd_sn.c src/librsktd_speer.c  \
 	src/librsktd_wpeer.c
@@ -52,10 +60,16 @@ RSKTD_OBJECTS = src/rsktd.o src/librsktd_cli.o
 RSKTS_SOURCE = src/rskts.c
 RSKTS_OBJECTS = src/rskts.o
 
+RSKTS_TEST_SOURCE = src/rskts_test.cpp
+RSKTS_TEST_OBJECTS = src/rskts_test.o
+
+RSKTC_TEST_SOURCE = src/rsktc_test.cpp
+RSKTC_TEST_OBJECTS = src/rsktc_test.o
+
 REMDBG_SOURCE = src/remdbg.c
 REMDBG_OBJECTS = src/remdbg.o
 
-all: rsktd rskts remdbg
+all: rsktd rskts remdbg rskts_test rsktc_test
 
 # The RDMA Sockets Daemon
 rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
@@ -76,6 +90,25 @@ rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
+
+rskts_test:  $(RSKTLIB_OBJECTS) $(RSKTS_TEST_OBJECTS) src/*.h
+	@echo ---------- Building rskts_test
+	$(CXX) -L$(MPORT_DIR) -L$(shell pwd) -pthread \
+	-Wl,-rpath=$(MPORT_DIR) \
+	-Wl,-rpath=$(RDMA_DIR) \
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_TEST_OBJECTS) $(LIB_DIRS) \
+	-lrskt -lcli -lrt -lmport \
+	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
+
+rsktc_test:  $(RSKTLIB_OBJECTS) $(RSKTC_TEST_OBJECTS) src/*.h
+	@echo ---------- Building rsktc_test
+	$(CXX) -L$(MPORT_DIR) -L$(shell pwd) -pthread \
+	-Wl,-rpath=$(MPORT_DIR) \
+	-Wl,-rpath=$(RDMA_DIR) \
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKTC_TEST_OBJECTS) $(LIB_DIRS) \
+	-lrskt -lcli -lrt -lmport \
+	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
+
 
 # The Remote Debug shellsrc/librsktd_cli.c 
 remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h

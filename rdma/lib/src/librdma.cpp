@@ -64,8 +64,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librdma_db.h"
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
+#include "libfmdd.h"
 
-using namespace std;
+using std::iterator;
 
 #ifdef __cplusplus
 extern "C" {
@@ -78,6 +79,8 @@ static unix_client *client;
 static unix_msg_t  *in_msg;
 static unix_msg_t  *out_msg;
 static size_t	    received_len;
+static fmdd_h 	    dd_h;
+static uint32_t	    fm_alive;
 
 /** 
  * Global info related to mports and channelized messages.
@@ -112,29 +115,50 @@ static int alt_rpc_call()
 
 	/* Send input parameters */
 	ret = client->send(sizeof(*in_msg));
-	if (ret) {
-		ERR("Failed to send message to RDMA daemon, ret = %d\n", ret);
-		/* If it is a broken pipe, then the daemon has died. Delete the
-		 * socket client and set the initialization flag to 0. The client
-		 * application will be notified that the daemon is dead. Furthermore,
-		 * no more API calls will be possible until the library is
-		 * re-initialized.
-		 */
-		if (ret == EPIPE) {
-			CRIT("Daemon has died. Terminating socket connection\n");
-			delete client;
-			init = 0;
+	if (ret == 0) {
+		/* Receive output parameters */
+		ret = client->receive(&received_len);
+		if (ret) {
+			ERR("Failed to receive output from RDMA daemon");
 		}
-		return ret;
+	} else {
+		ERR("Failed to send message to RDMA daemon, ret = %d\n", ret);
 	}
 
-	/* Receive output parameters */
-	if (client->receive(&received_len)) {
-		ERR("Failed to receive output from RDMA daemon");
-		return -4;
+	if (ret) {
+		CRIT("Daemon has died. Terminating socket connection\n");
+		delete client;
+		client = nullptr;
+		CRIT("Daemon has died. Purging local database!\n");
+		purge_local_database();
+		init = 0;
+		ret = RDMA_DAEMON_UNREACHABLE;
 	}
-	return 0;
+	return ret;
 } /* alt_rpc_call() */
+
+int rdmad_kill_daemon()
+{
+	struct rdmad_kill_daemon_input	in;
+
+	in.dummy = 0x666;
+	in_msg->type = RDMAD_KILL_DAEMON;
+	in_msg->rdmad_kill_daemon_in = in;
+
+	return alt_rpc_call();
+}
+
+static bool rdmad_is_alive()
+{
+	rdmad_is_alive_input	in;
+
+	in.dummy = 0x1234;
+
+	in_msg->type = RDMAD_IS_ALIVE;
+	in_msg->rdmad_is_alive_in = in;
+
+	return alt_rpc_call() != RDMA_DAEMON_UNREACHABLE;
+} /* rdmad_is_alive() */
 
 static int open_mport(struct peer_info *peer)
 {
@@ -169,7 +193,7 @@ static int open_mport(struct peer_info *peer)
 		CRIT("riomp_mgmt_mport_create_handle(): %s\n", strerror(errno));
 		CRIT("Cannot open mport%d, is rio_mport_cdev loaded?\n",
 								peer->mport_id);
-		return -errno;
+		return RDMA_MPORT_OPEN_FAIL;
 	}
 
 	/* Read the properties. */
@@ -180,7 +204,7 @@ static int open_mport(struct peer_info *peer)
 		} else {
 			CRIT("DMA capability DISABLED\n");
 			riomp_mgmt_mport_destroy_handle(&peer->mport_hnd);
-			return -3;
+			return RDMA_NOT_SUPPORTED;
 		}
 		peer->destid = prop.hdid;
 	} else {
@@ -326,34 +350,66 @@ static void *wait_for_disc_thread_f(void *arg)
 
 int rdma_lib_init(void)
 {
+	int ret = 0;
+
+	if (init == 1) {
+		WARN("RDMA library already initialized\n");
+		return ret;
+	}
+
 	/* Create a client */
 	DBG("Creating client object...\n");
 	try {
 		client = new unix_client();
 	}
-	catch(unix_sock_exception e) {
+	catch(unix_sock_exception& e) {
 		CRIT("%s\n", e.err);
-		return -2;
+		client = nullptr;
+		ret = RDMA_MALLOC_FAIL;
 	}
 
 	/* Connect to server */
-	if( client->connect()) {
-		CRIT("Failed to connect to RDMA daemon. Is it running?\n");
-		return -3;
+	if (ret == 0) {
+		if (client->connect() == 0) {
+			INFO("Successfully connected to RDMA daemon\n");
+			client->get_recv_buffer((void **)&out_msg);
+			client->get_send_buffer((void **)&in_msg);
+		} else {
+			CRIT("Connect failed. Daemon running?\n");
+			ret = RDMA_DAEMON_UNREACHABLE;
+		}
 	}
-	INFO("Successfully connected to RDMA daemon\n");
 
-	client->get_recv_buffer((void **)&out_msg);
-	client->get_send_buffer((void **)&in_msg);
+	/* Open mport */
+	if (ret == 0) {
+		ret = open_mport(&peer);
+		if (ret == 0) {
+			INFO("MPORT successfully opened\n");
+		} else {
+			CRIT("Failed to open mport\n");
+		}
+	}
 
-	if (open_mport(&peer))
-		return -2;
+	/* Attempt to connect to FM daemon */
+	dd_h = fmdd_get_handle((char *)"RDMAD", FMDD_RDMA_FLAG);
+
+	if (dd_h != NULL) {
+		fmdd_bind_dbg_cmds(dd_h);
+		fm_alive = 1;
+		HIGH("FM is alive\n");
+	} else {
+		CRIT("Cannot obtain dd_h\n");
+		dd_h = NULL;
+	}
 
 	/* Set initialization flag */
-	init = 1;
-	DBG("Library fully initialized\n ");
+	if (ret == 0) {
+		init = 1;
+		INFO("RDMA library fully initialized\n ");
+	} else if (client != nullptr)
+		delete client;
 
-	return 0;
+	return ret;
 } /* rdma_lib_init() */
 
 __attribute__((constructor)) int lib_init(void)
@@ -367,36 +423,48 @@ __attribute__((constructor)) int lib_init(void)
 	/* Make threads cancellable at some points (e.g. mq_receive) */
 	if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)) {
 		WARN("Failed to set cancel state:%s\n",strerror(errno));
-		return -3;
+		return RDMA_ERRNO;
 	}
 
 	return rdma_lib_init();
 } /* rdma_lib_init() */
 
+#define CHECK_LIB_INIT() if (!init) { \
+				WARN("RDMA library not initialized, re-initializing\n"); \
+				ret = rdma_lib_init(); \
+				if (ret) { \
+					ERR("Failed to re-initialize RDMA library\n"); \
+					return ret; \
+				} \
+			}
+
 int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 {
 	create_mso_input	in;
 	create_mso_output	out;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check that owner does not already exist */
 	if (find_mso_by_name(owner_name)) {
 		CRIT("Cannot create another owner named \'%s\'\n", owner_name);
-		return -2;
+		return RDMA_DUPLICATE_MSO;
 	}
 
 	/* Prevent buffer overflow due to very long name */
 	size_t len = strlen(owner_name);
 	if (len > UNIX_MS_NAME_MAX_LEN) {
 		ERR("String 'owner_name' is too long (%d)\n", len);
-		return -3;
+		return RDMA_NAME_TOO_LONG;
 	}
 
 	/* Set up input parameters */
@@ -406,7 +474,7 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 	in_msg->type = CREATE_MSO;
 	in_msg->create_mso_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -417,7 +485,7 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 	*msoh = add_loc_mso(owner_name, out.msoid, 0, true, (pthread_t)0, nullptr);
 	if (!*msoh) {
 		WARN("add_loc_mso() failed, msoid = 0x%X\n", out.msoid);
-		return -6;
+		return RDMA_DB_ADD_FAIL;
 	}
 
 	return out.status;
@@ -476,26 +544,29 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 {
 	open_mso_input	in;
 	open_mso_output	out;
+	int		ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check that this owner isn't already open */
 	if (mso_is_open(owner_name)) {
 		WARN("%s is already open!\n", owner_name);
-		return -2;
+		return RDMA_ALREADY_OPEN;
 	}
 
 	/* Prevent buffer overflow due to very long name */
 	size_t len = strlen(owner_name);
 	if (len > UNIX_MS_NAME_MAX_LEN) {
 		ERR("String 'owner_name' is too long (%d)\n", len);
-		return -3;
+		return RDMA_NAME_TOO_LONG;
 	}
 
 	/* Set up input parameters */
@@ -505,7 +576,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	in_msg->type = OPEN_MSO;
 	in_msg->open_mso_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -525,7 +596,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	}
 	catch(msg_q_exception e) {
 		CRIT("Failed to create mso_close_mq: %s\n", e.msg.c_str());
-		return -4;
+		return RDMA_MALLOC_FAIL;
 	}
 	INFO("Opened message queue '%s'\n", qname.str().c_str());
 
@@ -534,7 +605,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	if (pthread_create(&mso_close_thread, NULL, mso_close_thread_f, (void *)mso_close_mq)) {
 		WARN("Failed to create mso_close_thread: %s\n", strerror(errno));
 		delete mso_close_mq;
-		return -5;
+		return RDMA_PTHREAD_FAIL;
 	}
 	INFO("Created mso_close_thread with argument %d passed to it\n", mso_close_mq);
 
@@ -549,7 +620,12 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 			    mso_close_mq);
 	if (!*msoh) {
 		WARN("add_loc_mso() failed, msoid = 0x%X\n", out.msoid);
-		return -6;
+		if(pthread_cancel(mso_close_thread)) {
+			CRIT("Failed to cancel mso_close_thread: %s\n",
+					strerror(errno));
+		}
+		delete mso_close_mq;
+		return RDMA_DB_ADD_FAIL;
 	}
 
 	return 0;
@@ -581,27 +657,29 @@ int rdma_close_mso_h(mso_h msoh)
 {
 	close_mso_input		in;
 	close_mso_output	out;
-	close_ms		cms(msoh);
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL msoh */
 	if (!msoh) {
 		WARN("msoh is NULL\n");
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* Check if msoh has already been closed (as a result of the owner
 	 * destroying it and sending a close message to this user */
 	if (!mso_h_exists(msoh)) {
 		WARN("msoh no longer exists\n");
-		return -3;
+		return RDMA_INVALID_MSO;
 	}
 
 	/* Get list of memory spaces opened by this owner */
@@ -611,11 +689,14 @@ int rdma_close_mso_h(mso_h msoh)
 	DBG("ms_list now has %d elements\n", ms_list.size());
 
 	/* For each one of the memory spaces, close */
+	close_ms		cms(msoh);
 	for_each(ms_list.begin(), ms_list.end(), cms);
 
 	/* Fail on any error */
-	if (!cms.ok)
-		return -3;
+	if (!cms.ok) {
+		ERR("Failed to close one or more mem spaces\n");
+		return RDMA_MS_CLOSE_FAIL;
+	}
 
 	/* Set up input parameters */
 	in.msoid = ((struct loc_mso *)msoh)->msoid;
@@ -626,23 +707,25 @@ int rdma_close_mso_h(mso_h msoh)
 	 * since otherwise I'm not sure what the mq_receive() will do.
 	 */
 	pthread_t  close_notify_thread = loc_mso_get_close_notify_thread(msoh);
-	if (!close_notify_thread)
+	if (!close_notify_thread) {
 		WARN("close_notify_thread is NULL!!\n");
-	else if (pthread_cancel(close_notify_thread)) {
+	} else if (pthread_cancel(close_notify_thread)) {
 		WARN("Failed to cancel close_notify_thread for msoh(0x%X)\n", msoh);
 	}
 
 	/**
 	 * Probably good practice to close the message queue here before
-	 * calling close_mso_1() since close_mso_1() will close and unlink
-	 * the message queue from the daemon. Unlink probably needs a queue
+	 * calling alt_rpc_call() since the daemon will close and unlink
+	 * the message queue. Unlink probably needs a queue
 	 * that is not open by anyone in order to succeed.
 	 */
 	msg_q<mq_close_mso_msg>	*close_notify_mq = loc_mso_get_close_notify_mq(msoh);
-	if (close_notify_mq == nullptr)
+	if (close_notify_mq == nullptr) {
 		WARN("close_notify_mq is NULL\n");
-	else
+	} else {
+		DBG("Deleting close_notify_mq\n");
 		delete close_notify_mq;
+	}
 
 	/* close_mso_1() will remove the message queue corresponding to the mso
 	 * user from the ms_owner struct in the daemon */
@@ -651,7 +734,7 @@ int rdma_close_mso_h(mso_h msoh)
 	in_msg->type = CLOSE_MSO;
 	in_msg->close_mso_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -659,10 +742,10 @@ int rdma_close_mso_h(mso_h msoh)
 
 	out = out_msg->close_mso_out;
 
-	/* Take it out of databse */
+	/* Take it out of database */
 	if (remove_loc_mso(msoh) < 0) {
 		WARN("Failed to find 0x%lX in db\n", msoh);
-		return -6;
+		return RDMA_DB_REM_FAIL;
 	}
 	INFO("msoh(0x%lX) removed from local database\n", msoh);
 
@@ -696,20 +779,22 @@ int rdma_destroy_mso_h(mso_h msoh)
 {
 	destroy_mso_input	in;
 	destroy_mso_output	out;
-	destroy_ms		dms(msoh);
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 	
 	/* Check for NULL msoh */
 	if (!msoh) {
 		WARN("msoh is NULL\n");
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* Get list of memory spaces owned by this owner */
@@ -719,12 +804,13 @@ int rdma_destroy_mso_h(mso_h msoh)
 	INFO("ms_list now has %d elements\n", ms_list.size());
 
 	/* For each one of the memory spaces, call destroy */
+	destroy_ms		dms(msoh);
 	for_each(ms_list.begin(), ms_list.end(), dms);
 
 	/* Fail on any error */
 	if (!dms.ok) {
 		ERR("Failed in destroy_ms::operator()\n");
-		return -3;
+		return RDMA_MS_DESTROY_FAIL;
 	}
 
 	/* Set up input parameters */
@@ -736,7 +822,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 
 	DBG("in.msoid = 0x%X\n", in.msoid);
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -762,26 +848,29 @@ int rdma_create_ms_h(const char *ms_name,
 	create_ms_input	 in;
 	create_ms_output out;
 	uint32_t	dummy_bytes;
+	int		ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL parameters */
 	if (!ms_name || !msoh || !msh) {
 		ERR("NULL param: ms_name=%p, msoh=%u, msh=%p",
 			ms_name, msoh, msh);
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* Disallow creating a duplicate ms name */
 	if (find_loc_ms_by_name(ms_name)) {
 		WARN("A memory space named \'%s\' exists\n", ms_name);
-		return -3;
+		return RDMA_DUPLICATE_MS;
 	}
 
 	/* A memory space must be aligned at 4K, therefore any previous
@@ -796,7 +885,7 @@ int rdma_create_ms_h(const char *ms_name,
 	size_t len = strlen(ms_name);
 	if (len > UNIX_MS_NAME_MAX_LEN) {
 		ERR("String 'ms_name' is too long (%d)\n", len);
-		return -3;
+		return RDMA_NAME_TOO_LONG;
 	}
 
 	/* Set up input parameters */
@@ -809,7 +898,7 @@ int rdma_create_ms_h(const char *ms_name,
 	in_msg->type = CREATE_MS;
 	in_msg->create_ms_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -822,7 +911,7 @@ int rdma_create_ms_h(const char *ms_name,
 				0, nullptr);
 	if (!*msh) {
 		ERR("Failed to store ms in database\n");
-		return -7;
+		return RDMA_DB_ADD_FAIL;
 	}
 	INFO("Info for '%s' stored in database\n", ms_name);
 
@@ -837,7 +926,7 @@ struct destroy_msub {
 
 	void operator()(struct loc_msub * msub) {
 		if (rdma_destroy_msub_h(msh, msub_h(msub))) {
-			WARN("rdma_destroy_msub_h failed: msh=0x%lX, msubh=0x%lX",
+			WARN("rdma_destroy_msub_h failed: msh=0x%lX, msubh=0x%lX\n",
 							msh, msub_h(msub));
 			ok = false;
 		} else {
@@ -873,7 +962,7 @@ static int destroy_msubs_in_msh(ms_h msh)
 	/* Fail on any error */
 	if (!dmsub.ok) {
 		ERR("Failure during destroying one of the msubs\n");
-		return -2;
+		return RDMA_MSUB_DESTROY_FAIL;
 	}
 
 	return 0;
@@ -934,16 +1023,19 @@ int rdma_open_ms_h(const char *ms_name,
 		   uint32_t *bytes,
 		   ms_h *msh)
 {
-	open_ms_input in;
-	open_ms_output out;
+	open_ms_input 	in;
+	open_ms_output 	out;
+	int		ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been initialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Prevent buffer overflow due to very long name */
 	size_t len = strlen(ms_name);
@@ -961,7 +1053,7 @@ int rdma_open_ms_h(const char *ms_name,
 	in_msg->type = OPEN_MS;
 	in_msg->open_ms_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -978,7 +1070,7 @@ int rdma_open_ms_h(const char *ms_name,
 		/* Call to open_ms_1() creates the message queue, so open it */
 		close_mq = new msg_q<mq_close_ms_msg>(qname.str(), MQ_OPEN);
 	}
-	catch(msg_q_exception e) {
+	catch(msg_q_exception& e) {
 		CRIT("Failed to create message queue: %s\n", e.msg.c_str());
 		return -6;
 	}
@@ -1022,19 +1114,22 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 {
 	close_ms_input	in;
 	close_ms_output	out;
+	int		ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL parameters */
 	if (!msoh || !msh) {
 		ERR("Invalid param(s): msoh=0x%lX, msh=0x%lX\n", msoh, msh);
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* Check if msh has already been closed (as a result of the owner
@@ -1050,7 +1145,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	/* Destroy msubs opened under this msh */
 	if (destroy_msubs_in_msh(msh)) {
 		ERR("Failed to destroy msubs belonging to msh(0x%lX)\n", msh);
-		return -3;
+		return RDMA_MSUB_DESTROY_FAIL;
 	}
 
 	/* Kill the disconnection thread, if it exists */
@@ -1059,7 +1154,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		WARN("disc_thread is NULL.\n");
 	else {
 		if (pthread_cancel(disc_thread)) {
-			WARN("Failed to kill disc_thread for msh(0x%X):%s\n",
+			WARN("Failed to cancel disc_thread for msh(0x%X):%s\n",
 						msh, strerror(errno));
 		}
 	}
@@ -1095,7 +1190,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	in_msg->type = CLOSE_MS;
 	in_msg->close_ms_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1105,7 +1200,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	/* Take it out of databse */
 	if (remove_loc_ms(msh) < 0) {
 		ERR("Failed to find msh(0x%lX) in db\n", msh);
-		return -6;
+		return RDMA_DB_REM_FAIL;
 	}
 	INFO("msh(0x%lX) removed from local database\n", msh);
 
@@ -1117,21 +1212,23 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 {
 	destroy_ms_input	in;
 	destroy_ms_output	out;
-	destroy_msub		dmsub(msh);
 	loc_ms 			*ms;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL parameters */
 	if (!msoh || !msh) {
 		ERR("Invalid param(s): msoh=0x%lX, msh=0x%lX\n", msoh, msh);
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
 
 	ms = (loc_ms *)msh;
@@ -1143,7 +1240,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	/* Destroy msubs in this msh */
 	if (destroy_msubs_in_msh(msh)) {
 		ERR("Failed to destroy msubs belonging to msh(0x%lX)\n", msh);
-		return -3;
+		return RDMA_MSUB_DESTROY_FAIL;
 	}
 
 	/* Remove the remote memory subspace provided by the client
@@ -1154,7 +1251,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	in_msg->type = DESTROY_MS;
 	in_msg->destroy_ms_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1182,10 +1279,10 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 		delete disc_mq;
 	}
 
-	/* Memory space removed in daemon, remove from databse as well */
+	/* Memory space removed in daemon, remove from database as well */
 	if (remove_loc_ms(msh) < 0) {
-		WARN("Failed to find 0x%lX in db\n", msh);
-		return -5;
+		WARN("Failed to remove 0x%lX from database\n", msh);
+		return RDMA_DB_REM_FAIL;
 	}
 
 	INFO("msh(0x%lX) removed from local database\n", msh);
@@ -1202,19 +1299,22 @@ int rdma_create_msub_h(ms_h	msh,
 	(void)flags;
 	create_msub_input	in;
 	create_msub_output	out;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL */
 	if (!msh || !msubh) {
 		ERR("NULL param: msh=0x%lX, msubh=%p\n", msh, msubh);
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* In order for mmap() to work, the phys addr must be aligned
@@ -1224,7 +1324,7 @@ int rdma_create_msub_h(ms_h	msh,
 	 */
 	if (!aligned_at_4k(offset)) {
 		ERR("Offset must be a multiple of 4K\n");
-		return -2;
+		return RDMA_ALIGN_ERROR;
 	}
 
 	/* Set up input parameters */
@@ -1239,7 +1339,7 @@ int rdma_create_msub_h(ms_h	msh,
 	in_msg->type = CREATE_MSUB;
 	in_msg->create_msub_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1261,7 +1361,7 @@ int rdma_create_msub_h(ms_h	msh,
 	/* Adding to database should never fail, but just in case... */
 	if (!*msubh) {
 		WARN("Failed to add msub to database\n");
-		return -5;
+		return RDMA_DB_ADD_FAIL;
 	}
 	
 	return 0;
@@ -1272,19 +1372,22 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	destroy_msub_input	in;
 	destroy_msub_output	out;
 	struct loc_msub 	*msub;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		CRIT("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check for NULL handles */
 	if (!msh || !msubh) {
 		ERR("Invalid param(s): msh=0x%lX, msubh=0x%lX\n", msh, msubh);
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* Convert handle to an msub pointer to the element the database */
@@ -1298,7 +1401,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	in_msg->type = DESTROY_MSUB;
 	in_msg->destroy_msub_in = in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1308,7 +1411,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	/* Remove msub from database */
 	if (remove_loc_msub(msubh) < 0) {
 		WARN("Failed to remove %p from database\n", msub);
-		return -7;
+		return RDMA_DB_REM_FAIL;
 	}
 
 	return 0;
@@ -1323,13 +1426,21 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 
 	if (!pmsub) {
 		ERR("msubh is NULL\n");
-		return -1;
+		return RDMA_NULL_PARAM;
 	}
 
 	if (!vaddr) {
 		ERR("vaddr is NULL\n");
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
+
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	ret = riomp_dma_map_memory(peer.mport_hnd, pmsub->bytes, pmsub->paddr, vaddr);
 
@@ -1351,23 +1462,32 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 int rdma_munmap_msub(msub_h msubh, void *vaddr)
 {
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
+	int ret;
 
 	DBG("ENTER\n");
 
 	if (!pmsub) {
 		ERR("msubh is NULL\n");
-		return -1;
+		return RDMA_NULL_PARAM;
 	}
 
 	if (!vaddr) {
 		ERR("vaddr is NULL\n");
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
+
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	DBG("Unmapping vaddr(%p), of size %u\n", vaddr, pmsub->bytes);
 	if (munmap(vaddr, pmsub->bytes) == -1) {
 	        ERR("munmap(): %s\n", strerror(errno));
-		return -3;
+		return RDMA_UNMAP_ERROR;
 	}
 
 	return 0;
@@ -1383,20 +1503,23 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	accept_output		accept_out;
 	undo_accept_input	undo_accept_in;
 	undo_accept_output	undo_accept_out;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		ERR("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check that parameters are not NULL */
 	if (!loc_msh || !loc_msubh || !rem_msubh) {
 		ERR("loc_msh=0x%lX,loc_msubh=0x%lX,rem_msubh=%p\n",
 					loc_msh, loc_msubh, rem_msubh);
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
 
 	loc_ms	*ms = (loc_ms *)loc_msh;
@@ -1404,7 +1527,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	/* If this application has already accepted a connection, fail */
 	if (ms->accepted) {
 		ERR("Already accepted a connection and it is still active!\n");
-		return -3;
+		return RDMA_DUPLICATE_ACCEPT;
 	}
 
 	/* Send the memory space name and the 'accept' parameters to the daemon
@@ -1435,7 +1558,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	}
 	catch(msg_q_exception e) {
 		ERR("Failed to create connect_mq: %s\n", e.msg.c_str());
-		return -5;
+		return RDMA_MALLOC_FAIL;
 	}
 	INFO("Message queue %s created for connection from %s\n",
 						mq_name.c_str(), ms->name);
@@ -1443,7 +1566,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	in_msg->type = ACCEPT_MS;
 	in_msg->accept_in = accept_in;
 
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		delete connect_mq;
@@ -1471,18 +1594,19 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			/* Set up Unix message parameters */
 			in_msg->type = UNDO_ACCEPT;
 			in_msg->undo_accept_in = undo_accept_in;
-			if (alt_rpc_call()) {
+			ret = alt_rpc_call();
+			if (ret) {
 				ERR("Call to RDMA daemon failed\n");
-				return -1;
+				return ret;
 			}
 			undo_accept_out = out_msg->undo_accept_out;
-			return -5;
+			return RDMA_ACCEPT_TIMEOUT;
 		}
 	} else {
 		if (connect_mq->receive()) {
 			ERR("Failed to receive connect message\n");
 			delete connect_mq;
-			return -5;
+			return RDMA_ACCEPT_FAIL;
 		}
 	}
 	INFO("Connect message received!\n");
@@ -1497,6 +1621,11 @@ int rdma_accept_ms_h(ms_h loc_msh,
 					  conn_msg->rem_destid_len,
 					  conn_msg->rem_destid,
 					  loc_msh);
+	if (*rem_msubh == (msub_h)NULL) {
+		WARN("Failed to add rem_msub to database\n");
+		delete connect_mq;
+		return RDMA_DB_ADD_FAIL;
+	}
 	INFO("rem_bytes = %d, rio_addr = 0x%lX\n",
 			conn_msg->rem_bytes, conn_msg->rem_rio_addr_lo);
 
@@ -1518,7 +1647,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	pthread_t wait_for_disc_thread;
 	if (pthread_create(&wait_for_disc_thread, NULL, wait_for_disc_thread_f, disc_mq)) {
 		WARN("Failed to create wait_for_disc_thread: %s\n", strerror(errno));
-		return -6;
+		delete disc_mq;
+		return RDMA_PTHREAD_FAIL;
 	}
 	INFO("Disconnection thread for '%s' created\n", ms->name);
 
@@ -1565,33 +1695,36 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	send_connect_input	in;
 	send_connect_output	out;
 	struct timespec	before, after, rtt;
+	int			ret;
 	struct loc_msub		*loc_msub = (struct loc_msub *)loc_msubh;
 
-	INFO("ENTER\n");
+	DBG("ENTER\n");
+
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
+	}
 
 	/* Check that library has been initialized */
-	if (!init) {
-		WARN("RDMA library not initialized\n");
-		return -1;
-	}
+	CHECK_LIB_INIT();
 
 	/* Remote msubh pointer cannot point to NULL */
 	if (!rem_msubh) {
 		WARN("rem_msubh cannot be NULL\n");
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* Check for invalid destid */
 	if (rem_destid_len == 16 && rem_destid==0xFFFF) {
 		WARN("Invalid destid 0x%X\n", rem_destid);
-		return -3;
+		return RDMA_INVALID_DESTID;
 	}
 
 	/* Prevent buffer overflow due to very long name */
 	size_t len = strlen(rem_msname);
 	if (len > UNIX_MS_NAME_MAX_LEN) {
 		ERR("String 'ms_name' is too long (%d)\n", len);
-		return -3;
+		return RDMA_NAME_TOO_LONG;
 	}
 
 	INFO("Connecting to '%s' on destid(0x%X)\n", rem_msname, rem_destid);
@@ -1602,6 +1735,12 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	in.client_destid_len	= 16;
 	in.client_destid	= peer.destid;
 
+	DBG("in.server_msname     = %s\n", rem_msname);
+	DBG("in.server_destid_len = 0x%X\n", in.server_destid_len);
+	DBG("in.server_destid     = 0x%X\n", in.server_destid);
+	DBG("in.client_destid_len = 0x%X\n", in.client_destid_len);
+	DBG("in.client_destid     = 0x%X\n", in.client_destid);
+
 	if (loc_msubh) {
 		in.client_msid		= loc_msub->msid;
 		in.client_msubid	= loc_msub->msubid;
@@ -1609,6 +1748,14 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		in.client_rio_addr_len	= loc_msub->rio_addr_len;
 		in.client_rio_addr_lo	= loc_msub->rio_addr_lo;
 		in.client_rio_addr_hi	= loc_msub->rio_addr_hi;
+		DBG("in.client_msid = 0x%X\n", in.client_msid);
+		DBG("in.client_msubid = 0x%X\n", in.client_msubid);
+		DBG("in.client_bytes = 0x%X\n", in.client_bytes);
+		DBG("in.client_rio_addr_len = 0x%X\n", in.client_rio_addr_len);
+		DBG("in.client_rio_addr_lo = 0x%016" PRIx64 "\n", in.client_rio_addr_lo);
+		DBG("in.client_rio_addr_hi = 0x%X\n", in.client_rio_addr_hi);
+	} else {
+		HIGH("Client has provided a NULL msubh\n");
 	}
 	
 	/* NOTE: MUST create the message queue before the RPC call to
@@ -1623,7 +1770,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	}
 	catch(msg_q_exception e) {
 		CRIT("Failed to create accept_mq: %s\n", e.msg.c_str());
-		return -6;
+		return RDMA_MALLOC_FAIL;
 	}
 	INFO("Created 'accept' message queue: '%s'\n", mq_name.c_str());
 
@@ -1634,7 +1781,7 @@ __sync_synchronize();
 	/* Set up Unix message parameters */
 	in_msg->type = SEND_CONNECT;
 	in_msg->send_connect_in = in;
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		delete accept_mq;
@@ -1668,14 +1815,15 @@ __sync_synchronize();
 			/* Set up Unix message parameters */
 			in_msg->type = UNDO_CONNECT;
 			in_msg->undo_connect_in = undo_connect_in;
-			if (alt_rpc_call()) {
+			ret = alt_rpc_call();
+			if (ret) {
 				ERR("Call to RDMA daemon failed\n");
 				delete accept_mq;
-				return -1;
+				return ret;
 			}
 			undo_connect_out = out_msg->undo_connect_out;
 			delete accept_mq;
-			return -7;
+			return RDMA_CONNECT_TIMEOUT;
 		}
 	} else {
 #ifdef CONNECT_BEFORE_ACCEPT_HACK
@@ -1705,7 +1853,7 @@ __sync_synchronize();
 #endif
 			ERR("Failed to receive accept message\n");
 			delete accept_mq;
-			return -7;
+			return RDMA_CONNECT_FAIL;
 		}
 	}
 	INFO(" Accept message received!\n");
@@ -1730,6 +1878,11 @@ __sync_synchronize();
 					  accept_msg->server_destid_len,
 					  accept_msg->server_destid,
 					  0);
+	if (*rem_msubh == (msub_h)NULL) {
+		ERR("Failed to store rem_msub in database\n");
+		delete accept_mq;
+		return RDMA_DB_ADD_FAIL;
+	}
 	INFO("Remote msubh has size %d, rio_addr = 0x%lX\n",
 			accept_msg->server_bytes, accept_msg->server_rio_addr_lo);
 	INFO("rem_msub has destid = 0x%X, destid_len = 0x%X\n",
@@ -1749,7 +1902,7 @@ __sync_synchronize();
 	try {
 		destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_CREATE);
 	}
-	catch(msg_q_exception e) {
+	catch(msg_q_exception& e) {
 		CRIT("Failed to create destroy_mq: %s\n", e.msg.c_str());
 		return -6;
 	}
@@ -1764,7 +1917,7 @@ __sync_synchronize();
 		WARN("Failed to create client_wait_for_destroy_thread: %s\n",
 							strerror(errno));
 		delete destroy_mq;
-		return -7;
+		return RDMA_MALLOC_FAIL;
 	}
 	INFO("client_wait_for_destroy_thread created.\n");
 
@@ -1773,6 +1926,13 @@ __sync_synchronize();
 				    server_msid,
 				    client_wait_for_destroy_thread,
 				    destroy_mq);
+	if (*rem_msh == (ms_h)NULL) {
+		ERR("Failed to store rem_ms in database\n");
+		pthread_cancel(client_wait_for_destroy_thread);
+		delete destroy_mq;
+		return RDMA_DB_ADD_FAIL;
+	}
+
 	INFO("EXIT\n");
 	return 0;
 } /* rdma_conn_ms_h() */
@@ -1781,19 +1941,22 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 {
 	send_disconnect_input	in;
 	send_disconnect_output	out;
+	int			ret;
 
 	DBG("ENTER\n");
 
-	/* Check that library has been intialized */
-	if (!init) {
-		WARN("RDMA library not initialized\n");
-		return -1;
+	/* Check the daemon hasn't died since we established its socket connection */
+	if (!rdmad_is_alive()) {
+		WARN("Local RDMA daemon has died.\n");
 	}
+
+	/* Check that library has been initialized */
+	CHECK_LIB_INIT();
 
 	/* Check that parameters are not NULL */
 	if (!rem_msh) {
 		WARN("rem_msh=0x%lX\n", rem_msh);
-		return -2;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* If the memory space was destroyed, it should not be in the database */
@@ -1821,7 +1984,7 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 	rem_msub *msubp = (rem_msub *)find_any_rem_msub_in_ms(msid);
 	if (!msubp) {
 		CRIT("No msubs for rem_msh(0x%lX). IMPOSSIBLE\n", rem_msh);
-		return -3;
+		return RDMA_INVALID_MS;
 	}
 
 	/* Get destid info BEFORE we delete the msub; we need that info to
@@ -1849,7 +2012,7 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 	 * destroy_mq
 	 */
 	if (pthread_cancel(ms->wait_for_destroy_thread)) {
-		WARN("Failed to cancel client_wait_for_destroy_thread\n");
+		ERR("Failed to cancel client_wait_for_destroy_thread\n");
 	}
 
 	if (ms->destroy_mq) {
@@ -1862,13 +2025,13 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 	if (remove_rem_ms(rem_msh)) {
 		ERR("Failed to remove remote ms(msid=0x%X) from database\n",
 									msid);
-		return -4;
+		return RDMA_DB_REM_FAIL;
 	}
 
 	/* Set up Unix message parameters */
 	in_msg->type = SEND_DISCONNECT;
 	in_msg->send_disconnect_in = in;
-	int ret = alt_rpc_call();
+	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1891,29 +2054,42 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 	if (!in || !out) {
 		ERR("%s: NULL. in=%p, out=%p", in, out);
 		out->in_param_ok = -1;
-		return -1;
+		return RDMA_NULL_PARAM;
 	}
 	lmsub = (struct loc_msub *)in->loc_msubh;
 	rmsub = (struct rem_msub *)in->rem_msubh;
 	if (!lmsub || !rmsub) {
 		ERR("%s: NULL. lmsub=%p, rmsub=%p", lmsub, rmsub);
 		out->in_param_ok = -1;
-		return -1;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* Check for destid > 16 */
 	if (rmsub->destid_len > 16) {
 		ERR("destid_len=%u unsupported\n", rmsub->destid_len);
 		out->in_param_ok = -2;
-		return -2;
+		return RDMA_INVALID_DESTID;
 	}
 
 	/* Check for RIO address > 64-bits */
 	if (rmsub->rio_addr_len > 64) {
 		ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
 		out->in_param_ok = -3;
-		return -3;
+		return RDMA_INVALID_RIO_ADDR;
 	}
+
+	/* Check if local daemon is alive */
+	if (!rdmad_is_alive()) {
+		ERR("Local RDMA daemon is dead. Exiting\n");
+		return RDMA_DAEMON_UNREACHABLE;
+	}
+
+	/* Check if remote daemon is alive */
+	if (fm_alive && (dd_h != NULL))
+		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+			ERR("Remote destination daemon NOT running!\n");
+			return RDMA_REMOTE_UNREACHABLE;
+		}
 
 	/* Determine sync type */
 	enum riomp_dma_directio_transfer_sync rd_sync;
@@ -1934,8 +2110,8 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 		break;
 	default:
 		ERR("Invalid sync_type\n", in->sync_type);
-		out->in_param_ok = -4;
-		return -4;
+		out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
+		return RDMA_INVALID_SYNC_TYPE;
 	}
 
 	/* All input parameters are OK */
@@ -1986,7 +2162,7 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		ERR("NULL param(s). buf=%p, out=%p, rem_msubh = %u\n",
 							buf, out, rem_msubh);
 		out->in_param_ok = -1;
-		return -1;
+		return RDMA_NULL_PARAM;
 	}
 	rmsub = (struct rem_msub *)rem_msubh;
 
@@ -1994,15 +2170,22 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 	if (rmsub->destid_len > 16) {
 		ERR("destid_len=%u unsupported\n", rmsub->destid_len);
 		out->in_param_ok = -2;
-		return -2;
+		return RDMA_INVALID_DESTID;
 	}
 
 	/* Check for RIO address > 64-bits */
 	if (rmsub->rio_addr_len > 64) {
 		ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
 		out->in_param_ok = -3;
-		return -3;
+		return RDMA_INVALID_RIO_ADDR;
 	}
+
+	/* Check if remote daemon is alive */
+	if (fm_alive && (dd_h != NULL))
+		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+			ERR("Remote destination daemon NOT running!\n");
+			return RDMA_REMOTE_UNREACHABLE;
+		}
 
 	/* Determine sync type */
 	enum riomp_dma_directio_transfer_sync rd_sync;
@@ -2020,8 +2203,8 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		break;
 	default:
 		ERR("Invalid sync_type: %d\n", sync_type);
-		out->in_param_ok = -4;
-		return -4;
+		out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
+		return RDMA_INVALID_SYNC_TYPE;
 	}
 
 	/* All input parameters are OK */
@@ -2067,29 +2250,42 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 	if (!in || !out) {
 		ERR("NULL. in=%p, out=%p\n", in, out);
 		out->in_param_ok = -1;
-		return -1;
+		return RDMA_NULL_PARAM;
 	}
 	lmsub = (struct loc_msub *)in->loc_msubh;
 	rmsub = (struct rem_msub *)in->rem_msubh;
 	if (!lmsub || !rmsub) {
 		ERR("%s: NULL. lmsub=%p, rmsub=%p", lmsub, rmsub);
 		out->in_param_ok = -1;
-		return -1;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* Check for destid > 16 */
 	if (rmsub->destid_len > 16) {
 		ERR("destid_len=%u unsupported\n", rmsub->destid_len);
 		out->in_param_ok = -2;
-		return -2;
+		return RDMA_INVALID_DESTID;
 	}
 
 	/* Check for RIO address > 64-bits */
 	if (rmsub->rio_addr_len > 64) {
 		ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
 		out->in_param_ok = -3;
-		return -3;
+		return RDMA_INVALID_RIO_ADDR;
 	}
+
+	/* Check if local daemon is alive */
+	if (!rdmad_is_alive()) {
+		ERR("Local RDMA daemon is dead. Exiting\n");
+		return RDMA_DAEMON_UNREACHABLE;
+	}
+
+	/* Check if remote daemon is alive */
+	if (fm_alive && (dd_h != NULL))
+		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+			ERR("Remote destination daemon NOT running!\n");
+			return RDMA_REMOTE_UNREACHABLE;
+		}
 
 	/* Determine sync type */
 	enum riomp_dma_directio_transfer_sync rd_sync;
@@ -2105,8 +2301,8 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 		break;
 	default:
 		ERR("Invalid sync_type: %d\n", in->sync_type);
-		out->in_param_ok = -4;
-		return -4;
+		out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
+		return RDMA_INVALID_SYNC_TYPE;
 	}
 
 	/* All input parameters are OK */
@@ -2155,28 +2351,35 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		ERR("NULL param(s): buf=%p, out=%p, rem_msubh=%u\n",
 							buf, out, rem_msubh);
 		out->in_param_ok = -1;
-		return -1;
+		return RDMA_NULL_PARAM;
 	}
 	rmsub = (struct rem_msub *)rem_msubh;
 	if (!rmsub) {
 		ERR("NULL param(s): rem_msubh=%u\n", rem_msubh);
 		out->in_param_ok = -1;
-		return -1;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* Check for destid > 16 */
 	if (rmsub->destid_len > 16) {
 		ERR("destid_len=%u unsupported\n",rmsub->destid_len);
 		out->in_param_ok = -2;
-		return -2;
+		return RDMA_INVALID_DESTID;
 	}
 
 	/* Check for RIO address > 64-bits */
 	if (rmsub->rio_addr_len > 64) {
 		ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
 		out->in_param_ok = -3;
-		return -3;
+		return RDMA_INVALID_RIO_ADDR;
 	}
+
+	/* Check if remote daemon is alive */
+	if (fm_alive && (dd_h != NULL))
+		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+			ERR("Remote destination daemon NOT running!\n");
+			return RDMA_REMOTE_UNREACHABLE;
+		}
 
 	/* Determine sync type */
 	enum riomp_dma_directio_transfer_sync rd_sync;
@@ -2192,8 +2395,8 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		break;
 	default:
 		ERR("Invalid sync_type: %d\n", sync_type);
-		out->in_param_ok = -4;
-		return -4;
+		out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
+		return RDMA_INVALID_SYNC_TYPE;
 	}
 
 	/* All input parameters are OK */
@@ -2255,7 +2458,7 @@ int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 	/* Make sure handle is valid */
 	if (!chk_handle) {
 		ERR("Invalid chk_handle(%d)\n", chk_handle);
-		return -1;
+		return RDMA_NULL_PARAM;
 	}
 
 	/* Check for NULL or 0 wait times */
@@ -2275,13 +2478,13 @@ int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 	pthread_t compl_thread;
 	if (pthread_create(&compl_thread, NULL, compl_thread_f, (void *)&wait_param)) {
 		ERR("pthread_create(): %s\n", strerror(errno));
-		return -3;
+		return RDMA_PTHREAD_FAIL;
 	}
 
 	/* Wait for transfer completion or timeout in thread */
 	if (pthread_join(compl_thread, NULL)) {
 		ERR("pthread_join(): %s\n", strerror(errno));
-		return -4;
+		return RDMA_PTHREAD_FAIL;
 	}
 
 	/* wait_param->err was populated with result (including timeout) */

@@ -52,7 +52,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define UNIX_SOCK_DEFAULT_BUFFER_SIZE	512
 #define UNIX_SOCK_DEFAULT_BACKLOG	5
 
-using namespace std;
+using std::iterator;
+using std::cout;
+using std::ostream_iterator;
+using std::endl;
+using std::setfill;
+using std::setw;
+using std::hex;
 
 struct unix_sock_exception {
 	unix_sock_exception(const char *msg) : err(msg) {}

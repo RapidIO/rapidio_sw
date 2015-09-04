@@ -667,7 +667,6 @@ int dmaRxLatCmd(struct cli_env *env, int argc, char **argv)
 		wkr[idx].rdma_buff_size = MIN_RDMA_BUFF_SIZE;
 	else
 		wkr[idx].rdma_buff_size = bytes;
-
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
@@ -1339,9 +1338,9 @@ struct cli_cmd *goodput_cmds[] = {
 	&OBDIO,
 	&OBDIOTxLat,
 	&OBDIORxLat,
+	&dma,
 	&dmaTxLat,
 	&dmaRxLat,
-	&dma,
 	&msgTx,
 	&msgRx,
 	&msgTxLat,
