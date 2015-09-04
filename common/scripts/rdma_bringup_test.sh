@@ -8,7 +8,7 @@
 RDMA_ROOT_PATH=/home/sherif/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 NODES="gry09 gry10 gry11 gry12"
-NUM_ITERATIONS=20
+NUM_ITERATIONS=250
 
 for (( i=0; i<NUM_ITERATIONS; i++ ))
 do
