@@ -196,5 +196,10 @@ void remove_rem_msubs_in_ms(uint32_t msid);
 msub_h find_any_rem_msub_in_ms(uint32_t msid);
 void remove_rem_msub_by_loc_msh(ms_h loc_msh);
 
+void purge_loc_msub_list(void);
+void purge_loc_ms_list(void);
+void purge_loc_mso_list(void);
+void purge_local_database(void);
+
 #endif
 

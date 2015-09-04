@@ -37,6 +37,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <semaphore.h>
 
+#include "libcli.h"
+
 #include "rdmad_mspace.h"
 #include "rdmad_ibwin.h"
 
@@ -58,7 +60,7 @@ public:
 	~inbound();
 
 	/* Dump inbound info */
-	void dump_info();
+	void dump_info(struct cli_env *env);
 
 	/* get_mspace by name */
 	mspace  *get_mspace(const char *name);
@@ -69,24 +71,29 @@ public:
 	/* get_mspace by msoid, msid */
 	mspace *get_mspace(uint32_t msoid, uint32_t msid);
 
+	mspace* get_mspace_open_by_server(unix_server *user_server, uint32_t *ms_conn_id);
+
+	int get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces);
+
 	/* Dump memory space info for a memory space specified by name */
-	int dump_mspace_info(const char *name);
+	int dump_mspace_info(struct cli_env *env, const char *name);
 
 	/* Dump memory space info for all memory spaces */
-	void dump_all_mspace_info();
+	void dump_all_mspace_info(struct cli_env *env);
 
 	/* Dump memory space info for all memory spaces and their msubs */
-	void dump_all_mspace_with_msubs_info();
+	void dump_all_mspace_with_msubs_info(struct cli_env *env);
 
 	/* Create a memory space within a window that has enough space */
 	int create_mspace(const char *name,
 			  uint64_t size,
 			  uint32_t msoid,
-			  uint32_t *msid);
+			  uint32_t *msid,
+			  mspace **ms);
 
 	/* Open memory space */
 	int open_mspace(const char *name,
-			uint32_t msoid,
+			unix_server *user_server,
 			uint32_t *msid,
 			uint32_t *ms_conn_id,
 			uint32_t *bytes);

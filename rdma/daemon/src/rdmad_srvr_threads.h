@@ -40,7 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cm_sock.h"
 #include "prov_daemon_info.h"
 
-using namespace std;
+using std::vector;
 
 void *accept_thread_f(void *arg);
 void *server_wait_disc_thread_f(void *arg);

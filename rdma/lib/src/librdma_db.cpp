@@ -120,6 +120,16 @@ int remove_loc_mso(mso_h msoh)
 	return 0;
 } /* remove_loc_mso() */
 
+void purge_loc_mso_list()
+{
+	for (auto& mso : loc_mso_list) {
+		free(mso->name);
+		free(mso);
+	}
+	loc_mso_list.clear();
+	HIGH("Local mso list purged!!!!\n");
+} /* purge_loc_mso() */
+
 /**
  * loc_mso_get_close_notify_thread
  */
@@ -246,6 +256,7 @@ int remove_loc_mso(uint32_t msoid)
 
 	return 0;
 } /* remove_loc_mso() */
+
 
 
 /**
@@ -394,6 +405,16 @@ int remove_loc_ms(ms_h msh)
 
 	return 0;
 } /* remove_loc_ms() */
+
+void purge_loc_ms_list()
+{
+	for (auto& ms : loc_ms_list) {
+		free(ms->name);
+		free(ms);
+	}
+	loc_ms_list.clear();
+	HIGH("Local ms list purged!!!!\n");
+} /* purge_loc_ms_list() */
 
 /**
  * Returns true if memory space has the specified msid.
@@ -779,6 +800,15 @@ int remove_loc_msub(msub_h msubh)
 	return 0;
 } /* remove_loc_msub() */
 
+void purge_loc_msub_list()
+{
+	for (auto& msub : loc_msub_list) {
+		free(msub);
+	}
+	loc_msub_list.clear();
+	HIGH("Local msub list purged!!!!\n");
+} /* purge_loc_msub_list() */
+
 /**
  * add_rem_msub:
  *
@@ -786,7 +816,7 @@ int remove_loc_msub(msub_h msubh)
  * database
  * 
  * @rem_msubid	  Remote memory sub-space ID
- * @rem_msid	  Identifier of remote memory space conaining the sub-space
+ * @rem_msid	  Identifier of remote memory space containing the sub-space
  * @rem_bytes	  Length of subspace, in bytes
  * @rem_rio_addr_len Rapid IO address length
  * @rem_rio_addr_lo  Rapid IO address lowest 64-bits
@@ -1010,3 +1040,9 @@ void remove_rem_msub_by_loc_msh(ms_h loc_msh)
 	}
 } /* remove_rem_msub_by_loc_msh() */
 
+void purge_local_database(void)
+{
+	purge_loc_msub_list();
+	purge_loc_ms_list();
+	purge_loc_mso_list();
+}

@@ -43,14 +43,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string>
 #include <vector>
+#include <set>
 
+#include "libcli.h"
+
+#include "unix_sock.h"
 #include "rdmad_msubspace.h"
 #include "prov_daemon_info.h"
 #include "msg_q.h"
 
-using namespace std;
+using std::set;
+using std::string;
+using std::vector;
 
-#define MS_OPEN_ID_START	0x1
+#define MS_CONN_ID_START	0x1
 
 #define MSID_WIN_SHIFT  28
 #define MSID_WIN_MASK	0xF0000000
@@ -66,6 +72,46 @@ struct mspace_exception {
 	mspace_exception(const char *msg) : err(msg) {}
 
 	const char *err;
+};
+
+class ms_user
+{
+public:
+	ms_user(unix_server *server,
+		uint32_t ms_conn_id,
+		msg_q<mq_close_ms_msg> *close_mq) :
+	server(server), ms_conn_id(ms_conn_id), close_mq(close_mq)
+	{}
+
+	msg_q<mq_close_ms_msg> *get_mq() { return close_mq; }
+	uint32_t get_ms_conn_id() const { return ms_conn_id; }
+	bool operator ==(uint32_t ms_conn_id) { return ms_conn_id == this->ms_conn_id; }
+	bool operator ==(unix_server *server) { return server == this->server; }
+
+private:
+	unix_server *server;
+	uint32_t ms_conn_id;
+	msg_q<mq_close_ms_msg> *close_mq;
+};
+
+struct remote_connection
+{
+	remote_connection(uint16_t client_destid, uint32_t client_msubid) :
+		client_destid(client_destid), client_msubid(client_msubid)
+	{}
+
+	bool operator==(uint16_t client_destid)
+	{
+		return this->client_destid == client_destid;
+	}
+
+	bool operator==(uint32_t client_msubid)
+	{
+		return this->client_msubid == client_msubid;
+	}
+
+	uint16_t client_destid;
+	uint32_t client_msubid;
 };
 
 class mspace 
@@ -89,7 +135,6 @@ public:
 	uint32_t get_msoid() const { return msoid; }
 	bool is_free() const { return free;}
 	const char* get_name() const { return name.c_str(); }
-	vector<uint16_t>& get_destids() { return destids; }
 	bool is_accepted() const { return accepted;}
 
 	/* Mutators */
@@ -105,14 +150,16 @@ public:
 	void set_name(const char *name) { this->name = name; }
 	void set_accepted(bool accepted) { this->accepted = accepted; }
 
-	/* destids of clients that have connected to this memory space */
-	void add_destid(uint16_t destid);
-	int remove_destid(uint16_t destid);
+	/* Connections by clients that have connected to this memory space */
+	void add_rem_connection(uint16_t client_destid, uint32_t client_msubid);
+	int remove_rem_connection(uint16_t destid, uint32_t client_msubid);
+
+	set<uint16_t> get_rem_destids();
 
 	/* Debugging */
-	void dump_info();
-	void dump_info_msubs_only();
-	void dump_info_with_msubs();
+	void dump_info(struct cli_env *env);
+	void dump_info_msubs_only(struct cli_env *env);
+	void dump_info_with_msubs(struct cli_env *env);
 
 	/* For finding a memory space by its msid */
 	bool operator==(uint32_t msid) { return this->msid == msid; }
@@ -120,9 +167,12 @@ public:
 	/* For finding a memory space by its name */
 	bool operator==(const char *name) { return this->name == name; }
 
-	int open(uint32_t *msid, uint32_t *ms_conn_id, uint32_t *bytes);
+	int open(uint32_t *msid, unix_server *user_server,
+					uint32_t *ms_conn_id, uint32_t *bytes);
 
+	bool has_user_with_user_server(unix_server *server, uint32_t *ms_conn_id);
 
+	bool connected_by_destid(uint16_t destid);
 
 	int close(uint32_t ms_conn_id);
 
@@ -135,6 +185,8 @@ public:
 			     uint64_t *phys_addr);
 
 	int destroy_msubspace(uint32_t msubid);
+	int disconnect(uint32_t client_msubid);
+	int disconnect_from_destid(uint16_t client_destid);
 
 private:
 	int notify_remote_clients();
@@ -147,21 +199,24 @@ private:
 	uint32_t	size;
 	uint32_t	msoid;
 	bool		free;
-	uint32_t	ms_open_id;
+	uint32_t	current_ms_conn_id;
 	bool		accepted;
 
-	/* List to keep track of users which have opened memory space */
-	vector<msg_q<mq_close_ms_msg> *> users_mq_list;
+	/* Info about users that have opened the ms */
+	vector<ms_user>		users;
+	sem_t			users_sem;
 
 	/* Memory sub-space indexes */
 	bool msubindex_free_list[MSUBINDEX_MAX+1];	/* List of memory sub-space IDs */
+	sem_t 			msubindex_free_list_sem;
 
 	/* Memory subspaces */
 	vector<msubspace>	msubspaces;
+	sem_t			msubspaces_sem;
 
-	/* List of destids of remote users of this memory space */
-	vector<uint16_t>	destids;
-	sem_t			destids_sem;
+	/* List of connections to remote clients of this memory space */
+	vector<remote_connection>	rem_connections;
+	sem_t				rem_connections_sem;
 }; /* mspace */
 
 

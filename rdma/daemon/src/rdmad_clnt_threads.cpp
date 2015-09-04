@@ -44,17 +44,124 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
 
-using namespace std;
-
 /* List of destids provisioned via the HELLO command/message */
 vector<hello_daemon_info>	hello_daemon_info_list;
 sem_t	hello_daemon_info_list_sem;
+
+vector<connected_to_ms_info>	connected_to_ms_info_list;
+sem_t 				connected_to_ms_info_list_sem;
+static int send_destroy_ms_to_lib(const char *server_ms_name,
+			   uint32_t server_msid);
 
 struct wait_accept_destroy_thread_info {
 	cm_client	*hello_client;
 	pthread_t	tid;
 	sem_t		started;
 	uint32_t	destid;
+};
+
+int send_destroy_ms_for_did(uint32_t did)
+{
+	int ret = 0;
+
+	sem_wait(&connected_to_ms_info_list_sem);
+	for (auto& conn_to_ms : connected_to_ms_info_list) {
+		if ((conn_to_ms == did) && conn_to_ms.connected) {
+			int ret = send_destroy_ms_to_lib(
+					conn_to_ms.server_msname.c_str(),
+					conn_to_ms.server_msid);
+			if (ret) {
+				ERR("Failed to send destroy for '%s'\n",
+					conn_to_ms.server_msname.c_str());
+			}
+		}
+	}
+	remove(begin(connected_to_ms_info_list),
+	       end(connected_to_ms_info_list),
+	       did);
+	sem_post(&connected_to_ms_info_list_sem);
+
+	return ret;
+} /* send_destroy_ms_for_did() */
+
+static int send_destroy_ms_to_lib(
+		const char *server_ms_name,
+		uint32_t server_msid)
+{
+	int ret = 0;
+
+	/* Prepare POSIX message queue name */
+	char	mq_name[CM_MS_NAME_MAX_LEN+2];
+	mq_name[0] = '/';
+	strcpy(&mq_name[1], server_ms_name);
+
+	/* Open destroy/destroy-ack message queue */
+	msg_q<mq_destroy_msg>	*destroy_mq;
+	try {
+		destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_OPEN);
+	}
+	catch(msg_q_exception& e) {
+		ERR("Failed to open 'destroy' POSIX queue (%s): %s\n",
+					mq_name, e.msg.c_str());
+		ret = -1;
+		goto exit_func;
+	}
+
+	/* Send 'destroy' POSIX message to the RDMA library */
+	mq_destroy_msg	*dest_msg;
+	destroy_mq->get_send_buffer(&dest_msg);
+	dest_msg->server_msid = server_msid;
+	if (destroy_mq->send()) {
+		ERR("Failed to send 'destroy' message to client.\n");
+		ret = -2;
+		goto exit_destroy_mq;
+	}
+
+	/* Message buffer for receiving destroy ack message */
+	mq_destroy_msg *destroy_ack_msg;
+	destroy_mq->get_recv_buffer(&destroy_ack_msg);
+
+	/* Wait for 'destroy_ack', but with timeout; we cannot be
+	 * stuck here if the library fails to send the 'destroy_ack' */
+	struct timespec tm;
+	clock_gettime(CLOCK_REALTIME, &tm);
+	tm.tv_sec += 5;
+	if (destroy_mq->timed_receive(&tm)) {
+		/* The server daemon will timeout on the destory-ack
+		 * reception since it is now using a timed receive CM call.
+		 */
+		HIGH("Timed out without receiving ACK to destroy\n");
+		ret = -3;
+	} else {
+		HIGH("POSIX destroy_ack received for %s\n",
+					server_ms_name);
+		ret = 0;
+	}
+
+	/* Done with the destroy POSIX message queue */
+exit_destroy_mq:
+	delete destroy_mq;
+exit_func:
+	return ret;
+} /* send_destroy_ms_to_lib() */
+
+/**
+ * Functor for matching a memory space on both server_destid and
+ * server_msid.
+ */
+struct match_ms {
+	match_ms(uint16_t server_destid, uint32_t server_msid) :
+		server_destid(server_destid), server_msid(server_msid)
+	{}
+
+	bool operator()(connected_to_ms_info& cmi)
+	{
+		return (cmi.server_msid == this->server_msid) &&
+		       (cmi.server_destid == this->server_destid);
+	}
+
+	uint16_t server_destid;
+	uint32_t server_msid;
 };
 
 /**
@@ -89,7 +196,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 						      client_socket,
 						      &shutting_down);
 	}
-	catch(cm_exception e) {
+	catch(cm_exception& e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
 		delete wadti->hello_client;
 		free(wadti);
@@ -210,7 +317,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 				accept_mq =
 				    new msg_q<mq_accept_msg>(mq_name, MQ_OPEN);
 			}
-			catch(msg_q_exception e) {
+			catch(msg_q_exception& e) {
 				ERR("Failed to open POSIX queue '%s': %s\n",
 						mq_name, e.msg.c_str());
 				continue;
@@ -257,6 +364,23 @@ void *wait_accept_destroy_thread_f(void *arg)
 			 * wait_accept_mq_names list and go back and wait for the
 			 * next accept message */
 			wait_accept_mq_names.remove(mq_str);
+
+			/* Update the corresponding element of connected_to_ms_info_list */
+			sem_wait(&connected_to_ms_info_list_sem);
+			auto it = find(begin(connected_to_ms_info_list),
+				       end(connected_to_ms_info_list),
+				       accept_cm_msg->server_ms_name);
+			if (it == end(connected_to_ms_info_list)) {
+				ERR("Cannot find '%s' in connected_to_ms_info_list\n",
+						accept_cm_msg->server_ms_name);
+			} else {
+				it->connected = true;
+				it->server_msid = be64toh(accept_cm_msg->server_msid);
+				DBG("Setting '%s' to 'connected\n",
+						accept_cm_msg->server_ms_name);
+			}
+			sem_post(&connected_to_ms_info_list_sem);
+
 		} else if (be64toh(accept_cm_msg->type) == CM_DESTROY_MS) {
 			cm_destroy_msg	*destroy_msg;
 			accept_destroy_client->get_recv_buffer((void **)&destroy_msg);
@@ -264,70 +388,39 @@ void *wait_accept_destroy_thread_f(void *arg)
 			HIGH("Received CM destroy  containing '%s'\n",
 								destroy_msg->server_msname);
 
-			/* Prep POSIX message queue name */
-			char	mq_name[CM_MS_NAME_MAX_LEN+2];
-			mq_name[0] = '/';
-			strcpy(&mq_name[1], destroy_msg->server_msname);
-
-			/* Open destroy/destroy-ack message queue */
-			msg_q<mq_destroy_msg>	*destroy_mq;
-			try {
-				destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_OPEN);
-			}
-			catch(msg_q_exception e) {
-				ERR("Failed to open 'destroy' POSIX queue (%s): %s\n",
-							mq_name, e.msg.c_str());
-				continue;
-			}
-
-			/* Send 'destroy' POSIX message to the RDMA library */
-			mq_destroy_msg	*dest_msg;
-			destroy_mq->get_send_buffer(&dest_msg);
-			dest_msg->server_msid = be64toh(destroy_msg->server_msid);
-			if (destroy_mq->send()) {
-				ERR("Failed to send 'destroy' message to client.\n");
+			/* Relay to library and get ACK back */
+			if (send_destroy_ms_to_lib(destroy_msg->server_msname, be64toh(destroy_msg->server_msid))) {
+				ERR("Failed to send destroy message to library or get ack\n");
 				/* Don't exit; there maybe a problem with that memory space
 				 * but not with others */
-				delete destroy_mq;
 				continue;
 			}
 
-			/* Message buffer for receiving destroy ack message */
-			mq_destroy_msg *destroy_ack_msg;
-			destroy_mq->get_recv_buffer(&destroy_ack_msg);
+			/* Remove the entry relating to the destroy ms. Note that it has to match both
+			 * the server_destid and server_msid since multiple daemons can allocate the same
+			 * msid to different memory spaces and they are distinct only by the servers DID (destid)
+			 */
+			match_ms	mms(accept_destroy_client->server_destid,
+					be64toh(destroy_msg->server_msid));
+			sem_wait(&connected_to_ms_info_list_sem);
+			remove_if(begin(connected_to_ms_info_list), end(connected_to_ms_info_list), mms);
+			sem_post(&connected_to_ms_info_list_sem);
 
-			/* Wait for 'destroy_ack', but with timeout; we cannot be
-			 * stuck here if the library fails to send the 'destroy_ack' */
-			struct timespec tm;
-			clock_gettime(CLOCK_REALTIME, &tm);
-			tm.tv_sec += 5;
-			if (destroy_mq->timed_receive(&tm)) {
-				/* The server daemon will timeout on the destory-ack
-				 * reception since it is now using a timed receive CM call.
-				 */
-				HIGH("Timed out without receiving ACK to destroy\n");
+			cm_destroy_ack_msg *dam;
+
+			/* Flush CM send buffer of previous message */
+			accept_destroy_client->get_send_buffer((void **) &dam);
+			accept_destroy_client->flush_send_buffer();
+
+			/* Now send back a destroy_ack CM message */
+			dam->type	= htobe64(CM_DESTROY_ACK_MS);
+			strcpy(dam->server_msname, destroy_msg->server_msname);
+			dam->server_msid = destroy_msg->server_msid; /* Both are BE */
+			if (accept_destroy_client->send()) {
+				WARN("Failed to send destroy_ack to server daemon\n");
 			} else {
-				HIGH("POSIX destroy_ack received for %s\n",
-							destroy_msg->server_msname);
-				cm_destroy_ack_msg *dam;
-
-				/* Flush CM send buffer of previous message */
-				accept_destroy_client->get_send_buffer((void **) &dam);
-				accept_destroy_client->flush_send_buffer();
-
-				/* Now send back a destroy_ack CM message */
-				dam->type	= htobe64(CM_DESTROY_ACK_MS);
-				strcpy(dam->server_msname, destroy_msg->server_msname);
-				dam->server_msid = destroy_msg->server_msid; /* Both are BE */
-				if (accept_destroy_client->send()) {
-					WARN("Failed to send destroy_ack to server daemon\n");
-				} else {
-					HIGH("Sent destroy_ack to server daemon\n");
-				}
+				HIGH("Sent destroy_ack to server daemon\n");
 			}
-
-			/* Done with the destroy POSIX message queue */
-			delete destroy_mq;
 		} else {
 			CRIT("Got an unknown message code (0x%X)\n",
 					accept_cm_msg->type);
@@ -361,7 +454,7 @@ int provision_rdaemon(uint32_t destid)
 						peer.prov_channel,
 						&shutting_down);
 	}
-	catch(cm_exception e) {
+	catch(cm_exception& e) {
 		CRIT("Failed to create hello_client %s\n", e.err);
 		return -1;
 	}
