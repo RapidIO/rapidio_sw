@@ -5,10 +5,10 @@
 # RapidIO RDMA software installation path must be identical on all nodes.
 
 #RDMA_ROOT_PATH=/opt/rapidio/cern/rapidio_sw
-RDMA_ROOT_PATH=/home/sherif/rapidio_sw
+RDMA_ROOT_PATH=/home/srio/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
-NODES="gry09 gry10 gry11 gry12"
-NUM_ITERATIONS=250
+NODES="10.10.10.100 10.10.10.102"
+NUM_ITERATIONS=20
 
 for (( i=0; i<NUM_ITERATIONS; i++ ))
 do
