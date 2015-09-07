@@ -38,14 +38,6 @@ src/%.o: src/%.c
 	-I../../../include \
 	-DRDMA_LL=7
 
-src/%.o: src/%.cpp
-	$(CXX) -o $@ $< --std=gnu++0x -c -g -ggdb -fPIC -Wall -Werror -O2 \
-	-I./src -I./inc -I../inc \
-	-I$(COMMON_DIR)/include \
-	-I$(COMMON_DIR)/liblist/inc \
-	-I../../../include \
-	-DRDMA_LL=7
-
 RSKTLIB_SOURCES = src/librsktd_dmn.c src/librsktd_lib.c \
 	src/librsktd_msg_proc.c src/librsktd_sn.c src/librsktd_speer.c  \
 	src/librsktd_wpeer.c
@@ -91,12 +83,17 @@ rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
-rskts_test:  $(RSKTLIB_OBJECTS) $(RSKTS_TEST_OBJECTS) src/*.h
+rskts_test:  $(RSKTLIB_OBJECTS) $(RSKTS_TEST_SOURCE) src/*.h
 	@echo ---------- Building rskts_test
-	$(CXX) -L$(MPORT_DIR) -L$(shell pwd) -pthread \
+	$(CXX) --std=gnu++0x -L$(MPORT_DIR) -L$(shell pwd) -pthread \
+	-I$(COMMON_DIR)/include \
+	-I./src -I./inc -I../inc \
+	-I$(COMMON_DIR)/include \
+	-I$(TOP_LEVEL)/include \
+	-DRDMA_LL=7 \
 	-Wl,-rpath=$(MPORT_DIR) \
 	-Wl,-rpath=$(RDMA_DIR) \
-	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_TEST_OBJECTS) $(LIB_DIRS) \
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_TEST_SOURCE) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
@@ -120,4 +117,4 @@ remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
 clean:
-	rm -f *.o src/*.o *~ *.exe core rsktd remdbg rskts
+	rm -f *.o src/*.o *~ *.exe core rsktd remdbg rskts rskts_test rsktc_test

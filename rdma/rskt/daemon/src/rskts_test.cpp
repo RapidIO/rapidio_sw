@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-#include <rapidio_mport_mgmt.h>
+#include "rapidio_mport_mgmt.h"
 
 #include "librskt_private.h"
 #include "librsktd_private.h"
