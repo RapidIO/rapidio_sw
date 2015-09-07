@@ -122,6 +122,8 @@ private:
 protected:
 	rskt_base(const char *name, uint32_t send_size, uint32_t recv_size) :
 		name(name),
+		send_size(send_size),
+		recv_size(recv_size),
 		send_buf(new uint8_t[send_size]),
 		recv_buf(new uint8_t[recv_size])
 	{
@@ -204,7 +206,6 @@ public:
 		}
 
 		/* Form address from CT(0) and socket number */
-
 		sock_addr.ct = 0;
 		sock_addr.sn = socket_number;
 
