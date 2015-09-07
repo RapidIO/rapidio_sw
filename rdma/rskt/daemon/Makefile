@@ -97,15 +97,19 @@ rskts_test:  $(RSKTLIB_OBJECTS) $(RSKTS_TEST_SOURCE) src/*.h
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
-rsktc_test:  $(RSKTLIB_OBJECTS) $(RSKTC_TEST_OBJECTS) src/*.h
+rsktc_test:  $(RSKTLIB_OBJECTS) $(RSKTC_TEST_SOURCE) src/*.h
 	@echo ---------- Building rsktc_test
-	$(CXX) -L$(MPORT_DIR) -L$(shell pwd) -pthread \
+	$(CXX) --std=gnu++0x -L$(MPORT_DIR) -L$(shell pwd) -pthread \
+	-I$(COMMON_DIR)/include \
+	-I./src -I./inc -I../inc \
+	-I$(COMMON_DIR)/include \
+	-I$(TOP_LEVEL)/include \
+	-DRDMA_LL=7 \
 	-Wl,-rpath=$(MPORT_DIR) \
 	-Wl,-rpath=$(RDMA_DIR) \
-	-o $@ $(RSKTLIB_OBJECTS) $(RSKTC_TEST_OBJECTS) $(LIB_DIRS) \
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKTC_TEST_SOURCE) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
-
 
 # The Remote Debug shellsrc/librsktd_cli.c 
 remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
