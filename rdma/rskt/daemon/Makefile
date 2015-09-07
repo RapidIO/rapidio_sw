@@ -39,7 +39,7 @@ src/%.o: src/%.c
 	-DRDMA_LL=7
 
 src/%.o: src/%.cpp
-	$(CXX) -o $@ $< -c -g -ggdb -fPIC -Wall -Werror -O2 \
+	$(CXX) -o $@ $< --std=gnu++0x -c -g -ggdb -fPIC -Wall -Werror -O2 \
 	-I./src -I./inc -I../inc \
 	-I$(COMMON_DIR)/include \
 	-I$(COMMON_DIR)/liblist/inc \
