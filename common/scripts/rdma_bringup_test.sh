@@ -7,7 +7,6 @@
 #RDMA_ROOT_PATH=/opt/rapidio/cern/rapidio_sw
 RDMA_ROOT_PATH=/home/sherif/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
-NODES="gry09 gry10 gry11 gry12"
 NUM_ITERATIONS=250
 
 for (( i=0; i<NUM_ITERATIONS; i++ ))
@@ -15,6 +14,7 @@ do
 	echo -n "Iteration " $i
 	echo ""
 
+	NODES="gry09 gry10 gry11 gry12"
 	# Load all drivers FIRST
 	for node in $NODES
 	do
@@ -61,6 +61,8 @@ do
 	# Now check that everything is still running OK
 	
 	OK=1	# Set OK to true before the checks
+
+	NODES="gry10 gry11 gry12 gry09"
 
 	#For each node check that all is well
 	for node in $NODES
