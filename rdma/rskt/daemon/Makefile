@@ -83,7 +83,7 @@ rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
-rskts_test:  $(RSKTLIB_OBJECTS) $(RSKTS_TEST_SOURCE) src/*.h
+rskts_test:  $(RSKTLIB_OBJECTS) $(RSKTS_TEST_SOURCE) src/*.h ../inc/*.h $(COMMON_DIR)/include/*.h
 	@echo ---------- Building rskts_test
 	$(CXX) --std=gnu++0x -L$(MPORT_DIR) -L$(shell pwd) -pthread \
 	-I$(COMMON_DIR)/include \
@@ -97,7 +97,7 @@ rskts_test:  $(RSKTLIB_OBJECTS) $(RSKTS_TEST_SOURCE) src/*.h
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
-rsktc_test:  $(RSKTLIB_OBJECTS) $(RSKTC_TEST_SOURCE) src/*.h
+rsktc_test:  $(RSKTLIB_OBJECTS) $(RSKTC_TEST_SOURCE) src/*.h ../inc/*.h $(COMMON_DIR)/include/*.h
 	@echo ---------- Building rsktc_test
 	$(CXX) --std=gnu++0x -L$(MPORT_DIR) -L$(shell pwd) -pthread \
 	-I$(COMMON_DIR)/include \
