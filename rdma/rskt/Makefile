@@ -37,6 +37,8 @@ TOP_LEVEL ?= ../..
 
 TARGETS = librskt rsktd
 
+all: $(TARGETS)
+
 librskt: FORCE
 	$(MAKE) all -C lib
 	mkdir -p $(TOP_LEVEL)/include/libs_a
@@ -47,7 +49,6 @@ rsktd: librskt FORCE
 		
 FORCE:
 
-all: $(TARGETS)
 
 clean:
 	$(MAKE) clean -C lib

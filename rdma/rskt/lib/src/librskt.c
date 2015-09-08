@@ -597,16 +597,21 @@ rskt_h rskt_create_socket(void)
 {
 	rskt_h skt_h = (rskt_h)malloc(sizeof(struct rskt_handle_t));
 
-	if (NULL == skt_h)
+	if (NULL == skt_h) {
+		ERR("Failed to malloc skt_h\n: %s\n", strerror(errno));
 		goto fail;
+	}
 
-	if (lib_uninit())
+	if (lib_uninit()) {
+		ERR("Failed in lib_uninit()\n");
 		goto fail;
+	}
 
 	sem_init(&skt_h->mtx, 0, 1);
 	skt_h->skt = NULL;
 
 	if (rskt_alloc_skt(skt_h)) {
+		ERR("Failed in rskt_allo_skt\n");
 		free(skt_h);
 		skt_h = NULL;
 	};
