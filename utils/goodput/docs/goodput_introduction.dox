@@ -1,0 +1,4 @@
+INPUT = ../src \
+        ../inc \
+        ../scripts
+
