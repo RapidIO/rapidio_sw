@@ -69,7 +69,7 @@ RSKTC_TEST_OBJECTS = src/rsktc_test.o
 REMDBG_SOURCE = src/remdbg.c
 REMDBG_OBJECTS = src/remdbg.o
 
-all: rsktd rskts remdbg rskts_test rsktc_test
+all: rsktd rskts remdbg
 
 # The RDMA Sockets Daemon
 rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
