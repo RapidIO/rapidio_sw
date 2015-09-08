@@ -30,26 +30,32 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include "libcli.h"
-#include "goodput.h"
-#include "worker.h"
 
-#ifndef __GOODPUT_CLI_H__
-#define __GOODPUT_CLI_H__
+#ifndef __MAPFILE_H__
+#define __MAPFILE_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <stdint.h>
 
-/**
- * @brief Bind goodput commands into CLI base
- *
- */
+#include <string>
 
-void bind_goodput_cmds(void);
+/** \brief General-purpose file mapper */
+class MapFile {
+public:
+  MapFile(const char* filename);
+  ~MapFile();
 
-#ifdef __cplusplus
-}
-#endif
+  void* map_file(uint64_t size = 0);
+  void unmap_file();
 
-#endif /* __GOODPUT_CLI_H__ */
+  void* getMem(int& size) { size = m_size; return (void*)m_ptr; }
+
+  std::string toString();
+
+private:
+  std::string    m_filename;
+  int            m_fd;
+  volatile void* m_ptr;
+  int            m_size;
+};
+
+#endif // __MAPFILE_H__

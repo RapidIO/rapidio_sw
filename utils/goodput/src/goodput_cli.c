@@ -56,6 +56,27 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"LAST"
 };
 
+int check_idx(struct cli_env *env, int idx)
+{
+	int rc = 1;
+
+	if ((idx < 0) || (idx >= MAX_WORKERS)) {
+		sprintf(env->output, "\nIndex must be 0 to %d...\n",
+								MAX_WORKERS);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (wkr[idx].stat != 2) {
+		sprintf(env->output, "\nWorker not halted...\n");
+        	logMsg(env);
+		goto exit;
+	};
+	rc = 0;
+exit:
+	return rc;
+};
+
 #define ACTION_STR(x) (char *)((x < last_action)?req_type_str[x]:"UNKWN!")
 #define MODE_STR(x) (char *)((x == kernel_action)?"KRNL":"User")
 #define THREAD_STR(x) (char *)((0 == x)?"---":((1 == x)?"Run":"Hlt"))
@@ -157,6 +178,9 @@ int HaltCmd(struct cli_env *env, int argc, char **argv)
 
 	for (i = st_idx; i <= end_idx; i++) {
 		wkr[i].stop_req = 2;
+#ifdef USER_MODE_DRIVER
+		wkr[i].umd_fifo_proc_must_die = 1;
+#endif
 	};
 
 exit:
@@ -194,7 +218,7 @@ int MoveCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	wkr[idx].cpu_req = cpu;
+	wkr[idx].wkr_thr.cpu_req = cpu;
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
@@ -272,22 +296,12 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	idx = getDecParm(argv[0], 0);
 	ib_size = getHex(argv[1], 0);
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+	if (check_idx(env, idx))
 		goto exit;
-	};
 
 	if ((ib_size < FOUR_KB) || (ib_size > SIXTEEN_MB)) {
 		sprintf(env->output, "\nIbwin size range: 0x%x to 0x%x\n",
 			FOUR_KB, SIXTEEN_MB);
-        	logMsg(env);
-		goto exit;
-	};
-
-	if (wkr[idx].stat != 2) {
-		sprintf(env->output, "\nWorker not halted...\n");
         	logMsg(env);
 		goto exit;
 	};
@@ -318,18 +332,8 @@ int IBDeallocCmd(struct cli_env *env, int argc, char **argv)
 
 	idx = getDecParm(argv[0], 0);
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+	if (check_idx(env, idx))
 		goto exit;
-	};
-
-	if (wkr[idx].stat != 2) {
-		sprintf(env->output, "\nWorker not stopped...\n");
-        	logMsg(env);
-		goto exit;
-	};
 
 	wkr[idx].action = free_ibwin;
 	wkr[idx].stop_req = 0;
@@ -375,18 +379,8 @@ int obdio_cmd(struct cli_env *env, int argc, char **argv, enum req_type action)
 	};
 		
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+	if (check_idx(env, idx))
 		goto exit;
-	};
-
-	if (wkr[idx].stat != 2) {
-		sprintf(env->output, "\nWorker not stopped...\n");
-        	logMsg(env);
-		goto exit;
-	};
 	wkr[idx].action = action;
 	wkr[idx].action_mode = kernel_action;
 	wkr[idx].did = did;
@@ -493,18 +487,8 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	trans = getDecParm(argv[7], 0);
 	sync = getDecParm(argv[8], 0);
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+	if (check_idx(env, idx))
 		goto exit;
-	};
-
-	if (wkr[idx].stat != 2) {
-		sprintf(env->output, "\nWorker not stopped...\n");
-        	logMsg(env);
-		goto exit;
-	};
 
 	if (trans > (int)RIO_DIRECTIO_TYPE_NWRITE_R_ALL)
 		trans = RIO_DIRECTIO_TYPE_NWRITE;
@@ -567,18 +551,8 @@ int dmaTxLatCmd(struct cli_env *env, int argc, char **argv)
 	kbuf = getDecParm(argv[5], 0);
 	trans = getDecParm(argv[6], 0);
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+	if (check_idx(env, idx))
 		goto exit;
-	};
-
-	if (wkr[idx].stat != 2) {
-		sprintf(env->output, "\nWorker not stopped...\n");
-        	logMsg(env);
-		goto exit;
-	};
 
 	if (trans > (int)RIO_DIRECTIO_TYPE_NWRITE_R_ALL)
 		trans = RIO_DIRECTIO_TYPE_NWRITE;
@@ -634,18 +608,8 @@ int dmaRxLatCmd(struct cli_env *env, int argc, char **argv)
 	rio_addr = getHex(argv[2], 0);
 	bytes = getHex(argv[3], 0);
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+	if (check_idx(env, idx))
 		goto exit;
-	};
-
-	if (wkr[idx].stat != 2) {
-		sprintf(env->output, "\nWorker not stopped...\n");
-        	logMsg(env);
-		goto exit;
-	};
 
 	if (!rio_addr || !bytes) {
 		sprintf(env->output, "\nrio_addr and bytes cannot be 0.\n");
@@ -667,6 +631,7 @@ int dmaRxLatCmd(struct cli_env *env, int argc, char **argv)
 		wkr[idx].rdma_buff_size = MIN_RDMA_BUFF_SIZE;
 	else
 		wkr[idx].rdma_buff_size = bytes;
+
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
@@ -712,18 +677,8 @@ int msg_tx_cmd(struct cli_env *env, int argc, char **argv, enum req_type req)
 	sock_num = getDecParm(argv[2], 0);
 	bytes = getDecParm(argv[3], 0);
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+	if (check_idx(env, idx))
 		goto exit;
-	};
-
-	if (wkr[idx].stat != 2) {
-		sprintf(env->output, "\nWorker not stopped...\n");
-        	logMsg(env);
-		goto exit;
-	};
 
 	if (!sock_num) {
 		sprintf(env->output, "\nSock_num must not be 0.\n");
@@ -800,18 +755,8 @@ int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 	sock_num = getDecParm(argv[1], 0);
 	bytes = getDecParm(argv[2], 0);
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+	if (check_idx(env, idx))
 		goto exit;
-	};
-
-	if (wkr[idx].stat != 2) {
-		sprintf(env->output, "\nWorker not stopped...\n");
-        	logMsg(env);
-		goto exit;
-	};
 
 	if (!sock_num) {
 		sprintf(env->output, "\nSock_num must not be 0.\n");
@@ -856,18 +801,8 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 	idx = getDecParm(argv[0], 0);
 	sock_num = getDecParm(argv[1], 0);
 
-	if ((idx < 0) || (idx >= MAX_WORKERS)) {
-		sprintf(env->output, "\nIndex must be 0 to %d...\n",
-								MAX_WORKERS);
-        	logMsg(env);
+	if (check_idx(env, idx))
 		goto exit;
-	};
-
-	if (wkr[idx].stat != 2) {
-		sprintf(env->output, "\nWorker not stopped...\n");
-        	logMsg(env);
-		goto exit;
-	};
 
 	if (!sock_num) {
 		sprintf(env->output, "\nSock_num must not be 0.\n");
@@ -1059,8 +994,8 @@ void display_gen_status(struct cli_env *env)
 	for (i = 0; i < MAX_WORKERS; i++) {
 		sprintf(env->output, "%1d %3s ", i, THREAD_STR(wkr[i].stat));
         	logMsg(env);
-		display_cpu(env, wkr[i].cpu_req);
-		display_cpu(env, wkr[i].cpu_run);
+		display_cpu(env, wkr[i].wkr_thr.cpu_req);
+		display_cpu(env, wkr[i].wkr_thr.cpu_run);
 		sprintf(env->output,
 			"%6s %4s %3d %16lx %7lx %7lx %1d %2d %2d %2d\n",
 			ACTION_STR(wkr[i].action), 
@@ -1083,8 +1018,8 @@ void display_ibwin_status(struct cli_env *env)
 	for (i = 0; i < MAX_WORKERS; i++) {
 		sprintf(env->output, "%1d %3s ", i, THREAD_STR(wkr[i].stat));
         	logMsg(env);
-		display_cpu(env, wkr[i].cpu_req);
-		display_cpu(env, wkr[i].cpu_run);
+		display_cpu(env, wkr[i].wkr_thr.cpu_req);
+		display_cpu(env, wkr[i].wkr_thr.cpu_run);
 		sprintf(env->output,
 			"%6s %4s %2d %16lx %16lx %16lx\n",
 			ACTION_STR(wkr[i].action), 
@@ -1106,8 +1041,8 @@ void display_msg_status(struct cli_env *env)
 	for (i = 0; i < MAX_WORKERS; i++) {
 		sprintf(env->output, "%1d %3s ", i, THREAD_STR(wkr[i].stat));
         	logMsg(env);
-		display_cpu(env, wkr[i].cpu_req);
-		display_cpu(env, wkr[i].cpu_run);
+		display_cpu(env, wkr[i].wkr_thr.cpu_req);
+		display_cpu(env, wkr[i].wkr_thr.cpu_run);
 		sprintf(env->output,
 			"%6s %4s %2d %3d %3d %8d %7d %2d %2d\n",
 			ACTION_STR(wkr[i].action), 
@@ -1331,6 +1266,115 @@ MpdevsCmd,
 ATTR_NONE
 };
 
+#ifdef USER_MODE_DRIVER
+
+int UDMACmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx;
+	int chan;
+	int cpu;
+	uint32_t buff;
+	uint32_t sts;
+	uint32_t did;
+	uint64_t rio_addr;
+	uint32_t bytes;
+	uint32_t acc_sz;
+	int trans;
+
+	idx = 	getDecParm(argv[0], 0);
+	cpu = 	getDecParm(argv[1], 0);
+	chan =	getDecParm(argv[2], 0);
+	buff =	getHex(argv[3], 0);
+	sts =	getHex(argv[4], 0);
+	did =		getDecParm(argv[5], 0);
+	rio_addr =	getHex(argv[6], 0);
+	bytes =		getHex(argv[7], 0);
+	acc_sz =	getHex(argv[8], 0);
+	trans =	getDecParm(argv[9], 0);
+
+	if (check_idx(env, idx))
+		goto exit;
+
+	if ((chan < 1) || (chan > 7)) {
+                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1))) {
+                sprintf(env->output,
+			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
+			buff);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
+                sprintf(env->output,
+			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
+			sts);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (!rio_addr || !acc_sz || !bytes) {
+                sprintf(env->output,
+			"Addr, bytes and acc_size must be non-zero\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	if ((trans < 0) || (trans > 5)) {
+                sprintf(env->output,
+			"Illegal trans %d, must be between 0 and 5\n", trans);
+        	logMsg(env);
+		goto exit;
+	};
+
+	wkr[idx].action = umd_dma;
+	wkr[idx].action_mode = user_mode_action;
+	wkr[idx].umd_chan = chan;
+	wkr[idx].umd_fifo_thr.cpu_req = cpu;
+	wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+	wkr[idx].umd_tx_buf_cnt = buff;
+	wkr[idx].umd_sts_entries = sts;
+	wkr[idx].did = did;
+	wkr[idx].rio_addr = rio_addr;
+	wkr[idx].byte_cnt = bytes;
+	wkr[idx].acc_size = acc_sz;
+	wkr[idx].wr = NREAD != (enum dma_rtype)trans;
+	wkr[idx].use_kbuf = 1;
+
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+exit:
+        return 0;
+};
+
+struct cli_cmd UDMA = {
+"udma",
+2,
+10,
+"Transmit DMA requests with User-Mode demo driver",
+"<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <bytes> <acc_sz> <trans>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
+	"<chan> is a DMA channel number from 1 through 7\n"
+	"<buff> is the number of transmit descriptors/buffers to allocate\n"
+	"       Must be a power of two from 0x20 up to 0x80000\n"
+	"<sts> is the number of status entries for completed descriptors\n"
+	"       Must be a power of two from 0x20 up to 0x80000\n"
+	"<did> target device ID\n"
+	"<rio_addr> RapidIO memory address to access\n"
+	"<bytes> total bytes to transfer\n"
+	"<acc_sz> Access size\n"
+	"<trans>  0 NREAD, 1 LAST_NWR, 2 NW, 3 NW_R\n",
+UDMACmd,
+ATTR_NONE
+};
+
+#endif
+
 struct cli_cmd *goodput_cmds[] = {
 	&IBAlloc,
 	&IBDealloc,
@@ -1338,9 +1382,12 @@ struct cli_cmd *goodput_cmds[] = {
 	&OBDIO,
 	&OBDIOTxLat,
 	&OBDIORxLat,
-	&dma,
 	&dmaTxLat,
 	&dmaRxLat,
+	&dma,
+#ifdef USER_MODE_DRIVER
+	&UDMA,
+#endif
 	&msgTx,
 	&msgRx,
 	&msgTxLat,

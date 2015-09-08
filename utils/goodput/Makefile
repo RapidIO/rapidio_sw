@@ -34,21 +34,42 @@ config?=NODEBUG
 COMMONDIR=../../common
 COMMONINC=$(COMMONDIR)/include
 COMMONLIB=$(COMMONDIR)/libs_a
+REGSDIR=../../fabric_management/librio_switch/inc
+LOG_LEVEL?=7
+export LOG_LEVEL
 
 
-# User-mode flags
+# Kernel-mode flags
 CCFLAGS = -O0 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 	-pthread -DRDMA_LL=7
-
 INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c
-LIBRARIES = -lcli -lmport -llog -lrt 
 
-all: goodput
+# User-mode only flags
+# FIXME: Work to remove these as time permits
+UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
+	 -Wall -Wno-format -Wno-sign-compare -Wno-write-strings \
+	-DDEBUG -DRIO_ANY_ADDR=0 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
+
+UMD_INCLUDES = inc/debug.h inc/dmadesc.h inc/local_endian.h inc/mapfile.h \
+	inc/mport.h inc/pciebar.h inc/psem.h inc/pshm.h inc/rdtsc.h \
+	inc/spinlock.h
+
+UMD_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc \
+	src/crc32.c \
+	src/hash.cc src/psem.cc src/pshm.cc
+
+LIBRARIES =  -lpthread -lcli -lmport -llog -lrt
+
+all: goodput ugoodput
+
+ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES) 
+	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
+	$(LIBRARIES) -L$(COMMONLIB)
 
 goodput: $(SOURCES) $(INCLUDES)
 	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(LIBRARIES) -L$(COMMONLIB)
 
 clean:
-	rm -f *.o goodput
+	rm -f *.o goodput ugoodput *~ src/*~ inc/*~
 

@@ -78,8 +78,8 @@ void init_worker_info(struct worker *info, int first_time)
 
 	info->stat = 0;
 	info->stop_req = 0;
-	info->cpu_req = -1;
-	info->cpu_run = -1;
+	info->wkr_thr.cpu_req = -1;
+	info->wkr_thr.cpu_run = -1;
 	info->action = no_action;
 	info->action_mode = kernel_action;
 	info->did = -1;
@@ -126,6 +126,24 @@ void init_worker_info(struct worker *info, int first_time)
         info->sock_num = 0; 
         info->sock_tx_buf = NULL;
         info->sock_rx_buf = NULL;
+
+#ifdef USER_MODE_DRIVER
+	info->umd_chan = 0;
+	info->umd_dch = NULL;
+	info->umd_tx_rtype = NREAD;
+	info->umd_tx_buf_cnt = 0;
+	info->umd_sts_entries = 0;
+	info->umd_tx_iter_cnt = 0;
+	info->umd_fifo_thr.cpu_req = -1;
+	info->umd_fifo_thr.cpu_run = -1;
+	info->umd_fifo_proc_alive = 0;
+	info->umd_fifo_proc_must_die = 0;
+	info->umd_dma_abort_reason = 0;
+
+	if (first_time) {
+        	sem_init(&info->umd_fifo_proc_started, 0, 0);
+	};
+#endif
 };
 
 void msg_cleanup_con_skt(struct worker *info);
@@ -142,7 +160,7 @@ void shutdown_worker_thread(struct worker *info)
 		info->action = shutdown_worker;
 		info->stop_req = 2;
 		sem_post(&info->run);
-		pthread_join(info->thr, NULL);
+		pthread_join(info->wkr_thr.thr, NULL);
 	};
 		
 	dma_free_ibwin(info);
@@ -152,6 +170,27 @@ void shutdown_worker_thread(struct worker *info)
 	msg_cleanup_con_skt(info);
 	msg_cleanup_acc_skt(info);
 	msg_cleanup_mb(info);
+
+#ifdef USER_MODE_DRIVER
+	if (info->umd_fifo_proc_alive) {
+		info->umd_fifo_proc_must_die = 1;
+		pthread_join(info->umd_fifo_thr.thr, NULL);
+		info->umd_fifo_proc_must_die = 0;
+		info->umd_fifo_proc_alive = 0;
+	};
+
+	if (info->umd_dch) {
+		int i;
+
+		info->umd_dch->cleanup();
+
+		for (i = 0; i < MAX_UMD_BUF_COUNT; i++)
+			info->umd_dch->free_dmamem(info->dmamem[i]);
+
+		delete info->umd_dch;
+		info->umd_dch = NULL;
+	};
+#endif
 
 	if (info->mp_h_is_mine) {
 		rc = riomp_mgmt_mport_destroy_handle(&info->mp_h);
@@ -165,7 +204,7 @@ void shutdown_worker_thread(struct worker *info)
 	init_worker_info(info, 0);
 };
 
-int migrate_thread_to_cpu(struct worker *info)
+int migrate_thread_to_cpu(struct thread_cpu *info)
 {
         cpu_set_t cpuset;
         int chk_cpu_lim = 10;
@@ -1078,6 +1117,7 @@ void msg_tx_goodput(struct worker *info)
 exit:
 	msg_cleanup_con_skt(info);
 	msg_cleanup_mb(info);
+
 };
 
 void dma_alloc_ibwin(struct worker *info)
@@ -1145,6 +1185,252 @@ void dma_free_ibwin(struct worker *info)
 	info->ib_handle = 0;
 };
 
+#ifdef USER_MODE_DRIVER
+
+volatile uint64_t fifo_thr_iter = 0;
+
+void *umd_fifo_proc_thr(void *parm)
+{
+	struct worker *info;
+        std::vector<DMAChannel::WorkItem_t>::iterator it;
+
+	if (NULL == parm)
+		goto exit;
+
+	info = (struct worker *)parm;
+	if (NULL == info->umd_dch)
+		goto exit;
+	
+	migrate_thread_to_cpu(&info->umd_fifo_thr);
+
+	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
+		goto exit;
+
+	info->umd_fifo_proc_alive = 1;
+	sem_post(&info->umd_fifo_proc_started); 
+
+	while (!info->umd_fifo_proc_must_die) {
+                std::vector<DMAChannel::WorkItem_t> wi;
+		fifo_thr_iter++;
+
+		if (0 == info->umd_dch->scanFIFO(wi))
+			goto next;
+
+		for (it = wi.begin(); it != wi.end(); it++) {
+			DMAChannel::WorkItem_t& item = *it;
+
+			switch (item.opt.dtype) {
+			case DTYPE1:
+				INFO("\n\tFIFO D1 RT=%d did=%d HW @0x%llx"
+					"mem @%p bd_wp=%u FIFO iter %llu\n",
+					item.opt.rtype, item.opt.destid,
+					item.mem.win_handle, item.mem.win_ptr,
+					item.opt.bd_wp, fifo_thr_iter);
+				if (item.opt.rtype == NREAD) {
+					hexdump4byte("NREAD: ",
+						(uint8_t*)item.mem.win_ptr, 8);
+				}
+				break;
+			case DTYPE2:
+				INFO("\n\tFIFO D2 RT=%d did=%d bd_wp=%u"
+					" -- FIFO iter %llu\n", item.opt.rtype,
+					item.opt.destid, item.opt.bd_wp,
+					fifo_thr_iter);
+				break;
+			// NREAD data ended up in
+			// (item.t2_rddata, item.t2_rddata_len)
+			case DTYPE3:
+				INFO("\n\tFinished D3 bd_wp=%u -- FIFO iter %llu\n",
+					 item.opt.bd_wp, fifo_thr_iter);
+				break;
+			default:
+				INFO("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
+					 item.opt.dtype, item.opt.bd_wp,
+					fifo_thr_iter);
+				break;
+      			}
+
+    		}
+
+ next:
+		sched_yield();
+	}
+exit:
+	sem_post(&info->umd_fifo_proc_started); 
+	info->umd_fifo_proc_alive = 0;
+
+	pthread_exit(parm);
+};
+
+static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa8 };
+#define PATTERN_SZ      sizeof(PATTERN)
+#define DMA_RUNPOLL_US 10
+
+void umd_dma_goodput_demo(struct worker *info)
+{
+	int oi, rc;
+	uint64_t cnt;
+	uint64_t haxxx;
+
+	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan,
+				info->mp_h);
+								
+	if (NULL == info->umd_dch) {
+		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+			info->umd_chan, info->mp_num, info->mp_h);
+		goto exit;
+	};
+
+	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
+		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
+							info->umd_tx_buf_cnt);
+		goto exit;
+	};
+        if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
+		CRIT("\n\talloc_dmacompldesc failed: entries %d",
+							info->umd_sts_entries);
+		goto exit;
+	};
+
+        memset(info->dmamem, 0, sizeof(info->dmamem));
+        memset(info->dmaopt, 0, sizeof(info->dmaopt));
+
+        for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
+                if (!info->umd_dch->alloc_dmamem(info->acc_size,
+							info->dmamem[i])) {
+			CRIT("\n\talloc_dmamem failed: i %d size %x",
+							i, info->acc_size);
+			goto exit;
+		};
+                memset(info->dmamem[i].win_ptr, PATTERN[i % PATTERN_SZ],
+							info->acc_size);
+        };
+
+        info->umd_dch->setInitState();
+        if (!info->umd_dch->checkPortOK()) {
+		CRIT("\n\tPort is not OK!!! Exiting...");
+		goto exit;
+	};
+
+        rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
+			umd_fifo_proc_thr, (void *)info);
+	if (rc) {
+		CRIT("\n\tCould not create umd_fifo_proc thread, exiting...");
+		goto exit;
+	};
+	sem_wait(&info->umd_fifo_proc_started);
+
+	if (!info->umd_fifo_proc_alive) {
+		CRIT("\n\tumd_fifo_proc thread is dead, exiting..");
+		goto exit;
+	};
+
+/* FIXME COMPILE ERROR DEBUGGIN
+        INFO("\n\tSTART: DMA RP=%8u WP=%8u\n",
+                        info->umd_dch->getReadCount(),
+			info->umd_dch->getWriteCount() );
+*/
+
+	zero_stats(info);
+	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+
+	while (!info->stop_req) {
+		info->umd_dma_abort_reason = 0;
+	
+		// TX Loop
+        	for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
+							cnt += info->acc_size) {
+			info->dmaopt[oi].destid = info->did;
+			info->dmaopt[oi].bcount = info->acc_size;
+			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
+			info->dmaopt[oi].raddr.lsb64 += oi * info->acc_size;
+
+			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
+					info->dmaopt[oi], info->dmamem[oi])) {
+				CRIT("\n\tCound not enqueue T1 %x %d", cnt, oi);
+				goto exit;
+			};
+
+			if (info->umd_dch->checkPortError()) {
+				CRIT("\n\tPort Error, exiting");
+				goto exit;
+			};
+	
+			if (info->umd_dch->dmaCheckAbort(
+						info->umd_dma_abort_reason)) {
+				CRIT("DMA abort %x: %s\n", 
+					info->umd_dma_abort_reason,
+					DMAChannel::abortReasonToStr(
+					info->umd_dma_abort_reason));
+				goto exit;
+			}
+
+			bool inp_err = false, outp_err = false;
+                        info->umd_dch->checkPortInOutError(inp_err, outp_err);
+
+                        if(inp_err || outp_err) {
+                                CRIT("Tsi721 port error%s%s\n",
+                                        (inp_err? " INPUT": ""),
+                                        (outp_err? " OUTPUT": ""));
+                        }
+			// Wrap around, do no overwrite last buffer entry
+			oi++;
+			if (info->umd_tx_buf_cnt - 2 == oi)
+				oi = 0;
+                } // END for transmit burst
+
+		// RX Check
+                haxxx = info->umd_tx_buf_cnt+2; usleep(300);
+                haxxx = info->umd_tx_buf_cnt+2; usleep(300);
+
+                INFO("\n\tEND: DMA hw RP=%u WP=%u HAXX=%u\n",
+			info->umd_dch->getReadCount(),
+			info->umd_dch->getWriteCount(), haxxx);
+
+                // XXX Check FIFO as well here
+                int rp = 0;
+                for (; rp < 1000000 && info->umd_dch->dmaIsRunning(); rp++) {
+                        uint32_t abort_reason = 0;
+                        if (info->umd_dch->dmaCheckAbort(abort_reason)) {
+                        	CRIT("DMA abort %d: %s\n",
+					info->umd_dma_abort_reason,
+                                	DMAChannel::abortReasonToStr(
+						info->umd_dma_abort_reason));
+			}
+                        goto exit;
+                };
+		info->umd_tx_iter_cnt++;
+		info->perf_byte_cnt += info->byte_cnt;
+		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+                usleep(DMA_RUNPOLL_US);
+        }
+exit:
+        INFO("\n\tDMA %srunning after %d %dus polls\n",
+		info->umd_dch->dmaIsRunning()? "": "NOT ", 
+			info->perf_msg_cnt, DMA_RUNPOLL_US);
+
+        INFO("\n\tEND: DMA hw RP = %d | soft RP = %d\n",
+                        info->umd_dch->getReadCount(),
+			info->umd_dch->getSoftReadCount(false));
+        sleep(4);
+
+        INFO("\n\tEXITING (FIFO iter=%lu hw RP=%u WP=%u) -- compiled at %s\n",
+                info->umd_tx_iter_cnt,
+		info->umd_dch->getFIFOReadCount(),
+                info->umd_dch->getFIFOWriteCount(), __TIME__);
+        info->umd_fifo_proc_must_die = 1;
+
+        pthread_join(info->umd_fifo_thr.thr, NULL);
+
+        info->umd_dch->cleanup();
+        for(int i = 0; i < MAX_UMD_BUF_COUNT; i++)
+                info->umd_dch->free_dmamem(info->dmamem[i]);
+
+        delete info->umd_dch;
+}
+
+#endif
+
 void *worker_thread(void *parm)
 {
 	struct worker *info = (struct worker *)parm;
@@ -1153,8 +1439,8 @@ void *worker_thread(void *parm)
 
 	info->stat = 1;
 	while (info->stat) {
-		if (info->cpu_req != info->cpu_run)
-			migrate_thread_to_cpu(info);
+		if (info->wkr_thr.cpu_req != info->wkr_thr.cpu_run)
+			migrate_thread_to_cpu(&info->wkr_thr);
 
 		switch (info->action) {
         	case direct_io: direct_io_goodput(info);
@@ -1188,6 +1474,12 @@ void *worker_thread(void *parm)
         	case free_ibwin:
 				dma_free_ibwin(info);
 				break;
+#ifdef USER_MODE_DRIVER
+		case umd_dma:
+				umd_dma_goodput_demo(info);
+				break;
+#endif
+		
         	case shutdown_worker:
 				info->stat = 0;
 		default:
@@ -1222,10 +1514,11 @@ void start_worker_thread(struct worker *info, int new_mp_h, int cpu)
 	} else {
         	info->mp_h = mp_h;
 	};
+	info->mp_num = mp_h_num;
+	info->wkr_thr.cpu_req = cpu;
 
-	info->cpu_req = cpu;
-
-	rc = pthread_create(&info->thr, NULL, worker_thread, (void *)info);
+	rc = pthread_create(&info->wkr_thr.thr, NULL, worker_thread,
+								(void *)info);
 
 	if (!rc)
 		sem_wait(&info->started);

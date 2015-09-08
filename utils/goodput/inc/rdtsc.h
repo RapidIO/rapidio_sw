@@ -30,26 +30,60 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include "libcli.h"
-#include "goodput.h"
-#include "worker.h"
 
-#ifndef __GOODPUT_CLI_H__
-#define __GOODPUT_CLI_H__
+#ifndef __RDTSC_H_DEFINED__
+#define __RDTSC_H_DEFINED__
 
-#ifdef __cplusplus
-extern "C" {
+
+#if defined(__i386__)
+
+static __inline__ unsigned long long rdtsc(void)
+{
+  unsigned long long int x;
+     __asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
+     return x;
+}
+#elif defined(__x86_64__)
+
+static __inline__ unsigned long long rdtsc(void)
+{
+  unsigned hi, lo;
+  __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+  return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
+}
+
+#elif defined(__powerpc__)
+
+static __inline__ unsigned long long rdtsc(void)
+{
+  unsigned long long int result=0;
+  unsigned long int upper, lower,tmp;
+  __asm__ volatile(
+                "0:                  \n"
+                "\tmftbu   %0           \n"
+                "\tmftb    %1           \n"
+                "\tmftbu   %2           \n"
+                "\tcmpw    %2,%0        \n"
+                "\tbne     0b         \n"
+                : "=r"(upper),"=r"(lower),"=r"(tmp)
+                );
+  result = upper;
+  result = result<<32;
+  result = result|lower;
+
+  return(result);
+}
+
+#else
+
+#error "No tick counter is available!"
+
 #endif
 
-/**
- * @brief Bind goodput commands into CLI base
- *
+
+/*  $RCSfile:  $   $Author: kazutomo $
+ *  $Revision: 1.6 $  $Date: 2005/04/13 18:49:58 $
  */
 
-void bind_goodput_cmds(void);
-
-#ifdef __cplusplus
-}
 #endif
 
-#endif /* __GOODPUT_CLI_H__ */
