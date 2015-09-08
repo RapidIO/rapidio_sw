@@ -221,7 +221,7 @@ struct worker {
 /**
  * @brief Initializes worker structure
  *
- * @param[in] parm Pointer to worker info
+ * @param[in] info Pointer to worker info
  * @param[in] first_time If non-zero, performs one-time initialization
  * @return None, always succeeds
  */
@@ -231,7 +231,7 @@ void init_worker_info(struct worker *info, int first_time);
 /**
  * @brief Starts a worker thread that performs Direct IO, DMA, and/or messaging
  *
- * @param[in] parm Pointer to worker info, must have been initialized by 
+ * @param[in] info Pointer to worker info, must have been initialized by 
  *		init_worker_info prior to this call.
  * @param[in] new_mp_h If <> 0, open mport again to get new DMA channel
  * @param[in] cpu The cpu that should run the thread, -1 for all cpus
@@ -243,7 +243,7 @@ void start_worker_thread(struct worker *info, int new_mp_h, int cpu);
 /**
  * @brief Stops a worker thread and cleans up all resources.
  *
- * @param[in] parm Pointer to worker info
+ * @param[in] info Pointer to worker info
  * @return None, always succeeds.
  */
 

@@ -50,8 +50,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /** \file psem.h Definition of a POSIX name semaphore
  */
 
-#ifdef __cplusplus
-
 #include <string>
 #include <stdexcept>
 
@@ -77,8 +75,6 @@ private:
   sem_t*      m_sem;
   std::string m_semaname;
 };
-
-#endif // __cplusplus
 
 #ifdef __cplusplus
 extern "C" {

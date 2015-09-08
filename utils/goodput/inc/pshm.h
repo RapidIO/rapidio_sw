@@ -47,8 +47,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /** \file pshm.h Definition of POSIX shared memory wrapper class */
 
-#ifdef __cplusplus
-
 #include <string>
 #include <sstream>
 #include <stdexcept>
@@ -104,8 +102,6 @@ private:
 
   ProcRecord_t MYSELF, NOBODY;
 };
-
-#endif // __cplusplus
 
 #ifdef __cplusplus
 extern "C" {

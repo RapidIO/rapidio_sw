@@ -68,7 +68,7 @@ POSIXShm::mkname(const char* name)
   return ss.str();
 }
 
-/** \brief Create a named POSIX SHM area of size \ref size
+/** \brief Create a named POSIX SHM area of size 
  * \throws std::runtime_error
  * The size is rounded up to the next full page. Also a secret page is tacked before the "official" memory area.
  */

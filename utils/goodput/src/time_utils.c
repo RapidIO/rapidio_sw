@@ -39,8 +39,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * Given two timespec structs, subtract them and return a timespec containing 
  * the difference
  *
- * @start     start time
- * @end       end time
+ * @param[in] start  start time
+ * @param[in] end end time
+ * @return timespec difference between start and end.
  *
  * @returns         difference
  */
@@ -58,6 +59,14 @@ struct timespec time_difference( struct timespec start, struct timespec end )
 	return temp;
 } /* time_difference() */
 
+/**
+ * Given two timespec structs, add them together and return 
+ * a timespec containing the sum.
+ *
+ * @param[in] start  start time
+ * @param[in] end end time
+ * @return timespec sum of start and end timespecs.
+ */
 struct timespec time_add(struct timespec start, struct timespec end)
 {
 	struct timespec temp;
@@ -70,6 +79,14 @@ struct timespec time_add(struct timespec start, struct timespec end)
 	return temp;
 }
 
+/**
+ * Divides the time in a timespec by a divisor, and returns 
+ * a timespec containing the quotient.
+ *
+ * @param[in] time  total time
+ * @param[in] divisor factor to divide by
+ * @return timespec time divided by divisor
+ */
 struct timespec time_div(struct timespec time, uint32_t divisor)
 {
 	uint64_t time_nsec;
@@ -84,6 +101,18 @@ struct timespec time_div(struct timespec time, uint32_t divisor)
 	return temp;
 }
 
+/**
+ * Divides the time in a timespec by a divisor, and returns 
+ * a timespec containing the quotient.
+ *
+ * @param[in] i  0 - initialize totaltime/mintime/maxtime, 1 - don't init
+ * @param[in] starttime - starting time for time interval to track
+ * @param[in] endtime - end time for time interval to track
+ * @param[inout] totaltime - on return, totaltime += endtime-starttime
+ * @param[inout] mintime - on return, updated if endtime-starttime < mintime
+ * @param[inout] maxtime - on return, updated if endtime-starttime > maxtime
+ *
+ */
 void time_track(int i, struct timespec starttime, struct timespec endtime,
 		struct timespec *totaltime, struct timespec *mintime,
 		struct timespec *maxtime)

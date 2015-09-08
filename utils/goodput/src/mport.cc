@@ -91,7 +91,12 @@ RioMport::RioMport(const int mportid)
 
 /** \brief Creates an instance of RioMport class
  * \throws std::runtime_error
- * \param mportid instance N of mport_cdev as seen in /dev/rio_mportN
+ * \param[in] mportid instance N of mport_cdev as seen in /dev/rio_mportN
+ * \param[in] mp_h_in mport handle passed in.
+ *
+ * An mport handle instance may be a copy of another MPORT handle, or a fresh
+ * instance.  If the mport handle is not a copy, a separate DMA engine may be
+ * allocated against the mport handle.
  */
 RioMport::RioMport(const int mportid, riomp_mport_t mp_h_in)
 {
@@ -151,8 +156,8 @@ void RioMport::wr32dma(const uint32_t chan, const uint32_t offset, const uint32_
 
 
 /** \brief Request an inbound HW memory window from mport_cdev
- * \param size size of window XXX cannot exceed 16M
- * \param[in] ibwin.rio_address Requested RapidIO memory address
+ * \param[in] size size of window XXX cannot exceed 16M
+ * \param[in] ibwin Requested RapidIO memory address
  * \param[out] ibwin inbound window mapping, see \ref DmaMem_t
  */
 bool RioMport::map_ibwin(const uint32_t size, DmaMem_t& ibwin)
@@ -270,8 +275,8 @@ fail:
 }
 
 /** \brief Request a DMA buffer in HW memory from mport_cdev
- * \param size size of window
- * \param[in] mem.rio_address Requested RapidIO memory address
+ * \param size size of window, in bytes
+ * \param[in] mem Requested RapidIO memory address
  * \param[out] mem DMA buffer, see \ref DmaMem_t
  */
 bool RioMport::map_dma_buf(uint32_t size, DmaMem_t& mem)

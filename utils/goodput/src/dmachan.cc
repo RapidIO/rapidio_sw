@@ -596,7 +596,7 @@ static inline uint32_t roundup_pow_of_two(const uint32_t n)
 
 /**
  * __fls - find last (most-significant) set bit in a long word
- * @word: the word to search
+ * @param[in] word the word to search
  *
  * Undefined if no set bit exists, so code should check against 0 first.
  */
@@ -880,8 +880,6 @@ void TestDmaRegRead_nolock(DMAChannel* dch, const uint64_t dRDTSC)
 }
 
 #define RIO_MEM_SZ  0x200000 // 1024*32 // must be at least 32k
-//#define RIO_ADDRESS 0x22f200000 // XXX this is dynamically allocated by mport_cdev... MAY CHANGE!!
-///#define RIO_ADDRESS 0x22f000000 // XXX this is dynamically allocated by mport_cdev... MAY CHANGE!!
 #define RIO_ADDRESS 0x22eda0000 // XXX this is dynamically allocated by mport_cdev... MAY CHANGE!!
 
 #define DMA_RUNPOLL_US  10

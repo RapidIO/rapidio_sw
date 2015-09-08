@@ -88,7 +88,8 @@ public:
 
 	#define rd32(o) _rd32((o), #o)
 	/** \brief Read a 32 bit mmaped register
-	* \param offset Tsi721 register to read
+	* \param[in] offset Tsi721 register to read
+	* \param[in] offset_str Code fragment used to compute offset
 	* \return contents of register
 	*/
 	inline uint32_t _rd32(const uint32_t offset, const char* offset_str)
@@ -109,7 +110,10 @@ public:
 
 	#define wr32(o, d) _wr32((o), #o, (d), #d)
 	/** \brief Write a 32 bit mmaped register
-	* \param offset Tsi721 register to write
+	* \param[in] offset Tsi721 register to write
+	* \param[in] offset_str Code fragment used to compute offset
+	* \param[in] data Data value to be written at offset
+	* \param[in] data_str Code fragment used to compute data
 	* \param data data to be written to register
 	*/
 	inline void _wr32(const uint32_t offset, const char* offset_str,
