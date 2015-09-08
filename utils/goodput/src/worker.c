@@ -1423,9 +1423,10 @@ exit:
         pthread_join(info->umd_fifo_thr.thr, NULL);
 
         info->umd_dch->cleanup();
-        for(int i = 0; i < MAX_UMD_BUF_COUNT; i++)
+        for(int i = 0; i < MAX_UMD_BUF_COUNT; i++) {
+                if(info->dmamem[i].type == 0) break; // NOT ALLOCATED
                 info->umd_dch->free_dmamem(info->dmamem[i]);
-
+        }
         delete info->umd_dch;
 }
 
