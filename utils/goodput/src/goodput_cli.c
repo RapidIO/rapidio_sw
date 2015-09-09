@@ -180,6 +180,8 @@ int HaltCmd(struct cli_env *env, int argc, char **argv)
 		wkr[i].stop_req = 2;
 #ifdef USER_MODE_DRIVER
 		wkr[i].umd_fifo_proc_must_die = 1;
+		if (wkr[i].umd_dch)
+			wkr[i].umd_dch->shutdown();
 #endif
 	};
 

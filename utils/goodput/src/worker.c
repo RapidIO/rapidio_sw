@@ -160,6 +160,12 @@ void shutdown_worker_thread(struct worker *info)
 		info->action = shutdown_worker;
 		info->stop_req = 2;
 		sem_post(&info->run);
+#ifdef USER_MODE_DRIVER
+		if (info->umd_dch) {
+			info->umd_fifo_proc_must_die = 1;
+			info->umd_dch->shutdown();
+		};
+#endif
 		pthread_join(info->wkr_thr.thr, NULL);
 	};
 		
@@ -1429,6 +1435,8 @@ exit:
 		info->umd_dch->getFIFOReadCount(),
                 info->umd_dch->getFIFOWriteCount());
         info->umd_fifo_proc_must_die = 1;
+	if (info->umd_dch)
+		info->umd_dch->shutdown();
 
         pthread_join(info->umd_fifo_thr.thr, NULL);
 

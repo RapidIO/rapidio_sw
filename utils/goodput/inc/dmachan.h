@@ -158,6 +158,7 @@ public:
   }
 
   void cleanup();
+  void shutdown();
   void init_splock();
 
   int scanFIFO(std::vector<WorkItem_t>& completed_work);
@@ -165,6 +166,7 @@ public:
   volatile uint64_t   m_fifo_scan_cnt;
 
 private:
+  int umdemo_must_die = 0;
   pthread_spinlock_t  m_hw_splock; ///< Serialize access to DMA chan registers
   pthread_spinlock_t  m_pending_work_splock; ///< Serialize access to DMA pending queue object
   RioMport*           m_mport;

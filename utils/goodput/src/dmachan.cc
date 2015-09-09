@@ -113,6 +113,7 @@ DMAChannel::DMAChannel(const uint32_t mportid,
 
 DMAChannel::~DMAChannel()
 {
+  shutdown();
   cleanup();
   delete m_mport;
 };
@@ -263,6 +264,7 @@ bool DMAChannel::queueFull()
 {
   // XXX we have control over the soft m_dma_wr but how to divine the read pointer?
   //     that should come from the completion FIFO but for now we brute-force it!
+  //     BEW FIXME: Should the first "unlock" be a lock???
 
   pthread_spin_unlock(&m_bl_splock);
   const int SZ = m_bl_busy.size();
@@ -325,7 +327,11 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   
   struct hw_dma_desc* bd_hw = NULL;
   pthread_spin_lock(&m_pending_work_splock);
+  if (umdemo_must_die)
+	return false;
   pthread_spin_lock(&m_bl_splock); 
+  if (umdemo_must_die)
+	return false;
   {{
     const int bd_idx = m_dma_wr % (m_bd_num+1);
 
@@ -396,6 +402,8 @@ int DMAChannel::getSoftReadCount(bool locked) // call this from locked context -
   int ret = -1;
 
   if(! locked) pthread_spin_lock(&m_bl_splock); 
+  if (umdemo_must_die)
+	return false;
   do {{
     if(m_bl_outstanding.empty()) { ret = m_dma_wr; break; }
 
@@ -486,6 +494,8 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
   m_T3_bd_hw = m_dmadesc.win_handle + (m_bd_num * DMA_BUFF_DESCR_SIZE);
 
   pthread_spin_lock(&m_bl_splock); 
+  if (umdemo_must_die)
+	return false;
   m_bl_outstanding.clear();
   pthread_spin_unlock(&m_bl_splock); 
 
@@ -631,6 +641,15 @@ void DMAChannel::free_dmacompldesc()
   m_mport->unmap_dma_buf(m_dmacompl);
 }
 
+void DMAChannel::shutdown()
+{
+  umdemo_must_die = 1;
+
+  pthread_spin_unlock(&m_pending_work_splock);
+  pthread_spin_unlock(&m_hw_splock);
+  pthread_spin_unlock(&m_bl_splock);
+};
+
 void DMAChannel::cleanup()
 {
   // Reset HW here
@@ -697,7 +716,7 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
   int j = m_fifo_rd * 8;
 //DBG("\n\tFIFO START line=%d\n", j);
-  while (sts_ptr[j]) {
+  while (sts_ptr[j] && !umdemo_must_die) {
       //for (int i = 0; i < 8 && sts_ptr[j]; i++, j++) {
       for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
 DBG("\n\tFIFO line=%d off=%d 0x%llx\n", j, i, sts_ptr[i]);
@@ -721,6 +740,8 @@ DBG("\n\tFIFO line=%d off=%d 0x%llx\n", j, i, sts_ptr[i]);
   std::vector<DmaCompl_t>::iterator itv = compl_hwbuf.begin();
   for(; itv != compl_hwbuf.end(); itv++) {
     pthread_spin_lock(&m_pending_work_splock);
+  if (umdemo_must_die)
+	return 0;
 
     std::map<uint64_t, WorkItem_t>::iterator itm = m_pending_work.find(itv->win_handle);
     if(itm == m_pending_work.end()) { // DTYPE3 BD will not be found anyho
@@ -745,6 +766,8 @@ DBG("\n\tFIFO line=%d off=%d 0x%llx\n", j, i, sts_ptr[i]);
 
     // BDs might be completed out of order.
     pthread_spin_lock(&m_bl_splock); 
+  if (umdemo_must_die)
+	return 0;
     m_bl_busy[item.opt.bd_idx] = false;
     m_bl_outstanding[item.opt.bd_wp] = 0;
     pthread_spin_unlock(&m_bl_splock); 
