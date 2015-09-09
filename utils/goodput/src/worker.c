@@ -1238,12 +1238,16 @@ void *umd_fifo_proc_thr(void *parm)
 					hexdump4byte("NREAD: ",
 						(uint8_t*)item.mem.win_ptr, 8);
 				}
+				info->perf_byte_cnt += info->acc_size;
+				clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 				break;
 			case DTYPE2:
 				INFO("\n\tFIFO D2 RT=%s did=%d bd_wp=%u"
 					" -- FIFO iter %llu\n", dma_rtype_str[item.opt.rtype],
 					item.opt.destid, item.opt.bd_wp,
 					fifo_thr_iter);
+				info->perf_byte_cnt += info->acc_size;
+				clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 				break;
 			// NREAD data ended up in
 			// (item.t2_rddata, item.t2_rddata_len)
@@ -1260,8 +1264,10 @@ void *umd_fifo_proc_thr(void *parm)
 
     		}
 
- next:
-		sched_yield();
+next:
+		fifo_thr_iter = fifo_thr_iter;
+		// FIXME: commented out for debug purposes
+		// sched_yield();
 	}
 exit:
 	sem_post(&info->umd_fifo_proc_started); 
@@ -1305,15 +1311,17 @@ void umd_dma_goodput_demo(struct worker *info)
         memset(info->dmamem, 0, sizeof(info->dmamem));
         memset(info->dmaopt, 0, sizeof(info->dmaopt));
 
-        for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
-                if (!info->umd_dch->alloc_dmamem(info->acc_size,
-							info->dmamem[i])) {
-			CRIT("\n\talloc_dmamem failed: i %d size %x",
-							i, info->acc_size);
-			goto exit;
-		};
-                memset(info->dmamem[i].win_ptr, PATTERN[i % PATTERN_SZ],
-							info->acc_size);
+	// Reduce number of allocated buffers to 1 to allow
+	// more transactions to be sent with a larger ring.
+        if (!info->umd_dch->alloc_dmamem(info->acc_size, info->dmamem[0])) {
+		CRIT("\n\talloc_dmamem failed: i %d size %x",
+							0, info->acc_size);
+		goto exit;
+	};
+        memset(info->dmamem[0].win_ptr, PATTERN[0], info->acc_size);
+
+        for (int i = 1; i < info->umd_tx_buf_cnt; i++) {
+		info->dmamem[i] = info->dmamem[0];
         };
 
         info->umd_dch->setInitState();
@@ -1415,9 +1423,8 @@ void umd_dma_goodput_demo(struct worker *info)
                         //goto exit;
                 	usleep(DMA_RUNPOLL_US);
                 };
+
 		info->umd_tx_iter_cnt++;
-		info->perf_byte_cnt += info->byte_cnt;
-		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
                 usleep(DMA_RUNPOLL_US);
         }
 exit:
@@ -1441,11 +1448,11 @@ exit:
         pthread_join(info->umd_fifo_thr.thr, NULL);
 
         info->umd_dch->cleanup();
-        for(int i = 0; i < MAX_UMD_BUF_COUNT; i++) {
-                if(info->dmamem[i].type == 0) break; // NOT ALLOCATED
-                info->umd_dch->free_dmamem(info->dmamem[i]);
-        }
+	// Only allocatd one DMA buffer for performance reasons
+	if(info->dmamem[0].type != 0) 
+                info->umd_dch->free_dmamem(info->dmamem[0]);
         delete info->umd_dch;
+	info->umd_dch = NULL;
 }
 
 #endif

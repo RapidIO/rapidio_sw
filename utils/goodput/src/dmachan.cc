@@ -645,8 +645,12 @@ void DMAChannel::shutdown()
 {
   umdemo_must_die = 1;
 
+// Unlock twice, once for each thread, to guarantee forward progress...
+  pthread_spin_unlock(&m_pending_work_splock);
   pthread_spin_unlock(&m_pending_work_splock);
   pthread_spin_unlock(&m_hw_splock);
+  pthread_spin_unlock(&m_hw_splock);
+  pthread_spin_unlock(&m_bl_splock);
   pthread_spin_unlock(&m_bl_splock);
 };
 
