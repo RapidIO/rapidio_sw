@@ -7,7 +7,7 @@
 #RDMA_ROOT_PATH=/opt/rapidio/cern/rapidio_sw
 RDMA_ROOT_PATH=/home/sherif/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
-NUM_ITERATIONS=250
+NUM_ITERATIONS=100
 
 for (( i=0; i<NUM_ITERATIONS; i++ ))
 do
@@ -31,7 +31,7 @@ do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		echo "Starting fmd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS fmd $RDMA_ROOT_PATH/fabric_management/daemon/fmd -l7"
-		sleep 5
+		sleep 1
 		FMD_PID=$(ssh root@"$node" pgrep fmd)
 		echo "$node fmd pid=$FMD_PID"
 	done
@@ -42,7 +42,7 @@ do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		echo "Start rdmad on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rdmad $RDMA_ROOT_PATH/rdma/rdmad"
-		sleep 5
+		sleep 1
 		RDMAD_PID=$(ssh root@"$node" pgrep rdmad)
 		echo "$node rdmad pid=$RDMAD_PID"
 	done
@@ -53,7 +53,7 @@ do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		echo "Start rsktd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rsktd $RDMA_ROOT_PATH/rdma/rskt/daemon/rsktd -l7"
-		sleep 5
+		sleep 1
 		RSKTD_PID=$(ssh root@"$node" pgrep rsktd)
 		echo "$node rsktd pid=$RSKTD_PID"
 	done
@@ -156,6 +156,14 @@ do
 				ssh root@"$node" "kill -s 2 $proc"
 			done
 
+			# Check that rsktd was successfully killed
+			sleep 1
+			THE_PID=$(ssh root@"$node" pgrep rsktd)
+			if [ ! -z "$THE_PID" ]
+			then
+				echo "rsktd killed but still alive with PID=$THE_PID!"
+			fi
+
 			# Kill RDMAD
 			THE_PID=$(ssh root@"$node" pgrep rdmad)
 			echo "Killing rdmad on $node RDMAD PID=$THE_PID"
@@ -164,6 +172,14 @@ do
 				ssh root@"$node" "kill -s 2 $proc"
 			done
 
+			# Check that rdmad was successfully killed
+			sleep 1
+			THE_PID=$(ssh root@"$node" pgrep rdmad)
+			if [ ! -z "$THE_PID" ]
+			then
+				echo "rdmad killed but still alive with PID=$THE_PID!"
+			fi
+
 			# Kill FMD
 			THE_PID=$(ssh root@"$node" pgrep fmd)
 			echo "Killing fmd on $node RDMAD PID=$THE_PID"
@@ -171,6 +187,14 @@ do
 			do
 				ssh root@"$node" "kill -s 2 $proc"
 			done
+
+			# Check that fmd was successfully killed
+			sleep 1
+			THE_PID=$(ssh root@"$node" pgrep fmd)
+			if [ ! -z "$THE_PID" ]
+			then
+				echo "fmd killed but still alive with PID=$THE_PID!"
+			fi
 		done
 
 		# Unload all drivers from all nodes
