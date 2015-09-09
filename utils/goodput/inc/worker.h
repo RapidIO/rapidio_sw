@@ -210,8 +210,8 @@ struct worker {
 	int		umd_tx_iter_cnt;
 	struct thread_cpu umd_fifo_thr;
 	sem_t		umd_fifo_proc_started;
-	int		umd_fifo_proc_alive;
-	int		umd_fifo_proc_must_die;
+	volatile int	umd_fifo_proc_alive;
+	volatile int	umd_fifo_proc_must_die;
 	uint32_t	umd_dma_abort_reason;
 	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];

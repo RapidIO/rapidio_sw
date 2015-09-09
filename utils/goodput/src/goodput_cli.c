@@ -1342,7 +1342,8 @@ int UDMACmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].rio_addr = rio_addr;
 	wkr[idx].byte_cnt = bytes;
 	wkr[idx].acc_size = acc_sz;
-	wkr[idx].wr = NREAD != (enum dma_rtype)trans;
+	wkr[idx].wr = -42; //NREAD != (enum dma_rtype)trans;
+	wkr[idx].umd_tx_rtype = (enum dma_rtype)trans;
 	wkr[idx].use_kbuf = 1;
 
 	wkr[idx].stop_req = 0;

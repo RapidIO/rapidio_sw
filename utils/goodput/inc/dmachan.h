@@ -55,6 +55,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DMA_STATUS_FIFO_LENGTH (4096)
 #define DMA_RUNPOLL_US 10
 
+#if defined(REGDEBUG)
+  #define REGDBG(format, ...) DBG(stdout, format, __VA_ARGS__)
+#else
+  #define REGDBG(format, ...) 
+#endif
+
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
 class DMAChannel {
@@ -105,7 +111,9 @@ public:
   uint32_t getReadCount();
   uint32_t getWriteCount();
 
-  int getSoftReadCount(bool locked);
+  uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
+
+  int getSoftReadCount(bool locked = false);
 
   bool queueEmptyHw();
   bool queueFullHw(); ///< Handle with care
@@ -131,12 +139,30 @@ public:
 
   bool check_ibwin_reg() { return m_mport->check_ibwin_reg(); }
 
-  bool queueDmaOpT1(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem);
-  bool queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len);
+  inline bool queueDmaOpT1(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem)
+  {
+    opt.dtype = DTYPE1;
+    return queueDmaOpT12(rtype, opt, mem);
+  }
+  inline bool queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len)
+  {
+    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16)) return false;
+  
+    RioMport::DmaMem_t lmem; memset(&lmem, 0, sizeof(lmem));
+  
+    lmem.win_ptr  = data;
+    lmem.win_size = data_len;
+
+    opt.dtype = DTYPE2;
+    return queueDmaOpT12(rtype, opt, lmem);
+  }
 
   void cleanup();
+  void init_splock();
 
   int scanFIFO(std::vector<WorkItem_t>& completed_work);
+
+  volatile uint64_t   m_fifo_scan_cnt;
 
 private:
   pthread_spinlock_t  m_hw_splock; ///< Serialize access to DMA chan registers
@@ -156,14 +182,42 @@ private:
   
   std::map<uint64_t, WorkItem_t> m_pending_work;
 
+  bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem);
+
 public:
   void setWriteCount(uint32_t cnt);
 
 public: // test-public
-  void _wr32dmachan(uint32_t offset, const char* offset_str,
-				uint32_t data, const char* data_str);
-  uint32_t _rd32dmachan(uint32_t offset, const char* offset_str);
-  void wr32dmachan_nolock(uint32_t offset, uint32_t data);
-  uint32_t rd32dmachan_nolock(uint32_t offset);
+  // NOTE: These functions can be inlined only if they live in a
+  //       header file
+  #define wr32dmachan(o, d) _wr32dmachan((o), #o, (d), #d)
+  inline void _wr32dmachan(uint32_t offset, const char* offset_str,
+                          uint32_t data, const char* data_str)
+  {
+    REGDBG("\n\tW chan=%d offset %s (0x%x) :=  %s (0x%x)\n",
+        m_chan, offset_str, offset, data_str, data);
+    pthread_spin_lock(&m_hw_splock);
+    m_mport->__wr32dma(m_chan, offset, data);
+    pthread_spin_unlock(&m_hw_splock);
+  }
+
+  #define rd32dmachan(o) _rd32dmachan((o), #o)
+  inline uint32_t _rd32dmachan(uint32_t offset, const char* offset_str)
+  {
+    pthread_spin_lock(&m_hw_splock);
+    uint32_t ret = m_mport->__rd32dma(m_chan, offset);
+    pthread_spin_unlock(&m_hw_splock);
+    REGDBG("\n\tR chan=%d offset %s (0x%x) => 0x%x\n", m_chan, offset_str, offset, ret);
+    return ret;
+  }
+
+  inline void wr32dmachan_nolock(uint32_t offset, uint32_t data)
+  {
+    m_mport->__wr32dma(m_chan, offset, data);
+  }
+  inline uint32_t rd32dmachan_nolock(uint32_t offset)
+  {
+    return m_mport->__rd32dma(m_chan, offset);
+  }
 };
 

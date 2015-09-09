@@ -58,14 +58,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DMA_STATUS_FIFO_LENGTH (4096)
 
 static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa8 };
-#define PATTERN_SZ	sizeof(PATTERN)
+#define PATTERN_SZ  sizeof(PATTERN)
 
-int haxxx = -1;
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
 /*
 class {
 */
+
+void DMAChannel::init_splock()
+{
+  pthread_spin_init(&m_hw_splock, PTHREAD_PROCESS_PRIVATE);
+  pthread_spin_init(&m_pending_work_splock, PTHREAD_PROCESS_PRIVATE);
+  pthread_spin_init(&m_bl_splock, PTHREAD_PROCESS_PRIVATE);
+}
 
 DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan):
      m_bd_num(0),
@@ -73,80 +79,57 @@ DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan):
      m_dma_wr(0),
      m_fifo_rd(0),
      m_T3_bd_hw(0)
-  {
-    if(chan >= RioMport::DMA_CHAN_COUNT)
-      throw std::runtime_error("DMAChannel: Invalid channel!");
+{
+  if(chan >= RioMport::DMA_CHAN_COUNT)
+    throw std::runtime_error("DMAChannel: Invalid channel!");
 
-    m_chan  = chan;
+  m_chan  = chan;
 
-    m_mport = new RioMport(mportid);
+  m_mport = new RioMport(mportid);
 
-    pthread_spin_init(&m_hw_splock, PTHREAD_PROCESS_PRIVATE);
-    pthread_spin_init(&m_pending_work_splock, PTHREAD_PROCESS_PRIVATE);
-    pthread_spin_init(&m_bl_splock, PTHREAD_PROCESS_PRIVATE);
-  }
+  init_splock();
+  m_fifo_scan_cnt = 0;
+}
 
 DMAChannel::DMAChannel(const uint32_t mportid,
-				const uint32_t chan,
-				riomp_mport_t mp_hd) :
+                       const uint32_t chan,
+                       riomp_mport_t mp_hd) :
      m_bd_num(0),
      m_sts_size(0),
      m_dma_wr(0),
      m_fifo_rd(0),
      m_T3_bd_hw(0)
-  {
-    if(chan >= RioMport::DMA_CHAN_COUNT)
-      throw std::runtime_error("DMAChannel: Invalid channel!");
+{
+  if(chan >= RioMport::DMA_CHAN_COUNT)
+    throw std::runtime_error("DMAChannel: Invalid channel!");
 
-    m_chan  = chan;
+  m_chan  = chan;
 
-    m_mport = new RioMport(mportid, mp_hd);
+  m_mport = new RioMport(mportid, mp_hd);
 
-    pthread_spin_init(&m_hw_splock, PTHREAD_PROCESS_PRIVATE);
-    pthread_spin_init(&m_pending_work_splock, PTHREAD_PROCESS_PRIVATE);
-    pthread_spin_init(&m_bl_splock, PTHREAD_PROCESS_PRIVATE);
-  }
+  init_splock();
+  m_fifo_scan_cnt = 0;
+}
+
 DMAChannel::~DMAChannel()
 {
-	cleanup();
-	delete m_mport;
+  cleanup();
+  delete m_mport;
 };
 
-#define wr32dmachan(o, d) _wr32dmachan((o), #o, (d), #d)
-void DMAChannel::_wr32dmachan(uint32_t offset, const char* offset_str,
-				uint32_t data, const char* data_str)
-{
-    INFO("\n\tW chan=%d offset %s (0x%x) :=  %s (0x%x)\n",
-			m_chan, offset_str, offset, data_str, data);
-    pthread_spin_lock(&m_hw_splock);
-    m_mport->__wr32dma(m_chan, offset, data);
-    pthread_spin_unlock(&m_hw_splock);
-}
-
-#define rd32dmachan(o) _rd32dmachan((o), #o)
-uint32_t DMAChannel::_rd32dmachan(uint32_t offset, const char* offset_str)
-{
-	pthread_spin_lock(&m_hw_splock);
-	uint32_t ret = m_mport->__rd32dma(m_chan, offset);
-	pthread_spin_unlock(&m_hw_splock);
-	INFO("\n\tR chan=%d offset %s (0x%x) => 0x%x\n",
-	m_chan, offset_str, offset, ret);
-	return ret;
+char* dma_rtype_str[] = {
+  "NREAD",
+  "LAST_NWRITE_R",
+  "ALL_NWRITE",
+  "ALL_NWRITE_R",
+  "MAINT_RD",
+  "MAINT_WR",
+  NULL
 };
-
-void DMAChannel::wr32dmachan_nolock(uint32_t offset, uint32_t data)
-{
-	m_mport->__wr32dma(m_chan, offset, data);
-}
-
-uint32_t DMAChannel::rd32dmachan_nolock(uint32_t offset)
-{
-	return m_mport->__rd32dma(m_chan, offset);
-}
 
 void DMAChannel::resetHw()
 {
-	wr32dmachan(TSI721_DMAC_INT,TSI721_DMAC_INT_ALL);
+  wr32dmachan(TSI721_DMAC_INT,TSI721_DMAC_INT_ALL);
   wr32dmachan(TSI721_DMAC_CTL,TSI721_DMAC_CTL_INIT);
   usleep(10);
   wr32dmachan(TSI721_DMAC_DWRCNT, m_dma_wr = 0);
@@ -167,7 +150,7 @@ void DMAChannel::setInitState()
 
 void DMAChannel::setInbound()
 {
-  // nable inbound window and disable PHY error checking
+  // Enable inbound window and disable PHY error checking
   uint32_t reg = m_mport->rd32(TSI721_RIO_SP_CTL);
   m_mport->wr32(TSI721_RIO_SP_CTL, reg | TSI721_RIO_SP_CTL_INP_EN | TSI721_RIO_SP_CTL_OTP_EN);
 }
@@ -297,19 +280,14 @@ void DMAChannel::setWriteCount(uint32_t cnt)
 }
 
 
-bool DMAChannel::queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len)
+bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem)
 {
-  if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16)) return false;
+  if(opt.dtype != DTYPE1 && opt.dtype != DTYPE2) return false;
 
-#if 0 // THIS BE BORKED FOR NOW, SEE T1
-  // Check if queue full!
-  if(queueFull()) return false;
-
-  struct hw_dma_desc* bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + m_dma_wr;
+  if(opt.dtype == DTYPE1 && ! m_mport->check_dma_buf(mem)) return false;
 
   struct dmadesc desc;
-  opt.bd_wp = m_dma_wr;
-  dmadesc_setdtype(desc, DTYPE2); opt.dtype = DTYPE2;
+  dmadesc_setdtype(desc, opt.dtype);
 
   if(opt.iof)  dmadesc_setiof(desc, 1);
   if(opt.crf)  dmadesc_setcrf(desc, 1);
@@ -318,33 +296,97 @@ bool DMAChannel::queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const
   opt.rtype = rtype;
   dmadesc_setrtype(desc, rtype); // NWRITE_R, etc
 
-  if(rtype != NREAD) // copy data
-    dmadesc_setT2_data(desc, data, data_len);
+  dmadesc_set_raddr(desc, opt.raddr.msb2, opt.raddr.lsb64);
 
   if(opt.tt_16b) dmadesc_set_tt(desc, 1);
   dmadesc_setdevid(desc, opt.destid);
 
-  desc.pack(bd_hw);
+  if(opt.dtype == DTYPE1) {
+    dmadesc_setT1_bufptr(desc, mem.win_handle);
+    dmadesc_setT1_buflen(desc, opt.bcount);
+    opt.win_handle = mem.win_handle; // this is good across processes
+  } else { // T2
+    if(rtype != NREAD) // copy data
+      dmadesc_setT2_data(desc, (const uint8_t*)mem.win_ptr, mem.win_size);
+    else {
+      uint8_t ZERO[16] = {0};
+      dmadesc_setT2_data(desc, ZERO, mem.win_size);
+    }
+  }
 
-  opt.win_handle = 0; // N/a for DTYPE2
+  bool queued_T3 = false;
+  WorkItem_t wk_end; memset(&wk_end, 0 , sizeof(wk_end));
 
-  m_dma_wr++;
-  // inc WR in HW and m_dma_wr
-  setWriteCount(m_dma_wr);
-	INFO("\n\tDMA hw WP := %d [bd_num=%d]\n", m_dma_wr, m_bd_num);
-  if(m_dma_wr == m_bd_num) { m_dma_wr = 0; setWriteCount(m_bd_num+1); }
+  // Check if queue full -- as late as possible in view of MT
+  if(queueFull()) {
+    ERR("FAILED: DMA TX Queue full!\n");
+    return false;
+  }
+  
+  struct hw_dma_desc* bd_hw = NULL;
+  pthread_spin_lock(&m_pending_work_splock);
+  pthread_spin_lock(&m_bl_splock); 
+  {{
+    const int bd_idx = m_dma_wr % (m_bd_num+1);
+
+    DBG("\n\tDMA hw RP = %d | soft RP = %d | soft WP = %d | bd_idx = %d\n",
+         getReadCount(), getSoftReadCount(true), m_dma_wr, bd_idx);
+
+    // check-modulo in m_bl_busy[] if bd_idx is still busy!!
+    if(m_bl_busy[bd_idx]) {
+      pthread_spin_unlock(&m_bl_splock); 
+      pthread_spin_unlock(&m_pending_work_splock);
+      INFO("\n\tDMA TX queueDmaOpT?: BD %d still busy!\n", bd_idx);
+      return false;
+    }
+
+    m_bl_busy[bd_idx] = true;
+    m_bl_outstanding[(uint32_t)m_dma_wr] = 1 + bd_idx;
+
+    bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
+    desc.pack(bd_hw);
+
+    opt.bd_wp = m_dma_wr; opt.bd_idx = bd_idx;
+
+    m_dma_wr++; setWriteCount(m_dma_wr);
+    if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
+
+    if(((m_dma_wr+1) % (m_bd_num+1)) == 0) { // skip T3
+      //DBG("Soft WP = %d, time to T3 + rollover\n", m_dma_wr);
+      m_bl_outstanding[(uint32_t)m_dma_wr] = m_bd_num;
+
+      wk_end.opt.bd_wp = m_dma_wr;
+
+      m_dma_wr++; setWriteCount(m_dma_wr);
+      if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
+
+      queued_T3 = true;
+    }
+  }}
+  pthread_spin_unlock(&m_bl_splock); 
 
   uint32_t abort_reason = 0;
-  if(dmaCheckAbort(abort_reason)) return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
+  if(dmaCheckAbort(abort_reason)) {
+    pthread_spin_unlock(&m_pending_work_splock);
+    return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
+  }
 
-  WorkItem_t wk; wk.opt = opt;
+  WorkItem_t wk; memset(&wk, 0, sizeof(wk));
+  wk.mem = mem; wk.opt = opt;
 
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
-  pthread_spin_lock(&m_pending_work_splock); 
-  m_pending_work[m_dmadesc.win_handle + offset] = wk; // XXX is this the hw offset I shall find in a FIFO??
-  pthread_spin_unlock(&m_pending_work_splock); 
-#endif
+  m_pending_work[m_dmadesc.win_handle + offset] = wk;
+
+  if(queued_T3) {
+    wk_end.opt.dtype = DTYPE3;
+    m_pending_work[m_T3_bd_hw] = wk_end;
+  }
+  pthread_spin_unlock(&m_pending_work_splock);
+
+  DBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n", wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.opt.bd_wp);
+  if(queued_T3)
+    DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_T3_bd_hw, wk_end.opt.bd_wp);
 
   return true;
 }
@@ -373,13 +415,13 @@ int DMAChannel::getSoftReadCount(bool locked) // call this from locked context -
     //const int idx_max = v_idx.back();
  
 #if 0
-  std::stringstream ss;
-  ss << "BL[] = { ";
-  for(std::vector<uint32_t>::iterator it = v_idx.begin(); it != v_idx.end(); it++) {
-    ss << *it << ":" << (m_bl_outstanding[*it] - 1) << " ";
-  }
-  ss << "}\n";
-  INFO("\n\t%s", ss.str().c_str());
+    std::stringstream ss;
+    ss << "BL[] = { ";
+    for(std::vector<uint32_t>::iterator it = v_idx.begin(); it != v_idx.end(); it++) {
+      ss << *it << ":" << (m_bl_outstanding[*it] - 1) << " ";
+    }
+    ss << "}\n";
+    DBG("\n\t%s", ss.str().c_str());
 #endif
 
     ret = idx_min-1;
@@ -387,106 +429,6 @@ int DMAChannel::getSoftReadCount(bool locked) // call this from locked context -
 
   if(! locked) pthread_spin_unlock(&m_bl_splock); 
   return ret;
-}
-
-bool DMAChannel::queueDmaOpT1(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem)
-{
-  if(! m_mport->check_dma_buf(mem)) return false;
-
-  struct dmadesc desc;
-  dmadesc_setdtype(desc, DTYPE1); opt.dtype = DTYPE1;
-
-  if(opt.iof)  dmadesc_setiof(desc, 1);
-  if(opt.crf)  dmadesc_setcrf(desc, 1);
-  if(opt.prio) dmadesc_setprio(desc, opt.prio);
-
-  opt.rtype = rtype;
-  dmadesc_setrtype(desc, rtype); // NWRITE_R, etc
-
-  dmadesc_set_raddr(desc, opt.raddr.msb2, opt.raddr.lsb64);
-
-  if(opt.tt_16b) dmadesc_set_tt(desc, 1);
-  dmadesc_setdevid(desc, opt.destid);
-
-  dmadesc_setT1_bufptr(desc, mem.win_handle);
-  dmadesc_setT1_buflen(desc, opt.bcount);
-
-  opt.win_handle = mem.win_handle; // this is good across processes
-
-  // Check if queue full!
-  if(queueFull()) {
-    DBG("\n\tQueue full!\n");
-    return false;
-  }
-  
-  bool queued_T3 = false;
-  WorkItem_t wk_end; memset(&wk_end, 0 , sizeof(wk_end));
-
-  struct hw_dma_desc* bd_hw = NULL;
-  pthread_spin_lock(&m_pending_work_splock);
-  pthread_spin_lock(&m_bl_splock); 
-  {{
-    const int bd_idx = m_dma_wr % (m_bd_num+1);
-
-    INFO("\n\tDMA hw RP = %d | soft RP = %d | soft WP = %d | bd_idx = %d\n",
-            getReadCount(), getSoftReadCount(true), m_dma_wr, bd_idx);
-
-    // check-modulo in m_bl_busy[] if bd_idx is still busy!!
-    if(m_bl_busy[bd_idx]) {
-      pthread_spin_unlock(&m_bl_splock); 
-      pthread_spin_unlock(&m_pending_work_splock);
-      INFO("\n\tqueueDmaOpT?: BD %d still busy!\n", bd_idx);
-      return false;
-    }
-
-    m_bl_busy[bd_idx] = true;
-    m_bl_outstanding[(uint32_t)m_dma_wr] = 1 + bd_idx;
-
-    bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
-    desc.pack(bd_hw);
-
-    opt.bd_wp = m_dma_wr; opt.bd_idx = bd_idx;
-
-    m_dma_wr++; setWriteCount(m_dma_wr);
-    if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
-
-    if(((m_dma_wr+1) % (m_bd_num+1)) == 0) { // skip T3
-      DBG("\n\tSoft WP = %d, time to T3 + rollover\n", m_dma_wr);
-      m_bl_outstanding[(uint32_t)m_dma_wr] = m_bd_num;
-
-      wk_end.opt.bd_wp = m_dma_wr;
-
-      m_dma_wr++; setWriteCount(m_dma_wr);
-      if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
-
-      queued_T3 = true;
-    }
-  }}
-  pthread_spin_unlock(&m_bl_splock); 
-
-  uint32_t abort_reason = 0;
-  if(dmaCheckAbort(abort_reason)) {
-    pthread_spin_unlock(&m_pending_work_splock);
-    return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
-  }
-
-  WorkItem_t wk; wk.mem = mem; wk.opt = opt;
-  const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
-
-  m_pending_work[m_dmadesc.win_handle + offset] = wk;
-
-  if(queued_T3) {
-    wk_end.opt.dtype = DTYPE3;
-    m_pending_work[m_T3_bd_hw] = wk_end;
-    INFO("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_T3_bd_hw, wk_end.opt.bd_wp);
-  }
-  pthread_spin_unlock(&m_pending_work_splock);
-
-  INFO("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk.opt.dtype, m_dmadesc.win_handle + offset, wk.opt.bd_wp);
-  if(queued_T3)
-    INFO("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_T3_bd_hw, wk_end.opt.bd_wp);
-
-  return true;
 }
 
 bool DMAChannel::alloc_dmamem(const uint32_t size, RioMport::DmaMem_t& mem)
@@ -510,52 +452,49 @@ bool DMAChannel::free_dmamem(RioMport::DmaMem_t& mem)
 
 bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 {
-	bool rc = false;
-	int size = bd_cnt * DMA_BUFF_DESCR_SIZE; 
-	struct hw_dma_desc* end_bd_p;
-	struct dmadesc end_bd;
+  int size = (bd_cnt+1) * DMA_BUFF_DESCR_SIZE; 
 
-	m_bd_num = bd_cnt - 1; // subtract 1 for TYPE3 for wrap-around
+  if(size < 4096)
+    size = 4096;
+  else 
+    size = ((size + 4095) / 4096) * 4096;
 
-	if(size < 4096)
-		size = 4096;
-	else 
-		size = ((size + 4095) / 4096) * 4096;
+  m_dmadesc.rio_address = RIO_ANY_ADDR;
+  if(! m_mport->map_dma_buf(size, m_dmadesc)) {
+    CRIT("DMAChannel: Cannot alloc DMA TX ring descriptors!");
+    return false;
+  }
 
-	m_dmadesc.rio_address = RIO_ANY_ADDR;
-	if(! m_mport->map_dma_buf(size, m_dmadesc)) {
-		CRIT("DMAChannel: Cannot alloc DMA TX ring descriptors!");
-		goto exit;
-	};
+  m_bd_num = bd_cnt;
 
-	memset(m_dmadesc.win_ptr, 0, size);
+  memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
 
-	end_bd_p = (struct hw_dma_desc *)
-		((uint8_t*)m_dmadesc.win_ptr + (m_bd_num * DMA_BUFF_DESCR_SIZE));
+  struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
+    ((uint8_t*)m_dmadesc.win_ptr + (m_bd_num * DMA_BUFF_DESCR_SIZE));
 
-	INFO("\n\tWrap BD DTYPE3 @ HW 0x%lx [idx=%d] points back to HW 0x%lx\n",
-		m_dmadesc.win_handle + (m_bd_num *DMA_BUFF_DESCR_SIZE),
-		m_bd_num, m_dmadesc.win_handle);
+  DBG("\n\tWrap BD DTYPE3 @ HW 0x%lx [idx=%d] points back to HW 0x%lx\n",
+      m_dmadesc.win_handle + (m_bd_num *DMA_BUFF_DESCR_SIZE),
+      m_bd_num, m_dmadesc.win_handle);
 
-	// Initialize DMA descriptors ring using added link descriptor 
-	dmadesc_setdtype(end_bd, DTYPE3);
-	dmadesc_setT3_nextptr(end_bd, (uint64_t)m_dmadesc.win_handle);
+  // Initialize DMA descriptors ring using added link descriptor 
+  struct dmadesc end_bd; memset(&end_bd, 0, sizeof(end_bd));
+  dmadesc_setdtype(end_bd, DTYPE3);
+  dmadesc_setT3_nextptr(end_bd, (uint64_t)m_dmadesc.win_handle);
 
-	end_bd.pack(end_bd_p); // XXX mask off lowest 5 bits
+  end_bd.pack(end_bd_p); // XXX mask off lowest 5 bits
 
-	m_T3_bd_hw = m_dmadesc.win_handle + (m_bd_num * DMA_BUFF_DESCR_SIZE);
+  m_T3_bd_hw = m_dmadesc.win_handle + (m_bd_num * DMA_BUFF_DESCR_SIZE);
 
-	pthread_spin_lock(&m_bl_splock); 
-	m_bl_outstanding.clear();
-	pthread_spin_unlock(&m_bl_splock); 
+  pthread_spin_lock(&m_bl_splock); 
+  m_bl_outstanding.clear();
+  pthread_spin_unlock(&m_bl_splock); 
 
-	// Setup DMA descriptor pointers
-	wr32dmachan(TSI721_DMAC_DPTRH, (uint64_t)m_dmadesc.win_handle >> 32);
-	wr32dmachan(TSI721_DMAC_DPTRL, 
-		(uint64_t)m_dmadesc.win_handle & TSI721_DMAC_DPTRL_MASK); 
-	rc = true;
-exit:
-	return rc;
+  // Setup DMA descriptor pointers
+  wr32dmachan(TSI721_DMAC_DPTRH, (uint64_t)m_dmadesc.win_handle >> 32);
+  wr32dmachan(TSI721_DMAC_DPTRL, 
+    (uint64_t)m_dmadesc.win_handle & TSI721_DMAC_DPTRL_MASK); 
+
+  return true;
 }
 
 void DMAChannel::free_dmatxdesc()
@@ -565,33 +504,33 @@ void DMAChannel::free_dmatxdesc()
 
 static inline bool is_pow_of_two(const uint32_t n)
 {
-	return ((n & (n - 1)) == 0) ? 1 : 0;
+  return ((n & (n - 1)) == 0) ? 1 : 0;
 }
 
 static inline uint32_t pow_of_two(const uint32_t n)
 {
-	uint32_t mask = 0x80000000;
-	uint32_t pow_2 = 31;
+  uint32_t mask = 0x80000000;
+  uint32_t pow_2 = 31;
 
-	/* Find the highest '1' bit */
-	while (((n & mask) == 0) && (mask != 0)) {
-		mask >>= 1;
-		pow_2--;
-	}
+  /* Find the highest '1' bit */
+  while (((n & mask) == 0) && (mask != 0)) {
+    mask >>= 1;
+    pow_2--;
+  }
 
-	return pow_2;
+  return pow_2;
 };
 
 static inline uint32_t roundup_pow_of_two(const uint32_t n)
 {
-	/* Corner case, n = 0 */
-	if (!n)
-		return 1;
+  /* Corner case, n = 0 */
+  if (!n)
+    return 1;
 
-	if (is_pow_of_two(n))
-		return n;
-		
-	return 1 << (pow_of_two(n) + 1);
+  if (is_pow_of_two(n))
+    return n;
+    
+  return 1 << (pow_of_two(n) + 1);
 }
 
 /**
@@ -634,57 +573,57 @@ static inline unsigned long __fls(unsigned long word)
 
 bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
 {
-	bool rc = false;
-	uint64_t sts_byte_cnt;
-	uint64_t sts_entry_cnt;
-	uint64_t sts_log_two;
-	const uint64_t max_entry_cnt = 1 << (TSI721_OBDMACXDSSZ_SIZE + 4);
+  bool rc = false;
+  uint64_t sts_byte_cnt;
+  uint64_t sts_entry_cnt;
+  uint64_t sts_log_two;
+  const uint64_t max_entry_cnt = 1 << (TSI721_OBDMACXDSSZ_SIZE + 4);
 
-	// Tsi721 Requires completion queue size is the number of 
-	// completion queue entries, LOG 2, minus 4.  
-	//
-	// The number of completion queue entries must be a power of 2
-	// between 32 and 512K.
-	//
-	// Each completion queue entry is eight 8-byte pointers, total
-	// of 64 bytes.
+  // Tsi721 Requires completion queue size is the number of 
+  // completion queue entries, LOG 2, minus 4.  
+  //
+  // The number of completion queue entries must be a power of 2
+  // between 32 and 512K.
+  //
+  // Each completion queue entry is eight 8-byte pointers, total
+  // of 64 bytes.
 
-	sts_entry_cnt = bd_cnt;
-	if (sts_entry_cnt < TSI721_DMA_MINSTSSZ) {
-		DBG("\n\tDMA Completion Count too small: %d", bd_cnt);
-		sts_entry_cnt = TSI721_DMA_MINSTSSZ;
-	};
-	if (sts_entry_cnt > max_entry_cnt) {
-		DBG("\n\tDMA Completion Count TOO BIG: %d", bd_cnt);
-		sts_entry_cnt = max_entry_cnt;
-	};
+  sts_entry_cnt = bd_cnt;
+  if (sts_entry_cnt < TSI721_DMA_MINSTSSZ) {
+    DBG("\n\tDMA Completion Count too small: %d", bd_cnt);
+    sts_entry_cnt = TSI721_DMA_MINSTSSZ;
+  };
+  if (sts_entry_cnt > max_entry_cnt) {
+    DBG("\n\tDMA Completion Count TOO BIG: %d", bd_cnt);
+    sts_entry_cnt = max_entry_cnt;
+  };
 
-	m_sts_size = roundup_pow_of_two(sts_entry_cnt);
-	sts_log_two = pow_of_two(sts_entry_cnt) - 4;
-	sts_byte_cnt = m_sts_size * 64;
+  m_sts_size = roundup_pow_of_two(sts_entry_cnt);
+  sts_log_two = pow_of_two(sts_entry_cnt) - 4;
+  sts_byte_cnt = m_sts_size * 64;
 
-	m_dmacompl.rio_address = RIO_ANY_ADDR;
-	
-	if (!m_mport->map_dma_buf(sts_byte_cnt, m_dmacompl)) {
-    		ERR("DMAChannel: Cannot alloc HW mem for DMA completion ring!");
-		goto exit;
-	};
+  m_dmacompl.rio_address = RIO_ANY_ADDR;
+  
+  if (!m_mport->map_dma_buf(sts_byte_cnt, m_dmacompl)) {
+    ERR("DMAChannel: Cannot alloc HW mem for DMA completion ring!");
+    goto exit;
+  };
 
-	memset(m_dmacompl.win_ptr, 0, sts_byte_cnt);
+  memset(m_dmacompl.win_ptr, 0, sts_byte_cnt);
 
-	// Setup descriptor status FIFO 
-	wr32dmachan(TSI721_DMAC_DSBH,
-		(uint64_t)m_dmacompl.win_handle >> 32);
-	wr32dmachan(TSI721_DMAC_DSBL,
-		(uint64_t)m_dmacompl.win_handle & TSI721_DMAC_DSBL_MASK);
-	wr32dmachan(TSI721_DMAC_DSSZ, sts_log_two);
+  // Setup descriptor status FIFO 
+  wr32dmachan(TSI721_DMAC_DSBH,
+    (uint64_t)m_dmacompl.win_handle >> 32);
+  wr32dmachan(TSI721_DMAC_DSBL,
+    (uint64_t)m_dmacompl.win_handle & TSI721_DMAC_DSBL_MASK);
+  wr32dmachan(TSI721_DMAC_DSSZ, sts_log_two);
 
-	INFO("\n\tDMA compl entries %d bytes=%d @%p HW@0x%llx\n",
-		m_sts_size, sts_byte_cnt,
-		m_dmacompl.win_ptr, m_dmacompl.win_handle);
-	rc = true;
+  INFO("\n\tDMA compl entries %d bytes=%d @%p HW@0x%llx\n",
+       m_sts_size, sts_byte_cnt,
+       m_dmacompl.win_ptr, m_dmacompl.win_handle);
+  rc = true;
 exit:
-	return rc;
+  return rc;
 }
 
 void DMAChannel::free_dmacompldesc()
@@ -707,42 +646,49 @@ void DMAChannel::cleanup()
   memset(&m_dmacompl, 0, sizeof(m_dmacompl));
 }
 
-bool hexdump64bit(const void* p, int len)
+static inline bool hexdump64bit(const void* p, int len)
 {
   if(p == NULL || len < 8) return false;
 
+  char tmp[257] = {0};
+  std::stringstream ss;
+
   bool empty = true;
-  DBG("\n\tMem @%p size %d as 64-bit words:\n", p, len);
+  snprintf(tmp, 256, "Mem @%p size %d as 64-bit words:\n", p, len); ss << tmp;
   uint64_t* q = (uint64_t*)p; len /= 8;
   for(int i=0; i<len; i++) {
     if(! q[i]) continue;
-    DBG(" 0x%04x/%d(d) = 0x%llx\n", i, i, q[i]);
+    snprintf(tmp, 256, " 0x%04x/%d(d) = 0x%llx\n", i, i, q[i]); ss << tmp;
     empty = false;
   }
-  return !empty;
+  if(empty) return false;
+  DBG("%s", ss.str().c_str());
+  return true;
 }
 
 void hexdump4byte(const char* msg, uint8_t* d, int len)
 {
-	if(msg != NULL)
-		DBG("%s", msg);
-	DBG("Mem @%p size %d:\n", d, len);
+  if(msg != NULL)
+    DBG("%s", msg);
+  DBG("Mem @%p size %d:\n", d, len);
 
-	for(int i = 0; i < len; i++) {
-		uint32_t tmp;
-		tmp = (tmp << 8) + d[i];
-		if(((i + 1) % 4) == 0) {
-			DBG("%8x\n", tmp);
-			tmp = 0;
-		}
-	}
+  for(int i = 0; i < len; i++) {
+    uint32_t tmp;
+    tmp = (tmp << 8) + d[i];
+    if(((i + 1) % 4) == 0) {
+      DBG("%8x\n", tmp);
+      tmp = 0;
+    }
+  }
 }
 
 int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
 {
   std::vector<DmaCompl_t> compl_hwbuf;
 
-#ifdef DEBUG
+  m_fifo_scan_cnt++;
+
+#if 1//def DEBUG
   if(hexdump64bit(m_dmacompl.win_ptr, m_dmacompl.win_size))
     DBG("\n\tFIFO hw RP=%u WP=%u\n", getFIFOReadCount(), getFIFOWriteCount());
 #endif
@@ -750,7 +696,7 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
   /* Check and clear descriptor status FIFO entries */
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
   int j = m_fifo_rd * 8;
-DBG("\n\tFIFO START line=%d\n", j);
+//DBG("\n\tFIFO START line=%d\n", j);
   while (sts_ptr[j]) {
       //for (int i = 0; i < 8 && sts_ptr[j]; i++, j++) {
       for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
@@ -762,14 +708,13 @@ DBG("\n\tFIFO line=%d off=%d 0x%llx\n", j, i, sts_ptr[i]);
       }
 
       ++m_fifo_rd;
-      //m_fifo_rd %= 4096; // Barry hack
-      m_fifo_rd %= 64; // Barry hack
+      m_fifo_rd %= m_sts_size;
+      //m_fifo_rd %= 64; // Barry hack
       j = m_fifo_rd * 8;
   }
 
-
   if(compl_hwbuf.empty()) {
-    // wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
+    // No hw pointer to advance
     return 0;
   }
 
@@ -781,8 +726,8 @@ DBG("\n\tFIFO line=%d off=%d 0x%llx\n", j, i, sts_ptr[i]);
     if(itm == m_pending_work.end()) { // DTYPE3 BD will not be found anyho
       pthread_spin_unlock(&m_pending_work_splock);
       ERR("Can't find BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
-             itv->win_handle, itv->fifo_offset,
-             getFIFOReadCount(), getFIFOWriteCount());
+          itv->win_handle, itv->fifo_offset,
+          getFIFOReadCount(), getFIFOWriteCount());
       continue;
     }
 
@@ -811,12 +756,7 @@ DBG("\n\tFIFO line=%d off=%d 0x%llx\n", j, i, sts_ptr[i]);
   return compl_hwbuf.size();
 }
 
-volatile int canStart = 0;
-volatile int mustStop = 0;
-
-
-static inline pid_t gettid() { return syscall(__NR_gettid); }
-
+#if 0
 extern "C" __attribute__((noinline))
 void TestDmaRegRead(DMAChannel* dch, const uint64_t dRDTSC)
 {
@@ -878,9 +818,4 @@ void TestDmaRegRead_nolock(DMAChannel* dch, const uint64_t dRDTSC)
 
   DBG("\n\trd32dma NO lock ticks count=%llu min=%llu max=%llu avg=%f\n", count, min, max, avg);
 }
-
-#define RIO_MEM_SZ  0x200000 // 1024*32 // must be at least 32k
-#define RIO_ADDRESS 0x22eda0000 // XXX this is dynamically allocated by mport_cdev... MAY CHANGE!!
-
-#define DMA_RUNPOLL_US  10
-
+#endif

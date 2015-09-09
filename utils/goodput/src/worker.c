@@ -1189,6 +1189,8 @@ void dma_free_ibwin(struct worker *info)
 
 volatile uint64_t fifo_thr_iter = 0;
 
+extern char* dma_rtype_str[];
+
 void *umd_fifo_proc_thr(void *parm)
 {
 	struct worker *info;
@@ -1221,9 +1223,9 @@ void *umd_fifo_proc_thr(void *parm)
 
 			switch (item.opt.dtype) {
 			case DTYPE1:
-				INFO("\n\tFIFO D1 RT=%d did=%d HW @0x%llx"
+				INFO("\n\tFIFO D1 RT=%s did=%d HW @0x%llx"
 					"mem @%p bd_wp=%u FIFO iter %llu\n",
-					item.opt.rtype, item.opt.destid,
+					dma_rtype_str[item.opt.rtype], item.opt.destid,
 					item.mem.win_handle, item.mem.win_ptr,
 					item.opt.bd_wp, fifo_thr_iter);
 				if (item.opt.rtype == NREAD) {
@@ -1232,8 +1234,8 @@ void *umd_fifo_proc_thr(void *parm)
 				}
 				break;
 			case DTYPE2:
-				INFO("\n\tFIFO D2 RT=%d did=%d bd_wp=%u"
-					" -- FIFO iter %llu\n", item.opt.rtype,
+				INFO("\n\tFIFO D2 RT=%s did=%d bd_wp=%u"
+					" -- FIFO iter %llu\n", dma_rtype_str[item.opt.rtype],
 					item.opt.destid, item.opt.bd_wp,
 					fifo_thr_iter);
 				break;
@@ -1259,6 +1261,8 @@ exit:
 	sem_post(&info->umd_fifo_proc_started); 
 	info->umd_fifo_proc_alive = 0;
 
+        DBG("\n\t%s: EXITING iter=%llu\n", __func__, fifo_thr_iter);
+
 	pthread_exit(parm);
 };
 
@@ -1268,7 +1272,7 @@ static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa
 
 void umd_dma_goodput_demo(struct worker *info)
 {
-	int oi, rc;
+	int oi = 0, rc;
 	uint64_t cnt;
 	uint64_t haxxx;
 
@@ -1334,6 +1338,11 @@ void umd_dma_goodput_demo(struct worker *info)
 	zero_stats(info);
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
+        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+             info->umd_dch->getDestId(),
+             info->did, info->rio_addr, info->acc_size,
+             info->umd_tx_buf_cnt, info->umd_sts_entries);
+
 	while (!info->stop_req) {
 		info->umd_dma_abort_reason = 0;
 	
@@ -1347,7 +1356,7 @@ void umd_dma_goodput_demo(struct worker *info)
 
 			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi])) {
-				CRIT("\n\tCound not enqueue T1 %x %d", cnt, oi);
+				CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
 				goto exit;
 			};
 
@@ -1375,7 +1384,7 @@ void umd_dma_goodput_demo(struct worker *info)
                         }
 			// Wrap around, do no overwrite last buffer entry
 			oi++;
-			if (info->umd_tx_buf_cnt - 2 == oi)
+			if ((info->umd_tx_buf_cnt - 1) == oi)
 				oi = 0;
                 } // END for transmit burst
 
@@ -1397,7 +1406,8 @@ void umd_dma_goodput_demo(struct worker *info)
                                 	DMAChannel::abortReasonToStr(
 						info->umd_dma_abort_reason));
 			}
-                        goto exit;
+                        //goto exit;
+                	usleep(DMA_RUNPOLL_US);
                 };
 		info->umd_tx_iter_cnt++;
 		info->perf_byte_cnt += info->byte_cnt;
@@ -1414,10 +1424,10 @@ exit:
 			info->umd_dch->getSoftReadCount(false));
         sleep(4);
 
-        INFO("\n\tEXITING (FIFO iter=%lu hw RP=%u WP=%u) -- compiled at %s\n",
-                info->umd_tx_iter_cnt,
+        INFO("\n\tEXITING (FIFO iter=%lu hw RP=%u WP=%u)\n",
+                info->umd_dch->m_fifo_scan_cnt,
 		info->umd_dch->getFIFOReadCount(),
-                info->umd_dch->getFIFOWriteCount(), __TIME__);
+                info->umd_dch->getFIFOWriteCount());
         info->umd_fifo_proc_must_die = 1;
 
         pthread_join(info->umd_fifo_thr.thr, NULL);

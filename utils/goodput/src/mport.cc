@@ -122,39 +122,6 @@ RioMport::RioMport(const int mportid, riomp_mport_t mp_h_in)
 	m_bar0_base_ptr = m_bar0->getMem(m_bar0_size); 
 }
 
-#if 0
-/** \brief Read a 32 bit DMA channel mmaped register
- * \throws std::runtime_error
- * \param chan DMA channel 0..7 to read
- * \param offset Tsi721 DMA register to read
- * \return contents of register
- */
-uint32_t RioMport::rd32dma(const uint32_t chan, const uint32_t offset)
-{
-   if(chan >= DMA_CHAN_COUNT)
-     throw std::runtime_error("RioMport: Invalid DMA channel to read!");
-   return rd32(TSI721_DMAC_BASE(chan) + offset);
-}
-
-/** \brief Write a 32 bit DMA channel mmaped register
- * \throws std::runtime_error
- * \param chan DMA channel 0..7 to write
- * \param offset Tsi721 DMA register to write
- * \param data data write
- * \return contents of register
- */
-void RioMport::wr32dma(const uint32_t chan, const uint32_t offset, const uint32_t data)
-{
-   if(chan >= DMA_CHAN_COUNT)
-     throw std::runtime_error("RioMport: Invalid DMA channel to write!");
-   wr32(TSI721_DMAC_BASE(chan) + offset, data);
-}
-#endif
-
-
-
-
-
 /** \brief Request an inbound HW memory window from mport_cdev
  * \param[in] size size of window XXX cannot exceed 16M
  * \param[in] ibwin Requested RapidIO memory address

@@ -58,6 +58,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "debug.h"
 
+#if defined(REGDEBUG)
+  #define REGDBG(format, ...) DBG(stdout, format, __VA_ARGS__)
+#else
+  #define REGDBG(format, ...)
+#endif
+
 /** \brief A class to encapsulate mport_cdev and low level DMA buffer ops */
 class RioMport {
 public:
@@ -96,7 +102,7 @@ public:
 	{
 		uint32_t ret = le32(*((volatile uint32_t *)
 					((uint8_t *)m_bar0_base_ptr + offset)));
-		INFO("\n\trd32 offset %s (0x%x) = 0x%x\n", offset_str, offset, ret);
+		REGDBG("\n\tR offset %s (0x%x) = 0x%x\n", offset_str, offset, ret);
 		return ret;
 	}
 
@@ -104,7 +110,7 @@ public:
 	{
 		uint32_t ret = le32(*((volatile uint32_t *)
 					((uint8_t *)m_bar0_base_ptr + offset)));
-		INFO("\n\trd32 offset (0x%x) = 0x%x\n", offset, ret);
+		REGDBG("\n\tR offset (0x%x) = 0x%x\n", offset, ret);
 		return ret;
 	}
 
@@ -119,7 +125,7 @@ public:
 	inline void _wr32(const uint32_t offset, const char* offset_str,
 				const uint32_t data, const char* data_str)
 	{
-		INFO("\n\twr32 offset %s (0x%x) :=  %s (0x%x)\n",
+		REGDBG("\n\tW offset %s (0x%x) :=  %s (0x%x)\n",
 				offset_str, offset, data_str, data);
 		*((volatile uint32_t *)
 			((uint8_t *)m_bar0_base_ptr + offset)) = le32(data);
@@ -127,7 +133,7 @@ public:
 
 	inline void     __wr32(const uint32_t offset, const uint32_t data)
 	{
-		INFO("\n\twr32 offset 0x%x := 0x%x\n", offset, data);
+		REGDBG("\n\tR offset 0x%x := 0x%x\n", offset, data);
 		*((volatile uint32_t *)
 			((uint8_t *)m_bar0_base_ptr + offset)) = le32(data);
 	}
