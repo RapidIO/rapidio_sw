@@ -365,7 +365,6 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
                         uint32_t  mp_num, struct fmd_slave *slave, riomp_mport_t hnd)
 {
 	int rc = 1;
-	struct timespec dly = {5, 0};
 	int conn_rc;
 
 	slv = slave;
@@ -407,8 +406,20 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 			break;
 
 		ERR("riomp_sock_connect ERR %d\n", conn_rc);
-		if (ETIME == conn_rc) {
-			nanosleep(&dly, NULL);
+		if ((ETIME == errno) || (EPERM == errno)) {
+			struct timespec dly, rem;
+
+ 			dly.tv_sec = 0;
+			dly.tv_nsec = 500000000; /* 500 msec */
+			rem.tv_sec = 0;
+			rem.tv_nsec = 0;
+
+			do {
+				rc = nanosleep(&dly, &rem);
+				dly = rem;
+				rem.tv_sec = 0;
+				rem.tv_nsec = 0;
+			} while (rc && (errno == EINTR));
 		};
 		rc = riomp_sock_close(&slv->skt_h);
 		if (rc) {
