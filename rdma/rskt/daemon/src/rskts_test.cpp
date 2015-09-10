@@ -19,6 +19,11 @@ extern "C" {
 int main(int argc, char *argv[])
 {
 	rskt_server *server;
+	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
+	if (rc) {
+		puts("failed in librskt_init");
+		return 1;
+	}
 
 	try {
 		server = new rskt_server("server1", 1234);

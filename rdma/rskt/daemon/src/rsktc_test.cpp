@@ -47,6 +47,13 @@ int main(int argc, char *argv[])
 		default:
 			abort();
 		}
+
+	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
+	if (rc) {
+		puts("failed in librskt_init");
+		return 1;
+	}
+
 	rskt_client *client;
 
 	try {
@@ -80,6 +87,7 @@ int main(int argc, char *argv[])
 		ERR("Failed to receive message\n");
 		return 4;
 	}
+	puts(in_msg);
 }
 
 #ifdef __cplusplus
