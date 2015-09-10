@@ -122,7 +122,7 @@
  * the thread has finished inbound window allocation, the thread halts and can
  * accept another command.  The location of the inbound window may be
  * displayed using the "status i" command.  For more information, refer to
- * \ref status_secn.
+ * \ref stat_secn.
  *
  * All commands which act as sources of transactions require a destination ID
  * for the receiver.  To determine the destination ID of the receiver, execute

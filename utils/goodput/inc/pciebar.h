@@ -30,26 +30,32 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include "libcli.h"
-#include "goodput.h"
-#include "worker.h"
 
-#ifndef __GOODPUT_CLI_H__
-#define __GOODPUT_CLI_H__
+#ifndef __PCIEBAR_H__
+#define __PCIEBAR_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "mapfile.h"
 
-/**
- * @brief Bind goodput commands into CLI base
- *
- */
+#include <string>
+#include <sstream>
 
-void bind_goodput_cmds(void);
+class PCIeBAR {
+public:
+  PCIeBAR(const int mport, const int bar)
+  {
+    std::stringstream ss;
+    ss << "/sys/class/rapidio_port/rapidio" << mport << "/device/resource" << bar;
 
-#ifdef __cplusplus
-}
-#endif
+    m_mapper = new MapFile(ss.str().c_str());
+    m_mapper->map_file();
+  }
 
-#endif /* __GOODPUT_CLI_H__ */
+  ~PCIeBAR() { m_mapper->unmap_file(); delete m_mapper; }
+
+  void* getMem(int& size) { return m_mapper->getMem(size); }
+
+private:
+  MapFile* m_mapper;
+};
+
+#endif // __PCIEBAR_H__

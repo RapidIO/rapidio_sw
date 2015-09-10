@@ -30,26 +30,60 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include "libcli.h"
-#include "goodput.h"
-#include "worker.h"
 
-#ifndef __GOODPUT_CLI_H__
-#define __GOODPUT_CLI_H__
+/** @file */ 
+
+#ifndef __PSEM_H__
+#define __PSEM_H__
+#include <semaphore.h>
+#include <stdio.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <errno.h>
+
+/** \file psem.h Definition of a POSIX name semaphore
+ */
+
+#include <string>
+#include <stdexcept>
+
+/** \brief Shallow wrapper for a POSIX named semaphore sharable among processes
+ * \note In Linux the name appears as /dev/shm/sem.NAME
+ */
+class POSIXSem {
+public:
+  POSIXSem(const char* name);
+  ~POSIXSem();
+
+  void lock() { sem_wait(m_sem); }
+  void unlock() { sem_post(m_sem); }
+
+  ///< \brief Returns the short name of the semaphore
+  const char* getName() { return m_semaname.c_str(); }
+
+  static void unlink(const char* name);
+
+private:
+  static std::string mkname(const char* name);
+
+  sem_t*      m_sem;
+  std::string m_semaname;
+};
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * @brief Bind goodput commands into CLI base
- *
- */
-
-void bind_goodput_cmds(void);
-
+// C wrappers if any
+//
 #ifdef __cplusplus
-}
+};
 #endif
 
-#endif /* __GOODPUT_CLI_H__ */
+#endif // __PSEM_H__

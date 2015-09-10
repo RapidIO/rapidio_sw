@@ -482,6 +482,17 @@ struct cli_cmd CLIScript = {
 CLIScriptCmd,
 ATTR_NONE
 };
+struct cli_cmd CLIDotScript = {
+".",
+3,
+1,
+"dot-include - execute commands in a script file",
+"<filename> <verbose>\n"
+	"<filename> : File name of the script\n"
+	"<verbose>  : zero/non-zero value to control amount of output.",
+CLIScriptCmd,
+ATTR_NONE
+};
 
 int CLIScriptPathCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -596,6 +607,7 @@ struct cli_cmd *cmd_line_cmds[] = {
 &CLIOpenLogFile,
 &CLICloseLogFile,
 &CLIScript,
+&CLIDotScript,
 &CLIScriptPath,
 &CLIEcho,
 &CLIQuit

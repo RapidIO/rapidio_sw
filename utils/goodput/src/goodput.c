@@ -118,14 +118,17 @@ void sig_handler(int signo)
 
 int main(int argc, char *argv[])
 {
-	uint8_t mport_num = 0;
 	int rc = EXIT_FAILURE;
 	int i;
+	int mport_num;
 
 	signal(SIGINT, sig_handler);
 	signal(SIGHUP, sig_handler);
 	signal(SIGTERM, sig_handler);
 	signal(SIGUSR1, sig_handler);
+
+	if (argc > 1)
+		mport_num = atoi(argv[1]);
 
 	rdma_log_init("goodput_log.txt", 1);
 	if (setup_mport(mport_num)) {

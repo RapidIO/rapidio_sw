@@ -30,26 +30,14 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include "libcli.h"
-#include "goodput.h"
-#include "worker.h"
 
-#ifndef __GOODPUT_CLI_H__
-#define __GOODPUT_CLI_H__
+#ifndef __DEBUG_H__
+#define __DEBUG_H__
 
-#ifdef __cplusplus
-extern "C" {
+#ifdef DEBUG
+  #define Dprintf(format, ...) fprintf (stdout, format, __VA_ARGS__)
+#else
+  #define Dprintf(format, ...) 
 #endif
 
-/**
- * @brief Bind goodput commands into CLI base
- *
- */
-
-void bind_goodput_cmds(void);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* __GOODPUT_CLI_H__ */
+#endif // __DEBUG_H__

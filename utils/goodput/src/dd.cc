@@ -30,26 +30,71 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include "libcli.h"
-#include "goodput.h"
-#include "worker.h"
+#include <stdio.h>
+#include "dmadesc.h"
 
-#ifndef __GOODPUT_CLI_H__
-#define __GOODPUT_CLI_H__
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/**
- * @brief Bind goodput commands into CLI base
- *
- */
-
-void bind_goodput_cmds(void);
-
-#ifdef __cplusplus
+void hexdump4byte(uint8_t* d, int len)
+{
+  printf("Mem @%p size %d:\n", d, len);
+  for(int i = 0; i < len; i++) {
+    printf("%02x ", d[i]);
+    if(((i + 1) % 4) == 0) printf("\n");
+  }
 }
-#endif
 
-#endif /* __GOODPUT_CLI_H__ */
+int main(int argc, char* argv[])
+{
+  if(argc < 5) {
+    fprintf(stderr, "usage: %s devid(d) raddr(h) buffp(h) bcount(d/h)\n", argv[0]);
+    return 0;
+  }
+
+  int n = 1;
+
+  uint8_t rtype = 2; // ALL_NWRITE
+  uint32_t devid = 0;
+  uint64_t raddr = 0;
+  uint64_t buffp = 0;
+  uint32_t bcount = 0;
+
+  { sscanf(argv[n++], "%d", &devid); printf("devid = 0x%x\n", devid); }
+  { sscanf(argv[n++], "%lx", &raddr); printf("raddr = 0x%lx\n", raddr); }
+  { sscanf(argv[n++], "%lx", &buffp); printf("bufptr = 0x%lx\n", buffp);}
+  {
+    const char* arg = argv[n++];
+    char* fmt = "%d";
+    if(!strncmp(arg, "0x", 2) || !strncmp(arg, "0X", 2)) fmt = "%x";
+    sscanf(arg, fmt, &bcount);
+    printf("bcount = 0x%x\n", bcount);
+  }
+
+  dmadesc t1;
+
+  dmadesc_setdtype(t1, 1);
+  dmadesc_setrtype(t1, rtype); // NWRITE_ALL
+
+  dmadesc_set_raddr(t1, 0, raddr);
+
+  dmadesc_setdevid(t1, devid);
+
+  dmadesc_setT1_bufptr(t1, buffp);
+  dmadesc_setT1_buflen(t1, bcount);
+
+  {
+  struct hw_dma_desc desc;
+  t1.pack(&desc);
+  printf("Vlad T1:"); hexdump4byte((uint8_t*)&desc, sizeof(desc));
+  }
+
+  dmadesc t3;
+  dmadesc_setdtype(t3, 3);
+  dmadesc_setT3_nextptr(t3, buffp); // XXX mask off lowest 5 bits
+
+  {
+  struct hw_dma_desc desc;
+  t3.pack(&desc);
+  printf("Vlad T3:"); hexdump4byte((uint8_t*)&desc, sizeof(desc));
+  }
+
+  return 0;
+}
