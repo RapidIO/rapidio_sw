@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (client->connect(destid, socket_number)) {
-		ERR("Failed to connect to desit(0x%X) on socket number(%d)\n",
+		ERR("Failed to connect to destid(0x%X) on socket number(%d)\n",
 				destid, socket_number);
 		return 2;
 	}
