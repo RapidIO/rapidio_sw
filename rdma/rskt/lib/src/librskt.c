@@ -140,7 +140,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	rx->msg_type = tx->msg_type | htonl(LIBRSKTD_RESP);
 	rx->a_rsp.err = 0;
 	rx->a_rsp.req = tx->a_rq;
-
+	DBG("rx->a_resp.err = %d\n", rx->a_rsp.err);
 	if (librskt_wait_for_sem(&lib.rsvp_mtx, 0x1001)) {
 		ERR("Failed on rspv_mtx\n");
 		goto fail;
@@ -158,16 +158,17 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	l_push_tail(&lib.msg_tx, (void *)tx); 
 	sem_post(&lib.msg_tx_mtx);
 	sem_post(&lib.msg_tx_cnt);
-
+	DBG("rx->a_resp.err = %d\n", rx->a_rsp.err);
 	if (librskt_wait_for_sem(&rsvp->resp_rx, 0x1003)) {
 		ERR("Failed on resp_rx\n");
 		goto fail;
 	}
+	DBG("rx->a_resp.err = %d\n", rx->a_rsp.err);
 	if (rx->a_rsp.err) {
 		li = NULL;
 		rc = -1;
 		errno = ntohl(rx->a_rsp.err);
-		ERR("a_rsp.err\n");
+		ERR("a_rsp.err is not 0: %s\n", strerror(errno));
 		goto fail;
 	};
 
