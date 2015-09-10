@@ -383,7 +383,7 @@ void *cli_session( void *rc_ptr )
 
 	cli.cli_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (cli.cli_fd < 0) {
-        	perror("RSKTD Remote CLI ERROR opening socket");
+        	ERR("RSKTD Remote CLI ERROR opening socket: %s\n", strerror(errno));
 		goto fail;
 	}
 	bzero((char *) &cli.cli_addr, sizeof(cli.cli_addr));
@@ -394,7 +394,7 @@ void *cli_session( void *rc_ptr )
 	setsockopt (cli.cli_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
 	if (bind(cli.cli_fd, (struct sockaddr *) &cli.cli_addr, 
 						sizeof(cli.cli_addr)) < 0) {
-        	perror("\nRSKTD Remote CLI ERROR on binding");
+        	ERR("RSKTD Remote CLI ERROR on binding: %s\n", strerror(errno));
 		goto fail;
 	}
 
@@ -425,8 +425,9 @@ void *cli_session( void *rc_ptr )
 				(struct sockaddr *) &cli.sess_addr, 
 				&cli.sess_addr_len);
 		if (cli.cli_sess_fd < 0) {
-			if (cli.cli_fd > 0)
-				perror("ERROR on accept");
+			if (cli.cli_fd > 0) {
+				ERR("ERROR on accept: %s\n", strerror(errno));
+			}
 			goto fail;
 		};
 		env.sess_socket = cli.cli_sess_fd;
@@ -469,6 +470,7 @@ void spawn_threads(void)
 	cli.cli_alive = 0;
 	cli.cons_alive = 0;
 
+	DBG("ENTER\n");
 	cli_init_base(quit_command_customization);
 	librsktd_bind_cli_cmds();
 	liblog_bind_cli_cmds();
@@ -486,9 +488,11 @@ void spawn_threads(void)
 		if(console_ret) {
 			CRIT("Failed to create console_thread: %s\n", strerror(console_ret));
 			exit(EXIT_FAILURE);
+		} else {
+			INFO("Console thread started\n");
 		}
 	};
-	INFO("Console thread started\n");
+
 
 	/* Start cli_session_thread, enabling remote debug over Ethernet */
 
@@ -511,6 +515,7 @@ void rskt_daemon_shutdown(void)
 
 	if (!cli.all_must_die && cli.cli_alive) {
 		cli.all_must_die = 1;
+		INFO("Killing CLI thread\n");
 		pthread_kill(cli.cli_thread, SIGHUP);
 	};
 
@@ -526,7 +531,7 @@ void rskt_daemon_shutdown(void)
 
 void sig_handler(int signo)
 {
-	INFO("\nRx Signal %x\n", signo);
+	INFO("Rx Signal %x\n", signo);
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		INFO("Shutting down\n");
 		rskt_daemon_shutdown();

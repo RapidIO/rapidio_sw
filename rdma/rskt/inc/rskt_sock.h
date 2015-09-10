@@ -122,6 +122,8 @@ private:
 protected:
 	rskt_base(const char *name, uint32_t send_size, uint32_t recv_size) :
 		name(name),
+		send_size(send_size),
+		recv_size(recv_size),
 		send_buf(new uint8_t[send_size]),
 		recv_buf(new uint8_t[recv_size])
 	{
@@ -254,7 +256,7 @@ public:
 		/* If we are a parent, i.e. we provided the socket to a caller
 		 * then the caller owns that socket. We don't close or destroy it.
 		 */
-		if (accept_socket && !parent) {
+		if (accept_socket && !is_parent) {
 			rc = rskt_close(accept_socket);
 			if (rc) {
 				WARN("'%s': Failed to close accept_socket rc = %d\n", rc);
@@ -305,6 +307,7 @@ public:
 private:
 	rskt_h	listen_socket;
 	rskt_h	accept_socket;
+	struct rskt_sockaddr sock_addr;
 	int	max_backlog;
 	bool	is_parent;
 }; /* rskt_server */
@@ -314,12 +317,10 @@ class rskt_client : public rskt_base {
 public:
 	/* Constructor */
 	rskt_client(const char *name,
-		    uint32_t destid,
-		    int socket_number,
 		    uint32_t send_size = RSKT_DEFAULT_SEND_BUF_SIZE,
 		    uint32_t recv_size = RSKT_DEFAULT_RECV_BUF_SIZE) :
-		socket_number(socket_number),
-		rskt_base(name, send_size, recv_size)
+		rskt_base(name, send_size, recv_size),
+		client_socket(0)
 	{
 		/* Create listen socket */
 		client_socket = rskt_create_socket();
@@ -327,8 +328,33 @@ public:
 			CRIT("'%s': Failed to create client_socket\n", name);
 			throw rskt_exception("Failed to create client socket");
 		}
+	} /* Constructor */
 
+	/* Constructor for creating a client based on the client_socket of another */
+	rskt_client(const char *name,
+		    rskt_h client_socket,
+		    uint32_t send_size = RSKT_DEFAULT_SEND_BUF_SIZE,
+		    uint32_t recv_size = RSKT_DEFAULT_RECV_BUF_SIZE) :
+		rskt_base(name, send_size, recv_size),
+		client_socket(client_socket)
+	{
+	}
+
+	~rskt_client()
+	{
+		if (client_socket) {
+			int rc = rskt_close(client_socket);
+			if (rc) {
+				WARN("'%s': Failed to close client_socket rc = %d\n", rc);
+			}
+			rskt_destroy_socket(&client_socket);
+		}
+	} /* ~rskt_client() */
+
+	int connect(uint32_t destid, int socket_number)
+	{
 		/* Prepare address from parameters */
+		struct rskt_sockaddr sock_addr;
 		sock_addr.ct = destid;
 		sock_addr.sn = socket_number;
 
@@ -336,18 +362,24 @@ public:
 		if (rc) {
 			CRIT("'%s': Failed to connect to destid(%u) on socknum(%u)\n",
 					name, destid, socket_number);
-			return rc;
 		}
-	} /* Constructor */
+		return rc;
+	} /* connect() */
 
-	~rskt_client()
+	/* Receive bytes to 'recv_buf' */
+	int receive(uint32_t size)
 	{
+		return rskt_base::receive(client_socket, size);
+	} /* receive() */
 
-	}
+	/* Send bytes from 'send_buf' */
+	int send(uint32_t size)
+	{
+		return rskt_base::send(client_socket, size);
+	} /* send() */
 
 private:
 	rskt_h	client_socket;
-	struct rskt_sockaddr sock_addr;
 };
 
 #endif /* RSKT_SOCK_H_ */
