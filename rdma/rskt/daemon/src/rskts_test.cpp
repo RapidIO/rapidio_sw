@@ -27,18 +27,19 @@ int main(int argc, char *argv[])
 		ERR("Failed to create server: %s\n", e.err);
 		return 1;
 	}
-
+	puts("Server created...now accepting connections...");
 	if (server->accept()) {
 		ERR("Failed to accept. Dying!\n");
 		delete server;
 		return 2;
 	}
-
+	puts("Connected with client...now waiting for data...");
 	if (server->receive(32)) {
 		ERR("Failed to receive. Dying!\n");
 		delete server;
 		return 3;
 	}
+	puts("Received data!");
 
 	char *in_msg;
 

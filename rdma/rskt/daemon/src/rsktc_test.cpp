@@ -56,7 +56,9 @@ int main(int argc, char *argv[])
 		ERR("Failed to create client: %s\n", e.err);
 		return 1;
 	}
-
+	puts("Client created.");
+	printf("Connecting to server on destid(0x%X) on socket %d\n",
+			destid, socket_number);
 	if (client->connect(destid, socket_number)) {
 		ERR("Failed to connect to destid(0x%X) on socket number(%d)\n",
 				destid, socket_number);
@@ -75,11 +77,13 @@ int main(int argc, char *argv[])
 		ERR("Failed to send message\n");
 		return 3;
 	}
+	puts("Test message sent to server");
 
 	if (client->receive(32)) {
 		ERR("Failed to receive message\n");
 		return 4;
 	}
+	printf("Reply received:  %s\n", in_msg);
 }
 
 #ifdef __cplusplus
