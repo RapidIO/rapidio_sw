@@ -1413,6 +1413,7 @@ void umd_dma_goodput_demo(struct worker *info)
                 // XXX Check FIFO as well here
                 int rp = 0;
                 for (; rp < 1000000 && info->umd_dch->dmaIsRunning(); rp++) {
+			if(info->stop_req) goto exit;
                         uint32_t abort_reason = 0;
                         if (info->umd_dch->dmaCheckAbort(abort_reason)) {
                         	CRIT("DMA abort %d: %s\n",
@@ -1420,12 +1421,11 @@ void umd_dma_goodput_demo(struct worker *info)
                                 	DMAChannel::abortReasonToStr(
 						info->umd_dma_abort_reason));
 			}
-                        //goto exit;
+			if(info->stop_req) goto exit;
                 	usleep(DMA_RUNPOLL_US);
                 };
 
 		info->umd_tx_iter_cnt++;
-                usleep(DMA_RUNPOLL_US);
         }
 exit:
         INFO("\n\tDMA %srunning after %d %dus polls\n",
