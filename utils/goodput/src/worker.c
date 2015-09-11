@@ -140,9 +140,9 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_fifo_proc_must_die = 0;
 	info->umd_dma_abort_reason = 0;
 
-	if (first_time) {
+	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
-	};
+	//};
 #endif
 };
 
@@ -1214,6 +1214,7 @@ void *umd_fifo_proc_thr(void *parm)
 	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
 		goto exit;
 
+	fifo_thr_iter = 0;
 	info->umd_fifo_proc_alive = 1;
 	sem_post(&info->umd_fifo_proc_started); 
 
@@ -1276,7 +1277,7 @@ exit:
 	sem_post(&info->umd_fifo_proc_started); 
 	info->umd_fifo_proc_alive = 0;
 
-        DBG("\n\t%s: EXITING iter=%llu\n", __func__, fifo_thr_iter);
+        DBG("\n\t%s: EXITING iter=%llu must die? %d\n", __func__, fifo_thr_iter, info->umd_fifo_proc_must_die);
 
 	pthread_exit(parm);
 };
