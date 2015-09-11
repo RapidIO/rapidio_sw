@@ -732,7 +732,6 @@ DBG("\n\tFIFO (sts_size=%d) line=%d off=%d 0x%llx\n", m_sts_size, j, i, sts_ptr[
 
       ++m_fifo_rd;
       m_fifo_rd %= m_sts_size;
-      //m_fifo_rd %= 64; // Barry hack
       j = m_fifo_rd * 8;
   }
 
@@ -748,7 +747,7 @@ DBG("\n\tFIFO (sts_size=%d) line=%d off=%d 0x%llx\n", m_sts_size, j, i, sts_ptr[
 	return 0;
 
     std::map<uint64_t, WorkItem_t>::iterator itm = m_pending_work.find(itv->win_handle);
-    if(itm == m_pending_work.end()) { // DTYPE3 BD will not be found anyho
+    if(itm == m_pending_work.end()) {
       pthread_spin_unlock(&m_pending_work_splock);
       ERR("Can't find BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           itv->win_handle, itv->fifo_offset,

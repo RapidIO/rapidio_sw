@@ -157,6 +157,15 @@ public:
     return queueDmaOpT12(rtype, opt, lmem);
   }
 
+  inline uint32_t queueSize()
+  {
+    pthread_spin_unlock(&m_bl_splock);
+    const int SZ = m_bl_busy.size();
+    pthread_spin_unlock(&m_bl_splock);
+
+    return SZ;
+  }
+
   void cleanup();
   void shutdown();
   void init_splock();

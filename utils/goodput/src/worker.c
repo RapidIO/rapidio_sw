@@ -1221,8 +1221,10 @@ void *umd_fifo_proc_thr(void *parm)
                 std::vector<DMAChannel::WorkItem_t> wi;
 		fifo_thr_iter++;
 
-		if (0 == info->umd_dch->scanFIFO(wi))
-			goto next;
+		if (0 == info->umd_dch->scanFIFO(wi)) {
+			for(int i = 0; i < 20000; i++) {;}
+			continue;
+		}
 
 		for (it = wi.begin(); it != wi.end(); it++) {
 			DMAChannel::WorkItem_t& item = *it;
@@ -1268,6 +1270,7 @@ next:
 		fifo_thr_iter = fifo_thr_iter;
 		// FIXME: commented out for debug purposes
 		// sched_yield();
+		for(int i = 0; i < 10000; i++) {;}
 	}
 exit:
 	sem_post(&info->umd_fifo_proc_started); 
