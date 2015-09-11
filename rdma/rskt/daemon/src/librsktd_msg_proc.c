@@ -79,17 +79,20 @@ struct librsktd_unified_msg *alloc_msg(uint32_t msg_type,
 
 void dealloc_msg(struct librsktd_unified_msg *lum)
 {
-	if (NULL != lum->dreq)
-		free(lum->dreq);
-	if (NULL != lum->dresp)
-		free(lum->dresp);
-	if (NULL != lum->rx)
-		free(lum->rx);
-	if (NULL != lum->tx)
-		free(lum->tx);
-	if (NULL != lum->loc_ms)
-		lum->loc_ms->state = 0;
-	free(lum);
+	if (lum != NULL) {
+		if (NULL != lum->dreq)
+			free(lum->dreq);
+		if (NULL != lum->dresp)
+			free(lum->dresp);
+		if (NULL != lum->rx)
+			free(lum->rx);
+		if (NULL != lum->tx)
+			free(lum->tx);
+		if (NULL != lum->loc_ms)
+			lum->loc_ms->state = 0;
+		free(lum);
+		DBG("'lum' and its components freed\n");
+	}
 };
 
 void perform_cli_cmd(char *cmd_line)
@@ -113,13 +116,30 @@ void perform_cli_cmd(char *cmd_line)
 
 void rsktd_areq_bind(struct librsktd_unified_msg *msg)
 {
-	struct librskt_bind_req *req = &msg->rx->a_rq.msg.bind;
+	struct librskt_bind_req *req;
+
+	/* Check for NULL pointer */
+	if (msg == NULL) {
+		CRIT("'msg' is NULL\n");
+		return;
+	}
+
+	req = &msg->rx->a_rq.msg.bind;
+
+	/* Check for NULL pointer */
+	if (req == NULL) {
+		ERR("&msg->rx->a_rq.msg.bind is NULL\n");
+		return;
+	}
+
 	uint32_t sn = ntohl(req->sn);
 
 	if (rskt_uninit == rsktd_sn_get(sn)) {
+		DBG("sn Not initialized. Calling rsktd_sn_set()\n");
 		rsktd_sn_set(sn, rskt_alloced);
 		msg->tx->a_rsp.err = 0;
 	} else {
+		DBG("sn is busy(!?)\n");
 		msg->tx->a_rsp.err = EBUSY;
 	}
 };
@@ -133,6 +153,7 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 	struct l_item_t *li;
 
 	if (rskt_alloced != rsktd_sn_get(sn)) {
+		ERR("rskt of sn(%d) not allocated\n", sn);
 		msg->tx->a_rsp.err = EBUSY;
 		return;
 	};
@@ -140,6 +161,10 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 	msg->tx->a_rsp.err = 0; 
 	
 	new_skt = (struct acc_skts *)malloc(sizeof(struct acc_skts));
+	if (new_skt == NULL) {
+		CRIT("Failed to allocate new_skt\n");
+		return;
+	}
 	new_skt->app = msg->app;
 	new_skt->skt_num = sn;
 	new_skt->max_backlog = ntohl(req->max_bklog);
@@ -175,10 +200,17 @@ void rsktd_connect_accept(struct acc_skts *acc)
 
 	struct l_item_t *li;
 
-	if ((NULL == acc->acc_req) || !l_size(&acc->conn_req))
+	if ((NULL == acc->acc_req) || !l_size(&acc->conn_req)) {
+		ERR("NULL parameter or list member size\n");
 		return;
+	}
 
 	con_req = (struct librsktd_unified_msg *)l_pop_head(&acc->conn_req);
+	if (con_req == NULL) {
+		ERR("con_req is NULL");
+		return;
+	}
+
 	acc_req = acc->acc_req; 
 	acc->acc_req = NULL;
 	a_resp = &acc_req->tx->a_rsp.msg.accept;
@@ -195,6 +227,7 @@ void rsktd_connect_accept(struct acc_skts *acc)
 
 	if (NULL == loc_ms) {
 		err = EAFNOSUPPORT;
+		ERR("loc_ms is NULL\n");
 		goto fail;
 	};
 
@@ -202,6 +235,7 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	a_resp->new_sn = rsktd_sn_find_free(RSKTD_DYNAMIC_SKT);
 	if (RSKTD_INVALID_SKT == a_resp->new_sn) {
 		err = EADDRNOTAVAIL;
+		ERR("a_resp->new_sn is an invalid socket\n");
 		goto fail;
 	};
 
@@ -258,6 +292,7 @@ int rsktd_areq_accept(struct librsktd_unified_msg *msg)
 	uint32_t send_resp_now = 1;
 
 	if (rskt_listening != rsktd_sn_get(sn)) {
+		ERR("Socket not listening for sn(%d)\n", sn);
 		resp->err = htonl(ECONNREFUSED);
 		return send_resp_now;
 	};
@@ -265,6 +300,7 @@ int rsktd_areq_accept(struct librsktd_unified_msg *msg)
 	acc_skt = (struct acc_skts *)l_find(&lib_st.acc, sn, &li);
 	if ((NULL == acc_skt) || (NULL != acc_skt->acc_req) ||
 		(acc_skt->app != msg->app)) {
+		ERR("Not found or invalid acc_skt for sn(%d)\n", sn);
 		resp->err = htonl(ECONNREFUSED);
 		return send_resp_now;
 	};
@@ -318,12 +354,12 @@ void msg_q_handle_areq(struct librsktd_unified_msg *msg)
 				perform_cli_cmd(msg->rx->a_rq.msg.cli.cmd_line);
 				break;
 		default:
-			CRIT("\nAREQ Rx Msg Type: %d\n", msg->msg_type);
+			CRIT("AREQ Rx Msg Type: %d\n", msg->msg_type);
 			msg->tx->msg_type |= htonl(LIBRSKTD_FAIL);
 		};
 		break;
 	default:
-		CRIT("\nAREQ Stage: %d\n", msg->proc_stage);
+		CRIT("AREQ Stage: %d\n", msg->proc_stage);
 		msg->tx->msg_type |= htonl(LIBRSKTD_FAIL);
 	};
 
@@ -360,6 +396,7 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	l = l_find(&dmn.wpeers, ct, &li);
 
 	if (NULL == l) {
+		ERR("Could not find peer with CT(%d) in wpeers\n", ct);
 		err = ENODEV;
 		goto fail;
 	};
@@ -368,6 +405,7 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	w = *(r->wp);
 
 	if ((NULL == w) || (w->i_must_die)) {
+		CRIT("Either r->wp is NULL or w->i_must_die is true\n");
 		err = ENETDOWN;
 		goto fail;
 	};
@@ -382,12 +420,14 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	};
 
 	if (NULL == r->loc_ms) {
+		ERR("No available memory spaces for this request!\n");
 		err = ENOMEM;
 		goto fail;
 	};
 
 	/* If there aren't any free socket numbers available, fail */
 	if (RSKTD_INVALID_SKT == new_sn) {
+		ERR("No free socket numbers available\n");
 		err = EADDRNOTAVAIL;
 		goto fail;
 	};
@@ -406,6 +446,11 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	rsktd_sn_set(new_sn, rskt_connecting);
 	
 	r->proc_stage = RSKTD_A2W_SEQ_DREQ;
+
+	/* Message contents */
+	DBG("msg_type = RDKTD_CONNECT_REQ, msg_seq = 0\n");
+	DBG("dst_sn = %d, dst_ct = 0x%X, src_sn = %d\n", ct, sn, new_sn);
+	DBG("src_mso = %s, src_ms = %s\n", d_con->src_mso, d_con->src_ms);
 
 fail:
 	r->tx->a_rsp.err = htonl(err);
