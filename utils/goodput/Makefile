@@ -40,8 +40,11 @@ export LOG_LEVEL
 
 
 # Kernel-mode flags
-CCFLAGS = -O0 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
+CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 	-pthread -DRDMA_LL=7
+
+#CCFLAGS+=-pg -ggdb
+
 INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c
 
@@ -71,5 +74,5 @@ goodput: $(SOURCES) $(INCLUDES)
 	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(LIBRARIES) -L$(COMMONLIB)
 
 clean:
-	rm -f *.o goodput ugoodput *~ src/*~ inc/*~
+	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out
 

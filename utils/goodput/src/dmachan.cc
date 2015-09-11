@@ -711,7 +711,7 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
 
   m_fifo_scan_cnt++;
 
-#if 1//def DEBUG
+#if 0//def DEBUG
   if(hexdump64bit(m_dmacompl.win_ptr, m_dmacompl.win_size))
     DBG("\n\tFIFO hw RP=%u WP=%u\n", getFIFOReadCount(), getFIFOWriteCount());
 #endif
@@ -723,7 +723,7 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
   while (sts_ptr[j] && !umdemo_must_die) {
       //for (int i = 0; i < 8 && sts_ptr[j]; i++, j++) {
       for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
-DBG("\n\tFIFO line=%d off=%d 0x%llx\n", j, i, sts_ptr[i]);
+DBG("\n\tFIFO (sts_size=%d) line=%d off=%d 0x%llx\n", m_sts_size, j, i, sts_ptr[i]);
           DmaCompl_t c;
           c.win_handle = sts_ptr[i]; c.fifo_offset = i;
           compl_hwbuf.push_back(c);
@@ -772,7 +772,7 @@ DBG("\n\tFIFO line=%d off=%d 0x%llx\n", j, i, sts_ptr[i]);
     pthread_spin_lock(&m_bl_splock); 
   if (umdemo_must_die)
 	return 0;
-    m_bl_busy[item.opt.bd_idx] = false;
+    m_bl_busy.erase(item.opt.bd_idx);
     m_bl_outstanding[item.opt.bd_wp] = 0;
     pthread_spin_unlock(&m_bl_splock); 
   }

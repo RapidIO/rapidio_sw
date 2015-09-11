@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
 	int i;
-	int mport_num;
+	int mport_num = 0;
 
 	signal(SIGINT, sig_handler);
 	signal(SIGHUP, sig_handler);

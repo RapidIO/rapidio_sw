@@ -137,7 +137,7 @@ struct worker {
 	struct thread_cpu wkr_thr;
 	sem_t started;
 	int stat; /* 0 - dead, 1 - running, 2 stopped */
-	int stop_req; /* 0 - continue, 1 - stop 2 - shutdown */
+	volatile int stop_req; /* 0 - continue, 1 - stop 2 - shutdown */
 	sem_t run;  /* Managed by controller, post this sem to start a stopped woker */
 	req_type action;
 	req_mode action_mode;
