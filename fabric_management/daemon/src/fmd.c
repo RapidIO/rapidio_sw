@@ -64,7 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libcli.h"
 #include "riocp_pe.h"
-#include "riocp_pe_internal.h"
+//#include "riocp_pe_internal.h"
 #include "DAR_DevDriver.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
@@ -317,7 +317,8 @@ int fmd_init_switch(riocp_pe_handle pe, struct fmd_cfg_sw *sw)
 		goto exit;
 	};
 
-	for (did = 0; did < ANY_ID; did++) {
+	/** @TODO: Find something more performant instead of scanning all possible IDs, this could be a big task */
+	for (did = 0; did < RIOCP_PE_ANY_ID(pe); did++) {
 		ret = riocp_sw_set_route_entry(pe, RIOCP_PE_ANY_PORT, did, 
 						rt->dev_table[did].rte_val);
 		if (ret) {

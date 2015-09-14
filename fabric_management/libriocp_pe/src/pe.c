@@ -391,7 +391,8 @@ int riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port)
 			RIOCP_ERROR("Try to probe inactive port\n");
 			return -ENODEV;
 		}
-		ret = riocp_pe_switch_set_route_entry(pe, RIOCP_PE_ANY_PORT, ANY_ID, port);
+		RIOCP_ERROR("%s: any_id=0x%x\n", __func__, RIOCP_PE_ANY_ID(pe));
+		ret = riocp_pe_switch_set_route_entry(pe, RIOCP_PE_ANY_PORT, RIOCP_PE_ANY_ID(pe), port);
 		if (ret) {
 			RIOCP_ERROR("Could not program route\n");
 			return -EIO;
@@ -415,26 +416,27 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 	uint32_t comptag_peer;
 	uint32_t comptag_alt;
 	uint8_t  hopcount_alt = pe->hopcount + 1;
+	uint32_t any_id = RIOCP_PE_ANY_ID(pe);
 
 	RIOCP_TRACE("Probe verify pe: hc: %u, comptag: 0x%08x, port %u\n",
 		pe->hopcount, pe->comptag, port);
 	RIOCP_TRACE("Probe verify pe_alt: hc: %u, d: %u\n",
-		hopcount_alt, ANY_ID);
+		hopcount_alt, any_id);
 	RIOCP_TRACE("Probe verify peer: hc: %u, comptag: 0x%08x\n",
 		peer->hopcount, peer->comptag, port);
 
 	/* Reset the component tag for alternative route */
-	ret = riocp_pe_maint_write_remote(pe->mport, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, 0);
+	ret = riocp_pe_maint_write_remote(pe->mport, any_id, hopcount_alt, RIO_COMPONENT_TAG_CSR, 0);
 	if (ret) {
-		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", ANY_ID, hopcount_alt);
+		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", any_id, hopcount_alt);
 		return -EIO;
 	}
 
 	/* read same comptag again to make sure write has been performed
 		(we read pe comptag from potentially (shorter) different path) */
-	ret = riocp_pe_maint_read_remote(pe->mport, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, &comptag_alt);
+	ret = riocp_pe_maint_read_remote(pe->mport, any_id, hopcount_alt, RIO_COMPONENT_TAG_CSR, &comptag_alt);
 	if (ret) {
-		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", ANY_ID, hopcount_alt);
+		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", any_id, hopcount_alt);
 		return -EIO;
 	}
 

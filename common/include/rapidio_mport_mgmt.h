@@ -61,6 +61,13 @@ extern "C" {
 /** @brief bitmask for port write events */
 #define RIO_EVENT_PORTWRITE	(1 << 1)
 
+/** @brief system base ID size */
+enum riomp_mgmt_sys_size {
+	RIO_SYS_SIZE_8 = 0,		/**< 8 bit base ID size */
+	RIO_SYS_SIZE_16 = 1,	/**< 16 bit base ID size */
+	RIO_SYS_SIZE_32 = 2,	/**< 32 bit base ID size */
+};
+
 /** @brief RapidIO link speed */
 enum riomp_mgmt_link_speed {
 	RIO_LINK_DOWN = 0, /**< SRIO Link not initialized */
@@ -95,7 +102,7 @@ struct riomp_mgmt_mport_properties {
 	uint8_t id;					/**< Physical port ID number */
 	uint8_t  index;				/**< Mport driver index numer */
 	uint32_t flags;				/**< TODO: what is this */
-	uint32_t sys_size;			/**< Default addressing size */
+	enum riomp_mgmt_sys_size sys_size;	/**< Default addressing size */
 	uint8_t  port_ok;			/**< link status */
 	uint8_t  link_speed;		/**< link speed */
 	uint8_t  link_width;		/**< link width */

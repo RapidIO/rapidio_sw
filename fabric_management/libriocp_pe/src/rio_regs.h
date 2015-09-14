@@ -166,8 +166,8 @@ extern "C" {
 
 #define RIO_DID_CSR		0x60	/* [III] Base Device ID CSR */
 #define RIO_DID_UNSET		0x00ffffff /* Base Device ID when PE is initialized */
-#define RIO_DID_GET_BASE_DEVICE_ID(did) (did >> 16) /* Get base device id */
-#define RIO_DID_GET_LARGE_DEVICE_ID(did) (did >> 8) /* Get large device id */
+#define RIO_DID_GET_BASE_DEVICE_ID(did) ((did >> 16)&0xff) /* Get base device id */
+#define RIO_DID_GET_LARGE_DEVICE_ID(did) (did & 0xffff) /* Get large device id */
 
 					/* 0x64 *//* Reserved */
 

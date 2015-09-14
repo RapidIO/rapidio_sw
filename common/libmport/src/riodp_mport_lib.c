@@ -53,6 +53,7 @@
 #endif
 
 #ifndef LIBMPORT_SIMULATOR
+#include <dirent.h>
 #include <linux/rio_cm_cdev.h>
 #define CONFIG_RAPIDIO_DMA_ENGINE
 #include <linux/rio_mport_cdev.h>
@@ -63,6 +64,8 @@
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <poll.h>
 #endif
@@ -96,6 +99,11 @@ unsigned long long get_ns_timestamp(void)
 #endif
 
 #ifdef LIBMPORT_SIMULATOR
+struct rapidio_libmport_simulator_sync {
+	int lib_version;
+	int simulator_version;
+	enum riomp_mgmt_sys_size sys_size;
+};
 struct rapidio_libmport_simulator {
 	const char *tcp_port;
 	const char *tcp_server;
@@ -129,12 +137,18 @@ struct rapidio_mport_socket {
  */
 struct rapidio_mport_handle {
 	int fd;				/**< posix api compatible fd to be used with poll/select */
+#ifdef LIBMPORT_SIMULATOR
+	struct rapidio_libmport_simulator_sync sim_data;
+#endif
 };
 
 #ifdef LIBMPORT_SIMULATOR
 #define RIO_MAX_ENC_PACKET (1024)
+#define RIO_LIB_SYM_VERSION (1)
 
 enum packet_type {
+	simulator_sync_req,
+	simulator_sync_resp,
 	pkt_local_maint_read_req,
 	pkt_local_maint_read_resp,
 	pkt_local_maint_write_req,
@@ -155,6 +169,8 @@ enum packet_type {
 };
 
 const char *fmt_str[] = {
+		"simulator_sync_req,LVER=%d\n",
+		"simulator_sync_resp,SVER=%d,SYS_SIZE=%d\n",
 		"maint_local_read_req,OFF=0x%x,SIZE=0x%x\n",
 		"maint_local_read_resp,DATA=0x%x\n",
 		"maint_local_write_req,OFF=0x%x,SIZE=0x%x,DATA=0x%x\n",
@@ -292,6 +308,32 @@ static int decode_packet(enum packet_type t, char *buffer, ...)
 
 	return (ret >= 0)?(0):(ret);
 }
+
+static int simulator_sync(int sock, struct rapidio_libmport_simulator_sync *data)
+{
+	char pkt[RIO_MAX_ENC_PACKET] = {0};
+	int ret;
+
+	if(!data)
+		return -EINVAL;
+
+	ret = encode_packet(simulator_sync_req, pkt, sizeof(pkt), data->lib_version);
+	if (ret > 0) {
+		LIBTRACE(pkt);
+		ret = send_packet(sock, pkt);
+		if (ret < 0)
+			return ret;
+		bzero(pkt, sizeof(pkt));
+		ret = recv_packet(sock, pkt, sizeof(pkt));
+		if (ret < 0)
+			return ret;
+		ret = decode_packet(simulator_sync_resp, pkt, &data->simulator_version, &data->sys_size);
+		if (ret < 0)
+			return ret;
+		LIBTRACE(pkt);
+	}
+	return (ret >= 0)?(0):(ret);
+}
 #endif
 
 int riomp_mgmt_mport_available(uint8_t mport)
@@ -305,7 +347,7 @@ int riomp_mgmt_mport_available(uint8_t mport)
 	dev_dir = opendir(RIOCP_PE_DEV_DIR);
 	if (dev_dir == NULL) {
 		ret = -errno;
-		RIOCP_ERROR("Could not open %s\n", RIOCP_PE_DEV_DIR);
+		LIBERROR("Could not open %s\n", RIOCP_PE_DEV_DIR);
 		return ret;
 	}
 
@@ -385,9 +427,10 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	*mport_handle = hnd;
 #else
 	int ret, sd;
+	struct rapidio_mport_handle *hnd = NULL;
+#if 0
 	struct addrinfo *addrinf;
 	struct addrinfo hints;
-	struct rapidio_mport_handle *hnd = NULL;
 
 	memset(&hints,0,sizeof(hints));
 	hints.ai_family=AF_INET;
@@ -419,6 +462,29 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	}
 
 	freeaddrinfo(addrinf);
+#else
+	socklen_t ai_addrlen;		/* Length of socket address.  */
+	struct sockaddr_in ai_addr;	/* Socket address for socket.  */
+	ai_addrlen = sizeof(ai_addr);
+
+	sd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sd == -1) {
+		ret = -errno;
+		LIBERROR("socket() failed with %s\n", strerror(-ret));
+		return ret;
+	}
+	ai_addr.sin_family = AF_INET;
+	ai_addr.sin_addr.s_addr=inet_addr("127.0.0.1");
+	ai_addr.sin_port=htons(4567);
+
+	ret = connect(sd, (struct sockaddr *)&ai_addr, ai_addrlen);
+	if (ret == -1) {
+		ret = -errno;
+		close(sd);
+		LIBERROR("socket() failed with %s\n", strerror(-ret));
+		return ret;
+	}
+#endif
 
 #if 0
 	{
@@ -443,8 +509,20 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 		return ret;
 	}
 
+	bzero(&hnd->sim_data, sizeof(hnd->sim_data));
+	hnd->sim_data.lib_version = RIO_LIB_SYM_VERSION;
+	ret = simulator_sync(sd, &hnd->sim_data);
+	if(ret != 0) {
+		close(sd);
+		LIBERROR("failed to sync with simulator: %s\n", strerror(-ret));
+		free(hnd);
+		return ret;
+	}
+
 	hnd->fd = sd;
 	*mport_handle = hnd;
+
+	LIBTRACE("%s SIMULATOR lib_version:%d simulator_version:%d\n", __func__, hnd->sim_data.lib_version, hnd->sim_data.simulator_version);
 #endif
 
 	LIBTRACE("%s mport%d hnd_id=%d\n", __func__, mport_id, hnd->fd);
@@ -472,7 +550,7 @@ int riomp_mgmt_get_handle_id(riomp_mport_t mport_handle, int *id)
 {
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if(hnd == NULL || id == NULL)
 		return -EINVAL;
 
 	/*
@@ -1018,7 +1096,6 @@ int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_propert
 	qresp->id                 = prop.id;
 	qresp->index              = prop.index;
 	qresp->flags              = prop.flags;
-	qresp->sys_size           = prop.sys_size;
 	qresp->port_ok            = prop.port_ok;
 	qresp->link_speed         = prop.link_speed;
 	qresp->link_width         = prop.link_width;
@@ -1030,13 +1107,24 @@ int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_propert
 	qresp->cap_addr_size      = prop.cap_addr_size;
 	qresp->cap_transfer_mode  = prop.cap_transfer_mode;
 	qresp->cap_mport          = prop.cap_mport;
+	switch(prop.sys_size) {
+	case 0:	qresp->sys_size = RIO_SYS_SIZE_8; break;
+	case 1:	qresp->sys_size = RIO_SYS_SIZE_16; break;
+	case 2:	qresp->sys_size = RIO_SYS_SIZE_32; break;
+	default:
+		LIBERROR("%s: sys_size=%d not supported\n", __func__, prop.sys_size);
+		return -ENOTSUP;
+		break;
+	}
 	LIBTRACE("%s\n", __func__);
 #else
-	if (!qresp)
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if (!qresp || !hnd)
 		return -EINVAL;
 
 	bzero(qresp, sizeof(*qresp));
-	qresp->sys_size = 1;
+	qresp->sys_size = hnd->sim_data.sys_size;
 	qresp->link_speed = RIO_LINK_625;
 	qresp->link_width = RIO_LINK_16X;
 #endif
@@ -1599,8 +1687,34 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
-	LIBERROR("not implemented\n");
-	return -EIO;
+	int ret;
+	uint32_t val;
+	struct rapidio_mport_handle *hnd = mport_handle;
+
+	if(hnd == NULL)
+		return -EINVAL;
+
+	ret = riomp_mgmt_lcfg_read(mport_handle, 0x60, 4, &val);
+	if(ret)
+		return ret;
+
+	if(hnd->sim_data.sys_size == 0) {
+		val &= ~0x00ff0000;
+		val |= ((destid & 0xff) << 16);
+	} else if(hnd->sim_data.sys_size == 1) {
+		val &= ~0x0000ffff;
+		val |= (destid & 0xffff);
+	} else {
+		LIBERROR("not implemented sys_size==%d\n", hnd->sim_data.sys_size);
+		return -ENOTSUP;
+	}
+
+	ret = riomp_mgmt_lcfg_write(mport_handle, 0x60, 4, val);
+	if(ret)
+		return ret;
+
+	LIBTRACE("%s\n", __func__);
+	return ret;
 #endif
 }
 
@@ -2022,10 +2136,15 @@ const char *width_to_string(int width)
 
 void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *attr)
 {
+	char const *sys_size_text[] = {
+			"8bit",
+			"16bit",
+			"32bit"
+	};
 	printf("\n+++ SRIO mport configuration +++\n");
 	printf("mport: hdid=%d, id=%d, idx=%d, flags=0x%x, sys_size=%s\n",
 		attr->hdid, attr->id, attr->index, attr->flags,
-		attr->sys_size?"large":"small");
+		sys_size_text[attr->sys_size]);
 
 	printf("link: speed=%s width=%s\n", speed_to_string(attr->link_speed),
 		width_to_string(attr->link_width));

@@ -21,7 +21,7 @@ extern "C" {
 
 #define RIOCP_PE_PE_DEVICE(dev, ven) \
 	.did = (dev), .vid = (ven), \
-	.asm_did = ANY_ID, .asm_vid = ANY_ID
+	.asm_did = 0, .asm_vid = 0
 
 /** Identification of PE by DID/VID and Assembly DID/VID */
 struct riocp_pe_device_id {

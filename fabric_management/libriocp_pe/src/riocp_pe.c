@@ -336,6 +336,7 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 	uint8_t hopcount = 0;
 	uint32_t comptag = 0;
 	uint32_t destid;
+	uint32_t any_id;
 	unsigned int i;
 	uint8_t _port = 0;
 	int ret;
@@ -366,7 +367,8 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 	if (!RIOCP_PE_IS_MPORT(pe))
 		hopcount = pe->hopcount + 1;
 
-	destid = ANY_ID;
+	any_id = RIOCP_PE_ANY_ID(pe);
+	destid = any_id;
 
 	if (RIOCP_PE_IS_MPORT(pe))
 		goto found;
@@ -393,7 +395,8 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 	}
 
 	/* Search for route behind port in switch LUT */
-	for (i = 0; i < (ANY_ID - 1); i++) {
+	/** @TODO: Find something more performant instead of checking all possible IDs, might be a long runner in big sys_size systems. */
+	for (i = 0; i < (any_id - 1); i++) {
 		ret = riocp_pe_switch_get_route_entry(pe, 0xff, i, &_port);
 		if (ret) {
 			RIOCP_ERROR("Unable to get switch route for destid %u\n", i);
@@ -493,6 +496,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	struct riocp_pe *p;
 	uint8_t hopcount = 0;
 	uint32_t comptag = 0;
+	uint32_t any_id;
 	uint8_t sw_port = 0;
 	int ret;
 
@@ -510,18 +514,20 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	RIOCP_TRACE("Probe on PE 0x%08x (hopcount %u, port %u)\n",
 		pe->comptag, hopcount, port);
 
+	any_id = RIOCP_PE_ANY_ID(pe);
+
 	/* Prepare probe (setup route, test if port is active on PE) */
 	ret = riocp_pe_probe_prepare(pe, port);
 	if (ret)
 		return -EIO;
 
 	/* Read component tag on peer */
-	ret = riocp_pe_maint_read_remote(pe->mport, ANY_ID, hopcount, RIO_COMPONENT_TAG_CSR, &comptag);
+	ret = riocp_pe_maint_read_remote(pe->mport, any_id, hopcount, RIO_COMPONENT_TAG_CSR, &comptag);
 	if (ret) {
 		/* TODO try second time when failed, the ANY_ID route seems to be programmed correctly
 			at this point but the route was not working previous read */
 		RIOCP_WARN("Trying reading again component tag on h: %u\n", hopcount);
-		ret = riocp_pe_maint_read_remote(pe->mport, ANY_ID, hopcount, RIO_COMPONENT_TAG_CSR, &comptag);
+		ret = riocp_pe_maint_read_remote(pe->mport, any_id, hopcount, RIO_COMPONENT_TAG_CSR, &comptag);
 		if (ret) {
 			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);
 			goto err_out;
@@ -540,7 +546,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 
 create_pe:
 		/* Create peer handle */
-		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, ANY_ID, port);
+		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, any_id, port);
 		if (ret) {
 			RIOCP_ERROR("Could not create handle for peer on port %d of ct 0x%08x: %s\n",
 				port, pe->comptag, strerror(-ret));
@@ -571,7 +577,7 @@ create_pe:
 
 		/* Peer handle already in list, add PE to peer for network graph */
 		if (RIOCP_PE_IS_SWITCH(p->cap)) {
-			ret = riocp_pe_maint_read_remote(pe->mport, ANY_ID,
+			ret = riocp_pe_maint_read_remote(pe->mport, any_id,
 				hopcount, RIO_SWP_INFO_CAR, &val);
 			if (ret) {
 				RIOCP_ERROR("Could not read switch port info CAR at hc %u\n", hopcount);
@@ -1028,8 +1034,17 @@ int RIOCP_SO_ATTR riocp_pe_get_destid(riocp_pe_handle pe,
 		return -ENOSYS;
 	if (riocp_pe_maint_read(pe, RIO_DID_CSR, &_destid))
 		return -EIO;
-
-	*destid = RIO_DID_GET_BASE_DEVICE_ID(_destid);
+	switch (pe->mport->minfo->prop.sys_size) {
+	case RIO_SYS_SIZE_8:
+		*destid = RIO_DID_GET_BASE_DEVICE_ID(_destid);
+		break;
+	case RIO_SYS_SIZE_16:
+		*destid = RIO_DID_GET_LARGE_DEVICE_ID(_destid);
+		break;
+	default:
+		return -ENOTSUP;
+		break;
+	}
 
 	RIOCP_DEBUG("PE 0x%08x has destid %u (0x%08x)\n",
 		pe->comptag, *destid, *destid);
@@ -1063,7 +1078,7 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 		RIOCP_ERROR("Pe is not a host\n");
 		return -EPERM;
 	}
-	if (destid == ANY_ID) {
+	if (destid == RIOCP_PE_ANY_ID(pe)) {
 		RIOCP_ERROR("Cannot program ANYID destid\n");
 		return -EACCES;
 	}
@@ -1250,7 +1265,7 @@ int RIOCP_SO_ATTR riocp_sw_set_route_entry(riocp_pe_handle sw,
 	if (port > RIOCP_PE_PORT_COUNT(sw->cap) && port != 0xff)
 		return -EINVAL;
 */
-	if (destid == ANY_ID)
+	if (destid == RIOCP_PE_ANY_ID(sw))
 		return -EACCES;
 
 	ret = riocp_pe_switch_set_route_entry(sw, lut, destid, port);
