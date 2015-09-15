@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "goodput_cli.h"
 #include "time_utils.h"
+#include "mhz.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -847,6 +848,31 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 	uint64_t tot_byte_cnt = 0;
 	char MBps_str[FLOAT_STR_SIZE],  Gbps_str[FLOAT_STR_SIZE];
 
+#ifdef USER_MODE_DRIVER
+	sprintf(env->output,
+        "\nW STS <<<<--Avg Tick/Pkt-->>>> <<<<--Avg uS/Pkt-->>>> <<<<--Totalk Pkt Cnt-->>>> <<<<--MByte/s-->>>>\n");
+        logMsg(env);
+
+        const int MHz = getCPUMHz();
+
+	for (i = 0; i < MAX_WORKERS; i++) {
+		if(wkr[i].tick_count == 0) continue;
+
+		const double TOTAL_SIZE_MEG = wkr[i].tick_data_total / 1048576.0;
+
+		double dT = (double)wkr[i].tick_total / wkr[i].tick_count;
+		double dTus = dT / MHz;
+
+		double dTtotalSec = wkr[i].tick_total / (1000000.0 * MHz); // how many S it took to suffle ALL data
+
+		double thruput = TOTAL_SIZE_MEG / dTtotalSec;
+
+		sprintf(env->output, "\t%lf\t\t%lf\t\t\t%llu\t\t%lf\n",
+                        dT, dTus,
+                        wkr[i].tick_count, thruput);
+        	logMsg(env);
+	}
+#endif
 	sprintf(env->output,
         "\nW STS <<<<--Data-->>>> --MBps-- -Gbps- Messages\n");
         logMsg(env);
@@ -886,6 +912,11 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 		tot_Msgpersec += Msgpersec;
 
 		if (argc) {
+#ifdef USER_MODE_DRIVER
+			wkr[i].tick_data_total = 0;
+			wkr[i].tick_total = 0;
+			wkr[i].tick_count = 0;
+#endif
 			wkr[i].perf_byte_cnt = 0;
 			wkr[i].perf_msg_cnt = 0;
 			clock_gettime(CLOCK_MONOTONIC, &wkr[i].st_time);

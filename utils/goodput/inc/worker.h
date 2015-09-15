@@ -215,6 +215,8 @@ struct worker {
 	uint32_t	umd_dma_abort_reason;
 	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
+	volatile uint64_t tick_count, tick_total;
+	volatile uint64_t tick_data_total;
 #endif
 };
 

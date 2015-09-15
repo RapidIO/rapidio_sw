@@ -282,11 +282,20 @@ void DMAChannel::setWriteCount(uint32_t cnt)
 }
 
 
-bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem)
+/** \brief Queue DMA operation of DTYPE1 or DTYPE2
+ * \param rtype transfer type
+ * \param[in,out] opt transfer options
+ * \param[in] mem a ref to a RioMport::DmaMem_t, for DTYPE2 this is NOT allocated by class \ref RioMport
+ * \param[out] abort_reason HW reason for DMA abort if function returned false
+ * \return true if buffer enqueued, false if queue full or HW error -- check abort_reason
+ */
+bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason)
 {
   if(opt.dtype != DTYPE1 && opt.dtype != DTYPE2) return false;
 
   if(opt.dtype == DTYPE1 && ! m_mport->check_dma_buf(mem)) return false;
+
+  abort_reason = 0;
 
   struct dmadesc desc;
   dmadesc_setdtype(desc, opt.dtype);
@@ -354,6 +363,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
     opt.bd_wp = m_dma_wr; opt.bd_idx = bd_idx;
 
+    opt.ts_start = rdtsc();
     m_dma_wr++; setWriteCount(m_dma_wr);
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
@@ -363,6 +373,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
       wk_end.opt.bd_wp = m_dma_wr;
 
+      wk_end.opt.ts_start = rdtsc();
       m_dma_wr++; setWriteCount(m_dma_wr);
       if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
@@ -371,7 +382,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   }}
   pthread_spin_unlock(&m_bl_splock); 
 
-  uint32_t abort_reason = 0;
   if(dmaCheckAbort(abort_reason)) {
     pthread_spin_unlock(&m_pending_work_splock);
     return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
@@ -725,6 +735,7 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
       for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
 DBG("\n\tFIFO (sts_size=%d) line=%d off=%d 0x%llx\n", m_sts_size, j, i, sts_ptr[i]);
           DmaCompl_t c;
+          c.ts_end = rdtsc();
           c.win_handle = sts_ptr[i]; c.fifo_offset = i;
           compl_hwbuf.push_back(c);
           sts_ptr[i] = 0;
@@ -760,6 +771,8 @@ DBG("\n\tFIFO (sts_size=%d) line=%d off=%d 0x%llx\n", m_sts_size, j, i, sts_ptr[
 
     pthread_spin_unlock(&m_pending_work_splock);
 
+    item.opt.ts_end = itv->ts_end;
+
     if(item.opt.dtype == DTYPE2 && item.opt.rtype == NREAD) {
       struct hw_dma_desc* bd = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + item.opt.bd_wp;;
       memcpy(item.t2_rddata, bd->data, 16);
@@ -781,67 +794,3 @@ DBG("\n\tFIFO (sts_size=%d) line=%d off=%d 0x%llx\n", m_sts_size, j, i, sts_ptr[
   wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
   return compl_hwbuf.size();
 }
-
-#if 0
-extern "C" __attribute__((noinline))
-void TestDmaRegRead(DMAChannel* dch, const uint64_t dRDTSC)
-{
-  if(dch == NULL) return;
-
-  uint64_t count = 0;
-  uint64_t min=0, max = 0, dSY = 0;
-
-  for(int i = 0; i < 10000000; i++) {
-    register uint64_t t1,t2;
-    do {
-      t1 = rdtsc();
-      dch->getReadCount();
-      t2 = rdtsc();
-      if(t2 > t1) break;
-    } while (1);     
-    int64_t dT = t2 - t1 - dRDTSC;
-    if(dT < 0 || dT > dRDTSC*100) continue;
-
-    if(count == 0) min = dT;
-    dSY += dT;
-    count++;
-    if(dT < min) { min = dT; };
-    if(dT > max) { max = dT; };
-  }
-
-  double avg = (dSY * 1.0) / count;
-
-  DBG("\n\trd32dma LOCK ticks count=%llu min=%llu max=%llu avg=%f\n", count, min, max, avg);
-}
-
-extern "C" __attribute__((noinline))
-void TestDmaRegRead_nolock(DMAChannel* dch, const uint64_t dRDTSC)
-{
-  if(dch == NULL) return;
-
-  uint64_t count = 0;
-  uint64_t min=0, max = 0, dSY = 0;
-
-  for(int i = 0; i < 10000000; i++) {
-    register uint64_t t1,t2;
-    do {
-      t1 = rdtsc();
-      dch->rd32dmachan_nolock(TSI721_DMAC_DRDCNT);
-      t2 = rdtsc();
-      if(t2 > t1) break;
-    } while (1);     
-    int64_t dT = t2 - t1 - dRDTSC;
-    if(dT < 0 || dT > dRDTSC*100) continue;
-
-    if(count == 0) min = dT;
-    dSY += dT;
-    count++;
-    if(dT < min) { min = dT; };
-    if(dT > max) { max = dT; };
-  }
-
-  double avg = (dSY * 1.0) / count;
-
-  DBG("\n\trd32dma NO lock ticks count=%llu min=%llu max=%llu avg=%f\n", count, min, max, avg);
-}
-#endif

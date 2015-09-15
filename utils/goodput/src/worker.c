@@ -64,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "time_utils.h"
 #include "worker.h"
 #include "goodput.h"
+#include "mhz.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1202,6 +1203,8 @@ void *umd_fifo_proc_thr(void *parm)
 	struct worker *info;
         std::vector<DMAChannel::WorkItem_t>::iterator it;
 
+	const int MHz = getCPUMHz();
+
 	if (NULL == parm)
 		goto exit;
 
@@ -1230,33 +1233,41 @@ void *umd_fifo_proc_thr(void *parm)
 		for (it = wi.begin(); it != wi.end(); it++) {
 			DMAChannel::WorkItem_t& item = *it;
 
+			uint64_t dT  = 0;
+			float    dTf = 0;
+			if(item.opt.ts_end > item.opt.ts_start) { // Ignore rdtsc wrap-arounds
+				dT = item.opt.ts_end - item.opt.ts_start;
+				dTf = (float)dT / MHz;
+			}
 			switch (item.opt.dtype) {
 			case DTYPE1:
 				INFO("\n\tFIFO D1 RT=%s did=%d HW @0x%llx"
-					"mem @%p bd_wp=%u FIFO iter %llu\n",
+					"mem @%p bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
 					dma_rtype_str[item.opt.rtype], item.opt.destid,
 					item.mem.win_handle, item.mem.win_ptr,
-					item.opt.bd_wp, fifo_thr_iter);
+					item.opt.bd_wp, fifo_thr_iter, dT, dTf);
 				if (item.opt.rtype == NREAD) {
 					hexdump4byte("NREAD: ",
 						(uint8_t*)item.mem.win_ptr, 8);
 				}
 				info->perf_byte_cnt += info->acc_size;
 				clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+				if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += item.opt.bcount; }
 				break;
 			case DTYPE2:
 				INFO("\n\tFIFO D2 RT=%s did=%d bd_wp=%u"
-					" -- FIFO iter %llu\n", dma_rtype_str[item.opt.rtype],
+					" -- FIFO iter %llu dTick %llu (%f uS)\n", dma_rtype_str[item.opt.rtype],
 					item.opt.destid, item.opt.bd_wp,
-					fifo_thr_iter);
+					fifo_thr_iter, dT, dTf);
 				info->perf_byte_cnt += info->acc_size;
 				clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+				if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += item.opt.bcount; }
 				break;
 			// NREAD data ended up in
 			// (item.t2_rddata, item.t2_rddata_len)
 			case DTYPE3:
-				INFO("\n\tFinished D3 bd_wp=%u -- FIFO iter %llu\n",
-					 item.opt.bd_wp, fifo_thr_iter);
+				INFO("\n\tFinished D3 bd_wp=%u -- FIFO iter %llu dTick %ll (%f uS)u\n",
+					 item.opt.bd_wp, fifo_thr_iter, dT, dTf);
 				break;
 			default:
 				INFO("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
@@ -1292,8 +1303,9 @@ void umd_dma_goodput_demo(struct worker *info)
 	uint64_t cnt;
 	uint64_t haxxx;
 
-	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan,
-				info->mp_h);
+	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
+
+	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
 								
 	if (NULL == info->umd_dch) {
 		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
@@ -1327,6 +1339,9 @@ void umd_dma_goodput_demo(struct worker *info)
         for (int i = 1; i < info->umd_tx_buf_cnt; i++) {
 		info->dmamem[i] = info->dmamem[0];
         };
+
+        info->tick_data_total = 0;
+	info->tick_count = info->tick_total = 0;
 
         info->umd_dch->setInitState();
         if (!info->umd_dch->checkPortOK()) {
@@ -1367,39 +1382,46 @@ void umd_dma_goodput_demo(struct worker *info)
 		// TX Loop
         	for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
-			info->dmaopt[oi].destid = info->did;
-			info->dmaopt[oi].bcount = info->acc_size;
+			info->dmaopt[oi].destid      = info->did;
+			info->dmaopt[oi].bcount      = info->acc_size;
 			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
 			info->dmaopt[oi].raddr.lsb64 += oi * info->acc_size;
 
+			info->umd_dma_abort_reason = 0;
 			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
-					info->dmaopt[oi], info->dmamem[oi])) {
-				CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
-				goto exit;
+					info->dmaopt[oi], info->dmamem[oi],
+                                        info->umd_dma_abort_reason)) {
+				if(info->umd_dma_abort_reason != 0) {
+					CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
+					CRIT("DMA abort %x: %s\n", 
+						info->umd_dma_abort_reason,
+						DMAChannel::abortReasonToStr(
+						info->umd_dma_abort_reason));
+					goto exit;
+				}
+				// Don't barf just yet if queue full
 			};
 
 			if (info->umd_dch->checkPortError()) {
 				CRIT("\n\tPort Error, exiting");
 				goto exit;
-			};
-	
-			if (info->umd_dch->dmaCheckAbort(
-						info->umd_dma_abort_reason)) {
-				CRIT("DMA abort %x: %s\n", 
-					info->umd_dma_abort_reason,
-					DMAChannel::abortReasonToStr(
-					info->umd_dma_abort_reason));
-				goto exit;
 			}
 
 			bool inp_err = false, outp_err = false;
                         info->umd_dch->checkPortInOutError(inp_err, outp_err);
-
                         if(inp_err || outp_err) {
                                 CRIT("Tsi721 port error%s%s\n",
                                         (inp_err? " INPUT": ""),
                                         (outp_err? " OUTPUT": ""));
                         }
+			
+			// Busy-wait for queue to drain
+			for(uint64_t iq = 0;
+			    iq < 1000000000 && (info->umd_dch->queueSize() >= Q_THR);
+			    iq++) {
+				 sched_yield();
+			}
+
 			// Wrap around, do no overwrite last buffer entry
 			oi++;
 			if ((info->umd_tx_buf_cnt - 1) == oi)
@@ -1430,7 +1452,7 @@ void umd_dma_goodput_demo(struct worker *info)
                 };
 
 		info->umd_tx_iter_cnt++;
-        }
+        } // END while NOT stop requested
 exit:
         INFO("\n\tDMA %srunning after %d %dus polls\n",
 		info->umd_dch->dmaIsRunning()? "": "NOT ", 
@@ -1452,10 +1474,12 @@ exit:
         pthread_join(info->umd_fifo_thr.thr, NULL);
 
         info->umd_dch->cleanup();
+
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 
                 info->umd_dch->free_dmamem(info->dmamem[0]);
         delete info->umd_dch;
+
 	info->umd_dch = NULL;
 }
 

@@ -83,6 +83,7 @@ public:
       uint64_t win_handle; ///< populated when queueing for TX
       uint32_t bd_wp; ///< Soft WP at the moment of enqueuing this
       uint32_t bd_idx; ///< index into buffer ring of buffer used to handle this op
+      uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
   } DmaOptions_t;
 
   typedef struct {
@@ -96,6 +97,7 @@ public:
   typedef struct {
     uint64_t win_handle;
     uint32_t fifo_offset;
+    uint64_t ts_end;
   } DmaCompl_t;
 
   DMAChannel(const uint32_t mportid, const uint32_t chan);
@@ -139,12 +141,12 @@ public:
 
   bool check_ibwin_reg() { return m_mport->check_ibwin_reg(); }
 
-  inline bool queueDmaOpT1(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem)
+  inline bool queueDmaOpT1(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason)
   {
     opt.dtype = DTYPE1;
-    return queueDmaOpT12(rtype, opt, mem);
+    return queueDmaOpT12(rtype, opt, mem, abort_reason);
   }
-  inline bool queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len)
+  inline bool queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason)
   {
     if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16)) return false;
   
@@ -154,7 +156,7 @@ public:
     lmem.win_size = data_len;
 
     opt.dtype = DTYPE2;
-    return queueDmaOpT12(rtype, opt, lmem);
+    return queueDmaOpT12(rtype, opt, lmem, abort_reason);
   }
 
   inline uint32_t queueSize()
@@ -193,7 +195,7 @@ private:
   
   std::map<uint64_t, WorkItem_t> m_pending_work;
 
-  bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem);
+  bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason);
 
 public:
   void setWriteCount(uint32_t cnt);
