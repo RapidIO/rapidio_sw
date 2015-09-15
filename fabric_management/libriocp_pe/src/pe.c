@@ -396,7 +396,6 @@ int riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port)
 			RIOCP_ERROR("Try to probe inactive port\n");
 			return -ENODEV;
 		}
-		RIOCP_ERROR("%s: any_id=0x%x\n", __func__, RIOCP_PE_ANY_ID(pe));
 		ret = riocp_pe_switch_set_route_entry(pe, RIOCP_PE_ANY_PORT, RIOCP_PE_ANY_ID(pe), port);
 		if (ret) {
 			RIOCP_ERROR("Could not program route\n");
