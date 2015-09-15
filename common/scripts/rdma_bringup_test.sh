@@ -14,7 +14,10 @@ do
 	echo -n "Iteration " $i
 	echo ""
 
+	OK=1	# Set OK to true before the checks
+
 	NODES="gry09 gry10 gry11 gry12"
+
 	# Load all drivers FIRST
 	for node in $NODES
 	do
@@ -31,9 +34,33 @@ do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		echo "Starting fmd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS fmd $RDMA_ROOT_PATH/fabric_management/daemon/fmd -l7"
-		sleep 5
+		sleep 1
 		FMD_PID=$(ssh root@"$node" pgrep fmd)
 		echo "$node fmd pid=$FMD_PID"
+	done
+
+	# Wait for enumeration a few times before proceeding, if necessary
+	# (Alex's suggestion)
+	for node in $NODES
+	do
+		ENUM_FAIL_RETRY=1
+		while [ $ENUM_FAIL_RETRY -le 3 ]
+		do
+			RIODEVS=$(ssh root@"$node" "ls /sys/bus/rapidio/devices/")
+			if [ -z "$RIODEVS" ]
+			then
+				echo "   not enumerated. Waiting and checking again"
+				sleep 1
+				(( ENUM_FAIL_RETRY++ ))
+			else
+				echo "   RIO devices: "$RIODEVS""
+				ENUM_FAIL_RETRY=4
+			fi
+		done
+		if [ $ENUM_FAIL_RETRY -eq 3]
+		then
+			echo "Enumeration failure after retries!"
+		fi
 	done
 
 	# Start RDMAD on each node
@@ -42,7 +69,7 @@ do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		echo "Start rdmad on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rdmad $RDMA_ROOT_PATH/rdma/rdmad"
-		sleep 5
+		sleep 1
 		RDMAD_PID=$(ssh root@"$node" pgrep rdmad)
 		echo "$node rdmad pid=$RDMAD_PID"
 	done
@@ -53,14 +80,13 @@ do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		echo "Start rsktd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rsktd $RDMA_ROOT_PATH/rdma/rskt/daemon/rsktd -l7"
-		sleep 5
+		sleep 1
 		RSKTD_PID=$(ssh root@"$node" pgrep rsktd)
 		echo "$node rsktd pid=$RSKTD_PID"
 	done
 
 	# Now check that everything is still running OK
 	
-	OK=1	# Set OK to true before the checks
 
 	NODES="gry10 gry11 gry12 gry09"
 
