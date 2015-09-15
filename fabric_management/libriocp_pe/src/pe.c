@@ -61,10 +61,6 @@ int riocp_pe_read_capabilities(struct riocp_pe *pe)
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_SWP_INFO_CAR, &pe->cap.sw_port);
-	if (ret)
-		return ret;
-
 	ret = riocp_pe_maint_read(pe, RIO_SRC_OPS_CAR, &pe->cap.src_op);
 	if (ret)
 		return ret;
@@ -73,9 +69,18 @@ int riocp_pe_read_capabilities(struct riocp_pe *pe)
 	if (ret)
 		return ret;
 
-	ret = riocp_pe_maint_read(pe, RIO_SWITCH_RT_LIMIT, &pe->cap.lut_size);
-	if (ret)
-		return ret;
+	if (pe->cap.pe_feat & RIO_PEF_SWITCH) {
+		ret = riocp_pe_maint_read(pe, RIO_SWP_INFO_CAR, &pe->cap.sw_port);
+		if (ret)
+			return ret;
+
+		ret = riocp_pe_maint_read(pe, RIO_SWITCH_RT_LIMIT, &pe->cap.lut_size);
+		if (ret)
+			return ret;
+	} else {
+		pe->cap.sw_port = 0;
+		pe->cap.lut_size = 0;
+	}
 
 	RIOCP_TRACE("Read capabilities ok\n");
 
