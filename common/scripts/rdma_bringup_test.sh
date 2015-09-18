@@ -7,14 +7,13 @@
 #RDMA_ROOT_PATH=/opt/rapidio/cern/rapidio_sw
 RDMA_ROOT_PATH=/home/sherif/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
+
 NUM_ITERATIONS=250
 
 for (( i=0; i<NUM_ITERATIONS; i++ ))
 do
 	echo -n "Iteration " $i
 	echo ""
-
-	OK=1	# Set OK to true before the checks
 
 	NODES="gry09 gry10 gry11 gry12"
 
@@ -86,9 +85,8 @@ do
 	done
 
 	# Now check that everything is still running OK
-	
 
-	NODES="gry10 gry11 gry12 gry09"
+	OK=1	# Set OK to true before the checks
 
 	#For each node check that all is well
 	for node in $NODES
@@ -171,6 +169,8 @@ do
 		echo "	Everything worked. Retrying, but cleaning up first"
 		echo ""
 
+		NODES="gry12 gry11 gry10 gry09"
+
 		# For each node, kill RSKTD RDMAD and FMD
 		for node in $NODES
 		do
@@ -182,6 +182,14 @@ do
 				ssh root@"$node" "kill -s 2 $proc"
 			done
 
+			# Check that rsktd was successfully killed
+			sleep 1
+			THE_PID=$(ssh root@"$node" pgrep rsktd)
+			if [ ! -z "$THE_PID" ]
+			then
+				echo "rsktd killed but still alive with PID=$THE_PID!"
+			fi
+
 			# Kill RDMAD
 			THE_PID=$(ssh root@"$node" pgrep rdmad)
 			echo "Killing rdmad on $node RDMAD PID=$THE_PID"
@@ -190,6 +198,14 @@ do
 				ssh root@"$node" "kill -s 2 $proc"
 			done
 
+			# Check that rdmad was successfully killed
+			sleep 1
+			THE_PID=$(ssh root@"$node" pgrep rdmad)
+			if [ ! -z "$THE_PID" ]
+			then
+				echo "rdmad killed but still alive with PID=$THE_PID!"
+			fi
+
 			# Kill FMD
 			THE_PID=$(ssh root@"$node" pgrep fmd)
 			echo "Killing fmd on $node RDMAD PID=$THE_PID"
@@ -197,6 +213,14 @@ do
 			do
 				ssh root@"$node" "kill -s 2 $proc"
 			done
+
+			# Check that fmd was successfully killed
+			sleep 1
+			THE_PID=$(ssh root@"$node" pgrep fmd)
+			if [ ! -z "$THE_PID" ]
+			then
+				echo "fmd killed but still alive with PID=$THE_PID!"
+			fi
 		done
 
 		# Unload all drivers from all nodes
