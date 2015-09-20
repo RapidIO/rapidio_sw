@@ -694,7 +694,7 @@ static int test_case_j_k(char ch)
 	/* Give remote local daemon a chance to detect remote daemon's
 	 * death.
 	 */
-	sleep(5);
+	sleep(2);
 
 	/* If the remote 'server_msh_rb' is not in the database
 	 * rdma_disc_ms_h() returns 0 which is a pass. If the database
@@ -725,12 +725,19 @@ exit:
 	return 0;
 } /* test_case_j_k() */
 
+/**
+ * The child creates an mso then dies. The return code of the child indicates
+ * that the mso was successfully created. Then with the death of the child
+ * the daemon auto-deletes the mso. The parent tries to open the m'so' and gets
+ * an error indicating the mso doesn't exit.
+ */
 static int test_case_l()
 {
 	pid_t child;
 	int	ret;
 
-	puts("test_case_l");
+	LOG("test_case%c\t", 'l');
+
 	child = fork();
 
 	if (child == 0) { /* Child */
@@ -760,10 +767,17 @@ static int test_case_l()
 	return ret;
 } /* test_case_l() */
 
+
+/**
+ * Kill then restart the daemon. Verify that memory space owners have
+ * been cleaned up by creating the same mso with the same name again.
+ */
 static int test_case_m()
 {
 	int ret;
 	pid_t child;
+
+	LOG("test_case%c\t", 'm');
 
 	/* Create a client mso */
 	mso_h	client_msoh;
