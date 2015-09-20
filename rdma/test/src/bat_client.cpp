@@ -496,6 +496,8 @@ static int test_case_h_i(char ch)
 {
 	int ret;
 
+	LOG("test_case%c\n", ch);
+
 	/* Create server mso */
 	mso_h	server_msoh;
 	ret = create_mso_f(bat_first_client,
@@ -609,6 +611,8 @@ static int test_case_j_k(char ch)
 {
 	int ret;
 
+	LOG("test_case%c\n", ch);
+
 	/* Create server mso */
 	mso_h	server_msoh;
 	ret = create_mso_f(bat_first_client,
@@ -674,10 +678,12 @@ static int test_case_j_k(char ch)
 
 	if (ch == 'j') {
 		/* Kill remote app */
+		puts("Telling remote app to die");
 		ret = kill_remote_app(bat_first_client, bm_first_tx);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 	} else if (ch == 'k') {
-		/* Kill remote app */
+		/* Kill remote daemon */
+		puts("Telling remote daemon to die");
 		ret = kill_remote_daemon(bat_first_client, bm_first_tx);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 	} else {
@@ -688,7 +694,7 @@ static int test_case_j_k(char ch)
 	/* Give remote local daemon a chance to detect remote daemon's
 	 * death.
 	 */
-	sleep(1);
+	sleep(5);
 
 	/* If the remote 'server_msh_rb' is not in the database
 	 * rdma_disc_ms_h() returns 0 which is a pass. If the database
@@ -835,7 +841,6 @@ static int do_dma(msub_h client_msubh,
 	void *vaddr;
 	uint8_t *dma_data;
 
-	LOG("do_dma ENTER\n");
 	int ret = rdma_mmap_msub(client_msubh, &vaddr);
 	BAT_EXPECT_RET(ret, 0, exit);
 
@@ -857,7 +862,7 @@ static int do_dma(msub_h client_msubh,
 	/* Temporarily to determine failure cause */
 	LOG("client_msubh = 0x%016" PRIx64 ", server_msubh = 0x%016" PRIx64 "\n",
 			client_msubh, server_msubh);
-	LOG("ofs_in_loc_msub = 0x%X, ofs_in_rem_msub = 0x%X\n",
+	LOG("ofs_in_loc_msub = 0x%X, ofs_in_rem_msub = 0x%X, ",
 			ofs_in_loc_msub, ofs_in_rem_msub);
 	LOG("num_bytes = 0x%X, sync_type: %d\n", DMA_DATA_SIZE, sync_type);
 
@@ -900,13 +905,16 @@ exit:
 	return ret;
 } /* do_dma() */
 
-static int test_case_dma(uint32_t loc_msub_ofs_in_ms,
+static int test_case_dma(char tc,
+		         uint32_t loc_msub_ofs_in_ms,
 			 uint32_t ofs_in_loc_msub,
 			 uint32_t ofs_in_rem_msub,
 			 rdma_sync_type_t sync_type)
 {
 	int ret;
 	const unsigned MSUB_SIZE = 4096;
+
+	LOG("test_case%c\n", tc);
 
 	/* Create server mso */
 	mso_h	server_msoh;
@@ -1049,6 +1057,8 @@ int connect_to_channel(int channel,
 int test_case_6()
 {
 	const unsigned MSUB_SIZE = 4096;
+
+	LOG("test_case%c\n", '6');
 
 	/* First create mso, and ms on server */
 	/* Create server mso */
@@ -1320,10 +1330,7 @@ int main(int argc, char *argv[])
 		BAT_EOT();
 		break;
 	case 'h':
-		fprintf(fp, "test_caseh ");
 	case 'i':
-		if (tc == 'i')
-			fprintf(fp, "test_casei ");
 		test_case_h_i(tc);
 		BAT_EOT();
 		break;
@@ -1344,32 +1351,26 @@ int main(int argc, char *argv[])
 		/* No BAT_EOT(). This is a local test */
 		break;
 	case '1':
-		LOG("test_case%c\n", tc);
-		test_case_dma(0x00, 0x00, 0x00, rdma_sync_chk);
+		test_case_dma(tc, 0x00, 0x00, 0x00, rdma_sync_chk);
 		BAT_EOT();
 		break;
 	case '2':
-		LOG("test_case%c\n", tc);
-		test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
+		test_case_dma(tc, 4*1024, 0x00, 0x00, rdma_sync_chk);
 		BAT_EOT();
 		break;
 	case '3':
-		LOG("test_case%c\n", tc);
-		test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
+		test_case_dma(tc, 0x00, 0x80, 0x00, rdma_sync_chk);
 		BAT_EOT();
 		break;
 	case '4':
-		LOG("test_case%c\n", tc);
-		test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
+		test_case_dma(tc, 0x00, 0x00, 0x40, rdma_sync_chk);
 		BAT_EOT();
 		break;
 	case '5':
-		LOG("test_case%c\n", tc);
-		test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
+		test_case_dma(tc, 0x00, 0x00, 0x00, rdma_async_chk);
 		BAT_EOT();
 		break;
 	case '6':
-		LOG("test_case%c\n", tc);
 		test_case_6();
 		BAT_EOT();
 		break;
@@ -1380,35 +1381,21 @@ int main(int argc, char *argv[])
 			test_case_c();
 			test_case_g();
 			test_case_h_i('h');
-//			test_case_h_i('i');
-			LOG("test_case1\n");
-			test_case_dma(0x00, 0x00, 0x00, rdma_sync_chk);
-			LOG("test_case2\n");
-			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
-			LOG("test_case3\n");
-			test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
-			LOG("test_case4\n");
-			test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
-			LOG("test_case5\n");
-			test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
-			LOG("test_caseb\n");
+			test_case_h_i('i');
+			test_case_dma('1', 0x00, 0x00, 0x00, rdma_sync_chk);
+			test_case_dma('2', 4*1024, 0x00, 0x00, rdma_sync_chk);
+			test_case_dma('3', 0x00, 0x80, 0x00, rdma_sync_chk);
+			test_case_dma('4', 0x00, 0x00, 0x40, rdma_sync_chk);
+			test_case_dma('5', 0x00, 0x00, 0x00, rdma_async_chk);
 			test_case_b();
-			LOG("test_case2\n");
-			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
-			LOG("test_caseh\n");
+			test_case_dma('2', 4*1024, 0x00, 0x00, rdma_sync_chk);
 			test_case_h_i('h');
-			LOG("test_case5\n");
-			test_case_dma(0x00, 0x00, 0x00, rdma_async_chk);
-			LOG("test_case3\n");
-			test_case_dma(0x00, 0x80, 0x00, rdma_sync_chk);
-			LOG("test_casec\n");
+			test_case_dma('5', 0x00, 0x00, 0x00, rdma_async_chk);
+			test_case_dma('3', 0x00, 0x80, 0x00, rdma_sync_chk);
 			test_case_c();
-			LOG("test_case4\n");
-			test_case_dma(0x00, 0x00, 0x40, rdma_sync_chk);
-//			LOG("test_casei\n");
-//			test_case_h_i('i');
-			LOG("test_case2\n");
-			test_case_dma(4*1024, 0x00, 0x00, rdma_sync_chk);
+			test_case_dma('4', 0x00, 0x00, 0x40, rdma_sync_chk);
+			test_case_h_i('i');
+			test_case_dma('2', 4*1024, 0x00, 0x00, rdma_sync_chk);
 		}
 		break;
 	default:
