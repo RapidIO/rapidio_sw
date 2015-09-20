@@ -1336,11 +1336,9 @@ int main(int argc, char *argv[])
 		break;
 	case 'j':
 		test_case_j_k('j');
-		BAT_EOT();
 		break;
 	case 'k':
 		test_case_j_k('k');
-		BAT_EOT();
 		break;
 	case 'l':
 		test_case_l();
