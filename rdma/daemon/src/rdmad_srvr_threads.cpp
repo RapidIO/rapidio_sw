@@ -341,9 +341,15 @@ void *wait_conn_disc_thread_f(void *arg)
 			} else {
 				HIGH("'Disconnect' message relayed to 'server'\n");
 			}
+		} else if (be64toh(conn_msg->type) == CM_DESTROY_ACK_MS) {
+			cm_destroy_ack_msg *dest_ack_msg;
+
+			rx_conn_disc_server->get_recv_buffer((void **)&dest_ack_msg);
+			HIGH("Received CM_DESTROY_ACK_MS for msid(0x%X), '%s'\n",
+			    be64toh(dest_ack_msg->server_msid), dest_ack_msg->server_msname);
 		} else {
 			CRIT("Message of unknown type 0x%016" PRIx64 "\n",
-					conn_msg->type);
+						be64toh(conn_msg->type));
 		}
 
 	} /* while(1) */

@@ -143,32 +143,6 @@ int mspace::notify_remote_clients()
 		}
 		INFO("Sent cm_destroy_msg for %s to remote daemon on client_destid(0x%X)\n",
 		                dm->server_msname, rem_conn.client_destid);
-
-		/* Wait for destroy acknowledge message, but with timeout.
-		 * If no ACK within say 1 second, then move on */
-		cm_destroy_ack_msg *dam;
-		destroy_server->flush_recv_buffer();
-		destroy_server->get_recv_buffer((void **) &dam);
-		if (destroy_server->timed_receive(1000)) {
-			/* In this case whether the return value is ETIME or a failure
-			 * code is irrelevant. The main thing is NOT to be stuck here.
-			 */
-			ERR("Did not receive destroy_ack from client_destid(0x%X)\n",
-					rem_conn.client_destid);
-			continue;
-		}
-
-		if (dam->type == htobe64(CM_DESTROY_MS)) {
-			if (dam->server_msid != dm->server_msid)
-				ERR("Received destroy_ack with wrong msid(0x%X)\n",
-							dam->server_msid);
-			else {
-				HIGH("destroy_ack received from daemon destid(0x%X)\n",
-						rem_conn.client_destid);
-			}
-		} else {
-			ERR("INVALID MESSAGE TYPE: 0x%X\n", htobe64(dam->type));
-		}
 	} /* for() */
 
 	/* Now clear the list */
