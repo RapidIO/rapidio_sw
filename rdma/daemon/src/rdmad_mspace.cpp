@@ -182,6 +182,9 @@ int mspace::close_connections()
 
 int mspace::destroy()
 {
+	DBG("name=%s, msid=0x%08X, rio_addr=0x%lX, size=0x%lX\n", name.c_str(),
+	                msid, rio_addr, size);
+
 	/* Before destroying a memory space, tell its clients that it is being
 	 * destroyed and have them acknowledge that. Then remove their destids */
 	if (notify_remote_clients()) {
@@ -208,8 +211,6 @@ int mspace::destroy()
 	set_msoid(0x000); /* No owner */
 	name = "freemspace";
 	accepted = false; /* No connections */
-	DBG("name=%s, msid=0x%08X, rio_addr=0x%lX, size=0x%lX\n", name.c_str(),
-	                msid, rio_addr, size);
 
 	/* Remove memory space identifier from owner */
 	ms_owner *owner;
