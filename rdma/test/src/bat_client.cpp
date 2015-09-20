@@ -1403,7 +1403,10 @@ int main(int argc, char *argv[])
 		break;
 	}
 
-	BAT_EOT();
+	/* For test cases that kill the bat_server, no point in sending BAT_EOT */
+	if(tc != 'j') {
+		BAT_EOT();
+	}
 
 	shutting_down = true;
 	delete bat_first_client;
