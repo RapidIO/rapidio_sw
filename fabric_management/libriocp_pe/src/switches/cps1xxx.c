@@ -359,8 +359,8 @@ extern "C" {
  */
 static int cps1xxx_check_link_init(struct riocp_pe *sw, uint8_t port)
 {
-	uint32_t status, control, result;
-	int ret;
+	uint32_t status, control, result, lm_resp;
+	int ret, attempts, i;
 
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &status);
 	if (ret < 0)
@@ -370,6 +370,31 @@ static int cps1xxx_check_link_init(struct riocp_pe *sw, uint8_t port)
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &control);
 	if (ret < 0)
 		return ret;
+
+	if (status & CPS1xxx_ERR_STATUS_PORT_OK) {
+		for (attempts=0; attempts<5; attempts++) {
+			/* trigger link request */
+			ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_LINK_MAINT_REQ_CSR(port), RIO_MNT_REQ_CMD_IS);
+			if (ret)
+				return ret;
+
+			for(i=0;i<3;i++) {
+				/* read link response */
+				ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_LINK_MAINT_RESP_CSR(port), &lm_resp);
+				if (ret)
+					return ret;
+
+				/* check link response */
+				if ((lm_resp & RIO_PORT_N_MNT_RSP_RVAL) == 0) {
+					continue;
+				}
+			}
+			if ((lm_resp & RIO_PORT_N_MNT_RSP_LSTAT) == 0x10) {
+				break;
+				/* TODO: Add possibility to update the ackid status for that port */
+			}
+		}
+	}
 
 	/* If the port did not achieve PORT_OK during initialization of the port
 		it got locked. If it achieved PORT_OK in the meantime the link
