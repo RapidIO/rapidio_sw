@@ -5,9 +5,9 @@
 # RapidIO RDMA software installation path must be identical on all nodes.
 
 #RDMA_ROOT_PATH=/opt/rapidio/cern/rapidio_sw
-RDMA_ROOT_PATH=/home/srio/rapidio_sw
+RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
-NODES="10.10.10.100 10.10.10.102"
+NODES="10.10.10.177 10.10.10.102"
 NUM_ITERATIONS=20
 
 for (( i=0; i<NUM_ITERATIONS; i++ ))
@@ -34,6 +34,30 @@ do
 		sleep 5
 		FMD_PID=$(ssh root@"$node" pgrep fmd)
 		echo "$node fmd pid=$FMD_PID"
+	done
+
+	# Wait for enumeration a few times before proceeding, if necessary
+	# (Alex's suggestion)
+	for node in $NODES
+	do
+		ENUM_FAIL_RETRY=1
+		while [ $ENUM_FAIL_RETRY -le 3 ]
+		do
+			RIODEVS=$(ssh root@"$node" "ls /sys/bus/rapidio/devices/")
+			if [ -z "$RIODEVS" ]
+			then
+				echo "   not enumerated. Waiting and checking again"
+				sleep 1
+				(( ENUM_FAIL_RETRY++ ))
+			else
+				echo "   RIO devices: "$RIODEVS""
+				ENUM_FAIL_RETRY=4
+			fi
+		done
+		if [ $ENUM_FAIL_RETRY -eq 3]
+		then
+			echo "Enumeration failure after retries!"
+		fi
 	done
 
 	# Start RDMAD on each node
@@ -142,6 +166,8 @@ do
 	else
 		echo "	Everything worked. Retrying, but cleaning up first"
 		echo ""
+
+		NODES="10.10.10.102 10.10.10.177"
 
 		# For each node, kill RSKTD RDMAD and FMD
 		for node in $NODES
