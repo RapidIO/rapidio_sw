@@ -8,7 +8,7 @@
 RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 NODES="10.10.10.177 10.10.10.102"
-NUM_ITERATIONS=20
+NUM_ITERATIONS=200
 
 for (( i=0; i<NUM_ITERATIONS; i++ ))
 do
