@@ -54,7 +54,7 @@ do
 				ENUM_FAIL_RETRY=4
 			fi
 		done
-		if [ $ENUM_FAIL_RETRY -eq 3]
+		if [ $ENUM_FAIL_RETRY -eq 3 ]
 		then
 			echo "Enumeration failure after retries!"
 		fi
