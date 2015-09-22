@@ -288,6 +288,28 @@ WaitCmd,
 ATTR_NONE
 };
 
+int SleepCmd(struct cli_env *env, int argc, char **argv)
+{
+	float sec = getFloatParm(argv[0], 0);
+	if(sec > 0) {
+		sprintf(env->output, "\nSleeping %f sec...\n", sec);
+        	logMsg(env);
+		const long usec = sec * 1000000;
+		usleep(usec);
+	}
+	return 0;
+}
+
+struct cli_cmd Sleep = {
+"sleep",
+2,
+1,
+"Sleep for a number of seconds (fractional allowed)",
+"sleep <sec>\n",
+SleepCmd,
+ATTR_NONE
+};
+
 #define FOUR_KB (4*1024)
 #define SIXTEEN_MB (16*1024*1024)
 
@@ -850,7 +872,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 
 #ifdef USER_MODE_DRIVER
 	sprintf(env->output,
-        "\nW STS <<<<--Avg Tick/Pkt-->>>> <<<<--Avg uS/Pkt-->>>> <<<<--Totalk Pkt Cnt-->>>> <<<<--MByte/s-->>>>\n");
+        "\ncsv,Worker#,STS size,DMA Write Size (hex),Ticks/Packet,uS/Pkt,Total Pkts,Thruput (Mbyte/s)\n");
         logMsg(env);
 
         const int MHz = getCPUMHz();
@@ -867,9 +889,9 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 
 		double thruput = TOTAL_SIZE_MEG / dTtotalSec;
 
-		sprintf(env->output, "\t%lf\t\t%lf\t\t\t%llu\t\t%lf\n",
-                        dT, dTus,
-                        wkr[i].tick_count, thruput);
+		sprintf(env->output, "csv,%d,0x%x,%x,%lf,%lf,%llu,%lf\n",
+                        i, wkr[i].umd_sts_entries, wkr[i].acc_size,
+			dT, dTus, wkr[i].tick_count, thruput);
         	logMsg(env);
 	}
 #endif
@@ -1434,6 +1456,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&Halt,
 	&Move,
 	&Wait,
+	&Sleep,
 	&Mpdevs
 };
 
