@@ -303,6 +303,7 @@ void *rsvp_loop(void *unused)
 
 	while (!lib.all_must_die) {
 		memset((void *)rxd, 0, RSKTD2A_SZ);
+		DBG("Receiving from FD = %d\n", lib.fd);
 		rc = recv(lib.fd, (void *)rxd, RSKTD2A_SZ, 0);
 		if (rc < 0) {
 			ERR("Failed in recv()\n");
@@ -310,9 +311,10 @@ void *rsvp_loop(void *unused)
 			goto exit;
 		};
 		if (rxd->msg_type & htonl(LIBRSKTD_RESP | LIBRSKTD_FAIL)) {
-			ERR("LIBRSKTD_FAIL?\n");
+			ERR("LIBRSKTD_FAIL?, msg_type = 0x%X\n", rxd->msg_type);
 			rsvp_loop_resp(rxd);
 		} else {
+			DBG("msg_type is OK\n");
 			rsvp_loop_req(rxd);
 			rxd = (struct librskt_rsktd_to_app_msg *)
 				malloc(RSKTD2A_SZ);
@@ -509,9 +511,10 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 
 	lib.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 	if (-1 == lib.fd) {
-		perror("ERROR on librskt_init socket");
+		ERR("ERROR on librskt_init socket(): %s\n", strerror(errno));
 		goto fail;
 	};
+	DBG("lib.fd = %d, rsktd_port = %d\n", lib.fd, rsktd_port);
 
 	lib.addr_sz = sizeof(struct sockaddr_un);
 	memset(&lib.addr, 0, lib.addr_sz);
