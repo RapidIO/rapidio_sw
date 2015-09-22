@@ -378,18 +378,29 @@ static int cps1xxx_check_link_init(struct riocp_pe *sw, uint8_t port)
 			if (ret)
 				return ret;
 
+			RIOCP_DEBUG("link req on 0x%x:%u (0x%x) port %u (atttempt %u)\n", sw->destid, sw->hopcount, sw->comptag, port, attempts);
+
 			for(i=0;i<3;i++) {
 				/* read link response */
 				ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_LINK_MAINT_RESP_CSR(port), &lm_resp);
 				if (ret)
 					return ret;
 
+				RIOCP_DEBUG("link resp on 0x%x:%u (0x%x) port %u: 0x%x\n", sw->destid, sw->hopcount, sw->comptag, port, lm_resp);
 				/* check link response */
-				if ((lm_resp & RIO_PORT_N_MNT_RSP_RVAL) == 0) {
-					continue;
+				if (lm_resp & RIO_PORT_N_MNT_RSP_RVAL) {
+					break;
 				}
 			}
 			if ((lm_resp & RIO_PORT_N_MNT_RSP_LSTAT) == 0x10) {
+				/* clear port error status */
+				ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &status);
+				if (ret < 0)
+					return ret;
+				ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), status);
+				if (ret < 0)
+					return ret;
+
 				break;
 				/* TODO: Add possibility to update the ackid status for that port */
 			}
