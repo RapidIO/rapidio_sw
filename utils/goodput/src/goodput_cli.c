@@ -1336,16 +1336,18 @@ int UDMACmd(struct cli_env *env, int argc, char **argv)
 	uint32_t acc_sz;
 	int trans;
 
-	idx = 	getDecParm(argv[0], 0);
-	cpu = 	getDecParm(argv[1], 0);
-	chan =	getDecParm(argv[2], 0);
-	buff =	getHex(argv[3], 0);
-	sts =	getHex(argv[4], 0);
-	did =		getDecParm(argv[5], 0);
-	rio_addr =	getHex(argv[6], 0);
-	bytes =		getHex(argv[7], 0);
-	acc_sz =	getHex(argv[8], 0);
-	trans =	getDecParm(argv[9], 0);
+        int n = 0; // this be a trick from X11 source tree ;)
+
+	idx      = getDecParm(argv[n++], 0);
+	cpu      = getDecParm(argv[n++], 0);
+	chan     = getDecParm(argv[n++], 0);
+	buff     = getHex(argv[n++], 0);
+	sts      = getHex(argv[n++], 0);
+	did      = getDecParm(argv[n++], 0);
+	rio_addr = getHex(argv[n++], 0);
+	bytes    = getHex(argv[n++], 0);
+	acc_sz   = getHex(argv[n++], 0);
+	trans    = getDecParm(argv[n++], 0);
 
 	if (check_idx(env, idx))
 		goto exit;
