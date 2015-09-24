@@ -54,6 +54,10 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)" IBWIN",
 	(char *)"~IBWIN",
 	(char *)"SHTDWN",
+#ifdef USER_MODE_DRIVER
+        (char*)"UDMA",
+        (char*)"UMSG",
+#endif
 	(char *)"LAST"
 };
 
