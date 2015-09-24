@@ -1093,8 +1093,19 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 			ret = riocp_pe_maint_write_local(pe, 0x60020, destid);
 		
 	} else {
-		ret = riocp_pe_maint_write(pe, RIO_DID_CSR, 
-						(destid << 16) & 0x00ff0000);
+		switch (pe->mport->minfo->prop.sys_size) {
+		case RIO_SYS_SIZE_8:
+			ret = riocp_pe_maint_write(pe, RIO_DID_CSR,
+							(destid << 16) & 0x00ff0000);
+			break;
+		case RIO_SYS_SIZE_16:
+			ret = riocp_pe_maint_write(pe, RIO_DID_CSR,
+							destid & 0x0000ffff);
+			break;
+		default:
+			ret = -ENOTSUP;
+			break;
+		}
 		if ((0x80ab0038 == pe->cap.dev_id) && !ret)
 			ret = riocp_pe_maint_write(pe, 0x60020, destid);
 	};
