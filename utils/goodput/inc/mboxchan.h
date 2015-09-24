@@ -128,6 +128,25 @@ public:
   static const int RIO_MAX_MBOX = 4;
   static const int MBOX_BUFF_DESCR_SIZE = 16;
 
+  typedef struct {
+      uint8_t dtype;
+      uint8_t mbox;
+      uint8_t letter;
+      uint16_t destid;
+      bool iof;
+      bool crf;
+      bool tt_16b; // set to 1 if destid is 16 bytes
+      uint8_t prio:2;
+      uint32_t bd_wp; ///< Soft WP at the moment of enqueuing this
+      uint32_t bd_idx; ///< index into buffer ring of buffer used to handle this op
+      uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
+  } MboxOptions_t;
+
+  typedef struct {
+    MboxOptions_t       opt;
+    // add actions here
+  } WorkItem_t;
+
   MboxChannel(const uint32_t mportid, const uint32_t chan);
   MboxChannel(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_h);
 
@@ -136,7 +155,7 @@ public:
   void setInitState();
   bool open_mbox(const uint32_t entries);
 
-  bool send_message(const uint16_t destid, const int mbox, const void* data, size_t len);
+  bool send_message(MboxOptions_t& opt, const void* data, size_t len);
 
   int add_inb_buffer(const int mbox, void* buf);
   bool inb_message_ready(const int ib_mbox);
@@ -151,7 +170,7 @@ public:
   inline int getDeviceId() { return m_mport->getDeviceId(); }
   inline uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 
-  int scanFIFO(const int mbox);
+  int scanFIFO(const int mbox, std::vector<MboxChannel::WorkItem_t>& wi);
 
   inline int getTxReadCountSoft(const int mbox)
   {
@@ -238,7 +257,7 @@ private:
   // Cannot store this in struct hw_omsg_ring as m_omsg_init
   // gets memset to 0 and that screws up the std:: objects
   struct {
-    std::map<uint64_t, uint32_t> bltx_busy; ///< BD busy map {hwaddr, wp}
+    std::map<uint64_t, WorkItem_t> bltx_busy; ///< BD busy map {hwaddr, wp}
     std::map<uint32_t, int>      bl_busy; ///< BD busy array
   } m_omsg_trk[RIO_MAX_MBOX];
 };

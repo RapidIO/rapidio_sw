@@ -1321,12 +1321,44 @@ void *umd_mbox_fifo_proc_thr(void *parm)
         sem_post(&info->umd_fifo_proc_started);
 
 	while (!info->umd_fifo_proc_must_die) {
+		std::vector<MboxChannel::WorkItem_t> wi;
 		fifo_thr_iter++;
 
-		if (0 == info->umd_mch->scanFIFO(info->umd_chan)) {
+		if (0 == info->umd_mch->scanFIFO(info->umd_chan, wi)) {
 			for(int i = 0; i < 20000; i++) {;}
 			continue;
 		}
+
+
+                for (std::vector<MboxChannel::WorkItem_t>::iterator it = wi.begin(); it != wi.end(); it++) {
+                        MboxChannel::WorkItem_t& item = *it;
+
+                        uint64_t dT  = 0;
+                        float    dTf = 0;
+                        if(item.opt.ts_end > item.opt.ts_start) { // Ignore rdtsc wrap-arounds
+                                dT = item.opt.ts_end - item.opt.ts_start;
+                                dTf = (float)dT / MHz;
+                        }
+                        switch (item.opt.dtype) {
+                        case DTYPE4:
+                                INFO("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
+                                        item.opt.destid,
+                                        item.opt.bd_wp, fifo_thr_iter, dT, dTf);
+                                info->perf_byte_cnt += info->acc_size;
+                                clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+                                if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += info->acc_size; }
+                                break;
+                        case DTYPE5:
+                                INFO("\n\tFinished D5 bd_wp=%u -- FIFO iter %llu dTick %ll (%f uS)u\n",
+                                         item.opt.bd_wp, fifo_thr_iter, dT, dTf);
+                                break;
+                        default:
+                                INFO("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
+                                         item.opt.dtype, item.opt.bd_wp,
+                                        fifo_thr_iter);
+                                break;
+                        }
+                } // END for WorkItem_t vector
 
 //next:
 		for(int i = 0; i < 10000; i++) {;}
@@ -1613,8 +1645,11 @@ void umd_mbox_goodput_demo(struct worker *info)
                                                         cnt += info->acc_size) {
 			char str[PAGE_4K+1] = {0};
 
+			MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
+			opt.destid = info->did;
+			opt.mbox   = info->umd_chan;
 			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
-		      	if (! info->umd_mch->send_message(info->did, info->umd_chan, str, info->acc_size)) {
+		      	if (! info->umd_mch->send_message(opt, str, info->acc_size)) {
 				ERR("\n\tsend_message FAILED!\n");
 				goto exit;
 		      	}
