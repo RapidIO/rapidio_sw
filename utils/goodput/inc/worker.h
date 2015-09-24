@@ -70,6 +70,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef USER_MODE_DRIVER
 #include "dmachan.h"
+#include "mboxchan.h"
 #include "debug.h"
 #include "dmadesc.h"
 #include "local_endian.h"
@@ -112,6 +113,7 @@ enum req_type {
 	shutdown_worker,
 #ifdef USER_MODE_DRIVER
 	umd_dma,
+	umd_mbox,
 #endif
 	last_action
 };
@@ -204,6 +206,7 @@ struct worker {
 #ifdef USER_MODE_DRIVER
 	int		umd_chan;
 	DMAChannel 	*umd_dch;
+	MboxChannel 	*umd_mch;
 	enum dma_rtype	umd_tx_rtype;
 	int 		umd_tx_buf_cnt;
 	int		umd_sts_entries;

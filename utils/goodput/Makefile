@@ -33,6 +33,7 @@ CXX ?= $(CROSS_COMPILE)g++
 config?=NODEBUG
 COMMONDIR=../../common
 COMMONINC=$(COMMONDIR)/include
+HACKINC=../../utils/latency/common
 COMMONLIB=$(COMMONDIR)/libs_a
 REGSDIR=../../fabric_management/librio_switch/inc
 LOG_LEVEL?=7
@@ -58,7 +59,7 @@ UMD_INCLUDES = inc/debug.h inc/dmadesc.h inc/local_endian.h inc/mapfile.h \
 	inc/mport.h inc/pciebar.h inc/psem.h inc/pshm.h inc/rdtsc.h \
 	inc/spinlock.h
 
-UMD_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc \
+UMD_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc src/mboxchan.cc \
 	src/crc32.c \
 	src/hash.cc src/psem.cc src/pshm.cc
 
@@ -67,7 +68,7 @@ LIBRARIES =  -lpthread -lcli -lmport -llog -lrt
 all: goodput ugoodput
 
 ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES) 
-	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
+	$(CXX) $(CCFLAGS) -I$(HACKINC) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
 	$(LIBRARIES) -L$(COMMONLIB)
 
 goodput: $(SOURCES) $(INCLUDES)
