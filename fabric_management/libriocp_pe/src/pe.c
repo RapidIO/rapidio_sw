@@ -151,7 +151,7 @@ static int riocp_pe_get_efptr_phys(struct riocp_pe *pe, uint32_t *efptr)
 			break;
 		}
 
-		ret = riocp_pe_get_efb(pe, _efptr, &_efptr);
+		ret = riocp_pe_get_efb(pe, RIO_GET_BLOCK_PTR(_efptr), &_efptr);
 		if (ret)
 			return ret;
 	}
