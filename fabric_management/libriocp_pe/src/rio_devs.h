@@ -40,6 +40,10 @@ extern "C" {
  #define RIO_DID_IDT_SPS1616	0x0378
  #define RIO_DID_IDT_TSI721	0x80ab
 #define RIO_VID_PRODRIVE	0x00a4
+#define RIO_VID_NOKIA 0x0076
+ #define RIO_DID_NOKIA_STC 0x0001
+#define RIO_VID_LSI 0x000a
+ #define RIO_DID_LSI_AXM5516 0x5120
 
 /* Prodrive custom */
 #define RIO_ASSY_IDENT_CAR_ASSY_PRIOCG2		0x70000
@@ -66,7 +70,7 @@ static const struct riocp_pe_vendor riocp_pe_vendors[] = {
 	{0x0007,		"Alcatel-Lucent Technologies"},
 	{0x0008,		"Nortel Networks"},
 	{0x0009,		"Altera"},
-	{0x000a,		"LSA Corporation"},
+	{RIO_VID_LSI,		"LSI Corporation"},
 	{0x000b,		"Rydal Research"},
 	{RIO_VID_TUNDRA,	"Tundra Semiconductor"},
 	{0x000e,		"Xilinx"},
@@ -89,8 +93,7 @@ static const struct riocp_pe_vendor riocp_pe_vendors[] = {
 	{0x006e,		"Micro Memory"},
 	{0x0072,		"PA Semi, Inc."},
 	{0x0074,		"SRISA - Scientific Research Inst for System Analysis"},
-	{0x0076,		"Nokia Siemens Networks"},
-	{0x0079,		"Nokia Siemens Networks"},
+	{RIO_VID_NOKIA,		"Nokia Networks"},
 	{0x007c,		"Hisilicon Technologies Co."},
 	{0x007e,		"Creatuve Electronix Systems"},
 	{0x0080,		"ELVEES"},
@@ -168,6 +171,12 @@ static const struct riocp_pe_dev_id riocp_pe_device_ids[] = {
 	/* Texas Instruments */
 	{RIO_VID_TI, 0x009e, "TMS320C6678"},
 	{RIO_VID_TI, 0xb981, "66AK2H12/06"},
+
+	/* LSI Corporation */
+	{RIO_VID_LSI, RIO_DID_LSI_AXM5516, "AXM5516"},
+
+	/* Nokia Networks */
+	{RIO_VID_NOKIA, RIO_DID_NOKIA_STC, "SRIO Tracer"},
 
 	/* End of list */
 	{RIO_VID_RESERVED, RIO_DID_RESERVED, "Unknown"},
