@@ -19,7 +19,7 @@ CC = $(CROSS_COMPILE)g++
 AR = $(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
-CFLAGS+=-O2 -DNDEBUG -g
+CFLAGS+=-O0 -DNDEBUG -g
 CFLAGS+=-I. -I./inc
 CFLAGS+=-I./src
 CFLAGS+=-I$(TOP_LEVEL)/include
