@@ -87,6 +87,11 @@ struct hw_imsg_desc_ {
 typedef struct hw_imsg_desc_ hw_imsg_desc;
 
 typedef struct {
+  bool valid;
+  uint64_t enq_ts;
+} imq_ts_t;
+
+typedef struct {
   uint32_t size;
   /* VA/PA of data buffers for incoming messages */
   RioMport::DmaMem_t buf;
@@ -97,8 +102,8 @@ typedef struct {
   /* VA/PA of Inbound message descriptors */
   RioMport::DmaMem_t imd;
 
-  /* Inbound Queue buffer pointers provided by user */
-  void* imq_base[TSI721_IMSGD_RING_SIZE]; // XXX make it a std::vector
+  std::vector<void*>    imq_base; ///< Inbound Queue buffer pointers provided by user
+  std::vector<imq_ts_t> imq_ts; ///< rdtsc timestamp of the moment a BD was placed on the free list
 
   uint32_t rx_slot;
   uint32_t fq_wrptr;
@@ -158,13 +163,13 @@ public:
   bool send_message(MboxOptions_t& opt, const void* data, size_t len);
 
   int add_inb_buffer(const int mbox, void* buf);
-  bool inb_message_ready(const int ib_mbox);
-  void* get_inb_message(const int ib_mbox, int& msg_size);
+  bool inb_message_ready(const int ib_mbox, uint64_t& rx_ts);
+  void* get_inb_message(const int ib_mbox, int& msg_size, uint64_t& enq_ts);
 
   void set_rx_destid(const uint16_t destid)
   {
     m_mport->wr32(TSI721_IB_DEVID, destid);
-    DBG("Set own destid := %d; HW destid = %d\n", destid, m_mport->rd32(TSI721_IB_DEVID ));
+    DBG("\n\tSet own destid := %d; HW destid = %d\n", destid, m_mport->rd32(TSI721_IB_DEVID ));
   }
 
   inline int getDeviceId() { return m_mport->getDeviceId(); }
@@ -211,7 +216,7 @@ public: // test-public
   #define wr32mboxchan(o, d) _wr32mboxchan((o), #o, (d), #d)
   void _wr32mboxchan(uint32_t offset, const char* offset_str, uint32_t data, const char* data_str)
   {
-    DDBG("wr32mboxchan offset %s (0x%x) :=  %s (0x%x)\n", offset_str, offset, data_str, data);
+    DDBG("\n\twr32mboxchan offset %s (0x%x) :=  %s (0x%x)\n", offset_str, offset, data_str, data);
     pthread_spin_lock(&m_hw_splock);
     m_mport->__wr32(offset, data);
     pthread_spin_unlock(&m_hw_splock);
@@ -222,7 +227,7 @@ public: // test-public
     pthread_spin_lock(&m_hw_splock);
     uint32_t ret = m_mport->__rd32(offset);
     pthread_spin_unlock(&m_hw_splock);
-    DDDBG("rd32mboxchan offset %s (0x%x) => 0x%x\n", offset_str, offset, ret);
+    DDDBG("\n\trd32mboxchan offset %s (0x%x) => 0x%x\n", offset_str, offset, ret);
     return ret;
   }
   void wr32mboxchan_nolock(uint32_t offset, uint32_t data)

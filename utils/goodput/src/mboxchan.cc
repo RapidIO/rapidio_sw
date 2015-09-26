@@ -31,18 +31,21 @@
 static inline void
 dump_ob_desc(hw_omsg_desc* desc)
 {
-  DBG("  DEVID=0x%04X, ", desc->type_id & TSI721_OMD_DEVID);
-  DBG("  CRF=%d, ", (desc->type_id & TSI721_OMD_CRF) >> 16);
-  DBG("  PRIO=%d, ", (desc->type_id & TSI721_OMD_PRIO) >> 17);
-  DBG("  IOF=%d, ", (desc->type_id & TSI721_OMD_IOF) >> 27);
-  DBG("  DTYPE=%d\n", (desc->type_id & TSI721_OMD_DTYPE) >> 29);
-  DBG("  BCOUNT=%d, ", desc->msg_info & TSI721_OMD_BCOUNT);
-  DBG("  SSIZE=%d, ", (desc->msg_info & TSI721_OMD_SSIZE) >> 12);
-  DBG("  LETTER=%d, ", (desc->msg_info & TSI721_OMD_LETTER) >> 16);
-  DBG("  XMBOX=%d, ", (desc->msg_info & TSI721_OMD_XMBOX) >> 18);
-  DBG("  MBOX=%d, ", (desc->msg_info & TSI721_OMD_MBOX) >> 22);
-  DBG("  TT=%d\n", (desc->msg_info & TSI721_OMD_TT) >> 26);
-  DBG("  BUFFER_PTR=0x%08X%08X\n", desc->bufptr_hi, desc->bufptr_lo);
+  char tmp[129] = {0};
+  std::stringstream ss;
+  snprintf(tmp, 128, "  DEVID=0x%04X, ", desc->type_id & TSI721_OMD_DEVID); ss << tmp;
+  snprintf(tmp, 128, "  CRF=%d, ", (desc->type_id & TSI721_OMD_CRF) >> 16); ss << tmp;
+  snprintf(tmp, 128, "  PRIO=%d, ", (desc->type_id & TSI721_OMD_PRIO) >> 17); ss << tmp;
+  snprintf(tmp, 128, "  IOF=%d, ", (desc->type_id & TSI721_OMD_IOF) >> 27); ss << tmp;
+  snprintf(tmp, 128, "  DTYPE=%d\n", (desc->type_id & TSI721_OMD_DTYPE) >> 29); ss << tmp;
+  snprintf(tmp, 128, "  BCOUNT=%d, ", desc->msg_info & TSI721_OMD_BCOUNT); ss << tmp;
+  snprintf(tmp, 128, "  SSIZE=%d, ", (desc->msg_info & TSI721_OMD_SSIZE) >> 12); ss << tmp;
+  snprintf(tmp, 128, "  LETTER=%d, ", (desc->msg_info & TSI721_OMD_LETTER) >> 16); ss << tmp;
+  snprintf(tmp, 128, "  XMBOX=%d, ", (desc->msg_info & TSI721_OMD_XMBOX) >> 18); ss << tmp;
+  snprintf(tmp, 128, "  MBOX=%d, ", (desc->msg_info & TSI721_OMD_MBOX) >> 22); ss << tmp;
+  snprintf(tmp, 128, "  TT=%d\n", (desc->msg_info & TSI721_OMD_TT) >> 26); ss << tmp;
+  snprintf(tmp, 128, "  BUFFER_PTR=0x%08X%08X\n", desc->bufptr_hi, desc->bufptr_lo); ss << tmp;
+  DBG("\n%s", ss.str().c_str());
 }
 
 /**
@@ -53,18 +56,20 @@ dump_ob_desc(hw_omsg_desc* desc)
 static inline void
 dump_ib_desc(hw_imsg_desc* desc)
 {
-  DBG("  DEVID=0x%04X, ", desc->type_id & TSI721_IMD_DEVID);
-  DBG("  CRF=%d, ", (desc->type_id & TSI721_IMD_CRF) >> 16);
-  DBG("  PRIO=%d, ", (desc->type_id & TSI721_IMD_PRIO) >> 17);
-  DBG("  DTYPE=%d\n", (desc->type_id & TSI721_IMD_DTYPE) >> 29);
-
-  DBG("  BCOUNT=%d, ", desc->msg_info & TSI721_IMD_BCOUNT);
-  DBG("  SSIZE=%d, ", (desc->msg_info & TSI721_IMD_SSIZE) >> 12);
-  DBG("  LETTER=%d, ", (desc->msg_info & TSI721_IMD_LETER) >> 16);
-  DBG("  XMBOX=%d, ", (desc->msg_info & TSI721_IMD_XMBOX) >> 18);
-  DBG("  CS=%d, ", (desc->msg_info & TSI721_IMD_CS) >> 27);
-  DBG("  HO=%d\n", (desc->msg_info & TSI721_IMD_HO) >> 31);
-  DBG("  BUFFER_PTR=0x%08X%08X\n", desc->bufptr_hi, desc->bufptr_lo);
+  char tmp[129] = {0};
+  std::stringstream ss;
+  snprintf(tmp, 128, "  DEVID=0x%04X, ", desc->type_id & TSI721_IMD_DEVID); ss << tmp;
+  snprintf(tmp, 128, "  CRF=%d, ", (desc->type_id & TSI721_IMD_CRF) >> 16); ss << tmp;
+  snprintf(tmp, 128, "  PRIO=%d, ", (desc->type_id & TSI721_IMD_PRIO) >> 17); ss << tmp;
+  snprintf(tmp, 128, "  DTYPE=%d\n", (desc->type_id & TSI721_IMD_DTYPE) >> 29); ss << tmp;
+  snprintf(tmp, 128, "  BCOUNT=%d, ", desc->msg_info & TSI721_IMD_BCOUNT); ss << tmp;
+  snprintf(tmp, 128, "  SSIZE=%d, ", (desc->msg_info & TSI721_IMD_SSIZE) >> 12); ss << tmp;
+  snprintf(tmp, 128, "  LETTER=%d, ", (desc->msg_info & TSI721_IMD_LETER) >> 16); ss << tmp;
+  snprintf(tmp, 128, "  XMBOX=%d, ", (desc->msg_info & TSI721_IMD_XMBOX) >> 18); ss << tmp;
+  snprintf(tmp, 128, "  CS=%d, ", (desc->msg_info & TSI721_IMD_CS) >> 27); ss << tmp;
+  snprintf(tmp, 128, "  HO=%d\n", (desc->msg_info & TSI721_IMD_HO) >> 31); ss << tmp;
+  snprintf(tmp, 128, "  BUFFER_PTR=0x%08X%08X\n", desc->bufptr_hi, desc->bufptr_lo); ss << tmp;
+  DBG("\n%s", ss.str().c_str());
 }
 
 /**
@@ -78,19 +83,22 @@ dump_msg_regs(RioMport* mport, int ch)
 {
   if(mport == NULL || ch < 0 || ch > 8) return;
 
-  DBG("OUTBOUND MESSAGING REGISTERS:\n", NULL);
-  DBG("  DWRCNT = %X\t", mport->rd32(TSI721_OBDMAC_DWRCNT(ch)));
-  DBG("  DRDCNT = %X\n", mport->rd32(TSI721_OBDMAC_DRDCNT(ch)));
-  DBG("  CTL = %X\t", mport->rd32(TSI721_OBDMAC_CTL(ch)));
-  DBG("  INT = %X\n", mport->rd32(TSI721_OBDMAC_INT(ch)));
-  DBG("  STS = %X\n", mport->rd32(TSI721_OBDMAC_STS(ch)));
-  DBG("  DPTRL = %X ", mport->rd32(TSI721_OBDMAC_DPTRL(ch)));
-  DBG("  DPTRH = %X\n", mport->rd32(TSI721_OBDMAC_DPTRH(ch)));
-  DBG("  DSBL = %X ", mport->rd32(TSI721_OBDMAC_DSBL(ch)));
-  DBG("  DSBH = %X\n", mport->rd32(TSI721_OBDMAC_DSBH(ch)));
-  DBG("  DSSZ = %X\n", mport->rd32(TSI721_OBDMAC_DSSZ(ch)));
-  DBG("  DSRP = %X\t", mport->rd32(TSI721_OBDMAC_DSRP(ch)));
-  DBG("  DSWP = %X\n", mport->rd32(TSI721_OBDMAC_DSWP(ch)));
+  char tmp[129] = {0};
+  std::stringstream ss;
+  ss << "OUTBOUND MESSAGING REGISTERS:\n";
+  snprintf(tmp, 128, "  DWRCNT = %X\t", mport->rd32(TSI721_OBDMAC_DWRCNT(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DRDCNT = %X\n", mport->rd32(TSI721_OBDMAC_DRDCNT(ch))); ss << tmp;
+  snprintf(tmp, 128, "  CTL = %X\t", mport->rd32(TSI721_OBDMAC_CTL(ch))); ss << tmp;
+  snprintf(tmp, 128, "  INT = %X\n", mport->rd32(TSI721_OBDMAC_INT(ch))); ss << tmp;
+  snprintf(tmp, 128, "  STS = %X\n", mport->rd32(TSI721_OBDMAC_STS(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DPTRL = %X ", mport->rd32(TSI721_OBDMAC_DPTRL(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DPTRH = %X\n", mport->rd32(TSI721_OBDMAC_DPTRH(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DSBL = %X ", mport->rd32(TSI721_OBDMAC_DSBL(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DSBH = %X\n", mport->rd32(TSI721_OBDMAC_DSBH(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DSSZ = %X\n", mport->rd32(TSI721_OBDMAC_DSSZ(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DSRP = %X\t", mport->rd32(TSI721_OBDMAC_DSRP(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DSWP = %X\n", mport->rd32(TSI721_OBDMAC_DSWP(ch))); ss << tmp;
+  DBG("\n%s", ss.str().c_str());
 }
 
 MboxChannel::MboxChannel(const uint32_t mportid, const uint32_t mboxes) :
@@ -232,8 +240,14 @@ int MboxChannel::open_inb_mbox(const int mbox, const uint32_t entries)
   m_imsg_ring[mbox].desc_rdptr = 0;
   m_imsg_ring[mbox].fq_wrptr = 0;
 
-  for (i = 0; i < m_imsg_ring[mbox].size; i++)
+  m_imsg_ring[mbox].imq_base.reserve(m_imsg_ring[mbox].size);
+  m_imsg_ring[mbox].imq_ts.reserve(m_imsg_ring[mbox].size);
+
+  imq_ts_t tmp = {false, 0};
+  for (i = 0; i < m_imsg_ring[mbox].size; i++) {
     m_imsg_ring[mbox].imq_base[i] = NULL;
+    m_imsg_ring[mbox].imq_ts[i] = tmp; // mark as invalid TS at startup
+  }
 
   /* Allocate buffers for incoming messages */
   if(! m_mport->map_dma_buf(entries * TSI721_MSG_BUFFER_SIZE, m_imsg_ring[mbox].buf)) {
@@ -465,10 +479,13 @@ void MboxChannel::cleanup()
       for (int i = 0; i < m_omsg_ring[mbox].size; i++)
         m_mport->unmap_dma_buf(m_omsg_ring[mbox].omq[i]);
     }
-    for(int i = 0; i < TSI721_IMSGD_RING_SIZE; i++) {
+    for(int i = 0; i < m_imsg_ring[mbox].imq_base.size(); i++) {
       if(m_imsg_ring[mbox].imq_base[i] == NULL) continue;
       free(m_imsg_ring[mbox].imq_base[i]);
     }
+    m_imsg_ring[mbox].imq_base.clear();
+
+    m_imsg_ring[mbox].imq_ts.clear();
   } // END for mbox
 }
 
@@ -721,7 +738,7 @@ out:
  * @peer    Pointer to peer_info struct
  * @return  1 if true, -1 if timeout.
  */
-bool MboxChannel::inb_message_ready(const int ib_mbox)
+bool MboxChannel::inb_message_ready(const int ib_mbox, uint64_t& rx_ts)
 {
   const int mboxmsk = 1<<ib_mbox;
   if(! (m_mboxen & mboxmsk)) return false;
@@ -737,17 +754,21 @@ bool MboxChannel::inb_message_ready(const int ib_mbox)
   wr_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQWR(ch));
 #endif
 
+  uint64_t tmp_ts = 0;
   do {
     rd_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQRP(ch));
     wr_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQWR(ch));
     if (wr_ptr == 255)
       wr_ptr = -1;
+    tmp_ts = rdtsc();
   } while (wr_ptr <= rd_ptr && timeout--);
 
   if (timeout <= 0)
     return false;
  
   DBG("\n\t%s:EXIT: DQRP = %X, DQWR = %X\n", __FUNCTION__, rd_ptr, wr_ptr);
+
+  rx_ts = tmp_ts;
 
   return true;
 }
@@ -762,7 +783,7 @@ bool MboxChannel::inb_message_ready(const int ib_mbox)
  *
  * @return pointer to the message on success or NULL on failure.
  */
-void* MboxChannel::get_inb_message(const int ib_mbox, int& msg_size)
+void* MboxChannel::get_inb_message(const int ib_mbox, int& msg_size, uint64_t& enq_ts)
 {
   const int mboxmsk = 1<<ib_mbox;
   if(! (m_mboxen & mboxmsk)) return NULL;
@@ -820,6 +841,11 @@ void* MboxChannel::get_inb_message(const int ib_mbox, int& msg_size)
   if (msg_size == 0)
     msg_size = RIO_MAX_MSG_SIZE;
 
+  enq_ts = m_imsg_ring[ib_mbox].imq_ts[rx_slot].valid?
+             m_imsg_ring[ib_mbox].imq_ts[rx_slot].enq_ts:
+             0;
+  m_imsg_ring[ib_mbox].imq_ts[rx_slot].valid = false;
+
   DBG("\n\t%s: Copying buffer %p, size = %d from slot %d\n", __FUNCTION__, buf, msg_size, rx_slot);
   /* Copy the message contents to 'buf' */
   memcpy(buf, rx_virt, msg_size);
@@ -840,6 +866,10 @@ void* MboxChannel::get_inb_message(const int ib_mbox, int& msg_size)
   /* Return free buffer into the pointer list */
   uint64_t* free_ptr = (uint64_t *) m_imsg_ring[ib_mbox].imfq.win_ptr;
   free_ptr[m_imsg_ring[ib_mbox].fq_wrptr] = rx_phys;
+  const uint64_t fq_ts = rdtsc();
+
+  m_imsg_ring[ib_mbox].imq_ts[rx_slot].enq_ts = fq_ts;
+  m_imsg_ring[ib_mbox].imq_ts[rx_slot].valid  = true;
 
   /* Increment free queue pointer, wrapping around if necessary */
   if (++m_imsg_ring[ib_mbox].fq_wrptr == m_imsg_ring[ib_mbox].size)
