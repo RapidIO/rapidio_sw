@@ -1593,32 +1593,39 @@ void umd_mbox_goodput_demo(struct worker *info)
 
  	// Receiver
 	if(info->wr == 0) {
-		std::vector<void*> inb_vec;
-
 		info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
 
 		for(int i = 0; i < info->umd_tx_buf_cnt; i++) {
 			void* b = calloc(1, PAGE_4K);
-			inb_vec.push_back(b);
       			info->umd_mch->add_inb_buffer(info->umd_chan, b);
 		}
 
         	while (!info->stop_req) {
                 	info->umd_dma_abort_reason = 0;
-			while(!info->stop_req && ! info->umd_mch->inb_message_ready(info->umd_chan))
+			uint64_t rx_ts = 0;
+			while (!info->stop_req && ! info->umd_mch->inb_message_ready(info->umd_chan, rx_ts))
 				usleep(1);
-			if(info->stop_req) break;
+			if (info->stop_req) break;
 
 			void* buf = NULL;
 			int msg_size = 0;
-			while((buf = info->umd_mch->get_inb_message(info->umd_chan, msg_size)) != NULL) {
+			uint64_t enq_ts = 0;
+			while ((buf = info->umd_mch->get_inb_message(info->umd_chan, msg_size, enq_ts)) != NULL) {
 			      INFO("\n\tGot a message of size %d [%s]\n\n", msg_size, buf);
 			      info->umd_mch->add_inb_buffer(info->umd_chan, buf); // recycle
 			}
+			if (rx_ts && enq_ts && rx_ts > enq_ts && msg_size > 0) { // not overflown
+				const uint64_t dT = rx_ts - enq_ts;
+				if (dT > 0) { 
+					info->tick_count++;
+					info->tick_total += dT;
+					info->tick_data_total += msg_size;
+				}
+			}
 		} // END infinite loop
 
-		for(std::vector<void*>::iterator it = inb_vec.begin(); it != inb_vec.end(); it++)
-			free(*it);
+
+		// Inbound buffers freed in MboxChannel::cleanup
 
 		goto exit_rx;
 	} // END Receiver
