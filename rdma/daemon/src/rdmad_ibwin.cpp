@@ -129,6 +129,7 @@ void ibwin::free()
 	for (auto& ms : mspaces) {
 		if (ms != nullptr) {
 			INFO("Deleting %s\n", ms->get_name());
+			delete ms;
 		} else {
 			WARN("NOT deleting nullptr\n");
 		}
@@ -136,13 +137,14 @@ void ibwin::free()
 	mspaces.clear();
 
 	/* Free inbound window */
-	INFO("win_num = %d, phys_addr = 0x%lX\n", win_num, phys_addr);
+	INFO("win_num = %d, phys_addr = 0x%16" PRIx64 "\n",
+			win_num, phys_addr);
 	int ret = riomp_dma_ibwin_free(mport_hnd, &phys_addr);
 	if (ret) {
 		CRIT("riomp_dma_ibwin_free() failed, ret = %d: %s\n",
 				ret, strerror(errno));
 	} else {
-		HIGH("Inbound window %d freed successfully\n");
+		HIGH("Inbound window %d freed successfully\n", win_num);
 	}
 } /* free() */
 
