@@ -5,7 +5,7 @@
 # RapidIO RDMA software installation path must be identical on all nodes.
 
 #RDMA_ROOT_PATH=/opt/rapidio/cern/rapidio_sw
-RDMA_ROOT_PATH=/home/sherif/rapidio_sw
+RDMA_ROOT_PATH=/home/sherif/git/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 NUM_ITERATIONS=250
@@ -56,7 +56,7 @@ do
 				ENUM_FAIL_RETRY=4
 			fi
 		done
-		if [ $ENUM_FAIL_RETRY -eq 3]
+		if [ $ENUM_FAIL_RETRY -eq 3 ]
 		then
 			echo "Enumeration failure after retries!"
 		fi
