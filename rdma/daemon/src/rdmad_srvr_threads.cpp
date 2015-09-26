@@ -397,7 +397,6 @@ void *prov_thread_f(void *arg)
 								strerror(ret));
 			}
 			delete prov_server;
-			raise(SIGABRT);
 			pthread_exit(0);
 		}
 
