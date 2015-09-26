@@ -605,10 +605,12 @@ void rskts_console_cleanup(struct cli_env *env)
 void sig_handler(int signo)
 {
 	printf("\nRx Signal %x\n", signo);
+	CRIT("\nRx Signal %x\n", signo);
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		printf("Shutting down\n");
 		rskt_server_shutdown();
 	};
+        exit(0);
 };
 
 int main(int argc, char *argv[])
