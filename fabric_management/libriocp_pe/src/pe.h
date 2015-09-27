@@ -39,6 +39,9 @@ int RIOCP_WU riocp_pe_set_discovered(struct riocp_pe *pe);
 int RIOCP_WU riocp_pe_add_peer(struct riocp_pe *pe, struct riocp_pe *peer,
 		uint8_t pe_port, uint8_t peer_port);
 int RIOCP_WU riocp_pe_remove_peer(struct riocp_pe *pe, uint8_t port);
+int RIOCP_WU riocp_pe_is_lockout(struct riocp_pe *pe, uint8_t port);
+int RIOCP_WU riocp_pe_set_lockout(struct riocp_pe *pe, uint8_t port);
+int RIOCP_WU riocp_pe_clear_lockout(struct riocp_pe *pe, uint8_t port);
 
 int RIOCP_WU riocp_pe_lock_read(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount, uint32_t *lock);
 int RIOCP_WU riocp_pe_lock_write(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount, uint32_t lock);

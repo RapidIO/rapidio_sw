@@ -396,6 +396,18 @@ int riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port)
 			RIOCP_ERROR("Try to probe inactive port\n");
 			return -ENODEV;
 		}
+		ret = riocp_pe_is_lockout(pe, port);
+		if (ret < 0) {
+			RIOCP_ERROR("Unable to read port lockout state\n");
+			return -EIO;
+		}
+		if (ret == 1) {
+			ret = riocp_pe_clear_lockout(pe, port);
+			if (ret < 0) {
+				RIOCP_ERROR("Unable to clear port lockout state\n");
+				return -EIO;
+			}
+		}
 		ret = riocp_pe_switch_set_route_entry(pe, RIOCP_PE_ANY_PORT, RIOCP_PE_ANY_ID(pe), port);
 		if (ret) {
 			RIOCP_ERROR("Could not program route\n");
@@ -504,6 +516,108 @@ int riocp_pe_probe_initialize_peer(struct riocp_pe *peer)
 	}
 
 	return 0;
+}
+
+/**
+ * Check if source port of PE is in lockout state extended feature pointer
+ * @retval 0 When lockout is not set
+ * @retval 1 When lockout is set
+ * @retval < 0 Error in reading if port is active
+ */
+int riocp_pe_is_lockout(struct riocp_pe *pe, uint8_t port)
+{
+	int ret;
+	uint32_t val = 0;
+	uint32_t efptr = pe->efptr;
+
+	RIOCP_TRACE("[pe 0x%08x] Check if port %u is in lockout (efptr: 0x%08x)\n",
+		pe->comptag, port, efptr);
+
+	if (efptr) {
+		ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_CTL_CSR(port), &val);
+		if (ret) {
+			RIOCP_ERROR("Unable to read RIO_PORT_N_CTL_CSR(0x%08x) for port %u\n",
+				efptr + RIO_PORT_N_CTL_CSR(port), port);
+			return ret;
+		}
+	}
+
+	if (val & RIO_PORT_N_CTL_LOCKOUT)
+		return 1;
+
+	return 0;
+}
+
+/**
+ * Set the source port of PE into lockout state extended feature pointer
+ * @retval 0 When lockout is set
+ * @retval < 0 Error in reading if port is active
+ */
+int riocp_pe_set_lockout(struct riocp_pe *pe, uint8_t port)
+{
+	int ret;
+	uint32_t val = 0;
+	uint32_t efptr = pe->efptr;
+
+	RIOCP_TRACE("[pe 0x%08x] Set port %u into lockout (efptr: 0x%08x)\n",
+		pe->comptag, port, efptr);
+
+	if (efptr) {
+		ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_CTL_CSR(port), &val);
+		if (ret) {
+			RIOCP_ERROR("Unable to read RIO_PORT_N_CTL_CSR(0x%08x) for port %u\n",
+				efptr + RIO_PORT_N_CTL_CSR(port), port);
+			return ret;
+		}
+		val |= RIO_PORT_N_CTL_LOCKOUT;
+
+		ret = riocp_pe_maint_write(pe, efptr + RIO_PORT_N_CTL_CSR(port), val);
+		if (ret) {
+			RIOCP_ERROR("Unable to write RIO_PORT_N_CTL_CSR(0x%08x) for port %u\n",
+				efptr + RIO_PORT_N_CTL_CSR(port), port);
+			return ret;
+		}
+
+		return 0;
+	}
+
+	return -ENOTSUP;
+}
+
+/**
+ * Clear the source port of PE lockout state extended feature pointer
+ * @retval 0 When lockout is cleared
+ * @retval < 0 Error in reading if port is active
+ */
+int riocp_pe_clear_lockout(struct riocp_pe *pe, uint8_t port)
+{
+	int ret;
+	uint32_t val = 0;
+	uint32_t efptr = pe->efptr;
+
+	RIOCP_TRACE("[pe 0x%08x] Clear port %u lockout (efptr: 0x%08x)\n",
+		pe->comptag, port, efptr);
+
+	if (efptr) {
+		ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_CTL_CSR(port), &val);
+		if (ret) {
+			RIOCP_ERROR("Unable to read RIO_PORT_N_CTL_CSR(0x%08x) for port %u\n",
+				efptr + RIO_PORT_N_CTL_CSR(port), port);
+			return ret;
+		}
+		val &= ~RIO_PORT_N_CTL_LOCKOUT;
+
+		ret = riocp_pe_maint_write(pe, efptr + RIO_PORT_N_CTL_CSR(port), val);
+		if (ret) {
+			RIOCP_ERROR("Unable to write RIO_PORT_N_CTL_CSR(0x%08x) for port %u\n",
+				efptr + RIO_PORT_N_CTL_CSR(port), port);
+			return ret;
+		}
+
+		return 0;
+	}
+
+	return -ENOTSUP;
 }
 
 #ifdef __cplusplus
