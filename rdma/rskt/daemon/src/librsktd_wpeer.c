@@ -114,6 +114,7 @@ void *wpeer_rx_loop(void *p_i)
 {
 	struct rskt_dmn_wpeer *w = (struct rskt_dmn_wpeer *)p_i;
 
+	DBG("Waiting on dmn.wpeers_mtx\n");
 	sem_wait(&dmn.wpeers_mtx);
 	HIGH("Adding ct(%d) to dmn.wpeers\n", w->ct);
 	w->wp_li = l_add(&dmn.wpeers, w->ct, w->self_ref);
@@ -121,7 +122,7 @@ void *wpeer_rx_loop(void *p_i)
 
 	w->i_must_die = 0;
 	sem_post(&w->started);
-
+	DBG("started\n");
 	while (!w->i_must_die) {
 		struct librsktd_unified_msg *msg;
 		uint32_t seq_num;
@@ -161,6 +162,7 @@ void *wpeer_rx_loop(void *p_i)
 	};
 
 	/* Stop others from using the wpeer */
+	DBG("Call cleanup_wpeer\n");
 	cleanup_wpeer(w);
 
 	pthread_exit(NULL);
@@ -175,15 +177,19 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 	w = alloc_wpeer(ct, cm_skt);
 	*wp = w;
 
+	DBG("ENTER\n");
 	do {
 		sem_wait(&dmn.mb_mtx);
 		rc = riomp_sock_socket(dmn.mb, &w->cm_skt_h);
+		DBG("dmn.mb created\n");
 		sem_post(&dmn.mb_mtx);
 
         	conn_rc = riomp_sock_connect(w->cm_skt_h, ct, 0, cm_skt);
 
-                if (!conn_rc)
+                if (!conn_rc) {
+                	INFO("Connected to ct(%d)\n", ct);
                         break;
+                }
 
                 rc = riomp_sock_close(&w->cm_skt_h);
                 if (rc) {
@@ -211,9 +217,13 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 
 	w->rx_buff = malloc(RSKTD_CM_MSG_SIZE);
 
+	DBG("Creating wpeer_rx_loop\n");
         rc = pthread_create(&w->w_rx, NULL, wpeer_rx_loop, (void*)w);
-	if (!rc)
+	if (!rc) {
+		DBG("Waiting for wpeer_rx_loop() to start\n");
 		sem_wait(&w->started);
+		DBG("wpeer_rx_loop started\n");
+	}
 	return 0;
 exit:
 	free(w->self_ref);

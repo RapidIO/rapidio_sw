@@ -75,7 +75,6 @@ char *rskt_state_strs[rskt_max_state] = {
 
 void rskt_clear_skt(struct rskt_socket_t *skt) 
 {
-	DBG("ENTER\n");
         skt->st = rskt_uninit;
         skt->debug = 0;
         skt->max_backlog = 0;
@@ -102,7 +101,6 @@ void rskt_clear_skt(struct rskt_socket_t *skt)
 	skt->stats.rx_bytes = 0;
 	skt->stats.tx_trans = 0;
 	skt->stats.rx_trans = 0;
-	DBG("EXIT\n");
 }; /* rskt_clear_skt() */
 
 struct rsvp_li {
