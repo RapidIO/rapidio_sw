@@ -484,6 +484,7 @@ fail:
 
 void spawn_daemon_threads(struct control_list *ctrls)
 {
+	DBG("ENTER\n");
 	/* Starts wpeer, speer, and app TX threads */
 	if (start_msg_tx_threads())
 		CRIT("ERR:start_msg_tx_threads failed\n");

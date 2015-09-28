@@ -543,7 +543,7 @@ int main(int argc, char *argv[])
 	int rc = EXIT_FAILURE;
 	int *prc;
 
-	ctrls.debug = 0;
+	ctrls.debug = 1;	/* For now */
 
 	signal(SIGINT, sig_handler);
 	signal(SIGHUP, sig_handler);
