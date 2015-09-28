@@ -317,7 +317,7 @@ int open_lib_conn_socket(void )
 		goto fail;
 	};
 
-	HIGH("Bound lib_st.fd(%d) to %s\n", lib_st.addr.sun_path);
+	HIGH("Bound lib_st.fd(%d) to %s\n", lib_st.fd, lib_st.addr.sun_path);
 
 	if (listen(lib_st.fd, lib_st.bklg) == -1) {
 		ERR("ERROR on lib_conn listen: %s\n", strerror(errno));
