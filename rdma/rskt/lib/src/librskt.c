@@ -228,7 +228,7 @@ void *tx_loop(void *unused)
 
 		rc = send(lib.fd, (void *)tx, A2RSKTD_SZ, MSG_EOR);
 		if (rc < 0) {
-			WARN("lib.all_must_die = 3");
+			WARN("lib.all_must_die = 3\n");
 			lib.all_must_die = 3;
 		}
 	};

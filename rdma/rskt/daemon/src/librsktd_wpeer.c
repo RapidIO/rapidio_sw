@@ -88,6 +88,7 @@ struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 	w->ct = ct;
 	HIGH("w->ct = %d\n", ct);
 	w->cm_skt = cm_skt;
+	HIGH("w->cm_skt = %d\n", cm_skt);
 
 	w->wpeer_alive = 0;
 	w->i_must_die = 0;
@@ -114,7 +115,7 @@ void *wpeer_rx_loop(void *p_i)
 	struct rskt_dmn_wpeer *w = (struct rskt_dmn_wpeer *)p_i;
 
 	sem_wait(&dmn.wpeers_mtx);
-	HIGH("Adding ct(%d)\n", w->ct);
+	HIGH("Adding ct(%d) to dmn.wpeers\n", w->ct);
 	w->wp_li = l_add(&dmn.wpeers, w->ct, w->self_ref);
 	sem_post(&dmn.wpeers_mtx);
 
@@ -134,8 +135,10 @@ void *wpeer_rx_loop(void *p_i)
 		} while ((w->i_must_die) && !dmn.all_must_die && 
 		((EINTR == errno) || (EAGAIN == errno) || (ETIME == errno)));
 
-		if (w->i_must_die || dmn.all_must_die)
+		if (w->i_must_die || dmn.all_must_die) {
+			DBG("Either i_must_die or all_must_die\n");
 			break;
+		}
 
 		seq_num = ntohl(w->resp->msg_seq);
 
@@ -144,8 +147,10 @@ void *wpeer_rx_loop(void *p_i)
 			l_find(&w->w_rsp, seq_num, &li);
 		sem_post(&w->w_rsp_mutex);
 
-		if (NULL == msg)
+		if (NULL == msg) {
+			DBG("msg is NULL, continuing\n");
 			continue;
+		}
 
 		msg->proc_stage = RSKTD_A2W_SEQ_DRESP;
 		memcpy((void *)&msg->dresp->msg, (void *)&w->resp->msg, 
@@ -221,6 +226,7 @@ void send_hello_to_wpeer(struct rskt_dmn_wpeer *w)
 	struct librsktd_unified_msg *msg = (struct librsktd_unified_msg *)
 		      malloc(sizeof(struct librsktd_unified_msg));
 
+	DBG("Sending hello to wpeer\n");
 	msg = alloc_msg(RSKTD_HELLO_REQ, RSKTD_PROC_A2W, RSKTD_A2W_SEQ_DREQ);
 	msg->wp = w->self_ref;
 	msg->dreq = (struct rsktd_req_msg *)malloc(DMN_REQ_SZ);
@@ -244,8 +250,10 @@ int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers)
 	sem_wait(&dmn.loop_started);
 	sem_post(&dmn.loop_started);
 
-	if ((!dmn.mb_valid && !dmn.cm_skt_tst) || !dmn.speer_conn_alive)
+	if ((!dmn.mb_valid && !dmn.cm_skt_tst) || !dmn.speer_conn_alive) {
+		ERR("Invalid element in 'dmn'\n");
 		return -1;
+	}
 
 	for (i = 0; i < num_peers; i++) {
 		if (init_wpeer(&w, peers[i].ct, peers[i].cm_skt))
@@ -379,6 +387,7 @@ void close_all_wpeers(void)
 {
 	void **l;
 
+	HIGH("ENTER\n");
 	sem_wait(&dmn.wpeers_mtx);
 	l = (void **)l_pop_head(&dmn.wpeers);
 	sem_post(&dmn.wpeers_mtx);

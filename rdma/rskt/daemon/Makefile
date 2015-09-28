@@ -2,7 +2,7 @@
 #
 # Default configurations
 
-LOG_LEVEL ?= 1
+LOG_LEVEL ?= 7
 
 DEBUG ?= DEBUG
 

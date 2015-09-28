@@ -139,7 +139,7 @@ void parse_options(int argc, char *argv[])
 {
 	int idx;
 
-	ctrls.debug = 0;
+	ctrls.debug = 1;	/* For now */
 	ctrls.print_help = 0;
 	ctrls.run_cons = 1;
 	ctrls.log_level = RDMA_LL;
