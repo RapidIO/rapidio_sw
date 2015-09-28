@@ -86,6 +86,7 @@ struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 	*w->self_ref = w;
 
 	w->ct = ct;
+	HIGH("w->ct = %d\n", ct);
 	w->cm_skt = cm_skt;
 
 	w->wpeer_alive = 0;
@@ -113,6 +114,7 @@ void *wpeer_rx_loop(void *p_i)
 	struct rskt_dmn_wpeer *w = (struct rskt_dmn_wpeer *)p_i;
 
 	sem_wait(&dmn.wpeers_mtx);
+	HIGH("Adding ct(%d)\n", w->ct);
 	w->wp_li = l_add(&dmn.wpeers, w->ct, w->self_ref);
 	sem_post(&dmn.wpeers_mtx);
 
