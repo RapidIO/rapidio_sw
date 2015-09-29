@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <pthread.h>
 #include <netinet/in.h>
+#include <assert.h>
 
 #include "liblist.h"
 #include "libcli.h"
@@ -201,16 +202,21 @@ int update_devid_status(void)
                 for (j = 0; j < fml.num_devs; j++) {
                         if (fml.devs[j].destID == i) {
 				uint8_t temp_flag = FMDD_FLAG_OK;
+				INFO("fml.devs[%d].flag = 0x%X\n", j, fml.devs[j].flag);
 				temp_flag |= fml.devs[j].flag;
 
 				if (fml.devs[j].is_mast_pt) 
                                 	temp_flag |= FMDD_FLAG_OK_MP;
 
+				INFO("temp_flag = 0x%X\n", temp_flag);
+				INFO("fml.devid_status[i] = 0x%X\n", fml.devid_status[i]);
 				if (fml.devid_status[i] != temp_flag) {
                                 	fml.devid_status[i] = temp_flag;
+					INFO("Now fml.devid_status[i] = 0x%X\n", fml.devid_status[i]);
 					changed = 1;
 				};
                                 found = 1;
+                                INFO("Found!\n");
                                 break;
                         };
                 };
@@ -244,7 +250,7 @@ void *mon_loop(void *parms)
 {
 	int rc;
  
-	DBG("ENTER\n");
+	DBG("ENTER with app_idx = %d\n", fml.app_idx);
 	fml.dd_mtx->dd_ev[fml.app_idx].in_use = 1;
 	fml.dd_mtx->dd_ev[fml.app_idx].proc = getpid();
 
@@ -259,8 +265,9 @@ void *mon_loop(void *parms)
 	do {
 		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 1;
 		rc = sem_wait(&fml.dd_mtx->dd_ev[fml.app_idx].dd_event);
-		if (rc || (NULL == fml.dd_mtx) || fml.mon_must_die )
+		if (rc || (NULL == fml.dd_mtx) || fml.mon_must_die ) {
 			goto exit;
+		}
 		fml.dd_mtx->dd_ev[fml.app_idx].waiting = 0;
 
 		if (0 >= fmd_dd_atomic_copy(fml.dd, fml.dd_mtx, &fml.num_devs,
@@ -278,12 +285,14 @@ exit:
 
 fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 {
-	DBG("ENTER with my_name = %s\n", my_name);
+	DBG("ENTER with my_name = %s, flag = 0x%X\n", my_name, flag);
 	if (!fml.portno) {
 		INFO("No portno specified, using default of %d\n", FMD_DEFAULT_SKT);
 		fml.portno = FMD_DEFAULT_SKT;
 		strncpy(fml.app_name, my_name, MAX_APP_NAME+1);
-	};
+	} else {
+		INFO("fml.portno = %d\n", fml.portno);
+	}
 
 	if (!fml.mon_alive) {
 		DBG("mon_alive is FALSE\n");
@@ -316,8 +325,10 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 		sem_post(&fml.mon_started);
 		INFO("Monitor thread started...\n");
 	};
-	if (fml.mon_alive)
+	if (fml.mon_alive) {
+		INFO("fml.mon_alive is non-zero, returning fml\n");
 		return (void *)&fml;
+	}
 fail:
 	shutdown_fml(NULL);
 	return NULL;
@@ -347,14 +358,12 @@ fail:
 
 uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag)
 {
-	DBG("ENTER with did = %d\n", did);
 	if (h != &fml) {
 		ERR("Bad FMDD handle\n");
 		goto fail;
 	}
 
 	if (did >= FMD_MAX_DEVS) {
-		ERR("DID out of range\n");
 		goto fail;
 	}
 
