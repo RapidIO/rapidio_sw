@@ -390,18 +390,6 @@ int rdma_lib_init(void)
 		}
 	}
 
-	/* Attempt to connect to FM daemon */
-	dd_h = fmdd_get_handle((char *)"RDMAD", FMDD_RDMA_FLAG);
-
-	if (dd_h != NULL) {
-		fmdd_bind_dbg_cmds(dd_h);
-		fm_alive = 1;
-		HIGH("FM is alive\n");
-	} else {
-		CRIT("Cannot obtain dd_h\n");
-		dd_h = NULL;
-	}
-
 	/* Set initialization flag */
 	if (ret == 0) {
 		init = 1;
@@ -437,6 +425,11 @@ __attribute__((constructor)) int lib_init(void)
 					return ret; \
 				} \
 			}
+
+void rdma_set_fmd_handle(fmdd_h dd_h)
+{
+	::dd_h = dd_h;
+}
 
 int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 {

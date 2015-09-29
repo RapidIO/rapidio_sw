@@ -38,6 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 
 #include "rdma_types.h"
+#include "libfmdd.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,6 +57,13 @@ extern "C" {
  * @return: 0 if successful
  */
 int rdma_lib_init(void);
+
+/**
+ * Set fabric management handle
+ *
+ * @param dd_h
+ */
+void rdma_set_fmd_handle(fmdd_h dd_h);
 
 /********** Interface  functions **********************/
 

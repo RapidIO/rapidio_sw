@@ -80,12 +80,12 @@ void *fm_loop(void *unused)
 		pthread_exit(0);
 	}
 
-	fmdd_bind_dbg_cmds(dd_h);
+	rdma_set_fmd_handle(dd_h);
 
-	if (NULL != dd_h) {
-		fm_alive = 1;
-		INFO("FM is alive!\n");
-	}
+	fmdd_bind_dbg_cmds(dd_h);
+	fm_alive = 1;
+	INFO("FM is alive!\n");
+
 	sem_post(&fm_started);
 	
 	do {
