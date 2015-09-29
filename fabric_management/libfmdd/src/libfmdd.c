@@ -347,7 +347,7 @@ fail:
 
 uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag)
 {
-	DBG("ENTER with did = %d\n");
+	DBG("ENTER with did = %d\n", did);
 	if (h != &fml) {
 		ERR("Bad FMDD handle\n");
 		goto fail;
