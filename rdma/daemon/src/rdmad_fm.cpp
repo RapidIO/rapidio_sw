@@ -180,6 +180,7 @@ void *fm_loop(void *unused)
 	uint32_t new_did_list_size = 0;
 	uint32_t *new_did_list = NULL;
 
+	HIGH("fm_loop up and running!!!!!!!!!!!!!!!\n");
 	dd_h = fmdd_get_handle((char *)"RDMAD", FMDD_RDMA_FLAG);
 
 	if (dd_h != NULL) {
@@ -252,7 +253,7 @@ int start_fm_thread(void)
 	int ret;
 
         /* Prepare and start library connection handling threads */
-
+	HIGH("ENTER\n");
         sem_init(&fm_started, 0, 0);
 	fm_alive = 0;
 	fm_must_die = 0;
@@ -261,9 +262,11 @@ int start_fm_thread(void)
         if (ret) {
                 CRIT("Error - fm_thread rc: %d\n", ret);
         } else {
+        	HIGH("Waiting for fm_thread to be up and running\n");
 		sem_wait(&fm_started);
         }
 
+        HIGH("EXIT\n");
 	return ret;
 };
 

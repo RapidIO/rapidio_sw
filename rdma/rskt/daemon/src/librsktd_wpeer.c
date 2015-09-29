@@ -430,27 +430,38 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 
 	/* Search for workers for destIDs that no longer exist */
 	/* OR where the peer RSKTD has died... */
-
+	HIGH("ENTER\n");
 	sem_wait(&dmn.wpeers_mtx);
 	wp_p = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
+	if (wp_p == NULL) {
+		WARN("wp_p == NULL\n");
+	}
 	while (wp_p != NULL) {
 		next_wp_p = (struct rskt_dmn_wpeer **)l_next(&li);
 		wp = *wp_p;
 		if (NULL == wp) {
+			ERR("wp is NULL..next!\n");
 			wp_p = next_wp_p;
 			continue;
 		};
 		found = 0;
+		DBG("destid_cnt = %d\n", destid_cnt);
 		for (i = 0; (i < destid_cnt) && !found; i++) {
-			if (wp->ct == destids[i])
+			if (wp->ct == destids[i]) {
+				HIGH("wp->ct found in list of destids\n");
+				HIGH("Checking if RSKT is running\n");
 				found = fmdd_check_did(dd_h, wp->ct, 
 								FMDD_RSKT_FLAG);
+			}
 		};
 
 		if (found) {
+			INFO("found\n");
 			wp_p = next_wp_p;
 			continue;
-		};
+		} else {
+			INFO("not found\n");
+		}
 
 		sem_post(&dmn.wpeers_mtx);
 		close_wpeer(wp);
@@ -460,30 +471,43 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 	sem_post(&dmn.wpeers_mtx);
 	
 	/* Search for destIDs without associated workers */
-
+	DBG("destid_cnt = %d\n", destid_cnt);
 	for (i = 0; i < destid_cnt; i++) {
 		struct peer_rsktd_addr new_wpeer;
 		found = 0;
 		sem_wait(&dmn.wpeers_mtx);
 		wp_p = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
+		if (wp_p == NULL) {
+			WARN("wp_p == NULL\n");
+		}
 		while ((wp_p != NULL) && !found) {
 			wp = *wp_p;
-			if ((NULL != wp) && (wp->ct == destids[i]))
+			if ((NULL != wp) && (wp->ct == destids[i])) {
+				INFO("FOUND!\n");
 				found = 1;
+			}
 			wp_p = (struct rskt_dmn_wpeer **)l_next(&li);
 		};
 		sem_post(&dmn.wpeers_mtx);
 
-		if (found)
+		if (found) {
+			INFO("Found, next iteration!\n");
 			continue;
+		}
 
 		/* Check that RSKTD is running on the peer... */
-		if (!fmdd_check_did(dd_h, destids[i], FMDD_RSKT_FLAG))
+		if (!fmdd_check_did(dd_h, destids[i], FMDD_RSKT_FLAG)) {
+			WARN("RSKTD is NOT running on the peer\n");
 			continue;
+		}
 
 		new_wpeer.ct = destids[i];
 		new_wpeer.cm_skt = DFLT_DMN_CM_CONN_SKT;
 		
+		DBG("new_wpeer.ct = %d, new_wpeer.cm_skt = %d\n",
+				new_wpeer.ct, new_wpeer.cm_skt);
+
+		INFO("Now opening wpeers for requests with the new wpeer\n");
 		open_wpeers_for_requests(1, &new_wpeer);
 	};
 };
