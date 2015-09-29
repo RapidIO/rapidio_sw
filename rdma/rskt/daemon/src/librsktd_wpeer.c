@@ -497,7 +497,8 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 
 		/* Check that RSKTD is running on the peer... */
 		if (!fmdd_check_did(dd_h, destids[i], FMDD_RSKT_FLAG)) {
-			WARN("RSKTD is NOT running on the peer\n");
+			WARN("RSKTD is NOT running on the peer destid(%d)\n",
+					destids[i]);
 			continue;
 		}
 
