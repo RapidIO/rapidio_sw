@@ -60,6 +60,7 @@ struct fml_globals fml;
 
 int open_socket_to_fmd(void)
 {
+	DBG("ENTER\n");
 	if (!fml.fd) {
 		fml.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 		if (-1 == fml.fd) {
@@ -91,18 +92,26 @@ int get_dd_names_from_fmd(void)
 	memset(fml.req.hello_req.app_name, 0, MAX_APP_NAME+1);
 	strncpy(fml.req.hello_req.app_name, fml.app_name, MAX_APP_NAME);
 
-	if (send(fml.fd, (void *)&(fml.req), sizeof(fml.req), MSG_EOR) < 0)
+	if (send(fml.fd, (void *)&(fml.req), sizeof(fml.req), MSG_EOR) < 0) {
+		ERR("Failed to send(): %s\n", strerror(errno));
 		goto fail;
+	}
 
-	if (recv(fml.fd, (void *)&(fml.resp), sizeof(fml.resp), 0) < 0)
+	if (recv(fml.fd, (void *)&(fml.resp), sizeof(fml.resp), 0) < 0) {
+		ERR("Failed to recv(): %s\n", strerror(errno));
 		goto fail;
+	}
 
-	if (FMD_RESP_HELLO != ntohl(fml.resp.msg_type))
+	if (FMD_RESP_HELLO != ntohl(fml.resp.msg_type)) {
+		ERR("Non-HELLO message type!\n");
 		goto fail;
+	}
 
 	fml.app_idx = ntohl(fml.resp.hello_resp.sm_dd_mtx_idx);
-	if ((fml.app_idx < 0) || (fml.app_idx >= FMD_MAX_APPS))
+	if ((fml.app_idx < 0) || (fml.app_idx >= FMD_MAX_APPS)) {
+		ERR("fml.ap_idx out of range!\n");
 		goto fail;
+	}
 	return 0;
 fail:
 	return -1;
@@ -110,18 +119,22 @@ fail:
 
 int open_dd(void)
 {
+	DBG("ENTER\n");
 	memset(fml.dd_fn, 0, MAX_DD_FN_SZ+1);
 	memset(fml.dd_mtx_fn, 0, MAX_DD_MTX_FN_SZ+1);
 
 	strncpy(fml.dd_fn, fml.resp.hello_resp.dd_fn, MAX_DD_FN_SZ);
-	strncpy(fml.dd_mtx_fn, fml.resp.hello_resp.dd_mtx_fn, 
-		MAX_DD_MTX_FN_SZ);
+	strncpy(fml.dd_mtx_fn, fml.resp.hello_resp.dd_mtx_fn, MAX_DD_MTX_FN_SZ);
 
-	if (fmd_dd_mtx_open((char *)&fml.dd_mtx_fn, &fml.dd_mtx_fd, &fml.dd_mtx)) 
+	if (fmd_dd_mtx_open((char *)&fml.dd_mtx_fn, &fml.dd_mtx_fd, &fml.dd_mtx)) {
+		ERR("fmd_dd_mtx_open failed\n");
 		goto fail;
-	if (fmd_dd_open_ro((char *)&fml.dd_fn, &fml.dd_fd, &fml.dd, fml.dd_mtx))
+	}
+	if (fmd_dd_open_ro((char *)&fml.dd_fn, &fml.dd_fd, &fml.dd, fml.dd_mtx)) {
+		ERR("fmd_dd_mtx_open failed\n");
 		goto fail;
-
+	}
+	DBG("EXIT\n");
 	return 0;
 fail:
 	return -1;
@@ -133,8 +146,10 @@ void shutdown_fml(fmdd_h dd_h)
 {
 	fml.mon_must_die = 1;
 
-	if (dd_h == &fml)
+	if (dd_h == &fml) {
+		DBG("Notifying app of events\n");
 		notify_app_of_events();
+	}
 
 	if (fml.dd_mtx != NULL) {
 		if (fml.dd_mtx->dd_ev[fml.app_idx].waiting) {
@@ -215,7 +230,9 @@ void notify_app_of_events(void)
 
 	sem_wait(&fml.pend_waits_mtx);
 	wt = (struct fml_wait_4_chg *)l_pop_head(&fml.pend_waits);
-
+	if (wt == NULL) {
+		DBG("wt == NULL\n");
+	}
 	while (NULL != wt) {
 		sem_post(&wt->sema);
 		wt = (struct fml_wait_4_chg *)l_pop_head(&fml.pend_waits);
@@ -227,6 +244,7 @@ void *mon_loop(void *parms)
 {
 	int rc;
  
+	DBG("ENTER\n");
 	fml.dd_mtx->dd_ev[fml.app_idx].in_use = 1;
 	fml.dd_mtx->dd_ev[fml.app_idx].proc = getpid();
 
@@ -260,7 +278,9 @@ exit:
 
 fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 {
+	DBG("ENTER with my_name = %s\n", my_name);
 	if (!fml.portno) {
+		INFO("No portno specified, using default of %d\n", FMD_DEFAULT_SKT);
 		fml.portno = FMD_DEFAULT_SKT;
 		strncpy(fml.app_name, my_name, MAX_APP_NAME+1);
 	};
@@ -269,12 +289,18 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 		sem_init(&fml.pend_waits_mtx, 0, 1);
 		fml.flag = flag;
 		l_init(&fml.pend_waits);
-		if (open_socket_to_fmd())
+		if (open_socket_to_fmd()) {
+			ERR("Failed in open_socket_to_fmd()\n");
 			goto fail;
-		if (get_dd_names_from_fmd())
+		}
+		if (get_dd_names_from_fmd()) {
+			ERR("Failed in get_dd_names_from_fmd()\n");
 			goto fail;
-		if (open_dd())
+		}
+		if (open_dd()) {
+			ERR("Failed in open_dd()\n");
 			goto fail;
+		}
 		sem_init(&fml.mon_started, 0, 0);
 		fml.all_must_die = 0;
 		fml.mon_alive = 0;
