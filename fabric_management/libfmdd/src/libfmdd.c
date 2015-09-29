@@ -286,6 +286,7 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 	};
 
 	if (!fml.mon_alive) {
+		DBG("mon_alive is FALSE\n");
 		sem_init(&fml.pend_waits_mtx, 0, 1);
 		fml.flag = flag;
 		l_init(&fml.pend_waits);
@@ -313,6 +314,7 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 		};
 		sem_wait(&fml.mon_started);
 		sem_post(&fml.mon_started);
+		INFO("Monitor thread started...\n");
 	};
 	if (fml.mon_alive)
 		return (void *)&fml;
@@ -345,12 +347,18 @@ fail:
 
 uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag)
 {
-	if (h != &fml)
+	DBG("ENTER with did = %d\n");
+	if (h != &fml) {
+		ERR("Bad FMDD handle\n");
 		goto fail;
+	}
 
-	if (did >= FMD_MAX_DEVS)
+	if (did >= FMD_MAX_DEVS) {
+		ERR("DID out of range\n");
 		goto fail;
+	}
 
+	INFO("flag = 0x%X, fml.devid_status[did] = 0x%X\n", flag, fml.devid_status[did]);
 	return flag & fml.devid_status[did];
 fail:
 	return FMDD_FLAG_NOK;
@@ -361,8 +369,11 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 	uint32_t i, cnt = 0, idx = 0;
 	uint8_t flag;
 
-	if (h != &fml)
+	DBG("ENTER\n");
+	if (h != &fml) {
+		ERR("Invalid fmdd_h h(0x%X)\n", h);
 		goto fail;
+	}
 
 	for (i = 0; i < FML_MAX_DESTIDS; i++) {
 		flag = fmdd_check_did(h, i, FMDD_FLAG_OK_MP);
@@ -373,6 +384,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 	*did_list_sz = cnt;
 
 	if (!cnt) {
+		INFO("Returning empty(NULL) list since cnt==0\n");
 		*did_list = NULL;
 		goto exit;
 	};
@@ -386,8 +398,10 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 		};
 	};
 exit:
+	DBG("EXIT - OK\n");
 	return 0;
 fail:
+	DBG("EXIT - FAIL\n");
 	return 1;
 };
 
@@ -410,8 +424,12 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 	struct fml_wait_4_chg *chg_sem;
 	int rc;
 
-	if ((h != &fml) || fml.mon_must_die || !fml.mon_alive)
+	DBG("ENTER\n");
+
+	if ((h != &fml) || fml.mon_must_die || !fml.mon_alive) {
+		ERR("Bad handle, mon not alive or mon must die\n");
 		goto fail;
+	}
 
 	chg_sem = (struct fml_wait_4_chg *)
 			malloc(sizeof(struct fml_wait_4_chg));
@@ -422,16 +440,21 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 	l_push_tail(&fml.pend_waits, (void *)chg_sem);
 	sem_post(&fml.pend_waits_mtx);
 
+	DBG("Waiting onr change semaphore...\n");
 	rc = sem_wait(&chg_sem->sema);
 
 	/* Note: The notification process removes all items from the list. */
 	free(chg_sem);
 	
-	if (fml.mon_must_die || !fml.mon_alive || rc)
+	if (fml.mon_must_die || !fml.mon_alive || rc) {
+		ERR("mon_must_die, !mon_alive or sem_wait() failed\n");
 		goto fail;
+	}
 
+	DBG("EXIT - OK\n");
 	return 0;
 fail:
+	DBG("EXIT - FAIL\n");
 	return 1;
 };
 

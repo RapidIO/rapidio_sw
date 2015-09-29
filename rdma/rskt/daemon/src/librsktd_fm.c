@@ -38,6 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <time.h>
 #include <string.h>
+#include <assert.h>
+
 #include "librsktd.h"
 #include "librdma.h"
 #include "librsktd.h"
