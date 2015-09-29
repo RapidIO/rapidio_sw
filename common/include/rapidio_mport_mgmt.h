@@ -402,7 +402,7 @@ int riomp_mgmt_send_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *e
  * @param[in] destid destination ID of object
  * @param[in] hc hopcount
  * @param[in] ctag component tag CSR value
- * @param[in] name deevice name
+ * @param[in] name device name
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
@@ -416,11 +416,12 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
  * @param[in] destid destination ID of object
  * @param[in] hc hopcount
  * @param[in] ctag component tag CSR value
+ * @param[in] name device name
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag);
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag, const char *name);
 
 #ifdef __cplusplus
 }

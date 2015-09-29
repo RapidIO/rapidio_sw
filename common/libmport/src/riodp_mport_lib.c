@@ -905,7 +905,8 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 /*
  * Delete existing kernel device object
  */
-int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag)
+int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t hc, uint32_t ctag,
+			  const char *name)
 {
 	struct rio_rdev_info dev;
 	struct rapidio_mport_handle *hnd = mport_handle;
@@ -916,6 +917,10 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 	dev.destid = destid;
 	dev.hopcount = hc;
 	dev.comptag = ctag;
+	if (name)
+		strncpy(dev.name, name, RIO_MAX_DEVNAME_SZ);
+	else
+		*dev.name = '\0';
 
 	if (ioctl(hnd->fd, RIO_DEV_DEL, &dev))
 		return errno;
