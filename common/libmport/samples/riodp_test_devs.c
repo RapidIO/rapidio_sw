@@ -76,7 +76,8 @@ void test_delete(void)
 {
 	int ret;
 
-	ret = riomp_mgmt_device_del(mport_hnd, tgt_destid, tgt_hop, comptag);
+	ret = riomp_mgmt_device_del(mport_hnd, tgt_destid, tgt_hop, comptag,
+			       (*dev_name == '\0')?NULL:dev_name);
 	if(ret)
 		printf("Failed to delete device object, err=%d\n", ret);
 }
