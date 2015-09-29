@@ -55,6 +55,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include <sstream>
+
 #include "libcli.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
@@ -1194,11 +1196,21 @@ void dma_free_ibwin(struct worker *info)
 
 #ifdef USER_MODE_DRIVER
 
+typedef struct {
+	volatile uint64_t fifo_count_scanfifo;
+	volatile uint64_t fifo_deltats_scanfifo;
+	volatile uint64_t fifo_count_other;
+	volatile uint64_t fifo_deltats_other;
+	volatile uint64_t fifo_deltats_all;
+
+	volatile uint64_t fifo_thr_iter;
+} FifoStats_t;
+
+FifoStats_t g_FifoStats[8];
+
 #ifndef PAGE_4K
   #define PAGE_4K	4096
 #endif
-
-volatile uint64_t fifo_thr_iter = 0;
 
 extern char* dma_rtype_str[];
 
@@ -1206,6 +1218,9 @@ void *umd_dma_fifo_proc_thr(void *parm)
 {
 	struct worker *info;
         std::vector<DMAChannel::WorkItem_t>::iterator it;
+
+	int idx = -1;
+	uint64_t tsF1 = 0, tsF2 = 0;
 
 	const int MHz = getCPUMHz();
 
@@ -1221,19 +1236,27 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
 		goto exit;
 
-	fifo_thr_iter = 0;
+	idx = info->idx;
+	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));
+
 	info->umd_fifo_proc_alive = 1;
 	sem_post(&info->umd_fifo_proc_started); 
 
+	tsF1 = rdtsc();
 	while (!info->umd_fifo_proc_must_die) {
                 std::vector<DMAChannel::WorkItem_t> wi;
-		fifo_thr_iter++;
+		g_FifoStats[idx].fifo_thr_iter++;
 
-		if (0 == info->umd_dch->scanFIFO(wi)) {
-			for(int i = 0; i < 20000; i++) {;}
+		const uint64_t tss1 = rdtsc();
+		const int cnt = info->umd_dch->scanFIFO(wi);
+		const uint64_t tss2 = rdtsc();
+		if (tss2 > tss1) { g_FifoStats[idx].fifo_deltats_scanfifo += (tss2-tss1); g_FifoStats[idx].fifo_count_scanfifo++; }
+		if (0 == cnt) {
+			//for(int i = 0; i < 20000; i++) {;}
 			continue;
 		}
 
+		const uint64_t tsm1 = rdtsc();
 		for (it = wi.begin(); it != wi.end(); it++) {
 			DMAChannel::WorkItem_t& item = *it;
 
@@ -1249,7 +1272,7 @@ void *umd_dma_fifo_proc_thr(void *parm)
 					"mem @%p bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
 					dma_rtype_str[item.opt.rtype], item.opt.destid,
 					item.mem.win_handle, item.mem.win_ptr,
-					item.opt.bd_wp, fifo_thr_iter, dT, dTf);
+					item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
 				if (item.opt.rtype == NREAD) {
 					hexdump4byte("NREAD: ",
 						(uint8_t*)item.mem.win_ptr, 8);
@@ -1262,7 +1285,7 @@ void *umd_dma_fifo_proc_thr(void *parm)
 				INFO("\n\tFIFO D2 RT=%s did=%d bd_wp=%u"
 					" -- FIFO iter %llu dTick %llu (%f uS)\n", dma_rtype_str[item.opt.rtype],
 					item.opt.destid, item.opt.bd_wp,
-					fifo_thr_iter, dT, dTf);
+					g_FifoStats[idx].fifo_thr_iter, dT, dTf);
 				info->perf_byte_cnt += info->acc_size;
 				clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 				if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += item.opt.bcount; }
@@ -1271,28 +1294,31 @@ void *umd_dma_fifo_proc_thr(void *parm)
 			// (item.t2_rddata, item.t2_rddata_len)
 			case DTYPE3:
 				INFO("\n\tFinished D3 bd_wp=%u -- FIFO iter %llu dTick %ll (%f uS)u\n",
-					 item.opt.bd_wp, fifo_thr_iter, dT, dTf);
+					 item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
 				break;
 			default:
 				INFO("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
-					 item.opt.dtype, item.opt.bd_wp,
-					fifo_thr_iter);
+					item.opt.dtype, item.opt.bd_wp,
+					g_FifoStats[idx].fifo_thr_iter);
 				break;
       			}
+                } // END for WorkItem_t vector
 
-    		}
+		const uint64_t tsm2 = rdtsc();
+		if (tsm2 > tsm1) { g_FifoStats[idx].fifo_deltats_other += (tsm2-tsm1); g_FifoStats[idx].fifo_count_other++; }
 
 //next:
-		fifo_thr_iter = fifo_thr_iter;
 		// FIXME: commented out for debug purposes
 		// sched_yield();
-		for(int i = 0; i < 10000; i++) {;}
-	}
+		//for(int i = 0; i < 10000; i++) {;}
+	} // END while
+	tsF2 = rdtsc();
 exit:
+	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
 	sem_post(&info->umd_fifo_proc_started); 
 	info->umd_fifo_proc_alive = 0;
 
-        DBG("\n\t%s: EXITING iter=%llu must die? %d\n", __func__, fifo_thr_iter, info->umd_fifo_proc_must_die);
+        DBG("\n\t%s: EXITING iter=%llu must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
 
 	pthread_exit(parm);
 };
@@ -1302,6 +1328,8 @@ void *umd_mbox_fifo_proc_thr(void *parm)
         struct worker *info;
         std::vector<DMAChannel::WorkItem_t>::iterator it;
 
+	int idx = -1;
+	uint64_t tsF1 = 0, tsF2 = 0;
         const int MHz = getCPUMHz();
 
         if (NULL == parm)
@@ -1316,20 +1344,27 @@ void *umd_mbox_fifo_proc_thr(void *parm)
         if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
                 goto exit;
 
-        fifo_thr_iter = 0;
+	idx = info->idx;
+	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));
+
         info->umd_fifo_proc_alive = 1;
         sem_post(&info->umd_fifo_proc_started);
 
+	tsF1 = rdtsc();
 	while (!info->umd_fifo_proc_must_die) {
 		std::vector<MboxChannel::WorkItem_t> wi;
-		fifo_thr_iter++;
+		g_FifoStats[idx].fifo_thr_iter++;
 
-		if (0 == info->umd_mch->scanFIFO(info->umd_chan, wi)) {
+		const uint64_t tss1 = rdtsc();
+		const int cnt = info->umd_mch->scanFIFO(info->umd_chan, wi);
+		const uint64_t tss2 = rdtsc();
+		if (tss2 > tss1) { g_FifoStats[idx].fifo_deltats_scanfifo += (tss2-tss1); g_FifoStats[idx].fifo_count_scanfifo++; }
+		if (0 == cnt) {
 			for(int i = 0; i < 20000; i++) {;}
 			continue;
 		}
 
-
+		const uint64_t tsm1 = rdtsc();
                 for (std::vector<MboxChannel::WorkItem_t>::iterator it = wi.begin(); it != wi.end(); it++) {
                         MboxChannel::WorkItem_t& item = *it;
 
@@ -1343,33 +1378,70 @@ void *umd_mbox_fifo_proc_thr(void *parm)
                         case DTYPE4:
                                 INFO("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
                                         item.opt.destid,
-                                        item.opt.bd_wp, fifo_thr_iter, dT, dTf);
+                                        item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 info->perf_byte_cnt += info->acc_size;
                                 clock_gettime(CLOCK_MONOTONIC, &info->end_time);
                                 if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += info->acc_size; }
                                 break;
                         case DTYPE5:
                                 INFO("\n\tFinished D5 bd_wp=%u -- FIFO iter %llu dTick %ll (%f uS)u\n",
-                                         item.opt.bd_wp, fifo_thr_iter, dT, dTf);
+                                         item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         default:
                                 INFO("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
                                          item.opt.dtype, item.opt.bd_wp,
-                                        fifo_thr_iter);
+                                        g_FifoStats[idx].fifo_thr_iter);
                                 break;
                         }
                 } // END for WorkItem_t vector
 
+		const uint64_t tsm2 = rdtsc();
+		if (tsm2 > tsm1) { g_FifoStats[idx].fifo_deltats_other += (tsm2-tsm1); g_FifoStats[idx].fifo_count_other++; }
 //next:
 		for(int i = 0; i < 10000; i++) {;}
 	}
 exit:
+	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
+
 	sem_post(&info->umd_fifo_proc_started); 
 	info->umd_fifo_proc_alive = 0;
 
-        DBG("\n\t%s: EXITING iter=%llu must die? %d\n", __func__, fifo_thr_iter, info->umd_fifo_proc_must_die);
+        DBG("\n\t%s: EXITING iter=%llu must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
 
 	pthread_exit(parm);
+}
+
+void UMD_DD(int idx)
+{
+	const int MHz = getCPUMHz();
+
+	float    avgTf_scanfifo = 0;
+	uint64_t cnt_scanfifo = 0;
+	if (g_FifoStats[idx].fifo_count_scanfifo > 0) {
+		float avg_tick = (float)g_FifoStats[idx].fifo_deltats_scanfifo / (cnt_scanfifo = g_FifoStats[idx].fifo_count_scanfifo);
+		avgTf_scanfifo = (float)avg_tick / MHz;
+	}
+
+	float    avgTf_other = 0;
+	uint64_t cnt_other = 0;
+	if (g_FifoStats[idx].fifo_count_other > 0) {
+		float avg_tick = (float)g_FifoStats[idx].fifo_deltats_other / (cnt_other = g_FifoStats[idx].fifo_count_other);
+		avgTf_other = (float)avg_tick / MHz;
+	}
+
+	char tmp[257] = {0};
+	std::stringstream ss; ss << "\n";
+	snprintf(tmp, 256, "scanFIFO       avg %fuS total %fuS %llu times\n",
+		 avgTf_scanfifo, (float)g_FifoStats[idx].fifo_deltats_scanfifo/MHz, cnt_scanfifo);
+	ss<<"\t"<<tmp;
+	snprintf(tmp, 256, "other FIFO thr avg %fuS total %fuS %llu times\n",
+		 avgTf_other, (float)g_FifoStats[idx].fifo_deltats_other/MHz, cnt_other);
+	ss<<"\t"<<tmp;
+	if (g_FifoStats[idx].fifo_deltats_all > 0) {
+		snprintf(tmp, 256, "FIFO thread total %fuS\n", (float)g_FifoStats[idx].fifo_deltats_all/MHz);
+		ss<<"\t"<<tmp;
+	}
+	INFO("%s", ss.str().c_str());
 }
 
 static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa8 };
@@ -1466,6 +1538,7 @@ void umd_dma_goodput_demo(struct worker *info)
 			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
 			info->dmaopt[oi].raddr.lsb64 += oi * info->acc_size;
 
+			bool q_was_full = false;
 			info->umd_dma_abort_reason = 0;
 			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
@@ -1479,6 +1552,7 @@ void umd_dma_goodput_demo(struct worker *info)
 					goto exit;
 				}
 				// Don't barf just yet if queue full
+				q_was_full = true;
 			};
 
 			if (info->umd_dch->checkPortError()) {
@@ -1496,7 +1570,7 @@ void umd_dma_goodput_demo(struct worker *info)
 			
 			// Busy-wait for queue to drain
 			for(uint64_t iq = 0;
-			    iq < 1000000000 && (info->umd_dch->queueSize() >= Q_THR);
+			    q_was_full && iq < 1000000000 && (info->umd_dch->queueSize() >= Q_THR);
 			    iq++) {
 				 sched_yield();
 			}

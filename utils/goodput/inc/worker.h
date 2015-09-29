@@ -136,6 +136,7 @@ struct thread_cpu {
 };
 
 struct worker {
+	int idx; /* index of this worker thread -- needed by UMD */
 	struct thread_cpu wkr_thr;
 	sem_t started;
 	int stat; /* 0 - dead, 1 - running, 2 stopped */

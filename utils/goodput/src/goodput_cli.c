@@ -113,6 +113,7 @@ int ThreadCmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
+	wkr[idx].idx = idx;
 	start_worker_thread(&wkr[idx], new_dma, cpu);
 exit:
         return 0;
@@ -1415,7 +1416,7 @@ exit:
 
 struct cli_cmd UDMA = {
 "udma",
-2,
+4,
 10,
 "Transmit DMA requests with User-Mode demo driver",
 "<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <bytes> <acc_sz> <trans>\n"
@@ -1432,6 +1433,25 @@ struct cli_cmd UDMA = {
 	"<acc_sz> Access size\n"
 	"<trans>  0 NREAD, 1 LAST_NWR, 2 NW, 3 NW_R\n",
 UDMACmd,
+ATTR_NONE
+};
+
+extern void UMD_DD(int idx);
+
+int UMDDDDCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx = getDecParm(argv[0], 0);
+	UMD_DD(idx);
+	return 0;
+}
+struct cli_cmd UMDDD = {
+"udd",
+1,
+1,
+"Dump UMD misc counters",
+"<idx>\n"
+	"<idx> is a worker index from 0 to 7\n",
+UMDDDDCmd,
 ATTR_NONE
 };
 
@@ -1545,6 +1565,7 @@ struct cli_cmd *goodput_cmds[] = {
 #ifdef USER_MODE_DRIVER
 	&UDMA,
 	&UMSG,
+	&UMDDD,
 #endif
 	&msgTx,
 	&msgRx,
