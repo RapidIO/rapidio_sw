@@ -61,7 +61,6 @@ struct fml_globals fml;
 
 int open_socket_to_fmd(void)
 {
-	DBG("ENTER\n");
 	if (!fml.fd) {
 		fml.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 		if (-1 == fml.fd) {
@@ -120,7 +119,6 @@ fail:
 
 int open_dd(void)
 {
-	DBG("ENTER\n");
 	memset(fml.dd_fn, 0, MAX_DD_FN_SZ+1);
 	memset(fml.dd_mtx_fn, 0, MAX_DD_MTX_FN_SZ+1);
 
@@ -135,7 +133,6 @@ int open_dd(void)
 		ERR("fmd_dd_mtx_open failed\n");
 		goto fail;
 	}
-	DBG("EXIT\n");
 	return 0;
 fail:
 	return -1;
@@ -202,21 +199,16 @@ int update_devid_status(void)
                 for (j = 0; j < fml.num_devs; j++) {
                         if (fml.devs[j].destID == i) {
 				uint8_t temp_flag = FMDD_FLAG_OK;
-				INFO("fml.devs[%d].flag = 0x%X\n", j, fml.devs[j].flag);
 				temp_flag |= fml.devs[j].flag;
 
 				if (fml.devs[j].is_mast_pt) 
                                 	temp_flag |= FMDD_FLAG_OK_MP;
 
-				INFO("temp_flag = 0x%X\n", temp_flag);
-				INFO("fml.devid_status[i] = 0x%X\n", fml.devid_status[i]);
 				if (fml.devid_status[i] != temp_flag) {
                                 	fml.devid_status[i] = temp_flag;
-					INFO("Now fml.devid_status[i] = 0x%X\n", fml.devid_status[i]);
 					changed = 1;
 				};
                                 found = 1;
-                                INFO("Found!\n");
                                 break;
                         };
                 };
@@ -250,7 +242,6 @@ void *mon_loop(void *parms)
 {
 	int rc;
  
-	DBG("ENTER with app_idx = %d\n", fml.app_idx);
 	fml.dd_mtx->dd_ev[fml.app_idx].in_use = 1;
 	fml.dd_mtx->dd_ev[fml.app_idx].proc = getpid();
 
@@ -295,7 +286,6 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 	}
 
 	if (!fml.mon_alive) {
-		DBG("mon_alive is FALSE\n");
 		sem_init(&fml.pend_waits_mtx, 0, 1);
 		fml.flag = flag;
 		l_init(&fml.pend_waits);
@@ -367,7 +357,6 @@ uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag)
 		goto fail;
 	}
 
-	INFO("flag = 0x%X, fml.devid_status[did] = 0x%X\n", flag, fml.devid_status[did]);
 	return flag & fml.devid_status[did];
 fail:
 	return FMDD_FLAG_NOK;
@@ -378,7 +367,6 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 	uint32_t i, cnt = 0, idx = 0;
 	uint8_t flag;
 
-	DBG("ENTER\n");
 	if (h != &fml) {
 		ERR("Invalid fmdd_h h(0x%X)\n", h);
 		goto fail;
@@ -407,10 +395,8 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 		};
 	};
 exit:
-	DBG("EXIT - OK\n");
 	return 0;
 fail:
-	DBG("EXIT - FAIL\n");
 	return 1;
 };
 
@@ -433,8 +419,6 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 	struct fml_wait_4_chg *chg_sem;
 	int rc;
 
-	DBG("ENTER\n");
-
 	if ((h != &fml) || fml.mon_must_die || !fml.mon_alive) {
 		ERR("Bad handle, mon not alive or mon must die\n");
 		goto fail;
@@ -449,7 +433,6 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 	l_push_tail(&fml.pend_waits, (void *)chg_sem);
 	sem_post(&fml.pend_waits_mtx);
 
-	DBG("Waiting onr change semaphore...\n");
 	rc = sem_wait(&chg_sem->sema);
 
 	/* Note: The notification process removes all items from the list. */
@@ -460,10 +443,8 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 		goto fail;
 	}
 
-	DBG("EXIT - OK\n");
 	return 0;
 fail:
-	DBG("EXIT - FAIL\n");
 	return 1;
 };
 

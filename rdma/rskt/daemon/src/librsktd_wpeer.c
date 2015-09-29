@@ -86,9 +86,7 @@ struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 	*w->self_ref = w;
 
 	w->ct = ct;
-	HIGH("w->ct = %d\n", ct);
 	w->cm_skt = cm_skt;
-	HIGH("w->cm_skt = %d\n", cm_skt);
 
 	w->wpeer_alive = 0;
 	w->i_must_die = 0;
@@ -401,7 +399,6 @@ void close_all_wpeers(void)
 {
 	void **l;
 
-	HIGH("ENTER\n");
 	sem_wait(&dmn.wpeers_mtx);
 	l = (void **)l_pop_head(&dmn.wpeers);
 	sem_post(&dmn.wpeers_mtx);
@@ -430,7 +427,6 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 
 	/* Search for workers for destIDs that no longer exist */
 	/* OR where the peer RSKTD has died... */
-	HIGH("ENTER\n");
 	sem_wait(&dmn.wpeers_mtx);
 	wp_p = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
 	if (wp_p == NULL) {
@@ -448,7 +444,6 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 		DBG("destid_cnt = %d\n", destid_cnt);
 		for (i = 0; (i < destid_cnt) && !found; i++) {
 			if (wp->ct == destids[i]) {
-				HIGH("wp->ct found in list of destids\n");
 				HIGH("Checking if RSKT is running\n");
 				found = fmdd_check_did(dd_h, wp->ct, 
 								FMDD_RSKT_FLAG);

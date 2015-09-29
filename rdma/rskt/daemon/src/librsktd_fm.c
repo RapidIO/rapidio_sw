@@ -72,7 +72,6 @@ void *fm_loop(void *unused)
 	uint32_t *did_list;
 	uint32_t rc;
 
-	HIGH("ENTER\n");
 	dd_h = fmdd_get_handle((char *)"RSKTD", FMDD_RSKT_FLAG);
 	if (dd_h == NULL ) {
 		CRIT("Cannot obtain dd_h. Exiting\n");

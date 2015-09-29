@@ -180,7 +180,6 @@ void *fm_loop(void *unused)
 	uint32_t new_did_list_size = 0;
 	uint32_t *new_did_list = NULL;
 
-	HIGH("fm_loop up and running!!!!!!!!!!!!!!!\n");
 	dd_h = fmdd_get_handle((char *)"RDMAD", FMDD_RDMA_FLAG);
 
 	if (dd_h != NULL) {
