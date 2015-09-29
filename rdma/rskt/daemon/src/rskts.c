@@ -135,7 +135,7 @@ int parse_options(int argc, char *argv[], struct server_controls *ctrls)
 	ctrls->rsktlib_mp = DFLT_DMN_LSKT_MPORT;
 	ctrls->rsktlib_portno = DFLT_DMN_LSKT_SKT;
 	ctrls->remcli_portno = DFLT_SVR_E_CLI_SKT;
-	rskts.debug = 0;
+	rskts.debug = 1;
 	ctrls->print_help = 0;
 
         for (idx = 0; (idx < argc) && !ctrls->print_help; idx++) {
@@ -605,10 +605,12 @@ void rskts_console_cleanup(struct cli_env *env)
 void sig_handler(int signo)
 {
 	printf("\nRx Signal %x\n", signo);
+	CRIT("\nRx Signal %x\n", signo);
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		printf("Shutting down\n");
 		rskt_server_shutdown();
 	};
+        exit(0);
 };
 
 int main(int argc, char *argv[])
@@ -617,10 +619,10 @@ int main(int argc, char *argv[])
 		goto exit;
 
 	if (rskts.debug) {
-		printf("u_skt : %d\n", rskts.ctrls.rsktlib_portno);
-		printf("Umpnum: %d\n", rskts.ctrls.rsktlib_mp);
-		printf("e_skt : %d\n", rskts.ctrls.remcli_portno);
-		printf("debug : %d\n", rskts.debug);
+		printf("rskts.ctrls.rsktlib_portno : %d\n", rskts.ctrls.rsktlib_portno);
+		printf("rskts.ctrls.rsktlib_mp: %d\n", rskts.ctrls.rsktlib_mp);
+		printf("rskts.ctrls.remcli_portno : %d\n", rskts.ctrls.remcli_portno);
+		printf("rskts.debug : %d\n", rskts.debug);
 	};
 
 	if (rskts.ctrls.print_help) {

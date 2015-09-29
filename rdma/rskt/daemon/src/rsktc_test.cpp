@@ -90,8 +90,8 @@ int main(int argc, char *argv[])
 		ERR("Failed to receive message\n");
 		return 4;
 	}
-	printf("Reply received:  %s\n", in_msg);
 
+	printf("Reply received:  %s\n", in_msg);
 }
 
 #ifdef __cplusplus

@@ -126,13 +126,25 @@ ibwin::ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size) :
 void ibwin::free()
 {
 	/* Delete all memory spaces */
-	for_each(begin(mspaces), end(mspaces), [](mspace *p){ delete p;});
+	for (auto& ms : mspaces) {
+		if (ms != nullptr) {
+			INFO("Deleting %s\n", ms->get_name());
+			delete ms;
+		} else {
+			WARN("NOT deleting nullptr\n");
+		}
+	}
 	mspaces.clear();
 
 	/* Free inbound window */
-	INFO("win_num = %d, phys_addr = 0x%lX\n", win_num, phys_addr);
-	if (riomp_dma_ibwin_free(mport_hnd, &phys_addr)) {
-		CRIT("free(): riomp_dma_ibwin_free()\n");
+	INFO("win_num = %d, phys_addr = 0x%16" PRIx64 "\n",
+			win_num, phys_addr);
+	int ret = riomp_dma_ibwin_free(mport_hnd, &phys_addr);
+	if (ret) {
+		CRIT("riomp_dma_ibwin_free() failed, ret = %d: %s\n",
+				ret, strerror(errno));
+	} else {
+		HIGH("Inbound window %d freed successfully\n", win_num);
 	}
 } /* free() */
 

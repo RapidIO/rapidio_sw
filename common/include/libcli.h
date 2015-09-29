@@ -104,6 +104,7 @@ extern unsigned long getHexParm(char *dollarParameters[],
 
 extern unsigned long getHex(char *token, unsigned long defaultData);
 int getDecParm(char *token, int defaultData);
+float getFloatParm(char *token, float defaultData);
 
 /* CLI initialization/command binding routine.
  * The console_cleanup function is invoked by the "quit" command

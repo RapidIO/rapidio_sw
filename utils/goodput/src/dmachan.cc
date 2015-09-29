@@ -145,6 +145,7 @@ bool DMAChannel::dmaIsRunning()
 
 void DMAChannel::setInitState()
 {
+  assert(this);
   wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_INIT);
   wr32dmachan(TSI721_DMAC_DWRCNT, m_dma_wr = 0);
 }

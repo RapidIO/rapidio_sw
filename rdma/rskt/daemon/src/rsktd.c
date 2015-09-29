@@ -139,7 +139,7 @@ void parse_options(int argc, char *argv[])
 {
 	int idx;
 
-	ctrls.debug = 0;
+	ctrls.debug = 1;	/* For now */
 	ctrls.print_help = 0;
 	ctrls.run_cons = 1;
 	ctrls.log_level = RDMA_LL;
@@ -543,7 +543,7 @@ int main(int argc, char *argv[])
 	int rc = EXIT_FAILURE;
 	int *prc;
 
-	ctrls.debug = 0;
+	ctrls.debug = 1;	/* For now */
 
 	signal(SIGINT, sig_handler);
 	signal(SIGHUP, sig_handler);

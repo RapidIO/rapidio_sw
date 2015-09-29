@@ -54,6 +54,10 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)" IBWIN",
 	(char *)"~IBWIN",
 	(char *)"SHTDWN",
+#ifdef USER_MODE_DRIVER
+        (char*)"UDMA",
+        (char*)"UMSG",
+#endif
 	(char *)"LAST"
 };
 
@@ -286,6 +290,28 @@ struct cli_cmd Wait = {
 	"<idx> is a worker index from 0 to 7\n"
 	"<state> 0 - Dead, 1 - Run, 2 - Halted\n",
 WaitCmd,
+ATTR_NONE
+};
+
+int SleepCmd(struct cli_env *env, int argc, char **argv)
+{
+	float sec = getFloatParm(argv[0], 0);
+	if(sec > 0) {
+		sprintf(env->output, "\nSleeping %f sec...\n", sec);
+        	logMsg(env);
+		const long usec = sec * 1000000;
+		usleep(usec);
+	}
+	return 0;
+}
+
+struct cli_cmd Sleep = {
+"sleep",
+2,
+1,
+"Sleep for a number of seconds (fractional allowed)",
+"sleep <sec>\n",
+SleepCmd,
 ATTR_NONE
 };
 
@@ -851,7 +877,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 
 #ifdef USER_MODE_DRIVER
 	sprintf(env->output,
-        "\nW STS <<<<--Avg Tick/Pkt-->>>> <<<<--Avg uS/Pkt-->>>> <<<<--Totalk Pkt Cnt-->>>> <<<<--MByte/s-->>>>\n");
+        "\ncsv,Worker#,STS size,DMA Write Size (hex),Ticks/Packet,uS/Pkt,Total Pkts,Thruput (Mbyte/s)\n");
         logMsg(env);
 
         const int MHz = getCPUMHz();
@@ -868,9 +894,9 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 
 		double thruput = TOTAL_SIZE_MEG / dTtotalSec;
 
-		sprintf(env->output, "\t%lf\t\t%lf\t\t\t%llu\t\t%lf\n",
-                        dT, dTus,
-                        wkr[i].tick_count, thruput);
+		sprintf(env->output, "csv,%d,0x%x,%x,%lf,%lf,%llu,%lf\n",
+                        i, wkr[i].umd_sts_entries, wkr[i].acc_size,
+			dT, dTus, wkr[i].tick_count, thruput);
         	logMsg(env);
 	}
 #endif
@@ -1315,16 +1341,18 @@ int UDMACmd(struct cli_env *env, int argc, char **argv)
 	uint32_t acc_sz;
 	int trans;
 
-	idx = 	getDecParm(argv[0], 0);
-	cpu = 	getDecParm(argv[1], 0);
-	chan =	getDecParm(argv[2], 0);
-	buff =	getHex(argv[3], 0);
-	sts =	getHex(argv[4], 0);
-	did =		getDecParm(argv[5], 0);
-	rio_addr =	getHex(argv[6], 0);
-	bytes =		getHex(argv[7], 0);
-	acc_sz =	getHex(argv[8], 0);
-	trans =	getDecParm(argv[9], 0);
+        int n = 0; // this be a trick from X11 source tree ;)
+
+	idx      = getDecParm(argv[n++], 0);
+	cpu      = getDecParm(argv[n++], 0);
+	chan     = getDecParm(argv[n++], 0);
+	buff     = getHex(argv[n++], 0);
+	sts      = getHex(argv[n++], 0);
+	did      = getDecParm(argv[n++], 0);
+	rio_addr = getHex(argv[n++], 0);
+	bytes    = getHex(argv[n++], 0);
+	acc_sz   = getHex(argv[n++], 0);
+	trans    = getDecParm(argv[n++], 0);
 
 	if (check_idx(env, idx))
 		goto exit;
@@ -1426,6 +1454,102 @@ struct cli_cmd UMDDD = {
 UMDDDDCmd,
 ATTR_NONE
 };
+
+int UMSGCmd(struct cli_env *env, int argc, char **argv)
+{
+        int idx;
+        int chan;
+        int cpu;
+        uint32_t buff;
+        uint32_t sts;
+        uint32_t did;
+        uint32_t acc_sz;
+        int txrx = 0;
+
+        int n = 0; // this be a trick from X11 source tree ;)
+
+        idx      = getDecParm(argv[n++], 0);
+        cpu      = getDecParm(argv[n++], 0);
+        chan     = getDecParm(argv[n++], 0);
+        buff     = getHex(argv[n++], 0);
+        sts      = getHex(argv[n++], 0);
+        did      = getDecParm(argv[n++], 0);
+        acc_sz   = getHex(argv[n++], 0);
+        txrx     = getDecParm(argv[n++], 0);
+
+        if (check_idx(env, idx))
+                goto exit;
+
+        if ((chan < 2) || (chan > 3)) {
+                sprintf(env->output, "Chan %d illegal, must be 2 to 3\n", chan);
+                logMsg(env);
+                goto exit;
+        };
+
+        if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1))) {
+                sprintf(env->output,
+                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
+                        buff);
+                logMsg(env);
+                goto exit;
+        };
+
+        if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
+                sprintf(env->output,
+                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
+                        sts);
+                logMsg(env);
+                goto exit;
+        };
+	if (acc_sz < 1 || acc_sz > 4096) {
+                sprintf(env->output,
+                        "Bad acc_sz %x, must be 1..4096\n",
+                        sts);
+                logMsg(env);
+                goto exit;
+	}
+
+        wkr[idx].action = umd_mbox;
+        wkr[idx].action_mode = user_mode_action;
+        wkr[idx].umd_chan = chan;
+        wkr[idx].umd_fifo_thr.cpu_req = cpu;
+        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+        wkr[idx].umd_tx_buf_cnt = buff;
+        wkr[idx].umd_sts_entries = sts;
+        wkr[idx].did = did;
+        wkr[idx].rio_addr = 0;
+        wkr[idx].byte_cnt = 0;
+        wkr[idx].acc_size = acc_sz;
+        wkr[idx].umd_tx_rtype = (enum dma_rtype)-1;
+        wkr[idx].wr = !!txrx;
+        wkr[idx].use_kbuf = 1;
+
+        wkr[idx].stop_req = 0;
+        sem_post(&wkr[idx].run);
+exit:
+        return 0;
+}
+
+struct cli_cmd UMSG = {
+"umsg",
+2,
+8,
+"Transmit/Receive MBOX requests with User-Mode demo driver",
+"<idx> <cpu> <chan> <buff> <sts> <did> <acc_sz> <txrx>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
+	"<chan> is a MBOX channel number from 2 through 3\n"
+	"<buff> is the number of transmit descriptors/buffers to allocate\n"
+	"       Must be a power of two from 0x20 up to 0x80000\n"
+	"<sts> is the number of status entries for completed descriptors\n"
+	"       Must be a power of two from 0x20 up to 0x80000\n"
+	"<did> target device ID (if Transmitting) -- ignored for RX\n"
+	"<acc_sz> Access size (if Transmitting)\n"
+	"<txrx>  0 RX, 1 TX\n",
+UMSGCmd,
+ATTR_NONE
+};
+
 #endif
 
 struct cli_cmd *goodput_cmds[] = {
@@ -1440,6 +1564,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&dma,
 #ifdef USER_MODE_DRIVER
 	&UDMA,
+	&UMSG,
 	&UMDDD,
 #endif
 	&msgTx,
@@ -1454,6 +1579,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&Halt,
 	&Move,
 	&Wait,
+	&Sleep,
 	&Mpdevs
 };
 

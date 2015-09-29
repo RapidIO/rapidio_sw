@@ -52,6 +52,17 @@ int getDecParm(char *token, int defaultData)
 	return data;
 }
 
+float getFloatParm(char *token, float defaultData)
+{
+	float data;
+
+	if (token == NULL || token[0] == '/')
+		data = defaultData;
+	else if (sscanf(token, "%f", &data) <= 0)
+		data = defaultData;
+	return data;
+}
+
 unsigned long getHexParm(char *dollarParameters[], unsigned int nDollarParms,
 				char *token, unsigned int defaultData)
 {

@@ -317,6 +317,8 @@ int open_lib_conn_socket(void )
 		goto fail;
 	};
 
+	HIGH("Bound lib_st.fd(%d) to %s\n", lib_st.fd, lib_st.addr.sun_path);
+
 	if (listen(lib_st.fd, lib_st.bklg) == -1) {
 		ERR("ERROR on lib_conn listen: %s\n", strerror(errno));
 		goto fail;
@@ -331,8 +333,10 @@ void halt_lib_handler(void);
 void *lib_conn_loop( void *unused )
 {
 	/* Open Unix domain socket */
-	if (open_lib_conn_socket())
+	if (open_lib_conn_socket()) {
+		ERR("Failed in open_lib_conn_socket()\n");
 		goto fail;
+	}
 
 	lib_st.loop_alive = 1;
 	sem_post(&lib_st.loop_started);
@@ -367,7 +371,7 @@ void *lib_conn_loop( void *unused )
         	rc = pthread_create(&lib_st.new_app->thread, NULL, app_rx_loop,
 				(void *)lib_st.new_app);
         	if (rc)
-                	printf("Error - app_rx_loop rc: %d\n", rc);
+                	ERR("Error - app_rx_loop rc: %d\n", rc);
 		else
         		sem_wait(&lib_st.new_app->started);
 
@@ -375,7 +379,7 @@ void *lib_conn_loop( void *unused )
 			break;
 	};
 fail:
-	printf("\nRSKTD Library Connection Thread Exiting\n");
+	DBG("RSKTD Library Connection Thread Exiting\n");
 	halt_lib_handler();
 
 	unused = malloc(sizeof(int));
@@ -407,7 +411,7 @@ int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog, int tst)
 
         ret = pthread_create(&lib_st.conn_thread, NULL, lib_conn_loop, NULL);
         if (ret) {
-                printf("Error - lib_thread rc: %d\n", ret);
+                ERR("Error - lib_thread rc: %d\n", ret);
 	} else {
         	sem_wait(&lib_st.loop_started);
         	sem_post(&lib_st.loop_started);
@@ -437,6 +441,7 @@ void halt_lib_handler(void)
 		sem_post(&lib_st.new_app->started);
 
 	if (lib_st.fd > 0) {
+		HIGH("Closing lib_st.fd\n");
 		close(lib_st.fd);
 		lib_st.fd = -1;
 	};

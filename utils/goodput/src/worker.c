@@ -1208,9 +1208,13 @@ typedef struct {
 
 FifoStats_t g_FifoStats[8];
 
+#ifndef PAGE_4K
+  #define PAGE_4K	4096
+#endif
+
 extern char* dma_rtype_str[];
 
-void *umd_fifo_proc_thr(void *parm)
+void *umd_dma_fifo_proc_thr(void *parm)
 {
 	struct worker *info;
         std::vector<DMAChannel::WorkItem_t>::iterator it;
@@ -1298,8 +1302,8 @@ void *umd_fifo_proc_thr(void *parm)
 					g_FifoStats[idx].fifo_thr_iter);
 				break;
       			}
+                } // END for WorkItem_t vector
 
-    		} // END for wi
 		const uint64_t tsm2 = rdtsc();
 		if (tsm2 > tsm1) { g_FifoStats[idx].fifo_deltats_other += (tsm2-tsm1); g_FifoStats[idx].fifo_count_other++; }
 
@@ -1310,14 +1314,102 @@ void *umd_fifo_proc_thr(void *parm)
 	} // END while
 	tsF2 = rdtsc();
 exit:
+	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
 	sem_post(&info->umd_fifo_proc_started); 
 	info->umd_fifo_proc_alive = 0;
 
-	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
         DBG("\n\t%s: EXITING iter=%llu must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
 
 	pthread_exit(parm);
 };
+
+void *umd_mbox_fifo_proc_thr(void *parm)
+{
+        struct worker *info;
+        std::vector<DMAChannel::WorkItem_t>::iterator it;
+
+	int idx = -1;
+	uint64_t tsF1 = 0, tsF2 = 0;
+        const int MHz = getCPUMHz();
+
+        if (NULL == parm)
+                goto exit;
+
+        info = (struct worker *)parm;
+        if (NULL == info->umd_mch)
+                goto exit;
+
+        migrate_thread_to_cpu(&info->umd_fifo_thr);
+
+        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
+                goto exit;
+
+	idx = info->idx;
+	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));
+
+        info->umd_fifo_proc_alive = 1;
+        sem_post(&info->umd_fifo_proc_started);
+
+	tsF1 = rdtsc();
+	while (!info->umd_fifo_proc_must_die) {
+		std::vector<MboxChannel::WorkItem_t> wi;
+		g_FifoStats[idx].fifo_thr_iter++;
+
+		const uint64_t tss1 = rdtsc();
+		const int cnt = info->umd_mch->scanFIFO(info->umd_chan, wi);
+		const uint64_t tss2 = rdtsc();
+		if (tss2 > tss1) { g_FifoStats[idx].fifo_deltats_scanfifo += (tss2-tss1); g_FifoStats[idx].fifo_count_scanfifo++; }
+		if (0 == cnt) {
+			for(int i = 0; i < 20000; i++) {;}
+			continue;
+		}
+
+		const uint64_t tsm1 = rdtsc();
+                for (std::vector<MboxChannel::WorkItem_t>::iterator it = wi.begin(); it != wi.end(); it++) {
+                        MboxChannel::WorkItem_t& item = *it;
+
+                        uint64_t dT  = 0;
+                        float    dTf = 0;
+                        if(item.opt.ts_end > item.opt.ts_start) { // Ignore rdtsc wrap-arounds
+                                dT = item.opt.ts_end - item.opt.ts_start;
+                                dTf = (float)dT / MHz;
+                        }
+                        switch (item.opt.dtype) {
+                        case DTYPE4:
+                                INFO("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
+                                        item.opt.destid,
+                                        item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
+                                info->perf_byte_cnt += info->acc_size;
+                                clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+                                if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += info->acc_size; }
+                                break;
+                        case DTYPE5:
+                                INFO("\n\tFinished D5 bd_wp=%u -- FIFO iter %llu dTick %ll (%f uS)u\n",
+                                         item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
+                                break;
+                        default:
+                                INFO("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
+                                         item.opt.dtype, item.opt.bd_wp,
+                                        g_FifoStats[idx].fifo_thr_iter);
+                                break;
+                        }
+                } // END for WorkItem_t vector
+
+		const uint64_t tsm2 = rdtsc();
+		if (tsm2 > tsm1) { g_FifoStats[idx].fifo_deltats_other += (tsm2-tsm1); g_FifoStats[idx].fifo_count_other++; }
+//next:
+		for(int i = 0; i < 10000; i++) {;}
+	}
+exit:
+	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
+
+	sem_post(&info->umd_fifo_proc_started); 
+	info->umd_fifo_proc_alive = 0;
+
+        DBG("\n\t%s: EXITING iter=%llu must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
+
+	pthread_exit(parm);
+}
 
 void UMD_DD(int idx)
 {
@@ -1409,7 +1501,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	};
 
         rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
-			umd_fifo_proc_thr, (void *)info);
+			    umd_dma_fifo_proc_thr, (void *)info);
 	if (rc) {
 		CRIT("\n\tCould not create umd_fifo_proc thread, exiting...");
 		goto exit;
@@ -1522,7 +1614,7 @@ exit:
         INFO("\n\tEND: DMA hw RP = %d | soft RP = %d\n",
                         info->umd_dch->getReadCount(),
 			info->umd_dch->getSoftReadCount(false));
-        sleep(4);
+        sleep(1);
 
         INFO("\n\tEXITING (FIFO iter=%lu hw RP=%u WP=%u)\n",
                 info->umd_dch->m_fifo_scan_cnt,
@@ -1544,7 +1636,124 @@ exit:
 	info->umd_dch = NULL;
 }
 
-#endif
+void umd_mbox_goodput_demo(struct worker *info)
+{
+	int rc = 0;
+        info->umd_mch = new MboxChannel(info->mp_num, 1<<info->umd_chan, info->mp_h);
+
+        if (NULL == info->umd_mch) {
+                CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
+                        info->umd_chan, info->mp_num, info->mp_h);
+                return;
+        };
+
+	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt)) {
+                CRIT("\n\tMboxChannel: Failed to open mbox!");
+		delete info->umd_mch;
+		return;
+	}
+
+        info->tick_data_total = 0;
+        info->tick_count = info->tick_total = 0;
+
+        info->umd_mch->setInitState();
+
+        zero_stats(info);
+        clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+        INFO("\n\tMBOX my_destid=%u destid=%u bcount=%d #buf=%d #fifo=%d\n",
+             info->umd_mch->getDestId(),
+             info->did, info->acc_size,
+             info->umd_tx_buf_cnt, info->umd_sts_entries);
+
+ 	// Receiver
+	if(info->wr == 0) {
+		info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
+
+		for(int i = 0; i < info->umd_tx_buf_cnt; i++) {
+			void* b = calloc(1, PAGE_4K);
+      			info->umd_mch->add_inb_buffer(info->umd_chan, b);
+		}
+
+        	while (!info->stop_req) {
+                	info->umd_dma_abort_reason = 0;
+			uint64_t rx_ts = 0;
+			while (!info->stop_req && ! info->umd_mch->inb_message_ready(info->umd_chan, rx_ts))
+				usleep(1);
+			if (info->stop_req) break;
+
+			void* buf = NULL;
+			int msg_size = 0;
+			uint64_t enq_ts = 0;
+			while ((buf = info->umd_mch->get_inb_message(info->umd_chan, msg_size, enq_ts)) != NULL) {
+			      INFO("\n\tGot a message of size %d [%s]\n\n", msg_size, buf);
+			      info->umd_mch->add_inb_buffer(info->umd_chan, buf); // recycle
+			}
+			if (rx_ts && enq_ts && rx_ts > enq_ts && msg_size > 0) { // not overflown
+				const uint64_t dT = rx_ts - enq_ts;
+				if (dT > 0) { 
+					info->tick_count++;
+					info->tick_total += dT;
+					info->tick_data_total += msg_size;
+				}
+			}
+		} // END infinite loop
+
+
+		// Inbound buffers freed in MboxChannel::cleanup
+
+		goto exit_rx;
+	} // END Receiver
+
+	// Transmitter
+        rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
+                            umd_mbox_fifo_proc_thr, (void *)info);
+        if (rc) {
+                CRIT("\n\tCould not create umd_fifo_proc thread, exiting...");
+                goto exit;
+        };
+        sem_wait(&info->umd_fifo_proc_started);
+
+        if (!info->umd_fifo_proc_alive) {
+                CRIT("\n\tumd_fifo_proc thread is dead, exiting..");
+                goto exit;
+        };
+
+        while (!info->stop_req) {
+                info->umd_dma_abort_reason = 0;
+
+                // TX Loop
+                for (int cnt = 0; /*(cnt < info->byte_cnt) &&*/ !info->stop_req;
+                                                        cnt += info->acc_size) {
+			char str[PAGE_4K+1] = {0};
+
+			MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
+			opt.destid = info->did;
+			opt.mbox   = info->umd_chan;
+			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
+		      	if (! info->umd_mch->send_message(opt, str, info->acc_size)) {
+				ERR("\n\tsend_message FAILED!\n");
+				goto exit;
+		      	}
+			if (info->stop_req) break;
+		      	while (!info->stop_req && info->umd_mch->queueTxFull( info->umd_chan)) { usleep(100); }
+		}
+
+                info->umd_tx_iter_cnt++;
+        } // END while NOT stop requested
+
+exit:
+        info->umd_fifo_proc_must_die = 1;
+//        if (info->umd_mch) info->umd_mch->shutdown();
+
+        pthread_join(info->umd_fifo_thr.thr, NULL);
+
+exit_rx:
+        delete info->umd_mch;
+
+        info->umd_mch = NULL;
+}
+
+#endif // USER_MODE_DRIVER
 
 void *worker_thread(void *parm)
 {
@@ -1592,6 +1801,9 @@ void *worker_thread(void *parm)
 #ifdef USER_MODE_DRIVER
 		case umd_dma:
 				umd_dma_goodput_demo(info);
+				break;
+		case umd_mbox:
+				umd_mbox_goodput_demo(info);
 				break;
 #endif
 		

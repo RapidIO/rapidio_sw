@@ -2,8 +2,15 @@ kill all
 t 0 0 0
 wait 0 2
 #udma 0 3 7 200 40 6 22f000000 400000 20000 2
-udma 0 3 7 200 40 6 22f400000 400000 20000 2
+levelog 0
+
+udma 0 3 7 200 800 0 40dc00000 400000 400000 2
 wait 0 1
-st
-st i
 g
+sleep 0.5
+g c
+sleep 2
+g
+kill 0
+wait 0 0
+quit

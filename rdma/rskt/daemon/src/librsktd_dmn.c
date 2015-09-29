@@ -484,6 +484,7 @@ fail:
 
 void spawn_daemon_threads(struct control_list *ctrls)
 {
+	DBG("ENTER\n");
 	/* Starts wpeer, speer, and app TX threads */
 	if (start_msg_tx_threads())
 		CRIT("ERR:start_msg_tx_threads failed\n");
@@ -502,8 +503,11 @@ void spawn_daemon_threads(struct control_list *ctrls)
 		CRIT("Error - start_lib_handler failed\n");
 
 	/* Start fabric management thread */
-	if (start_fm_thread())
+	if (start_fm_thread()) {
 		CRIT("ERR:start_fm_thread failed\n");
+		raise(SIGABRT);
+	}
+	DBG("FM thread has started\n");
 
 	/* Now that everything is running, try openning wpeers... */
 	/* First, the wpeers configured from the command line... */

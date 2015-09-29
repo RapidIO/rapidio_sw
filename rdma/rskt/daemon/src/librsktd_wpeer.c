@@ -86,7 +86,9 @@ struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 	*w->self_ref = w;
 
 	w->ct = ct;
+	HIGH("w->ct = %d\n", ct);
 	w->cm_skt = cm_skt;
+	HIGH("w->cm_skt = %d\n", cm_skt);
 
 	w->wpeer_alive = 0;
 	w->i_must_die = 0;
@@ -112,13 +114,15 @@ void *wpeer_rx_loop(void *p_i)
 {
 	struct rskt_dmn_wpeer *w = (struct rskt_dmn_wpeer *)p_i;
 
+	DBG("Waiting on dmn.wpeers_mtx\n");
 	sem_wait(&dmn.wpeers_mtx);
+	HIGH("Adding ct(%d) to dmn.wpeers\n", w->ct);
 	w->wp_li = l_add(&dmn.wpeers, w->ct, w->self_ref);
 	sem_post(&dmn.wpeers_mtx);
 
 	w->i_must_die = 0;
 	sem_post(&w->started);
-
+	DBG("started\n");
 	while (!w->i_must_die) {
 		struct librsktd_unified_msg *msg;
 		uint32_t seq_num;
@@ -132,8 +136,10 @@ void *wpeer_rx_loop(void *p_i)
 		} while ((w->i_must_die) && !dmn.all_must_die && 
 		((EINTR == errno) || (EAGAIN == errno) || (ETIME == errno)));
 
-		if (w->i_must_die || dmn.all_must_die)
+		if (w->i_must_die || dmn.all_must_die) {
+			DBG("Either i_must_die or all_must_die\n");
 			break;
+		}
 
 		seq_num = ntohl(w->resp->msg_seq);
 
@@ -142,8 +148,10 @@ void *wpeer_rx_loop(void *p_i)
 			l_find(&w->w_rsp, seq_num, &li);
 		sem_post(&w->w_rsp_mutex);
 
-		if (NULL == msg)
+		if (NULL == msg) {
+			DBG("msg is NULL, continuing\n");
 			continue;
+		}
 
 		msg->proc_stage = RSKTD_A2W_SEQ_DRESP;
 		memcpy((void *)&msg->dresp->msg, (void *)&w->resp->msg, 
@@ -154,6 +162,7 @@ void *wpeer_rx_loop(void *p_i)
 	};
 
 	/* Stop others from using the wpeer */
+	DBG("Call cleanup_wpeer\n");
 	cleanup_wpeer(w);
 
 	pthread_exit(NULL);
@@ -168,15 +177,19 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 	w = alloc_wpeer(ct, cm_skt);
 	*wp = w;
 
+	DBG("ENTER\n");
 	do {
 		sem_wait(&dmn.mb_mtx);
 		rc = riomp_sock_socket(dmn.mb, &w->cm_skt_h);
+		DBG("dmn.mb created\n");
 		sem_post(&dmn.mb_mtx);
 
         	conn_rc = riomp_sock_connect(w->cm_skt_h, ct, 0, cm_skt);
 
-                if (!conn_rc)
+                if (!conn_rc) {
+                	INFO("Connected to ct(%d)\n", ct);
                         break;
+                }
 
                 rc = riomp_sock_close(&w->cm_skt_h);
                 if (rc) {
@@ -204,9 +217,13 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 
 	w->rx_buff = malloc(RSKTD_CM_MSG_SIZE);
 
+	DBG("Creating wpeer_rx_loop\n");
         rc = pthread_create(&w->w_rx, NULL, wpeer_rx_loop, (void*)w);
-	if (!rc)
+	if (!rc) {
+		DBG("Waiting for wpeer_rx_loop() to start\n");
 		sem_wait(&w->started);
+		DBG("wpeer_rx_loop started\n");
+	}
 	return 0;
 exit:
 	free(w->self_ref);
@@ -219,6 +236,7 @@ void send_hello_to_wpeer(struct rskt_dmn_wpeer *w)
 	struct librsktd_unified_msg *msg = (struct librsktd_unified_msg *)
 		      malloc(sizeof(struct librsktd_unified_msg));
 
+	DBG("Sending hello to wpeer\n");
 	msg = alloc_msg(RSKTD_HELLO_REQ, RSKTD_PROC_A2W, RSKTD_A2W_SEQ_DREQ);
 	msg->wp = w->self_ref;
 	msg->dreq = (struct rsktd_req_msg *)malloc(DMN_REQ_SZ);
@@ -242,12 +260,18 @@ int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers)
 	sem_wait(&dmn.loop_started);
 	sem_post(&dmn.loop_started);
 
-	if ((!dmn.mb_valid && !dmn.cm_skt_tst) || !dmn.speer_conn_alive)
+	if ((!dmn.mb_valid && !dmn.cm_skt_tst) || !dmn.speer_conn_alive) {
+		ERR("Invalid element in 'dmn'\n");
 		return -1;
+	}
 
+	DBG("num_peers = %d, IS THAT A PROBLEM OR WHAT?????\n", num_peers);
 	for (i = 0; i < num_peers; i++) {
-		if (init_wpeer(&w, peers[i].ct, peers[i].cm_skt))
+		if (init_wpeer(&w, peers[i].ct, peers[i].cm_skt)) {
+			WARN("Peer %d not initialized...skipping\n", i);
 			continue;
+		}
+		DBG("Sending 'hello' to wpeer %d\n", i);
 		send_hello_to_wpeer(w);
 	};
 	return 0;
@@ -377,6 +401,7 @@ void close_all_wpeers(void)
 {
 	void **l;
 
+	HIGH("ENTER\n");
 	sem_wait(&dmn.wpeers_mtx);
 	l = (void **)l_pop_head(&dmn.wpeers);
 	sem_post(&dmn.wpeers_mtx);
@@ -405,27 +430,38 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 
 	/* Search for workers for destIDs that no longer exist */
 	/* OR where the peer RSKTD has died... */
-
+	HIGH("ENTER\n");
 	sem_wait(&dmn.wpeers_mtx);
 	wp_p = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
+	if (wp_p == NULL) {
+		WARN("wp_p == NULL\n");
+	}
 	while (wp_p != NULL) {
 		next_wp_p = (struct rskt_dmn_wpeer **)l_next(&li);
 		wp = *wp_p;
 		if (NULL == wp) {
+			ERR("wp is NULL..next!\n");
 			wp_p = next_wp_p;
 			continue;
 		};
 		found = 0;
+		DBG("destid_cnt = %d\n", destid_cnt);
 		for (i = 0; (i < destid_cnt) && !found; i++) {
-			if (wp->ct == destids[i])
+			if (wp->ct == destids[i]) {
+				HIGH("wp->ct found in list of destids\n");
+				HIGH("Checking if RSKT is running\n");
 				found = fmdd_check_did(dd_h, wp->ct, 
 								FMDD_RSKT_FLAG);
+			}
 		};
 
 		if (found) {
+			INFO("found\n");
 			wp_p = next_wp_p;
 			continue;
-		};
+		} else {
+			INFO("not found\n");
+		}
 
 		sem_post(&dmn.wpeers_mtx);
 		close_wpeer(wp);
@@ -435,30 +471,44 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 	sem_post(&dmn.wpeers_mtx);
 	
 	/* Search for destIDs without associated workers */
-
+	DBG("destid_cnt = %d\n", destid_cnt);
 	for (i = 0; i < destid_cnt; i++) {
 		struct peer_rsktd_addr new_wpeer;
 		found = 0;
 		sem_wait(&dmn.wpeers_mtx);
 		wp_p = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
+		if (wp_p == NULL) {
+			WARN("wp_p == NULL\n");
+		}
 		while ((wp_p != NULL) && !found) {
 			wp = *wp_p;
-			if ((NULL != wp) && (wp->ct == destids[i]))
+			if ((NULL != wp) && (wp->ct == destids[i])) {
+				INFO("FOUND!\n");
 				found = 1;
+			}
 			wp_p = (struct rskt_dmn_wpeer **)l_next(&li);
 		};
 		sem_post(&dmn.wpeers_mtx);
 
-		if (found)
+		if (found) {
+			INFO("Found, next iteration!\n");
 			continue;
+		}
 
 		/* Check that RSKTD is running on the peer... */
-		if (!fmdd_check_did(dd_h, destids[i], FMDD_RSKT_FLAG))
+		if (!fmdd_check_did(dd_h, destids[i], FMDD_RSKT_FLAG)) {
+			WARN("RSKTD is NOT running on the peer destid(%d)\n",
+					destids[i]);
 			continue;
+		}
 
 		new_wpeer.ct = destids[i];
 		new_wpeer.cm_skt = DFLT_DMN_CM_CONN_SKT;
 		
+		DBG("new_wpeer.ct = %d, new_wpeer.cm_skt = %d\n",
+				new_wpeer.ct, new_wpeer.cm_skt);
+
+		INFO("Now opening wpeers for requests with the new wpeer\n");
 		open_wpeers_for_requests(1, &new_wpeer);
 	};
 };
