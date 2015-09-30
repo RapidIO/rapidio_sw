@@ -159,7 +159,6 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 		ERR("Failed on resp_rx\n");
 		goto fail;
 	}
-	DBG("rx->a_resp.err = %d\n", rx->a_rsp.err);
 	if (rx->a_rsp.err) {
 		li = NULL;
 		rc = -1;
@@ -168,7 +167,6 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 		goto fail;
 	};
 
-	DBG("Freeing rsvp. No error\n");
 	free(rsvp);
 	return rc;
 fail:
@@ -210,12 +208,10 @@ void *tx_loop(void *unused)
 
 	while (!lib.all_must_die) {
 		if (librskt_wait_for_sem(&lib.msg_tx_cnt, 0x1020)) {
-			WARN("lib.all_must_die = 1");
 			lib.all_must_die = 1;
 			goto exit;
 		};
 		if (librskt_wait_for_sem(&lib.msg_tx_mtx, 0x1021)) {
-			WARN("lib.all_must_die = 1");
 			lib.all_must_die = 2;
 			goto exit;
 		};
@@ -224,7 +220,6 @@ void *tx_loop(void *unused)
 
 		rc = send(lib.fd, (void *)tx, A2RSKTD_SZ, MSG_EOR);
 		if (rc < 0) {
-			WARN("lib.all_must_die = 3\n");
 			lib.all_must_die = 3;
 		}
 	};
@@ -299,7 +294,6 @@ void *rsvp_loop(void *unused)
 
 	while (!lib.all_must_die) {
 		memset((void *)rxd, 0, RSKTD2A_SZ);
-		DBG("Receiving from FD = %d\n", lib.fd);
 		rc = recv(lib.fd, (void *)rxd, RSKTD2A_SZ, 0);
 		if (rc < 0) {
 			ERR("Failed in recv()\n");
@@ -364,7 +358,6 @@ void *cli_loop(void *unused)
 		prep_response(cmd, cmd_resp);
 
 		if (htonl(LIBRSKT_CLI_CMD) != cmd->msg_type) {
-			ERR("Not a CLI command!\n");
 			cmd_resp->msg_type |= htonl(LIBRSKTD_FAIL);
 			cmd_resp->rsp_a.err = EBADRQC;
 		} else {
