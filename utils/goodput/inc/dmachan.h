@@ -201,6 +201,7 @@ public:
   void setWriteCount(uint32_t cnt);
 
 public: // test-public
+
   // NOTE: These functions can be inlined only if they live in a
   //       header file
   #define wr32dmachan(o, d) _wr32dmachan((o), #o, (d), #d)
@@ -232,5 +233,9 @@ public: // test-public
   {
     return m_mport->__rd32dma(m_chan, offset);
   }
+  inline void trace_dmachan(uint32_t offset, uint32_t val)
+  {
+	wr32dmachan_nolock(offset, val);
+  };
 };
 
