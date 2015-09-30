@@ -168,7 +168,7 @@ ATTR_NONE
 
 int HaltCmd(struct cli_env *env, int argc, char **argv)
 {
-	int st_idx = 0, end_idx = MAX_WORKERS-1, i;
+	unsigned int st_idx = 0, end_idx = MAX_WORKERS-1, i;
 
 	if (strncmp(argv[0], "all", 3)) {
 		st_idx = getDecParm(argv[0], 0);
@@ -1436,12 +1436,19 @@ UDMACmd,
 ATTR_NONE
 };
 
-extern void UMD_DD(int idx);
+extern void UMD_DD(const struct worker* wkr);
 
 int UMDDDDCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx = getDecParm(argv[0], 0);
-	UMD_DD(idx);
+	if (idx < 0 || idx >= MAX_WORKERS) {
+                sprintf(env->output, "Bad idx %d\n", idx);
+        	logMsg(env);
+		goto exit;
+	}
+	UMD_DD(&wkr[idx]);
+
+exit:
 	return 0;
 }
 struct cli_cmd UMDDD = {

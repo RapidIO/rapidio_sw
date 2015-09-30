@@ -71,6 +71,9 @@ void DMAChannel::init_splock()
   pthread_spin_init(&m_hw_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_pending_work_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_bl_splock, PTHREAD_PROCESS_PRIVATE);
+  pthread_spin_init(&m_evlog_splock, PTHREAD_PROCESS_PRIVATE);
+
+  m_keep_evlog = false;
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan):
@@ -265,12 +268,13 @@ bool DMAChannel::queueFull()
 {
   // XXX we have control over the soft m_dma_wr but how to divine the read pointer?
   //     that should come from the completion FIFO but for now we brute-force it!
-  //     BEW FIXME: Should the first "unlock" be a lock???
 
-  pthread_spin_unlock(&m_bl_splock);
+  pthread_spin_lock(&m_bl_splock);
   const int SZ = m_bl_busy.size();
   pthread_spin_unlock(&m_bl_splock);
 
+  trace_dmachan(0x300, SZ);
+  trace_dmachan(0x304, m_bd_num + 1);
   return SZ == (m_bd_num+1); // account for T3 BD as well
 }
 
@@ -313,11 +317,14 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   if(opt.tt_16b) dmadesc_set_tt(desc, 1);
   dmadesc_setdevid(desc, opt.destid);
 
+  char ev = '\x0';
   if(opt.dtype == DTYPE1) {
+    ev = '1';
     dmadesc_setT1_bufptr(desc, mem.win_handle);
     dmadesc_setT1_buflen(desc, opt.bcount);
     opt.win_handle = mem.win_handle; // this is good across processes
   } else { // T2
+    ev = '2';
     if(rtype != NREAD) // copy data
       dmadesc_setT2_data(desc, (const uint8_t*)mem.win_ptr, mem.win_size);
     else {
@@ -332,8 +339,10 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   // Check if queue full -- as late as possible in view of MT
   if(queueFull()) {
     ERR("FAILED: DMA TX Queue full!\n");
+	trace_dmachan(0x200, 1);
     return false;
   }
+ trace_dmachan(0x200, 2);
   
   struct hw_dma_desc* bd_hw = NULL;
   pthread_spin_lock(&m_pending_work_splock);
@@ -342,6 +351,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   pthread_spin_lock(&m_bl_splock); 
   if (umdemo_must_die)
 	return false;
+ trace_dmachan(0x200, 3);
   {{
     const int bd_idx = m_dma_wr % (m_bd_num+1);
 
@@ -365,7 +375,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     opt.bd_wp = m_dma_wr; opt.bd_idx = bd_idx;
 
     opt.ts_start = rdtsc();
-    m_dma_wr++; setWriteCount(m_dma_wr);
+    m_dma_wr++; setWriteCount(m_dma_wr); evlog(ev);
+    trace_dmachan(0x200, 4);
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
     if(((m_dma_wr+1) % (m_bd_num+1)) == 0) { // skip T3
@@ -375,7 +386,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
       wk_end.opt.bd_wp = m_dma_wr;
 
       wk_end.opt.ts_start = rdtsc();
-      m_dma_wr++; setWriteCount(m_dma_wr);
+      m_dma_wr++; setWriteCount(m_dma_wr); evlog('3');
       if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
       queued_T3 = true;
@@ -405,6 +416,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   if(queued_T3)
     DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_T3_bd_hw, wk_end.opt.bd_wp);
 
+    trace_dmachan(0x200, 5);
   return true;
 }
 
@@ -678,6 +690,8 @@ void DMAChannel::cleanup()
   // We clean up in case we'll be reusing this object
   memset(&m_dmadesc, 0, sizeof(m_dmadesc));
   memset(&m_dmacompl, 0, sizeof(m_dmacompl));
+  
+  m_evlog.clear();
 }
 
 static inline bool hexdump64bit(const void* p, int len)
@@ -727,6 +741,7 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
     DBG("\n\tFIFO hw RP=%u WP=%u\n", getFIFOReadCount(), getFIFOWriteCount());
 #endif
 
+  evlog('.');
   /* Check and clear descriptor status FIFO entries */
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
   int j = m_fifo_rd * 8;
@@ -740,6 +755,7 @@ DBG("\n\tFIFO (sts_size=%d) line=%d off=%d 0x%llx\n", m_sts_size, j, i, sts_ptr[
           c.win_handle = sts_ptr[i]; c.fifo_offset = i;
           compl_hwbuf.push_back(c);
           sts_ptr[i] = 0;
+          evlog('F');
       }
 
       ++m_fifo_rd;

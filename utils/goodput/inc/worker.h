@@ -69,6 +69,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_sock.h"
 
 #ifdef USER_MODE_DRIVER
+#include <string>
+
 #include "dmachan.h"
 #include "mboxchan.h"
 #include "debug.h"
@@ -221,6 +223,7 @@ struct worker {
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 	volatile uint64_t tick_count, tick_total;
 	volatile uint64_t tick_data_total;
+	std::string	evlog;
 #endif
 };
 

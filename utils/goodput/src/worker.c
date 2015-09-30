@@ -1411,9 +1411,11 @@ exit:
 	pthread_exit(parm);
 }
 
-void UMD_DD(int idx)
+void UMD_DD(const struct worker* info)
 {
 	const int MHz = getCPUMHz();
+
+	const int idx = info->idx;
 
 	float    avgTf_scanfifo = 0;
 	uint64_t cnt_scanfifo = 0;
@@ -1441,7 +1443,12 @@ void UMD_DD(int idx)
 		snprintf(tmp, 256, "FIFO thread total %fuS\n", (float)g_FifoStats[idx].fifo_deltats_all/MHz);
 		ss<<"\t"<<tmp;
 	}
-	INFO("%s", ss.str().c_str());
+	CRIT("%s", ss.str().c_str());
+
+	if (info->evlog.size() == 0) return;
+
+	CRIT("\n\tEvlog:\n", NULL);
+	write(STDOUT_FILENO, info->evlog.c_str(), info->evlog.size());
 }
 
 static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa8 };
@@ -1452,7 +1459,6 @@ void umd_dma_goodput_demo(struct worker *info)
 {
 	int oi = 0, rc;
 	uint64_t cnt;
-	uint64_t haxxx;
 
 	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
@@ -1520,6 +1526,8 @@ void umd_dma_goodput_demo(struct worker *info)
 */
 
 	zero_stats(info);
+	info->evlog.clear();
+        info->umd_dch->switch_evlog(true);
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
         INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
@@ -1527,10 +1535,12 @@ void umd_dma_goodput_demo(struct worker *info)
              info->did, info->rio_addr, info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
 
+	info->umd_dch->trace_dmachan(0x500, 0x12345678);
 	while (!info->stop_req) {
 		info->umd_dma_abort_reason = 0;
 	
 		// TX Loop
+		info->umd_dch->trace_dmachan(0x100, 1);
         	for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
 			info->dmaopt[oi].destid      = info->did;
@@ -1553,6 +1563,7 @@ void umd_dma_goodput_demo(struct worker *info)
 				}
 				// Don't barf just yet if queue full
 				q_was_full = true;
+				info->umd_dch->trace_dmachan(0x100, 0x10);
 			};
 
 			if (info->umd_dch->checkPortError()) {
@@ -1569,27 +1580,27 @@ void umd_dma_goodput_demo(struct worker *info)
                         }
 			
 			// Busy-wait for queue to drain
+			info->umd_dch->trace_dmachan(0x100, 0x20);
 			for(uint64_t iq = 0;
-			    q_was_full && iq < 1000000000 && (info->umd_dch->queueSize() >= Q_THR);
+			    !info->stop_req && q_was_full && (iq < 1000000000) && (info->umd_dch->queueSize() >= Q_THR);
 			    iq++) {
-				 sched_yield();
+			    info->umd_dch->trace_dmachan(0x100, 0x30);
+				 // sched_yield();
 			}
+			info->umd_dch->trace_dmachan(0x100, 0x40);
 
 			// Wrap around, do no overwrite last buffer entry
 			oi++;
-			if ((info->umd_tx_buf_cnt - 1) == oi)
+			if ((info->umd_tx_buf_cnt - 1) == oi) {
+				info->umd_dch->trace_dmachan(0x100, 0x50);
 				oi = 0;
+			};
                 } // END for transmit burst
 
 		// RX Check
-                haxxx = info->umd_tx_buf_cnt+2; usleep(300);
-                haxxx = info->umd_tx_buf_cnt+2; usleep(300);
 
-                INFO("\n\tEND: DMA hw RP=%u WP=%u HAXX=%u\n",
-			info->umd_dch->getReadCount(),
-			info->umd_dch->getWriteCount(), haxxx);
-
-                // XXX Check FIFO as well here
+		info->umd_dch->trace_dmachan(0x100, 0x60);
+#if 0
                 int rp = 0;
                 for (; rp < 1000000 && info->umd_dch->dmaIsRunning(); rp++) {
 			if(info->stop_req) goto exit;
@@ -1603,7 +1614,7 @@ void umd_dma_goodput_demo(struct worker *info)
 			if(info->stop_req) goto exit;
                 	usleep(DMA_RUNPOLL_US);
                 };
-
+#endif
 		info->umd_tx_iter_cnt++;
         } // END while NOT stop requested
 exit:
@@ -1626,6 +1637,7 @@ exit:
 
         pthread_join(info->umd_fifo_thr.thr, NULL);
 
+	info->umd_dch->get_evlog(info->evlog);
         info->umd_dch->cleanup();
 
 	// Only allocatd one DMA buffer for performance reasons
