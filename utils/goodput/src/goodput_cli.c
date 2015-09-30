@@ -1505,17 +1505,15 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	if (cmd == 'R') { // check ibwin allocated & big enough!
-		if (! wkr[idx].ib_valid) {
-			sprintf(env->output, "IBwin not allocated for this worker thread!\n");
-			logMsg(env);
-			goto exit;
-		}
-		if (wkr[idx].ib_byte_cnt < acc_sz) {
-			sprintf(env->output, "IBwin too small (0x%x) must be at least 0x%x\n", wkr[idx].ib_byte_cnt, acc_sz);
-			logMsg(env);
-			goto exit;
-		}
+	if (! wkr[idx].ib_valid) {
+		sprintf(env->output, "IBwin not allocated for this worker thread!\n");
+		logMsg(env);
+		goto exit;
+	}
+	if (wkr[idx].ib_byte_cnt < acc_sz) {
+		sprintf(env->output, "IBwin too small (0x%x) must be at least 0x%x\n", wkr[idx].ib_byte_cnt, acc_sz);
+		logMsg(env);
+		goto exit;
 	}
 
 	wkr[idx].action = (cmd == 'T') ? umd_dmaltx: umd_dmalrx;
@@ -1557,7 +1555,8 @@ struct cli_cmd UDMALTX = {
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<acc_sz> Access size\n"
-	"<trans>  1 LAST_NWR, 2 NW, 3 NW_R\n",
+	"<trans>  1 LAST_NWR, 2 NW, 3 NW_R\n"
+	"NOTE:  IBAlloc of size >= acc_sz needed before running this command\n",
 UDMALatTxCmd,
 ATTR_NONE
 };
