@@ -1648,6 +1648,11 @@ exit:
 	info->umd_dch = NULL;
 }
 
+void umd_dma_goodput_latency_demo(struct worker *info)
+{
+	INFO("\n\tAction %cX STUB\n", (info->action == umd_dmalrx)? 'R': 'T');
+}
+
 void umd_mbox_goodput_demo(struct worker *info)
 {
 	int rc = 0;
@@ -1813,6 +1818,10 @@ void *worker_thread(void *parm)
 #ifdef USER_MODE_DRIVER
 		case umd_dma:
 				umd_dma_goodput_demo(info);
+				break;
+		case umd_dmalrx:
+		case umd_dmaltx:
+				umd_dma_goodput_latency_demo(info);
 				break;
 		case umd_mbox:
 				umd_mbox_goodput_demo(info);
