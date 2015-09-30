@@ -54,14 +54,13 @@ using std::string;
 extern "C" {
 #endif
 
+unsigned g_level = RDMA_LL; /* Default log level from build */
 
 static circ_buf<string,NUM_LOG_LINES>	log_buf;
 static unsigned circ_buf_en = 1;
 static sem_t log_buf_sem;
 static FILE *log_file;
 
-/* Default log level from build */
-unsigned g_level = RDMA_LL;
 int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 {
 	/* Semaphore for protecting access to log_buf */
@@ -107,13 +106,12 @@ void rdma_log_dump()
 	log_buf.dump();
 } /* rdma_log_dump() */
 
-int rdma_log( unsigned level,
-	      const char *level_str,
-	      const char *file,
-	      int line_num,
-	      const char *func,
-	      const char *format,
-	      ...)
+int rdma_log(const char *level_str,
+	     const char *file,
+	     int line_num,
+	     const char *func,
+	     const char *format,
+	     ...)
 {
 	char buffer[LOG_LINE_SIZE];
 	va_list	args;
@@ -122,18 +120,13 @@ int rdma_log( unsigned level,
 	struct timeval tv;
 	char	asc_time[26];
 	
-	/* Ignore log messages with level higher than the global level */
-	if (level > g_level)
-		return 0;
-
-	/* Prefix with level_str, timestamp, filename, line no., and func. name */
-
+	/* Prefix with level_str, timestamp, filename, line no., and func */
 	time(&cur_time);
 	ctime_r(&cur_time, asc_time);
 	asc_time[strlen(asc_time) - 1] = '\0';
 	gettimeofday(&tv, NULL);
-	n = sprintf(buffer, "%s %s.%03ld %s,%d,%s(): ",
-					level_str, asc_time, tv.tv_usec/1000, file, line_num, func);
+	n = sprintf(buffer, "%s %s.%06ldus %s,%d,%s(): ",
+		level_str, asc_time, tv.tv_usec, file, line_num, func);
 	
 	/* Handle format and variable arguments */
 	va_start(args, format);

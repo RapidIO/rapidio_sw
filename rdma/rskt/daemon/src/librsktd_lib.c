@@ -370,10 +370,11 @@ void *lib_conn_loop( void *unused )
 
         	rc = pthread_create(&lib_st.new_app->thread, NULL, app_rx_loop,
 				(void *)lib_st.new_app);
-        	if (rc)
+        	if (rc) {
                 	ERR("Error - app_rx_loop rc: %d\n", rc);
-		else
+        	} else {
         		sem_wait(&lib_st.new_app->started);
+        	}
 
 		if (lib_st.tst)
 			break;

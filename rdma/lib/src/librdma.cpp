@@ -520,10 +520,10 @@ static void *mso_close_thread_f(void *arg)
 	}
 
 	/* Remove mso with specified msoid, msoh from database */
-	if (remove_loc_mso(msoh))
+	if (remove_loc_mso(msoh)) {
 		WARN("Failed removing msoid(0x%X) msoh(0x%lX)\n",
 							close_msg->msoid, msoh);
-	else {
+	} else {
 		INFO("mq_close_mso_msg successfully processed\n");
 	}
 
@@ -1143,9 +1143,9 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 
 	/* Kill the disconnection thread, if it exists */
 	pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
-	if (!disc_thread)
+	if (!disc_thread) {
 		WARN("disc_thread is NULL.\n");
-	else {
+	} else {
 		if (pthread_cancel(disc_thread)) {
 			WARN("Failed to cancel disc_thread for msh(0x%X):%s\n",
 						msh, strerror(errno));
