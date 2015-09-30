@@ -273,6 +273,8 @@ bool DMAChannel::queueFull()
   const int SZ = m_bl_busy.size();
   pthread_spin_unlock(&m_bl_splock);
 
+  trace_dmachan(0x300, SZ);
+  trace_dmachan(0x304, m_bd_num + 1);
   return SZ == (m_bd_num+1); // account for T3 BD as well
 }
 
@@ -337,8 +339,10 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   // Check if queue full -- as late as possible in view of MT
   if(queueFull()) {
     ERR("FAILED: DMA TX Queue full!\n");
+	trace_dmachan(0x200, 1);
     return false;
   }
+ trace_dmachan(0x200, 2);
   
   struct hw_dma_desc* bd_hw = NULL;
   pthread_spin_lock(&m_pending_work_splock);
@@ -347,6 +351,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   pthread_spin_lock(&m_bl_splock); 
   if (umdemo_must_die)
 	return false;
+ trace_dmachan(0x200, 3);
   {{
     const int bd_idx = m_dma_wr % (m_bd_num+1);
 
@@ -371,6 +376,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
     opt.ts_start = rdtsc();
     m_dma_wr++; setWriteCount(m_dma_wr); evlog(ev);
+    trace_dmachan(0x200, 4);
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
     if(((m_dma_wr+1) % (m_bd_num+1)) == 0) { // skip T3
@@ -410,6 +416,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   if(queued_T3)
     DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_T3_bd_hw, wk_end.opt.bd_wp);
 
+    trace_dmachan(0x200, 5);
   return true;
 }
 

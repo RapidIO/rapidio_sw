@@ -168,7 +168,7 @@ ATTR_NONE
 
 int HaltCmd(struct cli_env *env, int argc, char **argv)
 {
-	int st_idx = 0, end_idx = MAX_WORKERS-1, i;
+	unsigned int st_idx = 0, end_idx = MAX_WORKERS-1, i;
 
 	if (strncmp(argv[0], "all", 3)) {
 		st_idx = getDecParm(argv[0], 0);

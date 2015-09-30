@@ -1535,6 +1535,7 @@ void umd_dma_goodput_demo(struct worker *info)
              info->did, info->rio_addr, info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
 
+	info->umd_dch->trace_dmachan(0x500, 0x12345678);
 	while (!info->stop_req) {
 		info->umd_dma_abort_reason = 0;
 	
@@ -1581,7 +1582,7 @@ void umd_dma_goodput_demo(struct worker *info)
 			// Busy-wait for queue to drain
 			info->umd_dch->trace_dmachan(0x100, 0x20);
 			for(uint64_t iq = 0;
-			    !info->stop_req && q_was_full && iq < 1000000000 && (info->umd_dch->queueSize() >= Q_THR);
+			    !info->stop_req && q_was_full && (iq < 1000000000) && (info->umd_dch->queueSize() >= Q_THR);
 			    iq++) {
 			    info->umd_dch->trace_dmachan(0x100, 0x30);
 				 // sched_yield();
