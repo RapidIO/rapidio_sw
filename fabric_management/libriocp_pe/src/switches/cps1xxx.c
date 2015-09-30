@@ -489,7 +489,10 @@ static int cps1xxx_init_bdc(struct riocp_pe *sw)
 	}
 
 	/* Set the Port-Write Target Device ID CSR to the host */
-	val = CPS1xxx_RIO_SET_PW_DESTID(sw->mport->destid);
+	/* FIXME: Temporary kludge to prevent bursts of port-writes
+	* when CPS Gen2's are initialized.
+	*/
+	val = 0x00990000; // CPS1xxx_RIO_SET_PW_DESTID(sw->mport->destid);
 	ret = riocp_pe_maint_write(sw, CPS1xxx_RIO_PW_DESTID_CSR, val);
 	if (ret)
 		return ret;
