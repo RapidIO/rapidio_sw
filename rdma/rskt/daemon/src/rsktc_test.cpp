@@ -24,8 +24,8 @@ void show_help()
 int main(int argc, char *argv[])
 {
 	char c;
-	uint16_t destid = 0xFFFF;
-	int socket_number = 0;
+	uint16_t destid = 0x9;
+	int socket_number = DFLT_DMN_LSKT_SKT;
 
 	while ((c = getopt(argc, argv, "hd:s:")) != -1)
 		switch (c) {
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 			abort();
 		}
 
-	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
+	int rc = librskt_init(socket_number, 0);
 	if (rc) {
 		puts("failed in librskt_init");
 		return 1;
@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 
 	strcpy(out_msg, "My test string");
 
-	if (client->send(strlen(out_msg))) {
+	if (client->send((unsigned)strlen(out_msg))) {
 		ERR("Failed to send message\n");
 		return 3;
 	}

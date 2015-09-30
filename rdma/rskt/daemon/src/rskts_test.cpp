@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 
 	server->get_recv_buffer((void **)&in_msg);
 
-	cout << in_msg << endl;
+	puts(in_msg);
 
 	char *out_msg;
 
@@ -58,13 +58,13 @@ int main(int argc, char *argv[])
 
 	strcpy(out_msg, in_msg);
 
-	if (server->send(strlen(in_msg))) {
+	if (server->send((unsigned)strlen(in_msg))) {
 		ERR("Failed to send. Dying!");
 		delete server;
 		return 4;
 	}
 
-	cout << "All is good. Goodbye!\n";
+	puts("All is good. Goodbye!");
 
 	delete server;
 }
