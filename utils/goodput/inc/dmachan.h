@@ -161,11 +161,30 @@ public:
 
   inline uint32_t queueSize()
   {
-    pthread_spin_unlock(&m_bl_splock);
+    pthread_spin_lock(&m_bl_splock);
     const int SZ = m_bl_busy.size();
     pthread_spin_unlock(&m_bl_splock);
 
     return SZ;
+  }
+
+  inline void switch_evlog(bool x) { m_keep_evlog = x; if(x) m_evlog.reserve(20000000); else m_evlog.clear(); }
+
+  inline void evlog(char ev)
+  {
+    if(! m_keep_evlog) return;
+    char ev_str[2] = {0}; ev_str[0] = ev;
+    pthread_spin_lock(&m_evlog_splock);
+    m_evlog.append(ev_str);
+    pthread_spin_unlock(&m_evlog_splock);
+  }
+
+  inline int get_evlog(std::string& e)
+  {
+    pthread_spin_lock(&m_evlog_splock);
+    e = m_evlog;
+    pthread_spin_unlock(&m_evlog_splock);
+    return e.size();
   }
 
   void cleanup();
@@ -192,6 +211,9 @@ private:
   std::map<uint32_t, uint32_t> m_bl_outstanding; ///< BD map {wp, bd_idx+1}
   pthread_spinlock_t  m_bl_splock; ///< Serialize access to BD list
   uint64_t            m_T3_bd_hw;
+  volatile bool       m_keep_evlog;
+  std::string         m_evlog;
+  pthread_spinlock_t  m_evlog_splock; ///< Serialize access to event log
   
   std::map<uint64_t, WorkItem_t> m_pending_work;
 
