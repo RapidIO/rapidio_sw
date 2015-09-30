@@ -263,7 +263,7 @@ int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers)
 		return -1;
 	}
 
-	DBG("num_peers = %d, IS THAT A PROBLEM OR WHAT?????\n", num_peers);
+	DBG("num_peers = %d\n", num_peers);
 	for (i = 0; i < num_peers; i++) {
 		if (init_wpeer(&w, peers[i].ct, peers[i].cm_skt)) {
 			WARN("Peer %d not initialized...skipping\n", i);
