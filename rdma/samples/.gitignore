@@ -3,3 +3,4 @@ rdma_server
 rdma_user
 multi_ms_client
 multi_ms_server
+create_and_die

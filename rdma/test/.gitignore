@@ -1,3 +1,4 @@
 bat_client
 bat_server
+bat_child
 *.log
