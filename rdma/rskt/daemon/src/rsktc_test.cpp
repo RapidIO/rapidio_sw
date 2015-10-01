@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 {
 	char c;
 	uint16_t destid = 0x9;
-	int socket_number = DFLT_DMN_LSKT_SKT;
+	int socket_number = 1234;
 
 	/* Register signal handler */
 	struct sigaction sig_action;
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 			abort();
 		}
 
-	int rc = librskt_init(socket_number, 0);
+	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
 	if (rc) {
 		puts("failed in librskt_init");
 		return 1;

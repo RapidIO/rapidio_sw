@@ -16,7 +16,7 @@
 extern "C" {
 #endif
 
-static rskt_server *server;
+static rskt_server *server = nullptr;
 
 void sig_handler(int sig)
 {
@@ -43,7 +43,9 @@ void sig_handler(int sig)
 		return;
 	}
 
-	delete server;
+	if (server != nullptr)
+		delete server;
+
 	exit(0);
 } /* sig_handler() */
 
