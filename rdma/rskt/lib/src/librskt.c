@@ -301,7 +301,6 @@ void *rsvp_loop(void *unused)
 			goto exit;
 		};
 		if (rxd->msg_type & htonl(LIBRSKTD_RESP | LIBRSKTD_FAIL)) {
-			ERR("LIBRSKTD_FAIL?, msg_type = 0x%X\n", rxd->msg_type);
 			rsvp_loop_resp(rxd);
 		} else {
 			DBG("msg_type is OK\n");
@@ -375,7 +374,6 @@ void lib_rem_skt_from_list(rskt_h skt_h, struct rskt_socket_t *skt);
 
 void cleanup_skt(rskt_h skt_h, struct rskt_socket_t *skt)
 {
-	DBG("ENTER\n");
 	if (skt_rmda_uninit != skt->connector) { 
 		if (NULL != skt->msub_p)  {
 			DBG("Unmapping skt->msub_p(0x%X)\n", skt->msub_p);
@@ -1313,7 +1311,7 @@ uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 	};
 	
 	if (!(hdr->rem_rx_wr_flags & htonl(RSKT_FLAG_INIT))) {
-		ERR("RSKT_FLAG_INIT not set\n");
+		/* Not an error; just means there are no bytes available */
 		return 0;
 	}
 

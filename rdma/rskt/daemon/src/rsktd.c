@@ -55,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <arpa/inet.h>
 
 #include "libcli.h"
 #include "librdma.h"
@@ -392,6 +393,8 @@ void *cli_session( void *rc_ptr )
 	cli.cli_addr.sin_port = htons(cli.cli_portno);
 	setsockopt (cli.cli_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
 	setsockopt (cli.cli_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
+	INFO("Binding socket on %s:%d\n", inet_ntoa(cli.cli_addr.sin_addr),
+					cli.cli_portno);
 	if (bind(cli.cli_fd, (struct sockaddr *) &cli.cli_addr, 
 						sizeof(cli.cli_addr)) < 0) {
         	ERR("RSKTD Remote CLI ERROR on binding: %s\n", strerror(errno));
