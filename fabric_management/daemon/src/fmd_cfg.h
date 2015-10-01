@@ -112,6 +112,9 @@ struct fmd_mport_info {
 #define FMD_MAX_CONN_PORT 18
 #define FMD_MAX_DEVS 20
 
+#define FMD_DFLT_DEV_DIR "/sys/bus/rapidio/devices/"
+#define FMD_MAX_DEV_FN 256
+
 #define OTHER_END(x) ((1 == x)?0:((0==x)?1:2))
 
 #define FMD_SLAVE -1

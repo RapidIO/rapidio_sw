@@ -193,6 +193,7 @@ fail:
 void slave_process_mod(void)
 {
 	uint32_t rc = 0xFFFFFFFF;
+	char dev_fn[FMD_MAX_DEV_FN];
 
 	sem_wait(&slv->tx_mtx);
 
@@ -206,12 +207,23 @@ void slave_process_mod(void)
 	slv->s2m->mod_rsp.rc = 0;
 
 	switch (ntohl(slv->m2s->mod_rq.op)) {
-	case FMD_P_OP_ADD: rc = riomp_mgmt_device_add(slv->mp_hnd,
-				ntohl(slv->m2s->mod_rq.did), 
-				ntohl(slv->m2s->mod_rq.hc), 
-				ntohl(slv->m2s->mod_rq.ct),
-				(const char *)slv->m2s->mod_rq.name);
-		if ((rc != EEXIST) && rc) {
+	case FMD_P_OP_ADD: 
+		memset(dev_fn, 0, FMD_MAX_DEV_FN);
+                snprintf(dev_fn, FMD_MAX_DEV_FN-1, "%s%s",
+                        FMD_DFLT_DEV_DIR, slv->m2s->mod_rq.name);
+
+                if (access(dev_fn, F_OK) != -1) {
+			rc = 0;
+                        INFO("\nFMD: device \"%s\" exists...\n",
+                                slv->m2s->mod_rq.name);
+                } else {
+			rc = riomp_mgmt_device_add(slv->mp_hnd,
+					ntohl(slv->m2s->mod_rq.did), 
+					ntohl(slv->m2s->mod_rq.hc), 
+					ntohl(slv->m2s->mod_rq.ct),
+					(const char *)slv->m2s->mod_rq.name);
+		}
+		if (rc) {
 			slv->s2m->mod_rsp.rc = htonl(rc);
 			break;
 		};

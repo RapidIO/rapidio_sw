@@ -344,6 +344,7 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num,
 	struct riocp_pe_capabilities capabilities;
 	uint32_t comptag, ep_ct, con_end, conn_did, conn_hc;
 	struct fmd_cfg_ep *conn_ep; 
+	char dev_fn[FMD_MAX_DEV_FN];
 
 	/* Initialize master port */
 	curr_pe = mport_pe;
@@ -432,13 +433,23 @@ int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num,
 			goto exit;
 		};
 
-		rc = riomp_mgmt_device_add(new_pe->mport->minfo->maint,
-			conn_did, conn_hc, ep_ct, conn_ep->name);
-		if (rc && (EEXIST != rc)) {
-			CRIT("riomp_mgmt_device_add, rc %d\n", rc);
-			goto exit;
+                memset(dev_fn, 0, FMD_MAX_DEV_FN);
+                snprintf(dev_fn, FMD_MAX_DEV_FN-1, "%s%s",
+                        FMD_DFLT_DEV_DIR, conn_ep->name);
+
+                if (access(dev_fn, F_OK) != -1) {
+                        INFO("\nFMD: device \"%s\" exists...\n",
+                                conn_ep->name);
+                } else {
+			rc = riomp_mgmt_device_add(new_pe->mport->minfo->maint,
+				conn_did, conn_hc, ep_ct, conn_ep->name);
+			if (rc) {
+				CRIT("riomp_mgmt_device_add, rc %d errno %d\n",
+					rc, errno);
+				goto exit;
+			};
 		};
-		conn_ep->ports[0].ct = ep_ct;	
+		conn_ep->ports[0].ct = ep_ct;
 	};
 	return 0;
 exit:
@@ -496,6 +507,8 @@ int setup_mport_slave(int mport)
 	struct fmd_cfg_ep *ep;
 	int rc;
 	struct timespec dly = {5, 0}; /* 5 seconds */
+	char slave_mp_fn[FMD_MAX_DEV_FN];
+	char mast_dev_fn[FMD_MAX_DEV_FN];
 
 	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0)) {
 		CRIT("\nCannot create agent handle, exiting...\n");
@@ -544,12 +557,20 @@ int setup_mport_slave(int mport)
 	/* Poll to add the mport  and FMD master devices until the master
 	* completes network initialization.
 	*/
+	memset(slave_mp_fn, 0, FMD_MAX_DEV_FN);
+	snprintf(slave_mp_fn, FMD_MAX_DEV_FN-1, "%s%s",
+                        FMD_DFLT_DEV_DIR, FMD_SLAVE_MPORT_NAME);
+	memset(mast_dev_fn, 0, FMD_MAX_DEV_FN);
+	snprintf(mast_dev_fn, FMD_MAX_DEV_FN-1, "%s%s",
+                        FMD_DFLT_DEV_DIR, FMD_SLAVE_MASTER_NAME);
 	do {
-		rc = riomp_mgmt_device_add(reg_acc_hnd,
-		(uint16_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 
-			(uint8_t)0xFF, comptag, FMD_SLAVE_MPORT_NAME);
-		if (EEXIST == rc)
-			rc = 0;
+		if (access(slave_mp_fn, F_OK) != -1) {
+                        rc = 0;
+                } else {
+			rc = riomp_mgmt_device_add(reg_acc_hnd,
+				fmd->cfg->mport_info[0].devids[FMD_DEV08].devid,
+				(uint8_t)0xFF, comptag, FMD_SLAVE_MPORT_NAME);
+		};
 		if (rc) {
 			INFO("\nCannot add mport0 object %d %d: %s\n", 
 				rc, errno, strerror(errno));
@@ -557,11 +578,13 @@ int setup_mport_slave(int mport)
 			continue;
 		};
 
-		rc = riomp_mgmt_device_add(reg_acc_hnd,
-		(uint16_t)cfg->mast_devid, 1, cfg->mast_devid,
-			FMD_SLAVE_MASTER_NAME);
-		if (EEXIST == rc)
-			rc = 0;
+		if (access(mast_dev_fn, F_OK) != -1) {
+                        rc = 0;
+                } else {
+			rc = riomp_mgmt_device_add(reg_acc_hnd,
+				(uint16_t)cfg->mast_devid, 1, cfg->mast_devid,
+				FMD_SLAVE_MASTER_NAME);
+		};
 		if (rc) {
 			CRIT("\nCannot add FMD Master device %d %d: %s\n", 
 				rc, errno, strerror(errno));

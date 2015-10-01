@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdlib.h>
+#include "liblog.h"
 #include "liblist.h"
 #include "assert.h"
 
@@ -132,6 +133,11 @@ struct l_item_t *l_add(struct l_head_t *l, uint32_t key, void *item)
 		};
 		li = li->next;
 	}
+	
+	if (li == NULL) {
+		CRIT("NEVER: li == NULL");
+		rdma_log_close();
+	};
 	assert(li != NULL);
 exit:
 	l->cnt++;
@@ -140,9 +146,17 @@ exit:
 
 void l_lremove(struct l_head_t *l, struct l_item_t *li)
 {
+	if (!l->cnt) {
+		CRIT("NEVER: li == NULL");
+		rdma_log_close();
+	};
 	assert(l->cnt);
 
 	if (1 == l->cnt) {
+		if (li != l->head) {
+			CRIT("NEVER:(l->cnt == 1) && (li != l->head)");
+			rdma_log_close();
+		};
 		assert(li == l->head);
 		l_init(l);
 	} else {
