@@ -7,7 +7,9 @@
 #RDMA_ROOT_PATH=/opt/rapidio/cern/rapidio_sw
 RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
-NODES="10.10.10.177 10.10.10.102"
+# 10.10.10.51 is GRYPHON (MASTER)
+# 10.10.10.50 is GIGABYTE (SLAVE)
+NODES="10.10.10.51 10.10.10.50"
 NUM_ITERATIONS=200
 
 for (( i=0; i<NUM_ITERATIONS; i++ ))
@@ -167,7 +169,7 @@ do
 		echo "	Everything worked. Retrying, but cleaning up first"
 		echo ""
 
-		NODES="10.10.10.102 10.10.10.177"
+		NODES="10.10.10.50 10.10.10.51"
 
 		# For each node, kill RSKTD RDMAD and FMD
 		for node in $NODES
