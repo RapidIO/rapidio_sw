@@ -91,7 +91,6 @@ void dealloc_msg(struct librsktd_unified_msg *lum)
 		if (NULL != lum->loc_ms)
 			lum->loc_ms->state = 0;
 		free(lum);
-		DBG("'lum' and its components freed\n");
 	}
 };
 
@@ -449,7 +448,7 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 
 	/* Message contents */
 	DBG("msg_type = RDKTD_CONNECT_REQ, msg_seq = 0\n");
-	DBG("dst_sn = %d, dst_ct = 0x%X, src_sn = %d\n", ct, sn, new_sn);
+	DBG("dst_sn = %d, dst_ct = 0x%X, src_sn = %d\n", sn, ct, new_sn);
 	DBG("src_mso = %s, src_ms = %s\n", d_con->src_mso, d_con->src_ms);
 
 fail:
