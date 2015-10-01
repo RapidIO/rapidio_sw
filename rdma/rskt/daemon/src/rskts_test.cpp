@@ -81,7 +81,8 @@ int main(int argc, char *argv[])
 		delete server;
 		return 2;
 	}
-	puts("Connected with client...now waiting for data...");
+	puts("Connected with client");
+#if 0
 	if (server->receive(32)) {
 		ERR("Failed to receive. Dying!\n");
 		delete server;
@@ -106,7 +107,7 @@ int main(int argc, char *argv[])
 		delete server;
 		return 4;
 	}
-
+#endif
 	puts("All is good. Goodbye!");
 
 	delete server;

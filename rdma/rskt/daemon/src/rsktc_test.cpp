@@ -111,7 +111,9 @@ int main(int argc, char *argv[])
 		ERR("Failed to connect to destid(0x%X) on socket number(%d)\n",
 				destid, socket_number);
 		return 2;
-	}
+	} else
+		puts("Successfully connected");
+#if 0
 
 	char *in_msg;
 	char *out_msg;
@@ -120,7 +122,6 @@ int main(int argc, char *argv[])
 	client->get_send_buffer((void **)&out_msg);
 
 	strcpy(out_msg, "My test string");
-
 	if (client->send((unsigned)strlen(out_msg))) {
 		ERR("Failed to send message\n");
 		return 3;
@@ -133,8 +134,9 @@ int main(int argc, char *argv[])
 	}
 
 	printf("Reply received:  %s\n", in_msg);
-
+#endif
 	/* Call destructor to close and destroy socket */
+	puts("Goodbye!");
 	delete client;
 }
 
