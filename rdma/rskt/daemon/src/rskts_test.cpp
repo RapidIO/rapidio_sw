@@ -16,9 +16,50 @@
 extern "C" {
 #endif
 
+static rskt_server *server;
+
+void sig_handler(int sig)
+{
+	switch (sig) {
+
+	case SIGQUIT:	/* ctrl-\ */
+		puts("SIGQUIT - CTRL-\\ signal");
+	break;
+
+	case SIGINT:	/* ctrl-c */
+		puts("SIGINT - CTRL-C signal");
+	break;
+
+	case SIGABRT:	/* abort() */
+		puts("SIGABRT - abort() signal");
+	break;
+
+	case SIGTERM:	/* kill <pid> */
+		puts("SIGTERM - kill <pid> signal");
+	break;
+
+	default:
+		printf("UNKNOWN SIGNAL (%d)\n", sig);
+		return;
+	}
+
+	delete server;
+	exit(0);
+} /* sig_handler() */
+
 int main(int argc, char *argv[])
 {
-	rskt_server *server;
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
+	sigaction(SIGTERM, &sig_action, NULL);
+	sigaction(SIGQUIT, &sig_action, NULL);
+	sigaction(SIGABRT, &sig_action, NULL);
+	sigaction(SIGUSR1, &sig_action, NULL);
+
 	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
 	if (rc) {
 		puts("failed in librskt_init");

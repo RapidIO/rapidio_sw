@@ -16,16 +16,58 @@
 extern "C" {
 #endif
 
+static rskt_client *client;
+
 void show_help()
 {
 	puts("rsktc_test -d<destid> -s<socket_number>\n");
 }
+
+void sig_handler(int sig)
+{
+	switch (sig) {
+
+	case SIGQUIT:	/* ctrl-\ */
+		puts("SIGQUIT - CTRL-\\ signal");
+	break;
+
+	case SIGINT:	/* ctrl-c */
+		puts("SIGINT - CTRL-C signal");
+	break;
+
+	case SIGABRT:	/* abort() */
+		puts("SIGABRT - abort() signal");
+	break;
+
+	case SIGTERM:	/* kill <pid> */
+		puts("SIGTERM - kill <pid> signal");
+	break;
+
+	default:
+		printf("UNKNOWN SIGNAL (%d)\n", sig);
+		return;
+	}
+
+	delete client;
+	exit(0);
+} /* sig_handler() */
 
 int main(int argc, char *argv[])
 {
 	char c;
 	uint16_t destid = 0x9;
 	int socket_number = DFLT_DMN_LSKT_SKT;
+
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
+	sigaction(SIGTERM, &sig_action, NULL);
+	sigaction(SIGQUIT, &sig_action, NULL);
+	sigaction(SIGABRT, &sig_action, NULL);
+	sigaction(SIGUSR1, &sig_action, NULL);
 
 	while ((c = getopt(argc, argv, "hd:s:")) != -1)
 		switch (c) {
@@ -54,7 +96,6 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	rskt_client *client;
 
 	try {
 		client = new rskt_client("client1");
@@ -92,6 +133,9 @@ int main(int argc, char *argv[])
 	}
 
 	printf("Reply received:  %s\n", in_msg);
+
+	/* Call destructor to close and destroy socket */
+	delete client;
 }
 
 #ifdef __cplusplus
