@@ -1676,6 +1676,7 @@ void umd_dma_goodput_latency_demo_rx(struct worker *info)
              info->did, info->rio_addr, info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
 
+	memset(info->ib_ptr, 0,  info->acc_size);
 	while (!info->stop_req) {
 		// TX Loop
         	for (cnt = 0; !info->stop_req; cnt += info->acc_size) {
@@ -1702,6 +1703,7 @@ void umd_dma_goodput_latency_demo_rx(struct worker *info)
 			}
 			if (info->stop_req) goto exit;
 
+			assert(info->dmamem[oi].win_ptr);
 			if (info->acc_size < sizeof(uint32_t)) {
 				uint8_t* dataout_ptr8 = (uint8_t*)info->dmamem[oi].win_ptr + info->acc_size - sizeof(uint8_t);
 				dataout_ptr8[0] = DMA_LAT_SLAVE_SIG1;
@@ -1825,6 +1827,7 @@ void umd_dma_goodput_latency_demo_tx(struct worker *info)
              info->did, info->rio_addr, info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
 
+	memset(info->ib_ptr, 0,info->acc_size);
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 	while (!info->stop_req) {
 		// TX Loop
@@ -1833,6 +1836,7 @@ void umd_dma_goodput_latency_demo_tx(struct worker *info)
 			info->dmaopt[oi].bcount      = info->acc_size;
 			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
 
+			assert(info->dmamem[oi].win_ptr);
 			if (info->acc_size < sizeof(uint32_t)) {
 				uint8_t* dataout_ptr8 = (uint8_t*)info->dmamem[oi].win_ptr + info->acc_size - sizeof(uint8_t);
 				dataout_ptr8[0] = DMA_LAT_MASTER_SIG1;
