@@ -138,6 +138,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	rx->msg_type = tx->msg_type | htonl(LIBRSKTD_RESP);
 	rx->a_rsp.err = 0;
 	rx->a_rsp.req = tx->a_rq;
+	DBG("Waiting for lib.rsvp_mtx\n");
 	if (librskt_wait_for_sem(&lib.rsvp_mtx, 0x1001)) {
 		ERR("Failed on rspv_mtx\n");
 		goto fail;
@@ -148,6 +149,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	li = l_add(&lib.rsvp, seq_num, (void *)rsvp);
 	sem_post(&lib.rsvp_mtx);
 
+	DBG("Waiting for lib.msg_tx_mtx\n");
 	if (librskt_wait_for_sem(&lib.msg_tx_mtx, 0x1002)) {
 		ERR("Failed on msg_tx_mtx\n");
 		goto fail;
@@ -155,6 +157,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	l_push_tail(&lib.msg_tx, (void *)tx); 
 	sem_post(&lib.msg_tx_mtx);
 	sem_post(&lib.msg_tx_cnt);
+	DBG("Waiting for rsvp->resp_rx\n");
 	if (librskt_wait_for_sem(&rsvp->resp_rx, 0x1003)) {
 		ERR("Failed on resp_rx\n");
 		goto fail;
@@ -860,6 +863,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	struct rskt_socket_t *l_skt, *skt;
 	int rc = -1;
 
+	DBG("1\n");
 	if (lib_uninit()) {
 		CRIT("lib_uninit() failed..exiting\n");
 		goto exit;
@@ -871,6 +875,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		goto exit;
 	}
 
+	DBG("2\n");
 	l_skt = l_skt_h->skt;
 	if (NULL == l_skt) {
 		ERR("l_skt_h->skt is NULL\n");
@@ -885,6 +890,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	skt = skt_h->skt;
 
+	DBG("3\n");
 	if (rskt_listening != l_skt->st) {
 		ERR("rskt_listening != l_skt->st..exiting\n");
 		goto exit;
@@ -906,6 +912,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	l_skt->st = rskt_accepting;
 	sem_post(&lib.skts_mtx);
 
+	DBG("4\n");
 	if (librskt_dmsg_req_resp(tx, rx)) {
 		WARN("librskt_dmsg_req_resp() failed..closing\n");
 		goto close;
@@ -923,18 +930,22 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	memcpy(skt->msh_name, rx->a_rsp.msg.accept.ms_name, MAX_MS_NAME);
 	skt->msub_sz = ntohl(rx->a_rsp.msg.accept.ms_size);
 
+	DBG("5\n");
 	if (librskt_wait_for_sem(&lib.skts_mtx, 0x1091)) {
 		ERR(" librskt_wait_for_sem() failed..exiting\n");
 		goto exit;
 	}
+	DBG("6\n");
 	l_skt->st = rskt_listening;
 	sem_post(&lib.skts_mtx);
 
+	DBG("7\n");
 	if (librskt_wait_for_sem(&skt_h->mtx, 0)) {
 		ERR(" librskt_wait_for_sem() failed..exiting\n");
 		goto exit;
 	}
 
+	DBG("8\n");
 	rc = rdma_open_mso_h(skt->msoh_name, &skt->msoh);
 	if (rc) {
 		ERR("Failed to open mso(%s)\n", skt->msoh_name);
@@ -942,6 +953,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	skt->msoh_valid = 1;
 
+	DBG("9\n");
 	rc = rdma_open_ms_h(skt->msh_name, skt->msoh, 0, 
 			&skt->msub_sz, &skt->msh);
 	if (rc) {
@@ -950,6 +962,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	skt->msh_valid = 1;
 
+	DBG("a\n");
 	rc = rdma_create_msub_h(skt->msh, 0,
 				skt->msub_sz, 0, &skt->msubh);
 	if (rc) {
@@ -958,12 +971,14 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	skt->msubh_valid = 1;
 
+	DBG("b\n");
 	rc = rdma_mmap_msub(skt->msubh, (void **)&skt->msub_p);
 	if (rc) {
 		ERR("Failed to mmap msub\n");
 		goto close;
 	}
 
+	DBG("c\n");
 	do {
 		rc = rdma_accept_ms_h(skt->msh, skt->msubh, 
 				&skt->con_msubh, &skt->con_sz, 0);
@@ -976,11 +991,13 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	skt->st = rskt_connected;
 	setup_skt_ptrs(skt);
 	sem_post(&skt_h->mtx);
+	DBG("d\n");
 	lib_add_skt_to_list(skt_h);
 	INFO("Exiting with SUCCESS\n");
 	return 0;
 
 close:
+	DBG("e\n");
 	sem_post(&skt_h->mtx);
 	rskt_close(skt_h);
 exit:
