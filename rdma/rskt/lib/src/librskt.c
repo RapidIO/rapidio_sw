@@ -594,6 +594,7 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	lib.init_ok = rsktd_port;
 	lib.ct = ntohl(resp->a_rsp.msg.hello.ct);
 fail:
+	DBG("EXIT\n");
 	return -!((lib.init_ok == lib.portno) && (lib.portno));
 };
 

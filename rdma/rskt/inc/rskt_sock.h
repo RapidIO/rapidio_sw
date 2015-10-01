@@ -198,8 +198,6 @@ public:
 	max_backlog(max_backlog),
 	is_parent(false)
 	{
-		struct rskt_sockaddr sock_addr;
-
 		/* Create listen socket */
 		listen_socket = rskt_create_socket();
 		if (!listen_socket) {
