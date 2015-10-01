@@ -379,8 +379,8 @@ void cleanup_skt(rskt_h skt_h, struct rskt_socket_t *skt)
 {
 	if (skt_rmda_uninit != skt->connector) { 
 		if (NULL != skt->msub_p)  {
-			DBG("Unmapping skt->msub_p(0x%X)\n", skt->msub_p);
-			rdma_munmap_msub(skt->msubh, (void **)&skt->msub_p);
+			DBG("Unmapping skt->msub_p(%p)\n", skt->msub_p);
+			rdma_munmap_msub(skt->msubh, (void *)skt->msub_p);
 			skt->msub_p = NULL;
 			skt->rx_buf = NULL;
 			skt->tx_buf = NULL;
@@ -863,7 +863,6 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	struct rskt_socket_t *l_skt, *skt;
 	int rc = -1;
 
-	DBG("1\n");
 	if (lib_uninit()) {
 		CRIT("lib_uninit() failed..exiting\n");
 		goto exit;
@@ -875,7 +874,6 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		goto exit;
 	}
 
-	DBG("2\n");
 	l_skt = l_skt_h->skt;
 	if (NULL == l_skt) {
 		ERR("l_skt_h->skt is NULL\n");
@@ -890,7 +888,6 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	skt = skt_h->skt;
 
-	DBG("3\n");
 	if (rskt_listening != l_skt->st) {
 		ERR("rskt_listening != l_skt->st..exiting\n");
 		goto exit;
@@ -912,7 +909,6 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	l_skt->st = rskt_accepting;
 	sem_post(&lib.skts_mtx);
 
-	DBG("4\n");
 	if (librskt_dmsg_req_resp(tx, rx)) {
 		WARN("librskt_dmsg_req_resp() failed..closing\n");
 		goto close;
@@ -930,22 +926,18 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	memcpy(skt->msh_name, rx->a_rsp.msg.accept.ms_name, MAX_MS_NAME);
 	skt->msub_sz = ntohl(rx->a_rsp.msg.accept.ms_size);
 
-	DBG("5\n");
 	if (librskt_wait_for_sem(&lib.skts_mtx, 0x1091)) {
 		ERR(" librskt_wait_for_sem() failed..exiting\n");
 		goto exit;
 	}
-	DBG("6\n");
 	l_skt->st = rskt_listening;
 	sem_post(&lib.skts_mtx);
 
-	DBG("7\n");
 	if (librskt_wait_for_sem(&skt_h->mtx, 0)) {
 		ERR(" librskt_wait_for_sem() failed..exiting\n");
 		goto exit;
 	}
 
-	DBG("8\n");
 	rc = rdma_open_mso_h(skt->msoh_name, &skt->msoh);
 	if (rc) {
 		ERR("Failed to open mso(%s)\n", skt->msoh_name);
@@ -962,7 +954,6 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	skt->msh_valid = 1;
 
-	DBG("a\n");
 	rc = rdma_create_msub_h(skt->msh, 0,
 				skt->msub_sz, 0, &skt->msubh);
 	if (rc) {
@@ -971,14 +962,12 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	skt->msubh_valid = 1;
 
-	DBG("b\n");
 	rc = rdma_mmap_msub(skt->msubh, (void **)&skt->msub_p);
 	if (rc) {
 		ERR("Failed to mmap msub\n");
 		goto close;
 	}
 
-	DBG("c\n");
 	do {
 		rc = rdma_accept_ms_h(skt->msh, skt->msubh, 
 				&skt->con_msubh, &skt->con_sz, 0);
@@ -997,7 +986,6 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	return 0;
 
 close:
-	DBG("e\n");
 	sem_post(&skt_h->mtx);
 	rskt_close(skt_h);
 exit:
