@@ -1554,10 +1554,12 @@ void umd_dma_goodput_demo(struct worker *info)
 				(info->umd_dch->queueSize() >= Q_THR);
 			    	iq++) {
 			}
+
 			// Wrap around, do no overwrite last buffer entry
 			oi++;
-			if (info->umd_tx_buf_cnt - 1 == oi)
+			if ((info->umd_tx_buf_cnt - 1) == oi) {
 				oi = 0;
+			}
                 } // END for transmit burst
 
 		// RX Check
@@ -1608,6 +1610,7 @@ void umd_dma_goodput_latency_demo(struct worker *info)
 {
 	INFO("\n\tAction %cX\n", (info->action == umd_dmalrx)? 'R': 'T');
 
+	info->umd_fifo_thr.thr = pthread_self();
 	migrate_thread_to_cpu(&info->umd_fifo_thr); // XXX not the right member but we reuse
 
 	if (info->action == umd_dmalrx)
@@ -1668,7 +1671,7 @@ void umd_dma_goodput_latency_demo_rx(struct worker *info)
 	info->evlog.clear();
         //info->umd_dch->switch_evlog(true);
 
-        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+        INFO("\n\tUDMA Lat RX my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
              info->umd_dch->getDestId(),
              info->did, info->rio_addr, info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
@@ -1683,6 +1686,7 @@ void umd_dma_goodput_latency_demo_rx(struct worker *info)
 			info->dmaopt[oi].bcount      = info->acc_size;
 			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
 
+			INFO("\n\tPolling %p for Master transfer\n", info->ib_ptr);
 			if (info->acc_size < sizeof(uint32_t)) {
 				volatile uint8_t* datain_ptr8 = (uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint8_t);
 
@@ -1706,6 +1710,7 @@ void umd_dma_goodput_latency_demo_rx(struct worker *info)
 				dataout_ptr[0] = DMA_LAT_SLAVE_SIG;
 			}
 
+			INFO("\n\tReplying to Master destid=%d transfer\n", info->did);
 			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
                                         info->umd_dma_abort_reason)) {
@@ -1734,6 +1739,7 @@ void umd_dma_goodput_latency_demo_rx(struct worker *info)
                                         (outp_err? " OUTPUT": ""));
                         }
 			
+			INFO("\n\tPolling FIFO transfer completion\n", 0);
 			std::vector<DMAChannel::WorkItem_t> wi;
 			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi) == 0) { ; }
 
@@ -1838,6 +1844,7 @@ void umd_dma_goodput_latency_demo_tx(struct worker *info)
 			bool q_was_full = false;
 			info->umd_dma_abort_reason = 0;
 
+			INFO("\n\tTransfer to Slave destid=%d\n", info->did);
 			start_iter_stats(info);
 			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
@@ -1867,10 +1874,12 @@ void umd_dma_goodput_latency_demo_tx(struct worker *info)
                                         (outp_err? " OUTPUT": ""));
                         }
 			
+			INFO("\n\tPolling FIFO transfer completion\n", 0);
 			std::vector<DMAChannel::WorkItem_t> wi;
 			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi) == 0) { ; }
 
 			// Wait for Slave to TX
+			INFO("\n\tPolling %p for Slave transfer\n", info->ib_ptr);
 			if (info->acc_size < sizeof(uint32_t)) {
 				volatile uint8_t* datain_ptr8 = (uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint8_t);
 
