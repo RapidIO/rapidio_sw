@@ -1648,9 +1648,313 @@ exit:
 	info->umd_dch = NULL;
 }
 
+#define DMA_LAT_MASTER_SIG	0xdeadabbaL
+#define DMA_LAT_SLAVE_SIG	0xdeadbabaL
+
+static inline void umd_dma_goodput_latency_demo_tx(struct worker *info);
+static inline void umd_dma_goodput_latency_demo_rx(struct worker *info);
+
 void umd_dma_goodput_latency_demo(struct worker *info)
 {
-	INFO("\n\tAction %cX STUB\n", (info->action == umd_dmalrx)? 'R': 'T');
+	INFO("\n\tAction %cX\n", (info->action == umd_dmalrx)? 'R': 'T');
+
+	if (info->action == umd_dmalrx)
+	     umd_dma_goodput_latency_demo_rx(info);
+	else umd_dma_goodput_latency_demo_tx(info);
+}
+
+void umd_dma_goodput_latency_demo_rx(struct worker *info)
+{
+	int oi = 0;
+	uint64_t cnt;
+
+	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
+								
+	if (NULL == info->umd_dch) {
+		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+			info->umd_chan, info->mp_num, info->mp_h);
+		goto exit;
+	};
+
+	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
+		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
+							info->umd_tx_buf_cnt);
+		goto exit;
+	};
+        if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
+		CRIT("\n\talloc_dmacompldesc failed: entries %d",
+							info->umd_sts_entries);
+		goto exit;
+	};
+
+        memset(info->dmamem, 0, sizeof(info->dmamem));
+        memset(info->dmaopt, 0, sizeof(info->dmaopt));
+
+	// Reduce number of allocated buffers to 1 to allow
+	// more transactions to be sent with a larger ring.
+        if (!info->umd_dch->alloc_dmamem(info->acc_size, info->dmamem[0])) {
+		CRIT("\n\talloc_dmamem failed: i %d size %x",
+							0, info->acc_size);
+		goto exit;
+	};
+        memset(info->dmamem[0].win_ptr, PATTERN[0], info->acc_size);
+
+        for (int i = 1; i < info->umd_tx_buf_cnt; i++) {
+		info->dmamem[i] = info->dmamem[0];
+        };
+
+        info->tick_data_total = 0;
+	info->tick_count = info->tick_total = 0;
+
+        info->umd_dch->setInitState();
+        if (!info->umd_dch->checkPortOK()) {
+		CRIT("\n\tPort is not OK!!! Exiting...");
+		goto exit;
+	};
+
+	zero_stats(info);
+	info->evlog.clear();
+        //info->umd_dch->switch_evlog(true);
+
+        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+             info->umd_dch->getDestId(),
+             info->did, info->rio_addr, info->acc_size,
+             info->umd_tx_buf_cnt, info->umd_sts_entries);
+
+	while (!info->stop_req) {
+		info->umd_dma_abort_reason = 0;
+	
+		// TX Loop
+        	for (cnt = 0; !info->stop_req; cnt += info->acc_size) {
+			bool q_was_full = false;
+			info->umd_dma_abort_reason = 0;
+
+			info->dmaopt[oi].destid      = info->did;
+			info->dmaopt[oi].bcount      = info->acc_size;
+			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
+
+			uint32_t* datain_ptr = (uint32_t*)((uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint32_t));
+
+			// Wait for Mster to TX
+			while (!info->stop_req && datain_ptr[0] != DMA_LAT_MASTER_SIG) { ; }
+			if (info->stop_req) goto exit;
+			datain_ptr[0] = 0xdeadbeef;
+
+			uint32_t* dataout_ptr = (uint32_t*)((uint8_t*)info->dmamem[oi].win_ptr + info->acc_size - sizeof(uint32_t));
+			dataout_ptr[0] = DMA_LAT_SLAVE_SIG;
+
+			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
+					info->dmaopt[oi], info->dmamem[oi],
+                                        info->umd_dma_abort_reason)) {
+				if(info->umd_dma_abort_reason != 0) {
+					CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
+					CRIT("DMA abort %x: %s\n", 
+						info->umd_dma_abort_reason,
+						DMAChannel::abortReasonToStr(
+						info->umd_dma_abort_reason));
+					goto exit;
+				}
+				// Don't barf just yet if queue full
+				q_was_full = true;
+			};
+
+			if (info->umd_dch->checkPortError()) {
+				CRIT("\n\tPort Error, exiting");
+				goto exit;
+			}
+
+			bool inp_err = false, outp_err = false;
+                        info->umd_dch->checkPortInOutError(inp_err, outp_err);
+                        if(inp_err || outp_err) {
+                                CRIT("Tsi721 port error%s%s\n",
+                                        (inp_err? " INPUT": ""),
+                                        (outp_err? " OUTPUT": ""));
+                        }
+			
+			std::vector<DMAChannel::WorkItem_t> wi;
+			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi) == 0) { ; }
+
+			// XXX Cargo-cult ritual invocation
+			inp_err = false; outp_err = false;
+                        info->umd_dch->checkPortInOutError(inp_err, outp_err);
+                        if(inp_err || outp_err) {
+                                CRIT("Tsi721 port error%s%s\n",
+                                        (inp_err? " INPUT": ""),
+                                        (outp_err? " OUTPUT": ""));
+				goto exit;
+                        }
+			
+			// Wrap around, do no overwrite last buffer entry
+			oi++;
+			if ((info->umd_tx_buf_cnt - 1) == oi) {
+				oi = 0;
+			};
+                } // END for infinite transmit
+
+        } // END while NOT stop requested
+
+exit:
+	if (info->umd_dch)
+		info->umd_dch->shutdown();
+
+	info->umd_dch->get_evlog(info->evlog);
+        info->umd_dch->cleanup();
+
+	// Only allocatd one DMA buffer for performance reasons
+	if(info->dmamem[0].type != 0) 
+                info->umd_dch->free_dmamem(info->dmamem[0]);
+        delete info->umd_dch;
+
+	info->umd_dch = NULL;
+}
+
+void umd_dma_goodput_latency_demo_tx(struct worker *info)
+{
+	int oi = 0;
+	uint64_t cnt;
+
+	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
+								
+	if (NULL == info->umd_dch) {
+		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+			info->umd_chan, info->mp_num, info->mp_h);
+		goto exit;
+	};
+
+	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
+		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
+							info->umd_tx_buf_cnt);
+		goto exit;
+	};
+        if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
+		CRIT("\n\talloc_dmacompldesc failed: entries %d",
+							info->umd_sts_entries);
+		goto exit;
+	};
+
+        memset(info->dmamem, 0, sizeof(info->dmamem));
+        memset(info->dmaopt, 0, sizeof(info->dmaopt));
+
+	// Reduce number of allocated buffers to 1 to allow
+	// more transactions to be sent with a larger ring.
+        if (!info->umd_dch->alloc_dmamem(info->acc_size, info->dmamem[0])) {
+		CRIT("\n\talloc_dmamem failed: i %d size %x",
+							0, info->acc_size);
+		goto exit;
+	};
+        memset(info->dmamem[0].win_ptr, PATTERN[0], info->acc_size);
+
+        for (int i = 1; i < info->umd_tx_buf_cnt; i++) {
+		info->dmamem[i] = info->dmamem[0];
+        };
+
+        info->tick_data_total = 0;
+	info->tick_count = info->tick_total = 0;
+
+        info->umd_dch->setInitState();
+        if (!info->umd_dch->checkPortOK()) {
+		CRIT("\n\tPort is not OK!!! Exiting...");
+		goto exit;
+	};
+
+	zero_stats(info);
+	info->evlog.clear();
+        //info->umd_dch->switch_evlog(true);
+
+        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+             info->umd_dch->getDestId(),
+             info->did, info->rio_addr, info->acc_size,
+             info->umd_tx_buf_cnt, info->umd_sts_entries);
+
+	while (!info->stop_req) {
+		info->umd_dma_abort_reason = 0;
+	
+		// TX Loop
+        	for (cnt = 0; !info->stop_req; cnt += info->acc_size) {
+			info->dmaopt[oi].destid      = info->did;
+			info->dmaopt[oi].bcount      = info->acc_size;
+			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
+
+			uint32_t* dataout_ptr = (uint32_t*)((uint8_t*)info->dmamem[oi].win_ptr + info->acc_size - sizeof(uint32_t));
+			dataout_ptr[0] = DMA_LAT_MASTER_SIG;
+
+			bool q_was_full = false;
+			info->umd_dma_abort_reason = 0;
+			clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
+					info->dmaopt[oi], info->dmamem[oi],
+                                        info->umd_dma_abort_reason)) {
+				if(info->umd_dma_abort_reason != 0) {
+					CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
+					CRIT("DMA abort %x: %s\n", 
+						info->umd_dma_abort_reason,
+						DMAChannel::abortReasonToStr(
+						info->umd_dma_abort_reason));
+					goto exit;
+				}
+				// Don't barf just yet if queue full
+				q_was_full = true;
+			};
+
+			if (info->umd_dch->checkPortError()) {
+				CRIT("\n\tPort Error, exiting");
+				goto exit;
+			}
+
+			bool inp_err = false, outp_err = false;
+                        info->umd_dch->checkPortInOutError(inp_err, outp_err);
+                        if(inp_err || outp_err) {
+                                CRIT("Tsi721 port error%s%s\n",
+                                        (inp_err? " INPUT": ""),
+                                        (outp_err? " OUTPUT": ""));
+                        }
+			
+			std::vector<DMAChannel::WorkItem_t> wi;
+			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi) == 0) { ; }
+
+			// Wait for Slave to TX
+			uint32_t* datain_ptr = (uint32_t*)((uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint32_t));
+			while (!info->stop_req && datain_ptr[0] != DMA_LAT_SLAVE_SIG) { ; }
+
+			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+
+			if (info->stop_req) goto exit;
+			datain_ptr[0] = 0xdeadbeef;
+
+			// XXX Cargo-cult ritual invocation
+			inp_err = false; outp_err = false;
+                        info->umd_dch->checkPortInOutError(inp_err, outp_err);
+                        if(inp_err || outp_err) {
+                                CRIT("Tsi721 port error%s%s\n",
+                                        (inp_err? " INPUT": ""),
+                                        (outp_err? " OUTPUT": ""));
+				goto exit;
+                        }
+			
+			// XXX Barry how to do time accounting??
+
+			// Wrap around, do no overwrite last buffer entry
+			oi++;
+			if ((info->umd_tx_buf_cnt - 1) == oi) {
+				oi = 0;
+			};
+                } // END for infinite transmit
+
+        } // END while NOT stop requested
+
+exit:
+	if (info->umd_dch)
+		info->umd_dch->shutdown();
+
+	info->umd_dch->get_evlog(info->evlog);
+        info->umd_dch->cleanup();
+
+	// Only allocatd one DMA buffer for performance reasons
+	if(info->dmamem[0].type != 0) 
+                info->umd_dch->free_dmamem(info->dmamem[0]);
+        delete info->umd_dch;
+
+	info->umd_dch = NULL;
 }
 
 void umd_mbox_goodput_demo(struct worker *info)
