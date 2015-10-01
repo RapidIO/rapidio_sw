@@ -538,6 +538,7 @@ void sig_handler(int signo)
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		INFO("Shutting down\n");
 		rskt_daemon_shutdown();
+		exit(1);
 	};
 };
 

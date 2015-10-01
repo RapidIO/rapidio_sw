@@ -213,19 +213,40 @@ void shutdown_worker_thread(struct worker *info)
 	init_worker_info(info, 0);
 };
 
+int getCPUCount()
+{
+	FILE* f = fopen("/proc/cpuinfo", "rt");
+
+	int count = 0;
+	while (! feof(f)) {
+		char buf[257] = {0};
+		fgets(buf, 256, f);
+		if (buf[0] == '\0') break;
+		if (strstr(buf, "processor\t:")) count++;
+	}
+
+	fclose(f);
+
+	return count;
+}
+
 int migrate_thread_to_cpu(struct thread_cpu *info)
 {
         cpu_set_t cpuset;
         int chk_cpu_lim = 10;
 	int rc;
 
+	const int cpu_count = getCPUCount();
+
 	if (-1 == info->cpu_req) {
         	CPU_ZERO(&cpuset);
-        	CPU_SET(0, &cpuset);
-        	CPU_SET(1, &cpuset);
-        	CPU_SET(2, &cpuset);
-        	CPU_SET(3, &cpuset);
+
+		for(int c = 0; c < cpu_count; c++) CPU_SET(c, &cpuset);
 	} else {
+		if (info->cpu_req >= cpu_count) {
+			ERR("\n\tInvalid cpu %d cpu count is %d\n", info->cpu_req, cpu_count);
+			return 1;
+		}
         	CPU_ZERO(&cpuset);
         	CPU_SET(info->cpu_req, &cpuset);
 	};
