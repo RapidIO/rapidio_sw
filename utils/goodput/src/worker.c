@@ -1669,7 +1669,9 @@ exit:
 	info->umd_dch = NULL;
 }
 
+#define DMA_LAT_MASTER_SIG1	0xAE
 #define DMA_LAT_MASTER_SIG	0xdeadabbaL
+#define DMA_LAT_SLAVE_SIG1	0xEA
 #define DMA_LAT_SLAVE_SIG	0xdeadbabaL
 
 static inline void umd_dma_goodput_latency_demo_tx(struct worker *info);
@@ -1678,6 +1680,8 @@ static inline void umd_dma_goodput_latency_demo_rx(struct worker *info);
 void umd_dma_goodput_latency_demo(struct worker *info)
 {
 	INFO("\n\tAction %cX\n", (info->action == umd_dmalrx)? 'R': 'T');
+
+	migrate_thread_to_cpu(&info->umd_fifo_thr); // XXX not the right member but we reuse
 
 	if (info->action == umd_dmalrx)
 	     umd_dma_goodput_latency_demo_rx(info);
@@ -1743,8 +1747,6 @@ void umd_dma_goodput_latency_demo_rx(struct worker *info)
              info->umd_tx_buf_cnt, info->umd_sts_entries);
 
 	while (!info->stop_req) {
-		info->umd_dma_abort_reason = 0;
-	
 		// TX Loop
         	for (cnt = 0; !info->stop_req; cnt += info->acc_size) {
 			bool q_was_full = false;
@@ -1754,15 +1756,28 @@ void umd_dma_goodput_latency_demo_rx(struct worker *info)
 			info->dmaopt[oi].bcount      = info->acc_size;
 			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
 
-			uint32_t* datain_ptr = (uint32_t*)((uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint32_t));
+			if (info->acc_size < sizeof(uint32_t)) {
+				volatile uint8_t* datain_ptr8 = (uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint8_t);
 
-			// Wait for Mster to TX
-			while (!info->stop_req && datain_ptr[0] != DMA_LAT_MASTER_SIG) { ; }
+				// Wait for Mater to TX
+				while (!info->stop_req && datain_ptr8[0] != DMA_LAT_MASTER_SIG1) { ; }
+				datain_ptr8[0] = 0;
+			} else {
+				volatile uint32_t* datain_ptr = (uint32_t*)((uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint32_t));
+
+				// Wait for Mater to TX
+				while (!info->stop_req && datain_ptr[0] != DMA_LAT_MASTER_SIG) { ; }
+				datain_ptr[0] = 0xdeadbeef;
+			}
 			if (info->stop_req) goto exit;
-			datain_ptr[0] = 0xdeadbeef;
 
-			uint32_t* dataout_ptr = (uint32_t*)((uint8_t*)info->dmamem[oi].win_ptr + info->acc_size - sizeof(uint32_t));
-			dataout_ptr[0] = DMA_LAT_SLAVE_SIG;
+			if (info->acc_size < sizeof(uint32_t)) {
+				uint8_t* dataout_ptr8 = (uint8_t*)info->dmamem[oi].win_ptr + info->acc_size - sizeof(uint8_t);
+				dataout_ptr8[0] = DMA_LAT_SLAVE_SIG1;
+			} else {
+				uint32_t* dataout_ptr = (uint32_t*)((uint8_t*)info->dmamem[oi].win_ptr + info->acc_size - sizeof(uint32_t));
+				dataout_ptr[0] = DMA_LAT_SLAVE_SIG;
+			}
 
 			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
@@ -1795,16 +1810,6 @@ void umd_dma_goodput_latency_demo_rx(struct worker *info)
 			std::vector<DMAChannel::WorkItem_t> wi;
 			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi) == 0) { ; }
 
-			// XXX Cargo-cult ritual invocation
-			inp_err = false; outp_err = false;
-                        info->umd_dch->checkPortInOutError(inp_err, outp_err);
-                        if(inp_err || outp_err) {
-                                CRIT("Tsi721 port error%s%s\n",
-                                        (inp_err? " INPUT": ""),
-                                        (outp_err? " OUTPUT": ""));
-				goto exit;
-                        }
-			
 			// Wrap around, do no overwrite last buffer entry
 			oi++;
 			if ((info->umd_tx_buf_cnt - 1) == oi) {
@@ -1887,21 +1892,26 @@ void umd_dma_goodput_latency_demo_tx(struct worker *info)
              info->did, info->rio_addr, info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
 
+	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 	while (!info->stop_req) {
-		info->umd_dma_abort_reason = 0;
-	
 		// TX Loop
         	for (cnt = 0; !info->stop_req; cnt += info->acc_size) {
 			info->dmaopt[oi].destid      = info->did;
 			info->dmaopt[oi].bcount      = info->acc_size;
 			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
 
-			uint32_t* dataout_ptr = (uint32_t*)((uint8_t*)info->dmamem[oi].win_ptr + info->acc_size - sizeof(uint32_t));
-			dataout_ptr[0] = DMA_LAT_MASTER_SIG;
+			if (info->acc_size < sizeof(uint32_t)) {
+				uint8_t* dataout_ptr8 = (uint8_t*)info->dmamem[oi].win_ptr + info->acc_size - sizeof(uint8_t);
+				dataout_ptr8[0] = DMA_LAT_MASTER_SIG1;
+			} else {
+				uint32_t* dataout_ptr = (uint32_t*)((uint8_t*)info->dmamem[oi].win_ptr + info->acc_size - sizeof(uint32_t));
+				dataout_ptr[0] = DMA_LAT_MASTER_SIG;
+			}
 
 			bool q_was_full = false;
 			info->umd_dma_abort_reason = 0;
-			clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+
+			start_iter_stats(info);
 			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
                                         info->umd_dma_abort_reason)) {
@@ -1934,25 +1944,26 @@ void umd_dma_goodput_latency_demo_tx(struct worker *info)
 			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi) == 0) { ; }
 
 			// Wait for Slave to TX
-			uint32_t* datain_ptr = (uint32_t*)((uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint32_t));
-			while (!info->stop_req && datain_ptr[0] != DMA_LAT_SLAVE_SIG) { ; }
+			if (info->acc_size < sizeof(uint32_t)) {
+				volatile uint8_t* datain_ptr8 = (uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint8_t);
 
-			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+				while (!info->stop_req && datain_ptr8[0] != DMA_LAT_SLAVE_SIG1) { ; }
 
+				finish_iter_stats(info);
+				clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+
+				datain_ptr8[0] = 0;
+			} else {
+				volatile uint32_t* datain_ptr = (uint32_t*)((uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint32_t));
+
+				while (!info->stop_req && datain_ptr[0] != DMA_LAT_SLAVE_SIG) { ; }
+
+				finish_iter_stats(info);
+				clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+
+				datain_ptr[0] = 0xdeadbeef;
+			}
 			if (info->stop_req) goto exit;
-			datain_ptr[0] = 0xdeadbeef;
-
-			// XXX Cargo-cult ritual invocation
-			inp_err = false; outp_err = false;
-                        info->umd_dch->checkPortInOutError(inp_err, outp_err);
-                        if(inp_err || outp_err) {
-                                CRIT("Tsi721 port error%s%s\n",
-                                        (inp_err? " INPUT": ""),
-                                        (outp_err? " OUTPUT": ""));
-				goto exit;
-                        }
-			
-			// XXX Barry how to do time accounting??
 
 			// Wrap around, do no overwrite last buffer entry
 			oi++;
