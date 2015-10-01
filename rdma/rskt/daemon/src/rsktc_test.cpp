@@ -113,7 +113,6 @@ int main(int argc, char *argv[])
 		return 2;
 	} else
 		puts("Successfully connected");
-#if 0
 
 	char *in_msg;
 	char *out_msg;
@@ -127,7 +126,7 @@ int main(int argc, char *argv[])
 		return 3;
 	}
 	puts("Test message sent to server");
-
+#if 0
 	if (client->receive(32)) {
 		ERR("Failed to receive message\n");
 		return 4;

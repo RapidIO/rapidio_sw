@@ -82,20 +82,18 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 	puts("Connected with client");
-#if 0
 	if (server->receive(32)) {
 		ERR("Failed to receive. Dying!\n");
 		delete server;
 		return 3;
 	}
 	puts("Received data!");
-
 	char *in_msg;
 
 	server->get_recv_buffer((void **)&in_msg);
 
 	puts(in_msg);
-
+#if 0
 	char *out_msg;
 
 	server->get_send_buffer((void **)&out_msg);
