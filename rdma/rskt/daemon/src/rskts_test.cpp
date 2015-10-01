@@ -16,7 +16,7 @@
 extern "C" {
 #endif
 
-static rskt_server *server;
+static rskt_server *server = nullptr;
 
 void sig_handler(int sig)
 {
@@ -43,7 +43,9 @@ void sig_handler(int sig)
 		return;
 	}
 
-	delete server;
+	if (server != nullptr)
+		delete server;
+
 	exit(0);
 } /* sig_handler() */
 
@@ -79,20 +81,19 @@ int main(int argc, char *argv[])
 		delete server;
 		return 2;
 	}
-	puts("Connected with client...now waiting for data...");
+	puts("Connected with client");
 	if (server->receive(32)) {
 		ERR("Failed to receive. Dying!\n");
 		delete server;
 		return 3;
 	}
 	puts("Received data!");
-
 	char *in_msg;
 
 	server->get_recv_buffer((void **)&in_msg);
 
 	puts(in_msg);
-
+#if 0
 	char *out_msg;
 
 	server->get_send_buffer((void **)&out_msg);
@@ -104,7 +105,7 @@ int main(int argc, char *argv[])
 		delete server;
 		return 4;
 	}
-
+#endif
 	puts("All is good. Goodbye!");
 
 	delete server;

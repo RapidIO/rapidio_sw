@@ -138,6 +138,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	rx->msg_type = tx->msg_type | htonl(LIBRSKTD_RESP);
 	rx->a_rsp.err = 0;
 	rx->a_rsp.req = tx->a_rq;
+	DBG("Waiting for lib.rsvp_mtx\n");
 	if (librskt_wait_for_sem(&lib.rsvp_mtx, 0x1001)) {
 		ERR("Failed on rspv_mtx\n");
 		goto fail;
@@ -148,6 +149,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	li = l_add(&lib.rsvp, seq_num, (void *)rsvp);
 	sem_post(&lib.rsvp_mtx);
 
+	DBG("Waiting for lib.msg_tx_mtx\n");
 	if (librskt_wait_for_sem(&lib.msg_tx_mtx, 0x1002)) {
 		ERR("Failed on msg_tx_mtx\n");
 		goto fail;
@@ -155,6 +157,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	l_push_tail(&lib.msg_tx, (void *)tx); 
 	sem_post(&lib.msg_tx_mtx);
 	sem_post(&lib.msg_tx_cnt);
+	DBG("Waiting for rsvp->resp_rx\n");
 	if (librskt_wait_for_sem(&rsvp->resp_rx, 0x1003)) {
 		ERR("Failed on resp_rx\n");
 		goto fail;
@@ -376,8 +379,8 @@ void cleanup_skt(rskt_h skt_h, struct rskt_socket_t *skt)
 {
 	if (skt_rmda_uninit != skt->connector) { 
 		if (NULL != skt->msub_p)  {
-			DBG("Unmapping skt->msub_p(0x%X)\n", skt->msub_p);
-			rdma_munmap_msub(skt->msubh, (void **)&skt->msub_p);
+			DBG("Unmapping skt->msub_p(%p)\n", skt->msub_p);
+			rdma_munmap_msub(skt->msubh, (void *)skt->msub_p);
 			skt->msub_p = NULL;
 			skt->rx_buf = NULL;
 			skt->tx_buf = NULL;
@@ -942,6 +945,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	skt->msoh_valid = 1;
 
+	DBG("9\n");
 	rc = rdma_open_ms_h(skt->msh_name, skt->msoh, 0, 
 			&skt->msub_sz, &skt->msh);
 	if (rc) {
@@ -976,6 +980,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	skt->st = rskt_connected;
 	setup_skt_ptrs(skt);
 	sem_post(&skt_h->mtx);
+	DBG("d\n");
 	lib_add_skt_to_list(skt_h);
 	INFO("Exiting with SUCCESS\n");
 	return 0;
