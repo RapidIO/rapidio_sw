@@ -115,6 +115,8 @@ enum req_type {
 	shutdown_worker,
 #ifdef USER_MODE_DRIVER
 	umd_dma,
+	umd_dmaltx,
+	umd_dmalrx,
 	umd_mbox,
 #endif
 	last_action
