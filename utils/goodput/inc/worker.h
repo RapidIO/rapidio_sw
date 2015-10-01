@@ -131,6 +131,7 @@ enum req_mode {
 
 #ifdef USER_MODE_DRIVER
 #define MAX_UMD_BUF_COUNT 4096
+#define MAX_TIMESTAMPS 1024
 #endif
 
 struct thread_cpu {
@@ -226,6 +227,10 @@ struct worker {
 	volatile uint64_t tick_count, tick_total;
 	volatile uint64_t tick_data_total;
 	std::string	evlog;
+	int desc_ts_idx;
+	struct timespec desc_ts[MAX_TIMESTAMPS];
+	int fifo_ts_idx;
+	struct timespec fifo_ts[MAX_TIMESTAMPS];
 #endif
 };
 

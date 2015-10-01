@@ -74,6 +74,10 @@ extern "C" {
 
 void init_worker_info(struct worker *info, int first_time)
 {
+#ifdef USER_MODE_DRIVER
+	int i;
+#endif
+
 	if (first_time) {
         	sem_init(&info->started, 0, 0);
         	sem_init(&info->run, 0, 0);
@@ -146,6 +150,12 @@ void init_worker_info(struct worker *info, int first_time)
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
 	//};
+	info->desc_ts_idx = 0;
+	info->fifo_ts_idx = 0;
+	for (i = 0; i < MAX_TIMESTAMPS; i++) {
+		info->desc_ts[i].tv_sec = info->desc_ts[i].tv_nsec = 0;
+		info->fifo_ts[i].tv_sec = info->fifo_ts[i].tv_nsec = 0;
+	};
 #endif
 };
 
@@ -1219,11 +1229,6 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	struct worker *info;
         std::vector<DMAChannel::WorkItem_t>::iterator it;
 
-	int idx = -1;
-	uint64_t tsF1 = 0, tsF2 = 0;
-
-	const int MHz = getCPUMHz();
-
 	if (NULL == parm)
 		goto exit;
 
@@ -1236,89 +1241,44 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
 		goto exit;
 
-	idx = info->idx;
-	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));
-
 	info->umd_fifo_proc_alive = 1;
 	sem_post(&info->umd_fifo_proc_started); 
 
-	tsF1 = rdtsc();
 	while (!info->umd_fifo_proc_must_die) {
                 std::vector<DMAChannel::WorkItem_t> wi;
-		g_FifoStats[idx].fifo_thr_iter++;
 
-		const uint64_t tss1 = rdtsc();
 		const int cnt = info->umd_dch->scanFIFO(wi);
-		const uint64_t tss2 = rdtsc();
-		if (tss2 > tss1) { g_FifoStats[idx].fifo_deltats_scanfifo += (tss2-tss1); g_FifoStats[idx].fifo_count_scanfifo++; }
-		if (0 == cnt) {
-			//for(int i = 0; i < 20000; i++) {;}
-			continue;
-		}
 
-		const uint64_t tsm1 = rdtsc();
+		if (!cnt) 
+			continue;
+
+		if (info->fifo_ts_idx < MAX_TIMESTAMPS) {
+			clock_gettime(CLOCK_MONOTONIC,
+					&info->fifo_ts[info->fifo_ts_idx]);
+			info->fifo_ts_idx++;
+		};
+
 		for (it = wi.begin(); it != wi.end(); it++) {
 			DMAChannel::WorkItem_t& item = *it;
 
-			uint64_t dT  = 0;
-			float    dTf = 0;
-			if(item.opt.ts_end > item.opt.ts_start) { // Ignore rdtsc wrap-arounds
-				dT = item.opt.ts_end - item.opt.ts_start;
-				dTf = (float)dT / MHz;
-			}
 			switch (item.opt.dtype) {
 			case DTYPE1:
-				INFO("\n\tFIFO D1 RT=%s did=%d HW @0x%llx"
-					"mem @%p bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
-					dma_rtype_str[item.opt.rtype], item.opt.destid,
-					item.mem.win_handle, item.mem.win_ptr,
-					item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
-				if (item.opt.rtype == NREAD) {
-					hexdump4byte("NREAD: ",
-						(uint8_t*)item.mem.win_ptr, 8);
-				}
-				info->perf_byte_cnt += info->acc_size;
-				clock_gettime(CLOCK_MONOTONIC, &info->end_time);
-				if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += item.opt.bcount; }
-				break;
 			case DTYPE2:
-				INFO("\n\tFIFO D2 RT=%s did=%d bd_wp=%u"
-					" -- FIFO iter %llu dTick %llu (%f uS)\n", dma_rtype_str[item.opt.rtype],
-					item.opt.destid, item.opt.bd_wp,
-					g_FifoStats[idx].fifo_thr_iter, dT, dTf);
 				info->perf_byte_cnt += info->acc_size;
-				clock_gettime(CLOCK_MONOTONIC, &info->end_time);
-				if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += item.opt.bcount; }
 				break;
-			// NREAD data ended up in
-			// (item.t2_rddata, item.t2_rddata_len)
 			case DTYPE3:
-				INFO("\n\tFinished D3 bd_wp=%u -- FIFO iter %llu dTick %ll (%f uS)u\n",
-					 item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
 				break;
 			default:
-				INFO("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
-					item.opt.dtype, item.opt.bd_wp,
-					g_FifoStats[idx].fifo_thr_iter);
+				ERR("\n\tUNKNOWN BD %d bd_wp=%u\n",
+					item.opt.dtype, item.opt.bd_wp);
 				break;
       			}
                 } // END for WorkItem_t vector
-
-		const uint64_t tsm2 = rdtsc();
-		if (tsm2 > tsm1) { g_FifoStats[idx].fifo_deltats_other += (tsm2-tsm1); g_FifoStats[idx].fifo_count_other++; }
-
-//next:
-		// FIXME: commented out for debug purposes
-		// sched_yield();
-		//for(int i = 0; i < 10000; i++) {;}
+		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 	} // END while
-	tsF2 = rdtsc();
 exit:
-	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
 	sem_post(&info->umd_fifo_proc_started); 
 	info->umd_fifo_proc_alive = 0;
-
-        DBG("\n\t%s: EXITING iter=%llu must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
 
 	pthread_exit(parm);
 };
@@ -1519,15 +1479,12 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
-/* FIXME COMPILE ERROR DEBUGGIN
-        INFO("\n\tSTART: DMA RP=%8u WP=%8u\n",
-                        info->umd_dch->getReadCount(),
-			info->umd_dch->getWriteCount() );
-*/
-
 	zero_stats(info);
 	info->evlog.clear();
-        info->umd_dch->switch_evlog(true);
+/* FIXME: Had a double free in or corruption error on this ??? */
+#if 0
+        // info->umd_dch->switch_evlog(true);
+#endif
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
         INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
@@ -1537,9 +1494,9 @@ void umd_dma_goodput_demo(struct worker *info)
 
 	info->umd_dch->trace_dmachan(0x500, 0x12345678);
 	while (!info->stop_req) {
+		uint64_t iq;
 		info->umd_dma_abort_reason = 0;
 	
-		// TX Loop
 		info->umd_dch->trace_dmachan(0x100, 1);
         	for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
@@ -1550,9 +1507,15 @@ void umd_dma_goodput_demo(struct worker *info)
 
 			bool q_was_full = false;
 			info->umd_dma_abort_reason = 0;
-			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
+			if (info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
                                         info->umd_dma_abort_reason)) {
+				if (info->desc_ts_idx < MAX_TIMESTAMPS) {
+					clock_gettime(CLOCK_MONOTONIC,
+					&info->desc_ts[info->desc_ts_idx]);
+					info->desc_ts_idx ++;
+				};
+			} else {
 				if(info->umd_dma_abort_reason != 0) {
 					CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
 					CRIT("DMA abort %x: %s\n", 
@@ -1561,60 +1524,24 @@ void umd_dma_goodput_demo(struct worker *info)
 						info->umd_dma_abort_reason));
 					goto exit;
 				}
-				// Don't barf just yet if queue full
 				q_was_full = true;
-				info->umd_dch->trace_dmachan(0x100, 0x10);
 			};
-
-			if (info->umd_dch->checkPortError()) {
-				CRIT("\n\tPort Error, exiting");
-				goto exit;
-			}
-
-			bool inp_err = false, outp_err = false;
-                        info->umd_dch->checkPortInOutError(inp_err, outp_err);
-                        if(inp_err || outp_err) {
-                                CRIT("Tsi721 port error%s%s\n",
-                                        (inp_err? " INPUT": ""),
-                                        (outp_err? " OUTPUT": ""));
-                        }
 			
 			// Busy-wait for queue to drain
-			info->umd_dch->trace_dmachan(0x100, 0x20);
-			for(uint64_t iq = 0;
-			    !info->stop_req && q_was_full && (iq < 1000000000) && (info->umd_dch->queueSize() >= Q_THR);
-			    iq++) {
-			    info->umd_dch->trace_dmachan(0x100, 0x30);
-				 // sched_yield();
+			for (iq = 0; !info->stop_req && q_was_full && 
+				(iq < 1000000000) &&
+				(info->umd_dch->queueSize() >= Q_THR);
+			    	iq++) {
 			}
-			info->umd_dch->trace_dmachan(0x100, 0x40);
-
 			// Wrap around, do no overwrite last buffer entry
 			oi++;
-			if ((info->umd_tx_buf_cnt - 1) == oi) {
-				info->umd_dch->trace_dmachan(0x100, 0x50);
+			if (info->umd_tx_buf_cnt - 1 == oi)
 				oi = 0;
-			};
                 } // END for transmit burst
 
 		// RX Check
 
 		info->umd_dch->trace_dmachan(0x100, 0x60);
-#if 0
-                int rp = 0;
-                for (; rp < 1000000 && info->umd_dch->dmaIsRunning(); rp++) {
-			if(info->stop_req) goto exit;
-                        uint32_t abort_reason = 0;
-                        if (info->umd_dch->dmaCheckAbort(abort_reason)) {
-                        	CRIT("DMA abort %d: %s\n",
-					info->umd_dma_abort_reason,
-                                	DMAChannel::abortReasonToStr(
-						info->umd_dma_abort_reason));
-			}
-			if(info->stop_req) goto exit;
-                	usleep(DMA_RUNPOLL_US);
-                };
-#endif
 		info->umd_tx_iter_cnt++;
         } // END while NOT stop requested
 exit:

@@ -355,14 +355,18 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   {{
     const int bd_idx = m_dma_wr % (m_bd_num+1);
 
+#if 0
     DBG("\n\tDMA hw RP = %d | soft RP = %d | soft WP = %d | bd_idx = %d\n",
          getReadCount(), getSoftReadCount(true), m_dma_wr, bd_idx);
+#endif
 
     // check-modulo in m_bl_busy[] if bd_idx is still busy!!
     if(m_bl_busy[bd_idx]) {
       pthread_spin_unlock(&m_bl_splock); 
       pthread_spin_unlock(&m_pending_work_splock);
+#if 0
       INFO("\n\tDMA TX queueDmaOpT?: BD %d still busy!\n", bd_idx);
+#endif
       return false;
     }
 
@@ -380,7 +384,9 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
     if(((m_dma_wr+1) % (m_bd_num+1)) == 0) { // skip T3
-      //DBG("Soft WP = %d, time to T3 + rollover\n", m_dma_wr);
+#if 0
+      DBG("Soft WP = %d, time to T3 + rollover\n", m_dma_wr);
+#endif
       m_bl_outstanding[(uint32_t)m_dma_wr] = m_bd_num;
 
       wk_end.opt.bd_wp = m_dma_wr;
@@ -412,9 +418,9 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   }
   pthread_spin_unlock(&m_pending_work_splock);
 
-  DBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n", wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.opt.bd_wp);
+  // DBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n", wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.opt.bd_wp);
   if(queued_T3)
-    DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_T3_bd_hw, wk_end.opt.bd_wp);
+    // DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_T3_bd_hw, wk_end.opt.bd_wp);
 
     trace_dmachan(0x200, 5);
   return true;
@@ -503,9 +509,11 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
     ((uint8_t*)m_dmadesc.win_ptr + (m_bd_num * DMA_BUFF_DESCR_SIZE));
 
+#if 0
   DBG("\n\tWrap BD DTYPE3 @ HW 0x%lx [idx=%d] points back to HW 0x%lx\n",
       m_dmadesc.win_handle + (m_bd_num *DMA_BUFF_DESCR_SIZE),
       m_bd_num, m_dmadesc.win_handle);
+#endif
 
   // Initialize DMA descriptors ring using added link descriptor 
   struct dmadesc end_bd; memset(&end_bd, 0, sizeof(end_bd));
@@ -651,9 +659,11 @@ bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
     (uint64_t)m_dmacompl.win_handle & TSI721_DMAC_DSBL_MASK);
   wr32dmachan(TSI721_DMAC_DSSZ, sts_log_two);
 
+#if 0
   INFO("\n\tDMA compl entries %d bytes=%d @%p HW@0x%llx\n",
        m_sts_size, sts_byte_cnt,
        m_dmacompl.win_ptr, m_dmacompl.win_handle);
+#endif
   rc = true;
 exit:
   return rc;
@@ -745,11 +755,15 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
   /* Check and clear descriptor status FIFO entries */
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
   int j = m_fifo_rd * 8;
-//DBG("\n\tFIFO START line=%d\n", j);
+#if 0
+DBG("\n\tFIFO START line=%d\n", j);
+#endif
   while (sts_ptr[j] && !umdemo_must_die) {
       //for (int i = 0; i < 8 && sts_ptr[j]; i++, j++) {
       for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
-DBG("\n\tFIFO (sts_size=%d) line=%d off=%d 0x%llx\n", m_sts_size, j, i, sts_ptr[i]);
+#if 0
+        DBG("\n\tFIFO (sts_size=%d) line=%d off=%d 0x%llx\n", m_sts_size, j, i, sts_ptr[i]);
+#endif
           DmaCompl_t c;
           c.ts_end = rdtsc();
           c.win_handle = sts_ptr[i]; c.fifo_offset = i;
