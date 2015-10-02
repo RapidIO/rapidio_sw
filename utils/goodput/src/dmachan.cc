@@ -160,41 +160,6 @@ void DMAChannel::setInbound()
   m_mport->wr32(TSI721_RIO_SP_CTL, reg | TSI721_RIO_SP_CTL_INP_EN | TSI721_RIO_SP_CTL_OTP_EN);
 }
 
-bool DMAChannel::dmaCheckAbort(uint32_t& abort_reason)
-{
-  uint32_t channel_status = rd32dmachan(TSI721_DMAC_STS);
-
-  if(channel_status & TSI721_DMAC_STS_RUN) return false;
-  if((channel_status & TSI721_DMAC_STS_ABORT) != TSI721_DMAC_STS_ABORT) return false;
-
-  abort_reason = (channel_status >> 16) & 0x1F;
-
-  return true;
-}
-
-bool DMAChannel::checkPortOK()
-{
-  uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
-  return status & TSI721_RIO_SP_ERR_STAT_PORT_OK;
-}
-
-bool DMAChannel::checkPortError()
-{
-  uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
-  return status & TSI721_RIO_SP_ERR_STAT_PORT_ERR;
-}
-
-void DMAChannel::checkPortInOutError(bool& inp_err, bool& outp_err)
-{
-  uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
-
-  if(status & TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP) inp_err = true;
-  else inp_err = false;
-
-  if(status & TSI721_RIO_SP_ERR_STAT_OUTPUT_ERR_STOP) outp_err = true;
-  else outp_err = false;
-}
-
 /** \brief Decode to ASCII a DMA engine error
  * \note Do not call this if no error occured -- use \ref dmaCheckAbort to check first
  */
@@ -220,72 +185,6 @@ uint32_t DMAChannel::clearIntBits()
    uint32_t reg = rd32dmachan(TSI721_DMAC_INT);
    return reg;
 }
-uint32_t DMAChannel::getReadCount()
-{
-   uint32_t reg = rd32dmachan(TSI721_DMAC_DRDCNT); // XXX who is peer_src?
-   return reg;
-}
-uint32_t DMAChannel::getWriteCount()
-{
-   uint32_t reg = rd32dmachan(TSI721_DMAC_DWRCNT);
-   return reg;
-}
-uint32_t DMAChannel::getFIFOReadCount()
-{
-   uint32_t reg = rd32dmachan(TSI721_DMAC_DSRP);
-   return reg;
-}
-uint32_t DMAChannel::getFIFOWriteCount()
-{
-   uint32_t reg = rd32dmachan(TSI721_DMAC_DSWP);
-   return reg;
-}
-
-/** \brief Checks whether HW bd ring is empty
- * \note This reads 2 PCIe register so it is slow
- */
-bool DMAChannel::queueEmptyHw()
-{
-   return getWriteCount() == getReadCount();
-}
-
-/** \brief Checks whether there's more space in HW bd ring
- * \note This reads 2 PCIe register so it is slow
- */
-bool DMAChannel::queueFullHw()
-{
-  uint32_t wrc = getWriteCount();
-  uint32_t rdc = getReadCount();
-  if(wrc == rdc) return false; // empty
-
-  // XXX unit-test logic
-  if(rdc > 0  && wrc == (rdc-1))      return true;
-  if(rdc == 0 && wrc == (m_bd_num-1)) return true;
-  return false;
-}
-   
-bool DMAChannel::queueFull()
-{
-  // XXX we have control over the soft m_dma_wr but how to divine the read pointer?
-  //     that should come from the completion FIFO but for now we brute-force it!
-
-  pthread_spin_lock(&m_bl_splock);
-  const int SZ = m_bl_busy.size();
-  pthread_spin_unlock(&m_bl_splock);
-
-  trace_dmachan(0x300, SZ);
-  trace_dmachan(0x304, m_bd_num + 1);
-  return SZ == (m_bd_num+1); // account for T3 BD as well
-}
-
-void DMAChannel::setWriteCount(uint32_t cnt)
-{
-//  if(cnt > (m_bd_num+1))
-//    throw std::runtime_error("setWriteCount: Counter overflow!");
-
-  wr32dmachan(TSI721_DMAC_DWRCNT, cnt);
-}
-
 
 /** \brief Queue DMA operation of DTYPE1 or DTYPE2
  * \param rtype transfer type
@@ -345,9 +244,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
  trace_dmachan(0x200, 2);
   
   struct hw_dma_desc* bd_hw = NULL;
-  pthread_spin_lock(&m_pending_work_splock);
-  if (umdemo_must_die)
-	return false;
   pthread_spin_lock(&m_bl_splock); 
   if (umdemo_must_die)
 	return false;
@@ -363,7 +259,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     // check-modulo in m_bl_busy[] if bd_idx is still busy!!
     if(m_bl_busy[bd_idx]) {
       pthread_spin_unlock(&m_bl_splock); 
-      pthread_spin_unlock(&m_pending_work_splock);
 #if 0
       INFO("\n\tDMA TX queueDmaOpT?: BD %d still busy!\n", bd_idx);
 #endif
@@ -401,7 +296,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   pthread_spin_unlock(&m_bl_splock); 
 
   if(dmaCheckAbort(abort_reason)) {
-    pthread_spin_unlock(&m_pending_work_splock);
     return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
   }
 
@@ -410,6 +304,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
+  pthread_spin_lock(&m_pending_work_splock);
   m_pending_work[m_dmadesc.win_handle + offset] = wk;
 
   if(queued_T3) {
