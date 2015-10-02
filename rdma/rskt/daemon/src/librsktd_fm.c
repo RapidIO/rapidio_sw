@@ -136,7 +136,7 @@ void halt_fm_thread(void)
 	fmdd_destroy_handle(&dd_h);
 	if (fm_thread_valid) {
 		fm_thread_valid  = 0;
-		pthread_kill(fm_thread, SIGHUP);
+		pthread_kill(fm_thread, SIGUSR1);
 		pthread_join(fm_thread, NULL);
 	};
 };

@@ -435,7 +435,7 @@ void halt_lib_handler(void)
 	if (lib_st.loop_alive && !lib_st.all_must_die) {
 		lib_st.all_must_die = 1;
 		lib_st.loop_alive = 0;
-		pthread_kill(lib_st.conn_thread, SIGHUP);
+		pthread_kill(lib_st.conn_thread, SIGUSR1);
 	}
 
 	if (NULL != lib_st.new_app)

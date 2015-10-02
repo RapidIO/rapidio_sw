@@ -445,7 +445,7 @@ void *cli_session( void *rc_ptr )
 fail:
 	cli.cli_alive = 0;
 	if (ctrls.debug)
-		INFO("\nRSKTD REMOTE CLI Thread Exiting\n");
+		INFO("RSKTD REMOTE CLI Thread Exiting\n");
 
 	if (cli.cli_sess_fd > 0) {
 		close(cli.cli_sess_fd);
@@ -514,12 +514,13 @@ int init_srio_api(uint8_t mport_id);
 
 void rskt_daemon_shutdown(void)
 {
+	DBG("ENTER\n");
 	kill_daemon_threads();
 
 	if (!cli.all_must_die && cli.cli_alive) {
 		cli.all_must_die = 1;
 		INFO("Killing CLI thread\n");
-		pthread_kill(cli.cli_thread, SIGHUP);
+		pthread_kill(cli.cli_thread, SIGUSR1);
 	};
 
 	if (cli.cli_sess_fd > 0) {
@@ -530,6 +531,7 @@ void rskt_daemon_shutdown(void)
      		close(cli.cli_fd);
 		cli.cli_fd = 0;
 	};
+     	DBG("EXIT\n");
 };
 
 void sig_handler(int signo)
@@ -540,6 +542,10 @@ void sig_handler(int signo)
 		rskt_daemon_shutdown();
 		exit(1);
 	};
+
+	if (signo == SIGUSR1)	/* pthread_kill() */
+		/* Ignore signal */
+		return;
 };
 
 int main(int argc, char *argv[])
@@ -592,7 +598,7 @@ int main(int argc, char *argv[])
 			free(prc);
 	}
 
-	printf("\nRDMA Socket Server EXITING!!!!\n");
+	printf("\nRDMA Socket Deamon EXITING!!!!\n");
 	rc = EXIT_SUCCESS;
 exit:
 	exit(rc);
