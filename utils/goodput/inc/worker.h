@@ -131,7 +131,7 @@ enum req_mode {
 
 #ifdef USER_MODE_DRIVER
 #define MAX_UMD_BUF_COUNT 4096
-#define MAX_TIMESTAMPS 1024
+#define MAX_TIMESTAMPS 4096
 #endif
 
 struct thread_cpu {

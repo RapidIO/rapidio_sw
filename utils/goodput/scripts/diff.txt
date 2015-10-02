@@ -1,0 +1,16 @@
+// Script to gather information from UMD DMA (udma) execution.
+
+ut 0 d s
+ut 0 f s
+
+sleep 5
+
+echo ut 0 d p
+ut 0 d p
+echo ut 0 f p
+ut 0 f p
+
+echo ut 0 f l 64000
+ut 0 f l 64000
+echo ut 0 d l 10000
+ut 0 d l 10000

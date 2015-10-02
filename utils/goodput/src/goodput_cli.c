@@ -63,7 +63,7 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"LAST"
 };
 
-int check_idx(struct cli_env *env, int idx)
+int check_idx(struct cli_env *env, int idx, int want_halted)
 {
 	int rc = 1;
 
@@ -74,7 +74,13 @@ int check_idx(struct cli_env *env, int idx)
 		goto exit;
 	};
 
-	if (wkr[idx].stat != 2) {
+	if (want_halted && (2 != wkr[idx].stat)) {
+		sprintf(env->output, "\nWorker not halted...\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (!want_halted && (2 == wkr[idx].stat)) {
 		sprintf(env->output, "\nWorker not halted...\n");
         	logMsg(env);
 		goto exit;
@@ -328,7 +334,7 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	idx = getDecParm(argv[0], 0);
 	ib_size = getHex(argv[1], 0);
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 
 	if ((ib_size < FOUR_KB) || (ib_size > SIXTEEN_MB)) {
@@ -364,7 +370,7 @@ int IBDeallocCmd(struct cli_env *env, int argc, char **argv)
 
 	idx = getDecParm(argv[0], 0);
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 
 	wkr[idx].action = free_ibwin;
@@ -411,7 +417,7 @@ int obdio_cmd(struct cli_env *env, int argc, char **argv, enum req_type action)
 	};
 		
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 	wkr[idx].action = action;
 	wkr[idx].action_mode = kernel_action;
@@ -519,7 +525,7 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	trans = getDecParm(argv[7], 0);
 	sync = getDecParm(argv[8], 0);
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 
 	if (trans > (int)RIO_DIRECTIO_TYPE_NWRITE_R_ALL)
@@ -583,7 +589,7 @@ int dmaTxLatCmd(struct cli_env *env, int argc, char **argv)
 	kbuf = getDecParm(argv[5], 0);
 	trans = getDecParm(argv[6], 0);
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 
 	if (trans > (int)RIO_DIRECTIO_TYPE_NWRITE_R_ALL)
@@ -640,7 +646,7 @@ int dmaRxLatCmd(struct cli_env *env, int argc, char **argv)
 	rio_addr = getHex(argv[2], 0);
 	bytes = getHex(argv[3], 0);
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 
 	if (!rio_addr || !bytes) {
@@ -709,7 +715,7 @@ int msg_tx_cmd(struct cli_env *env, int argc, char **argv, enum req_type req)
 	sock_num = getDecParm(argv[2], 0);
 	bytes = getDecParm(argv[3], 0);
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 
 	if (!sock_num) {
@@ -787,7 +793,7 @@ int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 	sock_num = getDecParm(argv[1], 0);
 	bytes = getDecParm(argv[2], 0);
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 
 	if (!sock_num) {
@@ -833,7 +839,7 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 	idx = getDecParm(argv[0], 0);
 	sock_num = getDecParm(argv[1], 0);
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 
 	if (!sock_num) {
@@ -1330,6 +1336,177 @@ ATTR_NONE
 
 #ifdef USER_MODE_DRIVER
 
+int UTimeCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx, st_i = 0, end_i = MAX_TIMESTAMPS-1;
+	struct timespec *ts_p = NULL;
+	int *ts_idx = NULL;
+	uint64_t lim = 0;
+	int got_one = 0;
+	struct timespec diff, min, max, tot;
+
+	idx = getDecParm(argv[0], 0);
+	if (check_idx(env, idx, 0))
+		goto exit;
+
+	switch (argv[1][0]) {
+	case 'd':
+	case 'D':
+		ts_p = wkr[idx].desc_ts;
+		ts_idx = &wkr[idx].desc_ts_idx;
+		break;
+	case 'f':
+	case 'F':
+		ts_p = wkr[idx].fifo_ts;
+		ts_idx = &wkr[idx].fifo_ts_idx;
+		break;
+	default:
+                sprintf(env->output, "FAILED: <type> not 'd' or 'f'.\n");
+        	logMsg(env);
+		goto exit;
+	};
+		
+	switch (argv[2][0]) {
+	case 's':
+	case 'S':
+		for (idx = 0; idx < MAX_TIMESTAMPS; idx++)
+			ts_p[idx].tv_nsec = ts_p[idx].tv_sec = 0;
+		*ts_idx = 0;
+		break;
+	case '-':
+		if (argc > 4) {
+			st_i = getDecParm(argv[3], 0);
+			end_i = getDecParm(argv[4], 0);
+		} else {
+                	sprintf(env->output,
+				"\nFAILED: Must enter two idexes\n");
+        		logMsg(env);
+			goto exit;
+		};
+
+		if ((end_i < st_i) || (st_i < 0) || (end_i >= MAX_TIMESTAMPS)) {
+                	sprintf(env->output, "FAILED: Index range 0 to %d.\n",
+				MAX_TIMESTAMPS-1);
+        		logMsg(env);
+			goto exit;
+		};
+
+		if (*ts_idx < MAX_TIMESTAMPS - 1) {
+                	sprintf(env->output,
+				"\nWARNING: Last valid timestamp is %d\n",
+				*ts_idx);
+        		logMsg(env);
+		};
+		diff = time_difference(ts_p[st_i], ts_p[end_i]);
+                sprintf(env->output, "\n---->> Sec<<---- Nsec---m--u--n--\n");
+        	logMsg(env);
+                sprintf(env->output, "%16ld %16ld\n",
+				diff.tv_sec, diff.tv_nsec);
+        	logMsg(env);
+		break;
+
+	case 'p':
+	case 'P':
+		if (argc > 3)
+			st_i = getDecParm(argv[3], 0);
+		if (argc > 4)
+			end_i = getDecParm(argv[4], 0);
+
+		if ((end_i < st_i) || (st_i < 0) || (end_i >= MAX_TIMESTAMPS)) {
+                	sprintf(env->output, "FAILED: Index range 0 to %d.\n",
+				MAX_TIMESTAMPS-1);
+        		logMsg(env);
+			goto exit;
+		};
+
+		if (*ts_idx < MAX_TIMESTAMPS - 1) {
+                	sprintf(env->output,
+				"\nWARNING: Last valid timestamp is %d\n",
+				*ts_idx);
+        		logMsg(env);
+		};
+
+                sprintf(env->output,
+			"\n Idx ---->> Sec<<---- Nsec---m--u--n--\n");
+        	logMsg(env);
+		for (idx = st_i; idx <= end_i; idx++) {
+                	sprintf(env->output, "%4d %16ld %16ld\n", idx,
+				ts_p[idx].tv_sec, ts_p[idx].tv_nsec);
+        		logMsg(env);
+		};
+		break;
+			
+	case 'l':
+	case 'L':
+		if (argc > 3)
+			lim = getDecParm(argv[3], 0);
+		else
+               		lim = 0;
+
+		for (idx = st_i; idx < end_i; idx++) {
+			time_track(idx, ts_p[idx], ts_p[idx+1],
+				&tot, &min, &max);
+			diff = time_difference(ts_p[idx], ts_p[idx+1]);
+			if (diff.tv_nsec < lim)
+				continue;
+			if (!got_one) {
+                		sprintf(env->output,
+				"\n Idx ---->> Sec<<---- Nsec---m--u--n--\n");
+        			logMsg(env);
+				got_one = 1;
+			};
+                	sprintf(env->output, "%4d %16ld %16ld\n", idx,
+				diff.tv_sec, diff.tv_nsec);
+        		logMsg(env);
+		};
+
+		if (!got_one) {
+                	sprintf(env->output,
+				"\nNo delays found bigger than %d\n", lim);
+        		logMsg(env);
+		};
+                sprintf(env->output,
+			"\n==== ---->> Sec<<---- Nsec---m--u--n--\n");
+        	logMsg(env);
+                sprintf(env->output, "Min: %16ld %16ld\n", 
+				min.tv_sec, min.tv_nsec);
+        	logMsg(env);
+		diff = time_div(tot, end_i - st_i);
+                sprintf(env->output, "Avg: %16ld %16ld\n",
+				diff.tv_sec, diff.tv_nsec);
+        	logMsg(env);
+                sprintf(env->output, "Max: %16ld %16ld\n",
+				max.tv_sec, max.tv_nsec);
+        	logMsg(env);
+		break;
+	default:
+                sprintf(env->output, "FAILED: <cmd> not 's','p' or 'l'.\n");
+        	logMsg(env);
+	};
+exit:
+        return 0;
+};
+
+struct cli_cmd UTime = {
+"utime",
+2,
+3,
+"UMD Timestamp buffer command",
+"<idx> <type> <cmd> <parms>\n"
+	"<idx> is a worker index from 0 to 7\n"
+	"<type> is 'd' for descriptor timestamps, 'f' for fifo.\n"
+	"<cmd> is the command to perform on the buffer, one of:\n"
+	"      's' - sample timestamps again\n"
+	"      '-' - return difference in two timestamp idices\n"
+	"            Note: Must enter two timestamp indexes\n"
+	"      'p' - print the existing counter values\n"
+	"            Note: optionally enter start and end indexes.\n"
+	"      'l' - locate differences greater than x nsec\n"
+	"            Note: Must enter the number of nanoseconds in decimal.\n",
+UTimeCmd,
+ATTR_NONE
+};
+
 int UDMACmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
@@ -1356,7 +1533,7 @@ int UDMACmd(struct cli_env *env, int argc, char **argv)
 	acc_sz   = getHex(argv[n++], 0);
 	trans    = getDecParm(argv[n++], 0);
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 
 	if ((chan < 1) || (chan > 7)) {
@@ -1468,7 +1645,7 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	if (check_idx(env, idx))
+	if (check_idx(env, idx, 1))
 		goto exit;
 
 	if ((chan < 1) || (chan > 7)) {
@@ -1631,7 +1808,7 @@ int UMSGCmd(struct cli_env *env, int argc, char **argv)
         acc_sz   = getHex(argv[n++], 0);
         txrx     = getDecParm(argv[n++], 0);
 
-        if (check_idx(env, idx))
+        if (check_idx(env, idx, 1))
                 goto exit;
 
         if ((chan < 2) || (chan > 3)) {
@@ -1722,6 +1899,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&UDMALRX,
 	&UMSG,
 	&UMDDD,
+	&UTime,
 #endif
 	&msgTx,
 	&msgRx,
