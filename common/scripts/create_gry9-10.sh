@@ -1,9 +1,9 @@
 #!/bin/bash
-RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
+RDMA_ROOT_PATH=/home/sherif/git/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 # Temporary script to speed up RSKT test apps development.
-NODES="GRY9 GRY10"
+NODES="GRY09 GRY10"
 
 # Start Fabric Management Daemon on each node
 for node in $NODES

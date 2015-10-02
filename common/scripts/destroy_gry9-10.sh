@@ -2,10 +2,10 @@
 
 # Temporary script to speed up RSKT test apps development.
 
-RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
+RDMA_ROOT_PATH=/home/sherif/git/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
-NODES="GRY10 GRY9"
+NODES="GRY10 GRY09"
 
 for node in $NODES
 do
