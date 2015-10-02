@@ -33,6 +33,8 @@ do
 		ssh root@"$node" "kill -s 2 $proc"
 	done
 
+	sleep 3
+
 	# Unload rio_cm
 	ssh root@"$node" "modprobe -r rio_cm"
 	sleep 1
