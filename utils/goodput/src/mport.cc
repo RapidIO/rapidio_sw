@@ -277,15 +277,6 @@ bool RioMport::map_dma_buf(uint32_t size, DmaMem_t& mem)
 	return true;
 }
 
-/** \brief Check whether a DMA buffer is allocated by this instance
- */
-bool RioMport::check_dma_buf(DmaMem_t& mem)
-{
-	std::map <uint64_t, DmaMem_t>::iterator it =
-					m_dmatxmem_reg.find(mem.win_handle);
-	return (it != m_dmatxmem_reg.end());
-}
-
 /** \brief Release a DMA buffer in HW memory to mport_cdev
  * \throws std::runtime_error
  * \note It will barf if the buffer was not mapped by this instance
