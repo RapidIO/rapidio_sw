@@ -937,12 +937,12 @@ void *msg_q_loop(void *unused)
 		case RSKTD_PROC_S2A: msg_q_handle_s2a(msg);
 					break;
 		default: 
-			CRIT("\nMSG_Q_LOOP: Unknown proc type %d\n",
+			CRIT("MSG_Q_LOOP: Unknown proc type %d\n",
 					msg->proc_type);
 		}
 	};
 	mproc.msg_proc_alive = 0;
-	pthread_exit(unused);
+	pthread_exit(0);
 };
 
 int start_msg_proc_q_thread(void)

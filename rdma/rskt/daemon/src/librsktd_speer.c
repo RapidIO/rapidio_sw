@@ -128,7 +128,7 @@ void close_speer(struct rskt_dmn_speer *speer)
 		speer->tx_buff = NULL;
 	};
 
-	pthread_kill(speer->s_rx, SIGHUP);
+	pthread_kill(speer->s_rx, SIGUSR1);
 	pthread_join(speer->s_rx, NULL);
 
 	sem_post(&speer->resp_ready);

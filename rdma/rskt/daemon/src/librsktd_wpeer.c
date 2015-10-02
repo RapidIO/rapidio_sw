@@ -309,14 +309,19 @@ void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 
 	while (NULL != msg) {
 		msg->proc_stage = RSKTD_A2W_SEQ_DRESP;
-		wpeer->resp->err = ECONNRESET;
+		if (wpeer == NULL) {
+			WARN("wpeer == NULL\n");
+		} else if (wpeer->resp == NULL) {
+			WARN("wpeer->resp == NULL\n");
+		} else {
+			wpeer->resp->err = ECONNRESET;
+		}
 		enqueue_mproc_msg(msg);
 
 		sem_wait(&wpeer->w_rsp_mutex);
 		msg = (struct librsktd_unified_msg *)l_pop_head(&wpeer->w_rsp);
 		sem_post(&wpeer->w_rsp_mutex);
 	};
-
 	sem_wait(&dmn.wpeers_mtx);
 	l_remove(&dmn.wpeers, wpeer->wp_li);
 	sem_post(&dmn.wpeers_mtx);
@@ -326,7 +331,7 @@ void close_wpeer(struct rskt_dmn_wpeer *wpeer)
 {
 	cleanup_wpeer(wpeer);
 
-	pthread_kill(wpeer->w_rx, SIGHUP);
+	pthread_kill(wpeer->w_rx, SIGUSR1);
 	pthread_join(wpeer->w_rx, NULL);
 };
 
@@ -409,7 +414,7 @@ void close_all_wpeers(void)
 			continue;
 		w = *(struct rskt_dmn_wpeer **)l;
 		close_wpeer(w);
-		pthread_kill(w->w_rx, SIGHUP);
+		pthread_kill(w->w_rx, SIGUSR1);
 		pthread_join(w->w_rx, NULL);
 
 		sem_wait(&dmn.wpeers_mtx);
