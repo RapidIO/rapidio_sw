@@ -56,6 +56,8 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"SHTDWN",
 #ifdef USER_MODE_DRIVER
         (char*)"UDMA",
+        (char*)"ltudma",
+        (char*)"lrudma",
         (char*)"UMSG",
 #endif
 	(char *)"LAST"
