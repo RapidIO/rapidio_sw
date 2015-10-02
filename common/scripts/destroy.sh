@@ -36,5 +36,8 @@ do
 	# Unload rio_cm
 	ssh root@"$node" "modprobe -r rio_cm"
 	sleep 1
+
+	# Load rio_cm
+	ssh root@"$node" "modprobe rio_cm"
 done
 

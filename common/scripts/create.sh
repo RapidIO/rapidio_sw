@@ -5,12 +5,6 @@ RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 # Temporary script to speed up RSKT test apps development.
 NODES="10.10.10.51 10.10.10.50"
 
-for node in $NODES
-do
-	# Load rio_cm
-	ssh root@"$node" "modprobe rio_cm"
-done
-
 # Start Fabric Management Daemon on each node
 for node in $NODES
 do
