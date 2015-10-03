@@ -1543,10 +1543,11 @@ int UDMACmd(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1))) {
+	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
+			(buff > MAX_UMD_BUF_COUNT)) {
                 sprintf(env->output,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
-			buff);
+			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
+			buff, MAX_UMD_BUF_COUNT);
         	logMsg(env);
 		goto exit;
 	};
@@ -1655,10 +1656,11 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1))) {
+	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
+			(buff > MAX_UMD_BUF_COUNT)) {
                 sprintf(env->output,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
-			buff);
+			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
+			buff, MAX_UMD_BUF_COUNT);
         	logMsg(env);
 		goto exit;
 	};
@@ -1793,10 +1795,11 @@ int UDMALatNREAD(struct cli_env *env, int argc, char **argv)
 		goto exit;
 	};
 
-	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1))) {
+	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
+			(buff > MAX_UMD_BUF_COUNT)) {
                 sprintf(env->output,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
-			buff);
+			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
+			buff, MAX_UMD_BUF_COUNT);
         	logMsg(env);
 		goto exit;
 	};
@@ -1915,13 +1918,14 @@ int UMSGCmd(struct cli_env *env, int argc, char **argv)
                 goto exit;
         };
 
-        if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1))) {
+	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
+			(buff > MAX_UMD_BUF_COUNT)) {
                 sprintf(env->output,
-                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
-                        buff);
-                logMsg(env);
-                goto exit;
-        };
+			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
+			buff, MAX_UMD_BUF_COUNT);
+        	logMsg(env);
+		goto exit;
+	};
 
         if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
                 sprintf(env->output,

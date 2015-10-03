@@ -131,7 +131,7 @@ enum req_mode {
 #define MIN_RDMA_BUFF_SIZE 0x10000
 
 #ifdef USER_MODE_DRIVER
-#define MAX_UMD_BUF_COUNT 4096
+#define MAX_UMD_BUF_COUNT (4096*4)
 #define MAX_TIMESTAMPS 4096
 #endif
 
