@@ -114,6 +114,7 @@ enum req_type {
 	free_ibwin,
 	shutdown_worker,
 #ifdef USER_MODE_DRIVER
+	umd_calibrate,
 	umd_dma,
 	umd_dmaltx,
 	umd_dmalrx,

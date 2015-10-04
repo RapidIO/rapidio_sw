@@ -51,6 +51,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdtsc.h"
 #include "debug.h"
 
+#ifndef __DMACHAN_H__
+#define __DMACHAN_H__
+
 /* DMA Status FIFO */
 #define DMA_STATUS_FIFO_LENGTH (4096)
 #define DMA_RUNPOLL_US 10
@@ -323,3 +326,4 @@ public:
   };
 };
 
+#endif /* __DMACHAN_H__ */
