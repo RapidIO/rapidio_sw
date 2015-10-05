@@ -1451,6 +1451,8 @@ void calibrate_map_performance(struct worker *info)
 
 	memset(&wk, 0, sizeof(wk));
 
+	CRIT("\n\nCalibrating MAP performance for %d runs, %d entries\n",
+		info->umd_sts_entries, max);
 	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
         	clock_gettime(CLOCK_MONOTONIC, &st_time);
 
@@ -1474,11 +1476,13 @@ void calibrate_map_performance(struct worker *info)
 				goto fail;
 		};
 
+/*
 		for  (j = 0; j < max; j++) {
 			m_bl_busy.erase(j);
 			m_bl_outstanding.erase(j);
 			m_pending_work.erase(fake_win_handle + (i * 0x20));
 		}
+*/
         	clock_gettime(CLOCK_MONOTONIC, &end_time);
 		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
 	};
@@ -1488,6 +1492,8 @@ void calibrate_map_performance(struct worker *info)
 	ts_tot = time_div(ts_tot, info->umd_sts_entries);
 	CRIT("\nMAP: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
 	CRIT("\nMAP: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nMAP: Avg  per iter %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
 	return;
 
 fail:
@@ -1495,9 +1501,71 @@ fail:
 	
 };
 
+void calibrate_array_performance(struct worker *info)
+{
+	int i, j, max = info->umd_tx_buf_cnt;
+	uint8_t *m_bl_busy;
+	uint32_t *m_bl_outstanding;
+	DMAChannel::WorkItem_t *m_pending_work;
+	DMAChannel::WorkItem_t wk;
+
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+	struct timespec ts_min, ts_max, ts_tot;
+
+	m_bl_busy = (uint8_t *)malloc(max*sizeof(uint8_t)); 
+	m_bl_outstanding =
+		(uint32_t *)malloc(max*sizeof(uint32_t)); 
+	m_pending_work =
+		(DMAChannel::WorkItem_t *)malloc(
+			max*sizeof(DMAChannel::WorkItem_t)); 
+
+	memset(&wk, 0, sizeof(wk));
+
+	CRIT("\n\nCalibrating ARRAY performance for %d runs, %d entries\n",
+		info->umd_sts_entries, max);
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+
+		for  (j = 0; j < max; j++) {
+			m_bl_busy[j] = true;
+			m_pending_work[j] = wk;
+			m_bl_outstanding[j] = j;
+		};
+			
+		memset(&wk, 0x11, sizeof(wk));
+
+		for  (j = 0; j < max; j++) {
+			m_bl_busy[j] = false;
+			m_bl_outstanding[j] = max - j;
+			m_pending_work[j] = wk;
+		};
+
+/*
+		for  (j = 0; j < max; j++) {
+			m_bl_busy.erase(j);
+			m_bl_outstanding.erase(j);
+			m_pending_work.erase(fake_win_handle + (i * 0x20));
+		}
+*/
+        	clock_gettime(CLOCK_MONOTONIC, &end_time);
+		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nARRAY: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nARRAY: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nARRAY: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nARRAY: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nARRAY: Avg  per iter %10d %10d\n",
+					ts_tot.tv_sec, ts_tot.tv_nsec);
+	return;
+};
+
 void calibrate_pthread_spinlock_performance(struct worker *info)
 {
-	int i, j;
+	int i, j, max = 1000000;
 	struct timespec st_time; /* Start of the run, for throughput */
 	struct timespec end_time; /* End of the run, for throughput*/
 	struct timespec ts_min, ts_max, ts_tot;
@@ -1506,9 +1574,11 @@ void calibrate_pthread_spinlock_performance(struct worker *info)
 	
 	pthread_spin_init(&m_bl_splock, PTHREAD_PROCESS_PRIVATE);
 
+	CRIT("\n\nCalibrating SPINLOCK performance for %d runs, %d lk/unlks\n"
+		, info->umd_sts_entries, max);
 	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
         	clock_gettime(CLOCK_MONOTONIC, &st_time);
-		for (j = 0; j < 1000000; j++) {
+		for (j = 0; j < max; j++) {
 			pthread_spin_lock(&m_bl_splock);
 			pthread_spin_unlock(&m_bl_splock);
 		};
@@ -1522,44 +1592,57 @@ void calibrate_pthread_spinlock_performance(struct worker *info)
 	ts_tot = time_div(ts_tot, info->umd_sts_entries);
 	CRIT("\nSPLOCK: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
 	CRIT("\nSPLOCK: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nSPLOCK: Avg  per iter %10d %10d\n",
+		ts_tot.tv_sec, ts_tot.tv_nsec);
 };
+
+struct timespec gt_ts_min, gt_ts_max, gt_ts_tot;
 
 void calibrate_gettime_performance(struct worker *info)
 {
-	int i, j;
+	int i, j, max = 1000000;
 	struct timespec st_time; /* Start of the run, for throughput */
 	struct timespec end_time; /* End of the run, for throughput*/
-	struct timespec ts_min, ts_max, ts_tot;
+	struct timespec temp;
 
+	CRIT("\n\nCalibrating GETTIME performance for %d runs, %d gettime()s\n",
+		info->umd_sts_entries, max);
 	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
         	clock_gettime(CLOCK_MONOTONIC, &st_time);
-		for (j = 0; j < 1000000; j++) {
+		for (j = 0; j < max; j++) {
         		clock_gettime(CLOCK_MONOTONIC, &end_time);
 		};
 
         	clock_gettime(CLOCK_MONOTONIC, &end_time);
-		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
+		time_track(i, st_time, end_time,
+			&gt_ts_tot, &gt_ts_min, &gt_ts_max);
 	};
 
-	CRIT("\nGETTIME: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
-	CRIT("\nGETTIME: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
-	ts_tot = time_div(ts_tot, info->umd_sts_entries);
-	CRIT("\nGETTIME: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
-	CRIT("\nGETTIME: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	CRIT("\nGETTIME: Min %10d %10d\n", gt_ts_min.tv_sec, gt_ts_min.tv_nsec);
+	CRIT("\nGETTIME: Tot %10d %10d\n", gt_ts_tot.tv_sec, gt_ts_tot.tv_nsec);
+	gt_ts_tot = time_div(gt_ts_tot, info->umd_sts_entries);
+	CRIT("\nGETTIME: Avg %10d %10d\n", gt_ts_tot.tv_sec, gt_ts_tot.tv_nsec);
+	CRIT("\nGETTIME: Max %10d %10d\n", gt_ts_max.tv_sec, gt_ts_max.tv_nsec);
+	temp = time_div(gt_ts_tot, max);
+	CRIT("\nGETTIME: Avg per iter %10d %10d\n",
+		temp.tv_sec, temp.tv_nsec);
 };
 
 void calibrate_rdtsc_performance(struct worker *info)
 {
-	int i, j;
+	int i, j, max = 1000000;
 	struct timespec st_time; /* Start of the run, for throughput */
 	struct timespec end_time; /* End of the run, for throughput*/
 	struct timespec ts_min, ts_max, ts_tot;
-	uint64_t ts_start, ts_end, total;
+	uint64_t ts_start, ts_end, total, total_sec;
 
+	CRIT("\n\nCalibrating RDTSC performance for %d runs, %d gettime()s\n",
+		info->umd_sts_entries, max);
 	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
         	clock_gettime(CLOCK_MONOTONIC, &st_time);
 		ts_start = rdtsc();
-		for (j = 0; j < 1000000; j++) {
+		for (j = 0; j < max; j++) {
 			end_time.tv_nsec = rdtsc();
         		clock_gettime(CLOCK_MONOTONIC, &end_time);
 		};
@@ -1568,6 +1651,10 @@ void calibrate_rdtsc_performance(struct worker *info)
 		ts_end = rdtsc();
 		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
 		total += ts_end - ts_start;
+		if (total > 1000000000) {
+			total_sec++;
+			total -= 1000000000;
+		};
 	};
 
 	CRIT("\nRDTSC: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
@@ -1575,8 +1662,26 @@ void calibrate_rdtsc_performance(struct worker *info)
 	ts_tot = time_div(ts_tot, info->umd_sts_entries);
 	CRIT("\nRDTSC: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
 	CRIT("\nRDTSC: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
-	CRIT("\nRDTSC: RDTSC Tot %20d \n", total);
+	CRIT("\nRDTSC: RDTSC Tot %d %20d \n", total_sec, total);
 	CRIT("\nRDTSC: RDTSC Avg %10d \n", total/info->umd_sts_entries); 
+
+	CRIT("\nRDTSC: gettime Min %10d %10d\n",
+		gt_ts_min.tv_sec, gt_ts_min.tv_nsec);
+	CRIT("\nRDTSC: gettime Avg %10d %10d\n",
+		gt_ts_tot.tv_sec, gt_ts_tot.tv_nsec);
+	CRIT("\nRDTSC: gettime Max %10d %10d\n",
+		gt_ts_max.tv_sec, gt_ts_max.tv_nsec);
+	gt_ts_min = time_difference(ts_min, gt_ts_min);
+	gt_ts_min = time_difference(ts_tot, gt_ts_tot);
+	gt_ts_min = time_difference(ts_max, gt_ts_max);
+	CRIT("\nRDTSC: rdtsc impact Min %10d %10d\n",
+		gt_ts_min.tv_sec, gt_ts_min.tv_nsec);
+	CRIT("\nRDTSC: rdtsc impact Avg %10d %10d\n",
+		gt_ts_tot.tv_sec, gt_ts_tot.tv_nsec);
+	CRIT("\nRDTSC: rdtsc impact Avg per iter %10d %10d\n",
+		gt_ts_tot.tv_sec, gt_ts_tot.tv_nsec/max);
+	CRIT("\nRDTSC: rdtsc impact Max %10d %10d\n",
+		gt_ts_max.tv_sec, gt_ts_max.tv_nsec);
 };
 
 void calibrate_reg_rw_performance(struct worker *info)
@@ -1587,6 +1692,8 @@ void calibrate_reg_rw_performance(struct worker *info)
 	struct timespec *end_time = &e_t;
 	struct timespec ts_min, ts_max, ts_tot;
 
+	CRIT("\n\nCalibrating RD32DMACHANperformance for %d runs, %d acc\n",
+		info->umd_sts_entries, max_rw);
 	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
         	clock_gettime(CLOCK_MONOTONIC, &st_time);
 		for (j = 0; j < max_rw; j++) {
@@ -1606,6 +1713,8 @@ void calibrate_reg_rw_performance(struct worker *info)
 	ts_tot = time_div(ts_tot, max_rw);
 	CRIT("\nRD32DMACHAN: Each Acc Avg %10d %10d\n",
 						ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\n\nCalibrating WR32DMACHANperformance for %d runs, %d acc\n",
+		info->umd_sts_entries, max_rw);
 
 	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
         	clock_gettime(CLOCK_MONOTONIC, &st_time);
@@ -1626,6 +1735,9 @@ void calibrate_reg_rw_performance(struct worker *info)
 	ts_tot = time_div(ts_tot, max_rw);
 	CRIT("\nWR32DMACHAN: Each Acc Avg %10d %10d\n",
 						ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\n\nCalibrating RD32nolock for %d runs, %d acc\n",
+		info->umd_sts_entries, max_rw);
+
 
 	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
         	clock_gettime(CLOCK_MONOTONIC, &st_time);
@@ -1646,6 +1758,9 @@ void calibrate_reg_rw_performance(struct worker *info)
 	ts_tot = time_div(ts_tot, max_rw);
 	CRIT("\nRD32nolock: Each Acc Avg %10d %10d\n",
 						ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\n\nCalibrating WR32nolock for %d runs, %d acc\n",
+		info->umd_sts_entries, max_rw);
+
 
 	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
         	clock_gettime(CLOCK_MONOTONIC, &st_time);
@@ -1670,14 +1785,17 @@ void calibrate_reg_rw_performance(struct worker *info)
 
 void calibrate_sched_yield(struct worker *info)
 {
-	int i, j;
+	int i, j, max = 10000;
 	struct timespec st_time; /* Start of the run, for throughput */
 	struct timespec end_time; /* End of the run, for throughput*/
 	struct timespec ts_min, ts_max, ts_tot;
 
+	CRIT("\n\nCalibrating sched_yield for %d runs, %d acc\n",
+		info->umd_sts_entries, max);
+
 	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
         	clock_gettime(CLOCK_MONOTONIC, &st_time);
-		for (j = 0; j < 10000; j++)
+		for (j = 0; j < max; j++)
 			sched_yield();
 
         	clock_gettime(CLOCK_MONOTONIC, &end_time);
@@ -1689,6 +1807,9 @@ void calibrate_sched_yield(struct worker *info)
 	ts_tot = time_div(ts_tot, info->umd_sts_entries);
 	CRIT("\nSCH_YLD: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
 	CRIT("\nSCH_YLD: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nSCH_YLD: Avg per call %10d %10d\n",
+		ts_max.tv_sec, ts_max.tv_nsec);
 };
 
 void umd_dma_calibrate(struct worker *info)
@@ -1703,6 +1824,9 @@ void umd_dma_calibrate(struct worker *info)
 	};
 
 	calibrate_map_performance(info);
+	if (info->stop_req)
+		goto exit;
+	calibrate_array_performance(info);
 	if (info->stop_req)
 		goto exit;
 	calibrate_pthread_spinlock_performance(info);
