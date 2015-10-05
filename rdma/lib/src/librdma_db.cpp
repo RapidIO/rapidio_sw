@@ -32,6 +32,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <stdint.h>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include <list>
 #include <algorithm>
 
@@ -687,6 +690,8 @@ ms_h add_loc_msub(uint32_t 	msubid,
 	msubp->rio_addr_hi  = rio_addr_hi;
 	msubp->paddr	= paddr;
 
+	DBG("rio_addr_len=%d, rio_addr_lo=0x%016" PRIx64 ", paddr=0x%016" PRIx64 "\n",
+			rio_addr_len, rio_addr_lo, paddr);
 	/* Store */
 	loc_msub_list.push_back(msubp);
 
