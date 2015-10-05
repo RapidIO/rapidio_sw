@@ -107,14 +107,18 @@ public:
 	{
 		if (mq_close(mq)) {
 			ERR("mq_close('%s') failed: %s\n", name.c_str(), strerror(errno));
+		} else {
+			INFO("'%s' closed\n", name.c_str());
 		}
-		if (is_owner)
+		if (is_owner) {
 			if (mq_unlink((const char *)name.c_str())) {
 				ERR("mq_unlink('%s') failed: %s\n", name.c_str(), strerror(errno));
+			} else {
+				INFO("'%s' unlinked as well\n", name.c_str());
 			}
+		}
 		delete [] send_buf;
 		delete [] recv_buf;
-		INFO("'%s' destroyed\n", name.c_str());
 	}
 
 	const string& get_name() const { return name; }
