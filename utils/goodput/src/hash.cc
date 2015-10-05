@@ -62,7 +62,7 @@ public:
 
     const int FUDGE = HASH_INT;
 
-    const int SHM_SIZE = (sizeof(CKey) + sizeof(CVal) + FUDGE) * max_size + sizeof(HashMap_t);
+    uint64_t SHM_SIZE = (sizeof(CKey) + sizeof(CVal) + FUDGE) * (uint64_t)max_size + sizeof(HashMap_t);
 
     m_shm  = new POSIXShm(name, SHM_SIZE); // this zeros'es the pages at start
     m_hash = (HashMap_t*)m_shm->getMem();
@@ -79,7 +79,7 @@ public:
 
       for(int i = 0; i < HASH_INT; i++) {
         const int k = i * m_hash->bucket_size;
-        m_hash->buckets[i] = (uint8_t*)&m_hash->members[0] - (uint8_t*)&m_hash->members[0]; // OFFSET in SHM
+        m_hash->buckets[i] = (uint8_t*)&m_hash->members[k] - (uint8_t*)&m_hash->members[0]; // OFFSET in SHM
       }
       m_hash->initialised = true;
     }
@@ -129,7 +129,7 @@ public:
    * \param k key to be erased
    * \return true if found & erased, false otherwise
    */
-  bool erase(const CKey& k)
+  inline bool erase(const CKey& k)
   {
     bool found = false;
 
@@ -194,7 +194,7 @@ public:
   }
 
 private:
-  static const int HASH_INT = 19; ///< This should be a prime number to hash upon
+  static const int HASH_INT = 4093; ///< This should be a prime number to hash upon
 
   ///< Hash map member
   typedef struct {
@@ -219,7 +219,7 @@ private:
   pid_t       m_tid; ///< Thread (LWP) ID of this instance (\ref gettid)
 
   /** \brief Dummy wrapper around C crc32 */
-  uint32_t Crc32(const CKey& k) { return crc32(0, &k, sizeof(k)); }
+  inline uint32_t Crc32(const CKey& k) { return crc32(0, &k, sizeof(k)); }
 
   /** \brief Find a key in SHM map, private version
    * \param k key to be found
@@ -227,7 +227,7 @@ private:
    * \param locked Called from locked context?
    * \return true if key found, false otherwise
    */
-  bool find(const CKey& k, int& pos, const bool locked)
+  inline bool find(const CKey& k, int& pos, const bool locked)
   {
     bool ret = false;
 

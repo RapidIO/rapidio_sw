@@ -59,7 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 class POSIXShm {
 public:
-  POSIXShm(const char* name, const int size);
+  POSIXShm(const char* name, const uint64_t size);
   ~POSIXShm();
 
   void* getMem()        { return (char*)m_shm + PAGE_SIZE; }
@@ -92,9 +92,9 @@ private:
   } ProcRegistry_t;
 
   int         PAGE_SIZE;
-  int         MAP_SIZE;  ///< True size of shm mapping
+  uint64_t    MAP_SIZE;  ///< True size of shm mapping
   int         m_shm_fd;
-  int         m_shm_size;
+  uint64_t    m_shm_size;
   void*       m_shm;
   std::string m_shm_name;
   POSIXSem*   m_mutex;   ///< For access to the secret users' Registry
