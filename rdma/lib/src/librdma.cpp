@@ -1339,8 +1339,8 @@ int rdma_create_msub_h(ms_h	msh,
 	}
 	out = out_msg->create_msub_out;
 
-	INFO("out->bytes=0x%X, out.phys_addr=0x%lX\n",
-				out.bytes, out.phys_addr);
+	INFO("out->bytes=0x%X, out.phys_addr=0x%016" PRIx64 ", out.rio_addr=0x%016" PRIx64 "\n",
+				out.bytes, out.phys_addr, out.rio_addr);
 
 	/* Store msubh in database, obtain pointer thereto, convert to msub_h */
 	*msubh = (msub_h)add_loc_msub(out.msubid,
@@ -2084,6 +2084,16 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 			return RDMA_REMOTE_UNREACHABLE;
 		}
 
+	/* All input parameters are OK */
+	out->in_param_ok = 0;
+
+	/* Echo parameters for debugging */
+	INFO("Sending %u bytes over DMA to destid=0x%X\n", in->num_bytes,
+								rmsub->destid);
+	INFO("Dest RIO addr =  %016" PRIx64 ", lmsub->paddr = %016" PRIx64 "\n",
+					rmsub->rio_addr_lo + in->rem_offset,
+					lmsub->paddr);
+
 	/* Determine sync type */
 	enum riomp_dma_directio_transfer_sync rd_sync;
 
@@ -2106,15 +2116,6 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 		out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
 		return RDMA_INVALID_SYNC_TYPE;
 	}
-
-	/* All input parameters are OK */
-	out->in_param_ok = 0;
-
-	INFO("Sending %u bytes over DMA to destid=0x%X\n", in->num_bytes,
-								rmsub->destid);
-	INFO("Dest RIO addr =  %016" PRIx64 ", lmsub->paddr = %016" PRIx64 "\n",
-					rmsub->rio_addr_lo + in->rem_offset,
-					lmsub->paddr);
 
 	int ret = riomp_dma_write_d(peer.mport_hnd,
 				    (uint16_t)rmsub->destid,
