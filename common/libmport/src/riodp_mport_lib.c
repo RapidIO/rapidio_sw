@@ -428,7 +428,7 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 #else
 	int ret, sd;
 	struct rapidio_mport_handle *hnd = NULL;
-#if 0
+#if 1
 	struct addrinfo *addrinf;
 	struct addrinfo hints;
 
@@ -474,8 +474,8 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 		return ret;
 	}
 	ai_addr.sin_family = AF_INET;
-	ai_addr.sin_addr.s_addr=inet_addr("127.0.0.1");
-	ai_addr.sin_port=htons(4567);
+	ai_addr.sin_addr.s_addr=inet_addr(simulator.tcp_server);
+	ai_addr.sin_port=htons((uint16_t)strtoul(simulator.tcp_port, NULL, 0));
 
 	ret = connect(sd, (struct sockaddr *)&ai_addr, ai_addrlen);
 	if (ret == -1) {
