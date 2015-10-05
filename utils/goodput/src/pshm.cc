@@ -72,7 +72,7 @@ POSIXShm::mkname(const char* name)
  * \throws std::runtime_error
  * The size is rounded up to the next full page. Also a secret page is tacked before the "official" memory area.
  */
-POSIXShm::POSIXShm(const char* name, const int size)
+POSIXShm::POSIXShm(const char* name, const uint64_t size)
 {
   m_shm_name = mkname(name);
 
@@ -84,7 +84,7 @@ POSIXShm::POSIXShm(const char* name, const int size)
 
   m_shm_size = size; // for record-keeping
 
-  const int shm_sz = PAGE_SIZE+size;
+  const uint64_t shm_sz = PAGE_SIZE+size;
 
   m_mutex = new POSIXSem(name);
 
@@ -101,7 +101,7 @@ POSIXShm::POSIXShm(const char* name, const int size)
     m_shm_fd = shm_open(m_shm_name.c_str(), O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
   }
 
-  int k = shm_sz / PAGE_SIZE;
+  uint64_t k = shm_sz / PAGE_SIZE;
   if((shm_sz % PAGE_SIZE > 0)) k++;
   k++; // our crap
 
