@@ -1876,7 +1876,7 @@ __sync_synchronize();
 		delete accept_mq;
 		return RDMA_DB_ADD_FAIL;
 	}
-	INFO("Remote msubh has size %d, rio_addr = 0x%lX\n",
+	INFO("Remote msubh has size %d, rio_addr = 0x%016" PRIx64 "\n",
 			accept_msg->server_bytes, accept_msg->server_rio_addr_lo);
 	INFO("rem_msub has destid = 0x%X, destid_len = 0x%X\n",
 			accept_msg->server_destid, accept_msg->server_destid_len);
