@@ -68,6 +68,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "goodput.h"
 #include "mhz.h"
 
+#ifdef USER_MODE_DRIVER
+#include "dmachan.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1432,6 +1436,420 @@ void UMD_DD(const struct worker* info)
 	write(STDOUT_FILENO, info->evlog.c_str(), info->evlog.size());
 }
 
+void calibrate_map_performance(struct worker *info)
+{
+	int i, j, max = info->umd_tx_buf_cnt;
+	std::map<uint32_t, bool> m_bl_busy;
+	std::map<uint32_t, uint32_t> m_bl_outstanding;
+	std::map<uint64_t, DMAChannel::WorkItem_t> m_pending_work;
+	DMAChannel::WorkItem_t wk;
+
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+	struct timespec ts_min, ts_max, ts_tot;
+	uint64_t fake_win_handle = 0x00000040ff800000;
+
+	memset(&wk, 0, sizeof(wk));
+
+	CRIT("\n\nCalibrating MAP performance for %d runs, %d entries\n",
+		info->umd_sts_entries, max);
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+
+		for  (j = 0; j < max; j++) {
+			m_bl_busy[j] = true;
+			m_pending_work[fake_win_handle + (i * 0x20)] = wk;
+			m_bl_outstanding[j] = m_pending_work.size();
+		};
+			
+		memset(&wk, 0x11, sizeof(wk));
+
+		for  (j = 0; j < max; j++) {
+			std::map<uint64_t, DMAChannel::WorkItem_t>::iterator itm;
+			m_bl_busy[j] = false;
+			m_bl_outstanding[j] = 0 - m_pending_work.size();
+			itm = m_pending_work.find(fake_win_handle + (i * 0x20));
+			if (itm != m_pending_work.end())
+				m_pending_work[fake_win_handle + (i * 0x20)]
+					= wk;
+			else
+				goto fail;
+		};
+
+/*
+		for  (j = 0; j < max; j++) {
+			m_bl_busy.erase(j);
+			m_bl_outstanding.erase(j);
+			m_pending_work.erase(fake_win_handle + (i * 0x20));
+		}
+*/
+        	clock_gettime(CLOCK_MONOTONIC, &end_time);
+		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nMAP: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nMAP: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nMAP: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nMAP: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nMAP: Avg  per iter %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	return;
+
+fail:
+	CRIT("\nMAP: Failed, could not find expected m_bl_outstanding");
+	
+};
+
+void calibrate_array_performance(struct worker *info)
+{
+	int i, j, max = info->umd_tx_buf_cnt;
+	uint8_t *m_bl_busy;
+	uint32_t *m_bl_outstanding;
+	DMAChannel::WorkItem_t *m_pending_work;
+	DMAChannel::WorkItem_t wk;
+
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+	struct timespec ts_min, ts_max, ts_tot;
+
+	m_bl_busy = (uint8_t *)malloc(max*sizeof(uint8_t)); 
+	m_bl_outstanding =
+		(uint32_t *)malloc(max*sizeof(uint32_t)); 
+	m_pending_work =
+		(DMAChannel::WorkItem_t *)malloc(
+			max*sizeof(DMAChannel::WorkItem_t)); 
+
+	memset(&wk, 0, sizeof(wk));
+
+	CRIT("\n\nCalibrating ARRAY performance for %d runs, %d entries\n",
+		info->umd_sts_entries, max);
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+
+		for  (j = 0; j < max; j++) {
+			m_bl_busy[j] = true;
+			m_pending_work[j] = wk;
+			m_bl_outstanding[j] = j;
+		};
+			
+		memset(&wk, 0x11, sizeof(wk));
+
+		for  (j = 0; j < max; j++) {
+			m_bl_busy[j] = false;
+			m_bl_outstanding[j] = max - j;
+			m_pending_work[j] = wk;
+		};
+
+/*
+		for  (j = 0; j < max; j++) {
+			m_bl_busy.erase(j);
+			m_bl_outstanding.erase(j);
+			m_pending_work.erase(fake_win_handle + (i * 0x20));
+		}
+*/
+        	clock_gettime(CLOCK_MONOTONIC, &end_time);
+		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nARRAY: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nARRAY: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nARRAY: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nARRAY: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nARRAY: Avg  per iter %10d %10d\n",
+					ts_tot.tv_sec, ts_tot.tv_nsec);
+	return;
+};
+
+void calibrate_pthread_spinlock_performance(struct worker *info)
+{
+	int i, j, max = 1000000;
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+	struct timespec ts_min, ts_max, ts_tot;
+
+	pthread_spinlock_t  m_bl_splock;
+	
+	pthread_spin_init(&m_bl_splock, PTHREAD_PROCESS_PRIVATE);
+
+	CRIT("\n\nCalibrating SPINLOCK performance for %d runs, %d lk/unlks\n"
+		, info->umd_sts_entries, max);
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+		for (j = 0; j < max; j++) {
+			pthread_spin_lock(&m_bl_splock);
+			pthread_spin_unlock(&m_bl_splock);
+		};
+
+        	clock_gettime(CLOCK_MONOTONIC, &end_time);
+		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nSPLOCK: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nSPLOCK: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nSPLOCK: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nSPLOCK: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nSPLOCK: Avg  per iter %10d %10d\n",
+		ts_tot.tv_sec, ts_tot.tv_nsec);
+};
+
+struct timespec gt_ts_min, gt_ts_max, gt_ts_tot;
+
+void calibrate_gettime_performance(struct worker *info)
+{
+	int i, j, max = 1000000;
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+	struct timespec temp;
+
+	CRIT("\n\nCalibrating GETTIME performance for %d runs, %d gettime()s\n",
+		info->umd_sts_entries, max);
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+		for (j = 0; j < max; j++) {
+        		clock_gettime(CLOCK_MONOTONIC, &end_time);
+		};
+
+        	clock_gettime(CLOCK_MONOTONIC, &end_time);
+		time_track(i, st_time, end_time,
+			&gt_ts_tot, &gt_ts_min, &gt_ts_max);
+	};
+
+	CRIT("\nGETTIME: Min %10d %10d\n", gt_ts_min.tv_sec, gt_ts_min.tv_nsec);
+	CRIT("\nGETTIME: Tot %10d %10d\n", gt_ts_tot.tv_sec, gt_ts_tot.tv_nsec);
+	gt_ts_tot = time_div(gt_ts_tot, info->umd_sts_entries);
+	CRIT("\nGETTIME: Avg %10d %10d\n", gt_ts_tot.tv_sec, gt_ts_tot.tv_nsec);
+	CRIT("\nGETTIME: Max %10d %10d\n", gt_ts_max.tv_sec, gt_ts_max.tv_nsec);
+	temp = time_div(gt_ts_tot, max);
+	CRIT("\nGETTIME: Avg per iter %10d %10d\n",
+		temp.tv_sec, temp.tv_nsec);
+};
+
+void calibrate_rdtsc_performance(struct worker *info)
+{
+	int i, j, max = 1000000;
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+	struct timespec ts_min, ts_max, ts_tot;
+	uint64_t ts_start, ts_end, total, total_sec;
+
+	CRIT("\n\nCalibrating RDTSC performance for %d runs, %d gettime()s\n",
+		info->umd_sts_entries, max);
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+		ts_start = rdtsc();
+		for (j = 0; j < max; j++) {
+			end_time.tv_nsec = rdtsc();
+        		clock_gettime(CLOCK_MONOTONIC, &end_time);
+		};
+
+        	clock_gettime(CLOCK_MONOTONIC, &end_time);
+		ts_end = rdtsc();
+		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
+		total += ts_end - ts_start;
+		if (total > 1000000000) {
+			total_sec++;
+			total -= 1000000000;
+		};
+	};
+
+	CRIT("\nRDTSC: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nRDTSC: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nRDTSC: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nRDTSC: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	CRIT("\nRDTSC: RDTSC Tot %d %20d \n", total_sec, total);
+	CRIT("\nRDTSC: RDTSC Avg %10d \n", total/info->umd_sts_entries); 
+
+	CRIT("\nRDTSC: gettime Min %10d %10d\n",
+		gt_ts_min.tv_sec, gt_ts_min.tv_nsec);
+	CRIT("\nRDTSC: gettime Avg %10d %10d\n",
+		gt_ts_tot.tv_sec, gt_ts_tot.tv_nsec);
+	CRIT("\nRDTSC: gettime Max %10d %10d\n",
+		gt_ts_max.tv_sec, gt_ts_max.tv_nsec);
+	gt_ts_min = time_difference(ts_min, gt_ts_min);
+	gt_ts_min = time_difference(ts_tot, gt_ts_tot);
+	gt_ts_min = time_difference(ts_max, gt_ts_max);
+	CRIT("\nRDTSC: rdtsc impact Min %10d %10d\n",
+		gt_ts_min.tv_sec, gt_ts_min.tv_nsec);
+	CRIT("\nRDTSC: rdtsc impact Avg %10d %10d\n",
+		gt_ts_tot.tv_sec, gt_ts_tot.tv_nsec);
+	CRIT("\nRDTSC: rdtsc impact Avg per iter %10d %10d\n",
+		gt_ts_tot.tv_sec, gt_ts_tot.tv_nsec/max);
+	CRIT("\nRDTSC: rdtsc impact Max %10d %10d\n",
+		gt_ts_max.tv_sec, gt_ts_max.tv_nsec);
+};
+
+void calibrate_reg_rw_performance(struct worker *info)
+{
+	int i, j;
+	int max_rw = 1000000;
+	struct timespec st_time, e_t; 
+	struct timespec *end_time = &e_t;
+	struct timespec ts_min, ts_max, ts_tot;
+
+	CRIT("\n\nCalibrating RD32DMACHANperformance for %d runs, %d acc\n",
+		info->umd_sts_entries, max_rw);
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+		for (j = 0; j < max_rw; j++) {
+			end_time->tv_nsec =
+				info->umd_dch->rd32dmachan(TSI721_DMAC_STS);
+		};
+
+        	clock_gettime(CLOCK_MONOTONIC, end_time);
+		time_track(i, st_time, e_t, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nRD32DMACHAN: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nRD32DMACHAN: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nRD32DMACHAN: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nRD32DMACHAN: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max_rw);
+	CRIT("\nRD32DMACHAN: Each Acc Avg %10d %10d\n",
+						ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\n\nCalibrating WR32DMACHANperformance for %d runs, %d acc\n",
+		info->umd_sts_entries, max_rw);
+
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+		for (j = 0; j < max_rw; j++) {
+			info->umd_dch->wr32dmachan(TSI721_DMAC_STS,
+					TSI721_DMAC_STS - TSI721_DMAC_STS);
+		};
+
+        	clock_gettime(CLOCK_MONOTONIC, end_time);
+		time_track(i, st_time, e_t, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nWR32DMACHAN: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nWR32DMACHAN: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nWR32DMACHAN: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nWR32DMACHAN: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max_rw);
+	CRIT("\nWR32DMACHAN: Each Acc Avg %10d %10d\n",
+						ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\n\nCalibrating RD32nolock for %d runs, %d acc\n",
+		info->umd_sts_entries, max_rw);
+
+
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+		for (j = 0; j < max_rw; j++) {
+			end_time->tv_nsec =
+			info->umd_dch->rd32dmachan_nolock(TSI721_DMAC_STS);
+		};
+
+        	clock_gettime(CLOCK_MONOTONIC, end_time);
+		time_track(i, st_time, e_t, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nRD32nolock: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nRD32nolock: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nRD32nolock: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nRD32nolock: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max_rw);
+	CRIT("\nRD32nolock: Each Acc Avg %10d %10d\n",
+						ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\n\nCalibrating WR32nolock for %d runs, %d acc\n",
+		info->umd_sts_entries, max_rw);
+
+
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+		for (j = 0; j < max_rw; j++) {
+			info->umd_dch->wr32dmachan_nolock(TSI721_DMAC_STS,
+					TSI721_DMAC_STS - TSI721_DMAC_STS);
+		};
+
+        	clock_gettime(CLOCK_MONOTONIC, end_time);
+		time_track(i, st_time, e_t, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nWR32nolock: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nWR32nolock: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nWR32nolock: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nWR32nolock: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max_rw);
+	CRIT("\nRD32nolock: Each Acc Avg %10d %10d\n",
+						ts_tot.tv_sec, ts_tot.tv_nsec);
+};
+
+void calibrate_sched_yield(struct worker *info)
+{
+	int i, j, max = 10000;
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+	struct timespec ts_min, ts_max, ts_tot;
+
+	CRIT("\n\nCalibrating sched_yield for %d runs, %d acc\n",
+		info->umd_sts_entries, max);
+
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+		for (j = 0; j < max; j++)
+			sched_yield();
+
+        	clock_gettime(CLOCK_MONOTONIC, &end_time);
+		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nSCH_YLD: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nSCH_YLD: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nSCH_YLD: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nSCH_YLD: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nSCH_YLD: Avg per call %10d %10d\n",
+		ts_max.tv_sec, ts_max.tv_nsec);
+};
+
+void umd_dma_calibrate(struct worker *info)
+{
+	info->umd_dch =
+		new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
+								
+	if (NULL == info->umd_dch) {
+		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+			info->umd_chan, info->mp_num, info->mp_h);
+		goto fail;
+	};
+
+	calibrate_map_performance(info);
+	if (info->stop_req)
+		goto exit;
+	calibrate_array_performance(info);
+	if (info->stop_req)
+		goto exit;
+	calibrate_pthread_spinlock_performance(info);
+	if (info->stop_req)
+		goto exit;
+	calibrate_gettime_performance(info);
+	if (info->stop_req)
+		goto exit;
+	calibrate_rdtsc_performance(info);
+	if (info->stop_req)
+		goto exit;
+	calibrate_reg_rw_performance(info);
+	if (info->stop_req)
+		goto exit;
+	calibrate_sched_yield(info);
+
+exit:
+        info->umd_dch->cleanup();
+        delete info->umd_dch;
+fail:
+	info->umd_dch = NULL;
+};
+
 static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa8 };
 #define PATTERN_SZ      sizeof(PATTERN)
 #define DMA_RUNPOLL_US 10
@@ -1598,6 +2016,139 @@ exit:
 	info->umd_dch = NULL;
 }
 
+void umd_dma_goodput_latency_NREAD_demo(struct worker *info)
+{
+	info->umd_fifo_thr.thr = pthread_self();
+	migrate_thread_to_cpu(&info->umd_fifo_thr); // XXX not the right member but we reuse
+
+	int oi = 0;
+	uint64_t cnt;
+
+	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
+								
+	if (NULL == info->umd_dch) {
+		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+			info->umd_chan, info->mp_num, info->mp_h);
+		goto exit;
+	};
+
+	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
+		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
+							info->umd_tx_buf_cnt);
+		goto exit;
+	};
+        if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
+		CRIT("\n\talloc_dmacompldesc failed: entries %d",
+							info->umd_sts_entries);
+		goto exit;
+	};
+
+        memset(info->dmamem, 0, sizeof(info->dmamem));
+        memset(info->dmaopt, 0, sizeof(info->dmaopt));
+
+	// Reduce number of allocated buffers to 1 to allow
+	// more transactions to be sent with a larger ring.
+        if (!info->umd_dch->alloc_dmamem(info->acc_size, info->dmamem[0])) {
+		CRIT("\n\talloc_dmamem failed: i %d size %x",
+							0, info->acc_size);
+		goto exit;
+	};
+        memset(info->dmamem[0].win_ptr, PATTERN[0], info->acc_size);
+
+        for (int i = 1; i < info->umd_tx_buf_cnt; i++) {
+		info->dmamem[i] = info->dmamem[0];
+        };
+
+        info->tick_data_total = 0;
+	info->tick_count = info->tick_total = 0;
+
+        info->umd_dch->setInitState();
+        if (!info->umd_dch->checkPortOK()) {
+		CRIT("\n\tPort is not OK!!! Exiting...");
+		goto exit;
+	};
+
+	zero_stats(info);
+	info->evlog.clear();
+        //info->umd_dch->switch_evlog(true);
+
+        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+             info->umd_dch->getDestId(),
+             info->did, info->rio_addr, info->acc_size,
+             info->umd_tx_buf_cnt, info->umd_sts_entries);
+
+	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+	while (!info->stop_req) {
+		// TX Loop
+        	for (cnt = 0; !info->stop_req; cnt += info->acc_size) {
+			bool inp_err = false, outp_err = false; // F**K g++
+
+			info->dmaopt[oi].destid      = info->did;
+			info->dmaopt[oi].bcount      = info->acc_size;
+			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
+
+			assert(info->dmamem[oi].win_ptr);
+
+			info->umd_dma_abort_reason = 0;
+
+			INFO("\n\tTransfer to Slave destid=%d\n", info->did);
+			start_iter_stats(info);
+			if(!info->umd_dch->queueDmaOpT1(info->umd_tx_rtype, // NREAD
+					info->dmaopt[oi], info->dmamem[oi],
+                                        info->umd_dma_abort_reason)) {
+				if(info->umd_dma_abort_reason != 0) {
+					CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
+					CRIT("DMA abort %x: %s\n", 
+						info->umd_dma_abort_reason,
+						DMAChannel::abortReasonToStr(
+						info->umd_dma_abort_reason));
+					goto exit;
+				}
+				// Don't barf just yet if queue full
+				goto next;
+			};
+
+			if (info->umd_dch->checkPortError()) {
+				CRIT("\n\tPort Error, exiting");
+				goto exit;
+			}
+
+                        info->umd_dch->checkPortInOutError(inp_err, outp_err);
+                        if(inp_err || outp_err) {
+                                CRIT("Tsi721 port error%s%s\n",
+                                        (inp_err? " INPUT": ""),
+                                        (outp_err? " OUTPUT": ""));
+                        }
+			
+			finish_iter_stats(info);
+			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+
+next:
+			if (info->stop_req) goto exit;
+
+			// Wrap around, do no overwrite last buffer entry
+			oi++;
+			if ((info->umd_tx_buf_cnt - 1) == oi) {
+				oi = 0;
+			};
+                } // END for infinite transmit
+
+        } // END while NOT stop requested
+
+exit:
+	if (info->umd_dch)
+		info->umd_dch->shutdown();
+
+	info->umd_dch->get_evlog(info->evlog);
+        info->umd_dch->cleanup();
+
+	// Only allocatd one DMA buffer for performance reasons
+	if(info->dmamem[0].type != 0) 
+                info->umd_dch->free_dmamem(info->dmamem[0]);
+        delete info->umd_dch;
+
+	info->umd_dch = NULL;
+}
 #define DMA_LAT_MASTER_SIG1	0xAE
 #define DMA_LAT_MASTER_SIG	0xdeadabbaL
 #define DMA_LAT_SLAVE_SIG1	0xEA
@@ -2092,12 +2643,18 @@ void *worker_thread(void *parm)
 				dma_free_ibwin(info);
 				break;
 #ifdef USER_MODE_DRIVER
+		case umd_calibrate:
+				umd_dma_calibrate(info);
+				break;
 		case umd_dma:
 				umd_dma_goodput_demo(info);
 				break;
 		case umd_dmalrx:
 		case umd_dmaltx:
 				umd_dma_goodput_latency_demo(info);
+				break;
+		case umd_dmalnr:
+				umd_dma_goodput_latency_NREAD_demo(info);
 				break;
 		case umd_mbox:
 				umd_mbox_goodput_demo(info);

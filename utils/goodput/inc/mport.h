@@ -177,7 +177,15 @@ public:
 
 	bool map_dma_buf(uint32_t size, DmaMem_t& mem);
 	bool unmap_dma_buf(DmaMem_t& mem);
-	bool check_dma_buf(DmaMem_t& mem);
+
+	/** \brief Check whether a DMA buffer is allocated by this instance
+	 *  */
+	inline bool check_dma_buf(DmaMem_t& mem)
+	{
+		std::map <uint64_t, DmaMem_t>::iterator it =
+						m_dmatxmem_reg.find(mem.win_handle);
+		return (it != m_dmatxmem_reg.end());
+	}
 
 private:
 	int is_my_mport_handle; ///< 0 if shared handle, 1 if private handle

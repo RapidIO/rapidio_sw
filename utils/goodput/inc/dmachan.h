@@ -51,6 +51,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdtsc.h"
 #include "debug.h"
 
+#ifndef __DMACHAN_H__
+#define __DMACHAN_H__
+
 /* DMA Status FIFO */
 #define DMA_STATUS_FIFO_LENGTH (4096)
 #define DMA_RUNPOLL_US 10
@@ -110,25 +113,10 @@ public:
   bool dmaIsRunning();
   uint32_t clearIntBits();
 
-  uint32_t getReadCount();
-  uint32_t getWriteCount();
-
   uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 
   int getSoftReadCount(bool locked = false);
 
-  bool queueEmptyHw();
-  bool queueFullHw(); ///< Handle with care
-  bool queueFull();
-
-  uint32_t getFIFOReadCount();
-  uint32_t getFIFOWriteCount();
-
-  bool checkPortOK();
-  bool checkPortError();
-  void checkPortInOutError(bool& inp_err, bool& outp_err);
-
-  bool dmaCheckAbort(uint32_t& abort_reason);
   static const char* abortReasonToStr(const uint32_t abort_reason);
 
   bool alloc_dmatxdesc(const uint32_t bd_num);
@@ -193,36 +181,7 @@ public:
 
   int scanFIFO(std::vector<WorkItem_t>& completed_work);
 
-  volatile uint64_t   m_fifo_scan_cnt;
-
-private:
-  int umdemo_must_die = 0;
-  pthread_spinlock_t  m_hw_splock; ///< Serialize access to DMA chan registers
-  pthread_spinlock_t  m_pending_work_splock; ///< Serialize access to DMA pending queue object
-  RioMport*           m_mport;
-  uint32_t            m_chan;
-  uint32_t            m_bd_num;
-  uint32_t            m_sts_size;
-  RioMport::DmaMem_t  m_dmadesc;
-  RioMport::DmaMem_t  m_dmacompl;
-  volatile uint32_t   m_dma_wr;      ///< Mirror of Tsi721 write pointer
-  uint32_t            m_fifo_rd;
-  std::map<uint32_t, bool> m_bl_busy; ///< BD busy list, this [0...(bd_num-1)]
-  std::map<uint32_t, uint32_t> m_bl_outstanding; ///< BD map {wp, bd_idx+1}
-  pthread_spinlock_t  m_bl_splock; ///< Serialize access to BD list
-  uint64_t            m_T3_bd_hw;
-  volatile bool       m_keep_evlog;
-  std::string         m_evlog;
-  pthread_spinlock_t  m_evlog_splock; ///< Serialize access to event log
-  
-  std::map<uint64_t, WorkItem_t> m_pending_work;
-
-  bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason);
-
-public:
-  void setWriteCount(uint32_t cnt);
-
-public: // test-public
+public: // XXX test-public, make this section private
 
   // NOTE: These functions can be inlined only if they live in a
   //       header file
@@ -255,9 +214,116 @@ public: // test-public
   {
     return m_mport->__rd32dma(m_chan, offset);
   }
+
+public:
+  inline uint32_t getReadCount()      { return rd32dmachan(TSI721_DMAC_DRDCNT); }
+  inline uint32_t getWriteCount()     { return rd32dmachan(TSI721_DMAC_DWRCNT); }
+  inline uint32_t getFIFOReadCount()  { return rd32dmachan(TSI721_DMAC_DSRP); }
+  inline uint32_t getFIFOWriteCount() { return rd32dmachan(TSI721_DMAC_DSWP); }
+  
+  /** \brief Checks whether HW bd ring is empty
+   * \note This reads 2 PCIe register so it is slow
+   */
+  inline bool queueEmptyHw()
+  {
+     return getWriteCount() == getReadCount();
+  }
+  
+  /** \brief Checks whether there's more space in HW bd ring
+   * \note This reads 2 PCIe register so it is slow
+   */
+  inline bool queueFullHw()
+  {
+    uint32_t wrc = getWriteCount();
+    uint32_t rdc = getReadCount();
+    if(wrc == rdc) return false; // empty
+  
+    // XXX unit-test logic
+    if(rdc > 0  && wrc == (rdc-1))      return true;
+    if(rdc == 0 && wrc == (m_bd_num-1)) return true;
+    return false;
+  }
+  
+  inline bool queueFull()
+  {
+    // XXX we have control over the soft m_dma_wr but how to divine the read pointer?
+    //     that should come from the completion FIFO but for now we brute-force it!
+  
+    pthread_spin_lock(&m_bl_splock);
+    const int SZ = m_bl_busy.size();
+    pthread_spin_unlock(&m_bl_splock);
+  
+    return SZ == (m_bd_num+1); // account for T3 BD as well
+  }
+  
+  inline bool dmaCheckAbort(uint32_t& abort_reason)
+  {
+    uint32_t channel_status = rd32dmachan(TSI721_DMAC_STS);
+  
+    if(channel_status & TSI721_DMAC_STS_RUN) return false;
+    if((channel_status & TSI721_DMAC_STS_ABORT) != TSI721_DMAC_STS_ABORT) return false;
+  
+    abort_reason = (channel_status >> 16) & 0x1F;
+  
+    return true;
+  }
+  
+  inline bool checkPortOK()
+  {
+    uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
+    return status & TSI721_RIO_SP_ERR_STAT_PORT_OK;
+  }
+  
+  inline bool checkPortError()
+  {
+    uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
+    return status & TSI721_RIO_SP_ERR_STAT_PORT_ERR;
+  }
+  
+  inline void checkPortInOutError(bool& inp_err, bool& outp_err)
+  {
+    uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
+  
+    if(status & TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP) inp_err = true;
+    else inp_err = false;
+  
+    if(status & TSI721_RIO_SP_ERR_STAT_OUTPUT_ERR_STOP) outp_err = true;
+    else outp_err = false;
+  }
+
+  volatile uint64_t   m_fifo_scan_cnt;
+
+private:
+  int umdemo_must_die = 0;
+  pthread_spinlock_t  m_hw_splock; ///< Serialize access to DMA chan registers
+  pthread_spinlock_t  m_pending_work_splock; ///< Serialize access to DMA pending queue object
+  RioMport*           m_mport;
+  uint32_t            m_chan;
+  uint32_t            m_bd_num;
+  uint32_t            m_sts_size;
+  RioMport::DmaMem_t  m_dmadesc;
+  RioMport::DmaMem_t  m_dmacompl;
+  volatile uint32_t   m_dma_wr;      ///< Mirror of Tsi721 write pointer
+  uint32_t            m_fifo_rd;
+  std::map<uint32_t, bool> m_bl_busy; ///< BD busy list, this [0...(bd_num-1)]
+  std::map<uint32_t, uint32_t> m_bl_outstanding; ///< BD map {wp, bd_idx+1}
+  pthread_spinlock_t  m_bl_splock; ///< Serialize access to BD list
+  uint64_t            m_T3_bd_hw;
+  volatile bool       m_keep_evlog;
+  std::string         m_evlog;
+  pthread_spinlock_t  m_evlog_splock; ///< Serialize access to event log
+  
+  std::map<uint64_t, WorkItem_t> m_pending_work;
+
+  bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason);
+
+  inline void setWriteCount(uint32_t cnt) { wr32dmachan(TSI721_DMAC_DWRCNT, cnt); }
+
+public:
   inline void trace_dmachan(uint32_t offset, uint32_t val)
   {
 	wr32dmachan_nolock(offset, val);
   };
 };
 
+#endif /* __DMACHAN_H__ */

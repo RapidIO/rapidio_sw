@@ -114,9 +114,11 @@ enum req_type {
 	free_ibwin,
 	shutdown_worker,
 #ifdef USER_MODE_DRIVER
+	umd_calibrate,
 	umd_dma,
 	umd_dmaltx,
 	umd_dmalrx,
+	umd_dmalnr,
 	umd_mbox,
 #endif
 	last_action
@@ -130,7 +132,7 @@ enum req_mode {
 #define MIN_RDMA_BUFF_SIZE 0x10000
 
 #ifdef USER_MODE_DRIVER
-#define MAX_UMD_BUF_COUNT 4096
+#define MAX_UMD_BUF_COUNT (4096*4)
 #define MAX_TIMESTAMPS 4096
 #endif
 
