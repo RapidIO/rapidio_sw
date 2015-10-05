@@ -276,6 +276,9 @@ void *wait_conn_disc_thread_f(void *arg)
 				sizeof(cm_accept_msg));
 			DBG("cm_accept_msg has server_destid = 0x%X\n", be64toh(accept_msg.server_destid));
 			DBG("cm_accept_msg has server_destid_len = 0x%X\n", be64toh(accept_msg.server_destid_len));
+			DBG("cm_accept_msg has rio_addr_len = %d\n", be64toh(accept_msg.server_rio_addr_len));
+			DBG("cm_accept_msg has rio_addr_lo = 0x%016" PRIx64 "\n", be64toh(accept_msg.server_rio_addr_lo));
+			DBG("cm_accept_msg has rio_addr_hi = 0x%X\n", be64toh(accept_msg.server_rio_addr_hi));
 
 			/* Send 'accept' message to remote daemon */
 			DBG("Sending back ACCEPT_MS for '%s'\n", mq_str.c_str());
