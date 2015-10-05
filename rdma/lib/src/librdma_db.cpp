@@ -866,6 +866,9 @@ msub_h add_rem_msub(uint32_t	rem_msubid,
 	DBG("*** STORING info about remote msubh ***\n");
 	DBG("rem_msubid = 0x%X\n", msubp->msubid);
 	DBG("rem_msid = 0x%lX\n", msubp->msid);
+	DBG("rem_rio_addr_len = %d\n", rem_rio_addr_len);
+	DBG("rem_rio_addr_lo = 0x%016" PRIx64 "\n", rem_rio_addr_lo);
+	DBG("rem_rio_addr_hi = 0x%X\n", rem_rio_addr_hi);
 	DBG("destid = 0x%X\n", msubp->destid);
 	DBG("destid_len = 0x%X\n", msubp->destid_len);
 	DBG("msubh = 0x%lX\n", (msub_h)msubp);

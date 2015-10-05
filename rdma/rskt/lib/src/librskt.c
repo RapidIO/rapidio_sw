@@ -177,6 +177,7 @@ fail:
 		int saved_errno = errno;
 
 		librskt_wait_for_sem(&lib.rsvp_mtx, 0x1004);
+		DBG("Calling l_lremove()\n");
 		l_lremove(&lib.rsvp, li);
 		sem_post(&lib.rsvp_mtx);
 		errno = saved_errno;
@@ -249,6 +250,7 @@ void rsvp_loop_resp(struct librskt_rsktd_to_app_msg *rxd)
 					sizeof(union librskt_resp_u));
 		dlyd->resp->a_rsp.err = rxd->a_rsp.err;
 		sem_post(&dlyd->resp_rx);
+		DBG("Calling l_lremove\n");
 		l_lremove(&lib.rsvp, li);
 	} else {
 		DBG("dlyd is NULL\n");
@@ -700,8 +702,10 @@ void lib_rem_skt_from_list(rskt_h skt_h, struct rskt_socket_t *skt)
 	}
 
 	l_skt = (rskt_h)l_find(&lib.skts, skt->sa.sn, &li);
-	if (skt_h == l_skt)
+	if (skt_h == l_skt) {
+		DBG("Calling l_lremove()\n");
 		l_lremove(&lib.skts, li); /* Do not deallocate socket */
+	}
 	sem_post(&lib.skts_mtx);
 };
 
@@ -1110,7 +1114,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		goto close;
 	}
 
-	rc = rdma_conn_ms_h(0, skt->sai.sa.ct, 
+	rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
 				skt->con_msh_name, skt->msubh, 
 				&skt->con_msubh, &skt->con_sz,
 				&skt->con_msh, 0);
@@ -1250,6 +1254,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 
 	errno = 0;
 	free_bytes = get_free_bytes(skt->hdr, skt->buf_sz);
+	DBG("byte_cnt = %d, free_bytes = %d\n", byte_cnt, free_bytes);
 	while ((free_bytes < byte_cnt) && time_remains) {
 		nanosleep(&rw_dly, &unused);
 	 	free_bytes = get_free_bytes(skt->hdr, 
@@ -1264,7 +1269,8 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 
 	if ((byte_cnt + ntohl(skt->hdr->loc_tx_wr_ptr)) 
 						<= skt->buf_sz) {
-		DBG("<= skt->buf_sz\n");
+		DBG("byte_cnt = %d, loc_tx_wr_ptr = %d, skt->buf_sz = %d\n",
+			byte_cnt, skt->hdr->loc_tx_wr_ptr, skt->buf_sz);
 		rc = send_bytes(skt_h, data, byte_cnt, &hdr_in, 0);
 		if (rc) {
 			ERR("send_bytes failed\n");
@@ -1273,12 +1279,15 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 		uint32_t first_bytes = skt->buf_sz - 
 					ntohl(skt->hdr->loc_tx_wr_ptr);
 
-		DBG("> skt->buf_sz\n");
+		DBG("first_bytes = %d - %d = %d\n",
+			skt->buf_sz, ntohl(skt->hdr->loc_tx_wr_ptr), first_bytes);
 		rc = send_bytes(skt_h, data, first_bytes, &hdr_in, 0);
 		if (rc) {
 			ERR("send_bytes failed..exiting\n");
 			goto fail;
 		}
+		DBG("Now sending byte_cnt - first_bytes = %d\n",
+							byte_cnt - first_bytes);
 		rc = send_bytes(skt_h, (uint8_t *)data + first_bytes, 
 				byte_cnt - first_bytes, &hdr_in, 1);
 		if (rc) {
