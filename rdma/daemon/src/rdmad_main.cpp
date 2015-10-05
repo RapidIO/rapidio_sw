@@ -585,19 +585,24 @@ void *rpc_thread_f(void *arg)
 
 					/* Add to list of message queue names awaiting an 'accept' to 'connect' */
 					if (wait_accept_mq_names.contains(mq_name)) {
+						/* This would happen if we are retrying ... */
 						WARN("'%s' already in wait_accept_mq_names\n", mq_name.c_str());
 					} else {
 						wait_accept_mq_names.push_back(mq_name);
+						/* FIXME: This is not the best place for this. It really should be when
+						 * we get the CM_ACCEPT_MS message, but the problem is that the CM_ACCEPT_MS
+						 * message does not contain the client_msubid.
+						 */
+						/* Also add to the connected_to_ms_info_list */
+						sem_wait(&connected_to_ms_info_list_sem);
+						connected_to_ms_info_list.emplace_back(
+								in->client_msubid,
+								in->server_msname,
+								in->server_destid,
+								other_server);
+						sem_post(&connected_to_ms_info_list_sem);
 					}
 
-					/* Also add to the connected_to_ms_info_list */
-					sem_wait(&connected_to_ms_info_list_sem);
-					connected_to_ms_info_list.emplace_back(
-							in->client_msubid,
-							in->server_msname,
-							in->server_destid,
-							other_server);
-					sem_post(&connected_to_ms_info_list_sem);
 					out->status = 0;
 				}
 				break;
