@@ -1340,7 +1340,7 @@ ATTR_NONE
 
 int UCalCmd(struct cli_env *env, int argc, char **argv)
 {
-	int n = 0, idx, chan, map_sz, sy_iter;
+	int n = 0, idx, chan, map_sz, sy_iter, hash = 0;
 
 	idx = getDecParm(argv[n++], 0);
 	if (check_idx(env, idx, 1))
@@ -1349,6 +1349,7 @@ int UCalCmd(struct cli_env *env, int argc, char **argv)
 	chan = getDecParm(argv[n++], 0);
 	map_sz = getHex(argv[n++], 0);
 	sy_iter = getHex(argv[n++], 0);
+	hash = getDecParm(argv[n++], 0);
 	
 	if ((chan < 1) || (chan > 7)) {
                 sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
@@ -1369,6 +1370,7 @@ int UCalCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].umd_chan = chan;
 	wkr[idx].umd_tx_buf_cnt = map_sz;
 	wkr[idx].umd_sts_entries = sy_iter;
+	wkr[idx].wr = hash;
 	
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
@@ -1379,14 +1381,16 @@ exit:
 struct cli_cmd UCal = {
 "ucal",
 4,
-3,
+5,
 "Calibrate performance of various facilities.",
-"<idx> <chan> <map_sz> <sy_iter>\n"
+"<idx> <chan> <map_sz> <sy_iter> <hash>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<chan> is a DMA channel number from 1 through 7\n"
 	"<map_sz> is number of entries in a map to test\n"
 	"<sy_iter> is the number of times to perform sched_yield and other\n"
-	"       operating system related testing.\n",
+	"       operating system related testing.\n"
+	"<hash> If non-zero, attempt hash calibration.\n",
+
 UCalCmd,
 ATTR_NONE
 };

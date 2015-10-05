@@ -70,6 +70,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef USER_MODE_DRIVER
 #include "dmachan.h"
+#include "hash.cc"
 #endif
 
 #ifdef __cplusplus
@@ -1541,13 +1542,6 @@ void calibrate_array_performance(struct worker *info)
 			m_pending_work[j] = wk;
 		};
 
-/*
-		for  (j = 0; j < max; j++) {
-			m_bl_busy.erase(j);
-			m_bl_outstanding.erase(j);
-			m_pending_work.erase(fake_win_handle + (i * 0x20));
-		}
-*/
         	clock_gettime(CLOCK_MONOTONIC, &end_time);
 		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
 	};
@@ -1560,6 +1554,63 @@ void calibrate_array_performance(struct worker *info)
 	ts_tot = time_div(ts_tot, max);
 	CRIT("\nARRAY: Avg  per iter %10d %10d\n",
 					ts_tot.tv_sec, ts_tot.tv_nsec);
+	return;
+};
+
+void calibrate_hash_performance(struct worker *info)
+{
+	int i, j, max = info->umd_tx_buf_cnt;
+	ShmHashMap<uint64_t, DMAChannel::WorkItem_t> m_pending_work("DMA Completion Work", max*100);
+	ShmHashMap<int, bool> m_bl_busy("DMA Busy", max*100);
+	ShmHashMap<int, int> m_bl_outstanding("DMA Outstanding", max*100);
+	DMAChannel::WorkItem_t wk;
+	bool is_owner = true, parm = true;
+
+	struct timespec st_time; /* Start of the run, for throughput */
+	struct timespec end_time; /* End of the run, for throughput*/
+	struct timespec ts_min, ts_max, ts_tot;
+	uint64_t fake_win_handle = 0x00000040ff800000;
+
+	memset(&wk, 0, sizeof(wk));
+
+	CRIT("\n\nCalibrating HASH performance for %d runs, %d entries\n",
+		info->umd_sts_entries, max);
+	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
+        	clock_gettime(CLOCK_MONOTONIC, &st_time);
+
+		for  (j = 0; j < max; j++) {
+			m_bl_busy.insert(j, parm);
+			m_pending_work.insert((uint64_t)(fake_win_handle + (i * 0x20)),  wk);
+			m_bl_outstanding.insert(j, j);
+		};
+			
+		memset(&wk, 0x11, sizeof(wk));
+
+		for  (j = 0; j < max; j++) {
+			DMAChannel::WorkItem_t *m_pending_work_p;
+			bool *m_bl_busy_p;
+			int *m_bl_outstanding_p;
+
+			m_bl_busy_p = m_bl_busy.find(j, is_owner);
+			m_pending_work_p = m_pending_work.find((uint64_t)(fake_win_handle + (i * 0x20)), is_owner);
+			m_bl_outstanding_p = m_bl_outstanding.find(j, is_owner);
+
+			*m_bl_busy_p = false;
+			*m_bl_outstanding_p = max - j;
+			*m_pending_work_p = wk;
+		};
+
+        	clock_gettime(CLOCK_MONOTONIC, &end_time);
+		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
+	};
+
+	CRIT("\nHASH: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
+	CRIT("\nHASH: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	ts_tot = time_div(ts_tot, info->umd_sts_entries);
+	CRIT("\nHASH: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
+	CRIT("\nHASH: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
+	ts_tot = time_div(ts_tot, max);
+	CRIT("\nHASH: Avg  per iter %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
 	return;
 };
 
@@ -1829,7 +1880,10 @@ void umd_dma_calibrate(struct worker *info)
 	calibrate_array_performance(info);
 	if (info->stop_req)
 		goto exit;
-	calibrate_pthread_spinlock_performance(info);
+
+	if (info->wr)
+		calibrate_hash_performance(info);
+
 	if (info->stop_req)
 		goto exit;
 	calibrate_gettime_performance(info);
