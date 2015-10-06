@@ -226,8 +226,6 @@ void __attribute__ ((constructor)) trace_begin (void)
 		trace.output = fopen(trc_name, "a");
 	else
 		trace.output = NULL;
-	if (!trace.output)
-		fprintf(stderr, "ERROR: failed to init libmport trace\n");
 #endif
 	LIBTRACE("init\n");
 }
