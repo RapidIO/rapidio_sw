@@ -37,16 +37,20 @@ int main(int argc, char *argv[])
 	
 	q1->get_recv_buffer(&msg);
 
+	struct timespec tm;
+
+
 	for (unsigned i = 0; i < n; i++) {
-		q1->receive();
+		clock_gettime(CLOCK_REALTIME, &tm);
+		tm.tv_sec += 1;
+		int ret = q1->timed_receive(&tm);
+		if (ret == MSG_Q_TIMED_RECV_ERR)
+			continue;
 		printf("%s", msg->s);
 	}
 	puts("");
 
 	delete q1;
-
-	puts("Press ENTER to quit");
-	getchar();
 
 	return 0;
 }

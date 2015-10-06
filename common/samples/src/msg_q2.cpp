@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 			q1 = new msg_q<msg_t>(qname, MQ_OPEN);
 		}
 		catch(msg_q_exception& e) {
-			puts(e.msg.c_str());
+			printf("i = %u: %s\n", i, e.msg.c_str());
 			return 1;
 		}
 
@@ -44,9 +44,6 @@ int main(int argc, char *argv[])
 
 		delete q1;
 	}
-
-	puts("Press ENTER to quit");
-	getchar();
 
 	return 0;
 }
