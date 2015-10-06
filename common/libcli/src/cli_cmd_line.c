@@ -430,8 +430,8 @@ exit:
 	return errorStat;
 }
 
-#define SCRIPT_PATH_SIZE 256
-#define SCRIPT_PATH_LEN 255
+#define SCRIPT_PATH_SIZE 1024
+#define SCRIPT_PATH_LEN (SCRIPT_PATH_SIZE-1)
 
 char script_path[SCRIPT_PATH_SIZE];
 
@@ -615,8 +615,14 @@ struct cli_cmd *cmd_line_cmds[] = {
 
 int bind_cli_cmd_line_cmds(void)
 {
+	char cwd[SCRIPT_PATH_SIZE];
+
 	memset(script_path, 0, SCRIPT_PATH_SIZE);
-	snprintf(script_path, SCRIPT_PATH_SIZE, "scripts/");
+	memset(cwd, 0, SCRIPT_PATH_SIZE);
+	if (NULL == getcwd(cwd, sizeof(cwd)))
+		snprintf(script_path, SCRIPT_PATH_LEN, "scriptss/");
+	else 
+		snprintf(script_path, SCRIPT_PATH_LEN, "%s/scripts/", cwd);
 
 	add_commands_to_cmd_db(sizeof(cmd_line_cmds)/sizeof(struct cli_cmd *),
 				cmd_line_cmds);
