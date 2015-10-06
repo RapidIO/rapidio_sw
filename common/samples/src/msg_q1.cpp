@@ -1,17 +1,26 @@
 #include <cstdio>
-
-#include <string>
+#include <cstdlib>
 
 #include "msg_q.h"
 
-using namespace std;
 
 struct msg_t {
 	char s[100];
 };
 
-int main()
+int main(int argc, char *argv[])
 {
+	if (argc < 2) {
+		puts("msg_q2 <num_of_iterations>");
+		exit(1);
+	}
+
+	/* Number of iterations */
+	unsigned n = atoi(argv[1]);
+
+	/* Initialize the logger */
+	rdma_log_init("msg_mq1.log", 0);
+
 	string qname = string("space1");
 	qname.insert(0, 1, '/');
 
@@ -19,7 +28,7 @@ int main()
 	try {
 		q1 = new msg_q<msg_t>(qname, MQ_CREATE);
 	}
-	catch(msg_q_exception e) {
+	catch(msg_q_exception& e) {
 		puts(e.msg.c_str());
 		return 1;
 	}
@@ -28,12 +37,11 @@ int main()
 	
 	q1->get_recv_buffer(&msg);
 
-	q1->receive();
-
-	puts(msg->s);
-
-	puts("Press ENTER to delete message queue");
-	getchar();
+	for (unsigned i = 0; i < n; i++) {
+		q1->receive();
+		printf("%s", msg->s);
+	}
+	puts("");
 
 	delete q1;
 
