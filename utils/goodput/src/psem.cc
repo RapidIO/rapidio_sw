@@ -60,7 +60,7 @@ POSIXSem::mkname(const char* name)
     throw std::runtime_error("Invalid semaphore name!");
 
   std::stringstream ss;
-  ss << "/" << name;
+  ss << "/" << name << getpid();
 
   return ss.str();
 }
