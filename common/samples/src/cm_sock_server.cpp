@@ -1,6 +1,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
+
+#include <cstdio>
 
 #include <iostream>
 #include <memory>
@@ -15,6 +18,7 @@ static int mbox_id;
 static int mport_id;
 static cm_server *server;
 static cm_server *other_server;
+static bool shutting_down = false;
 
 void sig_handler(int sig)
 {
@@ -62,7 +66,8 @@ int main(int argc, char *argv[])
 	/* Create a server */
 	puts("Creating server object...");
 	try {
-		server = new cm_server("server", mport_id, mbox_id, channel);
+		server = new cm_server("server", mport_id, mbox_id, channel,
+				&shutting_down);
 	}
 
 	catch(cm_exception e) {
@@ -82,7 +87,8 @@ int main(int argc, char *argv[])
 	
 	puts("Creating other server object...");
 	try {
-		other_server = new cm_server("other_server", accept_socket);
+		other_server = new cm_server("other_server", accept_socket,
+				&shutting_down);
 	}
 	catch(cm_exception e) {
 		cout << e.err << endl;

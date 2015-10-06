@@ -1,6 +1,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
+
+#include <cstdio>
 
 #include <iostream>
 #include <memory>
@@ -14,6 +17,7 @@ static int mbox_id;
 static int mport_id;
 static uint16_t destid;
 static cm_client *client;
+static bool shutting_down = false;
 
 void sig_handler(int sig)
 {
@@ -66,7 +70,8 @@ int main(int argc, char *argv[])
 	/* Create a client */
 	puts("Creating client object...");
 	try {
-		client = new cm_client("client", mport_id, mbox_id, channel);
+		client = new cm_client("client", mport_id, mbox_id, channel,
+				&shutting_down);
 	}
 	catch(cm_exception e) {
 		cout << e.err << endl;
