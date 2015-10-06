@@ -135,6 +135,8 @@ int main(int argc, char *argv[])
 	printf("Reply received:  %s\n", in_msg);
 #endif
 	/* Call destructor to close and destroy socket */
+	puts("Press any key to end");
+	getchar();
 	puts("Goodbye!");
 	delete client;
 }

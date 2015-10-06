@@ -106,7 +106,8 @@ int main(int argc, char *argv[])
 		return 4;
 	}
 #endif
-	puts("All is good. Goodbye!");
+	puts("All is good. Press any key to end!");
+	getchar();
 
 	delete server;
 }
