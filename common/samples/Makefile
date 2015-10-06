@@ -41,7 +41,7 @@ msg_q1:	src/msg_q1.cpp
 	@echo ---------- Building msg_q1 ...
 	$(UNIX_BUILD_STRING)
 
-msg_q2:	src/msg_q1.cpp
+msg_q2:	src/msg_q2.cpp
 	@echo ---------- Building msg_q2 ...
 	$(UNIX_BUILD_STRING)
 
