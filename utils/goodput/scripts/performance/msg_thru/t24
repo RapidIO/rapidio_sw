@@ -1,0 +1,52 @@
+kill all
+wait 0 0
+wait 1 0
+wait 2 0
+wait 3 0
+wait 4 0
+wait 5 0
+wait 6 0
+wait 7 0
+
+t 0 0 0
+t 1 1 0
+t 2 2 0
+t 3 3 0
+t 4 -1 0 
+t 5 -1 0 
+t 6 -1 0 
+t 7 -1 0 
+
+wait 0 2
+wait 1 2
+wait 2 2
+wait 3 2
+wait 4 2
+wait 5 2
+wait 6 2
+wait 7 2
+
+msgT 0 2 1500 24
+msgT 1 2 1501 24
+msgT 2 2 1502 24
+msgT 3 2 1503 24
+msgT 4 2 1504 24
+msgT 5 2 1505 24
+msgT 6 2 1506 24
+msgT 7 2 1507 24
+
+wait 0 1
+wait 1 1
+wait 2 1
+wait 3 1
+wait 4 1
+wait 5 1
+wait 6 1
+wait 7 1
+
+g
+g c
+g
+sleep 30
+echo t24
+g
