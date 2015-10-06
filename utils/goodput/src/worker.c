@@ -1560,9 +1560,10 @@ void calibrate_array_performance(struct worker *info)
 void calibrate_hash_performance(struct worker *info)
 {
 	int i, j, max = info->umd_tx_buf_cnt;
-	ShmHashMap<uint64_t, DMAChannel::WorkItem_t> m_pending_work("DMA Completion Work", max*100);
-	ShmHashMap<int, bool> m_bl_busy("DMA Busy", max*100);
-	ShmHashMap<int, int> m_bl_outstanding("DMA Outstanding", max*100);
+	ShmHashMap<uint64_t, DMAChannel::WorkItem_t> m_pending_work("DMA Completion Work", max);
+
+	ShmHashMap<int, bool> m_bl_busy("DMA Busy", max);
+	ShmHashMap<int, int> m_bl_outstanding("DMA Outstanding", max);
 	DMAChannel::WorkItem_t wk;
 	bool is_owner = true, parm = true;
 
