@@ -41,9 +41,9 @@ msg_q1:	src/msg_q1.cpp
 	@echo ---------- Building msg_q1 ...
 	$(UNIX_BUILD_STRING)
 
-msg_q2:	src/msg_q1.cpp
+msg_q2:	src/msg_q2.cpp
 	@echo ---------- Building msg_q2 ...
 	$(UNIX_BUILD_STRING)
 
 clean:
-	@rm -f cm_sock_server cm_sock_client unix_sock_server unix_sock_client *.o *~
+	@rm -f cm_sock_server cm_sock_client unix_sock_server unix_sock_client msg_q1 msg_q2 *.o *~
