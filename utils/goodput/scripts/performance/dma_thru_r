@@ -1,0 +1,28 @@
+log dma_thru_read.log
+scrp scripts/performance/dma_thru/
+
+. d1R1.txt
+. d1R2.txt
+. d1R4.txt
+. d1R8.txt
+. d1R16.txt
+. d1R32.txt
+. d1R64.txt
+. d1R128.txt
+. d1R256.txt
+. d1R512.txt
+. d1R1K.txt
+. d1R2K.txt
+. d1R4K.txt
+. d1R8K.txt
+. d1R16K.txt
+. d1R32K.txt
+. d1R64K.txt
+. d1R128K.txt
+. d1R256K.txt
+. d1R512K.txt
+. d1R1M.txt
+. d1R2M.txt
+. d1R4M.txt
+
+close

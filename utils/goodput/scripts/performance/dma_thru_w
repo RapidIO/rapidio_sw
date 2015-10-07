@@ -1,0 +1,28 @@
+log dma_thru_write.log
+scrp scripts/performance/dma_thru/
+
+. d1W1.txt
+. d1W2.txt
+. d1W4.txt
+. d1W8.txt
+. d1W16.txt
+. d1W32.txt
+. d1W64.txt
+. d1W128.txt
+. d1W256.txt
+. d1W512.txt
+. d1WK1.txt
+. d1WK2.txt
+. d1WK4.txt
+. d1WK8.txt
+. d1WK16.txt
+. d1WK32.txt
+. d1WK64.txt
+. d1WK128.txt
+. d1WK256.txt
+. d1WK512.txt
+. d1WM1.txt
+. d1WM2.txt
+. d1WM4.txt
+
+close
