@@ -7,12 +7,14 @@ wait 4 0
 wait 5 0
 wait 6 0
 wait 7 0
-t 0 0 0
+t 0 3 -1
 wait 0 2
-dma 0 8 22f000000 10000 4 1 1 0 0
+dma 0 0 20d800000 10000 4 1 1 0 0
 wait 0 1
 st
 st i
 g
 g c
+g
+sleep 30
 g
