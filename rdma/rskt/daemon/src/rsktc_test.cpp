@@ -126,14 +126,14 @@ int main(int argc, char *argv[])
 		return 3;
 	}
 	puts("Test message sent to server");
-#if 0
-	if (client->receive(32)) {
+
+	if (client->receive(32) < 0) {
 		ERR("Failed to receive message\n");
 		return 4;
 	}
 
 	printf("Reply received:  %s\n", in_msg);
-#endif
+
 	/* Call destructor to close and destroy socket */
 	puts("Press any key to end");
 	getchar();

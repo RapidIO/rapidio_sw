@@ -159,7 +159,9 @@ protected:
 		return 0;
 	} /* send() */
 
-	/* Receive bytes to 'recv_buf' on specified socket */
+	/* Receive bytes to 'recv_buf' on specified socket. 'size'
+	 * specifies requested number of bytes. Return code gives
+	 * actual number of bytes (if > 0) */
 	int receive(rskt_h socket, uint32_t size)
 	{
 		if (size > send_size) {
@@ -168,11 +170,10 @@ protected:
 			return -1;
 		}
 		int rc = rskt_read(socket, recv_buf, size);
-		if (rc) {
+		if (rc < 0) {
 			ERR("rskt_read failed for '%s': rc = %d\n", name, rc);
-			return rc;
 		}
-		return 0;
+		return rc;
 	} /* receive() */
 
 	const char *name;
