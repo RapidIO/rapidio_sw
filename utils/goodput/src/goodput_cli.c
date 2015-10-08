@@ -92,6 +92,26 @@ exit:
 	return rc;
 };
 
+#define MAX_GOODPUT_CPU 7
+
+int get_cpu(struct cli_env *env, char *dec_parm, int *cpu)
+{
+	int rc = 1;
+
+	*cpu = getDecParm(dec_parm, 0);
+
+	if ((*cpu  < -1) || (*cpu > MAX_GOODPUT_CPU)) {
+		sprintf(env->output, "\nCPU must be 0 to %d...\n",
+			MAX_GOODPUT_CPU);
+        	logMsg(env);
+		goto exit;
+	};
+
+	rc = 0;
+exit:
+	return rc;
+};
+
 #define ACTION_STR(x) (char *)((x < last_action)?req_type_str[x]:"UNKWN!")
 #define MODE_STR(x) (char *)((x == kernel_action)?"KRNL":"User")
 #define THREAD_STR(x) (char *)((0 == x)?"---":((1 == x)?"Run":"Hlt"))
@@ -101,18 +121,13 @@ int ThreadCmd(struct cli_env *env, int argc, char **argv)
 	int idx, cpu, new_dma;
 
 	idx = getDecParm(argv[0], 0);
-	cpu = getDecParm(argv[1], 0);
+	if (get_cpu(env, argv[1], &cpu))
+		goto exit;
 	new_dma = getDecParm(argv[2], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
 								MAX_WORKERS);
-        	logMsg(env);
-		goto exit;
-	};
-
-	if ((cpu < -1) || (cpu >= 4)) {
-		sprintf(env->output, "\nCpu must be -1 to 3...\n");
         	logMsg(env);
 		goto exit;
 	};
@@ -221,17 +236,12 @@ int MoveCmd(struct cli_env *env, int argc, char **argv)
 	int idx, cpu;
 
 	idx = getDecParm(argv[0], 0);
-	cpu = getDecParm(argv[1], 0);
+	if (get_cpu(env, argv[1], &cpu))
+		goto exit;
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
 								MAX_WORKERS);
-        	logMsg(env);
-		goto exit;
-	};
-
-	if ((cpu < -1) || (cpu >= 4)) {
-		sprintf(env->output, "\nCpu must be -1 to 3...\n");
         	logMsg(env);
 		goto exit;
 	};
@@ -257,11 +267,26 @@ ATTR_NONE
 
 int WaitCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx, state, limit = 10000;
+	int idx, state = -1, limit = 10000;
 	const struct timespec ten_usec = {0, 10 * 1000};
 
 	idx = getDecParm(argv[0], 0);
-	state = getDecParm(argv[1], 0);
+	switch (argv[1][0]) {
+	case '0':
+	case 'd':
+	case 'D': state = 0;
+		break;
+	case '1':
+	case 'r':
+	case 'R': state = 1;
+		break;
+	case '2':
+	case 'h':
+	case 'H': state = 2;
+		break;
+	default: state = -1;
+		break;
+	};
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -271,7 +296,8 @@ int WaitCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	if ((state < 0) || (state > 2)) {
-		sprintf(env->output, "\nCpu must be -1 to 3...\n");
+		sprintf(env->output,
+			"\nState must be 0|d|D, 1|r|R , or 2|h|H\n");
         	logMsg(env);
 		goto exit;
 	};
@@ -280,11 +306,11 @@ int WaitCmd(struct cli_env *env, int argc, char **argv)
         	nanosleep(&ten_usec, NULL);
 
 	if (wkr[idx].stat == state)
-		sprintf(env->output, "\nPassed, CPU is now %s\n",
-			THREAD_STR(wkr[idx].stat));
+		sprintf(env->output, "\nPassed, Worker %d is now %s\n",
+			idx, THREAD_STR(wkr[idx].stat));
 	else
-		sprintf(env->output, "\nFAILED, CPU is now %s\n",
-			THREAD_STR(wkr[idx].stat));
+		sprintf(env->output, "\nFAILED, Worker %d is now %s\n",
+			idx, THREAD_STR(wkr[idx].stat));
         logMsg(env);
 
 exit:
@@ -298,7 +324,7 @@ struct cli_cmd Wait = {
 "Wait until a thread reaches a particular state",
 "wait <idx> <state>\n"
 	"<idx> is a worker index from 0 to 7\n"
-	"<state> 0 - Dead, 1 - Run, 2 - Halted\n",
+	"<state> 0|d|D - Dead, 1|r|R - Run, 2|h|H - Halted\n",
 WaitCmd,
 ATTR_NONE
 };
@@ -886,6 +912,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 	char MBps_str[FLOAT_STR_SIZE],  Gbps_str[FLOAT_STR_SIZE];
 
 #ifdef USER_MODE_DRIVER
+#if 0
 	sprintf(env->output,
         "\ncsv,Worker#,STS size,DMA Write Size (hex),Ticks/Packet,uS/Pkt,Total Pkts,Thruput (Mbyte/s)\n");
         logMsg(env);
@@ -909,6 +936,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 			dT, dTus, wkr[i].tick_count, thruput);
         	logMsg(env);
 	}
+#endif
 #endif
 	sprintf(env->output,
         "\nW STS <<<<--Data-->>>> --MBps-- -Gbps- Messages\n");
@@ -1058,7 +1086,7 @@ void display_gen_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-        "\nW STS CPU RUN ACTION MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W OB IB MB\n");
+        "\nW STS CPU RUN ACTION MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H OB IB MB\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -1067,11 +1095,12 @@ void display_gen_status(struct cli_env *env)
 		display_cpu(env, wkr[i].wkr_thr.cpu_req);
 		display_cpu(env, wkr[i].wkr_thr.cpu_run);
 		sprintf(env->output,
-			"%6s %4s %3d %16lx %7lx %7lx %1d %2d %2d %2d\n",
+			"%6s %4s %3d %16lx %7lx %7lx %1d %1d %2d %2d %2d\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), wkr[i].did,
 			wkr[i].rio_addr, wkr[i].byte_cnt, wkr[i].acc_size, 
-			wkr[i].wr, wkr[i].ob_valid, wkr[i].ib_valid, 
+			wkr[i].wr, wkr[i].mp_h_is_mine,
+			wkr[i].ob_valid, wkr[i].ib_valid, 
 			wkr[i].mb_valid);
         	logMsg(env);
 	};
@@ -1583,7 +1612,9 @@ int UDMACmd(struct cli_env *env, int argc, char **argv)
         int n = 0; // this be a trick from X11 source tree ;)
 
 	idx      = getDecParm(argv[n++], 0);
-	cpu      = getDecParm(argv[n++], 0);
+	if (get_cpu(env, argv[n++], &cpu))
+		goto exit;
+
 	chan     = getDecParm(argv[n++], 0);
 	buff     = getHex(argv[n++], 0);
 	sts      = getHex(argv[n++], 0);
@@ -1691,7 +1722,8 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
         int n = 0; // this be a trick from X11 source tree ;)
 
 	idx      = getDecParm(argv[n++], 0);
-	cpu      = getDecParm(argv[n++], 0);
+	if (get_cpu(env, argv[n++], &cpu))
+		goto exit;
 	chan     = getDecParm(argv[n++], 0);
 	buff     = getHex(argv[n++], 0);
 	sts      = getHex(argv[n++], 0);
@@ -1837,7 +1869,8 @@ int UDMALatNREAD(struct cli_env *env, int argc, char **argv)
         int n = 0; // this be a trick from X11 source tree ;)
 
 	idx      = getDecParm(argv[n++], 0);
-	cpu      = getDecParm(argv[n++], 0);
+	if (get_cpu(env, argv[n++], &cpu))
+		goto exit;
 	chan     = getDecParm(argv[n++], 0);
 	buff     = getHex(argv[n++], 0);
 	sts      = getHex(argv[n++], 0);
@@ -1960,7 +1993,8 @@ int UMSGCmd(struct cli_env *env, int argc, char **argv)
         int n = 0; // this be a trick from X11 source tree ;)
 
         idx      = getDecParm(argv[n++], 0);
-        cpu      = getDecParm(argv[n++], 0);
+	if (get_cpu(env, argv[n++], &cpu))
+		goto exit;
         chan     = getDecParm(argv[n++], 0);
         buff     = getHex(argv[n++], 0);
         sts      = getHex(argv[n++], 0);
