@@ -116,10 +116,9 @@ enum req_type {
 #ifdef USER_MODE_DRIVER
 	umd_calibrate,
 	umd_dma,
-	umd_dmaltx, // YANK
-	umd_dmalrx, // YANK
-	umd_dmalnr, // YANK
-	umd_latdma,
+	umd_dmaltx,
+	umd_dmalrx,
+	umd_dmalnr,
 	umd_mbox,
 #endif
 	last_action

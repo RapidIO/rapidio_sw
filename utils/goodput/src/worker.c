@@ -2483,16 +2483,13 @@ void *worker_thread(void *parm)
 		case umd_dma:
 				umd_dma_goodput_demo(info);
 				break;
-		case umd_latdma: // TBI
-				//umd_dma_goodput_latency_demo(info);
-				break;
-		case umd_dmalrx: // YANK
+		case umd_dmalrx:
 				umd_dma_goodput_latency_demo(info, 'R');
 				break;
-		case umd_dmaltx: // YANK
+		case umd_dmaltx:
 				umd_dma_goodput_latency_demo(info, 'T');
 				break;
-		case umd_dmalnr: // YANK
+		case umd_dmalnr: // NREAD
 				umd_dma_goodput_latency_demo(info, 'N');
 				break;
 		case umd_mbox:
