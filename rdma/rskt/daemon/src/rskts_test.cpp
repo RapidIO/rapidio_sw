@@ -16,7 +16,8 @@
 extern "C" {
 #endif
 
-static rskt_server *server = nullptr;
+static rskt_server *prov_server = nullptr;
+static rskt_server *server1;
 
 void sig_handler(int sig)
 {
@@ -43,8 +44,10 @@ void sig_handler(int sig)
 		return;
 	}
 
-	if (server != nullptr)
-		delete server;
+	if (server1 != nullptr)
+		delete server1;
+	if (prov_server != nullptr)
+		delete prov_server;
 
 	exit(0);
 } /* sig_handler() */
@@ -69,46 +72,56 @@ int main(int argc, char *argv[])
 	}
 
 	try {
-		server = new rskt_server("server1", 1234);
+		prov_server = new rskt_server("prov_server", 1234);
 	}
 	catch(rskt_exception& e) {
-		ERR("Failed to create server: %s\n", e.err);
+		ERR("Failed to create prov_server: %s\n", e.err);
 		return 1;
 	}
-	puts("Server created...now accepting connections...");
-	if (server->accept()) {
+	puts("Provisioning server created...now accepting connections...");
+	rskt_h acc_socket;
+	if (prov_server->accept(&acc_socket)) {
 		ERR("Failed to accept. Dying!\n");
-		delete server;
+		delete prov_server;
 		return 2;
 	}
 	puts("Connected with client");
-	if (server->receive(32) < 0) {
+
+	/* Now create server1 which is used for exchanging data */
+	try {
+		server1 = new rskt_server("server1", acc_socket);
+	}
+	catch(rskt_exception& e) {
+		ERR("Failed to create server1: %s\n", e.err);
+	}
+
+	if (server1->receive(32) < 0) {
 		ERR("Failed to receive. Dying!\n");
-		delete server;
+		delete server1;
 		return 3;
 	}
 	puts("Received data!");
 	char *in_msg;
 
-	server->get_recv_buffer((void **)&in_msg);
+	server1->get_recv_buffer((void **)&in_msg);
 
 	puts(in_msg);
 	char *out_msg;
 
-	server->get_send_buffer((void **)&out_msg);
+	server1->get_send_buffer((void **)&out_msg);
 
 	strcpy(out_msg, in_msg);
 
-	if (server->send((unsigned)strlen(in_msg))) {
+	if (server1->send((unsigned)strlen(in_msg))) {
 		ERR("Failed to send. Dying!");
-		delete server;
+		delete server1;
 		return 4;
 	}
 
 	puts("All is good. Press any key to end!");
 	getchar();
 
-	delete server;
+	delete server1;
 }
 
 #ifdef __cplusplus
