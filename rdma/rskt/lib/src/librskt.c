@@ -1117,8 +1117,14 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
 				skt->con_msh_name, skt->msubh, 
 				&skt->con_msubh, &skt->con_sz,
-				&skt->con_msh, 0);
+				&skt->con_msh, 1);
+	if (rc == RDMA_CONNECT_TIMEOUT)
+		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
+					skt->con_msh_name, skt->msubh,
+					&skt->con_msubh, &skt->con_sz,
+					&skt->con_msh, 0);
 	if (rc) {
+		if (rc == RDMA_CONNECT_TIMEOUT)
 		ERR("rdma_conn_ms_h() failed..closing\n");
 		goto close;
 	}

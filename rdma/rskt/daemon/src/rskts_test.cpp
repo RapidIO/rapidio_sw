@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 	puts("Connected with client");
-	if (server->receive(32)) {
+	if (server->receive(32) < 0) {
 		ERR("Failed to receive. Dying!\n");
 		delete server;
 		return 3;
@@ -93,7 +93,6 @@ int main(int argc, char *argv[])
 	server->get_recv_buffer((void **)&in_msg);
 
 	puts(in_msg);
-#if 0
 	char *out_msg;
 
 	server->get_send_buffer((void **)&out_msg);
@@ -105,7 +104,7 @@ int main(int argc, char *argv[])
 		delete server;
 		return 4;
 	}
-#endif
+
 	puts("All is good. Press any key to end!");
 	getchar();
 
