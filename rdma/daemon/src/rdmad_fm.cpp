@@ -16,6 +16,7 @@
 
 using std::vector;
 using std::set;
+using std::remove;
 using std::remove_if;
 using std::sort;
 
@@ -108,6 +109,10 @@ static int provision_new_dids(uint32_t old_did_list_size,
 			}
 		} else {
 			INFO("NOT provisioning 0x%X since daemon not running\n", did);
+			/* Remove it from list since we need to attempt to provision it again
+			 * when the daemon is actually up and running.
+			 */
+			remove(new_did_list, new_did_list + new_did_list_size, did);
 		}
 	}
 
