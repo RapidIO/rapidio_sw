@@ -33,16 +33,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RSKT_SOCK_H_
 #define RSKT_SOCK_H_
 
-#include <stdint.h>
-#include <errno.h>
-
+#include <cstdint>
 #include <cstring>
+#include <cassert>
+#include <cerrno>
+
 #include <iostream>
 #include <iomanip>
 #include <iterator>
 
-#include <rapidio_mport_mgmt.h>
-
+#include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
 #include "librsktd_private.h"
 #include "librdma.h"
@@ -143,7 +143,7 @@ protected:
 			delete[] recv_buf;
 	}
 
-	int send(rskt_h socket, uint32_t size)
+	int send(rskt_h socket, size_t size)
 	{
 		if (size > send_size) {
 			ERR("Data is too large (%u) for send buffer (%u)\n",
@@ -159,20 +159,21 @@ protected:
 		return 0;
 	} /* send() */
 
-	/* Receive bytes to 'recv_buf' on specified socket */
-	int receive(rskt_h socket, uint32_t size)
+	/* Receive bytes to 'recv_buf' on specified socket. 'size'
+	 * specifies requested number of bytes. Return code gives
+	 * actual number of bytes (if > 0) */
+	int receive(rskt_h socket, size_t size)
 	{
-		if (size > send_size) {
+		if (size > recv_size) {
 			ERR("Receive buffer (%u) can't hold %u bytes\n",
 					size, send_size);
 			return -1;
 		}
 		int rc = rskt_read(socket, recv_buf, size);
-		if (rc) {
+		if (rc < 0) {
 			ERR("rskt_read failed for '%s': rc = %d\n", name, rc);
-			return rc;
 		}
-		return 0;
+		return rc;
 	} /* receive() */
 
 	const char *name;
@@ -196,7 +197,9 @@ public:
 	listen_socket(0),
 	accept_socket(0),
 	max_backlog(max_backlog),
-	is_parent(false)
+	is_only(true),	/* Start as is_only unless we father children via 'accept' */
+	is_parent(false),
+	is_child(false)
 	{
 		/* Create listen socket */
 		listen_socket = rskt_create_socket();
@@ -235,7 +238,9 @@ public:
 		listen_socket(0),
 		accept_socket(accept_socket),
 		max_backlog(0),
-		is_parent(false)
+		is_only(false),
+		is_parent(false),
+		is_child(true)	/* A child since accept_socket is given in ctor */
 	{
 	} /* rskt_server() */
 
@@ -243,28 +248,44 @@ public:
 	{
 		int rc;
 
+		/* If we are a parent, i.e. we provided the socket to a caller
+		 * then the caller owns that socket. We don't close or destroy it.
+		 */
+		if ((is_only || is_child) && accept_socket) {
+			rc = rskt_close(accept_socket);
+			if (rc) {
+				WARN("'%s': Failed to close accept_socket rc = %d\n", rc);
+			}
+		}
+
+		/* is_only or is_parent has a non-zero listen socket.
+		 * The child's listen socket is initialized to 0 */
 		if (listen_socket) {
 			rc = rskt_close(listen_socket);
 			if (rc) {
 				WARN("'%s': Failed to close listen_socket rc = %d\n", rc);
 			}
-			rskt_destroy_socket(&listen_socket);
 		}
 
-		/* If we are a parent, i.e. we provided the socket to a caller
-		 * then the caller owns that socket. We don't close or destroy it.
-		 */
-		if (accept_socket && !is_parent) {
-			rc = rskt_close(accept_socket);
-			if (rc) {
-				WARN("'%s': Failed to close accept_socket rc = %d\n", rc);
-			}
+		/* Destroy accept sockets for is_only and is_child objects */
+		if ((is_only || is_child) && accept_socket)
 			rskt_destroy_socket(&accept_socket);
-		}
+
+		/* is_only or is_parent has a non-zero listen socket.
+		 * The child's listen socket is initialized to 0 */
+		if (listen_socket)
+			rskt_destroy_socket(&listen_socket);
+
 	} /* ~rskt_server() */
 
 	int accept(rskt_h *acc_socket = nullptr)
 	{
+		/* A child server should ONLY do sending and receiving */
+		if (is_child) {
+			CRIT("'%s' is a child rskt_server. Can't accept\n", name);
+			return -1;
+		}
+
 		/* Create accept socket */
 		accept_socket = rskt_create_socket();
 		if (!accept_socket) {
@@ -279,25 +300,25 @@ public:
 			return rc;
 		}
 
-		/* Return socket to caller if address of socket variable provided */
+		/* Return socket to caller if address of socket variable provided.
+		 * If that is the case then we are a parent not an only object */
 		if (acc_socket != nullptr) {
 			*acc_socket = accept_socket;
+			is_only = false;
 			is_parent = true;
-		} else {
-			is_parent = false;
 		}
 
 		return 0;
 	} /* accept() */
 
 	/* Receive bytes to 'recv_buf' */
-	int receive(uint32_t size)
+	int receive(size_t size)
 	{
 		return rskt_base::receive(accept_socket, size);
 	} /* receive() */
 
 	/* Send bytes from 'send_buf' */
-	int send(uint32_t size)
+	int send(size_t size)
 	{
 		return rskt_base::send(accept_socket, size);
 	} /* send() */
@@ -307,7 +328,9 @@ private:
 	rskt_h	accept_socket;
 	struct rskt_sockaddr sock_addr;
 	int	max_backlog;
-	bool	is_parent;
+	bool	is_only;	/* This is the only object; it accepts and rx/tx */
+	bool	is_parent;	/* This is the parent of a child that rx/tx */
+	bool	is_child;	/* This is a child that ONLY does rx/tx */
 }; /* rskt_server */
 
 class rskt_client : public rskt_base {

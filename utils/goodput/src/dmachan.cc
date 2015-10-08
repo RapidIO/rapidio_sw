@@ -66,22 +66,25 @@ void hexdump4byte(const char* msg, uint8_t* d, int len);
 class {
 */
 
-void DMAChannel::init_splock()
+void DMAChannel::init()
 {
   pthread_spin_init(&m_hw_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_pending_work_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_bl_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_evlog_splock, PTHREAD_PROCESS_PRIVATE);
 
-  m_keep_evlog = false;
+  m_bd_num        = 0;
+  m_sts_size      = 0;
+  m_dma_wr        = 0;
+  m_fifo_rd       = 0;
+  m_T3_bd_hw      = 0;
+  m_fifo_scan_cnt = 0;
+  m_keep_evlog    = false;
+  m_bl_busy       = NULL;
+  m_bl_busy_size  = -1;
 }
 
-DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan):
-     m_bd_num(0),
-     m_sts_size(0),
-     m_dma_wr(0),
-     m_fifo_rd(0),
-     m_T3_bd_hw(0)
+DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannel: Invalid channel!");
@@ -90,18 +93,12 @@ DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan):
 
   m_mport = new RioMport(mportid);
 
-  init_splock();
-  m_fifo_scan_cnt = 0;
+  init();
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid,
                        const uint32_t chan,
-                       riomp_mport_t mp_hd) :
-     m_bd_num(0),
-     m_sts_size(0),
-     m_dma_wr(0),
-     m_fifo_rd(0),
-     m_T3_bd_hw(0)
+                       riomp_mport_t mp_hd)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannel: Invalid channel!");
@@ -110,8 +107,7 @@ DMAChannel::DMAChannel(const uint32_t mportid,
 
   m_mport = new RioMport(mportid, mp_hd);
 
-  init_splock();
-  m_fifo_scan_cnt = 0;
+  init();
 }
 
 DMAChannel::~DMAChannel()
@@ -265,8 +261,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
       return false;
     }
 
-    m_bl_busy[bd_idx] = true;
-    m_bl_outstanding[(uint32_t)m_dma_wr] = 1 + bd_idx;
+    m_bl_busy[bd_idx] = true;  m_bl_busy_size++;
 
     bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
     desc.pack(bd_hw);
@@ -279,11 +274,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
     if(((m_dma_wr+1) % (m_bd_num+1)) == 0) { // skip T3
-#if 0
-      DBG("Soft WP = %d, time to T3 + rollover\n", m_dma_wr);
-#endif
-      m_bl_outstanding[(uint32_t)m_dma_wr] = m_bd_num;
-
       wk_end.opt.bd_wp = m_dma_wr;
 
       wk_end.opt.ts_start = rdtsc();
@@ -319,48 +309,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
     trace_dmachan(0x200, 5);
   return true;
-}
-
-int DMAChannel::getSoftReadCount(bool locked) // call this from locked context -- m_bl_splock
-{
-  int ret = -1;
-
-  if(! locked) pthread_spin_lock(&m_bl_splock); 
-  if (umdemo_must_die)
-	return false;
-  do {{
-    if(m_bl_outstanding.empty()) { ret = m_dma_wr; break; }
-
-    // divine soft RP -- inefficient in this pass
- 
-    std::vector<uint32_t> v_idx;
-
-    std::map<uint32_t, uint32_t>::iterator it = m_bl_outstanding.begin();
-    for(; it != m_bl_outstanding.end(); it++) { if(it->second) v_idx.push_back(it->first); }
-
-    if(v_idx.size() == 0) return m_dma_wr; // queue EMPTIED
-    if(v_idx.size() == m_bd_num) { ret = -1; break; } // queue FULL
-
-    if(v_idx.size() > 1) std::sort(v_idx.begin(), v_idx.end());
-
-    const int idx_min = v_idx.front();
-    //const int idx_max = v_idx.back();
- 
-#if 0
-    std::stringstream ss;
-    ss << "BL[] = { ";
-    for(std::vector<uint32_t>::iterator it = v_idx.begin(); it != v_idx.end(); it++) {
-      ss << *it << ":" << (m_bl_outstanding[*it] - 1) << " ";
-    }
-    ss << "}\n";
-    DBG("\n\t%s", ss.str().c_str());
-#endif
-
-    ret = idx_min-1;
-  }} while(0);
-
-  if(! locked) pthread_spin_unlock(&m_bl_splock); 
-  return ret;
 }
 
 bool DMAChannel::alloc_dmamem(const uint32_t size, RioMport::DmaMem_t& mem)
@@ -399,6 +347,9 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 
   m_bd_num = bd_cnt;
 
+  m_bl_busy = (bool*)calloc(m_bd_num, sizeof(bool));
+  m_bl_busy_size = 0;
+
   memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
 
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
@@ -418,12 +369,6 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
   end_bd.pack(end_bd_p); // XXX mask off lowest 5 bits
 
   m_T3_bd_hw = m_dmadesc.win_handle + (m_bd_num * DMA_BUFF_DESCR_SIZE);
-
-  pthread_spin_lock(&m_bl_splock); 
-  if (umdemo_must_die)
-	return false;
-  m_bl_outstanding.clear();
-  pthread_spin_unlock(&m_bl_splock); 
 
   // Setup DMA descriptor pointers
   wr32dmachan(TSI721_DMAC_DPTRH, (uint64_t)m_dmadesc.win_handle >> 32);
@@ -596,6 +541,9 @@ void DMAChannel::cleanup()
   memset(&m_dmadesc, 0, sizeof(m_dmadesc));
   memset(&m_dmacompl, 0, sizeof(m_dmacompl));
   
+
+  free(m_bl_busy); m_bl_busy = NULL; m_bl_busy_size = -1;
+
   m_evlog.clear();
 }
 
@@ -650,15 +598,8 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
   /* Check and clear descriptor status FIFO entries */
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
   int j = m_fifo_rd * 8;
-#if 0
-DBG("\n\tFIFO START line=%d\n", j);
-#endif
   while (sts_ptr[j] && !umdemo_must_die) {
-      //for (int i = 0; i < 8 && sts_ptr[j]; i++, j++) {
       for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
-#if 0
-        DBG("\n\tFIFO (sts_size=%d) line=%d off=%d 0x%llx\n", m_sts_size, j, i, sts_ptr[i]);
-#endif
           DmaCompl_t c;
           c.ts_end = rdtsc();
           c.win_handle = sts_ptr[i]; c.fifo_offset = i;
@@ -710,8 +651,7 @@ DBG("\n\tFIFO START line=%d\n", j);
     pthread_spin_lock(&m_bl_splock); 
   if (umdemo_must_die)
 	return 0;
-    m_bl_busy.erase(item.opt.bd_idx);
-    m_bl_outstanding[item.opt.bd_wp] = 0;
+    m_bl_busy[item.opt.bd_idx] = false; m_bl_busy_size--;
     pthread_spin_unlock(&m_bl_splock); 
   }
 

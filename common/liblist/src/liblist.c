@@ -146,15 +146,20 @@ exit:
 
 void l_lremove(struct l_head_t *l, struct l_item_t *li)
 {
+	if (!l) {
+		CRIT("l is NULL\n");
+		return;
+	}
+
 	if (!l->cnt) {
-		CRIT("NEVER: li == NULL");
+		CRIT("NEVER: li == NULL\n");
 		rdma_log_close();
 	};
 	assert(l->cnt);
 
 	if (1 == l->cnt) {
 		if (li != l->head) {
-			CRIT("NEVER:(l->cnt == 1) && (li != l->head)");
+			CRIT("NEVER:(l->cnt == 1) && (li != l->head)\n");
 			rdma_log_close();
 		};
 		assert(li == l->head);

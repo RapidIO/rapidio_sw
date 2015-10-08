@@ -154,8 +154,10 @@ void handle_app_msg(struct librskt_app *app,
 		sem_wait(&app->app_resp_mutex);
 		msg = (struct librsktd_unified_msg *)
 			l_find(&app->app_resp_q, seq_num, &li); 
-		if (NULL != msg)
-			l_lremove(&app->app_resp_q, li); 
+		if (NULL != msg) {
+			DBG("Attempting to remove from list...\n");
+			l_lremove(&app->app_resp_q, li);
+		}
 		sem_post(&app->app_resp_mutex);
 		if (NULL == msg) {
 			free(rxed);

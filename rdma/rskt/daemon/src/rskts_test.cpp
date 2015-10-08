@@ -1,9 +1,9 @@
-#include <stdint.h>
-
+#include <semaphore.h>
+#include <cstdint>
 #include <cstdio>
+#include <csignal>
 
 #include "rapidio_mport_mgmt.h"
-
 #include "librskt_private.h"
 #include "librsktd_private.h"
 #include "librdma.h"
@@ -16,7 +16,16 @@
 extern "C" {
 #endif
 
-static rskt_server *server = nullptr;
+struct rskt_ti
+{
+	rskt_ti(rskt_h accept_socket) : accept_socket(accept_socket)
+	{}
+	rskt_h accept_socket;
+	sem_t	started;
+	pthread_t tid;
+};
+
+static rskt_server *prov_server = nullptr;
 
 void sig_handler(int sig)
 {
@@ -43,11 +52,122 @@ void sig_handler(int sig)
 		return;
 	}
 
-	if (server != nullptr)
-		delete server;
+	if (prov_server != nullptr)
+		delete prov_server;
 
 	exit(0);
 } /* sig_handler() */
+
+void *rskt_thread_f(void *arg)
+{
+	if (!arg) {
+		pthread_exit(0);
+	}
+
+	rskt_ti *ti = (rskt_ti *)arg;
+
+	INFO("Creating other server object...");
+	rskt_server *other_server;
+	try {
+		other_server = new rskt_server("other_server", ti->accept_socket);
+	}
+	catch(rskt_exception& e) {
+		CRIT(":%s\n", e.err);
+		sem_post(&ti->started);
+		pthread_exit(0);
+	}
+
+	sem_post(&ti->started);
+
+	while (1) {
+		/* Wait for data from clients */
+		INFO("Waiting to receive from client...");
+
+		int received_len = other_server->receive(100);
+		if ( received_len < 0) {
+			ERR("Failed to receive\n");
+			delete other_server;
+			pthread_exit(0);
+		}
+
+		if (received_len > 0) {
+			DBG("received_len = %d\n", received_len);
+
+			/* Get & display the data */
+			void *recv_buf;
+			other_server->get_recv_buffer(&recv_buf);
+			puts((char *)recv_buf);
+
+			/* Echo data back to client */
+			void *send_buf;
+			other_server->get_send_buffer(&send_buf);
+			strcpy((char *)send_buf, (char *)recv_buf);
+
+			if (other_server->send(received_len) < 0) {
+				ERR("Failed to send back\n");
+				delete other_server;
+				pthread_exit(0);
+			}
+		}
+	}
+	pthread_exit(0);
+}
+
+int run_server()
+{
+	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
+	if (rc) {
+		CRIT("failed in librskt_init");
+		return -1;
+	}
+
+	try {
+		prov_server = new rskt_server("prov_server", 1234);
+	}
+	catch(rskt_exception& e) {
+		ERR("Failed to create prov_server: %s\n", e.err);
+		return 1;
+	}
+
+
+	puts("Provisioning server created...now accepting connections...");
+	rskt_h acc_socket;
+	while (1) {
+		if (prov_server->accept(&acc_socket)) {
+			ERR("Failed to accept. Dying!\n");
+			delete prov_server;
+			return 2;
+		}
+		puts("Connected with client");
+
+		/* Create struct for passing info to thread */
+		rskt_ti *ti;
+		try {
+			ti = new rskt_ti(acc_socket);
+		}
+		catch(...) {
+			ERR("Failed to create rskt_ti\n");
+			delete prov_server;
+			return 3;
+		}
+
+		/* Create thread for handling further Tx/Rx on the accept socket */
+		int ret = pthread_create(&ti->tid,
+					 NULL,
+					 rskt_thread_f,
+					 ti);
+		if (ret) {
+			puts("Failed to create request thread\n");
+			delete prov_server;
+			delete ti;
+			return -6;
+		}
+		sem_wait(&ti->started);
+	} /* while */
+
+	/* Not reached! */
+	return 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -62,54 +182,7 @@ int main(int argc, char *argv[])
 	sigaction(SIGABRT, &sig_action, NULL);
 	sigaction(SIGUSR1, &sig_action, NULL);
 
-	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
-	if (rc) {
-		puts("failed in librskt_init");
-		return 1;
-	}
-
-	try {
-		server = new rskt_server("server1", 1234);
-	}
-	catch(rskt_exception& e) {
-		ERR("Failed to create server: %s\n", e.err);
-		return 1;
-	}
-	puts("Server created...now accepting connections...");
-	if (server->accept()) {
-		ERR("Failed to accept. Dying!\n");
-		delete server;
-		return 2;
-	}
-	puts("Connected with client");
-	if (server->receive(32)) {
-		ERR("Failed to receive. Dying!\n");
-		delete server;
-		return 3;
-	}
-	puts("Received data!");
-	char *in_msg;
-
-	server->get_recv_buffer((void **)&in_msg);
-
-	puts(in_msg);
-#if 0
-	char *out_msg;
-
-	server->get_send_buffer((void **)&out_msg);
-
-	strcpy(out_msg, in_msg);
-
-	if (server->send((unsigned)strlen(in_msg))) {
-		ERR("Failed to send. Dying!");
-		delete server;
-		return 4;
-	}
-#endif
-	puts("All is good. Press any key to end!");
-	getchar();
-
-	delete server;
+	return run_server();
 }
 
 #ifdef __cplusplus
