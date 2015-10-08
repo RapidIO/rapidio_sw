@@ -126,6 +126,7 @@ struct riocp_pe_switch {
 	int (*get_port_state)(struct riocp_pe *sw, uint8_t port, riocp_pe_port_state_t *state);
 	int (*event_handler)(struct riocp_pe *sw, struct riomp_mgmt_event *revent, struct riocp_pe_event *event);
 	int (*destroy)(struct riocp_pe *sw);	/**< Cleanup of switch driver */
+	int (*set_port_speed)(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed speed);
 };
 
 /** RapidIO Processing element */

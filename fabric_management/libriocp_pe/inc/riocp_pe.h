@@ -90,6 +90,15 @@ struct riocp_pe_event {
 	riocp_pe_event_mask_t event;    /* bitmask of events */
 };
 
+/* link, lane, port speed defintions */
+enum riocp_pe_speed {
+	RIOCP_SPEED_1_25G = 1250,	/* 1.25 GBaud */
+	RIOCP_SPEED_2_5G = 2500,	/* 2.5 GBaud */
+	RIOCP_SPEED_3_125G = 3125,	/* 3.125 GBaud */
+	RIOCP_SPEED_5_0G = 5000,	/* 5.0 GBaud */
+	RIOCP_SPEED_6_25G = 6250	/* 6.25 GBaud */
+};
+
 /*
  * API functions
  */
@@ -111,6 +120,7 @@ int riocp_pe_destroy_handle(riocp_pe_handle *pe);
 int RIOCP_WU riocp_pe_get_capabilities(riocp_pe_handle pe,
 	struct riocp_pe_capabilities *capabilities);
 int RIOCP_WU riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port ports[]);
+int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum riocp_pe_speed speed);
 int RIOCP_WU riocp_pe_lock(riocp_pe_handle pe, int flags);
 int RIOCP_WU riocp_pe_unlock(riocp_pe_handle pe);
 int RIOCP_WU riocp_pe_get_destid(riocp_pe_handle pe, uint32_t *destid);

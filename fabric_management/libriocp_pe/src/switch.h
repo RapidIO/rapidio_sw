@@ -45,6 +45,7 @@ int RIOCP_WU riocp_pe_switch_get_lane_width(struct riocp_pe *sw, uint8_t port, u
 int RIOCP_WU riocp_pe_switch_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_port_state_t *state);
 int RIOCP_WU riocp_pe_switch_handle_event(struct riocp_pe *sw, struct riomp_mgmt_event *revent,
 	struct riocp_pe_event *event);
+int RIOCP_WU riocp_pe_switch_set_port_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed speed);
 
 #ifdef __cplusplus
 }

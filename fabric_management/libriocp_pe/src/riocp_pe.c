@@ -1529,6 +1529,45 @@ int RIOCP_SO_ATTR riocp_pe_get_comptag(riocp_pe_handle pe,
         return ret;
 }
 
+/**
+ * Set the speed configuration of a port
+ * @param pe Target PE
+ * @param port port number
+ * @param speed speed value
+ * @retval -EINVAL Invalid argument
+ */
+int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum riocp_pe_speed speed)
+{
+	int ret = 0;
+
+    if (riocp_pe_handle_check(pe))
+            return -EINVAL;
+
+    /* get number of lanes for that port */
+    if (RIOCP_PE_IS_SWITCH(pe->cap)) {
+    	if (port >= RIOCP_PE_PORT_COUNT(pe->cap)) {
+    		ret = -EINVAL;
+        	RIOCP_ERROR("Port parameter %u exceeds number of available ports %u\n", port, RIOCP_PE_PORT_COUNT(pe->cap));
+        	goto outhere;
+    	}
+
+    	ret = riocp_pe_switch_set_port_speed(pe, port, speed);
+		if (ret) {
+			RIOCP_ERROR("Could not set port %u speed\n", port);
+			goto outhere;
+		}
+
+		RIOCP_DEBUG("PE with CompTag 0x%x port %u sped changed to %u\n",
+			pe->comptag, port, speed);
+
+    } else {
+    	ret = -ENOTSUP;
+    	RIOCP_ERROR("Port speed setup not supported for non switch PEs\n");
+    }
+outhere:
+    return ret;
+}
+
 #ifdef __cplusplus
 }
 #endif

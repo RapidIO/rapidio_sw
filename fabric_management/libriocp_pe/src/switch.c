@@ -284,6 +284,14 @@ int riocp_pe_switch_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_p
 		return -ENOSYS;
 }
 
+int riocp_pe_switch_set_port_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed speed)
+{
+	if (sw->sw->set_port_speed)
+		return sw->sw->set_port_speed(sw, port, speed);
+	else
+		return -ENOSYS;
+}
+
 #ifdef __cplusplus
 }
 #endif
