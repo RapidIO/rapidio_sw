@@ -19,6 +19,7 @@ using std::set;
 using std::remove;
 using std::remove_if;
 using std::sort;
+using std::copy;
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,13 +85,13 @@ static void unprovision_did(uint32_t did)
 
 static int provision_new_dids(uint32_t old_did_list_size,
 			      uint32_t *old_did_list,
-			      uint32_t new_did_list_size,
+			      uint32_t *new_did_list_size,
 			      uint32_t *new_did_list)
 {
 	/* Determine which dids are new since last time */
-	vector<uint32_t> result(new_did_list_size);
+	vector<uint32_t> result(*new_did_list_size);
 	vector<uint32_t>::iterator end_result = set_difference(
-			new_did_list, new_did_list + new_did_list_size,
+			new_did_list, new_did_list + *new_did_list_size,
 			old_did_list, old_did_list + old_did_list_size,
 			begin(result));
 	result.resize(end_result - begin(result));
@@ -112,7 +113,8 @@ static int provision_new_dids(uint32_t old_did_list_size,
 			/* Remove it from list since we need to attempt to provision it again
 			 * when the daemon is actually up and running.
 			 */
-			remove(new_did_list, new_did_list + new_did_list_size, did);
+			remove(new_did_list, new_did_list + *new_did_list_size, did);
+			(*new_did_list_size)--;
 		}
 	}
 
@@ -214,7 +216,7 @@ void *fm_loop(void *unused)
 		/* Provision new DIDs, if any */
 		provision_new_dids(old_did_list_size,
 				   old_did_list,
-				   new_did_list_size,
+				   &new_did_list_size,
 				   new_did_list);
 
 		/* Remove any DIDs that dropped off, if any */
@@ -224,12 +226,12 @@ void *fm_loop(void *unused)
 				      new_did_list);
 
 		/* Save a copy of the current list for comparison next time */
-		if (old_did_list != NULL)	/* Only first time would be NULL */
-			fmdd_free_did_list(dd_h, &old_did_list);
-		if (fmdd_get_did_list(dd_h, &old_did_list_size, &old_did_list)) {
-			CRIT("Failed to get device ID list from FM. Exiting.\n");
-			break;
-		}
+		if (old_did_list != NULL)
+			delete old_did_list;
+		old_did_list_size = new_did_list_size;
+		old_did_list = new uint32_t[old_did_list_size];
+		copy(new_did_list, new_did_list + new_did_list_size, old_did_list);
+
 		sort(old_did_list, old_did_list + old_did_list_size);
 		DBG("old_did_list_size = %u\n", old_did_list_size);
 
@@ -246,6 +248,12 @@ void *fm_loop(void *unused)
 			break;
 		}
 	} while (!fm_must_die);
+
+	/* Clean up */
+	if (old_did_list != NULL)
+		delete old_did_list;
+        if (new_did_list != NULL)
+        	fmdd_free_did_list(dd_h, &new_did_list);
 
 	fm_alive = 0;
 	fmdd_destroy_handle(&dd_h);
