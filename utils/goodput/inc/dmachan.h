@@ -115,8 +115,6 @@ public:
 
   uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 
-  int getSoftReadCount(bool locked = false);
-
   static const char* abortReasonToStr(const uint32_t abort_reason);
 
   bool alloc_dmatxdesc(const uint32_t bd_num);
@@ -150,7 +148,7 @@ public:
   inline uint32_t queueSize()
   {
     pthread_spin_lock(&m_bl_splock);
-    const int SZ = m_bl_busy.size();
+    const int SZ = m_bl_busy_size;
     pthread_spin_unlock(&m_bl_splock);
 
     return SZ;
@@ -177,7 +175,7 @@ public:
 
   void cleanup();
   void shutdown();
-  void init_splock();
+  void init();
 
   int scanFIFO(std::vector<WorkItem_t>& completed_work);
 
@@ -250,7 +248,7 @@ public:
     //     that should come from the completion FIFO but for now we brute-force it!
   
     pthread_spin_lock(&m_bl_splock);
-    const int SZ = m_bl_busy.size();
+    const int SZ = m_bl_busy_size;
     pthread_spin_unlock(&m_bl_splock);
   
     return SZ == (m_bd_num+1); // account for T3 BD as well
@@ -304,9 +302,9 @@ private:
   RioMport::DmaMem_t  m_dmadesc;
   RioMport::DmaMem_t  m_dmacompl;
   volatile uint32_t   m_dma_wr;      ///< Mirror of Tsi721 write pointer
-  uint32_t            m_fifo_rd;
-  std::map<uint32_t, bool> m_bl_busy; ///< BD busy list, this [0...(bd_num-1)]
-  std::map<uint32_t, uint32_t> m_bl_outstanding; ///< BD map {wp, bd_idx+1}
+  int32_t             m_fifo_rd;
+  bool*               m_bl_busy;
+  volatile int32_t    m_bl_busy_size;
   pthread_spinlock_t  m_bl_splock; ///< Serialize access to BD list
   uint64_t            m_T3_bd_hw;
   volatile bool       m_keep_evlog;
