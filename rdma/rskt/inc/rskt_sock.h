@@ -143,7 +143,7 @@ protected:
 			delete[] recv_buf;
 	}
 
-	int send(rskt_h socket, uint32_t size)
+	int send(rskt_h socket, size_t size)
 	{
 		if (size > send_size) {
 			ERR("Data is too large (%u) for send buffer (%u)\n",
@@ -162,9 +162,9 @@ protected:
 	/* Receive bytes to 'recv_buf' on specified socket. 'size'
 	 * specifies requested number of bytes. Return code gives
 	 * actual number of bytes (if > 0) */
-	int receive(rskt_h socket, uint32_t size)
+	int receive(rskt_h socket, size_t size)
 	{
-		if (size > send_size) {
+		if (size > recv_size) {
 			ERR("Receive buffer (%u) can't hold %u bytes\n",
 					size, send_size);
 			return -1;
@@ -312,13 +312,13 @@ public:
 	} /* accept() */
 
 	/* Receive bytes to 'recv_buf' */
-	int receive(uint32_t size)
+	int receive(size_t size)
 	{
 		return rskt_base::receive(accept_socket, size);
 	} /* receive() */
 
 	/* Send bytes from 'send_buf' */
-	int send(uint32_t size)
+	int send(size_t size)
 	{
 		return rskt_base::send(accept_socket, size);
 	} /* send() */
