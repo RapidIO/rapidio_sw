@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <csignal>
+#include <cstring>
 
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
@@ -83,10 +84,11 @@ void *rskt_thread_f(void *arg)
 		/* Wait for data from clients */
 		INFO("Waiting to receive from client...");
 
-		int received_len = other_server->receive(100);
+		int received_len = other_server->receive(RSKT_DEFAULT_RECV_BUF_SIZE);
 		if ( received_len < 0) {
-			ERR("Failed to receive\n");
+			ERR("Failed to receive, rc = %d\n", received_len);
 			delete other_server;
+			delete ti;
 			pthread_exit(0);
 		}
 
@@ -96,20 +98,21 @@ void *rskt_thread_f(void *arg)
 			/* Get & display the data */
 			void *recv_buf;
 			other_server->get_recv_buffer(&recv_buf);
-			puts((char *)recv_buf);
 
 			/* Echo data back to client */
 			void *send_buf;
 			other_server->get_send_buffer(&send_buf);
-			strcpy((char *)send_buf, (char *)recv_buf);
+			memcpy(send_buf, recv_buf, received_len);
 
 			if (other_server->send(received_len) < 0) {
 				ERR("Failed to send back\n");
 				delete other_server;
+				delete ti;
 				pthread_exit(0);
 			}
 		}
 	}
+	/* Not reached */
 	pthread_exit(0);
 }
 
