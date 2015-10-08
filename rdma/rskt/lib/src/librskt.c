@@ -1007,6 +1007,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	struct rskt_socket_t *skt;
 	int temp_errno;
 	int rc = -1;
+	int conn_retries = 5;
 
 	if (lib_uninit()) {
 		CRIT("lib_uninit() failed..exiting\n");
@@ -1114,18 +1115,15 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		goto close;
 	}
 
-	rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
+	do {
+		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
 				skt->con_msh_name, skt->msubh, 
 				&skt->con_msubh, &skt->con_sz,
 				&skt->con_msh, 1);
-	if (rc == RDMA_CONNECT_TIMEOUT)
-		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
-					skt->con_msh_name, skt->msubh,
-					&skt->con_msubh, &skt->con_sz,
-					&skt->con_msh, 0);
+	} while (rc == RDMA_CONNECT_TIMEOUT && conn_retries--);
+
 	if (rc) {
-		if (rc == RDMA_CONNECT_TIMEOUT)
-		ERR("rdma_conn_ms_h() failed..closing\n");
+		ERR("rdma_conn_ms_h() failed, rc = %d..closing\n", rc);
 		goto close;
 	}
 
