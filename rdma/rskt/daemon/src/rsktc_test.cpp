@@ -20,7 +20,7 @@ static rskt_client *client;
 
 void show_help()
 {
-	puts("rsktc_test -d<destid> -s<socket_number>\n");
+	puts("rsktc_test [-d<destid>] [-h] [-l<data_length>] [-r<repetitions>] -s<socket_number>\n");
 }
 
 void sig_handler(int sig)
