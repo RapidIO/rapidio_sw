@@ -1,54 +1,40 @@
 #!/bin/bash
 
 #  This script creates all read/write goodput script files for
-#  parallel DMA throughput measurements.
+#  OBDIO Latency measurements.
 #
-#  This includes individual scripts for 1 byte up to 4MB transfers,
+#  This includes individual scripts for 1 byte up to 8 transfers,
 #  for both reads and writes, as well as 2 scripts that will invoke
 #  all of the individual scripts.
 #
-#  The "template" file in this directory is the basis of the
+#  The "template" files in this directory is the basis of the
 #  individiaul scripts.
 #  
 
 cd "$(dirname "$0")"
-printf "\nCreating PARALLEL DMA THROUGHPUT SCRIPTS\n\n"
+printf "\nCreating OBWIN LATENCY SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=pdma_thru
-
-PREFIX=d6
+DIR_NAME=obwin_lat
 
 # SIZE_NAME is the file name
 # SIZE is the hexadecimal representation of SIZE_NAME
 #
 # The two arrays must match up...
 
-SIZE_NAME=(1B 2B 4B 8B 16B 32B 64B 128B 256B 512B
-	1K 2K 4K 8K 16K 32K 64K 128K 256K 512K 
-	1M 2M 4M)
+SIZE_NAME=(1B 2B 4B 8B)
 
-SIZE=(
-"1" "2" "4" "8" 
-"10" "20" "40" "80"
-"100" "200" "400" "800"
-"1000" "2000" "4000" "8000"
-"10000" "20000" "40000" "80000"
-"100000" "200000" "400000")
+SIZE=("1" "2" "4" "8")
 
-BYTES=(
-"10000" "10000" "10000" "10000" 
-"10000" "10000" "10000" "10000"
-"10000" "10000" "10000" "10000"
-"10000" "10000" "10000" "10000"
-"10000" "20000" "40000" "80000"
-"100000" "200000" "400000")
+BYTES=("400000" "400000" "400000" "400000")
 
 IBA_ADDR=20d800000
 DID=0
 TRANS=0
 WAIT_TIME=65
+
+PREFIX=ol
 
 # Function to format file names.
 # Format is xxZss.txt, where
@@ -68,6 +54,10 @@ function set_t_filename_r {
 
 function set_t_filename_w {
 	set_t_filename "W" $1
+}
+
+function set_t_filename_t {
+	set_t_filename "T" $1
 }
 
 declare -i max_name_idx=0
@@ -102,6 +92,8 @@ fi;
 
 echo "Arrays declared correctly..."
 
+## Create files for DIOT commands, transmit latency
+
 idx=0
 while [ "$idx" -lt "$max_name_idx" ]
 do
@@ -112,10 +104,26 @@ do
 	filename=$t_filename
 	set_t_filename_w ${SIZE_NAME[idx]}
 	w_filename=$t_filename
-	cp template $filename
+	cp tx_template $filename
 	sed -i -- 's/acc_size/'${SIZE[idx]}'/g' $filename
 	sed -i -- 's/bytes/'${BYTES[idx]}'/g' $filename
 	cp $filename $w_filename
+	idx=($idx)+1
+done
+
+## Create files for DIOR commands, Target of latency
+
+idx=0
+while [ "$idx" -lt "$max_name_idx" ]
+do
+	declare filename
+	declare w_filename
+
+	set_t_filename_t ${SIZE_NAME[idx]}
+	filename=$t_filename
+	cp rx_template $filename
+	sed -i -- 's/acc_size/'${SIZE[idx]}'/g' $filename
+	sed -i -- 's/bytes/'${BYTES[idx]}'/g' $filename
 	idx=($idx)+1
 done
 
@@ -128,32 +136,23 @@ sed -i -- 's/wr/0/g' ${PREFIX}R*.txt
 
 ## now create the "run all scripts" script files...
 
-DIR=(read write)
-declare -a file_list
 
-for direction in "${DIR[@]}"
+direction="read"
+scriptname="../"$DIR_NAME"_"$direction 
+
+echo "#!/bin/bash" > $scriptname
+echo "#  This script runs all "$DIR_NAME $direction" scripts." >> $scriptname
+echo "log "$scriptname".log" >> $scriptname
+echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
+
+idx=0
+while [ "$idx" -lt "$max_name_idx" ]
 do
-	scriptname="../"$DIR_NAME"_"$direction 
-
-	echo "#!/bin/bash" > $scriptname
-	echo "#  This script runs all "$DIR_NAME $direction" scripts." >> $scriptname
-	echo "log "$scriptname".log" >> $scriptname
-	echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
-
-	idx=0
-	while [ "$idx" -lt "$max_name_idx" ]
-	do
-		if [$direction=="read"]; then
-			set_t_filename_r ${SIZE_NAME[idx]}
-		else
-			set_t_filename_w ${SIZE_NAME[idx]}
-		fi
-
-		echo ". "$t_filename >> $scriptname
-		idx=($idx)+1
-	done
-	echo "close" >> $scriptname
-	echo "scrp scripts/performance/" >> $scriptname
+	set_t_filename_t ${SIZE_NAME[idx]}
+	echo ". "$t_filename >> $scriptname
+	idx=($idx)+1
 done
+echo "close" >> $scriptname
+echo "scrp scripts/performance/" >> $scriptname
 
 ls ../$DIR_NAME*

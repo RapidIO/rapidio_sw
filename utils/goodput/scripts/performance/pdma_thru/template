@@ -35,7 +35,7 @@ g
 g c
 g
 echo dma bytes acc_size
-sleep 1
+sleep wait_time
 echo dma bytes acc_size
 g
 

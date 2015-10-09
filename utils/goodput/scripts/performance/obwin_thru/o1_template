@@ -1,0 +1,21 @@
+kill all
+wait 0 d
+wait 1 d
+wait 2 d
+wait 3 d
+wait 4 d
+wait 5 d
+wait 6 d
+wait 7 d
+t 0 2 0
+wait 0 h
+OBDIO 0 did iba_addr bytes acc_size wr
+wait 0 r
+g
+g c
+g
+echo OBDIO bytes acc_size
+sleep wait_time
+echo OBDIO bytes acc_size
+g
+st

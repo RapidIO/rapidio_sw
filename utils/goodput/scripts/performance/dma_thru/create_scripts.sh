@@ -10,15 +10,14 @@
 #  The "template" file in this directory is the basis of the
 #  individiaul scripts.
 #  
-
 cd "$(dirname "$0")"
-printf "\nCreating PARALLEL DMA THROUGHPUT SCRIPTS\n\n"
+printf "\nCreating SINGLE THREAD DMA THROUGHPUT SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=pdma_thru
+DIR_NAME=dma_thru
 
-PREFIX=d6
+PREFIX=d1
 
 # SIZE_NAME is the file name
 # SIZE is the hexadecimal representation of SIZE_NAME

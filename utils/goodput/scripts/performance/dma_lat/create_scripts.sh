@@ -12,13 +12,13 @@
 #  
 
 cd "$(dirname "$0")"
-printf "\nCreating PARALLEL DMA THROUGHPUT SCRIPTS\n\n"
+printf "\nCreating DMA LATENCY SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=pdma_thru
+DIR_NAME=dma_thru
 
-PREFIX=d6
+PREFIX=d1
 
 # SIZE_NAME is the file name
 # SIZE is the hexadecimal representation of SIZE_NAME
@@ -48,7 +48,6 @@ BYTES=(
 IBA_ADDR=20d800000
 DID=0
 TRANS=0
-WAIT_TIME=65
 
 # Function to format file names.
 # Format is xxZss.txt, where
@@ -80,7 +79,7 @@ do
 	max_name_idx=($max_name_idx)+1;
 done
 
-for sz in "${SIZE[@]}"
+for sz in "${SIZE_NAME[@]}"
 do
 	max_size_idx=($max_size_idx)+1;
 done
@@ -122,7 +121,6 @@ done
 sed -i -- 's/iba_addr/'$IBA_ADDR'/g' $PREFIX*.txt
 sed -i -- 's/did/'$DID'/g' $PREFIX*.txt
 sed -i -- 's/trans/'$TRANS'/g' $PREFIX*.txt
-sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
 sed -i -- 's/wr/1/g' ${PREFIX}W*.txt
 sed -i -- 's/wr/0/g' ${PREFIX}R*.txt
 

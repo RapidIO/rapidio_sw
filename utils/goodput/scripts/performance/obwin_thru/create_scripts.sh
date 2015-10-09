@@ -12,43 +12,30 @@
 #  
 
 cd "$(dirname "$0")"
-printf "\nCreating PARALLEL DMA THROUGHPUT SCRIPTS\n\n"
+printf "\nCreating OBWIN GOODPUT SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=pdma_thru
+declare DIR_NAME=obwin_thru
 
-PREFIX=d6
+declare PREFIX
 
 # SIZE_NAME is the file name
 # SIZE is the hexadecimal representation of SIZE_NAME
 #
 # The two arrays must match up...
 
-SIZE_NAME=(1B 2B 4B 8B 16B 32B 64B 128B 256B 512B
-	1K 2K 4K 8K 16K 32K 64K 128K 256K 512K 
-	1M 2M 4M)
+SIZE_NAME=(1B 2B 4B 8B)
 
-SIZE=(
-"1" "2" "4" "8" 
-"10" "20" "40" "80"
-"100" "200" "400" "800"
-"1000" "2000" "4000" "8000"
-"10000" "20000" "40000" "80000"
-"100000" "200000" "400000")
+SIZE=( "1" "2" "4" "8")
 
-BYTES=(
-"10000" "10000" "10000" "10000" 
-"10000" "10000" "10000" "10000"
-"10000" "10000" "10000" "10000"
-"10000" "10000" "10000" "10000"
-"10000" "20000" "40000" "80000"
-"100000" "200000" "400000")
+BYTES=("400000" "400000" "400000" "400000")
+
 
 IBA_ADDR=20d800000
 DID=0
 TRANS=0
-WAIT_TIME=65
+WAIT_TIME=35
 
 # Function to format file names.
 # Format is xxZss.txt, where
@@ -102,29 +89,35 @@ fi;
 
 echo "Arrays declared correctly..."
 
-idx=0
-while [ "$idx" -lt "$max_name_idx" ]
+PREFIXES=(o1 o8)
+
+for pfx in ${PREFIXES[@]}
 do
-	declare filename
-	declare w_filename
+	PREFIX=($pfx)
+	idx=0
+	while [ "$idx" -lt "$max_name_idx" ]
+	do
+		declare filename
+		declare w_filename
 
-	set_t_filename_r ${SIZE_NAME[idx]}
-	filename=$t_filename
-	set_t_filename_w ${SIZE_NAME[idx]}
-	w_filename=$t_filename
-	cp template $filename
-	sed -i -- 's/acc_size/'${SIZE[idx]}'/g' $filename
-	sed -i -- 's/bytes/'${BYTES[idx]}'/g' $filename
-	cp $filename $w_filename
-	idx=($idx)+1
+		set_t_filename_r ${SIZE_NAME[idx]}
+		filename=$t_filename
+		set_t_filename_w ${SIZE_NAME[idx]}
+		w_filename=$t_filename
+		cp $pfx'_template' $filename
+		sed -i -- 's/acc_size/'${SIZE[idx]}'/g' $filename
+		sed -i -- 's/bytes/'${BYTES[idx]}'/g' $filename
+		cp $filename $w_filename
+		idx=($idx)+1
+	done
+
+	sed -i -- 's/iba_addr/'$IBA_ADDR'/g' $PREFIX*.txt
+	sed -i -- 's/did/'$DID'/g' $PREFIX*.txt
+	sed -i -- 's/trans/'$TRANS'/g' $PREFIX*.txt
+	sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
+	sed -i -- 's/wr/1/g' ${PREFIX}W*.txt
+	sed -i -- 's/wr/0/g' ${PREFIX}R*.txt
 done
-
-sed -i -- 's/iba_addr/'$IBA_ADDR'/g' $PREFIX*.txt
-sed -i -- 's/did/'$DID'/g' $PREFIX*.txt
-sed -i -- 's/trans/'$TRANS'/g' $PREFIX*.txt
-sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
-sed -i -- 's/wr/1/g' ${PREFIX}W*.txt
-sed -i -- 's/wr/0/g' ${PREFIX}R*.txt
 
 ## now create the "run all scripts" script files...
 
@@ -140,20 +133,23 @@ do
 	echo "log "$scriptname".log" >> $scriptname
 	echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
 
-	idx=0
-	while [ "$idx" -lt "$max_name_idx" ]
+	for pfx in ${PREFIXES[@]}
 	do
-		if [$direction=="read"]; then
-			set_t_filename_r ${SIZE_NAME[idx]}
-		else
-			set_t_filename_w ${SIZE_NAME[idx]}
-		fi
+		PREFIX=($pfx)
+		idx=0
+		while [ "$idx" -lt "$max_name_idx" ]
+		do
+			if [$direction=="read"]; then
+				set_t_filename_r ${SIZE_NAME[idx]}
+			else
+				set_t_filename_w ${SIZE_NAME[idx]}
+			fi
 
-		echo ". "$t_filename >> $scriptname
-		idx=($idx)+1
+			echo ". "$t_filename >> $scriptname
+			idx=($idx)+1
+		done
 	done
 	echo "close" >> $scriptname
-	echo "scrp scripts/performance/" >> $scriptname
 done
 
 ls ../$DIR_NAME*
