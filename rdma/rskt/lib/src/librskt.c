@@ -42,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include <signal.h>
 #include <netinet/in.h>
 #include "librskt_private.h"
 #include "librskt_test.h"
@@ -519,11 +520,13 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	lib.addr.sun_family = AF_UNIX;
 	snprintf(lib.addr.sun_path, sizeof(lib.addr.sun_path) - 1,
 		LIBRSKTD_SKT_FMT, rsktd_port, rsktd_mpnum);
+	DBG("Attempting to connect to RSKTD via Unix sockets\n");
 	if (connect(lib.fd, (struct sockaddr *) &lib.addr, 
 				lib.addr_sz)) {
 		ERR("ERROR on librskt_init connect: %s\n", strerror(errno));
 		goto fail;
 	};
+	DBG("CONNECTED to RSKTD\n");
 
 	lib.all_must_die = 0;
 
@@ -601,6 +604,20 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 fail:
 	DBG("EXIT\n");
 	return -!((lib.init_ok == lib.portno) && (lib.portno));
+};
+
+int librskt_finish(void)
+{
+	/* Close socket connection to RSKTD */
+	close(lib.fd);
+
+	/* Kill active threads */
+	pthread_kill(lib.tx_thr, SIGUSR1);
+	pthread_kill(lib.rsvp_thr, SIGUSR1);
+	pthread_kill(lib.req_thr, SIGUSR1);
+	pthread_kill(lib.tx_thr, SIGUSR1);
+
+	return 0;
 };
 
 int lib_uninit(void)
