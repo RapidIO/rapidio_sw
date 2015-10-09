@@ -143,14 +143,14 @@ int main(int argc, char *argv[])
 			ERR("Failed to send message\n");
 			return 3;
 		}
-		DBG("Test data sent to server");
+		DBG("Test data sent to server\n");
 
 		/* Receive data back from server */
 		if (client->receive(data_length) < 0) {
 			ERR("Failed to receive message\n");
 			return 4;
 		}
-		DBG("Echoed data received from server");
+		DBG("Echoed data received from server\n");
 
 		if (memcmp(in_msg, out_msg, data_length)) {
 			ERR("Data did not compare. FAILED.\n");
