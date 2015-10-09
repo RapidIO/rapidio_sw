@@ -50,5 +50,5 @@ g
 echo MSG TRANSMIT GOODPUT 0xmsg_size BYTES
 sleep wait_time
 echo MSG TRANSMIT GOODPUT 0xmsg_size BYTES
-g
 st
+g
