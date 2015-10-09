@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 		if (memcmp(in_msg, out_msg, data_length)) {
 			ERR("Data did not compare. FAILED.\n");
 		} else {
-			INFO("Data compares OK. SUCCESS!\n");
+			puts("***** Data compares OK. SUCCESS! *****");
 		}
 	} /* while() */
 
