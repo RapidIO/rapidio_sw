@@ -172,6 +172,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	};
 
 	free(rsvp);
+	DBG("Returning!\n");
 	return rc;
 fail:
 	if (NULL != li) {
@@ -309,7 +310,6 @@ void *rsvp_loop(void *unused)
 		if (rxd->msg_type & htonl(LIBRSKTD_RESP | LIBRSKTD_FAIL)) {
 			rsvp_loop_resp(rxd);
 		} else {
-			DBG("msg_type is OK\n");
 			rsvp_loop_req(rxd);
 			rxd = (struct librskt_rsktd_to_app_msg *)
 				malloc(RSKTD2A_SZ);

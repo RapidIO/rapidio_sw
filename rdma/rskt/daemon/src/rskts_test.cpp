@@ -4,9 +4,7 @@
 #include <csignal>
 #include <cstring>
 
-#include <vector>
-#include <algorithm>
-
+#include "ts_vector.h"
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
 #include "librsktd_private.h"
@@ -16,7 +14,6 @@
 
 #include "rskt_sock.h"
 
-using std::vector;
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +29,7 @@ struct rskt_ti
 };
 
 static rskt_server *prov_server = nullptr;
-static vector<rskt_server *>	other_servers;
+static ts_vector<pthread_t> worker_threads;
 
 void sig_handler(int sig)
 {
@@ -54,14 +51,22 @@ void sig_handler(int sig)
 		puts("SIGTERM - kill <pid> signal");
 	break;
 
+	case SIGUSR1:	/* pthread_kill() */
+	/* Ignore signal */
+	return;
+
 	default:
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
 		return;
 	}
 
-	for_each(begin(other_servers),
-		 end(other_servers),
-		 [](rskt_server *server){delete server;});
+	/* Kill all worker threads */
+	DBG("Killing %u active worker threads\n", worker_threads.size());
+	for (unsigned i = 0; i < worker_threads.size(); i++) {
+		pthread_kill(worker_threads[i], SIGUSR1);
+		pthread_join(worker_threads[i], NULL);
+	}
+	worker_threads.clear();
 
 	if (prov_server != nullptr)
 		delete prov_server;
@@ -87,7 +92,6 @@ void *rskt_thread_f(void *arg)
 		sem_post(&ti->started);
 		pthread_exit(0);
 	}
-	other_servers.push_back(other_server);
 
 	sem_post(&ti->started);
 
@@ -99,7 +103,9 @@ void *rskt_thread_f(void *arg)
 		if ( received_len < 0) {
 			ERR("Failed to receive, rc = %d\n", received_len);
 			delete other_server;
+			worker_threads.remove(ti->tid);
 			delete ti;
+			DBG("Exiting thread\n");
 			pthread_exit(0);
 		}
 
@@ -175,12 +181,14 @@ int run_server()
 			delete ti;
 			return -6;
 		}
+		worker_threads.push_back(ti->tid);
+		DBG("Now %u threads in action\n", worker_threads.size());
 		sem_wait(&ti->started);
 	} /* while */
 
 	/* Not reached! */
 	return 0;
-}
+} /* run_server */
 
 int main(int argc, char *argv[])
 {

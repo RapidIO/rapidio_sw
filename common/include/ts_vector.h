@@ -3,11 +3,13 @@
 
 #include <pthread.h>
 
+#include <algorithm>
 #include <vector>
 #include <string>
 
 using std::vector;
 using std::string;
+using std::find;
 
 /* A thread-safe vector */
 template <typename T>
@@ -50,6 +52,20 @@ public:
 		return result;
 	}
 
+	T operator[](unsigned i)
+	{
+		return v[i];
+	}
+
+	void clear()
+	{
+		v.clear();
+	}
+
+	size_t size() const
+	{
+		return v.size();
+	}
 private:
 	vector<T>	v;
 	pthread_mutex_t	lock;
