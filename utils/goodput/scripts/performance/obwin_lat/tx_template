@@ -17,7 +17,7 @@ wait 0 h
 IBA 0 bytes
 wait 0 r
 wait 0 h
-DIOT 0 did iba_addr acc_size wr
+DIOT 0 rx_did rx_iba_addr acc_size wr
 wait 0 r
 la
 la

@@ -1,27 +1,23 @@
 #!/bin/bash
 
-#  This script creates all read/write goodput script files for
-#  parallel DMA throughput measurements.
-#
-#  This includes individual scripts for 1 byte up to 4MB transfers,
-#  for both reads and writes, as well as 2 scripts that will invoke
-#  all of the individual scripts.
-#
-#  The "template" file in this directory is the basis of the
-#  individiaul scripts.
-#  
-
 cd "$(dirname "$0")"
 printf "\nCreating DMA LATENCY SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=dma_thru
+WAIT_TIME=65
+TX_IBA_ADDR=20d800000
+TX_DID=1
+RX_IBA_ADDR=20d800000
+RX_DID=0
+TRANS=0
 
-PREFIX=d1
+DIR_NAME=dma_lat
+PREFIX=dl
 
 # SIZE_NAME is the file name
 # SIZE is the hexadecimal representation of SIZE_NAME
+# BYTES is the amount of memory to allocate, larger than SIZE
 #
 # The two arrays must match up...
 
@@ -45,10 +41,6 @@ BYTES=(
 "10000" "20000" "40000" "80000"
 "100000" "200000" "400000")
 
-IBA_ADDR=20d800000
-DID=0
-TRANS=0
-
 # Function to format file names.
 # Format is xxZss.txt, where
 # xx is the prefix
@@ -69,6 +61,10 @@ function set_t_filename_w {
 	set_t_filename "W" $1
 }
 
+function set_t_filename_t {
+	set_t_filename "T" $1
+}
+
 declare -i max_name_idx=0
 declare -i max_size_idx=0
 declare -i max_bytes_idx=0
@@ -79,7 +75,7 @@ do
 	max_name_idx=($max_name_idx)+1;
 done
 
-for sz in "${SIZE_NAME[@]}"
+for sz in "${SIZE[@]}"
 do
 	max_size_idx=($max_size_idx)+1;
 done
@@ -101,6 +97,8 @@ fi;
 
 echo "Arrays declared correctly..."
 
+## First create all of the transmit scripts for reads and writes
+
 idx=0
 while [ "$idx" -lt "$max_name_idx" ]
 do
@@ -111,22 +109,43 @@ do
 	filename=$t_filename
 	set_t_filename_w ${SIZE_NAME[idx]}
 	w_filename=$t_filename
-	cp template $filename
+	cp tx_template $filename
 	sed -i -- 's/acc_size/'${SIZE[idx]}'/g' $filename
 	sed -i -- 's/bytes/'${BYTES[idx]}'/g' $filename
 	cp $filename $w_filename
 	idx=($idx)+1
 done
 
-sed -i -- 's/iba_addr/'$IBA_ADDR'/g' $PREFIX*.txt
-sed -i -- 's/did/'$DID'/g' $PREFIX*.txt
+## Next create all of the target scripts for receiver to loop back writes
+
+idx=0
+while [ "$idx" -lt "$max_name_idx" ]
+do
+	declare filename
+	declare w_filename
+
+	set_t_filename_t ${SIZE_NAME[idx]}
+	filename=$t_filename
+	cp rx_template $filename
+	sed -i -- 's/acc_size/'${SIZE[idx]}'/g' $filename
+	sed -i -- 's/bytes/'${BYTES[idx]}'/g' $filename
+	idx=($idx)+1
+done
+
+## update variable values in all created files...
+
+sed -i -- 's/tx_iba_addr/'$TX_IBA_ADDR'/g' $PREFIX*.txt
+sed -i -- 's/tx_did/'$TX_DID'/g' $PREFIX*.txt
+sed -i -- 's/rx_iba_addr/'$RX_IBA_ADDR'/g' $PREFIX*.txt
+sed -i -- 's/rx_did/'$RX_DID'/g' $PREFIX*.txt
 sed -i -- 's/trans/'$TRANS'/g' $PREFIX*.txt
+sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
 sed -i -- 's/wr/1/g' ${PREFIX}W*.txt
 sed -i -- 's/wr/0/g' ${PREFIX}R*.txt
 
-## now create the "run all scripts" script files...
+## now create the "run all scripts" script files, for read lantency files only
 
-DIR=(read write)
+DIR=(read)
 declare -a file_list
 
 for direction in "${DIR[@]}"

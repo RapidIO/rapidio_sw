@@ -29,8 +29,10 @@ SIZE=("1" "2" "4" "8")
 
 BYTES=("400000" "400000" "400000" "400000")
 
-IBA_ADDR=20d800000
-DID=0
+TX_IBA_ADDR=20d800000
+TX_DID=0
+RX_IBA_ADDR=20d800000
+RX_DID=1
 TRANS=0
 WAIT_TIME=65
 
@@ -127,8 +129,10 @@ do
 	idx=($idx)+1
 done
 
-sed -i -- 's/iba_addr/'$IBA_ADDR'/g' $PREFIX*.txt
-sed -i -- 's/did/'$DID'/g' $PREFIX*.txt
+sed -i -- 's/tx_iba_addr/'$TX_IBA_ADDR'/g' $PREFIX*.txt
+sed -i -- 's/tx_did/'$TX_DID'/g' $PREFIX*.txt
+sed -i -- 's/rx_iba_addr/'$RX_IBA_ADDR'/g' $PREFIX*.txt
+sed -i -- 's/rx_did/'$RX_DID'/g' $PREFIX*.txt
 sed -i -- 's/trans/'$TRANS'/g' $PREFIX*.txt
 sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
 sed -i -- 's/wr/1/g' ${PREFIX}W*.txt
