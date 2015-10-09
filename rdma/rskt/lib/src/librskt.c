@@ -1319,6 +1319,12 @@ uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 					uint32_t buf_sz)
 {
 	uint32_t avail_bytes = 0;
+
+	if (hdr == NULL) {
+		CRIT("hdr is NULL\n");
+		return 0;
+	}
+
 	uint32_t rrw = ntohl(hdr->rem_rx_wr_ptr);
 	uint32_t lrr = ntohl(hdr->loc_rx_rd_ptr);
 
