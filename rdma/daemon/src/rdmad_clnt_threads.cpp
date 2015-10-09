@@ -92,8 +92,8 @@ static int send_destroy_ms_to_lib(
 
 	/* Prepare POSIX message queue name */
 	char	mq_name[CM_MS_NAME_MAX_LEN+2];
-	mq_name[0] = '/';
-	strcpy(&mq_name[1], server_ms_name);
+	strcpy(&mq_name[0], "/dest-");
+	strcpy(&mq_name[6], server_ms_name);
 
 	/* Open destroy/destroy-ack message queue */
 	msg_q<mq_destroy_msg>	*destroy_mq;
