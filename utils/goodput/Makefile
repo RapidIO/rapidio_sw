@@ -44,7 +44,8 @@ export LOG_LEVEL
 CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 	-pthread -DRDMA_LL=7
 
-#CCFLAGS+=-pg -ggdb
+#CCFLAGS+=-pg
+#CCFLAGS+=-DDEBUG_BD
 
 INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c

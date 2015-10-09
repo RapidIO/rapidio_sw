@@ -37,8 +37,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sched.h>
 #include <sys/syscall.h>   /* For SYS_xxx definitions */
 
-#include <map>
-#include <vector>
 #include <stdexcept>
 #include <string>
 #include <sstream>
@@ -89,7 +87,9 @@ public:
       uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
   } DmaOptions_t;
 
+  static const uint32_t WI_SIG = 0xb00fd00fL;
   typedef struct {
+    uint32_t valid;
     DmaOptions_t       opt;
     RioMport::DmaMem_t mem;
     // add actions here
@@ -97,7 +97,9 @@ public:
     uint32_t t2_rddata_len;
   } WorkItem_t;
 
+  static const uint32_t COMPL_SIG = 0xf00fb00fL;
   typedef struct {
+    uint32_t valid;
     uint64_t win_handle;
     uint32_t fifo_offset;
     uint64_t ts_end;
@@ -147,11 +149,7 @@ public:
 
   inline uint32_t queueSize()
   {
-    pthread_spin_lock(&m_bl_splock);
-    const int SZ = m_bl_busy_size;
-    pthread_spin_unlock(&m_bl_splock);
-
-    return SZ;
+    return m_bl_busy_size;
   }
 
   inline void switch_evlog(bool x) { m_keep_evlog = x; if(x) m_evlog.reserve(20000000); else m_evlog.clear(); }
@@ -177,7 +175,7 @@ public:
   void shutdown();
   void init();
 
-  int scanFIFO(std::vector<WorkItem_t>& completed_work);
+  int scanFIFO(WorkItem_t* completed_work, const int max_work);
 
 public: // XXX test-public, make this section private
 
@@ -247,11 +245,8 @@ public:
     // XXX we have control over the soft m_dma_wr but how to divine the read pointer?
     //     that should come from the completion FIFO but for now we brute-force it!
   
-    pthread_spin_lock(&m_bl_splock);
-    const int SZ = m_bl_busy_size;
-    pthread_spin_unlock(&m_bl_splock);
-  
-    return SZ == (m_bd_num+1); // account for T3 BD as well
+    //return SZ == (m_bd_num+1); // account for T3 BD as well
+    return m_bl_busy_size == m_bd_num; // account for T3 BD as well
   }
   
   inline bool dmaCheckAbort(uint32_t& abort_reason)
@@ -311,7 +306,7 @@ private:
   std::string         m_evlog;
   pthread_spinlock_t  m_evlog_splock; ///< Serialize access to event log
   
-  std::map<uint64_t, WorkItem_t> m_pending_work;
+  WorkItem_t*         m_pending_work;
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason);
 

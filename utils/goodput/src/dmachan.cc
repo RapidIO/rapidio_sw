@@ -37,12 +37,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sched.h>
 #include <sys/syscall.h>   /* For SYS_xxx definitions */
 
-#include <map>
-#include <vector>
 #include <stdexcept>
 #include <string>
 #include <sstream>
-#include <algorithm> // std::sort
 
 #include "IDT_Tsi721.h"
 
@@ -244,18 +241,13 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   if (umdemo_must_die)
 	return false;
  trace_dmachan(0x200, 3);
+
+  const int bd_idx = m_dma_wr % m_bd_num;
   {{
-    const int bd_idx = m_dma_wr % (m_bd_num+1);
-
-#if 0
-    DBG("\n\tDMA hw RP = %d | soft RP = %d | soft WP = %d | bd_idx = %d\n",
-         getReadCount(), getSoftReadCount(true), m_dma_wr, bd_idx);
-#endif
-
     // check-modulo in m_bl_busy[] if bd_idx is still busy!!
     if(m_bl_busy[bd_idx]) {
       pthread_spin_unlock(&m_bl_splock); 
-#if 0
+#ifdef DEBUG_BD
       INFO("\n\tDMA TX queueDmaOpT?: BD %d still busy!\n", bd_idx);
 #endif
       return false;
@@ -273,7 +265,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     trace_dmachan(0x200, 4);
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
-    if(((m_dma_wr+1) % (m_bd_num+1)) == 0) { // skip T3
+    if(((m_dma_wr+1) % m_bd_num) == 0) { // skip T3
       wk_end.opt.bd_wp = m_dma_wr;
 
       wk_end.opt.ts_start = rdtsc();
@@ -290,22 +282,27 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   }
 
   WorkItem_t wk; memset(&wk, 0, sizeof(wk));
-  wk.mem = mem; wk.opt = opt;
-
-  const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
+  wk.mem = mem; wk.opt = opt; wk.valid = WI_SIG;
 
   pthread_spin_lock(&m_pending_work_splock);
-  m_pending_work[m_dmadesc.win_handle + offset] = wk;
+  m_pending_work[bd_idx] = wk;
 
   if(queued_T3) {
     wk_end.opt.dtype = DTYPE3;
+    wk_end.valid = WI_SIG;
     m_pending_work[m_T3_bd_hw] = wk_end;
   }
   pthread_spin_unlock(&m_pending_work_splock);
 
-  // DBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n", wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.opt.bd_wp);
+#ifdef DEBUG_BD
+  const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
+
+  DBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n",
+      wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.opt.bd_wp);
+
   if(queued_T3)
-    // DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_T3_bd_hw, wk_end.opt.bd_wp);
+     DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_T3_bd_hw, wk_end.opt.bd_wp);
+#endif
 
     trace_dmachan(0x200, 5);
   return true;
@@ -350,15 +347,17 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
   m_bl_busy = (bool*)calloc(m_bd_num, sizeof(bool));
   m_bl_busy_size = 0;
 
+  m_pending_work = (WorkItem_t*)calloc(m_bd_num+1, sizeof(WorkItem_t)); // +1 to have a guard, NOT used
+
   memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
 
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
-    ((uint8_t*)m_dmadesc.win_ptr + (m_bd_num * DMA_BUFF_DESCR_SIZE));
+    ((uint8_t*)m_dmadesc.win_ptr + ((m_bd_num-1) * DMA_BUFF_DESCR_SIZE));
 
-#if 0
+#ifdef DEBUG_BD
   DBG("\n\tWrap BD DTYPE3 @ HW 0x%lx [idx=%d] points back to HW 0x%lx\n",
-      m_dmadesc.win_handle + (m_bd_num *DMA_BUFF_DESCR_SIZE),
-      m_bd_num, m_dmadesc.win_handle);
+      m_dmadesc.win_handle + ((m_bd_num-1) *DMA_BUFF_DESCR_SIZE),
+      m_bd_num-1, m_dmadesc.win_handle);
 #endif
 
   // Initialize DMA descriptors ring using added link descriptor 
@@ -368,7 +367,7 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 
   end_bd.pack(end_bd_p); // XXX mask off lowest 5 bits
 
-  m_T3_bd_hw = m_dmadesc.win_handle + (m_bd_num * DMA_BUFF_DESCR_SIZE);
+  m_T3_bd_hw = m_bd_num-1;
 
   // Setup DMA descriptor pointers
   wr32dmachan(TSI721_DMAC_DPTRH, (uint64_t)m_dmadesc.win_handle >> 32);
@@ -541,8 +540,15 @@ void DMAChannel::cleanup()
   memset(&m_dmadesc, 0, sizeof(m_dmadesc));
   memset(&m_dmacompl, 0, sizeof(m_dmacompl));
   
+  if(m_pending_work != NULL) {
+    assert(m_pending_work[m_bd_num].valid == 0);
+    free(m_pending_work); m_pending_work = NULL;
+  }
 
-  free(m_bl_busy); m_bl_busy = NULL; m_bl_busy_size = -1;
+  if(m_bl_busy != NULL) {
+    free(m_bl_busy); m_bl_busy = NULL;
+    m_bl_busy_size = -1;
+  }
 
   m_evlog.clear();
 }
@@ -583,9 +589,10 @@ void hexdump4byte(const char* msg, uint8_t* d, int len)
   }
 }
 
-int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
+int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 {
-  std::vector<DmaCompl_t> compl_hwbuf;
+  int        compl_size = 0;
+  DmaCompl_t compl_hwbuf[m_bd_num*2];
 
   m_fifo_scan_cnt++;
 
@@ -603,7 +610,8 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
           DmaCompl_t c;
           c.ts_end = rdtsc();
           c.win_handle = sts_ptr[i]; c.fifo_offset = i;
-          compl_hwbuf.push_back(c);
+          c.valid = COMPL_SIG;
+          compl_hwbuf[compl_size++] = c;
           sts_ptr[i] = 0;
           evlog('F');
       }
@@ -613,44 +621,80 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
       j = m_fifo_rd * 8;
   }
 
-  if(compl_hwbuf.empty()) {
+  if(compl_size == 0) {
     // No hw pointer to advance
     return 0;
   }
 
-  std::vector<DmaCompl_t>::iterator itv = compl_hwbuf.begin();
-  for(; itv != compl_hwbuf.end(); itv++) {
-    pthread_spin_lock(&m_pending_work_splock);
-  if (umdemo_must_die)
-	return 0;
+  const uint64_t HW_END = m_dmadesc.win_handle + m_dmadesc.win_size;
 
-    std::map<uint64_t, WorkItem_t>::iterator itm = m_pending_work.find(itv->win_handle);
-    if(itm == m_pending_work.end()) {
+  int cwi = 0; // completed work index
+
+  for(int ci = 0; ci < compl_size; ci++) {
+    pthread_spin_lock(&m_pending_work_splock);
+
+if (umdemo_must_die) return 0;
+
+    if(compl_hwbuf[ci].valid != COMPL_SIG) {
       pthread_spin_unlock(&m_pending_work_splock);
-      ERR("Can't find BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
-          itv->win_handle, itv->fifo_offset,
+      ERR("\n\tFound INVALID completion iten for BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+          compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
           getFIFOReadCount(), getFIFOWriteCount());
       continue;
     }
 
-    WorkItem_t item = itm->second; // XXX with the spinlock in mind we make a copy here
-    m_pending_work.erase(itm);
+    if(compl_hwbuf[ci].win_handle < m_dmadesc.win_handle || compl_hwbuf[ci].win_handle >= HW_END) {
+      pthread_spin_unlock(&m_pending_work_splock);
+      ERR("\n\tCan't find BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+          compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
+          getFIFOReadCount(), getFIFOWriteCount());
+      continue;
+    }
+
+    const int idx = (compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE; // This should be optimised by g++
+    if(idx < 0 || idx >= m_bd_num) {
+      pthread_spin_unlock(&m_pending_work_splock);
+      ERR("\n\tCan't find bd_idx=%d IN RANGE for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+          idx,
+          compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
+          getFIFOReadCount(), getFIFOWriteCount());
+      continue;
+    }
+
+    if(! m_pending_work[idx].valid) {
+      pthread_spin_unlock(&m_pending_work_splock);
+      ERR("\n\tCan't find VALID entry for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+          compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
+          getFIFOReadCount(), getFIFOWriteCount());
+      continue;
+    }
+
+    WorkItem_t item = m_pending_work[idx]; // XXX with the spinlock in mind we make a copy here
+    m_pending_work[idx].valid = 0xdeadbeefL;
 
     pthread_spin_unlock(&m_pending_work_splock);
 
-    item.opt.ts_end = itv->ts_end;
+#ifdef DEBUG_BD
+    DBG("\n\tFound idx=%d for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+          idx,
+          compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
+          getFIFOReadCount(), getFIFOWriteCount());
+#endif
+
+    item.opt.ts_end = compl_hwbuf[ci].ts_end;
 
     if(item.opt.dtype == DTYPE2 && item.opt.rtype == NREAD) {
       struct hw_dma_desc* bd = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + item.opt.bd_wp;;
       memcpy(item.t2_rddata, bd->data, 16);
       item.t2_rddata_len = le32(bd->bcount & 0xf);
     }
-    completed_work.push_back(item);
+    completed_work[cwi++] = item;
+    if(cwi == max_work) break;
 
     // BDs might be completed out of order.
     pthread_spin_lock(&m_bl_splock); 
-  if (umdemo_must_die)
-	return 0;
+if (umdemo_must_die) return 0;
+
     m_bl_busy[item.opt.bd_idx] = false; m_bl_busy_size--;
     pthread_spin_unlock(&m_bl_splock); 
   }
@@ -658,5 +702,5 @@ int DMAChannel::scanFIFO(std::vector<WorkItem_t>& completed_work)
   // Before advancing FIFO RP I must have a "barrier" so no "older" BDs exist.
 
   wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
-  return compl_hwbuf.size();
+  return cwi;
 }
