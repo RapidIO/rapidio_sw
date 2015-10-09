@@ -4,9 +4,7 @@
 #include <csignal>
 #include <cstring>
 
-#include <vector>
-#include <algorithm>
-
+#include "ts_vector.h"
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
 #include "librsktd_private.h"
@@ -16,7 +14,6 @@
 
 #include "rskt_sock.h"
 
-using std::vector;
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +29,7 @@ struct rskt_ti
 };
 
 static rskt_server *prov_server = nullptr;
-static vector<rskt_server *>	other_servers;
+static ts_vector<pthread_t> worker_threads;
 
 void sig_handler(int sig)
 {
@@ -59,9 +56,11 @@ void sig_handler(int sig)
 		return;
 	}
 
-	for_each(begin(other_servers),
-		 end(other_servers),
-		 [](rskt_server *server){delete server;});
+	for (unsigned i = 0; i < worker_threads.size(); i++) {
+		pthread_kill(worker_threads[i], SIGUSR1);
+		pthread_join(worker_threads[i], NULL);
+	}
+	worker_threads.clear();
 
 	if (prov_server != nullptr)
 		delete prov_server;
@@ -87,7 +86,6 @@ void *rskt_thread_f(void *arg)
 		sem_post(&ti->started);
 		pthread_exit(0);
 	}
-	other_servers.push_back(other_server);
 
 	sem_post(&ti->started);
 
