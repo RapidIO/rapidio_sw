@@ -1,0 +1,41 @@
+kill all
+wait 0 d
+wait 1 d
+wait 2 d
+wait 3 D
+wait 4 D
+wait 5 D
+wait 6 D
+wait 7 0
+t 0 0 1
+t 1 1 1
+t 2 2 1
+t 3 3 1
+t 4 4 1
+t 5 5 1
+wait 0 h
+wait 1 H
+wait 2 2
+wait 3 h
+wait 4 h
+wait 5 h
+dma 0 did iba_addr bytes acc_size wr 1 trans 0
+dma 1 did iba_addr bytes acc_size wr 1 trans 0
+dma 2 did iba_addr bytes acc_size wr 1 trans 0
+dma 3 did iba_addr bytes acc_size wr 1 trans 0
+dma 4 did iba_addr bytes acc_size wr 1 trans 0
+dma 5 did iba_addr bytes acc_size wr 1 trans 0
+wait 0 r
+wait 1 r
+wait 2 r
+wait 3 r
+wait 4 r
+wait 5 r
+g
+g c
+g
+echo dma bytes acc_size
+sleep 1
+echo dma bytes acc_size
+g
+
