@@ -1887,11 +1887,10 @@ __sync_synchronize();
 	/* Save server_msid since we need to store that in the databse */
 	uint32_t server_msid = accept_msg->server_msid;
 
-	/* Accept message queue is no longer needed */
-	delete accept_mq;
-
 	/* Create a message queue for the 'destroy' message */
+	mq_name.insert(1, "dest-");
 	msg_q<mq_destroy_msg>	*destroy_mq;
+	DBG("Creating destroy_mq named '%s'\n", mq_name.c_str());
 	try {
 		destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_CREATE);
 	}
@@ -1910,6 +1909,7 @@ __sync_synchronize();
 		WARN("Failed to create client_wait_for_destroy_thread: %s\n",
 							strerror(errno));
 		delete destroy_mq;
+		delete accept_mq;
 		return RDMA_MALLOC_FAIL;
 	}
 	INFO("client_wait_for_destroy_thread created.\n");
@@ -1925,6 +1925,9 @@ __sync_synchronize();
 		delete destroy_mq;
 		return RDMA_DB_ADD_FAIL;
 	}
+
+	/* Accept message queue is no longer needed */
+	delete accept_mq;
 
 	INFO("EXIT\n");
 	return 0;
@@ -2093,7 +2096,6 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 	INFO("Dest RIO addr =  %016" PRIx64 ", lmsub->paddr = %016" PRIx64 "\n",
 					rmsub->rio_addr_lo + in->rem_offset,
 					lmsub->paddr);
-
 	/* Determine sync type */
 	enum riomp_dma_directio_transfer_sync rd_sync;
 
