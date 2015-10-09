@@ -51,6 +51,10 @@ void sig_handler(int sig)
 		puts("SIGTERM - kill <pid> signal");
 	break;
 
+	case SIGUSR1:	/* pthread_kill() */
+	/* Ignore signal */
+	return;
+
 	default:
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
 		return;
@@ -101,6 +105,7 @@ void *rskt_thread_f(void *arg)
 			delete other_server;
 			worker_threads.remove(ti->tid);
 			delete ti;
+			DBG("Exiting thread\n");
 			pthread_exit(0);
 		}
 
