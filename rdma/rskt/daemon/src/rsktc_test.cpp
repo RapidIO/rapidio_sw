@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 
 	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
 	if (rc) {
-		puts("failed in librskt_init");
+		CRIT("failed in librskt_init, rc = %d\n", rc);
 		return 1;
 	}
 
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 		ERR("Failed to create client: %s\n", e.err);
 		return 1;
 	}
-	DBG("Client created.");
+	DBG("Client created.\n");
 	DBG("Connecting to server on destid(0x%X) on socket %d\n",
 		destid, socket_number);
 	if (client->connect(destid, socket_number)) {

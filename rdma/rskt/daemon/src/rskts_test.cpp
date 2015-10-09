@@ -120,7 +120,7 @@ int run_server()
 {
 	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
 	if (rc) {
-		CRIT("failed in librskt_init");
+		CRIT("failed in librskt_init, rc = %d\n", rc);
 		return -1;
 	}
 
@@ -131,7 +131,6 @@ int run_server()
 		ERR("Failed to create prov_server: %s\n", e.err);
 		return 1;
 	}
-
 
 	puts("Provisioning server created...now accepting connections...");
 	rskt_h acc_socket;
