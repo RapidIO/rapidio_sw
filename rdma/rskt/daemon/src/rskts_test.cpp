@@ -67,7 +67,7 @@ void *rskt_thread_f(void *arg)
 
 	rskt_ti *ti = (rskt_ti *)arg;
 
-	INFO("Creating other server object...");
+	INFO("Creating other server object...\n");
 	rskt_server *other_server;
 	try {
 		other_server = new rskt_server("other_server", ti->accept_socket);
@@ -82,7 +82,7 @@ void *rskt_thread_f(void *arg)
 
 	while (1) {
 		/* Wait for data from clients */
-		INFO("Waiting to receive from client...");
+		INFO("Waiting to receive from client...\n");
 
 		int received_len = other_server->receive(RSKT_DEFAULT_RECV_BUF_SIZE);
 		if ( received_len < 0) {
