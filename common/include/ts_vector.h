@@ -50,6 +50,20 @@ public:
 		return result;
 	}
 
+	T operator[](unsigned i)
+	{
+		return v[i];
+	}
+
+	void clear()
+	{
+		v.clear();
+	}
+
+	size_t size() const
+	{
+		return v.size();
+	}
 private:
 	vector<T>	v;
 	pthread_mutex_t	lock;
