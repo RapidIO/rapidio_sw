@@ -1,0 +1,21 @@
+kill all
+wait 0 0
+wait 1 0
+wait 2 0
+wait 3 0
+wait 4 0
+wait 5 0
+wait 6 0
+wait 7 0
+t 0 3 0
+wait 0 2
+dma 0 did iba_addr bytes acc_size wr 1 trans 0
+wait 0 1
+g
+g c
+g
+echo DMA THROUGHPUT bytes acc_size wr
+sleep 30
+echo DMA THROUGHPUT bytes acc_size wr
+g
+st
