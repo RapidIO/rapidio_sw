@@ -57,7 +57,7 @@ void sig_handler(int sig)
 	}
 
 	/* Kill all worker threads */
-	DBG("Killing active worker threads\n");
+	DBG("Killing %u active worker threads\n", worker_threads.size());
 	for (unsigned i = 0; i < worker_threads.size(); i++) {
 		pthread_kill(worker_threads[i], SIGUSR1);
 		pthread_join(worker_threads[i], NULL);

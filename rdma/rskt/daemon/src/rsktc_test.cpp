@@ -141,6 +141,7 @@ int main(int argc, char *argv[])
 		/* Send data to server */
 		if (client->send(data_length)) {
 			ERR("Failed to send message\n");
+			delete client;
 			return 3;
 		}
 		DBG("Test data sent to server\n");
@@ -148,6 +149,7 @@ int main(int argc, char *argv[])
 		/* Receive data back from server */
 		if (client->receive(data_length) < 0) {
 			ERR("Failed to receive message\n");
+			delete client;
 			return 4;
 		}
 		DBG("Echoed data received from server\n");
