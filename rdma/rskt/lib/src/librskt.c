@@ -42,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include <signal.h>
 #include <netinet/in.h>
 #include "librskt_private.h"
 #include "librskt_test.h"
@@ -171,6 +172,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	};
 
 	free(rsvp);
+	DBG("Returning!\n");
 	return rc;
 fail:
 	if (NULL != li) {
@@ -308,7 +310,6 @@ void *rsvp_loop(void *unused)
 		if (rxd->msg_type & htonl(LIBRSKTD_RESP | LIBRSKTD_FAIL)) {
 			rsvp_loop_resp(rxd);
 		} else {
-			DBG("msg_type is OK\n");
 			rsvp_loop_req(rxd);
 			rxd = (struct librskt_rsktd_to_app_msg *)
 				malloc(RSKTD2A_SZ);
@@ -519,11 +520,13 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	lib.addr.sun_family = AF_UNIX;
 	snprintf(lib.addr.sun_path, sizeof(lib.addr.sun_path) - 1,
 		LIBRSKTD_SKT_FMT, rsktd_port, rsktd_mpnum);
+	DBG("Attempting to connect to RSKTD via Unix sockets\n");
 	if (connect(lib.fd, (struct sockaddr *) &lib.addr, 
 				lib.addr_sz)) {
 		ERR("ERROR on librskt_init connect: %s\n", strerror(errno));
 		goto fail;
 	};
+	DBG("CONNECTED to RSKTD\n");
 
 	lib.all_must_die = 0;
 
@@ -601,6 +604,20 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 fail:
 	DBG("EXIT\n");
 	return -!((lib.init_ok == lib.portno) && (lib.portno));
+};
+
+int librskt_finish(void)
+{
+	/* Close socket connection to RSKTD */
+	close(lib.fd);
+
+	/* Kill active threads */
+	pthread_kill(lib.tx_thr, SIGUSR1);
+	pthread_kill(lib.rsvp_thr, SIGUSR1);
+	pthread_kill(lib.req_thr, SIGUSR1);
+	pthread_kill(lib.tx_thr, SIGUSR1);
+
+	return 0;
 };
 
 int lib_uninit(void)
@@ -1007,6 +1024,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	struct rskt_socket_t *skt;
 	int temp_errno;
 	int rc = -1;
+	int conn_retries = 5;
 
 	if (lib_uninit()) {
 		CRIT("lib_uninit() failed..exiting\n");
@@ -1114,18 +1132,15 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		goto close;
 	}
 
-	rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
+	do {
+		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
 				skt->con_msh_name, skt->msubh, 
 				&skt->con_msubh, &skt->con_sz,
 				&skt->con_msh, 1);
-	if (rc == RDMA_CONNECT_TIMEOUT)
-		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
-					skt->con_msh_name, skt->msubh,
-					&skt->con_msubh, &skt->con_sz,
-					&skt->con_msh, 0);
+	} while (rc == RDMA_CONNECT_TIMEOUT && conn_retries--);
+
 	if (rc) {
-		if (rc == RDMA_CONNECT_TIMEOUT)
-		ERR("rdma_conn_ms_h() failed..closing\n");
+		ERR("rdma_conn_ms_h() failed, rc = %d..closing\n", rc);
 		goto close;
 	}
 
@@ -1321,6 +1336,12 @@ uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 					uint32_t buf_sz)
 {
 	uint32_t avail_bytes = 0;
+
+	if (hdr == NULL) {
+		CRIT("hdr is NULL\n");
+		return 0;
+	}
+
 	uint32_t rrw = ntohl(hdr->rem_rx_wr_ptr);
 	uint32_t lrr = ntohl(hdr->loc_rx_rd_ptr);
 

@@ -1,0 +1,18 @@
+kill all
+wait 0 0
+wait 1 0
+wait 2 0
+wait 3 0
+wait 4 0
+wait 5 0
+wait 6 0
+wait 7 0
+t 0 3 0
+wait 0 2
+dR 0 tx_did tx_iba_addr acc_size
+wait 0 1
+echo DMA LATENCY RECEIVER bytes acc_size RUNNING!
+sleep wait_time
+echo DMA LATENCY RECEIVER bytes acc_size STATUS
+wait 0 1
+st

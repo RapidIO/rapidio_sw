@@ -16,7 +16,6 @@
 using namespace std;
 
 static unix_server *server;
-static unix_server *other_server;
 
 struct rpc_ti
 {
@@ -146,7 +145,8 @@ int main(int argc, char *argv[])
 	signal(SIGABRT, sig_handler);
 
 	int ret = run_rpc_alternative();
-	printf("run_rpc_alternative failed (%d)!\n", ret);
+	if (ret)
+		printf("run_rpc_alternative failed (%d)!\n", ret);
 
 	return 0;
 }
