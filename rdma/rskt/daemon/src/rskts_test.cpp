@@ -56,6 +56,8 @@ void sig_handler(int sig)
 		return;
 	}
 
+	/* Kill all worker threads */
+	DBG("Killing active worker threads\n");
 	for (unsigned i = 0; i < worker_threads.size(); i++) {
 		pthread_kill(worker_threads[i], SIGUSR1);
 		pthread_join(worker_threads[i], NULL);
@@ -97,6 +99,7 @@ void *rskt_thread_f(void *arg)
 		if ( received_len < 0) {
 			ERR("Failed to receive, rc = %d\n", received_len);
 			delete other_server;
+			worker_threads.remove(ti->tid);
 			delete ti;
 			pthread_exit(0);
 		}
@@ -173,12 +176,14 @@ int run_server()
 			delete ti;
 			return -6;
 		}
+		worker_threads.push_back(ti->tid);
+		DBG("Now %u threads in action\n", worker_threads.size());
 		sem_wait(&ti->started);
 	} /* while */
 
 	/* Not reached! */
 	return 0;
-}
+} /* run_server */
 
 int main(int argc, char *argv[])
 {
