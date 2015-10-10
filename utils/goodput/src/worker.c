@@ -1253,7 +1253,6 @@ extern char* dma_rtype_str[];
 void *umd_dma_fifo_proc_thr(void *parm)
 {
 	struct worker *info;
-        std::vector<DMAChannel::WorkItem_t>::iterator it;
 
 	if (NULL == parm)
 		goto exit;
@@ -1262,6 +1261,9 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	if (NULL == info->umd_dch)
 		goto exit;
 	
+	DMAChannel::WorkItem_t wi[info->umd_tx_buf_cnt*2];
+	memset(wi, 0, sizeof(DMAChannel::WorkItem_t)*info->umd_tx_buf_cnt*2);
+
 	migrate_thread_to_cpu(&info->umd_fifo_thr);
 
 	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
@@ -1271,9 +1273,7 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	sem_post(&info->umd_fifo_proc_started); 
 
 	while (!info->umd_fifo_proc_must_die) {
-                std::vector<DMAChannel::WorkItem_t> wi;
-
-		const int cnt = info->umd_dch->scanFIFO(wi);
+		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_tx_buf_cnt*2);
 
 		if (!cnt) 
 			continue;
@@ -1284,8 +1284,8 @@ void *umd_dma_fifo_proc_thr(void *parm)
 			info->fifo_ts_idx++;
 		};
 
-		for (it = wi.begin(); it != wi.end(); it++) {
-			DMAChannel::WorkItem_t& item = *it;
+		for (int i = 0; i < cnt; i++) {
+			DMAChannel::WorkItem_t& item = wi[i];
 
 			switch (item.opt.dtype) {
 			case DTYPE1:
@@ -1299,6 +1299,8 @@ void *umd_dma_fifo_proc_thr(void *parm)
 					item.opt.dtype, item.opt.bd_wp);
 				break;
       			}
+
+			wi[i].valid = 0xdeadabba;
                 } // END for WorkItem_t vector
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 	} // END while
@@ -2130,6 +2132,9 @@ static inline bool umd_dma_goodput_latency_demo_SLAVE(struct worker *info, const
 	assert(info->ib_ptr);
 	assert(info->dmamem[oi].win_ptr);
 
+        DMAChannel::WorkItem_t wi[info->umd_tx_buf_cnt*2];
+        memset(wi, 0, sizeof(DMAChannel::WorkItem_t)*info->umd_tx_buf_cnt*2);
+
 	bool q_was_full = false;
 
 	INFO("\n\tPolling %p for Master transfer\n", info->ib_ptr);
@@ -2153,8 +2158,7 @@ static inline bool umd_dma_goodput_latency_demo_SLAVE(struct worker *info, const
 	if(! queueDmaOp(info, oi, cnt, q_was_full)) return false;
 
 	INFO("\n\tPolling FIFO transfer completion\n", 0);
-	std::vector<DMAChannel::WorkItem_t> wi;
-	while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi) == 0) { ; }
+	while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_tx_buf_cnt*2) == 0) { ; }
 
 	return true;
 }
@@ -2164,6 +2168,9 @@ static inline bool umd_dma_goodput_latency_demo_MASTER(struct worker *info, cons
 	assert(info);
 	assert(info->ib_ptr);
 	assert(info->dmamem[oi].win_ptr);
+
+        DMAChannel::WorkItem_t wi[info->umd_tx_buf_cnt*2];
+        memset(wi, 0, sizeof(DMAChannel::WorkItem_t)*info->umd_tx_buf_cnt*2);
 
 	bool q_was_full = false;
 
@@ -2178,8 +2185,7 @@ static inline bool umd_dma_goodput_latency_demo_MASTER(struct worker *info, cons
 	if(! queueDmaOp(info, oi, cnt, q_was_full)) return false;
 
 	INFO("\n\tPolling FIFO transfer completion\n", 0);
-	std::vector<DMAChannel::WorkItem_t> wi;
-	while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi) == 0) { ; }
+	while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_tx_buf_cnt*2) == 0) { ; }
 
 	if(info->stop_req) return false;
 
