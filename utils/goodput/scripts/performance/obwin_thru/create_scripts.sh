@@ -130,7 +130,7 @@ do
 
 	echo "#!/bin/bash" > $scriptname
 	echo "#  This script runs all "$DIR_NAME $direction" scripts." >> $scriptname
-	echo "log "$scriptname".log" >> $scriptname
+	echo "log "$DIR_NAME"_"$direction".log" >> $scriptname
 	echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
 
 	for pfx in ${PREFIXES[@]}
@@ -150,6 +150,7 @@ do
 		done
 	done
 	echo "close" >> $scriptname
+	echo "scrp scripts/performance/" >> $scriptname
 done
 
 ls ../$DIR_NAME*

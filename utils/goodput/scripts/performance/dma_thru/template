@@ -16,6 +16,7 @@ g c
 g
 echo DMA THROUGHPUT bytes acc_size wr
 sleep wait_time
+wait 0 1
+st
 echo DMA THROUGHPUT bytes acc_size wr
 g
-st

@@ -17,5 +17,6 @@ g
 echo OBDIO bytes acc_size
 sleep wait_time
 echo OBDIO bytes acc_size
-g
+wait 0 r
 st
+g
