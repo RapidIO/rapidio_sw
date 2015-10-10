@@ -4,14 +4,14 @@
 // to be run.
 //
 kill all
-wait 0 r
-wait 1 r
-wait 2 r
-wait 3 r
-wait 4 r
-wait 5 r
-wait 6 r
-wait 7 r
+wait 0 d
+wait 1 d
+wait 2 d
+wait 3 d
+wait 4 d
+wait 5 d
+wait 6 d
+wait 7 d
 t 0 0 0
 wait 0 h
 IBA 0 bytes

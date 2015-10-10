@@ -1,19 +1,23 @@
 kill all
-wait 0 0
-wait 1 0
-wait 2 0
-wait 3 0
-wait 4 0
-wait 5 0
-wait 6 0
-wait 7 0
+wait 0 d
+wait 1 d
+wait 2 d
+wait 3 d
+wait 4 d
+wait 5 d
+wait 6 d
+wait 7 d
 t 0 3 0
-wait 0 2
+wait 0 h
+IBA 0 bytes
+wait 0 r
+wait 0 h
 dT 0 rx_did rx_iba_addr acc_size wr 1 trans
-wait 0 1
+wait 0 r
 lat
 echo DMA LATENCY acc_size wr TRANSMIT
 sleep wait_time
-lat
-wait 0 1
+wait 0 r
 st
+lat
+echo DMA LATENCY acc_size wr TRANSMIT

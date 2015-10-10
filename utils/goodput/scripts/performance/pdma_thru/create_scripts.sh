@@ -137,7 +137,7 @@ do
 
 	echo "#!/bin/bash" > $scriptname
 	echo "#  This script runs all "$DIR_NAME $direction" scripts." >> $scriptname
-	echo "log "$scriptname".log" >> $scriptname
+	echo "log "$DIR_NAME"_"$direction".log" >> $scriptname
 	echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
 
 	idx=0
