@@ -121,7 +121,7 @@ struct riocp_pe_switch {
 	int (*set_route_entry)(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint8_t port);
 	int (*get_route_entry)(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint8_t *port);
 	int (*clear_lut)(struct riocp_pe *sw, uint8_t lut);
-	int (*get_lane_speed)(struct riocp_pe *sw, uint8_t port, uint32_t *speed);
+	int (*get_lane_speed)(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed *speed);
 	int (*get_lane_width)(struct riocp_pe *sw, uint8_t port, uint8_t *width);
 	int (*get_port_state)(struct riocp_pe *sw, uint8_t port, riocp_pe_port_state_t *state);
 	int (*event_handler)(struct riocp_pe *sw, struct riomp_mgmt_event *revent, struct riocp_pe_event *event);

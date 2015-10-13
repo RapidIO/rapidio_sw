@@ -59,13 +59,24 @@ typedef struct riocp_pe *riocp_pe_handle;
 #define RIOCP_PE_PORT_STATE_ERROR		(1<<2) /* Port in error */
 typedef uint32_t riocp_pe_port_state_t;
 
+/* link, lane, port speed defintions */
+enum riocp_pe_speed {
+	RIOCP_SPEED_AUTO = -1,		/* automatic speed selection */
+	RIOCP_SPEED_UNKNOWN = 0,		/* automatic speed selection */
+	RIOCP_SPEED_1_25G = 1250,	/* 1.25 GBaud */
+	RIOCP_SPEED_2_5G = 2500,	/* 2.5 GBaud */
+	RIOCP_SPEED_3_125G = 3125,	/* 3.125 GBaud */
+	RIOCP_SPEED_5_0G = 5000,	/* 5.0 GBaud */
+	RIOCP_SPEED_6_25G = 6250	/* 6.25 GBaud */
+};
+
 /* Structure describing a RapidIO port and its status */
 struct riocp_pe_port {
 	riocp_pe_handle pe;		/* Owner of this port */
 	struct riocp_pe_port *peer;	/* Peer port of this port (NULL=no peer) */
 	uint8_t id;			/* Physical port number */
 	uint8_t width;			/* Port lane width (x1, x2, x4, ...) */
-	uint32_t speed;			/* Lane speed in Mbaud (0=no link, 1250, ...) */
+	enum riocp_pe_speed speed;		/* Lane speed in Mbaud (0=no link, 1250, ...) */
 	riocp_pe_port_state_t state;	/* Port state */
 };
 
@@ -88,15 +99,6 @@ typedef uint32_t riocp_pe_event_mask_t;
 struct riocp_pe_event {
 	uint8_t port;                /* port identifier */
 	riocp_pe_event_mask_t event;    /* bitmask of events */
-};
-
-/* link, lane, port speed defintions */
-enum riocp_pe_speed {
-	RIOCP_SPEED_1_25G = 1250,	/* 1.25 GBaud */
-	RIOCP_SPEED_2_5G = 2500,	/* 2.5 GBaud */
-	RIOCP_SPEED_3_125G = 3125,	/* 3.125 GBaud */
-	RIOCP_SPEED_5_0G = 5000,	/* 5.0 GBaud */
-	RIOCP_SPEED_6_25G = 6250	/* 6.25 GBaud */
 };
 
 /*

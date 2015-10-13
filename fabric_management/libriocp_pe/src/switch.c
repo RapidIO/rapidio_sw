@@ -260,7 +260,7 @@ int riocp_pe_switch_clear_lut(struct riocp_pe *sw, uint8_t lut)
 		return -ENOSYS;
 }
 
-int riocp_pe_switch_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *speed)
+int riocp_pe_switch_get_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed *speed)
 {
 	if (sw->sw->get_lane_speed)
 		return sw->sw->get_lane_speed(sw, port, speed);

@@ -372,7 +372,7 @@ static int tsi57x_init_em(struct riocp_pe *sw)
 	return 0;
 }
 
-static int tsi57x_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *speed)
+static int tsi57x_get_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed *speed)
 {
 	uint32_t reg;
 	int ret;
@@ -387,16 +387,16 @@ static int tsi57x_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *sp
 
 	switch (val & TSI5xx_SMAC_CLK_SEL_SCLK_SEL_MASK) {
 	case TSI5xx_SCLK_SEL_1250:
-		*speed = 1250;
+		*speed = RIOCP_SPEED_1_25G;
 		break;
 	case TSI5xx_SCLK_SEL_2500:
-		*speed = 2500;
+		*speed = RIOCP_SPEED_2_5G;
 		break;
 	case TSI5xx_SCLK_SEL_3125:
-		*speed = 3125;
+		*speed = RIOCP_SPEED_3_125G;
 		break;
 	default:
-		*speed = 0;
+		*speed = RIOCP_SPEED_UNKNOWN;
 		RIOCP_ERROR("Invalid read lane speed: 0x%08x\n", val);
 		return -EIO;
 	}

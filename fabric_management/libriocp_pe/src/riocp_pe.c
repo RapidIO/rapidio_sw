@@ -854,16 +854,14 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 			if (ret == 1) {
 				RIOCP_DEBUG("[0x%08x:%s:hc %u] Port %u is active\n",
 					pe->comptag, RIOCP_SW_DRV_NAME(pe), pe->hopcount, i);
+			}
 
-				ret = riocp_pe_switch_get_lane_speed(pe, i, &ports[i].speed);
-				if (ret == -ENOSYS) {
-					ports[i].speed = 0;
-				} else if (ret) {
-					RIOCP_ERROR("Could not get port speed for port %u\n", i);
-					return ret;
-				}
-			} else {
-				ports[i].speed = 0;
+			ret = riocp_pe_switch_get_lane_speed(pe, i, &ports[i].speed);
+			if (ret == -ENOSYS) {
+				ports[i].speed = RIOCP_SPEED_UNKNOWN;
+			} else if (ret) {
+				RIOCP_ERROR("Could not get port speed for port %u\n", i);
+				return ret;
 			}
 
 			ret = riocp_pe_switch_get_port_state(pe, i, &ports[i].state);
@@ -908,7 +906,7 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 				RIOCP_DEBUG("[0x%08x:%s:hc %u] Port %u is inactive\n",
 					sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, pe->peers[i].remote_port);
 
-				ports[i].speed = 0;
+				ports[i].speed = RIOCP_SPEED_UNKNOWN;
 			}
 
 			ret = riocp_pe_switch_get_lane_width(sw,
@@ -1531,6 +1529,15 @@ int RIOCP_SO_ATTR riocp_pe_get_comptag(riocp_pe_handle pe,
 
 /**
  * Set the speed configuration of a port
+ *
+ * The functions changes the speed only when the
+ * new speed is not already programmed. If the autobaud
+ * speed is selected the baud detection is not triggered
+ * if there is already a port_ok state. This handling
+ * avoids link interruptions due to the low level driver
+ * speed setupt procedures on already up and running
+ * connections.
+ *
  * @param pe Target PE
  * @param port port number
  * @param speed speed value
@@ -1538,34 +1545,84 @@ int RIOCP_SO_ATTR riocp_pe_get_comptag(riocp_pe_handle pe,
  */
 int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum riocp_pe_speed speed)
 {
-	int ret = 0;
+	int ret = 0, retr;
+	unsigned int i;
+	riocp_pe_port_state_t port_state;
+	enum riocp_pe_speed current_speed;
+	enum riocp_pe_speed supported_speeds[] = {RIOCP_SPEED_1_25G, RIOCP_SPEED_2_5G, RIOCP_SPEED_3_125G, RIOCP_SPEED_5_0G, RIOCP_SPEED_6_25G};
 
-    if (riocp_pe_handle_check(pe))
-            return -EINVAL;
+	if (riocp_pe_handle_check(pe))
+		return -EINVAL;
 
-    /* get number of lanes for that port */
-    if (RIOCP_PE_IS_SWITCH(pe->cap)) {
-    	if (port >= RIOCP_PE_PORT_COUNT(pe->cap)) {
-    		ret = -EINVAL;
-        	RIOCP_ERROR("Port parameter %u exceeds number of available ports %u\n", port, RIOCP_PE_PORT_COUNT(pe->cap));
-        	goto outhere;
-    	}
-
-    	ret = riocp_pe_switch_set_port_speed(pe, port, speed);
-		if (ret) {
-			RIOCP_ERROR("Could not set port %u speed\n", port);
+	if (RIOCP_PE_IS_SWITCH(pe->cap)) {
+		if (port >= RIOCP_PE_PORT_COUNT(pe->cap)) {
+			ret = -EINVAL;
+			RIOCP_ERROR("Port parameter %u exceeds number of available ports %u\n", port, RIOCP_PE_PORT_COUNT(pe->cap));
 			goto outhere;
 		}
 
-		RIOCP_DEBUG("PE with CompTag 0x%x port %u sped changed to %u\n",
-			pe->comptag, port, speed);
+		if (speed == RIOCP_SPEED_AUTO) {
+			ret = riocp_pe_switch_get_port_state(pe, port, &port_state);
+			if (ret) {
+				RIOCP_ERROR("Could not get port %u status\n", port);
+				goto outhere;
+			}
 
-    } else {
-    	ret = -ENOTSUP;
-    	RIOCP_ERROR("Port speed setup not supported for non switch PEs\n");
-    }
+			if (port_state == RIOCP_PE_PORT_STATE_OK)
+				goto outhere;
+
+			for (i=0;i<sizeof(supported_speeds)/sizeof(supported_speeds[0]);i++) {
+				speed = supported_speeds[i];
+
+				RIOCP_DEBUG("[0x%08x:%s:hc %u] Port %u test speed %u\n",
+					pe->comptag, RIOCP_SW_DRV_NAME(pe), pe->hopcount, port, speed);
+
+				ret = riocp_pe_switch_set_port_speed(pe, port, speed);
+				if (ret) {
+					RIOCP_ERROR("Could not set port %u speed\n", port);
+					goto outhere;
+				}
+
+				retr = 20;
+				while(retr > 0) {
+					ret = riocp_pe_switch_get_port_state(pe, port, &port_state);
+					if (ret) {
+						RIOCP_ERROR("Could not get port %u status\n", port);
+						goto outhere;
+					}
+					if (port_state == RIOCP_PE_PORT_STATE_OK)
+						goto speedchg;
+					retr--;
+					usleep(10000);
+				}
+			}
+			goto outhere;
+		} else {
+			ret = riocp_pe_switch_get_lane_speed(pe, port, &current_speed);
+			if (ret) {
+				RIOCP_ERROR("Could not get port %u speed\n", port);
+				goto outhere;
+			}
+
+			if (current_speed == speed)
+				goto outhere;
+
+			ret = riocp_pe_switch_set_port_speed(pe, port, speed);
+			if (ret) {
+				RIOCP_ERROR("Could not set port %u speed\n", port);
+				goto outhere;
+			}
+		}
+speedchg:
+		RIOCP_DEBUG("[0x%08x:%s:hc %u] Port %u speed changed to %u\n",
+			pe->comptag, RIOCP_SW_DRV_NAME(pe), pe->hopcount, port, speed);
+
+	} else {
+		ret = -ENOTSUP;
+		RIOCP_ERROR("Port speed setup not supported for non switch PEs\n");
+	}
 outhere:
-    return ret;
+	return ret;
 }
 
 #ifdef __cplusplus

@@ -26,12 +26,6 @@ extern "C" {
 #define CPS1xxx_RIO_PW_DESTID_CSR		0x1028
 #define CPS1xxx_RIO_SET_PW_DESTID(destid)	((destid) << 16)
 
-#define CPS1xxx_LANE_SPEED_1_25			1250
-#define CPS1xxx_LANE_SPEED_2_5			2500
-#define CPS1xxx_LANE_SPEED_3_125		3125
-#define CPS1xxx_LANE_SPEED_5_0			5000
-#define CPS1xxx_LANE_SPEED_6_25			6250
-
 #define CPS1xxx_LANE_CTL_LANE_DIS			0x00000001
 #define CPS1xxx_LANE_CTL_RX_RATE			0x00000006
 #define CPS1xxx_LANE_CTL_RX_RATE_SHIFT			1
@@ -70,6 +64,11 @@ extern "C" {
 #define CPS1616_LANE_CTL_5_0G				0x00000014
 #define CPS1616_LANE_CTL_3_125G				0xC000000A
 #define CPS1616_LANE_CTL_6_25G				0xC0000014
+#define CPS1432_LANE_CTL_1_25G				0x00000000
+#define CPS1432_LANE_CTL_2_5G				0x0000000A
+#define CPS1432_LANE_CTL_5_0G				0x00000014
+#define CPS1432_LANE_CTL_3_125G				0x0000000A
+#define CPS1432_LANE_CTL_6_25G				0x00000014
 
 #define CPS1xxx_PORT_LINK_TO_CTL_CSR			(0x00000120)
 #define CPS1xxx_PORT_X_LINK_MAINT_REQ_CSR(x)		(0x0140 + 0x020*(x))
@@ -105,8 +104,17 @@ extern "C" {
 #define CPS1xxx_BCAST_LANE_DFE_2			(0x00ffff1c)
 
 #define CPS1xxx_DEVICE_CTL_1				(0x00f2000c)
-#define CPS1xxx_PW_CTL					(0x00f20024)
+#define CPS1xxx_PW_CTL						(0x00f20024)
 #define CPS1xxx_DEVICE_RESET_CTL			(0x00f20300)
+#define CPS1xxx_DEVICE_RESET_DO				(0x80000000)
+#define CPS1xxx_DEVICE_RESET_ALL			(0x40000000)
+#define CPS1xxx_DEVICE_RESET_PLL_SHIFT		(18)
+#define CPS1432_DEVICE_RESET_PLL_MASK		(0xff << CPS1xxx_DEVICE_RESET_PLL_SHIFT)
+#define CPS1848_DEVICE_RESET_PLL_MASK		(0xfff << CPS1xxx_DEVICE_RESET_PLL_SHIFT)
+#define CPS1xxx_DEVICE_RESET_PLL(p)			(1 << (CPS1xxx_DEVICE_RESET_PLL_SHIFT + (p)))
+#define CPS1xxx_DEVICE_RESET_PORT_SHIFT		(0)
+#define CPS1xxx_DEVICE_RESET_PORT_MASK		(0xffff << CPS1xxx_DEVICE_RESET_PORT_SHIFT)
+#define CPS1xxx_DEVICE_RESET_PORT(p)		(1 << (CPS1xxx_DEVICE_RESET_PORT_SHIFT + (p)))
 #define CPS1xxx_I2C_MASTER_STAT_CTL			(0x00f20054)
 
 #define CPS1xxx_PKT_TTL_CSR				(0x0000102C)
@@ -360,6 +368,130 @@ extern "C" {
 #define CPS10Q_QUAD_X_ERROR_REPORT_EN(quad)		(0xff0004 + 0x1000*(quad))
 #define CPS10Q_QUAD_CTRL_BROADCAST			(0xfff000)
 
+struct portmap {
+	uint16_t did;
+	int quad_shift;
+	uint8_t quad;
+	uint8_t cfg;
+	uint8_t port;
+	uint8_t lane0;
+	uint8_t width;
+	uint8_t pll;
+};
+
+static const struct portmap gen2_portmaps[] = {
+		{RIO_DID_IDT_CPS1432, 2, 0, 0, 0, 0, 4, 0},
+		{RIO_DID_IDT_CPS1432, 2, 0, 0, 4, 16, 4, 4},
+
+		{RIO_DID_IDT_CPS1432, 2, 0, 1, 0, 0, 2, 0},
+		{RIO_DID_IDT_CPS1432, 2, 0, 1, 4, 16, 4, 4},
+		{RIO_DID_IDT_CPS1432, 2, 0, 1, 12, 2, 2, 0},
+
+		{RIO_DID_IDT_CPS1432, 2, 1, 0, 1, 4, 4, 1},
+		{RIO_DID_IDT_CPS1432, 2, 1, 0, 5, 20, 4, 5},
+
+		{RIO_DID_IDT_CPS1432, 2, 1, 1, 1, 4, 2, 5},
+		{RIO_DID_IDT_CPS1432, 2, 1, 1, 5, 20, 4, 5},
+		{RIO_DID_IDT_CPS1432, 2, 1, 1, 13, 4, 2, 5},
+
+		{RIO_DID_IDT_CPS1432, 2, 2, 0, 2, 8, 4, 2},
+		{RIO_DID_IDT_CPS1432, 2, 2, 0, 6, 24, 4, 6},
+
+		{RIO_DID_IDT_CPS1432, 2, 2, 1, 2, 8, 2, 2},
+		{RIO_DID_IDT_CPS1432, 2, 2, 1, 6, 24, 4, 6},
+		{RIO_DID_IDT_CPS1432, 2, 2, 1, 14, 10, 2, 2},
+
+		{RIO_DID_IDT_CPS1432, 2, 2, 2, 2, 8, 2, 2},
+		{RIO_DID_IDT_CPS1432, 2, 2, 2, 6, 24, 2, 6},
+		{RIO_DID_IDT_CPS1432, 2, 2, 2, 10, 26, 2, 6},
+		{RIO_DID_IDT_CPS1432, 2, 2, 2, 14, 10, 2, 2},
+
+		{RIO_DID_IDT_CPS1432, 2, 2, 3, 2, 8, 2, 2},
+		{RIO_DID_IDT_CPS1432, 2, 2, 3, 6, 24, 4, 6},
+		{RIO_DID_IDT_CPS1432, 2, 2, 3, 10, 11, 1, 2},
+		{RIO_DID_IDT_CPS1432, 2, 2, 3, 14, 10, 1, 2},
+
+		{RIO_DID_IDT_CPS1432, 2, 3, 0, 3, 12, 4, 3},
+		{RIO_DID_IDT_CPS1432, 2, 3, 0, 7, 28, 4, 7},
+
+		{RIO_DID_IDT_CPS1432, 2, 3, 1, 3, 12, 2, 3},
+		{RIO_DID_IDT_CPS1432, 2, 3, 1, 7, 28, 4, 7},
+		{RIO_DID_IDT_CPS1432, 2, 3, 1, 15, 14, 2, 3},
+
+		{RIO_DID_IDT_CPS1432, 2, 3, 2, 3, 12, 2, 3},
+		{RIO_DID_IDT_CPS1432, 2, 3, 2, 7, 28, 2, 7},
+		{RIO_DID_IDT_CPS1432, 2, 3, 2, 11, 30, 2, 7},
+		{RIO_DID_IDT_CPS1432, 2, 3, 2, 15, 14, 2, 3},
+
+		{RIO_DID_IDT_CPS1432, 2, 3, 3, 3, 12, 2, 3},
+		{RIO_DID_IDT_CPS1432, 2, 3, 3, 7, 28, 4, 7},
+		{RIO_DID_IDT_CPS1432, 2, 3, 3, 11, 15, 1, 3},
+		{RIO_DID_IDT_CPS1432, 2, 3, 3, 15, 14, 1, 3},
+
+
+		{RIO_DID_IDT_CPS1848, 2, 0, 0, 0, 0, 4, 0},
+		{RIO_DID_IDT_CPS1848, 2, 0, 0, 4, 16, 4, 4},
+		{RIO_DID_IDT_CPS1848, 2, 0, 0, 8, 32, 4, 8},
+
+		{RIO_DID_IDT_CPS1848, 2, 0, 1, 0, 0, 2, 0},
+		{RIO_DID_IDT_CPS1848, 2, 0, 1, 12, 2, 2, 0},
+		{RIO_DID_IDT_CPS1848, 2, 0, 1, 4, 16, 4, 4},
+		{RIO_DID_IDT_CPS1848, 2, 0, 1, 8, 32, 4, 8},
+
+		{RIO_DID_IDT_CPS1848, 2, 0, 2, 0, 0, 2, 0},
+		{RIO_DID_IDT_CPS1848, 2, 0, 2, 12, 2, 2, 0},
+		{RIO_DID_IDT_CPS1848, 2, 0, 2, 4, 16, 4, 4},
+		{RIO_DID_IDT_CPS1848, 2, 0, 2, 8, 32, 2, 8},
+		{RIO_DID_IDT_CPS1848, 2, 0, 2, 16, 34, 2, 8},
+
+		{RIO_DID_IDT_CPS1848, 2, 0, 3, 0, 0, 2, 0},
+		{RIO_DID_IDT_CPS1848, 2, 0, 3, 12, 2, 1, 0},
+		{RIO_DID_IDT_CPS1848, 2, 0, 3, 16, 3, 1, 0},
+		{RIO_DID_IDT_CPS1848, 2, 0, 3, 4, 16, 4, 4},
+		{RIO_DID_IDT_CPS1848, 2, 0, 3, 8, 32, 4, 8},
+
+		{RIO_DID_IDT_CPS1848, 2, 1, 0, 1, 4, 4, 1},
+		{RIO_DID_IDT_CPS1848, 2, 1, 0, 5, 20, 4, 5},
+		{RIO_DID_IDT_CPS1848, 2, 1, 0, 9, 36, 4, 9},
+
+		{RIO_DID_IDT_CPS1848, 2, 1, 1, 1, 4, 2, 1},
+		{RIO_DID_IDT_CPS1848, 2, 1, 1, 13, 6, 2, 1},
+		{RIO_DID_IDT_CPS1848, 2, 1, 1, 5, 20, 4, 5},
+		{RIO_DID_IDT_CPS1848, 2, 1, 1, 9, 36, 4, 9},
+
+		{RIO_DID_IDT_CPS1848, 2, 1, 2, 1, 4, 2, 1},
+		{RIO_DID_IDT_CPS1848, 2, 1, 2, 13, 6, 2, 1},
+		{RIO_DID_IDT_CPS1848, 2, 1, 2, 5, 20, 4, 5},
+		{RIO_DID_IDT_CPS1848, 2, 1, 2, 9, 36, 2, 9},
+		{RIO_DID_IDT_CPS1848, 2, 1, 2, 17, 38, 2, 9},
+
+		{RIO_DID_IDT_CPS1848, 2, 1, 3, 1, 4, 2, 1},
+		{RIO_DID_IDT_CPS1848, 2, 1, 3, 13, 6, 1, 1},
+		{RIO_DID_IDT_CPS1848, 2, 1, 3, 17, 7, 1, 1},
+		{RIO_DID_IDT_CPS1848, 2, 1, 3, 5, 20, 4, 5},
+		{RIO_DID_IDT_CPS1848, 2, 1, 3, 9, 36, 4, 9},
+
+		{RIO_DID_IDT_CPS1848, 2, 2, 0, 2, 8, 4, 2},
+		{RIO_DID_IDT_CPS1848, 2, 2, 0, 6, 24, 4, 6},
+		{RIO_DID_IDT_CPS1848, 2, 2, 0, 10, 40, 4, 10},
+
+		{RIO_DID_IDT_CPS1848, 2, 2, 1, 2, 8, 2, 2},
+		{RIO_DID_IDT_CPS1848, 2, 2, 1, 14, 10, 2, 2},
+		{RIO_DID_IDT_CPS1848, 2, 2, 1, 6, 24, 4, 6},
+		{RIO_DID_IDT_CPS1848, 2, 2, 1, 10, 40, 4, 10},
+
+		{RIO_DID_IDT_CPS1848, 2, 3, 0, 3, 12, 4, 3},
+		{RIO_DID_IDT_CPS1848, 2, 3, 0, 7, 28, 4, 7},
+		{RIO_DID_IDT_CPS1848, 2, 3, 0, 11, 44, 4, 11},
+
+		{RIO_DID_IDT_CPS1848, 2, 3, 1, 3, 13, 2, 3},
+		{RIO_DID_IDT_CPS1848, 2, 3, 1, 15, 14, 2, 15},
+		{RIO_DID_IDT_CPS1848, 2, 3, 1, 7, 28, 4, 7},
+		{RIO_DID_IDT_CPS1848, 2, 3, 1, 11, 44, 4, 11},
+};
+static const int gen2_portmaps_len = (sizeof(gen2_portmaps)/sizeof(gen2_portmaps[0]));
+
+
 /*
  * The following function checks if a port went to PORT_OK during arming of the port.
  */
@@ -602,6 +734,71 @@ static int cps1xxx_lock_port(struct riocp_pe *sw, uint8_t port)
 		CPS1xxx_CTL_OUTPUT_EN | CPS1xxx_CTL_INPUT_EN);
 }
 
+static int cps1xxx_disable_port(struct riocp_pe *sw, uint8_t port)
+{
+	int ret;
+	uint32_t val;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &val);
+	if (ret < 0)
+		return ret;
+
+	val |= CPS1xxx_CTL_PORT_DIS;
+
+	return riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), val);
+}
+
+static int cps1xxx_enable_port(struct riocp_pe *sw, uint8_t port)
+{
+	int ret;
+	uint32_t val;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &val);
+	if (ret < 0)
+		return ret;
+
+	val &= ~CPS1xxx_CTL_PORT_DIS;
+
+	return riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), val);
+}
+
+/**
+ * The function clears all port errors by rewriting the port error
+ * and status register. It returns > 1 when there are error bits
+ * remaining after that action or < 0 on access failures.
+ */
+static int cps1xxx_clear_port_error(struct riocp_pe *sw, uint8_t port)
+{
+	int ret;
+	uint32_t val;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &val);
+	if (ret < 0)
+		return ret;
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), val | CPS1xxx_ERR_STATUS_CLEAR);
+	if (ret < 0)
+		return ret;
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &val);
+	if (ret < 0)
+		return ret;
+	if (val & CPS1xxx_ERR_STATUS_CLEAR) {
+		RIOCP_DEBUG("[0x%08x:%s:hc %u] Error status on port %u is 0x%08x after clear\n",
+				sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port, val);
+		return 1;
+	} else
+		return ret;
+}
+
+static int cps1xxx_reset_port(struct riocp_pe *sw, uint8_t port)
+{
+	return riocp_pe_maint_write(sw, CPS1xxx_DEVICE_RESET_CTL, CPS1xxx_DEVICE_RESET_PORT(port) | CPS1xxx_DEVICE_RESET_DO);
+}
+
+static int cps1xxx_reset_pll(struct riocp_pe *sw, uint8_t pll)
+{
+	return riocp_pe_maint_write(sw, CPS1xxx_DEVICE_RESET_CTL, CPS1xxx_DEVICE_RESET_PLL(pll) | CPS1xxx_DEVICE_RESET_DO);
+}
+
 /**
  * The following functions gets called to force a port out of an input error state.
  * It clears input, output and port error from the error status csr.
@@ -694,9 +891,11 @@ static int cps1xxx_init_port(struct riocp_pe *sw, uint8_t port)
  * @param mode: any of CTL_INIT_PORT_WIDTH_*
  */
 static int cps1xxx_port_get_first_lane(struct riocp_pe *sw,
-		uint8_t port, uint32_t mode, uint8_t *lane)
+		uint8_t port, uint8_t *lane)
 {
 	uint8_t _lane = 0;
+	uint32_t ctl;
+	int ret, map;
 
 	switch (RIOCP_PE_DID(sw->cap)) {
 	case RIO_DID_IDT_SPS1616:
@@ -707,41 +906,32 @@ static int cps1xxx_port_get_first_lane(struct riocp_pe *sw,
 			return -EINVAL;
 	break;
 	case RIO_DID_IDT_CPS1848:
-		switch (mode) {
-		case CPS1xxx_CTL_INIT_PORT_WIDTH_X1_L0: /* fall through */
-		case CPS1xxx_CTL_INIT_PORT_WIDTH_X1_L2:
-			if (port >= 12 && port <= 13)
-				_lane = 4 * port - 44;
-			else if (port >= 16 && port <= 17)
-				_lane = 4 * port - 61;
-			else
-				return -EINVAL;
-		break;
-		case CPS1xxx_CTL_INIT_PORT_WIDTH_X2:
-			if (port <= 3 || (port >= 8 && port <= 9))
-				_lane = 4 * port;
-			else if (port >= 12 && port <= 15)
-				_lane = 4 * (port - 12) + 2;
-			else if (port >= 16 && port <= 17)
-				_lane = 4 * port - 30;
-			else
-				return -EINVAL;
-		break;
-		case CPS1xxx_CTL_INIT_PORT_WIDTH_X4:
-			if (port <= 11)
-				_lane = 4 * port;
-			else
-				return -EINVAL;
-		break;
+	case RIO_DID_IDT_CPS1432:
+
+		ret = riocp_pe_maint_read(sw, CPS1xxx_QUAD_CFG, &ctl);
+		if (ret < 0)
+			return ret;
+
+		RIOCP_DEBUG("[0x%08x:%s:hc %u] Quad cfg 0x%08x for port %u\n",
+				sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, ctl, port);
+
+		for (map=0;map<gen2_portmaps_len;map++) {
+			if (gen2_portmaps[map].did == RIOCP_PE_DID(sw->cap) && gen2_portmaps[map].port == port) {
+				if (gen2_portmaps[map].cfg == ((ctl >> (gen2_portmaps[map].quad * gen2_portmaps[map].quad_shift)) & 3)) {
+					_lane = gen2_portmaps[map].lane0;
+					goto found;
+				}
+			}
 		}
-	break;
+		/* no break */
 	default:
 		RIOCP_ERROR("Unable to get first lane for DID 0x%04x\n",
 			RIOCP_PE_DID(sw->cap));
 		return -ENOSYS;
 	}
 
-	RIOCP_TRACE("[0x%08x:%s:hc %u] Port %u, lane %u\n",
+found:
+	RIOCP_DEBUG("[0x%08x:%s:hc %u] Port %u, lane %u\n",
 			sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port, _lane);
 	*lane = _lane;
 
@@ -921,33 +1111,24 @@ int cps1xxx_clear_lut(struct riocp_pe *sw, uint8_t lut)
 /**
  * Get lane speed of port
  */
-int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *speed)
+int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed *speed)
 {
 	int ret;
 	uint32_t ctl;
 	uint32_t tx_rate, rx_rate;
 	uint32_t pll_div;
-	uint32_t port_cfg;
-	uint32_t _speed;
+	enum riocp_pe_speed _speed;
 	uint8_t lane = 0;
 
 	RIOCP_TRACE("[0x%08x:%s:hc %u] Read port %u\n",
 			sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
 
-	/* obtain port width and lane configuration */
-	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &ctl);
-	if (ret < 0)
-		return 0;
-
-	port_cfg = CPS1xxx_CTL_INIT_PORT_WIDTH(ctl);
-
-	ret = cps1xxx_port_get_first_lane(sw, port, port_cfg, &lane);
+	ret = cps1xxx_port_get_first_lane(sw, port, &lane);
 	if (ret < 0) {
 		RIOCP_ERROR("Could net get first lane of port %u (ret = %d, %s)\n",
 			port, ret, strerror(-ret));
 		return ret;
 	}
-
 
 	switch (RIOCP_PE_DID(sw->cap)) {
 	case RIO_DID_IDT_SPS1616:
@@ -961,17 +1142,51 @@ int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *speed)
 		pll_div = (ctl & CPS1xxx_LANE_CTL_PLL_SEL) >> CPS1xxx_LANE_CTL_PLL_SEL_SHIFT;
 		break;
 	case RIO_DID_IDT_CPS1848:
-		ret = riocp_pe_maint_read(sw,
-				CPS1xxx_PLL_X_CTL_1(lane / 4), &ctl);
+	case RIO_DID_IDT_CPS1432: {
+		int map;
+		uint8_t _pll = 255;
+
+		ret = riocp_pe_maint_read(sw, CPS1xxx_QUAD_CFG, &ctl);
 		if (ret < 0)
 			return ret;
 
-		pll_div = ctl & CPS1xxx_PLL_X_CTL_PLL_DIV_SEL;
-		ret = riocp_pe_maint_read(sw,
-				CPS1xxx_LANE_X_CTL(lane), &ctl);
+		for (map=0;map<gen2_portmaps_len;map++) {
+			if (gen2_portmaps[map].did == RIOCP_PE_DID(sw->cap) && gen2_portmaps[map].port == port) {
+				if (gen2_portmaps[map].cfg == ((ctl >> (gen2_portmaps[map].quad * gen2_portmaps[map].quad_shift)) & 3)) {
+					_pll = gen2_portmaps[map].pll;
+					RIOCP_DEBUG("[0x%08x:%s:hc %u] DID:0x%04x Q:%u C:%u P:%u L0:%u W:%u PLL:%u\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
+						gen2_portmaps[map].did, gen2_portmaps[map].quad, gen2_portmaps[map].cfg,
+						gen2_portmaps[map].port, gen2_portmaps[map].lane0,
+						gen2_portmaps[map].width, gen2_portmaps[map].pll);
+					break;
+				}
+			}
+		}
+
+		if (_pll == 255)
+			return -ENOSYS;
+
+		ret = riocp_pe_maint_read(sw, CPS1xxx_PLL_X_CTL_1(_pll), &ctl);
 		if (ret < 0)
 			return ret;
+
+		RIOCP_DEBUG("[0x%08x:%s:hc %u] PLL_CTL[%u]:0x%08x\n",
+			sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
+			_pll, ctl);
+
+		pll_div = ctl & CPS1xxx_PLL_X_CTL_PLL_DIV_SEL;
+
+		ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(lane), &ctl);
+		if (ret < 0)
+			return ret;
+
+		RIOCP_DEBUG("[0x%08x:%s:hc %u] LANE_CTL[%u]:0x%08x\n",
+			sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
+			lane, ctl);
+
 		break;
+	}
 	default:
 		return -ENOSYS;
 	}
@@ -986,11 +1201,11 @@ int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *speed)
 	}
 
 	if (rx_rate == CPS1xxx_RTX_RATE_0)
-		_speed = pll_div ? 0 : CPS1xxx_LANE_SPEED_1_25;
+		_speed = pll_div ? RIOCP_SPEED_UNKNOWN : RIOCP_SPEED_1_25G;
 	else if (rx_rate == CPS1xxx_RTX_RATE_1)
-		_speed = pll_div ? CPS1xxx_LANE_SPEED_3_125 : CPS1xxx_LANE_SPEED_2_5;
+		_speed = pll_div ? RIOCP_SPEED_3_125G : RIOCP_SPEED_2_5G;
 	else if (rx_rate == CPS1xxx_RTX_RATE_2 || rx_rate == CPS1xxx_RTX_RATE_3)
-		_speed = pll_div ? CPS1xxx_LANE_SPEED_6_25 : CPS1xxx_LANE_SPEED_5_0;
+		_speed = pll_div ? RIOCP_SPEED_6_25G : RIOCP_SPEED_5_0G;
 	else
 		return -EIO;
 
@@ -1000,24 +1215,18 @@ int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *speed)
 }
 
 /**
- * Set lane speed of port
+ * Get number of lanes per port
  */
 int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 {
 	int ret;
 	uint32_t ctl;
 	uint32_t port_cfg;
-	uint8_t _width = 0;
-	struct riocp_pe_device_id *sps1616_id_table = sw->sw->id_table;
+	uint8_t _width = 0, map;
 
-	while (sps1616_id_table->vid != 0xffff) {
-		if(sps1616_id_table->vid == RIO_VID_IDT && sps1616_id_table->did == RIO_DID_IDT_SPS1616) {
-			break;
-		}
-		sps1616_id_table++;
-	}
-
-	if (sps1616_id_table->vid != 0xffff) {
+	switch (RIOCP_PE_DID(sw->cap)) {
+	case RIO_DID_IDT_SPS1616:
+	case RIO_DID_IDT_CPS1616: {
 		int quad = port / 4;
 		int port_in_quad = port - (quad*4);
 
@@ -1053,7 +1262,26 @@ int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 		default:
 			break;
 		}
-	} else {
+		break;
+	}
+	case RIO_DID_IDT_CPS1432:
+	case RIO_DID_IDT_CPS1848:
+
+		ret = riocp_pe_maint_read(sw, CPS1xxx_QUAD_CFG, &ctl);
+		if (ret < 0)
+			return ret;
+
+		for (map=0;map<gen2_portmaps_len;map++) {
+			if (gen2_portmaps[map].did == RIOCP_PE_DID(sw->cap) && gen2_portmaps[map].port == port) {
+				if (gen2_portmaps[map].cfg == ((ctl >> (gen2_portmaps[map].quad * gen2_portmaps[map].quad_shift)) & 3)) {
+					_width = gen2_portmaps[map].width;
+					goto found;
+				}
+			}
+		}
+
+		break;
+	default:
 		/*
 		 * FIXME: This regsiter contains only valid port width values when a port_ok is detected
 		 * but needs also supported by ports that have no link.
@@ -1071,8 +1299,9 @@ int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 		else if (port_cfg == CPS1xxx_CTL_INIT_PORT_WIDTH_X1_L0 ||
 				port_cfg == CPS1xxx_CTL_INIT_PORT_WIDTH_X1_L2)
 			_width = 1;
+		break;
 	}
-
+found:
 	*width = _width;
 
 	RIOCP_TRACE("ctl(0x%08x): 0x%08x, lane width: %u\n",
@@ -1086,9 +1315,9 @@ int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
  */
 int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed speed)
 {
-	int ret;
+	int ret, retr;
 	uint32_t ctl, ctl_new;
-	uint32_t _speed;
+	enum riocp_pe_speed _speed = RIOCP_SPEED_UNKNOWN;
 	uint8_t lane = 0, width = 0, current_lane;
 
 	RIOCP_TRACE("[0x%08x:%s:hc %u] Set port %u speed\n",
@@ -1096,10 +1325,13 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 
 	/* obtain port width and lane configuration */
 	ret = cps1xxx_get_lane_width(sw, port, &width);
-	if (ret < 0)
+	if (ret < 0) {
+		RIOCP_ERROR("Could net get lane count of port %u (ret = %d, %s)\n",
+			port, ret, strerror(-ret));
 		return 0;
+	}
 
-	ret = cps1xxx_port_get_first_lane(sw, port, 0, &lane);
+	ret = cps1xxx_port_get_first_lane(sw, port, &lane);
 	if (ret < 0) {
 		RIOCP_ERROR("Could net get first lane of port %u (ret = %d, %s)\n",
 			port, ret, strerror(-ret));
@@ -1112,31 +1344,41 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 		switch(speed) {
 		case RIOCP_SPEED_1_25G:
 			ctl_new = CPS1616_LANE_CTL_1_25G;
-			_speed = CPS1xxx_LANE_SPEED_1_25;
+			_speed = RIOCP_SPEED_1_25G;
 			break;
 		case RIOCP_SPEED_2_5G:
 			ctl_new = CPS1616_LANE_CTL_2_5G;
-			_speed = CPS1xxx_LANE_SPEED_2_5;
+			_speed = RIOCP_SPEED_2_5G;
 			break;
 		default:
 		case RIOCP_SPEED_3_125G:
 			ctl_new = CPS1616_LANE_CTL_3_125G;
-			_speed = CPS1xxx_LANE_SPEED_3_125;
+			_speed = RIOCP_SPEED_3_125G;
 			break;
 		case RIOCP_SPEED_5_0G:
 			ctl_new = CPS1616_LANE_CTL_5_0G;
-			_speed = CPS1xxx_LANE_SPEED_5_0;
+			_speed = RIOCP_SPEED_5_0G;
 			break;
 		case RIOCP_SPEED_6_25G:
 			ctl_new = CPS1616_LANE_CTL_6_25G;
-			_speed = CPS1xxx_LANE_SPEED_6_25;
+			_speed = RIOCP_SPEED_6_25G;
 			break;
 		}
+
+		ret = cps1xxx_disable_port(sw, port);
+		if (ret < 0) {
+			RIOCP_ERROR("[0x%08x:%s:hc %u] Error disable port %u failed\n",
+					sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
+			return ret;
+		}
+
 		for(current_lane = lane; current_lane < (lane+width); current_lane++) {
 			ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(lane), &ctl);
 			if (ret < 0) {
 				RIOCP_ERROR("[0x%08x:%s:hc %u] Error reading lane x ctl\n",
 						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount);
+				cps1xxx_enable_port(sw, port);
+				cps1xxx_clear_port_error(sw, port);
 				return ret;
 			}
 
@@ -1147,15 +1389,145 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 			if (ret < 0) {
 				RIOCP_ERROR("[0x%08x:%s:hc %u] Error writing lane x ctl\n",
 						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount);
+				cps1xxx_enable_port(sw, port);
+				cps1xxx_clear_port_error(sw, port);
 				return ret;
 			}
 		}
+
+		ret = cps1xxx_enable_port(sw, port);
+		if (ret < 0) {
+			RIOCP_ERROR("[0x%08x:%s:hc %u] Error enable port %u failed\n",
+					sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
+			return ret;
+		}
+		cps1xxx_reset_port(sw, port);
+		retr = 20;
+		do {
+			ret = cps1xxx_clear_port_error(sw, port);
+			retr--;
+		} while (ret > 0 && retr > 0);
+
 		break;
+	case RIO_DID_IDT_CPS1848:
+	case RIO_DID_IDT_CPS1432: {
+		int map, pll_chg = 0;
+		uint8_t _pll = 255;
+
+		switch(speed) {
+		case RIOCP_SPEED_1_25G:
+			ctl_new = CPS1432_LANE_CTL_1_25G;
+			_speed = RIOCP_SPEED_1_25G;
+			break;
+		case RIOCP_SPEED_2_5G:
+			ctl_new = CPS1432_LANE_CTL_2_5G;
+			_speed = RIOCP_SPEED_2_5G;
+			break;
+		default:
+		case RIOCP_SPEED_3_125G:
+			/* 2.5G and 3.125G same rate value */
+			ctl_new = CPS1432_LANE_CTL_3_125G;
+			_speed = RIOCP_SPEED_3_125G;
+			break;
+		case RIOCP_SPEED_5_0G:
+			ctl_new = CPS1432_LANE_CTL_5_0G;
+			_speed = RIOCP_SPEED_5_0G;
+			break;
+		case RIOCP_SPEED_6_25G:
+			/* 5.0G and 6.25G same rate value */
+			ctl_new = CPS1432_LANE_CTL_6_25G;
+			_speed = RIOCP_SPEED_6_25G;
+			break;
+		}
+
+		ret = riocp_pe_maint_read(sw, CPS1xxx_QUAD_CFG, &ctl);
+		if (ret < 0)
+			return ret;
+
+		for (map=0;map<gen2_portmaps_len;map++) {
+			if (gen2_portmaps[map].did == RIOCP_PE_DID(sw->cap) && gen2_portmaps[map].port == port) {
+				if (gen2_portmaps[map].cfg == ((ctl >> (gen2_portmaps[map].quad * gen2_portmaps[map].quad_shift)) & 3)) {
+					_pll = gen2_portmaps[map].pll;
+					break;
+				}
+			}
+		}
+
+		if (_pll == 255)
+			return -ENOSYS;
+
+		ret = cps1xxx_disable_port(sw, port);
+		if (ret < 0) {
+			RIOCP_ERROR("[0x%08x:%s:hc %u] Error disable port %u failed\n",
+					sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
+			return ret;
+		}
+
+		ret = riocp_pe_maint_read(sw, CPS1xxx_PLL_X_CTL_1(_pll), &ctl);
+		if (ret < 0)
+			return ret;
+
+		if (speed == RIOCP_SPEED_3_125G || speed == RIOCP_SPEED_6_25G) {
+			if (!(ctl & CPS1xxx_PLL_X_CTL_PLL_DIV_SEL))
+				pll_chg = 1;
+			ctl |= CPS1xxx_PLL_X_CTL_PLL_DIV_SEL;
+		} else {
+			if (ctl & CPS1xxx_PLL_X_CTL_PLL_DIV_SEL)
+				pll_chg = 1;
+			ctl |= ~CPS1xxx_PLL_X_CTL_PLL_DIV_SEL;
+		}
+
+		ret = riocp_pe_maint_write(sw, CPS1xxx_PLL_X_CTL_1(_pll), ctl);
+		if (ret < 0)
+			return ret;
+
+		for(current_lane = lane; current_lane < (lane+width); current_lane++) {
+			ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(lane), &ctl);
+			if (ret < 0) {
+				RIOCP_ERROR("[0x%08x:%s:hc %u] Error reading lane x ctl\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount);
+				cps1xxx_enable_port(sw, port);
+				cps1xxx_clear_port_error(sw, port);
+				return ret;
+			}
+
+			ctl &= ~(CPS1xxx_LANE_CTL_RX_RATE | CPS1xxx_LANE_CTL_TX_RATE);
+			ctl_new |= ctl;
+
+			ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(lane), ctl_new);
+			if (ret < 0) {
+				RIOCP_ERROR("[0x%08x:%s:hc %u] Error writing lane x ctl\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount);
+				cps1xxx_enable_port(sw, port);
+				cps1xxx_clear_port_error(sw, port);
+				return ret;
+			}
+		}
+
+		if (pll_chg)
+			cps1xxx_reset_pll(sw, _pll);
+
+		ret = cps1xxx_enable_port(sw, port);
+		if (ret < 0) {
+			RIOCP_ERROR("[0x%08x:%s:hc %u] Error enable port %u failed\n",
+					sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
+			return ret;
+		}
+		cps1xxx_reset_port(sw, port);
+		retr = 20;
+		do {
+			ret = cps1xxx_clear_port_error(sw, port);
+			retr--;
+		} while (ret > 0 && retr > 0);
+
+		break;
+	}
 	default:
 		return -ENOSYS;
 	}
 
 	RIOCP_TRACE("Port %u lane %u speed set to: %u\n", port, lane, _speed);
+
 	return ret;
 }
 
