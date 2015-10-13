@@ -25,7 +25,6 @@ struct rskt_ti
 	rskt_ti(rskt_h accept_socket) : accept_socket(accept_socket)
 	{}
 	rskt_h accept_socket;
-	sem_t	started;
 	pthread_t tid;
 };
 
@@ -92,11 +91,8 @@ void *rskt_thread_f(void *arg)
 	}
 	catch(rskt_exception& e) {
 		CRIT(":%s\n", e.err);
-		sem_post(&ti->started);
 		pthread_exit(0);
 	}
-
-	sem_post(&ti->started);
 
 	while (1) {
 		/* Wait for data from clients */
@@ -187,7 +183,6 @@ int run_server()
 		}
 		worker_threads.push_back(ti->tid);
 		DBG("Now %u threads in action\n", worker_threads.size());
-		sem_wait(&ti->started);
 	} /* while */
 
 	/* Not reached! */
