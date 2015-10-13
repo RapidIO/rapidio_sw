@@ -606,7 +606,7 @@ fail:
 	return -!((lib.init_ok == lib.portno) && (lib.portno));
 };
 
-int librskt_finish(void)
+void librskt_finish(void)
 {
 	/* Close socket connection to RSKTD */
 	close(lib.fd);
@@ -616,8 +616,6 @@ int librskt_finish(void)
 	pthread_kill(lib.rsvp_thr, SIGUSR1);
 	pthread_kill(lib.req_thr, SIGUSR1);
 	pthread_kill(lib.tx_thr, SIGUSR1);
-
-	return 0;
 };
 
 int lib_uninit(void)
@@ -1338,7 +1336,6 @@ uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 	uint32_t avail_bytes = 0;
 
 	if (hdr == NULL) {
-		CRIT("hdr is NULL\n");
 		return 0;
 	}
 

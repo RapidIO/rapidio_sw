@@ -64,6 +64,11 @@ typedef struct rskt_handle_t *rskt_h;
  */
 int librskt_init(int rsktd_port, int rsktd_mpnum);
 
+/** @brief Cleanup RDMA sockets library when done using it
+ *
+ */
+void librskt_finish(void);
+
 /** @brief Allocate an RDMA socket data structure 
  *
  * @return pointer to RDMA socket data structure

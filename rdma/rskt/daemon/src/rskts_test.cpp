@@ -71,6 +71,8 @@ void sig_handler(int sig)
 	if (prov_server != nullptr)
 		delete prov_server;
 
+	librskt_finish();
+	puts("Goodbye!");
 	exit(0);
 } /* sig_handler() */
 
