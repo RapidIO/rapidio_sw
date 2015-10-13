@@ -45,7 +45,7 @@ void sig_handler(int sig)
 	break;
 
 	case SIGUSR1:
-		return /* Ignore */
+		return; /* Ignore */
 
 	default:
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
