@@ -151,9 +151,10 @@ int run_server()
 		return 1;
 	}
 
-	puts("Provisioning server created...now accepting connections...");
+	puts("Provisioning server created..");
 	rskt_h acc_socket;
 	while (1) {
+		puts("Accepting connections...");
 		if (prov_server->accept(&acc_socket)) {
 			ERR("Failed to accept. Dying!\n");
 			delete prov_server;

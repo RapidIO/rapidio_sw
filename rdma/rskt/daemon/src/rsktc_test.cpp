@@ -161,9 +161,12 @@ int main(int argc, char *argv[])
 		}
 	} /* while() */
 
+	puts("Press ENTER to quit");
+	getchar();
+	puts("Goodbye!");
+
 	/* Call destructor to close and destroy socket */
 	delete client;
-	puts("Goodbye!");
 } /* main() */
 
 #ifdef __cplusplus
