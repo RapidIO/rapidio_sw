@@ -21,7 +21,7 @@ static rskt_client *client;
 
 void show_help()
 {
-	puts("rsktc_test [-d<destid>] [-h] [-l<data_length>] [-r<repetitions>] -s<socket_number>\n");
+	puts("rsktc_test -d<destid> [-h] [-l<data_length>] [-r<repetitions>] -s<socket_number>\n");
 }
 
 void sig_handler(int sig)
@@ -56,7 +56,7 @@ void sig_handler(int sig)
 int main(int argc, char *argv[])
 {
 	char c;
-	uint16_t destid = 0x9;
+	uint16_t destid = 0xFFFF;
 	int socket_number = 1234;
 	unsigned repetitions = 1;
 	unsigned data_length = 512;
@@ -71,6 +71,13 @@ int main(int argc, char *argv[])
 	sigaction(SIGQUIT, &sig_action, NULL);
 	sigaction(SIGABRT, &sig_action, NULL);
 	sigaction(SIGUSR1, &sig_action, NULL);
+
+	/* Must specify at least 1 argument (the destid) */
+	if (argc < 2) {
+		puts("Insufficient arguments. Must specify <destid>");
+		show_help();
+		exit(1);
+	}
 
 	while ((c = getopt(argc, argv, "hd:l:r:s:")) != -1)
 		switch (c) {
@@ -98,6 +105,13 @@ int main(int argc, char *argv[])
 		default:
 			abort();
 		}
+
+	/* Must specify destid */
+	if (destid == 0xFFFF) {
+		puts("Error. Must specify <destid>");
+		show_help();
+		exit(1);
+	}
 
 	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
 	if (rc) {
