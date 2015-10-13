@@ -44,6 +44,9 @@ void sig_handler(int sig)
 		puts("SIGTERM - kill <pid> signal");
 	break;
 
+	case SIGUSR1:
+		return /* Ignore */
+
 	default:
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
 		return;
