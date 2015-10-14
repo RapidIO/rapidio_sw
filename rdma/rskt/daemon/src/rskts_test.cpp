@@ -101,11 +101,7 @@ void *rskt_thread_f(void *arg)
 		int received_len = other_server->receive(RSKT_DEFAULT_RECV_BUF_SIZE);
 		if ( received_len < 0) {
 			ERR("Failed to receive, rc = %d\n", received_len);
-			delete other_server;
-			worker_threads.remove(ti->tid);
-			delete ti;
-			DBG("Exiting thread\n");
-			pthread_exit(0);
+			goto err_exit;
 		}
 
 		if (received_len > 0) {
@@ -122,13 +118,15 @@ void *rskt_thread_f(void *arg)
 
 			if (other_server->send(received_len) < 0) {
 				ERR("Failed to send back\n");
-				delete other_server;
-				delete ti;
-				pthread_exit(0);
+				goto err_exit;
 			}
 		}
 	}
-	/* Not reached */
+
+err_exit:
+	delete other_server;
+	worker_threads.remove(ti->tid);
+	delete ti;
 	pthread_exit(0);
 }
 
