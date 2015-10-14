@@ -240,6 +240,7 @@ void rsvp_loop_resp(struct librskt_rsktd_to_app_msg *rxd)
 	struct l_item_t *li;
 	struct rsvp_li *dlyd;
 
+	DBG("ENTER\n");
 	if (librskt_wait_for_sem(&lib.rsvp_mtx, 0x1030)) {
 		WARN("lib.all_must_die = 20");
 		lib.all_must_die = 20;
@@ -380,7 +381,9 @@ void lib_rem_skt_from_list(rskt_h skt_h, struct rskt_socket_t *skt);
 
 void cleanup_skt(rskt_h skt_h, struct rskt_socket_t *skt)
 {
+	DBG("ENTER\n");
 	if (skt_rmda_uninit != skt->connector) { 
+		DBG("skt->connector != skt_rdma_uninit\n");
 		if (NULL != skt->msub_p)  {
 			DBG("Unmapping skt->msub_p(%p)\n", skt->msub_p);
 			rdma_munmap_msub(skt->msubh, (void *)skt->msub_p);
@@ -417,19 +420,27 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
 {
 	struct rskt_socket_t *skt;
 
-	if (NULL == skt_h)
+	DBG("ENTER\n");
+	if (NULL == skt_h) {
+		WARN("skt_h is NULL...returning\n");
 		return;
+	}
 	skt = skt_h->skt;
- 	if (NULL == skt)
+ 	if (NULL == skt) {
+ 		WARN("skt is NULL returning\n");
 		return;
+ 	}
 
 	/* FIXME: What does the failure of librskt_wait_for_sem mean? */
 	/* How should this be handled? */
+ 	DBG("Waiting for skt_h->mtx...\n");
 	librskt_wait_for_sem(&skt_h->mtx, 0);
 	skt_h->skt = NULL;
 	sem_post(&skt_h->mtx);
 
+	DBG("Calling cleanup_skt\n");
 	cleanup_skt(skt_h, skt);
+	DBG("EXIT\n");
 };
 
 /* Request Processing Thread */
@@ -471,6 +482,8 @@ void *req_loop(void *unused)
 			* Send response when are sure that app can't use this
 			* socket any more.
 			*/
+			HIGH("Received LIBRSKT_CLOSE_CMD from RSKTD\n");
+			DBG("Waiting for lib.skts_mtx with error 0x1062!\n");
 			if (librskt_wait_for_sem(&lib.skts_mtx, 0x1062)) {
 				ERR("librskt_wait_for_sem() failed. Exiting\n");
 				goto exit;
@@ -494,6 +507,7 @@ void *req_loop(void *unused)
 		resp = NULL;
 	};
 exit:
+	DBG("EXIT\n");
 	pthread_exit(unused);
 };
 
@@ -711,6 +725,7 @@ void lib_rem_skt_from_list(rskt_h skt_h, struct rskt_socket_t *skt)
 	struct l_item_t *li;
 	rskt_h l_skt;
 
+	DBG("ENTER\n");
 	if (librskt_wait_for_sem(&lib.skts_mtx, 0x1080)) {
 		ERR("Failed in librskt_wait_for_sem\n");
 		return;
@@ -721,6 +736,7 @@ void lib_rem_skt_from_list(rskt_h skt_h, struct rskt_socket_t *skt)
 		DBG("Calling l_lremove()\n");
 		l_lremove(&lib.skts, li); /* Do not deallocate socket */
 	}
+	DBG("Posting lib.skts_mtx\n");
 	sem_post(&lib.skts_mtx);
 };
 
@@ -1552,6 +1568,7 @@ int rskt_close(rskt_h skt_h)
 	struct librskt_rsktd_to_app_msg *rx;
 	struct rskt_socket_t *skt;
 
+	DBG("ENTER\n");
 	if (lib_uninit()) {
 		ERR("%s\n", strerror(errno));
 		return -errno;
@@ -1588,7 +1605,7 @@ int rskt_close(rskt_h skt_h)
 		DBG("all_must_die\n");
 		goto exit;
 	}
-
+	DBG("Calling cleanup_skt()\n");
 	cleanup_skt(skt_h, skt);
 	errno = 0;
 	DBG("Freeing 'tx' and 'rx'\n");
