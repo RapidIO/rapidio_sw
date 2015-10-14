@@ -2137,7 +2137,7 @@ static inline bool umd_dma_goodput_latency_demo_SLAVE(struct worker *info, const
 
 	bool q_was_full = false;
 
-	INFO("\n\tPolling %p for Master transfer\n", info->ib_ptr);
+	DBG("\n\tPolling %p for Master transfer\n", info->ib_ptr);
 	{{
 		volatile uint8_t* datain_ptr8 = (uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint8_t);
 
@@ -2153,9 +2153,9 @@ static inline bool umd_dma_goodput_latency_demo_SLAVE(struct worker *info, const
 		dataout_ptr8[0] = DMA_LAT_SLAVE_SIG1;
 	}}
 
-	INFO("\n\tReplying to Master destid=%d transfer\n", info->did);
-
 	if(! queueDmaOp(info, oi, cnt, q_was_full)) return false;
+
+	DBG("\n\tReplied to Master destid=%d\n", info->did);
 
 	INFO("\n\tPolling FIFO transfer completion\n", 0);
 	while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_tx_buf_cnt*2) == 0) { ; }
@@ -2179,18 +2179,18 @@ static inline bool umd_dma_goodput_latency_demo_MASTER(struct worker *info, cons
 		dataout_ptr8[0] = DMA_LAT_MASTER_SIG1;
 	}}
 
-	INFO("\n\tTransfer to Slave destid=%d\n", info->did);
+	DBG("\n\tTransfer to Slave destid=%d\n", info->did);
 	start_iter_stats(info);
 
 	if(! queueDmaOp(info, oi, cnt, q_was_full)) return false;
 
-	INFO("\n\tPolling FIFO transfer completion\n", 0);
+	//DBG("\n\tPolling FIFO transfer completion\n", 0);
 	while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_tx_buf_cnt*2) == 0) { ; }
 
 	if(info->stop_req) return false;
 
 	// Wait for Slave to TX
-	INFO("\n\tPolling %p for Slave transfer\n", info->ib_ptr);
+	//DBG("\n\tPolling %p for Slave transfer\n", info->ib_ptr);
 	{{
 		volatile uint8_t* datain_ptr8 = (uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint8_t);
 
@@ -2198,6 +2198,7 @@ static inline bool umd_dma_goodput_latency_demo_MASTER(struct worker *info, cons
 
 		finish_iter_stats(info);
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+		DBG("\n\tGot Slave transfer from destid=%d\n", info->did);
 
 		datain_ptr8[0] = 0;
 	}}
