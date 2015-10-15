@@ -2336,6 +2336,9 @@ void umd_mbox_goodput_demo(struct worker *info)
 		return;
 	}
 
+	uint64_t tx_ok = 0;
+	uint64_t rx_ok = 0;
+
 	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
         info->tick_data_total = 0;
@@ -2366,12 +2369,18 @@ void umd_mbox_goodput_demo(struct worker *info)
 				usleep(1);
 			if (info->stop_req) break;
 
+			bool rx_buf = false;
 			void* buf = NULL;
 			int msg_size = 0;
 			uint64_t enq_ts = 0;
 			while ((buf = info->umd_mch->get_inb_message(info->umd_chan, msg_size, enq_ts)) != NULL) {
-			      INFO("\n\tGot a message of size %d [%s]\n\n", msg_size, buf);
+			      rx_ok++; rx_buf = true;
+			      INFO("\n\tGot a message of size %d [%s] cnt=%llu\n\n", msg_size, buf, rx_ok);
 			      info->umd_mch->add_inb_buffer(info->umd_chan, buf); // recycle
+			}
+			if (! rx_buf) {
+				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
+				goto exit_rx;
 			}
 			if (rx_ts && enq_ts && rx_ts > enq_ts && msg_size > 0) { // not overflown
 				const uint64_t dT = rx_ts - enq_ts;
@@ -2420,10 +2429,10 @@ void umd_mbox_goodput_demo(struct worker *info)
 					ERR("\n\tsend_message FAILED!\n");
 					goto exit;
 				}
-		      	}
+		      	} else { tx_ok++; }
 			if (info->stop_req) break;
 
-		      	//while (!info->stop_req && info->umd_mch->queueTxFull(info->umd_chan)) { usleep(10); }
+			if (q_was_full) ERR("\n\tQueue full for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
