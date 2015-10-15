@@ -578,28 +578,24 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 		CRIT("ERROR:librskt_init, tx_loop thread: %s\n", strerror(errno));
 		goto fail;
 	};
-	sleep(1);
 	DBG("Starting rsvp_loop\n");
 	if (pthread_create( &lib.rsvp_thr, NULL, rsvp_loop, NULL)) {
 		lib.all_must_die = 2;
 		CRIT("ERROR:librskt_init rsvp_loop thread: %s\n", strerror(errno));
 		goto fail;
 	};
-	sleep(1);
 	DBG("Starting req_loop\n");
 	if (pthread_create( &lib.req_thr, NULL, req_loop, NULL)) {
 		lib.all_must_die = 3;
 		CRIT("ERROR:librskt_init, req_loop thread: %s\n", strerror(errno));
 		goto fail;
 	};
-	sleep(1);
 	DBG("Starting cli_loop\n");
 	if (pthread_create( &lib.cli_thr, NULL, cli_loop, NULL)) {
 		lib.all_must_die = 4;
 		CRIT("ERROR:librskt_init, cli_loop thread: %s\n", strerror(errno));
 		goto fail;
 	};
-	sleep(1);
 	/* Socket appears to be open, say hello to RSKTD */
 	req = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
 	if (req == NULL) {
