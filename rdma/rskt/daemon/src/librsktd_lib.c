@@ -237,6 +237,15 @@ void *app_rx_loop(void *ip)
 	app->alive = 1;
 	
 	DBG("*** ENTER\n");
+	sem_post(&lib_st.new_app->up_and_running);	/* Added by SAK, Sherif */
+	int value;
+	if (sem_getvalue(&lib_st.new_app->up_and_running, &value)) {
+		WARN("Failed to obtain semaphore value!")
+	} else {
+		DBG("Posted new_app->up_and_running(%p), now value = %d\n",
+					&lib_st.new_app->up_and_running, value);
+	}
+
         while (!app->i_must_die) {
 		rxed = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
                 do {
@@ -250,12 +259,14 @@ void *app_rx_loop(void *ip)
                 	}
                         break;
                 }
+
 		handle_app_msg(app, rxed);
 	}
 
 	app->alive = 0;
 	DBG("Posting app->started\n");
 	sem_post(&app->started);
+
 	*app->self_ptr = NULL;
 
 	/* Close all sockets associated with this app */
@@ -374,6 +385,7 @@ void *lib_conn_loop( void *unused )
 
 		lib_st.new_app->alive = 0;
 		sem_init(&lib_st.new_app->started, 0, 0);
+		sem_init(&lib_st.new_app->up_and_running, 0, 0);
 		lib_st.new_app->addr_size = sizeof(struct sockaddr_un);
 
 		INFO("Accepting connections from apps...\n");
@@ -399,9 +411,15 @@ void *lib_conn_loop( void *unused )
         	if (rc) {
                 	ERR("Error - app_rx_loop rc: %d\n", rc);
         	} else {
-        		DBG("Waiting for new_app->started\n");
-        		sem_wait(&lib_st.new_app->started);
-        		DBG("new_app->started POSTED!\n");
+        		int value;
+        		if (sem_getvalue(&lib_st.new_app->up_and_running, &value)) {
+        			WARN("Failed to obtain semaphore value!")
+        		} else {
+        			DBG("Waiting for new_app->up_and_running(%p) value = %d\n",
+        					&lib_st.new_app->up_and_running, value);
+        		}
+        		sem_wait(&lib_st.new_app->up_and_running);
+        		DBG("new_app->up_and_running POSTED!\n");
         	}
 
 		if (lib_st.tst) {
