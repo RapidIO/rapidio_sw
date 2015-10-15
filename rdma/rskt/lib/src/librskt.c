@@ -112,12 +112,17 @@ struct rsvp_li {
 int librskt_wait_for_sem(sem_t *sema, int err_code)
 {
 	int rc = sem_wait(sema);
+	DBG("ENTER\n");
+	if (rc) {
+		WARN("sem_wait returned %d\n", rc);
+	}
 	while (rc && (EINTR == errno))
 		rc = sem_wait(sema);
 	if (rc) {
 		ERR("Failed in sem_wait()\n");
 		lib.all_must_die = err_code;
 	}
+	DBG("EXIT\n");
 	return rc;
 };
 
@@ -163,6 +168,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 		ERR("Failed on resp_rx\n");
 		goto fail;
 	}
+	DBG("No more waiting for resp_rx\n");
 	if (rx->a_rsp.err) {
 		li = NULL;
 		rc = -1;
@@ -516,6 +522,7 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	struct librskt_app_to_rsktd_msg *req;
 	struct librskt_rsktd_to_app_msg *resp;
 
+	DBG("ENTER\n");
 	lib.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 	if (-1 == lib.fd) {
 		ERR("ERROR on librskt_init socket(): %s\n", strerror(errno));
@@ -565,30 +572,34 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	l_init(&lib.skts);
 
 	/* Startup the threads */
+	DBG("Starting tx_loop\n");
 	if (pthread_create( &lib.tx_thr, NULL, tx_loop, NULL)) {
 		lib.all_must_die = 1;
 		CRIT("ERROR:librskt_init, tx_loop thread: %s\n", strerror(errno));
 		goto fail;
 	};
-
+	sleep(1);
+	DBG("Starting rsvp_loop\n");
 	if (pthread_create( &lib.rsvp_thr, NULL, rsvp_loop, NULL)) {
 		lib.all_must_die = 2;
 		CRIT("ERROR:librskt_init rsvp_loop thread: %s\n", strerror(errno));
 		goto fail;
 	};
-
+	sleep(1);
+	DBG("Starting req_loop\n");
 	if (pthread_create( &lib.req_thr, NULL, req_loop, NULL)) {
 		lib.all_must_die = 3;
 		CRIT("ERROR:librskt_init, req_loop thread: %s\n", strerror(errno));
 		goto fail;
 	};
-
+	sleep(1);
+	DBG("Starting cli_loop\n");
 	if (pthread_create( &lib.cli_thr, NULL, cli_loop, NULL)) {
 		lib.all_must_die = 4;
 		CRIT("ERROR:librskt_init, cli_loop thread: %s\n", strerror(errno));
 		goto fail;
 	};
-
+	sleep(1);
 	/* Socket appears to be open, say hello to RSKTD */
 	req = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
 	if (req == NULL) {
@@ -606,9 +617,9 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	req->a_rq.msg.hello.proc_num = htonl(getpid());
 	memset(req->a_rq.msg.hello.app_name, 0, MAX_APP_NAME);
 	snprintf(req->a_rq.msg.hello.app_name, MAX_APP_NAME-1, "%d", getpid());
-
+	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_HELLO (A2RSKTD_SZ)\n");
 	if (librskt_dmsg_req_resp(req, resp)) {
-		perror("ERROR on librskt_init hello");
+		ERR("ERROR on LIBRSKTD_HELLO: %s\n");
 	};
 	free(req);
 	free(resp);
@@ -616,8 +627,9 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	lib.init_ok = rsktd_port;
 	lib.ct = ntohl(resp->a_rsp.msg.hello.ct);
 fail:
-	DBG("EXIT\n");
-	return -!((lib.init_ok == lib.portno) && (lib.portno));
+	int rc = -!((lib.init_ok == lib.portno) && (lib.portno));
+	DBG("EXIT, rc = %d\n", rc);
+	return rc;
 };
 
 void librskt_finish(void)
@@ -781,6 +793,7 @@ int rskt_bind(rskt_h skt_h, struct rskt_sockaddr *sock_addr)
 	tx->msg_type = LIBRSKTD_BIND;
 	tx->a_rq.msg.bind.sn = htonl(sock_addr->sn);
 
+	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_BIND (A2RSKTD_SZ)\n");
 	if (librskt_dmsg_req_resp(tx, rx)) {
 		ERR("librskt_dmsg_req_resp() failed\n");
 		goto exit;
@@ -843,7 +856,7 @@ int rskt_listen(rskt_h skt_h, int max_backlog)
 	tx->msg_type = LIBRSKTD_LISTEN;
 	tx->a_rq.msg.listen.sn = htonl(skt->sa.sn);
 	tx->a_rq.msg.listen.max_bklog = htonl(skt->max_backlog);
-
+	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_LISTEN (A2RSKTD_SZ)\n");
 	if (librskt_dmsg_req_resp(tx, rx)) {
 		ERR("librskt_dmsg_req_resp failed\n");
 		goto exit;
@@ -943,7 +956,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	l_skt->st = rskt_accepting;
 	sem_post(&lib.skts_mtx);
-
+	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_ACCEPT (A2RSKTD_SZ)\n");
 	if (librskt_dmsg_req_resp(tx, rx)) {
 		WARN("librskt_dmsg_req_resp() failed..closing\n");
 		goto close;
@@ -980,7 +993,6 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	skt->msoh_valid = 1;
 
-	DBG("9\n");
 	rc = rdma_open_ms_h(skt->msh_name, skt->msoh, 0, 
 			&skt->msub_sz, &skt->msh);
 	if (rc) {
@@ -1015,7 +1027,6 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	skt->st = rskt_connected;
 	setup_skt_ptrs(skt);
 	sem_post(&skt_h->mtx);
-	DBG("d\n");
 	lib_add_skt_to_list(skt_h);
 	INFO("Exiting with SUCCESS\n");
 	return 0;
@@ -1087,6 +1098,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	/* Response indicates what mso, ms, and msub to use, and 
 	 * what ms to rdma_connect with
 	 */
+	DBG("Calling librskt_dmsg_req_resp to send LIBRSKTD_CONN (A2RSKTD_SZ)\n");
 	rc = librskt_dmsg_req_resp(tx, rx);
 	if (rc) {
 		ERR("librskt_dmsg_req_resp() failed..closing\n");
