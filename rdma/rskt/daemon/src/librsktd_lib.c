@@ -83,26 +83,32 @@ void *app_tx_loop(void *unused)
 		free_flag = 1;
 		valid_flag = 0;
 		sem_wait(&dmn.app_tx_cnt);
-		if (dmn.all_must_die)
+		if (dmn.all_must_die) {
+			DBG("dmn.all_must_die is true\n");
 			break;
+		}
 		sem_wait(&dmn.app_tx_mutex);
-		if (dmn.all_must_die)
+		if (dmn.all_must_die) {
+			DBG("dmn.all_must_die is true\n");
 			break;
+		}
 		msg = (struct librsktd_unified_msg *)l_pop_head(&dmn.app_tx_q);
 		sem_post(&dmn.app_tx_mutex);
-		if (dmn.all_must_die || (NULL == msg))
+		if (dmn.all_must_die || (NULL == msg)) {
+			DBG("dmn.all_must_die is true or 'msg' is NULL\n");
 			break;
+		}
 
 		/* Can't send request/response if connection has closed.
-		* Note: Cleaup of closed app is responsibility of 
+		* Note: Cleanup of closed app is responsibility of
 		* the app receive thread */
-		if ((NULL == msg->app) || (NULL == *msg->app))
+		if ((NULL == msg->app) || (NULL == *msg->app)) {
+			DBG("Connection has closed. Can't send request/response\n");
 			goto dealloc;
+		}
 
-		if (((RSKTD_PROC_AREQ == msg->proc_type) &&
-			(RSKTD_AREQ_SEQ_ARESP == msg->proc_stage)) ||
-		((RSKTD_PROC_A2W == msg->proc_type) &&
-			(RSKTD_A2W_SEQ_ARESP == msg->proc_stage))) {
+		if (((RSKTD_PROC_AREQ == msg->proc_type) && (RSKTD_AREQ_SEQ_ARESP == msg->proc_stage)) ||
+		    ((RSKTD_PROC_A2W == msg->proc_type) && (RSKTD_A2W_SEQ_ARESP == msg->proc_stage))) {
 			/* Sending response to application.
 			* Nothing to do?
 			*/
@@ -110,8 +116,7 @@ void *app_tx_loop(void *unused)
 			valid_flag = 1;
 		};
 
-		if ((RSKTD_PROC_S2A == msg->proc_type) &&
-			(RSKTD_S2A_SEQ_AREQ == msg->proc_stage)) {
+		if ((RSKTD_PROC_S2A == msg->proc_type) && (RSKTD_S2A_SEQ_AREQ == msg->proc_stage)) {
 			uint32_t seq_num;
 			/* Sending request, must not deallocate */
 			/* Get rsktd sequence number for request */
@@ -129,8 +134,10 @@ void *app_tx_loop(void *unused)
 		/* Send message to application */
 		if (valid_flag) {
 			if (send((*msg->app)->app_fd, (void *)msg->tx, 
-					RSKTD2A_SZ, MSG_EOR) != RSKTD2A_SZ)
+					RSKTD2A_SZ, MSG_EOR) != RSKTD2A_SZ) {
 				(*msg->app)->i_must_die = 33;
+				ERR("send() failed: %s\n", strerror(errno));
+			}
 		};
 dealloc:
 		if (free_flag || !valid_flag)
@@ -229,18 +236,25 @@ void *app_rx_loop(void *ip)
 
 	app->alive = 1;
 	
+	DBG("*** ENTER\n");
         while (!app->i_must_die) {
 		rxed = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
                 do {
+                	DBG("*** Waiting for A2RSKTD_SZ...\n");
                         rc = recv(app->app_fd, rxed, A2RSKTD_SZ, 0);
                 } while ((EINTR == errno) && !app->i_must_die);
 
-                if ((rc <= 0) || app->i_must_die)
+                if ((rc <= 0) || app->i_must_die) {
+                	if (rc <= 0) {
+                		HIGH("App has died!\n");
+                	}
                         break;
+                }
 		handle_app_msg(app, rxed);
 	}
 
 	app->alive = 0;
+	DBG("Posting app->started\n");
 	sem_post(&app->started);
 	*app->self_ptr = NULL;
 
@@ -267,6 +281,7 @@ void *app_rx_loop(void *ip)
 		next_con = (struct con_skts *)l_next(&next_li);
 		
 		if (*con->app == NULL) {
+			DBG("*con->app == NULL\n");
 			con->loc_ms->state = 0;
 			rsktd_sn_set(con->loc_sn, rskt_uninit);
 			l_remove(&lib_st.con, li);
@@ -276,6 +291,7 @@ void *app_rx_loop(void *ip)
 	};
 
 	if (app->app_fd > 0) {
+		DBG("Closing socket\n");
 		close(app->app_fd);
 		app->app_fd = 0;
 	};
@@ -293,6 +309,7 @@ int open_lib_conn_socket(void )
 	memset(&lib_st.addr, 0, sizeof(lib_st.addr));
 	lib_st.addr.sun_family = AF_UNIX;
 
+	DBG("ENTER\n");
 	lib_st.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 	if (-1 == lib_st.fd) {
 		ERR("ERROR on lib_conn socket: %s\n", strerror(errno));
@@ -334,6 +351,7 @@ void halt_lib_handler(void);
 
 void *lib_conn_loop( void *unused )
 {
+	DBG("ENTER\n");
 	/* Open Unix domain socket */
 	if (open_lib_conn_socket()) {
 		ERR("Failed in open_lib_conn_socket()\n");
@@ -356,11 +374,13 @@ void *lib_conn_loop( void *unused )
 		sem_init(&lib_st.new_app->started, 0, 0);
 		lib_st.new_app->addr_size = sizeof(struct sockaddr_un);
 
+		INFO("Accepting connections from apps...\n");
 		lib_st.new_app->app_fd = accept(lib_st.fd, 
 			(struct sockaddr *)&lib_st.new_app->addr,
                         &lib_st.new_app->addr_size);
 			
 		if (-1 == lib_st.new_app->app_fd) {
+			ERR("new_app->app_fd is -1. Exiting\n");
 			if (lib_st.fd) {
 				ERR("ERROR on l_conn accept: %s\n",
 							strerror(errno));
@@ -369,17 +389,21 @@ void *lib_conn_loop( void *unused )
 			lib_st.new_app = NULL;
 			goto fail;
 		};
+		INFO("*** CONNECTED ***\n");
 
         	rc = pthread_create(&lib_st.new_app->thread, NULL, app_rx_loop,
 				(void *)lib_st.new_app);
         	if (rc) {
                 	ERR("Error - app_rx_loop rc: %d\n", rc);
         	} else {
+        		DBG("Waiting for new_app->started\n");
         		sem_wait(&lib_st.new_app->started);
         	}
 
-		if (lib_st.tst)
+		if (lib_st.tst) {
+			WARN("lib_st.tst is true, EXITING\n");
 			break;
+		}
 	};
 fail:
 	DBG("RSKTD Library Connection Thread Exiting\n");
@@ -410,6 +434,7 @@ int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog, int tst)
         l_init(&lib_st.con);
         l_init(&lib_st.creq);
 
+        DBG("ENTER\n");
         sem_init(&lib_st.loop_started, 0, 0);
 
         ret = pthread_create(&lib_st.conn_thread, NULL, lib_conn_loop, NULL);
@@ -434,14 +459,18 @@ void halt_lib_handler(void)
 	struct librskt_app *app;
 	struct librsktd_unified_msg *msg;
 
+	DBG("ENTER\n");
 	if (lib_st.loop_alive && !lib_st.all_must_die) {
 		lib_st.all_must_die = 1;
 		lib_st.loop_alive = 0;
+		DBG("Killing lib_st.conn_thread\n");
 		pthread_kill(lib_st.conn_thread, SIGUSR1);
 	}
 
-	if (NULL != lib_st.new_app)
+	if (NULL != lib_st.new_app) {
+		DBG("lib_st.new_app != NULL\n");
 		sem_post(&lib_st.new_app->started);
+	}
 
 	if (lib_st.fd > 0) {
 		HIGH("Closing lib_st.fd\n");
@@ -459,6 +488,7 @@ void halt_lib_handler(void)
 	};
 
 	if (lib_st.addr.sun_path[0]) {
+		DBG("Unlinking %s\n", lib_st.addr.sun_path);
 		if (-1 == unlink(lib_st.addr.sun_path)) {
 			ERR("ERROR on l_conn unlink: %s\n", strerror(errno));
 		}
@@ -474,6 +504,7 @@ void halt_lib_handler(void)
 
 void cleanup_lib_handler(void)
 {
+	DBG("ENTER\n");
 	pthread_join(lib_st.conn_thread, NULL);
 };
 	
