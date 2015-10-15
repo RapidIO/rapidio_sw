@@ -358,6 +358,11 @@ int MboxChannel::open_outb_mbox(const int mbox, const uint32_t entries)
 
   DBG("\n\t%s: mbox = %d, entries = %d\n", __FUNCTION__, mbox, entries);
 
+  m_omsg_trk[mbox].bl_busy = (int*)calloc(entries+1, sizeof(int));
+
+  m_omsg_trk[mbox].bltx_busy = (WorkItem_t*)calloc(entries+2, sizeof(WorkItem_t)); // +1 to have a guard, NOT used
+  m_omsg_trk[mbox].bltx_busy_size = 0;
+
   m_omsg_ring[mbox].size = entries;
   m_omsg_ring[mbox].sts_rdptr = 0;
 
@@ -486,6 +491,15 @@ void MboxChannel::cleanup()
     m_imsg_ring[mbox].imq_base.clear();
 
     m_imsg_ring[mbox].imq_ts.clear();
+
+    assert(m_omsg_trk[mbox].bltx_busy[m_num_ob_desc[mbox] + 1].valid == 0);
+
+    free(m_omsg_trk[mbox].bltx_busy);
+    m_omsg_trk[mbox].bltx_busy = NULL;
+    m_omsg_trk[mbox].bltx_busy_size = 0;
+
+    free(m_omsg_trk[mbox].bl_busy);
+    m_omsg_trk[mbox].bl_busy = NULL;
   } // END for mbox
 }
 
@@ -517,10 +531,11 @@ bool MboxChannel::open_mbox(const uint32_t entries)
  * @destid  Device ID of the recipient of the message
  * @mbox    Mailbox to receive the message
  * @len     Message length, in bytes
+ * @q_was_full [out] Set if queue was full 
  *
  * @return         1 if successful  < 0 if unsuccessful
  */
-bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len)
+bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len, bool& q_was_full)
 {
   volatile uint32_t reg = 0;
 
@@ -545,18 +560,19 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len)
   opt_end.mbox  = mbox;
 
   pthread_spin_lock(&m_tx_splock[mbox]);
-  if (m_omsg_trk[mbox].bltx_busy.size() >= m_num_ob_desc[mbox]) {
+  if (m_omsg_trk[mbox].bltx_busy_size >= m_num_ob_desc[mbox]) {
     pthread_spin_unlock(&m_tx_splock[mbox]);
-    ERR("%s: Queue full for MBOX%d!\n", __FUNCTION__, mbox);
+    ERR("\n\t%s: Queue full for MBOX%d!\n", __FUNCTION__, mbox);
+    q_was_full = true;
     return false;
   }
 
   const uint32_t tx_slot = m_omsg_ring[mbox].tx_slot;
   DDBG("\n\t%s: tx_slot = %d\n", __FUNCTION__, tx_slot);
 
-  if (m_omsg_trk[mbox].bl_busy.find(tx_slot) != m_omsg_trk[mbox].bl_busy.end()) {
+  if (m_omsg_trk[mbox].bl_busy[tx_slot] != 0) {
     pthread_spin_unlock(&m_tx_splock[mbox]);
-    ERR("%s: BD%d busy for MBOX%d!\n", __FUNCTION__, tx_slot, mbox);
+    ERR("\n\t%s: BD%d busy for MBOX%d!\n", __FUNCTION__, tx_slot, mbox);
     return false;
   }
  
@@ -588,13 +604,11 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len)
   m_omsg_ring[mbox].wr_count++;
   m_omsg_ring[mbox].tx_slot++;
 
-  const uint64_t HW_START = m_omsg_ring[mbox].omd.win_handle;
-
   opt.bd_idx = tx_slot;
   opt.bd_wp  = m_omsg_ring[mbox].wr_count;
 
   pthread_spin_lock(&m_bltx_splock[mbox]);
-  m_omsg_trk[mbox].bl_busy[tx_slot]++;
+  m_omsg_trk[mbox].bl_busy[tx_slot] = tx_slot + 1;
   pthread_spin_unlock(&m_bltx_splock[mbox]);
 
   /* Go to next slot, if only 1 slot, wrap-around to 0 */
@@ -634,12 +648,16 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len)
     wr32mboxchan(TSI721_OBDMAC_DWRCNT(mbox), m_omsg_ring[mbox].wr_count);
 
     wi.opt = opt;
-    m_omsg_trk[mbox].bltx_busy[HW_START + wi.opt.bd_idx*MBOX_BUFF_DESCR_SIZE] = wi;
+    wi.valid = WI_SIG;
+    m_omsg_trk[mbox].bltx_busy[wi.opt.bd_idx] = wi;
+    m_omsg_trk[mbox].bltx_busy_size++;
 
     if(queued_T5) {
       opt_end.ts_start = opt.ts_start;
       wi_end.opt = opt_end;
-      m_omsg_trk[mbox].bltx_busy[HW_START + m_num_ob_desc[mbox]*MBOX_BUFF_DESCR_SIZE] = wi_end;
+      wi_end.valid = WI_SIG;
+      m_omsg_trk[mbox].bltx_busy[m_num_ob_desc[mbox]] = wi_end;
+      m_omsg_trk[mbox].bltx_busy_size++;
     }
   pthread_spin_unlock(&m_bltx_splock[mbox]);
   (void)rd32mboxchan(TSI721_OBDMAC_DWRCNT(mbox));
@@ -674,11 +692,11 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len)
 
   if (reg & TSI721_OBDMAC_INT_ERROR) {
     pthread_spin_lock(&m_bltx_splock[mbox]);
-    m_omsg_trk[mbox].bl_busy.erase(opt.bd_idx);
-    m_omsg_trk[mbox].bltx_busy.erase(HW_START + wi.opt.bd_idx*MBOX_BUFF_DESCR_SIZE);
+    m_omsg_trk[mbox].bl_busy[opt.bd_idx] = 0;
+    m_omsg_trk[mbox].bltx_busy[wi.opt.bd_idx].valid = 0; m_omsg_trk[mbox].bltx_busy_size--;
     if (queued_T5) {
-      m_omsg_trk[mbox].bl_busy.erase(opt_end.bd_idx);
-      m_omsg_trk[mbox].bltx_busy.erase(HW_START + m_num_ob_desc[mbox]*MBOX_BUFF_DESCR_SIZE);
+      m_omsg_trk[mbox].bl_busy[opt_end.bd_idx] = 0;
+      m_omsg_trk[mbox].bltx_busy[m_num_ob_desc[mbox]].valid = 0; m_omsg_trk[mbox].bltx_busy_size--;
     }
     pthread_spin_unlock(&m_bltx_splock[mbox]);
 
@@ -928,8 +946,16 @@ int MboxChannel::add_inb_buffer(const int mbox, void* buf)
   return m_imsg_ring[mbox].rx_slot;
 }
 
-int MboxChannel::scanFIFO(const int mbox, std::vector<MboxChannel::WorkItem_t>& wi)
+/** \brief Scan MBOX TX completion FIFO and return number of items completed
+ * \param mbox mailbox
+ * \param[out] completed_work Completed work items, count of which is the return val of this function
+ * \param max_work max size of completed_work
+ * \return -1 on error, >= 0 count of completed work items
+ */
+int MboxChannel::scanFIFO(const int mbox, WorkItem_t* completed_work, const int max_work)
 {
+  if(completed_work == NULL || max_work < 1) return -1;
+
   const int mboxmsk = 1<<mbox;
   if(! (m_mboxen & mboxmsk)) return -1;
 
@@ -954,6 +980,7 @@ DDBG("\n\tFIFO START line=%d size=%d RD=%d\n", j, m_omsg_ring[mbox].sts_size, ol
 
   const uint64_t HW_START = m_omsg_ring[mbox].omd.win_handle;
   const uint64_t HW_END   = HW_START + m_omsg_ring[mbox].omd.win_size;
+
   while (sts_ptr[j]) {
       for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
         const uint64_t hwptr = sts_ptr[i];
@@ -962,19 +989,22 @@ DDBG("\n\tFIFO START line=%d size=%d RD=%d\n", j, m_omsg_ring[mbox].sts_size, ol
         if (hwptr >= HW_START && hwptr < HW_END) {
           const uint32_t bd_idx = (hwptr-HW_START)/MBOX_BUFF_DESCR_SIZE;
 
+          if (bd_idx < 0 || bd_idx > m_num_ob_desc[mbox]) continue;
+
           bool found = false;
           uint32_t l_wr_count = 0;
           pthread_spin_lock(&m_bltx_splock[mbox]);
-            std::map<uint64_t, WorkItem_t>::iterator it = m_omsg_trk[mbox].bltx_busy.find(hwptr);
-            if (it != m_omsg_trk[mbox].bltx_busy.end()) {
-              l_wr_count = it->second.opt.bd_wp; found = true;
-              it->second.opt.ts_end = ts_end;
-              wi.push_back(it->second);
-              m_omsg_trk[mbox].bltx_busy.erase(it);
+            if (m_omsg_trk[mbox].bltx_busy[bd_idx].valid == WI_SIG) {
+              l_wr_count = m_omsg_trk[mbox].bltx_busy[bd_idx].opt.bd_wp;
+              m_omsg_trk[mbox].bltx_busy[bd_idx].opt.ts_end = ts_end;
+              found = true;
+              completed_work[fifo_count++] = m_omsg_trk[mbox].bltx_busy[bd_idx];
+              m_omsg_trk[mbox].bltx_busy[bd_idx].valid = 0xdeadbeef;
+              m_omsg_trk[mbox].bltx_busy_size--;
             }
             if (found) {
-              assert(m_omsg_trk[mbox].bl_busy[bd_idx] == 1);
-              m_omsg_trk[mbox].bl_busy.erase(bd_idx);
+              assert(m_omsg_trk[mbox].bl_busy[bd_idx] != 0);
+              m_omsg_trk[mbox].bl_busy[bd_idx] = 0;
             }
           pthread_spin_unlock(&m_bltx_splock[mbox]);
 
@@ -990,8 +1020,7 @@ DDBG("\n\tFIFO START line=%d size=%d RD=%d\n", j, m_omsg_ring[mbox].sts_size, ol
           DBG("\n\tFIFO line=%d off=%d 0x%llx => BD idx %d %sfound -- TX HW RP=%d soft RP=%d WP=%d -- pending %d\n",
                    j, i, hwptr, bd_idx, (found? "": "NOT "),
                    rd32mboxchan(TSI721_OBDMAC_DRDCNT(mbox)), soft_rp, m_omsg_ring[mbox].wr_count,
-                   m_omsg_trk[mbox].bltx_busy.size());
-          ++fifo_count;
+                   m_omsg_trk[mbox].bltx_busy_size);
         } else {
           CRIT("\n\tFIFO line=%d off=%d 0x%llx JUNK\n", j, i, hwptr);
         }
@@ -1015,19 +1044,4 @@ DDBG("\n\tFIFO START line=%d size=%d RD=%d\n", j, m_omsg_ring[mbox].sts_size, ol
 
 void MboxChannel::dumpBL(int mbox)
 {
-  std::stringstream ss;
-  ss << "BL[] = { ";
-  int count = 0;
-  const uint64_t HW_START = m_omsg_ring[mbox].omd.win_handle;
-  pthread_spin_lock(&m_bltx_splock[mbox]);
-  for(std::map<uint64_t, WorkItem_t>::iterator it = m_omsg_trk[mbox].bltx_busy.begin();
-      it != m_omsg_trk[mbox].bltx_busy.end(); it++) {
-    const uint64_t hw_ptr2 = it->first;
-    const uint32_t bd_idx = (hw_ptr2-HW_START)/MBOX_BUFF_DESCR_SIZE;
-    ss << bd_idx << ":" << it->second.opt.bd_idx << " "; 
-    count++;
-  }
-  pthread_spin_unlock(&m_bltx_splock[mbox]);
-  ss << "} size=" << count << "\n";
-  DBG("%s", ss.str().c_str());
 }

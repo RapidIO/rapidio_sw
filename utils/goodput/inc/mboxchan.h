@@ -148,7 +148,8 @@ public:
   } MboxOptions_t;
 
   typedef struct {
-    MboxOptions_t       opt;
+    uint32_t       valid;
+    MboxOptions_t  opt;
     // add actions here
   } WorkItem_t;
 
@@ -160,7 +161,7 @@ public:
   void setInitState();
   bool open_mbox(const uint32_t entries);
 
-  bool send_message(MboxOptions_t& opt, const void* data, size_t len);
+  bool send_message(MboxOptions_t& opt, const void* data, size_t len, bool& q_was_full);
 
   int add_inb_buffer(const int mbox, void* buf);
   bool inb_message_ready(const int ib_mbox, uint64_t& rx_ts);
@@ -175,7 +176,7 @@ public:
   inline int getDeviceId() { return m_mport->getDeviceId(); }
   inline uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 
-  int scanFIFO(const int mbox, std::vector<MboxChannel::WorkItem_t>& wi);
+  int scanFIFO(const int mbox, WorkItem_t* completed_work, const int max_work);
 
   inline int getTxReadCountSoft(const int mbox)
   {
@@ -189,16 +190,7 @@ public:
     const int mboxmsk = 1<<mbox;
     if(! (m_mboxen & mboxmsk)) throw std::runtime_error("queueTxFull: Mailbox not opened!");
 
-    // XXX TODO: handle counter wrap-around!!
-
-    pthread_spin_lock(&m_tx_splock[mbox]);
-    const int S1 = m_omsg_trk[mbox].bltx_busy.size();
-    const int S2 = m_omsg_ring[mbox].wr_count - m_omsg_ring[mbox].rd_count_soft;
-    pthread_spin_unlock(&m_tx_splock[mbox]);
-
-    //assert(S1 == S2);
-    const int MAX_SZ = (m_num_ob_desc[mbox] * 9) / 10; // XXX FUUUDGE
-    return S1 >= MAX_SZ || S2 >= MAX_SZ;
+    return m_omsg_trk[mbox].bltx_busy_size >= m_num_ob_desc[mbox];
   }
 
   inline int queueTxSize(const int mbox)
@@ -206,10 +198,7 @@ public:
     const int mboxmsk = 1<<mbox;
     if(! (m_mboxen & mboxmsk)) throw std::runtime_error("queueTxFull: Mailbox not opened!");
 
-    pthread_spin_lock(&m_tx_splock[mbox]);
-    const int S = m_omsg_ring[mbox].wr_count - m_omsg_ring[mbox].rd_count_soft;
-    pthread_spin_unlock(&m_tx_splock[mbox]);
-    return S;
+    return m_omsg_trk[mbox].bltx_busy_size;
   }
 
 public: // test-public
@@ -259,11 +248,14 @@ private:
   bool                m_imsg_init[RIO_MAX_MBOX];
   bool                m_omsg_init[RIO_MAX_MBOX];
 
+  static const uint32_t WI_SIG = 0xb00fd00fL;
+
   // Cannot store this in struct hw_omsg_ring as m_omsg_init
   // gets memset to 0 and that screws up the std:: objects
   struct {
-    std::map<uint64_t, WorkItem_t> bltx_busy; ///< BD busy map {hwaddr, wp}
-    std::map<uint32_t, int>      bl_busy; ///< BD busy array
+    WorkItem_t*  bltx_busy; 
+    volatile int bltx_busy_size;
+    int*         bl_busy;
   } m_omsg_trk[RIO_MAX_MBOX];
 };
 

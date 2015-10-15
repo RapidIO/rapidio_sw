@@ -1261,8 +1261,7 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	if (NULL == info->umd_dch)
 		goto exit;
 	
-	DMAChannel::WorkItem_t wi[info->umd_tx_buf_cnt*2];
-	memset(wi, 0, sizeof(DMAChannel::WorkItem_t)*info->umd_tx_buf_cnt*2);
+	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
 	migrate_thread_to_cpu(&info->umd_fifo_thr);
 
@@ -1273,7 +1272,7 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	sem_post(&info->umd_fifo_proc_started); 
 
 	while (!info->umd_fifo_proc_must_die) {
-		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_tx_buf_cnt*2);
+		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
 
 		if (!cnt) 
 			continue;
@@ -1314,37 +1313,35 @@ exit:
 void *umd_mbox_fifo_proc_thr(void *parm)
 {
         struct worker *info;
-        std::vector<DMAChannel::WorkItem_t>::iterator it;
 
 	int idx = -1;
 	uint64_t tsF1 = 0, tsF2 = 0;
         const int MHz = getCPUMHz();
 
-        if (NULL == parm)
-                goto exit;
+        if (NULL == parm) return NULL;
 
         info = (struct worker *)parm;
-        if (NULL == info->umd_mch)
-                goto exit;
+        if (NULL == info->umd_mch) return parm;
 
         migrate_thread_to_cpu(&info->umd_fifo_thr);
 
         if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
-                goto exit;
+		return parm;
 
 	idx = info->idx;
 	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));
+
+	MboxChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
         info->umd_fifo_proc_alive = 1;
         sem_post(&info->umd_fifo_proc_started);
 
 	tsF1 = rdtsc();
 	while (!info->umd_fifo_proc_must_die) {
-		std::vector<MboxChannel::WorkItem_t> wi;
 		g_FifoStats[idx].fifo_thr_iter++;
 
 		const uint64_t tss1 = rdtsc();
-		const int cnt = info->umd_mch->scanFIFO(info->umd_chan, wi);
+		const int cnt = info->umd_mch->scanFIFO(info->umd_chan, wi, info->umd_sts_entries*8);
 		const uint64_t tss2 = rdtsc();
 		if (tss2 > tss1) { g_FifoStats[idx].fifo_deltats_scanfifo += (tss2-tss1); g_FifoStats[idx].fifo_count_scanfifo++; }
 		if (0 == cnt) {
@@ -1353,8 +1350,8 @@ void *umd_mbox_fifo_proc_thr(void *parm)
 		}
 
 		const uint64_t tsm1 = rdtsc();
-                for (std::vector<MboxChannel::WorkItem_t>::iterator it = wi.begin(); it != wi.end(); it++) {
-                        MboxChannel::WorkItem_t& item = *it;
+		for (int i = 0; i < cnt; i++) {
+                        MboxChannel::WorkItem_t& item = wi[i];
 
                         uint64_t dT  = 0;
                         float    dTf = 0;
@@ -1381,6 +1378,7 @@ void *umd_mbox_fifo_proc_thr(void *parm)
                                         g_FifoStats[idx].fifo_thr_iter);
                                 break;
                         }
+			//XXX wi[i].valid = 0xdeadabba;
                 } // END for WorkItem_t vector
 
 		const uint64_t tsm2 = rdtsc();
@@ -1388,7 +1386,7 @@ void *umd_mbox_fifo_proc_thr(void *parm)
 //next:
 		for(int i = 0; i < 10000; i++) {;}
 	}
-exit:
+//exit:
 	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
 
 	sem_post(&info->umd_fifo_proc_started); 
@@ -2338,6 +2336,8 @@ void umd_mbox_goodput_demo(struct worker *info)
 		return;
 	}
 
+	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
+
         info->tick_data_total = 0;
         info->tick_count = info->tick_total = 0;
 
@@ -2407,20 +2407,30 @@ void umd_mbox_goodput_demo(struct worker *info)
                 info->umd_dma_abort_reason = 0;
 
                 // TX Loop
-                for (int cnt = 0; /*(cnt < info->byte_cnt) &&*/ !info->stop_req;
-                                                        cnt += info->acc_size) {
-			char str[PAGE_4K+1] = {0};
+		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
+		opt.destid = info->did;
+		opt.mbox   = info->umd_chan;
+		char str[PAGE_4K+1] = {0};
+                for (int cnt = 0; !info->stop_req; cnt++) {
+			bool q_was_full = false;
 
-			MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
-			opt.destid = info->did;
-			opt.mbox   = info->umd_chan;
 			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
-		      	if (! info->umd_mch->send_message(opt, str, info->acc_size)) {
-				ERR("\n\tsend_message FAILED!\n");
-				goto exit;
+		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, q_was_full)) {
+				if (! q_was_full) {
+					ERR("\n\tsend_message FAILED!\n");
+					goto exit;
+				}
 		      	}
 			if (info->stop_req) break;
-		      	while (!info->stop_req && info->umd_mch->queueTxFull( info->umd_chan)) { usleep(100); }
+
+		      	//while (!info->stop_req && info->umd_mch->queueTxFull(info->umd_chan)) { usleep(10); }
+
+                        // Busy-wait for queue to drain
+                        for (uint64_t iq = 0; !info->stop_req && q_was_full &&
+                                (iq < 1000000000) &&
+                                (info->umd_mch->queueTxSize(info->umd_chan) >= Q_THR);
+                                iq++) {
+                        }
 		}
 
                 info->umd_tx_iter_cnt++;
