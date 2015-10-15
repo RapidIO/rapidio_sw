@@ -334,22 +334,28 @@ void msg_q_handle_areq(struct librsktd_unified_msg *msg)
 {
 	uint32_t send_resp_now = 1;
 
+	DBG("ENTER\n");
 	switch (msg->proc_stage) {
 	case RSKTD_AREQ_SEQ_AREQ:
 		switch (ntohl(msg->rx->msg_type)) {
 		case LIBRSKTD_BIND:
+				DBG("LIBRSKTD_BIND\n");
 				rsktd_areq_bind(msg);
 				break;
 		case LIBRSKTD_LISTEN:
+				DBG("LIBRSKTD_LISTEN\n");
 				rsktd_areq_listen(msg);
 				break;
 		case LIBRSKTD_ACCEPT:
+				DBG("LIBRSKTD_ACCEPT\n");
 				send_resp_now = rsktd_areq_accept(msg);
 				break;
 		case LIBRSKTD_HELLO:
+				DBG("LIBRSKTD_HELLO\n");
 				rsktd_areq_hello(msg);
 				break;
 		case LIBRSKTD_CLI:
+				DBG("LIBRSKTD_CLI\n");
 				perform_cli_cmd(msg->rx->a_rq.msg.cli.cmd_line);
 				break;
 		default:
@@ -913,28 +919,42 @@ void *msg_q_loop(void *unused)
 {
 	struct librsktd_unified_msg *msg;
 
+	DBG("ENTER\n");
 	mproc.msg_proc_alive = 1;
 	sem_post(&mproc.msg_q_started);
 
 	while (!dmn.all_must_die) {
 		sem_wait(&mproc.msg_q_cnt);
-		if (dmn.all_must_die)
+		if (dmn.all_must_die) {
+			INFO("all_must_die is true!\n");
 			break;
+		}
 		sem_wait(&mproc.msg_q_mutex);
 		msg = (struct librsktd_unified_msg *)l_pop_head(&mproc.msg_q);
 		sem_post(&mproc.msg_q_mutex);
 
-		if (dmn.all_must_die || (NULL == msg))
+		if (dmn.all_must_die || (NULL == msg)) {
+			WARN("msg == NULL. Exiting loop\n");
 			break;
+		}
 
 		switch (msg->proc_type) {
-		case RSKTD_PROC_AREQ: msg_q_handle_areq(msg);
+		case RSKTD_PROC_AREQ:
+					INFO("RSKTD_PROC_AREQ\n");
+					msg_q_handle_areq(msg);
 					break;
-		case RSKTD_PROC_A2W: msg_q_handle_a2w(msg);
+		case RSKTD_PROC_A2W:
+					INFO("RSKTD_PROC_A2W\n");
+					msg_q_handle_a2w(msg);
 					break;
-		case RSKTD_PROC_SREQ: msg_q_handle_sreq(msg);
+		case RSKTD_PROC_SREQ:
+					INFO("RSKTD_PROC_SREQ\n");
+					msg_q_handle_sreq(msg);
 					break;
-		case RSKTD_PROC_S2A: msg_q_handle_s2a(msg);
+
+		case RSKTD_PROC_S2A:
+					INFO("RSKTD_PROC_S2A\n");
+					msg_q_handle_s2a(msg);
 					break;
 		default: 
 			CRIT("MSG_Q_LOOP: Unknown proc type %d\n",
@@ -949,16 +969,19 @@ int start_msg_proc_q_thread(void)
 {
 	int rc;
 
+	DBG("ENTER\n");
 	rsktd_sn_init(RSKTD_MAX_SKT_NUM);
 	sem_init(&mproc.msg_q_mutex, 0, 1);
 	sem_init(&mproc.msg_q_cnt, 0, 0);
 	sem_init(&mproc.msg_q_started, 0, 0);
 	l_init(&mproc.msg_q);
 
+	DBG("Creating msg_q_loop\n");
         rc = pthread_create(&mproc.msg_q_thread, NULL, msg_q_loop, NULL);
 
 	if (!rc)
 		sem_wait(&mproc.msg_q_started);
+	DBG("EXIT\n");
 	return rc;
 };
 	

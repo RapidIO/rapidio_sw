@@ -259,6 +259,7 @@ void *app_rx_loop(void *ip)
 	*app->self_ptr = NULL;
 
 	/* Close all sockets associated with this app */
+	DBG("Closing all sockets associated with app\n");
 	acc = (struct acc_skts *)l_head(&lib_st.acc, &li);
 	next_li = li;
 	while (NULL != acc) {
@@ -298,6 +299,7 @@ void *app_rx_loop(void *ip)
 
 	l_remove(&lib_st.app, app_li);
 
+	DBG("EXIT\n");
 	pthread_exit(NULL);
 }
 	
@@ -391,6 +393,7 @@ void *lib_conn_loop( void *unused )
 		};
 		INFO("*** CONNECTED ***\n");
 
+		DBG("Creating app_rx_loop for app\n");
         	rc = pthread_create(&lib_st.new_app->thread, NULL, app_rx_loop,
 				(void *)lib_st.new_app);
         	if (rc) {
@@ -398,6 +401,7 @@ void *lib_conn_loop( void *unused )
         	} else {
         		DBG("Waiting for new_app->started\n");
         		sem_wait(&lib_st.new_app->started);
+        		DBG("new_app->started POSTED!\n");
         	}
 
 		if (lib_st.tst) {
@@ -469,6 +473,7 @@ void halt_lib_handler(void)
 
 	if (NULL != lib_st.new_app) {
 		DBG("lib_st.new_app != NULL\n");
+		DBG("################# POSTING!!!\n");
 		sem_post(&lib_st.new_app->started);
 	}
 
