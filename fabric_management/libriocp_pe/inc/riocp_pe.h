@@ -152,6 +152,11 @@ int riocp_pe_maint_write(riocp_pe_handle pe, uint32_t offset, uint32_t val);
 const char *riocp_pe_get_device_name(riocp_pe_handle pe);
 const char *riocp_pe_get_vendor_name(riocp_pe_handle pe);
 
+/* PE managment */
+int RIOCP_WU riocp_pe_announce(riocp_pe_handle pe);
+int RIOCP_WU riocp_pe_revoke(riocp_pe_handle pe);
+
+
 #ifdef __cplusplus
 }
 #endif

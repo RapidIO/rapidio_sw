@@ -27,6 +27,9 @@ int RIOCP_WU riocp_pe_maint_read_remote(struct riocp_pe *mport, uint32_t destid,
 int RIOCP_WU riocp_pe_maint_set_anyid_route(struct riocp_pe *pe);
 int RIOCP_WU riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe);
 
+int RIOCP_WU riocp_pe_maint_device_add(struct riocp_pe *mport, uint16_t destid, uint8_t hc, uint32_t ct);
+int RIOCP_WU riocp_pe_maint_device_del(struct riocp_pe *mport, uint16_t destid, uint8_t hc, uint32_t ct);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1625,6 +1625,34 @@ outhere:
 	return ret;
 }
 
+/**
+ * Announce a PE to the underlaying software stack
+ *
+ * @param pe Target PE
+ * @retval -EINVAL Invalid argument
+ */
+int riocp_pe_announce(riocp_pe_handle pe)
+{
+	if (riocp_pe_handle_check(pe))
+		return -EINVAL;
+
+	return riocp_pe_maint_device_add(pe->mport, pe->destid, pe->hopcount, pe->comptag);
+}
+
+/**
+ * Revoke a PE from the underlaying software stack
+ *
+ * @param pe Target PE
+ * @retval -EINVAL Invalid argument
+ */
+int riocp_pe_revoke(riocp_pe_handle pe)
+{
+	if (riocp_pe_handle_check(pe))
+		return -EINVAL;
+
+	return riocp_pe_maint_device_del(pe->mport, pe->destid, pe->hopcount, pe->comptag);
+}
+
 #ifdef __cplusplus
 }
 #endif
