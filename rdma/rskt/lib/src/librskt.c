@@ -112,7 +112,6 @@ struct rsvp_li {
 int librskt_wait_for_sem(sem_t *sema, int err_code)
 {
 	int rc = sem_wait(sema);
-	DBG("ENTER\n");
 	if (rc) {
 		WARN("sem_wait returned %d\n", rc);
 	}
@@ -122,7 +121,6 @@ int librskt_wait_for_sem(sem_t *sema, int err_code)
 		ERR("Failed in sem_wait()\n");
 		lib.all_must_die = err_code;
 	}
-	DBG("EXIT\n");
 	return rc;
 };
 
