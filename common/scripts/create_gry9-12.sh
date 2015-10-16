@@ -3,7 +3,16 @@ RDMA_ROOT_PATH=/home/sherif/git/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 # Temporary script to speed up RSKT test apps development.
-NODES="GRY09 GRY10"
+NODES="GRY09 GRY10 GRY11 GRY12"
+
+# Load drivers on each node
+for node in $NODES
+do
+	ssh root@"$node" "modprobe rio_cm"
+	sleep 1
+	ssh root@"$node" "modprobe rio_mport_cdev"
+	sleep 1
+done
 
 # Start Fabric Management Daemon on each node
 for node in $NODES
