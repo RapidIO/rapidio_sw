@@ -57,6 +57,8 @@ using std::setfill;
 using std::hex;
 using std::setw;
 
+#define RSKT_MAX_SEND_BUF_SIZE		1024*1024	/* 1MB */
+#define RSKT_MAX_RECV_BUF_SIZE		1024*1024	/* 1MB */
 #define RSKT_DEFAULT_SEND_BUF_SIZE	4096
 #define RSKT_DEFAULT_RECV_BUF_SIZE	4096
 #define RSKT_DEFAULT_BACKLOG		  50
@@ -123,10 +125,28 @@ protected:
 	rskt_base(const char *name, uint32_t send_size, uint32_t recv_size) :
 		name(name),
 		send_size(send_size),
-		recv_size(recv_size),
-		send_buf(new uint8_t[send_size]),
-		recv_buf(new uint8_t[recv_size])
+		recv_size(recv_size)
 	{
+		/* Specified send_size must be within limit */
+		if (send_size > RSKT_MAX_SEND_BUF_SIZE) {
+			throw rskt_exception("Send buffer size is > RSKT_MAX_SEND_BUF_SIZE");
+		}
+
+		/* Specified recv_size must be within limit */
+		if (recv_size > RSKT_MAX_RECV_BUF_SIZE) {
+			throw rskt_exception("Receive buffer size is > RSKT_MAX_RECV_BUF_SIZE");
+		}
+
+		/* Allocate the buffer and check for alloc failures */
+		try {
+			send_buf = new uint8_t[send_size];
+			recv_buf = new uint8_t[recv_size];
+		}
+		catch(std::bad_alloc& ba) {
+			throw rskt_exception("Bad allocation for recv_buf or send_buf\n");
+		}
+		DBG("send_size = %u, recv_size = %u\n", this->send_size, this->recv_size);
+
 		/* Initialize buffers to 0 -- for Valgrind */
 		flush_send_buffer();
 		flush_recv_buffer();

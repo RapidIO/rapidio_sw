@@ -109,6 +109,7 @@ struct librskt_app {
         pthread_t thread;
         int alive;
         sem_t started;
+        sem_t up_and_running;
         volatile int i_must_die;
 	sem_t test_msg_tx;
 	sem_t test_msg_rx;

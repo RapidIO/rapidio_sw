@@ -5,7 +5,7 @@
 RDMA_ROOT_PATH=/home/sherif/git/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
-NODES="GRY10 GRY09"
+NODES="GRY12 GRY11 GRY10 GRY09"
 
 for node in $NODES
 do
@@ -35,11 +35,10 @@ do
 
 	sleep 3
 
-	# Unload rio_cm
+	# Unload drivers
 	ssh root@"$node" "modprobe -r rio_cm"
 	sleep 1
-
-	# Load rio_cm
-	ssh root@"$node" "modprobe rio_cm"
+	ssh root@"$node" "modprobe -r rio_mport_cdev"
+	sleep 1
 done
 

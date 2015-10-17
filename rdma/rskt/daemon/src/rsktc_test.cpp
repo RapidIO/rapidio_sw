@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 
 	/* Create a client and connect to server */
 	try {
-		client = new rskt_client("client1");
+		client = new rskt_client("client1", data_length, data_length);
 	}
 	catch(rskt_exception& e) {
 		ERR("Failed to create client: %s\n", e.err);
