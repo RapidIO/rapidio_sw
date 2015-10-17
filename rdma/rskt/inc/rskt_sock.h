@@ -57,8 +57,8 @@ using std::setfill;
 using std::hex;
 using std::setw;
 
-#define RSKT_MAX_SEND_BUF_SIZE		1024*1024	/* 1MB */
-#define RSKT_MAX_RECV_BUF_SIZE		1024*1024	/* 1MB */
+#define RSKT_MAX_SEND_BUF_SIZE		16*1024	/* 16KB */
+#define RSKT_MAX_RECV_BUF_SIZE		16*1024	/* 16KB */
 #define RSKT_DEFAULT_SEND_BUF_SIZE	4096
 #define RSKT_DEFAULT_RECV_BUF_SIZE	4096
 #define RSKT_DEFAULT_BACKLOG		  50
