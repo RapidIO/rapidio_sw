@@ -120,6 +120,7 @@ enum req_type {
 	umd_dmalrx,
 	umd_dmalnr,
 	umd_mbox,
+	umd_mboxl,
 #endif
 	last_action
 };
@@ -235,6 +236,14 @@ struct worker {
 	struct timespec fifo_ts[MAX_TIMESTAMPS];
 #endif
 };
+
+/**
+ * @brief Retrieves a Goodput Env Variable (this is NOT a shell variable)
+ *
+ * @param[in] var name of Env Var, case sensitive
+ * @return NULL if not found, ASCII contents if found
+ */
+const char* GetEnv(const char* var);
 
 /**
  * @brief Initializes worker structure
