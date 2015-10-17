@@ -61,9 +61,37 @@ char *req_type_str[(int)last_action+1] = {
         (char*)"lrudma",
         (char*)"nrudma",
         (char*)"UMSG",
+        (char*)"UMSGLat",
 #endif
 	(char *)"LAST"
 };
+
+std::map<std::string, std::string> SET_VARS;
+
+const char* GetEnv(const char* var)
+{
+	if (var == NULL || var[0] == '\0') return NULL;
+	
+	std::map<std::string, std::string>::iterator it = SET_VARS.find(var);
+	if (it == SET_VARS.end()) return NULL;
+
+	return it->second.c_str();
+}
+
+static inline const char* SubstituteParam(const char* arg)
+{
+	if (arg == NULL || arg[0] == '\0') return arg;
+	if (arg[0] != '$') return arg;
+
+	std::map<std::string, std::string>::iterator it = SET_VARS.find(arg+1);
+	if (it == SET_VARS.end()) return arg;
+
+	return it->second.c_str();
+}
+
+inline int GetDecParm(const char* arg, int dflt)       { return getDecParm((char*)SubstituteParam(arg), dflt); }
+inline int GetHex(const char* arg, int dflt)           { return getHex((char*)SubstituteParam(arg), dflt); }
+inline float GetFloatParm(const char* arg, float dflt) { return getFloatParm((char*)SubstituteParam(arg), dflt); }
 
 int check_idx(struct cli_env *env, int idx, int want_halted)
 {
@@ -98,7 +126,7 @@ int get_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 {
 	int rc = 1;
 
-	*cpu = getDecParm(dec_parm, 0);
+	*cpu = GetDecParm(dec_parm, 0);
 
 	if ((*cpu  < -1) || (*cpu > MAX_GOODPUT_CPU)) {
 		sprintf(env->output, "\nCPU must be 0 to %d...\n",
@@ -120,10 +148,10 @@ int ThreadCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, cpu, new_dma;
 
-	idx = getDecParm(argv[0], 0);
+	idx = GetDecParm(argv[0], 0);
 	if (get_cpu(env, argv[1], &cpu))
 		goto exit;
-	new_dma = getDecParm(argv[2], 0);
+	new_dma = GetDecParm(argv[2], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -162,7 +190,7 @@ int KillCmd(struct cli_env *env, int argc, char **argv)
 	int st_idx = 0, end_idx = MAX_WORKERS-1, i;
 
 	if (strncmp(argv[0], "all", 3)) {
-		st_idx = getDecParm(argv[0], 0);
+		st_idx = GetDecParm(argv[0], 0);
 		end_idx = st_idx;
 
 		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
@@ -196,7 +224,7 @@ int HaltCmd(struct cli_env *env, int argc, char **argv)
 	unsigned int st_idx = 0, end_idx = MAX_WORKERS-1, i;
 
 	if (strncmp(argv[0], "all", 3)) {
-		st_idx = getDecParm(argv[0], 0);
+		st_idx = GetDecParm(argv[0], 0);
 		end_idx = st_idx;
 
 		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
@@ -235,7 +263,7 @@ int MoveCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, cpu;
 
-	idx = getDecParm(argv[0], 0);
+	idx = GetDecParm(argv[0], 0);
 	if (get_cpu(env, argv[1], &cpu))
 		goto exit;
 
@@ -270,7 +298,7 @@ int WaitCmd(struct cli_env *env, int argc, char **argv)
 	int idx, state = -1, limit = 10000;
 	const struct timespec ten_usec = {0, 10 * 1000};
 
-	idx = getDecParm(argv[0], 0);
+	idx = GetDecParm(argv[0], 0);
 	switch (argv[1][0]) {
 	case '0':
 	case 'd':
@@ -331,7 +359,7 @@ ATTR_NONE
 
 int SleepCmd(struct cli_env *env, int argc, char **argv)
 {
-	float sec = getFloatParm(argv[0], 0);
+	float sec = GetFloatParm(argv[0], 0);
 	if(sec > 0) {
 		sprintf(env->output, "\nSleeping %f sec...\n", sec);
         	logMsg(env);
@@ -359,8 +387,8 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	int idx;
 	uint64_t ib_size;
 
-	idx = getDecParm(argv[0], 0);
-	ib_size = getHex(argv[1], 0);
+	idx = GetDecParm(argv[0], 0);
+	ib_size = GetHex(argv[1], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -396,7 +424,7 @@ int IBDeallocCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
 
-	idx = getDecParm(argv[0], 0);
+	idx = GetDecParm(argv[0], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -428,18 +456,18 @@ int obdio_cmd(struct cli_env *env, int argc, char **argv, enum req_type action)
 	uint64_t acc_sz;
 	int wr = 0;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	rio_addr = getHex(argv[2], 0);
+	idx = GetDecParm(argv[0], 0);
+	did = GetDecParm(argv[1], 0);
+	rio_addr = GetHex(argv[2], 0);
 	if (direct_io == action) {
-		bytes = getHex(argv[3], 0);
-		acc_sz = getHex(argv[4], 0);
-		wr = getDecParm(argv[5], 0);
+		bytes = GetHex(argv[3], 0);
+		acc_sz = GetHex(argv[4], 0);
+		wr = GetDecParm(argv[5], 0);
 	} else {
-		acc_sz = getHex(argv[3], 0);
+		acc_sz = GetHex(argv[3], 0);
 		bytes = acc_sz;
 		if (direct_io_tx_lat == action) 
-			wr = getDecParm(argv[4], 0);
+			wr = GetDecParm(argv[4], 0);
 		else
 			wr = 1;
 	};
@@ -543,15 +571,15 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	int trans;
 	int sync;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	rio_addr = getHex(argv[2], 0);
-	bytes = getHex(argv[3], 0);
-	acc_sz = getHex(argv[4], 0);
-	wr = getDecParm(argv[5], 0);
-	kbuf = getDecParm(argv[6], 0);
-	trans = getDecParm(argv[7], 0);
-	sync = getDecParm(argv[8], 0);
+	idx = GetDecParm(argv[0], 0);
+	did = GetDecParm(argv[1], 0);
+	rio_addr = GetHex(argv[2], 0);
+	bytes = GetHex(argv[3], 0);
+	acc_sz = GetHex(argv[4], 0);
+	wr = GetDecParm(argv[5], 0);
+	kbuf = GetDecParm(argv[6], 0);
+	trans = GetDecParm(argv[7], 0);
+	sync = GetDecParm(argv[8], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -609,13 +637,13 @@ int dmaTxLatCmd(struct cli_env *env, int argc, char **argv)
 	int kbuf;
 	int trans;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	rio_addr = getHex(argv[2], 0);
-	bytes = getHex(argv[3], 0);
-	wr = getDecParm(argv[4], 0);
-	kbuf = getDecParm(argv[5], 0);
-	trans = getDecParm(argv[6], 0);
+	idx = GetDecParm(argv[0], 0);
+	did = GetDecParm(argv[1], 0);
+	rio_addr = GetHex(argv[2], 0);
+	bytes = GetHex(argv[3], 0);
+	wr = GetDecParm(argv[4], 0);
+	kbuf = GetDecParm(argv[5], 0);
+	trans = GetDecParm(argv[6], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -669,10 +697,10 @@ int dmaRxLatCmd(struct cli_env *env, int argc, char **argv)
 	uint64_t rio_addr;
 	uint64_t bytes;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	rio_addr = getHex(argv[2], 0);
-	bytes = getHex(argv[3], 0);
+	idx = GetDecParm(argv[0], 0);
+	did = GetDecParm(argv[1], 0);
+	rio_addr = GetHex(argv[2], 0);
+	bytes = GetHex(argv[3], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -738,10 +766,10 @@ int msg_tx_cmd(struct cli_env *env, int argc, char **argv, enum req_type req)
 	int sock_num;
 	int bytes;
 
-	idx = getDecParm(argv[0], 0);
-	did = getDecParm(argv[1], 0);
-	sock_num = getDecParm(argv[2], 0);
-	bytes = getDecParm(argv[3], 0);
+	idx = GetDecParm(argv[0], 0);
+	did = GetDecParm(argv[1], 0);
+	sock_num = GetDecParm(argv[2], 0);
+	bytes = GetDecParm(argv[3], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -817,9 +845,9 @@ int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 	int sock_num;
 	int bytes;
 
-	idx = getDecParm(argv[0], 0);
-	sock_num = getDecParm(argv[1], 0);
-	bytes = getDecParm(argv[2], 0);
+	idx = GetDecParm(argv[0], 0);
+	sock_num = GetDecParm(argv[1], 0);
+	bytes = GetDecParm(argv[2], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -864,8 +892,8 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 	int idx;
 	int sock_num;
 
-	idx = getDecParm(argv[0], 0);
-	sock_num = getDecParm(argv[1], 0);
+	idx = GetDecParm(argv[0], 0);
+	sock_num = GetDecParm(argv[1], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -1199,6 +1227,58 @@ StatusCmd,
 ATTR_RPT
 };
 
+static inline int MIN(int a, int b) { return a < b? a: b; }
+
+int SetCmd(struct cli_env *env, int argc, char **argv)
+{
+	if(argc == 0) {
+		if (SET_VARS.size() == 0) { INFO("\n\tNo env vars\n"); return 0; }
+
+		std::stringstream ss;
+		std::map<std::string, std::string>::iterator it = SET_VARS.begin();
+		for(; it != SET_VARS.end(); it++) {
+			ss << "\n\t" << it->first << "=" << it->second;
+		}
+
+		CRIT("\nEnv vars: %s\n", ss.str().c_str());
+		goto exit;
+	}
+
+	assert(argv[0]);
+	if (argc == 1) { // Delete var
+		std::map<std::string, std::string>::iterator it = SET_VARS.find(argv[0]);
+		if (it == SET_VARS.end()) { INFO("\n\tNo such env var '%s'\n", argv[0]); return 0; }
+		SET_VARS.erase(it);
+		goto exit;
+	}
+
+	// Set var
+	assert(argv[1]);
+
+	{{
+	  char buf[4097] = {0};
+	  for (int i = 1; i < argc; i++) { strncat(buf, argv[i], 4096);  strncat(buf, " ", 4096); }
+
+	  const int N = strlen(buf);
+	  buf[N - 1] = '\0';
+	  SET_VARS[ argv[0] ] = buf;
+	}}
+exit:
+	return 0;
+}
+
+struct cli_cmd Set = {
+"set",
+3,
+0,
+"Set/display environment vars",
+"set {var {val}}\n"
+        "\"set var\" deletes the variable from env\n"
+        "Default is display env vars.\n",
+SetCmd,
+ATTR_RPT
+};
+
 int dump_idx;
 uint64_t dump_base_offset;
 uint64_t dump_size;
@@ -1210,9 +1290,9 @@ int DumpCmd(struct cli_env *env, int argc, char **argv)
 	uint64_t size;
 
 	if (argc) {
-		idx = getDecParm(argv[0], 0);
-		base_offset = getHex(argv[1], 0);
-		size = getHex(argv[2], 0);
+		idx = GetDecParm(argv[0], 0);
+		base_offset = GetHex(argv[1], 0);
+		size = GetHex(argv[2], 0);
 	} else {
 		idx = dump_idx;
 		base_offset = dump_base_offset;
@@ -1371,14 +1451,14 @@ int UCalCmd(struct cli_env *env, int argc, char **argv)
 {
 	int n = 0, idx, chan, map_sz, sy_iter, hash = 0;
 
-	idx = getDecParm(argv[n++], 0);
+	idx = GetDecParm(argv[n++], 0);
 	if (check_idx(env, idx, 1))
 		goto exit;
 
-	chan = getDecParm(argv[n++], 0);
-	map_sz = getHex(argv[n++], 0);
-	sy_iter = getHex(argv[n++], 0);
-	hash = getDecParm(argv[n++], 0);
+	chan = GetDecParm(argv[n++], 0);
+	map_sz = GetHex(argv[n++], 0);
+	sy_iter = GetHex(argv[n++], 0);
+	hash = GetDecParm(argv[n++], 0);
 	
 	if ((chan < 1) || (chan > 7)) {
                 sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
@@ -1434,7 +1514,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	int got_one = 0;
 	struct timespec diff, min, max, tot;
 
-	idx = getDecParm(argv[0], 0);
+	idx = GetDecParm(argv[0], 0);
 	if (check_idx(env, idx, 0))
 		goto exit;
 
@@ -1464,8 +1544,8 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 		break;
 	case '-':
 		if (argc > 4) {
-			st_i = getDecParm(argv[3], 0);
-			end_i = getDecParm(argv[4], 0);
+			st_i = GetDecParm(argv[3], 0);
+			end_i = GetDecParm(argv[4], 0);
 		} else {
                 	sprintf(env->output,
 				"\nFAILED: Must enter two idexes\n");
@@ -1497,9 +1577,9 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	case 'p':
 	case 'P':
 		if (argc > 3)
-			st_i = getDecParm(argv[3], 0);
+			st_i = GetDecParm(argv[3], 0);
 		if (argc > 4)
-			end_i = getDecParm(argv[4], 0);
+			end_i = GetDecParm(argv[4], 0);
 
 		if ((end_i < st_i) || (st_i < 0) || (end_i >= MAX_TIMESTAMPS)) {
                 	sprintf(env->output, "FAILED: Index range 0 to %d.\n",
@@ -1528,7 +1608,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	case 'l':
 	case 'L':
 		if (argc > 3)
-			lim = getDecParm(argv[3], 0);
+			lim = GetDecParm(argv[3], 0);
 		else
                		lim = 0;
 
@@ -1611,18 +1691,18 @@ int UDMACmd(struct cli_env *env, int argc, char **argv)
 
         int n = 0; // this be a trick from X11 source tree ;)
 
-	idx      = getDecParm(argv[n++], 0);
+	idx      = GetDecParm(argv[n++], 0);
 	if (get_cpu(env, argv[n++], &cpu))
 		goto exit;
 
-	chan     = getDecParm(argv[n++], 0);
-	buff     = getHex(argv[n++], 0);
-	sts      = getHex(argv[n++], 0);
-	did      = getDecParm(argv[n++], 0);
-	rio_addr = getHex(argv[n++], 0);
-	bytes    = getHex(argv[n++], 0);
-	acc_sz   = getHex(argv[n++], 0);
-	trans    = getDecParm(argv[n++], 0);
+	chan     = GetDecParm(argv[n++], 0);
+	buff     = GetHex(argv[n++], 0);
+	sts      = GetHex(argv[n++], 0);
+	did      = GetDecParm(argv[n++], 0);
+	rio_addr = GetHex(argv[n++], 0);
+	bytes    = GetHex(argv[n++], 0);
+	acc_sz   = GetHex(argv[n++], 0);
+	trans    = GetDecParm(argv[n++], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -1721,16 +1801,16 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 
         int n = 0; // this be a trick from X11 source tree ;)
 
-	idx      = getDecParm(argv[n++], 0);
+	idx      = GetDecParm(argv[n++], 0);
 	if (get_cpu(env, argv[n++], &cpu))
 		goto exit;
-	chan     = getDecParm(argv[n++], 0);
-	buff     = getHex(argv[n++], 0);
-	sts      = getHex(argv[n++], 0);
-	did      = getDecParm(argv[n++], 0);
-	rio_addr = getHex(argv[n++], 0);
-	acc_sz   = getHex(argv[n++], 0);
-	trans    = getDecParm(argv[n++], 0);
+	chan     = GetDecParm(argv[n++], 0);
+	buff     = GetHex(argv[n++], 0);
+	sts      = GetHex(argv[n++], 0);
+	did      = GetDecParm(argv[n++], 0);
+	rio_addr = GetHex(argv[n++], 0);
+	acc_sz   = GetHex(argv[n++], 0);
+	trans    = GetDecParm(argv[n++], 0);
 
 	if (cmd != 'R' && cmd != 'T') {
                 sprintf(env->output, "Command '%c' illegal, this should never happen\n", cmd);
@@ -1868,15 +1948,15 @@ int UDMALatNREAD(struct cli_env *env, int argc, char **argv)
 
         int n = 0; // this be a trick from X11 source tree ;)
 
-	idx      = getDecParm(argv[n++], 0);
+	idx      = GetDecParm(argv[n++], 0);
 	if (get_cpu(env, argv[n++], &cpu))
 		goto exit;
-	chan     = getDecParm(argv[n++], 0);
-	buff     = getHex(argv[n++], 0);
-	sts      = getHex(argv[n++], 0);
-	did      = getDecParm(argv[n++], 0);
-	rio_addr = getHex(argv[n++], 0);
-	acc_sz   = getHex(argv[n++], 0);
+	chan     = GetDecParm(argv[n++], 0);
+	buff     = GetHex(argv[n++], 0);
+	sts      = GetHex(argv[n++], 0);
+	did      = GetDecParm(argv[n++], 0);
+	rio_addr = GetHex(argv[n++], 0);
+	acc_sz   = GetHex(argv[n++], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -1957,7 +2037,7 @@ extern void UMD_DD(const struct worker* wkr);
 
 int UMDDDDCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx = getDecParm(argv[0], 0);
+	int idx = GetDecParm(argv[0], 0);
 	if (idx < 0 || idx >= MAX_WORKERS) {
                 sprintf(env->output, "Bad idx %d\n", idx);
         	logMsg(env);
@@ -1979,7 +2059,7 @@ UMDDDDCmd,
 ATTR_NONE
 };
 
-int UMSGCmd(struct cli_env *env, int argc, char **argv)
+int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 {
         int idx;
         int chan;
@@ -1992,15 +2072,21 @@ int UMSGCmd(struct cli_env *env, int argc, char **argv)
 
         int n = 0; // this be a trick from X11 source tree ;)
 
-        idx      = getDecParm(argv[n++], 0);
+        idx      = GetDecParm(argv[n++], 0);
 	if (get_cpu(env, argv[n++], &cpu))
 		goto exit;
-        chan     = getDecParm(argv[n++], 0);
-        buff     = getHex(argv[n++], 0);
-        sts      = getHex(argv[n++], 0);
-        did      = getDecParm(argv[n++], 0);
-        acc_sz   = getHex(argv[n++], 0);
-        txrx     = getDecParm(argv[n++], 0);
+        chan     = GetDecParm(argv[n++], 0);
+        buff     = GetHex(argv[n++], 0);
+        sts      = GetHex(argv[n++], 0);
+        did      = GetDecParm(argv[n++], 0);
+        acc_sz   = GetHex(argv[n++], 0);
+        txrx     = GetDecParm(argv[n++], 0);
+
+        if (cmd != 'L' && cmd != 'T') {
+                sprintf(env->output, "Command '%c' illegal, this should never happen\n", cmd);
+                logMsg(env);
+                goto exit;
+        };
 
         if (check_idx(env, idx, 1))
                 goto exit;
@@ -2035,7 +2121,7 @@ int UMSGCmd(struct cli_env *env, int argc, char **argv)
                 goto exit;
 	}
 
-        wkr[idx].action = umd_mbox;
+        wkr[idx].action = (cmd == 'T')? umd_mbox: umd_mboxl;
         wkr[idx].action_mode = user_mode_action;
         wkr[idx].umd_chan = chan;
         wkr[idx].umd_fifo_thr.cpu_req = cpu;
@@ -2056,6 +2142,15 @@ exit:
         return 0;
 }
 
+int UMSGCmdThruput(struct cli_env *env, int argc, char **argv)
+{
+	return UMSGCmd('T', env, argc, argv);
+}
+int UMSGCmdLat(struct cli_env *env, int argc, char **argv)
+{
+	return UMSGCmd('L', env, argc, argv);
+}
+
 struct cli_cmd UMSG = {
 "umsg",
 2,
@@ -2072,7 +2167,27 @@ struct cli_cmd UMSG = {
 	"<did> target device ID (if Transmitting) -- ignored for RX\n"
 	"<acc_sz> Access size (if Transmitting)\n"
 	"<txrx>  0 RX, 1 TX\n",
-UMSGCmd,
+UMSGCmdThruput,
+ATTR_NONE
+};
+
+struct cli_cmd UMSGL = {
+"lumsg",
+5,
+8,
+"Latency of MBOX requests with User-Mode demo driver",
+"<idx> <cpu> <chan> <buff> <sts> <did> <acc_sz> <txrx>\n"
+        "<idx> is a worker index from 0 to 7\n"
+        "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
+        "<chan> is a MBOX channel number from 2 through 3\n"
+        "<buff> is the number of transmit descriptors/buffers to allocate\n"
+        "       Must be a power of two from 0x20 up to 0x80000\n"
+        "<sts> is the number of status entries for completed descriptors\n"
+        "       Must be a power of two from 0x20 up to 0x80000\n"
+        "<did> target device ID (if Transmitting) -- ignored for RX\n"
+        "<acc_sz> Access size (if Transmitting)\n"
+        "<txrx>  0 Slave, 1 Master\n",
+UMSGCmdLat,
 ATTR_NONE
 };
 
@@ -2095,6 +2210,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&UDMALTX,
 	&UDMALRX,
 	&UMSG,
+	&UMSGL,
 	&UMDDD,
 	&UTime,
 #endif
@@ -2105,6 +2221,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&Goodput,
 	&Lat,
 	&Status,
+	&Set,
 	&Thread,
 	&Kill,
 	&Halt,
