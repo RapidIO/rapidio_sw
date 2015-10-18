@@ -1255,6 +1255,7 @@ int update_remote_hdr(struct rskt_socket_t *skt, struct rdma_xfer_ms_in *hdr_in)
 	hdr_in->num_bytes = RSKT_LOC_HDR_SIZE;
 	rc = rdma_push_msub(hdr_in, &hdr_out);
 	if (rc) {
+		ERR("Failed to push update to remote header\n");
 		skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_ERROR);
 		skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_ERROR);
 	};
@@ -1304,6 +1305,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	};
 
 	if (!time_remains) {
+		ERR("Send timeout\n");
 		errno = ETIMEDOUT;
 		goto skt_ok;
 	};
