@@ -10,7 +10,7 @@ INCDIR=../include
 O?=.
 
 ifdef DEBUG
-CFLAGS=-Wall -Wsign-compare -fPIC -DDEBUG -g
+CFLAGS=-Wall -Wsign-compare -fPIC -DDEBUG -g -O0
 else
 CFLAGS=-O2 -Wall -Wsign-compare -fPIC -DNDEBUG
 endif
