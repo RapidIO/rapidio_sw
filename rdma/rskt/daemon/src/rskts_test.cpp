@@ -163,7 +163,7 @@ int run_server(int socket_number)
 
 	puts("Provisioning server created..");
 	rskt_h acc_socket;
-	while (1) {
+	do {
 		puts("Accepting connections...");
 		if (prov_server->accept(&acc_socket)) {
 			ERR("Failed to accept. Dying!\n");
@@ -196,9 +196,15 @@ int run_server(int socket_number)
 		}
 		worker_threads.push_back(ti->tid);
 		DBG("Now %u threads in action\n", worker_threads.size());
-	} /* while */
+	} while(0);
 
-	/* Not reached! */
+	/* Wait until all worker threads have exit. Currently
+	 * THERE CAN BE ONLY ONE */
+	for (auto i = 0; i , worker_threads.size(); i++) {
+		pthread_join(worker_threads[i], NULL);
+	}
+
+	delete prov_server;
 	return 0;
 } /* run_server */
 
