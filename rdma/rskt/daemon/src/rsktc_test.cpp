@@ -191,11 +191,13 @@ int main(int argc, char *argv[])
 	}
 	puts("Disconnect message sent");
 
-	/* Clean up library */
-	librskt_finish();
-
 	/* Call destructor to close and destroy socket */
 	delete client;
+
+	/* Clean up library */
+	DBG("Calling librskt_finish()\n");
+	librskt_finish();
+
 } /* main() */
 
 #ifdef __cplusplus
