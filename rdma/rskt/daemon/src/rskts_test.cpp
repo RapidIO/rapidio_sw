@@ -111,17 +111,21 @@ void *rskt_thread_f(void *arg)
 				continue;
 			} else {
 				ERR("Failed to receive, rc = %d\n", received_len);
-				goto err_exit;
+				goto exit_rskt_thread_f;
 			}
 		}
 
 		if (received_len > 0) {
 			DBG("received_len = %d\n", received_len);
 
-			/* Get & display the data */
 			void *recv_buf;
 			other_server->get_recv_buffer(&recv_buf);
 
+			/* Check for the 'disconnect' message */
+			if (*(uint8_t *)recv_buf == 0xFD) {
+				puts("Disconnect message receive. DISCONNECTING");
+				goto exit_rskt_thread_f;
+			}
 			/* Echo data back to client */
 			void *send_buf;
 			other_server->get_send_buffer(&send_buf);
@@ -129,12 +133,12 @@ void *rskt_thread_f(void *arg)
 
 			if (other_server->send(received_len) < 0) {
 				ERR("Failed to send back\n");
-				goto err_exit;
+				goto exit_rskt_thread_f;
 			}
 		}
 	}
 
-err_exit:
+exit_rskt_thread_f:
 	delete other_server;
 	worker_threads.remove(ti->tid);
 	delete ti;
