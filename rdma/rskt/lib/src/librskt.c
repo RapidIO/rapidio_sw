@@ -385,10 +385,10 @@ void lib_rem_skt_from_list(rskt_h skt_h, struct rskt_socket_t *skt);
 
 void cleanup_skt(rskt_h skt_h, struct rskt_socket_t *skt)
 {
-	DBG("ENTER\n");
+	DBG("ENTER with skt->connector = %d\n", skt->connector);
 	if (skt_rmda_uninit != skt->connector) { 
 		DBG("skt->connector != skt_rdma_uninit\n");
-		if (NULL != skt->msub_p)  {
+		if (skt->msub_p != NULL)  {
 			DBG("Unmapping skt->msub_p(%p)\n", skt->msub_p);
 			rdma_munmap_msub(skt->msubh, (void *)skt->msub_p);
 			skt->msub_p = NULL;
@@ -396,26 +396,42 @@ void cleanup_skt(rskt_h skt_h, struct rskt_socket_t *skt)
 			skt->tx_buf = NULL;
 			skt->con_sz = 0;
 			skt->msub_sz = 0;
-		};
-		if (skt_rdma_connector != skt->connector) { 
+		} else {
+			DBG("skt->msub_p is NULL\n");
+		}
+		if (skt_rdma_connector != skt->connector) {
+			DBG("skt->connector != skt_rdma_connector\n");
+			DBG("DISCONNECTING from MS\n");
 			rdma_disc_ms_h(skt->con_msh, skt->msubh);
 			skt->msubh_valid = 0;
 			skt->msh_valid = 0;
 		} else {
+			DBG("skt->connector == skt_rdma_connector\n");
 			if (skt->msubh_valid) {
+				DBG("skt->msubh_valid is true. Destroying skt->msubh\n");
 				rdma_destroy_msub_h(skt->msh, skt->msubh);
 				skt->msubh_valid = 0;
-			};
+			} else {
+				WARN("skt->msubh_valid is false\n");
+			}
 			if (skt->msh_valid) {
+				DBG("skt->msh_valid is true. Closing skt->msh\n");
 				rdma_close_ms_h(skt->msoh, skt->msh);
 				skt->msh_valid = 0;
-			};
-		};
+			} else {
+				WARN("skt->msh_valid is false\n");
+			}
+		}
 		if (skt->msoh_valid) {
+			DBG("skt->msoh_valid is true. Closing msoh\n");
 			rdma_close_mso_h(skt->msoh);
 			skt->msoh_valid = 0;
-		};
-	};
+		} else {
+			WARN("skt->msoh_valid is false\n");
+		}
+	} else {
+		DBG("skt->connector == skt_rmda_uninit\n");
+	}
 	lib_rem_skt_from_list(skt_h, skt);
 	free(skt);
 };
@@ -627,15 +643,16 @@ fail:
 };
 
 void librskt_finish(void)
-{
-	/* Close socket connection to RSKTD */
-	close(lib.fd);
-
-	/* Kill active threads */
+{	/* Kill active threads */
+	INFO("Killing active threads...\n");
 	pthread_kill(lib.tx_thr, SIGUSR1);
 	pthread_kill(lib.rsvp_thr, SIGUSR1);
 	pthread_kill(lib.req_thr, SIGUSR1);
 	pthread_kill(lib.tx_thr, SIGUSR1);
+
+	/* Close socket connection to RSKTD */
+	INFO("Closing socket handle\n");
+	close(lib.fd);
 };
 
 int lib_uninit(void)
