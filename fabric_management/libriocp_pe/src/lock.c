@@ -79,7 +79,7 @@ int riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount)
 	}
 
 	if (lock == mport->destid) {
-		RIOCP_DEBUG("Lock already set by mport (d: %u, h: %u, lock: 0x%08x)\n",
+		RIOCP_TRACE("Lock already set by mport (d: %u, h: %u, lock: 0x%08x)\n",
 			destid, hopcount, lock);
 		return 0;
 	}
@@ -99,7 +99,7 @@ int riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount)
 	}
 
 	if (lock == mport->destid) {
-		RIOCP_DEBUG("Lock set d: %u, h: %u, lock: 0x%08x\n",
+		RIOCP_TRACE("Lock set d: %u, h: %u, lock: 0x%08x\n",
 			destid, hopcount, lock);
 		return 0;
 	}
