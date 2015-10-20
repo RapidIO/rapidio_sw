@@ -103,8 +103,16 @@ void *rskt_thread_f(void *arg)
 
 		int received_len = other_server->receive(RSKT_MAX_RECV_BUF_SIZE);
 		if ( received_len < 0) {
-			ERR("Failed to receive, rc = %d\n", received_len);
-			goto err_exit;
+			if (errno == ETIMEDOUT) {
+				/* It is not an error since the client may not
+				 * be sending anymore data. Just go back and
+				 * try again.
+				 */
+				continue;
+			} else {
+				ERR("Failed to receive, rc = %d\n", received_len);
+				goto err_exit;
+			}
 		}
 
 		if (received_len > 0) {
