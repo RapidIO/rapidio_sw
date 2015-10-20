@@ -1349,6 +1349,12 @@ void *umd_mbox_fifo_proc_thr(void *parm)
 			continue;
 		}
 
+                if (info->fifo_ts_idx < MAX_TIMESTAMPS) {
+                        clock_gettime(CLOCK_MONOTONIC,
+                                        &info->fifo_ts[info->fifo_ts_idx]);
+                        info->fifo_ts_idx++;
+                }
+
 		const uint64_t tsm1 = rdtsc();
 		for (int i = 0; i < cnt; i++) {
                         MboxChannel::WorkItem_t& item = wi[i];
@@ -2425,7 +2431,14 @@ void umd_mbox_goodput_demo(struct worker *info)
 					ERR("\n\tsend_message FAILED!\n");
 					goto exit;
 				}
-		      	} else { tx_ok++; }
+		      	} else {
+				tx_ok++;
+                                if (info->desc_ts_idx < MAX_TIMESTAMPS) {
+                                        clock_gettime(CLOCK_MONOTONIC,
+                                        &info->desc_ts[info->desc_ts_idx]);
+                                        info->desc_ts_idx++;
+                                }
+			}
 			if (info->stop_req) break;
 
 			if (q_was_full) ERR("\n\tQueue full for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);

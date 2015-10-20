@@ -1304,7 +1304,7 @@ struct cli_cmd Set = {
         "\"set key\" deletes the variable from env\n"
         "\"set key val ...\" sets key:=val\n"
         "\"set key ? val ...\" sets key:=val iff key does not exist\n"
-        "\Note: val can be multiple words\n"
+        "Note: val can be multiple words\n"
         "Default is display env vars.\n",
 SetCmd,
 ATTR_RPT
