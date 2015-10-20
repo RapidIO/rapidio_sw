@@ -68,7 +68,7 @@ char *req_type_str[(int)last_action+1] = {
 
 std::map<std::string, std::string> SET_VARS;
 
-const char* GetEnv(const char* var)
+extern "C" const char* GetEnv(const char* var)
 {
 	if (var == NULL || var[0] == '\0') return NULL;
 	
@@ -77,6 +77,22 @@ const char* GetEnv(const char* var)
 
 	return it->second.c_str();
 }
+
+extern "C" void SetEnvVar(const char* arg)
+{
+	if(arg == NULL || arg[0] == '\0') return;
+
+	char* tmp = strdup(arg);
+
+	char* sep = strstr(tmp, "=");
+	if (sep == NULL) goto exit;
+	sep[0] = '\0';
+	SET_VARS[tmp] = (sep+1);
+
+exit:
+	free(tmp);
+}
+
 
 static inline const char* SubstituteParam(const char* arg)
 {
@@ -1255,14 +1271,20 @@ int SetCmd(struct cli_env *env, int argc, char **argv)
 	// Set var
 	assert(argv[1]);
 
-	{{
+	do {{
+	  int start = 1;
+	  if (! strcmp(argv[1], "?")) { // "set key ? val" do not assign val if var "key" exists
+		if (GetEnv(argv[0])) break;
+		start = 2;	
+	  }
+
 	  char buf[4097] = {0};
-	  for (int i = 1; i < argc; i++) { strncat(buf, argv[i], 4096);  strncat(buf, " ", 4096); }
+	  for (int i = start; i < argc; i++) { strncat(buf, argv[i], 4096);  strncat(buf, " ", 4096); }
 
 	  const int N = strlen(buf);
 	  buf[N - 1] = '\0';
 	  SET_VARS[ argv[0] ] = buf;
-	}}
+	}} while(0);
 exit:
 	return 0;
 }
@@ -1273,7 +1295,10 @@ struct cli_cmd Set = {
 0,
 "Set/display environment vars",
 "set {var {val}}\n"
-        "\"set var\" deletes the variable from env\n"
+        "\"set key\" deletes the variable from env\n"
+        "\"set key val ...\" sets key:=val\n"
+        "\"set key ? val ...\" sets key:=val iff key does not exist\n"
+        "\Note: val can be multiple words\n"
         "Default is display env vars.\n",
 SetCmd,
 ATTR_RPT
