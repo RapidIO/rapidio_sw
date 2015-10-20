@@ -103,6 +103,7 @@ int main(int argc, char *argv[])
 			break;
 		case '?':
 			/* Invalid command line option */
+			show_help();
 			exit(1);
 			break;
 		default:
@@ -188,6 +189,7 @@ int main(int argc, char *argv[])
 	if (client->send(data_length)) {
 		ERR("Failed to send disconnect message\n");
 	}
+	puts("Disconnect message sent");
 
 	/* Clean up library */
 	librskt_finish();

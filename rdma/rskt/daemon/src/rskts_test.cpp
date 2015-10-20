@@ -145,7 +145,7 @@ exit_rskt_thread_f:
 	pthread_exit(0);
 }
 
-int run_server()
+int run_server(int socket_number)
 {
 	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
 	if (rc) {
@@ -154,7 +154,7 @@ int run_server()
 	}
 
 	try {
-		prov_server = new rskt_server("prov_server", 1234);
+		prov_server = new rskt_server("prov_server", socket_number);
 	}
 	catch(rskt_exception& e) {
 		ERR("Failed to create prov_server: %s\n", e.err);
@@ -202,8 +202,16 @@ int run_server()
 	return 0;
 } /* run_server */
 
+void show_help()
+{
+	puts("Usage: rskts_test -s<socket_number>\n");
+}
+
 int main(int argc, char *argv[])
 {
+	char c;
+	int socket_number = -1;
+
 	/* Register signal handler */
 	struct sigaction sig_action;
 	sig_action.sa_handler = sig_handler;
@@ -215,7 +223,38 @@ int main(int argc, char *argv[])
 	sigaction(SIGABRT, &sig_action, NULL);
 	sigaction(SIGUSR1, &sig_action, NULL);
 
-	return run_server();
+	/* Must specify at least 1 argument (the socket number) */
+	if (argc < 2) {
+		puts("Insufficient arguments. Must specify -s<socket_number>");
+		show_help();
+		exit(1);
+	}
+
+	while ((c = getopt(argc, argv, "hs:")) != -1)
+		switch (c) {
+
+		case 'h':
+			show_help();
+			exit(1);
+			break;
+		case 's':
+			socket_number = atoi(optarg);
+			break;
+		case '?':
+			/* Invalid command line option */
+			show_help();
+			exit(1);
+			break;
+		default:
+			abort();
+		}
+
+	if (socket_number == -1) {
+		puts("Error. Must specify -s<socket_number>");
+		show_help();
+		exit(1);
+	}
+	return run_server(socket_number);
 }
 
 #ifdef __cplusplus
