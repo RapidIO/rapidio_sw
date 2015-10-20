@@ -191,7 +191,9 @@ protected:
 		}
 		int rc = rskt_read(socket, recv_buf, size);
 		if (rc < 0) {
-			ERR("rskt_read failed for '%s': rc = %d\n", name, rc);
+			if (errno != ETIMEDOUT) {
+				ERR("rskt_read failed for '%s': rc = %d\n", name, rc);
+			}
 		}
 		return rc;
 	} /* receive() */

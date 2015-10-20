@@ -1446,7 +1446,6 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 
 	if (!time_remains) {
 		errno = ETIMEDOUT;
-		ERR("%s\n", strerror(errno));
 		goto skt_ok;
 	};
 
