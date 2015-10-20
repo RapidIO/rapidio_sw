@@ -103,6 +103,7 @@ int main(int argc, char *argv[])
 			break;
 		case '?':
 			/* Invalid command line option */
+			show_help();
 			exit(1);
 			break;
 		default:
@@ -182,6 +183,13 @@ int main(int argc, char *argv[])
 	puts("Press ENTER to quit");
 	getchar();
 	puts("Goodbye!");
+
+	/* Disconnect message */
+	out_msg[0] = 0xFD;
+	if (client->send(data_length)) {
+		ERR("Failed to send disconnect message\n");
+	}
+	puts("Disconnect message sent");
 
 	/* Clean up library */
 	librskt_finish();

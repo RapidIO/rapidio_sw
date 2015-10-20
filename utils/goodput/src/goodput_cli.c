@@ -31,9 +31,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <map>
+#include <string>
+#include <iostream>
+#include <sstream>
 #include "goodput_cli.h"
 #include "time_utils.h"
 #include "mhz.h"
+#include "liblog.h"
+#include "assert.h"
 
 #ifdef __cplusplus
 extern "C" {
