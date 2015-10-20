@@ -159,7 +159,7 @@ public:
   ~MboxChannel() { cleanup(); delete m_mport; };
 
   void setInitState();
-  bool open_mbox(const uint32_t entries);
+  bool open_mbox(const uint32_t entries, const uint32_t sts_entries);
 
   bool send_message(MboxOptions_t& opt, const void* data, size_t len, bool& q_was_full);
 
@@ -230,7 +230,7 @@ public: // test-public
 
 private:
   void init();
-  int open_outb_mbox(int mbox, uint32_t entries);
+  int open_outb_mbox(int mbox, uint32_t entries, const uint32_t sts_entries);
   int open_inb_mbox(int mbox, uint32_t entries);
   void cleanup();
   void dumpBL(const int mbox);

@@ -116,6 +116,8 @@ void sig_handler(int signo)
 	};
 };
 
+extern "C" void SetEnvVar(const char* arg);
+
 int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
@@ -129,6 +131,12 @@ int main(int argc, char *argv[])
 
 	if (argc > 1)
 		mport_num = atoi(argv[1]);
+
+	for(int n = 2; n < argc; n++) {
+		const char* arg = argv[n];
+		if(! strstr(arg,"=")) continue;
+		SetEnvVar(arg);
+        }
 
 	rdma_log_init("goodput_log.txt", 1);
 	if (setup_mport(mport_num)) {
@@ -151,8 +159,8 @@ int main(int argc, char *argv[])
 
         if (mp_h_valid) {
                 riomp_mgmt_mport_destroy_handle(&mp_h);
-                mp_h_valid = 0;
-        };
+		mp_h_valid = 0;
+	};
 
 	printf("\nGoodput Evaluation Application EXITING!!!!\n");
 	rc = EXIT_SUCCESS;

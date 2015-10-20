@@ -33,6 +33,7 @@ dump_ob_desc(hw_omsg_desc* desc)
 {
   char tmp[129] = {0};
   std::stringstream ss;
+  ss << "OUTBOUND DESCRIPTOR CONTENTS:\n";
   snprintf(tmp, 128, "  DEVID=0x%04X, ", desc->type_id & TSI721_OMD_DEVID); ss << tmp;
   snprintf(tmp, 128, "  CRF=%d, ", (desc->type_id & TSI721_OMD_CRF) >> 16); ss << tmp;
   snprintf(tmp, 128, "  PRIO=%d, ", (desc->type_id & TSI721_OMD_PRIO) >> 17); ss << tmp;
@@ -58,6 +59,7 @@ dump_ib_desc(hw_imsg_desc* desc)
 {
   char tmp[129] = {0};
   std::stringstream ss;
+  ss << "INBOUND DESCRIPTOR CONTENTS:\n";
   snprintf(tmp, 128, "  DEVID=0x%04X, ", desc->type_id & TSI721_IMD_DEVID); ss << tmp;
   snprintf(tmp, 128, "  CRF=%d, ", (desc->type_id & TSI721_IMD_CRF) >> 16); ss << tmp;
   snprintf(tmp, 128, "  PRIO=%d, ", (desc->type_id & TSI721_IMD_PRIO) >> 17); ss << tmp;
@@ -345,7 +347,7 @@ out_buf:
     assert(bd_ptr[m_num_ob_desc[mbox]].type_id == (DTYPE5 << 29)); \
   }}
 
-int MboxChannel::open_outb_mbox(const int mbox, const uint32_t entries)
+int MboxChannel::open_outb_mbox(const int mbox, const uint32_t entries, const uint32_t sts_entries)
 {
   hw_omsg_desc* bd_ptr = NULL;
   int rc = 0;
@@ -400,9 +402,9 @@ int MboxChannel::open_outb_mbox(const int mbox, const uint32_t entries)
   num_desc            = entries;
   DBG("\n\t%s: There are %u outbound descriptors\n", __FUNCTION__, num_desc);
 
-  SizeTsi721Fifo(entries, reg_size, mem_size);
+  SizeTsi721Fifo(sts_entries, reg_size, mem_size);
 
-  m_omsg_ring[mbox].sts_size = entries;
+  m_omsg_ring[mbox].sts_size = sts_entries;
 
   DBG("\n\t%s: Allocating status FIFO for MBOX%d - sts_size=%d\n", __FUNCTION__, mbox, entries);
   if(! m_mport->map_dma_buf(mem_size, m_omsg_ring[mbox].sts)) {
@@ -503,7 +505,7 @@ void MboxChannel::cleanup()
   } // END for mbox
 }
 
-bool MboxChannel::open_mbox(const uint32_t entries)
+bool MboxChannel::open_mbox(const uint32_t entries, const uint32_t sts_entries)
 {
   bool fail = false;
 
@@ -512,7 +514,7 @@ bool MboxChannel::open_mbox(const uint32_t entries)
 
     if(! (m_mboxen & mboxmsk)) continue;
 
-    if(open_outb_mbox(mbox, entries) < 0) { fail = true; break; }
+    if(open_outb_mbox(mbox, entries, sts_entries) < 0) { fail = true; break; }
     if(open_inb_mbox(mbox, entries) < 0) { fail = true; break; }
   }
 
@@ -562,7 +564,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len,
   pthread_spin_lock(&m_tx_splock[mbox]);
   if (m_omsg_trk[mbox].bltx_busy_size >= m_num_ob_desc[mbox]) {
     pthread_spin_unlock(&m_tx_splock[mbox]);
-    ERR("\n\t%s: Queue full for MBOX%d!\n", __FUNCTION__, mbox);
+    ERR("\n\tQueue full for MBOX%d!\n", mbox);
     q_was_full = true;
     return false;
   }
@@ -572,7 +574,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len,
 
   if (m_omsg_trk[mbox].bl_busy[tx_slot] != 0) {
     pthread_spin_unlock(&m_tx_splock[mbox]);
-    ERR("\n\t%s: BD%d busy for MBOX%d!\n", __FUNCTION__, tx_slot, mbox);
+    ERR("\n\tBD%d busy for MBOX%d!\n", tx_slot, mbox);
     return false;
   }
  
@@ -587,17 +589,16 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len,
   hw_omsg_desc* desc = (hw_omsg_desc*)m_omsg_ring[mbox].omd.win_ptr;
   assert(desc);
 
-  hw_omsg_desc ldesc; memset(&ldesc, 0, sizeof(ldesc));
+  hw_omsg_desc* ldesc = &desc[tx_slot];
 
   /* TYPE4 and destination ID */
-  ldesc.type_id = (DTYPE4 << 29) | opt.destid;
+  ldesc->type_id = (DTYPE4 << 29) | opt.destid;
   /* 16-bit destid, mailbox number, 0xE means 4K, length */
-  ldesc.msg_info = (1 << 26) | (mbox << 22) | (0xe << 12) | (len & 0xff8);
+  ldesc->msg_info = (1 << 26) | (mbox << 22) | (0xe << 12) | (len & 0xff8);
   /* Buffer pointer points to physical address of current tx_slot */
-  ldesc.bufptr_lo = (uint64_t)m_omsg_ring[mbox].omq[tx_slot].win_handle & 0xffffffff;
-  ldesc.bufptr_hi = (uint64_t)m_omsg_ring[mbox].omq[tx_slot].win_handle >> 32;
+  ldesc->bufptr_lo = (uint64_t)m_omsg_ring[mbox].omq[tx_slot].win_handle & 0xffffffff;
+  ldesc->bufptr_hi = (uint64_t)m_omsg_ring[mbox].omq[tx_slot].win_handle >> 32;
 
-  memcpy(&desc[tx_slot], &ldesc, sizeof(ldesc));
   CHECK_END_BD(mbox);
 
   /* Increment WR_COUNT */
@@ -660,7 +661,8 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len,
       m_omsg_trk[mbox].bltx_busy_size++;
     }
   pthread_spin_unlock(&m_bltx_splock[mbox]);
-  (void)rd32mboxchan(TSI721_OBDMAC_DWRCNT(mbox));
+
+  //(void)rd32mboxchan(TSI721_OBDMAC_DWRCNT(mbox));
 
 #ifdef MBOXDEBUG
   /* Now poll the RDCNT until it is equal to the WRCNT */
@@ -677,7 +679,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len,
   } while ((reg & TSI721_OBDMAC_STS_RUN) && timeout--);
 
   if (timeout <= 0) {
-    ERR("\n\t%s: DMA[%d] read timeout CH_STAT = %08X\n", __FUNCTION__, mbox, reg);
+    ERR("\n\tDMA[%d] read timeout CH_STAT = %08X\n", mbox, reg);
     ret = false; goto out;
   }
 #endif
@@ -700,7 +702,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len,
     }
     pthread_spin_unlock(&m_bltx_splock[mbox]);
 
-    DBG("\n\t%s: After: OBDMAC_INT = %08X ERROR\n", __FUNCTION__, reg);
+    DBG("\n\tAfter: OBDMAC_INT = %08X ERROR\n", reg);
     /* If there is an error, read the status register for more info */
     volatile uint32_t reg = rd32mboxchan(TSI721_OBDMAC_STS(mbox));
     volatile uint32_t reg_out_err_stop = rd32mboxchan(RIO_PORT_N_ERR_STATUS_OUTPUT_ERR_STOP);
@@ -708,34 +710,34 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, size_t len,
 
     reg_out_err_stop += 0; // silence g++ warnings
     reg_inp_err_stop += 0;
-    DBG("\n\t%s: OBDMAC_STS = %08X\n", __FUNCTION__, reg);
-    DBG("\n\t%s: OUTPUT_ERR_STOP = %08X\n", __FUNCTION__, reg_out_err_stop);
-    DBG("\n\t%s: INPUT_ERR_STOP  = %08X\n", __FUNCTION__, reg_inp_err_stop);
+    DBG("\n\tOBDMAC_STS = %08X\n", reg);
+    DBG("\n\tOUTPUT_ERR_STOP = %08X\n", reg_out_err_stop);
+    DBG("\n\tINPUT_ERR_STOP  = %08X\n", reg_inp_err_stop);
 
     if (reg & TSI721_DMAC_STS_ABORT) {
       pthread_spin_unlock(&m_tx_splock[mbox]); // unlock here to print the blurb lock-free
 
-      ERR("\n\t%s: ABORTed on outbound message to mbox=%d destid=%d\n", __FUNCTION__, mbox, opt.destid);
+      ERR("\n\tABORTed on outbound message to mbox=%d destid=%d\n", mbox, opt.destid);
       reg >>= 16;
       reg &= 0x1F;
 
       switch (reg) {
       case 0x04:
-        ERR("\n\t%s: S-RIO excessive msg retry occurred, code 0x%x\n", __FUNCTION__, reg);
+        ERR("\n\tS-RIO excessive msg retry occurred, code 0x%x\n", reg);
         break;
       case 0x05:
-        ERR("\n\t%s: S-RIO response timeout occurred, code 0x%x\n", __FUNCTION__, reg);
+        ERR("\n\tS-RIO response timeout occurred, code 0x%x\n", reg);
         break;
 
       case 0x1F:
-        ERR("\n\t%s: S-RIO message ERR response received, code 0x%x\n", __FUNCTION__, reg);
+        ERR("\n\tS-RIO message ERR response received, code 0x%x\n", reg);
         break;
 
       case 8:
       case 9:
       case 11:
       case 12:
-        ERR("\n\t%s: PCIE Error (not likely to happen), code 0x%x\n", __FUNCTION__, reg);
+        ERR("\n\tPCIE Error (not likely to happen), code 0x%x\n", reg);
         break;
       }
     }
@@ -767,24 +769,26 @@ bool MboxChannel::inb_message_ready(const int ib_mbox, uint64_t& rx_ts)
 
   const int ch = ib_mbox + 4;
 
-#ifdef MBOXDEBUG
+#if 0//def MBOXDEBUG
   rd_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQRP(ch));
   wr_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQWR(ch));
+
+  if (rd_ptr == wr_ptr) return false;
 #endif
 
   uint64_t tmp_ts = 0;
   do {
     rd_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQRP(ch));
     wr_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQWR(ch));
-    if (wr_ptr == 255)
-      wr_ptr = -1;
     tmp_ts = rdtsc();
+    //if (wr_ptr == (m_imsg_ring[ib_mbox].size -1)) break; // XXX why?
+    if (rd_ptr == (m_imsg_ring[ib_mbox].size - 1) && wr_ptr == 0) break; // XXX why?
   } while (wr_ptr <= rd_ptr && timeout--);
 
   if (timeout <= 0)
     return false;
  
-  DBG("\n\t%s:EXIT: DQRP = %X, DQWR = %X\n", __FUNCTION__, rd_ptr, wr_ptr);
+  DBG("\n\tEXIT: DQRP = %X, DQWR = %X\n", rd_ptr, wr_ptr);
 
   rx_ts = tmp_ts;
 
@@ -822,25 +826,23 @@ void* MboxChannel::get_inb_message(const int ib_mbox, int& msg_size, uint64_t& e
 
   uint32_t rx_slot = m_imsg_ring[ib_mbox].rx_slot; // This is an index into user-provided buffer[], NOT HW
 
-#ifdef DEBUG
-  DBG("\n\t%s: INBOUND DESCRIPTOR CONTENTS:\n", __FUNCTION__);
+#if 0//def DEBUG
   dump_ib_desc(desc);
 #endif
 
   if (!(desc->msg_info & TSI721_IMD_HO)) {
     pthread_spin_unlock(&m_rx_splock[ib_mbox]);
-    ERR("\n\t%s:TSI721_IMD_HO not set.\n", __FUNCTION__);
-    ERR("\n\t%s:mbox = %d, desc address = %p, rx_slot = %d\n", __FUNCTION__, ib_mbox, desc, rx_slot);
+    DBG("\n\tTSI721_IMD_HO not set mbox = %d, desc address = %p, rx_slot = %d/0x%x\n", ib_mbox, desc, rx_slot,rx_slot);
     return NULL;
   }
 
-  DBG("\n\t%s:mbox = %d, desc address = %p, initially rx_slot = %d\n", __FUNCTION__, ib_mbox, desc, rx_slot);
+  DBG("\n\tmbox = %d, desc address = %p, initially rx_slot = %d\n", ib_mbox, desc, rx_slot);
   while (m_imsg_ring[ib_mbox].imq_base[rx_slot] == NULL) { // Hunt for a buffer
     if (++rx_slot == m_imsg_ring[ib_mbox].size)
       rx_slot = 0;
   }
 
-  DBG("\n\t%s: Now rx_slot = %d, imq_base[rx_slot] = %p\n", __FUNCTION__, rx_slot, m_imsg_ring[ib_mbox].imq_base[rx_slot]);
+  DBG("\n\tNow rx_slot = %d, imq_base[rx_slot] = %p\n", rx_slot, m_imsg_ring[ib_mbox].imq_base[rx_slot]);
 
   /* Physical address of this message from the descriptor populated by HW */
   const uint64_t rx_phys = ((uint64_t) desc->bufptr_hi << 32) | desc->bufptr_lo;
@@ -864,7 +866,7 @@ void* MboxChannel::get_inb_message(const int ib_mbox, int& msg_size, uint64_t& e
              0;
   m_imsg_ring[ib_mbox].imq_ts[rx_slot].valid = false;
 
-  DBG("\n\t%s: Copying buffer %p, size = %d from slot %d\n", __FUNCTION__, buf, msg_size, rx_slot);
+  DBG("\n\tCopying buffer %p, size = %d from slot %d\n", buf, msg_size, rx_slot);
   /* Copy the message contents to 'buf' */
   memcpy(buf, rx_virt, msg_size);
 
@@ -879,7 +881,11 @@ void* MboxChannel::get_inb_message(const int ib_mbox, int& msg_size, uint64_t& e
 
   /* Update the Descriptor Queue Read Pointer */
   wr32mboxchan(TSI721_IBDMAC_DQRP(ch), m_imsg_ring[ib_mbox].desc_rdptr);
-  DBG("\n\t%s: Now DQRP = %d\n", __FUNCTION__, m_imsg_ring[ib_mbox].desc_rdptr);
+  usleep(1);
+  DBG("\n\tNow DQRP := %X -- HW DQRP = %X HW DQWR = %X\n",
+      m_imsg_ring[ib_mbox].desc_rdptr,
+      rd32mboxchan(TSI721_IBDMAC_DQRP(ch)),
+      rd32mboxchan(TSI721_IBDMAC_DQWR(ch)));
 
   /* Return free buffer into the pointer list */
   uint64_t* free_ptr = (uint64_t *) m_imsg_ring[ib_mbox].imfq.win_ptr;
@@ -926,7 +932,7 @@ int MboxChannel::add_inb_buffer(const int mbox, void* buf)
    */
   if (m_imsg_ring[mbox].imq_base[rx_slot]) {
     pthread_spin_unlock(&m_rx_splock[mbox]);
-    ERR("\n\t%s: Error adding inbound buffer %d, buffer exists\n", __FUNCTION__, rx_slot);
+    ERR("\n\tError adding inbound buffer %d, buffer exists\n", rx_slot);
     return -EINVAL;
   }
 
@@ -937,7 +943,7 @@ int MboxChannel::add_inb_buffer(const int mbox, void* buf)
 
   /* Increment rx_slot, wrapping around if necessary */
   if (++m_imsg_ring[mbox].rx_slot == m_imsg_ring[mbox].size) {
-    DBG("\n\t%s: rx_slot = %d, resetting to 0 (size=%d)\n", __FUNCTION__, rx_slot,  m_imsg_ring[mbox].size);
+    DBG("\n\trx_slot = %d, resetting to 0 (size=%d)\n", rx_slot,  m_imsg_ring[mbox].size);
     m_imsg_ring[mbox].rx_slot = 0;
   }
 
