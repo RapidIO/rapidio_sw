@@ -1081,8 +1081,9 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 		return -EACCES;
 	}
 	if (RIOCP_PE_IS_SWITCH(pe->cap)) {
-		RIOCP_ERROR("Cannot program destid for switch\n");
-		return -ENOSYS;
+		RIOCP_DEBUG("program dummy destid for switch\n");
+		pe->destid = destid;
+		goto outhere;
 	}
 
 	if (RIOCP_PE_IS_MPORT(pe)) {
@@ -1110,6 +1111,7 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 	if (ret)
 		return ret;
 
+outhere:
 	pe->destid = destid;
 
 	RIOCP_DEBUG("PE 0x%08x destid set to %u (0x%08x)\n",
