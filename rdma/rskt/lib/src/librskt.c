@@ -889,6 +889,8 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 	skt->hdr->loc_rx_rd_ptr = htonl(skt->buf_sz - 1);
 	skt->hdr->loc_rx_rd_flags = htonl(RSKT_BUF_HDR_FLAG_INIT);
 
+	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
+		skt->hdr->loc_tx_wr_ptr, skt->hdr->loc_rx_rd_ptr);
 	hdr_in.loc_msubh = skt->msubh;
 	hdr_in.rem_msubh = skt->con_msubh;
 	hdr_in.priority = 0;
@@ -1193,8 +1195,9 @@ uint32_t get_free_bytes(volatile struct rskt_buf_hdr *hdr,
 	uint32_t rtr = ntohl(hdr->rem_tx_rd_ptr);
 	uint32_t free_bytes = rtr - ltw;
 
-	if (ltw > rtr)
+	if (ltw > rtr) {
 		free_bytes = buf_sz - ltw + rtr;
+	}
 
 	return free_bytes;
 }; /* get_free_bytes() */
@@ -1208,7 +1211,8 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	uint32_t dma_rd_offset, dma_wr_offset;
 	struct rskt_socket_t *skt = skt_h->skt;
 
-	DBG("ENTER\n");
+	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
+		skt->hdr->loc_tx_wr_ptr, skt->hdr->loc_rx_rd_ptr)
 	dma_rd_offset = ntohl(skt->hdr->loc_tx_wr_ptr) + RSKT_TOT_HDR_SIZE;
 	dma_wr_offset = dma_rd_offset + skt->buf_sz;
 	DBG("dma_rd_offset = %u, dma_wr_offset = %u, byte_cnt = %u\n",
@@ -1216,7 +1220,8 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	memcpy((void *)(skt->tx_buf + ntohl(skt->hdr->loc_tx_wr_ptr)),
 		data, byte_cnt);
 	INC_PTR(skt->hdr->loc_tx_wr_ptr, byte_cnt, skt->buf_sz);
-
+	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
+		skt->hdr->loc_tx_wr_ptr, skt->hdr->loc_rx_rd_ptr);
 	if (!inited) {
 		DBG("!inited\n");
 		hdr_in->loc_msubh = skt->msubh;
@@ -1229,6 +1234,7 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	hdr_in->num_bytes = byte_cnt;
 	hdr_in->rem_offset = dma_wr_offset;
 
+	DBG("Calling push_msub\n");
 	if (rdma_push_msub(hdr_in, &hdr_out)) {
 		skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_ERROR);
 		skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_ERROR);
@@ -1253,6 +1259,9 @@ int update_remote_hdr(struct rskt_socket_t *skt, struct rdma_xfer_ms_in *hdr_in)
 	hdr_in->loc_offset = RSKT_LOC_TX_WR_PTR_OFFSET;
 	hdr_in->rem_offset = RSKT_REM_RX_WR_PTR_OFFSET;
 	hdr_in->num_bytes = RSKT_LOC_HDR_SIZE;
+	DBG("loc_offset = 0x%X, rem_offset = 0x%X, num_bytes = %d\n",
+		hdr_in->loc_offset, hdr_in->rem_offset, hdr_in->num_bytes);
+	DBG("Calling rdma_push_msub\n");
 	rc = rdma_push_msub(hdr_in, &hdr_out);
 	if (rc) {
 		ERR("Failed to push update to remote header\n");
@@ -1303,6 +1312,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 						skt->buf_sz);
 		time_remains--;
 	};
+	DBG("byte_cnt = %d, free_bytes = %d\n", byte_cnt, free_bytes);
 
 	if (!time_remains) {
 		ERR("Send timeout\n");
