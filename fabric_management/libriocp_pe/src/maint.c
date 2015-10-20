@@ -388,8 +388,21 @@ int riocp_pe_maint_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_t 
 int riocp_pe_maint_device_add(struct riocp_pe *mport, uint16_t destid, uint8_t hc, uint32_t ct)
 {
 	int ret;
+#if CONFIG_CDEV_NAME_WORKAROUND
+	char sysfs_name[32];
+	char dev_type;
 
+	if ((destid & 0xff) < 0x10)
+		dev_type = 's';
+	else
+		dev_type = 'e';
+
+	snprintf(sysfs_name, sizeof(sysfs_name), "00:%c:%04x", dev_type, destid);
+
+	ret = riomp_mgmt_device_add(mport->minfo->maint, destid, hc, ct, sysfs_name);
+#else
 	ret = riomp_mgmt_device_add(mport->minfo->maint, destid, hc, ct, NULL);
+#endif
 	if (ret) {
 		RIOCP_ERROR("Error in device add (d: %u (0x%08x), h: %u, ct: 0x%08x), %s\n",
 			destid, destid, hc, ct, strerror(-ret));
