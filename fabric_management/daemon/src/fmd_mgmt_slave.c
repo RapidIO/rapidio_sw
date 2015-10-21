@@ -156,7 +156,7 @@ fail:
 	
 int del_device_from_dd(uint32_t ct, uint32_t did)
 {
-	uint32_t idx, found_idx, found_one = 0;
+	uint32_t idx, found_idx = -1, found_one = 0;
 
 	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
 		goto fail;
