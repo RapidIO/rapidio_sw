@@ -256,7 +256,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 	sem_wait(&peer->tx_mtx);
 
 	peer->m2s->msg_type = htonl(FMD_P_RESP_HELLO);
-	memset(peer->m2s->hello_rsp.peer_name, MAX_P_NAME+1, 0);
+	memset(peer->m2s->hello_rsp.peer_name, 0, MAX_P_NAME+1);
 	if (NULL == peer_ep) {
 		snprintf(peer->m2s->hello_rsp.peer_name, (size_t)MAX_P_NAME,
 			"%s", "REQUEST_DENIED!");
