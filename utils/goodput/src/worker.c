@@ -2350,9 +2350,11 @@ void umd_mbox_goodput_demo(struct worker *info)
 
         zero_stats(info);
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-        INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
+        INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d) acc_size=%d #buf=%d #fifo=%d\n",
+             info->umd_chan,
              info->umd_mch->getDestId(),
-             info->did, info->acc_size,
+             info->did, info->umd_chan_to,
+	     info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
 
  	// Receiver
@@ -2420,7 +2422,7 @@ void umd_mbox_goodput_demo(struct worker *info)
                 // TX Loop
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
 		opt.destid = info->did;
-		opt.mbox   = info->umd_chan;
+		opt.mbox   = info->umd_chan_to;
 		char str[PAGE_4K+1] = {0};
                 for (int cnt = 0; !info->stop_req; cnt++) {
 			bool q_was_full = false;

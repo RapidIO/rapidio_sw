@@ -2094,6 +2094,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 {
         int idx;
         int chan;
+        int chan_to;
         int cpu;
         uint32_t buff;
         uint32_t sts;
@@ -2107,6 +2108,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 	if (get_cpu(env, argv[n++], &cpu))
 		goto exit;
         chan     = GetDecParm(argv[n++], 0);
+        chan_to  = GetDecParm(argv[n++], 0);
         buff     = GetHex(argv[n++], 0);
         sts      = GetHex(argv[n++], 0);
         did      = GetDecParm(argv[n++], 0);
@@ -2127,6 +2129,12 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
                 logMsg(env);
                 goto exit;
         };
+        if ((chan_to < 2) || (chan_to > 3)) {
+                sprintf(env->output, "Chan_to %d illegal, must be 2 to 3\n", chan);
+                logMsg(env);
+                goto exit;
+        };
+
 
 	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
 			(buff > MAX_UMD_BUF_COUNT)) {
@@ -2154,7 +2162,8 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 
         wkr[idx].action = (cmd == 'T')? umd_mbox: umd_mboxl;
         wkr[idx].action_mode = user_mode_action;
-        wkr[idx].umd_chan = chan;
+        wkr[idx].umd_chan    = chan;
+        wkr[idx].umd_chan_to = chan_to;
         wkr[idx].umd_fifo_thr.cpu_req = cpu;
         wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
         wkr[idx].umd_tx_buf_cnt = buff;
@@ -2185,12 +2194,13 @@ int UMSGCmdLat(struct cli_env *env, int argc, char **argv)
 struct cli_cmd UMSG = {
 "umsg",
 2,
-8,
+9,
 "Transmit/Receive MBOX requests with User-Mode demo driver",
 "<idx> <cpu> <chan> <buff> <sts> <did> <acc_sz> <txrx>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
-	"<chan> is a MBOX channel number from 2 through 3\n"
+	"<chan> is a Local MBOX channel number from 2 through 3\n"
+	"<chan_to> is a Remote MBOX channel number from 2 through 3\n"
 	"<buff> is the number of transmit descriptors/buffers to allocate\n"
 	"       Must be a power of two from 0x20 up to 0x80000\n"
 	"<sts> is the number of status entries for completed descriptors\n"
