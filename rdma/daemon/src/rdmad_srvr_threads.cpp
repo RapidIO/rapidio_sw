@@ -292,6 +292,22 @@ void *wait_conn_disc_thread_f(void *arg)
 			memcpy( cm_send_buf,
 				(void *)&accept_msg,
 				sizeof(cm_accept_msg));
+/*
+ struct cm_accept_msg {
+	uint64_t	type;
+	char		server_ms_name[CM_MS_NAME_MAX_LEN+1];
+	uint64_t	server_msid;
+	uint64_t	server_msubid;
+	uint64_t	server_bytes;
+	uint64_t	server_rio_addr_len;
+	uint64_t	server_rio_addr_lo;
+	uint64_t	server_rio_addr_hi;
+	uint64_t	server_destid_len;
+	uint64_t	server_destid;
+};
+ */
+			DBG("cm_accept_msg has server_msid = 0x%X\n", be64toh(accept_msg.server_msid));
+			DBG("cm_accept_msg has server_msubid = 0x%X\n", be64toh(accept_msg.server_msubid));
 			DBG("cm_accept_msg has server_destid = 0x%X\n", be64toh(accept_msg.server_destid));
 			DBG("cm_accept_msg has server_destid_len = 0x%X\n", be64toh(accept_msg.server_destid_len));
 			DBG("cm_accept_msg has rio_addr_len = %d\n", be64toh(accept_msg.server_rio_addr_len));

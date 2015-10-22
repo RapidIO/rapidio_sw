@@ -327,6 +327,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			/* POSIX accept message preparation */
 			mq_accept_msg	*accept_mq_msg;
 			accept_mq->get_send_buffer(&accept_mq_msg);
+			accept_mq_msg->server_msubid		= be64toh(accept_cm_msg->server_msubid);
 			accept_mq_msg->server_msid		= be64toh(accept_cm_msg->server_msid);
 			accept_mq_msg->server_bytes		= be64toh(accept_cm_msg->server_bytes);
 			accept_mq_msg->server_rio_addr_len	= be64toh(accept_cm_msg->server_rio_addr_len);
@@ -334,7 +335,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 			accept_mq_msg->server_rio_addr_hi	= be64toh(accept_cm_msg->server_rio_addr_hi);
 			accept_mq_msg->server_destid_len	= be64toh(accept_cm_msg->server_destid_len);
 			accept_mq_msg->server_destid		= be64toh(accept_cm_msg->server_destid);
-			DBG("CM Accept: msid= 0x%X, destid=0x%X, destid_len = 0x%X, rio=0x%lX\n",
+			DBG("CM Accept: msubid=0x%X msid=0x%X destid=0x%X, destid_len=0x%X, rio=0x%lX\n",
+							be64toh(accept_cm_msg->server_msubid),
 							be64toh(accept_cm_msg->server_msid),
 							be64toh(accept_cm_msg->server_destid),
 							be64toh(accept_cm_msg->server_destid_len),
@@ -342,7 +344,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			DBG("CM Accept: bytes = %u, rio_addr_len = %u\n",
 							be64toh(accept_cm_msg->server_bytes),
 							be64toh(accept_cm_msg->server_rio_addr_len));
-			DBG("MQ Accept: msid= 0x%X, destid=0x%X, destid_len = 0x%X, rio=0x%lX\n",
+			DBG("MQ Accept: msubid=0x%X msid= 0x%X destid=0x%X destid_len=0x%X, rio=0x%lX\n",
 								accept_mq_msg->server_msid,
 								accept_mq_msg->server_destid,
 								accept_mq_msg->server_destid_len,
