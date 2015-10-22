@@ -36,6 +36,23 @@ static int cons_alive;
 static rskt_server *prov_server = nullptr;
 static ts_vector<pthread_t> worker_threads;
 
+void rskts_test_shutdown(void)
+{
+	/* Kill all worker threads */
+	DBG("Killing %u active worker threads\n", worker_threads.size());
+	for (unsigned i = 0; i < worker_threads.size(); i++) {
+		pthread_kill(worker_threads[i], SIGUSR1);
+		pthread_join(worker_threads[i], NULL);
+	}
+	worker_threads.clear();
+
+	if (prov_server != nullptr)
+		delete prov_server;
+
+	librskt_finish();
+	puts("Goodbye!");
+}
+
 void sig_handler(int sig)
 {
 	switch (sig) {
@@ -65,19 +82,7 @@ void sig_handler(int sig)
 		return;
 	}
 
-	/* Kill all worker threads */
-	DBG("Killing %u active worker threads\n", worker_threads.size());
-	for (unsigned i = 0; i < worker_threads.size(); i++) {
-		pthread_kill(worker_threads[i], SIGUSR1);
-		pthread_join(worker_threads[i], NULL);
-	}
-	worker_threads.clear();
-
-	if (prov_server != nullptr)
-		delete prov_server;
-
-	librskt_finish();
-	puts("Goodbye!");
+	rskts_test_shutdown();
 	exit(0);
 } /* sig_handler() */
 
@@ -148,14 +153,14 @@ exit_rskt_thread_f:
 	worker_threads.remove(ti->tid);
 	delete ti;
 	pthread_exit(0);
-}
+} /* rskt_thread_f() */
 
 int run_server(int socket_number)
 {
 	int rc = librskt_init(DFLT_DMN_LSKT_SKT, 0);
 	if (rc) {
 		CRIT("failed in librskt_init, rc = %d\n", rc);
-		return -1;
+		goto exit_run_server;
 	}
 
 	try {
@@ -163,7 +168,7 @@ int run_server(int socket_number)
 	}
 	catch(rskt_exception& e) {
 		ERR("Failed to create prov_server: %s\n", e.err);
-		return 1;
+		goto exit_run_server;
 	}
 
 	puts("Provisioning server created..");
@@ -172,8 +177,7 @@ int run_server(int socket_number)
 		puts("Accepting connections...");
 		if (prov_server->accept(&acc_socket)) {
 			ERR("Failed to accept. Dying!\n");
-			delete prov_server;
-			return 2;
+			goto exit_run_server;
 		}
 		puts("Connected with client");
 
@@ -184,8 +188,7 @@ int run_server(int socket_number)
 		}
 		catch(...) {
 			ERR("Failed to create rskt_ti\n");
-			delete prov_server;
-			return 3;
+			goto exit_run_server;
 		}
 
 		/* Create thread for handling further Tx/Rx on the accept socket */
@@ -195,21 +198,15 @@ int run_server(int socket_number)
 					 ti);
 		if (ret) {
 			puts("Failed to create request thread\n");
-			delete prov_server;
 			delete ti;
-			return -6;
+			goto exit_run_server;
 		}
 		worker_threads.push_back(ti->tid);
 		DBG("Now %u threads in action\n", worker_threads.size());
-	} while(0);
+	} while(1);
 
-	/* Wait until all worker threads have exit. Currently
-	 * THERE CAN BE ONLY ONE */
-	for (auto i = 0; i , worker_threads.size(); i++) {
-		pthread_join(worker_threads[i], NULL);
-	}
-
-	delete prov_server;
+exit_run_server:
+	rskts_test_shutdown();
 	return 0;
 } /* run_server */
 
