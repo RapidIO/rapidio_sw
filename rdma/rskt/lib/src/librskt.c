@@ -1064,6 +1064,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	int rc = -1;
 	int conn_retries = 5;
 
+	DBG("ENTER\n");
 	if (lib_uninit()) {
 		CRIT("lib_uninit() failed..exiting\n");
 		goto exit;
@@ -1130,6 +1131,11 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		goto exit;
 	}
 
+	DBG("Received reply to LIBRSKTD_CONN containing:\n");
+	DBG("mso = %s, ms = %s, msub_sz = %d\n",
+			rx->a_rsp.msg.conn.mso,
+			rx->a_rsp.msg.conn.ms,
+			rx->a_rsp.msg.conn.msub_sz)
 	skt->st = rskt_connecting;
 	skt->connector = skt_rdma_connector;
 	skt->sa.ct = ntohl(rx->a_rsp.msg.conn.new_ct);

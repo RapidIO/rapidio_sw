@@ -562,14 +562,15 @@ void *rpc_thread_f(void *arg)
 					/* "%016" PRIx64 " */
 					DBG("c->type = 0x%016" PRIx64 "\n", c->type);
 					DBG("c->server_msname = %s\n", c->server_msname);
-					DBG("c->client_msid   = 0x%016" PRIx64 "\n", c->client_msid);
-					DBG("c->client_msubid   = 0x%016" PRIx64 "\n", c->client_msubid);
-					DBG("c->client_bytes   = 0x%016" PRIx64 "\n", c->client_bytes);
-					DBG("c->client_rio_addr_len = 0x%016" PRIx64 "\n", c->client_rio_addr_len);
-					DBG("c->client_rio_addr_lo = 0x%016" PRIx64 "\n", c->client_rio_addr_lo);
-					DBG("c->client_rio_addr_hi = 0x%016" PRIx64 "\n", c->client_rio_addr_hi);
-					DBG("c->client_destid_len = 0x%016" PRIx64 "\n", c->client_destid_len);
-					DBG("c->client_destid = 0x%016" PRIx64 "\n", c->client_destid);
+					DBG("c->client_msid   = 0x%016" PRIx64 "\n", be64toh(c->client_msid));
+					DBG("c->client_msubid   = 0x%016" PRIx64 "\n", be64toh(c->client_msubid));
+					DBG("c->client_bytes   = 0x%016" PRIx64 "\n", be64toh(c->client_bytes));
+					DBG("c->client_rio_addr_len = 0x%016" PRIx64 "\n", be64toh(c->client_rio_addr_len));
+					DBG("c->client_rio_addr_lo = 0x%016" PRIx64 "\n", be64toh(c->client_rio_addr_lo));
+					DBG("c->client_rio_addr_hi = 0x%016" PRIx64 "\n", be64toh(c->client_rio_addr_hi));
+					DBG("c->client_destid_len = 0x%016" PRIx64 "\n", be64toh(c->client_destid_len));
+					DBG("c->client_destid = 0x%016" PRIx64 "\n", be64toh(c->client_destid));
+
 					/* Send buffer to server */
 					if (main_client->send()) {
 						ERR("Failed to send CONNECT_MS to destid(0x%X)\n",

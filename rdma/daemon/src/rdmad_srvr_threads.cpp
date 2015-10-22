@@ -208,6 +208,15 @@ void *wait_conn_disc_thread_f(void *arg)
 		if (be64toh(conn_msg->type) == CM_CONNECT_MS) {
 			HIGH("Received CONNECT_MS '%s'\n", conn_msg->server_msname);
 
+			DBG("conn_msg->client_msid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_msid));
+			DBG("conn_msg->client_msubsid = %0x%016" PRIx64 "\n", be64toh(conn_msg->client_msubid));
+			DBG("conn_msg->client_bytes = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_bytes));
+			DBG("conn_msg->client_rio_addr_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_len));
+			DBG("conn_msg->client_rio_addr_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_len));
+			DBG("conn_msg->client_rio_addr_hi = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_hi));
+			DBG("conn_msg->client_destid_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid_len));
+			DBG("conn_msg->client_destid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid));
+
 			/* Form message queue name from memory space name */
 			char mq_name[CM_MS_NAME_MAX_LEN+2];
 			memset(mq_name, '\0', CM_MS_NAME_MAX_LEN+2);	/* For Valgrind */
