@@ -279,7 +279,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("connect_msg->rem_msubsid = 0x%X\n", connect_msg->rem_msubid);
 			DBG("connect_msg->rem_bytes = 0x%X\n", connect_msg->rem_bytes);
 			DBG("connect_msg->rem_rio_addr_len = 0x%X\n", connect_msg->rem_rio_addr_len);
-			DBG("connect_msg->rem_rio_addr_lo = 0x%X\n", connect_msg->rem_rio_addr_lo);
+			DBG("connect_msg->rem_rio_addr_lo = 0x%016" PRIx64 "\n", connect_msg->rem_rio_addr_lo);
 			DBG("connect_msg->rem_rio_addr_hi = 0x%X\n", connect_msg->rem_rio_addr_hi);
 			DBG("connect_msg->rem_destid_len = 0x%X\n", connect_msg->rem_destid_len);
 			DBG("connect_msg->rem_destid = 0x%X\n", connect_msg->rem_destid);
