@@ -597,6 +597,7 @@ struct send_connect_input {
 					DBG("c->client_rio_addr_hi = 0x%016" PRIx64 "\n", be64toh(c->client_rio_addr_hi));
 					DBG("c->client_destid_len = 0x%016" PRIx64 "\n", be64toh(c->client_destid_len));
 					DBG("c->client_destid = 0x%016" PRIx64 "\n", be64toh(c->client_destid));
+					main_client->dump_send_buffer();
 
 					/* Send buffer to server */
 					if (main_client->send()) {

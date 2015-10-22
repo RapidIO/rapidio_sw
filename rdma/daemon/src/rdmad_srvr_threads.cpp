@@ -207,7 +207,7 @@ void *wait_conn_disc_thread_f(void *arg)
 		rx_conn_disc_server->get_recv_buffer((void **)&conn_msg);
 		if (be64toh(conn_msg->type) == CM_CONNECT_MS) {
 			HIGH("Received CONNECT_MS '%s'\n", conn_msg->server_msname);
-
+			rx_conn_disc_server->dump_recv_buffer();
 			DBG("conn_msg->client_msid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_msid));
 			DBG("conn_msg->client_msubsid = %0x%016" PRIx64 "\n", be64toh(conn_msg->client_msubid));
 			DBG("conn_msg->client_bytes = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_bytes));
