@@ -560,7 +560,7 @@ void *rpc_thread_f(void *arg)
 					c->client_destid_len	= htobe64(peer.destid_len);
 					c->client_destid	= htobe64(peer.destid);
 					/* "%016" PRIx64 " */
-					DBG("c->type = 0x%016" PRIx64 "\n", c->type);
+					DBG("c->type = 0x%016" PRIx64 "\n", be64toh(c->type));
 					DBG("c->server_msname = %s\n", c->server_msname);
 					DBG("c->client_msid   = 0x%016" PRIx64 "\n", be64toh(c->client_msid));
 					DBG("c->client_msubid   = 0x%016" PRIx64 "\n", be64toh(c->client_msubid));
