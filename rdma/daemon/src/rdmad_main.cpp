@@ -548,18 +548,45 @@ void *rpc_thread_f(void *arg)
 					main_client->get_send_buffer((void **)&c);
 					main_client->flush_send_buffer();
 
+					/*
+struct send_connect_input {
+	char server_msname[UNIX_MS_NAME_MAX_LEN+1];
+	uint8_t  server_destid_len;
+	uint32_t server_destid;
+	uint8_t  client_destid_len;
+	uint32_t client_destid;
+	uint32_t client_msid;
+	uint32_t client_msubid;
+	uint32_t client_bytes;
+	uint8_t	 client_rio_addr_len;
+	uint64_t client_rio_addr_lo;
+	uint8_t  client_rio_addr_hi;
+};
+					 */
 					/* Compose CONNECT_MS message */
 					c->type			= htobe64(CM_CONNECT_MS);
 					strcpy(c->server_msname, in->server_msname);
-					c->client_msid		= htobe64(in->client_msid);
-					c->client_msubid	= htobe64(in->client_msubid);
-					c->client_bytes		= htobe64(in->client_bytes);
-					c->client_rio_addr_len	= htobe64(in->client_rio_addr_len);
+					c->client_msid		= htobe64((uint64_t)in->client_msid);
+					c->client_msubid	= htobe64((uint64_t)in->client_msubid);
+					c->client_bytes		= htobe64((uint64_t)in->client_bytes);
+					c->client_rio_addr_len	= htobe64((uint64_t)in->client_rio_addr_len);
 					c->client_rio_addr_lo	= htobe64(in->client_rio_addr_lo);
-					c->client_rio_addr_hi	= htobe64(in->client_rio_addr_hi);
+					c->client_rio_addr_hi	= htobe64((uint64_t)in->client_rio_addr_hi);
 					c->client_destid_len	= htobe64(peer.destid_len);
 					c->client_destid	= htobe64(peer.destid);
 					/* "%016" PRIx64 " */
+					DBG("WITHOUT CONVERSTION:\n");
+					DBG("c->type = 0x%016" PRIx64 "\n", c->type);
+					DBG("c->server_msname = %s\n", c->server_msname);
+					DBG("c->client_msid   = 0x%016" PRIx64 "\n", c->client_msid);
+					DBG("c->client_msubid   = 0x%016" PRIx64 "\n", c->client_msubid);
+					DBG("c->client_bytes   = 0x%016" PRIx64 "\n", c->client_bytes);
+					DBG("c->client_rio_addr_len = 0x%016" PRIx64 "\n", c->client_rio_addr_len);
+					DBG("c->client_rio_addr_lo = 0x%016" PRIx64 "\n", c->client_rio_addr_lo);
+					DBG("c->client_rio_addr_hi = 0x%016" PRIx64 "\n", c->client_rio_addr_hi);
+					DBG("c->client_destid_len = 0x%016" PRIx64 "\n", c->client_destid_len);
+					DBG("c->client_destid = 0x%016" PRIx64 "\n", c->client_destid);
+					DBG("WITH CONVERSTION:\n");
 					DBG("c->type = 0x%016" PRIx64 "\n", be64toh(c->type));
 					DBG("c->server_msname = %s\n", c->server_msname);
 					DBG("c->client_msid   = 0x%016" PRIx64 "\n", be64toh(c->client_msid));
