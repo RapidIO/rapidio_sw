@@ -260,11 +260,6 @@ void *wait_conn_disc_thread_f(void *arg)
 			connect_msg->rem_destid_len	= be64toh(conn_msg->client_destid_len);
 			connect_msg->rem_destid		= be64toh(conn_msg->client_destid);
 
-			/* At this point the CM message is now copied into a POSIX message, so
-			 * flush the CM receive buffer.
-			 */
-			rx_conn_disc_server->flush_recv_buffer();
-
 			/* Send connect message to RDMA library/app */
 			if (connect_mq->send()) {
 				ERR("connect_mq->send() failed: %s\n", strerror(errno));
@@ -339,6 +334,10 @@ void *wait_conn_disc_thread_f(void *arg)
 			accept_msg_map.remove(mq_str);
 			DBG("%s now removed from the accept message map\n",
 							mq_str.c_str());
+			/* At this point the CM message is now copied into a POSIX message, so
+			 * flush the CM receive buffer.
+			 */
+			rx_conn_disc_server->flush_recv_buffer();
 		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS) {
 			cm_disconnect_msg	*disc_msg;
 
