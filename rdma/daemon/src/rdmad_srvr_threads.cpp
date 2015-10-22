@@ -275,6 +275,15 @@ void *wait_conn_disc_thread_f(void *arg)
 				 * the message. */
 				continue;
 			}
+			DBG("connect_msg->rem_msid = 0x%X\n", connect_msg->rem_msid);
+			DBG("connect_msg->rem_msubsid = 0x%X\n", connect_msg->rem_msubid);
+			DBG("connect_msg->rem_bytes = 0x%X\n", connect_msg->rem_bytes);
+			DBG("connect_msg->rem_rio_addr_len = 0x%X\n", connect_msg->rem_rio_addr_len);
+			DBG("connect_msg->rem_rio_addr_lo = 0x%X\n", connect_msg->rem_rio_addr_lo);
+			DBG("connect_msg->rem_rio_addr_hi = 0x%X\n", connect_msg->rem_rio_addr_hi);
+			DBG("connect_msg->rem_destid_len = 0x%X\n", connect_msg->rem_destid_len);
+			DBG("connect_msg->rem_destid = 0x%X\n", connect_msg->rem_destid);
+
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
 			delete connect_mq;
 
