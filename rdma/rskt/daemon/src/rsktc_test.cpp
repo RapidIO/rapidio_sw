@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
 		out_msg[i] = i;
 
 	/* Send data, receive data, and compare */
-	while (repetitions--) {
+	for (unsigned i = 0; i < repetitions; i++) {
 		/* Fill read buffer with 0xAA */
 		memset(in_msg, 0xAA, data_length);
 
@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
 		if (memcmp(in_msg, out_msg, data_length)) {
 			ERR("Data did not compare. FAILED.\n");
 		} else {
-			puts("***** Data compares OK. SUCCESS! *****");
+			printf("i = %u, ***** Data compares OK *****\n", i);
 		}
 	} /* while() */
 
