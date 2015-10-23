@@ -142,13 +142,13 @@ exit:
 	return rc;
 };
 
-#define MAX_GOODPUT_CPU 7
-
 int get_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 {
 	int rc = 1;
 
 	*cpu = GetDecParm(dec_parm, 0);
+
+	const int MAX_GOODPUT_CPU = getCPUCount() - 1;
 
 	if ((*cpu  < -1) || (*cpu > MAX_GOODPUT_CPU)) {
 		sprintf(env->output, "\nCPU must be 0 to %d...\n",

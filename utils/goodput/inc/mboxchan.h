@@ -131,7 +131,9 @@ typedef struct {
 class MboxChannel {
 public:
   static const int RIO_MAX_MBOX = 4;
-  static const int MBOX_BUFF_DESCR_SIZE = 16;
+
+  static const int MBOX_OB_BUFF_DESCR_SIZE = 16;
+  static const int MBOX_IB_BUFF_DESCR_SIZE = 64;
 
   typedef struct {
       uint8_t dtype;
@@ -161,7 +163,7 @@ public:
   void setInitState();
   bool open_mbox(const uint32_t entries, const uint32_t sts_entries);
 
-  bool send_message(MboxOptions_t& opt, const void* data, size_t len, bool& q_was_full);
+  bool send_message(MboxOptions_t& opt, const void* data, const size_t len, bool& q_was_full);
 
   int add_inb_buffer(const int mbox, void* buf);
   bool inb_message_ready(const int ib_mbox, uint64_t& rx_ts);
@@ -190,7 +192,7 @@ public:
     const int mboxmsk = 1<<mbox;
     if(! (m_mboxen & mboxmsk)) throw std::runtime_error("queueTxFull: Mailbox not opened!");
 
-    return m_omsg_trk[mbox].bltx_busy_size >= m_num_ob_desc[mbox];
+    return m_omsg_trk[mbox].bltx_busy_size >= (m_num_ob_desc[mbox] - 1); // Ignore D5 as it pops up very fast
   }
 
   inline int queueTxSize(const int mbox)
