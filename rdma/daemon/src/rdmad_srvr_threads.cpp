@@ -207,6 +207,15 @@ void *wait_conn_disc_thread_f(void *arg)
 		rx_conn_disc_server->get_recv_buffer((void **)&conn_msg);
 		if (be64toh(conn_msg->type) == CM_CONNECT_MS) {
 			HIGH("Received CONNECT_MS '%s'\n", conn_msg->server_msname);
+			rx_conn_disc_server->dump_recv_buffer();
+			DBG("conn_msg->client_msid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_msid));
+			DBG("conn_msg->client_msubsid = %0x%016" PRIx64 "\n", be64toh(conn_msg->client_msubid));
+			DBG("conn_msg->client_bytes = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_bytes));
+			DBG("conn_msg->client_rio_addr_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_len));
+			DBG("conn_msg->client_rio_addr_lo = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_lo));
+			DBG("conn_msg->client_rio_addr_hi = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_hi));
+			DBG("conn_msg->client_destid_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid_len));
+			DBG("conn_msg->client_destid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid));
 
 			/* Form message queue name from memory space name */
 			char mq_name[CM_MS_NAME_MAX_LEN+2];
@@ -261,6 +270,15 @@ void *wait_conn_disc_thread_f(void *arg)
 				 * the message. */
 				continue;
 			}
+			DBG("connect_msg->rem_msid = 0x%X\n", connect_msg->rem_msid);
+			DBG("connect_msg->rem_msubsid = 0x%X\n", connect_msg->rem_msubid);
+			DBG("connect_msg->rem_bytes = 0x%X\n", connect_msg->rem_bytes);
+			DBG("connect_msg->rem_rio_addr_len = 0x%X\n", connect_msg->rem_rio_addr_len);
+			DBG("connect_msg->rem_rio_addr_lo = 0x%016" PRIx64 "\n", connect_msg->rem_rio_addr_lo);
+			DBG("connect_msg->rem_rio_addr_hi = 0x%X\n", connect_msg->rem_rio_addr_hi);
+			DBG("connect_msg->rem_destid_len = 0x%X\n", connect_msg->rem_destid_len);
+			DBG("connect_msg->rem_destid = 0x%X\n", connect_msg->rem_destid);
+
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
 			delete connect_mq;
 
@@ -274,6 +292,22 @@ void *wait_conn_disc_thread_f(void *arg)
 			memcpy( cm_send_buf,
 				(void *)&accept_msg,
 				sizeof(cm_accept_msg));
+/*
+ struct cm_accept_msg {
+	uint64_t	type;
+	char		server_ms_name[CM_MS_NAME_MAX_LEN+1];
+	uint64_t	server_msid;
+	uint64_t	server_msubid;
+	uint64_t	server_bytes;
+	uint64_t	server_rio_addr_len;
+	uint64_t	server_rio_addr_lo;
+	uint64_t	server_rio_addr_hi;
+	uint64_t	server_destid_len;
+	uint64_t	server_destid;
+};
+ */
+			DBG("cm_accept_msg has server_msid = 0x%X\n", be64toh(accept_msg.server_msid));
+			DBG("cm_accept_msg has server_msubid = 0x%X\n", be64toh(accept_msg.server_msubid));
 			DBG("cm_accept_msg has server_destid = 0x%X\n", be64toh(accept_msg.server_destid));
 			DBG("cm_accept_msg has server_destid_len = 0x%X\n", be64toh(accept_msg.server_destid_len));
 			DBG("cm_accept_msg has rio_addr_len = %d\n", be64toh(accept_msg.server_rio_addr_len));
@@ -316,6 +350,10 @@ void *wait_conn_disc_thread_f(void *arg)
 			accept_msg_map.remove(mq_str);
 			DBG("%s now removed from the accept message map\n",
 							mq_str.c_str());
+			/* At this point the CM message is now copied into a POSIX message, so
+			 * flush the CM receive buffer.
+			 */
+			rx_conn_disc_server->flush_recv_buffer();
 		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS) {
 			cm_disconnect_msg	*disc_msg;
 

@@ -52,13 +52,13 @@ struct hello_msg_t {
 
 struct cm_connect_msg {
 	uint64_t	type;
-	char		server_msname[CM_MS_NAME_MAX_LEN+1];
-	ms_h		client_msid;	  /* Client msid */
+	uint64_t	client_msid;	  /* Client msid */
 	uint64_t	client_msubid;	  /* Client msub ID */
 	uint64_t	client_bytes;	  /* Client msub length in bytes */
 	uint64_t	client_rio_addr_len; /* Client length of RIO address */
 	uint64_t	client_rio_addr_lo;  /* Client RIO address lo 64-bits */
 	uint64_t	client_rio_addr_hi;  /* Client lpper RIO address */
+	char		server_msname[CM_MS_NAME_MAX_LEN+1];
 	/* Populated by daemon */
 	uint64_t	client_destid_len;  /* Client length of destid */
 	uint64_t	client_destid;	  /* Client node destination ID */
