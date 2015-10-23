@@ -2467,7 +2467,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 			}
 			if (info->stop_req) break;
 
-			if (q_was_full) ERR("\n\tQueue full for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);
+			if (q_was_full) ERR("\n\tQueue full for MBOX%d! tx_ok=%llu\n", info->umd_chan, tx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
@@ -2579,7 +2579,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 			if (info->stop_req) break;
 
-			if (q_was_full) ERR("\n\tQueue full for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
+			if (q_was_full) ERR("\n\tQueue full for MBOX%d! rx_ok=%llu\n", info->umd_chan, rx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
@@ -2622,7 +2622,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 		      	} else { tx_ok++; }
 			if (info->stop_req) break;
 
-			if (q_was_full) ERR("\n\tQueue full for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);
+			if (q_was_full) ERR("\n\tQueue full for MBOX%d! tx_ok=%llu\n", info->umd_chan, tx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
