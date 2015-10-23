@@ -383,13 +383,11 @@ int riomp_mgmt_mport_list(size_t *count, uint8_t *list)
 		return -EINVAL;
 
 	for(i=0;i<RIODP_MAX_MPORTS;i++)	{
-		if(j < *count) {
-			ret = riomp_mgmt_mport_available(i);
-			if(ret > 0) {
-				if(list)
-					list[j] = i;
-				j++;
-			}
+		ret = riomp_mgmt_mport_available(i);
+		if(ret > 0) {
+			if(list && j < *count)
+				list[j] = i;
+			j++;
 		}
 	}
 
