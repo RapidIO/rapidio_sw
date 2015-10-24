@@ -1367,15 +1367,15 @@ void *umd_mbox_fifo_proc_thr(void *parm)
                         }
                         switch (item.opt.dtype) {
                         case DTYPE4:
-                                INFO("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
-                                        item.opt.destid,
-                                        item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 info->perf_byte_cnt += info->acc_size;
                                 clock_gettime(CLOCK_MONOTONIC, &info->end_time);
                                 if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += info->acc_size; }
+                                INFO("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
+                                        item.opt.destid,
+                                        item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         case DTYPE5:
-                                INFO("\n\tFinished D5 bd_wp=%u -- FIFO iter %llu dTick %ll (%f uS)u\n",
+                                INFO("\n\tFinished D5 bd_wp=%u -- FIFO iter %llu dTick %llu (%f uS)u\n",
                                          item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         default:
@@ -1384,7 +1384,7 @@ void *umd_mbox_fifo_proc_thr(void *parm)
                                         g_FifoStats[idx].fifo_thr_iter);
                                 break;
                         }
-			//XXX wi[i].valid = 0xdeadabba;
+			wi[i].valid = 0xdeadabba;
                 } // END for WorkItem_t vector
 
 		const uint64_t tsm2 = rdtsc();
@@ -1911,6 +1911,25 @@ fail:
 	info->umd_dch = NULL;
 };
 
+/** \brief Check that the UMD worker and FIFO threads are not stuck to the same (isolcpu) core
+ */
+bool umd_check_cpu_allocation(struct worker *info)
+{
+	assert(info);
+
+	if (GetEnv("IGNORE_CPUALLOC") != NULL) return true;
+
+	if (info->wkr_thr.cpu_req != info->umd_fifo_thr.cpu_req) return true;
+
+	if (info->wkr_thr.cpu_req == -1 /*|| info->umd_fifo_thr.cpu_req == -1*/) return true; // free to be scheduled
+
+	if (getCPUCount() < 2) return true; // does not matter
+
+	CRIT("\n\tWorker thread and FIFO thread request the same cpu (%d). Set env IGNORE_CPUALLOC to disable this check.\n", info->wkr_thr.cpu_req);
+
+	return false;
+}
+
 static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa8 };
 #define PATTERN_SZ      sizeof(PATTERN)
 #define DMA_RUNPOLL_US 10
@@ -1919,6 +1938,8 @@ void umd_dma_goodput_demo(struct worker *info)
 {
 	int oi = 0, rc;
 	uint64_t cnt;
+
+	if (! umd_check_cpu_allocation(info)) return;
 
 	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
@@ -2324,6 +2345,9 @@ exit:
 void umd_mbox_goodput_demo(struct worker *info)
 {
 	int rc = 0;
+
+	if (! umd_check_cpu_allocation(info)) return;
+
         info->umd_mch = new MboxChannel(info->mp_num, 1<<info->umd_chan, info->mp_h);
 
         if (NULL == info->umd_mch) {
@@ -2430,7 +2454,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
 		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, q_was_full)) {
 				if (! q_was_full) {
-					ERR("\n\tsend_message FAILED!\n");
+					ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize(info->umd_chan));
 					goto exit;
 				}
 		      	} else {
@@ -2443,7 +2467,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 			}
 			if (info->stop_req) break;
 
-			if (q_was_full) ERR("\n\tQueue full for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);
+			if (q_was_full) ERR("\n\tQueue full for MBOX%d! tx_ok=%llu\n", info->umd_chan, tx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
@@ -2555,7 +2579,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 			if (info->stop_req) break;
 
-			if (q_was_full) ERR("\n\tQueue full for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
+			if (q_was_full) ERR("\n\tQueue full for MBOX%d! rx_ok=%llu\n", info->umd_chan, rx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
@@ -2598,7 +2622,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 		      	} else { tx_ok++; }
 			if (info->stop_req) break;
 
-			if (q_was_full) ERR("\n\tQueue full for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);
+			if (q_was_full) ERR("\n\tQueue full for MBOX%d! tx_ok=%llu\n", info->umd_chan, tx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&

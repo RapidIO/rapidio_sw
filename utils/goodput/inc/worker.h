@@ -239,6 +239,11 @@ struct worker {
 };
 
 /**
+ * @brief Returns number of CPUs as reported in /proc/cpuinfo
+ */
+int getCPUCount();
+
+/**
  * @brief Retrieves a Goodput Env Variable (this is NOT a shell variable)
  *
  * @param[in] var name of Env Var, case sensitive

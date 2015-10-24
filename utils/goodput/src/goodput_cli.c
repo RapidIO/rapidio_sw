@@ -142,13 +142,13 @@ exit:
 	return rc;
 };
 
-#define MAX_GOODPUT_CPU 7
-
 int get_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 {
 	int rc = 1;
 
 	*cpu = GetDecParm(dec_parm, 0);
+
+	const int MAX_GOODPUT_CPU = getCPUCount() - 1;
 
 	if ((*cpu  < -1) || (*cpu > MAX_GOODPUT_CPU)) {
 		sprintf(env->output, "\nCPU must be 0 to %d...\n",
@@ -2108,7 +2108,8 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 	if (get_cpu(env, argv[n++], &cpu))
 		goto exit;
         chan     = GetDecParm(argv[n++], 0);
-        chan_to  = GetDecParm(argv[n++], 0);
+        if (cmd == 'T')
+		chan_to  = GetDecParm(argv[n++], 0);
         buff     = GetHex(argv[n++], 0);
         sts      = GetHex(argv[n++], 0);
         did      = GetDecParm(argv[n++], 0);
@@ -2129,7 +2130,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
                 logMsg(env);
                 goto exit;
         };
-        if ((chan_to < 2) || (chan_to > 3)) {
+        if (cmd == 'T' && ((chan_to < 2) || (chan_to > 3))) {
                 sprintf(env->output, "Chan_to %d illegal, must be 2 to 3\n", chan);
                 logMsg(env);
                 goto exit;
