@@ -209,7 +209,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			HIGH("Received CONNECT_MS '%s'\n", conn_msg->server_msname);
 			rx_conn_disc_server->dump_recv_buffer();
 			DBG("conn_msg->client_msid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_msid));
-			DBG("conn_msg->client_msubsid = %0x%016" PRIx64 "\n", be64toh(conn_msg->client_msubid));
+			DBG("conn_msg->client_msubsid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_msubid));
 			DBG("conn_msg->client_bytes = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_bytes));
 			DBG("conn_msg->client_rio_addr_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_len));
 			DBG("conn_msg->client_rio_addr_lo = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_lo));

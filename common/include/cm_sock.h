@@ -103,17 +103,15 @@ public:
 private:
 	void dump_buffer(uint8_t *buffer)
 	{
-		unsigned offset = 0;
-		const uint8_t chars_per_line = 32;
+		unsigned row, col;
+		const uint8_t numbers_per_line = 32;
+		const uint8_t max_rows = 4;
 
-		cout << hex << setfill('0') << setw(2);
-
-		for (unsigned i = 0; i < 4; i++, offset += chars_per_line) {
-			copy(buffer + CM_MSG_OFFSET + offset,
-			     buffer + CM_MSG_OFFSET + offset + chars_per_line,
-			     ostream_iterator<int>(cout, "-"));
-
-			cout << endl;
+		for (row = 0; row < max_rows; row++) {
+			for (col = 0; col < numbers_per_line - 1; col++) {
+				printf("0x%02X-", *(buffer + CM_MSG_OFFSET + row*numbers_per_line + col));
+			}
+			printf("0x%02X\n", *(buffer + CM_MSG_OFFSET + row*numbers_per_line + col));
 		}
 	}
 
