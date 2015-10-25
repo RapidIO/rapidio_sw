@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <vector>
 #include "goodput_cli.h"
 #include "time_utils.h"
 #include "mhz.h"
@@ -2234,9 +2235,6 @@ ATTR_NONE
 };
 
 #endif
-
-#include <vector>
-#include <string>
 
 int getIsolCPU(std::vector<std::string>& cpus)
 {
