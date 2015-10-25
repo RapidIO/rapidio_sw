@@ -1603,6 +1603,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 	}
 	INFO("Connect message received!\n");
+	connect_mq->dump_recv_buffer();
 	DBG("conn_msg->rem_msid = 0x%X\n", conn_msg->rem_msid);
 	DBG("conn_msg->rem_msubsid = 0x%X\n", conn_msg->rem_msubid);
 	DBG("conn_msg->rem_bytes = 0x%X\n", conn_msg->rem_bytes);
@@ -1857,6 +1858,8 @@ __sync_synchronize();
 		}
 	}
 	INFO(" Accept message received!\n");
+	accept_mq->dump_recv_buffer();
+
 __sync_synchronize();
 	clock_gettime(CLOCK_MONOTONIC, &after);
 __sync_synchronize();
