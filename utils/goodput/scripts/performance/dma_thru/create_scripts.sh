@@ -19,6 +19,57 @@ DIR_NAME=dma_thru
 
 PREFIX=d1
 
+if [ -z "$IBA_ADDR" ]; then
+	if [ -n "$1" ]; then
+		IBA_ADDR=$1
+	else
+		IBA_ADDR=20d800000
+		LOC_PRINT_HEP=1
+	fi
+fi
+
+if [ -z "$DID" ]; then
+	if [ -n "$2" ]; then
+		DID=$2
+	else
+		DID=0
+		LOC_PRINT_HEP=1
+	fi
+fi
+
+if [ -z "$TRANS" ]; then
+	if [ -n "$3" ]; then
+		TRANS=$3
+	else
+		TRANS=0
+		LOC_PRINT_HEP=1
+	fi
+fi
+
+if [ -z "$WAIT_TIME" ]; then
+	if [ -n "$4" ]; then
+		WAIT_TIME=$4
+	else
+		WAIT_TIME=60
+		LOC_PRINT_HEP=1
+	fi
+fi
+
+if [ -n "$LOC_PRINT_HEP" ]; then
+	echo $'\nScript accepts 4 parameters:'
+        echo $'IBA_ADDR: Hex address of target window on DID'
+        echo $'DID : Device ID of target device for performance scripts'
+        echo $'Trans: DMA transaction type'
+        echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+fi
+
+echo DMA_THRUPUT IBA_ADDR = $IBA_ADDR
+echo DMA_THRUPUT DID      = $DID
+echo DMA_THRUPUT TRANS    = $TRANS
+echo DMA_THRUPUT WAIT_TIME= $WAIT_TIME
+
+unset LOC_PRINT_HEP
+
 # SIZE_NAME is the file name
 # SIZE is the hexadecimal representation of SIZE_NAME
 #
@@ -43,11 +94,6 @@ BYTES=(
 "10000" "10000" "10000" "10000"
 "10000" "20000" "40000" "80000"
 "100000" "200000" "400000")
-
-IBA_ADDR=20d800000
-DID=0
-TRANS=0
-WAIT_TIME=65
 
 # Function to format file names.
 # Format is xxZss.txt, where
@@ -127,7 +173,7 @@ sed -i -- 's/wr/0/g' ${PREFIX}R*.txt
 
 ## now create the "run all scripts" script files...
 
-DIR=(read write)
+DIR=('read' 'write')
 declare -a file_list
 
 for direction in "${DIR[@]}"
@@ -142,12 +188,12 @@ do
 	idx=0
 	while [ "$idx" -lt "$max_name_idx" ]
 	do
-		if [$direction=="read"]; then
+		if [ "$direction" == "${DIR[0]}" ]; then
 			set_t_filename_r ${SIZE_NAME[idx]}
 		else
 			set_t_filename_w ${SIZE_NAME[idx]}
 		fi
-
+		
 		echo ". "$t_filename >> $scriptname
 		idx=($idx)+1
 	done

@@ -20,6 +20,57 @@ declare DIR_NAME=obwin_thru
 
 declare PREFIX
 
+if [ -z "$IBA_ADDR" ]; then
+        if [ -n "$1" ]; then
+                IBA_ADDR=$1
+        else
+                IBA_ADDR=20d800000
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$DID" ]; then
+        if [ -n "$2" ]; then
+                DID=$2
+        else
+                DID=0
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$TRANS" ]; then
+        if [ -n "$3" ]; then
+                TRANS=$3
+        else
+                TRANS=0
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$WAIT_TIME" ]; then
+        if [ -n "$4" ]; then
+                WAIT_TIME=$4
+        else
+                WAIT_TIME=60
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -n "$LOC_PRINT_HEP" ]; then
+        echo $'\nScript accepts 4 parameters:'
+        echo $'IBA_ADDR: Hex address of target window on DID'
+        echo $'DID : Device ID of target device for performance scripts'
+        echo $'Trans: DMA transaction type'
+        echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+fi
+
+echo OBWIN_THRUPUT IBA_ADDR = $IBA_ADDR
+echo OBWIN_THRUPUT DID      = $DID
+echo OBWIN_THRUPUT TRANS    = $TRANS
+echo OBWIN_THRUPUT WAIT_TIME= $WAIT_TIME
+
+unset LOC_PRINT_HEP
+
 # SIZE_NAME is the file name
 # SIZE is the hexadecimal representation of SIZE_NAME
 #
@@ -31,11 +82,6 @@ SIZE=( "1" "2" "4" "8")
 
 BYTES=("400000" "400000" "400000" "400000")
 
-
-IBA_ADDR=20d800000
-DID=0
-TRANS=0
-WAIT_TIME=35
 
 # Function to format file names.
 # Format is xxZss.txt, where
