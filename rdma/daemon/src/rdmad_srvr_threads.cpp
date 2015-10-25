@@ -280,6 +280,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("connect_msg->rem_destid = 0x%X\n", connect_msg->rem_destid);
 
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
+			connect_mq->dump_send_buffer();
 			delete connect_mq;
 
 			/* Request a send buffer */
