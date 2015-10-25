@@ -575,7 +575,7 @@ struct send_connect_input {
 					c->client_destid_len	= htobe64(peer.destid_len);
 					c->client_destid	= htobe64(peer.destid);
 					/* "%016" PRIx64 " */
-					DBG("WITHOUT CONVERSTION:\n");
+					DBG("WITHOUT CONVERSION:\n");
 					DBG("c->type = 0x%016" PRIx64 "\n", c->type);
 					DBG("c->server_msname = %s\n", c->server_msname);
 					DBG("c->client_msid   = 0x%016" PRIx64 "\n", c->client_msid);

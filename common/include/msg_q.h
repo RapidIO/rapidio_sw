@@ -171,8 +171,31 @@ public:
 		*send_buf = (T *)this->send_buf;
 	}
 
+	void dump_send_buffer()
+	{
+		dump_buffer((uint8_t *)send_buf);
+	}
+
+	void dump_recv_buffer()
+	{
+		dump_buffer((uint8_t *)recv_buf);
+	}
 
 private:
+	void dump_buffer(uint8_t *buffer)
+	{
+		unsigned row, col;
+		const uint8_t numbers_per_line = 32;
+		const uint8_t max_rows = 4;
+
+		for (row = 0; row < max_rows; row++) {
+			for (col = 0; col < numbers_per_line - 1; col++) {
+				printf("0x%02X-", *(buffer + row*numbers_per_line + col));
+			}
+			printf("0x%02X\n", *(buffer + row*numbers_per_line + col));
+		}
+	}
+
 	string	name;
 	int	oflag;
 	mqd_t	mq;
