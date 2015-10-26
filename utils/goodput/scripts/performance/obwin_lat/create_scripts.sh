@@ -29,14 +29,80 @@ SIZE=("1" "2" "4" "8")
 
 BYTES=("400000" "400000" "400000" "400000")
 
-TX_IBA_ADDR=20d800000
-TX_DID=1
-RX_IBA_ADDR=20d800000
-RX_DID=0
-TRANS=0
-WAIT_TIME=30
-
 PREFIX=ol
+
+if [ -z "$TX_IBA_ADDR" ]; then
+        if [ -n "$1" ]; then
+                TX_IBA_ADDR=$1
+        else
+                TX_IBA_ADDR=20d800000
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$TX_DID" ]; then
+        if [ -n "$2" ]; then
+                TX_DID=$2
+        else
+                TX_DID=1
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$RX_IBA_ADDR" ]; then
+        if [ -n "$3" ]; then
+                RX_IBA_ADDR=$3
+        else
+                RX_IBA_ADDR=20d800000
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$RX_DID" ]; then
+        if [ -n "$4" ]; then
+                RX_DID=$4
+        else
+                RX_DID=0
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$TRANS" ]; then
+        if [ -n "$5" ]; then
+                TRANS=$5
+        else
+                TRANS=0
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$WAIT_TIME" ]; then
+        if [ -n "$6" ]; then
+                WAIT_TIME=$6
+        else
+                WAIT_TIME=60
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -n "$LOC_PRINT_HEP" ]; then
+        echo $'\nScript accepts 6 parameters:'
+        echo $'TX_IBA_ADDR: Hex address of target window on TX_DID'
+        echo $'TX_DID : Device ID that this device sends to'
+        echo $'RX_IBA_ADDR: Hex address of target window on RX_DID'
+        echo $'RX_DID : Device ID of this device'
+        echo $'Trans: DMA transaction type'
+        echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+fi
+
+echo OBWIN_LATENCY TX_IBA_ADDR = $TX_IBA_ADDR
+echo OBWIN_LATENCY TX_DID      = $TX_DID
+echo OBWIN_LATENCY RX_IBA_ADDR = $RX_IBA_ADDR
+echo OBWIN_LATENCY RX_DID      = $RX_DID
+echo OBWIN_LATENCY TRANS    = $TRANS
+echo OBWIN_LATENCY WAIT_TIME= $WAIT_TIME
+
+unset LOC_PRINT_HEP
 
 # Function to format file names.
 # Format is xxZss.txt, where

@@ -20,6 +20,46 @@ DIR_NAME=msg_thru
 
 PREFIX=m
 
+if [ -z "$SKT_PREFIX" ]; then
+        if [ -n "$1" ]; then
+                SKT_PREFIX=$1
+        else
+                SKT_PREFIX=150
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$DID" ]; then
+        if [ -n "$2" ]; then
+                DID=$2
+        else
+                DID=0
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$WAIT_TIME" ]; then
+        if [ -n "$3" ]; then
+                WAIT_TIME=$4
+        else
+                WAIT_TIME=60
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -n "$LOC_PRINT_HEP" ]; then
+        echo $'\nScript accepts 4 parameters:'
+        echo $'SKT_PREFIX: first 3 decimal digits of 4 digit socket numbers'
+        echo $'DID : Device ID of target device for performance scripts'
+        echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+fi
+
+echo MSG_THRUPUT SKT_PREFIX = $SKT_PREFIX
+echo MSG_THRUPUT DID      = $DID
+echo MSG_THRUPUT WAIT_TIME= $WAIT_TIME
+
+unset LOC_PRINT_HEP
+
 # SIZE_NAME is the file name
 # SIZE is the hexadecimal representation of SIZE_NAME
 #
@@ -28,10 +68,6 @@ PREFIX=m
 SIZE_NAME=(24B 32B 64B 128B 256B 512B 1K 2K 4K)
 
 SIZE=( "18" "20" "40" "80" "100" "200" "400" "800" "1000")
-
-DID=0
-SKT_PREFIX=150
-WAIT_TIME=30
 
 # Function to format file names.
 # Format is xxZss.txt, where

@@ -21,6 +21,3 @@ rm obwin_thru_read obwin_thru_write
 rm msg_thru/m*
 rm msg_thru_tx
 
-rm msg_lat/m*
-rm msg_lat_rx
-

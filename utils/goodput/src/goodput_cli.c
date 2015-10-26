@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <vector>
 #include "goodput_cli.h"
 #include "time_utils.h"
 #include "mhz.h"
@@ -955,11 +956,12 @@ ATTR_NONE
 int GoodputCmd(struct cli_env *env, int argc, char **argv)
 {
 	int i;
-	float MBps, Gbps, Msgpersec; 
+	float MBps, Gbps, Msgpersec, link_occ; 
 	uint64_t byte_cnt = 0;
 	float tot_MBps = 0, tot_Gbps = 0, tot_Msgpersec = 0;
 	uint64_t tot_byte_cnt = 0;
 	char MBps_str[FLOAT_STR_SIZE],  Gbps_str[FLOAT_STR_SIZE];
+	char link_occ_str[FLOAT_STR_SIZE];
 
 #ifdef USER_MODE_DRIVER
 #if 0
@@ -989,7 +991,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 #endif
 #endif
 	sprintf(env->output,
-        "\nW STS <<<<--Data-->>>> --MBps-- -Gbps- Messages\n");
+        "\nW STS <<<<--Data-->>>> --MBps-- -Gbps- Messages  Link_Occ\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -1008,15 +1010,18 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 		MBps = (float)(byte_cnt / (1024*1024)) / 
 			((float)nsec / 1000000000.0);
 		Gbps = (MBps * 8.0) / 1000.0;
+		link_occ = Gbps/0.95;
 
 		memset(MBps_str, 0, FLOAT_STR_SIZE);
 		memset(Gbps_str, 0, FLOAT_STR_SIZE);
+		memset(link_occ_str, 0, FLOAT_STR_SIZE);
 		sprintf(MBps_str, "%4.3f", MBps);
 		sprintf(Gbps_str, "%2.3f", Gbps);
+		sprintf(link_occ_str, "%2.3f", link_occ);
 
-		sprintf(env->output, "%1d %3s %16lx %8s %6s %9.0f\n",
+		sprintf(env->output, "%1d %3s %16lx %8s %6s %9.0f  %6s\n",
 			i,  THREAD_STR(wkr[i].stat),
-			byte_cnt, MBps_str, Gbps_str, Msgpersec);
+			byte_cnt, MBps_str, Gbps_str, Msgpersec, link_occ_str);
         	logMsg(env);
 
 		if (byte_cnt) {
@@ -1039,11 +1044,14 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 	};
 	memset(MBps_str, 0, FLOAT_STR_SIZE);
 	memset(Gbps_str, 0, FLOAT_STR_SIZE);
+	memset(link_occ_str, 0, FLOAT_STR_SIZE);
 	sprintf(MBps_str, "%4.3f", tot_MBps);
 	sprintf(Gbps_str, "%2.3f", tot_Gbps);
+	link_occ = Gbps/0.95;
+	sprintf(link_occ_str, "%2.3f", link_occ);
 
-	sprintf(env->output, "T     %16lx %8s %6s %9.0f\n",
-		tot_byte_cnt, MBps_str, Gbps_str, tot_Msgpersec);
+	sprintf(env->output, "T     %16lx %8s %6s %9.0f  %6s\n",
+		tot_byte_cnt, MBps_str, Gbps_str, tot_Msgpersec, link_occ_str);
         logMsg(env);
 
         return 0;
@@ -2235,6 +2243,74 @@ ATTR_NONE
 
 #endif
 
+int getIsolCPU(std::vector<std::string>& cpus)
+{
+  FILE* f = popen("awk '{for(i=1;i<NF;i++){if($i~/isolcpus/){is=$i}}}END{split(is,a,/=/);c=a[2];n=split(c,b,/,/); for(i in b){print b[i]}}' /proc/cmdline", "re");
+  if(f == NULL) return -1;
+
+  int count = 0;
+  while(! feof(f)) {
+    char buf[257] = {0};
+    fgets(buf, 256, f);
+    if(buf[0] == '\0') break;
+
+    int N = strlen(buf);
+    if(buf[N-1] == '\n') buf[--N] = '\0';
+    if(buf[N-1] == '\r') buf[--N] = '\0';
+   
+    cpus.push_back(buf);
+    count++;
+  }
+  pclose(f);
+
+  return count;
+}
+
+int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
+{
+        int minisolcpu = 0;
+
+        int n = 0; // this be a trick from X11 source tree ;)
+
+        if (argc > 0)
+		minisolcpu = getDecParm(argv[n++], 0);
+
+	std::vector<std::string> cpus;
+
+	const int NI = getIsolCPU(cpus);
+
+	if(minisolcpu > 0 && NI < minisolcpu) {
+		CRIT("\n\tMinimum number of isolcpu cores (%d) not met, got %d. Bailing out!\n", minisolcpu, NI);
+		return -1;
+	}
+
+	int c = 0;
+	char clist[129] = {0};
+	std::vector<std::string>::iterator it = cpus.begin();
+	for(; it != cpus.end(); it++) {
+		char tmp[9] = {0};
+		snprintf(tmp, 8, "cpu%d=%s", ++c, it->c_str());
+		SetEnvVar(tmp);
+		strncat(clist, it->c_str(), 128);
+		strncat(clist, " ", 128);
+	}
+
+	INFO("\n\tIsolcpus: %s\n", clist);
+
+	return 0;
+}
+
+struct cli_cmd Isolcpu = {
+"isolcpu",
+4,
+0,
+"Returns the number of islcpus and sets the cpu1...cpuN env vars",
+"<minisolcpu>\n"
+        "<minisolcpu> [optional] STOP execution if minimum number of isolcpus not met\n",
+IsolcpuCmd,
+ATTR_NONE
+};
+
 struct cli_cmd *goodput_cmds[] = {
 	&IBAlloc,
 	&IBDealloc,
@@ -2265,6 +2341,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&Status,
 	&Set,
 	&Thread,
+	&Isolcpu,
 	&Kill,
 	&Halt,
 	&Move,
