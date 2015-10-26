@@ -314,7 +314,7 @@ static void *wait_for_disc_thread_f(void *arg)
 	INFO("Received mq_disconnect on '%s' with client_msubid(0x%X)\n",
 			mq->get_name().c_str(),	disc_msg->client_msubid);
 
-	/* Find the msub in the database, and remote it */
+	/* Find the msub in the database, and remove it */
 	msub_h client_msubh = find_rem_msub(disc_msg->client_msubid);
 	if (!client_msubh) {
 		ERR("client_msubid(0x%X) not found!\n",

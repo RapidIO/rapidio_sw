@@ -399,14 +399,14 @@ void cleanup_skt(rskt_h skt_h, struct rskt_socket_t *skt)
 		} else {
 			DBG("skt->msub_p is NULL\n");
 		}
-		if (skt_rdma_connector != skt->connector) {
-			DBG("skt->connector != skt_rdma_connector\n");
+		if (skt_rdma_connector == skt->connector) {
+			DBG("skt->connector == skt_rdma_connector\n");
 			DBG("DISCONNECTING from MS\n");
 			rdma_disc_ms_h(skt->con_msh, skt->msubh);
 			skt->msubh_valid = 0;
 			skt->msh_valid = 0;
 		} else {
-			DBG("skt->connector == skt_rdma_connector\n");
+			DBG("skt->connector != skt_rdma_connector\n");
 			if (skt->msubh_valid) {
 				DBG("skt->msubh_valid is true. Destroying skt->msubh\n");
 				rdma_destroy_msub_h(skt->msh, skt->msubh);
