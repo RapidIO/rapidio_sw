@@ -1934,6 +1934,9 @@ __sync_synchronize();
 		pthread_cancel(client_wait_for_destroy_thread);
 		delete destroy_mq;
 		return RDMA_DB_ADD_FAIL;
+	} else {
+		DBG("Entry for '%s' stored in DB, handle = 0x%16" PRIx64 "\n",
+								*rem_msh);
 	}
 
 	/* Accept message queue is no longer needed */
