@@ -650,6 +650,20 @@ struct send_connect_input {
 					/* Remove from list of mq names awaiting an 'accept' reply to 'connect' */
 					wait_accept_mq_names.remove(mq_name);
 					out->status = 0;
+
+					/* Also remove from the connected_to_ms_info_list */
+					sem_wait(&connected_to_ms_info_list_sem);
+					auto it = find(begin(connected_to_ms_info_list),
+							end(connected_to_ms_info_list),
+							in->server_ms_name);
+					if (it == end(connected_to_ms_info_list)) {
+						WARN("Could not find '%s' in connected_to_ms_info_list\n",
+							in->server_ms_name);
+					} else {
+						DBG("Removing '%s' from connect_to_ms_info_list\n");
+						connected_to_ms_info_list.erase(it);
+					}
+					sem_post(&connected_to_ms_info_list_sem);
 				}
 				break;
 
