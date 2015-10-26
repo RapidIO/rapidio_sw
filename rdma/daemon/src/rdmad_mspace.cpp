@@ -272,7 +272,7 @@ int mspace::disconnect_from_destid(uint16_t client_destid)
 {
 	auto it = begin(rem_connections);
 
-	DBG("Disconnecting from destid(0x%X)\n", destid);
+	DBG("Disconnecting client_destid(0x%X) from '%s'\n", client_destid, this->name.c_str());
 	sem_wait(&rem_connections_sem);
 	do {
 		it = find(it, end(rem_connections), client_destid);
