@@ -1935,8 +1935,8 @@ __sync_synchronize();
 		delete destroy_mq;
 		return RDMA_DB_ADD_FAIL;
 	} else {
-		DBG("Entry for '%s' stored in DB, handle = 0x%16" PRIx64 "\n",
-								*rem_msh);
+		DBG("Entry for '%s' stored in DB, handle = 0x%016" PRIx64 "\n",
+							rem_msname, *rem_msh);
 	}
 
 	/* Accept message queue is no longer needed */

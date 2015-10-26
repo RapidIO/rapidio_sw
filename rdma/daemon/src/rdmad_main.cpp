@@ -660,7 +660,8 @@ struct send_connect_input {
 						WARN("Could not find '%s' in connected_to_ms_info_list\n",
 							in->server_ms_name);
 					} else {
-						DBG("Removing '%s' from connect_to_ms_info_list\n");
+						DBG("Removing '%s' from connect_to_ms_info_list\n",
+							in->server_ms_name);
 						connected_to_ms_info_list.erase(it);
 					}
 					sem_post(&connected_to_ms_info_list_sem);
