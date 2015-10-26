@@ -20,8 +20,8 @@
 
 #include <rapidio_mport_mgmt.h>
 
-#include "inc/riocp_pe.h"
-#include "inc/riocp_pe_internal.h"
+#include "riocp_pe.h"
+#include "riocp_pe_internal.h"
 
 #include "lock.h"
 #include "maint.h"
@@ -379,63 +379,53 @@ int riocp_pe_maint_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_t 
 
 /**
  * Add device to underlaying operating system
- * @param mport    Target mport PE handle
- * @param hc       Hopcount to remote
- * @param destid   Destination id of remote
- * @param ct       component tag of remote
+ * @param pe    Target PE handle
  * @retval < 0 Error in remote maintenance read
  */
-int riocp_pe_maint_device_add(struct riocp_pe *mport, uint16_t destid, uint8_t hc, uint32_t ct)
+int riocp_pe_maint_device_add(struct riocp_pe *pe)
 {
 	int ret;
-#if CONFIG_CDEV_NAME_WORKAROUND
 	char sysfs_name[32];
 	char dev_type;
 
-	if ((destid & 0xff) < 0x10)
+	if (RIOCP_PE_IS_SWITCH(pe->cap))
 		dev_type = 's';
 	else
 		dev_type = 'e';
 
-	snprintf(sysfs_name, sizeof(sysfs_name), "00:%c:%04x", dev_type, destid);
+	snprintf(sysfs_name, sizeof(sysfs_name), "00:%c:%04x", dev_type, pe->destid);
 
-	ret = riomp_mgmt_device_add(mport->minfo->maint, destid, hc, ct, sysfs_name);
-#else
-	ret = riomp_mgmt_device_add(mport->minfo->maint, destid, hc, ct, NULL);
-#endif
+	ret = riomp_mgmt_device_add(pe->mport->minfo->maint, pe->destid, pe->hopcount, pe->comptag, sysfs_name);
 	if (ret) {
 		RIOCP_ERROR("Error in device add (d: %u (0x%08x), h: %u, ct: 0x%08x), %s\n",
-			destid, destid, hc, ct, strerror(-ret));
+				pe->destid, pe->destid, pe->hopcount, pe->comptag, strerror(-ret));
 		return ret;
 	}
 
 	RIOCP_TRACE("d: %u (0x%08x), h: %u, ct: 0x%08x\n",
-		destid, destid, hc, ct);
+			pe->destid, pe->destid, pe->hopcount, pe->comptag);
 
 	return ret;
 }
 
 /**
  * Delete device from underlaying operating system
- * @param mport    Target mport PE handle
- * @param hc       Hopcount to remote
- * @param destid   Destination id of remote
- * @param ct       component tag of remote
+ * @param pe    Target PE handle
  * @retval < 0 Error in remote maintenance read
  */
-int riocp_pe_maint_device_del(struct riocp_pe *mport, uint16_t destid, uint8_t hc, uint32_t ct)
+int riocp_pe_maint_device_del(struct riocp_pe *pe)
 {
 	int ret;
 
-	ret = riomp_mgmt_device_del(mport->minfo->maint, destid, hc, ct);
+	ret = riomp_mgmt_device_del(pe->mport->minfo->maint, pe->destid, pe->hopcount, pe->comptag);
 	if (ret) {
 		RIOCP_ERROR("Error in device del (d: %u (0x%08x), h: %u, ct: 0x%08x), %s\n",
-			destid, destid, hc, ct, strerror(-ret));
+				pe->destid, pe->destid, pe->hopcount, pe->comptag, strerror(-ret));
 		return ret;
 	}
 
 	RIOCP_TRACE("d: %u (0x%08x), h: %u, ct: 0x%08x\n",
-		destid, destid, hc, ct);
+			pe->destid, pe->destid, pe->hopcount, pe->comptag);
 
 	return ret;
 }
