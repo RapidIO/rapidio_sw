@@ -110,6 +110,7 @@ public:
 private:
 	vector<ibwin>	ibwins;
 	sem_t		ibwins_sem;
+	riomp_mport_t	mport_hnd;
 }; /* inbound */
 
 #endif

@@ -40,7 +40,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <signal.h>
 #include <sys/signal.h>
-#include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
 

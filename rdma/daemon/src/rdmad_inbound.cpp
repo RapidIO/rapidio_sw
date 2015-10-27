@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <stdint.h>
 #include <semaphore.h>
+#include <sys/mman.h>
 
 #include <cstdio>
 
@@ -40,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdma_types.h"
 #include "liblog.h"
+#include "rapidio_mport_mgmt.h"
 
 #include "rdmad_msubspace.h"
 #include "rdmad_mspace.h"
@@ -65,7 +67,7 @@ private:
 /* Constructor */
 inbound::inbound(riomp_mport_t mport_hnd,
 		 unsigned num_wins,
-		 uint64_t win_size)
+		 uint64_t win_size) : mport_hnd(mport_hnd)
 {
 	/* Initialize inbound windows */
 	for (unsigned i = 0; i < num_wins; i++) {
@@ -252,6 +254,27 @@ int inbound::create_mspace(const char *name,
 
 	/* Create the space */
 	int ret = win_it->create_mspace(name, size, msoid, msid, ms);
+
+	/* MMAP, zero, then UNMAP the space */
+	void *vaddr;
+	if (ret >= 0 ) {
+		ret = riomp_dma_map_memory(mport_hnd,
+					   size,
+					   (*ms)->get_phys_addr(),
+					   &vaddr);
+		if (ret == 0) {
+			memset((uint8_t *)vaddr, 0, size);
+			if (munmap(vaddr, size) == -1) {
+			        ERR("munmap(): %s\n", strerror(errno));
+				ret = -2;
+			}
+		} else {
+			ERR("Failed to MMAP mspace %s: %s\n",
+						name, strerror(errno));
+			ret = -3;
+		}
+	}
+
 	sem_post(&ibwins_sem);
 	return ret;
 } /* create_mspace() */
