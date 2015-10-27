@@ -549,9 +549,10 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
 
-	/* Check that this owner isn't already open */
+	/* If the MSO was already open, just return the handle */
 	if (mso_is_open(owner_name)) {
 		WARN("%s is already open!\n", owner_name);
+		*msoh = find_mso_by_name(owner_name);
 		return RDMA_ALREADY_OPEN;
 	}
 
