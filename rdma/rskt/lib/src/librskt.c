@@ -1001,21 +1001,20 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 
 	rc = rdma_open_mso_h(skt->msoh_name, &skt->msoh);
 	if (rc) {
-		ERR("Failed to open mso(%s)\n", skt->msoh_name);
-		goto close;
-	}
-	skt->msoh_valid = 1;
-
-	HIGH("Opening ms('%s')\n", skt->msh_name);
-	rc = rdma_open_ms_h(skt->msh_name, skt->msoh, 0, 
-			&skt->msub_sz, &skt->msh);
-	if (rc) {
 		if (rc == RDMA_ALREADY_OPEN) {
 			INFO("MSO was already open, got back the same handle\n");
 		} else {
 			ERR("Failed to open ms(%s)\n", skt->msh_name);
 			goto close;
 		}
+	}
+	skt->msoh_valid = 1;
+
+	rc = rdma_open_ms_h(skt->msh_name, skt->msoh, 0, 
+			&skt->msub_sz, &skt->msh);
+	if (rc) {
+		ERR("Failed to open ms(%s)\n", skt->msh_name);
+		goto close;
 	}
 	skt->msh_valid = 1;
 
