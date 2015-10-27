@@ -1307,6 +1307,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	struct timespec unused;
 	struct rdma_xfer_ms_in hdr_in;
 	struct rskt_socket_t *skt;
+	uint32_t ltw, rtr; /* Debugging only */
 
 	errno = EINVAL;
 	if ((NULL == skt_h) || (NULL == data) || (1 > byte_cnt)) {
@@ -1325,6 +1326,10 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 		goto skt_ok;
 	}
 
+	/* For debugging only */
+	ltw = ntohl(skt->hdr->loc_tx_wr_ptr);
+	rtr = ntohl(skt->hdr->rem_tx_rd_ptr);
+	DBG("loc_tx_wr_ptr = 0x%X, rem_tx_rd_ptr 0x%X\n", ltw, rtr);
 	if (rskt_connected != skt->st) {
 		ERR("skt->st is NOT skt_connected\n");
 		goto skt_ok;
