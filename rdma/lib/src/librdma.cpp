@@ -1452,9 +1452,6 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 	}
 	DBG("msub mapped to vaddr(%p)\n", *vaddr);
 
-	/* Zero-out a subspace before passing it to the app */
-	memset((uint8_t *)*vaddr, 0, pmsub->bytes);
-
 	return 0;
 } /* rdma_mmap_msub() */
 
