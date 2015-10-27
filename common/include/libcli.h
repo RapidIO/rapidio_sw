@@ -33,15 +33,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __LIBCLIDB_H__
 #define __LIBCLIDB_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define BUFLEN 512
 
@@ -98,13 +98,23 @@ struct cli_cmd {
 #endif
 
 /* parsing support routines */
-extern unsigned long getHexParm(char *dollarParameters[], 
+extern uint64_t getHexParm(char *dollarParameters[], 
 			unsigned int nDollarParms,
 			char *token, unsigned int defaultData);
 
 extern unsigned long getHex(char *token, unsigned long defaultData);
 int getDecParm(char *token, int defaultData);
 float getFloatParm(char *token, float defaultData);
+
+/* Routines to manage environment variables within the CLI */
+char* GetEnv(char* var);
+void SetEnvVar(char* arg);
+char* SubstituteParam(char* arg);
+
+/* parsing support routines that support parameter substitution */
+int GetDecParm(char* arg, int dflt);
+uint64_t GetHex(char* arg, int dflt);
+float GetFloatParm(char* arg, float dflt);
 
 /* CLI initialization/command binding routine.
  * The console_cleanup function is invoked by the "quit" command

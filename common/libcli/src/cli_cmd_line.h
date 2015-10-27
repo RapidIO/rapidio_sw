@@ -44,6 +44,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <map>
+#include <string>
+#include <iostream>
+#include <sstream>
+#include <vector>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern std::map<std::string, std::string> SET_VARS;
 
 /******************************************************************************
  *  FUNCTION: int bind_cli_cmd_line_cmds()
@@ -61,5 +72,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 int bind_cli_cmd_line_cmds(void);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __CLI_CMD_LINE_H__ */

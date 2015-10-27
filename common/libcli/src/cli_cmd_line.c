@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "cli_cmd_db.h"
 #include "liblog.h"
+#include "cli_cmd_line.h"
 
 void (*cons_cleanup)(struct cli_env *env);
 
@@ -591,6 +592,79 @@ CLIEchoCmd,
 ATTR_NONE
 };
 
+std::map<std::string, std::string> SET_VARS;
+
+int SetCmd(struct cli_env *env, int argc, char **argv)
+{
+        if(argc == 0) {
+                if (SET_VARS.size() == 0) {
+			INFO("\n\tNo env vars\n");
+			return 0;
+		}
+
+                std::stringstream ss;
+                std::map<std::string, std::string>::iterator it;
+
+		it = SET_VARS.begin();
+                for(; it != SET_VARS.end(); it++) {
+                        ss << "\n\t" << it->first << "=" << it->second;
+                }
+
+                CRIT("\nEnv vars: %s\n", ss.str().c_str());
+                goto exit;
+        }
+
+	if (NULL == argv[0])
+		goto exit;
+
+        if (argc == 1) {
+	// Delete var                
+		std::map<std::string, std::string>::iterator it
+					= SET_VARS.find(argv[0]);
+                if (it == SET_VARS.end()) {
+			INFO("\n\tNo such env var '%s'\n", argv[0]);
+			return 0;
+		}
+                SET_VARS.erase(it);
+                goto exit;
+        }
+
+        // Set var
+	if (NULL == argv[1])
+		goto exit;
+
+        do {{
+          int start = 1;
+          if (! strcmp(argv[1], "?")) { // "set key ? val" do not assign val if var "key" exists
+                if (GetEnv(argv[0])) break;
+                start = 2;
+          }
+
+          char buf[4097] = {0};
+          for (int i = start; i < argc; i++) { strncat(buf, argv[i], 4096);  strncat(buf, " ", 4096); }
+
+          const int N = strlen(buf);
+          buf[N - 1] = '\0';
+          SET_VARS[ argv[0] ] = buf;
+        }} while(0);
+exit:
+        return 0;
+}
+
+struct cli_cmd CLISet = {
+"set",
+3,
+0,
+"Set/display environment vars",
+"set {var {val}}\n"
+        "\"set key\" deletes the variable from env\n"
+        "\"set key val ...\" sets key:=val\n"
+        "\"set key ? val ...\" sets key:=val iff key does not exist\n"
+        "Note: val can be multiple words\n"
+        "Default is display env vars.\n",
+SetCmd,
+ATTR_RPT
+};
 
 void printProgress(struct cli_env *env)
 
@@ -610,7 +684,8 @@ struct cli_cmd *cmd_line_cmds[] = {
 &CLIDotScript,
 &CLIScriptPath,
 &CLIEcho,
-&CLIQuit
+&CLIQuit,
+&CLISet
 };
 
 int bind_cli_cmd_line_cmds(void)

@@ -244,14 +244,6 @@ struct worker {
 int getCPUCount();
 
 /**
- * @brief Retrieves a Goodput Env Variable (this is NOT a shell variable)
- *
- * @param[in] var name of Env Var, case sensitive
- * @return NULL if not found, ASCII contents if found
- */
-const char* GetEnv(const char* var);
-
-/**
  * @brief Initializes worker structure
  *
  * @param[in] info Pointer to worker info
