@@ -73,49 +73,6 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"LAST"
 };
 
-std::map<std::string, std::string> SET_VARS;
-
-extern "C" const char* GetEnv(const char* var)
-{
-	if (var == NULL || var[0] == '\0') return NULL;
-	
-	std::map<std::string, std::string>::iterator it = SET_VARS.find(var);
-	if (it == SET_VARS.end()) return NULL;
-
-	return it->second.c_str();
-}
-
-extern "C" void SetEnvVar(const char* arg)
-{
-	if(arg == NULL || arg[0] == '\0') return;
-
-	char* tmp = strdup(arg);
-
-	char* sep = strstr(tmp, "=");
-	if (sep == NULL) goto exit;
-	sep[0] = '\0';
-	SET_VARS[tmp] = (sep+1);
-
-exit:
-	free(tmp);
-}
-
-
-static inline const char* SubstituteParam(const char* arg)
-{
-	if (arg == NULL || arg[0] == '\0') return arg;
-	if (arg[0] != '$') return arg;
-
-	std::map<std::string, std::string>::iterator it = SET_VARS.find(arg+1);
-	if (it == SET_VARS.end()) return arg;
-
-	return it->second.c_str();
-}
-
-inline int GetDecParm(const char* arg, int dflt)       { return getDecParm((char*)SubstituteParam(arg), dflt); }
-inline int GetHex(const char* arg, int dflt)           { return getHex((char*)SubstituteParam(arg), dflt); }
-inline float GetFloatParm(const char* arg, float dflt) { return getFloatParm((char*)SubstituteParam(arg), dflt); }
-
 int check_idx(struct cli_env *env, int idx, int want_halted)
 {
 	int rc = 1;
@@ -147,7 +104,7 @@ int get_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 {
 	int rc = 1;
 
-	*cpu = GetDecParm(dec_parm, 0);
+	*cpu = getDecParm(dec_parm, 0);
 
 	const int MAX_GOODPUT_CPU = getCPUCount() - 1;
 
@@ -171,10 +128,10 @@ int ThreadCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, cpu, new_dma;
 
-	idx = GetDecParm(argv[0], 0);
+	idx = getDecParm(argv[0], 0);
 	if (get_cpu(env, argv[1], &cpu))
 		goto exit;
-	new_dma = GetDecParm(argv[2], 0);
+	new_dma = getDecParm(argv[2], 0);
 
 	if ((idx < 0) || (idx >= MAX_WORKERS)) {
 		sprintf(env->output, "\nIndex must be 0 to %d...\n",
@@ -213,7 +170,7 @@ int KillCmd(struct cli_env *env, int argc, char **argv)
 	int st_idx = 0, end_idx = MAX_WORKERS-1, i;
 
 	if (strncmp(argv[0], "all", 3)) {
-		st_idx = GetDecParm(argv[0], 0);
+		st_idx = getDecParm(argv[0], 0);
 		end_idx = st_idx;
 
 		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
@@ -247,7 +204,7 @@ int HaltCmd(struct cli_env *env, int argc, char **argv)
 	unsigned int st_idx = 0, end_idx = MAX_WORKERS-1, i;
 
 	if (strncmp(argv[0], "all", 3)) {
-		st_idx = GetDecParm(argv[0], 0);
+		st_idx = getDecParm(argv[0], 0);
 		end_idx = st_idx;
 
 		if ((st_idx < 0) || (st_idx >= MAX_WORKERS)) {
@@ -286,7 +243,7 @@ int MoveCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, cpu;
 
-	idx = GetDecParm(argv[0], 0);
+	idx = getDecParm(argv[0], 0);
 	if (get_cpu(env, argv[1], &cpu))
 		goto exit;
 
@@ -321,7 +278,7 @@ int WaitCmd(struct cli_env *env, int argc, char **argv)
 	int idx, state = -1, limit = 10000;
 	const struct timespec ten_usec = {0, 10 * 1000};
 
-	idx = GetDecParm(argv[0], 0);
+	idx = getDecParm(argv[0], 0);
 	switch (argv[1][0]) {
 	case '0':
 	case 'd':
@@ -382,7 +339,7 @@ ATTR_NONE
 
 int SleepCmd(struct cli_env *env, int argc, char **argv)
 {
-	float sec = GetFloatParm(argv[0], 0);
+	float sec = getFloatParm(argv[0], 0);
 	if(sec > 0) {
 		sprintf(env->output, "\nSleeping %f sec...\n", sec);
         	logMsg(env);
@@ -410,8 +367,8 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	int idx;
 	uint64_t ib_size;
 
-	idx = GetDecParm(argv[0], 0);
-	ib_size = GetHex(argv[1], 0);
+	idx = getDecParm(argv[0], 0);
+	ib_size = getHex(argv[1], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -447,7 +404,7 @@ int IBDeallocCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
 
-	idx = GetDecParm(argv[0], 0);
+	idx = getDecParm(argv[0], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -479,22 +436,31 @@ int obdio_cmd(struct cli_env *env, int argc, char **argv, enum req_type action)
 	uint64_t acc_sz;
 	int wr = 0;
 
-	idx = GetDecParm(argv[0], 0);
-	did = GetDecParm(argv[1], 0);
-	rio_addr = GetHex(argv[2], 0);
+	idx = getDecParm(argv[0], 0);
+	did = getDecParm(argv[1], 0);
+	rio_addr = getHex(argv[2], 0);
 	if (direct_io == action) {
-		bytes = GetHex(argv[3], 0);
-		acc_sz = GetHex(argv[4], 0);
-		wr = GetDecParm(argv[5], 0);
+		bytes = getHex(argv[3], 0);
+		acc_sz = getHex(argv[4], 0);
+		wr = getDecParm(argv[5], 0);
 	} else {
-		acc_sz = GetHex(argv[3], 0);
+		acc_sz = getHex(argv[3], 0);
 		bytes = acc_sz;
 		if (direct_io_tx_lat == action) 
-			wr = GetDecParm(argv[4], 0);
+			wr = getDecParm(argv[4], 0);
 		else
 			wr = 1;
 	};
 		
+	if (wr || (direct_io_rx_lat == action)) {
+		if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
+			sprintf(env->output,
+				"\nNo mapped inbound window present\n");
+        		logMsg(env);
+			goto exit;
+		};
+	};
+
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -594,15 +560,15 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	int trans;
 	int sync;
 
-	idx = GetDecParm(argv[0], 0);
-	did = GetDecParm(argv[1], 0);
-	rio_addr = GetHex(argv[2], 0);
-	bytes = GetHex(argv[3], 0);
-	acc_sz = GetHex(argv[4], 0);
-	wr = GetDecParm(argv[5], 0);
-	kbuf = GetDecParm(argv[6], 0);
-	trans = GetDecParm(argv[7], 0);
-	sync = GetDecParm(argv[8], 0);
+	idx = getDecParm(argv[0], 0);
+	did = getDecParm(argv[1], 0);
+	rio_addr = getHex(argv[2], 0);
+	bytes = getHex(argv[3], 0);
+	acc_sz = getHex(argv[4], 0);
+	wr = getDecParm(argv[5], 0);
+	kbuf = getDecParm(argv[6], 0);
+	trans = getDecParm(argv[7], 0);
+	sync = getDecParm(argv[8], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -660,16 +626,22 @@ int dmaTxLatCmd(struct cli_env *env, int argc, char **argv)
 	int kbuf;
 	int trans;
 
-	idx = GetDecParm(argv[0], 0);
-	did = GetDecParm(argv[1], 0);
-	rio_addr = GetHex(argv[2], 0);
-	bytes = GetHex(argv[3], 0);
-	wr = GetDecParm(argv[4], 0);
-	kbuf = GetDecParm(argv[5], 0);
-	trans = GetDecParm(argv[6], 0);
+	idx = getDecParm(argv[0], 0);
+	did = getDecParm(argv[1], 0);
+	rio_addr = getHex(argv[2], 0);
+	bytes = getHex(argv[3], 0);
+	wr = getDecParm(argv[4], 0);
+	kbuf = getDecParm(argv[5], 0);
+	trans = getDecParm(argv[6], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
+
+	if (wr && (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr))) {
+		sprintf(env->output, "\nNo mapped inbound window present\n");
+        	logMsg(env);
+		goto exit;
+	};
 
 	if (trans > (int)RIO_DIRECTIO_TYPE_NWRITE_R_ALL)
 		trans = RIO_DIRECTIO_TYPE_NWRITE;
@@ -687,7 +659,10 @@ int dmaTxLatCmd(struct cli_env *env, int argc, char **argv)
 		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
 	else
 		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
-	wkr[idx].rdma_buff_size = bytes;
+	if (bytes < MIN_RDMA_BUFF_SIZE) 
+		wkr[idx].rdma_buff_size = MIN_RDMA_BUFF_SIZE;
+	else
+		wkr[idx].rdma_buff_size = bytes;
 
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
@@ -720,10 +695,10 @@ int dmaRxLatCmd(struct cli_env *env, int argc, char **argv)
 	uint64_t rio_addr;
 	uint64_t bytes;
 
-	idx = GetDecParm(argv[0], 0);
-	did = GetDecParm(argv[1], 0);
-	rio_addr = GetHex(argv[2], 0);
-	bytes = GetHex(argv[3], 0);
+	idx = getDecParm(argv[0], 0);
+	did = getDecParm(argv[1], 0);
+	rio_addr = getHex(argv[2], 0);
+	bytes = getHex(argv[3], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -789,10 +764,10 @@ int msg_tx_cmd(struct cli_env *env, int argc, char **argv, enum req_type req)
 	int sock_num;
 	int bytes;
 
-	idx = GetDecParm(argv[0], 0);
-	did = GetDecParm(argv[1], 0);
-	sock_num = GetDecParm(argv[2], 0);
-	bytes = GetDecParm(argv[3], 0);
+	idx = getDecParm(argv[0], 0);
+	did = getDecParm(argv[1], 0);
+	sock_num = getDecParm(argv[2], 0);
+	bytes = getDecParm(argv[3], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -868,9 +843,9 @@ int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 	int sock_num;
 	int bytes;
 
-	idx = GetDecParm(argv[0], 0);
-	sock_num = GetDecParm(argv[1], 0);
-	bytes = GetDecParm(argv[2], 0);
+	idx = getDecParm(argv[0], 0);
+	sock_num = getDecParm(argv[1], 0);
+	bytes = getDecParm(argv[2], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -915,8 +890,8 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 	int idx;
 	int sock_num;
 
-	idx = GetDecParm(argv[0], 0);
-	sock_num = GetDecParm(argv[1], 0);
+	idx = getDecParm(argv[0], 0);
+	sock_num = getDecParm(argv[1], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -1259,65 +1234,6 @@ ATTR_RPT
 
 static inline int MIN(int a, int b) { return a < b? a: b; }
 
-int SetCmd(struct cli_env *env, int argc, char **argv)
-{
-	if(argc == 0) {
-		if (SET_VARS.size() == 0) { INFO("\n\tNo env vars\n"); return 0; }
-
-		std::stringstream ss;
-		std::map<std::string, std::string>::iterator it = SET_VARS.begin();
-		for(; it != SET_VARS.end(); it++) {
-			ss << "\n\t" << it->first << "=" << it->second;
-		}
-
-		CRIT("\nEnv vars: %s\n", ss.str().c_str());
-		goto exit;
-	}
-
-	assert(argv[0]);
-	if (argc == 1) { // Delete var
-		std::map<std::string, std::string>::iterator it = SET_VARS.find(argv[0]);
-		if (it == SET_VARS.end()) { INFO("\n\tNo such env var '%s'\n", argv[0]); return 0; }
-		SET_VARS.erase(it);
-		goto exit;
-	}
-
-	// Set var
-	assert(argv[1]);
-
-	do {{
-	  int start = 1;
-	  if (! strcmp(argv[1], "?")) { // "set key ? val" do not assign val if var "key" exists
-		if (GetEnv(argv[0])) break;
-		start = 2;	
-	  }
-
-	  char buf[4097] = {0};
-	  for (int i = start; i < argc; i++) { strncat(buf, argv[i], 4096);  strncat(buf, " ", 4096); }
-
-	  const int N = strlen(buf);
-	  buf[N - 1] = '\0';
-	  SET_VARS[ argv[0] ] = buf;
-	}} while(0);
-exit:
-	return 0;
-}
-
-struct cli_cmd Set = {
-"set",
-3,
-0,
-"Set/display environment vars",
-"set {var {val}}\n"
-        "\"set key\" deletes the variable from env\n"
-        "\"set key val ...\" sets key:=val\n"
-        "\"set key ? val ...\" sets key:=val iff key does not exist\n"
-        "Note: val can be multiple words\n"
-        "Default is display env vars.\n",
-SetCmd,
-ATTR_RPT
-};
-
 int dump_idx;
 uint64_t dump_base_offset;
 uint64_t dump_size;
@@ -1329,9 +1245,9 @@ int DumpCmd(struct cli_env *env, int argc, char **argv)
 	uint64_t size;
 
 	if (argc) {
-		idx = GetDecParm(argv[0], 0);
-		base_offset = GetHex(argv[1], 0);
-		size = GetHex(argv[2], 0);
+		idx = getDecParm(argv[0], 0);
+		base_offset = getHex(argv[1], 0);
+		size = getHex(argv[2], 0);
 	} else {
 		idx = dump_idx;
 		base_offset = dump_base_offset;
@@ -2205,7 +2121,7 @@ struct cli_cmd UMSG = {
 2,
 9,
 "Transmit/Receive MBOX requests with User-Mode demo driver",
-"<idx> <cpu> <chan> <buff> <sts> <did> <acc_sz> <txrx>\n"
+"<idx> <cpu> <chan> <chan_to> <buff> <sts> <did> <acc_sz> <txrx>\n"
 	"<idx> is a worker index from 0 to 7\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
 	"<chan> is a Local MBOX channel number from 2 through 3\n"
@@ -2273,7 +2189,7 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
         int n = 0; // this be a trick from X11 source tree ;)
 
         if (argc > 0)
-		minisolcpu = getDecParm(argv[n++], 0);
+		minisolcpu = GetDecParm(argv[n++], 0);
 
 	std::vector<std::string> cpus;
 
@@ -2339,7 +2255,6 @@ struct cli_cmd *goodput_cmds[] = {
 	&Goodput,
 	&Lat,
 	&Status,
-	&Set,
 	&Thread,
 	&Isolcpu,
 	&Kill,

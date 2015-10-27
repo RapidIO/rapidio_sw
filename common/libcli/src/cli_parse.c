@@ -38,8 +38,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <map>
+#include <string>
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include "limits.h"
 
 #include "libcli.h"
+#include "cli_cmd_line.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int getDecParm(char *token, int defaultData)
 {
@@ -88,14 +100,82 @@ exit:
 	return data;
 }
 
-unsigned long getHex(char *token, unsigned long defaultData)
+uint64_t getHex(char *token, unsigned long defaultData)
 
 {
-	unsigned long data = defaultData;
+	uint64_t data = defaultData;
+	char *end;
 
-	if ((token != NULL) && (token[0] != '/'))
-		if (1 != sscanf(token, "%lX", &data))
+	errno = 0;
+	if ((token != NULL) && (token[0] != '/')) {
+		data = strtoull(token, &end, 16);
+		if (!data && (end == token)) {
 			data = defaultData;
+		} else if (data == ULLONG_MAX && errno) {
+    			data = defaultData;
+		} else if (*end) {
+    			data = defaultData;
+		}
+	};
 
 	return data;
 }
+
+char* GetEnv(char* var)
+{
+        if (var == NULL || var[0] == '\0') return NULL;
+
+        std::map<std::string, std::string>::iterator it = SET_VARS.find(var);
+        if (it == SET_VARS.end()) return NULL;
+
+        return (char *)it->second.c_str();
+}
+
+void SetEnvVar(char* arg)
+{
+        if(arg == NULL || arg[0] == '\0') return;
+
+        char* tmp = strdup(arg);
+
+        char* sep = strstr(tmp, "=");
+        if (sep == NULL) goto exit;
+        sep[0] = '\0';
+        SET_VARS[tmp] = (sep+1);
+
+exit:
+        free(tmp);
+}
+
+char* SubstituteParam(char* arg)
+{
+	if (arg == NULL || arg[0] == '\0')
+		return arg;
+
+	if (arg[0] != '$')
+		return arg;
+
+        std::map<std::string, std::string>::iterator it = SET_VARS.find(arg+1);
+        if (it == SET_VARS.end())
+		return arg;
+
+        return (char *)it->second.c_str();
+}
+
+int GetDecParm(char* arg, int dflt)
+{
+        return getDecParm((char*)SubstituteParam(arg), dflt);
+};
+
+uint64_t GetHex(char* arg, int dflt)
+{
+        return getHex((char*)SubstituteParam(arg), dflt);
+};
+
+float GetFloatParm(char* arg, float dflt)
+{
+        return getFloatParm((char*)SubstituteParam(arg), dflt);
+};
+
+#ifdef __cplusplus
+}
+#endif

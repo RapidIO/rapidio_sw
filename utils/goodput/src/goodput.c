@@ -116,8 +116,6 @@ void sig_handler(int signo)
 	};
 };
 
-extern "C" void SetEnvVar(const char* arg);
-
 int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
@@ -135,7 +133,7 @@ int main(int argc, char *argv[])
 	for(int n = 2; n < argc; n++) {
 		const char* arg = argv[n];
 		if(! strstr(arg,"=")) continue;
-		SetEnvVar(arg);
+		SetEnvVar((char *)arg);
         }
 
 	rdma_log_init("goodput_log.txt", 1);
