@@ -310,6 +310,9 @@ void *rpc_thread_f(void *arg)
 							in->bytes, in->msoid,
 							&out->msid,
 							&ms);
+					if (ms)
+						out->phys_addr = ms->get_phys_addr();
+
 					out->status = (ret > 0) ? 0 : ret;
 					DBG("the_inbound->create_mspace(%s) %s\n",
 						in->ms_name,
@@ -334,6 +337,7 @@ void *rpc_thread_f(void *arg)
 								in->ms_name,
 								other_server,
 								&out->msid,
+								&out->phys_addr,
 								&out->ms_conn_id,
 								&out->bytes);
 					out->status = (ret > 0) ? 0 : ret;
@@ -548,21 +552,6 @@ void *rpc_thread_f(void *arg)
 					main_client->get_send_buffer((void **)&c);
 					main_client->flush_send_buffer();
 
-					/*
-struct send_connect_input {
-	char server_msname[UNIX_MS_NAME_MAX_LEN+1];
-	uint8_t  server_destid_len;
-	uint32_t server_destid;
-	uint8_t  client_destid_len;
-	uint32_t client_destid;
-	uint32_t client_msid;
-	uint32_t client_msubid;
-	uint32_t client_bytes;
-	uint8_t	 client_rio_addr_len;
-	uint64_t client_rio_addr_lo;
-	uint8_t  client_rio_addr_hi;
-};
-					 */
 					/* Compose CONNECT_MS message */
 					c->type			= htobe64(CM_CONNECT_MS);
 					strcpy(c->server_msname, in->server_msname);

@@ -900,9 +900,14 @@ int rdma_create_ms_h(const char *ms_name,
 
 	out = out_msg->create_ms_out;
 
-	*msh = add_loc_ms(ms_name,*bytes, msoh, out.msid, 0, true,
-				0, nullptr,
-				0, nullptr);
+	*msh = add_loc_ms(ms_name,
+			  *bytes,
+			  msoh,
+			  out.msid,
+			  out.phys_addr,
+			  0, true,
+			  0, nullptr,
+			  0, nullptr);
 	if (!*msh) {
 		ERR("Failed to store ms in database\n");
 		return RDMA_DB_ADD_FAIL;
@@ -1084,6 +1089,7 @@ int rdma_open_ms_h(const char *ms_name,
 			  out.bytes,
 			  msoh,
 			  out.msid,
+			  out.phys_addr,
 			  out.ms_conn_id,
 			  false,
 			  0,

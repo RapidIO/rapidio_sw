@@ -260,6 +260,7 @@ int inbound::create_mspace(const char *name,
 int inbound::open_mspace(const char *name,
 			 unix_server *user_server,
 			 uint32_t *msid,
+			 uint64_t *phys_addr,
 			 uint32_t *ms_conn_id,
 			 uint32_t *bytes)
 {
@@ -277,6 +278,7 @@ int inbound::open_mspace(const char *name,
 		WARN("Failed to open '\%s\'\n", name);
 		return -2;
 	}
+	*phys_addr = ms->get_phys_addr();
 	DBG("EXIT\n");
 	return 1;
 } /* open_mspace() */
