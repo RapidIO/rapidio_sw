@@ -272,6 +272,7 @@ int mspace::disconnect_from_destid(uint16_t client_destid)
 {
 	auto it = begin(rem_connections);
 
+	DBG("Disconnecting client_destid(0x%X) from '%s'\n", client_destid, this->name.c_str());
 	sem_wait(&rem_connections_sem);
 	do {
 		it = find(it, end(rem_connections), client_destid);
@@ -307,7 +308,7 @@ int mspace::disconnect(uint32_t client_msubid)
 	/* Open POSIX message queue */
 	mqd_t	disc_mq = mq_open(mq_name,O_RDWR, 0644, &attr);
 	if (disc_mq == (mqd_t)-1) {
-		ERR("Failed to open %s\n", mq_name);
+		ERR("Failed to open %s: %s\n", mq_name, strerror(errno));
 		return -1;
 	}
 

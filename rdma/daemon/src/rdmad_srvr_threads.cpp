@@ -293,20 +293,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			memcpy( cm_send_buf,
 				(void *)&accept_msg,
 				sizeof(cm_accept_msg));
-/*
- struct cm_accept_msg {
-	uint64_t	type;
-	char		server_ms_name[CM_MS_NAME_MAX_LEN+1];
-	uint64_t	server_msid;
-	uint64_t	server_msubid;
-	uint64_t	server_bytes;
-	uint64_t	server_rio_addr_len;
-	uint64_t	server_rio_addr_lo;
-	uint64_t	server_rio_addr_hi;
-	uint64_t	server_destid_len;
-	uint64_t	server_destid;
-};
- */
+
 			DBG("cm_accept_msg has server_msid = 0x%X\n", be64toh(accept_msg.server_msid));
 			DBG("cm_accept_msg has server_msubid = 0x%X\n", be64toh(accept_msg.server_msubid));
 			DBG("cm_accept_msg has server_destid = 0x%X\n", be64toh(accept_msg.server_destid));
@@ -373,16 +360,18 @@ void *wait_conn_disc_thread_f(void *arg)
 			ret = ms->remove_rem_connection(be64toh(disc_msg->client_destid),
 						  be64toh(disc_msg->client_msubid));
 
+			/* Relay disconnection request to the RDMA library */
+			ret = ms->disconnect(be64toh(disc_msg->client_msubid));
+			if (ret) {
+				ERR("Failed to relay disconnect ms('%s') to RDMA library\n",
+						ms->get_name());
+			} else {
+				HIGH("'Disconnect' message for ms('%s') relayed to 'server'\n",
+						ms->get_name());
+			}
+
 			/* Consider this memory space disconnected. Allow accepting */
 			ms->set_accepted(false);
-
-			ret = ms->disconnect(be64toh(disc_msg->client_msubid));
-
-			if (ret) {
-				ERR("Failed to relay disconnect ms to app\n");
-			} else {
-				HIGH("'Disconnect' message relayed to 'server'\n");
-			}
 		} else if (be64toh(conn_msg->type) == CM_DESTROY_ACK_MS) {
 			cm_destroy_ack_msg *dest_ack_msg;
 

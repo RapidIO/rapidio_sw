@@ -345,6 +345,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 							be64toh(accept_cm_msg->server_bytes),
 							be64toh(accept_cm_msg->server_rio_addr_len));
 			DBG("MQ Accept: msubid=0x%X msid= 0x%X destid=0x%X destid_len=0x%X, rio=0x%lX\n",
+								accept_mq_msg->server_msubid,
 								accept_mq_msg->server_msid,
 								accept_mq_msg->server_destid,
 								accept_mq_msg->server_destid_len,
