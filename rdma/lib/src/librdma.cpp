@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <signal.h>
 #include <sys/signal.h>
+#include <semaphore.h>
 #include <time.h>
 #include <sys/time.h>
 
@@ -80,6 +81,7 @@ static unix_msg_t  *out_msg;
 static size_t	    received_len;
 static fmdd_h 	    dd_h;
 static uint32_t	    fm_alive;
+static sem_t	    rdma_lock;
 
 /** 
  * Global info related to mports and channelized messages.
@@ -356,6 +358,8 @@ int rdma_lib_init(void)
 		return ret;
 	}
 
+	sem_init(&rdma_lock, 0, 1);
+
 	/* Create a client */
 	DBG("Creating client object...\n");
 	try {
@@ -490,9 +494,12 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
  */
 static void *mso_close_thread_f(void *arg)
 {
+	sem_wait(&rdma_lock);
+
 	/* Check for NULL argument */
 	if (!arg) {
 		CRIT("NULL argument. Exiting\n");
+		sem_post(&rdma_lock);
 		pthread_exit(0);
 	}
 
@@ -505,6 +512,7 @@ static void *mso_close_thread_f(void *arg)
 	if (mq->receive()) {
 		CRIT("Failed to receive mq_mso_close_msg\n");
 		delete mq;
+		sem_post(&rdma_lock);
 		pthread_exit(0);
 	}
 
@@ -515,6 +523,7 @@ static void *mso_close_thread_f(void *arg)
 	if (!msoh) {
 		CRIT("Could not find msoid(0x%X) in database\n", close_msg->msoid);
 		delete mq;
+		sem_post(&rdma_lock);
 		pthread_exit(0);
 	}
 
@@ -529,6 +538,7 @@ static void *mso_close_thread_f(void *arg)
 	/* Delete the message queue */
 	INFO("Deleting '%s'\n", mq->get_name().c_str());
 	delete mq;
+	sem_post(&rdma_lock);
 	pthread_exit(0);
 } /* mso_close_thread_f() */
 
@@ -537,6 +547,8 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	open_mso_input	in;
 	open_mso_output	out;
 	int		ret;
+
+	sem_wait(&rdma_lock);
 
 	DBG("ENTER\n");
 
@@ -552,6 +564,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	if (mso_is_open(owner_name)) {
 		WARN("%s is already open!\n", owner_name);
 		*msoh = find_mso_by_name(owner_name);
+		sem_post(&rdma_lock);
 		return RDMA_ALREADY_OPEN;
 	}
 
@@ -559,6 +572,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	size_t len = strlen(owner_name);
 	if (len > UNIX_MS_NAME_MAX_LEN) {
 		ERR("String 'owner_name' is too long (%d)\n", len);
+		sem_post(&rdma_lock);
 		return RDMA_NAME_TOO_LONG;
 	}
 
@@ -572,6 +586,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
+		sem_post(&rdma_lock);
 		return ret;
 	}
 
@@ -589,6 +604,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	}
 	catch(msg_q_exception e) {
 		CRIT("Failed to create mso_close_mq: %s\n", e.msg.c_str());
+		sem_post(&rdma_lock);
 		return RDMA_MALLOC_FAIL;
 	}
 	INFO("Opened message queue '%s'\n", qname.str().c_str());
@@ -598,6 +614,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	if (pthread_create(&mso_close_thread, NULL, mso_close_thread_f, (void *)mso_close_mq)) {
 		WARN("Failed to create mso_close_thread: %s\n", strerror(errno));
 		delete mso_close_mq;
+		sem_post(&rdma_lock);
 		return RDMA_PTHREAD_FAIL;
 	}
 	INFO("Created mso_close_thread with argument %d passed to it\n", mso_close_mq);
@@ -618,9 +635,11 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 					strerror(errno));
 		}
 		delete mso_close_mq;
+		sem_post(&rdma_lock);
 		return RDMA_DB_ADD_FAIL;
 	}
 
+	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_open_mso_h() */
 
