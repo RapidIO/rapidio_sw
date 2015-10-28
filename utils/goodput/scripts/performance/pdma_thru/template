@@ -20,11 +20,11 @@ wait 3 h
 wait 4 h
 wait 5 h
 dma 0 did iba_addr bytes acc_size wr 1 trans 0
-dma 1 did iba_addr bytes acc_size wr 1 trans 0
-dma 2 did iba_addr bytes acc_size wr 1 trans 0
+dma 1 did iba_addr bytes acc_size wr 1 trans 1
+dma 2 did iba_addr bytes acc_size wr 1 trans 2
 dma 3 did iba_addr bytes acc_size wr 1 trans 0
-dma 4 did iba_addr bytes acc_size wr 1 trans 0
-dma 5 did iba_addr bytes acc_size wr 1 trans 0
+dma 4 did iba_addr bytes acc_size wr 1 trans 1
+dma 5 did iba_addr bytes acc_size wr 1 trans 2
 wait 0 r
 wait 1 r
 wait 2 r
