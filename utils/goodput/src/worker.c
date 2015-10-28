@@ -778,7 +778,7 @@ void dma_goodput(struct worker *info)
 			};
 		};
 		if (dma_tx_lat == info->action) {
-			uint64_t dly = (info->byte_cnt * 100) + 10000;
+			uint64_t dly = 1000000000;
 			uint64_t st_dlay = dly;
 			uint8_t iter_cnt_as_byte = info->perf_iter_cnt;
 

@@ -14,11 +14,11 @@ t 0 2 0
 
 wait 0 H
 
-mR 0 sock_num 1000
+mR 0 skt_prefix0 1000
 
 wait 0 R
 
-echo RUNNING MESSAGE RECEIVE ON SOCKETS skt_prefix0 UP TO skt_prefix7
+echo RUNNING MESSAGE LATENCY LOOPBACK ON SOCKET skt_prefix0 
 
 sleep wait_time
 
