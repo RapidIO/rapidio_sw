@@ -95,6 +95,7 @@ public:
 	int open_mspace(const char *name,
 			unix_server *user_server,
 			uint32_t *msid,
+			uint64_t *phys_addr,
 			uint32_t *ms_conn_id,
 			uint32_t *bytes);
 
@@ -109,6 +110,7 @@ public:
 private:
 	vector<ibwin>	ibwins;
 	sem_t		ibwins_sem;
+	riomp_mport_t	mport_hnd;
 }; /* inbound */
 
 #endif

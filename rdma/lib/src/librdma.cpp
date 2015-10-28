@@ -40,7 +40,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <signal.h>
 #include <sys/signal.h>
-#include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
 
@@ -900,9 +899,14 @@ int rdma_create_ms_h(const char *ms_name,
 
 	out = out_msg->create_ms_out;
 
-	*msh = add_loc_ms(ms_name,*bytes, msoh, out.msid, 0, true,
-				0, nullptr,
-				0, nullptr);
+	*msh = add_loc_ms(ms_name,
+			  *bytes,
+			  msoh,
+			  out.msid,
+			  out.phys_addr,
+			  0, true,
+			  0, nullptr,
+			  0, nullptr);
 	if (!*msh) {
 		ERR("Failed to store ms in database\n");
 		return RDMA_DB_ADD_FAIL;
@@ -1084,6 +1088,7 @@ int rdma_open_ms_h(const char *ms_name,
 			  out.bytes,
 			  msoh,
 			  out.msid,
+			  out.phys_addr,
 			  out.ms_conn_id,
 			  false,
 			  0,
@@ -1446,9 +1451,6 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		return ret;
 	}
 	DBG("msub mapped to vaddr(%p)\n", *vaddr);
-
-	/* Zero-out a subspace before passing it to the app */
-	memset((uint8_t *)*vaddr, 0, pmsub->bytes);
 
 	return 0;
 } /* rdma_mmap_msub() */

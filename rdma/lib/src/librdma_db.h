@@ -85,6 +85,7 @@ struct loc_ms {
 	uint32_t   bytes;
 	uint64_t   msoh;
 	uint32_t   msid;
+	uint64_t   phys_addr;
 	uint32_t   ms_conn_id;
 	bool	   owned;
 	bool	   accepted;
@@ -103,6 +104,7 @@ ms_h add_loc_ms(const char *ms_name,
 		uint64_t bytes,
 		mso_h msoh,
 		uint32_t msid,
+		uint64_t phys_addr,
 		uint32_t mso_conn_id,
 		bool owned,
 		pthread_t disc_thread,

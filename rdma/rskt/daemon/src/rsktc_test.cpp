@@ -21,7 +21,13 @@ static rskt_client *client;
 
 void show_help()
 {
-	puts("rsktc_test -d<destid> [-h] [-l<data_length>] [-r<repetitions>] -s<socket_number>\n");
+	puts("rsktc_test -d<destid> -s<socket_number> [-h] [-l<data_length>] [-r<repetitions>] [-t] \n");
+	puts("-d<destid>: Specify destination ID of machine running rskts_test. Default is 1234");
+	puts("-s<socket_number>: Specity socket number used by rskts_test for listening for connections");
+	puts("-h:  This help message.");
+	puts("-l<data_length>: Specify length of data to send (0 to 8192). If omitted default is 512 bytes");
+	puts("-r<repetitions>: Specify number of repetitions to run for. Default is 1");
+	puts("-t:  Use a number of repetitions and varying data lengths (txtest/rxtest) (overrides -r and -l)");
 }
 
 void sig_handler(int sig)
@@ -63,6 +69,7 @@ int main(int argc, char *argv[])
 	int socket_number = 1234;
 	unsigned repetitions = 1;
 	unsigned data_length = 512;
+	bool tx_test = false;
 
 	/* Register signal handler */
 	struct sigaction sig_action;
@@ -82,7 +89,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	while ((c = getopt(argc, argv, "hd:l:r:s:")) != -1)
+	while ((c = getopt(argc, argv, "htd:l:r:s:")) != -1)
 		switch (c) {
 
 		case 'd':
@@ -100,6 +107,9 @@ int main(int argc, char *argv[])
 			break;
 		case 's':
 			socket_number = atoi(optarg);
+			break;
+		case 't':
+			tx_test = true;
 			break;
 		case '?':
 			/* Invalid command line option */
@@ -123,37 +133,39 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	/* Create a client and connect to server */
-	try {
-		client = new rskt_client("client1", data_length, data_length);
-	}
-	catch(rskt_exception& e) {
-		ERR("Failed to create client: %s\n", e.err);
-		return 1;
-	}
-	DBG("Client created.\n");
-	DBG("Connecting to server on destid(0x%X) on socket %d\n",
-		destid, socket_number);
-	if (client->connect(destid, socket_number)) {
-		ERR("Failed to connect to destid(0x%X) on socket number(%d)\n",
-				destid, socket_number);
-		return 2;
-	} else {
-		puts("Successfully connected");
-	}
-
-	uint8_t *out_msg;
-	uint8_t *in_msg;
-
-	client->get_recv_buffer((void **)&in_msg);
-	client->get_send_buffer((void **)&out_msg);
-
-	/* Data to be sent */
-	for (unsigned i = 0; i < data_length; i++)
-		out_msg[i] = i;
 
 	/* Send data, receive data, and compare */
 	for (unsigned i = 0; i < repetitions; i++) {
+
+		/* Create a client and connect to server */
+		try {
+			client = new rskt_client("client1", data_length, data_length);
+		}
+		catch(rskt_exception& e) {
+			ERR("Failed to create client: %s\n", e.err);
+			return 1;
+		}
+		DBG("Client created.\n");
+		DBG("Connecting to server on destid(0x%X) on socket %d\n",
+			destid, socket_number);
+		if (client->connect(destid, socket_number)) {
+			ERR("Failed to connect to destid(0x%X) on socket number(%d)\n",
+					destid, socket_number);
+			return 2;
+		} else {
+			puts("Successfully connected");
+		}
+
+		uint8_t *out_msg;
+		uint8_t *in_msg;
+
+		client->get_recv_buffer((void **)&in_msg);
+		client->get_send_buffer((void **)&out_msg);
+
+		/* Data to be sent */
+		for (unsigned i = 0; i < data_length; i++)
+			out_msg[i] = i;
+
 		/* Fill read buffer with 0xAA */
 		memset(in_msg, 0xAA, data_length);
 
@@ -178,21 +190,21 @@ int main(int argc, char *argv[])
 		} else {
 			printf("i = %u, ***** Data compares OK *****\n", i);
 		}
-	} /* while() */
+
+		/* Disconnect message */
+		out_msg[0] = 0xFD;
+		if (client->send(data_length)) {
+			ERR("Failed to send disconnect message\n");
+		}
+		puts("Disconnect message sent");
+
+		/* Call destructor to close and destroy socket */
+		delete client;
+	} /* for() */
 
 	puts("Press ENTER to quit");
 	getchar();
 	puts("Goodbye!");
-
-	/* Disconnect message */
-	out_msg[0] = 0xFD;
-	if (client->send(data_length)) {
-		ERR("Failed to send disconnect message\n");
-	}
-	puts("Disconnect message sent");
-
-	/* Call destructor to close and destroy socket */
-	delete client;
 
 	/* Clean up library */
 	DBG("Calling librskt_finish()\n");

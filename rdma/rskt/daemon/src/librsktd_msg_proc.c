@@ -39,7 +39,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <string.h>
 #include "librsktd.h"
+
+#include "rapidio_mport_dma.h"
+
 #include "librdma.h"
+#include "librdma_db.h"
 #include "librsktd.h"
 #include "librsktd_sn.h"
 #include "librsktd_dmn.h"
@@ -185,11 +189,35 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 	};
 };
 
+static int zero_mspace(ms_h msh)
+{
+	struct loc_ms *msp;
+	void 	*vaddr;
+	int	ret;
+
+	msp = (struct loc_ms *)msh;
+
+	ret = riomp_dma_map_memory(dmn.mp_hnd,
+				   msp->bytes,
+				   msp->phys_addr,
+				   &vaddr);
+	if (ret == 0) {
+		memset((uint8_t *)vaddr, 0, msp->bytes);
+		if (munmap(vaddr, msp->bytes) == -1) {
+		        ERR("munmap(): %s\n", strerror(errno));
+		        ret = -1;
+		}
+	} else {
+		ERR("Failed in riomp_dma_map_memory(): %s\n", strerror(errno));
+	}
+	return ret;
+} /* zero_mspace */
+
 void rsktd_connect_accept(struct acc_skts *acc)
 {
 	int i;
 	int err = 0;
-	struct ms_info *loc_ms = NULL;
+	struct ms_info *loc_ms_info = NULL;
 	struct librsktd_unified_msg *acc_req;
 	struct librskt_accept_resp *a_resp;
 	struct librsktd_unified_msg *con_req;
@@ -219,12 +247,13 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	/* Find a free memory space on this RSKTD to rdma_connect to */
 	for (i = 0; i < dmn.mso.num_ms; i++) {
 		if (dmn.mso.ms[i].valid && !dmn.mso.ms[i].state) {
-			loc_ms = &dmn.mso.ms[i];
+			loc_ms_info = &dmn.mso.ms[i];
+			zero_mspace(loc_ms_info->ms);
 			break;
 		};
 	};
 
-	if (NULL == loc_ms) {
+	if (NULL == loc_ms_info) {
 		err = EAFNOSUPPORT;
 		ERR("loc_ms is NULL\n");
 		goto fail;
@@ -241,16 +270,16 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	/* No more failures possible, so mark resources as in use */
 	rsktd_sn_set(ntohl(acc_req->rx->a_rq.msg.accept.sn), rskt_listening);
 	rsktd_sn_set(a_resp->new_sn, rskt_connecting);
-	loc_ms->state = 1;
+	loc_ms_info->state = 1;
 	a_resp->new_sn = htonl(a_resp->new_sn);
 	a_resp->new_ct = htonl(dmn.qresp.hdid);
 
 	/* Compose accept response first */
 	a_resp->peer_sa.ct = htonl((*con_req->sp)->ct);
 	a_resp->peer_sa.sn = dreq->src_sn;
-	a_resp->ms_size = htonl(loc_ms->ms_size);
+	a_resp->ms_size = htonl(loc_ms_info->ms_size);
 	memcpy(a_resp->mso_name, dmn.mso.msoh_name, MAX_MS_NAME);
-	memcpy(a_resp->ms_name, loc_ms->ms_name, MAX_MS_NAME);
+	memcpy(a_resp->ms_name, loc_ms_info->ms_name, MAX_MS_NAME);
 
 	/* Compose connect response next */
 	dresp->acc_sn = a_resp->new_sn;
@@ -258,13 +287,13 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	dresp->dst_ct = dreq->dst_ct;
 	dresp->dst_dmn_cm_skt = htonl((*con_req->sp)->cm_skt_num);
 	dresp->msub_sz = a_resp->ms_size;
-	memcpy(dresp->dst_ms, loc_ms->ms_name, MAX_MS_NAME);
+	memcpy(dresp->dst_ms, loc_ms_info->ms_name, MAX_MS_NAME);
 
 	/* Add connected socket to list */
 	con = (struct con_skts *)malloc(sizeof(struct con_skts));
 	con->app = acc_req->app;
 	con->loc_sn = ntohl(a_resp->new_sn);
-	con->loc_ms = loc_ms;
+	con->loc_ms = loc_ms_info;
 	con->rem_ct = (*con_req->sp)->ct;
 	con->rem_sn = ntohl(dreq->src_sn);
 	con->w = (struct rskt_dmn_wpeer **)
@@ -420,6 +449,7 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 		if (dmn.mso.ms[i].valid && !dmn.mso.ms[i].state) {
 			r->loc_ms = &dmn.mso.ms[i];
 			r->loc_ms->state = 2;
+			zero_mspace(r->loc_ms->ms);
 			break;
 		};
 	};
