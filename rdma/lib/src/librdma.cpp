@@ -241,18 +241,20 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 	destroy_mq->get_recv_buffer(&dm);
 
 	/* Wait for destroy POSIX message */
-	INFO("Waiting for destroy POSIX message on %s\n",
+	INFO("Waiting for destroy ms POSIX message on %s\n",
 						destroy_mq->get_name().c_str());
 	if (destroy_mq->receive()) {
 		CRIT("Failed to receive 'destroy' POSIX message\n");
 		pthread_exit(0);
 	}
-	INFO("Got 'destroy' POSIX message\n");
+	INFO("Got 'destroy ms' POSIX message\n");
 
 	/* Remove the msubs belonging to that ms */
+	DBG("Removing msubs in server_msid(0x%X)\n", dm->server_msid);
 	remove_rem_msubs_in_ms(dm->server_msid);
 
 	/* Remove the ms itself */
+	DBG("Removing server_msid(0x%X) from database\n", dm->server_msid);
 	ms_h	msh = find_rem_ms(dm->server_msid);
 	if (msh == (ms_h)NULL) {
 		CRIT("Failed to find rem_ms with msid(0x%X)\n",
@@ -271,8 +273,10 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 	mq_destroy_msg	*dam;
 	destroy_mq->get_send_buffer(&dam);
 	dam->server_msid = dm->server_msid;
+	DBG("Sending back DESTROY ACK 4 server_msid(0x%X)\n", dm->server_msid);
 	if (destroy_mq->send()) {
-		CRIT("Failed to send destroy ack on %s\n", destroy_mq->get_name().c_str());
+		CRIT("Failed to send destroy ack on %s\n",
+					destroy_mq->get_name().c_str());
 		delete destroy_mq;
 		pthread_exit(0);
 	}
