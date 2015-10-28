@@ -1042,7 +1042,11 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 
 	skt->st = rskt_connected;
-	setup_skt_ptrs(skt);
+	rc = setup_skt_ptrs(skt);
+	if (rc) {
+		ERR("Failed in setup_skt_ptrs\n");
+		goto close;
+	}
 	sem_post(&skt_h->mtx);
 	lib_add_skt_to_list(skt_h);
 	INFO("Exiting with SUCCESS\n");
