@@ -543,9 +543,8 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	open_mso_output	out;
 	int		ret;
 
-	sem_wait(&rdma_lock);
-
 	DBG("ENTER\n");
+	sem_wait(&rdma_lock);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -666,9 +665,8 @@ int rdma_close_mso_h(mso_h msoh)
 	close_mso_output	out;
 	int			ret;
 
-	sem_wait(&rdma_lock);
-
 	DBG("ENTER\n");
+	sem_wait(&rdma_lock);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
