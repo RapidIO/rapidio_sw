@@ -634,6 +634,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		return RDMA_DB_ADD_FAIL;
 	}
 
+	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_open_mso_h() */
 

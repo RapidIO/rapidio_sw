@@ -201,8 +201,8 @@ static int zero_mspace(ms_h msh)
 
 	msp = (struct loc_ms *)msh;
 
-	DBG("Mport handle (dmn.mp_hand) = 0x%X\n", dmn.mp_hnd);
-	DBG("size = %d\n, phys_addr = 0x%016" PRIx64 "\n", msp->bytes, msp->phys_addr);
+	DBG("dmn.mp_hnd = 0x%X, size = %d, phys_addr = 0x%016" PRIx64 "\n",
+			dmn.mp_hnd, msp->bytes, msp->phys_addr);
 	ret = riomp_dma_map_memory(dmn.mp_hnd,
 				   msp->bytes,
 				   msp->phys_addr,
