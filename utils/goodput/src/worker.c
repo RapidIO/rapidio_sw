@@ -703,7 +703,7 @@ int single_dma_access(struct worker *info, uint64_t offset)
 						ADDR_P(info->rdma_ptr, offset),
 						info->acc_size,
 						info->dma_sync_type);
-	} while (EINTR == dma_rc);
+	} while ((EINTR == dma_rc) || (EBUSY == dma_rc) || (EAGAIN == dma_rc));
 
 	return dma_rc;
 };

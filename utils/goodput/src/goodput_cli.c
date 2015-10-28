@@ -1022,7 +1022,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 	memset(link_occ_str, 0, FLOAT_STR_SIZE);
 	sprintf(MBps_str, "%4.3f", tot_MBps);
 	sprintf(Gbps_str, "%2.3f", tot_Gbps);
-	link_occ = Gbps/0.95;
+	link_occ = tot_Gbps/0.95;
 	sprintf(link_occ_str, "%2.3f", link_occ);
 
 	sprintf(env->output, "T     %16lx %8s %6s %9.0f  %6s\n",
