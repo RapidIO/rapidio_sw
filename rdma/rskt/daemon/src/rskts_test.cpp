@@ -133,7 +133,7 @@ void *rskt_thread_f(void *arg)
 
 			/* Check for the 'disconnect' message */
 			if (*(uint8_t *)recv_buf == 0xFD) {
-				puts("Disconnect message receive. DISCONNECTING");
+				puts("Disconnect message received. DISCONNECTING");
 				goto exit_rskt_thread_f;
 			}
 			/* Echo data back to client */

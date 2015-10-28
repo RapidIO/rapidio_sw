@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <signal.h>
 #include <sys/signal.h>
+#include <semaphore.h>
 #include <time.h>
 #include <sys/time.h>
 
@@ -80,6 +81,7 @@ static unix_msg_t  *out_msg;
 static size_t	    received_len;
 static fmdd_h 	    dd_h;
 static uint32_t	    fm_alive;
+static sem_t	    rdma_lock;
 
 /** 
  * Global info related to mports and channelized messages.
@@ -239,18 +241,20 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 	destroy_mq->get_recv_buffer(&dm);
 
 	/* Wait for destroy POSIX message */
-	INFO("Waiting for destroy POSIX message on %s\n",
+	INFO("Waiting for destroy ms POSIX message on %s\n",
 						destroy_mq->get_name().c_str());
 	if (destroy_mq->receive()) {
 		CRIT("Failed to receive 'destroy' POSIX message\n");
 		pthread_exit(0);
 	}
-	INFO("Got 'destroy' POSIX message\n");
+	INFO("Got 'destroy ms' POSIX message\n");
 
 	/* Remove the msubs belonging to that ms */
+	DBG("Removing msubs in server_msid(0x%X)\n", dm->server_msid);
 	remove_rem_msubs_in_ms(dm->server_msid);
 
 	/* Remove the ms itself */
+	DBG("Removing server_msid(0x%X) from database\n", dm->server_msid);
 	ms_h	msh = find_rem_ms(dm->server_msid);
 	if (msh == (ms_h)NULL) {
 		CRIT("Failed to find rem_ms with msid(0x%X)\n",
@@ -269,8 +273,10 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 	mq_destroy_msg	*dam;
 	destroy_mq->get_send_buffer(&dam);
 	dam->server_msid = dm->server_msid;
+	DBG("Sending back DESTROY ACK 4 server_msid(0x%X)\n", dm->server_msid);
 	if (destroy_mq->send()) {
-		CRIT("Failed to send destroy ack on %s\n", destroy_mq->get_name().c_str());
+		CRIT("Failed to send destroy ack on %s\n",
+					destroy_mq->get_name().c_str());
 		delete destroy_mq;
 		pthread_exit(0);
 	}
@@ -355,6 +361,8 @@ int rdma_lib_init(void)
 		WARN("RDMA library already initialized\n");
 		return ret;
 	}
+
+	sem_init(&rdma_lock, 0, 1);
 
 	/* Create a client */
 	DBG("Creating client object...\n");
@@ -490,6 +498,7 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
  */
 static void *mso_close_thread_f(void *arg)
 {
+
 	/* Check for NULL argument */
 	if (!arg) {
 		CRIT("NULL argument. Exiting\n");
@@ -539,6 +548,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	int		ret;
 
 	DBG("ENTER\n");
+	sem_wait(&rdma_lock);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -552,6 +562,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	if (mso_is_open(owner_name)) {
 		WARN("%s is already open!\n", owner_name);
 		*msoh = find_mso_by_name(owner_name);
+		sem_post(&rdma_lock);
 		return RDMA_ALREADY_OPEN;
 	}
 
@@ -559,6 +570,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	size_t len = strlen(owner_name);
 	if (len > UNIX_MS_NAME_MAX_LEN) {
 		ERR("String 'owner_name' is too long (%d)\n", len);
+		sem_post(&rdma_lock);
 		return RDMA_NAME_TOO_LONG;
 	}
 
@@ -572,6 +584,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
+		sem_post(&rdma_lock);
 		return ret;
 	}
 
@@ -589,6 +602,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	}
 	catch(msg_q_exception e) {
 		CRIT("Failed to create mso_close_mq: %s\n", e.msg.c_str());
+		sem_post(&rdma_lock);
 		return RDMA_MALLOC_FAIL;
 	}
 	INFO("Opened message queue '%s'\n", qname.str().c_str());
@@ -598,6 +612,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	if (pthread_create(&mso_close_thread, NULL, mso_close_thread_f, (void *)mso_close_mq)) {
 		WARN("Failed to create mso_close_thread: %s\n", strerror(errno));
 		delete mso_close_mq;
+		sem_post(&rdma_lock);
 		return RDMA_PTHREAD_FAIL;
 	}
 	INFO("Created mso_close_thread with argument %d passed to it\n", mso_close_mq);
@@ -618,9 +633,11 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 					strerror(errno));
 		}
 		delete mso_close_mq;
+		sem_post(&rdma_lock);
 		return RDMA_DB_ADD_FAIL;
 	}
 
+	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_open_mso_h() */
 
@@ -653,6 +670,7 @@ int rdma_close_mso_h(mso_h msoh)
 	int			ret;
 
 	DBG("ENTER\n");
+	sem_wait(&rdma_lock);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -665,6 +683,7 @@ int rdma_close_mso_h(mso_h msoh)
 	/* Check for NULL msoh */
 	if (!msoh) {
 		WARN("msoh is NULL\n");
+		sem_post(&rdma_lock);
 		return RDMA_NULL_PARAM;
 	}
 
@@ -672,6 +691,7 @@ int rdma_close_mso_h(mso_h msoh)
 	 * destroying it and sending a close message to this user */
 	if (!mso_h_exists(msoh)) {
 		WARN("msoh no longer exists\n");
+		sem_post(&rdma_lock);
 		return RDMA_INVALID_MSO;
 	}
 
@@ -688,6 +708,7 @@ int rdma_close_mso_h(mso_h msoh)
 	/* Fail on any error */
 	if (!cms.ok) {
 		ERR("Failed to close one or more mem spaces\n");
+		sem_post(&rdma_lock);
 		return RDMA_MS_CLOSE_FAIL;
 	}
 
@@ -730,6 +751,7 @@ int rdma_close_mso_h(mso_h msoh)
 	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
+		sem_post(&rdma_lock);
 		return ret;
 	}
 
@@ -738,10 +760,12 @@ int rdma_close_mso_h(mso_h msoh)
 	/* Take it out of database */
 	if (remove_loc_mso(msoh) < 0) {
 		WARN("Failed to find 0x%lX in db\n", msoh);
+		sem_post(&rdma_lock);
 		return RDMA_DB_REM_FAIL;
 	}
 	INFO("msoh(0x%lX) removed from local database\n", msoh);
 
+	sem_post(&rdma_lock);
 	return out.status;
 } /* rdma_close_mso_h() */
 

@@ -31,7 +31,7 @@ AR ?= $(CROSS_COMPILE)ar
 DAEMON_OBJS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 src/%.o: src/%.c
-	$(CXX) -o $@ $< -c -g -ggdb -fPIC -Wall -Werror -O2 \
+	$(CXX) --std=c++11 -o $@ $< -c -g -ggdb -fPIC -Wall -Werror -O2 \
 	-I./src -I./inc -I../inc \
 	-I$(COMMON_DIR)/include \
 	-I$(COMMON_DIR)/liblist/inc \
