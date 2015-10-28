@@ -494,12 +494,10 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
  */
 static void *mso_close_thread_f(void *arg)
 {
-	sem_wait(&rdma_lock);
 
 	/* Check for NULL argument */
 	if (!arg) {
 		CRIT("NULL argument. Exiting\n");
-		sem_post(&rdma_lock);
 		pthread_exit(0);
 	}
 
@@ -512,7 +510,6 @@ static void *mso_close_thread_f(void *arg)
 	if (mq->receive()) {
 		CRIT("Failed to receive mq_mso_close_msg\n");
 		delete mq;
-		sem_post(&rdma_lock);
 		pthread_exit(0);
 	}
 
@@ -523,7 +520,6 @@ static void *mso_close_thread_f(void *arg)
 	if (!msoh) {
 		CRIT("Could not find msoid(0x%X) in database\n", close_msg->msoid);
 		delete mq;
-		sem_post(&rdma_lock);
 		pthread_exit(0);
 	}
 
@@ -538,7 +534,6 @@ static void *mso_close_thread_f(void *arg)
 	/* Delete the message queue */
 	INFO("Deleting '%s'\n", mq->get_name().c_str());
 	delete mq;
-	sem_post(&rdma_lock);
 	pthread_exit(0);
 } /* mso_close_thread_f() */
 
@@ -639,7 +634,6 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		return RDMA_DB_ADD_FAIL;
 	}
 
-	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_open_mso_h() */
 
@@ -671,6 +665,8 @@ int rdma_close_mso_h(mso_h msoh)
 	close_mso_output	out;
 	int			ret;
 
+	sem_wait(&rdma_lock);
+
 	DBG("ENTER\n");
 
 	/* Check the daemon hasn't died since we established its socket connection */
@@ -684,6 +680,7 @@ int rdma_close_mso_h(mso_h msoh)
 	/* Check for NULL msoh */
 	if (!msoh) {
 		WARN("msoh is NULL\n");
+		sem_post(&rdma_lock);
 		return RDMA_NULL_PARAM;
 	}
 
@@ -691,6 +688,7 @@ int rdma_close_mso_h(mso_h msoh)
 	 * destroying it and sending a close message to this user */
 	if (!mso_h_exists(msoh)) {
 		WARN("msoh no longer exists\n");
+		sem_post(&rdma_lock);
 		return RDMA_INVALID_MSO;
 	}
 
@@ -707,6 +705,7 @@ int rdma_close_mso_h(mso_h msoh)
 	/* Fail on any error */
 	if (!cms.ok) {
 		ERR("Failed to close one or more mem spaces\n");
+		sem_post(&rdma_lock);
 		return RDMA_MS_CLOSE_FAIL;
 	}
 
@@ -749,6 +748,7 @@ int rdma_close_mso_h(mso_h msoh)
 	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
+		sem_post(&rdma_lock);
 		return ret;
 	}
 
@@ -757,10 +757,12 @@ int rdma_close_mso_h(mso_h msoh)
 	/* Take it out of database */
 	if (remove_loc_mso(msoh) < 0) {
 		WARN("Failed to find 0x%lX in db\n", msoh);
+		sem_post(&rdma_lock);
 		return RDMA_DB_REM_FAIL;
 	}
 	INFO("msoh(0x%lX) removed from local database\n", msoh);
 
+	sem_post(&rdma_lock);
 	return out.status;
 } /* rdma_close_mso_h() */
 
