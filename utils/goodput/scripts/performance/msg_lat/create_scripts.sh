@@ -12,11 +12,11 @@
 #  
 
 cd "$(dirname "$0")"
-printf "\nCreating MESSAGING THROUGHPUT SCRIPTS\n\n"
+printf "\nCreating MESSAGING LATENCY SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=msg_thru
+DIR_NAME=msg_lat
 
 PREFIX=m
 
@@ -50,15 +50,13 @@ fi
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript accepts the following parameters:'
         echo $'SKT_PREFIX: first 3 decimal digits of 4 digit socket numbers'
-        echo $'DID : Device ID of target device for performance scripts'
-        echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+        echo $'DID       : Device ID of target device for performance scripts'
+        echo $'Wait      : Time in seconds to wait before displaying perf\n'
 fi
 
-echo 'MSG_THRUPUT SKT_PREFIX = ' $SKT_PREFIX
-echo 'MSG_THRUPUT DID        = ' $DID
-echo 'MSG_THRUPUT WAIT_TIME  = ' $WAIT_TIME
-
-unset LOC_PRINT_HEP
+echo 'MSG_LATENCY SKT_PREFIX = ' $SKT_PREFIX
+echo 'MSG_LATENCY DID        = ' $DID
+echo 'MSG_LATENCY WAIT_TIME  = ' $WAIT_TIME
 
 # SIZE_NAME is the file name
 # SIZE is the hexadecimal representation of SIZE_NAME
@@ -126,7 +124,7 @@ sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
 
 ## now create the "run all scripts" script files...
 
-DIR=(tx)
+DIR=(rx)
 declare -a file_list
 
 for direction in "${DIR[@]}"
