@@ -764,8 +764,13 @@ void dma_goodput(struct worker *info)
 			dma_rc = single_dma_access(info, cnt);
 
 			if (RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
-				dma_rc = riomp_dma_wait_async(info->mp_h,
-								dma_rc, 0);
+			{
+				do {
+					dma_rc = riomp_dma_wait_async(
+						info->mp_h, dma_rc, 0);
+				} while ((EINTR == dma_rc) || (EBUSY == dma_rc)
+					|| (EAGAIN == dma_rc));
+			};
 			if (dma_rc) {
 				ERR("FAILED: dma transfer rc %d:%s\n",
 						dma_rc, strerror(errno));

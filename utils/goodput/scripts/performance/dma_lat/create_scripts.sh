@@ -65,19 +65,19 @@ fi
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript accepts 6 parameters:'
         echo $'TX_IBA_ADDR: Hex address of target window on TX_DID'
-        echo $'TX_DID : Device ID that this device sends to'
+        echo $'TX_DID     : Device ID that this device sends to'
         echo $'RX_IBA_ADDR: Hex address of target window on RX_DID'
-        echo $'RX_DID : Device ID of this device'
-        echo $'Trans: DMA transaction type'
-        echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+        echo $'RX_DID     : Device ID of this device'
+        echo $'Trans      : DMA transaction type'
+        echo $'Wait       : Time in seconds to wait before publish performance'
 fi
 
-echo DMA_LATENCY TX_IBA_ADDR = $TX_IBA_ADDR
-echo DMA_LATENCY TX_DID      = $TX_DID
-echo DMA_LATENCY RX_IBA_ADDR = $RX_IBA_ADDR
-echo DMA_LATENCY RX_DID      = $RX_DID
-echo DMA_LATENCY TRANS    = $TRANS
-echo DMA_LATENCY WAIT_TIME= $WAIT_TIME
+echo $'\nDMA_LATENCY TX_IBA_ADDR = ' $TX_IBA_ADDR
+echo 'DMA_LATENCY TX_DID      = ' $TX_DID
+echo 'DMA_LATENCY RX_IBA_ADDR = ' $RX_IBA_ADDR
+echo 'DMA_LATENCY RX_DID      = ' $RX_DID
+echo 'DMA_LATENCY TRANS       = ' $TRANS
+echo 'DMA_LATENCY WAIT_TIME   = ' $WAIT_TIME
 
 unset LOC_PRINT_HEP
 

@@ -1,3 +1,4 @@
+levelog 0
 kill all
 wait 0 d
 wait 1 d
@@ -17,5 +18,5 @@ wait 0 1
 echo DMA LATENCY RECEIVER bytes acc_size RUNNING!
 sleep wait_time
 echo DMA LATENCY RECEIVER bytes acc_size STATUS
-wait 0 1
+wait 0 r
 st

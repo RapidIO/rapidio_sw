@@ -55,12 +55,22 @@ if [ -z "$WAIT_TIME" ]; then
 	fi
 fi
 
+if [ -z "$SYNC" ]; then
+	if [ -n "$4" ]; then
+		SYNC=$5
+	else
+		SYNC=0
+		LOC_PRINT_HEP=1
+	fi
+fi
+
 if [ -n "$LOC_PRINT_HEP" ]; then
 	echo $'\nScript accepts 4 parameters:'
         echo $'IBA_ADDR: Hex address of target window on DID'
         echo $'DID : Device ID of target device for performance scripts'
         echo $'Trans: DMA transaction type'
         echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+        echo $'Sync: 0 - blocking, 1 - async, 2 - fire and forget\n'
 fi
 
 echo DMA_THRUPUT IBA_ADDR = $IBA_ADDR
@@ -168,6 +178,7 @@ sed -i -- 's/iba_addr/'$IBA_ADDR'/g' $PREFIX*.txt
 sed -i -- 's/did/'$DID'/g' $PREFIX*.txt
 sed -i -- 's/trans/'$TRANS'/g' $PREFIX*.txt
 sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
+sed -i -- 's/sync/'$SYNC'/g' $PREFIX*.txt
 sed -i -- 's/wr/1/g' ${PREFIX}W*.txt
 sed -i -- 's/wr/0/g' ${PREFIX}R*.txt
 
