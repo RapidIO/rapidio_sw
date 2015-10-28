@@ -1530,6 +1530,26 @@ int RIOCP_SO_ATTR riocp_pe_get_comptag(riocp_pe_handle pe,
 }
 
 /**
+ * Read hopcount of the given PE.
+ * @param pe      Target PE
+ * @param hopcount Hop count
+ * @retval -EINVAL Invalid argument
+ */
+int RIOCP_SO_ATTR riocp_pe_get_hopcount(riocp_pe_handle pe,
+		uint8_t *hopcount)
+{
+        if (hopcount == NULL)
+                return -EINVAL;
+        if (riocp_pe_handle_check(pe))
+                return -EINVAL;
+
+        *hopcount = pe->hopcount;
+
+        return 0;
+}
+
+
+/**
  * Set the speed configuration of a port
  *
  * The functions changes the speed only when the
