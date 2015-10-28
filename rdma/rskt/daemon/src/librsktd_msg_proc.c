@@ -38,10 +38,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <time.h>
 #include <string.h>
-#include "librsktd.h"
+
+
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
 
 #include "rapidio_mport_dma.h"
 
+#include "librsktd.h"
 #include "librdma.h"
 #include "librdma_db.h"
 #include "librsktd.h"
@@ -197,6 +201,8 @@ static int zero_mspace(ms_h msh)
 
 	msp = (struct loc_ms *)msh;
 
+	DBG("Mport handle (dmn.mp_hand) = 0x%X\n", dmn.mp_hnd);
+	DBG("size = %d\n, phys_addr = 0x%016" PRIx64 "\n", msp->bytes, msp->phys_addr);
 	ret = riomp_dma_map_memory(dmn.mp_hnd,
 				   msp->bytes,
 				   msp->phys_addr,

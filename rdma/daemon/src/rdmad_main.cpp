@@ -1087,6 +1087,7 @@ int main (int argc, char **argv)
 	        rc = 1;
 		goto out;
     	}
+	DBG("peer.mport_hnd = 0x%X\n", peer.mport_hnd);
 
 	/* Query device information, and store destid */
 	struct riomp_mgmt_mport_properties prop;

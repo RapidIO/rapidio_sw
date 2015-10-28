@@ -200,6 +200,8 @@ int main(int argc, char *argv[])
 
 		/* Call destructor to close and destroy socket */
 		delete client;
+
+		sleep(1);
 	} /* for() */
 
 	puts("Press ENTER to quit");
