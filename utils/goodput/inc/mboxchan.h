@@ -52,13 +52,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "debug.h"
 
 #if defined(DEBUG) && DEBUG > 1
-  #define DDBG(format, ...) DBG(stdout, format, __VA_ARGS__)
+  #define DDBG(format, ...) DBG(format, __VA_ARGS__)
 #else
   #define DDBG(format, ...)
 #endif
 
 #if defined(DEBUG) && DEBUG > 2
-  #define DDDBG(format, ...) DBG(stdout, format, __VA_ARGS__)
+  #define DDDBG(format, ...) DBG(format, __VA_ARGS__)
 #else
   #define DDDBG(format, ...)
 #endif
@@ -140,6 +140,7 @@ public:
       uint8_t mbox;
       uint8_t letter;
       uint16_t destid;
+      uint16_t bcount; // used only for RX
       bool iof;
       bool crf;
       bool tt_16b; // set to 1 if destid is 16 bytes
@@ -167,7 +168,8 @@ public:
 
   int add_inb_buffer(const int mbox, void* buf);
   bool inb_message_ready(const int ib_mbox, uint64_t& rx_ts);
-  void* get_inb_message(const int ib_mbox, int& msg_size, uint64_t& enq_ts);
+  bool inb_message_ready_REG(const int ib_mbox, uint64_t& rx_ts);
+  void* get_inb_message(const int ib_mbox, MboxOptions_t& opt);
 
   void set_rx_destid(const uint16_t destid)
   {
