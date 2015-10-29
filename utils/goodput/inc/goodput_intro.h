@@ -4,7 +4,7 @@
  * The goodput tool measures goodput (actual data transferred) and latency for 
  * the rapidio_sw/common/libmport direct I/O, DMA, and Messaging interfaces.
  * It can also measure the goodput and latency for a separate Tsi721 
- * user mode driver tested on x86/x64 platforms.
+ * user mode driver tested on x86/x64 platforms <Under Development>.
  *
  * \section fast_start_sec Getting Started
  * \subsection compile_sec Compiling Goodput
@@ -18,18 +18,31 @@
  * shell script.  All generated script files can be deleted using the
  * scripts/performance/delete_all_scripts.sh bash script.
  *
+ * To execute most of the generated scripts, execute the scripts/run_all_perf
+ * script.
+ * 
+ * Each category of scripts generates log files which capture performance
+ * measurements.  Log files are named according to the directory and operation
+ * being logged.  For example, the log file for all dma_thru read tests is 
+ * named dma_thru_read.log.  All log files are found in the 
+ * rapidio_sw/utils/goodput directory.
+ *
+ * For more information on script generation, see \ref script_gen_detail_secn.
+ *
  * \subsection exec_sec Running Goodput
- * There are two versions of goodput: goodput, and ugoodput.  Ugoodput
+ * There are two versions of goodput: goodput, and ugoodput.  
+ * Goodput contains all functionality and commands to verify kernel
+ * mode applications.  Ugoodput
  * has all the commands and functionality of goodput, and includes 
  * commands and functionality to support the Tsi721 user mode driver.
  * Currently the Tsi721 user mode drive can only be compiled on x86/x64
- * platforms.
+ * platforms, and is still under development.
  *
  * The goodput and ugoodput tools must be run as root.
- * To execute goodput, type "sudo * ./goodput" while in the
+ * To execute goodput, type "sudo ./goodput" while in the
  * "rapidio_sw/utils/goodput" directory.
  *
- * Similarly, to execute ugoodput, type "sudo * ./ugoodput" while in the
+ * Similarly, to execute ugoodput, type "sudo ./ugoodput" while in the
  * "rapidio_sw/utils/goodput" directory.
  *
  * \section cli_secn Command Line Interpreter Overview
@@ -121,7 +134,7 @@
  * information about messaging resources owned by the thread. Generat status
  * gives information about the command that a thread is running/has run.
  *
- * \section measurement_secn Goodput Measurements
+ * \section measurement_secn Goodput Measurements Overview
  * Goodput measures goodput and latency for Direct I/O, DMA, and messaging
  * transactions.  
  * 
@@ -159,9 +172,88 @@
  *
  * Latency measurements are displayed by the "lat" command.
  *
+ * \subsection script_gen_detail_secn Goodput Script Generation Details
+ *
+ * The bash script goodput/scripts/performance/make_all_scripts.sh creates
+ * a complete set of scripts which can be used to evaluate the performance
+ * of a platform. Individual scripts are found in one of the directories listed
+ * below. For more details of the other scripts generated, see
+ * \ref script_exec_detail_secn.
+ *
+ * dma_lat : DMA latency measurement
+ * dma_thru : DMA goodput measurement for a single thread
+ * pdma_thru : Parallel DMA goodput measurement, using multiple threads
+ * msg_lat : Messaging latency measurement
+ * msg_thru: Messaging throughput measurement
+ * obwin_thru: Direct I/O latency measurement with one or multiple threads
+ * obwin_lat: Direct I/O latency measurement
+ *
+ * Each directory contains a bash script named create_scripts.sh, and one
+ * or more template files used by the bash script as the basis of the
+ * scripts to be created.  Each create_scripts.sh file accepts parameters
+ * that are used to replace keywords in the template file(s).
+ *
+ * The make_all_scripts.sh script accepts the following parameters:
+ * WAIT       : Time in seconds to wait before perf measurement
+ * DMA_TRANS  : DMA transaction type
+ *              0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL
+ * DMA_SYNC   : 0 - blocking, 1 - async, 2 - fire and forget
+ * DID        : Device ID of target device for performance scripts
+ * IBA_ADDR   : Hex address of target window on DID
+ * TX_DID     : Device ID of this device
+ * TX_IBA_ADDR: Hex address of local target window (TX_DID)
+ * SOCKET_PFX : First 3 digits of 4 digit socket numbers
+ * 
+ * Optional parameters, if not entered same as DMA_SYNC
+ * DMA_SYNC2  : 0 - blocking, 1 - async, 2 - fire and forget
+ * DMA_SYNC3  : 0 - blocking, 1 - async, 2 - fire and forget
+ *
+ * These parameters are then passed to the create_scripts.sh bash scripts
+ * in each subdirectory, as appropriate.  It is also possible to run the
+ * create_scripts.sh scripts on their own.  Each script will describe the
+ * parameters it accepts if called without any parameters.
+ *
+ * The DID, IBA_ADDR, TX_DID, AND TX_IBA_ADDR parameters are unique for
+ * each pair of nodes.  To determine the parameter values for nodes A and B,
+ * perform the following:
+ *
+ * 1) Start goodput on Node A and Node B
+ * 2) Execute "t 0 0 0" on Node A and Node B
+ * 3) Execute "IBA 0 400000" on Node A and Node B
+ * 4) Execute "st i" on Node A and Node B to display the RapidIO address
+ * 5) Execute "mpd" on Node A and Node B to display the RapidIO device ID
+ *
+ * On Node A, make_all_scripts.sh should be called with:
+ * DID        : Node B device ID
+ * IBA_ADDR   : Node B RapidIO Address
+ * TX_DID     : Node A device ID
+ * TX_IBA_ADDR: Node A RapidIO Address
+ * 
+ * On Node B, make_all_scripts.sh should be called with:
+ * DID        : Node A device ID
+ * IBA_ADDR   : Node A RapidIO Address
+ * TX_DID     : Node B device ID
+ * TX_IBA_ADDR: Node B RapidIO Address
+ * 
+ * \subsection script_exec_detail_secn Goodput Script Execution Details
+ *
+ * Top level scripts are generated by each of the create_scripts.sh bash
+ * scripts.  The top level scripts run all of the
+ * scripts in each of the directories. The top level scripts are found
+ * in the scripts/performance directory, and are named according to the
+ * directory and function of scripts that will be executed.
+ *
+ * All top level scripts can themselves be executed by the 
+ * scripts/run_all_perf script.
+ *
+ * Note that some latency scripts (dma write latency,
+ * Direct I/O write latency, and messaging latency) cannot be 
+ * executed from a top level script because they require similar scripts
+ * to be run on the target of the write and the source of the write.
+ *
  * \subsection dio_meas_secn Direct I/O Measurement
  * Direct I/O read and write transactions are generally performed 
- * as processor reads and writes to device specific memory addresses, so the 
+ * as processor reads and writes, so the 
  * transaction sizes are restricted to 1/2/4 and 8 bytes.  Any other 
  * transaction size can be used to measure the overhead of the goodput 
  * infrastructure for measuring goodput/latency.
@@ -178,12 +270,14 @@
  * \subsubsection dio_thruput_scr_secn Direct I/O Goodput Measurement Scripts
  *
  * All direct IO read measurements can be performed by executing the
- * scripts/performance/obwin_thru_read script from the Goodput command prompt.
+ * scripts/performance/obwin_thru_read top level script from the Goodput
+ * command prompt.
  * The performance results are captured in the obwin_thru_read.log file,
  * found in the rapidio_sw/utils/goodput directory.
  *
  * All direct IO write measurements can be performed by executing the
- * scripts/performance/obwin_thru_write script from the Goodput command prompt.
+ * scripts/performance/obwin_thru_write top level script from the Goodput
+ * command prompt.
  * The performance results are captured in the obwin_thru_write.log file,
  * found in the rapidio_sw/utils/goodput directory.
  *
@@ -206,6 +300,8 @@
  * on the device with destination ID of 9, using thead 3, type:
  *
  * OBDIO 3 9 22f000000 400000 8 1
+ *
+ * For further examples, refer to the generated direct I/O measurement scripts.
  *
  * \subsubsection dio_lat_scr_secn Direct I/O Latency Measurement Scripts
  *
@@ -237,12 +333,12 @@
  * The latency measurement result will be shown in the source node CLI session.
  *
  * It is not possible to execute all direct I/O write latency measurements
- * from a single script.  
+ * from a top level script.  
  *
- * \subsubsection dio_lat_secn Direct I/O Latency Measurement
+ * \subsubsection dio_lat_secn Direct I/O Latency Measurement Commands
  *
  * Latency measurement for direct I/O read transactions can be performed by
- * the source node without assistance from th target node.  For example, to
+ * the source node without assistance from the target node.  For example, to
  * measure the latency of 2 byte read accesses to an inbound window 0x200000
  * bytes in size located at address 0x22f000000 found on the device with
  * destination ID of 9, using thread 4, type:
@@ -304,21 +400,32 @@
  *
  * DMA Goodput measurement scripts are found in two directories:
  * dma_thru and pdma_thru.  Scripts in dma_thru use a single thread to
- * send packets to a single DMA queue.  Scripts in pdma_thru use 6 threads
+ * send packets to a single DMA queue.  Scripts in pdma_thru use 8 threads
  * to send packets from multiple DMA queues.  Depending on the capabilities of
  * the processor and the endpoint, pdma_thru scripts may provide more
- * throughput than dma_thru.
+ * goodput than dma_thru.
+ *
+ * Pdma_thru measurements vary based on the number of DMA engines used. 
+ * The number of DMA engines used is captured in the name of the pdma_thru
+ * top level script:
+ *
+ * pdma_thru_pd1_read  : Single DMA engine, multiple threads, read
+ * pdma_thru_pd1_write : Single DMA engine, multiple threads, write
+ * pdma_thru_pdd_read  : Multiple DMA engines, single thread per engine, read
+ * pdma_thru_pdd_write : Multiple DMA engines, single thread per engine, write
+ * pdma_thru_pdm_read  : Mix of single and multiple threads per engine, read
+ * pdma_thru_pdm_write : Mix of single and multiple threads per engine, write
  *
  * All DMA read measurements can be performed by executing the
- * scripts/performance/dma_thru_read or pdma_thru_read scripts 
+ * scripts/performance/dma_thru_read or pdma_thru_XXX_read scripts 
  * from the Goodput command prompt. The performance results are
- * captured in the dma_thru_read.log and dma_thru_read.log files,
+ * captured in the dma_thru_read.log and pdma_thru_XXX_read.log files,
  * found in the rapidio_sw/utils/goodput directory.
  *
  * All DMA write measurements can be performed by executing the
- * scripts/performance/dma_thru_write or pdma_thru_write scripts 
+ * scripts/performance/dma_thru_write or pdma_thru_XXX_write scripts 
  * from the Goodput command prompt. The performance results are
- * captured in the dma_thru_write.log and dma_thru_write.log files,
+ * captured in the dma_thru_write.log and dma_thru_XXX_write.log files,
  * found in the rapidio_sw/utils/goodput directory.
  *
  * DMA goodput measurement scripts are found in the
@@ -378,7 +485,7 @@
  * It is not possible to execute all DMA write latency measurements
  * from a single script.  
  *
- * \subsubsection dma_lat_secn DMA Latency Measurement
+ * \subsubsection dma_lat_secn DMA Latency Measurement Commands
  *
  * Latency measurement for DMA read transactions can be performed by
  * the source node without assistance from th target node.  For example, to
@@ -434,10 +541,9 @@
  * All messaging throughput latency measurements are captured in the
  * rapidio_sw/utils/goodput/msg_thru_tx.log file.
  *
- * \subsubsection msg_thruput_secn Messaging Goodput Measurement
+ * \subsubsection msg_thruput_secn Messaging Goodput Measurement Commands
  *
  * First, use receive thread 3 on the node with destID 5 and socket number 1234
- * to receive all of the messages sent.  The msgRx command looks like the
  * following:
  *
  * msgRx 3 1234
