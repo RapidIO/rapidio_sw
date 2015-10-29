@@ -73,6 +73,10 @@ void sig_handler(int sig)
 		puts("SIGTERM - kill <pid> signal");
 	break;
 
+	case SIGSEGV:	/* Segmentation fault */
+		puts("SIGSEGV: Segmentation fault");
+	break;
+
 	case SIGUSR1:	/* pthread_kill() */
 	/* Ignore signal */
 	return;
@@ -593,6 +597,7 @@ int main(int argc, char *argv[])
 	sigaction(SIGQUIT, &sig_action, NULL);
 	sigaction(SIGABRT, &sig_action, NULL);
 	sigaction(SIGUSR1, &sig_action, NULL);
+	sigaction(SIGSEGV, &sig_action, NULL);
 
 	/* Must specify at least 1 argument (the socket number) */
 	if (argc < 2) {
