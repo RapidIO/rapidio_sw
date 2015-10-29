@@ -1198,6 +1198,14 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		}
 	}
 
+	/* Kill the disconnection message queue */
+	msg_q<mq_disconnect_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
+	if (disc_mq == nullptr) {
+		WARN("disc_mq is NULL\n");
+	} else {
+		delete disc_mq;
+	}
+
 	/* Since the daemon created the 'close_mq', closing it BEFORE
 	 * calling close_ms_1() ensures it can be unlinked there withour error
 	 */
