@@ -52,6 +52,7 @@ struct mq_connect_msg {
 	uint32_t rem_destid;
 	uint32_t rem_msubid;
 	uint32_t rem_msid;	/* Client msid, used during disconnection */
+	uint32_t seq_num;
 };
 
 struct mq_accept_msg {

@@ -216,6 +216,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("conn_msg->client_rio_addr_hi = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_hi));
 			DBG("conn_msg->client_destid_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid_len));
 			DBG("conn_msg->client_destid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid));
+			DBG("conn_msg->seq_num = 0x%016" PRIx64 "\n", be64toh(conn_msg->seq_num));
 
 			/* Form message queue name from memory space name */
 			char mq_name[CM_MS_NAME_MAX_LEN+2];
@@ -259,6 +260,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			connect_msg->rem_rio_addr_hi	= be64toh(conn_msg->client_rio_addr_hi);
 			connect_msg->rem_destid_len	= be64toh(conn_msg->client_destid_len);
 			connect_msg->rem_destid		= be64toh(conn_msg->client_destid);
+			connect_msg->seq_num		= be64toh(conn_msg->seq_num);
 
 			/* Send connect message to RDMA library/app */
 			if (connect_mq->send()) {

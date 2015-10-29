@@ -1647,6 +1647,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		DBG("conn_msg->rem_rio_addr_hi = 0x%X\n", conn_msg->rem_rio_addr_hi);
 		DBG("conn_msg->rem_destid_len = 0x%X\n", conn_msg->rem_destid_len);
 		DBG("conn_msg->rem_destid = 0x%X\n", conn_msg->rem_destid);
+		DBG("conn_msg->seq_num = 0x%X\n", conn_msg->seq_num);
 		delete connect_mq;
 		return RDMA_ACCEPT_FAIL;
 	}
@@ -1737,6 +1738,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	struct timespec	before, after, rtt;
 	int			ret;
 	struct loc_msub		*loc_msub = (struct loc_msub *)loc_msubh;
+	static uint32_t seq_num = 0x1234;
 
 	DBG("ENTER\n");
 
@@ -1774,12 +1776,14 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	in.server_destid	= rem_destid;
 	in.client_destid_len	= 16;
 	in.client_destid	= peer.destid;
+	in.seq_num		= seq_num++;
 
 	DBG("in.server_msname     = %s\n", rem_msname);
 	DBG("in.server_destid_len = 0x%X\n", in.server_destid_len);
 	DBG("in.server_destid     = 0x%X\n", in.server_destid);
 	DBG("in.client_destid_len = 0x%X\n", in.client_destid_len);
 	DBG("in.client_destid     = 0x%X\n", in.client_destid);
+	DBG("in.seq_num           = 0x%X\n", in.seq_num);
 
 	if (loc_msubh) {
 		in.client_msid		= loc_msub->msid;
@@ -1867,6 +1871,7 @@ __sync_synchronize();
 		}
 	} else {
 #ifdef CONNECT_BEFORE_ACCEPT_HACK
+#error Do not use this feature anymore!
 		auto retries = 10;
 		struct timespec tm;
 		clock_gettime(CLOCK_REALTIME, &tm);
