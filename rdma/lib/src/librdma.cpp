@@ -1630,15 +1630,27 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 	}
 	INFO("Connect message received!\n");
-	connect_mq->dump_recv_buffer();
-	DBG("conn_msg->rem_msid = 0x%X\n", conn_msg->rem_msid);
-	DBG("conn_msg->rem_msubsid = 0x%X\n", conn_msg->rem_msubid);
-	DBG("conn_msg->rem_bytes = 0x%X\n", conn_msg->rem_bytes);
-	DBG("conn_msg->rem_rio_addr_len = 0x%X\n", conn_msg->rem_rio_addr_len);
-	DBG("conn_msg->rem_rio_addr_lo = 0x%X\n", conn_msg->rem_rio_addr_lo);
-	DBG("conn_msg->rem_rio_addr_hi = 0x%X\n", conn_msg->rem_rio_addr_hi);
-	DBG("conn_msg->rem_destid_len = 0x%X\n", conn_msg->rem_destid_len);
-	DBG("conn_msg->rem_destid = 0x%X\n", conn_msg->rem_destid);
+	if (
+		(conn_msg->rem_rio_addr_len < 16) ||
+		(conn_msg->rem_rio_addr_len > 65) ||
+		(conn_msg->rem_destid_len < 16) ||
+		(conn_msg->rem_destid_len > 64) ||
+		(conn_msg->rem_destid >= 0xFFFF)
+	   ) {
+		CRIT("INVALID CONNECT MESSAGE CONTENTS\n");
+		connect_mq->dump_recv_buffer();
+		DBG("conn_msg->rem_msid = 0x%X\n", conn_msg->rem_msid);
+		DBG("conn_msg->rem_msubsid = 0x%X\n", conn_msg->rem_msubid);
+		DBG("conn_msg->rem_bytes = 0x%X\n", conn_msg->rem_bytes);
+		DBG("conn_msg->rem_rio_addr_len = 0x%X\n", conn_msg->rem_rio_addr_len);
+		DBG("conn_msg->rem_rio_addr_lo = 0x%X\n", conn_msg->rem_rio_addr_lo);
+		DBG("conn_msg->rem_rio_addr_hi = 0x%X\n", conn_msg->rem_rio_addr_hi);
+		DBG("conn_msg->rem_destid_len = 0x%X\n", conn_msg->rem_destid_len);
+		DBG("conn_msg->rem_destid = 0x%X\n", conn_msg->rem_destid);
+		delete connect_mq;
+		return RDMA_ACCEPT_FAIL;
+	}
+
 	/* Store info about remote msub in database and return handle */
 	*rem_msubh = (msub_h)add_rem_msub(conn_msg->rem_msubid,
 					  conn_msg->rem_msid,
