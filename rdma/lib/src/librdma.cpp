@@ -2015,7 +2015,8 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 
 	/* Check that parameters are not NULL */
 	if (!rem_msh) {
-		WARN("rem_msh=0x%lX\n", rem_msh);
+		ERR("rem_msh=0x%016" PRIx64 ". FAILING (NULL parameter)!!\n",
+								rem_msh);
 		sem_post(&rdma_lock);
 		return RDMA_NULL_PARAM;
 	}
