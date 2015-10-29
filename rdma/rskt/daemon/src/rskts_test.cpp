@@ -205,8 +205,6 @@ int run_server(int socket_number)
 		worker_threads.push_back(ti->tid);
 		DBG("Now %u threads in action\n", worker_threads.size());
 		pthread_join(ti->tid, NULL);
-		sleep(1);
-		puts("Now looping back!!");
 	} while(1);
 
 exit_run_server:
