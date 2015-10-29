@@ -1176,6 +1176,8 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	if (!disc_thread) {
 		WARN("disc_thread is NULL.\n");
 	} else {
+
+		HIGH("Killing the disconnection thread!!\n");
 		if (pthread_cancel(disc_thread)) {
 			WARN("Failed to cancel disc_thread for msh(0x%X):%s\n",
 						msh, strerror(errno));
