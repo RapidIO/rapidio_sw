@@ -280,10 +280,11 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("connect_msg->rem_rio_addr_hi = 0x%X\n", connect_msg->rem_rio_addr_hi);
 			DBG("connect_msg->rem_destid_len = 0x%X\n", connect_msg->rem_destid_len);
 			DBG("connect_msg->rem_destid = 0x%X\n", connect_msg->rem_destid);
+			DBG("connect_msg->seq_num = 0x%X\n", connect_msg->seq_num);
 
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
 			connect_mq->dump_send_buffer();
-			delete connect_mq;
+
 
 			/* Request a send buffer */
 			void *cm_send_buf;
@@ -316,6 +317,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				 */
 				ERR("Failed to send back ACCEPT_MS\n");
 				accept_msg_map.remove(mq_str);
+				delete connect_mq;
 				continue;
 			}
 			HIGH("ACCEPT_MS sent back to remote daemon!\n");
@@ -344,6 +346,9 @@ void *wait_conn_disc_thread_f(void *arg)
 			 * flush the CM receive buffer.
 			 */
 			rx_conn_disc_server->flush_recv_buffer();
+
+			sleep(1);
+			delete connect_mq;
 		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS) {
 			cm_disconnect_msg	*disc_msg;
 
