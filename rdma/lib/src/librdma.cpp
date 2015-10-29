@@ -1630,6 +1630,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 	}
 	INFO("Connect message received!\n");
+	DBG("conn_msg->seq_num = 0x%X\n", conn_msg->seq_num);
+
 	if (
 		(conn_msg->rem_rio_addr_len < 16) ||
 		(conn_msg->rem_rio_addr_len > 65) ||
@@ -1647,7 +1649,6 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		DBG("conn_msg->rem_rio_addr_hi = 0x%X\n", conn_msg->rem_rio_addr_hi);
 		DBG("conn_msg->rem_destid_len = 0x%X\n", conn_msg->rem_destid_len);
 		DBG("conn_msg->rem_destid = 0x%X\n", conn_msg->rem_destid);
-		DBG("conn_msg->seq_num = 0x%X\n", conn_msg->seq_num);
 		delete connect_mq;
 		return RDMA_ACCEPT_FAIL;
 	}
