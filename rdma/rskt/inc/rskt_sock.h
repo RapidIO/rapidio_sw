@@ -318,7 +318,7 @@ public:
 		/* Accept connections */
 		int rc = rskt_accept(listen_socket, accept_socket, &sock_addr);
 		if (rc) {
-			ERR("'s': Failed in rskt_accept: %s\n", name, strerror(errno));
+			ERR("'%s': Failed in rskt_accept: %s\n", name, strerror(errno));
 			return rc;
 		}
 

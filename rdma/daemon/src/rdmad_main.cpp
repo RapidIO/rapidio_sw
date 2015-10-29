@@ -563,6 +563,8 @@ void *rpc_thread_f(void *arg)
 					c->client_rio_addr_hi	= htobe64((uint64_t)in->client_rio_addr_hi);
 					c->client_destid_len	= htobe64(peer.destid_len);
 					c->client_destid	= htobe64(peer.destid);
+					c->seq_num		= htobe64((uint64_t)in->seq_num);
+
 					/* "%016" PRIx64 " */
 					DBG("WITHOUT CONVERSION:\n");
 					DBG("c->type = 0x%016" PRIx64 "\n", c->type);
@@ -575,6 +577,7 @@ void *rpc_thread_f(void *arg)
 					DBG("c->client_rio_addr_hi = 0x%016" PRIx64 "\n", c->client_rio_addr_hi);
 					DBG("c->client_destid_len = 0x%016" PRIx64 "\n", c->client_destid_len);
 					DBG("c->client_destid = 0x%016" PRIx64 "\n", c->client_destid);
+					DBG("c->seq_num = 0x%016" PRIx64 "\n", c->seq_num);
 					DBG("WITH CONVERSTION:\n");
 					DBG("c->type = 0x%016" PRIx64 "\n", be64toh(c->type));
 					DBG("c->server_msname = %s\n", c->server_msname);
@@ -586,6 +589,7 @@ void *rpc_thread_f(void *arg)
 					DBG("c->client_rio_addr_hi = 0x%016" PRIx64 "\n", be64toh(c->client_rio_addr_hi));
 					DBG("c->client_destid_len = 0x%016" PRIx64 "\n", be64toh(c->client_destid_len));
 					DBG("c->client_destid = 0x%016" PRIx64 "\n", be64toh(c->client_destid));
+					DBG("c->seq_num = 0x%016" PRIx64 "\n", be64toh(c->seq_num));
 					main_client->dump_send_buffer();
 
 					/* Send buffer to server */

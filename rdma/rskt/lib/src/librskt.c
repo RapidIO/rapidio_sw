@@ -1042,7 +1042,11 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 
 	skt->st = rskt_connected;
-	setup_skt_ptrs(skt);
+	rc = setup_skt_ptrs(skt);
+	if (rc) {
+		ERR("Failed in setup_skt_ptrs\n");
+		goto close;
+	}
 	sem_post(&skt_h->mtx);
 	lib_add_skt_to_list(skt_h);
 	INFO("Exiting with SUCCESS\n");
@@ -1194,7 +1198,11 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	}
 
 	skt->st = rskt_connected;
-	setup_skt_ptrs(skt);
+	rc = setup_skt_ptrs(skt);
+	if (rc) {
+		ERR("Failed in setup_skt_ptrs\n");
+		goto close;
+	}
 	sem_post(&skt_h->mtx);
 	lib_add_skt_to_list(skt_h);
 	INFO("Exiting with SUCCESS\n");
@@ -1219,7 +1227,6 @@ uint32_t get_free_bytes(volatile struct rskt_buf_hdr *hdr,
 				uint32_t buf_sz)
 {
 	if (hdr == NULL) {
-		ERR("hdr is NULL. Returning 0\n");
 		return 0;
 	}
 
