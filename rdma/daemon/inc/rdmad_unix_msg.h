@@ -209,6 +209,7 @@ struct send_connect_input {
 	uint8_t	 client_rio_addr_len;
 	uint64_t client_rio_addr_lo;
 	uint8_t  client_rio_addr_hi;
+	uint32_t seq_num;
 };
 struct send_connect_output {
 	int	status;

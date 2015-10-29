@@ -88,19 +88,19 @@ fi
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript accepts 6 parameters:'
         echo $'TX_IBA_ADDR: Hex address of target window on TX_DID'
-        echo $'TX_DID : Device ID that this device sends to'
+        echo $'TX_DID     : Device ID that this device sends to'
         echo $'RX_IBA_ADDR: Hex address of target window on RX_DID'
-        echo $'RX_DID : Device ID of this device'
-        echo $'Trans: DMA transaction type'
-        echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+        echo $'RX_DID     : Device ID of this device'
+        echo $'Trans      : DMA transaction type'
+        echo $'Wait       : Time in seconds to wait before showing perf\n'
 fi
 
-echo OBWIN_LATENCY TX_IBA_ADDR = $TX_IBA_ADDR
-echo OBWIN_LATENCY TX_DID      = $TX_DID
-echo OBWIN_LATENCY RX_IBA_ADDR = $RX_IBA_ADDR
-echo OBWIN_LATENCY RX_DID      = $RX_DID
-echo OBWIN_LATENCY TRANS    = $TRANS
-echo OBWIN_LATENCY WAIT_TIME= $WAIT_TIME
+echo 'OBWIN_LATENCY TX_IBA_ADDR = ' $TX_IBA_ADDR
+echo 'OBWIN_LATENCY TX_DID      = ' $TX_DID
+echo 'OBWIN_LATENCY RX_IBA_ADDR = ' $RX_IBA_ADDR
+echo 'OBWIN_LATENCY RX_DID      = ' $RX_DID
+echo 'OBWIN_LATENCY TRANS       = ' $TRANS
+echo 'OBWIN_LATENCY WAIT_TIME   = ' $WAIT_TIME
 
 unset LOC_PRINT_HEP
 
@@ -158,7 +158,7 @@ if [ "$max_name_idx" != "$max_bytes_idx" ]; then
 	exit 1
 fi;
 
-echo "Arrays declared correctly..."
+echo $'\nArrays declared correctly...'
 
 ## Create files for DIOT commands, transmit latency
 

@@ -241,18 +241,20 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 	destroy_mq->get_recv_buffer(&dm);
 
 	/* Wait for destroy POSIX message */
-	INFO("Waiting for destroy POSIX message on %s\n",
+	INFO("Waiting for destroy ms POSIX message on %s\n",
 						destroy_mq->get_name().c_str());
 	if (destroy_mq->receive()) {
 		CRIT("Failed to receive 'destroy' POSIX message\n");
 		pthread_exit(0);
 	}
-	INFO("Got 'destroy' POSIX message\n");
+	INFO("Got 'destroy ms' POSIX message\n");
 
 	/* Remove the msubs belonging to that ms */
+	DBG("Removing msubs in server_msid(0x%X)\n", dm->server_msid);
 	remove_rem_msubs_in_ms(dm->server_msid);
 
 	/* Remove the ms itself */
+	DBG("Removing server_msid(0x%X) from database\n", dm->server_msid);
 	ms_h	msh = find_rem_ms(dm->server_msid);
 	if (msh == (ms_h)NULL) {
 		CRIT("Failed to find rem_ms with msid(0x%X)\n",
@@ -271,8 +273,10 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 	mq_destroy_msg	*dam;
 	destroy_mq->get_send_buffer(&dam);
 	dam->server_msid = dm->server_msid;
+	DBG("Sending back DESTROY ACK 4 server_msid(0x%X)\n", dm->server_msid);
 	if (destroy_mq->send()) {
-		CRIT("Failed to send destroy ack on %s\n", destroy_mq->get_name().c_str());
+		CRIT("Failed to send destroy ack on %s\n",
+					destroy_mq->get_name().c_str());
 		delete destroy_mq;
 		pthread_exit(0);
 	}
@@ -1626,15 +1630,29 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 	}
 	INFO("Connect message received!\n");
-	connect_mq->dump_recv_buffer();
-	DBG("conn_msg->rem_msid = 0x%X\n", conn_msg->rem_msid);
-	DBG("conn_msg->rem_msubsid = 0x%X\n", conn_msg->rem_msubid);
-	DBG("conn_msg->rem_bytes = 0x%X\n", conn_msg->rem_bytes);
-	DBG("conn_msg->rem_rio_addr_len = 0x%X\n", conn_msg->rem_rio_addr_len);
-	DBG("conn_msg->rem_rio_addr_lo = 0x%X\n", conn_msg->rem_rio_addr_lo);
-	DBG("conn_msg->rem_rio_addr_hi = 0x%X\n", conn_msg->rem_rio_addr_hi);
-	DBG("conn_msg->rem_destid_len = 0x%X\n", conn_msg->rem_destid_len);
-	DBG("conn_msg->rem_destid = 0x%X\n", conn_msg->rem_destid);
+	DBG("conn_msg->seq_num = 0x%X\n", conn_msg->seq_num);
+
+	if (
+		(conn_msg->rem_rio_addr_len < 16) ||
+		(conn_msg->rem_rio_addr_len > 65) ||
+		(conn_msg->rem_destid_len < 16) ||
+		(conn_msg->rem_destid_len > 64) ||
+		(conn_msg->rem_destid >= 0xFFFF)
+	   ) {
+		CRIT("INVALID CONNECT MESSAGE CONTENTS\n");
+		connect_mq->dump_recv_buffer();
+		DBG("conn_msg->rem_msid = 0x%X\n", conn_msg->rem_msid);
+		DBG("conn_msg->rem_msubsid = 0x%X\n", conn_msg->rem_msubid);
+		DBG("conn_msg->rem_bytes = 0x%X\n", conn_msg->rem_bytes);
+		DBG("conn_msg->rem_rio_addr_len = 0x%X\n", conn_msg->rem_rio_addr_len);
+		DBG("conn_msg->rem_rio_addr_lo = 0x%X\n", conn_msg->rem_rio_addr_lo);
+		DBG("conn_msg->rem_rio_addr_hi = 0x%X\n", conn_msg->rem_rio_addr_hi);
+		DBG("conn_msg->rem_destid_len = 0x%X\n", conn_msg->rem_destid_len);
+		DBG("conn_msg->rem_destid = 0x%X\n", conn_msg->rem_destid);
+		delete connect_mq;
+		return RDMA_ACCEPT_FAIL;
+	}
+
 	/* Store info about remote msub in database and return handle */
 	*rem_msubh = (msub_h)add_rem_msub(conn_msg->rem_msubid,
 					  conn_msg->rem_msid,
@@ -1721,6 +1739,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	struct timespec	before, after, rtt;
 	int			ret;
 	struct loc_msub		*loc_msub = (struct loc_msub *)loc_msubh;
+	static uint32_t seq_num = 0x1234;
 
 	DBG("ENTER\n");
 
@@ -1758,12 +1777,14 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	in.server_destid	= rem_destid;
 	in.client_destid_len	= 16;
 	in.client_destid	= peer.destid;
+	in.seq_num		= seq_num++;
 
 	DBG("in.server_msname     = %s\n", rem_msname);
 	DBG("in.server_destid_len = 0x%X\n", in.server_destid_len);
 	DBG("in.server_destid     = 0x%X\n", in.server_destid);
 	DBG("in.client_destid_len = 0x%X\n", in.client_destid_len);
 	DBG("in.client_destid     = 0x%X\n", in.client_destid);
+	DBG("in.seq_num           = 0x%X\n", in.seq_num);
 
 	if (loc_msubh) {
 		in.client_msid		= loc_msub->msid;
@@ -1851,6 +1872,7 @@ __sync_synchronize();
 		}
 	} else {
 #ifdef CONNECT_BEFORE_ACCEPT_HACK
+#error Do not use this feature anymore!
 		auto retries = 10;
 		struct timespec tm;
 		clock_gettime(CLOCK_REALTIME, &tm);

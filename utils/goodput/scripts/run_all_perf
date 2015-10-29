@@ -1,0 +1,27 @@
+echo Note there MUST be an inbound window at the correct address on the
+echo target destination ID for these tests to pass.
+scrp scripts/performance/
+// PASS
+. obwin_lat_read
+// PASS
+. obwin_thru_write
+// PASS
+. obwin_thru_read
+// PASS
+. dma_thru_read
+// PASS
+. dma_thru_write
+// PASS
+. dma_lat_read
+// PASS
+. pdma_thru_pdm_read
+// PASS
+. pdma_thru_pd1_read
+// PASS
+. pdma_thru_pdd_read
+// PASS
+. pdma_thru_pdd_write
+// PASS
+. pdma_thru_pd1_write
+// PASS
+. pdma_thru_pdm_write

@@ -1,0 +1,24 @@
+kill all
+wait 0 D
+wait 1 D
+wait 2 D
+wait 3 D
+wait 4 D
+wait 5 D
+wait 6 D
+wait 7 D
+
+t 0 2 0
+wait 0 H
+
+mT 0 did skt_prefix0 msg_size
+
+wait 0 R
+
+la
+echo MSG TRANSMIT LATENCY 0xmsg_size BYTES
+sleep wait_time
+echo MSG TRANSMIT LATENCY 0xmsg_size BYTES
+wait 0 R
+st
+la

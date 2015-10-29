@@ -1,14 +1,14 @@
 #!/bin/bash
 
 #  This script creates all read/write goodput script files for
-#  parallel DMA throughput measurements.
+#  outbound window throughput measurements.
 #
-#  This includes individual scripts for 1 byte up to 4MB transfers,
+#  This includes individual scripts for 1 byte up to 8 byte transfers,
 #  for both reads and writes, as well as 2 scripts that will invoke
 #  all of the individual scripts.
 #
-#  The "template" file in this directory is the basis of the
-#  individiaul scripts.
+#  The "template" files in this directory are the basis of the
+#  individual scripts.
 #  
 
 cd "$(dirname "$0")"
