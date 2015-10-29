@@ -1227,7 +1227,6 @@ uint32_t get_free_bytes(volatile struct rskt_buf_hdr *hdr,
 				uint32_t buf_sz)
 {
 	if (hdr == NULL) {
-		ERR("hdr is NULL. Returning 0\n");
 		return 0;
 	}
 
