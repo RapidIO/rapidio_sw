@@ -44,6 +44,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <signal.h>
 #include <netinet/in.h>
+
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include "librskt_private.h"
 #include "librskt_test.h"
 #include "librsktd.h"
