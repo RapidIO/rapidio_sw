@@ -1992,6 +1992,7 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
+        info->umd_fifo_proc_must_die = 0;
         rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
 			    umd_dma_fifo_proc_thr, (void *)info);
 	if (rc) {
