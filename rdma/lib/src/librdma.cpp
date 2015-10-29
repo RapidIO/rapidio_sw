@@ -1140,7 +1140,6 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	int		ret;
 
 	DBG("ENTER\n");
-	sem_wait(&rdma_lock);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -1153,7 +1152,6 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	/* Check for NULL parameters */
 	if (!msoh || !msh) {
 		ERR("Invalid param(s): msoh=0x%lX, msh=0x%lX\n", msoh, msh);
-		sem_post(&rdma_lock);
 		return RDMA_NULL_PARAM;
 	}
 
@@ -1164,14 +1162,12 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		 * by its owner. Consider it closed by just warning and
 		 * returning a success code */
 		WARN("msh no longer exists\n");
-		sem_post(&rdma_lock);
 		return 0;
 	}
 
 	/* Destroy msubs opened under this msh */
 	if (destroy_msubs_in_msh(msh)) {
 		ERR("Failed to destroy msubs belonging to msh(0x%lX)\n", msh);
-		sem_post(&rdma_lock);
 		return RDMA_MSUB_DESTROY_FAIL;
 	}
 
@@ -1180,6 +1176,8 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	if (!disc_thread) {
 		WARN("disc_thread is NULL.\n");
 	} else {
+
+		HIGH("Killing the disconnection thread!!\n");
 		if (pthread_cancel(disc_thread)) {
 			WARN("Failed to cancel disc_thread for msh(0x%X):%s\n",
 						msh, strerror(errno));
@@ -1198,6 +1196,14 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 			WARN("phread_cancel(close_thread): %s\n",
 							strerror(errno));
 		}
+	}
+
+	/* Kill the disconnection message queue */
+	msg_q<mq_disconnect_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
+	if (disc_mq == nullptr) {
+		WARN("disc_mq is NULL\n");
+	} else {
+		delete disc_mq;
 	}
 
 	/* Since the daemon created the 'close_mq', closing it BEFORE
@@ -1220,7 +1226,6 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		sem_post(&rdma_lock);
 		return ret;
 	}
 	out = out_msg->close_ms_out;
@@ -1228,12 +1233,10 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	/* Take it out of databse */
 	if (remove_loc_ms(msh) < 0) {
 		ERR("Failed to find msh(0x%lX) in db\n", msh);
-		sem_post(&rdma_lock);
 		return RDMA_DB_REM_FAIL;
 	}
 	INFO("msh(0x%lX) removed from local database\n", msh);
 
-	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_close_ms_h() */
 
@@ -2022,7 +2025,8 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 
 	/* Check that parameters are not NULL */
 	if (!rem_msh) {
-		WARN("rem_msh=0x%lX\n", rem_msh);
+		ERR("rem_msh=0x%016" PRIx64 ". FAILING (NULL parameter)!!\n",
+								rem_msh);
 		sem_post(&rdma_lock);
 		return RDMA_NULL_PARAM;
 	}

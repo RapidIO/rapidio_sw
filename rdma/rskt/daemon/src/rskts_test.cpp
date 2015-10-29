@@ -149,6 +149,7 @@ void *rskt_thread_f(void *arg)
 	}
 
 exit_rskt_thread_f:
+	sleep(5);	/* Keep disconnection thread alive to process disc_ms_h */
 	delete other_server;
 	worker_threads.remove(ti->tid);
 	delete ti;
@@ -203,6 +204,9 @@ int run_server(int socket_number)
 		}
 		worker_threads.push_back(ti->tid);
 		DBG("Now %u threads in action\n", worker_threads.size());
+		pthread_join(ti->tid, NULL);
+		sleep(5);
+		puts("Now looping back!!");
 	} while(1);
 
 exit_run_server:
