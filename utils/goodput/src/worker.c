@@ -1350,7 +1350,7 @@ void *umd_mbox_fifo_proc_thr(void *parm)
 		const uint64_t tss2 = rdtsc();
 		if (tss2 > tss1) { g_FifoStats[idx].fifo_deltats_scanfifo += (tss2-tss1); g_FifoStats[idx].fifo_count_scanfifo++; }
 		if (0 == cnt) {
-			for(int i = 0; i < 20000; i++) {;}
+			for(int i = 0; i < 1000; i++) {;}
 			continue;
 		}
 
@@ -1395,7 +1395,7 @@ void *umd_mbox_fifo_proc_thr(void *parm)
 		const uint64_t tsm2 = rdtsc();
 		if (tsm2 > tsm1) { g_FifoStats[idx].fifo_deltats_other += (tsm2-tsm1); g_FifoStats[idx].fifo_count_other++; }
 //next:
-		for(int i = 0; i < 10000; i++) {;}
+		for(int i = 0; i < 1000; i++) {;}
 	}
 //exit:
 	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
@@ -2396,6 +2396,7 @@ void umd_mbox_goodput_demo(struct worker *info)
       			info->umd_mch->add_inb_buffer(info->umd_chan, b);
 		}
 
+		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
         	while (!info->stop_req) {
                 	info->umd_dma_abort_reason = 0;
 			uint64_t rx_ts = 0;
@@ -2403,25 +2404,25 @@ void umd_mbox_goodput_demo(struct worker *info)
 				usleep(1);
 			if (info->stop_req) break;
 
+			opt.ts_end = rx_ts;
+
 			bool rx_buf = false;
 			void* buf = NULL;
-			int msg_size = 0;
-			uint64_t enq_ts = 0;
-			while ((buf = info->umd_mch->get_inb_message(info->umd_chan, msg_size, enq_ts)) != NULL) {
+			while ((buf = info->umd_mch->get_inb_message(info->umd_chan, opt)) != NULL) {
 			      rx_ok++; rx_buf = true;
-			      DBG("\n\tGot a message of size %d [%s] cnt=%llu\n", msg_size, buf, rx_ok);
+			      DBG("\n\tGot a message of size %d [%s] from destid %u mbox %u cnt=%llu\n", opt.bcount, buf, opt.destid, opt.mbox, rx_ok);
 			      info->umd_mch->add_inb_buffer(info->umd_chan, buf); // recycle
 			}
 			if (! rx_buf) {
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
 				goto exit_rx;
 			}
-			if (rx_ts && enq_ts && rx_ts > enq_ts && msg_size > 0) { // not overflown
-				const uint64_t dT = rx_ts - enq_ts;
+			if (rx_ts && opt.ts_start && rx_ts > opt.ts_start && opt.bcount > 0) { // not overflown
+				const uint64_t dT = rx_ts - opt.ts_start;
 				if (dT > 0) { 
 					info->tick_count++;
 					info->tick_total += dT;
-					info->tick_data_total += msg_size;
+					info->tick_data_total += opt.bcount;
 				}
 			}
 		} // END infinite loop
@@ -2527,7 +2528,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
         zero_stats(info);
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-        INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
+        INFO("\n\tMBOX my_destid=%u destid=%u (IGNORED) acc_size=%d #buf=%d #fifo=%d\n",
              info->umd_mch->getDestId(),
              info->did, info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
@@ -2545,7 +2546,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 		info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
-		opt.destid = info->did;
+		MboxChannel::MboxOptions_t opt_in; memset(&opt, 0, sizeof(opt_in));
 		opt.mbox   = info->umd_chan;
 
         	while (!info->stop_req) {
@@ -2556,15 +2557,15 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 			while (!info->stop_req && ! info->umd_mch->inb_message_ready(info->umd_chan, rx_ts)) { ; }
 			if (info->stop_req) break;
 
+			opt.ts_end = rx_ts; 
+
 			bool rx_buf = false;
 			void* buf = NULL;
-			int msg_size = 0;
-			uint64_t enq_ts = 0;
-			while ((buf = info->umd_mch->get_inb_message(info->umd_chan, msg_size, enq_ts)) != NULL) {
+			while ((buf = info->umd_mch->get_inb_message(info->umd_chan, opt_in)) != NULL) {
 			      rx_ok++; rx_buf = true;
-			      memcpy(msg_buf, buf, MIN(PAGE_4K, msg_size));
+			      memcpy(msg_buf, buf, MIN(PAGE_4K, opt_in.bcount));
 			      info->umd_mch->add_inb_buffer(info->umd_chan, buf); // recycle
-			      DBG("\n\tGot a message of size %d [%s] cnt=%llu\n", msg_size, msg_buf, rx_ok);
+			      DBG("\n\tGot a message of size %d [%s] from destid %u mbox %u cnt=%llu\n", opt_in.bcount, buf, opt_in.destid, opt_in.mbox, rx_ok);
 			}
 			if (! rx_buf) {
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
@@ -2576,7 +2577,9 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 			// Echo message back
 
-		      	if (! info->umd_mch->send_message(opt, msg_buf, msg_size, q_was_full)) {
+			opt.destid = opt_in.destid;
+			opt.mbox   = opt_in.mbox;
+		      	if (! info->umd_mch->send_message(opt, msg_buf, opt_in.bcount, q_was_full)) {
 				if (! q_was_full) {
 					ERR("\n\tsend_message FAILED!\n");
 					goto exit_rx;
@@ -2647,11 +2650,9 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
                         bool rx_buf = false;
                         void* buf = NULL;
-                        int msg_size = 0;
-                        uint64_t enq_ts = 0;
-                        while ((buf = info->umd_mch->get_inb_message(info->umd_chan, msg_size, enq_ts)) != NULL) {
+                        while ((buf = info->umd_mch->get_inb_message(info->umd_chan, opt)) != NULL) {
                               rx_ok++; rx_buf = true;
-                              DBG("\n\tGot a message of size %d [%s] cnt=%llu\n", msg_size, buf, tx_ok);
+                              DBG("\n\tGot a message of size %d [%s] cnt=%llu\n", opt.bcount, buf, tx_ok);
                               info->umd_mch->add_inb_buffer(info->umd_chan, buf); // recycle
                         }
                         if (! rx_buf) {

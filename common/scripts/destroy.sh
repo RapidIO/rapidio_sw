@@ -34,10 +34,12 @@ do
 	done
 
 	# Unload rio_cm
+	echo "Unloading rio_cm on $node"
 	ssh root@"$node" "modprobe -r rio_cm"
 	sleep 1
 
 	# Load rio_cm
+	echo "Reloading rio_cm on $node"
 	ssh root@"$node" "modprobe rio_cm"
 done
 

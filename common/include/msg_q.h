@@ -81,7 +81,7 @@ public:
 		if (mq_of == MQ_CREATE) {
 			INFO("Creating '%s'\n", name.c_str());
 			is_owner = true;
-			oflag = O_RDWR | O_CREAT;
+			oflag = O_RDWR | O_CREAT | O_EXCL;
 		} else if (mq_of == MQ_OPEN) {
 			INFO("Opening '%s'\n", name.c_str());
 			is_owner = false;
