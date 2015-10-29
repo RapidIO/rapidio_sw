@@ -104,7 +104,7 @@ int get_cpu(struct cli_env *env, char *dec_parm, int *cpu)
 {
 	int rc = 1;
 
-	*cpu = getDecParm(dec_parm, 0);
+	*cpu = GetDecParm(dec_parm, 0);
 
 	const int MAX_GOODPUT_CPU = getCPUCount() - 1;
 
@@ -339,7 +339,7 @@ ATTR_NONE
 
 int SleepCmd(struct cli_env *env, int argc, char **argv)
 {
-	float sec = getFloatParm(argv[0], 0);
+	float sec = GetFloatParm(argv[0], 0);
 	if(sec > 0) {
 		sprintf(env->output, "\nSleeping %f sec...\n", sec);
         	logMsg(env);

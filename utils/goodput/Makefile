@@ -46,6 +46,7 @@ CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 
 #CCFLAGS+=-pg
 #CCFLAGS+=-DDEBUG_BD
+#CCFLAGS+=-DDEBUG=2
 
 INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c
@@ -54,7 +55,7 @@ SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c
 # FIXME: Work to remove these as time permits
 UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
 	 -Wall -Wno-format -Wno-sign-compare -Wno-write-strings \
-	-DDEBUG -DRIO_ANY_ADDR=0 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
+	 -DRIO_ANY_ADDR=0 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
 
 UMD_INCLUDES = inc/debug.h inc/dmadesc.h inc/local_endian.h inc/mapfile.h \
 	inc/mport.h inc/pciebar.h inc/psem.h inc/pshm.h inc/rdtsc.h \
