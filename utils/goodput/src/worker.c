@@ -2701,7 +2701,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 exit:
 exit_rx:
         delete info->umd_mch; info->umd_mch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL
+	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 
