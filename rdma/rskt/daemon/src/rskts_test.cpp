@@ -86,7 +86,9 @@ void sig_handler(int sig)
 		return;
 	}
 
+	puts("Shutting down...");
 	rskts_test_shutdown();
+	puts("Exiting...");
 	exit(0);
 } /* sig_handler() */
 
@@ -153,7 +155,7 @@ void *rskt_thread_f(void *arg)
 	}
 
 exit_rskt_thread_f:
-	sleep(1);	/* Keep disconnection thread alive to process disc_ms_h */
+//	sleep(1);	/* Keep disconnection thread alive to process disc_ms_h */
 	delete other_server;
 	worker_threads.remove(ti->tid);
 	delete ti;
