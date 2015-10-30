@@ -184,6 +184,7 @@ protected:
 	 * actual number of bytes (if > 0) */
 	int receive(rskt_h socket, size_t size)
 	{
+		DBG("size = %u\n", size);
 		if (size > recv_size) {
 			ERR("Receive buffer (%u) can't hold %u bytes\n",
 					size, send_size);
