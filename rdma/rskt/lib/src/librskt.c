@@ -44,6 +44,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <signal.h>
 #include <netinet/in.h>
+
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include "librskt_private.h"
 #include "librskt_test.h"
 #include "librsktd.h"
@@ -1195,6 +1199,8 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	if (rc) {
 		ERR("rdma_conn_ms_h() failed, rc = %d..closing\n", rc);
 		goto close;
+	} else {
+		HIGH("CONNECTED, skt->con_msh = %016" PRIx64 "\n", skt->con_msh);
 	}
 
 	skt->st = rskt_connected;

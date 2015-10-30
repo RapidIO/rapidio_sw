@@ -73,6 +73,10 @@ void sig_handler(int sig)
 		puts("SIGTERM - kill <pid> signal");
 	break;
 
+	case SIGSEGV:	/* Segmentation fault */
+		puts("SIGSEGV: Segmentation fault");
+	break;
+
 	case SIGUSR1:	/* pthread_kill() */
 	/* Ignore signal */
 	return;
@@ -149,6 +153,7 @@ void *rskt_thread_f(void *arg)
 	}
 
 exit_rskt_thread_f:
+	sleep(1);	/* Keep disconnection thread alive to process disc_ms_h */
 	delete other_server;
 	worker_threads.remove(ti->tid);
 	delete ti;
@@ -203,6 +208,7 @@ int run_server(int socket_number)
 		}
 		worker_threads.push_back(ti->tid);
 		DBG("Now %u threads in action\n", worker_threads.size());
+		pthread_join(ti->tid, NULL);
 	} while(1);
 
 exit_run_server:
@@ -591,6 +597,7 @@ int main(int argc, char *argv[])
 	sigaction(SIGQUIT, &sig_action, NULL);
 	sigaction(SIGABRT, &sig_action, NULL);
 	sigaction(SIGUSR1, &sig_action, NULL);
+	sigaction(SIGSEGV, &sig_action, NULL);
 
 	/* Must specify at least 1 argument (the socket number) */
 	if (argc < 2) {
