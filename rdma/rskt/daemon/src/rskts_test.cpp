@@ -132,7 +132,7 @@ void *rskt_thread_f(void *arg)
 		}
 
 		if (received_len > 0) {
-			DBG("received_len = %d\n", received_len);
+			printf("Received data with received_len = %d\n", received_len);
 
 			void *recv_buf;
 			other_server->get_recv_buffer(&recv_buf);
@@ -142,7 +142,9 @@ void *rskt_thread_f(void *arg)
 				puts("Disconnect message received. DISCONNECTING");
 				goto exit_rskt_thread_f;
 			}
+
 			/* Echo data back to client */
+			puts("Sending data back to client");
 			void *send_buf;
 			other_server->get_send_buffer(&send_buf);
 			memcpy(send_buf, recv_buf, received_len);
