@@ -595,6 +595,9 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   opt.bd_idx = tx_slot;
   opt.bd_wp  = m_omsg_ring.wr_count;
 
+  WorkItem_t wi;     memset(&wi, 0, sizeof(wi));
+  WorkItem_t wi_end; memset(&wi, 0, sizeof(wi_end));
+
   pthread_spin_lock(&m_bltx_splock);
   {{
     m_omsg_trk.bl_busy[tx_slot] = tx_slot + 1;
@@ -615,9 +618,6 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
 
       m_omsg_trk.bl_busy[m_num_ob_desc-1]++;
     }
-
-    WorkItem_t wi;     memset(&wi, 0, sizeof(wi));
-    WorkItem_t wi_end; memset(&wi, 0, sizeof(wi_end));
 
     opt.ts_start = rdtsc();
     /* Set new write count value */
