@@ -156,8 +156,8 @@ public:
     // add actions here
   } WorkItem_t;
 
-  MboxChannel(const uint32_t mportid, const uint32_t chan);
-  MboxChannel(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_h);
+  MboxChannel(const uint32_t mportid, const uint32_t mbox);
+  MboxChannel(const uint32_t mportid, const uint32_t mbox, riomp_mport_t mp_h);
 
   ~MboxChannel() { cleanup(); delete m_mport; };
 
@@ -166,12 +166,31 @@ public:
 
   bool send_message(MboxOptions_t& opt, const void* data, const size_t len, bool& q_was_full);
 
-  int add_inb_buffer(const int mbox, void* buf);
-  bool inb_message_ready(const int ib_mbox, uint64_t& rx_ts);
-  bool inb_message_ready_REG(const int ib_mbox, uint64_t& rx_ts);
-  void* get_inb_message(const int ib_mbox, MboxOptions_t& opt);
+  int add_inb_buffer(void* buf);
 
-  void set_rx_destid(const uint16_t destid)
+  bool inb_message_ready_REG(uint64_t& rx_ts);
+
+  /** \brief Returns whether a message is ready to be read on the inbound.
+   * \note This is polling the HO bit in inbound BDs
+   * \param[out] rx_ts rdtsc timestamp when message was ready
+   */
+  inline bool inb_message_ready(uint64_t& rx_ts)
+  {
+    if (!m_imsg_init) throw std::runtime_error("inb_message_ready: mbox not initialised!");
+
+    pthread_spin_lock(&m_rx_splock);
+
+    hw_imsg_desc* desc = (hw_imsg_desc*)m_imsg_ring.imd.win_ptr + m_imsg_ring.desc_rdptr;
+
+    const bool ret = desc->msg_info & TSI721_IMD_HO;
+    pthread_spin_unlock(&m_rx_splock);
+
+    return ret;
+  }
+
+  void* get_inb_message(MboxOptions_t& opt);
+
+  inline void set_rx_destid(const uint16_t destid)
   {
     m_mport->wr32(TSI721_IB_DEVID, destid);
     DBG("\n\tSet own destid := %d; HW destid = %d\n", destid, m_mport->rd32(TSI721_IB_DEVID ));
@@ -180,29 +199,20 @@ public:
   inline int getDeviceId() { return m_mport->getDeviceId(); }
   inline uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 
-  int scanFIFO(const int mbox, WorkItem_t* completed_work, const int max_work);
+  int scanFIFO(WorkItem_t* completed_work, const int max_work);
 
-  inline int getTxReadCountSoft(const int mbox)
+  inline int getTxReadCountSoft()
   {
-    const int mboxmsk = 1<<mbox;
-    if(! (m_mboxen & mboxmsk)) throw std::runtime_error("getReadCountSoft: Mailbox not opened!");
-
-    return m_omsg_ring[mbox].rd_count_soft;
+    return m_omsg_ring.rd_count_soft;
   }
-  inline bool queueTxFull(const int mbox)
+  inline bool queueTxFull()
   {
-    const int mboxmsk = 1<<mbox;
-    if(! (m_mboxen & mboxmsk)) throw std::runtime_error("queueTxFull: Mailbox not opened!");
-
-    return m_omsg_trk[mbox].bltx_busy_size >= (m_num_ob_desc[mbox] - 1); // Ignore D5 as it pops up very fast
+    return m_omsg_trk.bltx_busy_size >= (m_num_ob_desc - 1); // Ignore D5 as it pops up very fast
   }
 
-  inline int queueTxSize(const int mbox)
+  inline int queueTxSize()
   {
-    const int mboxmsk = 1<<mbox;
-    if(! (m_mboxen & mboxmsk)) throw std::runtime_error("queueTxFull: Mailbox not opened!");
-
-    return m_omsg_trk[mbox].bltx_busy_size;
+    return m_omsg_trk.bltx_busy_size;
   }
 
 public: // test-public
@@ -234,23 +244,23 @@ public: // test-public
 
 private:
   void init();
-  int open_outb_mbox(int mbox, uint32_t entries, const uint32_t sts_entries);
-  int open_inb_mbox(int mbox, uint32_t entries);
+  int open_outb_mbox(uint32_t entries, const uint32_t sts_entries);
+  int open_inb_mbox(uint32_t entries);
   void cleanup();
-  void dumpBL(const int mbox);
+  void dumpBL();
 
 private:
   RioMport*           m_mport;
-  uint8_t             m_mboxen; // a bitmask
+  uint8_t             m_mbox, m_ib_mbox;
   pthread_spinlock_t  m_hw_splock; ///< Serialize access to MBOX chan registers
-  pthread_spinlock_t  m_rx_splock[RIO_MAX_MBOX]; ///< Serialize access to MBOX RX data structures
-  pthread_spinlock_t  m_tx_splock[RIO_MAX_MBOX]; ///< Serialize access to MBOX TX data structures
-  pthread_spinlock_t  m_bltx_splock[RIO_MAX_MBOX]; ///< Serialize access to MBOX TX busy BD data structure
-  uint32_t            m_num_ob_desc[RIO_MAX_MBOX];
-  hw_imsg_ring        m_imsg_ring[RIO_MAX_MBOX];
-  hw_omsg_ring        m_omsg_ring[RIO_MAX_MBOX];
-  bool                m_imsg_init[RIO_MAX_MBOX];
-  bool                m_omsg_init[RIO_MAX_MBOX];
+  pthread_spinlock_t  m_rx_splock; ///< Serialize access to MBOX RX data structures
+  pthread_spinlock_t  m_tx_splock; ///< Serialize access to MBOX TX data structures
+  pthread_spinlock_t  m_bltx_splock; ///< Serialize access to MBOX TX busy BD data structure
+  uint32_t            m_num_ob_desc;
+  hw_imsg_ring        m_imsg_ring;
+  hw_omsg_ring        m_omsg_ring;
+  bool                m_imsg_init;
+  bool                m_omsg_init;
 
   static const uint32_t WI_SIG = 0xb00fd00fL;
 
@@ -260,7 +270,7 @@ private:
     WorkItem_t*  bltx_busy; 
     volatile int bltx_busy_size;
     int*         bl_busy;
-  } m_omsg_trk[RIO_MAX_MBOX];
+  } m_omsg_trk;
 };
 
 #endif // __MBOXCHAN_H__

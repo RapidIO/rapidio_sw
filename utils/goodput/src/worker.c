@@ -1346,7 +1346,7 @@ void *umd_mbox_fifo_proc_thr(void *parm)
 		g_FifoStats[idx].fifo_thr_iter++;
 
 		const uint64_t tss1 = rdtsc();
-		const int cnt = info->umd_mch->scanFIFO(info->umd_chan, wi, info->umd_sts_entries*8);
+		const int cnt = info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8);
 		const uint64_t tss2 = rdtsc();
 		if (tss2 > tss1) { g_FifoStats[idx].fifo_deltats_scanfifo += (tss2-tss1); g_FifoStats[idx].fifo_count_scanfifo++; }
 		if (0 == cnt) {
@@ -1375,16 +1375,16 @@ void *umd_mbox_fifo_proc_thr(void *parm)
                                 info->perf_byte_cnt += info->acc_size;
                                 clock_gettime(CLOCK_MONOTONIC, &info->end_time);
                                 if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += info->acc_size; }
-                                INFO("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
+                                DBG("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
                                         item.opt.destid,
                                         item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         case DTYPE5:
-                                INFO("\n\tFinished D5 bd_wp=%u -- FIFO iter %llu dTick %llu (%f uS)u\n",
+                                DBG("\n\tFinished D5 bd_wp=%u -- FIFO iter %llu dTick %llu (%f uS)u\n",
                                          item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         default:
-                                INFO("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
+                                CRIT("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
                                          item.opt.dtype, item.opt.bd_wp,
                                         g_FifoStats[idx].fifo_thr_iter);
                                 break;
@@ -2045,7 +2045,7 @@ void umd_dma_goodput_demo(struct worker *info)
 			} else {
 				if(info->umd_dma_abort_reason != 0) {
 					CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
-					CRIT("DMA abort %x: %s\n", 
+					CRIT("\n\tDMA abort %x: %s\n", 
 						info->umd_dma_abort_reason,
 						DMAChannel::abortReasonToStr(
 						info->umd_dma_abort_reason));
@@ -2354,7 +2354,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 
 	if (! umd_check_cpu_allocation(info)) return;
 
-        info->umd_mch = new MboxChannel(info->mp_num, 1<<info->umd_chan, info->mp_h);
+        info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 
         if (NULL == info->umd_mch) {
                 CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
@@ -2393,14 +2393,14 @@ void umd_mbox_goodput_demo(struct worker *info)
 
 		for(int i = 0; i < info->umd_tx_buf_cnt; i++) {
 			void* b = calloc(1, PAGE_4K);
-      			info->umd_mch->add_inb_buffer(info->umd_chan, b);
+      			info->umd_mch->add_inb_buffer(b);
 		}
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
         	while (!info->stop_req) {
                 	info->umd_dma_abort_reason = 0;
 			uint64_t rx_ts = 0;
-			while (!info->stop_req && ! info->umd_mch->inb_message_ready(info->umd_chan, rx_ts))
+			while (!info->stop_req && ! info->umd_mch->inb_message_ready(rx_ts))
 				usleep(1);
 			if (info->stop_req) break;
 
@@ -2408,10 +2408,10 @@ void umd_mbox_goodput_demo(struct worker *info)
 
 			bool rx_buf = false;
 			void* buf = NULL;
-			while ((buf = info->umd_mch->get_inb_message(info->umd_chan, opt)) != NULL) {
+			while ((buf = info->umd_mch->get_inb_message(opt)) != NULL) {
 			      rx_ok++; rx_buf = true;
 			      DBG("\n\tGot a message of size %d [%s] from destid %u mbox %u cnt=%llu\n", opt.bcount, buf, opt.destid, opt.mbox, rx_ok);
-			      info->umd_mch->add_inb_buffer(info->umd_chan, buf); // recycle
+			      info->umd_mch->add_inb_buffer(buf); // recycle
 			}
 			if (! rx_buf) {
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
@@ -2461,7 +2461,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
 		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, q_was_full)) {
 				if (! q_was_full) {
-					ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize(info->umd_chan));
+					ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
 					goto exit;
 				}
 		      	} else {
@@ -2474,12 +2474,12 @@ void umd_mbox_goodput_demo(struct worker *info)
 			}
 			if (info->stop_req) break;
 
-			if (q_was_full) ERR("\n\tQueue full for MBOX%d! tx_ok=%llu\n", info->umd_chan, tx_ok);
+			if (q_was_full) INFO("\n\tQueue full for MBOX%d! tx_ok=%llu\n", info->umd_chan, tx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
                                 (iq < 1000000000) &&
-                                (info->umd_mch->queueTxSize(info->umd_chan) >= Q_THR);
+                                (info->umd_mch->queueTxSize() >= Q_THR);
                                 iq++) {
                         }
 		}
@@ -2502,7 +2502,7 @@ static inline int MIN(int a, int b) { return a < b? a: b; }
 
 void umd_mbox_goodput_latency_demo(struct worker *info)
 {
-        info->umd_mch = new MboxChannel(info->mp_num, 1<<info->umd_chan, info->mp_h);
+        info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 
         if (NULL == info->umd_mch) {
                 CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
@@ -2537,34 +2537,35 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 	for(int i = 0; i < info->umd_tx_buf_cnt; i++) {
 		void* b = calloc(1, PAGE_4K);
-		info->umd_mch->add_inb_buffer(info->umd_chan, b);
+		info->umd_mch->add_inb_buffer(b);
 	}
 
  	// Slave/Receiver
 	if(info->wr == 0) {
 		char msg_buf[4097] = {0};
-		info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
+		//info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
 		MboxChannel::MboxOptions_t opt_in; memset(&opt, 0, sizeof(opt_in));
 		opt.mbox   = info->umd_chan;
+		opt.destid = info->did;
 
         	while (!info->stop_req) {
 			bool q_was_full = false;
                 	info->umd_dma_abort_reason = 0;
 			uint64_t rx_ts = 0;
 
-			while (!info->stop_req && ! info->umd_mch->inb_message_ready(info->umd_chan, rx_ts)) { ; }
+			while (!info->stop_req && ! info->umd_mch->inb_message_ready(rx_ts)) { ; }
 			if (info->stop_req) break;
 
 			opt.ts_end = rx_ts; 
 
 			bool rx_buf = false;
 			void* buf = NULL;
-			while ((buf = info->umd_mch->get_inb_message(info->umd_chan, opt_in)) != NULL) {
+			while ((buf = info->umd_mch->get_inb_message(opt_in)) != NULL) {
 			      rx_ok++; rx_buf = true;
 			      memcpy(msg_buf, buf, MIN(PAGE_4K, opt_in.bcount));
-			      info->umd_mch->add_inb_buffer(info->umd_chan, buf); // recycle
+			      info->umd_mch->add_inb_buffer(buf); // recycle
 			      DBG("\n\tGot a message of size %d [%s] from destid %u mbox %u cnt=%llu\n", opt_in.bcount, buf, opt_in.destid, opt_in.mbox, rx_ok);
 			}
 			if (! rx_buf) {
@@ -2577,8 +2578,6 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 			// Echo message back
 
-			opt.destid = opt_in.destid;
-			opt.mbox   = opt_in.mbox;
 		      	if (! info->umd_mch->send_message(opt, msg_buf, opt_in.bcount, q_was_full)) {
 				if (! q_was_full) {
 					ERR("\n\tsend_message FAILED!\n");
@@ -2588,17 +2587,17 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 			if (info->stop_req) break;
 
-			if (q_was_full) ERR("\n\tQueue full for MBOX%d! rx_ok=%llu\n", info->umd_chan, rx_ok);
+			if (q_was_full) INFO("\n\tQueue full for MBOX%d! rx_ok=%llu\n", info->umd_chan, rx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
                                 (iq < 1000000000) &&
-                                (info->umd_mch->queueTxSize(info->umd_chan) >= Q_THR);
+                                (info->umd_mch->queueTxSize() >= Q_THR);
                                 iq++) {
                         }
 
 			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
-			while (!q_was_full && !info->stop_req && info->umd_mch->scanFIFO(info->umd_chan, wi, info->umd_sts_entries*8) == 0) { ; }
+			while (!q_was_full && !info->stop_req && info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
 		} // END infinite loop
 
 
@@ -2631,29 +2630,29 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 		      	} else { tx_ok++; }
 			if (info->stop_req) break;
 
-			if (q_was_full) ERR("\n\tQueue full for MBOX%d! tx_ok=%llu\n", info->umd_chan, tx_ok);
+			if (q_was_full) INFO("\n\tQueue full for MBOX%d! tx_ok=%llu\n", info->umd_chan, tx_ok);
 
                         // Busy-wait for queue to drain
                         for (uint64_t iq = 0; !info->stop_req && q_was_full &&
                                 (iq < 1000000000) &&
-                                (info->umd_mch->queueTxSize(info->umd_chan) >= Q_THR);
+                                (info->umd_mch->queueTxSize() >= Q_THR);
                                 iq++) {
                         }
 
 			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
-			while (!q_was_full && !info->stop_req && info->umd_mch->scanFIFO(info->umd_chan, wi, info->umd_sts_entries*8) == 0) { ; }
+			while (!q_was_full && !info->stop_req && info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
 
 			// Wait from echo from Slave
 			uint64_t rx_ts = 0;
-			while (!info->stop_req && ! info->umd_mch->inb_message_ready(info->umd_chan, rx_ts)) { ; }
+			while (!info->stop_req && ! info->umd_mch->inb_message_ready(rx_ts)) { ; }
                         if (info->stop_req) break;
 
                         bool rx_buf = false;
                         void* buf = NULL;
-                        while ((buf = info->umd_mch->get_inb_message(info->umd_chan, opt)) != NULL) {
+                        while ((buf = info->umd_mch->get_inb_message(opt)) != NULL) {
                               rx_ok++; rx_buf = true;
                               DBG("\n\tGot a message of size %d [%s] cnt=%llu\n", opt.bcount, buf, tx_ok);
-                              info->umd_mch->add_inb_buffer(info->umd_chan, buf); // recycle
+                              info->umd_mch->add_inb_buffer(buf); // recycle
                         }
                         if (! rx_buf) {
                                 ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);

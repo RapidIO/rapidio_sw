@@ -16,7 +16,7 @@
  * performance evaluation
  * capabilities.  To simplify and automate performance evaluation, 
  * it is possible to generate scripts which can then be executed by 
- * the goodput CLI.  For more information on script eneration,
+ * the goodput CLI.  For more information on script generation,
  * refer to \ref script_gen_detail_secn.
  * For more information on script execution,
  * refer to \ref script_exec_detail_secn.
@@ -27,10 +27,12 @@
  * mode applications.  Ugoodput
  * has all the commands and functionality of goodput, and includes 
  * commands and functionality to support the Tsi721 user mode driver.
- * Currently the Tsi721 user mode drive can only be compiled on x86/x64
+ *
+ * Currently the Tsi721 user mode driver can only be compiled on x86/x64
  * platforms, and is still under development.
  *
  * The goodput and ugoodput tools must be run as root.
+ *
  * To execute goodput, type "sudo ./goodput" while in the
  * "rapidio_sw/utils/goodput" directory.
  *
@@ -116,7 +118,7 @@
  * \subsection wait_secn Wait Command
  * Wait until a thread has reached a particular state (dead, running, halted).
  * Useful in scripts to ensure a command has started running successfully, and
- * that threads have halted/died before issueing another command.
+ * that threads have halted/died before issuing another command.
  *
  * \subsection stat_secn Status Command
  * The status command gives the current state of all threads.  Status has 
@@ -235,8 +237,40 @@
  * in the scripts/performance directory, and are named according to the
  * directory and function of scripts that will be executed.
  *
- * All top level scripts can themselves be executed by the 
- * scripts/run_all_perf script.
+ * The list of top level scripts is:
+ *
+ * - msg_lat_rx: Messaging latency, requires 
+ *               scripts/performance/msg_lat/m_rx.txt to run on target
+ * - msg_thru_tx: Messaging throughput, requires
+ *               scripts/performance/msg_thru/m_rx.txt to run on target
+ * - dma_lat_read: Single thread DMA read latency, 
+ *                 requires inbound window allocation on target
+ * - dma_thru_read: Single thread DMA read throughput, 
+ *                 requires inbound window allocation on target
+ * - dma_thru_write: Single thread DMA write throughput
+ * - obwin_thru_write: Outbound window write throughput
+ * - obwin_thru_read: Outbound window read throughput, 
+ *                    requires inbound window allocation on target
+ * - obwin_lat_read: Outbound window read latency,
+ *                   requires inbound window allocation on target
+ * - pdma_thru_pd1_read : Multithreaded DMA read throughput, one DMA engine,
+ *                        requires inbound window allocation on target
+ * - pdma_thru_pd1_write: Multithreaded DMA write throughput, one DMA engine
+ * - pdma_thru_pdd_read : Multithreaded DMA read throughput,
+ *                        one DMA engine per thread,
+ *                        requires inbound window allocation on target
+ * - pdma_thru_pdd_write: Multithreaded DMA write throughput,
+ *                        one DMA engine per thread
+ * - pdma_thru_pdm_read : Multithreaded DMA read throughput,
+ *                        some threads share the same DMA engine,
+ *                        some threads have their own DMA engine,
+ *                        requires inbound window allocation on target
+ * - pdma_thru_pdm_write: Multithreaded DMA write throughput,
+ *                        some threads share the same DMA engine,
+ *                        some threads have their own DMA engine,
+ *
+ * All top level scripts, except msg_lat_rx and msg_thru_tx,
+ * are executed by the scripts/run_all_perf script.
  *
  * Note that some latency scripts (dma write latency,
  * Direct I/O write latency, and messaging latency) cannot be 
