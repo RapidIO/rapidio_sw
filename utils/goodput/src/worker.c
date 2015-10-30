@@ -1876,6 +1876,14 @@ void calibrate_sched_yield(struct worker *info)
 		ts_max.tv_sec, ts_max.tv_nsec);
 };
 
+/** \brief Lock other processes out of this UMD module/channel
+ * \note Due to POSIX locking semantics this has no effect on the current process
+ * \note Using the same channel twice in this process will NOT be prevented
+ * \parm[out] info info->umd_lock will be populated on success
+ * \param[in] module DMA or Mbox, ASCII string
+ * \param instance Channel number
+ * \return true if lock was acquited, false if somebody else is using it
+ */
 bool TakeLock(struct worker* info, const char* module, int instance)
 {
 	if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
