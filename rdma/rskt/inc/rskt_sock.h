@@ -165,6 +165,7 @@ protected:
 
 	int send(rskt_h socket, size_t size)
 	{
+		DBG("size = %u\n", size);
 		if (size > send_size) {
 			ERR("Data is too large (%u) for send buffer (%u)\n",
 					size, send_size);
