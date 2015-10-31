@@ -1241,19 +1241,111 @@ void dma_free_ibwin(struct worker *info)
 	info->ib_handle = 0;
 };
 
-#define STAT_FMT "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %lu %lu"
-#define PROC_STAT_FMT "%*s %lu %lu %lu %lu %lu %lu %lu"
 #define PROC_STAT_PFMT "\nTot CPU Jiffies %lu %lu %lu %lu %lu %lu %lu\n"
+
+#define CPUOCC_BUFF_SIZE 1024
+
+void cpu_occ_parse_proc_line(char *file_line, 
+				uint64_t *proc_new_utime,
+				uint64_t *proc_new_stime)
+{
+	char *tok;
+	char *delim = (char *)" ";
+	int tok_cnt = 0;
+	char fl_cpy[CPUOCC_BUFF_SIZE];
+	
+	strncpy(fl_cpy, file_line, CPUOCC_BUFF_SIZE-1);
+	tok = strtok(file_line, delim);
+	while ((NULL != tok) && (tok_cnt < 12)) {
+		tok = strtok(NULL, delim);
+		tok_cnt++;
+	};
+
+	if (NULL == tok)
+		goto error;
+	
+	*proc_new_utime = atoll(tok);
+
+	tok = strtok(NULL, delim);
+	if (NULL == tok)
+		goto error;
+
+	*proc_new_stime = atoll(tok);
+	return;
+error:
+	ERR("\nFAILED: proc_line \"%s\"\n", fl_cpy);
+};
+
+void cpu_occ_parse_stat_line(char *file_line,
+			uint64_t *p_user,
+			uint64_t *p_nice,
+			uint64_t *p_system,
+			uint64_t *p_idle,
+			uint64_t *p_iowait,
+			uint64_t *p_irq,
+			uint64_t *p_softirq)
+{
+	char *tok;
+	char *delim = (char *)" ";
+	char fl_cpy[CPUOCC_BUFF_SIZE];
+	
+	strncpy(fl_cpy, file_line, CPUOCC_BUFF_SIZE-1);
+	
+	/* Throw the first token away. */
+	tok = strtok(file_line, delim);
+
+	if (NULL == tok)
+		goto error;
+	
+	tok = strtok(NULL, delim);
+	if (NULL == tok)
+		goto error;
+	*p_user = atoll(tok);
+
+	tok = strtok(NULL, delim);
+	if (NULL == tok)
+		goto error;
+	*p_nice = atoll(tok);
+
+	tok = strtok(NULL, delim);
+	if (NULL == tok)
+		goto error;
+	*p_system = atoll(tok);
+
+	tok = strtok(NULL, delim);
+	if (NULL == tok)
+		goto error;
+	*p_idle = atoll(tok);
+
+	tok = strtok(NULL, delim);
+	if (NULL == tok)
+		goto error;
+	*p_iowait = atoll(tok);
+
+	tok = strtok(NULL, delim);
+	if (NULL == tok)
+		goto error;
+	*p_irq = atoll(tok);
+
+	tok = strtok(NULL, delim);
+	if (NULL == tok)
+		goto error;
+	*p_softirq = atoll(tok);
+	
+	return;
+error:
+	ERR("\nFAILED: stat_line \"%s\"\n", fl_cpy);
+};
 
 void cpu_occ_poll(struct worker *info)
 {
 	pid_t my_pid = getpid();
 	FILE *stat_fp, *cpu_stat_fp;
 	char filename[256];
-	char file_line[1024];
-	int elements;
-        uint64_t proc_new_stime, proc_new_utime;
-	uint64_t p_user, p_nice, p_system, p_idle, p_iowait, p_irq, p_softirq;
+	char file_line[CPUOCC_BUFF_SIZE];
+        uint64_t proc_new_stime = 5, proc_new_utime= 10;
+	uint64_t p_user = 1, p_nice = 1, p_system = 1, p_idle = 1;
+	uint64_t p_iowait = 1, p_irq = 1, p_softirq = 1;
 	int cpus = getCPUCount();
 
 	if (!cpus)
@@ -1276,26 +1368,17 @@ void cpu_occ_poll(struct worker *info)
 	};
 
 	while (!info->stop_req) {
-
+		memset(file_line, 0, 1024);
 		fgets(file_line, 1024,  stat_fp);
- 		fseek(stat_fp, 0 , SEEK_SET);
- 		elements = sscanf(file_line, STAT_FMT,
-			&proc_new_utime, &proc_new_stime);
-		if (2 != elements) {
-			ERR("FAILED: Elements !=2, got %d\n", elements);
-			goto exit;
-		};
 
+		cpu_occ_parse_proc_line(file_line, &proc_new_utime,
+					&proc_new_stime);
+
+		memset(file_line, 0, 1024);
 		fgets(file_line, 1024,  cpu_stat_fp);
- 		fseek(cpu_stat_fp, 0 , SEEK_SET);
 
- 		elements = sscanf(file_line, PROC_STAT_FMT, 
-			&p_user, &p_nice, &p_system, &p_idle,
-			&p_iowait, &p_irq, &p_softirq);
-		if (7 != elements) {
-			ERR("FAILED: Elements !=7, got %d\n", elements);
-			goto exit;
-		};
+		cpu_occ_parse_stat_line(file_line, &p_user, &p_nice, &p_system,
+			&p_idle, &p_iowait, &p_irq, &p_softirq);
 
 		info->old_proc_jiffies = info->new_proc_jiffies;
 		info->new_proc_jiffies = proc_new_utime + proc_new_stime;
