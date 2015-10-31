@@ -595,41 +595,29 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   opt.bd_idx = tx_slot;
   opt.bd_wp  = m_omsg_ring.wr_count;
 
-  pthread_spin_lock(&m_bltx_splock);
-  m_omsg_trk.bl_busy[tx_slot] = tx_slot + 1;
-  pthread_spin_unlock(&m_bltx_splock);
-
-  /* Go to next slot, if only 1 slot, wrap-around to 0 */
-  if ((m_omsg_ring.wr_count+1) % m_num_ob_desc == 0) {
-    queued_T5 = true;
-
-    DDBG("\n\t%s: tx_slot reset to 0 from %d\n", __FUNCTION__, m_omsg_ring.tx_slot);
-    CHECK_END_BD();
-    /* Move through the ring link descriptor at the end */
-    m_omsg_ring.wr_count++;
-
-    opt_end.bd_idx = tx_slot;
-    opt_end.bd_wp  = m_omsg_ring.wr_count;
-
-    m_omsg_ring.tx_slot = 0;
-
-    pthread_spin_lock(&m_bltx_splock);
-    m_omsg_trk.bl_busy[m_num_ob_desc-1]++;
-    pthread_spin_unlock(&m_bltx_splock);
-  }
-
-  /* For debugging, print the INT register as well as RD_COUNT & WR_COUNT */
-#ifdef MBOXDEBUG
-  int timeout = 100000;
-  uint32_t rd_count = rd32mboxchan(TSI721_OBDMAC_DRDCNT(m_mbox));
-  reg = rd32mboxchan(TSI721_OBDMAC_INT(m_mbox));
-  DDBG("\n\t%s: Before: OBDMAC_INT = %08X\n", __FUNCTION__, reg);
-  DDBG("\n\t%s: Before: rd_count = %08X, wr_count = %08X\n", __FUNCTION__, rd_count, m_omsg_ring.wr_count);
-#endif
+  WorkItem_t wi;     memset(&wi, 0, sizeof(wi));
+  WorkItem_t wi_end; memset(&wi, 0, sizeof(wi_end));
 
   pthread_spin_lock(&m_bltx_splock);
-    WorkItem_t wi;     memset(&wi, 0, sizeof(wi));
-    WorkItem_t wi_end; memset(&wi, 0, sizeof(wi_end));
+  {{
+    m_omsg_trk.bl_busy[tx_slot] = tx_slot + 1;
+
+    /* Go to next slot, if only 1 slot, wrap-around to 0 */
+    if ((m_omsg_ring.wr_count+1) % m_num_ob_desc == 0) {
+      queued_T5 = true;
+
+      DDBG("\n\t%s: tx_slot reset to 0 from %d\n", __FUNCTION__, m_omsg_ring.tx_slot);
+      CHECK_END_BD();
+      /* Move through the ring link descriptor at the end */
+      m_omsg_ring.wr_count++;
+
+      opt_end.bd_idx = tx_slot;
+      opt_end.bd_wp  = m_omsg_ring.wr_count;
+
+      m_omsg_ring.tx_slot = 0;
+
+      m_omsg_trk.bl_busy[m_num_ob_desc-1]++;
+    }
 
     opt.ts_start = rdtsc();
     /* Set new write count value */
@@ -647,6 +635,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
       m_omsg_trk.bltx_busy[m_num_ob_desc-1] = wi_end;
       m_omsg_trk.bltx_busy_size++;
     }
+  }}
   pthread_spin_unlock(&m_bltx_splock);
 
   //(void)rd32mboxchan(TSI721_OBDMAC_DWRCNT(m_mbox));

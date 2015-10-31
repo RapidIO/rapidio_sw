@@ -71,6 +71,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef USER_MODE_DRIVER
 #include "dmachan.h"
 #include "hash.cc"
+#include "lockfile.h"
 #endif
 
 #ifdef __cplusplus
@@ -1973,8 +1974,34 @@ void calibrate_sched_yield(struct worker *info)
 		ts_max.tv_sec, ts_max.tv_nsec);
 };
 
+/** \brief Lock other processes out of this UMD module/channel
+ * \note Due to POSIX locking semantics this has no effect on the current process
+ * \note Using the same channel twice in this process will NOT be prevented
+ * \parm[out] info info->umd_lock will be populated on success
+ * \param[in] module DMA or Mbox, ASCII string
+ * \param instance Channel number
+ * \return true if lock was acquited, false if somebody else is using it
+ */
+bool TakeLock(struct worker* info, const char* module, int instance)
+{
+	if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
+
+	char lock_name[81] = {0};
+	snprintf(lock_name, 80, "/var/lock/UMD-%s-%d..LCK", module, instance);
+	try {
+		info->umd_lock = new LockFile(lock_name);
+	} catch(std::runtime_error ex) {
+		CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
+		return false;
+	}
+	// NOT catching std::logic_error
+	return true;
+}
+
 void umd_dma_calibrate(struct worker *info)
 {
+	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+
 	info->umd_dch =
 		new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
 								
@@ -2010,6 +2037,7 @@ void umd_dma_calibrate(struct worker *info)
 exit:
         info->umd_dch->cleanup();
         delete info->umd_dch;
+	delete info->umd_lock; info->umd_lock = NULL;
 fail:
 	info->umd_dch = NULL;
 };
@@ -2043,6 +2071,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	uint64_t cnt;
 
 	if (! umd_check_cpu_allocation(info)) return;
+	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
 	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
@@ -2192,9 +2221,9 @@ exit:
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 
                 info->umd_dch->free_dmamem(info->dmamem[0]);
-        delete info->umd_dch;
 
-	info->umd_dch = NULL;
+        delete info->umd_dch; info->umd_dch = NULL;
+	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 static inline bool queueDmaOp(struct worker* info, const int oi, const int cnt, bool& q_was_full)
@@ -2340,6 +2369,8 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	int oi = 0;
 	uint64_t cnt;
 
+	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+
 	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
 								
 	if (NULL == info->umd_dch) {
@@ -2441,9 +2472,9 @@ exit:
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 
                 info->umd_dch->free_dmamem(info->dmamem[0]);
-        delete info->umd_dch;
 
-	info->umd_dch = NULL;
+        delete info->umd_dch; info->umd_dch = NULL;
+	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 void umd_mbox_goodput_demo(struct worker *info)
@@ -2451,6 +2482,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 	int rc = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
+	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 
@@ -2591,15 +2623,16 @@ exit:
         pthread_join(info->umd_fifo_thr.thr, NULL);
 
 exit_rx:
-        delete info->umd_mch;
-
-        info->umd_mch = NULL;
+        delete info->umd_mch; info->umd_mch = NULL;
+	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 static inline int MIN(int a, int b) { return a < b? a: b; }
 
 void umd_mbox_goodput_latency_demo(struct worker *info)
 {
+	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 
         if (NULL == info->umd_mch) {
@@ -2765,9 +2798,8 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 exit:
 exit_rx:
-        delete info->umd_mch;
-
-        info->umd_mch = NULL;
+        delete info->umd_mch; info->umd_mch = NULL;
+	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 

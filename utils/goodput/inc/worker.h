@@ -82,6 +82,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "psem.h"
 #include "pshm.h"
 #include "rdtsc.h"
+#include "lockfile.h"
 #endif
 
 #ifdef __cplusplus
@@ -222,6 +223,7 @@ struct worker {
 	uint64_t new_proc_jiffies;
 	float    cpu_occ_pct;
 #ifdef USER_MODE_DRIVER
+	LockFile*	umd_lock;
 	int		umd_chan; ///< Local mailbox
 	int		umd_chan_to; ///< Remote mailbox
 	DMAChannel 	*umd_dch;

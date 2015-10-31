@@ -636,7 +636,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		sem_post(&rdma_lock);
 		return RDMA_DB_ADD_FAIL;
 	}
-
+	DBG("EXIT\n");
 	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_open_mso_h() */
@@ -764,7 +764,7 @@ int rdma_close_mso_h(mso_h msoh)
 		return RDMA_DB_REM_FAIL;
 	}
 	INFO("msoh(0x%lX) removed from local database\n", msoh);
-
+	DBG("EXIT\n");
 	sem_post(&rdma_lock);
 	return out.status;
 } /* rdma_close_mso_h() */
@@ -1049,7 +1049,7 @@ int rdma_open_ms_h(const char *ms_name,
 	open_ms_output 	out;
 	int		ret;
 
-	DBG("ENTER\n");
+	DBG("ENTER, ms_name = %s\n", ms_name);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -1096,7 +1096,7 @@ int rdma_open_ms_h(const char *ms_name,
 		CRIT("Failed to create message queue: %s\n", e.msg.c_str());
 		return -6;
 	}
-	INFO("Created message queue '%s'\n", qname.str().c_str());
+	INFO("Created close_mq: '%s'\n", qname.str().c_str());
 
 	/* Create thread for handling ms close requests (destory notifications) */
 	pthread_t  ms_close_thread;
@@ -1177,7 +1177,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		WARN("disc_thread is NULL.\n");
 	} else {
 
-		HIGH("Killing the disconnection thread!!\n");
+		HIGH("Killing the wait-for=disconnection thread!!\n");
 		if (pthread_cancel(disc_thread)) {
 			WARN("Failed to cancel disc_thread for msh(0x%X):%s\n",
 						msh, strerror(errno));
@@ -1192,6 +1192,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	if (!close_thread) {
 		WARN("close_thread is NULL!!\n");
 	} else {
+		HIGH("Killing the wait-for-close thread\n");
 		if (pthread_cancel(close_thread)) {
 			WARN("phread_cancel(close_thread): %s\n",
 							strerror(errno));
@@ -1210,7 +1211,11 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	 * calling close_ms_1() ensures it can be unlinked there withour error
 	 */
 	msg_q<mq_close_ms_msg> *close_mq = loc_ms_get_destroy_notify_mq(msh);
-	delete close_mq;
+	if (close_mq == nullptr) {
+		WARN("close_mq is NULL\n");
+	} else {
+		delete close_mq;
+	}
 
 	/* Set up input parameters */
 	in.msid    	= ((struct loc_ms *)msh)->msid;
@@ -1236,7 +1241,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		return RDMA_DB_REM_FAIL;
 	}
 	INFO("msh(0x%lX) removed from local database\n", msh);
-
+	DBG("EXIT - success");
 	return 0;
 } /* rdma_close_ms_h() */
 
@@ -1424,7 +1429,8 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 
 	/* Check for NULL handles */
 	if (!msh || !msubh) {
-		ERR("Invalid param(s): msh=0x%lX, msubh=0x%lX\n", msh, msubh);
+		ERR("Invalid param(s):msh=0x%" PRIx64 ",msubh=0x%" PRIx64 "\n",
+								msh, msubh);
 		return RDMA_NULL_PARAM;
 	}
 
@@ -1452,6 +1458,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 		return RDMA_DB_REM_FAIL;
 	}
 
+	DBG("EXIT - no errors\n");
 	return 0;
 } /* rdma_destroy_msub() */
 
@@ -1540,7 +1547,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	undo_accept_output	undo_accept_out;
 	int			ret;
 
-	DBG("ENTER\n");
+	DBG("ENTER with timeout = %u\n", (unsigned)timeout_secs);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -1581,7 +1588,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	string mq_name(ms->name);
 	mq_name.insert(0, 1, '/');
 
-	DBG("mq_name = %s\n", mq_name.c_str());
+	DBG("'connect' mq_name = %s\n", mq_name.c_str());
 
 	/* Must create the queue before calling the daemon since the
 	 * connect request from the remote daemon might come quickly
@@ -1644,7 +1651,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			return RDMA_ACCEPT_FAIL;
 		}
 	}
-	INFO("Connect message received!\n");
+	INFO("*** Connect message received! ***\n");
 	DBG("conn_msg->seq_num = 0x%X\n", conn_msg->seq_num);
 
 	if (

@@ -910,8 +910,10 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 	skt->hdr->loc_rx_rd_ptr = htonl(skt->buf_sz - 1);
 	skt->hdr->loc_rx_rd_flags = htonl(RSKT_BUF_HDR_FLAG_INIT);
 
-	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
-		skt->hdr->loc_tx_wr_ptr, skt->hdr->loc_rx_rd_ptr);
+	DBG("skt->buf_sz=0x%X, loc_tx_wr_ptr=0x%X, loc_rx_rd_ptr=0x%X\n",
+						skt->buf_sz,
+						ntohl(skt->hdr->loc_tx_wr_ptr),
+						ntohl(skt->hdr->loc_rx_rd_ptr));
 	hdr_in.loc_msubh = skt->msubh;
 	hdr_in.rem_msubh = skt->con_msubh;
 	hdr_in.priority = 0;
@@ -1257,18 +1259,20 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	struct rskt_socket_t *skt = skt_h->skt;
 
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
-		skt->hdr->loc_tx_wr_ptr, skt->hdr->loc_rx_rd_ptr)
+		ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
 	dma_rd_offset = ntohl(skt->hdr->loc_tx_wr_ptr) + RSKT_TOT_HDR_SIZE;
 	dma_wr_offset = dma_rd_offset + skt->buf_sz;
-	DBG("dma_rd_offset = %u, dma_wr_offset = %u, byte_cnt = %u\n",
+	DBG("dma_rd_offset = 0x%X, dma_wr_offset = 0x%X, byte_cnt = %u\n",
 				dma_rd_offset, dma_wr_offset, byte_cnt);
 	memcpy((void *)(skt->tx_buf + ntohl(skt->hdr->loc_tx_wr_ptr)),
 		data, byte_cnt);
 	INC_PTR(skt->hdr->loc_tx_wr_ptr, byte_cnt, skt->buf_sz);
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
-		skt->hdr->loc_tx_wr_ptr, skt->hdr->loc_rx_rd_ptr);
+		ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
 	if (!inited) {
-		DBG("!inited\n");
+		DBG("!inited, assigning hdr values from skt\n");
+		DBG("hdr_in->loc_msubh = %016" PRIx64 "\n", hdr_in->loc_msubh);
+		DBG("hdr_in->rem_msubh = %016" PRIx64 "\n", hdr_in->rem_msubh);
 		hdr_in->loc_msubh = skt->msubh;
 		hdr_in->rem_msubh = skt->con_msubh;
 		hdr_in->priority = 0;
@@ -1288,7 +1292,6 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	};
 	skt->stats.tx_bytes += byte_cnt;
 	skt->stats.tx_trans++;
-	DBG("tx_bytes = %u\n", skt->stats.tx_bytes);
 	DBG("EXIT, no errors\n");
 	return 0;
 }; /* send_bytes */
@@ -1327,6 +1330,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	struct rskt_socket_t *skt;
 	uint32_t ltw, rtr; /* Debugging only */
 
+	DBG("ENTER\n");
 	errno = EINVAL;
 	if ((NULL == skt_h) || (NULL == data) || (1 > byte_cnt)) {
 		ERR("Null parameter of byte_cnt < 1\n");
@@ -1347,7 +1351,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	/* For debugging only */
 	ltw = ntohl(skt->hdr->loc_tx_wr_ptr);
 	rtr = ntohl(skt->hdr->rem_tx_rd_ptr);
-	DBG("loc_tx_wr_ptr = 0x%X, rem_tx_rd_ptr 0x%X\n", ltw, rtr);
+	DBG("loc_tx_wr_ptr=0x%X, rem_tx_rd_ptr=0x%X\n", ltw, rtr);
 	if (rskt_connected != skt->st) {
 		ERR("skt->st is NOT skt_connected\n");
 		goto skt_ok;
@@ -1355,14 +1359,14 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 
 	errno = 0;
 	free_bytes = get_free_bytes(skt->hdr, skt->buf_sz);
-	DBG("byte_cnt = %d, free_bytes = %d\n", byte_cnt, free_bytes);
+	DBG("byte_cnt=0x%X, free_bytes=%x%X\n", byte_cnt, free_bytes);
 	while ((free_bytes < byte_cnt) && time_remains) {
 		nanosleep(&rw_dly, &unused);
 	 	free_bytes = get_free_bytes(skt->hdr, 
 						skt->buf_sz);
 		time_remains--;
 	};
-	DBG("byte_cnt = %d, free_bytes = %d\n", byte_cnt, free_bytes);
+	DBG("byte_cnt=0x%X, free_bytes=%x%X\n", byte_cnt, free_bytes);
 
 	if (!time_remains) {
 		ERR("Send timeout\n");
@@ -1372,8 +1376,8 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 
 	if ((byte_cnt + ntohl(skt->hdr->loc_tx_wr_ptr)) 
 						<= skt->buf_sz) {
-		DBG("byte_cnt = %d, loc_tx_wr_ptr = %d, skt->buf_sz = %d\n",
-			byte_cnt, skt->hdr->loc_tx_wr_ptr, skt->buf_sz);
+		DBG("byte_cnt=0x%X (%d), loc_tx_wr_ptr = 0x%X, skt->buf_sz = 0x%X\n",
+			byte_cnt, byte_cnt, skt->hdr->loc_tx_wr_ptr, skt->buf_sz);
 		rc = send_bytes(skt_h, data, byte_cnt, &hdr_in, 0);
 		if (rc) {
 			ERR("send_bytes failed\n");
@@ -1462,6 +1466,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	uint32_t first_offset;
 	struct rskt_socket_t *skt;
 
+	DBG("ENTER\n");
 	if (lib_uninit()) {
 		ERR("lib_uninit() failed\n");
 		goto fail;
@@ -1488,6 +1493,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	errno = 0;
 	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
 
+	DBG("avail_bytes = %d\n", avail_bytes);
 	while (!avail_bytes && time_remains && !errno) {
 		nanosleep(&rw_dly, &unused);
 	 	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
@@ -1495,6 +1501,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	};
 
 	if (!time_remains) {
+		ERR("Timed out!\n");
 		errno = ETIMEDOUT;
 		goto skt_ok;
 	};

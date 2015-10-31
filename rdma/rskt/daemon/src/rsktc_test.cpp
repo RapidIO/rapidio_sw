@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
 
 		/* Create a client and connect to server */
 		try {
-			client = new rskt_client("client1", data_length, data_length);
+			client = new rskt_client("client1", RSKT_MAX_SEND_BUF_SIZE, RSKT_MAX_RECV_BUF_SIZE);
 		}
 		catch(rskt_exception& e) {
 			ERR("Failed to create client: %s\n", e.err);
@@ -175,16 +175,20 @@ int main(int argc, char *argv[])
 			delete client;
 			return 3;
 		}
-		DBG("Test data sent to server\n");
+		printf("%d byte of test data sent to server\n", data_length);
 
 		/* Receive data back from server */
-		if (client->receive(data_length) < 0) {
+		rc = client->receive(data_length);
+		if (rc < 0) {
 			ERR("Failed to receive message\n");
 			delete client;
 			return 4;
 		}
-		DBG("Echoed data received from server\n");
-
+		printf("Received %d bytes back from server\n", rc);
+		if (rc != data_length) {
+			printf("Expecting %d bytes but received %d bytes\n",
+							data_length, rc);
+		}
 		if (memcmp(in_msg, out_msg, data_length)) {
 			ERR("Data did not compare. FAILED.\n");
 		} else {
@@ -203,7 +207,7 @@ int main(int argc, char *argv[])
 		puts("Deleting client object (closing sockets)");
 		delete client;
 
-		sleep(1);
+	//	sleep(1);
 	} /* for() */
 
 	puts("Press ENTER to quit");
