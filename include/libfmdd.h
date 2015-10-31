@@ -178,7 +178,7 @@ int fmdd_free_did_list(fmdd_h h, uint32_t **did_list);
 /**
  * @brief If the application includes libcli, bind available fmdd commands
  *
- * @param[in] h fmdd_h returned by fmdd_get_handle
+ * @param[in] fmdd_h returned by fmdd_get_handle
  */
 void fmdd_bind_dbg_cmds(void *fmdd_h);
 

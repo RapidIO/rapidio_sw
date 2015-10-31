@@ -61,7 +61,7 @@ int rdma_lib_init(void);
 /**
  * Set fabric management handle
  *
- * @param dd_h
+ * @param[in] dd_h Sets the FMD handle for use by all code in this process.
  */
 void rdma_set_fmd_handle(fmdd_h dd_h);
 
@@ -72,8 +72,9 @@ void rdma_set_fmd_handle(fmdd_h dd_h);
  *
  * Create a memory space owner and return a handle thereto
  *
- * @owner_name: [IN] Name of the memory space owner
- * @msoh: [OUT] Unique handle which is used to group ownership of memory spaces
+ * @param[in] owner_name Name of the memory space owner
+ * @param[out] msoh      Unique handle which is used to group ownership
+ *                       of memory spaces
  *
  * @return 0 if successful
  */
@@ -84,8 +85,9 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh);
  *
  * Open an existing memory space owner and return a handle thereto
  *
- * @owner_name: [IN] Name of the memory space owner
- * @msoh: [OUT] Unique handle which is used to group ownership of memory spaces
+ * @param[in]  owner_name: Name of the memory space owner
+ * @param[out] msoh      : Unique handle which is used to group
+ *                         ownership of memory spaces
  *
  * @return 0 if successful, < 0 if unsuccessful
  */
@@ -96,7 +98,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh);
  *
  * Close previously-opened memory space owner
  *
- * @msoh: [IN] Memory space owner handle
+ * @param[in] msoh: Memory space owner handle
  *
  * @return 0 if successful
  */
@@ -107,7 +109,7 @@ int rdma_close_mso_h(mso_h msoh);
  *
  * Destroys the memory space owner
  *
- * @msoh: [IN] Memory space owner handle
+ * @param[in] msoh: Memory space owner handle
  *
  * @return 0 if successful
  */
@@ -119,12 +121,12 @@ int rdma_destroy_mso_h(mso_h msoh);
  * Creates a memory space representing a memory space of specified size
  * owned by specified owner.
  *
- * @ms_name [IN] Memory space name
- * @msoh: [IN] Memory space owner handle
- * @req_bytes: [IN] Length, in bytes, of desired memory space
- * @flags: [IN] Flags. TBD.
- * @msh: [OUT] Unique handle used to identify the created memory space
- * @bytes: [OUT] Actual number of bytes allocated for memory space
+ * @param[in] ms_name Memory space name
+ * @param[in] msoh: Memory space owner handle
+ * @param[in] req_bytes: Length, in bytes, of desired memory space
+ * @param[in] flags: Flags. TBD.
+ * @param[in] msh: Unique handle used to identify the created memory space
+ * @param[in] bytes: Actual number of bytes allocated for memory space
  *
  * @return 0 if successful
  */
@@ -140,11 +142,11 @@ int rdma_create_ms_h(const char *ms_name,
  *
  * Opens an existing memory space owned by specified owner
  *
- * @ms_name [IN] Memory space name
- * @msoh: [IN] Memory space owner handle
- * @flags: [IN] Flags. TBD.
- * @bytes: [OUT] Length, in bytes, of memory space to be opened
- * @msh: [OUT] Unique handle used to identify the created memory space
+ * @param[in] ms_name Memory space name
+ * @param[in] msoh: Memory space owner handle
+ * @param[in] flags: Flags. TBD.
+ * @param[in] bytes: [OUT] Length, in bytes, of memory space to be opened
+ * @param[in] msh: [OUT] Unique handle used to identify the created memory space
  *
  * @return 0 if successful
  */
@@ -159,8 +161,8 @@ int rdma_open_ms_h(const char *ms_name,
  *
  * Close an open memory space
  *
- * @msoh: [IN] Memory space owner handle
- * @msh: [IN] Memory space handle
+ * @param[in] msoh: Memory space owner handle
+ * @param[in] msh: Memory space handle
  *
  * @return  0 if successful
 */
@@ -172,8 +174,8 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh);
  * Requests that the memory space owned by “mso” and identified by “msh”
  * be returned to the RDMA memory pool.
  *
- * @msoh: [IN] Memory space owner handle
- * @msh: [IN] Memory space handle
+ * @param[in] msoh: Memory space owner handle
+ * @param[in] msh: Memory space handle
  *
  * @return  0 if successful
 */
@@ -186,11 +188,11 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh);
  * space. Then maps the address to a virtual address and returns a pointer to 
  * that space.
  *
- * @msh:    [IN] Handle for memory space in which sub-space is to be created
- * @offset  [IN] Offset from start of memory space
- * @req_bytes: [IN] Length, in bytes, of desired memory sub-space
- * @flags: [IN] Flags.
- * @msubh: [OUT] Unique handle used to identify the created memory sub-space
+ * @param[in] msh:    Handle for memory space in which sub-space is to be created
+ * @param[in] offset  Offset from start of memory space
+ * @param[in] req_bytes: Length, in bytes, of desired memory sub-space
+ * @param[in] flags: Flags.
+ * @param[in] msubh: [OUT] Unique handle used to identify the created memory sub-space
  *
  * @return 0 if successful
  */
@@ -208,8 +210,8 @@ int rdma_create_msub_h(ms_h msh,
  * The space is returned to the memory space containing the sub-space.
  * The virtual space corresponding to the sub-space is unmapped.
  *
- * @msh: [IN] Handle for memory space 
- * @msubh: [IN] Handle representing the memory sub-space to be destroyed
+ * @param[in] msh: Handle for memory space 
+ * @param[in] msubh: Handle representing the memory sub-space to be destroyed
  *
  * @return 0 if successful
  */
@@ -221,8 +223,8 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh);
  * Memory maps the physical space of a memory sub-space into
  * virtual space and provides a pointer thereto.
  *
- * @msubh: [IN] Memory sub-space handle
- * @vaddr: [OUT] Pointer for holding virtual address
+ * @param[in] msubh: Memory sub-space handle
+ * @param[in] vaddr: [OUT] Pointer for holding virtual address
  *
  * @return 0 if successful
  */
@@ -231,8 +233,8 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr);
 /**
  * Memory un-map a memory sub-handle's virtual address
  *
- * @msubh: [IN] Memory sub-space handle
- * @vaddr: [IN] Pointer to virtual address mapping memory subspace
+ * @param[in] msubh: Memory sub-space handle
+ * @param[in] vaddr: Pointer to virtual address mapping memory subspace
  *
  * @return 0 if successful
  */
@@ -241,11 +243,11 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr);
 /**
  * Accept a connection to memory space
  *
- * @msh: [IN] Handle for memory space 
- * @loc_msubh: [OUT] Handle to created local memory subspace in database
- * @rem_msubh: [OUT] Handle to received remote memory subspace in database
- * @rem_msub_len: [OUT] Length in bytes of remote memory subspace
- * @timeout_msecs: [IN] timeout in seconds after which function returns
+ * @param[in] msh: Handle for memory space 
+ * @param[in] loc_msubh: [OUT] Handle to created local memory subspace in database
+ * @param[in] rem_msubh: [OUT] Handle to received remote memory subspace in database
+ * @param[in] rem_msub_len: [OUT] Length in bytes of remote memory subspace
+ * @param[in] timeout_secs: timeout in seconds after which function returns
  * regardless of success
  *
  * @return 0 if successful
@@ -265,13 +267,14 @@ int rdma_accept_ms_h(ms_h msh,
  * Receives remote msubh information including length & rio_addr, 
  * also via a CM, as well as the remote memory space handle.
  *
- * @destid_len [IN] Size of destination ID of node hosting the memory space 
- * @destid [IN]	Destination ID of node hosting the memory space msh
- * @rem_msname [IN] remote memory space name
- * @loc_msubh [IN] Handle to created local memory subspace
- * @rem_msubh [OUT] Handle to remote memory subspace provided by server
- * @rem_msub_len [OUT] Remote memory subspace length in bytes
- * @rem_msh [OUT] Handle to remote memory space provided by server
+ * @param[in] destid_len Size of destination ID of node hosting the memory space 
+ * @param[in] destid	Destination ID of node hosting the memory space msh
+ * @param[in] rem_msname remote memory space name
+ * @param[in] loc_msubh Handle to created local memory subspace
+ * @param[out] rem_msubh [OUT] Handle to remote memory subspace provided by server
+ * @param[out] rem_msub_len [OUT] Remote memory subspace length in bytes
+ * @param[out] rem_msh [OUT] Handle to remote memory space provided by server
+ * @param[in] timeout_secs timeout in seconds, after which connection has failed
  *
  * @return 0 if successful
  */
@@ -293,8 +296,8 @@ int rdma_conn_ms_h(uint8_t destid_len,
  * belonging to rem_msh, and further transactions to those sub-spaces
  * will fail.
  *
- * @rem_msh	Remote memory space to disconnect from
- * @loc_msubh	Local memory subspace provided to remote server. 0 if none.
+ * @param[in] rem_msh	Remote memory space to disconnect from
+ * @param[in] loc_msubh	Local memory subspace provided to remote server. 0 if none.
  *
  * @return 0 if successful
  */
@@ -331,8 +334,8 @@ struct rdma_xfer_ms_out {
  *
  * Transfer data from local msub to remote msub in accordance with in_params
  *
- * @in	Transfer parameters
- * @out	Transfer result
+ * @param[in] in	Transfer parameters
+ * @param[in] out	Transfer result
  *
  * @return 0 if successful
  */
@@ -343,8 +346,8 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in, struct rdma_xfer_ms_out *ou
  *
  * Transfer data from remote msub to local msub in accordance with in_params
  *
- * @in	Transfer parameters
- * @out	Transfer result
+ * @param[in] in_parms	Transfer parameters
+ * @param[out] out	Transfer result
  *
  * @return 0 if successful
  */
@@ -355,13 +358,13 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in_parms, struct rdma_xfer_ms_o
  *
  * Transfer data from local buffer to remote msub
  *
- * @buf		Local buffer containing outgoing data
- * @num_bytes	Number of bytes to transfer
- * @rem_msubh	Remote subspace handle
- * @rem_offset	Offset within remote subspace
- * @priority	Rapid I/O priority
- * @sync_type	Sync type
- * @out		Transfer result
+ * @param[in] buf		Local buffer containing outgoing data
+ * @param[in] num_bytes	Number of bytes to transfer
+ * @param[in] rem_msubh	Remote subspace handle
+ * @param[in] rem_offset	Offset within remote subspace
+ * @param[in] priority	Rapid I/O priority
+ * @param[in] sync_type	Sync type
+ * @param[out] out		Transfer result
  *
  * @return 0 if successful
  */
@@ -374,13 +377,13 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
  *
  * Transfer data from remote msub to local buffer
  *
- * @buf		Local buffer for storing incoming data
- * @num_bytes	Number of bytes to transfer
- * @rem_msubh	Remote subspace handle
- * @rem_offset	Offset within remote subspace
- * @priority	Rapid I/O priority
- * @sync_type	Sync type
- * @out		Transfer result
+ * @param[in] buf		Local buffer for storing incoming data
+ * @param[in] num_bytes	Number of bytes to transfer
+ * @param[in] rem_msubh	Remote subspace handle
+ * @param[in] rem_offset	Offset within remote subspace
+ * @param[in] priority	Rapid I/O priority
+ * @param[in] sync_type	Sync type
+ * @param[in] out		Transfer result
  *
  * @return 0 if successful
  */
@@ -399,8 +402,8 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
  *
  * Note: completion of a transfer could be unsuccessful.
  *
- * @chk_handle	Handle for checking completion of last async transfer
- * @wait	Timeout value
+ * @param[in] chk_handle	Handle for checking completion of last async transfer
+ * @param[in] wait	Timeout value
  *
  * @return 0 if successful
  */

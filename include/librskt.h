@@ -54,8 +54,9 @@ typedef struct rskt_handle_t *rskt_h;
 
 /** @brief Initialize RDMA sockets library to use port and mport numbers
  *
- * @param[out] dev_ids mport list pointer
- * @param[inout] number_of_mports number of elements in dev_ids, will be upated by number of found items
+ * @param[in] rsktd_port Channelized messaging port used by RSKT Daemons
+ * @param[in] rsktd_mpnum Identifying number for the MPORT used by this RSKTD
+ * 
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
@@ -151,7 +152,8 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt); /* Stream */
 /** @brief Future: Record oriented read
  *
  * @param[in] skt_h RDMA socket handle
- * @param[in] sock_addr Local socket number, "ct" field not used
+ * @param[in] data User buffer for reception of data          
+ * @param[in] max_byte_cnt maximum number of bytes that will fit in *data buffer
  * @return 0 if successful, -1 if not, errno is set appropriately
  *
  * Reads up to max_byte_cnt bytes from a single corresponding write call.
