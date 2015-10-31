@@ -7,10 +7,21 @@ wait 4 d
 wait 5 d
 wait 6 d
 wait 7 d
+wait 8 d
+wait 9 d
+wait 10 d
+wait 11 d
+
 t 0 2 0
+t 11 -1 0
 wait 0 h
+wait 11 h
+
 OBDIO 0 did iba_addr bytes acc_size wr
+os 11 1
 wait 0 r
+wait 11 r
+
 g
 g c
 g
@@ -20,3 +31,4 @@ echo OBDIO bytes acc_size
 wait 0 r
 st
 g
+od 11

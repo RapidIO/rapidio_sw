@@ -54,8 +54,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
-
 #include <sstream>
+
+#include <sched.h>
+
 
 #include "libcli.h"
 #include "rapidio_mport_mgmt.h"
@@ -1257,7 +1259,10 @@ void cpu_occ_poll(struct worker *info)
 	int elements;
         uint64_t proc_new_stime, proc_new_utime;
 	uint64_t p_user, p_nice, p_system, p_idle, p_iowait, p_irq, p_softirq;
+	int cpus = getCPUCount();
 
+	if (!cpus)
+		cpus = 1;
 	memset(filename, 0, 256);
 	snprintf(filename, 255, "/proc/%d/stat", my_pid);
 
@@ -1279,27 +1284,24 @@ void cpu_occ_poll(struct worker *info)
 
 		fgets(file_line, 1024,  stat_fp);
  		fseek(stat_fp, 0 , SEEK_SET);
-		INFO("\nstat_fd: %s\n", file_line);
-
  		elements = sscanf(file_line, STAT_FMT,
 			&proc_new_utime, &proc_new_stime);
-
-		INFO("\nRead %d stat_fd elements\n", elements);
-		INFO("\nproc_new_utime %d proc_new_stime %d\n",
-			proc_new_utime, proc_new_stime);
+		if (2 != elements) {
+			ERR("FAILED: Elements !=2, got %d\n", elements);
+			goto exit;
+		};
 
 		fgets(file_line, 1024,  cpu_stat_fp);
  		fseek(cpu_stat_fp, 0 , SEEK_SET);
-		INFO("\ncpu_stat_fd: %s\n", file_line);
 
  		elements = sscanf(file_line, PROC_STAT_FMT, 
 			&p_user, &p_nice, &p_system, &p_idle,
 			&p_iowait, &p_irq, &p_softirq);
+		if (7 != elements) {
+			ERR("FAILED: Elements !=7, got %d\n", elements);
+			goto exit;
+		};
 
-		INFO("\nRead %d proc_stat_fd elements\n", elements);
-		INFO(PROC_STAT_PFMT, p_user, p_nice, p_system, p_idle,
-			p_iowait, p_irq, p_softirq);
-			
 		info->old_proc_jiffies = info->new_proc_jiffies;
 		info->new_proc_jiffies = proc_new_utime + proc_new_stime;
 		info->old_tot_jiffies = info->new_tot_jiffies;
@@ -1309,7 +1311,8 @@ void cpu_occ_poll(struct worker *info)
 				(((float)(info->new_proc_jiffies) -
 				 (float)(info->old_proc_jiffies)) /
 				((float)(info->new_tot_jiffies) -
-				 (float)(info->old_tot_jiffies))) * 100.0;
+				 (float)(info->old_tot_jiffies))) * 100.0
+				* cpus;
 		fclose(stat_fp);
 		fclose(cpu_stat_fp);
 		sleep(info->cpu_occ_poll_period);

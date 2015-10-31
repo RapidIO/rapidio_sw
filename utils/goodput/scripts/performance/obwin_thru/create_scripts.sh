@@ -174,8 +174,7 @@ for direction in "${DIR[@]}"
 do
 	scriptname="../"$DIR_NAME"_"$direction 
 
-	echo "#!/bin/bash" > $scriptname
-	echo "#  This script runs all "$DIR_NAME $direction" scripts." >> $scriptname
+	echo "// This script runs all "$DIR_NAME $direction" scripts." >> $scriptname
 	echo "log "$DIR_NAME"_"$direction".log" >> $scriptname
 	echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
 

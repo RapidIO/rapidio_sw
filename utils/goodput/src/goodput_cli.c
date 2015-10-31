@@ -60,6 +60,7 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"mR_Lat",
 	(char *)" IBWIN",
 	(char *)"~IBWIN",
+	(char *)"CpuOcc",
 	(char *)"SHTDWN",
 #ifdef USER_MODE_DRIVER
         (char*)"UCal",
@@ -473,6 +474,7 @@ int cpu_occ_saved_idx;
 int CPUOccDisplayCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx = cpu_occ_saved_idx;
+	char pctg[24];
 
 	if (argc) {
 		idx = getDecParm(argv[0], 0);
@@ -483,17 +485,18 @@ int CPUOccDisplayCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	if (!wkr[idx].cpu_occ_valid) {
-		sprintf(env->output, "\nCPU Occupancy invalid for worker %d\n",				idx);
+		sprintf(env->output, "\nFAILED: CPU Occupancy invalid wkr %d\n",
+					idx);
         	logMsg(env);
 		goto exit;
 	};
 
+	sprintf(pctg, "%4.2f", wkr[idx].cpu_occ_pct);
 	sprintf(env->output, "\n-->> Kernel <<-- -->> Process<<-- CPU Occ\n");
         logMsg(env);
-	sprintf(env->output, "%16ld %16ld %3.2f\n",
+	sprintf(env->output, "%16ld %16ld %7s\n",
 		wkr[idx].new_tot_jiffies - wkr[idx].old_tot_jiffies,
-		wkr[idx].new_proc_jiffies - wkr[idx].old_proc_jiffies,
-		wkr[idx].cpu_occ_pct);
+		wkr[idx].new_proc_jiffies - wkr[idx].old_proc_jiffies, pctg);
         logMsg(env);
 exit:
         return 0;
@@ -1049,7 +1052,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 #endif
 #endif
 	sprintf(env->output,
-        "\nW STS <<<<--Data-->>>> --MBps-- -Gbps- Messages  Link_Occ\n");
+        "\n W STS <<<<--Data-->>>> --MBps-- -Gbps- Messages  Link_Occ\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -1077,7 +1080,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 		sprintf(Gbps_str, "%2.3f", Gbps);
 		sprintf(link_occ_str, "%2.3f", link_occ);
 
-		sprintf(env->output, "%1d %3s %16lx %8s %6s %9.0f  %6s\n",
+		sprintf(env->output, "%2d %3s %16lx %8s %6s %9.0f  %6s\n",
 			i,  THREAD_STR(wkr[i].stat),
 			byte_cnt, MBps_str, Gbps_str, Msgpersec, link_occ_str);
         	logMsg(env);
@@ -1108,7 +1111,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 	link_occ = tot_Gbps/0.95;
 	sprintf(link_occ_str, "%2.3f", link_occ);
 
-	sprintf(env->output, "T     %16lx %8s %6s %9.0f  %6s\n",
+	sprintf(env->output, "Total  %16lx %8s %6s %9.0f  %6s\n",
 		tot_byte_cnt, MBps_str, Gbps_str, tot_Msgpersec, link_occ_str);
         logMsg(env);
 
@@ -1138,7 +1141,7 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 		argv[0][0] = argc;
 
 	sprintf(env->output,
-        "\nW STS <<<<-Count-->>>> <<<<Min uSec>>>> <<<<Avg uSec>>>> <<<<Max uSec>>>>\n");
+        "\n W STS <<<<-Count-->>>> <<<<Min uSec>>>> <<<<Avg uSec>>>> <<<<Max uSec>>>>\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -1166,7 +1169,7 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 		sprintf(max_lat_str, "%4.3f",
 			(float)(wkr[i].max_iter_time.tv_nsec/divisor)/1000.0); 
 
-		sprintf(env->output, "%1d %3s %16ld %16s %16s %16s\n",
+		sprintf(env->output, "%2d %3s %16ld %16s %16s %16s\n",
 			i,  THREAD_STR(wkr[i].stat),
 			wkr[i].perf_iter_cnt,
 			min_lat_str, avg_lat_str, max_lat_str);
