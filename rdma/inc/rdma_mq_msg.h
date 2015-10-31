@@ -41,6 +41,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MQ_MSG_SIZE	128
 #define MQ_RCV_BUF_SIZE	256
 
+#define MQ_CONNECT_MS	 0x0401
+#define MQ_ACCEPT_MS 	 0x0402
+#define MQ_CLOSE_MSO	 0x0403
+#define MQ_DISCONNECT_MS 0x0404
+#define MQ_DESTROY	 0x0405
+#define MQ_DESTROY_ACK	 0x0406
+
 struct mq_connect_msg {
 	/* rem refers to client. Those are the client msub's
 	 * parameters.*/
@@ -83,6 +90,23 @@ struct mq_disconnect_msg {
 /* Used for 'destroy' AND 'destroy_ack' */
 struct mq_destroy_msg {
 	uint32_t server_msid;
+};
+
+struct mq_destroy_ack_msg {
+	uint32_t server_msid;
+};
+
+struct mq_rdma_msg {
+	uint32_t	type;
+	union {
+		mq_connect_msg		connect_msg;
+		mq_accept_msg		accept_msg;
+		mq_close_mso_msg 	close_mso_msg;
+		mq_close_ms_msg 	close_ms_msg;
+		mq_disconnect_msg 	disconnect_msg;
+		mq_destroy_msg		destroy_msg;
+		mq_destroy_ack_msg	destroy_ack_msg;
+	};
 };
 
 /* Message queue attributes */

@@ -290,49 +290,53 @@ int mspace::disconnect_from_destid(uint16_t client_destid)
 	sem_post(&rem_connections_sem);
 
 	return 0;
-}
+} /* disconnect_from_destid() */
 
 /* Disconnect only connection with specified client_msubid */
 int mspace::disconnect(uint32_t client_msubid)
 {
-	/* Prepare POSIX disconnect message from CM disconnect message */
-	int ret;
-	mq_disconnect_msg	disconnect_msg;
-	disconnect_msg.client_msubid = client_msubid;
-
 	/* Form message queue name from memory space name */
-	char mq_name[CM_MS_NAME_MAX_LEN+2];
-	mq_name[0] = '/';
-	strcpy(&mq_name[1], name.c_str());
+	stringstream mq_name;
+	mq_name << '/' << name;
 
-	/* Open POSIX message queue */
-	mqd_t	disc_mq = mq_open(mq_name,O_RDWR, 0644, &attr);
-	if (disc_mq == (mqd_t)-1) {
-		ERR("Failed to open %s: %s\n", mq_name, strerror(errno));
+	/* Open message queue */
+	msg_q<mq_rdma_msg>	*disconnect_mq;
+	try {
+		disconnect_mq = new msg_q<mq_rdma_msg>(mq_name.str(), MQ_OPEN);
+	}
+	catch(msg_q_exception& e) {
+		ERR("Failed to open disconnect_mq('%s'): %s\n",
+					mq_name.str().c_str(), e.msg.c_str());
 		return -1;
 	}
 
-	/* Send 'disconnect' POSIX message contents to the RDMA library */
-	ret = mq_send(disc_mq,
-		      (const char *)&disconnect_msg,
-		      sizeof(struct mq_disconnect_msg),
-		      1);
-	if (ret < 0) {
-		ERR("Failed to send message: %s\n", strerror(errno));
-		mq_close(disc_mq);
-		return -2;
+	/* Message buffer */
+	mq_rdma_msg	*rdma_msg;
+	disconnect_mq->get_send_buffer(&rdma_msg);
+
+	/* Message type */
+	rdma_msg->type = MQ_DISCONNECT_MS;
+
+	/* Message contents */
+	mq_disconnect_msg *disconnect_msg = &rdma_msg->disconnect_msg;
+	disconnect_msg->client_msubid = client_msubid;
+
+	int rc = 0;
+	/* Send MQ_DISCONNECT_MS to RDMA library */
+	if (disconnect_mq->send()) {
+		ERR("Failed to send back MQ_DISCONNECT_MS on '%s'\n",
+							mq_name.str().c_str());
+		rc = -2;
+	} else {
+		HIGH("MQ_DISCONNECT_MS relayed to librdma on '%s', msubid(0x%X)\n",
+				mq_name.str().c_str(), client_msubid);
 	}
 
-	/* Now close POSIX queue */
-	if (mq_close(disc_mq)) {
-		ERR("Failed to close '%s': %s\n", mq_name, strerror(errno));
-		return -3;
-	}
-	HIGH("'Disconnect' message relayed to 'server' msubid(0x%X)\n",
-			client_msubid);
+	/* Close message queue */
+	delete disconnect_mq;
 
-	return 0;
-}
+	return rc;
+} /* disconnect() */
 
 set<uint16_t> mspace::get_rem_destids()
 {

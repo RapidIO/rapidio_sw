@@ -234,9 +234,9 @@ void *wait_conn_disc_thread_f(void *arg)
 			}
 
 			/* Open message queue */
-			msg_q<mq_connect_msg>	*connect_mq;
+			msg_q<mq_rdma_msg>	*connect_mq;
 			try {
-				connect_mq = new msg_q<mq_connect_msg>(mq_name, MQ_OPEN);
+				connect_mq = new msg_q<mq_rdma_msg>(mq_name, MQ_OPEN);
 
 			}
 			catch(msg_q_exception& e) {
@@ -250,8 +250,10 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("Opened POSIX message queue: '%s'\n", mq_name);
 
 			/* Send 'connect' POSIX message contents to the RDMA library */
-			mq_connect_msg	*connect_msg;
-			connect_mq->get_send_buffer(&connect_msg);
+			mq_rdma_msg	*rdma_mq_msg;
+			connect_mq->get_send_buffer(&rdma_mq_msg);
+			mq_connect_msg	*connect_msg = &rdma_mq_msg->connect_msg;
+			rdma_mq_msg->type = MQ_CONNECT_MS;
 			connect_msg->rem_msid		= be64toh(conn_msg->client_msid);
 			connect_msg->rem_msubid		= be64toh(conn_msg->client_msubid);
 			connect_msg->rem_bytes		= be64toh(conn_msg->client_bytes);
