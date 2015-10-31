@@ -964,20 +964,15 @@ int send_resp_msg(struct worker *info)
 		rc = riomp_sock_send(info->con_skt, info->sock_tx_buf,
 					info->msg_size);
 
-		if (rc) {
-			if ((errno == ETIME) || (errno == EINTR))
-				continue;
-			if (errno == EBUSY) {
-				nanosleep(&ten_usec, NULL);
-				break;
-			};
-			ERR("FAILED: riomp_sock_send rc %d:%s\n",
-							rc, strerror(errno));
-                        break;
+		if (rc && (errno == EBUSY)) {
+			nanosleep(&ten_usec, NULL);
+			break;
 		};
-	} while (((errno == ETIME) || (errno == EINTR) || (errno == EBUSY)) &&
-		rc && !info->stop_req);
+	} while (((errno == ETIME) || (errno == EINTR) || (errno == EBUSY) ||
+		(errno == EAGAIN)) && rc && !info->stop_req);
 
+	if (rc)
+		ERR("FAILED: riomp_sock_send rc %d:%s\n", rc, strerror(errno));
 	return rc;
 };
 
