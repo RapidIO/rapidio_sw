@@ -1,7 +1,7 @@
 // Template for OBDIO write and read latency measurements.
 // The read scripts can be run sequentially.
 // The write scripts require the appropriate RX target scripts
-// to be run.
+// to be run on the target before the write script is executed.
 //
 kill all
 wait 0 d
@@ -17,7 +17,7 @@ wait 0 h
 IBA 0 bytes
 wait 0 r
 wait 0 h
-DIOT 0 rx_did rx_iba_addr acc_size wr
+DIOT 0 did iba_addr acc_size wr
 wait 0 r
 la
 la

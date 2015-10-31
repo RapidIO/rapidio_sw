@@ -7,6 +7,10 @@ wait 4 D
 wait 5 D
 wait 6 D
 wait 7 D
+wait 8 D
+wait 9 D
+wait 10 D
+wait 11 D
 
 t 0 0 0
 t 1 1 0
@@ -16,6 +20,7 @@ t 4 -1 0
 t 5 -1 0 
 t 6 -1 0 
 t 7 -1 0 
+t 11 -1 0 
 
 wait 0 H
 wait 1 H
@@ -35,6 +40,8 @@ msgT 5 did skt_prefix5 msg_size
 msgT 6 did skt_prefix6 msg_size
 msgT 7 did skt_prefix7 msg_size
 
+os 11 1
+
 wait 0 R
 wait 1 R
 wait 2 R
@@ -44,6 +51,8 @@ wait 5 R
 wait 6 R
 wait 7 R
 
+wait 11 R
+
 g
 g c
 g
@@ -52,3 +61,4 @@ sleep wait_time
 echo MSG TRANSMIT GOODPUT 0xmsg_size BYTES
 st
 g
+od 11

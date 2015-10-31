@@ -31,45 +31,27 @@ BYTES=("400000" "400000" "400000" "400000")
 
 PREFIX=ol
 
-if [ -z "$TX_IBA_ADDR" ]; then
+if [ -z "$IBA_ADDR" ]; then
         if [ -n "$1" ]; then
-                TX_IBA_ADDR=$1
+                IBA_ADDR=$1
         else
-                TX_IBA_ADDR=20d800000
+                IBA_ADDR=20d800000
                 LOC_PRINT_HEP=1
         fi
 fi
 
-if [ -z "$TX_DID" ]; then
+if [ -z "$DID" ]; then
         if [ -n "$2" ]; then
-                TX_DID=$2
+                DID=$2
         else
-                TX_DID=1
-                LOC_PRINT_HEP=1
-        fi
-fi
-
-if [ -z "$RX_IBA_ADDR" ]; then
-        if [ -n "$3" ]; then
-                RX_IBA_ADDR=$3
-        else
-                RX_IBA_ADDR=20d800000
-                LOC_PRINT_HEP=1
-        fi
-fi
-
-if [ -z "$RX_DID" ]; then
-        if [ -n "$4" ]; then
-                RX_DID=$4
-        else
-                RX_DID=0
+                DID=1
                 LOC_PRINT_HEP=1
         fi
 fi
 
 if [ -z "$TRANS" ]; then
-        if [ -n "$5" ]; then
-                TRANS=$5
+        if [ -n "$3" ]; then
+                TRANS=$3
         else
                 TRANS=0
                 LOC_PRINT_HEP=1
@@ -77,8 +59,8 @@ if [ -z "$TRANS" ]; then
 fi
 
 if [ -z "$WAIT_TIME" ]; then
-        if [ -n "$6" ]; then
-                WAIT_TIME=$6
+        if [ -n "$4" ]; then
+                WAIT_TIME=$4
         else
                 WAIT_TIME=60
                 LOC_PRINT_HEP=1
@@ -86,21 +68,17 @@ if [ -z "$WAIT_TIME" ]; then
 fi
 
 if [ -n "$LOC_PRINT_HEP" ]; then
-        echo $'\nScript accepts 6 parameters:'
-        echo $'TX_IBA_ADDR: Hex address of target window on TX_DID'
-        echo $'TX_DID     : Device ID that this device sends to'
-        echo $'RX_IBA_ADDR: Hex address of target window on RX_DID'
-        echo $'RX_DID     : Device ID of this device'
-        echo $'Trans      : DMA transaction type'
-        echo $'Wait       : Time in seconds to wait before showing perf\n'
+        echo $'\nScript accepts 4 parameters:'
+        echo $'IBA_ADDR: Hex address of target window on DID'
+        echo $'DID     : Device ID that this device sends to'
+        echo $'Trans   : DMA transaction type'
+        echo $'Wait    : Time in seconds to wait before showing perf\n'
 fi
 
-echo 'OBWIN_LATENCY TX_IBA_ADDR = ' $TX_IBA_ADDR
-echo 'OBWIN_LATENCY TX_DID      = ' $TX_DID
-echo 'OBWIN_LATENCY RX_IBA_ADDR = ' $RX_IBA_ADDR
-echo 'OBWIN_LATENCY RX_DID      = ' $RX_DID
-echo 'OBWIN_LATENCY TRANS       = ' $TRANS
-echo 'OBWIN_LATENCY WAIT_TIME   = ' $WAIT_TIME
+echo 'OBWIN_LATENCY IBA_ADDR = ' $IBA_ADDR
+echo 'OBWIN_LATENCY DID      = ' $DID
+echo 'OBWIN_LATENCY TRANS    = ' $TRANS
+echo 'OBWIN_LATENCY WAIT_TIME= ' $WAIT_TIME
 
 unset LOC_PRINT_HEP
 
@@ -195,10 +173,8 @@ do
 	idx=($idx)+1
 done
 
-sed -i -- 's/tx_iba_addr/'$TX_IBA_ADDR'/g' $PREFIX*.txt
-sed -i -- 's/tx_did/'$TX_DID'/g' $PREFIX*.txt
-sed -i -- 's/rx_iba_addr/'$RX_IBA_ADDR'/g' $PREFIX*.txt
-sed -i -- 's/rx_did/'$RX_DID'/g' $PREFIX*.txt
+sed -i -- 's/iba_addr/'$IBA_ADDR'/g' $PREFIX*.txt
+sed -i -- 's/did/'$DID'/g' $PREFIX*.txt
 sed -i -- 's/trans/'$TRANS'/g' $PREFIX*.txt
 sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
 sed -i -- 's/wr/1/g' ${PREFIX}W*.txt
@@ -210,8 +186,7 @@ sed -i -- 's/wr/0/g' ${PREFIX}R*.txt
 direction="read"
 scriptname="../"$DIR_NAME"_"$direction 
 
-echo "#!/bin/bash" > $scriptname
-echo "#  This script runs all "$DIR_NAME $direction" scripts." >> $scriptname
+echo "// This script runs all "$DIR_NAME $direction" scripts." >> $scriptname
 echo "log "$DIR_NAME"_"$direction".log" >> $scriptname
 echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
 

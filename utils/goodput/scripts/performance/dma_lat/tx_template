@@ -13,7 +13,7 @@ wait 0 h
 IBA 0 bytes
 sleep 1
 wait 0 h
-dT 0 rx_did rx_iba_addr acc_size wr 1 trans
+dT 0 did iba_addr acc_size wr 1 trans
 wait 0 r
 lat
 echo DMA LATENCY acc_size wr TRANSMIT

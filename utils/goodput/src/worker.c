@@ -54,8 +54,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
-
 #include <sstream>
+
+#include <sched.h>
+
 
 #include "libcli.h"
 #include "rapidio_mport_mgmt.h"
@@ -71,6 +73,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef USER_MODE_DRIVER
 #include "dmachan.h"
 #include "hash.cc"
+#include "lockfile.h"
 #endif
 
 #ifdef __cplusplus
@@ -138,6 +141,14 @@ void init_worker_info(struct worker *info, int first_time)
         info->sock_num = 0; 
         info->sock_tx_buf = NULL;
         info->sock_rx_buf = NULL;
+
+	info->cpu_occ_valid = 0;
+	info->cpu_occ_poll_period = 1.0;
+	info->old_tot_jiffies = 1;
+	info->old_proc_jiffies = 0;
+	info->new_tot_jiffies = 2;
+	info->new_proc_jiffies = 0;
+	info->cpu_occ_pct = 0.0;
 
 #ifdef USER_MODE_DRIVER
 	info->umd_chan = 0;
@@ -1235,6 +1246,97 @@ void dma_free_ibwin(struct worker *info)
 	info->ib_handle = 0;
 };
 
+#define STAT_FMT "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %lu %lu"
+#define PROC_STAT_FMT "%*s %lu %lu %lu %lu %lu %lu %lu"
+#define PROC_STAT_PFMT "\nTot CPU Jiffies %lu %lu %lu %lu %lu %lu %lu\n"
+
+void cpu_occ_poll(struct worker *info)
+{
+	pid_t my_pid = getpid();
+	FILE *stat_fp, *cpu_stat_fp;
+	char filename[256];
+	char file_line[1024];
+	int elements;
+        uint64_t proc_new_stime, proc_new_utime;
+	uint64_t p_user, p_nice, p_system, p_idle, p_iowait, p_irq, p_softirq;
+	int cpus = getCPUCount();
+
+	if (!cpus)
+		cpus = 1;
+	memset(filename, 0, 256);
+	snprintf(filename, 255, "/proc/%d/stat", my_pid);
+
+	stat_fp = fopen(filename, "r" );
+	if (NULL == stat_fp) {
+		ERR( "FAILED: Open proc stat file \"%s\": %d %s\n",
+			filename, errno, strerror(errno));
+		goto exit;
+	};
+
+	cpu_stat_fp = fopen("/proc/stat", "r");
+	if (NULL == cpu_stat_fp) {
+		ERR("FAILED: Open file \"/proc/stat\": %d %s\n",
+			errno, strerror(errno));
+		goto exit;
+	};
+
+	while (!info->stop_req) {
+
+		fgets(file_line, 1024,  stat_fp);
+ 		fseek(stat_fp, 0 , SEEK_SET);
+ 		elements = sscanf(file_line, STAT_FMT,
+			&proc_new_utime, &proc_new_stime);
+		if (2 != elements) {
+			ERR("FAILED: Elements !=2, got %d\n", elements);
+			goto exit;
+		};
+
+		fgets(file_line, 1024,  cpu_stat_fp);
+ 		fseek(cpu_stat_fp, 0 , SEEK_SET);
+
+ 		elements = sscanf(file_line, PROC_STAT_FMT, 
+			&p_user, &p_nice, &p_system, &p_idle,
+			&p_iowait, &p_irq, &p_softirq);
+		if (7 != elements) {
+			ERR("FAILED: Elements !=7, got %d\n", elements);
+			goto exit;
+		};
+
+		info->old_proc_jiffies = info->new_proc_jiffies;
+		info->new_proc_jiffies = proc_new_utime + proc_new_stime;
+		info->old_tot_jiffies = info->new_tot_jiffies;
+		info->new_tot_jiffies = p_user + p_nice + p_system + p_idle +
+					p_iowait + p_irq + p_softirq;
+		info->cpu_occ_pct = 
+				(((float)(info->new_proc_jiffies) -
+				 (float)(info->old_proc_jiffies)) /
+				((float)(info->new_tot_jiffies) -
+				 (float)(info->old_tot_jiffies))) * 100.0
+				* cpus;
+		fclose(stat_fp);
+		fclose(cpu_stat_fp);
+		sleep(info->cpu_occ_poll_period);
+		info->cpu_occ_valid = 1;
+
+		stat_fp = fopen(filename, "r" );
+		if (NULL == stat_fp) {
+			ERR( "FAILED: Open proc stat file \"%s\": %d %s\n",
+				filename, errno, strerror(errno));
+			goto exit;
+		};
+
+		cpu_stat_fp = fopen("/proc/stat", "r");
+		if (NULL == cpu_stat_fp) {
+			ERR("FAILED: Open file \"/proc/stat\": %d %s\n",
+				errno, strerror(errno));
+			goto exit;
+		};
+	};
+	info->cpu_occ_valid = 0;
+exit:
+	return;
+};
+
 #ifdef USER_MODE_DRIVER
 
 typedef struct {
@@ -1875,8 +1977,34 @@ void calibrate_sched_yield(struct worker *info)
 		ts_max.tv_sec, ts_max.tv_nsec);
 };
 
+/** \brief Lock other processes out of this UMD module/channel
+ * \note Due to POSIX locking semantics this has no effect on the current process
+ * \note Using the same channel twice in this process will NOT be prevented
+ * \parm[out] info info->umd_lock will be populated on success
+ * \param[in] module DMA or Mbox, ASCII string
+ * \param instance Channel number
+ * \return true if lock was acquited, false if somebody else is using it
+ */
+bool TakeLock(struct worker* info, const char* module, int instance)
+{
+	if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
+
+	char lock_name[81] = {0};
+	snprintf(lock_name, 80, "/var/lock/UMD-%s-%d..LCK", module, instance);
+	try {
+		info->umd_lock = new LockFile(lock_name);
+	} catch(std::runtime_error ex) {
+		CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
+		return false;
+	}
+	// NOT catching std::logic_error
+	return true;
+}
+
 void umd_dma_calibrate(struct worker *info)
 {
+	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+
 	info->umd_dch =
 		new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
 								
@@ -1912,6 +2040,7 @@ void umd_dma_calibrate(struct worker *info)
 exit:
         info->umd_dch->cleanup();
         delete info->umd_dch;
+	delete info->umd_lock; info->umd_lock = NULL;
 fail:
 	info->umd_dch = NULL;
 };
@@ -1945,6 +2074,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	uint64_t cnt;
 
 	if (! umd_check_cpu_allocation(info)) return;
+	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
 	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
@@ -2094,9 +2224,9 @@ exit:
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 
                 info->umd_dch->free_dmamem(info->dmamem[0]);
-        delete info->umd_dch;
 
-	info->umd_dch = NULL;
+        delete info->umd_dch; info->umd_dch = NULL;
+	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 static inline bool queueDmaOp(struct worker* info, const int oi, const int cnt, bool& q_was_full)
@@ -2242,6 +2372,8 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	int oi = 0;
 	uint64_t cnt;
 
+	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+
 	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
 								
 	if (NULL == info->umd_dch) {
@@ -2343,9 +2475,9 @@ exit:
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 
                 info->umd_dch->free_dmamem(info->dmamem[0]);
-        delete info->umd_dch;
 
-	info->umd_dch = NULL;
+        delete info->umd_dch; info->umd_dch = NULL;
+	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 void umd_mbox_goodput_demo(struct worker *info)
@@ -2353,6 +2485,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 	int rc = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
+	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 
@@ -2493,15 +2626,16 @@ exit:
         pthread_join(info->umd_fifo_thr.thr, NULL);
 
 exit_rx:
-        delete info->umd_mch;
-
-        info->umd_mch = NULL;
+        delete info->umd_mch; info->umd_mch = NULL;
+	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 static inline int MIN(int a, int b) { return a < b? a: b; }
 
 void umd_mbox_goodput_latency_demo(struct worker *info)
 {
+	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 
         if (NULL == info->umd_mch) {
@@ -2667,9 +2801,8 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 exit:
 exit_rx:
-        delete info->umd_mch;
-
-        info->umd_mch = NULL;
+        delete info->umd_mch; info->umd_mch = NULL;
+	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 
@@ -2717,6 +2850,9 @@ void *worker_thread(void *parm)
 				break;
         	case free_ibwin:
 				dma_free_ibwin(info);
+				break;
+		case cpu_occ:
+				cpu_occ_poll(info);
 				break;
 #ifdef USER_MODE_DRIVER
 		case umd_calibrate:

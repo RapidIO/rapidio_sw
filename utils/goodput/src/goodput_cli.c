@@ -60,6 +60,7 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"mR_Lat",
 	(char *)" IBWIN",
 	(char *)"~IBWIN",
+	(char *)"CpuOcc",
 	(char *)"SHTDWN",
 #ifdef USER_MODE_DRIVER
         (char*)"UCal",
@@ -152,13 +153,16 @@ exit:
         return 0;
 };
 
+#define HACK(x) #x
+#define STR(x) HACK(x)
+
 struct cli_cmd Thread = {
 "thread",
 1,
 3,
 "Start a thread on a cpu",
 "start <idx> <cpu> <new_dma>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
 	"<new_dma> If <> 0, open mport again to get a new DMA channel\n",
 ThreadCmd,
@@ -194,7 +198,7 @@ struct cli_cmd Kill = {
 1,
 "Kill a thread",
 "kill <idx>\n"
-	"<idx> is a worker index from 0 to 7, or \"all\"\n",
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) ", or \"all\"\n",
 KillCmd,
 ATTR_NONE
 };
@@ -234,7 +238,7 @@ struct cli_cmd Halt = {
 1,
 "Halt execution of a thread command",
 "halt <idx>\n"
-	"<idx> is a worker index from 0 to 7, or \"all\"\n",
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) ", or \"all\"\n",
 HaltCmd,
 ATTR_NONE
 };
@@ -267,7 +271,7 @@ struct cli_cmd Move = {
 2,
 "Move a thread to a different CPU",
 "move <idx> <cpu>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX)",\n" 
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n",
 MoveCmd,
 ATTR_NONE
@@ -331,7 +335,7 @@ struct cli_cmd Wait = {
 2,
 "Wait until a thread reaches a particular state",
 "wait <idx> <state>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<state> 0|d|D - Dead, 1|r|R - Run, 2|h|H - Halted\n",
 WaitCmd,
 ATTR_NONE
@@ -394,7 +398,7 @@ struct cli_cmd IBAlloc = {
 2,
 "Allocate an inbound window",
 "IBAlloc <idx> <size>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n",
 IBAllocCmd,
 ATTR_NONE
@@ -422,9 +426,91 @@ struct cli_cmd IBDealloc = {
 1,
 "Deallocate an inbound window",
 "IBDealloc <idx>\n"
-	"<idx> is a worker index from 0 to 7\n",
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
 IBDeallocCmd,
 ATTR_NONE
+};
+
+int CPUOccStartCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx;
+	float poll_pd;
+
+	idx = getDecParm(argv[0], 0);
+
+	if (check_idx(env, idx, 1))
+		goto exit;
+
+	poll_pd = getFloatParm(argv[1], 1);
+	
+	if (0.0 >= poll_pd) {
+		sprintf(env->output, "\nPoll period must be > 0.0\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	wkr[idx].action = cpu_occ;
+	wkr[idx].cpu_occ_poll_period = poll_pd;
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+exit:
+        return 0;
+};
+
+struct cli_cmd CPUOccStart = {
+"ost",
+3,
+2,
+"Start cpu occupancy polling",
+"ost <idx> <pd>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<pd> is the polling period in seconds\n",
+CPUOccStartCmd,
+ATTR_NONE
+};
+
+int cpu_occ_saved_idx;
+
+int CPUOccDisplayCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx = cpu_occ_saved_idx;
+	char pctg[24];
+
+	if (argc) {
+		idx = getDecParm(argv[0], 0);
+
+		if (check_idx(env, idx, 0))
+			goto exit;
+		cpu_occ_saved_idx = idx;
+	};
+
+	if (!wkr[idx].cpu_occ_valid) {
+		sprintf(env->output, "\nFAILED: CPU Occupancy invalid wkr %d\n",
+					idx);
+        	logMsg(env);
+		goto exit;
+	};
+
+	sprintf(pctg, "%4.2f", wkr[idx].cpu_occ_pct);
+	sprintf(env->output, "\n-->> Kernel <<-- -->> Process<<-- CPU Occ\n");
+        logMsg(env);
+	sprintf(env->output, "%16ld %16ld %7s\n",
+		wkr[idx].new_tot_jiffies - wkr[idx].old_tot_jiffies,
+		wkr[idx].new_proc_jiffies - wkr[idx].old_proc_jiffies, pctg);
+        logMsg(env);
+exit:
+        return 0;
+};
+
+struct cli_cmd CPUOccDisplay = {
+"odisp",
+3,
+1,
+"Display cpu occupancy",
+"odisp <idx>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
+CPUOccDisplayCmd,
+ATTR_RPT
 };
 
 int obdio_cmd(struct cli_env *env, int argc, char **argv, enum req_type action)
@@ -452,7 +538,7 @@ int obdio_cmd(struct cli_env *env, int argc, char **argv, enum req_type action)
 			wr = 1;
 	};
 		
-	if (wr || (direct_io_rx_lat == action)) {
+	if (direct_io_tx_lat == action) {
 		if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
 			sprintf(env->output,
 				"\nNo mapped inbound window present\n");
@@ -493,7 +579,7 @@ struct cli_cmd OBDIO = {
 6,
 "Measure goodput of reads/writes through an outbound window",
 "OBDIO <idx> <did> <rio_addr> <bytes> <acc_sz> <wr>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
@@ -516,7 +602,7 @@ struct cli_cmd OBDIOTxLat = {
 5,
 "Measure latency of reads/writes through an outbound window",
 "DIOTxLat <idx> <did> <rio_addr> <acc_sz> <wr>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<acc_sz> Access size, values: 1, 2, 4, 8, 16\n"
@@ -539,7 +625,7 @@ struct cli_cmd OBDIORxLat = {
 4,
 "Loop back DIOTxLat writes through an outbound window",
 "DIORxLat <idx> <did> <rio_addr> <acc_sz>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<acc_sz> Access size, values: 1, 2, 4, 8\n"
@@ -603,7 +689,7 @@ struct cli_cmd dma = {
 9,
 "Measure goodput of DMA reads/writes",
 "dma <idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
@@ -676,7 +762,7 @@ struct cli_cmd dmaTxLat = {
 7,
 "Measure lantecy of DMA reads/writes",
 "dTxLat <idx> <did> <rio_addr> <bytes> <wr> <kbuf> <trans>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
@@ -736,7 +822,7 @@ struct cli_cmd dmaRxLat = {
 4,
 "Loop back DMA writes for dTxLat command.",
 "dRxLat <idx> <did> <rio_addr> <bytes>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
@@ -804,7 +890,7 @@ struct cli_cmd msgTx = {
 4,
 "Measure goodput of channelized messages",
 "msgTx <idx> <did> <sock_num> <size>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
 	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
@@ -826,7 +912,7 @@ struct cli_cmd msgTxLat = {
 4,
 "Measures latency of channelized messages",
 "mTxLat <idx> <did> <sock_num> <size>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
 	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
@@ -876,7 +962,7 @@ struct cli_cmd msgRxLat = {
 3,
 "Loops back received messages to mTxLat sender",
 "mRxLat <idx> <sock_num> <size>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
 	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
 	"NOTE: All parameters are decimal numbers.\n"
@@ -919,7 +1005,7 @@ struct cli_cmd msgRx = {
 2,
 "Receives channelized messages as requested",
 "msgRx <idx> <sock_num>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<sock_num> Target socket number for connections from msgTx command\n"
 	"NOTE: msgRx must be running before msgTx!\n",
 msgRxCmd,
@@ -966,7 +1052,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 #endif
 #endif
 	sprintf(env->output,
-        "\nW STS <<<<--Data-->>>> --MBps-- -Gbps- Messages  Link_Occ\n");
+        "\n W STS <<<<--Data-->>>> --MBps-- -Gbps- Messages  Link_Occ\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -994,7 +1080,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 		sprintf(Gbps_str, "%2.3f", Gbps);
 		sprintf(link_occ_str, "%2.3f", link_occ);
 
-		sprintf(env->output, "%1d %3s %16lx %8s %6s %9.0f  %6s\n",
+		sprintf(env->output, "%2d %3s %16lx %8s %6s %9.0f  %6s\n",
 			i,  THREAD_STR(wkr[i].stat),
 			byte_cnt, MBps_str, Gbps_str, Msgpersec, link_occ_str);
         	logMsg(env);
@@ -1025,7 +1111,7 @@ int GoodputCmd(struct cli_env *env, int argc, char **argv)
 	link_occ = tot_Gbps/0.95;
 	sprintf(link_occ_str, "%2.3f", link_occ);
 
-	sprintf(env->output, "T     %16lx %8s %6s %9.0f  %6s\n",
+	sprintf(env->output, "Total  %16lx %8s %6s %9.0f  %6s\n",
 		tot_byte_cnt, MBps_str, Gbps_str, tot_Msgpersec, link_occ_str);
         logMsg(env);
 
@@ -1055,7 +1141,7 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 		argv[0][0] = argc;
 
 	sprintf(env->output,
-        "\nW STS <<<<-Count-->>>> <<<<Min uSec>>>> <<<<Avg uSec>>>> <<<<Max uSec>>>>\n");
+        "\n W STS <<<<-Count-->>>> <<<<Min uSec>>>> <<<<Avg uSec>>>> <<<<Max uSec>>>>\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -1083,7 +1169,7 @@ int LatCmd(struct cli_env *env, int argc, char **argv)
 		sprintf(max_lat_str, "%4.3f",
 			(float)(wkr[i].max_iter_time.tv_nsec/divisor)/1000.0); 
 
-		sprintf(env->output, "%1d %3s %16ld %16s %16s %16s\n",
+		sprintf(env->output, "%2d %3s %16ld %16s %16s %16s\n",
 			i,  THREAD_STR(wkr[i].stat),
 			wkr[i].perf_iter_cnt,
 			min_lat_str, avg_lat_str, max_lat_str);
@@ -1119,11 +1205,11 @@ void display_gen_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-        "\nW STS CPU RUN ACTION MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H OB IB MB\n");
+        "\n W STS CPU RUN ACTION MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H OB IB MB\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		sprintf(env->output, "%1d %3s ", i, THREAD_STR(wkr[i].stat));
+		sprintf(env->output, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
         	logMsg(env);
 		display_cpu(env, wkr[i].wkr_thr.cpu_req);
 		display_cpu(env, wkr[i].wkr_thr.cpu_run);
@@ -1144,11 +1230,11 @@ void display_ibwin_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-	"\nW STS CPU RUN ACTION MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>>\n");
+	"\n W STS CPU RUN ACTION MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>>\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		sprintf(env->output, "%1d %3s ", i, THREAD_STR(wkr[i].stat));
+		sprintf(env->output, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
         	logMsg(env);
 		display_cpu(env, wkr[i].wkr_thr.cpu_req);
 		display_cpu(env, wkr[i].wkr_thr.cpu_run);
@@ -1167,11 +1253,11 @@ void display_msg_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-	"\nW STS CPU RUN ACTION MODE MB ACC CON Msg_Size SockNum TX RX\n");
+	"\n W STS CPU RUN ACTION MODE MB ACC CON Msg_Size SockNum TX RX\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
-		sprintf(env->output, "%1d %3s ", i, THREAD_STR(wkr[i].stat));
+		sprintf(env->output, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
         	logMsg(env);
 		display_cpu(env, wkr[i].wkr_thr.cpu_req);
 		display_cpu(env, wkr[i].wkr_thr.cpu_run);
@@ -1222,7 +1308,7 @@ struct cli_cmd Status = {
 2,
 0,
 "Display status of all threads",
-"status {i|o|s}\n"
+"status {i|m|s}\n"
         "Optionally enter a character to select the status type:\n"
         "i : IBWIN status\n"
         "m : Messaging status\n"
@@ -1302,7 +1388,7 @@ struct cli_cmd Dump = {
 3,
 "Dump inbound memory area",
 "Dump <idx> <offset> <size>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<offset> is the hexadecimal offset, in bytes, from the window start\n"
 	"<size> is the number of bytes to display, starting at <offset>\n",
 DumpCmd,
@@ -1448,7 +1534,7 @@ struct cli_cmd UCal = {
 5,
 "Calibrate performance of various facilities.",
 "<idx> <chan> <map_sz> <sy_iter> <hash>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<chan> is a DMA channel number from 1 through 7\n"
 	"<map_sz> is number of entries in a map to test\n"
 	"<sy_iter> is the number of times to perform sched_yield and other\n"
@@ -1617,7 +1703,7 @@ struct cli_cmd UTime = {
 3,
 "UMD Timestamp buffer command",
 "<idx> <type> <cmd> <parms>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<type> is 'd' for descriptor timestamps, 'f' for fifo.\n"
 	"<cmd> is the command to perform on the buffer, one of:\n"
 	"      's' - sample timestamps again\n"
@@ -1726,7 +1812,7 @@ struct cli_cmd UDMA = {
 10,
 "Transmit DMA requests with User-Mode demo driver",
 "<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <bytes> <acc_sz> <trans>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
 	"<chan> is a DMA channel number from 1 through 7\n"
 	"<buff> is the number of transmit descriptors/buffers to allocate\n"
@@ -1853,7 +1939,7 @@ struct cli_cmd UDMALTX = {
 9,
 "Latency of DMA requests with User-Mode demo driver - Master",
 "<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <acc_sz> <trans>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
 	"<chan> is a DMA channel number from 1 through 7\n"
 	"<buff> is the number of transmit descriptors/buffers to allocate\n"
@@ -1874,7 +1960,7 @@ struct cli_cmd UDMALRX = {
 9,
 "Latency of DMA requests with User-Mode demo driver - Slave",
 "<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <acc_sz> <trans>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
 	"<chan> is a DMA channel number from 1 through 7\n"
 	"<buff> is the number of transmit descriptors/buffers to allocate\n"
@@ -1973,7 +2059,7 @@ struct cli_cmd UDMALRR = {
 8,
 "Latency of DMA requests with User-Mode demo driver - NREAD",
 "<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <acc_sz>\n"
-        "<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan> is a DMA channel number from 1 through 7\n"
         "<buff> is the number of transmit descriptors/buffers to allocate\n"
@@ -2009,7 +2095,7 @@ struct cli_cmd UMDDD = {
 1,
 "Dump UMD misc counters",
 "<idx>\n"
-	"<idx> is a worker index from 0 to 7\n",
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
 UMDDDDCmd,
 ATTR_NONE
 };
@@ -2122,7 +2208,7 @@ struct cli_cmd UMSG = {
 9,
 "Transmit/Receive MBOX requests with User-Mode demo driver",
 "<idx> <cpu> <chan> <chan_to> <buff> <sts> <did> <acc_sz> <txrx>\n"
-	"<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
 	"<chan> is a Local MBOX channel number from 2 through 3\n"
 	"<chan_to> is a Remote MBOX channel number from 2 through 3\n"
@@ -2143,7 +2229,7 @@ struct cli_cmd UMSGL = {
 8,
 "Latency of MBOX requests with User-Mode demo driver",
 "<idx> <cpu> <chan> <buff> <sts> <did> <acc_sz> <txrx>\n"
-        "<idx> is a worker index from 0 to 7\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan> is a MBOX channel number from 2 through 3\n"
         "<buff> is the number of transmit descriptors/buffers to allocate\n"
@@ -2262,6 +2348,8 @@ struct cli_cmd *goodput_cmds[] = {
 	&Move,
 	&Wait,
 	&Sleep,
+	&CPUOccStart,
+	&CPUOccDisplay,
 	&Mpdevs
 };
 
@@ -2270,6 +2358,7 @@ void bind_goodput_cmds(void)
 	dump_idx = 0;
 	dump_base_offset = 0;
 	dump_size = 0x100;
+	cpu_occ_saved_idx = 0;
 
         add_commands_to_cmd_db(sizeof(goodput_cmds)/sizeof(goodput_cmds[0]),
                                 goodput_cmds);
