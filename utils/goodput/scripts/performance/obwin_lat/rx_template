@@ -15,7 +15,7 @@ wait 0 h
 IBA 0 bytes
 wait 0 r
 wait 0 h
-DIOR 0 tx_did tx_iba_addr acc_size
+DIOR 0 did iba_addr acc_size
 wait 0 R
 sleep wait_time
 wait 0 R

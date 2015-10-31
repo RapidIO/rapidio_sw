@@ -1,27 +1,34 @@
-echo Note there MUST be an inbound window at the correct address on the
-echo target destination ID for these tests to pass.
+echo The start_target script must be run on the target node,
+echo and create_perf_scripts must be run on this node using the information
+echo from the target node, 
+echo before this script can be run!!!
+
 scrp scripts/performance/
-// PASS
+// UNKNOWN
+. msg_thru_tx
+// UNKNOWN
+. msg_lat_rx
+// UNKNOWN
 . obwin_lat_read
-// PASS
+// UNKNOWN
 . obwin_thru_write
-// PASS
+// UNKNOWN
 . obwin_thru_read
-// PASS
+// UNKNOWN
 . dma_thru_read
-// PASS
+// UNKNOWN
 . dma_thru_write
-// PASS
+// UNKNOWN
 . dma_lat_read
-// PASS
-. pdma_thru_pdm_read
-// PASS
-. pdma_thru_pd1_read
-// PASS
-. pdma_thru_pdd_read
-// PASS
+// UNKNOWN
 . pdma_thru_pdd_write
-// PASS
+// UNKNOWN
 . pdma_thru_pd1_write
-// PASS
+// UNKNOWN
 . pdma_thru_pdm_write
+// UNKNOWN
+. pdma_thru_pdm_read
+// UNKNOWN
+. pdma_thru_pd1_read
+// UNKNOWN
+. pdma_thru_pdd_read

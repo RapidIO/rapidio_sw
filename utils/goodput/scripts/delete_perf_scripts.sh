@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd performance
 rm dma_thru/d1*
 rm dma_thru_read dma_thru_write
 
@@ -24,3 +25,5 @@ rm msg_thru_tx
 rm msg_lat/m*
 rm msg_lat_rx
 
+cd ..
+rm start_source start_target

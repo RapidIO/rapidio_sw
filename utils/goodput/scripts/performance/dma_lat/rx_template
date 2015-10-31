@@ -13,7 +13,7 @@ wait 0 2
 IBA 0 bytes
 wait 0 1
 wait 0 2
-dR 0 tx_did tx_iba_addr acc_size
+dR 0 did iba_addr acc_size
 wait 0 1
 echo DMA LATENCY RECEIVER bytes acc_size RUNNING!
 sleep wait_time
