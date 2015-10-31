@@ -1147,7 +1147,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	close_ms_output	out;
 	int		ret;
 
-	DBG("ENTER\n");
+	DBG("ENTER with msoh=0x%" PRIx64 ", msh = 0x%" PRIx64 "\n", msoh, msh);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -1159,7 +1159,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 
 	/* Check for NULL parameters */
 	if (!msoh || !msh) {
-		ERR("Invalid param(s): msoh=0x%lX, msh=0x%lX\n", msoh, msh);
+		ERR("Invalid param(s). Failing.\n");
 		return RDMA_NULL_PARAM;
 	}
 
@@ -1185,7 +1185,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		WARN("disc_thread is NULL.\n");
 	} else {
 
-		HIGH("Killing the wait-for=disconnection thread!!\n");
+		HIGH("Killing the wait-for-disconnection thread!!\n");
 		if (pthread_cancel(disc_thread)) {
 			WARN("Failed to cancel disc_thread for msh(0x%X):%s\n",
 						msh, strerror(errno));
@@ -1425,7 +1425,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	struct loc_msub 	*msub;
 	int			ret;
 
-	DBG("ENTER\n");
+	DBG("ENTER with msh = 0x%" PRIx64 ", msubh = 0x%" PRIx64 "\n", msh, msubh);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
