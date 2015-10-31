@@ -1653,21 +1653,25 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			return RDMA_ACCEPT_TIMEOUT;
 		}
 	} else {
-		if (connect_disconnect_mq->receive()) {
-			ERR("Failed to receive MQ_CONNECT_MS message\n");
-			delete connect_disconnect_mq;
-			return RDMA_ACCEPT_FAIL;
-		}
-	}
+		unsigned retries = 10;
+		do {
+			if (connect_disconnect_mq->receive()) {
+				ERR("Failed to receive MQ_CONNECT_MS message\n");
+				delete connect_disconnect_mq;
+				return RDMA_ACCEPT_FAIL;
+			}
+			/* Ensure that it is indeed an MQ_CONNECT_MS message or else fail */
+			if (mq_rdma_msg->type == MQ_CONNECT_MS) {
+				INFO("*** Connect message received! ***\n");
+				DBG("conn_msg->seq_num = 0x%X\n", conn_msg->seq_num);
+				break;
+			} else {
+				ERR("Received message of type 0x%X. DISCARDING & RETRYING\n",
+								mq_rdma_msg->type);
 
-	/* Ensure that it is indeed an MQ_CONNECT_MS message or else fail */
-	if (mq_rdma_msg->type == MQ_CONNECT_MS) {
-		INFO("*** Connect message received! ***\n");
-		DBG("conn_msg->seq_num = 0x%X\n", conn_msg->seq_num);
-	} else {
-		ERR("Received message of type 0x%X\n", mq_rdma_msg->type);
-		delete connect_disconnect_mq;
-		return RDMA_ACCEPT_FAIL;
+				continue;
+			}
+		} while (retries--);
 	}
 
 	/* Validate the message contents based on known values */
