@@ -139,6 +139,14 @@ void init_worker_info(struct worker *info, int first_time)
         info->sock_tx_buf = NULL;
         info->sock_rx_buf = NULL;
 
+	info->cpu_occ_valid = 0;
+	info->cpu_occ_poll_period = 1.0;
+	info->old_tot_jiffies = 1;
+	info->old_proc_jiffies = 0;
+	info->new_tot_jiffies = 2;
+	info->new_proc_jiffies = 0;
+	info->cpu_occ_pct = 0.0;
+
 #ifdef USER_MODE_DRIVER
 	info->umd_chan = 0;
 	info->umd_dch = NULL;
@@ -1233,6 +1241,96 @@ void dma_free_ibwin(struct worker *info)
 	info->ib_rio_addr = 0;
 	info->ib_byte_cnt = 0;
 	info->ib_handle = 0;
+};
+
+#define STAT_FMT "%*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %lu %lu"
+#define PROC_STAT_FMT "%*s %lu %lu %lu %lu %lu %lu %lu"
+#define PROC_STAT_PFMT "\nTot CPU Jiffies %lu %lu %lu %lu %lu %lu %lu\n"
+
+void cpu_occ_poll(struct worker *info)
+{
+	pid_t my_pid = getpid();
+	FILE *stat_fp, *cpu_stat_fp;
+	char filename[256];
+	char file_line[1024];
+	int elements;
+        uint64_t proc_new_stime, proc_new_utime;
+	uint64_t p_user, p_nice, p_system, p_idle, p_iowait, p_irq, p_softirq;
+
+	memset(filename, 0, 256);
+	snprintf(filename, 255, "/proc/%d/stat", my_pid);
+
+	stat_fp = fopen(filename, "r" );
+	if (NULL == stat_fp) {
+		ERR( "FAILED: Open proc stat file \"%s\": %d %s\n",
+			filename, errno, strerror(errno));
+		goto exit;
+	};
+
+	cpu_stat_fp = fopen("/proc/stat", "r");
+	if (NULL == cpu_stat_fp) {
+		ERR("FAILED: Open file \"/proc/stat\": %d %s\n",
+			errno, strerror(errno));
+		goto exit;
+	};
+
+	while (!info->stop_req) {
+
+		fgets(file_line, 1024,  stat_fp);
+ 		fseek(stat_fp, 0 , SEEK_SET);
+		INFO("\nstat_fd: %s\n", file_line);
+
+ 		elements = sscanf(file_line, STAT_FMT,
+			&proc_new_utime, &proc_new_stime);
+
+		INFO("\nRead %d stat_fd elements\n", elements);
+		INFO("\nproc_new_utime %d proc_new_stime %d\n",
+			proc_new_utime, proc_new_stime);
+
+		fgets(file_line, 1024,  cpu_stat_fp);
+ 		fseek(cpu_stat_fp, 0 , SEEK_SET);
+		INFO("\ncpu_stat_fd: %s\n", file_line);
+
+ 		elements = sscanf(file_line, PROC_STAT_FMT, 
+			&p_user, &p_nice, &p_system, &p_idle,
+			&p_iowait, &p_irq, &p_softirq);
+
+		INFO("\nRead %d proc_stat_fd elements\n", elements);
+		INFO(PROC_STAT_PFMT, p_user, p_nice, p_system, p_idle,
+			p_iowait, p_irq, p_softirq);
+			
+		info->old_proc_jiffies = info->new_proc_jiffies;
+		info->new_proc_jiffies = proc_new_utime + proc_new_stime;
+		info->old_tot_jiffies = info->new_tot_jiffies;
+		info->new_tot_jiffies = p_user + p_nice + p_system + p_idle +
+					p_iowait + p_irq + p_softirq;
+		info->cpu_occ_pct = 
+				(((float)(info->new_proc_jiffies) -
+				 (float)(info->old_proc_jiffies)) /
+				((float)(info->new_tot_jiffies) -
+				 (float)(info->old_tot_jiffies))) * 100.0;
+		fclose(stat_fp);
+		fclose(cpu_stat_fp);
+		sleep(info->cpu_occ_poll_period);
+		info->cpu_occ_valid = 1;
+
+		stat_fp = fopen(filename, "r" );
+		if (NULL == stat_fp) {
+			ERR( "FAILED: Open proc stat file \"%s\": %d %s\n",
+				filename, errno, strerror(errno));
+			goto exit;
+		};
+
+		cpu_stat_fp = fopen("/proc/stat", "r");
+		if (NULL == cpu_stat_fp) {
+			ERR("FAILED: Open file \"/proc/stat\": %d %s\n",
+				errno, strerror(errno));
+			goto exit;
+		};
+	};
+	info->cpu_occ_valid = 0;
+exit:
+	return;
 };
 
 #ifdef USER_MODE_DRIVER
@@ -2717,6 +2815,9 @@ void *worker_thread(void *parm)
 				break;
         	case free_ibwin:
 				dma_free_ibwin(info);
+				break;
+		case cpu_occ:
+				cpu_occ_poll(info);
 				break;
 #ifdef USER_MODE_DRIVER
 		case umd_calibrate:

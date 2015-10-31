@@ -77,7 +77,9 @@ extern riomp_mport_t mp_h;
 extern int mp_h_valid;
 extern int mp_h_num;
 
-#define MAX_WORKERS 8
+#define MAX_WORKER_IDX 11
+#define MAX_WORKERS (MAX_WORKER_IDX+1)
+
 extern struct worker wkr[MAX_WORKERS];
 
 #ifdef __cplusplus

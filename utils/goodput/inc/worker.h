@@ -112,6 +112,7 @@ enum req_type {
 	message_rx_lat,
 	alloc_ibwin,
 	free_ibwin,
+	cpu_occ,
 	shutdown_worker,
 #ifdef USER_MODE_DRIVER
 	umd_calibrate,
@@ -212,6 +213,14 @@ struct worker {
 	struct timespec tot_iter_time; /* Total time for all iterations */
 	struct timespec min_iter_time; /* Minimum time over all iterations */
 	struct timespec max_iter_time; /* Maximum time over all iterations */
+
+	int cpu_occ_valid;
+	float cpu_occ_poll_period;
+	uint64_t old_tot_jiffies;
+	uint64_t old_proc_jiffies;
+	uint64_t new_tot_jiffies;
+	uint64_t new_proc_jiffies;
+	float    cpu_occ_pct;
 #ifdef USER_MODE_DRIVER
 	int		umd_chan; ///< Local mailbox
 	int		umd_chan_to; ///< Remote mailbox
