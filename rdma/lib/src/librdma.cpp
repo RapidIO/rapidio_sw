@@ -303,7 +303,7 @@ static void *wait_for_disc_thread_f(void *arg)
 		pthread_exit(0);
 	}
 
-	msg_q<mq_disconnect_msg> *mq = (msg_q<mq_disconnect_msg> *)arg;
+	msg_q<mq_rdma_msg> *mq = (msg_q<mq_rdma_msg> *)arg;
 
 	/* Wait for the POSIX disconnect message containing rem_msh */
 	INFO("Waiting for DISconnect message...\n");
@@ -314,8 +314,16 @@ static void *wait_for_disc_thread_f(void *arg)
 	}
 
 	/* Extract message contents */
-	mq_disconnect_msg *disc_msg;
-	mq->get_recv_buffer(&disc_msg);
+	mq_rdma_msg *rdma_msg;
+	mq->get_recv_buffer(&rdma_msg);
+
+	if (rdma_msg->type != MQ_DISCONNECT_MS) {
+		CRIT("** Invalid message type: 0x%X **\n", rdma_msg->type);
+		raise(SIGABRT);
+		delete mq;
+		pthread_exit(0);
+	}
+	mq_disconnect_msg *disc_msg = &rdma_msg->disconnect_msg;
 	INFO("Received mq_disconnect on '%s' with client_msubid(0x%X)\n",
 			mq->get_name().c_str(),	disc_msg->client_msubid);
 
@@ -1139,7 +1147,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	close_ms_output	out;
 	int		ret;
 
-	DBG("ENTER\n");
+	DBG("ENTER with msoh=0x%" PRIx64 ", msh = 0x%" PRIx64 "\n", msoh, msh);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -1151,7 +1159,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 
 	/* Check for NULL parameters */
 	if (!msoh || !msh) {
-		ERR("Invalid param(s): msoh=0x%lX, msh=0x%lX\n", msoh, msh);
+		ERR("Invalid param(s). Failing.\n");
 		return RDMA_NULL_PARAM;
 	}
 
@@ -1177,7 +1185,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		WARN("disc_thread is NULL.\n");
 	} else {
 
-		HIGH("Killing the wait-for=disconnection thread!!\n");
+		HIGH("Killing the wait-for-disconnection thread!!\n");
 		if (pthread_cancel(disc_thread)) {
 			WARN("Failed to cancel disc_thread for msh(0x%X):%s\n",
 						msh, strerror(errno));
@@ -1200,7 +1208,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	}
 
 	/* Kill the disconnection message queue */
-	msg_q<mq_disconnect_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
+	msg_q<mq_rdma_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
 	if (disc_mq == nullptr) {
 		WARN("disc_mq is NULL\n");
 	} else {
@@ -1241,7 +1249,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		return RDMA_DB_REM_FAIL;
 	}
 	INFO("msh(0x%lX) removed from local database\n", msh);
-	DBG("EXIT - success");
+	DBG("EXIT - success\n");
 	return 0;
 } /* rdma_close_ms_h() */
 
@@ -1314,7 +1322,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	/**
 	 * Daemon should have closed the message queue so we can close and
 	 * unlink it here. */
-	msg_q<mq_disconnect_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
+	msg_q<mq_rdma_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
 	if (disc_mq == nullptr) {
 		WARN("disc_mq is NULL\n");
 	} else {
@@ -1417,7 +1425,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	struct loc_msub 	*msub;
 	int			ret;
 
-	DBG("ENTER\n");
+	DBG("ENTER with msh = 0x%" PRIx64 ", msubh = 0x%" PRIx64 "\n", msh, msubh);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -1588,18 +1596,17 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	string mq_name(ms->name);
 	mq_name.insert(0, 1, '/');
 
-	DBG("'connect' mq_name = %s\n", mq_name.c_str());
-
 	/* Must create the queue before calling the daemon since the
 	 * connect request from the remote daemon might come quickly
 	 * and try to open the queue to notify us.
 	 */
-	msg_q<mq_connect_msg>	*connect_mq;
+	msg_q<mq_rdma_msg>	*connect_disconnect_mq;
 	try {
-		connect_mq = new msg_q<mq_connect_msg>(mq_name, MQ_CREATE);
+		connect_disconnect_mq = new msg_q<mq_rdma_msg>(mq_name, MQ_CREATE);
 	}
 	catch(msg_q_exception e) {
-		ERR("Failed to create connect_mq: %s\n", e.msg.c_str());
+		ERR("Failed to create connect_disconnect_mq '%s': %s\n",
+						mq_name.c_str(),e.msg.c_str());
 		return RDMA_MALLOC_FAIL;
 	}
 	INFO("Message queue %s created for connection from %s\n",
@@ -1611,23 +1618,24 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	ret = alt_rpc_call();
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
-		delete connect_mq;
+		delete connect_disconnect_mq;
 		return ret;
 	}
 	accept_out = out_msg->accept_out;
 
 	/* Await 'connect()' from client */
-	mq_connect_msg	*conn_msg;
-	connect_mq->get_recv_buffer(&conn_msg);
+	mq_rdma_msg *mq_rdma_msg;
+	connect_disconnect_mq->get_recv_buffer(&mq_rdma_msg);
+	mq_connect_msg	*conn_msg = &mq_rdma_msg->connect_msg;
 	INFO("Waiting for connect message...\n");
 	if (timeout_secs) {
 		struct timespec tm;
 		clock_gettime(CLOCK_REALTIME, &tm);
 		tm.tv_sec += timeout_secs;
 
-		if (connect_mq->timed_receive(&tm)) {
+		if (connect_disconnect_mq->timed_receive(&tm)) {
 			ERR("Failed to receive connect message before timeout\n");
-			delete connect_mq;
+			delete connect_disconnect_mq;
 			/* Calling undo_accept() to remove the memory space from the list
 			 * of memory spaces awaiting a connect message from a remote daemon.
 			 */
@@ -1645,15 +1653,24 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			return RDMA_ACCEPT_TIMEOUT;
 		}
 	} else {
-		if (connect_mq->receive()) {
-			ERR("Failed to receive connect message\n");
-			delete connect_mq;
+		if (connect_disconnect_mq->receive()) {
+			ERR("Failed to receive MQ_CONNECT_MS message\n");
+			delete connect_disconnect_mq;
 			return RDMA_ACCEPT_FAIL;
 		}
 	}
-	INFO("*** Connect message received! ***\n");
-	DBG("conn_msg->seq_num = 0x%X\n", conn_msg->seq_num);
 
+	/* Ensure that it is indeed an MQ_CONNECT_MS message or else fail */
+	if (mq_rdma_msg->type == MQ_CONNECT_MS) {
+		INFO("*** Connect message received! ***\n");
+		DBG("conn_msg->seq_num = 0x%X\n", conn_msg->seq_num);
+	} else {
+		ERR("Received message of type 0x%X\n", mq_rdma_msg->type);
+		delete connect_disconnect_mq;
+		return RDMA_ACCEPT_FAIL;
+	}
+
+	/* Validate the message contents based on known values */
 	if (
 		(conn_msg->rem_rio_addr_len < 16) ||
 		(conn_msg->rem_rio_addr_len > 65) ||
@@ -1661,8 +1678,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		(conn_msg->rem_destid_len > 64) ||
 		(conn_msg->rem_destid >= 0xFFFF)
 	   ) {
-		CRIT("INVALID CONNECT MESSAGE CONTENTS\n");
-		connect_mq->dump_recv_buffer();
+		CRIT("** INVALID CONNECT MESSAGE CONTENTS** \n");
+		connect_disconnect_mq->dump_recv_buffer();
 		DBG("conn_msg->rem_msid = 0x%X\n", conn_msg->rem_msid);
 		DBG("conn_msg->rem_msubsid = 0x%X\n", conn_msg->rem_msubid);
 		DBG("conn_msg->rem_bytes = 0x%X\n", conn_msg->rem_bytes);
@@ -1671,7 +1688,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		DBG("conn_msg->rem_rio_addr_hi = 0x%X\n", conn_msg->rem_rio_addr_hi);
 		DBG("conn_msg->rem_destid_len = 0x%X\n", conn_msg->rem_destid_len);
 		DBG("conn_msg->rem_destid = 0x%X\n", conn_msg->rem_destid);
-		delete connect_mq;
+		delete connect_disconnect_mq;
 		return RDMA_ACCEPT_FAIL;
 	}
 
@@ -1687,7 +1704,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 					  loc_msh);
 	if (*rem_msubh == (msub_h)NULL) {
 		WARN("Failed to add rem_msub to database\n");
-		delete connect_mq;
+		delete connect_disconnect_mq;
 		return RDMA_DB_ADD_FAIL;
 	}
 	INFO("rem_bytes = %d, rio_addr = 0x%lX\n",
@@ -1696,29 +1713,17 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	/* Return remote msub length to application */
 	*rem_msub_len = conn_msg->rem_bytes;
 
-	/* Done with 'connect' message queue. Delete & create a disconnect mq */
-	delete connect_mq;
-
-	msg_q<mq_disconnect_msg>	*disc_mq;
-	try {
-		disc_mq = new msg_q<mq_disconnect_msg>(mq_name, MQ_CREATE);
-	}
-	catch(msg_q_exception e) {
-		ERR("Failed to create disc_mq: %s\n", e.msg.c_str());
-		return -5;
-	}
-
 	pthread_t wait_for_disc_thread;
-	if (pthread_create(&wait_for_disc_thread, NULL, wait_for_disc_thread_f, disc_mq)) {
+	if (pthread_create(&wait_for_disc_thread, NULL, wait_for_disc_thread_f, connect_disconnect_mq)) {
 		WARN("Failed to create wait_for_disc_thread: %s\n", strerror(errno));
-		delete disc_mq;
+		delete connect_disconnect_mq;
 		return RDMA_PTHREAD_FAIL;
 	}
 	INFO("Disconnection thread for '%s' created\n", ms->name);
 
 	/* Add conn/disc message queue and disc thread to database entry */
 	ms->disc_thread = wait_for_disc_thread;
-	ms->disc_notify_mq = disc_mq;
+	ms->disc_notify_mq = connect_disconnect_mq;
 	ms->accepted = true;
 
 	return 0;

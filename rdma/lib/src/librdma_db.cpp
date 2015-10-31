@@ -302,7 +302,7 @@ ms_h add_loc_ms(const char *ms_name,
 		uint32_t ms_conn_id,
 		bool owned,
 		pthread_t disc_thread,
-		msg_q<mq_disconnect_msg> *disc_notify_mq,
+		msg_q<mq_rdma_msg> *disc_notify_mq,
 		pthread_t close_thread,
 		msg_q<mq_close_ms_msg> *close_mq)
 {
@@ -528,7 +528,7 @@ pthread_t loc_ms_get_disc_thread(ms_h msh)
 /**
  * loc_ms_get_disc_notify_mq
  */
-msg_q<mq_disconnect_msg> *loc_ms_get_disc_notify_mq(ms_h msh)
+msg_q<mq_rdma_msg> *loc_ms_get_disc_notify_mq(ms_h msh)
 {
 	/* Check for NULL msh */
 	if (!msh) {
