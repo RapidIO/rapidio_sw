@@ -218,9 +218,11 @@ struct worker {
 	int cpu_occ_valid;
 	float cpu_occ_poll_period;
 	uint64_t old_tot_jiffies;
-	uint64_t old_proc_jiffies;
+	uint64_t old_proc_kern_jiffies;
+	uint64_t old_proc_user_jiffies;
 	uint64_t new_tot_jiffies;
-	uint64_t new_proc_jiffies;
+	uint64_t new_proc_kern_jiffies;
+	uint64_t new_proc_user_jiffies;
 	float    cpu_occ_pct;
 #ifdef USER_MODE_DRIVER
 	LockFile*	umd_lock;

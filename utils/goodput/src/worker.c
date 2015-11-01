@@ -144,10 +144,12 @@ void init_worker_info(struct worker *info, int first_time)
 
 	info->cpu_occ_valid = 0;
 	info->cpu_occ_poll_period = 1.0;
+	info->new_proc_user_jiffies = 0;
+	info->new_proc_kern_jiffies = 0;
+	info->old_proc_user_jiffies = 0;
+	info->old_proc_kern_jiffies = 0;
 	info->old_tot_jiffies = 1;
-	info->old_proc_jiffies = 0;
 	info->new_tot_jiffies = 2;
-	info->new_proc_jiffies = 0;
 	info->cpu_occ_pct = 0.0;
 
 #ifdef USER_MODE_DRIVER
@@ -1250,14 +1252,15 @@ void cpu_occ_parse_proc_line(char *file_line,
 				uint64_t *proc_new_stime)
 {
 	char *tok;
+	char *saveptr;
 	char *delim = (char *)" ";
 	int tok_cnt = 0;
 	char fl_cpy[CPUOCC_BUFF_SIZE];
 	
 	strncpy(fl_cpy, file_line, CPUOCC_BUFF_SIZE-1);
-	tok = strtok(file_line, delim);
-	while ((NULL != tok) && (tok_cnt < 12)) {
-		tok = strtok(NULL, delim);
+	tok = strtok_r(file_line, delim, &saveptr);
+	while ((NULL != tok) && (tok_cnt < 13)) {
+		tok = strtok_r(NULL, delim, &saveptr);
 		tok_cnt++;
 	};
 
@@ -1266,7 +1269,7 @@ void cpu_occ_parse_proc_line(char *file_line,
 	
 	*proc_new_utime = atoll(tok);
 
-	tok = strtok(NULL, delim);
+	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
 
@@ -1285,49 +1288,49 @@ void cpu_occ_parse_stat_line(char *file_line,
 			uint64_t *p_irq,
 			uint64_t *p_softirq)
 {
-	char *tok;
+	char *tok, *saveptr;
 	char *delim = (char *)" ";
 	char fl_cpy[CPUOCC_BUFF_SIZE];
 	
 	strncpy(fl_cpy, file_line, CPUOCC_BUFF_SIZE-1);
 	
 	/* Throw the first token away. */
-	tok = strtok(file_line, delim);
+	tok = strtok_r(file_line, delim, &saveptr);
 
 	if (NULL == tok)
 		goto error;
 	
-	tok = strtok(NULL, delim);
+	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
 	*p_user = atoll(tok);
 
-	tok = strtok(NULL, delim);
+	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
 	*p_nice = atoll(tok);
 
-	tok = strtok(NULL, delim);
+	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
 	*p_system = atoll(tok);
 
-	tok = strtok(NULL, delim);
+	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
 	*p_idle = atoll(tok);
 
-	tok = strtok(NULL, delim);
+	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
 	*p_iowait = atoll(tok);
 
-	tok = strtok(NULL, delim);
+	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
 	*p_irq = atoll(tok);
 
-	tok = strtok(NULL, delim);
+	tok = strtok_r(NULL, delim, &saveptr);
 	if (NULL == tok)
 		goto error;
 	*p_softirq = atoll(tok);
@@ -1343,7 +1346,7 @@ void cpu_occ_poll(struct worker *info)
 	FILE *stat_fp, *cpu_stat_fp;
 	char filename[256];
 	char file_line[CPUOCC_BUFF_SIZE];
-        uint64_t proc_new_stime = 5, proc_new_utime= 10;
+        uint64_t proc_new_jiffies = 10, proc_old_jiffies= 5;
 	uint64_t p_user = 1, p_nice = 1, p_system = 1, p_idle = 1;
 	uint64_t p_iowait = 1, p_irq = 1, p_softirq = 1;
 	int cpus = getCPUCount();
@@ -1371,23 +1374,28 @@ void cpu_occ_poll(struct worker *info)
 		memset(file_line, 0, 1024);
 		fgets(file_line, 1024,  stat_fp);
 
-		cpu_occ_parse_proc_line(file_line, &proc_new_utime,
-					&proc_new_stime);
+		info->old_proc_kern_jiffies = info->new_proc_kern_jiffies;
+		info->old_proc_user_jiffies = info->new_proc_user_jiffies;
+		cpu_occ_parse_proc_line(file_line, &info->new_proc_user_jiffies,
+					&info->new_proc_kern_jiffies);
 
+		
 		memset(file_line, 0, 1024);
 		fgets(file_line, 1024,  cpu_stat_fp);
 
 		cpu_occ_parse_stat_line(file_line, &p_user, &p_nice, &p_system,
 			&p_idle, &p_iowait, &p_irq, &p_softirq);
 
-		info->old_proc_jiffies = info->new_proc_jiffies;
-		info->new_proc_jiffies = proc_new_utime + proc_new_stime;
+		proc_new_jiffies = info->new_proc_kern_jiffies +
+					info->new_proc_user_jiffies;
+		proc_old_jiffies = info->old_proc_user_jiffies  +
+					info->old_proc_kern_jiffies;
 		info->old_tot_jiffies = info->new_tot_jiffies;
 		info->new_tot_jiffies = p_user + p_nice + p_system + p_idle +
 					p_iowait + p_irq + p_softirq;
 		info->cpu_occ_pct = 
-				(((float)(info->new_proc_jiffies) -
-				 (float)(info->old_proc_jiffies)) /
+				(((float)(proc_new_jiffies) -
+				 (float)(proc_old_jiffies)) /
 				((float)(info->new_tot_jiffies) -
 				 (float)(info->old_tot_jiffies))) * 100.0
 				* cpus;

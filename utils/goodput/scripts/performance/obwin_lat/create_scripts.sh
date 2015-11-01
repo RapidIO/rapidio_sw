@@ -186,14 +186,14 @@ sed -i -- 's/wr/0/g' ${PREFIX}R*.txt
 direction="read"
 scriptname="../"$DIR_NAME"_"$direction 
 
-echo "// This script runs all "$DIR_NAME $direction" scripts." >> $scriptname
+echo "// This script runs all "$DIR_NAME $direction" scripts." > $scriptname
 echo "log "$DIR_NAME"_"$direction".log" >> $scriptname
 echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
 
 idx=0
 while [ "$idx" -lt "$max_name_idx" ]
 do
-	set_t_filename_t ${SIZE_NAME[idx]}
+	set_t_filename_r ${SIZE_NAME[idx]}
 	echo ". "$t_filename >> $scriptname
 	idx=($idx)+1
 done

@@ -77,5 +77,8 @@ goodput: $(SOURCES) $(INCLUDES)
 	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(LIBRARIES) -L$(COMMONLIB)
 
 clean:
-	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out *.log
+	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out 
+
+logs: 
+	rm -f *.log
 

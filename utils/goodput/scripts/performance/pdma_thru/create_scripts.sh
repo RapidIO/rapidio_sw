@@ -232,7 +232,7 @@ do
 		file_set=$DIR_NAME"_"$PREFIX"_"$direction 
 		scr_name="../"$file_set
 
-		echo "// This script runs all "$file_set" scripts." >> $scr_name
+		echo "// This script runs all "$file_set" scripts." > $scr_name
 		echo "log "$file_set".log" >> $scr_name
 		echo "scrp scripts/performance/"$DIR_NAME >> $scr_name
 	

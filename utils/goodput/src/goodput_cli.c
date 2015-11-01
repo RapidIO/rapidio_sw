@@ -492,11 +492,13 @@ int CPUOccDisplayCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	sprintf(pctg, "%4.2f", wkr[idx].cpu_occ_pct);
-	sprintf(env->output, "\n-->> Kernel <<-- -->> Process<<-- CPU Occ\n");
+	sprintf(env->output, "\n-Kernel- ProcUser ProcKern CPU_Occ\n");
         logMsg(env);
-	sprintf(env->output, "%16ld %16ld %7s\n",
+	sprintf(env->output, "%8ld %8ld %8ld %7s\n",
 		wkr[idx].new_tot_jiffies - wkr[idx].old_tot_jiffies,
-		wkr[idx].new_proc_jiffies - wkr[idx].old_proc_jiffies, pctg);
+		wkr[idx].new_proc_user_jiffies - wkr[idx].old_proc_user_jiffies,
+		wkr[idx].new_proc_kern_jiffies - wkr[idx].old_proc_kern_jiffies,
+		pctg);
         logMsg(env);
 exit:
         return 0;
