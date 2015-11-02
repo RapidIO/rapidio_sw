@@ -164,7 +164,7 @@ public:
   void setInitState();
   bool open_mbox(const uint32_t entries, const uint32_t sts_entries);
 
-  bool send_message(MboxOptions_t& opt, const void* data, const size_t len, bool& q_was_full);
+  bool send_message(MboxOptions_t& opt, const void* data, const size_t len, const bool check_reg, bool& q_was_full);
 
   int add_inb_buffer(void* buf);
 
