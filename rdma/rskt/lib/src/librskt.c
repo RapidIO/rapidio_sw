@@ -459,10 +459,10 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
  	DBG("Waiting for skt_h->mtx...\n");
 	librskt_wait_for_sem(&skt_h->mtx, 0);
 	skt_h->skt = NULL;
-	sem_post(&skt_h->mtx);
 
 	DBG("Calling cleanup_skt\n");
 	cleanup_skt(skt_h, skt);
+	sem_post(&skt_h->mtx);
 	DBG("EXIT\n");
 };
 
@@ -1464,8 +1464,16 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	struct rdma_xfer_ms_in hdr_in;
 	uint32_t first_offset;
 	struct rskt_socket_t *skt;
+	int	rc;
 
 	DBG("ENTER\n");
+
+	rc = librskt_wait_for_sem(&skt_h->mtx, 0);
+	if (rc) {
+		ERR("librskt_wait_for_sem failed...exiting\n");
+		goto fail;
+	}
+
 	if (lib_uninit()) {
 		ERR("lib_uninit() failed\n");
 		goto fail;
@@ -1540,12 +1548,13 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 		ERR("Failed in update_remote_hdr\n");
 		goto fail;
 	};
-
+	sem_post(&skt_h->mtx);
 	return avail_bytes;
 fail:
 	WARN("Failed..closing skt_h\n");
 	rskt_close(skt_h);
 skt_ok:
+	sem_post(&skt_h->mtx);
 	return -1;
 }; /* rskt_read() */
 
