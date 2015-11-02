@@ -524,16 +524,17 @@ bool MboxChannel::open_mbox(const uint32_t entries, const uint32_t sts_entries)
  *
  * @return true if TX operation was enqueued OK, false otherwise
  */
-bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_t len, const bool check_reg, bool& q_was_full)
+bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_t len, const bool check_reg, StopTx_t& fail_reason)
 {
   volatile uint32_t reg = 0;
 
   const uint16_t mbox = opt.mbox;
 
-  if (mbox >= RIO_MAX_MBOX || mbox != m_mbox)
+  if (mbox >= RIO_MAX_MBOX)
     throw std::runtime_error("send_message: Invalid mbox!");
 
   bool ret = true;
+  fail_reason = STOP_OK;
 
   if (data == NULL || len < 0 || len > 4096) return false;
  
@@ -549,7 +550,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   if (queueTxFull()) {
     pthread_spin_unlock(&m_tx_splock);
     //ERR("\n\tQueue full for MBOX%d!\n", m_mbox);
-    q_was_full = true;
+    fail_reason = STOP_Q_FULL;
     return false;
   }
 
@@ -559,6 +560,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   if (m_omsg_trk.bl_busy[tx_slot] != 0) {
     pthread_spin_unlock(&m_tx_splock);
     ERR("\n\tBD%d busy for MBOX%d! -- pending %d\n", tx_slot, m_mbox, m_omsg_trk.bltx_busy_size);
+    fail_reason = STOP_BD_BUSY;
     return false;
   }
  
@@ -672,6 +674,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   }
 
   if (reg & TSI721_OBDMAC_INT_ERROR) {
+    fail_reason = STOP_REG_ERR;
     pthread_spin_lock(&m_bltx_splock);
     m_omsg_trk.bl_busy[opt.bd_idx] = 0;
     m_omsg_trk.bltx_busy[wi.opt.bd_idx].valid = 0; m_omsg_trk.bltx_busy_size--;

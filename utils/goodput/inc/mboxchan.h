@@ -156,6 +156,13 @@ public:
     // add actions here
   } WorkItem_t;
 
+  typedef enum {
+    STOP_OK      = 0,
+    STOP_Q_FULL  = 1,
+    STOP_BD_BUSY = 2,
+    STOP_REG_ERR = 4,
+  } StopTx_t;
+
   MboxChannel(const uint32_t mportid, const uint32_t mbox);
   MboxChannel(const uint32_t mportid, const uint32_t mbox, riomp_mport_t mp_h);
 
@@ -164,7 +171,7 @@ public:
   void setInitState();
   bool open_mbox(const uint32_t entries, const uint32_t sts_entries);
 
-  bool send_message(MboxOptions_t& opt, const void* data, const size_t len, const bool check_reg, bool& q_was_full);
+  bool send_message(MboxOptions_t& opt, const void* data, const size_t len, const bool check_reg, StopTx_t& fail_reason);
 
   int add_inb_buffer(void* buf);
 
