@@ -484,11 +484,13 @@ void MboxChannel::cleanup()
 
   m_imsg_ring.imq_ts.clear();
 
-  assert(m_omsg_trk.bltx_busy[m_num_ob_desc].valid == 0);
+  if (m_omsg_trk.bltx_busy != NULL) {
+    assert(m_omsg_trk.bltx_busy[m_num_ob_desc].valid == 0);
 
-  free(m_omsg_trk.bltx_busy);
-  m_omsg_trk.bltx_busy = NULL;
-  m_omsg_trk.bltx_busy_size = 0;
+    free(m_omsg_trk.bltx_busy);
+    m_omsg_trk.bltx_busy = NULL;
+    m_omsg_trk.bltx_busy_size = 0;
+  }
 
   free(m_omsg_trk.bl_busy);
   m_omsg_trk.bl_busy = NULL;
@@ -512,16 +514,17 @@ bool MboxChannel::open_mbox(const uint32_t entries, const uint32_t sts_entries)
 }
 
 
-/**
- * Send message, already added to OB ring, to specified destination.
+/** \brief Send message to specified destination.
+ * \note If check_reg is NOT set the the only way to find out if TX was successful is to do an audit of what came out in the TX FIFO.
+ * \param[in, out] opt
+ * \param[in] data Data to be sent, mas 4K
+ * \param len Size of data
+ * \param check_reg Check status reg after TX? (SLOW)
+ * \param[out] q_was_full Set if the TX queue was full
  *
- * @destid  Device ID of the recipient of the message
- * @len     Message length, in bytes
- * @q_was_full [out] Set if queue was full 
- *
- * @return         1 if successful  < 0 if unsuccessful
+ * @return true if TX operation was enqueued OK, false otherwise
  */
-bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_t len, bool& q_was_full)
+bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_t len, const bool check_reg, bool& q_was_full)
 {
   volatile uint32_t reg = 0;
 
@@ -638,7 +641,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   }}
   pthread_spin_unlock(&m_bltx_splock);
 
-  //(void)rd32mboxchan(TSI721_OBDMAC_DWRCNT(m_mbox));
+  if (! check_reg) goto out;
 
 #ifdef MBOXDEBUG
   /* Now poll the RDCNT until it is equal to the WRCNT */
