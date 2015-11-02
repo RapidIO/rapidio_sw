@@ -195,19 +195,9 @@ int main(int argc, char *argv[])
 			printf("i = %u, ***** Data compares OK *****\n", i);
 		}
 
-		/* Disconnect message */
-		out_msg[0] = 0xFD;
-		if (client->send(data_length)) {
-			ERR("Failed to send disconnect message\n");
-		} else {
-			puts("Disconnect message sent");
-		}
-
 		/* Call destructor to close and destroy socket */
 		puts("Deleting client object (closing sockets)");
 		delete client;
-
-	//	sleep(1);
 	} /* for() */
 
 	puts("Press ENTER to quit");

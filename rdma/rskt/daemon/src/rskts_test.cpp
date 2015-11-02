@@ -126,7 +126,8 @@ void *rskt_thread_f(void *arg)
 				 */
 				continue;
 			} else {
-				ERR("Failed to receive, rc = %d\n", received_len);
+				printf("Failed to receive, rc = %d. Client closed connection?\n",
+										received_len);
 				goto exit_rskt_thread_f;
 			}
 		}
@@ -136,12 +137,6 @@ void *rskt_thread_f(void *arg)
 
 			void *recv_buf;
 			other_server->get_recv_buffer(&recv_buf);
-
-			/* Check for the 'disconnect' message */
-			if (*(uint8_t *)recv_buf == 0xFD) {
-				puts("Disconnect message received. DISCONNECTING");
-				goto exit_rskt_thread_f;
-			}
 
 			/* Echo data back to client */
 			puts("Sending data back to client");
@@ -157,8 +152,8 @@ void *rskt_thread_f(void *arg)
 	}
 
 exit_rskt_thread_f:
-//	sleep(1);	/* Keep disconnection thread alive to process disc_ms_h */
-	delete other_server;
+	// FIXME: Memory leak
+	//delete other_server;
 	worker_threads.remove(ti->tid);
 	delete ti;
 	pthread_exit(0);

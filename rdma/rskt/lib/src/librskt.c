@@ -405,7 +405,6 @@ void cleanup_skt(rskt_h skt_h, struct rskt_socket_t *skt)
 		}
 		if (skt_rdma_connector == skt->connector) {
 			DBG("skt->connector == skt_rdma_connector\n");
-			DBG("DISCONNECTING from MS\n");
 			rdma_disc_ms_h(skt->con_msh, skt->msubh);
 			skt->msubh_valid = 0;
 			skt->msh_valid = 0;
