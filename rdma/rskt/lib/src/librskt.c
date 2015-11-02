@@ -456,7 +456,13 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
 
 	/* FIXME: What does the failure of librskt_wait_for_sem mean? */
 	/* How should this be handled? */
- 	DBG("Waiting for skt_h->mtx...\n");
+ 	int sem_val;
+ 	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
+ 	 	DBG("Waiting for skt_h->mtx(0x%X) value=%d\n", skt_h->mtx);
+ 	} else {
+ 		DBG("Failed to get value for skt_h->mtx(0x%X)\n", skt_h->mtx);
+ 	}
+
 	librskt_wait_for_sem(&skt_h->mtx, 0);
 	skt_h->skt = NULL;
 
@@ -1468,6 +1474,12 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 
 	DBG("ENTER\n");
 
+ 	int sem_val;
+ 	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
+ 	 	DBG("Waiting for skt_h->mtx(0x%X) value=%d\n", skt_h->mtx);
+ 	} else {
+ 		DBG("Failed to get value for skt_h->mtx(0x%X)\n", skt_h->mtx);
+ 	}
 	rc = librskt_wait_for_sem(&skt_h->mtx, 0);
 	if (rc) {
 		ERR("librskt_wait_for_sem failed...exiting\n");
