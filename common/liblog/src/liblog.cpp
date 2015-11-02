@@ -35,6 +35,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/time.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 #include <errno.h>
 #include <semaphore.h>
 
@@ -125,8 +128,14 @@ int rdma_log(const char *level_str,
 	ctime_r(&cur_time, asc_time);
 	asc_time[strlen(asc_time) - 1] = '\0';
 	gettimeofday(&tv, NULL);
-	n = sprintf(buffer, "%s %s.%06ldus %s,%d,%s(): ",
-		level_str, asc_time, tv.tv_usec, file, line_num, func);
+	n = sprintf(buffer, "%s %s.%06ldus %s, tid=%ld, %d, %s(): ",
+		level_str,
+		asc_time,
+		tv.tv_usec,
+		file,
+		syscall(SYS_gettid),
+		line_num,
+		func);
 	
 	/* Handle format and variable arguments */
 	va_start(args, format);
