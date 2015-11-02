@@ -4,29 +4,13 @@
  * The goodput tool measures goodput (actual data transferred) and latency for 
  * the rapidio_sw/common/libmport direct I/O, DMA, and Messaging interfaces.
  * It can also measure the goodput and latency for a separate Tsi721 
- * user mode driver tested on x86/x64 platforms <Under Development>.
+ * user mode driver tested on x86/x64 platforms.
  *
  * \section fast_start_sec Getting Started
  * \subsection compile_sec Compiling Goodput
  * To compile the goodput tool:
  * 1. In the "rapidio_sw" directory, type "make all"
  * 2. In the "rapidio_sw/utils/goodput" directory, type "make all"
- * \subsection script_sec Performance Measurement Scripts
- * The goodput command line interpreter (CLI) supports a rich set of
- * performance evaluation
- * capabilities.  To simplify and automate performance evaluation, 
- * it is possible to generate scripts which can then be executed by 
- * the goodput CLI.
- *
- * Instructions for script generation are found in 
- * \ref script_gen_instr_secn.
- *
- * Instructions for script execution are found in
- * \ref script_exec_detail_secn.
- *
- * For more detailed information on script generation,
- * refer to \ref script_gen_detail_secn.
- *
  * \subsection rapidio_start_sec Starting the RapidIO Interfaces
  *
  * To start the RapidIO interfaces on the demo platforms, perform the
@@ -61,6 +45,22 @@
  * To execute ugoodput, type "sudo ./ugoodput" while in the
  * "rapidio_sw/utils/goodput" directory.
  *
+ * \subsection script_sec Getting Started with Performance Measurement Scripts
+ * The goodput command line interpreter (CLI) supports a rich set of
+ * performance evaluation
+ * capabilities.  To simplify and automate performance evaluation, 
+ * it is possible to generate scripts which can then be executed by 
+ * the goodput CLI.
+ *
+ * Instructions for getting started with script generation are found in 
+ * \ref script_gen_instr_secn.
+ *
+ * Instructions for script execution are found in
+ * \ref script_exec_detail_secn.
+ *
+ * For more detailed information on script generation implementation,
+ * refer to \ref script_gen_detail_secn.
+ *
  * \section cli_secn Command Line Interpreter Overview
  *
  * \subsection Common CLI Commands
@@ -68,18 +68,22 @@
  * library.  This library has the following base commands:
  *
  * \subsubsection help_secn Help command
+ *
  * The libcli help command is "?".  Type "?" to get a list of commands, or "?
  * <command>" to get detailed help for a command.
  *
  * \subsubsection debug_secn Debug Command
+ *
  * Many commands have different levels of debug output.  The "debug" command
  * displays and optionally alters the debug output level.
  *
  * \subsubsection log_secn Log Command
+ *
  * The "log" command is used to capture the input and output of a
  * goodput CLI session.
  *
  * \subsubsection script_secn Script Command
+ *
  * Libcli supports accepting input from script files.  The "script" command
  * specifies a file name to be used as the source of commands for the CLI
  * session.  Script files may call other script files.  Every script file is
@@ -91,23 +95,27 @@
  * NOTE: the '.' command is identical to the script command
  *
  * \subsubsection scrpath_secn Scrpath Command
+ *
  * Displays and optionally changes the directory path prepended to  script files
  * names.  Script files which do not begin with "/" or "\" have the prefix
  * prepended before the file is openned.
  *
  * \subsubsection echo_secn Echo Command
+ *
  * Displays a copy of the text following the command.  Useful for annotating
  * log files and scripts.
  *
  * \subsubsection quit_secn Quit Command
+ *
  * The quit command exits goodput cleanly, freeing up all libmport resources
  * that may be in use by goodput at the time.
  *
  * \section threads_secn Goodput Thread Management Overview
  * The goodput CLI is used to manage 12 worker threads.
- * CLI commands can be used to get each worker thread to
- * perform a measurement, as explained in \ref measurement_secn.  The
- * following commands are used to manage goodput threads:
+ * Worker threads are used to perform DMA, messaging, and direct I/O
+ * accesses and measurements, as explained in \ref measurement_secn.  
+ * The following subsections document the commands used to manage worker
+ * threads.
  *
  * \subsection thread_secn Thread Command
  * The thread command is used to start a new thread.  Threads may be
@@ -117,10 +125,11 @@
  * \ref dma_meas_secn.
  *
  * A thread can be in one of three states:
- * - dead - The thread does not exist
- * - halted - The thread is waiting to accept a new command.
- * - running - The thread is currently executing a command, and cannot 
+ * - dead : The thread does not exist
+ * - halted : The thread is waiting to accept a new command.
+ * - running : The thread is currently executing a command, and cannot 
  *             accept a new command until it stops running.
+ * Only a dead thread can be started with the thread command.
  * A running thread may be halted or killed.  A halted thread may be killed.
  * For more information, see \ref halt_secn and \ref kill_secn.
  *
@@ -146,65 +155,146 @@
  *
  * \subsection stat_secn Status Command
  * The status command gives the current state of all threads.  Status has 
- * three variants: IBAlloc status, messaging status, and general status.
- * General status is the fault.  IBAlloc status gives information about Direct
- * I/O inbound window resources owned by the thread.  Messaging status gives
- * information about messaging resources owned by the thread. Generat status
+ * three variants: Inbound window status, messaging status, and general status.
+ * General status is the fault.  Inbound window status gives information about 
+ * Direct I/O inbound window resources owned by the thread, 
+ * and allocated using the IBAlloc command.  Messaging status gives
+ * information about messaging resources owned by the thread. General status
  * gives information about the command that a thread is running/has run.
  *
  * \section measurement_secn Goodput Measurements Overview
- * Goodput measures goodput and latency for Direct I/O, DMA, and messaging
- * transactions.  
+ * Goodput measures goodput, RapidIO link occupancy and latency for 
+ * Direct I/O, DMA, and messaging transactions.  
  * 
+ * \subsection dio_dma_measurement_overview_secn Direct I/O and DMA  Configuration
+ *
  * Direct I/O and DMA both produce read and write transactions
  * that access an inbound window on a target device.  A thread on node X must
  * be commanded to allocate an inbound window z, and a thread on node Y must be
  * commanded to perform direct I/O or DMA transactions to Node X inbound
  * window z. 
  *
+ * The IBAlloc command requests that a thread allocate an inbound window.  Once
+ * the thread has finished inbound window allocation, the thread halts and can
+ * accept another command.  The location of the inbound window may be
+ * displayed using the "status i" command, as described in the \ref stat_secn.
+ *
+ * The IBDealloc command may be used
+ * to deallocate a previously allocated window.  
+ *
+ * The "dump" command dumps the
+ * memory contents for an inbound window. 
+ *
+ * \subsection msg_measurement_overview_secn Messaging Configuration
+ *
  * Messaging transactions
  * support socket style bind/listen/accept/connect semantics: A thread on node
  * X must be commanded to receive on socket z, and a thread on node Y must be
  * commanded to send to node X socket z, for messaging measurements to occur.
  *
- * The IBAlloc command requests that a thread allocate an inbound window.  Once
- * the thread has finished inbound window allocation, the thread halts and can
- * accept another command.  The location of the inbound window may be
- * displayed using the "status i" command.  The IBDealloc command may be used
- * to deallocate a previously allocated window.  For more information,
- * refer to \ref stat_secn.
+ * \subsection destID_overview_secn Destination ID Configuration
  *
  * All commands which act as sources of transactions require a destination ID
  * for the receiver.  To determine the destination ID of the receiver, execute
- * the "mpdevs" command.  Mpdevs gives output of the following format:
+ * the "mpdevs" command on the receiver.  Mpdevs gives output in the
+ * following format:
  *
+ * <pre>
  * Available 1 local mport(s):
  * +++ mport_id: 0 dest_id: 0
  * RIODP: riomp_mgmt_get_ep_list() has 1 entries
  *         1 Endpoints (dest_ID): 1
+ * </pre>
  *
  * In this case, the destination ID of the node is 0.
+ *
+ * \subsection goodput_cmd_overview_secn Goodput Measurement Display
  *
  * Goodput (amount of data transferred ) measurements are displayed by the
  * "goodput" command.
  *
- * Latency measurements are displayed by the "lat" command.
+ * <pre>
+ *  W STS <<<<--Data-->>>> --MBps-- -Gbps- Messages  Link_Occ
+ *  0 Run        2e7800000  198.288  1.586         0   1.670
+ *  1 Run        2e7800000  198.321  1.587         0   1.670
+ *  2 Run        2e7c00000  198.338  1.587         0   1.670
+ *  3 Run        2e7c00000  198.371  1.587         0   1.670
+ *  4 Run        2e7800000  198.313  1.587         0   1.670
+ *  5 Run        2e7c00000  198.330  1.587         0   1.670
+ *  6 Run        2e7c00000  198.346  1.587         0   1.670
+ *  7 Run        2e7800000  198.297  1.586         0   1.670
+ *  8 ---                0    0.000  0.000         0   0.000
+ *  9 ---                0    0.000  0.000         0   0.000
+ * 10 ---                0    0.000  0.000         0   0.000
+ * 11 ---                0    0.000  0.000         0   0.000
+ * Total        173d000000 1586.604 12.693         0  13.361
+ * </pre>
  *
- * \subsection script_gen_instr_secn Goodput Script Generation Instructions
+ * The columns have the following meanings:
+ * - W: Worker thread index, or "Total", which gives totals for all workers
+ * - STS: Status of the worker thread (Run, Halt, or dead (---))
+ * - Data: Hexadecimal value for the number of bytes transferred
+ * - MBps: Decimal display of the data transfer rate, in megabytes per second
+ * - Gbps: Decimal display of the data transfer rate, in gigabits per second
+ * - Messages: Count of the number of messages, 0 for DMA and 
+ *             Direct I/O measurements
+ * - Link_Occ: Decimal display of the RapidIO link occupancy, in gigabits per
+ *             seconds.  Link Occupancy includes RapidIO packet header data.
+ *
+ * \subsection latency_cmd_overview_secn Latency Measurement Display
+ *
+ * Latency measurements are displayed by the "lat" command.  Typically, 
+ * latency measurements should be taken with a single worker thread to ensure
+ * accuracy.  Example "lat" command output is shown below.
+ *
+ * <pre>
+ *  W STS ((((-Count--)))) ((((Min uSec)))) ((((Avg uSec)))) ((((Max uSec))))
+ *  0 Run          3567504           11.311           16.717        11673.526
+ *  1 ---                0            0.000            0.000            0.000
+ *  2 ---                0            0.000            0.000            0.000
+ *  3 ---                0            0.000            0.000            0.000
+ *  4 ---                0            0.000            0.000            0.000
+ *  5 ---                0            0.000            0.000            0.000
+ *  6 ---                0            0.000            0.000            0.000
+ *  7 ---                0            0.000            0.000            0.000
+ *  8 ---                0            0.000            0.000            0.000
+ *  9 ---                0            0.000            0.000            0.000
+ * 10 ---                0            0.000            0.000            0.000
+ * 11 ---                0            0.000            0.000            0.000
+ * </pre>
+ *
+ * The columns have the following meanings:
+ * - W: Worker thread index
+ * - STS: Status of the worker thread (Run, Halt, or dead (---))
+ * - Count: Decimal display of the number of transactions measured
+ * - Min uSec: Decimal display of the smallest latency seen over all 
+ *             transactions, displayed in microseconds.
+ * - Avg uSec: Decimal display of the average latency seen over all 
+ *             transactions, displayed in microseconds.
+ * - Max uSec: Decimal display of the largest latency seen over all 
+ *             transactions, displayed in microseconds.
+ * - Gbps: Decimal display of the data transfer rate, in gigabits per second
+ * - Messages: Count of the number of messages, 0 for DMA and 
+ *             Direct I/O measurements
+ * - Link_Occ: Decimal display of the RapidIO link occupancy, in gigabits per
+ *             seconds.  Link Occupancy includes RapidIO packet header data.
+ *
+ * \subsection script_gen_instr_secn Goodput Script Generation Getting Started
  *
  * This description assumes that a node named IND02 is the target node,
  * and IND01 is the source node for the performance scripts.
  *
  * -# On IND02, run the bash script goodput/scripts/create_start_scripts.sh 
  *    as shown, where '###' represents the first 3 digits of the socket 
- *    connection numbers used for performance measurement:
+ *    connection numbers used for performance measurement.  Any 3 numbers
+ *    can be used:
  *    ./create_start_scripts ###
  * -# On IND02, start goodput/ugoodput
  * -# At the goodput/ugoodput command prompt on IND02, enter:
- *    . start_target
+ *    ". start_target". 
  *    This will display information in the format shown below:
  * <pre>
- * W STS CPU RUN ACTION MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>>
+ * W STS CPU RUN ACTION MODE IB (((( HANDLE )))) ((((RIO ADDR)))) ((((  SIZE  ))))
  * 0 Run Any Any MSG_Rx KRNL  0                0                0                0
  * 1 Run Any Any MSG_Rx KRNL  0                0                0                0
  * 2 Run Any Any MSG_Rx KRNL  0                0                0                0
@@ -222,22 +312,21 @@
  * RIODP: riomp_mgmt_get_ep_list() has 1 entries
  *        1 Endpoints (dest_ID): 1
  * script start_target completed, status 0
- *
  * </pre>
- *
- * -# On Ind01 run the bash script scripts/create_perf_scripts.sh as shown
+ * -# On IND01 run the bash script scripts/create_perf_scripts.sh as shown
  *  below:
- *  ./create_perf_scripts.sh 60 0 0 <DID> <AAAAAAAAA> <###>
- *  - <DID> is the dest_id value displayed on IDN02
- *  - <AAAAAAAAA> is the address value displayed on IND02
- *  - <###> is the same 3 digits entered for create_start_scripts.sh on IND02
+ *  ./create_perf_scripts.sh 60 0 0 DID AAAAAAAAA ###
+ *  - DID is the dest_id value displayed on IDN02
+ *  - AAAAAAAAA is the address value displayed on IND02
+ *  - ### is the same 3 digits entered for create_start_scripts.sh on IND02
  *
  * \subsection script_exec_detail_secn Goodput Script Execution Details
  *
- * Many scripts are generated by the create_all_perf.sh bash script.
+ * All performance measurement scripts are generated by the
+ * create_perf_scripts.sh bash script.
  *
- * All scripts, except DMA write and OBWIN write latency, are executed
- * by the scripts/run_all_perf script.
+ * All performance measurement scripts, except DMA write and OBWIN write 
+ * latency, are executed by the scripts/run_all_perf script.
  *
  * For information on measuring DMA write latency, refer to 
  * \ref dma_lat_scr_secn.
@@ -245,7 +334,7 @@
  * For information on measuring OBWIN write latency, refer to 
  * \ref dio_lat_scr_secn.
  *
- * The top level scripts listed below run all of the
+ * The top level scripts listed below run all of the performance measurement
  * scripts in the associated directory. The top level scripts are found
  * in the scripts/performance directory, and are named according to the
  * directory and function of scripts that will be executed.
@@ -342,8 +431,16 @@
  * The target thread must have allocated an inbound window using the "IBAlloc"
  * command.  
  *
- * The source thread must be commanded to access the inbound window at the
- * destination id of the target thread, and the address of the target thread.
+ * The source thread must be commanded to send data to the inbound window
+ * address of the target, and to use the destination id of the target;
+ *
+ * The inbound window address of the target is displayed by the status command. 
+ * For more information, refer to \ref stat_secn.
+ *
+ * The destination ID of the target is displayed by the mpdevs command.  
+ * For more information, refer to \ref destID_overview_secn.
+ *
+ * The 
  *
  * \subsubsection dio_thruput_scr_secn Direct I/O Goodput Measurement Scripts
  *
@@ -416,7 +513,7 @@
  * It is not possible to execute all direct I/O write latency measurements
  * from a top level script.  
  *
- * \subsubsection dio_lat_secn Direct I/O Latency Measurement Commands
+ * \subsubsection dio_lat_secn Direct I/O Latency Measurement CLI Commands
  *
  * Latency measurement for direct I/O read transactions can be performed by
  * the source node without assistance from the target node.  For example, to
@@ -452,7 +549,7 @@
  *
  * DIOTxLat 3 8 22f400000 4 1
  *
- * \subsection dma_meas_secn DMA Measurement
+ * \subsection dma_meas_secn DMA Measurements
  *
  * DMA read and write goodput measurements are performed as a sequence of
  * smaller transactions which add up to a total number of bytes.  Once the
@@ -472,11 +569,20 @@
  * DMA measurements require two threads: one on the source of the
  * transactions, and one on the target.
  *
+ * The target must have allocated an inbound window using the "IBAlloc"
+ * command.  
+ *
  * The target thread must have allocated an inbound window using the "IBAlloc"
  * command.  
  *
- * The source thread must be commanded to access the inbound window at the
- * destination id of the target thread, and the address of the target thread.
+ * The source thread must be commanded to send data to the inbound window
+ * address of the target, and to use the destination id of the target;
+ *
+ * The inbound window address of the target is displayed by the status command. 
+ * For more information, refer to \ref stat_secn.
+ *
+ * The destination ID of the target is displayed by the mpdevs command.  
+ * For more information, refer to \ref destID_overview_secn.
  *
  * \subsubsection dma_thruput_scr_secn DMA Goodput Measurement Scripts
  *
@@ -511,7 +617,7 @@
  * found in the rapidio_sw/utils/goodput directory.
  *
  * DMA goodput measurement scripts are found in the
- * scripts/performance/dma_thru and pdma_thru directorise.
+ * scripts/performance/dma_thru and pdma_thru directories.
  * The script name format is pfxTsz.txt, where:
  *
  * - pfx indicates the kind of parallelism executing:
@@ -524,10 +630,10 @@
  *   one of B for bytes, K for kilobytes, or M for megabytes.
  *
  * For example, the file goodput/scripts/performance/pdma_thru/pdmR256K.txt
- * indicate that this script measures dma throughput for a
- * mix of single and multiple threads per engine using 64 kilobytes transfers.
+ * indicate that this script measures dma goodput for a
+ * mix of single and multiple threads per engine using 256 kilobyte transfers.
  *
- * \subsubsection dma_thruput_secn DMA Goodput Measurement
+ * \subsubsection dma_thruput_secn DMA Goodput Measurement CLI Command
  *
  * The "dma" command is used to measure goodput for Direct I/O transactions.
  * For example, to measure the goodput for 4 MB write accesses to an
@@ -569,7 +675,7 @@
  * It is not possible to execute all DMA write latency measurements
  * from a single script.  
  *
- * \subsubsection dma_lat_secn DMA Latency Measurement Commands
+ * \subsubsection dma_lat_secn DMA Latency Measurement CLI Commands
  *
  * Latency measurement for DMA read transactions can be performed by
  * the source node without assistance from th target node.  For example, to
@@ -611,6 +717,11 @@
  * Note that the minimum message size is 24 bytes, and the maximum is 4096
  * bytes. A message must always be a multiple of 8 bytes in size.
  * 
+ * The source thread must be commanded to use the destination ID of the target.
+ *
+ * The destination ID of the target is displayed by the mpdevs command.  
+ * For more information, refer to \ref destID_overview_secn.
+ *
  * \subsubsection msg_thruput_scr_secn Messaging Goodput Measurement Scripts
  *
  * Messaging goodput measurement scripts are found in the
@@ -624,7 +735,7 @@
  * All messaging throughput measurements are captured in the
  * rapidio_sw/utils/goodput/msg_thru_tx.log file.
  *
- * \subsubsection msg_thruput_secn Messaging Goodput Measurement Commands
+ * \subsubsection msg_thruput_secn Messaging Goodput Measurement CLI Commands
  *
  * First, use receive thread 3 on the node with destID 5 and socket number 1234
  * following:
@@ -653,7 +764,7 @@
  * -# Execute the scripts/performance/msg_lat_rx.txt script on the
  *    source node.
  *
- * \subsubsection msg_thruput_secn Messaging Latency Measurement Commands
+ * \subsubsection msg_thruput_secn Messaging Latency Measurement CLI Commands
  *
  * First, use receive thread 3 on the node with destID 5 and socket number 1234
  * to send back 2048 byte messages to the source.  The mRxLat command looks 
