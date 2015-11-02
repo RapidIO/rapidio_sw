@@ -1899,17 +1899,9 @@ bool TakeLock(struct worker* info, const char* module, int instance)
 
 void umd_dma_calibrate(struct worker *info)
 {
-	if (! TakeLock(info, "DMA", info->umd_chan)) return;
-
 	info->umd_dch =
 		new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
 								
-	if (NULL == info->umd_dch) {
-		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
-			info->umd_chan, info->mp_num, info->mp_h);
-		goto fail;
-	};
-
 	calibrate_map_performance(info);
 	if (info->stop_req)
 		goto exit;
@@ -1975,12 +1967,17 @@ void umd_dma_goodput_demo(struct worker *info)
 	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
 	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
-								
 	if (NULL == info->umd_dch) {
 		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
 			info->umd_chan, info->mp_num, info->mp_h);
 		goto exit;
 	};
+
+
+	if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+		CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
+		goto exit;
+	}
 
 	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
 		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
@@ -2019,6 +2016,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	};
 
         info->umd_fifo_proc_must_die = 0;
+        info->umd_fifo_proc_alive = 0;
         rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
 			    umd_dma_fifo_proc_thr, (void *)info);
 	if (rc) {
@@ -2271,12 +2269,16 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
 	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
-								
 	if (NULL == info->umd_dch) {
 		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
 			info->umd_chan, info->mp_num, info->mp_h);
 		goto exit;
 	};
+
+        if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+                CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
+                goto exit;
+        }
 
 	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
 		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
@@ -2384,12 +2386,17 @@ void umd_mbox_goodput_demo(struct worker *info)
 	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
-
         if (NULL == info->umd_mch) {
                 CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan, info->mp_num, info->mp_h);
                 return;
         };
+
+        if(info->umd_mch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+                CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
+		delete info->umd_mch;
+                return;
+        }
 
 	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
@@ -2409,16 +2416,16 @@ void umd_mbox_goodput_demo(struct worker *info)
 
         zero_stats(info);
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-        INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d) acc_size=%d #buf=%d #fifo=%d\n",
+        INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%d #buf=%d #fifo=%d\n",
              info->umd_chan,
              info->umd_mch->getDestId(),
-             info->did, info->umd_chan_to,
+             info->did, info->umd_chan_to, info->umd_letter,
 	     info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
 
  	// Receiver
 	if(info->wr == 0) {
-		info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
+		//info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
 
 		for(int i = 0; i < info->umd_tx_buf_cnt; i++) {
 			void* b = calloc(1, PAGE_4K);
@@ -2483,12 +2490,13 @@ void umd_mbox_goodput_demo(struct worker *info)
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
 		opt.destid = info->did;
 		opt.mbox   = info->umd_chan_to;
+		opt.letter = info->umd_letter;
 		char str[PAGE_4K+1] = {0};
                 for (int cnt = 0; !info->stop_req; cnt++) {
 			bool q_was_full = false;
 
 			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
-		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, q_was_full)) {
+		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, !cnt, q_was_full)) {
 				if (! q_was_full) {
 					ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
 					goto exit;
@@ -2533,12 +2541,17 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
-
         if (NULL == info->umd_mch) {
                 CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan, info->mp_num, info->mp_h);
                 return;
         };
+
+        if(info->umd_mch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+                CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
+		delete info->umd_mch;
+                return;
+        }
 
 	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
@@ -2558,7 +2571,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
         zero_stats(info);
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-        INFO("\n\tMBOX my_destid=%u destid=%u (IGNORED) acc_size=%d #buf=%d #fifo=%d\n",
+        INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
              info->umd_mch->getDestId(),
              info->did, info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
@@ -2608,7 +2621,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 			// Echo message back
 
-		      	if (! info->umd_mch->send_message(opt, msg_buf, opt_in.bcount, q_was_full)) {
+		      	if (! info->umd_mch->send_message(opt, msg_buf, opt_in.bcount, false, q_was_full)) {
 				if (! q_was_full) {
 					ERR("\n\tsend_message FAILED!\n");
 					goto exit_rx;
@@ -2652,7 +2665,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
 
 			start_iter_stats(info);
-		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, q_was_full)) {
+		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, !cnt, q_was_full)) {
 				if (! q_was_full) {
 					ERR("\n\tsend_message FAILED!\n");
 					goto exit;

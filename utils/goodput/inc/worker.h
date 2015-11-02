@@ -227,6 +227,7 @@ struct worker {
 	LockFile*	umd_lock;
 	int		umd_chan; ///< Local mailbox
 	int		umd_chan_to; ///< Remote mailbox
+	int		umd_letter; ///< Remote mailbox letter
 	DMAChannel 	*umd_dch;
 	MboxChannel 	*umd_mch;
 	enum dma_rtype	umd_tx_rtype;

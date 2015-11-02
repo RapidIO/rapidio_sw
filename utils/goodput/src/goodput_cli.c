@@ -2263,6 +2263,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
         int idx;
         int chan;
         int chan_to;
+        int letter = 0;
         int cpu;
         uint32_t buff;
         uint32_t sts;
@@ -2276,8 +2277,10 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 	if (get_cpu(env, argv[n++], &cpu))
 		goto exit;
         chan     = GetDecParm(argv[n++], 0);
-        if (cmd == 'T')
+        if (cmd == 'T') {
 		chan_to  = GetDecParm(argv[n++], 0);
+		letter   = GetDecParm(argv[n++], 0);
+	}
         buff     = GetHex(argv[n++], 0);
         sts      = GetHex(argv[n++], 0);
         did      = GetDecParm(argv[n++], 0);
@@ -2298,10 +2301,17 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
                 logMsg(env);
                 goto exit;
         };
-        if (cmd == 'T' && ((chan_to < 2) || (chan_to > 3))) {
-                sprintf(env->output, "Chan_to %d illegal, must be 2 to 3\n", chan);
-                logMsg(env);
-                goto exit;
+        if (cmd == 'T'){
+		if ((chan_to < 2) || (chan_to > 3)) {
+			sprintf(env->output, "Chan_to %d illegal, must be 2 to 3\n", chan);
+			logMsg(env);
+			goto exit;
+		}
+		if ((letter < 0) || (letter > 3)) {
+			sprintf(env->output, "Letter %d illegal, must be 0 to 3\n", chan);
+			logMsg(env);
+			goto exit;
+		}
         };
 
 
@@ -2333,6 +2343,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
         wkr[idx].action_mode = user_mode_action;
         wkr[idx].umd_chan    = chan;
         wkr[idx].umd_chan_to = chan_to;
+        wkr[idx].umd_letter  = letter;
         wkr[idx].umd_fifo_thr.cpu_req = cpu;
         wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
         wkr[idx].umd_tx_buf_cnt = buff;
@@ -2363,13 +2374,14 @@ int UMSGCmdLat(struct cli_env *env, int argc, char **argv)
 struct cli_cmd UMSG = {
 "umsg",
 2,
-9,
+10,
 "Transmit/Receive MBOX requests with User-Mode demo driver",
-"<idx> <cpu> <chan> <chan_to> <buff> <sts> <did> <acc_sz> <txrx>\n"
+"<idx> <cpu> <chan> <chan_to> <letter> <buff> <sts> <did> <acc_sz> <txrx>\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
 	"<chan> is a Local MBOX channel number from 2 through 3\n"
 	"<chan_to> is a Remote MBOX channel number from 2 through 3\n"
+	"<letter> is a Remote MBOX letter number from 0 through 3 -- ignored for RX\n"
 	"<buff> is the number of transmit descriptors/buffers to allocate\n"
 	"       Must be a power of two from 0x20 up to 0x80000\n"
 	"<sts> is the number of status entries for completed descriptors\n"

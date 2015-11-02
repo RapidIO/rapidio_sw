@@ -454,15 +454,22 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
 		return;
  	}
 
-	/* FIXME: What does the failure of librskt_wait_for_sem mean? */
-	/* How should this be handled? */
- 	DBG("Waiting for skt_h->mtx...\n");
+ 	librskt_wait_for_sem(&lib.rskt_read_mtx, 0);
+
+ 	int sem_val;
+ 	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
+ 	 	DBG("Waiting for skt_h->mtx(0x%X) value=%d\n", skt_h->mtx);
+ 	} else {
+ 		DBG("Failed to get value for skt_h->mtx(0x%X)\n", skt_h->mtx);
+ 	}
+
 	librskt_wait_for_sem(&skt_h->mtx, 0);
 	skt_h->skt = NULL;
-	sem_post(&skt_h->mtx);
 
 	DBG("Calling cleanup_skt\n");
 	cleanup_skt(skt_h, skt);
+	sem_post(&skt_h->mtx);
+	sem_post(&lib.rskt_read_mtx);
 	DBG("EXIT\n");
 };
 
@@ -586,6 +593,8 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 
 	lib.test = 0;
 	sem_init(&lib.skts_mtx, 0, 1);
+	sem_init(&lib.rskt_read_mtx, 0, 1);
+
 	l_init(&lib.skts);
 
 	/* Startup the threads */
@@ -1464,8 +1473,27 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	struct rdma_xfer_ms_in hdr_in;
 	uint32_t first_offset;
 	struct rskt_socket_t *skt;
+	int	rc;
 
 	DBG("ENTER\n");
+	rc = librskt_wait_for_sem(&lib.rskt_read_mtx, 0);
+	if (rc) {
+		ERR("librskt_wait_for_sem failed...exiting\n");
+		goto fail;
+	}
+
+ 	int sem_val;
+ 	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
+ 	 	DBG("Waiting for skt_h->mtx(0x%X) value=%d\n", skt_h->mtx);
+ 	} else {
+ 		DBG("Failed to get value for skt_h->mtx(0x%X)\n", skt_h->mtx);
+ 	}
+	rc = librskt_wait_for_sem(&skt_h->mtx, 0);
+	if (rc) {
+		ERR("librskt_wait_for_sem failed...exiting\n");
+		goto fail;
+	}
+
 	if (lib_uninit()) {
 		ERR("lib_uninit() failed\n");
 		goto fail;
@@ -1540,12 +1568,15 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 		ERR("Failed in update_remote_hdr\n");
 		goto fail;
 	};
-
+	sem_post(&skt_h->mtx);
+	sem_post(&lib.rskt_read_mtx);
 	return avail_bytes;
 fail:
 	WARN("Failed..closing skt_h\n");
 	rskt_close(skt_h);
 skt_ok:
+	sem_post(&skt_h->mtx);
+	sem_post(&lib.rskt_read_mtx);
 	return -1;
 }; /* rskt_read() */
 
