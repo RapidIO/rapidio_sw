@@ -584,7 +584,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   /* TYPE4 and destination ID */
   ldesc->type_id = (DTYPE4 << 29) | opt.destid;
   /* 16-bit destid, mailbox number, 0xE means 4K, length */
-  ldesc->msg_info = (1 << 26) | (m_mbox << 22) | (0xe << 12) | (len8 & 0xff8);
+  ldesc->msg_info = (1 << 26) | (opt.mbox << 22) | ((opt.letter & 0x3) << 16) | (0xe << 12) | (len8 & 0xff8);
   /* Buffer pointer points to physical address of current tx_slot */
   ldesc->bufptr_lo = (uint64_t)m_omsg_ring.omq[tx_slot].win_handle & 0xffffffff;
   ldesc->bufptr_hi = (uint64_t)m_omsg_ring.omq[tx_slot].win_handle >> 32;
