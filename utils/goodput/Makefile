@@ -79,6 +79,8 @@ goodput: $(SOURCES) $(INCLUDES)
 clean:
 	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out 
 
-logs: 
-	rm -f *.log
+FORCE:
+
+logs: FORCE
+	rm -f logs/*.log logs/*.res
 

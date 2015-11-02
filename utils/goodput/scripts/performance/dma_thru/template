@@ -12,20 +12,16 @@ wait 9 0
 wait 10 0
 wait 11 0
 t 0 3 0
-t 11 -1 0
 wait 0 2
-wait 11 2
 dma 0 did iba_addr bytes acc_size wr 1 trans sync
-os 11 1
-wait 0 R
-wait 11 R
 g
 g c
 g
 echo DMA THROUGHPUT bytes acc_size wr
+os
 sleep wait_time
 wait 0 1
 st
 echo DMA THROUGHPUT bytes acc_size wr
 g
-od 11
+od

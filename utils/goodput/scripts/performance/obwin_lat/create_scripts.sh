@@ -187,7 +187,7 @@ direction="read"
 scriptname="../"$DIR_NAME"_"$direction 
 
 echo "// This script runs all "$DIR_NAME $direction" scripts." > $scriptname
-echo "log "$DIR_NAME"_"$direction".log" >> $scriptname
+echo "log logs/"$DIR_NAME"_"$direction".log" >> $scriptname
 echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
 
 idx=0

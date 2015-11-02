@@ -113,7 +113,6 @@ enum req_type {
 	message_rx_lat,
 	alloc_ibwin,
 	free_ibwin,
-	cpu_occ,
 	shutdown_worker,
 #ifdef USER_MODE_DRIVER
 	umd_calibrate,

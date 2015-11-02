@@ -233,7 +233,7 @@ do
 		scr_name="../"$file_set
 
 		echo "// This script runs all "$file_set" scripts." > $scr_name
-		echo "log "$file_set".log" >> $scr_name
+		echo "log logs/"$file_set".log" >> $scr_name
 		echo "scrp scripts/performance/"$DIR_NAME >> $scr_name
 	
 		idx=0

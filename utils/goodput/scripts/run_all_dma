@@ -1,0 +1,24 @@
+echo The start_target script must be run on the target node,
+echo and create_perf_scripts must be run on this node using the information
+echo from the target node, 
+echo before this script can be run!!!
+
+scrp scripts/performance/
+// UNKNOWN
+. dma_thru_read
+// UNKNOWN
+. dma_thru_write
+// UNKNOWN
+. dma_lat_read
+// UNKNOWN
+. pdma_thru_pdd_write
+// UNKNOWN
+. pdma_thru_pd1_write
+// UNKNOWN
+. pdma_thru_pdm_write
+// UNKNOWN
+. pdma_thru_pdm_read
+// UNKNOWN
+. pdma_thru_pd1_read
+// UNKNOWN
+. pdma_thru_pdd_read

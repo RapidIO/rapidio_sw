@@ -60,7 +60,6 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"mR_Lat",
 	(char *)" IBWIN",
 	(char *)"~IBWIN",
-	(char *)"CpuOcc",
 	(char *)"SHTDWN",
 #ifdef USER_MODE_DRIVER
         (char*)"UCal",
@@ -431,41 +430,191 @@ IBDeallocCmd,
 ATTR_NONE
 };
 
-int CPUOccStartCmd(struct cli_env *env, int argc, char **argv)
+
+#define PROC_STAT_PFMT "\nTot CPU Jiffies %lu %lu %lu %lu %lu %lu %lu\n"
+
+#define CPUOCC_BUFF_SIZE 1024
+
+void cpu_occ_parse_proc_line(char *file_line, 
+				uint64_t *proc_new_utime,
+				uint64_t *proc_new_stime)
 {
-	int idx;
-	float poll_pd;
-
-	idx = getDecParm(argv[0], 0);
-
-	if (check_idx(env, idx, 1))
-		goto exit;
-
-	poll_pd = getFloatParm(argv[1], 1);
+	char *tok;
+	char *saveptr;
+	char *delim = (char *)" ";
+	int tok_cnt = 0;
+	char fl_cpy[CPUOCC_BUFF_SIZE];
 	
-	if (0.0 >= poll_pd) {
-		sprintf(env->output, "\nPoll period must be > 0.0\n");
-        	logMsg(env);
+	strncpy(fl_cpy, file_line, CPUOCC_BUFF_SIZE-1);
+	tok = strtok_r(file_line, delim, &saveptr);
+	while ((NULL != tok) && (tok_cnt < 13)) {
+		tok = strtok_r(NULL, delim, &saveptr);
+		tok_cnt++;
+	};
+
+	if (NULL == tok)
+		goto error;
+	
+	*proc_new_utime = atoll(tok);
+
+	tok = strtok_r(NULL, delim, &saveptr);
+	if (NULL == tok)
+		goto error;
+
+	*proc_new_stime = atoll(tok);
+	return;
+error:
+	ERR("\nFAILED: proc_line \"%s\"\n", fl_cpy);
+};
+
+void cpu_occ_parse_stat_line(char *file_line,
+			uint64_t *p_user,
+			uint64_t *p_nice,
+			uint64_t *p_system,
+			uint64_t *p_idle,
+			uint64_t *p_iowait,
+			uint64_t *p_irq,
+			uint64_t *p_softirq)
+{
+	char *tok, *saveptr;
+	char *delim = (char *)" ";
+	char fl_cpy[CPUOCC_BUFF_SIZE];
+	
+	strncpy(fl_cpy, file_line, CPUOCC_BUFF_SIZE-1);
+	
+	/* Throw the first token away. */
+	tok = strtok_r(file_line, delim, &saveptr);
+
+	if (NULL == tok)
+		goto error;
+	
+	tok = strtok_r(NULL, delim, &saveptr);
+	if (NULL == tok)
+		goto error;
+	*p_user = atoll(tok);
+
+	tok = strtok_r(NULL, delim, &saveptr);
+	if (NULL == tok)
+		goto error;
+	*p_nice = atoll(tok);
+
+	tok = strtok_r(NULL, delim, &saveptr);
+	if (NULL == tok)
+		goto error;
+	*p_system = atoll(tok);
+
+	tok = strtok_r(NULL, delim, &saveptr);
+	if (NULL == tok)
+		goto error;
+	*p_idle = atoll(tok);
+
+	tok = strtok_r(NULL, delim, &saveptr);
+	if (NULL == tok)
+		goto error;
+	*p_iowait = atoll(tok);
+
+	tok = strtok_r(NULL, delim, &saveptr);
+	if (NULL == tok)
+		goto error;
+	*p_irq = atoll(tok);
+
+	tok = strtok_r(NULL, delim, &saveptr);
+	if (NULL == tok)
+		goto error;
+	*p_softirq = atoll(tok);
+	
+	return;
+error:
+	ERR("\nFAILED: stat_line \"%s\"\n", fl_cpy);
+};
+
+int cpu_occ_valid;
+
+uint64_t old_tot_jifis;
+uint64_t old_proc_kern_jifis;
+uint64_t old_proc_user_jifis;
+uint64_t new_tot_jifis;
+uint64_t new_proc_kern_jifis;
+uint64_t new_proc_user_jifis;
+
+float    cpu_occ_pct;
+
+int cpu_occ_set(uint64_t *tot_jifis, 
+		uint64_t *proc_kern_jifis,
+		uint64_t *proc_user_jifis)
+{
+	pid_t my_pid = getpid();
+	FILE *stat_fp, *cpu_stat_fp;
+	char filename[256];
+	char file_line[CPUOCC_BUFF_SIZE];
+	uint64_t p_user = 1, p_nice = 1, p_system = 1, p_idle = 1;
+	uint64_t p_iowait = 1, p_irq = 1, p_softirq = 1;
+	int rc;
+
+	memset(filename, 0, 256);
+	snprintf(filename, 255, "/proc/%d/stat", my_pid);
+
+	stat_fp = fopen(filename, "r" );
+	if (NULL == stat_fp) {
+		ERR( "FAILED: Open proc stat file \"%s\": %d %s\n",
+			filename, errno, strerror(errno));
 		goto exit;
 	};
 
-	wkr[idx].action = cpu_occ;
-	wkr[idx].cpu_occ_poll_period = poll_pd;
-	wkr[idx].stop_req = 0;
-	sem_post(&wkr[idx].run);
+	cpu_stat_fp = fopen("/proc/stat", "r");
+	if (NULL == cpu_stat_fp) {
+		ERR("FAILED: Open file \"/proc/stat\": %d %s\n",
+			errno, strerror(errno));
+		goto exit;
+	};
+
+	memset(file_line, 0, 1024);
+	fgets(file_line, 1024,  stat_fp);
+
+	cpu_occ_parse_proc_line(file_line, proc_user_jifis, proc_kern_jifis);
+
+		
+	memset(file_line, 0, 1024);
+	fgets(file_line, 1024,  cpu_stat_fp);
+
+	cpu_occ_parse_stat_line(file_line, &p_user, &p_nice, &p_system,
+			&p_idle, &p_iowait, &p_irq, &p_softirq);
+
+	*tot_jifis = p_user + p_nice + p_system + p_idle +
+			p_iowait + p_irq + p_softirq;
+	fclose(stat_fp);
+	fclose(cpu_stat_fp);
+	
+	rc = 0;
+exit:
+	return rc;
+};
+
+int CPUOccSetCmd(struct cli_env *env, int argc, char **argv)
+{
+
+	if (cpu_occ_set(&old_tot_jifis, &old_proc_kern_jifis,
+			&old_proc_user_jifis)) {
+		sprintf(env->output, "\nFAILED: Could not get proc info \n");
+        	logMsg(env);
+		goto exit;
+	};
+	sprintf(env->output, "\nSet CPU Occ measurement start point\n");
+        logMsg(env);
+
+	cpu_occ_valid = 1;
 exit:
         return 0;
 };
 
-struct cli_cmd CPUOccStart = {
-"ost",
-3,
+struct cli_cmd CPUOccSet = {
+"oset",
 2,
-"Start cpu occupancy polling",
-"ost <idx> <pd>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<pd> is the polling period in seconds\n",
-CPUOccStartCmd,
+0,
+"Set CPU Occupancy measurement start point.",
+"ost\n"
+	"No parameters\n", 
+CPUOccSetCmd,
 ATTR_NONE
 };
 
@@ -473,31 +622,38 @@ int cpu_occ_saved_idx;
 
 int CPUOccDisplayCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx = cpu_occ_saved_idx;
 	char pctg[24];
+	int cpus = getCPUCount();
 
-	if (argc) {
-		idx = getDecParm(argv[0], 0);
+	if (!cpus)
+		cpus = 1;
 
-		if (check_idx(env, idx, 0))
-			goto exit;
-		cpu_occ_saved_idx = idx;
-	};
-
-	if (!wkr[idx].cpu_occ_valid) {
-		sprintf(env->output, "\nFAILED: CPU Occupancy invalid wkr %d\n",
-					idx);
+	if (!cpu_occ_valid) {
+		sprintf(env->output,
+			"\nFAILED: CPU OCC measurement start not set\n");
         	logMsg(env);
 		goto exit;
 	};
 
-	sprintf(pctg, "%4.2f", wkr[idx].cpu_occ_pct);
+	if (cpu_occ_set(&new_tot_jifis, &new_proc_kern_jifis,
+			&new_proc_user_jifis)) {
+		sprintf(env->output, "\nFAILED: Could not get proc info \n");
+        	logMsg(env);
+		goto exit;
+	};
+
+
+	cpu_occ_pct = (((float)(new_proc_kern_jifis + new_proc_user_jifis -
+				 old_proc_kern_jifis - old_proc_user_jifis)) /
+		((float)(new_tot_jifis - old_tot_jifis))) * 100.0 * cpus;
+	sprintf(pctg, "%4.2f", cpu_occ_pct);
+
 	sprintf(env->output, "\n-Kernel- ProcUser ProcKern CPU_Occ\n");
         logMsg(env);
 	sprintf(env->output, "%8ld %8ld %8ld %7s\n",
-		wkr[idx].new_tot_jiffies - wkr[idx].old_tot_jiffies,
-		wkr[idx].new_proc_user_jiffies - wkr[idx].old_proc_user_jiffies,
-		wkr[idx].new_proc_kern_jiffies - wkr[idx].old_proc_kern_jiffies,
+		new_tot_jifis - old_tot_jifis,
+		new_proc_user_jifis - old_proc_user_jifis,
+		new_proc_kern_jifis - old_proc_kern_jifis,
 		pctg);
         logMsg(env);
 exit:
@@ -507,7 +663,7 @@ exit:
 struct cli_cmd CPUOccDisplay = {
 "odisp",
 3,
-1,
+0,
 "Display cpu occupancy",
 "odisp <idx>\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
@@ -2350,7 +2506,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&Move,
 	&Wait,
 	&Sleep,
-	&CPUOccStart,
+	&CPUOccSet,
 	&CPUOccDisplay,
 	&Mpdevs
 };
@@ -2361,6 +2517,15 @@ void bind_goodput_cmds(void)
 	dump_base_offset = 0;
 	dump_size = 0x100;
 	cpu_occ_saved_idx = 0;
+
+	cpu_occ_valid = 0;
+	new_proc_user_jifis = 0;
+	new_proc_kern_jifis = 0;
+	old_proc_user_jifis = 0;
+	old_proc_kern_jifis = 0;
+	old_tot_jifis = 1;
+	new_tot_jifis = 2;
+	cpu_occ_pct = 0.0;
 
         add_commands_to_cmd_db(sizeof(goodput_cmds)/sizeof(goodput_cmds[0]),
                                 goodput_cmds);

@@ -21,8 +21,6 @@ t 5 -1 0
 t 6 -1 0
 t 7 -1 0
 
-t 11 -1 0
-
 wait 0 h
 wait 1 h
 wait 2 h
@@ -31,8 +29,6 @@ wait 4 h
 wait 5 h
 wait 6 h
 wait 7 h
-
-wait 11 h
 
 OBDIO 0 did iba_addr bytes acc_size wr
 OBDIO 1 did iba_addr bytes acc_size wr
@@ -43,8 +39,6 @@ OBDIO 5 did iba_addr bytes acc_size wr
 OBDIO 6 did iba_addr bytes acc_size wr
 OBDIO 7 did iba_addr bytes acc_size wr
 
-os 11 1
-
 wait 0 R
 wait 1 R
 wait 2 R
@@ -53,8 +47,6 @@ wait 4 R
 wait 5 R
 wait 6 R
 wait 7 R
-
-wait 11 R
 
 g
 g c
@@ -70,8 +62,16 @@ wait 4 R
 wait 5 R
 wait 6 R
 wait 7 R
-wait 11 R
 
-st
 g
-od 11
+g c
+g
+echo OBDIO THRUPUT bytes acc_size UNUSED
+os
+sleep wait_time
+wait 0 r
+st
+
+echo OBDIO THRUPUT bytes acc_size UNUSED
+g
+od

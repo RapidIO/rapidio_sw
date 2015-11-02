@@ -22,7 +22,6 @@ t 4 -1 -1
 t 5 -1 -1
 t 6 -1 -1
 t 7 -1 -1
-t 11 -1 0
 
 wait 0 h
 wait 1 H
@@ -32,7 +31,6 @@ wait 4 h
 wait 5 h
 wait 6 h
 wait 7 h
-wait 11 h
 
 dma 0 did iba_addr bytes acc_size wr 1 trans sync
 dma 1 did iba_addr bytes acc_size wr 1 trans sync2
@@ -43,8 +41,6 @@ dma 5 did iba_addr bytes acc_size wr 1 trans sync3
 dma 6 did iba_addr bytes acc_size wr 1 trans sync
 dma 7 did iba_addr bytes acc_size wr 1 trans sync2
 
-os 11 1
-
 wait 0 r
 wait 1 r
 wait 2 r
@@ -53,15 +49,13 @@ wait 4 r
 wait 5 r
 wait 6 r
 wait 7 r
-wait 11 r
 
 g
 g c
 g
-echo dma bytes acc_size
+echo PDMA_MIX THROUGHPUT dma bytes acc_size
+os
 sleep wait_time
-echo dma bytes acc_size
-
 wait 0 r
 wait 1 r
 wait 2 r
@@ -70,7 +64,7 @@ wait 4 r
 wait 5 r
 wait 6 r
 wait 7 r
-wait 11 r
 
+echo PDMA_MIX THROUGHPUT dma bytes acc_size
 g
-od 11
+od
