@@ -454,8 +454,8 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
 		return;
  	}
 
-	/* FIXME: What does the failure of librskt_wait_for_sem mean? */
-	/* How should this be handled? */
+ 	librskt_wait_for_sem(&lib.rskt_read_mtx, 0);
+
  	int sem_val;
  	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
  	 	DBG("Waiting for skt_h->mtx(0x%X) value=%d\n", skt_h->mtx);
@@ -469,6 +469,7 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
 	DBG("Calling cleanup_skt\n");
 	cleanup_skt(skt_h, skt);
 	sem_post(&skt_h->mtx);
+	sem_post(&lib.rskt_read_mtx);
 	DBG("EXIT\n");
 };
 
@@ -592,6 +593,8 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 
 	lib.test = 0;
 	sem_init(&lib.skts_mtx, 0, 1);
+	sem_init(&lib.rskt_read_mtx, 0, 1);
+
 	l_init(&lib.skts);
 
 	/* Startup the threads */
@@ -1473,6 +1476,11 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	int	rc;
 
 	DBG("ENTER\n");
+	rc = librskt_wait_for_sem(&lib.rskt_read_mtx, 0);
+	if (rc) {
+		ERR("librskt_wait_for_sem failed...exiting\n");
+		goto fail;
+	}
 
  	int sem_val;
  	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
@@ -1561,12 +1569,14 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 		goto fail;
 	};
 	sem_post(&skt_h->mtx);
+	sem_post(&lib.rskt_read_mtx);
 	return avail_bytes;
 fail:
 	WARN("Failed..closing skt_h\n");
 	rskt_close(skt_h);
 skt_ok:
 	sem_post(&skt_h->mtx);
+	sem_post(&lib.rskt_read_mtx);
 	return -1;
 }; /* rskt_read() */
 
