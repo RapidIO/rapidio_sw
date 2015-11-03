@@ -7,6 +7,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
@@ -42,9 +43,33 @@ void show_help()
 
 	puts("-r<repetitions>: Specify number of repetitions to run for. Default is 1");
 
-	printf("-t:  Use a number of repetitions and varying data lengths ");
-	printf("(txtest/rxtest) (overrides -r and -l)\n");
-}
+	printf("-t:  Use varying data length data. Overrides -l ");
+} /* show_help() */
+
+unsigned generate_data(unsigned data_length, unsigned tx_test)
+{
+	static unsigned index = 0;
+	static unsigned data_lengths[] = { 512, 128, 2048, 1024, 4096, 256, 32, 1536 };
+	unsigned j;
+	unsigned length;
+
+	if (tx_test) {
+		length = data_lengths[index];
+		index = (index + 1) & (sizeof(data_lengths) - 1);
+	} else {
+		length = data_length;
+	}
+
+	/* Data to be sent */
+	for (j = 0; j < length; j++)
+		send_buf[j] = j;
+
+	/* Fill receive buffer with 0xAA */
+	memset(recv_buf, 0xAA, length);
+
+	printf("Generated %u bytes\n", length);
+	return length;
+} /* generate_data() */
 
 int main(int argc, char *argv[])
 {
@@ -59,7 +84,6 @@ int main(int argc, char *argv[])
 	rskt_h	client_socket;
 	struct rskt_sockaddr sock_addr;
 	unsigned i;
-	unsigned j;
 	int rc = 0;
 
 	/* Must specify at least 1 argument (the destid) */
@@ -89,7 +113,7 @@ int main(int argc, char *argv[])
 			socket_number = atoi(optarg);
 			break;
 		case 't':
-			tx_test = 1;	/* FIXME: No implemented */
+			tx_test = 1;
 			break;
 		case '?':
 			/* Invalid command line option */
@@ -132,12 +156,7 @@ int main(int argc, char *argv[])
 			goto close_client_socket;
 		}
 
-		/* Data to be sent */
-		for (j = 0; j < data_length; j++)
-			send_buf[j] = j;
-
-		/* Fill receive buffer with 0xAA */
-		memset(recv_buf, 0xAA, data_length);
+		data_length = generate_data(data_length, tx_test);
 
 		rc = rskt_write(client_socket, send_buf, data_length);
 		if (rc) {
@@ -172,6 +191,7 @@ int main(int argc, char *argv[])
 		rskt_destroy_socket(&client_socket);
 	} /* for() */
 
+	puts("Goodbye!");
 close_client_socket:
 	rskt_close(client_socket);
 
