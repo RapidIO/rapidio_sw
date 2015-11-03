@@ -59,6 +59,7 @@ int main(int argc, char *argv[])
 	rskt_h	client_socket;
 	struct rskt_sockaddr sock_addr;
 	unsigned i;
+	unsigned j;
 	int rc = 0;
 
 	/* Must specify at least 1 argument (the destid) */
@@ -130,10 +131,51 @@ int main(int argc, char *argv[])
 							destid, socket_number);
 			goto close_client_socket;
 		}
+
+		/* Data to be sent */
+		for (j = 0; j < data_length; j++)
+			send_buf[j] = j;
+
+		/* Fill receive buffer with 0xAA */
+		memset(recv_buf, 0xAA, data_length);
+
+		rc = rskt_write(client_socket, send_buf, data_length);
+		if (rc) {
+			fprintf(stderr, "rskt_write failed, rc = %d: %s\n",
+					rc, strerror(errno));
+			goto close_client_socket;
+		}
+
+		rc = rskt_read(client_socket, recv_buf, RSKT_DEFAULT_RECV_BUF_SIZE);
+		if (rc < 0) {
+			fprintf(stderr, "Failed to receive, rc = %d: %s\n",
+							rc, strerror(errno));
+			goto close_client_socket;
+		}
+		if (rc != data_length) {
+			fprintf(stderr, "Sent %u bytes but received %u bytes\n",
+					data_length, rc);
+		}
+
+		if (memcmp(send_buf, recv_buf, data_length))
+			puts("Data did not compare. FAILED.\n");
+		else
+			printf("*** Iteration %u, DATA COMPARED OK ***\n", i);
+
+		rc = rskt_close(client_socket);
+		if (rc) {
+			fprintf(stderr, "Failed to close client socket, rc=%d: %s\n",
+					rc, strerror(errno));
+			goto destroy_client_socket;
+		}
+
+		rskt_destroy_socket(&client_socket);
 	} /* for() */
 
 close_client_socket:
 	rskt_close(client_socket);
+
+destroy_client_socket:
 	rskt_destroy_socket(&client_socket);
 
 cleanup_rskt:
