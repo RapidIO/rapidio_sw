@@ -119,6 +119,9 @@ void time_track(int i, struct timespec starttime, struct timespec endtime,
 {
 	struct timespec delta = time_difference(starttime, endtime);
 
+	if ((delta.tv_sec < 0) || (delta.tv_nsec < 0))
+		return;
+
 	if (i) {
 		*totaltime = time_add(*totaltime, delta);
 

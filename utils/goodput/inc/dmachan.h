@@ -110,7 +110,6 @@ public:
   ~DMAChannel();
 
   void resetHw();
-  void setInitState();
   void setInbound();
   bool dmaIsRunning();
   uint32_t clearIntBits();

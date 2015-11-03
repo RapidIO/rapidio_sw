@@ -124,14 +124,6 @@ char* dma_rtype_str[] = {
   NULL
 };
 
-void DMAChannel::resetHw()
-{
-  wr32dmachan(TSI721_DMAC_INT,TSI721_DMAC_INT_ALL);
-  wr32dmachan(TSI721_DMAC_CTL,TSI721_DMAC_CTL_INIT);
-  usleep(10);
-  wr32dmachan(TSI721_DMAC_DWRCNT, m_dma_wr = 0);
-}
-
 bool DMAChannel::dmaIsRunning()
 {
   uint32_t channel_status = rd32dmachan(TSI721_DMAC_STS);
@@ -139,10 +131,20 @@ bool DMAChannel::dmaIsRunning()
   return false;
 }
 
-void DMAChannel::setInitState()
+void DMAChannel::resetHw()
 {
-  assert(this);
-  wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_INIT);
+  if (dmaIsRunning()) {
+	int i;
+  	wr32dmachan(TSI721_DMAC_CTL,TSI721_DMAC_CTL_SUSP);
+	for (i = 0; i < 1000; i++) {
+		if (!rd32dmachan(TSI721_DMAC_CTL) & TSI721_DMAC_CTL_SUSP)
+			break;
+	};
+  };
+
+  wr32dmachan(TSI721_DMAC_CTL,TSI721_DMAC_CTL_INIT);
+  wr32dmachan(TSI721_DMAC_INT,TSI721_DMAC_INT_ALL);
+  usleep(10);
   wr32dmachan(TSI721_DMAC_DWRCNT, m_dma_wr = 0);
 }
 
@@ -579,11 +581,14 @@ void hexdump4byte(const char* msg, uint8_t* d, int len)
     DBG("%s", msg);
   DBG("Mem @%p size %d:\n", d, len);
 
+   uint32_t tmp = 0;
   for(int i = 0; i < len; i++) {
-    uint32_t tmp;
-    tmp = (tmp << 8) + d[i];
+	/* To make descriptor dump match Tsi721 manual,
+ * must push byte 3 to most significant position, not least significant
+ */
+    tmp = tmp + ((uint32_t)(d[i]) << (8 * (i%4)));
     if(((i + 1) % 4) == 0) {
-      DBG("%8x\n", tmp);
+      DBG("%08x\n", tmp);
       tmp = 0;
     }
   }

@@ -1766,7 +1766,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
         		logMsg(env);
 		};
 		diff = time_difference(ts_p[st_i], ts_p[end_i]);
-                sprintf(env->output, "\n---->> Sec<<---- Nsec---m--u--n--\n");
+                sprintf(env->output, "\n---->> Sec<<---- Nsec---MMMuuuNNN\n");
         	logMsg(env);
                 sprintf(env->output, "%16ld %16ld\n",
 				diff.tv_sec, diff.tv_nsec);
@@ -1795,7 +1795,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 		};
 
                 sprintf(env->output,
-			"\n Idx ---->> Sec<<---- Nsec---m--u--n--\n");
+			"\n Idx ---->> Sec<<---- Nsec---mmmuuunnn\n");
         	logMsg(env);
 		for (idx = st_i; idx <= end_i; idx++) {
                 	sprintf(env->output, "%4d %16ld %16ld\n", idx,
@@ -1819,7 +1819,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 				continue;
 			if (!got_one) {
                 		sprintf(env->output,
-				"\n Idx ---->> Sec<<---- Nsec---m--u--n--\n");
+				"\n Idx ---->> Sec<<---- Nsec---MMMuuuNNN\n");
         			logMsg(env);
 				got_one = 1;
 			};
@@ -1834,7 +1834,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
         		logMsg(env);
 		};
                 sprintf(env->output,
-			"\n==== ---->> Sec<<---- Nsec---m--u--n--\n");
+			"\n==== ---->> Sec<<---- Nsec---MMMuuuNNN\n");
         	logMsg(env);
                 sprintf(env->output, "Min: %16ld %16ld\n", 
 				min.tv_sec, min.tv_nsec);

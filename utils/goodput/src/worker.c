@@ -2010,7 +2010,7 @@ void umd_dma_goodput_demo(struct worker *info)
         info->tick_data_total = 0;
 	info->tick_count = info->tick_total = 0;
 
-        info->umd_dch->setInitState();
+        info->umd_dch->resetHw();
         if (!info->umd_dch->checkPortOK()) {
 		CRIT("\n\tPort is not OK!!! Exiting...");
 		goto exit;
@@ -2037,12 +2037,10 @@ void umd_dma_goodput_demo(struct worker *info)
 #if 0
         // info->umd_dch->switch_evlog(true);
 #endif
-	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+	info->desc_ts_idx = 0;
+	info->fifo_ts_idx = 0;
 
-        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
-             info->umd_dch->getDestId(),
-             info->did, info->rio_addr, info->acc_size,
-             info->umd_tx_buf_cnt, info->umd_sts_entries);
+	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	info->umd_dch->trace_dmachan(0x500, 0x12345678);
 	while (!info->stop_req) {
@@ -2055,7 +2053,7 @@ void umd_dma_goodput_demo(struct worker *info)
 			info->dmaopt[oi].destid      = info->did;
 			info->dmaopt[oi].bcount      = info->acc_size;
 			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
-			info->dmaopt[oi].raddr.lsb64 += oi * info->acc_size;
+			info->dmaopt[oi].raddr.lsb64 += cnt * info->acc_size;
 
 			bool q_was_full = false;
 			info->umd_dma_abort_reason = 0;
@@ -2098,6 +2096,7 @@ void umd_dma_goodput_demo(struct worker *info)
 		info->umd_dch->trace_dmachan(0x100, 0x60);
 		info->umd_tx_iter_cnt++;
         } // END while NOT stop requested
+	goto exit_nomsg;
 exit:
         INFO("\n\tDMA %srunning after %d %dus polls\n",
 		info->umd_dch->dmaIsRunning()? "": "NOT ", 
@@ -2107,6 +2106,7 @@ exit:
                 info->umd_dch->m_fifo_scan_cnt,
 		info->umd_dch->getFIFOReadCount(),
                 info->umd_dch->getFIFOWriteCount());
+exit_nomsg:
         info->umd_fifo_proc_must_die = 1;
 	if (info->umd_dch)
 		info->umd_dch->shutdown();
@@ -2311,7 +2311,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
         info->tick_data_total = 0;
 	info->tick_count = info->tick_total = 0;
 
-        info->umd_dch->setInitState();
+        info->umd_dch->resetHw();
         if (!info->umd_dch->checkPortOK()) {
 		CRIT("\n\tPort is not OK!!! Exiting...");
 		goto exit;
