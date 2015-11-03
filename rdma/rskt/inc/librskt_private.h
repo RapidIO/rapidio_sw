@@ -228,8 +228,6 @@ struct librskt_globals {
 	uint32_t test;		/* Messaging in test mode */
 
 	sem_t skts_mtx;		/* Mutex for access to skts list */
-	sem_t rskt_read_mtx;	/* Mutex to ensure rskt_read() finishes */
-	sem_t rskt_write_mtx;	/* Mutex to ensure rskt_read() finishes */
 	struct l_head_t skts;	/* List of sockets in use by this app */
 				/* Data is **rskt_socket_t */
 };

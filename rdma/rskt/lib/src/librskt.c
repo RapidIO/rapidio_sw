@@ -448,28 +448,19 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
 		WARN("skt_h is NULL...returning\n");
 		return;
 	}
+
 	skt = skt_h->skt;
- 	if (NULL == skt) {
- 		WARN("skt is NULL returning\n");
+	if (skt == NULL) {
+		WARN("skt is NULL returning\n");
 		return;
- 	}
+	}
+ 	librskt_wait_for_sem(&skt_h->mtx, 0);
 
- 	librskt_wait_for_sem(&lib.rskt_read_mtx, 0);
- 	librskt_wait_for_sem(&lib.rskt_write_mtx, 0);
-
- 	int sem_val;
- 	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
- 	 	DBG("Waiting for skt_h->mtx(%p) value=%d\n", &skt_h->mtx, sem_val);
- 		DBG("#### sa.sn = %d, sai.sn = %d\n", skt_h->skt->sa.sn, skt_h->skt->sai.sa.sn);
- 	}
-	librskt_wait_for_sem(&skt_h->mtx, 0);
 	skt_h->skt = NULL;
 
 	DBG("Calling cleanup_skt\n");
 	cleanup_skt(skt_h, skt);
 	sem_post(&skt_h->mtx);
-	sem_post(&lib.rskt_read_mtx);
-	sem_post(&lib.rskt_write_mtx);
 	DBG("EXIT\n");
 };
 
@@ -593,8 +584,6 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 
 	lib.test = 0;
 	sem_init(&lib.skts_mtx, 0, 1);
-	sem_init(&lib.rskt_read_mtx, 0, 1);
-	sem_init(&lib.rskt_write_mtx, 0, 1);
 
 	l_init(&lib.skts);
 
@@ -1337,15 +1326,19 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	struct timespec unused;
 	struct rdma_xfer_ms_in hdr_in;
 	struct rskt_socket_t *skt;
-	uint32_t ltw, rtr; /* Debugging only */
 
 	DBG("ENTER\n");
-	rc = librskt_wait_for_sem(&lib.rskt_write_mtx, 0);
 
 	errno = EINVAL;
 	if ((NULL == skt_h) || (NULL == data) || (1 > byte_cnt)) {
-		ERR("Null parameter of byte_cnt < 1\n");
+		ERR("Invalid input parameter\n");
 		goto skt_ok;
+	}
+
+	rc = librskt_wait_for_sem(&skt_h->mtx, 0);
+	if (rc) {
+		ERR("librskt_wait_for_sem failed...exiting\n");
+		goto fail;
 	}
 
 	if (lib_uninit()) {
@@ -1353,16 +1346,15 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 		goto skt_ok;
 	}
 
+	/* If skt_h->sk is NULL, the socket was closed while we were waiting
+	 * on skt_h->mtx.
+	 */
 	skt = skt_h->skt;
 	if (NULL == skt) {
 		ERR("skt_h->skt is NULL\n");
 		goto skt_ok;
 	}
 
-	/* For debugging only */
-	ltw = ntohl(skt->hdr->loc_tx_wr_ptr);
-	rtr = ntohl(skt->hdr->rem_tx_rd_ptr);
-	DBG("loc_tx_wr_ptr=0x%X, rem_tx_rd_ptr=0x%X\n", ltw, rtr);
 	if (rskt_connected != skt->st) {
 		ERR("skt->st is NOT skt_connected\n");
 		goto skt_ok;
@@ -1418,14 +1410,14 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 		ERR("updated_remote_hdr failed..exiting\n");
 		goto fail;
 	}
-	sem_post(&lib.rskt_write_mtx);
+	sem_post(&skt_h->mtx);
 	DBG("EXIT with success\n");
 	return 0;
 fail:
 	WARN("Closing skt_t due to failure condition\n");
 	rskt_close(skt_h);
 skt_ok:
-	sem_post(&lib.rskt_write_mtx);
+	sem_post(&skt_h->mtx);
 	return -1;
 }; /* rskt_write() */
 
@@ -1480,42 +1472,31 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	int	rc;
 
 	DBG("ENTER\n");
-	rc = librskt_wait_for_sem(&lib.rskt_read_mtx, 0);
-	if (rc) {
-		ERR("librskt_wait_for_sem failed...exiting\n");
-		goto fail;
-	}
 	errno = EINVAL;
 	if ((NULL == skt_h) || (NULL == data) || (1 > max_byte_cnt)) {
 		ERR("Invalid input parameter\n");
 		goto skt_ok;
 	}
 
-	skt = skt_h->skt;
-	if (NULL == skt) {
-		DBG("skt is NULL\n");
-		goto skt_ok;
-	}
-
- 	int sem_val;
- 	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
- 	 	DBG("Waiting for skt_h->mtx(%p) value=%d\n", &skt_h->mtx, sem_val);
- 		DBG("#### sa.sn = %d, sai.sn = %d\n", skt_h->skt->sa.sn, skt_h->skt->sai.sa.sn);
- 	} else {
- 		DBG("Failed to get value for skt_h->mtx(0x%X)\n", skt_h->mtx);
- 	}
 	rc = librskt_wait_for_sem(&skt_h->mtx, 0);
 	if (rc) {
 		ERR("librskt_wait_for_sem failed...exiting\n");
 		goto fail;
 	}
 
+	/* If skt_h->skt is NULL, the socket was closed while we were waiting
+	 * for the semaphore. Just exit.
+	 */
+	skt = skt_h->skt;
+	if (NULL == skt) {
+		DBG("skt is NULL\n");
+		goto skt_ok;
+	}
+
 	if (lib_uninit()) {
 		ERR("lib_uninit() failed\n");
 		goto fail;
 	}
-
-
 
 	if (rskt_connected != skt->st) {
 		WARN("Not connected");
@@ -1575,14 +1556,12 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 		goto fail;
 	};
 	sem_post(&skt_h->mtx);
-	sem_post(&lib.rskt_read_mtx);
 	return avail_bytes;
 fail:
 	WARN("Failed..closing skt_h\n");
 	rskt_close(skt_h);
 skt_ok:
 	sem_post(&skt_h->mtx);
-	sem_post(&lib.rskt_read_mtx);
 	return -1;
 }; /* rskt_read() */
 
