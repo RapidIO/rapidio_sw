@@ -48,6 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdtsc.h"
 #include "debug.h"
 #include "dmachan.h"
+#include "time_utils.h"
 
 #pragma GCC diagnostic ignored "-fpermissive"
 
@@ -188,7 +189,7 @@ uint32_t DMAChannel::clearIntBits()
  * \param[out] abort_reason HW reason for DMA abort if function returned false
  * \return true if buffer enqueued, false if queue full or HW error -- check abort_reason
  */
-bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason)
+bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
 {
   if(opt.dtype != DTYPE1 && opt.dtype != DTYPE2) return false;
 
@@ -197,6 +198,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   abort_reason = 0;
 
   struct dmadesc desc;
+
+  get_seq_ts_m(ts_p, 1);
   dmadesc_setdtype(desc, opt.dtype);
 
   if(opt.iof)  dmadesc_setiof(desc, 1);
@@ -210,6 +213,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
   if(opt.tt_16b) dmadesc_set_tt(desc, 1);
   dmadesc_setdevid(desc, opt.destid);
+
 
   char ev = '\x0';
   if(opt.dtype == DTYPE1) {
@@ -228,21 +232,20 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   }
 
   bool queued_T3 = false;
-  WorkItem_t wk_end; memset(&wk_end, 0 , sizeof(wk_end));
+  WorkItem_t wk_end;
+
+  memset(&wk_end, 0 , sizeof(wk_end));
 
   // Check if queue full -- as late as possible in view of MT
   if(queueFull()) {
     ERR("FAILED: DMA TX Queue full!\n");
-	trace_dmachan(0x200, 1);
     return false;
   }
- trace_dmachan(0x200, 2);
   
   struct hw_dma_desc* bd_hw = NULL;
   pthread_spin_lock(&m_bl_splock); 
   if (umdemo_must_die)
 	return false;
- trace_dmachan(0x200, 3);
 
   const int bd_idx = m_dma_wr % m_bd_num;
   {{
@@ -263,8 +266,11 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     opt.bd_wp = m_dma_wr; opt.bd_idx = bd_idx;
 
     opt.ts_start = rdtsc();
-    m_dma_wr++; setWriteCount(m_dma_wr); evlog(ev);
-    trace_dmachan(0x200, 4);
+
+    m_dma_wr++;
+    setWriteCount(m_dma_wr);
+    evlog(ev);
+
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
     if(((m_dma_wr+1) % m_bd_num) == 0) { // skip T3
@@ -279,9 +285,11 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   }}
   pthread_spin_unlock(&m_bl_splock); 
 
+/*
   if(dmaCheckAbort(abort_reason)) {
     return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
   }
+*/
 
   WorkItem_t wk; memset(&wk, 0, sizeof(wk));
   wk.mem = mem; wk.opt = opt; wk.valid = WI_SIG;
@@ -296,6 +304,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   }
   pthread_spin_unlock(&m_pending_work_splock);
 
+    get_seq_ts_m(ts_p, 9);
+
 #ifdef DEBUG_BD
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
@@ -306,7 +316,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
      DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_T3_bd_hw, wk_end.opt.bd_wp);
 #endif
 
-    trace_dmachan(0x200, 5);
   return true;
 }
 

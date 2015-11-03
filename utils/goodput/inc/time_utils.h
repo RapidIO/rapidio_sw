@@ -34,6 +34,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef TIME_UTILS_H
 #define TIME_UTILS_H
 
+#define MAX_TIMESTAMPS 4096
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct seq_ts {
+	int ts_idx;
+	struct timespec ts_val[MAX_TIMESTAMPS];
+	int ts_mkr[MAX_TIMESTAMPS];
+};
+
+void init_seq_ts(struct seq_ts *ts);
+void get_seq_ts(struct seq_ts *ts);
+void get_seq_ts_m(struct seq_ts *ts, int marker);
+
 struct timespec time_difference( struct timespec start, struct timespec end );
 
 struct timespec time_add(struct timespec start, struct timespec end);
@@ -43,5 +59,10 @@ struct timespec time_div(struct timespec time, uint32_t divisor);
 void time_track(int i, struct timespec starttime, struct timespec enddtime,
 		struct timespec *totaltime, struct timespec *mintime,
 		struct timespec *maxtime);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
 

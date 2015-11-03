@@ -48,6 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dmadesc.h"
 #include "rdtsc.h"
 #include "debug.h"
+#include "time_utils.h"
 
 #ifndef __DMACHAN_H__
 #define __DMACHAN_H__
@@ -128,12 +129,12 @@ public:
 
   bool check_ibwin_reg() { return m_mport->check_ibwin_reg(); }
 
-  inline bool queueDmaOpT1(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason)
+  inline bool queueDmaOpT1(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
     opt.dtype = DTYPE1;
-    return queueDmaOpT12(rtype, opt, mem, abort_reason);
+    return queueDmaOpT12(rtype, opt, mem, abort_reason, ts_p);
   }
-  inline bool queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason)
+  inline bool queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
     if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16)) return false;
   
@@ -143,7 +144,7 @@ public:
     lmem.win_size = data_len;
 
     opt.dtype = DTYPE2;
-    return queueDmaOpT12(rtype, opt, lmem, abort_reason);
+    return queueDmaOpT12(rtype, opt, lmem, abort_reason, ts_p);
   }
 
   inline uint32_t queueSize()
@@ -307,7 +308,7 @@ private:
   
   WorkItem_t*         m_pending_work;
 
-  bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason);
+  bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 
   inline void setWriteCount(uint32_t cnt) { wr32dmachan(TSI721_DMAC_DWRCNT, cnt); }
 
