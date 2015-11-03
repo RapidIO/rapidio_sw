@@ -106,8 +106,8 @@ int main(int argc, char *argv[])
 			rc = rskt_write(accept_socket, send_buf, data_size);
 			if (rc) {
 				fprintf(stderr, "Failed to send data, rc = %d: %s\n",
-							rc, strerror(errno));
-				goto close_accept_socket;
+							rc, strerror(rc));
+				break;
 			}
 		} /* read/write loop */
 
