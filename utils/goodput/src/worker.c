@@ -2002,6 +2002,13 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
+        if (GetEnv("verb") != NULL) {
+	        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+			info->umd_dch->getDestId(),
+			info->did, info->rio_addr, info->acc_size,
+			info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
+
 	init_seq_ts(&info->desc_ts);
 	init_seq_ts(&info->fifo_ts);
 	init_seq_ts(&info->meas_ts);
@@ -2303,10 +2310,12 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	info->evlog.clear();
         //info->umd_dch->switch_evlog(true);
 
-        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
-             info->umd_dch->getDestId(),
-             info->did, info->rio_addr, info->acc_size,
-             info->umd_tx_buf_cnt, info->umd_sts_entries);
+	if (GetEnv("verb") != NULL) {
+		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
+		     info->umd_dch->getDestId(),
+		     info->did, info->rio_addr, info->acc_size,
+		     info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
 
 	if(op == 'T' || op == 'R') // Not used for NREAD
 		memset(info->ib_ptr, 0,info->acc_size);
@@ -2397,14 +2406,17 @@ void umd_mbox_goodput_demo(struct worker *info)
 
         info->umd_mch->setInitState();
 
+	if (GetEnv("verb") != NULL) {
+		INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%d #buf=%d #fifo=%d\n",
+		     info->umd_chan,
+		     info->umd_mch->getDestId(),
+		     info->did, info->umd_chan_to, info->umd_letter,
+		     info->acc_size,
+		     info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
+
         zero_stats(info);
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-        INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%d #buf=%d #fifo=%d\n",
-             info->umd_chan,
-             info->umd_mch->getDestId(),
-             info->did, info->umd_chan_to, info->umd_letter,
-	     info->acc_size,
-             info->umd_tx_buf_cnt, info->umd_sts_entries);
 
  	// Receiver
 	if(info->wr == 0) {
@@ -2549,12 +2561,15 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
         info->umd_mch->setInitState();
 
+	if (GetEnv("verb") != NULL) {
+		INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
+		     info->umd_mch->getDestId(),
+		     info->did, info->acc_size,
+		     info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
+
         zero_stats(info);
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-        INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
-             info->umd_mch->getDestId(),
-             info->did, info->acc_size,
-             info->umd_tx_buf_cnt, info->umd_sts_entries);
 
 	MboxChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
