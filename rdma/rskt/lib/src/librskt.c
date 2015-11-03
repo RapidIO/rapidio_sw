@@ -455,6 +455,7 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
  	}
 
  	librskt_wait_for_sem(&lib.rskt_read_mtx, 0);
+ 	librskt_wait_for_sem(&lib.rskt_write_mtx, 0);
 
  	int sem_val;
  	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
@@ -470,6 +471,7 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
 	cleanup_skt(skt_h, skt);
 	sem_post(&skt_h->mtx);
 	sem_post(&lib.rskt_read_mtx);
+	sem_post(&lib.rskt_write_mtx);
 	DBG("EXIT\n");
 };
 
@@ -594,6 +596,7 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	lib.test = 0;
 	sem_init(&lib.skts_mtx, 0, 1);
 	sem_init(&lib.rskt_read_mtx, 0, 1);
+	sem_init(&lib.rskt_write_mtx, 0, 1);
 
 	l_init(&lib.skts);
 
@@ -1339,6 +1342,8 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	uint32_t ltw, rtr; /* Debugging only */
 
 	DBG("ENTER\n");
+	rc = librskt_wait_for_sem(&lib.rskt_write_mtx, 0);
+
 	errno = EINVAL;
 	if ((NULL == skt_h) || (NULL == data) || (1 > byte_cnt)) {
 		ERR("Null parameter of byte_cnt < 1\n");
@@ -1415,13 +1420,14 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 		ERR("updated_remote_hdr failed..exiting\n");
 		goto fail;
 	}
-
+	sem_post(&lib.rskt_write_mtx);
 	DBG("EXIT with success\n");
 	return 0;
 fail:
 	WARN("Closing skt_t due to failure condition\n");
 	rskt_close(skt_h);
 skt_ok:
+	sem_post(&lib.rskt_write_mtx);
 	return -1;
 }; /* rskt_write() */
 
