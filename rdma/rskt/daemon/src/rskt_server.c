@@ -85,14 +85,8 @@ int main(int argc, char *argv[])
 			rc = rskt_read(accept_socket,
 				       recv_buf,
 				       RSKT_DEFAULT_RECV_BUF_SIZE);
-			if (rc < 0)
-				if (errno == ETIMEDOUT) {
-					/* Timeout means connection closed. Back
-					 * to accepting connections.
-					 */
-				break;
-			} else {
-				fprintf(stderr, "Failed to receive, rc = %d: %s\n",
+			if (rc < 0) {
+				fprintf(stderr, "Receive failed, rc=%d: %s\n",
 							rc, strerror(errno));
 				/* Client closed the connection. Back to accepting */
 				break;
