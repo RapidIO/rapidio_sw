@@ -90,7 +90,8 @@ int main(int argc, char *argv[])
 							rc, strerror(errno));
 				/* Client closed the connection. Back to accepting */
 				break;
-			}
+			} else
+				printf("Received %d bytes\n", rc);
 
 			data_size = rc;
 
