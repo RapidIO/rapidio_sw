@@ -1,8 +1,11 @@
 #include <semaphore.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <ctype.h>
 #include <errno.h>
 
 #include "rapidio_mport_mgmt.h"
@@ -51,6 +54,7 @@ int main(int argc, char *argv[])
 	int socket_number = 1234;
 	unsigned repetitions = 1;
 	unsigned data_length = 512;
+	unsigned tx_test = 0;
 
 	rskt_h	client_socket;
 	struct rskt_sockaddr sock_addr;
@@ -63,6 +67,45 @@ int main(int argc, char *argv[])
 		show_help();
 		goto exit_main;
 	}
+
+	while ((c = getopt(argc, argv, "htd:l:r:s:")) != -1)
+		switch (c) {
+
+		case 'd':
+			destid = atoi(optarg);
+			break;
+		case 'h':
+			show_help();
+			exit(1);
+			break;
+		case 'l':
+			data_length = atoi(optarg);
+			break;
+		case 'r':
+			repetitions = atoi(optarg);
+			break;
+		case 's':
+			socket_number = atoi(optarg);
+			break;
+		case 't':
+			tx_test = 1;	/* FIXME: No implemented */
+			break;
+		case '?':
+			/* Invalid command line option */
+			show_help();
+			exit(1);
+			break;
+		default:
+			abort();
+		}
+
+	/* Must specify destid */
+	if (destid == 0xFFFF) {
+		puts("Error. Must specify <destid>");
+		show_help();
+		exit(1);
+	}
+
 	rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
 	if (rc) {
 		fprintf(stderr, "Failed in librskt_init, rc = %d: %s\n", 
