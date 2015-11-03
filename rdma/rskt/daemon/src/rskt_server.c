@@ -81,33 +81,33 @@ int main(int argc, char *argv[])
 			goto destroy_accept_socket;
 		}
 
-		rc = rskt_read(accept_socket, recv_buf, RSKT_DEFAULT_RECV_BUF_SIZE);
-		if (rc < 0)
-			if (errno == ETIMEDOUT) {
-				/* Timeout is not an error since the client may not
-				 * be sending anymore data. Just try again. 
-				 */
-				continue;
-			} else {
-				fprintf(stderr, "Failed to receive, rc = %d: %s\n",
+		while (1) {
+			rc = rskt_read(accept_socket,
+				       recv_buf,
+				       RSKT_DEFAULT_RECV_BUF_SIZE);
+			if (rc < 0) {
+				fprintf(stderr, "Receive failed, rc=%d: %s\n",
 							rc, strerror(errno));
-				goto close_accept_socket;
+				/* Client closed the connection. Back to accepting */
+				break;
+			} else
+				printf("Received %d bytes\n", rc);
+
+			data_size = rc;
+
+			memcpy(send_buf, recv_buf, data_size);
+
+			rc = rskt_write(accept_socket, send_buf, data_size);
+			if (rc) {
+				fprintf(stderr, "Failed to send data, rc = %d: %s\n",
+							rc, strerror(rc));
+				break;
 			}
-
-		data_size = rc;
-
-		memcpy(send_buf, recv_buf, data_size);
-
-		rc = rskt_write(accept_socket, send_buf, data_size);
-		if (rc) {
-			fprintf(stderr, "Failed to send data, rc = %d: %s\n",
-							rc, strerror(errno));
-			goto close_accept_socket;
-		}
-
+		} /* read/write loop */
 
 		/* FIXME: No calls to rskt_close()/rskt_destroy() at this point. */
-	}
+
+	} /* while */
 
 close_accept_socket:
 	rskt_close(accept_socket);

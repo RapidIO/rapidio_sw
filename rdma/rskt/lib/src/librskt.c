@@ -1414,6 +1414,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	DBG("EXIT with success\n");
 	return 0;
 fail:
+	sem_post(&skt_h->mtx);
 	WARN("Closing skt_t due to failure condition\n");
 	rskt_close(skt_h);
 skt_ok:
@@ -1559,7 +1560,9 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	return avail_bytes;
 fail:
 	WARN("Failed..closing skt_h\n");
+	sem_post(&skt_h->mtx);
 	rskt_close(skt_h);
+	return -1;
 skt_ok:
 	sem_post(&skt_h->mtx);
 	return -1;
