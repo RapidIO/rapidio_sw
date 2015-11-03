@@ -177,7 +177,7 @@ void shutdown_worker_thread(struct worker *info)
 #ifdef USER_MODE_DRIVER
 		if (info->umd_dch) {
 			info->umd_fifo_proc_must_die = 1;
-			info->umd_dch->shutdown();
+			if (info->umd_dch != NULL) info->umd_dch->shutdown();
 		};
 #endif
 		pthread_join(info->wkr_thr.thr, NULL);
@@ -2041,8 +2041,8 @@ void umd_dma_goodput_demo(struct worker *info)
 							cnt += info->acc_size) {
 			info->dmaopt[oi].destid      = info->did;
 			info->dmaopt[oi].bcount      = info->acc_size;
-			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
-			info->dmaopt[oi].raddr.lsb64 += cnt * info->acc_size;
+			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;
+			info->dmaopt[oi].raddr.lsb64 += cnt;
 
 			bool q_was_full = false;
 			info->umd_dma_abort_reason = 0;
