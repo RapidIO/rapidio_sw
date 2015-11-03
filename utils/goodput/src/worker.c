@@ -1306,8 +1306,10 @@ void *umd_dma_fifo_proc_thr(void *parm)
                 } // END for WorkItem_t vector
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 	} // END while
+	goto no_post;
 exit:
 	sem_post(&info->umd_fifo_proc_started); 
+no_post:
 	info->umd_fifo_proc_alive = 0;
 
 	pthread_exit(parm);
@@ -2037,7 +2039,7 @@ void umd_dma_goodput_demo(struct worker *info)
 #endif
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
-        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
              info->umd_dch->getDestId(),
              info->did, info->rio_addr, info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);
@@ -2319,7 +2321,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	info->evlog.clear();
         //info->umd_dch->switch_evlog(true);
 
-        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
              info->umd_dch->getDestId(),
              info->did, info->rio_addr, info->acc_size,
              info->umd_tx_buf_cnt, info->umd_sts_entries);

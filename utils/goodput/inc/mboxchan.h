@@ -197,12 +197,6 @@ public:
 
   void* get_inb_message(MboxOptions_t& opt);
 
-  inline void set_rx_destid(const uint16_t destid)
-  {
-    m_mport->wr32(TSI721_IB_DEVID, destid);
-    DBG("\n\tSet own destid := %d; HW destid = %d\n", destid, m_mport->rd32(TSI721_IB_DEVID ));
-  }
-
   inline int getDeviceId() { return m_mport->getDeviceId(); }
   inline uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 
