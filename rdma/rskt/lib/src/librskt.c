@@ -460,11 +460,12 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
  	int sem_val;
  	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
  	 	DBG("Waiting for skt_h->mtx(0x%X) value=%d\n", skt_h->mtx, sem_val);
- 	 	DBG("#### sa.sn = %d, sai.sn = %d\n", skt_h->skt->sa.sn, skt_h->skt->sai.sa.sn);
- 	} else {
- 		DBG("Failed to get value for skt_h->mtx(0x%X)\n", skt_h->mtx);
+	 	if (skt_h->skt->sa && skt_h->skt->sai) {
+	 		DBG("#### sa.sn = %d, sai.sn = %d\n", skt_h->skt->sa.sn, skt_h->skt->sai.sa.sn);
+	 	} else {
+	 		DBG("#### One of sa or sai is NULL\n");
+	 	}
  	}
-
 	librskt_wait_for_sem(&skt_h->mtx, 0);
 	skt_h->skt = NULL;
 
@@ -1492,7 +1493,11 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
  	int sem_val;
  	if (sem_getvalue(&skt_h->mtx, &sem_val) == 0) {
  	 	DBG("Waiting for skt_h->mtx(0x%X) value=%d\n", skt_h->mtx, sem_val);
- 	 	DBG("#### sa.sn = %d, sai.sn = %d\n", skt_h->skt->sa.sn, skt_h->skt->sai.sa.sn);
+ 	 	if (skt_h->skt->sa && skt_h->skt->sai) {
+ 	 		DBG("#### sa.sn = %d, sai.sn = %d\n", skt_h->skt->sa.sn, skt_h->skt->sai.sa.sn);
+ 	 	} else {
+ 	 		DBG("#### One of sa or sai is NULL\n");
+ 	 	}
  	} else {
  		DBG("Failed to get value for skt_h->mtx(0x%X)\n", skt_h->mtx);
  	}
