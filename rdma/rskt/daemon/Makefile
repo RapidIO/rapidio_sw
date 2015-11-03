@@ -54,16 +54,16 @@ RSKTD_OBJECTS = src/rsktd.o src/librsktd_cli.o
 RSKTS_SOURCE = src/rskts.c
 RSKTS_OBJECTS = src/rskts.o
 
-RSKTS_TEST_SOURCE = src/rskts_test.cpp
-RSKTS_TEST_OBJECTS = src/rskts_test.o
+RSKT_SERVER_SOURCE = src/rskt_server.c
+RSKT_SERVER_OBJECTS = src/rskt_server.o
 
-RSKTC_TEST_SOURCE = src/rsktc_test.cpp
-RSKTC_TEST_OBJECTS = src/rsktc_test.o
+RSKT_CLIENT_SOURCE = src/rskt_client.c
+RSKT_CLIENT_OBJECTS = src/rskt_client.o
 
 REMDBG_SOURCE = src/remdbg.c
 REMDBG_OBJECTS = src/remdbg.o
 
-all: rsktd rskts remdbg rsktc_test rskts_test
+all: rsktd rskts remdbg rskt_client rskt_server
 
 # The RDMA Sockets Daemon
 rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
@@ -85,8 +85,8 @@ rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
-rskts_test:  $(RSKTLIB_OBJECTS) $(RSKTS_TEST_SOURCE) src/*.h ../inc/*.h $(COMMON_DIR)/include/*.h
-	@echo ---------- Building rskts_test
+rskt_server:  $(RSKTLIB_OBJECTS) $(RSKT_SERVER_SOURCE) src/*.h ../inc/*.h $(COMMON_DIR)/include/*.h
+	@echo ---------- Building rskt_server
 	$(CXX) --std=gnu++0x -L$(MPORT_DIR) -L$(shell pwd) -pthread \
 	-I$(COMMON_DIR)/include \
 	-I./src -I./inc -I../inc \
@@ -95,12 +95,12 @@ rskts_test:  $(RSKTLIB_OBJECTS) $(RSKTS_TEST_SOURCE) src/*.h ../inc/*.h $(COMMON
 	-DRDMA_LL=7 \
 	-Wl,-rpath=$(MPORT_DIR) \
 	-Wl,-rpath=$(RDMA_DIR) \
-	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_TEST_SOURCE) $(LIB_DIRS) \
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_SERVER_SOURCE) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
-rsktc_test:  $(RSKTLIB_OBJECTS) $(RSKTC_TEST_SOURCE) src/*.h ../inc/*.h $(COMMON_DIR)/include/*.h
-	@echo ---------- Building rsktc_test
+rskt_client:  $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) src/*.h ../inc/*.h $(COMMON_DIR)/include/*.h
+	@echo ---------- Building rskt_client
 	$(CXX) --std=gnu++0x -L$(MPORT_DIR) -L$(shell pwd) -pthread \
 	-I$(COMMON_DIR)/include \
 	-I./src -I./inc -I../inc \
@@ -109,7 +109,7 @@ rsktc_test:  $(RSKTLIB_OBJECTS) $(RSKTC_TEST_SOURCE) src/*.h ../inc/*.h $(COMMON
 	-DRDMA_LL=7 \
 	-Wl,-rpath=$(MPORT_DIR) \
 	-Wl,-rpath=$(RDMA_DIR) \
-	-o $@ $(RSKTLIB_OBJECTS) $(RSKTC_TEST_SOURCE) $(LIB_DIRS) \
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) $(LIB_DIRS) \
 	-lrskt -lcli -lrt -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
@@ -123,4 +123,4 @@ remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
 clean:
-	rm -f *.o src/*.o *~ *.exe core rsktd remdbg rskts rskts_test rsktc_test
+	rm -f *.o src/*.o *~ *.exe core rsktd remdbg rskts rskt_server rskt_client
