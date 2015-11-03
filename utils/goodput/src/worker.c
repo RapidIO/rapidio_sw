@@ -1929,7 +1929,6 @@ exit:
         info->umd_dch->cleanup();
         delete info->umd_dch;
 	delete info->umd_lock; info->umd_lock = NULL;
-fail:
 	info->umd_dch = NULL;
 };
 
@@ -2494,13 +2493,14 @@ void umd_mbox_goodput_demo(struct worker *info)
 		char str[PAGE_4K+1] = {0};
                 for (int cnt = 0; !info->stop_req; cnt++) {
 			bool q_was_full = false;
+			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
 
 			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
-		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, !cnt, q_was_full)) {
-				if (! q_was_full) {
+		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, !cnt, fail_reason)) {
+				if (fail_reason == MboxChannel::STOP_REG_ERR) {
 					ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
 					goto exit;
-				}
+				} else { q_was_full = true; }
 		      	} else {
 				tx_ok++;
                                 if (info->desc_ts_idx < MAX_TIMESTAMPS) {
@@ -2620,12 +2620,12 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 			if (info->stop_req) break;
 
 			// Echo message back
-
-		      	if (! info->umd_mch->send_message(opt, msg_buf, opt_in.bcount, false, q_was_full)) {
-				if (! q_was_full) {
+			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
+		      	if (! info->umd_mch->send_message(opt, msg_buf, opt_in.bcount, false, fail_reason)) {
+				if (fail_reason == MboxChannel::STOP_REG_ERR) {
 					ERR("\n\tsend_message FAILED!\n");
 					goto exit_rx;
-				}
+				} else { q_was_full = true; }
 		      	} else { tx_ok++; }
 
 			if (info->stop_req) break;
@@ -2661,15 +2661,16 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 		char str[PAGE_4K+1] = {0};
                 for (int cnt = 0; !info->stop_req; cnt++) {
 			bool q_was_full = false;
+			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
 
 			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
 
 			start_iter_stats(info);
-		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, !cnt, q_was_full)) {
-				if (! q_was_full) {
+		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, !cnt, fail_reason)) {
+				if (fail_reason == MboxChannel::STOP_REG_ERR) {
 					ERR("\n\tsend_message FAILED!\n");
 					goto exit;
-				}
+				} else { q_was_full = true; }
 		      	} else { tx_ok++; }
 			if (info->stop_req) break;
 
