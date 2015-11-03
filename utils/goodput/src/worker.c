@@ -1960,7 +1960,6 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
-
 	if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
 		CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
 		goto exit;
@@ -2420,8 +2419,6 @@ void umd_mbox_goodput_demo(struct worker *info)
 
  	// Receiver
 	if(info->wr == 0) {
-		//info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
-
 		for(int i = 0; i < info->umd_tx_buf_cnt; i++) {
 			void* b = calloc(1, PAGE_4K);
       			info->umd_mch->add_inb_buffer(b);
@@ -2581,7 +2578,6 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
  	// Slave/Receiver
 	if(info->wr == 0) {
 		char msg_buf[4097] = {0};
-		//info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
 		MboxChannel::MboxOptions_t opt_in; memset(&opt, 0, sizeof(opt_in));
