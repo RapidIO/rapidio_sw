@@ -1707,8 +1707,7 @@ ATTR_NONE
 int UTimeCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, st_i = 0, end_i = MAX_TIMESTAMPS-1;
-	struct timespec *ts_p = NULL;
-	int *ts_idx = NULL;
+	struct seq_ts *ts_p = NULL;
 	uint64_t lim = 0;
 	int got_one = 0;
 	struct timespec diff, min, max, tot;
@@ -1719,17 +1718,19 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 
 	switch (argv[1][0]) {
 	case 'd':
-	case 'D':
-		ts_p = wkr[idx].desc_ts;
-		ts_idx = &wkr[idx].desc_ts_idx;
+	case 'D': 
+		ts_p = &wkr[idx].desc_ts;
 		break;
 	case 'f':
 	case 'F':
-		ts_p = wkr[idx].fifo_ts;
-		ts_idx = &wkr[idx].fifo_ts_idx;
+		ts_p = &wkr[idx].fifo_ts;
+		break;
+	case 'm':
+	case 'M':
+		ts_p = &wkr[idx].meas_ts;
 		break;
 	default:
-                sprintf(env->output, "FAILED: <type> not 'd' or 'f'.\n");
+                sprintf(env->output, "FAILED: <type> not 'd', 'f' or 'm'.\n");
         	logMsg(env);
 		goto exit;
 	};
@@ -1737,9 +1738,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	switch (argv[2][0]) {
 	case 's':
 	case 'S':
-		for (idx = 0; idx < MAX_TIMESTAMPS; idx++)
-			ts_p[idx].tv_nsec = ts_p[idx].tv_sec = 0;
-		*ts_idx = 0;
+		init_seq_ts(ts_p);
 		break;
 	case '-':
 		if (argc > 4) {
@@ -1759,13 +1758,13 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 			goto exit;
 		};
 
-		if (*ts_idx < MAX_TIMESTAMPS - 1) {
+		if (ts_p->ts_idx < MAX_TIMESTAMPS - 1) {
                 	sprintf(env->output,
 				"\nWARNING: Last valid timestamp is %d\n",
-				*ts_idx);
+				ts_p->ts_idx);
         		logMsg(env);
 		};
-		diff = time_difference(ts_p[st_i], ts_p[end_i]);
+		diff = time_difference(ts_p->ts_val[st_i], ts_p->ts_val[end_i]);
                 sprintf(env->output, "\n---->> Sec<<---- Nsec---MMMuuuNNN\n");
         	logMsg(env);
                 sprintf(env->output, "%16ld %16ld\n",
@@ -1787,19 +1786,21 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 			goto exit;
 		};
 
-		if (*ts_idx < MAX_TIMESTAMPS - 1) {
+		if (ts_p->ts_idx < MAX_TIMESTAMPS - 1) {
                 	sprintf(env->output,
 				"\nWARNING: Last valid timestamp is %d\n",
-				*ts_idx);
+				ts_p->ts_idx);
         		logMsg(env);
 		};
 
                 sprintf(env->output,
-			"\n Idx ---->> Sec<<---- Nsec---mmmuuunnn\n");
+			"\n Idx ---->> Sec<<---- Nsec---mmmuuunnn Marker\n");
         	logMsg(env);
 		for (idx = st_i; idx <= end_i; idx++) {
-                	sprintf(env->output, "%4d %16ld %16ld\n", idx,
-				ts_p[idx].tv_sec, ts_p[idx].tv_nsec);
+                	sprintf(env->output, "%4d %16ld %16ld %d\n", idx,
+				ts_p->ts_val[idx].tv_sec, 
+				ts_p->ts_val[idx].tv_nsec,
+				ts_p->ts_mkr[idx]);
         		logMsg(env);
 		};
 		break;
@@ -1812,19 +1813,21 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
                		lim = 0;
 
 		for (idx = st_i; idx < end_i; idx++) {
-			time_track(idx, ts_p[idx], ts_p[idx+1],
+			time_track(idx, ts_p->ts_val[idx], ts_p->ts_val[idx+1],
 				&tot, &min, &max);
-			diff = time_difference(ts_p[idx], ts_p[idx+1]);
+			diff = time_difference(ts_p->ts_val[idx],
+						ts_p->ts_val[idx+1]);
 			if (diff.tv_nsec < lim)
 				continue;
 			if (!got_one) {
                 		sprintf(env->output,
-				"\n Idx ---->> Sec<<---- Nsec---MMMuuuNNN\n");
+				"\n Idx ---->> Sec<<---- Nsec---MMMuuuNNN Marker\n");
         			logMsg(env);
 				got_one = 1;
 			};
-                	sprintf(env->output, "%4d %16ld %16ld\n", idx,
-				diff.tv_sec, diff.tv_nsec);
+                	sprintf(env->output, "%4d %16ld %16ld %d -> %d\n", idx,
+				diff.tv_sec, diff.tv_nsec, 
+				ts_p->ts_mkr[idx], ts_p->ts_mkr[idx+1]);
         		logMsg(env);
 		};
 
@@ -1862,7 +1865,10 @@ struct cli_cmd UTime = {
 "UMD Timestamp buffer command",
 "<idx> <type> <cmd> <parms>\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<type> is 'd' for descriptor timestamps, 'f' for fifo.\n"
+	"<type> is:\n"
+	"      'd' - descriptor timestamps\n"
+	"      'f' - FIFO (descriptor completions)\n"
+	"      'm' - measurement (development only)\n"
 	"<cmd> is the command to perform on the buffer, one of:\n"
 	"      's' - sample timestamps again\n"
 	"      '-' - return difference in two timestamp idices\n"

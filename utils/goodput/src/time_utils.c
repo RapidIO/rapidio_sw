@@ -34,6 +34,55 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <sys/time.h>
 #include <stdint.h>
+#include "time_utils.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * Initializes timestamp sequence index and array
+ *
+ * @param[in] ts  Time stamp tracking structure
+ * @return None
+ */
+void init_seq_ts(struct seq_ts *ts)
+{
+	int i;
+
+	ts->ts_idx = 0;
+        for (i = 0; i < MAX_TIMESTAMPS; i++)
+                ts->ts_val[i].tv_sec = ts->ts_val[i].tv_nsec = 0;
+};
+
+/**
+ * If a free entry exists, get another timestamp.
+ *
+ * @param[in] ts  Time stamp tracking structure
+ * @return None
+ */
+
+void get_seq_ts(struct seq_ts *ts)
+{
+	if (ts->ts_idx < MAX_TIMESTAMPS)
+		clock_gettime(CLOCK_MONOTONIC, &ts->ts_val[ts->ts_idx++]);
+};
+
+/**
+ * If a free entry exists, get another timestamp and set marker value
+ *
+ * @param[in] ts  Time stamp tracking structure
+ * @param[in] marker  Time stamp entry tracking structure
+ * @return None
+ */
+
+void get_seq_ts_m(struct seq_ts *ts, int marker)
+{
+	if (ts->ts_idx < MAX_TIMESTAMPS) {
+		ts->ts_mkr[ts->ts_idx] = marker;
+		clock_gettime(CLOCK_MONOTONIC, &ts->ts_val[ts->ts_idx++]);
+	};
+};
 
 /**
  * Given two timespec structs, subtract them and return a timespec containing 
@@ -140,3 +189,7 @@ void time_track(int i, struct timespec starttime, struct timespec endtime,
 		*totaltime = *mintime = *maxtime = delta;
 	};
 };
+
+#ifdef __cplusplus
+}
+#endif

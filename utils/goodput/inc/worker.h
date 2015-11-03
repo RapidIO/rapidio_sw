@@ -68,6 +68,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 
+#include "time_utils.h"
+
 #ifdef USER_MODE_DRIVER
 #include <string>
 
@@ -135,7 +137,6 @@ enum req_mode {
 
 #ifdef USER_MODE_DRIVER
 #define MAX_UMD_BUF_COUNT (4096*4)
-#define MAX_TIMESTAMPS 4096
 #endif
 
 struct thread_cpu {
@@ -214,15 +215,6 @@ struct worker {
 	struct timespec min_iter_time; /* Minimum time over all iterations */
 	struct timespec max_iter_time; /* Maximum time over all iterations */
 
-	int cpu_occ_valid;
-	float cpu_occ_poll_period;
-	uint64_t old_tot_jiffies;
-	uint64_t old_proc_kern_jiffies;
-	uint64_t old_proc_user_jiffies;
-	uint64_t new_tot_jiffies;
-	uint64_t new_proc_kern_jiffies;
-	uint64_t new_proc_user_jiffies;
-	float    cpu_occ_pct;
 #ifdef USER_MODE_DRIVER
 	LockFile*	umd_lock;
 	int		umd_chan; ///< Local mailbox
@@ -244,10 +236,10 @@ struct worker {
 	volatile uint64_t tick_count, tick_total;
 	volatile uint64_t tick_data_total;
 	std::string	evlog;
-	int desc_ts_idx;
-	struct timespec desc_ts[MAX_TIMESTAMPS];
-	int fifo_ts_idx;
-	struct timespec fifo_ts[MAX_TIMESTAMPS];
+
+	struct seq_ts desc_ts;
+	struct seq_ts fifo_ts;
+	struct seq_ts meas_ts;
 #endif
 };
 

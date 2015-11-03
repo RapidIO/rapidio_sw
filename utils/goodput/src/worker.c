@@ -82,10 +82,6 @@ extern "C" {
 
 void init_worker_info(struct worker *info, int first_time)
 {
-#ifdef USER_MODE_DRIVER
-	int i;
-#endif
-
 	if (first_time) {
         	sem_init(&info->started, 0, 0);
         	sem_init(&info->run, 0, 0);
@@ -158,12 +154,9 @@ void init_worker_info(struct worker *info, int first_time)
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
 	//};
-	info->desc_ts_idx = 0;
-	info->fifo_ts_idx = 0;
-	for (i = 0; i < MAX_TIMESTAMPS; i++) {
-		info->desc_ts[i].tv_sec = info->desc_ts[i].tv_nsec = 0;
-		info->fifo_ts[i].tv_sec = info->fifo_ts[i].tv_nsec = 0;
-	};
+	init_seq_ts(&info->desc_ts);
+	init_seq_ts(&info->fifo_ts);
+	init_seq_ts(&info->meas_ts);
 #endif
 };
 
@@ -1264,7 +1257,8 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	if (NULL == info->umd_dch)
 		goto exit;
 	
-	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
+	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; 
+	memset(wi, 0, sizeof(wi));
 
 	migrate_thread_to_cpu(&info->umd_fifo_thr);
 
@@ -1280,11 +1274,7 @@ void *umd_dma_fifo_proc_thr(void *parm)
 		if (!cnt) 
 			continue;
 
-		if (info->fifo_ts_idx < MAX_TIMESTAMPS) {
-			clock_gettime(CLOCK_MONOTONIC,
-					&info->fifo_ts[info->fifo_ts_idx]);
-			info->fifo_ts_idx++;
-		};
+		get_seq_ts(&info->fifo_ts);
 
 		for (int i = 0; i < cnt; i++) {
 			DMAChannel::WorkItem_t& item = wi[i];
@@ -1354,11 +1344,7 @@ void *umd_mbox_fifo_proc_thr(void *parm)
 			continue;
 		}
 
-                if (info->fifo_ts_idx < MAX_TIMESTAMPS) {
-                        clock_gettime(CLOCK_MONOTONIC,
-                                        &info->fifo_ts[info->fifo_ts_idx]);
-                        info->fifo_ts_idx++;
-                }
+		get_seq_ts(&info->fifo_ts);
 
 		const uint64_t tsm1 = rdtsc();
 		for (int i = 0; i < cnt; i++) {
@@ -1974,7 +1960,6 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
-
 	if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
 		CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
 		goto exit;
@@ -2016,8 +2001,20 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
+        if (GetEnv("verb") != NULL) {
+	        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+			info->umd_dch->getDestId(),
+			info->did, info->rio_addr, info->acc_size,
+			info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
+
+	init_seq_ts(&info->desc_ts);
+	init_seq_ts(&info->fifo_ts);
+	init_seq_ts(&info->meas_ts);
+
         info->umd_fifo_proc_must_die = 0;
         info->umd_fifo_proc_alive = 0;
+
         rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
 			    umd_dma_fifo_proc_thr, (void *)info);
 	if (rc) {
@@ -2033,21 +2030,13 @@ void umd_dma_goodput_demo(struct worker *info)
 
 	zero_stats(info);
 	info->evlog.clear();
-/* FIXME: Had a double free in or corruption error on this ??? */
-#if 0
-        // info->umd_dch->switch_evlog(true);
-#endif
-	info->desc_ts_idx = 0;
-	info->fifo_ts_idx = 0;
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
-	info->umd_dch->trace_dmachan(0x500, 0x12345678);
 	while (!info->stop_req) {
 		uint64_t iq;
 		info->umd_dma_abort_reason = 0;
 	
-		info->umd_dch->trace_dmachan(0x100, 1);
         	for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
 			info->dmaopt[oi].destid      = info->did;
@@ -2059,21 +2048,10 @@ void umd_dma_goodput_demo(struct worker *info)
 			info->umd_dma_abort_reason = 0;
 			if (info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
-                                        info->umd_dma_abort_reason)) {
-				if (info->desc_ts_idx < MAX_TIMESTAMPS) {
-					clock_gettime(CLOCK_MONOTONIC,
-					&info->desc_ts[info->desc_ts_idx]);
-					info->desc_ts_idx ++;
-				};
+                                        info->umd_dma_abort_reason,
+					&info->meas_ts)) {
+				get_seq_ts(&info->desc_ts);
 			} else {
-				if(info->umd_dma_abort_reason != 0) {
-					CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
-					CRIT("\n\tDMA abort %x: %s\n", 
-						info->umd_dma_abort_reason,
-						DMAChannel::abortReasonToStr(
-						info->umd_dma_abort_reason));
-					goto exit;
-				}
 				q_was_full = true;
 			};
 			
@@ -2082,6 +2060,15 @@ void umd_dma_goodput_demo(struct worker *info)
 				(iq < 1000000000) &&
 				(info->umd_dch->queueSize() >= Q_THR);
 			    	iq++) {
+  				if (info->umd_dch->dmaCheckAbort(
+					info->umd_dma_abort_reason)) {
+					CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
+					CRIT("\n\tDMA abort %x: %s\n", 
+						info->umd_dma_abort_reason,
+						DMAChannel::abortReasonToStr(
+						info->umd_dma_abort_reason));
+					goto exit;
+  				}
 			}
 
 			// Wrap around, do no overwrite last buffer entry
@@ -2093,7 +2080,6 @@ void umd_dma_goodput_demo(struct worker *info)
 
 		// RX Check
 
-		info->umd_dch->trace_dmachan(0x100, 0x60);
 		info->umd_tx_iter_cnt++;
         } // END while NOT stop requested
 	goto exit_nomsg;
@@ -2136,11 +2122,13 @@ static inline bool queueDmaOp(struct worker* info, const int oi, const int cnt, 
 		rr = info->umd_dch->queueDmaOpT2(info->umd_tx_rtype,
 					info->dmaopt[oi],
 					(uint8_t*)info->dmamem[oi].win_ptr, info->acc_size,
-					info->umd_dma_abort_reason);
+					info->umd_dma_abort_reason,
+					&info->meas_ts);
 	} else {
 		rr = info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
-					info->umd_dma_abort_reason);
+					info->umd_dma_abort_reason,
+					&info->meas_ts);
 	}
 	if (! rr) {
 		if(info->umd_dma_abort_reason != 0) {
@@ -2321,10 +2309,12 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	info->evlog.clear();
         //info->umd_dch->switch_evlog(true);
 
-        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
-             info->umd_dch->getDestId(),
-             info->did, info->rio_addr, info->acc_size,
-             info->umd_tx_buf_cnt, info->umd_sts_entries);
+	if (GetEnv("verb") != NULL) {
+		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
+		     info->umd_dch->getDestId(),
+		     info->did, info->rio_addr, info->acc_size,
+		     info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
 
 	if(op == 'T' || op == 'R') // Not used for NREAD
 		memset(info->ib_ptr, 0,info->acc_size);
@@ -2415,19 +2405,20 @@ void umd_mbox_goodput_demo(struct worker *info)
 
         info->umd_mch->setInitState();
 
+	if (GetEnv("verb") != NULL) {
+		INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%d #buf=%d #fifo=%d\n",
+		     info->umd_chan,
+		     info->umd_mch->getDestId(),
+		     info->did, info->umd_chan_to, info->umd_letter,
+		     info->acc_size,
+		     info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
+
         zero_stats(info);
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-        INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%d #buf=%d #fifo=%d\n",
-             info->umd_chan,
-             info->umd_mch->getDestId(),
-             info->did, info->umd_chan_to, info->umd_letter,
-	     info->acc_size,
-             info->umd_tx_buf_cnt, info->umd_sts_entries);
 
  	// Receiver
 	if(info->wr == 0) {
-		//info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
-
 		for(int i = 0; i < info->umd_tx_buf_cnt; i++) {
 			void* b = calloc(1, PAGE_4K);
       			info->umd_mch->add_inb_buffer(b);
@@ -2505,11 +2496,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 				} else { q_was_full = true; }
 		      	} else {
 				tx_ok++;
-                                if (info->desc_ts_idx < MAX_TIMESTAMPS) {
-                                        clock_gettime(CLOCK_MONOTONIC,
-                                        &info->desc_ts[info->desc_ts_idx]);
-                                        info->desc_ts_idx++;
-                                }
+				get_seq_ts(&info->desc_ts);
 			}
 			if (info->stop_req) break;
 
@@ -2571,12 +2558,15 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
         info->umd_mch->setInitState();
 
+	if (GetEnv("verb") != NULL) {
+		INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
+		     info->umd_mch->getDestId(),
+		     info->did, info->acc_size,
+		     info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
+
         zero_stats(info);
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-        INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
-             info->umd_mch->getDestId(),
-             info->did, info->acc_size,
-             info->umd_tx_buf_cnt, info->umd_sts_entries);
 
 	MboxChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
@@ -2588,7 +2578,6 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
  	// Slave/Receiver
 	if(info->wr == 0) {
 		char msg_buf[4097] = {0};
-		//info->umd_mch->set_rx_destid(info->umd_mch->getDeviceId());
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
 		MboxChannel::MboxOptions_t opt_in; memset(&opt, 0, sizeof(opt_in));
