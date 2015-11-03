@@ -709,11 +709,11 @@ if (umdemo_must_die) return 0;
     pthread_spin_lock(&m_bl_splock); 
 if (umdemo_must_die) return 0;
 
-    m_bl_busy[item.opt.bd_idx] = false; m_bl_busy_size--;
+    m_bl_busy[item.opt.bd_idx] = false;
+    m_bl_busy_size--;
+    assert(m_bl_busy_size >= 0);
     pthread_spin_unlock(&m_bl_splock); 
   }
-
-  // Before advancing FIFO RP I must have a "barrier" so no "older" BDs exist.
 
   wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
   return cwi;
