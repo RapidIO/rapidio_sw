@@ -87,11 +87,10 @@ int main(int argc, char *argv[])
 				       RSKT_DEFAULT_RECV_BUF_SIZE);
 			if (rc < 0)
 				if (errno == ETIMEDOUT) {
-					/* Timeout is not an error since the
-					 * client may not be sending any more data.
-					 *  Just try again.
+					/* Timeout means connection closed. Back
+					 * to accepting connections.
 					 */
-				continue;
+				break;
 			} else {
 				fprintf(stderr, "Failed to receive, rc = %d: %s\n",
 							rc, strerror(errno));
