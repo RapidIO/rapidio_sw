@@ -2465,6 +2465,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 	} // END Receiver
 
 	// Transmitter
+	info->umd_fifo_proc_must_die = 0;
         rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
                             umd_mbox_fifo_proc_thr, (void *)info);
         if (rc) {
