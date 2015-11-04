@@ -2042,20 +2042,28 @@ void umd_dma_goodput_demo(struct worker *info)
 							cnt += info->acc_size) {
 			info->dmaopt[oi].destid      = info->did;
 			info->dmaopt[oi].bcount      = info->acc_size;
-			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;
-			info->dmaopt[oi].raddr.lsb64 += cnt;
+			info->dmaopt[oi].raddr.lsb64 = info->rio_addr + cnt;
 
-			bool q_was_full = false;
+			bool q_was_full = info->umd_dch->queueFull();
 			info->umd_dma_abort_reason = 0;
-			if (info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
+
+			if (!q_was_full) {
+				if (info->umd_dch->queueDmaOpT1(
+					info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
                                         info->umd_dma_abort_reason,
 					&info->meas_ts)) {
-				get_seq_ts(&info->desc_ts);
-			} else {
-				q_was_full = true;
+					get_seq_ts(&info->desc_ts);
+				} else {
+					q_was_full = true;
+				};
 			};
 			
+			if ((info->umd_dch->queueSize() > info->umd_tx_buf_cnt)
+			 || (info->umd_dch->queueSize() < 0))
+				CRIT("\n\t Cnt=0x%lx Qsize=%d oi=%d\n", 
+					cnt, info->umd_dch->queueSize(), oi);
+
 			// Busy-wait for queue to drain
 			for (iq = 0; !info->stop_req && q_was_full && 
 				(iq < 1000000000) &&
@@ -2383,12 +2391,6 @@ void umd_mbox_goodput_demo(struct worker *info)
                         info->umd_chan, info->mp_num, info->mp_h);
                 return;
         };
-
-        if(info->umd_mch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
-                CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
-		delete info->umd_mch;
-                return;
-        }
 
 	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
