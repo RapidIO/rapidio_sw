@@ -264,8 +264,11 @@ int inbound::create_mspace(const char *name,
 					   &vaddr);
 		if (ret == 0) {
 			memset((uint8_t *)vaddr, 0, size);
+			INFO("Memory space '%s' filled with 0s\n", name);
 			if (munmap(vaddr, size) == -1) {
 			        ERR("munmap(): %s\n", strerror(errno));
+				ERR("phys_addr = 0x%" PRIx64 ", size = 0x%X\n",
+						(*ms)->get_phys_addr(), size);
 				ret = -2;
 			}
 		} else {

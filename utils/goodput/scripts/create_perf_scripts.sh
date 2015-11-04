@@ -5,6 +5,8 @@ DID=0
 TRANS=0
 IBA_ADDR=20d800000
 ACC_SIZE=40000
+BUFC=100 # UMD: hex number of TX buffers
+STS=100 # UMD: hex size of RX FIFO -- should be > BUFC
 BYTES=400000
 SKT_PREFIX=234
 SYNC=0
@@ -98,6 +100,7 @@ echo 'SKT_PREFIX :' $SKT_PREFIX
 
 cd performance/dma_thru
 source create_scripts.sh $WAIT_TIME $DID $TRANS $IBA_ADDR $SYNC
+source create_scripts_umd.sh $WAIT_TIME $DID $TRANS $IBA_ADDR $BUFC $STS
 cd ../..
 cd performance/pdma_thru
 source create_scripts.sh $WAIT_TIME $DID $TRANS $IBA_ADDR $SYNC

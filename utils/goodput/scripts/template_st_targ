@@ -25,6 +25,19 @@ t 9 -1 0
 t 10 -1 0
 t 11 -1 0
 
+wait 0 H
+wait 1 H
+wait 2 H
+wait 3 H
+wait 4 H
+wait 5 H
+wait 6 H
+wait 7 H
+wait 8 H
+wait 9 H
+wait 10 H
+wait 11 H
+
 msgR 0 skt_prefix0
 msgR 1 skt_prefix1
 msgR 2 skt_prefix2
@@ -47,10 +60,8 @@ wait 7 R
 wait 8 R
 
 IBA 10 400000
-os 11 1
 sleep 1
 wait 10 H
-wait 11 R
 
 st i
 mpd

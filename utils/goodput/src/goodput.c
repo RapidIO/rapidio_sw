@@ -71,6 +71,8 @@ extern "C" {
 riomp_mport_t mp_h;
 int mp_h_valid;
 int mp_h_num;
+int mp_h_qresp_valid;
+struct riomp_mgmt_mport_properties qresp;
 
 struct worker wkr[MAX_WORKERS];
 
@@ -103,6 +105,10 @@ int setup_mport(int mport_num)
 	rc = riomp_mgmt_mport_create_handle(mport_num, 0, &mp_h);
 	if (!rc)
 		mp_h_valid = 1;
+
+	rc = riomp_mgmt_query(mp_h, &qresp);
+	if (!rc)
+		mp_h_qresp_valid = 1;
 
 	return rc;
 };
