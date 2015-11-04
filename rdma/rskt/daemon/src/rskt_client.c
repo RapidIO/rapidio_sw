@@ -55,7 +55,7 @@ unsigned generate_data(unsigned data_length, unsigned tx_test)
 
 	if (tx_test) {
 		length = data_lengths[index];
-		index = (index + 1) & (sizeof(data_lengths) - 1);
+		index = (index + 1) & (sizeof(data_lengths)/sizeof(unsigned) - 1);
 	} else {
 		length = data_length;
 	}
