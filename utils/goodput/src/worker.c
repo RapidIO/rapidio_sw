@@ -175,10 +175,8 @@ void shutdown_worker_thread(struct worker *info)
 		info->stop_req = 2;
 		sem_post(&info->run);
 #ifdef USER_MODE_DRIVER
-		if (info->umd_dch) {
-			info->umd_fifo_proc_must_die = 1;
-			info->umd_dch->shutdown();
-		};
+		info->umd_fifo_proc_must_die = 1;
+		if (info->umd_dch != NULL) info->umd_dch->shutdown();
 #endif
 		pthread_join(info->wkr_thr.thr, NULL);
 	};
@@ -1307,21 +1305,20 @@ no_post:
 
 void *umd_mbox_fifo_proc_thr(void *parm)
 {
-        struct worker *info;
+        struct worker* info = NULL;
 
 	int idx = -1;
 	uint64_t tsF1 = 0, tsF2 = 0;
         const int MHz = getCPUMHz();
 
-        if (NULL == parm) return NULL;
+        if (NULL == parm) goto exit;
 
         info = (struct worker *)parm;
-        if (NULL == info->umd_mch) return parm;
+        if (NULL == info->umd_mch) goto exit;
 
         migrate_thread_to_cpu(&info->umd_fifo_thr);
 
-        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
-		return parm;
+        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) goto exit;
 
 	idx = info->idx;
 	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));
@@ -1380,13 +1377,17 @@ void *umd_mbox_fifo_proc_thr(void *parm)
 
 		const uint64_t tsm2 = rdtsc();
 		if (tsm2 > tsm1) { g_FifoStats[idx].fifo_deltats_other += (tsm2-tsm1); g_FifoStats[idx].fifo_count_other++; }
-//next:
+
 		for(int i = 0; i < 1000; i++) {;}
 	}
-//exit:
-	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
 
+	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
+        goto no_post;
+
+exit:
 	sem_post(&info->umd_fifo_proc_started); 
+
+no_post:
 	info->umd_fifo_proc_alive = 0;
 
         DBG("\n\t%s: EXITING iter=%llu must die? %d\n", __func__, g_FifoStats[idx].fifo_thr_iter, info->umd_fifo_proc_must_die);
@@ -2041,20 +2042,28 @@ void umd_dma_goodput_demo(struct worker *info)
 							cnt += info->acc_size) {
 			info->dmaopt[oi].destid      = info->did;
 			info->dmaopt[oi].bcount      = info->acc_size;
-			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
-			info->dmaopt[oi].raddr.lsb64 += cnt * info->acc_size;
+			info->dmaopt[oi].raddr.lsb64 = info->rio_addr + cnt;
 
-			bool q_was_full = false;
+			bool q_was_full = info->umd_dch->queueFull();
 			info->umd_dma_abort_reason = 0;
-			if (info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
+
+			if (!q_was_full) {
+				if (info->umd_dch->queueDmaOpT1(
+					info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
                                         info->umd_dma_abort_reason,
 					&info->meas_ts)) {
-				get_seq_ts(&info->desc_ts);
-			} else {
-				q_was_full = true;
+					get_seq_ts(&info->desc_ts);
+				} else {
+					q_was_full = true;
+				};
 			};
 			
+			if ((info->umd_dch->queueSize() > info->umd_tx_buf_cnt)
+			 || (info->umd_dch->queueSize() < 0))
+				CRIT("\n\t Cnt=0x%lx Qsize=%d oi=%d\n", 
+					cnt, info->umd_dch->queueSize(), oi);
+
 			// Busy-wait for queue to drain
 			for (iq = 0; !info->stop_req && q_was_full && 
 				(iq < 1000000000) &&
