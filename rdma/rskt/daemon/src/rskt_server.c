@@ -82,6 +82,7 @@ int main(int argc, char *argv[])
 		}
 
 		do  {
+			usleep(100*1000);
 			rc = rskt_read(accept_socket,
 				       recv_buf,
 				       RSKT_DEFAULT_RECV_BUF_SIZE);
@@ -103,7 +104,7 @@ int main(int argc, char *argv[])
 							rc, strerror(rc));
 				break;
 			}
-		} while(0); /* read/write loop */
+		} while(1); /* read/write loop */
 
 		/* FIXME: No calls to rskt_close()/rskt_destroy() at this point. */
 	} /* while */
