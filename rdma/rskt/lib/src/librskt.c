@@ -1506,15 +1506,26 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	};
 
 	errno = 0;
+	DBG("avail_bytes = %d\n", avail_bytes);
+	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
+			skt->hdr->loc_tx_wr_ptr, skt->hdr->loc_rx_rd_ptr);
+	DBG("rem_tx_rd_ptr = 0x%X, rem_rx_wr_ptr = 0x%X\n",
+				skt->hdr->rem_tx_rd_ptr, skt->hdr->rem_rx_wr_ptr);
+
 	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
 
 	DBG("avail_bytes = %d\n", avail_bytes);
+	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
+			skt->hdr->loc_tx_wr_ptr, skt->hdr->loc_rx_rd_ptr);
+	DBG("rem_tx_rd_ptr = 0x%X, rem_rx_wr_ptr = 0x%X\n",
+				skt->hdr->rem_tx_rd_ptr, skt->hdr->rem_rx_wr_ptr);
+
 	while (!avail_bytes && time_remains && !errno) {
 		nanosleep(&rw_dly, &unused);
 	 	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
 		time_remains--;
 	};
-
+	DBG("avail_bytes = %d\n", avail_bytes);
 	if (!time_remains) {
 		ERR("Timed out!\n");
 		errno = ETIMEDOUT;
@@ -1529,13 +1540,15 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 
 	if (avail_bytes > max_byte_cnt)
 		avail_bytes = max_byte_cnt;
-
+	DBG("avail_bytes = %d\n", avail_bytes);
 	first_offset = (ntohl(skt->hdr->loc_rx_rd_ptr) + 1) % skt->buf_sz;
+	DBG("first_offset = 0x%X\n", first_offset);
 	if ((avail_bytes + first_offset) < skt->buf_sz) {
+		DBG("1\n");
 		read_bytes(skt, data, avail_bytes);
 	} else {
 		uint32_t first_bytes = skt->buf_sz - first_offset;
-
+		DBG("2\n");
 		read_bytes(skt, data, first_bytes);
 		read_bytes(skt, (uint8_t *)data + first_bytes, 
 				avail_bytes - first_bytes);
