@@ -2314,7 +2314,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 			goto exit;
 		}
 		if ((letter < 0) || (letter > 3)) {
-			sprintf(env->output, "Letter %d illegal, must be 0 to 3\n", chan);
+			sprintf(env->output, "Letter %d illegal, must be 0 to 3\n", letter);
 			logMsg(env);
 			goto exit;
 		}
