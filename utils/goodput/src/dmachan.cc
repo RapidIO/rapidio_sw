@@ -183,7 +183,7 @@ uint32_t DMAChannel::clearIntBits()
 }
 
 /** \brief Queue DMA operation of DTYPE1 or DTYPE2
- * \param rtype transfer type
+ * \para[in] rtype transfer type
  * \param[in,out] opt transfer options
  * \param[in] mem a ref to a RioMport::DmaMem_t, for DTYPE2 this is NOT allocated by class \ref RioMport
  * \param[out] abort_reason HW reason for DMA abort if function returned false
@@ -191,132 +191,147 @@ uint32_t DMAChannel::clearIntBits()
  */
 bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
 {
-  if(opt.dtype != DTYPE1 && opt.dtype != DTYPE2) return false;
-
-  if(opt.dtype == DTYPE1 && ! m_mport->check_dma_buf(mem)) return false;
-
-  abort_reason = 0;
-
-  struct dmadesc desc;
-
-  get_seq_ts_m(ts_p, 1);
-  dmadesc_setdtype(desc, opt.dtype);
-
-  if(opt.iof)  dmadesc_setiof(desc, 1);
-  if(opt.crf)  dmadesc_setcrf(desc, 1);
-  if(opt.prio) dmadesc_setprio(desc, opt.prio);
-
-  opt.rtype = rtype;
-  dmadesc_setrtype(desc, rtype); // NWRITE_R, etc
-
-  dmadesc_set_raddr(desc, opt.raddr.msb2, opt.raddr.lsb64);
-
-  if(opt.tt_16b) dmadesc_set_tt(desc, 1);
-  dmadesc_setdevid(desc, opt.destid);
+	struct dmadesc desc;
+	char ev = '\x0';
+	bool queued_T3 = false;
+	WorkItem_t wk_end;
+	WorkItem_t wk;
+	struct hw_dma_desc* bd_hw = NULL;
 
 
-  char ev = '\x0';
-  if(opt.dtype == DTYPE1) {
-    ev = '1';
-    dmadesc_setT1_bufptr(desc, mem.win_handle);
-    dmadesc_setT1_buflen(desc, opt.bcount);
-    opt.win_handle = mem.win_handle; // this is good across processes
-  } else { // T2
-    ev = '2';
-    if(rtype != NREAD) // copy data
-      dmadesc_setT2_data(desc, (const uint8_t*)mem.win_ptr, mem.win_size);
-    else {
-      uint8_t ZERO[16] = {0};
-      dmadesc_setT2_data(desc, ZERO, mem.win_size);
-    }
-  }
+	if ((opt.dtype != DTYPE1) && (opt.dtype != DTYPE2))
+		return false;
 
-  bool queued_T3 = false;
-  WorkItem_t wk_end;
+	if ((opt.dtype == DTYPE1) && !m_mport->check_dma_buf(mem))
+		return false;
 
-  memset(&wk_end, 0 , sizeof(wk_end));
+	abort_reason = 0;
 
-  // Check if queue full -- as late as possible in view of MT
-  if(queueFull()) {
-    ERR("FAILED: DMA TX Queue full!\n");
-    return false;
-  }
-  
-  struct hw_dma_desc* bd_hw = NULL;
-  pthread_spin_lock(&m_bl_splock); 
-  if (umdemo_must_die)
-	return false;
+	get_seq_ts_m(ts_p, 1);
 
-  const int bd_idx = m_dma_wr % m_bd_num;
-  {{
-    // check-modulo in m_bl_busy[] if bd_idx is still busy!!
-    if(m_bl_busy[bd_idx]) {
-      pthread_spin_unlock(&m_bl_splock); 
+	dmadesc_setdtype(desc, opt.dtype);
+
+	if(opt.iof)
+		dmadesc_setiof(desc, 1);
+	if(opt.crf)
+		dmadesc_setcrf(desc, 1);
+	if(opt.prio)
+		dmadesc_setprio(desc, opt.prio);
+
+	opt.rtype = rtype;
+	dmadesc_setrtype(desc, rtype); // NWRITE_R, etc
+
+	dmadesc_set_raddr(desc, opt.raddr.msb2, opt.raddr.lsb64);
+
+	if(opt.tt_16b)
+		dmadesc_set_tt(desc, 1);
+	dmadesc_setdevid(desc, opt.destid);
+
+	if(opt.dtype == DTYPE1) {
+		ev = '1';
+		dmadesc_setT1_bufptr(desc, mem.win_handle);
+		dmadesc_setT1_buflen(desc, opt.bcount);
+		opt.win_handle = mem.win_handle; // this is good across processes
+	} else { // T2
+		ev = '2';
+		if(rtype != NREAD)  { // copy data
+			dmadesc_setT2_data(desc, (const uint8_t*)mem.win_ptr,
+				mem.win_size);
+		} else {
+			uint8_t ZERO[16] = {0};
+			dmadesc_setT2_data(desc, ZERO, mem.win_size);
+		}
+	}
+
+	memset(&wk_end, 0 , sizeof(wk_end));
+
+	// Check if queue full -- as late as possible in view of MT
+	if(queueFull()) {
+		ERR("FAILED: DMA TX Queue full!\n");
+		return false;
+	}
+	
+	pthread_spin_lock(&m_bl_splock); 
+	if (umdemo_must_die)
+		return false;
+
+	const int bd_idx = m_dma_wr % m_bd_num;
+	{{
+		// check-modulo in m_bl_busy[] if bd_idx is still busy!!
+		if(m_bl_busy[bd_idx]) {
+			pthread_spin_unlock(&m_bl_splock); 
 #ifdef DEBUG_BD
-      INFO("\n\tDMA TX queueDmaOpT?: BD %d still busy!\n", bd_idx);
+			INFO("\n\tDMA TX queueDmaOpT?: BD %d still busy!\n", bd_idx);
 #endif
-      return false;
-    }
+			return false;
+		}
 
-    m_bl_busy[bd_idx] = true;  m_bl_busy_size++;
+		m_bl_busy[bd_idx] = true;
+		m_bl_busy_size++;
 
-    bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
-    desc.pack(bd_hw);
+		bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
+		desc.pack(bd_hw);
 
-    opt.bd_wp = m_dma_wr; opt.bd_idx = bd_idx;
+		opt.bd_wp = m_dma_wr;
+		opt.bd_idx = bd_idx;
 
-    opt.ts_start = rdtsc();
+		opt.ts_start = rdtsc();
 
-    m_dma_wr++;
-    setWriteCount(m_dma_wr);
-    evlog(ev);
+		m_dma_wr++;
+		setWriteCount(m_dma_wr);
+		evlog(ev);
 
-    if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
+		if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
-    if(((m_dma_wr+1) % m_bd_num) == 0) { // skip T3
-      wk_end.opt.bd_wp = m_dma_wr;
+		if(((m_dma_wr+1) % m_bd_num) == 0) { // skip T3
+			wk_end.opt.bd_wp = m_dma_wr;
 
-      wk_end.opt.ts_start = rdtsc();
-      m_dma_wr++; setWriteCount(m_dma_wr); evlog('3');
-      if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
-
-      queued_T3 = true;
-    }
-  }}
-  pthread_spin_unlock(&m_bl_splock); 
+			wk_end.opt.ts_start = rdtsc();
+			m_dma_wr++;
+			setWriteCount(m_dma_wr);
+			evlog('3');
+			if (m_dma_wr == 0xFFFFFFFE)
+				m_dma_wr = 0;
+			queued_T3 = true;
+			m_bl_busy_size++;
+		}
+	}}
+	pthread_spin_unlock(&m_bl_splock); 
 
 /*
-  if(dmaCheckAbort(abort_reason)) {
-    return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
-  }
+	if(dmaCheckAbort(abort_reason)) {
+		return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
+	}
 */
 
-  WorkItem_t wk; memset(&wk, 0, sizeof(wk));
-  wk.mem = mem; wk.opt = opt; wk.valid = WI_SIG;
+	memset(&wk, 0, sizeof(wk));
+	wk.mem = mem;
+	wk.opt = opt;
+	wk.valid = WI_SIG;
 
-  pthread_spin_lock(&m_pending_work_splock);
-  m_pending_work[bd_idx] = wk;
+	pthread_spin_lock(&m_pending_work_splock);
+	m_pending_work[bd_idx] = wk;
 
-  if(queued_T3) {
-    wk_end.opt.dtype = DTYPE3;
-    wk_end.valid = WI_SIG;
-    m_pending_work[m_T3_bd_hw] = wk_end;
-  }
-  pthread_spin_unlock(&m_pending_work_splock);
+	if(queued_T3) {
+		wk_end.opt.dtype = DTYPE3;
+		wk_end.valid = WI_SIG;
+		m_pending_work[m_T3_bd_hw] = wk_end;
+	}
+	pthread_spin_unlock(&m_pending_work_splock);
 
-    get_seq_ts_m(ts_p, 9);
+	get_seq_ts_m(ts_p, 9);
 
 #ifdef DEBUG_BD
-  const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
+	const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
-  DBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n",
-      wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.opt.bd_wp);
+	DBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n",
+			wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.opt.bd_wp);
 
-  if(queued_T3)
-     DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_T3_bd_hw, wk_end.opt.bd_wp);
+	if(queued_T3)
+		 DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_T3_bd_hw, wk_end.opt.bd_wp);
 #endif
 
-  return true;
+	return true;
 }
 
 bool DMAChannel::alloc_dmamem(const uint32_t size, RioMport::DmaMem_t& mem)
@@ -605,116 +620,131 @@ void hexdump4byte(const char* msg, uint8_t* d, int len)
 
 int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 {
-  int        compl_size = 0;
-  DmaCompl_t compl_hwbuf[m_bd_num*2];
+	int compl_size = 0;
+	DmaCompl_t compl_hwbuf[m_bd_num*2];
+	uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
+	int j = m_fifo_rd * 8;
+	const uint64_t HW_END = m_dmadesc.win_handle + m_dmadesc.win_size;
+	int cwi = 0; // completed work index
 
-  m_fifo_scan_cnt++;
+	m_fifo_scan_cnt++;
 
 #if 0//def DEBUG
-  if(hexdump64bit(m_dmacompl.win_ptr, m_dmacompl.win_size))
-    DBG("\n\tFIFO hw RP=%u WP=%u\n", getFIFOReadCount(), getFIFOWriteCount());
+	if(hexdump64bit(m_dmacompl.win_ptr, m_dmacompl.win_size))
+		DBG("\n\tFIFO hw RP=%u WP=%u\n", getFIFOReadCount(), getFIFOWriteCount());
 #endif
 
-  evlog('.');
-  /* Check and clear descriptor status FIFO entries */
-  uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
-  int j = m_fifo_rd * 8;
-  while (sts_ptr[j] && !umdemo_must_die) {
-      for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
-          DmaCompl_t c;
-          c.ts_end = rdtsc();
-          c.win_handle = sts_ptr[i]; c.fifo_offset = i;
-          c.valid = COMPL_SIG;
-          compl_hwbuf[compl_size++] = c;
-          sts_ptr[i] = 0;
-          evlog('F');
-      }
+	evlog('.');
+	/* Check and clear descriptor status FIFO entries */
+	while (sts_ptr[j] && !umdemo_must_die) {
+		for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
+			DmaCompl_t c;
+			c.ts_end = rdtsc();
+			c.win_handle = sts_ptr[i]; c.fifo_offset = i;
+			c.valid = COMPL_SIG;
+			compl_hwbuf[compl_size++] = c;
+			sts_ptr[i] = 0;
+			evlog('F');
+		}
 
-      ++m_fifo_rd;
-      m_fifo_rd %= m_sts_size;
-      j = m_fifo_rd * 8;
-  }
+		++m_fifo_rd;
+		m_fifo_rd %= m_sts_size;
+		j = m_fifo_rd * 8;
+	}
 
-  if(compl_size == 0) {
-    // No hw pointer to advance
-    return 0;
-  }
+	if(compl_size == 0) {
+		// No hw pointer to advance
+		return 0;
+	}
 
-  const uint64_t HW_END = m_dmadesc.win_handle + m_dmadesc.win_size;
 
-  int cwi = 0; // completed work index
+	for(int ci = 0; ci < compl_size; ci++) {
+		pthread_spin_lock(&m_pending_work_splock);
+	
+		if (umdemo_must_die)
+			return 0;
 
-  for(int ci = 0; ci < compl_size; ci++) {
-    pthread_spin_lock(&m_pending_work_splock);
+		if(compl_hwbuf[ci].valid != COMPL_SIG) {
+			pthread_spin_unlock(&m_pending_work_splock);
+			ERR("\n\tFound INVALID completion iten for BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+				compl_hwbuf[ci].win_handle,
+				compl_hwbuf[ci].fifo_offset,
+				getFIFOReadCount(), getFIFOWriteCount());
+			continue;
+		}
 
-if (umdemo_must_die) return 0;
+		if ((compl_hwbuf[ci].win_handle < m_dmadesc.win_handle)
+			|| (compl_hwbuf[ci].win_handle >= HW_END)) {
+			pthread_spin_unlock(&m_pending_work_splock);
+			ERR("\n\tCan't find BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+				compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
+				getFIFOReadCount(), getFIFOWriteCount());
+			continue;
+		}
 
-    if(compl_hwbuf[ci].valid != COMPL_SIG) {
-      pthread_spin_unlock(&m_pending_work_splock);
-      ERR("\n\tFound INVALID completion iten for BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
-          compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
-          getFIFOReadCount(), getFIFOWriteCount());
-      continue;
-    }
+		// This should be optimised by g++
+		const int idx = (compl_hwbuf[ci].win_handle 
+				- m_dmadesc.win_handle) /
+				DMA_BUFF_DESCR_SIZE; 
 
-    if(compl_hwbuf[ci].win_handle < m_dmadesc.win_handle || compl_hwbuf[ci].win_handle >= HW_END) {
-      pthread_spin_unlock(&m_pending_work_splock);
-      ERR("\n\tCan't find BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
-          compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
-          getFIFOReadCount(), getFIFOWriteCount());
-      continue;
-    }
+		if(idx < 0 || idx >= m_bd_num) {
+			pthread_spin_unlock(&m_pending_work_splock);
+			ERR("\n\tCan't find bd_idx=%d IN RANGE for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+				idx,
+				compl_hwbuf[ci].win_handle,
+				compl_hwbuf[ci].fifo_offset,
+				getFIFOReadCount(), getFIFOWriteCount());
+			continue;
+		}
 
-    const int idx = (compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE; // This should be optimised by g++
-    if(idx < 0 || idx >= m_bd_num) {
-      pthread_spin_unlock(&m_pending_work_splock);
-      ERR("\n\tCan't find bd_idx=%d IN RANGE for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
-          idx,
-          compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
-          getFIFOReadCount(), getFIFOWriteCount());
-      continue;
-    }
+		if(! m_pending_work[idx].valid) {
+			pthread_spin_unlock(&m_pending_work_splock);
+			ERR("\n\tCan't find VALID entry for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+				compl_hwbuf[ci].win_handle,
+				compl_hwbuf[ci].fifo_offset,
+				getFIFOReadCount(), getFIFOWriteCount());
+			continue;
+		}
 
-    if(! m_pending_work[idx].valid) {
-      pthread_spin_unlock(&m_pending_work_splock);
-      ERR("\n\tCan't find VALID entry for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
-          compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
-          getFIFOReadCount(), getFIFOWriteCount());
-      continue;
-    }
+		// XXX with the spinlock in mind we make a copy here
+		WorkItem_t item = m_pending_work[idx];
+		m_pending_work[idx].valid = 0xdeadbeefL;
 
-    WorkItem_t item = m_pending_work[idx]; // XXX with the spinlock in mind we make a copy here
-    m_pending_work[idx].valid = 0xdeadbeefL;
-
-    pthread_spin_unlock(&m_pending_work_splock);
+		pthread_spin_unlock(&m_pending_work_splock);
 
 #ifdef DEBUG_BD
-    DBG("\n\tFound idx=%d for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
-          idx,
-          compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
-          getFIFOReadCount(), getFIFOWriteCount());
+		DBG("\n\tFound idx=%d for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+			idx,
+			compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
+			getFIFOReadCount(), getFIFOWriteCount());
 #endif
 
-    item.opt.ts_end = compl_hwbuf[ci].ts_end;
+		item.opt.ts_end = compl_hwbuf[ci].ts_end;
 
-    if(item.opt.dtype == DTYPE2 && item.opt.rtype == NREAD) {
-      struct hw_dma_desc* bd = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + item.opt.bd_wp;;
-      memcpy(item.t2_rddata, bd->data, 16);
-      item.t2_rddata_len = le32(bd->bcount & 0xf);
-    }
-    completed_work[cwi++] = item;
-    if(cwi == max_work) break;
+		if(item.opt.dtype == DTYPE2 && item.opt.rtype == NREAD) {
+			struct hw_dma_desc* bd;
+			bd = (struct hw_dma_desc*)(m_dmadesc.win_ptr) 
+				+ item.opt.bd_wp;;
 
-    // BDs might be completed out of order.
-    pthread_spin_lock(&m_bl_splock); 
-if (umdemo_must_die) return 0;
+			memcpy(item.t2_rddata, bd->data, 16);
+			item.t2_rddata_len = le32(bd->bcount & 0xf);
+		}
 
-    m_bl_busy[item.opt.bd_idx] = false; m_bl_busy_size--;
-    pthread_spin_unlock(&m_bl_splock); 
-  }
+		completed_work[cwi++] = item;
+		if(cwi == max_work)
+			break;
 
-  // Before advancing FIFO RP I must have a "barrier" so no "older" BDs exist.
+		// BDs might be completed out of order.
+		pthread_spin_lock(&m_bl_splock); 
+		if (umdemo_must_die)
+			return 0;
+		m_bl_busy[item.opt.bd_idx] = false;
+		m_bl_busy_size--;
+		pthread_spin_unlock(&m_bl_splock); 
+	}
 
-  wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
-  return cwi;
+	// Before advancing FIFO RP I must have a "barrier" so no "older" BDs exist.
+
+	wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
+	return cwi;
 }

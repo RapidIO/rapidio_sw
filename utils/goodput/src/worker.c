@@ -2041,20 +2041,28 @@ void umd_dma_goodput_demo(struct worker *info)
 							cnt += info->acc_size) {
 			info->dmaopt[oi].destid      = info->did;
 			info->dmaopt[oi].bcount      = info->acc_size;
-			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
-			info->dmaopt[oi].raddr.lsb64 += cnt * info->acc_size;
+			info->dmaopt[oi].raddr.lsb64 = info->rio_addr + cnt;
 
-			bool q_was_full = false;
+			bool q_was_full = info->umd_dch->queueFull();
 			info->umd_dma_abort_reason = 0;
-			if (info->umd_dch->queueDmaOpT1(info->umd_tx_rtype,
+
+			if (!q_was_full) {
+				if (info->umd_dch->queueDmaOpT1(
+					info->umd_tx_rtype,
 					info->dmaopt[oi], info->dmamem[oi],
                                         info->umd_dma_abort_reason,
 					&info->meas_ts)) {
-				get_seq_ts(&info->desc_ts);
-			} else {
-				q_was_full = true;
+					get_seq_ts(&info->desc_ts);
+				} else {
+					q_was_full = true;
+				};
 			};
 			
+			if ((info->umd_dch->queueSize() > info->umd_tx_buf_cnt)
+			 || (info->umd_dch->queueSize() < 0))
+				CRIT("\n\t Cnt=0x%lx Qsize=%d oi=%d\n", 
+					cnt, info->umd_dch->queueSize(), oi);
+
 			// Busy-wait for queue to drain
 			for (iq = 0; !info->stop_req && q_was_full && 
 				(iq < 1000000000) &&
