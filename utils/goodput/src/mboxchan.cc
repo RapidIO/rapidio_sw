@@ -252,7 +252,8 @@ int MboxChannel::open_inb_mbox(const uint32_t entries)
   memset(m_imsg_ring.buf.win_ptr, 0, m_imsg_ring.buf.win_size);
   {
     RioMport::DmaMem_t& mem = m_imsg_ring.buf;
-    DBG("\n\t%s: Allocated buffers for incoming messages #buf          - IB MBOX%d size=%d phys=0x%lx virt=%p\n", __FUNCTION__,
+    DBG("\n\t%s: Allocated buffers for incoming messages #buf"
+	"\n\t- IB MBOX%d size=%d phys=0x%lx virt=%p\n", __FUNCTION__,
             m_mbox, mem.win_size, mem.win_handle, mem.win_ptr);
   }
 
@@ -265,7 +266,8 @@ int MboxChannel::open_inb_mbox(const uint32_t entries)
   memset(m_imsg_ring.imfq.win_ptr, 0, m_imsg_ring.imfq.win_size);
   {
     RioMport::DmaMem_t& mem = m_imsg_ring.imfq;
-    DBG("\n\t%s: Allocated memory for circular free list #imfq         - IB MBOX%d size=%d phys=0x%lx virt=%p\n", __FUNCTION__,
+    DBG("\n\t%s: Allocated memory for circular free list #imfq"
+	"\n\t- IB MBOX%d size=%d phys=0x%lx virt=%p\n", __FUNCTION__,
             m_mbox, mem.win_size, mem.win_handle, mem.win_ptr);
   }
 
@@ -279,7 +281,8 @@ int MboxChannel::open_inb_mbox(const uint32_t entries)
   memset(m_imsg_ring.imd.win_ptr, 0, m_imsg_ring.imd.win_size);
   {
     RioMport::DmaMem_t& mem = m_imsg_ring.imd;
-    DBG("\n\t%s: Allocated memory for inbound message descriptors #imd - IB MBOX%d size=%d phys=0x%lx virt=%p\n", __FUNCTION__,
+    DBG("\n\t%s: Allocated memory for inbound message descriptors #imd"
+	"\n\t- IB MBOX%d size=%d phys=0x%lx virt=%p\n", __FUNCTION__,
             m_mbox, mem.win_size, mem.win_handle, mem.win_ptr);
   }
 

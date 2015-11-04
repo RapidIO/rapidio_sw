@@ -76,6 +76,8 @@ extern "C" {
 extern riomp_mport_t mp_h;
 extern int mp_h_valid;
 extern int mp_h_num;
+extern int mp_h_qresp_valid;
+extern struct riomp_mgmt_mport_properties qresp;
 
 #define MAX_WORKER_IDX 11
 #define MAX_WORKERS (MAX_WORKER_IDX+1)

@@ -2290,7 +2290,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
         buff     = GetHex(argv[n++], 0);
         sts      = GetHex(argv[n++], 0);
         did      = GetDecParm(argv[n++], 0);
-        acc_sz   = GetHex(argv[n++], 0);
+        acc_sz   = GetDecParm(argv[n++], 0);
         txrx     = GetDecParm(argv[n++], 0);
 
         if (cmd != 'L' && cmd != 'T') {
@@ -2321,7 +2321,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
         };
 
 
-	if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
+	if ((buff < 32) || (buff > MAX_UMD_BUF_COUNT) || (buff & (buff-1)) ||
 			(buff > MAX_UMD_BUF_COUNT)) {
                 sprintf(env->output,
 			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
@@ -2332,18 +2332,27 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 
         if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
                 sprintf(env->output,
-                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
+                        "Bad STS %x, must be power of 2, 0x20 to 0x80000\n",
                         sts);
                 logMsg(env);
                 goto exit;
         };
 	if (acc_sz < 1 || acc_sz > 4096) {
                 sprintf(env->output,
-                        "Bad acc_sz %x, must be 1..4096\n",
-                        sts);
+                        "Bad acc_sz %d, must be 1..4096\n", acc_sz);
                 logMsg(env);
                 goto exit;
 	}
+
+        if (mp_h_qresp_valid && (qresp.hdid == did) && txrx &&
+			(GetEnv("FORCE_DESTID") == NULL)) {
+                sprintf(env->output,
+                	"\n\tERROR: Testing against own desitd=%d."
+                        "Set env FORCE_DESTID to disable this check.\n",
+                        did);
+                logMsg(env);
+                goto exit;
+        }
 
         wkr[idx].action = (cmd == 'T')? umd_mbox: umd_mboxl;
         wkr[idx].action_mode = user_mode_action;
@@ -2383,18 +2392,19 @@ struct cli_cmd UMSG = {
 10,
 "Transmit/Receive MBOX requests with User-Mode demo driver",
 "<idx> <cpu> <chan> <chan_to> <letter> <buff> <sts> <did> <acc_sz> <txrx>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
-	"<chan> is a Local MBOX channel number from 2 through 3\n"
-	"<chan_to> is a Remote MBOX channel number from 2 through 3\n"
-	"<letter> is a Remote MBOX letter number from 0 through 3 -- ignored for RX\n"
-	"<buff> is the number of transmit descriptors/buffers to allocate\n"
-	"       Must be a power of two from 0x20 up to 0x80000\n"
-	"<sts> is the number of status entries for completed descriptors\n"
-	"       Must be a power of two from 0x20 up to 0x80000\n"
-	"<did> target device ID (if Transmitting) -- ignored for RX\n"
-	"<acc_sz> Access size (if Transmitting)\n"
-	"<txrx>  0 RX, 1 TX\n",
+	"<idx>    : worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<cpu>    : cpu number, or -1 to indicate no cpu affinity\n"
+	"<chan>   : Local MBOX channel number from 2 through 3\n"
+	"<chan_to>: Remote MBOX channel number from 2 through 3\n"
+	"<letter> : Remote MBOX letter number from 0 through 3 -- ignored for RX\n"
+	"<buff>   : number of transmit descriptors/buffers to allocate\n"
+	"           A power of two, 0x20 up to " STR(MAX_UMD_BUF_COUNT) "\n"
+	"<sts>    : number of status entries for completed descriptors\n"
+	"           A power of two, 0x20 up to 0x80000\n"
+	"<did>    : target device ID (if Transmitting) -- ignored for RX\n"
+	"<acc_sz> : Message size, 1 up to 4096\n"
+	"           Note: Only used when txrx <> 0\n"
+	"<txrx>   : 0 RX, 1 TX\n",
 UMSGCmdThruput,
 ATTR_NONE
 };

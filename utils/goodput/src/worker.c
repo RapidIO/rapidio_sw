@@ -2383,12 +2383,6 @@ void umd_mbox_goodput_demo(struct worker *info)
                 return;
         };
 
-        if(info->umd_mch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
-                CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
-		delete info->umd_mch;
-                return;
-        }
-
 	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
 		delete info->umd_mch;
