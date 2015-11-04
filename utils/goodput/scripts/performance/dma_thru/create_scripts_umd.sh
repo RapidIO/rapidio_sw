@@ -66,7 +66,7 @@ fi
 
 if [ -z "$STS" ]; then
 	if [ -n "$6" ]; then
-		STS=$4
+		STS=$6
 	else
 		STS=100
 		LOC_PRINT_HEP=1
