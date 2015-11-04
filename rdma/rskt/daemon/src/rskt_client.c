@@ -49,7 +49,7 @@ void show_help()
 unsigned generate_data(unsigned data_length, unsigned tx_test)
 {
 	static unsigned index = 0;
-	static unsigned data_lengths[] = { 512, 128, 2048, 1024, 4096, 256, 32, 1536 };
+	static unsigned data_lengths[] = { 128, 2048, 1024, 512, 4096, 256, 32, 1536 };
 	unsigned j;
 	unsigned length;
 

@@ -740,6 +740,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 			return 0;
 		m_bl_busy[item.opt.bd_idx] = false;
 		m_bl_busy_size--;
+		assert(m_bl_busy_size >= 0);
 		pthread_spin_unlock(&m_bl_splock); 
 	}
 
