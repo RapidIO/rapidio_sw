@@ -1355,6 +1355,11 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 		goto skt_ok;
 	}
 
+	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
+			ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
+	DBG("rem_tx_rd_ptr = 0x%X, rem_rx_wr_ptr = 0x%X\n",
+			ntohl(skt->hdr->rem_tx_rd_ptr), ntohl(skt->hdr->rem_rx_wr_ptr));
+
 	if (rskt_connected != skt->st) {
 		ERR("skt->st is NOT skt_connected\n");
 		goto skt_ok;
@@ -1405,7 +1410,11 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 			goto fail;
 		}
 	};
-
+	DBG("@@@@ Updating remote header\n");
+	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
+			ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
+	DBG("rem_tx_rd_ptr = 0x%X, rem_rx_wr_ptr = 0x%X\n",
+			ntohl(skt->hdr->rem_tx_rd_ptr), ntohl(skt->hdr->rem_rx_wr_ptr));
 	if (update_remote_hdr(skt, &hdr_in)) {
 		ERR("updated_remote_hdr failed..exiting\n");
 		goto fail;
@@ -1508,17 +1517,17 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	errno = 0;
 	DBG("avail_bytes = %d\n", avail_bytes);
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
-			skt->hdr->loc_tx_wr_ptr, skt->hdr->loc_rx_rd_ptr);
+			ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
 	DBG("rem_tx_rd_ptr = 0x%X, rem_rx_wr_ptr = 0x%X\n",
-				skt->hdr->rem_tx_rd_ptr, skt->hdr->rem_rx_wr_ptr);
+			ntohl(skt->hdr->rem_tx_rd_ptr), ntohl(skt->hdr->rem_rx_wr_ptr));
 
 	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
 
 	DBG("avail_bytes = %d\n", avail_bytes);
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
-			skt->hdr->loc_tx_wr_ptr, skt->hdr->loc_rx_rd_ptr);
+			ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
 	DBG("rem_tx_rd_ptr = 0x%X, rem_rx_wr_ptr = 0x%X\n",
-				skt->hdr->rem_tx_rd_ptr, skt->hdr->rem_rx_wr_ptr);
+			ntohl(skt->hdr->rem_tx_rd_ptr), ntohl(skt->hdr->rem_rx_wr_ptr));
 
 	while (!avail_bytes && time_remains && !errno) {
 		nanosleep(&rw_dly, &unused);
