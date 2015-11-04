@@ -1011,7 +1011,7 @@ int msg_tx_cmd(struct cli_env *env, int argc, char **argv, enum req_type req)
 	idx = getDecParm(argv[0], 0);
 	did = getDecParm(argv[1], 0);
 	sock_num = getDecParm(argv[2], 0);
-	bytes = getDecParm(argv[3], 0);
+	bytes = getHex(argv[3], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -1051,7 +1051,8 @@ struct cli_cmd msgTx = {
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
-	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
+        "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: All parameters are decimal numbers.\n"
 	"NOTE: msgTx must send to a corresponding msgRx!\n",
 msgTxCmd,
@@ -1073,8 +1074,8 @@ struct cli_cmd msgTxLat = {
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
-	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
-	"NOTE: All parameters are decimal numbers.\n"
+	"<size> bytes per message hex. Must be a multiple of 8."
+        "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: mTxLat must be sending to a node running mRxLat!\n"
 	"NOTE: mRxLat must be run before mTxLat!\n",
 msgTxLatCmd,
@@ -1089,7 +1090,7 @@ int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 
 	idx = getDecParm(argv[0], 0);
 	sock_num = getDecParm(argv[1], 0);
-	bytes = getDecParm(argv[2], 0);
+	bytes = getHex(argv[2], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -1122,7 +1123,8 @@ struct cli_cmd msgRxLat = {
 "mRxLat <idx> <sock_num> <size>\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
-	"<size> bytes per message, multiple of 8 minimum 24 up to 4096\n"
+	"<size> bytes per message hex. Must be a multiple of 8."
+        "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: All parameters are decimal numbers.\n"
 	"NOTE: mRxLat must be run before mTxLat!\n",
 msgRxLatCmd,
@@ -2290,7 +2292,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
         buff     = GetHex(argv[n++], 0);
         sts      = GetHex(argv[n++], 0);
         did      = GetDecParm(argv[n++], 0);
-        acc_sz   = GetDecParm(argv[n++], 0);
+        acc_sz   = GetHex(argv[n++], 0);
         txrx     = GetDecParm(argv[n++], 0);
 
         if (cmd != 'L' && cmd != 'T') {
@@ -2391,7 +2393,7 @@ struct cli_cmd UMSG = {
 2,
 10,
 "Transmit/Receive MBOX requests with User-Mode demo driver",
-"<idx> <cpu> <chan> <chan_to> <letter> <buff> <sts> <did> <acc_sz> <txrx>\n"
+"<idx> <cpu> <chan> <chan_to> <letter> <buff> <sts> <did> <size> <txrx>\n"
 	"<idx>    : worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<cpu>    : cpu number, or -1 to indicate no cpu affinity\n"
 	"<chan>   : Local MBOX channel number from 2 through 3\n"
@@ -2402,7 +2404,8 @@ struct cli_cmd UMSG = {
 	"<sts>    : number of status entries for completed descriptors\n"
 	"           A power of two, 0x20 up to 0x80000\n"
 	"<did>    : target device ID (if Transmitting) -- ignored for RX\n"
-	"<acc_sz> : Message size, 1 up to 4096\n"
+	"<size>   : Message size, hexadecimal multiple of 8\n"
+	"           Minimum 8 maximum 0x1000 (8 through 4096)\n"
 	"           Note: Only used when txrx <> 0\n"
 	"<txrx>   : 0 RX, 1 TX\n",
 UMSGCmdThruput,
@@ -2414,17 +2417,19 @@ struct cli_cmd UMSGL = {
 5,
 8,
 "Latency of MBOX requests with User-Mode demo driver",
-"<idx> <cpu> <chan> <buff> <sts> <did> <acc_sz> <txrx>\n"
+"<idx> <cpu> <chan> <buff> <sts> <did> <size> <txrx>\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan> is a MBOX channel number from 2 through 3\n"
         "<buff> is the number of transmit descriptors/buffers to allocate\n"
         "       Must be a power of two from 0x20 up to 0x80000\n"
-        "<sts> is the number of status entries for completed descriptors\n"
+        "<sts>  the number of status entries for completed descriptors\n"
         "       Must be a power of two from 0x20 up to 0x80000\n"
-        "<did> target device ID (if Transmitting) -- ignored for RX\n"
-        "<acc_sz> Access size (if Transmitting)\n"
-        "<txrx>  0 Slave, 1 Master\n",
+        "<did>  target device ID (if Transmitting) -- ignored for RX\n"
+	"<size> Message size, hexadecimal multiple of 8\n"
+	"       Minimum 8 maximum 0x1000 (8 through 4096)\n"
+	"       Note: Only used when txrx <> 0\n"
+        "<txrx> 0 Slave, 1 Master\n",
 UMSGCmdLat,
 ATTR_NONE
 };
