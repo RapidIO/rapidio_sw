@@ -897,16 +897,23 @@ int update_remote_hdr(struct rskt_socket_t *skt,
 int setup_skt_ptrs(struct rskt_socket_t *skt)
 {
 	struct rdma_xfer_ms_in hdr_in;
+	int    rc = 0;
 
+	/**
+	 * Memory has been zeroed. Initialize the buffer flags, set the
+	 * flags INIT_DONE and ZEROED, then update the remote header.
+	 */
 	skt->con_sz = (skt->msub_sz > skt->con_sz)?skt->con_sz:skt->msub_sz;
 	skt->buf_sz = (skt->con_sz - sizeof(struct rskt_buf_hdr))/2;
 	skt->tx_buf = skt->msub_p + sizeof(struct rskt_buf_hdr);
 	skt->rx_buf = skt->tx_buf + skt->buf_sz;
 
 	skt->hdr->loc_tx_wr_ptr = htonl(0);
-	skt->hdr->loc_tx_wr_flags = htonl(RSKT_BUF_HDR_FLAG_INIT);
+	skt->hdr->loc_tx_wr_flags = htonl(RSKT_BUF_HDR_FLAG_ZEROED) |
+				    htonl(RSKT_BUF_HDR_FLAG_INIT_DONE);
 	skt->hdr->loc_rx_rd_ptr = htonl(skt->buf_sz - 1);
-	skt->hdr->loc_rx_rd_flags = htonl(RSKT_BUF_HDR_FLAG_INIT);
+	skt->hdr->loc_rx_rd_flags = htonl(RSKT_BUF_HDR_FLAG_ZEROED) |
+				    htonl(RSKT_BUF_HDR_FLAG_INIT_DONE);
 
 	DBG("skt->buf_sz=0x%X, loc_tx_wr_ptr=0x%X, loc_rx_rd_ptr=0x%X\n",
 						skt->buf_sz,
@@ -917,8 +924,59 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 	hdr_in.priority = 0;
 	hdr_in.sync_type = rdma_sync_chk;
 
-	return update_remote_hdr(skt, &hdr_in);
-};
+	rc = update_remote_hdr(skt, &hdr_in);
+	if (rc) {
+		ERR("Failed to update remote header, rc = %d\n", rc);
+		goto exit_setup_skt_ptrs;
+	}
+
+	/**
+	 * Poll for INIT_DONE, ZEROED, and !INIT in the remote header
+	 */
+#define COND1 (skt->hdr->rem_rx_wr_flags == (RSKT_BUF_HDR_FLAG_INIT_DONE | RSKT_BUF_HDR_FLAG_ZEROED))
+#define COND2 (skt->hdr->rem_tx_rd_flags == (RSKT_BUF_HDR_FLAG_INIT_DONE | RSKT_BUF_HDR_FLAG_ZEROED))
+	while (!COND1 && !COND2) {
+		usleep(10);
+	}
+#undef COND1
+#undef COND2
+
+	/**
+	 * Clear local INIT_DONE and update the remote header again.
+	 */
+	skt->hdr->loc_rx_rd_flags &= ~RSKT_BUF_HDR_FLAG_INIT_DONE;
+	skt->hdr->loc_tx_wr_flags &= ~RSKT_BUF_HDR_FLAG_INIT_DONE;
+	rc = update_remote_hdr(skt, &hdr_in);
+	if (rc) {
+		ERR("Failed to update remote header, rc = %d\n", rc);
+		goto exit_setup_skt_ptrs;
+	}
+
+	/**
+	 * Poll for !INIT_DONE, ZEROED, and !INIT in the remote header.
+	 */
+#define COND1 (skt->hdr->rem_rx_wr_flags == (RSKT_BUF_HDR_FLAG_ZEROED))
+#define COND2 (skt->hdr->rem_tx_rd_flags == (RSKT_BUF_HDR_FLAG_ZEROED))
+	while (!COND1 && !COND2) {
+		usleep(10);
+	}
+
+	/**
+	 * Clear ZEROED and set INIT flag then update remote header.
+	 */
+	skt->hdr->loc_rx_rd_flags &= ~RSKT_BUF_HDR_FLAG_ZEROED;
+	skt->hdr->loc_tx_wr_flags &= ~RSKT_BUF_HDR_FLAG_ZEROED;
+	skt->hdr->loc_rx_rd_flags |= ~RSKT_BUF_HDR_FLAG_INIT;
+	skt->hdr->loc_tx_wr_flags |= ~RSKT_BUF_HDR_FLAG_INIT;
+	rc = update_remote_hdr(skt, &hdr_in);
+	if (rc) {
+		ERR("Failed to update remote header, rc = %d\n", rc);
+		goto exit_setup_skt_ptrs;
+	}
+
+exit_setup_skt_ptrs:
+	return rc;
+}; /* setup_skt_ptrs() */
 
 int rskt_accept(rskt_h l_skt_h, rskt_h skt_h, 
 		struct rskt_sockaddr *sktaddr)
@@ -1035,6 +1093,11 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		ERR("Failed to mmap msub\n");
 		goto close;
 	}
+
+	/* Zero the entire msub (we can do that because we'll initialize
+	 * all pointers below).
+	 */
+	memset((void *)skt->msub_p, 0, skt->msub_sz);
 
 	do {
 		rc = rdma_accept_ms_h(skt->msh, skt->msubh, 
@@ -1188,6 +1251,11 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		ERR("rdma_mmap_msub() failed..closing\n");
 		goto close;
 	}
+
+	/* Zero the entire msub (we can do that because we'll initialize
+	 * all pointers below).
+	 */
+	memset((void *)skt->msub_p, 0, skt->msub_sz);
 
 	do {
 		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,

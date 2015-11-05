@@ -71,7 +71,9 @@ extern "C" {
 #define RSKT_LOC_HDR_SIZE 16
 #define RSKT_TOT_HDR_SIZE 32
 
-#define RSKT_BUF_HDR_FLAG_INIT 1
+#define RSKT_BUF_HDR_FLAG_INIT		1
+#define RSKT_BUF_HDR_FLAG_ZEROED    	2
+#define RSKT_BUF_HDR_FLAG_INIT_DONE 	4
 #define RSKT_BUF_HDR_FLAG_ERROR 0x80000000
 
 struct rskt_buf_hdr {
