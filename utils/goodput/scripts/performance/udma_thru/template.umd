@@ -22,7 +22,7 @@ set cpu2 ? -1
 t 0 $cpu1 0
 wait 0 r
 
-echo Make sure that destid did has goodput running with an IBwin mapped at address 0xiba_addr of size 0xbytes
+echo Make sure that destid did has Ugoodput running with an IBwin mapped at address 0xiba_addr of size 0xbytes
 # udma : <Idx> <Cpu> <Chan> <Bufc> <Sts> <Did> <Rio_addr> <Bytes> <Acc_sz> <Trans>
 udma 0 $cpu2 $chnnel bufc sts $destid iba_addr bytes acc_size trans
 g
