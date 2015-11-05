@@ -12,8 +12,9 @@ wait 9 0
 wait 10 0
 wait 11 0
 set chan ? 7
-echo Requesting 2 isolcpu cores. If n/a this will halt execution.
-isolcpu 2
+isolcpu
+set cpu1 ? -1
+set cpu2 ? -1
 t 0 $cpu1 0
 wait 0 2
 echo Make sure that destid did has goodput running with an IBwin mapped at address 0xiba_addr of size 0xbytes

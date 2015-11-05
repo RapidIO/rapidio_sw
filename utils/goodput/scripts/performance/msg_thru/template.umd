@@ -14,7 +14,10 @@ set ma master
 set destid ? did
 set letter ? 0
 
-isolcpu 2
+isolcpu
+set cpu1 ? -1
+set cpu2 ? -1
+
 t 0 $cpu1 0
 wait 0 r
 sleep 0.5
