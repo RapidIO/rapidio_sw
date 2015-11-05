@@ -39,7 +39,7 @@ else
 fi
 
 if [ -n "$1" ]; then
-	CHANNEL=$1l shift
+	CHANNEL=$1; shift
 else
 	LOC_PRINT_HEP=1
 fi
