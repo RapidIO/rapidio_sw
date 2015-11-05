@@ -969,8 +969,8 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 	 */
 	skt->hdr->loc_rx_rd_flags &= htonl(~RSKT_BUF_HDR_FLAG_ZEROED);
 	skt->hdr->loc_tx_wr_flags &= htonl(~RSKT_BUF_HDR_FLAG_ZEROED);
-	skt->hdr->loc_rx_rd_flags |= htonl(~RSKT_BUF_HDR_FLAG_INIT);
-	skt->hdr->loc_tx_wr_flags |= htonl(~RSKT_BUF_HDR_FLAG_INIT);
+	skt->hdr->loc_rx_rd_flags |= htonl(RSKT_BUF_HDR_FLAG_INIT);
+	skt->hdr->loc_tx_wr_flags |= htonl(RSKT_BUF_HDR_FLAG_INIT);
 	rc = update_remote_hdr(skt, &hdr_in);
 	if (rc) {
 		ERR("Failed to update remote header, rc = %d\n", rc);
