@@ -101,28 +101,28 @@ if [ -z "$CHANNEL" ]; then
 fi
 
 if [ -n "$LOC_PRINT_HEP" ]; then
-	echo $'\nScript accepts 6 parameters:'
+	echo $'\nScript accepts the following parameters:'
         echo $'IBA_ADDR: Hex address of target window on DID'
         echo $'DID     : Device ID of target device for performance scripts'
         echo $'Trans   : UDMA Write transaction type'
 	echo $'          1 LAST_NWR, 2 NW, 3 NW_R'
         echo $'Wait    : Time in seconds to wait before taking perf measurement'
         echo $'Bufc    : Number of TX buffers'
-        echo $'Sts     : size of TX FIFO\n'
-        echo $'CPU_1   : Core for the DMA transmit thread\n'
-        echo $'CPU_2   : Core for the DMA transmit FIFO thread\n'
+        echo $'Sts     : size of TX FIFO'
+        echo $'CPU_1   : Core for the DMA transmit thread'
+        echo $'CPU_2   : Core for the DMA transmit FIFO thread'
         echo $'CHANNEL : Tsi721 DMA channel, 2 through 7\n'
 fi
 
-echo UDMA_THRUPUT IBA_ADDR = $IBA_ADDR
-echo UDMA_THRUPUT DID      = $DID
-echo UDMA_THRUPUT Wr TRANS = $TRANS
-echo UDMA_THRUPUT WAIT_TIME= $WAIT_TIME
-echo UDMA_THRUPUT BUFC     = $BUFC
-echo UDMA_THRUPUT STS      = $STS
-echo UDMA_THRUPUT CPU_1    = $CPU_1
-echo UDMA_THRUPUT CPU_2    = $CPU_2
-echo UDMA_THRUPUT CHANNEL  = $CHANNEL
+echo $'UDMA_THRUPUT IBA_ADDR = ' $IBA_ADDR
+echo $'UDMA_THRUPUT DID      = ' $DID
+echo $'UDMA_THRUPUT Wr TRANS = ' $TRANS
+echo $'UDMA_THRUPUT WAIT_TIME= ' $WAIT_TIME
+echo $'UDMA_THRUPUT BUFC     = ' $BUFC
+echo $'UDMA_THRUPUT STS      = ' $STS
+echo $'UDMA_THRUPUT CPU_1    = ' $CPU_1
+echo $'UDMA_THRUPUT CPU_2    = ' $CPU_2
+echo $'UDMA_THRUPUT CHANNEL  = ' $CHANNEL
 
 unset LOC_PRINT_HEP
 
