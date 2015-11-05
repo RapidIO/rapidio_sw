@@ -810,7 +810,9 @@ void* MboxChannel::get_inb_message(MboxOptions_t& opt)
 
   if (!(desc->msg_info & TSI721_IMD_HO)) {
     pthread_spin_unlock(&m_rx_splock);
+#ifdef MBOXDEBUG
     DBG("\n\tTSI721_IMD_HO not set mbox = %d, desc address = %p, rx_slot = %d/0x%x\n", m_ib_mbox, desc, rx_slot,rx_slot);
+#endif
     return NULL;
   }
 
