@@ -34,18 +34,32 @@ dump_ob_desc(hw_omsg_desc* desc)
   char tmp[129] = {0};
   std::stringstream ss;
   ss << "OUTBOUND DESCRIPTOR CONTENTS:\n";
-  snprintf(tmp, 128, "  DEVID=0x%04X, ", desc->type_id & TSI721_OMD_DEVID); ss << tmp;
-  snprintf(tmp, 128, "  CRF=%d, ", (desc->type_id & TSI721_OMD_CRF) >> 16); ss << tmp;
-  snprintf(tmp, 128, "  PRIO=%d, ", (desc->type_id & TSI721_OMD_PRIO) >> 17); ss << tmp;
-  snprintf(tmp, 128, "  IOF=%d, ", (desc->type_id & TSI721_OMD_IOF) >> 27); ss << tmp;
-  snprintf(tmp, 128, "  DTYPE=%d\n", (desc->type_id & TSI721_OMD_DTYPE) >> 29); ss << tmp;
-  snprintf(tmp, 128, "  BCOUNT=%d, ", desc->msg_info & TSI721_OMD_BCOUNT); ss << tmp;
-  snprintf(tmp, 128, "  SSIZE=%d, ", (desc->msg_info & TSI721_OMD_SSIZE) >> 12); ss << tmp;
-  snprintf(tmp, 128, "  LETTER=%d, ", (desc->msg_info & TSI721_OMD_LETTER) >> 16); ss << tmp;
-  snprintf(tmp, 128, "  XMBOX=%d, ", (desc->msg_info & TSI721_OMD_XMBOX) >> 18); ss << tmp;
-  snprintf(tmp, 128, "  MBOX=%d, ", (desc->msg_info & TSI721_OMD_MBOX) >> 22); ss << tmp;
-  snprintf(tmp, 128, "  TT=%d\n", (desc->msg_info & TSI721_OMD_TT) >> 26); ss << tmp;
-  snprintf(tmp, 128, "  BUFFER_PTR=0x%08X%08X\n", desc->bufptr_hi, desc->bufptr_lo); ss << tmp;
+  snprintf(tmp, 128, "  DEVID=0x%04X, ", desc->type_id & TSI721_OMD_DEVID);
+  ss << tmp;
+  snprintf(tmp, 128, "  CRF=%d, ", (desc->type_id & TSI721_OMD_CRF) >> 16);
+  ss << tmp;
+  snprintf(tmp, 128, "  PRIO=%d, ", (desc->type_id & TSI721_OMD_PRIO) >> 17);
+  ss << tmp;
+  snprintf(tmp, 128, "  IOF=%d, ", (desc->type_id & TSI721_OMD_IOF) >> 27);
+  ss << tmp;
+  snprintf(tmp, 128, "  DTYPE=%d\n", (desc->type_id & TSI721_OMD_DTYPE) >> 29);
+  ss << tmp;
+  snprintf(tmp, 128, "  BCOUNT=%d, ", desc->msg_info & TSI721_OMD_BCOUNT);
+  ss << tmp;
+  snprintf(tmp, 128, "  SSIZE=%d, ", (desc->msg_info & TSI721_OMD_SSIZE) >> 12);
+  ss << tmp;
+  snprintf(tmp, 128, "  LETTER=%d, ", (desc->msg_info & TSI721_OMD_LETTER) >> 16);
+  ss << tmp;
+  snprintf(tmp, 128, "  XMBOX=%d, ", (desc->msg_info & TSI721_OMD_XMBOX) >> 18);
+  ss << tmp;
+  snprintf(tmp, 128, "  MBOX=%d, ", (desc->msg_info & TSI721_OMD_MBOX) >> 22);
+  ss << tmp;
+  snprintf(tmp, 128, "  TT=%d\n", (desc->msg_info & TSI721_OMD_TT) >> 26);
+  ss << tmp;
+  snprintf(tmp, 128, "DESC->MSG_INFO = 0x%08x\n", desc->msg_info);
+  ss << tmp;
+  snprintf(tmp, 128, "  BUFFER_PTR=0x%08X%08X\n", desc->bufptr_hi, desc->bufptr_lo);
+  ss << tmp;
   DBG("\n%s", ss.str().c_str());
 }
 
@@ -589,12 +603,15 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   /* TYPE4 and destination ID */
   ldesc->type_id = (DTYPE4 << 29) | opt.destid;
   /* 16-bit destid, mailbox number, 0xE means 4K, length */
-  ldesc->msg_info = (1 << 26) | (opt.mbox << 22) | ((opt.letter & 0x3) << 16) | (0xe << 12) | (len8 & 0xff8);
+  // ldesc->msg_info = (1 << 26) | (opt.mbox << 22) | ((opt.letter & 0x3) << 16) | (0xe << 12) | (len8 & 0xff8);
+  ldesc->msg_info = (opt.mbox << 22) | ((opt.letter & 0x3) << 16) | (0xe << 12) | (len8 & 0xff8);
   /* Buffer pointer points to physical address of current tx_slot */
   ldesc->bufptr_lo = (uint64_t)m_omsg_ring.omq[tx_slot].win_handle & 0xffffffff;
   ldesc->bufptr_hi = (uint64_t)m_omsg_ring.omq[tx_slot].win_handle >> 32;
 
   CHECK_END_BD();
+
+  dump_ob_desc(ldesc);
 
   /* Increment WR_COUNT */
   m_omsg_ring.wr_count++;
