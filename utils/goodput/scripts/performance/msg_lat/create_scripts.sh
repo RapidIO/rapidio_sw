@@ -111,7 +111,7 @@ do
 
 	set_t_filename_w ${SIZE_NAME[idx]}
 	filename=$t_filename
-	cp tx_template $filename
+	cp template.umd $filename
 	sed -i -- 's/msg_size/'${SIZE[idx]}'/g' $filename
 	idx=($idx)+1
 done
@@ -120,6 +120,7 @@ cp rx_template $PREFIX'_rx.txt'
 
 sed -i -- 's/skt_prefix/'$SKT_PREFIX'/g' $PREFIX*.txt
 sed -i -- 's/did/'$DID'/g' $PREFIX*.txt
+sed -i -- 's/master/0/g' $PREFIX*.txt
 sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
 
 ## now create the "run all scripts" script files...

@@ -12,28 +12,28 @@
 #  
 
 cd "$(dirname "$0")"
-printf "\nCreating MESSAGING THROUGHPUT SCRIPTS\n\n"
+printf "\nCreating MESSAGING LATENCY SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=msg_thru
+DIR_NAME=msg_lat
 
 PREFIX=m
 
-if [ -z "$SKT_PREFIX" ]; then
+if [ -z "$DID" ]; then
         if [ -n "$1" ]; then
-                SKT_PREFIX=$1
+                DID=$1
         else
-                SKT_PREFIX=150
+                DID=0
                 LOC_PRINT_HEP=1
         fi
 fi
 
-if [ -z "$DID" ]; then
+if [ -z "$MBOX" ]; then
         if [ -n "$2" ]; then
-                DID=$2
+                MBOX=$2
         else
-                DID=0
+                MBOX=3
                 LOC_PRINT_HEP=1
         fi
 fi
@@ -47,18 +47,35 @@ if [ -z "$WAIT_TIME" ]; then
         fi
 fi
 
-if [ -n "$LOC_PRINT_HEP" ]; then
-        echo $'\nScript accepts the following parameters:'
-        echo $'SKT_PREFIX: first 3 decimal digits of 4 digit socket numbers'
-        echo $'DID : Device ID of target device for performance scripts'
-        echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+if [ -z "$BUFC" ]; then
+        if [ -n "$4" ]; then
+                BUFC=$4
+        else
+                BUFC=100
+                LOC_PRINT_HEP=1
+        fi
+fi
+if [ -z "$STS" ]; then
+        if [ -n "$5" ]; then
+                STS=$5
+        else
+                STS=100
+                LOC_PRINT_HEP=1
+        fi
 fi
 
-echo 'MSG_THRUPUT SKT_PREFIX = ' $SKT_PREFIX
-echo 'MSG_THRUPUT DID        = ' $DID
-echo 'MSG_THRUPUT WAIT_TIME  = ' $WAIT_TIME
+if [ -n "$LOC_PRINT_HEP" ]; then
+        echo $'\nScript accepts the following parameters:'
+        echo $'DID : Device ID of target device for performance scripts'
+        echo $'MBOX: Channel 2 or 3'
+        echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+        echo $'Bufc: Number of TX buffers'
+        echo $'Sts: size of TX FIFO\n'
+fi
 
-unset LOC_PRINT_HEP
+echo 'MSG_LATENCY DID        = ' $DID
+echo 'MSG_THRUPUT MBOX       = ' $MBOX
+echo 'MSG_LATENCY WAIT_TIME  = ' $WAIT_TIME
 
 # SIZE_NAME is the file name
 # SIZE is the hexadecimal representation of SIZE_NAME
@@ -113,20 +130,23 @@ do
 
 	set_t_filename_w ${SIZE_NAME[idx]}
 	filename=$t_filename
-	cp tx_template $filename
+	cp template.umd $filename
+	sed 's/master/1/g' < template.umd > $filename # TX
 	sed -i -- 's/msg_size/'${SIZE[idx]}'/g' $filename
 	idx=($idx)+1
 done
 
-cp rx_template $PREFIX'_rx.txt'
+sed 's/master/0/g' < template.umd | sed 's/msg_size/0/g' > $PREFIX'_rx.txt' # RX
 
-sed -i -- 's/skt_prefix/'$SKT_PREFIX'/g' $PREFIX*.txt
 sed -i -- 's/did/'$DID'/g' $PREFIX*.txt
+sed -i -- 's/mbox/'$MBOX'/g' $PREFIX*.txt
+sed -i -- 's/bufc/'$BUFC'/g' $PREFIX*.txt
+sed -i -- 's/sts/'$STS'/g' $PREFIX*.txt
 sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
 
 ## now create the "run all scripts" script files...
 
-DIR=(tx)
+DIR=(rx)
 declare -a file_list
 
 for direction in "${DIR[@]}"

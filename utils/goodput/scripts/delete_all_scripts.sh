@@ -4,6 +4,9 @@ cd performance
 rm dma_thru/d1*
 rm dma_thru_read dma_thru_write
 
+rm udma_thru/ud*
+rm udma_thru_read udma_thru_write
+
 rm dma_lat/dl*
 rm dma_lat_read
 

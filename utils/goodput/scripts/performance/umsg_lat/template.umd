@@ -1,0 +1,31 @@
+kill all
+wait 0 D
+wait 1 D
+wait 2 D
+wait 3 D
+wait 4 D
+wait 5 D
+wait 6 D
+wait 7 D
+
+set ma master
+set destid ? did
+
+isolcpu
+set cpu1 ? -1
+set cpu2 ? -1
+
+t 0 $cpu1 0
+wait 0 r
+sleep 0.5
+
+# lumsg : <Idx> <Cpu> <Chan> <Bufc> <Sts> <Did> <Acc_sz> <Txrx>
+lumsg 0 $cpu2 mbox bufc sts $destid msg_size $ma
+
+la
+echo MSG master (Master=1, Slave=0) LATENCY 0xmsg_size BYTES -- n/a for RX
+sleep wait_time
+echo MSG master (Master=1, Slave=0) LATENCY 0xmsg_size BYTES -- n/a for RX
+wait 0 R
+st
+la
