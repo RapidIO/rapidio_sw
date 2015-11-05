@@ -73,6 +73,15 @@ if [ -z "$STS" ]; then
 	fi
 fi
 
+if [ -z "$CHAN" ]; then
+        if [ -n "$7" ]; then
+                CHAN=$7
+        else
+                CHAN=7
+                LOC_PRINT_HEP=1
+        fi
+fi
+
 if [ -n "$LOC_PRINT_HEP" ]; then
 	echo $'\nScript accepts 6 parameters:'
         echo $'IBA_ADDR: Hex address of target window on DID'
@@ -80,7 +89,8 @@ if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'Trans: DMA transaction type'
         echo $'Wait: Time in seconds to wait before taking perf measurement'
         echo $'Bufc: Number of TX buffers'
-        echo $'Sts: size of TX FIFO\n'
+        echo $'Sts: size of TX FIFO'
+        echo $'Chan: HW DMA channel 0..7\n'
 fi
 
 echo DMA_THRUPUT IBA_ADDR = $IBA_ADDR
@@ -89,6 +99,7 @@ echo DMA_THRUPUT TRANS    = $TRANS
 echo DMA_THRUPUT WAIT_TIME= $WAIT_TIME
 echo DMA_THRUPUT BUFC     = $BUFC
 echo DMA_THRUPUT STS      = $STS
+echo DMA_THRUPUT CHAN     = $CHAN
 
 unset LOC_PRINT_HEP
 
@@ -192,6 +203,7 @@ sed -i -- 's/trans/'$TRANS'/g' $PREFIX*.txt
 sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
 sed -i -- 's/bufc/'$BUFC'/g' $PREFIX*.txt
 sed -i -- 's/sts/'$STS'/g' $PREFIX*.txt
+sed -i -- 's/chan/'$CHAN'/g' $PREFIX*.txt
 
 ## now create the "run all scripts" script files...
 
