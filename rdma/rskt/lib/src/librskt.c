@@ -897,6 +897,8 @@ int update_remote_hdr(struct rskt_socket_t *skt,
 int setup_skt_ptrs(struct rskt_socket_t *skt)
 {
 	struct rdma_xfer_ms_in hdr_in;
+	unsigned max_retries = 100;
+	unsigned retries;
 	int    rc = 0;
 
 	DBG("ENTER\n");
@@ -939,8 +941,14 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
 			ntohl(skt->hdr->rem_rx_wr_flags), ntohl(skt->hdr->rem_tx_rd_flags));
 	DBG("Waiting for INIT_DONE and ZEROED\n");
-	while (!COND1 && !COND2) {
+	retries = 0;
+	while (!COND1 && !COND2 && (retries++ < max_retries)) {
 		usleep(10);
+	}
+	if (retries == max_retries) {
+		ERR("Failed waiting for INIT_DONE and ZEROED\n");
+		ERR("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
+				ntohl(skt->hdr->rem_rx_wr_flags), ntohl(skt->hdr->rem_tx_rd_flags));
 	}
 #undef COND1
 #undef COND2
@@ -963,10 +971,15 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 	DBG("Waiting for ZEROED but NOT INIT_DONE and NOT INIT\n");
 #define COND1 (skt->hdr->rem_rx_wr_flags == htonl(RSKT_BUF_HDR_FLAG_ZEROED))
 #define COND2 (skt->hdr->rem_tx_rd_flags == htonl(RSKT_BUF_HDR_FLAG_ZEROED))
-	while (!COND1 && !COND2) {
+	retries = 0;
+	while (!COND1 && !COND2 && (retries++ < max_retries)) {
 		usleep(10);
 	}
-
+	if (retries == max_retries) {
+		ERR("Failed waiting for ZEROED but NOT INIT_DONE and NOT INIT\n");
+		ERR("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
+				ntohl(skt->hdr->rem_rx_wr_flags), ntohl(skt->hdr->rem_tx_rd_flags));
+	}
 	/**
 	 * Clear ZEROED and set INIT flag then update remote header.
 	 */
