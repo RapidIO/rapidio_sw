@@ -76,18 +76,18 @@ echo $'STS      = '$STS
 echo $'CHANNEL  = '$CHANNEL
 echo $'MBOX     = '$MBOX
 
-pushd performance/udma_thru || exit 1
+pushd performance/udma_thru &>/dev/null || exit 1
 sh create_scripts_umd.sh $IBA_ADDR $DID $TRANS $WAIT_TIME $BUFC $STS $CHANNEL || exit 2
-popd
+popd &>/dev/null
 
-pushd performance/udma_lat || exit 1
+pushd performance/udma_lat &>/dev/null || exit 1
 sh create_scripts_umd.sh $IBA_ADDR $DID $TRANS $WAIT_TIME $BUFC $STS $CHANNEL || exit 2
-popd
+popd &>/dev/null
 
-pushd performance/umsg_thru || exit 1
+pushd performance/umsg_thru &>/dev/null || exit 1
 sh create_scripts_umd.sh $DID $MBOX $WAIT_TIME $BUFC $STS || exit 2
-popd
+popd &>/dev/null
 
-pushd performance/umsg_lat || exit 1
+pushd performance/umsg_lat &>/dev/null || exit 1
 sh create_scripts_umd.sh $DID $MBOX $WAIT_TIME $BUFC $STS || exit 2
-popd
+popd &>/dev/null
