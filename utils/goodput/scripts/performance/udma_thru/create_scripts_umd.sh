@@ -15,7 +15,7 @@ printf "\nCreating SINGLE THREAD DMA THROUGHPUT SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=dma_thru
+DIR_NAME=udma_thru
 
 PREFIX=d1
 

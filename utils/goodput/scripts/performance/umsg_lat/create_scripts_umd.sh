@@ -16,7 +16,7 @@ printf "\nCreating MESSAGING LATENCY SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=msg_lat
+DIR_NAME=umsg_lat
 
 PREFIX=m
 

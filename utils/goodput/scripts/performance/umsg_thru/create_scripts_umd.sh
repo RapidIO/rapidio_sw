@@ -16,7 +16,7 @@ printf "\nCreating MESSAGING THROUGHPUT SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=msg_thru
+DIR_NAME=umsg_thru
 
 PREFIX=m
 

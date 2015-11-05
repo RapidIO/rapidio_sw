@@ -5,7 +5,7 @@ printf "\nCreating DMA LATENCY SCRIPTS\n\n"
 
 shopt -s nullglob
 
-DIR_NAME=dma_lat
+DIR_NAME=udma_lat
 PREFIX=dl
 
 if [ -z "$IBA_ADDR" ]; then
