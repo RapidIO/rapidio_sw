@@ -2548,6 +2548,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 	uint64_t tx_ok = 0;
 	uint64_t rx_ok = 0;
+	uint64_t big_cnt = 0; // how may attempts to TX a packet
 
 	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
@@ -2575,7 +2576,10 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
  	// Slave/Receiver
 	if(info->wr == 0) {
-		char msg_buf[4097] = {0};
+		char msg_buf[PAGE_4K+1] = {0};
+#ifndef MBOXDEBUG
+		strncpy(msg_buf, "Generic pingback - Mary had a little lamb", PAGE_4K);
+#endif
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
 		MboxChannel::MboxOptions_t opt_in; memset(&opt, 0, sizeof(opt_in));
@@ -2594,11 +2598,15 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 			bool rx_buf = false;
 			void* buf = NULL;
-			while ((buf = info->umd_mch->get_inb_message(opt_in)) != NULL) {
+			if ((buf = info->umd_mch->get_inb_message(opt_in)) != NULL) {
 			      rx_ok++; rx_buf = true;
+#ifdef MBOXDEBUG
 			      memcpy(msg_buf, buf, MIN(PAGE_4K, opt_in.bcount));
+#endif
 			      info->umd_mch->add_inb_buffer(buf); // recycle
-			      DBG("\n\tGot a message of size %d [%s] from destid %u mbox %u cnt=%llu\n", opt_in.bcount, buf, opt_in.destid, opt_in.mbox, rx_ok);
+#ifdef MBOXDEBUG
+			      DBG("\n\tGot a message of size %d [%s] from destid %u mbox %u cnt=%llu\n", opt_in.bcount, msg_buf, opt_in.destid, opt_in.mbox, rx_ok);
+#endif
 			}
 			if (! rx_buf) {
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
@@ -2628,12 +2636,11 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
                                 iq++) {
                         }
 
-			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
+			DDBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
 			while (!q_was_full && !info->stop_req && info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
 		} // END infinite loop
 
-
-		// Inbound buffers freed in MboxChannel::cleanup
+		// Note: Inbound buffers freed in MboxChannel::cleanup
 
 		goto exit_rx;
 	} // END Receiver
@@ -2654,8 +2661,12 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 
 			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
 
-			start_iter_stats(info);
-		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, !cnt, fail_reason)) {
+			const bool first_message = !big_cnt;
+
+			if (! first_message) start_iter_stats(info); // We check status reg for 1st ever message to make
+                                                                     // sure destid is sane, etc. Do not count
+                                                                     // latency and this will take a while
+		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, first_message, fail_reason)) {
 				if (fail_reason == MboxChannel::STOP_REG_ERR) {
 					ERR("\n\tsend_message FAILED!\n");
 					goto exit;
@@ -2672,7 +2683,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
                                 iq++) {
                         }
 
-			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
+			DDBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
 			while (!q_was_full && !info->stop_req && info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
 
 			// Wait from echo from Slave
@@ -2684,7 +2695,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
                         void* buf = NULL;
                         while ((buf = info->umd_mch->get_inb_message(opt)) != NULL) {
                               rx_ok++; rx_buf = true;
-                              DBG("\n\tGot a message of size %d [%s] cnt=%llu\n", opt.bcount, buf, tx_ok);
+                              DDBG("\n\tGot a message of size %d [%s] cnt=%llu\n", opt.bcount, buf, tx_ok);
                               info->umd_mch->add_inb_buffer(buf); // recycle
                         }
                         if (! rx_buf) {
@@ -2692,7 +2703,8 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 				if (GetEnv("DEBUG_MBOX")) { for (;;) { ; } } // WEDGE CPU
                                 goto exit_rx;
                         }
-			finish_iter_stats(info);
+			if (! first_message) finish_iter_stats(info);
+			big_cnt++;
 		}
 
                 info->umd_tx_iter_cnt++;

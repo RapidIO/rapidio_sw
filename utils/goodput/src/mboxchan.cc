@@ -34,32 +34,19 @@ dump_ob_desc(hw_omsg_desc* desc)
   char tmp[129] = {0};
   std::stringstream ss;
   ss << "OUTBOUND DESCRIPTOR CONTENTS:\n";
-  snprintf(tmp, 128, "  DEVID=0x%04X, ", desc->type_id & TSI721_OMD_DEVID);
-  ss << tmp;
-  snprintf(tmp, 128, "  CRF=%d, ", (desc->type_id & TSI721_OMD_CRF) >> 16);
-  ss << tmp;
-  snprintf(tmp, 128, "  PRIO=%d, ", (desc->type_id & TSI721_OMD_PRIO) >> 17);
-  ss << tmp;
-  snprintf(tmp, 128, "  IOF=%d, ", (desc->type_id & TSI721_OMD_IOF) >> 27);
-  ss << tmp;
-  snprintf(tmp, 128, "  DTYPE=%d\n", (desc->type_id & TSI721_OMD_DTYPE) >> 29);
-  ss << tmp;
-  snprintf(tmp, 128, "  BCOUNT=%d, ", desc->msg_info & TSI721_OMD_BCOUNT);
-  ss << tmp;
-  snprintf(tmp, 128, "  SSIZE=%d, ", (desc->msg_info & TSI721_OMD_SSIZE) >> 12);
-  ss << tmp;
-  snprintf(tmp, 128, "  LETTER=%d, ", (desc->msg_info & TSI721_OMD_LETTER) >> 16);
-  ss << tmp;
-  snprintf(tmp, 128, "  XMBOX=%d, ", (desc->msg_info & TSI721_OMD_XMBOX) >> 18);
-  ss << tmp;
-  snprintf(tmp, 128, "  MBOX=%d, ", (desc->msg_info & TSI721_OMD_MBOX) >> 22);
-  ss << tmp;
-  snprintf(tmp, 128, "  TT=%d\n", (desc->msg_info & TSI721_OMD_TT) >> 26);
-  ss << tmp;
-  snprintf(tmp, 128, "DESC->MSG_INFO = 0x%08x\n", desc->msg_info);
-  ss << tmp;
-  snprintf(tmp, 128, "  BUFFER_PTR=0x%08X%08X\n", desc->bufptr_hi, desc->bufptr_lo);
-  ss << tmp;
+  snprintf(tmp, 128, "  DEVID=0x%04X, ", desc->type_id & TSI721_OMD_DEVID); ss << tmp;
+  snprintf(tmp, 128, "  CRF=%d, ", (desc->type_id & TSI721_OMD_CRF) >> 16); ss << tmp;
+  snprintf(tmp, 128, "  PRIO=%d, ", (desc->type_id & TSI721_OMD_PRIO) >> 17); ss << tmp;
+  snprintf(tmp, 128, "  IOF=%d, ", (desc->type_id & TSI721_OMD_IOF) >> 27); ss << tmp;
+  snprintf(tmp, 128, "  DTYPE=%d\n", (desc->type_id & TSI721_OMD_DTYPE) >> 29); ss << tmp;
+  snprintf(tmp, 128, "  BCOUNT=%d, ", desc->msg_info & TSI721_OMD_BCOUNT); ss << tmp;
+  snprintf(tmp, 128, "  SSIZE=%d, ", (desc->msg_info & TSI721_OMD_SSIZE) >> 12); ss << tmp;
+  snprintf(tmp, 128, "  LETTER=%d, ", (desc->msg_info & TSI721_OMD_LETTER) >> 16); ss << tmp;
+  snprintf(tmp, 128, "  XMBOX=%d, ", (desc->msg_info & TSI721_OMD_XMBOX) >> 18); ss << tmp;
+  snprintf(tmp, 128, "  MBOX=%d, ", (desc->msg_info & TSI721_OMD_MBOX) >> 22); ss << tmp;
+  snprintf(tmp, 128, "  TT=%d\n", (desc->msg_info & TSI721_OMD_TT) >> 26); ss << tmp;
+  snprintf(tmp, 128, "DESC->MSG_INFO = 0x%08x\n", desc->msg_info); ss << tmp;
+  snprintf(tmp, 128, "  BUFFER_PTR=0x%08X%08X\n", desc->bufptr_hi, desc->bufptr_lo); ss << tmp;
   DBG("\n%s", ss.str().c_str());
 }
 
@@ -450,7 +437,6 @@ int MboxChannel::open_outb_mbox(const uint32_t entries, const uint32_t sts_entri
 
   DBG("\n\t%s: Last descriptor index %d:\n", __FUNCTION__, num_desc);
   dump_ob_desc(&bd_ptr[num_desc]);
-
   /* Initialize Outbound Message engine */
   {{
     uint32_t init = TSI721_OBDMAC_CTL_INIT;
@@ -611,7 +597,9 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
 
   CHECK_END_BD();
 
+#ifdef MBOXDEBUG
   dump_ob_desc(ldesc);
+#endif
 
   /* Increment WR_COUNT */
   m_omsg_ring.wr_count++;
@@ -816,7 +804,7 @@ void* MboxChannel::get_inb_message(MboxOptions_t& opt)
 
   uint32_t rx_slot = m_imsg_ring.rx_slot; // This is an index into user-provided buffer[], NOT HW
 
-#if 0//def DEBUG
+#ifdef MBOXDEBUG
   dump_ib_desc(desc);
 #endif
 
@@ -937,7 +925,7 @@ int MboxChannel::add_inb_buffer(void* buf)
 
   /* Increment rx_slot, wrapping around if necessary */
   if (++m_imsg_ring.rx_slot == m_imsg_ring.size) {
-    DBG("\n\trx_slot = %d, resetting to 0 (size=%d)\n", rx_slot,  m_imsg_ring.size);
+    DDBG("\n\trx_slot = %d, resetting to 0 (size=%d)\n", rx_slot,  m_imsg_ring.size);
     m_imsg_ring.rx_slot = 0;
   }
 
@@ -964,7 +952,6 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
   assert(sts_ptr);
 
   int j = m_omsg_ring.sts_rdptr * 8;
-DDBG("\n\tFIFO START line=%d size=%d RD=%d\n", j, m_omsg_ring.sts_size, old_rdptr);
 
   const uint64_t HW_START = m_omsg_ring.omd.win_handle;
   const uint64_t HW_END   = HW_START + m_omsg_ring.omd.win_size;
@@ -1001,19 +988,25 @@ DDBG("\n\tFIFO START line=%d size=%d RD=%d\n", j, m_omsg_ring.sts_size, old_rdpt
             }
           pthread_spin_unlock(&m_bltx_splock);
 
+#ifdef MBOXDEBUG
           uint32_t soft_rp = m_omsg_ring.rd_count_soft;
+#endif
 
           if (found /*&& bd_idx != m_num_ob_desc*/) { // ignore DTYPE5
             pthread_spin_lock(&m_tx_splock);
             m_omsg_ring.rd_count_soft = l_wr_count;
-            soft_rp = l_wr_count;
             pthread_spin_unlock(&m_tx_splock);
+#ifdef MBOXDEBUG
+            soft_rp = l_wr_count;
+#endif
           }
 
+#ifdef MBOXDEBUG
           DBG("\n\tFIFO line=%d off=%d 0x%llx => BD idx %d %sfound -- TX HW RP=%d soft RP=%d WP=%d -- pending %d\n",
                    j, i, hwptr, bd_idx, (found? "": "NOT "),
                    rd32mboxchan(TSI721_OBDMAC_DRDCNT(m_mbox)), soft_rp, m_omsg_ring.wr_count,
                    m_omsg_trk.bltx_busy_size);
+#endif
         } else {
           CRIT("\n\tFIFO line=%d off=%d 0x%llx JUNK\n", j, i, hwptr);
         }
