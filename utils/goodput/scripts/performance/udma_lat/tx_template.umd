@@ -1,0 +1,38 @@
+levelog 0
+kill all
+wait 0 d
+wait 1 d
+wait 2 d
+wait 3 d
+wait 4 d
+wait 5 d
+wait 6 d
+wait 7 d
+
+set chnnel ? chan
+set destid ? did
+
+isolcpu
+set cpu1 ? -1
+set cpu2 ? -1
+
+t 0 $cpu1 0
+wait 0 r
+
+IBAlloc 0 bytes
+sleep 1
+wait 0 h
+
+echo Make sure that destid did has goodput running with an IBwin mapped at address 0xiba_addr of size 0xbytes
+
+#ltudma : <Idx> <Cpu> <Chan> <Bufc> <Sts> <Did> <Rio_addr> <Acc_sz> <Trans>
+ltudma 0 $cpu2 $chnnel bufc sts $destid iba_addr bytes trans
+
+wait 0 r
+lat
+echo DMA LATENCY acc_size wr TRANSMIT
+sleep wait_time
+wait 0 r
+st
+lat
+echo DMA LATENCY acc_size wr TRANSMIT
