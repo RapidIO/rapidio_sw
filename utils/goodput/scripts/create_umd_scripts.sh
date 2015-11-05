@@ -3,71 +3,64 @@
 LOC_PRINT_HEP=0
 
 if [ -n "$1" ]; then
-	IBA_ADDR=$1
+	IBA_ADDR=$1; shift
 else
 	LOC_PRINT_HEP=1
 fi
 
-if [ -n "$2" ]; then
-	DID=$2
+if [ -n "$1" ]; then
+	DID=$1; shift
 else
 	LOC_PRINT_HEP=1
 fi
 
-if [ -n "$3" ]; then
-	TRANS=$3
+if [ -n "$1" ]; then
+	TRANS=$1; shift
 else
 	LOC_PRINT_HEP=1
 fi
 
-if [ -n "$4" ]; then
-	WAIT_TIME=$4
+if [ -n "$1" ]; then
+	WAIT_TIME=$1; shift
 else
 	LOC_PRINT_HEP=1
 fi
 
-if [ -n "$5" ]; then
-	BUFC=$5
+if [ -n "$1" ]; then
+	BUFC=$1; shift
 else
 	LOC_PRINT_HEP=1
 fi
 
-if [ -n "$6" ]; then
-	STS=$6
+if [ -n "$1" ]; then
+	STS=$1; shift
 else
 	LOC_PRINT_HEP=1
 fi
 
-if [ -n "$7" ]; then
-	CPU_1=$7
+if [ -n "$1" ]; then
+	CHANNEL=$1l shift
+else
+	LOC_PRINT_HEP=1
+fi
+if [ -n "$1" ]; then
+	MBOX=$1; shift
 else
 	LOC_PRINT_HEP=1
 fi
 
-if [ -n "$8" ]; then
-	CPU_2=$8
-else
-	LOC_PRINT_HEP=1
-fi
-
-if [ -n "$9" ]; then
-	CHANNEL=$9
-else
-	LOC_PRINT_HEP=1
-fi
 
 if [ $LOC_PRINT_HEP != "0" ]; then
 	echo $'\nScript requires the following parameters:'
-        echo $'IBA_ADDR: Hex address of target window on DID'
-        echo $'DID     : Device ID of target device for performance scripts'
-        echo $'Wr TRANS: UDMA Write transaction type'
+        echo $'IBA_ADDR : Hex address of target window on DID'
+        echo $'DID      : Device ID of target device for performance scripts'
+        echo $'Wr TRANS : UDMA Write transaction type'
         echo $'          1 LAST_NWR, 2 NW, 3 NW_R'
-        echo $'Wait    : Time in seconds to wait before taking perf measurement'
-        echo $'Bufc    : Number of TX buffers'
-        echo $'Sts     : size of TX FIFO'
-        echo $'CPU_1   : Core for the DMA transmit thread'
-        echo $'CPU_2   : Core for the DMA transmit FIFO thread'
-        echo $'CHANNEL : Tsi721 DMA channel, 2 through 7'
+        echo $'Wait     : Time in seconds to wait before taking perf measurement'
+        echo $'Bufc     : Number of TX buffers'
+        echo $'Sts      : size of TX FIFO'
+        echo $'CHANNEL  : Tsi721 DMA channel, 2 through 7'
+        echo $'MBOX     : Tsi721 MBOX channel, 2 through 3'
 	exit 1
 fi;
 
@@ -80,11 +73,21 @@ echo $'Wr TRANS = '$TRANS ${INTERP_WR_TRANS[TRANS]}
 echo $'WAIT_TIME= '$WAIT_TIME
 echo $'BUFC     = '$BUFC
 echo $'STS      = '$STS
-echo $'CPU_1    = '$CPU_1
-echo $'CPU_2    = '$CPU_2
 echo $'CHANNEL  = '$CHANNEL
+echo $'MBOX     = '$MBOX
 
+pushd performance/udma_thru &>/dev/null || exit 1
+sh create_scripts_umd.sh $IBA_ADDR $DID $TRANS $WAIT_TIME $BUFC $STS $CHANNEL || exit 2
+popd &>/dev/null
 
-cd performance/udma_thru
-source create_scripts.sh $IBA_ADDR $DID $TRANS $WAIT_TIME $BUFC $STS $CPU_1 $CPU_2 $CHANNEL
-cd ../..
+pushd performance/udma_lat &>/dev/null || exit 1
+sh create_scripts_umd.sh $IBA_ADDR $DID $TRANS $WAIT_TIME $BUFC $STS $CHANNEL || exit 2
+popd &>/dev/null
+
+pushd performance/umsg_thru &>/dev/null || exit 1
+sh create_scripts_umd.sh $DID $MBOX $WAIT_TIME $BUFC $STS || exit 2
+popd &>/dev/null
+
+pushd performance/umsg_lat &>/dev/null || exit 1
+sh create_scripts_umd.sh $DID $MBOX $WAIT_TIME $BUFC $STS || exit 2
+popd &>/dev/null

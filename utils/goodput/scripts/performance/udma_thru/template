@@ -16,7 +16,7 @@ wait 11 0
 // isolcpu 2
 t 0 cpu1 0
 wait 0 2
-echo Make sure that destid did has goodput running with an IBwin mapped
+echo Make sure that destid did has Ugoodput running with an IBwin mapped
 echo at address 0xiba_addr of at least size 0xbytes
 // udma : <Idx> <Cpu> <Chan> <Bufc> <Sts> <Did> <Rio_addr> <Bytes> <Acc_sz> <Trans>
 udma 0 cpu2 channel bufc sts did iba_addr bytes acc_size trans
