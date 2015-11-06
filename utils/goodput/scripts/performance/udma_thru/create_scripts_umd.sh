@@ -17,7 +17,7 @@ shopt -s nullglob
 
 DIR_NAME=udma_thru
 
-PREFIX=d1
+PREFIX=udma
 
 if [ -z "$IBA_ADDR" ]; then
 	if [ -n "$1" ]; then

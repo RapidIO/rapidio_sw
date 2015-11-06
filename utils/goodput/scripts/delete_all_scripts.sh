@@ -4,11 +4,14 @@ cd performance
 rm dma_thru/d1*
 rm dma_thru_read dma_thru_write
 
-rm udma_thru/ud*
+rm udma_thru/udma*
 rm udma_thru_read udma_thru_write
 
 rm dma_lat/dl*
 rm dma_lat_read
+
+rm udma_lat/udl*
+rm udma_lat_read
 
 rm pdma_thru/pd*
 rm pdma_thru_*_read pdma_thru_*_write
@@ -25,8 +28,14 @@ rm obwin_thru_read obwin_thru_write
 rm msg_thru/m*
 rm msg_thru_tx
 
+rm umsg_thru/m*
+rm umsg_thru_tx
+
 rm msg_lat/m*
 rm msg_lat_rx
+
+rm umsg_lat/m*
+rm umsg_lat_rx
 
 cd ..
 rm start_source start_target

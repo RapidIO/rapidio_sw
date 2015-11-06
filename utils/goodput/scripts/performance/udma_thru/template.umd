@@ -20,19 +20,22 @@ set cpu1 ? -1
 set cpu2 ? -1
 
 t 0 $cpu1 0
-wait 0 r
+wait 0 H
 
-echo Make sure that destid did has Ugoodput running with an IBwin mapped at address 0xiba_addr of size 0xbytes
-# udma : <Idx> <Cpu> <Chan> <Bufc> <Sts> <Did> <Rio_addr> <Bytes> <Acc_sz> <Trans>
-udma 0 $cpu2 $chnnel bufc sts $destid iba_addr bytes acc_size trans
+echo Make sure that destid did has Ugoodput running with an IBwin mapped
+echo at address 0xiba_addr of size at least 0xbytes
+
+// udma :
+// <Idx> <Cpu> <Chan> <Bufc> <Sts> <Did> <Rio_addr> <Bytes> <Acc_sz> <Trans>
+udma 0   $cpu2 $chnnel bufc   sts $destid iba_addr   bytes  acc_size  trans
 g
 g c
 g
-echo UDMA THROUGHPUT bytes acc_size
+echo UDMA THROUGHPUT bytes acc_size UNUSED
 os
 sleep wait_time
-wait 0 1
+wait 0 R
 st
-echo UDMA THROUGHPUT bytes acc_size
+echo UDMA THROUGHPUT bytes acc_size UNUSED
 g
 od

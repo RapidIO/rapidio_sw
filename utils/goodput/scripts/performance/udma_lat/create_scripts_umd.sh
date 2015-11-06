@@ -6,7 +6,7 @@ printf "\nCreating DMA LATENCY SCRIPTS\n\n"
 shopt -s nullglob
 
 DIR_NAME=udma_lat
-PREFIX=dl
+PREFIX=udl
 
 if [ -z "$IBA_ADDR" ]; then
         if [ -n "$1" ]; then
@@ -191,10 +191,10 @@ do
 	sed -i -- 's/bytes/'${BYTES[idx]}'/g' $filename
 	cp $filename $w_filename
 
-        cp tx_template_nread.umd nr$filename
-        sed -i -- 's/acc_size/'${SIZE[idx]}'/g' nr$filename
-        sed -i -- 's/bytes/'${BYTES[idx]}'/g' nr$filename
-        cp nr$filename nr$w_filename
+	set_t_filename_t ${SIZE_NAME[idx]}
+        cp tx_template_nread.umd $filename
+        sed -i -- 's/acc_size/'${SIZE[idx]}'/g' $filename
+        sed -i -- 's/bytes/'${BYTES[idx]}'/g' $filename
 
 	idx=($idx)+1
 done
