@@ -598,7 +598,7 @@ int SetCmd(struct cli_env *env, int argc, char **argv)
 {
         if(argc == 0) {
                 if (SET_VARS.size() == 0) {
-			INFO("\n\tNo env vars\n");
+			sprintf(env->output, "\nNo env vars\n"); logMsg(env);
 			return 0;
 		}
 
@@ -610,12 +610,17 @@ int SetCmd(struct cli_env *env, int argc, char **argv)
                         ss << "\n\t" << it->first << "=" << it->second;
                 }
 
-                CRIT("\nEnv vars: %s\n", ss.str().c_str());
+                sprintf(env->output, "\nEnv vars: %s\n", ss.str().c_str()); logMsg(env);
                 goto exit;
         }
 
 	if (NULL == argv[0])
 		goto exit;
+
+        if (argc == 1 && ! strcmp(argv[0], "-X")) {
+		SET_VARS.clear();
+		goto exit;
+	}
 
         if (argc == 1) {
 	// Delete var                
@@ -647,6 +652,7 @@ int SetCmd(struct cli_env *env, int argc, char **argv)
           buf[N - 1] = '\0';
           SET_VARS[ argv[0] ] = buf;
         }} while(0);
+
 exit:
         return 0;
 }
@@ -657,6 +663,7 @@ struct cli_cmd CLISet = {
 0,
 "Set/display environment vars",
 "set {var {val}}\n"
+        "\"set -X\" deletes ALL variables from env\n"
         "\"set key\" deletes the variable from env\n"
         "\"set key val ...\" sets key:=val\n"
         "\"set key ? val ...\" sets key:=val iff key does not exist\n"
