@@ -2339,7 +2339,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
                 logMsg(env);
                 goto exit;
         };
-	if (acc_sz < 1 || acc_sz > 4096) {
+	if ((acc_sz < 1 || acc_sz > 4096) && txrx) {
                 sprintf(env->output,
                         "Bad acc_sz %d, must be 1..4096\n", acc_sz);
                 logMsg(env);

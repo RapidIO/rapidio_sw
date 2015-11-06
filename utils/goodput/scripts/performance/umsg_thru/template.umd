@@ -9,6 +9,10 @@ wait 4 0
 wait 5 0
 wait 6 0
 wait 7 0
+wait 8 0
+wait 9 0
+wait 10 0
+wait 11 0
 
 set -X
 
@@ -21,10 +25,11 @@ set cpu1 ? -1
 set cpu2 ? -1
 
 t 0 $cpu1 0
-wait 0 r
+wait 0 H
 sleep 0.5
 
-# umsg : <Idx> <Cpu> <Chan> <Chan_to> <Letter> <Bufc> <Sts> <Did> <Acc_sz> <Txrx>
+// umsg :
+// <Idx> <Cpu> <Chan> <Chan_to> <Letter> <Bufc> <Sts> <Did> <Acc_sz> <Txrx>
 umsg 0 $cpu2 mbox mbox $letter bufc sts $destid msg_size $ma
 
 echo RUNNING MESSAGE master (1=TX, 0 = RX) ON MBOX CHANNEL mbox
@@ -35,13 +40,6 @@ g
 sleep wait_time
 
 wait 0 1
-wait 1 1
-wait 2 1
-wait 3 1
-wait 4 1
-wait 5 1
-wait 6 1
-wait 7 1
 
 st
 
