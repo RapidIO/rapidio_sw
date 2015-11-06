@@ -53,6 +53,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <linux/if.h>
+#include <linux/if_tun.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <arpa/inet.h> 
+#include <sys/select.h>
+
 #include <pthread.h>
 #include <sstream>
 
@@ -2395,12 +2406,14 @@ void umd_mbox_goodput_demo(struct worker *info)
         if (NULL == info->umd_mch) {
                 CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan, info->mp_num, info->mp_h);
+		delete info->umd_lock; info->umd_lock = NULL;
                 return;
         };
 
 	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
 		delete info->umd_mch;
+		delete info->umd_lock; info->umd_lock = NULL;
 		return;
 	}
 
@@ -2543,12 +2556,14 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
         if (NULL == info->umd_mch) {
                 CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan, info->mp_num, info->mp_h);
+		delete info->umd_lock; info->umd_lock = NULL;
                 return;
         };
 
 	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
 		delete info->umd_mch;
+		delete info->umd_lock; info->umd_lock = NULL;
 		return;
 	}
 
@@ -2722,6 +2737,340 @@ exit_rx:
 	delete info->umd_lock; info->umd_lock = NULL;
 }
 
+/**************************************************************************
+ * tun_alloc: allocates or reconnects to a tun/tap device. The caller     *
+ *            needs to reserve enough space in *dev.                      *
+ **************************************************************************/
+int tun_alloc(char *dev, int flags) {
+
+  struct ifreq ifr;
+  int fd, err;
+
+  if( (fd = open("/dev/net/tun", O_RDWR)) < 0 ) {
+    perror("Opening /dev/net/tun");
+    return fd;
+  }
+
+  memset(&ifr, 0, sizeof(ifr));
+
+  ifr.ifr_flags = flags;
+
+  if (*dev) {
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+  }
+
+  if( (err = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0 ) {
+    CRIT("\n\tioctl(TUNSETIFF): %s\n", strerror(errno));
+    close(fd);
+    return err;
+  }
+
+  strcpy(dev, ifr.ifr_name);
+
+  return fd;
+}
+
+/**************************************************************************
+ * cread: read routine that checks for errors and exits if an error is    *
+ *        returned.                                                       *
+ **************************************************************************/
+int cread(int fd, uint8_t* buf, int n)
+{
+  int nread;
+
+  if((nread=read(fd, buf, n))<0){
+    CRIT("\n\tReading data: %s\n", strerror(errno));
+    exit(1);
+  }
+  return nread;
+}
+
+/**************************************************************************
+ * cwrite: write routine that checks for errors and exits if an error is  *
+ *         returned.                                                      *
+ **************************************************************************/
+int cwrite(int fd, uint8_t* buf, int n)
+{
+  int nwrite;
+
+  if((nwrite=write(fd, buf, n))<0){
+    CRIT("\n\tWriting data: %s\n", strerror(errno));
+    exit(1);
+  }
+  return nwrite;
+}
+
+/**************************************************************************
+ * read_n: ensures we read exactly n bytes, and puts those into "buf".    *
+ *         (unless EOF, of course)                                        *
+ **************************************************************************/
+int read_n(int fd, uint8_t* buf, int n)
+{
+  int nread, left = n;
+
+  while(left > 0) {
+    if ((nread = cread(fd, buf, left))==0){
+      return 0 ;      
+    }else {
+      left -= nread;
+      buf += nread;
+    }
+  }
+  return n;  
+}
+
+const int DESTID_TRANSLATE = 1;
+
+std::map <uint16_t, bool> bad_destid;
+std::map <uint16_t, bool> good_destid;
+
+void* umd_mbox_tun_proc_thr(void *parm)
+{
+        if (NULL == parm) pthread_exit(NULL);
+
+	const int BUFSIZE = 2000;
+	uint8_t buffer[BUFSIZE];
+
+        struct worker* info = (struct worker *)parm;
+        if (NULL == info->umd_mch) goto exit;
+
+	{{ 
+	const int tap_fd = info->umd_tap_fd;
+	const int net_fd = info->umd_sockp[1];
+	const int maxfd = (tap_fd > net_fd)?tap_fd:net_fd;
+
+        info->umd_mbox_tap_proc_alive = 1;
+        sem_post(&info->umd_mbox_tap_proc_started);
+
+	MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
+
+	const uint16_t my_destid = info->umd_mch->getDestId();
+	{{
+		uint16_t* p = (uint16_t*)buffer;
+		p[0] = htons(my_destid);
+		p[1] = htons(info->umd_chan);
+	}}
+
+	bad_destid[my_destid] = true;
+
+	opt.mbox = info->umd_chan;
+
+	while(! info->stop_req) {
+    		fd_set rd_set;
+
+    		FD_ZERO(&rd_set);
+    		FD_SET(tap_fd, &rd_set); FD_SET(net_fd, &rd_set);
+
+		const int ret = select(maxfd + 1, &rd_set, NULL, NULL, NULL);
+		if (info->stop_req) goto exit;
+
+    		if (ret < 0 && errno == EINTR) continue;
+
+		if (ret < 0) { CRIT("\n\tselect(): %s\n", strerror(errno)); goto exit; }
+
+    		if(FD_ISSET(net_fd, &rd_set)) { goto exit; }
+
+    		if (! FD_ISSET(tap_fd, &rd_set)) continue; // XXX Whoa! Why?
+
+      		// Data from tun/tap: read it, decode destid from 169.254.x.y and write it to RIO
+      
+      		const int nread = cread(tap_fd, buffer+4, BUFSIZE-4);
+
+		{{
+		uint32_t* pkt = (uint32_t*)(buffer+4);
+		const uint32_t dest_ip_v4 = ntohl(pkt[4]); // XXX IPv6 will stink big here
+
+		opt.destid = (dest_ip_v4 & 0xFFFF) - DESTID_TRANSLATE;
+		}}
+
+		DBG("\n\tGot from Tun %d+4 bytes to RIO destid %u\n", nread, opt.destid);
+
+		if (bad_destid.find(opt.destid) != bad_destid.end()) continue;
+
+		DBG("\n\tSending to RIO %d+4 bytes to RIO destid %u\n", nread, opt.destid);
+
+	again:
+		if (info->stop_req) goto exit;
+
+		const bool first_message = good_destid.find(opt.destid) == good_destid.end();
+
+		MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
+                if (! info->umd_mch->send_message(opt, buffer, nread+4, first_message, fail_reason)) {
+                	if (fail_reason == MboxChannel::STOP_REG_ERR) {
+                        	ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
+				// XXX ICMPv4 dest unreachable id bad destid - TBI
+				bad_destid[opt.destid] = true;
+                                continue;
+                        } else { goto again; } // Succeed or die trying
+                } else {
+			good_destid[opt.destid] = true;
+		}
+	}
+	goto no_post;
+	}}
+exit:
+        sem_post(&info->umd_mbox_tap_proc_started);
+
+no_post:
+	info->umd_mbox_tap_proc_alive = 0;
+
+	pthread_exit(parm);
+} // END umd_mbox_tun_proc_thr
+
+void umd_mbox_goodput_tun_demo(struct worker *info)
+{
+	int rc = 0;
+	char if_name[IFNAMSIZ] = {0};
+	int flags = IFF_TUN | IFF_NO_PI;
+
+	if (! umd_check_cpu_allocation(info)) return;
+	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+
+	// Initialize tun/tap interface
+	if ((info->umd_tap_fd = tun_alloc(if_name, flags)) < 0) {
+		CRIT("Error connecting to tun/tap interface %s!\n", if_name);
+		delete info->umd_lock; info->umd_lock = NULL;
+		return;
+	}
+
+        info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
+
+        if (NULL == info->umd_mch) {
+                CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
+                        info->umd_chan, info->mp_num, info->mp_h);
+		delete info->umd_lock; info->umd_lock = NULL;
+                return;
+        };
+
+	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
+                CRIT("\n\tMboxChannel: Failed to open mbox!");
+		delete info->umd_mch; info->umd_mch = NULL;
+		delete info->umd_lock; info->umd_lock = NULL;
+		return;
+	}
+
+	char TapIPv4Addr[17] = {0};
+	const uint16_t my_destid = info->umd_mch->getDestId() + DESTID_TRANSLATE;
+	snprintf(TapIPv4Addr, 16, "169.254.%d.%d", (my_destid >> 8) & 0xFF, my_destid & 0xFF);
+	
+	char ifconfig_cmd[257] = {0};
+	snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s %s netmask 0xffff0000 up", if_name, TapIPv4Addr);
+	const int rr = system(ifconfig_cmd);
+	if(rr >> 8) {
+		delete info->umd_mch; info->umd_mch = NULL;
+		delete info->umd_lock; info->umd_lock = NULL;
+		return;
+	}
+
+	socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp);
+
+	uint64_t rx_ok = 0;
+
+        info->tick_data_total = 0;
+        info->tick_count = info->tick_total = 0;
+
+        info->umd_mch->setInitState();
+
+        if (GetEnv("verb") != NULL) {
+		INFO("\n\tMBOX=%d my_destid=%u acc_size=%d #buf=%d #fifo=%d\n",
+		     info->umd_chan,
+		     info->umd_mch->getDestId(),
+		     info->acc_size,
+		     info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
+
+	// Spawn Tap Transmitter Thread
+        rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
+                            umd_mbox_fifo_proc_thr, (void *)info);
+        if (rc) {
+                CRIT("\n\tCould not create umd_fifo_proc thread, exiting...");
+                goto exit;
+        };
+        sem_wait(&info->umd_fifo_proc_started);
+
+        if (!info->umd_fifo_proc_alive) {
+                CRIT("\n\tumd_fifo_proc thread is dead, exiting..");
+                goto exit;
+        };
+
+        rc = pthread_create(&info->umd_mbox_tap_thr.thr, NULL,
+                            umd_mbox_tun_proc_thr, (void *)info);
+        if (rc) {
+                CRIT("\n\tCould not create umd_mbox_tun_proc_thr thread, exiting...");
+                goto exit;
+        };
+        sem_wait(&info->umd_mbox_tap_proc_started);
+
+        if (!info->umd_mbox_tap_proc_alive) {
+                CRIT("\n\tumd_mbox_tun_proc_thr thread is dead, exiting..");
+                goto exit;
+        };
+
+        zero_stats(info);
+        clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+
+ 	// Receiver
+	{
+		for(int i = 0; i < info->umd_tx_buf_cnt; i++) {
+			void* b = calloc(1, PAGE_4K);
+      			info->umd_mch->add_inb_buffer(b);
+		}
+
+		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
+        	while (!info->stop_req) {
+                	info->umd_dma_abort_reason = 0;
+			uint64_t rx_ts = 0;
+			while (!info->stop_req && ! info->umd_mch->inb_message_ready(rx_ts))
+				usleep(1);
+			if (info->stop_req) break;
+
+			opt.ts_end = rx_ts;
+
+			bool rx_buf = false;
+			uint8_t* buf = NULL;
+			while ((buf = (uint8_t*)info->umd_mch->get_inb_message(opt)) != NULL) {
+			      rx_ok++; rx_buf = true;
+			      uint16_t* p = (uint16_t*)buf;
+			      const uint16_t src_devid = htons(p[0]);
+			      const uint16_t src_mbox  = htons(p[1]);
+			      good_destid[src_devid] = true;
+			      const int nwrite = cwrite(info->umd_tap_fd, buf+4, opt.bcount-4);
+			      info->umd_mch->add_inb_buffer(buf); // recycle
+			      DBG("\n\tGot a message of size %d from destid %u mbox %u cnt=%llu, wrote %d to Tap\n",
+				       opt.bcount, src_devid, src_mbox, rx_ok, nwrite);
+			}
+			if (! rx_buf) {
+				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
+				goto exit;
+			}
+			if (rx_ts && opt.ts_start && rx_ts > opt.ts_start && opt.bcount > 0) { // not overflown
+				const uint64_t dT = rx_ts - opt.ts_start;
+				if (dT > 0) { 
+					info->tick_count++;
+					info->tick_total += dT;
+					info->tick_data_total += opt.bcount;
+				}
+			}
+		} // END infinite loop
+
+		// Inbound buffers freed in MboxChannel::cleanup
+
+		goto exit;
+	} // END Receiver
+
+exit:
+	write(info->umd_sockp[0], "X", 1); // Signal Tun/Tap thread to eXit
+        info->umd_fifo_proc_must_die = 1;
+
+        pthread_join(info->umd_fifo_thr.thr, NULL);
+        pthread_join(info->umd_mbox_tap_thr.thr, NULL);
+
+	close(info->umd_sockp[0]); close(info->umd_sockp[1]);
+	close(info->umd_tap_fd);
+
+        delete info->umd_mch; info->umd_mch = NULL;
+	delete info->umd_lock; info->umd_lock = NULL;
+} // END umd_mbox_goodput_tun_demo
 
 #endif // USER_MODE_DRIVER
 
@@ -2789,6 +3138,9 @@ void *worker_thread(void *parm)
 				break;
 		case umd_mboxl:
 				umd_mbox_goodput_latency_demo(info);
+				break;
+		case umd_mbox_tap:
+				umd_mbox_goodput_tun_demo(info);
 				break;
 #endif
 		
