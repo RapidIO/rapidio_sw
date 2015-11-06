@@ -10,6 +10,8 @@ wait 5 0
 wait 6 0
 wait 7 0
 
+set -X
+
 set ma master
 set destid ? did
 set letter ? 0

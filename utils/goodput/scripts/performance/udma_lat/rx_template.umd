@@ -9,6 +9,8 @@ wait 5 d
 wait 6 d
 wait 7 d
 
+set -X
+
 set chnnel ? chan
 set destid ? did
 
