@@ -14,8 +14,8 @@ set ma master
 set destid ? did
 
 isolcpu
-set cpu1 ? -1
-set cpu2 ? -1
+set cpu1 ? TX_CPU
+set cpu2 ? FIFO_CPU
 
 t 0 $cpu1 0
 wait 0 r

@@ -118,16 +118,16 @@ fi
 
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript accepts the following parameters:'
-        echo $'IBA_ADDR: Hex address of target window on DID'
-        echo $'DID     : Device ID that this device sends to'
+        echo $'IBA_ADDR   : Hex address of target window on DID'
+        echo $'DID        : Device ID that this device sends to'
         echo $'Trans      : DMA transaction type'
         echo $'Wait       : Time in seconds to wait before publish performance'
-        echo $'Bufc: Number of TX buffers'
-        echo $'Sts: size of TX FIFO'
-	echo $'Chan: HW DMA channel 0..7'
-	echo $'TX_CPU   : Processor to run the trasnmit/receive loop'
-	echo $'FIFO_CPU : Processor to run the completion FIFO loop'
-	echo $'OVERRIDE : <optional>, default and N allows isolcpus'
+        echo $'Bufc       : Number of TX buffers'
+        echo $'Sts        : size of TX FIFO'
+	echo $'Chan       : HW DMA channel 0..7'
+	echo $'TX_CPU     : Processor to run the trasnmit/receive loop'
+	echo $'FIFO_CPU   : Processor to run the completion FIFO loop'
+	echo $'OVERRIDE   : <optional>, default and N allows isolcpus'
 	echo $'           Any other value forces TX_CPU and FIFO_CPU\n'
 fi
 
@@ -138,9 +138,9 @@ echo 'DMA_LATENCY WAIT_TIME= ' $WAIT_TIME
 echo 'DMA_THRUPUT BUFC     = ' $BUFC
 echo 'DMA_THRUPUT STS      = ' $STS
 echo 'DMA_THRUPUT CHAN     = ' $CHAN
-echo 'DMA_THRUPUT TX_CPU   = '$TX_CPU
-echo 'DMA_THRUPUT FIFO_CPU = '$FIFO_CPU
-echo 'DMA_THRUPUT OVERRIDE = '$OVERRIDE
+echo 'DMA_THRUPUT TX_CPU   = ' $TX_CPU
+echo 'DMA_THRUPUT FIFO_CPU = ' $FIFO_CPU
+echo 'DMA_THRUPUT OVERRIDE = ' $OVERRIDE
 
 unset LOC_PRINT_HEP
 
