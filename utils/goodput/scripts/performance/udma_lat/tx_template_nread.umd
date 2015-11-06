@@ -1,3 +1,4 @@
+levelog 4
 kill all
 wait 0 0
 wait 1 0
@@ -28,11 +29,14 @@ echo Make sure that destid did has Ugoodput running with an IBwin mapped
 echo at address 0xiba_addr of at least size 0xbytes
 
 // nrudma : <Idx> <Cpu> <Chan> <Bufc> <Sts> <Did> <Rio_addr> <Acc_sz>
-nrudma 0 $cpu2 $chnnel bufc sts $destid iba_addr bytes
+nrudma 0 $cpu2 $chnnel bufc sts $destid iba_addr acc_size
+wait 0 R
 
 echo UDMA NREAD LATENCY bytes acc_size
+os
 sleep wait_time
-st
 echo UDMA NREAD LATENCY bytes acc_size
 lat
 od
+st
+wait 0 R
