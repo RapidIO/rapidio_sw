@@ -17,69 +17,118 @@ if [ -z "$IBA_ADDR" ]; then
         fi
 fi
 
+shift
+
 if [ -z "$DID" ]; then
-        if [ -n "$2" ]; then
-                DID=$2
+        if [ -n "$1" ]; then
+                DID=$1
         else
                 DID=1
                 LOC_PRINT_HEP=1
         fi
 fi
 
+shift
+
 if [ -z "$TRANS" ]; then
-        if [ -n "$3" ]; then
-                TRANS=$3
+        if [ -n "$1" ]; then
+                TRANS=$1
         else
                 TRANS=0
                 LOC_PRINT_HEP=1
         fi
 fi
 
+shift
+
 if [ -z "$WAIT_TIME" ]; then
-        if [ -n "$4" ]; then
-                WAIT_TIME=$4
+        if [ -n "$1" ]; then
+                WAIT_TIME=$1
         else
                 WAIT_TIME=60
                 LOC_PRINT_HEP=1
         fi
 fi
 
+shift
+
 if [ -z "$BUFC" ]; then
-        if [ -n "$5" ]; then
-                BUFC=$5
+        if [ -n "$1" ]; then
+                BUFC=$1
         else
                 BUFC=100
                 LOC_PRINT_HEP=1
         fi
 fi
 
+shift
+
 if [ -z "$STS" ]; then
-        if [ -n "$6" ]; then
-                STS=$6
+        if [ -n "$1" ]; then
+                STS=$1
         else
                 STS=100
                 LOC_PRINT_HEP=1
         fi
 fi
 
+shift
+
 if [ -z "$CHAN" ]; then
-        if [ -n "$7" ]; then
-                CHAN=$7
+        if [ -n "$1" ]; then
+                CHAN=$1
         else
                 CHAN=7
                 LOC_PRINT_HEP=1
         fi
 fi
 
+shift
+
+if [ -z "$TX_CPU" ]; then
+        if [ -n "$1" ]; then
+                TX_CPU=$1
+        else
+                TX_CPU=2
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+shift
+
+if [ -z "$FIFO_CPU" ]; then
+        if [ -n "$1" ]; then
+                FIFO_CPU=$1
+        else
+                FIFO_CPU=3
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+
+shift
+
+if [ -z "$OVERRIDE" ]; then
+        if [ -z $1 ] || [ $1 == "N" ]; then
+                OVERRIDE='N'
+        else
+                OVERRIDE='Y';
+        fi
+fi
+
 if [ -n "$LOC_PRINT_HEP" ]; then
-        echo $'\nScript accepts 6 parameters:'
+        echo $'\nScript accepts the following parameters:'
         echo $'IBA_ADDR: Hex address of target window on DID'
         echo $'DID     : Device ID that this device sends to'
         echo $'Trans      : DMA transaction type'
         echo $'Wait       : Time in seconds to wait before publish performance'
         echo $'Bufc: Number of TX buffers'
         echo $'Sts: size of TX FIFO'
-	echo $'Chan: HW DMA channel 0..7\n'
+	echo $'Chan: HW DMA channel 0..7'
+	echo $'TX_CPU   : Processor to run the trasnmit/receive loop'
+	echo $'FIFO_CPU : Processor to run the completion FIFO loop'
+	echo $'OVERRIDE : <optional>, default and N allows isolcpus'
+	echo $'           Any other value forces TX_CPU and FIFO_CPU\n'
 fi
 
 echo $'\nDMA_LATENCY IBA_ADDR = ' $IBA_ADDR
@@ -89,6 +138,9 @@ echo 'DMA_LATENCY WAIT_TIME= ' $WAIT_TIME
 echo 'DMA_THRUPUT BUFC     = ' $BUFC
 echo 'DMA_THRUPUT STS      = ' $STS
 echo 'DMA_THRUPUT CHAN     = ' $CHAN
+echo 'DMA_THRUPUT TX_CPU   = '$TX_CPU
+echo 'DMA_THRUPUT FIFO_CPU = '$FIFO_CPU
+echo 'DMA_THRUPUT OVERRIDE = '$OVERRIDE
 
 unset LOC_PRINT_HEP
 
@@ -217,16 +269,19 @@ done
 
 ## update variable values in all created files...
 
-for PRE in $PREFIX nr$PREFIX
- do
-  sed -i -- 's/iba_addr/'$IBA_ADDR'/g' $PRE*.txt
-  sed -i -- 's/did/'$DID'/g' $PRE*.txt
-  sed -i -- 's/trans/'$TRANS'/g' $PRE*.txt
-  sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PRE*.txt
-  sed -i -- 's/bufc/'$BUFC'/g' $PRE*.txt
-  sed -i -- 's/sts/'$STS'/g' $PRE*.txt
-  sed -i -- 's/chan/'$CHAN'/g' $PRE*.txt
- done
+sed -i -- 's/iba_addr/'$IBA_ADDR'/g' $PREFIX*.txt
+sed -i -- 's/did/'$DID'/g' $PREFIX*.txt
+sed -i -- 's/trans/'$TRANS'/g' $PREFIX*.txt
+sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
+sed -i -- 's/bufc/'$BUFC'/g' $PREFIX*.txt
+sed -i -- 's/sts/'$STS'/g' $PREFIX*.txt
+sed -i -- 's/chan/'$CHAN'/g' $PREFIX*.txt
+sed -i -- 's/TX_CPU/'$TX_CPU'/g' $PREFIX*.txt
+sed -i -- 's/FIFO_CPU/'$FIFO_CPU'/g' $PREFIX*.txt
+
+if [ "$OVERRIDE" == "Y" ]; then
+  sed -i -- 's/isolcpu//g' $PREFIX*.txt
+fi
 
 ## now create the "run all scripts" script files, for read lantency files only
 

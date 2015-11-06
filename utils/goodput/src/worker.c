@@ -2327,6 +2327,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 	if(op == 'T' || op == 'R') // Not used for NREAD
 		memset(info->ib_ptr, 0,info->acc_size);
+
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	// TX Loop
@@ -2345,8 +2346,13 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 		case 'N': // TX - NREAD
 			{{
 			bool q_was_full = false;
+			DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
+
                 	start_iter_stats(info);
                 	if(! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+
+			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
+			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
                 	finish_iter_stats(info);
 			}}
 			break;
