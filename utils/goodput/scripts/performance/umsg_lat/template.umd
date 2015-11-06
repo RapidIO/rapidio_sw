@@ -8,6 +8,8 @@ wait 5 D
 wait 6 D
 wait 7 D
 
+set -X
+
 set ma master
 set destid ? did
 

@@ -12,6 +12,8 @@ wait 9 0
 wait 10 0
 wait 11 0
 
+set -X
+
 set chnnel ? chan
 set destid ? did
 

@@ -1390,7 +1390,7 @@ void display_ibwin_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-	"\n W STS CPU RUN ACTION  MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>>\n");
+	"\n W STS CPU RUN ACTION  MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -1399,7 +1399,7 @@ void display_ibwin_status(struct cli_env *env)
 		display_cpu(env, wkr[i].wkr_thr.cpu_req);
 		display_cpu(env, wkr[i].wkr_thr.cpu_run);
 		sprintf(env->output,
-			"%7s %4s %2d %16lx %16lx %16lx\n",
+			"%7s %4s %2d %16lx %16lx %15lx\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
 			wkr[i].ib_valid, wkr[i].ib_handle, wkr[i].ib_rio_addr, 
@@ -2339,7 +2339,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
                 logMsg(env);
                 goto exit;
         };
-	if (acc_sz < 1 || acc_sz > 4096) {
+	if ((acc_sz < 1 || acc_sz > 4096) && txrx) {
                 sprintf(env->output,
                         "Bad acc_sz %d, must be 1..4096\n", acc_sz);
                 logMsg(env);
