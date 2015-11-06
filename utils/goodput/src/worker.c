@@ -2828,7 +2828,7 @@ void* umd_mbox_tun_proc_thr(void *parm)
 {
         if (NULL == parm) pthread_exit(NULL);
 
-	const int BUFSIZE = 2000;
+	const int BUFSIZE = 8192;
 	uint8_t buffer[BUFSIZE];
 
         struct worker* info = (struct worker *)parm;
@@ -2949,12 +2949,14 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 		return;
 	}
 
+	const int MTU = 4092;
+
 	char TapIPv4Addr[17] = {0};
 	const uint16_t my_destid = info->umd_mch->getDestId() + DESTID_TRANSLATE;
 	snprintf(TapIPv4Addr, 16, "169.254.%d.%d", (my_destid >> 8) & 0xFF, my_destid & 0xFF);
 	
 	char ifconfig_cmd[257] = {0};
-	snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s %s netmask 0xffff0000 up", if_name, TapIPv4Addr);
+	snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s %s netmask 0xffff0000 mtu %d up", if_name, TapIPv4Addr, MTU);
 	const int rr = system(ifconfig_cmd);
 	if(rr >> 8) {
 		delete info->umd_mch; info->umd_mch = NULL;
