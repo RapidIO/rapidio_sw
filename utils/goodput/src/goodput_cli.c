@@ -2488,7 +2488,7 @@ int IsolcpuCmd(struct cli_env *env, int argc, char **argv)
 		strncat(clist, " ", 128);
 	}
 
-	INFO("\n\tIsolcpus: %s\n", clist);
+	sprintf(env->output, "\nIsolcpus: %s\n", clist); logMsg(env);
 
 	return 0;
 }
