@@ -900,6 +900,15 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 	int    rc = 0;
 
 	DBG("ENTER\n");
+/*
+	[11:48:20 AM] barry.wood99: At the start, set A,B,!C, poll for A,B,!C or !A,B,!C
+	[11:48:40 AM] barry.wood99: Next, set !A, B, !C and poll for !A, B, !C or !A, !B, C.
+	[11:49:07 AM] barry.wood99: Last, Set !A !B C and poll for !A !B C.
+
+	A => RSKT_BUF_HDR_FLAG_INIT_DONE
+	B => RSKT_BUF_HDR_FLAG_ZEROED
+	C => RSKT_BUF_HDR_FLAG_INIT
+*/
 	/**
 	 * Memory has been zeroed. Initialize the buffer flags, set the
 	 * flags INIT_DONE and ZEROED, then update the remote header.
@@ -934,18 +943,22 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 	/**
 	 * Poll for INIT_DONE, ZEROED, and !INIT in the remote header
 	 */
-	/* COND1: Both INIT_DONE and ZEROED are set but INIT is cleared */
-#define COND1 (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE | RSKT_BUF_HDR_FLAG_ZEROED)) \
-	   && (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE | RSKT_BUF_HDR_FLAG_ZEROED)) \
-	   && ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
-	   && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0)
-	/* COND2 is only ZEROED is set but both INIT and INIT_DONE are cleared */
-#define COND2 (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) \
-	   && (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) \
-	   && ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
-	   && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
-	   && ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
-	   && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0)
+	/* COND1: Both INIT_DONE and ZEROED are set but INIT is cleared (A,B,!C) */
+#define COND1 ( \
+	   (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE | RSKT_BUF_HDR_FLAG_ZEROED)) \
+       &&  (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE | RSKT_BUF_HDR_FLAG_ZEROED)) \
+       &&  ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
+       &&  ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
+              )
+	/* COND2: !INIT_DONE, ZEROED, !INIT  (!A, B, !C) */
+#define COND2  ( \
+	 ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
+      && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
+      &&  (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) \
+      &&  (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) \
+      && ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
+      && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
+      	       )
 
 	DBG("skt->hdr->rem_rx_wr_flags = 0x%08X, skt->hdr->rem_tx_rd_flags\n",
 			ntohl(skt->hdr->rem_rx_wr_flags), ntohl(skt->hdr->rem_tx_rd_flags));
@@ -958,7 +971,10 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 
 	/**
 	 * Clear local INIT_DONE and update the remote header again.
+	 * !A, B, !C
 	 */
+	/* ZEROED set above (B), INIT cleared above (!C) */
+	/* Just clear A (INIT_DONE) */
 	skt->hdr->loc_rx_rd_flags &= htonl(~RSKT_BUF_HDR_FLAG_INIT_DONE);
 	skt->hdr->loc_tx_wr_flags &= htonl(~RSKT_BUF_HDR_FLAG_INIT_DONE);
 	DBG("Cleared INIT_DONE\n");
@@ -968,23 +984,25 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 		goto exit_setup_skt_ptrs;
 	}
 
-	/**
-	 * Poll for !INIT_DONE, ZEROED, and !INIT in the remote header.
-	 */
-	DBG("Waiting for ZEROED but NOT INIT_DONE and NOT INIT\n");
-	/* COND1: ZEROED is set but NOT INIT and NOT INIT_DONE */
-#define COND1 (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) \
-	   && (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) \
-	   && ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
-	   && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
-	   && ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
-	   && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0)
-#define COND2 (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) \
-	   && (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) \
-	   && ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) == 0) \
-	   && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) == 0) \
-	   && ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
-	   && ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0)
+	/* COND1: !INIT_DONE, ZEROED, and !INIT (!A, B, !C) */
+#define COND1 ( \
+	   ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
+	&& ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
+	&&  (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) \
+	&&  (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) \
+	&& ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
+	&& ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) == 0) \
+	      )
+
+	/* COND2: !INIT_DONE, !ZEROED, and INIT  (!A, !B, C) */
+#define COND2 ( \
+	   ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
+	&& ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
+	&& ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) == 0) \
+	&& ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) == 0) \
+	&&  (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) \
+	&&  (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) \
+	      )
 
 	while (!COND1 && !COND2) {
 		usleep(10);
@@ -993,8 +1011,10 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 #undef COND2
 
 	/**
-	 * Clear ZEROED and set INIT flag then update remote header.
+	 * Clear INIT_DONE, ZEROED and set INIT flag then update remote header.
+	 * (!A, !B, C)
 	 */
+	/* INIT_DONE already cleared above */
 	skt->hdr->loc_rx_rd_flags &= htonl(~RSKT_BUF_HDR_FLAG_ZEROED);
 	skt->hdr->loc_tx_wr_flags &= htonl(~RSKT_BUF_HDR_FLAG_ZEROED);
 	skt->hdr->loc_rx_rd_flags |= htonl(RSKT_BUF_HDR_FLAG_INIT);
@@ -1007,8 +1027,20 @@ int setup_skt_ptrs(struct rskt_socket_t *skt)
 	}
 
 	/**
-	 * Poll for RSKT_BUF_HDR_FLAG_INIT_DONE? FIXME: TODO:
+	 * Poll for !INIT_DONE, !ZEROED, INIT (!A, !B, C)
 	 */
+#define COND1 ( \
+	   ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
+	&& ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT_DONE)) == 0) \
+	&& ((skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) == 0) \
+	&& ((skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_ZEROED)) == 0) \
+	&&  (skt->hdr->rem_rx_wr_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) \
+	&&  (skt->hdr->rem_tx_rd_flags & htonl(RSKT_BUF_HDR_FLAG_INIT)) \
+	      )
+	while (!COND1) {
+		usleep(10);
+	}
+#undef COND1
 
 exit_setup_skt_ptrs:
 	DBG("EXIT\n");
