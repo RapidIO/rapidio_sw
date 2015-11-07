@@ -100,7 +100,6 @@ echo 'SKT_PREFIX :' $SKT_PREFIX
 
 cd performance/dma_thru
 source create_scripts.sh $WAIT_TIME $DID $TRANS $IBA_ADDR $SYNC
-source create_scripts_umd.sh $WAIT_TIME $DID $TRANS $IBA_ADDR $BUFC $STS
 cd ../..
 cd performance/pdma_thru
 source create_scripts.sh $WAIT_TIME $DID $TRANS $IBA_ADDR $SYNC

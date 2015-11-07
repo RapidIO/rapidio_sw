@@ -1,5 +1,4 @@
-log m_rx_log.txt
-
+levelog 2
 kill all
 wait 0 0
 wait 1 0
@@ -37,10 +36,12 @@ echo RUNNING MESSAGE master (1=TX, 0 = RX) ON MBOX CHANNEL mbox
 g
 g c
 g
+os
 sleep wait_time
+
+echo RUNNING MESSAGE master msg_size UNUSED
+g
+od
 
 wait 0 1
 
-st
-
-close 
