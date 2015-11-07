@@ -185,7 +185,7 @@ static inline uint32_t roundup_pow_of_two(const uint32_t n)
 
 /**
  * __fls - find last (most-significant) set bit in a long word
- * @word: the word to search
+ * @param[in] word: the word to search
  * 
  * Undefined if no set bit exists, so code should check against 0 first.
  */
@@ -521,11 +521,12 @@ bool MboxChannel::open_mbox(const uint32_t entries, const uint32_t sts_entries)
  * \note If check_reg is NOT set the the only way to find out if TX was successful is to do an audit of what came out in the TX FIFO.
  * \param[in, out] opt
  * \param[in] data Data to be sent, mas 4K
- * \param len Size of data
- * \param check_reg Check status reg after TX? (SLOW)
- * \param[out] q_was_full Set if the TX queue was full
+ * \param[in] len Size of data
+ * \param[in] check_reg Check status reg after TX? (SLOW)
+ * \param[out] fail_reason Check status reg after TX? (SLOW)
  *
  * @return true if TX operation was enqueued OK, false otherwise
+ * \retval q_was_full Set if the TX queue was full
  */
 bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_t len, const bool check_reg, StopTx_t& fail_reason)
 {
@@ -899,7 +900,7 @@ void* MboxChannel::get_inb_message(MboxOptions_t& opt)
 /**
  * Add buffer to the Tsi721 inbound message queue
  *
- * @buf     Buffer to add to inbound queue
+ * @param[in] buf Buffer to add to inbound queue
  *
  * @return      tx_slot >= 0 if successful  < 0 if unsuccessful
  */

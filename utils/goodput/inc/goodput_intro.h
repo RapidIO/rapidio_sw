@@ -7,7 +7,7 @@
  * user mode driver tested on x86/x64 platforms.
  *
  * \section fast_start_sec Getting Started
- * \subsection compile_sec Compiling Goodput
+ * \subsection compile_sec Compiling Goodput and UGoodput
  * To compile the goodput tool:
  * 1. In the "rapidio_sw" directory, type "make all"
  * 2. In the "rapidio_sw/utils/goodput" directory, type "make all"
@@ -26,26 +26,28 @@
  *    /opt/rapidio/all_start.sh 
  * 
  * \subsection exec_sec Running Goodput
- * There are two versions of goodput: goodput, and ugoodput.  
- *
- * Goodput contains all functionality and commands to verify kernel
+ * Goodput contains all functionality and commands to verify and measure kernel
  * mode applications.  
  *
- * Ugoodput has all the commands and functionality of goodput, and includes 
- * commands and functionality to support the Tsi721 user mode driver.
- *
- * Currently the Tsi721 user mode driver can only be compiled on x86/x64
- * platforms, and is still under development.
- *
- * The goodput and ugoodput tools must be run as root.
+ * The goodput tool must be run as root.
  *
  * To execute goodput, type "sudo ./goodput" while in the
  * "rapidio_sw/utils/goodput" directory.
  *
+ * \subsection exec_ugoodput_sec Running UGoodput
+ * Ugoodput has all the commands and functionality of goodput, and includes 
+ * commands and functionality to support the Tsi721 demonstration
+ * user mode driver.
+ *
+ * Currently the Tsi721 user mode driver can only be compiled on x86/x64
+ * platforms, and is still under development.
+ *
+ * UGoodput must be run as root.
+ *
  * To execute ugoodput, type "sudo ./ugoodput" while in the
  * "rapidio_sw/utils/goodput" directory.
  *
- * \subsection script_sec Getting Started with Performance Measurement Scripts
+ * \subsection script_ugoodput_sec Getting Started with Performance Measurement Scripts
  * The goodput command line interpreter (CLI) supports a rich set of
  * performance evaluation
  * capabilities.  To simplify and automate performance evaluation, 
@@ -280,6 +282,9 @@
  *             seconds.  Link Occupancy includes RapidIO packet header data.
  *
  * \subsection script_gen_instr_secn Goodput Script Generation Getting Started
+ *
+ * For ugoodput script genertion information, refer to 
+ * seciton script_ugoodput_gen_instr_secn
  *
  * This description assumes that a node named IND02 is the target node,
  * and IND01 is the source node for the performance scripts.
@@ -776,4 +781,231 @@
  * using thread 7 to the node with the mRxLat thread as follows:
  *
  * msgTx 7 5 1234 2048
+ *
+ * \section script_ugoodput_gen_instr_sec UGoodput
+ *
+ * The ugoodput tool contains commands for measuring throughput and latency
+ * for DMA and messaging.  Just as with goodput, the correct command must
+ * be executed on the source and target node for measurements to be successful.
+ * These commands are described in 
+ * \ref script_ugoodput_gen_execn_sec.
+ *
+ * Many examples of the individual command usage
+ * can be found in the generated scripts, described next.
+ *
+ * Scripts to measure "power of two" access sizes can be generated
+ * automatically, along with "top level" scripts to perform groups of
+ * individual scripts, by using bash scripts found in the scripts directory
+ * and subdirectories.  For more information on ugoodput script generation,
+ * refer to \ref  script_ugoodput_gen_instr_sec.
+ *
+ * The correct "top level" script must be executed on
+ * the source and target for measurements to be successful.  For instructions
+ * on script execution, refer to \ref script_ugoodput_gen_execn_sec.
+ *
+ * \subsection script_ugoodput_gen_instr_sec UGoodput Script Generation Getting Started
+ *
+ * The bash script create_umd_scripts.sh is used to generate individual scripts
+ * for the UGoodput demonstration user mode driver, and to generate 
+ * 'top level' scripts to execute groups of the individual scripts.
+ *
+ * The create_umd_scripts.sh requires the parameter values that are displayed
+ * by the ugoodput_info script.  To run the ugoodput info script, perform the
+ * following steps:
+ *
+ * -# start the ugoodput tool, as described in \ref exec_ugoodput_sec.
+ * =# At the ugoodput CLI prompt, type: . ugoodput_info  This should result
+ *    in output of the form shown below:
+ *
+ * <pre>
+ *  W STS CPU RUN ACTION  MODE IB (((( HANDLE )))) ((((RIO ADDR)))) ((((  SIZE  )))
+ *  0 Hlt Any Any   IBWIN KRNL  1        22f000000       (AAAAAAAAA)        400000
+ * 1 --- Any Any  NO_ACT KRNL  0                0                0               0
+ * 2 --- Any Any  NO_ACT KRNL  0                0                0               0
+ * 3 --- Any Any  NO_ACT KRNL  0                0                0               0
+ * 4 --- Any Any  NO_ACT KRNL  0                0                0               0
+ * 5 --- Any Any  NO_ACT KRNL  0                0                0               0
+ * 6 --- Any Any  NO_ACT KRNL  0                0                0               0
+ * 7 --- Any Any  NO_ACT KRNL  0                0                0               0
+ * 8 --- Any Any  NO_ACT KRNL  0                0                0               0
+ * 9 --- Any Any  NO_ACT KRNL  0                0                0               0
+ *10 --- Any Any  NO_ACT KRNL  0                0                0               0
+ *11 --- Any Any  NO_ACT KRNL  0                0                0               0
+ *Available 1 local mport(s):
+ *+++ mport_id: 0 dest_id: (DID)
+ *RIODP: riomp_mgmt_get_ep_list() has 3 entries
+ *         3 Endpoints (dest_ID): 0 2 3
+ * </pre>
+ *
+ * The (AAAAAAAAA) and (DID) 
+ * The bash script scripts/create_umd_scripts.sh requires the parameters shown
+ * in the sample "help" output below.  Create_umd_scripts.sh must be run 
+ * on both the source and the target nodes.  Parameter values entered must
+ * come from the ugoodput_info script, as shown above. A more detailed 
+ * explanation of each parameter follows the description.
+ *
+ * <pre>
+ * IBA_ADDR : Hex address of target window on DID
+ * DID      : Device ID of target device for performance scripts
+ * Wr_TRANS : UDMA Write transaction type
+ *            1 LAST_NWR, 2 NW, 3 NW_R
+ * Wait     : Time in seconds to wait before taking perf measurement
+ * Bufc     : Number of TX buffers
+ * Sts      : size of TX FIFO
+ * CHANNEL  : Tsi721 DMA channel, 2 through 7
+ * MBOX     : Tsi721 MBOX channel, 2 through 3
+ * TX_CPU   : Processor to run the trasnmit/receive loop
+ * FIFO_CPU : Processor to run the completion FIFO loop
+ * OVERRIDE : (optional), default and N allows isolcpus
+ *            Any other value forces TX_CPU and FIFO_CPU
+ * </pre>
+ *
+ * - IBA_ADDR : The (AAAAAAAAA) address value displayed by ugoodput_info on
+ *              the other node.
+ *              - If create_umd_scripts.sh is executed on the source, IBA_ADDR
+ *                must come from the target.
+ *              - If create_umd_scripts.sh is executed on the target, IBA_ADDR
+ *                must come from the source
+ * - DID      : The (DID) device ID value displayed by ugoodput_info on
+ *              the other node.
+ *              - If create_umd_scripts.sh is executed on the source, DID
+ *                must come from the target.
+ *              - If create_umd_scripts.sh is executed on the target, DID
+ *                must come from the source
+ * - Wr_TRANS : The  Write transaction type used for DMA write throughput
+ *              and latency measurements.
+ *              - 1 LAST_NWR : All packets, except the last packets, are
+ *                             NWRITEs or SWRITEs.  The last packet is an
+ *                             NWRITE_R, which requires a respose.
+ *              - 2 NW       : Packets for addresses that are not a multiple
+ *                             of 8 bytes use NWRITE transactions.  Packets
+ *                             for addresses that are a multiple of 8 bytes
+ *                             use SWRITE packets.
+ *              - 3 NW_R     : All packets use the NWRITE_R format, which   
+ *                             requires responses.
+ *              Note: All packets have a maximum payload of 256 bytes
+ *              Note: SWRITE packets are the most bandwidth efficient format
+ * - Wait     : The amount of time to wait in the script before displaying
+ *              the measurement.  The larger the wait, the more accurate the
+ *              measurement.  Typically, measurements are maximally accurate
+ *              after 60 seconds.
+ * - Bufx     : The number of buffers and descriptors available for 
+ *              transmission. The lower
+ *              the number of buffers/descriptors,
+ *              the more goodput is affected by the
+ *              Linux scheduler.
+ * - Sts      : The number of items available to track descriptor/buffer 
+ *   	        completions.  Typically the same value as Bufx or larger.
+ * - CHANNEL  : The DMA channel to use.
+ * - MBOX     : The Mail box channel to use.
+ *              NOTE: The MBOX value must be the same for the source and the
+ *              target.
+ * - TX_CPU   : The CPU core used to transmit buffers and descriptors.
+ *              Note: See OVERRIDE parameter below.
+ * - FIFO_CPU : The CPU core used to process completions.
+ *              Note: See OVERRIDE parameter below.
+ * - OVERRIDE : Use the TX_CPU and FIFO_CPU instead of any isolcpu's configured
+ *              Isolcpu is a Linux boot command line parameter which reserves
+ *              processor cores for specific tasks.  UGoodput DMA and messaging
+ *              attempt to use isolcpu's whenever possible to improve
+ *              measurement accuracy.
+ *
+ * \subsection script_ugoodput_gen_execn_sec Goodput UMD Script Execution
+ *
+ * The create_umd_scripts.sh bash script creates scripts in the following
+ * directories, all found in scripts/performance:
+ * 
+ * - udma_thru : DMA goodput measurment scripts for demo user mode driver 
+ * - udma_lat  : DMA latency measurment scripts for demo user mode driver 
+ * - umsg_thru : Messaging goodput measurment scripts for demo user mode driver 
+ * - umsg_lat  : Messaging latency measurment scripts for demo user mode driver 
+ *
+ * \subsection script_udma_thru_execn_sec Goodput UMD DMA Throughput Script Execution
+ *
+ * Scripts in the scripts/performance/udma_thru directory have names
+ * with a format of udmaXsz.txt, where:
+ * - X is one of:
+ *   - R : read
+ *   - W : write
+ * - sz is a number, follwed by B for bytes, K for kilobytes, or M for
+ *   megabytes
+ *
+ * For example, the script udmaR128K.txt performs 128 kilobyte read
+ * throughput measurement.
+ *
+ * To execute individual scripts in the udma_thru directory, perform these
+ * steps:
+ * 
+ * - generate the scripts according to \ref script_ugoodput_gen_instr_sec 
+ * - run the goodput_info script on the target node.
+ * - run any script in the scripts/performance/udma_thru directory
+ *
+ * The scripts script/performance/udma_thru_read and udma_thru_write execute
+ * all udma read and all udma write scripts, respectively.  Output is
+ * captured in the udma_thru_read.log and udma_thru_write.log files in the
+ * goodput/logs directory.  A performance summary for each can be generated 
+ * with the logs/summ_thru_logs.sh bash script.
+ *
+ * \subsection script_udma_lat_execn_sec Goodput UMD DMA Latency Script Execution
+ *
+ * Scripts in the scripts/performance/udma_lat directory have names
+ * with a format of udlXsz.txt, where:
+ * - X is one of:
+ *   - R : read
+ *   - W : write
+ *   - T : Transmit data just written back to source
+ * - sz is a number, follwed by B for bytes, K for kilobytes, or M for
+ *   megabytes
+ *
+ * For example, the script udlR128K.txt performs 128 kilobyte read 
+ * latency measuremnt..
+ *
+ * The script script/performance/udma_lat_read executes all udma latency
+ * read performance measurement scripts.
+ *
+ * To execute individual write latency measurement scripts from the
+ * udma_lat directory, perform these * steps:
+ * 
+ * - generate the scripts according to \ref script_ugoodput_gen_instr_sec 
+ * - run the script named udlTsz.txt on the target node.
+ * - run the script named udlWsz.txt on the source node.
+ *
+ * \subsection script_umsg_thru_execn_sec Goodput UMD Messaging Throughput Script Execution
+ *
+ * Scripts in the scripts/performance/msg_thru directory have names
+ * with a format of mTsz.txt, where:
+ * - sz is a number, follwed by B for bytes or K for kilobytes
+ *
+ * For example, the script mT4K.txt measures goodput for 4 kilobyte messages.
+ *
+ * The script script/performance/umsg_thru_tx executes all UMD messaging
+ * throughput measurement scripts.
+ *
+ * To execute individual UMD messaging throughput measurement scripts,
+ * or the script/performance/umsg_thru_tx, perform these steps:
+ * 
+ * - generate the scripts according to \ref script_ugoodput_gen_instr_sec 
+ * - run the script named m_rx.txt on the target node.
+ * - run the mTsz.txt script, or the script/performance/umsg_thru_tx script,
+ *   on the source node.
+ *
+ * \subsection script_umsg_lat_execn_sec Goodput UMD Messaging Latency Script Execution
+ *
+ * Scripts in the scripts/performance/msg_lat directory have names
+ * with a format of mTsz.txt, where:
+ * - sz is a number, follwed by B for bytes or K for kilobytes
+ *
+ * For example, the script mT4K.txt measures goodput for 4 kilobyte messages.
+ *
+ * The script script/performance/umsg_lat_rx executes all UMD messaging
+ * latency measurement scripts.
+ *
+ * To execute individual UMD messaging latency measurement scripts,
+ * or the script/performance/umsg_lat_rx, perform these steps:
+ * 
+ * - generate the scripts according to \ref script_ugoodput_gen_instr_sec 
+ * - run the script named m_rx.txt on the target node.
+ * - run the mTsz.txt script, or the script/performance/umsg_lat_rx script,
+ *   on the source node.
+ *
  */

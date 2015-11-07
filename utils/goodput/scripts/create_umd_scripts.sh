@@ -70,7 +70,7 @@ if [ $LOC_PRINT_HEP != "0" ]; then
 	echo $'\nScript requires the following parameters:'
         echo $'IBA_ADDR : Hex address of target window on DID'
         echo $'DID      : Device ID of target device for performance scripts'
-        echo $'Wr TRANS : UDMA Write transaction type'
+        echo $'Wr_TRANS : UDMA Write transaction type'
         echo $'           1 LAST_NWR, 2 NW, 3 NW_R'
         echo $'Wait     : Time in seconds to wait before taking perf measurement'
         echo $'Bufc     : Number of TX buffers'
@@ -101,7 +101,7 @@ INTERP_WR_TRANS=(LAST_NW NW NW_R);
 echo $'\nGENERATING USER MODE DRIVER PERFORMANCE SCRIPTS WITH\n'
 echo $'IBA_ADDR = '$IBA_ADDR
 echo $'DID      = '$DID
-echo $'Wr TRANS = '$TRANS ${INTERP_WR_TRANS[TRANS]}
+echo $'Wr_TRANS = '$TRANS ${INTERP_WR_TRANS[TRANS]}
 echo $'WAIT_TIME= '$WAIT_TIME
 echo $'BUFC     = '$BUFC
 echo $'STS      = '$STS
