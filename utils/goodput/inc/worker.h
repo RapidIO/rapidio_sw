@@ -124,6 +124,7 @@ enum req_type {
 	umd_dmalnr,
 	umd_mbox,
 	umd_mboxl,
+	umd_mbox_tap,
 #endif
 	last_action
 };
@@ -230,6 +231,11 @@ struct worker {
 	sem_t		umd_fifo_proc_started;
 	volatile int	umd_fifo_proc_alive;
 	volatile int	umd_fifo_proc_must_die;
+	int		umd_tap_fd;
+	int		umd_sockp[2];
+	struct thread_cpu umd_mbox_tap_thr;
+	sem_t		umd_mbox_tap_proc_started;
+	volatile int	umd_mbox_tap_proc_alive;
 	uint32_t	umd_dma_abort_reason;
 	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
