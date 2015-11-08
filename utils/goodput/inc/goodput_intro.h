@@ -47,7 +47,7 @@
  * To execute ugoodput, type "sudo ./ugoodput" while in the
  * "rapidio_sw/utils/goodput" directory.
  *
- * \subsection script_ugoodput_sec Getting Started with Performance Measurement Scripts
+ * \subsection script_goodput_sec Getting Started with Goodput Performance Measurement Scripts
  * The goodput command line interpreter (CLI) supports a rich set of
  * performance evaluation
  * capabilities.  To simplify and automate performance evaluation, 
@@ -62,6 +62,19 @@
  *
  * For more detailed information on script generation implementation,
  * refer to \ref script_gen_detail_secn.
+ *
+ * \subsection script_ugoodput_sec Getting Started with UGoodput Performance Measurement Scripts
+ * The ugoodput command line interpreter (CLI) supports a rich set of
+ * performance evaluation
+ * capabilities.  To simplify and automate performance evaluation, 
+ * it is possible to generate scripts which can then be executed by 
+ * the ugoodput CLI.
+ *
+ * Refer to \ref script_ugoodput_overview_sec for more information on 
+ * how to get started measuring performance with the prototype user mode driver.
+ *
+ * Instructions for script execution are found in
+ * \ref script_ugoodput_gen_execn_sec.
  *
  * \section cli_secn Command Line Interpreter Overview
  *
@@ -79,10 +92,25 @@
  * Many commands have different levels of debug output.  The "debug" command
  * displays and optionally alters the debug output level.
  *
+ * \subsubsection echo_secn Echo Command
+ *
+ * Displays a copy of the text following the command.  Useful for annotating
+ * log files and scripts.
+ *
  * \subsubsection log_secn Log Command
  *
  * The "log" command is used to capture the input and output of a
  * goodput CLI session.
+ *
+ * \subsubsection close_secn Close Log Command
+ *
+ * The "close" command is used to close the log file openned with the "log"
+ * command.
+ *
+ * \subsubsection quit_secn Quit Command
+ *
+ * The quit command exits cleanly, freeing up all RapidIO resources
+ * that may be in use by goodput and ugoodput at the time.
  *
  * \subsubsection script_secn Script Command
  *
@@ -94,6 +122,7 @@
  * scrpath_secn for selecting a directory of script files.  The goodput
  * command comes with many script files in the
  * "rapidio_sw/utils/goodput/scripts"  directory and subdirectories.
+ *
  * NOTE: the '.' command is identical to the script command
  *
  * \subsubsection scrpath_secn Scrpath Command
@@ -102,15 +131,11 @@
  * names.  Script files which do not begin with "/" or "\" have the prefix
  * prepended before the file is openned.
  *
- * \subsubsection echo_secn Echo Command
+ * \subsubsection set_cmd_secn Set Command
  *
- * Displays a copy of the text following the command.  Useful for annotating
- * log files and scripts.
- *
- * \subsubsection quit_secn Quit Command
- *
- * The quit command exits goodput cleanly, freeing up all libmport resources
- * that may be in use by goodput at the time.
+ * The Set command lists, sets, or clears environment variables.
+ * Environment variables can be used as the parameters to commands.
+ * Environment variables are named "$var_name".
  *
  * \section threads_secn Goodput Thread Management Overview
  * The goodput CLI is used to manage 12 worker threads.
@@ -150,19 +175,21 @@
  * cpu to another using the move command.  A moved thread retains all
  * allocated resources.
  *
+ * \subsection stat_secn Status Command
+ * The status command gives the current state of all threads.  Status has 
+ * three variants, listed below.  General status is the default.
+ *
+ * - st i : Inbound window status.  Displays information about 
+ *          Direct I/O inbound window resources owned by the thread, 
+ * - st m : Messaging status.  Displays information about messaging 
+ *          resources owned by the thread. 
+ * - st   : General status.  Displays information about the command that 
+ *          a thread is running/has run.
+ *
  * \subsection wait_secn Wait Command
  * Wait until a thread has reached a particular state (dead, running, halted).
  * Useful in scripts to ensure a command has started running successfully, and
  * that threads have halted/died before issuing another command.
- *
- * \subsection stat_secn Status Command
- * The status command gives the current state of all threads.  Status has 
- * three variants: Inbound window status, messaging status, and general status.
- * General status is the fault.  Inbound window status gives information about 
- * Direct I/O inbound window resources owned by the thread, 
- * and allocated using the IBAlloc command.  Messaging status gives
- * information about messaging resources owned by the thread. General status
- * gives information about the command that a thread is running/has run.
  *
  * \section measurement_secn Goodput Measurements Overview
  * Goodput measures goodput, RapidIO link occupancy and latency for 
@@ -284,7 +311,7 @@
  * \subsection script_gen_instr_secn Goodput Script Generation Getting Started
  *
  * For ugoodput script genertion information, refer to 
- * seciton script_ugoodput_gen_instr_secn
+ * section script_ugoodput_gen_instr_secn.
  *
  * This description assumes that a node named IND02 is the target node,
  * and IND01 is the source node for the performance scripts.
@@ -782,16 +809,13 @@
  *
  * msgTx 7 5 1234 2048
  *
- * \section script_ugoodput_gen_instr_sec UGoodput
+ * \section script_ugoodput_overview_sec UGoodput Overview
  *
  * The ugoodput tool contains commands for measuring throughput and latency
  * for DMA and messaging.  Just as with goodput, the correct command must
  * be executed on the source and target node for measurements to be successful.
  * These commands are described in 
- * \ref script_ugoodput_gen_execn_sec.
- *
- * Many examples of the individual command usage
- * can be found in the generated scripts, described next.
+ * \ref script_ugoodput_cmd_execn_sec.
  *
  * Scripts to measure "power of two" access sizes can be generated
  * automatically, along with "top level" scripts to perform groups of
@@ -803,7 +827,7 @@
  * the source and target for measurements to be successful.  For instructions
  * on script execution, refer to \ref script_ugoodput_gen_execn_sec.
  *
- * \subsection script_ugoodput_gen_instr_sec UGoodput Script Generation Getting Started
+ * \section script_ugoodput_gen_instr_sec UGoodput Script Generation
  *
  * The bash script create_umd_scripts.sh is used to generate individual scripts
  * for the UGoodput demonstration user mode driver, and to generate 
@@ -910,7 +934,7 @@
  *              attempt to use isolcpu's whenever possible to improve
  *              measurement accuracy.
  *
- * \subsection script_ugoodput_gen_execn_sec Goodput UMD Script Execution
+ * \section script_ugoodput_gen_execn_sec UGoodput UMD Script Execution
  *
  * The create_umd_scripts.sh bash script creates scripts in the following
  * directories, all found in scripts/performance:
@@ -1007,5 +1031,54 @@
  * - run the script named m_rx.txt on the target node.
  * - run the mTsz.txt script, or the script/performance/umsg_lat_rx script,
  *   on the source node.
+ *
+ * \section script_ugoodput_cmd_execn_sec UGoodput UMD Measurement Commands
+ *
+ * The UGoodput measurement commands are briefly described below.  
+ * Examples of how the commands are used are found in the generated scripts 
+ * referred to above.
+ *
+ * \subsection script_udma_thru_cmd_sec Goodput UMD DMA Throughput Measurement Commands
+ *
+ * The "udma" command is used to generate user mode DMA traffic.  
+ *
+ * Goodput * measurements are displayed with the "goodput" command, as 
+ * described in \ref goodput_cmd_overview_secn.
+ *
+ * \subsection script_udma_lat_cmd_sec Goodput UMD DMA Latency Measurement Commands
+ * User mode DMA latency measurements are taken using the following commands:
+ *
+ * - nrudma - Measure latency for DMA NREAD transactions
+ * - ntudma - Write to target for latency measurement
+ * - nrudma - Write data back to source for latency measurement
+ *
+ * NREAD latency is measured using the nrudma command.
+ *
+ * Latency for the various write commands is measured by:
+ * - Executing the nrudma command on the target node, then
+ * - Executing the ntudma command on the source node.
+ *
+ * Latency measurements are displayed by the "lat" command, as described
+ * in \ref latency_cmd_overview_secn.
+ *
+ * \subsection script_umsg_thru_cmd_sec Goodput UMD Messaging Throughput Measurement Commands
+ *
+ * User mode messaging traffic is generated using the "umsg" command.
+ *
+ * Goodput * measurements are displayed with the "goodput" command, as 
+ * described in \ref goodput_cmd_overview_secn.
+ *
+ * \subsection script_umsg_lat_cmd_sec Goodput UMD Messaging Latency Measurement Commands
+ *
+ * User mode messaging traffic latency measurements are generated using
+ * the "lumsg" command:
+ *
+ * - First, execute lumsg on the "slave" node, with the last parameter set to
+ *   indicate "slave" operation.
+ * - Second, execute lumsg on the "master" node, with the last parameter set to
+ *   indicate "master" operation.
+ *
+ * Latency measurements are displayed by the "lat" command, as described
+ * in \ref latency_cmd_overview_secn.
  *
  */
