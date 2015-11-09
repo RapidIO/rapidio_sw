@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
@@ -21,13 +22,88 @@
 
 #define RSKT_DEFAULT_MAX_BACKLOG	  50
 
-static uint8_t send_buf[RSKT_DEFAULT_SEND_BUF_SIZE];
-static uint8_t recv_buf[RSKT_DEFAULT_RECV_BUF_SIZE];
+struct slave_thread_params {
+	pthread_t slave_thread;
+	rskt_h	accept_socket;
+};
+
+void *slave_thread_f(void *arg)
+{
+	struct slave_thread_params	*slave_params;
+	pthread_t slave_thread;
+	rskt_h accept_socket;
+	uint32_t data_size;
+	void *send_buf;
+	void *recv_buf;
+	int rc;
+
+	/* Extract parameters and free the params struct */
+	if (arg == NULL) {
+		fprintf(stderr, "NULL accept_socket. Exiting\n");
+		goto slave_thread_f_exit;
+	}
+	slave_params = (struct slave_thread_params *)arg;
+	accept_socket = slave_params->accept_socket;
+	slave_thread  = slave_params->slave_thread;
+	free(slave_params);
+
+	/* Allocate send and receive buffers */
+	send_buf = malloc(RSKT_DEFAULT_SEND_BUF_SIZE);
+	if (send_buf == NULL) {
+		fprintf(stderr, "Failed to alloc send_buf: %s\n",
+							strerror(errno));
+		goto slave_thread_f_exit;
+	}
+	recv_buf = malloc(RSKT_DEFAULT_RECV_BUF_SIZE);
+	if (recv_buf == NULL) {
+		fprintf(stderr, "Failed to alloc recv_buf: %s\n",
+							strerror(errno));
+		goto slave_thread_f_exit;
+	}
+	do  {
+		rc = rskt_read(accept_socket,
+			       recv_buf,
+			       RSKT_DEFAULT_RECV_BUF_SIZE);
+		if (rc < 0) {
+			fprintf(stderr, "Receive failed, rc=%d: %s\n",
+						rc, strerror(errno));
+			/* Client closed the connection. Die! */
+			break;
+		} else
+			printf("Received %d bytes\n", rc);
+
+		data_size = rc;
+
+		memcpy(send_buf, recv_buf, data_size);
+
+		rc = rskt_write(accept_socket, send_buf, data_size);
+		if (rc) {
+			fprintf(stderr, "Failed to send data, rc = %d: %s\n",
+						rc, strerror(rc));
+			break;
+		}
+	} while(1); /* read/write loop */
+
+slave_thread_f_exit:
+	printf("Exiting %s, socket=0x%X\n", __func__, accept_socket);
+
+	/* Free send/receive buffers */
+	if (send_buf != NULL)
+		free(send_buf);
+	if (recv_buf == NULL)
+		free(recv_buf);
+
+	/* Close and destroy the accept socket */
+	rskt_close(accept_socket);
+	rskt_destroy_socket(&accept_socket);
+	pthread_exit(0);
+} /* slave_thread_f() */
+
 
 int main(int argc, char *argv[])
 {
 	rskt_h	listen_socket;
-	rskt_h	accept_socket;	
+	rskt_h	accept_socket;
 
 	struct rskt_sockaddr sock_addr;
 
@@ -67,6 +143,9 @@ int main(int argc, char *argv[])
 	}
 
 	while (1) {
+		struct slave_thread_params *slave_params;
+
+		/* Create a new accept socket for the next connection */
 		accept_socket = rskt_create_socket();
 		if (!accept_socket) {
 			fprintf(stderr, "Failed to create accept socket, rc = %d: %s\n",
@@ -74,6 +153,7 @@ int main(int argc, char *argv[])
 			goto free_listen_socket;
 		}		
 
+		/* Await connect requests from RSKT clients */
 		rc = rskt_accept(listen_socket, accept_socket, &sock_addr);
 		if (rc) {
 			fprintf(stderr, "Failed in rskt_accept, rc = %d: %s\n",
@@ -81,36 +161,23 @@ int main(int argc, char *argv[])
 			goto destroy_accept_socket;
 		}
 
-		do  {
-			usleep(100*1000);
-			rc = rskt_read(accept_socket,
-				       recv_buf,
-				       RSKT_DEFAULT_RECV_BUF_SIZE);
-			if (rc < 0) {
-				fprintf(stderr, "Receive failed, rc=%d: %s\n",
-							rc, strerror(errno));
-				/* Client closed the connection. Back to accepting */
-				break;
-			} else
-				printf("Received %d bytes\n", rc);
-
-			data_size = rc;
-
-			memcpy(send_buf, recv_buf, data_size);
-
-			rc = rskt_write(accept_socket, send_buf, data_size);
-			if (rc) {
-				fprintf(stderr, "Failed to send data, rc = %d: %s\n",
-							rc, strerror(rc));
-				break;
-			}
-		} while(1); /* read/write loop */
-
-		/* FIXME: No calls to rskt_close()/rskt_destroy() at this point. */
+		/* Create a thread for handling transmit/receive on new socket */
+		slave_params = (struct slave_thread_params *)
+				malloc(sizeof(struct slave_thread_params));
+		slave_params->accept_socket = accept_socket;
+		rc = pthread_create(&slave_params->slave_thread,
+				    NULL,
+				    slave_thread_f,
+				    slave_params);
+		if (rc) {
+			fprintf(stderr, "slave_thread failed, rc %d\n : %s",
+						errno, strerror(errno));
+			/* We failed. But don't exit so we can maintain the other
+			 * successful connections we may already have.
+			 */
+			continue;
+		}
 	} /* while */
-
-close_accept_socket:
-	rskt_close(accept_socket);
 
 destroy_accept_socket:
 	rskt_destroy_socket(&accept_socket);
