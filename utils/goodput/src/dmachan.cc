@@ -721,6 +721,9 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
 		item.opt.ts_end = compl_hwbuf[ci].ts_end;
 
+		// FIXME: This clause removed to avoid segfaults,
+		// bd descriptor address is incorrect.
+		/*
 		if(item.opt.dtype == DTYPE2 && item.opt.rtype == NREAD) {
 			struct hw_dma_desc* bd;
 			bd = (struct hw_dma_desc*)(m_dmadesc.win_ptr) 
@@ -729,6 +732,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 			memcpy(item.t2_rddata, bd->data, 16);
 			item.t2_rddata_len = le32(bd->bcount & 0xf);
 		}
+		*/
 
 		completed_work[cwi++] = item;
 		if(cwi == max_work)

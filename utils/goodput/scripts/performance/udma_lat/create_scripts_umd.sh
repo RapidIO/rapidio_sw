@@ -305,20 +305,10 @@ do
 			set_t_filename_w ${SIZE_NAME[idx]}
 		fi
 
+		echo "kill all"          >> $scriptname
+		echo "sleep "$WAIT_TIME  >> $scriptname
 		echo ". "$t_filename >> $scriptname
 		idx=($idx)+1
-	done
-	let idx=0
-	while [ "$idx" -lt "$max_name_idx" ]
-	do
-		if [$direction=="read"]; then
-			set_t_filename_r ${SIZE_NAME[idx]}
-		else
-			set_t_filename_w ${SIZE_NAME[idx]}
-		fi
-
-		echo ". nr"$t_filename >> $scriptname
-		let idx=idx+1
 	done
 	echo "close" >> $scriptname
 	echo "scrp scripts/performance/" >> $scriptname

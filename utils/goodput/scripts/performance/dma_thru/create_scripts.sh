@@ -204,6 +204,8 @@ do
 			set_t_filename_w ${SIZE_NAME[idx]}
 		fi
 		
+		echo "kill all"          >> $scriptname
+		echo "sleep "$WAIT_TIME  >> $scriptname
 		echo ". "$t_filename >> $scriptname
 		idx=($idx)+1
 	done

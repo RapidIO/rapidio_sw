@@ -9,8 +9,6 @@ scrp scripts/performance/
 // UNKNOWN
 . dma_thru_write
 // UNKNOWN
-. dma_lat_read
-// UNKNOWN
 . pdma_thru_pdd_write
 // UNKNOWN
 . pdma_thru_pd1_write
