@@ -177,6 +177,7 @@ int main(int argc, char *argv[])
 			 */
 			continue;
 		}
+
 	} /* while */
 
 destroy_accept_socket:
