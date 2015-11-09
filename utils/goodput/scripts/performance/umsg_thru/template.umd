@@ -1,5 +1,4 @@
-log m_rx_log.txt
-
+levelog 2
 kill all
 wait 0 0
 wait 1 0
@@ -21,8 +20,8 @@ set destid ? did
 set letter ? 0
 
 isolcpu
-set cpu1 ? -1
-set cpu2 ? -1
+set cpu1 ? TX_CPU
+set cpu2 ? FIFO_CPU
 
 t 0 $cpu1 0
 wait 0 H
@@ -37,10 +36,12 @@ echo RUNNING MESSAGE master (1=TX, 0 = RX) ON MBOX CHANNEL mbox
 g
 g c
 g
+os
 sleep wait_time
+
+echo RUNNING MESSAGE master msg_size UNUSED
+g
+od
 
 wait 0 1
 
-st
-
-close 

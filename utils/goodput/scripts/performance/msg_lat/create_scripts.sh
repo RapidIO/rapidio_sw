@@ -111,7 +111,7 @@ do
 
 	set_t_filename_w ${SIZE_NAME[idx]}
 	filename=$t_filename
-	cp template.umd $filename
+	cp tx_template $filename
 	sed -i -- 's/msg_size/'${SIZE[idx]}'/g' $filename
 	idx=($idx)+1
 done
@@ -141,6 +141,8 @@ do
 	do
 		set_t_filename_w ${SIZE_NAME[idx]}
 
+		echo "kill all"          >> $scriptname
+		echo "sleep "$WAIT_TIME  >> $scriptname
 		echo ". "$t_filename >> $scriptname
 		idx=($idx)+1
 	done

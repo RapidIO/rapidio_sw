@@ -65,18 +65,51 @@ if [ -z "$STS" ]; then
         fi
 fi
 
+if [ -z "$TX_CPU" ]; then
+        if [ -n "$6" ]; then
+                TX_CPU=$6
+        else
+                TX_CPU=2
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$FIFO_CPU" ]; then
+        if [ -n "$7" ]; then
+                FIFO_CPU=$7
+        else
+                FIFO_CPU=3
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+if [ -z "$OVERRIDE" ]; then
+        if [ -z $8 ] || [ $8 == "N" ]; then
+                OVERRIDE='N'
+        else
+                OVERRIDE='Y';
+        fi
+fi
+
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript accepts the following parameters:'
-        echo $'DID : Device ID of target device for performance scripts'
-        echo $'MBOX: Channel 2 or 3'
-        echo $'Wait: Time in seconds to wait before taking perf measurement\n'
-        echo $'Bufc: Number of TX buffers'
-        echo $'Sts: size of TX FIFO\n'
+        echo $'DID      : Device ID of target device for performance scripts'
+        echo $'MBOX     : Channel 2 or 3'
+        echo $'Wait     : Time in seconds to wait before taking perf measurement\n'
+        echo $'Bufc     : Number of TX buffers'
+        echo $'Sts      : size of TX FIFO\n'
+        echo $'TX_CPU   : Processor to run the trasnmit/receive loop'
+        echo $'FIFO_CPU : Processor to run the completion FIFO loop'
+        echo $'OVERRIDE : <optional>, default and N allows isolcpus'
+        echo $'           Any other value forces TX_CPU and FIFO_CPU\n'
 fi
 
 echo 'MSG_THRUPUT DID        = ' $DID
 echo 'MSG_THRUPUT MBOX       = ' $MBOX
 echo 'MSG_THRUPUT WAIT_TIME  = ' $WAIT_TIME
+echo 'MSG_THRUPUT TX_CPU     = ' $TX_CPU
+echo 'MSG_THRUPUT FIFO_CPU   = ' $FIFO_CPU
+echo 'MSG_THRUPUT OVERRIDE   = ' $OVERRIDE
 
 unset LOC_PRINT_HEP
 
@@ -145,6 +178,12 @@ sed -i -- 's/mbox/'$MBOX'/g' $PREFIX*.txt
 sed -i -- 's/bufc/'$BUFC'/g' $PREFIX*.txt
 sed -i -- 's/sts/'$STS'/g' $PREFIX*.txt
 sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
+sed -i -- 's/TX_CPU/'$TX_CPU'/g' $PREFIX*.txt
+sed -i -- 's/FIFO_CPU/'$FIFO_CPU'/g' $PREFIX*.txt
+
+if [ "$OVERRIDE" == "Y" ]; then
+  sed -i -- 's/isolcpu//g' $PREFIX*.txt
+fi
 
 ## now create the "run all scripts" script files...
 
@@ -164,6 +203,8 @@ do
 	do
 		set_t_filename_w ${SIZE_NAME[idx]}
 
+		echo "kill all"          >> $scriptname
+		echo "sleep "$WAIT_TIME  >> $scriptname
 		echo ". "$t_filename >> $scriptname
 		idx=($idx)+1
 	done
