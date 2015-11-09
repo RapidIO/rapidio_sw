@@ -82,7 +82,6 @@ int main(int argc, char *argv[])
 		}
 
 		do  {
-			usleep(100*1000);
 			rc = rskt_read(accept_socket,
 				       recv_buf,
 				       RSKT_DEFAULT_RECV_BUF_SIZE);
