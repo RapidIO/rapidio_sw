@@ -93,9 +93,7 @@ slave_thread_f_exit:
 	if (recv_buf == NULL)
 		free(recv_buf);
 
-	/* Close and destroy the accept socket */
-	rskt_close(accept_socket);
-	rskt_destroy_socket(&accept_socket);
+	/* FIXME: Close and destroy the accept socket */
 	pthread_exit(0);
 } /* slave_thread_f() */
 
