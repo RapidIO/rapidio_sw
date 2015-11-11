@@ -76,9 +76,6 @@ static unsigned init = 0;	/* Global flag indicating library initialized */
 
 /* Unix socket client */
 static unix_client *client;
-static unix_msg_t  *in_msg;
-static unix_msg_t  *out_msg;
-static size_t	    received_len;
 static fmdd_h 	    dd_h;
 static uint32_t	    fm_alive;
 static sem_t	    rdma_lock;
@@ -110,9 +107,10 @@ static uint32_t round_up_to_4k(uint32_t length)
 	return (r == 0) ? FOUR_K*q : FOUR_K*(q + 1);
 } /* round_up_to_4k() */
 
-static int alt_rpc_call()
+static int alt_rpc_call(unix_msg_t *in_msg, unix_msg_t **out_msg)
 {
 	int ret;
+	size_t received_len;
 
 	/* Send input parameters */
 	ret = client->send(sizeof(*in_msg));
@@ -121,6 +119,12 @@ static int alt_rpc_call()
 		ret = client->receive(&received_len);
 		if (ret) {
 			ERR("Failed to receive output from RDMA daemon");
+		} else {
+			/* For API calls that don't require any return (output)
+			 * parameters, they just pass NULL for out_msg.
+			 */
+			if (out_msg != NULL)
+				client->get_recv_buffer((void **)out_msg);
 		}
 	} else {
 		ERR("Failed to send message to RDMA daemon, ret = %d\n", ret);
@@ -141,24 +145,29 @@ static int alt_rpc_call()
 int rdmad_kill_daemon()
 {
 	struct rdmad_kill_daemon_input	in;
+	unix_msg_t  *in_msg;
 
+	client->get_send_buffer((void **)&in_msg);
 	in.dummy = 0x666;
 	in_msg->type = RDMAD_KILL_DAEMON;
 	in_msg->rdmad_kill_daemon_in = in;
 
-	return alt_rpc_call();
+	return alt_rpc_call(in_msg, NULL);
 }
 
 static bool rdmad_is_alive()
 {
 	rdmad_is_alive_input	in;
+	unix_msg_t  *in_msg;
+
+	client->get_send_buffer((void **)&in_msg);
 
 	in.dummy = 0x1234;
 
 	in_msg->type = RDMAD_IS_ALIVE;
 	in_msg->rdmad_is_alive_in = in;
 
-	return alt_rpc_call() != RDMA_DAEMON_UNREACHABLE;
+	return alt_rpc_call(in_msg, NULL) != RDMA_DAEMON_UNREACHABLE;
 } /* rdmad_is_alive() */
 
 static int open_mport(struct peer_info *peer)
@@ -167,15 +176,19 @@ static int open_mport(struct peer_info *peer)
 	get_mport_id_input	in;
 	int flags = 0;
 	struct riomp_mgmt_mport_properties prop;
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
 
 	DBG("ENTER\n");
 
 	/* Set up Unix message parameters */
 	in.dummy = 0x1234;
+
+	client->get_send_buffer((void **)&in_msg);
 	in_msg->type = GET_MPORT_ID;
 	in_msg->get_mport_id_in = in;
 
-	int ret = alt_rpc_call();
+	int ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -184,6 +197,7 @@ static int open_mport(struct peer_info *peer)
 	out = out_msg->get_mport_id_out;
 
 	/* Get the mport ID */
+	/* FIXME: Do we need to check out_msg->status? */
 	peer->mport_id = out.mport_id;
 	INFO("Using mport_id = %d\n", peer->mport_id);
 
@@ -396,8 +410,6 @@ static int rdma_lib_init(void)
 	if (ret == 0) {
 		if (client->connect() == 0) {
 			INFO("Successfully connected to RDMA daemon\n");
-			client->get_recv_buffer((void **)&out_msg);
-			client->get_send_buffer((void **)&in_msg);
 		} else {
 			CRIT("Connect failed. Daemon running?\n");
 			ret = RDMA_DAEMON_UNREACHABLE;
@@ -493,10 +505,14 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 	strcpy(in.owner_name, owner_name);
 
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
+
 	in_msg->type = CREATE_MSO;
 	in_msg->create_mso_in = in;
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -600,10 +616,13 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	strcpy(in.owner_name, owner_name);
 
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
 	in_msg->type = OPEN_MSO;
 	in_msg->open_mso_in = in;
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		sem_post(&rdma_lock);
@@ -622,7 +641,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	try {
 		mso_close_mq = new msg_q<mq_close_mso_msg>(qname.str(), MQ_OPEN);
 	}
-	catch(msg_q_exception e) {
+	catch(msg_q_exception& e) {
 		CRIT("Failed to create mso_close_mq: %s\n", e.msg.c_str());
 		sem_post(&rdma_lock);
 		return RDMA_MALLOC_FAIL;
@@ -671,11 +690,11 @@ struct close_ms {
 
 	void operator()(struct loc_ms *ms) {
 		if (rdma_close_ms_h(msoh, ms_h(ms))) {
-			WARN("rdma_close_ms_h failed: msoh = 0x%lX, msh = 0x%lX\n",
+			WARN("rdma_close_ms_h failed: msoh = 0x%" PRIx64 ", msh = 0x%" PRIx64 "\n",
 								msoh, ms_h(ms));
 			ok = false;
 		} else {
-			INFO("msh(0x%lX) owned by msoh(0x%lX) closed\n",
+			INFO("msh(0x%" PRIx64 ") owned by msoh(0x%" PRIx64 ") closed\n",
 								ms_h(ms), msoh);
 		}
 	}
@@ -734,10 +753,6 @@ int rdma_close_mso_h(mso_h msoh)
 		return RDMA_MS_CLOSE_FAIL;
 	}
 
-	/* Set up input parameters */
-	in.msoid = ((struct loc_mso *)msoh)->msoid;
-	in.mso_conn_id = ((struct loc_mso *)msoh)->mso_conn_id;
-
 	/* Since we are closing the mso ourselves, the mso_close_thread_f
 	 * should be killed. We do this before closing the message queue
 	 * since otherwise I'm not sure what the mq_receive() will do.
@@ -763,14 +778,19 @@ int rdma_close_mso_h(mso_h msoh)
 		delete close_notify_mq;
 	}
 
-	/* close_mso_1() will remove the message queue corresponding to the mso
+	/* CLOSE_MSO will remove the message queue corresponding to the mso
 	 * user from the ms_owner struct in the daemon */
 
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
+	in.msoid = ((struct loc_mso *)msoh)->msoid;
+	in.mso_conn_id = ((struct loc_mso *)msoh)->mso_conn_id;
 	in_msg->type = CLOSE_MSO;
 	in_msg->close_mso_in = in;
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		sem_post(&rdma_lock);
@@ -781,11 +801,11 @@ int rdma_close_mso_h(mso_h msoh)
 
 	/* Take it out of database */
 	if (remove_loc_mso(msoh) < 0) {
-		WARN("Failed to find 0x%lX in db\n", msoh);
+		WARN("Failed to find 0x%" PRIx64 " in db\n", msoh);
 		sem_post(&rdma_lock);
 		return RDMA_DB_REM_FAIL;
 	}
-	INFO("msoh(0x%lX) removed from local database\n", msoh);
+	INFO("msoh(0x%" PRIx64 ") removed from local database\n", msoh);
 	DBG("EXIT\n");
 	sem_post(&rdma_lock);
 	return out.status;
@@ -799,11 +819,11 @@ struct destroy_ms {
 
 	void operator()(struct loc_ms * ms) {
 		if (rdma_destroy_ms_h(msoh, ms_h(ms))) {
-			WARN("rdma_destroy_ms_h failed: msoh = 0x%lX, msh = 0x%lX\n",
+			WARN("rdma_destroy_ms_h failed: msoh = 0x%" PRIx64 ", msh = 0x%" PRIx64 "\n",
 								msoh, ms_h(ms));
 			ok = false;
 		} else {
-			DBG("msh(0x%lX) owned by msoh(0x%lX) destroy\n",
+			DBG("msh(0x%" PRIx64 ") owned by msoh(0x%" PRIx64 ") destroyed\n",
 								ms_h(ms), msoh);
 		}
 	}
@@ -856,12 +876,16 @@ int rdma_destroy_mso_h(mso_h msoh)
 	in.msoid = ((struct loc_mso *)msoh)->msoid;
 
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
+	in.msoid = ((struct loc_mso *)msoh)->msoid;
 	in_msg->type = DESTROY_MSO;
 	in_msg->destroy_mso_in = in;
 
 	DBG("in.msoid = 0x%X\n", in.msoid);
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -934,10 +958,15 @@ int rdma_create_ms_h(const char *ms_name,
 	in.flags   = flags;
 
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
+
+	in.msoid = ((struct loc_mso *)msoh)->msoid;
 	in_msg->type = CREATE_MS;
 	in_msg->create_ms_in = in;
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -970,11 +999,11 @@ struct destroy_msub {
 
 	void operator()(struct loc_msub * msub) {
 		if (rdma_destroy_msub_h(msh, msub_h(msub))) {
-			WARN("rdma_destroy_msub_h failed: msh=0x%lX, msubh=0x%lX\n",
+			WARN("rdma_destroy_msub_h failed: msh=0x%" PRIx64 ", msubh=0x%" PRIx64 "\n",
 							msh, msub_h(msub));
 			ok = false;
 		} else {
-			INFO("msubh(0x%lX) of msh(0x%lX) destroyed\n", msub_h(msub), msh);
+			INFO("msubh(0x%" PRIx64 ") of msh(0x%" PRIx64 ") destroyed\n", msub_h(msub), msh);
 		}
 	}
 
@@ -1094,10 +1123,14 @@ int rdma_open_ms_h(const char *ms_name,
 	in.flags   = flags;
 
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
+
 	in_msg->type = OPEN_MS;
 	in_msg->open_ms_in = in;
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1189,7 +1222,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 
 	/* Destroy msubs opened under this msh */
 	if (destroy_msubs_in_msh(msh)) {
-		ERR("Failed to destroy msubs belonging to msh(0x%lX)\n", msh);
+		ERR("Failed to destroy msubs belonging to msh(0x%" PRIx64 ")\n", msh);
 		return RDMA_MSUB_DESTROY_FAIL;
 	}
 
@@ -1240,17 +1273,18 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	}
 
 	/* Set up input parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
 	in.msid    	= ((struct loc_ms *)msh)->msid;
 	in.ms_conn_id   = ((struct loc_ms *)msh)->ms_conn_id;
 
-	/* close_ms_1() will remove the message queue corresponding to the ms
+	/* CLOSE_MS will remove the message queue corresponding to the ms
 	 * user from the ms_owner struct in the daemon, and close the queue */
-
-	/* Set up Unix message parameters */
 	in_msg->type = CLOSE_MS;
 	in_msg->close_ms_in = in;
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1259,10 +1293,10 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 
 	/* Take it out of databse */
 	if (remove_loc_ms(msh) < 0) {
-		ERR("Failed to find msh(0x%lX) in db\n", msh);
+		ERR("Failed to find msh(0x%" PRIx64 ") in db\n", msh);
 		return RDMA_DB_REM_FAIL;
 	}
-	INFO("msh(0x%lX) removed from local database\n", msh);
+	INFO("msh(0x%" PRIx64 ") removed from local database\n", msh);
 	DBG("EXIT - success\n");
 	return 0;
 } /* rdma_close_ms_h() */
@@ -1288,7 +1322,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 
 	/* Check for NULL parameters */
 	if (!msoh || !msh) {
-		ERR("Invalid param(s): msoh=0x%lX, msh=0x%lX\n", msoh, msh);
+		ERR("Invalid param(s): msoh=0x%" PRIx64 ", msh=0x%" PRIx64 "\n", msoh, msh);
 		sem_post(&rdma_lock);
 		return RDMA_NULL_PARAM;
 	}
@@ -1301,7 +1335,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 
 	/* Destroy msubs in this msh */
 	if (destroy_msubs_in_msh(msh)) {
-		ERR("Failed to destroy msubs belonging to msh(0x%lX)\n", msh);
+		ERR("Failed to destroy msubs belonging to msh(0x%" PRIx64 ")\n", msh);
 		sem_post(&rdma_lock);
 		return RDMA_MSUB_DESTROY_FAIL;
 	}
@@ -1311,10 +1345,14 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	remove_rem_msub_by_loc_msh(msh);
 
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
+
 	in_msg->type = DESTROY_MS;
 	in_msg->destroy_ms_in = in;
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		sem_post(&rdma_lock);
@@ -1328,7 +1366,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 		WARN("disc_thread is NULL.\n");
 	} else {
 		if (pthread_cancel(disc_thread)) {
-			WARN("Failed to kill disc_thread for msh(0x%X):%s\n",
+			WARN("Failed to kill disc_thread for msh(0x%" PRIx64 "):%s\n",
 						msh, strerror(errno));
 		}
 	}
@@ -1345,12 +1383,12 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 
 	/* Memory space removed in daemon, remove from database as well */
 	if (remove_loc_ms(msh) < 0) {
-		WARN("Failed to remove 0x%lX from database\n", msh);
+		WARN("Failed to remove 0x%" PRIx64 " from database\n", msh);
 		sem_post(&rdma_lock);
 		return RDMA_DB_REM_FAIL;
 	}
 
-	INFO("msh(0x%lX) removed from local database\n", msh);
+	INFO("msh(0x%" PRIx64 ") removed from local database\n", msh);
 	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_destroy_ms_h() */
@@ -1378,7 +1416,7 @@ int rdma_create_msub_h(ms_h	msh,
 
 	/* Check for NULL */
 	if (!msh || !msubh) {
-		ERR("NULL param: msh=0x%lX, msubh=%p\n", msh, msubh);
+		ERR("NULL param: msh=0x%" PRIx64 ", msubh=%p\n", msh, msubh);
 		return RDMA_NULL_PARAM;
 	}
 
@@ -1393,6 +1431,9 @@ int rdma_create_msub_h(ms_h	msh,
 	}
 
 	/* Set up input parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
 	in.msid		= ((struct loc_ms *)msh)->msid;
 	in.offset	= offset;
 	in.req_bytes	= req_bytes;
@@ -1404,7 +1445,7 @@ int rdma_create_msub_h(ms_h	msh,
 	in_msg->type = CREATE_MSUB;
 	in_msg->create_msub_in = in;
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1464,10 +1505,13 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	in.msubid	= msub->msubid;
 
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
 	in_msg->type = DESTROY_MSUB;
 	in_msg->destroy_msub_in = in;
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
@@ -1511,11 +1555,11 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 
 	ret = riomp_dma_map_memory(peer.mport_hnd, pmsub->bytes, pmsub->paddr, vaddr);
 
-	INFO("map() phys_addr = 0x%lX, virt_addr = %p, size = 0x%x\n",
+	INFO("map() phys_addr = 0x%" PRIx64 ", virt_addr = %p, size = 0x%x\n",
 						pmsub->paddr, *vaddr, pmsub->bytes);
 
 	if (ret) {
-		ERR("map(0x%lX) failed: %s\n", pmsub->paddr, strerror(-ret));
+		ERR("map(0x%" PRIx64 ") failed: %s\n", pmsub->paddr, strerror(-ret));
 		return ret;
 	}
 	DBG("msub mapped to vaddr(%p)\n", *vaddr);
@@ -1581,7 +1625,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 
 	/* Check that parameters are not NULL */
 	if (!loc_msh || !loc_msubh || !rem_msubh) {
-		ERR("loc_msh=0x%lX,loc_msubh=0x%lX,rem_msubh=%p\n",
+		ERR("loc_msh=0x%" PRIx64 ",loc_msubh=0x%" PRIx64 ",rem_msubh=%p\n",
 					loc_msh, loc_msubh, rem_msubh);
 		return RDMA_NULL_PARAM;
 	}
@@ -1618,7 +1662,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	try {
 		connect_disconnect_mq = new msg_q<mq_rdma_msg>(mq_name, MQ_CREATE);
 	}
-	catch(msg_q_exception e) {
+	catch(msg_q_exception& e) {
 		ERR("Failed to create connect_disconnect_mq '%s': %s\n",
 						mq_name.c_str(),e.msg.c_str());
 		return RDMA_MALLOC_FAIL;
@@ -1626,10 +1670,13 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	INFO("Message queue %s created for connection from %s\n",
 						mq_name.c_str(), ms->name);
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
 	in_msg->type = ACCEPT_MS;
 	in_msg->accept_in = accept_in;
 
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		delete connect_disconnect_mq;
@@ -1656,9 +1703,11 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			strcpy(undo_accept_in.server_ms_name, ms->name);
 
 			/* Set up Unix message parameters */
+			client->flush_send_buffer();
+			client->flush_recv_buffer();
 			in_msg->type = UNDO_ACCEPT;
 			in_msg->undo_accept_in = undo_accept_in;
-			ret = alt_rpc_call();
+			ret = alt_rpc_call(in_msg, &out_msg);
 			if (ret) {
 				ERR("Call to RDMA daemon failed\n");
 				return ret;
@@ -1869,9 +1918,12 @@ __sync_synchronize();
 __sync_synchronize();
 
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
 	in_msg->type = SEND_CONNECT;
 	in_msg->send_connect_in = in;
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		delete accept_mq;
@@ -1905,7 +1957,7 @@ __sync_synchronize();
 			/* Set up Unix message parameters */
 			in_msg->type = UNDO_CONNECT;
 			in_msg->undo_connect_in = undo_connect_in;
-			ret = alt_rpc_call();
+			ret = alt_rpc_call(in_msg, &out_msg);
 			if (ret) {
 				ERR("Call to RDMA daemon failed\n");
 				delete accept_mq;
@@ -2134,9 +2186,12 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 	}
 
 	/* Set up Unix message parameters */
+	unix_msg_t  *in_msg;
+	unix_msg_t  *out_msg;
+	client->get_send_buffer((void **)&in_msg);
 	in_msg->type = SEND_DISCONNECT;
 	in_msg->send_disconnect_in = in;
-	ret = alt_rpc_call();
+	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
 		sem_post(&rdma_lock);
