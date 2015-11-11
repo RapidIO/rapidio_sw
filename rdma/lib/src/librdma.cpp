@@ -361,7 +361,16 @@ static void *wait_for_disc_thread_f(void *arg)
 	pthread_exit(0);
 } /* wait_for_disc_thread_f() */
 
-int rdma_lib_init(void)
+/**
+ * Initialize RDMA library
+ *
+ * rdma_lib_init() is automatically called once, when the library is loaded
+ * in response to a call to one the RDMA APIs. rdma_lib_init() may be
+ * called again whenever an API fails to retry or get a reason code for failure.
+ *
+ * @return: 0 if successful
+ */
+static int rdma_lib_init(void)
 {
 	int ret = 0;
 

@@ -45,19 +45,6 @@ extern "C" {
 #endif
 
 
-
-
-/**
- * Initialize RDMA library
- *
- * rdma_lib_init() is automatically called once, when the library is loaded
- * in response to a call to one the RDMA APIs. rdma_lib_init() may be
- * called again whenever an API fails to retry or get a reason cod for failure.
- *
- * @return: 0 if successful
- */
-int rdma_lib_init(void);
-
 /**
  * Set fabric management handle
  *
