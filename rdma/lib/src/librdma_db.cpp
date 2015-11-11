@@ -55,6 +55,37 @@ static list<struct rem_ms *> rem_ms_list;
 static list<struct loc_msub *> loc_msub_list;
 static list<struct rem_msub *> rem_msub_list;
 
+pthread_mutex_t loc_mso_mutex;
+pthread_mutex_t loc_ms_mutex;
+pthread_mutex_t rem_ms_mutex;
+pthread_mutex_t loc_msub_mutex;
+pthread_mutex_t rem_msub_mutex;
+
+int rdma_db_init()
+{
+	if (pthread_mutex_init(&loc_mso_mutex, NULL)) {
+		CRIT("Failed to initialized loc_mso_mutex\n");
+		return errno;
+	}
+	if (pthread_mutex_init(&loc_ms_mutex, NULL)) {
+		CRIT("Failed to initialized loc_mso_mutex\n");
+		return errno;
+	}
+	if (pthread_mutex_init(&rem_ms_mutex, NULL)) {
+		CRIT("Failed to initialized loc_mso_mutex\n");
+		return errno;
+	}
+	if (pthread_mutex_init(&loc_msub_mutex, NULL)) {
+		CRIT("Failed to initialized loc_mso_mutex\n");
+		return errno;
+	}
+	if (pthread_mutex_init(&rem_msub_mutex, NULL)) {
+		CRIT("Failed to initialized loc_mso_mutex\n");
+		return errno;
+	}
+
+	return 0;
+} /* rdma_db_init() */
 /**
  * add_loc_mso
  *
@@ -68,7 +99,8 @@ static list<struct rem_msub *> rem_msub_list;
  * @return 	Handle to memory space owner, could be 0 (NULL) if failed
  */
 mso_h add_loc_mso(const char *mso_name, uint32_t msoid, uint32_t mso_conn_id,
-		  bool owned, pthread_t close_notify_thread, msg_q<mq_close_mso_msg> *close_notify_mq)
+		  bool owned, pthread_t close_notify_thread,
+		  msg_q<mq_close_mso_msg> *close_notify_mq)
 {
 	/* Allocate */
 	struct loc_mso *mso = (struct loc_mso *)malloc(sizeof(struct loc_mso));
@@ -86,7 +118,9 @@ mso_h add_loc_mso(const char *mso_name, uint32_t msoid, uint32_t mso_conn_id,
 	mso->close_notify_mq	 = close_notify_mq;
 
 	/* Add to list */
+	pthread_mutex_lock(&loc_mso_mutex);
 	loc_mso_list.push_back(mso);
+	pthread_mutex_unlock(&loc_mso_mutex);
 
 	return (mso_h)mso;
 } /* add_loc_mso() */
@@ -102,6 +136,8 @@ mso_h add_loc_mso(const char *mso_name, uint32_t msoid, uint32_t mso_conn_id,
  */
 int remove_loc_mso(mso_h msoh)
 {
+	int rc;
+
 	/* Check for NULL msh */
 	if (!msoh) {
 		WARN("NULL msoh passed\n");
@@ -109,27 +145,34 @@ int remove_loc_mso(mso_h msoh)
 	}
 
 	/* Find the mso defined by msoh */
+	pthread_mutex_lock(&loc_mso_mutex);
 	auto it = find(loc_mso_list.begin(), loc_mso_list.end(), (loc_mso *)msoh);
 	if (it == loc_mso_list.end()) {
-		WARN("msoh = 0x%lX not found\n", msoh);
-		return -2;
+		WARN("msoh = 0x%" PRIx64 " not found\n", msoh);
+		rc = -2;
+	} else {
+		/* Free the mso, and remove from list */
+		free((*it)->name);	/* Free name string */
+		free((*it));		/* Free mso struct */
+
+		loc_mso_list.erase(it);	/* Remove pointer from list */
+		rc = 0;
 	}
+	pthread_mutex_unlock(&loc_mso_mutex);
 
-	/* Free the mso, and remove from list */
-	free((*it)->name);	/* Free name string */
-	free((*it));		/* Free mso struct */
-	loc_mso_list.erase(it);	/* Remove pointer from list */
-
-	return 0;
+	return rc;
 } /* remove_loc_mso() */
 
 void purge_loc_mso_list()
 {
+	pthread_mutex_lock(&loc_mso_mutex);
 	for (auto& mso : loc_mso_list) {
 		free(mso->name);
 		free(mso);
 	}
 	loc_mso_list.clear();
+	pthread_mutex_unlock(&loc_mso_mutex);
+
 	HIGH("Local mso list purged!!!!\n");
 } /* purge_loc_mso() */
 
@@ -144,9 +187,9 @@ pthread_t loc_mso_get_close_notify_thread(mso_h msoh)
 		return (pthread_t)0;
 	}
 
-	/* An mso that is created (owned) has no threads */
+	/* An mso that is created (owned) has no close notify threads */
 	if (((struct loc_mso *)msoh)->owned) {
-		WARN("msoh(0x%lX) is owned!\n", msoh);
+		WARN("msoh(0x%" PRIx64 ") is owned!\n", msoh);
 		return (pthread_t)0;
 	}
 
@@ -166,7 +209,7 @@ msg_q<mq_close_mso_msg> *loc_mso_get_close_notify_mq(mso_h msoh)
 
 	/* An mso that is created (owned) has no threads */
 	if (((struct loc_mso *)msoh)->owned) {
-		WARN("msoh(0x%lX) is owned!\n", msoh);
+		WARN("msoh(0x%" PRIx64 ") is owned!\n", msoh);
 		return nullptr;
 	}
 
@@ -194,20 +237,34 @@ bool mso_h_exists(mso_h msoh)
 {
 	struct loc_mso *mso = (struct loc_mso *)msoh;
 
-	return find(begin(loc_mso_list), end(loc_mso_list), mso) != end(loc_mso_list);
+	if (mso == NULL) {
+		WARN("Null argument (msoh). Returning false\n");
+		return false;
+	}
+
+	pthread_mutex_lock(&loc_mso_mutex);
+	bool rc = find(begin(loc_mso_list), end(loc_mso_list), mso) != end(loc_mso_list);
+	pthread_mutex_unlock(&loc_mso_mutex);
+
+	return rc;
 } /* mso_h_exists() */
 
 mso_h	find_mso(uint32_t msoid)
 {
 	has_msoid	hmi(msoid);
+	mso_h		msoh;
 
+	pthread_mutex_lock(&loc_mso_mutex);
 	auto it = find_if(loc_mso_list.begin(), loc_mso_list.end(), hmi);
 	if (it == loc_mso_list.end()) {
 		WARN("msoid = 0x%X not found\n", msoid);
-		return 0;
+		msoh = 0;
 	} else {
-		return (mso_h)(*it);
+		msoh = (mso_h)(*it);
 	}
+	pthread_mutex_unlock(&loc_mso_mutex);
+
+	return msoh;
 } /* find_mso */
 
 struct has_mso_name {
@@ -222,14 +279,19 @@ private:
 mso_h	find_mso_by_name(const char *name)
 {
 	has_mso_name	hmn(name);
+	mso_h		msoh;
 
+	pthread_mutex_lock(&loc_mso_mutex);
 	auto it = find_if(loc_mso_list.begin(), loc_mso_list.end(), hmn);
 	if (it == loc_mso_list.end()) {
-		WARN("mso with name = \'%s\' not found\n", name);
-		return 0;
+		WARN("mso with name = '%s' not found\n", name);
+		msoh = 0;
 	} else {
-		return (mso_h)(*it);
+		msoh =  (mso_h)(*it);
 	}
+	pthread_mutex_unlock(&loc_mso_mutex);
+
+	return msoh;
 } /* find_mso_by_name() */
 
 /**
@@ -244,23 +306,25 @@ mso_h	find_mso_by_name(const char *name)
 int remove_loc_mso(uint32_t msoid)
 {
 	has_msoid	hmi(msoid);
+	int		rc;
 
 	/* Find the mso identified by msoid */
+	pthread_mutex_lock(&loc_mso_mutex);
 	auto it = find_if(loc_mso_list.begin(), loc_mso_list.end(), hmi);
 	if (it == loc_mso_list.end()) {
 		WARN("msoid = 0x%X not found\n", msoid);
-		return -2;
+		rc = -1;
+	} else {
+		/* Free the mso, and remove from list */
+		free((*it)->name);	/* Free name string */
+		free((*it));		/* Free mso struct */
+		loc_mso_list.erase(it);	/* Remove pointer from list */
+		rc = 0;
 	}
+	pthread_mutex_unlock(&loc_mso_mutex);
 
-	/* Free the mso, and remove from list */
-	free((*it)->name);	/* Free name string */
-	free((*it));		/* Free mso struct */
-	loc_mso_list.erase(it);	/* Remove pointer from list */
-
-	return 0;
+	return rc;
 } /* remove_loc_mso() */
-
-
 
 /**
  * mso_is_open
@@ -272,8 +336,12 @@ int remove_loc_mso(uint32_t msoid)
 bool mso_is_open(const char *name)
 {
 	has_mso_name	hmn(name);
-	return find_if(loc_mso_list.begin(), loc_mso_list.end(), hmn)
+
+	pthread_mutex_lock(&loc_mso_mutex);
+	bool is_open = find_if(loc_mso_list.begin(), loc_mso_list.end(), hmn)
 							!= loc_mso_list.end();
+	pthread_mutex_unlock(&loc_mso_mutex);
+	return is_open;
 } /* mso_is_open() */
 
 /**
@@ -328,7 +396,9 @@ ms_h add_loc_ms(const char *ms_name,
 	msp->accepted	= false;
 
 	/* Add to list */
+	pthread_mutex_lock(&loc_ms_mutex);
 	loc_ms_list.push_back(msp);
+	pthread_mutex_unlock(&loc_ms_mutex);
 
 	DBG("Added %s, 0x%X to db\n", ms_name, msid);
 
@@ -361,7 +431,12 @@ private:
 unsigned get_num_ms_by_msoh(mso_h msoh)
 {
 	has_this_owner	hto(msoh);
-	return count_if(loc_ms_list.begin(), loc_ms_list.end(), hto);
+
+	pthread_mutex_lock(&loc_ms_mutex);
+	unsigned count = count_if(loc_ms_list.begin(), loc_ms_list.end(), hto);
+	pthread_mutex_unlock(&loc_ms_mutex);
+
+	return count;
 } /* get_num_ms_by_msoh() */
 
 /**
@@ -374,10 +449,13 @@ unsigned get_num_ms_by_msoh(mso_h msoh)
 void get_list_msh_by_msoh(mso_h msoh, list<struct loc_ms *>& ms_list)
 {
 	has_this_owner	hto(msoh);
+
+	pthread_mutex_lock(&loc_ms_mutex);
 	copy_if(loc_ms_list.begin(),
 		loc_ms_list.end(),
 		ms_list.begin(),
 		hto);
+	pthread_mutex_unlock(&loc_ms_mutex);
 } /* get_list_msh_by_msoh() */
 
 /**
@@ -390,6 +468,8 @@ void get_list_msh_by_msoh(mso_h msoh, list<struct loc_ms *>& ms_list)
  */
 int remove_loc_ms(ms_h msh)
 {
+	int rc;
+
 	/* Check for NULL msh */
 	if (!msh) {
 		ERR("NULL msh passed\n");
@@ -397,27 +477,32 @@ int remove_loc_ms(ms_h msh)
 	}
 
 	/* Find the ms defined by msh */
+	pthread_mutex_lock(&loc_ms_mutex);
 	auto it = find(loc_ms_list.begin(), loc_ms_list.end(), (loc_ms *)msh);
 	if (it == loc_ms_list.end()) {
 		ERR("msh = 0x%lX not found\n");
-		return -2;
+		rc = -2;
+	} else {
+		/* Free the ms, and remove from list */
+		free((*it)->name);	/* Free name string */
+		free((*it));		/* Free ms struct */
+		loc_ms_list.erase(it);	/* Remove pointer from list */
+		rc = 0;
 	}
+	pthread_mutex_unlock(&loc_ms_mutex);
 
-	/* Free the ms, and remove from list */
-	free((*it)->name);	/* Free name string */
-	free((*it));		/* Free ms struct */
-	loc_ms_list.erase(it);	/* Remove pointer from list */
-
-	return 0;
+	return rc;
 } /* remove_loc_ms() */
 
 void purge_loc_ms_list()
 {
+	pthread_mutex_lock(&loc_ms_mutex);
 	for (auto& ms : loc_ms_list) {
 		free(ms->name);
 		free(ms);
 	}
 	loc_ms_list.clear();
+	pthread_mutex_unlock(&loc_ms_mutex);
 	HIGH("Local ms list purged!!!!\n");
 } /* purge_loc_ms_list() */
 
@@ -447,9 +532,14 @@ private:
 ms_h find_loc_ms(uint32_t msid)
 {
 	has_this_msid<loc_ms>	htm(msid);
+	ms_h			msh;
 
+	pthread_mutex_lock(&loc_ms_mutex);
 	auto it = find_if(loc_ms_list.begin(), loc_ms_list.end(), htm);
-	return (it != loc_ms_list.end()) ? (ms_h)(*it) : (ms_h)NULL;
+	msh  = (it != loc_ms_list.end()) ? (ms_h)(*it) : (ms_h)NULL;
+	pthread_mutex_unlock(&loc_ms_mutex);
+
+	return msh;
 } /* find_loc_ms() */
 
 struct has_ms_name {
@@ -473,14 +563,19 @@ private:
 ms_h find_loc_ms_by_name(const char *ms_name)
 {
 	has_ms_name	hmn(ms_name);
+	ms_h		msh;
 
+	pthread_mutex_lock(&loc_ms_mutex);
 	auto it = find_if(loc_ms_list.begin(), loc_ms_list.end(), hmn);
 	if (it == loc_ms_list.end()) {
 		WARN("ms with name = \'%s\' not found\n", ms_name);
-		return 0;
+		msh = 0;
 	} else {
-		return (ms_h)(*it);
+		msh = (ms_h)(*it);
 	}
+	pthread_mutex_unlock(&loc_ms_mutex);
+
+	return msh;
 } /* find_loc_ms_by_name() */
 
 /**
@@ -548,7 +643,11 @@ bool loc_ms_exists(ms_h msh)
 {
 	struct loc_ms *ms = (struct loc_ms *)msh;
 
-	return find(begin(loc_ms_list), end(loc_ms_list), ms) != end(loc_ms_list);
+	pthread_mutex_lock(&loc_ms_mutex);
+	bool exists = find(begin(loc_ms_list), end(loc_ms_list), ms) != end(loc_ms_list);
+	pthread_mutex_unlock(&loc_ms_mutex);
+
+	return exists;
 } /* loc_ms_exists() */
 
 /**
@@ -582,7 +681,9 @@ ms_h add_rem_ms(const char *name,
 	msp->destroy_mq = destroy_mq;
 
 	/* Add to list */
+	pthread_mutex_lock(&rem_ms_mutex);
 	rem_ms_list.push_back(msp);
+	pthread_mutex_unlock(&rem_ms_mutex);
 
 	DBG("Added %s, 0x%X to db\n", name, msid);
 	DBG("Now database has size = %d\n", rem_ms_list.size());
@@ -602,9 +703,14 @@ ms_h add_rem_ms(const char *name,
 ms_h find_rem_ms(uint32_t msid)
 {
 	has_this_msid<rem_ms>	htm(msid);
+	ms_h			msh;
 
+	pthread_mutex_lock(&rem_ms_mutex);
 	auto it = find_if(rem_ms_list.begin(), rem_ms_list.end(), htm);
-	return (it != rem_ms_list.end()) ? (ms_h)(*it) : (ms_h)NULL;
+	msh = (it != rem_ms_list.end()) ? (ms_h)(*it) : (ms_h)NULL;
+	pthread_mutex_unlock(&rem_ms_mutex);
+
+	return msh;
 } /* find_rem_ms() */
 
 /**
@@ -617,7 +723,12 @@ bool rem_ms_exists(ms_h msh)
 {
 	rem_ms *ms = (rem_ms *)msh;
 
-	return find(begin(rem_ms_list), end(rem_ms_list), ms) != end(rem_ms_list);
+	pthread_mutex_lock(&rem_ms_mutex);
+	bool exists = find(begin(rem_ms_list), end(rem_ms_list), ms)
+							!= end(rem_ms_list);
+	pthread_mutex_unlock(&rem_ms_mutex);
+
+	return exists;
 } /* rem_ms_exists() */
 
 /**
@@ -630,6 +741,8 @@ bool rem_ms_exists(ms_h msh)
  */
 int remove_rem_ms(ms_h msh)
 {
+	int	rc;
+
 	/* Check for NULL msh */
 	if (!msh) {
 		ERR("NULL msh passed\n");
@@ -637,19 +750,21 @@ int remove_rem_ms(ms_h msh)
 	}
 
 	/* Find the ms defined by msh */
+	pthread_mutex_lock(&rem_ms_mutex);
 	auto it = find(rem_ms_list.begin(), rem_ms_list.end(), (rem_ms *)msh);
 	if (it == rem_ms_list.end()) {
 		WARN("msh = 0x%lX not found\n");
-		return -2;
+		rc = -2;
+	} else {
+		/* Free the ms, and remove from list */
+		free((*it)->name);	/* Free name string */
+		free((*it));		/* Free ms struct */
+		rem_ms_list.erase(it);	/* Remove pointer from list */
+		DBG("Now database has size = %d\n", rem_ms_list.size());
 	}
+	pthread_mutex_unlock(&rem_ms_mutex);
 
-	/* Free the ms, and remove from list */
-	free((*it)->name);	/* Free name string */
-	free((*it));		/* Free ms struct */
-	rem_ms_list.erase(it);	/* Remove pointer from list */
-	DBG("Now database has size = %d\n", rem_ms_list.size());
-
-	return 0;
+	return rc;
 } /* remove_rem_ms() */
 
 /**
@@ -695,7 +810,9 @@ ms_h add_loc_msub(uint32_t 	msubid,
 	DBG("rio_addr_len=%d, rio_addr_lo=0x%016" PRIx64 ", paddr=0x%016" PRIx64 "\n",
 			rio_addr_len, rio_addr_lo, paddr);
 	/* Store */
+	pthread_mutex_lock(&loc_msub_mutex);
 	loc_msub_list.push_back(msubp);
+	pthread_mutex_unlock(&loc_msub_mutex);
 
 	return (msub_h)msubp;
 } /* add_loc_msub() */
@@ -725,9 +842,14 @@ private:
 msub_h find_loc_msub(uint32_t msubid)
 {
 	loc_has_this_msubid	lhtm(msubid);
+	msub_h			msubh;
 	
+	pthread_mutex_lock(&loc_msub_mutex);
 	auto it = find_if(loc_msub_list.begin(), loc_msub_list.end(), lhtm);
-	return (it != loc_msub_list.end()) ? (msub_h)(*it) : (msub_h)NULL;
+	msubh = (it != loc_msub_list.end()) ? (msub_h)(*it) : (msub_h)NULL;
+	pthread_mutex_unlock(&loc_msub_mutex);
+
+	return msubh;
 } /* find_loc_msub() */
 
 /**
@@ -757,7 +879,11 @@ unsigned get_num_loc_msub_in_ms(uint32_t msid)
 {
 	loc_msub_has_this_msid	lmhtm(msid);
 
-	return count_if(loc_msub_list.begin(), loc_msub_list.end(), lmhtm);
+	pthread_mutex_lock(&loc_msub_mutex);
+	unsigned count = count_if(loc_msub_list.begin(), loc_msub_list.end(), lmhtm);
+	pthread_mutex_unlock(&loc_msub_mutex);
+
+	return count;
 } /* get_num_loc_msub_in_ms() */
 
 /**
@@ -771,10 +897,13 @@ unsigned get_num_loc_msub_in_ms(uint32_t msid)
 void get_list_loc_msub_in_msid(uint32_t msid, list<loc_msub *>& msub_list)
 {
 	loc_msub_has_this_msid	lmhtm(msid);
+
+	pthread_mutex_lock(&loc_msub_mutex);
 	copy_if(loc_msub_list.begin(),
 		loc_msub_list.end(),
 		msub_list.begin(),
 		lmhtm);
+	pthread_mutex_unlock(&loc_msub_mutex);
 } /* get_list_loc_msubh_in_msid() */
 
 /**
@@ -787,6 +916,8 @@ void get_list_loc_msub_in_msid(uint32_t msid, list<loc_msub *>& msub_list)
  */
 int remove_loc_msub(msub_h msubh)
 {
+	int rc;
+
 	/* Check for NULL msubh */
 	if (!msubh) {
 		ERR("NULL msubh passed\n");
@@ -794,26 +925,31 @@ int remove_loc_msub(msub_h msubh)
 	}
 
 	/* Find the msub defined by msubh */
+	pthread_mutex_lock(&loc_msub_mutex);
 	auto it = find(loc_msub_list.begin(), loc_msub_list.end(), (loc_msub *)msubh);
 	if (it == loc_msub_list.end()) {
 		WARN("msubh = 0x%lX not found\n");
-		return -2;
+		rc = -2;
+	} else {
+		/* Free the msub, and remove from list */
+		free((*it));		/* Free msub struct */
+		loc_msub_list.erase(it);/* Remove pointer from list */
+		rc = 0;
 	}
+	pthread_mutex_unlock(&loc_msub_mutex);
 
-	/* Free the msub, and remove from list */
-	free((*it));		/* Free msub struct */
-	loc_msub_list.erase(it);/* Remove pointer from list */
-
-	return 0;
+	return rc;
 } /* remove_loc_msub() */
 
 void purge_loc_msub_list()
 {
+	pthread_mutex_lock(&loc_msub_mutex);
 	for (auto& msub : loc_msub_list) {
 		free(msub);
 	}
 	loc_msub_list.clear();
 	HIGH("Local msub list purged!!!!\n");
+	pthread_mutex_unlock(&loc_msub_mutex);
 } /* purge_loc_msub_list() */
 
 /**
@@ -863,7 +999,9 @@ msub_h add_rem_msub(uint32_t	rem_msubid,
 	msubp->loc_msh	    = loc_msh;
 
 	/* Add to list */
+	pthread_mutex_lock(&rem_msub_mutex);
 	rem_msub_list.push_back(msubp);
+	pthread_mutex_unlock(&rem_msub_mutex);
 
 	DBG("*** STORING info about remote msubh ***\n");
 	DBG("rem_msubid = 0x%X\n", msubp->msubid);
@@ -903,9 +1041,14 @@ private:
 msub_h find_rem_msub(uint32_t msubid)
 {
 	rem_has_this_msubid	rhtm(msubid);
+	msub_h			msubh;
 	
+	pthread_mutex_lock(&rem_msub_mutex);
 	auto it = find_if(rem_msub_list.begin(), rem_msub_list.end(), rhtm);
-	return (it != rem_msub_list.end()) ? (msub_h)(*it) : (msub_h)NULL;
+	msubh = (it != rem_msub_list.end()) ? (msub_h)(*it) : (msub_h)NULL;
+	pthread_mutex_unlock(&rem_msub_mutex);
+
+	return msubh;
 } /* find_rem_msub() */
 
 /**
@@ -918,6 +1061,8 @@ msub_h find_rem_msub(uint32_t msubid)
  */
 int remove_rem_msub(msub_h msubh)
 {
+	int rc;
+
 	/* Check for NULL msubh */
 	if (!msubh) {
 		ERR("NULL msubh passed\n");
@@ -925,17 +1070,20 @@ int remove_rem_msub(msub_h msubh)
 	}
 
 	/* Find the msub defined by msubh */
+	pthread_mutex_lock(&rem_msub_mutex);
 	auto it = find(rem_msub_list.begin(), rem_msub_list.end(), (rem_msub *)msubh);
 	if (it == rem_msub_list.end()) {
 		WARN("msubh = 0x%lX not found\n");
-		return -2;
+		rc = -2;
+	} else {
+		/* Free the msub, and remove from list */
+		free((*it));		/* Free msub struct */
+		rem_msub_list.erase(it);/* Remove pointer from list */
+		rc = 0;
 	}
+	pthread_mutex_unlock(&rem_msub_mutex);
 
-	/* Free the msub, and remove from list */
-	free((*it));		/* Free msub struct */
-	rem_msub_list.erase(it);/* Remove pointer from list */
-
-	return 0;
+	return rc;
 } /* remove_rem_msub() */
 
 /**
@@ -962,6 +1110,7 @@ void remove_rem_msubs_in_ms(uint32_t msid)
 {
 	rem_msub_has_this_msid	rmhtm(msid);
 
+	pthread_mutex_lock(&rem_msub_mutex);
 	/* Save old end of the list */
 	auto old_end = end(rem_msub_list);
 
@@ -975,6 +1124,7 @@ void remove_rem_msubs_in_ms(uint32_t msid)
 		 * an msub belonging to the client's ms. */
 		INFO("No remote msubs stored for msid(0x%X)\n", msid);
 	}
+	pthread_mutex_unlock(&rem_msub_mutex);
 } /* remove_rem_msub_in_ms() */
 
 /**
@@ -990,13 +1140,19 @@ msub_h find_any_rem_msub_in_ms(uint32_t msid)
 {
 	rem_msub_has_this_msid rmhtm(msid);
 	list<rem_msub *>::iterator it;
+	msub_h		msubh;
 
+	pthread_mutex_lock(&rem_msub_mutex);
 	it = find_if(rem_msub_list.begin(), rem_msub_list.end(), rmhtm);
 	if (it == rem_msub_list.end()) {
 		WARN("No remote msubs stored for msid(0x%X)\n", msid);
-		return (msub_h)NULL;
+		msubh = (msub_h)NULL;
+	} else {
+		msubh = (msub_h)(*it);
 	}
-	return (msub_h)(*it);
+	pthread_mutex_unlock(&rem_msub_mutex);
+
+	return msubh;
 } /* find_any_rem_msub_in_ms() */
 
 /**
@@ -1008,7 +1164,11 @@ msub_h find_any_rem_msub_in_ms(uint32_t msid)
  */
 unsigned get_num_rem_msubs(void)
 {
-	return rem_msub_list.size();
+	pthread_mutex_lock(&rem_msub_mutex);
+	unsigned size = rem_msub_list.size();
+	pthread_mutex_unlock(&rem_msub_mutex);
+
+	return size;
 } /* get_num_rem_msubs() */
 
 /**
@@ -1035,6 +1195,7 @@ void remove_rem_msub_by_loc_msh(ms_h loc_msh)
 {
 	rem_msub_has_this_loc_msh	has_it(loc_msh);
 
+	pthread_mutex_lock(&rem_msub_mutex);
 	/* Save old end of the list */
 	auto old_end = end(rem_msub_list);
 
@@ -1048,6 +1209,9 @@ void remove_rem_msub_by_loc_msh(ms_h loc_msh)
 		 * an msub belonging to the client's ms. */
 		WARN("No remote msubs stored for loc_msh(0x%lX)\n", loc_msh);
 	}
+	pthread_mutex_unlock(&rem_msub_mutex);
+
+
 } /* remove_rem_msub_by_loc_msh() */
 
 void purge_local_database(void)
@@ -1055,4 +1219,4 @@ void purge_local_database(void)
 	purge_loc_msub_list();
 	purge_loc_ms_list();
 	purge_loc_mso_list();
-}
+} /* purge_local_database() */

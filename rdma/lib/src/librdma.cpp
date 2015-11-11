@@ -438,6 +438,11 @@ __attribute__((constructor)) int lib_init(void)
 		return RDMA_ERRNO;
 	}
 
+	if (rdma_db_init()) {
+		CRIT("Failed to initialized RDMA database\n");
+		return RDMA_ERRNO;
+	}
+
 	return rdma_lib_init();
 } /* rdma_lib_init() */
 

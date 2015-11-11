@@ -46,6 +46,9 @@ using std::list;
 #include "msg_q.h"
 #include "rdma_mq_msg.h"
 
+
+int rdma_db_init();
+
 /**
  * Memory space owners.
  */
