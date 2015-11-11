@@ -94,7 +94,7 @@ int run_rpc_alternative()
 	/* Create a server */
 	puts("Creating server object...");
 	try {
-		server = new unix_server();
+		server = new unix_server("main_server");
 	}
 	catch(unix_sock_exception e) {
 		cout << e.err << endl;

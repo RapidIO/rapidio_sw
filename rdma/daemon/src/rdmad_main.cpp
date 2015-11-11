@@ -758,7 +758,7 @@ int run_rpc_alternative()
 	/* Create a server */
 	DBG("Creating Unix socket server object...\n");
 	try {
-		server = new unix_server();
+		server = new unix_server("main_server");
 	}
 	catch(unix_sock_exception& e) {
 		CRIT("Failed to create server: %s \n",  e.err);
