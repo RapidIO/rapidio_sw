@@ -181,6 +181,10 @@ int main(int argc, char *argv[])
 		else
 			printf("*** Iteration %u, DATA COMPARED OK ***\n", i);
 
+		puts("Keeping the connection OPEN. Start another one!!");
+		puts("Press ENTER to close the connection");
+		getchar();
+
 		rc = rskt_close(client_socket);
 		if (rc) {
 			fprintf(stderr, "Failed to close client socket, rc=%d: %s\n",
