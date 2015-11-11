@@ -71,33 +71,45 @@ public:
 	/* Return pointer to pre-allocated send buffer */
 	void get_send_buffer(void **buf)
 	{
+		pthread_mutex_lock(&send_buf_mutex);
 		*buf = (void *)send_buf;
+		pthread_mutex_unlock(&send_buf_mutex);
 	} /* get_send_buffer() */
 
 	/* Return pointer to pre-allocated recv buffer */
 	void get_recv_buffer(void **buf)
 	{
+		pthread_mutex_lock(&recv_buf_mutex);
 		*buf = (void *)recv_buf;
+		pthread_mutex_unlock(&recv_buf_mutex);
 	} /* request_recv_buffer() */
 
 	void flush_send_buffer()
 	{
+		pthread_mutex_lock(&send_buf_mutex);
 		memset(send_buf, 0, UNIX_SOCK_DEFAULT_BUFFER_SIZE);
+		pthread_mutex_unlock(&send_buf_mutex);
 	}
 
 	void flush_recv_buffer()
 	{
+		pthread_mutex_lock(&recv_buf_mutex);
 		memset(recv_buf, 0, UNIX_SOCK_DEFAULT_BUFFER_SIZE);
+		pthread_mutex_unlock(&recv_buf_mutex);
 	}
 
 	void dump_send_buffer()
 	{
+		pthread_mutex_lock(&send_buf_mutex);
 		dump_buffer(send_buf);
+		pthread_mutex_unlock(&send_buf_mutex);
 	}
 
 	void dump_recv_buffer()
 	{
+		pthread_mutex_lock(&recv_buf_mutex);
 		dump_buffer(recv_buf);
+		pthread_mutex_unlock(&recv_buf_mutex);
 	}
 
 protected:
@@ -116,6 +128,17 @@ protected:
 		addr.sun_family = AF_UNIX;
 		strcpy(addr.sun_path, sun_path);
 		addr_len = sizeof(addr);
+
+		if (pthread_mutex_init(&send_buf_mutex, NULL)) {
+			CRIT("Failed to initialized loc_mso_mutex: %s\n",
+					strerror(errno));
+			throw unix_sock_exception("Failed to init send_buf_mutex");
+		}
+		if (pthread_mutex_init(&recv_buf_mutex, NULL)) {
+			CRIT("Failed to initialized loc_mso_mutex: %s\n",
+					strerror(errno));
+			throw unix_sock_exception("Failed to init recv_buf_mutex");
+		}
 	}
 
 	/**
@@ -130,17 +153,31 @@ protected:
 		send_buf(new uint8_t[UNIX_SOCK_DEFAULT_BUFFER_SIZE]),
 		recv_buf(new uint8_t[UNIX_SOCK_DEFAULT_BUFFER_SIZE])
 	{
+		if (pthread_mutex_init(&send_buf_mutex, NULL)) {
+			CRIT("Failed to initialized loc_mso_mutex: %s\n",
+					strerror(errno));
+			throw unix_sock_exception("Failed to init send_buf_mutex");
+		}
+		if (pthread_mutex_init(&recv_buf_mutex, NULL)) {
+			CRIT("Failed to initialized loc_mso_mutex: %s\n",
+					strerror(errno));
+			throw unix_sock_exception("Failed to init recv_buf_mutex");
+		}
 	}
 
 	~unix_base()
 	{
 		/* Delete send buffer */
+		pthread_mutex_lock(&send_buf_mutex);
 		if (send_buf)
 			delete[] send_buf;
+		pthread_mutex_unlock(&send_buf_mutex);
 
 		/* Delete recv buffer */
+		pthread_mutex_lock(&recv_buf_mutex);
 		if (recv_buf)
 			delete[] recv_buf;
+		pthread_mutex_unlock(&recv_buf_mutex);
 
 		/* For classes derived using the minimal constructor which
 		 * does NOT create a socket, there is no socket to close since
@@ -152,33 +189,46 @@ protected:
 
 	int send(int sock, size_t len)
 	{
+		int rc = 0;
+
+		pthread_mutex_lock(&send_buf_mutex);
 		if (len > UNIX_SOCK_DEFAULT_BUFFER_SIZE) {
 			ERR("'%s' failed in send() due to large message size\n", name);
-			return -1;
-		}
-		if (::send(sock, send_buf, len, MSG_EOR) == -1) {
+			rc = -1;
+		} else if (::send(sock, send_buf, len, MSG_EOR) == -1) {
 			ERR("Failed in send(): %s, errno=%d\n", strerror(errno), errno);
-			return errno;
+			rc = errno;
 		}
-		return 0;
+		pthread_mutex_unlock(&send_buf_mutex);
+
+		return rc;
 	}
 
 	int receive(int sock, size_t *rcvd_len)
 	{
-		int ret = ::recv(sock, recv_buf, UNIX_SOCK_DEFAULT_BUFFER_SIZE, 0);
-		if (ret < 0) {
+		int rc;
+
+		pthread_mutex_lock(&recv_buf_mutex);
+		rc = ::recv(sock, recv_buf, UNIX_SOCK_DEFAULT_BUFFER_SIZE, 0);
+		if (rc < 0) {
 			ERR("'%s': failed in recv(): %s, errno = %d\n",
 					name, strerror(errno), errno);
-			return errno;
+			rc = errno;
+		} else {
+			*rcvd_len = rc;
+			rc = 0;
 		}
-		*rcvd_len = ret;
-		return 0;
+		pthread_mutex_unlock(&recv_buf_mutex);
+
+		return rc;
 	}
 
 	int		the_socket;	/* listen or client socket */
 	const char 	*name;
 	sockaddr_un	addr;
 	socklen_t	addr_len;
+	pthread_mutex_t send_buf_mutex;
+	pthread_mutex_t recv_buf_mutex;
 
 private:
 	void dump_buffer(uint8_t *buffer)
