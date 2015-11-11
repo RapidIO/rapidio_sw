@@ -157,7 +157,7 @@ protected:
 			return -1;
 		}
 		if (::send(sock, send_buf, len, MSG_EOR) == -1) {
-			ERR("'%s' failed in send(): %s\n", name, strerror(errno));
+			ERR("Failed in send(): %s, errno=%d\n", strerror(errno), errno);
 			return errno;
 		}
 		return 0;
@@ -204,7 +204,7 @@ private:
 class unix_server : public unix_base
 {
 public:
-	unix_server(const char *name = "server",
+	unix_server(const char *name,
 		    const char *sun_path = UNIX_PATH_RDMA,
 		    int backlog = UNIX_SOCK_DEFAULT_BACKLOG)
 	try : unix_base(name, sun_path), accept_socket(0), can_accept(true)
