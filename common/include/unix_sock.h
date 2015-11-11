@@ -126,6 +126,7 @@ protected:
 	unix_base(const char *name) :
 		the_socket(-1),
 		name(name),
+		addr_len(0),
 		send_buf(new uint8_t[UNIX_SOCK_DEFAULT_BUFFER_SIZE]),
 		recv_buf(new uint8_t[UNIX_SOCK_DEFAULT_BUFFER_SIZE])
 	{
@@ -152,7 +153,7 @@ protected:
 	int send(int sock, size_t len)
 	{
 		if (len > UNIX_SOCK_DEFAULT_BUFFER_SIZE) {
-			ERR("'s' failed in send() due to large message size\n", name);
+			ERR("'%s' failed in send() due to large message size\n", name);
 			return -1;
 		}
 		if (::send(sock, send_buf, len, MSG_EOR) == -1) {
@@ -206,7 +207,7 @@ public:
 	unix_server(const char *name = "server",
 		    const char *sun_path = UNIX_PATH_RDMA,
 		    int backlog = UNIX_SOCK_DEFAULT_BACKLOG)
-	try : unix_base(name, sun_path), accepted(false), can_accept(true)
+	try : unix_base(name, sun_path), accept_socket(0), can_accept(true)
 	{
 		/* If file exists, delete it before binding */
 		struct stat st;
@@ -264,11 +265,6 @@ public:
 			return -1;
 		}
 
-		if (accepted) {
-			CRIT("'%s': Object created with an accept socket!\n", name);
-			return -2;
-		}
-
 		/* The client address is not used for anything post the accept() */
 		struct sockaddr_un	client_addr;
 		socklen_t len = sizeof(client_addr);
@@ -296,7 +292,6 @@ public:
 
 private:
 	int	accept_socket;
-	bool	accepted;
 	bool	can_accept;	/* Objects created with the minimal constructor can't */
 };
 
