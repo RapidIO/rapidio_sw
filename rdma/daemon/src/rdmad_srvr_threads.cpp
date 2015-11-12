@@ -137,7 +137,7 @@ void *wait_conn_disc_thread_f(void *arg)
 	}
 	catch(cm_exception& e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
-		free(wcdti);
+		sem_post(&wcdti->started);
 		pthread_exit(0);
 	}
 	DBG("Created rx_conn_disc_server cm_sock\n", rx_conn_disc_server);
@@ -162,7 +162,6 @@ void *wait_conn_disc_thread_f(void *arg)
 	 * from other sockets without waiting for this one to get a HELLO.
 	 */
 	sem_post(&wcdti->started);
-
 
 	while(1) {
 		int	ret;
@@ -452,7 +451,6 @@ void *prov_thread_f(void *arg)
 		ret = pthread_create(&wcdti->tid, NULL, wait_conn_disc_thread_f, wcdti);
 		if (ret) {
 			CRIT("Failed to create conn_disc thread\n");
-			delete prov_server;
 			free(wcdti);
 			continue;	/* Better luck next time? */
 		}
