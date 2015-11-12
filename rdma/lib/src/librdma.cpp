@@ -2241,14 +2241,14 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 	}
 
 	/* Check if local daemon is alive */
-	DBG("Check if local daemon is alive")
+	DBG("Check if local daemon is alive\n");
 	if (!rdmad_is_alive()) {
 		ERR("Local RDMA daemon is dead. Exiting\n");
 		return RDMA_DAEMON_UNREACHABLE;
 	}
 
 	/* Check if remote daemon is alive */
-	DBG("Check if remote daemon is alive")
+	DBG("Check if remote daemon is alive\n");
 	if (fm_alive && (dd_h != NULL))
 		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
 			ERR("Remote destination daemon NOT running!\n");
