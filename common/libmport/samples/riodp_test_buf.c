@@ -34,6 +34,29 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file riodp_test_buf.c
+ * \brief User-space DMA/IBwin buffers mapping test program.
+ * Test DMA buffer mapping by multiple processes        
+ *
+ * Usage:
+ *   ./riodp_test_buf [options]
+ *
+ * Options are:
+ * - -M mport_id
+ * - --mport mport_id
+ *      = local mport device index (default=0)
+ * - --i buffer allocation mode
+ *    - 0 - common DMA
+ *    - 1 - IBwin mapping
+ * - --help (or -h), prints this message
+ * - -S xxxx
+ * - --size xxxx
+ *   - buffer size in bytes (default 0x200000)
+ * - -R xxxx
+ * - --ibbase xxxx
+ *     - inbound window base address in RapidIO address space
+ */
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -57,6 +80,22 @@
 static riomp_mport_t mport_hnd;
 static uint32_t ibwin_size = DEFAULT_IBWIN_SIZE;
 
+/**
+ * \fn fill_segment
+ * \brief Called by each child process to initialize each segment of
+ *  the buffer.
+ *
+ * \param[in] mport_id Index of master port to be used for this buffer
+ * \param[in] seg_id  Identifier for the memory segment
+ * \param[in] seg_handle Physical memory address of the memory segment
+ * \param[in] seg_size Number of bytes in the memory segment
+ *
+ * \return Return code
+ * \retval 0 means success
+ * \retval Not 0 means failure
+ *
+ * fill_segment performs the following steps:
+ */
 static int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint32_t seg_size)
 {
 	riomp_mport_t mphnd;
@@ -66,6 +105,7 @@ static int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint
 
 	printf("FILL process %d (%d) started\n", seg_id, (int)getpid());
 
+	/** - opens a new handle for the master port */
 	ret = riomp_mgmt_mport_create_handle(mport_id, 0, &mphnd);
 	if (ret < 0) {
 		printf("(%d): unable to open mport%d device err=%d\n",
@@ -77,6 +117,8 @@ static int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint
 		(uint32_t)(seg_handle >> 32),
 		(uint32_t)(seg_handle & 0xffffffff), seg_size);
 
+	/** - maps the physical memory address for this segment into the local process */
+	/**   address space */
 	ret = riomp_dma_map_memory(mphnd, seg_size, seg_handle, &ibmap);
 	if (ret) {
 		printf("(%d): map failed err=%d\n",
@@ -84,15 +126,18 @@ static int fill_segment(uint32_t mport_id, int seg_id, uint64_t seg_handle, uint
 		goto out;
 	}
 
+	/** - writes a value unique to the segment throughout the memory segment */
 	fill = 0xc0 | (uint8_t)seg_id;
 	memset(ibmap, fill, seg_size);
 
+	/** - unmaps the physical memory address from the local process address space */
 	ret = riomp_dma_unmap_memory(mphnd, seg_size, ibmap);
 
 	if (ret)
 		perror("munmap");
 
 out:
+	/** - closes the handle for the master port */
 	riomp_mgmt_mport_destroy_handle(&mphnd);
 	return 0;
 }
@@ -100,7 +145,20 @@ out:
 
 #define SUBWIN_NUM 16
 
-/*
+/**
+ * \fn do_buf_test
+ * \brief do_buf_test Called by main() to perform the buffer test
+ *
+ * \param[in] mport_id Index of master port to be used for this buffer
+ * \param[in] seg_id  Identifier for the memory segment
+ * \param[in] seg_handle Physical memory address of the memory segment
+ * \param[in] seg_size Number of bytes in the memory segment
+ *
+ * \return Return code
+ * \retval 0 means success
+ * \retval Not 0 means failure
+ *
+ * do_buf_test performs the following steps:
  *
  */
 static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
@@ -115,6 +173,13 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	int status = 0;
 	pid_t pid, wpid;
 
+ 	/**
+	* - allocate either an Inbound Window buffer, or a kernel buffer
+ 	*   - An Inbound Window buffer is memory that can be accessed remotely 
+ 	*     via RapidIO
+ 	*   - A kernel buffer can be the target or source of data for DMA
+ 	*     transfers
+ 	*/
 	if (buf_mode)
 		ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
 	else
@@ -125,6 +190,7 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 		return ret;
 	}
 
+	/** - map the entire buffer to the local process address space */
 	ret = riomp_dma_map_memory(mport_hnd, ib_size, ib_handle, &ibmap);
 	if (ret) {
 		perror("mmap");
@@ -140,6 +206,7 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	printf("\t(h=0x%x_%x, loc=%p)\n", (uint32_t)(ib_handle >> 32),
 		(uint32_t)(ib_handle & 0xffffffff), ibmap);
 
+	/** - write a constant value to the entire buffer */
 	memset(ibmap, 0xee, ib_size);
 	__sync_synchronize();
 
@@ -147,6 +214,9 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 
 	seg_size = ib_size/SUBWIN_NUM;
 
+	/** - Starts child processes to initialize subsections of the buffer 
+	* to a different value
+	*/
 	for (i = 0; i < SUBWIN_NUM; i++) {
 
 		seg_handle = ib_handle + i*seg_size;
@@ -168,13 +238,13 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 		}
 	}
 
-	/* Wait until all child processes termintaed */
+	/** - Wait until all child processes have termintaed */
 	for (; i > 0; i-- ) {
 		wpid = wait(&status);
 		printf("\t(%d): terminated with status %d\n", wpid, status);
 	}
 
-	/* Verify buffer data */
+	/** - Verify buffer data */
 	for (i = 0; i < SUBWIN_NUM; i++) {
 		uint32_t j;
 		uint8_t *ptr;
@@ -199,10 +269,12 @@ static int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	printf("\t.... press Enter key to exit ....\n");
 	getchar();
 
+	/** - Unmap the buffer from the local process address space */
 	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
 	if (ret)
 		perror("munmap");
 out:
+	/** - frees the allocated buffer/inbound window */
 	if (buf_mode)
 		ret = riomp_dma_ibwin_free(mport_hnd, &ib_handle);
 	else
@@ -214,6 +286,21 @@ out:
 
 	return 0;
 }
+
+/**
+ * \fn display_help
+ * \brief Called by main() to display help for this test
+ *
+ * \param[in] program File name used to execute this test
+ *
+ * \return Return code
+ * \retval 0 means success
+ * \retval Not 0 means failure
+ *
+ * display_help prints the help message for this test, including a list
+ * of parameters
+ *
+ */
 
 static void display_help(char *program)
 {
@@ -235,11 +322,22 @@ static void display_help(char *program)
 	printf("\n");
 }
 
+/**
+ * \brief Starting point for the tests
+ *
+ * \param[in] argc Command line parameter count
+ * \param[in] argv Array of pointers to command line parameter null terminated
+ *                 strings
+ *
+ * \return Return code
+ * \retval 0 means success
+ */
+
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
 	int option;
-	int buf_mode = 0; /* 0 = common DMA buffer, 1 = IBwin mapped DMA buffer */
+	int buf_mode = 0;
 	uint64_t rio_base = RIO_MAP_ANY_ADDR;
 	static const struct option options[] = {
 		{ "size",   required_argument, NULL, 'S' },
@@ -251,6 +349,7 @@ int main(int argc, char** argv)
 	char *program = argv[0];
 	int rc = EXIT_SUCCESS;
 
+	/** - Parse command line options, if any */
 	while (1) {
 		option = getopt_long_only(argc, argv,
 				"hiM:R:S:", options, NULL);
@@ -261,6 +360,7 @@ int main(int argc, char** argv)
 			ibwin_size = strtol(optarg, NULL, 0);
 			break;
 		case 'i':
+			/* 0 = common DMA buffer, 1 = IBwin mapped DMA buffer */
 			buf_mode = 1;
 			break;
 		case 'R':
@@ -277,6 +377,8 @@ int main(int argc, char** argv)
 		}
 	}
 
+	/** - Create handle for selected mport */
+
 	rc = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
 	if (rc < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
@@ -289,8 +391,12 @@ int main(int argc, char** argv)
 		mport_id, ibwin_size, (uint32_t)(rio_base >> 32),
 		(uint32_t)(rio_base & 0xffffffff), (int)getpid());
 
+	/** - Run the buffer test */
+
 	do_buf_test(mport_id, rio_base, ibwin_size, buf_mode);
 	
+	/** - Close the mport handle */
+
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

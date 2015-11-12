@@ -47,6 +47,8 @@ void *slave_thread_f(void *arg)
 	slave_thread  = slave_params->slave_thread;
 	free(slave_params);
 
+	printf("Created %s with thread id=0x%X\n", __func__, slave_thread);
+
 	/* Allocate send and receive buffers */
 	send_buf = malloc(RSKT_DEFAULT_SEND_BUF_SIZE);
 	if (send_buf == NULL) {
@@ -79,13 +81,14 @@ void *slave_thread_f(void *arg)
 		rc = rskt_write(accept_socket, send_buf, data_size);
 		if (rc) {
 			fprintf(stderr, "Failed to send data, rc = %d: %s\n",
-						rc, strerror(rc));
+							rc, strerror(rc));
 			break;
 		}
 	} while(1); /* read/write loop */
 
 slave_thread_f_exit:
-	printf("Exiting %s, socket=0x%X\n", __func__, accept_socket);
+	printf("Exiting %s, thread id=0x%X, socket=0x%X\n", __func__,
+						slave_thread, accept_socket);
 
 	/* Free send/receive buffers */
 	if (send_buf != NULL)

@@ -180,11 +180,11 @@ int main(int argc, char *argv[])
 			puts("Data did not compare. FAILED.\n");
 		else
 			printf("*** Iteration %u, DATA COMPARED OK ***\n", i);
-
+#if 0
 		puts("Keeping the connection OPEN. Start another one!!");
 		puts("Press ENTER to close the connection");
 		getchar();
-
+#endif
 		rc = rskt_close(client_socket);
 		if (rc) {
 			fprintf(stderr, "Failed to close client socket, rc=%d: %s\n",
