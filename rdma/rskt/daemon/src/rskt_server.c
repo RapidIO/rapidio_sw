@@ -6,6 +6,9 @@
 #include <errno.h>
 #include <pthread.h>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
 #include "librsktd_private.h"
@@ -47,7 +50,7 @@ void *slave_thread_f(void *arg)
 	slave_thread  = slave_params->slave_thread;
 	free(slave_params);
 
-	printf("Created %s with thread id=0x%X\n", __func__, slave_thread);
+	printf("Created %s with thread id = 0x%" PRIx64 "\n", __func__, slave_thread);
 
 	/* Allocate send and receive buffers */
 	send_buf = malloc(RSKT_DEFAULT_SEND_BUF_SIZE);
