@@ -1069,7 +1069,7 @@ void MboxChannel::softRestart()
   set_outb_mbox_hwregs(0);
   uint64_t ts_e = rdtsc();
 
-  DBG("\n\tdT = %llu TICKS\n", (ts_e - ts_s));
+  INFO("dT = %llu TICKS\n", (ts_e - ts_s));
 }
 
 void MboxChannel::dumpBL()

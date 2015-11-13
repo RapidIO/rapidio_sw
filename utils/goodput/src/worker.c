@@ -1404,9 +1404,9 @@ again:
 	}
 
 	if (info->stop_req == SOFT_RESTART) {
-		INFO("\n\tSoft restart requested, sleeping on semaphore\n");
+		DBG("\n\tSoft restart requested, sleeping on semaphore\n");
 		sem_wait(&info->umd_fifo_proc_started); 
-		INFO("\n\tAwakened after Soft restart!\n");
+		DBG("\n\tAwakened after Soft restart!\n");
 		goto again;
 	}
 
@@ -2837,6 +2837,89 @@ int read_n(int fd, uint8_t* buf, int n)
   return n;  
 }
 
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+
+unsigned short in_cksum(unsigned short *addr, int len)
+{
+    register int sum = 0;
+    u_short answer = 0;
+    register u_short *w = addr;
+    register int nleft = len;
+    /*
+     * Our algorithm is simple, using a 32 bit accumulator (sum), we add
+     * sequential 16 bit words to it, and at the end, fold back all the
+     * carry bits from the top 16 bits into the lower 16 bits.
+     */
+    while (nleft > 1)
+    {
+      sum += *w++;
+      nleft -= 2;
+    }
+    /* mop up an odd byte, if necessary */
+    if (nleft == 1)
+    {
+      *(u_char *) (&answer) = *(u_char *) w;
+      sum += answer;
+    }
+    /* add back carry outs from top 16 bits to low 16 bits */
+    sum = (sum >> 16) + (sum & 0xffff);     /* add hi 16 to low 16 */
+    sum += (sum >> 16);             /* add carry */
+    answer = ~sum;              /* truncate to 16 bits */
+    return (answer);
+}
+
+static int max(int a, int b) { return a > b? a: b; }
+
+bool icmp_host_unreachable(uint8_t* l3_in, const int l3_in_size, uint8_t* l3_out, int& l3_out_size)
+{
+	if(l3_in == NULL || l3_in_size < 20) return false;
+	if(l3_out == NULL || l3_out_size < 64) return false;
+	
+	memcpy(l3_out, l3_in, sizeof(struct iphdr)); // IPv4 header
+
+	const int MAX_COPY = max(l3_in_size, 64);
+
+	struct iphdr* ip = (struct iphdr*)l3_out;
+	ip->tot_len = htons(sizeof(struct iphdr) + sizeof(struct icmphdr) + MAX_COPY);
+	uint32_t tmp = ip->daddr;
+	ip->daddr = ip->saddr;
+	ip->saddr = tmp;
+	ip->protocol = 1; // ICMP
+	ip->check = 0;
+	ip->check = in_cksum((unsigned short *)ip, sizeof(struct iphdr));
+
+	uint8_t* p = l3_out + sizeof(struct iphdr) + sizeof(struct icmphdr);
+	memcpy(p, l3_in, MAX_COPY);
+
+	struct icmphdr* icmp = (struct icmphdr*)(l3_out + sizeof(struct iphdr));
+	memset(icmp, 0, sizeof(struct icmphdr));
+	icmp->type = 0x3; // Type: Destination unreachable
+	icmp->code = 0x1; // Code: Host unreachable
+	icmp->checksum = 0;
+	icmp->checksum = in_cksum((unsigned short *)icmp, sizeof(struct icmphdr) + MAX_COPY);
+
+	l3_out_size = sizeof(struct iphdr) + sizeof(struct icmphdr) + MAX_COPY; // HAAACK adjust length in ip header!!
+
+	return true;
+}
+
+bool send_icmp_host_unreachable(struct worker* info, uint8_t* l3_in, const int l3_in_size)
+{
+	if(info == NULL) return false;
+	if(l3_in == NULL || l3_in_size < 20) return false;
+
+	const int BUFSIZE = 8192;
+	uint8_t buffer_unreach[BUFSIZE] = {0};
+
+	int out_size = BUFSIZE;
+
+	if (! icmp_host_unreachable(l3_in, l3_in_size, buffer_unreach, out_size)) return false;
+
+	cwrite(info->umd_tun_fd, buffer_unreach, out_size);
+	return true;
+}
+
 const int DESTID_TRANSLATE = 1;
 
 std::map <uint16_t, bool> bad_destid;
@@ -2912,7 +2995,10 @@ again:
 		         is_bad_destid? " BLACKLISTED": "");
 #endif
 
-		if (is_bad_destid) continue;
+		if (is_bad_destid) {
+			send_icmp_host_unreachable(info, buffer+4, nread);
+			continue;
+		}
 
 		DBG("\n\tSending to RIO %d+4 bytes to RIO destid %u\n", nread, opt.destid);
 
@@ -2931,6 +3017,7 @@ again:
 				bad_destid[opt.destid] = true;
 
 				info->stop_req = SOFT_RESTART;
+				send_icmp_host_unreachable(info, buffer+4, nread);
 				break;
                         } else { goto send_again; } // Succeed or die trying
                 } else {
@@ -2939,9 +3026,9 @@ again:
 	}
 
 	if (info->stop_req == SOFT_RESTART) {
-                INFO("\n\tSoft restart requested, sleeping on semaphore\n");
+                DBG("\n\tSoft restart requested, sleeping on semaphore\n");
 		sem_wait(&info->umd_mbox_tap_proc_started); 
-                INFO("\n\tAwakened after Soft restart!\n");
+                DBG("\n\tAwakened after Soft restart!\n");
 		goto again;
 	}
 
@@ -3006,6 +3093,9 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 		delete info->umd_lock; info->umd_lock = NULL;
 		return;
 	}
+
+	snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
+	system(ifconfig_cmd);
 
 	socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp);
 
