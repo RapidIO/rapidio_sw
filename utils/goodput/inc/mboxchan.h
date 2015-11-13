@@ -216,6 +216,8 @@ public:
     return m_omsg_trk.bltx_busy_size;
   }
 
+  void softRestart();
+
 public: // test-public
   #define wr32mboxchan(o, d) _wr32mboxchan((o), #o, (d), #d)
   void _wr32mboxchan(uint32_t offset, const char* offset_str, uint32_t data, const char* data_str)
@@ -246,7 +248,9 @@ public: // test-public
 private:
   void init();
   int open_outb_mbox(uint32_t entries, const uint32_t sts_entries);
+  void set_outb_mbox_hwregs(const uint32_t wr_count);
   int open_inb_mbox(uint32_t entries);
+  void set_inb_mbox_hwregs(const uint32_t fq_wrptr);
   void cleanup();
   void dumpBL();
 

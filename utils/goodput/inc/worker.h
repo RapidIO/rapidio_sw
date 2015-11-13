@@ -146,12 +146,14 @@ struct thread_cpu {
 	pthread_t thr; /* Thread being migrated... */
 };
 
+#define SOFT_RESTART	69
+
 struct worker {
 	int idx; /* index of this worker thread -- needed by UMD */
 	struct thread_cpu wkr_thr;
 	sem_t started;
 	int stat; /* 0 - dead, 1 - running, 2 stopped */
-	volatile int stop_req; /* 0 - continue, 1 - stop 2 - shutdown */
+	volatile int stop_req; /* 0 - continue, 1 - stop 2 - shutdown, SOFT_RESTART */
 	sem_t run;  /* Managed by controller, post this sem to start a stopped woker */
 	req_type action;
 	req_mode action_mode;
@@ -231,7 +233,8 @@ struct worker {
 	sem_t		umd_fifo_proc_started;
 	volatile int	umd_fifo_proc_alive;
 	volatile int	umd_fifo_proc_must_die;
-	int		umd_tap_fd;
+	int		umd_tun_fd;
+	char		umd_tun_name[33];
 	int		umd_sockp[2];
 	struct thread_cpu umd_mbox_tap_thr;
 	sem_t		umd_mbox_tap_proc_started;

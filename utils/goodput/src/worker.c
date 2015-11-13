@@ -91,6 +91,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+uint32_t crc32(uint32_t crc, const void *buf, size_t size);
+
+#ifdef __cplusplus
+};
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void init_worker_info(struct worker *info, int first_time)
 {
 	if (first_time) {
@@ -1314,7 +1324,7 @@ no_post:
 	pthread_exit(parm);
 };
 
-void *umd_mbox_fifo_proc_thr(void *parm)
+void* umd_mbox_fifo_proc_thr(void *parm)
 {
         struct worker* info = NULL;
 
@@ -1339,8 +1349,9 @@ void *umd_mbox_fifo_proc_thr(void *parm)
         info->umd_fifo_proc_alive = 1;
         sem_post(&info->umd_fifo_proc_started);
 
+again:
 	tsF1 = rdtsc();
-	while (!info->umd_fifo_proc_must_die) {
+	while (!info->umd_fifo_proc_must_die && ! info->stop_req) {
 		g_FifoStats[idx].fifo_thr_iter++;
 
 		const uint64_t tss1 = rdtsc();
@@ -1390,6 +1401,13 @@ void *umd_mbox_fifo_proc_thr(void *parm)
 		if (tsm2 > tsm1) { g_FifoStats[idx].fifo_deltats_other += (tsm2-tsm1); g_FifoStats[idx].fifo_count_other++; }
 
 		for(int i = 0; i < 1000; i++) {;}
+	}
+
+	if (info->stop_req == SOFT_RESTART) {
+		DBG("\n\tSoft restart requested, sleeping on semaphore\n");
+		sem_wait(&info->umd_fifo_proc_started); 
+		DBG("\n\tAwakened after Soft restart!\n");
+		goto again;
 	}
 
 	if (tsF2 > tsF1) { g_FifoStats[idx].fifo_deltats_all = tsF2 - tsF1; }
@@ -2819,6 +2837,89 @@ int read_n(int fd, uint8_t* buf, int n)
   return n;  
 }
 
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+
+unsigned short in_cksum(unsigned short *addr, int len)
+{
+    register int sum = 0;
+    u_short answer = 0;
+    register u_short *w = addr;
+    register int nleft = len;
+    /*
+     * Our algorithm is simple, using a 32 bit accumulator (sum), we add
+     * sequential 16 bit words to it, and at the end, fold back all the
+     * carry bits from the top 16 bits into the lower 16 bits.
+     */
+    while (nleft > 1)
+    {
+      sum += *w++;
+      nleft -= 2;
+    }
+    /* mop up an odd byte, if necessary */
+    if (nleft == 1)
+    {
+      *(u_char *) (&answer) = *(u_char *) w;
+      sum += answer;
+    }
+    /* add back carry outs from top 16 bits to low 16 bits */
+    sum = (sum >> 16) + (sum & 0xffff);     /* add hi 16 to low 16 */
+    sum += (sum >> 16);             /* add carry */
+    answer = ~sum;              /* truncate to 16 bits */
+    return (answer);
+}
+
+static int max(int a, int b) { return a > b? a: b; }
+
+bool icmp_host_unreachable(uint8_t* l3_in, const int l3_in_size, uint8_t* l3_out, int& l3_out_size)
+{
+	if(l3_in == NULL || l3_in_size < 20) return false;
+	if(l3_out == NULL || l3_out_size < 64) return false;
+	
+	memcpy(l3_out, l3_in, sizeof(struct iphdr)); // IPv4 header
+
+	const int MAX_COPY = max(l3_in_size, 64);
+
+	struct iphdr* ip = (struct iphdr*)l3_out;
+	ip->tot_len = htons(sizeof(struct iphdr) + sizeof(struct icmphdr) + MAX_COPY);
+	uint32_t tmp = ip->daddr;
+	ip->daddr = ip->saddr;
+	ip->saddr = tmp;
+	ip->protocol = 1; // ICMP
+	ip->check = 0;
+	ip->check = in_cksum((unsigned short *)ip, sizeof(struct iphdr));
+
+	uint8_t* p = l3_out + sizeof(struct iphdr) + sizeof(struct icmphdr);
+	memcpy(p, l3_in, MAX_COPY);
+
+	struct icmphdr* icmp = (struct icmphdr*)(l3_out + sizeof(struct iphdr));
+	memset(icmp, 0, sizeof(struct icmphdr));
+	icmp->type = 0x3; // Type: Destination unreachable
+	icmp->code = 0x1; // Code: Host unreachable
+	icmp->checksum = 0;
+	icmp->checksum = in_cksum((unsigned short *)icmp, sizeof(struct icmphdr) + MAX_COPY);
+
+	l3_out_size = sizeof(struct iphdr) + sizeof(struct icmphdr) + MAX_COPY; // HAAACK adjust length in ip header!!
+
+	return true;
+}
+
+bool send_icmp_host_unreachable(struct worker* info, uint8_t* l3_in, const int l3_in_size)
+{
+	if(info == NULL) return false;
+	if(l3_in == NULL || l3_in_size < 20) return false;
+
+	const int BUFSIZE = 8192;
+	uint8_t buffer_unreach[BUFSIZE] = {0};
+
+	int out_size = BUFSIZE;
+
+	if (! icmp_host_unreachable(l3_in, l3_in_size, buffer_unreach, out_size)) return false;
+
+	cwrite(info->umd_tun_fd, buffer_unreach, out_size);
+	return true;
+}
+
 const int DESTID_TRANSLATE = 1;
 
 std::map <uint16_t, bool> bad_destid;
@@ -2835,9 +2936,9 @@ void* umd_mbox_tun_proc_thr(void *parm)
         if (NULL == info->umd_mch) goto exit;
 
 	{{ 
-	const int tap_fd = info->umd_tap_fd;
+	const int tun_fd = info->umd_tun_fd;
 	const int net_fd = info->umd_sockp[1];
-	const int maxfd = (tap_fd > net_fd)?tap_fd:net_fd;
+	const int maxfd = (tun_fd > net_fd)?tun_fd:net_fd;
 
         info->umd_mbox_tap_proc_alive = 1;
         sem_post(&info->umd_mbox_tap_proc_started);
@@ -2855,11 +2956,12 @@ void* umd_mbox_tun_proc_thr(void *parm)
 
 	opt.mbox = info->umd_chan;
 
+again:
 	while(! info->stop_req) {
     		fd_set rd_set;
 
     		FD_ZERO(&rd_set);
-    		FD_SET(tap_fd, &rd_set); FD_SET(net_fd, &rd_set);
+    		FD_SET(tun_fd, &rd_set); FD_SET(net_fd, &rd_set);
 
 		const int ret = select(maxfd + 1, &rd_set, NULL, NULL, NULL);
 		if (info->stop_req) goto exit;
@@ -2870,11 +2972,11 @@ void* umd_mbox_tun_proc_thr(void *parm)
 
     		if(FD_ISSET(net_fd, &rd_set)) { goto exit; }
 
-    		if (! FD_ISSET(tap_fd, &rd_set)) continue; // XXX Whoa! Why?
+    		if (! FD_ISSET(tun_fd, &rd_set)) continue; // XXX Whoa! Why?
 
       		// Data from tun/tap: read it, decode destid from 169.254.x.y and write it to RIO
       
-      		const int nread = cread(tap_fd, buffer+4, BUFSIZE-4);
+      		const int nread = cread(tun_fd, buffer+4, BUFSIZE-4);
 
 		{{
 		uint32_t* pkt = (uint32_t*)(buffer+4);
@@ -2883,13 +2985,24 @@ void* umd_mbox_tun_proc_thr(void *parm)
 		opt.destid = (dest_ip_v4 & 0xFFFF) - DESTID_TRANSLATE;
 		}}
 
-		DBG("\n\tGot from Tun %d+4 bytes to RIO destid %u\n", nread, opt.destid);
+		const bool is_bad_destid = bad_destid.find(opt.destid) != bad_destid.end();
 
-		if (bad_destid.find(opt.destid) != bad_destid.end()) continue;
+#ifdef MBOX_TUN_DEBUG
+		const uint32_t crc = crc32(0, buffer, nread+4);
+		DBG("\n\tGot from %s %d+4 bytes (L2 CRC32 0x%x) to RIO destid %u%s\n",
+		         info->umd_tun_name, nread, 
+		         crc, opt.destid,
+		         is_bad_destid? " BLACKLISTED": "");
+#endif
+
+		if (is_bad_destid) {
+			send_icmp_host_unreachable(info, buffer+4, nread);
+			continue;
+		}
 
 		DBG("\n\tSending to RIO %d+4 bytes to RIO destid %u\n", nread, opt.destid);
 
-	again:
+	send_again:
 		if (info->stop_req) goto exit;
 
 		const bool first_message = good_destid.find(opt.destid) == good_destid.end();
@@ -2898,14 +3011,27 @@ void* umd_mbox_tun_proc_thr(void *parm)
                 if (! info->umd_mch->send_message(opt, buffer, nread+4, first_message, fail_reason)) {
                 	if (fail_reason == MboxChannel::STOP_REG_ERR) {
                         	ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
+
 				// XXX ICMPv4 dest unreachable id bad destid - TBI
+				
 				bad_destid[opt.destid] = true;
-                                continue;
-                        } else { goto again; } // Succeed or die trying
+
+				info->stop_req = SOFT_RESTART;
+				send_icmp_host_unreachable(info, buffer+4, nread);
+				break;
+                        } else { goto send_again; } // Succeed or die trying
                 } else {
 			good_destid[opt.destid] = true;
 		}
 	}
+
+	if (info->stop_req == SOFT_RESTART) {
+                DBG("\n\tSoft restart requested, sleeping on semaphore\n");
+		sem_wait(&info->umd_mbox_tap_proc_started); 
+                DBG("\n\tAwakened after Soft restart!\n");
+		goto again;
+	}
+
 	goto no_post;
 	}}
 exit:
@@ -2926,12 +3052,16 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	if (! umd_check_cpu_allocation(info)) return;
 	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
 
+	memset(info->umd_tun_name, 0, sizeof(info->umd_tun_name));
+
 	// Initialize tun/tap interface
-	if ((info->umd_tap_fd = tun_alloc(if_name, flags)) < 0) {
+	if ((info->umd_tun_fd = tun_alloc(if_name, flags)) < 0) {
 		CRIT("Error connecting to tun/tap interface %s!\n", if_name);
 		delete info->umd_lock; info->umd_lock = NULL;
 		return;
 	}
+
+	strncpy(info->umd_tun_name, if_name, sizeof(info->umd_tun_name)-1);
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 
@@ -2964,6 +3094,9 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 		return;
 	}
 
+	snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
+	system(ifconfig_cmd);
+
 	socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp);
 
 	uint64_t rx_ok = 0;
@@ -2973,13 +3106,11 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 
         info->umd_mch->setInitState();
 
-        if (GetEnv("verb") != NULL) {
-		INFO("\n\tMBOX=%d my_destid=%u acc_size=%d #buf=%d #fifo=%d\n",
-		     info->umd_chan,
-		     info->umd_mch->getDestId(),
-		     info->acc_size,
-		     info->umd_tx_buf_cnt, info->umd_sts_entries);
-	}
+	INFO("\n\t%s %s mtu %d on MBOX=%d my_destid=%u #buf=%d #fifo=%d\n",
+	     if_name, TapIPv4Addr, MTU,
+	     info->umd_chan,
+	     info->umd_mch->getDestId(),
+	     info->umd_tx_buf_cnt, info->umd_sts_entries);
 
 	// Spawn Tap Transmitter Thread
         rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
@@ -3019,6 +3150,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 		}
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
+	again:
         	while (!info->stop_req) {
                 	info->umd_dma_abort_reason = 0;
 			uint64_t rx_ts = 0;
@@ -3036,10 +3168,13 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 			      const uint16_t src_devid = htons(p[0]);
 			      const uint16_t src_mbox  = htons(p[1]);
 			      good_destid[src_devid] = true;
-			      const int nwrite = cwrite(info->umd_tap_fd, buf+4, opt.bcount-4);
+			      const int nwrite = cwrite(info->umd_tun_fd, buf+4, opt.bcount-4);
 			      info->umd_mch->add_inb_buffer(buf); // recycle
-			      DBG("\n\tGot a message of size %d from destid %u mbox %u cnt=%llu, wrote %d to Tap\n",
-				       opt.bcount, src_devid, src_mbox, rx_ok, nwrite);
+#ifdef MBOX_TUN_DEBUG
+			      const uint32_t crc = crc32(0, buf, opt.bcount);
+			      DBG("\n\tGot a message of size %d from RIO destid %u mbox %u (L2 CRC32 0x%x) cnt=%llu, wrote %d to %s\n",
+				       opt.bcount, src_devid, src_mbox, crc, rx_ok, nwrite, if_name);
+#endif
 			}
 			if (! rx_buf) {
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
@@ -3057,6 +3192,15 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 
 		// Inbound buffers freed in MboxChannel::cleanup
 
+		if (info->stop_req == SOFT_RESTART) {
+                	INFO("\n\tSoft restart requested, nuking MBOX hardware!\n");
+			info->umd_mch->softRestart();
+			info->stop_req = 0;
+			sem_post(&info->umd_fifo_proc_started);
+			sem_post(&info->umd_mbox_tap_proc_started);
+			goto again;
+		}		
+
 		goto exit;
 	} // END Receiver
 
@@ -3068,7 +3212,7 @@ exit:
         pthread_join(info->umd_mbox_tap_thr.thr, NULL);
 
 	close(info->umd_sockp[0]); close(info->umd_sockp[1]);
-	close(info->umd_tap_fd);
+	close(info->umd_tun_fd);
 
         delete info->umd_mch; info->umd_mch = NULL;
 	delete info->umd_lock; info->umd_lock = NULL;
