@@ -393,7 +393,6 @@ void *wait_conn_disc_thread_f(void *arg)
 			 */
 			rx_conn_disc_server->flush_recv_buffer();
 
-			sleep(1);	/* FIXME: Is this needed? */
 			delete connect_mq;
 		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS) {
 			cm_disconnect_msg	*disc_msg;
