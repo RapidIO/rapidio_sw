@@ -103,6 +103,7 @@ public:
 private:
 	void dump_buffer(uint8_t *buffer)
 	{
+#ifdef EXTRA_DEBUG
 		unsigned row, col;
 		const uint8_t numbers_per_line = 32;
 		const uint8_t max_rows = 4;
@@ -113,6 +114,9 @@ private:
 			}
 			printf("0x%02X\n", *(buffer + CM_MSG_OFFSET + row*numbers_per_line + col));
 		}
+#else
+		(void)buffer;
+#endif
 	}
 
 protected:
