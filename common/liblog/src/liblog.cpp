@@ -57,7 +57,8 @@ using std::string;
 extern "C" {
 #endif
 
-unsigned g_level = RDMA_LL; /* Default log level from build */
+unsigned g_level 	= RDMA_LL; /* Default log level from build */
+unsigned g_disp_level 	= RDMA_LL; /* Default log level from build */
 
 static circ_buf<string,NUM_LOG_LINES>	log_buf;
 static unsigned circ_buf_en = 1;
@@ -109,7 +110,8 @@ void rdma_log_dump()
 	log_buf.dump();
 } /* rdma_log_dump() */
 
-int rdma_log(const char *level_str,
+int rdma_log(unsigned level,
+	     const char *level_str,
 	     const char *file,
 	     int line_num,
 	     const char *func,
@@ -149,7 +151,8 @@ int rdma_log(const char *level_str,
 		log_buf.push_back(log_line);
 	fputs(log_line.c_str(), log_file);
 #ifdef DEBUG
-	printf("%s", log_line.c_str());
+	if (level <= g_disp_level)
+		printf("%s", log_line.c_str());
 #endif
 	sem_post(&log_buf_sem);
 

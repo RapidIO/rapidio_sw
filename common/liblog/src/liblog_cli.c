@@ -41,8 +41,10 @@ extern "C" {
 #endif
 
 extern struct cli_cmd LogLevel;
+extern struct cli_cmd DispLevel;
 
 extern unsigned g_level;
+extern unsigned g_disp_level;
 
 char *level_strings[RDMA_LL_DBG+1] {
 	(char *)"NOLOG",
@@ -100,6 +102,53 @@ LogLevelCmd,
 ATTR_NONE
 };
 
+/**
+ * Sets the debug level for messages displayed on the screen.
+ */
+int DispLevelCmd(struct cli_env *env, int argc, char **argv)
+{
+        uint8_t temp;
+
+	if (argc) {
+		temp = getHex(argv[0], 0);
+		if (temp < RDMA_LL_CRIT)
+			temp = RDMA_LL_CRIT - 1;
+		if (temp > RDMA_LL)
+			temp = RDMA_LL;
+		g_disp_level = temp;
+	};
+
+	sprintf(env->output, "\nCompiled log level %d: %s\n", RDMA_LL,
+		LOG_STR(RDMA_LL));
+	logMsg(env);
+	sprintf(env->output, "Current DISPLAY log level %d: %s\n", g_disp_level,
+		LOG_STR(g_disp_level));
+	logMsg(env);
+
+	return 0;
+};
+
+struct cli_cmd DispLevel = {
+"leveldisp",
+3,
+0,
+"Display or set current DISPLAY level.",
+"{<level>}\n"
+        "1: Logging disabled.\n"
+        "2: Critical, Failure critical to correct operation\n"
+        "3: Error   , Error occurred, may not affect operation\n"
+        "4: Warning , Something a bit strange occurred\n"
+        "5: High priority info, mainly thread synchronization info\n"
+        "6: Info    , Informational, trace operation of the system\n"
+        "7: Debug   , Detailed information about system operation\n"
+        "   NOTE: Levels above \"Error\" impact performance significantly.\n"
+        "   NOTE: Maximum level available is set through the \"LOG_LEVEL\"\n"
+        "         Makefile compile option.",
+DispLevelCmd,
+ATTR_NONE
+};
+
+
 int log_dump_cmd_f(struct cli_env *env, int argc, char **argv)
 {
         (void)env;
@@ -122,6 +171,7 @@ struct cli_cmd log_dump_cmd = {
 
 struct cli_cmd *liblog_cmds[] = 
 	{ &LogLevel,
+	  &DispLevel,
 	  &log_dump_cmd 
 	};
 

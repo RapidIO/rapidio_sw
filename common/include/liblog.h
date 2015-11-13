@@ -54,7 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if RDMA_LL >= RDMA_LL_DBG
 #define DBG(format, ...) if (RDMA_LL_DBG <= g_level) { \
-		__rdma_log("DBG", format, ## __VA_ARGS__); \
+		__rdma_log(RDMA_LL_DBG, "DBG", format, ## __VA_ARGS__); \
 }
 #else
 #define DBG(format, ...)
@@ -62,7 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if RDMA_LL >= RDMA_LL_INFO
 #define INFO(format, ...) if (RDMA_LL_INFO <= g_level) { \
-		__rdma_log("INFO", format, ## __VA_ARGS__); \
+		__rdma_log(RDMA_LL_INFO, "INFO", format, ## __VA_ARGS__); \
 }
 #else
 #define INFO(format, ...)
@@ -70,7 +70,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if RDMA_LL >= RDMA_LL_HIGH
 #define HIGH(format, ...) if (RDMA_LL_HIGH <= g_level) { \
-		__rdma_log("HIGH", format, ## __VA_ARGS__); \
+		__rdma_log(RDMA_LL_HIGH, "HIGH", format, ## __VA_ARGS__); \
 }
 #else
 #define HIGH(format, ...)
@@ -78,7 +78,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if RDMA_LL >= RDMA_LL_WARN
 #define WARN(format, ...) if (RDMA_LL_WARN <= g_level) { \
-		__rdma_log("WARN", format, ## __VA_ARGS__); \
+		__rdma_log(RDMA_LL_WARN, "WARN", format, ## __VA_ARGS__); \
 }
 #else
 #define WARN(format, ...)
@@ -86,7 +86,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if RDMA_LL >= RDMA_LL_ERR
 #define ERR(format, ...) if (RDMA_LL_ERR <= g_level) { \
-		__rdma_log("ERR", format, ## __VA_ARGS__); \
+		__rdma_log(RDMA_LL_ERR, "ERR", format, ## __VA_ARGS__); \
 }
 #else
 #define ERR(format, ...)
@@ -94,7 +94,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if RDMA_LL >= RDMA_LL_CRITICAL
 #define CRIT(format, ...) if (RDMA_LL_CRIT <= g_level) { \
-		__rdma_log("CRIT", format, ## __VA_ARGS__); \
+		__rdma_log(RDMA_LL_CRIT, "CRIT", format, ## __VA_ARGS__); \
 }
 #endif
 
@@ -104,7 +104,8 @@ extern "C" {
 
 int rdma_log_init(const char *log_filename, unsigned circ_buf_en);
 
-int rdma_log(const char *level_str,
+int rdma_log(unsigned level,
+	     const char *level_str,
 	     const char *file,
 	     int line_num,
 	     const char *func,
@@ -117,12 +118,13 @@ void rdma_log_close();
 void liblog_bind_cli_cmds();
 
 extern unsigned g_level;
+extern unsigned g_disp_level;
 
 #ifdef __cplusplus
 }
 #endif
 
-#define __rdma_log(level_str, format, ...) rdma_log(level_str, \
+#define __rdma_log(level, level_str, format, ...) rdma_log(level, level_str, \
 			 __FILE__, __LINE__, __func__, format, ## __VA_ARGS__)
 
 #endif
