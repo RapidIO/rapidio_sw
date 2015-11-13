@@ -62,7 +62,7 @@ RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -I../../samples/latency/common/ 
 
 # RDMA Daemon flags & sources
 RDMAD_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -g -ggdb -O3 \
-		-DRDMA_LL=$(level) -I$(MPORTLIB_INC) \
+		-DRDMA_LL=$(level) -DBE_STRICT -I$(MPORTLIB_INC) \
 		-I../common/libcli/inc \
 		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
 
