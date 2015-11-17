@@ -1611,7 +1611,7 @@ void read_bytes(struct rskt_socket_t *skt, void *data, uint32_t byte_cnt)
 int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 {
 	uint32_t avail_bytes = 0;
-	int time_remains = 5000;
+	int time_remains = 50000;
 	struct timespec unused;
 	struct rdma_xfer_ms_in hdr_in;
 	uint32_t first_offset;
