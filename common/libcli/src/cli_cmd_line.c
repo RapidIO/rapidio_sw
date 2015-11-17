@@ -126,11 +126,12 @@ int process_command(struct cli_env *env, char *input)
 	int  argc;
 	char *argv[30];
 	int   exitStat = 0;
+	char *status;
 
 	if (env->fout != NULL)
 		fprintf((FILE *) env->fout, "%s", input); /* Log command file */
 
-	cmd = strtok(input, delimiter);	/* Tokenize input array */
+	cmd = strtok_r(input, delimiter, &status);/* Tokenize input array */
 
 	if ((cmd    != NULL) && (cmd[0] != '/') && (cmd[0] != '\n') &&
 	    (cmd[0] != '\r')) {
@@ -146,7 +147,8 @@ int process_command(struct cli_env *env, char *input)
 			logMsg(env);
 		} else if (!rc && (cmd_p->func != NULL)) {
 			argc = 0;
-			while ((argv[argc] = strtok(NULL, delimiter)) != NULL)
+			while ((argv[argc] = strtok_r(NULL, delimiter, &status))
+					 != NULL)
 				argc++;
 
 			if (argc < cmd_p->min_parms) {
