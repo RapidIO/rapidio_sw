@@ -48,6 +48,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "cli_cmd_line.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void (*cons_cleanup)(struct cli_env *env);
 
 void splashScreen(char *app_name)
@@ -712,3 +716,7 @@ int bind_cli_cmd_line_cmds(void)
 				cmd_line_cmds);
 	return 0;
 };
+
+#ifdef __cplusplus
+}
+#endif

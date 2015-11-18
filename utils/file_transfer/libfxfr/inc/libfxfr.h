@@ -50,8 +50,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define MAX_FILE_NAME 256
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int send_file(char *src_name, char *dest_name, 
 		uint8_t mport_num, uint16_t destID, int svr_skt, uint8_t debug,
 		struct timespec *st_time, uint64_t *bytes_sent, uint8_t k_buff);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LIBFXFR_H__ */

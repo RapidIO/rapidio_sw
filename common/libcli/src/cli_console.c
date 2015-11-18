@@ -36,6 +36,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libcli.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void *console(void *cons_parm)
 {
 	struct cli_env cons_env;
@@ -64,4 +68,7 @@ void *console(void *cons_parm)
 	pthread_exit((void *)ret);
 } /* console */
 
+#ifdef __cplusplus
+}
+#endif
 

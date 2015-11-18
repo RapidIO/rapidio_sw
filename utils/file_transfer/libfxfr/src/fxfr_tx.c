@@ -64,6 +64,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define MAX_TX_SEGMENTS 2
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct fxfr_tx_state {
 	uint8_t fail_abort; 	/* 0 - Proceed with transfer.
 				* 1 - Abort transfer
@@ -606,3 +610,7 @@ extern int send_file( char *src_file, /* Local source file name */
 
 	return info.fail_abort;
 };
+
+#ifdef __cplusplus
+}
+#endif

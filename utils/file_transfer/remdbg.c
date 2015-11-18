@@ -59,7 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libcli.h"
 
-struct cli_cmd CLIConnect;
+extern struct cli_cmd CLIConnect;
 
 int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -188,7 +188,7 @@ int main(int argc, char *argv[])
         bzero(env.prompt, PROMPTLEN+1);
 	strncpy(env.prompt, "RemDbg> ", PROMPTLEN);
 
-	splashScreen("RapidIO Remote Debug Console");
+	splashScreen((char *)"RapidIO Remote Debug Console");
 	cli_terminal(&env);
 
 	exit(EXIT_SUCCESS);

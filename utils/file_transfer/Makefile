@@ -4,7 +4,7 @@
 export LOCAL_LIBRARY_DIR=libs_a
 COMMON_LIBS_DIR?=../../common/libs_a
 
-CC= gcc
+CC= g++
 CCFLAGS= -c -g -ggdb -fPIC -Wall -Werror -O2 -I. \
 	-I../../common/include -I./file_xfer_lib/inc -I./libcdev/inc \
 
@@ -34,16 +34,16 @@ libfxfr:
 	
 
 server: $(SERVER_OBJS) 
-	gcc -o server $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	-lfxfr -lcli -lmport -lrt -D__CLI_LINUX__ -I./libfxfr/inc
+	g++ -o server $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
+	-lfxfr -lcli -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
 
 client: $(CLIENT_OBJS) 
-	gcc -o rftp $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	-lfxfr -lcli -lmport -lrt -D__CLI_LINUX__ -I./libfxfr/inc
+	g++ -o rftp $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
+	-lfxfr -lcli -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
 
 remdbg: $(REMDBG_OBJS)
-	gcc -o remdbg $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	-lfxfr -lcli -lrt -D__CLI_LINUX__ 
+	g++ -o remdbg $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
+	-lfxfr -lcli -llog -lrt -D__CLI_LINUX__ 
 
 all: $(LIB_DEPS) server client remdbg
 

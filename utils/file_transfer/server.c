@@ -63,6 +63,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define MAX_IBWIN 8
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 uint8_t debug;
 
 void print_server_help(void)
@@ -358,7 +362,7 @@ ATTR_RPT
 sem_t conn_loop_started;
 int conn_loop_alive;
 int conn_skt_num;
-struct cli_cmd FXStatus;
+extern struct cli_cmd FXStatus;
 
 int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -911,7 +915,7 @@ int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size,
 		sem_init(&ibwins[i].req_avail, 0, 0);
 		ibwins[i].handle = 0;
 		ibwins[i].length = 0;
-		ibwins[i].ib_mem = MAP_FAILED;
+		ibwins[i].ib_mem = (char *)MAP_FAILED;
 		ibwins[i].msg_rx = NULL;
 		ibwins[i].msg_tx = NULL;
 		ibwins[i].rxed_msg = NULL;
@@ -950,7 +954,7 @@ close_ibwin:
 			if (ibwins[i].ib_mem != MAP_FAILED) {
 				riomp_dma_unmap_memory(mp_h, ibwins[i].length,
 					ibwins[i].ib_mem);
-				ibwins[i].ib_mem = MAP_FAILED;
+				ibwins[i].ib_mem = (char *)MAP_FAILED;
 			};
 			riomp_dma_ibwin_free(mp_h, &ibwins[i].handle);
 			ibwins[i].length = 0;
@@ -1066,7 +1070,8 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	if (run_cons) {
 		pass_cons_ret = (int *)(malloc(sizeof(int)));
 		*pass_cons_ret = 0;
-		splashScreen("RTA File Transfer Server Command Line Interface");
+		splashScreen((char *)
+			"RTA File Transfer Server Command Line Interface");
 
 		cons_ret = pthread_create( &console_thread, NULL, 
 				console, (void *)((char *)"FXServer> "));
@@ -1232,3 +1237,7 @@ int main(int argc, char *argv[])
 exit:
 	exit(rc);
 }
+
+#ifdef __cplusplus
+}
+#endif
