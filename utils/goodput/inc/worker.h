@@ -220,7 +220,8 @@ struct worker {
 
 #ifdef USER_MODE_DRIVER
 	LockFile*	umd_lock;
-	int		umd_chan; ///< Local mailbox
+	int		umd_chan; ///< Local mailbox OR DMA channel
+	int		umd_chan2; ///< Local mailbox OR DMA channel
 	int		umd_chan_to; ///< Remote mailbox
 	int		umd_letter; ///< Remote mailbox letter
 	DMAChannel 	*umd_dch;
@@ -235,10 +236,15 @@ struct worker {
 	volatile int	umd_fifo_proc_must_die;
 	int		umd_tun_fd;
 	char		umd_tun_name[33];
+	int		umd_tun_MTU;
 	int		umd_sockp[2];
+	void		(*umd_dma_fifo_callback)(struct worker* info);
 	struct thread_cpu umd_mbox_tap_thr;
+	struct thread_cpu umd_dma_tap_thr;
 	sem_t		umd_mbox_tap_proc_started;
 	volatile int	umd_mbox_tap_proc_alive;
+	sem_t		umd_dma_tap_proc_started;
+	volatile int	umd_dma_tap_proc_alive;
 	uint32_t	umd_dma_abort_reason;
 	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
