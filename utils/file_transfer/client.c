@@ -112,7 +112,7 @@ int parse_options(int argc, char *argv[],
 	*rem_name = rem_fs;
 	*server_dest = 0;
 	*xfer_skt = 5555;
-	*mport_num = 1;
+	*mport_num = 0;
 	*debug = 0;
 	*k_buffs = 1;
 	
