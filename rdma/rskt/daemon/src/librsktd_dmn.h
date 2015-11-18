@@ -55,6 +55,16 @@ extern "C" {
 #define RSKTD_CLI_CMD_REQ  0x108
 #define RSKTD_CLI_CMD_RESP (RSKTD_CLOSE_REQ | RSKTD_RESP_FLAG)
 
+#define RSKTD_REQ_STR(x) (x==RSKTD_HELLO_REQ)?"HELLO":  \
+			(x==RSKTD_CONNECT_REQ)?"CONN ": \
+			(x==RSKTD_CLOSE_REQ)?"CLOSE":   \
+			(x==RSKTD_CLI_CMD_REQ)?" CLI ":">BAD<"
+
+#define RSKTD_RESP_STR(x) (x==RSKTD_HELLO_RESP)?"HELLO_RSP":  \
+			(x==RSKTD_CONNECT_RESP)?"CONN_RSP ": \
+			(x==RSKTD_CLOSE_RESP)?"CLOSE_RSP":   \
+			(x==RSKTD_CLI_CMD_RESP)?" CLI_RSP ":">ERROR<"
+
 struct librsktd_hello_req {
 	uint32_t ct; /* Peer component tag */
 	uint32_t cm_skt; /* Peer cm socket number for connecting to */
