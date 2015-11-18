@@ -526,7 +526,11 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	if (ret) {
 		/* TODO try second time when failed, the ANY_ID route seems to be programmed correctly
 			at this point but the route was not working previous read */
-		RIOCP_WARN("Trying reading again component tag on h: %u\n", hopcount);
+		RIOCP_WARN("Trying link sync and reading again component tag on h: %u\n", hopcount);
+		ret = riocp_pe_link_sync_simple(pe, port);
+		if (ret) {
+			RIOCP_ERROR("Link sync failed on h: %u\n", hopcount);
+		}
 		ret = riocp_pe_maint_read_remote(pe->mport, any_id, hopcount, RIO_COMPONENT_TAG_CSR, &comptag);
 		if (ret) {
 			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);

@@ -620,6 +620,108 @@ int riocp_pe_clear_lockout(struct riocp_pe *pe, uint8_t port)
 	return -ENOTSUP;
 }
 
+/**
+ * Do a simple link sync on PEs port (when pe is switch)
+ * - Check if port is active
+ * - send link request
+ * - check link response
+ * - update ackid status
+ * - clear port errors
+ * - check port error status
+ * @param pe Target switch PE
+ * @param port Port to do the link sync
+ * @retval -EIO Error in maintenance access
+ * @retval -ENODEV Supplied port is inactive
+ */
+int riocp_pe_link_sync_simple(struct riocp_pe *pe, uint8_t port)
+{
+	int ret = 0, i, j;
+	uint32_t efptr = pe->efptr;
+	uint32_t lm_resp, ackid_stat, port_err_stat;
+
+	RIOCP_TRACE("Simple link sync on pe 0x%08x:%u\n", pe->comptag, port);
+
+	if (RIOCP_PE_IS_SWITCH(pe->cap)) {
+		ret = riocp_pe_is_port_active(pe, port);
+		if (ret < 0) {
+			RIOCP_ERROR("Unable to read if port is active\n");
+			return -EIO;
+		}
+		if (ret == 0) {
+			RIOCP_ERROR("Try to sync inactive port %u\n", port);
+			return -ENODEV;
+		}
+
+		j = 3;
+		do {
+			ret = riocp_pe_maint_write(pe, efptr + RIO_PORT_N_MNT_REQ_CSR(port), RIO_MNT_REQ_CMD_IS);
+			if (ret) {
+				RIOCP_ERROR("Unable to write RIO_PORT_N_MNT_REQ_CSR(0x%08x) for port %u\n",
+					efptr + RIO_PORT_N_MNT_REQ_CSR(port), port);
+				return ret;
+			}
+
+			i = 5;
+			do {
+				ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_MNT_RSP_CSR(port), &lm_resp);
+				if (ret) {
+					RIOCP_ERROR("Unable to read RIO_PORT_N_MNT_RSP_CSR(0x%08x) for port %u\n",
+						efptr + RIO_PORT_N_MNT_RSP_CSR(port), port);
+					return ret;
+				}
+				i--;
+				if (i<=0) {
+					RIOCP_ERROR("No valid response (0x%08x) for RIO_PORT_N_MNT_RSP_CSR(0x%08x) on port %u\n",
+						lm_resp, efptr + RIO_PORT_N_MNT_RSP_CSR(port), port);
+					return -EIO;
+				}
+			} while (!(lm_resp & RIO_PORT_N_MNT_RSP_RVAL));
+
+			j--;
+			if (i<=0) {
+				RIOCP_ERROR("No link status ok (0x%08x) for RIO_PORT_N_MNT_RSP_CSR(0x%08x) on port %u\n",
+					lm_resp, efptr + RIO_PORT_N_MNT_RSP_CSR(port), port);
+				return -EIO;
+			}
+		} while ((lm_resp & RIO_PORT_N_MNT_RSP_LSTAT) != 0x10);
+
+		lm_resp = (lm_resp & RIO_PORT_N_MNT_RSP_ASTAT) >> 5;
+
+		ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_ACK_STS_CSR(port), &ackid_stat);
+		if (ret) {
+			RIOCP_ERROR("Unable to read RIO_PORT_N_ACK_STS_CSR(0x%08x) for port %u\n",
+				efptr + RIO_PORT_N_ACK_STS_CSR(port), port);
+			return ret;
+		}
+
+		ackid_stat &= ~(RIO_PORT_N_ACK_OUTSTAND | RIO_PORT_N_ACK_OUTBOUND);
+		ackid_stat |= (RIO_PORT_N_ACK_CLEAR | (lm_resp << 8) | (lm_resp));
+
+		ret = riocp_pe_maint_write(pe, efptr + RIO_PORT_N_ACK_STS_CSR(port), ackid_stat);
+		if (ret) {
+			RIOCP_ERROR("Unable to write RIO_PORT_N_ACK_STS_CSR(0x%08x) for port %u\n",
+				efptr + RIO_PORT_N_ACK_STS_CSR(port), port);
+			return ret;
+		}
+
+		ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_ERR_STS_CSR(port), &port_err_stat);
+		if (ret) {
+			RIOCP_ERROR("Unable to read RIO_PORT_N_ERR_STS_CSR(0x%08x) for port %u\n",
+				efptr + RIO_PORT_N_ERR_STS_CSR(port), port);
+			return ret;
+		}
+		ret = riocp_pe_maint_write(pe, efptr + RIO_PORT_N_ERR_STS_CSR(port), port_err_stat);
+		if (ret) {
+			RIOCP_ERROR("Unable to write RIO_PORT_N_ERR_STS_CSR(0x%08x) for port %u\n",
+				efptr + RIO_PORT_N_ERR_STS_CSR(port), port);
+			return ret;
+		}
+	}
+
+	RIOCP_TRACE("Simple link sync on pe 0x%08x:%u successfull\n", pe->comptag, port);
+	return ret;
+}
+
 #ifdef __cplusplus
 }
 #endif

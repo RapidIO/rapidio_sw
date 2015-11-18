@@ -51,6 +51,7 @@ int RIOCP_WU riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, uint8_
 int RIOCP_WU riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port);
 int RIOCP_WU riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_pe *peer);
 int RIOCP_WU riocp_pe_probe_initialize_peer(struct riocp_pe *peer);
+int RIOCP_WU riocp_pe_link_sync_simple(struct riocp_pe *pe, uint8_t port);
 
 #ifdef __cplusplus
 }
