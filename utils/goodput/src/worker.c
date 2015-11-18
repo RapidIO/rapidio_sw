@@ -1314,6 +1314,11 @@ void *umd_dma_fifo_proc_thr(void *parm)
 			wi[i].valid = 0xdeadabba;
                 } // END for WorkItem_t vector
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+
+		// This is a hook to do stuff for IB buffers in isolcpu thread
+		// Note: No relation to TX FIFO/buffers, just CPU sharing
+		if (info->umd_dma_fifo_callback != NULL)
+			info->umd_dma_fifo_callback(info);
 	} // END while
 	goto no_post;
 exit:
@@ -3080,6 +3085,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	}
 
 	const int MTU = 4092;
+	info->umd_tun_MTU = MTU; // Fixed for MBOX
 
 	char TapIPv4Addr[17] = {0};
 	const uint16_t my_destid = info->umd_mch->getDestId() + DESTID_TRANSLATE;
@@ -3216,6 +3222,7 @@ exit:
 
         delete info->umd_mch; info->umd_mch = NULL;
 	delete info->umd_lock; info->umd_lock = NULL;
+	info->umd_tun_MTU = 0;
 } // END umd_mbox_goodput_tun_demo
 
 #endif // USER_MODE_DRIVER
