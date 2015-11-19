@@ -606,7 +606,9 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 #if 0
 	result |= CPS1xxx_OPS_PORT_PW_EN | CPS1xxx_OPS_PORT_INT_EN;
 #endif
+#ifdef CONFIG_PORTWRITE_ENABLE
 	result |= CPS1xxx_OPS_PORT_PW_EN;
+#endif
 
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_OPS(port), result);
 	if (ret < 0)

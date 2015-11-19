@@ -25,6 +25,7 @@ CFLAGS+=-I./src
 CFLAGS+=-I$(TOP_LEVEL)/include
 CFLAGS+=-I../../common/include
 CFLAGS+=-DRDMA_LL=$(level) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
+#CFLAGS+=-DCONFIG_PORTWRITE_ENABLE=1
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) $(patsubst src/switches/%.c,src/switches/%.o,$(wildcard src/switches/*.c))
