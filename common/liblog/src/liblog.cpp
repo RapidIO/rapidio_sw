@@ -83,7 +83,11 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 	if (stat(DEFAULT_LOG_DIR, &st) < 0) {
 		string create_dir(filename);
 		create_dir.insert(0, "mkdir ");
-		system(create_dir.c_str());
+		if (system(create_dir.c_str()) < 0) {
+			fprintf(stderr, "Failed to create '%s'\n",
+							filename.c_str());
+			return -2;
+		}
 	}
 
 	/* Open log file */
