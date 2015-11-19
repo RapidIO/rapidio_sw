@@ -98,12 +98,21 @@ int cwrite(int fd, uint8_t* buf, int n);
 bool send_icmp_host_unreachable(struct worker* info, uint8_t* l3_in, const int l3_in_size);
 };
 
+/** \bried NREAD data from peer at high priority, all-in-one, blocking
+ * \param[in] info C-like this
+ * \param did RIO destination id of peer
+ * \param rio_addr RIO mem address into peer's IBwin, not 50-but compatible
+ * \param size How much data to read, up to 16 bytes
+ * \param[out] Points to where data will be deposited
+ * \retuen true if NREAD completed OK
+ */
 bool udma_nread_mem(struct worker *info, const uint16_t did, const uint64_t rio_addr, const int size, uint8_t* data_out)
 {
 	if(info == NULL || size < 1 || size > 16 || data_out == NULL) return false;
 
 	DMAChannel::DmaOptions_t dmaopt; memset(&dmaopt, 0, sizeof(dmaopt));
 	dmaopt.destid      = did;
+	dmaopt.prio        = 2; // We want to get in front all pending ALL_WRITEs in 721 silicon
 	dmaopt.bcount      = size;
 	dmaopt.raddr.lsb64 = rio_addr;
 
@@ -127,8 +136,9 @@ const int DESTID_TRANSLATE = 1;
 static std::map <uint16_t, bool> bad_destid;
 static std::map <uint16_t, bool> good_destid;
 
-// Update RP via NREAD every 8 buffers; when local q is 2/3 full do it after each send
-
+/** \brief Thread that services Tun TX, sends L3 frames to peer and does RIO TX throttling
+ * Update RP via NREAD every 8 buffers; when local q is 2/3 full do it after each send
+ */
 void* umd_dma_tun_proc_thr(void *parm)
 {
         if (NULL == parm) pthread_exit(NULL);
@@ -139,10 +149,11 @@ void* umd_dma_tun_proc_thr(void *parm)
         {{
         const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 	
-	const int BD_PAYLOAD_SIZE = DMA_L2_SIZE + info->umd_tun_MTU; // L2 header is 6 bytes
+	const int BD_PAYLOAD_SIZE = DMA_L2_SIZE + info->umd_tun_MTU;
 
 	int oi = 0;
 	int RP = 0, WP = 0; // These are per-destid!
+	int outstanding = 0; // This is our guess of what's not consumed at other end, per-destid
 	uint64_t tx_cnt = 0;
         const int tun_fd = info->umd_tun_fd;
         const int net_fd = info->umd_sockp[1];
@@ -206,6 +217,29 @@ again:
                         continue;
                 }
 
+		if (((tx_cnt+1) % 8) == 0 || info->umd_dch->queueSize() > Q_THR) { // This must be done per-destid
+			uint32_t newRP = 0;
+			if (udma_nread_mem(info, opt.destid, info->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
+				DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", opt.destid, RP, newRP);
+				RP = newRP;
+			}
+		}
+
+		do {{
+		  if (WP == RP) { break; }
+		  if (WP > RP)  { outstanding = WP-RP; break; }
+		  //if (WP == (info->umd_tx_buf_cnt-2)) { outstanding = RP; break; }
+		  outstanding = WP + info->umd_tx_buf_cnt-2 - RP;
+		}} while(0);
+
+		DBG("\n\tWP=%d guessed { RP=%d outstanding=%d } %s\n", WP, RP, outstanding, (outstanding==(info->umd_tx_buf_cnt-1))? "FULL": "");
+
+		if (outstanding == (info->umd_tx_buf_cnt-1)) {
+			CRIT("\n\tPeer destid=%u is FULL, dropping frame!\n", opt.destid);
+			// XXX Maybe send back ICMP Host Unreachable? TODO: Study RFCs
+			continue;
+		}
+
                 DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u\n", nread, DMA_L2_SIZE, opt.destid);
 
         	pL2->destid = htons(my_destid);
@@ -216,9 +250,11 @@ again:
 
                 const bool first_message = good_destid.find(opt.destid) == good_destid.end();
 
-		for (int i = 0; i < 4; i++) {
+		// Barry dixit "If full sleep for (queue size / 2) nanoseconds"
+		for (int i = 0; i < (info->umd_tx_buf_cnt-1)/2; i++) {
 			if (! info->umd_dch->queueFull()) break;
-			usleep(2);
+			struct timespec tv = { 0, 1};
+			nanosleep(&tv, NULL);
 		}
 
 		if (! info->umd_dch->queueFull()) continue; // Drop L3 frame
@@ -245,33 +281,14 @@ again:
 		}
                 if (first_message) good_destid[opt.destid] = true;
 
-		oi++; if (oi == info->umd_tx_buf_cnt) oi = 0;
+		oi++; if (oi == (info->umd_tx_buf_cnt-1)) oi = 0; // Account for T3
 
 		// For just one destdid WP==oi but we keep them separate
 
 		WP++; // This must be done per-destid
-		if (WP == info->umd_tx_buf_cnt) WP = 0;
-
-		int outstanding = 0; // This is our guess of what's not consumed at other end
-		do {{
-		  if (WP == RP) { break; }
-		  if (WP > RP)  { outstanding = WP-RP; break; }
-		  if (WP == (info->umd_tx_buf_cnt-1)) { outstanding = RP; break; }
-		  outstanding = RP + info->umd_tx_buf_cnt - WP;  // XXX really? Maybe -1?
-		}} while(0);
-
-		DBG("\n\tWP=%d guessed { RP=%d outstanding=%d } %s\n", WP, RP, outstanding, (outstanding==info->umd_tx_buf_cnt)? "FULL": "");
-
-		// XXX what to do if peer is full?????
+		if (WP == (info->umd_tx_buf_cnt-1)) WP = 0; // Account for T3 missing IBwin cell
 
 		tx_cnt++;
-		if (((tx_cnt+1) % 8) == 0 || info->umd_dch->queueSize() > Q_THR) { // This must be done per-destid
-			uint32_t newRP = 0;
-			if (udma_nread_mem(info, opt.destid, info->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
-				DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", opt.destid, RP, newRP);
-				RP = newRP;
-			}
-		}
         }
 
         if (info->stop_req == SOFT_RESTART) {
@@ -293,7 +310,9 @@ no_post:
 } // END umd_dma_tun_proc_thr
 
 
-// Look quickly at IB buffers, signal to main thread if there is work
+/** \brief Callback from FIFO isolcpu thread
+ * Look quickly at L2 headers of IB buffers, signal to main thread if there is work to do
+ */
 void umd_dma_goodput_tun_callback(struct worker *info)
 {
 	if(info == NULL) return;
@@ -301,14 +320,14 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 
 	int cnt = 0;
 	volatile uint32_t* pRP = (uint32_t*)info->ib_ptr;
-	assert(*pRP < info->umd_tx_buf_cnt);
+	assert(*pRP < (info->umd_tx_buf_cnt-1));
 
 	int k = *pRP;
 
  	pthread_spin_lock(&info->umd_dma_rio_rx_bd_ready_splock);
 
-	for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
-		k++; if(k == info->umd_tx_buf_cnt) k = 0; // RP wrap-around
+	for (int i = 0; i < (info->umd_tx_buf_cnt-1); i++) {
+		k++; if(k == info->umd_tx_buf_cnt-1) k = 0; // RP wrap-around
 
 		if(0 != info->umd_dma_rio_rx_bd_L2_ptr[k]->RO) {
 			info->umd_dma_rio_rx_bd_ready[cnt++] = k;
@@ -325,6 +344,7 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 	sem_post(&info->umd_dma_rio_rx_work);
 }
 
+/** \brief This helper thread wakes up the main thread at quitting time */
 void* umd_dma_wakeup_proc_thr(void* arg)
 {
 	if(arg == NULL) return NULL;
@@ -338,6 +358,16 @@ void* umd_dma_wakeup_proc_thr(void* arg)
 	return NULL;
 }
 
+/** \brief Man battle tank thread -- Pobeda Nasha!
+ * \verbatim
+We maintain the (per-peer destid) IB window (or
+sub-section thereof) in the following format:
++-4b-+---L2 size+MTU----+------------------+
+| RP | L2 | L3  payload | ... repeat L2+L3 |
++----+------------------+------------------+
+We keep (bufc-1) IB L2+L3 combos
+ * \endverbatim
+ */
 extern "C"
 void umd_dma_goodput_tun_demo(struct worker *info)
 {
@@ -346,12 +376,12 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         char if_name[IFNAMSIZ] = {0};
         int flags = IFF_TUN | IFF_NO_PI;
 
-	const int BD_PAYLOAD_SIZE = DMA_L2_SIZE + info->umd_tun_MTU; // L2 header is 7 bytes
+	const int BD_PAYLOAD_SIZE = DMA_L2_SIZE + info->umd_tun_MTU;
 
 	// Note: There's no reason to link info->umd_tx_buf_cnt other than
 	// convenience. However the IB ring should never be smaller than
-	// info->umd_tx_buf_cnt members
-	const int IBWIN_SIZE = sizeof(uint32_t) + BD_PAYLOAD_SIZE * info->umd_tx_buf_cnt;
+	// info->umd_tx_buf_cnt-1 members -- (dis)counting T3 BD on TX side
+	const int IBWIN_SIZE = sizeof(uint32_t) + BD_PAYLOAD_SIZE * (info->umd_tx_buf_cnt-1);
 
 	assert(info->ib_ptr);
 	assert(info->ib_byte_cnt >= IBWIN_SIZE);
@@ -367,7 +397,6 @@ void umd_dma_goodput_tun_demo(struct worker *info)
                 delete info->umd_lock; info->umd_lock = NULL;
                 return;
         }
-
         strncpy(info->umd_tun_name, if_name, sizeof(info->umd_tun_name)-1);
 
 	info->umd_dma_fifo_callback = umd_dma_goodput_tun_callback;
@@ -392,6 +421,8 @@ void umd_dma_goodput_tun_demo(struct worker *info)
                 return;
         };
 
+        // Configure tun/tap interface for IPv4, L2, no ARP, no multicast
+
         char TapIPv4Addr[17] = {0};
         const uint16_t my_destid = info->umd_mch->getDestId() + DESTID_TRANSLATE;
         snprintf(TapIPv4Addr, 16, "169.254.%d.%d", (my_destid >> 8) & 0xFF, my_destid & 0xFF);
@@ -412,17 +443,19 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
         system(ifconfig_cmd);
 
-	info->umd_dma_rio_rx_bd_L2_ptr = (DMA_L2_t**)calloc(1 + info->umd_tx_buf_cnt, sizeof(uint32_t));
+	// Set up array of pointers to IB L2 headers
+
+	info->umd_dma_rio_rx_bd_L2_ptr = (DMA_L2_t**)calloc(info->umd_tx_buf_cnt, sizeof(uint32_t)); // +1 secret cell
 	if (info->umd_dma_rio_rx_bd_L2_ptr == NULL) goto exit;
 
-        info->umd_dma_rio_rx_bd_ready = (uint32_t*)calloc(1 + info->umd_tx_buf_cnt, sizeof(uint32_t));
+        info->umd_dma_rio_rx_bd_ready = (uint32_t*)calloc(info->umd_tx_buf_cnt, sizeof(uint32_t)); // +1 secret cell
         if (info->umd_dma_rio_rx_bd_ready == NULL) goto exit;
 
 	info->umd_dma_rio_rx_bd_ready_size = 0;
 
-	{{ // Pre-populate the locations of the RO bit in IB BDs, and zero RO
+	{{ // RX: Pre-populate the locations of the RO bit in IB BDs, and zero RO
 	  uint8_t* p = sizeof(uint32_t) + (uint8_t*)info->ib_ptr;
-	  for (int i = 0; i < info->umd_tx_buf_cnt; i++, p += BD_PAYLOAD_SIZE) {
+	  for (int i = 0; i < (info->umd_tx_buf_cnt-1); i++, p += BD_PAYLOAD_SIZE) {
 		info->umd_dma_rio_rx_bd_L2_ptr[i] = (DMA_L2_t*)p;
 		((DMA_L2_t*)p)->RO = 0;
 	  }
@@ -438,24 +471,23 @@ void umd_dma_goodput_tun_demo(struct worker *info)
              info->umd_mch->getDestId(),
              info->umd_tx_buf_cnt, info->umd_sts_entries);
 
+	// TX
         if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
-                CRIT("\n\talloc_dmatxdesc failed: bufs %d",
-                                                        info->umd_tx_buf_cnt);
+                CRIT("\n\talloc_dmatxdesc failed: bufs %d", info->umd_tx_buf_cnt);
                 goto exit;
         };
         if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
-                CRIT("\n\talloc_dmacompldesc failed: entries %d",
-                                                        info->umd_sts_entries);
+                CRIT("\n\talloc_dmacompldesc failed: entries %d", info->umd_sts_entries);
                 goto exit;
         };
 
         memset(info->dmamem, 0, sizeof(info->dmamem));
         memset(info->dmaopt, 0, sizeof(info->dmaopt));
 
+	// TX
         for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
 		if (!info->umd_dch->alloc_dmamem(BD_PAYLOAD_SIZE, info->dmamem[i])) {
-			CRIT("\n\talloc_dmamem failed: i %d size %x",
-								i, BD_PAYLOAD_SIZE);
+			CRIT("\n\talloc_dmamem failed: i %d size %x", i, BD_PAYLOAD_SIZE);
 			goto exit;
 		};
 		memset(info->dmamem[i].win_ptr, 0, info->dmamem[i].win_size);
@@ -465,15 +497,15 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         info->tick_count = info->tick_total = 0;
 
         info->umd_dch->resetHw();
-        info->umd_dch2->resetHw();
         if (!info->umd_dch->checkPortOK()) {
                 CRIT("\n\tPort %d is not OK!!! Exiting...", info->umd_chan);
                 goto exit;
-        };
+        }
+        info->umd_dch2->resetHw();
         if (!info->umd_dch2->checkPortOK()) {
                 CRIT("\n\tPort %d is not OK!!! Exiting...", info->umd_chan2);
                 goto exit;
-        };
+        }
 
         init_seq_ts(&info->desc_ts);
         init_seq_ts(&info->fifo_ts);
@@ -487,13 +519,13 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         if (rc) {
                 CRIT("\n\tCould not create umd_fifo_proc thread, exiting...");
                 goto exit;
-        };
+        }
         sem_wait(&info->umd_fifo_proc_started);
 
         if (!info->umd_fifo_proc_alive) {
                 CRIT("\n\tumd_fifo_proc thread is dead, exiting..");
                 goto exit;
-        };
+        }
 
         // Spawn Tap Transmitter Thread
         rc = pthread_create(&info->umd_mbox_tap_thr.thr, NULL,
@@ -501,14 +533,13 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         if (rc) {
                 CRIT("\n\tCould not create umd_dma_tun_proc_thr thread, exiting...");
                 goto exit;
-        };
+        }
         sem_wait(&info->umd_mbox_tap_proc_started);
 
         if (!info->umd_mbox_tap_proc_alive) {
                 CRIT("\n\tumd_mbox_tun_proc_thr thread is dead, exiting..");
                 goto exit;
-        };
-
+        }
         sem_wait(&info->umd_mbox_tap_proc_started);
 
 	// We need to wake up the RX thread upon quitting so we spawn
@@ -518,7 +549,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         if (rc) {
                 CRIT("\n\tCould not create umd_dma_wakeup_proc_thr thread, exiting...");
                 goto exit;
-        };
+        }
 
         zero_stats(info);
         info->evlog.clear();
@@ -527,23 +558,19 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
 	// Receiver (from RIO)
 
-again:
-	// We could double-lock a spinlock here but experimentally we use
-	// a sema here.
-	// To BEW: how does this impact RX latecy?
+again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), update RP, set RO=0
+
         while (!info->stop_req) {
 	        volatile uint32_t* pRP = (uint32_t*)info->ib_ptr;
-	        sem_wait(&info->umd_dma_rio_rx_work);
+
+		// We could double-lock a spinlock here but experimentally we use a sema here.
+	        sem_wait(&info->umd_dma_rio_rx_work); // To BEW: how does this impact RX latecy?
 
         	if (!info->stop_req) break;
 
-		// Ingest L2 frames into Tun, update RP, set RO=0
-		
+		// Make this quick & sweet so we don't hose the FIFO thread for long
 		int cnt = 0;
-		int ready_bd_list[info->umd_tx_buf_cnt + 1]; memset(ready_bd_list, 0xff, sizeof(ready_bd_list));
-
-		// Make this quick & sweet so we don't hose
-		// the FIFO thread for long
+		int ready_bd_list[info->umd_tx_buf_cnt]; memset(ready_bd_list, 0xff, sizeof(ready_bd_list));
 		pthread_spin_lock(&info->umd_dma_rio_rx_bd_ready_splock);
 		for (int i = 0; i < info->umd_dma_rio_rx_bd_ready_size; i++) {
 			ready_bd_list[cnt++] = info->umd_dma_rio_rx_bd_ready[i];
@@ -585,10 +612,6 @@ again:
 
         goto exit_nomsg;
 exit:
-        INFO("\n\tDMA %srunning after %d %dus polls\n",
-                info->umd_dch->dmaIsRunning()? "": "NOT ",
-                        info->perf_msg_cnt, DMA_RUNPOLL_US);
-
         INFO("\n\tEXITING (FIFO iter=%lu hw RP=%u WP=%u)\n",
                 info->umd_dch->m_fifo_scan_cnt,
                 info->umd_dch->getFIFOReadCount(),
@@ -607,8 +630,8 @@ exit_nomsg:
         info->umd_dch->cleanup();
 
         for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
-		if(info->dmamem[i].type != 0)
-			info->umd_dch->free_dmamem(info->dmamem[i]);
+		if(info->dmamem[i].type == 0) continue;
+		info->umd_dch->free_dmamem(info->dmamem[i]);
 	}
 
 	info->umd_dma_fifo_callback = NULL;
@@ -627,3 +650,4 @@ exit_nomsg:
         delete info->umd_lock; info->umd_lock = NULL;
         info->umd_tun_name[0] = '\0';
 }
+

@@ -152,9 +152,10 @@ struct thread_cpu {
 #ifdef USER_MODE_DRIVER
 /** \brief This is the L2 header we use for transporting Tun L3 frames over RIO via DMA */
 struct DMA_L2_s {
-	uint8_t  RO;     ///< Reader Owned flag(s)
+	uint8_t  RO;     ///< Reader Owned flag(s), not "read only"
         uint16_t destid; ///< Destid of sender in network format, network order
-        uint32_t len;    ///< Length of this write, L2+data. Until MBOX DMA is Fu**ed, network order
+        uint32_t len;    ///< Length of this write, L2+data. Unlike MBOX, DMA is Fu**ed, network order
+	uint8_t  padding;///< Barry dixit "It's much better to have headers be a multiple of 4 bytes for RapidIO purposes"
 };
 typedef struct DMA_L2_s DMA_L2_t;
 
@@ -262,9 +263,9 @@ struct worker {
 	uint32_t	umd_dma_abort_reason;
 	sem_t		umd_dma_rio_rx_work;
 	DMA_L2_t**	umd_dma_rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
-        uint32_t*       umd_dma_rio_rx_bd_ready; ///< List of all IN BDs that have fresh data in them, per-destid 
+        uint32_t*       umd_dma_rio_rx_bd_ready; ///< List of all IB BDs that have fresh data in them, per-destid 
         int             umd_dma_rio_rx_bd_ready_size;
-	pthread_spinlock_t umd_dma_rio_rx_bd_ready_splock; ///< List of all IN BDs that have fresh data in them
+	pthread_spinlock_t umd_dma_rio_rx_bd_ready_splock;
 	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 	volatile uint64_t tick_count, tick_total;
