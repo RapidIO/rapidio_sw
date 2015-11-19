@@ -122,6 +122,7 @@ enum req_type {
 	umd_dmaltx,
 	umd_dmalrx,
 	umd_dmalnr,
+	umd_dma_tap,
 	umd_mbox,
 	umd_mboxl,
 	umd_mbox_tap,
@@ -147,6 +148,18 @@ struct thread_cpu {
 };
 
 #define SOFT_RESTART	69
+
+#ifdef USER_MODE_DRIVER
+/** \brief This is the L2 header we use for transporting Tun L3 frames over RIO via DMA */
+struct DMA_L2_s {
+	uint8_t  RO;     ///< Reader Owned flag(s)
+        uint16_t destid; ///< Destid of sender in network format, network order
+        uint32_t len;    ///< Length of this write, L2+data. Until MBOX DMA is Fu**ed, network order
+};
+typedef struct DMA_L2_s DMA_L2_t;
+
+const int DMA_L2_SIZE = sizeof(DMA_L2_t);
+#endif
 
 struct worker {
 	int idx; /* index of this worker thread -- needed by UMD */
@@ -225,6 +238,7 @@ struct worker {
 	int		umd_chan_to; ///< Remote mailbox
 	int		umd_letter; ///< Remote mailbox letter
 	DMAChannel 	*umd_dch;
+	DMAChannel 	*umd_dch2; ///< Used for NREAD in DMA Tun
 	MboxChannel 	*umd_mch;
 	enum dma_rtype	umd_tx_rtype;
 	int 		umd_tx_buf_cnt;
@@ -246,6 +260,9 @@ struct worker {
 	sem_t		umd_dma_tap_proc_started;
 	volatile int	umd_dma_tap_proc_alive;
 	uint32_t	umd_dma_abort_reason;
+	sem_t		umd_dma_rio_rx_work;
+	DMA_L2_t**	umd_dma_rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs
+	uint32_t*	umd_dma_rio_rx_bd_ready; ///< List of all IN BDs that have fresh data in them
 	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 	volatile uint64_t tick_count, tick_total;

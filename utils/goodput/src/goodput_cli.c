@@ -67,6 +67,7 @@ char *req_type_str[(int)last_action+1] = {
         (char*)"ltudma",
         (char*)"lrudma",
         (char*)"nrudma",
+        (char*)"UDMATun",
         (char*)"UMSG",
         (char*)"UMSGLat",
         (char*)"UMSGTun",
@@ -2267,6 +2268,127 @@ UMDDDDCmd,
 ATTR_NONE
 };
 
+int UDMACmdTun(struct cli_env *env, int argc, char **argv)
+{
+        int idx;
+        int chan;
+	int chan2;
+        int cpu;
+        uint32_t buff;
+        uint32_t sts;
+	uint32_t did;
+	uint64_t rio_addr;
+	int mtu;
+
+        int n = 0; // this be a trick from X11 source tree ;)
+
+        idx      = GetDecParm(argv[n++], 0);
+        if (get_cpu(env, argv[n++], &cpu))
+                goto exit;
+        chan     = GetDecParm(argv[n++], 0);
+        chan2     = GetDecParm(argv[n++], 0);
+        buff     = GetHex(argv[n++], 0);
+        sts      = GetHex(argv[n++], 0);
+	did      = GetDecParm(argv[n++], 0);
+	rio_addr = GetHex(argv[n++], 0);
+        mtu      = GetDecParm(argv[n++], 0);
+
+        if (check_idx(env, idx, 1))
+                goto exit;
+
+        if ((chan < 1) || (chan > 7)) {
+                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
+                logMsg(env);
+                goto exit;
+        };
+        if ((chan2 < 1) || (chan2 > 7)) {
+                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan2);
+                logMsg(env);
+                goto exit;
+        };
+        if (chan == chan2) {
+                sprintf(env->output, "Must use different channels\n");
+                logMsg(env);
+                goto exit;
+        };
+
+        if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
+                        (buff > MAX_UMD_BUF_COUNT)) {
+                sprintf(env->output,
+                        "Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
+                        buff, MAX_UMD_BUF_COUNT);
+                logMsg(env);
+                goto exit;
+        };
+
+        if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
+                sprintf(env->output,
+                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
+                        sts);
+                logMsg(env);
+                goto exit;
+        };
+
+	if (mtu < 580 || mtu > 128*1024) {
+                sprintf(env->output, "MTU %d illegal, must be 580 to 128k\n", mtu);
+                logMsg(env);
+                goto exit;
+        };
+
+	if (!rio_addr) {
+                sprintf(env->output,
+			"Addr be non-zero\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+        wkr[idx].action = umd_dma_tap;
+        wkr[idx].action_mode = user_mode_action;
+        wkr[idx].umd_chan    = chan;
+        wkr[idx].umd_chan2   = chan2; // for NREAD
+        wkr[idx].umd_tun_MTU = mtu;
+        wkr[idx].umd_fifo_thr.cpu_req = cpu;
+        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+        wkr[idx].umd_tx_buf_cnt = buff;
+        wkr[idx].umd_sts_entries = sts;
+	wkr[idx].did = did;
+	wkr[idx].rio_addr = rio_addr;
+        wkr[idx].byte_cnt = 0;
+        wkr[idx].acc_size = 0;
+        wkr[idx].umd_tx_rtype = ALL_NWRITE;
+        wkr[idx].wr = 1;
+        wkr[idx].use_kbuf = 1;
+
+        wkr[idx].stop_req = 0;
+        sem_post(&wkr[idx].run);
+exit:
+        return 0;
+}
+
+struct cli_cmd UDMAT = {
+"tundma",
+5,
+7,
+"TUN/TAP (L3) over DMA with User-Mode demo driver -- pointopoint",
+"<idx> <cpu> <chan> <chan_nread> <buff> <sts> <did> <rio_addr> <mtu>\n"
+        "<idx> is a worker index from 0 to 7\n"
+        "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
+        "<chan> is a MBOX channel number from 1 through 7\n"
+        "<chan_nread> is a MBOX channel number from 1 through 7 used for NREAD\n"
+        "<buff> is the number of transmit descriptors/buffers to allocate\n"
+        "       Must be a power of two from 0x20 up to 0x80000\n"
+        "<sts> is the number of status entries for completed descriptors\n"
+        "       Must be a power of two from 0x20 up to 0x80000\n"
+        "<did> target device ID\n"
+        "<rio_addr> RapidIO memory address to access on peer\n"
+        "<mtu> is interface MTU\n"
+        "       Must be between (576+4) and 128k; upper bound depends on kernel\n"
+        "Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1\n"
+        "Note: IBAlloc size = (4+MTU)*buf+4 needed before running this command\n",
+UDMACmdTun,
+ATTR_NONE
+};
+
 int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 {
         int idx;
@@ -2513,7 +2635,7 @@ struct cli_cmd UMSGT = {
         "       Must be a power of two from 0x20 up to 0x80000\n"
         "<sts> is the number of status entries for completed descriptors\n"
         "       Must be a power of two from 0x20 up to 0x80000\n"
-        "Note: Configure tunX device as 169.254.x.y where x.y is our destid",
+        "Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1",
 UMSGCmdTun,
 ATTR_NONE
 };
@@ -2604,6 +2726,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&UDMALRR,
 	&UDMALTX,
 	&UDMALRX,
+	&UDMAT,
 	&UMSG,
 	&UMSGL,
 	&UMSGT,

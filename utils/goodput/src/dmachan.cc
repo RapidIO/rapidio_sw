@@ -185,7 +185,7 @@ uint32_t DMAChannel::clearIntBits()
 /** \brief Queue DMA operation of DTYPE1 or DTYPE2
  * \para[in] rtype transfer type
  * \param[in,out] opt transfer options
- * \param[in] mem a ref to a RioMport::DmaMem_t, for DTYPE2 this is NOT allocated by class \ref RioMport
+ * \param[in] mem a ref to a RioMport::DmaMem_t, for DTYPE2 this is NOT allocated by class \ref RioMport, for DTYPE2 NREAD it is NOT USED
  * \param[out] abort_reason HW reason for DMA abort if function returned false
  * \return true if buffer enqueued, false if queue full or HW error -- check abort_reason
  */
