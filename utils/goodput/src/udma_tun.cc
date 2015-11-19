@@ -133,16 +133,16 @@ void* umd_dma_tun_proc_thr(void *parm)
 {
         if (NULL == parm) pthread_exit(NULL);
 
-        const int BUFSIZE = 8192;
-        uint8_t buffer[BUFSIZE];
-
         struct worker* info = (struct worker *)parm;
         if (NULL == info->umd_mch) goto exit;
 
         {{
         const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 	
-	int RP = 0, WP = 0;
+	const int BD_PAYLOAD_SIZE = DMA_L2_SIZE + info->umd_tun_MTU; // L2 header is 6 bytes
+
+	int oi = 0;
+	int RP = 0, WP = 0; // These are per-destid!
 	uint64_t tx_cnt = 0;
         const int tun_fd = info->umd_tun_fd;
         const int net_fd = info->umd_sockp[1];
@@ -179,8 +179,10 @@ again:
 
 		// XXX change this to read directly into CMA memory!!
 
+		uint8_t* buffer = (uint8_t*)info->dmamem[oi].win_ptr;
+
 		DMA_L2_t* pL2 = (DMA_L2_t*)buffer;
-                const int nread = cread(tun_fd, buffer+DMA_L2_SIZE, BUFSIZE-DMA_L2_SIZE);
+                const int nread = cread(tun_fd, buffer+DMA_L2_SIZE, info->umd_tun_MTU);
 
                 {{
                 uint32_t* pkt = (uint32_t*)(buffer+DMA_L2_SIZE);
@@ -210,41 +212,66 @@ again:
 		pL2->len    = htonl(DMA_L2_SIZE + nread);
 		pL2->RO     = 1;
 
-        send_again:
                 if (info->stop_req) goto exit;
 
                 const bool first_message = good_destid.find(opt.destid) == good_destid.end();
 
-                MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
-                if (0 /*! info->umd_mch->send_message(opt, buffer, nread+DMA_L2_SIZE, first_message, fail_reason)*/) {
-                        if (fail_reason == MboxChannel::STOP_REG_ERR) {
-                                ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
+		for (int i = 0; i < 4; i++) {
+			if (! info->umd_dch->queueFull()) break;
+			usleep(2);
+		}
 
-                                // XXX ICMPv4 dest unreachable id bad destid - TBI
+		if (! info->umd_dch->queueFull()) continue; // Drop L3 frame
+                if (info->stop_req) goto exit;
+
+		info->dmaopt[oi].destid      = info->did;
+		info->dmaopt[oi].bcount      = info->umd_tun_MTU;
+		info->dmaopt[oi].raddr.lsb64 = info->rio_addr + sizeof(uint32_t) + WP * BD_PAYLOAD_SIZE;
+
+		info->umd_dma_abort_reason = 0;
+		if (! info->umd_dch->queueDmaOpT1(ALL_NWRITE, info->dmaopt[oi], info->dmamem[oi],
+			                        info->umd_dma_abort_reason, &info->meas_ts)) {
+			if(info->umd_dma_abort_reason != 0) { // HW error
+                                // ICMPv4 dest unreachable id bad destid 
+                                send_icmp_host_unreachable(info, buffer+DMA_L2_SIZE, nread);
 
                                 bad_destid[opt.destid] = true;
 
                                 info->stop_req = SOFT_RESTART;
-                                send_icmp_host_unreachable(info, buffer+DMA_L2_SIZE, nread);
-                                break;
-                        } else { goto send_again; } // Succeed or die trying
-                } else {
-                        if (first_message) good_destid[opt.destid] = true;
-                }
+				break;
+			} else { // queue really full
+				continue; // Drop L3 frame
+			}
+		}
+                if (first_message) good_destid[opt.destid] = true;
+
+		oi++; if (oi == info->umd_tx_buf_cnt) oi = 0;
+
+		// For just one destdid WP==oi but we keep them separate
 
 		WP++; // This must be done per-destid
 		if (WP == info->umd_tx_buf_cnt) WP = 0;
 
+		int outstanding = 0; // This is our guess of what's not consumed at other end
+		do {{
+		  if (WP == RP) { break; }
+		  if (WP > RP)  { outstanding = WP-RP; break; }
+		  if (WP == (info->umd_tx_buf_cnt-1)) { outstanding = RP; break; }
+		  outstanding = RP + info->umd_tx_buf_cnt - WP;  // XXX really? Maybe -1?
+		}} while(0);
+
+		DBG("\n\tWP=%d guessed { RP=%d outstanding=%d } %s\n", WP, RP, outstanding, (outstanding==info->umd_tx_buf_cnt)? "FULL": "");
+
+		// XXX what to do if peer is full?????
+
 		tx_cnt++;
-		if (((tx_cnt+1) % 8) == 0) { // This must be done per-destid
+		if (((tx_cnt+1) % 8) == 0 || info->umd_dch->queueSize() > Q_THR) { // This must be done per-destid
 			uint32_t newRP = 0;
 			if (udma_nread_mem(info, opt.destid, info->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
 				DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", opt.destid, RP, newRP);
 				RP = newRP;
 			}
 		}
-
-		// XXX compute if q full, look at Q_THR
         }
 
         if (info->stop_req == SOFT_RESTART) {
@@ -272,21 +299,27 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 	if(info == NULL) return;
         assert(info->ib_ptr);
 
-	memset(info->umd_dma_rio_rx_bd_ready, 0xff, sizeof(uint32_t));
-
 	int cnt = 0;
 	volatile uint32_t* pRP = (uint32_t*)info->ib_ptr;
 	assert(*pRP < info->umd_tx_buf_cnt);
 
 	int k = *pRP;
-	for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
-		k++;
-		if(k == info->umd_tx_buf_cnt) k = 0;
 
-		// XXX Using a C array to signal is a BAD idea as there will be race conditions
-		// Better use a std::vector and a spinlock!!!
-		if(0 != info->umd_dma_rio_rx_bd_L2_ptr[k]->RO) info->umd_dma_rio_rx_bd_ready[cnt++] = k;
+ 	pthread_spin_lock(&info->umd_dma_rio_rx_bd_ready_splock);
+
+	for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
+		k++; if(k == info->umd_tx_buf_cnt) k = 0; // RP wrap-around
+
+		if(0 != info->umd_dma_rio_rx_bd_L2_ptr[k]->RO) {
+			info->umd_dma_rio_rx_bd_ready[cnt++] = k;
+                        info->umd_dma_rio_rx_bd_L2_ptr[k]->RO = 0; // So we won't revisit
+		}
 	}
+
+	info->umd_dma_rio_rx_bd_ready_size = cnt;
+
+ 	pthread_spin_unlock(&info->umd_dma_rio_rx_bd_ready_splock);
+
 	if (cnt == 0) return;
 
 	sem_post(&info->umd_dma_rio_rx_work);
@@ -313,7 +346,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         char if_name[IFNAMSIZ] = {0};
         int flags = IFF_TUN | IFF_NO_PI;
 
-	const int BD_PAYLOAD_SIZE = DMA_L2_SIZE + info->umd_tun_MTU; // L2 header is 6 bytes
+	const int BD_PAYLOAD_SIZE = DMA_L2_SIZE + info->umd_tun_MTU; // L2 header is 7 bytes
 
 	// Note: There's no reason to link info->umd_tx_buf_cnt other than
 	// convenience. However the IB ring should never be smaller than
@@ -382,15 +415,16 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 	info->umd_dma_rio_rx_bd_L2_ptr = (DMA_L2_t**)calloc(1 + info->umd_tx_buf_cnt, sizeof(uint32_t));
 	if (info->umd_dma_rio_rx_bd_L2_ptr == NULL) goto exit;
 
-	info->umd_dma_rio_rx_bd_ready = (uint32_t*)calloc(1 + info->umd_tx_buf_cnt, sizeof(uint32_t));
-	if (info->umd_dma_rio_rx_bd_ready == NULL) goto exit;
+        info->umd_dma_rio_rx_bd_ready = (uint32_t*)calloc(1 + info->umd_tx_buf_cnt, sizeof(uint32_t));
+        if (info->umd_dma_rio_rx_bd_ready == NULL) goto exit;
 
-	info->umd_dma_rio_rx_bd_ready[info->umd_tx_buf_cnt] = 0xdeadbeefL;
+	info->umd_dma_rio_rx_bd_ready_size = 0;
 
-	{{ // Pre-populate the locations of the RO bit in IB BDs
+	{{ // Pre-populate the locations of the RO bit in IB BDs, and zero RO
 	  uint8_t* p = sizeof(uint32_t) + (uint8_t*)info->ib_ptr;
 	  for (int i = 0; i < info->umd_tx_buf_cnt; i++, p += BD_PAYLOAD_SIZE) {
 		info->umd_dma_rio_rx_bd_L2_ptr[i] = (DMA_L2_t*)p;
+		((DMA_L2_t*)p)->RO = 0;
 	  }
 	}}
 
@@ -504,13 +538,25 @@ again:
         	if (!info->stop_req) break;
 
 		// Ingest L2 frames into Tun, update RP, set RO=0
-		for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
-			if (info->umd_dma_rio_rx_bd_ready[i] == ~0) break;
+		
+		int cnt = 0;
+		int ready_bd_list[info->umd_tx_buf_cnt + 1]; memset(ready_bd_list, 0xff, sizeof(ready_bd_list));
 
-			const int rp = info->umd_dma_rio_rx_bd_ready[i];
+		// Make this quick & sweet so we don't hose
+		// the FIFO thread for long
+		pthread_spin_lock(&info->umd_dma_rio_rx_bd_ready_splock);
+		for (int i = 0; i < info->umd_dma_rio_rx_bd_ready_size; i++) {
+			ready_bd_list[cnt++] = info->umd_dma_rio_rx_bd_ready[i];
+		}
+		info->umd_dma_rio_rx_bd_ready_size = 0;
+		pthread_spin_unlock(&info->umd_dma_rio_rx_bd_ready_splock);
+
+        	if (!info->stop_req) break;
+
+		for (int i = 0; i < cnt && !info->stop_req; i++) {
+			const int rp = ready_bd_list[i];
 
 			DMA_L2_t* pL2 = info->umd_dma_rio_rx_bd_L2_ptr[rp];
-			if(pL2->RO == 0) continue; // already processed?
 
 			rx_ok++;
 			const int payload_size = ntohl(pL2->len) - DMA_L2_SIZE;
@@ -526,12 +572,11 @@ again:
 			pL2->RO = 0;
 			*pRP = rp;
 		}
-
         } // END while NOT stop requested
 
 	if (info->stop_req == SOFT_RESTART) {
 		INFO("\n\tSoft restart requested, nuking MBOX hardware!\n");
-		info->umd_mch->softRestart();
+		info->umd_dch->softRestart();
 		info->stop_req = 0;
 		sem_post(&info->umd_fifo_proc_started);
 		sem_post(&info->umd_mbox_tap_proc_started);
@@ -573,6 +618,7 @@ exit_nomsg:
         info->umd_sockp[0] = info->umd_sockp[1] = -1;
         info->umd_tun_fd = -1;
 
+	info->umd_dma_rio_rx_bd_ready_size = -1;
 	free(info->umd_dma_rio_rx_bd_ready);  info->umd_dma_rio_rx_bd_ready = NULL;
 	free(info->umd_dma_rio_rx_bd_L2_ptr); info->umd_dma_rio_rx_bd_L2_ptr = NULL;
 

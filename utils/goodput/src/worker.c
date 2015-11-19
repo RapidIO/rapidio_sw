@@ -179,6 +179,7 @@ void init_worker_info(struct worker *info, int first_time)
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
         	sem_init(&info->umd_dma_rio_rx_work, 0, 0);
+		pthread_spin_init(&info->umd_dma_rio_rx_bd_ready_splock, PTHREAD_PROCESS_PRIVATE);
 	//};
 	init_seq_ts(&info->desc_ts);
 	init_seq_ts(&info->fifo_ts);

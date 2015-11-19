@@ -2384,7 +2384,7 @@ struct cli_cmd UDMAT = {
         "<mtu> is interface MTU\n"
         "       Must be between (576+4) and 128k; upper bound depends on kernel\n"
         "Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1\n"
-        "Note: IBAlloc size = (4+MTU)*buf+4 needed before running this command\n",
+        "Note: IBAlloc size = (7+MTU)*buf+4 needed before running this command\n",
 UDMACmdTun,
 ATTR_NONE
 };

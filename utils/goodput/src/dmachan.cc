@@ -751,3 +751,9 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 	wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
 	return cwi;
 }
+
+void DMAChannel::softRestart()
+{
+  // TBI
+}
+

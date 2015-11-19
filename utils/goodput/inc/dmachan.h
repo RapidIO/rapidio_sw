@@ -284,6 +284,8 @@ public:
     else outp_err = false;
   }
 
+  void softRestart();
+
   volatile uint64_t   m_fifo_scan_cnt;
 
 private:

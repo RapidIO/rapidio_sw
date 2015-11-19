@@ -261,8 +261,10 @@ struct worker {
 	volatile int	umd_dma_tap_proc_alive;
 	uint32_t	umd_dma_abort_reason;
 	sem_t		umd_dma_rio_rx_work;
-	DMA_L2_t**	umd_dma_rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs
-	uint32_t*	umd_dma_rio_rx_bd_ready; ///< List of all IN BDs that have fresh data in them
+	DMA_L2_t**	umd_dma_rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
+        uint32_t*       umd_dma_rio_rx_bd_ready; ///< List of all IN BDs that have fresh data in them, per-destid 
+        int             umd_dma_rio_rx_bd_ready_size;
+	pthread_spinlock_t umd_dma_rio_rx_bd_ready_splock; ///< List of all IN BDs that have fresh data in them
 	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 	volatile uint64_t tick_count, tick_total;
