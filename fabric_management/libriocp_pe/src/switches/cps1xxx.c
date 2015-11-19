@@ -1930,6 +1930,11 @@ int cps1xxx_init(struct riocp_pe *sw)
 	if (ret)
 		return ret;
 
+	/* set default route to drop */
+	ret = riocp_pe_maint_write(sw, RIO_STD_RTE_DEFAULT_PORT, CPS1xxx_NO_ROUTE);
+	if (ret < 0)
+		return ret;
+
 	/* initialize ports */
 	for (port = 0; port < RIOCP_PE_PORT_COUNT(sw->cap); port++) {
 		ret = cps1xxx_arm_port(sw, port);
