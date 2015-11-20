@@ -87,6 +87,9 @@ extern "C" {
 #define CPS1xxx_PORT_X_IMPL_SPEC_ERR_RPT_EN(x)		(0x03104c + 0x040*(x))
 #define CPS1xxx_PORT_X_ERR_RPT_EN(x)			(0x031044 + 0x040*(x))
 
+#define CPS1xxx_PORT_X_TRACE_PW_CTL(x)			(0xf40058 + 0x100*(x))
+#define CPS1xxx_PORT_TRACE_PW_DIS				(0x00000001)
+
 #define CPS1xxx_BCAST_PORT_ERR_RPT_EN			(0x0003ff04)
 #define CPS1xxx_BCAST_PORT_IMPL_SPEC_ERR_RPT_EN		(0x0003ff0c)
 #define CPS1xxx_BCAST_PORT_OPS				(0x00f4ff04)
@@ -105,6 +108,7 @@ extern "C" {
 
 #define CPS1xxx_DEVICE_CTL_1				(0x00f2000c)
 #define CPS1xxx_PW_CTL						(0x00f20024)
+#define CPS1xxx_PW_TMO						(0x00f20180)
 #define CPS1xxx_DEVICE_RESET_CTL			(0x00f20300)
 #define CPS1xxx_DEVICE_RESET_DO				(0x80000000)
 #define CPS1xxx_DEVICE_RESET_ALL			(0x40000000)
@@ -337,7 +341,10 @@ extern "C" {
 
 /* Misc */
 #define CPS1xxx_LOCAL_ACKID_CSR_RESET		0x80000000
-#define CPS1xxx_PW_INFO_PRIO3_CRF1		0x0000e000
+#define CPS1xxx_PW_INFO_PRIO3_CRF1			0x0000e000
+#define CPS1xxx_PW_INFO_SRCID(id)			(0xffff0000 & ((id) << 16))
+#define CPS1xxx_PW_TMO_TIMOUT_DIS			(0x00000001)
+#define CPS1xxx_PW_TMO_TIMEOU(tm)			(0xffffff00 & ((tm) << 8))
 #define CPS1xxx_DEVICE_RESET_CTL_DO_RESET	0x80000000
 #define CPS1xxx_RIO_LINK_TIMEOUT_DEFAULT	0x00002000	/* approx 10 usecs */
 #define CPS1xxx_PKT_TTL_CSR_TTL_MAXTTL		0xffff0000
@@ -594,6 +601,13 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 		CPS1xxx_ERR_THRESH_OUTPUT_FAIL);
 	if (ret < 0)
 		return ret;
+
+#ifdef CONFIG_PORTWRITE_ENABLE
+	/* port write basic configuration */
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_TRACE_PW_CTL(port), CPS1xxx_PORT_TRACE_PW_DIS);
+	if (ret < 0)
+		return ret;
+#endif
 
 	/* enable port-writes and interrupts for port events */
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_OPS(port), &result);
@@ -1922,10 +1936,17 @@ int cps1xxx_init(struct riocp_pe *sw)
 	/* init global settings for all ports */
 	cps1xxx_init_bdc(sw);
 
+#ifdef CONFIG_PORTWRITE_ENABLE
 	/* Set Port-Write info CSR: PRIO=3 and CRF=1 */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PW_CTL, CPS1xxx_PW_INFO_PRIO3_CRF1);
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PW_CTL, CPS1xxx_PW_INFO_PRIO3_CRF1 | CPS1xxx_PW_INFO_SRCID(sw->mport->destid));
 	if (ret < 0)
 		return ret;
+
+	/* Disable Port-Write timeout and send one event per error */
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PW_TMO, CPS1xxx_PW_TMO_TIMOUT_DIS);
+	if (ret < 0)
+		return ret;
+#endif
 
 	/* clear lut table */
 	ret = cps1xxx_clear_lut(sw, RIOCP_PE_ANY_PORT);
