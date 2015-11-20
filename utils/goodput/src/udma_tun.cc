@@ -100,18 +100,20 @@ bool send_icmp_host_unreachable(struct worker* info, uint8_t* l3_in, const int l
 
 /** \bried NREAD data from peer at high priority, all-in-one, blocking
  * \param[in] info C-like this
- * \param did RIO destination id of peer
+ * \param destid RIO destination id of peer
  * \param rio_addr RIO mem address into peer's IBwin, not 50-but compatible
  * \param size How much data to read, up to 16 bytes
  * \param[out] Points to where data will be deposited
  * \retuen true if NREAD completed OK
  */
-bool udma_nread_mem(struct worker *info, const uint16_t did, const uint64_t rio_addr, const int size, uint8_t* data_out)
+bool udma_nread_mem(struct worker *info, const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
 {
 	if(info == NULL || size < 1 || size > 16 || data_out == NULL) return false;
 
+	DBG("\n\tNREAD from RIO %d bytes destid %u addr 0x%llx\n", size, destid, rio_addr);
+
 	DMAChannel::DmaOptions_t dmaopt; memset(&dmaopt, 0, sizeof(dmaopt));
-	dmaopt.destid      = did;
+	dmaopt.destid      = destid;
 	dmaopt.prio        = 2; // We want to get in front all pending ALL_WRITEs in 721 silicon
 	dmaopt.bcount      = size;
 	dmaopt.raddr.lsb64 = rio_addr;
@@ -124,14 +126,28 @@ bool udma_nread_mem(struct worker *info, const uint16_t did, const uint64_t rio_
 
 	const bool q_was_full = (umd_dma_abort_reason == 0);
 
-	DBG("\n\tPolling FIFO transfer completion destid=%d\n", did);
-	while (!q_was_full && !info->stop_req && info->umd_dch2->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+	if (umd_dma_abort_reason== 0) DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
+	for(int i = 0;
+	    !q_was_full && !info->stop_req && i < 100 && info->umd_dch2->scanFIFO(wi, info->umd_sts_entries*8) == 0;
+	    i++) {
+		usleep(1);
+	}
 
 	if (umd_dma_abort_reason != 0 || info->umd_dch2->queueSize() > 0) { // Boooya!! Peer not responding
-		CRIT("\n\tChan %u stalled, with %s\n", info->umd_chan, DMAChannel::abortReasonToStr(info->umd_dma_abort_reason));
+		CRIT("\n\tChan %u stalled with %s\n", info->umd_chan2, DMAChannel::abortReasonToStr(info->umd_dma_abort_reason));
 		// XXX Cleanup, nuke the one BD
 		return false;
 	}
+
+#ifdef UDMA_TUN_DEBUG
+	std::stringstream ss;
+	for(int i = 0; i < 16; i++) {
+		char tmp[9] = {0};
+		snprintf(tmp, 8, "%02x ", wi[0].t2_rddata[i]);
+		ss << tmp;
+	}
+	DBG("\n\tNREAD-in data: %s\n", ss.str().c_str());
+#endif
 
 	memcpy(data_out, wi[0].t2_rddata, size);
 
@@ -226,8 +242,13 @@ again:
                         continue;
                 }
 
-		if (((tx_cnt+1) % 8) == 0 || info->umd_dch->queueSize() > Q_THR) { // This must be done per-destid
-			uint32_t newRP = 0;
+                const bool first_message = good_destid.find(destid) == good_destid.end();
+
+		// We force reading RP from a "new" destid as a RIO ping as
+		// NWRITE does not barf  on bad destids
+
+		if (first_message || ((tx_cnt+1) % 8) == 0 || info->umd_dch->queueSize() > Q_THR) { // This must be done per-destid
+			uint32_t newRP = ~0;
 			if (udma_nread_mem(info, destid, info->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
 				DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", destid, RP, newRP);
 				RP = newRP;
@@ -261,8 +282,6 @@ again:
 
                 if (info->stop_req) goto exit;
 
-                const bool first_message = good_destid.find(destid) == good_destid.end();
-
 		// Barry dixit "If full sleep for (queue size / 2) nanoseconds"
 		for (int i = 0; i < (info->umd_tx_buf_cnt-1)/2; i++) {
 			if (! info->umd_dch->queueFull()) break;
@@ -280,7 +299,8 @@ again:
 		info->dmaopt[oi].bcount      = info->umd_tun_MTU;
 		info->dmaopt[oi].raddr.lsb64 = info->rio_addr + sizeof(uint32_t) + WP * BD_PAYLOAD_SIZE;
 
-                DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx\n", nread, DMA_L2_SIZE, destid, info->dmaopt[oi].raddr.lsb64);
+                DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx WP=%d oi=%d\n",
+                    nread, DMA_L2_SIZE, destid, info->dmaopt[oi].raddr.lsb64, WP, oi);
 
 	        info->umd_dch->setCheckHwReg(first_message);
 
@@ -539,6 +559,11 @@ void umd_dma_goodput_tun_demo(struct worker *info)
                 CRIT("\n\tPort %d is not OK!!! Exiting...", info->umd_chan2);
                 goto exit;
         }
+
+	if (info->umd_dch->getDestId() == 0xffff) {
+		CRIT("\n\tMy_destid=0x%x which is BORKED -- bad enumeration?\n", info->umd_dch->getDestId());
+		goto exit;
+	}
 
         init_seq_ts(&info->desc_ts);
         init_seq_ts(&info->fifo_ts);
