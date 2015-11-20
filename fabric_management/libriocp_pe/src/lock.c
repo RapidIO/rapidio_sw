@@ -28,10 +28,12 @@ int riocp_pe_lock_read(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, u
 
 	if (RIOCP_PE_IS_MPORT(pe)) {
 		ret = riocp_pe_maint_read_local(pe, RIO_HOST_DID_LOCK_CSR, &_lock);
+		RIOCP_TRACE("Get lock local d: 0x%x, h: %u, l: 0x%08x\n", destid, hopcount, _lock);
 		if (ret)
 			return -EIO;
 	} else {
 		ret = riocp_pe_maint_read_remote(pe->mport, destid, hopcount, RIO_HOST_DID_LOCK_CSR, &_lock);
+		RIOCP_TRACE("Get lock remote d: 0x%x, h: %u, l: 0x%08x\n", destid, hopcount, _lock);
 		if (ret)
 			return -EIO;
 	}
@@ -49,10 +51,12 @@ int riocp_pe_lock_write(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, 
 	int ret;
 
 	if (RIOCP_PE_IS_MPORT(pe)) {
+		RIOCP_TRACE("Set lock local d: 0x%x, h: %u, l: 0x%08x\n", destid, hopcount, lock);
 		ret = riocp_pe_maint_write_local(pe, RIO_HOST_DID_LOCK_CSR, lock);
 		if (ret)
 			return -EIO;
 	} else {
+		RIOCP_TRACE("Set lock remote d: 0x%x, h: %u, l: 0x%08x\n", destid, hopcount, lock);
 		ret = riocp_pe_maint_write_remote(pe->mport, destid, hopcount, RIO_HOST_DID_LOCK_CSR, lock);
 		if (ret)
 			return -EIO;
@@ -69,37 +73,37 @@ int riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount)
 	int ret;
 	uint32_t lock;
 
-	RIOCP_TRACE("Set lock d: %u, h: %u\n", destid, hopcount);
+	RIOCP_TRACE("Set lock d: 0x%x, h: %u\n", destid, hopcount);
 
 	ret = riocp_pe_lock_read(mport, destid, hopcount, &lock);
 	if (ret) {
-		RIOCP_ERROR("Unable to read lock d: %u, h: %u\n",
+		RIOCP_ERROR("Unable to read lock d: 0x%x, h: %u\n",
 			destid, hopcount);
 		return -EIO;
 	}
 
 	if (lock == mport->destid) {
-		RIOCP_TRACE("Lock already set by mport (d: %u, h: %u, lock: 0x%08x)\n",
+		RIOCP_TRACE("Lock already set by mport (d: 0x%x, h: %u, lock: 0x%08x)\n",
 			destid, hopcount, lock);
 		return 0;
 	}
 
 	ret = riocp_pe_lock_write(mport, destid, hopcount, mport->destid);
 	if (ret) {
-		RIOCP_ERROR("Unable to write lock d: %u, h: %u\n",
+		RIOCP_ERROR("Unable to write lock d: 0x%x, h: %u\n",
 			destid, hopcount);
 		return -EIO;
 	}
 
 	ret = riocp_pe_lock_read(mport, destid, hopcount, &lock);
 	if (ret) {
-		RIOCP_ERROR("Unable to read lock d: %u, h: %u\n",
+		RIOCP_ERROR("Unable to read lock d: 0x%x, h: %u\n",
 			destid, hopcount);
 		return -EIO;
 	}
 
 	if (lock == mport->destid) {
-		RIOCP_TRACE("Lock set d: %u, h: %u, lock: 0x%08x\n",
+		RIOCP_TRACE("Lock set d: 0x%x, h: %u, lock: 0x%08x\n",
 			destid, hopcount, lock);
 		return 0;
 	}
@@ -115,16 +119,16 @@ int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, uint8_t hopcoun
 	int ret;
 	uint32_t lock;
 
-	RIOCP_TRACE("Clear lock d: %u, h: %u\n", destid, hopcount);
+	RIOCP_TRACE("Clear lock d: 0x%x, h: %u\n", destid, hopcount);
 
 	ret = riocp_pe_lock_read(mport, destid, hopcount, &lock);
 	if (ret) {
-		RIOCP_ERROR("Unable to read lock d: %u, h: %u\n",
+		RIOCP_ERROR("Unable to read lock d: 0x%x, h: %u\n",
 			destid, hopcount);
 		return -EIO;
 	}
 
-	RIOCP_TRACE("Lock set to 0x%08x (d: %u, h: %u)\n",
+	RIOCP_TRACE("Lock set to 0x%08x (d: 0x%x, h: %u)\n",
 		lock, destid, hopcount);
 
 	if (lock == RIO_HOST_LOCK_BASE_ID_MASK)
@@ -132,19 +136,19 @@ int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, uint8_t hopcoun
 
 	ret = riocp_pe_lock_write(mport, destid, hopcount, mport->destid);
 	if (ret) {
-		RIOCP_ERROR("Unable to write lock d: %u, h: %u\n",
+		RIOCP_ERROR("Unable to write lock d: 0x%x, h: %u\n",
 			destid, hopcount);
 		return -EIO;
 	}
 
 	ret = riocp_pe_lock_read(mport, destid, hopcount, &lock);
 	if (ret) {
-		RIOCP_ERROR("Unable to read lock d: %u, h: %u\n",
+		RIOCP_ERROR("Unable to read lock d: 0x%x, h: %u\n",
 			destid, hopcount);
 		return -EIO;
 	}
 
-	RIOCP_TRACE("New lock value 0x%08x (d: %u, h: %u)\n",
+	RIOCP_TRACE("New lock value 0x%08x (d: 0x%x, h: %u)\n",
 		lock, destid, hopcount);
 
 	return 0;
