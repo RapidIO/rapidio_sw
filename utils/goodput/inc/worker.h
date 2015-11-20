@@ -176,6 +176,8 @@ struct worker {
 	uint64_t rio_addr; /* Target RapidIO address for direct IO and DMA */
 	uint64_t byte_cnt; /* Number of bytes to access for direct IO and DMA */
 	uint64_t acc_size; /* Bytes per transfer for direct IO and DMA */
+	int      max_iter; /* For \inft loop tests make this the upper bound of loops*/
+
 	int wr; 
 	int mp_num;	/* Mport index */
 	int mp_h_is_mine; /* 0 - common mp_h, 1 - worker specific mp_h */

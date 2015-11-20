@@ -1969,6 +1969,8 @@ int UDMACmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].use_kbuf = 1;
 
 	wkr[idx].stop_req = 0;
+	wkr[idx].max_iter = GetDecParm("$maxit", -1);
+
 	sem_post(&wkr[idx].run);
 exit:
         return 0;
@@ -2094,6 +2096,8 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 	wkr[idx].use_kbuf = 1;
 
 	wkr[idx].stop_req = 0;
+	wkr[idx].max_iter = GetDecParm("$maxit", -1);
+
 	sem_post(&wkr[idx].run);
 exit:
 	return 0;
@@ -2216,6 +2220,8 @@ int UDMALatNREAD(struct cli_env *env, int argc, char **argv)
 	wkr[idx].use_kbuf = 1;
 
 	wkr[idx].stop_req = 0;
+	wkr[idx].max_iter = GetDecParm("$maxit", -1);
+
 	sem_post(&wkr[idx].run);
 exit:
 	return 0;
@@ -2497,6 +2503,8 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
         wkr[idx].use_kbuf = 1;
 
         wkr[idx].stop_req = 0;
+        wkr[idx].max_iter = GetDecParm("$maxit", -1);
+
         sem_post(&wkr[idx].run);
 exit:
         return 0;

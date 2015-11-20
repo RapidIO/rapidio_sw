@@ -122,6 +122,7 @@ void init_worker_info(struct worker *info, int first_time)
         info->rio_addr = 0;
         info->byte_cnt = 0;
         info->acc_size = 0; /* Bytes per transfer for direct IO and DMA */
+	info->max_iter = -1;
         info->wr = 0;
         info->mp_h_is_mine = 0;
         info->mp_h = NULL;
@@ -1987,7 +1988,8 @@ static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa
 void umd_dma_goodput_demo(struct worker *info)
 {
 	int oi = 0, rc;
-	uint64_t cnt;
+	uint64_t cnt = 0;
+	int iter = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
 	if (! TakeLock(info, "DMA", info->umd_chan)) return;
@@ -2080,6 +2082,8 @@ void umd_dma_goodput_demo(struct worker *info)
 	
         	for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
+			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+
 			info->dmaopt[oi].destid      = info->did;
 			info->dmaopt[oi].bcount      = info->acc_size;
 			info->dmaopt[oi].raddr.lsb64 = info->rio_addr + cnt;
@@ -2302,7 +2306,8 @@ static inline bool umd_dma_goodput_latency_demo_MASTER(struct worker *info, cons
 void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 {
 	int oi = 0;
-	uint64_t cnt;
+	uint64_t cnt = 0;
+	int iter = 0;
 
 	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
@@ -2376,6 +2381,8 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 		info->dmaopt[oi].bcount      = info->acc_size;
 		info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
 
+		if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+
 		switch(op) {
 		case 'T': // TX - Master, it does its own start_iter_stats/finish_iter_stats
 			if(! umd_dma_goodput_latency_demo_MASTER(info, oi, cnt)) goto exit;
@@ -2394,6 +2401,16 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
 			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
                 	finish_iter_stats(info);
+
+			if (7 <= g_level) { // DEBUG
+				std::stringstream ss;
+				for(int i = 0; i < 16; i++) {
+					char tmp[9] = {0};
+					snprintf(tmp, 8, "%02x ", wi[0].t2_rddata[i]);
+					ss << tmp;
+				}
+				DBG("\n\tNREAD-in data: %s\n", ss.str().c_str());
+			}
 			}}
 			break;
 		default: CRIT("\n\t: Invalid operation '%c'\n", op); goto exit;
@@ -2427,6 +2444,7 @@ exit:
 void umd_mbox_goodput_demo(struct worker *info)
 {
 	int rc = 0;
+	int iter = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
 	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
@@ -2477,6 +2495,8 @@ void umd_mbox_goodput_demo(struct worker *info)
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
         	while (!info->stop_req) {
+			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+
                 	info->umd_dma_abort_reason = 0;
 			uint64_t rx_ts = 0;
 			while (!info->stop_req && ! info->umd_mch->inb_message_ready(rx_ts))
@@ -2537,6 +2557,8 @@ void umd_mbox_goodput_demo(struct worker *info)
 		opt.letter = info->umd_letter;
 		char str[PAGE_4K+1] = {0};
                 for (int cnt = 0; !info->stop_req; cnt++) {
+			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+
 			bool q_was_full = false;
 			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
 
@@ -2579,6 +2601,8 @@ static inline int MIN(int a, int b) { return a < b? a: b; }
 
 void umd_mbox_goodput_latency_demo(struct worker *info)
 {
+	int iter = 0;
+
 	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
@@ -2637,6 +2661,8 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 		opt.destid = info->did;
 
         	while (!info->stop_req) {
+			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+
 			bool q_was_full = false;
                 	info->umd_dma_abort_reason = 0;
 			uint64_t rx_ts = 0;
@@ -2706,6 +2732,8 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 		opt.mbox   = info->umd_chan;
 		char str[PAGE_4K+1] = {0};
                 for (int cnt = 0; !info->stop_req; cnt++) {
+			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+
 			bool q_was_full = false;
 			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
 
