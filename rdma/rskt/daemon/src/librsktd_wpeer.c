@@ -156,11 +156,21 @@ void *wpeer_rx_loop(void *p_i)
 				sizeof(union librsktd_resp));
 		msg->dresp->err = w->resp->err; 
 		
+		INFO("WPeer %d Rx: Type %x seq %x err %x\n",
+			w->ct,
+			w->resp->msg_type,
+			w->resp->msg_seq,
+			w->resp->err);
+		DBG("WPeer %d Rx Enqueue: Type %x Proc %x Stage %x\n",
+			w->ct,
+			msg->msg_type,
+			msg->proc_type,
+			msg->proc_stage);
 		enqueue_mproc_msg(msg);
 	};
 
 	/* Stop others from using the wpeer */
-	DBG("Call cleanup_wpeer\n");
+	HIGH("Wpeer %d EXITING, cleaning up\n", w->ct);
 	cleanup_wpeer(w);
 
 	pthread_exit(NULL);

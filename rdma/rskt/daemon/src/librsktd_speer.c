@@ -152,11 +152,12 @@ void *speer_rx_loop(void *p_i)
 	struct rskt_dmn_speer *speer = (struct rskt_dmn_speer *)p_i;
 	int rc = -1;
 
+	INFO("\n\tSPEER %d: Starting!\n", speer->ct);
 	sem_wait(&dmn.speers_mtx);
 	l_push_tail(&dmn.speers, speer->self_ref);
 	sem_post(&dmn.speers_mtx);
 
-	DBG("\n\tSPEER(%p): Alive!\n", speer);
+	DBG("\n\tSPEER(%p): Running\n", speer);
 
 	while (!speer->i_must_die && !speer->comm_fail) {
 		struct librsktd_unified_msg *msg =
@@ -177,6 +178,10 @@ void *speer_rx_loop(void *p_i)
 
 		rsktd_prep_resp(msg);
 
+		DBG("\n\tSPEER %d: Rx Req %x %s Seq %x \n", speer->ct,
+			speer->req->msg_type,
+			RSKTD_REQ_STR(ntohl(speer->req->msg_type)), 
+			speer->req->msg_seq);
 		switch (msg->msg_type) {
 		case RSKTD_HELLO_REQ:
 		case RSKTD_CONNECT_REQ:
@@ -191,8 +196,8 @@ void *speer_rx_loop(void *p_i)
 			break;
 		};
 		DBG(
-	"\n\tSPEER(%p): enqueue : REQ %3x %s RESP %3x %s SEQ %3x\n\t\tPROC %x STAGE %x\n",
-			speer, msg->msg_type,
+	"\n\tSPEER %d: enqueue : REQ %3x %s RESP %3x %s SEQ %3x\n\t\tPROC %x STAGE %x\n",
+			speer->ct, msg->msg_type,
 			RSKTD_REQ_STR(msg->msg_type),
         		msg->dresp->msg_type,
 			RSKTD_RESP_STR(msg->dresp->msg_type),
@@ -202,8 +207,7 @@ void *speer_rx_loop(void *p_i)
 		enqueue_mproc_msg(msg);
 	};
 
-	CRIT("\n\tSPEER(%p): Exiting!\n", speer);
-
+	DBG("\n\tSPEER %d: Exiting, startin to cleanup!\n", speer->ct);
 	speer->comm_fail = 1;
 
 	if (NULL != speer->rx_buff) {
@@ -217,6 +221,7 @@ void *speer_rx_loop(void *p_i)
 							speer->tx_buff);
 		speer->tx_buff = NULL;
 	};
+	CRIT("\n\tSPEER %d: Exiting!\n", speer->ct);
 
 	pthread_exit(NULL);
 };
