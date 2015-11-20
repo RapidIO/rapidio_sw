@@ -75,7 +75,7 @@ int riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount)
 
 	RIOCP_TRACE("Set lock d: 0x%x, h: %u\n", destid, hopcount);
 
-	ret = riocp_pe_lock_read(mport, destid, hopcount, &lock);
+	ret = riocp_pe_maint_read_remote(mport, destid, hopcount, RIO_HOST_DID_LOCK_CSR, &lock);
 	if (ret) {
 		RIOCP_ERROR("Unable to read lock d: 0x%x, h: %u\n",
 			destid, hopcount);
@@ -88,14 +88,14 @@ int riocp_pe_lock_set(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount)
 		return 0;
 	}
 
-	ret = riocp_pe_lock_write(mport, destid, hopcount, mport->destid);
+	ret = riocp_pe_maint_write_remote(mport, destid, hopcount, RIO_HOST_DID_LOCK_CSR, mport->destid);
 	if (ret) {
 		RIOCP_ERROR("Unable to write lock d: 0x%x, h: %u\n",
 			destid, hopcount);
 		return -EIO;
 	}
 
-	ret = riocp_pe_lock_read(mport, destid, hopcount, &lock);
+	ret = riocp_pe_maint_read_remote(mport, destid, hopcount, RIO_HOST_DID_LOCK_CSR, &lock);
 	if (ret) {
 		RIOCP_ERROR("Unable to read lock d: 0x%x, h: %u\n",
 			destid, hopcount);
@@ -121,7 +121,7 @@ int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, uint8_t hopcoun
 
 	RIOCP_TRACE("Clear lock d: 0x%x, h: %u\n", destid, hopcount);
 
-	ret = riocp_pe_lock_read(mport, destid, hopcount, &lock);
+	ret = riocp_pe_maint_read_remote(mport, destid, hopcount, RIO_HOST_DID_LOCK_CSR, &lock);
 	if (ret) {
 		RIOCP_ERROR("Unable to read lock d: 0x%x, h: %u\n",
 			destid, hopcount);
@@ -134,14 +134,14 @@ int riocp_pe_lock_clear(struct riocp_pe *mport, uint32_t destid, uint8_t hopcoun
 	if (lock == RIO_HOST_LOCK_BASE_ID_MASK)
 		return 0;
 
-	ret = riocp_pe_lock_write(mport, destid, hopcount, mport->destid);
+	ret = riocp_pe_maint_write_remote(mport, destid, hopcount, RIO_HOST_DID_LOCK_CSR, mport->destid);
 	if (ret) {
 		RIOCP_ERROR("Unable to write lock d: 0x%x, h: %u\n",
 			destid, hopcount);
 		return -EIO;
 	}
 
-	ret = riocp_pe_lock_read(mport, destid, hopcount, &lock);
+	ret = riocp_pe_maint_read_remote(mport, destid, hopcount, RIO_HOST_DID_LOCK_CSR, &lock);
 	if (ret) {
 		RIOCP_ERROR("Unable to read lock d: 0x%x, h: %u\n",
 			destid, hopcount);
