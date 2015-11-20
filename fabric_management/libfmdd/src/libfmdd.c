@@ -367,6 +367,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 	uint32_t i, cnt = 0, idx = 0;
 	uint8_t flag;
 
+	DBG("Fetching DID list\n");
 	if (h != &fml) {
 		ERR("Invalid fmdd_h h(0x%X)\n", h);
 		goto fail;
@@ -390,6 +391,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 	for (i = 0; i < FML_MAX_DESTIDS; i++) {
 		flag = fmdd_check_did(h, i, FMDD_FLAG_OK_MP);
 		if (flag && (FMDD_FLAG_OK_MP != flag)) {
+			DBG("Adding did %d index %d\n", i, idx);
 			(*did_list)[idx] = i;
 			idx++;
 		};
@@ -405,6 +407,7 @@ int fmdd_free_did_list(fmdd_h h, uint32_t **did_list)
 	if (h != &fml)
 		goto fail;
 
+	DBG("Freeing DID list...\n");
 	if (NULL != *did_list)
 		free(*did_list);
 	*did_list = NULL;
@@ -433,11 +436,13 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 	l_push_tail(&fml.pend_waits, (void *)chg_sem);
 	sem_post(&fml.pend_waits_mtx);
 
+	DBG("Waiting for change to device database\n");
 	rc = sem_wait(&chg_sem->sema);
 
 	/* Note: The notification process removes all items from the list. */
 	free(chg_sem);
 	
+	DBG("Waking up after change to device database\n");
 	if (fml.mon_must_die || !fml.mon_alive || rc) {
 		ERR("mon_must_die, !mon_alive or sem_wait() failed\n");
 		goto fail;

@@ -761,6 +761,8 @@ void rsktd_sreq_hello_req(struct librsktd_unified_msg *r)
 	sp->cm_mp = ntohl(dreq->msg.hello.cm_mp);
 	sp->got_hello = 1;
 	dresp->msg.hello.peer_pid = htonl(getpid());
+
+	DBG("RSKTD HELLO SPEER %d Received\n", sp->ct);
 };
 
 uint32_t rsktd_sreq_connect_req(struct librsktd_unified_msg *r)

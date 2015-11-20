@@ -510,8 +510,10 @@ void spawn_daemon_threads(struct control_list *ctrls)
 
 	/* Now that everything is running, try openning wpeers... */
 	/* First, the wpeers configured from the command line... */
-	DBG("Opening wpeers\n");
-	open_wpeers_for_requests(ctrls->num_peers, ctrls->peers);
+	if (ctrls->num_peers) {
+		DBG("FIXME: NOT Opening configured wpeers\n");
+		// open_wpeers_for_requests(ctrls->num_peers, ctrls->peers);
+	};
 };
 
 int daemon_threads_failed(void)
