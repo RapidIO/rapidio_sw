@@ -804,7 +804,7 @@ void display_speers_list(struct cli_env *env)
 					ntohl(speer->resp->msg_seq));
         			logMsg(env);
 			};
-			speer = (struct rskt_dmn_speer *)l_next(&li);
+			sp = (struct rskt_dmn_speer **)l_next(&li);
 		};
 	} else {
 		sprintf(env->output, "\nRDMN Socket Peers: None\n");

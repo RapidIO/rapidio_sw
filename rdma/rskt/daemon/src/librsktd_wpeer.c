@@ -87,6 +87,7 @@ struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 
 	w->ct = ct;
 	w->cm_skt = cm_skt;
+	w->cm_skt_h_valid = 0;
 
 	w->wpeer_alive = 0;
 	w->i_must_die = 0;
@@ -196,6 +197,7 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 
                 if (!conn_rc) {
                 	INFO("Connected to ct(%d)\n", ct);
+			w->cm_skt_h_valid = 1;
                         break;
                 }
 
@@ -313,10 +315,20 @@ void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 		wpeer->tx_buff = NULL;
 	};
 
+	if (wpeer->cm_skt_h_valid) {
+		int rc;
+		wpeer->cm_skt_h_valid = 0;
+		rc = riomp_sock_close(&wpeer->cm_skt_h);
+		if (rc) {
+			ERR("riomp_sock_close ERR %d\n", rc);
+		};
+	};
+
 	sem_wait(&wpeer->w_rsp_mutex);
 	msg = (struct librsktd_unified_msg *)l_pop_head(&wpeer->w_rsp);
 	sem_post(&wpeer->w_rsp_mutex);
 
+	/* Send "failed" responses to application */
 	while (NULL != msg) {
 		msg->proc_stage = RSKTD_A2W_SEQ_DRESP;
 		if (wpeer == NULL) {
@@ -332,9 +344,14 @@ void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 		msg = (struct librsktd_unified_msg *)l_pop_head(&wpeer->w_rsp);
 		sem_post(&wpeer->w_rsp_mutex);
 	};
-	sem_wait(&dmn.wpeers_mtx);
-	l_remove(&dmn.wpeers, wpeer->wp_li);
-	sem_post(&dmn.wpeers_mtx);
+
+	if (wpeer->wp_li) {
+		sem_wait(&dmn.wpeers_mtx);
+		if (wpeer->wp_li)
+			l_remove(&dmn.wpeers, wpeer->wp_li);
+		wpeer->wp_li = NULL;
+		sem_post(&dmn.wpeers_mtx);
+	};
 };
 
 void close_wpeer(struct rskt_dmn_wpeer *wpeer)

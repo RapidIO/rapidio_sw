@@ -53,6 +53,7 @@ struct rskt_dmn_wpeer {
 	uint32_t cm_skt;
 
 	struct rskt_dmn_wpeer **self_ref;
+	int cm_skt_h_valid;
 	riomp_sock_t cm_skt_h;
 	int wpeer_alive;
 	int i_must_die;
