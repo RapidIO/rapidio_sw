@@ -487,13 +487,11 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
 	///good_destid[info->did] = true; // FMD should push updates into this
 
-#if 0 // Crash?!?!?
         INFO("\n\t%s %s mtu %d on DMA Chan=%d Chan2=%d my_destid=%u #buf=%d #fifo=%d\n",
              if_name, TapIPv4Addr, info->umd_tun_MTU,
              info->umd_chan, info->umd_chan2,
              info->umd_dch->getDestId(),
              info->umd_tx_buf_cnt, info->umd_sts_entries);
-#endif
 
 	// TX
         if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
@@ -507,8 +505,8 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
 	// TX - Chan 2
         info->umd_dch2->setCheckHwReg(true);
-        if (!info->umd_dch2->alloc_dmatxdesc(1)) {
-                CRIT("\n\talloc_dmatxdesc failed: bufs %d", 1);
+        if (!info->umd_dch2->alloc_dmatxdesc(2)) {
+                CRIT("\n\talloc_dmatxdesc failed: bufs %d", 2);
                 goto exit;
 	}
         if (!info->umd_dch2->alloc_dmacompldesc(info->umd_sts_entries)) { // Same as for Chan 1
