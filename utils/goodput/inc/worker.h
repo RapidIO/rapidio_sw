@@ -156,7 +156,7 @@ struct DMA_L2_s {
         uint16_t destid; ///< Destid of sender in network format, network order
         uint32_t len;    ///< Length of this write, L2+data. Unlike MBOX, DMA is Fu**ed, network order
 	uint8_t  padding;///< Barry dixit "It's much better to have headers be a multiple of 4 bytes for RapidIO purposes"
-};
+} __attribute__ ((packed));
 typedef struct DMA_L2_s DMA_L2_t;
 
 const int DMA_L2_SIZE = sizeof(DMA_L2_t);

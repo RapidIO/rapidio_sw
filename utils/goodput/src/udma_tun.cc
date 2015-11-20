@@ -117,14 +117,21 @@ bool udma_nread_mem(struct worker *info, const uint16_t did, const uint64_t rio_
 	dmaopt.raddr.lsb64 = rio_addr;
 
 	struct seq_ts tx_ts;
+	uint32_t umd_dma_abort_reason = 0;
 	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
-	if(! info->umd_dch2->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, info->umd_dma_abort_reason, &tx_ts)) return false;
+	if(! info->umd_dch2->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, umd_dma_abort_reason, &tx_ts)) return false;
 
-	const bool q_was_full = (info->umd_dma_abort_reason == 0);
+	const bool q_was_full = (umd_dma_abort_reason == 0);
 
 	DBG("\n\tPolling FIFO transfer completion destid=%d\n", did);
 	while (!q_was_full && !info->stop_req && info->umd_dch2->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+
+	if (umd_dma_abort_reason != 0 || info->umd_dch2->queueSize() > 0) { // Boooya!! Peer not responding
+		CRIT("\n\tChan %u stalled, with %s\n", info->umd_chan, DMAChannel::abortReasonToStr(info->umd_dma_abort_reason));
+		// XXX Cleanup, nuke the one BD
+		return false;
+	}
 
 	memcpy(data_out, wi[0].t2_rddata, size);
 
@@ -144,7 +151,10 @@ void* umd_dma_tun_proc_thr(void *parm)
         if (NULL == parm) pthread_exit(NULL);
 
         struct worker* info = (struct worker *)parm;
-        if (NULL == info->umd_mch) goto exit;
+        if (NULL == info->umd_dch) goto exit;
+        if (NULL == info->umd_dch2) goto exit;
+
+	DBG("\n\tReady to receive from %s!\n", info->umd_tun_name);
 
         {{
         const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
@@ -162,9 +172,8 @@ void* umd_dma_tun_proc_thr(void *parm)
         info->umd_dma_tap_proc_alive = 1;
         sem_post(&info->umd_dma_tap_proc_started);
 
-        DMAChannel::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
-
-        const uint16_t my_destid = info->umd_mch->getDestId();
+	uint16_t destid = 0x69; // apparently all are valid so pick one
+        const uint16_t my_destid = info->umd_dch->getDestId();
 
         bad_destid[my_destid] = true;
 
@@ -199,16 +208,16 @@ again:
                 uint32_t* pkt = (uint32_t*)(buffer+DMA_L2_SIZE);
                 const uint32_t dest_ip_v4 = ntohl(pkt[4]); // XXX IPv6 will stink big here
 
-                opt.destid = (dest_ip_v4 & 0xFFFF) - DESTID_TRANSLATE;
+                destid = (dest_ip_v4 & 0xFFFF) - DESTID_TRANSLATE;
                 }}
 
-                const bool is_bad_destid = bad_destid.find(opt.destid) != bad_destid.end();
+                const bool is_bad_destid = bad_destid.find(destid) != bad_destid.end();
 
 #ifdef UDMA_TUN_DEBUG
                 const uint32_t crc = crc32(0, buffer, nread+DMA_L2_SIZE);
                 DBG("\n\tGot from %s %d+%d bytes (L2 CRC32 0x%x) to RIO destid %u%s\n",
                          info->umd_tun_name, nread, DMA_L2_SIZE,
-                         crc, opt.destid,
+                         crc, destid,
                          is_bad_destid? " BLACKLISTED": "");
 #endif
 
@@ -219,9 +228,15 @@ again:
 
 		if (((tx_cnt+1) % 8) == 0 || info->umd_dch->queueSize() > Q_THR) { // This must be done per-destid
 			uint32_t newRP = 0;
-			if (udma_nread_mem(info, opt.destid, info->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
-				DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", opt.destid, RP, newRP);
+			if (udma_nread_mem(info, destid, info->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
+				DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", destid, RP, newRP);
 				RP = newRP;
+			} else {
+                                send_icmp_host_unreachable(info, buffer+DMA_L2_SIZE, nread);
+				DBG("\n\tHW error, something is FOBAR with Chan %u\n", info->umd_chan2);
+
+                                bad_destid[destid] = true;
+				continue;
 			}
 		}
 
@@ -235,12 +250,10 @@ again:
 		DBG("\n\tWP=%d guessed { RP=%d outstanding=%d } %s\n", WP, RP, outstanding, (outstanding==(info->umd_tx_buf_cnt-1))? "FULL": "");
 
 		if (outstanding == (info->umd_tx_buf_cnt-1)) {
-			CRIT("\n\tPeer destid=%u is FULL, dropping frame!\n", opt.destid);
+			CRIT("\n\tPeer destid=%u is FULL, dropping frame!\n", destid);
 			// XXX Maybe send back ICMP Host Unreachable? TODO: Study RFCs
 			continue;
 		}
-
-                DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u\n", nread, DMA_L2_SIZE, opt.destid);
 
         	pL2->destid = htons(my_destid);
 		pL2->len    = htonl(DMA_L2_SIZE + nread);
@@ -248,7 +261,7 @@ again:
 
                 if (info->stop_req) goto exit;
 
-                const bool first_message = good_destid.find(opt.destid) == good_destid.end();
+                const bool first_message = good_destid.find(destid) == good_destid.end();
 
 		// Barry dixit "If full sleep for (queue size / 2) nanoseconds"
 		for (int i = 0; i < (info->umd_tx_buf_cnt-1)/2; i++) {
@@ -257,12 +270,19 @@ again:
 			nanosleep(&tv, NULL);
 		}
 
-		if (! info->umd_dch->queueFull()) continue; // Drop L3 frame
+		if (info->umd_dch->queueFull()) {
+			continue; // Drop L3 frame
+			DBG("\n\tQueue full #1!\n");
+		}
                 if (info->stop_req) goto exit;
 
-		info->dmaopt[oi].destid      = info->did;
+		info->dmaopt[oi].destid      = destid;
 		info->dmaopt[oi].bcount      = info->umd_tun_MTU;
 		info->dmaopt[oi].raddr.lsb64 = info->rio_addr + sizeof(uint32_t) + WP * BD_PAYLOAD_SIZE;
+
+                DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx\n", nread, DMA_L2_SIZE, destid, info->dmaopt[oi].raddr.lsb64);
+
+	        info->umd_dch->setCheckHwReg(first_message);
 
 		info->umd_dma_abort_reason = 0;
 		if (! info->umd_dch->queueDmaOpT1(ALL_NWRITE, info->dmaopt[oi], info->dmamem[oi],
@@ -270,16 +290,18 @@ again:
 			if(info->umd_dma_abort_reason != 0) { // HW error
                                 // ICMPv4 dest unreachable id bad destid 
                                 send_icmp_host_unreachable(info, buffer+DMA_L2_SIZE, nread);
+				DBG("\n\tHW error, triggering soft restart\n");
 
-                                bad_destid[opt.destid] = true;
+                                bad_destid[destid] = true;
 
                                 info->stop_req = SOFT_RESTART;
 				break;
 			} else { // queue really full
+				DBG("\n\tQueue full #2!\n");
 				continue; // Drop L3 frame
 			}
 		}
-                if (first_message) good_destid[opt.destid] = true;
+                if (first_message) good_destid[destid] = true;
 
 		oi++; if (oi == (info->umd_tx_buf_cnt-1)) oi = 0; // Account for T3
 
@@ -318,10 +340,10 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 	if(info == NULL) return;
         assert(info->ib_ptr);
 
-	int cnt = 0;
 	volatile uint32_t* pRP = (uint32_t*)info->ib_ptr;
 	assert(*pRP < (info->umd_tx_buf_cnt-1));
 
+	int cnt = 0;
 	int k = *pRP;
 
  	pthread_spin_lock(&info->umd_dma_rio_rx_bd_ready_splock);
@@ -424,8 +446,8 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         // Configure tun/tap interface for IPv4, L2, no ARP, no multicast
 
         char TapIPv4Addr[17] = {0};
-        const uint16_t my_destid = info->umd_mch->getDestId() + DESTID_TRANSLATE;
-        snprintf(TapIPv4Addr, 16, "169.254.%d.%d", (my_destid >> 8) & 0xFF, my_destid & 0xFF);
+        const uint16_t my_destid_tun = info->umd_dch->getDestId() + DESTID_TRANSLATE;
+        snprintf(TapIPv4Addr, 16, "169.254.%d.%d", (my_destid_tun >> 8) & 0xFF, my_destid_tun & 0xFF);
 
         char ifconfig_cmd[257] = {0};
         snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s %s netmask 0xffff0000 mtu %d up",
@@ -463,23 +485,36 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
         socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp);
 
-	good_destid[info->did] = true; // FMD should push updates into this
+	///good_destid[info->did] = true; // FMD should push updates into this
 
+#if 0 // Crash?!?!?
         INFO("\n\t%s %s mtu %d on DMA Chan=%d Chan2=%d my_destid=%u #buf=%d #fifo=%d\n",
              if_name, TapIPv4Addr, info->umd_tun_MTU,
              info->umd_chan, info->umd_chan2,
-             info->umd_mch->getDestId(),
+             info->umd_dch->getDestId(),
              info->umd_tx_buf_cnt, info->umd_sts_entries);
+#endif
 
 	// TX
         if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
                 CRIT("\n\talloc_dmatxdesc failed: bufs %d", info->umd_tx_buf_cnt);
                 goto exit;
-        };
+        }
         if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
                 CRIT("\n\talloc_dmacompldesc failed: entries %d", info->umd_sts_entries);
                 goto exit;
-        };
+        }
+
+	// TX - Chan 2
+        info->umd_dch2->setCheckHwReg(true);
+        if (!info->umd_dch2->alloc_dmatxdesc(1)) {
+                CRIT("\n\talloc_dmatxdesc failed: bufs %d", 1);
+                goto exit;
+	}
+        if (!info->umd_dch2->alloc_dmacompldesc(info->umd_sts_entries)) { // Same as for Chan 1
+                CRIT("\n\talloc_dmacompldesc failed: entries %d", info->umd_sts_entries);
+                goto exit;
+        }
 
         memset(info->dmamem, 0, sizeof(info->dmamem));
         memset(info->dmaopt, 0, sizeof(info->dmaopt));
@@ -528,19 +563,18 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         }
 
         // Spawn Tap Transmitter Thread
-        rc = pthread_create(&info->umd_mbox_tap_thr.thr, NULL,
+        rc = pthread_create(&info->umd_dma_tap_thr.thr, NULL,
                             umd_dma_tun_proc_thr, (void *)info);
         if (rc) {
                 CRIT("\n\tCould not create umd_dma_tun_proc_thr thread, exiting...");
                 goto exit;
         }
-        sem_wait(&info->umd_mbox_tap_proc_started);
+        sem_wait(&info->umd_dma_tap_proc_started);
 
-        if (!info->umd_mbox_tap_proc_alive) {
-                CRIT("\n\tumd_mbox_tun_proc_thr thread is dead, exiting..");
+        if (!info->umd_dma_tap_proc_alive) {
+                CRIT("\n\tumd_dma_tun_proc_thr thread is dead, exiting..");
                 goto exit;
         }
-        sem_wait(&info->umd_mbox_tap_proc_started);
 
 	// We need to wake up the RX thread upon quitting so we spawn
 	// this lightweight helper thread
@@ -557,6 +591,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	// Receiver (from RIO)
+	DBG("\n\tReady to receive from RIO!\n");
 
 again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), update RP, set RO=0
 
@@ -590,7 +625,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
 			uint8_t* payload = (uint8_t*)pL2 + DMA_L2_SIZE;
                         const int nwrite = cwrite(info->umd_tun_fd, payload, payload_size);
-#ifdef DMA_TUN_DEBUG
+#ifdef UDMA_TUN_DEBUG
                         const uint32_t crc = crc32(0, payload, payload_size);
                         DBG("\n\tGot a message of size %d from RIO destid %u (L2 CRC32 0x%x) cnt=%llu, wrote %d to %s\n",
                                  ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, if_name);
@@ -606,7 +641,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 		info->umd_dch->softRestart();
 		info->stop_req = 0;
 		sem_post(&info->umd_fifo_proc_started);
-		sem_post(&info->umd_mbox_tap_proc_started);
+		sem_post(&info->umd_dma_tap_proc_started);
 		goto again;
 	}
 
@@ -642,7 +677,7 @@ exit_nomsg:
         info->umd_tun_fd = -1;
 
 	info->umd_dma_rio_rx_bd_ready_size = -1;
-	free(info->umd_dma_rio_rx_bd_ready);  info->umd_dma_rio_rx_bd_ready = NULL;
+	free(info->umd_dma_rio_rx_bd_ready);  info->umd_dma_rio_rx_bd_ready = NULL;  // XXX PANIC on free?
 	free(info->umd_dma_rio_rx_bd_L2_ptr); info->umd_dma_rio_rx_bd_L2_ptr = NULL;
 
         delete info->umd_dch;  info->umd_dch = NULL;

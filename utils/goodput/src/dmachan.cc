@@ -80,6 +80,7 @@ void DMAChannel::init()
   m_keep_evlog    = false;
   m_bl_busy       = NULL;
   m_bl_busy_size  = -1;
+  m_check_reg     = false;
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
@@ -247,7 +248,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
 	// Check if queue full -- as late as possible in view of MT
 	if(queueFull()) {
-		ERR("FAILED: DMA TX Queue full!\n");
+		ERR("\n\tFAILED: DMA TX Queue full! chan=%u\n", m_chan);
 		return false;
 	}
 	
@@ -298,11 +299,9 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 	}}
 	pthread_spin_unlock(&m_bl_splock); 
 
-/*
-	if(dmaCheckAbort(abort_reason)) {
+	if(m_check_reg && dmaCheckAbort(abort_reason)) {
 		return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
 	}
-*/
 
 	memset(&wk, 0, sizeof(wk));
 	wk.mem = mem;

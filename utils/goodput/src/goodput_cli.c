@@ -2354,7 +2354,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 	wkr[idx].did = did;
 	wkr[idx].rio_addr = rio_addr;
         wkr[idx].byte_cnt = 0;
-        wkr[idx].acc_size = 0;
+        wkr[idx].acc_size = mtu+DMA_L2_SIZE;
         wkr[idx].umd_tx_rtype = ALL_NWRITE;
         wkr[idx].wr = 1;
         wkr[idx].use_kbuf = 1;
