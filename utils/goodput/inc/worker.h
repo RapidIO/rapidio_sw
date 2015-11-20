@@ -122,6 +122,7 @@ enum req_type {
 	umd_dmaltx,
 	umd_dmalrx,
 	umd_dmalnr,
+	umd_dma_tap,
 	umd_mbox,
 	umd_mboxl,
 	umd_mbox_tap,
@@ -147,6 +148,19 @@ struct thread_cpu {
 };
 
 #define SOFT_RESTART	69
+
+#ifdef USER_MODE_DRIVER
+/** \brief This is the L2 header we use for transporting Tun L3 frames over RIO via DMA */
+struct DMA_L2_s {
+	uint8_t  RO;     ///< Reader Owned flag(s), not "read only"
+        uint16_t destid; ///< Destid of sender in network format, network order
+        uint32_t len;    ///< Length of this write, L2+data. Unlike MBOX, DMA is Fu**ed, network order
+	uint8_t  padding;///< Barry dixit "It's much better to have headers be a multiple of 4 bytes for RapidIO purposes"
+} __attribute__ ((packed));
+typedef struct DMA_L2_s DMA_L2_t;
+
+const int DMA_L2_SIZE = sizeof(DMA_L2_t);
+#endif
 
 struct worker {
 	int idx; /* index of this worker thread -- needed by UMD */
@@ -220,10 +234,12 @@ struct worker {
 
 #ifdef USER_MODE_DRIVER
 	LockFile*	umd_lock;
-	int		umd_chan; ///< Local mailbox
+	int		umd_chan; ///< Local mailbox OR DMA channel
+	int		umd_chan2; ///< Local mailbox OR DMA channel
 	int		umd_chan_to; ///< Remote mailbox
 	int		umd_letter; ///< Remote mailbox letter
 	DMAChannel 	*umd_dch;
+	DMAChannel 	*umd_dch2; ///< Used for NREAD in DMA Tun
 	MboxChannel 	*umd_mch;
 	enum dma_rtype	umd_tx_rtype;
 	int 		umd_tx_buf_cnt;
@@ -235,11 +251,21 @@ struct worker {
 	volatile int	umd_fifo_proc_must_die;
 	int		umd_tun_fd;
 	char		umd_tun_name[33];
+	int		umd_tun_MTU;
 	int		umd_sockp[2];
+	void		(*umd_dma_fifo_callback)(struct worker* info);
 	struct thread_cpu umd_mbox_tap_thr;
+	struct thread_cpu umd_dma_tap_thr;
 	sem_t		umd_mbox_tap_proc_started;
 	volatile int	umd_mbox_tap_proc_alive;
+	sem_t		umd_dma_tap_proc_started;
+	volatile int	umd_dma_tap_proc_alive;
 	uint32_t	umd_dma_abort_reason;
+	sem_t		umd_dma_rio_rx_work;
+	DMA_L2_t**	umd_dma_rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
+        uint32_t*       umd_dma_rio_rx_bd_ready; ///< List of all IB BDs that have fresh data in them, per-destid 
+        int             umd_dma_rio_rx_bd_ready_size;
+	pthread_spinlock_t umd_dma_rio_rx_bd_ready_splock;
 	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 	volatile uint64_t tick_count, tick_total;

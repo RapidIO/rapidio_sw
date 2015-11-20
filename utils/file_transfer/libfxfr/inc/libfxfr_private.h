@@ -51,6 +51,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TOTAL_TX_BUFF_SIZE 0x400000
 #define MAX_TX_BUFF_SIZE   (TOTAL_TX_BUFF_SIZE/MAX_TX_SEGMENTS)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct ibwin_info {
         uint8_t valid; /* 0 - info is not valid, window not in use.
                         * 1 - info is valid, window available
@@ -82,5 +86,9 @@ struct ibwin_info {
 };
 
 extern int rx_file(struct ibwin_info *info, int *abort_flag);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LIBFXFR_H__ */

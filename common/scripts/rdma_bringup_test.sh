@@ -5,7 +5,7 @@
 # RapidIO RDMA software installation path must be identical on all nodes.
 
 #RDMA_ROOT_PATH=/opt/rapidio/cern/rapidio_sw
-RDMA_ROOT_PATH=/home/sherif/git/rapidio_sw
+RDMA_ROOT_PATH=/home/barryw/git/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 NUM_ITERATIONS=1000
@@ -15,7 +15,7 @@ do
 	echo -n "Iteration " $i
 	echo ""
 
-	NODES="gry09 gry10 gry11 gry12"
+	NODES="gry13 gry14 gry15 gry16"
 
 	# Load all drivers FIRST
 	for node in $NODES
@@ -169,7 +169,7 @@ do
 		echo "	Everything worked. Retrying, but cleaning up first"
 		echo ""
 
-		NODES="gry12 gry11 gry10 gry09"
+		NODES="gry16 gry15 gry14 gry13"
 
 		# For each node, kill RSKTD RDMAD and FMD
 		for node in $NODES

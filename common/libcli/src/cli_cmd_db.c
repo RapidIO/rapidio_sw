@@ -36,6 +36,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MAX_CMDS 100
 #define MIN(a, b) ((a < b)?a:b)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int num_valid_cmds;
 struct cli_cmd *cmds[MAX_CMDS];
 
@@ -189,3 +193,7 @@ int init_cmd_db(void)
 
 	return 0;
 };
+
+#ifdef __cplusplus
+}
+#endif

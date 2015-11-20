@@ -83,6 +83,8 @@ int speer_rx_req(struct rskt_dmn_speer *speer)
 	int rc = 0;
 
 	speer->rx_buff_used = 1;
+	DBG("\n\tSPEER(%p): Waiting for request\n", speer);
+
 	do {
 		rc = riomp_sock_receive(speer->cm_skt_h, 
 			&speer->rx_buff, RSKTD_CM_MSG_SIZE, 0);
@@ -93,6 +95,11 @@ int speer_rx_req(struct rskt_dmn_speer *speer)
 		CRIT("SPEER(%p): riomp_sock_receive: %d (%d:%s)\n",
 			speer, rc, errno, strerror(errno));
 		speer->i_must_die = 1;
+	} else {
+		DBG("\n\tSPEER(%p): riomp_sock_receive: TYPE %3x %s SEQ %3x\n",
+			speer, speer->req->msg_type,
+			RSKTD_REQ_STR(speer->req->msg_type),
+			speer->req->msg_seq);
 	};
 
 	return rc;
@@ -111,24 +118,30 @@ void rsktd_prep_resp(struct librsktd_unified_msg *msg)
 
 void close_speer(struct rskt_dmn_speer *speer)
 {
+	DBG("\n\tSPEER(%p): closing speer!\n", speer);
+
 	speer->alive = 0;
 	sem_post(&speer->started);
 
 	speer->comm_fail = 1;
 
 	if (NULL != speer->rx_buff) {
+		DBG("\n\tSPEER(%p): release receive buffer\n", speer);
 		riomp_sock_release_receive_buffer(speer->cm_skt_h,
 							speer->rx_buff);
 		speer->rx_buff = NULL;
 	};
 	
 	if (NULL != speer->tx_buff) {
+		DBG("\n\tSPEER(%p): release transmit buffer\n", speer);
 		riomp_sock_release_send_buffer(speer->cm_skt_h, 
 							speer->tx_buff);
 		speer->tx_buff = NULL;
 	};
 
+	DBG("\n\tSPEER(%p): killing speer thread!\n", speer);
 	pthread_kill(speer->s_rx, SIGUSR1);
+	DBG("\n\tSPEER(%p): Waiting for  speer to die!\n", speer);
 	pthread_join(speer->s_rx, NULL);
 
 	sem_post(&speer->resp_ready);
@@ -142,6 +155,8 @@ void *speer_rx_loop(void *p_i)
 	sem_wait(&dmn.speers_mtx);
 	l_push_tail(&dmn.speers, speer->self_ref);
 	sem_post(&dmn.speers_mtx);
+
+	DBG("\n\tSPEER(%p): Alive!\n", speer);
 
 	while (!speer->i_must_die && !speer->comm_fail) {
 		struct librsktd_unified_msg *msg =
@@ -175,8 +190,19 @@ void *speer_rx_loop(void *p_i)
 			msg->proc_stage = RSKTD_S2A_SEQ_DREQ;
 			break;
 		};
+		DBG(
+	"\n\tSPEER(%p): enqueue : REQ %3x %s RESP %3x %s SEQ %3x\n\t\tPROC %x STAGE %x\n",
+			speer, msg->msg_type,
+			RSKTD_REQ_STR(msg->msg_type),
+        		msg->dresp->msg_type,
+			RSKTD_RESP_STR(msg->dresp->msg_type),
+        		msg->dresp->msg_seq,
+			msg->proc_type,
+			msg->proc_stage);
 		enqueue_mproc_msg(msg);
 	};
+
+	CRIT("\n\tSPEER(%p): Exiting!\n", speer);
 
 	speer->comm_fail = 1;
 
@@ -234,9 +260,21 @@ void start_new_speer(riomp_sock_t new_socket)
 
 void enqueue_speer_msg(struct librsktd_unified_msg *msg)
 {
+	DBG(
+	"\n\tSPEER(%p): response TX enqueue : REQ %3x %s RESP %3x %s SEQ %3x\n\t\tPROC %x STAGE %x\n",
+		*msg->sp, msg->msg_type,
+		RSKTD_REQ_STR(msg->msg_type),
+        	msg->dresp->msg_type,
+		RSKTD_RESP_STR(msg->dresp->msg_type),
+        	msg->dresp->msg_seq,
+		msg->proc_type,
+		msg->proc_stage);
+
 	sem_wait(&dmn.speer_tx_mutex);
 	l_push_tail(&dmn.speer_tx_q, msg);
 	sem_post(&dmn.speer_tx_mutex);
+	DBG("\n\tSPEER(%p): message enqueued\n", *msg->sp);
+
 	sem_post(&dmn.speer_tx_cnt);
 };
 
@@ -250,6 +288,7 @@ void *speer_tx_loop(void *unused)
 	sem_post(&dmn.loop_started);
 
 	while (!dmn.all_must_die) {
+		DBG("\n\tSPEER TX: Waiting to TX\n");
 		sem_wait(&dmn.speer_tx_cnt);
 		if (dmn.all_must_die)
 			break;
@@ -264,24 +303,66 @@ void *speer_tx_loop(void *unused)
 
 		if ((RSKTD_PROC_SREQ != msg->proc_type) &&
 			!((RSKTD_PROC_S2A == msg->proc_type) &&
-			 (RSKTD_S2A_SEQ_ARESP == msg->proc_stage)))
+			 (RSKTD_S2A_SEQ_ARESP == msg->proc_stage))) {
+			CRIT(
+			"\n\tSPEER TX: DISCARDING REQ %3x %s %d RESP %3x %s %3x\n\t\tPROC %x STAGE %x\n",
+				msg->msg_type,
+				RSKTD_REQ_STR(msg->msg_type),
+        			msg->dreq->msg_seq,
+        			msg->dresp->msg_type,
+				RSKTD_RESP_STR(msg->dresp->msg_type),
+        			msg->dresp->msg_seq,
+				msg->proc_type,
+				msg->proc_stage);
 			continue;
+		};
 
 		s = *msg->sp;
 
 		/* Can't send response if connection has closed */
-		if (NULL == s)
+		if (NULL == s) {
+			CRIT( "\n\tSPEER TX: Connection closed !\n");
+			CRIT(
+			"\n\tSPEER TX: DISCARDING REQ %3x %s %d RESP %3x %s %3x\n\t\tPROC %x STAGE %x\n",
+				msg->msg_type,
+				RSKTD_REQ_STR(msg->msg_type),
+        			msg->dreq->msg_seq,
+        			msg->dresp->msg_type,
+				RSKTD_RESP_STR(msg->dresp->msg_type),
+        			msg->dresp->msg_seq,
+				msg->proc_type,
+				msg->proc_stage);
 			continue;
+		};
 
-		if (s->comm_fail)
+		if (s->comm_fail) {
+			CRIT( "\n\tSPEER(%p) TX: Comm failure!\n", s);
+			CRIT(
+			"\n\tSPEER(%p) TX: DISCARDING REQ %3x %s %d RESP %3x %s %3x\n\t\tPROC %x STAGE %x\n",
+				s, msg->msg_type,
+				RSKTD_REQ_STR(msg->msg_type),
+        			msg->dreq->msg_seq,
+        			msg->dresp->msg_type,
+				RSKTD_RESP_STR(msg->dresp->msg_type),
+        			msg->dresp->msg_seq,
+				msg->proc_type,
+				msg->proc_stage);
 			continue;
+		};
 
 		/* Send response to speer */
 		memcpy((void *)s->tx_buff, (void *)msg->dresp,
 				sizeof(struct rsktd_resp_msg));
         	s->tx_buff_used = 1;
+		DBG("\n\tSPEER(%p) TX: RESP %3x %s %3x\n",
+			s,
+        		s->resp->msg_type,
+			RSKTD_RESP_STR(s->resp->msg_type),
+        		s->resp->msg_seq);
+
         	s->tx_rc = riomp_sock_send(s->cm_skt_h, s->tx_buff,
-						DMN_RESP_SZ);
+			DMN_RESP_SZ);
+		DBG("\n\tSPEER(%p) TX: rc %d\n", s, s->tx_rc);
 	};
 	dmn.speer_tx_alive = 0;
 	pthread_exit(unused);
@@ -291,17 +372,21 @@ void close_all_speers(void)
 {
 	struct rskt_dmn_speer **sp;
 
+	DBG("ENTER\n");
 	sem_wait(&dmn.speers_mtx);
 	sp = (struct rskt_dmn_speer **)l_pop_head(&dmn.speers);
 	sem_post(&dmn.speers_mtx);
 
 	while (NULL != sp) {
-		if (NULL != *sp) 
+		if (NULL != *sp) {
+			DBG("SPEER(%p): Closing!\n", *sp);
 			close_speer(*sp);
+		}
 		sem_wait(&dmn.speers_mtx);
 		sp = (struct rskt_dmn_speer **)l_pop_head(&dmn.speers);
 		sem_post(&dmn.speers_mtx);
 	}
+	DBG("EXIT\n");
 };
 
 #ifdef __cplusplus

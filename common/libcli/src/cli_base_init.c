@@ -34,6 +34,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cli_cmd_line.h"
 #include "cli_cmd_db.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void (*cons_cleanup)(struct cli_env *env);
 
 void default_cons_cleanup(struct cli_env *env)
@@ -53,3 +57,7 @@ int cli_init_base(void (*console_cleanup)(struct cli_env *env))
 		cons_cleanup = default_cons_cleanup;
 	return 0;
 };
+
+#ifdef __cplusplus
+}
+#endif

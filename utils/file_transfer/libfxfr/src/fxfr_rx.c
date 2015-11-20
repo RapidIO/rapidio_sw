@@ -64,6 +64,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libfxfr_private.h"
 #include "fxfr_msg.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int init_message_buffers(struct ibwin_info *info)
 {
 	info->msg_buff_size = MAX_MSG_SIZE;
@@ -254,3 +258,6 @@ int rx_file(struct ibwin_info *info, int *abort_flag)
 	return ret;
 };
 
+#ifdef __cplusplus
+}
+#endif
