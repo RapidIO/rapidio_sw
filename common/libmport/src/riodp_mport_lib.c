@@ -47,6 +47,7 @@
 #include <getopt.h>
 #include <time.h>
 #include <signal.h>
+#include <poll.h>
 
 #if defined(LIBMPORT_TRACE) || defined(LIBMPORT_SIMULATOR)
 #include <stdarg.h>
@@ -67,7 +68,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <poll.h>
 #endif
 
 #include <rapidio_mport_mgmt.h>
@@ -1569,11 +1569,23 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *ev
 	struct rio_event revent;
 	ssize_t bytes = 0;
 	struct rapidio_mport_handle *hnd = mport_handle;
+	struct pollfd pfds;
+	int ret;
 
 	if(hnd == NULL)
 		return -EINVAL;
 
 	if (!evt) return -EINVAL;
+
+	pfds.revents = 0;
+	pfds.events = POLLIN;
+	pfds.fd = hnd->fd;
+	ret = poll(&pfds, 1, 0);
+	if (ret == 0)
+		return -EAGAIN;
+	else if (ret == 1) {}
+	else
+		return -EIO;
 
 	bytes = read(hnd->fd, &revent, sizeof(revent));
 	if (bytes == -1)

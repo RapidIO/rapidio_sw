@@ -18,6 +18,7 @@ extern "C" {
 #define RIOCP_PE_COMPTAG_DESTID(destid) ((destid) & 0xffff)
 #define RIOCP_PE_COMPTAG_NR(nr) (((nr) << 16) & 0x00ff0000)
 #define RIOCP_PE_COMPTAG_GET_NR(comptag) ((comptag & 0x00ff0000) >> 16)
+#define RIOCP_PE_COMPTAG_MASK (0x00ffffff)
 
 int riocp_pe_comptag_read(struct riocp_pe *pe, uint32_t *comptag);
 int riocp_pe_comptag_write(struct riocp_pe *pe, uint32_t comptag);

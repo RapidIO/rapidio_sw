@@ -24,8 +24,6 @@ extern "C" {
 
 #define RIOCP_PE_COMPTAG_POOL_REALLOC_SIZE 32 /**< Amount of elements to grow the pool */
 
-#define RIOCP_PE_COMPTAG_MASK (0x00ffffff)
-
 /**
  * Grow the size of component tag pool with amount of elements
  * @param pe Target PE

@@ -1575,7 +1575,6 @@ int RIOCP_SO_ATTR riocp_pe_get_hopcount(riocp_pe_handle pe,
         return 0;
 }
 
-
 /**
  * Set the speed configuration of a port
  *
