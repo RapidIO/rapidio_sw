@@ -24,6 +24,8 @@ extern "C" {
 
 #define RIOCP_PE_COMPTAG_POOL_REALLOC_SIZE 32 /**< Amount of elements to grow the pool */
 
+#define RIOCP_PE_COMPTAG_MASK (0x00ffffff)
+
 /**
  * Grow the size of component tag pool with amount of elements
  * @param pe Target PE
@@ -40,7 +42,7 @@ static int riocp_pe_comptag_grow_pool(struct riocp_pe *pe, size_t size)
 	RIOCP_TRACE("old_size: %zu, new_size: %zu\n",
 		old_size, new_size);
 
-	if (new_size >= UINT16_MAX)
+	if (new_size >= UINT8_MAX)
 		return -E2BIG;
 
 	pe->mport->minfo->comptag_pool = (struct riocp_pe **)realloc(
@@ -182,8 +184,8 @@ int riocp_pe_comptag_get_slot(struct riocp_pe *mport, uint32_t comptag_nr, struc
 /**
  * Read the component tag
  * @param pe Target PE
- * @param comptag Component tag to write
- * @retval -EIO Could not write to the device
+ * @param comptag Component tag to read
+ * @retval -EIO Could not read to the device
  */
 int riocp_pe_comptag_read(struct riocp_pe *pe, uint32_t *comptag)
 {
@@ -193,6 +195,8 @@ int riocp_pe_comptag_read(struct riocp_pe *pe, uint32_t *comptag)
 	if (ret < 0)
 		return ret;
 
+	*comptag &= RIOCP_PE_COMPTAG_MASK;
+
 	return 0;
 }
 
@@ -201,16 +205,22 @@ int riocp_pe_comptag_read(struct riocp_pe *pe, uint32_t *comptag)
  * @param pe Target PE
  * @param comptag Component tag to write
  * @retval -EIO Could not write to the device
+ *
+ * @warning the caller fo this function should hold the Base ID lock
  */
 int riocp_pe_comptag_write(struct riocp_pe *pe, uint32_t comptag)
 {
 	int ret;
+	uint32_t _ct;
 
-	ret = riocp_pe_maint_write(pe, RIO_COMPONENT_TAG_CSR, comptag);
+	ret = riocp_pe_maint_read(pe, RIO_COMPONENT_TAG_CSR, &_ct);
 	if (ret < 0)
 		return ret;
 
-	return 0;
+	comptag &= RIOCP_PE_COMPTAG_MASK;
+	_ct &= ~RIOCP_PE_COMPTAG_MASK;
+
+	return riocp_pe_maint_write(pe, RIO_COMPONENT_TAG_CSR, comptag | _ct);
 }
 
 /**
@@ -258,6 +268,52 @@ int riocp_pe_comptag_init(struct riocp_pe *pe)
 	pe->comptag = comptag;
 
 	return 0;
+}
+
+/**
+ * Read the component tag remote via destid/hop
+ * @param mport Target PE
+ * @param destid Destination ID
+ * @param hopcount Destination hopcount
+ * @param comptag Component tag to read
+ * @retval -EIO Could not read to the device
+ */
+int riocp_pe_comptag_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount, uint32_t *comptag)
+{
+	int ret;
+
+	ret = riocp_pe_maint_read_remote(mport, destid, hopcount, RIO_COMPONENT_TAG_CSR, comptag);
+	if (ret < 0)
+		return ret;
+
+	*comptag &= RIOCP_PE_COMPTAG_MASK;
+
+	return 0;
+}
+
+/**
+ * Write the component tag remote via destid/hop
+ * @param pe Target PE
+ * @param destid Destination ID
+ * @param hopcount Destination hopcount
+ * @param comptag Component tag to write
+ * @retval -EIO Could not write to the device
+ *
+ * @warning the caller fo this function should hold the Base ID lock
+ */
+int riocp_pe_comptag_write_remote(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount, uint32_t comptag)
+{
+	int ret;
+	uint32_t _ct;
+
+	ret = riocp_pe_maint_read_remote(mport, destid, hopcount, RIO_COMPONENT_TAG_CSR, &_ct);
+	if (ret < 0)
+		return ret;
+
+	comptag &= RIOCP_PE_COMPTAG_MASK;
+	_ct &= ~RIOCP_PE_COMPTAG_MASK;
+
+	return riocp_pe_maint_write_remote(mport, destid, hopcount, RIO_COMPONENT_TAG_CSR, comptag | _ct);
 }
 
 #ifdef __cplusplus
