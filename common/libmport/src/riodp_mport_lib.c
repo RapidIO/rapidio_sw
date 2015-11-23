@@ -1563,7 +1563,7 @@ int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask)
 /*
  * Get current event data
  */
-int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt)
+int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt, int timeout)
 {
 #ifndef LIBMPORT_SIMULATOR
 	struct rio_event revent;
@@ -1580,12 +1580,17 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *ev
 	pfds.revents = 0;
 	pfds.events = POLLIN;
 	pfds.fd = hnd->fd;
-	ret = poll(&pfds, 1, 0);
-	if (ret == 0)
-		return -EAGAIN;
-	else if (ret == 1) {}
-	else
-		return -EIO;
+	ret = poll(&pfds, 1, timeout);
+	if (ret == 0) {
+		if (timeout == 0)
+			return -EAGAIN;
+		else
+			return -ETIMEDOUT;
+	} else if (ret == 1) {
+		if (!(pfds.revents | POLLIN))
+			return -ENODATA;
+	} else
+		return -errno;
 
 	bytes = read(hnd->fd, &revent, sizeof(revent));
 	if (bytes == -1)

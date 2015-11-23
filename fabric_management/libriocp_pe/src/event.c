@@ -109,7 +109,7 @@ int riocp_pe_event_receive(struct riocp_pe *pe, struct riocp_pe_event *e)
 	struct riomp_mgmt_event revent;
 
 
-	ret = riomp_mgmt_get_event(pe->mp_hnd, &revent);
+	ret = riomp_mgmt_get_event(pe->mp_hnd, &revent, RIO_TIMEOUT_INF);
 	if (ret < 0)
 		return ret;
 	if (revent.header != RIO_EVENT_PORTWRITE) {

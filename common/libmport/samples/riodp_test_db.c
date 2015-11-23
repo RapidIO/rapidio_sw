@@ -88,7 +88,7 @@ static int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start, uint
 			break;
 		}
 
-		ret = riomp_mgmt_get_event(hnd, &evt);
+		ret = riomp_mgmt_get_event(hnd, &evt, RIO_TIMEOUT_INF);
 		if (ret < 0) {
 			if (ret == -EAGAIN)
 				continue;

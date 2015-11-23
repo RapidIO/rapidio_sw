@@ -92,7 +92,7 @@ static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_
 			report_status = 0;
 		}
 
-		ret = riomp_mgmt_get_event(hnd, &evt);
+		ret = riomp_mgmt_get_event(hnd, &evt, RIO_TIMEOUT_INF);
 		if (ret < 0) {
 			if (ret == -EAGAIN)
 				continue;

@@ -43,6 +43,9 @@ extern "C" {
 
 #include <stdint.h>
 
+/** |brief infinite timeout */
+#define RIO_TIMEOUT_INF -1
+
 /** @brief max number of RIO mports supported by platform */
 #define RIODP_MAX_MPORTS 8
 
@@ -405,11 +408,15 @@ int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask);
  *
  * @param[in] mport_handle valid mport handle
  * @param[out] evt event data
+ * @param[in] timeout timeout in milliseconds or RIO_TIMEOUT_INF for infinite time
  * @return status of the function call
  * @retval 0 on success
+ * @retval -TIMEDOUT when timeout is set to > 0 and timeout is expired
+ * @retval -ENODATA when unknown event is received
+ * @retval -EAGAIN when timeout is set to 0 and no event has been received
  * @retval -errno on error
  */
-int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt);
+int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *evt, int timeout);
 
 /**
  * @brief send a RapidIO event
