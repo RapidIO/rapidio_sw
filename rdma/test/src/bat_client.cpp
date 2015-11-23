@@ -86,7 +86,7 @@ static bat_msg_t *bm_second_rx;
 static uint32_t destid;
 static int first_channel;
 static int second_channel;
-char first_channel_str[4];	/* 000 to 999 + '\0' */
+char first_channel_str[5];	/* 0001 to 9999 + '\0' */
 
 static unsigned repetitions = 1;	/* Default is once */
 
@@ -1273,9 +1273,9 @@ int main(int argc, char *argv[])
 			if (strlen(optarg) <= (sizeof(first_channel_str)-1)) {
 				strcpy(first_channel_str, optarg);
 			}
-			if (first_channel < 9 || first_channel > 255 ){
+			if (first_channel < 1 || first_channel > 9999 ){
 				printf("Invalid channel number: %s. ", optarg);
-				printf("Enter a value between 9 and 254\n");
+				printf("Enter a value between 1 and 9999\n");
 				exit(1);
 			}
 			second_channel = first_channel + 1;
