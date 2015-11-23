@@ -145,6 +145,8 @@ void *wpeer_rx_loop(void *p_i)
 		sem_wait(&w->w_rsp_mutex);
 		msg = (struct librsktd_unified_msg *)
 			l_find(&w->w_rsp, seq_num, &li);
+		if (NULL != msg)
+			l_lremove(&w->w_rsp, li);
 		sem_post(&w->w_rsp_mutex);
 
 		if (NULL == msg) {
