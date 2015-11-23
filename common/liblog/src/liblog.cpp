@@ -83,7 +83,11 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 	if (stat(DEFAULT_LOG_DIR, &st) < 0) {
 		string create_dir(filename);
 		create_dir.insert(0, "mkdir ");
-		system(create_dir.c_str());
+		if (system(create_dir.c_str()) < 0) {
+			fprintf(stderr, "Failed to create '%s'\n",
+							filename.c_str());
+			return -2;
+		}
 	}
 
 	/* Open log file */
@@ -120,7 +124,7 @@ int rdma_log(unsigned level,
 {
 	char buffer[LOG_LINE_SIZE];
 	va_list	args;
-	int	n;
+	int	n, p;
 	time_t	cur_time;
 	struct timeval tv;
 	char	asc_time[26];
@@ -130,19 +134,20 @@ int rdma_log(unsigned level,
 	ctime_r(&cur_time, asc_time);
 	asc_time[strlen(asc_time) - 1] = '\0';
 	gettimeofday(&tv, NULL);
-	n = sprintf(buffer, "%s %s.%06ldus %s, tid=%ld, %d, %s(): ",
+	n = sprintf(buffer, "%4s %s.%06ldus tid=%ld %s:%4d\n\t%s(): ",
 		level_str,
 		asc_time,
 		tv.tv_usec,
-		file,
 		syscall(SYS_gettid),
+		file,
 		line_num,
 		func);
 	
 	/* Handle format and variable arguments */
 	va_start(args, format);
-	n = vsnprintf(buffer + n, sizeof(buffer), format, args);
+	p = vsnprintf(buffer + n, sizeof(buffer)-n, format, args);
 	va_end(args);
+	snprintf(buffer + n + p, sizeof(buffer)-n-p, "\n");
 
 	/* Push log line into circular log buffer and log file */
 	string log_line(buffer);

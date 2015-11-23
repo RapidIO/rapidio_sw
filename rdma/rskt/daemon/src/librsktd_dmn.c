@@ -371,6 +371,7 @@ __sync_synchronize();
 
 	sem_post(&dmn.loop_started);
 
+	INFO("\rALIVE.");
 	while (!dmn.all_must_die) {
 		if (!dmn.cm_skt_tst && (NULL == new_socket)) {
 			rc = riomp_sock_socket(dmn.mb, &new_socket);
@@ -382,8 +383,10 @@ __sync_synchronize();
 repeat:
 		if (dmn.cm_skt_tst)
 			rc = 0;
-		else
+		else {
+			DBG("accepting...");
 			rc = riomp_sock_accept(dmn.cm_acc_h, &new_socket, 3*60*1000);
+		}
 
 		if (rc) {
 			if ((errno == ETIME) || (errno == EINTR))
@@ -397,6 +400,7 @@ repeat:
 			continue;
 		};
 
+		DBG("start new SPEER");
 		start_new_speer(new_socket);
 
 		new_socket = NULL;
@@ -510,8 +514,10 @@ void spawn_daemon_threads(struct control_list *ctrls)
 
 	/* Now that everything is running, try openning wpeers... */
 	/* First, the wpeers configured from the command line... */
-	DBG("Opening wpeers\n");
-	open_wpeers_for_requests(ctrls->num_peers, ctrls->peers);
+	if (ctrls->num_peers) {
+		DBG("FIXME: NOT Opening configured wpeers\n");
+		// open_wpeers_for_requests(ctrls->num_peers, ctrls->peers);
+	};
 };
 
 int daemon_threads_failed(void)

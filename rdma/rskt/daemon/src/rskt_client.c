@@ -141,20 +141,21 @@ int main(int argc, char *argv[])
 	sock_addr.ct = destid;
 	sock_addr.sn = socket_number;
 
-	for (i = 0; i < repetitions; i++) {
-		client_socket = rskt_create_socket();
-		if (!client_socket) {
-			fprintf(stderr, "Create client socket failed, rc = %d: %s\n",
-								rc, strerror(errno));
-			goto cleanup_rskt;
-		}
+	client_socket = rskt_create_socket();
+	if (!client_socket) {
+		fprintf(stderr, "Create client socket failed, rc = %d: %s\n",
+							rc, strerror(errno));
+		goto cleanup_rskt;
+	}
 
-		int rc = rskt_connect(client_socket, &sock_addr);
-		if (rc) {
-			fprintf(stderr, "Connect to %u on %u failed\n",
-							destid, socket_number);
-			goto close_client_socket;
-		}
+	rc = rskt_connect(client_socket, &sock_addr);
+	if (rc) {
+		fprintf(stderr, "Connect to %u on %u failed\n",
+						destid, socket_number);
+		goto close_client_socket;
+	}
+
+	for (i = 0; i < repetitions; i++) {
 
 		data_length = generate_data(data_length, tx_test);
 
@@ -164,9 +165,13 @@ int main(int argc, char *argv[])
 					rc, strerror(errno));
 			goto close_client_socket;
 		}
-
+retry_read:
 		rc = rskt_read(client_socket, recv_buf, RSKT_DEFAULT_RECV_BUF_SIZE);
 		if (rc < 0) {
+			if (rc == -ETIMEDOUT) {
+				fprintf(stderr, "rskt_read() timedout. Retrying!\n");
+				goto retry_read;
+			}
 			fprintf(stderr, "Failed to receive, rc = %d: %s\n",
 							rc, strerror(errno));
 			goto close_client_socket;
@@ -185,15 +190,16 @@ int main(int argc, char *argv[])
 		puts("Press ENTER to close the connection");
 		getchar();
 #endif
-		rc = rskt_close(client_socket);
-		if (rc) {
-			fprintf(stderr, "Failed to close client socket, rc=%d: %s\n",
-					rc, strerror(errno));
-			goto destroy_client_socket;
-		}
-
-		rskt_destroy_socket(&client_socket);
 	} /* for() */
+
+	rc = rskt_close(client_socket);
+	if (rc) {
+		fprintf(stderr, "Failed to close client socket, rc=%d: %s\n",
+				rc, strerror(errno));
+		goto destroy_client_socket;
+	}
+
+	rskt_destroy_socket(&client_socket);
 
 	puts("Goodbye!");
 close_client_socket:

@@ -59,9 +59,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
 #include "libcli.h"
+#include "liblog.h"
 #include "libfxfr_private.h"
 
 #define MAX_IBWIN 8
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 uint8_t debug;
 
@@ -125,7 +130,7 @@ void parse_options(int argc, char *argv[],
 {
 	int idx;
 
-	*cons_skt = 4444;
+	*cons_skt = 8754;
 	*print_help = 0;
 	*mport_num = 0;
 	*run_cons = 1;
@@ -358,7 +363,7 @@ ATTR_RPT
 sem_t conn_loop_started;
 int conn_loop_alive;
 int conn_skt_num;
-struct cli_cmd FXStatus;
+extern struct cli_cmd FXStatus;
 
 int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 {
@@ -911,7 +916,7 @@ int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size,
 		sem_init(&ibwins[i].req_avail, 0, 0);
 		ibwins[i].handle = 0;
 		ibwins[i].length = 0;
-		ibwins[i].ib_mem = MAP_FAILED;
+		ibwins[i].ib_mem = (char *)MAP_FAILED;
 		ibwins[i].msg_rx = NULL;
 		ibwins[i].msg_tx = NULL;
 		ibwins[i].rxed_msg = NULL;
@@ -935,7 +940,7 @@ int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size,
 		rc = riomp_dma_map_memory(mp_h, ibwins[i].length,
 				ibwins[i].handle, (void **)&ibwins[i].ib_mem);
         	if (rc) {
-                	perror("riomp_dma_map_memory");
+                	CRIT("riomp_dma_map_memory");
                 	goto close_ibwin;
         	}
 
@@ -950,7 +955,7 @@ close_ibwin:
 			if (ibwins[i].ib_mem != MAP_FAILED) {
 				riomp_dma_unmap_memory(mp_h, ibwins[i].length,
 					ibwins[i].ib_mem);
-				ibwins[i].ib_mem = MAP_FAILED;
+				ibwins[i].ib_mem = (char *)MAP_FAILED;
 			};
 			riomp_dma_ibwin_free(mp_h, &ibwins[i].handle);
 			ibwins[i].length = 0;
@@ -981,7 +986,7 @@ void *cli_session( void *sock_num )
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0) {
-        	perror("ERROR opening socket");
+        	CRIT("ERROR opening socket");
 		goto fail;
 	}
 	bzero((char *) &serv_addr, sizeof(serv_addr));
@@ -991,12 +996,11 @@ void *cli_session( void *sock_num )
 	setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
 	setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
 	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))<0) {
-        	perror("ERROR on binding");
+        	CRIT("ERROR on binding port %d", cli_session_portno);
 		goto fail;
 	}
 
-	if (debug)
-		printf("\nSERVER Remote CLI bound to socket %d\n", portno);
+	INFO("\nSERVER Remote CLI bound to socket %d\n", portno);
 	sem_post(&cons_owner);
 	cli_session_alive = 1;
 	while (!all_must_die && strncmp(buffer, "done", 4)) {
@@ -1019,7 +1023,7 @@ void *cli_session( void *sock_num )
 				(struct sockaddr *) &cli_addr, 
 				&clilen);
 		if (env.sess_socket < 0) {
-			perror("ERROR on accept");
+			CRIT("ERROR on accept");
 			goto fail;
 		};
 		printf("\nStarting session %d\n", session_num);
@@ -1057,6 +1061,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 	cli_init_base(fxfr_server_shutdown_cli);
 	bind_server_cmds();
+	liblog_bind_cli_cmds();
 
 	sem_init(&cons_owner, 0, 0);
 
@@ -1066,7 +1071,8 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 	if (run_cons) {
 		pass_cons_ret = (int *)(malloc(sizeof(int)));
 		*pass_cons_ret = 0;
-		splashScreen("RTA File Transfer Server Command Line Interface");
+		splashScreen((char *)
+			"RTA File Transfer Server Command Line Interface");
 
 		cons_ret = pthread_create( &console_thread, NULL, 
 				console, (void *)((char *)"FXServer> "));
@@ -1200,6 +1206,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	};
 
+	rdma_log_init("fxfr_server", 1);
 	if (setup_mport(mport_num, num_win, win_size, rio_base, xfer_skt)) {
 		console(NULL);
 	};
@@ -1230,5 +1237,10 @@ int main(int argc, char *argv[])
 	printf("\nFILE TRANSFER SERVER EXITING!!!!\n");
 	rc = EXIT_SUCCESS;
 exit:
+	rdma_log_close();
 	exit(rc);
 }
+
+#ifdef __cplusplus
+}
+#endif

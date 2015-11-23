@@ -80,6 +80,7 @@ void DMAChannel::init()
   m_keep_evlog    = false;
   m_bl_busy       = NULL;
   m_bl_busy_size  = -1;
+  m_check_reg     = false;
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
@@ -185,7 +186,7 @@ uint32_t DMAChannel::clearIntBits()
 /** \brief Queue DMA operation of DTYPE1 or DTYPE2
  * \para[in] rtype transfer type
  * \param[in,out] opt transfer options
- * \param[in] mem a ref to a RioMport::DmaMem_t, for DTYPE2 this is NOT allocated by class \ref RioMport
+ * \param[in] mem a ref to a RioMport::DmaMem_t, for DTYPE2 this is NOT allocated by class \ref RioMport, for DTYPE2 NREAD it is NOT USED
  * \param[out] abort_reason HW reason for DMA abort if function returned false
  * \return true if buffer enqueued, false if queue full or HW error -- check abort_reason
  */
@@ -247,7 +248,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
 	// Check if queue full -- as late as possible in view of MT
 	if(queueFull()) {
-		ERR("FAILED: DMA TX Queue full!\n");
+		ERR("\n\tFAILED: DMA TX Queue full! chan=%u\n", m_chan);
 		return false;
 	}
 	
@@ -298,11 +299,9 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 	}}
 	pthread_spin_unlock(&m_bl_splock); 
 
-/*
-	if(dmaCheckAbort(abort_reason)) {
+	if(m_check_reg && dmaCheckAbort(abort_reason)) {
 		return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
 	}
-*/
 
 	memset(&wk, 0, sizeof(wk));
 	wk.mem = mem;
@@ -751,3 +750,9 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 	wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
 	return cwi;
 }
+
+void DMAChannel::softRestart()
+{
+  // TBI
+}
+

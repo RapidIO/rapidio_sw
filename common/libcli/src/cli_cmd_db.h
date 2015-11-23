@@ -40,9 +40,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdarg.h>
 #include "libcli.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void (*cons_cleanup)(struct cli_env *env);
 
 int find_cmd(char *cmd_name, struct cli_cmd **cmd);
 int init_cmd_db();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __CLI_CMD_DB_H__ */

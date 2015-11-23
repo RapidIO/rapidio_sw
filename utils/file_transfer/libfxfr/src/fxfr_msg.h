@@ -50,6 +50,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define FXFR_MSG_OFFSET 20
 #define MAX_MSG_SIZE 0x1000
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct fxfr_svr_to_client_msg {
 	uint64_t rapidio_addr;
 	uint64_t rapidio_size;
@@ -66,5 +70,9 @@ struct fxfr_client_to_svr_msg {
 	uint64_t fail_abort;
 	char rx_file_name[MAX_FILE_NAME+1];
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __FXFR_MSG_H__ */

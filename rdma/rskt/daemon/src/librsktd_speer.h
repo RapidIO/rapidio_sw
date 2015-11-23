@@ -52,6 +52,7 @@ extern "C" {
 #endif
 
 struct rskt_dmn_speer {
+	int cm_skt_h_valid;
 	riomp_sock_t cm_skt_h;
 	int i_must_die;
 	int comm_fail;

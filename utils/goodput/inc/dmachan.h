@@ -110,6 +110,8 @@ public:
   DMAChannel(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_h);
   ~DMAChannel();
 
+  inline void setCheckHwReg(bool b) { m_check_reg = true; }
+
   void resetHw();
   void setInbound();
   bool dmaIsRunning();
@@ -284,10 +286,13 @@ public:
     else outp_err = false;
   }
 
+  void softRestart();
+
   volatile uint64_t   m_fifo_scan_cnt;
 
 private:
   int umdemo_must_die = 0;
+  volatile bool       m_check_reg;
   pthread_spinlock_t  m_hw_splock; ///< Serialize access to DMA chan registers
   pthread_spinlock_t  m_pending_work_splock; ///< Serialize access to DMA pending queue object
   RioMport*           m_mport;

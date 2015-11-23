@@ -712,6 +712,7 @@ void *rpc_thread_f(void *arg)
 				delete other_server;
 				pthread_exit(0);
 			}
+			DBG("Response sent back to application \n");
 		} else {
 			HIGH("Application has closed connection. Exiting!\n");
 			/* Find out if that dead application was connected to a memory
