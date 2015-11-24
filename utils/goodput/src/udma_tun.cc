@@ -368,24 +368,27 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 	volatile uint32_t* pRP = (uint32_t*)info->ib_ptr;
 	assert(*pRP < (info->umd_tx_buf_cnt-1));
 
-	int cnt = 0;
 	int k = *pRP;
 
 	cbk_iter++;
  	pthread_spin_lock(&info->umd_dma_rio_rx_bd_ready_splock);
 
+	int cnt = 0;
+        int idx = info->umd_dma_rio_rx_bd_ready_size; // If not zero then RIO RX thr is sloow
 	for (int i = 0; i < (info->umd_tx_buf_cnt-1); i++) {
 		if(0 != info->umd_dma_rio_rx_bd_L2_ptr[k]->RO) {
 			DBG("\n\tFound ready buffer at RP=%d -- iter %llu\n", k, cbk_iter);
-			info->umd_dma_rio_rx_bd_ready[cnt++] = k;
+
+			info->umd_dma_rio_rx_bd_ready[idx++] = k;
                         info->umd_dma_rio_rx_bd_L2_ptr[k]->RO = 0; // So we won't revisit
+			cnt++;
 		}
 
 		k++; if(k == info->umd_tx_buf_cnt-1) k = 0; // RP wrap-around
 
 	}
 
-	if (cnt > 0) info->umd_dma_rio_rx_bd_ready_size = cnt; // XXX bullshit, use std::vector
+	if (cnt > 0) info->umd_dma_rio_rx_bd_ready_size = idx;
 
  	pthread_spin_unlock(&info->umd_dma_rio_rx_bd_ready_splock);
 
