@@ -29,7 +29,7 @@ BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_P
 
 bat_server_SRC = src/bat_server.cpp
 
-bat_client_SRC = src/bat_client.cpp src/bat_client_rdma_api.cpp
+bat_client_SRC = src/bat_client.cpp src/bat_client_rdma_api.cpp src/bat_client_test_cases.cpp
 
 bat_child_SRC = src/bat_child.cpp
 

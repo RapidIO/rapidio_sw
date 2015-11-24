@@ -53,6 +53,8 @@ extern cm_client *bat_first_client;
 extern bat_msg_t *bm_first_tx;
 extern bat_msg_t *bm_first_rx;
 
+extern "C" int rdmad_kill_daemon();
+
 /**
  * Create an mso on the server.
  */
