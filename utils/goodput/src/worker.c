@@ -1295,8 +1295,12 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	sem_post(&info->umd_fifo_proc_started); 
 
 	while (!info->umd_fifo_proc_must_die) {
-		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
+		// This is a hook to do stuff for IB buffers in isolcpu thread
+		// Note: No relation to TX FIFO/buffers, just CPU sharing
+		if (info->umd_dma_fifo_callback != NULL)
+			info->umd_dma_fifo_callback(info);
 
+		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
 		if (!cnt) 
 			continue;
 
@@ -1321,11 +1325,6 @@ void *umd_dma_fifo_proc_thr(void *parm)
 			wi[i].valid = 0xdeadabba;
                 } // END for WorkItem_t vector
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
-
-		// This is a hook to do stuff for IB buffers in isolcpu thread
-		// Note: No relation to TX FIFO/buffers, just CPU sharing
-		if (info->umd_dma_fifo_callback != NULL)
-			info->umd_dma_fifo_callback(info);
 	} // END while
 	goto no_post;
 exit:
