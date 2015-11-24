@@ -106,7 +106,7 @@ bool send_icmp_host_unreachable(struct worker* info, uint8_t* l3_in, const int l
  * \param[out] Points to where data will be deposited
  * \retuen true if NREAD completed OK
  */
-bool udma_nread_mem(struct worker *info, const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
+static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
 {
 	if(info == NULL || size < 1 || size > 16 || data_out == NULL) return false;
 
@@ -233,8 +233,8 @@ again:
                 const bool is_bad_destid = bad_destid.find(destid) != bad_destid.end();
 
 #ifdef UDMA_TUN_DEBUG
-                const uint32_t crc = crc32(0, buffer, nread+DMA_L2_SIZE);
-                DBG("\n\tGot from %s %d+%d bytes (L2 CRC32 0x%x) to RIO destid %u%s\n",
+                const uint32_t crc = crc32(0, buffer+DMA_L2_SIZE, nread);
+                DBG("\n\tGot from %s %d+%d bytes (L7 CRC32 0x%x) to RIO destid %u%s\n",
                          info->umd_tun_name, nread, DMA_L2_SIZE,
                          crc, destid,
                          is_bad_destid? " BLACKLISTED": "");
@@ -709,7 +709,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
                         const int nwrite = cwrite(info->umd_tun_fd, payload, payload_size);
 #ifdef UDMA_TUN_DEBUG
                         const uint32_t crc = crc32(0, payload, payload_size);
-                        DBG("\n\tGot a message of size %d from RIO destid %u (L2 CRC32 0x%x) cnt=%llu, wrote %d to %s\n",
+                        DBG("\n\tGot a message of size %d from RIO destid %u (L7 CRC32 0x%x) cnt=%llu, wrote %d to %s\n",
                                  ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, info->umd_tun_name);
 #endif
 
