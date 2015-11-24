@@ -23,74 +23,142 @@ char rem_ms_name2[MAX_NAME];
 char rem_ms_name3[MAX_NAME];
 
 /* ------------------------------- Test Cases -------------------------------*/
+
+/**
+ * Create a number of memory space owners. Some have duplicate names and are
+ * expected to fail. Others should succeed including ones which are substrings
+ * of existing memory space names.
+ */
 int test_case_a(void)
 {
-	int	ret;
-	mso_h	msoh1;
-	mso_h	msoh2;
+#define NUM_MSOS	12
 
-	/* Create first mso */
-	ret = create_mso_f(bat_first_client,
-			   bm_first_tx,
-			   bm_first_rx,
-			   rem_mso_name, &msoh1);
-	BAT_EXPECT_RET(ret, 0, exit);
+	static char mso_names[][NUM_MSOS] = {
+		"January", "February", "March", "April",
+		"May", "June", "January", "Feb",
+		"September", "October", "Mayor", "January"
+	};
 
-	/* Create second mso and make sure it fails */
-	ret = create_mso_f(bat_first_client,
-			   bm_first_tx,
-			   bm_first_rx,
-			   rem_mso_name, &msoh2);
-	BAT_EXPECT_FAIL(ret);
+	/* Expect failure on creating msos with duplicate names */
+	static int ret_codes[NUM_MSOS] = { 0, 0, 0, 0,
+					   0, 0, RDMA_DUPLICATE_MSO, 0,
+					   0, 0, 0, RDMA_DUPLICATE_MSO
+	};
 
-	/* Either way, we must delete the mso */
-	ret = destroy_mso_f(bat_first_client,
-			    bm_first_tx,
-			    bm_first_rx,
-			    msoh1);
-	BAT_EXPECT_RET(ret, 0, exit);
+	static mso_h	mso_handles[NUM_MSOS];
+
+	int ret, rc;
+
+	for (unsigned i = 0; i < NUM_MSOS; i++) {
+		ret = create_mso_f(bat_first_client,
+				   bm_first_tx,
+				   bm_first_rx,
+				   mso_names[i],
+				   &mso_handles[i]);
+		/* Compare with expected return codes */
+		BAT_EXPECT_RET(ret, ret_codes[i], destroy_msos);
+	}
+
+	/* If we reach here, there were no failures, but the value of 'ret
+	 * is unpredictable. Set ret to 0 to indicate error-free */
+	ret = 0;
+
+	/* Either way, we must delete the msos that were created */
+
+destroy_msos:
+	for (unsigned i = 0; i < NUM_MSOS; i++) {
+		/* The ones that were created successfully have non-0 handles */
+		if (mso_handles[i] != 0) {
+			/* Don't overwrite 'ret', use 'rc' */
+			rc = destroy_mso_f(bat_first_client,
+					   bm_first_tx,
+					   bm_first_rx,
+					   mso_handles[i]);
+			BAT_EXPECT_RET(rc, 0, exit);
+		}
+	}
+
+
 exit:
+	if (rc != 0) {
+		/* We failed in the destroying of the mso */
+		BAT_EXPECT_PASS(rc);
+	} else {
+		/* Check if we failed during the creation */
+		BAT_EXPECT_PASS(ret);
+	}
+
 	return ret;
+#undef NUM_MSOS
 } /* test_case_a() */
 
 int test_case_b(void)
 {
-	int	ret;
+#define NUM_MSS	12
+#define MS_SIZE	64*1024		/* 64K */
+
+	static char ms_names[][NUM_MSS] = {
+		"January", "February", "March", "April",
+		"May", "June", "January", "Feb",
+		"September", "October", "Mayor", "January"
+	};
+
+	/* Expect failure on creating ms'es with duplicate names */
+	static int ret_codes[NUM_MSS] = { 0, 0, 0, 0,
+					   0, 0, RDMA_DUPLICATE_MS, 0,
+					   0, 0, 0, RDMA_DUPLICATE_MS
+	};
+
+	mso_h		msoh;
+	static ms_h	ms_handles[NUM_MSS];
+
+	int ret, rc;
 
 	/* Create mso */
-	mso_h	msoh1;
-	ret = create_mso_f(bat_first_client,
-			   bm_first_tx,
-			   bm_first_rx,
-			   rem_mso_name, &msoh1);
+	ret = create_mso_f(bat_first_client, bm_first_tx, bm_first_rx,
+			   	   	   	   	  rem_mso_name, &msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
-	/* Create first ms */
-	ms_h	msh1;
-	ret = create_ms_f(bat_first_client,
-			  bm_first_tx,
-			  bm_first_rx,
-			  rem_ms_name1, msoh1, MS1_SIZE, 0, &msh1, NULL);
-	BAT_EXPECT_RET(ret, 0, destroy_mso);
+	for (unsigned i = 0; i < NUM_MSS; i++) {
+		uint32_t actual_size;
 
-	/* Create second ms with same name */
-	ms_h	msh2;
-	ret = create_ms_f(bat_first_client,
-			  bm_first_tx,
-			  bm_first_rx,
-			  rem_ms_name1, msoh1, MS2_SIZE, 0, &msh2, NULL);
+		ret = create_ms_f(bat_first_client,
+				  bm_first_tx,
+				  bm_first_rx,
+				  ms_names[i],
+				  msoh,
+				  MS_SIZE,
+				  0,
+				  &ms_handles[i],
+				  &actual_size);
 
-	/* Creating the second ms should fail */
-	BAT_EXPECT_FAIL(ret);
+		/* Compare with expected return codes */
+		BAT_EXPECT_RET(ret, ret_codes[i], destroy_mso);
+	}
+
+	/* If we reach here, there were no failures, but the value of 'ret
+	 * is unpredictable. Set ret to 0 to indicate error-free */
+	ret = 0;
+
+	/* Either way, we must delete the msos that were created */
 
 destroy_mso:
 	/* Either way, we must delete the mso */
-	ret = destroy_mso_f(bat_first_client,
+	rc = destroy_mso_f(bat_first_client,
 			    bm_first_tx,
 			    bm_first_rx,
-			    msoh1);
-	BAT_EXPECT_RET(ret, 0, exit);
+			    msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
 exit:
+	if (rc != 0) {
+		/* We failed in the destroying of the mso */
+		BAT_EXPECT_PASS(rc);
+	} else {
+		/* Check if we failed during the creation */
+		BAT_EXPECT_PASS(ret);
+	}
+
 	return ret;
 } /* test_case_b() */
 
