@@ -25,7 +25,13 @@ BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_P
 	-L$(TOP_LEVEL)/fabric_management/libdd \
 	-Wl,-rpath=$(LIBMPORT_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
-	src/$@.cpp -lrt -llist -llog -lmport -lrdma -lcli -pthread -lfmdd -ldd -lriocp_pe
+	$($@_SRC) -lrt -llist -llog -lmport -lrdma -lcli -pthread -lfmdd -ldd -lriocp_pe
+
+bat_server_SRC = src/bat_server.cpp
+
+bat_client_SRC = src/bat_client.cpp src/bat_client_rdma_api.cpp src/bat_client_test_cases.cpp
+
+bat_child_SRC = src/bat_child.cpp
 
 
 all: bat_server bat_client bat_child
@@ -44,4 +50,4 @@ bat_child: $(BAT_DEPS) src/bat_child.cpp
 	$(BAT_BUILD_STRING)
 
 clean:
-	@rm -f bat_client bat_server *.o *~
+	@rm -f bat_client bat_server bat_child *.o *~
