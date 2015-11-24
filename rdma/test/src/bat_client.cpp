@@ -12,6 +12,7 @@
 #include "librdma.h"
 #include "cm_sock.h"
 #include "bat_common.h"
+#include "bat_client_private.h"
 
 #define MS1_SIZE	1024*1024 /* 1MB */
 #define MS2_SIZE	512*1024  /* 512 KB */
@@ -20,42 +21,7 @@
 
 #define MAX_NAME	80
 
-#define BAT_SEND(bat_client) if (bat_client->send()) { \
-			fprintf(stderr, "bat_client->send() failed\n"); \
-			fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
-			return -1; \
-		   }
 
-#define BAT_RECEIVE(bat_client) if (bat_client->receive()) { \
-			fprintf(stderr, "bat_client->receive() failed\n"); \
-			fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
-			return -2; \
-		   }
-
-#define BAT_CHECK_RX_TYPE(bm_rx, bat_type) if (bm_rx->type != bat_type) { \
-			fprintf(stderr, "Receive message with wrong type 0x%" PRIu64 "\n", bm_rx->type); \
-			fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
-			return -3; \
-		   }
-
-#define BAT_EXPECT_RET(ret, value, label) if (ret != value) { \
-			fprintf(fp, "%s FAILED, line %d, ret = %d\n", __func__, __LINE__, ret); \
-			goto label; \
-		   }
-
-#define BAT_EXPECT_FAIL(ret) if (ret) { \
-				fprintf(fp, "%s PASSED\n", __func__); \
-			     } else { \
-				fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
-			     }
-
-#define BAT_EXPECT_PASS(ret) if (!ret) { \
-				fprintf(fp, "%s PASSED\n", __func__); \
-			     } else { \
-				fprintf(fp, "%s FAILED, line %d\n", __func__, __LINE__); \
-			     }
-
-#define LOG(fmt, args...)    fprintf(fp, fmt, ## args)
 
 extern "C" int rdmad_kill_daemon();
 
@@ -70,14 +36,15 @@ static bool shutting_down = false;
 
 /* Log file, name and handle */
 static char log_filename[PATH_MAX];
-static FILE *fp;
+FILE *log_fp;
 
 /* First client, buffers, message structs..etc. */
-static cm_client *bat_first_client;
-static bat_msg_t *bm_first_tx;
-static bat_msg_t *bm_first_rx;
+cm_client *bat_first_client;
+bat_msg_t *bm_first_tx;
+bat_msg_t *bm_first_rx;
 
 /* Second client, buffers, message structs..etc. */
+/* FIXME: Probably not needed. We can spawn off users from the server */
 static cm_client *bat_second_client;
 static bat_msg_t *bm_second_tx;
 static bat_msg_t *bm_second_rx;
@@ -97,221 +64,7 @@ static char rem_ms_name1[MAX_NAME];
 static char rem_ms_name2[MAX_NAME];
 static char rem_ms_name3[MAX_NAME];
 
-/* ------------------------------- Remote Functions -------------------------------*/
 
-/**
- * Create an mso on the server.
- */
-static int create_mso_f(cm_client *bat_client,
-			bat_msg_t *bm_tx,
-			bat_msg_t *bm_rx,
-			const char *name,
-			mso_h *msoh)
-{
-	/* Populate the create message with the name */
-	bm_tx->type = CREATE_MSO;
-	strcpy(bm_tx->create_mso.name , name);
-
-	/* Send message, wait for ACK and verify it is an ACK */
-	BAT_SEND(bat_client);
-	BAT_RECEIVE(bat_client);
-	BAT_CHECK_RX_TYPE(bm_rx, CREATE_MSO_ACK);
-
-	/* Return handle. Only valid if ret == 0 */
-	*msoh = bm_rx->create_mso_ack.msoh;
-
-	/* Return ret value from the ACK message */
-	return bm_rx->create_mso_ack.ret;
-} /* create_mso_f() */
-
-/**
- * Destroy an mso on the server.
- */
-static int destroy_mso_f(cm_client *bat_client,
-			 bat_msg_t *bm_tx,
-			 bat_msg_t *bm_rx,
-			 mso_h msoh)
-{
-	bm_tx->type = DESTROY_MSO;
-	bm_tx->destroy_mso.msoh = msoh;
-	BAT_SEND(bat_client);
-	BAT_RECEIVE(bat_client);
-	BAT_CHECK_RX_TYPE(bm_rx, DESTROY_MSO_ACK);
-
-	return bm_rx->destroy_mso_ack.ret;
-} /* destroy_mso_f() */
-
-/**
- * Open an mso on the 'user' app
- */
-static int open_mso_f(cm_client *bat_client,
-		      bat_msg_t *bm_tx,
-		      bat_msg_t *bm_rx,
-		      const char *name,
-		      mso_h *msoh)
-{
-	/* Populate the create message with the name */
-	bm_tx->type = OPEN_MSO;
-	strcpy(bm_tx->open_mso.name , name);
-
-	/* Send message, wait for ACK and verify it is an ACK */
-	BAT_SEND(bat_client);
-	BAT_RECEIVE(bat_client);
-	BAT_CHECK_RX_TYPE(bm_rx, OPEN_MSO_ACK);
-
-	/* Return handle. Only valid if ret == 0 */
-	*msoh = bm_rx->open_mso_ack.msoh;
-
-	/* Return ret value from the ACK message */
-	return bm_rx->open_mso_ack.ret;
-} /* open_mso_f() */
-
-/**
- * Close an mso on the server.
- */
-static int close_mso_f(cm_client *bat_client,
-		       bat_msg_t *bm_tx,
-		       bat_msg_t *bm_rx,
-		       mso_h msoh)
-{
-	bm_tx->type = CLOSE_MSO;
-	bm_tx->close_mso.msoh = msoh;
-	BAT_SEND(bat_client);
-	BAT_RECEIVE(bat_client);
-	BAT_CHECK_RX_TYPE(bm_rx, CLOSE_MSO_ACK);
-
-	return bm_rx->destroy_mso_ack.ret;
-} /* destroy_mso_f() */
-
-/**
- * Create an ms on the server.
- */
-static int create_ms_f(cm_client *bat_client,
-		       bat_msg_t *bm_tx,
-		       bat_msg_t *bm_rx,
-		       const char *name, mso_h msoh, uint32_t req_size,
-		       uint32_t flags, ms_h *msh, uint32_t *size)
-{
-	/* Populate the create ms message */
-	bm_tx->type = CREATE_MS;
-	strcpy(bm_tx->create_ms.name , name);
-	bm_tx->create_ms.msoh =  msoh;
-	bm_tx->create_ms.req_size = req_size;
-	bm_tx->create_ms.flags = flags;
-
-	/* Send message and wait for ack */
-	BAT_SEND(bat_client);
-	BAT_RECEIVE(bat_client);
-	BAT_CHECK_RX_TYPE(bm_rx, CREATE_MS_ACK);
-
-	*msh = bm_rx->create_ms_ack.msh;
-
-	/* Size maybe NULL */
-	if (size)
-		*size = bm_rx->create_ms_ack.size;
-
-	return bm_rx->create_ms_ack.ret;
-} /* create_ms_f() */
-
-/* NOTE: No destroy_ms_f() for now since destroying the mso in turn
- * destroys the ms.
- */
-
-/**
- * Open an ms on the server.
- */
-static int open_ms_f(cm_client *bat_client,
-		     bat_msg_t *bm_tx,
-		     bat_msg_t *bm_rx,
-		     const char *name, mso_h msoh,
-		     uint32_t flags, uint32_t *size, ms_h *msh)
-{
-	/* Populate the create ms message */
-	bm_tx->type = OPEN_MS;
-	strcpy(bm_tx->open_ms.name , name);
-	bm_tx->open_ms.msoh =  msoh;
-	bm_tx->open_ms.flags = flags;
-
-	/* Send message and wait for ack */
-	BAT_SEND(bat_client);
-	BAT_RECEIVE(bat_client);
-	BAT_CHECK_RX_TYPE(bm_rx, OPEN_MS_ACK);
-
-	*msh = bm_rx->open_ms_ack.msh;
-
-	/* Size maybe NULL */
-	if (size)
-		*size = bm_rx->open_ms_ack.size;
-
-	return bm_rx->open_ms_ack.ret;
-} /* open_ms_f() */
-
-/* NOTE: No close_ms_f() for now since destroying the mso in turn
- * closes the ms.
- */
-
-/**
- * Create msub on server/user
- */
-int create_msub_f(cm_client *bat_client,
-		  bat_msg_t *bm_tx,
-		  bat_msg_t *bm_rx,
-		  ms_h msh, uint32_t offset, int32_t req_size,
-		  uint32_t flags, msub_h *msubh)
-{
-	/* Populate the create msub message */
-	bm_tx->type = CREATE_MSUB;
-	bm_tx->create_msub.msh =  msh;
-	bm_tx->create_msub.offset = offset;
-	bm_tx->create_msub.req_size = req_size;
-	bm_tx->create_msub.flags = flags;
-
-	/* Send message and wait for ack */
-	BAT_SEND(bat_client);
-	BAT_RECEIVE(bat_client);
-	BAT_CHECK_RX_TYPE(bm_first_rx, CREATE_MSUB_ACK);
-
-	*msubh = bm_rx->create_msub_ack.msubh;
-
-	return bm_rx->create_msub_ack.ret;
-
-} /* create_msub_f() */
-
-static int accept_ms_f(cm_client *bat_client,
-		       bat_msg_t *bm_tx,
-		       ms_h server_msh, msub_h server_msubh)
-{
-	/* Populate the accept on ms message */
-	bm_tx->type = ACCEPT_MS;
-	bm_tx->accept_ms.server_msh = server_msh;
-	bm_tx->accept_ms.server_msubh = server_msubh;
-	/* client_msubh, and client_msubh_len are dummy. Don't populate. */
-
-	/* Send message. No ACK excepted since accept_ms_h() is blocking */
-	BAT_SEND(bat_client);
-
-	return 0;
-} /* accept_ms_f() */
-
-static int kill_remote_app(cm_client *bat_client, bat_msg_t *bm_tx)
-{
-	bm_tx->type = KILL_REMOTE_APP;
-
-	/* Send message. No ACK excepted since remote app will die! */
-	BAT_SEND(bat_client);
-
-	return 0;
-} /* kill_remote_app() */
-
-static int kill_remote_daemon(cm_client *bat_client, bat_msg_t *bm_tx)
-{
-	bm_tx->type = KILL_REMOTE_DAEMON;
-
-	/* Send message. No ACK excepted since remote app will die! */
-	BAT_SEND(bat_client);
-
-	return 0;
-} /* kill_remote_daemon() */
 
 /* ------------------------------- Test Cases -------------------------------*/
 static int test_case_a(void)
@@ -1316,8 +1069,8 @@ int main(int argc, char *argv[])
 		return 1;
 
 	/* Open log file for 'append'. Create if non-existent. */
-	fp = fopen(log_filename, "a");
-	if (!fp) {
+	log_fp = fopen(log_filename, "a");
+	if (!log_fp) {
 		fprintf(stderr, "Failed to open log file '%s'\n", log_filename);
 		return 2;
 	}
@@ -1423,7 +1176,7 @@ int main(int argc, char *argv[])
 	shutting_down = true;
 	delete bat_first_client;
 
-	fclose(fp);
+	fclose(log_fp);
 	puts("Goodbye!");
 	return 0;
 }
