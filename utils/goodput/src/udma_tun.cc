@@ -106,9 +106,16 @@ bool send_icmp_host_unreachable(struct worker* info, uint8_t* l3_in, const int l
  * \param[out] Points to where data will be deposited
  * \retuen true if NREAD completed OK
  */
-bool udma_nread_mem(struct worker *info, const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
+bool udma_nread_mem(struct worker *info,
+			const uint16_t destid,
+			const uint64_t rio_addr,
+			const int size,
+			uint8_t* data_out)
 {
-	if(info == NULL || size < 1 || size > 16 || data_out == NULL) return false;
+	int i;
+
+	if(info == NULL || size < 1 || size > 16 || data_out == NULL)
+		return false;
 
 	DBG("\n\tNREAD from RIO %d bytes destid %u addr 0x%llx\n", size, destid, rio_addr);
 
@@ -125,19 +132,18 @@ bool udma_nread_mem(struct worker *info, const uint16_t destid, const uint64_t r
 	uint32_t umd_dma_abort_reason = 0;
 	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
-	if(! dmac->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, umd_dma_abort_reason, &tx_ts)) return false;
+	int q_was_full = !dmac->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, umd_dma_abort_reason, &tx_ts);
 
-	const bool q_was_full = (umd_dma_abort_reason == 0);
+	if (!umd_dma_abort_reason) DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
 
-	if (umd_dma_abort_reason== 0) DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
-	for(int i = 0;
-	    !q_was_full && !info->stop_req && i < 100 && dmac->scanFIFO(wi, info->umd_sts_entries*8) == 0;
+	for(i = 0;
+	    !q_was_full && !info->stop_req && (i < 100) && !dmac->scanFIFO(wi, info->umd_sts_entries*8);
 	    i++) {
 		usleep(1);
 	}
 
-	if (umd_dma_abort_reason != 0 || dmac->queueSize() > 0) { // Boooya!! Peer not responding
-		CRIT("\n\tChan %u stalled with %s\n", info->umd_chan2, DMAChannel::abortReasonToStr(umd_dma_abort_reason));
+	if (umd_dma_abort_reason || (dmac->queueSize() > 0)) { // Boooya!! Peer not responding
+		CRIT("\n\tChan %u stalled with full %d stop %d i %d Qsize %d abort reason %x %s\n", info->umd_chan2, q_was_full, info->stop_req, i, dmac->queueSize(), umd_dma_abort_reason, DMAChannel::abortReasonToStr(umd_dma_abort_reason));
 		// XXX Cleanup, nuke the one BD
 		return false;
 	}
