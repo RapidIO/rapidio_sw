@@ -266,7 +266,7 @@ struct worker {
 	sem_t		umd_dma_rio_rx_work;
 	DMA_L2_t**	umd_dma_rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
         uint32_t*       umd_dma_rio_rx_bd_ready; ///< List of all IB BDs that have fresh data in them, per-destid 
-        int             umd_dma_rio_rx_bd_ready_size;
+        volatile int    umd_dma_rio_rx_bd_ready_size;
 	pthread_spinlock_t umd_dma_rio_rx_bd_ready_splock;
 	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];

@@ -80,6 +80,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dmachan.h"
 #include "hash.cc"
 #include "lockfile.h"
+#include "tun_ipv4.h"
 #endif
 
 extern "C" {
@@ -90,10 +91,6 @@ bool TakeLock(struct worker* info, const char* module, int instance);
 void* umd_dma_fifo_proc_thr(void *parm);
 
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
-
-int tun_alloc(char *dev, int flags);
-int cread(int fd, uint8_t* buf, int n);
-int cwrite(int fd, uint8_t* buf, int n);
 
 bool send_icmp_host_unreachable(struct worker* info, uint8_t* l3_in, const int l3_in_size);
 };
@@ -108,12 +105,11 @@ bool send_icmp_host_unreachable(struct worker* info, uint8_t* l3_in, const int l
  */
 static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
 {
-	int i;
+	if(info == NULL || size < 1 || size > 16 || data_out == NULL) return false;
 
-	if(info == NULL || size < 1 || size > 16 || data_out == NULL)
-		return false;
-
+#ifdef UDMA_TUN_DEBUG_NREAD
 	DBG("\n\tNREAD from RIO %d bytes destid %u addr 0x%llx\n", size, destid, rio_addr);
+#endif
 
 	DMAChannel* dmac = info->umd_dch2;
 	//DMAChannel* dmac = info->umd_dch;
@@ -132,19 +128,21 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 
 	if (!umd_dma_abort_reason) DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
 
-	for(i = 0;
+	for(int i = 0;
 	    !q_was_full && !info->stop_req && (i < 100) && !dmac->scanFIFO(wi, info->umd_sts_entries*8);
 	    i++) {
 		usleep(1);
 	}
 
 	if (umd_dma_abort_reason || (dmac->queueSize() > 0)) { // Boooya!! Peer not responding
-		CRIT("\n\tChan %u stalled with full %d stop %d i %d Qsize %d abort reason %x %s\n", info->umd_chan2, q_was_full, info->stop_req, i, dmac->queueSize(), umd_dma_abort_reason, DMAChannel::abortReasonToStr(umd_dma_abort_reason));
+		CRIT("\n\tChan %u stalled with full %d stop %d Qsize %d abort reason %x %s\n",
+		      info->umd_chan2, q_was_full, info->stop_req, dmac->queueSize(),
+		      umd_dma_abort_reason, DMAChannel::abortReasonToStr(umd_dma_abort_reason));
 		// XXX Cleanup, nuke the one BD
 		return false;
 	}
 
-#ifdef UDMA_TUN_DEBUG
+#ifdef UDMA_TUN_DEBUG_NREAD
 	std::stringstream ss;
 	for(int i = 0; i < 16; i++) {
 		char tmp[9] = {0};
@@ -257,6 +255,7 @@ again:
 			if (udma_nread_mem(info, destid, info->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
 				DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", destid, RP, newRP);
 				RP = newRP;
+				// XXX if first_message the WP := newRP+1 ?? Test
 			} else {
                                 send_icmp_host_unreachable(info, buffer+DMA_L2_SIZE, nread);
 				DBG("\n\tHW error, something is FOBAR with Chan %u\n", info->umd_chan2);
@@ -301,7 +300,7 @@ again:
                 if (info->stop_req) goto exit;
 
 		info->dmaopt[oi].destid      = destid;
-		info->dmaopt[oi].bcount      = info->umd_tun_MTU;
+		info->dmaopt[oi].bcount      = ntohl(pL2->len);
 		info->dmaopt[oi].raddr.lsb64 = info->rio_addr + sizeof(uint32_t) + WP * BD_PAYLOAD_SIZE;
 
                 DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx WP=%d oi=%d\n",
@@ -368,35 +367,51 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 	static uint64_t cbk_iter = 0;
 
 	volatile uint32_t* pRP = (uint32_t*)info->ib_ptr;
-	assert(*pRP < (info->umd_tx_buf_cnt-1));
 
 	int k = *pRP;
+	assert(k >= 0);
+        assert(k < (info->umd_tx_buf_cnt-1));
 
 	cbk_iter++;
+
+        if (info->umd_dma_rio_rx_bd_ready_size >= (info->umd_tx_buf_cnt-1)) { // Receiver too slow, inc slow count and wait!
+		return;
+	}
+
  	pthread_spin_lock(&info->umd_dma_rio_rx_bd_ready_splock);
 
 	int cnt = 0;
         int idx = info->umd_dma_rio_rx_bd_ready_size; // If not zero then RIO RX thr is sloow
 	for (int i = 0; i < (info->umd_tx_buf_cnt-1); i++) {
 		if(0 != info->umd_dma_rio_rx_bd_L2_ptr[k]->RO) {
+#ifdef UDMA_TUN_DEBUG_IB
 			DBG("\n\tFound ready buffer at RP=%d -- iter %llu\n", k, cbk_iter);
+#endif
+
+                        assert(k < (info->umd_tx_buf_cnt-1));
 
 			info->umd_dma_rio_rx_bd_ready[idx++] = k;
                         info->umd_dma_rio_rx_bd_L2_ptr[k]->RO = 0; // So we won't revisit
 			cnt++;
 		}
 
-		k++; if(k == info->umd_tx_buf_cnt-1) k = 0; // RP wrap-around
+		k++; if(k == (info->umd_tx_buf_cnt-1)) k = 0; // RP wrap-around
 
 	}
 
-	if (cnt > 0) info->umd_dma_rio_rx_bd_ready_size = idx;
+	if (cnt > 0) {
+		info->umd_dma_rio_rx_bd_ready_size += cnt;
+        	assert(info->umd_dma_rio_rx_bd_ready_size <= (info->umd_tx_buf_cnt-1));
+	}
 
  	pthread_spin_unlock(&info->umd_dma_rio_rx_bd_ready_splock);
 
 	if (cnt == 0) return;
 
+#ifdef UDMA_TUN_DEBUG_IB
 	DBG("\n\tFound %d ready buffers at iter %llu\n", cnt, cbk_iter);
+#endif
+
 	sem_post(&info->umd_dma_rio_rx_work);
 }
 
@@ -595,15 +610,17 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 	  for (int i = 0; i < (info->umd_tx_buf_cnt-1); i++, p += BD_PAYLOAD_SIZE) {
 		info->umd_dma_rio_rx_bd_L2_ptr[i] = (DMA_L2_t*)p;
 		info->umd_dma_rio_rx_bd_L2_ptr[i]->RO = 0;
+#ifdef UDMA_TUN_DEBUG_IB
 		char tmp[129] = {0};
 		snprintf(tmp, 128, "\tL2_ptr[%d] = %p\n", i, p);
 		ss << tmp;
+#endif // UDMA_TUN_DEBUG_IB
 	  }
+#ifdef UDMA_TUN_DEBUG_IB
 	  DBG("\n\tL2 acceleration array (base=%p, size=%d):\n", info->ib_ptr, info->umd_tx_buf_cnt-1);
 	  write(STDOUT_FILENO, ss.str().c_str(), ss.str().size());
+#endif // UDMA_TUN_DEBUG_IB
 	}}
-
-	good_destid[info->did] = true; // FMD should push updates into this
 
         info->tick_data_total = 0;
         info->tick_count = info->tick_total = 0;
@@ -611,7 +628,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 	if (!umd_dma_goodput_tun_setup_chan1(info)) goto exit;
 
 	if (!umd_dma_goodput_tun_setup_chan2(info)) goto exit;
-	Test_NREAD(info);
+	//Test_NREAD(info);
 
 	if (info->umd_dch->getDestId() == 0xffff) {
 		CRIT("\n\tMy_destid=0x%x which is BORKED -- bad enumeration?\n", info->umd_dch->getDestId());
@@ -683,35 +700,45 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
         	if (info->stop_req) break;
 
-		DBG("\n\tInbound %d buffers(s) ready.\n", info->umd_dma_rio_rx_bd_ready_size);
+		//DBG("\n\tInbound %d buffers(s) ready.\n", info->umd_dma_rio_rx_bd_ready_size);
+
+		assert(info->umd_dma_rio_rx_bd_ready_size <= (info->umd_tx_buf_cnt-1));
 
 		// Make this quick & sweet so we don't hose the FIFO thread for long
 		int cnt = 0;
 		int ready_bd_list[info->umd_tx_buf_cnt]; memset(ready_bd_list, 0xff, sizeof(ready_bd_list));
 		pthread_spin_lock(&info->umd_dma_rio_rx_bd_ready_splock);
 		for (int i = 0; i < info->umd_dma_rio_rx_bd_ready_size; i++) {
+                        assert(info->umd_dma_rio_rx_bd_ready[i] < (info->umd_tx_buf_cnt-1));
 			ready_bd_list[cnt++] = info->umd_dma_rio_rx_bd_ready[i];
 		}
 		info->umd_dma_rio_rx_bd_ready_size = 0;
 		pthread_spin_unlock(&info->umd_dma_rio_rx_bd_ready_splock);
 
+#ifdef UDMA_TUN_DEBUG
 		DBG("\n\tInbound %d buffers(s) will be processed.\n", cnt);
+#endif
 
         	if (info->stop_req) break;
 
 		for (int i = 0; i < cnt && !info->stop_req; i++) {
 			const int rp = ready_bd_list[i];
+			assert(rp >= 0);
+			assert(rp < (info->umd_tx_buf_cnt-1));
 
 			DMA_L2_t* pL2 = info->umd_dma_rio_rx_bd_L2_ptr[rp];
 
 			rx_ok++;
 			const int payload_size = ntohl(pL2->len) - DMA_L2_SIZE;
 
+			assert(payload_size > 0);
+			assert(payload_size <= info->umd_tun_MTU);
+
 			uint8_t* payload = (uint8_t*)pL2 + DMA_L2_SIZE;
                         const int nwrite = cwrite(info->umd_tun_fd, payload, payload_size);
 #ifdef UDMA_TUN_DEBUG
                         const uint32_t crc = crc32(0, payload, payload_size);
-                        DBG("\n\tGot a message of size %d from RIO destid %u (L7 CRC32 0x%x) cnt=%llu, wrote %d to %s\n",
+                        DBG("\n\tGot a msg of size %d from RIO destid %u (L7 CRC32 0x%x) cnt=%llu, wrote %d to %s\n",
                                  ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, info->umd_tun_name);
 #endif
 
