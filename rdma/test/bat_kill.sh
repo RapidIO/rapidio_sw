@@ -12,7 +12,7 @@ for node in $SERVERS
 do
 	# Kill bat_server
 	THE_PID=$(ssh root@"$node" pgrep bat_server)
-	echo "Killing bat_server on $node RSKTD PID=$THE_PID"
+	echo "Killing bat_server on $node bat_server PID=$THE_PID"
 	for proc in $THE_PID
 	do
 		ssh root@"$node" "kill -s 2 $proc"
@@ -31,7 +31,7 @@ do
 
 	# Kill FMD
 	THE_PID=$(ssh root@"$node" pgrep fmd)
-	echo "Killing fmd on $node RDMAD PID=$THE_PID"
+	echo "Killing fmd on $node FMD PID=$THE_PID"
 	for proc in $THE_PID
 	do
 		ssh root@"$node" "kill -s 2 $proc"

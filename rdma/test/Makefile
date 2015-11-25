@@ -37,15 +37,15 @@ bat_child_SRC = src/bat_child.cpp
 all: bat_server bat_client bat_child
 
 # Batch Automated Test (BAT)
-bat_server: $(BAT_DEPS) src/bat_server.cpp
+bat_server: $(BAT_DEPS) $(bat_server_SRC)
 	@echo ---------- Building bat_server...
 	$(BAT_BUILD_STRING)
 
-bat_client: $(BAT_DEPS) src/bat_client.cpp
+bat_client: $(BAT_DEPS) $(bat_client_SRC)
 	@echo ---------- Building bat_client...
 	$(BAT_BUILD_STRING)
 
-bat_child: $(BAT_DEPS) src/bat_child.cpp
+bat_child: $(BAT_DEPS) $(bat_child_SRC)
 	@echo ---------- Building bat_child...
 	$(BAT_BUILD_STRING)
 
