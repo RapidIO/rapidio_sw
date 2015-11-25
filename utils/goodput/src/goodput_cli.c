@@ -1557,6 +1557,63 @@ DumpCmd,
 ATTR_RPT
 };
 
+int FillCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx;
+	uint64_t offset, base_offset;
+	uint64_t size;
+	uint64_t data;
+
+	idx = getDecParm(argv[0], 0);
+	base_offset = getHex(argv[1], 0);
+	size = getHex(argv[2], 0);
+	data = getHex(argv[3], 0);
+
+	if ((idx < 0) || (idx >= MAX_WORKERS)) {
+		sprintf(env->output, "\nIndex must be 0 to %d...\n",
+							MAX_WORKERS);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if (!wkr[idx].ib_valid || (NULL == wkr[idx].ib_ptr)) {
+		sprintf(env->output, "\nNo mapped inbound window present\n");
+        	logMsg(env);
+		goto exit;
+	};
+
+	if ((base_offset + size) > wkr[idx].ib_byte_cnt) {
+		sprintf(env->output, "\nOffset + size exceeds window bytes\n");
+        	logMsg(env);
+		goto exit;
+	}
+
+	dump_idx = idx;
+	dump_base_offset = base_offset;
+	dump_size = size;
+
+        for (offset = 0; offset < size; offset++) {
+		*(volatile uint8_t * volatile)
+		((uint8_t *)wkr[idx].ib_ptr + base_offset + offset) = data;
+        };
+exit:
+        return 0;
+};
+
+struct cli_cmd Fill = {
+"fill",
+4,
+4,
+"Fill inbound memory area",
+"Fill <idx> <offset> <size> <data>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<offset> is the hexadecimal offset, in bytes, from the window start\n"
+	"<size> is the number of bytes to display, starting at <offset>\n"
+	"<data> is the 8 bit value to write.\n",
+FillCmd,
+ATTR_RPT
+};
+
 int MpdevsCmd(struct cli_env *env, int argc, char **argv)
 {
         uint32_t *mport_list = NULL;
@@ -2722,6 +2779,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&IBAlloc,
 	&IBDealloc,
 	&Dump,
+	&Fill,
 	&OBDIO,
 	&OBDIOTxLat,
 	&OBDIORxLat,
