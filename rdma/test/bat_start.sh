@@ -42,12 +42,13 @@ done
 for node in $SERVERS
 do
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
-	echo "Start rsktd on $node destID=$DESTID"
+	echo "Start bat_server on $node destID=$DESTID"
+	echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
 	ssh root@"$node" "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
 	sleep 1
 	# Display PID for verification
 	BAT_SERVER_PID=$(ssh root@"$node" pgrep bat_server)
-	echo "$node rsktd pid=$BAT_SERVER_PID"
+	echo "$node bat_server pid=$BAT_SERVER_PID"
 
 	# Increment channel number
 	((SERVER_CM_CHANNEL++ ))

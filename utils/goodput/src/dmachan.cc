@@ -163,6 +163,7 @@ void DMAChannel::setInbound()
 const char* DMAChannel::abortReasonToStr(const uint32_t abort_reason)
 {
   switch (abort_reason) {
+    case 0:  return "No abort"; break;
     case 5:  return "S-RIO response timeout"; break;
     case 6:  return "S-RIO I/O ERROR response"; break;
     case 7:  return "S-RIO implementation specific error"; break;
@@ -256,8 +257,27 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 	if (umdemo_must_die)
 		return false;
 
-	const int bd_idx = m_dma_wr % m_bd_num;
+	int bd_idx = m_dma_wr % m_bd_num;
 	{{
+		// If at end of buffer, account for T3 and
+		// wrap around to beginning of buffer.
+		if ((bd_idx + 1) == m_bd_num) {
+			wk_end.opt.bd_wp = m_dma_wr;
+
+			wk_end.opt.ts_start = rdtsc();
+			// FIXME: Should this really be FF..E, or should it be
+			// FF..F ???
+			if (m_dma_wr == 0xFFFFFFFE)
+				m_dma_wr = 0;
+			else
+				m_dma_wr++;
+			setWriteCount(m_dma_wr);
+			evlog('3');
+			queued_T3 = true;
+			m_bl_busy_size++;
+			bd_idx = 0;
+		}
+
 		// check-modulo in m_bl_busy[] if bd_idx is still busy!!
 		if(m_bl_busy[bd_idx]) {
 			pthread_spin_unlock(&m_bl_splock); 
@@ -283,19 +303,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 		evlog(ev);
 
 		if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
-
-		if(((m_dma_wr+1) % m_bd_num) == 0) { // skip T3
-			wk_end.opt.bd_wp = m_dma_wr;
-
-			wk_end.opt.ts_start = rdtsc();
-			m_dma_wr++;
-			setWriteCount(m_dma_wr);
-			evlog('3');
-			if (m_dma_wr == 0xFFFFFFFE)
-				m_dma_wr = 0;
-			queued_T3 = true;
-			m_bl_busy_size++;
-		}
 	}}
 	pthread_spin_unlock(&m_bl_splock); 
 

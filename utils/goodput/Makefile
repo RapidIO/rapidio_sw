@@ -49,6 +49,8 @@ CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 #CCFLAGS+=-DDEBUG=2
 CCFLAGS+=-DMBOX_TUN_DEBUG
 CCFLAGS+=-DUDMA_TUN_DEBUG
+#CCFLAGS+=-DUDMA_TUN_DEBUG_IB
+CCFLAGS+=-DUDMA_TUN_DEBUG_NREAD
 
 INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c
@@ -66,7 +68,7 @@ UMD_INCLUDES = inc/debug.h inc/dmadesc.h inc/local_endian.h inc/mapfile.h \
 UMD_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc src/mboxchan.cc \
 	src/crc32.c \
 	src/hash.cc src/psem.cc src/pshm.cc \
-	src/udma_tun.cc
+	src/udma_tun.cc src/tun_ipv4.c
 
 LIBRARIES =  -lpthread -lcli -lmport -llog -lrt
 

@@ -51,21 +51,7 @@ wait 7 R
 g
 g c
 g
-echo OBDIO bytes acc_size
-sleep wait_time
-echo OBDIO bytes acc_size
-wait 0 R
-wait 1 R
-wait 2 R
-wait 3 R
-wait 4 R
-wait 5 R
-wait 6 R
-wait 7 R
 
-g
-g c
-g
 echo OBDIO THRUPUT bytes acc_size UNUSED
 os
 sleep wait_time
