@@ -64,11 +64,12 @@ int RIOCP_SO_ATTR riocp_pe_llist_del(struct riocp_pe_llist_item *head, void *dat
 
 	cur = head;
 	while (cur != NULL) {
-		if (cur->data == data)
+		if (cur->data == data) {
+			next = cur->next;
 			goto found;
+		}
 		prev = cur;
 		cur  = cur->next;
-		next = cur->next;
 	}
 
 	return -ENOENT;
