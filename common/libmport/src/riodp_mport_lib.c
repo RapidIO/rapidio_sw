@@ -68,6 +68,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/time.h>
 #endif
 
 #include <rapidio_mport_mgmt.h>
@@ -158,6 +159,7 @@ enum packet_type {
 	pkt_remote_maint_write_req,
 	pkt_remote_maint_write_resp,
 	pkt_port_write_req,
+	pkt_port_write_resp,
 	pkt_get_event_mask_req,
 	pkt_get_event_mask_resp,
 	pkt_set_event_mask_req,
@@ -179,7 +181,8 @@ const char *fmt_str[] = {
 		"maint_remote_read_resp,DATA=0x%x\n",
 		"maint_remote_write_req,DESTID=0x%x,HOP=%u,OFF=0x%x,SIZE=0x%x,DATA=0x%x\n",
 		"maint_remote_write_resp\n",
-		"port_write_req,ARRAY32=%ms\n",
+		"port_write_req\n",
+		"port_write_resp,ARRAY32=%ms\n",
 		"get_event_mask_req\n",
 		"get_event_mask_resp,DATA=0x%x\n",
 		"set_event_mask_req,DATA=0x%x\n",
@@ -284,7 +287,10 @@ static int recv_packet(int sd, char *pkt, size_t len)
 				ret = recv(sd, pkt+received, len-received, 0);
 				if (ret == -1)
 					return -errno;
-				else
+				else if (ret == 0 && (pfd.revents | POLLIN)) {
+					LIBTRACE("EIO\n");
+					return -EIO; // most properly the simulator died here
+				} else
 					received += ret;
 				if (strchr(pkt, '\n'))
 					return received;
@@ -332,6 +338,20 @@ static int simulator_sync(int sock, struct rapidio_libmport_simulator_sync *data
 	}
 	return (ret >= 0)?(0):(ret);
 }
+
+static inline unsigned long lib_clock(void)
+{
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    /* microseconds */
+    return now.tv_sec * 1000000 + now.tv_usec;
+}
+
+static inline unsigned long clockdiff(unsigned long time)
+{
+    return lib_clock() - time;
+}
+
 #endif
 
 int riomp_mgmt_mport_available(uint8_t mport)
@@ -1491,7 +1511,7 @@ int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask)
 	int ret;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL || !mask)
+	if(hnd == NULL)
 		return -EINVAL;
 
 	ret = encode_packet(pkt_set_event_mask_req, pkt, sizeof(pkt), mask);
@@ -1615,31 +1635,63 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *ev
 	struct rapidio_mport_handle *hnd = mport_handle;
 	int ret;
 	unsigned int i;
-	char pkt[RIO_MAX_ENC_PACKET] = {0}, *p, *p2;
+	char pkt[RIO_MAX_ENC_PACKET] = {0}, *p = NULL, *p2;
+	unsigned long long start_time = lib_clock();
 
 	if(hnd == NULL)
 		return -EINVAL;
 
 	if (!evt) return -EINVAL;
 
-	ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
-	if (ret < 0)
-		return ret;
-	ret = decode_packet(pkt_port_write_req, pkt, &p);
-	if (ret < 0)
-		return ret;
-	LIBTRACE(pkt);
-	//LIBPRINT("payload (%p): %s\n", p, p);
-	evt->header = RIO_EVENT_PORTWRITE;
-	p2 = p;
-	for (i=0;i<(sizeof(evt->u.portwrite.payload)/sizeof(evt->u.portwrite.payload[0]));i++) {
-		evt->u.portwrite.payload[i] = strtoul(p2, &p2, 0);
-		if(!p2)
-			break;
-		p2++;
-	}
-	free(p);
+	while(1) {
+		ret = encode_packet(pkt_port_write_req, pkt, sizeof(pkt));
+		if (ret > 0) {
+			//LIBTRACE(pkt);
+			ret = send_packet(hnd->fd, pkt);
+			if (ret < 0) {
+				LIBTRACE("send_packet: %s\n", strerror(-ret));
+				return -EIO;
+			}
+			bzero(pkt, sizeof(pkt));
+			ret = recv_packet(hnd->fd, pkt, sizeof(pkt));
+			if (ret < 0) {
+				LIBTRACE("recv_packet: %s\n", strerror(-ret));
+				return -EIO;
+			}
+			ret = decode_packet(pkt_port_write_resp, pkt, &p);
+			if (ret < 0) {
+				LIBTRACE("decode_packet: %s\n", strerror(-ret));
+				return -EIO;
+			}
 
+			if (strncmp("nodata", p, 6) == 0) {
+				free(p);
+				if(timeout == 0)
+					return -EAGAIN;
+				else if(timeout == RIO_TIMEOUT_INF || (unsigned)timeout < (clockdiff(start_time)/1000)) {
+					usleep(10000);
+					continue;
+				}
+				else
+					return -ETIMEDOUT;
+			} else {
+				LIBTRACE("PW payload (%p): %s\n", p, p);
+				evt->header = RIO_EVENT_PORTWRITE;
+				p2 = p;
+				for (i=0;i<(sizeof(evt->u.portwrite.payload)/sizeof(evt->u.portwrite.payload[0]));i++) {
+					evt->u.portwrite.payload[i] = strtoul(p2, &p2, 0);
+					if(!p2)
+						break;
+					p2++;
+				}
+			}
+			free(p);
+			break;
+		} else {
+			LIBTRACE("encode_packet: %s\n", strerror(-ret));
+			return -EIO;
+		}
+	}
 	return (ret >= 0)?(0):(ret);
 #endif
 }
