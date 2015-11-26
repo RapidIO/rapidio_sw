@@ -436,7 +436,7 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 	msubspaces.emplace_back(msid, *rio_addr, *phys_addr, *size, *msubid);
 	sem_post(&msubspaces_sem);
 
-	return 1;
+	return 0;
 } /* create_msubspace() */
 
 int mspace::open(uint32_t *msid, unix_server *user_server, uint32_t *ms_conn_id, uint32_t *bytes)
@@ -523,7 +523,7 @@ int mspace::close(uint32_t ms_conn_id)
 	} else {
 		delete (*it).get_mq();
 		users.erase(it);
-		rc = 1;
+		rc = 0;	/* Success */
 	}
 	sem_post(&users_sem);
 
@@ -545,7 +545,7 @@ int mspace::destroy_msubspace(uint32_t msubid)
 	} else {
 		/* Erase the subspace */
 		msubspaces.erase(msub_it);
-		rc = 1;
+		rc = 0;	/* Success */
 	}
 	sem_post(&msubspaces_sem);
 

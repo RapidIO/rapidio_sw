@@ -275,7 +275,7 @@ int ibwin::create_mspace(const char *name,
 
 	/* Mark new memory space index as unavailable */
 	*fmlit = false;
-	return 1;
+	return 0;
 } /* create_mspace() */
 
 mspace* ibwin::get_mspace(const char *name)

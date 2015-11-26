@@ -306,7 +306,7 @@ int inbound::open_mspace(const char *name,
 	}
 	*phys_addr = ms->get_phys_addr();
 	DBG("EXIT\n");
-	return 1;
+	return 0;
 } /* open_mspace() */
 
 /* Create a memory subspace */

@@ -142,7 +142,7 @@ int ms_owners::create_mso(const char *name, unix_server *other_server, uint32_t 
 	owners.push_back(mso);
 	pthread_mutex_unlock(&lock);
 
-	return 1;
+	return 0;
 } /* get_mso() */
 
 int ms_owners::open_mso(const char *name,
@@ -169,7 +169,7 @@ int ms_owners::open_mso(const char *name,
 	}
 	pthread_mutex_unlock(&lock);
 
-	return 1;
+	return 0;
 } /* open_mso() */
 
 int ms_owners::close_mso(uint32_t msoid, uint32_t mso_conn_id)
@@ -193,7 +193,7 @@ int ms_owners::close_mso(uint32_t msoid, uint32_t mso_conn_id)
 	}
 	pthread_mutex_unlock(&lock);
 
-	return 1;
+	return 0;
 } /* close_mso() */
 
 void ms_owners::close_mso(unix_server *user_server)
@@ -265,7 +265,7 @@ int ms_owners::destroy_mso(uint32_t msoid)
 	DBG("msoid(0x%X) now marked as 'free'\n");
 	pthread_mutex_unlock(&lock);
 
-	return 1;
+	return 0;
 } /* destroy_msoid() */
 
 ms_owner* ms_owners::operator[](uint32_t msoid)

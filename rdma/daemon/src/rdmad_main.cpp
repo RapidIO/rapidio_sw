@@ -61,6 +61,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
+#include "rdmad_rpc.h"
 
 struct peer_info	peer;
 
@@ -111,9 +112,9 @@ struct rpc_ti
 	pthread_t tid;
 };
 
-static int send_disc_ms_cm(uint32_t server_destid,
-			   uint32_t server_msid,
-			   uint32_t client_msubid)
+int send_disc_ms_cm(uint32_t server_destid,
+		    uint32_t server_msid,
+		    uint32_t client_msubid)
 {
 	cm_client *the_client;
 	int ret = 0;
@@ -211,9 +212,10 @@ void *rpc_thread_f(void *arg)
 				case GET_MPORT_ID:
 				{
 					DBG("GET_MPORT_ID\n");
-					out_msg->get_mport_id_out.mport_id = peer.mport_id;
-					out_msg->get_mport_id_out.status = 0;
+					get_mport_id_output *out = &out_msg->get_mport_id_out;
+
 					out_msg->type = GET_MPORT_ID_ACK;
+					out->status = rdmad_get_mport_id(&out->mport_id);
 				}
 				break;
 
@@ -223,26 +225,22 @@ void *rpc_thread_f(void *arg)
 					create_mso_input *in = &in_msg->create_mso_in;
 					create_mso_output *out = &out_msg->create_mso_out;
 					out_msg->type = CREATE_MSO_ACK;
-
-					int ret = owners.create_mso(in->owner_name,
-								    other_server,
-								    &out->msoid);
-					out->status = (ret > 0) ? 0 : ret;
+					out->status = rdmad_create_mso(in->owner_name,
+								       &out->msoid,
+								       other_server);
 				}
 				break;
 
 				case OPEN_MSO:
 				{
 					DBG("OPEN_MSO\n");
-					open_mso_input	*in = &in_msg->open_mso_in;
+					open_mso_input	*in  = &in_msg->open_mso_in;
 					open_mso_output *out = &out_msg->open_mso_out;
 					out_msg->type = OPEN_MSO_ACK;
-
-					int ret = owners.open_mso(in->owner_name,
-							&out->msoid,
-							&out->mso_conn_id,
-							other_server);
-					out->status = (ret > 0) ? 0 : ret;
+					out->status = rdmad_open_mso(in->owner_name,
+								     &out->msoid,
+								     &out->mso_conn_id,
+								     other_server);
 				}
 				break;
 
@@ -252,9 +250,8 @@ void *rpc_thread_f(void *arg)
 					close_mso_input *in = &in_msg->close_mso_in;
 					close_mso_output *out = &out_msg->close_mso_out;
 					out_msg->type = CLOSE_MSO_ACK;
-
-					int ret = owners.close_mso(in->msoid, in->mso_conn_id);
-					out->status = (ret > 0) ? 0 : ret;
+					out->status = rdmad_close_mso(in->msoid,
+								      in->mso_conn_id);
 				}
 				break;
 
@@ -264,35 +261,7 @@ void *rpc_thread_f(void *arg)
 					destroy_mso_input *in = &in_msg->destroy_mso_in;
 					destroy_mso_output *out = &out_msg->destroy_mso_out;
 					out_msg->type = DESTROY_MSO_ACK;
-
-					ms_owner *owner;
-
-					try {
-						owner = owners[in->msoid];
-						if (owner==nullptr) {
-							ERR("Invalid msoid(0x%X)\n",
-									in->msoid);
-							out->status = -1;
-						} else if (owner->owns_mspaces()) {
-							WARN("msoid(0x%X) owns spaces!\n",
-										in->msoid);
-							out->status = -1;
-						} else {
-							/* No memory spaces owned by mso,
-							 * just destroy it */
-							int ret = owners.destroy_mso(
-									in->msoid);
-							out->status = (ret > 0) ? 0 : ret;
-							DBG("owners.destroy_mso() %s\n",
-							out->status ? "FAILED":"PASSED");
-						}
-						out_msg->type = DESTROY_MSO_ACK;
-					}
-					catch(...) {
-						ERR("Invalid msoid(0x%X) caused segfault\n",
-								in->msoid);
-						out->status = -1;
-					}
+					out->status = rdmad_destroy_mso(in->msoid);
 				}
 				break;
 
@@ -302,25 +271,12 @@ void *rpc_thread_f(void *arg)
 					create_ms_input *in = &in_msg->create_ms_in;
 					create_ms_output *out = &out_msg->create_ms_out;
 					out_msg->type = CREATE_MS_ACK;
-
-					/* Create memory space in the inbound space */
-					mspace *ms;
-					int ret = the_inbound->create_mspace(
+					out->status = rdmad_create_ms(
 							in->ms_name,
-							in->bytes, in->msoid,
+							in->bytes,
+							in->msoid,
 							&out->msid,
-							&ms);
-					if (ms)
-						out->phys_addr = ms->get_phys_addr();
-
-					out->status = (ret > 0) ? 0 : ret;
-					DBG("the_inbound->create_mspace(%s) %s\n",
-						in->ms_name,
-						out->status ? "FAILED" : "PASSED");
-
-					/* Add the memory space to the owner */
-					if (!out->status)
-						owners[in->msoid]->add_ms(ms);
+							&out->phys_addr);
 				}
 				break;
 
@@ -331,19 +287,16 @@ void *rpc_thread_f(void *arg)
 					open_ms_output *out = &out_msg->open_ms_out;
 					out_msg->type = OPEN_MS_ACK;
 
-					/* Find memory space, return its msid,
-					 *  ms_conn_id, and size in bytes */
-					int ret = the_inbound->open_mspace(
-								in->ms_name,
-								other_server,
-								&out->msid,
-								&out->phys_addr,
-								&out->ms_conn_id,
-								&out->bytes);
-					out->status = (ret > 0) ? 0 : ret;
+					out->status = rdmad_open_ms(in->ms_name,
+								    &out->msid,
+								    &out->phys_addr,
+								    &out->ms_conn_id,
+								    &out->bytes,
+								    other_server);
+
 					DBG("the_inbound->open_mspace(%s) %s\n",
 							in->ms_name,
-							out->status ? "FAILED":"PASSED");					out_msg->open_ms_out = *out;
+							out->status ? "FAILED":"PASSED");
 				}
 				break;
 
@@ -353,19 +306,8 @@ void *rpc_thread_f(void *arg)
 					close_ms_input *in = &in_msg->close_ms_in;
 					close_ms_output *out = &out_msg->close_ms_out;
 					out_msg->type = CLOSE_MS_ACK;
-
-					DBG("ENTER, msid=%u, ms_conn_id=%u\n", in->msid,
-									in->ms_conn_id);
-					mspace *ms = the_inbound->get_mspace(in->msid);
-					if (!ms) {
-						ERR("Could not find mspace with msid(0x%X)\n",
-										in->msid);
-						out->status = -1;
-					} else {
-						/* Now close the memory space */
-						int ret = ms->close(in->ms_conn_id);
-						out->status = (ret > 0) ? 0 : ret;
-					}
+					out->status = rdmad_close_ms(in->msid,
+								     in->ms_conn_id);
 				}
 				break;
 
@@ -374,16 +316,9 @@ void *rpc_thread_f(void *arg)
 					DBG("DESTROY_MS\n");
 					destroy_ms_input *in = &in_msg->destroy_ms_in;
 					destroy_ms_output *out = &out_msg->destroy_ms_out;
-					out_msg->type = DESTROY_MS_ACK;
 
-					mspace *ms = the_inbound->get_mspace(in->msoid, in->msid);
-					if (!ms) {
-						ERR("Could not find mspace with msid(0x%X)\n", in->msid);
-						out->status = -1;
-					} else {
-						/* Now destroy the memory space */
-						out->status = ms->destroy();
-					}
+					out_msg->type = DESTROY_MS_ACK;
+					out->status = rdmad_destroy_ms(in->msoid, in->msid);
 				}
 				break;
 
@@ -393,15 +328,14 @@ void *rpc_thread_f(void *arg)
 					create_msub_input *in = &in_msg->create_msub_in;
 					create_msub_output *out = &out_msg->create_msub_out;
 					out_msg->type = CREATE_MSUB_ACK;
-
-					int ret = the_inbound->create_msubspace(in->msid,
-									        in->offset,
-									        in->req_bytes,
-									        &out->bytes,
-				                                                &out->msubid,
-									        &out->rio_addr,
-										&out->phys_addr);
-					out->status = (ret > 0) ? 0 : ret;
+					out->status = rdmad_create_msub(
+							in->msid,
+							in->offset,
+							in->req_bytes,
+							&out->bytes,
+		                                        &out->msubid,
+							&out->rio_addr,
+							&out->phys_addr);
 
 					DBG("msubid=0x%X, bytes=%d, rio_addr = 0x%lX\n",
 								out->msubid,
@@ -416,9 +350,7 @@ void *rpc_thread_f(void *arg)
 					destroy_msub_input  *in  = &in_msg->destroy_msub_in;
 					destroy_msub_output *out = &out_msg->destroy_msub_out;
 					out_msg->type = DESTROY_MSUB_ACK;
-
-					int ret = the_inbound->destroy_msubspace(in->msid, in->msubid);
-					out->status = (ret > 0) ? 0 : ret;
+					out->status = rdmad_destroy_msub(in->msid, in->msubid);
 				}
 				break;
 
@@ -428,58 +360,12 @@ void *rpc_thread_f(void *arg)
 					accept_input  *in = &in_msg->accept_in;
 					accept_output *out = &out_msg->accept_out;
 					out_msg->type = ACCEPT_MS_ACK;
-
-					/* Does it exist? */
-					mspace *ms = the_inbound->get_mspace(in->loc_ms_name);
-					if (!ms) {
-						WARN("%s does not exist\n", in->loc_ms_name);
-						out->status = -1;
-						break;
-					}
-
-					/* Prevent concurrent accept() calls to
-					 *  the same ms from different applications.
-					 */
-					if (ms->is_accepted()) {
-						ERR("%s already in accept() or connected.\n",
-									in->loc_ms_name);
-						out->status = -2;
-						break;;
-					}
-					ms->set_accepted(true);
-
-					/* Get the memory space name, and prepend
-					 * '/' to make it a queue */
-					string	s(in->loc_ms_name);
-					s.insert(0, 1, '/');
-
-					/* Prepare accept message from input parameters */
-					struct cm_accept_msg	cmam;
-					cmam.type		= htobe64(CM_ACCEPT_MS);
-					strcpy(cmam.server_ms_name, in->loc_ms_name);
-					cmam.server_msid	= htobe64(ms->get_msid());
-					cmam.server_msubid	= htobe64(in->loc_msubid);
-					cmam.server_bytes	= htobe64(in->loc_bytes);
-					cmam.server_rio_addr_len= htobe64(in->loc_rio_addr_len);
-					cmam.server_rio_addr_lo	= htobe64(in->loc_rio_addr_lo);
-					cmam.server_rio_addr_hi	= htobe64(in->loc_rio_addr_hi);
-					cmam.server_destid_len	= htobe64(16);
-					cmam.server_destid	= htobe64(peer.destid);
-					DBG("cm_accept_msg has server_destid = 0x%X\n",
-							be64toh(cmam.server_destid));
-					DBG("cm_accept_msg has server_destid_len = 0x%X\n",
-							be64toh(cmam.server_destid_len));
-
-					/* Add accept message content to map indexed by message queue name */
-					if (accept_msg_map.contains(s)) {
-						CRIT("%s is already in accept_msg_map\n");
-						out->status = -1;
-					} else {
-						DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
-						accept_msg_map.add(s, cmam);
-					}
-
-					out->status = 0;
+					out->status = rdmad_accept_ms(in->loc_ms_name,
+								      in->loc_msubid,
+								      in->loc_bytes,
+								      in->loc_rio_addr_len,
+								      in->loc_rio_addr_lo,
+								      in->loc_rio_addr_hi);
 				}
 				break;
 
@@ -489,36 +375,7 @@ void *rpc_thread_f(void *arg)
 					undo_accept_input *in = &in_msg->undo_accept_in;
 					undo_accept_output *out = &out_msg->undo_accept_out;
 					out_msg->type = UNDO_ACCEPT_ACK;
-
-					/* Does it exist? */
-					mspace *ms = the_inbound->get_mspace(in->server_ms_name);
-					if (!ms) {
-						WARN("%s does not exist\n", in->server_ms_name);
-						out->status = -1;
-						break;
-					}
-
-					/* An accept() must be in effect to undo it. Double-check */
-					if (!ms->is_accepted()) {
-						ERR("%s NOT in accept().\n", in->server_ms_name);
-						out->status = -2;
-						break;
-					}
-
-					/* Get the memory space name, and prepend '/' to make it a queue */
-					string	s(in->server_ms_name);
-					s.insert(0, 1, '/');
-
-					/* Remove accept message content from map indexed by message queue name */
-					accept_msg_map.remove(s);
-
-					/* TODO: How about if it is connected, but the server doesn't
-					 * get the notification. If it is connected it cannot do undo_accept
-					 * so let's think about that. */
-
-					/* Now set it as unaccepted */
-					ms->set_accepted(false);
-					out->status = 0;
+					out->status = rdmad_undo_accept_ms(in->server_ms_name);
 				}
 				break;
 
@@ -528,104 +385,17 @@ void *rpc_thread_f(void *arg)
 					send_connect_input *in = &in_msg->send_connect_in;
 					send_connect_output *out = &out_msg->send_connect_out;
 					out_msg->type = SEND_CONNECT_ACK;
-
-					/* Do we have an entry for that destid ? */
-					sem_wait(&hello_daemon_info_list_sem);
-					auto it = find(begin(hello_daemon_info_list),
-						       end(hello_daemon_info_list),
-						       in->server_destid);
-
-					/* If the server's destid is not found, just fail */
-					if (it == end(hello_daemon_info_list)) {
-						ERR("destid(0x%X) was not provisioned\n", in->server_destid);
-						sem_post(&hello_daemon_info_list_sem);
-						out->status = RDMA_REMOTE_UNREACHABLE;
-						break;
-					}
-					sem_post(&hello_daemon_info_list_sem);
-
-					/* Obtain pointer to socket object already connected to destid */
-					cm_client *main_client = it->client;
-
-					/* Obtain and flush send buffer for sending CM_CONNECT_MS message */
-					cm_connect_msg *c;
-					main_client->get_send_buffer((void **)&c);
-					main_client->flush_send_buffer();
-
-					/* Compose CONNECT_MS message */
-					c->type			= htobe64(CM_CONNECT_MS);
-					strcpy(c->server_msname, in->server_msname);
-					c->client_msid		= htobe64((uint64_t)in->client_msid);
-					c->client_msubid	= htobe64((uint64_t)in->client_msubid);
-					c->client_bytes		= htobe64((uint64_t)in->client_bytes);
-					c->client_rio_addr_len	= htobe64((uint64_t)in->client_rio_addr_len);
-					c->client_rio_addr_lo	= htobe64(in->client_rio_addr_lo);
-					c->client_rio_addr_hi	= htobe64((uint64_t)in->client_rio_addr_hi);
-					c->client_destid_len	= htobe64(peer.destid_len);
-					c->client_destid	= htobe64(peer.destid);
-					c->seq_num		= htobe64((uint64_t)in->seq_num);
-
-					/* "%016" PRIx64 " */
-					DBG("WITHOUT CONVERSION:\n");
-					DBG("c->type = 0x%016" PRIx64 "\n", c->type);
-					DBG("c->server_msname = %s\n", c->server_msname);
-					DBG("c->client_msid   = 0x%016" PRIx64 "\n", c->client_msid);
-					DBG("c->client_msubid   = 0x%016" PRIx64 "\n", c->client_msubid);
-					DBG("c->client_bytes   = 0x%016" PRIx64 "\n", c->client_bytes);
-					DBG("c->client_rio_addr_len = 0x%016" PRIx64 "\n", c->client_rio_addr_len);
-					DBG("c->client_rio_addr_lo = 0x%016" PRIx64 "\n", c->client_rio_addr_lo);
-					DBG("c->client_rio_addr_hi = 0x%016" PRIx64 "\n", c->client_rio_addr_hi);
-					DBG("c->client_destid_len = 0x%016" PRIx64 "\n", c->client_destid_len);
-					DBG("c->client_destid = 0x%016" PRIx64 "\n", c->client_destid);
-					DBG("c->seq_num = 0x%016" PRIx64 "\n", c->seq_num);
-					DBG("WITH CONVERSTION:\n");
-					DBG("c->type = 0x%016" PRIx64 "\n", be64toh(c->type));
-					DBG("c->server_msname = %s\n", c->server_msname);
-					DBG("c->client_msid   = 0x%016" PRIx64 "\n", be64toh(c->client_msid));
-					DBG("c->client_msubid   = 0x%016" PRIx64 "\n", be64toh(c->client_msubid));
-					DBG("c->client_bytes   = 0x%016" PRIx64 "\n", be64toh(c->client_bytes));
-					DBG("c->client_rio_addr_len = 0x%016" PRIx64 "\n", be64toh(c->client_rio_addr_len));
-					DBG("c->client_rio_addr_lo = 0x%016" PRIx64 "\n", be64toh(c->client_rio_addr_lo));
-					DBG("c->client_rio_addr_hi = 0x%016" PRIx64 "\n", be64toh(c->client_rio_addr_hi));
-					DBG("c->client_destid_len = 0x%016" PRIx64 "\n", be64toh(c->client_destid_len));
-					DBG("c->client_destid = 0x%016" PRIx64 "\n", be64toh(c->client_destid));
-					DBG("c->seq_num = 0x%016" PRIx64 "\n", be64toh(c->seq_num));
-					main_client->dump_send_buffer();
-
-					/* Send buffer to server */
-					if (main_client->send()) {
-						ERR("Failed to send CONNECT_MS to destid(0x%X)\n",
-											in->server_destid);
-						out->status = -3;
-						break;
-					}
-					INFO("cm_connect_msg sent to remote daemon\n");
-
-					/* Add POSIX message queue name to list of queue names */
-					string	mq_name(in->server_msname);
-					mq_name.insert(0, 1, '/');
-
-					/* Add to list of message queue names awaiting an 'accept' to 'connect' */
-					if (wait_accept_mq_names.contains(mq_name)) {
-						/* This would happen if we are retrying ... */
-						WARN("'%s' already in wait_accept_mq_names\n", mq_name.c_str());
-					} else {
-						wait_accept_mq_names.push_back(mq_name);
-						/* FIXME: This is not the best place for this. It really should be when
-						 * we get the CM_ACCEPT_MS message, but the problem is that the CM_ACCEPT_MS
-						 * message does not contain the client_msubid.
-						 */
-						/* Also add to the connected_to_ms_info_list */
-						sem_wait(&connected_to_ms_info_list_sem);
-						connected_to_ms_info_list.emplace_back(
-								in->client_msubid,
-								in->server_msname,
-								in->server_destid,
-								other_server);
-						sem_post(&connected_to_ms_info_list_sem);
-					}
-
-					out->status = 0;
+					out->status = rdmad_send_connect(
+							in->server_msname,
+							in->server_destid,
+							in->client_msid,
+							in->client_msubid,
+							in->client_bytes,
+							in->client_rio_addr_len,
+							in->client_rio_addr_lo,
+							in->client_rio_addr_hi,
+							in->seq_num,
+							other_server);
 				}
 				break;
 
@@ -635,29 +405,7 @@ void *rpc_thread_f(void *arg)
 					undo_connect_input *in = &in_msg->undo_connect_in;
 					undo_connect_output *out = &out_msg->undo_connect_out;
 					out_msg->type = UNDO_CONNECT_ACK;
-
-					/* Add POSIX message queue name to list of queue names */
-					string	mq_name(in->server_ms_name);
-					mq_name.insert(0, 1, '/');
-
-					/* Remove from list of mq names awaiting an 'accept' reply to 'connect' */
-					wait_accept_mq_names.remove(mq_name);
-					out->status = 0;
-
-					/* Also remove from the connected_to_ms_info_list */
-					sem_wait(&connected_to_ms_info_list_sem);
-					auto it = find(begin(connected_to_ms_info_list),
-							end(connected_to_ms_info_list),
-							in->server_ms_name);
-					if (it == end(connected_to_ms_info_list)) {
-						WARN("Could not find '%s' in connected_to_ms_info_list\n",
-							in->server_ms_name);
-					} else {
-						DBG("Removing '%s' from connect_to_ms_info_list\n",
-							in->server_ms_name);
-						connected_to_ms_info_list.erase(it);
-					}
-					sem_post(&connected_to_ms_info_list_sem);
+					out->status = rdmad_undo_connect(in->server_ms_name);
 				}
 				break;
 
@@ -670,30 +418,10 @@ void *rpc_thread_f(void *arg)
 
 					DBG("Client to disconnect from destid = 0x%X\n", in->rem_destid);
 
-					out->status = send_disc_ms_cm(
+					out->status = rdmad_send_disconnect(
 							in->rem_destid,
 							in->rem_msid,
 							in->loc_msubid);
-
-					/* Remove from the connected_to_ms_info_list */
-					sem_wait(&connected_to_ms_info_list_sem);
-					vector<connected_to_ms_info>::iterator it;
-					for (it = begin(connected_to_ms_info_list);
-						  it != end(connected_to_ms_info_list);
-						  it++) {
-						if (it->server_msid == in->rem_msid) {
-							DBG("Found msid(0x%X)\n", in->rem_msid);
-							break;
-						}
-					}
-					if (it != end(connected_to_ms_info_list)) {
-						DBG("Removing msid(0x%X) from connected list\n",
-								in->rem_msid);
-						connected_to_ms_info_list.erase(it);
-					} else {
-						DBG("msid(0x%X) NOT FOUND\n", in->rem_msid);
-					}
-					sem_post(&connected_to_ms_info_list_sem);
 				}
 				break;
 
