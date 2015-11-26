@@ -11,12 +11,8 @@
 
 inline int rdmad_get_mport_id(int *mport_id)
 {
-	if (peer.mport_id > 0) {
-		*mport_id = peer.mport_id;
-		return 0;
-	} else {
-		return -1;
-	}
+	*mport_id = peer.mport_id;
+	return 0;
 } /* rdmad_get_mport_id() */
 
 inline int rdmad_create_mso(const char *mso_name,
