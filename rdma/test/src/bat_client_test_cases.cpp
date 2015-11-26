@@ -27,7 +27,7 @@ char rem_ms_name3[MAX_NAME];
 /**
  * Create a number of memory space owners. Some have duplicate names and are
  * expected to fail. Others should succeed including ones which are substrings
- * of existing memory space names.
+ * of existing memory space owner names.
  */
 int test_case_a(void)
 {
@@ -92,6 +92,11 @@ exit:
 #undef NUM_MSOS
 } /* test_case_a() */
 
+/**
+ * Create a number of memory spaces. Some have duplicate names and are
+ * expected to fail. Others should succeed including ones which are substrings
+ * of existing memory space names.
+ */
 int test_case_b(void)
 {
 #define NUM_MSS	12
@@ -164,8 +169,15 @@ exit:
 
 int test_case_c(void)
 {
-	int	ret;
+	int	  ret;
+	unsigned  num_ibwins;
+	uint32_t  ibwin_size;
 
+	/* Determine number of IBWINs and the size of each IBWIN */
+	ret = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	printf("%u inbound windows, %uKB each\n", num_ibwins, ibwin_size/1024);
 	/* Create mso */
 	mso_h	msoh1;
 	ret = create_mso_f(bat_first_client,

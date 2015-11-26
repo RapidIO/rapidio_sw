@@ -53,7 +53,11 @@ extern cm_client *bat_first_client;
 extern bat_msg_t *bm_first_tx;
 extern bat_msg_t *bm_first_rx;
 
+/* Functions in LIBRDMA but NOT published in LIBRDMA.H since they are
+ * for testing only. */
 extern "C" int rdmad_kill_daemon();
+extern "C" int rdma_get_ibwin_properties(unsigned *num_ibwins,
+					 uint32_t *ibwin_size);
 
 /**
  * Create an mso on the server.

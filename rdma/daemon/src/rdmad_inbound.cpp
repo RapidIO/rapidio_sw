@@ -67,7 +67,7 @@ private:
 /* Constructor */
 inbound::inbound(riomp_mport_t mport_hnd,
 		 unsigned num_wins,
-		 uint64_t win_size) : mport_hnd(mport_hnd)
+		 uint32_t win_size) : ibwin_size(win_size), mport_hnd(mport_hnd)
 {
 	/* Initialize inbound windows */
 	for (unsigned i = 0; i < num_wins; i++) {

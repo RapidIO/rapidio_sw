@@ -37,6 +37,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <semaphore.h>
 
+#include <iostream>
+
 #include "libcli.h"
 
 #include "rdmad_mspace.h"
@@ -54,13 +56,18 @@ public:
 	/* Constructor */
 	inbound(riomp_mport_t mport_hnd,
 		unsigned num_wins,
-		uint64_t win_size);
+		uint32_t win_size);
 
 	/* Destructor */
 	~inbound();
 
 	/* Dump inbound info */
 	void dump_info(struct cli_env *env);
+
+	unsigned get_num_ibwins() {
+		return ibwins.size();
+	}
+	uint64_t get_ibwin_size() { return ibwin_size; }
 
 	/* get_mspace by name */
 	mspace  *get_mspace(const char *name);
@@ -108,6 +115,7 @@ public:
 	int destroy_msubspace(uint32_t msid, uint32_t msubid);
 
 private:
+	uint32_t 	ibwin_size;
 	vector<ibwin>	ibwins;
 	sem_t		ibwins_sem;
 	riomp_mport_t	mport_hnd;

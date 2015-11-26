@@ -153,7 +153,37 @@ int rdmad_kill_daemon()
 	in_msg->rdmad_kill_daemon_in = in;
 
 	return alt_rpc_call(in_msg, NULL);
-}
+} /* rdmad_kill_daemon() */
+
+int rdma_get_ibwin_properties(unsigned *num_ibwins,
+			      uint32_t *ibwin_size)
+{
+	get_ibwin_properties_input  in;
+	get_ibwin_properties_output out;
+	unix_msg_t	*in_msg;
+	unix_msg_t  	*out_msg;
+
+	client->get_send_buffer((void **)&in_msg);
+
+	in.dummy = 0xc0de;
+	in_msg->type = GET_IBWIN_PROPERTIES;
+	in_msg->get_ibwin_properties_in = in;
+
+	int ret = alt_rpc_call(in_msg, &out_msg);
+	if (ret) {
+		ERR("Call to RDMA daemon failed\n");
+		return ret;
+	}
+
+	out = out_msg->get_ibwin_properties_out;
+	DBG("num_ibwins = %u, ibwin_size = %uKB\n",
+		out.num_ibwins, out.ibwin_size);
+
+	*num_ibwins = out.num_ibwins;
+	*ibwin_size = out.ibwin_size;
+
+	return 0;
+} /* rdma_get_inbwin_properties() */
 
 static bool rdmad_is_alive()
 {

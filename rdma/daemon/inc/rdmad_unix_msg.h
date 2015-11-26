@@ -38,6 +38,8 @@
 #define SEND_DISCONNECT_ACK	0x8010
 #define RDMAD_IS_ALIVE		0x001A
 #define RDMAD_IS_ALIVE_ACK	0x801A
+#define GET_IBWIN_PROPERTIES 	0x001B
+#define GET_IBWIN_PROPERTIES_ACK 	0x801B
 #define RDMAD_KILL_DAEMON	0x0666
 
 /* rdmad_is_alive() arguments */
@@ -234,6 +236,16 @@ struct send_disconnect_output {
 	int	status;
 };
 
+/* get_ibwin_properties arguments */
+struct get_ibwin_properties_input {
+	int	dummy;
+};
+struct get_ibwin_properties_output {
+	unsigned	num_ibwins;
+	uint32_t	ibwin_size;
+	int		status;
+};
+
 /* Unix message structure */
 struct unix_msg_t {
 	uint32_t	type;
@@ -274,6 +286,8 @@ struct unix_msg_t {
 		struct rdmad_is_alive_output	rdmad_is_alive_out;
 		struct rdmad_kill_daemon_input	rdmad_kill_daemon_in;
 		struct rdmad_kill_daemon_output	rdmad_kill_daemon_out;
+		struct get_ibwin_properties_input  get_ibwin_properties_in;
+		struct get_ibwin_properties_output get_ibwin_properties_out;
 	};
 };
 

@@ -431,6 +431,20 @@ void *rpc_thread_f(void *arg)
 				}
 				break;
 
+				case GET_IBWIN_PROPERTIES:
+				{
+					DBG("RDMAD_GET_IBWIN_PROPERTIES\n");
+					get_ibwin_properties_output *out =
+						&out_msg->get_ibwin_properties_out;
+					out_msg->type = GET_IBWIN_PROPERTIES_ACK;
+
+					out->status = rdmad_get_ibwin_properties(
+						&out->num_ibwins, &out->ibwin_size);
+					DBG("num_ibwins = %u, ibwin_size = %uKB\n",
+						out->num_ibwins, out->ibwin_size/1024);
+				}
+				break;
+
 				default:
 					CRIT("UNKNOWN MESSAGE TYPE: 0x%X\n", in_msg->type);
 			} /* switch */

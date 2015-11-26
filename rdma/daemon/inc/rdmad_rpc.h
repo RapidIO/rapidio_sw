@@ -96,3 +96,13 @@ int rdmad_undo_connect(const char *server_ms_name);
 int rdmad_send_disconnect(uint32_t rem_destid,
 			  uint32_t rem_msid,
 			  uint32_t loc_msubid);
+
+int rdmad_get_ibwin_properties(unsigned *num_ibwins,
+			       uint32_t *ibwin_size)
+{
+	*num_ibwins = the_inbound->get_num_ibwins();
+	*ibwin_size = the_inbound->get_ibwin_size();
+
+	return 0;
+} /* rdmad_get_ibwin_properties() */
+
