@@ -571,12 +571,6 @@ create_pe:
 		RIOCP_DEBUG("Created PE hop %d, port %d, didvid 0x%08x, devinfo 0x%08x, comptag 0x%08x\n",
 			p->hopcount, port, p->cap.dev_id, p->cap.dev_info, p->comptag);
 
-		ret = riocp_pe_maint_unset_anyid_route(p);
-		if (ret) {
-			RIOCP_ERROR("Error in unset_anyid_route for peer\n");
-			goto err_destroy_hnd;
-		}
-
 	} else if (ret == 1) {
 
 		ret = riocp_pe_lock_set(pe->mport, any_id, hopcount);
@@ -615,16 +609,22 @@ create_pe:
 			}
 		}
 
-		ret = riocp_pe_maint_unset_anyid_route(p);
-		if (ret) {
-			RIOCP_ERROR("Error in unset_anyid_route for peer\n");
-			goto err_peer_unlock;
-		}
-
 	} else {
 		RIOCP_ERROR("Error in checking if handle exists ret = %d (%s)\n",
 			ret, strerror(-ret));
 		goto err_clear_any_id_route;
+	}
+
+	ret = riocp_pe_lock_clear(pe->mport, any_id, hopcount);
+	if (ret) {
+		RIOCP_ERROR("Could not clear lock on peer\n");
+		goto err_clear_any_id_route;
+	}
+
+	ret = riocp_pe_maint_unset_anyid_route(pe);
+	if (ret) {
+		RIOCP_ERROR("Error in unset_anyid_route for peer\n");
+		goto err_out;
 	}
 
 	*peer = p;
@@ -637,16 +637,16 @@ err_destroy_hnd:
 		RIOCP_ERROR("Could not destroy peer handle\n");
 	}
 err_peer_unlock:
-	ret = riocp_pe_lock_clear(pe->mport, pe->destid, pe->hopcount);
+	ret = riocp_pe_lock_clear(pe->mport, any_id, hopcount);
 	if (ret) {
 		RIOCP_ERROR("Could not clear lock on peer\n");
 	}
 err_clear_any_id_route:
-	ret = riocp_pe_maint_unset_anyid_route(p);
+	ret = riocp_pe_maint_unset_anyid_route(pe);
 	if (ret) {
 		RIOCP_ERROR("Error in unset_anyid_route for peer\n");
 	}
-
+err_out:
 	return -EIO;
 }
 
