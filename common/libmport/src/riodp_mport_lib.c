@@ -1668,7 +1668,7 @@ int riomp_mgmt_get_event(riomp_mport_t mport_handle, struct riomp_mgmt_event *ev
 				free(p);
 				if(timeout == 0)
 					return -EAGAIN;
-				else if(timeout == RIO_TIMEOUT_INF || (unsigned)timeout < (clockdiff(start_time)/1000)) {
+				else if(timeout == RIO_TIMEOUT_INF || (unsigned)timeout > (clockdiff(start_time)/1000)) {
 					usleep(10000);
 					continue;
 				}
