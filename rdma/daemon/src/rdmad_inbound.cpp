@@ -182,18 +182,25 @@ int inbound::get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& 
 /* get_mspace by msoid & msid */
 mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
 {
-	mspace *ms = NULL;
+	mspace *ms = nullptr;
 
 	sem_wait(&ibwins_sem);
-	for (auto& ibwin : ibwins) {
-		ms = ibwin.get_mspace(msoid, msid);
-		if (ms)
+	ibwin& ibw1 = ibwins[0];
+	for (auto& ibw : ibwins) {
+		ms = ibw.get_mspace(msoid, msid);
+		if (ms != nullptr) {
+			ibw1 = ibw;	// Remember the window in which we
+					// found the memory space.
 			break;
+		}
 	}
 	sem_post(&ibwins_sem);
 
-	if (NULL) {
+	if (ms != nullptr) {
 		WARN("msid(0x%X) with msoid(0x%X) not found\n", msid, msoid);
+	} else {
+		DBG("msid(0x%X) with msoid(0x%X) found in ibwin(%u)\n",
+			msid, msoid, ibw1.get_win_num());
 	}
 	return ms;
 } /* get_mspace() */
@@ -233,6 +240,7 @@ void inbound::dump_all_mspace_with_msubs_info(struct cli_env *env)
 } /* dump_all_mspace_with_msubs_info() */
 
 /* Create a memory space within a window that has enough space */
+// TODO: Returning msid is redundant as it can be obtained from 'ms'
 int inbound::create_mspace(const char *name,
 			   uint64_t size,
 			   uint32_t msoid,
@@ -257,7 +265,7 @@ int inbound::create_mspace(const char *name,
 
 	/* MMAP, zero, then UNMAP the space */
 	void *vaddr;
-	if (ret >= 0 ) {
+	if (ret == 0 ) {
 		ret = riomp_dma_map_memory(mport_hnd,
 					   size,
 					   (*ms)->get_phys_addr(),
@@ -283,10 +291,12 @@ int inbound::create_mspace(const char *name,
 } /* create_mspace() */
 
 /* Open memory space */
+// TODO: Just return pointer to the 'ms'
 int inbound::open_mspace(const char *name,
 			 unix_server *user_server,
 			 uint32_t *msid,
 			 uint64_t *phys_addr,
+			 uint64_t *rio_addr,
 			 uint32_t *ms_conn_id,
 			 uint32_t *bytes)
 {
@@ -305,6 +315,7 @@ int inbound::open_mspace(const char *name,
 		return -2;
 	}
 	*phys_addr = ms->get_phys_addr();
+	*rio_addr  = ms->get_rio_addr();
 	DBG("EXIT\n");
 	return 0;
 } /* open_mspace() */

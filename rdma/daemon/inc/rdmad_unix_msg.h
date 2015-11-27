@@ -116,6 +116,7 @@ struct create_ms_input {
 struct create_ms_output {
 	uint32_t msid;
 	uint64_t phys_addr;
+	uint64_t rio_addr;
 	int	status;
 };
 
@@ -128,6 +129,7 @@ struct open_ms_input {
 struct open_ms_output {
 	uint32_t msid;
 	uint64_t phys_addr;
+	uint64_t rio_addr;
 	uint32_t ms_conn_id;
 	uint32_t bytes;
 	int	status;

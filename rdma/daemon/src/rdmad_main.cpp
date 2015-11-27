@@ -276,7 +276,8 @@ void *rpc_thread_f(void *arg)
 							in->bytes,
 							in->msoid,
 							&out->msid,
-							&out->phys_addr);
+							&out->phys_addr,
+							&out->rio_addr);
 				}
 				break;
 
@@ -290,6 +291,7 @@ void *rpc_thread_f(void *arg)
 					out->status = rdmad_open_ms(in->ms_name,
 								    &out->msid,
 								    &out->phys_addr,
+								    &out->rio_addr,
 								    &out->ms_conn_id,
 								    &out->bytes,
 								    other_server);

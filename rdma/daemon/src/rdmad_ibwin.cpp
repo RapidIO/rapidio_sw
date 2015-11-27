@@ -95,6 +95,11 @@ ibwin::ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size) :
 			"ibwin::ibwin() failed in riomp_dma_ibwin_map");
 	}
 
+	/**
+	 * If direct mapping is used then the physical address and the
+	 * RIO address are the same. We currently only return the physical
+	 * address to the library. I think we should return both.
+	 */
 	INFO("%d, rio_addr = 0x%lX, size = 0x%lX, phys_addr = 0x%lX\n",
 		win_num, rio_addr, size, phys_addr);
 
@@ -312,8 +317,8 @@ mspace* ibwin::get_mspace(uint32_t msoid, uint32_t msid)
 	mspace *ms;
 
 	if (it == end(mspaces)) {
-		WARN("Mspace with msid(0x%X) not found\n", msid);
-		ms = nullptr;
+		WARN("Mspace with msid(0x%X) not found in ibwin(%u)\n", msid);
+		return nullptr;
 	} else {
 		ms = *it;
 	}
@@ -321,7 +326,8 @@ mspace* ibwin::get_mspace(uint32_t msoid, uint32_t msid)
 
 
 	if (ms->get_msoid() != msoid) {
-		ERR("msid(0x%X) not owned by msoid(0x%X)\n", msid,msoid);
+		ERR("msid(0x%X) not owned by msoid(0x%X) in ibwin(%u)\n",
+				msid, msoid, win_num );
 		ms = nullptr;;
 	}
 

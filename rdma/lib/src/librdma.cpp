@@ -155,6 +155,9 @@ int rdmad_kill_daemon()
 	return alt_rpc_call(in_msg, NULL);
 } /* rdmad_kill_daemon() */
 
+/**
+ * For testing only. Not exposed in librdma.h.
+ */
 int rdma_get_ibwin_properties(unsigned *num_ibwins,
 			      uint32_t *ibwin_size)
 {
@@ -177,13 +180,31 @@ int rdma_get_ibwin_properties(unsigned *num_ibwins,
 
 	out = out_msg->get_ibwin_properties_out;
 	DBG("num_ibwins = %u, ibwin_size = %uKB\n",
-		out.num_ibwins, out.ibwin_size);
+		out.num_ibwins, out.ibwin_size/1024);
 
 	*num_ibwins = out.num_ibwins;
 	*ibwin_size = out.ibwin_size;
 
 	return 0;
 } /* rdma_get_inbwin_properties() */
+
+/**
+ * For testing only. Not exposed in librdma.h.
+ */
+int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint64_t *bytes)
+{
+	if (msh == 0) {
+		ERR("NULL parameter.\n");
+		return -1;
+	}
+
+	loc_ms *msp = (loc_ms *)msh;
+
+	*rio_addr = msp->rio_addr;
+	*bytes	  = msp->bytes;
+
+	return 0;
+} /* rdma_get_msh_properties() */
 
 static bool rdmad_is_alive()
 {
@@ -958,7 +979,7 @@ int rdma_create_ms_h(const char *ms_name,
 	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its socket connection */
+	/* Check the daemon hasn't died since we established its connection */
 	if (!rdmad_is_alive()) {
 		WARN("Local RDMA daemon has died.\n");
 	}
@@ -1020,12 +1041,18 @@ int rdma_create_ms_h(const char *ms_name,
 	}
 
 	out = out_msg->create_ms_out;
+	if (out.status != 0) {
+		ERR("Failed to create '%s'\n", ms_name);
+		sem_post(&rdma_lock);
+		return out.status;
+	}
 
 	*msh = add_loc_ms(ms_name,
 			  *bytes,
 			  msoh,
 			  out.msid,
 			  out.phys_addr,
+			  out.rio_addr,
 			  0, true,
 			  0, nullptr,
 			  0, nullptr);
@@ -1222,6 +1249,7 @@ int rdma_open_ms_h(const char *ms_name,
 			  msoh,
 			  out.msid,
 			  out.phys_addr,
+			  out.rio_addr,
 			  out.ms_conn_id,
 			  false,
 			  0,
@@ -1412,13 +1440,19 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	}
 	out = out_msg->destroy_ms_out;
 
+	/* Check that we were actually able to find/destroy the ms */
+	if (out.status != 0) {
+		ERR("Failed to find/destroy msid(0x%X)' in daemon.\n", in.msid);
+		return out.status;
+	}
+
 	/* Kill the disconnection thread, if it exists */
 	pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
 	if (!disc_thread) {
 		WARN("disc_thread is NULL.\n");
 	} else {
 		if (pthread_cancel(disc_thread)) {
-			WARN("Failed to kill disc_thread for msh(0x%" PRIx64 "):%s\n",
+			WARN("Failed to cancel disc_thread for msh(0x%" PRIx64 "):%s\n",
 						msh, strerror(errno));
 		}
 	}

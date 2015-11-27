@@ -5,6 +5,14 @@
 #include <unistd.h>
 #include <linux/limits.h>
 
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+#endif
+
+#include <vector>
+#include <sstream>
+
 #include <cstdlib>
 #include <cstdio>
 #include <inttypes.h>
@@ -14,6 +22,11 @@
 #include "bat_common.h"
 #include "bat_client_private.h"
 #include "bat_client_test_cases.h"
+
+using std::vector;
+using std::stringstream;
+
+#define BAT_MIN_BLOCK_SIZE	4096
 
 char loc_mso_name[MAX_NAME];
 char loc_ms_name[MAX_NAME];
@@ -167,17 +180,100 @@ exit:
 	return ret;
 } /* test_case_b() */
 
+
+/**
+ *
+ */
 int test_case_c(void)
 {
-	int	  ret;
 	unsigned  num_ibwins;
 	uint32_t  ibwin_size;
+	int	  rc;
 
 	/* Determine number of IBWINs and the size of each IBWIN */
-	ret = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
-	BAT_EXPECT_RET(ret, 0, exit);
-
+	rc = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
+	BAT_EXPECT_RET(rc, 0, exit);
 	printf("%u inbound windows, %uKB each\n", num_ibwins, ibwin_size/1024);
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	rc = rdma_create_mso_h("test_case_c_mso", &client_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
+	/* First off, allocating a memory space > ibwin_size is an error */
+	ms_h	oversize_msh;
+	rc = rdma_create_ms_h("oversize_ms",
+			      client_msoh,
+			      ibwin_size + BAT_MIN_BLOCK_SIZE,
+			      0,
+			      &oversize_msh,
+			      NULL);
+	if (rc == 0) {
+		/* rc should not have been 0 since the space is too large. */
+		rc = 1;
+		BAT_EXPECT_RET(rc, 0, free_mso);
+	}
+
+	/* Now create a number of memory spaces such that they fill each
+	 * inbound window with different sizes starting with 1/2 the inbound
+	 * window size and ending with 4K which is the minimum block size that
+	 * can be mapped.
+	 */
+	/* First generate the memory space sizes */
+	static vector<uint32_t>	ms_sizes;
+
+	for (unsigned ibwin = 0; ibwin < num_ibwins; ibwin++) {
+		auto size = ibwin_size/2;
+
+		while (size >= BAT_MIN_BLOCK_SIZE) {
+			ms_sizes.push_back(size);
+			size /= 2;
+		}
+		ms_sizes.push_back(size * 2);
+	}
+
+	/* Now allocate the memory spaces */
+	static vector<ms_h> ms_handles(ms_sizes.size());
+	for (unsigned i = 0; i < ms_sizes.size(); i++) {
+		stringstream ms_name;
+		ms_name << "mspace" << i;
+		uint32_t size;
+		uint64_t ms_size;
+		uint64_t rio_addr;
+		rc = rdma_create_ms_h(ms_name.str().c_str(),
+				      client_msoh,
+				      ms_sizes[i],
+				      0,
+				      &ms_handles[i],
+				      &size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+		rdma_get_msh_properties(ms_handles[i],
+				&rio_addr, &ms_size);
+		printf("0x%016" PRIx64 ", 0x%016" PRIx64 ", 0x%" PRIx64 "\n",
+			ms_handles[i], rio_addr, ms_size);
+	}
+
+free_mso:
+	/* Delete the mso */
+	rc = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
+exit:
+	BAT_EXPECT_PASS(rc);
+
+	return 0;
+} /* test_case_c() */
+
+/**
+ * This is the old test case 'c' which allocates memory remotely on the
+ * server. The new test case 'c' will use local allocation and maybe
+ * duplicated here to perform a remove version.
+ */
+int test_case_c_old(void)
+{
+	int	  ret;
+
+
 	/* Create mso */
 	mso_h	msoh1;
 	ret = create_mso_f(bat_first_client,

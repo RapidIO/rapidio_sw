@@ -41,25 +41,33 @@ int rdmad_destroy_mso(uint32_t msoid)
 } /* rdmad_destroy_mso() */
 
 int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
-			uint32_t *msid, uint64_t *phys_addr)
+			uint32_t *msid, uint64_t *phys_addr,
+			uint64_t *rio_addr)
 {
 	int rc;
 
 	/* Create memory space in the inbound space */
-	mspace *ms;
+	mspace *ms = nullptr;
 	rc = the_inbound->create_mspace(ms_name, bytes, msoid, msid, &ms);
 
-	/* Obtain assigned physical address */
-	if (ms)
+	if (rc != 0) {
+		ERR("Failed to create '%s'\n", ms_name);
+		return -1;
+	}
+
+	/* Obtain assigned physical & RIO addresses (which would be the
+	 * same if we are using direct mapping). */
+	if (ms != nullptr) {
 		*phys_addr = ms->get_phys_addr();
+		*rio_addr  = ms->get_rio_addr();
+	}
 
 	DBG("the_inbound->create_mspace(%s) %s\n", ms_name,
 						rc ? "FAILED" : "PASSED");
 
 	/* Add the memory space to the owner (if no errors) */
 	try {
-		if (!rc)
-			owners[msoid]->add_ms(ms);
+		owners[msoid]->add_ms(ms);
 	}
 	catch(...) {
 		ERR("Invalid msoid(0x%X) caused segfault\n", msoid);
@@ -71,7 +79,7 @@ int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 int rdmad_close_ms(uint32_t msid, uint32_t ms_conn_id)
 {
 	mspace *ms = the_inbound->get_mspace(msid);
-	if (!ms) {
+	if (ms == nullptr) {
 		ERR("Could not find mspace with msid(0x%X)\n", msid);
 		return -1;
 	} else {
@@ -83,7 +91,7 @@ int rdmad_close_ms(uint32_t msid, uint32_t ms_conn_id)
 int rdmad_destroy_ms(uint32_t msoid, uint32_t msid)
 {
 	mspace *ms = the_inbound->get_mspace(msoid, msid);
-	if (!ms) {
+	if (ms == nullptr) {
 		ERR("Could not find mspace with msid(0x%X)\n", msid);
 		return -1;;
 	} else {

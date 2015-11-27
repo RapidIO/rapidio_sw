@@ -103,6 +103,7 @@ public:
 			unix_server *user_server,
 			uint32_t *msid,
 			uint64_t *phys_addr,
+			uint64_t *rio_addr,
 			uint32_t *ms_conn_id,
 			uint32_t *bytes);
 

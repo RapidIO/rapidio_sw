@@ -58,6 +58,9 @@ extern bat_msg_t *bm_first_rx;
 extern "C" int rdmad_kill_daemon();
 extern "C" int rdma_get_ibwin_properties(unsigned *num_ibwins,
 					 uint32_t *ibwin_size);
+extern "C" int rdma_get_msh_properties(ms_h msh,
+				       uint64_t *rio_addr,
+				       uint64_t *bytes);
 
 /**
  * Create an mso on the server.

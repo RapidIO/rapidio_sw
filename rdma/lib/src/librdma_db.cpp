@@ -367,6 +367,7 @@ ms_h add_loc_ms(const char *ms_name,
 		mso_h msoh,
 		uint32_t msid,
 		uint64_t phys_addr,
+		uint64_t rio_addr,
 		uint32_t ms_conn_id,
 		bool owned,
 		pthread_t disc_thread,
@@ -387,6 +388,7 @@ ms_h add_loc_ms(const char *ms_name,
 	msp->msoh	= msoh;
 	msp->msid	= msid;
 	msp->phys_addr 	= phys_addr;
+	msp->rio_addr	= rio_addr;
 	msp->ms_conn_id	= ms_conn_id;
 	msp->owned	= owned;
 	msp->disc_thread = disc_thread;

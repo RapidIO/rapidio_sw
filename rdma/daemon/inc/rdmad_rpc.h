@@ -35,9 +35,11 @@ inline int rdmad_close_mso(uint32_t msoid, uint32_t mso_conn_id)
 int rdmad_destroy_mso(uint32_t msoid);
 
 int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
-			uint32_t *msid, uint64_t *phys_addr);
+			uint32_t *msid, uint64_t *phys_addr,
+			uint64_t *rio_addr);
 
-inline int rdmad_open_ms(const char *ms_name, uint32_t *msid, uint64_t *phys_addr,
+inline int rdmad_open_ms(const char *ms_name, uint32_t *msid,
+		  uint64_t *phys_addr, uint64_t *rio_addr,
 		  uint32_t *ms_conn_id, uint32_t *bytes,
 		  unix_server *server=nullptr)
 {
@@ -46,6 +48,7 @@ inline int rdmad_open_ms(const char *ms_name, uint32_t *msid, uint64_t *phys_add
 				server,
 				msid,
 				phys_addr,
+				rio_addr,
 				ms_conn_id,
 				bytes);
 } /* rdmad_open_ms() */
