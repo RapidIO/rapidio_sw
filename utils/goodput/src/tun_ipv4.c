@@ -202,6 +202,22 @@ int icmp_host_unreachable(uint8_t* l3_in, const int l3_in_size, uint8_t* l3_out,
   return 1;
 }
 
+bool send_icmp_host_unreachable(const int tun_fd, uint8_t* l3_in, const int l3_in_size)
+{
+        if(tun_fd < 0) return false;
+        if(l3_in == NULL || l3_in_size < 20) return false;
+
+        const int BUFSIZE = 8192;
+        uint8_t buffer_unreach[BUFSIZE] = {0};
+
+        int out_size = BUFSIZE;
+
+        if (! icmp_host_unreachable(l3_in, l3_in_size, buffer_unreach, out_size)) return false;
+
+        cwrite(tun_fd, buffer_unreach, out_size);
+        return true;
+}
+
 #ifdef __cplusplus
 };
 #endif

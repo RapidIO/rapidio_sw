@@ -176,9 +176,11 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_fifo_proc_must_die = 0;
 	info->umd_dma_abort_reason = 0;
 	info->umd_sockp[0] = info->umd_sockp[1] = -1;
+	info->umd_epollfd = -1;
 
-	info->umd_dma_did_peer_bitmap = 0LL;
 	memset(&info->umd_dma_did_peer, 0, sizeof(info->umd_dma_did_peer));
+	pthread_mutex_init(&info->umd_dma_did_peer_mutex, NULL);
+
 	memset(&info->umd_dch_list, 0, sizeof(info->umd_dch_list));
 
 	//if (first_time) {
@@ -2795,22 +2797,6 @@ exit_rx:
 	delete info->umd_lock; info->umd_lock = NULL;
 }
 
-bool send_icmp_host_unreachable(struct worker* info, uint8_t* l3_in, const int l3_in_size)
-{
-	if(info == NULL) return false;
-	if(l3_in == NULL || l3_in_size < 20) return false;
-
-	const int BUFSIZE = 8192;
-	uint8_t buffer_unreach[BUFSIZE] = {0};
-
-	int out_size = BUFSIZE;
-
-	if (! icmp_host_unreachable(l3_in, l3_in_size, buffer_unreach, out_size)) return false;
-
-	cwrite(info->umd_tun_fd, buffer_unreach, out_size);
-	return true;
-}
-
 const int DESTID_TRANSLATE = 1;
 
 std::map <uint16_t, bool> bad_destid;
@@ -2887,7 +2873,7 @@ again:
 #endif
 
 		if (is_bad_destid) {
-			send_icmp_host_unreachable(info, buffer+4, nread);
+			send_icmp_host_unreachable(tun_fd, buffer+4, nread);
 			continue;
 		}
 
@@ -2908,7 +2894,7 @@ again:
 				bad_destid[opt.destid] = true;
 
 				info->stop_req = SOFT_RESTART;
-				send_icmp_host_unreachable(info, buffer+4, nread);
+				send_icmp_host_unreachable(tun_fd, buffer+4, nread);
 				break;
                         } else { goto send_again; } // Succeed or die trying
                 } else {

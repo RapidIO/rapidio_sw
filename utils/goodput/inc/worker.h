@@ -149,9 +149,11 @@ struct thread_cpu {
 	pthread_t thr; /* Thread being migrated... */
 };
 
+#ifdef USER_MODE_DRIVER
+
 #define SOFT_RESTART	69
 
-#ifdef USER_MODE_DRIVER
+#define MAX_EPOLL_EVENTS	64
 
 typedef struct {
 	uint16_t           destid; ///< RIO destid of peer
@@ -164,6 +166,7 @@ typedef struct {
 	int		   tun_MTU;
 
 	int                WP, RP;
+	uint64_t           tx_cnt; ///< How many L3 frames successfully sent to this peer
 
 	sem_t		   rio_rx_work; ///< Isolcpu thread signals per-Tun, per-destid RIO thread that it has ready IB BDs
 	DMA_L2_t**	   rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
@@ -172,7 +175,9 @@ typedef struct {
 	pthread_spinlock_t rio_rx_bd_ready_splock;
 
 	volatile int       stop_req; ///< For the thread minding this peer
-} DmaTunDestid_t;
+
+	struct worker*     info;
+} DmaPeerDestid_t;
 
 typedef struct {
 	int			 chan;
@@ -289,9 +294,11 @@ struct worker {
 	DmaChannelInfo_t* umd_dch_list[8]; // Used for round-robin TX. Only 6 usable!
 
 	int		umd_sockp[2]; ///< Used to signal Tun RX thread to quit
+	int             umd_epollfd; ///< Epoll set
 	struct thread_cpu umd_dma_tap_thr;
-	uint64_t	umd_dma_did_peer_bitmap; ///< Which peer is reported by kernel AND used by us
-	std::map <uint16_t, DmaTunDestid_t*> umd_dma_did_peer;
+	std::map <uint16_t, DmaPeerDestid_t*> umd_dma_did_peer;
+	std::map <int, uint16_t>             umd_dma_did_peer_fd2did; ///< Maps tun file descriptor to destid
+	pthread_mutex_t                      umd_dma_did_peer_mutex;
 
 	sem_t		umd_mbox_tap_proc_started;
 	volatile int	umd_mbox_tap_proc_alive;
@@ -320,7 +327,7 @@ static inline int BD_PAYLOAD_SIZE(const struct worker* info)
 	return DMA_L2_SIZE + info->umd_tun_MTU;
 }
 
-static inline void DmaTunDestidDestroy(DmaTunDestid_t* peer)
+static inline void DmaPeerDestidDestroy(DmaPeerDestid_t* peer)
 {
 	if (peer == NULL) return;
 
@@ -332,12 +339,15 @@ static inline void DmaTunDestidDestroy(DmaTunDestid_t* peer)
 	peer->rio_rx_bd_ready_size = -1;
 }
 
-static inline bool DmaTunDestidInit(const struct worker* info, DmaTunDestid_t* peer, const void* ib_ptr)
+static inline bool DmaPeerDestidInit(const struct worker* info, DmaPeerDestid_t* peer, const void* ib_ptr)
 {
 	if (peer == NULL || ib_ptr == NULL) return false;
 
-	memset(peer, 0, sizeof(DmaTunDestid_t));
+	//memset(peer, 0, sizeof(DmaPeerDestid_t));
 	peer->tun_fd = -1;
+
+	peer->info = (struct worker*)info;
+
         sem_init(&peer->rio_rx_work, 0, 0);
         pthread_spin_init(&peer->rio_rx_bd_ready_splock, PTHREAD_PROCESS_PRIVATE);
 
@@ -373,7 +383,6 @@ static inline bool DmaTunDestidInit(const struct worker* info, DmaTunDestid_t* p
 	return true;
 
 exit:
-	DmaTunDestidDestroy(peer);
 	return false;
 }
 
