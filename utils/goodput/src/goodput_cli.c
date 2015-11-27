@@ -2335,6 +2335,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 {
         int idx;
         int chan;
+        int chan_n;
 	int chan2;
         int cpu;
         uint32_t buff;
@@ -2349,6 +2350,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         if (get_cpu(env, argv[n++], &cpu))
                 goto exit;
         chan     = GetDecParm(argv[n++], 0);
+        chan_n   = GetDecParm(argv[n++], 0);
         chan2     = GetDecParm(argv[n++], 0);
         buff     = GetHex(argv[n++], 0);
         sts      = GetHex(argv[n++], 0);
@@ -2360,12 +2362,27 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
                 goto exit;
 
         if ((chan < 1) || (chan > 7)) {
-                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
+                sprintf(env->output, "Chan_1 %d illegal, must be 1 to 7\n", chan);
+                logMsg(env);
+                goto exit;
+        };
+        if ((chan_n < 1) || (chan_n > 7)) {
+                sprintf(env->output, "Chan_n %d illegal, must be 1 to 7\n", chan);
+                logMsg(env);
+                goto exit;
+        };
+	if (chan > chan_n) {
+                sprintf(env->output, "Chan {%d...%d} range illegal\n", chan, chan_n);
                 logMsg(env);
                 goto exit;
         };
         if ((chan2 < 1) || (chan2 > 7)) {
-                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan2);
+                sprintf(env->output, "Chan2 %d illegal, must be 1 to 7\n", chan2);
+                logMsg(env);
+                goto exit;
+        };
+	if (chan2 >= chan && chan2 <= chan_n) {
+                sprintf(env->output, "Chan2 %d illegal, cannot be in {%d...%d} range\n", chan2, chan, chan_n);
                 logMsg(env);
                 goto exit;
         };
@@ -2408,6 +2425,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         wkr[idx].action = umd_dma_tap;
         wkr[idx].action_mode = user_mode_action;
         wkr[idx].umd_chan    = chan;
+        wkr[idx].umd_chan_n  = chan_n;
         wkr[idx].umd_chan2   = chan2; // for NREAD
         wkr[idx].umd_tun_MTU = mtu;
         wkr[idx].umd_fifo_thr.cpu_req = cpu;
@@ -2431,13 +2449,14 @@ exit:
 struct cli_cmd UDMAT = {
 "tundma",
 5,
-7,
+8,
 "TUN/TAP (L3) over DMA with User-Mode demo driver -- pointopoint",
-"<idx> <cpu> <chan> <chan_nread> <buff> <sts> <did> <rio_addr> <mtu>\n"
+"<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <did> <rio_addr> <mtu>\n"
         "<idx> is a worker index from 0 to 7\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
-        "<chan> is a MBOX channel number from 1 through 7\n"
-        "<chan_nread> is a MBOX channel number from 1 through 7 used for NREAD\n"
+        "<chan_1> is a MBOX channel number from 1 through 7\n"
+        "<chan_n> is a MBOX channel number from 1 through 7 -- we use chan{1...n} for TX round-robin\n"
+        "<chan_nread> is a MBOX channel number from 1 through 7 used for NREAD, distinct from range above\n"
         "<buff> is the number of transmit descriptors/buffers to allocate\n"
         "       Must be a power of two from 0x20 up to 0x80000\n"
         "<sts> is the number of status entries for completed descriptors\n"

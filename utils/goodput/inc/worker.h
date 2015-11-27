@@ -72,6 +72,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef USER_MODE_DRIVER
 #include <string>
+#include <map>
 
 #include "dmachan.h"
 #include "mboxchan.h"
@@ -85,6 +86,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "pshm.h"
 #include "rdtsc.h"
 #include "lockfile.h"
+#include "udma_tun.h"
 #endif
 
 #ifdef __cplusplus
@@ -150,17 +152,39 @@ struct thread_cpu {
 #define SOFT_RESTART	69
 
 #ifdef USER_MODE_DRIVER
-/** \brief This is the L2 header we use for transporting Tun L3 frames over RIO via DMA */
-struct DMA_L2_s {
-	uint8_t  RO;     ///< Reader Owned flag(s), not "read only"
-        uint16_t destid; ///< Destid of sender in network format, network order
-        uint32_t len;    ///< Length of this write, L2+data. Unlike MBOX, DMA is Fu**ed, network order
-	uint8_t  padding;///< Barry dixit "It's much better to have headers be a multiple of 4 bytes for RapidIO purposes"
-} __attribute__ ((packed));
-typedef struct DMA_L2_s DMA_L2_t;
 
-const int DMA_L2_SIZE = sizeof(DMA_L2_t);
-#endif
+typedef struct {
+	uint16_t           destid; ///< RIO destid of peer
+	uint64_t           rio_addr; ///< Peer's IBwin mapping
+
+	void*              ib_ptr; ///< Pointer to some place in LOCAL ibwin
+
+	int		   tun_fd;
+	char		   tun_name[33];
+	int		   tun_MTU;
+
+	int                WP, RP;
+
+	sem_t		   rio_rx_work; ///< Isolcpu thread signals per-Tun, per-destid RIO thread that it has ready IB BDs
+	DMA_L2_t**	   rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
+        uint32_t*          rio_rx_bd_ready; ///< List of all IB BDs that have fresh data in them, per-destid 
+        volatile int       rio_rx_bd_ready_size;
+	pthread_spinlock_t rio_rx_bd_ready_splock;
+
+	volatile int       stop_req; ///< For the thread minding this peer
+} DmaTunDestid_t;
+
+typedef struct {
+	int			 chan;
+	int                      oi;
+	int                      tx_buf_cnt; ///< Powersof 2, min 0x20, only (n-1) usable, last one for T3
+	int			 sts_entries;
+	DMAChannel*              dch;
+	RioMport::DmaMem_t       dmamem[MAX_UMD_BUF_COUNT];
+	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
+} DmaChannelInfo_t;
+
+#endif // USER_MODE_DRIVER
 
 struct worker {
 	int idx; /* index of this worker thread -- needed by UMD */
@@ -237,10 +261,11 @@ struct worker {
 #ifdef USER_MODE_DRIVER
 	LockFile*	umd_lock;
 	int		umd_chan; ///< Local mailbox OR DMA channel
+	int		umd_chan_n; ///< Local mailbox OR DMA channel, forming a range {chan,...,chan_n}
 	int		umd_chan2; ///< Local mailbox OR DMA channel
 	int		umd_chan_to; ///< Remote mailbox
 	int		umd_letter; ///< Remote mailbox letter
-	DMAChannel 	*umd_dch;
+	DMAChannel 	*umd_dch; ///< Used for anything but DMA Tun
 	DMAChannel 	*umd_dch2; ///< Used for NREAD in DMA Tun
 	MboxChannel 	*umd_mch;
 	enum dma_rtype	umd_tx_rtype;
@@ -251,34 +276,108 @@ struct worker {
 	sem_t		umd_fifo_proc_started;
 	volatile int	umd_fifo_proc_alive;
 	volatile int	umd_fifo_proc_must_die;
-	int		umd_tun_fd;
-	char		umd_tun_name[33];
-	int		umd_tun_MTU;
-	int		umd_sockp[2];
-	void		(*umd_dma_fifo_callback)(struct worker* info);
+
 	struct thread_cpu umd_mbox_tap_thr;
+
+	void		(*umd_dma_fifo_callback)(struct worker* info);
+
+	// Used only for MBOX Tun
+        int             umd_tun_fd;
+        char            umd_tun_name[33];
+        int             umd_tun_MTU;
+
+	DmaChannelInfo_t* umd_dch_list[8]; // Used for round-robin TX. Only 6 usable!
+
+	int		umd_sockp[2]; ///< Used to signal Tun RX thread to quit
 	struct thread_cpu umd_dma_tap_thr;
+	uint64_t	umd_dma_did_peer_bitmap; ///< Which peer is reported by kernel AND used by us
+	std::map <uint16_t, DmaTunDestid_t*> umd_dma_did_peer;
+
 	sem_t		umd_mbox_tap_proc_started;
 	volatile int	umd_mbox_tap_proc_alive;
 	sem_t		umd_dma_tap_proc_started;
 	volatile int	umd_dma_tap_proc_alive;
 	uint32_t	umd_dma_abort_reason;
-	sem_t		umd_dma_rio_rx_work;
-	DMA_L2_t**	umd_dma_rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
-        uint32_t*       umd_dma_rio_rx_bd_ready; ///< List of all IB BDs that have fresh data in them, per-destid 
-        volatile int    umd_dma_rio_rx_bd_ready_size;
-	pthread_spinlock_t umd_dma_rio_rx_bd_ready_splock;
-	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
-	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 	volatile uint64_t tick_count, tick_total;
 	volatile uint64_t tick_data_total;
 	std::string	evlog;
+
+	// NOT used for DMA Tun
+        RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
+        DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 
 	struct seq_ts desc_ts;
 	struct seq_ts fifo_ts;
 	struct seq_ts meas_ts;
 #endif
 };
+
+#ifdef USER_MODE_DRIVER
+
+static inline int BD_PAYLOAD_SIZE(const struct worker* info)
+{
+	if (info == NULL) return -1;
+	return DMA_L2_SIZE + info->umd_tun_MTU;
+}
+
+static inline void DmaTunDestidDestroy(DmaTunDestid_t* peer)
+{
+	if (peer == NULL) return;
+
+	if (peer->tun_fd >= 0) { close(peer->tun_fd); peer->tun_fd = -1; }
+	peer->tun_name[0] = '\0';
+
+	free(peer->rio_rx_bd_L2_ptr); peer->rio_rx_bd_L2_ptr = NULL;
+	free(peer->rio_rx_bd_ready); peer->rio_rx_bd_ready = NULL;
+	peer->rio_rx_bd_ready_size = -1;
+}
+
+static inline bool DmaTunDestidInit(const struct worker* info, DmaTunDestid_t* peer, const void* ib_ptr)
+{
+	if (peer == NULL || ib_ptr == NULL) return false;
+
+	memset(peer, 0, sizeof(DmaTunDestid_t));
+	peer->tun_fd = -1;
+        sem_init(&peer->rio_rx_work, 0, 0);
+        pthread_spin_init(&peer->rio_rx_bd_ready_splock, PTHREAD_PROCESS_PRIVATE);
+
+        // Set up array of pointers to IB L2 headers
+
+	peer->ib_ptr = (void*)ib_ptr;
+        peer->rio_rx_bd_L2_ptr = (DMA_L2_t**)calloc(info->umd_tx_buf_cnt, sizeof(DMA_L2_t*)); // +1 secret cell
+        if (peer->rio_rx_bd_L2_ptr == NULL) goto exit;
+
+        peer->rio_rx_bd_ready = (uint32_t*)calloc(info->umd_tx_buf_cnt, sizeof(uint32_t)); // +1 secret cell
+        if (peer->rio_rx_bd_ready == NULL) goto exit;
+
+        peer->rio_rx_bd_ready_size = 0;
+
+        {{ // RX: Pre-populate the locations of the RO bit in IB BDs, and zero RO
+          std::stringstream ss;
+          uint8_t* p = sizeof(uint32_t) + (uint8_t*)ib_ptr;
+          for (int i = 0; i < (info->umd_tx_buf_cnt-1); i++, p += BD_PAYLOAD_SIZE(info)) {
+                peer->rio_rx_bd_L2_ptr[i] = (DMA_L2_t*)p;
+                peer->rio_rx_bd_L2_ptr[i]->RO = 0;
+#ifdef UDMA_TUN_DEBUG_IB
+                char tmp[129] = {0};
+                snprintf(tmp, 128, "\tL2_ptr[%d] = %p\n", i, p);
+                ss << tmp;
+#endif // UDMA_TUN_DEBUG_IB
+          }
+#ifdef UDMA_TUN_DEBUG_IB
+          DBG("\n\tL2 acceleration array (base=%p, size=%d):\n", info->ib_ptr, info->umd_tx_buf_cnt-1);
+          write(STDOUT_FILENO, ss.str().c_str(), ss.str().size());
+#endif // UDMA_TUN_DEBUG_IB
+        }}
+
+	return true;
+
+exit:
+	DmaTunDestidDestroy(peer);
+	return false;
+}
+
+#endif // USER_MODE_DRIVER
 
 /**
  * @brief Returns number of CPUs as reported in /proc/cpuinfo
