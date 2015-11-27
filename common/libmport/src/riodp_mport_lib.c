@@ -444,7 +444,7 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 #else
 	int ret, sd;
 	struct rapidio_mport_handle *hnd = NULL;
-#if 1
+#if 0
 	struct addrinfo *addrinf;
 	struct addrinfo hints;
 
@@ -593,13 +593,13 @@ int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 	int fd;
 	uint32_t entries = *number_of_mports;
 	uint32_t *list;
-	int ret = -1;
+	int ret = -ENOMEM;
 
 
 	/* Open RapidIO Channel Manager */
 	fd = riomp_sock_mbox_init();
 	if (fd < 0)
-		return -1;
+		return -errno;
 
 	list = (uint32_t *)calloc((entries + 1), sizeof(*list));
 	if (list == NULL)
@@ -608,7 +608,7 @@ int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 	/* Request MPORT list from the driver (first entry is list size) */
 	list[0] = entries;
 	if (ioctl(fd, RIO_CM_MPORT_GET_LIST, list)) {
-		ret = errno;
+		ret = -errno;
 		goto outfd;
 	}
 
@@ -635,7 +635,7 @@ int riomp_mgmt_free_mport_list(uint32_t **dev_ids)
 	uint32_t *list;
 
 	if(dev_ids == NULL)
-		return -1;
+		return -EINVAL;
 	list = (*dev_ids) - 1;
 	free(list);
 	LIBTRACE("%s\n", __func__);
@@ -656,7 +656,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 	/* Open mport */
 	fd = riomp_sock_mbox_init();
 	if (fd < 0)
-		return -1;
+		return -errno;
 
 	/* Get list size */
 	entries = mport_id;
@@ -664,7 +664,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 #ifdef DEBUG
 		printf("%s ep_get_list_size ioctl failed: %s\n", __func__, strerror(errno));
 #endif
-		ret = errno;
+		ret = -errno;
 		goto outfd;
 	}
 #ifdef DEBUG
@@ -673,7 +673,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 	/* Get list */
 	list = (uint32_t *)calloc((entries + 2), sizeof(*list));
 	if (list == NULL) {
-		ret = -1;
+		ret = -ENOMEM;
 		goto outfd;
 	}
 
@@ -681,7 +681,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 	list[0] = entries;
 	list[1] = mport_id;
 	if (ioctl(fd, RIO_CM_EP_GET_LIST, list)) {
-		ret = errno;
+		ret = -errno;
 		goto outfd;
 	}
 
@@ -708,7 +708,7 @@ int riomp_mgmt_free_ep_list(uint32_t **destids)
 	uint32_t *list;
 
 	if(destids == NULL)
-		return -1;
+		return -EINVAL;
 	list = (*destids) - 2;
 	free(list);
 	LIBTRACE("%s\n", __func__);
@@ -774,7 +774,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	LIBTRACE("%s\n", __func__);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)?-errno:ret;
 #else
 	LIBERROR("not implemented\n");
 	return -ENOTSUP;
@@ -814,7 +814,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	LIBTRACE("%s\n", __func__);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)?-errno:ret;
 #else
 	LIBERROR("not implemented\n");
 	return -ENOTSUP;
@@ -851,7 +851,7 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_add
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	LIBTRACE("%s\n", __func__);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)?-errno:ret;
 #else
 	LIBERROR("not implemented\n");
 	return -ENOTSUP;
@@ -889,7 +889,7 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	LIBTRACE("%s\n", __func__);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)?-errno:ret;
 #else
 	LIBERROR("not implemented\n");
 	return -ENOTSUP;
@@ -912,7 +912,7 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 	wparam.timeout = tmo;
 
 	if (ioctl(hnd->fd, RIO_WAIT_FOR_ASYNC, &wparam))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 #else
 	LIBERROR("not implemented\n");
@@ -937,7 +937,7 @@ int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t
 	ib.length = size;
 
 	if (ioctl(hnd->fd, RIO_MAP_INBOUND, &ib))
-		return errno;
+		return -errno;
 	*handle = ib.handle;
 	*rio_base = ib.rio_addr;
 	LIBTRACE("%s\n", __func__);
@@ -960,7 +960,7 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_UNMAP_INBOUND, handle))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 #else
 #endif
@@ -982,7 +982,7 @@ int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid, uint64_t ri
 	ob.length = size;
 
 	if (ioctl(hnd->fd, RIO_MAP_OUTBOUND, &ob))
-		return errno;
+		return -errno;
 	*handle = ob.handle;
 	LIBTRACE("%s\n", __func__);
 	return 0;
@@ -1001,7 +1001,7 @@ int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_UNMAP_OUTBOUND, handle))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 #else
 	LIBERROR("not implemented\n");
@@ -1024,7 +1024,7 @@ int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *ha
 	db.length = size;
 
 	if (ioctl(hnd->fd, RIO_ALLOC_DMA, &db))
-		return errno;
+		return -errno;
 	*handle = db.dma_handle;
 	LIBTRACE("%s\n", __func__);
 	return 0;
@@ -1046,7 +1046,7 @@ int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_FREE_DMA, handle))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 #else
 	LIBERROR("not implemented\n");
@@ -1086,7 +1086,9 @@ int riomp_dma_unmap_memory(riomp_mport_t mport_handle, size_t size, void *vaddr)
 {
 #ifndef LIBMPORT_SIMULATOR
 	LIBTRACE("%s\n", __func__);
-	return munmap(vaddr, size);
+	if (munmap(vaddr, size) == -1)
+		return -errno;
+	return 0;
 #else
 	LIBERROR("not implemented\n");
 	return -ENOTSUP;
@@ -1106,7 +1108,7 @@ int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_propert
 
 	memset(&prop, 0, sizeof(prop));
 	if (ioctl(hnd->fd, RIO_MPORT_GET_PROPERTIES, &prop))
-		return errno;
+		return -errno;
 
 	qresp->hdid               = prop.hdid;
 	qresp->id                 = prop.id;
@@ -1164,7 +1166,7 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t s
 	mt.u.buffer = data;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_LOCAL, &mt))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
@@ -1212,7 +1214,7 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t 
 	mt.u.buffer = &data;   /* when length != 0 */
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_LOCAL, &mt))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
@@ -1262,7 +1264,7 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t h
 	mt.u.buffer = data;   /* when length != 0 */
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_REMOTE, &mt))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
@@ -1312,7 +1314,7 @@ int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t 
 	mt.u.buffer = &data;   /* when length != 0 */
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_REMOTE, &mt))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
@@ -1359,7 +1361,7 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16
 	dbf.high = end;
 
 	if (ioctl(hnd->fd, RIO_ENABLE_DOORBELL_RANGE, &dbf))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
@@ -1385,7 +1387,7 @@ int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint1
 	dbf.high = end;
 
 	if (ioctl(hnd->fd, RIO_DISABLE_DOORBELL_RANGE, &dbf))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
@@ -1411,7 +1413,7 @@ int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_
 	pwf.high = high;
 
 	if (ioctl(hnd->fd, RIO_ENABLE_PORTWRITE_RANGE, &pwf))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
@@ -1458,7 +1460,7 @@ int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32
 	pwf.high = high;
 
 	if (ioctl(hnd->fd, RIO_DISABLE_PORTWRITE_RANGE, &pwf))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
@@ -1503,7 +1505,7 @@ int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask)
 	if (mask & RIO_EVENT_DOORBELL) evt_mask |= RIO_DOORBELL;
 	if (mask & RIO_EVENT_PORTWRITE) evt_mask |= RIO_PORTWRITE;
 	if (ioctl(hnd->fd, RIO_SET_EVENT_MASK, evt_mask))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
@@ -1547,7 +1549,7 @@ int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask)
 
 	if (!mask) return -EINVAL;
 	if (ioctl(hnd->fd, RIO_GET_EVENT_MASK, &evt_mask))
-		return errno;
+		return -errno;
 	*mask = 0;
 	if (evt_mask & RIO_DOORBELL) *mask |= RIO_EVENT_DOORBELL;
 	if (evt_mask & RIO_PORTWRITE) *mask |= RIO_EVENT_PORTWRITE;
@@ -1748,7 +1750,7 @@ int riomp_mgmt_destid_set(riomp_mport_t mport_handle, uint16_t destid)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_HDID_SET, &destid))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 	return 0;
 #else
@@ -1805,7 +1807,7 @@ int riomp_mgmt_device_add(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 		*dev.name = '\0';
 
 	if (ioctl(hnd->fd, RIO_DEV_ADD, &dev))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 #else
 	LIBERROR("not implemented\n");
@@ -1830,7 +1832,7 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid, uint8_t h
 	dev.comptag = ctag;
 
 	if (ioctl(hnd->fd, RIO_DEV_DEL, &dev))
-		return errno;
+		return -errno;
 	LIBTRACE("%s\n", __func__);
 #else
 	LIBERROR("not implemented\n");
@@ -1849,7 +1851,7 @@ int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 	/* Open mport */
 	fd = riomp_sock_mbox_init();
 	if (fd < 0)
-		return -1;
+		return -errno;
 
 	/* TODO claim mbox_id */
 
@@ -1857,7 +1859,7 @@ int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 	lhandle = (struct rapidio_mport_mailbox *)malloc(sizeof(struct rapidio_mport_mailbox));
 	if(!(lhandle)) {
 		close(fd);
-		return -2;
+		return -ENOMEM;
 	}
 
 	lhandle->fd = fd;
@@ -1879,8 +1881,8 @@ int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 	/* Create handle */
 	handle = (struct rapidio_mport_socket *)calloc(1, sizeof(struct rapidio_mport_socket));
 	if(!handle) {
-		printf("error in calloc\n");
-		return -1;
+		LIBERROR("error in calloc\n");
+		return -ENOMEM;
 	}
 
 	handle->mbox = mailbox;
@@ -1906,8 +1908,8 @@ int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 	msg.msg = buf;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_SEND, &msg);
 	if (ret) {
-		printf("SEND IOCTL: returned %d for ch_num=%d (errno=%d)\n", ret, msg.ch_num, errno);
-		return errno;
+		LIBERROR("SEND IOCTL: returned %d for ch_num=%d (errno=%d)\n", ret, msg.ch_num, errno);
+		return -errno;
 	}
 
 	LIBTRACE("%s\n", __func__);
@@ -1932,7 +1934,7 @@ int riomp_sock_receive(riomp_sock_t socket_handle, void **buf,
 	msg.rxto = timeout;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_RECEIVE, &msg);
 	if (ret)
-		return errno;
+		return -errno;
 
 	LIBTRACE("%s\n", __func__);
 	return 0;
@@ -1969,7 +1971,7 @@ int riomp_sock_close(riomp_sock_t *socket_handle)
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CLOSE, &ch_num);
 	if (ret < 0) {
 		printf("CLOSE IOCTL: returned %d for ch_num=%d (errno=%d)\n", ret, (*socket_handle)->ch.id, errno);
-		ret = errno;
+		ret = -errno;
 	}
 
 	free(handle);
@@ -1993,7 +1995,8 @@ int riomp_sock_mbox_destroy_handle(riomp_mailbox_t *mailbox)
 		return 0;
 	}
 
-	return -1;
+	LIBERROR("invalid handle\n");
+	return -EFAULT;
 #else
 	LIBERROR("not implemented\n");
 	return -ENOTSUP;
@@ -2012,7 +2015,7 @@ int riomp_sock_bind(riomp_sock_t socket_handle, uint16_t local_channel)
 
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CREATE, &ch_num);
 	if (ret < 0)
-		return errno;
+		return -errno;
 
 	cdev.id = ch_num;
 	cdev.mport_id = handle->mbox->mport_id;
@@ -2021,7 +2024,7 @@ int riomp_sock_bind(riomp_sock_t socket_handle, uint16_t local_channel)
 
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_BIND, &cdev);
 	if (ret < 0)
-		return errno;
+		return -errno;
 
 	LIBTRACE("%s\n", __func__);
 	return 0;
@@ -2041,7 +2044,7 @@ int riomp_sock_listen(riomp_sock_t socket_handle)
 	ch_num = handle->ch.id;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_LISTEN, &ch_num);
 	if (ret)
-		return errno;
+		return -errno;
 
 	LIBTRACE("%s\n", __func__);
 	return 0;
@@ -2068,7 +2071,7 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_ACCEPT, &param);
 	if (ret)
-		return errno;
+		return -errno;
 
 #ifdef DEBUG
 	printf("%s: new ch_num=%d\n", __func__, param.ch_num);
@@ -2098,7 +2101,7 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 		if (ioctl(handle->mbox->fd, RIO_CM_CHAN_CREATE, &ch_num)) {
 			ret = errno;
 			LIBERROR("ioctl RIO_CM_CHAN_CREATE rc(%d): %s\n", ret, strerror(ret));
-			return ret;
+			return -ret;
 		}
 		handle->ch.id = ch_num;
 	}
@@ -2136,7 +2139,7 @@ int riomp_sock_request_send_buffer(riomp_sock_t socket_handle,
 
 	*buf = malloc(0x1000); /* Always allocate maximum size buffers */
 	if (*buf == NULL)
-		return -1;
+		return -ENOMEM;
 
 	LIBTRACE("%s\n", __func__);
 	return 0;
