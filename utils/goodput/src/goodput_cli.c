@@ -2689,7 +2689,7 @@ ATTR_NONE
 
 struct cli_cmd UMSGT = {
 "tumsg",
-5,
+2,
 5,
 "TUN/TAP (L3) over MBOX with User-Mode demo driver",
 "<idx> <cpu> <chan> <buff> <sts>\n"
@@ -2786,19 +2786,6 @@ struct cli_cmd *goodput_cmds[] = {
 	&dmaTxLat,
 	&dmaRxLat,
 	&dma,
-#ifdef USER_MODE_DRIVER
-	&UCal,
-	&UDMA,
-	&UDMALRR,
-	&UDMALTX,
-	&UDMALRX,
-	&UDMAT,
-	&UMSG,
-	&UMSGL,
-	&UMSGT,
-	&UMDDD,
-	&UTime,
-#endif
 	&msgTx,
 	&msgRx,
 	&msgTxLat,
@@ -2815,7 +2802,20 @@ struct cli_cmd *goodput_cmds[] = {
 	&Sleep,
 	&CPUOccSet,
 	&CPUOccDisplay,
-	&Mpdevs
+	&Mpdevs,
+#ifdef USER_MODE_DRIVER
+	&UCal,
+	&UDMA,
+	&UDMALRR,
+	&UDMALTX,
+	&UDMALRX,
+	&UDMAT,
+	&UMSG,
+	&UMSGL,
+	&UMSGT,
+	&UMDDD,
+	&UTime,
+#endif
 };
 
 void bind_goodput_cmds(void)
