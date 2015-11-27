@@ -179,6 +179,10 @@ int rdma_get_ibwin_properties(unsigned *num_ibwins,
 	}
 
 	out = out_msg->get_ibwin_properties_out;
+	if (out.status != 0) {
+		ERR("Failed to get IBWIN properties from daemon\n");
+		return out.status;
+	}
 	DBG("num_ibwins = %u, ibwin_size = %uKB\n",
 		out.num_ibwins, out.ibwin_size/1024);
 
@@ -247,8 +251,12 @@ static int open_mport(struct peer_info *peer)
 
 	out = out_msg->get_mport_id_out;
 
+	if (out.status != 0) {
+		ERR("Failed to obtain mport ID from daemon\n");
+		return out.status;
+	}
+
 	/* Get the mport ID */
-	/* FIXME: Do we need to check out_msg->status? */
 	peer->mport_id = out.mport_id;
 	INFO("Using mport_id = %d\n", peer->mport_id);
 
@@ -574,6 +582,14 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 	}
 
 	out = out_msg->create_mso_out;
+
+	/* Check status returned by command on the daemon side */
+	if (out.status != 0) {
+		ERR("Failed to create mso('%s') in daemon\n", in.owner_name);
+		sem_post(&rdma_lock);
+		return out.status;
+	}
+
 	/* Store in database. mso_conn_id = 0 and owned = true */
 	*msoh = add_loc_mso(owner_name, out.msoid, 0, true, (pthread_t)0, nullptr);
 	if (!*msoh) {
@@ -687,6 +703,13 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	}
 
 	out = out_msg->open_mso_out;
+
+	/* Check status returned by command on the daemon side */
+	if (out.status != 0) {
+		ERR("Failed to open mso('%s') in daemon\n", in.owner_name);
+		sem_post(&rdma_lock);
+		return out.status;
+	}
 
 	/* Open message queue for receiving mso close messages. Such messages are
 	 * sent when the owner of an 'mso' decides to destroy the mso. The close
@@ -856,6 +879,13 @@ int rdma_close_mso_h(mso_h msoh)
 
 	out = out_msg->close_mso_out;
 
+	/* Check status returned by command on the daemon side */
+	if (out.status != 0) {
+		ERR("Failed to close mso(0x%X) in daemon\n", in.msoid);
+		sem_post(&rdma_lock);
+		return out.status;
+	}
+
 	/* Take it out of database */
 	if (remove_loc_mso(msoh) < 0) {
 		WARN("Failed to find 0x%" PRIx64 " in db\n", msoh);
@@ -953,6 +983,13 @@ int rdma_destroy_mso_h(mso_h msoh)
 	}
 
 	out = out_msg->destroy_mso_out;
+
+	/* Check status returned by command on the daemon side */
+	if (out.status != 0) {
+		ERR("Failed to destroy msoid(0x%X) in daemon\n");
+		sem_post(&rdma_lock);
+		return out.status;
+	}
 
 	/* Remove from database */
 	if (remove_loc_mso(msoh)) {
@@ -1216,6 +1253,14 @@ int rdma_open_ms_h(const char *ms_name,
 	}
 
 	out = out_msg->open_ms_out;
+
+	/* Check status returned by command on the daemon side */
+	if (out.status != 0) {
+		ERR("Failed to open ms('%s') in daemon\n", in.ms_name);
+		sem_post(&rdma_lock);
+		return out.status;
+	}
+
 	INFO("Opened '%s' in the daemon\n", ms_name);
 
 	/* Create message queue for receiving ms close messages. */
@@ -1374,6 +1419,12 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		return ret;
 	}
 	out = out_msg->close_ms_out;
+
+	/* Check status returned by command on the daemon side */
+	if (out.status != 0) {
+		ERR("Failed to close ms(0x%X) in daemon\n", in.msid);
+		return out.status;
+	}
 
 	/* Take it out of databse */
 	if (remove_loc_ms(msh) < 0) {
@@ -1538,7 +1589,15 @@ int rdma_create_msub_h(ms_h	msh,
 		sem_post(&rdma_lock);
 		return ret;
 	}
+
 	out = out_msg->create_msub_out;
+
+	/* Check status returned by command on the daemon side */
+	if (out.status != 0) {
+		ERR("Failed to create msub in daemon\n");
+		sem_post(&rdma_lock);
+		return out.status;
+	}
 
 	INFO("out->bytes=0x%X, out.phys_addr=0x%016" PRIx64 ", out.rio_addr=0x%016" PRIx64 "\n",
 				out.bytes, out.phys_addr, out.rio_addr);
@@ -1606,7 +1665,14 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 		ERR("Call to RDMA daemon failed\n");
 		return ret;
 	}
+
 	out = out_msg->destroy_msub_out;
+
+	/* Check status returned by command on the daemon side */
+	if (out.status != 0) {
+		ERR("Failed to destroy msub(0x%X)in daemon\n", in.msubid);
+		return out.status;
+	}
 
 	/* Remove msub from database */
 	if (remove_loc_msub(msubh) < 0) {
@@ -1788,6 +1854,14 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		return ret;
 	}
 	accept_out = out_msg->accept_out;
+
+	/* Check status returned by command on the daemon side */
+	if (accept_out.status != 0) {
+		ERR("Failed to accept on '%s' in daemon\n", ms->name);
+		delete connect_disconnect_mq;
+		sem_post(&rdma_lock);
+		return accept_out.status;
+	}
 
 	/* Await 'connect()' from client */
 	mq_rdma_msg *mq_rdma_msg;
@@ -2327,8 +2401,13 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 		return ret;
 	}
 	out = out_msg->send_disconnect_out;
-	INFO("send_disconnect_1() called, now exiting\n");
 
+	/* Check status returned by command on the daemon side */
+	if (out.status != 0) {
+		ERR("Failed to send disconnect from ms in daemon\n");
+		sem_post(&rdma_lock);
+		return out.status;
+	}
 	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_disc_ms_h() */
