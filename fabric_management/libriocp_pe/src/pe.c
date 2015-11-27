@@ -682,7 +682,7 @@ int riocp_pe_link_sync_simple(struct riocp_pe *pe, uint8_t port)
 			} while (!(lm_resp & RIO_PORT_N_MNT_RSP_RVAL));
 
 			j--;
-			if (i<=0) {
+			if (j<=0) {
 				RIOCP_ERROR("No link status ok (0x%08x) for RIO_PORT_N_MNT_RSP_CSR(0x%08x) on port %u\n",
 					lm_resp, efptr + RIO_PORT_N_MNT_RSP_CSR(port), port);
 				return -EIO;
