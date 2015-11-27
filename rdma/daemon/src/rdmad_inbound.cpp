@@ -196,7 +196,7 @@ mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
 	}
 	sem_post(&ibwins_sem);
 
-	if (ms != nullptr) {
+	if (ms == nullptr) {
 		WARN("msid(0x%X) with msoid(0x%X) not found\n", msid, msoid);
 	} else {
 		DBG("msid(0x%X) with msoid(0x%X) found in ibwin(%u)\n",
