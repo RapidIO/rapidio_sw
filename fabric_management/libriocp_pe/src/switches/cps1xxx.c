@@ -349,6 +349,7 @@ extern "C" {
 #define CPS1xxx_DEVICE_RESET_CTL_DO_RESET	0x80000000
 #define CPS1xxx_RIO_LINK_TIMEOUT_DEFAULT	0x00002000	/* approx 10 usecs */
 #define CPS1xxx_PKT_TTL_CSR_TTL_MAXTTL		0xffff0000
+#define CPS1xxx_PKT_TTL_CSR_TTL_OFF			0x00000000
 #define CPS1xxx_DEFAULT_ROUTE			0xde
 #define CPS1xxx_NO_ROUTE			0xdf
 #define CPS1xxx_QUAD_CFG            0xF20200
@@ -1944,11 +1945,6 @@ int cps1xxx_init(struct riocp_pe *sw)
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PW_CTL, CPS1xxx_PW_INFO_PRIO3_CRF1 | CPS1xxx_PW_INFO_SRCID(sw->destid));
 	if (ret < 0)
 		return ret;
-
-	/* Disable Port-Write timeout and send one event per error */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PW_TMO, CPS1xxx_PW_TMO_TIMOUT_DIS);
-	if (ret < 0)
-		return ret;
 #endif
 
 	/* clear lut table */
@@ -1976,7 +1972,7 @@ int cps1xxx_init(struct riocp_pe *sw)
 		see CPS1616 errate: maintenance packet buffer mananement for
 		more information. Default TTL is disabled.
 		use maximum value of approximate 110 ms */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PKT_TTL_CSR, CPS1xxx_PKT_TTL_CSR_TTL_MAXTTL);
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PKT_TTL_CSR, CPS1xxx_PKT_TTL_CSR_TTL_OFF);
 
 	/* Clear configuration errors */
 	ret = riocp_pe_maint_write(sw, CPS1xxx_CFG_ERR_DET, 0);
