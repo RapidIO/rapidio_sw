@@ -625,7 +625,7 @@ int riocp_pe_clear_lockout(struct riocp_pe *pe, uint8_t port)
 }
 
 /**
- * Do a simple link sync on PEs port (when pe is switch)
+ * Do a peer link sync on PEs port (when pe is switch)
  * - Check if port is active
  * - send link request
  * - check link response
@@ -637,13 +637,16 @@ int riocp_pe_clear_lockout(struct riocp_pe *pe, uint8_t port)
  * @retval -EIO Error in maintenance access
  * @retval -ENODEV Supplied port is inactive
  */
-int riocp_pe_link_sync_simple(struct riocp_pe *pe, uint8_t port)
+int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port)
 {
 	int ret = 0, i, j;
 	uint32_t efptr = pe->efptr;
 	uint32_t lm_resp, ackid_stat, port_err_stat;
+	uint32_t any_id;
 
-	RIOCP_TRACE("Simple link sync on pe 0x%08x:%u\n", pe->comptag, port);
+	any_id = RIOCP_PE_ANY_ID(pe);
+
+	RIOCP_TRACE("Peer link sync on pe 0x%08x:%u\n", pe->comptag, port);
 
 	if (RIOCP_PE_IS_SWITCH(pe->cap)) {
 		ret = riocp_pe_is_port_active(pe, port);
@@ -720,9 +723,29 @@ int riocp_pe_link_sync_simple(struct riocp_pe *pe, uint8_t port)
 				efptr + RIO_PORT_N_ERR_STS_CSR(port), port);
 			return ret;
 		}
+
+
+		ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_ACK_STS_CSR(port), &ackid_stat);
+		if (ret) {
+			RIOCP_ERROR("Unable to read RIO_PORT_N_ACK_STS_CSR(0x%08x) for port %u\n",
+				efptr + RIO_PORT_N_ACK_STS_CSR(port), port);
+			return ret;
+		}
+
+		lm_resp = ackid_stat;
+		ackid_stat = ((((lm_resp&RIO_PORT_N_ACK_OUTBOUND)+1) << 24) & RIO_PORT_N_ACK_INBOUND) |
+				(((lm_resp&RIO_PORT_N_ACK_INBOUND)>>24) << 8) | ((lm_resp&RIO_PORT_N_ACK_INBOUND)>>24);
+
+		ret = riocp_pe_maint_write_remote(pe->mport, any_id, pe->hopcount+1,
+				0x100 + RIO_PORT_N_ACK_STS_CSR(port), ackid_stat);
+		if (ret < 0) {
+			RIOCP_ERROR("Unable to update peer port %u for port %u with ackid_stat 0x%08x\n",
+				peer_port, port, ackid_stat);
+			return ret;
+		}
 	}
 
-	RIOCP_TRACE("Simple link sync on pe 0x%08x:%u successfull\n", pe->comptag, port);
+	RIOCP_TRACE("Peer link sync on pe 0x%08x:%u successfull\n", pe->comptag, port);
 	return ret;
 }
 

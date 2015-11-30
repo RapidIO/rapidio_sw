@@ -525,11 +525,6 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	if (ret) {
 		/* TODO try second time when failed, the ANY_ID route seems to be programmed correctly
 			at this point but the route was not working previous read */
-		RIOCP_WARN("Trying link sync and reading again component tag on h: %u\n", hopcount);
-		ret = riocp_pe_link_sync_simple(pe, port);
-		if (ret) {
-			RIOCP_ERROR("Link sync failed on h: %u\n", hopcount);
-		}
 		ret = riocp_pe_comptag_read_remote(pe->mport, any_id, hopcount, &comptag);
 		if (ret) {
 			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);
@@ -1749,6 +1744,179 @@ int riocp_pe_revoke(riocp_pe_handle pe)
 		return -EINVAL;
 
 	return riocp_pe_maint_device_del(pe);
+}
+
+/**
+ * Probe for next peer and do link sync if needed
+ * @param pe   Point from where to probe
+ * @param port Port to probe
+ * @param peer New probed peer
+ * @param peer_port input port of the peer
+ * @note Keep in mind this function always initialises found switches (clearing LUTs etc) even
+ *  when they are previously found and no handle exists yet!
+ * @retval -EPERM Handle has no host capabilities
+ */
+int RIOCP_SO_ATTR riocp_pe_probe_sync(riocp_pe_handle pe,
+	uint8_t port, uint8_t peer_port,
+	riocp_pe_handle *peer)
+{
+	uint32_t val;
+	struct riocp_pe *p;
+	uint8_t hopcount = 0;
+	uint32_t comptag = 0;
+	uint32_t any_id;
+	uint8_t sw_port = 0;
+	int ret;
+
+	if (peer == NULL)
+		return -EINVAL;
+	if (riocp_pe_handle_check(pe))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_HOST(pe))
+		return -EPERM;
+	if (port >= RIOCP_PE_PORT_COUNT(pe->cap))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_MPORT(pe))
+		hopcount = pe->hopcount + 1;
+
+	RIOCP_TRACE("Probe on PE 0x%08x (hopcount %u, port %u)\n",
+		pe->comptag, hopcount, port);
+
+	any_id = RIOCP_PE_ANY_ID(pe);
+
+	/* Prepare probe (setup route, test if port is active on PE) */
+	ret = riocp_pe_probe_prepare(pe, port);
+	if (ret)
+		return -EIO;
+
+	/* Read component tag on peer */
+	ret = riocp_pe_comptag_read_remote(pe->mport, any_id, hopcount, &comptag);
+	if (ret) {
+		/* TODO try second time when failed, the ANY_ID route seems to be programmed correctly
+			at this point but the route was not working previous read */
+		RIOCP_WARN("Trying link sync and reading again component tag on h: %u\n", hopcount);
+		ret = riocp_pe_link_sync_peer(pe, port, peer_port);
+		if (ret) {
+			RIOCP_ERROR("Link sync failed on h: %u\n", hopcount);
+		}
+		ret = riocp_pe_comptag_read_remote(pe->mport, any_id, hopcount, &comptag);
+		if (ret) {
+			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);
+			goto err_clear_any_id_route;
+		}
+		RIOCP_WARN("Retry read successfull: 0x%08x\n", comptag);
+	}
+
+	RIOCP_DEBUG("Probe peer(hc: %u, address: %s,%u) comptag 0x%08x\n",
+		hopcount, riocp_pe_handle_addr_ntoa(pe->address, pe->hopcount), port, comptag);
+
+	/* Read/test existing handle, based on component tag */
+	ret = riocp_pe_handle_pe_exists(pe->mport, comptag, &p);
+	if (ret == 0) {
+		RIOCP_DEBUG("Peer not found on mport %u with comptag 0x%08x\n",
+			pe->mport->minfo->id, comptag);
+
+		ret = riocp_pe_lock_set(pe->mport, any_id, hopcount);
+		if (ret) {
+			RIOCP_ERROR("Could not lock peer on port %d of ct 0x%08x: %s\n",
+				port, pe->comptag, strerror(-ret));
+			goto err_clear_any_id_route;
+		}
+
+create_pe:
+		/* Create peer handle */
+		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, any_id, port);
+		if (ret) {
+			RIOCP_ERROR("Could not create handle for peer on port %d of ct 0x%08x: %s\n",
+				port, pe->comptag, strerror(-ret));
+			goto err_peer_unlock;
+		}
+
+		/* Initialize peer */
+		ret = riocp_pe_probe_initialize_peer(p);
+		if (ret)
+			goto err_destroy_hnd;
+
+		RIOCP_DEBUG("Created PE hop %d, port %d, didvid 0x%08x, devinfo 0x%08x, comptag 0x%08x\n",
+			p->hopcount, port, p->cap.dev_id, p->cap.dev_info, p->comptag);
+
+	} else if (ret == 1) {
+
+		ret = riocp_pe_lock_set(pe->mport, any_id, hopcount);
+		if (ret) {
+			RIOCP_ERROR("Could not lock peer on port %d of ct 0x%08x: %s\n",
+				port, pe->comptag, strerror(-ret));
+			goto err_clear_any_id_route;
+		}
+
+		/* Verify existing handle only when found handle is not a mport */
+		if (!RIOCP_PE_IS_MPORT(pe)) {
+			ret = riocp_pe_probe_verify_found(pe, port, p);
+			if (ret == 0)
+				goto create_pe;
+			else if (ret < 0)
+				goto err_peer_unlock;
+		}
+
+		RIOCP_DEBUG("Peer found, h: %d, port %d, didvid 0x%08x, devinfo 0x%08x, comptag 0x%08x\n",
+			p->hopcount, port, p->cap.dev_id, p->cap.dev_info, p->comptag);
+
+		/* Peer handle already in list, add PE to peer for network graph */
+		if (RIOCP_PE_IS_SWITCH(p->cap)) {
+			ret = riocp_pe_maint_read_remote(pe->mport, any_id,
+				hopcount, RIO_SWP_INFO_CAR, &val);
+			if (ret) {
+				RIOCP_ERROR("Could not read switch port info CAR at hc %u\n", hopcount);
+				goto err_peer_unlock;
+			}
+			sw_port = RIO_GET_PORT_NUM(val);
+
+			ret = riocp_pe_add_peer(pe, p, port, sw_port);
+			if (ret) {
+				RIOCP_ERROR("Could not add peer(p) to pe\n");
+				goto err_peer_unlock;
+			}
+		}
+
+	} else {
+		RIOCP_ERROR("Error in checking if handle exists ret = %d (%s)\n",
+			ret, strerror(-ret));
+		goto err_clear_any_id_route;
+	}
+
+	ret = riocp_pe_lock_clear(pe->mport, any_id, hopcount);
+	if (ret) {
+		RIOCP_ERROR("Could not clear lock on peer\n");
+		goto err_clear_any_id_route;
+	}
+
+	ret = riocp_pe_maint_unset_anyid_route(pe);
+	if (ret) {
+		RIOCP_ERROR("Error in unset_anyid_route for peer\n");
+		goto err_out;
+	}
+
+	*peer = p;
+	return 0;
+
+
+err_destroy_hnd:
+	ret = riocp_pe_destroy_handle(&p);
+	if (ret) {
+		RIOCP_ERROR("Could not destroy peer handle\n");
+	}
+err_peer_unlock:
+	ret = riocp_pe_lock_clear(pe->mport, any_id, hopcount);
+	if (ret) {
+		RIOCP_ERROR("Could not clear lock on peer\n");
+	}
+err_clear_any_id_route:
+	ret = riocp_pe_maint_unset_anyid_route(pe);
+	if (ret) {
+		RIOCP_ERROR("Error in unset_anyid_route for peer\n");
+	}
+err_out:
+	return -EIO;
 }
 
 #ifdef __cplusplus
