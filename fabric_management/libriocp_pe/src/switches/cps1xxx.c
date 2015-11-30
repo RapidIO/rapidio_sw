@@ -25,6 +25,7 @@ extern "C" {
 
 #define CPS1xxx_RIO_PW_DESTID_CSR		0x1028
 #define CPS1xxx_RIO_SET_PW_DESTID(destid)	((destid) << 16)
+#define CPS1xxx_RIO_PW_LARGE_DESTID	0x00008000
 
 #define CPS1xxx_LANE_CTL_LANE_DIS			0x00000001
 #define CPS1xxx_LANE_CTL_RX_RATE			0x00000006
@@ -680,6 +681,8 @@ static int cps1xxx_init_bdc(struct riocp_pe *sw)
 
 	/* Set the Port-Write Target Device ID CSR to the host */
 	val = CPS1xxx_RIO_SET_PW_DESTID(sw->mport->destid);
+	if (sw->mport->minfo->prop.sys_size == RIO_SYS_SIZE_16)
+		val |= CPS1xxx_RIO_PW_LARGE_DESTID;
 	ret = riocp_pe_maint_write(sw, CPS1xxx_RIO_PW_DESTID_CSR, val);
 	if (ret)
 		return ret;
@@ -1938,7 +1941,7 @@ int cps1xxx_init(struct riocp_pe *sw)
 
 #ifdef CONFIG_PORTWRITE_ENABLE
 	/* Set Port-Write info CSR: PRIO=3 and CRF=1 */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PW_CTL, CPS1xxx_PW_INFO_PRIO3_CRF1 | CPS1xxx_PW_INFO_SRCID(sw->mport->destid));
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PW_CTL, CPS1xxx_PW_INFO_PRIO3_CRF1 | CPS1xxx_PW_INFO_SRCID(sw->destid));
 	if (ret < 0)
 		return ret;
 
