@@ -1666,7 +1666,7 @@ int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum rioc
 				goto outhere;
 			}
 
-			if (port_state == RIOCP_PE_PORT_STATE_OK)
+			if (port_state & RIOCP_PE_PORT_STATE_OK)
 				goto outhere;
 
 			for (i=0;i<sizeof(supported_speeds)/sizeof(supported_speeds[0]);i++) {
