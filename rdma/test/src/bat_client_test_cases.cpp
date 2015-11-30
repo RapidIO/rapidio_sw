@@ -113,8 +113,8 @@ int test_case_a(void)
 	for (unsigned i = 0; i < NUM_UNIQUE_MSOS; i++) {
 		ret = rdma_create_mso_h(mso_unique_names[i], &mso_handles[i]);
 		if (ret != 0) { \
-			fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
-					__func__, __LINE__, ret);
+			fprintf(log_fp, "%s FAILED, line %u, i = %d\n",
+					__func__, __LINE__, i);
 			failed = true;
 		}
 	}
@@ -187,13 +187,19 @@ int test_case_b(void)
 	mso_h		msoh;
 	static ms_h	ms_handles[NUM_MSS];
 
-	int ret, rc;
+	int ret;
+	bool failed = false;
 
 	/* Create mso */
 	ret = create_mso_f(bat_first_client, bm_first_tx, bm_first_rx,
 			   	   	   	   	  rem_mso_name, &msoh);
-	BAT_EXPECT_RET(ret, 0, exit);
+	if (ret != 0) {
+		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+						__func__, __LINE__, ret);
+		return ret; /* No point testing anything else */
+	}
 
+	/* Create 12 memory spaces with some duplicate names */
 	for (unsigned i = 0; i < NUM_MSS; i++) {
 		uint32_t actual_size;
 
@@ -208,31 +214,125 @@ int test_case_b(void)
 				  &actual_size);
 
 		/* Compare with expected return codes */
-		BAT_EXPECT_RET(ret, ret_codes[i], destroy_mso);
+		if (ret != ret_codes[i]) { \
+			fprintf(log_fp, "%s FAILED, line %d, i = %u\n",
+							__func__, __LINE__, i);
+			failed = true;
+		}
 	}
 
-	/* If we reach here, there were no failures, but the value of 'ret
-	 * is unpredictable. Set ret to 0 to indicate error-free */
-	ret = 0;
-
-	/* Either way, we must delete the msos that were created */
-
-destroy_mso:
-	/* Either way, we must delete the mso */
-	rc = destroy_mso_f(bat_first_client,
+	/* Destroy the memory spaces by destroying the mso */
+	ret = destroy_mso_f(bat_first_client,
 			    bm_first_tx,
 			    bm_first_rx,
 			    msoh);
-	BAT_EXPECT_RET(rc, 0, exit);
+	if (ret != 0) {
+		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+				__func__, __LINE__, ret);
+		failed = true;
+	}
 
-exit:
-	if (rc != 0) {
-		/* We failed in the destroying of the mso */
-		BAT_EXPECT_PASS(rc);
-	} else {
-		/* Check if we failed during the creation */
+	/* Second test, requested by Barry */
+
+	/* Create mso */
+	ret = create_mso_f(bat_first_client, bm_first_tx, bm_first_rx,
+			   	   	   	   	  rem_mso_name, &msoh);
+	if (ret != 0) {
+		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+						__func__, __LINE__, ret);
+		return ret; /* No point testing anything else */
+	}
+#define NUM_UNIQUE_MSS	10
+	static char ms_unique_names[][NUM_UNIQUE_MSS] = {
+		"one", "two", "three", "four", "five",
+		"six", "seven", "eight", "nine", "ten"};
+
+	/* Create 12 memory spaces with some duplicate names */
+	for (unsigned i = 0; i < NUM_UNIQUE_MSS; i++) {
+		uint32_t actual_size;
+
+		ret = create_ms_f(bat_first_client,
+				  bm_first_tx,
+				  bm_first_rx,
+				  ms_unique_names[i],
+				  msoh,
+				  MS_SIZE,
+				  0,
+				  &ms_handles[i],
+				  &actual_size);
+
+		/* Compare with expected return codes */
+		if (ret != 0) { \
+			fprintf(log_fp, "%s FAILED, line %d, i = %u\n",
+							__func__, __LINE__, i);
+			failed = true;
+		}
+	}
+
+	/* Now create 3 duplicate mss at positions 0, 6, and 9 */
+	uint32_t actual_size;
+	ms_h	 dummy_msh;
+	ret = create_ms_f(bat_first_client,
+			  bm_first_tx,
+			  bm_first_rx,
+			  "one",
+			  msoh,
+			  MS_SIZE,
+			  0,
+			  &dummy_msh,
+			  &actual_size);
+	if (ret != RDMA_DUPLICATE_MS) { \
+		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+				__func__, __LINE__, ret);
+		failed = true;
+	}
+	ret = create_ms_f(bat_first_client,
+			  bm_first_tx,
+			  bm_first_rx,
+			  "six",
+			  msoh,
+			  MS_SIZE,
+			  0,
+			  &dummy_msh,
+			  &actual_size);
+	if (ret != RDMA_DUPLICATE_MS) { \
+		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+				__func__, __LINE__, ret);
+		failed = true;
+	}
+	ret = create_ms_f(bat_first_client,
+			  bm_first_tx,
+			  bm_first_rx,
+			  "ten",
+			  msoh,
+			  MS_SIZE,
+			  0,
+			  &dummy_msh,
+			  &actual_size);
+	if (ret != RDMA_DUPLICATE_MS) { \
+		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+				__func__, __LINE__, ret);
+		failed = true;
+	}
+
+	/* Destroy the memory spaces by destroying the mso */
+	ret = destroy_mso_f(bat_first_client,
+			    bm_first_tx,
+			    bm_first_rx,
+			    msoh);
+	if (ret != 0) {
+		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+				__func__, __LINE__, ret);
+		failed = true;
+	}
+
+	if (!failed) {
 		BAT_EXPECT_PASS(ret);
 	}
+
+#undef NUM_UNIQUE_MSS
+#undef NUM_MSS
+#undef MS_SIZE
 
 	return ret;
 } /* test_case_b() */
