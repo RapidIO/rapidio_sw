@@ -12,6 +12,7 @@
 
 #include <vector>
 #include <sstream>
+#include <algorithm>
 
 #include <cstdlib>
 #include <cstdio>
@@ -60,8 +61,12 @@ int test_case_a(void)
 
 	static mso_h	mso_handles[NUM_MSOS];
 
-	int ret, rc;
+	int ret;
+	bool failed = false;
 
+	/* Create REMOTE memory space owners and check that they worked
+	 * except for the duplicate ones; those should reutnr RDMA_DUPLICATE_MSO
+	 */
 	for (unsigned i = 0; i < NUM_MSOS; i++) {
 		ret = create_mso_f(bat_first_client,
 				   bm_first_tx,
@@ -69,40 +74,92 @@ int test_case_a(void)
 				   mso_names[i],
 				   &mso_handles[i]);
 		/* Compare with expected return codes */
-		BAT_EXPECT_RET(ret, ret_codes[i], destroy_msos);
+		if (ret != ret_codes[i]) { \
+			fprintf(log_fp, "%s FAILED, line %d, i = %u\n",
+					__func__, __LINE__, i);
+			failed = true;
+		}
 	}
 
-	/* If we reach here, there were no failures, but the value of 'ret
-	 * is unpredictable. Set ret to 0 to indicate error-free */
-	ret = 0;
-
-	/* Either way, we must delete the msos that were created */
-
-destroy_msos:
+	/* All is good. Just destroy the msos */
 	for (unsigned i = 0; i < NUM_MSOS; i++) {
 		/* The ones that were created successfully have non-0 handles */
 		if (mso_handles[i] != 0) {
 			/* Don't overwrite 'ret', use 'rc' */
-			rc = destroy_mso_f(bat_first_client,
+			ret = destroy_mso_f(bat_first_client,
 					   bm_first_tx,
 					   bm_first_rx,
 					   mso_handles[i]);
-			BAT_EXPECT_RET(rc, 0, exit);
+			if (ret != 0) {
+				fprintf(log_fp, "%s FAILED, line %d, ret=%d\n",
+					__func__, __LINE__, ret);
+				failed = true;
+			}
 		}
 	}
 
+	/* Clear the handles since we will do a second test */
+	memset(mso_handles, 0, sizeof(mso_handles));
 
-exit:
-	if (rc != 0) {
-		/* We failed in the destroying of the mso */
-		BAT_EXPECT_PASS(rc);
-	} else {
-		/* Check if we failed during the creation */
+	/* Second test, requested by Barry */
+#define NUM_UNIQUE_MSOS	10
+
+	static char mso_unique_names[][NUM_UNIQUE_MSOS] = {
+		"one", "two", "three", "four", "five", "six", "seven",
+		"eight", "nine", "ten"
+	};
+
+	/* Create 10 unique LOCAL msos. They should all work */
+	for (unsigned i = 0; i < NUM_UNIQUE_MSOS; i++) {
+		ret = rdma_create_mso_h(mso_unique_names[i], &mso_handles[i]);
+		if (ret != 0) { \
+			fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+					__func__, __LINE__, ret);
+			failed = true;
+		}
+	}
+
+	/* Create 3 similar msos. One similar to "one", one similar to "six",
+	 * and one similar to "ten". All should return RDMA_DUPLICATE_MSO.
+	 */
+	mso_h	dup_mso;
+
+	ret = rdma_create_mso_h("one", &dup_mso);
+	if (ret != RDMA_DUPLICATE_MSO) { \
+		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+				__func__, __LINE__, ret);
+		failed = true;
+	}
+	ret = rdma_create_mso_h("six", &dup_mso);
+	if (ret != RDMA_DUPLICATE_MSO) { \
+		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+				__func__, __LINE__, ret);
+		failed = true;
+	}
+	ret = rdma_create_mso_h("ten", &dup_mso);
+	if (ret != RDMA_DUPLICATE_MSO) { \
+		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+				__func__, __LINE__, ret);
+		failed = true;
+	}
+
+	/* Now destroy the LOCAL unique msos */
+	for (unsigned i = 0; i < NUM_UNIQUE_MSOS; i++) {
+		ret = rdma_destroy_mso_h(mso_handles[i]);
+		if (ret) {
+			fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
+					__func__, __LINE__, ret);
+			failed = true;
+		}
+	}
+
+	if (!failed) {
 		BAT_EXPECT_PASS(ret);
 	}
 
 	return ret;
 #undef NUM_MSOS
+#undef NUM_UNIQUE_MSOS
 } /* test_case_a() */
 
 /**
@@ -214,43 +271,113 @@ int test_case_c(void)
 		BAT_EXPECT_RET(rc, 0, free_mso);
 	}
 
+
+	struct ms_info_t {
+		uint32_t	size;
+		ms_h		handle;
+		uint64_t	rio_addr;
+		ms_info_t(uint32_t size, ms_h handle, uint64_t rio_addr) :
+			size(size), handle(handle), rio_addr(rio_addr)
+		{}
+		bool operator ==(uint32_t size) {
+			return this->size == size;
+		}
+	};
+	static vector<ms_info_t>	ms_info;
+
 	/* Now create a number of memory spaces such that they fill each
 	 * inbound window with different sizes starting with 1/2 the inbound
 	 * window size and ending with 4K which is the minimum block size that
 	 * can be mapped.
 	 */
-	/* First generate the memory space sizes */
-	static vector<uint32_t>	ms_sizes;
 
+	/* First generate the memory space sizes */
 	for (unsigned ibwin = 0; ibwin < num_ibwins; ibwin++) {
 		auto size = ibwin_size/2;
 
 		while (size >= BAT_MIN_BLOCK_SIZE) {
-			ms_sizes.push_back(size);
+			ms_info.emplace_back(size, 0, 0);
 			size /= 2;
 		}
-		ms_sizes.push_back(size * 2);
+		ms_info.emplace_back(size * 2, 0, 0);
 	}
 
-	/* Now allocate the memory spaces */
-	static vector<ms_h> ms_handles(ms_sizes.size());
-	for (unsigned i = 0; i < ms_sizes.size(); i++) {
+	/* Now create the memory spaces */
+	for (unsigned i = 0; i < ms_info.size(); i++) {
 		stringstream ms_name;
 		ms_name << "mspace" << i;
-		uint32_t size;
-		uint64_t ms_size;
-		uint64_t rio_addr;
 		rc = rdma_create_ms_h(ms_name.str().c_str(),
 				      client_msoh,
-				      ms_sizes[i],
+				      ms_info[i].size,
 				      0,
-				      &ms_handles[i],
-				      &size);
+				      &ms_info[i].handle,
+				      &ms_info[i].size);
 		BAT_EXPECT_RET(rc, 0, free_mso);
-		rdma_get_msh_properties(ms_handles[i],
-				&rio_addr, &ms_size);
-		printf("0x%016" PRIx64 ", 0x%016" PRIx64 ", 0x%" PRIx64 "\n",
-			ms_handles[i], rio_addr, ms_size);
+		rdma_get_msh_properties(ms_info[i].handle,
+				&ms_info[i].rio_addr, &ms_info[i].size);
+		printf("0x%016" PRIx64 ", 0x%016" PRIx64 ", 0x%X\n",
+			ms_info[i].handle, ms_info[i].rio_addr, ms_info[i].size);
+	}
+
+	puts("Memory spaces created\nPress ENTER to continue...");
+	getchar();
+
+	/**
+	 * Test: Just ensure that freed memory spaces are re-used.
+	 *
+	 * 1. Free the memory spaces in WIN1
+	 * 2. Find an 8KB space in WIN0 and free it.
+	 * 3. Allocate a new 8K space.
+	 * 4. Verify that the new space took the freed space and did not end
+	 * up in WIN1. Do that by comparing the freed and new RIO addresses
+	 */
+	{
+		/* Find an 8K memory space */
+		auto it = find(begin(ms_info), end(ms_info), uint32_t(8*1024));
+
+		/* Read its RIO address */
+		uint64_t old_8k_rio_addr;
+		uint32_t dummy_size;
+		rc = rdma_get_msh_properties(it->handle, &old_8k_rio_addr, &dummy_size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Destroy it */
+		rc = rdma_destroy_ms_h(client_msoh, it->handle);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		puts("8K memory space destroyed\nPress ENTER to continue...");
+		getchar();
+
+		/* Destroy all IBWIN1 memory spaces */
+#if 0
+		for (unsigned i = (ms_info.size() / 2); i < ms_info.size(); i++) {
+			printf("Destroying mspace%u\n", i);
+			rc = rdma_destroy_ms_h(client_msoh, ms_info[i].handle);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+		}
+#endif
+		rc = rdma_destroy_ms_h(client_msoh, ms_info[0x0B].handle);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		puts("IBWIN1 memory spaces destroyed\nPress ENTER to continue...");
+		getchar();
+
+		/* Now allocate another 8K memory space */
+		ms_h	new_8k_msh;
+		rc = rdma_create_ms_h("new_8k_ms", client_msoh,
+				 8*1024, 0, &new_8k_msh, &dummy_size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Read back the RIO address */
+		uint64_t new_8k_rio_addr;
+		printf("Reading back properties of 'new_8k_ms'...\n");
+		rc = rdma_get_msh_properties(new_8k_msh, &new_8k_rio_addr, &dummy_size);
+
+		if (new_8k_rio_addr == old_8k_rio_addr) {
+			rc = 0;
+		} else {
+			rc = -1;
+		}
 	}
 
 free_mso:

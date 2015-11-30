@@ -317,7 +317,8 @@ mspace* ibwin::get_mspace(uint32_t msoid, uint32_t msid)
 	mspace *ms;
 
 	if (it == end(mspaces)) {
-		WARN("Mspace with msid(0x%X) not found in ibwin(%u)\n", msid);
+		WARN("Mspace with msid(0x%X) not found in ibwin(%u)\n",
+								msid, win_num);
 		return nullptr;
 	} else {
 		ms = *it;
@@ -327,7 +328,7 @@ mspace* ibwin::get_mspace(uint32_t msoid, uint32_t msid)
 
 	if (ms->get_msoid() != msoid) {
 		ERR("msid(0x%X) not owned by msoid(0x%X) in ibwin(%u)\n",
-				msid, msoid, win_num );
+							msid, msoid, win_num );
 		ms = nullptr;;
 	}
 

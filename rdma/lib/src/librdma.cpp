@@ -195,7 +195,7 @@ int rdma_get_ibwin_properties(unsigned *num_ibwins,
 /**
  * For testing only. Not exposed in librdma.h.
  */
-int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint64_t *bytes)
+int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint32_t *bytes)
 {
 	if (msh == 0) {
 		ERR("NULL parameter.\n");
