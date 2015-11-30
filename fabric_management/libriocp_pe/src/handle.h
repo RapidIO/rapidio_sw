@@ -36,6 +36,8 @@ void riocp_pe_handle_mport_put(struct riocp_pe **mport);
 int RIOCP_WU riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag,
 	struct riocp_pe **peer);
 int RIOCP_WU riocp_pe_handle_mport_exists(uint8_t mport, bool is_host, struct riocp_pe **pe);
+void riocp_pe_handle_destroy(struct riocp_pe **handle);
+
 
 #ifdef __cplusplus
 }

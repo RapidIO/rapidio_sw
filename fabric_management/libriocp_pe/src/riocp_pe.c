@@ -747,10 +747,13 @@ int RIOCP_SO_ATTR riocp_pe_destroy_handle(riocp_pe_handle *pe)
 
 	RIOCP_TRACE("Destroying handle %p\n", *pe);
 
-	if (RIOCP_PE_IS_MPORT(*pe))
+	if (RIOCP_PE_IS_MPORT(*pe)){
 		riocp_pe_handle_mport_put(pe);
-	else
+	}
+	else{
+		riocp_pe_handle_destroy(pe);
 		*pe = NULL;
+	}
 
 	return 0;
 }
