@@ -7,5 +7,5 @@ sleep 0.5
 // Kernel drivers/net/tun.c has 64k as upper bound in mainline
 set mtu ? 65535
 set rioaddr ? 20e400000
-tundma 0 $cpu1 7 6 $buf $sts $did $rioaddr $mtu
+tundma 0 $cpu1 6 6 7 $buf $sts $did $rioaddr $mtu
 sleep 0

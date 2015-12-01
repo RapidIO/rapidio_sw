@@ -71,6 +71,7 @@ char *req_type_str[(int)last_action+1] = {
         (char*)"UMSG",
         (char*)"UMSGLat",
         (char*)"UMSGTun",
+        (char*)"EPWatch",
 #endif
 	(char *)"LAST"
 };
@@ -2662,7 +2663,7 @@ int UMSGCmdTun(struct cli_env *env, int argc, char **argv)
                 goto exit;
         };
 
-        wkr[idx].action = umd_mbox_tap;
+        wkr[idx].action      = umd_mbox_tap;
         wkr[idx].action_mode = user_mode_action;
         wkr[idx].umd_chan    = chan;
         wkr[idx].umd_chan_to = chan; // FUGE
@@ -2794,6 +2795,69 @@ IsolcpuCmd,
 ATTR_NONE
 };
 
+#ifdef USER_MODE_DRIVER
+
+int EpWatchCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx = 0;
+        int tundmathreadindex = -1;
+
+        int n = 0; // this be a trick from X11 source tree ;)
+
+        idx               = GetDecParm(argv[n++], 0);
+	tundmathreadindex = GetDecParm(argv[n++], 0);
+
+        if (check_idx(env, idx, 1))
+                goto exit;
+
+        if (check_idx(env, tundmathreadindex, 0))
+                goto exit;
+
+	if (idx == tundmathreadindex) {
+                sprintf(env->output, "Must use different worker threads!\n");
+                logMsg(env);
+                goto exit;
+	}
+
+        wkr[idx].action      = umd_epwatch;
+        wkr[idx].action_mode = user_mode_action;
+        wkr[idx].umd_chan    = tundmathreadindex; // FUDGE
+        wkr[idx].umd_chan_to = -1; // FUGE
+        wkr[idx].umd_fifo_thr.cpu_req = -1;
+        wkr[idx].umd_fifo_thr.cpu_run = -1;
+        wkr[idx].umd_tx_buf_cnt = 0;
+        wkr[idx].umd_sts_entries = 0;
+        wkr[idx].did = 0;
+        wkr[idx].rio_addr = 0;
+        wkr[idx].byte_cnt = 0;
+        wkr[idx].acc_size = 0;
+        wkr[idx].umd_tx_rtype = MAINT_WR;
+        wkr[idx].wr = 0;
+        wkr[idx].use_kbuf = 0;
+
+        wkr[idx].stop_req = 0;
+        sem_post(&wkr[idx].run);
+
+	return 0;
+
+exit:
+	return 0;
+}
+
+struct cli_cmd EPWatch = {
+"epwatch",
+3,
+2,
+"Watches RIO endpoints coming/going",
+"<idx> <tundmathreadindex>\n"
+        "<idx> is a worker index from 0 to 7\n"
+        "<tundmathreadindex> Idx of tundma thread which must be started prior to this thread.\n",
+EpWatchCmd,
+ATTR_NONE
+};
+
+#endif // USER_MODE_DRIVER
+
 struct cli_cmd *goodput_cmds[] = {
 	&IBAlloc,
 	&IBDealloc,
@@ -2834,6 +2898,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&UMSGT,
 	&UMDDD,
 	&UTime,
+	&EPWatch,
 #endif
 };
 

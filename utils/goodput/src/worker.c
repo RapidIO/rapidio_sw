@@ -95,6 +95,7 @@ extern "C" {
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
 void umd_dma_goodput_tun_demo(struct worker *info);
+void umd_epwatch_demo(struct worker *info);
 
 #ifdef __cplusplus
 };
@@ -3179,7 +3180,10 @@ void *worker_thread(void *parm)
 		case umd_mbox_tap:
 				umd_mbox_goodput_tun_demo(info);
 				break;
-#endif
+		case umd_epwatch:
+				umd_epwatch_demo(info);
+				break;
+#endif // USER_MODE_DRIVER
 		
         	case shutdown_worker:
 				info->stat = 0;

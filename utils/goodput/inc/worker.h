@@ -128,6 +128,7 @@ enum req_type {
 	umd_mbox,
 	umd_mboxl,
 	umd_mbox_tap,
+	umd_epwatch,
 #endif
 	last_action
 };

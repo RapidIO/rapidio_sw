@@ -60,6 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <sys/epoll.h>
+#include <sys/inotify.h>
 
 #include <pthread.h>
 #include <sstream>
@@ -998,3 +999,170 @@ exit:
 	bad_destid.clear();
 }
 
+void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
+{
+}
+
+void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid)
+{
+}
+
+#ifdef UDMA_TUN_DEBUG_IN
+static void decodeInotifyEvent(const struct inotify_event* i, std::string& str)
+{
+     if (i == NULL) return;
+
+     std::stringstream ss;
+     ss << "wd = " << i->wd << " ";
+     if (i->cookie > 0)
+         ss << "cookie = " << i->cookie;
+ 
+     ss << "mask = ";
+     if (i->mask & IN_ACCESS)        ss << " IN_ACCESS ";
+     if (i->mask & IN_ATTRIB)        ss << " IN_ATTRIB ";
+     if (i->mask & IN_CLOSE_NOWRITE) ss << " IN_CLOSE_NOWRITE ";
+     if (i->mask & IN_CLOSE_WRITE)   ss << " IN_CLOSE_WRITE ";
+     if (i->mask & IN_CREATE)        ss << " IN_CREATE ";
+     if (i->mask & IN_DELETE)        ss << " IN_DELETE ";
+     if (i->mask & IN_DELETE_SELF)   ss << " IN_DELETE_SELF ";
+     if (i->mask & IN_IGNORED)       ss << " IN_IGNORED ";
+     if (i->mask & IN_ISDIR)         ss << " IN_ISDIR ";
+     if (i->mask & IN_MODIFY)        ss << " IN_MODIFY ";
+     if (i->mask & IN_MOVE_SELF)     ss << " IN_MOVE_SELF ";
+     if (i->mask & IN_MOVED_FROM)    ss << " IN_MOVED_FROM ";
+     if (i->mask & IN_MOVED_TO)      ss << " IN_MOVED_TO ";
+     if (i->mask & IN_OPEN)          ss << " IN_OPEN ";
+     if (i->mask & IN_Q_OVERFLOW)    ss << " IN_Q_OVERFLOW ";
+     if (i->mask & IN_UNMOUNT)       ss << " IN_UNMOUNT ";
+ 
+     if (i->len > 0)
+         ss << " name = " << i->name;
+
+     str = ss.str();
+}
+#endif // UDMA_TUN_DEBUG_IN
+
+static inline bool umd_check_dma_tun_thr_running(struct worker* info)
+{
+	if (info == NULL) return false;
+
+	const int tundmathreadindex = info->umd_chan; // FUDGE
+	if (tundmathreadindex < 0) return false;
+
+	if (1 != wkr[tundmathreadindex].stat) return false;
+
+	return true;
+}
+
+extern "C"
+void umd_epwatch_demo(struct worker* info)
+{
+	if (info == NULL) return;
+
+	const int tundmathreadindex = info->umd_chan; // FUDGE
+	if (tundmathreadindex < 0) return;
+
+	const char* SYS_RAPIDIO_DEVICES = "/sys/bus/rapidio/devices";
+
+	int inf_fd = inotify_init1(IN_CLOEXEC);
+
+	inotify_add_watch(inf_fd, SYS_RAPIDIO_DEVICES, IN_CREATE|IN_DELETE);
+
+	bool first_time = true;
+	std::map <uint32_t, bool> ep_map;
+
+	if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+	INFO("\n\tWatching %s for change. Fetching RIO EPs from mport %d\n", SYS_RAPIDIO_DEVICES, info->mp_num);
+
+	while (! info->stop_req) {
+		bool inotify_change = false;
+
+		for (int i = 0; i < 10 && !info->stop_req; i++) {
+		 	uint32_t ep_count = 0;
+			uint32_t* ep_list = NULL;
+
+			if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+			if (i != 0) {{ // We use select(2) as a fancy sleep and looking at what FMD is doing to /sys/bus/rapidio/devices
+			  struct timeval to = { 0, 100 * 1000 }; // 100 ms
+			  fd_set rfds; FD_ZERO (&rfds); FD_SET(inf_fd, &rfds);
+
+			  int ret = select(inf_fd+1, &rfds, NULL, NULL, &to);
+			  if (ret < 0) {
+				CRIT("\n\tselect failed on inotify fd: %s\n", strerror(errno));
+				goto exit;
+			  }
+
+			  if (FD_ISSET(inf_fd, &rfds)) { // consume inotify event but we use the riomp_mgmt_get_ep_list method to learn ep changes
+				uint8_t buf[8192] = {0};;
+				int nread = read(inf_fd, buf, 8192); nread += 0;
+				inotify_change = true;
+#ifdef UDMA_TUN_DEBUG_IN
+				const int N = nread / sizeof(struct inotify_event);
+				struct inotify_event* in = (struct inotify_event*)buf;
+				for (int i = 0; 7 <= g_level && i < N; i++, in++) {
+					std::string s;
+					decodeInotifyEvent(in, s);
+					DBG("\n\tInotify event %d: %s\n", i, s.c_str());
+				}
+#endif
+			  }
+			}}
+
+			if (info->stop_req) goto exit;
+			if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+			if (i == 0 || inotify_change) { // We force reading EP list once a second
+				inotify_change = false;
+				if (0 != riomp_mgmt_get_ep_list(info->mp_num, &ep_list, &ep_count) || ep_list == NULL) {
+					CRIT("\n\triomp_mgmt_get_ep_list failed. All your base are belong to us.\n");
+					goto exit;
+				}
+
+				if (first_time && 7 <= g_level && ep_count > 0) {
+					std::stringstream ss;
+					for (int i = 0; i < ep_count; i++) ss << ep_list[i] << " ";
+					DBG("\n\tMport %d EPs%s: %s\n", info->mp_num, (first_time? "(1st time)": ""), ss.str().c_str());
+				}
+
+				if (first_time) {
+					first_time = false;
+					for (int i = 0; i < ep_count; i++) {
+						const uint32_t destid = ep_list[i];
+						ep_map[destid] = true;
+						umd_dma_goodput_tun_add_ep(&wkr[tundmathreadindex], destid);
+					}
+				} else {
+					std::map <uint32_t, bool> ep_map_now;
+					for (int i = 0; i < ep_count; i++) {
+						const uint32_t destid = ep_list[i];
+						ep_map_now[destid] = true;
+						if (ep_map.find(destid) == ep_map.end()) {
+							ep_map[destid] = true;
+							DBG("\n\tMport %d EP %u ADD\n", info->mp_num, destid);
+							umd_dma_goodput_tun_add_ep(&wkr[tundmathreadindex], destid);
+						}
+					}
+					// Set diff -- find out which destids have gone
+					for (std::map <uint32_t, bool>::iterator itm = ep_map.begin(); itm != ep_map.end(); itm++) {
+						const uint32_t destid = itm->first;
+						if (ep_map_now.find(destid) == ep_map_now.end()) {
+							ep_map.erase(destid);
+							DBG("\n\tMport %d EP %u DEL\n", info->mp_num, destid);
+							umd_dma_goodput_tun_del_ep(&wkr[tundmathreadindex], destid);
+						}
+					}
+				}
+				riomp_mgmt_free_ep_list(&ep_list);
+			}
+		}
+	}
+exit:
+	close(inf_fd);
+	return;
+
+exit_bomb:
+	CRIT("\n\tWorker thread %d (DMA Tun Thr) is not running. Bye!\n", tundmathreadindex);
+	goto exit;
+}
