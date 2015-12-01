@@ -71,19 +71,6 @@ extern "C" {
 #define riocp_pe_llist_foreach_safe(item, next, list) \
 	for (item = list, next = item->next; item->next != NULL; item = next, next = item->next)
 
-/** RapidIO control plane loglevels */
-enum riocp_log_level {
-	RIOCP_LOG_NONE  = 0,
-	RIOCP_LOG_ERROR = 1,
-	RIOCP_LOG_WARN  = 2,
-	RIOCP_LOG_INFO  = 3,
-	RIOCP_LOG_DEBUG = 4,
-	RIOCP_LOG_TRACE = 5
-};
-
-/* RapidIO control plane log callback function */
-typedef int (*riocp_log_output_func_t)(enum riocp_log_level, const char *);
-
 /** Linked list item */
 struct riocp_pe_llist_item {
 	void *data; /**< Item opaque data */
@@ -154,7 +141,6 @@ struct riocp_pe {
 /* RapidIO control plane logging facility */
 int riocp_log(enum riocp_log_level level, const char *func, const char *file,
 	const unsigned int line, const char *format, ...);
-int riocp_log_register_callback(enum riocp_log_level level, riocp_log_output_func_t outputfunc);
 void riocp_log_exit(void);
 
 /* Handle administration and information */

@@ -101,6 +101,20 @@ struct riocp_pe_event {
 	riocp_pe_event_mask_t event;    /* bitmask of events */
 };
 
+/** RapidIO control plane loglevels */
+enum riocp_log_level {
+	RIOCP_LOG_NONE  = 0,
+	RIOCP_LOG_ERROR = 1,
+	RIOCP_LOG_WARN  = 2,
+	RIOCP_LOG_INFO  = 3,
+	RIOCP_LOG_DEBUG = 4,
+	RIOCP_LOG_TRACE = 5
+};
+
+/* RapidIO control plane log callback function */
+typedef int (*riocp_log_output_func_t)(enum riocp_log_level, const char *);
+
+
 /*
  * API functions
  */
@@ -160,6 +174,7 @@ const char *riocp_pe_get_vendor_name(riocp_pe_handle pe);
 int RIOCP_WU riocp_pe_announce(riocp_pe_handle pe);
 int RIOCP_WU riocp_pe_revoke(riocp_pe_handle pe);
 
+int riocp_log_register_callback(enum riocp_log_level level, riocp_log_output_func_t outputfunc);
 
 #ifdef __cplusplus
 }
