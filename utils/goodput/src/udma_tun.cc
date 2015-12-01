@@ -97,6 +97,16 @@ uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
 #define PAGE_4K    4096
 
+///< This be fishy!
+static inline uint64_t htonll(uint64_t value)
+{
+     int num = 42;
+     if(*(char *)&num == 42)
+          return ((uint64_t)htonl(value & 0xFFFFFFFF) << 32LL) | htonl(value >> 32);
+     else 
+          return value;
+}
+
 /** \bried NREAD data from peer at high priority, all-in-one, blocking
  * \param[in] info C-like this
  * \param destid RIO destination id of peer
@@ -821,6 +831,7 @@ extern "C"
 void umd_dma_goodput_tun_demo(struct worker *info)
 {
         int rc = 0;
+	time_t last_bcast;
 	
 	// Note: There's no reason to link info->umd_tx_buf_cnt other than
 	// convenience. However the IB ring should never be smaller than
@@ -836,6 +847,8 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         if (! TakeLock(info, "DMA", info->umd_chan2)) return;
 
 	info->umd_dma_fifo_callback = umd_dma_goodput_tun_callback;
+
+	info->umd_peer_ibmap = new IBwinMap(info->ib_rio_addr, info->ib_ptr, info->ib_byte_cnt, (info->umd_tx_buf_cnt-1), info->umd_tun_MTU);
 
         info->tick_data_total = 0;
         info->tick_count = info->tick_total = 0;
@@ -866,11 +879,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
 	// XXX TODO
 	// Phase 1
-	// write thread for watching rio destid which bangs info->umd_dma_did_peer, makes new tunnel
 	// also kill stale RIO RX threads, purge good_destid, bad_destid under mutex (*)
-	// Phase 2
-	// write thread that uses mbox/kernel to "broadcast" my ibwin + ALLOCATIONS every 60s
-	// write thread that uses mbox/kernel to listen to ibwin bcasts
 
         init_seq_ts(&info->desc_ts);
         init_seq_ts(&info->fifo_ts);
@@ -920,11 +929,39 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
-	// These should be spanned elsewhere
-	if (! umd_dma_goodput_tun_setup_peer(info, info->did, info->rio_addr, info->ib_ptr)) goto exit;
-
 again:
+	time(&last_bcast);
         while (!info->stop_req) {
+// Broadcast my IBwin mapping Urbi & Orbi, once per second
+		std::vector<uint32_t> peer_list;
+
+		// Collect "good" peers quickly
+		pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+		std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.begin();
+		for (; itp != info->umd_dma_did_peer.end(); itp++) {
+			peer_list.push_back(itp->second->destid);
+		}
+		pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+
+		time_t now = time(NULL);
+		for (int ip = 0; info->umd_mbox_tx_fd >= 0 && (now > last_bcast) && ip < peer_list.size(); ip++) {
+			last_bcast = now;
+			const uint16_t destid = peer_list[ip];
+
+			uint64_t rio_addr = 0; // Where I want the peer to deposit its stuff
+			void*    ib_ptr   = NULL;
+			if (! info->umd_peer_ibmap->lookup(destid, rio_addr, ib_ptr)) {
+				CRIT("\n\tCan't find IBwin mapping for destid %u!\n", destid);
+				goto exit;
+			}
+
+			assert(rio_addr);
+			rio_addr = htonll(rio_addr);
+                        if (info->umd_mbox_tx_fd >= 0) send(info->umd_mbox_tx_fd, &rio_addr, sizeof(rio_addr), 0);
+			else break;
+		}
+
+// Receive broadcasts from other peers
 		if (info->umd_mbox_rx_fd < 0) { // Other thread not ready!
 			usleep(10 * 1000);
 			continue;
@@ -956,10 +993,18 @@ again:
 			// We have an IBwin mapping belonging to from_destid waiting in (buf + sizeof(DMA_MBOX_L2_t))
 			// So put up a new peer, Tun and start up a new Tun thread!!
 
-			uint64_t from_rio_addr = 0xdeadbeef; // XXX decode from mapping
-			void* peer_ib_ptr = NULL; // XXX allocate based on from_destid
+			uint64_t* pU64 = (uint64_t*)(buf + sizeof(DMA_MBOX_L2_t));
+			assert(ntohs(pL2->len) >= sizeof(uint64_t));
 
-			if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
+			const uint64_t from_rio_addr = htonll(*pU64);
+
+			uint64_t rio_addr    = 0; 
+			void*    peer_ib_ptr = NULL;
+			if (! info->umd_peer_ibmap->alloc(from_destid, rio_addr, peer_ib_ptr)) {
+				CRIT("\n\tWARNING: Can't alloc IBwin mapping for NEW broadcasted destid %u!\n", from_destid);
+			} else {
+				if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
+			}
 		}
         }
 
@@ -994,6 +1039,7 @@ exit:
 		}
 	}
 
+	delete info->umd_peer_ibmap;
 	info->umd_dma_fifo_callback = NULL;
 
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
@@ -1042,6 +1088,8 @@ exit:
 
 void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
 {
+        //pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+        //pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 }
 
 void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid)
@@ -1075,7 +1123,8 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid)
                 DmaPeerDestidDestroy(peer); free(peer);
           }
 
-	  // XXX Mark IBwin mapping for peer as free and make RP=0
+	  // Mark IBwin mapping for peer as free and make RP=0
+	  info->umd_peer_ibmap->free(destid);
         }}
 
 done:

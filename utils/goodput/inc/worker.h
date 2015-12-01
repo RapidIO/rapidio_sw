@@ -87,6 +87,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdtsc.h"
 #include "lockfile.h"
 #include "udma_tun.h"
+#include "ibmap.h"
 #endif
 
 #ifdef __cplusplus
@@ -305,6 +306,8 @@ struct worker {
 	std::map <uint16_t, DmaPeerDestid_t*> umd_dma_did_peer;
 	std::map <int, uint16_t>             umd_dma_did_peer_fd2did; ///< Maps tun file descriptor to destid
 	pthread_mutex_t                      umd_dma_did_peer_mutex;
+
+	IBwinMap*       umd_peer_ibmap;
 
 	sem_t		umd_mbox_tap_proc_started;
 	volatile int	umd_mbox_tap_proc_alive;
