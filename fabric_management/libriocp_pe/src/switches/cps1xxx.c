@@ -355,7 +355,8 @@ extern "C" {
 #define CPS1xxx_QUAD_CFG            0xF20200
 
 /* CPS1616 */
-#define CPS1616_PW_TIMER			0x05000 /* 28 us */
+//#define CPS1616_PW_TIMER			0x05000 /* 28 us */
+#define CPS1616_PW_TIMER			0x820be700 /* 3 s */
 #define CPS1616_DEVICE_PW_TIMEOUT		(0x00f20180)
 
 /* CPS10Q */
