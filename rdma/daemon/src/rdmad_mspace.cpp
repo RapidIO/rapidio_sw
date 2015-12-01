@@ -376,11 +376,9 @@ void mspace::dump_info_msubs_only(struct cli_env *env) {
 	                "----", "----", "---------");
 	logMsg(env);
 
-	sem_wait(&msubspaces_sem);
 	for (auto& msub : msubspaces) {
 		msub.dump_info(env);
 	}
-	sem_post(&msubspaces_sem);
 } /* dump_info_msubs_only() */
 
 void mspace::dump_info_with_msubs(struct cli_env *env) {
