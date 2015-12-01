@@ -222,7 +222,6 @@ void inbound::dump_all_mspace_info(struct cli_env *env)
 {
 	sem_wait(&ibwins_sem);
 	for (auto& ibwin : ibwins) {
-		DBG("Dumping space for IBWIN%u\n", ibwin.get_win_num());
 		ibwin.dump_mspace_info(env);
 	}
 	sem_post(&ibwins_sem);
