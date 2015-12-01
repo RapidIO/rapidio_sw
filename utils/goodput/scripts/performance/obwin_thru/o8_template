@@ -55,9 +55,9 @@ g
 echo OBDIO THRUPUT bytes acc_size UNUSED
 os
 sleep wait_time
-wait 0 r
-st
 
 echo OBDIO THRUPUT bytes acc_size UNUSED
 g
 od
+wait 0 r
+st

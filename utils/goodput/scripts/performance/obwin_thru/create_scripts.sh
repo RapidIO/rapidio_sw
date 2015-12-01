@@ -80,7 +80,7 @@ SIZE_NAME=(1B 2B 4B 8B)
 
 SIZE=( "1" "2" "4" "8")
 
-BYTES=("400000" "400000" "400000" "400000")
+BYTES=("10000" "10000" "10000" "10000")
 
 
 # Function to format file names.
@@ -184,7 +184,7 @@ do
 		idx=0
 		while [ "$idx" -lt "$max_name_idx" ]
 		do
-			if [$direction=="read"]; then
+			if [ $direction = "read" ]; then
 				set_t_filename_r ${SIZE_NAME[idx]}
 			else
 				set_t_filename_w ${SIZE_NAME[idx]}
