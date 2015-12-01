@@ -345,7 +345,7 @@ int test_case_c(void)
 {
 	unsigned  num_ibwins;
 	uint32_t  ibwin_size;
-	int	  rc;
+	int	  rc, ret;
 
 	/* Determine number of IBWINs and the size of each IBWIN */
 	rc = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
@@ -439,6 +439,7 @@ int test_case_c(void)
 		uint64_t old_8k_rio_addr;
 		uint32_t dummy_size;
 		rc = rdma_get_msh_properties(it->handle, &old_8k_rio_addr, &dummy_size);
+		printf("old_8k_rio_addr=0x%016" PRIx64 "\n", old_8k_rio_addr);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		/* Destroy it */
@@ -449,15 +450,11 @@ int test_case_c(void)
 		getchar();
 
 		/* Destroy all IBWIN1 memory spaces */
-#if 0
 		for (unsigned i = (ms_info.size() / 2); i < ms_info.size(); i++) {
 			printf("Destroying mspace%u\n", i);
 			rc = rdma_destroy_ms_h(client_msoh, ms_info[i].handle);
 			BAT_EXPECT_RET(rc, 0, free_mso);
 		}
-#endif
-		rc = rdma_destroy_ms_h(client_msoh, ms_info[0x0B].handle);
-		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		puts("IBWIN1 memory spaces destroyed\nPress ENTER to continue...");
 		getchar();
@@ -472,6 +469,9 @@ int test_case_c(void)
 		uint64_t new_8k_rio_addr;
 		printf("Reading back properties of 'new_8k_ms'...\n");
 		rc = rdma_get_msh_properties(new_8k_msh, &new_8k_rio_addr, &dummy_size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		printf("new_8k_rio_addr=0x%016" PRIx64 "\n", new_8k_rio_addr);
 
 		if (new_8k_rio_addr == old_8k_rio_addr) {
 			rc = 0;
@@ -480,13 +480,14 @@ int test_case_c(void)
 		}
 	}
 
+	ret = rc;
 free_mso:
 	/* Delete the mso */
 	rc = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 exit:
-	BAT_EXPECT_PASS(rc);
+	BAT_EXPECT_PASS(ret);
 
 	return 0;
 } /* test_case_c() */
