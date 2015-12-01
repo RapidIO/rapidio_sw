@@ -72,6 +72,7 @@ char *req_type_str[(int)last_action+1] = {
         (char*)"UMSGLat",
         (char*)"UMSGTun",
         (char*)"EPWatch",
+        (char*)"UMSGWatch",
 #endif
 	(char *)"LAST"
 };
@@ -2821,8 +2822,8 @@ int EpWatchCmd(struct cli_env *env, int argc, char **argv)
 
         wkr[idx].action      = umd_epwatch;
         wkr[idx].action_mode = user_mode_action;
-        wkr[idx].umd_chan    = tundmathreadindex; // FUDGE
-        wkr[idx].umd_chan_to = -1; // FUGE
+        wkr[idx].umd_chan    = -1; // FUGE
+        wkr[idx].umd_chan_to = tundmathreadindex; // FUDGE
         wkr[idx].umd_fifo_thr.cpu_req = -1;
         wkr[idx].umd_fifo_thr.cpu_run = -1;
         wkr[idx].umd_tx_buf_cnt = 0;
@@ -2853,6 +2854,95 @@ struct cli_cmd EPWatch = {
         "<idx> is a worker index from 0 to 7\n"
         "<tundmathreadindex> Idx of tundma thread which must be started prior to this thread.\n",
 EpWatchCmd,
+ATTR_NONE
+};
+
+int UMSGCmdWatch(struct cli_env *env, int argc, char **argv)
+{
+        int idx;
+        int tundmathreadindex = -1;
+        int chan;
+        uint32_t buff;
+        uint32_t sts;
+
+        int n = 0; // this be a trick from X11 source tree ;)
+
+        idx      = GetDecParm(argv[n++], 0);
+        if (check_idx(env, tundmathreadindex, 0))
+                goto exit;
+
+        if (idx == tundmathreadindex) {
+                sprintf(env->output, "Must use different worker threads!\n");
+                logMsg(env);
+                goto exit;
+        }
+
+        chan     = GetDecParm(argv[n++], 0);
+        buff     = GetHex(argv[n++], 0);
+        sts      = GetHex(argv[n++], 0);
+
+        if (check_idx(env, idx, 1))
+                goto exit;
+
+        if ((chan < 2) || (chan > 3)) {
+                sprintf(env->output, "Chan %d illegal, must be 2 to 3\n", chan);
+                logMsg(env);
+                goto exit;
+        };
+
+        if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
+                        (buff > MAX_UMD_BUF_COUNT)) {
+                sprintf(env->output,
+                        "Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
+                        buff, MAX_UMD_BUF_COUNT);
+                logMsg(env);
+                goto exit;
+        };
+
+        if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
+                sprintf(env->output,
+                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
+                        sts);
+                logMsg(env);
+                goto exit;
+        };
+
+        wkr[idx].action      = umd_mbox_watch;
+        wkr[idx].action_mode = user_mode_action;
+        wkr[idx].umd_chan    = chan;
+        wkr[idx].umd_chan_to    = tundmathreadindex; // FUDGE
+        wkr[idx].umd_fifo_thr.cpu_req = -1;
+        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+        wkr[idx].umd_tx_buf_cnt = buff;
+        wkr[idx].umd_sts_entries = sts;
+        wkr[idx].did = 0;
+        wkr[idx].rio_addr = 0;
+        wkr[idx].byte_cnt = 0;
+        wkr[idx].acc_size = 0;
+        wkr[idx].umd_tx_rtype = MAINT_WR;
+        wkr[idx].wr = 1;
+        wkr[idx].use_kbuf = 1;
+
+        wkr[idx].stop_req = 0;
+        sem_post(&wkr[idx].run);
+exit:
+        return 0;
+}
+
+struct cli_cmd UMSGWATCH = {
+"mboxwatch",
+5,
+5,
+"Watches MBOX messages about peers' IBwin allocations",
+"<idx> <tundmathreadindex> <chan> <buff> <sts>\n"
+        "<idx> is a worker index from 0 to 7\n"
+	"<tundmathreadindex> idx of tundma thread which must be started prior to this thread.\n"
+        "<chan> is a MBOX channel number from 2 through 3\n"
+        "<buff> is the number of transmit descriptors/buffers to allocate\n"
+        "       Must be a power of two from 0x20 up to 0x80000\n"
+        "<sts> is the number of status entries for completed descriptors\n"
+        "       Must be a power of two from 0x20 up to 0x80000\n",
+UMSGCmdWatch,
 ATTR_NONE
 };
 
@@ -2899,6 +2989,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&UMDDD,
 	&UTime,
 	&EPWatch,
+	&UMSGWATCH,
 #endif
 };
 

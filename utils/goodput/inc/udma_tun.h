@@ -14,4 +14,13 @@ typedef struct DMA_L2_s DMA_L2_t;
 
 const int DMA_L2_SIZE = sizeof(DMA_L2_t);
 
+/** \brief This is the L2 header we use for transporting IBwin mapping data over MBOX */
+struct DMA_MBOX_L2_s {
+        uint16_t destid; ///< Destid of sender in network format, network order
+        uint16_t len;    ///< Length of this write, L2+data, network order
+} __attribute__ ((packed));
+typedef struct DMA_MBOX_L2_s DMA_MBOX_L2_t;
+
+const int DMA_MBOX_L2_SIZE = sizeof(DMA_MBOX_L2_t);
+
 #endif // __UDMA_TUN_H__

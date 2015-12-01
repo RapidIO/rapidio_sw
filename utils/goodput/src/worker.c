@@ -96,6 +96,7 @@ uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
 void umd_dma_goodput_tun_demo(struct worker *info);
 void umd_epwatch_demo(struct worker *info);
+void umd_mbox_watch_demo(struct worker *info);
 
 #ifdef __cplusplus
 };
@@ -178,6 +179,8 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_dma_abort_reason = 0;
 	info->umd_sockp[0] = info->umd_sockp[1] = -1;
 	info->umd_epollfd = -1;
+	info->umd_mbox_rx_fd = -1;
+	info->umd_mbox_tx_fd = -1;
 
 	memset(&info->umd_dma_did_peer, 0, sizeof(info->umd_dma_did_peer));
 	pthread_mutex_init(&info->umd_dma_did_peer_mutex, NULL);
@@ -3182,6 +3185,9 @@ void *worker_thread(void *parm)
 				break;
 		case umd_epwatch:
 				umd_epwatch_demo(info);
+				break;
+		case umd_mbox_watch:
+				umd_mbox_watch_demo(info);
 				break;
 #endif // USER_MODE_DRIVER
 		

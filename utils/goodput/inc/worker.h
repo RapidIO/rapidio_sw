@@ -129,6 +129,7 @@ enum req_type {
 	umd_mboxl,
 	umd_mbox_tap,
 	umd_epwatch,
+	umd_mbox_watch,
 #endif
 	last_action
 };
@@ -291,6 +292,10 @@ struct worker {
         int             umd_tun_fd;
         char            umd_tun_name[33];
         int             umd_tun_MTU;
+
+	// Used only for DMA Tun
+	int             umd_mbox_tx_fd; // socketpair(2) server for MBOX TX; safer than sharing a MboxChannel instance
+	int             umd_mbox_rx_fd; // socketpair(2) server for MBOX RX; sharing a MboxChannel instance is out of question!
 
 	DmaChannelInfo_t* umd_dch_list[8]; // Used for round-robin TX. Only 6 usable!
 

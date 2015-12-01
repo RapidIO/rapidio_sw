@@ -95,6 +95,8 @@ void* umd_dma_fifo_proc_thr(void *parm);
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 };
 
+#define PAGE_4K    4096
+
 /** \bried NREAD data from peer at high priority, all-in-one, blocking
  * \param[in] info C-like this
  * \param destid RIO destination id of peer
@@ -923,7 +925,42 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
 again:
         while (!info->stop_req) {
-		usleep(10 * 1000); // Have anything better to do?
+		if (info->umd_mbox_rx_fd < 0) { // Other thread not ready!
+			usleep(10 * 1000);
+			continue;
+		}
+
+		uint8_t buf[PAGE_4K] = {0};
+
+                struct timeval to = { 0, 100 * 1000 }; // 100 ms
+                fd_set rfds; FD_ZERO (&rfds); FD_SET(info->umd_mbox_rx_fd, &rfds);
+
+                int ret = select(info->umd_mbox_rx_fd+1, &rfds, NULL, NULL, &to);
+                if (ret < 0) {
+                        CRIT("\n\tselect failed on umd_mbox_rx_fd: %s\n", strerror(errno));
+                        goto exit;
+                }
+
+                if (info->stop_req) goto exit;
+
+                if (FD_ISSET(info->umd_mbox_rx_fd, &rfds)) { // Sumthin to came over on MBOX, read only 1st dgram
+                        const int nread = recv(info->umd_mbox_rx_fd, buf, PAGE_4K, 0);
+
+                        DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
+                        assert(nread == ntohs(pL2->len));
+
+			uint16_t from_destid = ntohs(pL2->destid);
+
+			assert(from_destid != info->umd_dch2->getDestId()); // NOT from myself!!
+
+			// We have an IBwin mapping belonging to from_destid waiting in (buf + sizeof(DMA_MBOX_L2_t))
+			// So put up a new peer, Tun and start up a new Tun thread!!
+
+			uint64_t from_rio_addr = 0xdeadbeef; // XXX decode from mapping
+			void* peer_ib_ptr = NULL; // XXX allocate based on from_destid
+
+			if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
+		}
         }
 
 	if (info->stop_req == SOFT_RESTART) {
@@ -997,6 +1034,10 @@ exit:
 
 	good_destid.clear();
 	bad_destid.clear();
+
+	// Do NOT close these as are manipulated from another thread!
+	info->umd_mbox_rx_fd = -1;
+        info->umd_mbox_tx_fd = -1;
 }
 
 void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
@@ -1005,6 +1046,43 @@ void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
 
 void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid)
 {
+	assert(info);
+	assert(info->umd_dch2);
+
+	const uint16_t my_destid = info->umd_dch2->getDestId();
+	assert(my_destid != destid);
+
+	bool found = false;
+        pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+        {{
+          std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.find(destid);
+	  if (itp == info->umd_dma_did_peer.end()) { goto done; }
+
+	  found = true;
+	  {
+                DmaPeerDestid_t* peer = itp->second;
+                assert(peer);
+
+                {{ // A close removes tun_fd from poll set but NOT if it was dupe(2)'ed
+                  struct epoll_event event;
+                  event.data.fd = peer->tun_fd;
+                  event.events = EPOLLIN;
+                  epoll_ctl(info->umd_epollfd, EPOLL_CTL_DEL, event.data.fd, &event);
+                }}
+
+                info->umd_dma_did_peer_fd2did.erase(peer->tun_fd);
+
+                DmaPeerDestidDestroy(peer); free(peer);
+          }
+
+	  // XXX Mark IBwin mapping for peer as free and make RP=0
+        }}
+
+done:
+        pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+
+	if (found) { DBG("\n\tNuked peer destid %u\n", destid); }
+	else         CRIT("\n\tCannot find a peer for destid %u\n", destid);
 }
 
 #ifdef UDMA_TUN_DEBUG_IN
@@ -1046,7 +1124,7 @@ static inline bool umd_check_dma_tun_thr_running(struct worker* info)
 {
 	if (info == NULL) return false;
 
-	const int tundmathreadindex = info->umd_chan; // FUDGE
+	const int tundmathreadindex = info->umd_chan_to; // FUDGE
 	if (tundmathreadindex < 0) return false;
 
 	if (1 != wkr[tundmathreadindex].stat) return false;
@@ -1054,12 +1132,18 @@ static inline bool umd_check_dma_tun_thr_running(struct worker* info)
 	return true;
 }
 
+/** \brief Thread which watches RIO endpoint coming and going by querying libmport
+ * \note It wants the wkr index of the Main Battle Tank thread as it will notify it OOB about ADD/DEL events
+ */
 extern "C"
 void umd_epwatch_demo(struct worker* info)
 {
 	if (info == NULL) return;
 
-	const int tundmathreadindex = info->umd_chan; // FUDGE
+	info->umd_mbox_rx_fd = -1;
+        info->umd_mbox_tx_fd = -1;
+
+	const int tundmathreadindex = info->umd_chan_to; // FUDGE
 	if (tundmathreadindex < 0) return;
 
 	const char* SYS_RAPIDIO_DEVICES = "/sys/bus/rapidio/devices";
@@ -1166,3 +1250,165 @@ exit_bomb:
 	CRIT("\n\tWorker thread %d (DMA Tun Thr) is not running. Bye!\n", tundmathreadindex);
 	goto exit;
 }
+
+/** \brief Thread which minds a MBOX and a socketpair
+ * \note It wants the wkr index of the Main Battle Tank thread so it can communicate with it via socketpair(2): reads data from socketpair, sends over MBOX, reads data from MBOX, sends over socketpair
+ * \note It modifies Main Battle Tank thread's struct worker { umd_mbox_tx_fd, umd_mbox_rx_fd }
+ */
+extern "C"
+void umd_mbox_watch_demo(struct worker *info)
+{
+        uint64_t rx_ok = 0;
+        uint64_t tx_ok = 0;
+
+	info->umd_mbox_rx_fd = -1;
+        info->umd_mbox_tx_fd = -1;
+
+        const int tundmathreadindex = info->umd_chan_to; // FUDGE
+        if (tundmathreadindex < 0) return;
+
+        if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+        if (! TakeLock(info, "MBOX", info->umd_chan)) goto exit;
+
+        info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
+
+        if (NULL == info->umd_mch) {
+                CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
+                        info->umd_chan, info->mp_num, info->mp_h);
+                info->umd_tun_name[0] = '\0';
+                close(info->umd_tun_fd); info->umd_tun_fd = -1;
+                delete info->umd_lock; info->umd_lock = NULL;
+                goto exit_bomb;
+        };
+
+        if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
+                CRIT("\n\tMboxChannel: Failed to open mbox!");
+                info->umd_tun_name[0] = '\0';
+                close(info->umd_tun_fd); info->umd_tun_fd = -1;
+                delete info->umd_mch; info->umd_mch = NULL;
+                delete info->umd_lock; info->umd_lock = NULL;
+                goto exit_bomb;
+        }
+
+        socketpair(PF_LOCAL, SOCK_DGRAM, 0, info->umd_sockp); // SOCK_DGRAM so we have a message delineation
+
+        if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+	wkr[tundmathreadindex].umd_mbox_tx_fd = info->umd_sockp[0];
+	wkr[tundmathreadindex].umd_mbox_rx_fd = info->umd_sockp[1];
+
+        INFO("\n\tWatching MBOX %d for IBwin mappings\n", info->umd_chan);
+
+	info->umd_mch->setInitState();
+
+	{{
+	  uint8_t buf[PAGE_4K] = {0};
+
+	  MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
+          opt.mbox   = info->umd_chan;
+
+	  for(int i = 0; i < info->umd_tx_buf_cnt; i++) {
+		void* b = calloc(1, PAGE_4K);
+		info->umd_mch->add_inb_buffer(b);
+	  }
+
+	  MboxChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
+
+          while (! info->stop_req) {
+		if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+// Receive from socketpair(2), send on MBOX
+
+		const int umd_mbox_tx_fd = info->umd_sockp[1];
+		const int umd_mbox_rx_fd = info->umd_sockp[0];
+
+		struct timeval to = { 0, 100 * 1000 }; // 100 ms
+		fd_set rfds; FD_ZERO (&rfds); FD_SET(umd_mbox_tx_fd, &rfds);
+
+		int ret = select(umd_mbox_tx_fd+1, &rfds, NULL, NULL, &to);
+		if (ret < 0) {
+			CRIT("\n\tselect failed on umd_mbox_tx_fd: %s\n", strerror(errno));
+			goto exit;
+		}
+
+		if (info->stop_req) goto exit;
+		if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+		if (FD_ISSET(umd_mbox_tx_fd, &rfds)) { // Sumthin to send on MBOX, read only 1st dgram
+			const int nread = recv(umd_mbox_tx_fd, buf, PAGE_4K, 0);
+
+			DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
+			assert(nread == ntohs(pL2->len));
+
+			bool q_was_full = false;
+             		opt.destid = ntohs(pL2->destid);
+			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
+			if (! info->umd_mch->send_message(opt, buf, nread, true, fail_reason)) {
+				if (fail_reason == MboxChannel::STOP_REG_ERR) {
+					ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
+					goto exit;
+				} else { q_was_full = true; }
+			} else { tx_ok++; }
+
+			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
+			while (!q_was_full && !info->stop_req && info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+		}
+
+		if (info->stop_req) goto exit;
+		if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+// Receive from MBOX, send to umd_mbox_rx_fd
+
+		bool message_ready = false;
+		for (int i = 0; !info->stop_req && i < 100; i++) {
+			uint64_t rx_ts = 0;
+			if (info->umd_mch->inb_message_ready(rx_ts)) { message_ready = true; break; }
+			if (info->stop_req) goto exit;
+			if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+			usleep(100);
+		}
+
+		if (info->stop_req) goto exit;
+		if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+		if (!message_ready) continue;
+
+		uint8_t* buf = NULL;
+		MboxChannel::MboxOptions_t opt_rx; memset(&opt_rx, 0, sizeof(opt));
+                while ((buf = (uint8_t*)info->umd_mch->get_inb_message(opt_rx)) != NULL) {
+			if (info->stop_req) goto exit;
+			if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+			DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
+			assert(opt_rx.bcount >= ntohs(pL2->len));
+
+			if (send(umd_mbox_rx_fd, buf, ntohs(pL2->len), MSG_DONTWAIT) < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
+				CRIT("\n\tsend failed: %s\n", strerror(errno));
+				goto exit;
+			}
+				
+			info->umd_mch->add_inb_buffer(buf); // recycle
+			rx_ok++;
+		}
+	  } // END while
+	}}
+
+exit:
+        if (umd_check_dma_tun_thr_running(info)) {
+		wkr[tundmathreadindex].umd_mbox_tx_fd = -1;
+        	wkr[tundmathreadindex].umd_mbox_rx_fd = -1;
+	}
+
+        close(info->umd_sockp[0]); close(info->umd_sockp[1]);
+        info->umd_sockp[0] = info->umd_sockp[1] = -1;
+        delete info->umd_mch; info->umd_mch = NULL;
+        delete info->umd_lock; info->umd_lock = NULL;
+
+	return;
+
+exit_bomb:
+	CRIT("\n\tWorker thread %d (DMA Tun Thr) is not running. Bye!\n", tundmathreadindex);
+	goto exit;
+}
+
