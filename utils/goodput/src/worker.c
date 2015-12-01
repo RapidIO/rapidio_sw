@@ -537,7 +537,10 @@ void direct_io_goodput(struct worker *info)
 		incr_direct_io_data(info);
 	};
 exit:
-	direct_io_obwin_unmap(info);
+	{};
+	/* FIXME: This causes a node to hang if multiple threads free the 
+	* same obwin...  To be fixed in the kernel */
+	// direct_io_obwin_unmap(info);
 };
 					
 void direct_io_tx_latency(struct worker *info)
