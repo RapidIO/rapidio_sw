@@ -184,7 +184,7 @@ do
 		idx=0
 		while [ "$idx" -lt "$max_name_idx" ]
 		do
-			if [$direction=="read"]; then
+			if [ $direction = "read" ]; then
 				set_t_filename_r ${SIZE_NAME[idx]}
 			else
 				set_t_filename_w ${SIZE_NAME[idx]}
