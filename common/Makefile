@@ -46,7 +46,7 @@ export DEBUG
 endif
 
 
-all: libcli liblist liblog libmport samples
+all: libcli liblist liblog libmport libtime_utils samples
 
 libcli: FORCE
 	$(MAKE) all -C libcli
@@ -69,6 +69,12 @@ liblog: FORCE
 	cp liblog/liblog.a libs_a/
 	cp liblog/liblog.so libs_so/
 		
+libtime_utils: FORCE
+	$(MAKE) all -C libtime_utils
+	mkdir -p libs_a
+	mkdir -p libs_so
+	cp libtime_utils/libtime_utils.a libs_a/
+		
 libmport: FORCE
 	$(MAKE) all LDFLAGS= -C libmport
 	mkdir -p libs_a
@@ -85,6 +91,7 @@ clean:
 	$(MAKE) clean -C libcli
 	$(MAKE) clean -C liblist
 	$(MAKE) clean -C liblog
+	$(MAKE) clean -C libtime_utils
 	$(MAKE) clean -C libmport
 	$(MAKE) clean -C samples
 	rm -f libs_a/*
