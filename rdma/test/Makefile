@@ -1,7 +1,7 @@
 LIBRDMA_PATH=..
 LIBMPORT_PATH=../../common/libs_so
 COMMON_LIBS_PATH=../../common/libs_a
-TOP_LEVEL=../../
+TOP_LEVEL=../..
 # LOG_LEVEL is set by the master Makefile. If this Makefile is run alone, 
 # it can override the loglevel on the command line by specifying 'level=XXX'
 # otherwise it defaults to 7
@@ -13,7 +13,10 @@ endif
 
 # Common flags for all applications
 RDMAAPP_CFLAGS = --std=gnu++0x -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
-		-I../../include -I../../common/include -I$(KINC) \
+		-I$(TOP_LEVEL)/include \
+		-I$(TOP_LEVEL)/common/include \
+		-I$(TOP_LEVEL)/rdma/lib/src \
+		-I$(TOP_LEVEL)/rdma/inc \
 		-D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
 BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a ../src/* \

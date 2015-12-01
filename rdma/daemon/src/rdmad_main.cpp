@@ -339,10 +339,14 @@ void *rpc_thread_f(void *arg)
 							&out->rio_addr,
 							&out->phys_addr);
 
-					DBG("msubid=0x%X, bytes=%d, rio_addr = 0x%lX\n",
+					if (out->status == 0) {
+						DBG("msubid=0x%X, bytes=%d, rio_addr = 0x%lX\n",
 								out->msubid,
 								out->bytes,
 								out->rio_addr);
+					} else {
+						ERR("Failed to create msub\n");
+					}
 				}
 				break;
 

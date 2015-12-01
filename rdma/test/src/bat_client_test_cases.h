@@ -22,10 +22,11 @@ extern char rem_ms_name1[MAX_NAME];
 extern char rem_ms_name2[MAX_NAME];
 extern char rem_ms_name3[MAX_NAME];
 
-int test_case_a(void);
-int test_case_b(void);
-int test_case_c(void);
-int test_case_g(void);
+int test_case_a();
+int test_case_b();
+int test_case_c();
+int test_case_d();
+int test_case_g();
 int test_case_h_i(char ch, uint32_t destid);
 int test_case_j_k(char ch, uint32_t destid);
 int test_case_l();

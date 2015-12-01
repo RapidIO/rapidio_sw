@@ -400,7 +400,8 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 {
 	/* Make sure we don't straddle memory space boundaries */
 	if ((offset + req_size) > this->size) {
-		ERR("offset(0x%X)+req_size(0x%X) OOR\n", offset, req_size);
+		ERR("Out of range: offset(0x%X)+req_size(0x%X) > size(0x%X)\n",
+				offset, req_size, this->size);
 		return -1;
 	}
 

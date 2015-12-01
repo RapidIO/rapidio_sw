@@ -238,6 +238,10 @@ int main(int argc, char *argv[])
 		test_case_c();
 		BAT_EOT();
 		break;
+	case 'd':
+		test_case_d();
+		/* Local test. No need for BAT_EOT */
+		break;
 	case 'g':
 		test_case_g();
 		BAT_EOT();
