@@ -726,7 +726,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 		pthread_spin_unlock(&peer->rio_rx_bd_ready_splock);
 
 #ifdef UDMA_TUN_DEBUG
-		DBG("\n\tInbound %d buffers(s) will be processed.\n", cnt);
+		DBG("\n\tInbound %d buffers(s) will be processed from destid %u.\n", cnt, peer->destid);
 #endif
 
         	if (info->stop_req || peer->stop_req) break;
@@ -957,13 +957,21 @@ again:
 
 			assert(rio_addr);
 
-			DMA_MBOX_PAYLOAD_t payload;
-			payload.rio_addr = htonll(rio_addr);
-			payload.MTU      = htonl(info->umd_tun_MTU);
-			payload.bufc     = htons(info->umd_tx_buf_cnt-1);
+                        uint8_t buf[sizeof(DMA_MBOX_L2_t) + sizeof(DMA_MBOX_PAYLOAD_t)] = {0};
+
+			DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
+
+			DMA_MBOX_PAYLOAD_t* payload = (DMA_MBOX_PAYLOAD_t*)(buf + sizeof(DMA_MBOX_L2_t));
+			payload->rio_addr = htonll(rio_addr);
+			payload->MTU      = htonl(info->umd_tun_MTU);
+			payload->bufc     = htons(info->umd_tx_buf_cnt-1);
+
+			pL2->destid_src = htons(info->umd_dch2->getDestId());
+			pL2->destid_dst = htons(destid);
+                        pL2->len        = htons(sizeof(DMA_MBOX_L2_t) + sizeof(DMA_MBOX_PAYLOAD_t));
 
                         if (info->umd_mbox_tx_fd >= 0)
-			     send(info->umd_mbox_tx_fd, &payload, sizeof(payload), 0);
+			     send(info->umd_mbox_tx_fd, buf, sizeof(buf), 0);
 			else break;
 		}
 
@@ -992,7 +1000,7 @@ again:
                         DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
                         assert(nread == ntohs(pL2->len));
 
-			uint16_t from_destid = ntohs(pL2->destid);
+			uint16_t from_destid = ntohs(pL2->destid_src);
 
 			assert(from_destid != info->umd_dch2->getDestId()); // NOT from myself!!
 
@@ -1007,7 +1015,7 @@ again:
 			// We have an IBwin mapping belonging to from_destid waiting in (buf + sizeof(DMA_MBOX_L2_t))
 			// So put up a new peer, Tun and start up a new Tun thread!!
 
-			assert(ntohs(pL2->len) >= sizeof(DMA_MBOX_PAYLOAD_t));
+			assert(ntohs(pL2->len) >= (sizeof(DMA_MBOX_L2_t) + sizeof(DMA_MBOX_PAYLOAD_t)));
 
 			if (peer_setup) break; // F*ck g++
 
@@ -1435,7 +1443,8 @@ void umd_mbox_watch_demo(struct worker *info)
 			assert(nread == ntohs(pL2->len));
 
 			bool q_was_full = false;
-             		opt.destid = ntohs(pL2->destid);
+             		opt.destid = ntohs(pL2->destid_dst);
+			DBG("\n\tSending %d bytes to destid %u\n", nread, opt.destid);
 			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
 			if (! info->umd_mch->send_message(opt, buf, nread, true, fail_reason)) {
 				if (fail_reason == MboxChannel::STOP_REG_ERR) {
@@ -1477,6 +1486,7 @@ void umd_mbox_watch_demo(struct worker *info)
 			DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
 			assert(opt_rx.bcount >= ntohs(pL2->len));
 
+			DBG("\n\tGot %d/%d bytes from destid %u\n", opt_rx.bcount, ntohs(pL2->len), ntohs(pL2->destid_src));
 			if (send(umd_mbox_rx_fd, buf, ntohs(pL2->len), MSG_DONTWAIT) < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
 				CRIT("\n\tsend failed: %s\n", strerror(errno));
 				goto exit;
