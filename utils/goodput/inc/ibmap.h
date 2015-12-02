@@ -115,7 +115,7 @@ done:
   ~IBwinMap() {
     pthread_mutex_lock(&m_mutex);
     assert(m_slot_allocated);
-    assert(m_slot_allocated[MAX_PEERS] == 0xdeadbeefL);
+    assert((uint32_t)m_slot_allocated[MAX_PEERS] == 0xdeadbeefL);
     ::free(m_slot_allocated);
   }
 

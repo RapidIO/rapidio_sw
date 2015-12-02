@@ -519,8 +519,8 @@ void* umd_dma_wakeup_proc_thr(void* arg)
 	if(arg == NULL) return NULL;
 	struct worker* info = (struct worker*)arg;
 
-        while (!info->stop_req) // every 100 mS which is about HZ. stupid
-		usleep(100 * 1000);
+        while (!info->stop_req) // every 1 mS which is about HZ/10. stupid
+		usleep(1000);
 	
 	pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 	do {{
@@ -1208,7 +1208,7 @@ exit:
 
 		for (int i = 0; i < dci->tx_buf_cnt; i++) {
 			if(dci->dmamem[i].type == 0) continue;
-			dci->dch->free_dmamem(info->dmamem[i]);
+			dci->dch->free_dmamem(dci->dmamem[i]);
 		}
 	}
 
@@ -1216,9 +1216,11 @@ exit:
 	info->umd_dma_fifo_callback = NULL;
 
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
-	{{
-	  std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.begin();
-	  for (; itp != info->umd_dma_did_peer.end(); itp++) {
+	  do {{
+	    if (info->umd_dma_did_peer.size() == 0) break;
+
+	    std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.begin();
+	    for (; itp != info->umd_dma_did_peer.end(); itp++) {
 		DmaPeerDestid_t* peer = itp->second;
 		assert(peer);
 
@@ -1232,10 +1234,10 @@ exit:
 		info->umd_dma_did_peer_fd2did.erase(peer->tun_fd);
 
 		DmaPeerDestidDestroy(peer); free(peer);
-	  }
+	    }
+	  }} while(0);
 	  info->umd_dma_did_peer.clear();
 	  info->umd_dma_did_peer_fd2did.clear();
-	}}
         pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
         close(info->umd_sockp[0]); close(info->umd_sockp[1]);
