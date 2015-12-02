@@ -935,11 +935,11 @@ again:
 // Broadcast my IBwin mapping Urbi & Orbi, once per second
 		std::vector<uint32_t> peer_list;
 
-		// Collect "good" peers quickly
+		// Collect peers quickly
 		pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
-		std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.begin();
-		for (; itp != info->umd_dma_did_peer.end(); itp++) {
-			peer_list.push_back(itp->second->destid);
+		std::map<uint16_t, time_t>::iterator itp = info->umd_dma_did_peer_list.begin();
+		for (; itp != info->umd_dma_did_peer_list.end(); itp++) {
+			peer_list.push_back(itp->first);
 		}
 		pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
@@ -957,7 +957,9 @@ again:
 
 			assert(rio_addr);
 			rio_addr = htonll(rio_addr);
-                        if (info->umd_mbox_tx_fd >= 0) send(info->umd_mbox_tx_fd, &rio_addr, sizeof(rio_addr), 0);
+
+                        if (info->umd_mbox_tx_fd >= 0)
+			     send(info->umd_mbox_tx_fd, &rio_addr, sizeof(rio_addr), 0);
 			else break;
 		}
 
@@ -1088,8 +1090,10 @@ exit:
 
 void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
 {
-        //pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
-        //pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+	time_t now = time(NULL);
+        pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+	info->umd_dma_did_peer_list[destid] = now;
+        pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 }
 
 void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid)
@@ -1103,6 +1107,8 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid)
 	bool found = false;
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
         {{
+	  info->umd_dma_did_peer_list.erase(destid);
+
           std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.find(destid);
 	  if (itp == info->umd_dma_did_peer.end()) { goto done; }
 
@@ -1396,6 +1402,7 @@ void umd_mbox_watch_demo(struct worker *info)
 			if (! info->umd_mch->send_message(opt, buf, nread, true, fail_reason)) {
 				if (fail_reason == MboxChannel::STOP_REG_ERR) {
 					ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
+					// XXX if peer not ready we sould apply soft restart??
 					goto exit;
 				} else { q_was_full = true; }
 			} else { tx_ok++; }
