@@ -321,6 +321,7 @@ riocp_pe_handle_destroy(struct riocp_pe **handle){
       RIOCP_WARN("Failed to remove PE from mport's handle list\n");
   }
 
+  *handle = NULL;
   return;
 }
 
