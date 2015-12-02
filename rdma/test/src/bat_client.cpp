@@ -135,9 +135,11 @@ int main(int argc, char *argv[])
 	if (argc == 2) {
 		if (argv[1][1] == 'l') {
 			puts("List of test cases:");
-			puts("'a' Cannot create two ms owners with same name");
-			puts("'b' Cannot create two memory spaces same name");
-			puts("'c' Create 3 1MB memory spaces in ibwin0 and ibwin1");
+			puts("'a' Test duplicate mso creation");
+			puts("'b' Test duplicate ms creation");
+			puts("'c' Test memory space allocation");
+			puts("'d' Test memory subspace allocation");
+			puts("'e' Test memory subspace allocation/mapping");
 			puts("'g' Create a number of overlapping msubs");
 			puts("'h' Accept/Connect/Disconnect test");
 			puts("'i' Accept/Connect/Destroy test");
@@ -206,11 +208,8 @@ int main(int argc, char *argv[])
 			abort();
 		}
 
-	int ret = connect_to_channel(first_channel,
-			             "first_channel",
-				     &bat_first_client,
-				     &bm_first_tx,
-				     &bm_first_rx);
+	int ret = connect_to_channel(first_channel, "first_channel",
+				&bat_first_client, &bm_first_tx, &bm_first_rx);
 	if (ret)
 		return 1;
 
@@ -237,6 +236,14 @@ int main(int argc, char *argv[])
 	case 'c':
 		test_case_c();
 		BAT_EOT();
+		break;
+	case 'd':
+		test_case_d();
+		/* Local test. No need for BAT_EOT */
+		break;
+	case 'e':
+		test_case_e();
+		/* Local test. No need for BAT_EOT */
 		break;
 	case 'g':
 		test_case_g();
@@ -290,6 +297,9 @@ int main(int argc, char *argv[])
 			test_case_a();
 			test_case_b();
 			test_case_c();
+			test_case_d();
+			test_case_e();
+#if 0
 			test_case_g();
 			test_case_h_i('h', destid);
 			test_case_h_i('i', destid);
@@ -307,6 +317,7 @@ int main(int argc, char *argv[])
 			test_case_dma('4', destid, 0x00, 0x00, 0x40, rdma_sync_chk);
 			test_case_h_i('i', destid);
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
+#endif
 		}
 		break;
 	default:

@@ -68,7 +68,7 @@ int all_ms_msub_info_cmd_f(struct cli_env *env, int argc, char **argv)
 	(void)argv;
 	the_inbound->dump_all_mspace_with_msubs_info(env);
 	return 0;
-} /* all_ms_info_cmd_f() */
+} /* all_ms_msub_info_cmd_f() */
 
 int owners_cmd_f(struct cli_env *env, int argc, char **argv)
 {

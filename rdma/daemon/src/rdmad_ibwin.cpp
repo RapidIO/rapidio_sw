@@ -161,7 +161,7 @@ void ibwin::dump_info(struct cli_env *env)
 
 void ibwin::print_mspace_header(struct cli_env *env)
 {
-	sprintf(env->output, "\n%8s %8d %16s %8s %16s %8s\n", "Window", win_num, "Name",
+	sprintf(env->output, "\n%8s %8u %16s %8s %16s %8s\n", "Window", win_num, "Name",
 					"msid", "rio_addr", "size");
 	logMsg(env);
 	sprintf(env->output, "%8s %8s %16s %8s %16s %8s\n", "-------", "-------",
@@ -193,11 +193,10 @@ void ibwin::dump_mspace_and_subs_info(cli_env *env)
 /* Returns pointer to memory space large enough to hold 'size' */
 mspace* ibwin::free_ms_large_enough(uint64_t size)
 {
-	has_room	hr(size);
 	mspace		*ms = nullptr;
 
 	pthread_mutex_lock(&mspaces_lock);
-	auto it = find_if(mspaces.begin(), mspaces.end(), hr);
+	auto it = find_if(mspaces.begin(), mspaces.end(), has_room(size));
 	if (it != end(mspaces))
 		ms = *it;
 	pthread_mutex_unlock(&mspaces_lock);
@@ -208,9 +207,8 @@ mspace* ibwin::free_ms_large_enough(uint64_t size)
 /* Returns whether there is a memory space large enough to hold 'size' */
 bool ibwin::has_room_for_ms(uint64_t size)
 {
-	has_room	hr(size);
 	pthread_mutex_lock(&mspaces_lock);
-	bool mspace_has_room = find_if(mspaces.begin(), mspaces.end(), hr)
+	bool mspace_has_room = find_if(mspaces.begin(), mspaces.end(), has_room(size))
 						!= mspaces.end();
 	pthread_mutex_unlock(&mspaces_lock);
 
@@ -227,7 +225,7 @@ int ibwin::create_mspace(const char *name,
 	/* Find the free memory space to use to allocate ours */
 	*ms = free_ms_large_enough(size);
 	if (*ms == nullptr) {
-		ERR("No memory space large enough\n");
+		ERR("No memory space large enough to hold '%s'\n", name);
 		return -1;
 	}
 
@@ -285,10 +283,8 @@ int ibwin::create_mspace(const char *name,
 
 mspace* ibwin::get_mspace(const char *name)
 {
-	has_ms_name	hmn(name);
-
 	pthread_mutex_lock(&mspaces_lock);
-	auto msit = find_if(begin(mspaces), end(mspaces), hmn);
+	auto msit = find_if(begin(mspaces), end(mspaces), has_ms_name(name));
 	mspace *ms = (msit == end(mspaces)) ? NULL : *msit;
 	pthread_mutex_unlock(&mspaces_lock);
 
@@ -297,10 +293,8 @@ mspace* ibwin::get_mspace(const char *name)
 
 mspace* ibwin::get_mspace(uint32_t msid)
 {
-	has_msid	hmsid(msid);
-
 	pthread_mutex_lock(&mspaces_lock);
-	auto it = find_if(begin(mspaces), end(mspaces), hmsid);
+	auto it = find_if(begin(mspaces), end(mspaces), has_msid(msid));
 	mspace *ms = (it == end(mspaces)) ? NULL : *it;
 	pthread_mutex_unlock(&mspaces_lock);
 
@@ -309,32 +303,25 @@ mspace* ibwin::get_mspace(uint32_t msid)
 
 mspace* ibwin::get_mspace(uint32_t msoid, uint32_t msid)
 {
-	has_msid	hmsid(msid);
-
 	pthread_mutex_lock(&mspaces_lock);
-	auto it = find_if(begin(mspaces), end(mspaces), hmsid);
+	auto it = find_if(begin(mspaces), end(mspaces), has_msid(msid));
 
-	mspace *ms;
-
-	if (it == end(mspaces)) {
-		WARN("Mspace with msid(0x%X) not found in ibwin(%u)\n",
-								msid, win_num);
-		return nullptr;
-	} else {
+	mspace *ms = nullptr;
+	if (it != end(mspaces)) {
 		ms = *it;
+		if (ms->get_msoid() != msoid) {
+			ERR("msid(0x%X) not owned by msoid(0x%X)\n", msid, msoid);
+			ms = nullptr;
+		}
+	} else {
+		WARN("msid(0x%X) not found in ibwin(%u)\n", msid, win_num);
 	}
 	pthread_mutex_unlock(&mspaces_lock);
-
-
-	if (ms->get_msoid() != msoid) {
-		ERR("msid(0x%X) not owned by msoid(0x%X) in ibwin(%u)\n",
-							msid, msoid, win_num );
-		ms = nullptr;;
-	}
 
 	return ms;
 } /* get_mspace() */
 
+// FIXME: What if there is more than one? In the new world there will be!
 mspace* ibwin::get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id)
 {
 	mspace *ms = nullptr;

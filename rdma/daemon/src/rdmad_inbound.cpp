@@ -185,12 +185,12 @@ mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
 	mspace *ms = nullptr;
 
 	sem_wait(&ibwins_sem);
-	ibwin& ibw1 = ibwins[0];
+
 	for (auto& ibw : ibwins) {
 		ms = ibw.get_mspace(msoid, msid);
 		if (ms != nullptr) {
-			ibw1 = ibw;	// Remember the window in which we
-					// found the memory space.
+			DBG("msid(0x%X) with msoid(0x%X) found in ibwin(%u)\n",
+				msid, msoid, ibw.get_win_num());
 			break;
 		}
 	}
@@ -198,10 +198,8 @@ mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
 
 	if (ms == nullptr) {
 		WARN("msid(0x%X) with msoid(0x%X) not found\n", msid, msoid);
-	} else {
-		DBG("msid(0x%X) with msoid(0x%X) found in ibwin(%u)\n",
-			msid, msoid, ibw1.get_win_num());
 	}
+
 	return ms;
 } /* get_mspace() */
 

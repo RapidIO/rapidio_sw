@@ -3,22 +3,23 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <time.h>
 #include <linux/limits.h>
+
+#include <vector>
+#include <sstream>
+#include <algorithm>
+#include <random>
 
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 #endif
-
-#include <vector>
-#include <sstream>
-#include <algorithm>
-
 #include <cstdlib>
 #include <cstdio>
-#include <inttypes.h>
 
 #include "librdma.h"
+#include "librdma_db.h"
 #include "cm_sock.h"
 #include "bat_common.h"
 #include "bat_client_private.h"
@@ -339,13 +340,25 @@ int test_case_b(void)
 
 
 /**
+ * Tests memory space allocation as follows:
  *
+ * 1. First try to allocate a memory space > the inbound window size.
+ *    This is expected to fail.
+ *
+ * 2. Create a number of memory spaces in each inbound window always
+ * starting with one that is win_size/2 and then win_size/4 and so on
+ * until a memory space of 4K is reached. Allocate another 4K memory
+ * space to complete the allocation for each window.
+ *
+ * 3. Free an 8K memory space in IBWIN0, free all of IBWIN1, then reallocate
+ * an 8K memory space. It should end up in the free space in IBWIN0 not
+ * in IBWIN1.
  */
 int test_case_c(void)
 {
 	unsigned  num_ibwins;
 	uint32_t  ibwin_size;
-	int	  rc;
+	int	  rc, ret;
 
 	/* Determine number of IBWINs and the size of each IBWIN */
 	rc = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
@@ -419,9 +432,6 @@ int test_case_c(void)
 			ms_info[i].handle, ms_info[i].rio_addr, ms_info[i].size);
 	}
 
-	puts("Memory spaces created\nPress ENTER to continue...");
-	getchar();
-
 	/**
 	 * Test: Just ensure that freed memory spaces are re-used.
 	 *
@@ -439,28 +449,19 @@ int test_case_c(void)
 		uint64_t old_8k_rio_addr;
 		uint32_t dummy_size;
 		rc = rdma_get_msh_properties(it->handle, &old_8k_rio_addr, &dummy_size);
+		printf("old_8k_rio_addr=0x%016" PRIx64 "\n", old_8k_rio_addr);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		/* Destroy it */
 		rc = rdma_destroy_ms_h(client_msoh, it->handle);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
-		puts("8K memory space destroyed\nPress ENTER to continue...");
-		getchar();
-
 		/* Destroy all IBWIN1 memory spaces */
-#if 0
 		for (unsigned i = (ms_info.size() / 2); i < ms_info.size(); i++) {
 			printf("Destroying mspace%u\n", i);
 			rc = rdma_destroy_ms_h(client_msoh, ms_info[i].handle);
 			BAT_EXPECT_RET(rc, 0, free_mso);
 		}
-#endif
-		rc = rdma_destroy_ms_h(client_msoh, ms_info[0x0B].handle);
-		BAT_EXPECT_RET(rc, 0, free_mso);
-
-		puts("IBWIN1 memory spaces destroyed\nPress ENTER to continue...");
-		getchar();
 
 		/* Now allocate another 8K memory space */
 		ms_h	new_8k_msh;
@@ -470,8 +471,9 @@ int test_case_c(void)
 
 		/* Read back the RIO address */
 		uint64_t new_8k_rio_addr;
-		printf("Reading back properties of 'new_8k_ms'...\n");
+
 		rc = rdma_get_msh_properties(new_8k_msh, &new_8k_rio_addr, &dummy_size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		if (new_8k_rio_addr == old_8k_rio_addr) {
 			rc = 0;
@@ -480,69 +482,333 @@ int test_case_c(void)
 		}
 	}
 
+	ret = rc;
 free_mso:
 	/* Delete the mso */
 	rc = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 exit:
-	BAT_EXPECT_PASS(rc);
+	BAT_EXPECT_PASS(ret);
 
 	return 0;
 } /* test_case_c() */
 
 /**
- * This is the old test case 'c' which allocates memory remotely on the
- * server. The new test case 'c' will use local allocation and maybe
- * duplicated here to perform a remove version.
+ * Create memory spaces everywhere.
+ * Create 3 or fewer subspaces per memory space.
+ * Select a memory subspace at random and free it.
+ * Re-allocate the subspace and make sure it gets the same RIO address
  */
-int test_case_c_old(void)
+int test_case_d(void)
 {
-	int	  ret;
+	unsigned  num_ibwins;
+	uint32_t  ibwin_size;
+	int	  rc, ret;
+
+	/* Determine number of IBWINs and the size of each IBWIN */
+	rc = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
+	BAT_EXPECT_RET(rc, 0, exit);
+	printf("%u inbound windows, %uKB each\n", num_ibwins, ibwin_size/1024);
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	rc = rdma_create_mso_h("test_case_d_mso", &client_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
+	/* struct for holding information about memory spaces to be created */
+	struct ms_info_t {
+		uint32_t	size;
+		ms_h		handle;
+		uint64_t	rio_addr;
+		ms_info_t(uint32_t size, ms_h handle, uint64_t rio_addr) :
+			size(size), handle(handle), rio_addr(rio_addr)
+		{}
+		bool operator ==(uint32_t size) {
+			return this->size == size;
+		}
+	};
+
+	{
+		static vector<ms_info_t>	ms_info;
+
+		/* Now create a number of memory spaces such that they fill each
+		 * inbound window with different sizes starting with 1/2 the
+		 * inbound window size and ending with 4K which is the minimum
+		 * block size that can be mapped.
+		 *
+		 * Then for each memory space, fill it with subspaces until
+		 * the entire memory space is full.
+		 */
+
+		/* First generate the memory space sizes which fill up the entire
+		 * inbound memory address space. */
+		for (unsigned ibwin = 0; ibwin < num_ibwins; ibwin++) {
+			auto size = ibwin_size/2;
+
+			while (size >= BAT_MIN_BLOCK_SIZE) {
+				ms_info.emplace_back(size, 0, 0);
+				size /= 2;
+			}
+			ms_info.emplace_back(size * 2, 0, 0);
+		}
+
+		struct msub_info_t {
+			msub_info_t(ms_h msh, msub_h msubh, uint32_t offset) :
+				msh(msh), msubh(msubh), offset(offset) {
+			}
+			ms_h	msh;
+			msub_h	msubh;
+			uint32_t offset;
+		};
+		static vector<msub_info_t>	msub_info;
+
+		/* Now create the memory spaces, and subspaces that fill up
+		 * the entire inbound space */
+		for (unsigned i = 0; i < ms_info.size(); i++) {
+			stringstream ms_name;
+			ms_name << "mspace" << i;
+
+			rc = rdma_create_ms_h(ms_name.str().c_str(),
+					      client_msoh,
+					      ms_info[i].size,
+					      0,
+					      &ms_info[i].handle,
+					      &ms_info[i].size);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+			rdma_get_msh_properties(ms_info[i].handle,
+					&ms_info[i].rio_addr, &ms_info[i].size);
+			printf("0x%016" PRIx64 ", 0x%016" PRIx64 ", 0x%X\n",
+				ms_info[i].handle, ms_info[i].rio_addr, ms_info[i].size);
+
+			/* For the current memory space, create 3 subspaces
+			 * or fewer if the memory space cannot hold 3 subspaces.
+			 */
+#define MIN(a,b) ((a) < (b)) ? (a) : (b)
+			unsigned max_msubs = ms_info[i].size / BAT_MIN_BLOCK_SIZE;
+			max_msubs = MIN(max_msubs, 3);
+			for (unsigned j = 0;
+				j < max_msubs;
+				j++) {
+				msub_h	msubh;
+				uint32_t offset = j*BAT_MIN_BLOCK_SIZE;
+				rc = rdma_create_msub_h(ms_info[i].handle,
+							 offset,
+							 BAT_MIN_BLOCK_SIZE,
+							 0,
+							 &msubh);
+				BAT_EXPECT_RET(rc, 0, free_mso);
+				msub_info.emplace_back(ms_info[i].handle, msubh, offset);
+			}
+#undef MIN
+		}
+
+		/* Pick 2 random memory sub-spaces */
+		unsigned msub1_index = (msub_info.size() / 2) -3;
+		unsigned msub2_index = msub_info.size() - 3;
+
+		loc_msub *msub1 = (loc_msub *)msub_info[msub1_index].msubh;
+		loc_msub *msub2 = (loc_msub *)msub_info[msub2_index].msubh;
+
+		/* Remember their offsets within the memory space */
+		uint32_t old_msub1_offset = msub_info[msub1_index].offset;
+		uint32_t old_msub2_offset = msub_info[msub2_index].offset;
+
+		/* Remember their old RIO addresses as well */
+		uint64_t old_rio1 = msub1->rio_addr_lo;
+		uint64_t old_rio2 = msub2->rio_addr_lo;
 
 
-	/* Create mso */
-	mso_h	msoh1;
-	ret = create_mso_f(bat_first_client,
-			   bm_first_tx,
-			   bm_first_rx,
-			   rem_mso_name, &msoh1);
-	BAT_EXPECT_RET(ret, 0, exit);
+		/* Destroy the 2 memory subspaces */
+		rc = rdma_destroy_msub_h(msub_info[msub1_index].msh,
+					 msub_info[msub1_index].msubh);
+		BAT_EXPECT_RET(rc, 0, free_mso);
 
-	/* Create first ms */
-	ms_h	msh1;
-	ret = create_ms_f(bat_first_client,
-			  bm_first_tx,
-			  bm_first_rx,
-			  rem_ms_name1, msoh1, 1024*1024, 0, &msh1, NULL);
-	BAT_EXPECT_RET(ret, 0, free_mso);
+		rc = rdma_destroy_msub_h(msub_info[msub2_index].msh,
+					 msub_info[msub2_index].msubh);
+		BAT_EXPECT_RET(rc, 0, free_mso);
 
-	/* Create second ms */
-	ms_h	msh2;
-	ret = create_ms_f(bat_first_client,
-			  bm_first_tx,
-			  bm_first_rx,
-			  rem_ms_name2, msoh1, 1024*1024, 0, &msh2, NULL);
-	BAT_EXPECT_RET(ret, 0, free_mso);
+		/* Create two similar msubspaces */
+		rc = rdma_create_msub_h(msub_info[msub1_index].msh,
+					old_msub1_offset,
+					BAT_MIN_BLOCK_SIZE,
+					0,
+					&msub_info[msub1_index].msubh);
+		BAT_EXPECT_RET(rc, 0, free_mso);
 
-	/* Create third ms */
-	ms_h	msh3;
-	ret = create_ms_f(bat_first_client,
-			  bm_first_tx,
-			  bm_first_rx,
-			  rem_ms_name3, msoh1, 1024*1024, 0, &msh3, NULL);
-	BAT_EXPECT_PASS(ret);
+		rc = rdma_create_msub_h(msub_info[msub2_index].msh,
+					old_msub2_offset,
+					BAT_MIN_BLOCK_SIZE,
+					0,
+					&msub_info[msub2_index].msubh);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		msub1 = (loc_msub *)msub_info[msub1_index].msubh;
+		msub2 = (loc_msub *)msub_info[msub2_index].msubh;
+
+		uint64_t new_rio1 = msub1->rio_addr_lo;
+		uint64_t new_rio2 = msub2->rio_addr_lo;
+
+		/* Verify that the RIO addresses are the same */
+		if (new_rio1 != old_rio1) {
+			rc = -1;
+			BAT_EXPECT_RET(rc, 0, free_mso);
+		}
+		if (new_rio2 != old_rio2) {
+			rc = -1;
+			BAT_EXPECT_RET(rc, 0, free_mso);
+		}
+
+		/* Save 'rc' since it will be overwritten while destroying mso */
+		ret = rc;
+	}
 
 free_mso:
 	/* Delete the mso */
-	ret = destroy_mso_f(bat_first_client,
-			    bm_first_tx,
-			    bm_first_rx,
-			    msoh1);
-	BAT_EXPECT_RET(ret, 0, exit);
+	rc = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
 exit:
-	return ret;
-} /* test_case_c() */
+	BAT_EXPECT_PASS(ret);
+	return 0;
+} /* test_case_d() */
+
+/**
+ * Test mapping and writing values to neighboring subspaces.
+ *
+ * Start with mapping memory spaces as in test case d, then
+ * fill the memory spaces with subspaces. Map and write values
+ * then readback and verify.
+ */
+int test_case_e()
+{
+	unsigned  num_ibwins;
+	uint32_t  ibwin_size;
+	int	  rc, ret;
+
+	/* Determine number of IBWINs and the size of each IBWIN */
+	rc = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
+	BAT_EXPECT_RET(rc, 0, exit);
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	rc = rdma_create_mso_h("test_case_e_mso", &client_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
+	/* struct for holding information about memory spaces to be created */
+	struct ms_info_t {
+		uint32_t	size;
+		ms_h		handle;
+		uint64_t	rio_addr;
+		ms_info_t(uint32_t size, ms_h handle, uint64_t rio_addr) :
+			size(size), handle(handle), rio_addr(rio_addr)
+		{}
+		bool operator ==(uint32_t size) {
+			return this->size == size;
+		}
+	};
+
+	{
+		static vector<ms_info_t>	ms_info;
+
+		for (unsigned ibwin = 0; ibwin < num_ibwins; ibwin++) {
+			auto size = ibwin_size/2;
+
+			while (size >= BAT_MIN_BLOCK_SIZE) {
+				ms_info.emplace_back(size, 0, 0);
+				size /= 2;
+			}
+			ms_info.emplace_back(size * 2, 0, 0);
+		}
+
+		struct msub_info_t {
+			msub_info_t(unsigned index, ms_h msh, msub_h msubh,
+				    uint32_t offset, uint8_t *p) :
+				index(index), msh(msh), msubh(msubh), offset(offset), p(p) {
+			}
+			unsigned index;	/* Index of msub within ms */
+			ms_h	msh;
+			msub_h	msubh;
+			uint32_t offset;
+			uint8_t	*p;
+		};
+		static vector<msub_info_t>	msub_info;
+
+		/* Now create the memory spaces, and subspaces that fill up
+		 * the entire inbound space */
+		for (unsigned i = 0; i < ms_info.size(); i++) {
+			stringstream ms_name;
+			ms_name << "mspace" << i;
+
+			rc = rdma_create_ms_h(ms_name.str().c_str(),
+					      client_msoh,
+					      ms_info[i].size,
+					      0,
+					      &ms_info[i].handle,
+					      &ms_info[i].size);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+			rdma_get_msh_properties(ms_info[i].handle,
+					&ms_info[i].rio_addr, &ms_info[i].size);
+
+			/* For the current memory space, fill it entirely
+			 * with subspaces. Map each msub to virtual memory. */
+			unsigned max_msubs = ms_info[i].size / BAT_MIN_BLOCK_SIZE;
+			for (unsigned j = 0; j < max_msubs; j++) {
+				msub_h	 msubh;
+				uint8_t	 *p;
+				uint32_t offset = j*BAT_MIN_BLOCK_SIZE;
+
+				/* Create the adjacent subspaces */
+				rc = rdma_create_msub_h(ms_info[i].handle,
+							 offset,
+							 BAT_MIN_BLOCK_SIZE,
+							 0,
+							 &msubh);
+				BAT_EXPECT_RET(rc, 0, free_mso);
+
+				/* Map the subspace */
+				rc = rdma_mmap_msub(msubh, (void **)&p);
+				BAT_EXPECT_RET(rc, 0, free_mso);
+
+				/* Fill it with values. The easiest is to use 'j'
+				 * so that every msub has different values */
+				memset(p, j & 0xFF, BAT_MIN_BLOCK_SIZE);
+
+				/* Store info about subspace */
+				msub_info.emplace_back(j & 0xFF, ms_info[i].handle, msubh, offset, p);
+			}
+		}
+
+		/* Verify data in all subspaces! */
+		size_t	msub_info_size = msub_info.size();
+		printf("msub_info_size = %u\n", (unsigned)msub_info_size);
+		for(unsigned j = 0; j < msub_info_size; j++) {
+			uint8_t *p = msub_info[j].p;
+			unsigned index = msub_info[j].index;
+
+			printf("index = %u, p[0] = %u, p[BAT_MIN_BLOCK_SIZE-1] = %u\n",
+					index, p[0], p[BAT_MIN_BLOCK_SIZE-1]);
+
+			if ((p[0] != index) || (p[BAT_MIN_BLOCK_SIZE-1] != index)) {
+				rc = -1;
+				BAT_EXPECT_RET(rc, 0, free_mso);
+			}
+		}
+		rc = 0;
+
+		/* Save 'rc' since it will be overwritten while destroying mso */
+		ret = rc;
+	}
+
+free_mso:
+	/* Delete the mso */
+	rc = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
+exit:
+	BAT_EXPECT_PASS(ret);
+	return 0;
+} /* test_case_e() */
 
 /**
  * Create a number of msubs, some overlapping.

@@ -809,8 +809,6 @@ ms_h add_loc_msub(uint32_t 	msubid,
 	msubp->rio_addr_hi  = rio_addr_hi;
 	msubp->paddr	= paddr;
 
-	DBG("rio_addr_len=%d, rio_addr_lo=0x%016" PRIx64 ", paddr=0x%016" PRIx64 "\n",
-			rio_addr_len, rio_addr_lo, paddr);
 	/* Store */
 	pthread_mutex_lock(&loc_msub_mutex);
 	loc_msub_list.push_back(msubp);
