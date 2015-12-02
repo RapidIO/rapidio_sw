@@ -432,9 +432,6 @@ int test_case_c(void)
 			ms_info[i].handle, ms_info[i].rio_addr, ms_info[i].size);
 	}
 
-	puts("Memory spaces created\nPress ENTER to continue...");
-	getchar();
-
 	/**
 	 * Test: Just ensure that freed memory spaces are re-used.
 	 *
@@ -459,18 +456,12 @@ int test_case_c(void)
 		rc = rdma_destroy_ms_h(client_msoh, it->handle);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
-		puts("8K memory space destroyed\nPress ENTER to continue...");
-		getchar();
-
 		/* Destroy all IBWIN1 memory spaces */
 		for (unsigned i = (ms_info.size() / 2); i < ms_info.size(); i++) {
 			printf("Destroying mspace%u\n", i);
 			rc = rdma_destroy_ms_h(client_msoh, ms_info[i].handle);
 			BAT_EXPECT_RET(rc, 0, free_mso);
 		}
-
-		puts("IBWIN1 memory spaces destroyed\nPress ENTER to continue...");
-		getchar();
 
 		/* Now allocate another 8K memory space */
 		ms_h	new_8k_msh;
@@ -480,11 +471,9 @@ int test_case_c(void)
 
 		/* Read back the RIO address */
 		uint64_t new_8k_rio_addr;
-		printf("Reading back properties of 'new_8k_ms'...\n");
+
 		rc = rdma_get_msh_properties(new_8k_msh, &new_8k_rio_addr, &dummy_size);
 		BAT_EXPECT_RET(rc, 0, free_mso);
-
-		printf("new_8k_rio_addr=0x%016" PRIx64 "\n", new_8k_rio_addr);
 
 		if (new_8k_rio_addr == old_8k_rio_addr) {
 			rc = 0;
@@ -505,6 +494,12 @@ exit:
 	return 0;
 } /* test_case_c() */
 
+/**
+ * Create memory spaces everywhere.
+ * Create 3 or fewer subspaces per memory space.
+ * Select a memory subspace at random and free it.
+ * Re-allocate the subspace and make sure it gets the same RIO address
+ */
 int test_case_d(void)
 {
 	unsigned  num_ibwins;
@@ -518,7 +513,7 @@ int test_case_d(void)
 
 	/* Create a client mso */
 	mso_h	client_msoh;
-	rc = rdma_create_mso_h("test_case_c_mso", &client_msoh);
+	rc = rdma_create_mso_h("test_case_d_mso", &client_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* struct for holding information about memory spaces to be created */
@@ -561,7 +556,6 @@ int test_case_d(void)
 		struct msub_info_t {
 			msub_info_t(ms_h msh, msub_h msubh, uint32_t offset) :
 				msh(msh), msubh(msubh), offset(offset) {
-				printf("ctor: offset = 0x%X\n", offset);
 			}
 			ms_h	msh;
 			msub_h	msubh;
@@ -588,19 +582,16 @@ int test_case_d(void)
 				ms_info[i].handle, ms_info[i].rio_addr, ms_info[i].size);
 
 			/* For the current memory space, create 3 subspaces
-			 * or less if it cannot hold 3.
+			 * or fewer if the memory space cannot hold 3 subspaces.
 			 */
 #define MIN(a,b) ((a) < (b)) ? (a) : (b)
 			unsigned max_msubs = ms_info[i].size / BAT_MIN_BLOCK_SIZE;
-			printf("* max_msubs = %u\n", max_msubs);
 			max_msubs = MIN(max_msubs, 3);
-			printf("** max_msubs = %u\n", max_msubs);
 			for (unsigned j = 0;
 				j < max_msubs;
 				j++) {
 				msub_h	msubh;
 				uint32_t offset = j*BAT_MIN_BLOCK_SIZE;
-				printf("i = %u, j = %u\n", i, j);
 				rc = rdma_create_msub_h(ms_info[i].handle,
 							 offset,
 							 BAT_MIN_BLOCK_SIZE,
@@ -612,9 +603,6 @@ int test_case_d(void)
 #undef MIN
 		}
 
-		puts("Memory spaces & subspaces created\nPress ENTER to continue...");
-		getchar();
-
 		/* Pick 2 random memory sub-spaces */
 		unsigned msub1_index = (msub_info.size() / 2) -3;
 		unsigned msub2_index = msub_info.size() - 3;
@@ -622,16 +610,16 @@ int test_case_d(void)
 		loc_msub *msub1 = (loc_msub *)msub_info[msub1_index].msubh;
 		loc_msub *msub2 = (loc_msub *)msub_info[msub2_index].msubh;
 
+		/* Remember their offsets within the memory space */
 		uint32_t old_msub1_offset = msub_info[msub1_index].offset;
 		uint32_t old_msub2_offset = msub_info[msub2_index].offset;
 
+		/* Remember their old RIO addresses as well */
 		uint64_t old_rio1 = msub1->rio_addr_lo;
 		uint64_t old_rio2 = msub2->rio_addr_lo;
 
-		printf("old_msub1_offset = 0x%X, old_msub2_offset = 0x%X\n",
-				old_msub1_offset, old_msub2_offset);
 
-		/* Destroy those memory subspaces */
+		/* Destroy the 2 memory subspaces */
 		rc = rdma_destroy_msub_h(msub_info[msub1_index].msh,
 					 msub_info[msub1_index].msubh);
 		BAT_EXPECT_RET(rc, 0, free_mso);
@@ -655,13 +643,13 @@ int test_case_d(void)
 					&msub_info[msub2_index].msubh);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
-		/* Verify that the RIO addresses are the same */
 		msub1 = (loc_msub *)msub_info[msub1_index].msubh;
 		msub2 = (loc_msub *)msub_info[msub2_index].msubh;
 
 		uint64_t new_rio1 = msub1->rio_addr_lo;
 		uint64_t new_rio2 = msub2->rio_addr_lo;
 
+		/* Verify that the RIO addresses are the same */
 		if (new_rio1 != old_rio1) {
 			rc = -1;
 			BAT_EXPECT_RET(rc, 0, free_mso);
@@ -676,9 +664,6 @@ int test_case_d(void)
 	}
 
 free_mso:
-	puts("Press ENTER to destroy mso and descendents...");
-	getchar();
-
 	/* Delete the mso */
 	rc = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
