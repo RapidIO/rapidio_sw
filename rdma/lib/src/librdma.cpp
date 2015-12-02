@@ -1115,8 +1115,6 @@ struct destroy_msub {
 			WARN("rdma_destroy_msub_h failed: msh=0x%" PRIx64 ", msubh=0x%" PRIx64 "\n",
 							msh, msub_h(msub));
 			ok = false;
-		} else {
-			INFO("msubh(0x%" PRIx64 ") of msh(0x%" PRIx64 ") destroyed\n", msub_h(msub), msh);
 		}
 	}
 
@@ -1539,7 +1537,6 @@ int rdma_create_msub_h(ms_h	msh,
 	create_msub_output	out;
 	int			ret;
 	
-	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
 	/* Check the daemon hasn't died since we established its socket connection */
@@ -1629,7 +1626,6 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	struct loc_msub 	*msub;
 	int			ret;
 
-	DBG("ENTER with msh = 0x%" PRIx64 ", msubh = 0x%" PRIx64 "\n", msh, msubh);
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -1680,7 +1676,8 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 		return RDMA_DB_REM_FAIL;
 	}
 
-	DBG("EXIT - no errors\n");
+	DBG("Destroyed msub in msh = 0x%" PRIx64 ", msubh = 0x%" PRIx64 "\n", msh, msubh);
+
 	return 0;
 } /* rdma_destroy_msub() */
 
@@ -1689,7 +1686,6 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
 	int ret;
 	
-	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
 	if (!pmsub) {
@@ -1714,16 +1710,13 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 
 	ret = riomp_dma_map_memory(peer.mport_hnd, pmsub->bytes, pmsub->paddr, vaddr);
 
-	INFO("map() phys_addr = 0x%" PRIx64 ", virt_addr = %p, size = 0x%x\n",
-						pmsub->paddr, *vaddr, pmsub->bytes);
-
 	if (ret) {
 		ERR("map(0x%" PRIx64 ") failed: %s\n", pmsub->paddr, strerror(-ret));
 		sem_post(&rdma_lock);
 		return ret;
 	}
-	DBG("msub mapped to vaddr(%p)\n", *vaddr);
-
+	INFO("phys_addr = 0x%" PRIx64 ", virt_addr = %p, size = 0x%x\n",
+						pmsub->paddr, *vaddr, pmsub->bytes);
 	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_mmap_msub() */
