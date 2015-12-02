@@ -14,7 +14,7 @@
 class IBwinMap {
 public:
   IBwinMap(const uint64_t rio_addr, const void* ib_ptr, const uint32_t ib_size, const int bufc, const int tun_MTU) :
-    m_rio_addr(rio_addr), m_ib_ptr((uint16_t*)ib_ptr), m_ib_size(ib_size)
+    m_rio_addr(rio_addr), m_ib_ptr((uint8_t*)ib_ptr), m_ib_size(ib_size)
   {
     if (rio_addr == 0) throw std::runtime_error("IBwinMap: Invalid rio_addr!");
     if (ib_ptr == NULL) throw std::runtime_error("IBwinMap: Invalid ib_ptr!");
@@ -119,9 +119,13 @@ done:
     ::free(m_slot_allocated);
   }
 
+  inline uint64_t getBaseRioAddr() { return m_rio_addr; }
+  inline uint64_t getBaseSize()    { return m_ib_size; }
+  inline void*    getBasePtr()     { return m_ib_ptr; }
+
 private:
   uint64_t  m_rio_addr;
-  uint16_t* m_ib_ptr;
+  uint8_t*  m_ib_ptr;
   uint32_t  m_ib_size;
   uint32_t  PEER_IBWIN_SIZE;
   uint32_t  MAX_PEERS;

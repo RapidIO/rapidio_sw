@@ -263,6 +263,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 {
 	if (info == NULL || dci == NULL || tun_fd < 0 || my_destid == 0xffff) return false;
 
+	bool ret = false;
 	int destid_fd = -1;
 	int destid_dpi = -1;
 	int is_bad_destid = 0;
@@ -298,6 +299,10 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
 	assert(destid_fd == destid_dpi);
+
+	if (peer == NULL) goto error;
+
+	//DmaPeerLock(peer);
 
 	if (info->stop_req || peer->stop_req) goto error;
 
@@ -409,11 +414,13 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	if (peer->WP == (dci->tx_buf_cnt-1)) peer->WP = 0; // Account for T3 missing IBwin cell, ALL must have the same bufc!
 
 	peer->tx_cnt++;
+	ret = true;
 
-	return true;
+unlock:
+	// if (peer != NULL) DmaPeerUnLock(peer);
+	return ret;
 
-error:
-	return false;
+error:  goto unlock;
 }
 
 
@@ -435,14 +442,22 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 
 	std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.begin();
 	for (; !info->stop_req && itp != info->umd_dma_did_peer.end(); itp++) {
+		bool pending_work = false;
 		DmaPeerDestid_t* peer = itp->second;
 		assert(peer);
 
-		if (peer->stop_req) continue;
+		int k = ~0;
+		int cnt = 0;
+		int idx = ~0;
+		volatile uint32_t* pRP = NULL;
 
-		volatile uint32_t* pRP = (uint32_t*)peer->ib_ptr;
+		//DmaPeerLock(peer);
 
-		int k = *pRP;
+		if (peer->stop_req) goto unlock;
+
+		pRP = (uint32_t*)peer->ib_ptr;
+
+		k = *pRP;
 		assert(k >= 0);
 		assert(k < (info->umd_tx_buf_cnt-1));
 
@@ -450,8 +465,7 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 
  		pthread_spin_lock(&peer->rio_rx_bd_ready_splock);
 
-		int cnt = 0;
-		int idx = peer->rio_rx_bd_ready_size; // If not zero then RIO RX thr is sloow
+		idx = peer->rio_rx_bd_ready_size; // If not zero then RIO RX thr is sloow
 		for (int i = 0; i < (info->umd_tx_buf_cnt-1); i++) {
 			if (info->stop_req) break;
 			if (peer->stop_req) continue;
@@ -471,7 +485,6 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 			}
 
 			k++; if(k == (info->umd_tx_buf_cnt-1)) k = 0; // RP wrap-around
-
 		}
 
 		if (cnt > 0) {
@@ -481,15 +494,19 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 
 		pthread_spin_unlock(&peer->rio_rx_bd_ready_splock);
 
-		if (cnt == 0) continue;
+		if (cnt == 0) goto unlock;
 
-		if (info->stop_req) break;
+		pending_work = true;
 
 #ifdef UDMA_TUN_DEBUG_IB
 		DBG("\n\tFound %d ready buffers at iter %llu\n", cnt, cbk_iter);
 #endif
 
-		sem_post(&peer->rio_rx_work);
+		if (pending_work) sem_post(&peer->rio_rx_work);
+
+	unlock:
+		//DmaPeerUnLock(peer);
+		if (info->stop_req) break;
 	} // END for each peer
 
 	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
@@ -510,7 +527,10 @@ void* umd_dma_wakeup_proc_thr(void* arg)
 	for (; itp != info->umd_dma_did_peer.end(); itp++) {
 		DmaPeerDestid_t* peer = itp->second;
 		assert(peer);
+
+                //DmaPeerLock(peer);
 		sem_post(&peer->rio_rx_work);
+		//DmaPeerUnLock(peer);
 	}
 
 	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
@@ -626,20 +646,30 @@ error:
 
 bool umd_dma_goodput_tun_setup_TUN(struct worker *info, DmaPeerDestid_t* peer, uint16_t my_destid)
 {
+	bool ret = false;
+	uint16_t peer_destid = ~0;
+	int peer_tun_fd = -1;
         char if_name[IFNAMSIZ] = {0};
+        char TapIPv4Addr[17] = {0};
         int flags = IFF_TUN | IFF_NO_PI;
 
 	if (info == NULL || peer == NULL) return false;
-	if (my_destid == peer->destid) return false;
+
+	DmaPeerLock(peer);
+
+	if (my_destid == peer->destid) goto error;
+
+	peer_destid = peer->destid;
 
         memset(peer->tun_name, 0, sizeof(peer->tun_name));
 
         // Initialize tun/tap interface
         if ((peer->tun_fd = tun_alloc(if_name, flags)) < 0) {
                 CRIT("Error connecting to tun/tap interface %s!\n", if_name);
-                return false;
+                goto error;
         }
         strncpy(peer->tun_name, if_name, sizeof(peer->tun_name)-1);
+	peer_tun_fd = peer->tun_fd;
 
 	{{
 	  struct epoll_event event;
@@ -649,44 +679,56 @@ bool umd_dma_goodput_tun_setup_TUN(struct worker *info, DmaPeerDestid_t* peer, u
 		CRIT("\n\tFailed to add tun_fd %d for peer destid %u to epoll set %d\n",
 		     peer->tun_fd, peer->destid, info->umd_epollfd);
                 close(peer->tun_fd); peer->tun_fd = -1;
+		goto error;
 	  }
 	}}
 
         // Configure tun/tap interface for pointo-to-point IPv4, L2, no ARP, no multicast
 
-        char TapIPv4Addr[17] = {0};
-        const uint16_t my_destid_tun = my_destid + DESTID_TRANSLATE;
-        const uint16_t peer_destid_tun = peer->destid + DESTID_TRANSLATE;
+	{{
+          const uint16_t my_destid_tun = my_destid + DESTID_TRANSLATE;
+          const uint16_t peer_destid_tun = peer->destid + DESTID_TRANSLATE;
 
-        snprintf(TapIPv4Addr, 16, "169.254.%d.%d pointopoint 169.254.%d.%d",
+          snprintf(TapIPv4Addr, 16, "169.254.%d.%d pointopoint 169.254.%d.%d",
                  (my_destid_tun >> 8) & 0xFF,   my_destid_tun & 0xFF,
                  (peer_destid_tun >> 8) & 0xFF, peer_destid_tun & 0xFF);
 
-        char ifconfig_cmd[257] = {0};
-        snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s %s mtu %d up",
+          char ifconfig_cmd[257] = {0};
+          snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s %s mtu %d up",
                                     if_name, TapIPv4Addr, info->umd_tun_MTU);
-        const int rr = system(ifconfig_cmd);
-        if(rr >> 8) {
+          const int rr = system(ifconfig_cmd);
+          if(rr >> 8) {
                 peer->tun_name[0] = '\0';
 		// No need to remove from epoll set, close does that as it isn't dup(2)'ed
                 close(peer->tun_fd); peer->tun_fd = -1;
-                return false;
-        }
+                goto error;
+          }
 
-        snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
-        system(ifconfig_cmd);
+          snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
+          system(ifconfig_cmd);
+	}}
 
-        INFO("\n\t%s %s mtu %d on DMA Chan=%d,...,Chan_n=%d Chan2=%d my_destid=%u peer_destid=%u #buf=%d #fifo=%d\n",
-             if_name, TapIPv4Addr, info->umd_tun_MTU,
-             info->umd_chan, info->umd_chan_n, info->umd_chan2,
-             my_destid, peer->destid,
-             info->umd_tx_buf_cnt, info->umd_sts_entries);
+	ret = true;
 
-	pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
-	info->umd_dma_did_peer_fd2did[peer->tun_fd] = peer->destid;
-	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+unlock:
+	DmaPeerUnLock(peer);
 
-	return true;
+	if (ret) {
+		// XXX Small race cond but small price to pay for avoiding nested locking!
+		pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+		info->umd_dma_did_peer_fd2did[peer_tun_fd] = peer_destid;
+		pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+
+		INFO("\n\t%s %s mtu %d on DMA Chan=%d,...,Chan_n=%d Chan2=%d my_destid=%u peer_destid=%u #buf=%d #fifo=%d\n",
+		     if_name, TapIPv4Addr, info->umd_tun_MTU,
+		     info->umd_chan, info->umd_chan_n, info->umd_chan2,
+		     my_destid, peer->destid,
+		     info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
+	
+	return ret;
+
+error:  goto unlock;
 }
 
 void* umd_dma_tun_TX_proc_thr(void* arg)
@@ -945,7 +987,7 @@ again:
 
 		time_t now = time(NULL);
 		for (int ip = 0; info->umd_mbox_tx_fd >= 0 && (now > last_bcast) && ip < peer_list.size(); ip++) {
-			last_bcast = now;
+			last_bcast = now + 120; // XXX hack every X minutes for debugging!
 			const uint16_t destid = peer_list[ip];
 
 			uint64_t rio_addr = 0; // Where I want the peer to deposit its stuff
@@ -962,9 +1004,11 @@ again:
 			DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
 
 			DMA_MBOX_PAYLOAD_t* payload = (DMA_MBOX_PAYLOAD_t*)(buf + sizeof(DMA_MBOX_L2_t));
-			payload->rio_addr = htonll(rio_addr);
-			payload->MTU      = htonl(info->umd_tun_MTU);
-			payload->bufc     = htons(info->umd_tx_buf_cnt-1);
+			payload->rio_addr      = htonll(rio_addr);
+			payload->base_rio_addr = htonll(info->umd_peer_ibmap->getBaseRioAddr());
+			payload->base_size     = htonl(info->umd_peer_ibmap->getBaseSize());
+			payload->MTU           = htonl(info->umd_tun_MTU);
+			payload->bufc          = htons(info->umd_tx_buf_cnt-1);
 
 			pL2->destid_src = htons(info->umd_dch2->getDestId());
 			pL2->destid_dst = htons(destid);
@@ -1021,9 +1065,15 @@ again:
 
 			DMA_MBOX_PAYLOAD_t* payload = (DMA_MBOX_PAYLOAD_t*)(buf + sizeof(DMA_MBOX_L2_t));
 
-			const uint64_t from_rio_addr = htonll(payload->rio_addr);
-			const uint16_t from_bufc     = ntohs(payload->bufc);
-			const uint32_t from_MTU      = ntohl(payload->MTU);
+			const uint64_t from_rio_addr      = htonll(payload->rio_addr);
+			const uint64_t from_base_rio_addr = htonll(payload->base_rio_addr);
+			const uint32_t from_base_size     = ntohl(payload->base_size);
+			const uint16_t from_bufc          = ntohs(payload->bufc);
+			const uint32_t from_MTU           = ntohl(payload->MTU);
+
+			assert(from_rio_addr);
+			assert(from_base_rio_addr);
+			assert(from_base_size);
 
 			do {{
 			  if (from_MTU != info->umd_tun_MTU) {
@@ -1048,10 +1098,10 @@ again:
 				break;
 			  } 
 
-			  DBG("\n\tSetting up Tun for NEW peer destid %u peer.rio_addr=%llu bufc=%u MTU=%lu allocated rio_addr=%llu ib_ptr=%p\n",
-			      from_destid, from_rio_addr, from_bufc, from_MTU, rio_addr, peer_ib_ptr);
+			  DBG("\n\tSetting up Tun for NEW peer destid %u peer {base_rio_addr=%llu base_size=%lu rio_addr=%llu bufc=%u MTU=%lu} allocated rio_addr=%llu ib_ptr=%p\n",
+			      from_destid, from_base_rio_addr, from_base_size, from_rio_addr, from_bufc, from_MTU, rio_addr, peer_ib_ptr);
 			  
-			  if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
+///			  if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
 			}} while(0);
 		}} while(0); // END if FD_ISSET
         }

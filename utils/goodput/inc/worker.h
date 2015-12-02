@@ -159,6 +159,7 @@ struct thread_cpu {
 #define MAX_EPOLL_EVENTS	64
 
 typedef struct {
+	pthread_mutex_t    mutex;
 	uint16_t           destid; ///< RIO destid of peer
 	uint64_t           rio_addr; ///< Peer's IBwin mapping
 
@@ -338,9 +339,22 @@ static inline int BD_PAYLOAD_SIZE(const struct worker* info)
 	return DMA_L2_SIZE + info->umd_tun_MTU;
 }
 
+static inline void DmaPeerLock(DmaPeerDestid_t* peer)
+{
+	assert(peer);
+	pthread_mutex_lock(&peer->mutex);
+}
+static inline void DmaPeerUnLock(DmaPeerDestid_t* peer)
+{
+	assert(peer);
+	pthread_mutex_unlock(&peer->mutex);
+}
+
 static inline void DmaPeerDestidDestroy(DmaPeerDestid_t* peer)
 {
 	if (peer == NULL) return;
+
+	DmaPeerLock(peer);
 
 	if (peer->tun_fd >= 0) { close(peer->tun_fd); peer->tun_fd = -1; }
 	peer->tun_name[0] = '\0';
@@ -348,11 +362,18 @@ static inline void DmaPeerDestidDestroy(DmaPeerDestid_t* peer)
 	free(peer->rio_rx_bd_L2_ptr); peer->rio_rx_bd_L2_ptr = NULL;
 	free(peer->rio_rx_bd_ready); peer->rio_rx_bd_ready = NULL;
 	peer->rio_rx_bd_ready_size = -1;
+
+	DmaPeerUnLock(peer);
 }
 
 static inline bool DmaPeerDestidInit(const struct worker* info, DmaPeerDestid_t* peer, const void* ib_ptr)
 {
+	bool ret = false;
 	if (peer == NULL || ib_ptr == NULL) return false;
+
+	pthread_mutex_init(&peer->mutex, NULL);
+
+	DmaPeerLock(peer);
 
 	//memset(peer, 0, sizeof(DmaPeerDestid_t));
 	peer->tun_fd = -1;
@@ -366,10 +387,10 @@ static inline bool DmaPeerDestidInit(const struct worker* info, DmaPeerDestid_t*
 
 	peer->ib_ptr = (void*)ib_ptr;
         peer->rio_rx_bd_L2_ptr = (DMA_L2_t**)calloc(info->umd_tx_buf_cnt, sizeof(DMA_L2_t*)); // +1 secret cell
-        if (peer->rio_rx_bd_L2_ptr == NULL) goto exit;
+        if (peer->rio_rx_bd_L2_ptr == NULL) goto error;
 
         peer->rio_rx_bd_ready = (uint32_t*)calloc(info->umd_tx_buf_cnt, sizeof(uint32_t)); // +1 secret cell
-        if (peer->rio_rx_bd_ready == NULL) goto exit;
+        if (peer->rio_rx_bd_ready == NULL) goto error;
 
         peer->rio_rx_bd_ready_size = 0;
 
@@ -391,10 +412,13 @@ static inline bool DmaPeerDestidInit(const struct worker* info, DmaPeerDestid_t*
 #endif // UDMA_TUN_DEBUG_IB
         }}
 
-	return true;
+	ret = true;
 
-exit:
-	return false;
+unlock:
+	DmaPeerUnLock(peer);
+	return ret;
+
+error:  goto unlock;
 }
 
 #endif // USER_MODE_DRIVER
