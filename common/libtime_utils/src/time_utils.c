@@ -34,8 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <sys/time.h>
 #include <string.h>
-#include "time_utils.h"
-#include "time_utils_priv.h"
+#include "libtime_utils.h"
 
 #ifdef __cplusplus
 extern "C" {

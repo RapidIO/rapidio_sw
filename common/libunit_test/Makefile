@@ -37,10 +37,11 @@ TOP_LEVEL = $(shell pwd)
 
 level=$(LOG_LEVEL)
 
-NAME:=time_utils
+NAME:=unit_test
 TARGETS:=lib$(NAME).a lib$(NAME).so
 TEST_TARGET:=$(NAME)_test
-HEADERS:=inc/lib$(NAME).h
+HEADERS:=inc/libunit_test_priv.h ../../common/include/libunit_test.h
+TEST_HEADERS:=test/test_unit_test.h
 
 CROSS_COMPILE?=/usr/bin/
 
@@ -72,8 +73,9 @@ src/%.o: src/%.c $(HEADERS)
 
 test: all $(TEST_TARGET) 
 
-$(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS)
-	$(CC) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) -llog -pthread \
+$(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS) $(HEADERS) $(TEST_HEADERS)
+	$(CC) $(OBJECTS) $(TEST_OBJECTS) -o $(TEST_TARGET) \
+	-llog -ltime_utils -pthread -lcli \
 	-L. -L../../common/libs_a
 
 clean:

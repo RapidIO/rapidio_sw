@@ -28,8 +28,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "time_utils.h"
-#include "time_utils_priv.h"
+#include "libtime_utils.h"
 #include "liblog.h"
 
 #ifdef __cplusplus

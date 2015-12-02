@@ -147,10 +147,13 @@ extern int send_cmd(struct cli_env *env, int argc, char **argv,
  *              is entered.
  * console runs cli_terminal in a separate thread, accepting commands from
  *          stdin, until "quit" is entered.
+ * cli_script executes a script file passed in based on the the environment.
  */
 extern int process_command(struct cli_env *env, char *input);
 
 extern int cli_terminal(struct cli_env *env);
+
+extern int cli_script(struct cli_env *env, char *script, int verbose);
 
 /* cons_parm must be "void" to match up with pthread types.
  * The cons_parm should be the prompt string to be used.
