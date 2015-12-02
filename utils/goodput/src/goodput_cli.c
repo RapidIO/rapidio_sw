@@ -2342,8 +2342,6 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         int cpu;
         uint32_t buff;
         uint32_t sts;
-	uint32_t did;
-	uint64_t rio_addr;
 	int mtu;
 
         int n = 0; // this be a trick from X11 source tree ;)
@@ -2356,8 +2354,6 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         chan2     = GetDecParm(argv[n++], 0);
         buff     = GetHex(argv[n++], 0);
         sts      = GetHex(argv[n++], 0);
-	did      = GetDecParm(argv[n++], 0);
-	rio_addr = GetHex(argv[n++], 0);
         mtu      = GetDecParm(argv[n++], 0);
 
         if (check_idx(env, idx, 1))
@@ -2417,13 +2413,6 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
                 goto exit;
         };
 
-	if (!rio_addr) {
-                sprintf(env->output,
-			"Addr be non-zero\n");
-        	logMsg(env);
-		goto exit;
-	};
-
         wkr[idx].action = umd_dma_tap;
         wkr[idx].action_mode = user_mode_action;
         wkr[idx].umd_chan    = chan;
@@ -2434,8 +2423,8 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
         wkr[idx].umd_tx_buf_cnt = buff;
         wkr[idx].umd_sts_entries = sts;
-	wkr[idx].did = did;
-	wkr[idx].rio_addr = rio_addr;
+	wkr[idx].did = ~0;
+	wkr[idx].rio_addr = 0;
         wkr[idx].byte_cnt = 0;
         wkr[idx].acc_size = mtu+DMA_L2_SIZE;
         wkr[idx].umd_tx_rtype = ALL_NWRITE;
@@ -2451,9 +2440,9 @@ exit:
 struct cli_cmd UDMAT = {
 "tundma",
 5,
-8,
+6,
 "TUN/TAP (L3) over DMA with User-Mode demo driver -- pointopoint",
-"<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <did> <rio_addr> <mtu>\n"
+"<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <mtu>\n"
         "<idx> is a worker index from 0 to 7\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan_1> is a DMA channel number from 1 through 7\n"
@@ -2463,8 +2452,6 @@ struct cli_cmd UDMAT = {
         "       Must be a power of two from 0x20 up to 0x80000\n"
         "<sts> is the number of status entries for completed descriptors\n"
         "       Must be a power of two from 0x20 up to 0x80000\n"
-        "<did> target device ID\n"
-        "<rio_addr> RapidIO memory address to access on peer\n"
         "<mtu> is interface MTU\n"
         "       Must be between (576+4) and 128k; upper bound depends on kernel\n"
         "Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1\n"

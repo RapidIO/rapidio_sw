@@ -1299,18 +1299,16 @@ void *umd_dma_fifo_proc_thr(void *parm)
 
 	migrate_thread_to_cpu(&info->umd_fifo_thr);
 
-	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
+	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
+		CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing ou!\n",
+		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
 		goto exit;
+	}
 
 	info->umd_fifo_proc_alive = 1;
 	sem_post(&info->umd_fifo_proc_started); 
 
 	while (!info->umd_fifo_proc_must_die) {
-		// This is a hook to do stuff for IB buffers in isolcpu thread
-		// Note: No relation to TX FIFO/buffers, just CPU sharing
-		if (info->umd_dma_fifo_callback != NULL)
-			info->umd_dma_fifo_callback(info);
-
 		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
 		if (!cnt) 
 			continue;
@@ -1361,7 +1359,11 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 
         migrate_thread_to_cpu(&info->umd_fifo_thr);
 
-        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) goto exit;
+        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
+		CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing ou!\n",
+		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
+		goto exit;
+	}
 
 	idx = info->idx;
 	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));

@@ -86,13 +86,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 extern "C" {
-void zero_stats(struct worker *info);
-bool umd_check_cpu_allocation(struct worker *info);
-bool TakeLock(struct worker* info, const char* module, int instance);
-
-void* umd_dma_fifo_proc_thr(void *parm);
-
-uint32_t crc32(uint32_t crc, const void *buf, size_t size);
+	void zero_stats(struct worker *info);
+	int migrate_thread_to_cpu(struct thread_cpu *info);
+	bool umd_check_cpu_allocation(struct worker *info);
+	bool TakeLock(struct worker* info, const char* module, int instance);
+	uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 };
 
 #define PAGE_4K    4096
@@ -214,7 +212,10 @@ again:
 		DmaChannelInfo_t* dci = dch_list[dch_cur++];
 		if (dch_cur >= dch_cnt) dch_cur = 0; // Wrap-around
 
+	poll_again:
 		const int epoll_cnt = epoll_wait (info->umd_epollfd, events, MAX_EPOLL_EVENTS, -1);
+		if (epoll_cnt < 0 && errno == EINTR) goto poll_again;
+	
 		if (epoll_cnt < 0) {
 			CRIT("\n\tepoll_wait failed: %s\n", strerror(errno))
 			break;
@@ -522,17 +523,20 @@ void* umd_dma_wakeup_proc_thr(void* arg)
 		usleep(100 * 1000);
 	
 	pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+	do {{
+	  if (info->umd_dma_did_peer.size() == 0) break;
 
-	std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.begin();
-	for (; itp != info->umd_dma_did_peer.end(); itp++) {
+	  std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.begin();
+	  for (; itp != info->umd_dma_did_peer.end(); itp++) {
 		DmaPeerDestid_t* peer = itp->second;
 		assert(peer);
 
                 //DmaPeerLock(peer);
+                peer->stop_req = 1;
 		sem_post(&peer->rio_rx_work);
 		//DmaPeerUnLock(peer);
-	}
-
+	  }
+	}} while(0);
 	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
 	return NULL;
@@ -859,6 +863,78 @@ exit:
 	return false;
 }
 
+void* umd_dma_tun_fifo_proc_thr(void* parm)
+{
+        struct worker* info = NULL;
+
+        int dch_cnt = 0;
+	DmaChannelInfo_t* dch_list[6] = {0};
+
+        if (NULL == parm)
+                goto exit;
+
+        info = (struct worker *)parm;
+
+        if (NULL == info->umd_dch_list[info->umd_chan]) goto exit;
+        if (NULL == info->umd_dch_list[info->umd_chan_n]) goto exit;
+
+        for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) dch_list[dch_cnt++] = info->umd_dch_list[ch];
+
+        DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
+
+        migrate_thread_to_cpu(&info->umd_fifo_thr);
+
+        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
+                CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing ou!\n",
+                     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
+                goto exit;
+        }
+
+        info->umd_fifo_proc_alive = 1;
+        sem_post(&info->umd_fifo_proc_started);
+
+        while (!info->umd_fifo_proc_must_die) {
+                // This is a hook to do stuff for IB buffers in isolcpu thread
+                // Note: No relation to TX FIFO/buffers, just CPU sharing
+                if (info->umd_dma_fifo_callback != NULL)
+                        info->umd_dma_fifo_callback(info);
+
+		get_seq_ts(&info->fifo_ts);
+		for (int ch = 0; ch < dch_cnt; ch++) {
+			const int cnt = dch_list[ch]->dch->scanFIFO(wi, info->umd_sts_entries*8);
+			if (!cnt)
+				continue;
+
+			for (int i = 0; i < cnt; i++) {
+				DMAChannel::WorkItem_t& item = wi[i];
+
+				switch (item.opt.dtype) {
+				case DTYPE1:
+				case DTYPE2:
+					info->perf_byte_cnt += info->acc_size;
+					break;
+				case DTYPE3:
+					break;
+				default:
+					ERR("\n\tUNKNOWN BD %d bd_wp=%u\n",
+						item.opt.dtype, item.opt.bd_wp);
+					break;
+				}
+
+				wi[i].valid = 0xdeadabba;
+			} // END for WorkItem_t vector
+		} // END for each channel
+                clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+        } // END while
+        goto no_post;
+exit:
+        sem_post(&info->umd_fifo_proc_started);
+no_post:
+        info->umd_fifo_proc_alive = 0;
+
+        pthread_exit(parm);
+}
+
 /** \brief Man battle tank thread -- Pobeda Nasha!
  * \verbatim
 We maintain the (per-peer destid) IB window (or
@@ -873,7 +949,9 @@ extern "C"
 void umd_dma_goodput_tun_demo(struct worker *info)
 {
         int rc = 0;
-	time_t last_bcast;
+	time_t last_bcast = 0;
+        bool dma_fifo_proc_thr_started = false;
+        bool dma_tap_thr_started = false;
 	
 	// Note: There's no reason to link info->umd_tx_buf_cnt other than
 	// convenience. However the IB ring should never be smaller than
@@ -931,9 +1009,9 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         info->umd_fifo_proc_alive = 0;
 
         rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
-                            umd_dma_fifo_proc_thr, (void *)info);
+                            umd_dma_tun_fifo_proc_thr, (void *)info);
         if (rc) {
-                CRIT("\n\tCould not create umd_fifo_proc thread, exiting...");
+                CRIT("\n\tCould not create umd_dma_tun_fifo_proc_thr thread, exiting...");
                 goto exit;
         }
         sem_wait(&info->umd_fifo_proc_started);
@@ -942,6 +1020,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
                 CRIT("\n\tumd_fifo_proc thread is dead, exiting..");
                 goto exit;
         }
+	dma_fifo_proc_thr_started = true;
 
         // Spawn Tap Transmitter Thread
         rc = pthread_create(&info->umd_dma_tap_thr.thr, NULL,
@@ -956,6 +1035,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
                 CRIT("\n\tumd_dma_tun_RX_proc_thr thread is dead, exiting..");
                 goto exit;
         }
+	dma_tap_thr_started = true;
 
 	// We need to wake up the RX thread upon quitting so we spawn
 	// this lightweight helper thread
@@ -1117,15 +1197,10 @@ again:
 
 exit:
 	write(info->umd_sockp[0], "X", 1); // Signal Tun/Tap RX thread to eXit
-
         info->umd_fifo_proc_must_die = 1;
 
-        pthread_join(info->umd_fifo_thr.thr, NULL);
-        pthread_join(info->umd_dma_tap_thr.thr, NULL);
-
-
-        info->umd_dma_did_peer[info->did] = NULL;
-        info->umd_dma_did_peer.erase(info->did);
+        if (dma_fifo_proc_thr_started) pthread_join(info->umd_fifo_thr.thr, NULL);
+        if (dma_tap_thr_started) pthread_join(info->umd_dma_tap_thr.thr, NULL);
 
 	for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
 		if (info->umd_dch_list[ch] == NULL) continue;
