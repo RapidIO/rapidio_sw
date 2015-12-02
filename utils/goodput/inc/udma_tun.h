@@ -23,4 +23,15 @@ typedef struct DMA_MBOX_L2_s DMA_MBOX_L2_t;
 
 const int DMA_MBOX_L2_SIZE = sizeof(DMA_MBOX_L2_t);
 
+/** \brief These are the IBwin mapping data sent over MBOX */
+struct DMA_MBOX_PAYLOAD_s { // All below in network order!
+	uint64_t rio_addr;
+	uint16_t bufc;
+        uint32_t MTU;
+} __attribute__ ((packed));
+
+typedef struct DMA_MBOX_PAYLOAD_s DMA_MBOX_PAYLOAD_t;
+
+const int DMA_MBOX_PAYLOAD_SIZE = sizeof(DMA_MBOX_PAYLOAD_t);
+
 #endif // __UDMA_TUN_H__

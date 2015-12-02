@@ -956,10 +956,14 @@ again:
 			}
 
 			assert(rio_addr);
-			rio_addr = htonll(rio_addr);
+
+			DMA_MBOX_PAYLOAD_t payload;
+			payload.rio_addr = htonll(rio_addr);
+			payload.MTU      = htonl(info->umd_tun_MTU);
+			payload.bufc     = htons(info->umd_tx_buf_cnt-1);
 
                         if (info->umd_mbox_tx_fd >= 0)
-			     send(info->umd_mbox_tx_fd, &rio_addr, sizeof(rio_addr), 0);
+			     send(info->umd_mbox_tx_fd, &payload, sizeof(payload), 0);
 			else break;
 		}
 
@@ -982,7 +986,7 @@ again:
 
                 if (info->stop_req) goto exit;
 
-                if (FD_ISSET(info->umd_mbox_rx_fd, &rfds)) { // Sumthin to came over on MBOX, read only 1st dgram
+                if (FD_ISSET(info->umd_mbox_rx_fd, &rfds)) do {{ // Sumthin to came over on MBOX, read only 1st dgram
                         const int nread = recv(info->umd_mbox_rx_fd, buf, PAGE_4K, 0);
 
                         DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
@@ -992,22 +996,56 @@ again:
 
 			assert(from_destid != info->umd_dch2->getDestId()); // NOT from myself!!
 
+			bool peer_setup = false;
+			pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+			{{
+			  std::map<uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.find(from_destid);
+			  peer_setup = (itp != info->umd_dma_did_peer.end());
+			}}
+			pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+
 			// We have an IBwin mapping belonging to from_destid waiting in (buf + sizeof(DMA_MBOX_L2_t))
 			// So put up a new peer, Tun and start up a new Tun thread!!
 
-			uint64_t* pU64 = (uint64_t*)(buf + sizeof(DMA_MBOX_L2_t));
-			assert(ntohs(pL2->len) >= sizeof(uint64_t));
+			assert(ntohs(pL2->len) >= sizeof(DMA_MBOX_PAYLOAD_t));
 
-			const uint64_t from_rio_addr = htonll(*pU64);
+			if (peer_setup) break; // F*ck g++
 
-			uint64_t rio_addr    = 0; 
-			void*    peer_ib_ptr = NULL;
-			if (! info->umd_peer_ibmap->alloc(from_destid, rio_addr, peer_ib_ptr)) {
-				CRIT("\n\tWARNING: Can't alloc IBwin mapping for NEW broadcasted destid %u!\n", from_destid);
-			} else {
-				if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
-			}
-		}
+			DMA_MBOX_PAYLOAD_t* payload = (DMA_MBOX_PAYLOAD_t*)(buf + sizeof(DMA_MBOX_L2_t));
+
+			const uint64_t from_rio_addr = htonll(payload->rio_addr);
+			const uint16_t from_bufc     = ntohs(payload->bufc);
+			const uint32_t from_MTU      = ntohl(payload->MTU);
+
+			do {{
+			  if (from_MTU != info->umd_tun_MTU) {
+				INFO("\n\tGot a mismatched MTU %lu from peer destid %u (expecting %lu). Ignoring peer.\n",
+				     from_MTU, from_destid, info->umd_tun_MTU);
+				break;
+			  }
+			  if (from_bufc != (info->umd_tx_buf_cnt-1)) {
+				INFO("\n\tGot a mismatched bufc %u from peer destid %u (expecting %d). Ignoring peer.\n",
+				     from_bufc, from_destid, (info->umd_tx_buf_cnt-1));
+				break;
+			  }
+			  if (from_rio_addr == 0) {
+				INFO("\n\tGot a 0 rio_addr from peer destid %u. Ignoring peer.\n", from_destid);
+				break;
+			  }
+
+			  uint64_t rio_addr    = 0; 
+			  void*    peer_ib_ptr = NULL;
+			  if (! info->umd_peer_ibmap->alloc(from_destid, rio_addr, peer_ib_ptr)) {
+				CRIT("\n\tWARNING: Can't alloc IBwin mapping for NEW peer destid %u!\n", from_destid);
+				break;
+			  } 
+
+			  DBG("\n\tSetting up Tun for NEW peer destid %u peer.rio_addr=%llu bufc=%u MTU=%lu allocated rio_addr=%llu ib_ptr=%p\n",
+			      from_destid, from_rio_addr, from_bufc, from_MTU, rio_addr, peer_ib_ptr);
+			  
+			  if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
+			}} while(0);
+		}} while(0); // END if FD_ISSET
         }
 
 	if (info->stop_req == SOFT_RESTART) {
