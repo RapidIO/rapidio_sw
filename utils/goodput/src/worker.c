@@ -1451,6 +1451,7 @@ no_post:
 	pthread_exit(parm);
 }
 
+#if 0
 void UMD_DD(const struct worker* info)
 {
 	const int MHz = getCPUMHz();
@@ -1490,6 +1491,7 @@ void UMD_DD(const struct worker* info)
 	CRIT("\n\tEvlog:\n", NULL);
 	write(STDOUT_FILENO, info->evlog.c_str(), info->evlog.size());
 }
+#endif
 
 void calibrate_map_performance(struct worker *info)
 {

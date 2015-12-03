@@ -170,7 +170,13 @@ typedef struct {
 	int		   tun_MTU;
 
 	int                WP, RP;
-	uint64_t           tx_cnt; ///< How many L3 frames successfully sent to this peer
+
+	volatile uint64_t  tx_cnt; ///< How many L3 frames successfully sent to this peer on RIO
+	volatile uint64_t  rx_cnt; ///< How many L3 frames found in IBwin from peer on RIO
+
+	volatile uint64_t  tun_rx_cnt; ///< How many L3 frames came from this peer's tun
+	volatile uint64_t  tun_tx_cnt; ///< How many L3 frames successfully sent to this peer's tun
+	volatile uint64_t  tun_tx_err; ///< How many L3 frames failed to be sent to this peer's tun
 
 	sem_t		   rio_rx_work; ///< Isolcpu thread signals per-Tun, per-destid RIO thread that it has ready IB BDs
 	DMA_L2_t**	   rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
@@ -194,8 +200,9 @@ typedef struct {
 } DmaChannelInfo_t;
 
 typedef struct {
-	time_t on_time;   ///< 1st time it was enumerated by kernel/FMD
-	int    bcast_cnt; ///< How many time we broadcast IBwin mapping to it
+	uint16_t destid;    ///< Remote peer's destid
+	time_t   on_time;   ///< 1st time it was enumerated by kernel/FMD
+	int      bcast_cnt; ///< How many time we broadcast IBwin mapping to it
 } DmaPeerCommsStats_t;
 
 #endif // USER_MODE_DRIVER
@@ -273,6 +280,7 @@ struct worker {
 	struct timespec max_iter_time; /* Maximum time over all iterations */
 
 #ifdef USER_MODE_DRIVER
+	uint16_t	my_destid;
 	LockFile*	umd_lock;
 	int		umd_chan; ///< Local mailbox OR DMA channel
 	int		umd_chan_n; ///< Local mailbox OR DMA channel, forming a range {chan,...,chan_n}
