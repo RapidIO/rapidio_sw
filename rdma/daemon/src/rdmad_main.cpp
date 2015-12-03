@@ -185,7 +185,6 @@ void *rpc_thread_f(void *arg)
 
 	while (1) {
 		/* Wait for data from clients */
-		DBG("Waiting to receive API call library...\n");
 		size_t	received_len = 0;	/* For build warning */
 		if (other_server->receive(&received_len)) {
 			CRIT("Failed to receive\n");
@@ -203,7 +202,6 @@ void *rpc_thread_f(void *arg)
 			switch(in_msg->type) {
 				case RDMAD_IS_ALIVE:
 				{
-					DBG("RDMAD_IS_ALIVE\n");
 					out_msg->type = RDMAD_IS_ALIVE_ACK;
 					out_msg->rdmad_is_alive_out.dummy = 0x5678;
 				}
@@ -460,7 +458,6 @@ void *rpc_thread_f(void *arg)
 				delete other_server;
 				pthread_exit(0);
 			}
-			DBG("Response sent back to application \n");
 		} else {
 			HIGH("Application has closed connection. Exiting!\n");
 			/* Find out if that dead application was connected to a memory
