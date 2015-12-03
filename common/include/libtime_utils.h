@@ -32,17 +32,26 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdint.h>
+#include <time.h>
+#include <sys/time.h>
+#include <stdint.h>
+#include <string.h>
 
 #ifndef __TIME_UTILS_H__
 #define __TIME_UTILS_H__
-
-#define MAX_TIMESTAMPS 4096
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct seq_ts;
+#define MAX_TIMESTAMPS 4096
+
+struct seq_ts {
+	int max_idx; 
+	int ts_idx;
+	struct timespec ts_val[MAX_TIMESTAMPS];
+	int ts_mkr[MAX_TIMESTAMPS];
+};
 
 int init_seq_ts(struct seq_ts *ts, int max_ts);
 void ts_now(struct seq_ts *ts);
