@@ -34,12 +34,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __RSKTD_SN_H__
 #define __RSKTD_SN_H__
 
+#include <stdint.h>
+#include <unistd.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stdint.h>
-#include <unistd.h>
 
 #define RSKTD_MAX_SKT_NUM 0xFFFF
 #define RSKTD_INVALID_SKT 0x0

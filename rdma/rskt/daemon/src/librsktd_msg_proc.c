@@ -47,7 +47,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "librsktd.h"
 #include "librdma.h"
-#include "librdma_db.h"
 #include "librsktd.h"
 #include "librsktd_sn.h"
 #include "librsktd_dmn.h"
@@ -193,32 +192,6 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 	};
 };
 
-static int zero_mspace(ms_h msh)
-{
-	struct loc_ms *msp;
-	void 	*vaddr;
-	int	ret;
-
-	msp = (struct loc_ms *)msh;
-
-	DBG("dmn.mp_hnd = 0x%X, size = %d, phys_addr = 0x%016" PRIx64 "\n",
-			dmn.mp_hnd, msp->bytes, msp->phys_addr);
-	ret = riomp_dma_map_memory(dmn.mp_hnd,
-				   msp->bytes,
-				   msp->phys_addr,
-				   &vaddr);
-	if (ret == 0) {
-		memset((uint8_t *)vaddr, 0, msp->bytes);
-		if (munmap(vaddr, msp->bytes) == -1) {
-		        ERR("munmap(): %s\n", strerror(errno));
-		        ret = -1;
-		}
-	} else {
-		ERR("Failed in riomp_dma_map_memory(): %s\n", strerror(errno));
-	}
-	return ret;
-} /* zero_mspace */
-
 void rsktd_connect_accept(struct acc_skts *acc)
 {
 	int i;
@@ -254,7 +227,6 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	for (i = 0; i < dmn.mso.num_ms; i++) {
 		if (dmn.mso.ms[i].valid && !dmn.mso.ms[i].state) {
 			loc_ms_info = &dmn.mso.ms[i];
-			zero_mspace(loc_ms_info->ms);
 			break;
 		};
 	};
@@ -455,7 +427,6 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 		if (dmn.mso.ms[i].valid && !dmn.mso.ms[i].state) {
 			r->loc_ms = &dmn.mso.ms[i];
 			r->loc_ms->state = 2;
-			zero_mspace(r->loc_ms->ms);
 			break;
 		};
 	};
@@ -1001,6 +972,7 @@ void *msg_q_loop(void *unused)
 	};
 	mproc.msg_proc_alive = 0;
 	pthread_exit(0);
+	return unused;
 };
 
 int start_msg_proc_q_thread(void)

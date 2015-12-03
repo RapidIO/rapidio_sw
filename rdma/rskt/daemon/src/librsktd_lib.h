@@ -42,6 +42,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+// Exposed for debug purposes 
+extern struct librsktd_connect_globals lib_st;
+
 int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog, int tst);
 void halt_lib_handler(void);
 
