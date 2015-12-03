@@ -337,7 +337,7 @@ int cleanup_dmn(void)
 			CRIT("speer_conn: riodp_mbox_shutdown ERR: %d\n", rc);
 	};
 
-	if (dmn.mp_hnd > 0) {
+	if (dmn.mp_hnd) {
 				riomp_mgmt_mport_destroy_handle(&dmn.mp_hnd);
                 dmn.mp_hnd = 0;
         };
