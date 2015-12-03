@@ -1142,8 +1142,8 @@ again:
 
                 int ret = select(info->umd_mbox_rx_fd+1, &rfds, NULL, NULL, &to);
                 if (ret < 0) {
-                        CRIT("\n\tselect failed on umd_mbox_rx_fd: %s\n", strerror(errno));
-                        goto exit;
+                        ERR("\n\tselect failed on umd_mbox_rx_fd: %s\n", strerror(errno));
+                        continue; // MboxWatch conked or was stopped. Better luck next time.
                 }
 
                 if (info->stop_req) goto exit;
@@ -1246,6 +1246,8 @@ again:
 	}
 
 exit:
+	if (!info->stop_req) info->stop_req = 1; // Maybe we got here on a local error
+
 	write(info->umd_sockp_quit[0], "X", 1); // Signal Tun/Tap RX thread to eXit
         info->umd_fifo_proc_must_die = 1;
 
@@ -1263,6 +1265,7 @@ exit:
 	}
 
 	delete info->umd_peer_ibmap;
+
 	info->umd_dma_fifo_callback = NULL;
 
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
