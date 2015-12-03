@@ -60,6 +60,8 @@ extern "C" {
 unsigned g_level 	= RDMA_LL; /* Default log level from build */
 unsigned g_disp_level 	= RDMA_LL; /* Default log level from build */
 
+unsigned log_fmt_sel = LOG_FMT_DEFAULT;
+
 static circ_buf<string,NUM_LOG_LINES>	log_buf;
 static unsigned circ_buf_en = 1;
 static sem_t log_buf_sem;
@@ -128,13 +130,16 @@ int rdma_log(unsigned level,
 	time_t	cur_time;
 	struct timeval tv;
 	char	asc_time[26];
+
+	char *default_fmt = (char *)"%4s %s.%06ldus tid=%ld %s:%4d\n\t%s(): ";
+	char *oneline_fmt = (char *)"%4s %s.%06ldus tid=%ld %s:%4d %s(): ";
 	
 	/* Prefix with level_str, timestamp, filename, line no., and func */
 	time(&cur_time);
 	ctime_r(&cur_time, asc_time);
 	asc_time[strlen(asc_time) - 1] = '\0';
 	gettimeofday(&tv, NULL);
-	n = sprintf(buffer, "%4s %s.%06ldus tid=%ld %s:%4d\n\t%s(): ",
+	n = sprintf(buffer, (const char *)(log_fmt_sel?oneline_fmt:default_fmt),
 		level_str,
 		asc_time,
 		tv.tv_usec,
@@ -147,7 +152,7 @@ int rdma_log(unsigned level,
 	va_start(args, format);
 	p = vsnprintf(buffer + n, sizeof(buffer)-n, format, args);
 	va_end(args);
-	snprintf(buffer + n + p, sizeof(buffer)-n-p, "\n");
+	snprintf(buffer + n + p, sizeof(buffer)-n-p, log_fmt_sel?"":"\n");
 
 	/* Push log line into circular log buffer and log file */
 	string log_line(buffer);

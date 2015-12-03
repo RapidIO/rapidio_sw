@@ -193,6 +193,11 @@ typedef struct {
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 } DmaChannelInfo_t;
 
+typedef struct {
+	time_t on_time;   ///< 1st time it was enumerated by kernel/FMD
+	int    bcast_cnt; ///< How many time we broadcast IBwin mapping to it
+} DmaPeerCommsStats_t;
+
 #endif // USER_MODE_DRIVER
 
 struct worker {
@@ -301,14 +306,15 @@ struct worker {
 
 	DmaChannelInfo_t* umd_dch_list[8]; // Used for round-robin TX. Only 6 usable!
 
-	int		umd_sockp[2]; ///< Used to signal Tun RX thread to quit
+	//int		umd_sockp[2];
+	int		umd_sockp_quit[2]; ///< Used to signal Tun RX thread to quit
 	int             umd_epollfd; ///< Epoll set
 	struct thread_cpu umd_dma_tap_thr;
 
-        std::map<uint16_t, time_t>           umd_dma_did_peer_list; ///< This is just a list of destids we broadcast to
-	std::map<uint16_t, DmaPeerDestid_t*> umd_dma_did_peer; ///< These are the peers with Tun devices
-	std::map<int, uint16_t>              umd_dma_did_peer_fd2did; ///< Maps tun file descriptor to destid
-	pthread_mutex_t                      umd_dma_did_peer_mutex;
+        std::map<uint16_t, DmaPeerCommsStats_t> umd_dma_did_peer_list; ///< This is just a list of destids we broadcast to
+	std::map<uint16_t, DmaPeerDestid_t*>    umd_dma_did_peer; ///< These are the peers with Tun devices
+	std::map<int, uint16_t>                 umd_dma_did_peer_fd2did; ///< Maps tun file descriptor to destid
+	pthread_mutex_t                         umd_dma_did_peer_mutex;
 
 	IBwinMap*       umd_peer_ibmap;
 

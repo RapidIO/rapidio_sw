@@ -29,6 +29,8 @@ public:
     PEER_IBWIN_SIZE = sizeof(uint32_t) + bufc * (sizeof(DMA_L2_SIZE) + tun_MTU);
     MAX_PEERS = ib_size / PEER_IBWIN_SIZE;
 
+    assert(MAX_PEERS);
+
     m_slot_allocated = (int*)calloc(MAX_PEERS + 1, sizeof(int));
     if (m_slot_allocated == NULL) throw std::runtime_error("IBwinMap: Out of memory!");
 
@@ -48,6 +50,9 @@ public:
 
     bool ret = false;
     int slot = -1;
+
+    rio_addr = 0;
+    ib_ptr = NULL;
 
     pthread_mutex_lock(&m_mutex);
 
@@ -71,12 +76,12 @@ public:
     m_slot_allocated[slot] = 1;
     m_destid_map[destid]   = slot;
 
-    memset(ib_ptr, 0, PEER_IBWIN_SIZE);
-
 done_ok:
     assert(slot >= 0);
     rio_addr = m_rio_addr + slot * PEER_IBWIN_SIZE;
     ib_ptr   = m_ib_ptr   + slot * PEER_IBWIN_SIZE;
+
+    memset(ib_ptr, 0, PEER_IBWIN_SIZE);
 
     ret = true;
 

@@ -211,7 +211,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 		ret = errno;
 		goto outfd;
 	}
-#ifdef DEBUG
+#if 0//def DEBUG
 	printf("RIODP: %s() has %d entries\n", __func__,  entries);
 #endif
 	/* Get list */

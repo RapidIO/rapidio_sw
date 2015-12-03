@@ -1069,6 +1069,9 @@ void MboxChannel::softRestart()
   set_outb_mbox_hwregs(0);
   uint64_t ts_e = rdtsc();
 
+  pthread_spin_init(&m_tx_splock, PTHREAD_PROCESS_PRIVATE);
+  pthread_spin_init(&m_bltx_splock, PTHREAD_PROCESS_PRIVATE);
+
   INFO("dT = %llu TICKS\n", (ts_e - ts_s));
 }
 

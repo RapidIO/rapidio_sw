@@ -223,7 +223,10 @@ again:
 
 		for (int epi = 0; epi < epoll_cnt; epi++) {
 			if (info->stop_req) break;
-			if (events[epi].data.fd == info->umd_sockp[1]) goto exit; // Time to quit!
+			if (events[epi].data.fd == info->umd_sockp_quit[1]) {
+				INFO("\n\tSocketpair said quit!\n");
+				goto exit; // Time to quit!
+			}
 
 			const int tun_fd = events[epi].data.fd;
 
@@ -949,7 +952,7 @@ extern "C"
 void umd_dma_goodput_tun_demo(struct worker *info)
 {
         int rc = 0;
-	time_t last_bcast = 0;
+	time_t next_bcast = 0;
         bool dma_fifo_proc_thr_started = false;
         bool dma_tap_thr_started = false;
 	
@@ -988,13 +991,13 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 	info->umd_epollfd = epoll_create1 (0);
 	if (info->umd_epollfd < 0) goto exit;
 
-        socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp);
+        socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp_quit);
 
 	{{
 	  struct epoll_event event;
-	  event.data.fd = info->umd_sockp[1];
+	  event.data.fd = info->umd_sockp_quit[1];
 	  event.events = EPOLLIN | EPOLLET;
-          if(epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, info->umd_sockp[1], &event) < 0) goto exit;
+          if(epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, info->umd_sockp_quit[1], &event) < 0) goto exit;
 	}}
 
 	// XXX TODO
@@ -1052,22 +1055,33 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 again:
-	time(&last_bcast);
+	time(&next_bcast);
         while (!info->stop_req) {
 // Broadcast my IBwin mapping Urbi & Orbi, once per second
+		time_t now = 0;
 		std::vector<uint32_t> peer_list;
 
 		// Collect peers quickly
 		pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
-		std::map<uint16_t, time_t>::iterator itp = info->umd_dma_did_peer_list.begin();
+		std::map<uint16_t, DmaPeerCommsStats_t>::iterator itp = info->umd_dma_did_peer_list.begin();
 		for (; itp != info->umd_dma_did_peer_list.end(); itp++) {
+			if (itp->first == info->umd_dch2->getDestId()) continue;
 			peer_list.push_back(itp->first);
 		}
 		pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
-		time_t now = time(NULL);
-		for (int ip = 0; info->umd_mbox_tx_fd >= 0 && (now > last_bcast) && ip < peer_list.size(); ip++) {
-			last_bcast = now + 120; // XXX hack every X minutes for debugging!
+		now = time(NULL);
+		if (peer_list.size() == 0 || info->umd_mbox_tx_fd < 0 || now <= next_bcast) goto receive;
+
+		next_bcast = now + 10;
+
+		if (7 <= g_level) {
+			std::stringstream ss;
+			for (int ip = 0; ip < peer_list.size(); ip++) ss << peer_list[ip] << " ";
+			DBG("\n\tGot %d peers to broadcast to [tx_fd=%d]: %s\n", peer_list.size(), info->umd_mbox_tx_fd, ss.str().c_str());
+		}
+
+		for (int ip = 0; ip < peer_list.size(); ip++) {
 			const uint16_t destid = peer_list[ip];
 
 			uint64_t rio_addr = 0; // Where I want the peer to deposit its stuff
@@ -1078,6 +1092,7 @@ again:
 			}
 
 			assert(rio_addr);
+                        if (info->umd_mbox_tx_fd < 0) break;
 
                         uint8_t buf[sizeof(DMA_MBOX_L2_t) + sizeof(DMA_MBOX_PAYLOAD_t)] = {0};
 
@@ -1094,12 +1109,25 @@ again:
 			pL2->destid_dst = htons(destid);
                         pL2->len        = htons(sizeof(DMA_MBOX_L2_t) + sizeof(DMA_MBOX_PAYLOAD_t));
 
-                        if (info->umd_mbox_tx_fd >= 0)
-			     send(info->umd_mbox_tx_fd, buf, sizeof(buf), 0);
-			else break;
+			DBG("\n\tSignalling [tx_fd=%d] peer destid %u {base_rio_addr=0x%llx base_size=%lu rio_addr=0x%llx bufc=%u MTU=%lu}\n",
+			    info->umd_mbox_tx_fd, destid,
+			    info->umd_peer_ibmap->getBaseRioAddr(), info->umd_peer_ibmap->getBaseSize(),
+			    rio_addr, info->umd_tx_buf_cnt-1, info->umd_tun_MTU);
+
+                        if (info->umd_mbox_tx_fd < 0) break;
+
+			int nsend = send(info->umd_mbox_tx_fd, buf, sizeof(buf), 0);
+			if (nsend > 0) {
+				pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+				info->umd_dma_did_peer_list[destid].bcast_cnt++;
+				pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+			} else {
+				ERR("\n\tSend to MboxWatch thread failed [tx_fd=%d]: %s\n", strerror(errno), info->umd_mbox_tx_fd);
+			}
 		}
 
 // Receive broadcasts from other peers
+	receive:
 		if (info->umd_mbox_rx_fd < 0) { // Other thread not ready!
 			usleep(10 * 1000);
 			continue;
@@ -1126,7 +1154,10 @@ again:
 
 			uint16_t from_destid = ntohs(pL2->destid_src);
 
-			assert(from_destid != info->umd_dch2->getDestId()); // NOT from myself!!
+			if (from_destid == info->umd_dch2->getDestId()) { // Myself?
+				DBG("\n\tGot %d bytes on [rx_fd=%d] from myself!\n", nread, info->umd_mbox_rx_fd);
+				break;
+			}
 
 			bool peer_setup = false;
 			pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
@@ -1178,10 +1209,27 @@ again:
 				break;
 			  } 
 
-			  DBG("\n\tSetting up Tun for NEW peer destid %u peer {base_rio_addr=%llu base_size=%lu rio_addr=%llu bufc=%u MTU=%lu} allocated rio_addr=%llu ib_ptr=%p\n",
-			      from_destid, from_base_rio_addr, from_base_size, from_rio_addr, from_bufc, from_MTU, rio_addr, peer_ib_ptr);
+			  // If EndpointWatch thread is not started bcast_cnt will stay
+			  // at -1 and this thread will never attemp to set up a tun for
+			  // peer
+			  int bcast_cnt = -1;
+			  pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+			  {{
+			    std::map<uint16_t, DmaPeerCommsStats_t>::iterator itp = info->umd_dma_did_peer_list.find(from_destid);
+			    if (itp != info->umd_dma_did_peer_list.end())
+			  	bcast_cnt = itp->second.bcast_cnt;
+			  }}
+			  pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+
+			  DBG("\n\tGot info [rx_fd=%d] for NEW peer destid %u peer.{base_rio_addr=0x%llx base_size=%lu rio_addr=0x%llx bufc=%u MTU=%lu} allocated rio_addr=%llu ib_ptr=%p bcast_cnt=%d\n",
+			      info->umd_mbox_rx_fd,
+			      from_destid, from_base_rio_addr, from_base_size, from_rio_addr, from_bufc, from_MTU,
+			       rio_addr, peer_ib_ptr, bcast_cnt);
 			  
-///			  if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
+			  if (bcast_cnt < 3) break; // We want to be sure the peer is ready to receive us once we pun the Tun up
+
+			  DBG("\n\tSetting up Tun for NEW peer destid %u\n", from_destid);
+			  if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
 			}} while(0);
 		}} while(0); // END if FD_ISSET
         }
@@ -1196,7 +1244,7 @@ again:
 	}
 
 exit:
-	write(info->umd_sockp[0], "X", 1); // Signal Tun/Tap RX thread to eXit
+	write(info->umd_sockp_quit[0], "X", 1); // Signal Tun/Tap RX thread to eXit
         info->umd_fifo_proc_must_die = 1;
 
         if (dma_fifo_proc_thr_started) pthread_join(info->umd_fifo_thr.thr, NULL);
@@ -1240,8 +1288,8 @@ exit:
 	  info->umd_dma_did_peer_fd2did.clear();
         pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
-        close(info->umd_sockp[0]); close(info->umd_sockp[1]);
-        info->umd_sockp[0] = info->umd_sockp[1] = -1;
+        close(info->umd_sockp_quit[0]); close(info->umd_sockp_quit[1]);
+        info->umd_sockp_quit[0] = info->umd_sockp_quit[1] = -1;
 	close(info->umd_epollfd); info->umd_epollfd = -1;
 
 	for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
@@ -1265,7 +1313,8 @@ void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
 {
 	time_t now = time(NULL);
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
-	info->umd_dma_did_peer_list[destid] = now;
+	info->umd_dma_did_peer_list[destid].on_time = now;
+	info->umd_dma_did_peer_list[destid].bcast_cnt = 0;
         pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 }
 
@@ -1488,6 +1537,10 @@ void umd_mbox_watch_demo(struct worker *info)
 {
         uint64_t rx_ok = 0;
         uint64_t tx_ok = 0;
+	int sockp1[2] = {-1};
+	int sockp2[2] = {-1};
+	int umd_mbox_tx_fd = -1;
+	int umd_mbox_rx_fd = -1;
 
 	info->umd_mbox_rx_fd = -1;
         info->umd_mbox_tx_fd = -1;
@@ -1519,14 +1572,21 @@ void umd_mbox_watch_demo(struct worker *info)
                 goto exit_bomb;
         }
 
-        socketpair(PF_LOCAL, SOCK_DGRAM, 0, info->umd_sockp); // SOCK_DGRAM so we have a message delineation
+        socketpair(PF_LOCAL, SOCK_DGRAM, 0, sockp1); // SOCK_DGRAM so we have a message delineation
+        socketpair(PF_LOCAL, SOCK_DGRAM, 0, sockp2); // SOCK_DGRAM so we have a message delineation
+
+	umd_mbox_tx_fd = sockp1[0];
+	umd_mbox_rx_fd = sockp2[1];
 
         if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
-	wkr[tundmathreadindex].umd_mbox_tx_fd = info->umd_sockp[0];
-	wkr[tundmathreadindex].umd_mbox_rx_fd = info->umd_sockp[1];
+	wkr[tundmathreadindex].umd_mbox_tx_fd = sockp2[0];
+	wkr[tundmathreadindex].umd_mbox_rx_fd = sockp1[1];
 
-        INFO("\n\tWatching MBOX %d for IBwin mappings\n", info->umd_chan);
+        INFO("\n\tWatching MBOX %d for IBwin mappings [tx_fd=%d, rx_fd=%d] sockp (%d,%d) (%d,%d)\n",
+	     info->umd_chan, umd_mbox_tx_fd, umd_mbox_rx_fd,
+	     sockp1[0], sockp1[1],
+	     sockp2[0], sockp2[1]);
 
 	info->umd_mch->setInitState();
 
@@ -1548,43 +1608,52 @@ void umd_mbox_watch_demo(struct worker *info)
 
 // Receive from socketpair(2), send on MBOX
 
-		const int umd_mbox_tx_fd = info->umd_sockp[1];
-		const int umd_mbox_rx_fd = info->umd_sockp[0];
-
 		struct timeval to = { 0, 100 * 1000 }; // 100 ms
-		fd_set rfds; FD_ZERO (&rfds); FD_SET(umd_mbox_tx_fd, &rfds);
+		fd_set rfds; FD_ZERO (&rfds); FD_SET(umd_mbox_rx_fd, &rfds);
 
-		int ret = select(umd_mbox_tx_fd+1, &rfds, NULL, NULL, &to);
+		int ret = select(umd_mbox_rx_fd+1, &rfds, NULL, NULL, &to);
 		if (ret < 0) {
-			CRIT("\n\tselect failed on umd_mbox_tx_fd: %s\n", strerror(errno));
+			CRIT("\n\tselect failed on umd_mbox_rx_fd: %s\n", strerror(errno));
 			goto exit;
 		}
 
 		if (info->stop_req) goto exit;
 		if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
-		if (FD_ISSET(umd_mbox_tx_fd, &rfds)) { // Sumthin to send on MBOX, read only 1st dgram
-			const int nread = recv(umd_mbox_tx_fd, buf, PAGE_4K, 0);
+		if (FD_ISSET(umd_mbox_rx_fd, &rfds)) { // Sumthin to send on MBOX, read only 1st dgram
+			const int nread = recv(umd_mbox_rx_fd, buf, PAGE_4K, 0);
 
 			DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
 			assert(nread == ntohs(pL2->len));
 
 			bool q_was_full = false;
              		opt.destid = ntohs(pL2->destid_dst);
-			DBG("\n\tSending %d bytes to destid %u\n", nread, opt.destid);
+			DBG("\n\tSending %d bytes to RIO destid %u over MBOX\n", nread, opt.destid);
 			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
 			if (! info->umd_mch->send_message(opt, buf, nread, true, fail_reason)) {
 				if (fail_reason == MboxChannel::STOP_REG_ERR) {
 					ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
-					// XXX if peer not ready we sould apply soft restart??
-					goto exit;
+
+				        INFO("\n\tSoft restart requested, nuking MBOX hardware!\n");
+					info->umd_mch->softRestart();
+					goto receive;
 				} else { q_was_full = true; }
 			} else { tx_ok++; }
 
-			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
-			while (!q_was_full && !info->stop_req && info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+			DBG("\n\tPolling FIFO transfer completion destid=%d TX q size = %d\n", opt.destid, info->umd_mch->queueTxSize());
+			for (int i = 0;
+			     !q_was_full && !info->stop_req && info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8) == 0 && i < 10000;
+			     i++) {
+				usleep(1);
+			}
+
+			if (info->umd_mch->queueTxSize() > 0) {
+				INFO("\n\tSoft restart requested, nuking MBOX hardware!\n");
+				info->umd_mch->softRestart();
+			}
 		}
 
+	receive:
 		if (info->stop_req) goto exit;
 		if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
@@ -1613,9 +1682,12 @@ void umd_mbox_watch_demo(struct worker *info)
 			DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
 			assert(opt_rx.bcount >= ntohs(pL2->len));
 
-			DBG("\n\tGot %d/%d bytes from destid %u\n", opt_rx.bcount, ntohs(pL2->len), ntohs(pL2->destid_src));
-			if (send(umd_mbox_rx_fd, buf, ntohs(pL2->len), MSG_DONTWAIT) < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
-				CRIT("\n\tsend failed: %s\n", strerror(errno));
+			DBG("\n\tGot %d/%d bytes on RIO MBOX from destid %u [tx_fd=%d]\n", opt_rx.bcount,
+			    ntohs(pL2->len), ntohs(pL2->destid_src),
+			    umd_mbox_tx_fd);
+
+			if (send(umd_mbox_tx_fd, buf, ntohs(pL2->len), MSG_DONTWAIT) < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
+				CRIT("\n\tsend failed [tx_fd=%d]: %s\n", umd_mbox_tx_fd, strerror(errno));
 				goto exit;
 			}
 				
@@ -1631,8 +1703,8 @@ exit:
         	wkr[tundmathreadindex].umd_mbox_rx_fd = -1;
 	}
 
-        close(info->umd_sockp[0]); close(info->umd_sockp[1]);
-        info->umd_sockp[0] = info->umd_sockp[1] = -1;
+        close(sockp1[0]); close(sockp1[1]);
+        close(sockp2[0]); close(sockp2[1]);
         delete info->umd_mch; info->umd_mch = NULL;
         delete info->umd_lock; info->umd_lock = NULL;
 

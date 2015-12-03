@@ -177,7 +177,7 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_fifo_proc_alive = 0;
 	info->umd_fifo_proc_must_die = 0;
 	info->umd_dma_abort_reason = 0;
-	info->umd_sockp[0] = info->umd_sockp[1] = -1;
+	info->umd_sockp_quit[0] = info->umd_sockp_quit[1] = -1;
 	info->umd_epollfd = -1;
 	info->umd_mbox_rx_fd = -1;
 	info->umd_mbox_tx_fd = -1;
@@ -2823,7 +2823,7 @@ void* umd_mbox_tun_proc_thr(void *parm)
 
 	{{ 
 	const int tun_fd = info->umd_tun_fd;
-	const int net_fd = info->umd_sockp[1];
+	const int net_fd = info->umd_sockp_quit[1];
 	const int maxfd = (tun_fd > net_fd)?tun_fd:net_fd;
 
         info->umd_mbox_tap_proc_alive = 1;
@@ -2990,7 +2990,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
 	system(ifconfig_cmd);
 
-	socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp);
+	socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp_quit);
 
 	uint64_t rx_ok = 0;
 
@@ -3059,11 +3059,11 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 			      rx_ok++; rx_buf = true;
 			      uint16_t* p = (uint16_t*)buf;
 			      const uint16_t src_devid = htons(p[0]);
-			      const uint16_t src_mbox  = htons(p[1]);
 			      good_destid[src_devid] = true;
-			      const int nwrite = cwrite(info->umd_tun_fd, buf+4, opt.bcount-4);
+			      int nwrite = cwrite(info->umd_tun_fd, buf+4, opt.bcount-4); nwrite += 0;
 			      info->umd_mch->add_inb_buffer(buf); // recycle
 #ifdef MBOX_TUN_DEBUG
+			      const uint16_t src_mbox  = htons(p[1]);
 			      const uint32_t crc = crc32(0, buf, opt.bcount);
 			      DBG("\n\tGot a message of size %d from RIO destid %u mbox %u (L2 CRC32 0x%x) cnt=%llu, wrote %d to %s\n",
 				       opt.bcount, src_devid, src_mbox, crc, rx_ok, nwrite, if_name);
@@ -3098,15 +3098,15 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	} // END Receiver
 
 exit:
-	write(info->umd_sockp[0], "X", 1); // Signal Tun/Tap thread to eXit
+	write(info->umd_sockp_quit[0], "X", 1); // Signal Tun/Tap thread to eXit
         info->umd_fifo_proc_must_die = 1;
 
         pthread_join(info->umd_fifo_thr.thr, NULL);
         pthread_join(info->umd_mbox_tap_thr.thr, NULL);
 
-	close(info->umd_sockp[0]); close(info->umd_sockp[1]);
+	close(info->umd_sockp_quit[0]); close(info->umd_sockp_quit[1]);
 	close(info->umd_tun_fd);
-	info->umd_sockp[0] = info->umd_sockp[1] = -1;
+	info->umd_sockp_quit[0] = info->umd_sockp_quit[1] = -1;
 	info->umd_tun_fd = -1;
 
         delete info->umd_mch; info->umd_mch = NULL;
