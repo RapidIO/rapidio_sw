@@ -169,7 +169,7 @@ typedef struct {
 	char		   tun_name[33];
 	int		   tun_MTU;
 
-	int                WP, RP;
+	uint32_t           WP, RP;
 
 	volatile uint64_t  tx_cnt; ///< How many L3 frames successfully sent to this peer on RIO
 	volatile uint64_t  rx_cnt; ///< How many L3 frames found in IBwin from peer on RIO
@@ -199,10 +199,13 @@ typedef struct {
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 } DmaChannelInfo_t;
 
+/** \brief Stats for the RDMAD-redux */
 typedef struct {
-	uint16_t destid;    ///< Remote peer's destid
-	time_t   on_time;   ///< 1st time it was enumerated by kernel/FMD
-	int      bcast_cnt; ///< How many time we broadcast IBwin mapping to it
+	uint16_t destid;        ///< Remote peer's destid
+	time_t   on_time;       ///< 1st time it was enumerated by kernel/FMD
+	uint64_t my_rio_addr;   ///< My RIO address broadcast to this peer
+	int      bcast_cnt_out; ///< How many time we broadcast IBwin mapping to it
+	int      bcast_cnt_in;  ///< How many time we received his broadcasts of IBwin mapping
 } DmaPeerCommsStats_t;
 
 #endif // USER_MODE_DRIVER

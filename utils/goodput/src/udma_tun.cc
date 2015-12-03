@@ -1131,7 +1131,8 @@ again:
 			int nsend = send(info->umd_mbox_tx_fd, buf, sizeof(buf), 0);
 			if (nsend > 0) {
 				pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
-				info->umd_dma_did_peer_list[destid].bcast_cnt++;
+				info->umd_dma_did_peer_list[destid].bcast_cnt_out++;
+				info->umd_dma_did_peer_list[destid].my_rio_addr = rio_addr;
 				pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 			} else {
 				ERR("\n\tSend to MboxWatch thread failed [tx_fd=%d]: %s\n", strerror(errno), info->umd_mbox_tx_fd);
@@ -1174,6 +1175,8 @@ again:
 			bool peer_setup = false;
 			pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 			{{
+			  info->umd_dma_did_peer_list[from_destid].bcast_cnt_in++;
+
 			  std::map<uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.find(from_destid);
 			  peer_setup = (itp != info->umd_dma_did_peer.end());
 			}}
@@ -1229,7 +1232,7 @@ again:
 			  {{
 			    std::map<uint16_t, DmaPeerCommsStats_t>::iterator itp = info->umd_dma_did_peer_list.find(from_destid);
 			    if (itp != info->umd_dma_did_peer_list.end())
-			  	bcast_cnt = itp->second.bcast_cnt;
+			  	bcast_cnt = itp->second.bcast_cnt_out;
 			  }}
 			  pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
@@ -1328,10 +1331,9 @@ void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
 {
 	time_t now = time(NULL);
 
-	DmaPeerCommsStats_t tmp;
+	DmaPeerCommsStats_t tmp; memset(&tmp, 0, sizeof(tmp));
 	tmp.destid    = destid;
 	tmp.on_time   = now;
-	tmp.bcast_cnt = 0;
 
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 	{{
@@ -1748,7 +1750,8 @@ void UMD_DD(struct worker* info)
 
 	time_t now = time(NULL);
 
-	// Collect peers quickly
+	// Collect snapshot of peers quickly
+
 	pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 	{{
 	  std::map<uint16_t, DmaPeerCommsStats_t>::iterator ite = info->umd_dma_did_peer_list.begin();
@@ -1767,10 +1770,12 @@ void UMD_DD(struct worker* info)
 		std::stringstream ss;
 		for (int ip = 0; ip < peer_list_enum.size(); ip++) {
 			char tmp[257] = {0};
-			snprintf(tmp, 256, "Did %u Age %d sec bcast_cnt %d",
+			snprintf(tmp, 256, "Did %u Age %ds bcast_cnt {out=%d in=%d} RIO addr sent 0x%llx",
 				 peer_list_enum[ip].destid,
 				 now-peer_list_enum[ip].on_time,
-				 peer_list_enum[ip].bcast_cnt);
+				 peer_list_enum[ip].bcast_cnt_out,
+				 peer_list_enum[ip].bcast_cnt_in,
+				 peer_list_enum[ip].my_rio_addr);
 			ss << "\n\t\t" << tmp;
 		}
 		INFO("\n\tGot %d enumerated peer(s): %s\n", peer_list_enum.size(), ss.str().c_str());
@@ -1781,13 +1786,23 @@ void UMD_DD(struct worker* info)
 		for (int ip = 0; ip < peer_list.size(); ip++) {
 			DmaPeerDestid_t& peer = peer_list[ip];
 			char tmp[257] = {0};
-			snprintf(tmp, 256, "Did %u %s peer.rio_addr=%llx WP=%d RP~%d RIO.tx=%llu RIO.tx=%llu Tun.rx=%llu Tun.tx=%llu Tun.txerr=%llu", 
+			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u RIO.tx=%llu RIO.tx=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu", 
 				 peer.destid, peer.tun_name, peer.rio_addr,
 				 peer.WP, peer.RP,
 				 peer.tx_cnt, peer.rx_cnt,
 				 peer.tun_rx_cnt, peer.tun_tx_cnt, peer.tun_tx_err
 				);
 			ss << "\n\t\t" << tmp;
+
+			uint32_t* pRP = (uint32_t*)peer.ib_ptr;
+			assert(pRP);
+			snprintf(tmp, 256, "\n\t\t\trx.RP=%u IBBDready=%d", *pRP, peer.rio_rx_bd_ready_size);
+			ss << tmp;
+
+			if (peer.mutex.__data.__lock) {
+				snprintf(tmp, 256, "\n\t\t\tlocker.tid=0x%x", peer.mutex.__data.__owner);
+				ss << tmp;
+			}
 		}
 		INFO("\n\tGot %d UP peer(s): %s\n", peer_list.size(), ss.str().c_str());
 	}
