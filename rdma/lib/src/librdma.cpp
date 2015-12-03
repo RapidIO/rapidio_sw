@@ -1559,8 +1559,8 @@ int rdma_create_msub_h(ms_h	msh,
 	 * must have a size that is a multiple of 4K, and the offset
 	 * of the msub within the mspace must be a multiple of 4K.
 	 */
-	if (!aligned_at_4k(offset)) {
-		ERR("Offset must be a multiple of 4K\n");
+	if (!aligned_at_4k(offset) || !aligned_at_4k(req_bytes)) {
+		ERR("Offset & size must be multiples of 4K\n");
 		sem_post(&rdma_lock);
 		return RDMA_ALIGN_ERROR;
 	}

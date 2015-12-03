@@ -208,7 +208,6 @@ int mspace::destroy()
 
 	/* Mark the memory space as free, and having no owner */
 	free = true;
-	set_msoid(0x000); /* No owner */
 	name = "freemspace";
 	accepted = false; /* No connections */
 

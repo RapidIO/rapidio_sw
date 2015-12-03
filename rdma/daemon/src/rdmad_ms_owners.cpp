@@ -85,6 +85,9 @@ ms_owners::ms_owners()
 	/* Initially all memory space owner handles are free */
 	fill(msoid_free_list,msoid_free_list + MSOID_MAX + 1, true);
 
+	/* Reserve msoid to mean "no owner" */
+	msoid_free_list[0] = false;
+
 	if (pthread_mutex_init(&lock, NULL)) {
 		throw -1;
 	}
