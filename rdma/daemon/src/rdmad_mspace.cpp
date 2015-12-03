@@ -62,7 +62,7 @@ using std::find;
 mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
                 uint64_t phys_addr, uint64_t size) :
 		name(name), msid(msid), rio_addr(rio_addr), phys_addr(
-		                phys_addr), size(size), msoid(0xFFFF), free(true),
+		                phys_addr), size(size), msoid(0), free(true),
 		                current_ms_conn_id(MS_CONN_ID_START),
 		                accepted(false)
 {
@@ -213,22 +213,29 @@ int mspace::destroy()
 
 	/* Remove memory space identifier from owner */
 	ms_owner *owner;
+	int 	 ret = 0;
+
 	try {
 		owner = owners[msoid];
 	} catch (...) {
 		ERR("Failed to find owner msoid(0x%X)\n", msoid);
-		return -3;
-
-	}
-	if (!owner) {
-		ERR("Failed to find owner msoid(0x%X)\n", msoid);
-		return -4;
-	} else if (owner->remove_ms(this) < 0) {
-		WARN("Failed to remove ms from owner\n");
-		return -5;
+		ret = -3;
 	}
 
-	return 0;
+	if (ret == 0) {
+		if (!owner) {
+			ERR("Failed to find owner msoid(0x%X)\n", msoid);
+			ret = -4;
+		} else if (owner->remove_ms(this) < 0) {
+			WARN("Failed to remove ms from owner\n");
+			ret = -5;
+		}
+	}
+
+	/* Clear the owner. No free space should have an owner */
+	set_msoid(0);
+
+	return ret;
 } /* destroy() */
 
 void mspace::add_rem_connection(uint16_t client_destid, uint32_t client_msubid)
