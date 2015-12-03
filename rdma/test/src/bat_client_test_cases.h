@@ -27,6 +27,7 @@ int test_case_b();
 int test_case_c();
 int test_case_d();
 int test_case_e();
+int test_case_f();
 int test_case_g();
 int test_case_h_i(char ch, uint32_t destid);
 int test_case_j_k(char ch, uint32_t destid);

@@ -384,7 +384,6 @@ int test_case_c(void)
 		BAT_EXPECT_RET(rc, 0, free_mso);
 	}
 
-
 	struct ms_info_t {
 		uint32_t	size;
 		ms_h		handle;
@@ -425,7 +424,11 @@ int test_case_c(void)
 				      0,
 				      &ms_info[i].handle,
 				      &ms_info[i].size);
-		BAT_EXPECT_RET(rc, 0, free_mso);
+		if (rc != 0) {
+			printf("Failed to create '%s', ret = %d\n",
+						ms_name.str().c_str(), rc);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+		}
 		rdma_get_msh_properties(ms_info[i].handle,
 				&ms_info[i].rio_addr, &ms_info[i].size);
 		printf("0x%016" PRIx64 ", 0x%016" PRIx64 ", 0x%X\n",
@@ -809,6 +812,105 @@ exit:
 	BAT_EXPECT_PASS(ret);
 	return 0;
 } /* test_case_e() */
+
+/**
+ * Create a number of msubs, some overlapping.
+ */
+int test_case_f()
+{
+	int	rc, ret;
+	mso_h	msoh;
+
+	/* Create a client mso */
+	rc = rdma_create_mso_h("test_case_f_mso", &msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
+	{
+		ms_h	 msh;
+		uint32_t actual_size;
+
+		/* Create a 1MB memory space */
+		rc = rdma_create_ms_h("test_case_f_ms",
+				      msoh,
+				      1024*1024,	// 1MB
+				      0,
+				      &msh,
+				      &actual_size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Try to create an msub at an invalid offset and observe
+		 * the error code. */
+		msub_h	msubh1, msubh2, msubh3;
+		rc = rdma_create_msub_h(msh, 139, 4*1024, 0, &msubh1);
+		BAT_EXPECT_RET(rc, RDMA_ALIGN_ERROR, free_mso);
+
+		/* Try to create an msub with an odd size */
+		rc = rdma_create_msub_h(msh, 4*1024, 237, 0, &msubh1);
+		BAT_EXPECT_RET(rc, RDMA_ALIGN_ERROR, free_mso);
+
+		/* Create 3 overlapping memory subspaces at offsets
+		 * 512, 512+16, 512+32.
+		 * subspace sizes are 32K, 32K, and 32K
+		 * The second subspace ovelaps with 1/2 of the
+		 * first subspace. The third subspace starts in the middle
+		 * of the second subspace.
+		 * The test starts with fillinw msub1 with 0xAA.
+		 * When msub2 fills with 0xBB the second half of msub1 now has 0xAA
+		 * The first have of msub3 has 0xBB until msub3 is filled with 0xCC
+		 * at which point the second half of msub2 now has 0xCC. The macros below
+		 * all boundary conditions for each subspace.
+		 */
+		rc = rdma_create_msub_h(msh, 512*1024, 		 32*1024, 0, &msubh1);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_create_msub_h(msh, 512*1024 + 16*1024, 32*1024, 0, &msubh2);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_create_msub_h(msh, 512*1024 + 32*1024, 32*1024, 0, &msubh3);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Map all 3 subspaces */
+		uint8_t	*p1, *p2, *p3;
+
+		rc = rdma_mmap_msub(msubh1, (void **)&p1);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_mmap_msub(msubh2, (void **)&p2);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_mmap_msub(msubh3, (void **)&p3);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Fill the subspace with values and check that those values
+		 * are correct at the boundaries.
+		 */
+		memset(p1, 0xAA, 32*1024);
+		BAT_EXPECT_RET(p1[0], 0xAA, free_mso);
+		BAT_EXPECT_RET(p1[32*1024 - 1], 0xAA, free_mso);
+
+		memset(p2, 0xBB, 32*1024);
+		BAT_EXPECT_RET(p1[16*1024], 0xBB, free_mso);
+		BAT_EXPECT_RET(p1[32*1024 - 1], 0xBB, free_mso);
+		BAT_EXPECT_RET(p2[0], 0xBB, free_mso);
+		BAT_EXPECT_RET(p2[32*1024 - 1], 0xBB, free_mso);
+
+		memset(p3, 0xCC, 32*1024);
+		BAT_EXPECT_RET(p2[16 * 1024], 0xCC, free_mso);
+		BAT_EXPECT_RET(p2[32*1024 - 1], 0xCC, free_mso);
+		BAT_EXPECT_RET(p3[0], 0xCC, free_mso);
+		BAT_EXPECT_RET(p3[32*1024 - 1], 0xCC, free_mso);
+
+		ret = rc = 0;
+	}
+
+free_mso:
+	/* Delete the mso */
+	rc = rdma_destroy_mso_h(msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+exit:
+	BAT_EXPECT_PASS(ret);
+	return 0;
+} /* test_case_f() */
 
 /**
  * Create a number of msubs, some overlapping.
