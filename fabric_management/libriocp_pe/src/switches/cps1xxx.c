@@ -2043,7 +2043,7 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	cps1xxx_get_port_state,
 	cps1xxx_event_handler,
 	NULL,
-	NULL
+	cps1xxx_set_lane_speed
 };
 
 struct riocp_pe_device_id cps1616_id_table[] = {
