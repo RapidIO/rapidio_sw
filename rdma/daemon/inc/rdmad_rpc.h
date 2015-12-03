@@ -22,7 +22,7 @@ inline int rdmad_create_mso(const char *mso_name,
 } /* rdmad_create_mso() */
 
 inline int rdmad_open_mso(const char *mso_name, uint32_t *msoid,
-		   uint32_t *mso_conn_id, unix_server *server=nullptr)
+		   	  uint32_t *mso_conn_id, unix_server *server=nullptr)
 {
 	return owners.open_mso(mso_name, msoid, mso_conn_id, server);
 } /* rdmad_open_mso() */
@@ -35,22 +35,19 @@ inline int rdmad_close_mso(uint32_t msoid, uint32_t mso_conn_id)
 int rdmad_destroy_mso(uint32_t msoid);
 
 int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
-			uint32_t *msid, uint64_t *phys_addr,
-			uint64_t *rio_addr);
+		    uint32_t *msid, uint64_t *phys_addr, uint64_t *rio_addr);
 
-inline int rdmad_open_ms(const char *ms_name, uint32_t *msid,
-		  uint64_t *phys_addr, uint64_t *rio_addr,
-		  uint32_t *ms_conn_id, uint32_t *bytes,
-		  unix_server *server=nullptr)
+inline int rdmad_destroy_ms(uint32_t msoid, uint32_t msid)
 {
-	return the_inbound->open_mspace(
-				ms_name,
-				server,
-				msid,
-				phys_addr,
-				rio_addr,
-				ms_conn_id,
-				bytes);
+	return the_inbound->destroy_mspace(msoid, msid);
+} /* rdmad_destroy_ms() */
+
+inline int rdmad_open_ms(const char *ms_name, uint32_t *msid, uint64_t *phys_addr,
+		         uint64_t *rio_addr, uint32_t *ms_conn_id, uint32_t *bytes,
+		         unix_server *server=nullptr)
+{
+	return the_inbound->open_mspace(ms_name, server, msid, phys_addr,
+						rio_addr, ms_conn_id, bytes);
 } /* rdmad_open_ms() */
 
 int rdmad_close_ms(uint32_t msid, uint32_t ms_conn_id);

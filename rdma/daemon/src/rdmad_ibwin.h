@@ -52,6 +52,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::vector;
 
+typedef vector<mspace*>		mspace_list;
+typedef mspace_list::iterator	mspace_iterator;
+
 struct ibwin_map_exception {
 	ibwin_map_exception(const char *msg) : err(msg)
 	{
@@ -88,6 +91,10 @@ public:
 			  uint32_t *msid,
 			  mspace **ms);
 
+	int destroy_mspace(uint32_t msoid, uint32_t msid);
+
+	void merge_other_with_mspace(mspace_iterator current, mspace_iterator other);
+
 	mspace* get_mspace(const char *name);
 
 	mspace* get_mspace(uint32_t msid);
@@ -96,7 +103,7 @@ public:
 
 	mspace *get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id);
 
-	void get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces);
+	void get_mspaces_connected_by_destid(uint32_t destid, mspace_list& mspaces);
 
 	vector<mspace *>& get_mspaces() { return mspaces; };
 
@@ -113,7 +120,7 @@ private:
 	bool msindex_free_list[MSINDEX_MAX+1];	/* List of memory space IDs */
 	pthread_mutex_t msindex_lock;
 
-	vector<mspace*>	mspaces;
+	mspace_list	mspaces;
 	pthread_mutex_t mspaces_lock;
 }; /* ibwin */
 

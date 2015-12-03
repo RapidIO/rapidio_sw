@@ -107,6 +107,9 @@ public:
 			uint32_t *ms_conn_id,
 			uint32_t *bytes);
 
+	/* Destroy memory space */
+	int destroy_mspace(uint32_t msoid, uint32_t msid);
+
 	/* Create a memory subspace */
 	int create_msubspace(uint32_t msid, uint32_t offset, uint32_t req_bytes,
 			     uint32_t *size, uint32_t *msubid, uint64_t *rio_addr,

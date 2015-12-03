@@ -237,6 +237,21 @@ void inbound::dump_all_mspace_with_msubs_info(struct cli_env *env)
 	sem_post(&ibwins_sem);
 } /* dump_all_mspace_with_msubs_info() */
 
+int inbound::destroy_mspace(uint32_t msoid, uint32_t msid)
+{
+	int ret;
+	auto win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
+
+	sem_wait(&ibwins_sem);
+
+	auto& ibw = ibwins[win_num];
+	ret = ibw.destroy_mspace(msoid, msid);
+
+	sem_post(&ibwins_sem);
+
+	return ret;
+} /* destroy_mspace() */
+
 /* Create a memory space within a window that has enough space */
 // TODO: Returning msid is redundant as it can be obtained from 'ms'
 int inbound::create_mspace(const char *name,
@@ -245,11 +260,9 @@ int inbound::create_mspace(const char *name,
 			   uint32_t *msid,
 			   mspace **ms)
 {
-	ibwin_has_room	ibwhr(size);
-
 	/* Find first inbound window having room for memory space */
 	sem_wait(&ibwins_sem);
-	auto win_it = find_if(begin(ibwins), end(ibwins), ibwhr);
+	auto win_it = find_if(begin(ibwins), end(ibwins), ibwin_has_room(size));
 
 	/* If none found, fail */
 	if (win_it == ibwins.end()) {
