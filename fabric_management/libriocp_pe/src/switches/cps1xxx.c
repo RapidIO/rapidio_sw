@@ -944,7 +944,9 @@ static int cps1xxx_port_get_first_lane(struct riocp_pe *sw,
 				}
 			}
 		}
-		/* no break */
+		/* no valid lane found for that given port according to bootstrap configuration */
+		return -ENOTSUP;
+		break;
 	default:
 		RIOCP_ERROR("Unable to get first lane for DID 0x%04x\n",
 			RIOCP_PE_DID(sw->cap));
@@ -1146,8 +1148,10 @@ int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 
 	ret = cps1xxx_port_get_first_lane(sw, port, &lane);
 	if (ret < 0) {
-		RIOCP_ERROR("Could net get first lane of port %u (ret = %d, %s)\n",
-			port, ret, strerror(-ret));
+		if (ret != -ENOTSUP) {
+			RIOCP_ERROR("Could net get first lane of port %u (ret = %d, %s)\n",
+					port, ret, strerror(-ret));
+		}
 		return ret;
 	}
 

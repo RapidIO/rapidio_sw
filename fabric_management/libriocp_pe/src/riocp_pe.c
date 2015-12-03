@@ -882,7 +882,7 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 			}
 
 			ret = riocp_pe_switch_get_lane_speed(pe, i, &ports[i].speed);
-			if (ret == -ENOSYS) {
+			if (ret == -ENOTSUP) {
 				ports[i].speed = RIOCP_SPEED_UNKNOWN;
 			} else if (ret) {
 				RIOCP_ERROR("Could not get port speed for port %u\n", i);
