@@ -1955,6 +1955,25 @@ err_out:
 	return -EIO;
 }
 
+/**
+ * Set switch domain ID
+ * @param sw     switch handle
+ * @param domain domain ID
+ * @retval -EPERM Handle has no host capabilities
+ * @retval -ENOSYS Device does not support domain routing
+ */
+int RIOCP_SO_ATTR riocp_pe_set_sw_domain(riocp_pe_handle sw, uint8_t domain)
+{
+	if (riocp_pe_handle_check(sw))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_HOST(sw))
+		return -EPERM;
+	if (!RIOCP_PE_IS_SWITCH(sw->cap))
+		return -ENOSYS;
+
+	return riocp_pe_switch_set_domain(sw, domain);
+}
+
 #ifdef __cplusplus
 }
 #endif

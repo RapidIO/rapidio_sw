@@ -292,6 +292,14 @@ int riocp_pe_switch_set_port_speed(struct riocp_pe *sw, uint8_t port, enum riocp
 		return -ENOSYS;
 }
 
+int riocp_pe_switch_set_domain(struct riocp_pe *sw, uint8_t domain)
+{
+	if (sw->sw->set_domain)
+		return sw->sw->set_domain(sw, domain);
+	else
+		return -ENOSYS;
+}
+
 #ifdef __cplusplus
 }
 #endif

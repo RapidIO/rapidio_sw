@@ -553,6 +553,7 @@ struct riocp_pe_device_id tsi57x_id_table[] = {
 
 struct riocp_pe_switch riocp_pe_switch_tsi57x = {
 	-1,
+	-1,
 	"tsi57x",
 	NULL,
 	tsi57x_id_table,
@@ -565,6 +566,7 @@ struct riocp_pe_switch riocp_pe_switch_tsi57x = {
 	tsi57x_get_lane_width,
 	tsi57x_get_port_state,
 	tsi57x_event_handler,
+	NULL,
 	NULL,
 	NULL
 };

@@ -19,6 +19,8 @@
 extern "C" {
 #endif
 
+#define CONFIG_IDTGEN2_DIRECT_ROUTING
+
 #define CPS1xxx_DEBUG_INT_STATUS 1
 
 #define CPS1xxx_RTE_PORT_SEL			(0x00010070)
@@ -377,6 +379,15 @@ extern "C" {
 
 #define CPS10Q_QUAD_X_ERROR_REPORT_EN(quad)		(0xff0004 + 0x1000*(quad))
 #define CPS10Q_QUAD_CTRL_BROADCAST			(0xfff000)
+
+#ifdef CONFIG_IDTGEN2_DIRECT_ROUTING
+#define CPS1xxx_RTE_PORT_DM(port, domain)	(0x00e10400+(port)*0x1000+(domain)*0x4)
+#define CPS1xxx_RTE_PORT_DEV(port, device)	(0x00e10000+(port)*0x1000+(device)*0x4)
+#define CPS1xxx_RTE_BCAST_DM(domain)		(0x00e00400+(domain)*0x4)
+#define CPS1xxx_RTE_BCAST_DEV(device)		(0x00e00000+(device)*0x4)
+#define CPS1xxx_RTE_DM_TO_DEV				(0x000000DD)
+#endif
+#define CPS1xxx_RTE_RIO_DOMAIN				(0x00F20020)
 
 struct portmap {
 	uint16_t did;
@@ -992,7 +1003,11 @@ static int cps10q_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint8_t lane
 int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint8_t port)
 {
 	int ret;
+#ifdef CONFIG_IDTGEN2_DIRECT_ROUTING
+	uint32_t off_dev, off_dm;
+#else
 	uint32_t val;
+#endif
 
 	/*
 	 * Change 0xff to CPS1xxx_NO_ROUTE as values higher than 0xdf are not allowed
@@ -1002,6 +1017,38 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	if (port == 0xff)
 		port = CPS1xxx_NO_ROUTE;
 
+#ifdef CONFIG_IDTGEN2_DIRECT_ROUTING
+
+	if (lut == RIOCP_PE_ANY_PORT) {
+		off_dm = CPS1xxx_RTE_BCAST_DM(0x0ff&(destid>>8));
+		off_dev = CPS1xxx_RTE_BCAST_DEV(0x0ff&destid);
+	} else if (lut < sw->sw->port_count) {
+		off_dm = CPS1xxx_RTE_PORT_DM(lut, 0x0ff&(destid>>8));
+		off_dev = CPS1xxx_RTE_PORT_DEV(lut, 0x0ff&destid);
+	} else {
+		return -EINVAL;
+	}
+
+	if ((destid & 0xff00) == 0 || (int)((destid>>8)&0x0ff) == sw->sw->domain) {
+		ret = riocp_pe_maint_write(sw, off_dev, port);
+		if (ret < 0)
+			return ret;
+	} else if ((destid & 0x00ff) == 0) {
+		ret = riocp_pe_maint_write(sw, off_dm, port);
+		if (ret < 0)
+			return ret;
+	} else {
+		ret = riocp_pe_maint_write(sw, off_dm, (port == CPS1xxx_NO_ROUTE)?(CPS1xxx_NO_ROUTE):(CPS1xxx_RTE_DM_TO_DEV));
+		if (ret < 0)
+			return ret;
+
+		ret = riocp_pe_maint_write(sw, off_dev, port);
+		if (ret < 0)
+			return ret;
+	}
+
+
+#else
 	/* Select routing table to update */
 	if (lut == RIOCP_PE_ANY_PORT)
 		lut = 0;
@@ -1030,7 +1077,7 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	ret = riocp_pe_maint_read(sw, RIO_STD_RTE_CONF_DESTID_SEL_CSR, &val);
 	if (ret < 0)
 		return ret;
-
+#endif
 	return ret;
 }
 
@@ -1038,6 +1085,30 @@ int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 {
 	int ret;
 	uint32_t _port;
+#ifdef CONFIG_IDTGEN2_DIRECT_ROUTING
+	uint32_t off_dev, off_dm;
+
+	if (lut == RIOCP_PE_ANY_PORT) {
+		off_dm = CPS1xxx_RTE_BCAST_DM(0x0ff&(destid>>8));
+		off_dev = CPS1xxx_RTE_BCAST_DEV(0x0ff&destid);
+	} else if (lut < sw->sw->port_count) {
+		off_dm = CPS1xxx_RTE_PORT_DM(lut, 0x0ff&(destid>>8));
+		off_dev = CPS1xxx_RTE_PORT_DEV(lut, 0x0ff&destid);
+	} else {
+		return -EINVAL;
+	}
+
+	ret = riocp_pe_maint_read(sw, off_dm, &_port);
+	if (ret < 0)
+		return ret;
+
+	if (_port == CPS1xxx_RTE_DM_TO_DEV) {
+		ret = riocp_pe_maint_read(sw, off_dev, &_port);
+		if (ret < 0)
+			return ret;
+	}
+
+#else
 
 	/* Select routing table to read */
 	if (lut == RIOCP_PE_ANY_PORT)
@@ -1057,6 +1128,7 @@ int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	if (ret < 0)
 		return ret;
 
+#endif
 	_port &= CPS1xxx_RTE_PORT_CSR_PORT;
 
 	*port = _port;
@@ -1129,6 +1201,12 @@ int cps1xxx_clear_lut(struct riocp_pe *sw, uint8_t lut)
 	RIOCP_TRACE("[%s] Clear lut %u done", sw->sw->name, lut);
 
 	return 0;
+}
+
+int cps1xxx_set_domain(struct riocp_pe *sw, uint8_t domain)
+{
+	sw->sw->domain = domain;
+	return riocp_pe_maint_write(sw, CPS1xxx_RTE_RIO_DOMAIN, domain);
 }
 
 /**
@@ -2011,6 +2089,7 @@ struct riocp_pe_device_id cps1848_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
 };
 struct riocp_pe_switch riocp_pe_switch_cps1848 = {
+	18,
 	-1,
 	"cps1848",
 	NULL,
@@ -2025,7 +2104,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	cps1xxx_get_port_state,
 	cps1xxx_event_handler,
 	NULL,
-	NULL
+	NULL,
+	cps1xxx_set_domain
 };
 
 struct riocp_pe_device_id cps1432_id_table[] = {
@@ -2033,6 +2113,7 @@ struct riocp_pe_device_id cps1432_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
 };
 struct riocp_pe_switch riocp_pe_switch_cps1432 = {
+	16,
 	-1,
 	"cps1432",
 	NULL,
@@ -2047,7 +2128,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	cps1xxx_get_port_state,
 	cps1xxx_event_handler,
 	NULL,
-	cps1xxx_set_lane_speed
+	cps1xxx_set_lane_speed,
+	cps1xxx_set_domain
 };
 
 struct riocp_pe_device_id cps1616_id_table[] = {
@@ -2055,6 +2137,7 @@ struct riocp_pe_device_id cps1616_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
 };
 struct riocp_pe_switch riocp_pe_switch_cps1616 = {
+	16,
 	-1,
 	"cps1616",
 	NULL,
@@ -2069,7 +2152,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	cps1xxx_get_port_state,
 	cps1xxx_event_handler,
 	NULL,
-	NULL
+	NULL,
+	cps1xxx_set_domain
 };
 
 struct riocp_pe_device_id sps1616_id_table[] = {
@@ -2077,6 +2161,7 @@ struct riocp_pe_device_id sps1616_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
 };
 struct riocp_pe_switch riocp_pe_switch_sps1616 = {
+	16,
 	-1,
 	"sps1616",
 	NULL,
@@ -2091,7 +2176,8 @@ struct riocp_pe_switch riocp_pe_switch_sps1616 = {
 	cps1xxx_get_port_state,
 	cps1xxx_event_handler,
 	NULL,
-	cps1xxx_set_lane_speed
+	cps1xxx_set_lane_speed,
+	cps1xxx_set_domain
 };
 
 #ifdef __cplusplus

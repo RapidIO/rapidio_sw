@@ -99,7 +99,8 @@ struct riocp_pe_mport {
 
 /** RapidIO Processing element switch driver */
 struct riocp_pe_switch {
-	int fd;			/**< File descriptor for switch library events */
+	int port_count;		/**< number of ports this switch has (init as -1 when it needs to be autodetected) */
+	int domain;			/**< switch domain id (init as -1 when not set) */
 	const char *name;	/**< Name of switch */
 	void *private_data;	/**< Switch driver implementation specific private data */
 	struct riocp_pe_device_id *id_table; /**< Driver support for matching DID/VID */
@@ -114,6 +115,7 @@ struct riocp_pe_switch {
 	int (*event_handler)(struct riocp_pe *sw, struct riomp_mgmt_event *revent, struct riocp_pe_event *event);
 	int (*destroy)(struct riocp_pe *sw);	/**< Cleanup of switch driver */
 	int (*set_port_speed)(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed speed);
+	int (*set_domain)(struct riocp_pe *sw, uint8_t domain);
 };
 
 /** RapidIO Processing element */
