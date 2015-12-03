@@ -189,6 +189,9 @@ void init_worker_info(struct worker *info, int first_time)
 
 	info->umd_peer_ibmap = NULL;
 
+	info->umd_dma_did_peer.clear();
+	info->umd_dma_did_peer_list.clear();
+	info->umd_dma_did_peer_fd2did.clear();
 
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
