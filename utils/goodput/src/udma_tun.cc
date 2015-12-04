@@ -277,6 +277,8 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
         const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 	
+	DMAChannel::DmaOptions_t& dmaopt = dci->dmaopt[dci->oi];
+
 	uint8_t* buffer = (uint8_t*)dci->dmamem[dci->oi].win_ptr;
 
 	DMA_L2_t* pL2 = (DMA_L2_t*)buffer;
@@ -290,6 +292,9 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	}}
 
 	is_bad_destid += bad_destid.find(destid_dpi) != bad_destid.end();
+
+	// XXX restructure epoll payload to hold something other than fd
+	// to simplify code below
 
 	pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 	do {{
@@ -323,6 +328,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	peer->tun_rx_cnt++;
 
 	if (is_bad_destid) {
+		ERR("\n\tBad destid %u -- score=%d\n", destid_dpi, is_bad_destid);
 		send_icmp_host_unreachable(tun_fd, buffer+DMA_L2_SIZE, nread);
 		goto error;
 	}
@@ -379,17 +385,17 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	}
 
 	if (dci->dch->queueFull()) {
-		DBG("\n\tQueue full #1!\n");
+		DBG("\n\tQueue full #1 on chan %d!\n", dci->chan);
 		goto error; // Drop L3 frame
 	}
 	if (info->stop_req) goto error;
 
-	dci->dmaopt[dci->oi].destid      = destid_dpi;
-	dci->dmaopt[dci->oi].bcount      = ntohl(pL2->len);
-	dci->dmaopt[dci->oi].raddr.lsb64 = peer->rio_addr + sizeof(uint32_t) + peer->WP * BD_PAYLOAD_SIZE(info);
+	dmaopt.destid      = destid_dpi;
+	dmaopt.bcount      = ntohl(pL2->len);
+	dmaopt.raddr.lsb64 = peer->rio_addr + sizeof(uint32_t) + peer->WP * BD_PAYLOAD_SIZE(info);
 
-	DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx WP=%d oi=%d\n",
-	    nread, DMA_L2_SIZE, destid_dpi, dci->dmaopt[dci->oi].raddr.lsb64, peer->WP, dci->oi);
+	DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx WP=%d chan=%d oi=%d\n",
+	    nread, DMA_L2_SIZE, destid_dpi, dmaopt.raddr.lsb64, peer->WP, dci->chan, dci->oi);
 
 	dci->dch->setCheckHwReg(first_message);
 
@@ -406,7 +412,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 			info->stop_req = SOFT_RESTART; // XXX of which channel?
 			goto error;
 		} else { // queue really full
-			DBG("\n\tQueue full #2!\n");
+			DBG("\n\tQueue full #2 on chan %d!\n", dci->chan);
 			goto error; // Drop L3 frame
 		}
 	}
@@ -1065,6 +1071,9 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
+	// This code evolved to be RDMAD-redux
+	// It is fed by MboxWatch via socketpairs
+	// and EpWatch via a (polled) list of enumerated Eps
 again:
 	time(&next_bcast);
         while (!info->stop_req) {
@@ -1745,6 +1754,42 @@ exit_bomb:
 extern "C"
 void UMD_DD(struct worker* info)
 {
+	int q_size[6] = {0};
+	bool port_ok[6] = {0};
+	bool port_err[6] = {0};
+        DmaChannelInfo_t* dch_list[6] = {0};
+
+	assert(info->umd_dch2);
+
+        int dch_cnt = 0;
+        for (int ch = info->umd_chan; info->umd_chan >= 0 && ch <= info->umd_chan_n; ch++) {
+		assert(info->umd_dch_list[ch]);
+
+		dch_list[dch_cnt] = info->umd_dch_list[ch];
+		q_size[dch_cnt]   = info->umd_dch_list[ch]->dch->queueSize();
+		port_ok[dch_cnt]  = info->umd_dch_list[ch]->dch->checkPortOK();
+		port_err[dch_cnt] = info->umd_dch_list[ch]->dch->checkPortError();
+		dch_cnt++;
+	}
+
+	std::stringstream ss;
+	{
+		char tmp[257] = {0};
+		snprintf(tmp, 256, "Chan2  q_size=%d", info->umd_chan2, info->umd_dch2->queueSize());
+		ss << "\n\t\t" << tmp;
+		if (info->umd_dch2->checkPortOK()) ss << " ok";
+		if (info->umd_dch2->checkPortError()) ss << " ERROR";
+	}
+	for (int ch = 0; ch < dch_cnt; ch++) {
+		char tmp[257] = {0};
+		snprintf(tmp, 256, "Chan %d q_size=%d oi=%d", dch_list[ch]->chan, q_size[ch], dch_list[ch]->oi);
+		ss << "\n\t\t" << tmp;
+		if (port_ok[ch]) ss << " ok";
+		if (port_err[ch]) ss << " ERROR";
+	}
+	if (dch_cnt > 0)
+		INFO("\n\tDMA Channel stats: %s\n", ss.str().c_str());
+
 	std::vector<DmaPeerDestid_t> peer_list;
 	std::vector<DmaPeerCommsStats_t> peer_list_enum;
 
@@ -1786,7 +1831,7 @@ void UMD_DD(struct worker* info)
 		for (int ip = 0; ip < peer_list.size(); ip++) {
 			DmaPeerDestid_t& peer = peer_list[ip];
 			char tmp[257] = {0};
-			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u RIO.tx=%llu RIO.tx=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu", 
+			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u tx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu", 
 				 peer.destid, peer.tun_name, peer.rio_addr,
 				 peer.WP, peer.RP,
 				 peer.tx_cnt, peer.rx_cnt,
@@ -1796,7 +1841,7 @@ void UMD_DD(struct worker* info)
 
 			uint32_t* pRP = (uint32_t*)peer.ib_ptr;
 			assert(pRP);
-			snprintf(tmp, 256, "\n\t\t\trx.RP=%u IBBDready=%d", *pRP, peer.rio_rx_bd_ready_size);
+			snprintf(tmp, 256, "\n\t\t\trx.RP=%u IBBdReady=%d", *pRP, peer.rio_rx_bd_ready_size);
 			ss << tmp;
 
 			if (peer.mutex.__data.__lock) {

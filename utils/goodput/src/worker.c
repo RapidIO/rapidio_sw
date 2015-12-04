@@ -166,7 +166,9 @@ void init_worker_info(struct worker *info, int first_time)
         info->sock_rx_buf = NULL;
 
 #ifdef USER_MODE_DRIVER
-	info->umd_chan = 0;
+	info->umd_chan = -1;
+	info->umd_chan_n = -1;
+	info->umd_chan2 = -1;
 	info->umd_dch = NULL;
 	info->umd_tx_rtype = NREAD;
 	info->umd_tx_buf_cnt = 0;
