@@ -953,129 +953,19 @@ no_post:
         pthread_exit(parm);
 }
 
-/** \brief Man battle tank thread -- Pobeda Nasha!
- * \verbatim
-We maintain the (per-peer destid) IB window (or
-sub-section thereof) in the following format:
-+-4b-+---L2 size+MTU----+------------------+
-| RP | L2 | L3  payload | ... repeat L2+L3 |
-+----+------------------+------------------+
-We keep (bufc-1) IB L2+L3 combos
- * \endverbatim
+/* \brief Interact with other peers and set up tun devices as appropriate
+ * This code evolved to be RDMAD-redux
+ * It is fed by MboxWatch via socketpairs
+ * and EpWatch via a (polled) list of enumerated EPs
+ * \note MboxWatch may or may not be running; we do not barf if the socketpair is/becomes -1!
+ * \param[in] info this replacement
+ * \param min_bcasts Put up Tun device only after hearing min_bcasts from peer
+ * \param bcast_interval Interval between broadcasts
  */
-extern "C"
-void umd_dma_goodput_tun_demo(struct worker *info)
+void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const int bcast_interval)
 {
-        int rc = 0;
-	time_t next_bcast = 0;
-        bool dma_fifo_proc_thr_started = false;
-        bool dma_tap_thr_started = false;
-	
-	// Note: There's no reason to link info->umd_tx_buf_cnt other than
-	// convenience. However the IB ring should never be smaller than
-	// info->umd_tx_buf_cnt-1 members -- (dis)counting T3 BD on TX side
-	const int IBWIN_SIZE = sizeof(uint32_t) + BD_PAYLOAD_SIZE(info) * (info->umd_tx_buf_cnt-1);
+	time_t next_bcast = time(NULL);
 
-	assert(info->ib_ptr);
-	assert(info->ib_byte_cnt >= IBWIN_SIZE);
-
-	memset(info->ib_ptr, 0, info->ib_byte_cnt);
-
-        if (! umd_check_cpu_allocation(info)) return;
-        if (! TakeLock(info, "DMA", info->umd_chan2)) return;
-
-	info->umd_dma_fifo_callback = umd_dma_goodput_tun_callback;
-
-	info->umd_peer_ibmap = new IBwinMap(info->ib_rio_addr, info->ib_ptr, info->ib_byte_cnt, (info->umd_tx_buf_cnt-1), info->umd_tun_MTU);
-
-        info->tick_data_total = 0;
-        info->tick_count = info->tick_total = 0;
-
-	for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
-		if (!umd_dma_goodput_tun_setup_chanN(info, ch)) goto exit;
-	}
-
-	if (!umd_dma_goodput_tun_setup_chan2(info)) goto exit;
-	//Test_NREAD(info);
-
-	info->my_destid = info->umd_dch2->getDestId();
-
-	if (info->my_destid == 0xffff) {
-		CRIT("\n\tMy_destid=0x%x which is BORKED -- bad enumeration?\n", info->my_destid);
-		goto exit;
-	}
-
-	info->umd_epollfd = epoll_create1 (0);
-	if (info->umd_epollfd < 0) goto exit;
-
-        socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp_quit);
-
-	{{
-	  struct epoll_event event;
-	  event.data.fd = info->umd_sockp_quit[1];
-	  event.events = EPOLLIN | EPOLLET;
-          if(epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, info->umd_sockp_quit[1], &event) < 0) goto exit;
-	}}
-
-	// XXX TODO
-	// Phase 1
-	// also kill stale RIO RX threads, purge good_destid, bad_destid under mutex (*)
-
-        init_seq_ts(&info->desc_ts);
-        init_seq_ts(&info->fifo_ts);
-        init_seq_ts(&info->meas_ts);
-
-        info->umd_fifo_proc_must_die = 0;
-        info->umd_fifo_proc_alive = 0;
-
-        rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
-                            umd_dma_tun_fifo_proc_thr, (void *)info);
-        if (rc) {
-                CRIT("\n\tCould not create umd_dma_tun_fifo_proc_thr thread, exiting...");
-                goto exit;
-        }
-        sem_wait(&info->umd_fifo_proc_started);
-
-        if (!info->umd_fifo_proc_alive) {
-                CRIT("\n\tumd_fifo_proc thread is dead, exiting..");
-                goto exit;
-        }
-	dma_fifo_proc_thr_started = true;
-
-        // Spawn Tap Transmitter Thread
-        rc = pthread_create(&info->umd_dma_tap_thr.thr, NULL,
-                            umd_dma_tun_RX_proc_thr, (void *)info);
-        if (rc) {
-                CRIT("\n\tCould not create umd_dma_tun_RX_proc_thr thread, exiting...");
-                goto exit;
-        }
-        sem_wait(&info->umd_dma_tap_proc_started);
-
-        if (!info->umd_dma_tap_proc_alive) {
-                CRIT("\n\tumd_dma_tun_RX_proc_thr thread is dead, exiting..");
-                goto exit;
-        }
-	dma_tap_thr_started = true;
-
-	// We need to wake up the RX thread upon quitting so we spawn
-	// this lightweight helper thread
-	pthread_t wakeup_thr;
-        rc = pthread_create(&wakeup_thr, NULL, umd_dma_wakeup_proc_thr, (void *)info);
-        if (rc) {
-                CRIT("\n\tCould not create umd_dma_wakeup_proc_thr thread, exiting...");
-                goto exit;
-        }
-
-        zero_stats(info);
-        info->evlog.clear();
-
-        clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-
-	// This code evolved to be RDMAD-redux
-	// It is fed by MboxWatch via socketpairs
-	// and EpWatch via a (polled) list of enumerated Eps
-again:
-	time(&next_bcast);
         while (!info->stop_req) {
 // Broadcast my IBwin mapping Urbi & Orbi, once per second
 		time_t now = 0;
@@ -1094,7 +984,7 @@ again:
 
 		if (peer_list.size() == 0 || info->umd_mbox_tx_fd < 0 || now <= next_bcast) goto receive;
 
-		next_bcast = now + 10;
+		next_bcast = now + bcast_interval;
 
 		if (7 <= g_level) {
 			std::stringstream ss;
@@ -1250,13 +1140,137 @@ again:
 			      from_destid, from_base_rio_addr, from_base_size, from_rio_addr, from_bufc, from_MTU,
 			       rio_addr, peer_ib_ptr, bcast_cnt);
 			  
-			  if (bcast_cnt < 3) break; // We want to be sure the peer is ready to receive us once we pun the Tun up
+			  if (bcast_cnt < min_bcasts) break; // We want to be doubleplus-sure the peer is ready to receive us once we put the Tun up
 
 			  DBG("\n\tSetting up Tun for NEW peer destid %u\n", from_destid);
 			  if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
 			}} while(0);
 		}} while(0); // END if FD_ISSET
+        } // END while !info->stop_req
+
+exit:
+	return;
+}
+
+/** \brief Man battle tank thread -- Pobeda Nasha!
+ * \verbatim
+We maintain the (per-peer destid) IB window (or
+sub-section thereof) in the following format:
++-4b-+---L2 size+MTU----+------------------+
+| RP | L2 | L3  payload | ... repeat L2+L3 |
++----+------------------+------------------+
+We keep (bufc-1) IB L2+L3 combos
+ * \endverbatim
+ */
+extern "C"
+void umd_dma_goodput_tun_demo(struct worker *info)
+{
+        int rc = 0;
+        bool dma_fifo_proc_thr_started = false;
+        bool dma_tap_thr_started = false;
+	
+	// Note: There's no reason to link info->umd_tx_buf_cnt other than
+	// convenience. However the IB ring should never be smaller than
+	// info->umd_tx_buf_cnt-1 members -- (dis)counting T3 BD on TX side
+	const int IBWIN_SIZE = sizeof(uint32_t) + BD_PAYLOAD_SIZE(info) * (info->umd_tx_buf_cnt-1);
+
+	assert(info->ib_ptr);
+	assert(info->ib_byte_cnt >= IBWIN_SIZE);
+
+	memset(info->ib_ptr, 0, info->ib_byte_cnt);
+
+        if (! umd_check_cpu_allocation(info)) return;
+        if (! TakeLock(info, "DMA", info->umd_chan2)) return;
+
+	info->umd_dma_fifo_callback = umd_dma_goodput_tun_callback;
+
+	info->umd_peer_ibmap = new IBwinMap(info->ib_rio_addr, info->ib_ptr, info->ib_byte_cnt, (info->umd_tx_buf_cnt-1), info->umd_tun_MTU);
+
+        info->tick_data_total = 0;
+        info->tick_count = info->tick_total = 0;
+
+	for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
+		if (!umd_dma_goodput_tun_setup_chanN(info, ch)) goto exit;
+	}
+
+	if (!umd_dma_goodput_tun_setup_chan2(info)) goto exit;
+	//Test_NREAD(info);
+
+	info->my_destid = info->umd_dch2->getDestId();
+
+	if (info->my_destid == 0xffff) {
+		CRIT("\n\tMy_destid=0x%x which is BORKED -- bad enumeration?\n", info->my_destid);
+		goto exit;
+	}
+
+	info->umd_epollfd = epoll_create1 (0);
+	if (info->umd_epollfd < 0) goto exit;
+
+        socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp_quit);
+
+	{{
+	  struct epoll_event event;
+	  event.data.fd = info->umd_sockp_quit[1];
+	  event.events = EPOLLIN | EPOLLET;
+          if(epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, info->umd_sockp_quit[1], &event) < 0) goto exit;
+	}}
+
+	// XXX TODO
+	// Phase 1
+	// also kill stale RIO RX threads, purge good_destid, bad_destid under mutex (*)
+
+        init_seq_ts(&info->desc_ts);
+        init_seq_ts(&info->fifo_ts);
+        init_seq_ts(&info->meas_ts);
+
+        info->umd_fifo_proc_must_die = 0;
+        info->umd_fifo_proc_alive = 0;
+
+        rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
+                            umd_dma_tun_fifo_proc_thr, (void *)info);
+        if (rc) {
+                CRIT("\n\tCould not create umd_dma_tun_fifo_proc_thr thread, exiting...");
+                goto exit;
         }
+        sem_wait(&info->umd_fifo_proc_started);
+
+        if (!info->umd_fifo_proc_alive) {
+                CRIT("\n\tumd_fifo_proc thread is dead, exiting..");
+                goto exit;
+        }
+	dma_fifo_proc_thr_started = true;
+
+        // Spawn Tap Transmitter Thread
+        rc = pthread_create(&info->umd_dma_tap_thr.thr, NULL,
+                            umd_dma_tun_RX_proc_thr, (void *)info);
+        if (rc) {
+                CRIT("\n\tCould not create umd_dma_tun_RX_proc_thr thread, exiting...");
+                goto exit;
+        }
+        sem_wait(&info->umd_dma_tap_proc_started);
+
+        if (!info->umd_dma_tap_proc_alive) {
+                CRIT("\n\tumd_dma_tun_RX_proc_thr thread is dead, exiting..");
+                goto exit;
+        }
+	dma_tap_thr_started = true;
+
+	// We need to wake up the RX thread upon quitting so we spawn
+	// this lightweight helper thread
+	pthread_t wakeup_thr;
+        rc = pthread_create(&wakeup_thr, NULL, umd_dma_wakeup_proc_thr, (void *)info);
+        if (rc) {
+                CRIT("\n\tCould not create umd_dma_wakeup_proc_thr thread, exiting...");
+                goto exit;
+        }
+
+        zero_stats(info);
+        info->evlog.clear();
+
+        clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+
+again:
+	umd_dma_goodput_tun_RDMAD(info, 3 /* min_bcasts */, 10 /* bcast_interval, in sec */);
 
 	if (info->stop_req == SOFT_RESTART) {
 		INFO("\n\tSoft restart requested, nuking MBOX hardware!\n");
