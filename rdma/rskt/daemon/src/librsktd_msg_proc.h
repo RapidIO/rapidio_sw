@@ -111,6 +111,7 @@ struct librsktd_msg_proc_info {
 extern struct librsktd_msg_proc_info mproc;
 
 int start_msg_proc_q_thread(void);
+void halt_msg_proc_q_thread(void);
 void enqueue_mproc_msg(struct librsktd_unified_msg *msg);
 void dealloc_msg(struct librsktd_unified_msg *msg);
 struct librsktd_unified_msg *alloc_msg(uint32_t msg_type,

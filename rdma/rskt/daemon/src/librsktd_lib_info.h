@@ -145,7 +145,6 @@ struct librsktd_connect_globals {
         int loop_alive;
         sem_t loop_started;
         volatile int all_must_die;
-	uint32_t ct; /* Component tag of RSKTD mport */
 
         int fd; /* File number library instance connect to */
         struct sockaddr_un addr;

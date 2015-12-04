@@ -209,6 +209,12 @@ void handle_app_msg(struct librskt_app *app,
 	enqueue_mproc_msg(msg);
 };
 
+void recv_loop_sig_handler(int sig) 
+{
+	if (sig)
+		return;
+};
+
 void *app_rx_loop(void *ip)
 {
 	struct librskt_app *app = (struct librskt_app *)ip;
@@ -219,6 +225,11 @@ void *app_rx_loop(void *ip)
 	struct acc_skts *acc;
 	struct con_skts *con;
 	struct librskt_app_to_rsktd_msg *rxed;
+       struct sigaction sigh;
+
+        memset(&sigh, 0, sizeof(sigh));
+        sigh.sa_handler = recv_loop_sig_handler;
+        sigaction(SIGUSR1, &sigh, NULL);
 
 	app->self_ptr = (struct librskt_app **)malloc(sizeof(void *));
 	*(app->self_ptr) = app;
@@ -251,9 +262,10 @@ void *app_rx_loop(void *ip)
                 do {
                 	DBG("*** Waiting for A2RSKTD_SZ...\n");
                         rc = recv(app->app_fd, rxed, A2RSKTD_SZ, 0);
-                } while ((EINTR == errno) && !app->i_must_die);
+                } while ((EINTR == errno) && !app->i_must_die &&
+							!lib.all_must_die);
 
-                if ((rc <= 0) || app->i_must_die) {
+                if ((rc <= 0) || app->i_must_die || lib.all_must_die) {
                 	if (rc <= 0) {
                 		HIGH("App has died!\n");
                 	}
@@ -364,6 +376,12 @@ void halt_lib_handler(void);
 
 void *lib_conn_loop( void *unused )
 {
+       struct sigaction sigh;
+
+        memset(&sigh, 0, sizeof(sigh));
+        sigh.sa_handler = recv_loop_sig_handler;
+        sigaction(SIGUSR1, &sigh, NULL);
+
 	DBG("ENTER\n");
 	/* Open Unix domain socket */
 	if (open_lib_conn_socket()) {
@@ -392,7 +410,9 @@ void *lib_conn_loop( void *unused )
 		lib_st.new_app->app_fd = accept(lib_st.fd, 
 			(struct sockaddr *)&lib_st.new_app->addr,
                         &lib_st.new_app->addr_size);
-			
+		if (lib_st.all_must_die) 
+			goto  fail;
+
 		if (-1 == lib_st.new_app->app_fd) {
 			ERR("new_app->app_fd is -1. Exiting\n");
 			if (lib_st.fd) {
@@ -429,6 +449,8 @@ void *lib_conn_loop( void *unused )
 	};
 fail:
 	DBG("RSKTD Library Connection Thread Exiting\n");
+	lib_st.loop_alive = 0;
+	lib_st.all_must_die = 1;
 	halt_lib_handler();
 
 	unused = malloc(sizeof(int));
@@ -465,6 +487,17 @@ int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog, int tst)
 	} else {
         	sem_wait(&lib_st.loop_started);
         	sem_post(&lib_st.loop_started);
+	};
+
+        sem_init(&dmn.app_tx_mutex, 0, 1);
+        sem_init(&dmn.app_tx_cnt, 0, 0);
+        l_init(&dmn.app_tx_q);
+        ret = pthread_create(&dmn.app_tx_thread, NULL, app_tx_loop, NULL);
+        if (ret) {
+                ERR("Could not start app_tx_loop thread. EXITING");
+        } else {
+		sem_wait(&dmn.loop_started);
+		sem_post(&dmn.loop_started);
 	};
 
 	return ret;
@@ -507,6 +540,7 @@ void halt_lib_handler(void)
 	while (NULL != app) {
 		app->i_must_die = 1;
 		sem_post(&app->test_msg_rx);
+		pthread_kill(app->thread, SIGUSR1);
 		app = (struct librskt_app *)l_next(&li);
 	};
 
@@ -523,6 +557,10 @@ void halt_lib_handler(void)
 		enqueue_mproc_msg(msg);
 		msg = (struct librsktd_unified_msg *)l_pop_head(&lib_st.creq);
 	};
+
+	dmn.all_must_die = 1;
+        sem_post(&dmn.app_tx_cnt);
+	pthread_join(dmn.app_tx_thread, NULL);
 };
 
 void cleanup_lib_handler(void)

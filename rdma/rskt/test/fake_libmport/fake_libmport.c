@@ -38,6 +38,8 @@
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_sock.h>
 #include <stdint.h>
+#include "fake_libmport.h"
+#include "DAR_RegDefs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -318,6 +320,11 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset,
 	if (0) {
 		if ((NULL == mport_handle) || (NULL == data))
 			return 0;
+	};
+
+	switch (offset) {
+	case RIO_COMPONENT_TAG_CSR: *data = FAKE_LIBMPORT_CT;
+	default: *data = 0;
 	};
 
 	return 0 * offset * size;

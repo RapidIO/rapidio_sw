@@ -222,11 +222,6 @@ struct librskt_globals {
 	struct l_head_t req;	/* List of messages waiting for processing */
 	pthread_t req_thr;	/* Thread for processing requests */
 
-	sem_t cli_mtx;		/* Mutex for access to CLI list */
-	sem_t cli_cnt;		/* Mutex for access to CLI list */
-	struct l_head_t cli;	/* List of reqs waiting for CLI processing */
-	pthread_t cli_thr;	/* Thread for processing CLI requests */
-
 	uint32_t test;		/* Messaging in test mode */
 
 	sem_t skts_mtx;		/* Mutex for access to skts list */
@@ -241,9 +236,6 @@ void librskt_test_init(uint32_t test);
 void librskt_dump_skt(struct cli_env *env, struct rskt_socket_t *skt, 
 			int row, int header);
 void librskt_setup_ptrs(rskt_h skt);
-
-#define LIBRSKT_MAX_CMD_LEN 256
-int rskt_send_cli_cmd(struct cli_env *env, char *cmd);
 
 #ifdef __cplusplus
 }
