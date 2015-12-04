@@ -728,6 +728,42 @@ int RIOCP_SO_ATTR riocp_pe_free_peer_list(riocp_pe_handle *pes[])
 }
 
 /**
+ * Get peer-PE connected at a PE's port
+ * @param[in]    pe: the port's PE
+ * @param[in]  port: the port of the PE 
+ * @param[out] peer: peer-PE at port of PE
+ * @retval        0: Valid peer-PE was found
+ * @retval  -EINVAL: PE- or Peer-PE-handle is NULL or invalid port
+ * @retval  -ENOENT: No peer-PE found
+ * @retval  -EFAULT: Invalid peer-PE
+ */
+int RIOCP_SO_ATTR 
+riocp_pe_get_peer_pe(riocp_pe_handle pe, uint8_t port, riocp_pe_handle *peer){
+	
+	if(!peer || riocp_pe_handle_check(pe)){
+		RIOCP_TRACE("Invalid pe handle\n");
+		return -EINVAL;
+	}
+	
+	if(port >= RIOCP_PE_PORT_COUNT(pe->cap)){
+		RIOCP_TRACE("Invalid port (%u)\n", port);
+		return -EINVAL;
+	}
+
+	if(NULL == pe->peers[port].peer)
+		return -ENOENT;
+		
+	if(riocp_pe_handle_check(pe->peers[port].peer)){
+		return -EFAULT;
+	}
+	else{
+		*peer = pe->peers[port].peer;
+		return 0;	
+	}
+}
+
+
+/**
  * Destroy a handle to previously probed device. Device must have been probed
  * riocp_create_host_handle, riocp_create_agent_handle, riocp_discover or
  * riocp_probe
