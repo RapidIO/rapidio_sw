@@ -91,18 +91,6 @@ int rdmad_close_ms(uint32_t msid, uint32_t ms_conn_id)
 	}
 } /* rdmad_close_ms() */
 
-int rdmad_destroy_ms(uint32_t msoid, uint32_t msid)
-{
-	mspace *ms = the_inbound->get_mspace(msoid, msid);
-	if (ms == nullptr) {
-		ERR("Could not find mspace with msid(0x%X)\n", msid);
-		return -1;;
-	} else {
-		/* Now destroy the memory space */
-		return ms->destroy();
-	}
-} /* rdmad_destroy_ms() */
-
 int rdmad_accept_ms(const char *loc_ms_name, uint32_t loc_msubid,
 		    uint32_t loc_bytes, uint64_t loc_rio_addr_len,
 		    uint64_t loc_rio_addr_lo, uint8_t loc_rio_addr_hi)
