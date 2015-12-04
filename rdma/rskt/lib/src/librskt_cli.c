@@ -804,55 +804,6 @@ RSKTConnectCmd,
 ATTR_NONE
 };
 
-char saved_cmd_line[LIBRSKT_MAX_CMD_LEN];
-
-int rskt_send_cli_cmd(struct cli_env *env, char *cmd_line)
-{
-        struct librskt_app_to_rsktd_msg *tx = 
-			(struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
-        struct librskt_rsktd_to_app_msg *rx = 
-			(struct librskt_rsktd_to_app_msg *)malloc(RSKTD2A_SZ);
-        int rc;
-
-        tx->msg_type = htonl(LIBRSKTD_CLI);
-        memset(tx->a_rq.msg.cli.cmd_line, 0, 3*MAX_MS_NAME);
-        memcpy(tx->a_rq.msg.cli.cmd_line, cmd_line, 3*MAX_MS_NAME-1);
-
-        sprintf(env->output, "\nSending cli req to dmn\n");
-        logMsg(env);
-        sprintf(env->output, "\"%s\"\n", tx->a_rq.msg.cli.cmd_line);
-        logMsg(env);
-        rc = librskt_dmsg_req_resp(tx, rx);
-        sprintf(env->output, "rc = %d\n", rc);
-        logMsg(env);
-        sprintf(env->output, "Resp Err = %d\n", rx->a_rsp.err);
-        logMsg(env);
-
-	free(tx);
-	free(rx);
-
-	return rc;
-};
-
-int RSKTSendCmdCmd(struct cli_env *env, int argc, char **argv)
-{
-	return send_cmd(env, argc, argv, rskt_send_cli_cmd, saved_cmd_line,
-			LIBRSKT_MAX_CMD_LEN-1);
-};
-
-struct cli_cmd RSKTSendCmd = {
-"sendcmd",
-5,
-0,
-"Send CLI command to RDMA Daemon",
-"{<cmd> {<parms>}}\n"
-	"<cmd> command for the RDMA Daemon\n"
-	"<parms> parameters for the <cmd>n\n"
-	"Note: If no command is entered, the previous command is executed\n",
-RSKTSendCmdCmd,
-ATTR_RPT
-};
-
 uint32_t rskt_wr_cnt;
 uint8_t rskt_wr_data;
 
@@ -1265,7 +1216,6 @@ struct cli_cmd *rskt_lib_cmds[] =
 	  &RSKTConnect,
 	  &RSKTDataDump,
 	  &RSKTSocketDump,
-	  &RSKTSendCmd,
 	  &RSKTWrite,
 	  &RSKTRead,
 	  &RSKTRxTest,
@@ -1281,7 +1231,6 @@ void librskt_bind_cli_cmds(void)
 	rskt_wr_cnt = 16;
 	rskt_wr_data = 0x80;
 	rskt_rd_cnt = 16;
-	memset(saved_cmd_line, 0, LIBRSKT_MAX_CMD_LEN);
 
         add_commands_to_cmd_db(sizeof(rskt_lib_cmds)/sizeof(rskt_lib_cmds[0]),
                                 rskt_lib_cmds);

@@ -220,17 +220,24 @@ void *tx_loop(void *unused)
 	struct librskt_app_to_rsktd_msg *tx;
 	int rc;
 
+	DBG("ENTER\n");
+
 	while (!lib.all_must_die) {
-		if (librskt_wait_for_sem(&lib.msg_tx_cnt, 0x1020)) {
+		if (librskt_wait_for_sem(&lib.msg_tx_cnt, 0x1020))
 			lib.all_must_die = 1;
+		if (lib.all_must_die)
 			goto exit;
-		};
-		if (librskt_wait_for_sem(&lib.msg_tx_mtx, 0x1021)) {
+		if (librskt_wait_for_sem(&lib.msg_tx_mtx, 0x1021))
 			lib.all_must_die = 2;
+		if (lib.all_must_die)
 			goto exit;
-		};
 		tx = (struct librskt_app_to_rsktd_msg *)l_pop_head(&lib.msg_tx);
 		sem_post(&lib.msg_tx_mtx);
+
+		if (lib.all_must_die)
+			goto exit;
+		if (NULL == tx)
+			continue;
 
 		rc = send(lib.fd, (void *)tx, A2RSKTD_SZ, MSG_EOR);
 		if (rc < 0) {
@@ -238,6 +245,7 @@ void *tx_loop(void *unused)
 		}
 	};
 exit:
+	CRIT("EXIT\n");
 	pthread_exit(unused);
 };
 
@@ -284,17 +292,17 @@ void rsvp_loop_req(struct librskt_rsktd_to_app_msg *rxd)
 		sem_post(&lib.req_cnt);
 		return;
 	};
-
-	if (librskt_wait_for_sem(&lib.cli_mtx, 0x1041)) {
-		WARN("lib.all_must_die = 31");
-		lib.all_must_die = 31;
-		sem_post(&lib.cli_mtx);
-		return;
-	};
-	l_push_tail(&lib.cli, (void *)rxd);
-	sem_post(&lib.cli_mtx);
-	sem_post(&lib.cli_cnt);
+	CRIT("lib.discarding request msg type %x htonl %x", 
+		rxd->msg_type, ntohl(rxd->msg_type));
+	free(rxd);
 };
+
+void rsvp_loop_sig_handler(int sig)
+{
+	if (sig)
+		return;
+};
+
 
 void *rsvp_loop(void *unused)
 {
@@ -302,20 +310,28 @@ void *rsvp_loop(void *unused)
 	struct librskt_rsktd_to_app_msg *rxd = 
 			(struct librskt_rsktd_to_app_msg *)
 			malloc(RSKTD2A_SZ);
+	struct sigaction rsvp_loop_sig;
+
+	memset(&rsvp_loop_sig, 0, sizeof(rsvp_loop_sig));
+	rsvp_loop_sig.sa_handler = rsvp_loop_sig_handler;
 
 	if (rxd == NULL) {
 		CRIT("Failed to allocate librskt_rsktd_to_app_msg\n");
 		return NULL;
 	}
 
+	sigaction(SIGUSR1, &rsvp_loop_sig, NULL);
+
+	DBG("ENTER\n");
 	while (!lib.all_must_die) {
 		memset((void *)rxd, 0, RSKTD2A_SZ);
 		rc = recv(lib.fd, (void *)rxd, RSKTD2A_SZ, 0);
 		if (rc < 0) {
 			ERR("Failed in recv()\n");
 			lib.all_must_die = 10;
-			goto exit;
 		};
+		if (lib.all_must_die)
+			goto exit;
 		if (rxd->msg_type & htonl(LIBRSKTD_RESP | LIBRSKTD_FAIL)) {
 			rsvp_loop_resp(rxd);
 		} else {
@@ -328,6 +344,7 @@ void *rsvp_loop(void *unused)
 		};
 	};
 exit:
+	CRIT("EXIT\n");
 	pthread_exit(unused);
 };
 
@@ -337,52 +354,6 @@ void prep_response(struct librskt_rsktd_to_app_msg *req,
 	resp->msg_type = req->msg_type | htonl(LIBRSKTD_RESP);
 	resp->rsp_a.err = 0;
 	resp->rsp_a.req_a = req->rq_a;
-};
-
-void *cli_loop(void *unused)
-{
-	/* FIXME: Should this processing occur in a separate thread? */
-	struct cli_env cons_env;
-	struct librskt_rsktd_to_app_msg *cmd;
-	struct librskt_app_to_rsktd_msg *cmd_resp;
-
-	cons_env.sess_socket = -1;
-	cons_env.script = NULL;
-	cons_env.fout = NULL;
-	bzero(cons_env.prompt, PROMPTLEN+1);
-	strncpy(cons_env.prompt, "REMCMD> ", PROMPTLEN);
-	bzero(cons_env.output, BUFLEN);
-	bzero(cons_env.input, BUFLEN);
-	cons_env.DebugLevel = 0;
-	cons_env.progressState = 0;
-	cons_env.h = NULL;
-	cons_env.cmd_prev = NULL;
-
-	while (!lib.all_must_die) {
-		cmd_resp = (struct librskt_app_to_rsktd_msg *)
-				malloc(RSKTD2A_SZ);
-		sem_wait(&lib.cli_cnt);
-		if (lib.all_must_die)
-			break;
-		sem_wait(&lib.cli_mtx);
-		if (lib.all_must_die)
-			break;
-		cmd = (struct librskt_rsktd_to_app_msg *)l_pop_head(&lib.cli);
-		sem_post(&lib.cli_mtx);
-		prep_response(cmd, cmd_resp);
-
-		if (htonl(LIBRSKT_CLI_CMD) != cmd->msg_type) {
-			cmd_resp->msg_type |= htonl(LIBRSKTD_FAIL);
-			cmd_resp->rsp_a.err = EBADRQC;
-		} else {
-			process_command(&cons_env, cmd->rq_a.msg.cli.cmd_line);
-		}
-		if (librskt_dmsg_tx_resp(cmd_resp))
-			break;
-		free(cmd);
-	};
-	lib.all_must_die = 100;
-	pthread_exit(unused);
 };
 
 void lib_rem_skt_from_list(rskt_h skt_h, struct rskt_socket_t *skt);
@@ -488,12 +459,19 @@ void *req_loop(void *unused)
 			ERR("librskt_wait_for_sem() failed. Exiting\n");
 			goto exit;
 		}
+		if (lib.all_must_die)
+			goto exit;
 		if (librskt_wait_for_sem(&lib.req_mtx, 0x1061)) {
 			ERR("librskt_wait_for_sem() failed. Exiting\n");
 			goto exit;
 		}
+		if (lib.all_must_die)
+			goto exit;
 		req = (struct librskt_rsktd_to_app_msg *)l_pop_head(&lib.req);
 		sem_post(&lib.req_mtx);
+
+		if (NULL == req)
+			continue;
 
 		prep_response(req, resp);
 
@@ -528,7 +506,7 @@ void *req_loop(void *unused)
 		resp = NULL;
 	};
 exit:
-	DBG("EXIT\n");
+	CRIT("EXIT\n");
 	pthread_exit(unused);
 };
 
@@ -536,6 +514,16 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 {
 	struct librskt_app_to_rsktd_msg *req;
 	struct librskt_rsktd_to_app_msg *resp;
+
+	/* If library already running successfully, just return */
+	if ((lib.portno == rsktd_port) && (lib.mpnum == rsktd_mpnum) &&
+			(lib.init_ok == rsktd_port))
+		return 0;
+
+	/* Not connected to intended port/mport, so fail */
+	if ((lib.portno == lib.init_ok) && (lib.portno) &&
+		((lib.portno != rsktd_port) || (lib.mpnum != rsktd_mpnum)))
+		return 1;
 
 	DBG("ENTER\n");
 	lib.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
@@ -578,10 +566,6 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	sem_init(&lib.req_cnt, 0, 0);
 	l_init(&lib.req);
 
-	sem_init(&lib.cli_mtx, 0, 1);
-	sem_init(&lib.cli_cnt, 0, 0);
-	l_init(&lib.cli);
-
 	lib.test = 0;
 	sem_init(&lib.skts_mtx, 0, 1);
 
@@ -604,12 +588,6 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	if (pthread_create( &lib.req_thr, NULL, req_loop, NULL)) {
 		lib.all_must_die = 3;
 		CRIT("ERROR:librskt_init, req_loop thread: %s\n", strerror(errno));
-		goto fail;
-	};
-	DBG("Starting cli_loop\n");
-	if (pthread_create( &lib.cli_thr, NULL, cli_loop, NULL)) {
-		lib.all_must_die = 4;
-		CRIT("ERROR:librskt_init, cli_loop thread: %s\n", strerror(errno));
 		goto fail;
 	};
 	/* Socket appears to be open, say hello to RSKTD */
@@ -645,16 +623,32 @@ fail:
 };
 
 void librskt_finish(void)
-{	/* Kill active threads */
-	INFO("Killing active threads...\n");
-	pthread_kill(lib.tx_thr, SIGUSR1);
-	pthread_kill(lib.rsvp_thr, SIGUSR1);
-	pthread_kill(lib.req_thr, SIGUSR1);
-	pthread_kill(lib.tx_thr, SIGUSR1);
+{	
+	INFO("ENTRY");
+	lib.init_ok = 0;
+	lib.all_must_die = 1;
+
+	/* Allow tx_loop to terminate */
+	sem_post(&lib.msg_tx_cnt);
+	sem_post(&lib.msg_tx_mtx);
+
+	/* Allow rsvp_loop to terminate */
+	sem_post(&lib.req_cnt);
+	sem_post(&lib.req_mtx);
 
 	/* Close socket connection to RSKTD */
-	INFO("Closing socket handle\n");
+	DBG("Closing socket handle\n");
+	pthread_kill(lib.rsvp_thr, SIGUSR1);
+
+	DBG("Joining librskt threads");
+	pthread_join(lib.tx_thr, NULL);
+	DBG("Joined tx_thr");
+	pthread_join(lib.req_thr, NULL);
+	DBG("Joined req_thr");
+	pthread_join(lib.rsvp_thr, NULL);
 	close(lib.fd);
+	lib.fd = 0;
+	INFO("EXIT");
 };
 
 int lib_uninit(void)

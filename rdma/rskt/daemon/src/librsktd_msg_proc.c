@@ -934,15 +934,16 @@ void *msg_q_loop(void *unused)
 
 	while (!dmn.all_must_die) {
 		sem_wait(&mproc.msg_q_cnt);
-		if (dmn.all_must_die) {
-			INFO("all_must_die is true!\n");
+		if ((dmn.all_must_die) || (!mproc.msg_proc_alive)) {
+			INFO("all_must_die or !msg_proc_alive!\n");
 			break;
 		}
 		sem_wait(&mproc.msg_q_mutex);
 		msg = (struct librsktd_unified_msg *)l_pop_head(&mproc.msg_q);
 		sem_post(&mproc.msg_q_mutex);
 
-		if (dmn.all_must_die || (NULL == msg)) {
+		if (dmn.all_must_die || (!mproc.msg_proc_alive)
+				|| (NULL == msg)) {
 			WARN("msg == NULL. Exiting loop\n");
 			break;
 		}
@@ -994,6 +995,15 @@ int start_msg_proc_q_thread(void)
 	DBG("EXIT\n");
 	return rc;
 };
+
+void halt_msg_proc_q_thread(void)
+{
+	mproc.msg_proc_alive = 0;
+	dmn.all_must_die = 1;
+	sem_post(&mproc.msg_q_cnt);
+	sem_post(&mproc.msg_q_mutex);
+	pthread_join(mproc.msg_q_thread, NULL);
+}
 	
 #ifdef __cplusplus
 }
