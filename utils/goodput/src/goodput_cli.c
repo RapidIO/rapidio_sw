@@ -2789,11 +2789,14 @@ int EpWatchCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx = 0;
         int tundmathreadindex = -1;
+        int epdid = ~0;
 
         int n = 0; // this be a trick from X11 source tree ;)
 
         idx               = GetDecParm(argv[n++], 0);
 	tundmathreadindex = GetDecParm(argv[n++], 0);
+	if (argc > 2)
+		epdid = GetDecParm(argv[n++], 0);
 
         if (check_idx(env, idx, 1))
                 goto exit;
@@ -2815,7 +2818,7 @@ int EpWatchCmd(struct cli_env *env, int argc, char **argv)
         wkr[idx].umd_fifo_thr.cpu_run = -1;
         wkr[idx].umd_tx_buf_cnt = 0;
         wkr[idx].umd_sts_entries = 0;
-	wkr[idx].did = ~0;
+	wkr[idx].did = epdid; // FUDGE
         wkr[idx].rio_addr = 0;
         wkr[idx].byte_cnt = 0;
         wkr[idx].acc_size = 0;
@@ -2837,9 +2840,10 @@ struct cli_cmd EPWatch = {
 3,
 2,
 "Watches RIO endpoints coming/going",
-"<idx> <tundmathreadindex>\n"
+"<idx> <tundmathreadindex> <ep-did>\n"
         "<idx> is a worker index from 0 to 7\n"
-        "<tundmathreadindex> Idx of tundma thread which must be started prior to this thread.\n",
+        "<tundmathreadindex> Idx of tundma thread which must be started prior to this thread.\n"
+	"<ep-did> [optional] EP to delete (simulates EP going away)",
 EpWatchCmd,
 ATTR_NONE
 };

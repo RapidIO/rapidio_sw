@@ -1,0 +1,4 @@
+set did ? 0
+th 3 -1 0
+wait 3 h
+epwatch 3 0 $did

@@ -454,6 +454,13 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 
 	std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.begin();
 	for (; !info->stop_req && itp != info->umd_dma_did_peer.end(); itp++) {
+		const uint16_t destid  = itp->first;
+
+		if (info->umd_dma_did_peer_list.find(destid) == info->umd_dma_did_peer_list.end()) {
+			CRIT("\n\tBUG Peer for destid %u exists in only one map!\n", destid);
+			break; // Better luck next time we're called
+		}
+
 		bool pending_work = false;
 		DmaPeerDestid_t* peer = itp->second;
 		assert(peer);
@@ -789,7 +796,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
         	if (info->stop_req || peer->stop_req) break;
 
 		for (int i = 0; i < cnt && !info->stop_req; i++) {
-			const int rp = ready_bd_list[i];
+			int rp = ready_bd_list[i];
 			assert(rp >= 0);
 			assert(rp < (info->umd_tx_buf_cnt-1));
 
@@ -814,7 +821,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 			     peer->tun_tx_cnt++;
 			else peer->tun_tx_err++;
 
-			//pL2->RO = 0;
+			rp++; if (rp == (info->umd_tx_buf_cnt-1)) rp = 0;
 			*pRP = rp;
 		}
         } // END while NOT stop requested
@@ -1394,6 +1401,7 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid)
                 }}
 
                 info->umd_dma_did_peer_fd2did.erase(peer->tun_fd);
+		info->umd_dma_did_peer.erase(itp);
 
                 DmaPeerDestidDestroy(peer); free(peer);
           }
@@ -1469,6 +1477,15 @@ void umd_epwatch_demo(struct worker* info)
 
 	const int tundmathreadindex = info->umd_chan_to; // FUDGE
 	if (tundmathreadindex < 0) return;
+
+	if (info->did != ~0) {
+		if (!umd_check_dma_tun_thr_running(info)) {
+			CRIT("\n\tWorker thread %d (DMA Tun Thr) is not running. Bye!\n", tundmathreadindex);
+			return;
+		}
+		umd_dma_goodput_tun_del_ep(&wkr[tundmathreadindex], info->did);
+		return;
+	}
 
 	const char* SYS_RAPIDIO_DEVICES = "/sys/bus/rapidio/devices";
 
