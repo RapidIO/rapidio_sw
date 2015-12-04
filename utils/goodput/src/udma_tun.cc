@@ -138,7 +138,7 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 	if (!umd_dma_abort_reason) DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
 
 	for(int i = 0;
-	    !q_was_full && !info->stop_req && (i < 100) && !dmac->scanFIFO(wi, info->umd_sts_entries*8);
+	    !q_was_full && !info->stop_req && (i < 10000) && !dmac->scanFIFO(wi, info->umd_sts_entries*8);
 	    i++) {
 		usleep(1);
 	}
@@ -807,8 +807,8 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
                         const int nwrite = cwrite(peer->tun_fd, payload, payload_size);
 #ifdef UDMA_TUN_DEBUG
                         const uint32_t crc = crc32(0, payload, payload_size);
-                        DBG("\n\tGot a msg of size %d from RIO destid %u (L7 CRC32 0x%x) cnt=%llu, wrote %d to %s\n",
-                                 ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, peer->tun_name);
+                        DBG("\n\tGot a msg of size %d from RIO destid %u (L7 CRC32 0x%x) cnt=%llu, wrote %d to %s -- rp=%d\n",
+                                 ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, peer->tun_name, rp);
 #endif
 			if (nwrite == payload_size)
 			     peer->tun_tx_cnt++;
@@ -1775,14 +1775,14 @@ void UMD_DD(struct worker* info)
 	std::stringstream ss;
 	{
 		char tmp[257] = {0};
-		snprintf(tmp, 256, "Chan2  q_size=%d", info->umd_chan2, info->umd_dch2->queueSize());
+		snprintf(tmp, 256, "Chan2 %d q_size=%d", info->umd_chan2, info->umd_dch2->queueSize());
 		ss << "\n\t\t" << tmp;
 		if (info->umd_dch2->checkPortOK()) ss << " ok";
 		if (info->umd_dch2->checkPortError()) ss << " ERROR";
 	}
 	for (int ch = 0; ch < dch_cnt; ch++) {
 		char tmp[257] = {0};
-		snprintf(tmp, 256, "Chan %d q_size=%d oi=%d", dch_list[ch]->chan, q_size[ch], dch_list[ch]->oi);
+		snprintf(tmp, 256, "Chan  %d q_size=%d oi=%d", dch_list[ch]->chan, q_size[ch], dch_list[ch]->oi);
 		ss << "\n\t\t" << tmp;
 		if (port_ok[ch]) ss << " ok";
 		if (port_err[ch]) ss << " ERROR";
