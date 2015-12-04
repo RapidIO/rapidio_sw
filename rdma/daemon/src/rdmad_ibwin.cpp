@@ -214,17 +214,24 @@ void ibwin::dump_mspace_and_subs_info(cli_env *env)
 } /* dump_mspace_and_subs_info() */
 
 /* Returns pointer to memory space large enough to hold 'size' */
-mspace* ibwin::free_ms_large_enough(uint64_t size)
+int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 {
-	mspace		*ms = nullptr;
-
 	pthread_mutex_lock(&mspaces_lock);
-	auto it = find_if(mspaces.begin(), mspaces.end(), has_room(size));
-	if (it != end(mspaces))
-		ms = *it;
+	auto it = begin(mspaces);
+	while (1) {
+		it = find_if(it, end(mspaces), has_room(size));
+		if (it != end(mspaces)) {
+			le_mspaces.push_back(*it);
+			it++;
+		} else { /* end(mspaces) */
+			DBG("Found %u mspaces that can hold %" PRIx64 "\n",
+						le_mspaces.size(), size);
+			break;
+		}
+	}
 	pthread_mutex_unlock(&mspaces_lock);
 
-	return ms;
+	return (le_mspaces.size() > 0) ? 0 : -1;
 } /* free_ms_large_enough() */
 
 /* Returns whether there is a memory space large enough to hold 'size' */
@@ -238,6 +245,12 @@ bool ibwin::has_room_for_ms(uint64_t size)
 	return mspace_has_room;
 } /* has_room_for_ms() */
 
+struct ms_compare_t {
+	bool operator()(mspace *ms1, mspace *ms2) {
+		return ms1->get_size() < ms2->get_size();
+	}
+} ms_compare;
+
 /* Create memory space */
 int ibwin::create_mspace(const char *name,
 		  	  uint64_t size,
@@ -245,12 +258,14 @@ int ibwin::create_mspace(const char *name,
 		  	  uint32_t *msid,
 		  	  mspace **ms)
 {
-	/* Find the free memory space to use to allocate ours */
-	*ms = free_ms_large_enough(size);
-	if (*ms == nullptr) {
+	/* First get a list of the memory spaces large enough for 'size' */
+	mspace_list	le_mspaces;
+	if (get_free_mspaces_large_enough(size, le_mspaces)) {
 		ERR("No memory space large enough to hold '%s'\n", name);
 		return -1;
 	}
+	/* Then find the smallest space that can accomodate 'size' */
+	*ms = *std::min_element(begin(le_mspaces), end(le_mspaces), ms_compare);
 
 	/* Determine index of new, free, memory space */
 	pthread_mutex_lock(&msindex_lock);

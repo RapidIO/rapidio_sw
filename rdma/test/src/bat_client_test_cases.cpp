@@ -814,7 +814,9 @@ exit:
 } /* test_case_e() */
 
 /**
- * Create a number of msubs, some overlapping.
+ * Create a number of msubs, some overlapping. Map and write data in the
+ * overlapping areas. Read back and verify data at the boundaries of the
+ * msubs.
  */
 int test_case_f()
 {
@@ -913,59 +915,202 @@ exit:
 } /* test_case_f() */
 
 /**
- * Create a number of msubs, some overlapping.
+ * Test that the new allocation algorithm works for each inbound window.
+ * A memory space is allocated in the *smallest* possible freespace that
+ * can accomodate it, not the *first* as was before.
+ *
+ * Procedure:
+ *
+ * 1. Fill up the entire space with memory spaces in logarithmic sizes
+ * as before .
+ *
+ * 2. Free up select memory spaces in IBWIN1 (which has to be tested with IBWIN0
+ * full). Those can be sizes 64K, 16K, 4K and 4K (there are two of those).
+ *
+ * 3. Try to allocate memory spaces sized 4K, 4K, 16K, and 64K in that order.
+ *
+ * Any allocation other than the optimal one will lead to failure sinc there is
+ * no other way to allocate all those memory spaces
+ *
+ * 4. Now Free up select memory spaces in IBWIN0 (e.g.128K, 32K, 4K, and 4K).
+ *
+ * 5. Try to allocate: 4K, 4K, 32K, and 128K.
+ *
+ * Any allocation other than the optimal one will lead to failure sinc there is
+ * no other way to allocate all those memory spaces*
  */
 int test_case_g(void)
 {
-	int ret;
+	unsigned  num_ibwins;
+	uint32_t  ibwin_size;
+	int	  rc, ret;
 
-	/* Create mso */
-	mso_h	msoh1;
-	ret = create_mso_f(bat_first_client,
-			   bm_first_tx,
-			   bm_first_rx,
-			   rem_mso_name, &msoh1);
-	BAT_EXPECT_RET(ret, 0, exit);
+	/* Determine number of IBWINs and the size of each IBWIN */
+	rc = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
+	BAT_EXPECT_RET(rc, 0, exit);
+	printf("%u inbound windows, %uKB each\n", num_ibwins, ibwin_size/1024);
 
-	/* Create ms */
-	ms_h	msh1;
-	ret = create_ms_f(bat_first_client,
-			  bm_first_tx,
-			  bm_first_rx,
-			  rem_ms_name1, msoh1, MS1_SIZE, 0, &msh1, NULL);
-	BAT_EXPECT_RET(ret, 0, free_mso);
+	/* Create a client mso */
+	mso_h	client_msoh;
+	rc = rdma_create_mso_h("test_case_g_mso", &client_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
 
-	/* Create 1st msub */
-	msub_h  msubh1;
-	ret = create_msub_f(bat_first_client,
-		 	    bm_first_tx,
-			    bm_first_rx,
-			    msh1, 0, 4096, 0, &msubh1);
-	BAT_EXPECT_RET(ret, 0, free_mso);
+	struct ms_info_t {
+		uint32_t	size;
+		ms_h		handle;
+		uint64_t	rio_addr;
+		ms_info_t(uint32_t size, ms_h handle, uint64_t rio_addr) :
+			size(size), handle(handle), rio_addr(rio_addr)
+		{}
+		bool operator ==(uint32_t size) {
+			return this->size == size;
+		}
+	};
+	static vector<ms_info_t>	ms_info;
 
-	/* Create 2nd msub */
-	msub_h  msubh2;
-	ret = create_msub_f(bat_first_client,
-			    bm_first_tx,
-			    bm_first_rx,
-			    msh1, 4096, 8192, 0, &msubh2);
-	BAT_EXPECT_RET(ret, 0, free_mso);
+	/* First generate the memory space sizes */
+	for (unsigned ibwin = 0; ibwin < num_ibwins; ibwin++) {
+		auto size = ibwin_size/2;
 
-	/* Create 3rd msub overlapping with 2nd msub */
-	msub_h  msubh3;
-	ret = create_msub_f(bat_first_client,
-			    bm_first_tx,
-			    bm_first_rx,
-			    msh1, 8192, 8192, 0, &msubh3);
-	BAT_EXPECT_PASS(ret);
+		while (size >= BAT_MIN_BLOCK_SIZE) {
+			ms_info.emplace_back(size, 0, 0);
+			size /= 2;
+		}
+		ms_info.emplace_back(size * 2, 0, 0);
+	}
+
+	/* Now create the memory spaces */
+	for (unsigned i = 0; i < ms_info.size(); i++) {
+		stringstream ms_name;
+		ms_name << "mspace" << i;
+		rc = rdma_create_ms_h(ms_name.str().c_str(),
+				      client_msoh,
+				      ms_info[i].size,
+				      0,
+				      &ms_info[i].handle,
+				      &ms_info[i].size);
+		if (rc != 0) {
+			printf("Failed to create '%s', ret = %d\n",
+						ms_name.str().c_str(), rc);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+		}
+		rdma_get_msh_properties(ms_info[i].handle,
+				&ms_info[i].rio_addr, &ms_info[i].size);
+		printf("0x%016" PRIx64 ", 0x%016" PRIx64 ", 0x%X\n",
+			ms_info[i].handle, ms_info[i].rio_addr, ms_info[i].size);
+	}
+
+	{
+	/* Find memory spaces sized 64K, 16K, 4K and 4K in ibwin0, and free them */
+		/* Find the 64K mspace */
+		auto it = find(begin(ms_info), end(ms_info), 64*1024);
+		BAT_EXPECT(it != end(ms_info), free_mso);
+
+		/* Destroy it */
+		rc = rdma_destroy_ms_h(client_msoh, it->handle);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Find the 16K mspace */
+		it = find(begin(ms_info), end(ms_info), 16*1024);
+		BAT_EXPECT(it != end(ms_info), free_mso);
+
+		/* Destroy it */
+		rc = rdma_destroy_ms_h(client_msoh, it->handle);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Find the 4K mspace */
+		it = find(begin(ms_info), end(ms_info), 4*1024);
+		BAT_EXPECT(it != end(ms_info), free_mso);
+
+		/* Destroy it */
+		rc = rdma_destroy_ms_h(client_msoh, it->handle);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Find the other 4K mspace */
+		it = find((it+1), end(ms_info), 4*1024);
+		BAT_EXPECT(it != end(ms_info), free_mso);
+
+		/* Destroy it */
+		rc = rdma_destroy_ms_h(client_msoh, it->handle);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Allocate 4K, then 4K, then 16K, then 64K */
+		ms_h msh;
+		uint32_t size;
+
+		rc = rdma_create_ms_h("dummy1", client_msoh,  4*1024, 0, &msh, &size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_create_ms_h("dummy2", client_msoh,  4*1024, 0, &msh, &size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_create_ms_h("dummy3", client_msoh, 16*1024, 0, &msh, &size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_create_ms_h("dummy4", client_msoh, 64*1024, 0, &msh, &size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		ret = rc;
+
+		/* Repeat test for IBWIN1 */
+		/* Find the 128K mspace */
+		it = find(begin(ms_info) + ms_info.size()/2, end(ms_info), 128*1024);
+		BAT_EXPECT(it != end(ms_info), free_mso);
+
+		/* Destroy it */
+		rc = rdma_destroy_ms_h(client_msoh, it->handle);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Find the 32K mspace */
+		it = find(begin(ms_info) + ms_info.size()/2, end(ms_info), 32*1024);
+		BAT_EXPECT(it != end(ms_info), free_mso);
+
+		/* Destroy it */
+		rc = rdma_destroy_ms_h(client_msoh + ms_info.size()/2, it->handle);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Find the 4K mspace */
+		it = find(begin(ms_info) + ms_info.size()/2, end(ms_info), 4*1024);
+		BAT_EXPECT(it != end(ms_info), free_mso);
+
+		/* Destroy it */
+		rc = rdma_destroy_ms_h(client_msoh, it->handle);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Find the other 4K mspace */
+		it = find((it+1), end(ms_info), 4*1024);
+		BAT_EXPECT(it != end(ms_info), free_mso);
+
+		/* Destroy it */
+		rc = rdma_destroy_ms_h(client_msoh, it->handle);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		/* Now allocate 4K, 4K, 32K, and 128K, respectively */
+		rc = rdma_create_ms_h("dummy5", client_msoh,  4*1024, 0, &msh, &size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_create_ms_h("dummy6", client_msoh,  4*1024, 0, &msh, &size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_create_ms_h("dummy7", client_msoh, 32*1024, 0, &msh, &size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_create_ms_h("dummy8", client_msoh, 128*1024, 0, &msh, &size);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		ret = rc;	/* ret is overwritten when the mso is destroyed */
+	}
 
 free_mso:
 	/* Delete the mso */
-	ret = destroy_mso_f(bat_first_client, bm_first_tx, bm_first_rx, msoh1);
-	BAT_EXPECT_RET(ret, 0, exit);
+	rc = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
 exit:
+	BAT_EXPECT_PASS(ret);
+
 	return 0;
 } /* test_case_g() */
+
 
 /**
  * Test accept_ms_h()/conn_ms_h()/disc_ms_h()..etc.

@@ -80,7 +80,7 @@ public:
 
 	void dump_mspace_and_subs_info(cli_env *env);
 
-	mspace* free_ms_large_enough(uint64_t size);
+	int get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces);
 
 	bool has_room_for_ms(uint64_t size);
 
