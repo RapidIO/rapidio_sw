@@ -24,6 +24,8 @@ typedef struct DMA_MBOX_L2_s DMA_MBOX_L2_t;
 
 const int DMA_MBOX_L2_SIZE = sizeof(DMA_MBOX_L2_t);
 
+enum { ACTION_ADD = 0, ACTION_DEL = 0xff };
+
 /** \brief These are the IBwin mapping data sent over MBOX */
 struct DMA_MBOX_PAYLOAD_s { // All below in network order!
 	uint64_t rio_addr;      ///< RIO address allocated for peer
@@ -31,6 +33,7 @@ struct DMA_MBOX_PAYLOAD_s { // All below in network order!
 	uint32_t base_size;     ///< IBwin base size -- for documentation purposes
 	uint16_t bufc;
         uint32_t MTU;
+	uint8_t  action;
 } __attribute__ ((packed));
 
 typedef struct DMA_MBOX_PAYLOAD_s DMA_MBOX_PAYLOAD_t;

@@ -466,8 +466,10 @@ void MboxChannel::set_outb_mbox_hwregs(const uint32_t wr_count)
     end_bd.next_hi = (uint64_t) m_omsg_ring.omd.win_handle >> 32;
   }}
 
+#ifdef MBOXDEBUG
   DBG("\n\t%s: Last descriptor index %d:\n", __FUNCTION__, m_num_ob_desc);
   dump_ob_desc(&bd_ptr[m_num_ob_desc]);
+#endif
 
   m_omsg_ring.wr_count      = wr_count;
   m_omsg_ring.rd_count_soft = wr_count;
@@ -481,7 +483,9 @@ void MboxChannel::set_outb_mbox_hwregs(const uint32_t wr_count)
   usleep(10);
   (void)m_mport->rd32(TSI721_OBDMAC_CTL(m_mbox));
 
+#ifdef MBOXDEBUG
   dump_msg_regs(m_mport, m_mbox);
+#endif
 }
 
 void MboxChannel::cleanup()
@@ -697,7 +701,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   regi = rd32mboxchan(TSI721_OBDMAC_INT(m_mbox));
   regs = rd32mboxchan(TSI721_OBDMAC_STS(m_mbox));
 
-  DBG("\n\tOBDMAC_STS = %08X\n\tOBDMAC_INT_DONE = %08X\n", regs, regi)
+  DDBG("\n\tOBDMAC_STS = %08X\n\tOBDMAC_INT_DONE = %08X\n", regs, regi)
   //DBG("\n\tOBDMAC_STS abort ?= %08X\n\t", regs >> 20)
 
 /*
@@ -720,14 +724,14 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
     }
     pthread_spin_unlock(&m_bltx_splock);
 
-    DBG("\n\tAfter: OBDMAC_INT = %08X ERROR\n", regi);
+    DDBG("\n\tAfter: OBDMAC_INT = %08X ERROR\n", regi);
     /* If there is an error, read the status register for more info */
     volatile uint32_t reg_out_err_stop = rd32mboxchan(RIO_PORT_N_ERR_STATUS_OUTPUT_ERR_STOP);
     volatile uint32_t reg_inp_err_stop = rd32mboxchan(RIO_PORT_N_ERR_STATUS_INPUT_ERR_STOP);
 
     reg_out_err_stop += 0; // silence g++ warnings
     reg_inp_err_stop += 0;
-    DBG("\n\tOBDMAC_STS = %08X\n\tOUTPUT_ERR_STOP = %08X\n\tINPUT_ERR_STOP  = %08X\n",
+    DDBG("\n\tOBDMAC_STS = %08X\n\tOUTPUT_ERR_STOP = %08X\n\tINPUT_ERR_STOP  = %08X\n",
         regs, reg_out_err_stop, reg_inp_err_stop)
 
     if (sts_abort) {

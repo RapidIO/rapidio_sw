@@ -2311,7 +2311,7 @@ extern void UMD_DD(const struct worker* wkr);
 
 int UMDDDDCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx = GetDecParm(argv[0], 0);
+	int idx = argc > 0? GetDecParm(argv[0], 0): 0;
 	if (idx < 0 || idx >= MAX_WORKERS) {
                 sprintf(env->output, "Bad idx %d\n", idx);
         	logMsg(env);
@@ -2325,10 +2325,10 @@ exit:
 struct cli_cmd UMDDD = {
 "udd",
 1,
-1,
+0,
 "Dump UMD misc counters",
 "<idx>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
+	"<idx> [optional, default=0] is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
 UMDDDDCmd,
 ATTR_NONE
 };
@@ -2443,7 +2443,7 @@ struct cli_cmd UDMAT = {
 6,
 "TUN/TAP (L3) over DMA with User-Mode demo driver -- pointopoint",
 "<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <mtu>\n"
-        "<idx> is a worker index from 0 to 7\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan_1> is a DMA channel number from 1 through 7\n"
         "<chan_n> is a DMA channel number from 1 through 7 -- we use chan{1...n} for TX round-robin\n"
@@ -2701,7 +2701,7 @@ struct cli_cmd UMSGT = {
 5,
 "TUN/TAP (L3) over MBOX with User-Mode demo driver",
 "<idx> <cpu> <chan> <buff> <sts>\n"
-        "<idx> is a worker index from 0 to 7\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan> is a MBOX channel number from 2 through 3\n"
         "<buff> is the number of transmit descriptors/buffers to allocate\n"
@@ -2841,7 +2841,7 @@ struct cli_cmd EPWatch = {
 2,
 "Watches RIO endpoints coming/going",
 "<idx> <tundmathreadindex> <ep-did>\n"
-        "<idx> is a worker index from 0 to 7\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<tundmathreadindex> Idx of tundma thread which must be started prior to this thread.\n"
 	"<ep-did> [optional] EP to delete (simulates EP going away)",
 EpWatchCmd,
@@ -2931,7 +2931,7 @@ struct cli_cmd UMSGWATCH = {
 5,
 "Watches MBOX messages about peers' IBwin allocations",
 "<idx> <tundmathreadindex> <chan> <buff> <sts>\n"
-        "<idx> is a worker index from 0 to 7\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<tundmathreadindex> idx of tundma thread which must be started prior to this thread.\n"
         "<chan> is a MBOX channel number from 2 through 3\n"
         "<buff> is the number of transmit descriptors/buffers to allocate\n"

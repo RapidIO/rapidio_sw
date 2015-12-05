@@ -203,6 +203,7 @@ typedef struct {
 typedef struct {
 	uint16_t destid;        ///< Remote peer's destid
 	time_t   on_time;       ///< 1st time it was enumerated by kernel/FMD
+	time_t   ls_time;       ///< last time it sent us stuff
 	uint64_t my_rio_addr;   ///< My RIO address broadcast to this peer
 	int      bcast_cnt_out; ///< How many time we broadcast IBwin mapping to it
 	int      bcast_cnt_in;  ///< How many time we received his broadcasts of IBwin mapping
@@ -337,6 +338,9 @@ struct worker {
 	volatile uint64_t tick_count, tick_total;
 	volatile uint64_t tick_data_total;
 	std::string	evlog;
+
+	int             umd_dma_bcast_min;	///< Receive "N" bcasts from peer via MBOX before putting up Tun
+	int             umd_dma_bcast_interval; ///< Minimum interval in seconds before our broadcasts on MBOX
 
 	// NOT used for DMA Tun
         RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
