@@ -1066,7 +1066,7 @@ int test_case_g(void)
 		BAT_EXPECT(it != end(ms_info), free_mso);
 
 		/* Destroy it */
-		rc = rdma_destroy_ms_h(client_msoh + ms_info.size()/2, it->handle);
+		rc = rdma_destroy_ms_h(client_msoh, it->handle);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		/* Find the 4K mspace */
