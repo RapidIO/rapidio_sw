@@ -225,8 +225,10 @@ int test_case_b(void)
 
 		/* Compare with expected return codes */
 		if (ret != ret_codes[i]) { \
-			fprintf(log_fp, "%s FAILED, line %d, i = %u\n",
-							__func__, __LINE__, i);
+			fprintf(log_fp, "%s FAILED, line %d, i = %u, expected 0x%X, got 0x%X\n",
+							__func__, __LINE__, i, ret_codes[i], ret);
+			puts("Check RDMAD now....ENTER to continue....");
+			getchar();
 			failed = true;
 		}
 	}
@@ -818,6 +820,16 @@ int test_case_e()
 				BAT_EXPECT_RET(rc, 0, free_mso);
 			}
 		}
+
+		/* Must remember to UNMAP all msubs */
+		for(unsigned j = 0; j < msub_info_size; j++) {
+			rc = rdma_munmap_msub(msub_info[j].msubh, msub_info[j].p);
+			if (rc) {
+				fprintf(log_fp, "%s FAILED, line %d, rc = %d, j = %u\n",
+						__func__, __LINE__, rc, j);
+				/* Don't break; continue to try and unmap others */
+			}
+		}
 		rc = 0;
 
 		/* Save 'rc' since it will be overwritten while destroying mso */
@@ -922,6 +934,15 @@ int test_case_f()
 		BAT_EXPECT_RET(p2[32*1024 - 1], 0xCC, free_mso);
 		BAT_EXPECT_RET(p3[0], 0xCC, free_mso);
 		BAT_EXPECT_RET(p3[32*1024 - 1], 0xCC, free_mso);
+
+		rc = rdma_munmap_msub(msubh1, p1);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_munmap_msub(msubh2, p2);
+		BAT_EXPECT_RET(rc, 0, free_mso);
+
+		rc = rdma_munmap_msub(msubh3, p3);
+		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		ret = rc = 0;
 	}
@@ -1055,14 +1076,15 @@ int test_case_g(void)
 		rc = rdma_destroy_ms_h(client_msoh, it->handle);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
-		/* Allocate 4K, then 4K, then 16K, then 64K */
+		/* NOTE: Since the 2 4K spaces are contiguous, we should be able
+		 * to allocate an 8K space (if the merging of free space actually
+		 * works).
+		 */
+		/* Allocate 8K, then 16K, then 64K */
 		ms_h msh;
 		uint32_t size;
 
-		rc = rdma_create_ms_h("dummy1", client_msoh,  4*1024, 0, &msh, &size);
-		BAT_EXPECT_RET(rc, 0, free_mso);
-
-		rc = rdma_create_ms_h("dummy2", client_msoh,  4*1024, 0, &msh, &size);
+		rc = rdma_create_ms_h("dummy1", client_msoh,  8*1024, 0, &msh, &size);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		rc = rdma_create_ms_h("dummy3", client_msoh, 16*1024, 0, &msh, &size);
@@ -1106,11 +1128,13 @@ int test_case_g(void)
 		rc = rdma_destroy_ms_h(client_msoh, it->handle);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
-		/* Now allocate 4K, 4K, 32K, and 128K, respectively */
-		rc = rdma_create_ms_h("dummy5", client_msoh,  4*1024, 0, &msh, &size);
-		BAT_EXPECT_RET(rc, 0, free_mso);
+		/* NOTE: Since the 2 4K spaces are contiguous, we should be able
+		 * to allocate an 8K space (if the merging of free space actually
+		 * works).
+		 */
 
-		rc = rdma_create_ms_h("dummy6", client_msoh,  4*1024, 0, &msh, &size);
+		/* Now allocate 8K, 32K, and 128K, respectively */
+		rc = rdma_create_ms_h("dummy5", client_msoh,  8*1024, 0, &msh, &size);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		rc = rdma_create_ms_h("dummy7", client_msoh, 32*1024, 0, &msh, &size);
