@@ -1160,9 +1160,9 @@ exit:
 /**
  * Test accept_ms_h()/conn_ms_h()/disc_ms_h()..etc.
  *
- * @ch	if ch is 'h' run test case 'h', else run test case 'i'
+ * @ch	if ch is 't' run test case 't', else run test case 'u'
  */
-int test_case_h_i(char ch, uint32_t destid)
+int test_case_t_u(char ch, uint32_t destid)
 {
 	int ret, rc;
 
@@ -1240,12 +1240,11 @@ free_server_mso:
 	BAT_EXPECT_RET(ret, 0, exit);
 
 exit:
-	/* If we reach till here without errors, then we have passed */
 	fprintf(log_fp, "test_case %c %s\n",
 					ch, (rc == 0) ? "PASSED" : "FAILED");
 
 	return 0;
-} /* test_case_h_i() */
+} /* test_case_t_u() */
 
 /**
  * Test accept_ms_h()/conn_ms_h() then kill remote app
@@ -1257,15 +1256,13 @@ exit:
  * If the remote daemon itself is killed, it, too should self-destroy
  * the ms before dying.
  *
- * ch:	'j' or 'k'
- * 'j'	Kill the remote app
- * 'k'	Kill the remote daemon
+ * ch:	'v' or 'w'
+ * 'v'	Kill the remote app
+ * 'w'	Kill the remote daemon
  */
-int test_case_j_k(char ch, uint32_t destid)
+int test_case_v_w(char ch, uint32_t destid)
 {
-	int ret;
-
-	LOG("test_case%c\n", ch);
+	int ret, rc;
 
 	/* Create server mso */
 	mso_h	server_msoh;
@@ -1317,6 +1314,7 @@ int test_case_j_k(char ch, uint32_t destid)
 			  bm_first_tx,
 			  server_msh, server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
 	sleep(1);
 
 	/* Connect to server */
@@ -1330,12 +1328,12 @@ int test_case_j_k(char ch, uint32_t destid)
 			     30);	/* 30 second-timeout */
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
-	if (ch == 'j') {
+	if (ch == 'w') {
 		/* Kill remote app */
 		puts("Telling remote app to die");
 		ret = kill_remote_app(bat_first_client, bm_first_tx);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
-	} else if (ch == 'k') {
+	} else if (ch == 'x') {
 		/* Kill remote daemon */
 		puts("Telling remote daemon to die");
 		ret = kill_remote_daemon(bat_first_client, bm_first_tx);
@@ -1358,8 +1356,14 @@ int test_case_j_k(char ch, uint32_t destid)
 	ret = rdma_disc_ms_h(server_msh_rb, client_msubh);
 	BAT_EXPECT_PASS(ret);
 
+	rc = ret;
+
 	/* Delete the client mso */
 	ret = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_PASS(ret);
+
+	fprintf(log_fp, "test_case %c %s\n",
+				ch, (rc == 0) ? "PASSED" : "FAILED");
 	return 0;
 
 free_client_mso:
@@ -1375,9 +1379,8 @@ free_server_mso:
 	BAT_EXPECT_RET(ret, 0, exit);
 
 exit:
-	/* If we reach till here without errors, then we have passed */
 	return 0;
-} /* test_case_j_k() */
+} /* test_case_v_w() */
 
 /**
  * The child creates an mso then dies. The return code of the child indicates
@@ -1385,12 +1388,12 @@ exit:
  * the daemon auto-deletes the mso. The parent tries to open the m'so' and gets
  * an error indicating the mso doesn't exit.
  */
-int test_case_l()
+int test_case_x()
 {
 	pid_t child;
 	int	ret;
 
-	LOG("test_case%c\t", 'l');
+	LOG("test_case%c\t", 'x');
 
 	child = fork();
 
@@ -1419,19 +1422,19 @@ int test_case_l()
 	}
 
 	return ret;
-} /* test_case_l() */
+} /* test_case_x() */
 
 
 /**
  * Kill then restart the daemon. Verify that memory space owners have
  * been cleaned up by creating the same mso with the same name again.
  */
-int test_case_m()
+int test_case_y()
 {
 	int ret;
 	pid_t child;
 
-	LOG("test_case%c\t", 'm');
+	LOG("test_case%c\t", 'z');
 
 	/* Create a client mso */
 	mso_h	client_msoh;
@@ -1471,7 +1474,7 @@ free_client_mso:
 
 exit:
 	return ret;
-} /* test_case_ms() */
+} /* test_case_y() */
 
 #define DMA_DATA_SIZE	64
 #define DMA_DATA_SECTION_SIZE	8

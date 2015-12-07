@@ -135,6 +135,7 @@ int main(int argc, char *argv[])
 	if (argc == 2) {
 		if (argv[1][1] == 'l') {
 			puts("List of test cases:");
+			/* New test cases */
 			puts("'a' Test duplicate mso creation");
 			puts("'b' Test duplicate ms creation");
 			puts("'c' Test memory space allocation");
@@ -142,19 +143,21 @@ int main(int argc, char *argv[])
 			puts("'e' Test memory subspace allocation/mapping");
 			puts("'f' Test data stored in overlapping msubs");
 			puts("'g' Test optimized memory space allocation");
-			puts("'h' Accept/Connect/Disconnect test");
-			puts("'i' Accept/Connect/Destroy test");
-			puts("'j' Accept/Connect then kill remote app");
-			puts("'k' Accept/Connect then kill remote daemon");
-			puts("'l' Create local mso, die, then try to open");
-			puts("'m' Restart daemon and create the same mso");
+
+			/* Old test cases */
+			puts("'t' Accept/Connect/Disconnect test");
+			puts("'u' Accept/Connect/Destroy test");
+			puts("'v' Accept/Connect then kill remote app");
+			puts("'w' Accept/Connect then kill remote daemon");
+			puts("'x' Create local mso, die, then try to open");
+			puts("'y' Restart daemon and create the same mso");
 			puts("'1' Simple DMA transfer - 0 offsets, sync mode");
 			puts("'2' As '1' but loc_msub_of_in_ms is 4K");
 			puts("'3' As '1' but data offset in loc_msub");
 			puts("'4' As '1' but data offset in rem_msub");
 			puts("'5' As '1' but async mode");
 			puts("'6' Create mso+ms on one, open and DMA on another");
-			puts("'z' RUN ALL TESTS");
+			puts("'z' RUN ALL TESTS (with some exceptions)");
 			exit(1);
 		}
 		show_help();
@@ -254,23 +257,23 @@ int main(int argc, char *argv[])
 		test_case_g();
 		/* Local test. No need for BAT_EOT */
 		break;
-	case 'h':
-	case 'i':
-		test_case_h_i(tc, destid);
+
+		/* Old test cases */
+	case 't':
+	case 'u':
+		test_case_t_u(tc, destid);
 		BAT_EOT();
 		break;
-	case 'j':
-		test_case_j_k('j', destid);
+	case 'v':
+	case 'w':
+		test_case_v_w(tc, destid);
 		break;
-	case 'k':
-		test_case_j_k('k', destid);
-		break;
-	case 'l':
-		test_case_l();
+	case 'x':
+		test_case_x();
 		/* No BAT_EOT(). This is a local test */
 		break;
-	case 'm':
-		test_case_m();
+	case 'y':
+		test_case_y();
 		/* No BAT_EOT(). This is a local test */
 		break;
 	case '1':
@@ -306,8 +309,8 @@ int main(int argc, char *argv[])
 			test_case_e();
 			test_case_f();
 			test_case_g();
-			test_case_h_i('h', destid);
-			test_case_h_i('i', destid);
+			test_case_t_u('t', destid);
+			test_case_t_u('u', destid);
 
 			test_case_dma('1', destid, 0x00, 0x00, 0x00, rdma_sync_chk);
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
@@ -318,14 +321,14 @@ int main(int argc, char *argv[])
 #endif
 			test_case_b();
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
-			test_case_h_i('h', destid);
+			test_case_t_u('t', destid);
 #if 0
 			test_case_dma('5', destid, 0x00, 0x00, 0x00, rdma_async_chk);
 #endif
 			test_case_dma('3', destid, 0x00, 0x80, 0x00, rdma_sync_chk);
 			test_case_c();
 			test_case_dma('4', destid, 0x00, 0x00, 0x40, rdma_sync_chk);
-			test_case_h_i('i', destid);
+			test_case_t_u('u', destid);
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
 		}
 		break;

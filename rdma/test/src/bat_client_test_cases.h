@@ -22,6 +22,7 @@ extern char rem_ms_name1[MAX_NAME];
 extern char rem_ms_name2[MAX_NAME];
 extern char rem_ms_name3[MAX_NAME];
 
+/* New test cases */
 int test_case_a();
 int test_case_b();
 int test_case_c();
@@ -29,22 +30,14 @@ int test_case_d();
 int test_case_e();
 int test_case_f();
 int test_case_g();
-int test_case_h_i(char ch, uint32_t destid);
-int test_case_j_k(char ch, uint32_t destid);
-int test_case_l();
-int test_case_m();
+
+/* Old test cases */
+int test_case_t_u(char ch, uint32_t destid);
+int test_case_v_w(char ch, uint32_t destid);
+int test_case_x();
+int test_case_y();
 int test_case_6();
-#if 0
-void prep_dma_data(uint8_t *dma_data);
 
-void dump_data(uint8_t *dma_data, unsigned offset);
-
-int do_dma(msub_h client_msubh,
-		  msub_h server_msubh,
-		  uint32_t ofs_in_loc_msub,
-		  uint32_t ofs_in_rem_msub,
-		  rdma_sync_type_t sync_type);
-#endif
 int test_case_dma(char tc,
 		  uint32_t destid,
 		  uint32_t loc_msub_ofs_in_ms,
