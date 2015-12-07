@@ -60,7 +60,7 @@ int test_case_a(void)
 					   0, 0, 0, RDMA_DUPLICATE_MSO
 	};
 
-	static mso_h	mso_handles[NUM_MSOS];
+	mso_h	mso_handles[NUM_MSOS];
 
 	int ret;
 	bool failed = false;
@@ -98,6 +98,11 @@ int test_case_a(void)
 			}
 		}
 	}
+
+	/* As always, make sure the bat_server has finished destroying the
+	 * memory space owner, its memory spaces and subspaces before proceeding.
+	 */
+	sleep(1);
 
 	/* Clear the handles since we will do a second test */
 	memset(mso_handles, 0, sizeof(mso_handles));
@@ -153,6 +158,10 @@ int test_case_a(void)
 			failed = true;
 		}
 	}
+	/* As always, make sure the bat_server has finished destroying the
+	 * memory space owner, its memory spaces and subspaces before proceeding.
+	 */
+	sleep(1);
 
 	if (!failed) {
 		BAT_EXPECT_PASS(ret);
@@ -186,7 +195,7 @@ int test_case_b(void)
 	};
 
 	mso_h		msoh;
-	static ms_h	ms_handles[NUM_MSS];
+	ms_h		ms_handles[NUM_MSS];
 
 	int ret;
 	bool failed = false;
@@ -232,6 +241,11 @@ int test_case_b(void)
 				__func__, __LINE__, ret);
 		failed = true;
 	}
+
+	/* As always, make sure the bat_server has finished destroying the
+	 * memory space owner, its memory spaces and subspaces before proceeding.
+	 */
+	sleep(1);
 
 	/* Second test, requested by Barry */
 
@@ -327,6 +341,11 @@ int test_case_b(void)
 		failed = true;
 	}
 
+	/* As always, make sure the bat_server has finished destroying the
+	 * memory space owner, its memory spaces and subspaces before proceeding.
+	 */
+	sleep(1);
+
 	if (!failed) {
 		BAT_EXPECT_PASS(ret);
 	}
@@ -360,6 +379,19 @@ int test_case_c(void)
 	uint32_t  ibwin_size;
 	int	  rc, ret;
 
+	struct ms_info_t {
+		uint32_t	size;
+		ms_h		handle;
+		uint64_t	rio_addr;
+		ms_info_t(uint32_t size, ms_h handle, uint64_t rio_addr) :
+			size(size), handle(handle), rio_addr(rio_addr)
+		{}
+		bool operator ==(uint32_t size) {
+			return this->size == size;
+		}
+	};
+	vector<ms_info_t>	ms_info;
+
 	/* Determine number of IBWINs and the size of each IBWIN */
 	rc = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
 	BAT_EXPECT_RET(rc, 0, exit);
@@ -384,18 +416,7 @@ int test_case_c(void)
 		BAT_EXPECT_RET(rc, 0, free_mso);
 	}
 
-	struct ms_info_t {
-		uint32_t	size;
-		ms_h		handle;
-		uint64_t	rio_addr;
-		ms_info_t(uint32_t size, ms_h handle, uint64_t rio_addr) :
-			size(size), handle(handle), rio_addr(rio_addr)
-		{}
-		bool operator ==(uint32_t size) {
-			return this->size == size;
-		}
-	};
-	static vector<ms_info_t>	ms_info;
+
 
 	/* Now create a number of memory spaces such that they fill each
 	 * inbound window with different sizes starting with 1/2 the inbound
@@ -533,7 +554,7 @@ int test_case_d(void)
 	};
 
 	{
-		static vector<ms_info_t>	ms_info;
+		 vector<ms_info_t>	ms_info;
 
 		/* Now create a number of memory spaces such that they fill each
 		 * inbound window with different sizes starting with 1/2 the
@@ -564,7 +585,7 @@ int test_case_d(void)
 			msub_h	msubh;
 			uint32_t offset;
 		};
-		static vector<msub_info_t>	msub_info;
+		vector<msub_info_t>	msub_info;
 
 		/* Now create the memory spaces, and subspaces that fill up
 		 * the entire inbound space */
@@ -712,7 +733,7 @@ int test_case_e()
 	};
 
 	{
-		static vector<ms_info_t>	ms_info;
+		vector<ms_info_t>	ms_info;
 
 		for (unsigned ibwin = 0; ibwin < num_ibwins; ibwin++) {
 			auto size = ibwin_size/2;
@@ -735,7 +756,7 @@ int test_case_e()
 			uint32_t offset;
 			uint8_t	*p;
 		};
-		static vector<msub_info_t>	msub_info;
+		vector<msub_info_t>	msub_info;
 
 		/* Now create the memory spaces, and subspaces that fill up
 		 * the entire inbound space */
@@ -945,16 +966,6 @@ int test_case_g(void)
 	uint32_t  ibwin_size;
 	int	  rc, ret;
 
-	/* Determine number of IBWINs and the size of each IBWIN */
-	rc = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
-	BAT_EXPECT_RET(rc, 0, exit);
-	printf("%u inbound windows, %uKB each\n", num_ibwins, ibwin_size/1024);
-
-	/* Create a client mso */
-	mso_h	client_msoh;
-	rc = rdma_create_mso_h("test_case_g_mso", &client_msoh);
-	BAT_EXPECT_RET(rc, 0, exit);
-
 	struct ms_info_t {
 		uint32_t	size;
 		ms_h		handle;
@@ -966,7 +977,17 @@ int test_case_g(void)
 			return this->size == size;
 		}
 	};
-	static vector<ms_info_t>	ms_info;
+	vector<ms_info_t>	ms_info;
+
+	/* Determine number of IBWINs and the size of each IBWIN */
+	rc = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
+	BAT_EXPECT_RET(rc, 0, exit);
+	printf("%u inbound windows, %uKB each\n", num_ibwins, ibwin_size/1024);
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	rc = rdma_create_mso_h("test_case_g_mso", &client_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* First generate the memory space sizes */
 	for (unsigned ibwin = 0; ibwin < num_ibwins; ibwin++) {
