@@ -763,6 +763,7 @@ int remove_rem_ms(ms_h msh)
 		free((*it));		/* Free ms struct */
 		rem_ms_list.erase(it);	/* Remove pointer from list */
 		DBG("Now database has size = %d\n", rem_ms_list.size());
+		rc = 0;
 	}
 	pthread_mutex_unlock(&rem_ms_mutex);
 

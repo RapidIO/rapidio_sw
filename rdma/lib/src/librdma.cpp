@@ -926,7 +926,6 @@ int rdma_destroy_mso_h(mso_h msoh)
 	destroy_mso_output	out;
 	int			ret;
 
-	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
 	/* Check the daemon hasn't died since we established its socket connection */
@@ -2312,7 +2311,8 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 
 	rem_ms *ms = (rem_ms *)rem_msh;
 	uint32_t msid = ms->msid;
-	INFO("rem_msh exists and has msid(0x%X)\n", msid);
+	INFO("rem_msh exists and has msid(0x%X), rem_msh = %" PRIx64 "\n",
+								msid, rem_msh);
 
 	/* Once we disconnect from the remote memory space we should no longer
 	 * keep any record of its subspaces */
