@@ -343,7 +343,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 			if (first_message) peer->WP = newRP; // XXX maybe newRP+1 ?? Test
 		} else {
 			send_icmp_host_unreachable(tun_fd, buffer+DMA_L2_SIZE, nread); // XXX which tun fd??
-			DBG("\n\tHW error, something is FOBAR with Chan %u\n", info->umd_chan2);
+			DBG("\n\tHW error, something is FOOBAR with Chan %u\n", info->umd_chan2);
 
 			peer->stop_req = 1;
 
@@ -1125,7 +1125,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 				if (from_rio_addr != peer_rio_addr) {
 			  		INFO("\n\tGot info [rx_fd=%d] for STALE destid %u NEW peer.rio_addr=0x%llx changed from stored peer.rio_addr=0x%llx. Nuking peer.\n",
 					    info->umd_mbox_rx_fd, from_destid, from_rio_addr, peer_rio_addr);
-					umd_dma_goodput_tun_del_ep(info, from_destid, false);
+					umd_dma_goodput_tun_del_ep(info, from_destid, true);
 					break;
 				}
 
@@ -1662,7 +1662,7 @@ void umd_epwatch_demo(struct worker* info)
 						if (ep_map_now.find(destid) == ep_map_now.end()) {
 							ep_map.erase(destid);
 							DBG("\n\tMport %d EP %u DEL\n", info->mp_num, destid);
-							umd_dma_goodput_tun_del_ep(&wkr[tundmathreadindex], destid, true);
+							umd_dma_goodput_tun_del_ep(&wkr[tundmathreadindex], destid, true); // notify just in case FMD is wrong
 						}
 					}
 				}
