@@ -167,7 +167,7 @@ static inline unsigned short in_cksum(unsigned short *addr, int len)
   return answer;
 }
 
-static inline int max(int a, int b) { return a > b? a: b; }
+static inline int min(int a, int b) { return a < b? a: b; }
 
 int icmp_host_unreachable(uint8_t* l3_in, const int l3_in_size, uint8_t* l3_out, int& l3_out_size)
 {
@@ -176,7 +176,7 @@ int icmp_host_unreachable(uint8_t* l3_in, const int l3_in_size, uint8_t* l3_out,
 
   memcpy(l3_out, l3_in, sizeof(struct iphdr)); // IPv4 header
 
-  const int MAX_COPY = max(l3_in_size, 64); // RFC requires only 8 bytes of original frame
+  const int MAX_COPY = min(l3_in_size, 64); // RFC requires only 8 bytes of original frame
 
   struct iphdr* ip = (struct iphdr*)l3_out;
   ip->tot_len = htons(sizeof(struct iphdr) + sizeof(struct icmphdr) + MAX_COPY);
