@@ -38,7 +38,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librskt.h"
 #include "libunit_test.h"
 #include "librskt_private.h"
-#include "librsktd_sn.h"
 #include "fake_libmport.h"
 #include "rskt_worker.h"
 
@@ -50,8 +49,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define BIG_TEST_MAX_SN 10000
 
 void cleanup_proc(struct cli_env *env)
 {
@@ -93,50 +90,6 @@ int ts_sel(char *parm)
 	return parm[0]*0;
 };
 
-int test_bind_and_close(struct worker *info);
-int test_bind_listen_and_close(struct worker *info);
-int test_bind_listen_accept_and_close(struct worker *info);
-int test_buddy(struct worker *info);
-
-int worker_body(struct worker *info)
-{
-	int rc = 0;
-
-	switch (info->action) {
-	case LIB_BIND_TEST: rc = test_bind_and_close(info);
-			break;
-	case LIB_LISTEN_TEST: rc = test_bind_listen_and_close(info);
-			break;
-	case LIB_ACCEPT_TEST: rc = test_bind_listen_accept_and_close(info);
-			break;
-	case LIB_ACCEPT_BUDDY: rc = test_buddy(info);
-			break;
-	default: CRIT("Unknown worker action...");
-		rc = 1;
-	};
-	return rc;
-};
-	
-void create_priv(struct worker *info)
-{
-	info->priv_info = malloc(sizeof(struct rskt_test_info));
-};
-
-void destroy_priv(struct worker *info)
-{
-	if (info->priv_info) {
-		free(info->priv_info);
-		info->priv_info = NULL;
-	};
-};
-
-struct unit_test_driver stub_utd = {
-        action_str,
-        ts_sel,
-        worker_body,
-        create_priv,
-        destroy_priv
-};
 /* Test bind and close interactions:
  * Bind to a fresh socket
  * Bind fails to a bound socket
@@ -408,98 +361,128 @@ int test_bind_listen_accept_and_close(struct worker *info)
 {
 	struct rskt_test_info *test = (struct rskt_test_info *)info->priv_info;
 	int i, rc = 0;
-	rskt_h *l_skts;
+	rskt_h *skts;
 	struct rskt_sockaddr sa;
 	int sn;
 	int fail_pt = 1;
 	int num_skts = test->end_sn - test->start_sn + 1;
-	rskt_h acc_skt;
-	struct rskt_sockaddr acc_sa;
 
-	acc_skt = rskt_create_socket();
 	test->rc = 1;
-	l_skts = (rskt_h *)malloc( sizeof(rskt_h)*(num_skts));
-	for (sn = test->start_sn; sn <= test->end_sn; sn++) {
-	};
-
-	test->skts = l_skts;
-
-	sn = test->start_sn;
-
-	for (i = 0; i < test->max_iter; i++) {
-		for (sn = test->start_sn; sn <= test->end_sn; sn++) {
-			int skt_idx = sn - test->start_sn;
-
-			fail_pt = 1 + (i << 8);
-			l_skts[skt_idx] = rskt_create_socket();
-			if (NULL == l_skts[skt_idx])
-				goto fail;
-
-			fail_pt = 2 + (i << 8);
-			sa.ct = sn + 1;
-			sa.sn = sn;
-			rc = rskt_bind(l_skts[skt_idx], &sa);
-			if (rc)
-				goto fail;
-
-			fail_pt = 6 + (i << 8);
-			sa.ct = sn + 1;
-			sa.sn = sn;
-			rc = rskt_listen(l_skts[skt_idx], sn + 2);
-			if (rc)
-				goto fail;
-
-			fail_pt = 10 + (i << 8);
-			sa.ct = sn + 1;
-			sa.sn = sn;
-
-			sem_post(&test->accepting);
-			/* At this point, we wait for buddy
- 			* to close the socket 
- 			*/
-			rc = rskt_accept(l_skts[skt_idx], acc_skt, &acc_sa);
-			if (!rc)
-				goto fail;
-	
-			fail_pt = 12 + (i << 8);
-	
-			sa.ct = sn + 1;
-			sa.sn = sn;
-			rc = rskt_close(l_skts[sn - test->start_sn]);
-		};
-	};
-
-		fail_pt = 13;
+	skts = (rskt_h *)malloc( sizeof(rskt_h)*(num_skts));
 	for (sn = test->start_sn; sn <= test->end_sn; sn++) {
 		int idx = sn - test->start_sn;
-		rskt_destroy_socket(&l_skts[idx]);
-		rc = rskt_bind(l_skts[idx], &sa);
+		skts[idx] = rskt_create_socket();
+		if (NULL == skts[idx])
+			goto fail;
+	};
+
+	test->skts = skts;
+
+	for (i = 0; i < test->max_iter; i++) {
+		fail_pt = 2;
+		for (sn = test->start_sn; sn <= test->end_sn; sn++) {
+			sa.ct = sn + 1;
+			sa.sn = sn;
+			rc = rskt_bind(skts[sn - test->start_sn], &sa);
+			if (rc)
+				goto fail;
+		};
+		fail_pt = 3;
+		if (all_app_lib_queues_empty(info))
+			goto fail;
+		fail_pt = 4;
+		for (sn = test->start_sn; sn <= test->end_sn; sn++) {
+			sa.ct = sn + 1;
+			sa.sn = sn;
+			rc = rskt_bind(skts[sn - test->start_sn], &sa);
+			if (!rc)
+				goto fail;
+		};
+		fail_pt = 5;
+		if (all_app_lib_queues_empty(info))
+			goto fail;
+		fail_pt = 6;
+		for (sn = test->start_sn; sn <= test->end_sn; sn++) {
+			sa.ct = sn + 1;
+			sa.sn = sn;
+			rc = rskt_listen(skts[sn - test->start_sn], sn + 2);
+			if (rc)
+				goto fail;
+/*
+			if (l_size(&lib_st.acc) != (sn- test->start_sn + 1))
+				goto fail;
+*/
+		};
+		fail_pt = 7;
+		if (all_app_lib_queues_stat(info, num_skts, 0, 0))
+			goto fail;
+		fail_pt = 8;
+		for (sn = test->start_sn; sn <= test->end_sn; sn++) {
+			sa.ct = sn + 1;
+			sa.sn = sn;
+			rc = rskt_listen(skts[sn - test->start_sn], sn + 2);
+			if (!rc)
+				goto fail;
+		};
+		fail_pt = 9;
+		if (all_app_lib_queues_stat(info, num_skts, 0, 0))
+			goto fail;
+		fail_pt = 10;
+		for (sn = test->start_sn; sn <= test->end_sn; sn++) {
+			sa.ct = sn + 1;
+			sa.sn = sn;
+			info->blk_sn = sn;
+			/* At this point, we wait for buddy to close socket */
+			rc = rskt_accept(skts[sn - test->start_sn], sn + 2);
+			if (!rc)
+				goto fail;
+		};
+		fail_pt = 9;
+		if (all_app_lib_queues_stat(info, num_skts, 0, 0))
+			goto fail;
+		fail_pt = 10;
+		for (sn = test->start_sn; sn <= test->end_sn; sn++) {
+			sa.ct = sn + 1;
+			sa.sn = sn;
+			rc = rskt_close(skts[sn - test->start_sn]);
+			if (rc)
+				goto fail;
+		};
+		fail_pt = 11;
+		if (all_app_lib_queues_empty(info))
+			goto fail;
+	};
+
+		fail_pt = 12;
+	for (sn = test->start_sn; sn <= test->end_sn; sn++) {
+		int idx = sn - test->start_sn;
+		rskt_destroy_socket(&skts[idx]);
+		rc = rskt_bind(skts[idx], &sa);
 		if (!rc)
 			goto fail;
 	};
-		fail_pt = 14;
+		fail_pt = 13;
 	if (all_app_lib_queues_empty(info))
 		goto fail;
 
-		fail_pt = 15;
+		fail_pt = 14;
 	for (sn = test->start_sn; sn <= test->end_sn; sn++) {
 		sa.ct = sn + 1;
 		sa.sn = sn;
-		rc = rskt_listen(l_skts[sn - test->start_sn], sn + 2);
+		rc = rskt_listen(skts[sn - test->start_sn], sn + 2);
 		if (!rc)
 			goto fail;
 	};
-		fail_pt = 16;
+		fail_pt = 15;
 	if (all_app_lib_queues_empty(info))
 		goto fail;
+
 	test->skts = NULL;
-	free(l_skts);
+	free(skts);
 	test->rc = 0;
-	sem_post(&test->done_sema);
 	return 0;
 fail:
 	test->rc = fail_pt;
-	sem_post(&test->done_sema);
 	return 0;
 }
 
@@ -507,9 +490,11 @@ int test_buddy(struct worker *info)
 {
 	struct rskt_test_info *test = (struct rskt_test_info *)info->priv_info;
 	struct rskt_test_info *bud;
+	int i, rc = 0;
 	int iter;
+	rskt_h *skts;
 	int fail_pt = 1;
-	int sn;
+	int num_skts = test->end_sn - test->start_sn + 1;
 	timespec ten_usecs = {0, 10*1000};
 
 	if (NULL == test)
@@ -520,39 +505,70 @@ int test_buddy(struct worker *info)
 
 	bud = (struct rskt_test_info *)test->buddy->priv_info;
 
-	for (iter = 0; iter < test->max_iter; iter++) {
+	for (iter = 0; iter < bdy->max_iter; iter++) {
 		for (sn = test->start_sn; sn <= test->end_sn; sn++) {
-			int skt_idx = sn - test->start_sn;
-
-			while ((info->stop_req == worker_running) &&
-				(test->buddy->stat == worker_running) &&
-				(skts[sn] != rskt_accepting))
-			{
-				nanosleep(&ten_usecs, NULL);
+			while ((bdy->blk_sn != sn) &&
+				(info->stop_req == worker_running) &&
+					(info->buddy.stat == worker_running)) {
+				nanosleep(&ten_microseconds, NULL);
 			};
-			if ((skts[sn] == rskt_accepting)) {
-				int rc = rskt_close(bud->skts[skt_idx]);
-				if (rc)
+			if (bdy->blk_sn == sn) {
+				if (rskt_close(&bdy->skts[sn - test->start_sn]))
 					goto fail;
 			};
-			if ((info->stop_req != worker_running) ||
-			(test->buddy->stat != worker_running)) {
-				CRIT("Aborting %d %d ",
-					info->stop_req, test->buddy->stat);
-				goto exit;
-			};
+			if ( (info->stop_req != worker_running) ||
+				(info->buddy.stat == worker_running))
+			goto exit;
 		};
 	};
 exit:
 	test->rc = 0;
-	sem_post(&test->done_sema);
 	return 0;
 fail:
 	test->rc = fail_pt;
-	sem_post(&test->done_sema);
 	return 0;
 }
+}
 
+int worker_body(struct worker *info)
+{
+	int rc = 0;
+
+	switch (info->action) {
+	case LIB_BIND_TEST: rc = test_bind_and_close(info);
+			break;
+	case LIB_LISTEN_TEST: rc = test_bind_listen_and_close(info);
+			break;
+	case LIB_ACCEPT_TEST: rc = test_bind_listen_accept_and_close(info);
+			break;
+	case LIB_ACCEPT_BUDDY: rc = test_buddy(info);
+			break;
+	default: CRIT("Unknown worker action...");
+		rc = 1;
+	};
+	return rc;
+};
+	
+void create_priv(struct worker *info)
+{
+	info->priv_info = malloc(sizeof(struct rskt_test_info));
+};
+
+void destroy_priv(struct worker *info)
+{
+	if (info->priv_info) {
+		free(info->priv_info);
+		info->priv_info = NULL;
+	};
+};
+
+struct unit_test_driver stub_utd = {
+        action_str,
+        ts_sel,
+        worker_body,
+        create_priv,
+        destroy_priv
+};
 
 /** @brief Test closing and reinitializing the library. 
  */
@@ -757,7 +773,7 @@ int test_case_2(void)
 
 	test->num_wkrs = 1;
 	test->start_sn = 1;
-	test->end_sn = BIG_TEST_MAX_SN/10 + 1;
+	test->end_sn = 1000;
 	test->max_iter = 100;
 	test->rc = 0;
 
@@ -777,8 +793,7 @@ fail:
 int test_case_2A(void)
 {
 	int idx = 0, max_wkrs = 10;
-	int max_sn = BIG_TEST_MAX_SN/10 + 1;
-	int sn_per_wkr = max_sn/max_wkrs;
+	int max_sn = 10000, sn_per_wkr = max_sn/max_wkrs;
 	int rc = 1;
 	int dly;
 	struct rskt_test_info *test;
@@ -855,8 +870,7 @@ int test_case_3A(void)
 	int idx = 11;
 	int rc = 1;
 	int dly;
-	int max_sn = BIG_TEST_MAX_SN + 1;
-	int sn_per_wkr = max_sn/max_wkrs;
+	int max_sn = 10000, sn_per_wkr = max_sn/max_wkrs;
 	struct rskt_test_info *test;
 
 	start_worker_thread(&wkr[idx], -1);
@@ -903,16 +917,13 @@ fail:
 
 int test_case_4(void)
 {
-	int idx = 0;
-	int buddy_idx = 1;
+	int idx = 10;
+	int buddy_idx = 11;
 	int rc = 1;
 	struct rskt_test_info *test, *buddy;;
 
 	start_worker_thread(&wkr[idx], -1);
 	wait_for_worker_status(&wkr[idx], worker_halted);
-	
-	start_worker_thread(&wkr[buddy_idx], -1);
-	wait_for_worker_status(&wkr[buddy_idx], worker_halted);
 	
 	test = (struct rskt_test_info *)wkr[idx].priv_info;
 
@@ -920,17 +931,15 @@ int test_case_4(void)
 		goto fail;
 
 	test->num_wkrs = 1;
-	test->start_sn = 1;
-	test->end_sn = 100;
-	test->max_iter = 100;
+	test->start_sn = 100;
+	test->end_sn = 101;
+	test->max_iter = 2;
+	test->blk_sn = ~test->start_sn;
 	test->rc = 0;
-	sem_init(&test->done_sema, 0, 0);
-	sem_init(&test->accepting, 0, 0);
 
 	run_worker_action(&wkr[idx], LIB_ACCEPT_TEST);
-	sem_wait(&test->accepting);
 
-	buddy = (struct rskt_test_info *)wkr[buddy_idx].priv_info;
+	buddy = (struct rskt_test_info *)wkr[budy_idx].priv_info;
 
 	if (NULL == test)
 		goto fail;
@@ -940,203 +949,30 @@ int test_case_4(void)
 	buddy->end_sn = test->end_sn;
 	buddy->max_iter = test->max_iter;
 	buddy->rc = 0;
-	buddy->buddy = &wkr[idx];
-	sem_init(&buddy->done_sema, 0, 0);
+	buddy->buddy = test;
 	
-	run_worker_action(&wkr[buddy_idx], LIB_ACCEPT_BUDDY);
+	run_worker_action(&wkr[budy_idx], LIB_ACCCEPT_BUDDY);
 
-	sem_wait(&buddy->done_sema);
-	sem_wait(&test->done_sema);
 
-	CRIT("RCs: test %x buddy %x", test->rc, buddy->rc);
+	sleep(5);
+	wait_for_worker_status(&wkr[idx], worker_halted);
 
-	rc = test->rc | buddy->rc;
+	rc = test->rc;
 fail:
 	return rc;
-};
-
-/* Pound on multiple outstanding accept() requests to make sure the
- * right one alwyas gets closed...
- */
-int test_case_4A(void)
-{
-	int idx = 0;
-	int buddy_idx;
-	int rc = 0;
-	struct rskt_test_info *test, *buddy;;
-	int max_wkrs = 5;
-	int max_sn = BIG_TEST_MAX_SN + 1;
-	int sn_per_wkr = max_sn/max_wkrs;
-
-	for (idx = 0; idx < max_wkrs; idx++) {
-		buddy_idx = idx + max_wkrs;
-
-		start_worker_thread(&wkr[idx], -1);
-		wait_for_worker_status(&wkr[idx], worker_halted);
-		
-		start_worker_thread(&wkr[buddy_idx], -1);
-		wait_for_worker_status(&wkr[buddy_idx], worker_halted);
-	
-		test = (struct rskt_test_info *)wkr[idx].priv_info;
-
-		if (NULL == test)
-			goto fail;
-
-		test->num_wkrs = max_wkrs;
-		test->start_sn = (idx * sn_per_wkr) + 1;;
-		test->end_sn = (idx + 1) * sn_per_wkr;;
-		test->max_iter = 10;
-		test->rc = 0;
-		sem_init(&test->done_sema, 0, 0);
-		sem_init(&test->accepting, 0, 0);
-
-		run_worker_action(&wkr[idx], LIB_ACCEPT_TEST);
-		sem_wait(&test->accepting);
-
-		buddy = (struct rskt_test_info *)wkr[buddy_idx].priv_info;
-	
-		if (NULL == test)
-			goto fail;
-	
-		buddy->num_wkrs = test->num_wkrs;
-		buddy->start_sn = test->start_sn;
-		buddy->end_sn = test->end_sn;
-		buddy->max_iter = test->max_iter;
-		buddy->rc = 0;
-		buddy->buddy = &wkr[idx];
-		sem_init(&buddy->done_sema, 0, 0);
-		
-		run_worker_action(&wkr[buddy_idx], LIB_ACCEPT_BUDDY);
-	};
-
-	for (idx = 0; idx < max_wkrs; idx++) {
-		buddy_idx = idx + max_wkrs;
-		test = (struct rskt_test_info *)wkr[idx].priv_info;
-		buddy = (struct rskt_test_info *)wkr[buddy_idx].priv_info;
-
-		sem_wait(&buddy->done_sema);
-		sem_wait(&test->done_sema);
-
-		rc |= test->rc | buddy->rc;
-	};
-
-fail:
-	return rc;
-};
-
-int test_case_5(void)
-{
-	int idx = 0;
-	struct rskt_test_info *test;
-	int max_wkrs = 10;
-	int sleep_more = 5;
-	timespec ten_usecs = {0, 10*1000};
-	int fail_pt = 5;
-
-	for (idx = 0; idx < max_wkrs; idx++) {
-		start_worker_thread(&wkr[idx], -1);
-		wait_for_worker_status(&wkr[idx], worker_halted);
-	
-		test = (struct rskt_test_info *)wkr[idx].priv_info;
-
-		if (NULL == test)
-			goto fail;
-
-		test->num_wkrs = 1;
-		test->start_sn = idx + 1;
-		test->end_sn = idx + 1;
-		test->max_iter = 1;
-		test->rc = 0;
-		sem_init(&test->done_sema, 0, 0);
-		sem_init(&test->accepting, 0, 0);
-
-		run_worker_action(&wkr[idx], LIB_ACCEPT_TEST);
-		sem_wait(&test->accepting);
-		while ((wkr[idx].stop_req == worker_running) &&
-			(wkr[idx].stat == worker_running) &&
-				(skts[idx+1] != rskt_accepting))
-		{
-			nanosleep(&ten_usecs, NULL);
-		};
-	};
-
-	/* Now have num_wkrs workers accepting on sockets. */
-
-	if (max_wkrs != l_size(&lib_st.acc))
-		goto fail;
-
-	fail_pt = 10;
-	for (idx = 0; idx < max_wkrs; idx++) {
-		if (skts[idx + 1] != rskt_accepting)
-			goto fail;
-	};
-
-	if (max_wkrs != l_size(&lib.rsvp))
-		goto fail;
-
-	/* Close the library, see what hatches */
-
-	librskt_finish();
-
-	fail_pt = 20;
-	if (lib.init_ok)
-		goto fail;
-	if (lib.fd > 0)
-		goto fail;
-
-	if (l_size(&lib.rsvp))
-		goto fail;
-
-	/* Check daemons state, after ensuring that the thread has exited */
-	while ((1 == l_size(&lib_st.app)) && sleep_more) {
-		sleep (1);
-		sleep_more--;
-	};
-
-	fail_pt = 30;
-	if (lib_st.port != DFLT_LIBRSKTD_TEST_PORT)
-		goto fail;
-	if (lib_st.mpnum != DFLT_LIBRSKTD_TEST_MPNUM)
-		goto fail;
-	if (lib_st.bklg != DFLT_LIBRSKTD_TEST_BKLG)
-		goto fail;
-	if (lib_st.tst != DFLT_LIBRSKTD_TEST_TEST)
-		goto fail;
-	if (!lib_st.loop_alive)
-		goto fail;
-	if (lib_st.all_must_die)
-		goto fail;
-	if (lib_st.fd <= 0)
-		goto fail;
-	fail_pt = 35;
-	if (lib.addr.sun_family != AF_UNIX)
-		goto fail;
-	if (l_size(&lib_st.app))
-		goto fail;
-
-	if (l_size(&lib_st.acc))
-		goto fail;
-
-	for (idx = 0; idx < max_wkrs; idx++) {
-		if (skts[idx + 1] != rskt_uninit)
-			goto fail;
-	};
-
-	return 0;
-fail:
-	return fail_pt;
-};
-
-void kill_all_worker_threads(void) {
-	int i;
-	for (i = 0; i < MAX_WORKERS; i++) {
-		kill_worker_thread(&wkr[i]);
-	};
 };
 
 int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
+/*
+	struct sigaction sigchld_action;
+
+        memset(&sigchld_action, 0, sizeof(sigchld_action));
+	sigchld_action.sa_handler = SIG_DFL;
+        sigchld_action.sa_flags = SA_NOCLDWAIT;
+	sigaction(SIGCHLD, &sigchld_action, NULL);
+*/
 
 	if (0)
 		argv[0][0] = argc;
@@ -1168,7 +1004,6 @@ int main(int argc, char *argv[])
 	cli_init_base(cleanup_proc);
 	bind_unit_test_thread_cli_cmds();
 	librsktd_bind_cli_cmds();
-	liblog_bind_cli_cmds();
 
 	if (test_case_1()) {
 		CRIT("Test case 1 FAILED\n");
@@ -1200,27 +1035,11 @@ int main(int argc, char *argv[])
 	};
 	CRIT("Test case 3A Passed\n");
 
-	kill_all_worker_threads();
 	if (test_case_4()) {
 		CRIT("Test case 4 FAILED\n");
 		goto fail;
 	};
 	CRIT("Test case 4 Passed\n");
-
-	kill_all_worker_threads();
-	if (test_case_4A()) {
-		CRIT("Test case 4A FAILED\n");
-		goto fail;
-	};
-	CRIT("Test case 4A Passed\n");
-
-	kill_all_worker_threads();
-	rc = test_case_5();
-	if (rc) {
-		CRIT("Test case 5 FAILED %d \n", rc);
-//		goto fail;
-	};
-	CRIT("Test case 5 Passed\n");
 
         splashScreen((char *)"RSKT UNIT TEST");
 	console((void *)"RSKT_TEST > ");

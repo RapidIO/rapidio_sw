@@ -56,34 +56,6 @@ void enqueue_wpeer_msg(struct librsktd_unified_msg *msg)
 		*msg = *msg;
 };
 
-void rsktd_sn_init(uint16_t max_skt_num)
-{
-	if (max_skt_num) {};
-};
-
-enum rskt_state rsktd_sn_get(uint32_t skt_num)
-{
-	if (skt_num)
-		return rskt_uninit;
-		
-	return rskt_uninit;
-}
-
-void rsktd_sn_set(uint32_t skt_num, enum rskt_state st)
-{
-	if (skt_num || (st == rskt_uninit))
-		return;
-	return;
-}
-
-uint32_t  rsktd_sn_find_free(uint32_t skt_num)
-{
-	if (skt_num)
-		return 0;
-
-	return 0;
-};
-
 extern int start_fm_thread(void)
 {
 	return 0;
@@ -123,8 +95,6 @@ void *speer_tx_loop(void *unused)
 {
 	return unused;	
 };
-
-void librsktd_bind_sn_cli_cmds(void) {}
 
 #ifdef __cplusplus
 }
