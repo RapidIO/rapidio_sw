@@ -123,6 +123,7 @@ void perform_cli_cmd(char *cmd_line)
 void rsktd_areq_bind(struct librsktd_unified_msg *msg)
 {
 	struct librskt_bind_req *req;
+	enum rskt_state stat;
 
 	/* Check for NULL pointer */
 	if (msg == NULL) {
@@ -140,7 +141,8 @@ void rsktd_areq_bind(struct librsktd_unified_msg *msg)
 
 	uint32_t sn = ntohl(req->sn);
 
-	if (rskt_uninit == rsktd_sn_get(sn)) {
+	stat = rsktd_sn_get(sn);
+	if ((rskt_uninit == stat) || (rskt_closed == stat)) {
 		DBG("sn Not initialized. Calling rsktd_sn_set()\n");
 		rsktd_sn_set(sn, rskt_alloced);
 		msg->tx->a_rsp.err = 0;
@@ -531,6 +533,7 @@ void terminate_accept_and_conn_reqs(uint32_t sn)
 
 	if (NULL != acc->acc_req) {
 		acc->acc_req->tx->a_rsp.err = htonl(ECONNRESET);
+		acc->acc_req->proc_stage = RSKTD_AREQ_SEQ_ARESP;
 		enqueue_app_msg(acc->acc_req);
 		acc->acc_req = NULL;
 	};
@@ -585,6 +588,8 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 {
 	uint32_t sn = ntohl(r->rx->a_rq.msg.close.sn);
 	uint32_t send_resp_now = 1;
+
+	r->tx->a_rsp.err = 0;
 
 	switch (rsktd_sn_get(sn)) {
 	case rskt_uninit:

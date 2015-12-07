@@ -134,11 +134,11 @@ void *app_tx_loop(void *unused)
 		/* Send message to application */
 		if (valid_flag) {
 			if (send((*msg->app)->app_fd, (void *)msg->tx, 
-					RSKTD2A_SZ, MSG_EOR) != RSKTD2A_SZ) {
+					RSKTD2A_SZ, MSG_EOR) != RSKTD2A_SZ){
 				(*msg->app)->i_must_die = 33;
 				ERR("send() failed: %s\n", strerror(errno));
-			}
-		};
+			};
+		}
 dealloc:
 		if (free_flag || !valid_flag)
 			dealloc_msg(msg);

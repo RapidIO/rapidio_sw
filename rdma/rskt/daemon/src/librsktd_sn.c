@@ -46,8 +46,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#define RSKTD_NUM_SKTS (RSKTD_MAX_SKT_NUM + 1)
-
 uint32_t max_skt;
 
 enum rskt_state skts[RSKTD_NUM_SKTS];

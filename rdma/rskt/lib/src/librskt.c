@@ -165,6 +165,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	l_push_tail(&lib.msg_tx, (void *)tx); 
 	sem_post(&lib.msg_tx_mtx);
 	sem_post(&lib.msg_tx_cnt);
+
 	DBG("Waiting for rsvp->resp_rx\n");
 	if (librskt_wait_for_sem(&rsvp->resp_rx, 0x1003)) {
 		ERR("Failed on resp_rx\n");
@@ -292,8 +293,6 @@ void rsvp_loop_req(struct librskt_rsktd_to_app_msg *rxd)
 		sem_post(&lib.req_cnt);
 		return;
 	};
-	CRIT("lib.discarding request msg type %x htonl %x", 
-		rxd->msg_type, ntohl(rxd->msg_type));
 	free(rxd);
 };
 
@@ -303,7 +302,6 @@ void rsvp_loop_sig_handler(int sig)
 		return;
 };
 
-
 void *rsvp_loop(void *unused)
 {
 	int rc;
@@ -311,6 +309,7 @@ void *rsvp_loop(void *unused)
 			(struct librskt_rsktd_to_app_msg *)
 			malloc(RSKTD2A_SZ);
 	struct sigaction rsvp_loop_sig;
+	struct rsvp_li *delayed;
 
 	memset(&rsvp_loop_sig, 0, sizeof(rsvp_loop_sig));
 	rsvp_loop_sig.sa_handler = rsvp_loop_sig_handler;
@@ -326,7 +325,7 @@ void *rsvp_loop(void *unused)
 	while (!lib.all_must_die) {
 		memset((void *)rxd, 0, RSKTD2A_SZ);
 		rc = recv(lib.fd, (void *)rxd, RSKTD2A_SZ, 0);
-		if (rc < 0) {
+		if (rc <= 0) {
 			ERR("Failed in recv()\n");
 			lib.all_must_die = 10;
 		};
@@ -344,6 +343,14 @@ void *rsvp_loop(void *unused)
 		};
 	};
 exit:
+	free(rxd);
+	delayed = (struct rsvp_li *)l_pop_head(&lib.rsvp);
+
+	while (NULL != delayed) {
+		delayed->resp->a_rsp.err = ECONNRESET;
+		sem_post(&delayed->resp_rx);
+		delayed = (struct rsvp_li *)l_pop_head(&lib.rsvp);
+	};
 	CRIT("EXIT\n");
 	pthread_exit(unused);
 };
@@ -625,29 +632,44 @@ fail:
 void librskt_finish(void)
 {	
 	INFO("ENTRY");
-	lib.init_ok = 0;
 	lib.all_must_die = 1;
+	struct rsvp_li *delayed;
 
-	/* Allow tx_loop to terminate */
-	sem_post(&lib.msg_tx_cnt);
-	sem_post(&lib.msg_tx_mtx);
+	if ((lib.init_ok == lib.portno) && lib.portno) {
+		/* Allow tx_loop to terminate */
+		sem_post(&lib.msg_tx_cnt);
+		sem_post(&lib.msg_tx_mtx);
+	
+		/* Allow rsvp_loop to terminate */
+		sem_post(&lib.req_cnt);
+		sem_post(&lib.req_mtx);
+	
+		/* Close socket connection to RSKTD */
+		DBG("Closing socket handle\n");
+		pthread_kill(lib.rsvp_thr, SIGUSR1);
+	
+		DBG("Joining librskt threads");
+		pthread_join(lib.tx_thr, NULL);
+		DBG("Joined tx_thr");
+		pthread_join(lib.req_thr, NULL);
+		DBG("Joined req_thr");
+		pthread_join(lib.rsvp_thr, NULL);
+	
+		lib.init_ok = 0;
+	};
 
-	/* Allow rsvp_loop to terminate */
-	sem_post(&lib.req_cnt);
-	sem_post(&lib.req_mtx);
+	if (lib.fd) {
+		close(lib.fd);
+		lib.fd = 0;
+	};
+	
+	delayed = (struct rsvp_li *)l_pop_head(&lib.rsvp);
 
-	/* Close socket connection to RSKTD */
-	DBG("Closing socket handle\n");
-	pthread_kill(lib.rsvp_thr, SIGUSR1);
-
-	DBG("Joining librskt threads");
-	pthread_join(lib.tx_thr, NULL);
-	DBG("Joined tx_thr");
-	pthread_join(lib.req_thr, NULL);
-	DBG("Joined req_thr");
-	pthread_join(lib.rsvp_thr, NULL);
-	close(lib.fd);
-	lib.fd = 0;
+	while (NULL != delayed) {
+		delayed->resp->a_rsp.err = ECONNRESET;
+		sem_post(&delayed->resp_rx);
+		delayed = (struct rsvp_li *)l_pop_head(&lib.rsvp);
+	};
 	INFO("EXIT");
 };
 
