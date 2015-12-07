@@ -137,6 +137,7 @@ int rdmad_accept_ms(const char *loc_ms_name, uint32_t loc_msubid,
 		return -1;
 	} else {
 		DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
+		accept_msg_map.add(s, cmam);
 	}
 	return 0;
 } /* rdmad_accept_ms() */
