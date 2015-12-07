@@ -273,7 +273,7 @@ int inbound::create_mspace(const char *name,
 
 	/* Create the space */
 	int ret = win_it->create_mspace(name, size, msoid, msid, ms);
-
+#if 0
 	/* MMAP, zero, then UNMAP the space */
 	void *vaddr;
 	if (ret == 0 ) {
@@ -296,7 +296,7 @@ int inbound::create_mspace(const char *name,
 			ret = -3;
 		}
 	}
-
+#endif
 	sem_post(&ibwins_sem);
 	return ret;
 } /* create_mspace() */
