@@ -45,5 +45,9 @@ do
 	# Load rio_cm
 	echo "Reloading rio_cm on $node"
 	ssh root@"$node" "modprobe rio_cm"
+
+	# Clear message queues!
+	echo "Deleting stale message queues on $node"
+	ssh root@"$node" "rm /dev/mqueue/*"
 done
 
