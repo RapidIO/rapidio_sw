@@ -1164,84 +1164,69 @@ exit:
  */
 int test_case_h_i(char ch, uint32_t destid)
 {
-	int ret;
-
-	LOG("test_case%c\n", ch);
+	int ret, rc;
 
 	/* Create server mso */
 	mso_h	server_msoh;
-	ret = create_mso_f(bat_first_client,
-			   bm_first_tx,
-			   bm_first_rx,
-			   rem_mso_name,
-			   &server_msoh);
+	ret = create_mso_f(bat_first_client, bm_first_tx, bm_first_rx,
+			   	   	   	   "rem_mso", &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
-	/* Create server ms */
+	/* Create server ms of size 64K */
 	ms_h	server_msh;
-	ret = create_ms_f(bat_first_client,
-			  bm_first_tx,
-			  bm_first_rx,
-			  rem_ms_name1,
-			  server_msoh,
-			  MS1_SIZE,
-			  0,
-			  &server_msh,NULL);
+	ret = create_ms_f(bat_first_client, bm_first_tx, bm_first_rx,
+			  "rem_ms", server_msoh, 64*1024, 0,
+			  &server_msh, NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
-	/* Create msub on server */
+	/* Create msub of size 4K on server */
 	msub_h  server_msubh;
-	ret = create_msub_f(bat_first_client,
-			    bm_first_tx,
-			    bm_first_rx,
-			    server_msh, 0, 4096, 0, &server_msubh);
+	ret = create_msub_f(bat_first_client, bm_first_tx, bm_first_rx,
+			    server_msh, 0, 4*1024, 0, &server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create a client mso */
 	mso_h	client_msoh;
-	ret = rdma_create_mso_h(loc_mso_name, &client_msoh);
+	ret = rdma_create_mso_h("loc_mso", &client_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
-	/* Create a client ms */
+	/* Create a client ms of size 16K */
 	ms_h	client_msh;
-	ret = rdma_create_ms_h(loc_ms_name, client_msoh, MS2_SIZE, 0, &client_msh,
-									NULL);
+	ret = rdma_create_ms_h("loc_ms", client_msoh, 16*1024, 0,
+							&client_msh, NULL);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
-	/* Create a client msub */
+	/* Create a client msub of size 4K */
 	msub_h	client_msubh;
-	ret = rdma_create_msub_h(client_msh, 0, 4096, 0, &client_msubh);
+	ret = rdma_create_msub_h(client_msh, 0, 4*1024, 0, &client_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	/* Accept on ms on the server */
-	ret = accept_ms_f(bat_first_client,
-			  bm_first_tx,
-			  server_msh, server_msubh);
+	ret = accept_ms_f(bat_first_client, bm_first_tx, server_msh,
+								server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
 	sleep(1);
 
 	/* Connect to server */
-	msub_h	server_msubh_rb;
+	msub_h	  server_msubh_rb;
 	uint32_t  server_msub_len_rb;
-	ms_h	server_msh_rb;
-	ret = rdma_conn_ms_h(16, destid, rem_ms_name1,
-			     client_msubh,
-			     &server_msubh_rb, &server_msub_len_rb,
-			     &server_msh_rb,
-			     30);	/* 30 second-timeout */
+	ms_h	  server_msh_rb;
+	ret = rdma_conn_ms_h(16, destid, "rem_ms", client_msubh, &server_msubh_rb,
+					&server_msub_len_rb, &server_msh_rb, 30);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	sleep(1);
 
 	/* Test case 'h' disconnects first. Test case 'i' destroys
-	 * the ms on the server and processes the incoming destroy message.
-	 */
+	 * the ms on the server and processes the incoming destroy message. */
 	if (ch == 'h') {
 		/* Now disconnect from server */
 		ret = rdma_disc_ms_h(server_msh_rb, client_msubh);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 	}
 
+	rc = ret;	/* 'ret' is overwritten during destruction */
 
 free_client_mso:
 	/* Delete the client mso */
@@ -1250,15 +1235,14 @@ free_client_mso:
 
 free_server_mso:
 	/* Delete the server mso */
-	ret = destroy_mso_f(bat_first_client,
-			    bm_first_tx,
-			    bm_first_rx,
-			    server_msoh);
+	ret = destroy_mso_f(bat_first_client, bm_first_tx, bm_first_rx,
+								server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 exit:
 	/* If we reach till here without errors, then we have passed */
-	BAT_EXPECT_PASS(ret);
+	fprintf(log_fp, "test_case %c %s\n",
+					ch, (rc == 0) ? "PASSED" : "FAILED");
 
 	return 0;
 } /* test_case_h_i() */
@@ -1544,12 +1528,13 @@ int do_dma(msub_h client_msubh,
 	in.sync_type = sync_type;
 
 	/* Temporarily to determine failure cause */
+#if 0
 	LOG("client_msubh = 0x%016" PRIx64 ", server_msubh = 0x%016" PRIx64 "\n",
 			client_msubh, server_msubh);
 	LOG("ofs_in_loc_msub = 0x%X, ofs_in_rem_msub = 0x%X, ",
 			ofs_in_loc_msub, ofs_in_rem_msub);
 	LOG("num_bytes = 0x%X, sync_type: %d\n", DMA_DATA_SIZE, sync_type);
-
+#endif
 	/* Push the RDMA data */
 	ret = rdma_push_msub(&in, &out);
 	BAT_EXPECT_RET(ret, 0, unmap_msubh);
@@ -1599,7 +1584,7 @@ int test_case_dma(char tc,
 	int ret;
 	const unsigned MSUB_SIZE = 4096;
 
-	LOG("test_case%c\n", tc);
+	LOG("test_case%c ", tc);
 
 	/* Create server mso */
 	mso_h	server_msoh;

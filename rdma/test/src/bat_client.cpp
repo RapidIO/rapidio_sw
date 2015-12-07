@@ -306,24 +306,27 @@ int main(int argc, char *argv[])
 			test_case_e();
 			test_case_f();
 			test_case_g();
-#if 0
 			test_case_h_i('h', destid);
 			test_case_h_i('i', destid);
+
 			test_case_dma('1', destid, 0x00, 0x00, 0x00, rdma_sync_chk);
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
 			test_case_dma('3', destid, 0x00, 0x80, 0x00, rdma_sync_chk);
 			test_case_dma('4', destid, 0x00, 0x00, 0x40, rdma_sync_chk);
+#if 0
 			test_case_dma('5', destid, 0x00, 0x00, 0x00, rdma_async_chk);
+#endif
 			test_case_b();
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
 			test_case_h_i('h', destid);
+#if 0
 			test_case_dma('5', destid, 0x00, 0x00, 0x00, rdma_async_chk);
+#endif
 			test_case_dma('3', destid, 0x00, 0x80, 0x00, rdma_sync_chk);
 			test_case_c();
 			test_case_dma('4', destid, 0x00, 0x00, 0x40, rdma_sync_chk);
 			test_case_h_i('i', destid);
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
-#endif
 		}
 		break;
 	default:
