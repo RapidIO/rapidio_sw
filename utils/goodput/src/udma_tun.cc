@@ -753,6 +753,8 @@ unlock:
 error:  goto unlock;
 }
 
+/** \brief This waits for \ref umd_dma_goodput_tun_callback to signal that IBwin buffers are ready for this peer. Then stuffs L3 frames into Tun
+ */
 void* umd_dma_tun_TX_proc_thr(void* arg)
 {
 	if (arg == NULL) return NULL;
@@ -774,7 +776,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
         	if (info->stop_req || peer->stop_req) break;
 
-		//DBG("\n\tInbound %d buffers(s) ready.\n", info->umd_dma_rio_rx_bd_ready_size);
+		DBG("\n\tInbound %d buffers(s) ready.\n", peer->rio_rx_bd_ready_size);
 
 		assert(peer->rio_rx_bd_ready_size <= (info->umd_tx_buf_cnt-1));
 
@@ -1363,6 +1365,8 @@ exit:
 		info->umd_dma_did_peer_fd2did.erase(peer->tun_fd);
 
 		DmaPeerDestidDestroy(peer); free(peer);
+		
+		// XXX Use umd_dma_goodput_tun_del_ep_signal to tell peer we stop?
 	    }
 	  }} while(0);
 	  info->umd_dma_did_peer.clear();
