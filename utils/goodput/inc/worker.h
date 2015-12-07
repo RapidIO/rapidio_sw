@@ -292,7 +292,7 @@ struct worker {
 	int		umd_chan_to; ///< Remote mailbox
 	int		umd_letter; ///< Remote mailbox letter
 	DMAChannel 	*umd_dch; ///< Used for anything but DMA Tun
-	DMAChannel 	*umd_dch2; ///< Used for NREAD in DMA Tun
+	DMAChannel 	*umd_dch_nread; ///< Used for NREAD in DMA Tun
 	MboxChannel 	*umd_mch;
 	enum dma_rtype	umd_tx_rtype;
 	int 		umd_tx_buf_cnt;

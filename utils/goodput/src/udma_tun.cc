@@ -123,7 +123,7 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 	DBG("\n\tNREAD from RIO %d bytes destid %u addr 0x%llx\n", size, destid, rio_addr);
 #endif
 
-	DMAChannel* dmac = info->umd_dch2;
+	DMAChannel* dmac = info->umd_dch_nread;
 
 	DMAChannel::DmaOptions_t dmaopt; memset(&dmaopt, 0, sizeof(dmaopt));
 	dmaopt.destid      = destid;
@@ -146,8 +146,16 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 	}
 
 	if (umd_dma_abort_reason || (dmac->queueSize() > 0)) { // Boooya!! Peer not responding
-		CRIT("\n\tChan %u stalled with full %d stop %d Qsize %d abort reason %x %s\n",
-		      info->umd_chan2, q_was_full, info->stop_req, dmac->queueSize(),
+		bool inp_err = false, outp_err = false;
+		info->umd_dch_nread->checkPortInOutError(inp_err, outp_err);
+		CRIT("\n\tChan %u stalled with %sQsize %d WP=%lu FIFO.WP=%llu %s%s%s%sabort reason 0x%x %s\n",
+		      info->umd_chan2,
+		      (q_was_full? "QUEUE FULL ": ""), dmac->queueSize(),
+                      info->umd_dch_nread->getWP(), info->umd_dch_nread->m_tx_cnt, 
+		      (info->umd_dch_nread->checkPortOK()? "Port:OK ": ""),
+		      (info->umd_dch_nread->checkPortError()? "Port:ERROR ": ""),
+		      (inp_err? "Port:OutpERROR ": ""),
+		      (inp_err? "Port:InpERROR ": ""),
 		      umd_dma_abort_reason, DMAChannel::abortReasonToStr(umd_dma_abort_reason));
 		// XXX Cleanup, nuke the one BD
 		return false;
@@ -183,7 +191,7 @@ void* umd_dma_tun_RX_proc_thr(void *parm)
 
         struct worker* info = (struct worker *)parm;
         if (NULL == info->umd_dch_list[info->umd_chan]) goto exit;
-        if (NULL == info->umd_dch2) goto exit;
+        if (NULL == info->umd_dch_nread) goto exit;
 
 	if ((events = (struct epoll_event*)calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event))) == NULL) goto exit;
 
@@ -577,26 +585,26 @@ bool umd_dma_goodput_tun_setup_chan2(struct worker *info)
 {
 	if (info == NULL) return false;
 
-        info->umd_dch2 = new DMAChannel(info->mp_num, info->umd_chan2, info->mp_h);
-        if (NULL == info->umd_dch2) {
+        info->umd_dch_nread = new DMAChannel(info->mp_num, info->umd_chan2, info->mp_h);
+        if (NULL == info->umd_dch_nread) {
                 CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan2, info->mp_num, info->mp_h);
                 return false;
         }
 
         // TX - Chan 2
-        info->umd_dch2->setCheckHwReg(true);
-        if (!info->umd_dch2->alloc_dmatxdesc(CH2_BUFC)) {
+        info->umd_dch_nread->setCheckHwReg(true);
+        if (!info->umd_dch_nread->alloc_dmatxdesc(CH2_BUFC)) {
                 CRIT("\n\talloc_dmatxdesc failed: bufs %d", CH2_BUFC);
                 return false;
         }
-        if (!info->umd_dch2->alloc_dmacompldesc(info->umd_sts_entries)) { // Same as for Chan 1
+        if (!info->umd_dch_nread->alloc_dmacompldesc(info->umd_sts_entries)) { // Same as for Chan 1
                 CRIT("\n\talloc_dmacompldesc failed: entries %d", info->umd_sts_entries);
                 return false;
         }
 
-        info->umd_dch2->resetHw();
-        if (!info->umd_dch2->checkPortOK()) {
+        info->umd_dch_nread->resetHw();
+        if (!info->umd_dch_nread->checkPortOK()) {
                 CRIT("\n\tPort %d is not OK!!! Exiting...", info->umd_chan2);
                 return false;
         }
@@ -1238,7 +1246,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 	if (!umd_dma_goodput_tun_setup_chan2(info)) goto exit;
 	//Test_NREAD(info);
 
-	info->my_destid = info->umd_dch2->getDestId();
+	info->my_destid = info->umd_dch_nread->getDestId();
 
 	if (info->my_destid == 0xffff) {
 		CRIT("\n\tMy_destid=0x%x which is BORKED -- bad enumeration?\n", info->my_destid);
@@ -1382,7 +1390,7 @@ exit:
 		delete info->umd_dch_list[ch]->dch;
 		free(info->umd_dch_list[ch]); info->umd_dch_list[ch] = NULL;
 	}
-        delete info->umd_dch2; info->umd_dch2 = NULL;
+        delete info->umd_dch_nread; info->umd_dch_nread = NULL;
         delete info->umd_lock; info->umd_lock = NULL;
         info->umd_tun_name[0] = '\0';
 
@@ -1454,7 +1462,7 @@ bool umd_dma_goodput_tun_ep_has_peer(struct worker* info, const uint32_t destid)
 void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool signal)
 {
 	assert(info);
-	assert(info->umd_dch2);
+	assert(info->umd_dch_nread);
 
 	const uint16_t my_destid = info->my_destid;
 	assert(my_destid != destid);
@@ -1503,7 +1511,7 @@ done:
 
 	if (found) {
 		if (signal) umd_dma_goodput_tun_del_ep_signal(info, destid); // Just in case it was forced we tell him for F*ck Off
-		DBG("\n\tNuked peer destid %u\n", destid); 
+		INFO("\n\tNuked peer destid %u%s\n", destid, (signal? " with MBOX notification": "")); 
 	} else  CRIT("\n\tCannot find a peer for destid %u\n", destid);
 }
 
@@ -1911,11 +1919,13 @@ extern "C"
 void UMD_DD(struct worker* info)
 {
 	int q_size[6] = {0};
-	bool port_ok[6] = {0};
-	bool port_err[6] = {0};
+	bool     port_ok[6] = {0};
+	bool     port_err[6] = {0};
+	uint32_t port_WP[6] = {0};
+	uint64_t port_FIFO_WP[6] = {0};
         DmaChannelInfo_t* dch_list[6] = {0};
 
-	assert(info->umd_dch2);
+	assert(info->umd_dch_nread);
 
         int dch_cnt = 0;
         for (int ch = info->umd_chan; info->umd_chan >= 0 && ch <= info->umd_chan_n; ch++) {
@@ -1925,21 +1935,26 @@ void UMD_DD(struct worker* info)
 		q_size[dch_cnt]   = info->umd_dch_list[ch]->dch->queueSize();
 		port_ok[dch_cnt]  = info->umd_dch_list[ch]->dch->checkPortOK();
 		port_err[dch_cnt] = info->umd_dch_list[ch]->dch->checkPortError();
+		port_WP[dch_cnt] = info->umd_dch_list[ch]->dch->getWP();
+		port_FIFO_WP[dch_cnt] = info->umd_dch_list[ch]->dch->m_tx_cnt;
 		dch_cnt++;
 	}
 
 	std::stringstream ss;
 	{
 		char tmp[257] = {0};
-		snprintf(tmp, 256, "Chan2 %d q_size=%d", info->umd_chan2, info->umd_dch2->queueSize());
+		snprintf(tmp, 256, "Chan2 %d q_size=%d", info->umd_chan2, info->umd_dch_nread->queueSize());
 		ss << "\n\t\t" << tmp;
-		if (info->umd_dch2->checkPortOK()) ss << " ok";
-		if (info->umd_dch2->checkPortError()) ss << " ERROR";
+		ss << "      WP=" << info->umd_dch_nread->getWP() << " FIFO.WP=" << info->umd_dch_nread->m_tx_cnt;
+		if (info->umd_dch_nread->checkPortOK()) ss << " ok";
+		if (info->umd_dch_nread->checkPortError()) ss << " ERROR";
 	}
 	for (int ch = 0; ch < dch_cnt; ch++) {
 		char tmp[257] = {0};
 		snprintf(tmp, 256, "Chan  %d q_size=%d oi=%d", dch_list[ch]->chan, q_size[ch], dch_list[ch]->oi);
 		ss << "\n\t\t" << tmp;
+		ss << " WP=" << port_WP[ch];
+		ss << " FIFO.WP=" << port_FIFO_WP[ch];
 		if (port_ok[ch]) ss << " ok";
 		if (port_err[ch]) ss << " ERROR";
 	}

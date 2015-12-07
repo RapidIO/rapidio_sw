@@ -77,6 +77,7 @@ void DMAChannel::init()
   m_fifo_rd       = 0;
   m_T3_bd_hw      = 0;
   m_fifo_scan_cnt = 0;
+  m_tx_cnt        = 0;
   m_keep_evlog    = false;
   m_bl_busy       = NULL;
   m_bl_busy_size  = -1;
@@ -650,6 +651,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 			c.valid = COMPL_SIG;
 			compl_hwbuf[compl_size++] = c;
 			sts_ptr[i] = 0;
+			m_tx_cnt++; // rather number of successfuly completed DMA ops
 			evlog('F');
 		}
 

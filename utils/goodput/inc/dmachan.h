@@ -289,6 +289,10 @@ public:
   void softRestart();
 
   volatile uint64_t   m_fifo_scan_cnt;
+  volatile uint64_t   m_tx_cnt; ///< Number of DMA ops that succeeded / showed up in FIFO
+
+  /** \brief Returns the number of BDs submitted to DMA engine */
+  inline uint32_t getWP() { return m_dma_wr; }
 
 private:
   int umdemo_must_die = 0;
