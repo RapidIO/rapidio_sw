@@ -740,6 +740,8 @@ fail:
 	return 1;
 };
 
+/** @brief Test for binding and then closing sockets
+ */
 int test_case_2(void)
 {
 	int idx = 0;
@@ -774,6 +776,8 @@ fail:
 	return rc;
 };
 
+/** @brief Test for binding and then closing a lot of sockets, multiple threads
+ */
 int test_case_2A(void)
 {
 	int idx = 0, max_wkrs = 10;
@@ -819,6 +823,8 @@ fail:
 	return rc;
 };
 
+/** @brief Test for bind/listen/close a lot of sockets
+ */
 int test_case_3(void)
 {
 	int idx = 11;
@@ -849,6 +855,8 @@ fail:
 	return rc;
 };
 
+/** @brief Test for bind/listen/close a lot of sockets, multiple threads
+ */
 int test_case_3A(void)
 {
 	int max_wkrs = 5;
@@ -901,6 +909,8 @@ fail:
 	return rc;
 };
 
+/** @brief Test for bind/listen/accept/close a lot of sockets
+ */
 int test_case_4(void)
 {
 	int idx = 0;
@@ -1024,6 +1034,9 @@ fail:
 	return rc;
 };
 
+/** @brief Test for bind/listen/accept some sockets, then close the library
+ * Verify cleanup of the library, threads, and RSKTD.
+ */
 int test_case_5(void)
 {
 	int idx = 0;
