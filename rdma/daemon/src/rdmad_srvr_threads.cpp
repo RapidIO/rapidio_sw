@@ -405,16 +405,8 @@ void *wait_conn_disc_thread_f(void *arg)
 			mspace *ms =
 				the_inbound->get_mspace(be64toh(disc_msg->server_msid));
 			if (!ms) {
-				CRIT("Failed to find ms(0x%X)\n",
+				ERR("Failed to find ms(0x%X). Was it destroyed?\n",
 						be64toh(disc_msg->server_msid));
-				/* FIXME: Only temporary. For our current limited testing
-				 * we are NOT supposed to get disconnection requests
-				 * for memory spaces that are NOT connected. If we do
-				 * then we want to catch that.
-				 */
-#ifdef BE_STRICT
-				raise(SIGABRT);
-#endif
 				continue;	/* Not much else to do without the ms */
 			}
 
