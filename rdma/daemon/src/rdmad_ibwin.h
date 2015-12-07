@@ -52,6 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::vector;
 
+// TODO: Use a list instead of vector?
 typedef vector<mspace*>		mspace_list;
 typedef mspace_list::iterator	mspace_iterator;
 
