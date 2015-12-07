@@ -537,7 +537,6 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 	create_mso_output	out;
 	int			ret;
 
-	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
 	/* Check the daemon hasn't died since we established its socket connection */
@@ -973,8 +972,6 @@ int rdma_destroy_mso_h(mso_h msoh)
 	in_msg->type = DESTROY_MSO;
 	in_msg->destroy_mso_in = in;
 
-	DBG("in.msoid = 0x%X\n", in.msoid);
-
 	ret = alt_rpc_call(in_msg, &out_msg);
 	if (ret) {
 		ERR("Call to RDMA daemon failed\n");
@@ -1013,7 +1010,6 @@ int rdma_create_ms_h(const char *ms_name,
 	uint32_t	dummy_bytes;
 	int		ret;
 
-	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
 	/* Check the daemon hasn't died since we established its connection */
@@ -1098,7 +1094,6 @@ int rdma_create_ms_h(const char *ms_name,
 		sem_post(&rdma_lock);
 		return RDMA_DB_ADD_FAIL;
 	}
-	INFO("Info for '%s' stored in database\n", ms_name);
 
 	sem_post(&rdma_lock);
 	return 0;
@@ -1442,8 +1437,6 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	loc_ms 			*ms;
 	int			ret;
 
-	DBG("ENTER\n");
-
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
 		WARN("Local RDMA daemon has died.\n");
@@ -1726,7 +1719,6 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 	struct loc_msub *pmsub = (struct loc_msub *)msubh;
 	int ret;
 
-	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
 	if (!pmsub) {
@@ -1749,12 +1741,13 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 	/* Check that library has been initialized */
 	CHECK_LIB_INIT();
 
-	DBG("Unmapping vaddr(%p), of size %u\n", vaddr, pmsub->bytes);
 	if (munmap(vaddr, pmsub->bytes) == -1) {
 	        ERR("munmap(): %s\n", strerror(errno));
 		sem_post(&rdma_lock);
 		return RDMA_UNMAP_ERROR;
 	}
+
+	INFO("Unmapped vaddr(%p), of size %u\n", vaddr, pmsub->bytes);
 
 	sem_post(&rdma_lock);
 	return 0;
@@ -1830,7 +1823,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		sem_post(&rdma_lock);
 		return RDMA_MALLOC_FAIL;
 	}
-	INFO("Message queue %s created for connection from %s\n",
+	DBG("Message queue %s created for connection from %s\n",
 						mq_name.c_str(), ms->name);
 	/* Set up Unix message parameters */
 	unix_msg_t  *in_msg;
