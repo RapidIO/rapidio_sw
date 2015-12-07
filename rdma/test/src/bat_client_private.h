@@ -44,6 +44,16 @@
 				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 			     }
 
+#define BAT_EXPECT(cond, label) if (!(cond)) { \
+				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
+				goto label; \
+			     }
+
+#define BAT_EXPECT_NOT(cond, label) if (cond) { \
+				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
+				goto label; \
+			     }
+
 #define LOG(fmt, args...)    fprintf(log_fp, fmt, ## args)
 
 extern FILE *log_fp;

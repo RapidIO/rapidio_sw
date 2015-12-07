@@ -52,6 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::vector;
 
+// TODO: Use a list instead of vector?
 typedef vector<mspace*>		mspace_list;
 typedef mspace_list::iterator	mspace_iterator;
 
@@ -80,7 +81,7 @@ public:
 
 	void dump_mspace_and_subs_info(cli_env *env);
 
-	mspace* free_ms_large_enough(uint64_t size);
+	int get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces);
 
 	bool has_room_for_ms(uint64_t size);
 

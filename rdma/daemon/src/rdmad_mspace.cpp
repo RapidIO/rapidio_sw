@@ -66,12 +66,11 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 		                current_ms_conn_id(MS_CONN_ID_START),
 		                accepted(false)
 {
-	INFO("name=%s, msid=0x%08X, rio_addr=0x%lX, size=0x%lX\n", name, msid,
-	                rio_addr, size);
+	INFO("name=%s, msid=0x%08X, rio_addr=0x%" PRIx64 ", size=0x%X\n",
+						name, msid, rio_addr, size);
 
 	/* Initially all free list sub-indexes are available */
-	fill(msubindex_free_list, msubindex_free_list + MSUBINDEX_MAX + 1,
-	                true);
+	fill(msubindex_free_list, msubindex_free_list + MSUBINDEX_MAX + 1, true);
 
 	/* Initialize semaphores that will protect the lists */
 	if (sem_init(&rem_connections_sem, 0, 1) == -1) {
@@ -182,7 +181,7 @@ int mspace::close_connections()
 
 int mspace::destroy()
 {
-	DBG("name=%s, msid=0x%08X, rio_addr=0x%lX, size=0x%lX\n", name.c_str(),
+	DBG("name=%s, msid=0x%08X, rio_addr=0x%lX, size=0x%X\n", name.c_str(),
 	                msid, rio_addr, size);
 
 	/* Before destroying a memory space, tell its clients that it is being

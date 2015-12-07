@@ -141,6 +141,7 @@ int main(int argc, char *argv[])
 			puts("'d' Test memory subspace allocation");
 			puts("'e' Test memory subspace allocation/mapping");
 			puts("'f' Test data stored in overlapping msubs");
+			puts("'g' Test optimized memory space allocation");
 			puts("'h' Accept/Connect/Disconnect test");
 			puts("'i' Accept/Connect/Destroy test");
 			puts("'j' Accept/Connect then kill remote app");
@@ -251,7 +252,7 @@ int main(int argc, char *argv[])
 		break;
 	case 'g':
 		test_case_g();
-		BAT_EOT();
+		/* Local test. No need for BAT_EOT */
 		break;
 	case 'h':
 	case 'i':
@@ -304,8 +305,8 @@ int main(int argc, char *argv[])
 			test_case_d();
 			test_case_e();
 			test_case_f();
-#if 0
 			test_case_g();
+#if 0
 			test_case_h_i('h', destid);
 			test_case_h_i('i', destid);
 			test_case_dma('1', destid, 0x00, 0x00, 0x00, rdma_sync_chk);

@@ -127,17 +127,18 @@ ibwin::ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size) :
 		win_num, rio_addr, size, phys_addr);
 
 	/* Create first memory space. It is free, has no owner, has
-	 * msindex of 0x0000 and occupies the entire window */
+	 * msindex of 0x00000001 and occupies the entire window */
 	mspace	*ms = new mspace("freemspace",
-				win_num << MSID_WIN_SHIFT,
+				win_num << MSID_WIN_SHIFT | 0x00000001,
 				rio_addr,
 				phys_addr,
 				size);
 	mspaces.push_back(ms);
 
-	/* Initially all free list indexes are available except the first */
+	/* Skip msindex of 0 and msindex of 1 used above. Free list starts at 2 */
 	fill(msindex_free_list, msindex_free_list + MSINDEX_MAX + 1, true);
 	msindex_free_list[0] = false;
+	msindex_free_list[1] = false;
 
 	if (pthread_mutex_init(&mspaces_lock, NULL)) {
 		CRIT("Failed to init mspaces_lock mutex\n");
@@ -214,17 +215,24 @@ void ibwin::dump_mspace_and_subs_info(cli_env *env)
 } /* dump_mspace_and_subs_info() */
 
 /* Returns pointer to memory space large enough to hold 'size' */
-mspace* ibwin::free_ms_large_enough(uint64_t size)
+int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 {
-	mspace		*ms = nullptr;
-
 	pthread_mutex_lock(&mspaces_lock);
-	auto it = find_if(mspaces.begin(), mspaces.end(), has_room(size));
-	if (it != end(mspaces))
-		ms = *it;
+	auto it = begin(mspaces);
+	while (1) {
+		it = find_if(it, end(mspaces), has_room(size));
+		if (it != end(mspaces)) {
+			le_mspaces.push_back(*it);
+			it++;
+		} else { /* end(mspaces) */
+			DBG("Found %u mspaces that can hold %" PRIx64 "\n",
+						le_mspaces.size(), size);
+			break;
+		}
+	}
 	pthread_mutex_unlock(&mspaces_lock);
 
-	return ms;
+	return (le_mspaces.size() > 0) ? 0 : -1;
 } /* free_ms_large_enough() */
 
 /* Returns whether there is a memory space large enough to hold 'size' */
@@ -238,6 +246,12 @@ bool ibwin::has_room_for_ms(uint64_t size)
 	return mspace_has_room;
 } /* has_room_for_ms() */
 
+struct ms_compare_t {
+	bool operator()(mspace *ms1, mspace *ms2) {
+		return ms1->get_size() < ms2->get_size();
+	}
+} ms_compare;
+
 /* Create memory space */
 int ibwin::create_mspace(const char *name,
 		  	  uint64_t size,
@@ -245,12 +259,14 @@ int ibwin::create_mspace(const char *name,
 		  	  uint32_t *msid,
 		  	  mspace **ms)
 {
-	/* Find the free memory space to use to allocate ours */
-	*ms = free_ms_large_enough(size);
-	if (*ms == nullptr) {
+	/* First get a list of the memory spaces large enough for 'size' */
+	mspace_list	le_mspaces;
+	if (get_free_mspaces_large_enough(size, le_mspaces)) {
 		ERR("No memory space large enough to hold '%s'\n", name);
 		return -1;
 	}
+	/* Then find the smallest space that can accomodate 'size' */
+	*ms = *std::min_element(begin(le_mspaces), end(le_mspaces), ms_compare);
 
 	/* Determine index of new, free, memory space */
 	pthread_mutex_lock(&msindex_lock);
@@ -280,7 +296,7 @@ int ibwin::create_mspace(const char *name,
 
 	/* Create memory space for the remaining free inbound space, but
 	 * only if that space is non-zero in size */
-	if (new_size) {
+	if (new_size > 0) {
 		/* The new free memory space has no owner, but has a
 		 * win_num the same as the original free one, and has a
 		 * new index */
@@ -348,7 +364,7 @@ void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator oth
 	(*current)->set_size(curr_size  + other_size);
 	DBG("New size for 'current' ms is %u bytes\n", (*current)->get_size());
 
-	/* The ms index belonging to the 'next' ms will be freed for reuse */
+	/* The ms index belonging to the 'other' ms will be freed for reuse */
 	DBG("Freeing the msindex 0x%X for reuse\n", (*other)->get_msindex());
 	msindex_free_list[(*other)->get_msindex()] = true;
 
@@ -402,7 +418,7 @@ int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
 			mspace_iterator prev_ms = current_ms -1;
 			if ((*prev_ms)->is_free()) {
 				DBG("Prev ms is also free. Merging!\n");
-				merge_other_with_mspace(current_ms, prev_ms);
+				merge_other_with_mspace(prev_ms, current_ms);
 			}
 		} else {
 			DBG("First ms in the list. Cannot merge with prev!\n");
@@ -421,16 +437,18 @@ exit:
 // FIXME: What if there is more than one? In the new world there will be!
 mspace* ibwin::get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id)
 {
-	mspace *ms = nullptr;
+	mspace *ms_ptr = nullptr;
 
 	pthread_mutex_lock(&mspaces_lock);
 	for (auto& ms : mspaces) {
-		if (ms->has_user_with_user_server(server, ms_conn_id))
+		if (ms->has_user_with_user_server(server, ms_conn_id)) {
+			ms_ptr = ms;
 			break;
+		}
 	}
 	pthread_mutex_unlock(&mspaces_lock);
 
-	return ms;
+	return ms_ptr;
 } /* get_mspace_open_by_server() */
 
 void ibwin::get_mspaces_connected_by_destid(uint32_t destid, mspace_list& mspaces)
