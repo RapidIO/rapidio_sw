@@ -323,9 +323,9 @@ struct worker {
 	int             umd_epollfd; ///< Epoll set
 	struct thread_cpu umd_dma_tap_thr;
 
-        std::map<uint16_t, DmaPeerCommsStats_t> umd_dma_did_peer_list; ///< This is just a list of destids we broadcast to
-	std::map<uint16_t, DmaPeerDestid_t*>    umd_dma_did_peer; ///< These are the peers with Tun devices
-	std::map<int, uint16_t>                 umd_dma_did_peer_fd2did; ///< Maps tun file descriptor to destid
+        std::map<uint16_t, DmaPeerCommsStats_t> umd_dma_did_peer_list; ///< This is just a list of destids we broadcast to -- populated by EpWatch
+	std::map<uint16_t, DmaPeerDestid_t*>    umd_dma_did_peer; ///< These are the peers with Tun devices -- maintained bu Main Battle Tank thread
+	std::map<int, uint16_t>                 umd_dma_did_peer_fd2did; ///< Maps tun file descriptor to destid -- maintained bu Main Battle Tank thread
 	pthread_mutex_t                         umd_dma_did_peer_mutex;
 
 	IBwinMap*       umd_peer_ibmap;

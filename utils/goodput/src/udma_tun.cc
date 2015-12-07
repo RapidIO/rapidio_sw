@@ -1081,6 +1081,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 
 			time_t now = time(NULL);
 			bool peer_setup = false;
+			uint64_t peer_rio_addr = 0;
 			pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 			{{
 			  if (info->umd_dma_did_peer_list[from_destid].on_time == 0)
@@ -1089,7 +1090,10 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 			  info->umd_dma_did_peer_list[from_destid].bcast_cnt_in++;
 
 			  std::map<uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.find(from_destid);
-			  peer_setup = (itp != info->umd_dma_did_peer.end());
+			  if (itp != info->umd_dma_did_peer.end()) {
+				peer_setup = true;
+				peer_rio_addr = itp->second->rio_addr;
+			  }
 			}}
 			pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
@@ -1113,15 +1117,26 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 
 			// If rio_addr comes and != what we have for peer then nuke peer as it had restarted!!!!!
 
-			if (peer_setup) break; // Don't put up Tun twice // F*ck g++
-
 			const uint64_t from_rio_addr      = htonll(payload->rio_addr);
+			assert(from_rio_addr);
+
+			if (peer_setup) {
+				assert(peer_rio_addr);
+				if (from_rio_addr != peer_rio_addr) {
+			  		INFO("\n\tGot info [rx_fd=%d] for STALE destid %u NEW peer.rio_addr=0x%llx changed from stored peer.rio_addr=0x%llx. Nuking peer.\n",
+					    info->umd_mbox_rx_fd, from_destid, from_rio_addr, peer_rio_addr);
+					umd_dma_goodput_tun_del_ep(info, from_destid, false);
+					break;
+				}
+
+				break; // Don't put up Tun twice // F*ck g++
+			}
+
 			const uint64_t from_base_rio_addr = htonll(payload->base_rio_addr);
 			const uint32_t from_base_size     = ntohl(payload->base_size);
 			const uint16_t from_bufc          = ntohs(payload->bufc);
 			const uint32_t from_MTU           = ntohl(payload->MTU);
 
-			assert(from_rio_addr);
 			assert(from_base_rio_addr);
 			assert(from_base_size);
 
@@ -1445,6 +1460,10 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
         {{
 	  DBG("\n\t Enum EPs: %d Peers: %d\n", info->umd_dma_did_peer_list.size(), info->umd_dma_did_peer.size());
 
+	  // XXX Is it sane to do this hoping the peer will rebroadcast to us
+	  // when it comes back? This means that unless mport/FMD notifies
+	  // use AGAIN of this peer we shall never initiate comms with this
+	  // peer?!?!
 	  info->umd_dma_did_peer_list.erase(destid);
 
           std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.find(destid);
