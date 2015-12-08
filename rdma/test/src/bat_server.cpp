@@ -1,6 +1,10 @@
-#include <iostream>
 #include <signal.h>
 #include <inttypes.h>
+
+#include <thread>
+#include <vector>
+#include <iostream>
+#include <algorithm>
 
 #include "librdma.h"
 #include "cm_sock.h"
@@ -30,9 +34,9 @@ extern int rdmad_kill_daemon();
 }
 #endif
 
-/*
- * TODO: Multiple threads for receiving client test signaling commands
- * allowing multiple connections to memory spaces */
+typedef std::vector<std::thread> thread_list;
+
+thread_list	accept_thread_list;
 
 cm_server	*bat_server;
 bool shutting_down = false;
@@ -49,6 +53,18 @@ void show_help()
 {
 	puts("bat_server -c<channel>|-h");
 }
+
+/**
+ * Thread function for handling accepts on memory spaces.
+ */
+void accept_thread_f(uint64_t server_msh, uint64_t server_msubh)
+{
+	uint32_t dummy_client_msub_len;
+	msub_h	 dummy_client_msubh;
+
+	rdma_accept_ms_h(server_msh, server_msubh, &dummy_client_msubh,
+				   &dummy_client_msub_len, 30);
+} /* accept_thread_f() */
 
 int main(int argc, char *argv[])
 {
@@ -131,7 +147,7 @@ int main(int argc, char *argv[])
 				CHECK_BROKEN_PIPE(bm_tx->create_mso_ack.ret);
 				bm_tx->type = CREATE_MSO_ACK;
 				BAT_SEND();
-				break;
+			break;
 
 			case DESTROY_MSO:
 				bm_tx->destroy_mso_ack.ret = rdma_destroy_mso_h(
@@ -139,7 +155,7 @@ int main(int argc, char *argv[])
 				CHECK_BROKEN_PIPE(bm_tx->destroy_mso_ack.ret);
 				bm_tx->type = DESTROY_MSO_ACK;
 				BAT_SEND();
-				break;
+			break;
 
 			case OPEN_MSO:
 				bm_tx->open_mso_ack.ret = rdma_open_mso_h(
@@ -148,7 +164,7 @@ int main(int argc, char *argv[])
 				CHECK_BROKEN_PIPE(bm_tx->open_mso_ack.ret);
 				bm_tx->type = OPEN_MSO_ACK;
 				BAT_SEND();
-				break;
+			break;
 
 			case CLOSE_MSO:
 				bm_tx->close_mso_ack.ret = rdma_close_mso_h(
@@ -156,7 +172,7 @@ int main(int argc, char *argv[])
 				CHECK_BROKEN_PIPE(bm_tx->close_mso_ack.ret);
 				bm_tx->type = CLOSE_MSO_ACK;
 				BAT_SEND();
-				break;
+			break;
 
 			case CREATE_MS:
 				bm_tx->create_ms_ack.ret = rdma_create_ms_h(
@@ -169,7 +185,7 @@ int main(int argc, char *argv[])
 				CHECK_BROKEN_PIPE(bm_tx->create_ms_ack.ret);
 				bm_tx->type = CREATE_MS_ACK;
 				BAT_SEND();
-				break;
+			break;
 
 			case OPEN_MS:
 				bm_tx->open_ms_ack.ret = rdma_open_ms_h(
@@ -181,7 +197,7 @@ int main(int argc, char *argv[])
 				CHECK_BROKEN_PIPE(bm_tx->open_ms_ack.ret);
 				bm_tx->type = OPEN_MS_ACK;
 				BAT_SEND();
-				break;
+			break;
 
 			case CLOSE_MS:
 				bm_tx->close_ms_ack.ret = rdma_close_ms_h(
@@ -190,7 +206,7 @@ int main(int argc, char *argv[])
 				CHECK_BROKEN_PIPE(bm_tx->close_ms_ack.ret);
 				bm_tx->type = CLOSE_MS_ACK;
 				BAT_SEND();
-				break;
+			break;
 
 			case CREATE_MSUB:
 				bm_tx->create_msub_ack.ret = rdma_create_msub_h(
@@ -202,21 +218,34 @@ int main(int argc, char *argv[])
 				CHECK_BROKEN_PIPE(bm_tx->create_msub_ack.ret);
 				bm_tx->type = CREATE_MSUB_ACK;
 				BAT_SEND();
-				break;
+			break;
 
 			case ACCEPT_MS:
-				{
-					uint32_t dummy_client_msub_len;
-					msub_h	 dummy_client_msubh;
-					/* This call is blocking. */
-					int ret = rdma_accept_ms_h(bm_rx->accept_ms.server_msh,
+			{
+				uint32_t dummy_client_msub_len;
+				msub_h	 dummy_client_msubh;
+				/* This call is blocking. */
+				int ret = rdma_accept_ms_h(bm_rx->accept_ms.server_msh,
 							 bm_rx->accept_ms.server_msubh,
 							 &dummy_client_msubh,
 							 &dummy_client_msub_len,
 							 30);
-					CHECK_BROKEN_PIPE(ret);
-				}
-				break;
+				CHECK_BROKEN_PIPE(ret);
+			}
+			break;
+
+			case ACCEPT_MS_THREAD:
+			{
+				/* Create thread for handling accepts */
+				auto accept_thread = std::thread(
+						&accept_thread_f,
+						bm_rx->accept_ms.server_msh,
+						bm_rx->accept_ms.server_msubh);
+
+				/* Store handle so we can join at the end of the test case */
+				accept_thread_list.push_back(std::move(accept_thread));
+			}
+			break;
 
 			case KILL_REMOTE_APP:
 				puts("App told to die. Committing suicide!");
@@ -232,6 +261,13 @@ int main(int argc, char *argv[])
 				break;
 
 			case BAT_END:
+				/* If there are threads still running, wait for them */
+				for_each(begin(accept_thread_list),
+					 end(accept_thread_list),
+					 [](std::thread& th)
+					 {
+						th.join();
+					 });
 				puts("Test case finished...next test case!");
 				goto free_bat_server;
 

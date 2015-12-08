@@ -1202,7 +1202,7 @@ int test_case_t_u(char ch, uint32_t destid)
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	/* Accept on ms on the server */
-	ret = accept_ms_f(bat_first_client, bm_first_tx, server_msh,
+	ret = accept_ms_thread_f(bat_first_client, bm_first_tx, server_msh,
 								server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 

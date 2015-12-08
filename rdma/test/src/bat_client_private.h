@@ -134,6 +134,10 @@ int create_msub_f(cm_client *bat_client,
 		  uint32_t flags, msub_h *msubh);
 
 int accept_ms_f(cm_client *bat_client,
+		bat_msg_t *bm_tx,
+		ms_h server_msh, msub_h server_msubh);
+
+int accept_ms_thread_f(cm_client *bat_client,
 		       bat_msg_t *bm_tx,
 		       ms_h server_msh, msub_h server_msubh);
 

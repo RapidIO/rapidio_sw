@@ -184,8 +184,7 @@ int create_msub_f(cm_client *bat_client,
 
 } /* create_msub_f() */
 
-int accept_ms_f(cm_client *bat_client,
-		       bat_msg_t *bm_tx,
+int accept_ms_f(cm_client *bat_client, bat_msg_t *bm_tx,
 		       ms_h server_msh, msub_h server_msubh)
 {
 	/* Populate the accept on ms message */
@@ -199,6 +198,21 @@ int accept_ms_f(cm_client *bat_client,
 
 	return 0;
 } /* accept_ms_f() */
+
+int accept_ms_thread_f(cm_client *bat_client, bat_msg_t *bm_tx,
+		       ms_h server_msh, msub_h server_msubh)
+{
+	/* Populate the accept on ms message */
+	bm_tx->type = ACCEPT_MS_THREAD;
+	bm_tx->accept_ms.server_msh = server_msh;
+	bm_tx->accept_ms.server_msubh = server_msubh;
+	/* client_msubh, and client_msubh_len are dummy. Don't populate. */
+
+	/* Send message. No ACK excepted since accept_ms_h() is blocking */
+	BAT_SEND(bat_client);
+
+	return 0;
+} /* accept_ms_thread_f() */
 
 int kill_remote_app(cm_client *bat_client, bat_msg_t *bm_tx)
 {

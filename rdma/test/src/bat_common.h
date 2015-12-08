@@ -33,6 +33,7 @@
 #define CLOSE_MS_ACK		0x800B
 #define KILL_REMOTE_APP		0x000C
 #define KILL_REMOTE_DAEMON	0x000D
+#define ACCEPT_MS_THREAD	0x000E
 
 /* End the tests */
 #define BAT_END		0x8888
