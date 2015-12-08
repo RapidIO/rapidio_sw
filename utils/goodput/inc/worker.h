@@ -194,6 +194,7 @@ typedef struct {
 	int                      oi;
 	int                      tx_buf_cnt; ///< Powersof 2, min 0x20, only (n-1) usable, last one for T3
 	int			 sts_entries;
+	volatile uint64_t        ticks_total;
 	DMAChannel*              dch;
 	RioMport::DmaMem_t       dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];

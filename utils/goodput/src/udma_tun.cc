@@ -946,6 +946,9 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
 				switch (item.opt.dtype) {
 				case DTYPE1:
 				case DTYPE2:
+					if (item.opt.ts_end > item.opt.ts_start) {
+						dch_list[ch]->ticks_total += (item.opt.ts_end - item.opt.ts_start);	
+					}
 					info->perf_byte_cnt += info->acc_size;
 					break;
 				case DTYPE3:
@@ -1923,6 +1926,7 @@ void UMD_DD(struct worker* info)
 	bool     port_err[6] = {0};
 	uint32_t port_WP[6] = {0};
 	uint64_t port_FIFO_WP[6] = {0};
+	uint64_t port_ticks_total[6] = {0};
         DmaChannelInfo_t* dch_list[6] = {0};
 
 	assert(info->umd_dch_nread);
@@ -1931,14 +1935,18 @@ void UMD_DD(struct worker* info)
         for (int ch = info->umd_chan; info->umd_chan >= 0 && ch <= info->umd_chan_n; ch++) {
 		assert(info->umd_dch_list[ch]);
 
-		dch_list[dch_cnt] = info->umd_dch_list[ch];
-		q_size[dch_cnt]   = info->umd_dch_list[ch]->dch->queueSize();
-		port_ok[dch_cnt]  = info->umd_dch_list[ch]->dch->checkPortOK();
-		port_err[dch_cnt] = info->umd_dch_list[ch]->dch->checkPortError();
-		port_WP[dch_cnt] = info->umd_dch_list[ch]->dch->getWP();
-		port_FIFO_WP[dch_cnt] = info->umd_dch_list[ch]->dch->m_tx_cnt;
+		dch_list[dch_cnt]         = info->umd_dch_list[ch];
+		q_size[dch_cnt]           = info->umd_dch_list[ch]->dch->queueSize();
+		port_ok[dch_cnt]          = info->umd_dch_list[ch]->dch->checkPortOK();
+		port_err[dch_cnt]         = info->umd_dch_list[ch]->dch->checkPortError();
+		port_WP[dch_cnt]          = info->umd_dch_list[ch]->dch->getWP();
+		port_FIFO_WP[dch_cnt]     = info->umd_dch_list[ch]->dch->m_tx_cnt;
+		port_ticks_total[dch_cnt] = info->umd_dch_list[ch]->ticks_total;
+
 		dch_cnt++;
 	}
+
+	const int MHz = getCPUMHz();
 
 	std::stringstream ss;
 	{
@@ -1950,11 +1958,17 @@ void UMD_DD(struct worker* info)
 		if (info->umd_dch_nread->checkPortError()) ss << " ERROR";
 	}
 	for (int ch = 0; ch < dch_cnt; ch++) {
+		assert(dch_list[ch]);
+
 		char tmp[257] = {0};
 		snprintf(tmp, 256, "Chan  %d q_size=%d oi=%d", dch_list[ch]->chan, q_size[ch], dch_list[ch]->oi);
 		ss << "\n\t\t" << tmp;
 		ss << " WP=" << port_WP[ch];
 		ss << " FIFO.WP=" << port_FIFO_WP[ch];
+		if (port_FIFO_WP[ch] > 0) {
+			float AvgUS = ((float)port_ticks_total[ch] / port_FIFO_WP[ch]) / MHz;
+			ss << " AvgTX=" << AvgUS << "uS";
+		}
 		if (port_ok[ch]) ss << " ok";
 		if (port_err[ch]) ss << " ERROR";
 	}
