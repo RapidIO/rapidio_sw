@@ -268,6 +268,7 @@ int main(int argc, char *argv[])
 					 {
 						th.join();
 					 });
+				accept_thread_list.clear();
 				puts("Test case finished...next test case!");
 				goto free_bat_server;
 
