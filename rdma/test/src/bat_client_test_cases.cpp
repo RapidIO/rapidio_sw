@@ -371,9 +371,16 @@ int test_case_b(void)
  * until a memory space of 4K is reached. Allocate another 4K memory
  * space to complete the allocation for each window.
  *
- * 3. Free an 8K memory space in IBWIN0, free all of IBWIN1, then reallocate
+ * 3. Free an 8K memory space in IBWIN0, then reallocate
  * an 8K memory space. It should end up in the free space in IBWIN0 not
  * in IBWIN1.
+ *
+ * Second test:
+ *
+ * 1. Free up the last 2 4K space, and allocate an 8K space
+ * 2. Free up the last 2 8K spaces, and allocate a 16K space
+ * 3. And so on and so forth until you have one space per IBWIN
+ * that is as large as the IBWIN itself.
  */
 int test_case_c(void)
 {
