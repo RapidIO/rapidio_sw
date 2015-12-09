@@ -143,6 +143,9 @@ int main(int argc, char *argv[])
 			puts("'e' Test memory subspace allocation/mapping");
 			puts("'f' Test data stored in overlapping msubs");
 			puts("'g' Test optimized memory space allocation");
+			puts("'i' Connect/disconnect with multiple memory spaces");
+			puts("'j' Connect/destroy (local first) with multiple memory spaces");
+			puts("'k' Connect/destroy (remote first) with multiple memory spaces");
 
 			/* Old test cases */
 			puts("'t' Accept/Connect/Disconnect test");
@@ -258,6 +261,13 @@ int main(int argc, char *argv[])
 		/* Local test. No need for BAT_EOT */
 		break;
 
+	case 'i':
+	case 'j':
+	case 'k':
+		test_case_i_j_k(tc, destid);
+		BAT_EOT();
+		break;
+
 		/* Old test cases */
 	case 't':
 	case 'u':
@@ -302,6 +312,7 @@ int main(int argc, char *argv[])
 		break;
 	case 'z':
 		for (unsigned i = 0; i < repetitions; i++) {
+			/* New test cases */
 			test_case_a();
 			test_case_b();
 			test_case_c();
@@ -309,6 +320,11 @@ int main(int argc, char *argv[])
 			test_case_e();
 			test_case_f();
 			test_case_g();
+			test_case_i_j_k('i', destid);
+			test_case_i_j_k('j', destid);
+			test_case_i_j_k('k', destid);
+
+			/* Old test cases */
 			test_case_t_u('t', destid);
 			test_case_t_u('u', destid);
 

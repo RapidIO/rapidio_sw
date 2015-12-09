@@ -371,9 +371,16 @@ int test_case_b(void)
  * until a memory space of 4K is reached. Allocate another 4K memory
  * space to complete the allocation for each window.
  *
- * 3. Free an 8K memory space in IBWIN0, free all of IBWIN1, then reallocate
+ * 3. Free an 8K memory space in IBWIN0, then reallocate
  * an 8K memory space. It should end up in the free space in IBWIN0 not
  * in IBWIN1.
+ *
+ * Second test:
+ *
+ * 1. Free up the last 2 4K space, and allocate an 8K space
+ * 2. Free up the last 2 8K spaces, and allocate a 16K space
+ * 3. And so on and so forth until you have one space per IBWIN
+ * that is as large as the IBWIN itself.
  */
 int test_case_c(void)
 {
@@ -418,8 +425,6 @@ int test_case_c(void)
 		BAT_EXPECT_RET(rc, 0, free_mso);
 	}
 
-
-
 	/* Now create a number of memory spaces such that they fill each
 	 * inbound window with different sizes starting with 1/2 the inbound
 	 * window size and ending with 4K which is the minimum block size that
@@ -461,10 +466,9 @@ int test_case_c(void)
 	/**
 	 * Test: Just ensure that freed memory spaces are re-used.
 	 *
-	 * 1. Free the memory spaces in WIN1
-	 * 2. Find an 8KB space in WIN0 and free it.
-	 * 3. Allocate a new 8K space.
-	 * 4. Verify that the new space took the freed space and did not end
+	 * 1. Find an 8KB space in WIN0 and free it.
+	 * 2. Allocate a new 8K space.
+	 * 3. Verify that the new space took the freed space and did not end
 	 * up in WIN1. Do that by comparing the freed and new RIO addresses
 	 */
 	{
@@ -481,13 +485,6 @@ int test_case_c(void)
 		/* Destroy it */
 		rc = rdma_destroy_ms_h(client_msoh, it->handle);
 		BAT_EXPECT_RET(rc, 0, free_mso);
-
-		/* Destroy all IBWIN1 memory spaces */
-		for (unsigned i = (ms_info.size() / 2); i < ms_info.size(); i++) {
-			printf("Destroying mspace%u\n", i);
-			rc = rdma_destroy_ms_h(client_msoh, ms_info[i].handle);
-			BAT_EXPECT_RET(rc, 0, free_mso);
-		}
 
 		/* Now allocate another 8K memory space */
 		ms_h	new_8k_msh;
@@ -506,8 +503,58 @@ int test_case_c(void)
 		} else {
 			rc = -1;
 		}
+		BAT_EXPECT_RET(rc, 0, free_mso);
 	}
 
+	/**
+	 * Test: Constantly free up memory spaces and allocate larger ones
+	 * until you reach the point where you can allocate a memory space
+	 * as large as the entire IBWIN.
+	 */
+	for (unsigned k = 0; k < num_ibwins; k++) {
+		uint32_t size = BAT_MIN_BLOCK_SIZE;
+
+		while (size < ibwin_size) {
+			/* Find first memory space of size 'size' */
+			auto it1 = find(begin(ms_info) + k*ms_info.size()/2,
+					end(ms_info),
+					size);
+			if (it1 == end(ms_info)) {
+				rc = -1;
+				BAT_EXPECT_RET(rc, 0, free_mso);
+			}
+
+			/* Find second memory space of size 'size' */
+			auto it2 = find(it1 + 1, end(ms_info), size);
+			if (it2 == end(ms_info)) {
+				rc = -1;
+				BAT_EXPECT_RET(rc, 0, free_mso);
+			}
+
+			/* Destroy both memory spaces */
+			rc = rdma_destroy_ms_h(client_msoh, it1->handle);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+
+			rc = rdma_destroy_ms_h(client_msoh, it2->handle);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+
+			/* Double the size */
+			size *= 2;
+
+			/* Now create a memory space that is twice the size.
+			 * Store the handle in the space pointed to by 'it1'
+			 */
+			stringstream ms_name;
+			ms_name << "ms" << k << size;
+			rc = rdma_create_ms_h(ms_name.str().c_str(),
+					      client_msoh,
+					      size,
+					      0,
+					      &it1->handle,
+					      &it1->size);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+		}
+	}
 	ret = rc;
 free_mso:
 	/* Delete the mso */
@@ -643,7 +690,6 @@ int test_case_d(void)
 		/* Remember their old RIO addresses as well */
 		uint64_t old_rio1 = msub1->rio_addr_lo;
 		uint64_t old_rio2 = msub2->rio_addr_lo;
-
 
 		/* Destroy the 2 memory subspaces */
 		rc = rdma_destroy_msub_h(msub_info[msub1_index].msh,
@@ -1156,13 +1202,193 @@ exit:
 	return 0;
 } /* test_case_g() */
 
+/**
+ * Test case 'h' is another test case for free memory space merging.
+ */
+
+/**
+ * Test cases i and j involve creating 3 remote memory spaces and connecting
+ * to them.
+ *
+ * Test case 'i' also disconnects from the 3 memory spaces.
+ * Test case 'j' destroys the local 'mso' then the remote 'mso' but does
+ * not disconnect first.
+ * Test case 'k' destroys the remote 'mso' then the local 'mso' but does
+ * not disconnect first.
+ */
+int test_case_i_j_k(char tc, uint32_t destid)
+{
+	int ret, rc;
+
+	/* Create server mso */
+	mso_h	server_msoh;
+	ret = create_mso_f(bat_first_client, bm_first_tx, bm_first_rx,
+			   	   	   	   "rem_mso", &server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Create server ms1 of size 64K */
+	ms_h	server_msh1;
+	ret = create_ms_f(bat_first_client, bm_first_tx, bm_first_rx,
+			  "rem_ms1", server_msoh, 64*1024, 0,
+			  &server_msh1, NULL);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create msub1 of size 4K on server_msh1 */
+	msub_h  server_msubh1;
+	ret = create_msub_f(bat_first_client, bm_first_tx, bm_first_rx,
+			    server_msh1, 0, 4*1024, 0, &server_msubh1);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create server ms2 of size 32K */
+	ms_h	server_msh2;
+	ret = create_ms_f(bat_first_client, bm_first_tx, bm_first_rx,
+			  "rem_ms2", server_msoh, 32*1024, 0,
+			  &server_msh2, NULL);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create msub2 of size 8K on server_msh2 */
+	msub_h  server_msubh2;
+	ret = create_msub_f(bat_first_client, bm_first_tx, bm_first_rx,
+			    server_msh2, 0, 8*1024, 0, &server_msubh2);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create server ms3 of size 16K */
+	ms_h	server_msh3;
+	ret = create_ms_f(bat_first_client, bm_first_tx, bm_first_rx,
+			  "rem_ms3", server_msoh, 16*1024, 0,
+			  &server_msh3, NULL);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create msub3 of size 16K on server_msh2 */
+	msub_h  server_msubh3;
+	ret = create_msub_f(bat_first_client, bm_first_tx, bm_first_rx,
+			    server_msh3, 0, 16*1024, 0, &server_msubh3);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	ret = rdma_create_mso_h("loc_mso", &client_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create a client ms of size 16K */
+	ms_h	client_msh;
+	ret = rdma_create_ms_h("loc_ms", client_msoh, 16*1024, 0,
+							&client_msh, NULL);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	/* Create a client msub of size 4K */
+	msub_h	client_msubh;
+	ret = rdma_create_msub_h(client_msh, 0, 4*1024, 0, &client_msubh);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	/**
+	 * Now accept/connect to the 3 memory spaces, one after the other.
+	 */
+	/* Accept on ms1 on the server */
+	ret = accept_ms_thread_f(bat_first_client, bm_first_tx, server_msh1,
+								server_msubh1);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
+
+	/* Connect to ms1 on server */
+	msub_h	  server_msubh1_rb;
+	uint32_t  server_msub1_len_rb;
+	ms_h	  server_msh1_rb;
+	ret = rdma_conn_ms_h(16, destid, "rem_ms1", client_msubh, &server_msubh1_rb,
+					&server_msub1_len_rb, &server_msh1_rb, 30);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
+
+	/* Accept on ms2 on the server */
+	ret = accept_ms_thread_f(bat_first_client, bm_first_tx, server_msh2,
+								server_msubh2);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
+
+	/* Connect to ms2 on server */
+	msub_h	  server_msubh2_rb;
+	uint32_t  server_msub2_len_rb;
+	ms_h	  server_msh2_rb;
+	ret = rdma_conn_ms_h(16, destid, "rem_ms2", client_msubh, &server_msubh2_rb,
+					&server_msub2_len_rb, &server_msh2_rb, 30);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
+
+	/* Accept on ms on the server */
+	ret = accept_ms_thread_f(bat_first_client, bm_first_tx, server_msh3,
+								server_msubh3);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
+
+	/* Connect to server */
+	msub_h	  server_msubh3_rb;
+	uint32_t  server_msub3_len_rb;
+	ms_h	  server_msh3_rb;
+	ret = rdma_conn_ms_h(16, destid, "rem_ms3", client_msubh, &server_msubh3_rb,
+					&server_msub3_len_rb, &server_msh3_rb, 30);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
+
+	/* We only disconnect if it is test case 'i' */
+	if (tc == 'i') {
+		/* Disconnect from ms1 on server */
+		ret = rdma_disc_ms_h(server_msh1_rb, client_msubh);
+		BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+		/* Disconnect from ms2 on server */
+		ret = rdma_disc_ms_h(server_msh2_rb, client_msubh);
+		BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+		/* Disconnect from ms3 on server */
+		ret = rdma_disc_ms_h(server_msh3_rb, client_msubh);
+		BAT_EXPECT_RET(ret, 0, free_client_mso);
+	}
+
+	rc = ret;	/* 'ret' is overwritten during destruction */
+
+	/* In test case 'k' we delete the remote (server) mso first */
+	if (tc == 'k') {
+		/* Delete the server mso */
+		ret = destroy_mso_f(bat_first_client, bm_first_tx, bm_first_rx,
+								server_msoh);
+		BAT_EXPECT_RET(ret, 0, exit);
+
+		/* Delete the client mso */
+		ret = rdma_destroy_mso_h(client_msoh);
+		BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+		fprintf(log_fp, "test_case %c %s\n",
+					tc, (rc == 0) ? "PASSED" : "FAILED");
+		return 0;
+	}
+
+	/* Test case 'j' is just the fall through here and we delete
+	 * the local mso before the remote mso.
+	 */
+free_client_mso:
+	/* Delete the client mso */
+	ret = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+free_server_mso:
+	/* Delete the server mso */
+	ret = destroy_mso_f(bat_first_client, bm_first_tx, bm_first_rx,
+								server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+exit:
+	fprintf(log_fp, "test_case %c %s\n",
+					tc, (rc == 0) ? "PASSED" : "FAILED");
+
+	return 0;
+} /* test_case_i_j_k() */
 
 /**
  * Test accept_ms_h()/conn_ms_h()/disc_ms_h()..etc.
  *
- * @ch	if ch is 't' run test case 't', else run test case 'u'
+ * @ch	if tc is 't' run test case 't', else run test case 'u'
  */
-int test_case_t_u(char ch, uint32_t destid)
+int test_case_t_u(char tc, uint32_t destid)
 {
 	int ret, rc;
 
@@ -1220,7 +1446,7 @@ int test_case_t_u(char ch, uint32_t destid)
 
 	/* Test case 'h' disconnects first. Test case 'i' destroys
 	 * the ms on the server and processes the incoming destroy message. */
-	if (ch == 'h') {
+	if (tc == 'h') {
 		/* Now disconnect from server */
 		ret = rdma_disc_ms_h(server_msh_rb, client_msubh);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
@@ -1241,7 +1467,7 @@ free_server_mso:
 
 exit:
 	fprintf(log_fp, "test_case %c %s\n",
-					ch, (rc == 0) ? "PASSED" : "FAILED");
+					tc, (rc == 0) ? "PASSED" : "FAILED");
 
 	return 0;
 } /* test_case_t_u() */
@@ -1256,11 +1482,11 @@ exit:
  * If the remote daemon itself is killed, it, too should self-destroy
  * the ms before dying.
  *
- * ch:	'v' or 'w'
+ * tc:	'v' or 'w'
  * 'v'	Kill the remote app
  * 'w'	Kill the remote daemon
  */
-int test_case_v_w(char ch, uint32_t destid)
+int test_case_v_w(char tc, uint32_t destid)
 {
 	int ret, rc;
 
@@ -1328,12 +1554,12 @@ int test_case_v_w(char ch, uint32_t destid)
 			     30);	/* 30 second-timeout */
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
-	if (ch == 'w') {
+	if (tc == 'w') {
 		/* Kill remote app */
 		puts("Telling remote app to die");
 		ret = kill_remote_app(bat_first_client, bm_first_tx);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
-	} else if (ch == 'x') {
+	} else if (tc == 'x') {
 		/* Kill remote daemon */
 		puts("Telling remote daemon to die");
 		ret = kill_remote_daemon(bat_first_client, bm_first_tx);
@@ -1363,7 +1589,7 @@ int test_case_v_w(char ch, uint32_t destid)
 	BAT_EXPECT_PASS(ret);
 
 	fprintf(log_fp, "test_case %c %s\n",
-				ch, (rc == 0) ? "PASSED" : "FAILED");
+				tc, (rc == 0) ? "PASSED" : "FAILED");
 	return 0;
 
 free_client_mso:

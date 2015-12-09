@@ -30,10 +30,12 @@ int test_case_d();
 int test_case_e();
 int test_case_f();
 int test_case_g();
+int test_case_h();
+int test_case_i_j_k(char tc, uint32_t destid);
 
 /* Old test cases */
-int test_case_t_u(char ch, uint32_t destid);
-int test_case_v_w(char ch, uint32_t destid);
+int test_case_t_u(char tc, uint32_t destid);
+int test_case_v_w(char tc, uint32_t destid);
 int test_case_x();
 int test_case_y();
 int test_case_6();
