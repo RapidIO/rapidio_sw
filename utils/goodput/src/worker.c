@@ -97,6 +97,7 @@ uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 void umd_dma_goodput_tun_demo(struct worker *info);
 void umd_epwatch_demo(struct worker *info);
 void umd_mbox_watch_demo(struct worker *info);
+void umd_afu_watch_demo(struct worker *info);
 
 #ifdef __cplusplus
 };
@@ -3201,6 +3202,9 @@ void *worker_thread(void *parm)
 				break;
 		case umd_mbox_watch:
 				umd_mbox_watch_demo(info);
+				break;
+		case umd_afu_watch:
+				umd_afu_watch_demo(info);
 				break;
 #endif // USER_MODE_DRIVER
 		

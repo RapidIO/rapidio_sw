@@ -73,6 +73,7 @@ char *req_type_str[(int)last_action+1] = {
         (char*)"UMSGTun",
         (char*)"EPWa",
         (char*)"UMSGWa",
+        (char*)"AFUWa",
 #endif
 	(char *)"LAST"
 };
@@ -2942,6 +2943,62 @@ UMSGCmdWatch,
 ATTR_NONE
 };
 
+int AFUCmdWatch(struct cli_env *env, int argc, char **argv)
+{
+        int idx;
+	int max_tag;
+        int n = 0; // this be a trick from X11 source tree ;)
+
+        idx      = GetDecParm(argv[n++], 0);
+
+        if (check_idx(env, idx, 1))
+                goto exit;
+
+        max_tag   = GetDecParm(argv[n++], 8);
+
+	if ((max_tag < 4) || (max_tag > 1024) || (max_tag & (max_tag-1))) {
+                sprintf(env->output, "Bad max_tag %x, must be power of 2, 4 to 1024\n", max_tag);
+                logMsg(env);
+                goto exit;
+        };
+
+
+        wkr[idx].action      = umd_afu_watch;
+        wkr[idx].action_mode = user_mode_action;
+        wkr[idx].umd_chan       = max_tag; // FUDGE
+        wkr[idx].umd_chan_to    = -1;
+        wkr[idx].umd_fifo_thr.cpu_req = -1;
+        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+        wkr[idx].umd_tx_buf_cnt = 0;
+        wkr[idx].umd_sts_entries = 0;
+        wkr[idx].did = ~0;
+        wkr[idx].rio_addr = 0;
+        wkr[idx].byte_cnt = 0;
+        wkr[idx].acc_size = 0;
+        wkr[idx].umd_tx_rtype = MAINT_WR;
+        wkr[idx].wr = 0;
+        wkr[idx].use_kbuf = 0;
+
+        wkr[idx].stop_req = 0;
+
+        sem_post(&wkr[idx].run);
+exit:
+        return 0;
+}
+
+struct cli_cmd AFUWATCH = {
+"afuwatch",
+4,
+2,
+"Spawns an AF_UNIX server which listens to <max_tag> AF_UNIX sockets named " AFU_PATH "NNN",
+"<idx> <max_tag>\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<max_tag> maximum number of CM \"tags\" aka number of listening AF_UNIX sockets\n",
+AFUCmdWatch,
+ATTR_NONE
+};
+
+
 #endif // USER_MODE_DRIVER
 
 struct cli_cmd *goodput_cmds[] = {
@@ -2986,6 +3043,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&UTime,
 	&EPWatch,
 	&UMSGWATCH,
+	&AFUWATCH,
 #endif
 };
 

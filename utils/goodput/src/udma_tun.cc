@@ -1386,6 +1386,7 @@ exit:
 
         close(info->umd_sockp_quit[0]); close(info->umd_sockp_quit[1]);
         info->umd_sockp_quit[0] = info->umd_sockp_quit[1] = -1;
+
 	close(info->umd_epollfd); info->umd_epollfd = -1;
 
 	for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
@@ -1465,7 +1466,7 @@ bool umd_dma_goodput_tun_ep_has_peer(struct worker* info, const uint32_t destid)
 void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool signal)
 {
 	assert(info);
-	assert(info->umd_dch_nread);
+	//assert(info->umd_dch_nread);
 
 	const uint16_t my_destid = info->my_destid;
 	assert(my_destid != destid);

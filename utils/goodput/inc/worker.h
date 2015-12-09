@@ -131,6 +131,7 @@ enum req_type {
 	umd_mbox_tap,
 	umd_epwatch,
 	umd_mbox_watch,
+	umd_afu_watch,
 #endif
 	last_action
 };
@@ -153,6 +154,8 @@ struct thread_cpu {
 };
 
 #ifdef USER_MODE_DRIVER
+
+#define AFU_PATH	"/tmp/RIO_CM_DG_"
 
 #define SOFT_RESTART	69
 

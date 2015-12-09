@@ -69,7 +69,8 @@ UMD_INCLUDES = inc/debug.h inc/dmadesc.h inc/local_endian.h inc/mapfile.h \
 UMD_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc src/mboxchan.cc \
 	src/crc32.c \
 	src/hash.cc src/psem.cc src/pshm.cc \
-	src/udma_tun.cc src/tun_ipv4.c
+	src/udma_tun.cc src/tun_ipv4.c \
+	src/umbox_afu.cc
 
 LIBRARIES =  -lpthread -lcli -lmport -llog -lrt
 
