@@ -464,7 +464,7 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 	for (; !info->stop_req && itp != info->umd_dma_did_peer.end(); itp++) {
 		const uint16_t destid  = itp->first;
 
-		if (info->umd_dma_did_peer_list.find(destid) == info->umd_dma_did_peer_list.end()) {
+		if (info->umd_dma_did_enum_list.find(destid) == info->umd_dma_did_enum_list.end()) {
 			CRIT("\n\tBUG Peer for destid %u exists in only one map!\n", destid);
 			break; // Better luck next time we're called
 		}
@@ -993,8 +993,8 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 
 		// Collect peers quickly
 		pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
-		std::map<uint16_t, DmaPeerCommsStats_t>::iterator itp = info->umd_dma_did_peer_list.begin();
-		for (; itp != info->umd_dma_did_peer_list.end(); itp++) {
+		std::map<uint16_t, DmaPeerCommsStats_t>::iterator itp = info->umd_dma_did_enum_list.begin();
+		for (; itp != info->umd_dma_did_enum_list.end(); itp++) {
 			if (itp->first == info->my_destid) continue;
 			peer_list.push_back(itp->first);
 		}
@@ -1051,8 +1051,8 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 			int nsend = send(info->umd_mbox_tx_fd, buf, sizeof(buf), 0);
 			if (nsend > 0) {
 				pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
-				info->umd_dma_did_peer_list[destid].bcast_cnt_out++;
-				info->umd_dma_did_peer_list[destid].my_rio_addr = rio_addr;
+				info->umd_dma_did_enum_list[destid].bcast_cnt_out++;
+				info->umd_dma_did_enum_list[destid].my_rio_addr = rio_addr;
 				pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 			} else {
 				ERR("\n\tSend to MboxWatch thread failed [tx_fd=%d]: %s\n", strerror(errno), info->umd_mbox_tx_fd);
@@ -1097,10 +1097,10 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 			uint64_t peer_rio_addr = 0;
 			pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 			{{
-			  if (info->umd_dma_did_peer_list[from_destid].on_time == 0)
-				info->umd_dma_did_peer_list[from_destid].on_time = now;
-			  info->umd_dma_did_peer_list[from_destid].ls_time = now;
-			  info->umd_dma_did_peer_list[from_destid].bcast_cnt_in++;
+			  if (info->umd_dma_did_enum_list[from_destid].on_time == 0)
+				info->umd_dma_did_enum_list[from_destid].on_time = now;
+			  info->umd_dma_did_enum_list[from_destid].ls_time = now;
+			  info->umd_dma_did_enum_list[from_destid].bcast_cnt_in++;
 
 			  std::map<uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.find(from_destid);
 			  if (itp != info->umd_dma_did_peer.end()) {
@@ -1182,8 +1182,8 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 			  int bcast_cnt = -1;
 			  pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 			  {{
-			    std::map<uint16_t, DmaPeerCommsStats_t>::iterator itp = info->umd_dma_did_peer_list.find(from_destid);
-			    if (itp != info->umd_dma_did_peer_list.end())
+			    std::map<uint16_t, DmaPeerCommsStats_t>::iterator itp = info->umd_dma_did_enum_list.find(from_destid);
+			    if (itp != info->umd_dma_did_enum_list.end())
 			  	bcast_cnt = itp->second.bcast_cnt_out;
 			  }}
 			  pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
@@ -1412,7 +1412,7 @@ void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
 
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 	{{
-	  info->umd_dma_did_peer_list[destid] = tmp;
+	  info->umd_dma_did_enum_list[destid] = tmp;
 	}}
         pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 }
@@ -1473,13 +1473,13 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
 	bool found = false;
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
         {{
-	  DBG("\n\t Enum EPs: %d Peers: %d\n", info->umd_dma_did_peer_list.size(), info->umd_dma_did_peer.size());
+	  DBG("\n\t Enum EPs: %d Peers: %d\n", info->umd_dma_did_enum_list.size(), info->umd_dma_did_peer.size());
 
 	  // XXX Is it sane to do this hoping the peer will rebroadcast to us
 	  // when it comes back? This means that unless mport/FMD notifies
 	  // use AGAIN of this peer we shall never initiate comms with this
 	  // peer?!?!
-	  info->umd_dma_did_peer_list.erase(destid);
+	  info->umd_dma_did_enum_list.erase(destid);
 
           std::map <uint16_t, DmaPeerDestid_t*>::iterator itp = info->umd_dma_did_peer.find(destid);
 	  if (itp == info->umd_dma_did_peer.end()) { goto done; }
@@ -1832,8 +1832,8 @@ void umd_mbox_watch_demo(struct worker *info)
 				time_t ls_time = 0;
 				pthread_mutex_lock(&info2->umd_dma_did_peer_mutex);
 				{{
-				  std::map<uint16_t, DmaPeerCommsStats_t>::iterator ite = info2->umd_dma_did_peer_list.begin();
-          			  if (ite != info2->umd_dma_did_peer_list.end()) 
+				  std::map<uint16_t, DmaPeerCommsStats_t>::iterator ite = info2->umd_dma_did_enum_list.begin();
+          			  if (ite != info2->umd_dma_did_enum_list.end()) 
 					ls_time = ite->second.ls_time;
 				}}
 				pthread_mutex_unlock(&info2->umd_dma_did_peer_mutex);
@@ -1977,7 +1977,7 @@ void UMD_DD(struct worker* info)
 	if (dch_cnt > 0)
 		INFO("\n\tDMA Channel stats: %s\n", ss.str().c_str());
 
-	std::vector<DmaPeerDestid_t> peer_list;
+	std::vector<DmaPeerDestid_t>     peer_list;
 	std::vector<DmaPeerCommsStats_t> peer_list_enum;
 
 	time_t now = time(NULL);
@@ -1986,8 +1986,8 @@ void UMD_DD(struct worker* info)
 
 	pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 	{{
-	  std::map<uint16_t, DmaPeerCommsStats_t>::iterator ite = info->umd_dma_did_peer_list.begin();
-	  for (; ite != info->umd_dma_did_peer_list.end(); ite++) {
+	  std::map<uint16_t, DmaPeerCommsStats_t>::iterator ite = info->umd_dma_did_enum_list.begin();
+	  for (; ite != info->umd_dma_did_enum_list.end(); ite++) {
 		if (ite->first == info->my_destid) continue;
 		peer_list_enum.push_back(ite->second);
 	  }

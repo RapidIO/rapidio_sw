@@ -193,7 +193,7 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_peer_ibmap = NULL;
 
 	info->umd_dma_did_peer.clear();
-	info->umd_dma_did_peer_list.clear();
+	info->umd_dma_did_enum_list.clear();
 	info->umd_dma_did_peer_fd2did.clear();
 
 	//if (first_time) {
