@@ -38,13 +38,15 @@
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_sock.h>
 #include <stdint.h>
+#include <sched.h>
 #include "fake_libmport.h"
 #include "DAR_RegDefs.h"
+#include "libunit_test.h"
+#include "rskt_worker.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 /**
  * @brief Perform DMA data write to target transfer using user space source buffer
@@ -293,6 +295,17 @@ int riomp_mgmt_query(riomp_mport_t mport_handle,
 			return 0;
 	};
 
+	qresp->hdid = 777;
+	qresp->id = 0;
+	qresp->sys_size = 1;
+	qresp->port_ok = 1;
+	qresp->link_speed = RIO_LINK_625;
+	qresp->link_width = RIO_LINK_16X;
+	qresp->transfer_mode = 1;
+	qresp->cap_sys_size = 3;
+	qresp->cap_transfer_mode = 3;
+	qresp->cap_mport = RIO_MPORT_DMA | RIO_MPORT_DMA_SG | RIO_MPORT_IBSG;
+
 	return 0;
 };
 
@@ -473,8 +486,23 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid,
 	return 0 * destid * hc * ctag;
 };
 
+#define TEST_SKT_NO_CONN -1
+#define TEST_SKT_CONNECT 0
+#define TEST_SKT_ACCEPT 1
+
+struct rapidio_mport_socket {
+	int wkr_idx; /* Index of wkr[] for send/receive */
+	int acceptor; /* TRUE if this side accepted,
+			FALSE if this side connected */
+};
+
+// struct riomp_mailbox_t * struct worker;
+
+int sock_wkr_idx;
+
 int riomp_sock_mbox_init(void)
 {
+	sock_wkr_idx = 0;
 	return 0;
 }
 
@@ -487,10 +515,10 @@ int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 				riomp_mailbox_t *mailbox)
 {
 	if (0) {
-		if (NULL == mailbox)
+		if ((NULL == mailbox) || !mbox_id || mport_id)
 			return 0;
 	};
-	return 0 * mport_id * mbox_id;
+	return 0;
 }
 
 int riomp_sock_mbox_destroy_handle(riomp_mailbox_t *mailbox)
@@ -508,43 +536,143 @@ int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 		if ((NULL == mailbox) || (NULL == socket_handle))
 			return 0;
 	};
+
+	*socket_handle = (riomp_sock_t)malloc(
+					sizeof(struct rapidio_mport_socket));
+	(*socket_handle)->wkr_idx = -1;
+	(*socket_handle)->acceptor = TEST_SKT_NO_CONN;
+
 	return 0;
 }
 
 int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 {
-	if (0) {
-		if ((NULL == buf) || (NULL == socket_handle))
-			return 0;
+	struct rskt_test_info *test;
+	struct rsktd_req_msg *req;
+        struct rsktd_resp_msg *resp;
+
+	if ((NULL == socket_handle) || (NULL == buf) || !size)
+		goto fail;
+
+	if ((socket_handle->wkr_idx < 0) ||
+			(socket_handle->wkr_idx > MAX_WORKER_IDX))
+		goto fail;
+
+	test = (struct rskt_test_info *)wkr[socket_handle->wkr_idx].priv_info;
+
+	if (NULL == test)
+		goto fail;
+
+	switch (socket_handle->acceptor) {
+	case TEST_SKT_CONNECT: /* Connector always sends requests */
+		req = (struct rsktd_req_msg *)malloc(sizeof(struct rsktd_req_msg));
+		memcpy(req, buf, (size > sizeof(struct rsktd_req_msg))?
+				sizeof(struct rsktd_req_msg): size);
+        	sem_wait(&test->speer_req_mtx);
+        	l_push_tail(&test->speer_req, (void *)req);
+        	sem_post(&test->speer_req_mtx);
+        	sem_post(&test->speer_req_cnt);
+		break;
+
+	case TEST_SKT_ACCEPT: /* Acceptor always sends responses */
+		resp = (struct rsktd_resp_msg *)malloc(sizeof(struct rsktd_resp_msg));
+		memcpy(resp, buf, (size > sizeof(struct rsktd_resp_msg))?
+				sizeof(struct rsktd_resp_msg): size);
+        	sem_wait(&test->speer_resp_mtx);
+        	l_push_tail(&test->speer_resp, (void *)resp);
+        	sem_post(&test->speer_resp_mtx);
+        	sem_post(&test->speer_resp_cnt);
+		break;
+	default: goto fail;
+		break;
 	};
-	return 0 * size;
+
+	return 0;
+
+fail:
+	return 1;
+	
 }
 
 int riomp_sock_receive(riomp_sock_t socket_handle, void **buf, uint32_t size,
 			uint32_t timeout)
 {
+	struct rskt_test_info *test;
+	struct rsktd_req_msg *req;
+        struct rsktd_resp_msg *resp;
+	int rc = 1;
+
 	if (0) {
-		if ((NULL == buf) || (NULL == socket_handle))
-			return 0;
+		rc = timeout;
 	};
-	return 0 * size * timeout;
+
+	if ((NULL == socket_handle) || (NULL == buf) || !size)
+		goto fail;
+
+	if ((socket_handle->wkr_idx < 0) ||
+			(socket_handle->wkr_idx > MAX_WORKER_IDX))
+		goto fail;
+	test = (struct rskt_test_info *)wkr[socket_handle->wkr_idx].priv_info;
+
+	if (NULL == test)
+		goto fail;
+
+	switch (socket_handle->acceptor) {
+	case TEST_SKT_CONNECT: /* Connector always receives responses */
+        	sem_wait(&test->speer_resp_cnt);
+        	sem_wait(&test->speer_resp_mtx);
+        	resp = (struct rsktd_resp_msg *)l_pop_head(&test->speer_resp);
+        	sem_post(&test->speer_resp_mtx);
+		if (NULL == resp)
+			goto fail;
+		memcpy(buf, resp, (size > sizeof(struct rsktd_resp_msg))?
+				sizeof(struct rsktd_resp_msg):size);
+		free(resp);
+		rc = test->speer_resp_err;
+		break;
+
+	case TEST_SKT_ACCEPT: /* Acceptor always receives requests */
+		req = (struct rsktd_req_msg *)malloc(sizeof(struct rsktd_req_msg));
+        	sem_wait(&test->speer_req_cnt);
+        	sem_wait(&test->speer_req_mtx);
+        	req = (struct rsktd_req_msg *)l_pop_head(&test->speer_req);
+        	sem_post(&test->speer_req_mtx);
+		if (NULL == req)
+			goto fail;
+		memcpy(buf, req, (size > sizeof(struct rsktd_req_msg))?
+			sizeof(struct rsktd_req_msg):size);
+		free(req);
+		rc = 0;
+		break;
+	default: goto fail;
+		break;
+	};
+
+	return rc;
+fail:
+	return 1;
 }
 
 int riomp_sock_release_receive_buffer(riomp_sock_t socket_handle, void *buf)
 {
-	if (0) {
-		if ((NULL == buf) || (NULL == socket_handle))
-			return 0;
-	};
+	if ((NULL == socket_handle) || (NULL == buf))
+		goto fail;
+	free(buf);
+fail:
 	return 0;
 }
 
 int riomp_sock_close(riomp_sock_t *socket_handle)
 {
-	if (0) {
-		if (NULL == socket_handle)
-			return 0;
-	};
+	if (NULL == socket_handle)
+		goto exit;
+	if (NULL == *socket_handle)
+		goto exit;
+
+	free(*socket_handle);
+	*socket_handle = NULL;
+
+exit:
 	return 0;
 }
 
@@ -569,38 +697,101 @@ int riomp_sock_listen(riomp_sock_t socket_handle)
 int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 			uint32_t timeout)
 {
-	if (0) {
-		if ((NULL == socket_handle) || (NULL == conn))
-			return 0;
-	};
-	return 0 * timeout;
+	struct rskt_test_info *test;
+
+	if (0)
+		sock_wkr_idx = timeout;
+
+	if ((NULL == socket_handle) || (NULL == conn))
+		goto fail;
+
+	if (NULL == *conn)
+		goto fail;
+
+	(*conn)->wkr_idx = sock_wkr_idx;
+	sock_wkr_idx++;
+	(*conn)->acceptor = TEST_SKT_ACCEPT;
+
+	if ((socket_handle->wkr_idx < 0) ||
+			(socket_handle->wkr_idx > MAX_WORKER_IDX))
+		goto fail;
+	test = (struct rskt_test_info *)wkr[socket_handle->wkr_idx].priv_info;
+
+	if (NULL == test)
+		goto fail;
+
+	sem_post(&test->speer_con);
+	sem_wait(&test->speer_acc);
+	
+	return 0;
+fail:
+	return 1;
 }
 
 int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 			uint8_t remote_mbox, uint16_t remote_channel)
 {
+	struct rskt_test_info *test;
+
 	if (0) {
-		if (NULL == socket_handle)
-			return 0;
+		socket_handle->acceptor = remote_mbox + remote_channel;
 	};
-	return 0 * remote_destid * remote_mbox * remote_channel;
+	if (NULL == socket_handle)
+		goto fail;
+
+	socket_handle->wkr_idx = remote_destid;
+	socket_handle->acceptor = TEST_SKT_CONNECT;
+
+	if ((socket_handle->wkr_idx < 0) ||
+			(socket_handle->wkr_idx > MAX_WORKER_IDX))
+		goto fail;
+	test = (struct rskt_test_info *)wkr[socket_handle->wkr_idx].priv_info;
+
+	if (NULL == test)
+		goto fail;
+
+	sem_post(&test->speer_acc);
+	sem_wait(&test->speer_con);
+	
+	return 0;
+fail:
+	return 1;
 }
 
 int riomp_sock_request_send_buffer(riomp_sock_t socket_handle, void **buf)
 {
-	if (0) {
-		if ((NULL == socket_handle) || (NULL == buf))
-			return 0;
-	};
+	struct rskt_test_info *test;
+
+	if (NULL == socket_handle)
+		goto fail;
+#define TEST_SKT_CONNECT 0
+#define TEST_SKT_ACCEPT 1
+
+	if ( (socket_handle->acceptor < TEST_SKT_CONNECT) ||
+			(socket_handle->acceptor > TEST_SKT_ACCEPT) ||
+			(socket_handle->wkr_idx < 0) ||
+			(socket_handle->wkr_idx > MAX_WORKER_IDX))
+		goto fail;
+	test = (struct rskt_test_info *)wkr[socket_handle->wkr_idx].priv_info;
+
+	if (NULL == test)
+		goto fail;
+	*buf = malloc(4*1024);
 	return 0;
+fail:
+	return 1;
 }
 
 int riomp_sock_release_send_buffer(riomp_sock_t socket_handle, void *buf)
 {
-	if (0) {
-		if ((NULL == socket_handle) || (NULL == buf))
-			return 0;
-	};
+	if ( (socket_handle->acceptor < TEST_SKT_CONNECT) ||
+			(socket_handle->acceptor > TEST_SKT_ACCEPT) ||
+			(socket_handle->wkr_idx < 0) ||
+			(socket_handle->wkr_idx > MAX_WORKER_IDX))
+		goto fail;
+	if (NULL != buf)
+		free(buf);
+fail:
 	return 0;
 }
 

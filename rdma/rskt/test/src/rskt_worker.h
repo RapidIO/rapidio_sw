@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <pthread.h>
 #include "libunit_test.h"
+#include "librsktd_dmn.h"
 
 #ifndef __RSKT_WORKER_H__
 #define __RSKT_WORKER_H__
@@ -48,7 +49,10 @@ extern "C" {
 #define LIB_LISTEN_TEST 2
 #define LIB_ACCEPT_TEST 3
 #define LIB_ACCEPT_BUDDY 4
-#define LAST_TEST     5
+
+#define SPEER_MSG_XCHG 5
+
+#define LAST_TEST     6
 
 struct rskt_test_info {
 	int num_wkrs;
@@ -60,6 +64,23 @@ struct rskt_test_info {
 	struct worker *buddy;
 	sem_t accepting;
 	sem_t done_sema;
+/* SPEER TEST FIELDS */
+	sem_t speer_acc; /* Sema is init to 0, connect() posts this sema */
+			/* SPEER CONN LOOP waits on this sema, in numeric				order from wkr[0] up o wkr[5]. */
+	sem_t speer_con; /* Sema is init to 0, accept() posts this sema */
+			/* SPEER CONN LOOP waits on this sema, in numeric				order from wkr[0] up o wkr[5]. */
+	struct l_head_t speer_req;  /* List of rsktd_req_msg */
+	sem_t speer_req_cnt; /* Posts this every time a message is
+				sent to speer */
+	sem_t speer_req_mtx; /* Use this for mutex on speer_req */
+	int speer_resp_err;    /* riomp_sock_receive returns this error */
+	struct l_head_t speer_resp;  /* List of rsktd_rsp_msg */
+	sem_t speer_resp_cnt; /* Posts this every time a message is
+				sent by speer */
+	sem_t speer_resp_mtx; /* Use this for mutex on speer_rsp */
+	
+	struct rsktd_req_msg req;
+	struct rsktd_resp_msg resp;
 };
 	
 #ifdef __cplusplus

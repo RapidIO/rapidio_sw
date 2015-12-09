@@ -205,7 +205,6 @@ void *speer_rx_loop(void *p_i)
 		switch (msg->msg_type) {
 		case RSKTD_HELLO_REQ:
 		case RSKTD_CONNECT_REQ:
-		case RSKTD_CLI_CMD_REQ:
 		default:
 			msg->proc_type = RSKTD_PROC_SREQ;
 			msg->proc_stage = RSKTD_SPEER_SEQ_DREQ;

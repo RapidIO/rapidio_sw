@@ -1643,142 +1643,6 @@ DMNWpeerCmd,
 ATTR_NONE
 };
 
-#define LIBRSKTD_MAX_CMD_LEN 256
-char dmn_saved_cmd_line[LIBRSKTD_MAX_CMD_LEN];
-struct rskt_dmn_wpeer *prev_wp;
-struct librskt_app *prev_app;
-
-int librsktd_wp_cli_cmd(struct cli_env *env, char *cmd_line)
-{
-	struct rskt_dmn_wpeer *w = prev_wp;
-	struct librsktd_unified_msg *msg;
-
-	if (NULL == w)
-		return 0;
-	
- 	msg = alloc_msg(RSKTD_CLI_CMD_REQ, RSKTD_PROC_A2W, RSKTD_A2W_SEQ_DREQ);
-
-	msg->wp = w->self_ref;
-	msg->dreq = (struct rsktd_req_msg *)
-		malloc(sizeof(struct rsktd_req_msg));
-
-	msg->dreq->msg_type = RSKTD_CLI_CMD_REQ;
-	memset(msg->dreq->msg.cli.cmd_line, 0, 2*MAX_MS_NAME);
-	memcpy(msg->dreq->msg.cli.cmd_line, cmd_line, 2*MAX_MS_NAME-1);
-
-	sprintf(env->output, "\nSending cli req to wp %d\n", w->ct);
-	logMsg(env);
-	sprintf(env->output, "\"%s\"\n", w->req->msg.cli.cmd_line);
-	logMsg(env);
-	
-	enqueue_wpeer_msg(msg);
-
-	return 0;
-};
-
-int librsktd_app_cli_cmd(struct cli_env *env, char *cmd_line)
-{
-	struct librskt_app *app = prev_app;
-
-	if (NULL == app)
-		return 0;
-	
-	app->test_rq.msg_type = htonl(LIBRSKT_CLI_CMD);
-	memset(app->test_rq.a_rq.msg.cli.cmd_line, 0, (MAX_MS_NAME*3));
-	memcpy(app->test_rq.a_rq.msg.cli.cmd_line, cmd_line, (MAX_MS_NAME*3)-1);
-	
-	sprintf(env->output, "\nSending cli req to app %d...\n", app->app_fd);	
-	logMsg(env);
-	sprintf(env->output, "\"%s\"\n", app->test_rq.a_rq.msg.cli.cmd_line);
-	logMsg(env);
-
-	/* FIXME: Need to add message transmission/response reception here */
-
-	sprintf(env->output, "\nCommand completed.\n");
-	logMsg(env);
-
-	return 0;
-};
-
-extern struct cli_cmd DMNRemCmd;
-
-int DMNRemCmdCmd(struct cli_env *env, int argc, char **argv)
-{
-	struct rskt_dmn_wpeer *wp = NULL;
-	struct librskt_app *app = NULL;
-	struct l_item_t *unused;
-	uint32_t ct;
-
-	if (!argc) {
-		wp = prev_wp;
-		app = prev_app;
-	};
-
-	if (argc) {
-		switch (argv[0][0]) {
-		case 'W':
-		case 'w':
-			prev_wp = NULL;
-			prev_app = NULL;
-			ct = getDecParm(&argv[0][1], 0);
-			wp = (struct rskt_dmn_wpeer *)
-				l_find(&dmn.wpeers, ct, &unused);
-			if (NULL == wp) {
-				sprintf(env->output, "Unknown WP %d\n", ct);
-				logMsg(env);
-				return 0;
-			};
-			argc--;
-			argv = &argv[1];
-			break;
-		case 'A':
-		case 'a':
-			prev_wp = NULL;
-			prev_app = NULL;
-			ct = getDecParm(&argv[0][1], 0);
-			app = (struct librskt_app *)
-				l_find(&lib_st.app, ct, &unused);
-			if (NULL == app) {
-				sprintf(env->output, "Unknown App FD %d\n", ct);
-				logMsg(env);
-				return 0;
-			};
-			argc--;
-			argv = &argv[1];
-			break;
-		default:
-			sprintf(env->output, "Unknown parm %s\n", argv[0]);
-			logMsg(env);
-			cli_print_help(env, &DMNRemCmd);
-			return 0;
-		};
-	};
-
-	prev_wp = wp;
-	prev_app = app;
-
-	if (NULL != wp)
-		return send_cmd(env, argc, argv, librsktd_wp_cli_cmd,
-				dmn_saved_cmd_line, LIBRSKTD_MAX_CMD_LEN-1); 
-
-	return send_cmd(env, argc, argv, librsktd_app_cli_cmd,
-			dmn_saved_cmd_line, LIBRSKTD_MAX_CMD_LEN-1); 
-
-}
-
-struct cli_cmd DMNRemCmd = {
-"remcmd",
-4,
-0,
-"Display current peers, or attempts to connect to peer.\n",
-"{<W<ct>|A<fd> <cmd> <parms>}\n"
-	"<ct>: Component tag of remote RSKTD to execute the request.\n"
-	"<fd>: File descriptor of library connected to this RSKTD.\n"
-	"Note: If not parms are entered, repeat last command to same target.\n",
-DMNRemCmdCmd,
-ATTR_NONE
-};
-
 struct cli_cmd *daemon_cmds[] = 
 	{ &RSKTIbwin,
 	  &RSKTMs,
@@ -1791,16 +1655,12 @@ struct cli_cmd *daemon_cmds[] =
 	  &DMNLibStatus,
 	  &RSKTDReq,
 	  &DMNDmnStatus,
-	  &DMNWpeer,
-	  &DMNRemCmd
+	  &DMNWpeer
 	};
 
 void librsktd_bind_cli_cmds(void)
 {
 	last_ibwin = -1;
-	memset(dmn_saved_cmd_line, 0, LIBRSKTD_MAX_CMD_LEN);
-	prev_wp = NULL;
-	prev_app = NULL;
 
         add_commands_to_cmd_db(sizeof(daemon_cmds)/sizeof(daemon_cmds[0]), 
 				daemon_cmds);

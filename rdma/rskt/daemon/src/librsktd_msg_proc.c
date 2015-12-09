@@ -801,9 +801,6 @@ void msg_q_handle_sreq(struct librsktd_unified_msg *msg)
 		case RSKTD_CONNECT_REQ:
 			send_resp_now = rsktd_sreq_connect_req(msg);
 			break;
-		case RSKTD_CLI_CMD_REQ:
-			perform_cli_cmd(msg->dreq->msg.cli.cmd_line);
-			break;
 		default:
 			CRIT("\nSREQ Msg_type: %d\n", msg->msg_type);
 			break;

@@ -44,12 +44,6 @@
 extern "C" {
 #endif
 
-void enqueue_speer_msg(struct librsktd_unified_msg *msg)
-{
-	if (0)
-		*msg = *msg;
-};
-
 void enqueue_wpeer_msg(struct librsktd_unified_msg *msg)
 {
 	if (0)
@@ -66,16 +60,6 @@ void *wpeer_tx_loop(void *unused)
 	return unused;
 };
 
-void start_new_speer(riomp_sock_t new_socket)
-{
-	if (NULL == new_socket)
-		return;
-
-	return;
-};
-
-void close_all_speers(void) {};
-
 void close_all_wpeers(void) {};
 
 void rskt_daemon_shutdown(void) {};
@@ -90,11 +74,6 @@ int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers)
 };
 
 void halt_fm_thread(void) {};
-
-void *speer_tx_loop(void *unused)
-{
-	return unused;	
-};
 
 #ifdef __cplusplus
 }

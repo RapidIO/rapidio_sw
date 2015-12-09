@@ -64,6 +64,7 @@ LDFLAGS+=-L. -l$(NAME)
 OBJECTS:=$(DAEMON_SRC)/librsktd_lib.o $(DAEMON_SRC)/librsktd_cli.o
 OBJECTS+=$(DAEMON_SRC)/librsktd_dmn.o $(DAEMON_SRC)/librsktd_msg_proc.o 
 OBJECTS+=$(DAEMON_SRC)/librsktd_sn.o 
+OBJECTS+=$(DAEMON_SRC)/librsktd_speer.o 
 HEADERS:=$(wildcard ../daemon/src/*.h) $(TOP_LEVEL)/include/librskt.h
 
 TEST_HEADERS:=$(wildcard src/*.h) $(wildcard inc/*.h)
