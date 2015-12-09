@@ -357,8 +357,8 @@ set<uint16_t> mspace::get_rem_destids()
 /* Debugging */
 void mspace::dump_info(struct cli_env *env)
 {
-	sprintf(env->output, "%34s %08X %016" PRIx64 " %08X\n", name.c_str(),
-	                msid, rio_addr, size);
+	sprintf(env->output, "%34s %08X %08X %016" PRIx64 " %08X\n", name.c_str(),
+	                msoid, msid, rio_addr, size);
 	logMsg(env);
 	sprintf(env->output, "destids: ");
 	logMsg(env);

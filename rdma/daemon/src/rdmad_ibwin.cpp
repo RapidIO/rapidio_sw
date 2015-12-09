@@ -185,11 +185,11 @@ void ibwin::dump_info(struct cli_env *env)
 
 void ibwin::print_mspace_header(struct cli_env *env)
 {
-	sprintf(env->output, "\n%8s %8u %16s %8s %16s %8s\n", "Window", win_num, "Name",
-					"msid", "rio_addr", "size");
+	sprintf(env->output, "\n%8s %8u %16s %8s %8s %16s %8s\n", "Window", win_num, "Name",
+				"msoid", "msid", "rio_addr", "size");
 	logMsg(env);
-	sprintf(env->output, "%8s %8s %16s %8s %16s %8s\n", "-------", "-------",
-				"----------------", "--------",
+	sprintf(env->output, "%8s %8s %16s %8s %8s %16s %8s\n", "-------", "-------",
+				"----------------", "--------", "--------",
 				"----------------", "--------");
 	logMsg(env);
 } /* print_mspace_header() */
@@ -424,8 +424,8 @@ int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
 			DBG("First ms in the list. Cannot merge with prev!\n");
 		}
 	} else {
-		ERR("Failed to find ms specified by msoid(0x%X) and msid(0x%X)\n",
-				msoid, msid);
+		ERR("Cannot find ms w/ msoid(0x%X) and msid(0x%X) in ibwin%u\n",
+				msoid, msid, win_num);
 		ret = -1;	/* Not found */
 	}
 exit:
@@ -433,6 +433,17 @@ exit:
 
 	return ret;
 } /* destroy_mspace() */
+
+struct mspace_is_open_by_server {
+	mspace_is_open_by_server(unix_server *server, uint32_t *ms_conn_id) :
+		server(server), ms_conn_id(ms_conn_id) {}
+	bool operator ()(mspace *ms) {
+		return ms->has_user_with_user_server(server, ms_conn_id);
+	}
+private:
+	unix_server *server;
+	uint32_t    *ms_conn_id;
+};
 
 // FIXME: What if there is more than one? In the new world there will be!
 mspace* ibwin::get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id)
