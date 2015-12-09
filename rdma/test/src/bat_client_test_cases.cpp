@@ -418,8 +418,6 @@ int test_case_c(void)
 		BAT_EXPECT_RET(rc, 0, free_mso);
 	}
 
-
-
 	/* Now create a number of memory spaces such that they fill each
 	 * inbound window with different sizes starting with 1/2 the inbound
 	 * window size and ending with 4K which is the minimum block size that
@@ -461,10 +459,9 @@ int test_case_c(void)
 	/**
 	 * Test: Just ensure that freed memory spaces are re-used.
 	 *
-	 * 1. Free the memory spaces in WIN1
-	 * 2. Find an 8KB space in WIN0 and free it.
-	 * 3. Allocate a new 8K space.
-	 * 4. Verify that the new space took the freed space and did not end
+	 * 1. Find an 8KB space in WIN0 and free it.
+	 * 2. Allocate a new 8K space.
+	 * 3. Verify that the new space took the freed space and did not end
 	 * up in WIN1. Do that by comparing the freed and new RIO addresses
 	 */
 	{
@@ -481,13 +478,6 @@ int test_case_c(void)
 		/* Destroy it */
 		rc = rdma_destroy_ms_h(client_msoh, it->handle);
 		BAT_EXPECT_RET(rc, 0, free_mso);
-
-		/* Destroy all IBWIN1 memory spaces */
-		for (unsigned i = (ms_info.size() / 2); i < ms_info.size(); i++) {
-			printf("Destroying mspace%u\n", i);
-			rc = rdma_destroy_ms_h(client_msoh, ms_info[i].handle);
-			BAT_EXPECT_RET(rc, 0, free_mso);
-		}
 
 		/* Now allocate another 8K memory space */
 		ms_h	new_8k_msh;
@@ -506,8 +496,58 @@ int test_case_c(void)
 		} else {
 			rc = -1;
 		}
+		BAT_EXPECT_RET(rc, 0, free_mso);
 	}
 
+	/**
+	 * Test: Constantly free up memory spaces and allocate larger ones
+	 * until you reach the point where you can allocate a memory space
+	 * as large as the entire IBWIN.
+	 */
+	for (unsigned k = 0; k < num_ibwins; k++) {
+		uint32_t size = BAT_MIN_BLOCK_SIZE;
+
+		while (size < ibwin_size) {
+			/* Find first memory space of size 'size' */
+			auto it1 = find(begin(ms_info) + k*ms_info.size()/2,
+					end(ms_info),
+					size);
+			if (it1 == end(ms_info)) {
+				rc = -1;
+				BAT_EXPECT_RET(rc, 0, free_mso);
+			}
+
+			/* Find second memory space of size 'size' */
+			auto it2 = find(it1 + 1, end(ms_info), size);
+			if (it2 == end(ms_info)) {
+				rc = -1;
+				BAT_EXPECT_RET(rc, 0, free_mso);
+			}
+
+			/* Destroy both memory spaces */
+			rc = rdma_destroy_ms_h(client_msoh, it1->handle);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+
+			rc = rdma_destroy_ms_h(client_msoh, it2->handle);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+
+			/* Double the size */
+			size *= 2;
+
+			/* Now create a memory space that is twice the size.
+			 * Store the handle in the space pointed to by 'it1'
+			 */
+			stringstream ms_name;
+			ms_name << "ms" << k << size;
+			rc = rdma_create_ms_h(ms_name.str().c_str(),
+					      client_msoh,
+					      size,
+					      0,
+					      &it1->handle,
+					      &it1->size);
+			BAT_EXPECT_RET(rc, 0, free_mso);
+		}
+	}
 	ret = rc;
 free_mso:
 	/* Delete the mso */
@@ -643,7 +683,6 @@ int test_case_d(void)
 		/* Remember their old RIO addresses as well */
 		uint64_t old_rio1 = msub1->rio_addr_lo;
 		uint64_t old_rio2 = msub2->rio_addr_lo;
-
 
 		/* Destroy the 2 memory subspaces */
 		rc = rdma_destroy_msub_h(msub_info[msub1_index].msh,
