@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libunit_test.h"
 #include "librskt_private.h"
 #include "librsktd_sn.h"
+#include "librsktd_dmn.h"
 #include "fake_libmport.h"
 #include "rskt_worker.h"
 
@@ -46,6 +47,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFLT_LIBRSKTD_TEST_MPNUM 0
 #define DFLT_LIBRSKTD_TEST_BKLG 35
 #define DFLT_LIBRSKTD_TEST_TEST 0
+#define DFLT_LIBRSKTD_TEST_CM_SKT 4395
+#define DFLT_LIBRSKTD_TEST_MPNUM 0
+#define TEST_ZERO_MS 0
+#define TEST_ZERO_MS_SZ 0
+#define TEST_SKIP_MS 1
+#define NOT_TEST 0
 
 #ifdef __cplusplus
 extern "C" {
@@ -75,6 +82,9 @@ char *actions[LAST_TEST+1] = {
 	(char *)"LISN_T",
 	(char *)"ACC__T",
 	(char *)"ACCBDY",
+
+	(char *)"SPEER ",
+
 	(char *)"OORnge"
 };
 
@@ -98,6 +108,8 @@ int test_bind_listen_and_close(struct worker *info);
 int test_bind_listen_accept_and_close(struct worker *info);
 int test_buddy(struct worker *info);
 
+int test_speer_xchg(struct worker *info);
+
 int worker_body(struct worker *info)
 {
 	int rc = 0;
@@ -111,6 +123,10 @@ int worker_body(struct worker *info)
 			break;
 	case LIB_ACCEPT_BUDDY: rc = test_buddy(info);
 			break;
+
+	case SPEER_MSG_XCHG: rc = test_speer_xchg(info);
+			break;
+
 	default: CRIT("Unknown worker action...");
 		rc = 1;
 	};
@@ -553,6 +569,35 @@ fail:
 	return 0;
 }
 
+int test_speer_xchg(struct worker *info)
+{
+	struct rsktd_req_msg *req;
+	struct rsktd_resp_msg *resp;
+	struct rskt_test_info *test = (struct rskt_test_info *)info->priv_info;
+
+	if (NULL == test)
+		goto fail;
+
+	req = (rsktd_req_msg *)malloc(sizeof(struct rsktd_req_msg));
+	memcpy((void *)req, (void *)&test->req, sizeof(struct rsktd_req_msg));
+
+	sem_wait(&test->speer_req_mtx);
+	l_push_tail(&test->speer_req, (void *)req);
+	sem_post(&test->speer_req_mtx);
+	sem_post(&test->speer_req_cnt);
+
+	sem_wait(&test->speer_resp_cnt);
+	sem_wait(&test->speer_resp_mtx);
+	resp = (rsktd_resp_msg *)l_pop_head(&test->speer_resp);
+	sem_post(&test->speer_resp_mtx);
+	memcpy((void *)&test->resp, (void *)resp, sizeof(struct rsktd_resp_msg));
+
+	test->rc = 0;
+	return 0;
+fail:
+	test->rc = 1;
+	return 0;
+}
 
 /** @brief Test closing and reinitializing the library. 
  */
@@ -1140,6 +1185,9 @@ fail:
 	return fail_pt;
 };
 
+/* Test exchange of Hello messages */
+
+	
 void kill_all_worker_threads(void) {
 	int i;
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -1231,13 +1279,23 @@ int main(int argc, char *argv[])
 	rc = test_case_5();
 	if (rc) {
 		CRIT("Test case 5 FAILED %d \n", rc);
-//		goto fail;
+		goto fail;
 	};
 	CRIT("Test case 5 Passed\n");
+
+	/* Now start SPEER tests */
+	if (start_speer_conn(DFLT_LIBRSKTD_TEST_CM_SKT,
+			DFLT_LIBRSKTD_TEST_MPNUM, TEST_ZERO_MS, TEST_ZERO_MS_SZ,
+			TEST_SKIP_MS, NOT_TEST)) {
+		CRIT("Could not start speer connection manager. EXITING");
+		goto fail;
+	};
+	CRIT("Started connection manager.");
 
         splashScreen((char *)"RSKT UNIT TEST");
 	console((void *)"RSKT_TEST > ");
 	
+
 	g_level = 7;
 
 	cleanup_proc(NULL);

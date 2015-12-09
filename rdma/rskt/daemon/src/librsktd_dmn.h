@@ -52,18 +52,14 @@ extern "C" {
 #define RSKTD_CONNECT_RESP (RSKTD_CONNECT_REQ | RSKTD_RESP_FLAG)
 #define RSKTD_CLOSE_REQ  0x84
 #define RSKTD_CLOSE_RESP (RSKTD_CLOSE_REQ | RSKTD_RESP_FLAG)
-#define RSKTD_CLI_CMD_REQ  0x108
-#define RSKTD_CLI_CMD_RESP (RSKTD_CLOSE_REQ | RSKTD_RESP_FLAG)
 
 #define RSKTD_REQ_STR(x) (x==RSKTD_HELLO_REQ)?"HELLO":  \
 			(x==RSKTD_CONNECT_REQ)?"CONN ": \
-			(x==RSKTD_CLOSE_REQ)?"CLOSE":   \
-			(x==RSKTD_CLI_CMD_REQ)?" CLI ":">BAD<"
+			(x==RSKTD_CLOSE_REQ)?"CLOSE":">BAD<"  
 
 #define RSKTD_RESP_STR(x) (x==RSKTD_HELLO_RESP)?"HELLO_RSP":  \
 			(x==RSKTD_CONNECT_RESP)?"CONN_RSP ": \
-			(x==RSKTD_CLOSE_RESP)?"CLOSE_RSP":   \
-			(x==RSKTD_CLI_CMD_RESP)?" CLI_RSP ":">ERROR<"
+			(x==RSKTD_CLOSE_RESP)?"CLOSE_RSP":">ERROR<"
 
 struct librsktd_hello_req {
 	uint32_t ct; /* Peer component tag */
@@ -106,17 +102,12 @@ struct librsktd_close_resp {
 	uint32_t status; /* Status after closure, guaranteed to be closed */
 };
 
-struct librsktd_cli_cmd_req {
-	char cmd_line[2*MAX_MS_NAME]; /* remote socket that closed */
-};
-
 /* Note: src_msg_seq must match between request and response */
 
 union librsktd_req {
 	struct librsktd_hello_req hello;
 	struct librsktd_connect_req con;
 	struct librsktd_close_req clos;
-	struct librsktd_cli_cmd_req cli;
 };
 
 union librsktd_resp {
@@ -144,6 +135,10 @@ struct rsktd_resp_msg {
 
 void enqueue_wpeer_msg(struct librsktd_unified_msg *msg);
 void enqueue_speer_msg(struct librsktd_unified_msg *msg);
+
+int start_speer_conn(uint32_t cm_skt, uint32_t mpnum,
+                                        uint32_t num_ms, uint32_t ms_size,
+                                        uint32_t skip_ms, uint32_t tst);
 
 /* CM Messages must be a multiple of 8 bytes */
 #define DMN_MSG_SZ(x) ((x+7) & 0xFF8)
