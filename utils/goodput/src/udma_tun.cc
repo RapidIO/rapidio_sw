@@ -1791,6 +1791,8 @@ void umd_mbox_watch_demo(struct worker *info)
 
 			DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
 			assert(nread == ntohs(pL2->len));
+			pL2->mbox_src = info->umd_chan;
+
 			DMA_MBOX_PAYLOAD_t* payload = (DMA_MBOX_PAYLOAD_t*)(buf + sizeof(DMA_MBOX_L2_t));
 
 			bool q_was_full = false;
