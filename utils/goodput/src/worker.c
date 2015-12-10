@@ -167,6 +167,8 @@ void init_worker_info(struct worker *info, int first_time)
         info->sock_rx_buf = NULL;
 
 #ifdef USER_MODE_DRIVER
+	info->owner_func = NULL;
+	info->umd_set_rx_fd = NULL;
 	info->my_destid = 0xFFFF;
 	info->umd_chan = -1;
 	info->umd_chan_n = -1;
@@ -2015,6 +2017,8 @@ void umd_dma_goodput_demo(struct worker *info)
 	if (! umd_check_cpu_allocation(info)) return;
 	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
+	info->owner_func = umd_dma_goodput_demo;
+
 	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
 	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
@@ -2332,6 +2336,8 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
+	//info->owner_func = (void*)umd_dma_goodput_latency_demo;
+
 	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
 	if (NULL == info->umd_dch) {
 		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
@@ -2469,6 +2475,8 @@ void umd_mbox_goodput_demo(struct worker *info)
 
 	if (! umd_check_cpu_allocation(info)) return;
 	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+
+	info->owner_func = umd_mbox_goodput_demo;
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
         if (NULL == info->umd_mch) {
@@ -2625,6 +2633,8 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 	int iter = 0;
 
 	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+
+	info->owner_func = umd_mbox_goodput_latency_demo;
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
         if (NULL == info->umd_mch) {
@@ -2946,6 +2956,8 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 
 	if (! umd_check_cpu_allocation(info)) return;
 	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+
+	info->owner_func = umd_mbox_goodput_tun_demo;
 
 	memset(info->umd_tun_name, 0, sizeof(info->umd_tun_name));
 

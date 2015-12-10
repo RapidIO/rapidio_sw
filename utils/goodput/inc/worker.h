@@ -288,6 +288,8 @@ struct worker {
 	struct timespec max_iter_time; /* Maximum time over all iterations */
 
 #ifdef USER_MODE_DRIVER
+	void            (*owner_func)(struct worker*);     ///< Who is the owner of this
+	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this
 	uint16_t	my_destid;
 	LockFile*	umd_lock;
 	int		umd_chan; ///< Local mailbox OR DMA channel

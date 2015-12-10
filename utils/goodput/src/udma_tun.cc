@@ -68,9 +68,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sched.h>
 
 #include "libcli.h"
-#include "rapidio_mport_mgmt.h"
-#include "rapidio_mport_sock.h"
-#include "rapidio_mport_dma.h"
 #include "liblog.h"
 
 #include "time_utils.h"
@@ -78,12 +75,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "goodput.h"
 #include "mhz.h"
 
-#ifdef USER_MODE_DRIVER
 #include "dmachan.h"
 #include "hash.cc"
 #include "lockfile.h"
 #include "tun_ipv4.h"
-#endif
 
 extern "C" {
 	void zero_stats(struct worker *info);
@@ -1222,6 +1217,8 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         bool dma_fifo_proc_thr_started = false;
         bool dma_tap_thr_started = false;
 	
+	info->owner_func = umd_dma_goodput_tun_demo;
+
 	// Note: There's no reason to link info->umd_tx_buf_cnt other than
 	// convenience. However the IB ring should never be smaller than
 	// info->umd_tx_buf_cnt-1 members -- (dis)counting T3 BD on TX side
@@ -1446,7 +1443,7 @@ void umd_dma_goodput_tun_del_ep_signal(struct worker* info, const uint32_t desti
 	}
 }
 
-bool umd_dma_goodput_tun_ep_has_peer(struct worker* info, const uint32_t destid)
+bool umd_dma_goodput_tun_ep_has_peer(struct worker* info, const uint16_t destid)
 {
 	assert(info);
 	assert(info->umd_chan2 >= 0);
@@ -1573,6 +1570,8 @@ extern "C"
 void umd_epwatch_demo(struct worker* info)
 {
 	if (info == NULL) return;
+
+	info->owner_func = umd_epwatch_demo;
 
 	info->umd_mbox_rx_fd = -1;
         info->umd_mbox_tx_fd = -1;
@@ -1709,6 +1708,8 @@ void umd_mbox_watch_demo(struct worker *info)
 	int umd_mbox_tx_fd = -1;
 	int umd_mbox_rx_fd = -1;
 
+	info->owner_func = umd_mbox_watch_demo;
+
 	info->umd_mbox_rx_fd = -1;
         info->umd_mbox_tx_fd = -1;
 
@@ -1748,9 +1749,11 @@ void umd_mbox_watch_demo(struct worker *info)
         if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
 	wkr[tundmathreadindex].umd_mbox_tx_fd = sockp2[0];
-	wkr[tundmathreadindex].umd_mbox_rx_fd = sockp1[1];
+	if (wkr[tundmathreadindex].umd_set_rx_fd != NULL)
+	     wkr[tundmathreadindex].umd_set_rx_fd(&wkr[tundmathreadindex], sockp1[1]);
+	else wkr[tundmathreadindex].umd_mbox_rx_fd = sockp1[1];
 
-        INFO("\n\tWatching MBOX %d for IBwin mappings [tx_fd=%d, rx_fd=%d] sockp (%d,%d) (%d,%d)\n",
+        INFO("\n\tWatching MBOX %d [tx_fd=%d, rx_fd=%d] sockp (%d,%d) (%d,%d)\n",
 	     info->umd_chan, umd_mbox_tx_fd, umd_mbox_rx_fd,
 	     sockp1[0], sockp1[1],
 	     sockp2[0], sockp2[1]);
