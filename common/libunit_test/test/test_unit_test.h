@@ -43,6 +43,7 @@ extern "C" {
 #define ACTION_SHR_INC 3
 #define ACTION_SHR_DEC 4
 #define ACTION_HLT_REQ 5
+#define ACTION_HLT_SEM 6
 
 char *action_strings[] = {
 	(char *)"no_actn",
@@ -50,6 +51,8 @@ char *action_strings[] = {
 	(char *)"inc_val",
 	(char *)"shr_inc",
 	(char *)"shr_dec",
+	(char *)"hld_req",
+	(char *)"hlt_sem",
 	(char *)"Illegal"
 };
 

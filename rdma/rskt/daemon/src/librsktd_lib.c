@@ -69,6 +69,7 @@ void *app_tx_loop(void *unused)
 	struct librsktd_unified_msg *msg = NULL;
 	int free_flag;
 	int valid_flag;
+	char my_name[16];
 
         l_init(&lib_st.app);
 
@@ -77,6 +78,11 @@ void *app_tx_loop(void *unused)
 	l_init(&dmn.app_tx_q);
 
 	dmn.app_tx_alive = 1;
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "RSKTD_APP_TX");
+        pthread_setname_np(dmn.app_tx_thread, my_name);
+
 	sem_post(&dmn.loop_started);
 
 	while (!dmn.all_must_die) {
@@ -376,7 +382,8 @@ void halt_lib_handler(void);
 
 void *lib_conn_loop( void *unused )
 {
-       struct sigaction sigh;
+	struct sigaction sigh;
+	char my_name[16];
 
         memset(&sigh, 0, sizeof(sigh));
         sigh.sa_handler = recv_loop_sig_handler;
@@ -390,6 +397,10 @@ void *lib_conn_loop( void *unused )
 	}
 
 	lib_st.loop_alive = 1;
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "RSKTD_APP_CONN");
+        pthread_setname_np(lib_st.conn_thread, my_name);
+
 	sem_post(&lib_st.loop_started);
 
 	while (!lib_st.all_must_die) {

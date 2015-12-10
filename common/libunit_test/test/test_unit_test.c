@@ -48,6 +48,7 @@ int test_case_1A(void)
 	int i = 0;
 	int num_cpus = getCPUCount();
 	struct test_worker_info *work = NULL;
+	char name[16], exp_name[16];
 
 	if (start_worker_thread(&wkr[i], i % num_cpus)) {
 		ERR("Worker failed to start.");
@@ -67,8 +68,16 @@ int test_case_1A(void)
 		goto fail;
 	if (wkr[i].action != UNIT_TEST_NO_ACTION)
 		goto fail;
-	if (wkr[i].priv_info == NULL)
+
+	memset(exp_name, 0, 16);
+	memset(name, 0, 16);
+	snprintf(exp_name, 16, "WORKER_%d", wkr[i].idx);
+	if (pthread_getname_np(wkr[i].wkr_thr.thr, name, 16))
 		goto fail;
+
+	if (strncmp(name, exp_name, 16))
+		goto fail;
+	
 	if (wkr[i].priv_info == NULL)
 		goto fail;
 	work = (struct test_worker_info *)wkr[i].priv_info;
@@ -80,6 +89,7 @@ int test_case_1A(void)
 		goto fail;
 	if (work->shared_sem != &shared_sem)
 		goto fail;
+
 
 	return 0;
 fail:
@@ -510,6 +520,49 @@ int test_case_6(void)
 	return 0;
 };
 	
+/* Test killing worker on signal...
+ */
+int test_case_7(void)
+{
+	int i;
+
+	for (i = 0; i < MAX_WORKERS; i++) {
+		if (start_worker_thread(&wkr[i], -1)) {
+			ERR("Worker %d could not be restarted", i);
+			goto fail;
+		};
+	};
+
+	for (i = 0; i < MAX_WORKERS; i++)
+		run_worker_action(&wkr[i], ACTION_HLT_SEM);
+
+	
+	for (i = 0; i < MAX_WORKERS; i++)  {
+		if (wait_for_worker_status(&wkr[i], worker_running)) {
+			ERR("Worker %d not halted", i);
+			goto fail;
+		};
+	};
+	
+	for (i = 0; i < MAX_WORKERS; i++)
+		kill_worker_thread(&wkr[i]);
+
+	for (i = 0; i < MAX_WORKERS; i++)  {
+		if (wait_for_worker_status(&wkr[i], worker_dead)) {
+			ERR("Worker %d not dead", i);
+			goto fail;
+		};
+		if (wkr[i].priv_info != NULL) {
+			ERR("Worker %d priv info still valid?", i);
+			goto fail;
+		};
+	};
+
+	return 0;
+fail:
+	return 1;
+};
+	
 char *action_str(int action)
 {
 	char *rc = (char *)unknown_str;
@@ -548,7 +601,10 @@ int ts_sel(char *parm)
 int worker_body(struct worker *info)
 {
 	struct test_worker_info *work = NULL;
-	int i;
+	int i, rc;
+	sem_t local_sem;
+
+	sem_init(&local_sem, 0, 0);
 
 	if (NULL == info) {
 		ERR("Worker info NULL.");
@@ -611,6 +667,14 @@ int worker_body(struct worker *info)
 			break;
 	case ACTION_HLT_REQ: while (info->stop_req == worker_running)
 				sched_yield();
+			break;
+	case ACTION_HLT_SEM: 
+			do {
+				rc = sem_wait(&local_sem);
+			} while  (rc && (errno == EINTR) &&
+				(info->stop_req == worker_running));
+			if (rc && errno != EINTR)
+				goto fail;
 			break;
 	default: CRIT("Unknown command %d", info->action);
 		 break;
@@ -745,6 +809,12 @@ int main(int argc, char *argv[])
 		goto fail;
 	};
 	printf("\nTest_case_6 passed.");
+
+	if (test_case_7()) {
+		printf("\nTest_case_7 FAILED.");
+		goto fail;
+	};
+	printf("\nTest_case_7 passed.");
 
 	rc = EXIT_SUCCESS;
 fail:

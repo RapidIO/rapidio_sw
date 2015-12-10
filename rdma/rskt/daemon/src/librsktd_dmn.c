@@ -183,7 +183,7 @@ int d_rdma_get_msub_h(struct ms_info *msi, int size,
         return rc;
 }
 
-int init_mport_and_mso_ms()
+int init_mport_and_mso_ms(void)
 {
 	int rc = -1;
 	uint32_t i;
@@ -320,6 +320,7 @@ int cleanup_dmn(void)
 	/* It is important to cleanly shut down all worker and slave peers */
 	close_all_wpeers();
 	close_all_speers();
+	halt_speer_conn_handler();
 
 	if (dmn.skt_valid) {
 		/* FIXME: */
@@ -357,10 +358,24 @@ int cleanup_dmn(void)
 	return rc;
 };
 
+void speer_conn_sig_handler(int sig)
+{
+        if (sig)
+                return;
+}
+
+void halt_speer_conn_handler(void)
+{
+	pthread_kill(dmn.thread, SIGUSR1);
+	pthread_join(dmn.thread, NULL);
+};
+
 void *speer_conn(void *unused)
 {
 	int rc = 1;
 	riomp_sock_t new_socket = NULL;
+	char my_name[16];
+        struct sigaction sigh;
 	
 	dmn.speer_conn_alive = 0;
 	if (init_mport_and_mso_ms()) 
@@ -368,6 +383,14 @@ void *speer_conn(void *unused)
 
 	dmn.speer_conn_alive = 1;
 __sync_synchronize();
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "SPEER_CONN");
+	pthread_setname_np(dmn.thread, my_name);
+
+        memset(&sigh, 0, sizeof(sigh));
+        sigh.sa_handler = speer_conn_sig_handler;
+        sigaction(SIGUSR1, &sigh, NULL);
 
 	sem_post(&dmn.loop_started);
 
@@ -388,17 +411,17 @@ repeat:
 			rc = riomp_sock_accept(dmn.cm_acc_h, &new_socket, 3*60*1000);
 		}
 
+		if (dmn.all_must_die) {
+			riomp_sock_close(&new_socket);
+			continue;
+		};
+
 		if (rc) {
 			if ((errno == ETIME) || (errno == EINTR))
 				goto repeat;
 			CRIT("speer_conn: riodp_accept() ERR %d\n", rc);
 			break;
 		}
-
-		if (dmn.all_must_die) {
-			riomp_sock_close(&new_socket);
-			continue;
-		};
 
 		DBG("start new SPEER");
 		start_new_speer(new_socket);

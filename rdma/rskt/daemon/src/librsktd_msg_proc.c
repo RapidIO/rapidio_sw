@@ -329,11 +329,16 @@ void rsktd_areq_hello(struct librsktd_unified_msg *msg)
 {
 	struct librskt_hello_req *req = &msg->rx->a_rq.msg.hello;
 	struct librskt_resp *resp = &msg->tx->a_rsp;
+	char app_name[16];
 
 	memcpy((*msg->app)->app_name, req->app_name, MAX_APP_NAME);
 	(*msg->app)->proc_num = ntohl(req->proc_num);
 	resp->err = 0;
 	resp->msg.hello.ct = htonl(dmn.qresp.hdid);
+
+        memset(app_name, 0, 16);
+        snprintf(app_name, 15, "AppRx_%8s", (*msg->app)->app_name);
+        pthread_setname_np((*msg->app)->thread, app_name);
 };
 
 /* Response message initialized when request received.
@@ -726,6 +731,7 @@ void rsktd_sreq_hello_req(struct librsktd_unified_msg *r)
 	struct rsktd_req_msg *dreq = r->dreq;
 	struct rsktd_resp_msg *dresp = r->dresp;
 	struct rskt_dmn_speer *sp = *r->sp;
+        char sp_name[16];
 
 	if (NULL == sp) {
 		dresp->err = htonl(ECONNREFUSED);
@@ -735,7 +741,13 @@ void rsktd_sreq_hello_req(struct librsktd_unified_msg *r)
 	sp->ct = ntohl(dreq->msg.hello.ct);
 	sp->cm_skt_num = ntohl(dreq->msg.hello.cm_skt);
 	sp->cm_mp = ntohl(dreq->msg.hello.cm_mp);
+
 	sp->got_hello = 1;
+
+        memset(sp_name, 0, 16);
+        snprintf(sp_name, 15, "SPEERx%x", sp->ct);
+        pthread_setname_np(sp->s_rx, sp_name);
+
 	dresp->msg.hello.peer_pid = htonl(getpid());
 
 	DBG("RSKTD HELLO SPEER %d Received\n", sp->ct);
@@ -929,9 +941,15 @@ void enqueue_mproc_msg(struct librsktd_unified_msg *msg)
 void *msg_q_loop(void *unused)
 {
 	struct librsktd_unified_msg *msg;
+	char my_name[16];
 
 	DBG("ENTER\n");
 	mproc.msg_proc_alive = 1;
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "RSKTD_MSG_PROC");
+        pthread_setname_np(mproc.msg_q_thread, my_name);
+
 	sem_post(&mproc.msg_q_started);
 
 	while (!dmn.all_must_die) {

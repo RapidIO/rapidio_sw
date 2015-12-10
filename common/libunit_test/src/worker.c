@@ -183,6 +183,7 @@ int migrate_worker_thread(struct worker *info, int cpu)
 	info->wkr_thr.cpu_req = cpu;
 	info->stop_req = worker_running;
 	info->action = UNIT_TEST_NO_ACTION;
+
 	sem_post(&info->run);
 
 	return 0;
@@ -195,6 +196,7 @@ void kill_worker_thread(struct worker *info)
                 info->stop_req = worker_dead;
 		if (worker_halted == info->stat)
                 	sem_post(&info->run);
+		pthread_kill(info->wkr_thr.thr, SIGUSR1);
                 pthread_join(info->wkr_thr.thr, NULL);
         };
 
@@ -219,11 +221,26 @@ int wait_for_worker_status(struct worker *info, enum worker_stat desired)
 	return info->stat != desired;
 };
 
+void worker_sig_handler(int sig)
+{
+        if (sig)
+                return;
+}
+
 void *worker_thread(void *parm)
 {
 	struct worker *info = (struct worker *)parm;
+	char my_name[16];
+	struct sigaction sigh;
 
 	info->stop_req = worker_running;
+
+	memset(my_name, 0, 16);
+	snprintf(my_name, 15, "WORKER_%d", info->idx);
+	if (pthread_setname_np(info->wkr_thr.thr, my_name)) {
+		info->action = UNIT_TEST_SHUTDOWN;
+		info->stop_req = worker_dead;
+	};
 
 	if ((drvr_valid) && (NULL != drvr.create_priv))
 		drvr.create_priv(info);
@@ -231,6 +248,10 @@ void *worker_thread(void *parm)
 		info->action = UNIT_TEST_SHUTDOWN;
 		info->stop_req = worker_dead;
 	};
+
+	memset(&sigh, 0, sizeof(sigh));
+	sigh.sa_handler = worker_sig_handler;
+	sigaction(SIGUSR1, &sigh, NULL);
 
 	info->stat = worker_running;
 	sem_post(&info->started);

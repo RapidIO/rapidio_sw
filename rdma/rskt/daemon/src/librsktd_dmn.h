@@ -136,9 +136,11 @@ struct rsktd_resp_msg {
 void enqueue_wpeer_msg(struct librsktd_unified_msg *msg);
 void enqueue_speer_msg(struct librsktd_unified_msg *msg);
 
+int init_mport_and_mso_ms(void);
 int start_speer_conn(uint32_t cm_skt, uint32_t mpnum,
                                         uint32_t num_ms, uint32_t ms_size,
                                         uint32_t skip_ms, uint32_t tst);
+void halt_speer_conn_handler(void);
 
 /* CM Messages must be a multiple of 8 bytes */
 #define DMN_MSG_SZ(x) ((x+7) & 0xFF8)

@@ -69,6 +69,7 @@ void cleanup_proc(struct cli_env *env)
 
 	halt_msg_proc_q_thread();
 	halt_lib_handler();
+	halt_speer_conn_handler();
 	librskt_finish();
 	for (i = 0; i < MAX_WORKERS; i++)
 		kill_worker_thread(&wkr[i]);
@@ -1071,6 +1072,7 @@ int test_case_4A(void)
 
 		sem_wait(&buddy->done_sema);
 		sem_wait(&test->done_sema);
+		CRIT("RCs: wkr %d test %x buddy %x", idx, test->rc, buddy->rc);
 
 		rc |= test->rc | buddy->rc;
 	};
@@ -1208,6 +1210,11 @@ int main(int argc, char *argv[])
 	dmn.qresp.hdid = FAKE_LIBMPORT_CT;
 
 	g_level = 2;
+
+	if (init_mport_and_mso_ms()) {
+		ERR("init_mport_and_mso_ms failed. EXITING");
+		goto fail;
+	};
 
 	if (start_msg_proc_q_thread()) {
 		ERR("Could not start message procssor thread. EXITING");

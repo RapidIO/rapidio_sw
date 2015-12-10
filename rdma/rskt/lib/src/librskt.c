@@ -113,14 +113,17 @@ struct rsvp_li {
 	struct librskt_rsktd_to_app_msg *resp; 
 };
 
+int lib_uninit(void);
+
 int librskt_wait_for_sem(sem_t *sema, int err_code)
 {
-	int rc = sem_wait(sema);
-	if (rc) {
-		WARN("sem_wait returned %d\n", rc);
-	}
-	while (rc && (EINTR == errno))
+	int rc;
+
+	lib.all_must_die = 0;
+	do {
 		rc = sem_wait(sema);
+	} while (rc && (EINTR == errno) && !lib.all_must_die);
+
 	if (rc) {
 		ERR("Failed in sem_wait()\n");
 		lib.all_must_die = err_code;
@@ -220,6 +223,11 @@ void *tx_loop(void *unused)
 {
 	struct librskt_app_to_rsktd_msg *tx;
 	int rc;
+	char my_name[16];
+
+	memset(my_name, 0, 16);
+	snprintf(my_name, 15, "LIBRSKT_TX");
+	pthread_setname_np(lib.tx_thr, my_name);
 
 	DBG("ENTER\n");
 
@@ -310,6 +318,7 @@ void *rsvp_loop(void *unused)
 			malloc(RSKTD2A_SZ);
 	struct sigaction rsvp_loop_sig;
 	struct rsvp_li *delayed;
+	char my_name[16];
 
 	memset(&rsvp_loop_sig, 0, sizeof(rsvp_loop_sig));
 	rsvp_loop_sig.sa_handler = rsvp_loop_sig_handler;
@@ -320,6 +329,10 @@ void *rsvp_loop(void *unused)
 	}
 
 	sigaction(SIGUSR1, &rsvp_loop_sig, NULL);
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "LIBRSKT_RSVP");
+        pthread_setname_np(lib.rsvp_thr, my_name);
 
 	DBG("ENTER\n");
 	while (!lib.all_must_die) {
@@ -449,6 +462,11 @@ void *req_loop(void *unused)
 	struct librskt_app_to_rsktd_msg *resp = NULL;
 	struct l_item_t *li;
 	rskt_h skt_h;
+	char my_name[16];
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "LIBRSKT_REQ");
+        pthread_setname_np(lib.req_thr, my_name);
 
 	while (!lib.all_must_die) {
 	       

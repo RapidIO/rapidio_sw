@@ -295,7 +295,7 @@ int riomp_mgmt_query(riomp_mport_t mport_handle,
 			return 0;
 	};
 
-	qresp->hdid = 777;
+	qresp->hdid = FAKE_LIBMPORT_CT;
 	qresp->id = 0;
 	qresp->sys_size = 1;
 	qresp->port_ok = 1;
@@ -304,7 +304,7 @@ int riomp_mgmt_query(riomp_mport_t mport_handle,
 	qresp->transfer_mode = 1;
 	qresp->cap_sys_size = 3;
 	qresp->cap_transfer_mode = 3;
-	qresp->cap_mport = RIO_MPORT_DMA | RIO_MPORT_DMA_SG | RIO_MPORT_IBSG;
+	qresp->flags = RIO_MPORT_DMA | RIO_MPORT_DMA_SG | RIO_MPORT_IBSG;
 
 	return 0;
 };
@@ -498,10 +498,12 @@ struct rapidio_mport_socket {
 
 // struct riomp_mailbox_t * struct worker;
 
+sem_t sock_wkr_idx_mtx;
 int sock_wkr_idx;
 
 int riomp_sock_mbox_init(void)
 {
+	sem_init(&sock_wkr_idx_mtx, 0, 1);
 	sock_wkr_idx = 0;
 	return 0;
 }
@@ -708,17 +710,19 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	if (NULL == *conn)
 		goto fail;
 
+	sem_wait(&sock_wkr_idx_mtx);
 	(*conn)->wkr_idx = sock_wkr_idx;
 	sock_wkr_idx++;
 	(*conn)->acceptor = TEST_SKT_ACCEPT;
+	sem_post(&sock_wkr_idx_mtx);
 
 	if ((socket_handle->wkr_idx < 0) ||
 			(socket_handle->wkr_idx > MAX_WORKER_IDX))
 		goto fail;
 	test = (struct rskt_test_info *)wkr[socket_handle->wkr_idx].priv_info;
 
-	if (NULL == test)
-		goto fail;
+	while (NULL == test)
+		sched_yield();
 
 	sem_post(&test->speer_con);
 	sem_wait(&test->speer_acc);
