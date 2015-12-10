@@ -1092,8 +1092,10 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 			uint64_t peer_rio_addr = 0;
 			pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 			{{
-			  if (info->umd_dma_did_enum_list[from_destid].on_time == 0)
+			  if (info->umd_dma_did_enum_list[from_destid].on_time == 0) {
+				info->umd_dma_did_enum_list[from_destid].destid = from_destid;
 				info->umd_dma_did_enum_list[from_destid].on_time = now;
+			  }
 			  info->umd_dma_did_enum_list[from_destid].ls_time = now;
 			  info->umd_dma_did_enum_list[from_destid].bcast_cnt_in++;
 
@@ -1118,7 +1120,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 				umd_dma_goodput_tun_del_ep(info, from_destid, false);
 				break; // F*ck g++
 			    } else {
-				ERR("\n\tPeer destid %u told us to go away but I have no peer for it!\n", from_destid);
+				ERR("\n\tPeer destid %u told us to go away but we have no peer for it!\n", from_destid);
 				break; // F*ck g++
 			    }
 			}
@@ -1936,6 +1938,10 @@ void UMD_DD(struct worker* info)
         DmaChannelInfo_t* dch_list[6] = {0};
 
 	assert(info->umd_dch_nread);
+
+	std::string s;
+	if (info->umd_peer_ibmap->toString(s) > 0)
+		INFO("\n\tIBwin mappings:\n%s", s.c_str());
 
         int dch_cnt = 0;
         for (int ch = info->umd_chan; info->umd_chan >= 0 && ch <= info->umd_chan_n; ch++) {

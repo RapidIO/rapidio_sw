@@ -161,6 +161,27 @@ done:
   inline uint64_t getBaseSize()    { return m_ib_size; }
   inline void*    getBasePtr()     { return m_ib_ptr; }
 
+  inline int toString(std::string& s)
+  {
+    int cnt = 0;
+    char tmp[257] = {0};
+
+    pthread_mutex_lock(&m_mutex);
+    std::map<uint16_t, int>::iterator itm = m_destid_map.begin();
+    for (; itm != m_destid_map.end(); itm++) {
+      const uint16_t destid = itm->first;
+      const int      slot   = itm->second;
+      const uint64_t rio_addr = m_rio_addr + slot * PEER_IBWIN_SIZE;
+      const void*    ib_ptr   = m_ib_ptr   + slot * PEER_IBWIN_SIZE;
+      snprintf(tmp, 256, "\tdestid %u slot=%d rio_addr=0x%llx ib_ptr=%p\n", destid, slot, rio_addr, ib_ptr);
+      s.append(tmp);
+      cnt++;
+    }
+    pthread_mutex_unlock(&m_mutex);
+
+    return cnt;
+  }
+
 private:
   uint64_t  m_rio_addr;
   uint8_t*  m_ib_ptr;
