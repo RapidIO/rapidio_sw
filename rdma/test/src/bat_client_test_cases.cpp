@@ -556,13 +556,16 @@ int test_case_c(void)
 		}
 	}
 	ret = rc;
+
 free_mso:
 	/* Delete the mso */
 	rc = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 exit:
-	BAT_EXPECT_PASS(ret);
+	if (rc == 0) {
+		BAT_EXPECT_PASS(ret);
+	}
 
 	return 0;
 } /* test_case_c() */
@@ -741,7 +744,9 @@ free_mso:
 	BAT_EXPECT_RET(rc, 0, exit);
 
 exit:
-	BAT_EXPECT_PASS(ret);
+	if (rc == 0) {
+		BAT_EXPECT_PASS(ret);
+	}
 	return 0;
 } /* test_case_d() */
 
@@ -888,7 +893,9 @@ free_mso:
 	BAT_EXPECT_RET(rc, 0, exit);
 
 exit:
-	BAT_EXPECT_PASS(ret);
+	if (rc == 0) {
+		BAT_EXPECT_PASS(ret);
+	}
 	return 0;
 } /* test_case_e() */
 
@@ -998,7 +1005,9 @@ free_mso:
 	rc = rdma_destroy_mso_h(msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
 exit:
-	BAT_EXPECT_PASS(ret);
+	if (rc == 0) {
+		BAT_EXPECT_PASS(ret);
+	}
 	return 0;
 } /* test_case_f() */
 
@@ -1189,7 +1198,7 @@ int test_case_g(void)
 		rc = rdma_create_ms_h("dummy8", client_msoh, 128*1024, 0, &msh, &size);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
-		ret = rc;	/* ret is overwritten when the mso is destroyed */
+		ret = rc;	/* rc is overwritten when the mso is destroyed */
 	}
 
 free_mso:
@@ -1197,18 +1206,136 @@ free_mso:
 	rc = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
 exit:
-	BAT_EXPECT_PASS(ret);
+	if (rc == 0) {
+		BAT_EXPECT_PASS(ret);
+	}
 
 	return 0;
 } /* test_case_g() */
 
 /**
- * Test case 'h' is another test case for free memory space merging.
+ * Test cases h involves creating many remote memory spaces and
+ * repeatedly connecting to and disconnecting from them.
  */
+int test_case_h(uint32_t destid)
+{
+	const uint32_t MS_SIZE = 64*1024;
+	const uint32_t MSUB_SIZE = 8*1024;
+	const unsigned NUM_CONNECTIONS = 3;
+	const unsigned NUM_ITERATIONS = 3;
+
+	mso_h	server_msoh;
+	struct ms_info_t {
+		ms_h	msh;
+		msub_h	msubh;
+		msub_h	  server_msubh_rb;
+		uint32_t  server_msub_len_rb;
+		ms_h	  server_msh_rb;
+	};
+	ms_info_t	ms_info[NUM_CONNECTIONS];
+
+	int ret, rc;
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	ret = rdma_create_mso_h("loc_mso", &client_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Create a client ms of size 16K */
+	ms_h	client_msh;
+	ret = rdma_create_ms_h("loc_ms", client_msoh, 16*1024, 0,
+							&client_msh, NULL);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	/* Create a client msub of size 4K */
+	msub_h	client_msubh;
+	ret = rdma_create_msub_h(client_msh, 0, 4*1024, 0, &client_msubh);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	/* Create server mso */
+	ret = create_mso_f(bat_first_client, bm_first_tx, bm_first_rx,
+			   	   	   	   "rem_mso", &server_msoh);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	/* Create remote memory spaces and subspaces */
+	for (unsigned c = 0; c < NUM_CONNECTIONS; c++) {
+		stringstream ms_name;
+
+		/* Create remote memory space */
+		ms_name << "rem_ms" << c;
+		ret = create_ms_f(bat_first_client, bm_first_tx,
+				  bm_first_rx, ms_name.str().c_str(),
+				  server_msoh, MS_SIZE, 0,
+				  &ms_info[c].msh, NULL);
+		BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+		/* Create msub on remote memory space */
+		ret = create_msub_f(bat_first_client, bm_first_tx,
+				bm_first_rx, ms_info[c].msh, 0,
+				MSUB_SIZE, 0, &ms_info[c].msubh);
+		BAT_EXPECT_RET(ret, 0, free_server_mso);
+	}
+
+	for (unsigned i = 0; i < NUM_ITERATIONS; i++) {
+		/* Put all remote memory spaces in accept mode */
+		for (unsigned c = 0; c < NUM_CONNECTIONS; c++) {
+			/* Accept on remote ms on the server */
+			ret = accept_ms_thread_f(bat_first_client,
+						bm_first_tx, ms_info[c].msh,
+						ms_info[c].msubh);
+			BAT_EXPECT_RET(ret, 0, free_server_mso);
+			sleep(1);
+		}
+
+		/* Now all remote memory spaces are in 'accept' mode.
+		 * Connect to all of them. */
+		for (unsigned c = 0; c < NUM_CONNECTIONS; c++) {
+			stringstream ms_name;
+
+			/* Connect to remote memory space */
+			ms_name << "rem_ms" << c;
+			ret = rdma_conn_ms_h(16, destid, ms_name.str().c_str(),
+					client_msubh,
+					&ms_info[c].server_msubh_rb,
+					&ms_info[c].server_msub_len_rb,
+					&ms_info[c].server_msh_rb,
+					30);
+			BAT_EXPECT_RET(ret, 0, free_server_mso);
+			sleep(1);
+		}
+
+		/* Disconnect from all memory spaces */
+		for (unsigned c = 0; c < NUM_CONNECTIONS; c++) {
+			ret = rdma_disc_ms_h(ms_info[c].server_msh_rb,
+					     client_msubh);
+			BAT_EXPECT_RET(ret, 0, free_server_mso);
+			sleep(1);
+		}
+	}
+
+	rc = ret;	/* 'ret' is overwritten during destruction */
+
+free_server_mso:
+	/* Delete the server mso */
+	ret = destroy_mso_f(bat_first_client, bm_first_tx, bm_first_rx,
+								server_msoh);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+free_client_mso:
+	/* Delete the client mso */
+	ret = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+exit:
+	if (ret == 0) {
+		BAT_EXPECT_PASS(rc);
+	}
+	return 0;
+} /* test_case_h() */
 
 /**
- * Test cases i and j involve creating 3 remote memory spaces and connecting
- * to them.
+ * Test cases i, j, and k involve creating 3 remote memory spaces
+ * and connecting to them.
  *
  * Test case 'i' also disconnects from the 3 memory spaces.
  * Test case 'j' destroys the local 'mso' then the remote 'mso' but does
