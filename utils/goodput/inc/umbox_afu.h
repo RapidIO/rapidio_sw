@@ -1,6 +1,8 @@
 #ifndef __UMBOX_AFU_H__
 #define __UMBOX_AFU_H__
 
+#define AFU_PATH        "/tmp/RIO_CM_DG_"
+
 /** \brief This is the L3 header we use for transporting CM-tagged data over MBOX */
 struct DMA_MBOX_L3_s {
 	uint16_t destid; // When TX: destid of destination, When RX: destid of source, network order

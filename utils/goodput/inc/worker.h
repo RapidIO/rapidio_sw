@@ -88,6 +88,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "lockfile.h"
 #include "udma_tun.h"
 #include "ibmap.h"
+#include "umbox_afu.h"
 #endif
 
 #ifdef __cplusplus
@@ -154,8 +155,6 @@ struct thread_cpu {
 };
 
 #ifdef USER_MODE_DRIVER
-
-#define AFU_PATH	"/tmp/RIO_CM_DG_"
 
 #define SOFT_RESTART	69
 
