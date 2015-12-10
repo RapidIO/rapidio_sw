@@ -69,6 +69,8 @@ mso_h add_loc_mso(const char* mso_name,
 		  pthread_t close_notify_thread,
 		  msg_q<mq_close_mso_msg> *close_notify_mq);
 
+void dump_loc_ms(void);
+
 pthread_t loc_mso_get_close_notify_thread(mso_h msoh);
 
 msg_q<mq_close_mso_msg> *loc_mso_get_close_notify_mq(mso_h msoh);

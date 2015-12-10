@@ -407,6 +407,12 @@ ms_h add_loc_ms(const char *ms_name,
 	return (ms_h)msp;
 } /* add_loc_ms() */
 
+void dump_loc_ms(void)
+{
+	for (auto it = begin(loc_ms_list); it != end(loc_ms_list); it++) {
+		printf("msh = 0x%p\t", (*it));
+	}
+}
 /**
  * Returns true if the ms has owner msoh.
  */
@@ -482,7 +488,7 @@ int remove_loc_ms(ms_h msh)
 	pthread_mutex_lock(&loc_ms_mutex);
 	auto it = find(loc_ms_list.begin(), loc_ms_list.end(), (loc_ms *)msh);
 	if (it == loc_ms_list.end()) {
-		ERR("msh = 0x%lX not found\n");
+		ERR("msh = 0x%" PRIx64 " not found\n", msh);
 		rc = -2;
 	} else {
 		/* Free the ms, and remove from list */
