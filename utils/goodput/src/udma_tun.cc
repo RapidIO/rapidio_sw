@@ -91,8 +91,10 @@ extern "C" {
 #define PAGE_4K    4096
 
 void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool signal);
+void umd_dma_goodput_tun_del_ep_signal(struct worker* info, const uint32_t destid);
+static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, const int tun_fd, const uint16_t my_destid);
 
-///< This be fishy!
+///< This be fishy! There's no standard for ntonll :(
 static inline uint64_t htonll(uint64_t value)
 {
      int num = 42;
@@ -172,8 +174,6 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 }
 
 const int DESTID_TRANSLATE = 1;
-
-static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, const int tun_fd, const uint16_t my_destid);
 
 /** \brief Thread that services Tun TX, sends L3 frames to peer and does RIO TX throttling
  * Update RP via NREAD every 8 buffers; when local q is 2/3 full do it after each send
@@ -263,6 +263,8 @@ no_post:
         pthread_exit(parm);
 } // END umd_dma_tun_RX_proc_thr
 
+/** \brief Process data from Tun and send it over DMA NWRITE
+ */
 static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, const int tun_fd, const uint16_t my_destid)
 {
 	if (info == NULL || dci == NULL || tun_fd < 0 || my_destid == 0xffff) return false;
@@ -534,7 +536,7 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 }
 
-/** \brief This helper thread wakes up the main thread at quitting time */
+/** \brief This helper thread wakes up the Peer thread(s) and the main thread at quitting time */
 void* umd_dma_wakeup_proc_thr(void* arg)
 {
 	if(arg == NULL) return NULL;
@@ -563,19 +565,12 @@ void* umd_dma_wakeup_proc_thr(void* arg)
 	return NULL;
 }
 
-uint32_t Test_NREAD(struct worker* info)
-{
-  uint32_t newRP = 0;
-  if (udma_nread_mem(info, info->did, info->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
-	DBG("\n\tAt start on destid %u RP=%u\n", info->did, newRP);	
-  } else {
-	return ~0;
-  }
-  return newRP;
-}
-
 const int CH2_BUFC = 0x20;
 
+/** \brief Setup the TX/NREAD DMA channel
+ * \note This channel will do only one operation at a time
+ * \note It will get only the minimum number of BDs \ref CH2_BUFC
+ */
 bool umd_dma_goodput_tun_setup_chan2(struct worker *info)
 {
 	if (info == NULL) return false;
@@ -607,6 +602,8 @@ bool umd_dma_goodput_tun_setup_chan2(struct worker *info)
 	return true;
 }
 
+/** \brief Setup a TX/NWRITE DMA channel
+ */
 bool umd_dma_goodput_tun_setup_chanN(struct worker *info, const int n)
 {
 	if (info == NULL) return false;
@@ -669,6 +666,8 @@ error:
 	return false;
 }
 
+/** \brief Set up a Tun for a Peer
+ */
 bool umd_dma_goodput_tun_setup_TUN(struct worker *info, DmaPeerDestid_t* peer, uint16_t my_destid)
 {
 	bool ret = false;
@@ -892,6 +891,10 @@ exit:
 	return false;
 }
 
+/** \brief Thread to service FIFOs for all TX/NWRITE DMA channels
+ * \note This must be running on an isolcpu core.
+ * \note It has a callback for other code to share isolcpu resource.
+ */
 void* umd_dma_tun_fifo_proc_thr(void* parm)
 {
         struct worker* info = NULL;
@@ -1246,7 +1249,6 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 	}
 
 	if (!umd_dma_goodput_tun_setup_chan2(info)) goto exit;
-	//Test_NREAD(info);
 
 	info->my_destid = info->umd_dch_nread->getDestId();
 
@@ -1374,9 +1376,10 @@ exit:
 
 		info->umd_dma_did_peer_fd2did.erase(peer->tun_fd);
 
+		// Tell peer we stop?
+		umd_dma_goodput_tun_del_ep_signal(info, peer->destid);
+
 		DmaPeerDestidDestroy(peer); free(peer);
-		
-		// XXX Use umd_dma_goodput_tun_del_ep_signal to tell peer we stop?
 	    }
 	  }} while(0);
 	  info->umd_dma_did_peer.clear();
@@ -1417,6 +1420,8 @@ void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
         pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 }
 
+/** \brief Tell peer (via MBOX) to go away
+ */
 void umd_dma_goodput_tun_del_ep_signal(struct worker* info, const uint32_t destid)
 {
 	assert(info);
@@ -1445,6 +1450,8 @@ void umd_dma_goodput_tun_del_ep_signal(struct worker* info, const uint32_t desti
 	}
 }
 
+/** \brief Check whether we have an up Tun for an endpoint 
+ */
 bool umd_dma_goodput_tun_ep_has_peer(struct worker* info, const uint16_t destid)
 {
 	assert(info);
