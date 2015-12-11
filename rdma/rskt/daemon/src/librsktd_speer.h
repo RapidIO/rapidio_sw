@@ -87,9 +87,15 @@ struct rskt_dmn_speer {
 	sem_t resp_ready;
 };
 
+#define SPEER_THRD_NM_FMT "SPEERx%x"
+
 void start_new_speer(riomp_sock_t new_socket);
 void *speer_tx_loop(void *unused);
 void close_all_speers(void);
+int start_speer_handler(uint32_t cm_skt, uint32_t mpnum,
+                                        uint32_t num_ms, uint32_t ms_size,
+                                        uint32_t skip_ms, uint32_t tst);
+void halt_speer_handler(void);
 
 #ifdef __cplusplus
 }

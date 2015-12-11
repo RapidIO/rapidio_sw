@@ -31,6 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <unistd.h>
 #include "libcli.h"
 #include "liblog.h"
 #include "librsktd_lib.h"
@@ -40,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librskt_private.h"
 #include "librsktd_sn.h"
 #include "librsktd_dmn.h"
+#include "librsktd_speer.h"
 #include "fake_libmport.h"
 #include "rskt_worker.h"
 
@@ -67,9 +69,13 @@ void cleanup_proc(struct cli_env *env)
 	if (NULL == env)
 		i = 0;
 
+	lib.all_must_die = 1;
+	dmn.all_must_die = 1;
+        kill_acc_conn = 1;
+
 	halt_msg_proc_q_thread();
 	halt_lib_handler();
-	halt_speer_conn_handler();
+	halt_speer_handler();
 	librskt_finish();
 	for (i = 0; i < MAX_WORKERS; i++)
 		kill_worker_thread(&wkr[i]);
@@ -136,13 +142,33 @@ int worker_body(struct worker *info)
 	
 void create_priv(struct worker *info)
 {
-	info->priv_info = malloc(sizeof(struct rskt_test_info));
+	struct rskt_test_info *test;
+	
+	test = (struct rskt_test_info *)malloc(sizeof(struct rskt_test_info));
+
+	sem_init(&test->speer_acc, 0, 0);
+	sem_init(&test->speer_con, 0, 0);
+	l_init(&test->speer_req);
+	sem_init(&test->speer_req_cnt, 0, 0);
+	sem_init(&test->speer_req_mtx, 0, 1);
+	test->speer_resp_err = 0;
+	l_init(&test->speer_resp);
+	sem_init(&test->speer_resp_cnt, 0, 0);
+	sem_init(&test->speer_resp_mtx, 0, 1);
+	memset((void *)&test->req, 0, sizeof(struct rsktd_req_msg));
+	memset((void *)&test->resp, 0, sizeof(struct rsktd_resp_msg));
+	test->acc_sent = 0;
+	test->acc_received = 0;
+	test->con_sent = 0;
+	test->con_received = 0;
+
+	info->priv_info = (void *)test;
 };
 
 void destroy_priv(struct worker *info)
 {
 	if (info->priv_info) {
-		free(info->priv_info);
+		//free((void *)info->priv_info);
 		info->priv_info = NULL;
 	};
 };
@@ -1189,12 +1215,190 @@ fail:
 
 /* Test exchange of Hello messages */
 
+int test_case_6(void)
+{
+	int idx = 0, rc;
+	int fail_pt = 5;
+        struct rsktd_resp_msg *dresp;
+	riomp_sock_t sock_h;
+	riomp_mailbox_t mbox;
+	struct rskt_dmn_speer *sp;
+	struct l_item_t *li;
+	uint32_t TX_CT = 0x9394;
+	uint32_t TX_CM_SKT = 0x9399;
+	uint32_t TX_CM_MP = 99;
+	char sp_name[16];
+	char exp_name[16];
+	struct rskt_test_info *test;
+
+	/* There should not be any peers now */
+	if (l_size(&dmn.speers))
+		goto fail; 
+
+	start_worker_thread(&wkr[idx], -1);
+	wait_for_worker_status(&wkr[idx], worker_halted);
+	
+	test = (struct rskt_test_info *)wkr[idx].priv_info;
+
+	if (riomp_sock_mbox_create_handle(0, 0, &mbox))
+		goto fail;
+
+	if (riomp_sock_socket(mbox, &sock_h))
+		goto fail;
+
+	if (riomp_sock_connect(sock_h, idx, 0, 1))
+		goto fail;
+
+	sleep(1);
+
+	/* There should now be one SPEER waiting on this worker thread */
+	fail_pt = 10;
+
+	if (1 != l_size(&dmn.speers))
+		goto fail; 
+	
+	sp = *(struct rskt_dmn_speer **)l_head(&dmn.speers, &li);
+
+	/* Not a typo, dmn.speers enqueues **speer. */
+	if (NULL == sp)
+		goto fail;
+
+	if (!sp->cm_skt_h_valid || sp->i_must_die || sp->comm_fail)
+		goto fail;
+
+	if (sp->self_ref == NULL)
+		goto fail;
+
+/*
+	if (*sp->self_ref != sp)
+		goto fail;
+*/
+
+	if (sp->ct || sp->cm_skt_num || sp->cm_mp || sp->got_hello)
+		goto fail;
+
+	/* Now its time to send the HELLO request */
+	fail_pt = 10;
+ 
+        test->req.msg_type = htonl(RSKTD_HELLO_REQ);
+        test->req.msg.hello.ct = htonl(TX_CT);
+        test->req.msg.hello.cm_skt = htonl(TX_CM_SKT);
+        test->req.msg.hello.cm_mp = htonl(TX_CM_MP);
+
+	if (riomp_sock_send(sock_h, &test->req, DMN_REQ_SZ))
+		goto fail;
+	
+	/* And receive the corresponding response ... */
+	fail_pt = 30;
+	memset(dresp, 0, DMN_RESP_SZ);
+	if (riomp_sock_receive(sock_h, (void **)&dresp, DMN_RESP_SZ, 0))
+		goto fail;
+
+	if (dresp->msg_type  != htonl(RSKTD_HELLO_RESP))
+		goto fail;
+	if (dresp->msg_seq)
+		goto fail;
+	if (dresp->err)
+		goto fail;
+
+	if (dresp->req.hello.ct != htonl(TX_CT))
+		goto fail;
+	if (dresp->req.hello.cm_skt != htonl(TX_CM_SKT))
+		goto fail;
+	if (dresp->req.hello.cm_mp != htonl(TX_CM_MP))
+		goto fail;
+
+	if (dresp->msg.hello.peer_pid != htonl(getpid()))
+		goto fail;
+
+	/* Check that speer data reflects HELLO contents */
+	fail_pt = 40;
+	if (sp->ct != TX_CT)
+		goto fail;
+	if (sp->cm_skt_num != TX_CM_SKT)
+		goto fail;
+	if (sp->cm_mp != TX_CM_MP)
+		goto fail;
+	if (!sp->got_hello)
+		goto fail;
+	snprintf(exp_name, 15, SPEER_THRD_NM_FMT, TX_CT);
+	pthread_getname_np(sp->s_rx, sp_name, 16);
+	if (strncmp(exp_name, sp_name, 16))
+		goto fail;
+
+	/* Send another HELLO request, check for error parms */
+	fail_pt = 50;
+ 
+	dresp = (struct rsktd_resp_msg *)malloc(DMN_RESP_SZ);
+
+	TX_CT /=7;
+	TX_CM_SKT /= 5;
+	TX_CM_MP /= 13;
+
+        test->req.msg_type = htonl(RSKTD_HELLO_REQ);
+        test->req.msg_seq = htonl(0x12345678);
+        test->req.msg.hello.ct = htonl(TX_CT);
+        test->req.msg.hello.cm_skt = htonl(TX_CM_SKT);
+        test->req.msg.hello.cm_mp = htonl(TX_CM_MP);
+
+	rc = riomp_sock_send(sock_h, (void *)&test->req, DMN_REQ_SZ);
+	if (rc)
+		goto fail;
+
+	/* And receive the corresponding response ... */
+	fail_pt = 60;
+	memset(dresp, 0, DMN_RESP_SZ);
+	rc = riomp_sock_receive(sock_h, (void **)&dresp, DMN_RESP_SZ, 0);
+	if (rc)
+		goto fail;
+
+	if (dresp->msg_type  != htonl(RSKTD_HELLO_RESP))
+		goto fail;
+	if (dresp->msg_seq  != htonl(0x12345678))
+		goto fail;
+	if (dresp->err)
+		goto fail;
+
+	if (dresp->req.hello.ct != htonl(TX_CT))
+		goto fail;
+	if (dresp->req.hello.cm_skt != htonl(TX_CM_SKT))
+		goto fail;
+	if (dresp->req.hello.cm_mp != htonl(TX_CM_MP))
+		goto fail;
+
+	if (dresp->msg.hello.peer_pid != htonl(getpid()))
+		goto fail;
+
+	/* Check that speer data reflects HELLO contents */
+	fail_pt = 70;
+	if (sp->ct != TX_CT)
+		goto fail;
+	if (sp->cm_skt_num != TX_CM_SKT)
+		goto fail;
+	if (sp->cm_mp != TX_CM_MP)
+		goto fail;
+	if (!sp->got_hello)
+		goto fail;
+
+	snprintf(exp_name, 15, SPEER_THRD_NM_FMT, TX_CT);
+	pthread_getname_np(sp->s_rx, sp_name, 16);
+	if (strncmp(exp_name, sp_name, 16))
+		goto fail;
+
+	return 0;
+fail:
+	return fail_pt;
+};
+
 	
 void kill_all_worker_threads(void) {
 	int i;
+	
+        kill_acc_conn = 1;
 	for (i = 0; i < MAX_WORKERS; i++) {
 		kill_worker_thread(&wkr[i]);
 	};
+        kill_acc_conn = 0;
 };
 
 int main(int argc, char *argv[])
@@ -1210,11 +1414,6 @@ int main(int argc, char *argv[])
 	dmn.qresp.hdid = FAKE_LIBMPORT_CT;
 
 	g_level = 2;
-
-	if (init_mport_and_mso_ms()) {
-		ERR("init_mport_and_mso_ms failed. EXITING");
-		goto fail;
-	};
 
 	if (start_msg_proc_q_thread()) {
 		ERR("Could not start message procssor thread. EXITING");
@@ -1283,6 +1482,7 @@ int main(int argc, char *argv[])
 	CRIT("Test case 4A Passed\n");
 
 	kill_all_worker_threads();
+        kill_acc_conn = 0;
 	rc = test_case_5();
 	if (rc) {
 		CRIT("Test case 5 FAILED %d \n", rc);
@@ -1291,13 +1491,22 @@ int main(int argc, char *argv[])
 	CRIT("Test case 5 Passed\n");
 
 	/* Now start SPEER tests */
-	if (start_speer_conn(DFLT_LIBRSKTD_TEST_CM_SKT,
+	kill_all_worker_threads();
+	
+	if (start_speer_handler(DFLT_LIBRSKTD_TEST_CM_SKT,
 			DFLT_LIBRSKTD_TEST_MPNUM, TEST_ZERO_MS, TEST_ZERO_MS_SZ,
 			TEST_SKIP_MS, NOT_TEST)) {
 		CRIT("Could not start speer connection manager. EXITING");
 		goto fail;
 	};
-	CRIT("Started connection manager.");
+	CRIT("Started SPEER connection manager.");
+
+	rc = test_case_6();
+	if (rc) {
+		CRIT("Test case 6 FAILED rc %d \n", rc);
+		// goto fail;
+	};
+	CRIT("Test case 6 Passed\n");
 
         splashScreen((char *)"RSKT UNIT TEST");
 	console((void *)"RSKT_TEST > ");

@@ -745,7 +745,7 @@ void rsktd_sreq_hello_req(struct librsktd_unified_msg *r)
 	sp->got_hello = 1;
 
         memset(sp_name, 0, 16);
-        snprintf(sp_name, 15, "SPEERx%x", sp->ct);
+        snprintf(sp_name, 15, SPEER_THRD_NM_FMT, sp->ct);
         pthread_setname_np(sp->s_rx, sp_name);
 
 	dresp->msg.hello.peer_pid = htonl(getpid());
