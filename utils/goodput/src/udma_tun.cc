@@ -496,7 +496,7 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 
 			if(0 != peer->rio_rx_bd_L2_ptr[k]->RO) {
 #ifdef UDMA_TUN_DEBUG_IB
-				DBG("\n\tFound ready buffer at RP=%d -- iter %llu\n", k, cbk_iter);
+				DBG("\n\tFound ready buffer at RP=%u -- iter %llu\n", k, cbk_iter);
 #endif
 
 				assert(k < (info->umd_tx_buf_cnt-1));
@@ -778,7 +778,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
         	if (info->stop_req || peer->stop_req) break;
 
-		DBG("\n\tInbound %d buffers(s) ready.\n", peer->rio_rx_bd_ready_size);
+		DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->rio_rx_bd_ready_size, *pRP);
 
 		assert(peer->rio_rx_bd_ready_size <= (info->umd_tx_buf_cnt-1));
 
@@ -793,8 +793,8 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 		peer->rio_rx_bd_ready_size = 0;
 		pthread_spin_unlock(&peer->rio_rx_bd_ready_splock);
 
-#ifdef UDMA_TUN_DEBUG
-		DBG("\n\tInbound %d buffers(s) will be processed from destid %u.\n", cnt, peer->destid);
+#ifdef UDMA_TUN_DEBUG_IB
+		DBG("\n\tInbound %d buffers(s) will be processed from destid %u RP=%u\n", cnt, peer->destid, *pRP);
 #endif
 
         	if (info->stop_req || peer->stop_req) break;
@@ -816,7 +816,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
 			uint8_t* payload = (uint8_t*)pL2 + DMA_L2_SIZE;
                         const int nwrite = cwrite(peer->tun_fd, payload, payload_size);
-#ifdef UDMA_TUN_DEBUG
+#ifdef UDMA_TUN_DEBUG_IB
                         const uint32_t crc = crc32(0, payload, payload_size);
                         DBG("\n\tGot a msg of size %d from RIO destid %u (L7 CRC32 0x%x) cnt=%llu, wrote %d to %s -- rp=%d\n",
                                  ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, peer->tun_name, rp);
@@ -826,6 +826,9 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 			else peer->tun_tx_err++;
 
 			rp++; if (rp == (info->umd_tx_buf_cnt-1)) rp = 0;
+#ifdef UDMA_TUN_DEBUG_IB
+			DBG("\n\tUpdating old RP %d to %d\n", *pRP, rp);
+#endif
 			*pRP = rp;
 		}
         } // END while NOT stop requested

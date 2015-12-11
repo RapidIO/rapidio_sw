@@ -1,4 +1,4 @@
-//isol 1
+isol
 set cpu1 ? -1
 thread 0 -1 0
 wait 0 h
