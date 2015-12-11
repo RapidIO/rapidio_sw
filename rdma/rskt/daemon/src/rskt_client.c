@@ -141,30 +141,36 @@ int main(int argc, char *argv[])
 	sock_addr.ct = destid;
 	sock_addr.sn = socket_number;
 
-	client_socket = rskt_create_socket();
-	if (!client_socket) {
-		fprintf(stderr, "Create client socket failed, rc = %d: %s\n",
-							rc, strerror(errno));
-		goto cleanup_rskt;
-	}
-
-	rc = rskt_connect(client_socket, &sock_addr);
-	if (rc) {
-		fprintf(stderr, "Connect to %u on %u failed\n",
-						destid, socket_number);
-		goto close_client_socket;
-	}
-
 	for (i = 0; i < repetitions; i++) {
+		/* Create a client socket */
+		client_socket = rskt_create_socket();
 
+		if (!client_socket) {
+			fprintf(stderr, "Create client socket failed, rc = %d: %s\n",
+								rc, strerror(errno));
+			goto cleanup_rskt;
+		}
+
+		/* Connect to server */
+		rc = rskt_connect(client_socket, &sock_addr);
+		if (rc) {
+			fprintf(stderr, "Connect to %u on %u failed\n",
+							destid, socket_number);
+			goto close_client_socket;
+		}
+
+		/* Generate data to send to server */
 		data_length = generate_data(data_length, tx_test);
 
+		/* Send the data */
 		rc = rskt_write(client_socket, send_buf, data_length);
 		if (rc) {
 			fprintf(stderr, "rskt_write failed, rc = %d: %s\n",
 					rc, strerror(errno));
 			goto close_client_socket;
 		}
+
+		/* Read data echoed back from the server */
 retry_read:
 		rc = rskt_read(client_socket, recv_buf, RSKT_DEFAULT_RECV_BUF_SIZE);
 		if (rc < 0) {
@@ -181,27 +187,29 @@ retry_read:
 					data_length, rc);
 		}
 
+		/* Compare with the original data that we'd sent */
 		if (memcmp(send_buf, recv_buf, data_length))
 			puts("Data did not compare. FAILED.\n");
 		else
 			printf("*** Iteration %u, DATA COMPARED OK ***\n", i);
-#if 0
-		puts("Keeping the connection OPEN. Start another one!!");
-		puts("Press ENTER to close the connection");
-		getchar();
-#endif
+
+		/* Close the socket and destroy it */
+		puts("Closing socket and destroying it.");
+		rc = rskt_close(client_socket);
+		if (rc) {
+			fprintf(stderr, "Failed to close client socket, rc=%d: %s\n",
+					rc, strerror(errno));
+			goto destroy_client_socket;
+		}
+
+		rskt_destroy_socket(&client_socket);
 	} /* for() */
 
-	rc = rskt_close(client_socket);
-	if (rc) {
-		fprintf(stderr, "Failed to close client socket, rc=%d: %s\n",
-				rc, strerror(errno));
-		goto destroy_client_socket;
-	}
+	librskt_finish();
+	puts("Graceful Goodbye!");
+	return rc;
 
-	rskt_destroy_socket(&client_socket);
-
-	puts("Goodbye!");
+	/* Code below is only for handling errors */
 close_client_socket:
 	rskt_close(client_socket);
 
@@ -209,8 +217,10 @@ destroy_client_socket:
 	rskt_destroy_socket(&client_socket);
 
 cleanup_rskt:
+
 	librskt_finish();
 
 exit_main:
+	puts("Errorish Goodbye!");
 	return rc;
 } /* main() */

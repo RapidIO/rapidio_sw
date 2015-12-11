@@ -407,7 +407,7 @@ repeat:
 		if (dmn.cm_skt_tst)
 			rc = 0;
 		else {
-			DBG("accepting...");
+			DBG("accepting...\n");
 			rc = riomp_sock_accept(dmn.cm_acc_h, &new_socket, 3*60*1000);
 		}
 
@@ -423,7 +423,7 @@ repeat:
 			break;
 		}
 
-		DBG("start new SPEER");
+		DBG("start new SPEER\n");
 		start_new_speer(new_socket);
 
 		new_socket = NULL;

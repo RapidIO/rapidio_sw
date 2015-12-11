@@ -181,11 +181,9 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "slave_thread failed, rc %d\n : %s",
 						errno, strerror(errno));
 			/* We failed. But don't exit so we can maintain the other
-			 * successful connections we may already have.
-			 */
+			 * successful connections we may already have. */
 			continue;
 		}
-
 	} /* while */
 
 destroy_accept_socket:

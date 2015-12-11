@@ -652,28 +652,28 @@ fail:
 
 void librskt_finish(void)
 {	
-	INFO("ENTRY");
+	INFO("ENTRY\n");
 	struct rsvp_li *delayed;
 
 	lib.all_must_die = 1;
 	if ((lib.init_ok == lib.portno) && lib.portno) {
-		DBG("Joining librskt threads");
+		DBG("Joining librskt threads\n");
 		/* Kill the receiver thread first */
 		/* Allow req_loop to terminate */
 		sem_post(&lib.req_cnt);
 		pthread_join(lib.req_thr, NULL);
-		DBG("Joined req_thr");
+		DBG("Joined req_thr\n");
 
 		/* Then close the rsvp thread, add responses to TX loop */
 		DBG("Closing socket handle\n");
 		pthread_kill(lib.rsvp_thr, SIGUSR1);
 		pthread_join(lib.rsvp_thr, NULL);
-		DBG("Joined rsvp_thr");
+		DBG("Joined rsvp_thr\n");
 	
 		/* Lastly close tx loop */
 		sem_post(&lib.msg_tx_cnt);
 		pthread_join(lib.tx_thr, NULL);
-		DBG("Joined tx_thr");
+		DBG("Joined tx_thr\n");
 	
 		lib.init_ok = 0;
 	};
@@ -690,7 +690,7 @@ void librskt_finish(void)
 		sem_post(&delayed->resp_rx);
 		delayed = (struct rsvp_li *)l_pop_head(&lib.rsvp);
 	};
-	INFO("EXIT");
+	INFO("EXIT\n");
 };
 
 int lib_uninit(void)
