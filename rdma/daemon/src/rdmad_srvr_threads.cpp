@@ -417,18 +417,23 @@ void *wait_conn_disc_thread_f(void *arg)
 			 */
 			ret = ms->remove_rem_connection(be64toh(disc_msg->client_destid),
 						  be64toh(disc_msg->client_msubid));
-
-			/* Relay disconnection request to the RDMA library */
-			ret = ms->disconnect(be64toh(disc_msg->client_msubid));
-			if (ret) {
-				ERR("Failed to relay disconnect ms('%s') to RDMA library\n",
+			if (ret != 0) {
+				ERR("Failed to find connection destid(0x%X),msubid(0x%X)\n",
+						be64toh(disc_msg->client_destid),
+						be64toh(disc_msg->client_msubid));
+			} else {
+				/* Relay disconnection request to the RDMA library */
+				ret = ms->disconnect(be64toh(disc_msg->client_msubid));
+				if (ret) {
+					ERR("Failed to relay disconnect ms('%s') to RDMA library\n",
 						ms->get_name());
 #ifdef BE_STRICT
-				raise(SIGABRT);
+					raise(SIGABRT);
 #endif
-			} else {
-				HIGH("'Disconnect' for ms('%s') relayed to 'server'\n",
+				} else {
+					HIGH("'Disconnect' for ms('%s') relayed to 'server'\n",
 						ms->get_name());
+				}
 			}
 
 			/* Consider this memory space disconnected. Allow accepting */
