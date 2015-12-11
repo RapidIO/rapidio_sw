@@ -119,7 +119,6 @@ int librskt_wait_for_sem(sem_t *sema, int err_code)
 {
 	int rc;
 
-	lib.all_must_die = 0;
 	do {
 		rc = sem_wait(sema);
 	} while (rc && (EINTR == errno) && !lib.all_must_die);
@@ -357,6 +356,8 @@ void *rsvp_loop(void *unused)
 	};
 exit:
 	free(rxd);
+
+	sem_wait(&lib.rsvp_mtx);
 	delayed = (struct rsvp_li *)l_pop_head(&lib.rsvp);
 
 	while (NULL != delayed) {
@@ -364,6 +365,8 @@ exit:
 		sem_post(&delayed->resp_rx);
 		delayed = (struct rsvp_li *)l_pop_head(&lib.rsvp);
 	};
+	sem_post(&lib.rsvp_mtx);
+
 	CRIT("EXIT\n");
 	pthread_exit(unused);
 };
@@ -650,28 +653,27 @@ fail:
 void librskt_finish(void)
 {	
 	INFO("ENTRY");
-	lib.all_must_die = 1;
 	struct rsvp_li *delayed;
 
+	lib.all_must_die = 1;
 	if ((lib.init_ok == lib.portno) && lib.portno) {
-		/* Allow tx_loop to terminate */
-		sem_post(&lib.msg_tx_cnt);
-		sem_post(&lib.msg_tx_mtx);
-	
-		/* Allow rsvp_loop to terminate */
-		sem_post(&lib.req_cnt);
-		sem_post(&lib.req_mtx);
-	
-		/* Close socket connection to RSKTD */
-		DBG("Closing socket handle\n");
-		pthread_kill(lib.rsvp_thr, SIGUSR1);
-	
 		DBG("Joining librskt threads");
-		pthread_join(lib.tx_thr, NULL);
-		DBG("Joined tx_thr");
+		/* Kill the receiver thread first */
+		/* Allow req_loop to terminate */
+		sem_post(&lib.req_cnt);
 		pthread_join(lib.req_thr, NULL);
 		DBG("Joined req_thr");
+
+		/* Then close the rsvp thread, add responses to TX loop */
+		DBG("Closing socket handle\n");
+		pthread_kill(lib.rsvp_thr, SIGUSR1);
 		pthread_join(lib.rsvp_thr, NULL);
+		DBG("Joined rsvp_thr");
+	
+		/* Lastly close tx loop */
+		sem_post(&lib.msg_tx_cnt);
+		pthread_join(lib.tx_thr, NULL);
+		DBG("Joined tx_thr");
 	
 		lib.init_ok = 0;
 	};

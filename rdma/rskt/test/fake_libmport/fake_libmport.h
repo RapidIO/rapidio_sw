@@ -45,6 +45,8 @@ extern "C" {
 
 #define FAKE_LIBMPORT_CT (uint16_t)(0x3344)
 
+extern int kill_acc_conn;
+
 #ifdef __cplusplus
 }
 #endif

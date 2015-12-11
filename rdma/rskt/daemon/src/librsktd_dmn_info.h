@@ -100,7 +100,6 @@ struct dmn_globals {
 	struct riomp_mgmt_mport_properties qresp;
 	int all_must_die;
 
-	sem_t loop_started;
 	volatile int loop_alive;
 
 	/* CM connection request handler from other RSKT Daemons */
@@ -116,6 +115,9 @@ struct dmn_globals {
 	/* RDMA Memory Space Database for this RSKT Daemon */
 	struct mso_info mso;
 
+	/* FIXME: Remove this variable in favour of loop specific variables */
+	sem_t loop_started;
+
 	/* Transmit thread sending to all wpeers */
 	int wpeer_tx_alive;
 	pthread_t wpeer_tx_thread;
@@ -124,6 +126,7 @@ struct dmn_globals {
 	struct l_head_t wpeer_tx_q;
 
 	/* Transmit thread sending to all speers */
+	sem_t speer_tx_loop_started;
 	int speer_tx_alive;
 	pthread_t speer_tx_thread;
 	sem_t speer_tx_mutex;
@@ -131,6 +134,7 @@ struct dmn_globals {
 	struct l_head_t speer_tx_q;
 
 	/* Transmit thread sending to all apps */
+	sem_t app_tx_loop_started;
 	int app_tx_alive;
 	pthread_t app_tx_thread;
 	sem_t app_tx_mutex;

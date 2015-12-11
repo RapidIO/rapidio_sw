@@ -267,14 +267,12 @@ void start_new_speer(riomp_sock_t new_socket)
 	sem_init(&speer->started, 0, 0);
 	speer->alive = 0;
 	speer->rx_buff_used = 0;
-	speer->rx_buff = malloc(RSKTD_CM_MSG_SIZE);
+	speer->rx_buff = malloc(4*1024);
 	speer->tx_buff_used = 0;
 
 	if (riomp_sock_request_send_buffer(new_socket, &speer->tx_buff)) {
 		riomp_sock_close(&new_socket);
 	};
-	speer->req = (struct rsktd_req_msg *)speer->rx_buff;
-	speer->resp = (struct rsktd_resp_msg *)speer->tx_buff;
 	sem_init(&speer->req_ready, 0, 0);
 	sem_init(&speer->resp_ready, 0, 0);
 
@@ -303,14 +301,38 @@ void enqueue_speer_msg(struct librsktd_unified_msg *msg)
 	sem_post(&dmn.speer_tx_cnt);
 };
 
+void speer_tx_loop_sig_handler(int sig)
+{
+        if (sig)
+                return;
+}
+
+void halt_speer_tx_loop(void)
+{
+        pthread_kill(dmn.speer_tx_thread, SIGUSR1);
+        pthread_join(dmn.speer_tx_thread, NULL);
+};
+
 /* Sends responses to all speers */
 void *speer_tx_loop(void *unused)
 {
 	struct librsktd_unified_msg *msg;
 	struct rskt_dmn_speer *s;
+        struct sigaction sigh;
+        char my_name[16];
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "SPEER_TX_LOOP");
+        pthread_setname_np(dmn.speer_tx_thread, my_name);
+
+        memset(&sigh, 0, sizeof(sigh));
+        sigh.sa_handler = speer_tx_loop_sig_handler;
+        sigaction(SIGUSR1, &sigh, NULL);
 
 	dmn.speer_tx_alive = 1;
+
 	sem_post(&dmn.loop_started);
+	sem_post(&dmn.speer_tx_loop_started);
 
 	while (!dmn.all_must_die) {
 		DBG("\n\tSPEER TX: Waiting to TX\n");
@@ -411,6 +433,50 @@ void close_all_speers(void)
 		sem_post(&dmn.speers_mtx);
 	}
 	DBG("EXIT\n");
+};
+
+int start_speer_tx_thread(void) 
+{
+	int rc;
+
+	sem_init(&dmn.speer_tx_loop_started, 0, 0);
+	dmn.speer_tx_alive = 0;
+	sem_init(&dmn.speers_mtx, 0, 1);
+	l_init(&dmn.speers);
+
+	sem_init(&dmn.speer_tx_mutex, 0, 1);
+	sem_init(&dmn.speer_tx_cnt, 0, 0);
+	l_init(&dmn.speer_tx_q);
+        rc = pthread_create(&dmn.speer_tx_thread, NULL, speer_tx_loop, NULL);
+	if (rc)
+		goto fail;
+	
+	sem_wait(&dmn.speer_tx_loop_started);
+	return 0;
+fail:
+	return rc;
+};
+
+int start_speer_handler(uint32_t cm_skt, uint32_t mpnum,
+                                        uint32_t num_ms, uint32_t ms_size,
+                                        uint32_t skip_ms, uint32_t tst)
+{
+	int rc;
+
+	rc = start_speer_tx_thread();
+	if (rc)
+		return rc;
+
+	return start_speer_conn(cm_skt, mpnum, num_ms, ms_size, skip_ms, tst);
+};
+
+void halt_speer_handler(void)
+{
+	dmn.all_must_die = 1;
+
+	halt_speer_conn_handler();
+	close_all_speers();
+	halt_speer_tx_loop();
 };
 
 #ifdef __cplusplus

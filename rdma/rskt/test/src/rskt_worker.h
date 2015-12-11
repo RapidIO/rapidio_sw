@@ -81,6 +81,10 @@ struct rskt_test_info {
 	
 	struct rsktd_req_msg req;
 	struct rsktd_resp_msg resp;
+	int acc_sent;
+	int acc_received;
+	int con_sent;
+	int con_received;
 };
 	
 #ifdef __cplusplus

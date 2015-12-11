@@ -111,7 +111,7 @@ struct worker {
 			/* 0 means "no action". */
 			/* -1 means "cleanup and exit". */
 	struct seq_ts ts[MAX_UNIT_TEST_TS_IDX];
-	void *priv_info; /* Test specific worker information */
+	volatile void *priv_info; /* Test specific worker information */
 };
 
 #define MAX_WORKER_IDX 11

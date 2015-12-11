@@ -88,7 +88,7 @@ void init_worker_info(struct worker *info, int first_time)
 	};
 
 	info->stat = worker_dead;
-	info->stop_req = worker_running;
+	info->stop_req = worker_dead;
 	info->wkr_thr.cpu_req = -1;
 	info->wkr_thr.cpu_run = -1;
 	info->action = 0;

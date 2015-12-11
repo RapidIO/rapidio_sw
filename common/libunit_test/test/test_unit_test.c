@@ -488,8 +488,7 @@ fail:
 	return 1;
 };
 	
-/** @brief Test correct operation of time_div
- * @return int, 0 for success, 1 for failure
+/** @brief No cleanup required for cli exit.
  */
 
 void no_cli_cleanup(struct cli_env *env)
@@ -499,6 +498,8 @@ void no_cli_cleanup(struct cli_env *env)
 	return;
 };
 
+/** @brief test of CLI entry and exit.
+ */
 int test_case_6(void)
 {
 	struct cli_env env;
@@ -550,6 +551,10 @@ int test_case_7(void)
 	for (i = 0; i < MAX_WORKERS; i++)  {
 		if (wait_for_worker_status(&wkr[i], worker_dead)) {
 			ERR("Worker %d not dead", i);
+			goto fail;
+		};
+		if (wkr[i].stop_req != worker_dead) {
+			ERR("Worker %d stop_req not dead", i);
 			goto fail;
 		};
 		if (wkr[i].priv_info != NULL) {
@@ -696,7 +701,7 @@ void create_priv(struct worker *info)
 
 	if (NULL != info->priv_info) {
 		ERR("Worker priv info NOT NULL. Freeing memroy.");
-		free(info->priv_info);
+		free((void *)info->priv_info);
 	};
 
 	info->priv_info = (void *)malloc(sizeof(struct test_worker_info));
@@ -728,7 +733,7 @@ void destroy_priv(struct worker *info)
 		goto fail;
 	};
 
-	free(info->priv_info);
+	free((void *)info->priv_info);
 	info->priv_info = NULL;
 fail:
 	return;

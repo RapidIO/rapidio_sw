@@ -48,6 +48,8 @@
 extern "C" {
 #endif
 
+int kill_acc_conn;
+
 /**
  * @brief Perform DMA data write to target transfer using user space source buffer
  *
@@ -500,6 +502,7 @@ struct rapidio_mport_socket {
 
 sem_t sock_wkr_idx_mtx;
 int sock_wkr_idx;
+int sock_mbox_init;
 
 int riomp_sock_mbox_init(void)
 {
@@ -516,11 +519,17 @@ int riomp_sock_mbox_exit(void)
 int riomp_sock_mbox_create_handle(uint8_t mport_id, uint8_t mbox_id,
 				riomp_mailbox_t *mailbox)
 {
+	int rc = 0;
+
 	if (0) {
 		if ((NULL == mailbox) || !mbox_id || mport_id)
 			return 0;
 	};
-	return 0;
+	if (!sock_mbox_init) {
+		rc = riomp_sock_mbox_init();
+		sock_mbox_init = 1;
+	};
+	return rc;
 }
 
 int riomp_sock_mbox_destroy_handle(riomp_mailbox_t *mailbox)
@@ -529,6 +538,7 @@ int riomp_sock_mbox_destroy_handle(riomp_mailbox_t *mailbox)
 		if (NULL == mailbox)
 			return 0;
 	};
+	sock_mbox_init = 0;
 	return 0;
 }
 
@@ -574,6 +584,7 @@ int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
         	l_push_tail(&test->speer_req, (void *)req);
         	sem_post(&test->speer_req_mtx);
         	sem_post(&test->speer_req_cnt);
+		test->con_sent++;
 		break;
 
 	case TEST_SKT_ACCEPT: /* Acceptor always sends responses */
@@ -584,6 +595,7 @@ int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
         	l_push_tail(&test->speer_resp, (void *)resp);
         	sem_post(&test->speer_resp_mtx);
         	sem_post(&test->speer_resp_cnt);
+		test->acc_sent++;
 		break;
 	default: goto fail;
 		break;
@@ -627,24 +639,25 @@ int riomp_sock_receive(riomp_sock_t socket_handle, void **buf, uint32_t size,
         	sem_post(&test->speer_resp_mtx);
 		if (NULL == resp)
 			goto fail;
-		memcpy(buf, resp, (size > sizeof(struct rsktd_resp_msg))?
+		memcpy(*buf, resp, (size > sizeof(struct rsktd_resp_msg))?
 				sizeof(struct rsktd_resp_msg):size);
 		free(resp);
 		rc = test->speer_resp_err;
+		test->con_received++;
 		break;
 
 	case TEST_SKT_ACCEPT: /* Acceptor always receives requests */
-		req = (struct rsktd_req_msg *)malloc(sizeof(struct rsktd_req_msg));
         	sem_wait(&test->speer_req_cnt);
         	sem_wait(&test->speer_req_mtx);
         	req = (struct rsktd_req_msg *)l_pop_head(&test->speer_req);
         	sem_post(&test->speer_req_mtx);
 		if (NULL == req)
 			goto fail;
-		memcpy(buf, req, (size > sizeof(struct rsktd_req_msg))?
+		memcpy(*buf, req, (size > sizeof(struct rsktd_req_msg))?
 			sizeof(struct rsktd_req_msg):size);
 		free(req);
 		rc = 0;
+		test->acc_received++;
 		break;
 	default: goto fail;
 		break;
@@ -699,7 +712,7 @@ int riomp_sock_listen(riomp_sock_t socket_handle)
 int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 			uint32_t timeout)
 {
-	struct rskt_test_info *test;
+	struct rskt_test_info volatile * volatile test;
 
 	if (0)
 		sock_wkr_idx = timeout;
@@ -716,16 +729,27 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	(*conn)->acceptor = TEST_SKT_ACCEPT;
 	sem_post(&sock_wkr_idx_mtx);
 
-	if ((socket_handle->wkr_idx < 0) ||
-			(socket_handle->wkr_idx > MAX_WORKER_IDX))
-		goto fail;
-	test = (struct rskt_test_info *)wkr[socket_handle->wkr_idx].priv_info;
 
-	while (NULL == test)
+	while (((NULL == (volatile void * volatile)
+			wkr[(*conn)->wkr_idx].priv_info) 
+		|| (wkr[(*conn)->wkr_idx].stop_req != worker_running))
+		&& !kill_acc_conn) {
 		sched_yield();
+	};
 
-	sem_post(&test->speer_con);
-	sem_wait(&test->speer_acc);
+	if (kill_acc_conn)
+		goto fail;
+
+	if (!wkr[(*conn)->wkr_idx].stop_req == worker_running)
+		goto fail;
+
+	test = (struct rskt_test_info *)
+		wkr[(*conn)->wkr_idx].priv_info;
+
+	if (test != NULL) {
+		sem_post((sem_t *)&test->speer_con);
+		sem_wait((sem_t *)&test->speer_acc);
+	};
 	
 	return 0;
 fail:
@@ -768,8 +792,6 @@ int riomp_sock_request_send_buffer(riomp_sock_t socket_handle, void **buf)
 
 	if (NULL == socket_handle)
 		goto fail;
-#define TEST_SKT_CONNECT 0
-#define TEST_SKT_ACCEPT 1
 
 	if ( (socket_handle->acceptor < TEST_SKT_CONNECT) ||
 			(socket_handle->acceptor > TEST_SKT_ACCEPT) ||
