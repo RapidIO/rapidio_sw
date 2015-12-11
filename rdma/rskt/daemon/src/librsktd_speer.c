@@ -119,7 +119,7 @@ void rsktd_prep_resp(struct librsktd_unified_msg *msg)
 void close_speer(struct rskt_dmn_speer *speer)
 {
 	struct l_item_t *l_i;
-	struct rskt_dmn_speer *chk_sp;
+	struct rskt_dmn_speer **chk_sp;
 
 	DBG("\n\tSPEER %d: closing speer!\n", speer->ct);
 
@@ -148,13 +148,13 @@ void close_speer(struct rskt_dmn_speer *speer)
 	};
 
 	sem_wait(&dmn.speers_mtx);
-	chk_sp = (struct rskt_dmn_speer *)l_head(&dmn.speers, &l_i);
-	while ((NULL != chk_sp) && (NULL != chk_sp->self_ref)) {
-		if (chk_sp == speer) {
+	chk_sp = (struct rskt_dmn_speer **)l_head(&dmn.speers, &l_i);
+	while ((NULL != chk_sp) && (NULL != *chk_sp)) {
+		if (*chk_sp == speer) {
 			l_lremove(&dmn.speers, l_i);
 			break;
 		}
-		chk_sp = (struct rskt_dmn_speer *)l_next(&l_i);
+		chk_sp = (struct rskt_dmn_speer **)l_next(&l_i);
 	};
 	sem_post(&dmn.speers_mtx);
 

@@ -50,9 +50,10 @@ extern "C" {
 #define LIB_ACCEPT_TEST 3
 #define LIB_ACCEPT_BUDDY 4
 
-#define SPEER_MSG_XCHG 5
+#define SPEER_CONN 5
+#define WPEER_ACC 6
 
-#define LAST_TEST     6
+#define LAST_TEST     7
 
 struct rskt_test_info {
 	int num_wkrs;
@@ -79,7 +80,9 @@ struct rskt_test_info {
 				sent by speer */
 	sem_t speer_resp_mtx; /* Use this for mutex on speer_rsp */
 	
+	int new_req;
 	struct rsktd_req_msg req;
+	int new_resp;
 	struct rsktd_resp_msg resp;
 	int acc_sent;
 	int acc_received;

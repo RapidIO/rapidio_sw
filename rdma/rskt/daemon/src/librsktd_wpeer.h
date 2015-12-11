@@ -49,8 +49,8 @@ extern "C" {
 #endif
 
 struct rskt_dmn_wpeer {
-	uint32_t ct;
-	uint32_t cm_skt;
+	uint32_t ct; /* DestID this WPEER communicates with */
+	uint32_t cm_skt; /* Channelized messaging socket on target */
 
 	struct rskt_dmn_wpeer **self_ref;
 	int cm_skt_h_valid;
@@ -86,6 +86,9 @@ void *wpeer_tx_loop(void *unused);
 void close_wpeer(struct rskt_dmn_wpeer *wpeer);
 void close_all_wpeers(void);
 void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids);
+
+int start_wpeer_handler(void);
+void halt_wpeer_handler(void);
 
 #ifdef __cplusplus
 }

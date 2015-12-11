@@ -65,12 +65,20 @@ int fm_thread_valid;
 pthread_t fm_thread;
 fmdd_h dd_h;
 
+void fm_loop_sig_handler(int sig)
+{
+        if (sig)
+                return;
+};
+
 /* Sends requests and responses to all apps */
 void *fm_loop(void *unused)
 {
 	uint32_t did_list_sz;
 	uint32_t *did_list;
 	uint32_t rc;
+        struct sigaction sigh;
+        char my_name[16];
 
 	dd_h = fmdd_get_handle((char *)"RSKTD", FMDD_RSKT_FLAG);
 	if (dd_h == NULL ) {
@@ -80,8 +88,16 @@ void *fm_loop(void *unused)
 	}
 
 	rdma_set_fmd_handle(dd_h);
-
 	fmdd_bind_dbg_cmds(dd_h);
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "RSKTD_FMDD");
+        pthread_setname_np(fm_thread, my_name);
+
+        memset(&sigh, 0, sizeof(sigh));
+        sigh.sa_handler = fm_loop_sig_handler;
+        sigaction(SIGUSR1, &sigh, NULL);
+
 	fm_alive = 1;
 	INFO("FM is alive!\n");
 

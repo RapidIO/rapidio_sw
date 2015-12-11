@@ -364,14 +364,37 @@ void close_wpeer(struct rskt_dmn_wpeer *wpeer)
 	pthread_join(wpeer->w_rx, NULL);
 };
 
+void wpeer_tx_loop_sig_handler(int sig)
+{
+        if (sig)
+                return;
+}
+
+void halt_wpeer_tx_loop(void)
+{
+        pthread_kill(dmn.wpeer_tx_thread, SIGUSR1);
+        pthread_join(dmn.wpeer_tx_thread, NULL);
+};
+
 void *wpeer_tx_loop(void *unused)
 {
 	struct librsktd_unified_msg *msg;
 	struct rskt_dmn_wpeer *w;
 	uint32_t seq_num;
+        struct sigaction sigh;
+        char my_name[16];
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "WPEER_TX_LOOP");
+        pthread_setname_np(dmn.wpeer_tx_thread, my_name);
+
+        memset(&sigh, 0, sizeof(sigh));
+        sigh.sa_handler = wpeer_tx_loop_sig_handler;
+        sigaction(SIGUSR1, &sigh, NULL);
 
 	dmn.wpeer_tx_alive = 1;
 	sem_post(&dmn.loop_started);
+	sem_post(&dmn.wpeer_tx_loop_started);
 
 	while (!dmn.all_must_die) {
 		sem_wait(&dmn.wpeer_tx_cnt);
@@ -545,6 +568,32 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 	};
 };
 		
+int start_wpeer_handler(void)
+{
+	int rc;
+
+	dmn.wpeer_tx_alive = 0;
+
+	sem_init(&dmn.wpeer_tx_loop_started, 0, 0);
+        sem_init(&dmn.wpeer_tx_mutex, 0, 1);
+        sem_init(&dmn.wpeer_tx_cnt, 0, 0);
+        l_init(&dmn.wpeer_tx_q);
+        rc = pthread_create(&dmn.wpeer_tx_thread, NULL, wpeer_tx_loop, NULL);
+        if (rc)
+                goto fail;
+	sem_wait(&dmn.wpeer_tx_loop_started);
+
+	return 0;
+fail:
+	return rc;
+};
+
+void halt_wpeer_handler(void)
+{
+	close_all_wpeers();
+	halt_wpeer_tx_loop();
+};
+
 #ifdef __cplusplus
 }
 #endif

@@ -119,6 +119,7 @@ struct dmn_globals {
 	sem_t loop_started;
 
 	/* Transmit thread sending to all wpeers */
+	sem_t wpeer_tx_loop_started;
 	int wpeer_tx_alive;
 	pthread_t wpeer_tx_thread;
 	sem_t wpeer_tx_mutex;

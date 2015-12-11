@@ -37,9 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdint.h>
-
-#ifndef _LIBFMDD_H_
-#define _LIBFMDD_H_
+#include "fake_libfmdd.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,6 +99,30 @@ extern "C" {
  */
 typedef void *fmdd_h;
 
+sem_t fmdd_sem;
+int fmdd_wait_rc;
+fmdd_h the_handle;
+char the_name[256];
+uint32_t the_flag;
+
+struct destid_tracking destids[MAX_DESTIDS];
+uint32_t dids[MAX_DESTIDS];
+
+void init_destids(void)
+{
+	int i;
+	for (i = 0; i < MAX_DESTIDS; i++) {
+		destids[i].valid = 0;
+		destids[i].destid = 0;
+		destids[i].flag = 0;
+	};
+
+/*
+	destids[0].valid = 1;
+	destids[0].destid = TEST_DESTID;
+	destids[0].flag = the_flag;
+*/
+};
 /**
  * @brief Get a Fabric Management Device Database handle
  *
@@ -113,7 +135,18 @@ typedef void *fmdd_h;
  * endpoints, and connected applications will be notified that
  * the flagged application is now available.
  */
-fmdd_h fmdd_get_handle(char *my_name, uint8_t flag);
+fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
+{
+	memset(the_name, 0, 256);
+	strncpy(the_name, my_name, 256);
+	the_flag = flag;
+
+	init_destids();	
+	sem_init(&fmdd_sem, 0, 0);
+	fmdd_wait_rc = 0;
+
+	return (void *) the_name;
+};
 
 /**
  * @brief Destroy a Fabric Management Device Database handle
@@ -124,7 +157,13 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag);
  * all connected applications will be notified that the flagged 
  * application is no longer available.
  */
-void fmdd_destroy_handle(fmdd_h *dd_h);
+void fmdd_destroy_handle(fmdd_h *dd_h)
+{
+	*dd_h = NULL;
+	sem_post(&fmdd_sem);
+	init_destids();	
+	*dd_h = NULL;
+};
 
 /**
  * @brief Checks what flags are associated with a component tag
@@ -136,7 +175,21 @@ void fmdd_destroy_handle(fmdd_h *dd_h);
  * @retval 0 means no requested flags were present
  */
 
-uint8_t fmdd_check_ct(fmdd_h h, uint32_t ct, uint8_t flag); /* OK if > 0 */
+uint8_t fmdd_check_ct(fmdd_h h, uint32_t ct, uint8_t flag)
+{
+	int i;
+
+	if (h != the_name)
+		return 1;
+
+	for (i = 0; i < MAX_DESTIDS; i++) {
+		if ((destids[i].valid) &&
+			(destids[i].destid == ct) &&
+			(destids[i].flag & flag))
+			return flag;
+	};
+	return 0;
+};
 
 /**
  * @brief Checks what flags are associated with a device ID
@@ -147,7 +200,10 @@ uint8_t fmdd_check_ct(fmdd_h h, uint32_t ct, uint8_t flag); /* OK if > 0 */
  * @return Flag value bitwise-anded with flag parameter
  * @retval 0 means no requested flags were present
  */
-uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag); /* OK if > 0 */
+uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag)
+{
+	return fmdd_check_ct(h, did, flag);
+};
 
 /**
  * @brief Blocks until there is a change in the Device Database
@@ -155,7 +211,14 @@ uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag); /* OK if > 0 */
  * @param[in] h fmdd_h returned by fmdd_get_handle
  * @return 0 for success, -1 for failure
  */
-int fmdd_wait_for_dd_change(fmdd_h h);
+int fmdd_wait_for_dd_change(fmdd_h h)
+{
+	if (h != the_name)
+		return 1;
+
+	sem_wait(&fmdd_sem);
+	return fmdd_wait_rc;
+};
 
 /**
  * @brief Gets the list of device IDs now present in the system
@@ -165,7 +228,26 @@ int fmdd_wait_for_dd_change(fmdd_h h);
  * @param[in,out] did_list Pointer to array of device ID values
  * @return 0 for success, -1 for failure
  */
-int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list);
+int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
+{
+	int i;
+	int valid_cnt = 0;
+
+	if (h != the_name)
+		return 1;
+
+	for (i = 0; i < MAX_DESTIDS; i++) {
+		if (destids[i].valid) {
+			dids[valid_cnt] = destids[i].destid;
+			valid_cnt++;
+		};
+	};
+
+	*did_list = dids;
+	*did_list_sz = valid_cnt;
+
+	return 0;
+};
 
 /**
  * @brief Frees the list of device IDs allocated by fmdd_get_did_list
@@ -174,17 +256,27 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list);
  * @param[in,out] did_list Updated pointer to array of device ID values
  * @return 0 for success, -1 for failure
  */
-int fmdd_free_did_list(fmdd_h h, uint32_t **did_list);
+int fmdd_free_did_list(fmdd_h h, uint32_t **did_list)
+{
+	if (h != the_name)
+		return 1;
+
+	*did_list = NULL;
+	return 0;
+};
 
 /**
  * @brief If the application includes libcli, bind available fmdd commands
  *
  * @param[in] fmdd_h returned by fmdd_get_handle
  */
-void fmdd_bind_dbg_cmds(void *fmdd_h);
+void fmdd_bind_dbg_cmds(void *fmdd_h)
+{
+	if (0)
+		*(int *)fmdd_h = 0;
+};
+	
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* _LIBFMDD_H_ */

@@ -39,6 +39,7 @@ DAEMON_SRC = ../daemon/src
 RDMA_SRC = fake_librdma
 MPORT_SRC = fake_libmport
 FAKE_DMN = fake_daemon
+FAKE_FMDD = fake_libfmdd
 
 level=$(LOG_LEVEL)
 
@@ -57,22 +58,24 @@ CFLAGS+=-I$(TOP_LEVEL)/common/include -I$(TOP_LEVEL)/include
 CFLAGS+=-I$(TOP_LEVEL)/fabric_management/librio_switch/inc
 CFLAGS+= -I$(TOP_LEVEL)/include 
 CFLAGS+=-I$(MPORT_SRC)
+CFLAGS+=-I$(FAKE_FMDD)
 CFLAGS+=-I../daemon/src -I../inc -I/../lib/src
 CFLAGS+=-DRDMA_LL=$(level)
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(DAEMON_SRC)/librsktd_lib.o $(DAEMON_SRC)/librsktd_cli.o
 OBJECTS+=$(DAEMON_SRC)/librsktd_dmn.o $(DAEMON_SRC)/librsktd_msg_proc.o 
-OBJECTS+=$(DAEMON_SRC)/librsktd_sn.o 
-OBJECTS+=$(DAEMON_SRC)/librsktd_speer.o 
-HEADERS:=$(wildcard ../daemon/src/*.h) $(TOP_LEVEL)/include/librskt.h
+OBJECTS+=$(DAEMON_SRC)/librsktd_sn.o  $(DAEMON_SRC)/librsktd_fm.o 
+OBJECTS+=$(DAEMON_SRC)/librsktd_speer.o $(DAEMON_SRC)/librsktd_wpeer.o
+HEADERS:=$(wildcard ../daemon/src/*.h) $(TOP_LEVEL)/include/librskt.h 
 
 TEST_HEADERS:=$(wildcard src/*.h) $(wildcard inc/*.h)
-TEST_HEADERS+=$(wildcard $(MPORT_SRC)/src/*.h)
+TEST_HEADERS+=$(wildcard $(MPORT_SRC)/*.h) $(wildcard $(FAKE_FMDD)/*.h)
 TEST_OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 TEST_OBJECTS+=$(patsubst $(RDMA_SRC)/%.c,$(RDMA_SRC)/%.o,$(wildcard $(RDMA_SRC)/*.c))
 TEST_OBJECTS+=$(patsubst $(MPORT_SRC)/%.c,$(MPORT_SRC)/%.o,$(wildcard $(MPORT_SRC)/*.c))
 TEST_OBJECTS+=$(patsubst $(FAKE_DMN)/%.c,$(FAKE_DMN)/%.o,$(wildcard $(FAKE_DMN)/*.c))
+TEST_OBJECTS+=$(patsubst $(FAKE_FMDD)/%.c,$(FAKE_FMDD)/%.o,$(wildcard $(FAKE_FMDD)/*.c))
 
 all: $(TEST_TARGET)
 

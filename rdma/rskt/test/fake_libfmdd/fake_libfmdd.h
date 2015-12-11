@@ -1,11 +1,8 @@
-/* Procedures for managing RSKTD Slave Peer connections */
-/* A Slave Peer connection accepts commands for this RSKTD to execute and
- * return responses.
- */
+/* Fabric Management Daemon Device Directory Library for applications */
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -35,71 +32,42 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#include <semaphore.h>
-#include <pthread.h>
-#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include "libfmdd.h"
+#include "semaphore.h"
 
-#include <rapidio_mport_sock.h>
-
-#include "librsktd_msg_proc.h"
-#include "librsktd_private.h"
-
-#ifndef __LIBRSKTD_SPEER_H__
-#define __LIBRSKTD_SPEER_H__
+#ifndef _FAKE_LIBFMDD_H_
+#define _FAKE_LIBFMDD_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct rskt_dmn_speer {
-	int cm_skt_h_valid;
-	riomp_sock_t cm_skt_h;
-	int i_must_die;
-	int comm_fail;
-	struct rskt_dmn_speer **self_ref;
+extern sem_t fmdd_sem;
+extern int fmdd_wait_rc;
+extern fmdd_h the_handle;
+extern char the_name[256];
 
-	/* Variables set by HELLO message */
-	uint32_t ct;
-	uint32_t cm_skt_num;
-	uint32_t cm_mp;
-
-	/* speer_loop variables */
-	pthread_t s_rx;
-	sem_t started;
-	int alive;
-	int got_hello;
-	int rx_buff_used;
-	int rx_rc;
-	union {
-		void *rx_buff;
-        	struct rsktd_req_msg *req; /* alias for rx_buff */
-	};
-	int tx_buff_used;
-	int tx_rc;
-	union {
-		void *tx_buff;
-        	struct rsktd_resp_msg *resp; /* alias for tx_buff */
-	};
-	sem_t connect_completed;
-
-	/* speer_loop messaging test infrastructure */
-	sem_t req_ready;
-	sem_t resp_ready;
+struct destid_tracking {
+        uint32_t valid;
+        uint32_t destid;
+        uint32_t flag;
 };
 
-#define SPEER_THRD_NM_FMT "SPEERx%x"
+#define MAX_DESTIDS 10
+#define TEST_DESTID 5
+#define DESTID_TO_WKR_IDX(x) (x-TEST_DESTID)
 
-void start_new_speer(riomp_sock_t new_socket);
-void *speer_tx_loop(void *unused);
-void close_all_speers(void);
-void close_speer(struct rskt_dmn_speer *speer);
-int start_speer_handler(uint32_t cm_skt, uint32_t mpnum,
-                                        uint32_t num_ms, uint32_t ms_size,
-                                        uint32_t skip_ms, uint32_t tst);
-void halt_speer_handler(void);
+extern struct destid_tracking destids[MAX_DESTIDS];
+extern uint32_t dids[MAX_DESTIDS];
+
+void init_destids();
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __LIBRSKTD_SPEER_H__ */
+#endif /* _FAKE_LIBFMDD_H_ */
