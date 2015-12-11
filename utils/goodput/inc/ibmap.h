@@ -77,12 +77,17 @@ public:
     return alloc(destid, rio_addr, ib_ptr);
   }
 
+  /** \brief Allocate or Lookup an IBwin mapping for a destid
+   * \note This masquerades as lookup as well. Beware.
+   * \return false iff IBwin is fully allocated, no more room
+   */
   inline bool alloc(const uint16_t destid, uint64_t& rio_addr, void*& ib_ptr)
   {
     assert(this);
 
-    bool ret = false;
     int slot = -1;
+    bool ret = false;
+    bool exists_already = false;
 
     rio_addr = 0;
     ib_ptr = NULL;
@@ -93,6 +98,7 @@ public:
     if (itm != m_destid_map.end()) { // already allocated OK, just fish it
       slot = itm->second;
       assert(m_slot_allocated[slot] == 1);
+      exists_already = true;
       goto done_ok;
     }
 
@@ -114,7 +120,7 @@ done_ok:
     rio_addr = m_rio_addr + slot * PEER_IBWIN_SIZE;
     ib_ptr   = m_ib_ptr   + slot * PEER_IBWIN_SIZE;
 
-    memset(ib_ptr, 0, PEER_IBWIN_SIZE);
+    if (! exists_already) memset(ib_ptr, 0, PEER_IBWIN_SIZE);
 
     ret = true;
 
