@@ -1093,7 +1093,8 @@ int rdma_create_ms_h(const char *ms_name,
 		sem_post(&rdma_lock);
 		return RDMA_DB_ADD_FAIL;
 	}
-
+	INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")\n",
+								ms_name, *msh);
 	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_create_ms_h() */
@@ -1300,8 +1301,8 @@ int rdma_open_ms_h(const char *ms_name,
 		sem_post(&rdma_lock);
 		return -3;
 	}
-	INFO("Stored info about '%s' in database\n", ms_name);
-
+	INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")\n",
+								ms_name, *msh);
 	*bytes = out.bytes;
 
 	sem_post(&rdma_lock);
@@ -1452,6 +1453,9 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 
 	ms = (loc_ms *)msh;
 
+	DBG("msid = 0x%X, ms_name = '%s', msh = 0x%" PRIx64 "\n",
+			ms->msid, ms->name, msh);
+
 	/* Set up input parameters */
 	in.msid = ms->msid;
 	in.msoid= ((loc_mso *)msoh)->msoid;
@@ -1511,6 +1515,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 	/* Memory space removed in daemon, remove from database as well */
 	if (remove_loc_ms(msh) < 0) {
 		WARN("Failed to remove 0x%" PRIx64 " from database\n", msh);
+		dump_loc_ms();
 		return RDMA_DB_REM_FAIL;
 	}
 

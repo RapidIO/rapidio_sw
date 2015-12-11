@@ -28,7 +28,7 @@
 		   }
 
 #define BAT_EXPECT_RET(ret, value, label) if (ret != value) { \
-			fprintf(log_fp, "%s FAILED, line %d, ret = %d\n", __func__, __LINE__, ret); \
+			fprintf(log_fp, "%s FAILED, line %d, ret = 0x%X\n", __func__, __LINE__, ret); \
 			goto label; \
 		   }
 

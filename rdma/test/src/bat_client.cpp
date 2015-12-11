@@ -147,6 +147,7 @@ int main(int argc, char *argv[])
 			puts("'i' Connect/disconnect with 3 memory spaces");
 			puts("'j' Connect/destroy(local first) with 3 memory spaces");
 			puts("'k' Connect/destroy(remote first) with 3 memory spaces");
+			puts("'l' Test coalescing of random equal memory spaces");
 
 			/* Old test cases */
 			puts("'t' Accept/Connect/Disconnect test");
@@ -274,6 +275,11 @@ int main(int argc, char *argv[])
 		BAT_EOT();
 		break;
 
+	case 'l':
+		test_case_l();
+		/* Local test. No need for BAT_EOT */
+		break;
+
 		/* Old test cases */
 	case 't':
 	case 'u':
@@ -330,6 +336,7 @@ int main(int argc, char *argv[])
 			test_case_i_j_k('i', destid);
 			test_case_i_j_k('j', destid);
 			test_case_i_j_k('k', destid);
+			test_case_l();
 
 			/* Old test cases */
 			test_case_t_u('t', destid);

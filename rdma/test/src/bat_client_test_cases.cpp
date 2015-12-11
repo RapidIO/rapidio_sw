@@ -487,15 +487,14 @@ int test_case_c(void)
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		/* Now allocate another 8K memory space */
-		ms_h	new_8k_msh;
 		rc = rdma_create_ms_h("new_8k_ms", client_msoh,
-				 8*1024, 0, &new_8k_msh, &dummy_size);
+				 8*1024, 0, &it->handle, &dummy_size);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		/* Read back the RIO address */
 		uint64_t new_8k_rio_addr;
 
-		rc = rdma_get_msh_properties(new_8k_msh, &new_8k_rio_addr, &dummy_size);
+		rc = rdma_get_msh_properties(it->handle, &new_8k_rio_addr, &dummy_size);
 		BAT_EXPECT_RET(rc, 0, free_mso);
 
 		if (new_8k_rio_addr == old_8k_rio_addr) {
@@ -817,6 +816,7 @@ int test_case_e()
 			stringstream ms_name;
 			ms_name << "mspace" << i;
 
+			/* Create the memory space */
 			rc = rdma_create_ms_h(ms_name.str().c_str(),
 					      client_msoh,
 					      ms_info[i].size,
@@ -824,6 +824,8 @@ int test_case_e()
 					      &ms_info[i].handle,
 					      &ms_info[i].size);
 			BAT_EXPECT_RET(rc, 0, free_mso);
+
+			/* Obtain memory space properties */
 			rdma_get_msh_properties(ms_info[i].handle,
 					&ms_info[i].rio_addr, &ms_info[i].size);
 
@@ -852,7 +854,9 @@ int test_case_e()
 				memset(p, j & 0xFF, BAT_MIN_BLOCK_SIZE);
 
 				/* Store info about subspace */
-				msub_info.emplace_back(j & 0xFF, ms_info[i].handle, msubh, offset, p);
+				msub_info.emplace_back(j & 0xFF,
+						       ms_info[i].handle,
+						       msubh, offset, p);
 			}
 		}
 
@@ -1482,7 +1486,7 @@ int test_case_i_j_k(char tc, uint32_t destid)
 
 		/* Delete the client mso */
 		ret = rdma_destroy_mso_h(client_msoh);
-		BAT_EXPECT_RET(ret, 0, free_server_mso);
+		BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 		fprintf(log_fp, "test_case %c %s\n",
 					tc, (rc == 0) ? "PASSED" : "FAILED");
@@ -1504,11 +1508,100 @@ free_server_mso:
 	BAT_EXPECT_RET(ret, 0, exit);
 
 exit:
-	fprintf(log_fp, "test_case %c %s\n",
+	if (ret == 0) {
+		fprintf(log_fp, "test_case %c %s\n",
 					tc, (rc == 0) ? "PASSED" : "FAILED");
+	}
 
 	return 0;
 } /* test_case_i_j_k() */
+
+int test_case_l()
+{
+	unsigned  num_ibwins;
+	uint32_t  ibwin_size;
+	int	  rc, ret;
+
+	struct ms_info_t {
+		uint32_t	size;
+		ms_h		handle;
+		uint64_t	rio_addr;
+		ms_info_t(uint32_t size, ms_h handle, uint64_t rio_addr) :
+			size(size), handle(handle), rio_addr(rio_addr)
+		{}
+		bool operator ==(uint32_t size) {
+			return this->size == size;
+		}
+	};
+	vector<ms_info_t>	ms_info;
+
+	/* Determine number of IBWINs and the size of each IBWIN */
+	rc = rdma_get_ibwin_properties(&num_ibwins, &ibwin_size);
+	BAT_EXPECT_RET(rc, 0, exit);
+	printf("%u inbound windows, %uKB each\n", num_ibwins, ibwin_size/1024);
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	rc = rdma_create_mso_h("test_case_l_mso", &client_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
+	{
+		/* Create 4K memory spaces that fill up both inbound windows */
+		unsigned num_mspaces = (num_ibwins * ibwin_size) / BAT_MIN_BLOCK_SIZE;
+
+		/* Create the ms info elements and pre-populate with 'size' */
+		for (unsigned i = 0; i < num_mspaces; i++) {
+			ms_info.emplace_back(BAT_MIN_BLOCK_SIZE, 0, 0);
+		}
+
+		/* FIXME: Hack only */
+		num_mspaces = 16;
+		vector<unsigned> ms_indexes;	/* Indexes for use in random deletion */
+		for (unsigned i = 0; i < num_mspaces; i++) {
+			stringstream ms_name;
+			ms_name << "mspace" << i;
+			rc = rdma_create_ms_h(ms_name.str().c_str(),
+					client_msoh,
+					ms_info[i].size,
+					0,
+					&ms_info[i].handle,
+					&ms_info[i].size);
+			BAT_EXPECT_RET(rc, 0, free_client_mso);
+			ms_indexes.push_back(i);
+		}
+
+		/* Now randomly free memory spaces until all are freed */
+		std::random_shuffle(begin(ms_indexes), end(ms_indexes));
+		for (auto& ms_index : ms_indexes) {
+			rc = rdma_destroy_ms_h(client_msoh, ms_info[ms_index].handle);
+			BAT_EXPECT_RET(rc, 0, free_client_mso);
+		}
+
+		/* Allocate num_ibwins memory spaces each with ibwin_size */
+		for (unsigned i = 0; i < num_ibwins; i++) {
+			stringstream ms_name;
+			ms_name << "mspace" << i;
+			rc = rdma_create_ms_h(ms_name.str().c_str(),
+					      client_msoh,
+					      ibwin_size,
+					      0,
+					      &ms_info[i].handle,
+					      &ms_info[i].size);
+			BAT_EXPECT_RET(rc, 0, free_client_mso);
+		}
+	}
+
+free_client_mso:
+	/* Delete the client mso */
+	ret = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+exit:
+	if (ret == 0) {
+		BAT_EXPECT_PASS(rc);
+	}
+	return 0;
+} /* test_case_l() */
 
 /**
  * Test accept_ms_h()/conn_ms_h()/disc_ms_h()..etc.
