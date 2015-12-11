@@ -321,6 +321,7 @@ struct worker {
 	int             umd_mbox_tx_fd; // socketpair(2) server for MBOX TX; safer than sharing a MboxChannel instance
 	int             umd_mbox_rx_fd; // socketpair(2) server for MBOX RX; sharing a MboxChannel instance is out of question!
 
+	volatile uint64_t umd_ticks_total_chan2;
 	DmaChannelInfo_t* umd_dch_list[8]; // Used for round-robin TX. Only 6 usable!
 
 	//int		umd_sockp[2];

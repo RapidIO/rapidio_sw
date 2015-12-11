@@ -137,7 +137,7 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 	if (!umd_dma_abort_reason) DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
 
 	for(int i = 0;
-	    !q_was_full && !info->stop_req && (i < 10000) && !dmac->scanFIFO(wi, info->umd_sts_entries*8);
+	    !q_was_full && !info->stop_req && (i < 1000) && !dmac->scanFIFO(wi, info->umd_sts_entries*8);
 	    i++) {
 		usleep(1);
 	}
@@ -167,6 +167,8 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 	}
 	DBG("\n\tNREAD-in data: %s\n", ss.str().c_str());
 #endif
+
+        info->umd_ticks_total_chan2 += (wi[0].opt.ts_end - wi[0].opt.ts_start);
 
 	memcpy(data_out, wi[0].t2_rddata, size);
 
@@ -277,7 +279,8 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	bool first_message;
 	int outstanding = 0; // This is our guess of what's not consumed at other end, per-destid
 
-        const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
+        const int Q_THR = (8 * (info->umd_tx_buf_cnt-1)) / 10;
+        const int Q_HLF = (info->umd_tx_buf_cnt-1) / 2;
 	
 	DMAChannel::DmaOptions_t& dmaopt = dci->dmaopt[dci->oi];
 
@@ -337,10 +340,19 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
 	first_message = peer->tx_cnt == 0;
 
+	do {{
+	  if (peer->WP == peer->RP) { break; }
+	  if (peer->WP > peer->RP)  { outstanding = peer->WP-peer->RP; break; }
+	  //if (WP == (info->umd_tx_buf_cnt-2)) { outstanding = RP; break; }
+	  outstanding = peer->WP + dci->tx_buf_cnt-2 - peer->RP;
+	}} while(0);
+
+	DBG("\n\tWP=%d guessed { RP=%d outstanding=%d } %s\n", peer->WP, peer->RP, outstanding, (outstanding==(dci->tx_buf_cnt-1))? "FULL": "");
+
 	// We force reading RP from a "new" destid as a RIO ping as
 	// NWRITE does not barf  on bad destids
 
-	if (first_message || (peer->tx_cnt % 8) == 0 || dci->dch->queueSize() > Q_THR) { // This must be done per-destid
+	if (first_message || (peer->tx_cnt % Q_HLF) == 0 || outstanding >= Q_THR || dci->dch->queueSize() > Q_THR) { // This must be done per-destid
 		uint32_t newRP = ~0;
 		if (udma_nread_mem(info, destid_dpi, peer->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
 			DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", destid_dpi, peer->RP, newRP);
@@ -357,15 +369,6 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 			goto error;
 		}
 	}
-
-	do {{
-	  if (peer->WP == peer->RP) { break; }
-	  if (peer->WP > peer->RP)  { outstanding = peer->WP-peer->RP; break; }
-	  //if (WP == (info->umd_tx_buf_cnt-2)) { outstanding = RP; break; }
-	  outstanding = peer->WP + dci->tx_buf_cnt-2 - peer->RP;
-	}} while(0);
-
-	DBG("\n\tWP=%d guessed { RP=%d outstanding=%d } %s\n", peer->WP, peer->RP, outstanding, (outstanding==(dci->tx_buf_cnt-1))? "FULL": "");
 
 	if (info->stop_req || peer->stop_req) goto error;
 
@@ -1976,6 +1979,10 @@ void UMD_DD(struct worker* info)
 		snprintf(tmp, 256, "Chan2 %d q_size=%d", info->umd_chan2, info->umd_dch_nread->queueSize());
 		ss << "\n\t\t" << tmp;
 		ss << "      WP=" << info->umd_dch_nread->getWP() << " FIFO.WP=" << info->umd_dch_nread->m_tx_cnt;
+		if (info->umd_dch_nread->m_tx_cnt > 0) {
+			float AvgUS = ((float)info->umd_ticks_total_chan2 / info->umd_dch_nread->m_tx_cnt) / MHz;
+			ss << " AvgTxRx=" << AvgUS << "uS";
+		}
 		if (info->umd_dch_nread->checkPortOK()) ss << " ok";
 		if (info->umd_dch_nread->checkPortError()) ss << " ERROR";
 	}

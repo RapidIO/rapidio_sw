@@ -187,8 +187,8 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_epollfd = -1;
 	info->umd_mbox_rx_fd = -1;
 	info->umd_mbox_tx_fd = -1;
+	info->umd_ticks_total_chan2 = 0;
 
-	memset(&info->umd_dma_did_peer, 0, sizeof(info->umd_dma_did_peer));
 	pthread_mutex_init(&info->umd_dma_did_peer_mutex, NULL);
 
 	memset(&info->umd_dch_list, 0, sizeof(info->umd_dch_list));
