@@ -323,6 +323,9 @@ void *speer_tx_loop(void *unused)
 
         memset(my_name, 0, 16);
         snprintf(my_name, 15, "SPEER_TX_LOOP");
+        if (!dmn.speer_tx_thread) {
+        	WARN("Null thread handle\n");
+        }
         pthread_setname_np(dmn.speer_tx_thread, my_name);
 
         memset(&sigh, 0, sizeof(sigh));
@@ -448,8 +451,10 @@ int start_speer_tx_thread(void)
 	sem_init(&dmn.speer_tx_cnt, 0, 0);
 	l_init(&dmn.speer_tx_q);
         rc = pthread_create(&dmn.speer_tx_thread, NULL, speer_tx_loop, NULL);
-	if (rc)
+	if (rc) {
+		ERR("Failed to create speer_tx_thread: %s\n", strerror(errno));
 		goto fail;
+	}
 	
 	sem_wait(&dmn.speer_tx_loop_started);
 	return 0;
