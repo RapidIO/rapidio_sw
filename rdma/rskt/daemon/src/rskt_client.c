@@ -200,8 +200,11 @@ retry_read:
 	}
 
 	rskt_destroy_socket(&client_socket);
-
+	librskt_finish();
 	puts("Goodbye!");
+
+	return rc;
+	/* Code below is only for handling errors */
 close_client_socket:
 	rskt_close(client_socket);
 
