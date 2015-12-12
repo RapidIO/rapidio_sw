@@ -695,6 +695,12 @@ int test_wpeer_accept(struct worker *info)
 	if (riomp_sock_socket(mbox, &sock_h))
 		goto fail;
 
+	if (riomp_sock_socket(mbox, &new_sock_h))
+		goto fail;
+
+	new_sock_h->wkr_idx = info->idx;
+	new_sock_h->acceptor = TEST_SKT_ACCEPT;
+
 	if (riomp_sock_accept(sock_h, &new_sock_h, 0))
 		goto fail;
 
@@ -1549,8 +1555,8 @@ int test_case_7(void)
 	struct rskt_dmn_wpeer **wp;
 	struct l_item_t *li;
 	struct rskt_test_info *s_t, *w_t;
-	uint32_t sp_idx = 0;
-	uint32_t wp_idx = 6;
+	uint32_t sp_idx = 1;
+	uint32_t wp_idx = (MAX_WORKERS/2);
 	
 	/* Start two workers. */
 	start_worker_thread(&wkr[sp_idx], -1);
@@ -1599,8 +1605,13 @@ int test_case_7(void)
 
 	/* Start up WPEER process, should connect with worker thread*/
 	fail_pt = 10;
-	update_wpeer_list(1, &wp_idx);
+	
+	destids[0].valid = 1;
+	destids[0].destid = wp_idx;
+	destids[0].flag = FMDD_RSKT_FLAG;
+	sem_post(&fmdd_sem);
 
+	sleep(1);
 	/* Not a typo, dmn.speers enqueues **speer. */
 	sp = (struct rskt_dmn_speer **)l_head(&dmn.speers, &li);
 

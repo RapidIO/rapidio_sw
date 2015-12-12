@@ -195,7 +195,7 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 		DBG("dmn.mb created\n");
 		sem_post(&dmn.mb_mtx);
 
-        	conn_rc = riomp_sock_connect(w->cm_skt_h, ct, 0, cm_skt);
+        	conn_rc = riomp_sock_connect(w->cm_skt_h, w->ct, 0, w->cm_skt);
 
                 if (!conn_rc) {
                 	INFO("Connected to ct(%d)\n", ct);

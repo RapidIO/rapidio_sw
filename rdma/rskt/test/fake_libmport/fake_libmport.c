@@ -488,26 +488,15 @@ int riomp_mgmt_device_del(riomp_mport_t mport_handle, uint16_t destid,
 	return 0 * destid * hc * ctag;
 };
 
-#define TEST_SKT_NO_CONN -1
-#define TEST_SKT_CONNECT 0
-#define TEST_SKT_ACCEPT 1
-
-struct rapidio_mport_socket {
-	int wkr_idx; /* Index of wkr[] for send/receive */
-	int acceptor; /* TRUE if this side accepted,
-			FALSE if this side connected */
-};
-
 // struct riomp_mailbox_t * struct worker;
 
 sem_t sock_wkr_idx_mtx;
-int sock_wkr_idx;
+int sock_wkr_idx = 0;
 int sock_mbox_init;
 
 int riomp_sock_mbox_init(void)
 {
 	sem_init(&sock_wkr_idx_mtx, 0, 1);
-	sock_wkr_idx = 0;
 	return 0;
 }
 
@@ -723,18 +712,24 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	if (NULL == *conn)
 		goto fail;
 
-	sem_wait(&sock_wkr_idx_mtx);
-	(*conn)->wkr_idx = sock_wkr_idx;
-	sock_wkr_idx++;
-	(*conn)->acceptor = TEST_SKT_ACCEPT;
-	sem_post(&sock_wkr_idx_mtx);
+	/* if the socket is already initialized, this is a call from the
+ 	* test worker.  No need to hide the connection mechanism.
+ 	* The info should already be there.
+ 	*/
+	if ((*conn)->wkr_idx == -1) {
+		sem_wait(&sock_wkr_idx_mtx);
+		(*conn)->wkr_idx = sock_wkr_idx;
+		sock_wkr_idx = (sock_wkr_idx + 1) % (MAX_WORKERS/2);
+		(*conn)->acceptor = TEST_SKT_ACCEPT;
+		sem_post(&sock_wkr_idx_mtx);
 
 
-	while (((NULL == (volatile void * volatile)
-			wkr[(*conn)->wkr_idx].priv_info) 
-		|| (wkr[(*conn)->wkr_idx].stop_req != worker_running))
-		&& !kill_acc_conn) {
-		sched_yield();
+		while (((NULL == (volatile void * volatile)
+				wkr[(*conn)->wkr_idx].priv_info) 
+			|| (wkr[(*conn)->wkr_idx].stop_req != worker_running))
+			&& !kill_acc_conn) {
+			sched_yield();
+		};
 	};
 
 	if (kill_acc_conn)
@@ -746,10 +741,10 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 	test = (struct rskt_test_info *)
 		wkr[(*conn)->wkr_idx].priv_info;
 
-	if (test != NULL) {
-		sem_post((sem_t *)&test->speer_con);
-		sem_wait((sem_t *)&test->speer_acc);
-	};
+	if (test == NULL)
+		goto fail;
+	sem_post((sem_t *)&test->speer_con);
+	sem_wait((sem_t *)&test->speer_acc);
 	
 	return 0;
 fail:

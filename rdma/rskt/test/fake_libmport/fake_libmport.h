@@ -43,9 +43,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+#define TEST_SKT_NO_CONN -1
+#define TEST_SKT_CONNECT 0
+#define TEST_SKT_ACCEPT 1
+
+struct rapidio_mport_socket {
+        int wkr_idx; /* Index of wkr[] for send/receive */
+        int acceptor; /* TRUE if this side accepted,
+                        FALSE if this side connected */
+};
+
 #define FAKE_LIBMPORT_CT (uint16_t)(0x3344)
 
 extern int kill_acc_conn;
+extern int sock_wkr_idx;
 
 #ifdef __cplusplus
 }
