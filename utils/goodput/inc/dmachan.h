@@ -86,6 +86,7 @@ public:
       uint32_t bd_wp; ///< Soft WP at the moment of enqueuing this
       uint32_t bd_idx; ///< index into buffer ring of buffer used to handle this op
       uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
+      uint64_t u_data; ///< whatever the user puts in here
   } DmaOptions_t;
 
   static const uint32_t WI_SIG = 0xb00fd00fL;

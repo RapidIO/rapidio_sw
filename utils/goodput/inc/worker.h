@@ -158,9 +158,16 @@ struct thread_cpu {
 
 #define SOFT_RESTART	69
 
+#define MAX_PEERS		64 ///< Maximum size of cluster
+
 #define MAX_EPOLL_EVENTS	64
 
+#define PEER_SIG_INIT	0x66666666L
+#define PEER_SIG_UP	0xbaaddeedL
+#define PEER_SIG_DESTROYED  0xdeadbeefL
+
 typedef struct {
+	uint32_t           sig;
 	pthread_mutex_t    mutex;
 	uint16_t           destid; ///< RIO destid of peer
 	uint64_t           rio_addr; ///< Peer's IBwin mapping
@@ -184,7 +191,10 @@ typedef struct {
 	DMA_L2_t**	   rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
         uint32_t*          rio_rx_bd_ready; ///< List of all IB BDs that have fresh data in them, per-destid 
         volatile int       rio_rx_bd_ready_size;
+	uint64_t*	   rio_rx_bd_ready_ts; ///< IB BD RX timestamp
 	pthread_spinlock_t rio_rx_bd_ready_splock;
+
+	uint64_t           total_ticks_rx; ///< How many ticks (total) between IB RO detection and write into Tun
 
 	volatile int       stop_req; ///< For the thread minding this peer
 
@@ -196,7 +206,10 @@ typedef struct {
 	int                      oi;
 	int                      tx_buf_cnt; ///< Powersof 2, min 0x20, only (n-1) usable, last one for T3
 	int			 sts_entries;
+
 	volatile uint64_t        ticks_total;
+	volatile uint64_t        total_ticks_tx; ///< How many ticks (total) between read from Tun and NWRITE FIFO completion
+
 	DMAChannel*              dch;
 	RioMport::DmaMem_t       dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
@@ -329,10 +342,14 @@ struct worker {
 	int             umd_epollfd; ///< Epoll set
 	struct thread_cpu umd_dma_tap_thr;
 
+	pthread_mutex_t         umd_dma_did_peer_mutex;
+
         std::map<uint16_t, DmaPeerCommsStats_t> umd_dma_did_enum_list; ///< This is just a list of destids we broadcast to -- populated by EpWatch
-	std::map<uint16_t, DmaPeerDestid_t*>    umd_dma_did_peer; ///< These are the peers with Tun devices -- maintained bu Main Battle Tank thread
-	std::map<int, uint16_t>                 umd_dma_did_peer_fd2did; ///< Maps tun file descriptor to destid -- maintained bu Main Battle Tank thread
-	pthread_mutex_t                         umd_dma_did_peer_mutex;
+
+	int                     umd_dma_did_peer_list_high_wm; ///< High water mark of list below -- maintained by Main Battle Tank thread
+	DmaPeerDestid_t*        umd_dma_did_peer_list[MAX_PEERS]; ///< List of currently up peers -- maintained by Main Battle Tank thread
+	std::map<uint16_t, int> umd_dma_did_peer; ///< These are slot into \ref umd_dma_did_peer_list -- maintained by Main Battle Tank thread
+	//std::map<int, uint16_t> umd_dma_did_peer_fd2did; ///< Maps tun file descriptor to destid -- maintained by Main Battle Tank thread
 
 	IBwinMap*       umd_peer_ibmap;
 
@@ -343,6 +360,7 @@ struct worker {
 	uint32_t	umd_dma_abort_reason;
 	volatile uint64_t tick_count, tick_total;
 	volatile uint64_t tick_data_total;
+
 	std::string	evlog;
 
 	int             umd_dma_bcast_min;	///< Receive "N" bcasts from peer via MBOX before putting up Tun
@@ -383,11 +401,14 @@ static inline void DmaPeerDestidDestroy(DmaPeerDestid_t* peer)
 
 	DmaPeerLock(peer);
 
+	peer->sig = PEER_SIG_DESTROYED;
+
 	if (peer->tun_fd >= 0) { close(peer->tun_fd); peer->tun_fd = -1; }
 	peer->tun_name[0] = '\0';
 
 	free(peer->rio_rx_bd_L2_ptr); peer->rio_rx_bd_L2_ptr = NULL;
 	free(peer->rio_rx_bd_ready); peer->rio_rx_bd_ready = NULL;
+	free(peer->rio_rx_bd_ready_ts); peer->rio_rx_bd_ready_ts = NULL;
 	peer->rio_rx_bd_ready_size = -1;
 
 	DmaPeerUnLock(peer);
@@ -419,6 +440,9 @@ static inline bool DmaPeerDestidInit(const struct worker* info, DmaPeerDestid_t*
         peer->rio_rx_bd_ready = (uint32_t*)calloc(info->umd_tx_buf_cnt, sizeof(uint32_t)); // +1 secret cell
         if (peer->rio_rx_bd_ready == NULL) goto error;
 
+	peer->rio_rx_bd_ready_ts = (uint64_t*)calloc(info->umd_tx_buf_cnt, sizeof(uint64_t)); // +1 secret cell
+        if (peer->rio_rx_bd_ready_ts == NULL) goto error;
+
         peer->rio_rx_bd_ready_size = 0;
 
         {{ // RX: Pre-populate the locations of the RO bit in IB BDs, and zero RO
@@ -445,7 +469,11 @@ unlock:
 	DmaPeerUnLock(peer);
 	return ret;
 
-error:  goto unlock;
+error:  
+	if (peer->rio_rx_bd_L2_ptr != NULL)   { free(peer->rio_rx_bd_L2_ptr); peer->rio_rx_bd_L2_ptr = NULL; }
+	if (peer->rio_rx_bd_ready != NULL)    { free(peer->rio_rx_bd_ready); peer->rio_rx_bd_ready = NULL; }
+	if (peer->rio_rx_bd_ready_ts != NULL) { free(peer->rio_rx_bd_ready_ts); peer->rio_rx_bd_ready_ts = NULL; }
+	goto unlock;
 }
 
 #endif // USER_MODE_DRIVER
