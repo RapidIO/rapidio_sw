@@ -155,6 +155,7 @@ ibwin::ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size) :
 void ibwin::free()
 {
 	/* Delete all memory spaces */
+	pthread_mutex_lock(&mspaces_lock);
 	for (auto& ms : mspaces) {
 		if (ms != nullptr) {
 			INFO("Deleting %s\n", ms->get_name());
@@ -164,6 +165,7 @@ void ibwin::free()
 		}
 	}
 	mspaces.clear();
+	pthread_mutex_unlock(&mspaces_lock);
 
 	/* Free inbound window */
 	INFO("win_num = %d, phys_addr = 0x%16" PRIx64 "\n",
@@ -366,14 +368,20 @@ void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator oth
 
 	/* The ms index belonging to the 'other' ms will be freed for reuse */
 	DBG("Freeing the msindex 0x%X for reuse\n", (*other)->get_msindex());
+	pthread_mutex_lock(&msindex_lock);
 	msindex_free_list[(*other)->get_msindex()] = true;
+	pthread_mutex_unlock(&msindex_lock);
 
 	/* Delete the next item and erase from the list */
 	DBG("Calling the destructor for 'other'\n");
 	delete *other;
 
+	/* Remove the 'other' memory space from the list */
 	DBG("Removing 'other' from mspace lists altogether\n");
+	pthread_mutex_lock(&mspaces_lock);
 	mspaces.erase(other);
+	pthread_mutex_unlock(&mspaces_lock);
+
 } /* merge_next_with_mspace() */
 
 int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
