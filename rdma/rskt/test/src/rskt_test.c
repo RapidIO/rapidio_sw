@@ -621,6 +621,7 @@ fail:
 int test_speer_connect(struct worker *info)
 {
 	int fail_pt = 5;
+	int ret;
 	riomp_mailbox_t mbox;
 	struct rskt_test_info *test = (struct rskt_test_info *)info->priv_info;
         struct rsktd_resp_msg *rsp_p = &test->resp;
@@ -645,21 +646,31 @@ int test_speer_connect(struct worker *info)
 		struct rsktd_resp_msg *resp =
 			(struct rsktd_resp_msg *)malloc(DMN_RESP_SZ);
 
+		INFO("SPEER %d waiting new request to TX", info->idx);
 		while ((info->stop_req == worker_running) && !test->new_req)
 			sched_yield();
 		fail_pt = 15;
 		if (info->stop_req != worker_running)
 			continue;
 		fail_pt = 20;
-		if (riomp_sock_send(sock_h, &test->req, DMN_REQ_SZ))
+		INFO("SPEER %d SENDing request", info->idx);
+		ret = riomp_sock_send(sock_h, &test->req, DMN_REQ_SZ);
+		if (ret) {
+			INFO("SPEER %d SENDing request FAILED %x",
+				 info->idx, ret);
 			goto fail;
+		};
 		fail_pt = 25;
 		if (info->stop_req != worker_running)
 			continue;
 		fail_pt = 30;
 		memset(resp, 0, sizeof(struct rsktd_resp_msg));
-		if (riomp_sock_receive(sock_h, (void **)&rsp_p, DMN_RESP_SZ, 0))
+		ret = riomp_sock_receive(sock_h, (void **)&rsp_p, DMN_RESP_SZ, 0);
+		if (ret) {
+			INFO("SPEER %d SENDing request FAILED %x",
+				 info->idx, ret);
 			goto fail;
+		};
 		if (NULL == rsp_p)
 			goto fail;
 		fail_pt = 40;
@@ -667,9 +678,11 @@ int test_speer_connect(struct worker *info)
 			goto fail;
 		test->new_req = 0;
 	};
+	INFO("SPEER %d exiting...", info->idx);
 	test->rc = 0;
 	return 0;
 fail:
+	INFO("SPEER %d exiting rc %d...", info->idx, fail_pt);
 	test->rc = fail_pt;
 	sem_post(&test->done_sema);
 	return 0;
@@ -685,7 +698,7 @@ int test_wpeer_accept(struct worker *info)
 					malloc(sizeof(struct rsktd_req_msg));
 	riomp_mailbox_t mbox;
 	struct rskt_test_info *test;
-	riomp_sock_t sock_h, new_sock_h;
+	riomp_sock_t sock_h, new_h;
 
 	/* There should not be any peers now */
 	test = (struct rskt_test_info *)info->priv_info; 
@@ -695,25 +708,30 @@ int test_wpeer_accept(struct worker *info)
 	if (riomp_sock_socket(mbox, &sock_h))
 		goto fail;
 
-	if (riomp_sock_socket(mbox, &new_sock_h))
+	if (riomp_sock_socket(mbox, &new_h))
 		goto fail;
 
-	new_sock_h->wkr_idx = info->idx;
-	new_sock_h->acceptor = TEST_SKT_ACCEPT;
+	new_h->wkr_idx = info->idx;
+	new_h->acceptor = TEST_SKT_ACCEPT;
 
-	if (riomp_sock_accept(sock_h, &new_sock_h, 0))
+	if (riomp_sock_accept(sock_h, &new_h, 0))
 		goto fail;
 
 	sleep(1);
-
 	
 	while (info->stop_req == worker_running) {
+		int ret;
 		fail_pt = 20;
+		INFO("WKR %d WPEER_ACC Waiting for new resp mesage",
+			info->idx);
 		while ((info->stop_req == worker_running) && !test->new_resp)
 			sched_yield();
 
 		fail_pt = 25;
-		if (riomp_sock_receive(sock_h, (void **)&req, DMN_REQ_SZ, 0))
+		INFO("WKR %d WPEER_ACC Receiving message", info->idx);
+		ret = riomp_sock_receive(new_h, (void **)&req, DMN_REQ_SZ, 0);
+		INFO("WKR %d WPEER_ACC REceive ret %d", info->idx, ret);
+		if (ret)
 			goto fail;
 		if (NULL == req)
 			goto fail;
@@ -722,17 +740,20 @@ int test_wpeer_accept(struct worker *info)
 		if (info->stop_req != worker_running)
 			continue;
 		fail_pt = 30;
-		if (riomp_sock_send(sock_h, &test->resp, DMN_RESP_SZ))
+		INFO("WKR %d WPEER_ACC SENDing message", info->idx);
+		if (riomp_sock_send(new_h, &test->resp, DMN_RESP_SZ))
 			goto fail;
 		test->new_resp = 0;
 		if (info->stop_req != worker_running)
 			continue;
 	};
+	INFO("WKR %d WPEER_ACC EXITING", info->idx);
 	return 0;
 
 fail:
 	test->rc = fail_pt;
 	sem_post(&test->done_sema);
+	INFO("WKR %d WPEER_ACC EXITING RC= %d", test->rc, test->rc);
 	return 0;
 };
 
@@ -1558,17 +1579,13 @@ int test_case_7(void)
 	uint32_t sp_idx = 1;
 	uint32_t wp_idx = (MAX_WORKERS/2);
 	
+	g_level = 7;
 	/* Start two workers. */
 	start_worker_thread(&wkr[sp_idx], -1);
 	start_worker_thread(&wkr[wp_idx], -1);
 
 	wait_for_worker_status(&wkr[sp_idx], worker_halted);
 	wait_for_worker_status(&wkr[wp_idx], worker_halted);
-	
-	/* Speer should connect/accept immedaitesly with SPEER_CONN handler */
-	/* WPEER waits until the daemon WPEER is connected */
-	run_worker_action(&wkr[sp_idx], SPEER_CONN);
-	run_worker_action(&wkr[wp_idx], WPEER_ACC);
 	
 	s_t = (struct rskt_test_info *)wkr[sp_idx].priv_info;
 	w_t = (struct rskt_test_info *)wkr[wp_idx].priv_info;
@@ -1581,7 +1598,7 @@ int test_case_7(void)
         s_t->req.msg.hello.cm_mp = htonl(1);
 
 	s_t->resp.msg_type = htonl(RSKTD_HELLO_RESP);
-	s_t->resp.msg_seq = htonl(44);
+	s_t->resp.msg_seq = htonl(0);
 	s_t->resp.err = htonl(0);
 	memcpy(&s_t->resp.req, &s_t->req.msg, sizeof(union librsktd_req));
 	s_t->resp.msg.hello.peer_pid = htonl(getpid());
@@ -1590,19 +1607,24 @@ int test_case_7(void)
 
 	/* Set up HELLO req/resp for WPEER */
         w_t->req.msg_type = htonl(RSKTD_HELLO_REQ);
-        w_t->req.msg_seq = htonl(44);
+        w_t->req.msg_seq = htonl(0);
         w_t->req.msg.hello.ct = htonl(wp_idx);
         w_t->req.msg.hello.cm_skt = htonl(3334);
         w_t->req.msg.hello.cm_mp = htonl(1);
 
 	w_t->resp.msg_type = htonl(RSKTD_HELLO_RESP);
-	w_t->resp.msg_seq = htonl(44);
+	w_t->resp.msg_seq = htonl(0);
 	w_t->resp.err = htonl(0);
 	memcpy(&w_t->resp.req, &w_t->req.msg, sizeof(union librsktd_req));
 	w_t->resp.msg.hello.peer_pid = htonl(getpid());
 	
 	w_t->new_resp = 1;
 
+	/* Speer should connect/accept immedaitesly with SPEER_CONN handler */
+	/* WPEER waits until the daemon WPEER is connected */
+	run_worker_action(&wkr[sp_idx], SPEER_CONN);
+	run_worker_action(&wkr[wp_idx], WPEER_ACC);
+	
 	/* Start up WPEER process, should connect with worker thread*/
 	fail_pt = 10;
 	

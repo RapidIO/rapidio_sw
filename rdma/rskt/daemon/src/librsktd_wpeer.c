@@ -132,7 +132,7 @@ void *wpeer_rx_loop(void *p_i)
 			w->i_must_die = 0;
 			w->i_must_die = riomp_sock_receive(w->cm_skt_h, 
 				&w->rx_buff, DMN_RESP_SZ, 0);
-		} while ((w->i_must_die) && !dmn.all_must_die && 
+		} while (!w->i_must_die && !dmn.all_must_die && 
 		((EINTR == errno) || (EAGAIN == errno) || (ETIME == errno)));
 
 		if (w->i_must_die || dmn.all_must_die) {

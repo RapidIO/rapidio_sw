@@ -39,7 +39,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <time.h>
 #include <string.h>
 
-
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
@@ -645,8 +644,12 @@ void rsktd_a2w_hello_resp(struct librsktd_unified_msg *r)
 	struct rskt_dmn_wpeer *w = *r->wp;
 
 	if ((NULL != w) && (NULL != r->dresp)) {
+		char name[16];
 		w->peer_pid = ntohl(r->dresp->msg.hello.peer_pid);
 		w->wpeer_alive = 1;
+		memset(name, 0, 16);
+		snprintf(name, 15, "WPEER_RX%d", w->ct);
+		pthread_setname_np(w->w_rx, name);
 	};
 
 	dealloc_msg(r);
