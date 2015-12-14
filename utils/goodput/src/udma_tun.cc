@@ -1824,6 +1824,12 @@ void umd_mbox_watch_demo(struct worker *info)
         const int tundmathreadindex = info->umd_chan_to; // FUDGE
         if (tundmathreadindex < 0) return;
 
+	RioMport* mport = new RioMport(info->mp_num, info->mp_h);
+
+	// Clear on read
+	mport->rd32(TSI721_TXPKT_SMSG_CNT); // aka 0x41410  Sent Packet Count of Messaging Engine Register
+	mport->rd32(TSI721_RXPKT_SMSG_CNT); // aka 0x29900   Received Packet Count for Messaging Engine Register
+
         if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
         if (! TakeLock(info, "MBOX", info->umd_chan)) goto exit;
@@ -1935,7 +1941,9 @@ void umd_mbox_watch_demo(struct worker *info)
 			}
 
 			if (info->umd_mch->queueTxSize() > 0) {
-				ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s\n", opt.destid, (q_was_full? "Q FULL?": ""));
+				ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d TXPKT_SMSG_CNT=%d RXPKT_SMSG_CNT=%d\n",
+				    opt.destid, (q_was_full? "Q FULL?": ""), tx_ok,
+				    mport->rd32(TSI721_TXPKT_SMSG_CNT), mport->rd32(TSI721_RXPKT_SMSG_CNT));
 
 				info->umd_mch->softRestart();
 
@@ -2019,6 +2027,8 @@ exit:
 
         close(sockp1[0]); close(sockp1[1]);
         close(sockp2[0]); close(sockp2[1]);
+
+	delete mport;
         delete info->umd_mch; info->umd_mch = NULL;
         delete info->umd_lock; info->umd_lock = NULL;
 
