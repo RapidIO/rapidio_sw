@@ -1758,9 +1758,15 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	sem_post(&skt_h->mtx);
 	return avail_bytes;
 fail:
-	WARN("Failed..closing skt_h\n");
+	/* FIXME: Needs review */
+	if (errno == ECONNRESET) {
+		WARN("Failed because the other side closed!\n");
+	} else {
+		/* Failed for another reason. Closing RSKT */
+		WARN("Failed for some other reason. Closing connection\n");
+		rskt_close(skt_h);
+	}
 	sem_post(&skt_h->mtx);
-	rskt_close(skt_h);
 	return -1;
 skt_ok:
 	sem_post(&skt_h->mtx);
