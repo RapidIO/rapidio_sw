@@ -1708,16 +1708,19 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 		time_remains--;
 	};
 	DBG("avail_bytes = %d\n", avail_bytes);
-	if (!time_remains) {
-		ERR("Timed out!\n");
-		errno = ETIMEDOUT;
-		goto skt_ok;
-	};
 
+	/* Check if the connection has dropped (errno set) */
 	if (!avail_bytes || errno) {
 		errno = ECONNRESET;
 		ERR("%s\n", strerror(errno));
 		goto fail;
+	};
+
+	/* If the connection was not dropped. Have we timed out? */
+	if (!time_remains) {
+		ERR("Timed out!\n");
+		errno = ETIMEDOUT;
+		goto skt_ok;
 	};
 
 	if (avail_bytes > max_byte_cnt)
@@ -1854,6 +1857,7 @@ int rskt_close(rskt_h skt_h)
 	struct librskt_app_to_rsktd_msg *tx;
 	struct librskt_rsktd_to_app_msg *rx;
 	struct rskt_socket_t *skt;
+	struct rdma_xfer_ms_in hdr_in;
 
 	DBG("ENTER\n");
 	if (lib_uninit()) {
@@ -1887,6 +1891,23 @@ int rskt_close(rskt_h skt_h)
 	tx->a_rq.msg.close.sn = htonl(skt->sa.sn);
 
 	librskt_dmsg_req_resp(tx, rx);
+
+	/* Indicate to remote side that the connection was closed. This should
+	 * translate to rskt_read() returning ECONNRESET.
+	 */
+	skt->hdr->rem_rx_wr_flags |= htonl(RSKT_FLAG_CLOS_CHK);
+	hdr_in.loc_msubh = skt->msubh;
+	hdr_in.rem_msubh = skt->con_msubh;
+	hdr_in.priority = 0;
+	hdr_in.sync_type = rdma_sync_chk;
+	if (update_remote_hdr(skt, &hdr_in)) {
+		skt->hdr->loc_tx_wr_flags |=
+					htonl(RSKT_BUF_HDR_FLAG_ERROR);
+	       	skt->hdr->loc_rx_rd_flags |=
+					htonl(RSKT_BUF_HDR_FLAG_ERROR);
+		ERR("Failed in update_remote_hdr\n");
+		goto exit;
+	};
 
 	if (lib.all_must_die) {
 		DBG("all_must_die\n");
