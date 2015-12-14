@@ -84,6 +84,7 @@ struct rskt_test_info {
 	struct rsktd_req_msg req;
 	int new_resp;
 	struct rsktd_resp_msg resp;
+	struct rsktd_resp_msg act_resp;
 	int acc_sent;
 	int acc_received;
 	int con_sent;

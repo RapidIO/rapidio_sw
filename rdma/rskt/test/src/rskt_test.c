@@ -624,7 +624,7 @@ int test_speer_connect(struct worker *info)
 	int ret;
 	riomp_mailbox_t mbox;
 	struct rskt_test_info *test = (struct rskt_test_info *)info->priv_info;
-        struct rsktd_resp_msg *rsp_p = &test->resp;
+        struct rsktd_resp_msg *rsp_p = &test->act_resp;
 	riomp_sock_t sock_h;
 
 	/* There should not be any peers now */
@@ -674,7 +674,8 @@ int test_speer_connect(struct worker *info)
 		if (NULL == rsp_p)
 			goto fail;
 		fail_pt = 40;
-		if (memcmp(&test->resp, resp, sizeof(struct rsktd_resp_msg)))
+		if (memcmp(&test->resp, &test->act_resp,
+				sizeof(struct rsktd_resp_msg)))
 			goto fail;
 		test->new_req = 0;
 	};
@@ -1598,7 +1599,7 @@ int test_case_7(void)
         s_t->req.msg.hello.cm_mp = htonl(1);
 
 	s_t->resp.msg_type = htonl(RSKTD_HELLO_RESP);
-	s_t->resp.msg_seq = htonl(0);
+	s_t->resp.msg_seq = htonl(44);
 	s_t->resp.err = htonl(0);
 	memcpy(&s_t->resp.req, &s_t->req.msg, sizeof(union librsktd_req));
 	s_t->resp.msg.hello.peer_pid = htonl(getpid());
