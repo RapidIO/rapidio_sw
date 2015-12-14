@@ -522,7 +522,7 @@ bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
     goto exit;
   };
 
-  memset(m_dmacompl.win_ptr, 0, sts_byte_cnt);
+  memset(m_dmacompl.win_ptr, 0, m_dmacompl.win_size);
 
   // Setup descriptor status FIFO 
   wr32dmachan(TSI721_DMAC_DSBH,
@@ -674,8 +674,12 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
 		if(compl_hwbuf[ci].valid != COMPL_SIG) {
 			pthread_spin_unlock(&m_pending_work_splock);
-			ERR("\n\tFound INVALID completion iten for BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+			const int idx = (compl_hwbuf[ci].win_handle 
+					- m_dmadesc.win_handle) /
+					DMA_BUFF_DESCR_SIZE; 
+			ERR("\n\tFound INVALID completion iten for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
 				compl_hwbuf[ci].win_handle,
+				idx,
 				compl_hwbuf[ci].fifo_offset,
 				getFIFOReadCount(), getFIFOWriteCount());
 			continue;

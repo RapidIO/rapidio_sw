@@ -186,6 +186,10 @@ typedef struct {
 	volatile uint64_t  tun_rx_cnt; ///< How many L3 frames came from this peer's tun
 	volatile uint64_t  tun_tx_cnt; ///< How many L3 frames successfully sent to this peer's tun
 	volatile uint64_t  tun_tx_err; ///< How many L3 frames failed to be sent to this peer's tun
+	volatile uint64_t  rio_tx_peer_full; ///< How many times the peer's IBwin window was full based on peer RP
+
+	volatile uint64_t  rio_rx_peer_full_ts; ///< Time at which we detected that this peer filled up our IBwin window
+	volatile uint64_t  rio_rx_peer_full_ticks_total; ///< How many ticks we spent with peer's IBwin window filled up
 
 	sem_t		   rio_rx_work; ///< Isolcpu thread signals per-Tun, per-destid RIO thread that it has ready IB BDs
 	DMA_L2_t**	   rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
@@ -337,7 +341,6 @@ struct worker {
 	volatile uint64_t umd_ticks_total_chan2;
 	DmaChannelInfo_t* umd_dch_list[8]; // Used for round-robin TX. Only 6 usable!
 
-	//int		umd_sockp[2];
 	int		umd_sockp_quit[2]; ///< Used to signal Tun RX thread to quit
 	int             umd_epollfd; ///< Epoll set
 	struct thread_cpu umd_dma_tap_thr;
@@ -349,7 +352,6 @@ struct worker {
 	int                     umd_dma_did_peer_list_high_wm; ///< High water mark of list below -- maintained by Main Battle Tank thread
 	DmaPeerDestid_t*        umd_dma_did_peer_list[MAX_PEERS]; ///< List of currently up peers -- maintained by Main Battle Tank thread
 	std::map<uint16_t, int> umd_dma_did_peer; ///< These are slot into \ref umd_dma_did_peer_list -- maintained by Main Battle Tank thread
-	//std::map<int, uint16_t> umd_dma_did_peer_fd2did; ///< Maps tun file descriptor to destid -- maintained by Main Battle Tank thread
 
 	IBwinMap*       umd_peer_ibmap;
 
