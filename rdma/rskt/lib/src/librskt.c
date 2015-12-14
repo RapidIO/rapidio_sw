@@ -1661,6 +1661,11 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 		goto skt_ok;
 	}
 
+	if (lib_uninit()) {
+		ERR("lib_uninit() failed\n");
+		goto fail;
+	}
+
 	rc = librskt_wait_for_sem(&skt_h->mtx, 0);
 	if (rc) {
 		ERR("librskt_wait_for_sem failed...exiting\n");
@@ -1673,11 +1678,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	skt = skt_h->skt;
 	if (NULL == skt) {
 		DBG("skt is NULL\n");
-		goto skt_ok;
-	}
-
-	if (lib_uninit()) {
-		ERR("lib_uninit() failed\n");
+		errno = ECONNRESET;
 		goto fail;
 	}
 
@@ -1873,6 +1874,7 @@ int rskt_close(rskt_h skt_h)
 
 	if (librskt_wait_for_sem(&skt_h->mtx, 0)) {
 		ERR("%s\n", strerror(errno));
+		sem_post(&skt_h->mtx);
 		return -errno;
 	}
 
@@ -1880,6 +1882,7 @@ int rskt_close(rskt_h skt_h)
 
 	if (NULL == skt) {
 		ERR("skt is NULL\n");
+		sem_post(&skt_h->mtx);
 		return 0;
 	}
 
@@ -1894,7 +1897,8 @@ int rskt_close(rskt_h skt_h)
 	/* Indicate to remote side that the connection was closed. This should
 	 * translate to rskt_read() returning ECONNRESET.
 	 */
-	skt->hdr->rem_rx_wr_flags |= htonl(RSKT_FLAG_CLOS_CHK);
+	skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_CLOSING);
+	skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_CLOSING);
 	hdr_in.loc_msubh = skt->msubh;
 	hdr_in.rem_msubh = skt->con_msubh;
 	hdr_in.priority = 0;
@@ -1905,6 +1909,7 @@ int rskt_close(rskt_h skt_h)
 	       	skt->hdr->loc_rx_rd_flags |=
 					htonl(RSKT_BUF_HDR_FLAG_ERROR);
 		ERR("Failed in update_remote_hdr\n");
+		sem_post(&skt_h->mtx);
 		goto exit;
 	};
 

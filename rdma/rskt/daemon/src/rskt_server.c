@@ -42,7 +42,7 @@ void *slave_thread_f(void *arg)
 
 	/* Extract parameters and free the params struct */
 	if (arg == NULL) {
-		fprintf(stderr, "NULL accept_socket. Exiting\n");
+		fprintf(stderr, "NULL argument. Exiting\n");
 		goto slave_thread_f_exit;
 	}
 	slave_params = (struct slave_thread_params *)arg;
@@ -50,7 +50,7 @@ void *slave_thread_f(void *arg)
 	slave_thread  = slave_params->slave_thread;
 	free(slave_params);
 
-	printf("Created %s with thread id = 0x%" PRIx64 "\n", __func__, slave_thread);
+	printf("*** Started %s with thread id = 0x%" PRIx64 "\n", __func__, slave_thread);
 
 	/* Allocate send and receive buffers */
 	send_buf = malloc(RSKT_DEFAULT_SEND_BUF_SIZE);
