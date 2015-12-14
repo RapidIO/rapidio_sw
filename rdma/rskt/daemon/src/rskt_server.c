@@ -70,7 +70,7 @@ void *slave_thread_f(void *arg)
 			       recv_buf,
 			       RSKT_DEFAULT_RECV_BUF_SIZE);
 		if (rc < 0) {
-			if (errno == -ETIMEDOUT) {
+			if (errno == ETIMEDOUT) {
 				fprintf(stderr, "rskt_read() timed out. Retrying!\n");
 				continue;
 			}
