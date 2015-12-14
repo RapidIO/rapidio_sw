@@ -1875,9 +1875,8 @@ int rskt_close(rskt_h skt_h)
 		ERR("%s\n", strerror(errno));
 		return -errno;
 	}
+
 	skt = skt_h->skt;
-	skt_h->skt = NULL;
-	sem_post(&skt_h->mtx);
 
 	if (NULL == skt) {
 		ERR("skt is NULL\n");
@@ -1908,6 +1907,9 @@ int rskt_close(rskt_h skt_h)
 		ERR("Failed in update_remote_hdr\n");
 		goto exit;
 	};
+
+	skt_h->skt = NULL;
+	sem_post(&skt_h->mtx);
 
 	if (lib.all_must_die) {
 		DBG("all_must_die\n");
