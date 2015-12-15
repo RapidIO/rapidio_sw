@@ -97,8 +97,10 @@ void *slave_thread_f(void *arg)
 	} while(1); /* read/write loop */
 
 slave_thread_f_exit:
-	printf("Exiting %s, thread id=0x%X, socket=0x%X\n", __func__,
-						slave_thread, accept_socket);
+	num_threads--;	/* For tracking state upon crash */
+
+	printf("Exiting %s, thread id=0x%X, socket=0x%X, %u threads active\n",
+			__func__, slave_thread, accept_socket, num_threads);
 
 	/* Free send/receive buffers */
 	if (send_buf != NULL)
@@ -109,8 +111,6 @@ slave_thread_f_exit:
 		free(slave_params);
 
 	/* FIXME: Close and destroy the accept socket */
-
-	num_threads--;	/* For tracking state upon crash */
 	pthread_exit(0);
 } /* slave_thread_f() */
 
