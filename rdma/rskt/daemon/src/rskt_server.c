@@ -30,6 +30,8 @@ struct slave_thread_params {
 	rskt_h	accept_socket;
 };
 
+static unsigned num_threads = 0;
+
 void *slave_thread_f(void *arg)
 {
 	struct slave_thread_params	*slave_params;
@@ -104,6 +106,9 @@ slave_thread_f_exit:
 		free(recv_buf);
 
 	/* FIXME: Close and destroy the accept socket */
+
+	num_threads--;	/* For tracking state upon crash */
+
 	pthread_exit(0);
 } /* slave_thread_f() */
 
@@ -130,6 +135,8 @@ void sig_handler(int sig)
 	default:
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
 	}
+	fprintf(stderr, "There are %u threads still active\n", num_threads);
+	exit(1);
 
 } /* sig_handler() */
 
@@ -192,12 +199,13 @@ int main(int argc, char *argv[])
 		/* Create a new accept socket for the next connection */
 		accept_socket = rskt_create_socket();
 		if (!accept_socket) {
-			fprintf(stderr, "Failed to create accept socket, rc = %d: %s\n",
+			fprintf(stderr, "Cannot create accept socket, rc = %d: %s\n",
 							rc, strerror(errno));
 			goto free_listen_socket;
 		}		
 
 		/* Await connect requests from RSKT clients */
+		printf("%u threads active, accepting connections\n", num_threads);
 		rc = rskt_accept(listen_socket, accept_socket, &sock_addr);
 		if (rc) {
 			fprintf(stderr, "Failed in rskt_accept, rc = %d: %s\n",
@@ -220,6 +228,7 @@ int main(int argc, char *argv[])
 			 * successful connections we may already have. */
 			continue;
 		}
+		num_threads++;	/* Increment threads */
 	} /* while */
 
 destroy_accept_socket:
@@ -230,5 +239,8 @@ free_listen_socket:
 	rskt_destroy_socket(&listen_socket);
 
 exit_main:
+	/* The server never exits */
+	fprintf(stderr, "**** EXITING DUE TO FAILURE ****, num_threads = %u\n",
+							num_threads);
 	return rc;
 }/* main() */
