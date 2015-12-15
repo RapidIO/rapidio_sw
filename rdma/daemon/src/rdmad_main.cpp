@@ -353,6 +353,8 @@ void *rpc_thread_f(void *arg)
 					DBG("DESTROY_MSUB\n");
 					destroy_msub_input  *in  = &in_msg->destroy_msub_in;
 					destroy_msub_output *out = &out_msg->destroy_msub_out;
+					DBG("msid = 0x%X, msubid = 0x%X\n", in->msid,
+									    in->msubid);
 					out_msg->type = DESTROY_MSUB_ACK;
 					out->status = rdmad_destroy_msub(in->msid, in->msubid);
 				}
