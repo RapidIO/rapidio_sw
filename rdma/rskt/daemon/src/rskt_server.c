@@ -28,6 +28,7 @@
 struct slave_thread_params {
 	pthread_t slave_thread;
 	rskt_h	accept_socket;
+	sem_t	started;
 };
 
 static unsigned num_threads = 0;
@@ -50,7 +51,7 @@ void *slave_thread_f(void *arg)
 	slave_params = (struct slave_thread_params *)arg;
 	accept_socket = slave_params->accept_socket;
 	slave_thread  = slave_params->slave_thread;
-	free(slave_params);
+	sem_post(&slave_params->started);
 
 	printf("*** Started %s with thread id = 0x%" PRIx64 "\n", __func__, slave_thread);
 
@@ -104,11 +105,12 @@ slave_thread_f_exit:
 		free(send_buf);
 	if (recv_buf == NULL)
 		free(recv_buf);
+	if (slave_params != NULL)
+		free(slave_params);
 
 	/* FIXME: Close and destroy the accept socket */
 
 	num_threads--;	/* For tracking state upon crash */
-
 	pthread_exit(0);
 } /* slave_thread_f() */
 
@@ -217,6 +219,7 @@ int main(int argc, char *argv[])
 		slave_params = (struct slave_thread_params *)
 				malloc(sizeof(struct slave_thread_params));
 		slave_params->accept_socket = accept_socket;
+		sem_init(&slave_params->started, 0, 0);
 		rc = pthread_create(&slave_params->slave_thread,
 				    NULL,
 				    slave_thread_f,
@@ -228,6 +231,10 @@ int main(int argc, char *argv[])
 			 * successful connections we may already have. */
 			continue;
 		}
+
+		/* Wait for thread to start */
+		sem_wait(&slave_params->started);
+
 		num_threads++;	/* Increment threads */
 	} /* while */
 
