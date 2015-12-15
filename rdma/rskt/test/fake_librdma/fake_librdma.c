@@ -80,6 +80,12 @@ int rdma_destroy_mso_h(mso_h msoh)
 	return 0;
 };
 
+struct loc_ms {
+        char *name;
+        uint32_t   bytes;
+        void *addr;
+};
+
 int rdma_create_ms_h(const char *ms_name,
 		     mso_h msoh,
 		     uint32_t req_bytes,
@@ -87,12 +93,21 @@ int rdma_create_ms_h(const char *ms_name,
 		     ms_h *msh,
 		     uint32_t *bytes)
 {
+	struct loc_ms *lms;
+
 	if (0) {
 		if (NULL == ms_name)
 			return msoh * 0;
 		*bytes = req_bytes + flags;
 		*msh = 0;
 	};
+
+	lms = (struct loc_ms *)malloc(sizeof(struct loc_ms));
+	lms->name = (char *)ms_name;
+	lms->bytes = *bytes;
+	lms->addr = malloc(*bytes);
+
+	*msh = (uint64_t)lms;
 
 	return 0;
 };
@@ -103,11 +118,20 @@ int rdma_open_ms_h(const char *ms_name,
 		   uint32_t *bytes,
 		   ms_h *msh)
 {
+	struct loc_ms *lms;
+
 	if (0) {
 		if (NULL == ms_name)
 			*bytes = msoh + flags;
 		*msh = 0;
 	};
+
+	lms = (struct loc_ms *)malloc(sizeof(struct loc_ms));
+	lms->name = (char *)ms_name;
+	lms->bytes = *bytes;
+	lms->addr = malloc(*bytes);
+
+	*msh = (uint64_t)lms;
 
 	return 0;
 };
@@ -115,11 +139,15 @@ int rdma_open_ms_h(const char *ms_name,
 
 int rdma_close_ms_h(mso_h msoh, ms_h msh)
 {
+	if (msh)
+		free((void *)msh);
 	return msoh * msh * 0;
 };
 
 int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 {
+	if (msh)
+		free((void *)msh);
 	return msoh * msh * 0;
 };
 
@@ -133,6 +161,7 @@ int rdma_create_msub_h(ms_h msh,
 		*msubh = msh + offset + req_bytes + flags;
 	};
 
+	*msubh = msh;
 	return 0;
 };
 
@@ -143,8 +172,11 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 
 int rdma_mmap_msub(msub_h msubh, void **vaddr)
 {
-	if (0) 
+	if (msubh)
+		*vaddr = ((struct loc_ms *)msubh)->addr;
+	else 
 		*vaddr = NULL;
+
 	return msubh * 0;
 };
 
@@ -195,21 +227,62 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 			struct rdma_xfer_ms_out *out)
 {
-	if (0) {
-		if ((NULL == in) || (NULL == out))
-			return 0;
+	struct loc_ms *in_ms = (struct loc_ms *)in->loc_msubh;
+	uint8_t *src_p, *dest_p;
+	int rc = -1;
+	uint32_t tot_bytes = in_ms->bytes;
+	uint32_t loc_offset = in->loc_offset;
+	uint32_t rem_offset = in->rem_offset;
+	uint32_t num_bytes = in->num_bytes;
+
+	out->in_param_ok = 0;
+	out->dma_xfr_status = 0;
+	out->chk_handle = 0;
+	if ((loc_offset > tot_bytes) || (rem_offset > tot_bytes)
+			|| ((loc_offset + num_bytes) > tot_bytes)
+			|| ((rem_offset + num_bytes) > tot_bytes)) {
+		out->in_param_ok = 1;
+		errno = EMSGSIZE;
+		goto exit;
 	};
-	return 0;
+	dest_p = (uint8_t *)(in_ms->addr) + in->rem_offset;
+	src_p = (uint8_t *)(in_ms->addr) + in->loc_offset;
+
+	memcpy((void *)dest_p, (void *)src_p, in->num_bytes);
+	rc = 0;
+exit:
+	return rc;
 };
 
 int rdma_pull_msub(const struct rdma_xfer_ms_in *in_parms,
 			struct rdma_xfer_ms_out *out)
 {
-	if (0) {
-		if ((NULL == in_parms) || (NULL == out))
-			return 0;
+	struct loc_ms *in_ms = (struct loc_ms *)in_parms->loc_msubh;
+	uint8_t *src_p, *dest_p;
+	int rc = -1;
+	uint32_t tot_bytes = in_ms->bytes;
+	uint32_t loc_offset = in_parms->loc_offset;
+	uint32_t rem_offset = in_parms->rem_offset;
+	uint32_t num_bytes = in_parms->num_bytes;
+
+	out->in_param_ok = 0;
+	out->dma_xfr_status = 0;
+	out->chk_handle = 0;
+	if ((loc_offset > tot_bytes) || (rem_offset > tot_bytes)
+			|| ((loc_offset + num_bytes) > tot_bytes)
+			|| ((rem_offset + num_bytes) > tot_bytes)) {
+		out->in_param_ok = 1;
+		errno = EMSGSIZE;
+		goto exit;
 	};
-	return 0;
+
+	dest_p = (uint8_t *)(in_ms->addr) + loc_offset;
+	src_p = (uint8_t *)(in_ms->addr) + rem_offset;
+
+	memcpy((void *)dest_p, (void *)src_p, in_parms->num_bytes);
+	rc = 0;
+exit:
+	return rc;
 };
 
 int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,

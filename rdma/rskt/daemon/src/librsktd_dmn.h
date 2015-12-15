@@ -136,6 +136,7 @@ struct rsktd_resp_msg {
 void enqueue_wpeer_msg(struct librsktd_unified_msg *msg);
 void enqueue_speer_msg(struct librsktd_unified_msg *msg);
 
+int alloc_mso_msh(void);
 int init_mport_and_mso_ms(void);
 void *speer_conn(void *unused);
 int start_speer_conn(uint32_t cm_skt, uint32_t mpnum,

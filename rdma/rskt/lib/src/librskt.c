@@ -1130,6 +1130,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 
 	tx->msg_type = LIBRSKTD_ACCEPT;
 	tx->a_rq.msg.accept.sn = htonl(l_skt->sa.sn);
+	
 	if (librskt_wait_for_sem(&lib.skts_mtx, 0x1090)) {
 		ERR(" librskt_wait_for_sem() failed..exiting\n");
 		goto exit;
@@ -1221,6 +1222,8 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	sem_post(&skt_h->mtx);
 	lib_add_skt_to_list(skt_h);
+	sktaddr->sn = skt_h->skt->sa.sn;
+	sktaddr->ct = skt_h->skt->sa.ct;
 	INFO("Exiting with SUCCESS\n");
 	return 0;
 

@@ -78,7 +78,7 @@ uint32_t rsktd_sn_find_free(uint32_t skt_num)
 	uint32_t i;
 
 	for (i = skt_num; i < max_skt; i++) {
-		if (rskt_uninit == skts[i])
+		if ((rskt_uninit == skts[i]) || (rskt_closed == skts[i]))
 			break;
 	};
 	if (i > max_skt)

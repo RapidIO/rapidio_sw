@@ -120,7 +120,7 @@ int d_rdma_get_ms_h(struct ms_info *msi, const char *name,
                         mso_h msoh, uint32_t req_ms_size, uint32_t flags)
 {
         int rc;
-	uint32_t act_ms_size;
+	uint32_t act_ms_size = req_ms_size;
 
         if (msi->valid) {
                 rc = d_rdma_drop_ms_h(msi);
@@ -182,6 +182,36 @@ int d_rdma_get_msub_h(struct ms_info *msi, int size,
 
         return rc;
 }
+
+int alloc_mso_msh(void) {
+	int rc = -1;
+	uint32_t i;
+
+	snprintf(dmn.mso.msoh_name, MAX_MS_NAME, "RSKT_DAEMON%d", getpid());
+        if (d_rdma_get_mso_h(dmn.mso.msoh_name, &dmn.mso.rskt_mso)) {
+		CRIT("Could not get mso_h for '%s'. Bailing out...\n",
+				dmn.mso.msoh_name);
+		goto exit;
+        };
+
+        for (i = 0; i < dmn.num_ms; i++) {
+                dmn.mso.ms[i].ms_size = dmn.ms_size;
+
+                snprintf(dmn.mso.ms[i].ms_name, MAX_MS_NAME,
+                        "RSKT_DAEMON%05d.%03d", getpid(), i);
+
+                if (d_rdma_get_ms_h(&dmn.mso.ms[i], dmn.mso.ms[i].ms_name,
+                        	dmn.mso.rskt_mso, dmn.ms_size, 0))
+			goto exit;
+                if (d_rdma_get_msub_h(&dmn.mso.ms[i], 
+                                        dmn.mso.ms[i].ms_size, 0))
+                        goto exit;
+		dmn.mso.num_ms++;
+        };
+	rc = 0;
+exit:
+	return rc;
+};
 
 int init_mport_and_mso_ms(void)
 {
@@ -263,31 +293,7 @@ int init_mport_and_mso_ms(void)
 		goto exit;
 	};
 
-	/* Allocate memory spaces */
-	rc = -1;
-	snprintf(dmn.mso.msoh_name, MAX_MS_NAME, "RSKT_DAEMON%d", getpid());
-        if (d_rdma_get_mso_h(dmn.mso.msoh_name, &dmn.mso.rskt_mso)) {
-		CRIT("Could not get mso_h for '%s'. Bailing out...\n",
-				dmn.mso.msoh_name);
-		goto exit;
-        };
-
-        for (i = 0; i < dmn.num_ms; i++) {
-                dmn.mso.ms[i].ms_size = dmn.ms_size;
-
-                snprintf(dmn.mso.ms[i].ms_name, MAX_MS_NAME,
-                        "RSKT_DAEMON%05d.%03d", getpid(), i);
-
-                if (d_rdma_get_ms_h(&dmn.mso.ms[i], dmn.mso.ms[i].ms_name,
-                        	dmn.mso.rskt_mso, dmn.ms_size, 0))
-			goto exit;
-                if (d_rdma_get_msub_h(&dmn.mso.ms[i], 
-                                        dmn.mso.ms[i].ms_size, 0))
-                        goto exit;
-		dmn.mso.num_ms++;
-        };
-	rc = 0;
-
+	rc = alloc_mso_msh();
 exit:
 	return rc;
 };

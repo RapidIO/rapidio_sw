@@ -683,7 +683,7 @@ int test_speer_connect(struct worker *info)
 	test->rc = 0;
 	return 0;
 fail:
-	INFO("SPEER %d exiting rc %d...", info->idx, fail_pt);
+	CRIT("SPEER %d exiting rc %d...", info->idx, fail_pt);
 	test->rc = fail_pt;
 	sem_post(&test->done_sema);
 	return 0;
@@ -1579,6 +1579,18 @@ int test_case_7(void)
 	struct rskt_test_info *s_t, *w_t;
 	uint32_t sp_idx = 1;
 	uint32_t wp_idx = (MAX_WORKERS/2);
+	uint32_t speer_seq_no = 44;
+	uint32_t wpeer_seq_no = 1;
+	uint32_t speer_sn = 0x3939;
+	uint32_t speer_cm_skt_num = 3333;
+	int rc = 0;
+	rskt_h *l_skts;
+	struct rskt_sockaddr sa;
+	int sn;
+	int num_skts = 1;
+	rskt_h acc_skt;
+	struct rskt_sockaddr acc_sa;
+	int skt_idx = 0;
 	
 	g_level = 7;
 	/* Start two workers. */
@@ -1592,14 +1604,17 @@ int test_case_7(void)
 	w_t = (struct rskt_test_info *)wkr[wp_idx].priv_info;
 
 	/* Set up HELLO req/resp for SPEER, this should go immediately */
+	while (s_t->new_req)
+		sched_yield();
+
         s_t->req.msg_type = htonl(RSKTD_HELLO_REQ);
-        s_t->req.msg_seq = htonl(44);
+        s_t->req.msg_seq = htonl(speer_seq_no);
         s_t->req.msg.hello.ct = htonl(wp_idx); /* Yes, wp_idx */
-        s_t->req.msg.hello.cm_skt = htonl(3333);
+        s_t->req.msg.hello.cm_skt = htonl(speer_cm_skt_num);
         s_t->req.msg.hello.cm_mp = htonl(1);
 
 	s_t->resp.msg_type = htonl(RSKTD_HELLO_RESP);
-	s_t->resp.msg_seq = htonl(44);
+	s_t->resp.msg_seq = htonl(speer_seq_no);
 	s_t->resp.err = htonl(0);
 	memcpy(&s_t->resp.req, &s_t->req.msg, sizeof(union librsktd_req));
 	s_t->resp.msg.hello.peer_pid = htonl(getpid());
@@ -1607,6 +1622,9 @@ int test_case_7(void)
 	s_t->new_req = 1;
 
 	/* Set up HELLO req/resp for WPEER */
+	while (w_t->new_resp)
+		sched_yield();
+
         w_t->req.msg_type = htonl(RSKTD_HELLO_REQ);
         w_t->req.msg_seq = htonl(0);
         w_t->req.msg.hello.ct = htonl(wp_idx);
@@ -1641,9 +1659,193 @@ int test_case_7(void)
 	if (NULL == sp)
 		goto fail;
 
+	fail_pt = 11;
 	wp = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
 
 	if (NULL == wp)
+		goto fail;
+
+	/* Get Library to bind/connect/accept to a socket.
+	* Then have speer send in connect request, confirm success.
+	*/
+
+	fail_pt = 20;
+	dmn.num_ms = 0x10;
+	dmn.ms_size = 64*1024;
+	if (alloc_mso_msh())
+		goto fail;
+
+	fail_pt = 25;
+	acc_skt = rskt_create_socket();
+	l_skts = (rskt_h *)malloc( sizeof(rskt_h)*(num_skts));
+
+	sn = 0x1234;
+
+	fail_pt = 30;
+
+	l_skts[skt_idx] = rskt_create_socket();
+	if (NULL == l_skts[skt_idx])
+		goto fail;
+
+	fail_pt = 30;
+	sa.sn = sn;
+	sa.ct = wp_idx;
+	rc = rskt_bind(l_skts[skt_idx], &sa);
+	if (rc)
+		goto fail;
+
+	fail_pt = 35;
+	rc = rskt_listen(l_skts[skt_idx], 50);
+	if (rc)
+		goto fail;
+
+	fail_pt = 40;
+
+	/* Send in connect request from SPEER */
+	while (s_t->new_req)
+		sched_yield();
+
+	speer_seq_no++;
+        s_t->req.msg_type = htonl(RSKTD_CONNECT_REQ);
+        s_t->req.msg_seq = htonl(speer_seq_no);
+        s_t->req.msg.con.dst_sn = htonl(sn); /* Yes, wp_idx */
+        s_t->req.msg.con.dst_ct = htonl(wp_idx);
+        s_t->req.msg.con.src_sn = htonl(speer_sn);
+        strncpy(s_t->req.msg.con.src_mso, "SRC_MSO", MAX_MS_NAME);
+        strncpy(s_t->req.msg.con.src_ms, "SRC_MS", MAX_MS_NAME);
+        s_t->req.msg.con.src_msub_o = 0;
+        s_t->req.msg.con.src_msub_s = 64*1024;
+
+	s_t->resp.msg_type = htonl(RSKTD_CONNECT_RESP);
+	s_t->resp.msg_seq = htonl(speer_seq_no);
+	s_t->resp.err = htonl(0);
+	memcpy(&s_t->resp.req, &s_t->req.msg, sizeof(union librsktd_req));
+        s_t->resp.msg.con.acc_sn = htonl(RSKTD_DYNAMIC_SKT);
+        s_t->resp.msg.con.dst_sn = htonl(sn);
+        s_t->resp.msg.con.dst_ct = htonl(6);
+        s_t->resp.msg.con.dst_dmn_cm_skt = htonl(speer_cm_skt_num);
+	snprintf(s_t->resp.msg.con.dst_ms, MAX_MS_NAME, 
+		"RSKT_DAEMON%05d.%03d", getpid(), 0);
+        s_t->resp.msg.con.msub_sz = htonl(64*1024);
+
+	s_t->new_req = 1;
+
+	fail_pt = 45;
+	rc = rskt_accept(l_skts[skt_idx], acc_skt, &acc_sa);
+	if (rc)
+		goto fail;
+	
+	fail_pt = 50;
+	if (wait_for_worker_status(&wkr[sp_idx], worker_running))
+		goto fail;
+
+	fail_pt = 51;
+	if (wait_for_worker_status(&wkr[wp_idx], worker_running))
+		goto fail;
+
+	/* Send in close request from LIBRARY */
+	while (w_t->new_resp)
+		sched_yield();
+
+	memset(&w_t->req, 0, sizeof(w_t->req));
+	memset(&w_t->resp, 0, sizeof(w_t->resp));
+        w_t->req.msg_type = htonl(RSKTD_CLOSE_REQ);
+        w_t->req.msg_seq = htonl(wpeer_seq_no);
+        w_t->req.msg.clos.rem_sn = htonl(speer_sn);
+        w_t->req.msg.clos.loc_sn = htonl(acc_sa.sn);
+        w_t->req.msg.clos.force = htonl(1);
+
+	w_t->resp.msg_type = htonl(RSKTD_CLOSE_RESP);
+	w_t->resp.msg_seq = htonl(1);
+	w_t->resp.err = htonl(0);
+	memcpy(&s_t->resp.req, &s_t->req.msg, sizeof(union librsktd_req));
+        w_t->resp.msg.clos.status = htonl(0);
+	w_t->speer_resp_err = 0;
+
+	w_t->new_resp = 1;
+
+	fail_pt = 60;
+	rc = rskt_close(acc_skt);
+	if (rc)
+		goto fail;
+
+	/* Send in connect request from SPEER */
+	while (s_t->new_req && (wkr[sp_idx].stat == worker_running))
+		sched_yield();
+
+	fail_pt = 70;
+	if (!(wkr[sp_idx].stat == worker_running))
+		goto fail;
+
+	fail_pt = 71;
+	speer_seq_no++;
+        s_t->req.msg_type = htonl(RSKTD_CONNECT_REQ);
+        s_t->req.msg_seq = htonl(speer_seq_no);
+        s_t->req.msg.con.dst_sn = htonl(sn); /* Yes, wp_idx */
+        s_t->req.msg.con.dst_ct = htonl(wp_idx);
+        s_t->req.msg.con.src_sn = htonl(speer_sn);
+        strncpy(s_t->req.msg.con.src_mso, "SRC_MSO", MAX_MS_NAME);
+        strncpy(s_t->req.msg.con.src_ms, "SRC_MS", MAX_MS_NAME);
+        s_t->req.msg.con.src_msub_o = 0;
+        s_t->req.msg.con.src_msub_s = 64*1024;
+
+	s_t->resp.msg_type = htonl(RSKTD_CONNECT_RESP);
+	s_t->resp.msg_seq = htonl(speer_seq_no);
+	s_t->resp.err = htonl(0);
+	memcpy(&s_t->resp.req, &s_t->req.msg, sizeof(union librsktd_req));
+        s_t->resp.msg.con.acc_sn = htonl(RSKTD_DYNAMIC_SKT);
+        s_t->resp.msg.con.dst_sn = htonl(sn);
+        s_t->resp.msg.con.dst_ct = htonl(6);
+        s_t->resp.msg.con.dst_dmn_cm_skt = htonl(speer_cm_skt_num);
+	snprintf(s_t->resp.msg.con.dst_ms, MAX_MS_NAME, 
+		"RSKT_DAEMON%05d.%03d", getpid(), 0);
+        s_t->resp.msg.con.msub_sz = htonl(64*1024);
+
+	s_t->new_req = 1;
+
+	fail_pt = 80;
+	rc = rskt_accept(l_skts[skt_idx], acc_skt, &acc_sa);
+	if (rc)
+		goto fail;
+	
+	fail_pt = 81;
+	if (wkr[sp_idx].stat != worker_running)
+		goto fail;
+
+	if (wkr[wp_idx].stat != worker_running)
+		goto fail;
+
+	/* Send in close request from SPEER */
+	fail_pt = 90;
+	while (s_t->new_req && (wkr[sp_idx].stat == worker_running))
+		sched_yield();
+	if (wkr[sp_idx].stat != worker_running)
+		goto fail;
+
+	fail_pt = 91;
+
+	memset(&s_t->req, 0, sizeof(w_t->req));
+	memset(&s_t->resp, 0, sizeof(w_t->resp));
+	speer_seq_no++;
+        s_t->req.msg_type = htonl(RSKTD_CLOSE_REQ);
+        s_t->req.msg_seq = htonl(speer_seq_no);
+        s_t->req.msg.clos.rem_sn = htonl(acc_sa.sn);
+        s_t->req.msg.clos.loc_sn = htonl(speer_sn);
+        s_t->req.msg.clos.force = htonl(1);
+
+	s_t->resp.msg_type = htonl(RSKTD_CLOSE_RESP);
+	s_t->resp.msg_seq = htonl(1);
+	s_t->resp.err = htonl(0);
+	memcpy(&s_t->resp.req, &s_t->req.msg, sizeof(union librsktd_req));
+        s_t->resp.msg.clos.status = htonl(0);
+	s_t->speer_resp_err = 0;
+
+	s_t->new_req = 1;
+
+	fail_pt = 100;
+	while (s_t->new_req && (wkr[sp_idx].stat == worker_running))
+		sched_yield();
+	if (wkr[sp_idx].stat != worker_running)
 		goto fail;
 
 	return 0;
