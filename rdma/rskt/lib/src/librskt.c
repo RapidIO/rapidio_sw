@@ -1533,6 +1533,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 		goto skt_ok;
 	}
 
+	DBG("skt = %p\n", skt);
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
 			ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
 	DBG("rem_tx_rd_ptr = 0x%X, rem_rx_wr_ptr = 0x%X\n",
@@ -1709,6 +1710,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 		errno = ECONNRESET;
 		goto fail;
 	}
+	DBG("skt = %p\n", skt);
 
 	if (rskt_connected != skt->st) {
 		WARN("Not connected");
