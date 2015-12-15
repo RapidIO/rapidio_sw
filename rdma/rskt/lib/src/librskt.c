@@ -1903,24 +1903,25 @@ int rskt_close(rskt_h skt_h)
 
 	librskt_dmsg_req_resp(tx, rx);
 
-	/* Indicate to remote side that the connection was closed. This should
-	 * translate to rskt_read() returning ECONNRESET.
-	 */
-	skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_CLOSING);
-	skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_CLOSING);
-	hdr_in.loc_msubh = skt->msubh;
-	hdr_in.rem_msubh = skt->con_msubh;
-	hdr_in.priority = 0;
-	hdr_in.sync_type = rdma_sync_chk;
-	if (update_remote_hdr(skt, &hdr_in)) {
-		skt->hdr->loc_tx_wr_flags |=
+	if (rskt_connected == skt->st) {
+		/* Indicate to remote side that the connection was closed. This should
+		 * translate to rskt_read() returning ECONNRESET. */
+		skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_CLOSING);
+		skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_CLOSING);
+		hdr_in.loc_msubh = skt->msubh;
+		hdr_in.rem_msubh = skt->con_msubh;
+		hdr_in.priority = 0;
+		hdr_in.sync_type = rdma_sync_chk;
+		if (update_remote_hdr(skt, &hdr_in)) {
+			skt->hdr->loc_tx_wr_flags |=
 					htonl(RSKT_BUF_HDR_FLAG_ERROR);
-	       	skt->hdr->loc_rx_rd_flags |=
+			skt->hdr->loc_rx_rd_flags |=
 					htonl(RSKT_BUF_HDR_FLAG_ERROR);
-		ERR("Failed in update_remote_hdr\n");
-		sem_post(&skt_h->mtx);
-		goto exit;
-	};
+			ERR("Failed in update_remote_hdr\n");
+			sem_post(&skt_h->mtx);
+			goto exit;
+		}
+	}
 
 	skt_h->skt = NULL;
 	sem_post(&skt_h->mtx);
@@ -1937,7 +1938,7 @@ exit:
 	free(tx);
 	free(rx);
 	return -errno;
-};
+}; /* rskt_close() */
 
 void librskt_test_init(uint32_t test)
 {
