@@ -1706,25 +1706,26 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	DBG("rem_tx_rd_ptr = 0x%X, rem_rx_wr_ptr = 0x%X\n",
 			ntohl(skt->hdr->rem_tx_rd_ptr), ntohl(skt->hdr->rem_rx_wr_ptr));
 
-	while (!avail_bytes && time_remains && !errno) {
-		nanosleep(&rw_dly, &unused);
-	 	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
-		time_remains--;
+	/* Wait forever, until socket closed or we receive something */
+	errno = 0;
+	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
+	
+	while (!avail_bytes && !errno) {
+		time_remains = 5000;
+		while (!avail_bytes && time_remains && !errno) {
+			nanosleep(&rw_dly, &unused);
+	 		avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
+			time_remains--;
+		};
 	};
+
 	DBG("avail_bytes = %d\n", avail_bytes);
 
 	/* Check if the connection has dropped (errno set) */
-	if (!avail_bytes || errno) {
+	if (errno) {
 		errno = ECONNRESET;
-		ERR("%s\n", strerror(errno));
+		ERR("Socket %d Err %s\n", skt->sa.sn, strerror(errno));
 		goto fail;
-	};
-
-	/* If the connection was not dropped. Have we timed out? */
-	if (!time_remains) {
-		ERR("Timed out!\n");
-		errno = ETIMEDOUT;
-		goto skt_ok;
 	};
 
 	if (avail_bytes > max_byte_cnt)
