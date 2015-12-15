@@ -2414,7 +2414,7 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 
 	/* Check for NULL pointers */
 	if (!in || !out) {
-		ERR("%s: NULL. in=%p, out=%p", in, out);
+		ERR("%s: NULL. in=%p, out=%p\n", in, out);
 		out->in_param_ok = -1;
 		sem_post(&rdma_lock);
 		return RDMA_NULL_PARAM;
@@ -2422,7 +2422,7 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 	lmsub = (struct loc_msub *)in->loc_msubh;
 	rmsub = (struct rem_msub *)in->rem_msubh;
 	if (!lmsub || !rmsub) {
-		ERR("%s: NULL. lmsub=%p, rmsub=%p", lmsub, rmsub);
+		ERR("%s: NULL. lmsub=%p, rmsub=%p\n", lmsub, rmsub);
 		out->in_param_ok = -1;
 		sem_post(&rdma_lock);
 		return RDMA_NULL_PARAM;
