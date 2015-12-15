@@ -448,6 +448,8 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
 		WARN("skt is NULL returning\n");
 		return;
 	}
+	DBG("skt->sa.sn = %d\n", skt->sa.sn);
+	DBG("skt->sai.sn = %d\n", skt->sai.sa.sn);
  	librskt_wait_for_sem(&skt_h->mtx, 0);
 
 	skt_h->skt = NULL;
