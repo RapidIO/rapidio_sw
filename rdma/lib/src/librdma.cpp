@@ -118,7 +118,7 @@ static int alt_rpc_call(unix_msg_t *in_msg, unix_msg_t **out_msg)
 		/* Receive output parameters */
 		ret = client->receive(&received_len);
 		if (ret) {
-			ERR("Failed to receive output from RDMA daemon");
+			ERR("Failed to receive output from RDMA daemon\n");
 		} else {
 			/* For API calls that don't require any return (output)
 			 * parameters, they just pass NULL for out_msg.
