@@ -353,6 +353,8 @@ void *rpc_thread_f(void *arg)
 					DBG("DESTROY_MSUB\n");
 					destroy_msub_input  *in  = &in_msg->destroy_msub_in;
 					destroy_msub_output *out = &out_msg->destroy_msub_out;
+					DBG("msid = 0x%X, msubid = 0x%X\n", in->msid,
+									    in->msubid);
 					out_msg->type = DESTROY_MSUB_ACK;
 					out->status = rdmad_destroy_msub(in->msid, in->msubid);
 				}
@@ -647,6 +649,10 @@ void sig_handler(int sig)
 		puts("SIGTERM - kill <pid> signal");
 	break;
 
+	case SIGSEGV:
+		puts("SIGSEGV (Segmentation Fault)");
+	break;
+
 	case SIGUSR1:	/* pthread_kill() */
 	/* Ignore signal */
 	return;
@@ -780,6 +786,7 @@ int main (int argc, char **argv)
 	sigaction(SIGQUIT, &sig_action, NULL);
 	sigaction(SIGABRT, &sig_action, NULL);
 	sigaction(SIGUSR1, &sig_action, NULL);
+	sigaction(SIGSEGV, &sig_action, NULL);
 
 	/* Parse command-line parameters */
 	while ((c = getopt(argc, argv, "hnc:m:")) != -1)

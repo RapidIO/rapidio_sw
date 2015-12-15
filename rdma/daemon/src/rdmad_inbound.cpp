@@ -352,10 +352,25 @@ int inbound::create_msubspace(uint32_t msid, uint32_t offset, uint32_t req_bytes
 /* Destroy a memory subspace */
 int inbound::destroy_msubspace(uint32_t msid, uint32_t msubid)
 {
+	int	ret;
 	uint8_t	win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
 
 	sem_wait(&ibwins_sem);
-	int ret = ibwins[win_num].get_mspace(msid)->destroy_msubspace(msubid);
+	mspace *ms;
+
+	try {
+		ms = ibwins[win_num].get_mspace(msid);
+		if (ms == nullptr) {
+			ERR("Failed to find mspace with msid(0x%X)\n", msid);
+			ret = -1;
+		} else {
+			ret = ms->destroy_msubspace(msubid);
+		}
+	}
+	catch(...) {
+		CRIT("Exception trying to access IBWIN(%u)\n", win_num);
+		ret = -2;
+	}
 	sem_post(&ibwins_sem);
 	return ret;
 } /* destroy_msubspace() */
