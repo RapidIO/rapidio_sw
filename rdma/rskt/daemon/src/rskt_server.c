@@ -68,7 +68,7 @@ void *slave_thread_f(void *arg)
 							strerror(errno));
 		goto slave_thread_f_exit;
 	}
-	do  {
+	while(1)  {
 		rc = rskt_read(accept_socket,
 			       recv_buf,
 			       RSKT_DEFAULT_RECV_BUF_SIZE);
@@ -89,12 +89,17 @@ void *slave_thread_f(void *arg)
 		memcpy(send_buf, recv_buf, data_size);
 
 		rc = rskt_write(accept_socket, send_buf, data_size);
-		if (rc) {
+		if (rc != 0) {
+			if (errno == ETIMEDOUT) {
+				fprintf(stderr, "rskt-write() timed out. Retrying!\n");
+				continue;
+			}
 			fprintf(stderr, "Failed to send data, rc = %d: %s\n",
 							rc, strerror(rc));
+			/* Client closed the connection. Die! */
 			break;
 		}
-	} while(1); /* read/write loop */
+	} /* read/write loop */
 
 slave_thread_f_exit:
 	num_threads--;	/* For tracking state upon crash */
