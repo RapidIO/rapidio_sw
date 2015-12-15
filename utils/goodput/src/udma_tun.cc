@@ -262,7 +262,10 @@ again:
 				continue;
 			}
 
-			if (umd_dma_tun_process_tun_RX(info, dci, (DmaPeerDestid_t*)events[epi].data.ptr, my_destid)) tx_cnt++;
+			for (int cnt = 0; cnt < 4; cnt++) { // Maximum per-Tun
+				if (umd_dma_tun_process_tun_RX(info, dci, (DmaPeerDestid_t*)events[epi].data.ptr, my_destid)) tx_cnt++;
+				else break; // Read all I could from Tun fd
+			}
 		}
         }
 
@@ -298,15 +301,19 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	int outstanding = 0; // This is our guess of what's not consumed at other end, per-destid
 
         const int Q_THR = (8 * (info->umd_tx_buf_cnt-1)) / 10;
-        //const int Q_HLF = (info->umd_tx_buf_cnt-1) / 2;
 	
 	DMAChannel::DmaOptions_t& dmaopt = dci->dmaopt[dci->oi];
 
 	uint8_t* buffer = (uint8_t*)dci->dmamem[dci->oi].win_ptr;
 
-	DMA_L2_t* pL2 = (DMA_L2_t*)buffer;
-	const int nread = cread(peer->tun_fd, buffer+DMA_L2_SIZE, info->umd_tun_MTU);
+	const int nread = read(peer->tun_fd, buffer+DMA_L2_SIZE, info->umd_tun_MTU);
 	const uint64_t now = rdtsc();
+
+	if (nread < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return false;
+
+	assert(nread > 0);
+
+	DMA_L2_t* pL2 = (DMA_L2_t*)buffer;
 
 	{{
 	uint32_t* pkt = (uint32_t*)(buffer+DMA_L2_SIZE);
@@ -702,8 +709,6 @@ error:
 bool umd_dma_goodput_tun_setup_TUN(struct worker *info, DmaPeerDestid_t* peer, uint16_t my_destid)
 {
 	bool ret = false;
-	//uint16_t peer_destid = ~0;
-	//int peer_tun_fd = -1;
         char if_name[IFNAMSIZ] = {0};
         char Tap_Ifconfig_Cmd[257] = {0};
         int flags = IFF_TUN | IFF_NO_PI;
@@ -722,6 +727,11 @@ bool umd_dma_goodput_tun_setup_TUN(struct worker *info, DmaPeerDestid_t* peer, u
                 goto error;
         }
         strncpy(peer->tun_name, if_name, sizeof(peer->tun_name)-1);
+
+	{{
+	  const int flags = fcntl(peer->tun_fd, F_GETFL, 0);
+	  fcntl(peer->tun_fd, F_SETFL, flags | O_NONBLOCK);
+	}}
 
         // Configure tun/tap interface for pointo-to-point IPv4, L2, no ARP, no multicast
 
