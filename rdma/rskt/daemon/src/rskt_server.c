@@ -135,7 +135,7 @@ void sig_handler(int sig)
 	break;
 
 	case SIGSEGV:	/* Segmentation fault */
-		puts("SIGSEGV (Segmentation Fault");
+		puts("SIGSEGV (Segmentation Fault)");
 	break;
 
 	default:

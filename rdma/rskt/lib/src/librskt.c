@@ -1717,6 +1717,25 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	 		avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
 			time_remains--;
 		};
+		sem_post(&skt_h->mtx);
+		sched_yield();
+		rc = librskt_wait_for_sem(&skt_h->mtx, 0);
+		if (rc) {
+			ERR("librskt_wait_for_sem failed...exiting\n");
+			goto fail;
+		}
+		skt = skt_h->skt;
+		if (NULL == skt) {
+			DBG("skt is NULL\n");
+			errno = ECONNRESET;
+			goto fail;
+		}
+
+		if (rskt_connected != skt->st) {
+			WARN("Not connected");
+			errno = ENOTCONN;
+			goto skt_ok;
+		};
 	};
 
 	DBG("avail_bytes = %d\n", avail_bytes);
