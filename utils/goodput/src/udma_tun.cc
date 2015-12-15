@@ -319,7 +319,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
 	//DmaPeerLock(peer);
 
-	if (info->stop_req || peer->stop_req) goto error;
+	if (info->stop_req || peer->stop_req) goto unlock;
 
 #ifdef UDMA_TUN_DEBUG
 	{{
@@ -384,7 +384,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	pL2->len    = htonl(DMA_L2_SIZE + nread);
 	pL2->RO     = 1;
 
-	if (info->stop_req) goto error;
+	if (info->stop_req) goto unlock;
 
 	// Barry dixit "If full sleep for (queue size / 2) nanoseconds"
 	for (int i = 0; i < (dci->tx_buf_cnt-1)/2; i++) {
@@ -397,7 +397,8 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 		DBG("\n\tQueue full #1 on chan %d!\n", dci->chan);
 		goto error; // Drop L3 frame
 	}
-	if (info->stop_req) goto error;
+
+	if (info->stop_req) goto unlock;
 
 	dmaopt.destid      = destid_dpi;
 	dmaopt.bcount      = ntohl(pL2->len);
