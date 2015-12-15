@@ -107,6 +107,31 @@ slave_thread_f_exit:
 	pthread_exit(0);
 } /* slave_thread_f() */
 
+void sig_handler(int sig)
+{
+	switch (sig) {
+
+	case SIGQUIT:	/* ctrl-\ */
+		puts("SIGQUIT - CTRL-\\ signal");
+	break;
+
+	case SIGINT:	/* ctrl-c */
+		puts("SIGINT - CTRL-C signal");
+	break;
+
+	case SIGABRT:	/* abort() */
+		puts("SIGABRT - abort() signal");
+	break;
+
+	case SIGTERM:	/* kill <pid> */
+		puts("SIGTERM - kill <pid> signal");
+	break;
+
+	default:
+		printf("UNKNOWN SIGNAL (%d)\n", sig);
+	}
+
+} /* sig_handler() */
 
 int main(int argc, char *argv[])
 {
@@ -117,6 +142,17 @@ int main(int argc, char *argv[])
 
 	int data_size;
 	int rc;
+
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
+	sigaction(SIGTERM, &sig_action, NULL);
+	sigaction(SIGQUIT, &sig_action, NULL);
+	sigaction(SIGABRT, &sig_action, NULL);
+	sigaction(SIGUSR1, &sig_action, NULL);
 
 	rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
 	if (rc) {
