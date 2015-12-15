@@ -1543,13 +1543,36 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 
 	errno = 0;
 	free_bytes = get_free_bytes(skt->hdr, skt->buf_sz);
+
 	DBG("byte_cnt=0x%X, free_bytes=%x%X\n", byte_cnt, free_bytes);
-	while ((free_bytes < byte_cnt) && time_remains) {
-		nanosleep(&rw_dly, &unused);
-	 	free_bytes = get_free_bytes(skt->hdr, 
-						skt->buf_sz);
-		time_remains--;
-	};
+	while (!free_bytes && !errno) {
+		time_remains = 5000;
+		while ((free_bytes < byte_cnt) && time_remains && !errno) {
+			nanosleep(&rw_dly, &unused);
+			free_bytes = get_free_bytes(skt->hdr,
+					skt->buf_sz);
+			time_remains--;
+		};
+		sem_post(&skt_h->mtx);
+		sched_yield();
+		rc = librskt_wait_for_sem(&skt_h->mtx, 0);
+		if (rc) {
+			ERR("librskt_wait_for_sem failed...exiting\n");
+			goto fail;
+		}
+		skt = skt_h->skt;
+		if (NULL == skt) {
+			DBG("skt is NULL\n");
+			errno = ECONNRESET;
+			goto fail;
+		}
+
+		if (rskt_connected != skt->st) {
+			WARN("Not connected");
+			errno = ENOTCONN;
+			goto skt_ok;
+		};
+	}
 	DBG("byte_cnt=0x%X, free_bytes=%x%X\n", byte_cnt, free_bytes);
 
 	if (!time_remains) {
