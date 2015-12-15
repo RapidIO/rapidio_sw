@@ -658,7 +658,7 @@ void rsktd_a2w_hello_resp(struct librsktd_unified_msg *r)
 void rsktd_a2w_close_resp(struct librsktd_unified_msg *r)
 {
 	struct rsktd_req_msg *dreq = r->dreq;
-	uint32_t sn = ntohl(dreq->msg.clos.loc_sn);
+	uint32_t sn = ntohl(dreq->msg.clos.rem_sn);
 	struct l_item_t *li;
 	struct con_skts *con = (struct con_skts *)l_find(&lib_st.con, sn, &li);
 
@@ -833,7 +833,7 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 	uint32_t send_resp_now = 1;
 	struct rsktd_req_msg *dreq = r->dreq;
 	struct rsktd_resp_msg *dresp = r->dresp;
-	uint32_t sn = ntohl(dreq->msg.clos.loc_sn);
+	uint32_t sn = ntohl(dreq->msg.clos.rem_sn);
 
 	dresp->err = 0;
 
@@ -874,7 +874,7 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 void rsktd_s2a_close_resp(struct librsktd_unified_msg *r)
 {
 	struct rsktd_req_msg *dreq = r->dreq;
-	uint32_t sn = ntohl(dreq->msg.clos.loc_sn);
+	uint32_t sn = ntohl(dreq->msg.clos.rem_sn);
 	struct l_item_t *li;
 	struct con_skts *con = (struct con_skts *)l_find(&lib_st.con, sn, &li);
 
@@ -890,7 +890,7 @@ void rsktd_s2a_close_resp(struct librsktd_unified_msg *r)
 
 	/* Prepare response */
 	r->dresp->err = 0;
-	r->dresp->msg.clos.status = (uint32_t)rskt_closed;
+	r->dresp->msg.clos.status = htonl((uint32_t)rskt_closed);
 };
 
 void msg_q_handle_s2a(struct librsktd_unified_msg *msg)

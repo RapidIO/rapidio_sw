@@ -1834,10 +1834,10 @@ int test_case_7(void)
         s_t->req.msg.clos.force = htonl(1);
 
 	s_t->resp.msg_type = htonl(RSKTD_CLOSE_RESP);
-	s_t->resp.msg_seq = htonl(1);
+	s_t->resp.msg_seq = htonl(speer_seq_no);
 	s_t->resp.err = htonl(0);
 	memcpy(&s_t->resp.req, &s_t->req.msg, sizeof(union librsktd_req));
-        s_t->resp.msg.clos.status = htonl(0);
+        s_t->resp.msg.clos.status = htonl(rskt_closed);
 	s_t->speer_resp_err = 0;
 
 	s_t->new_req = 1;
@@ -1846,6 +1846,8 @@ int test_case_7(void)
 	while (s_t->new_req && (wkr[sp_idx].stat == worker_running))
 		sched_yield();
 	if (wkr[sp_idx].stat != worker_running)
+		goto fail;
+	if (wkr[wp_idx].stat != worker_running)
 		goto fail;
 
 	return 0;
