@@ -134,6 +134,10 @@ void sig_handler(int sig)
 		puts("SIGTERM - kill <pid> signal");
 	break;
 
+	case SIGSEGV:	/* Segmentation fault */
+		puts("SIGSEGV (Segmentation Fault");
+	break;
+
 	default:
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
 	}
@@ -162,6 +166,7 @@ int main(int argc, char *argv[])
 	sigaction(SIGQUIT, &sig_action, NULL);
 	sigaction(SIGABRT, &sig_action, NULL);
 	sigaction(SIGUSR1, &sig_action, NULL);
+	sigaction(SIGSEGV, &sig_action, NULL);
 
 	rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
 	if (rc) {
