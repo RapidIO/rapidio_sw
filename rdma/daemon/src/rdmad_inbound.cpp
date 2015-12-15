@@ -110,33 +110,40 @@ void inbound::dump_info(struct cli_env *env)
 /* get_mspace by name */
 mspace* inbound::get_mspace(const char *name)
 {
+	mspace *ms = nullptr;
+
 	sem_wait(&ibwins_sem);
 	for (auto& ibwin : ibwins) {
-		mspace *ms = ibwin.get_mspace(name);
-		if (ms) {
-			sem_post(&ibwins_sem);
-			return ms;
-		}
+		ms = ibwin.get_mspace(name);
+		if (ms != nullptr) /* Found it */
+			break;
 	}
-	WARN("%s not found\n", name);
 	sem_post(&ibwins_sem);
-	return NULL;
+
+	if (ms == nullptr) {
+		WARN("%s not found\n", name);
+	}
+
+	return ms;
 } /* get_mspace() */
 
 /* get_mspace by msid */
 mspace* inbound::get_mspace(uint32_t msid)
 {
+	mspace *ms = nullptr;
+
 	sem_wait(&ibwins_sem);
 	for (auto& ibwin : ibwins) {
-		mspace *ms = ibwin.get_mspace(msid);
-		if (ms) {
-			sem_post(&ibwins_sem);
-			return ms;
-		}
+		ms = ibwin.get_mspace(msid);
+		if (ms != nullptr)
+			break;
 	}
-	WARN("msid(0x%X) not found\n", msid);
 	sem_post(&ibwins_sem);
-	return NULL;
+
+	if (ms == nullptr) {
+		WARN("msid(0x%X) not found\n", msid);
+	}
+	return ms;
 } /* get_mspace() */
 
 /* Get mspace OPENED by msoid */
@@ -209,11 +216,11 @@ int inbound::dump_mspace_info(struct cli_env *env, const char *name)
 {
 	/* Find the memory space by name */
 	mspace	*ms = get_mspace(name);
-	if (!ms) {
+	if (ms == nullptr) {
 		WARN("%s not found\n", name);
-		return -1;
+	} else {
+		ms->dump_info(env);
 	}
-	ms->dump_info(env);
 	return 0;
 } /* dump_mspace_info() */
 
@@ -244,9 +251,13 @@ int inbound::destroy_mspace(uint32_t msoid, uint32_t msid)
 
 	sem_wait(&ibwins_sem);
 
-	auto& ibw = ibwins[win_num];
-	ret = ibw.destroy_mspace(msoid, msid);
-
+	if (win_num >= ibwins.size()) {
+		ERR("Bad window size: %u\n", win_num);
+		ret = -1;
+	} else {
+		auto& ibw = ibwins[win_num];
+		ret = ibw.destroy_mspace(msoid, msid);
+	}
 	sem_post(&ibwins_sem);
 
 	return ret;
@@ -312,23 +323,26 @@ int inbound::open_mspace(const char *name,
 			 uint32_t *bytes)
 {
 	DBG("ENTER\n");
+	int	ret;
 
 	/* Find the memory space by name */
 	mspace	*ms = get_mspace(name);
-	if (!ms) {
+	if (ms == nullptr) {
 		WARN("%s not found\n", name);
-		return -1;
+		ret = -1;
+	} else {
+		/* Open the memory space */
+		if (ms->open(msid, user_server, ms_conn_id, bytes) < 0) {
+			WARN("Failed to open '%s'\n", name);
+			ret = -2;
+		} else {
+			*phys_addr = ms->get_phys_addr();
+			*rio_addr  = ms->get_rio_addr();
+			ret = 0;
+		}
 	}
-
-	/* Open the memory space */
-	if (ms->open(msid, user_server, ms_conn_id, bytes) < 0) {
-		WARN("Failed to open '\%s\'\n", name);
-		return -2;
-	}
-	*phys_addr = ms->get_phys_addr();
-	*rio_addr  = ms->get_rio_addr();
 	DBG("EXIT\n");
-	return 0;
+	return ret;
 } /* open_mspace() */
 
 /* Create a memory subspace */
@@ -337,15 +351,25 @@ int inbound::create_msubspace(uint32_t msid, uint32_t offset, uint32_t req_bytes
 			      uint64_t *phys_addr)
 {
 	uint8_t	win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
+	int	ret;
 
-	sem_wait(&ibwins_sem);
-	int ret = ibwins[win_num].get_mspace(msid)->create_msubspace(offset,
-								     req_bytes,
-								     size,
-								     msubid,
-								     rio_addr,
-								     phys_addr);
-	sem_post(&ibwins_sem);
+	if (win_num >= ibwins.size()) {
+		ERR("Invalid window number: %u\n", win_num);
+		ret = -1;
+	} else {
+		sem_wait(&ibwins_sem);
+
+		mspace *ms = ibwins[win_num].get_mspace(msid);
+		if (ms != nullptr) {
+			ret = ms->create_msubspace(offset, req_bytes, size,
+					     msubid, rio_addr, phys_addr);
+		} else {
+			ERR("Failed to find mspace with msid(0x%X)\n", msid);
+			ret = -2;
+		}
+		sem_post(&ibwins_sem);
+	}
+
 	return ret;
 } /* create_msubspace() */
 
@@ -355,23 +379,21 @@ int inbound::destroy_msubspace(uint32_t msid, uint32_t msubid)
 	int	ret;
 	uint8_t	win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
 
-	sem_wait(&ibwins_sem);
-	mspace *ms;
-
-	try {
-		ms = ibwins[win_num].get_mspace(msid);
+	if (win_num >= ibwins.size()) {
+		ERR("Invalid window number: %u\n", win_num);
+		ret = -1;
+	} else {
+		sem_wait(&ibwins_sem);
+		mspace *ms = ibwins[win_num].get_mspace(msid);
 		if (ms == nullptr) {
 			ERR("Failed to find mspace with msid(0x%X)\n", msid);
-			ret = -1;
+			ret = -2;
 		} else {
 			ret = ms->destroy_msubspace(msubid);
 		}
+		sem_post(&ibwins_sem);
 	}
-	catch(...) {
-		CRIT("Exception trying to access IBWIN(%u)\n", win_num);
-		ret = -2;
-	}
-	sem_post(&ibwins_sem);
+
 	return ret;
 } /* destroy_msubspace() */
 
