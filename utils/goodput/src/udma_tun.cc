@@ -855,6 +855,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 			assert(rp >= 0);
 			assert(rp < (info->umd_tx_buf_cnt-1));
 
+			assert(peer->sig == PEER_SIG_UP);
 			DMA_L2_t* pL2 = peer->rio_rx_bd_L2_ptr[rp];
 
 			rx_ok++;
@@ -873,6 +874,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
                         DBG("\n\tGot a msg of size %d from RIO destid %u (L7 CRC32 0x%x) cnt=%llu, wrote %d to %s -- rp=%d\n",
                                  ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, peer->tun_name, rp);
 #endif
+			assert(peer->sig == PEER_SIG_UP);
 			if (nwrite == payload_size) {
 			     peer->tun_tx_cnt++;
 			     if (tx_ts > peer->rio_rx_bd_ready_ts[i]) peer->total_ticks_rx += tx_ts - peer->rio_rx_bd_ready_ts[i];
