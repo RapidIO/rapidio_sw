@@ -90,6 +90,12 @@ extern "C" {
 
 #define PAGE_4K    4096
 
+#define DMA_CHAN2_BUFC  0x20
+#define DMA_CHAN2_STS   0x20
+
+#define MBOX_BUFC  0x20
+#define MBOX_STS   0x20
+
 void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool signal);
 void umd_dma_goodput_tun_del_ep_signal(struct worker* info, const uint32_t destid);
 static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, DmaPeerDestid_t* peer, const uint16_t my_destid);
@@ -130,14 +136,14 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 
 	struct seq_ts tx_ts;
 	uint32_t umd_dma_abort_reason = 0;
-	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
+	DMAChannel::WorkItem_t wi[DMA_CHAN2_STS*8]; memset(wi, 0, sizeof(wi));
 
 	int q_was_full = !dmac->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, umd_dma_abort_reason, &tx_ts);
 
 	if (!umd_dma_abort_reason) DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
 
 	for(int i = 0;
-	    !q_was_full && !info->stop_req && (i < 1000) && !dmac->scanFIFO(wi, info->umd_sts_entries*8);
+	    !q_was_full && !info->stop_req && (i < 1000) && !dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
 	    i++) {
 		usleep(1);
 	}
@@ -603,11 +609,9 @@ void* umd_dma_wakeup_proc_thr(void* arg)
 	return NULL;
 }
 
-const int CH2_BUFC = 0x20;
-
 /** \brief Setup the TX/NREAD DMA channel
  * \note This channel will do only one operation at a time
- * \note It will get only the minimum number of BDs \ref CH2_BUFC
+ * \note It will get only the minimum number of BDs \ref DMA_CHAN2_BUFC
  */
 bool umd_dma_goodput_tun_setup_chan2(struct worker *info)
 {
@@ -622,12 +626,12 @@ bool umd_dma_goodput_tun_setup_chan2(struct worker *info)
 
         // TX - Chan 2
         info->umd_dch_nread->setCheckHwReg(true);
-        if (!info->umd_dch_nread->alloc_dmatxdesc(CH2_BUFC)) {
-                CRIT("\n\talloc_dmatxdesc failed: bufs %d", CH2_BUFC);
+        if (!info->umd_dch_nread->alloc_dmatxdesc(DMA_CHAN2_BUFC)) {
+                CRIT("\n\talloc_dmatxdesc failed: bufs %d", DMA_CHAN2_BUFC);
                 return false;
         }
-        if (!info->umd_dch_nread->alloc_dmacompldesc(info->umd_sts_entries)) { // Same as for Chan 1
-                CRIT("\n\talloc_dmacompldesc failed: entries %d", info->umd_sts_entries);
+        if (!info->umd_dch_nread->alloc_dmacompldesc(DMA_CHAN2_STS)) {
+                CRIT("\n\talloc_dmacompldesc failed: entries %d", DMA_CHAN2_STS);
                 return false;
         }
 
@@ -1595,7 +1599,9 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
 
 	  ///info->umd_dma_did_enum_list.erase(destid);
 
-	  info->umd_dma_did_enum_list[destid].ls_time = 0;
+	  info->umd_dma_did_enum_list[destid].ls_time       = 0;
+	  info->umd_dma_did_enum_list[destid].bcast_cnt_in  = 0;
+	  info->umd_dma_did_enum_list[destid].bcast_cnt_out = 0;
 
           std::map <uint16_t, int>::iterator itp = info->umd_dma_did_peer.find(destid);
 	  if (itp == info->umd_dma_did_peer.end()) { goto done; }
@@ -1635,7 +1641,7 @@ done:
 
 	if (found) {
 		if (signal) umd_dma_goodput_tun_del_ep_signal(info, destid); // Just in case it was forced we tell him for F*ck Off
-		INFO("\n\tNuked peer destid %u%s\n", destid, (signal? " with MBOX notification": "")); 
+		INFO("\n\tNuked peer destid %u%s\n", destid, (signal? " with MBOX notification": " NO notification")); 
 	} else  CRIT("\n\tCannot find a peer for destid %u\n", destid);
 }
 
@@ -1892,7 +1898,9 @@ void umd_mbox_watch_demo(struct worker *info)
                 goto exit_bomb;
         };
 
-        if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
+	// I only send only 1 MBOX message at a time
+
+        if (! info->umd_mch->open_mbox(MBOX_BUFC, MBOX_STS)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
                 info->umd_tun_name[0] = '\0';
                 close(info->umd_tun_fd); info->umd_tun_fd = -1;
@@ -1927,12 +1935,12 @@ void umd_mbox_watch_demo(struct worker *info)
 	  MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
           opt.mbox   = info->umd_chan;
 
-	  for(int i = 0; i < info->umd_tx_buf_cnt; i++) {
+	  for(int i = 0; i < MBOX_BUFC; i++) {
 		void* b = calloc(1, PAGE_4K);
 		info->umd_mch->add_inb_buffer(b);
 	  }
 
-	  MboxChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
+	  MboxChannel::WorkItem_t wi[MBOX_STS*8]; memset(wi, 0, sizeof(wi));
 
           while (! info->stop_req) {
 		if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
@@ -1982,7 +1990,7 @@ void umd_mbox_watch_demo(struct worker *info)
 
 			DDBG("\n\tPolling FIFO transfer completion destid=%d TX q_size = %d\n", opt.destid, info->umd_mch->queueTxSize());
 			for (int i = 0;
-			     !q_was_full && !info->stop_req && (info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8) == 0) && (i < 100000);
+			     !q_was_full && !info->stop_req && (info->umd_mch->scanFIFO(wi, MBOX_STS*8) == 0) && (i < 100000);
 			     i++) {
 				usleep(1);
 			}
@@ -2198,7 +2206,7 @@ void UMD_DD(struct worker* info)
 			assert(pRP);
 
 			float TotalTimeSpentFull = (float)peer.rio_rx_peer_full_ticks_total / MHz;
-			snprintf(tmp, 256, "\n\t\t\trx.RP=%u IBBdReady=%d IBBDFull=%fuS", *pRP, peer.rio_rx_bd_ready_size, TotalTimeSpentFull);
+			snprintf(tmp, 256, "\n\t\t\trx.RP=%u IBBdReady=%d IBBDFullTotal=%fuS", *pRP, peer.rio_rx_bd_ready_size, TotalTimeSpentFull);
 			ss << tmp;
 
 			if (peer.tun_tx_cnt > 0) {
