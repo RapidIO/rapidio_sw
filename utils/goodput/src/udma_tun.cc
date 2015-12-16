@@ -1030,8 +1030,11 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
 				info->umd_dma_fifo_callback(info);
 
 			const int cnt = dch_list[ch]->dch->scanFIFO(wi, info->umd_sts_entries*8);
-			if (!cnt)
+			if (!cnt) {
+				struct timespec tv = { 0, 1 };
+				nanosleep(&tv, NULL);
 				continue;
+			}
 
 			for (int i = 0; i < cnt; i++) {
 				DMAChannel::WorkItem_t& item = wi[i];
@@ -1603,11 +1606,13 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
 	  //
 	  // NO! If both peers nuke each other they shall never talk again.
 
-	  ///info->umd_dma_did_enum_list.erase(destid);
-
-	  info->umd_dma_did_enum_list[destid].ls_time       = 0;
-	  info->umd_dma_did_enum_list[destid].bcast_cnt_in  = 0;
-	  info->umd_dma_did_enum_list[destid].bcast_cnt_out = 0;
+	  if (GetDecParm("$ignore_deadbeats", -1) != -1)
+	  	info->umd_dma_did_enum_list.erase(destid);
+	  else {
+		  info->umd_dma_did_enum_list[destid].ls_time       = 0;
+		  info->umd_dma_did_enum_list[destid].bcast_cnt_in  = 0;
+		  info->umd_dma_did_enum_list[destid].bcast_cnt_out = 0;
+	  }
 
           std::map <uint16_t, int>::iterator itp = info->umd_dma_did_peer.find(destid);
 	  if (itp == info->umd_dma_did_peer.end()) { goto done; }
@@ -1648,8 +1653,8 @@ done:
 
 	if (found) {
 		if (signal) umd_dma_goodput_tun_del_ep_signal(info, destid); // Just in case it was forced we tell him for F*ck Off
-		INFO("\n\tNuked peer destid %u%s\n", destid, (signal? " with MBOX notification": " NO notification")); 
-	} else  CRIT("\n\tCannot find a peer for destid %u\n", destid);
+		INFO("\n\tNuked peer destid %u%s\n", destid, (signal? " with MBOX notification": " without notification")); 
+	} else  INFO("\n\tCannot find a peer for destid %u\n", destid);
 }
 
 #ifdef UDMA_TUN_DEBUG_IN
@@ -1988,7 +1993,7 @@ void umd_mbox_watch_demo(struct worker *info)
 
 					// No point nuking enumerated peers which haven't 
 					// established a Tun "connection" with us. Perhaps UMD Tun not started yet?
-					if (umd_check_dma_tun_thr_running(info) && umd_dma_goodput_tun_ep_has_peer(&wkr[tundmathreadindex], opt.destid))
+					if (umd_check_dma_tun_thr_running(info) /*&& umd_dma_goodput_tun_ep_has_peer(&wkr[tundmathreadindex], opt.destid)*/)
 						umd_dma_goodput_tun_del_ep(&wkr[tundmathreadindex], opt.destid, false);
 
 					goto receive;
@@ -2006,11 +2011,16 @@ void umd_mbox_watch_demo(struct worker *info)
 			if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
 			if (info->umd_mch->queueTxSize() > 0) {
-                                ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d TXPKT_SMSG_CNT=%d RXPKT_SMSG_CNT=%d\n",
+                                ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d TXPKT_SMSG_CNT=%u RXPKT_SMSG_CNT=%u\n",
                                     opt.destid, (q_was_full? "Q FULL?": ""), tx_ok,
                                     mport->rd32(TSI721_TXPKT_SMSG_CNT), mport->rd32(TSI721_RXPKT_SMSG_CNT));
 
 				info->umd_mch->softRestart();
+
+				if (umd_check_dma_tun_thr_running(info) /*&& umd_dma_goodput_tun_ep_has_peer(&wkr[tundmathreadindex], opt.destid)*/)
+					umd_dma_goodput_tun_del_ep(&wkr[tundmathreadindex], opt.destid, false);
+
+				goto receive;
 			}
 
 			if (info->stop_req) goto exit;

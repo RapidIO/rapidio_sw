@@ -138,6 +138,8 @@ void MboxChannel::init()
   memset(&m_imsg_ring,   0, sizeof(m_imsg_ring));
   memset(&m_omsg_init,   0, sizeof(m_omsg_init));
   memset(&m_omsg_ring,   0, sizeof(m_omsg_ring));
+
+  m_restart_pending = 0;
 }
 
 void MboxChannel::setInitState()
@@ -964,6 +966,8 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 {
   if(completed_work == NULL || max_work < 1) return -1;
 
+  if(m_restart_pending) return 0;
+
   int fifo_count = 0;
 
   /* Check and clear descriptor status FIFO entries */
@@ -979,6 +983,8 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
   while (sts_ptr[j]) {
       for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
+        if(m_restart_pending) return 0;
+
         const uint64_t hwptr = sts_ptr[i];
         const uint64_t ts_end = rdtsc();
         sts_ptr[i] = 0;
@@ -992,6 +998,9 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
           bool found = false;
           uint32_t l_wr_count = 0;
+
+          if(m_restart_pending) return 0;
+
           pthread_spin_lock(&m_bltx_splock);
             if (m_omsg_trk.bltx_busy[bd_idx].valid == WI_SIG) {
               l_wr_count = m_omsg_trk.bltx_busy[bd_idx].opt.bd_wp;
@@ -1004,7 +1013,7 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
               m_omsg_trk.bltx_busy_size--;
             }
             if (found) {
-              assert(m_omsg_trk.bl_busy[bd_idx] != 0);
+              if(!m_restart_pending) { assert(m_omsg_trk.bl_busy[bd_idx] != 0); } // XXX Huh?
               m_omsg_trk.bl_busy[bd_idx] = 0;
             }
           pthread_spin_unlock(&m_bltx_splock);
@@ -1012,6 +1021,8 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 #ifdef MBOXDEBUG
           uint32_t soft_rp = m_omsg_ring.rd_count_soft;
 #endif
+
+          if(m_restart_pending) return 0;
 
           if (found /*&& bd_idx != m_num_ob_desc*/) { // ignore DTYPE5
             pthread_spin_lock(&m_tx_splock);
@@ -1052,7 +1063,9 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 void MboxChannel::softRestart()
 {
   uint64_t ts_s = rdtsc();
-  uint32_t ctl;
+
+  m_restart_pending = 1;
+
 /* Initialize mbox channel */
 
   m_omsg_ring.tx_slot = 0;
@@ -1068,7 +1081,7 @@ void MboxChannel::softRestart()
 /* Clear error status from MBOX channel */
   m_mport->wr32(TSI721_OBDMACXINT(m_mbox), 0xFFFFFFFF);
 
-  ctl = m_mport->rd32(TSI721_OBDMACXCTL(m_mbox));
+  uint32_t ctl = m_mport->rd32(TSI721_OBDMACXCTL(m_mbox));
   if (ctl & TSI721_OBDMACXCTL_SUSPEND)
     m_mport->wr32(TSI721_OBDMACXCTL(m_mbox), ctl & ~TSI721_OBDMACXCTL_SUSPEND);
 
@@ -1078,6 +1091,8 @@ void MboxChannel::softRestart()
 
   pthread_spin_init(&m_tx_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_bltx_splock, PTHREAD_PROCESS_PRIVATE);
+
+  m_restart_pending = 0;
 
   INFO("dT = %llu TICKS\n", (ts_e - ts_s));
 }

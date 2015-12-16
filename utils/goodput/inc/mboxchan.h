@@ -267,6 +267,8 @@ private:
   bool                m_imsg_init;
   bool                m_omsg_init;
 
+  volatile int        m_restart_pending; ///< Don't scan FIFO during soft restart
+
   static const uint32_t WI_SIG = 0xb00fd00fL;
 
   // Cannot store this in struct hw_omsg_ring as m_omsg_init
