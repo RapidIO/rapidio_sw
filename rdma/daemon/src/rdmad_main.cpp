@@ -470,7 +470,14 @@ void *rpc_thread_f(void *arg)
 			auto it = find(begin(connected_to_ms_info_list),
 					end(connected_to_ms_info_list),
 					other_server);
-			if (it != end(connected_to_ms_info_list)) {
+			/* When an element is constructed the server_msid is initialized to the
+			 * invalid value of 0xFFFF until it gets updated later when there is
+			 * a connection from the memory space from that destid.
+			 * TODO: FIXME: It is better to not have a separate list but rather
+			 * embed that information within the memory space. Also support multiple
+			 * connections to a memory space by having a list of destid,msubid pairs.
+			 */
+			if (it != end(connected_to_ms_info_list) && (it->server_msid != 0xFFFF)) {
 				send_disc_ms_cm(it->server_destid,
 						it->server_msid,
 						it->client_msubid);
