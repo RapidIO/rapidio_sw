@@ -1500,7 +1500,6 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 {
 	int rc = -1;
 	uint32_t free_bytes = 0; 
-	int time_remains = 5000;
 	struct timespec unused;
 	struct rdma_xfer_ms_in hdr_in;
 	struct rskt_socket_t *skt;
@@ -1549,22 +1548,17 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 
 	DBG("byte_cnt=0x%X, free_bytes=%x%X\n", byte_cnt, free_bytes);
 	while (!free_bytes && !errno) {
-		time_remains = 5000;
-		while ((free_bytes < byte_cnt) && time_remains && !errno) {
-			nanosleep(&rw_dly, &unused);
-			free_bytes = get_free_bytes(skt->hdr,
-					skt->buf_sz);
-			time_remains--;
-		};
+		nanosleep(&rw_dly, &unused);
+		free_bytes = get_free_bytes(skt->hdr, skt->buf_sz);
 		sem_post(&skt_h->mtx);
-		sched_yield();
+		sleep(0);
 		rc = librskt_wait_for_sem(&skt_h->mtx, 0);
 		if (rc) {
 			ERR("librskt_wait_for_sem failed...exiting\n");
 			goto fail;
 		}
 		skt = skt_h->skt;
-		if (NULL == skt) {
+		if ((NULL == skt) || errno) {
 			DBG("skt is NULL\n");
 			errno = ECONNRESET;
 			goto fail;
@@ -1576,13 +1570,14 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 			goto skt_ok;
 		};
 	}
-	DBG("byte_cnt=0x%X, free_bytes=%x%X\n", byte_cnt, free_bytes);
 
-	if (!time_remains) {
-		ERR("Send timeout\n");
-		errno = ETIMEDOUT;
+	if (errno) {
+		WARN("Errno = %d", errno);
+		errno = ENOTCONN;
 		goto skt_ok;
 	};
+		
+	DBG("byte_cnt=0x%X, free_bytes=%x%X\n", byte_cnt, free_bytes);
 
 	if ((byte_cnt + ntohl(skt->hdr->loc_tx_wr_ptr)) 
 						<= skt->buf_sz) {
@@ -1676,7 +1671,6 @@ void read_bytes(struct rskt_socket_t *skt, void *data, uint32_t byte_cnt)
 int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 {
 	uint32_t avail_bytes = 0;
-	int time_remains = 50000;
 	struct timespec unused;
 	struct rdma_xfer_ms_in hdr_in;
 	uint32_t first_offset;
@@ -1738,14 +1732,10 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
 	
 	while (!avail_bytes && !errno) {
-		time_remains = 5000;
-		while (!avail_bytes && time_remains && !errno) {
-			nanosleep(&rw_dly, &unused);
-	 		avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
-			time_remains--;
-		};
+		nanosleep(&rw_dly, &unused);
+	 	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
 		sem_post(&skt_h->mtx);
-		sched_yield();
+		sleep(0);
 		rc = librskt_wait_for_sem(&skt_h->mtx, 0);
 		if (rc) {
 			ERR("librskt_wait_for_sem failed...exiting\n");
