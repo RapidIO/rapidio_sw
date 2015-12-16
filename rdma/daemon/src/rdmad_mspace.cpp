@@ -71,6 +71,7 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 
 	/* Initially all free list sub-indexes are available */
 	fill(msubindex_free_list, msubindex_free_list + MSUBINDEX_MAX + 1, true);
+	msubindex_free_list[0] = false; /* Start at 1 */
 
 	/* Initialize semaphores that will protect the lists */
 	if (sem_init(&rem_connections_sem, 0, 1) == -1) {

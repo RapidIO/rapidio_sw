@@ -379,6 +379,7 @@ int inbound::destroy_msubspace(uint32_t msid, uint32_t msubid)
 	int	ret;
 	uint8_t	win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
 
+	DBG("msid = 0x%X, msubid = 0x%X\n", msid, msubid);
 	if (win_num >= ibwins.size()) {
 		ERR("Invalid window number: %u\n", win_num);
 		ret = -1;

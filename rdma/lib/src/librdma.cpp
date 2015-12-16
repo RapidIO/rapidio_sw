@@ -1645,7 +1645,8 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	/* Set up input parameters */
 	in.msid		= ((struct loc_ms *)msh)->msid;
 	in.msubid	= msub->msubid;
-
+	DBG("Attempting to destroy msubid(0x%X) in msid(0x%X)\n", in.msubid,
+								  in.msid);
 	/* Set up Unix message parameters */
 	unix_msg_t  *in_msg;
 	unix_msg_t  *out_msg;

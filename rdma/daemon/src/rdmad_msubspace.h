@@ -55,9 +55,9 @@ public:
 		size(size),
 		msubid(msubid)
 	{
-		INFO("msid = 0x%X, rio_addr = 0x%lX, size = 0x%08X\n",
+		INFO("msid = 0x%X, rio_addr = 0x%" PRIx64 ", size = 0x%08X\n",
 							msid, rio_addr, size);
-		INFO("msubid = 0x%X, phys_addr = 0x%lX\n", msubid, phys_addr);
+		INFO("msubid = 0x%X, phys_addr = 0x%" PRIx64 "\n", msubid, phys_addr);
 	}
 
 	/* For finding a memory sub-space by its msubid */
