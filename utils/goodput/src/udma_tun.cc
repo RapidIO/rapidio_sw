@@ -829,8 +829,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 		if (peer->rio_rx_bd_ready_size == 0) // Unlocked op, we take a sneak peek at volatile counter
 			sem_wait(&peer->rio_rx_work); // To BEW: how does this impact RX latecy?
 
-        	if (info->stop_req || peer->stop_req) break;
-
+        	if (info->stop_req || peer->stop_req) goto stop_req;
 		assert(peer->sig == PEER_SIG_UP);
 
 		DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->rio_rx_bd_ready_size, *pRP);
@@ -852,14 +851,17 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 		DBG("\n\tInbound %d buffers(s) will be processed from destid %u RP=%u\n", cnt, peer->destid, *pRP);
 #endif
 
-        	if (info->stop_req || peer->stop_req) break;
+        	if (info->stop_req || peer->stop_req) goto stop_req;
+		assert(peer->sig == PEER_SIG_UP);
 
 		for (int i = 0; i < cnt && !info->stop_req; i++) {
 			int rp = ready_bd_list[i];
 			assert(rp >= 0);
 			assert(rp < (info->umd_tx_buf_cnt-1));
 
+			if (info->stop_req || peer->stop_req) goto stop_req;
 			assert(peer->sig == PEER_SIG_UP);
+
 			DMA_L2_t* pL2 = peer->rio_rx_bd_L2_ptr[rp];
 
 			rx_ok++;
@@ -878,7 +880,10 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
                         DBG("\n\tGot a msg of size %d from RIO destid %u (L7 CRC32 0x%x) cnt=%llu, wrote %d to %s -- rp=%d\n",
                                  ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, peer->tun_name, rp);
 #endif
+
+			if (info->stop_req || peer->stop_req) goto stop_req;
 			assert(peer->sig == PEER_SIG_UP);
+
 			if (nwrite == payload_size) {
 			     peer->tun_tx_cnt++;
 			     if (tx_ts > peer->rio_rx_bd_ready_ts[i]) peer->total_ticks_rx += tx_ts - peer->rio_rx_bd_ready_ts[i];
@@ -894,6 +899,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 		}
         } // END while NOT stop requested
 
+stop_req:
 	if (info->stop_req == SOFT_RESTART && !peer->stop_req) {
                 DBG("\n\tSoft restart requested, sleeping in a 10uS loop\n");
 		while(info->stop_req != 0) usleep(10);
@@ -1276,7 +1282,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 			  {{
 			    std::map<uint16_t, DmaPeerCommsStats_t>::iterator itp = info->umd_dma_did_enum_list.find(from_destid);
 			    if (itp != info->umd_dma_did_enum_list.end())
-			  	bcast_cnt = itp->second.bcast_cnt_out;
+			  	bcast_cnt = itp->second.bcast_cnt_in;
 			  }}
 			  pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
@@ -1621,6 +1627,7 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
 
 		peer->stop_req = 1;
 		sem_post(&peer->rio_rx_work);
+		sched_yield(); // Allow peer to wake up and quit... hopefully. And with mutex held. Yay!
 
 		info->umd_dma_did_peer.erase(itp);
 		info->umd_dma_did_peer_list[slot] = NULL;
