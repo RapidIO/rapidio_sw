@@ -1073,8 +1073,10 @@ void MboxChannel::softRestart()
 
   memset(m_omsg_ring.omd.win_ptr, 0, m_omsg_ring.omd.win_size);
 
-  m_omsg_trk.bltx_busy_size = 0;
   memset(m_omsg_trk.bl_busy, 0, (m_omsg_ring.size+1)*sizeof(int));
+
+  m_omsg_trk.bltx_busy_size = 0;
+  memset(m_omsg_trk.bltx_busy, 0, (m_omsg_ring.size+1)*sizeof(WorkItem_t));
 
   set_outb_mbox_hwregs(0);
 

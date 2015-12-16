@@ -333,6 +333,7 @@ struct worker {
         int             umd_tun_fd;
         char            umd_tun_name[33];
         int             umd_tun_MTU;
+        int             umd_tun_thruput;
 
 	// Used only for DMA Tun
 	int             umd_mbox_tx_fd; // socketpair(2) server for MBOX TX; safer than sharing a MboxChannel instance

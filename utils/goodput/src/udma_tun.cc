@@ -1018,6 +1018,8 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
                 goto exit;
         }
 
+	INFO("\n\tFIFO Scanner thread ready, optimised for %s\n", info->umd_tun_thruput? "thruput": "latency");
+
         info->umd_fifo_proc_alive = 1;
         sem_post(&info->umd_fifo_proc_started);
 
@@ -1031,8 +1033,10 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
 
 			const int cnt = dch_list[ch]->dch->scanFIFO(wi, info->umd_sts_entries*8);
 			if (!cnt) {
-				struct timespec tv = { 0, 1 };
-				nanosleep(&tv, NULL);
+				if (info->umd_tun_thruput) {
+					struct timespec tv = { 0, 1 };
+					nanosleep(&tv, NULL);
+				}
 				continue;
 			}
 
