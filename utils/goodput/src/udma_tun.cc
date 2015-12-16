@@ -1584,7 +1584,7 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
 	bool found = false;
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
         {{
-	  DBG("\n\t Enum EPs: %d Peers: %d\n", info->umd_dma_did_enum_list.size(), info->umd_dma_did_peer.size());
+	  DDBG("\n\t Enum EPs: %d Peers: %d\n", info->umd_dma_did_enum_list.size(), info->umd_dma_did_peer.size());
 
 	  // Is it sane to do this hoping the peer will rebroadcast to us
 	  // when it comes back? This means that unless mport/FMD notifies
@@ -1594,6 +1594,8 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
 	  // NO! If both peers nuke each other they shall never talk again.
 
 	  ///info->umd_dma_did_enum_list.erase(destid);
+
+	  info->umd_dma_did_enum_list[destid].ls_time = 0;
 
           std::map <uint16_t, int>::iterator itp = info->umd_dma_did_peer.find(destid);
 	  if (itp == info->umd_dma_did_peer.end()) { goto done; }
@@ -1815,6 +1817,38 @@ exit_bomb:
 	goto exit;
 }
 
+/** \brief Look at destid/EP's Last Seen time stamp and kick out if too old
+ * \return true if endpoint exists and has been kicked
+ */
+bool umd_epwatch_timeout_ep(struct worker *info, const uint16_t destid)
+{
+	assert(info);
+
+	time_t ls_time = 0;
+	pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+	{{
+	  std::map<uint16_t, DmaPeerCommsStats_t>::iterator ite = info->umd_dma_did_enum_list.begin();
+	  if (ite != info->umd_dma_did_enum_list.end()) 
+		ls_time = ite->second.ls_time;
+	}}
+	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+
+	do {{
+	  if (! ls_time) break; // Never contacted us
+
+	  // No point nuking enumerated peers which haven't 
+	  // established a Tun "connection" with us. Perhaps UMD Tun not started yet?
+	  if (! umd_dma_goodput_tun_ep_has_peer(info, destid)) break;
+
+	  int dT = time(NULL) - ls_time;
+	  if (dT < (info->umd_dma_bcast_min * info->umd_dma_bcast_interval)) break; // Grace period
+
+	  umd_dma_goodput_tun_del_ep(info, destid, false);
+	  return true;
+	}} while(0);
+
+	return false;
+}
 /** \brief Thread which minds a MBOX and a socketpair
  * \note It wants the wkr index of the Main Battle Tank thread so it can communicate with it via socketpair(2): reads data from socketpair, sends over MBOX, reads data from MBOX, sends over socketpair
  * \note It modifies Main Battle Tank thread's struct worker { umd_mbox_tx_fd, umd_mbox_rx_fd }
@@ -1953,39 +1987,23 @@ void umd_mbox_watch_demo(struct worker *info)
 				usleep(1);
 			}
 
-			if (info->umd_mch->queueTxSize() > 0 ) {
+			if (info->stop_req) goto exit;
+			if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+			if (info->umd_mch->queueTxSize() > 0) {
                                 ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d TXPKT_SMSG_CNT=%d RXPKT_SMSG_CNT=%d\n",
                                     opt.destid, (q_was_full? "Q FULL?": ""), tx_ok,
                                     mport->rd32(TSI721_TXPKT_SMSG_CNT), mport->rd32(TSI721_RXPKT_SMSG_CNT));
 
 				info->umd_mch->softRestart();
-
-				struct worker* const info2 = &wkr[tundmathreadindex];
-
-				time_t ls_time = 0;
-				pthread_mutex_lock(&info2->umd_dma_did_peer_mutex);
-				{{
-				  std::map<uint16_t, DmaPeerCommsStats_t>::iterator ite = info2->umd_dma_did_enum_list.begin();
-          			  if (ite != info2->umd_dma_did_enum_list.end()) 
-					ls_time = ite->second.ls_time;
-				}}
-				pthread_mutex_unlock(&info2->umd_dma_did_peer_mutex);
-
-				do {{
-				  if (! ls_time) break; // Never contacted us
-				  if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
-
-				  // No point nuking enumerated peers which haven't 
-				  // established a Tun "connection" with us. Perhaps UMD Tun not started yet?
-				  if (! umd_dma_goodput_tun_ep_has_peer(info2, opt.destid)) break;
-
-				  int dT = time(NULL) - ls_time;
-				  if (dT < (info2->umd_dma_bcast_min * info2->umd_dma_bcast_interval)) break; // Grace period
-
-				  umd_dma_goodput_tun_del_ep(info2, opt.destid, false);
-				}} while(0);
 			}
-		}
+
+			if (info->stop_req) goto exit;
+			if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
+
+			// Hmm go and lock a mutex unprovoked. Despicable
+			umd_epwatch_timeout_ep(&wkr[tundmathreadindex], opt.destid);
+		} // END if FD_ISSET
 
 	receive:
 		if (info->stop_req) goto exit;
