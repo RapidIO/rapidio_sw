@@ -1612,6 +1612,7 @@ int rdma_create_msub_h(ms_h	msh,
 		return RDMA_DB_ADD_FAIL;
 	}
 	
+	DBG("msubh = 0x%" PRIx64 "\n", msubh);
 	sem_post(&rdma_lock);
 	return 0;
 } /* rdma_create_msub_h() */
@@ -1622,7 +1623,6 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 	destroy_msub_output	out;
 	struct loc_msub 	*msub;
 	int			ret;
-
 
 	/* Check the daemon hasn't died since we established its socket connection */
 	if (!rdmad_is_alive()) {
@@ -1638,6 +1638,8 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 								msh, msubh);
 		return RDMA_NULL_PARAM;
 	}
+
+	DBG("msubh = 0x%" PRIx64 "\n", msubh);
 
 	/* Convert handle to an msub pointer to the element the database */
 	msub = (struct loc_msub *)msubh;
