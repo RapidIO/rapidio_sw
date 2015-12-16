@@ -51,9 +51,13 @@ void *slave_thread_f(void *arg)
 	slave_params = (struct slave_thread_params *)arg;
 	accept_socket = slave_params->accept_socket;
 	slave_thread  = slave_params->slave_thread;
+
+	num_threads++;	/* Increment threads */
+
 	sem_post(&slave_params->started);
 
-	printf("*** Started %s with thread id = 0x%" PRIx64 "\n", __func__, slave_thread);
+	printf("*** Started %s with thread id = 0x%" PRIx64 "\n",
+						__func__, slave_thread);
 
 	/* Allocate send and receive buffers */
 	send_buf = malloc(RSKT_DEFAULT_SEND_BUF_SIZE);
@@ -74,11 +78,11 @@ void *slave_thread_f(void *arg)
 			       RSKT_DEFAULT_RECV_BUF_SIZE);
 		if (rc < 0) {
 			if (errno == ETIMEDOUT) {
-				fprintf(stderr, "rskt_read() timed out. Retrying!\n");
+				fprintf(stderr, "rskt_read() timed out. Retry\n");
 				continue;
 			}
 			fprintf(stderr, "Receive failed, rc=%d: %s\n",
-						rc, strerror(errno));
+							rc, strerror(errno));
 			/* Client closed the connection. Die! */
 			break;
 		} else
@@ -240,12 +244,17 @@ int main(int argc, char *argv[])
 			/* We failed. But don't exit so we can maintain the other
 			 * successful connections we may already have. */
 			continue;
+		} else {
+
 		}
+		/* Save a copy of the thread id to use in pthread_join */
+		pthread_t	slave_thread = slave_params->slave_thread;
 
 		/* Wait for thread to start */
 		sem_wait(&slave_params->started);
 
-		num_threads++;	/* Increment threads */
+		/* Wait for thread to exit. FIXME: Temporary only */
+		pthread_join(slave_thread, NULL);
 	} /* while */
 
 destroy_accept_socket:
