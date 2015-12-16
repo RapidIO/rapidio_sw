@@ -1704,7 +1704,7 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 		RIOCP_TRACE("Unexpected ack control symbol\n");
 
 	if (err_status & CPS1xxx_ERR_STATUS_PORT_ERR) {
-		RIOCP_ERROR("switch 0x%08x fatal error\n");
+		RIOCP_ERROR("switch 0x%08x port %d fatal error (0x%08x)\n", sw->comptag, port, err_status);
 		/* probably both input and output error are set */
 		goto skip_port_errors;
 	}
