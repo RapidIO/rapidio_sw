@@ -1948,15 +1948,15 @@ void umd_mbox_watch_demo(struct worker *info)
 
 			DDBG("\n\tPolling FIFO transfer completion destid=%d TX q_size = %d\n", opt.destid, info->umd_mch->queueTxSize());
 			for (int i = 0;
-			     !q_was_full && !info->stop_req && info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8) == 0 && i < 100000;
+			     !q_was_full && !info->stop_req && (info->umd_mch->scanFIFO(wi, info->umd_sts_entries*8) == 0) && (i < 100000);
 			     i++) {
 				usleep(1);
 			}
 
-			if (info->umd_mch->queueTxSize() > 0) {
-				ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d TXPKT_SMSG_CNT=%d RXPKT_SMSG_CNT=%d\n",
-				    opt.destid, (q_was_full? "Q FULL?": ""), tx_ok,
-				    mport->rd32(TSI721_TXPKT_SMSG_CNT), mport->rd32(TSI721_RXPKT_SMSG_CNT));
+			if (info->umd_mch->queueTxSize() > 0 ) {
+                                ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d TXPKT_SMSG_CNT=%d RXPKT_SMSG_CNT=%d\n",
+                                    opt.destid, (q_was_full? "Q FULL?": ""), tx_ok,
+                                    mport->rd32(TSI721_TXPKT_SMSG_CNT), mport->rd32(TSI721_RXPKT_SMSG_CNT));
 
 				info->umd_mch->softRestart();
 
