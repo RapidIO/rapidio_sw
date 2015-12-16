@@ -1282,7 +1282,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 			  {{
 			    std::map<uint16_t, DmaPeerCommsStats_t>::iterator itp = info->umd_dma_did_enum_list.find(from_destid);
 			    if (itp != info->umd_dma_did_enum_list.end())
-			  	bcast_cnt = itp->second.bcast_cnt_in;
+			  	bcast_cnt = itp->second.bcast_cnt_in + itp->second.bcast_cnt_out;
 			  }}
 			  pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
@@ -1291,7 +1291,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 			      from_destid, from_base_rio_addr, from_base_size, from_rio_addr, from_bufc, from_MTU,
 			       rio_addr, peer_ib_ptr, bcast_cnt);
 			  
-			  if (bcast_cnt < min_bcasts) break; // We want to be doubleplus-sure the peer is ready to receive us once we put the Tun up
+			  if (bcast_cnt < (min_bcasts * 2)) break; // We want to be doubleplus-sure the peer is ready to receive us once we put the Tun up
 
 			  DBG("\n\tSetting up Tun for NEW peer destid %u\n", from_destid);
 			  if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
