@@ -102,11 +102,9 @@ static int send_destroy_ms_to_lib(
 	std::stringstream	mq_name;
 	mq_name << "/dest-" << server_ms_name;
 
-	/* Open destroy/destroy-ack message queue */
-	std::unique_ptr<msg_q<mq_destroy_msg>>	destroy_mq;
 	try {
-		auto temp_destroy_mq = make_unique<msg_q<mq_destroy_msg>>(mq_name.str().c_str(), MQ_OPEN);
-		destroy_mq = std::move(temp_destroy_mq);
+		/* Open destroy/destroy-ack message queue */
+		auto destroy_mq = make_unique<msg_q<mq_destroy_msg>>(mq_name.str().c_str(), MQ_OPEN);
 
 		/* Send 'destroy' POSIX message to the RDMA library */
 		mq_destroy_msg	*dest_msg;
@@ -115,7 +113,7 @@ static int send_destroy_ms_to_lib(
 		if (destroy_mq->send()) {
 			ERR("Failed to send 'destroy' message to client.\n");
 			ret = -2;
-			goto exit_destroy_mq;
+			goto exit_func;
 		}
 
 		/* Message buffer for receiving destroy ack message */
@@ -145,9 +143,6 @@ static int send_destroy_ms_to_lib(
 		goto exit_func;
 	}
 
-	/* Done with the destroy POSIX message queue */
-exit_destroy_mq:
-	;
 exit_func:
 	return ret;
 } /* send_destroy_ms_to_lib() */
