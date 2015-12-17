@@ -33,6 +33,7 @@ int test_case_g();
 int test_case_h(uint32_t destid);
 int test_case_i_j_k(char tc, uint32_t destid);
 int test_case_l();
+int test_case_m(uint32_t destid);
 
 /* Old test cases */
 int test_case_t_u(char tc, uint32_t destid);
