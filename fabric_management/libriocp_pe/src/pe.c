@@ -737,7 +737,7 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 				(((lm_resp&RIO_PORT_N_ACK_INBOUND)>>24) << 8) | ((lm_resp&RIO_PORT_N_ACK_INBOUND)>>24);
 
 		ret = riocp_pe_maint_write_remote(pe->mport, any_id, pe->hopcount+1,
-				0x100 + RIO_PORT_N_ACK_STS_CSR(port), ackid_stat);
+				0x100 + RIO_PORT_N_ACK_STS_CSR(peer_port), ackid_stat);
 		if (ret < 0) {
 			RIOCP_ERROR("Unable to update peer port %u for port %u with ackid_stat 0x%08x\n",
 				peer_port, port, ackid_stat);
