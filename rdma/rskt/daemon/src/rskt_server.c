@@ -16,6 +16,8 @@
 #include "librdma.h"
 #include "rskts_info.h"
 
+#define SINGLE_CONNECTION	1
+
 #define RSKT_DEFAULT_SEND_BUF_SIZE	4*1024
 #define RSKT_DEFAULT_RECV_BUF_SIZE	4*1024
 
@@ -253,8 +255,10 @@ int main(int argc, char *argv[])
 		/* Wait for thread to start */
 		sem_wait(&slave_params->started);
 
+#if SINGLE_CONNECTION == 0
 		/* Wait for thread to exit. FIXME: Temporary only */
 		pthread_join(slave_thread, NULL);
+#endif
 	} /* while */
 
 destroy_accept_socket:
