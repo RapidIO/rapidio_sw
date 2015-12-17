@@ -34,6 +34,30 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file riodp_test_db.c
+ * \brief Test program that demonstrates sending and receiving RapidIO doorbells.
+ *
+ * To perform RapidIO doorbell exchange testing, receiving and sending instances of
+ * this program must run simultaneously. For running both instances on the same machine
+ * with only one mport device, RapidIO connection to a switch device is required to
+ * provide loopback connection.
+ *
+ * Usage:
+ *   ./riodp_test_buf [options]
+ *
+ * Options are:
+ * - -D xxxx | --destid xxxx : destination ID of sending/receiving RapidIO device
+ *     (defaults Rx:any, Tx:none)
+ * - -M mport_id | --mport mport_id : local mport device index (default=0)
+ * - -I xxxx : DoorBell Info field value (default 0x5a5a)
+ * - -r : run in DB receiver mode
+ * - -n : run receiver in non-blocking mode
+ * - -S xxxx : start of doorbell range (default 0x5a5a)
+ * - -E xxxx : end of doorbell range (default 0x5a5a)
+ * - --help (or -h)
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -71,17 +95,33 @@ static void db_sig_handler(int signum)
 	}
 }
 
-static int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start, uint16_t end)
+/**
+ * \brief Called by main() when DB receive mode is specified
+ *
+ * \param[in] hnd mport device handle
+ * \param[in] rioid sender RapidIO destination ID
+ * \param[in] start doorbell range start
+ * \param[in] end doorbell range end
+ *
+ * \retval 0 means success
+ * \retval Not 0 means failure
+ *
+ * Performs the following steps:
+ *
+ */
+int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start, uint16_t end)
 {
 	int ret;
 	struct riomp_mgmt_event evt;
 
+	/** - enable receiving doorbells in specified range */
 	ret = riomp_mgmt_dbrange_enable(hnd, rioid, start, end);
 	if (ret) {
 		printf("Failed to enable DB range, err=%d\n", ret);
 		return ret;
 	}
 
+	/** - until terminated receive and display doorbell information */
 	while (!rcv_exit) {
 		if (exit_no_dev) {
 			printf(">>> Device removal signaled <<<\n");
@@ -105,6 +145,7 @@ static int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start, uint
 			printf("\tIgnoring event type %d)\n", evt.header);
 	}
 
+	/** - on exit, disable specified doorbell range */
 	ret = riomp_mgmt_dbrange_disable(hnd, rioid, start, end);
 	if (ret) {
 		printf("Failed to disable DB range, err=%d\n", ret);
@@ -114,7 +155,20 @@ static int do_dbrcv_test(riomp_mport_t hnd, uint32_t rioid, uint16_t start, uint
 	return 0;
 }
 
-static int do_dbsnd_test(riomp_mport_t hnd, uint32_t rioid, uint16_t dbval)
+/**
+ * \brief Called by main() when in DB send mode
+ *
+ * \param[in] hnd mport device handle
+ * \param[in] rioid target's RapidIO destination ID
+ * \param[in] dbval doorbell info field value
+ *
+ * \retval 0 means success
+ * \retval Not 0 means failure
+ *
+ * Performs the following steps:
+ *
+ */
+int do_dbsnd_test(riomp_mport_t hnd, uint32_t rioid, uint16_t dbval)
 {
 	struct riomp_mgmt_event evt;
 	int ret = 0;
@@ -123,6 +177,7 @@ static int do_dbsnd_test(riomp_mport_t hnd, uint32_t rioid, uint16_t dbval)
 	evt.u.doorbell.rioid = rioid;
 	evt.u.doorbell.payload = dbval;
 
+	/** - send a single doorbell message to a target device */
 	ret = riomp_mgmt_send_event(hnd, &evt);
 	if (ret < 0)
 		printf("Write DB event failed, err=%d\n", ret);
@@ -142,7 +197,6 @@ static void display_help(char *program)
 	printf("    destination ID of sending/receiving RapidIO device\n");
 	printf("    (defaults Rx:any, Tx:none)\n");
 	printf("  --help (or -h)\n");
-	/*printf("  --debug (or -d)\n");*/
 	printf("Sender:\n");
 	printf("  -M mport_id\n");
 	printf("  --mport mport_id\n");
@@ -150,8 +204,8 @@ static void display_help(char *program)
 	printf("  -I xxxx\n");
 	printf("    DoorBell Info field value (default 0x5a5a)\n");
 	printf("Receiver:\n");
-	printf("  -r run in DB recever mode\n");
-	printf("  -n run recever in non-blocking mode\n");
+	printf("  -r run in DB receiver mode\n");
+	printf("  -n run receiver in non-blocking mode\n");
 	printf("  -S xxxx\n");
 	printf("    start of doorbell range (default 0x5a5a)\n");
 	printf("  -E xxxx\n");
@@ -167,6 +221,18 @@ static void test_sigaction(int sig, siginfo_t *siginfo, void *context)
 	exit_no_dev = 1;
 }
 
+/**
+ * \brief Starting point for the test program
+ *
+ * \param[in] argc Command line parameter count
+ * \param[in] argv Array of pointers to command line parameter null terminated
+ *                 strings
+ *
+ * \retval 0 means success
+ *
+ * Parses command line parameters and performs doorbell send or receive operation
+ * depending on specified mode.
+ */
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
