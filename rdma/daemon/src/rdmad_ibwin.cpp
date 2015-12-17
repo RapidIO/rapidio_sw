@@ -379,9 +379,7 @@ void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator oth
 
 	/* Remove the 'other' memory space from the list */
 	DBG("Removing 'other' from mspace lists altogether\n");
-	pthread_mutex_lock(&mspaces_lock);
 	mspaces.erase(other);
-	pthread_mutex_unlock(&mspaces_lock);
 	DBG("EXIT\n");
 } /* merge_next_with_mspace() */
 
