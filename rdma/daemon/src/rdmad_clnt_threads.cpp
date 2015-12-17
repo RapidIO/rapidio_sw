@@ -91,18 +91,17 @@ static int send_destroy_ms_to_lib(
 	int ret = 0;
 
 	/* Prepare POSIX message queue name */
-	char	mq_name[CM_MS_NAME_MAX_LEN+2];
-	strcpy(&mq_name[0], "/dest-");
-	strcpy(&mq_name[6], server_ms_name);
+	std::stringstream	mq_name;
+	mq_name << "/dest-" << server_ms_name;
 
 	/* Open destroy/destroy-ack message queue */
 	msg_q<mq_destroy_msg>	*destroy_mq;
 	try {
-		destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_OPEN);
+		destroy_mq = new msg_q<mq_destroy_msg>(mq_name.str().c_str(), MQ_OPEN);
 	}
 	catch(msg_q_exception& e) {
 		ERR("Failed to open 'destroy' POSIX queue (%s): %s\n",
-					mq_name, e.msg.c_str());
+					mq_name.str().c_str(), e.msg.c_str());
 		ret = -1;
 		goto exit_func;
 	}
@@ -133,8 +132,7 @@ static int send_destroy_ms_to_lib(
 		HIGH("Timed out without receiving ACK to destroy\n");
 		ret = -3;
 	} else {
-		HIGH("POSIX destroy_ack received for %s\n",
-					server_ms_name);
+		HIGH("POSIX destroy_ack received for %s\n", server_ms_name);
 		ret = 0;
 	}
 
