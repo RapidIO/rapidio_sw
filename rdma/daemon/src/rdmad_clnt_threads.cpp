@@ -96,7 +96,7 @@ static int send_destroy_ms_to_lib(
 		const char *server_ms_name,
 		uint32_t server_msid)
 {
-	int ret = 0;
+	int ret;
 
 	/* Prepare POSIX message queue name */
 	std::stringstream	mq_name;
@@ -104,7 +104,8 @@ static int send_destroy_ms_to_lib(
 
 	try {
 		/* Open destroy/destroy-ack message queue */
-		auto destroy_mq = make_unique<msg_q<mq_destroy_msg>>(mq_name.str().c_str(), MQ_OPEN);
+		auto destroy_mq = make_unique<msg_q<mq_destroy_msg>>(
+					mq_name.str().c_str(), MQ_OPEN);
 
 		/* Send 'destroy' POSIX message to the RDMA library */
 		mq_destroy_msg	*dest_msg;
@@ -112,8 +113,7 @@ static int send_destroy_ms_to_lib(
 		dest_msg->server_msid = server_msid;
 		if (destroy_mq->send()) {
 			ERR("Failed to send 'destroy' message to client.\n");
-			ret = -2;
-			goto exit_func;
+			throw -2;
 		}
 
 		/* Message buffer for receiving destroy ack message */
@@ -126,24 +126,24 @@ static int send_destroy_ms_to_lib(
 		clock_gettime(CLOCK_REALTIME, &tm);
 		tm.tv_sec += 5;
 		if (destroy_mq->timed_receive(&tm)) {
-			/* The server daemon will timeout on the destory-ack
-			 * reception since it is now using a timed receive CM call.
-			 */
+			/* The server daemon will timeout on the destory_ack
+			 * reception since it is using a timed receive CM API */
 			HIGH("Timed out without receiving ACK to destroy\n");
-			ret = -3;
+			throw -3;
 		} else {
-			HIGH("POSIX destroy_ack received for %s\n", server_ms_name);
-			ret = 0;
+			HIGH("POSIX destroy_ack rcvd for %s\n", server_ms_name);
+			ret = 0;	/* SUCCESS */
 		}
 	}
 	catch(msg_q_exception& e) {
 		ERR("Failed to open 'destroy' POSIX queue (%s): %s\n",
 					mq_name.str().c_str(), e.msg.c_str());
 		ret = -1;
-		goto exit_func;
+	}
+	catch(int e) {
+		ret = e;
 	}
 
-exit_func:
 	return ret;
 } /* send_destroy_ms_to_lib() */
 
