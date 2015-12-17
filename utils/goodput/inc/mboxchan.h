@@ -216,7 +216,7 @@ public:
     return m_omsg_trk.bltx_busy_size;
   }
 
-  void softRestart();
+  void softRestart(const bool nuke_bds = true);
 
 public: // test-public
   #define wr32mboxchan(o, d) _wr32mboxchan((o), #o, (d), #d)

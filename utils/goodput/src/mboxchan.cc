@@ -1060,10 +1060,9 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
   return fifo_count;
 }
 
-void MboxChannel::softRestart()
+void MboxChannel::softRestart(const bool nuke_bds)
 {
-  uint64_t ts_s = rdtsc();
-
+  const uint64_t ts_s = rdtsc();
   m_restart_pending = 1;
 
 /* Initialize mbox channel */
@@ -1071,7 +1070,8 @@ void MboxChannel::softRestart()
   m_omsg_ring.tx_slot = 0;
   m_omsg_ring.sts_rdptr = 0;
 
-  memset(m_omsg_ring.omd.win_ptr, 0, m_omsg_ring.omd.win_size);
+  if(nuke_bds)
+    memset(m_omsg_ring.omd.win_ptr, 0, m_omsg_ring.omd.win_size);
 
   memset(m_omsg_trk.bl_busy, 0, (m_omsg_ring.size+1)*sizeof(int));
 
@@ -1089,12 +1089,11 @@ void MboxChannel::softRestart()
 
   m_mport->wr32(TSI721_OBDMACXCTL(m_mbox), TSI721_OBDMACXCTL_INIT |
 						TSI721_OBDMACXCTL_RETRY_THR);
-  uint64_t ts_e = rdtsc();
-
   pthread_spin_init(&m_tx_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_bltx_splock, PTHREAD_PROCESS_PRIVATE);
 
   m_restart_pending = 0;
+  const uint64_t ts_e = rdtsc();
 
   INFO("dT = %llu TICKS\n", (ts_e - ts_s));
 }

@@ -287,7 +287,7 @@ public:
     else outp_err = false;
   }
 
-  void softRestart();
+  void softRestart(const bool nuke_bds = true);
 
   volatile uint64_t   m_fifo_scan_cnt;
   volatile uint64_t   m_tx_cnt; ///< Number of DMA ops that succeeded / showed up in FIFO
@@ -315,6 +315,8 @@ private:
   volatile bool       m_keep_evlog;
   std::string         m_evlog;
   pthread_spinlock_t  m_evlog_splock; ///< Serialize access to event log
+  volatile int        m_restart_pending;
+  uint32_t            m_sts_log_two; ///< Remember the calculation in alloc_dmacompldesc and re-use it at softReset
   
   WorkItem_t*         m_pending_work;
 

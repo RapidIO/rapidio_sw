@@ -168,7 +168,9 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 		      (inp_err? "Port:InpERROR ": ""),
 		      RXRSP_BDMA_CNT,
 		      umd_dma_abort_reason, DMAChannel::abortReasonToStr(umd_dma_abort_reason));
-		// XXX Cleanup, nuke the one BD
+
+		dmac->softRestart();
+
 		return false;
 	}
 
