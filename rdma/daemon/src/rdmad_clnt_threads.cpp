@@ -37,6 +37,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <signal.h>
 
+#include <memory>
+
 #include "rdma_mq_msg.h"
 #include "liblog.h"
 #include "cm_sock.h"
@@ -84,6 +86,12 @@ int send_destroy_ms_for_did(uint32_t did)
 	return ret;
 } /* send_destroy_ms_for_did() */
 
+template<typename T, typename ...Args>
+std::unique_ptr<T> make_unique( Args&& ...args )
+{
+    return std::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
+}
+
 static int send_destroy_ms_to_lib(
 		const char *server_ms_name,
 		uint32_t server_msid)
@@ -95,9 +103,10 @@ static int send_destroy_ms_to_lib(
 	mq_name << "/dest-" << server_ms_name;
 
 	/* Open destroy/destroy-ack message queue */
-	msg_q<mq_destroy_msg>	*destroy_mq;
+	std::unique_ptr<msg_q<mq_destroy_msg>>	destroy_mq;
 	try {
-		destroy_mq = new msg_q<mq_destroy_msg>(mq_name.str().c_str(), MQ_OPEN);
+		auto temp_destroy_mq = make_unique<msg_q<mq_destroy_msg>>(mq_name.str().c_str(), MQ_OPEN);
+		destroy_mq = std::move(temp_destroy_mq);
 
 		/* Send 'destroy' POSIX message to the RDMA library */
 		mq_destroy_msg	*dest_msg;
@@ -138,7 +147,7 @@ static int send_destroy_ms_to_lib(
 
 	/* Done with the destroy POSIX message queue */
 exit_destroy_mq:
-	delete destroy_mq;
+	;
 exit_func:
 	return ret;
 } /* send_destroy_ms_to_lib() */
