@@ -15,6 +15,8 @@
 #include "librskt.h"
 #include "librdma.h"
 
+#define SINGLE_CONNECTION	1
+
 #define RSKT_DEFAULT_SEND_BUF_SIZE	4*1024
 #define RSKT_DEFAULT_RECV_BUF_SIZE	4*1024
 
@@ -141,7 +143,26 @@ int main(int argc, char *argv[])
 	sock_addr.ct = destid;
 	sock_addr.sn = socket_number;
 
+#if SINGLE_CONNECTION == 1
+	/* Create a client socket */
+	client_socket = rskt_create_socket();
+
+	if (!client_socket) {
+		fprintf(stderr, "Create client socket failed, rc = %d: %s\n",
+							rc, strerror(errno));
+		goto cleanup_rskt;
+	}
+
+	/* Connect to server */
+	rc = rskt_connect(client_socket, &sock_addr);
+	if (rc) {
+		fprintf(stderr, "Connect to %u on %u failed\n",
+						destid, socket_number);
+		goto close_client_socket;
+	}
+#endif
 	for (i = 0; i < repetitions; i++) {
+#if SINGLE_CONNECTION == 0
 		/* Create a client socket */
 		client_socket = rskt_create_socket();
 
@@ -158,7 +179,7 @@ int main(int argc, char *argv[])
 							destid, socket_number);
 			goto close_client_socket;
 		}
-
+#endif
 		/* Generate data to send to server */
 		data_length = generate_data(data_length, tx_test);
 
@@ -192,7 +213,7 @@ retry_read:
 			puts("Data did not compare. FAILED.\n");
 		else
 			printf("*** Iteration %u, DATA COMPARED OK ***\n", i);
-
+#if SINGLE_CONNECTION == 0
 		/* Close the socket and destroy it */
 		puts("Closing socket and destroying it.");
 		rc = rskt_close(client_socket);
@@ -203,8 +224,21 @@ retry_read:
 		}
 
 		rskt_destroy_socket(&client_socket);
+#endif
 	} /* for() */
 
+#if SINGLE_CONNECTION == 1
+	/* Close the socket and destroy it */
+	puts("Closing socket and destroying it.");
+	rc = rskt_close(client_socket);
+	if (rc) {
+		fprintf(stderr, "Failed to close client socket, rc=%d: %s\n",
+				rc, strerror(errno));
+		goto destroy_client_socket;
+	}
+
+	rskt_destroy_socket(&client_socket);
+#endif
 	librskt_finish();
 	puts("Graceful Goodbye!");
 	return rc;
