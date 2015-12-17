@@ -362,6 +362,7 @@ void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator oth
 	uint64_t other_size = (*other)->get_size();
 	uint64_t curr_size = (*current)->get_size();
 
+	DBG("ENTER\n");
 	DBG("Old size for 'current' ms was %u bytes\n", curr_size);
 	(*current)->set_size(curr_size  + other_size);
 	DBG("New size for 'current' ms is %u bytes\n", (*current)->get_size());
@@ -381,13 +382,14 @@ void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator oth
 	pthread_mutex_lock(&mspaces_lock);
 	mspaces.erase(other);
 	pthread_mutex_unlock(&mspaces_lock);
-
+	DBG("EXIT\n");
 } /* merge_next_with_mspace() */
 
 int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
 {
 	int ret = 0;
 
+	DBG("ENTER\n");
 	pthread_mutex_lock(&mspaces_lock);
 
 	mspace_iterator current_ms =
@@ -439,6 +441,7 @@ int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
 exit:
 	pthread_mutex_unlock(&mspaces_lock);
 
+	DBG("EXIT\n");
 	return ret;
 } /* destroy_mspace() */
 
