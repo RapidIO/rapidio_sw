@@ -229,24 +229,11 @@ void *wait_accept_destroy_thread_f(void *arg)
 	}
 	HIGH("HELLO ACK successfully received from destid(0x%X)\n", destid);
 
-	/* Create and initialize hello_daemon_info struct */
-	hello_daemon_info *hdi = new hello_daemon_info(destid,
-							accept_destroy_client,
-							wadti->tid);
-	if (!hdi) {
-		CRIT("Failed to allocate hello_daemon_info\n");
-		delete wadti->hello_client;
-		free(wadti);
-		pthread_exit(0);
-	}
-
 	/* Store remote daemon info in the 'hello' daemon list */
 	sem_wait(&hello_daemon_info_list_sem);
-	hello_daemon_info_list.push_back(*hdi);
-	HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n", hdi->destid);
+	hello_daemon_info_list.emplace_back(destid, accept_destroy_client, wadti->tid);
+	HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n", wadti->destid);
 	sem_post(&hello_daemon_info_list_sem);
-
-	delete hdi;	/* Copied into hello_daemon_info_list */
 
 	/* Post semaphore to caller to indicate thread is up */
 	sem_post(&wadti->started);
