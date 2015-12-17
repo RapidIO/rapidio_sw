@@ -98,42 +98,42 @@ static int send_destroy_ms_to_lib(
 	msg_q<mq_destroy_msg>	*destroy_mq;
 	try {
 		destroy_mq = new msg_q<mq_destroy_msg>(mq_name.str().c_str(), MQ_OPEN);
+
+		/* Send 'destroy' POSIX message to the RDMA library */
+		mq_destroy_msg	*dest_msg;
+		destroy_mq->get_send_buffer(&dest_msg);
+		dest_msg->server_msid = server_msid;
+		if (destroy_mq->send()) {
+			ERR("Failed to send 'destroy' message to client.\n");
+			ret = -2;
+			goto exit_destroy_mq;
+		}
+
+		/* Message buffer for receiving destroy ack message */
+		mq_destroy_msg *destroy_ack_msg;
+		destroy_mq->get_recv_buffer(&destroy_ack_msg);
+
+		/* Wait for 'destroy_ack', but with timeout; we cannot be
+		 * stuck here if the library fails to send the 'destroy_ack' */
+		struct timespec tm;
+		clock_gettime(CLOCK_REALTIME, &tm);
+		tm.tv_sec += 5;
+		if (destroy_mq->timed_receive(&tm)) {
+			/* The server daemon will timeout on the destory-ack
+			 * reception since it is now using a timed receive CM call.
+			 */
+			HIGH("Timed out without receiving ACK to destroy\n");
+			ret = -3;
+		} else {
+			HIGH("POSIX destroy_ack received for %s\n", server_ms_name);
+			ret = 0;
+		}
 	}
 	catch(msg_q_exception& e) {
 		ERR("Failed to open 'destroy' POSIX queue (%s): %s\n",
 					mq_name.str().c_str(), e.msg.c_str());
 		ret = -1;
 		goto exit_func;
-	}
-
-	/* Send 'destroy' POSIX message to the RDMA library */
-	mq_destroy_msg	*dest_msg;
-	destroy_mq->get_send_buffer(&dest_msg);
-	dest_msg->server_msid = server_msid;
-	if (destroy_mq->send()) {
-		ERR("Failed to send 'destroy' message to client.\n");
-		ret = -2;
-		goto exit_destroy_mq;
-	}
-
-	/* Message buffer for receiving destroy ack message */
-	mq_destroy_msg *destroy_ack_msg;
-	destroy_mq->get_recv_buffer(&destroy_ack_msg);
-
-	/* Wait for 'destroy_ack', but with timeout; we cannot be
-	 * stuck here if the library fails to send the 'destroy_ack' */
-	struct timespec tm;
-	clock_gettime(CLOCK_REALTIME, &tm);
-	tm.tv_sec += 5;
-	if (destroy_mq->timed_receive(&tm)) {
-		/* The server daemon will timeout on the destory-ack
-		 * reception since it is now using a timed receive CM call.
-		 */
-		HIGH("Timed out without receiving ACK to destroy\n");
-		ret = -3;
-	} else {
-		HIGH("POSIX destroy_ack received for %s\n", server_ms_name);
-		ret = 0;
 	}
 
 	/* Done with the destroy POSIX message queue */
