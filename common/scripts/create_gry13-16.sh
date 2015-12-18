@@ -4,8 +4,7 @@ RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 # Temporary script to speed up RSKT test apps development.
 
-# NOTE. I am unable to login to GRY15/16
-NODES="GRY13 GRY14"
+NODES="GRY13 GRY14 GRY15 GRY16"
 
 # Load drivers on each node
 for node in $NODES
