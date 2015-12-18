@@ -154,18 +154,43 @@ void sig_handler(int sig)
 	}
 	fprintf(stderr, "There are %u threads still active\n", num_threads);
 	exit(1);
-
 } /* sig_handler() */
+
+void show_help()
+{
+	puts("rskt_server [-s<socket_number>] [-h]");
+	printf("-s<socket_number>: Socket number for clients to connect on");
+	printf("Default is 1234\n");
+	puts("-h	This help message.");
+} /* show_help() */
 
 int main(int argc, char *argv[])
 {
 	rskt_h	listen_socket;
 	rskt_h	accept_socket;
-
+	int	socket_number = RSKT_DEFAULT_SOCKET_NUMBER;
 	struct rskt_sockaddr sock_addr;
-
-	int data_size;
+	char	c;
 	int rc;
+
+	while ((c = getopt(argc, argv, "hs:")) != -1)
+		switch (c) {
+
+		case 'h':
+			show_help();
+			exit(1);
+			break;
+		case 's':
+			socket_number = atoi(optarg);
+			break;
+		case '?':
+			/* Invalid command line option */
+			show_help();
+			exit(1);
+			break;
+		default:
+			abort();
+		}
 
 	/* Register signal handler */
 	struct sigaction sig_action;

@@ -29,14 +29,13 @@ static uint8_t recv_buf[RSKT_DEFAULT_RECV_BUF_SIZE];
 
 void show_help()
 {
-	printf("rsktc_test -d<destid> -s<socket_number> [-h] ");
+	printf("rskt_client -d<destid> -s<socket_number> [-h] ");
 	printf("[-l<data_length>] [-r<repetitions>] [-t] \n");
-
 	printf("-d<destid>: Specify destination ID of machine running rskts_test.");
-	printf("Default is 1234\n");
 
 	printf("-s<socket_number>: Specify socket number used by rskts_test ");
 	printf("for listening for connections\n");
+	printf("Default is 1234\n");
 
 	puts("-h:  This help message.");
 
@@ -78,7 +77,7 @@ int main(int argc, char *argv[])
 	char c;
 
 	uint16_t destid = 0xFFFF;
-	int socket_number = 1234;
+	int socket_number = RSKT_DEFAULT_SOCKET_NUMBER;
 	unsigned repetitions = 1;
 	unsigned data_length = 512;
 	unsigned tx_test = 0;
