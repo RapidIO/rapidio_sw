@@ -60,21 +60,6 @@ sem_t 				connected_to_ms_info_list_sem;
 static int send_destroy_ms_to_lib(const char *server_ms_name,
 			   uint32_t server_msid);
 
-struct wait_accept_destroy_thread_info {
-	wait_accept_destroy_thread_info(unique_ptr<cm_client> && hello_client,
-					uint32_t destid) : tid(0), destid(destid), rc(0)
-	{
-		this->hello_client = move(hello_client);
-		sem_init(&started, 0, 0);
-	}
-
-	unique_ptr<cm_client>	hello_client;
-	pthread_t	tid;
-	sem_t		started;
-	uint32_t	destid;
-	int		rc;	/* Whether thread working or failed */
-};
-
 int send_destroy_ms_for_did(uint32_t did)
 {
 	int ret = 0;
@@ -173,6 +158,21 @@ struct match_ms {
 	uint32_t server_msid;
 };
 
+struct wait_accept_destroy_thread_info {
+	wait_accept_destroy_thread_info(unique_ptr<cm_client> && hello_client,
+					uint32_t destid) : tid(0), destid(destid), rc(0)
+	{
+		this->hello_client = move(hello_client);
+		sem_init(&started, 0, 0);
+	}
+
+	unique_ptr<cm_client>	hello_client;
+	pthread_t	tid;
+	sem_t		started;
+	uint32_t	destid;
+	int		rc;	/* Whether thread working or failed */
+};
+
 /**
  * Request for handling requests such as RDMA connection request, and
  * RDMA disconnection requests.
@@ -188,22 +188,43 @@ void *wait_accept_destroy_thread_f(void *arg)
 	wait_accept_destroy_thread_info *wadti =
 			(wait_accept_destroy_thread_info *)arg;
 	uint32_t destid = wadti->destid;
-
-	/* Obtain pointer to hello_client */
-	if (!wadti->hello_client) {
-		CRIT("NULL argument. Exiting\n");
-		wadti->rc = -1;
-		sem_post(&wadti->started);
-		pthread_exit(0);
-	}
-
-	/* Create a new cm_client based on the hello client socket */
-	riomp_sock_t	client_socket = wadti->hello_client->get_socket();
 	cm_client *accept_destroy_client;
+
 	try {
+		/* Obtain pointer to hello_client */
+		if (!wadti->hello_client) {
+			CRIT("NULL argument. Exiting\n");
+			throw -1;
+		}
+
+		/* Create a new cm_client based on the hello client socket */
+		riomp_sock_t	client_socket = wadti->hello_client->get_socket();
+
 		accept_destroy_client = new cm_client("accept_destroy_client",
-						      client_socket,
-						      &shutting_down);
+						client_socket, &shutting_down);
+
+		/* Send HELLO message containing our destid */
+		hello_msg_t	*hm;
+		accept_destroy_client->get_send_buffer((void **)&hm);
+		hm->destid = htobe64(peer.destid);
+		if (accept_destroy_client->send()) {
+			ERR("Failed to send HELLO to destid(0x%X)\n", destid);
+			throw -3;
+		}
+		HIGH("HELLO message successfully sent to destid(0x%X)\n", destid);
+
+		/* Receive HELLO (ack) message back with remote destid */
+		hello_msg_t 	*ham;	/* HELLO-ACK message */
+		accept_destroy_client->get_recv_buffer((void **)&ham);
+		if (accept_destroy_client->timed_receive(5000)) {
+			ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
+			throw -4;
+		}
+		if (be64toh(ham->destid) != destid) {
+			WARN("hello-ack destid(0x%X) != destid(0x%X)\n",
+						be64toh(ham->destid), destid);
+		}
+		HIGH("HELLO ACK received from destid(0x%X)\n", destid);
 	}
 	catch(cm_exception& e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
@@ -211,32 +232,19 @@ void *wait_accept_destroy_thread_f(void *arg)
 		sem_post(&wadti->started);
 		pthread_exit(0);
 	}
+	catch(int e) {
+		switch(e) {
 
-	/* Send HELLO message containing our destid */
-	hello_msg_t	*hm;
-	accept_destroy_client->get_send_buffer((void **)&hm);
-	hm->destid = htobe64(peer.destid);
-	if (accept_destroy_client->send()) {
-		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
-		wadti->rc = -3;
-		sem_post(&wadti->started);
-		pthread_exit(0);
+		case -3:
+		case -4:
+			delete accept_destroy_client;
+			/* no break */
+		default:
+			wadti->rc = e;
+			sem_post(&wadti->started);
+			pthread_exit(0);
+		}
 	}
-	HIGH("HELLO message successfully sent to destid(0x%X)\n", destid);
-
-	/* Receive HELLO (ack) message back with remote destid */
-	hello_msg_t 	*ham;	/* HELLO-ACK message */
-	accept_destroy_client->get_recv_buffer((void **)&ham);
-	if (accept_destroy_client->timed_receive(5000)) {
-		ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
-		wadti->rc = -4;
-		sem_post(&wadti->started);
-		pthread_exit(0);
-	}
-	if (be64toh(ham->destid) != destid) {
-		WARN("hello-ack destid(0x%X) != destid(0x%X)\n", be64toh(ham->destid), destid);
-	}
-	HIGH("HELLO ACK successfully received from destid(0x%X)\n", destid);
 
 	/* Store remote daemon info in the 'hello' daemon list */
 	sem_wait(&hello_daemon_info_list_sem);
