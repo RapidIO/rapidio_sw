@@ -62,7 +62,7 @@ static int send_destroy_ms_to_lib(const char *server_ms_name,
 
 struct wait_accept_destroy_thread_info {
 	wait_accept_destroy_thread_info(unique_ptr<cm_client> && hello_client,
-					uint32_t destid) : tid(0), destid(destid)
+					uint32_t destid) : tid(0), destid(destid), rc(0)
 	{
 		this->hello_client = move(hello_client);
 		sem_init(&started, 0, 0);
@@ -72,6 +72,7 @@ struct wait_accept_destroy_thread_info {
 	pthread_t	tid;
 	sem_t		started;
 	uint32_t	destid;
+	int		rc;	/* Whether thread working or failed */
 };
 
 int send_destroy_ms_for_did(uint32_t did)
@@ -184,7 +185,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 		pthread_exit(0);
 	}
 
-
 	wait_accept_destroy_thread_info *wadti =
 			(wait_accept_destroy_thread_info *)arg;
 	uint32_t destid = wadti->destid;
@@ -192,7 +192,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 	/* Obtain pointer to hello_client */
 	if (!wadti->hello_client) {
 		CRIT("NULL argument. Exiting\n");
-		delete wadti;
+		wadti->rc = -1;
+		sem_post(&wadti->started);
 		pthread_exit(0);
 	}
 
@@ -206,7 +207,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 	}
 	catch(cm_exception& e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
-		delete wadti;
+		wadti->rc = -2;
+		sem_post(&wadti->started);
 		pthread_exit(0);
 	}
 
@@ -216,7 +218,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 	hm->destid = htobe64(peer.destid);
 	if (accept_destroy_client->send()) {
 		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
-		delete wadti;
+		wadti->rc = -3;
+		sem_post(&wadti->started);
 		pthread_exit(0);
 	}
 	HIGH("HELLO message successfully sent to destid(0x%X)\n", destid);
@@ -226,7 +229,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 	accept_destroy_client->get_recv_buffer((void **)&ham);
 	if (accept_destroy_client->timed_receive(5000)) {
 		ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
-		delete wadti;
+		wadti->rc = -4;
+		sem_post(&wadti->started);
 		pthread_exit(0);
 	}
 	if (be64toh(ham->destid) != destid) {
@@ -241,6 +245,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 	sem_post(&hello_daemon_info_list_sem);
 
 	/* Post semaphore to caller to indicate thread is up */
+	wadti->rc = 0;
 	sem_post(&wadti->started);
 
 	while(1) {
@@ -255,11 +260,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 				CRIT("Failed to receive on hello_client: %s\n",
 								strerror(ret));
 			}
-
-			delete wadti;
-
-			/* Free the cm_client object */
-			delete accept_destroy_client;
 
 			/* If we just failed to receive() then we should also
 			 * clear the entry in hello_daemon_info_list. If we are
@@ -277,6 +277,9 @@ void *wait_accept_destroy_thread_f(void *arg)
 					hello_daemon_info_list.erase(it);
 				sem_post(&hello_daemon_info_list_sem);
 			}
+
+			delete accept_destroy_client;
+
 			CRIT("Exiting thread\n");
 			pthread_exit(0);
 		}
@@ -479,8 +482,14 @@ int provision_rdaemon(uint32_t destid)
 			throw FAILED_TO_CREATE_THREAD;
 		}
 
+		/* Determine whether thread worked or failed from 'rc' */
 		sem_wait(&wadti->started);
-		DBG("wait_accept_destroy_thread started successully\n");
+		rc = wadti->rc;
+		if (rc) {
+			ERR("wait_accept_destroy_thread failed\n");
+		} else {
+			DBG("wait_accept_destroy_thread started successfully\n");
+		}
 
 		/* Free the wadti struct */
 		delete wadti;
