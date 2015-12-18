@@ -1371,7 +1371,11 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
 	{{ // Clear on read
 	  RioMport* mport = new RioMport(info->mp_num, info->mp_h);
-	  mport->rd32(TSI721_RXRSP_BDMA_CNT); // aka 0x29904 Received Response Count for Block DMA Engine Register
+	  mport->rd32(TSI721_RIO_SP_ERR_STAT);
+	  mport->rd32(TSI721_RXRSP_BDMA_CNT);
+	  mport->rd32(TSI721_TXPKT_BDMA_CNT);
+	  mport->rd32(TSI721_RXPKT_BRG_CNT);
+	  mport->rd32(TSI721_BRG_PKT_ERR_CNT);
 	  delete mport;
 	}}
 
@@ -2037,9 +2041,8 @@ void umd_mbox_watch_demo(struct worker *info)
 			if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
 			if (info->umd_mch->queueTxSize() > 0) {
-                                ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d TXPKT_SMSG_CNT=%u RXPKT_SMSG_CNT=%u\n",
-                                    opt.destid, (q_was_full? "Q FULL?": ""), tx_ok,
-                                    mport->rd32(TSI721_TXPKT_SMSG_CNT), mport->rd32(TSI721_RXPKT_SMSG_CNT));
+                                ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d Run \"udd %d\" for perf counters.\n",
+                                    opt.destid, (q_was_full? "Q FULL?": ""), tx_ok, tundmathreadindex);
 
 				info->umd_mch->softRestart();
 
@@ -2141,6 +2144,28 @@ void UMD_DD(struct worker* info)
 	std::string s;
 	if (info->umd_peer_ibmap->toString(s) > 0)
 		INFO("\n\tIBwin mappings:\n%s", s.c_str());
+
+	RioMport* mport = new RioMport(info->mp_num, info->mp_h);
+
+	{{
+	  char tmp[257] = {0};
+	  std::stringstream ss;
+
+	  snprintf(tmp, 256, "RIO_SP_ERR_STAT=0x%x\n", mport->rd32(TSI721_RIO_SP_ERR_STAT));
+	  ss << "\t\t" << tmp;
+
+	  snprintf(tmp, 256, "MBOX: TXPKT_SMSG_CNT=%u RXPKT_SMSG_CNT=%u\n",
+                             mport->rd32(TSI721_TXPKT_SMSG_CNT), mport->rd32(TSI721_RXPKT_SMSG_CNT));
+	  ss << "\t\t" << tmp;
+	  snprintf(tmp, 256, "DMA: TXPKT_BDMA_CNT=%u RXRSP_BDMA_CNT=%u\n",
+	                      mport->rd32(TSI721_TXPKT_BDMA_CNT), mport->rd32(TSI721_RXRSP_BDMA_CNT));
+	  ss << "\t\t" << tmp;
+	  snprintf(tmp, 256, "IBwin: RXPKT_BRG_CNT=%u BRG_PKT_ERR_CNT=%u\n",
+                              mport->rd32(TSI721_RXPKT_BRG_CNT), mport->rd32(TSI721_BRG_PKT_ERR_CNT));
+	  ss << "\t\t" << tmp;
+
+	  INFO("\n\tPerf counters:\n%s", ss.str().c_str());
+	}}
 
         int dch_cnt = 0;
         for (int ch = info->umd_chan; info->umd_chan >= 0 && ch <= info->umd_chan_n; ch++) {
@@ -2269,6 +2294,8 @@ void UMD_DD(struct worker* info)
 		}
 		INFO("\n\tGot %d UP peer(s): %s\n", peer_list.size(), ss.str().c_str());
 	}
+
+	delete mport;
 }
 
 extern "C"
