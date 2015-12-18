@@ -34,6 +34,24 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file riodp_test_devs.c
+ * \brief RapidIO kernel device object creation/removal test program.
+ *
+ * Usage:
+ *   ./riodp_test_devs [options]
+ *
+ * Options are:
+ * - -M mport_id | --mport mport_id : local mport device index (default=0)
+ * - -c : create device using provided parameters (-D, -H, -T and -N)
+ * - -d delete device using provided parameters (-D, -H, -T and -N)
+ * - -D xxxx | --destid xxxx : destination ID of RapidIO device
+ * - -H xxxx | --hop xxxx : hop count to RapidIO device (default 0xff)
+ * - -T xxxx | --tag xxxx : component tag of RapidIO device
+ * - -N <device_name> | --name <device_name> : RapidIO device name
+ * - --help (or -h)
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -53,7 +71,8 @@
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
-#define RIODP_MAX_DEV_NAME_SZ 20 /* max number of RIO mports supported by platform */
+/// Max device name size in characters.
+#define RIODP_MAX_DEV_NAME_SZ 20
 
 static riomp_mport_t mport_hnd;
 static uint16_t tgt_destid;
@@ -62,6 +81,17 @@ static uint32_t comptag = 0;
 
 static char dev_name[RIODP_MAX_DEV_NAME_SZ + 1];
 
+/**
+ * \brief Called by main() when device object create operation is requested
+ *
+ * Calls mport API function to create kernel space device object. New device
+ * object will be created in rapidio-specific sysfs location:
+ * "/sys/bus/rapidio/devices".
+ * The device object will have sysfs attributes compatible to ones created
+ * by kernel mode enumeration. If device name is not provided as a command
+ * line parameter it will be generated automatically according to rapidio
+ * device name format defined by kernel enumeration.
+ */
 void test_create(void)
 {
 	int ret;
@@ -72,6 +102,13 @@ void test_create(void)
 		printf("Failed to create device object, err=%d\n", ret);
 }
 
+/**
+ * \brief Called by main() when device object delete operation is requested
+ *
+ * Calls mport API function to delete kernel space device object. The device
+ * object will be deleted regardless of how it was created: by kernel-space
+ * enumerator or user-space application using create API (see test_create()).
+ */
 void test_delete(void)
 {
 	int ret;
@@ -109,6 +146,15 @@ static void display_help(char *program)
 	printf("\n");
 }
 
+/**
+ * \brief Starting point for the test program
+ *
+ * \param[in] argc Command line parameter count
+ * \param[in] argv Array of pointers to command line parameter null terminated
+ *                 strings
+ *
+ * \retval 0 means success
+ */
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
@@ -132,6 +178,7 @@ int main(int argc, char** argv)
 	int rc = EXIT_SUCCESS;
 	int err;
 
+	/** - Parse command line options */
 	while (1) {
 		option = getopt_long_only(argc, argv,
 				"dhcM:D:H:T:N:", options, NULL);
@@ -173,6 +220,8 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
+	/** - Open mport devide and query RapidIO link status.
+          Exit if link is not active */
 	err = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
 	if (err < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
@@ -215,6 +264,7 @@ int main(int argc, char** argv)
 			printf("Updated destID=0x%x\n", prop.hdid);
 	}
 
+	/** - Perform the specified operation. */
 	printf("[PID:%d]\n", (int)getpid());
 	if (do_create) {
 		printf("+++ Create RapidIO device object as specified +++\n");
