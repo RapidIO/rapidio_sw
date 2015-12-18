@@ -34,6 +34,23 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file riodp_test_client.c
+ * \brief Client part of client/server test program for RapidIO channelized messaging.
+ *
+ * Sends a message to target RapidIO device, receives an echo response from it
+ * and verifies response.
+ *
+ * Usage:
+ *   ./riodp_test_client <loc_mport> <rem_destid> <rem_ch> <rep_num>
+ *
+ * Options are:
+ * - loc_mport : local mport device index (default=0)
+ * - rem_destid : target RapidIO device destination ID
+ * - rem_ch : channel number on remote RapidIO device
+ * - rep_num : number of repetitions
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -48,11 +65,12 @@
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
+/// Data structure to keeps all parameters
 struct args {
-	uint32_t mport_id;
-	uint16_t remote_destid;
-	uint16_t remote_channel;
-	uint32_t repeat;
+	uint32_t mport_id;	//!< local mport ID
+	uint16_t remote_destid;	//!< RapidIO device destination ID
+	uint16_t remote_channel;//!< remote channel number
+	uint32_t repeat;	//!< number of repetitions
 };
 
 static void usage(char *name)
@@ -62,7 +80,12 @@ static void usage(char *name)
 	printf("    %s <loc_mport> <rem_destid> <rem_ch> <rep_num>\n", name);
 }
 
-static void show_rio_devs(void)
+/**
+ * \brief Called by main() to display available devices
+ *
+ * Performs the following steps:
+ */
+void show_rio_devs(void)
 {
 	uint32_t *mport_list = NULL;
 	uint32_t *ep_list = NULL;
@@ -74,6 +97,7 @@ static void show_rio_devs(void)
 	int mport_id;
 	int ret = 0;
 
+	/** - request from driver list of available local mport devices */
 	ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
 	if (ret) {
 		printf("ERR: riomp_mgmt_get_mport_list() ERR %d\n", ret);
@@ -86,6 +110,7 @@ static void show_rio_devs(void)
 			RIODP_MAX_MPORTS, number_of_mports);
 	}
 
+	/** - for each local mport display list of remote RapidIO devices */
 	list_ptr = mport_list;
 	for (i = 0; i < number_of_mports; i++, list_ptr++) {
 		mport_id = *list_ptr >> 16;
@@ -118,7 +143,7 @@ static void show_rio_devs(void)
 		printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
 }
 
-struct timespec timediff(struct timespec start, struct timespec end)
+static struct timespec timediff(struct timespec start, struct timespec end)
 {
 	struct timespec temp;
 	if ((end.tv_nsec-start.tv_nsec)<0) {
@@ -131,6 +156,20 @@ struct timespec timediff(struct timespec start, struct timespec end)
 	return temp;
 }
 
+/**
+ * \brief Starting point for the program
+ *
+ * \param[in] argc Command line parameter count
+ * \param[in] argv Array of pointers to command line parameter null terminated
+ *                 strings
+ *
+ * \retval 0 means success
+ *
+ * When running without expected number of arguments displays list of available local
+ * and remote devices.
+ *
+ * Performs the following steps:
+ */
 int main(int argc, char** argv)
 {
 	int ret = 0;
@@ -151,7 +190,8 @@ int main(int argc, char** argv)
 	float mean;
 	char* eth_emu = getenv("RIODP_EMU_IP_PREFIX");
 
-	/* Parse console arguments */
+	/** - Parse console arguments */
+	/** - If number of arguments is less than expected display help message and list of devices. */
 	if (argc < 5) {
 		usage(argv[0]);
 		if (eth_emu == NULL) /* no IP-prefix set, so RapidIO is used */
@@ -169,7 +209,7 @@ int main(int argc, char** argv)
 
 	if (eth_emu == NULL) /* no IP-prefix set, so RapidIO is used */
 	{
-		/* Verify existence of remote RapidIO Endpoint */
+		/** - Verify existence of remote RapidIO Endpoint */
 		ret = riomp_mgmt_get_ep_list(arg.mport_id, &ep_list, &number_of_eps);
 		if (ret) {
 			printf("riodp_ep_get_list error: %d\n", ret);
@@ -195,14 +235,14 @@ int main(int argc, char** argv)
 		printf("CM_CLIENT: RIODP_EMU_IP_PREFIX found, using ethernet...\n");
 	}
 
-	/* Create rapidio_mport_mailbox control structure */
+	/** - Create rapidio_mport_mailbox control structure */
 	ret = riomp_sock_mbox_create_handle(arg.mport_id, 0, &mailbox);
 	if (ret) {
 		printf("riodp_mbox_init error: %d\n", ret);
 		exit(1);
 	}
 
-	/* Create a socket  structure associated with given mailbox */
+	/** - Create a socket  structure associated with given mailbox */
 	ret = riomp_sock_socket(mailbox, &socket);
 	if (ret) {
 		printf("riomp_sock_socket error: %d\n", ret);
@@ -234,9 +274,10 @@ int main(int argc, char** argv)
 
 	for (i = 1; i <= arg.repeat; i++) {
 		/* usleep(200 * 1000); */
-		/* Place message into buffer with space reserved for msg_header */
+		/** - Place message into buffer with space reserved for msg_header */
 		sprintf((char *)((char *)msg_tx + 20), "%d:%d\n", i, (int)getpid());
 
+		/** - Send message to the destination */
 		ret = riomp_sock_send(socket, msg_tx, 0x1000);
 		if (ret) {
 			printf("CM_CLIENT(%d): riomp_sock_send() ERR %d\n",
@@ -244,7 +285,7 @@ int main(int argc, char** argv)
 			break;
 		}
 
-		/* Get echo response from the server (blocking call, no timeout) */
+		/** - Get echo response from the server (blocking call, no timeout) */
 		ret = riomp_sock_receive(socket, &msg_rx, 0x1000, 0);
 		if (ret) {
 			printf("CM_CLIENT(%d): riomp_sock_receive() ERR %d on roundtrip %d\n",
@@ -291,7 +332,7 @@ int main(int argc, char** argv)
 	       mean,
 	       ((4096*i)/totaltime)/(1024*1024));
 
-
+	/** - Close messaging channel */
 	ret = riomp_sock_close(&socket);
 	if (ret)
 		printf("riomp_sock_close error: %d\n", ret);
