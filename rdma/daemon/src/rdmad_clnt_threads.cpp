@@ -39,12 +39,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <memory>
 
+#include "<memory_supp.h"
+
 #include "rdma_mq_msg.h"
 #include "liblog.h"
 #include "cm_sock.h"
 #include "rdmad_cm.h"
 #include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
+
+using std::unique_ptr;
 
 /* List of destids provisioned via the HELLO command/message */
 vector<hello_daemon_info>	hello_daemon_info_list;
@@ -56,7 +60,7 @@ static int send_destroy_ms_to_lib(const char *server_ms_name,
 			   uint32_t server_msid);
 
 struct wait_accept_destroy_thread_info {
-	cm_client	*hello_client;
+	unique_ptr<cm_client>	hello_client;
 	pthread_t	tid;
 	sem_t		started;
 	uint32_t	destid;
@@ -85,12 +89,6 @@ int send_destroy_ms_for_did(uint32_t did)
 
 	return ret;
 } /* send_destroy_ms_for_did() */
-
-template<typename T, typename ...Args>
-std::unique_ptr<T> make_unique( Args&& ...args )
-{
-    return std::unique_ptr<T>( new T( std::forward<Args>(args)... ) );
-}
 
 static int send_destroy_ms_to_lib(
 		const char *server_ms_name,
@@ -200,7 +198,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 	}
 	catch(cm_exception& e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
-		delete wadti->hello_client;
 		free(wadti);
 		pthread_exit(0);
 	}
@@ -211,7 +208,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 	hm->destid = htobe64(peer.destid);
 	if (accept_destroy_client->send()) {
 		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
-		delete wadti->hello_client;
 		free(wadti);
 		pthread_exit(0);
 	}
@@ -222,7 +218,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 	accept_destroy_client->get_recv_buffer((void **)&ham);
 	if (accept_destroy_client->timed_receive(5000)) {
 		ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
-		delete wadti->hello_client;
 		free(wadti);
 		pthread_exit(0);
 	}
@@ -427,7 +422,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 int provision_rdaemon(uint32_t destid)
 {
 	/* Create provision client to connect to remote daemon's provisioning thread */
-	cm_client	*hello_client;
+	unique_ptr<cm_client>	hello_client;
 
 	/* If the 'destid' is already known, kill its thread */
 	sem_wait(&hello_daemon_info_list_sem);
@@ -440,11 +435,12 @@ int provision_rdaemon(uint32_t destid)
 	sem_post(&hello_daemon_info_list_sem);
 
 	try {
-		hello_client = new cm_client("hello_client",
+		auto temp_hello_client = make_unique<cm_client>("hello_client",
 						peer.mport_id,
 						peer.prov_mbox_id,
 						peer.prov_channel,
 						&shutting_down);
+		hello_client = std::move(temp_hello_client);
 	}
 	catch(cm_exception& e) {
 		CRIT("Failed to create hello_client %s\n", e.err);
@@ -455,7 +451,6 @@ int provision_rdaemon(uint32_t destid)
 	int ret = hello_client->connect(destid);
 	if (ret) {
 		CRIT("Failed to connect to destid(0x%X)\n", destid);
-		delete hello_client;
 		return -2;
 	}
 	HIGH("Connected to remote daemon on destid(0x%X)\n", destid);
@@ -464,10 +459,9 @@ int provision_rdaemon(uint32_t destid)
 	(wait_accept_destroy_thread_info *)malloc(sizeof(wait_accept_destroy_thread_info));
 	if (!wadti) {
 		CRIT("Failed to allocate wadti\n");
-		delete hello_client;
 		return -3;
 	}
-	wadti->hello_client = hello_client;
+	wadti->hello_client = std::move(hello_client);	/* Transfer ownership */
 	wadti->destid	    = destid;
 	sem_init(&wadti->started, 0, 0);
 
@@ -478,8 +472,7 @@ int provision_rdaemon(uint32_t destid)
 			     wadti);
 	if (ret) {
 		CRIT("Failed to create wait_accept_destroy_thread\n");
-		delete hello_client;
-		delete wadti;
+		free(wadti);
 		return -6;
 	}
 
