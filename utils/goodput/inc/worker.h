@@ -196,9 +196,13 @@ typedef struct {
         uint32_t*          rio_rx_bd_ready; ///< List of all IB BDs that have fresh data in them, per-destid 
         volatile int       rio_rx_bd_ready_size;
 	uint64_t*	   rio_rx_bd_ready_ts; ///< IB BD RX timestamp
+	volatile uint64_t  rio_isol_rx_pass; ///< How many times/passws we detected RO=1 in IB BDs
+	volatile uint64_t  rio_rx_pass; ///< How many times we received (non-empty pass of) IB BDs
 	pthread_spinlock_t rio_rx_bd_ready_splock;
 
 	uint64_t           total_ticks_rx; ///< How many ticks (total) between IB RO detection and write into Tun
+
+	uint64_t           nread_ts; ///< rdtsc timestamp of last NREAD
 
 	volatile int       stop_req; ///< For the thread minding this peer
 
@@ -363,6 +367,8 @@ struct worker {
 	uint32_t	umd_dma_abort_reason;
 	volatile uint64_t tick_count, tick_total;
 	volatile uint64_t tick_data_total;
+
+	uint64_t        umd_nread_threshold; ///< Force NREADs (per-peer) if last was warlier than this many rdtsc ticks
 
 	std::string	evlog;
 

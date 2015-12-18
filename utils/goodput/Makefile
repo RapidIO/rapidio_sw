@@ -50,7 +50,7 @@ CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 #CCFLAGS+=-DMBOX_TUN_DEBUG
 #CCFLAGS+=-DUDMA_TUN_DEBUG
 #CCFLAGS+=-DUDMA_TUN_DEBUG_IB
-#CCFLAGS+=-DUDMA_TUN_DEBUG_NREAD
+CCFLAGS+=-DUDMA_TUN_DEBUG_NREAD
 #CCFLAGS+=-DUDMA_TUN_DEBUG_IN
 
 INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h

@@ -2327,12 +2327,44 @@ struct cli_cmd UMDDD = {
 "udd",
 1,
 0,
-"Dump UMD misc counters",
+"Dump UMD Tun status",
 "<idx>\n"
 	"<idx> [optional, default=0] is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
 UMDDDDCmd,
 ATTR_NONE
 };
+
+extern void UMD_Test(const struct worker* wkr);
+
+int UMDTestCmd(struct cli_env *env, int argc, char **argv)
+{
+        int idx = argc > 0? GetDecParm(argv[0], 0): 0;
+        int did = argc > 1? GetDecParm(argv[1], 666): 666;
+
+        if (idx < 0 || idx >= MAX_WORKERS) {
+                sprintf(env->output, "Bad idx %d\n", idx);
+                logMsg(env);
+                goto exit;
+        }
+
+	wkr[idx].did = did;
+        UMD_Test(&wkr[idx]);
+
+exit:
+        return 0;
+}
+
+struct cli_cmd UMDTest = {
+"udt",
+1,
+0,
+"UMD Tun misc tests",
+"<idx>\n"
+        "<idx> [optional, default=0] is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
+UMDTestCmd,
+ATTR_NONE
+};
+
 
 int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 {
@@ -3047,6 +3079,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&UMSGT,
 	&UMDDD,
 	&UTime,
+	&UMDTest,
 	&EPWatch,
 	&UMSGWATCH,
 	&AFUWATCH,

@@ -140,18 +140,21 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 
 	int q_was_full = !dmac->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, umd_dma_abort_reason, &tx_ts);
 
-	if (!umd_dma_abort_reason) DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
+	if (! umd_dma_abort_reason) {
+		DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
 
-	for(int i = 0;
-	    !q_was_full && !info->stop_req && (i < 1000) && !dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
-	    i++) {
-		usleep(1);
+		for(int i = 0;
+		    !q_was_full && !info->stop_req && (i < 1000) && !dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
+		    i++) {
+			usleep(1);
+		}
 	}
 
 	if (umd_dma_abort_reason || (dmac->queueSize() > 0)) { // Boooya!! Peer not responding
 		uint32_t RXRSP_BDMA_CNT = 0;
 		bool inp_err = false, outp_err = false;
 		info->umd_dch_nread->checkPortInOutError(inp_err, outp_err);
+
 		{{
 		  RioMport* mport = new RioMport(info->mp_num, info->mp_h);
 		  RXRSP_BDMA_CNT = mport->rd32(TSI721_RXRSP_BDMA_CNT); // aka 0x29904 Received Response Count for Block DMA Engine Register
@@ -175,13 +178,15 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 	}
 
 #ifdef UDMA_TUN_DEBUG_NREAD
-	std::stringstream ss;
-	for(int i = 0; i < 16; i++) {
-		char tmp[9] = {0};
-		snprintf(tmp, 8, "%02x ", wi[0].t2_rddata[i]);
-		ss << tmp;
+	if (7 <= g_level) {
+		std::stringstream ss;
+		for(int i = 0; i < size; i++) {
+			char tmp[9] = {0};
+			snprintf(tmp, 8, "%02x ", wi[0].t2_rddata[i]);
+			ss << tmp;
+		}
+		DBG("\n\tNREAD-in data: %s\n", ss.str().c_str());
 	}
-	DBG("\n\tNREAD-in data: %s\n", ss.str().c_str());
 #endif
 
         info->umd_ticks_total_chan2 += (wi[0].opt.ts_end - wi[0].opt.ts_start);
@@ -305,7 +310,8 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	bool ret = false;
 	int destid_dpi = -1;
 	int is_bad_destid = 0;
-	bool first_message;
+	bool first_message = false;
+	bool force_nread = false;
 	int outstanding = 0; // This is our guess of what's not consumed at other end, per-destid
 
         const int Q_THR = (8 * (info->umd_tx_buf_cnt-1)) / 10;
@@ -368,9 +374,13 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	// We force reading RP from a "new" destid as a RIO ping as
 	// NWRITE does not barf  on bad destids
 
-	if (first_message || /*(peer->tx_cnt % Q_HLF) == 0 ||*/ outstanding >= Q_THR || dci->dch->queueSize() > Q_THR) { // This must be done per-destid
+	if (now > peer->nread_ts && (now - peer->nread_ts) > info->umd_nread_threshold)
+		force_nread = true;
+
+	if (first_message || force_nread ||  outstanding >= Q_THR || dci->dch->queueSize() > Q_THR) { // This must be done per-destid
 		uint32_t newRP = ~0;
 		if (udma_nread_mem(info, destid_dpi, peer->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
+			peer->nread_ts = rdtsc();
 			DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", destid_dpi, peer->RP, newRP);
 			peer->RP = newRP;
 			if (first_message) peer->WP = newRP; // XXX maybe newRP+1 ?? Test
@@ -559,6 +569,7 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 			assert(cnt <= (info->umd_tx_buf_cnt-1)); // XXX Cannot exceed that!
 			peer->rio_rx_bd_ready_size += cnt;
 			assert(peer->rio_rx_bd_ready_size <= (info->umd_tx_buf_cnt-1));
+			peer->rio_isol_rx_pass++;
 		}
 
 		pthread_spin_unlock(&peer->rio_rx_bd_ready_splock);
@@ -849,6 +860,10 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 		peer->rio_rx_bd_ready_size = 0;
 		pthread_spin_unlock(&peer->rio_rx_bd_ready_splock);
 
+		if (cnt == 0) continue;
+
+		peer->rio_rx_pass++;
+
 #ifdef UDMA_TUN_DEBUG_IB
 		DBG("\n\tInbound %d buffers(s) will be processed from destid %u RP=%u\n", cnt, peer->destid, *pRP);
 #endif
@@ -1036,6 +1051,7 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
 			const int cnt = dch_list[ch]->dch->scanFIFO(wi, info->umd_sts_entries*8);
 			if (!cnt) {
 				if (info->umd_tun_thruput) {
+					// for(int i = 0; i < 1000; i++) {;} continue; // "1000" busy wait seemd OK for latency, bad for thruput
 					struct timespec tv = { 0, 1 };
 					nanosleep(&tv, NULL);
 				}
@@ -1330,6 +1346,10 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         bool dma_tap_thr_started = false;
 	
 	info->owner_func = umd_dma_goodput_tun_demo;
+
+	const int MHz = getCPUMHz();
+
+	info->umd_nread_threshold = 15 * 1000 * 1000 * MHz; // every 15 sec
 
 	// Note: There's no reason to link info->umd_tx_buf_cnt other than
 	// convenience. However the IB ring should never be smaller than
@@ -1660,7 +1680,7 @@ done:
 	if (found) {
 		if (signal) umd_dma_goodput_tun_del_ep_signal(info, destid); // Just in case it was forced we tell him for F*ck Off
 		INFO("\n\tNuked peer destid %u%s\n", destid, (signal? " with MBOX notification": " without notification")); 
-	} else  INFO("\n\tCannot find a peer for destid %u\n", destid);
+	} else  INFO("\n\tCannot find a peer/Tun for destid %u\n", destid);
 }
 
 #ifdef UDMA_TUN_DEBUG_IN
@@ -2149,7 +2169,7 @@ void UMD_DD(struct worker* info)
 		ss << "      WP=" << info->umd_dch_nread->getWP() << " FIFO.WP=" << info->umd_dch_nread->m_tx_cnt;
 		if (info->umd_dch_nread->m_tx_cnt > 0) {
 			float AvgUS = ((float)info->umd_ticks_total_chan2 / info->umd_dch_nread->m_tx_cnt) / MHz;
-			ss << " AvgTxRx=" << AvgUS << "uS";
+			ss << " AvgNRTxRx=" << AvgUS << "uS";
 		}
 		if (info->umd_dch_nread->checkPortOK()) ss << " ok";
 		if (info->umd_dch_nread->checkPortError()) ss << " ERROR";
@@ -2164,7 +2184,7 @@ void UMD_DD(struct worker* info)
 		ss << " FIFO.WP=" << port_FIFO_WP[ch];
 		if (port_FIFO_WP[ch] > 0) {
 			float AvgUS = ((float)port_ticks_total[ch] / port_FIFO_WP[ch]) / MHz;
-			ss << " AvgTX=" << AvgUS << "uS";
+			ss << " AvgNWTX=" << AvgUS << "uS";
 			float AvgUSTun = ((float)port_total_ticks_tx[ch] / port_FIFO_WP[ch]) / MHz;
 			ss << " AvgTxTun=" << AvgUSTun << "uS";
 		}
@@ -2229,13 +2249,16 @@ void UMD_DD(struct worker* info)
 			assert(pRP);
 
 			float TotalTimeSpentFull = (float)peer.rio_rx_peer_full_ticks_total / MHz;
-			snprintf(tmp, 256, "\n\t\t\trx.RP=%u IBBdReady=%d IBBDFullTotal=%fuS", *pRP, peer.rio_rx_bd_ready_size, TotalTimeSpentFull);
+			snprintf(tmp, 256, "\n\t\t\trx.RP=%u IBBdReady=%d #IsolIBPass=%llu #IBPass=%llu IBBDFullTotal=%fuS",
+			                   *pRP, peer.rio_rx_bd_ready_size,
+			                   peer.rio_isol_rx_pass, peer.rio_rx_pass,
+			                   TotalTimeSpentFull);
 			ss << tmp;
 
 			if (peer.tun_tx_cnt > 0) {
 				char tmp[65] = {0};
 				float AvgUS = ((float)peer.total_ticks_rx / peer.tun_tx_cnt) / MHz;
-				snprintf(tmp, 64, " AvgSoftRX=%fuS", AvgUS);
+				snprintf(tmp, 64, "\n\t\t\tAvgSoftRX=%fuS", AvgUS);
 				ss << tmp;
 			}
 
@@ -2247,3 +2270,16 @@ void UMD_DD(struct worker* info)
 		INFO("\n\tGot %d UP peer(s): %s\n", peer_list.size(), ss.str().c_str());
 	}
 }
+
+extern "C"
+void UMD_Test(struct worker* info)
+{
+	assert(info->umd_chan2 >= 0);
+	assert(info->ib_rio_addr);
+
+	uint32_t u4 = 0;
+	bool r = udma_nread_mem(info, info->did, info->ib_rio_addr, sizeof(u4), (uint8_t*)&u4);
+
+	INFO("\n\tNREAD %s did=%d rio_addr=0x%llx => %u\n", (r? "ok": "FAILED"), info->did, info->ib_rio_addr, u4);
+}
+
