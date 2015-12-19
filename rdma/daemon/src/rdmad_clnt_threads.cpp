@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <pthread.h>
 #include <signal.h>
+#include <assert.h>
 
 #include <memory>
 
@@ -179,12 +180,7 @@ struct wait_accept_destroy_thread_info {
  */
 void *wait_accept_destroy_thread_f(void *arg)
 {
-	DBG("ENTER\n");
-	if (!arg) {
-		CRIT("NULL argument. Exiting\n");
-		pthread_exit(0);
-	}
-
+	assert(arg != NULL);
 	wait_accept_destroy_thread_info *wadti =
 			(wait_accept_destroy_thread_info *)arg;
 	uint32_t destid = wadti->destid;
@@ -225,6 +221,16 @@ void *wait_accept_destroy_thread_f(void *arg)
 						be64toh(ham->destid), destid);
 		}
 		HIGH("HELLO ACK received from destid(0x%X)\n", destid);
+
+		/* Store remote daemon info in the 'hello' daemon list */
+		sem_wait(&hello_daemon_info_list_sem);
+		hello_daemon_info_list.emplace_back(destid, accept_destroy_client, wadti->tid);
+		HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n", wadti->destid);
+		sem_post(&hello_daemon_info_list_sem);
+
+		/* Post semaphore to caller to indicate thread is up */
+		wadti->rc = 0;
+		sem_post(&wadti->started);
 	}
 	catch(cm_exception& e) {
 		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
@@ -245,16 +251,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 			pthread_exit(0);
 		}
 	}
-
-	/* Store remote daemon info in the 'hello' daemon list */
-	sem_wait(&hello_daemon_info_list_sem);
-	hello_daemon_info_list.emplace_back(destid, accept_destroy_client, wadti->tid);
-	HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n", wadti->destid);
-	sem_post(&hello_daemon_info_list_sem);
-
-	/* Post semaphore to caller to indicate thread is up */
-	wadti->rc = 0;
-	sem_post(&wadti->started);
 
 	while(1) {
 		int	ret;
@@ -455,6 +451,11 @@ int provision_rdaemon(uint32_t destid)
 			destid);
 	if (it != end(hello_daemon_info_list)) {
 		WARN("destid(0x%X) is already known\n", destid);
+		/* FIXME: 1. When does this happen?
+		 * 	  2. Don't we also need to remove the entry from
+		 * 	  hello_daemon_info_list so we don't have multiple entries
+		 * 	  for the same destid?
+		 */
 		pthread_kill(it->tid, SIGUSR1);
 	}
 	sem_post(&hello_daemon_info_list_sem);
