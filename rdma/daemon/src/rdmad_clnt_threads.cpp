@@ -54,40 +54,12 @@ using std::move;
 
 /* List of destids provisioned via the HELLO command/message */
 vector<hello_daemon_info>	hello_daemon_info_list;
-sem_t	hello_daemon_info_list_sem;
+sem_t				hello_daemon_info_list_sem;
 
 vector<connected_to_ms_info>	connected_to_ms_info_list;
 sem_t 				connected_to_ms_info_list_sem;
-static int send_destroy_ms_to_lib(const char *server_ms_name,
-			   uint32_t server_msid);
 
-int send_destroy_ms_for_did(uint32_t did)
-{
-	int ret = 0;
-
-	sem_wait(&connected_to_ms_info_list_sem);
-	for (auto& conn_to_ms : connected_to_ms_info_list) {
-		if ((conn_to_ms == did) && conn_to_ms.connected) {
-			int ret = send_destroy_ms_to_lib(
-					conn_to_ms.server_msname.c_str(),
-					conn_to_ms.server_msid);
-			if (ret) {
-				ERR("Failed to send destroy for '%s'\n",
-					conn_to_ms.server_msname.c_str());
-			}
-		}
-	}
-	remove(begin(connected_to_ms_info_list),
-	       end(connected_to_ms_info_list),
-	       did);
-	sem_post(&connected_to_ms_info_list_sem);
-
-	return ret;
-} /* send_destroy_ms_for_did() */
-
-static int send_destroy_ms_to_lib(
-		const char *server_ms_name,
-		uint32_t server_msid)
+static int send_destroy_ms_to_lib(const char *server_ms_name, uint32_t server_msid)
 {
 	int ret;
 
@@ -139,6 +111,30 @@ static int send_destroy_ms_to_lib(
 
 	return ret;
 } /* send_destroy_ms_to_lib() */
+
+int send_destroy_ms_for_did(uint32_t did)
+{
+	int ret = 0;
+
+	sem_wait(&connected_to_ms_info_list_sem);
+	for (auto& conn_to_ms : connected_to_ms_info_list) {
+		if ((conn_to_ms == did) && conn_to_ms.connected) {
+			int ret = send_destroy_ms_to_lib(
+					conn_to_ms.server_msname.c_str(),
+					conn_to_ms.server_msid);
+			if (ret) {
+				ERR("Failed to send destroy for '%s'\n",
+					conn_to_ms.server_msname.c_str());
+			}
+		}
+	}
+	remove(begin(connected_to_ms_info_list), end(connected_to_ms_info_list), did);
+	sem_post(&connected_to_ms_info_list_sem);
+
+	return ret;
+} /* send_destroy_ms_for_did() */
+
+
 
 /**
  * Functor for matching a memory space on both server_destid and
@@ -207,13 +203,13 @@ void *wait_accept_destroy_thread_f(void *arg)
 			ERR("Failed to send HELLO to destid(0x%X)\n", destid);
 			throw -3;
 		}
-		HIGH("HELLO message successfully sent to destid(0x%X)\n", destid);
+		HIGH("HELLO message sent to destid(0x%X)\n", destid);
 
 		/* Receive HELLO (ack) message back with remote destid */
 		hello_msg_t 	*ham;	/* HELLO-ACK message */
 		accept_destroy_client->get_recv_buffer((void **)&ham);
 		if (accept_destroy_client->timed_receive(5000)) {
-			ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
+			ERR("NO HELLO ACK from destid(0x%X)\n", destid);
 			throw -4;
 		}
 		if (be64toh(ham->destid) != destid) {
@@ -224,8 +220,10 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 		/* Store remote daemon info in the 'hello' daemon list */
 		sem_wait(&hello_daemon_info_list_sem);
-		hello_daemon_info_list.emplace_back(destid, accept_destroy_client, wadti->tid);
-		HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n", wadti->destid);
+		hello_daemon_info_list.emplace_back(destid,
+					accept_destroy_client, wadti->tid);
+		HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n",
+								wadti->destid);
 		sem_post(&hello_daemon_info_list_sem);
 
 		/* Post semaphore to caller to indicate thread is up */
@@ -268,8 +266,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			/* If we just failed to receive() then we should also
 			 * clear the entry in hello_daemon_info_list. If we are
 			 * shutting down, the shutdown function would be accessing
-			 * the list so we should NOT erase an element from it.
-			 */
+			 * the list so we should NOT erase an element from it. */
 			if (!shutting_down) {
 				/* Remove entry from hello_daemon_info_list */
 				WARN("Removing entry from hello_daemon_info_list\n");
@@ -367,6 +364,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 			/* All is good. Just remove the processed mq_name from the
 			 * wait_accept_mq_names list and go back and wait for the
 			 * next accept message */
+			/* FIXME: Just add an 'accepting' flag in each memory space.
+			 * and clear it here. No need for an explicit list. */
 			wait_accept_mq_names.remove(mq_str);
 
 			/* Update the corresponding element of connected_to_ms_info_list */
@@ -400,14 +399,19 @@ void *wait_accept_destroy_thread_f(void *arg)
 				continue;
 			}
 
-			/* Remove the entry relating to the destroy ms. Note that it has to match both
-			 * the server_destid and server_msid since multiple daemons can allocate the same
-			 * msid to different memory spaces and they are distinct only by the servers DID (destid)
-			 */
-			match_ms	mms(accept_destroy_client->server_destid,
-					be64toh(destroy_msg->server_msid));
+			/* Remove the entry relating to the destroy ms. Note that
+			 * it has to match both the server_destid and server_msid
+			 * since multiple daemons can allocate the same msid to
+			 * different memory spaces and they are distinct only by
+			 * the servers DID (destid) */
 			sem_wait(&connected_to_ms_info_list_sem);
-			remove_if(begin(connected_to_ms_info_list), end(connected_to_ms_info_list), mms);
+			remove_if(begin(connected_to_ms_info_list),
+				  end(connected_to_ms_info_list),
+				  match_ms(
+					   accept_destroy_client->server_destid,
+					   be64toh(destroy_msg->server_msid)
+					  )
+				  );
 			sem_post(&connected_to_ms_info_list_sem);
 
 			cm_destroy_ack_msg *dam;
