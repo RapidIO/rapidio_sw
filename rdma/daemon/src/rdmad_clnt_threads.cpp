@@ -156,14 +156,15 @@ struct match_ms {
 };
 
 struct wait_accept_destroy_thread_info {
-	wait_accept_destroy_thread_info(unique_ptr<cm_client> && hello_client,
-					uint32_t destid) : tid(0), destid(destid), rc(0)
+	wait_accept_destroy_thread_info(cm_client *hello_client,
+					uint32_t destid) :
+					hello_client(hello_client),
+					tid(0), destid(destid), rc(0)
 	{
-		this->hello_client = move(hello_client);
 		sem_init(&started, 0, 0);
 	}
 
-	unique_ptr<cm_client>	hello_client;
+	cm_client	*hello_client;
 	pthread_t	tid;
 	sem_t		started;
 	uint32_t	destid;
@@ -464,10 +465,12 @@ int provision_rdaemon(uint32_t destid)
 	}
 	sem_post(&hello_daemon_info_list_sem);
 
+	cm_client *hello_client = nullptr;
+
 	try {
 		/* Create provision client to connect to remote
 		 * daemon's provisioning thread */
-		auto hello_client = make_unique<cm_client>("hello_client",
+		hello_client = new cm_client("hello_client",
 						peer.mport_id,
 						peer.prov_mbox_id,
 						peer.prov_channel,
@@ -480,7 +483,7 @@ int provision_rdaemon(uint32_t destid)
 		}
 		HIGH("Connected to remote daemon on destid(0x%X)\n", destid);
 
-		wadti = new wait_accept_destroy_thread_info(move(hello_client), destid);
+		wadti = new wait_accept_destroy_thread_info(hello_client, destid);
 		if (!wadti) {
 			CRIT("Failed to allocate wadti: %s\n", strerror(errno));
 			throw FAILED_TO_ALLOCATE;
@@ -518,6 +521,8 @@ int provision_rdaemon(uint32_t destid)
 			/* no break */
 		case FAILED_TO_ALLOCATE:
 		case FAILED_TO_CONNECT:
+			if (hello_client != nullptr)
+				delete hello_client;
 			break;
 		}
 		rc = e;
