@@ -119,7 +119,7 @@ enum rskt_state {
 	rskt_uninit = 0,
 	rskt_alloced= 1,
 	rskt_bound  = 2,
-	rskt_noconn = 3,
+	rskt_noconn = 3, /* Not used */
 	rskt_listening = 4,
 	rskt_accepting = 5,
 	rskt_connecting = 6,
@@ -187,7 +187,7 @@ struct rskt_socket_t {
 
 struct rskt_handle_t {
 	sem_t mtx;
-	struct rskt_socket_t *skt;
+	struct rskt_socket_t * volatile skt;
 };
 
 extern void rskt_clear_skt(struct rskt_socket_t *skt);

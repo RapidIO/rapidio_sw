@@ -29,10 +29,10 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-LOG_LEVEL?=7
+LOG_LEVEL=7
 DEBUG?=DEBUG
-CC = $(CROSS_COMPILE)gcc
-CXX = $(CROSS_COMPILE)g++
+CC?=$(CROSS_COMPILE)g++
+CXX?=$(CROSS_COMPILE)g++
 
 TOP_LEVEL = ../../..
 DAEMON_SRC = ../daemon/src
@@ -47,7 +47,6 @@ NAME:=rskt
 TEST_TARGET:=$(NAME)_test
 CROSS_COMPILE?=/usr/bin/
 
-CC:=$(CROSS_COMPILE)g++
 AR:=$(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
@@ -71,8 +70,8 @@ HEADERS:=$(wildcard ../daemon/src/*.h) $(TOP_LEVEL)/include/librskt.h
 
 TEST_HEADERS:=$(wildcard src/*.h) $(wildcard inc/*.h)
 TEST_HEADERS+=$(wildcard $(MPORT_SRC)/*.h) $(wildcard $(FAKE_FMDD)/*.h)
-TEST_OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 TEST_OBJECTS+=$(patsubst $(RDMA_SRC)/%.c,$(RDMA_SRC)/%.o,$(wildcard $(RDMA_SRC)/*.c))
+TEST_OBJECTS+=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 TEST_OBJECTS+=$(patsubst $(MPORT_SRC)/%.c,$(MPORT_SRC)/%.o,$(wildcard $(MPORT_SRC)/*.c))
 TEST_OBJECTS+=$(patsubst $(FAKE_DMN)/%.c,$(FAKE_DMN)/%.o,$(wildcard $(FAKE_DMN)/*.c))
 TEST_OBJECTS+=$(patsubst $(FAKE_FMDD)/%.c,$(FAKE_FMDD)/%.o,$(wildcard $(FAKE_FMDD)/*.c))
@@ -80,16 +79,16 @@ TEST_OBJECTS+=$(patsubst $(FAKE_FMDD)/%.c,$(FAKE_FMDD)/%.o,$(wildcard $(FAKE_FMD
 all: $(TEST_TARGET)
 
 %.o: %.c $(HEADERS)
-	$(CC) -c $(CFLAGS) --std=c++11 $< -o $@
+	$(CXX) -c $(CFLAGS) --std=c++11 $< -o $@
 
 $(DAEMON_SRC)/%.o: $(DAEMON_SRC)/%.c $(HEADERS)
-	$(CC) -c $(CFLAGS) --std=c++11 $< -o $@
+	$(CXX) -c $(CFLAGS) --std=c++11 $< -o $@
 
 
 test: $(TEST_TARGET) 
 
 $(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS) $(HEADERS) $(TEST_HEADERS)
-	$(CC) $(OBJECTS) $(TEST_OBJECTS) -o $(TEST_TARGET) \
+	$(CXX) $(OBJECTS) $(TEST_OBJECTS) -o $(TEST_TARGET) \
 	-llog -lunit_test -ltime_utils -lcli -llist -lrskt -pthread \
 	-L. -L$(TOP_LEVEL)/common/libs_a -L$(TOP_LEVEL)/include/libs_a
 

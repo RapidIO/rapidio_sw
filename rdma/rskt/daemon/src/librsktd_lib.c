@@ -69,9 +69,8 @@ void *app_tx_loop(void *unused)
 	struct librsktd_unified_msg *msg = NULL;
 	int free_flag;
 	int valid_flag;
+	int rc;
 	char my_name[16];
-
-        l_init(&lib_st.app);
 
         sem_init(&dmn.app_tx_mutex, 0, 1);
         sem_init(&dmn.app_tx_cnt, 0, 0);
@@ -82,6 +81,11 @@ void *app_tx_loop(void *unused)
         memset(my_name, 0, 16);
         snprintf(my_name, 15, "RSKTD_APP_TX");
         pthread_setname_np(dmn.app_tx_thread, my_name);
+
+	rc = pthread_detach(dmn.app_tx_thread);
+	if (rc) {
+		WARN("pthread_detach rc %d", rc);
+	};
 
 	sem_post(&dmn.loop_started);
 
@@ -173,45 +177,63 @@ void handle_app_msg(struct librskt_app *app,
 		}
 		sem_post(&app->app_resp_mutex);
 		if (NULL == msg) {
+			ERR("Resp but no reqt Type 0x%x Seq 0x%x\n",
+				ntohl(rxed->msg_type), seq_num);
 			free(rxed);
 			return;
 		};
 
 		if ((msg->proc_type != RSKTD_PROC_S2A) || 
 			(msg->proc_stage != RSKTD_S2A_SEQ_ARESP)) {
+			ERR("Resp wrong state Proc Type 0x%x Stage 0x%x Type 0x%x Seq 0x%x\n",
+				msg->proc_type, msg->proc_stage,
+				ntohl(rxed->msg_type), seq_num);
+			free(rxed);
 			dealloc_msg(msg);
 			return;
 		};
 		msg->proc_stage = RSKTD_S2A_SEQ_ARESP;
+		/* Only message is a close, pass back the err status */
 		msg->dresp->err = rxed->rsp_a.err;
+		free(rxed);
 	} else {
 		uint32_t msg_type = ntohl(rxed->msg_type);
 		uint32_t proc_type;
 		uint32_t proc_stage;
 
-		if ((msg_type == LIBRSKTD_BIND)
-		|| (msg_type == LIBRSKTD_LISTEN)
-		|| (msg_type == LIBRSKTD_ACCEPT)
-		|| (msg_type == LIBRSKTD_HELLO)
-		|| (msg_type == LIBRSKTD_CLI)) {
+		switch (msg_type) {
+		case LIBRSKTD_BIND:
+		case LIBRSKTD_LISTEN:
+		case LIBRSKTD_ACCEPT:
+		case LIBRSKTD_HELLO:
 			proc_type = RSKTD_PROC_AREQ;
 			proc_stage = RSKTD_AREQ_SEQ_AREQ;
-		} else {
-			/* LIBRSKTD_CONN, LIBRSKTD_CLOSE */
+			break;
+		case LIBRSKTD_CONN:
+		case LIBRSKTD_CLOSE:
 			proc_type = RSKTD_PROC_A2W;
 			proc_stage = RSKTD_A2W_SEQ_AREQ;
-		}
+			break;
+		default:
+			ERR("Unknown LIB msg_type 0d%d 0x%x DISCARDED",
+				msg_type, msg_type);
+			return;
+			break;
+		};
 
-		app->rx_req_num = ntohl(rxed->a_rq.app_seq_num);
 		msg = alloc_msg(msg_type, proc_type, proc_stage);
 		msg->app = app->self_ptr;
 		msg->rx = rxed;
-		msg->tx = (struct librskt_rsktd_to_app_msg *)malloc(RSKTD2A_SZ);
+		msg->tx = alloc_tx();
+		memset(msg->tx, 0, RSKTD2A_SZ);
 		msg->tx->msg_type = rxed->msg_type | htonl(LIBRSKTD_RESP);
 		memcpy((void *)&msg->tx->a_rsp.req, (void *)&rxed->a_rq, 
 			sizeof(struct librskt_req));
 		msg->tx->a_rsp.err = 0xFFFFFFFF;
+		app->rx_req_num = ntohl(rxed->a_rq.app_seq_num);
 	};
+	DBG("Rx Msg %d Type %d Stage %d from app %d",
+		msg->msg_type, msg->proc_type, msg->proc_stage, app->proc_num);
 	enqueue_mproc_msg(msg);
 };
 
@@ -224,7 +246,6 @@ void recv_loop_sig_handler(int sig)
 void *app_rx_loop(void *ip)
 {
 	struct librskt_app *app = (struct librskt_app *)ip;
-	struct l_item_t *app_li;
 	struct l_item_t *li;
 	struct l_item_t *next_li;
 	int rc;
@@ -233,12 +254,18 @@ void *app_rx_loop(void *ip)
 	struct librskt_app_to_rsktd_msg *rxed;
        struct sigaction sigh;
 
+	rc = pthread_detach(dmn.app_tx_thread);
+	if (rc) {
+		WARN("pthread_detach rc %d", rc);
+	};
+
         memset(&sigh, 0, sizeof(sigh));
         sigh.sa_handler = recv_loop_sig_handler;
         sigaction(SIGUSR1, &sigh, NULL);
 
-	app->self_ptr = (struct librskt_app **)malloc(sizeof(void *));
-	*(app->self_ptr) = app;
+	app->self_ptr = &app->self_ptr_ptr;
+	*app->self_ptr = app;
+
 	sem_init(&app->started, 0, 0);
 	app->i_must_die = 0;
 	sem_init(&app->test_msg_tx, 0, 0);
@@ -248,8 +275,6 @@ void *app_rx_loop(void *ip)
 	l_init(&app->app_resp_q);
 	memset(&app->app_name, 0, MAX_APP_NAME);
 	app->proc_num = 0; 
-
-	app_li = l_add(&lib_st.app, app->app_fd, ip);
 
 	app->alive = 1;
 	
@@ -264,7 +289,8 @@ void *app_rx_loop(void *ip)
 	}
 
         while (!app->i_must_die) {
-		rxed = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
+		rxed = alloc_rx();
+		memset(rxed, 0, A2RSKTD_SZ);
                 do {
                 	DBG("*** Waiting for A2RSKTD_SZ...\n");
                         rc = recv(app->app_fd, rxed, A2RSKTD_SZ, 0);
@@ -326,7 +352,9 @@ void *app_rx_loop(void *ip)
 		app->app_fd = 0;
 	};
 
-	l_remove(&lib_st.app, app_li);
+	/* FIXME: This does not free up the self_ref pointer, so there is a 
+	 * memory leak of one void * worth of memory here.
+	 */
 
 	DBG("EXIT\n");
 	pthread_exit(NULL);
@@ -404,14 +432,24 @@ void *lib_conn_loop( void *unused )
 	sem_post(&lib_st.loop_started);
 
 	while (!lib_st.all_must_die) {
-		int rc;
+		int rc, i, found_one;
+		
+		found_one = 0;
+		for (i = 0; i < MAX_APPS; i++) {
+			if (!lib_st.apps[i].app_fd) {
+				lib_st.new_app = &lib_st.apps[i];
+				found_one = 1;
+				break;
+			};
+		};
+		if (!found_one) {
+			CRIT("MAX APPS (%d) connected to RSKTD", MAX_APPS);
+			sleep(60);
+			continue;
+		};
 
-		lib_st.new_app = (struct librskt_app *)
-			malloc(sizeof(struct librskt_app));
-		lib_st.new_app->self_ptr = (struct librskt_app **)
-			malloc(sizeof(struct librskt_app *));
-		*lib_st.new_app->self_ptr = lib_st.new_app;
-
+		lib_st.new_app->self_ptr = &lib_st.new_app->self_ptr_ptr; 
+			
 		lib_st.new_app->alive = 0;
 		sem_init(&lib_st.new_app->started, 0, 0);
 		sem_init(&lib_st.new_app->up_and_running, 0, 0);
@@ -430,8 +468,7 @@ void *lib_conn_loop( void *unused )
 				ERR("ERROR on l_conn accept: %s\n",
 							strerror(errno));
 			}
-			free(lib_st.new_app);
-			lib_st.new_app = NULL;
+			lib_st.new_app->app_fd = 0;
 			goto fail;
 		};
 		INFO("*** CONNECTED ***\n");
@@ -464,9 +501,7 @@ fail:
 	lib_st.all_must_die = 1;
 	halt_lib_handler();
 
-	unused = malloc(sizeof(int));
-	*(int *)(unused) = lib_st.port;
-	pthread_exit(unused);
+	pthread_exit(NULL);
 	return unused;
 }
 
@@ -484,7 +519,6 @@ int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog, int tst)
 	lib_st.loop_alive = 0;
 	lib_st.new_app = NULL;
 
-        l_init(&lib_st.app);
         l_init(&lib_st.acc);
         l_init(&lib_st.con);
         l_init(&lib_st.creq);
@@ -521,9 +555,8 @@ int lib_handler_dead(void)
 
 void halt_lib_handler(void)
 {
-	struct l_item_t *li;
-	struct librskt_app *app;
 	struct librsktd_unified_msg *msg;
+	int i;
 
 	DBG("ENTER\n");
 	if (lib_st.loop_alive && !lib_st.all_must_die) {
@@ -547,12 +580,12 @@ void halt_lib_handler(void)
 
 	sem_post(&lib_st.loop_started);
 
-	app = (struct librskt_app *)l_head(&lib_st.app, &li);
-	while (NULL != app) {
-		app->i_must_die = 1;
-		sem_post(&app->test_msg_rx);
-		pthread_kill(app->thread, SIGUSR1);
-		app = (struct librskt_app *)l_next(&li);
+	for (i = 0; i < MAX_APPS; i++) {
+		lib_st.apps[i].i_must_die = 1;
+		if (lib_st.apps[i].app_fd > 0) {
+			sem_post(&lib_st.apps[i].test_msg_rx);
+			pthread_kill(lib_st.apps[i].thread, SIGUSR1);
+		};
 	};
 
 	if (lib_st.addr.sun_path[0]) {

@@ -140,7 +140,6 @@ int d_rdma_get_ms_h(struct ms_info *msi, const char *name,
 			name, act_ms_size, req_ms_size);
 	};
 	msi->valid = 1;
-	strncpy(msi->ms_name, name, MAX_MS_NAME);
 	msi->ms_size = act_ms_size;
 
 	return rc;
@@ -283,11 +282,6 @@ int init_mport_and_mso_ms(void)
 		rskt_clear_skt(&dmn.mso.ms[i].skt); 
 	};
 		
-	l_init(&dmn.wpeers);
-	sem_init(&dmn.wpeers_mtx, 0, 1);
-	l_init(&dmn.speers);
-	sem_init(&dmn.speers_mtx, 0, 1);
-
 	if (dmn.skip_ms) {
 		rc = 0;
 		goto exit;
@@ -437,9 +431,6 @@ repeat:
 			break;
 	}
 
-	if (NULL != new_socket)
-		free((void *)new_socket);
-
 exit:
 	dmn.speer_conn_alive = 0;
 	cleanup_dmn();
@@ -458,12 +449,9 @@ int start_msg_tx_threads(void)
 
 	sem_init(&dmn.loop_started, 0, 0);
 
-	sem_init(&dmn.speers_mtx, 0, 1);
-	l_init(&dmn.speers);
-	sem_init(&dmn.wpeers_mtx, 0, 1);
-	l_init(&dmn.wpeers);
 	dmn.all_must_die = 0;
 
+	memset(&dmn.wpeers, 0, sizeof(dmn.wpeers));
 	sem_init(&dmn.wpeer_tx_mutex, 0, 1);
 	sem_init(&dmn.wpeer_tx_cnt, 0, 0);
 	l_init(&dmn.wpeer_tx_q);
@@ -471,6 +459,7 @@ int start_msg_tx_threads(void)
 	if (rc)
 		goto fail;
 	
+	memset(&dmn.speers, 0, sizeof(dmn.speers));
 	sem_init(&dmn.speer_tx_mutex, 0, 1);
 	sem_init(&dmn.speer_tx_cnt, 0, 0);
 	l_init(&dmn.speer_tx_q);
@@ -478,6 +467,7 @@ int start_msg_tx_threads(void)
 	if (rc)
 		goto fail;
 	
+	memset(&lib_st.apps, 0, sizeof(lib_st.apps));
 	sem_init(&dmn.app_tx_mutex, 0, 1);
 	sem_init(&dmn.app_tx_cnt, 0, 0);
 	l_init(&dmn.app_tx_q);
@@ -540,13 +530,6 @@ void spawn_daemon_threads(struct control_list *ctrls)
 		raise(SIGABRT);
 	}
 	DBG("FM thread has started\n");
-
-	/* Now that everything is running, try openning wpeers... */
-	/* First, the wpeers configured from the command line... */
-	if (ctrls->num_peers) {
-		DBG("FIXME: NOT Opening configured wpeers\n");
-		// open_wpeers_for_requests(ctrls->num_peers, ctrls->peers);
-	};
 };
 
 int daemon_threads_failed(void)

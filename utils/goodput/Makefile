@@ -29,14 +29,17 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-CXX ?= $(CROSS_COMPILE)g++
+LOG_LEVEL?=7
+DEBUG?=DEBUG
+CC?= $(CROSS_COMPILE)g++
+CXX?= $(CROSS_COMPILE)g++
+
 config?=NODEBUG
 COMMONDIR=../../common
 COMMONINC=$(COMMONDIR)/include
 HACKINC=../../utils/latency/common
 COMMONLIB=$(COMMONDIR)/libs_a
 REGSDIR=../../fabric_management/librio_switch/inc
-LOG_LEVEL?=7
 export LOG_LEVEL
 
 

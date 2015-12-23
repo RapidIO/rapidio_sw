@@ -49,6 +49,7 @@ extern "C" {
 uint32_t max_skt;
 
 enum rskt_state skts[RSKTD_NUM_SKTS];
+uint32_t next_alloced_free_sn;
 
 void rsktd_sn_init(uint16_t max_skt_num)
 {
@@ -57,6 +58,7 @@ void rsktd_sn_init(uint16_t max_skt_num)
 	max_skt = (uint32_t)(max_skt_num) + 1;
 	for (i = 0; i < RSKTD_NUM_SKTS; i++)
 		skts[i] = rskt_uninit;
+	next_alloced_free_sn = RSKTD_DYNAMIC_SKT;
 };
 
 enum rskt_state rsktd_sn_get(uint32_t skt_num)
@@ -73,16 +75,25 @@ void rsktd_sn_set(uint32_t skt_num, enum rskt_state st)
 		skts[skt_num] = st;
 };
 
-uint32_t rsktd_sn_find_free(uint32_t skt_num)
+uint32_t rsktd_sn_find_free(void)
 {
 	uint32_t i;
 
-	for (i = skt_num; i < max_skt; i++) {
-		if ((rskt_uninit == skts[i]) || (rskt_closed == skts[i]))
-			break;
+	for (i = next_alloced_free_sn; i < max_skt; i++) {
+		if ((rskt_uninit == skts[i]) || (rskt_closed == skts[i])) {
+			goto done;
+		};
 	};
-	if (i > max_skt)
-		i = RSKTD_INVALID_SKT;
+	for (i = RSKTD_DYNAMIC_SKT; i < next_alloced_free_sn; i++) {
+		if ((rskt_uninit == skts[i]) || (rskt_closed == skts[i])) {
+			goto done;
+		};
+	};
+	return RSKTD_INVALID_SKT;
+done:
+	next_alloced_free_sn = i + 1;
+	if (next_alloced_free_sn >= max_skt)
+		next_alloced_free_sn = RSKTD_DYNAMIC_SKT;
 	return i;
 };
 	
@@ -198,7 +209,8 @@ int RSKTDSnfCmd(struct cli_env *env, int argc, char **argv)
 
 	sprintf(env->output, "Socket = %d\n", rsktd_snf_skt);
 	logMsg(env);
-	skt_num = rsktd_sn_find_free(rsktd_snf_skt);
+	next_alloced_free_sn = rsktd_snf_skt;
+	skt_num = rsktd_sn_find_free();
 	st = rsktd_sn_get(skt_num);
 	sprintf(env->output, "Free Skt= %d : %d:\"%s\"\n", skt_num,
 		(int)st, SKT_STATE_STR(st));

@@ -57,6 +57,7 @@ struct rskt_dmn_speer {
 	int i_must_die;
 	int comm_fail;
 	struct rskt_dmn_speer **self_ref;
+	struct rskt_dmn_speer *self_ref_ref;
 
 	/* Variables set by HELLO message */
 	uint32_t ct;

@@ -108,7 +108,9 @@ void *fm_loop(void *unused)
 		if (rc) {
 			CRIT("Failed to get DID list from FM.\n");
 			goto exit;
-		}
+		} else {
+			INFO("Got DID list, size %d", did_list_sz);
+		};
 		update_wpeer_list(did_list_sz, did_list);
 		fmdd_free_did_list(dd_h, &did_list);
 
@@ -136,9 +138,9 @@ int start_fm_thread(void)
 	fm_thread_valid = 0;
 
         ret = pthread_create(&fm_thread, NULL, fm_loop, NULL);
-        if (ret)
+        if (ret) {
                 printf("Error - fm_thread rc: %d\n", ret);
-	else {
+	} else {
 		sem_wait(&fm_started);
 		fm_thread_valid = 1;
 	};

@@ -58,14 +58,10 @@ extern "C" {
 #define LIBRSKTD_CLOSE_RESP (LIBRSKTD_CLOSE|LIBRSKTD_RESP)
 #define LIBRSKTD_HELLO 6
 #define LIBRSKTD_HELLO_RESP (LIBRSKTD_HELLO|LIBRSKTD_RESP)
-#define LIBRSKTD_CLI 7
-#define LIBRSKTD_CLI_RESP (LIBRSKTD_CLI|LIBRSKTD_RESP)
 #define LIBRSKTD_LAST_MSG_TYPE 0x10;
 
 #define LIBRSKT_CLOSE_CMD 0x111
 #define LIBRSKT_CLOSE_CMD_RESP (LIBRSKT_CLOSE_CMD|LIBRSKTD_RESP)
-#define LIBRSKT_CLI_CMD 0x222
-#define LIBRSKT_CLI_CMD_RESP (LIBRSKT_CLI_CMD|LIBRSKTD_RESP)
 
 #define MAX_APP_NAME 48
 
@@ -185,6 +181,7 @@ struct resp_librskt {
 /* Format of messages that can be sent by the library */
 
 struct librskt_app_to_rsktd_msg { /* Messages sent FROM application TO RSKTD */
+	uint32_t in_use; /* Used for message pool tracking */
         uint32_t msg_type;
 	union {
 		struct librskt_req a_rq;
@@ -195,6 +192,7 @@ struct librskt_app_to_rsktd_msg { /* Messages sent FROM application TO RSKTD */
 /* Format of messages that can be received by the library */
 
 struct librskt_rsktd_to_app_msg {
+	uint32_t in_use; /* Used for message pool tracking */
 	uint32_t msg_type;
 	union {
 		struct librskt_resp a_rsp;

@@ -48,10 +48,33 @@ extern "C" {
 
 extern enum rskt_state skts[RSKTD_NUM_SKTS];
 
+/** @brief Initialize RSKTD socket numbers database.
+ * @param[in] max_skt_num Maximum socket number to be used by the deamon.
+ * @return None.
+ */
 void		rsktd_sn_init(uint16_t max_skt_num);
+
+/** @brief Returns the current state of a socket number
+ * @param[in] skt_num for which current state is returned 
+ * @return rskt_state
+ */
 enum rskt_state rsktd_sn_get(uint32_t skt_num);
+
+/** @brief Sets the current state of a socket number
+ * @param[in] skt_num whose state is changed to st
+ * @param[in] st State value for the skt_num
+ * @return rskt_state
+ */
 void 		rsktd_sn_set(uint32_t skt_num, enum rskt_state st);
-uint32_t	rsktd_sn_find_free(uint32_t skt_num);
+
+/** @brief Returns an unused socket number
+ * @return Socket number whose state is now "allocated"
+ */
+uint32_t	rsktd_sn_find_free(void);
+
+/** @brief Binds CLI commands into a database, as requested
+ * @return None
+ */
 void		librsktd_bind_sn_cli_cmds(void);
 
 #ifdef __cplusplus

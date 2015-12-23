@@ -83,6 +83,7 @@ extern "C" {
 #define RSKTD_S2A_SEQ_DRESP 0x44
 
 struct librsktd_unified_msg {
+	int	in_use; /* 1 - in use, 0 - free */
 	uint32_t msg_type; /* LIBRSKT and RSKTD message types */
 	uint32_t proc_type; /* RSKTD_PROC_... */
 	uint32_t proc_stage; /* Processing stage, specific to proc_type */
@@ -99,6 +100,8 @@ struct librsktd_unified_msg {
 	struct con_skts *closing_skt; /* Connected socket being closed */
 };
 
+#define MAX_MSG 100
+
 struct librsktd_msg_proc_info {
 	uint32_t msg_proc_alive;
 	pthread_t msg_q_thread;
@@ -106,6 +109,18 @@ struct librsktd_msg_proc_info {
 	sem_t msg_q_cnt;
 	struct l_head_t msg_q; /* Type is librsktd, FIFO */
 	sem_t msg_q_started;
+	struct librsktd_unified_msg u_msg[MAX_MSG];
+	sem_t u_msg_mtx;
+	struct rsktd_req_msg dreqs[MAX_MSG]; 
+	sem_t dreqs_mtx;
+	struct rsktd_resp_msg dresps[MAX_MSG];
+	sem_t dresps_mtx;
+	struct librskt_app_to_rsktd_msg rxs[MAX_MSG];
+					/* App request/response received */
+	sem_t rxs_mtx;
+	struct librskt_rsktd_to_app_msg txs[MAX_MSG];
+	sem_t txs_mtx;
+					/* Response/reqest sent to app */
 };
 
 extern struct librsktd_msg_proc_info mproc;
@@ -113,10 +128,21 @@ extern struct librsktd_msg_proc_info mproc;
 int start_msg_proc_q_thread(void);
 void halt_msg_proc_q_thread(void);
 void enqueue_mproc_msg(struct librsktd_unified_msg *msg);
-void dealloc_msg(struct librsktd_unified_msg *msg);
+
 struct librsktd_unified_msg *alloc_msg(uint32_t msg_type,
                                         uint32_t proc_type,
                                         uint32_t proc_stage);
+int dealloc_msg(struct librsktd_unified_msg *msg);
+struct rsktd_req_msg *alloc_dreq(void);
+int free_dreq(struct rsktd_req_msg *dreq);
+struct rsktd_resp_msg *alloc_dresp(void);
+int free_dresp(struct rsktd_resp_msg *dresp);
+struct librskt_app_to_rsktd_msg *alloc_rx(void);
+int free_rx(struct librskt_app_to_rsktd_msg *rx);
+struct librskt_rsktd_to_app_msg *alloc_tx(void);
+int free_tx(struct librskt_rsktd_to_app_msg *tx);
+
+struct rskt_dmn_wpeer **find_wpeer_by_ct(uint32_t ct);
 
 #ifdef __cplusplus
 }

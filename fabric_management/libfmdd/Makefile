@@ -31,7 +31,7 @@
 
 LOG_LEVEL?=4
 DEBUG?=DEBUG
-CC = $(CROSS_COMPILE)gcc
+CC = $(CROSS_COMPILE)g++
 CXX = $(CROSS_COMPILE)g++
 TOP_LEVEL = $(shell pwd)
 
@@ -43,7 +43,6 @@ HEADERS:=inc/lib$(NAME).h
 
 CROSS_COMPILE?=/usr/bin/
 
-CC:=$(CROSS_COMPILE)g++
 AR:=$(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
@@ -64,7 +63,7 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^ 
 
 src/%.o: src/%.c $(HEADERS)
-	$(CC) -c $(CFLAGS) $< -o $@ -ldd -L../libs_a
+	$(CXX) -c $(CFLAGS) $< -o $@ -ldd -L../libs_a
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a

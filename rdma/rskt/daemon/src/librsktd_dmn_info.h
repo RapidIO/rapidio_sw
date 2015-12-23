@@ -88,6 +88,8 @@ struct mso_info {
 	struct ms_info ms[MAX_DMN_NUM_MS];
 };
 
+#define MAX_PEER 10
+
 struct dmn_globals {
 	int cm_skt;
 	int cm_skt_tst;
@@ -143,6 +145,7 @@ struct dmn_globals {
 	struct l_head_t app_tx_q;
 
 	/* RSKTD peers that have connected to this RSKT Daemon */
+#ifdef NOT_DEFINED
 	sem_t speers_mtx;
 	struct l_head_t speers; /* Item is ** struct rskt_dmn_speer */
 
@@ -152,6 +155,9 @@ struct dmn_globals {
 				/* ordered by component tag (CT) */
 				/* Use ** to allow one write to clear all */
 				/* references to a wpeer */
+#endif
+	struct rskt_dmn_speer speers[MAX_PEER];
+	struct rskt_dmn_wpeer wpeers[MAX_PEER];
 
 };
 

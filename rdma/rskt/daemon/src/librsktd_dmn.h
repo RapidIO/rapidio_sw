@@ -119,6 +119,7 @@ union librsktd_resp {
 struct rsktd_req_msg {
 	uint8_t unusable[CM_MSG_HDR_SIZE];
 	/* Info about message sender */
+	uint32_t in_use; /* Tracking for message pool */
 	uint32_t msg_type; /* Message type */
 	uint32_t msg_seq; /* Message sequence number */
 	union librsktd_req msg;
@@ -126,6 +127,7 @@ struct rsktd_req_msg {
 
 struct rsktd_resp_msg {
 	uint8_t unusable[CM_MSG_HDR_SIZE];
+	uint32_t in_use; /* Tracking for message pool */
 	uint32_t msg_type; /* Message type */
 	uint32_t msg_seq; /* Request message sequence number */
 	uint32_t err;  /* 0 means alls good */

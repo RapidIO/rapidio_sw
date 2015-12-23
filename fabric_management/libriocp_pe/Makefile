@@ -31,11 +31,11 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) $(patsubst src/switches
 
 src/%.o: src/%.c $(HEADERS)
 	echo "real rule"
-	g++ -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CFLAGS) $< -o $@
 
 src/switches/%.o: src/switches/%.c $(HEADERS)
 	echo "real rule"
-	g++ -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CFLAGS) $< -o $@
 
 %.a: $(OBJECTS)
 	$(AR) rcs $@ $^

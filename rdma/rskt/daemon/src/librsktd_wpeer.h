@@ -53,6 +53,7 @@ struct rskt_dmn_wpeer {
 	uint32_t cm_skt; /* Channelized messaging socket on target */
 
 	struct rskt_dmn_wpeer **self_ref;
+	struct rskt_dmn_wpeer *self_ref_ref;
 	int cm_skt_h_valid;
 	riomp_sock_t cm_skt_h;
 	int wpeer_alive;

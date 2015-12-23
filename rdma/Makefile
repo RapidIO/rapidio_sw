@@ -38,6 +38,9 @@ else
 level?=$(LOG_LEVEL)
 endif
 
+CC?=$(CROSS_COMPILE)g++
+CXX?=$(CROSS_COMPILE)g++
+
 TOP_LEVEL?=..
 COMMON_DIR?=$(TOP_LEVEL)/common
 INCLUDE_DIR?=$(TOP_LEVEL)/include

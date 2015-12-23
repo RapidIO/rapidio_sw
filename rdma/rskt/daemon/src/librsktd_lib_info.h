@@ -104,6 +104,7 @@ struct con_skts {
 struct librskt_app {
         int app_fd;
 	struct librskt_app **self_ptr; 
+	struct librskt_app *self_ptr_ptr; 
         socklen_t addr_size;
         struct sockaddr_un addr;
         pthread_t thread;
@@ -135,6 +136,8 @@ struct lib_msg_t {
 	};
 };
 
+#define MAX_APPS 10
+
 struct librsktd_connect_globals {
         int port;
         int mpnum;
@@ -150,9 +153,12 @@ struct librsktd_connect_globals {
         struct sockaddr_un addr;
 	struct librskt_app *new_app;
 
+#ifdef NOT_DEFINED
 	struct l_head_t app; /* List of connections to applications/libraries */
 				/* Items are struct librskt_app */
 				/* Key is file descriptor (app_fd) */
+#endif
+	struct librskt_app apps[MAX_APPS];
 
         pthread_t tx_thread; /* Thread responsible for sending messages to
 				* all apps.
