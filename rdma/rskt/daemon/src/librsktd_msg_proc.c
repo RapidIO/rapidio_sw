@@ -672,6 +672,8 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 
 	r->tx->a_rsp.err = 0;
 
+	DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
+
 	switch (rsktd_sn_get(sn)) {
 	case rskt_uninit:
 	case rskt_noconn:
@@ -692,14 +694,17 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 	case rskt_listening:
 	case rskt_accepting:
 		/* Listening, clean up any pending connection requests */
+		DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
 		rsktd_sn_set(sn, rskt_closing);
 		terminate_accept_and_conn_reqs(sn);
+		DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
 		rsktd_sn_set(sn, rskt_closed);
 		break;
 
 	case rskt_connecting:
 	case rskt_connected:
 		/* Tell the wpeer to close the socket */
+		DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
 		rsktd_sn_set(sn, rskt_closing);
 		r->dreq->msg_type = htonl(RSKTD_CLOSE_REQ);
 		r->dresp->msg_type = r->dreq->msg_type | htonl(RSKTD_RESP_FLAG);
@@ -741,6 +746,8 @@ void rsktd_a2w_close_resp(struct librsktd_unified_msg *r)
 
 	/* App has confirmed that socket is closed. */
 	/* Free up local resources associated with the socket */
+
+	DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
 
 	r->closing_skt->loc_ms->state = 0;
 	rsktd_sn_set(sn, rskt_closed);
@@ -911,7 +918,9 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 	uint32_t send_resp_now = 1;
 	struct rsktd_req_msg *dreq = r->dreq;
 	struct rsktd_resp_msg *dresp = r->dresp;
-	uint32_t sn = ntohl(dreq->msg.clos.rem_sn);
+	uint32_t sn = ntohl(dreq->msg.clos.loc_sn);
+
+	DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
 
 	dresp->err = 0;
 
@@ -924,6 +933,7 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 	case rskt_closed:
 	default:
 		/* Socket is not in use or is shutting down */
+		r->proc_stage = RSKTD_S2A_SEQ_ARESP;
 		break;
 
 	case rskt_alloced:
@@ -941,6 +951,7 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 	case rskt_connecting:
 	case rskt_connected:
 		/* Tell the app to close the socket */
+		DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
 		rsktd_sn_set(sn, rskt_closing);
 		send_resp_now = terminate_connected_socket(r, sn);
 		break;
@@ -951,9 +962,11 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 void rsktd_s2a_close_resp(struct librsktd_unified_msg *r)
 {
 	struct rsktd_req_msg *dreq = r->dreq;
-	uint32_t sn = ntohl(dreq->msg.clos.rem_sn);
+	uint32_t sn = ntohl(dreq->msg.clos.loc_sn);
 	struct l_item_t *li;
 	struct con_skts *con = (struct con_skts *)l_find(&lib_st.con, sn, &li);
+
+	DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
 
 	/* App has confirmed that socket is closed. */
 	/* Free up local resources associated with the socket */

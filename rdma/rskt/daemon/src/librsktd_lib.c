@@ -232,7 +232,7 @@ void handle_app_msg(struct librskt_app *app,
 		msg->tx->a_rsp.err = 0xFFFFFFFF;
 		app->rx_req_num = ntohl(rxed->a_rq.app_seq_num);
 	};
-	DBG("Rx Msg %d Type %d Stage %d from app %d",
+	DBG("Rx Msg 0x%x Type %d Stage 0x%x from app %d",
 		msg->msg_type, msg->proc_type, msg->proc_stage, app->proc_num);
 	enqueue_mproc_msg(msg);
 };

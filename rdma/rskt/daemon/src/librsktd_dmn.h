@@ -93,8 +93,8 @@ struct librsktd_connect_resp {
 };
 
 struct librsktd_close_req {
-	uint32_t rem_sn; /* remote socket that closed */
-	uint32_t loc_sn; /* local socket to close */
+	uint32_t rem_sn; /* Socket number on message transmitter being closed */
+	uint32_t loc_sn; /* Socket number on message receiver being closed */
 	uint32_t force; /* 1 means close it, 0 means shutdown */
 };
 
