@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MSPACE_H
 
 #include <stdint.h>
-#include <mqueue.h>
 #include <unistd.h>
 #include <semaphore.h>
 
@@ -45,28 +44,24 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <set>
 
-#include "libcli.h"
-
-#include "unix_sock.h"
-#include "rdmad_msubspace.h"
-#include "prov_daemon_info.h"
 #include "msg_q.h"
 
 using std::set;
 using std::string;
 using std::vector;
 
-#define MS_CONN_ID_START	0x1
+/* Global constants */
+static const uint32_t MSID_WIN_SHIFT = 28;
+static const uint32_t MSID_WIN_MASK  = 0xF0000000;
+static const uint32_t MSID_MSINDEX_MASK = 0x0000FFFF;
+static const uint32_t MSID_MSOID_MASK = 0x0FFF000;
+static const uint32_t MSID_MSOID_SHIFT = 16;
+static const uint32_t MSINDEX_MAX = 0xFFFF;
+static const uint32_t MSUBINDEX_MAX = 0xFFFF;
 
-#define MSID_WIN_SHIFT  28
-#define MSID_WIN_MASK	0xF0000000
-#define MSID_MSINDEX_MASK 0x0000FFFF
-#define MSID_MSOID_MASK 0x0FFF000
-#define MSID_MSOID_SHIFT 16
-
-#define MSINDEX_MAX 0xFFFF
-
-#define MSUBINDEX_MAX 0xFFFF
+/* Referenced classes declarations */
+class unix_server;
+class msubspace;
 
 struct mspace_exception {
 	mspace_exception(const char *msg) : err(msg) {}
@@ -131,7 +126,7 @@ public:
 	uint64_t get_rio_addr() const { return rio_addr; }
 	uint64_t get_phys_addr() const { return phys_addr; }
 	uint32_t get_msid() const { return msid; }
-	uint16_t get_msindex() const { return msid & 0xFFFF; }
+	uint16_t get_msindex() const { return msid & MSID_MSINDEX_MASK; }
 	uint32_t get_msoid() const { return msoid; }
 	bool is_free() const { return free;}
 	const char* get_name() const { return name.c_str(); }
@@ -189,6 +184,9 @@ public:
 	int disconnect_from_destid(uint16_t client_destid);
 
 private:
+	/* Constants */
+	static constexpr uint32_t MS_CONN_ID_START = 0x01;
+
 	int notify_remote_clients();
 	int close_connections();
 
