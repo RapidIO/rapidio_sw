@@ -35,28 +35,24 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MS_OWNER_H
 
 #include <stdint.h>
-#include <errno.h>
 
-#include <cstdio>
-#include <cstring>
-
-#include <sstream>
-#include <utility>
-#include <vector>
 #include <string>
+#include <sstream>
+#include <vector>
 #include <algorithm>
 
 #include "msg_q.h"
-#include "unix_sock.h"
 #include "rdma_types.h"
-#include "liblog.h"
-#include "libcli.h"
-
-#include "rdmad_mspace.h"
-#define MSO_CONN_ID_START	0x1
 
 using std::vector;
 using std::string;
+
+/* Global constants */
+static const uint32_t MSO_CONN_ID_START	= 0x1;
+
+/* Referenced class declarations */
+class unix_server;
+class mspace;
 
 class mso_user
 {
@@ -75,6 +71,7 @@ public:
 	unix_server *get_server() { return user_server; }
 
 private:
+	static constexpr uint32_t MSO_CONN_ID_START = 0x01;
 	uint32_t	mso_conn_id;
 	unix_server 	*user_server;
 	msg_q<mq_close_mso_msg>	*mq;

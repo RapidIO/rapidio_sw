@@ -34,48 +34,43 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef MS_OWNERS_H
 #define MS_OWNERS_H
 
-#include <string>
 #include <vector>
-#include <algorithm>
 
 #include "rdmad_ms_owner.h"
 
 #include "libcli.h"
 #include "liblog.h"
-#include "unix_sock.h"
 
 using std::vector;
-using std::string;
 
-/* Owners are 12-bits */
-#define MSOID_MAX	0xFFF
+/* Reference class declarations */
+class ms_owner;
+class unix_server;
 
 class ms_owners
 {
 public:
 	ms_owners();
-
 	~ms_owners();
 
 	void dump_info(struct cli_env *env);
 
-
 	int create_mso(const char *name, unix_server *other_server, uint32_t *msoid);
-	
 	int open_mso(const char *name, uint32_t *msoid, uint32_t *mso_conn_id,
 			unix_server *user_server);
 
 	int close_mso(uint32_t msoid, uint32_t mso_conn_id);
-
 	void close_mso(unix_server *other_server);
 
 	int destroy_mso(unix_server *other_server);
-
 	int destroy_mso(uint32_t msoid);
 
 	ms_owner* operator[](uint32_t msoid);
 
 private:
+	/* Constants */
+	static constexpr uint32_t MSOID_MAX = 0xFFF; /* Owners are 12-bits */
+
 	bool msoid_free_list[MSOID_MAX+1];
 	vector<ms_owner *>	owners;
 	pthread_mutex_t		lock;
