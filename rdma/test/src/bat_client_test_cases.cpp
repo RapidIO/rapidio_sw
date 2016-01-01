@@ -1306,6 +1306,7 @@ int test_case_h(uint32_t destid)
 					&ms_info[c].server_msub_len_rb,
 					&ms_info[c].server_msh_rb,
 					30);
+			rc = ret;
 			BAT_EXPECT_RET(ret, 0, free_server_mso);
 			sleep(1);
 		}
@@ -1314,6 +1315,7 @@ int test_case_h(uint32_t destid)
 		for (unsigned c = 0; c < NUM_CONNECTIONS; c++) {
 			ret = rdma_disc_ms_h(ms_info[c].server_msh_rb,
 					     client_msubh);
+			rc = ret;
 			BAT_EXPECT_RET(ret, 0, free_server_mso);
 			sleep(1);
 		}
