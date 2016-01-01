@@ -310,10 +310,21 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	dresp = &con_req->dresp->msg.con;
 
 	/* Find a free memory space on this RSKTD to rdma_connect to */
-	for (i = 0; i < dmn.mso.num_ms; i++) {
+	for (i = dmn.mso.next_ms; i < dmn.mso.num_ms; i++) {
 		if (dmn.mso.ms[i].valid && !dmn.mso.ms[i].state) {
 			loc_ms_info = &dmn.mso.ms[i];
+			dmn.mso.next_ms = (i + 1) % dmn.mso.num_ms;
 			break;
+		};
+	};
+
+	if (NULL == loc_ms_info) {
+		for (i = 0; i < dmn.mso.next_ms; i++) {
+			if (dmn.mso.ms[i].valid && !dmn.mso.ms[i].state) {
+				loc_ms_info = &dmn.mso.ms[i];
+				dmn.mso.next_ms = (i + 1) % dmn.mso.num_ms;
+				break;
+			};
 		};
 	};
 

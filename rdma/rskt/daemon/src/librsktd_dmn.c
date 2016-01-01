@@ -273,6 +273,7 @@ int init_mport_and_mso_ms(void)
 	/* Initialize the rest of the dmn structure */
 	dmn.mso.valid = 0;
 	dmn.mso.num_ms = 0;
+	dmn.mso.next_ms = 0;
 	memset(dmn.mso.msoh_name, 0, MAX_MS_NAME+1);
 	for (i = 0; i < MAX_DMN_NUM_MS; i++) {
 		dmn.mso.ms[i].valid = 0;

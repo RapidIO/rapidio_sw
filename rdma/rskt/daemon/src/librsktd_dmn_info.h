@@ -84,6 +84,7 @@ struct mso_info {
 	int	valid;
 	mso_h	rskt_mso;
 	char	msoh_name[MAX_MS_NAME+1];
+	int	next_ms;
 	int	num_ms;
 	struct ms_info ms[MAX_DMN_NUM_MS];
 };

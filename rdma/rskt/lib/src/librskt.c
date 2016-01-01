@@ -62,6 +62,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+#define RDMA_CONN_ACC_TO_SECS 3
+
 struct librskt_globals lib;
 
 char *rskt_state_strs[rskt_max_state] = {
@@ -233,7 +235,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 		ERR("Failed on resp_rx\n");
 		goto fail;
 	}
-	DBG("No more waiting for resp_rx\n");
+	DBG("NOT Waiting for rsvp->resp_rx\n");
 	if (rx->a_rsp.err) {
 		li = NULL;
 		rc = -1;
@@ -571,7 +573,6 @@ void *req_loop(void *unused)
 			* socket any more.
 			*/
 			INFO("Received LIBRSKT_CLOSE_CMD from RSKTD\n");
-			DBG("Waiting for lib.skts_mtx with error 0x1062!\n");
 			if (librskt_wait_for_sem(&lib.skts_mtx, 0x1062)) {
 				ERR("librskt_wait_for_sem() failed. Exiting\n");
 				goto exit;
@@ -1238,6 +1239,9 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	skt->sai.sa.sn = ntohl(rx->a_rsp.msg.accept.peer_sa.sn);
 	memcpy((void *)skt->msoh_name, rx->a_rsp.msg.accept.mso_name, MAX_MS_NAME);
 	memcpy((void *)skt->msh_name, rx->a_rsp.msg.accept.ms_name, MAX_MS_NAME);
+	DBG("ACCEPT: SN %d CT %d REM SN %d CT %d MSOH \"%s\" MSH \"%s\"", 
+		skt->sa.sn, skt->sa.ct, skt->sai.sa.sn, skt->sai.sa.ct,
+		skt->msoh_name, skt->msh_name);
 	skt->msub_sz = ntohl(rx->a_rsp.msg.accept.ms_size);
 
 	if (librskt_wait_for_sem(&lib.skts_mtx, 0x1091)) {
@@ -1272,6 +1276,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		ERR("Failed to create msub\n");
 		goto close2;
 	}
+	skt->msub_p = NULL;
 	skt->msubh_valid = 1;
 
 	rc = rdma_mmap_msub(skt->msubh, (void **)&skt->msub_p);
@@ -1280,6 +1285,8 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		goto close2;
 	}
 
+	DBG("ACCEPT: MSOH %p MSH %p MSUBH %p PTR %p",
+		skt->msoh, skt->msh, skt->msubh, skt->msub_p);
 	/* Zero the entire msub (we can do that because we'll initialize
 	 * all pointers below).
 	 */
@@ -1288,7 +1295,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	do {
 		rc = rdma_accept_ms_h(skt->msh, skt->msubh, 
 				(msub_h *)&skt->con_msubh,
-				(uint32_t *)&skt->con_sz, 0);
+				(uint32_t *)&skt->con_sz, RDMA_CONN_ACC_TO_SECS);
 	} while (-EINTR == rc);	/* FIXME: should it be ETIME? */
 	if (rc) {
 		ERR("Failed in rdma_accept_ms_h()\n");
@@ -1459,7 +1466,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
 				skt->con_msh_name, skt->msubh, 
 				&skt->con_msubh, &skt->con_sz,
-				&skt->con_msh, 1);
+				&skt->con_msh, RDMA_CONN_ACC_TO_SECS);
 	} while (rc == RDMA_CONNECT_TIMEOUT && conn_retries-- && 
 		!lib.all_must_die);
 
