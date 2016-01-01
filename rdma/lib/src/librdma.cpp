@@ -761,28 +761,6 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	return 0;
 } /* rdma_open_mso_h() */
 
-/**
- * Closes memory space for a particular user (non-owner)
- */
-struct close_ms {
-	close_ms(mso_h msoh) : ok(true), msoh(msoh) {}
-
-	void operator()(struct loc_ms *ms) {
-		if (rdma_close_ms_h(msoh, ms_h(ms))) {
-			WARN("rdma_close_ms_h failed: msoh = 0x%" PRIx64 ", msh = 0x%" PRIx64 "\n",
-								msoh, ms_h(ms));
-			ok = false;
-		} else {
-			INFO("msh(0x%" PRIx64 ") owned by msoh(0x%" PRIx64 ") closed\n",
-								ms_h(ms), msoh);
-		}
-	}
-	bool	ok;
-
-private:
-	mso_h	msoh;
-}; /* close_ms */
-
 int rdma_close_mso_h(mso_h msoh)
 {
 	close_mso_input		in;
@@ -822,11 +800,23 @@ int rdma_close_mso_h(mso_h msoh)
 	DBG("ms_list now has %d elements\n", ms_list.size());
 
 	/* For each one of the memory spaces, close */
-	close_ms		cms(msoh);
-	for_each(ms_list.begin(), ms_list.end(), cms);
+	bool	ok =  true;
+	for_each(ms_list.cbegin(), ms_list.cend(),
+		[&](loc_ms *ms)
+		{
+			if (rdma_close_ms_h(msoh, ms_h(ms))) {
+				WARN("rdma_close_ms_h failed: msoh = 0x%"
+					PRIx64 ", msh = 0x%" PRIx64 "\n",
+								msoh, ms_h(ms));
+					ok = false;	/* Modify on error only */
+				} else {
+					INFO("msh(0x%" PRIx64 ") owned by msoh(0x%"
+						PRIx64 ") closed\n", ms_h(ms), msoh);
+				}
+		});
 
 	/* Fail on any error */
-	if (!cms.ok) {
+	if (!ok) {
 		ERR("Failed to close one or more mem spaces\n");
 		sem_post(&rdma_lock);
 		return RDMA_MS_CLOSE_FAIL;
@@ -897,29 +887,6 @@ int rdma_close_mso_h(mso_h msoh)
 	return out.status;
 } /* rdma_close_mso_h() */
 
-/**
- * Destroys memory space for a particular owner.
- */
-struct destroy_ms {
-	destroy_ms(mso_h msoh) :  ok(true), msoh(msoh) {}
-
-	void operator()(struct loc_ms * ms) {
-		if (rdma_destroy_ms_h(msoh, ms_h(ms))) {
-			WARN("rdma_destroy_ms_h failed: msoh = 0x%" PRIx64 ", msh = 0x%" PRIx64 "\n",
-								msoh, ms_h(ms));
-			ok = false;
-		} else {
-			DBG("msh(0x%" PRIx64 ") owned by msoh(0x%" PRIx64 ") destroyed\n",
-								ms_h(ms), msoh);
-		}
-	}
-
-	bool	ok;
-
-private:
-	mso_h	msoh;
-}; /* destroy_ms */
-
 int rdma_destroy_mso_h(mso_h msoh)
 {
 	destroy_mso_input	in;
@@ -950,12 +917,24 @@ int rdma_destroy_mso_h(mso_h msoh)
 	INFO("ms_list now has %d elements\n", ms_list.size());
 
 	/* For each one of the memory spaces, call destroy */
-	destroy_ms		dms(msoh);
-	for_each(ms_list.begin(), ms_list.end(), dms);
+	bool	ok = true;
+	for_each(ms_list.cbegin(), ms_list.cend(),
+		[&](loc_ms *ms)
+		{
+			if (rdma_destroy_ms_h(msoh, ms_h(ms))) {
+				WARN("rdma_destroy_ms_h failed: msoh = 0x%"
+					PRIx64 ", msh = 0x%" PRIx64 "\n",
+							msoh, ms_h(ms));
+				ok = false;
+			} else {
+				DBG("msh(0x%" PRIx64 ") owned by msoh(0x%"
+					PRIx64 ") destroyed\n", ms_h(ms), msoh);
+			}
+		});
 
 	/* Fail on any error */
-	if (!dms.ok) {
-		ERR("Failed in destroy_ms::operator()\n");
+	if (!ok) {
+		ERR("Failed in to destroy\n");
 		sem_post(&rdma_lock);
 		return RDMA_MS_DESTROY_FAIL;
 	}
@@ -1099,30 +1078,9 @@ int rdma_create_ms_h(const char *ms_name,
 	return 0;
 } /* rdma_create_ms_h() */
 
-/**
- * Destroys memory sub-space for a particular space.
- */
-struct destroy_msub {
-	destroy_msub(ms_h msh) :  ok(true), msh(msh) {}
-
-	void operator()(struct loc_msub * msub) {
-		if (rdma_destroy_msub_h(msh, msub_h(msub))) {
-			WARN("rdma_destroy_msub_h failed: msh=0x%" PRIx64 ", msubh=0x%" PRIx64 "\n",
-							msh, msub_h(msub));
-			ok = false;
-		}
-	}
-
-	bool	ok;
-
-private:
-	ms_h	msh;
-}; /* destroy_msub */
-
 static int destroy_msubs_in_msh(ms_h msh)
 {
 	uint32_t 	msid = ((struct loc_ms *)msh)->msid;
-	destroy_msub	dmsub(msh);
 
 	/* Get list of memory sub-spaces belonging to this msh */
 	list<struct loc_msub *>	msub_list(get_num_loc_msub_in_ms(msid));
@@ -1136,10 +1094,20 @@ static int destroy_msubs_in_msh(ms_h msh)
 #endif
 
 	/* For each one of the memory sub-spaces, call destroy */
-	for_each(msub_list.begin(), msub_list.end(), dmsub);
+	bool	ok = true;
+	for_each(msub_list.begin(), msub_list.end(),
+		[&](loc_msub * msub)
+		{
+			if (rdma_destroy_msub_h(msh, msub_h(msub))) {
+				WARN("rdma_destroy_msub_h failed: msh=0x%"
+					PRIx64 ", msubh=0x%" PRIx64 "\n",
+							msh, msub_h(msub));
+				ok = false;
+			}
+		});
 
 	/* Fail on any error */
-	if (!dmsub.ok) {
+	if (!ok) {
 		ERR("Failure during destroying one of the msubs\n");
 		return RDMA_MSUB_DESTROY_FAIL;
 	}
