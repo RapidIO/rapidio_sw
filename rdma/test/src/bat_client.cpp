@@ -75,8 +75,8 @@ int connect_to_channel(int channel,
 					    channel,
 					    &shutting_down);
 	}
-	catch(cm_exception& e) {
-		fprintf(stderr, "%s: %s\n", name, e.err);
+	catch(exception& e) {
+		fprintf(stderr, "%s: %s\n", name, e.what());
 		return -1;
 	}
 

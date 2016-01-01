@@ -107,8 +107,8 @@ int main(int argc, char *argv[])
 					channel,
 					&shutting_down);
 		}
-		catch(cm_exception& e) {
-			fprintf(stderr, "bat_server: %s\n", e.err);
+		catch(exception& e) {
+			fprintf(stderr, "bat_server: %s\n", e.what());
 			return 1;
 		}
 

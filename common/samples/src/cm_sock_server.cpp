@@ -70,8 +70,8 @@ int main(int argc, char *argv[])
 				&shutting_down);
 	}
 
-	catch(cm_exception e) {
-		cout << e.err << endl;
+	catch(exception& e) {
+		cout << e.what() << endl;
 		return 1;
 	}
 
@@ -90,8 +90,8 @@ int main(int argc, char *argv[])
 		other_server = new cm_server("other_server", accept_socket,
 				&shutting_down);
 	}
-	catch(cm_exception e) {
-		cout << e.err << endl;
+	catch(exception& e) {
+		cout << e.what() << endl;
 		delete server;
 		return 2;
 	}

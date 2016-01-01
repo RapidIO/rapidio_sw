@@ -42,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstring>
 #include <iostream>
 #include <iomanip>
+#include <exception>
 #include <iterator>
 
 #include <rapidio_mport_mgmt.h>
@@ -58,10 +59,16 @@ using std::ostream_iterator;
 using std::setfill;
 using std::hex;
 using std::setw;
+using std::exception;
 
-struct cm_exception {
+class cm_exception : public exception {
+public:
 	cm_exception(const char *msg) : err(msg) {}
-
+	virtual const char *what() const throw()
+	{
+		return err;
+	}
+private:
 	const char *err;
 };
 

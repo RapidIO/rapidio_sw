@@ -140,8 +140,8 @@ void *wait_conn_disc_thread_f(void *arg)
 				prov_server->get_accept_socket(),
 				&shutting_down);
 	}
-	catch(cm_exception& e) {
-		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
+	catch(exception& e) {
+		CRIT("Failed to create rx_conn_disc_server: %s\n", e.what());
 		wcdti->ret_code = -4;		/* Error. To be handled by caller */
 		sem_post(&wcdti->started);	/* Allow main provisioning thread to run */
 		pthread_exit(0);
@@ -478,8 +478,8 @@ void *prov_thread_f(void *arg)
 					peer->prov_channel,
 					&shutting_down);
 	}
-	catch(cm_exception& e) {
-		CRIT("Failed to create prov_server: %s. EXITING\n", e.err);
+	catch(exception& e) {
+		CRIT("Failed to create prov_server: %s. EXITING\n", e.what());
 		raise(SIGABRT);
 		pthread_exit(0);	/* For g++ warning */
 	}

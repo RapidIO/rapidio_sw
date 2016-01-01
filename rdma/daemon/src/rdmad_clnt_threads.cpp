@@ -231,8 +231,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 		wadti->rc = 0;
 		sem_post(&wadti->started);
 	}
-	catch(cm_exception& e) {
-		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
+	catch(exception& e) {
+		CRIT("Failed to create rx_conn_disc_server: %s\n", e.what());
 		wadti->rc = -2;
 		sem_post(&wadti->started);
 		pthread_exit(0);
@@ -243,6 +243,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 		case -3:
 		case -4:
 			delete accept_destroy_client;
+			delete wadti->hello_client;	/* FIXME: Is this OK?? */
 			/* no break */
 		default:
 			wadti->rc = e;
@@ -281,6 +282,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			}
 
 			delete accept_destroy_client;
+			delete wadti->hello_client;	/* FIXME: Is this OK?? */
 
 			CRIT("Exiting thread\n");
 			pthread_exit(0);
@@ -510,8 +512,8 @@ int provision_rdaemon(uint32_t destid)
 		/* Free the wadti struct */
 		delete wadti;
 	}
-	catch(cm_exception& e) {
-		CRIT("Failed to create hello_client %s\n", e.err);
+	catch(exception& e) {
+		CRIT("Failed to create hello_client %s\n", e.what());
 		rc = -100;
 	}
 	catch(int e) {
