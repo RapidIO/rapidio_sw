@@ -153,11 +153,9 @@ int ms_owners::open_mso(const char *name,
 			uint32_t *mso_conn_id,
 			unix_server *user_server)
 {
-	has_mso_name	hmn(name);
-
 	/* Find the owner having specified name */
 	pthread_mutex_lock(&lock);
-	auto mso_it = find_if(owners.begin(), owners.end(), hmn);
+	auto mso_it = find_if(owners.begin(), owners.end(), has_mso_name(name));
 	if (mso_it == owners.end()) {
 		ERR("%s is not a memory space owner's name\n", name);
 		pthread_mutex_unlock(&lock);
@@ -177,11 +175,9 @@ int ms_owners::open_mso(const char *name,
 
 int ms_owners::close_mso(uint32_t msoid, uint32_t mso_conn_id)
 {
-	has_msoid	hmi(msoid);
-
 	/* Find the mso */
 	pthread_mutex_lock(&lock);
-	auto it = find_if(begin(owners), end(owners), hmi);
+	auto it = find_if(begin(owners), end(owners), has_msoid(msoid));
 	if (it == end(owners)) {
 		ERR("msoid(0x%X) not found\n", msoid);
 		pthread_mutex_unlock(&lock);
@@ -213,8 +209,8 @@ int ms_owners::destroy_mso(unix_server *owner_server)
 {
 	pthread_mutex_lock(&lock);
 
-	has_owner_server msohs(owner_server);
-	auto mso_it = find_if(begin(owners), end(owners), msohs);
+	auto mso_it = find_if(begin(owners), end(owners),
+					has_owner_server(owner_server));
 
 	/* Not found, warn and return code */
 	if (mso_it == owners.end()) {
@@ -241,11 +237,9 @@ int ms_owners::destroy_mso(unix_server *owner_server)
 
 int ms_owners::destroy_mso(uint32_t msoid)
 {
-	has_msoid	hmi(msoid);
-
 	/* Find the owner belonging to msoid */
 	pthread_mutex_lock(&lock);
-	auto mso_it = find_if(owners.begin(), owners.end(), hmi);
+	auto mso_it = find_if(owners.begin(), owners.end(), has_msoid(msoid));
 	/* Not found, return error */
 	if (mso_it == owners.end()) {
 		ERR("msoid(0x%X) not found\n", msoid);
@@ -273,12 +267,11 @@ int ms_owners::destroy_mso(uint32_t msoid)
 
 ms_owner* ms_owners::operator[](uint32_t msoid)
 {
-	has_msoid	hmi(msoid);
-	auto it = find_if(begin(owners), end(owners), hmi);
+	auto it = find_if(begin(owners), end(owners), has_msoid(msoid));
 	if (it == end(owners)) {
 		ERR("Could not find owner with msoid(0x%X)\n", msoid);
 		return NULL;
 	} else {
 		return *it;
 	}
-}
+} /* operator[] */
