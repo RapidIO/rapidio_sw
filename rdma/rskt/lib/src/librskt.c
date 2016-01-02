@@ -62,7 +62,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#define RDMA_CONN_ACC_TO_SECS 3
+#define RDMA_CONN_TO_SECS 1
+#define RDMA_ACC_TO_SECS 0
 
 struct librskt_globals lib;
 
@@ -1295,7 +1296,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	do {
 		rc = rdma_accept_ms_h(skt->msh, skt->msubh, 
 				(msub_h *)&skt->con_msubh,
-				(uint32_t *)&skt->con_sz, RDMA_CONN_ACC_TO_SECS);
+				(uint32_t *)&skt->con_sz, RDMA_ACC_TO_SECS);
 	} while (-EINTR == rc);	/* FIXME: should it be ETIME? */
 	if (rc) {
 		ERR("Failed in rdma_accept_ms_h()\n");
@@ -1466,7 +1467,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
 				skt->con_msh_name, skt->msubh, 
 				&skt->con_msubh, &skt->con_sz,
-				&skt->con_msh, RDMA_CONN_ACC_TO_SECS);
+				&skt->con_msh, RDMA_CONN_TO_SECS);
 	} while (rc == RDMA_CONNECT_TIMEOUT && conn_retries-- && 
 		!lib.all_must_die);
 
