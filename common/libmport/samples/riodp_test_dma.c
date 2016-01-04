@@ -22,6 +22,51 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+/**
+ * \file riodp_test_dma.c
+ * \brief Test DMA data transfers to/from RapidIO device.
+ *
+ * This program can be invoked in two modes:
+ *
+ * 1. DMA transfer initiator (master).
+ *
+ * 2. Target inbound memory allocator.
+ *
+ * The program starts in Inbound Target Memory mode when option -i or -I
+ * is specified. To avoid DMA transfer error messages target inbound memory
+ * must be created first. When started in inbound memory mode, riodp_test_dma
+ * program will display RapidIO base address assigned to the inbound window.
+ * This address should be used to define target address of DMA data transfers.
+ *
+ * Usage:
+ *   ./riodp_test_dma [options]
+ *
+ * Options common for both modes:
+ * - -M mport_id | --mport mport_id : local mport device index (default=0)
+ * - -v : turn off buffer data verification
+ * - --debug (or -d)
+ * - --help (or -h)
+ *
+ * DMA Master mode options:
+ * - -D xxxx | --destid xxxx : destination ID of target RapidIO device.
+ * - -A xxxx | --taddr xxxx : memory address in target RapidIO device.
+ * - -S xxxx | --size xxxx : data transfer size in bytes (default 0x100).
+ * - -B xxxx : data buffer size (SRC and DST) in bytes (default 0x200000).
+ * - -O xxxx | --offset xxxx : offset in local data src/dst buffers (default=0).
+ * - -a n | --align n : data buffer address alignment.
+ * - -T n | --repeat n : repeat test n times (default=1).
+ * - -k : use coherent kernel space buffer allocation.
+ * - -r : use random size and local buffer offset values.
+ * - --faf : use FAF DMA transfer mode (default=SYNC).
+ * - --async : use ASYNC DMA transfer mode (default=SYNC).
+ *
+ * Inbound Window mode options:
+ * - -i : allocate and map inbound window (memory) using default parameters.
+ * - -I xxxx | --ibwin xxxx : inbound window (memory) size in bytes.
+ * - -R xxxx | --ibbase xxxx : inbound window base address in RapidIO address space.
+ *
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -39,6 +84,7 @@
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_mgmt.h>
 
+/// @cond
 /*
  * Initialization patterns. All bytes in the source buffer has bit 7
  * set, all bytes in the destination buffer has bit 7 cleared.
@@ -56,16 +102,29 @@
 #define PATTERN_OVERWRITE	0x20
 #define PATTERN_COUNT_MASK	0x1f
 
-/* Maximum amount of mismatched bytes in buffer to print */
-#define MAX_ERROR_COUNT		32
-
-#define TEST_BUF_SIZE (2 * 1024 * 1024)
-#define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
-
 struct dma_async_wait_param {
 	uint32_t token;		/* DMA transaction ID token */
 	int err;		/* error code returned to caller */
 };
+
+#define U8P uint8_t*
+
+/// @endcond
+
+/* Max data block length that can be transferred by DMA channel
+ * by default configured for 32 scatter/gather entries of 4K.
+ * Size returned by mport driver should be when available.
+ * Shall less or eq. TEST_BUF_SIZE.
+ */
+static uint32_t max_sge = 32;
+static uint32_t max_size = 4096;
+
+/// Maximum number of mismatched bytes in buffer to print.
+#define MAX_ERROR_COUNT 32
+/// Default size of source and destination data buffers
+#define TEST_BUF_SIZE (2 * 1024 * 1024)
+/// Default size of RapidIO target inbound window 
+#define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 
 static riomp_mport_t mport_hnd;
 static uint32_t tgt_destid;
@@ -77,15 +136,7 @@ static uint32_t ibwin_size;
 static int debug = 0;
 static uint32_t tbuf_size = TEST_BUF_SIZE;
 
-/* Max data block length that can be transferred by DMA channel
- * by default configured for 32 scatter/gather entries of 4K.
- * Size returned by mport driver should be when available.
- * Shall less or eq. TEST_BUF_SIZE.
- */
-static uint32_t max_sge = 32;
-static uint32_t max_size = 4096;
-
-struct timespec timediff(struct timespec start, struct timespec end)
+static struct timespec timediff(struct timespec start, struct timespec end)
 {
 	struct timespec temp;
 	if ((end.tv_nsec-start.tv_nsec)<0) {
@@ -177,7 +228,24 @@ static unsigned int dmatest_verify(uint8_t *buf, unsigned int start,
 	return error_count;
 }
 
-static void *dmatest_buf_alloc(riomp_mport_t mport_hnd, uint32_t size, uint64_t *handle)
+/**
+ * \brief This function is called by do_dma_test() to allocate source and
+ * destination buffers in DMA Master mode.
+ * 
+ * If parameter handle is a valid pointer (not NULL), this function will allocate
+ * a kernel-space contiguous data buffer and return its physical address into
+ * variable specified by the handle. The physical address of the buffer will be mapped
+ * into process address space and returned to a caller.
+
+ * If handle == NULL, this function allocates a paged user-space data buffer.  
+ *
+ * \param[in] mport_hnd Handle of mport device to use
+ * \param[in] size Buffer size in bytes
+ * \param[in,out] handle Physical memory address of the memory segment
+ *
+ * \return A user-space pointer to the allocated buffer or NULL on failure.
+ */
+void *dmatest_buf_alloc(riomp_mport_t mport_hnd, uint32_t size, uint64_t *handle)
 {
 	void *buf_ptr = NULL;
 	uint64_t h;
@@ -209,7 +277,22 @@ static void *dmatest_buf_alloc(riomp_mport_t mport_hnd, uint32_t size, uint64_t 
 	return buf_ptr;
 }
 
-static void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size, uint64_t *handle)
+/**
+ * \brief This function is called by do_dma_test() to free source and
+ * destination buffers allocated in DMA Master mode.
+ * 
+ * If parameter handle is a valid pointer (not NULL), this function will unmap
+ * and free a kernel-space contiguous data buffer, otherwise - user-space buffer.
+ *
+ * \param[in] mport_hnd Handle of mport device to use
+ * \param[in] buf User-space buffer address
+ * \param[in] size Buffer size in bytes
+ * \param[in] handle Physical memory address of the memory segment
+ *
+ * \return None
+ */
+void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size,
+			uint64_t *handle)
 {
 	if (handle && *handle) {
 		int ret;
@@ -225,21 +308,35 @@ static void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size, 
 		free(buf);
 }
 
-#define U8P uint8_t*
-
-static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
-			 int verify)
+/**
+ * \brief This function is called by main() if Inbound Target Memory mode was
+ * specified.
+ * 
+ *
+ * \param[in] mport_id Local mport device ID (index)
+ * \param[in] rio_base Base RapidIO address for inbound window
+ * \param[in] ib_size Inbound window and buffer size in bytes
+ * \param[in] verify Flag to enable/disable data verification on exit
+ *
+ * \return 0 if successful or error code returned by mport API.
+ *
+ * Performs the following steps:
+ *
+ */
+int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
+		  int verify)
 {
 	int ret;
 	uint64_t ib_handle;
 	void *ibmap;
 
+	/** - Request mport's inbound window mapping */ 
 	ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
 	if (ret) {
 		printf("Failed to allocate/map IB buffer err=%d\n", ret);
 		return ret;
 	}
-
+	/** - Map associated kernel buffer into process address space */
 	ret = riomp_dma_map_memory(mport_hnd, ib_size, ib_handle, &ibmap);
 	if (ret) {
 		perror("mmap");
@@ -253,14 +350,19 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 		printf("\t(h=0x%x_%x, loc=%p)\n", (uint32_t)(ib_handle >> 32),
 			(uint32_t)(ib_handle & 0xffffffff), ibmap);
 	printf("\t.... press Enter key to exit ....\n");
+
+	/** - Pause until a user presses Enter key */
 	getchar();
+	/** - Verify data before exit (if requested) */
 	if (verify)
 		dmatest_verify((U8P)ibmap, 0, ib_size, 0, PATTERN_SRC | PATTERN_COPY, 0);
 
+	/** - Unmap kernel-space data buffer */
 	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
 	if (ret)
 		perror("munmap");
 out:
+	/** - Release mport's inbound mapping window */
 	ret = riomp_dma_ibwin_free(mport_hnd, &ib_handle);
 	if (ret)
 		printf("Failed to release IB buffer err=%d\n", ret);
@@ -268,7 +370,7 @@ out:
 	return 0;
 }
 
-void *dma_async_wait(void *arg)
+static void *dma_async_wait(void *arg)
 {
 	struct dma_async_wait_param *param = (struct dma_async_wait_param *)arg;
 	int ret;
@@ -278,8 +380,25 @@ void *dma_async_wait(void *arg)
 	return &param->err;
 }
 
-static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
-		       enum riomp_dma_directio_transfer_sync sync)
+/**
+ * \brief This function performs DMA write and read back to/from remote RapidIO
+ * target device.
+ *
+ * Called by main() if DMA Master mode was specified.
+ *
+ * \param[in] random If non-zero, enables using random transfer size and offsets
+ * within source and destination buffers.
+ * \param[in] kbuf_mode If non-zero, use kernel-space contiguous buffers
+ * \param[in] verify Flag to enable/disable data verification for each write-read cycle
+ * \param[in] loop_count Number of write-read cycles to perform
+ * \param[in] sync DMA transfer synchronization mode
+ *
+ * \return 0 if successful or error code returned by mport API.
+ *
+ * Performs the following steps:
+ */
+int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
+		enum riomp_dma_directio_transfer_sync sync)
 {
 	void *buf_src = NULL;
 	void *buf_dst = NULL;
@@ -321,6 +440,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 	} else
 		printf("\tdma_size=%d offset=0x%x\n", dma_size, offset);
 
+	/** * Allocate source and destination buffers in specified space (kernel or user) */
 	buf_src = dmatest_buf_alloc(mport_hnd, tbuf_size, kbuf_mode?&src_handle:NULL);
 	if (buf_src == NULL) {
 		printf("DMA Test: error allocating SRC buffer\n");
@@ -335,7 +455,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		goto out;
 	}
 
-	for (i = 1; i <= loop_count; i++) { 
+	for (i = 1; i <= loop_count; i++) { /// * Enter write-read cycle
 		struct timespec time, rd_time;
 		pthread_t wr_thr, rd_thr;
 		struct dma_async_wait_param wr_wait, rd_wait;
@@ -359,6 +479,8 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		printf("<%d>: len=0x%x src_off=0x%x dst_off=0x%x\n",
 			i, len, src_off, dst_off);
 
+		/** - If data verification is requested, fill src and dst buffers
+                 * with predefined data */
 		if (verify) {
 			dmatest_init_srcs((U8P)buf_src, src_off, len, tbuf_size);
 			dmatest_init_dsts((U8P)buf_dst, dst_off, len, tbuf_size);
@@ -368,6 +490,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 			printf("\tWrite %d bytes from src offset 0x%x\n", len, src_off);
 		clock_gettime(CLOCK_MONOTONIC, &wr_starttime);
 
+		/** - Write data from local source buffer to remote target inbound buffer */
 		if (kbuf_mode)
 			ret = riomp_dma_write_d(mport_hnd, tgt_destid, tgt_addr,
 						src_handle, src_off, len,
@@ -376,7 +499,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 			ret = riomp_dma_write(mport_hnd, tgt_destid, tgt_addr,
 					      (U8P)buf_src + src_off, len,
 					      RIO_DIRECTIO_TYPE_NWRITE_R, sync);
-
+		/** - If in ASYNC DMA transfer mode, create waiting thread for write */
 		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
 			if (ret >=0) {
 				wr_wait.token = ret;
@@ -401,6 +524,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 
 		clock_gettime(CLOCK_MONOTONIC, &rd_starttime);
 
+		/** - Read back data from remote target inbound buffer into local destination buffer */
 		if (kbuf_mode)
 			ret = riomp_dma_read_d(mport_hnd, tgt_destid, tgt_addr,
 					dst_handle, dst_off, len, rd_sync);
@@ -408,6 +532,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 			ret = riomp_dma_read(mport_hnd, tgt_destid, tgt_addr,
 					(U8P)buf_dst + dst_off, len, rd_sync);
 
+		/** - If in ASYNC DMA transfer mode, create waiting thread for reag */
 		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
 			if (ret >=0) {
 				rd_wait.token = ret;
@@ -426,6 +551,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 
 		rd_time = timediff(rd_starttime, rd_endtime);
 
+		/** - If in ASYNC DMA transfer mode, wait for notification threads completion */
 		if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
 			pthread_join(wr_thr, NULL);
 			pthread_join(rd_thr, NULL);
@@ -438,6 +564,7 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 				goto out;
 		}
 
+		/** - If data verification is requested, verify data transfer results */
 		if (verify) {
 			unsigned int error_count;
 
@@ -486,8 +613,9 @@ static int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		time = timediff(wr_starttime, rd_endtime);
 		totaltime = ((double) time.tv_sec + (time.tv_nsec / 1000000000.0));
 		printf("\t\tFull Cycle time: %4f s\n", totaltime);
-	}
+	} /// - Repeat if loop_count > 1
 out:
+	/** * Free source and destination buffers */
 	dmatest_buf_free(mport_hnd, buf_src, tbuf_size,
 				kbuf_mode?&src_handle:NULL);
 	dmatest_buf_free(mport_hnd, buf_dst, tbuf_size,
@@ -545,6 +673,15 @@ static void display_help(char *program)
 	printf("\n");
 }
 
+/**
+ * \brief Starting point for the test program
+ *
+ * \param[in] argc Command line parameter count
+ * \param[in] argv Array of pointers to command line parameter null terminated
+ *                 strings
+ *
+ * \retval 0 means success
+ */
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
