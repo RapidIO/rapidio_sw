@@ -1,7 +1,7 @@
 /*
  * Copyright 2014 Integrated Device Technology, Inc.
  *
- * User-space RapidIO DMA transfer test program.
+ * User-space RapidIO MEMIO transfer test program.
  *
  * This program uses code fragments from Linux kernel dmaengine
  * framework test driver developed by Atmel and Intel. Please, see
@@ -22,6 +22,47 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+/**
+ * \file
+ * \brief Test MEMIO data transfers to/from RapidIO device.
+ *
+ * This program can be invoked in two modes:
+ *
+ * 1. MEMIO transfer initiator (master).
+ *
+ * 2. Target inbound memory allocator.
+ *
+ * The program starts in Inbound Target Memory mode when option -i or -I
+ * is specified. To avoid predictable MEMIO transfer failure, target inbound memory
+ * must be created first. When started in inbound memory mode, riodp_test_dma
+ * program will display RapidIO base address assigned to the inbound window.
+ * This address should be used to define target address of DMA data transfers.
+ *
+ * Usage:
+ *   ./riodp_test_obw [options]
+ *
+ * Options common for both modes:
+ * - -M mport_id | --mport mport_id : local mport device index (default=0)
+ * - -v : turn off buffer data verification
+ * - --debug (or -d)
+ * - --help (or -h)
+ *
+ * MEMIO Master mode options:
+ * - -D xxxx | --destid xxxx : destination ID of target RapidIO device.
+ * - -A xxxx | --taddr xxxx : memory address in target RapidIO device.
+ * - -S xxxx | --size xxxx : data transfer size in bytes (default 0x100).
+ * - -B xxxx : size of test buffer and OBW aperture (in MB, e.g -B2).
+ * - -O xxxx | --offset xxxx : offset in local data src/dst buffers (default=0).
+ * - -a n | --align n : data buffer address alignment.
+ * - -T n | --repeat n : repeat test n times (default=1).
+ * - -r : use random size and local buffer offset values.
+ *
+ * Inbound Window mode options:
+ * - -i : allocate and map inbound window (memory) using default parameters.
+ * - -I xxxx | --ibwin xxxx : inbound window (memory) size in bytes.
+ * - -R xxxx | --ibbase xxxx : inbound window base address in RapidIO address space.
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -40,6 +81,7 @@
 
 #include <rapidio_mport_mgmt.h>
 
+/// @cond
 /*
  * Initialization patterns. All bytes in the source buffer has bit 7
  * set, all bytes in the destination buffer has bit 7 cleared.
@@ -57,16 +99,22 @@
 #define PATTERN_OVERWRITE	0x20
 #define PATTERN_COUNT_MASK	0x1f
 
-/* Maximum amount of mismatched bytes in buffer to print */
-#define MAX_ERROR_COUNT		32
-
-#define TEST_BUF_SIZE (256 * 1024)
-#define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
-
 struct dma_async_wait_param {
 	uint32_t token;		/* DMA transaction ID token */
 	int err;		/* error code returned to caller */
 };
+
+#define U8P uint8_t*
+
+/// @endcond
+
+
+/// Maximum number of mismatched bytes in buffer to print.
+#define MAX_ERROR_COUNT		32
+/// Default size of source and destination data buffers
+#define TEST_BUF_SIZE (256 * 1024)
+/// Default size of RapidIO target inbound window 
+#define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 
 static riomp_mport_t mport_hnd;
 static uint32_t tgt_destid;
@@ -78,7 +126,7 @@ static uint32_t ibwin_size;
 static uint32_t tbuf_size = TEST_BUF_SIZE;
 static int debug = 0;
 
-struct timespec timediff(struct timespec start, struct timespec end)
+static struct timespec timediff(struct timespec start, struct timespec end)
 {
 	struct timespec temp;
 	if ((end.tv_nsec-start.tv_nsec)<0) {
@@ -186,21 +234,36 @@ static void obwtest_buf_free(void *buf)
 	free(buf);
 }
 
-#define U8P uint8_t*
-
-static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
+/**
+ * \brief This function is called by main() if Inbound Target Memory mode was
+ * specified.
+ * 
+ *
+ * \param[in] mport_id Local mport device ID (index)
+ * \param[in] rio_base Base RapidIO address for inbound window
+ * \param[in] ib_size Inbound window and buffer size in bytes
+ * \param[in] verify Flag to enable/disable data verification on exit
+ *
+ * \return 0 if successful or error code returned by mport API.
+ *
+ * Performs the following steps:
+ *
+ */
+int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 			 int verify)
 {
 	int ret;
 	uint64_t ib_handle;
 	void *ibmap;
 
+	/** - Request mport's inbound window mapping */ 
 	ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
 	if (ret) {
 		printf("Failed to allocate/map IB buffer err=%d\n", ret);
 		return ret;
 	}
 
+	/** - Map associated kernel buffer into process address space */
 	ret = riomp_dma_map_memory(mport_hnd, ib_size, ib_handle, &ibmap);
 	if (ret) {
 		perror("mmap");
@@ -214,14 +277,18 @@ static int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 		printf("\t(h=0x%x_%x, loc=%p)\n", (uint32_t)(ib_handle >> 32),
 			(uint32_t)(ib_handle & 0xffffffff), ibmap);
 	printf("\t.... press Enter key to exit ....\n");
+	/** - Pause until a user presses Enter key */
 	getchar();
+	/** - Verify data before exit (if requested) */
 	if (verify)
 		dmatest_verify((U8P)ibmap, 0, ib_size, 0, PATTERN_SRC | PATTERN_COPY, 0);
 
+	/** - Unmap kernel-space data buffer */
 	ret = riomp_dma_unmap_memory(mport_hnd, ib_size, ibmap);
 	if (ret)
 		perror("munmap");
 out:
+	/** - Release mport's inbound mapping window */
 	ret = riomp_dma_ibwin_free(mport_hnd, &ib_handle);
 	if (ret)
 		printf("Failed to release IB buffer err=%d\n", ret);
@@ -229,7 +296,22 @@ out:
 	return 0;
 }
 
-static int do_obwin_test(int random, int verify, int loop_count)
+/**
+ * \brief This function performs MEMIO write and read back to/from remote RapidIO
+ * target device.
+ *
+ * Called by main() if MEMIO Master mode was specified.
+ *
+ * \param[in] random If non-zero, enables using random transfer size and offsets
+ * within source and destination buffers.
+ * \param[in] verify Flag to enable/disable data verification for each write-read cycle
+ * \param[in] loop_count Number of write-read cycles to perform
+ *
+ * \return 0 if successful or error code returned by mport API.
+ *
+ * Performs the following steps:
+ */
+int do_obwin_test(int random, int verify, int loop_count)
 {
 	void *buf_src = NULL;
 	void *buf_dst = NULL;
@@ -258,6 +340,7 @@ static int do_obwin_test(int random, int verify, int loop_count)
 	} else
 		printf("\tcopy_size=%d offset=0x%x\n", copy_size, offset);
 
+	/** * Allocate source and destination buffers */
 	buf_src = obwtest_buf_alloc(tbuf_size);
 	if (buf_src == NULL) {
 		printf("DMA Test: error allocating SRC buffer\n");
@@ -272,6 +355,7 @@ static int do_obwin_test(int random, int verify, int loop_count)
 		goto out;
 	}
 
+	/** * Request outbound window mapped to the specified target RapidIO device */
 	ret = riomp_dma_obwin_map(mport_hnd, tgt_destid, tgt_addr, tbuf_size, &obw_handle);
 	if (ret) {
 		printf("riomp_dma_obwin_map failed err=%d\n", ret);
@@ -282,6 +366,7 @@ static int do_obwin_test(int random, int verify, int loop_count)
 		(uint32_t)(obw_handle & 0xffffffff));
 
 
+	/** * Map obtained outbound window into process address space */
 	ret = riomp_dma_map_memory(mport_hnd, tbuf_size, obw_handle, &obw_ptr);
 	if (ret) {
 		perror("mmap");
@@ -289,7 +374,7 @@ static int do_obwin_test(int random, int verify, int loop_count)
 		goto out_unmap;
 	}
 
-	for (i = 1; i <= loop_count; i++) { 
+	for (i = 1; i <= loop_count; i++) { /// * Enter write-read cycle
 		struct timespec time, rd_time;
 
 		if (random) {
@@ -311,6 +396,8 @@ static int do_obwin_test(int random, int verify, int loop_count)
 		printf("<%d>: len=0x%x src_off=0x%x dst_off=0x%x\n",
 			i, len, src_off, dst_off);
 
+		/** - If data verification is requested, fill src and dst buffers
+                 * with predefined data */
 		if (verify) {
 			dmatest_init_srcs((U8P)buf_src, src_off, len, tbuf_size);
 			dmatest_init_dsts((U8P)buf_dst, dst_off, len, tbuf_size);
@@ -319,17 +406,20 @@ static int do_obwin_test(int random, int verify, int loop_count)
 		if (debug)
 			printf("\tWrite %d bytes from src offset 0x%x\n", len, src_off);
 		clock_gettime(CLOCK_MONOTONIC, &wr_starttime);
+		/** - Write data from local source buffer to remote target inbound buffer */
 		memcpy(obw_ptr, (U8P)buf_src + src_off, len);
 		clock_gettime(CLOCK_MONOTONIC, &wr_endtime);
 		if (debug)
 			printf("\tRead %d bytes to dst offset 0x%x\n", len, dst_off);
 
 		clock_gettime(CLOCK_MONOTONIC, &rd_starttime);
+		/** - Read back data from remote target inbound buffer into local destination buffer */
 		memcpy((U8P)buf_dst + dst_off, obw_ptr, len);
 		clock_gettime(CLOCK_MONOTONIC, &rd_endtime);
 
 		rd_time = timediff(rd_starttime, rd_endtime);
 
+		/** - If data verification is requested, verify data transfer results */
 		if (verify) {
 			unsigned int error_count;
 
@@ -372,16 +462,19 @@ static int do_obwin_test(int random, int verify, int loop_count)
 		time = timediff(wr_starttime, rd_endtime);
 		totaltime = ((double) time.tv_sec + (time.tv_nsec / 1000000000.0));
 		printf("\t\tFull Cycle time: %4f s\n", totaltime);
-	}
+	} /// - Repeat if loop_count > 1
 
+	/** * Unmap outbound window fro process address space */
 	ret = riomp_dma_unmap_memory(mport_hnd, tbuf_size, obw_ptr);
 	if (ret)
 		perror("munmap");
 out_unmap:
+	/** * Release outbound window */
 	ret = riomp_dma_obwin_free(mport_hnd, &obw_handle);
 	if (ret)
 		printf("Failed to release OB window err=%d\n", ret);
 out:
+	/** * Free source and destination buffers */
 	if (buf_src)
 		obwtest_buf_free(buf_src);
 	if (buf_dst)
@@ -391,7 +484,7 @@ out:
 
 static void display_help(char *program)
 {
-	printf("%s - test DMA data transfers to/from RapidIO device\n",	program);
+	printf("%s - test MEMIO data transfers to/from RapidIO device\n",	program);
 	printf("Usage:\n");
 	printf("  %s [options]\n", program);
 	printf("options are:\n");
@@ -435,6 +528,15 @@ static void display_help(char *program)
 	printf("\n");
 }
 
+/**
+ * \brief Starting point for the test program
+ *
+ * \param[in] argc Command line parameter count
+ * \param[in] argv Array of pointers to command line parameter null terminated
+ *                 strings
+ *
+ * \retval 0 means success
+ */
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;

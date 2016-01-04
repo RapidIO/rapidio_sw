@@ -34,6 +34,26 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file
+ * \brief RapidIO port-write notifications receive test program.
+ *
+ * This program receives inbound RapidIO port-write messages according to specified
+ * filtering options and displays contents of the message. This program demonstrates
+ * reading port-write events in both: blocking and non-blocking modes.
+ *
+ * Usage:
+ *   ./riodp_test_pw [options]
+ *
+ * Options are:
+ * - -M mport_id | --mport mport_id : local mport device index (default=0)
+ * - -m xxxx : mask (default 0xffffffff)
+ * - -L xxxx : low filter value (default 0)
+ * - -H xxxx : high filter value (default 0xffffffff)
+ * - -n : run in non-blocking mode
+ * - -h | --help : display usage information
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -72,19 +92,33 @@ static void db_sig_handler(int signum)
 	}
 }
 
-static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_t high)
+/**
+ * \brief This function executes RapidIO port-write event read-and-display loop until
+ * termination by a signal.
+ *
+ * \param[in] hnd mport device handle
+ * \param[in] mask Port-write source Component Tag (CT) mask
+ * \param[in] low  Low boundary of masked CT range
+ * \param[in] high Upper boundary of masked CT range
+ *
+ * \return 0 if successful or error code returned by mport API.
+ *
+ * Performs the following steps:
+ */
+int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_t high)
 {
 	int ret;
 	struct riomp_mgmt_event evt;
 	unsigned long pw_count = 0, ignored_count = 0;
 
+	/** * Enable port-write events range (based ob source Component Tag filtering) */
 	ret = riomp_mgmt_pwrange_enable(hnd, mask, low, high);
 	if (ret) {
 		printf("Failed to enable PW filter, err=%d\n", ret);
 		return ret;
 	}
 
-	while (!rcv_exit) {
+	while (!rcv_exit) { /// * Enter read-and-display loop
 
 		if (report_status) {
 			printf("port writes count: %lu\n", pw_count);
@@ -92,6 +126,7 @@ static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_
 			report_status = 0;
 		}
 
+		/** - Read pending event */
 		ret = riomp_mgmt_get_event(hnd, &evt);
 		if (ret < 0) {
 			if (ret == -EAGAIN)
@@ -102,6 +137,7 @@ static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_
 			}
 		}
 
+		/** - If new event is PW, display payload info. Ignore non-PW events. */
 		if (evt.header == RIO_EVENT_PORTWRITE) {
 			int i;
 
@@ -119,8 +155,9 @@ static int do_pwrcv_test(riomp_mport_t hnd, uint32_t mask, uint32_t low, uint32_
 			printf("\tIgnoring event type %d)\n", evt.header);
 			ignored_count++;
 		}
-	}
+	} /// - Repeat loop until terminated
 
+	/** * Disable port-write events range before exit */
 	ret = riomp_mgmt_pwrange_disable(hnd, mask, low, high);
 	if (ret) {
 		printf("Failed to disable PW range, err=%d\n", ret);
@@ -151,6 +188,17 @@ static void display_help(char *program)
 	printf("\n");
 }
 
+/**
+ * \brief Starting point of the program
+ *
+ * \param[in] argc Command line parameter count
+ * \param[in] argv Array of pointers to command line parameter null terminated
+ *                 strings
+ *
+ * \retval 0 means success
+ *
+ * Performs the following steps:
+ */
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
@@ -172,6 +220,7 @@ int main(int argc, char** argv)
 	int err;
 	int rc = EXIT_SUCCESS;
 
+	/** - Parse command line options, if any */
 	while (1) {
 		option = getopt_long_only(argc, argv,
 				"dhnm:M:L:H:", options, NULL);
@@ -203,6 +252,7 @@ int main(int argc, char** argv)
 		}
 	}
 
+	/** - Create handle for selected mport */
 	rc = riomp_mgmt_mport_create_handle(mport_id, flags, &mport_hnd);
 	if (rc < 0) {
 		printf("DB Test: unable to open mport%d device err=%d\n",
@@ -210,6 +260,7 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
+	/** - Query mport status information and verify SRIO link activity */
 	if (!riomp_mgmt_query(mport_hnd, &prop)) {
 		riomp_mgmt_display_info(&prop);
 
@@ -223,11 +274,12 @@ int main(int argc, char** argv)
 		printf("Using default configuration\n\n");
 	}
 
-	/* Trap signals that we expect to receive */
+	/** - Trap signals that we expect to receive */
 	signal(SIGINT,  db_sig_handler);
 	signal(SIGTERM, db_sig_handler);
 	signal(SIGUSR1, db_sig_handler);
 
+	/** - Read currently active event mask */
 	err = riomp_mgmt_get_event_mask(mport_hnd, &evt_mask);
 	if (err) {
 		printf("Failed to obtain current event mask, err=%d\n", err);
@@ -235,6 +287,7 @@ int main(int argc, char** argv)
 		goto out;
 	}
 
+	/** - Update event mask to enable port-write events */
 	riomp_mgmt_set_event_mask(mport_hnd, evt_mask | RIO_EVENT_PORTWRITE);
 
 	printf("+++ RapidIO PortWrite Event Receive Mode +++\n");
@@ -242,11 +295,14 @@ int main(int argc, char** argv)
 	printf("\tfilter: mask=%x low=%x high=%x\n",
 		pw_mask, pw_low, pw_high);
 
+	/** - Execute port-write test function (until terminated) */
 	do_pwrcv_test(mport_hnd, pw_mask, pw_low, pw_high);
 
+	/** - Restore the original event mask */
 	riomp_mgmt_set_event_mask(mport_hnd, evt_mask);
 
 out:
+	/** - Close the mport handle */
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

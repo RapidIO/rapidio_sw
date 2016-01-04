@@ -34,6 +34,23 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file
+ * \brief Server part of client/server test program for RapidIO channelized messaging.
+ *
+ * Listens for connection requests from remote peers and start a child process for new connection.
+ * Each child process receives a message from a client and echoes it back to the sender. This echo loop
+ * continues until the client closes connection (or server program is terminated by a signal).  
+ *
+ * Usage:
+ *   ./riodp_test_server <loc_mport> <loc_channel> [debug]
+ *
+ * Options are:
+ * - loc_mport : local mport device index (default=0)
+ * - loc_channel : local channel number to listen for connection requests
+ * - debug : optional flag to enable debug information output
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -48,12 +65,14 @@
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
+/// @cond
 #define RIODP_MAX_MPORTS 8 /* max number of RIO mports supported by platform */
 
 struct args {
 	uint32_t mport_id;
 	uint16_t loc_channel;
 };
+/// @endcond
 
 static volatile sig_atomic_t srv_exit;
 static volatile sig_atomic_t report_status;
@@ -79,10 +98,15 @@ static void usage(char *name)
 {
 	printf("riodp library test server\n");
 	printf("Usage:\n");
-	printf("    %s <local mport> <local channel>\n", name);
+	printf("    %s <local mport> <local channel> [debug]\n", name);
 }
 
-static void show_rio_devs(void)
+/**
+ * \brief Called by main() to display available devices together with program usage information
+ *
+ * Performs the following steps:
+ */
+void show_rio_devs(void)
 {
 	uint32_t *mport_list = NULL;
 	uint32_t *ep_list = NULL;
@@ -94,6 +118,7 @@ static void show_rio_devs(void)
 	int mport_id;
 	int ret = 0;
 
+	/** - request from driver list of available local mport devices */
 	ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
 	if (ret) {
 		printf("ERR: riomp_mgmt_get_mport_list() ERR %d\n", ret);
@@ -106,6 +131,7 @@ static void show_rio_devs(void)
 			RIODP_MAX_MPORTS, number_of_mports);
 	}
 
+	/** - for each local mport display list of remote RapidIO devices */
 	list_ptr = mport_list;
 	for (i = 0; i < number_of_mports; i++, list_ptr++) {
 		mport_id = *list_ptr >> 16;
@@ -138,6 +164,13 @@ static void show_rio_devs(void)
 		printf("ERR: riodp_ep_free_list() ERR %d\n", ret);
 }
 
+/**
+ * \brief Child process created by main() to service an individual connection.
+ *
+ * \param[in] new_socket Socket associated with this connection
+
+ * In a loop performs the following steps until terminated:
+ */
 void doprocessing(riomp_sock_t new_socket)
 {
 	int ret = 0;
@@ -153,6 +186,7 @@ void doprocessing(riomp_sock_t new_socket)
 
 	while(!srv_exit) {
 repeat_rx:
+		/** - Receive an inbound message */
 		ret = riomp_sock_receive(new_socket, &msg_rx, 0x1000, 60 * 1000);
 		if (ret) {
 			if (ret == ETIME && !srv_exit) {
@@ -168,7 +202,7 @@ repeat_rx:
 			printf("CM_SERVER(%d): RX_MSG=%s\n",
 				(int)getpid(), (char *)msg_rx + 20);
 
-		/* Send  a message back to the client */
+		/** - Send  a message back to the client */
 		ret = riomp_sock_send(new_socket, msg_rx, 0x1000);
 		if (ret) {
 			printf("CM_SERVER(%d): riomp_sock_send() ERR %d (%d)\n",
@@ -178,7 +212,8 @@ repeat_rx:
 	}
 
 	riomp_sock_release_receive_buffer(new_socket, msg_rx);
-
+	/** - Close a socket assigned to this process if connection closed by
+         * a client or process terminated */
 	ret = riomp_sock_close(&new_socket);
 	if (ret)
 		printf("CM_SERVER(%d): riomp_sock_close() ERR %d\n",
@@ -187,6 +222,20 @@ repeat_rx:
 		exit(1);
 }
 
+/**
+ * \brief Starting point for the program
+ *
+ * \param[in] argc Command line parameter count
+ * \param[in] argv Array of pointers to command line parameter null terminated
+ *                 strings
+ *
+ * \retval 0 means success
+ *
+ * When running without expected number of arguments displays list of available local
+ * and remote devices.
+ *
+ * Performs the following steps:
+ */
 int main(int argc, char** argv)
 {
 	int ret = 0;
@@ -196,15 +245,12 @@ int main(int argc, char** argv)
 	riomp_sock_t new_socket;
 	pid_t pid, wpid;
 	int status = 0;
-	char* eth_emu = getenv("RIODP_EMU_IP_PREFIX");
 
-	/* Parse console arguments */
+	/** - Parse console arguments */
+	/** - If number of arguments is less than expected display help message and list of devices. */
 	if (argc < 3) {
 		usage(argv[0]);
-		if (eth_emu == NULL) /* no IP-prefix set, so RapidIO is used */
-			show_rio_devs();
-		else
-			printf("CM_SERVER: RIODP_EMU_IP_PREFIX found, using ethernet...\n");
+		show_rio_devs();
 		return 0;
 	}
 
@@ -214,46 +260,43 @@ int main(int argc, char** argv)
 	if (argc == 4)
 		srv_debug = 1;
 
-	/* Trap signals that we expect to receive */
+	/** - Trap signals that we expect to receive */
 	signal(SIGINT, srv_sig_handler);
 	signal(SIGTERM, srv_sig_handler);
 	signal(SIGUSR1, srv_sig_handler);
 
-	if (eth_emu != NULL) /* no IP-prefix set, so RapidIO is used */
-		printf("CM_SERVER: RIODP_EMU_IP_PREFIX found, using ethernet...\n");
-	else
-		printf("CM_SERVER(%d): Running on RapidIO mport_%d\n",
-			(int)getpid(), arg.mport_id);
+	printf("CM_SERVER(%d): Running on RapidIO mport_%d\n",
+		(int)getpid(), arg.mport_id);
 
-	/* Create rapidio_mport_mailbox control structure */
+	/** - Create rapidio_mport_mailbox control structure */
 	ret = riomp_sock_mbox_create_handle(arg.mport_id, 0, &mailbox);
 	if (ret) {
 		printf("CM_SERVER: riodp_mbox_init() ERR %d\n", ret);
 		goto out;
 	}
 
-	/* Create an unbound socket structure */
+	/** - Create a socket  structure associated with given mailbox */
 	ret = riomp_sock_socket(mailbox, &socket);
 	if (ret) {
 		printf("CM_SERVER: riomp_sock_socket() ERR %d\n", ret);
 		goto out_h;
 	}
 
-	/* Bind the listen channel to opened MPORT device */
+	/** - Bind the listen channel to opened MPORT device */
 	ret = riomp_sock_bind(socket, arg.loc_channel);
 	if (ret) {
 		printf("CM_SERVER: riomp_sock_bind() ERR %d\n", ret);
 		goto out_s;
 	}
 
-	/* Initiate LISTEN on the specified channel */
+	/** - Initiate LISTEN on the specified channel */
 	ret = riomp_sock_listen(socket);
 	if (ret) {
 		printf("CM_SERVER: riomp_sock_listen() ERR %d\n", ret);
 		goto out_s;
 	}
 
-	/* Create child process for each accepted request */
+	/** - Create child process for each accepted request */
 	while(!srv_exit) {
 
 		/* Create new socket object for accept */
@@ -298,14 +341,14 @@ repeat:
 		}
 	}
 
-	/* Exit closing listening channel */
+	/** - Exit closing listening channel */
 out_s:
 	ret = riomp_sock_close(&socket);
 	if (ret)
 		printf("CM_SERVER(%d): riomp_sock_close() ERR %d\n",
 			(int)getpid(), ret);
 out_h:
-	/* Release rapidio_mport_mailbox control structure */
+	/** - Release rapidio_mport_mailbox control structure */
 	ret = riomp_sock_mbox_destroy_handle(&mailbox);
 	if (ret)
 		printf("riodp_mbox_shutdown error: %d\n", ret);
