@@ -69,7 +69,6 @@ void DMAChannel::init()
   pthread_spin_init(&m_hw_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_pending_work_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_bl_splock, PTHREAD_PROCESS_PRIVATE);
-  pthread_spin_init(&m_evlog_splock, PTHREAD_PROCESS_PRIVATE);
 
   m_bd_num        = 0;
   m_sts_size      = 0;
@@ -78,7 +77,6 @@ void DMAChannel::init()
   m_T3_bd_hw      = 0;
   m_fifo_scan_cnt = 0;
   m_tx_cnt        = 0;
-  m_keep_evlog    = false;
   m_bl_busy       = NULL;
   m_bl_busy_size  = -1;
   m_check_reg     = false;
@@ -196,7 +194,6 @@ uint32_t DMAChannel::clearIntBits()
 bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
 {
   struct dmadesc desc;
-  char ev = '\x0';
   bool queued_T3 = false;
   WorkItem_t wk_end;
   WorkItem_t wk;
@@ -232,12 +229,10 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   dmadesc_setdevid(desc, opt.destid);
 
   if(opt.dtype == DTYPE1) {
-    ev = '1';
     dmadesc_setT1_bufptr(desc, mem.win_handle);
     dmadesc_setT1_buflen(desc, opt.bcount);
     opt.win_handle = mem.win_handle; // this is good across processes
   } else { // T2
-    ev = '2';
     if(rtype != NREAD)  { // copy data
       dmadesc_setT2_data(desc, (const uint8_t*)mem.win_ptr,
         mem.win_size);
@@ -274,7 +269,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
       else
         m_dma_wr++;
       setWriteCount(m_dma_wr);
-      evlog('3');
       queued_T3 = true;
       m_bl_busy_size++;
       bd_idx = 0;
@@ -302,7 +296,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
     m_dma_wr++;
     setWriteCount(m_dma_wr);
-    evlog(ev);
 
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
   }}
@@ -579,8 +572,6 @@ void DMAChannel::cleanup()
     free(m_bl_busy); m_bl_busy = NULL;
     m_bl_busy_size = -1;
   }
-
-  m_evlog.clear();
 }
 
 static inline bool hexdump64bit(const void* p, int len)
@@ -640,7 +631,6 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     DBG("\n\tFIFO hw RP=%u WP=%u\n", getFIFOReadCount(), getFIFOWriteCount());
 #endif
 
-  evlog('.');
   /* Check and clear descriptor status FIFO entries */
   while (sts_ptr[j] && !umdemo_must_die) {
     if(m_restart_pending) return 0;
@@ -653,7 +643,6 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
       compl_hwbuf[compl_size++] = c;
       sts_ptr[i] = 0;
       m_tx_cnt++; // rather number of successfuly completed DMA ops
-      evlog('F');
     } // END for line-of-8
 
     ++m_fifo_rd;

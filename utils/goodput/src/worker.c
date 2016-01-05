@@ -1494,11 +1494,6 @@ void UMD_DD(const struct worker* info)
 		ss<<"\t"<<tmp;
 	}
 	CRIT("%s", ss.str().c_str());
-
-	if (info->evlog.size() == 0) return;
-
-	CRIT("\n\tEvlog:\n", NULL);
-	write(STDOUT_FILENO, info->evlog.c_str(), info->evlog.size());
 }
 #endif
 
@@ -2100,7 +2095,6 @@ void umd_dma_goodput_demo(struct worker *info)
 	};
 
 	zero_stats(info);
-	info->evlog.clear();
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
@@ -2180,7 +2174,6 @@ exit_nomsg:
 
         pthread_join(info->umd_fifo_thr.thr, NULL);
 
-	info->umd_dch->get_evlog(info->evlog);
         info->umd_dch->cleanup();
 
 	// Only allocatd one DMA buffer for performance reasons
@@ -2390,8 +2383,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	};
 
 	zero_stats(info);
-	info->evlog.clear();
-        //info->umd_dch->switch_evlog(true);
 
 	if (GetEnv("verb") != NULL) {
 		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
@@ -2460,7 +2451,6 @@ exit:
 	if (info->umd_dch)
 		info->umd_dch->shutdown();
 
-	info->umd_dch->get_evlog(info->evlog);
         info->umd_dch->cleanup();
 
 	// Only allocatd one DMA buffer for performance reasons
