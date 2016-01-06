@@ -56,10 +56,12 @@ int main(int argc, char* argv[])
 
         write(sock, buffer, N);
 
-	memset(buffer, 0, sizeof(buffer));
-        int n = read(sock, buffer, 4096); 
-        const uint16_t rxdestid = ntohs(pL3->destid);
-        printf("Got %d L7 bytes reply from destid %u: %s\n", (n-sizeof(DMA_MBOX_L3_t)), rxdestid, (char*)buffer+sizeof(DMA_MBOX_L3_t));
+        for(;;) {
+	   memset(buffer, 0, sizeof(buffer));
+           int n = read(sock, buffer, 4096); 
+           const uint16_t rxdestid = ntohs(pL3->destid);
+           printf("Got %d L7 bytes reply from destid %u: %s\n", (n-sizeof(DMA_MBOX_L3_t)), rxdestid, (char*)buffer+sizeof(DMA_MBOX_L3_t));
+	}
     } else while(1) {
 	memset(buffer, 0, sizeof(buffer));
         int n = read(sock, buffer, 4096); 
@@ -74,7 +76,7 @@ int main(int argc, char* argv[])
         pL3->tag    = htons(CM_TAG);
 
 	uint8_t* pData = buffer2 + sizeof(DMA_MBOX_L3_t);
-	strncpy(pData, "ACK: ", 4096-sizeof(DMA_MBOX_L3_t));
+        snprintf(pData, 4096-sizeof(DMA_MBOX_L3_t), "ACK (pid=%d): ", getpid());
 	strncat(pData, (char*)buffer+sizeof(DMA_MBOX_L3_t), 4094-sizeof(DMA_MBOX_L3_t));
         const int N = sizeof(DMA_MBOX_L3_t) + strlen(pData);
         const int ntx = write(sock, buffer2, N);
