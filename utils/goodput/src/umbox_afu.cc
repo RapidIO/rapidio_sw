@@ -84,7 +84,9 @@ extern "C" {
         uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 };
 
-extern bool umd_dma_goodput_tun_ep_has_peer(struct worker* info, const uint16_t destid);
+//extern bool umd_dma_goodput_tun_ep_has_peer(struct worker* info, const uint16_t destid);
+extern bool umd_dma_goodput_tun_has_ep(struct worker* info, const uint32_t destid);
+
 
 #define PAGE_4K    4096
 
@@ -181,7 +183,8 @@ void umd_afu_watch_demo(struct worker* info)
 	while (! info->stop_req) {
 		uint8_t buf[PAGE_4K];
 
-		const int epoll_cnt = epoll_wait (info->umd_epollfd, events, MAX_EPOLL_EVENTS, -1);
+		const int epoll_cnt = epoll_wait (info->umd_epollfd, events, MAX_EPOLL_EVENTS, 100); // Not -1 so we have a chance to quit
+		if(info->stop_req) break;
 		
 		for (int epi = 0; epi < epoll_cnt; epi++) {
 			const int fd = events[epi].data.fd;
@@ -230,7 +233,7 @@ void umd_afu_watch_demo(struct worker* info)
 					continue;
 				}
 
-				pL3->destid = pL2->destid_src;
+				pL3->destid = pL2->destid_src; // Switcheroo
 
 				std::vector<int> bad_vec;
 				std::vector<int>& tag_vec = itl->second;
@@ -298,7 +301,7 @@ void umd_afu_watch_demo(struct worker* info)
 				  if(epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, connect_fd, &event) < 0) goto exit;
 				}}
 				
-				DBG("\n\tNew connection on fd=%d tag=%d\n", fd, tag);
+				DBG("\n\tNew connection on fd=%d tag=%d as connect_fd=%d\n", fd, tag, connect_fd);
 				continue;
 			}
 
@@ -314,7 +317,7 @@ void umd_afu_watch_demo(struct worker* info)
                                 // Cleanup fd from various maps
                                 socket_tag_list.erase(fd);
 
-                                for (int k = 0; k < tag_socket_list.size(); k++) { // We must hutnt this fd among all tags :(
+                                for (int k = 0; k < tag_socket_list.size(); k++) { // We must hunt this fd among all tags :(
                                         std::vector<int>& tag_vec = tag_socket_list[k];
 
                                         // Clunky way to erase element from vector
@@ -348,17 +351,19 @@ void umd_afu_watch_demo(struct worker* info)
 				INFO("\n\tTag mismatch between socket.tag=%u and L3.tag=%u destid %u fd=%d. Ignoring\n", tag, tagL3, destid, fd);
 				continue;
 			}
-			if (! umd_dma_goodput_tun_ep_has_peer(info, destid)) { // No point spamming MBOX with invalid destid
-				INFO("\n\tNo peer for destid %u exists fd=%d tag=%d\n", destid, fd, tagL3);
+
+			if (! umd_dma_goodput_tun_has_ep(info, destid)) { // No point spamming MBOX with invalid destid
+				INFO("\n\tNo endpoint for destid %u exists fd=%d tag=%d\n", destid, fd, tagL3);
 				// XXX Signal error? ENONET
 				continue;
 			}
 
+			DBG("\n\tTX to destid %u tag %u %d L7 bytes\n", destid, tagL3, nread);
 			DMA_MBOX_L2_t L2hdr; memset(&L2hdr, 0, sizeof(L2hdr));
 
 			L2hdr.destid_src = htons(info->my_destid);
 			L2hdr.destid_dst = htons(destid);
-			L2hdr.len        = htons(sizeof(DMA_MBOX_L2_t)) + nread;
+			L2hdr.len        = htons(sizeof(DMA_MBOX_L2_t) + nread);
 
 			struct iovec iov[2]; memset(&iov, 0, sizeof(iov));
 

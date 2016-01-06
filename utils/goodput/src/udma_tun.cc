@@ -1552,6 +1552,20 @@ exit:
         info->umd_mbox_tx_fd = -1;
 }
 
+/** \brief Check whether we have an endpoint
+ */
+bool umd_dma_goodput_tun_has_ep(struct worker* info, const uint32_t destid)
+{
+	bool ret = false;
+        pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
+	{{
+	  std::map<uint16_t, DmaPeerCommsStats_t>::iterator it = info->umd_dma_did_enum_list.find(destid);
+	  if (it != info->umd_dma_did_enum_list.end()) ret = true;
+	}}
+        pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+	return ret;
+}
+
 void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
 {
 	time_t now = time(NULL);

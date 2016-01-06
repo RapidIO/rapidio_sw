@@ -1,6 +1,8 @@
 #ifndef __UMBOX_AFU_H__
 #define __UMBOX_AFU_H__
 
+#include <stdint.h>
+
 #define AFU_PATH        "/tmp/RIO_CM_DG_"
 
 /** \brief This is the L3 header we use for transporting CM-tagged data over MBOX */
