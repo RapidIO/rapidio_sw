@@ -200,7 +200,13 @@
 
  * Example code for using the RDMA interfaces is found at
  * rapidio_sw/rdma/samples/src.
- * 
+ *
+ * \subsection rdma_known_limitations RDMA Limitations
+ *
+ * The known limitations of the RDMA implementation are:
+ *
+ * - Only one memory subspace can be connected per memory space.
+ * - Closing memory spaces/subspaces results in unpredictable behavior.
  *
  * \section rdma_sockets RDMA Sockets (RSKT)
  *
@@ -211,7 +217,7 @@
  * and total memory allocated by the RDMA Socket daemon.  These quantities are
  * controlled by the following RDMA Socket daemon command line paramenters:
  *
- * -s (num_spaces): Number of memory spaces to use. Maximum is 8.
+ * -s (num_spaces): Number of memory spaces to use. Maximum is 64.
  * -S (size): Size in kilobytes of memory spaces to request.  Valid values are
  *            128, 256, 512, 1024, and 2048
  * -k (size): Size of rskt socket buffers in kilobytes.  Valid values are
@@ -222,6 +228,18 @@
  *
  * For RDMA Sockets code examples, refer to
  * rapidio_sw/rdma/rskt/daemon/src, rskt_server.c and rskt_client.c.
+ *
+ * \subsection rdma_skts_known_limitations RDMA Sockets Limitations
+ *
+ * The known limitations of the RDMA Sockets implementation are:
+ *
+ * - The RDMA Sockets implementation leaks memory on all actions except
+ *   rskt_read and rskt_write.
+ * - The RDMA Sockets implementation uses synchronous transfers, which 
+ *   reduces throughput.
+ * - The rskt_flush and rskt_recv interfaces are not supported by the current
+ *   release.
+ * - Closing a socket results in undefined behavior.
  *
  * \section file_transfer_demo File Transfer Demo
  *

@@ -420,7 +420,8 @@ repeat:
 		if (rc) {
 			if ((errno == ETIME) || (errno == EINTR))
 				goto repeat;
-			CRIT("speer_conn: riodp_accept() ERR %d\n", rc);
+			CRIT("speer_conn: riodp_accept() ERR %d %d:%s\n",
+				rc, errno, strerror(errno));
 			break;
 		}
 

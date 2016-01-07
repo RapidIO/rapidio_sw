@@ -54,9 +54,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DFLT_LIBRSKTD_TEST_TEST 0
 #define DFLT_LIBRSKTD_TEST_CM_SKT 4395
 #define DFLT_LIBRSKTD_TEST_MPNUM 0
-#define TEST_ZERO_MS 0
-#define TEST_ZERO_MS_SZ 0
-#define TEST_SKIP_MS 1
+#define TEST_NUM_MS 16
+#define TEST_MS_SZ (64*1024)
+#define TEST_SKIP_MS 0
 #define NOT_TEST 0
 
 #ifdef __cplusplus
@@ -169,6 +169,7 @@ void create_priv(struct worker *info)
 		test = (struct rskt_test_info *)
 			malloc(sizeof(struct rskt_test_info));
 
+	memset(test, 0, sizeof(struct rskt_test_info));
 	sem_init(&test->speer_acc, 0, 0);
 	sem_init(&test->speer_con, 0, 0);
 	l_init(&test->speer_req);
@@ -215,31 +216,31 @@ struct unit_test_driver stub_utd = {
 int all_app_lib_queues_empty_checks(void)
 {
 	if (l_size(&lib.msg_tx)) {
-		CRIT("lib.msgtx");
+		WARN("lib.msgtx");
 		goto fail;
 	};
 	if (l_size(&lib.rsvp)) {
-		CRIT("lib.rsvp");
+		WARN("lib.rsvp");
 		goto fail;
 	};
 	if (l_size(&lib.req)) {
-		CRIT("lib.req");
+		WARN("lib.req");
 		goto fail;
 	};
 	if (l_size(&lib_st.tx_msg_q)) {
-		CRIT("lib.rtx_msg_q");
+		WARN("lib.rtx_msg_q");
 		goto fail;
 	};
 	if (l_size(&lib_st.acc)) {
-		CRIT("lib_st.acc");
+		WARN("lib_st.acc");
 		goto fail;
 	};
 	if (l_size(&lib_st.con)) {
-		CRIT("lib_st.con");
+		WARN("lib_st.con");
 		goto fail;
 	};
 	if (l_size(&lib_st.creq)) {
-		CRIT("lib_st.creq");
+		WARN("lib_st.creq");
 		goto fail;
 	};
 	return 0;
@@ -1112,13 +1113,16 @@ int test_speer_wpeer_driver(struct worker *info)
 	
 			fail_pt = 91;
 	
+			DBG("Closing from the other side");
 			memset(&s_t->req, 0, sizeof(w_t->req));
 			memset(&s_t->resp, 0, sizeof(w_t->resp));
 			speer_seq_no++;
         		s_t->req.msg_type = htonl(RSKTD_CLOSE_REQ);
         		s_t->req.msg_seq = htonl(speer_seq_no);
-        		s_t->req.msg.clos.rem_sn = htonl(acc_sa.sn);
-        		s_t->req.msg.clos.loc_sn = htonl(speer_sn);
+			DBG("acc_sa.sn %d acc_skt->sn %d",
+				acc_sa.sn, acc_skt->sa.sn);
+        		s_t->req.msg.clos.loc_sn = htonl(acc_sa.sn);
+        		s_t->req.msg.clos.rem_sn = htonl(speer_sn);
         		s_t->req.msg.clos.force = htonl(1);
 		
 			s_t->resp.msg_type = htonl(RSKTD_CLOSE_RESP);
@@ -1141,10 +1145,8 @@ int test_speer_wpeer_driver(struct worker *info)
 			if (wkr[wp_idx].stat != worker_running)
 				goto fail;
 	
-/*
 			while (acc_skt->skt != NULL)
 				sleep(0);
-*/
 			
 			/* Now close the listening socket */
 			/* This is a local operation, no need */
@@ -1703,7 +1705,9 @@ int test_case_4A(void)
 
 		sem_wait(&buddy->done_sema);
 		sem_wait(&test->done_sema);
-		CRIT("RCs: wkr %d test %x buddy %x", idx, test->rc, buddy->rc);
+		if (test->rc || buddy->rc)
+			CRIT("RCs: wkr %d test %x buddy %x",
+				idx,test->rc, buddy->rc); 
 
 		rc |= test->rc | buddy->rc;
 	};
@@ -2037,12 +2041,7 @@ int test_case_7(void)
 
 	/* Set up HELLO req/resp for SPEER, this should go immediately */
 	fail_pt = 5;
-	while (s_t->new_req &&
-			wait_for_worker_status(&wkr[sp_idx], worker_running))
-		sleep(0);
-
-	if (!wait_for_worker_status(&wkr[sp_idx], worker_running))
-		goto fail;
+	s_t->new_req = 0;
 
         s_t->req.msg_type = htonl(RSKTD_HELLO_REQ);
         s_t->req.msg_seq = htonl(speer_seq_no);
@@ -2108,11 +2107,13 @@ int test_case_7(void)
 	* Then have speer send in connect request, confirm success.
 	*/
 
+/*
 	fail_pt = 20;
 	dmn.num_ms = 0x10;
 	dmn.ms_size = 64*1024;
 	if (alloc_mso_msh())
 		goto fail;
+*/
 
 	fail_pt = 25;
 	acc_skt = rskt_create_socket();
@@ -2290,7 +2291,7 @@ int test_case_7(void)
 	if (wkr[wp_idx].stat != worker_running)
 		goto fail;
 
-	/* Start up WPEER process, should connect with worker thread*/
+	/* Kill WPEER process */
 	fail_pt = 110;
 	
 	destids[0].valid = 0;
@@ -2300,6 +2301,10 @@ int test_case_7(void)
 
 	INFO("Kicked fmdd_sem to kill WPEER and SPEER");
 
+	/* Note: kill_all_worker_threads sets kill_acc_conn, which will cause 
+	* the riomp_sock_accept call in the RSKTD SPEER_CONN thread to fail,
+	* which will in turn cause the daemon to kill all threads and exit.
+	*/
 	kill_all_worker_threads();
 
 	sleep(1);
@@ -2323,10 +2328,12 @@ int test_case_8(void)
 	int ret;
 	int found_one = 0;
 
+/*
 	dmn.num_ms = 0x10;
 	dmn.ms_size = 64*1024;
 	if (alloc_mso_msh())
 		return 0x1000;
+*/
 
 	for (i = 0; i < num_drivers; i++) {
 		/* Start worker driver thread */
@@ -2346,7 +2353,7 @@ int test_case_8(void)
 
 		d_t->start_sn = st_skt + (i * skts_per_driver);
 		d_t->end_sn = st_skt + ((i + 1) * skts_per_driver) - 1;
-		d_t->max_iter = 5000;
+		d_t->max_iter = 10;
 		d_t->sp_idx = sp_idx;
 		d_t->wp_idx = wp_idx;
 		d_t->speer_acc_sn = st_acc_sn + (i * skts_per_driver);
@@ -2380,12 +2387,12 @@ int test_case_8(void)
 			sleep(0);
 
 		if (wait_for_worker_status(&wkr[wp_idx], worker_running)) {
-			ERR("Could not start WPEER %d", wp_idx);
+			CRIT("Could not start WPEER %d", wp_idx);
 			ret = 1;
 			goto fail;
 		};
 		if (!dmn.wpeers[i].peer_pid) {
-			ERR("Could not start WPEER %d", wp_idx);
+			CRIT("Could not start WPEER %d", wp_idx);
 			ret = 1;
 			goto fail;
 		};
@@ -2414,11 +2421,11 @@ int test_case_8(void)
 		d_t = (struct rskt_test_info *)wkr[d_i].priv_info;
 
 		if (d_t->rc) {
-			ERR("Worker %d FAILED, rc: 0d%d 0x%x", 
+			CRIT("Worker %d FAILED, rc: 0d%d 0x%x", 
 				d_i, d_t->rc, d_t->rc);
 			ret = 1;
 		} else {
-			ERR("Worker %d Passed, rc: 0d%d 0x%x", 
+			HIGH("Worker %d Passed, rc: 0d%d 0x%x", 
 				d_i, d_t->rc, d_t->rc);
 		};
 	};
@@ -2489,7 +2496,6 @@ int main(int argc, char *argv[])
 	librsktd_bind_cli_cmds();
 	liblog_bind_cli_cmds();
 
-/*
 	ret = test_case_0();
 	if (ret) {
 		CRIT("Test case 0 FAILED 0x%x 0d%d\n", ret, ret);
@@ -2557,27 +2563,24 @@ int main(int argc, char *argv[])
 	};
 	CRIT("Test case 5 Passed\n");
 
-*/
 	// Start SPEER connection handler
 	kill_all_worker_threads();
 	
 	if (start_speer_handler(DFLT_LIBRSKTD_TEST_CM_SKT,
-			DFLT_LIBRSKTD_TEST_MPNUM, TEST_ZERO_MS, TEST_ZERO_MS_SZ,
+			DFLT_LIBRSKTD_TEST_MPNUM, TEST_NUM_MS, TEST_MS_SZ,
 			TEST_SKIP_MS, NOT_TEST)) {
 		CRIT("Could not start speer connection manager. EXITING");
 		goto fail;
 	};
 	CRIT("Started SPEER connection manager.");
 
-/*
 	ret =  test_case_6();
 	if (ret) {
 		CRIT("Test case 6 FAILED rc 0x%x %d \n", ret, ret);
-		// goto fail;
+		goto fail;
 	};
 	CRIT("Test case 6 Passed\n");
 
-*/
 	if (librskt_init(DFLT_LIBRSKTD_TEST_PORT, DFLT_LIBRSKTD_TEST_MPNUM)) {
 		CRIT("Could not start rskt library. EXITING");
 		goto fail;
@@ -2585,23 +2588,58 @@ int main(int argc, char *argv[])
 		CRIT("Restarted librskt");
 	};
 
-	g_level = 7;
-
 	// Start up WPEER and SPEER, verify that its working
-/*
 	rc = test_case_7();
 	if (rc) {
 		CRIT("Test case 7 FAILED rc 0x%x %d \n", rc, rc);
 		goto fail;
 	};
 	CRIT("Test case 7 Passed\n");
-*/
+
+	// Since all daemon threads are killed by test_case_7, start up all
+	// threads again.
+	// Cleanup remaining library threads, and details in fake_libmport
+	librskt_finish();
+	sock_wkr_idx = 0;
+
+	// Then start up everything again.
+	dmn.all_must_die = 0;
+	if (start_fm_thread()) {
+		ERR("Could not start message procssor thread. EXITING");
+		goto fail;
+	};
+
+	if (start_wpeer_handler()) {
+		CRIT("Could not start WPEER connection manager. EXITING");
+		goto fail;
+	} else {
+		DBG("Started wpeer handler.");
+	};
+
+	if (start_msg_proc_q_thread()) {
+		ERR("Could not start message procssor thread. EXITING");
+		goto fail;
+	};
+	if (start_lib_handler(DFLT_LIBRSKTD_TEST_PORT, DFLT_LIBRSKTD_TEST_MPNUM,
+			DFLT_LIBRSKTD_TEST_BKLG, DFLT_LIBRSKTD_TEST_TEST)) {
+		ERR("Could not start lib handler. EXITING");
+		goto fail;
+	};
+
+	if (librskt_init(DFLT_LIBRSKTD_TEST_PORT, DFLT_LIBRSKTD_TEST_MPNUM)) {
+		ERR("Could not start rskt library. EXITING");
+		goto fail;
+	};
+
+	if (start_speer_handler(DFLT_LIBRSKTD_TEST_CM_SKT,
+			DFLT_LIBRSKTD_TEST_MPNUM, TEST_NUM_MS, TEST_MS_SZ,
+			TEST_SKIP_MS, NOT_TEST)) {
+		CRIT("Could not start speer connection manager. EXITING");
+		goto fail;
+	};
 
 	/* Run multiple WPEER/SPEER in parallel */
-	/* NOTE: To run test case 8, comment out execution of test cases 1-7.
-	*/
 
-	g_level = 4;
 	ret = test_case_8();
 	if (ret) {
 		CRIT("Test case 8 FAILED rc 0x%x %d \n", ret, ret);

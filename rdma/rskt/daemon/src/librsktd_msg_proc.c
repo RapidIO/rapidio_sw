@@ -346,6 +346,9 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	rsktd_sn_set(ntohl(acc_req->rx->a_rq.msg.accept.sn), rskt_listening);
 	rsktd_sn_set(a_resp->new_sn, rskt_connecting);
 	loc_ms_info->state = 1;
+	loc_ms_info->loc_sn = a_resp->new_sn;
+	loc_ms_info->rem_sn = ntohl(dreq->dst_sn);
+	loc_ms_info->rem_ct = (*con_req->sp)->ct;
 	a_resp->new_sn = htonl(a_resp->new_sn);
 	a_resp->new_ct = htonl(dmn.qresp.hdid);
 

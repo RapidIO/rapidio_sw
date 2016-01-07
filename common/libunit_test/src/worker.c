@@ -194,8 +194,10 @@ void kill_worker_thread(struct worker *info)
         if (worker_dead != info->stat) {
                 info->action = UNIT_TEST_SHUTDOWN;
                 info->stop_req = worker_dead;
-		if (worker_halted == info->stat)
+		if (worker_halted == info->stat) {
                 	sem_post(&info->run);
+			sleep(0);
+		};
 		pthread_kill(info->wkr_thr.thr, SIGUSR1);
                 pthread_join(info->wkr_thr.thr, NULL);
         };

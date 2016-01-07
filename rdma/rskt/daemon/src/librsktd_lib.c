@@ -252,9 +252,9 @@ void *app_rx_loop(void *ip)
 	struct acc_skts *acc;
 	struct con_skts *con;
 	struct librskt_app_to_rsktd_msg *rxed;
-       struct sigaction sigh;
+	struct sigaction sigh;
 
-	rc = pthread_detach(dmn.app_tx_thread);
+	rc = pthread_detach(app->thread);
 	if (rc) {
 		WARN("pthread_detach rc %d", rc);
 	};
@@ -515,6 +515,7 @@ int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog, int tst)
 	lib_st.mpnum = mpnum;
 	lib_st.bklg = backlog;
 	lib_st.tst = tst;
+	lib_st.all_must_die = 0;
 
 	lib_st.loop_alive = 0;
 	lib_st.new_app = NULL;

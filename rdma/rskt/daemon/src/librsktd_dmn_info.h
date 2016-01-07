@@ -78,6 +78,9 @@ struct ms_info {
 	ms_h	ms;
 	int	ms_size;
 	struct rskt_socket_t skt;
+	int	loc_sn;
+	int	rem_sn;
+	int	rem_ct;
 };
 
 struct mso_info {
