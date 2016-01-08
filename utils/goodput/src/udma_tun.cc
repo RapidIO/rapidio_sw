@@ -53,11 +53,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <linux/if.h>
-#include <linux/if_tun.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
-#include <arpa/inet.h>
+//#include <arpa/inet.h>
 #include <sys/select.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
@@ -80,6 +78,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "lockfile.h"
 #include "tun_ipv4.h"
 
+#include "dmapeer.h" // This encapsulates in inlined code the IB window logic
+
 extern "C" {
 	void zero_stats(struct worker *info);
 	int migrate_thread_to_cpu(struct thread_cpu *info);
@@ -98,7 +98,7 @@ extern "C" {
 
 void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool signal);
 void umd_dma_goodput_tun_del_ep_signal(struct worker* info, const uint32_t destid);
-static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, DmaPeerDestid_t* peer, const uint16_t my_destid);
+static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, DmaPeer* peer, const uint16_t my_destid);
 
 ///< This be fishy! There's no standard for ntonll :(
 static inline uint64_t htonll(uint64_t value)
@@ -262,6 +262,8 @@ again:
 			if (info->stop_req) break;
 			if (events[epi].data.fd == info->umd_sockp_quit[1]) {
 				INFO("\n\tSocketpair said quit!\n");
+				char c = 0;
+				read(events[epi].data.fd, &c, 1);
 				goto exit; // Time to quit!
 			}
 
@@ -276,7 +278,7 @@ again:
 			}
 
 			for (int cnt = 0; cnt < 4; cnt++) { // Maximum per-Tun
-				if (umd_dma_tun_process_tun_RX(info, dci, (DmaPeerDestid_t*)events[epi].data.ptr, my_destid)) tx_cnt++;
+				if (umd_dma_tun_process_tun_RX(info, dci, (DmaPeer*)events[epi].data.ptr, my_destid)) tx_cnt++;
 				else break; // Read all I could from Tun fd
 			}
 		}
@@ -303,7 +305,7 @@ no_post:
 
 /** \brief Process data from Tun and send it over DMA NWRITE
  */
-static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, DmaPeerDestid_t* peer, const uint16_t my_destid)
+static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, DmaPeer* peer, const uint16_t my_destid)
 {
 	if (info == NULL || dci == NULL || peer == NULL || my_destid == 0xffff) return false;
 
@@ -320,7 +322,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
 	uint8_t* buffer = (uint8_t*)dci->dmamem[dci->oi].win_ptr;
 
-	const int nread = read(peer->tun_fd, buffer+DMA_L2_SIZE, info->umd_tun_MTU);
+	const int nread = read(peer->get_tun_fd(), buffer+DMA_L2_SIZE, info->umd_tun_MTU);
 	const uint64_t now = rdtsc();
 
 	if (nread < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return false;
@@ -338,7 +340,6 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
 	is_bad_destid += (destid_dpi == info->my_destid);
 
-	//DmaPeerLock(peer);
 
 	if (info->stop_req || peer->stop_req) goto unlock;
 
@@ -352,40 +353,40 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	}};
 #endif
 
-	peer->tun_rx_cnt++;
+	peer->m_stats.tun_rx_cnt++;
 
 	if (is_bad_destid) {
 		ERR("\n\tBad destid %u -- score=%d\n", destid_dpi, is_bad_destid);
-		send_icmp_host_unreachable(peer->tun_fd, buffer+DMA_L2_SIZE, nread);
+		send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread);
 		goto error;
 	}
 
-	first_message = peer->tx_cnt == 0;
+	first_message = peer->m_stats.tx_cnt == 0;
 
 	do {{
-	  if (peer->WP == peer->RP) { break; }
-	  if (peer->WP > peer->RP)  { outstanding = peer->WP-peer->RP; break; }
+	  if (peer->get_WP() == peer->get_RP()) { break; }
+	  if (peer->get_WP() > peer->get_RP())  { outstanding = peer->get_WP()-peer->get_RP(); break; }
 	  //if (WP == (info->umd_tx_buf_cnt-2)) { outstanding = RP; break; }
-	  outstanding = peer->WP + dci->tx_buf_cnt-2 - peer->RP;
+	  outstanding = peer->get_WP() + dci->tx_buf_cnt-2 - peer->get_RP();
 	}} while(0);
 
-	DBG("\n\tWP=%d guessed { RP=%d outstanding=%d } %s\n", peer->WP, peer->RP, outstanding, (outstanding==(dci->tx_buf_cnt-1))? "FULL": "");
+	DBG("\n\tWP=%d guessed { RP=%d outstanding=%d } %s\n", peer->get_WP(), peer->get_RP(), outstanding, (outstanding==(dci->tx_buf_cnt-1))? "FULL": "");
 
 	// We force reading RP from a "new" destid as a RIO ping as
 	// NWRITE does not barf  on bad destids
 
-	if (now > peer->nread_ts && (now - peer->nread_ts) > info->umd_nread_threshold)
+	if (now > peer->m_stats.nread_ts && (now - peer->m_stats.nread_ts) > info->umd_nread_threshold)
 		force_nread = true;
 
 	if (first_message || force_nread ||  outstanding >= Q_THR || dci->dch->queueSize() > Q_THR) { // This must be done per-destid
 		uint32_t newRP = ~0;
-		if (udma_nread_mem(info, destid_dpi, peer->rio_addr, sizeof(newRP), (uint8_t*)&newRP)) {
-			peer->nread_ts = rdtsc();
-			DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", destid_dpi, peer->RP, newRP);
-			peer->RP = newRP;
-			if (first_message) peer->WP = newRP; // XXX maybe newRP+1 ?? Test
+		if (udma_nread_mem(info, destid_dpi, peer->get_rio_addr(), sizeof(newRP), (uint8_t*)&newRP)) {
+			peer->m_stats.nread_ts = rdtsc();
+			DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", destid_dpi, peer->get_RP(), newRP);
+			peer->set_RP(newRP);
+			if (first_message) peer->set_WP(newRP); // XXX maybe newRP+1 ?? Test
 		} else {
-			send_icmp_host_unreachable(peer->tun_fd, buffer+DMA_L2_SIZE, nread); // XXX which tun fd??
+			send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun fd??
 			DBG("\n\tHW error, something is FOOBAR with Chan %u\n", info->umd_chan2);
 
 			peer->stop_req = 1;
@@ -400,7 +401,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
 	if (outstanding == (dci->tx_buf_cnt-1)) {
 		CRIT("\n\tPeer destid=%u is FULL, dropping frame!\n", destid_dpi);
-		peer->rio_tx_peer_full++;
+		peer->m_stats.rio_tx_peer_full++;
 		// XXX Maybe send back ICMP Host Unreachable? TODO: Study RFCs
 		goto error;
 	}
@@ -427,11 +428,11 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
 	dmaopt.destid      = destid_dpi;
 	dmaopt.bcount      = ntohl(pL2->len);
-	dmaopt.raddr.lsb64 = peer->rio_addr + sizeof(uint32_t) + peer->WP * BD_PAYLOAD_SIZE(info);
+	dmaopt.raddr.lsb64 = peer->get_rio_addr() + sizeof(uint32_t) + peer->get_WP() * BD_PAYLOAD_SIZE(info);
 	dmaopt.u_data      = now;
 
 	DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx WP=%d chan=%d oi=%d\n",
-	    nread, DMA_L2_SIZE, destid_dpi, dmaopt.raddr.lsb64, peer->WP, dci->chan, dci->oi);
+	    nread, DMA_L2_SIZE, destid_dpi, dmaopt.raddr.lsb64, peer->get_WP(), dci->chan, dci->oi);
 
 	dci->dch->setCheckHwReg(first_message);
 
@@ -440,7 +441,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 					info->umd_dma_abort_reason, &info->meas_ts)) {
 		if(info->umd_dma_abort_reason != 0) { // HW error
 			// ICMPv4 dest unreachable id bad destid 
-			send_icmp_host_unreachable(peer->tun_fd, buffer+DMA_L2_SIZE, nread); // XXX which tun
+			send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun
 			DBG("\n\tHW error, triggering soft restart\n");
 
 			peer->stop_req = 1;
@@ -459,14 +460,13 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
 	// For just one destdid WP==oi but we keep them separate
 
-	peer->WP++; // This must be done per-destid
-	if (peer->WP == (dci->tx_buf_cnt-1)) peer->WP = 0; // Account for T3 missing IBwin cell, ALL must have the same bufc!
+	// This must be done per-destid
+	if (peer->inc_WP() == (dci->tx_buf_cnt-1)) peer->set_WP(0); // Account for T3 missing IBwin cell, ALL must have the same bufc!
 
-	peer->tx_cnt++;
+	peer->m_stats.tx_cnt++;
 	ret = true;
 
 unlock:
-	// if (peer != NULL) DmaPeerUnLock(peer);
 	return ret;
 
 error:  goto unlock;
@@ -490,14 +490,14 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 	pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 
 	for (int epi = 0; epi < info->umd_dma_did_peer_list_high_wm; epi++) {
-		DmaPeerDestid_t* peer = info->umd_dma_did_peer_list[epi];
+		DmaPeer* peer = info->umd_dma_did_peer_list[epi];
 		if (peer == NULL) continue; // Just vacated one slot?
 
 		if (peer->sig == PEER_SIG_INIT) continue; // Not UP yet
 
 		assert(peer->sig == PEER_SIG_UP);
 
-		const uint16_t destid = peer->destid;
+		const uint16_t destid = peer->get_destid();
 
 		// XXX Do I need this paranoia check in production?
 		if (info->umd_dma_did_enum_list.find(destid) == info->umd_dma_did_enum_list.end()) {
@@ -505,88 +505,11 @@ void umd_dma_goodput_tun_callback(struct worker *info)
 			break; // Better luck next time we're called
 		}
 
-		bool pending_work = false;
-
-		int k = ~0;
-		int cnt = 0;
-		int idx = ~0;
-		uint64_t now = 0;
-		volatile uint32_t* pRP = NULL;
-
-		//DmaPeerLock(peer);
-
-		if (peer->stop_req) goto unlock;
-
-		pRP = (uint32_t*)peer->ib_ptr;
-
-		k = *pRP;
-		assert(k >= 0);
-		assert(k < (info->umd_tx_buf_cnt-1));
-
-		now = rdtsc();
-		if (peer->rio_rx_bd_ready_size >= (info->umd_tx_buf_cnt-1)) { // Quick peek while unlocked -- Receiver too slow, go to next peer!
-			if (peer->rio_rx_peer_full_ts == 0) peer->rio_rx_peer_full_ts = now;
-			continue;
-		}
-		if (peer->rio_rx_peer_full_ts > 0 && now > peer->rio_rx_peer_full_ts) { // We just drained somw of IBwin window for this peer
-			peer->rio_rx_peer_full_ticks_total += now - peer->rio_rx_peer_full_ts;
-		}
-		peer->rio_rx_peer_full_ts = 0;
-
- 		pthread_spin_lock(&peer->rio_rx_bd_ready_splock);
-
-		idx = peer->rio_rx_bd_ready_size; // If not zero then RIO RX thr is sloow
-		assert(idx >= 0);
-
-		for (int i = 0; i < (info->umd_tx_buf_cnt-1); i++) {
-			if (info->stop_req) break;
-			if (peer->stop_req) continue;
-
-			if (idx >= (info->umd_tx_buf_cnt-1)) break;
-
-			if(0 != peer->rio_rx_bd_L2_ptr[k]->RO) {
-				const uint64_t now = rdtsc();
-#ifdef UDMA_TUN_DEBUG_IB
-				DBG("\n\tFound ready buffer at RP=%u -- iter %llu\n", k, cbk_iter);
-#endif
-
-				assert(k < (info->umd_tx_buf_cnt-1));
-				assert(idx < (info->umd_tx_buf_cnt-1));
-
-				peer->rio_rx_bd_ready[idx] = k;
-				peer->rio_rx_bd_ready_ts[idx] = now;
-				peer->rio_rx_bd_L2_ptr[k]->RO = 0; // So we won't revisit
-				idx++;
-				cnt++;
-			} else {
-				break; // Stop at 1st non-ready IB bd??
-			}
-
-			k++; if(k == (info->umd_tx_buf_cnt-1)) k = 0; // RP wrap-around
-		}
-
-		if (cnt > 0) {
-			assert(cnt <= (info->umd_tx_buf_cnt-1)); // XXX Cannot exceed that!
-			peer->rio_rx_bd_ready_size += cnt;
-			assert(peer->rio_rx_bd_ready_size <= (info->umd_tx_buf_cnt-1));
-			peer->rio_isol_rx_pass++;
-		}
-
-		pthread_spin_unlock(&peer->rio_rx_bd_ready_splock);
-
-		if (cnt == 0) goto unlock;
-
-		pending_work = true;
+		int ret = peer->scan_RO(); ret += 0;
 
 #ifdef UDMA_TUN_DEBUG_IB
-		DBG("\n\tFound %d ready buffers at iter %llu\n", cnt, cbk_iter);
+		DBG("\n\tFound %d ready buffers at iter %llu\n", ret, cbk_iter);
 #endif
-
-		if (pending_work) sem_post(&peer->rio_rx_work);
-
-	unlock:
-		//DmaPeerUnLock(peer);
-		if (info->stop_req) break;
 	} // END for each peer
 
 	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
@@ -606,15 +529,13 @@ void* umd_dma_wakeup_proc_thr(void* arg)
 	  if (info->umd_dma_did_peer_list_high_wm == 0) break;
 
           for (int epi = 0; epi < info->umd_dma_did_peer_list_high_wm; epi++) {
-                DmaPeerDestid_t* peer = info->umd_dma_did_peer_list[epi];
+                DmaPeer* peer = info->umd_dma_did_peer_list[epi];
                 if (peer == NULL) continue; // Just vacated one slot?
 
 		assert(peer->sig == PEER_SIG_UP);
 
-                //DmaPeerLock(peer);
                 peer->stop_req = 1;
-		sem_post(&peer->rio_rx_work);
-		//DmaPeerUnLock(peer);
+		peer->rx_work_sem_post();
 	  }
 	}} while(0);
 	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
@@ -721,106 +642,20 @@ error:
 	return false;
 }
 
-/** \brief Set up a Tun for a Peer
- */
-bool umd_dma_goodput_tun_setup_TUN(struct worker *info, DmaPeerDestid_t* peer, uint16_t my_destid)
-{
-	bool ret = false;
-        char if_name[IFNAMSIZ] = {0};
-        char Tap_Ifconfig_Cmd[257] = {0};
-        int flags = IFF_TUN | IFF_NO_PI;
-
-	if (info == NULL || peer == NULL) return false;
-
-	DmaPeerLock(peer);
-
-	if (my_destid == peer->destid) goto error;
-
-        memset(peer->tun_name, 0, sizeof(peer->tun_name));
-
-        // Initialize tun/tap interface
-        if ((peer->tun_fd = tun_alloc(if_name, flags)) < 0) {
-                CRIT("Error connecting to tun/tap interface %s!\n", if_name);
-                goto error;
-        }
-        strncpy(peer->tun_name, if_name, sizeof(peer->tun_name)-1);
-
-	{{
-	  const int flags = fcntl(peer->tun_fd, F_GETFL, 0);
-	  fcntl(peer->tun_fd, F_SETFL, flags | O_NONBLOCK);
-	}}
-
-        // Configure tun/tap interface for pointo-to-point IPv4, L2, no ARP, no multicast
-
-	{{
-          const uint16_t my_destid_tun   = my_destid + DESTID_TRANSLATE;
-          const uint16_t peer_destid_tun = peer->destid + DESTID_TRANSLATE;
-
-          snprintf(Tap_Ifconfig_Cmd, 256, "169.254.%d.%d pointopoint 169.254.%d.%d",
-                 (my_destid_tun >> 8) & 0xFF,   my_destid_tun & 0xFF,
-                 (peer_destid_tun >> 8) & 0xFF, peer_destid_tun & 0xFF);
-
-          char ifconfig_cmd[257] = {0};
-          snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s %s mtu %d up",
-                                    if_name, Tap_Ifconfig_Cmd, info->umd_tun_MTU);
-          const int rr = system(ifconfig_cmd);
-          if(rr >> 8) {
-                peer->tun_name[0] = '\0';
-		// No need to remove from epoll set, close does that as it isn't dup(2)'ed
-                close(peer->tun_fd); peer->tun_fd = -1;
-                goto error;
-          }
-
-          snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
-          system(ifconfig_cmd);
-	}}
-
-	peer->sig = PEER_SIG_UP;
-
-	{{
-	  struct epoll_event event;
-	  event.data.ptr = peer;
-	  event.events = EPOLLIN; // | EPOLLET;
-          if (epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, peer->tun_fd, &event) < 0) {
-		CRIT("\n\tFailed to add tun_fd %d for peer destid %u to epoll set %d\n",
-		     peer->tun_fd, peer->destid, info->umd_epollfd);
-                close(peer->tun_fd); peer->tun_fd = -1;
-		goto error;
-	  }
-	}}
-
-	ret = true;
-
-unlock:
-	DmaPeerUnLock(peer);
-
-	if (ret) {
-		INFO("\n\t%s %s mtu %d on DMA Chan=%d,...,Chan_n=%d Chan2=%d my_destid=%u peer_destid=%u #buf=%d #fifo=%d\n",
-		     if_name, Tap_Ifconfig_Cmd, info->umd_tun_MTU,
-		     info->umd_chan, info->umd_chan_n, info->umd_chan2,
-		     my_destid, peer->destid,
-		     info->umd_tx_buf_cnt, info->umd_sts_entries);
-	}
-	
-	return ret;
-
-error:  goto unlock;
-}
-
 /** \brief This waits for \ref umd_dma_goodput_tun_callback to signal that IBwin buffers are ready for this peer. Then stuffs L3 frames into Tun
  */
 void* umd_dma_tun_TX_proc_thr(void* arg)
 {
 	if (arg == NULL) return NULL;
 
-	DmaPeerDestid_t* peer = (DmaPeerDestid_t*)arg;
+	DmaPeer* peer = (DmaPeer*)arg;
 	assert(peer->sig == PEER_SIG_UP);
 
-	struct worker* info = peer->info;
+	struct worker* info = peer->get_info();
 
 	uint64_t rx_ok = 0; ///< TX'ed into Tun device
 
-	volatile uint32_t* pRP = (uint32_t*)peer->ib_ptr;
+	volatile uint32_t* pRP = (uint32_t*)peer->get_ib_ptr();
 
 	struct thread_cpu myself; memset(&myself, 0, sizeof(myself));
 
@@ -835,85 +670,19 @@ void* umd_dma_tun_TX_proc_thr(void* arg)
                 goto exit;
         }
 
-	INFO("\n\tReady to receive from RIO from destid %u {isolcpu $cpu2=%d}\n", peer->destid, myself.cpu_req);
+	INFO("\n\tReady to receive from RIO from destid %u {isolcpu $cpu2=%d}\n", peer->get_destid(), myself.cpu_req);
 
 again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), update RP, set RO=0
 	while (!info->stop_req && !peer->stop_req) {
-		if (peer->rio_rx_bd_ready_size == 0) // Unlocked op, we take a sneak peek at volatile counter
-			sem_wait(&peer->rio_rx_work); // To BEW: how does this impact RX latecy?
+		if (peer->get_rio_rx_bd_ready_size() == 0) // Unlocked op, we take a sneak peek at volatile counter
+			peer->rx_work_sem_wait();
 
         	if (info->stop_req || peer->stop_req) goto stop_req;
 		assert(peer->sig == PEER_SIG_UP);
 
-		DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->rio_rx_bd_ready_size, *pRP);
+		DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->get_rio_rx_bd_ready_size(), *pRP);
 
-		assert(peer->rio_rx_bd_ready_size <= (info->umd_tx_buf_cnt-1));
-
-		// Make this quick & sweet so we don't hose the FIFO thread for long
-		int cnt = 0;
-		int ready_bd_list[info->umd_tx_buf_cnt]; memset(ready_bd_list, 0xff, sizeof(ready_bd_list));
-		pthread_spin_lock(&peer->rio_rx_bd_ready_splock);
-		for (int i = 0; i < peer->rio_rx_bd_ready_size; i++) {
-                        assert(peer->rio_rx_bd_ready[i] < (info->umd_tx_buf_cnt-1));
-			ready_bd_list[cnt++] = peer->rio_rx_bd_ready[i];
-		}
-		peer->rio_rx_bd_ready_size = 0;
-		pthread_spin_unlock(&peer->rio_rx_bd_ready_splock);
-
-		if (cnt == 0) continue;
-
-		peer->rio_rx_pass++;
-
-#ifdef UDMA_TUN_DEBUG_IB
-		DBG("\n\tInbound %d buffers(s) will be processed from destid %u RP=%u\n", cnt, peer->destid, *pRP);
-#endif
-
-        	if (info->stop_req || peer->stop_req) goto stop_req;
-		assert(peer->sig == PEER_SIG_UP);
-
-		for (int i = 0; i < cnt && !info->stop_req; i++) {
-			int rp = ready_bd_list[i];
-			assert(rp >= 0);
-			assert(rp < (info->umd_tx_buf_cnt-1));
-
-			if (info->stop_req || peer->stop_req) goto stop_req;
-			assert(peer->sig == PEER_SIG_UP);
-
-			DMA_L2_t* pL2 = peer->rio_rx_bd_L2_ptr[rp];
-
-			rx_ok++;
-			const int payload_size = ntohl(pL2->len) - DMA_L2_SIZE;
-
-			assert(payload_size > 0);
-			assert(payload_size <= info->umd_tun_MTU);
-
-			peer->rx_cnt++;
-
-			uint8_t* payload = (uint8_t*)pL2 + DMA_L2_SIZE;
-			uint64_t tx_ts = rdtsc();
-                        const int nwrite = cwrite(peer->tun_fd, payload, payload_size);
-#ifdef UDMA_TUN_DEBUG_IB
-                        const uint32_t crc = crc32(0, payload, payload_size);
-                        DBG("\n\tGot a msg of size %d from RIO destid %u (L7 CRC32 0x%x) cnt=%llu, wrote %d to %s -- rp=%d\n",
-                                 ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, peer->tun_name, rp);
-#endif
-
-			if (info->stop_req || peer->stop_req) goto stop_req;
-			assert(peer->sig == PEER_SIG_UP);
-
-			if (nwrite == payload_size) {
-			     peer->tun_tx_cnt++;
-			     if (tx_ts > peer->rio_rx_bd_ready_ts[i]) peer->total_ticks_rx += tx_ts - peer->rio_rx_bd_ready_ts[i];
-			} else peer->tun_tx_err++;
-
-			peer->rio_rx_bd_ready_ts[i] = 0;
-
-			rp++; if (rp == (info->umd_tx_buf_cnt-1)) rp = 0;
-#ifdef UDMA_TUN_DEBUG_IB
-			DBG("\n\tUpdating old RP %d to %d\n", *pRP, rp);
-#endif
-			*pRP = rp;
-		}
+		rx_ok += peer->service_TUN_TX();
         } // END while NOT stop requested
 
 stop_req:
@@ -946,16 +715,15 @@ bool umd_dma_goodput_tun_setup_peer(struct worker* info, const uint16_t destid, 
 
 	if (info == NULL || rio_addr == 0) return false;
 
-        DmaPeerDestid_t* tmppeer = (DmaPeerDestid_t*)calloc(1, sizeof(DmaPeerDestid_t));
+        DmaPeer* tmppeer = new DmaPeer();
         if (tmppeer == NULL) return false;
 
-	tmppeer->sig       = PEER_SIG_INIT;
-	tmppeer->destid    = destid;
-	tmppeer->rio_addr  = rio_addr;
-	//tmppeer->ib_ptr  = ib_ptr; // Done in DmaPeerDestidInit
+	tmppeer->sig = PEER_SIG_INIT;
+	tmppeer->set_destid(destid);
+	tmppeer->set_rio_addr(rio_addr);
 
         // Set up array of pointers to IB L2 headers
-        if (! DmaPeerDestidInit(info, tmppeer, ib_ptr)) goto exit;
+        if (! tmppeer->init(info, ib_ptr)) goto exit;
 
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
 	  for (int epi = 0; epi < info->umd_dma_did_peer_list_high_wm; epi++) {
@@ -981,7 +749,7 @@ bool umd_dma_goodput_tun_setup_peer(struct worker* info, const uint16_t destid, 
 		goto exit;
 	}
 
-        if (! umd_dma_goodput_tun_setup_TUN(info, tmppeer, info->my_destid)) goto exit;
+        if (! tmppeer->setup_TUN(info->my_destid, DESTID_TRANSLATE)) goto exit;
 
         rc = pthread_create(&tun_TX_thr, NULL,
                             umd_dma_tun_TX_proc_thr, (void *)tmppeer);
@@ -998,14 +766,14 @@ exit:
 	  if (slot != -1) info->umd_dma_did_peer_list[slot] = NULL;;
         pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
-	DmaPeerDestidDestroy(tmppeer); free(tmppeer);
+	delete tmppeer;
 
 	return false;
 }
 
 /** \brief Thread to service FIFOs for all TX/NWRITE DMA channels
  * \note This must be running on an isolcpu core.
- * \note It has a callback for other code to share isolcpu resource.
+ * \note It has a callback for other code to share the isolcpu resource.
  */
 void* umd_dma_tun_fifo_proc_thr(void* parm)
 {
@@ -1094,12 +862,12 @@ no_post:
         return parm;
 }
 
-/* \brief Interact with other peers and set up tun devices as appropriate
- * This code evolved to be RDMAD-redux
+/* \brief Interact with other peers via MBOX and set up Tun devices as appropriate
+ * This code evolved to be RDMAD-redux.
  * It is fed by MboxWatch via socketpairs
- * and EpWatch via a (polled) list of enumerated EPs
+ * and EpWatch via a (polled) list of enumerated EPs.
  * \note MboxWatch may or may not be running; we do not barf if the socketpair is/becomes -1!
- * \param[in] info this replacement
+ * \param[in] info "this" replacement
  * \param min_bcasts Put up Tun device only after hearing min_bcasts from peer
  * \param bcast_interval Interval between broadcasts
  */
@@ -1178,7 +946,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 			} else {
 				ERR("\n\tSend to MboxWatch thread failed [tx_fd=%d]: %s\n", strerror(errno), info->umd_mbox_tx_fd);
 			}
-		}
+		} // END for peers
 
 // Receive broadcasts from other peers
 	receive:
@@ -1228,7 +996,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 			  std::map<uint16_t, int>::iterator itp = info->umd_dma_did_peer.find(from_destid);
 			  if (itp != info->umd_dma_did_peer.end()) {
 				peer_setup = true;
-				peer_rio_addr = info->umd_dma_did_peer_list[itp->second]->rio_addr;
+				peer_rio_addr = info->umd_dma_did_peer_list[itp->second]->get_rio_addr();
 			  }
 			}}
 			pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
@@ -1328,7 +1096,7 @@ exit:
 	return;
 }
 
-/** \brief Man battle tank thread -- Pobeda Nasha!
+/** \brief Main Battle Tank thread -- Pobeda Nasha!
  * \verbatim
 We maintain the (per-peer destid) IB window (or
 sub-section thereof) in the following format:
@@ -1457,7 +1225,6 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         }
 
         zero_stats(info);
-        info->evlog.clear();
 
         clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
@@ -1505,29 +1272,29 @@ exit:
 	    if (info->umd_dma_did_peer.size() == 0) break;
 
             for (int epi = 0; epi < info->umd_dma_did_peer_list_high_wm; epi++) {
-                DmaPeerDestid_t* peer = info->umd_dma_did_peer_list[epi];
+                DmaPeer* peer = info->umd_dma_did_peer_list[epi];
                 if (peer == NULL) continue; // Just vacated one slot?
 
 		assert(peer->sig == PEER_SIG_UP);
 
 		{{ // A close removes tun_fd from poll set but NOT if it was dupe(2)'ed
 		  struct epoll_event event;
-		  event.data.fd = peer->tun_fd;
+		  event.data.fd = peer->get_tun_fd();
 		  event.events = EPOLLIN;
 		  epoll_ctl(info->umd_epollfd, EPOLL_CTL_DEL, event.data.fd, &event);
 		}}
 
 		// Tell peer we stop?
-		umd_dma_goodput_tun_del_ep_signal(info, peer->destid);
+		umd_dma_goodput_tun_del_ep_signal(info, peer->get_destid());
 
 		peer->stop_req = 1;
-		sem_post(&peer->rio_rx_work);
+		peer->rx_work_sem_post();
 
-		info->umd_dma_did_peer.erase(peer->destid);
+		info->umd_dma_did_peer.erase(peer->get_destid());
 		info->umd_dma_did_peer_list[epi] = NULL;
 
 		peer->sig = ~0;
-		DmaPeerDestidDestroy(peer); free(peer);
+		delete peer;
 	    }
 	  }} while(0);
 	  info->umd_dma_did_peer.clear();
@@ -1611,7 +1378,7 @@ void umd_dma_goodput_tun_del_ep_signal(struct worker* info, const uint32_t desti
 	}
 }
 
-/** \brief Check whether we have an up Tun for an endpoint 
+/** \brief Check whether we have an "up" Tun for an endpoint 
  */
 bool umd_dma_goodput_tun_ep_has_peer(struct worker* info, const uint16_t destid)
 {
@@ -1664,25 +1431,25 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
 	  found = true;
 	  {
 		const int slot = itp->second;
-                DmaPeerDestid_t* peer = info->umd_dma_did_peer_list[slot];
+                DmaPeer* peer = info->umd_dma_did_peer_list[slot];
                 assert(peer);
 
                 {{ // A close removes tun_fd from poll set but NOT if it was dupe(2)'ed
                   struct epoll_event event;
-                  event.data.fd = peer->tun_fd;
+                  event.data.fd = peer->get_tun_fd();
                   event.events = EPOLLIN;
                   epoll_ctl(info->umd_epollfd, EPOLL_CTL_DEL, event.data.fd, &event);
                 }}
 
 		peer->stop_req = 1;
-		sem_post(&peer->rio_rx_work);
+		peer->rx_work_sem_post();
 		sched_yield(); // Allow peer to wake up and quit... hopefully. And with mutex held. Yay!
 
 		info->umd_dma_did_peer.erase(itp);
 		info->umd_dma_did_peer_list[slot] = NULL;
 
                 peer->sig = ~0;
-                DmaPeerDestidDestroy(peer); free(peer);
+		delete peer;
 
 		if (slot == (info->umd_dma_did_peer_list_high_wm-1))
 			info->umd_dma_did_peer_list_high_wm--;
@@ -2080,7 +1847,7 @@ void umd_mbox_watch_demo(struct worker *info)
 // Receive from MBOX, send to umd_mbox_rx_fd
 
 		bool message_ready = false;
-		for (int i = 0; !info->stop_req && i < 100000; i++) {
+		for (int i = 0; !info->stop_req && i < 10000; i++) {
 			uint64_t rx_ts = 0;
 			if (info->umd_mch->inb_message_ready(rx_ts)) { message_ready = true; break; }
 			if (info->stop_req) goto exit;
@@ -2138,7 +1905,7 @@ exit_bomb:
 	goto exit;
 }
 
-/** \bried Dump UMD DMA Tun status
+/** \brief Dump UMD DMA Tun status
  * \note This executes within the CLI thread but targets Main Battle Tank thread's data
  */
 extern "C"
@@ -2233,7 +2000,7 @@ void UMD_DD(struct worker* info)
 	if (dch_cnt > 0)
 		INFO("\n\tDMA Channel stats: %s\n", ss.str().c_str());
 
-	std::vector<DmaPeerDestid_t>     peer_list;
+	std::vector<DmaPeer>     peer_list;
 	std::vector<DmaPeerCommsStats_t> peer_list_enum;
 
 	time_t now = time(NULL);
@@ -2250,9 +2017,12 @@ void UMD_DD(struct worker* info)
 
           std::map <uint16_t, int>::iterator itp = info->umd_dma_did_peer.begin();
 	  for (; itp != info->umd_dma_did_peer.end(); itp++)
-		peer_list.push_back(*info->umd_dma_did_peer_list[itp->second]); // Yeehaw! Make a copy of struct
+		peer_list.push_back(*info->umd_dma_did_peer_list[itp->second]); // Yeehaw! Make a copy of class!!
 	}}
 	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
+
+	// Prevent freeing of resources in copy object
+	for (int ip = 0; ip < peer_list.size(); ip++) { peer_list[ip].set_copy(); }
 
 	if (peer_list_enum.size() > 0) {
 		std::stringstream ss;
@@ -2273,36 +2043,36 @@ void UMD_DD(struct worker* info)
 	if (peer_list.size() > 0) {
 		std::stringstream ss;
 		for (int ip = 0; ip < peer_list.size(); ip++) {
-			DmaPeerDestid_t& peer = peer_list[ip];
+			DmaPeer& peer = peer_list[ip];
 			char tmp[257] = {0};
 			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u tx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
-				 peer.destid, peer.tun_name, peer.rio_addr,
-				 peer.WP, peer.RP,
-				 peer.tx_cnt, peer.rx_cnt,
-				 peer.tun_rx_cnt, peer.tun_tx_cnt, peer.tun_tx_err,
-			         peer.rio_tx_peer_full
+				 peer.get_destid(), peer.get_tun_name(), peer.get_rio_addr(),
+				 peer.get_WP(), peer.get_RP(),
+				 peer.m_stats.tx_cnt, peer.m_stats.rx_cnt,
+				 peer.m_stats.tun_rx_cnt, peer.m_stats.tun_tx_cnt, peer.m_stats.tun_tx_err,
+			         peer.m_stats.rio_tx_peer_full
 				);
 			ss << "\n\t\t" << tmp;
 
-			uint32_t* pRP = (uint32_t*)peer.ib_ptr;
+			uint32_t* pRP = (uint32_t*)peer.get_ib_ptr();
 			assert(pRP);
 
-			float TotalTimeSpentFull = (float)peer.rio_rx_peer_full_ticks_total / MHz;
+			float TotalTimeSpentFull = (float)peer.m_stats.rio_rx_peer_full_ticks_total / MHz;
 			snprintf(tmp, 256, "\n\t\t\trx.RP=%u IBBdReady=%d #IsolIBPass=%llu #IBPass=%llu IBBDFullTotal=%fuS",
-			                   *pRP, peer.rio_rx_bd_ready_size,
-			                   peer.rio_isol_rx_pass, peer.rio_rx_pass,
+			                   *pRP, peer.get_rio_rx_bd_ready_size(),
+			                   peer.m_stats.rio_isol_rx_pass, peer.m_stats.rio_rx_pass,
 			                   TotalTimeSpentFull);
 			ss << tmp;
 
-			if (peer.tun_tx_cnt > 0) {
+			if (peer.m_stats.tun_tx_cnt > 0) {
 				char tmp[65] = {0};
-				float AvgUS = ((float)peer.total_ticks_rx / peer.tun_tx_cnt) / MHz;
+				float AvgUS = ((float)peer.m_stats.total_ticks_rx / peer.m_stats.tun_tx_cnt) / MHz;
 				snprintf(tmp, 64, "\n\t\t\tAvgSoftRX=%fuS", AvgUS);
 				ss << tmp;
 			}
 
-			if (peer.mutex.__data.__lock) {
-				snprintf(tmp, 256, "\n\t\t\tlocker.tid=0x%x", peer.mutex.__data.__owner);
+			if (peer.get_mutex().__data.__lock) {
+				snprintf(tmp, 256, "\n\t\t\tlocker.tid=0x%x", peer.get_mutex().__data.__owner);
 				ss << tmp;
 			}
 		}

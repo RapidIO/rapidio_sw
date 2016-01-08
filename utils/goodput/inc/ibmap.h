@@ -44,8 +44,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "udma_tun.h"
 
+/** \brief Manage the IBwin mappings for remote peers */
 class IBwinMap {
 public:
+  /** \brief Constructor
+   * \note Thic class does not bang hardware. It is just a record keeper
+   * \param     rio_addr RIO address at which this CMA memory IBwin was mapped by mport
+   * \param[in] ib_ptr  Mmmap'ed address of CMA memory window
+   * \param     ib_size Size of CMA memory window
+   * \param     bufc    How many IB "BDs" per peer
+   * \param     tun_MTU Tun MTU
+   */
   IBwinMap(const uint64_t rio_addr, const void* ib_ptr, const uint32_t ib_size, const int bufc, const int tun_MTU) :
     m_rio_addr(rio_addr), m_ib_ptr((uint8_t*)ib_ptr), m_ib_size(ib_size)
   {
@@ -72,6 +81,7 @@ public:
     pthread_mutex_init(&m_mutex, NULL);
   } 
 
+  /** \brief Lookup the IBwin mapping for a destid */
   inline bool lookup(const uint16_t destid, uint64_t& rio_addr, void*& ib_ptr)
   {
     return alloc(destid, rio_addr, ib_ptr);
@@ -130,6 +140,7 @@ done:
     return ret;
   }
 
+  /** \brief Free the IBwin mapping for a destid. No hardware registers are touched */
   inline bool free(const uint16_t destid)
   {
     bool ret = false;

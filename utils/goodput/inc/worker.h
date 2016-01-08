@@ -162,6 +162,7 @@ struct thread_cpu {
 
 #define MAX_EPOLL_EVENTS	64
 
+#if 0
 #define PEER_SIG_INIT	0x66666666L
 #define PEER_SIG_UP	0xbaaddeedL
 #define PEER_SIG_DESTROYED  0xdeadbeefL
@@ -208,6 +209,7 @@ typedef struct {
 
 	struct worker*     info;
 } DmaPeerDestid_t;
+#endif
 
 typedef struct {
 	int			 chan;
@@ -234,6 +236,10 @@ typedef struct {
 } DmaPeerCommsStats_t;
 
 #endif // USER_MODE_DRIVER
+
+#ifdef USER_MODE_DRIVER
+class DmaPeer;
+#endif
 
 struct worker {
 	int idx; /* index of this worker thread -- needed by UMD */
@@ -350,12 +356,12 @@ struct worker {
 	int             umd_epollfd; ///< Epoll set
 	struct thread_cpu umd_dma_tap_thr;
 
-	pthread_mutex_t         umd_dma_did_peer_mutex;
+	pthread_mutex_t umd_dma_did_peer_mutex;
 
         std::map<uint16_t, DmaPeerCommsStats_t> umd_dma_did_enum_list; ///< This is just a list of destids we broadcast to -- populated by EpWatch
 
-	int                     umd_dma_did_peer_list_high_wm; ///< High water mark of list below -- maintained by Main Battle Tank thread
-	DmaPeerDestid_t*        umd_dma_did_peer_list[MAX_PEERS]; ///< List of currently up peers -- maintained by Main Battle Tank thread
+	int             umd_dma_did_peer_list_high_wm; ///< High water mark of list below -- maintained by Main Battle Tank thread
+	DmaPeer*        umd_dma_did_peer_list[MAX_PEERS]; ///< List of currently up peers -- maintained by Main Battle Tank thread
 	std::map<uint16_t, int> umd_dma_did_peer; ///< These are slot into \ref umd_dma_did_peer_list -- maintained by Main Battle Tank thread
 
 	IBwinMap*       umd_peer_ibmap;
@@ -369,8 +375,6 @@ struct worker {
 	volatile uint64_t tick_data_total;
 
 	uint64_t        umd_nread_threshold; ///< Force NREADs (per-peer) if last was warlier than this many rdtsc ticks
-
-	std::string	evlog;
 
 	int             umd_dma_bcast_min;	///< Receive "N" bcasts from peer via MBOX before putting up Tun
 	int             umd_dma_bcast_interval; ///< Minimum interval in seconds before our broadcasts on MBOX
@@ -386,13 +390,16 @@ struct worker {
 };
 
 #ifdef USER_MODE_DRIVER
-
 static inline int BD_PAYLOAD_SIZE(const struct worker* info)
 {
 	if (info == NULL) return -1;
 	return DMA_L2_SIZE + info->umd_tun_MTU;
 }
 
+#include "dmapeer.h"
+
+
+#if 0
 static inline void DmaPeerLock(DmaPeerDestid_t* peer)
 {
 	assert(peer);
@@ -484,6 +491,7 @@ error:
 	if (peer->rio_rx_bd_ready_ts != NULL) { free(peer->rio_rx_bd_ready_ts); peer->rio_rx_bd_ready_ts = NULL; }
 	goto unlock;
 }
+#endif
 
 #endif // USER_MODE_DRIVER
 
