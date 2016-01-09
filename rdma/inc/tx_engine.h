@@ -88,12 +88,6 @@ private:
 			/* Wait until a message is enqueued for transmission */
 			sem_wait(&messages_waiting);
 
-			/* Make sure client is not null so we don't segfault */
-			if (client == nullptr) {
-				CRIT("'client' was not initialized\n");
-				abort();
-			}
-
 			/* Grab next message to be sent and send it */
 			M*	msg_ptr = message_queue.front();
 			int rc = client->send_buffer(msg_ptr, sizeof(*msg_ptr));
