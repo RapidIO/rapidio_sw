@@ -187,29 +187,39 @@ protected:
 			close(the_socket);
 	}
 
+	/* Uses specified buffer */
+	int send_buffer(int sock, void *buffer, size_t len)
+	{
+		int rc = 0;
+
+		if (len > UNIX_SOCK_DEFAULT_BUFFER_SIZE) {
+			ERR("'%s' failed in send() due to large message size\n", name);
+			rc = -1;
+		} else if (::send(sock, buffer, len, MSG_EOR) == -1) {
+			ERR("Failed in send(): %s, errno=%d\n", strerror(errno), errno);
+			rc = errno;
+		}
+
+		return rc;
+	}
+
+	/* Uses internal buffer */
 	int send(int sock, size_t len)
 	{
 		int rc = 0;
 
 		pthread_mutex_lock(&send_buf_mutex);
-		if (len > UNIX_SOCK_DEFAULT_BUFFER_SIZE) {
-			ERR("'%s' failed in send() due to large message size\n", name);
-			rc = -1;
-		} else if (::send(sock, send_buf, len, MSG_EOR) == -1) {
-			ERR("Failed in send(): %s, errno=%d\n", strerror(errno), errno);
-			rc = errno;
-		}
+		rc = send_buffer(sock, send_buf, len);
 		pthread_mutex_unlock(&send_buf_mutex);
 
 		return rc;
 	}
 
-	int receive(int sock, size_t *rcvd_len)
+	int receive_buffer(int sock, void *buffer, size_t *rcvd_len)
 	{
-		int rc;
+		int rc = 0;
 
-		pthread_mutex_lock(&recv_buf_mutex);
-		rc = ::recv(sock, recv_buf, UNIX_SOCK_DEFAULT_BUFFER_SIZE, 0);
+		rc = ::recv(sock, buffer, UNIX_SOCK_DEFAULT_BUFFER_SIZE, 0);
 		if (rc < 0) {
 			ERR("'%s': failed in recv(): %s, errno = %d\n",
 					name, strerror(errno), errno);
@@ -218,6 +228,16 @@ protected:
 			*rcvd_len = rc;
 			rc = 0;
 		}
+
+		return rc;
+	}
+
+	int receive(int sock, size_t *rcvd_len)
+	{
+		int rc = 0;
+
+		pthread_mutex_lock(&recv_buf_mutex);
+		rc = receive_buffer(sock, recv_buf, rcvd_len);
 		pthread_mutex_unlock(&recv_buf_mutex);
 
 		return rc;
@@ -340,6 +360,15 @@ public:
 		return unix_base::receive(accept_socket, rcvd_len);
 	}
 
+	int send_buffer(void *buffer, size_t len)
+	{
+		return unix_base::send_buffer(accept_socket, buffer, len);
+	}
+
+	int receive_buffer(void *buffer, size_t *rcvd_len)
+	{
+		return unix_base::receive_buffer(accept_socket, buffer, rcvd_len);
+	}
 private:
 	int	accept_socket;
 	bool	can_accept;	/* Objects created with the minimal constructor can't */
@@ -379,6 +408,16 @@ public:
 	int receive(size_t *rcvd_len)
 	{
 		return unix_base::receive(the_socket, rcvd_len);
+	}
+
+	int send_buffer(void *buffer, size_t len)
+	{
+		return unix_base::send_buffer(the_socket, buffer, len);
+	}
+
+	int receive_buffer(void *buffer, size_t *rcvd_len)
+	{
+		return unix_base::receive_buffer(the_socket, buffer, rcvd_len);
 	}
 };
 

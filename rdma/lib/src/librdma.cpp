@@ -53,9 +53,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iterator>
 
 #include <rapidio_mport_mgmt.h>
+
 #include "rdma_types.h"
 #include "liblog.h"
 #include "rdma_mq_msg.h"
+#include "rx_engine.h"
+#include "tx_engine.h"
 #include "msg_q.h"
 
 #include "librdma.h"
@@ -67,6 +70,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libfmdd.h"
 
 using std::iterator;
+
+rx_engine<unix_client, unix_msg_t> lib2daemon_rx_engine;
+tx_engine<unix_client, unix_msg_t> lib2daemon_tx_engine;
 
 #ifdef __cplusplus
 extern "C" {
@@ -452,7 +458,8 @@ static int rdma_lib_init(void)
 		return ret;
 	}
 
-	sem_init(&rdma_lock, 0, 1);
+//	sem_init(&rdma_lock, 0, 1);
+
 
 	/* Create a client */
 	DBG("Creating client object...\n");
@@ -474,6 +481,8 @@ static int rdma_lib_init(void)
 			ret = RDMA_DAEMON_UNREACHABLE;
 		}
 	}
+
+	/* Pass the client to the Tx and Rx engines */
 
 	/* Open mport */
 	if (ret == 0) {

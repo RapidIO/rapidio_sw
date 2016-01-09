@@ -4,6 +4,7 @@
 /* Max memory space name length */
 #define	UNIX_MS_NAME_MAX_LEN	31
 
+/* Type codes */
 #define CREATE_MSO		0x0001
 #define CREATE_MSO_ACK		0x8001
 #define CREATE_MS		0x0002
@@ -251,6 +252,8 @@ struct get_ibwin_properties_output {
 /* Unix message structure */
 struct unix_msg_t {
 	uint32_t	type;
+	uint32_t	category;
+	uint32_t	seq_no;
 	union {
 		struct get_mport_id_input	get_mport_id_in;
 		struct get_mport_id_output	get_mport_id_out;
