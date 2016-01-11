@@ -762,16 +762,19 @@ void DMAChannel::softRestart(const bool nuke_bds)
   const uint64_t ts_s = rdtsc();
   m_restart_pending = 1;
 
-  memset(m_bl_busy, 0,  m_bd_num * sizeof(bool));
-  m_bl_busy_size = 0;
-
-  memset(m_pending_work, 0, (m_bd_num+1) * sizeof(WorkItem_t));
-
+  // Clear FIFO for good measure
   memset(m_dmacompl.win_ptr, 0, m_dmacompl.win_size);
   m_fifo_rd = 0;
 
-  if(nuke_bds)
+  if (nuke_bds) {
+    // Clear BDs
     memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
+
+    memset(m_bl_busy, 0,  m_bd_num * sizeof(bool));
+    m_bl_busy_size = 0;
+
+    memset(m_pending_work, 0, (m_bd_num+1) * sizeof(WorkItem_t));
+  }
 
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
     ((uint8_t*)m_dmadesc.win_ptr + ((m_bd_num-1) * DMA_BUFF_DESCR_SIZE));
