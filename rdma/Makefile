@@ -61,7 +61,7 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -I../../samples/latency/common/ -Iinc/ -O3
 
 # RDMA Daemon flags & sources
-RDMAD_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -g -ggdb -O3 \
+RDMAD_CFLAGS = -Wall -Werror -Wextra -std=c++11 -g -ggdb -O3 \
 		-DRDMA_LL=$(level) -DBE_STRICT -I$(MPORTLIB_INC) \
 		-I../common/libcli/inc \
 		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
@@ -82,12 +82,12 @@ RDMAD_SOURCES = src/rdma_mq_msg.c \
 REMDBG_SOURCES	= daemon/src/remdbg.c
 
 # RDMA Library flags, sources and objects
-RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
+RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=c++11 -c -g -ggdb -fPIC \
 		-Idaemon/inc \
 		-I$(MPORTLIB_INC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3 -rdynamic -lnsl
 
-RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb \
+RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=c++11 -c -g -ggdb \
 		-Idaemon/inc \
 		-I$(MPORTLIB_INC) -Iinc -I../include -I../common/include \
 		-DRDMA_LL=$(level) -O3
