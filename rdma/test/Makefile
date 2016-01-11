@@ -12,7 +12,7 @@ level?=$(LOG_LEVEL)
 endif
 
 # Common flags for all applications
-RDMAAPP_CFLAGS = --std=gnu++0x -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
+RDMAAPP_CFLAGS = --std=c++11 -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
 		-I$(TOP_LEVEL)/include \
 		-I$(TOP_LEVEL)/common/include \
 		-I$(TOP_LEVEL)/rdma/lib/src \
@@ -36,8 +36,9 @@ bat_client_SRC = src/bat_client.cpp src/bat_client_rdma_api.cpp src/bat_client_t
 
 bat_child_SRC = src/bat_child.cpp
 
+sanity_SRC = src/sanity.cpp
 
-all: bat_server bat_client bat_child
+all: bat_server bat_client bat_child sanity
 
 # Batch Automated Test (BAT)
 bat_server: $(BAT_DEPS) $(bat_server_SRC)
@@ -50,6 +51,10 @@ bat_client: $(BAT_DEPS) $(bat_client_SRC)
 
 bat_child: $(BAT_DEPS) $(bat_child_SRC)
 	@echo ---------- Building bat_child...
+	$(BAT_BUILD_STRING)
+
+sanity: $(BAT_DEPS) $(sanity_SRC)
+	@echo ---------- Building sanity ...
 	$(BAT_BUILD_STRING)
 
 clean:
