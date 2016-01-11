@@ -61,7 +61,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
+#include "tx_engine.h"
+#include "rx_engine.h"
+#include "msg_processor.h"
 #include "rdmad_rpc.h"
+
+typedef rx_engine<unix_server, unix_msg_t>	daemon2lib_rx_engine;
+typedef tx_engine<unix_server, unix_msg_t> 	daemon2lib_tx_engine;
+
+typedef vector<daemon2lib_rx_engine *>	rx_engines_list;
+typedef vector<daemon2lib_tx_engine *>	tx_engines_list;
+
+typedef vector<msg_proc_dispatch_entry<unix_server, unix_msg_t>> daemon2lib_dispatch_table;
+typedef msg_processor<unix_server, unix_msg_t>	daemon2lib_msg_proc;
+
+static tx_engines_list	tx_eng_list;
+static rx_engines_list	rx_eng_list;
 
 struct peer_info	peer;
 
@@ -83,7 +98,31 @@ ts_vector<string>	wait_accept_mq_names;
 static 	pthread_t console_thread;
 static	pthread_t prov_thread;
 static	pthread_t cli_session_thread;
+
 static unix_server *server;
+
+/**
+ * Dispatch function for obtaining mport ID.
+ */
+static int get_mport_id_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng)
+{
+	unix_msg_t out_msg;
+	out_msg.type = GET_MPORT_ID_ACK;
+	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.seq_no = in_msg->seq_no;
+	int rc = rdmad_get_mport_id(&out_msg.get_mport_id_out.mport_id);
+	if (rc) {
+		ERR("Failed in call rdmad_get_mport_id\n");
+	} else {
+		tx_eng->send_message(&out_msg);
+	}
+	return rc;
+} /* get_mport_id_disp() */
+
+static daemon2lib_dispatch_table	d2l_dispatch_table = {
+		{GET_MPORT_ID, get_mport_id_disp}
+};
+static daemon2lib_msg_proc	d2l_msg_proc(d2l_dispatch_table);
 
 static void init_peer()
 {
@@ -103,9 +142,9 @@ static void init_peer()
 	peer.run_cons = 1;
 }
 
-struct rpc_ti
+struct lib_connections_ti
 {
-	rpc_ti(int accept_socket) : accept_socket(accept_socket), tid(0)
+	lib_connections_ti(int accept_socket) : accept_socket(accept_socket), tid(0)
 	{}
 	int accept_socket;
 	sem_t	started;
@@ -160,15 +199,15 @@ int send_disc_ms_cm(uint32_t server_destid,
 
 	return ret;
 } /* send_disc_ms_cm() */
-
-void *rpc_thread_f(void *arg)
+#if 0
+void *lib_connections_thread_f(void *arg)
 {
 	if (!arg) {
 		CRIT("Null argument.\n");
 		pthread_exit(0);
 	}
 
-	rpc_ti *ti = (rpc_ti *)arg;
+	lib_connections_ti *ti = (lib_connections_ti *)arg;
 
 	DBG("Creating application-specific server object...\n");
 	unix_server *other_server;
@@ -507,8 +546,9 @@ void *rpc_thread_f(void *arg)
 	} /* while */
 	pthread_exit(0);
 } /* rpc_thread_f() */
+#endif
 
-int run_rpc_alternative()
+int start_accepting_connections()
 {
 	/* Create a server */
 	DBG("Creating Unix socket server object...\n");
@@ -530,32 +570,33 @@ int run_rpc_alternative()
 		}
 		HIGH("Application connected!\n");
 		int accept_socket = server->get_accept_socket();
-
-		rpc_ti	*ti;
+		unix_server *other_server;
 		try {
-			ti = new rpc_ti(accept_socket);
+			other_server = new unix_server("other_server",
+								accept_socket);
 		}
-		catch(...) {
-			CRIT("Failed to create rpc_ti\n");
-			delete server;
-			return 3;
+		catch(unix_sock_exception& e) {
+			CRIT("Failed to create unix_server:%:\n", e.err);
+			continue;
 		}
 
-		/* Create thread that will handle requests from the new application */
-		int ret = pthread_create(&ti->tid,
-					 NULL,
-					 rpc_thread_f,
-					 ti);
-		if (ret) {
-			CRIT("Failed to create request thread\n");
-			delete server;
-			delete ti;
-			return -6;
+		/* FIXME: For now: Create Tx and Rx engine per connection */
+		daemon2lib_rx_engine *rx_eng;
+		daemon2lib_tx_engine *tx_eng;
+		try {
+			tx_eng = new daemon2lib_tx_engine(other_server);
+			rx_eng = new daemon2lib_rx_engine(other_server, d2l_msg_proc, tx_eng);
 		}
-		/* Wait for RPC processing thread to start */
-		sem_wait(&ti->started);
+		catch(exception& e) {
+			CRIT("Failed to create rx/tx engine(s):%:\n", e.what());
+			continue;
+		}
+
+		/* Store engines in list for later cleanup */
+		rx_eng_list.push_back(rx_eng);
+		tx_eng_list.push_back(tx_eng);
 	} /* while */
-} /* run_rpc_alternative() */
+} /* start_accepting_connections() */
 
 void shutdown(struct peer_info *peer)
 {
@@ -933,7 +974,8 @@ int main (int argc, char **argv)
 		goto out_free_inbound;
 	}
 
-	run_rpc_alternative();
+	/* Start accepting connections from apps linked with LIBRDMA */
+	start_accepting_connections();
 
 	/* Never reached */
 

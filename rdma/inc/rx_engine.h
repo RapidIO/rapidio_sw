@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RX_ENGINE_H
 #define RX_ENGINE_H
 
-#include <queue>
+#include <list>
 #include <thread>
 #include <vector>
 
@@ -46,8 +46,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 
 #include "rdma_msg.h"
+#include "tx_engine.h"
+#include "msg_processor.h"
 
-using std::queue;
+using std::list;
 using std::thread;
 using std::vector;
 
@@ -55,19 +57,17 @@ template <typename T, typename M>
 class rx_engine {
 
 public:
-	rx_engine() : client(nullptr) {
+	rx_engine(T *client, msg_processor<T, M> &message_processor,
+			tx_engine<T, M> *tx_eng) :
+		message_processor(message_processor), client(client), tx_eng(tx_eng)
+	{
 		thread worker_thread(&rx_engine::worker, this);
-		sem_init(&start, 0, 0);
-	}
+	} /* ctor */
 
-	void set_client(T* client) {
-		assert(client != nullptr);
-		this->client = client;
-
-		/* Client has been given a value. OK to start receiving */
-		sem_post(&start);
-	} /* set_client() */
-
+	/**
+	 * Set the RX engine to post notify_sem when a message of the specified
+	 * type, category, and seq_no is received by this rx_engine.
+	 */
 	int set_notify(uint32_t type, uint32_t category, uint32_t seq_no,
 							sem_t *notify_sem)
 	{
@@ -84,10 +84,41 @@ public:
 		return rc;
 	} /* set_notify() */
 
+	/**
+	 * Extract message having the specified type, category, and seq_no
+	 * from the queue.
+	 */
+	int get_message(rdma_msg_type type, rdma_msg_cat category,
+					    rdma_msg_seq_no seq_no,
+					    M* msg_ptr)
+	{
+		auto rc = 0;
+		auto it = find_if(begin(message_queue), end(message_queue),
+			[&](M msg)
+			{
+				return (msg.type == type) &&
+				       (msg.category == category) &&
+				       (msg.seq_no == seq_no);
+			});
+		if (it == end(message_queue)) {
+			ERR("Message not found!\n");
+			rc = -1;
+		} else {
+			/* Copy message to caller's message buffer */
+			memcpy(msg_ptr, &(*it), sizeof(*it));
+
+			/* Remove from queue */
+			message_queue.erase(it);
+		}
+		return rc;
+	} /* get_message() */
+
 private:
+	/* Notification parameters. */
 	struct notify_param {
 
-		notify_param(uint32_t type, uint32_t category, uint32_t seq_no) :
+		notify_param(uint32_t type, uint32_t category, uint32_t seq_no,
+							sem_t *notify_sem) :
 			type(type), category(category), seq_no(seq_no),
 			notify_sem(notify_sem)
 		{}
@@ -98,20 +129,28 @@ private:
 			       (other.seq_no == this->seq_no);
 		}
 
-		uint32_t type;
-		uint32_t category;
-		uint32_t seq_no;
-		sem_t	 *notify_sem;
+		rdma_msg_type 	type;
+		rdma_msg_cat 	category;
+		rdma_msg_seq_no seq_no;
+		sem_t	 	*notify_sem;
 	};
 
-	void worker() {
-		sem_wait(&start);
+	/**
+	 * Worker thread for receiving both API calls and requests/responses
+	 */
+	void worker()
+	{
+		M	*msg;
+		client->get_recv_buffer((void **)&msg);
 
 		while(1) {
-			M	*msg;
 			size_t	received_len;
 
-			client->get_recv_buffer((void **)&msg);
+			/* Always flush buffer to ensure no leftover data
+			 * from prior messages */
+			client->flush_recv_buffer();
+
+			/* Wait for new message to arrive */
 			int rc = client->receive(&received_len);
 			if (rc != 0) {
 				ERR("Failed to receive, rc = %d: %s\n",
@@ -123,24 +162,31 @@ private:
 					       end(notify_list),
 					       notify_param(msg->type,
 							    msg->category,
-							    msg->seq_no));
-				if (it != end(notify_list))
-					/* Found match, post semaphore */
+							    msg->seq_no,
+							    nullptr));
+				if (it != end(notify_list)) {
+					/* Found! Queue copy of message & post semaphore */
+					message_queue.push_back(*msg);
 					sem_post(it->notify_sem);
-				else {
+				} else {
 					CRIT("Non-matching API type 0x%X\n",
 								msg->type);
 				}
 			} else if (msg->category == RDMA_REQ_RESP) {
-				/* FIXME: Unimplemented */
-				message_queue.push(msg);
+				/* Process request/resp by forwarding to message processor */
+				rc = message_processor.process_msg(msg, tx_eng);
+				if (rc) {
+					ERR("Failed to process message, rc = %d\n", rc);
+				}
 			}
 		}
 	}
-	queue<M*>	message_queue;
-	vector<notify_param> notify_list;
-	T*		client;
-	sem_t		start;
+
+	list<M>			message_queue;
+	msg_processor<T, M>	&message_processor;
+	vector<notify_param> 	notify_list;
+	T*			client;
+	tx_engine<T, M>		*tx_eng;
 };
 
 #endif

@@ -50,6 +50,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <exception>
+#include <vector>
 #include <iterator>
 
 #include <rapidio_mport_mgmt.h>
@@ -70,9 +72,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libfmdd.h"
 
 using std::iterator;
+using std::exception;
+using std::vector;
 
-rx_engine<unix_client, unix_msg_t> lib2daemon_rx_engine;
-tx_engine<unix_client, unix_msg_t> lib2daemon_tx_engine;
+typedef rx_engine<unix_client, unix_msg_t>	lib_rx_engine;
+typedef tx_engine<unix_client, unix_msg_t> 	lib_tx_engine;
+typedef vector<msg_proc_dispatch_entry<unix_client, unix_msg_t>> lib2daemon_dispatch_table;
+typedef msg_processor<unix_client, unix_msg_t>		lib2daemon_msg_processor;
+
+static lib2daemon_dispatch_table dispatch_table;
+static lib2daemon_msg_processor	msg_proc(dispatch_table);
+
+static lib_rx_engine *rx_eng;
+static lib_tx_engine *tx_eng;
 
 #ifdef __cplusplus
 extern "C" {
@@ -233,43 +245,44 @@ static bool rdmad_is_alive()
 
 static int open_mport(struct peer_info *peer)
 {
-	get_mport_id_output	out;
-	get_mport_id_input	in;
-	int flags = 0;
-	struct riomp_mgmt_mport_properties prop;
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-
 	DBG("ENTER\n");
 
 	/* Set up Unix message parameters */
-	in.dummy = 0x1234;
+	unix_msg_t	in_msg;
+	in_msg.type = GET_MPORT_ID;
+	in_msg.category = RDMA_LIB_DAEMON_CALL;
+	in_msg.get_mport_id_in.dummy = 0x1234;
 
-	client->get_send_buffer((void **)&in_msg);
-	in_msg->type = GET_MPORT_ID;
-	in_msg->get_mport_id_in = in;
+	/* Send message */
+	auto seq_no = tx_eng->send_message(&in_msg);
 
-	int ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		return ret;
-	}
+	/* Prepare for reply */
+	auto reply_sem = new sem_t();
+	sem_init(reply_sem, 0, 0);
+	auto		rc = 0;
+	rc = rx_eng->set_notify(GET_MPORT_ID_ACK,
+			       RDMA_LIB_DAEMON_CALL, seq_no, reply_sem);
+	sem_wait(reply_sem);
+	delete reply_sem;	// FIXME: Use unique_ptr/shared_ptr?
 
-	out = out_msg->get_mport_id_out;
-
-	if (out.status != 0) {
-		ERR("Failed to obtain mport ID from daemon\n");
-		return out.status;
+	/* Retrieve the reply */
+	unix_msg_t	out_msg;
+	rc = rx_eng->get_message(GET_MPORT_ID_ACK, RDMA_LIB_DAEMON_CALL,
+							seq_no, &out_msg);
+	if (rc) {
+		ERR("Failed to obtain message\n");
+		return rc;
 	}
 
 	/* Get the mport ID */
-	peer->mport_id = out.mport_id;
+	peer->mport_id = out_msg.get_mport_id_out.mport_id;
 	INFO("Using mport_id = %d\n", peer->mport_id);
 
 	/* Now open the port */
-	ret = riomp_mgmt_mport_create_handle(peer->mport_id, flags,
+	auto flags = 0;
+	rc = riomp_mgmt_mport_create_handle(peer->mport_id, flags,
 							&peer->mport_hnd);
-	if (ret) {
+	if (rc) {
 		CRIT("riomp_mgmt_mport_create_handle(): %s\n", strerror(errno));
 		CRIT("Cannot open mport%d, is rio_mport_cdev loaded?\n",
 								peer->mport_id);
@@ -277,6 +290,7 @@ static int open_mport(struct peer_info *peer)
 	}
 
 	/* Read the properties. */
+	struct riomp_mgmt_mport_properties prop;
 	if (!riomp_mgmt_query(peer->mport_hnd, &prop)) {
 		riomp_mgmt_display_info(&prop);
 		if (prop.flags &RIO_MPORT_DMA) {
@@ -291,7 +305,6 @@ static int open_mport(struct peer_info *peer)
 		/* Unlikely we fail on reading properties, but warn! */
 		WARN("%s: Error reading properties from mport!\n");
 	}
-
 	return 0;
 } /* open_mport() */
 
@@ -458,8 +471,7 @@ static int rdma_lib_init(void)
 		return ret;
 	}
 
-//	sem_init(&rdma_lock, 0, 1);
-
+	sem_init(&rdma_lock, 0, 1);
 
 	/* Create a client */
 	DBG("Creating client object...\n");
@@ -482,7 +494,15 @@ static int rdma_lib_init(void)
 		}
 	}
 
-	/* Pass the client to the Tx and Rx engines */
+	/* Create Tx and Rx engines for communication with the daemon */
+	try {
+		tx_eng = new lib_tx_engine(client);
+		rx_eng = new lib_rx_engine(client, msg_proc, tx_eng);
+	}
+	catch(exception& e) {
+		ERR("Failed to create Tx/Rx engines: %s\n", e.what());
+		ret = RDMA_MALLOC_FAIL;
+	}
 
 	/* Open mport */
 	if (ret == 0) {

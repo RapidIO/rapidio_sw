@@ -33,6 +33,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMA_MSG_H
 #define RDMA_MSG_H
 
+#include <stdint.h>
+
+/* Types */
+typedef uint32_t rdma_msg_cat;
+typedef uint32_t rdma_msg_type;
+typedef uint32_t rdma_msg_seq_no;
+
 /* Category codes */
 const uint32_t RDMA_LIB_DAEMON_CALL = 0x0055;	// Passed on
 const uint32_t RDMA_REQ_RESP	    = 0x00AA;	// Forwarded to message processor

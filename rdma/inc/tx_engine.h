@@ -53,17 +53,16 @@ template <typename T, typename M>
 class tx_engine {
 
 public:
-	tx_engine() : client(nullptr)
+	tx_engine(T *client) : client(client)
 	{
-		sem_init(&start, 0, 0);
 		sem_init(&messages_waiting, 0, 0);
 		thread worker_thread(&tx_engine::worker, this);
 	}
 
 	/* Returns sequence number to be used to receive reply */
-	uint32_t send_message(M* msg_ptr)
+	rdma_msg_seq_no send_message(M* msg_ptr)
 	{
-		static uint32_t seq_no = MSG_SEQ_NO_START;
+		static rdma_msg_seq_no seq_no = MSG_SEQ_NO_START;
 
 		msg_ptr->seq_no = seq_no;
 		message_queue.push(msg_ptr);
@@ -72,20 +71,10 @@ public:
 		return seq_no++;
 	}
 
-	void set_client(T* client)
-	{
-		assert(client != nullptr);
-		this->client = client;
-		sem_post(&start);
-	}
-
 private:
 	static constexpr uint32_t MSG_SEQ_NO_START = 0x0000000A;
 
 	void worker() {
-		/* Wait until client is initialized */
-		sem_wait(&start);
-
 		while(1) {
 			/* Wait until a message is enqueued for transmission */
 			sem_wait(&messages_waiting);
@@ -104,7 +93,6 @@ private:
 	}
 	queue<M*>	message_queue;
 	T*		client;
-	sem_t		start;
 	sem_t		messages_waiting;
 };
 
