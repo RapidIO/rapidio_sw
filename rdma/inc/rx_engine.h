@@ -41,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstdio>
 #include <cerrno>
 #include <cstring>
+#include <cassert>
 
 #include "liblog.h"
 
@@ -60,13 +61,8 @@ public:
 	}
 
 	void set_client(T* client) {
+		assert(client != nullptr);
 		this->client = client;
-
-		/* Make sure client is not null so we don't segfault */
-		if (client == nullptr) {
-			CRIT("'client' is null\n");
-			abort();
-		}
 
 		/* Client has been given a value. OK to start receiving */
 		sem_post(&start);

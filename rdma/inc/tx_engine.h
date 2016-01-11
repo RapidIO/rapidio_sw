@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <cassert>
 
 #include <queue>
 #include <thread>
@@ -73,6 +74,7 @@ public:
 
 	void set_client(T* client)
 	{
+		assert(client != nullptr);
 		this->client = client;
 		sem_post(&start);
 	}
