@@ -1086,7 +1086,7 @@
  * The demonstration is limited to two nodes: server and client.  To run the
  * demonstration:
  *
- * -* On the Server, install thttpd and create a 1 GB random data file.  This 
+ * -# On the Server, install thttpd and create a 1 GB random data file.  This 
  *    step need only be performed once.  This can be accomplished with the 
  *    following commands:
  *    - sudo su
@@ -1097,7 +1097,7 @@
  *    - cd /rd
  *    - dd if=/dev/urandom of=sample.txt bs=64M count=16
  *    - chmod 0644 sample.txt
- * -* The following commands must be executed 
+ * -# The following commands must be executed 
  *    on the server each time the demo is started. 
  *    - sudo su
  *    - killall thttpd
@@ -1106,31 +1106,34 @@
  *    - exit
  *    - cat /rd/sample.txt > /dev/null
  *
- * -* Run the following commands on the client:
- *   sudo su
- *   iptables -F
- *   exit
+ * -# Run the following commands on the client each time the demo is started:
+ *   - sudo su
+ *   - iptables -F
+ *   - exit
  *
- * -* Start ugoodput on the server using the following command:
- *    sudo ./ugoodput 0 buf=100 sts=400 mtu=17000 thruput=1
- * -* From the server ugoodput command prompt, execute the startup script
- *    as follows:
- *    . s
- * -* Start ugoodput on the client using the following command:
- *    sudo ./ugoodput 0 buf=100 sts=400 mtu=17000 thruput=1
- * -* From the client ugoodput command prompt, execute the startup script 
- *    as follows:
- *    . s
+ * -# Start ugoodput on the server using the following command:
+ *    - sudo ./ugoodput 0 buf=100 sts=400 mtu=17000 thruput=1
  *
- * -* If the previous commands were successful, executing "ifconfig" at the 
+ * -# From the server ugoodput command prompt, execute the startup script
+ *    as follows:
+ *    - . s
+ *
+ * -# Start ugoodput on the client using the following command:
+ *    - sudo ./ugoodput 0 buf=100 sts=400 mtu=17000 thruput=1
+ *    
+ * -# From the client ugoodput command prompt, execute the startup script 
+ *    as follows:
+ *    - . s
+ *
+ * -# If the previous commands were successful, executing "ifconfig" at the 
  *    command prompt should show an IP tunnel with an address of the form
  *    169.254.0.x,
  *    where "x" is (Rapidio destination ID + 1) of the client or server.
  *
- * -* To perform a file transfer from the client to the server,
+ * -# To perform a file transfer from the client to the server,
  *    execute the following command on the client:
  *
- *    wget -O /dev/null http://169.254.0.y/BigJunkFile
+ *   -  wget -O /dev/null http://169.254.0.y/BigJunkFile
  *
  *    where 'y' is (RapidIO destination ID + 1) of the server.
  *
