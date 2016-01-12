@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <list>
 #include <thread>
 #include <vector>
+#include <memory>
 
 #include <cstdlib>
 #include <cstdio>
@@ -52,6 +53,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::list;
 using std::thread;
 using std::vector;
+using std::shared_ptr;
 
 template <typename T, typename M>
 class rx_engine {
@@ -87,7 +89,7 @@ public:
 	 * type, category, and seq_no is received by this rx_engine.
 	 */
 	int set_notify(uint32_t type, uint32_t category, uint32_t seq_no,
-							sem_t *notify_sem)
+						shared_ptr<sem_t> notify_sem)
 	{
 		/* We should not be setting the same notification twice */
 		int rc = count(begin(notify_list),
@@ -138,7 +140,7 @@ private:
 	struct notify_param {
 
 		notify_param(uint32_t type, uint32_t category, uint32_t seq_no,
-							sem_t *notify_sem) :
+						shared_ptr<sem_t> notify_sem) :
 			type(type), category(category), seq_no(seq_no),
 			notify_sem(notify_sem)
 		{}
@@ -152,7 +154,7 @@ private:
 		rdma_msg_type 	type;
 		rdma_msg_cat 	category;
 		rdma_msg_seq_no seq_no;
-		sem_t	 	*notify_sem;
+		shared_ptr<sem_t>	notify_sem;
 	};
 
 	/**
@@ -199,7 +201,7 @@ private:
 						notify_list.erase(it);
 
 						/* Post the notification semaphore */
-						sem_post(it->notify_sem);
+						sem_post(it->notify_sem.get());
 					} else {
 						CRIT("Non-matching API type 0x%X\n",
 								msg->type);

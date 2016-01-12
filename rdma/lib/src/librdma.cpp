@@ -53,6 +53,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <exception>
 #include <vector>
 #include <iterator>
+#include <memory>
 
 #include <rapidio_mport_mgmt.h>
 
@@ -74,6 +75,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::iterator;
 using std::exception;
 using std::vector;
+using std::make_shared;
 
 typedef rx_engine<unix_client, unix_msg_t>	lib_rx_engine;
 typedef tx_engine<unix_client, unix_msg_t> 	lib_tx_engine;
@@ -250,21 +252,29 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 	DBG("Message queued\n");
 
 	/* Prepare for reply */
-	auto reply_sem = new sem_t();
-	sem_init(reply_sem, 0, 0);
+	auto reply_sem = make_shared<sem_t>();
+	sem_init(reply_sem.get(), 0, 0);
 	auto rc = 0;
 	rc = rx_eng->set_notify(in_msg->type | 0x8000,
 			       RDMA_LIB_DAEMON_CALL, seq_no, reply_sem);
-	DBG("Notify configured...WAITING...\n");
-	sem_wait(reply_sem);
-	delete reply_sem;	// FIXME: Use unique_ptr/shared_ptr?
 
-	/* Retrieve the reply */
-	DBG("Got reply!\n");
-	rc = rx_eng->get_message(in_msg->type | 0x8000, RDMA_LIB_DAEMON_CALL,
-							seq_no, out_msg);
+	/* Wait for reply */
+	DBG("Notify configured...WAITING...\n");
+	sem_wait(reply_sem.get());
 	if (rc) {
-		ERR("Failed to obtain message\n");
+		ERR("reply_sem failed: %s\n", strerror(errno));
+		if (errno == ETIMEDOUT) {
+			ERR("Returning RDMA_DAEMON_UNREACHABLE\n");
+			rc = RDMA_DAEMON_UNREACHABLE;
+		}
+	} else {
+		/* Retrieve the reply */
+		DBG("Got reply!\n");
+		rc = rx_eng->get_message(in_msg->type | 0x8000, RDMA_LIB_DAEMON_CALL,
+							seq_no, out_msg);
+		if (rc) {
+			ERR("Failed to obtain reply message, rc = %d\n", rc);
+		}
 	}
 	return rc;
 } /* daemon_call() */
@@ -499,7 +509,7 @@ void engine_monitoring_thread_t(sem_t *engine_cleanup)
  */
 static int rdma_lib_init(void)
 {
-	int ret = 0;
+	auto ret = 0;
 
 	if (init == 1) {
 		WARN("RDMA library already initialized\n");
@@ -514,39 +524,35 @@ static int rdma_lib_init(void)
 		client = new unix_client();
 
 		/* Connect to server */
-		if (ret == 0) {
-			if (client->connect() == 0) {
-				INFO("Successfully connected to RDMA daemon\n");
-			} else {
-				CRIT("Connect failed. Daemon running?\n");
-				ret = RDMA_DAEMON_UNREACHABLE;
-			}
-		}
+		if (client->connect() == 0) {
+			INFO("Successfully connected to RDMA daemon\n");
 
-		/* Engine cleanup semaphore. Posted by engines that die so we can clean
-		 * up after them. */
-		auto engine_cleanup_sem = new sem_t();
-		sem_init(engine_cleanup_sem, 0, 0);
+			/* Engine cleanup semaphore. Posted by engines that die
+			 * so we can clean up after them. */
+			auto engine_cleanup_sem = new sem_t();
+			sem_init(engine_cleanup_sem, 0, 0);
 
-		tx_eng = new lib_tx_engine(client, engine_cleanup_sem);
-		rx_eng = new lib_rx_engine(client, msg_proc, tx_eng, engine_cleanup_sem);
+			/* Create Tx and Rx engines */
+			tx_eng = new lib_tx_engine(client, engine_cleanup_sem);
+			rx_eng = new lib_rx_engine(client, msg_proc, tx_eng,
+							engine_cleanup_sem);
 
-		/* Open mport */
-		if (ret == 0) {
+			/* Open the master port */
 			ret = open_mport();
 			if (ret == 0) {
+				/* Success */
 				INFO("MPORT successfully opened\n");
+				init = 1;
+				INFO("RDMA library fully initialized\n ");
 			} else {
 				CRIT("Failed to open mport\n");
+				throw RDMA_MPORT_OPEN_FAIL;
 			}
+		} else {
+			CRIT("Connect failed. Daemon running?\n");
+			throw RDMA_DAEMON_UNREACHABLE;
 		}
-
-		/* Set initialization flag */
-		if (ret == 0) {
-			init = 1;
-			INFO("RDMA library fully initialized\n ");
-		}
-	}
+	} /* try */
 	catch(unix_sock_exception& e) {
 		CRIT("%s\n", e.what());
 		client = nullptr;
@@ -557,16 +563,26 @@ static int rdma_lib_init(void)
 		delete client;
 		ret = RDMA_MALLOC_FAIL;
 	}
-	catch(...) {
-		CRIT("Unhandled exception\n");
+	catch(int e) {
+		switch (e) {
+		case RDMA_MPORT_OPEN_FAIL:
+		case RDMA_DAEMON_UNREACHABLE:
+			ret = e;
+			break;
+		default:
+			ret = -1;
+		}
 		delete client;
-		ret = -1;
 	}
+
+	DBG("ret = %d\n", ret);
 	return ret;
 } /* rdma_lib_init() */
 
 __attribute__((constructor)) int lib_init(void)
 {
+	auto rc = 0;
+
 	/* Initialize the logger */
 	rdma_log_init("librdma.log", 0);
 
@@ -575,17 +591,23 @@ __attribute__((constructor)) int lib_init(void)
 
 	/* Make threads cancellable at some points (e.g. mq_receive) */
 	if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)) {
-		WARN("Failed to set cancel state:%s\n",strerror(errno));
-		return RDMA_ERRNO;
+		WARN("Failed to set cancel state:%s. Exiting.\n",strerror(errno));
+		exit(RDMA_ERRNO);
 	}
 
+	/* Iinitialize the database */
 	if (rdma_db_init()) {
-		CRIT("Failed to initialized RDMA database\n");
-		return RDMA_ERRNO;
+		CRIT("Failed to initialized RDMA database. Exiting.\n");
+		exit(RDMA_ERRNO);
 	}
 	HIGH("Database initialized\n");
 
-	return rdma_lib_init();
+	/* Library initialization */
+	if (rdma_lib_init()) {
+		CRIT("Failed to connect to daemon. Exiting.\n");
+		exit(rc);
+	}
+	return rc;
 } /* rdma_lib_init() */
 
 #define CHECK_LIB_INIT() if (!init) { \
