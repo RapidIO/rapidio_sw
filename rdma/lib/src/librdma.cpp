@@ -243,24 +243,17 @@ static bool rdmad_is_alive()
 	return alt_rpc_call(in_msg, NULL) != RDMA_DAEMON_UNREACHABLE;
 } /* rdmad_is_alive() */
 
-/*static*/ int open_mport(void/*struct peer_info *peer*/)
+static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 {
-	DBG("ENTER\n");
-
-	/* Set up Unix message parameters */
-	unix_msg_t	in_msg;
-	in_msg.type = GET_MPORT_ID;
-	in_msg.category = RDMA_REQ_RESP;
-	in_msg.get_mport_id_in.dummy = 0x1234;
-
 	/* Send message */
-	auto seq_no = tx_eng->send_message(&in_msg);
+	auto seq_no = tx_eng->send_message(in_msg);
 	DBG("Message queued\n");
+
 	/* Prepare for reply */
 	auto reply_sem = new sem_t();
 	sem_init(reply_sem, 0, 0);
-	auto		rc = 0;
-	rc = rx_eng->set_notify(GET_MPORT_ID_ACK,
+	auto rc = 0;
+	rc = rx_eng->set_notify(in_msg->type | 0x8000,
 			       RDMA_LIB_DAEMON_CALL, seq_no, reply_sem);
 	DBG("Notify configured...WAITING...\n");
 	sem_wait(reply_sem);
@@ -268,11 +261,30 @@ static bool rdmad_is_alive()
 
 	/* Retrieve the reply */
 	DBG("Got reply!\n");
-	unix_msg_t	out_msg;
-	rc = rx_eng->get_message(GET_MPORT_ID_ACK, RDMA_LIB_DAEMON_CALL,
-							seq_no, &out_msg);
+	rc = rx_eng->get_message(in_msg->type | 0x8000, RDMA_LIB_DAEMON_CALL,
+							seq_no, out_msg);
 	if (rc) {
 		ERR("Failed to obtain message\n");
+	}
+	return rc;
+} /* daemon_call() */
+
+/*static*/ int open_mport(void/*struct peer_info *peer*/)
+{
+	auto rc = 0;
+	DBG("ENTER\n");
+
+	/* Set up Unix message parameters */
+	unix_msg_t	in_msg;
+	unix_msg_t	out_msg;
+
+	in_msg.type = GET_MPORT_ID;
+	in_msg.category = RDMA_REQ_RESP;
+	in_msg.get_mport_id_in.dummy = 0x1234;
+
+	rc = daemon_call(&in_msg, &out_msg);
+	if (rc ) {
+		ERR("Failed to obtain mport ID\n");
 		return rc;
 	}
 
