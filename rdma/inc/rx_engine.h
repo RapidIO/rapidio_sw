@@ -58,12 +58,29 @@ class rx_engine {
 
 public:
 	rx_engine(T *client, msg_processor<T, M> &message_processor,
-			tx_engine<T, M> *tx_eng) :
+			tx_engine<T, M> *tx_eng, sem_t *engine_cleanup_sem) :
 		message_processor(message_processor), client(client), tx_eng(tx_eng),
-		worker_thread(nullptr)
+		worker_thread(nullptr), is_dead(false), worker_is_dead(false),
+		stop_worker_thread(false), engine_cleanup_sem(engine_cleanup_sem)
 	{
 		worker_thread = new thread(&rx_engine::worker, this);
 	} /* ctor */
+
+	~rx_engine()
+	{
+		HIGH("Destructor\n");
+		if (!worker_is_dead) {
+			HIGH("Stopping worker thread\n");
+			stop_worker_thread = true;
+		}
+		worker_thread->join();
+		HIGH("Deleting worker thread\n");
+		delete worker_thread;
+
+		// FIXME: Release client
+	}
+
+	bool isdead() const { return is_dead; }
 
 	/**
 	 * Set the RX engine to post notify_sem when a message of the specified
@@ -146,8 +163,8 @@ private:
 		M	*msg;
 		client->get_recv_buffer((void **)&msg);
 
-		while(1) {
-			size_t	received_len;
+		while(!stop_worker_thread) {
+			size_t	received_len = 0;
 
 			/* Always flush buffer to ensure no leftover data
 			 * from prior messages */
@@ -159,8 +176,9 @@ private:
 			if (rc != 0) {
 				ERR("Failed to receive, rc = %d: %s\n",
 							rc, strerror(errno));
-				CRIT("DYING!!!\n");
-				return;
+				stop_worker_thread = true;
+				is_dead = true;
+				sem_post(engine_cleanup_sem);
 			} else if (received_len > 0 ) {
 				if (msg->category == RDMA_LIB_DAEMON_CALL) {
 					/* If there is a notification set for the
@@ -195,10 +213,13 @@ private:
 					}
 				}
 			} else { /* received_len < 0 */
-				CRIT("Application has closed connection\n");
-				/* TODO: FIXME: Code that handles disconnection */
+				CRIT("Other side has closed connection\n");
+				stop_worker_thread = true;
+				is_dead = true;
+				sem_post(engine_cleanup_sem);
 			}
-		} /* while(1) */
+			worker_is_dead = true;
+		} /* while() */
 	}
 
 	list<M>			message_queue;
@@ -207,7 +228,11 @@ private:
 	T*			client;
 	tx_engine<T, M>		*tx_eng;
 	thread 			*worker_thread;
-};
+	bool			is_dead;
+	bool			worker_is_dead;
+	bool			stop_worker_thread;
+	sem_t			*engine_cleanup_sem;
+}; /* rx_engine */
 
 #endif
 

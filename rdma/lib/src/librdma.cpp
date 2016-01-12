@@ -455,6 +455,27 @@ static void *wait_for_disc_thread_f(void *arg)
 	pthread_exit(0);
 } /* wait_for_disc_thread_f() */
 
+void engine_monitoring_thread_t(sem_t *engine_cleanup)
+{
+	while(1) {
+		/* Wait until there is a reason to perform cleanup */
+		sem_wait(engine_cleanup);
+
+		HIGH("Cleaning up dead engines!\n");
+		if (tx_eng->isdead()) {
+			HIGH("Killing tx_eng\n");
+			delete tx_eng;
+			tx_eng = nullptr;
+		}
+
+		if (rx_eng->isdead()) {
+			HIGH("Killing rx_eng\n");
+			delete rx_eng;
+			rx_eng = nullptr;
+		}
+	}
+} /* engine_monitoring_thread_t() */
+
 /**
  * Initialize RDMA library
  *
@@ -490,8 +511,14 @@ static int rdma_lib_init(void)
 			}
 		}
 
-		tx_eng = new lib_tx_engine(client);
-		rx_eng = new lib_rx_engine(client, msg_proc, tx_eng);
+		/* Engine cleanup semaphore. Posted by engines that die so we can clean
+		 * up after them. */
+		auto engine_cleanup_sem = new sem_t();
+		sem_init(engine_cleanup_sem, 0, 0);
+
+		tx_eng = new lib_tx_engine(client, engine_cleanup_sem);
+		rx_eng = new lib_rx_engine(client, msg_proc, tx_eng, engine_cleanup_sem);
+
 		/* Open mport */
 		if (ret == 0) {
 			ret = open_mport();
@@ -544,6 +571,7 @@ __attribute__((constructor)) int lib_init(void)
 		CRIT("Failed to initialized RDMA database\n");
 		return RDMA_ERRNO;
 	}
+	HIGH("Database initialized\n");
 
 	return rdma_lib_init();
 } /* rdma_lib_init() */
