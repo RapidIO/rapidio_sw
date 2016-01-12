@@ -59,9 +59,10 @@ class rx_engine {
 public:
 	rx_engine(T *client, msg_processor<T, M> &message_processor,
 			tx_engine<T, M> *tx_eng) :
-		message_processor(message_processor), client(client), tx_eng(tx_eng)
+		message_processor(message_processor), client(client), tx_eng(tx_eng),
+		worker_thread(nullptr)
 	{
-		thread worker_thread(&rx_engine::worker, this);
+		worker_thread = new thread(&rx_engine::worker, this);
 	} /* ctor */
 
 	/**
@@ -94,7 +95,7 @@ public:
 	{
 		auto rc = 0;
 		auto it = find_if(begin(message_queue), end(message_queue),
-			[&](M msg)
+			[type, category, seq_no](const M& msg)
 			{
 				return (msg.type == type) &&
 				       (msg.category == category) &&
@@ -109,6 +110,8 @@ public:
 
 			/* Remove from queue */
 			message_queue.erase(it);
+			DBG("Message removed, now message_queue.size() = %u\n",
+					message_queue.size());
 		}
 		return rc;
 	} /* get_message() */
@@ -151,35 +154,51 @@ private:
 			client->flush_recv_buffer();
 
 			/* Wait for new message to arrive */
+			DBG("Waiting for new message to arrive...\n");
 			int rc = client->receive(&received_len);
 			if (rc != 0) {
 				ERR("Failed to receive, rc = %d: %s\n",
 							rc, strerror(errno));
-			} else if (msg->category == RDMA_LIB_DAEMON_CALL) {
-				/* If there is a notification set for the
-				 * message then act on it. */
-				auto it = find(begin(notify_list),
-					       end(notify_list),
-					       notify_param(msg->type,
-							    msg->category,
-							    msg->seq_no,
-							    nullptr));
-				if (it != end(notify_list)) {
-					/* Found! Queue copy of message & post semaphore */
-					message_queue.push_back(*msg);
-					sem_post(it->notify_sem);
-				} else {
-					CRIT("Non-matching API type 0x%X\n",
+				CRIT("DYING!!!\n");
+				return;
+			} else if (received_len > 0 ) {
+				if (msg->category == RDMA_LIB_DAEMON_CALL) {
+					/* If there is a notification set for the
+					 * message then act on it. */
+					auto it = find(begin(notify_list),
+							end(notify_list),
+							notify_param(msg->type,
+									msg->category,
+									msg->seq_no,
+									nullptr));
+					if (it != end(notify_list)) {
+						/* Found! Queue copy of message & post semaphore */
+						DBG("Found message of type 0x%X, seq_no=0x%X\n",
+									it->type, it->seq_no);
+						message_queue.push_back(*msg);
+
+						/* Remove notify entry from notify list */
+						notify_list.erase(it);
+
+						/* Post the notification semaphore */
+						sem_post(it->notify_sem);
+					} else {
+						CRIT("Non-matching API type 0x%X\n",
 								msg->type);
+					}
+				} else if (msg->category == RDMA_REQ_RESP) {
+					/* Process request/resp by forwarding to message processor */
+					DBG("Got RDMA_REQ_RESP\n");
+					rc = message_processor.process_msg(msg, tx_eng);
+					if (rc) {
+						ERR("Failed to process message, rc = %d\n", rc);
+					}
 				}
-			} else if (msg->category == RDMA_REQ_RESP) {
-				/* Process request/resp by forwarding to message processor */
-				rc = message_processor.process_msg(msg, tx_eng);
-				if (rc) {
-					ERR("Failed to process message, rc = %d\n", rc);
-				}
+			} else { /* received_len < 0 */
+				CRIT("Application has closed connection\n");
+				/* TODO: FIXME: Code that handles disconnection */
 			}
-		}
+		} /* while(1) */
 	}
 
 	list<M>			message_queue;
@@ -187,6 +206,7 @@ private:
 	vector<notify_param> 	notify_list;
 	T*			client;
 	tx_engine<T, M>		*tx_eng;
+	thread 			*worker_thread;
 };
 
 #endif

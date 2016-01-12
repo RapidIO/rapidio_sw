@@ -58,4 +58,4 @@ sanity: $(BAT_DEPS) $(sanity_SRC)
 	$(BAT_BUILD_STRING)
 
 clean:
-	@rm -f bat_client bat_server bat_child *.o *~
+	@rm -f bat_client bat_server bat_child sanity *.o *~

@@ -101,6 +101,8 @@ static	pthread_t cli_session_thread;
 
 static unix_server *server;
 
+// TODO: Move to separate file and move 'rpc' functions from rdmad_rpc.cpp
+// then delete same.
 /**
  * Dispatch function for obtaining mport ID.
  */
@@ -556,7 +558,7 @@ int start_accepting_connections()
 		server = new unix_server("main_server");
 	}
 	catch(unix_sock_exception& e) {
-		CRIT("Failed to create server: %s \n",  e.err);
+		CRIT("Failed to create server: %s \n",  e.what());
 		return 1;
 	}
 
@@ -576,7 +578,7 @@ int start_accepting_connections()
 								accept_socket);
 		}
 		catch(unix_sock_exception& e) {
-			CRIT("Failed to create unix_server:%:\n", e.err);
+			CRIT("Failed to create unix_server:%:\n", e.what());
 			continue;
 		}
 

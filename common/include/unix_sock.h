@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iterator>
 #include <iostream>
 #include <iomanip>
+#include <exception>
 
 #include "liblog.h"
 
@@ -59,10 +60,16 @@ using std::endl;
 using std::setfill;
 using std::setw;
 using std::hex;
+using std::exception;
 
-struct unix_sock_exception {
+class unix_sock_exception : public exception {
+public:
 	unix_sock_exception(const char *msg) : err(msg) {}
-
+	virtual const char *what() const throw()
+	{
+		return err;
+	}
+private:
 	const char *err;
 };
 

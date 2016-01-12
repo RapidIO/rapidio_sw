@@ -107,7 +107,7 @@ struct peer_info {
 	uint16_t destid;
 }; /* peer_info */
 
-static struct peer_info peer;
+static peer_info peer;
 
 static bool aligned_at_4k(uint32_t n)
 {
@@ -243,29 +243,31 @@ static bool rdmad_is_alive()
 	return alt_rpc_call(in_msg, NULL) != RDMA_DAEMON_UNREACHABLE;
 } /* rdmad_is_alive() */
 
-static int open_mport(struct peer_info *peer)
+/*static*/ int open_mport(void/*struct peer_info *peer*/)
 {
 	DBG("ENTER\n");
 
 	/* Set up Unix message parameters */
 	unix_msg_t	in_msg;
 	in_msg.type = GET_MPORT_ID;
-	in_msg.category = RDMA_LIB_DAEMON_CALL;
+	in_msg.category = RDMA_REQ_RESP;
 	in_msg.get_mport_id_in.dummy = 0x1234;
 
 	/* Send message */
 	auto seq_no = tx_eng->send_message(&in_msg);
-
+	DBG("Message queued\n");
 	/* Prepare for reply */
 	auto reply_sem = new sem_t();
 	sem_init(reply_sem, 0, 0);
 	auto		rc = 0;
 	rc = rx_eng->set_notify(GET_MPORT_ID_ACK,
 			       RDMA_LIB_DAEMON_CALL, seq_no, reply_sem);
+	DBG("Notify configured...WAITING...\n");
 	sem_wait(reply_sem);
 	delete reply_sem;	// FIXME: Use unique_ptr/shared_ptr?
 
 	/* Retrieve the reply */
+	DBG("Got reply!\n");
 	unix_msg_t	out_msg;
 	rc = rx_eng->get_message(GET_MPORT_ID_ACK, RDMA_LIB_DAEMON_CALL,
 							seq_no, &out_msg);
@@ -275,32 +277,32 @@ static int open_mport(struct peer_info *peer)
 	}
 
 	/* Get the mport ID */
-	peer->mport_id = out_msg.get_mport_id_out.mport_id;
-	INFO("Using mport_id = %d\n", peer->mport_id);
+	peer.mport_id = out_msg.get_mport_id_out.mport_id;
+	INFO("Using mport_id = %d\n", peer.mport_id);
 
 	/* Now open the port */
 	auto flags = 0;
-	rc = riomp_mgmt_mport_create_handle(peer->mport_id, flags,
-							&peer->mport_hnd);
+	rc = riomp_mgmt_mport_create_handle(peer.mport_id, flags,
+							&peer.mport_hnd);
 	if (rc) {
 		CRIT("riomp_mgmt_mport_create_handle(): %s\n", strerror(errno));
 		CRIT("Cannot open mport%d, is rio_mport_cdev loaded?\n",
-								peer->mport_id);
+								peer.mport_id);
 		return RDMA_MPORT_OPEN_FAIL;
 	}
 
 	/* Read the properties. */
 	struct riomp_mgmt_mport_properties prop;
-	if (!riomp_mgmt_query(peer->mport_hnd, &prop)) {
+	if (!riomp_mgmt_query(peer.mport_hnd, &prop)) {
 		riomp_mgmt_display_info(&prop);
 		if (prop.flags &RIO_MPORT_DMA) {
 			INFO("DMA is ENABLED\n");
 		} else {
 			CRIT("DMA capability DISABLED\n");
-			riomp_mgmt_mport_destroy_handle(&peer->mport_hnd);
+			riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
 			return RDMA_NOT_SUPPORTED;
 		}
-		peer->destid = prop.hdid;
+		peer.destid = prop.hdid;
 	} else {
 		/* Unlikely we fail on reading properties, but warn! */
 		WARN("%s: Error reading properties from mport!\n");
@@ -477,50 +479,50 @@ static int rdma_lib_init(void)
 	DBG("Creating client object...\n");
 	try {
 		client = new unix_client();
+
+		/* Connect to server */
+		if (ret == 0) {
+			if (client->connect() == 0) {
+				INFO("Successfully connected to RDMA daemon\n");
+			} else {
+				CRIT("Connect failed. Daemon running?\n");
+				ret = RDMA_DAEMON_UNREACHABLE;
+			}
+		}
+
+		tx_eng = new lib_tx_engine(client);
+		rx_eng = new lib_rx_engine(client, msg_proc, tx_eng);
+		/* Open mport */
+		if (ret == 0) {
+			ret = open_mport();
+			if (ret == 0) {
+				INFO("MPORT successfully opened\n");
+			} else {
+				CRIT("Failed to open mport\n");
+			}
+		}
+
+		/* Set initialization flag */
+		if (ret == 0) {
+			init = 1;
+			INFO("RDMA library fully initialized\n ");
+		}
 	}
 	catch(unix_sock_exception& e) {
-		CRIT("%s\n", e.err);
+		CRIT("%s\n", e.what());
 		client = nullptr;
 		ret = RDMA_MALLOC_FAIL;
 	}
-
-	/* Connect to server */
-	if (ret == 0) {
-		if (client->connect() == 0) {
-			INFO("Successfully connected to RDMA daemon\n");
-		} else {
-			CRIT("Connect failed. Daemon running?\n");
-			ret = RDMA_DAEMON_UNREACHABLE;
-		}
-	}
-
-	/* Create Tx and Rx engines for communication with the daemon */
-	try {
-		tx_eng = new lib_tx_engine(client);
-		rx_eng = new lib_rx_engine(client, msg_proc, tx_eng);
-	}
 	catch(exception& e) {
 		ERR("Failed to create Tx/Rx engines: %s\n", e.what());
+		delete client;
 		ret = RDMA_MALLOC_FAIL;
 	}
-
-	/* Open mport */
-	if (ret == 0) {
-		ret = open_mport(&peer);
-		if (ret == 0) {
-			INFO("MPORT successfully opened\n");
-		} else {
-			CRIT("Failed to open mport\n");
-		}
-	}
-
-	/* Set initialization flag */
-	if (ret == 0) {
-		init = 1;
-		INFO("RDMA library fully initialized\n ");
-	} else if (client != nullptr)
+	catch(...) {
+		CRIT("Unhandled exception\n");
 		delete client;
-
+		ret = -1;
+	}
 	return ret;
 } /* rdma_lib_init() */
 

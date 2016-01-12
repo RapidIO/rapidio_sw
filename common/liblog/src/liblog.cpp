@@ -60,7 +60,7 @@ extern "C" {
 unsigned g_level 	= RDMA_LL; /* Default log level from build */
 unsigned g_disp_level 	= RDMA_LL; /* Default log level from build */
 
-unsigned log_fmt_sel = LOG_FMT_DEFAULT;
+unsigned log_fmt_sel = LOG_FMT_ONE_LINE;
 
 static circ_buf<string,NUM_LOG_LINES>	log_buf;
 static unsigned circ_buf_en = 1;

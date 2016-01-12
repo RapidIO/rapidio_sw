@@ -53,17 +53,23 @@ template <typename T, typename M>
 class tx_engine {
 
 public:
-	tx_engine(T *client) : client(client)
+	tx_engine(T *client) : client(client), stop_worker_thread(false)
 	{
 		sem_init(&messages_waiting, 0, 0);
-		thread worker_thread(&tx_engine::worker, this);
+		DBG("Starting thread...\n");
+		worker_thread = new thread(&tx_engine::worker, this);
 	}
 
+	~tx_engine()
+	{
+		HIGH("Destructor\n");
+	}
 	/* Returns sequence number to be used to receive reply */
 	rdma_msg_seq_no send_message(M* msg_ptr)
 	{
 		static rdma_msg_seq_no seq_no = MSG_SEQ_NO_START;
 
+		DBG("Sending 0x%X\n", msg_ptr->type);
 		msg_ptr->seq_no = seq_no;
 		message_queue.push(msg_ptr);
 		sem_post(&messages_waiting);
@@ -75,8 +81,10 @@ private:
 	static constexpr uint32_t MSG_SEQ_NO_START = 0x0000000A;
 
 	void worker() {
-		while(1) {
+		DBG("worker thread started\n");
+		while(!stop_worker_thread) {
 			/* Wait until a message is enqueued for transmission */
+			DBG("Waiting for message to be sent...\n");
 			sem_wait(&messages_waiting);
 
 			/* Grab next message to be sent and send it */
@@ -86,14 +94,17 @@ private:
 				ERR("Failed to send, rc = %d: %s\n", rc, strerror(errno));
 			}
 
-			/* Remove and delete sent message */
+			/* Remove message from queue */
 			message_queue.pop();
-			delete msg_ptr;
 		}
 	}
+
 	queue<M*>	message_queue;
 	T*		client;
 	sem_t		messages_waiting;
+	sem_t		start_worker_thread;
+	thread		*worker_thread;
+	bool		stop_worker_thread;
 };
 
 #endif

@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 		client = new unix_client();
 	}
 	catch(unix_sock_exception e) {
-		cout << e.err << endl;
+		cout << e.what() << endl;
 		return 1;
 	}
 
