@@ -64,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "librskt_private.h"
 #include "librdma.h"
+#include "librsktd_lib.h"
 #include "librsktd_lib_info.h"
 #include "librsktd_dmn_info.h"
 #include "librsktd_dmn.h"
@@ -208,14 +209,14 @@ void print_loop_status(struct cli_env *env)
 	sprintf(env->output, 
 		"        Alive Socket # BkLg MP Pse Max Reqs Name\n");
         logMsg(env);
-	sprintf(env->output, "ConnLp %5d 0x%8d     %2d\n",
+	sprintf(env->output, "SpConn %5d 0x%8d     %2d\n",
 			dmn.speer_conn_alive,
 			dmn.cm_skt,
 			dmn.mpnum);
 
         logMsg(env);
-	sprintf(env->output, "Lib Lp %5d 0x%8d %4d %2d %s\n",
-			lib_st.loop_alive,
+	sprintf(env->output, "LibCon %5d 0x%8d %4d %2d %s\n",
+			lib_st.lib_conn_loop_alive,
 			lib_st.port,
 			lib_st.bklg,
 			lib_st.mpnum,
@@ -228,13 +229,8 @@ void print_loop_status(struct cli_env *env)
         logMsg(env);
 	sprintf(env->output, "APP Tx %5d\n", dmn.app_tx_alive);
         logMsg(env);
-	sprintf(env->output, "\nlib_st all_must_die : %d\n", 
-			lib_st.all_must_die);
+	sprintf(env->output, "DAEMON all_must_die : %d\n", dmn.all_must_die);
         logMsg(env);
-	sprintf(env->output, "DAEMON all_must_die : %d\n", 
-			dmn.all_must_die);
-        logMsg(env);
-
 };
 
 struct cli_cmd DMNStatus;
@@ -847,18 +843,17 @@ int DMNLibStatusCmd(struct cli_env *env, int argc, char **argv)
 		fd_in = getHex(argv[0], 0);
 
 		if (fd_in == lib_st.fd) {
-			sprintf(env->output, "Aborting library thread\n");
+			sprintf(env->output, "Aborting library threads\n");
 			logMsg(env);
-			pthread_kill(lib_st.conn_thread, SIGUSR1);
-			lib_st.all_must_die = 1;
-			pthread_join(lib_st.conn_thread, NULL);
+			halt_lib_handler();
 			goto display;
 		};
 
 		for (i = 0; i < MAX_APPS; i++) {
 			if (lib_st.apps[i].app_fd == fd_in) {
 				sprintf(env->output,
-					"Aborting thread %d\n", fd_in);
+					"Aborting app rx thread fd %d idx %d\n",
+						 fd_in, i);
 				logMsg(env);
 				lib_st.apps[i].i_must_die = 1;
 				pthread_kill(lib_st.apps[i].thread, SIGUSR1);
@@ -1484,35 +1479,14 @@ extern struct cli_cmd DMNDmnStatus;
 
 int DMNDmnStatusCmd(struct cli_env *env, int argc, char **argv)
 {
-	int fd_in = -1, i;
+	if (0)
+		argv[0][0] = argc;
 
 	if (argc) {
-		if (argc > 1)
-			goto syntax_error;
-
-		fd_in = getHex(argv[0], 0);
-
-		if (fd_in == lib_st.fd) {
-			sprintf(env->output, "Aborting library thread\n");
-			logMsg(env);
-			lib_st.all_must_die = 1;
-			pthread_join(lib_st.conn_thread, NULL);
-			goto display;
-		};
-
-		for (i = 0; i < MAX_APPS; i++) {
-			if ((lib_st.apps[i].app_fd == fd_in) &&
-						lib_st.apps[i].alive) {
-				sprintf(env->output, "Aborting thread %d\n",
-					fd_in);
-				logMsg(env);
-				lib_st.apps[i].i_must_die = 1;
-				pthread_kill(lib_st.apps[i].thread, SIGUSR1);
-				goto display;
-			};
-		};
+		cli_print_help(env, &DMNDmnStatus);
+		return 0;
 	};
-display:
+
 	print_loop_status(env);
 	print_ms_status(env, 0, MAX_DMN_NUM_MS);
 	display_acc_list(env);
@@ -1520,10 +1494,6 @@ display:
 	display_speers_list(env);
 	display_wpeers_list(env);
 
-	return 0;
-
-syntax_error:
-	cli_print_help(env, &DMNDmnStatus);
 	return 0;
 }
 

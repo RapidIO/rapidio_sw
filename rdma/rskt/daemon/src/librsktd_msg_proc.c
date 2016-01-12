@@ -49,6 +49,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd.h"
 #include "librsktd_sn.h"
 #include "librsktd_dmn.h"
+#include "librsktd_lib.h"
 #include "librsktd_lib_info.h"
 #include "liblist.h"
 #include "librsktd_msg_proc.h"
@@ -877,12 +878,11 @@ uint32_t rsktd_sreq_connect_req(struct librsktd_unified_msg *r)
 				ntohl(dreq->msg.con.dst_sn), &li);
 
 	if (NULL == acc) {
-		if (lib_st.all_must_die) {
+		if (dmn.all_must_die || !dmn.app_tx_alive) {
         		dresp->err = htonl(ECONNREFUSED);
 			goto exit;
 		};
-		l_add(&lib_st.creq, ntohl(dreq->msg.con.dst_sn),
-				(void *)r);
+		l_add(&lib_st.creq, ntohl(dreq->msg.con.dst_sn), (void *)r);
 		send_resp_msg = 0;
 		goto exit;
 	};
@@ -1099,6 +1099,8 @@ void *msg_q_loop(void *unused)
 		}
 	};
 	mproc.msg_proc_alive = 0;
+	dmn.all_must_die = 1;
+	sem_post(&dmn.graceful_exit);
 	pthread_exit(0);
 	return unused;
 };

@@ -67,7 +67,7 @@ struct rskt_dmn_speer {
 	/* speer_loop variables */
 	pthread_t s_rx;
 	sem_t started;
-	int alive;
+	volatile int alive;
 	int got_hello;
 	int rx_buff_used;
 	int rx_rc;
@@ -90,14 +90,13 @@ struct rskt_dmn_speer {
 
 #define SPEER_THRD_NM_FMT "SPEERx%x"
 
-void start_new_speer(riomp_sock_t new_socket);
-void *speer_tx_loop(void *unused);
-void close_all_speers(void);
-void close_speer(struct rskt_dmn_speer *speer);
+void enqueue_speer_msg(struct librsktd_unified_msg *msg);
+
 int start_speer_handler(uint32_t cm_skt, uint32_t mpnum,
-                                        uint32_t num_ms, uint32_t ms_size,
-                                        uint32_t skip_ms, uint32_t tst);
+			uint32_t num_ms, uint32_t ms_size, uint32_t skip_ms);
 void halt_speer_handler(void);
+
+void close_speer(struct rskt_dmn_speer *speer);
 
 #ifdef __cplusplus
 }

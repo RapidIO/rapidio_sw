@@ -1268,11 +1268,9 @@ int test_case_1(void)
 		goto fail;
 	if (lib_st.bklg != DFLT_LIBRSKTD_TEST_BKLG)
 		goto fail;
-	if (lib_st.tst != DFLT_LIBRSKTD_TEST_TEST)
+	if (!lib_st.lib_conn_loop_alive)
 		goto fail;
-	if (!lib_st.loop_alive)
-		goto fail;
-	if (lib_st.all_must_die)
+	if (dmn.all_must_die)
 		goto fail;
 	if (lib.ct != FAKE_LIBMPORT_CT)
 		goto fail;
@@ -1339,14 +1337,11 @@ int test_case_1(void)
 	fail_pt = 225;
 	if (lib_st.bklg != DFLT_LIBRSKTD_TEST_BKLG)
 		goto fail;
-	fail_pt = 325;
-	if (lib_st.tst != DFLT_LIBRSKTD_TEST_TEST)
-		goto fail;
 	fail_pt = 425;
-	if (!lib_st.loop_alive)
+	if (!lib_st.lib_conn_loop_alive)
 		goto fail;
 	fail_pt = 525;
-	if (lib_st.all_must_die)
+	if (dmn.all_must_die)
 		goto fail;
 	fail_pt = 625;
 	if (lib_st.fd <= 0)
@@ -1795,11 +1790,9 @@ int test_case_5(void)
 		goto fail;
 	if (lib_st.bklg != DFLT_LIBRSKTD_TEST_BKLG)
 		goto fail;
-	if (lib_st.tst != DFLT_LIBRSKTD_TEST_TEST)
+	if (!lib_st.lib_conn_loop_alive)
 		goto fail;
-	if (!lib_st.loop_alive)
-		goto fail;
-	if (lib_st.all_must_die)
+	if (dmn.all_must_die)
 		goto fail;
 	if (lib_st.fd <= 0)
 		goto fail;
@@ -2568,7 +2561,7 @@ int main(int argc, char *argv[])
 	
 	if (start_speer_handler(DFLT_LIBRSKTD_TEST_CM_SKT,
 			DFLT_LIBRSKTD_TEST_MPNUM, TEST_NUM_MS, TEST_MS_SZ,
-			TEST_SKIP_MS, NOT_TEST)) {
+			TEST_SKIP_MS)) {
 		CRIT("Could not start speer connection manager. EXITING");
 		goto fail;
 	};
@@ -2596,11 +2589,12 @@ int main(int argc, char *argv[])
 	};
 	CRIT("Test case 7 Passed\n");
 
-	// Since all daemon threads are killed by test_case_7, start up all
+	// Since some daemon threads are killed by test_case_7, start up all
 	// threads again.
-	// Cleanup remaining library threads, and details in fake_libmport
-	librskt_finish();
+	// Cleanup remaining threads, and details in fake_libmport
+	cleanup_proc(NULL);
 	sock_wkr_idx = 0;
+	kill_acc_conn = 0;
 
 	// Then start up everything again.
 	dmn.all_must_die = 0;
@@ -2633,7 +2627,7 @@ int main(int argc, char *argv[])
 
 	if (start_speer_handler(DFLT_LIBRSKTD_TEST_CM_SKT,
 			DFLT_LIBRSKTD_TEST_MPNUM, TEST_NUM_MS, TEST_MS_SZ,
-			TEST_SKIP_MS, NOT_TEST)) {
+			TEST_SKIP_MS)) {
 		CRIT("Could not start speer connection manager. EXITING");
 		goto fail;
 	};

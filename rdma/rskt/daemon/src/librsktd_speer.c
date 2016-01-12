@@ -122,7 +122,6 @@ void close_speer(struct rskt_dmn_speer *speer)
 {
 	DBG("\n\tSPEER %d: closing speer!\n", speer->ct);
 
-	speer->alive = 0;
 	sem_post(&speer->started);
 	sleep(0);
 
@@ -148,7 +147,8 @@ void close_speer(struct rskt_dmn_speer *speer)
 	};
 
 	DBG("\n\tSPEER %d: killing speer thread!\n", speer->ct);
-	pthread_kill(speer->s_rx, SIGUSR1);
+	if (speer->alive)
+		pthread_kill(speer->s_rx, SIGUSR1);
 };
 
 void speer_loop_sig_handler(int sig)
@@ -221,6 +221,7 @@ void *speer_rx_loop(void *p_i)
 
 	DBG("\n\tSPEER %d: Exiting, startin to cleanup!\n", speer->ct);
 	speer->comm_fail = 1;
+	speer->alive = 0;
 
 	if (NULL != msg)
 		dealloc_msg(msg);
@@ -309,8 +310,10 @@ void enqueue_speer_msg(struct librsktd_unified_msg *msg)
 
 void halt_speer_tx_loop(void)
 {
-        pthread_kill(dmn.speer_tx_thread, SIGUSR1);
-        pthread_join(dmn.speer_tx_thread, NULL);
+	if (dmn.speer_tx_alive) {
+        	pthread_kill(dmn.speer_tx_thread, SIGUSR1);
+        	pthread_join(dmn.speer_tx_thread, NULL);
+	};
 };
 
 /* Sends responses to all speers */
@@ -334,7 +337,6 @@ void *speer_tx_loop(void *unused)
 
 	dmn.speer_tx_alive = 1;
 
-	sem_post(&dmn.loop_started);
 	sem_post(&dmn.speer_tx_loop_started);
 
 	while (!dmn.all_must_die) {
@@ -416,6 +418,8 @@ void *speer_tx_loop(void *unused)
 			DBG("Dealloc_msg FAILED\n");
 	};
 	dmn.speer_tx_alive = 0;
+	dmn.all_must_die = 1;
+	sem_post(&dmn.graceful_exit);
 	pthread_exit(unused);
 };
 
@@ -454,9 +458,106 @@ fail:
 	return rc;
 };
 
+void speer_conn_sig_handler(int sig)
+{
+        if (sig)
+                return;
+}
+
+void halt_speer_conn_handler(void)
+{
+	if (dmn.speer_conn_alive) {
+		pthread_kill(dmn.speer_conn_thread, SIGUSR1);
+		pthread_join(dmn.speer_conn_thread, NULL);
+	};
+};
+
+void *speer_conn(void *unused)
+{
+	int rc = 1;
+	riomp_sock_t new_socket = NULL;
+	char my_name[16];
+        struct sigaction sigh;
+	
+	dmn.speer_conn_alive = 0;
+	if (init_mport_and_mso_ms()) 
+		goto exit;
+
+	dmn.speer_conn_alive = 1;
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "SPEER_CONN");
+	pthread_setname_np(dmn.speer_conn_thread, my_name);
+
+        memset(&sigh, 0, sizeof(sigh));
+        sigh.sa_handler = speer_conn_sig_handler;
+        sigaction(SIGUSR1, &sigh, NULL);
+
+	sem_post(&dmn.speer_conn_thr_started);
+
+	INFO("\rALIVE.");
+	while (!dmn.all_must_die) {
+		if (NULL == new_socket) {
+			rc = riomp_sock_socket(dmn.mb, &new_socket);
+			if (rc) {
+				CRIT("speer_conn: socket() ERR %d\n", rc);
+				break;
+			};
+		};
+		DBG("accepting...\n");
+		do {
+			rc = riomp_sock_accept(dmn.cm_acc_h, &new_socket, 3*60*1000);
+		} while (!dmn.all_must_die && rc && 
+		((errno == ETIME) || (errno == EINTR) || (EAGAIN == errno)));
+
+		if (dmn.all_must_die)
+			continue;
+
+		if (rc) {
+			CRIT("speer_conn: riodp_accept() ERR %d %d:%s\n",
+				rc, errno, strerror(errno));
+			break;
+		}
+
+		DBG("start new SPEER\n");
+		start_new_speer(new_socket);
+
+		new_socket = NULL;
+	}
+
+exit:
+	dmn.speer_conn_alive = 0;
+	if (NULL != new_socket)
+		riomp_sock_close(&new_socket);
+	CRIT("\nRSKTD Peer Connection Handler EXITING\n");
+	sem_post(&dmn.speer_conn_thr_started);
+	dmn.all_must_die = 1;
+	sem_post(&dmn.graceful_exit);
+	pthread_exit(unused);
+};
+
+int start_speer_conn(uint32_t cm_skt, uint32_t mpnum, 
+			uint32_t num_ms, uint32_t ms_size, uint32_t skip_ms)
+{
+	int rc;
+
+	dmn.cm_skt = cm_skt;
+	dmn.mpnum = mpnum;
+	dmn.skip_ms = skip_ms;
+	dmn.num_ms = num_ms;
+	dmn.ms_size = ms_size;
+	sem_init(&dmn.speer_conn_thr_started, 0, 0);
+
+        rc = pthread_create(&dmn.speer_conn_thread, NULL, speer_conn, NULL);
+	if (rc)
+		goto fail;
+	
+	sem_wait(&dmn.speer_conn_thr_started);
+fail:
+	return rc;
+};
 int start_speer_handler(uint32_t cm_skt, uint32_t mpnum,
-                                        uint32_t num_ms, uint32_t ms_size,
-                                        uint32_t skip_ms, uint32_t tst)
+			uint32_t num_ms, uint32_t ms_size, uint32_t skip_ms)
 {
 	int rc;
 
@@ -464,7 +565,7 @@ int start_speer_handler(uint32_t cm_skt, uint32_t mpnum,
 	if (rc)
 		return rc;
 
-	return start_speer_conn(cm_skt, mpnum, num_ms, ms_size, skip_ms, tst);
+	return start_speer_conn(cm_skt, mpnum, num_ms, ms_size, skip_ms);
 };
 
 void halt_speer_handler(void)

@@ -215,13 +215,12 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 	do {
 		sem_wait(&dmn.mb_mtx);
 		rc = riomp_sock_socket(dmn.mb, &w->cm_skt_h);
-		DBG("dmn.mb created\n");
 		sem_post(&dmn.mb_mtx);
 
         	conn_rc = riomp_sock_connect(w->cm_skt_h, w->ct, 0, w->cm_skt);
 
                 if (!conn_rc) {
-                	INFO("Connected to ct(%d)\n", ct);
+                	HIGH("ct %d connected\n", ct);
 			w->cm_skt_h_valid = 1;
                         break;
                 }
@@ -291,11 +290,8 @@ int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers)
 	int i;
 	struct rskt_dmn_wpeer *w;
 
-	sem_wait(&dmn.loop_started);
-	sem_post(&dmn.loop_started);
-
-	if ((!dmn.mb_valid && !dmn.cm_skt_tst) || !dmn.speer_conn_alive) {
-		ERR("Invalid element in 'dmn'\n");
+	if (!dmn.mb_valid || !dmn.speer_conn_alive) {
+		ERR("Mailbox invalid or no speer connection thread'\n");
 		return -1;
 	}
 
@@ -404,7 +400,6 @@ void *wpeer_tx_loop(void *unused)
         sigaction(SIGUSR1, &sigh, NULL);
 
 	dmn.wpeer_tx_alive = 1;
-	sem_post(&dmn.loop_started);
 	sem_post(&dmn.wpeer_tx_loop_started);
 
 	while (!dmn.all_must_die) {
@@ -460,6 +455,7 @@ void *wpeer_tx_loop(void *unused)
 		};
 	};
 	dmn.wpeer_tx_alive = 0;
+	sem_post(&dmn.graceful_exit);
 	pthread_exit(unused);
 };
 

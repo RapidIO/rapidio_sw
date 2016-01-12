@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "librsktd.h"
-#include "librsktd_dmn.h"
+#include "librsktd_dmsg.h"
 #include "librsktd_dmn_info.h"
 #include "librsktd_lib_info.h"
 
@@ -103,7 +103,7 @@ struct librsktd_unified_msg {
 #define MAX_MSG 100
 
 struct librsktd_msg_proc_info {
-	uint32_t msg_proc_alive;
+	volatile uint32_t msg_proc_alive;
 	pthread_t msg_q_thread;
 	sem_t msg_q_mutex;
 	sem_t msg_q_cnt;

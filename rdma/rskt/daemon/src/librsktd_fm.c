@@ -122,7 +122,9 @@ void *fm_loop(void *unused)
 	} while (!fm_must_die && (NULL != dd_h));
 exit:
 	fm_alive = 0;
-	fmdd_destroy_handle(&dd_h);
+	dmn.all_must_die = 1;
+	sem_post(&dmn.graceful_exit);
+	// fmdd_destroy_handle(&dd_h);
 	pthread_exit(unused);
 };
 

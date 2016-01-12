@@ -108,7 +108,7 @@ struct librskt_app {
         socklen_t addr_size;
         struct sockaddr_un addr;
         pthread_t thread;
-        int alive;
+        volatile int alive;
         sem_t started;
         sem_t up_and_running;
         volatile int i_must_die;
@@ -142,30 +142,17 @@ struct librsktd_connect_globals {
         int port;
         int mpnum;
         int bklg;
-	int tst; /* 0 - use real skt connection, 1 - fake skt connection*/
 
-        pthread_t conn_thread;
-        int loop_alive;
-        sem_t loop_started;
-        volatile int all_must_die;
+        volatile int lib_conn_loop_alive;
+        pthread_t lib_conn_thread;
+        sem_t lib_conn_loop_started;
 
         int fd; /* File number library instance connect to */
         struct sockaddr_un addr;
 	struct librskt_app *new_app;
 
-#ifdef NOT_DEFINED
-	struct l_head_t app; /* List of connections to applications/libraries */
-				/* Items are struct librskt_app */
-				/* Key is file descriptor (app_fd) */
-#endif
 	struct librskt_app apps[MAX_APPS];
 
-        pthread_t tx_thread; /* Thread responsible for sending messages to
-				* all apps.
-				*/
-	sem_t tx_thread_alive;
-	sem_t tx_msg_mutex; /* Must have this sem to access msg_tx queue */
-	sem_t tx_msg_cnt; /* Posted for each entry in tx_msg_q */
 	struct l_head_t tx_msg_q; /* List of messages to transmit */
 				/* Items are struct lib_msg_t */
 				/* FIFO, for all apps! */
@@ -183,12 +170,6 @@ struct librsktd_connect_globals {
 };
 
 extern struct librsktd_connect_globals lib_st;
-
-/* NONBLOCKING Deal with library accept message and rsktd connect message */
-extern void rsktd_connect_accept(struct acc_skts *acc);
-
-extern void enqueue_app_msg(struct librsktd_unified_msg *msg);
-extern void *app_tx_loop(void *unused);
 
 #ifdef __cplusplus
 }

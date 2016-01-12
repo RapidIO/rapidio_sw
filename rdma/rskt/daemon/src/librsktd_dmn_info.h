@@ -96,7 +96,6 @@ struct mso_info {
 
 struct dmn_globals {
 	int cm_skt;
-	int cm_skt_tst;
 	uint8_t mpnum;
 	uint32_t skip_ms;
 	uint32_t num_ms;
@@ -104,14 +103,14 @@ struct dmn_globals {
 
 	riomp_mport_t mp_hnd;
 	struct riomp_mgmt_mport_properties qresp;
-	int all_must_die;
-
-	volatile int loop_alive;
+	volatile int all_must_die;
+	sem_t graceful_exit;
 
 	/* CM connection request handler from other RSKT Daemons */
-	int speer_conn_alive;
-	int thread_valid;
-	pthread_t thread; 
+	sem_t speer_conn_thr_started;
+	volatile int speer_conn_alive;
+	int speer_conn_thr_valid;
+	pthread_t speer_conn_thread; 
 	int mb_valid;
 	sem_t mb_mtx;
 	riomp_mailbox_t mb;
@@ -121,12 +120,9 @@ struct dmn_globals {
 	/* RDMA Memory Space Database for this RSKT Daemon */
 	struct mso_info mso;
 
-	/* FIXME: Remove this variable in favour of loop specific variables */
-	sem_t loop_started;
-
 	/* Transmit thread sending to all wpeers */
 	sem_t wpeer_tx_loop_started;
-	int wpeer_tx_alive;
+	volatile int wpeer_tx_alive;
 	pthread_t wpeer_tx_thread;
 	sem_t wpeer_tx_mutex;
 	sem_t wpeer_tx_cnt;
@@ -134,7 +130,7 @@ struct dmn_globals {
 
 	/* Transmit thread sending to all speers */
 	sem_t speer_tx_loop_started;
-	int speer_tx_alive;
+	volatile int speer_tx_alive;
 	pthread_t speer_tx_thread;
 	sem_t speer_tx_mutex;
 	sem_t speer_tx_cnt;
@@ -142,7 +138,7 @@ struct dmn_globals {
 
 	/* Transmit thread sending to all apps */
 	sem_t app_tx_loop_started;
-	int app_tx_alive;
+	volatile int app_tx_alive;
 	pthread_t app_tx_thread;
 	sem_t app_tx_mutex;
 	sem_t app_tx_cnt;

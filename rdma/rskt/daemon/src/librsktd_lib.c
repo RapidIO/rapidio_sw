@@ -87,7 +87,7 @@ void *app_tx_loop(void *unused)
 		WARN("pthread_detach rc %d", rc);
 	};
 
-	sem_post(&dmn.loop_started);
+	sem_post(&dmn.app_tx_loop_started);
 
 	while (!dmn.all_must_die) {
 		free_flag = 1;
@@ -154,6 +154,7 @@ dealloc:
 			dealloc_msg(msg);
 	};
 	dmn.app_tx_alive = 0;
+	sem_post(&dmn.graceful_exit);
 	pthread_exit(unused);
 };
 
@@ -288,22 +289,20 @@ void *app_rx_loop(void *ip)
 					&lib_st.new_app->up_and_running, value);
 	}
 
-        while (!app->i_must_die) {
+        while (!app->i_must_die && !dmn.all_must_die) {
 		rxed = alloc_rx();
 		memset(rxed, 0, A2RSKTD_SZ);
                 do {
                 	DBG("*** Waiting for A2RSKTD_SZ...\n");
                         rc = recv(app->app_fd, rxed, A2RSKTD_SZ, 0);
-                } while ((EINTR == errno) && !app->i_must_die &&
-							!lib.all_must_die);
+                } while (!app->i_must_die && !dmn.all_must_die && rc &&
+                ((EINTR == errno) || (ETIME == errno) || (EBUSY == errno)));
 
-                if ((rc <= 0) || app->i_must_die || lib.all_must_die) {
-                	if (rc <= 0) {
+                if ((rc <= 0) || app->i_must_die || dmn.all_must_die) {
+                	if (rc <= 0)
                 		HIGH("App has died!\n");
-                	}
                         break;
                 }
-
 		handle_app_msg(app, rxed);
 	}
 
@@ -424,14 +423,14 @@ void *lib_conn_loop( void *unused )
 		goto fail;
 	}
 
-	lib_st.loop_alive = 1;
+	lib_st.lib_conn_loop_alive = 1;
         memset(my_name, 0, 16);
         snprintf(my_name, 15, "RSKTD_APP_CONN");
-        pthread_setname_np(lib_st.conn_thread, my_name);
+        pthread_setname_np(lib_st.lib_conn_thread, my_name);
 
-	sem_post(&lib_st.loop_started);
+	sem_post(&lib_st.lib_conn_loop_started);
 
-	while (!lib_st.all_must_die) {
+	while (!dmn.all_must_die) {
 		int rc, i, found_one;
 		
 		found_one = 0;
@@ -459,7 +458,7 @@ void *lib_conn_loop( void *unused )
 		lib_st.new_app->app_fd = accept(lib_st.fd, 
 			(struct sockaddr *)&lib_st.new_app->addr,
                         &lib_st.new_app->addr_size);
-		if (lib_st.all_must_die) 
+		if (dmn.all_must_die) 
 			goto  fail;
 
 		if (-1 == lib_st.new_app->app_fd) {
@@ -489,69 +488,64 @@ void *lib_conn_loop( void *unused )
         		sem_wait(&lib_st.new_app->up_and_running);
         		DBG("new_app->up_and_running POSTED!\n");
         	}
-
-		if (lib_st.tst) {
-			WARN("lib_st.tst is true, EXITING\n");
-			break;
-		}
 	};
 fail:
 	DBG("RSKTD Library Connection Thread Exiting\n");
-	lib_st.loop_alive = 0;
-	lib_st.all_must_die = 1;
-	halt_lib_handler();
+	lib_st.lib_conn_loop_alive = 0;
+	dmn.all_must_die = 1;
+	sem_post(&dmn.graceful_exit);
 
 	pthread_exit(NULL);
 	return unused;
 }
 
-int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog, int tst)
+int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog)
 {
 	int ret;
 
         /* Prepare and start library connection handling threads */
+        DBG("ENTER\n");
 
 	lib_st.port = port;
 	lib_st.mpnum = mpnum;
 	lib_st.bklg = backlog;
-	lib_st.tst = tst;
-	lib_st.all_must_die = 0;
 
-	lib_st.loop_alive = 0;
+	lib_st.lib_conn_loop_alive = 0;
 	lib_st.new_app = NULL;
 
         l_init(&lib_st.acc);
         l_init(&lib_st.con);
         l_init(&lib_st.creq);
 
-        DBG("ENTER\n");
-        sem_init(&lib_st.loop_started, 0, 0);
-
-        ret = pthread_create(&lib_st.conn_thread, NULL, lib_conn_loop, NULL);
-        if (ret) {
-                ERR("Error - lib_thread rc: %d\n", ret);
-	} else {
-        	sem_wait(&lib_st.loop_started);
-        	sem_post(&lib_st.loop_started);
-	};
-
+	dmn.app_tx_alive = 0;
+        sem_init(&dmn.app_tx_loop_started, 0, 0);
         sem_init(&dmn.app_tx_mutex, 0, 1);
         sem_init(&dmn.app_tx_cnt, 0, 0);
         l_init(&dmn.app_tx_q);
         ret = pthread_create(&dmn.app_tx_thread, NULL, app_tx_loop, NULL);
         if (ret) {
                 ERR("Could not start app_tx_loop thread. EXITING");
-        } else {
-		sem_wait(&dmn.loop_started);
-		sem_post(&dmn.loop_started);
+		goto exit;
 	};
+        sem_wait(&dmn.app_tx_loop_started);
+	DBG("dmn.app_tx_alive%d\n", dmn.app_tx_alive);
 
+        sem_init(&lib_st.lib_conn_loop_started, 0, 0);
+        ret = pthread_create(&lib_st.lib_conn_thread, NULL, lib_conn_loop, NULL);
+        if (ret) {
+                ERR("Error - lib_thread rc: %d\n", ret);
+		goto exit;
+	};
+        sem_wait(&lib_st.lib_conn_loop_started);
+	DBG("lib_st.lib_conn_loop_alive %d\n", lib_st.lib_conn_loop_alive);
+
+exit:
 	return ret;
 };
 
 int lib_handler_dead(void)
 {
-	return !lib_st.loop_alive;
+	return !lib_st.lib_conn_loop_alive || !dmn.app_tx_alive;
 };
 
 void halt_lib_handler(void)
@@ -560,11 +554,10 @@ void halt_lib_handler(void)
 	int i;
 
 	DBG("ENTER\n");
-	if (lib_st.loop_alive && !lib_st.all_must_die) {
-		lib_st.all_must_die = 1;
-		lib_st.loop_alive = 0;
+	if (lib_st.lib_conn_loop_alive) {
+		lib_st.lib_conn_loop_alive = 0;
 		DBG("Killing lib_st.conn_thread\n");
-		pthread_kill(lib_st.conn_thread, SIGUSR1);
+		pthread_kill(lib_st.lib_conn_thread, SIGUSR1);
 	}
 
 	if (NULL != lib_st.new_app) {
@@ -579,7 +572,7 @@ void halt_lib_handler(void)
 		lib_st.fd = -1;
 	};
 
-	sem_post(&lib_st.loop_started);
+	sem_post(&lib_st.lib_conn_loop_started);
 
 	for (i = 0; i < MAX_APPS; i++) {
 		lib_st.apps[i].i_must_die = 1;
@@ -603,7 +596,6 @@ void halt_lib_handler(void)
 		msg = (struct librsktd_unified_msg *)l_pop_head(&lib_st.creq);
 	};
 
-	dmn.all_must_die = 1;
         sem_post(&dmn.app_tx_cnt);
 	pthread_join(dmn.app_tx_thread, NULL);
 };
@@ -611,7 +603,7 @@ void halt_lib_handler(void)
 void cleanup_lib_handler(void)
 {
 	DBG("ENTER\n");
-	pthread_join(lib_st.conn_thread, NULL);
+	pthread_join(lib_st.lib_conn_thread, NULL);
 };
 	
 #ifdef __cplusplus
