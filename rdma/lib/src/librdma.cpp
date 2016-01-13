@@ -260,7 +260,10 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 
 	/* Wait for reply */
 	DBG("Notify configured...WAITING...\n");
-	sem_wait(reply_sem.get());
+        struct timespec timeout;
+        clock_gettime(CLOCK_REALTIME, &timeout);
+        timeout.tv_sec++;
+	rc = sem_timedwait(reply_sem.get(), &timeout);
 	if (rc) {
 		ERR("reply_sem failed: %s\n", strerror(errno));
 		if (errno == ETIMEDOUT) {

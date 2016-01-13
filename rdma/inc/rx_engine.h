@@ -221,6 +221,7 @@ private:
 				sem_post(engine_cleanup_sem);
 			}
 			worker_is_dead = true;
+			DBG("worker_thread exiting!\n");
 		} /* while() */
 	}
 
