@@ -232,6 +232,7 @@ protected:
 					name, strerror(errno), errno);
 			rc = errno;
 		} else {
+			DBG("Received %u bytes\n", rc);
 			*rcvd_len = rc;
 			rc = 0;
 		}

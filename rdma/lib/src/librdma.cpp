@@ -245,6 +245,9 @@ int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint32_t *bytes)
  */
 static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 {
+	constexpr uint32_t MSG_SEQ_NO_START = 0x0000000A;
+	static rdma_msg_seq_no seq_no = MSG_SEQ_NO_START;
+
 	/* First check that engines are still valid */
 	if ((tx_eng == nullptr) || (rx_eng == nullptr)) {
 		CRIT("Connection to daemon severed");
@@ -252,7 +255,8 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 	}
 
 	/* Send message */
-	auto seq_no = tx_eng->send_message(in_msg);
+	in_msg->seq_no = seq_no;
+	tx_eng->send_message(in_msg);
 	DBG("Message queued\n");
 
 	/* Prepare for reply */
@@ -283,6 +287,10 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 			ERR("Failed to obtain reply message, rc = %d\n", rc);
 		}
 	}
+
+	/* Now increment seq_no for next call */
+	seq_no++;
+
 	return rc;
 } /* daemon_call() */
 
@@ -308,7 +316,7 @@ static bool rdmad_is_alive()
 	return alt_rpc_call(in_msg, NULL) != RDMA_DAEMON_UNREACHABLE;
 } /* rdmad_is_alive() */
 
-/*static*/ int open_mport(void/*struct peer_info *peer*/)
+int open_mport(void)
 {
 	auto rc = 0;
 	DBG("ENTER\n");

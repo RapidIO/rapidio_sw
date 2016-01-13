@@ -213,8 +213,8 @@ private:
 						/* Post the notification semaphore */
 						sem_post(it->notify_sem.get());
 					} else {
-						CRIT("Non-matching API type 0x%X\n",
-								msg->type);
+						CRIT("Non-matching API type(0x%X) seq_no(0x%X)\n",
+								msg->type, msg->seq_no);
 					}
 				} else if (msg->category == RDMA_REQ_RESP) {
 					/* Process request/resp by forwarding to message processor */
@@ -224,9 +224,11 @@ private:
 						ERR("Failed to process message, rc = %d\n", rc);
 					}
 				}
-			} else { /* received_len < 0 */
+			} else if (received_len == 0) {
 				CRIT("Other side has closed connection\n");
 				die();
+			} else { /* received_len < 0 */
+				assert(!"received_len < 0");
 			}
 		} /* while() */
 		worker_is_dead = true;

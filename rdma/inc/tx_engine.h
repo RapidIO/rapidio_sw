@@ -94,21 +94,15 @@ public:
 	T *get_client() { return client.get(); }
 
 	/* Returns sequence number to be used to receive reply */
-	rdma_msg_seq_no send_message(M* msg_ptr)
+	void send_message(M* msg_ptr)
 	{
-		static rdma_msg_seq_no seq_no = MSG_SEQ_NO_START;
-
-		DBG("Sending 0x%X\n", msg_ptr->type);
-		msg_ptr->seq_no = seq_no;
+		DBG("Sending type(0x%X) cat(0x%X) seq_no(0x%X)\n",
+			msg_ptr->type, msg_ptr->category, msg_ptr->seq_no);
 		message_queue.push(msg_ptr);
 		sem_post(&messages_waiting);
-
-		return seq_no++;
 	} /* send_message() */
 
 private:
-	static constexpr uint32_t MSG_SEQ_NO_START = 0x0000000A;
-
 	void worker() {
 		DBG("worker thread started\n");
 		while(!stop_worker_thread) {
