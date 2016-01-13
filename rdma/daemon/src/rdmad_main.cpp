@@ -581,23 +581,23 @@ int start_accepting_connections()
 		server = new unix_server("main_server");
 	}
 	catch(unix_sock_exception& e) {
-		CRIT("Failed to create server: %s \n",  e.what());
-		return 1;
+		CRIT("Failed to create server: %s. Aborting.\n",  e.what());
+		abort();
 	}
 
 	while (1) {
-		/* Wait for client to connect */
-		HIGH("Waiting for (another) RDMA application to connect..\n");
-		if (server->accept()) {
-			CRIT("Failed to accept\n");
-			delete server;
-			return 2;
-		}
-		HIGH("Application connected!\n");
-		int accept_socket = server->get_accept_socket();
-		unix_server *other_server;
 		try {
-			other_server = new unix_server("other_server",
+			/* Wait for client to connect */
+			HIGH("Waiting for (another) RDMA application to connect..\n");
+			if (server->accept()) {
+				CRIT("Failed to accept connections.\n");
+				throw unix_sock_exception("Failed in server->accept()");
+			}
+			HIGH("Application connected!\n");
+
+			/* Create other server for handling connection with app */
+			auto accept_socket = server->get_accept_socket();
+			auto other_server = new unix_server("other_server",
 								accept_socket);
 
 			/* Engine cleanup semaphore. Posted by engines that die
@@ -625,9 +625,11 @@ int start_accepting_connections()
 					new thread(engine_monitoring_thread_f,
 						   engine_cleanup_sem);
 		}
-		catch(unix_sock_exception& e) {
-			CRIT("Exception caught:%:\n", e.what());
-			continue;
+		catch(exception& e) {
+			CRIT("Fatal error: %s. Aborting daemon!\n", e.what());
+			delete server;
+			server = nullptr;
+			abort();
 		}
 	} /* while */
 } /* start_accepting_connections() */
