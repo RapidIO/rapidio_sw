@@ -82,6 +82,10 @@ void DMAChannel::init()
   m_check_reg     = false;
   m_restart_pending = 0;
   m_sts_log_two    = 0;
+
+  m_sim           = false;
+  m_sim_dma_rp    = 0;
+  m_sim_fifo_wp   = 0;
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
@@ -396,6 +400,8 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 
   m_T3_bd_hw = m_bd_num-1;
 
+  if (m_sim) return true;
+
   // Setup DMA descriptor pointers
   wr32dmachan(TSI721_DMAC_DPTRH, (uint64_t)m_dmadesc.win_handle >> 32);
   wr32dmachan(TSI721_DMAC_DPTRL, 
@@ -514,6 +520,8 @@ bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
 
   memset(m_dmacompl.win_ptr, 0, m_dmacompl.win_size);
 
+  if (m_sim) { rc = true; goto exit; }
+
   // Setup descriptor status FIFO 
   wr32dmachan(TSI721_DMAC_DSBH,
     (uint64_t)m_dmacompl.win_handle >> 32);
@@ -527,6 +535,7 @@ bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
        m_dmacompl.win_ptr, m_dmacompl.win_handle);
 #endif
   rc = true;
+
 exit:
   return rc;
 }
@@ -753,7 +762,8 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
   // Before advancing FIFO RP I must have a "barrier" so no "older" BDs exist.
 
-  wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
+  if (!m_sim) wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
+
   return cwi;
 }
 
@@ -788,6 +798,8 @@ void DMAChannel::softRestart(const bool nuke_bds)
 
   resetHw(); // clears m_dma_wr
 
+  if (m_sim) goto done;
+
   // Setup DMA descriptor pointers
   wr32dmachan(TSI721_DMAC_DPTRH, (uint64_t)m_dmadesc.win_handle >> 32);
   wr32dmachan(TSI721_DMAC_DPTRL, (uint64_t)m_dmadesc.win_handle & TSI721_DMAC_DPTRL_MASK);
@@ -797,9 +809,41 @@ void DMAChannel::softRestart(const bool nuke_bds)
   wr32dmachan(TSI721_DMAC_DSBL, (uint64_t)m_dmacompl.win_handle & TSI721_DMAC_DSBL_MASK);
   wr32dmachan(TSI721_DMAC_DSSZ, m_sts_log_two);
 
+done:
   m_restart_pending = 0;
   const uint64_t ts_e = rdtsc();
 
   INFO("dT = %llu TICKS\n", (ts_e - ts_s));
 }
 
+/** \brief Simulate FIFO completions; NO errors are injected
+ * \note Should be called in isolcpu thread before \ref scanFIFO
+ */
+int DMAChannel::simFIFO()
+{
+  if (!m_sim)
+    throw std::runtime_error("DMAChannel: Simulation was not flagged!");
+
+  uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
+  const uint64_t HW_END = m_dmadesc.win_handle + m_dmadesc.win_size;
+
+  pthread_spin_lock(&m_bl_splock);
+
+  for (; m_sim_dma_rp < m_dma_wr; m_sim_dma_rp++) { // XXX "<=" ??
+    // Handle wrap-arounds in BD array, m_dma_wr can go up to 0xFFFFFFFFL
+    const int idx = m_sim_dma_rp % m_bd_num;
+    assert(m_bl_busy[idx]);
+
+    const uint64_t bd_linear = m_dmadesc.win_handle + idx * DMA_BUFF_DESCR_SIZE;
+    assert(bd_linear < HW_END);
+
+    sts_ptr[m_sim_fifo_wp*8] = bd_linear;
+
+    m_sim_fifo_wp++;
+    m_sim_fifo_wp %= m_sts_size;
+  }
+
+  pthread_spin_unlock(&m_bl_splock);
+
+  return 0;
+}

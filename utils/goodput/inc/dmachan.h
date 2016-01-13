@@ -162,6 +162,14 @@ public:
 
   int scanFIFO(WorkItem_t* completed_work, const int max_work);
 
+  /** \brief Switch to simulation mode. \ref simFIFO must be called frequently
+   * \note Call this before \ref alloc_dmatxdesc
+   * \note Call this before \ref alloc_dmacompldesc
+   * \note Object cannot be switched out of simulation mode.
+   */
+  void setSim() { m_check_reg = false; m_sim = true; }
+  int simFIFO();
+
 public: // XXX test-public, make this section private
 
   // NOTE: These functions can be inlined only if they live in a
@@ -215,6 +223,8 @@ public:
    */
   inline bool queueFullHw()
   {
+    if (m_sim) return false;
+
     uint32_t wrc = getWriteCount();
     uint32_t rdc = getReadCount();
     if(wrc == rdc) return false; // empty
@@ -236,6 +246,8 @@ public:
   
   inline bool dmaCheckAbort(uint32_t& abort_reason)
   {
+    if (m_sim) return false;
+
     uint32_t channel_status = rd32dmachan(TSI721_DMAC_STS);
   
     if(channel_status & TSI721_DMAC_STS_RUN) return false;
@@ -248,18 +260,22 @@ public:
   
   inline bool checkPortOK()
   {
+    if (m_sim) return true;
     uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
     return status & TSI721_RIO_SP_ERR_STAT_PORT_OK;
   }
   
   inline bool checkPortError()
   {
+    if (m_sim) return false;
     uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
     return status & TSI721_RIO_SP_ERR_STAT_PORT_ERR;
   }
   
   inline void checkPortInOutError(bool& inp_err, bool& outp_err)
   {
+    if (m_sim) { inp_err = outp_err = false; return; }
+
     uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
   
     if(status & TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP) inp_err = true;
@@ -279,6 +295,9 @@ public:
 
 private:
   int umdemo_must_die = 0;
+  bool                m_sim;        ///< Simulation: do not progtam HW with linear addrs of FIFO and BD array; do not read HW regs
+  uint32_t            m_sim_dma_rp; ///< Simulated Tsi721 RP
+  uint32_t            m_sim_fifo_wp; ///< Simulated Tsi721 FIFO WP
   volatile bool       m_check_reg;
   pthread_spinlock_t  m_hw_splock; ///< Serialize access to DMA chan registers
   pthread_spinlock_t  m_pending_work_splock; ///< Serialize access to DMA pending queue object
@@ -301,7 +320,7 @@ private:
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 
-  inline void setWriteCount(uint32_t cnt) { wr32dmachan(TSI721_DMAC_DWRCNT, cnt); }
+  inline void setWriteCount(uint32_t cnt) { if (!m_sim) wr32dmachan(TSI721_DMAC_DWRCNT, cnt); }
 
 public:
   inline void trace_dmachan(uint32_t offset, uint32_t val)
