@@ -668,6 +668,14 @@ __attribute__((constructor)) int lib_init(void)
 				} \
 			}
 
+#define LIB_INIT_CHECK(rc) if (!init) { \
+		WARN("RDMA library not initialized, re-initializing\n"); \
+		rc = rdma_lib_init(); \
+		if (rc != 0) { \
+			ERR("Failed to re-initialize RDMA library\n"); \
+			throw RDMA_LIB_INIT_FAIL; \
+		} \
+	}
 void rdma_set_fmd_handle(fmdd_h dd_h)
 {
 	::dd_h = dd_h;
@@ -675,72 +683,62 @@ void rdma_set_fmd_handle(fmdd_h dd_h)
 
 int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 {
-	create_mso_input	in;
-	create_mso_output	out;
-	int			ret;
+	auto rc = 0;
 
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
+	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
+		/* Check that owner does not already exist */
+		if (find_mso_by_name(owner_name)) {
+			ERR("Cannot create another owner named '%s'\n", owner_name);
+			throw RDMA_DUPLICATE_MSO;
+		}
 
-	/* Check that owner does not already exist */
-	if (find_mso_by_name(owner_name)) {
-		CRIT("Cannot create another owner named \'%s\'\n", owner_name);
-		sem_post(&rdma_lock);
-		return RDMA_DUPLICATE_MSO;
-	}
+		/* Prevent buffer overflow due to very long name */
+		size_t len = strlen(owner_name);
+		if (len > UNIX_MS_NAME_MAX_LEN) {
+			ERR("String 'owner_name' is too long (%d)\n", len);
+			throw RDMA_NAME_TOO_LONG;
+		}
 
-	/* Prevent buffer overflow due to very long name */
-	size_t len = strlen(owner_name);
-	if (len > UNIX_MS_NAME_MAX_LEN) {
-		ERR("String 'owner_name' is too long (%d)\n", len);
-		sem_post(&rdma_lock);
-		return RDMA_NAME_TOO_LONG;
-	}
+		/* Set up Unix message parameters */
+		unix_msg_t	in_msg;
+		unix_msg_t	out_msg;
+		in_msg.type     = CREATE_MSO;
+		in_msg.category = RDMA_REQ_RESP;
+		strcpy(in_msg.create_mso_in.owner_name, owner_name);
 
-	/* Set up input parameters */
-	strcpy(in.owner_name, owner_name);
+		/* Call into daemon */
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in CREATE_MSO daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
 
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
+		/* Failed to create mso? */
+		if (out_msg.create_mso_out.status) {
+			ERR("Failed to create mso '%s' in daemon\n", owner_name);
+			throw out_msg.create_mso_out.status;
+		}
 
-	in_msg->type = CREATE_MSO;
-	in_msg->create_mso_in = in;
-
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		sem_post(&rdma_lock);
-		return ret;
-	}
-
-	out = out_msg->create_mso_out;
-
-	/* Check status returned by command on the daemon side */
-	if (out.status != 0) {
-		ERR("Failed to create mso('%s') in daemon\n", in.owner_name);
-		sem_post(&rdma_lock);
-		return out.status;
-	}
-
-	/* Store in database. mso_conn_id = 0 and owned = true */
-	*msoh = add_loc_mso(owner_name, out.msoid, 0, true, (pthread_t)0, nullptr);
-	if (!*msoh) {
-		WARN("add_loc_mso() failed, msoid = 0x%X\n", out.msoid);
-		sem_post(&rdma_lock);
-		return RDMA_DB_ADD_FAIL;
+		/* Store in database. mso_conn_id = 0 and owned = true */
+		*msoh = add_loc_mso(owner_name, out_msg.create_mso_out.msoid,
+						0, true, (pthread_t)0, nullptr);
+		if (!*msoh) {
+			WARN("add_loc_mso() failed, msoid = 0x%X\n",
+						out_msg.create_mso_out.msoid);
+			throw RDMA_DB_ADD_FAIL;
+		}
+	} /* try */
+	catch(int e) {
+		rc = e;
 	}
 
 	sem_post(&rdma_lock);
-	return out.status;
+	return rc;
 } /* rdma_create_mso_h() */
 
 /**
