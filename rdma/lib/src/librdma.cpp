@@ -76,6 +76,7 @@ using std::iterator;
 using std::exception;
 using std::vector;
 using std::make_shared;
+using std::thread;
 
 typedef rx_engine<unix_client, unix_msg_t>	lib_rx_engine;
 typedef tx_engine<unix_client, unix_msg_t> 	lib_tx_engine;
@@ -87,6 +88,8 @@ static lib2daemon_msg_processor	msg_proc(dispatch_table);
 
 static lib_rx_engine *rx_eng;
 static lib_tx_engine *tx_eng;
+
+static thread *engine_monitoring_thread;
 
 #ifdef __cplusplus
 extern "C" {
@@ -231,21 +234,15 @@ int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint32_t *bytes)
 	return 0;
 } /* rdma_get_msh_properties() */
 
-static bool rdmad_is_alive()
-{
-	rdmad_is_alive_input	in;
-	unix_msg_t  *in_msg;
 
-	client->get_send_buffer((void **)&in_msg);
-
-	in.dummy = 0x1234;
-
-	in_msg->type = RDMAD_IS_ALIVE;
-	in_msg->rdmad_is_alive_in = in;
-
-	return alt_rpc_call(in_msg, NULL) != RDMA_DAEMON_UNREACHABLE;
-} /* rdmad_is_alive() */
-
+/**
+ * Call a function in the daemon.
+ *
+ * @param in_msg
+ * @param out_msg
+ *
+ * @return 0 if successful
+ */
 static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 {
 	/* First check that engines are still valid */
@@ -288,6 +285,28 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 	}
 	return rc;
 } /* daemon_call() */
+
+/**
+ * Internal function to determine whether the daemon is still reachable.
+ * I think this is redundant now; in daemon_call() we consider the daemon
+ * to be unreachable if we timeout on the reply semaphore. This is precisely
+ * what this function will do as well.
+ * FIXME: REMOVE.
+ */
+static bool rdmad_is_alive()
+{
+	rdmad_is_alive_input	in;
+	unix_msg_t  *in_msg;
+
+	client->get_send_buffer((void **)&in_msg);
+
+	in.dummy = 0x1234;
+
+	in_msg->type = RDMAD_IS_ALIVE;
+	in_msg->rdmad_is_alive_in = in;
+
+	return alt_rpc_call(in_msg, NULL) != RDMA_DAEMON_UNREACHABLE;
+} /* rdmad_is_alive() */
 
 /*static*/ int open_mport(void/*struct peer_info *peer*/)
 {
@@ -341,6 +360,8 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 	}
 	return 0;
 } /* open_mport() */
+
+
 
 /**
  * client_wait_for_destroy_thread_f
@@ -487,11 +508,15 @@ static void *wait_for_disc_thread_f(void *arg)
 	pthread_exit(0);
 } /* wait_for_disc_thread_f() */
 
-void engine_monitoring_thread_t(sem_t *engine_cleanup)
+/**
+ * FIXME: Rename to something more general.
+ */
+void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 {
 	while(1) {
 		/* Wait until there is a reason to perform cleanup */
-		sem_wait(engine_cleanup);
+		HIGH("Waiting for engine_cleanup_sem\n");
+		sem_wait(engine_cleanup_sem);
 
 		HIGH("Cleaning up dead engines!\n");
 		if (tx_eng->isdead()) {
@@ -505,8 +530,12 @@ void engine_monitoring_thread_t(sem_t *engine_cleanup)
 			delete rx_eng;
 			rx_eng = nullptr;
 		}
+
+		/* Purge database and set state to uninitialized */
+		purge_local_database();
+		init = 0;
 	}
-} /* engine_monitoring_thread_t() */
+} /* engine_monitoring_thread_f() */
 
 /**
  * Initialize RDMA library
@@ -547,6 +576,10 @@ static int rdma_lib_init(void)
 			rx_eng = new lib_rx_engine(client, msg_proc, tx_eng,
 							engine_cleanup_sem);
 
+			/* Start engine monitoring thread */
+			engine_monitoring_thread =
+					new thread(engine_monitoring_thread_f,
+						   engine_cleanup_sem);
 			/* Open the master port */
 			ret = open_mport();
 			if (ret == 0) {
@@ -620,6 +653,12 @@ __attribute__((constructor)) int lib_init(void)
 	return rc;
 } /* rdma_lib_init() */
 
+/**
+ * If the daemon is restarted, then the connection we have will be bad,
+ * and the tx/rx engines will be dead. We therefore need to re-run the
+ * initialization code again. 'init' is set to false when the engines
+ * are killed to indicate the need for re-init.
+ */
 #define CHECK_LIB_INIT() if (!init) { \
 				WARN("RDMA library not initialized, re-initializing\n"); \
 				ret = rdma_lib_init(); \

@@ -162,6 +162,7 @@ private:
 	 */
 	void die()
 	{
+		HIGH("Dying...\n");
 		stop_worker_thread = true;
 		is_dead = true;
 		tx_eng->set_isdead();	// Kill corresponding tx_engine too
