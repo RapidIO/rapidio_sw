@@ -44,18 +44,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <queue>
 #include <thread>
+#include <memory>
 
 #include "liblog.h"
 #include "rdma_msg.h"
 
 using std::queue;
 using std::thread;
+using std::shared_ptr;
 
 template <typename T, typename M>
 class tx_engine {
 
 public:
-	tx_engine(T *client, sem_t *engine_cleanup_sem) :
+	tx_engine(shared_ptr<T> client, sem_t *engine_cleanup_sem) :
 			client(client), stop_worker_thread(false),
 			worker_is_dead(false),
 			is_dead(false), engine_cleanup_sem(engine_cleanup_sem)
@@ -83,13 +85,13 @@ public:
 		}
 		worker_thread->join();
 		delete worker_thread;
-
-		// FIXME: When 'client' is shared, release a reference here.
 	} /* dtor */
 
 	bool isdead() const { return is_dead; }
 
-	T *get_client() { return client; }
+	void set_isdead() { is_dead = true; }
+
+	T *get_client() { return client.get(); }
 
 	/* Returns sequence number to be used to receive reply */
 	rdma_msg_seq_no send_message(M* msg_ptr)
@@ -141,8 +143,7 @@ private:
 	} /* worker() */
 
 	queue<M*>	message_queue;
-	T*		client;		// FIXME: Need a shared_ptr here since
-					// this is shared with rx_engine
+	shared_ptr<T>	client;
 	sem_t		messages_waiting;
 	sem_t		start_worker_thread;
 	thread		*worker_thread;

@@ -330,6 +330,7 @@ public:
 
 	~unix_server()
 	{
+		HIGH("dtor\n");
 		close(accept_socket);
 	}
 
@@ -396,6 +397,7 @@ public:
 
 	~unix_client()
 	{
+		HIGH("dtor\n");
 	}
 
 	int connect()

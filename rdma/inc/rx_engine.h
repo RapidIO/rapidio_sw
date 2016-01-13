@@ -59,7 +59,7 @@ template <typename T, typename M>
 class rx_engine {
 
 public:
-	rx_engine(T *client, msg_processor<T, M> &message_processor,
+	rx_engine(shared_ptr<T> client, msg_processor<T, M> &message_processor,
 			tx_engine<T, M> *tx_eng, sem_t *engine_cleanup_sem) :
 		message_processor(message_processor), client(client), tx_eng(tx_eng),
 		worker_thread(nullptr), is_dead(false), worker_is_dead(false),
@@ -158,6 +158,17 @@ private:
 	};
 
 	/**
+	 * Mark engines as dead, and trigger engine cleanup code.
+	 */
+	void die()
+	{
+		stop_worker_thread = true;
+		is_dead = true;
+		tx_eng->set_isdead();	// Kill corresponding tx_engine too
+		sem_post(engine_cleanup_sem);
+	} /* die() */
+
+	/**
 	 * Worker thread for receiving both API calls and requests/responses
 	 */
 	void worker()
@@ -176,11 +187,9 @@ private:
 			DBG("Waiting for new message to arrive...\n");
 			int rc = client->receive(&received_len);
 			if (rc != 0) {
-				ERR("Failed to receive, rc = %d: %s\n",
+				CRIT("Failed to receive, rc = %d: %s\n",
 							rc, strerror(errno));
-				stop_worker_thread = true;
-				is_dead = true;
-				sem_post(engine_cleanup_sem);
+				die();
 			} else if (received_len > 0 ) {
 				if (msg->category == RDMA_LIB_DAEMON_CALL) {
 					/* If there is a notification set for the
@@ -216,19 +225,17 @@ private:
 				}
 			} else { /* received_len < 0 */
 				CRIT("Other side has closed connection\n");
-				stop_worker_thread = true;
-				is_dead = true;
-				sem_post(engine_cleanup_sem);
+				die();
 			}
-			worker_is_dead = true;
-			DBG("worker_thread exiting!\n");
 		} /* while() */
-	}
+		worker_is_dead = true;
+		DBG("worker_thread exiting!\n");
+	} /* worker() */
 
 	list<M>			message_queue;
 	msg_processor<T, M>	&message_processor;
 	vector<notify_param> 	notify_list;
-	T*			client;
+	shared_ptr<T>		client;
 	tx_engine<T, M>		*tx_eng;
 	thread 			*worker_thread;
 	bool			is_dead;

@@ -45,6 +45,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <signal.h>
 
+#include <memory>
+
 #include "cm_sock.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"
@@ -66,6 +68,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "msg_processor.h"
 #include "rdmad_rpc.h"
 #include "rdmad_dispatch.h"
+
+using std::shared_ptr;
+using std::make_shared;
 
 typedef vector<daemon2lib_rx_engine *>	rx_engines_list;
 typedef vector<daemon2lib_tx_engine *>	tx_engines_list;
@@ -597,7 +602,7 @@ int start_accepting_connections()
 
 			/* Create other server for handling connection with app */
 			auto accept_socket = server->get_accept_socket();
-			auto other_server = new unix_server("other_server",
+			auto other_server = make_shared<unix_server>("other_server",
 								accept_socket);
 
 			/* Engine cleanup semaphore. Posted by engines that die
@@ -615,6 +620,10 @@ int start_accepting_connections()
 							  d2l_msg_proc,
 							  tx_eng,
 							  engine_cleanup_sem);
+
+			/* We passed 'other_server' to both engines. Now
+			 * relinquish ownership. They own it. Together.	 */
+			other_server.reset();
 
 			/* Store engines in list for later cleanup */
 			rx_eng_list.push_back(rx_eng);

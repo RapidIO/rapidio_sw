@@ -95,7 +95,7 @@ extern "C" {
 static unsigned init = 0;	/* Global flag indicating library initialized */
 
 /* Unix socket client */
-static unix_client *client;
+static shared_ptr<unix_client> client;
 static fmdd_h 	    dd_h;
 static uint32_t	    fm_alive;
 static sem_t	    rdma_lock;
@@ -129,7 +129,8 @@ static uint32_t round_up_to_4k(uint32_t length)
 
 static int alt_rpc_call(unix_msg_t *in_msg, unix_msg_t **out_msg)
 {
-	int ret;
+	auto ret = 0;
+
 	size_t received_len;
 
 	/* Send input parameters */
@@ -152,13 +153,13 @@ static int alt_rpc_call(unix_msg_t *in_msg, unix_msg_t **out_msg)
 
 	if (ret) {
 		CRIT("Daemon has died. Terminating socket connection\n");
-		delete client;
-		client = nullptr;
+		client.reset();
 		CRIT("Daemon has died. Purging local database!\n");
 		purge_local_database();
 		init = 0;
 		ret = RDMA_DAEMON_UNREACHABLE;
 	}
+
 	return ret;
 } /* alt_rpc_call() */
 
@@ -247,6 +248,12 @@ static bool rdmad_is_alive()
 
 static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 {
+	/* First check that engines are still valid */
+	if ((tx_eng == nullptr) || (rx_eng == nullptr)) {
+		CRIT("Connection to daemon severed");
+		return RDMA_DAEMON_UNREACHABLE;
+	}
+
 	/* Send message */
 	auto seq_no = tx_eng->send_message(in_msg);
 	DBG("Message queued\n");
@@ -524,7 +531,7 @@ static int rdma_lib_init(void)
 	/* Create a client */
 	DBG("Creating client object...\n");
 	try {
-		client = new unix_client();
+		client = make_shared<unix_client>();
 
 		/* Connect to server */
 		if (client->connect() == 0) {
@@ -563,7 +570,7 @@ static int rdma_lib_init(void)
 	}
 	catch(exception& e) {
 		ERR("Failed to create Tx/Rx engines: %s\n", e.what());
-		delete client;
+		client.reset();
 		ret = RDMA_MALLOC_FAIL;
 	}
 	catch(int e) {
@@ -575,7 +582,7 @@ static int rdma_lib_init(void)
 		default:
 			ret = -1;
 		}
-		delete client;
+		client.reset();
 	}
 
 	DBG("ret = %d\n", ret);
