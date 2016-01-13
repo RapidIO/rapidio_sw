@@ -554,11 +554,12 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup)
 		}
 
 		/* Remove all entries for null engines */
-		remove_if(begin(rx_eng_list), end(rx_eng_list),
-				[](const daemon2lib_rx_engine *rx_eng)
-				{
-					return (rx_eng == nullptr);
-				});
+		DBG("rx_eng_list.size() = %u\n", rx_eng_list.size());
+		rx_eng_list.erase( std::remove(begin(rx_eng_list),
+				               end(rx_eng_list),
+				               nullptr),
+					       end(rx_eng_list));
+		DBG("rx_eng_list.size() = %u\n", rx_eng_list.size());
 
 		/* Check the tx_eng_list for dead engines */
 		for (auto it = begin(tx_eng_list); it != end(tx_eng_list); it++) {
@@ -570,11 +571,12 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup)
 		}
 
 		/* Remove all entries for null engines */
-		remove_if(begin(tx_eng_list), end(tx_eng_list),
-				[](const daemon2lib_tx_engine *tx_eng)
-				{
-					return (tx_eng == nullptr);
-				});
+		DBG("tx_eng_list.size() = %u\n", tx_eng_list.size());
+		tx_eng_list.erase(remove(begin(tx_eng_list),
+				         end(tx_eng_list),
+				         nullptr),
+				         end(tx_eng_list));
+		DBG("tx_eng_list.size() = %u\n", tx_eng_list.size());
 	} /* while */
 } /* engine_monitoring_thread_f() */
 
