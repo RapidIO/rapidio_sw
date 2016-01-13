@@ -89,6 +89,8 @@ public:
 
 	bool isdead() const { return is_dead; }
 
+	T *get_client() { return client; }
+
 	/* Returns sequence number to be used to receive reply */
 	rdma_msg_seq_no send_message(M* msg_ptr)
 	{

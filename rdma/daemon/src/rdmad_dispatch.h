@@ -44,4 +44,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 int get_mport_id_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng);
 
+int create_mso_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng);
+
 #endif
