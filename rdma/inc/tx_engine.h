@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TX_ENGINE_H
 
 #include <semaphore.h>
+#include <unistd.h>
 
 #include <cerrno>
 #include <cstdio>
@@ -45,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <thread>
 
 #include "liblog.h"
+#include "rdma_msg.h"
 
 using std::queue;
 using std::thread;

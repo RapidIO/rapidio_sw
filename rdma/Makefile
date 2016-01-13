@@ -77,6 +77,7 @@ RDMAD_SOURCES = src/rdma_mq_msg.c \
 		daemon/src/rdmad_srvr_threads.cpp \
 		daemon/src/rdmad_clnt_threads.cpp \
 		daemon/src/rdmad_fm.cpp \
+		daemon/src/rdmad_dispatch.cpp \
 		daemon/src/rdmad_rpc.cpp
 
 REMDBG_SOURCES	= daemon/src/remdbg.c

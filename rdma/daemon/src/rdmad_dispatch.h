@@ -30,34 +30,18 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef RDMAD_MAIN_H
-#define RDMAD_MAIN_H
+#ifndef RDMAD_DISPATCH_H
+#define RDMAD_DISPATCH_H
 
-#include "ts_map.h"
-#include "ts_vector.h"
-
-#include "rdmad_peer_utils.h"
-#include "rdmad_inbound.h"
-#include "rdmad_ms_owners.h"
-#include "rdmad_cm.h"
-#include "rx_engine.h"
-#include "tx_engine.h"
 #include "rdmad_unix_msg.h"
+#include "tx_engine.h"
+#include "rx_engine.h"
+#include "rdmad_main.h"
+#include "rdmad_rpc.h"
 
-typedef rx_engine<unix_server, unix_msg_t>	daemon2lib_rx_engine;
-typedef tx_engine<unix_server, unix_msg_t> 	daemon2lib_tx_engine;
-
-void shutdown(struct peer_info *peer);
-int send_disc_ms_cm(uint32_t server_destid,
-		    uint32_t server_msid,
-		    uint32_t client_msubid);
-
-extern struct peer_info	peer;
-extern inbound *the_inbound;
-extern ms_owners owners;
-extern bool shutting_down;
-extern ts_map<string, cm_accept_msg> accept_msg_map;
-extern ts_vector<string> wait_accept_mq_names;
+/**
+ * Dispatch function for obtaining mport ID.
+ */
+int get_mport_id_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng);
 
 #endif
-

@@ -65,9 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rx_engine.h"
 #include "msg_processor.h"
 #include "rdmad_rpc.h"
-
-typedef rx_engine<unix_server, unix_msg_t>	daemon2lib_rx_engine;
-typedef tx_engine<unix_server, unix_msg_t> 	daemon2lib_tx_engine;
+#include "rdmad_dispatch.h"
 
 typedef vector<daemon2lib_rx_engine *>	rx_engines_list;
 typedef vector<daemon2lib_tx_engine *>	tx_engines_list;
@@ -102,26 +100,6 @@ static	pthread_t prov_thread;
 static	pthread_t cli_session_thread;
 
 static unix_server *server;
-
-// TODO: Move to separate file and move 'rpc' functions from rdmad_rpc.cpp
-// then delete same.
-/**
- * Dispatch function for obtaining mport ID.
- */
-static int get_mport_id_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng)
-{
-	unix_msg_t out_msg;
-	out_msg.type = GET_MPORT_ID_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
-	out_msg.seq_no = in_msg->seq_no;
-	int rc = rdmad_get_mport_id(&out_msg.get_mport_id_out.mport_id);
-	if (rc) {
-		ERR("Failed in call rdmad_get_mport_id\n");
-	} else {
-		tx_eng->send_message(&out_msg);
-	}
-	return rc;
-} /* get_mport_id_disp() */
 
 static daemon2lib_dispatch_table	d2l_dispatch_table = {
 		{GET_MPORT_ID, get_mport_id_disp}
