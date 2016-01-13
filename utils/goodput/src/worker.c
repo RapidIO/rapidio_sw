@@ -2031,6 +2031,8 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	}
 
+        if (GetEnv("sim") != NULL) { info->umd_dch->setSim(); INFO("SIMULATION MODE\n"); }
+
 	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
 		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
 							info->umd_tx_buf_cnt);
@@ -2345,6 +2347,8 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
                 goto exit;
         }
+
+	if (op == 'N' && GetEnv("sim") != NULL) { info->umd_dch->setSim(); INFO("SIMULATION MODE - NREAD\n"); }
 
 	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
 		CRIT("\n\talloc_dmatxdesc failed: bufs %d",

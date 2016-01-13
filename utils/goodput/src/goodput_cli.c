@@ -2053,7 +2053,8 @@ struct cli_cmd UDMA = {
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
 	"<acc_sz> Access size\n"
-	"<trans>  0 NREAD, 1 LAST_NWR, 2 NW, 3 NW_R\n",
+	"<trans>  0 NREAD, 1 LAST_NWR, 2 NW, 3 NW_R\n"
+        "NOTE:  Enter simulation with \"set sim 1\" before running this command\n",
 UDMACmd,
 ATTR_NONE
 };
@@ -2303,7 +2304,8 @@ struct cli_cmd UDMALRR = {
         "<did> target device ID\n"
         "<rio_addr> RapidIO memory address to access\n"
         "<acc_sz> Access size\n"
-        "NOTE:  IBAlloc on <did> of size >= acc_sz needed before running this command\n",
+        "NOTE:  IBAlloc on <did> of size >= acc_sz needed before running this command\n"
+        "NOTE:  Enter simulation with \"set sim 1\" before running this command\n",
 UDMALatNREAD,
 ATTR_NONE
 };
