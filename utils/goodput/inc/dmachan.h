@@ -139,7 +139,8 @@ public:
   }
   inline bool queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
-    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16)) return false;
+    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16))
+	return false;
   
     RioMport::DmaMem_t lmem; memset(&lmem, 0, sizeof(lmem));
   

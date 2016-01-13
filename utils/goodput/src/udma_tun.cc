@@ -120,6 +120,8 @@ static inline uint64_t htonll(uint64_t value)
  */
 static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
 {
+	int i;
+
 	if(info == NULL || size < 1 || size > 16 || data_out == NULL) return false;
 
 #ifdef UDMA_TUN_DEBUG_NREAD
@@ -140,11 +142,12 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 
 	int q_was_full = !dmac->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, umd_dma_abort_reason, &tx_ts);
 
+	i = 0;
 	if (! umd_dma_abort_reason) {
 		DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
 
-		for(int i = 0;
-		    !q_was_full && !info->stop_req && (i < 1000) && !dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
+		for(i = 0;
+		    !q_was_full && !info->stop_req && (i < 100000) && !dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
 		    i++) {
 			usleep(1);
 		}
@@ -161,7 +164,7 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 		  delete mport;
 		}}
 
-		CRIT("\n\tChan2 %u stalled with %sq_size=%d WP=%lu FIFO.WP=%llu %s%s%s%sRXRSP_BDMA_CNT=%u abort reason 0x%x %s\n",
+		CRIT("\n\tChan2 %u stalled with %sq_size=%d WP=%lu FIFO.WP=%llu %s%s%s%sRXRSP_BDMA_CNT=%u abort reason 0x%x %s After %d checks\n",
 		      info->umd_chan2,
 		      (q_was_full? "QUEUE FULL ": ""), dmac->queueSize(),
                       info->umd_dch_nread->getWP(), info->umd_dch_nread->m_tx_cnt, 
@@ -170,7 +173,7 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 		      (inp_err? "Port:OutpERROR ": ""),
 		      (inp_err? "Port:InpERROR ": ""),
 		      RXRSP_BDMA_CNT,
-		      umd_dma_abort_reason, DMAChannel::abortReasonToStr(umd_dma_abort_reason));
+		      umd_dma_abort_reason, DMAChannel::abortReasonToStr(umd_dma_abort_reason), i);
 
 		dmac->softRestart();
 
@@ -1766,6 +1769,7 @@ void umd_mbox_watch_demo(struct worker *info)
 	  MboxChannel::WorkItem_t wi[MBOX_STS*8]; memset(wi, 0, sizeof(wi));
 
           while (! info->stop_req) {
+		int i = 0;
 		if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
 // Receive from socketpair(2), send on MBOX
@@ -1812,7 +1816,7 @@ void umd_mbox_watch_demo(struct worker *info)
 			} else { tx_ok++; }
 
 			DDBG("\n\tPolling FIFO transfer completion destid=%d TX q_size = %d\n", opt.destid, info->umd_mch->queueTxSize());
-			for (int i = 0;
+			for (i = 0;
 			     !q_was_full && !info->stop_req && (info->umd_mch->scanFIFO(wi, MBOX_STS*8) == 0) && (i < 100000);
 			     i++) {
 				usleep(1);
@@ -1822,8 +1826,8 @@ void umd_mbox_watch_demo(struct worker *info)
 			if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
 			if (info->umd_mch->queueTxSize() > 0) {
-                                ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d Run \"udd %d\" for perf counters.\n",
-                                    opt.destid, (q_was_full? "Q FULL?": ""), tx_ok, tundmathreadindex);
+                                ERR("\n\tTX queue non-empty for destid=%u. Soft MBOX restart.%s tx_ok=%d Run \"udd %d\" for perf counters.  %d attempts\n",
+                                    opt.destid, (q_was_full? "Q FULL?": ""), tx_ok, tundmathreadindex, i);
 
 				info->umd_mch->softRestart();
 

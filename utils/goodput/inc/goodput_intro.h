@@ -1133,7 +1133,7 @@
  * -# To perform a file transfer from the client to the server,
  *    execute the following command on the client:
  *
- *   -  wget -O /dev/null http://169.254.0.y/BigJunkFile
+ *   -  wget -O /dev/null http://169.254.0.y/sample.txt
  *
  *    where 'y' is (RapidIO destination ID + 1) of the server.
  *

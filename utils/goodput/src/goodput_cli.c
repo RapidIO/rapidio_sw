@@ -2331,7 +2331,7 @@ struct cli_cmd UMDDD = {
 "<idx>\n"
 	"<idx> [optional, default=0] is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
 UMDDDDCmd,
-ATTR_NONE
+ATTR_RPT
 };
 
 extern void UMD_Test(const struct worker* wkr);

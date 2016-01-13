@@ -704,7 +704,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   }
 */
 
-  sts_abort = ((regs >> 20) & 0x2);
+  sts_abort = regs & TSI721_OBDMAC_STS_ABORT;
 
   if ((! (regi & TSI721_OBDMAC_INT_DONE) && (regi & TSI721_OBDMAC_INT_ERROR)) || sts_abort) {
     fail_reason = STOP_REG_ERR;
@@ -730,7 +730,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
     if (sts_abort) {
       pthread_spin_unlock(&m_tx_splock); // unlock here to print the blurb lock-free
 
-      ERR("\n\tABORTed on outbound message to mbox=%d destid=%d\n", m_mbox, opt.destid);
+      ERR("\n\tABORTed on outbound message to mbox=%d destid=%d regs=0x%x regi=0x%xn", m_mbox, opt.destid, regs, regi);
       regs >>= 16;
       regs &= 0x1F;
 
