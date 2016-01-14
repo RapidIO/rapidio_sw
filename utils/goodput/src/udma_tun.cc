@@ -147,8 +147,10 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 		DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
 
 		for(i = 0;
-		    !q_was_full && !info->stop_req && (i < 100000) && !dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
+		    	!q_was_full && !info->stop_req && (i < 100000)
+			&& dmac->queueSize(); 
 		    i++) {
+			dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
 			usleep(1);
 		}
 	}
@@ -164,7 +166,7 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 		  delete mport;
 		}}
 
-		CRIT("\n\tChan2 %u stalled with %sq_size=%d WP=%lu FIFO.WP=%llu %s%s%s%sRXRSP_BDMA_CNT=%u abort reason 0x%x %s After %d checks\n",
+		CRIT("\n\tChan2 %u stalled with %sq_size=%d WP=%lu FIFO.WP=%llu %s%s%s%sRXRSP_BDMA_CNT=%u abort reason 0x%x %s After %d checks qful %d stopreq %d\n",
 		      info->umd_chan2,
 		      (q_was_full? "QUEUE FULL ": ""), dmac->queueSize(),
                       info->umd_dch_nread->getWP(), info->umd_dch_nread->m_tx_cnt, 
@@ -173,7 +175,7 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 		      (inp_err? "Port:OutpERROR ": ""),
 		      (inp_err? "Port:InpERROR ": ""),
 		      RXRSP_BDMA_CNT,
-		      umd_dma_abort_reason, DMAChannel::abortReasonToStr(umd_dma_abort_reason), i);
+		      umd_dma_abort_reason, DMAChannel::abortReasonToStr(umd_dma_abort_reason), i, q_was_full, info->stop_req);
 
 		dmac->softRestart();
 
@@ -1817,8 +1819,10 @@ void umd_mbox_watch_demo(struct worker *info)
 
 			DDBG("\n\tPolling FIFO transfer completion destid=%d TX q_size = %d\n", opt.destid, info->umd_mch->queueTxSize());
 			for (i = 0;
-			     !q_was_full && !info->stop_req && (info->umd_mch->scanFIFO(wi, MBOX_STS*8) == 0) && (i < 100000);
+			       !q_was_full && !info->stop_req && (i < 100000) &&
+			       info->umd_mch->queueTxSize();
 			     i++) {
+			        info->umd_mch->scanFIFO(wi, MBOX_STS*8);
 				usleep(1);
 			}
 
