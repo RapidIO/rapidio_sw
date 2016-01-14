@@ -1321,6 +1321,8 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	sem_post(&info->umd_fifo_proc_started); 
 
 	while (!info->umd_fifo_proc_must_die) {
+		if (info->umd_dch->isSim()) info->umd_dch->simFIFO();
+
 		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
 		if (!cnt) 
 			continue;
@@ -2031,6 +2033,8 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	}
 
+        if (GetEnv("sim") != NULL) { info->umd_dch->setSim(); INFO("SIMULATION MODE\n"); }
+
 	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
 		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
 							info->umd_tx_buf_cnt);
@@ -2329,6 +2333,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	int oi = 0;
 	uint64_t cnt = 0;
 	int iter = 0;
+	bool sim = false;
 
 	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
@@ -2345,6 +2350,8 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
                 goto exit;
         }
+
+	if (op == 'N' && GetEnv("sim") != NULL) { sim = true; info->umd_dch->setSim(); INFO("SIMULATION MODE - NREAD\n"); }
 
 	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
 		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
@@ -2417,7 +2424,9 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
                 	start_iter_stats(info);
-                	if(! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+                	if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+
+			if (sim) info->umd_dch->simFIFO();
 
 			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
 			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
