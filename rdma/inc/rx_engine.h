@@ -65,6 +65,14 @@ public:
 		worker_thread(nullptr), is_dead(false), worker_is_dead(false),
 		stop_worker_thread(false), engine_cleanup_sem(engine_cleanup_sem)
 	{
+		if (pthread_mutex_init(&notify_list_lock, NULL)) {
+			CRIT("Failed to init notify_list_lock mutex\n");
+			throw -1;
+		}
+		if (pthread_mutex_init(&message_queue_lock, NULL)) {
+			CRIT("Failed to init message_queue_lock mutex\n");
+			throw -1;
+		}
 		worker_thread = new thread(&rx_engine::worker, this);
 		worker_thread->detach();
 	} /* ctor */
@@ -90,6 +98,7 @@ public:
 						shared_ptr<sem_t> notify_sem)
 	{
 		/* We should not be setting the same notification twice */
+		pthread_mutex_lock(&notify_list_lock);
 		int rc = count(begin(notify_list),
 			       end(notify_list),
 			       notify_param(type, category, seq_no, notify_sem));
@@ -99,6 +108,7 @@ public:
 			notify_list.emplace_back(type, category, seq_no,
 								notify_sem);
 		}
+		pthread_mutex_unlock(&notify_list_lock);
 		return rc;
 	} /* set_notify() */
 
@@ -111,6 +121,7 @@ public:
 					    M* msg_ptr)
 	{
 		auto rc = 0;
+		pthread_mutex_lock(&message_queue_lock);
 		auto it = find_if(begin(message_queue), end(message_queue),
 			[type, category, seq_no](const M& msg)
 			{
@@ -130,6 +141,7 @@ public:
 			DBG("Message removed, now message_queue.size() = %u\n",
 							message_queue.size());
 		}
+		pthread_mutex_unlock(&message_queue_lock);
 		return rc;
 	} /* get_message() */
 
@@ -193,6 +205,7 @@ private:
 				if (msg->category == RDMA_LIB_DAEMON_CALL) {
 					/* If there is a notification set for the
 					 * message then act on it. */
+					pthread_mutex_lock(&notify_list_lock);
 					auto it = find(begin(notify_list),
 							end(notify_list),
 							notify_param(msg->type,
@@ -203,7 +216,9 @@ private:
 						/* Found! Queue copy of message & post semaphore */
 						DBG("Found message of type 0x%X, seq_no=0x%X\n",
 									it->type, it->seq_no);
+						pthread_mutex_lock(&message_queue_lock);
 						message_queue.push_back(*msg);
+						pthread_mutex_unlock(&message_queue_lock);
 
 						/* Remove notify entry from notify list */
 						notify_list.erase(it);
@@ -214,6 +229,7 @@ private:
 						CRIT("Non-matching API type(0x%X) seq_no(0x%X)\n",
 								msg->type, msg->seq_no);
 					}
+					pthread_mutex_unlock(&notify_list_lock);
 				} else if (msg->category == RDMA_REQ_RESP) {
 					/* Process request/resp by forwarding to message processor */
 					DBG("Got RDMA_REQ_RESP\n");
@@ -233,9 +249,11 @@ private:
 		DBG("worker_thread exiting!\n");
 	} /* worker() */
 
-	list<M>			message_queue;
+	vector<M>		message_queue;
+	pthread_mutex_t		message_queue_lock;
 	msg_processor<T, M>	&message_processor;
 	vector<notify_param> 	notify_list;
+	pthread_mutex_t		notify_list_lock;
 	shared_ptr<T>		client;
 	tx_engine<T, M>		*tx_eng;
 	thread 			*worker_thread;

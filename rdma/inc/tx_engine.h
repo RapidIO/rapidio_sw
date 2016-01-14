@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <semaphore.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include <cerrno>
 #include <cstdio>
@@ -63,6 +64,10 @@ public:
 			is_dead(false), engine_cleanup_sem(engine_cleanup_sem)
 	{
 		sem_init(&messages_waiting, 0, 0);
+		if (pthread_mutex_init(&message_queue_lock, NULL)) {
+			CRIT("Failed to init message_queue_lock mutex\n");
+			throw -1;
+		}
 		DBG("Starting thread...\n");
 		worker_thread = new thread(&tx_engine::worker, this);
 		worker_thread->detach();
@@ -99,7 +104,9 @@ public:
 	{
 		DBG("Sending type(0x%X) cat(0x%X) seq_no(0x%X)\n",
 			msg_ptr->type, msg_ptr->category, msg_ptr->seq_no);
+		pthread_mutex_lock(&message_queue_lock);
 		message_queue.push(msg_ptr);
+		pthread_mutex_unlock(&message_queue_lock);
 		sem_post(&messages_waiting);
 	} /* send_message() */
 
@@ -121,7 +128,10 @@ private:
 			}
 
 			/* Grab next message to be sent and send it */
+			pthread_mutex_lock(&message_queue_lock);
 			M*	msg_ptr = message_queue.front();
+			pthread_mutex_unlock(&message_queue_lock);
+
 			int rc = client->send_buffer(msg_ptr, sizeof(*msg_ptr));
 			if (rc != 0) {
 				/* This code may not be needed. The rx_engine always
@@ -135,7 +145,9 @@ private:
 				break;
 			} else {
 				/* Remove message from queue */
+				pthread_mutex_lock(&message_queue_lock);
 				message_queue.pop();
+				pthread_mutex_unlock(&message_queue_lock);
 			}
 		}
 		worker_is_dead = true;
@@ -143,6 +155,7 @@ private:
 	} /* worker() */
 
 	queue<M*>	message_queue;
+	pthread_mutex_t	message_queue_lock;
 	shared_ptr<T>	client;
 	sem_t		messages_waiting;
 	sem_t		start_worker_thread;
