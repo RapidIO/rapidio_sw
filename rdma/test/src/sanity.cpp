@@ -15,7 +15,16 @@ int main()
 	else
 		cout << "msoh created successfully" << endl;
 
-	cout << "Press any key to continue\n";
+	cout << "Press any key to destroy mso\n";
+	cin.get();
+
+	rc = rdma_destroy_mso_h(msoh);
+	if (rc)
+		cerr << "destroy_mso_h() failed" << endl;
+	else
+		cout << "msoh destroyed successfully" << endl;
+
+	cout << "Press any key to EXIT\n";
 	cin.get();
 	return 0;
 }

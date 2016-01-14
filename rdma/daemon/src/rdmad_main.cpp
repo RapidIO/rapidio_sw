@@ -82,7 +82,7 @@ static tx_engines_list	tx_eng_list;
 static rx_engines_list	rx_eng_list;
 
 static thread *engine_monitoring_thread;
-sem_t  *engine_cleanup_sem;
+static sem_t  *engine_cleanup_sem;
 struct peer_info	peer;
 
 /* Memory Space Owner data */
