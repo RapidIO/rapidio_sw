@@ -66,21 +66,19 @@ public:
 		stop_worker_thread(false), engine_cleanup_sem(engine_cleanup_sem)
 	{
 		worker_thread = new thread(&rx_engine::worker, this);
+		worker_thread->detach();
 	} /* ctor */
 
 	~rx_engine()
 	{
-		HIGH("Destructor\n");
+		DBG("dtor\n");
 		if (!worker_is_dead) {
 			HIGH("Stopping worker thread\n");
 			stop_worker_thread = true;
 		}
-		worker_thread->join();
-		HIGH("Deleting worker thread\n");
+		DBG("Deleting worker thread\n");
 		delete worker_thread;
-
-		// FIXME: Release client
-	}
+	} /* dtor */
 
 	bool isdead() const { return is_dead; }
 
@@ -130,7 +128,7 @@ public:
 			/* Remove from queue */
 			message_queue.erase(it);
 			DBG("Message removed, now message_queue.size() = %u\n",
-					message_queue.size());
+							message_queue.size());
 		}
 		return rc;
 	} /* get_message() */

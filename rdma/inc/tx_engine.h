@@ -65,15 +65,17 @@ public:
 		sem_init(&messages_waiting, 0, 0);
 		DBG("Starting thread...\n");
 		worker_thread = new thread(&tx_engine::worker, this);
+		worker_thread->detach();
 	} /* ctor */
 
 	~tx_engine()
 	{
-		HIGH("Destructor\n");
+		DBG("dtor\n");
 		/* If worker_is_dead was true, then the thread has already
 		 * self-terminated and we can just delete the worker_thread object.
 		 * Otherwise, the thread is alive and we need to kill it first.	 */
 		if (!worker_is_dead) {
+			DBG("worker() still running...\n");
 			stop_worker_thread = true;
 			sem_post(&messages_waiting); // Wake up the thread.
 			auto timeout = 100;
@@ -83,7 +85,6 @@ public:
 				ERR("Failed to kill worker thread function\n");
 			}
 		}
-		worker_thread->join();
 		delete worker_thread;
 	} /* dtor */
 
@@ -105,7 +106,7 @@ public:
 private:
 	void worker() {
 		DBG("worker thread started\n");
-		while(!stop_worker_thread) {
+		while(1) {
 			/* Wait until a message is enqueued for transmission */
 			DBG("Waiting for message to be sent...\n");
 			sem_wait(&messages_waiting);
@@ -114,26 +115,31 @@ private:
 			 * from the destructor: stop_worker_thread is set to true
 			 * and the semaphore 'messages_waiting is posted with the
 			 * queue being empty. */
-			if (message_queue.empty()) {
-				WARN("'messages_waiting' posted but queue empty\n");
-				continue;
+			if (stop_worker_thread) {
+				DBG("stop_worker_thread is set\n");
+				break;
 			}
 
 			/* Grab next message to be sent and send it */
 			M*	msg_ptr = message_queue.front();
 			int rc = client->send_buffer(msg_ptr, sizeof(*msg_ptr));
 			if (rc != 0) {
+				/* This code may not be needed. The rx_engine always
+				 * senses that the other peer has disappeared and
+				 * sets our is_dead flag there. This then triggers
+				 * the engine cleanup thread to kill us. */
 				ERR("Failed to send, rc = %d: %s\n",
 							rc, strerror(errno));
 				is_dead = true;
 				sem_post(engine_cleanup_sem);
-				stop_worker_thread = true;
+				break;
 			} else {
 				/* Remove message from queue */
 				message_queue.pop();
 			}
 		}
 		worker_is_dead = true;
+		DBG("Exiting...()\n");
 	} /* worker() */
 
 	queue<M*>	message_queue;
