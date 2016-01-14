@@ -2428,7 +2428,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 			if (sim) info->umd_dch->simFIFO();
 
-			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
+			DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
 			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
                 	finish_iter_stats(info);
 

@@ -266,8 +266,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
       wk_end.opt.bd_wp = m_dma_wr;
 
       wk_end.opt.ts_start = rdtsc();
-      // FIXME: Should this really be FF..E, or should it be
-      // FF..F ???
+      // FIXME: Should this really be FF..E, or should it be FF..F ???
       if (m_dma_wr == 0xFFFFFFFE)
         m_dma_wr = 0;
       else
@@ -832,7 +831,7 @@ int DMAChannel::simFIFO()
   for (; m_sim_dma_rp < m_dma_wr; m_sim_dma_rp++) { // XXX "<=" ??
     // Handle wrap-arounds in BD array, m_dma_wr can go up to 0xFFFFFFFFL
     const int idx = m_sim_dma_rp % m_bd_num;
-    assert(m_bl_busy[idx]);
+    if (idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
 
     const uint64_t bd_linear = m_dmadesc.win_handle + idx * DMA_BUFF_DESCR_SIZE;
     assert(bd_linear < HW_END);
