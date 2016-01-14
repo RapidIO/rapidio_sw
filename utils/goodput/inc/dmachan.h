@@ -168,6 +168,7 @@ public:
    * \note Object cannot be switched out of simulation mode.
    */
   void setSim() { m_check_reg = false; m_sim = true; }
+  inline bool isSim() { return m_sim; }
   int simFIFO();
 
 public: // XXX test-public, make this section private
