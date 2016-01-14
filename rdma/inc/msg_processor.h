@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <string>
 
 #include "rdma_msg.h"
 #include "tx_engine.h"
@@ -11,6 +12,7 @@
 
 using std::vector;
 using std::find;
+using std::string;
 
 /**
  * Dispatch entry correlating a message type and the dispatch
@@ -38,6 +40,15 @@ public:
 	int process_msg(M* msg, tx_engine<T, M> *tx_eng)
 	{
 		auto rc = 0;
+
+		string family(typeid(M).name());
+		if (family.find("unix_msg_t") != string::npos) {
+			/* Place Lib-to-daemon message processing here */
+			DBG("This is a Unix message\n");
+		} else {
+			/* Place Daemon-to-daemon message processing here */
+			DBG("This a CM message\n");
+		}
 		DBG("Processing message: 0x%X\n", msg->type);
 		auto it = find(begin(dispatch_table),
 				end(dispatch_table),
