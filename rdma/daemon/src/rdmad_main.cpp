@@ -82,7 +82,7 @@ static tx_engines_list	tx_eng_list;
 static rx_engines_list	rx_eng_list;
 
 static thread *engine_monitoring_thread;
-
+sem_t  *engine_cleanup_sem;
 struct peer_info	peer;
 
 /* Memory Space Owner data */
@@ -537,16 +537,16 @@ void *lib_connections_thread_f(void *arg)
 } /* rpc_thread_f() */
 #endif
 
-void engine_monitoring_thread_f(sem_t *engine_cleanup)
+void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 {
-	while (!shutting_down) {
+	while (1) {
 		/* Wait until there is a reason to perform cleanup */
-		sem_wait(engine_cleanup);
+		sem_wait(engine_cleanup_sem);
 
 		HIGH("Cleaning up dead engines!\n");
 		/* Check the rx_eng_list for dead engines */
 		for (auto it = begin(rx_eng_list); it != end(rx_eng_list); it++) {
-			if ((*it)->isdead()) {
+			if ((*it)->isdead() || shutting_down) {
 				/* Delete rx_engine and set pointer to null */
 				HIGH("Cleaning up an rx_engine\n");
 				delete *it;
@@ -564,7 +564,7 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup)
 
 		/* Check the tx_eng_list for dead engines */
 		for (auto it = begin(tx_eng_list); it != end(tx_eng_list); it++) {
-			if ((*it)->isdead()) {
+			if ((*it)->isdead() || shutting_down) {
 				HIGH("Cleaning up a tx_engine\n");
 				delete *it;
 				*it = nullptr;
@@ -610,12 +610,12 @@ int start_accepting_connections()
 
 			/* Engine cleanup semaphore. Posted by engines that die
 			 * so we can clean up after them. */
-			auto engine_cleanup_sem = new sem_t();
+			engine_cleanup_sem = new sem_t();
 			sem_init(engine_cleanup_sem, 0, 0);
 
-			/* FIXME: Create Tx and Rx engine per connection */
+			/* Create Tx and Rx engine per connection */
 			daemon2lib_rx_engine *rx_eng;
-			daemon2lib_tx_engine *tx_eng;
+			daemon2lib_tx_engine *tx_eng;	// FIXME: one for all?
 
 			tx_eng = new daemon2lib_tx_engine(other_server,
 							  engine_cleanup_sem);
@@ -700,6 +700,9 @@ void shutdown(struct peer_info *peer)
 	}
 	hello_daemon_info_list.clear();	/* Not really needed; we are exiting anyway */
 	sem_post(&hello_daemon_info_list_sem);
+
+	/* Kill Tx/Rx engines */
+	sem_post(engine_cleanup_sem);
 
 	/* Next, kill provisioning thread */
 	HIGH("Killing provisioning thread\n");
