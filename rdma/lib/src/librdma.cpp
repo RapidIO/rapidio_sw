@@ -842,7 +842,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		/* Failed to open mso? */
 		if (out_msg.open_mso_out.status) {
 			ERR("Failed to open mso '%s', rc = %d\n", owner_name, rc);
-			throw out_msg.create_mso_out.status;
+			throw out_msg.open_mso_out.status;
 		}
 
 		/* Open message queue for receiving mso close messages. Such messages are
@@ -1024,91 +1024,81 @@ int rdma_close_mso_h(mso_h msoh)
 
 int rdma_destroy_mso_h(mso_h msoh)
 {
-	destroy_mso_input	in;
-	destroy_mso_output	out;
-	int			ret;
+	auto rc = 0;
 
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
+	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
-	
-	/* Check for NULL msoh */
-	if (!msoh) {
-		WARN("msoh is NULL\n");
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
+		/* Check for NULL msoh */
+		if (!msoh) {
+			WARN("msoh is NULL\n");
+			throw RDMA_NULL_PARAM;
+		}
 
-	/* Get list of memory spaces owned by this owner */
-	list<struct loc_ms *>	ms_list(get_num_ms_by_msoh(msoh));
-	get_list_msh_by_msoh(msoh, ms_list);
+		/* Get list of memory spaces owned by this owner */
+		list<loc_ms *>	ms_list(get_num_ms_by_msoh(msoh));
+		get_list_msh_by_msoh(msoh, ms_list);
 
-	INFO("ms_list now has %d elements\n", ms_list.size());
+		INFO("ms_list now has %d elements\n", ms_list.size());
 
-	/* For each one of the memory spaces, call destroy */
-	bool	ok = true;
-	for_each(ms_list.cbegin(), ms_list.cend(),
-		[&](loc_ms *ms)
-		{
-			if (rdma_destroy_ms_h(msoh, ms_h(ms))) {
-				WARN("rdma_destroy_ms_h failed: msoh = 0x%"
-					PRIx64 ", msh = 0x%" PRIx64 "\n",
+		/* For each one of the memory spaces, call destroy */
+		bool	ok = true;
+		for_each(begin(ms_list), end(ms_list), [&](loc_ms *ms)
+			{
+				if (rdma_destroy_ms_h(msoh, ms_h(ms))) {
+					WARN("rdma_destroy_ms_h failed: msoh = 0x%"
+							PRIx64 ", msh = 0x%" PRIx64 "\n",
 							msoh, ms_h(ms));
-				ok = false;
-			} else {
-				DBG("msh(0x%" PRIx64 ") owned by msoh(0x%"
-					PRIx64 ") destroyed\n", ms_h(ms), msoh);
+					ok = false;
+				} else {
+					DBG("msh(0x%" PRIx64 ") owned by msoh(0x%"
+							PRIx64 ") destroyed\n", ms_h(ms), msoh);
+				}
 			}
-		});
+		);
 
-	/* Fail on any error */
-	if (!ok) {
-		ERR("Failed in to destroy\n");
-		sem_post(&rdma_lock);
-		return RDMA_MS_DESTROY_FAIL;
-	}
+		/* Fail on any error */
+		if (!ok) {
+			ERR("Failed in destroy\n");
+			throw RDMA_MS_DESTROY_FAIL;
+		}
 
-	/* Set up input parameters */
-	in.msoid = ((struct loc_mso *)msoh)->msoid;
+		/* Set up input parameters */
+		unix_msg_t	in_msg;
+		in_msg.destroy_mso_in.msoid = ((loc_mso *)msoh)->msoid;
+		in_msg.type = DESTROY_MSO;
+		in_msg.category = RDMA_REQ_RESP;
 
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-	in.msoid = ((struct loc_mso *)msoh)->msoid;
-	in_msg->type = DESTROY_MSO;
-	in_msg->destroy_mso_in = in;
+		/* Call into daemon */
+		unix_msg_t  out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc) {
+			ERR("Failed in DESTROY_MSO daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
 
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		sem_post(&rdma_lock);
-		return ret;
-	}
+		/* Failed to destroy mso? */
+		if (out_msg.destroy_mso_out.status) {
+			ERR("Failed to destroy msoid(0x%X), rc = %d\n",
+						((loc_mso *)msoh)->msoid, rc);
+			throw out_msg.destroy_mso_out.status;
+		}
 
-	out = out_msg->destroy_mso_out;
-
-	/* Check status returned by command on the daemon side */
-	if (out.status != 0) {
-		ERR("Failed to destroy msoid(0x%X) in daemon\n");
-		sem_post(&rdma_lock);
-		return out.status;
-	}
-
-	/* Remove from database */
-	if (remove_loc_mso(msoh)) {
-		CRIT("Failed to remove mso from database\n");
-		sem_post(&rdma_lock);
-		return -6;
+		/* Remove from database */
+		if (remove_loc_mso(msoh)) {
+			CRIT("Failed to remove mso from database\n");
+			throw RDMA_DB_REM_FAIL;
+		}
+	} /* try */
+	catch(int e) {
+		rc = e;
 	}
 	sem_post(&rdma_lock);
-	return out.status;
+	DBG("EXIT\n");
+	return rc;
 } /* rdma_destroy_mso_h() */
 
 int rdma_create_ms_h(const char *ms_name,

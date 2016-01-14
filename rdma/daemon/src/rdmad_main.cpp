@@ -108,7 +108,8 @@ static unix_server *server;
 
 static daemon2lib_dispatch_table	d2l_dispatch_table = {
 		{GET_MPORT_ID, get_mport_id_disp},
-		{CREATE_MSO, create_mso_disp}
+		{CREATE_MSO, create_mso_disp},
+		{DESTROY_MSO, destroy_mso_disp}
 };
 static daemon2lib_msg_proc	d2l_msg_proc(d2l_dispatch_table);
 
