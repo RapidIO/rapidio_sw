@@ -316,7 +316,7 @@ static bool rdmad_is_alive()
 	return alt_rpc_call(in_msg, NULL) != RDMA_DAEMON_UNREACHABLE;
 } /* rdmad_is_alive() */
 
-int open_mport(void)
+static int open_mport(void)
 {
 	auto rc = 0;
 	DBG("ENTER\n");
@@ -684,6 +684,7 @@ __attribute__((constructor)) int lib_init(void)
 			throw RDMA_LIB_INIT_FAIL; \
 		} \
 	}
+
 void rdma_set_fmd_handle(fmdd_h dd_h)
 {
 	::dd_h = dd_h;
@@ -801,112 +802,98 @@ static void *mso_close_thread_f(void *arg)
 
 int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 {
-	open_mso_input	in;
-	open_mso_output	out;
-	int		ret;
+	auto rc = 0;
 
 	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
-
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
-
-	/* If the MSO was already open, just return the handle */
-	if (mso_is_open(owner_name)) {
-		WARN("%s is already open!\n", owner_name);
-		*msoh = find_mso_by_name(owner_name);
-		sem_post(&rdma_lock);
-		return RDMA_ALREADY_OPEN;
-	}
-
-	/* Prevent buffer overflow due to very long name */
-	size_t len = strlen(owner_name);
-	if (len > UNIX_MS_NAME_MAX_LEN) {
-		ERR("String 'owner_name' is too long (%d)\n", len);
-		sem_post(&rdma_lock);
-		return RDMA_NAME_TOO_LONG;
-	}
-
-	/* Set up input parameters */
-	strcpy(in.owner_name, owner_name);
-
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-	in_msg->type = OPEN_MSO;
-	in_msg->open_mso_in = in;
-
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		sem_post(&rdma_lock);
-		return ret;
-	}
-
-	out = out_msg->open_mso_out;
-
-	/* Check status returned by command on the daemon side */
-	if (out.status != 0) {
-		ERR("Failed to open mso('%s') in daemon\n", in.owner_name);
-		sem_post(&rdma_lock);
-		return out.status;
-	}
-
-	/* Open message queue for receiving mso close messages. Such messages are
-	 * sent when the owner of an 'mso' decides to destroy the mso. The close
-	 * messages are sent to users of the mso who have opened the mso.
-	 * The message instruct those users to close the mso since it will be gone. */
-	stringstream	qname;
-	qname << '/' << owner_name << out.mso_conn_id;
-	msg_q<mq_close_mso_msg>	*mso_close_mq;
 	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
+
+		/* If the MSO was already open, just return the handle */
+		if (mso_is_open(owner_name)) {
+			WARN("%s is already open!\n", owner_name);
+			*msoh = find_mso_by_name(owner_name);
+			throw RDMA_ALREADY_OPEN;
+		}
+
+		/* Prevent buffer overflow due to very long name */
+		size_t len = strlen(owner_name);
+		if (len > UNIX_MS_NAME_MAX_LEN) {
+			ERR("String 'owner_name' is too long (%d)\n", len);
+			throw RDMA_NAME_TOO_LONG;
+		}
+
+		/* Set up input parameters */
+		unix_msg_t  in_msg;
+		in_msg.type = OPEN_MSO;
+		in_msg.category = RDMA_REQ_RESP;
+		strcpy(in_msg.open_mso_in.owner_name, owner_name);
+
+		/* Call into daemon */
+		unix_msg_t  out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc) {
+			ERR("Failed in OPEN_MSO daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
+
+		/* Failed to open mso? */
+		if (out_msg.open_mso_out.status) {
+			ERR("Failed to open mso '%s', rc = %d\n", owner_name, rc);
+			throw out_msg.create_mso_out.status;
+		}
+
+		/* Open message queue for receiving mso close messages. Such messages are
+		 * sent when the owner of an 'mso' decides to destroy the mso. The close
+		 * messages are sent to users of the mso who have opened the mso.
+		 * The message instruct those users to close the mso since it will be gone. */
+		stringstream	qname;
+		qname << '/' << owner_name << out_msg.open_mso_out.mso_conn_id;
+		msg_q<mq_close_mso_msg>	*mso_close_mq;
 		mso_close_mq = new msg_q<mq_close_mso_msg>(qname.str(), MQ_OPEN);
-	}
-	catch(msg_q_exception& e) {
-		CRIT("Failed to create mso_close_mq: %s\n", e.msg.c_str());
-		sem_post(&rdma_lock);
-		return RDMA_MALLOC_FAIL;
-	}
-	INFO("Opened message queue '%s'\n", qname.str().c_str());
+		INFO("Opened message queue '%s'\n", qname.str().c_str());
 
-	/* Create thread for handling mso close requests */
-	pthread_t mso_close_thread;
-	if (pthread_create(&mso_close_thread, NULL, mso_close_thread_f, (void *)mso_close_mq)) {
-		WARN("Failed to create mso_close_thread: %s\n", strerror(errno));
-		delete mso_close_mq;
-		sem_post(&rdma_lock);
-		return RDMA_PTHREAD_FAIL;
-	}
-	INFO("Created mso_close_thread with argument %d passed to it\n", mso_close_mq);
+		/* Create thread for handling mso close requests */
+		pthread_t mso_close_thread;
+		if (pthread_create(&mso_close_thread, NULL, mso_close_thread_f, (void *)mso_close_mq)) {
+			WARN("Failed to create mso_close_thread: %s\n", strerror(errno));
+			delete mso_close_mq;
+			sem_post(&rdma_lock);
+			return RDMA_PTHREAD_FAIL;
+		}
+		INFO("Created mso_close_thread with argument %d passed to it\n", mso_close_mq);
 
-	/* Store in database, mso_conn_id from daemon, 'owned' is false, save the
-	 * thread and message queue to be used to notify app when mso is destroyed
-	 * by its owner. */
-	*msoh = add_loc_mso(owner_name,
-			    out.msoid,
-			    out.mso_conn_id,
+		/* Store in database, mso_conn_id from daemon, 'owned' is false, save the
+		 * thread and message queue to be used to notify app when mso is destroyed
+		 * by its owner. */
+		*msoh = add_loc_mso(owner_name,
+			    out_msg.open_mso_out.msoid,
+			    out_msg.open_mso_out.mso_conn_id,
 			    false,
 			    mso_close_thread,
 			    mso_close_mq);
-	if (!*msoh) {
-		WARN("add_loc_mso() failed, msoid = 0x%X\n", out.msoid);
-		if(pthread_cancel(mso_close_thread)) {
-			CRIT("Failed to cancel mso_close_thread: %s\n",
+		if (!*msoh) {
+			WARN("add_loc_mso() failed, msoid = 0x%X\n", out_msg.open_mso_out.msoid);
+			if(pthread_cancel(mso_close_thread)) {
+				CRIT("Failed to cancel mso_close_thread: %s\n",
 					strerror(errno));
+			}
+			delete mso_close_mq;
+			throw RDMA_DB_ADD_FAIL;
 		}
-		delete mso_close_mq;
-		sem_post(&rdma_lock);
-		return RDMA_DB_ADD_FAIL;
+	} /* try */
+	catch(msg_q_exception& e) {
+		CRIT("Failed to create mso_close_mq: %s\n", e.msg.c_str());
+		rc = RDMA_MALLOC_FAIL;
+	}
+	catch(int e) {
+		rc = e;
 	}
 	DBG("EXIT\n");
 	sem_post(&rdma_lock);
-	return 0;
+	return rc;
 } /* rdma_open_mso_h() */
 
 int rdma_close_mso_h(mso_h msoh)

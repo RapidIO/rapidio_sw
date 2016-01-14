@@ -4,8 +4,6 @@
 
 using namespace std;
 
-extern "C" /*static*/ int open_mport(void/*struct peer_info *peer*/);
-
 int main()
 {
 	auto rc = 0;
