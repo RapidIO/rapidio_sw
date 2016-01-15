@@ -35,16 +35,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CM_RDMA_H
 
 #include <stdint.h>
-#include <endian.h>
-#include "rdma_types.h"
 
-#define	CM_MS_NAME_MAX_LEN	31
+#include "rdma_msg.h"
 
-#define	CM_CONNECT_MS	1
-#define	CM_ACCEPT_MS	2
-#define	CM_DISCONNECT_MS	3
-#define	CM_DESTROY_MS	4
-#define CM_DESTROY_ACK_MS	5
+constexpr auto CM_MS_NAME_MAX_LEN 	= 31;
+
+constexpr uint32_t CM_HELLO 	 	= 0x01;
+constexpr uint32_t CM_CONNECT_MS 	= 0x02;
+constexpr uint32_t CM_ACCEPT_MS	 	= 0x03;
+constexpr uint32_t CM_DISCONNECT_MS	= 0x04;
+constexpr uint32_t CM_DESTROY_MS	= 0x05;
+constexpr uint32_t CM_DESTROY_ACK_MS	= 0x06;
 
 struct hello_msg_t {
 	uint64_t destid;
@@ -98,4 +99,17 @@ struct cm_destroy_ack_msg {
 	uint64_t server_msid;
 };
 
+struct cm_msg_t {
+	rdma_msg_type	type;
+	rdma_msg_cat	category;
+	rdma_msg_seq_no	seq_no;
+	union {
+		hello_msg_t		hello;
+		cm_connect_msg		cm_connect;
+		cm_accept_msg		cm_accept;
+		cm_disconnect_msg 	cm_disconnect;
+		cm_destroy_msg		cm_destroy;
+		cm_destroy_ack_msg	cm_destroy_ack;
+	};
+};
 #endif
