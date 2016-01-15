@@ -34,11 +34,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_MSG_PROCESSOR_H
 
 #include "rdma_msg.h"
-#include "rdmad_tx_engine.h"
 #include "msg_processor.h"
-#include "unix_sock.h"
 #include "liblog.h"
 #include "rdmad_dispatch.h"
+
+class unix_tx_engine;
+class unix_server;
+struct unix_msg_t;
 
 class unix_msg_processor : public msg_processor<unix_server, unix_msg_t>
 {
