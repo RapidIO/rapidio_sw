@@ -236,12 +236,8 @@ int RIOCP_SO_ATTR riocp_mport_get_private(struct riocp_pe *pe, void **data)
   return 0;
 }
 
-
-
 static int
-riocp_pe_handle_free_pe(struct riocp_pe *pe){
-
-  unsigned port;
+riocp_pe_handle_cleanup_pe(struct riocp_pe *pe){
 
   if(!pe || pe->minfo){
     RIOCP_ERROR("Trying to free NULL handle or mport\n");
@@ -250,21 +246,11 @@ riocp_pe_handle_free_pe(struct riocp_pe *pe){
 
   if(pe->mp_hnd != RIOCP_PE_HANDLE_FD_UNSET)
     riomp_mgmt_mport_destroy_handle(&(pe->mp_hnd));
-
+  free(pe->peers);
   free(pe->port);
   free(pe->address);
   free(pe->port_event_mask);
   free(pe->private_data);
-
-  /* Clean up references in peer PEs to this PE */
-  for(port = 0; port < RIOCP_PE_PORT_COUNT(pe->cap); port++){
-    if(pe->peers[port].peer)
-      if(riocp_pe_remove_peer(pe, port))
-        RIOCP_ERROR("Failed to remove PE from peer ports\n");
-  }
-  free(pe->peers);
-
-  free(pe);
 
   return 0;
 }
@@ -278,11 +264,15 @@ riocp_pe_handle_destroy(struct riocp_pe **handle){
 
   struct riocp_pe *pe = NULL;
   struct riocp_pe_mport *mp = NULL;
+  unsigned port;
+  static int level = 0; /* Recursion level */
 
   if(!handle || !(*handle)){
     RIOCP_ERROR("Trying to destroy NULL handle\n");
     return;
   }
+
+  level++;
 
   pe = *handle;
   mp = pe->minfo;
@@ -297,7 +287,7 @@ riocp_pe_handle_destroy(struct riocp_pe **handle){
 
     riocp_pe_llist_foreach(item, &(mp->handles)){
       if(item->data){
-        riocp_pe_handle_free_pe((struct riocp_pe *)item->data);
+        riocp_pe_handle_destroy((struct riocp_pe **)&item->data);
       }
     }
     riocp_pe_llist_free(mp->handles.next);
@@ -305,23 +295,34 @@ riocp_pe_handle_destroy(struct riocp_pe **handle){
     free(mp->comptag_pool);
     free(mp->private_data);
     free(mp);
-    mp = NULL;
+    pe->minfo = NULL;
 
     riocp_pe_llist_del(&riocp_pe_mport_handles, pe);
-    riocp_pe_handle_free_pe(pe);
+    riocp_pe_handle_cleanup_pe(pe);
+    free(pe);
   }
   else{
     /* This is not a mport, it's just a normal PE */
     RIOCP_TRACE("Destroying PE handle %p (ct: 0x%08x)\n", pe, pe->comptag);
-    if(riocp_pe_handle_free_pe(pe))
-      RIOCP_WARN("Failed to free PE data\n");
+    /* Cleanup references in other peer PEs to this PE */
+    for(port = 0; port < RIOCP_PE_PORT_COUNT(pe->cap); port++){
+      if(pe->peers[port].peer)
+        if(riocp_pe_remove_peer(pe, port))
+          RIOCP_WARN("Failed to remove PE from peer ports\n");
+    }
+    /* Disconnect PE from Mport's comptag pool and from PE-handles list */
     if(riocp_pe_comptag_clear(pe))
       RIOCP_WARN("Failed to clear PE in mport's comptag pool\n");
-    if(riocp_pe_llist_del(&(mp->handles), pe))
+    if(level == 1 && riocp_pe_llist_del(&(mp->handles), pe))
       RIOCP_WARN("Failed to remove PE from mport's handle list\n");
+    /* Cleanup the PE structure */
+    if(riocp_pe_handle_cleanup_pe(pe))
+      RIOCP_WARN("Failed to free PE data\n");
+    free(pe);
   }
 
   *handle = NULL;
+  level--;
   return;
 }
 
@@ -621,72 +622,72 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
   }
 #endif
 
-	if (RIOCP_PE_IS_HOST(h)) {
-		ret = riocp_pe_comptag_init(h);
-		if (ret) {
-			RIOCP_ERROR("Unable to initialize component tag");
-			goto err;
-		}
-	} else {
-		ret = riocp_pe_comptag_read(h, &h->comptag);
-		if (ret) {
-			RIOCP_ERROR("Could not read comptag\n");
-			ret = -EIO;
-			goto err;
-		}
-	}
+  if (RIOCP_PE_IS_HOST(h)) {
+    ret = riocp_pe_comptag_init(h);
+    if (ret) {
+      RIOCP_ERROR("Unable to initialize component tag");
+      goto err;
+    }
+  } else {
+    ret = riocp_pe_comptag_read(h, &h->comptag);
+    if (ret) {
+      RIOCP_ERROR("Could not read comptag\n");
+      ret = -EIO;
+      goto err;
+    }
+  }
 
-	ret = riocp_pe_get_destid(h, &h->destid);
-	if (ret) {
-		RIOCP_ERROR("Could not read destid\n");
-		ret = -EIO;
-		goto err;
-	}
+  ret = riocp_pe_get_destid(h, &h->destid);
+  if (ret) {
+    RIOCP_ERROR("Could not read destid\n");
+    ret = -EIO;
+    goto err;
+  }
 
-	ret = riocp_pe_handle_open_mport(h);
-	if (ret) {
-		RIOCP_ERROR("failed to open mport\n");
-		goto err;
-	}
+  ret = riocp_pe_handle_open_mport(h);
+  if (ret) {
+    RIOCP_ERROR("failed to open mport\n");
+    goto err;
+  }
 
-	ret = riomp_mgmt_query(h->mp_hnd, &h->mport->minfo->prop);
-	if (ret) {
-		RIOCP_ERROR("failed to get mport properties: %s (%d)\n",
-			strerror(errno), errno);
-		goto err;
-	}
+  ret = riomp_mgmt_query(h->mp_hnd, &h->mport->minfo->prop);
+  if (ret) {
+    RIOCP_ERROR("failed to get mport properties: %s (%d)\n",
+      strerror(errno), errno);
+    goto err;
+  }
 
-	h->peers = (struct riocp_pe_peer *)calloc(RIOCP_PE_PORT_COUNT(h->cap),
-						sizeof(struct riocp_pe_peer));
-	if (h->peers == NULL) {
-		RIOCP_ERROR("Unable to allocate memory for h->peers\n");
-		ret = -ENOMEM;
-		goto err;
-	}
+  h->peers = (struct riocp_pe_peer *)calloc(RIOCP_PE_PORT_COUNT(h->cap),
+            sizeof(struct riocp_pe_peer));
+  if (h->peers == NULL) {
+    RIOCP_ERROR("Unable to allocate memory for h->peers\n");
+    ret = -ENOMEM;
+    goto err;
+  }
 
-	RIOCP_TRACE("Mport: set port write filter\n");
-	ret = riomp_mgmt_pwrange_enable(h->mp_hnd, RIOCP_PE_COMPTAG_MASK, 0, 0x00ffffff);
-	if (ret < 0) {
-		RIOCP_ERROR("Could not enable port write range with ioctl (err: %s)\n",
-		strerror(errno));
-		ret = errno;
-		goto err;
-	}
-	RIOCP_TRACE("Mport: set event mask\n");
-	ret = riomp_mgmt_set_event_mask(h->mp_hnd, RIO_EVENT_PORTWRITE);
-	if (ret < 0) {
-		RIOCP_ERROR("Could not set portwrite event mask with ioctl (err: %s)\n",
-			strerror(errno));
-		ret = errno;
-		goto err;
-	}
+  RIOCP_TRACE("Mport: set port write filter\n");
+  ret = riomp_mgmt_pwrange_enable(h->mp_hnd, RIOCP_PE_COMPTAG_MASK, 0, 0x00ffffff);
+  if (ret < 0) {
+    RIOCP_ERROR("Could not enable port write range with ioctl (err: %s)\n",
+    strerror(errno));
+    ret = errno;
+    goto err;
+  }
+  RIOCP_TRACE("Mport: set event mask\n");
+  ret = riomp_mgmt_set_event_mask(h->mp_hnd, RIO_EVENT_PORTWRITE);
+  if (ret < 0) {
+    RIOCP_ERROR("Could not set portwrite event mask with ioctl (err: %s)\n",
+      strerror(errno));
+    ret = errno;
+    goto err;
+  }
 
-	*handle = h;
+  *handle = h;
 
-	RIOCP_TRACE("Created mport(id: %d, destid: %u (0x%08x))\n",
-		mport, h->destid, h->destid);
+  RIOCP_TRACE("Created mport(id: %d, destid: %u (0x%08x))\n",
+    mport, h->destid, h->destid);
 
-	return ret;
+  return ret;
 
 err:
   riocp_pe_handle_destroy(&h);
