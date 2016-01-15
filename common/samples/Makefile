@@ -3,18 +3,20 @@ LIBMPORT_PATH=../libmport
 LIBLOG_PATH=../liblog
 LIBCLI_PATH=../libcli
 
+SAMPLE_CFLAGS=--std=c++11 -Wall -Werror -Wextra
+
 CM_BUILD_STRING = $(CXX) -L$(LIBMPORT_PATH) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
 	-Wl,-rpath=$(LIBMPORT_PATH) -Wl,-rpath=$(LIBLOG_PATH) \
 	-Wl,-rpath=$(LIBCLI_PATH) \
 	-DRDMA_LL=6 \
-	-I../../common/include -I../../include -o $@ $(RDMAD_CFLAGS) \
+	-I../../common/include -I../../include -o $@ $(SAMPLE_CFLAGS) \
 	 src/$@.cpp -lmport -llog -lcli -lrt
 
 UNIX_BUILD_STRING = $(CXX) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
 	-Wl,-rpath=$(LIBLOG_PATH) \
 	-Wl,-rpath=$(LIBCLI_PATH) \
 	-DRDMA_LL=6 \
-	-I../../common/include -I../../include -I../../rdma/inc -o $@ $(RDMAD_CFLAGS) \
+	-I../../common/include -I../../include -I../../rdma/inc -o $@ $(SAMPLE_CFLAGS) \
 	 src/$@.cpp -llog -lcli -lrt -pthread
 
 all: cm_sock_server cm_sock_client unix_sock_client unix_sock_server msg_q1 msg_q2

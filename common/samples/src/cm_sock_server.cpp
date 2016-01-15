@@ -83,7 +83,6 @@ int main(int argc, char *argv[])
 		puts("Failed to accept");
 		goto out;
 	}
-	printf("After accept() call, accept_socket = 0x%X\n", accept_socket);
 	
 	puts("Creating other server object...");
 	try {

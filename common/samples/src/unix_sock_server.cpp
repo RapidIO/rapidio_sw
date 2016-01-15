@@ -57,7 +57,7 @@ void *rpc_thread_f(void *arg)
 			pthread_exit(0);
 		}
 		if (received_len > 0) {
-			printf("receveived_len = %d\n", received_len);
+			printf("received_len = %u\n", (unsigned)received_len);
 
 			/* Get & display the data */
 			void *recv_buf;
@@ -138,7 +138,7 @@ int run_rpc_alternative()
 	} /* while */
 } /* run_rpc_alternative() */
 
-int main(int argc, char *argv[])
+int main()
 {
 	signal(SIGQUIT, sig_handler);
 	signal(SIGINT, sig_handler);
