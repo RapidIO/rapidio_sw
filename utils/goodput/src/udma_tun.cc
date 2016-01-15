@@ -1770,6 +1770,11 @@ void umd_mbox_watch_demo(struct worker *info)
 
 	  MboxChannel::WorkItem_t wi[MBOX_STS*8]; memset(wi, 0, sizeof(wi));
 
+       /* Try a soft restart before running the loop to see if that avoids
+ * later timeout.
+ */
+	info->umd_mch->softRestart();
+
           while (! info->stop_req) {
 		int i = 0;
 		if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;

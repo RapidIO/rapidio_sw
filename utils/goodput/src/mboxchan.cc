@@ -142,6 +142,9 @@ void MboxChannel::init()
   m_restart_pending = 0;
 }
 
+/* FIXME: There is a defect in setInitState which is corrected by
+ * softRestart.  This is why code calls softRestart after setInitState.
+ */
 void MboxChannel::setInitState()
 {
   assert(this);
