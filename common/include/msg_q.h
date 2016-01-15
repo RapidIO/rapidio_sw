@@ -49,10 +49,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::string;
 using std::stringstream;
 
-const unsigned MSG_Q_RECV_ERR = -1;
-const unsigned MSG_Q_SEND_ERR = -2;
-const unsigned MSG_Q_TIMED_RECV_ERR = -3;
-const unsigned MSG_Q_DATA_TOO_LARGE = -4;
+const int MSG_Q_RECV_ERR = -1;
+const int MSG_Q_SEND_ERR = -2;
+const int MSG_Q_TIMED_RECV_ERR = -3;
+const int MSG_Q_DATA_TOO_LARGE = -4;
 
 
 class msg_q_exception {
