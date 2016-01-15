@@ -37,11 +37,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "msg_processor.h"
 #include "rx_engine.h"
+#include "cm_sock.h"
 
 using std::shared_ptr;
 
 class unix_server;
 struct unix_msg_t;
+struct cm_msg_t;
 
 class unix_rx_engine : public rx_engine<unix_server, unix_msg_t>
 {
@@ -53,5 +55,28 @@ public:
 	rx_engine<unix_server, unix_msg_t>(client, message_processor, tx_eng, engine_cleanup_sem)
 	{}
 };
+
+class cm_server_rx_engine : public rx_engine<cm_server, cm_msg_t>
+{
+public:
+	cm_server_rx_engine(shared_ptr<cm_server> client,
+			msg_processor<cm_server, cm_msg_t> &message_processor,
+			tx_engine<cm_server, cm_msg_t> *tx_eng,
+			sem_t *engine_cleanup_sem) :
+	rx_engine<cm_server, cm_msg_t>(client, message_processor, tx_eng, engine_cleanup_sem)
+	{}
+};
+
+class cm_client_rx_engine : public rx_engine<cm_client, cm_msg_t>
+{
+public:
+	cm_client_rx_engine(shared_ptr<cm_client> client,
+			msg_processor<cm_client, cm_msg_t> &message_processor,
+			tx_engine<cm_client, cm_msg_t> *tx_eng,
+			sem_t *engine_cleanup_sem) :
+	rx_engine<cm_client, cm_msg_t>(client, message_processor, tx_eng, engine_cleanup_sem)
+	{}
+};
+
 #endif
 
