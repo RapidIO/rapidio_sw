@@ -2423,14 +2423,18 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			bool q_was_full = false;
 			DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
+			int bd_q_cnt = 0;
+			int bd_f_cnt = 0;
                 	start_iter_stats(info);
 			if (GetEnv("sim") == NULL) {
                 		if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+				bd_q_cnt = 1;
 			} else {
 				// Can we recover/replay BD at sim+1 ?
 				const int N = GetDecParm("$sim", 0) + 1;
 				for (int i = 0; !q_was_full && i < N; i++) {
 					if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+					bd_q_cnt++;
 
 					if (info->stop_req) goto exit;
 
@@ -2444,12 +2448,41 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			if (sim) info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
 
 			DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
-			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+			while (!q_was_full && !info->stop_req && (bd_f_cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8)) == 0) { ; }
 
 			// XXX check for errors, nuke faulting BD, do softRestart
+			if (q_was_full || bd_q_cnt != bd_f_cnt) {
+				if (q_was_full) { CRIT("\n\tBUG: Queue Full!\n"); goto exit; }
+
+                                if (info->umd_dch->dmaCheckAbort(
+                                        info->umd_dma_abort_reason)) {
+                                        CRIT("\n\tCould not TX/RX NREAD bd_q_cnt=%d bd_f_cnt=%d\n", bd_q_cnt, bd_f_cnt);
+                                        CRIT("\n\tDMA abort %x: %s\n",
+                                                info->umd_dma_abort_reason,
+                                                DMAChannel::abortReasonToStr(
+                                                info->umd_dma_abort_reason));
+                                }
+				{{
+					bool inp_err = false;
+					bool outp_err = false;
+					info->umd_dch->checkPortInOutError(inp_err, outp_err);
+					if(inp_err || outp_err) {
+						CRIT("Tsi721 port error%s%s bd_q_cnt=%d bd_f_cnt=%d\n",
+							(inp_err? " INPUT": ""),
+							(outp_err? " OUTPUT": ""),
+							bd_q_cnt, bd_f_cnt);
+						goto exit;
+					}
+
+				}}
+
+				// nuke faulting BD
+
+				info->umd_dch->softRestart(true); // Nuke BDs for now
+			}
 
                 	finish_iter_stats(info);
-
+#if 0
 			if (7 <= g_level) { // DEBUG
 				std::stringstream ss;
 				for(int i = 0; i < 16; i++) {
@@ -2459,6 +2492,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 				}
 				DBG("\n\tNREAD-in data: %s\n", ss.str().c_str());
 			}
+#endif
 			}}
 			break;
 

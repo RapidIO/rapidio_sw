@@ -136,6 +136,8 @@ char* dma_rtype_str[] = {
 
 bool DMAChannel::dmaIsRunning()
 {
+  // XXX What about sim mode?
+ 
   uint32_t channel_status = rd32dmachan(TSI721_DMAC_STS);
   if (channel_status & TSI721_DMAC_STS_RUN) return true;
   return false;
@@ -144,7 +146,11 @@ bool DMAChannel::dmaIsRunning()
 void DMAChannel::resetHw()
 {
   m_sim_abort_reason = 0;
-  m_sim_err_stat = 0;
+  m_sim_err_stat     = 0;
+  m_sim_fifo_wp      = 0;
+  // XXX what about m_sim_dma_rp ??
+
+  if (m_sim) return;
 
   if(dmaIsRunning()) {
     wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_SUSP);
@@ -857,7 +863,10 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
         if (fault_bmask & SIM_INJECT_INP_ERR) { m_sim_err_stat = TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP; break; }
         if (fault_bmask & SIM_INJECT_OUT_ERR) { m_sim_err_stat = TSI721_RIO_SP_ERR_STAT_OUTPUT_ERR_STOP; break; }
       } while(0);
-      break;
+
+      // XXX FIXME: This will trip the assert above
+
+      break; // for loop
     }
 
     sts_ptr[m_sim_fifo_wp*8] = bd_linear;

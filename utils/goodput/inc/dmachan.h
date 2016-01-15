@@ -278,7 +278,8 @@ public:
   
   inline bool checkPortError()
   {
-    if (m_sim) return false;
+    if (m_sim) return !!m_sim_err_stat;
+
     uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
     return status & TSI721_RIO_SP_ERR_STAT_PORT_ERR;
   }
