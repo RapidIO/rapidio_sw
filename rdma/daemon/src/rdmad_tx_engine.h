@@ -42,9 +42,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::shared_ptr;
 
-class unix_msg_processor;
-
-//tx_engine(shared_ptr<T> client, sem_t *engine_cleanup_sem)
 class unix_tx_engine : public tx_engine<unix_server, unix_msg_t>
 {
 public:

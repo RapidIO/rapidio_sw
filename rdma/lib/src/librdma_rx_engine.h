@@ -38,7 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
-#include "librdma_msg_processor.h"
+#include "msg_processor.h"
 #include "rx_engine.h"
 
 using std::shared_ptr;
