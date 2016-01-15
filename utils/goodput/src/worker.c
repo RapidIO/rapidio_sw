@@ -1321,7 +1321,7 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	sem_post(&info->umd_fifo_proc_started); 
 
 	while (!info->umd_fifo_proc_must_die) {
-		if (info->umd_dch->isSim()) info->umd_dch->simFIFO();
+		if (info->umd_dch->isSim()) info->umd_dch->simFIFO(0, 0); // no faults injected
 
 		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
 		if (!cnt) 
@@ -2424,12 +2424,30 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
                 	start_iter_stats(info);
-                	if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+			if (GetEnv("sim") == NULL) {
+                		if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+			} else {
+				// Can we recover/replay BD at sim+1 ?
+				const int N = GetDecParm("$sim", 0) + 1;
+				for (int i = 0; !q_was_full && i < N; i++) {
+					if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
 
-			if (sim) info->umd_dch->simFIFO();
+					if (info->stop_req) goto exit;
+
+					if (i == (N-1)) continue; // Don't advance oi twice
+
+					// Wrap around, do no overwrite last buffer entry
+					oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
+				}
+			}
+
+			if (sim) info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
 
 			DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
 			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+
+			// XXX check for errors, nuke faulting BD, do softRestart
+
                 	finish_iter_stats(info);
 
 			if (7 <= g_level) { // DEBUG
@@ -2443,6 +2461,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			}
 			}}
 			break;
+
 		default: CRIT("\n\t: Invalid operation '%c'\n", op); goto exit;
 			break;
 		}
@@ -2450,10 +2469,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 		if (info->stop_req) goto exit;
 
 		// Wrap around, do no overwrite last buffer entry
-		oi++;
-		if ((info->umd_tx_buf_cnt - 1) == oi) {
-			oi = 0;
-		};
+		oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
 	} // END for infinite transmit
 
 exit:

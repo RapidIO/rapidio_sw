@@ -86,6 +86,9 @@ void DMAChannel::init()
   m_sim           = false;
   m_sim_dma_rp    = 0;
   m_sim_fifo_wp   = 0;
+
+  m_sim_abort_reason = 0;
+  m_sim_err_stat = 0;
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
@@ -140,6 +143,9 @@ bool DMAChannel::dmaIsRunning()
 
 void DMAChannel::resetHw()
 {
+  m_sim_abort_reason = 0;
+  m_sim_err_stat = 0;
+
   if(dmaIsRunning()) {
     wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_SUSP);
 
@@ -817,8 +823,11 @@ done:
 
 /** \brief Simulate FIFO completions; NO errors are injected
  * \note Should be called in isolcpu thread before \ref scanFIFO
+ * \param max_bd Process at most max_bd then report fault. If 0 no faults reported
+ * \param fault_bmask Which fault registers to fake
+ * \return How many BDs have been processed (but not necessarily reported in FIFO)
  */
-int DMAChannel::simFIFO()
+int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
 {
   if (!m_sim)
     throw std::runtime_error("DMAChannel: Simulation was not flagged!");
@@ -828,6 +837,7 @@ int DMAChannel::simFIFO()
 
   pthread_spin_lock(&m_bl_splock);
 
+  int bd_cnt = 0;
   for (; m_sim_dma_rp < m_dma_wr; m_sim_dma_rp++) { // XXX "<=" ??
     // Handle wrap-arounds in BD array, m_dma_wr can go up to 0xFFFFFFFFL
     const int idx = m_sim_dma_rp % m_bd_num;
@@ -835,6 +845,20 @@ int DMAChannel::simFIFO()
 
     const uint64_t bd_linear = m_dmadesc.win_handle + idx * DMA_BUFF_DESCR_SIZE;
     assert(bd_linear < HW_END);
+
+    bd_cnt++;
+
+    // FAULT INJECTION
+    if (max_bd > 0 && fault_bmask != 0 && bd_cnt == max_bd) {
+      // DO NOT report BD in FIFO
+      // Pretend registers report fault
+      do {
+        if (fault_bmask & SIM_INJECT_TIMEOUT) { m_sim_abort_reason = 5; break; }
+        if (fault_bmask & SIM_INJECT_INP_ERR) { m_sim_err_stat = TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP; break; }
+        if (fault_bmask & SIM_INJECT_OUT_ERR) { m_sim_err_stat = TSI721_RIO_SP_ERR_STAT_OUTPUT_ERR_STOP; break; }
+      } while(0);
+      break;
+    }
 
     sts_ptr[m_sim_fifo_wp*8] = bd_linear;
 
@@ -844,5 +868,5 @@ int DMAChannel::simFIFO()
 
   pthread_spin_unlock(&m_bl_splock);
 
-  return 0;
+  return bd_cnt;
 }

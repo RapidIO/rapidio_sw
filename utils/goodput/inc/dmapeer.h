@@ -101,6 +101,30 @@ public:
 
   ~DmaPeer() { destroy(); }
 
+  DmaPeer& operator=(const DmaPeer& other) // copy assignment -- we just clone data
+  {
+    if (this == &other) return *this; // self-assignment
+
+    sig        = other.sig;
+    stop_req   = other.stop_req;
+    m_destid   = other.m_destid;
+    m_rio_addr = other.m_rio_addr;
+    m_ib_ptr   = NULL;
+    m_tun_fd   = -1;
+    m_tun_MTU  = other.m_tun_MTU;
+    strncpy(m_tun_name, other.m_tun_name, 32); m_tun_name[32] = '\0';
+    m_WP       = other.m_WP;
+    m_RP       = other.m_RP;
+    m_rio_rx_bd_ready = NULL;
+    m_rio_rx_bd_ready_size = 0;
+    m_rio_rx_bd_ready_ts = NULL;
+    m_info     = NULL;
+    m_copy     = true;
+    memcpy(&m_stats, &other.m_stats, sizeof(m_stats));
+
+    return *this;
+  }
+
   inline void     set_destid(const uint16_t destid) { m_destid = destid; }
   inline uint16_t get_destid() { return m_destid; }
   inline void*    get_ib_ptr() { return m_ib_ptr; }

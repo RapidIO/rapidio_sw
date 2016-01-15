@@ -69,6 +69,12 @@ class DMAChannel {
 public:
   static const int DMA_BUFF_DESCR_SIZE = 32;
 
+  enum {
+    SIM_INJECT_TIMEOUT = 1,
+    SIM_INJECT_INP_ERR = 2,
+    SIM_INJECT_OUT_ERR = 4
+  };
+
   typedef struct {
       uint8_t dtype;
       uint8_t rtype:4;
@@ -169,7 +175,7 @@ public:
    */
   void setSim() { m_check_reg = false; m_sim = true; }
   inline bool isSim() { return m_sim; }
-  int simFIFO();
+  int simFIFO(const int max_bd, const uint32_t fault_bmask);
 
 public: // XXX test-public, make this section private
 
@@ -247,7 +253,10 @@ public:
   
   inline bool dmaCheckAbort(uint32_t& abort_reason)
   {
-    if (m_sim) return false;
+    if (m_sim) {
+      if (m_sim_abort_reason != 0) { abort_reason = m_sim_abort_reason; return true; }
+      return false;
+    }
 
     uint32_t channel_status = rd32dmachan(TSI721_DMAC_STS);
   
@@ -261,7 +270,8 @@ public:
   
   inline bool checkPortOK()
   {
-    if (m_sim) return true;
+    if (m_sim) return (m_sim_err_stat == 0);
+
     uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
     return status & TSI721_RIO_SP_ERR_STAT_PORT_OK;
   }
@@ -275,7 +285,11 @@ public:
   
   inline void checkPortInOutError(bool& inp_err, bool& outp_err)
   {
-    if (m_sim) { inp_err = outp_err = false; return; }
+    if (m_sim) {
+      inp_err  = !! (m_sim_err_stat & TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP);
+      outp_err = !! (m_sim_err_stat & TSI721_RIO_SP_ERR_STAT_OUTPUT_ERR_STOP);
+      return;
+    }
 
     uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
   
@@ -299,6 +313,8 @@ private:
   bool                m_sim;        ///< Simulation: do not progtam HW with linear addrs of FIFO and BD array; do not read HW regs
   uint32_t            m_sim_dma_rp; ///< Simulated Tsi721 RP
   uint32_t            m_sim_fifo_wp; ///< Simulated Tsi721 FIFO WP
+  volatile uint32_t   m_sim_abort_reason; ///< Simulated abort error, cleared on reset
+  volatile uint32_t   m_sim_err_stat; ///< Simulated port error, cleared on reset
   volatile bool       m_check_reg;
   pthread_spinlock_t  m_hw_splock; ///< Serialize access to DMA chan registers
   pthread_spinlock_t  m_pending_work_splock; ///< Serialize access to DMA pending queue object
