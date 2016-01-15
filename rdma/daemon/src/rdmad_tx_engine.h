@@ -37,7 +37,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <memory>
 
 #include "unix_sock.h"
+#include "cm_sock.h"
 #include "rdmad_unix_msg.h"
+#include "rdmad_cm.h"
 #include "tx_engine.h"
 
 using std::shared_ptr;
@@ -50,6 +52,24 @@ public:
 	{}
 
 }; /* unix_tx_engine */
+
+class cm_server_tx_engine : public tx_engine<cm_server, cm_msg_t>
+{
+public:
+	cm_server_tx_engine(shared_ptr<cm_server> client, sem_t *engine_cleanup_sem) :
+	tx_engine<cm_server, cm_msg_t>(client, engine_cleanup_sem)
+	{}
+
+}; /* cm_server_tx_engine */
+
+class cm_client_tx_engine : public tx_engine<cm_client, cm_msg_t>
+{
+public:
+	cm_client_tx_engine(shared_ptr<cm_client> client, sem_t *engine_cleanup_sem) :
+	tx_engine<cm_client, cm_msg_t>(client, engine_cleanup_sem)
+	{}
+
+}; /* cm_client_tx_engine */
 
 #endif
 

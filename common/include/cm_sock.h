@@ -539,8 +539,18 @@ public:
 	/* Send bytes from 'send_buf' */
 	int send(size_t len = CM_BUF_SIZE)
 	{
+		// FIXME: HACK
+		len = CM_BUF_SIZE;
 		return cm_base::send(client_socket, len);
 	} /* send() */
+
+	/* Send from 'buffer' */
+	int send_buffer(void *buffer, size_t len = CM_BUF_SIZE)
+	{
+		// FIXME: HACK
+		len = CM_BUF_SIZE;
+		return cm_base::send_buffer(client_socket, buffer, len);
+	} /* send_buffer() */
 
 	/* Receive bytes to 'recv_buf' */
 	int receive(size_t *rcvd_len = nullptr)

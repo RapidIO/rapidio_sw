@@ -67,5 +67,47 @@ public:
 		return rc;
 	}
 };
+
+class cm_server_msg_processor : public msg_processor<cm_server, cm_msg_t>
+{
+public:
+	int process_msg(void *vmsg, void *vtx_eng)
+	{
+		auto rc = 0;
+		cm_msg_t *msg = static_cast<cm_msg_t *>(vmsg);
+		cm_server_tx_engine *tx_eng =
+			static_cast<cm_server_tx_engine *>(vtx_eng);
+
+		(void)tx_eng;	// Temporary
+
+		switch(msg->type) {
+
+		default:
+			assert(!"Unhandled message");
+		}
+		return rc;
+	}
+};
+
+class cm_client_msg_processor : public msg_processor<cm_client, cm_msg_t>
+{
+public:
+	int process_msg(void *vmsg, void *vtx_eng)
+	{
+		auto rc = 0;
+		cm_msg_t *msg = static_cast<cm_msg_t *>(vmsg);
+		cm_client_tx_engine *tx_eng =
+			static_cast<cm_client_tx_engine *>(vtx_eng);
+
+		(void)tx_eng;	// Temporary
+		switch(msg->type) {
+
+		default:
+			assert(!"Unhandled message");
+		}
+		return rc;
+	}
+};
+
 #endif
 
