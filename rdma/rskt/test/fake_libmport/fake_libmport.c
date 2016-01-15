@@ -567,8 +567,7 @@ int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 	switch (socket_handle->acceptor) {
 	case TEST_SKT_CONNECT: /* Connector always sends requests */
 		req = (struct rsktd_req_msg *)malloc(sizeof(struct rsktd_req_msg));
-		memcpy(req, buf, (size > sizeof(struct rsktd_req_msg))?
-				sizeof(struct rsktd_req_msg): size);
+		memcpy(req, buf, sizeof(struct rsktd_req_msg));
         	sem_wait(&test->speer_req_mtx);
         	l_push_tail(&test->speer_req, (void *)req);
         	sem_post(&test->speer_req_mtx);
@@ -578,8 +577,7 @@ int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 
 	case TEST_SKT_ACCEPT: /* Acceptor always sends responses */
 		resp = (struct rsktd_resp_msg *)malloc(sizeof(struct rsktd_resp_msg));
-		memcpy(resp, buf, (size > sizeof(struct rsktd_resp_msg))?
-				sizeof(struct rsktd_resp_msg): size);
+		memcpy(resp, buf, sizeof(struct rsktd_resp_msg));
         	sem_wait(&test->speer_resp_mtx);
         	l_push_tail(&test->speer_resp, (void *)resp);
         	sem_post(&test->speer_resp_mtx);
@@ -628,9 +626,8 @@ int riomp_sock_receive(riomp_sock_t socket_handle, void **buf, uint32_t size,
         	sem_post(&test->speer_resp_mtx);
 		if (NULL == resp)
 			goto fail;
-		memcpy(*buf, resp, (size > sizeof(struct rsktd_resp_msg))?
-				sizeof(struct rsktd_resp_msg):size);
-		free(resp);
+		memcpy(*buf, resp, sizeof(struct rsktd_resp_msg));
+		//free(resp);
 		rc = test->speer_resp_err;
 		test->con_received++;
 		break;
@@ -642,9 +639,8 @@ int riomp_sock_receive(riomp_sock_t socket_handle, void **buf, uint32_t size,
         	sem_post(&test->speer_req_mtx);
 		if (NULL == req)
 			goto fail;
-		memcpy(*buf, req, (size > sizeof(struct rsktd_req_msg))?
-			sizeof(struct rsktd_req_msg):size);
-		free(req);
+		memcpy(*buf, req, sizeof(struct rsktd_req_msg));
+		//free(req);
 		rc = 0;
 		test->acc_received++;
 		break;
@@ -661,7 +657,7 @@ int riomp_sock_release_receive_buffer(riomp_sock_t socket_handle, void *buf)
 {
 	if ((NULL == socket_handle) || (NULL == buf))
 		goto fail;
-	free(buf);
+	//free(buf);
 fail:
 	return 0;
 }
@@ -673,7 +669,7 @@ int riomp_sock_close(riomp_sock_t *socket_handle)
 	if (NULL == *socket_handle)
 		goto exit;
 
-	free(*socket_handle);
+	// free(*socket_handle);
 	*socket_handle = NULL;
 
 exit:
@@ -728,7 +724,7 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 				wkr[(*conn)->wkr_idx].priv_info) 
 			|| (wkr[(*conn)->wkr_idx].stop_req != worker_running))
 			&& !kill_acc_conn) {
-			sched_yield();
+			sleep(0);
 		};
 	};
 
@@ -810,9 +806,11 @@ int riomp_sock_release_send_buffer(riomp_sock_t socket_handle, void *buf)
 			(socket_handle->wkr_idx < 0) ||
 			(socket_handle->wkr_idx > MAX_WORKER_IDX))
 		goto fail;
-	if (NULL != buf)
-		free(buf);
+//	if (NULL != buf)
+		//free(buf);
 fail:
+	if (0)
+		*(int *)buf = 0;
 	return 0;
 }
 

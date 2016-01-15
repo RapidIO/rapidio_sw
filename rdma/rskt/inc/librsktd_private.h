@@ -90,11 +90,6 @@ struct control_list {
 
 extern struct control_list ctrls;
 
-void spawn_daemon_threads(struct control_list *ctrls);
-int daemon_threads_failed(void);
-int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers); 
-void kill_daemon_threads(void);
-
 void librsktd_bind_cli_cmds(void);
 
 #ifdef __cplusplus

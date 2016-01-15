@@ -53,6 +53,7 @@ struct rskt_dmn_wpeer {
 	uint32_t cm_skt; /* Channelized messaging socket on target */
 
 	struct rskt_dmn_wpeer **self_ref;
+	struct rskt_dmn_wpeer *self_ref_ref;
 	int cm_skt_h_valid;
 	riomp_sock_t cm_skt_h;
 	int wpeer_alive;
@@ -82,9 +83,6 @@ struct rskt_dmn_wpeer {
 
 int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers);
 void enqueue_wpeer_msg(struct librsktd_unified_msg *msg);
-void *wpeer_tx_loop(void *unused);
-void close_wpeer(struct rskt_dmn_wpeer *wpeer);
-void close_all_wpeers(void);
 void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids);
 
 int start_wpeer_handler(void);

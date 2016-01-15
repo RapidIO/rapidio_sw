@@ -139,15 +139,14 @@ int rdma_open_ms_h(const char *ms_name,
 
 int rdma_close_ms_h(mso_h msoh, ms_h msh)
 {
-	if (msh)
-		free((void *)msh);
-	return msoh * msh * 0;
+	struct loc_ms *lms = (struct loc_ms *)msh;
+
+	free(lms->addr);
+	return 0 * msoh;
 };
 
 int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 {
-	if (msh)
-		free((void *)msh);
 	return msoh * msh * 0;
 };
 

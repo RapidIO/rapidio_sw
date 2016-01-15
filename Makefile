@@ -35,7 +35,7 @@ export LOG_LEVEL
 DEBUG?=DEBUG
 export DEBUG
 
-CC = $(CROSS_COMPILE)gcc
+CC = $(CROSS_COMPILE)g++
 export CC
 
 CXX = $(CROSS_COMPILE)g++

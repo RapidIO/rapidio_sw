@@ -31,8 +31,8 @@
 
 LOG_LEVEL?=7
 DEBUG?=DEBUG
-CC = $(CROSS_COMPILE)gcc
-CXX = $(CROSS_COMPILE)g++
+CC?=$(CROSS_COMPILE)g++
+CXX?=$(CROSS_COMPILE)g++
 TOP_LEVEL = $(shell pwd)
 
 level=$(LOG_LEVEL)
@@ -44,7 +44,6 @@ HEADERS:=inc/lib$(NAME).h
 
 CROSS_COMPILE?=/usr/bin/
 
-CC:=$(CROSS_COMPILE)g++
 AR:=$(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
@@ -65,15 +64,15 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 %.so: $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS) $(LINK_FLAGS)
+	$(CXX) -o $@ $(OBJECTS) $(LINK_FLAGS)
 
 src/%.o: src/%.c $(HEADERS)
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CFLAGS) $< -o $@
 
 test: all $(TEST_TARGET) 
 
 $(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS)
-	$(CC) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) -llog -pthread \
+	$(CXX) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) -llog -pthread \
 	-L. -L../../common/libs_a
 
 clean:

@@ -50,9 +50,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-void librskt_display_skt(struct cli_env *env, struct rskt_socket_t *skt,
+void librskt_display_skt(struct cli_env *env, struct rskt_handle_t *skt_h,
                         int row, int header)
 {
+	struct rskt_socket_t *skt = skt_h->skt;
+
 	if (!row) {
 /*
 State    : ## 01234567         Bytes      Trans   Ptr
@@ -79,7 +81,7 @@ con msub:    01234567                                   F 0x01234567
 			return;
 		sprintf(env->output, 
 			"State    : %2d %8s         Bytes      Trans   Ptr\n",
-			skt->st, SKT_STATE_STR(skt->st));
+			skt_h->st, SKT_STATE_STR(skt_h->st));
 		logMsg(env);
 		sprintf(env->output, 
 			"MaxBkLog : %2d           TX 0x%8x 0x%8x 0x%p\n",
@@ -97,13 +99,13 @@ con msub:    01234567                                   F 0x01234567
 		logMsg(env);
 
 		sprintf(env->output, 
-			"Sa.ct    : %8d     Sz M 0x%8x\n", skt->sa.ct,
+			"Sa.ct    : %8d     Sz M 0x%8x\n", skt_h->sa.ct,
 			skt->msub_sz);
 		logMsg(env);
 
 		sprintf(env->output, 
 		"Sa.sn    : %8d        C 0x%8x        Loc TX W P 0x%8x\n",
-			skt->sa.sn, 
+			skt_h->sa.sn, 
 			skt->con_sz,
 			(NULL == skt->hdr)?0:ntohl(skt->hdr->loc_tx_wr_ptr));
 		logMsg(env);
@@ -172,7 +174,7 @@ con msub:    01234567                                   F 0x01234567
 
 	else
         	sprintf(env->output, "%6s %4d %4d %6d %8x %15s 0x%x\n", 
-			SKT_STATE_STR(skt->st), skt->sa.ct, skt->sa.sn, 
+			SKT_STATE_STR(skt_h->st), skt_h->sa.ct, skt_h->sa.sn, 
 			skt->msub_sz, skt->buf_sz,
 			skt->con_msh_name, skt->con_sz);
         logMsg(env);
@@ -198,10 +200,10 @@ int RSKTLStatusCmd(struct cli_env *env, int argc, char **argv)
 	skt_h = (rskt_h)l_head(&lib.skts, &li);
 	while (NULL != skt_h) {
 		if (!got_one) {
-			librskt_display_skt(env, skt_h->skt, 1, 1);
+			librskt_display_skt(env, skt_h, 1, 1);
 			got_one = 1;
 		};
-		librskt_display_skt(env, skt_h->skt, 1, 0);
+		librskt_display_skt(env, skt_h, 1, 0);
 		skt_h = (rskt_h)l_next(&li);
 	};
 
@@ -492,7 +494,7 @@ int RSKTDataDumpCmd(struct cli_env *env, int argc, char **argv)
 
 	skt = t_skt_h->skt;
 	sprintf(env->output, "State : %d - \"%s\"\n", 
-			skt->st, SKT_STATE_STR(skt->st)); 
+			t_skt_h->st, SKT_STATE_STR(t_skt_h->st)); 
 	logMsg(env);
 	sprintf(env->output, "Debug : %d\n", skt->debug);
 	logMsg(env);
@@ -582,12 +584,12 @@ int RSKTSocketDumpCmd(struct cli_env *env, int argc, char **argv)
 		check_test_socket(env, &t_skt_h);
         	sprintf(env->output, "\nDisplay t_skt_h\n");
         	logMsg(env);
-		librskt_display_skt(env, t_skt_h->skt, 0, 1);
+		librskt_display_skt(env, t_skt_h, 0, 1);
 	} else {
 		check_test_socket(env, &a_skt_h);
         	sprintf(env->output, "\nDisplay a_skt_h\n");
         	logMsg(env);
-		librskt_display_skt(env, a_skt_h->skt, 0, 1);
+		librskt_display_skt(env, a_skt_h, 0, 1);
 	};
 
 	return 0;
@@ -636,7 +638,7 @@ int RSKTBindCmd(struct cli_env *env, int argc, char **argv)
 	sprintf(env->output, "%s,%u: rc = %d, errno = %d:%s\n", __func__, __LINE__,
 			rc, errno, strerror(errno)); 
 	logMsg(env);
-	librskt_display_skt(env, a_skt_h->skt, 0, 1);
+	librskt_display_skt(env, a_skt_h, 0, 1);
 	return 0;
 show_help:
         sprintf(env->output, "\nFAILED: Extra parms or invalid values: %s\n",
@@ -681,7 +683,7 @@ int RSKTListenCmd(struct cli_env *env, int argc, char **argv)
 	sprintf(env->output, "%s,%u: rc = %d, errno = %d:%s\n", __func__, __LINE__,
 			rc, errno, strerror(errno)); 
 	logMsg(env);
-	librskt_display_skt(env, a_skt_h->skt, 0, 1);
+	librskt_display_skt(env, a_skt_h, 0, 1);
 	return 0;
 show_help:
         sprintf(env->output, "\nFAILED: Extra parms or invalid values: %s\n",
@@ -730,10 +732,10 @@ int RSKTAcceptCmd(struct cli_env *env, int argc, char **argv)
 	logMsg(env);
 	sprintf(env->output, "\nAccepting Socket Status:\n");
 	logMsg(env);
-	librskt_display_skt(env, a_skt_h->skt, 0, 0);
+	librskt_display_skt(env, a_skt_h, 0, 0);
 	sprintf(env->output, "\nConnected Socket Status:\n");
 	logMsg(env);
-	librskt_display_skt(env, t_skt_h->skt, 0, 0);
+	librskt_display_skt(env, t_skt_h, 0, 0);
 	return 0;
 show_help:
         sprintf(env->output, "\nFAILED: Extra parms or invalid values: %s\n",
@@ -781,7 +783,7 @@ int RSKTConnectCmd(struct cli_env *env, int argc, char **argv)
 		sprintf(env->output, "%s,%u: rc = %d, errno = %d:%s\n",
 			__func__, __LINE__, rc, errno, strerror(errno));
 	logMsg(env);
-	librskt_display_skt(env, t_skt_h->skt, 0, 1);
+	librskt_display_skt(env, t_skt_h, 0, 1);
 	return 0;
 show_help:
         sprintf(env->output, "\nFAILED: Extra parms or invalid values: %s\n",
@@ -978,7 +980,7 @@ int RSKTTxTestCmd(struct cli_env *env, int argc, char **argv)
 				sprintf(env->output, "\nWrote Sz %x Err %d\n",
 					sz, errno);
 				logMsg(env);
-				librskt_display_skt(env, t_skt_h->skt, 0, 0);
+				librskt_display_skt(env, t_skt_h, 0, 0);
 				fflush(stdout);
 				if (errno)
 					goto exit;
@@ -1074,7 +1076,7 @@ int RSKTRxTestCmd(struct cli_env *env, int argc, char **argv)
 				sprintf(env->output, "\nRead Sz %x %d\n",
 					sz, errno);
 				logMsg(env);
-				librskt_display_skt(env, t_skt_h->skt, 0, 0);
+				librskt_display_skt(env, t_skt_h, 0, 0);
 				fflush(stdout);
 				if (errno)
 					goto exit;
@@ -1143,9 +1145,9 @@ int RSKTCloseCmd(struct cli_env *env, int argc, char **argv)
                         strerror(errno));
         logMsg(env);
 	if (argc)
-        	librskt_display_skt(env, a_skt_h->skt, 0, 0);
+        	librskt_display_skt(env, a_skt_h, 0, 0);
 	else
-        	librskt_display_skt(env, t_skt_h->skt, 0, 0);
+        	librskt_display_skt(env, t_skt_h, 0, 0);
         return 0;
 
 show_help:

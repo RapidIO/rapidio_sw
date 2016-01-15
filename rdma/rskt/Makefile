@@ -30,8 +30,9 @@
 #--------------------------------------------------------------------------***
 
 LOG_LEVEL ?= 6
-
 DEBUG ?= DEBUG
+CC?= $(CROSS_COMPILE)g++
+CXX?= $(CROSS_COMPILE)g++
 
 TOP_LEVEL ?= ../..
 

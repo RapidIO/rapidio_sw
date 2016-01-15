@@ -65,13 +65,14 @@
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
-/// Data structure to keeps all parameters
+/// @cond
 struct args {
-	uint32_t mport_id;	//!< local mport ID
-	uint16_t remote_destid;	//!< RapidIO device destination ID
-	uint16_t remote_channel;//!< remote channel number
-	uint32_t repeat;	//!< number of repetitions
+	uint32_t mport_id;	// local mport ID
+	uint16_t remote_destid;	// RapidIO device destination ID
+	uint16_t remote_channel;// remote channel number
+	uint32_t repeat;	// number of repetitions
 };
+/// @endcond
 
 static void usage(char *name)
 {
@@ -188,16 +189,12 @@ int main(int argc, char** argv)
 	struct timespec time;
 	float totaltime;
 	float mean;
-	char* eth_emu = getenv("RIODP_EMU_IP_PREFIX");
 
 	/** - Parse console arguments */
 	/** - If number of arguments is less than expected display help message and list of devices. */
 	if (argc < 5) {
 		usage(argv[0]);
-		if (eth_emu == NULL) /* no IP-prefix set, so RapidIO is used */
-			show_rio_devs();
-		else
-			printf("CM_CLIENT: RIODP_EMU_IP_PREFIX found, using ethernet...\n");
+		show_rio_devs();
 		exit(1);
 	}
 	arg.mport_id       = strtoul(argv[1], NULL, 10);
@@ -207,32 +204,27 @@ int main(int argc, char** argv)
 
 	printf("Start CM_CLIENT (PID %d)\n", (int)getpid());
 
-	if (eth_emu == NULL) /* no IP-prefix set, so RapidIO is used */
-	{
-		/** - Verify existence of remote RapidIO Endpoint */
-		ret = riomp_mgmt_get_ep_list(arg.mport_id, &ep_list, &number_of_eps);
-		if (ret) {
-			printf("riodp_ep_get_list error: %d\n", ret);
-			exit(1);
-		}
+	/** - Verify existence of remote RapidIO Endpoint */
+	ret = riomp_mgmt_get_ep_list(arg.mport_id, &ep_list, &number_of_eps);
+	if (ret) {
+		printf("riodp_ep_get_list error: %d\n", ret);
+		exit(1);
+	}
 
-		for (ep = 0; ep < number_of_eps; ep++) {
-			if (ep_list[ep] == arg.remote_destid)
-				ep_found = 1;
-		}
+	for (ep = 0; ep < number_of_eps; ep++) {
+		if (ep_list[ep] == arg.remote_destid)
+			ep_found = 1;
+	}
 
-		ret = riomp_mgmt_free_ep_list(&ep_list);
-		if (ret) {
-			printf("ERROR: riodp_ep_free_list error: %d\n",	ret);
-		}
+	ret = riomp_mgmt_free_ep_list(&ep_list);
+	if (ret) {
+		printf("ERROR: riodp_ep_free_list error: %d\n",	ret);
+	}
 
-		if (!ep_found) {
-			printf("CM_CLIENT(%d) invalid remote destID %d\n",
-				(int)getpid(), arg.remote_destid);
-			exit(1);
-		}
-	} else {
-		printf("CM_CLIENT: RIODP_EMU_IP_PREFIX found, using ethernet...\n");
+	if (!ep_found) {
+		printf("CM_CLIENT(%d) invalid remote destID %d\n",
+			(int)getpid(), arg.remote_destid);
+		exit(1);
 	}
 
 	/** - Create rapidio_mport_mailbox control structure */

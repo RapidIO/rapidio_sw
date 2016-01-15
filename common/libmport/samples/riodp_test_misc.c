@@ -34,6 +34,30 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file
+ * \brief Test register access operations to/from RapidIO device
+ *
+ * The program performs access to registers of local (mport) and remote RapidIO devices.
+ * If -q option is specified, it displays attribute/status information for selected local
+ * mport device.
+ *
+ * Usage:
+ *   ./riodp_test_misc [options]
+ *
+ * Options are:
+ * - -M mport_id | --mport mport_id : local mport device index (default=0)
+ * - -D xxxx | --destid xxxx : destination ID of target RapidIO device. If not specified access to local mport registers.
+ * - -H xxxx | --hop xxxx : hop count target RapidIO device (default 0xff)
+ * - -S xxxx | --size xxxx : data transfer size in bytes (default 4).
+ * - -O xxxx | --offset xxxx : offset in register space (default=0).
+ * - -w : perform write operation.
+ * - -V xxxx | --data xxxx : 32-bit value to write into the device's register.
+ * - -q : query mport attributes/status.
+ * - -d | --debug : enable debug messages
+ * - -h | --help : display usage information
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -50,34 +74,13 @@
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
-/*
- * Initialization patterns. All bytes in the source buffer has bit 7
- * set, all bytes in the destination buffer has bit 7 cleared.
- *
- * Bit 6 is set for all bytes which are to be copied by the DMA
- * engine. Bit 5 is set for all bytes which are to be overwritten by
- * the DMA engine.
- *
- * The remaining bits are the inverse of a counter which increments by
- * one for each byte address.
- */
-#define PATTERN_SRC		0x80
-#define PATTERN_DST		0x00
-#define PATTERN_COPY		0x40
-#define PATTERN_OVERWRITE	0x20
-#define PATTERN_COUNT_MASK	0x1f
-
-/* Maximum amount of mismatched bytes in buffer to print */
-#define MAX_ERROR_COUNT		32
-
-#define TEST_BUF_SIZE (2 * 1024 * 1024)
-#define DEFAULT_IBWIN_SIZE (2 * 1024 * 1024)
 
 static int debug = 0;
 
 static void display_help(char *program)
 {
-	printf("%s - test register operations to/from RapidIO device\n", program);
+	printf("%s - test register access operations to/from RapidIO device\n",
+		program);
 	printf("Usage:\n");
 	printf("  %s [options]\n", program);
 	printf("Options are:\n");
@@ -109,6 +112,17 @@ static void display_help(char *program)
 	printf("\n");
 }
 
+/**
+ * \brief Starting point and test function itself.
+ *
+ * \param[in] argc Command line parameter count
+ * \param[in] argv Array of pointers to command line parameter null terminated
+ *                 strings
+ *
+ * \retval 0 means success
+ *
+ * Performs the following steps:
+ */
 int main(int argc, char** argv)
 {
 	uint32_t mport_id = 0;
@@ -135,6 +149,7 @@ int main(int argc, char** argv)
 	uint32_t data;
 	int rc = EXIT_SUCCESS;
 
+	/** - Parse command line options, if any */
 	while (1) {
 		option = getopt_long_only(argc, argv,
 				"wdhqH:D:O:M:S:V:", options, NULL);
@@ -176,6 +191,7 @@ int main(int argc, char** argv)
 		}
 	}
 
+	/** - Create handle for selected mport */
 	rc = riomp_mgmt_mport_create_handle(mport_id, 0, &mport_hnd);
 	if (rc < 0) {
 		printf("DMA Test: unable to open mport%d device err=%d\n",
@@ -195,6 +211,7 @@ int main(int argc, char** argv)
 	}
 
 	if (tgt_remote) {
+		/** - In case of remote target execute requested maintenance transaction */
 		if (tgt_write) {
 			if (debug)
 				printf("Write to dest=0x%x hc=0x%x offset=0x%x data=0x%08x\n",
@@ -211,6 +228,7 @@ int main(int argc, char** argv)
 				printf("\tdata = 0x%08x\n", data);
 		}
 	} else {
+		/** - In case of local target execute requested register access operation */
 		if (tgt_write) {
 			if (debug)
 				printf("Write to local offset=0x%x data=0x%08x\n",
@@ -233,6 +251,7 @@ out:
 		rc = EXIT_SUCCESS;
 	}
 
+	/** - Close the mport handle */
 	riomp_mgmt_mport_destroy_handle(&mport_hnd);
 	exit(rc);
 }

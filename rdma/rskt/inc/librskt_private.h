@@ -119,7 +119,7 @@ enum rskt_state {
 	rskt_uninit = 0,
 	rskt_alloced= 1,
 	rskt_bound  = 2,
-	rskt_noconn = 3,
+	rskt_noconn = 3, /* Not used */
 	rskt_listening = 4,
 	rskt_accepting = 5,
 	rskt_connecting = 6,
@@ -151,10 +151,8 @@ enum skt_cleanup_ctl {
 };
 
 struct rskt_socket_t {
-	enum rskt_state st; /* Must own mtx to change st */
 	uint8_t debug; /* controls debug for write/read/recv/flush */
 	uint32_t max_backlog;
-	struct rskt_sockaddr sa; /* address of local socket */
 	struct rskt_sockaddr_internal sai; /* Remote socket connection */
 	enum skt_cleanup_ctl connector; /* 0 if acceptor, 1 if connector */
 	/* Local MSOH */
@@ -187,7 +185,10 @@ struct rskt_socket_t {
 
 struct rskt_handle_t {
 	sem_t mtx;
-	struct rskt_socket_t *skt;
+	enum rskt_state st; /* Must own mtx to change st */
+	struct rskt_sockaddr sa; /* address of local socket,
+				  *must own mtx before changing */
+	struct rskt_socket_t * volatile skt;
 };
 
 extern void rskt_clear_skt(struct rskt_socket_t *skt);

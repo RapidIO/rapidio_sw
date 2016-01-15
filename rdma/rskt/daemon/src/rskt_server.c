@@ -44,6 +44,7 @@ void *slave_thread_f(void *arg)
 	void *send_buf;
 	void *recv_buf;
 	int rc;
+        char my_name[16];
 
 	/* Extract parameters and free the params struct */
 	if (arg == NULL) {
@@ -53,6 +54,11 @@ void *slave_thread_f(void *arg)
 	slave_params = (struct slave_thread_params *)arg;
 	accept_socket = slave_params->accept_socket;
 	slave_thread  = slave_params->slave_thread;
+
+	memset(my_name, 0, 16);
+        snprintf(my_name, 15, "ACC_L%5d", accept_socket->sa.sn);
+        pthread_setname_np(slave_params->slave_thread, my_name);
+	pthread_detach(slave_params->slave_thread);
 
 	num_threads++;	/* Increment threads */
 

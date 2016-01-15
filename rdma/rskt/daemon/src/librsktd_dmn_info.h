@@ -78,19 +78,24 @@ struct ms_info {
 	ms_h	ms;
 	int	ms_size;
 	struct rskt_socket_t skt;
+	int	loc_sn;
+	int	rem_sn;
+	int	rem_ct;
 };
 
 struct mso_info {
 	int	valid;
 	mso_h	rskt_mso;
 	char	msoh_name[MAX_MS_NAME+1];
+	int	next_ms;
 	int	num_ms;
 	struct ms_info ms[MAX_DMN_NUM_MS];
 };
 
+#define MAX_PEER 10
+
 struct dmn_globals {
 	int cm_skt;
-	int cm_skt_tst;
 	uint8_t mpnum;
 	uint32_t skip_ms;
 	uint32_t num_ms;
@@ -98,14 +103,14 @@ struct dmn_globals {
 
 	riomp_mport_t mp_hnd;
 	struct riomp_mgmt_mport_properties qresp;
-	int all_must_die;
-
-	volatile int loop_alive;
+	volatile int all_must_die;
+	sem_t graceful_exit;
 
 	/* CM connection request handler from other RSKT Daemons */
-	int speer_conn_alive;
-	int thread_valid;
-	pthread_t thread; 
+	sem_t speer_conn_thr_started;
+	volatile int speer_conn_alive;
+	int speer_conn_thr_valid;
+	pthread_t speer_conn_thread; 
 	int mb_valid;
 	sem_t mb_mtx;
 	riomp_mailbox_t mb;
@@ -115,12 +120,9 @@ struct dmn_globals {
 	/* RDMA Memory Space Database for this RSKT Daemon */
 	struct mso_info mso;
 
-	/* FIXME: Remove this variable in favour of loop specific variables */
-	sem_t loop_started;
-
 	/* Transmit thread sending to all wpeers */
 	sem_t wpeer_tx_loop_started;
-	int wpeer_tx_alive;
+	volatile int wpeer_tx_alive;
 	pthread_t wpeer_tx_thread;
 	sem_t wpeer_tx_mutex;
 	sem_t wpeer_tx_cnt;
@@ -128,7 +130,7 @@ struct dmn_globals {
 
 	/* Transmit thread sending to all speers */
 	sem_t speer_tx_loop_started;
-	int speer_tx_alive;
+	volatile int speer_tx_alive;
 	pthread_t speer_tx_thread;
 	sem_t speer_tx_mutex;
 	sem_t speer_tx_cnt;
@@ -136,13 +138,14 @@ struct dmn_globals {
 
 	/* Transmit thread sending to all apps */
 	sem_t app_tx_loop_started;
-	int app_tx_alive;
+	volatile int app_tx_alive;
 	pthread_t app_tx_thread;
 	sem_t app_tx_mutex;
 	sem_t app_tx_cnt;
 	struct l_head_t app_tx_q;
 
 	/* RSKTD peers that have connected to this RSKT Daemon */
+#ifdef NOT_DEFINED
 	sem_t speers_mtx;
 	struct l_head_t speers; /* Item is ** struct rskt_dmn_speer */
 
@@ -152,6 +155,9 @@ struct dmn_globals {
 				/* ordered by component tag (CT) */
 				/* Use ** to allow one write to clear all */
 				/* references to a wpeer */
+#endif
+	struct rskt_dmn_speer speers[MAX_PEER];
+	struct rskt_dmn_wpeer wpeers[MAX_PEER];
 
 };
 

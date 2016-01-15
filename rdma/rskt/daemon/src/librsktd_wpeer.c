@@ -80,10 +80,22 @@ extern "C" {
 
 struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 { 
-	struct rskt_dmn_wpeer *w = (struct rskt_dmn_wpeer *)
-				malloc(sizeof(struct rskt_dmn_wpeer));;
-	w->self_ref = (struct rskt_dmn_wpeer **)malloc(sizeof(void *));
-	*w->self_ref = w;
+	struct rskt_dmn_wpeer *w = NULL;
+	int i;
+
+	for (i = 0; i < MAX_PEER; i++) {
+		if (dmn.wpeers[i].wpeer_alive || dmn.wpeers[i].cm_skt_h_valid)
+			continue;
+		w = &dmn.wpeers[i];
+		break;
+	};
+
+	if (NULL == w) {
+		ERR("Max WPEERS is %d, cannot connect to another.", MAX_PEER);
+		return NULL;
+	};
+	w->self_ref = &w->self_ref_ref;
+	w->self_ref_ref = w;
 
 	w->ct = ct;
 	w->cm_skt = cm_skt;
@@ -106,19 +118,31 @@ struct rskt_dmn_wpeer *alloc_wpeer(uint32_t ct, uint32_t cm_skt)
 	return w;
 };
 
+void wpeer_loop_sig_handler(int sig)
+{
+        if (sig)
+                return;
+}
+
 void close_wpeer(struct rskt_dmn_wpeer *wpeer);
 void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer);
 
 void *wpeer_rx_loop(void *p_i)
 {
 	struct rskt_dmn_wpeer *w = (struct rskt_dmn_wpeer *)p_i;
+        struct sigaction sigh;
+	int rc;
 
-	DBG("Waiting on dmn.wpeers_mtx\n");
-	sem_wait(&dmn.wpeers_mtx);
-	HIGH("Adding ct(%d) to dmn.wpeers\n", w->ct);
-	w->wp_li = l_add(&dmn.wpeers, w->ct, w->self_ref);
-	sem_post(&dmn.wpeers_mtx);
+	rc = pthread_detach(w->w_rx);
+	if (rc) {
+		WARN("pthread_detach rc %d", rc);
+	}
 
+        memset(&sigh, 0, sizeof(sigh));
+        sigh.sa_handler = wpeer_loop_sig_handler;
+        sigaction(SIGUSR1, &sigh, NULL);
+
+	/* Note: Thread name is set when the HELLO response is received. */
 	w->i_must_die = 0;
 	sem_post(&w->started);
 	DBG("started\n");
@@ -129,8 +153,7 @@ void *wpeer_rx_loop(void *p_i)
 
 		w->rx_buff_used = 1;
                 do {
-			w->i_must_die = 0;
-			w->i_must_die = riomp_sock_receive(w->cm_skt_h, 
+			riomp_sock_receive(w->cm_skt_h, 
 				&w->rx_buff, DMN_RESP_SZ, 0);
 		} while (!w->i_must_die && !dmn.all_must_die && 
 		((EINTR == errno) || (EAGAIN == errno) || (ETIME == errno)));
@@ -192,13 +215,12 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 	do {
 		sem_wait(&dmn.mb_mtx);
 		rc = riomp_sock_socket(dmn.mb, &w->cm_skt_h);
-		DBG("dmn.mb created\n");
 		sem_post(&dmn.mb_mtx);
 
         	conn_rc = riomp_sock_connect(w->cm_skt_h, w->ct, 0, w->cm_skt);
 
                 if (!conn_rc) {
-                	INFO("Connected to ct(%d)\n", ct);
+                	HIGH("ct %d connected\n", ct);
 			w->cm_skt_h_valid = 1;
                         break;
                 }
@@ -245,14 +267,13 @@ exit:
 
 void send_hello_to_wpeer(struct rskt_dmn_wpeer *w)
 {
-	struct librsktd_unified_msg *msg = (struct librsktd_unified_msg *)
-		      malloc(sizeof(struct librsktd_unified_msg));
+	struct librsktd_unified_msg *msg;
 
 	DBG("Sending hello to wpeer\n");
 	msg = alloc_msg(RSKTD_HELLO_REQ, RSKTD_PROC_A2W, RSKTD_A2W_SEQ_DREQ);
 	msg->wp = w->self_ref;
-	msg->dreq = (struct rsktd_req_msg *)malloc(DMN_REQ_SZ);
-	msg->dresp = (struct rsktd_resp_msg *)malloc(DMN_RESP_SZ);
+	msg->dreq = alloc_dreq();
+	msg->dresp = alloc_dresp();
 
 	msg->dreq->msg_type = htonl(RSKTD_HELLO_REQ);
 	msg->dreq->msg.hello.ct = htonl(dmn.qresp.hdid);
@@ -269,11 +290,8 @@ int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers)
 	int i;
 	struct rskt_dmn_wpeer *w;
 
-	sem_wait(&dmn.loop_started);
-	sem_post(&dmn.loop_started);
-
-	if ((!dmn.mb_valid && !dmn.cm_skt_tst) || !dmn.speer_conn_alive) {
-		ERR("Invalid element in 'dmn'\n");
+	if (!dmn.mb_valid || !dmn.speer_conn_alive) {
+		ERR("Mailbox invalid or no speer connection thread'\n");
 		return -1;
 	}
 
@@ -301,8 +319,9 @@ void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 {
 	struct librsktd_unified_msg *msg;
 
-	wpeer->i_must_die = 1;
 	*wpeer->self_ref = NULL;
+	wpeer->wpeer_alive = 0;
+	wpeer->i_must_die = 1;
 	sem_post(&wpeer->started);
 
 	if (NULL != wpeer->rx_buff) {
@@ -346,29 +365,17 @@ void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 		msg = (struct librsktd_unified_msg *)l_pop_head(&wpeer->w_rsp);
 		sem_post(&wpeer->w_rsp_mutex);
 	};
-
-	if (wpeer->wp_li) {
-		sem_wait(&dmn.wpeers_mtx);
-		if (wpeer->wp_li)
-			l_remove(&dmn.wpeers, wpeer->wp_li);
-		wpeer->wp_li = NULL;
-		sem_post(&dmn.wpeers_mtx);
-	};
 };
 
 void close_wpeer(struct rskt_dmn_wpeer *wpeer)
 {
-	cleanup_wpeer(wpeer);
+	wpeer->i_must_die = 1;
 
-	pthread_kill(wpeer->w_rx, SIGUSR1);
-	pthread_join(wpeer->w_rx, NULL);
+	if (NULL != wpeer->self_ref) {
+		pthread_kill(wpeer->w_rx, SIGUSR1);
+		wpeer->wpeer_alive = 0;
+	};
 };
-
-void wpeer_tx_loop_sig_handler(int sig)
-{
-        if (sig)
-                return;
-}
 
 void halt_wpeer_tx_loop(void)
 {
@@ -389,11 +396,10 @@ void *wpeer_tx_loop(void *unused)
         pthread_setname_np(dmn.wpeer_tx_thread, my_name);
 
         memset(&sigh, 0, sizeof(sigh));
-        sigh.sa_handler = wpeer_tx_loop_sig_handler;
+        sigh.sa_handler = wpeer_loop_sig_handler;
         sigaction(SIGUSR1, &sigh, NULL);
 
 	dmn.wpeer_tx_alive = 1;
-	sem_post(&dmn.loop_started);
 	sem_post(&dmn.wpeer_tx_loop_started);
 
 	while (!dmn.all_must_die) {
@@ -449,103 +455,63 @@ void *wpeer_tx_loop(void *unused)
 		};
 	};
 	dmn.wpeer_tx_alive = 0;
+	sem_post(&dmn.graceful_exit);
 	pthread_exit(unused);
 };
 
 void close_all_wpeers(void)
 {
-	void **l;
+	int i;
 
-	sem_wait(&dmn.wpeers_mtx);
-	l = (void **)l_pop_head(&dmn.wpeers);
-	sem_post(&dmn.wpeers_mtx);
-
-	while (NULL != l) {
-		struct rskt_dmn_wpeer *w;
-		if (NULL == *l)
-			continue;
-		w = *(struct rskt_dmn_wpeer **)l;
-		close_wpeer(w);
-		pthread_kill(w->w_rx, SIGUSR1);
-		pthread_join(w->w_rx, NULL);
-
-		sem_wait(&dmn.wpeers_mtx);
-		l = (void **)l_pop_head(&dmn.wpeers);
-		sem_post(&dmn.wpeers_mtx);
+	for (i = 0; i < MAX_PEER; i++) {
+		if (dmn.wpeers[i].wpeer_alive || !dmn.wpeers[i].i_must_die)
+			close_wpeer(&dmn.wpeers[i]);
 	};
 };
 
 void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 {
-	uint32_t i, found;
-	struct rskt_dmn_wpeer **wp_p, **next_wp_p;
-	struct rskt_dmn_wpeer *wp;
-	struct l_item_t *li;
+	uint32_t i, j, found;
 
 	/* Search for workers for destIDs that no longer exist */
 	/* OR where the peer RSKTD has died... */
-	sem_wait(&dmn.wpeers_mtx);
-	wp_p = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
-	if (wp_p == NULL) {
-		WARN("wp_p == NULL\n");
-	}
+
 	INFO("Checking for dead WPeers\n");
-	while (wp_p != NULL) {
-		next_wp_p = (struct rskt_dmn_wpeer **)l_next(&li);
-		wp = *wp_p;
-		if (NULL == wp) {
-			ERR("wp is NULL..next!\n");
-			wp_p = next_wp_p;
+	for (j = 0; j < MAX_PEER; j++) {
+		if (!dmn.wpeers[j].wpeer_alive || dmn.wpeers[j].i_must_die) 
 			continue;
-		};
 		found = 0;
 		DBG("Checking for destID %d, destid_cnt = %d\n",
-			wp->ct, destid_cnt);
+			dmn.wpeers[j].ct, destid_cnt);
 		for (i = 0; (i < destid_cnt) && !found; i++) {
-			if (wp->ct == destids[i]) {
-				found = fmdd_check_did(dd_h, wp->ct, 
+			if (dmn.wpeers[j].ct == destids[i]) {
+				found = fmdd_check_did(dd_h, dmn.wpeers[j].ct, 
 								FMDD_RSKT_FLAG);
 			}
 		};
 
 		if (found) {
 			DBG("found, wpeer is alive\n");
-			wp_p = next_wp_p;
 			continue;
 		} else {
 			DBG("not found, wpeer is DEAD\n");
 		}
 
-		sem_post(&dmn.wpeers_mtx);
-		INFO("Closing wpeer destID %d\n", wp->ct);
-		close_wpeer(wp);
-		sem_wait(&dmn.wpeers_mtx);
-		wp_p = next_wp_p;
+		INFO("Closing wpeer destID %d\n", dmn.wpeers[j].ct);
+		close_wpeer(&dmn.wpeers[j]);
 	};
-	sem_post(&dmn.wpeers_mtx);
 	
 	/* Search for destIDs without associated workers */
 	INFO("Checking for NEW WPeers\n");
 	for (i = 0; i < destid_cnt; i++) {
 		struct peer_rsktd_addr new_wpeer;
-		found = 0;
-		sem_wait(&dmn.wpeers_mtx);
-		wp_p = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
-		if (wp_p == NULL) {
-			WARN("wp_p == NULL\n");
-		}
-		INFO("Checking wpeer DID %d\n", destids[i]);
-		while ((wp_p != NULL) && !found) {
-			wp = *wp_p;
-			if ((NULL != wp) && (wp->ct == destids[i])) {
-				INFO("FOUND!\n");
-				found = 1;
-			}
-			wp_p = (struct rskt_dmn_wpeer **)l_next(&li);
-		};
-		sem_post(&dmn.wpeers_mtx);
+		struct rskt_dmn_wpeer **wp;
 
-		if (found) {
+		found = 0;
+		INFO("Checking wpeer DID %d\n", destids[i]);
+		wp = find_wpeer_by_ct(destids[i]);
+
+		if (NULL != wp) {
 			DBG("Wpeer DID %d is ready running!\n", destids[i]);
 			continue;
 		}

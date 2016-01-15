@@ -64,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "librskt_private.h"
 #include "librdma.h"
+#include "librsktd_lib.h"
 #include "librsktd_lib_info.h"
 #include "librsktd_dmn_info.h"
 #include "librsktd_dmn.h"
@@ -176,20 +177,22 @@ void print_ms_status(struct cli_env *env, int start_ms, int end_ms)
 		if (mso->ms[ms_idx].valid) {
 			if (!got_one) {
 				sprintf(env->output, 
-					"\nMS V   Name                     MSSize   State     RemCt      RemSn \n"); 
+					"\nMS V   Name                     MSSize   State     LocSN RemSN RemCt\n"); 
         			logMsg(env);
 				got_one = 1;
 			};
 			int state = mso->ms[ms_idx].state;
-			sprintf(env->output, "%2d %1d %26s %8x %6s %8x 0x%8d\n",
+			sprintf(env->output,
+				"%2d %1d %26s %8x %6s %5d %5d 0x%8x\n",
 				ms_idx,
 				mso->ms[ms_idx].valid,
 				mso->ms[ms_idx].ms_name,
 				mso->ms[ms_idx].ms_size,
 				(!state)?"unused":(1 == state)?"IN USE":
 					(2 == state)?" RSVD ":"!INVL!",
-				mso->ms[ms_idx].skt.sa.ct,
-				mso->ms[ms_idx].skt.sa.sn);
+				mso->ms[ms_idx].loc_sn,
+				mso->ms[ms_idx].rem_sn,
+				mso->ms[ms_idx].rem_ct);
 			logMsg(env);
 		}
 	}
@@ -206,21 +209,18 @@ void print_loop_status(struct cli_env *env)
 	sprintf(env->output, 
 		"        Alive Socket # BkLg MP Pse Max Reqs Name\n");
         logMsg(env);
-	sprintf(env->output, "ConnLp %5d 0x%8d     %2d %d %d\n",
+	sprintf(env->output, "SpConn %5d 0x%8d     %2d\n",
 			dmn.speer_conn_alive,
 			dmn.cm_skt,
-			dmn.mpnum,
-			l_size(&dmn.wpeers),
-			l_size(&dmn.speers));
+			dmn.mpnum);
 
         logMsg(env);
-	sprintf(env->output, "Lib Lp %5d 0x%8d %4d %2d %s %d\n",
-			lib_st.loop_alive,
+	sprintf(env->output, "LibCon %5d 0x%8d %4d %2d %s\n",
+			lib_st.lib_conn_loop_alive,
 			lib_st.port,
 			lib_st.bklg,
 			lib_st.mpnum,
-			lib_st.addr.sun_path,
-			l_size(&lib_st.app));
+			lib_st.addr.sun_path);
 
         logMsg(env);
 	sprintf(env->output, "WP Tx  %5d\n", dmn.wpeer_tx_alive);
@@ -229,13 +229,8 @@ void print_loop_status(struct cli_env *env)
         logMsg(env);
 	sprintf(env->output, "APP Tx %5d\n", dmn.app_tx_alive);
         logMsg(env);
-	sprintf(env->output, "\nlib_st all_must_die : %d\n", 
-			lib_st.all_must_die);
+	sprintf(env->output, "DAEMON all_must_die : %d\n", dmn.all_must_die);
         logMsg(env);
-	sprintf(env->output, "DAEMON all_must_die : %d\n", 
-			dmn.all_must_die);
-        logMsg(env);
-
 };
 
 struct cli_cmd DMNStatus;
@@ -682,13 +677,12 @@ ATTR_NONE
 
 void display_app_list(struct cli_env *env)
 {
-	struct l_item_t *li;
-	struct librskt_app *app;
-	int found_one = 0;
+	int i, found_one = 0;
 
-	app = (struct librskt_app *)l_head(&lib_st.app, &li);
-
-	while (NULL != app) {
+	for (i = 0; i < MAX_APPS; i++) {
+		if ((lib_st.apps[i].app_fd <= 0) || !lib_st.apps[i].alive ||
+				lib_st.apps[i].i_must_die)
+			continue;
 		if (!found_one) {
 			sprintf(env->output, 
 				"\nAPP\nFd RxSeqNum DmnSqNum Alive I_Die Process App\n");
@@ -696,11 +690,11 @@ void display_app_list(struct cli_env *env)
 			found_one = 1;
 		}
 		sprintf(env->output, "%2d %8d %8d %5d  %3d  %5d %30s\n", 
-			app->app_fd, app->rx_req_num, app->dmn_req_num,
-			app->alive, app->i_must_die, 
-			app->proc_num, app->app_name);
+			lib_st.apps[i].app_fd, lib_st.apps[i].rx_req_num,
+			lib_st.apps[i].dmn_req_num, lib_st.apps[i].alive,
+			lib_st.apps[i].i_must_die, lib_st.apps[i].proc_num,
+			lib_st.apps[i].app_name);
 		logMsg(env);
-		app = (struct librskt_app *)l_next(&li);
 	};
 	if (!found_one) {
 		sprintf(env->output, "\nNo applications connected");
@@ -779,79 +773,68 @@ void display_con_list(struct cli_env *env)
 		
 void display_speers_list(struct cli_env *env)
 {
-	struct l_item_t *li;
-	struct rskt_dmn_speer *speer;
-	struct rskt_dmn_speer **sp;
+	int i, found_one = 0;
 
-	sem_wait(&dmn.speers_mtx);
-	if (l_size(&dmn.speers)) {
-		sprintf(env->output, "\nSPEERS\nComp_Tag CM_Sockt A Req Seq Resp Seq\n");
-        	logMsg(env);
-		
-		sp = (struct rskt_dmn_speer **)l_head(&dmn.speers, &li);
-	
-		while ((NULL != sp) && (NULL != li)) {
-			speer = *sp;
-			if (NULL != speer) {
-				sprintf(env->output,
-					"%8d %8d %1d %3x %3d %4x %3d\n", 
-					speer->ct,
-					speer->cm_skt_num,
-					speer->alive && speer->got_hello,
-					ntohl(speer->req->msg_type),
-					ntohl(speer->req->msg_seq),
-					ntohl(speer->resp->msg_type),
-					ntohl(speer->resp->msg_seq));
-        			logMsg(env);
-			};
-			sp = (struct rskt_dmn_speer **)l_next(&li);
+	for (i = 0; i < MAX_PEER; i++) {
+		if (!dmn.speers[i].alive || dmn.speers[i].i_must_die)
+			continue;
+
+		if (!found_one) {
+			sprintf(env->output,
+			"\nSPEERS\nComp_Tag CM_Sockt A Req Seq Resp Seq\n");
+			found_one = 1;
+        		logMsg(env);
 		};
-	} else {
+		
+		sprintf(env->output, "%8d %8d %1d %3x %3d %4x %3d\n", 
+			dmn.speers[i].ct, dmn.speers[i].cm_skt_num,
+			dmn.speers[i].alive && dmn.speers[i].got_hello,
+			ntohl(dmn.speers[i].req->msg_type),
+			ntohl(dmn.speers[i].req->msg_seq),
+			ntohl(dmn.speers[i].resp->msg_type),
+			ntohl(dmn.speers[i].resp->msg_seq));
+        	logMsg(env);
+	};
+
+	if (!found_one) {
 		sprintf(env->output, "\nRDMN Socket Peers: None\n");
         	logMsg(env);
 	};
-	sem_post(&dmn.speers_mtx);
 }
 void display_wpeers_list(struct cli_env *env)
 {
-	struct l_item_t *li;
-	struct rskt_dmn_wpeer **wpeer;
+	int i, found_one = 0;
 
-	sem_wait(&dmn.wpeers_mtx);
-	if (l_size(&dmn.wpeers)) {
-		sprintf(env->output, 
+	for (i = 0; i < MAX_PEER; i++) {
+		if ((!dmn.wpeers[i].wpeer_alive) || dmn.wpeers[i].i_must_die)
+			continue;
+
+		if (!found_one) {
+			sprintf(env->output, 
 			"\nWPEERS\nComp_Tag CM_Sockt PeerPid  A D  SeqNum  Rx_Buff\n");
-        	logMsg(env);
-		
-		wpeer = (struct rskt_dmn_wpeer **)l_head(&dmn.wpeers, &li);
-	
-		while ((NULL != wpeer) && (NULL != *wpeer) && (NULL != li)) {
-			sprintf(env->output, "%8d %8d %8d %1d %1d %8d %p\n", 
-				(*wpeer)->ct,
-				(*wpeer)->cm_skt,
-				(*wpeer)->peer_pid,
-				(*wpeer)->wpeer_alive,
-				(*wpeer)->i_must_die,
-				(*wpeer)->w_seq_num,
-				(*wpeer)->rx_buff);
         		logMsg(env);
-			wpeer = (struct rskt_dmn_wpeer **)l_next(&li);
+			found_one = 1;
 		};
-	} else {
+		
+		sprintf(env->output, "%8d %8d %8d %1d %1d %8d %p\n", 
+			dmn.wpeers[i].ct, dmn.wpeers[i].cm_skt,
+			dmn.wpeers[i].peer_pid, dmn.wpeers[i].wpeer_alive,
+			dmn.wpeers[i].i_must_die, dmn.wpeers[i].w_seq_num,
+			dmn.wpeers[i].rx_buff);
+        	logMsg(env);
+	};
+
+	if (!found_one) {
 		sprintf(env->output, "\nRDMN Socket WPeers: None\n");
         	logMsg(env);
 	};
-	sem_post(&dmn.wpeers_mtx);
 }
 		
 extern struct cli_cmd DMNLibStatus;
 
 int DMNLibStatusCmd(struct cli_env *env, int argc, char **argv)
 {
-	int fd_in = -1;
-	struct l_item_t *li;
-	struct librskt_app *app;
-	void *unused;
+	int fd_in = -1, i;
 
 	if (argc) {
 		if (argc > 1)
@@ -860,18 +843,21 @@ int DMNLibStatusCmd(struct cli_env *env, int argc, char **argv)
 		fd_in = getHex(argv[0], 0);
 
 		if (fd_in == lib_st.fd) {
-			sprintf(env->output, "Aborting library thread\n");
+			sprintf(env->output, "Aborting library threads\n");
 			logMsg(env);
-			lib_st.all_must_die = 1;
-			pthread_join(lib_st.conn_thread, &unused);
+			halt_lib_handler();
 			goto display;
 		};
 
-		app = (struct librskt_app *)l_find(&lib_st.app, fd_in, &li);
-		if (app) {
-			sprintf(env->output, "Aborting thread %d\n", fd_in);
-			logMsg(env);
-			app->i_must_die = 1;
+		for (i = 0; i < MAX_APPS; i++) {
+			if (lib_st.apps[i].app_fd == fd_in) {
+				sprintf(env->output,
+					"Aborting app rx thread fd %d idx %d\n",
+						 fd_in, i);
+				logMsg(env);
+				lib_st.apps[i].i_must_die = 1;
+				pthread_kill(lib_st.apps[i].thread, SIGUSR1);
+			};
 			goto display;
 		};
 	};
@@ -1105,10 +1091,9 @@ extern struct cli_cmd RSKTReq;
 
 int RSKTReqCmd(struct cli_env *env, int argc, char **argv)
 {
-	struct l_item_t *li;
-	struct librskt_app *app = (struct librskt_app *)
-					l_head(&lib_st.app, &li);
-	if (!l_size(&lib_st.app) || !lib_st.tst || (NULL == app)) {
+	struct librskt_app *app = &lib_st.apps[0];
+
+	if ((app->app_fd <= 0) || !app->alive || app->i_must_die) {
 		sprintf(env->output, "Command not available\n"); 
 		logMsg(env);
 		return 0;
@@ -1415,10 +1400,9 @@ extern struct cli_cmd RSKTDReq;
 
 int RSKTDReqCmd(struct cli_env *env, int argc, char **argv)
 {
-	struct l_item_t *li;
-	struct rskt_dmn_speer *speer = (struct rskt_dmn_speer *)
-					l_head(&dmn.speers, &li);
-	if (!l_size(&dmn.speers) || !dmn.cm_skt_tst || (NULL == speer)) {
+	struct rskt_dmn_speer *speer = &dmn.speers[0];
+
+	if (!speer->alive || speer->i_must_die) {
 		sprintf(env->output, "Command not available\n"); 
 		logMsg(env);
 		return 0;
@@ -1495,34 +1479,14 @@ extern struct cli_cmd DMNDmnStatus;
 
 int DMNDmnStatusCmd(struct cli_env *env, int argc, char **argv)
 {
-	int fd_in = -1;
-	struct l_item_t *li;
-	struct librskt_app *app;
-	void *unused;
+	if (0)
+		argv[0][0] = argc;
 
 	if (argc) {
-		if (argc > 1)
-			goto syntax_error;
-
-		fd_in = getHex(argv[0], 0);
-
-		if (fd_in == lib_st.fd) {
-			sprintf(env->output, "Aborting library thread\n");
-			logMsg(env);
-			lib_st.all_must_die = 1;
-			pthread_join(lib_st.conn_thread, &unused);
-			goto display;
-		};
-
-		app = (struct librskt_app *)l_find(&lib_st.app, fd_in, &li);
-		if (app) {
-			sprintf(env->output, "Aborting thread %d\n", fd_in);
-			logMsg(env);
-			app->i_must_die = 1;
-			goto display;
-		};
+		cli_print_help(env, &DMNDmnStatus);
+		return 0;
 	};
-display:
+
 	print_loop_status(env);
 	print_ms_status(env, 0, MAX_DMN_NUM_MS);
 	display_acc_list(env);
@@ -1530,10 +1494,6 @@ display:
 	display_speers_list(env);
 	display_wpeers_list(env);
 
-	return 0;
-
-syntax_error:
-	cli_print_help(env, &DMNDmnStatus);
 	return 0;
 }
 

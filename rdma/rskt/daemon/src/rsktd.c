@@ -64,6 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "libfmdd.h"
 #include "librsktd_fm.h"
+#include "librsktd_dmn.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -491,9 +492,9 @@ void spawn_threads(void)
 		if(console_ret) {
 			CRIT("Failed to create console_thread: %s\n", strerror(console_ret));
 			exit(EXIT_FAILURE);
-		} else {
-			INFO("Console thread started\n");
-		}
+		};
+		INFO("Console thread started\n");
+		pthread_detach(cli.cons_thread);
 	};
 
 
@@ -506,8 +507,12 @@ void spawn_threads(void)
 		exit(EXIT_FAILURE);
 	}
 	INFO("CLI thread started\n");
+	pthread_detach(cli.cli_thread);
 
-	spawn_daemon_threads(&ctrls);
+	if (spawn_daemon_threads(&ctrls)) {
+		CRIT("spawn_daemon_threads FAILED");
+		exit(EXIT_FAILURE);
+	};
 }
 
 int init_srio_api(uint8_t mport_id);
@@ -551,7 +556,6 @@ void sig_handler(int signo)
 int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
-	int *prc;
 
 	ctrls.debug = 1;	/* For now */
 
@@ -575,30 +579,20 @@ int main(int argc, char *argv[])
 	};
 
 	DBG("Spawning rsktd threads\n");
+	sem_init(&dmn.graceful_exit, 0, 0);
 	spawn_threads();
 
 	if (daemon_threads_failed() && ctrls.init_ms) {
 		CRIT("Failed to create daemon threads\n");
 		rskt_daemon_shutdown();
 	}
+	CRIT("RSKTD Running...\n");
 
-	/* If console thread is running, wait for it to terminate */
-	if (ctrls.run_cons && cli.cons_alive) {
-		pthread_join(cli.cons_thread, (void **)&prc);
-		DBG("console thread exit with rc = %d\n", *prc);
-		if (prc)
-			free(prc);
-	}
- 
-	/* Ditto for CLI thread */
-	if (cli.cli_alive) {
-		pthread_join(cli.cli_thread, (void **)&prc);
-		DBG("CLI thread exit with rc = %d\n", *prc);
-		if (prc)
-			free(prc);
-	}
+	sem_wait(&dmn.graceful_exit);
+	rskt_daemon_shutdown();
 
-	printf("\nRDMA Socket Deamon EXITING!!!!\n");
+	printf("\nRDMA Socket Deamon Graceful EXIT!!!!\n");
+	rdma_log_close();
 	rc = EXIT_SUCCESS;
 exit:
 	exit(rc);

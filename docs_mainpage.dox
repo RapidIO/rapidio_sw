@@ -1,0 +1,256 @@
+/** \mainpage RapidIO Software Stack Documentation
+ *
+ * The RapidIO Software Stack consists of the following facilities:
+ *
+ *  \ref fabric_management Fabric Management
+ *  - configures the RapidIO network
+ *  - allows applications to register and be notified as other applications 
+ *    enter an leave the system.
+ *  - Refer to the include/libfmdd.h File Reference for interface details.
+ *  - Fabric management is supported by the Fabric Management Daemon (fmd)
+ *    process.
+ *
+ * \ref remote_direct_memory_access Remote Direct Memory Access
+ *  - Allows applications to coordinate memory transfers from the memory space
+ *    of one node directly into the memory space of another node.
+ *  - Refer to the include/librdma.h File Reference for interface details.
+ *  - Remote Direct Memory Access is supported by the Remote Direct Memory
+ *    Access Daemon (rdmad) process.
+ * 
+ * \ref rdma_sockets RDMA Sockets
+ *  - Presents a socket style interface which implements memory transfer using
+ *    bounded RDMA buffers.
+ *  - Refer to the include/librskt.h File Reference for interface details.
+ *  - RDMA Sockets are supported by the RDMA Sockets Daemon (rsktd) process.
+ *
+ * \ref file_transfer_demo File Transfer Demo
+ *  - The file transfer demonstration consists of a file transfer server,
+ *    and associated client library, for performing file transfers over a
+ *    RapidIO network.
+ *  - The file transfer demonstration depends only on the kernel character
+ *    mode driver. 
+ *
+ * \ref goodput_demo Goodput/Ugoodput Demo
+ * - The Goodput and UGoodput utilities allow measurement of throughput and
+ *   latency.
+ * - Measurements use the kernel character mode driver, or the Tsi721 User Mode
+ *   Driver.
+ * - Messaging, DMA, and Direct I/O can be measured.
+ *
+ * Public interfaces are found in rapidio_sw/include.
+ *
+ * Private interfaces/utilties are found in rapidio_sw/common.
+ *
+ * All public and private interfaces are documented.  Refer to the "Files" tab.
+ *
+ * Implementations are not yet documented.
+ *
+ * \section install_sec Installation
+ *
+ * To install the RapidIO Software Stack, perform the following steps:
+ *
+ * -# Select a node which will be the Fabric Management master node for the
+ *    system.  Note that the current Fabric Management functionality supports
+ *    a single switch with endpoints connected to the switch.
+ * -# Create the file /etc/rapidio/fmd.conf on the Fabric Management master
+ *    node, using the rapidio_sw/fabric_management/daemon/cfg/GRY05.cfg 
+ *    file as an example.  This file describes the topology of the system
+ *    to the Fabric Management functionality, as described in 
+ *    \ref fabric_management_details
+ *     -# The DEV_DIR and DEV_DIR_MTX lines should not change
+ *     -# The MPORT (DestID) may change to reflect the destination ID required
+ *        Note that 0 and 255 are illegal destination IDs.
+ *     -# The MASTER_INFO (DestID) must match the MPORT (DestID)
+ *     -# There should be one ENDPOINT line for each device connected to the
+ *         switch.
+ *         -# Note that the PORT (parms) are not used today, but will be in 
+ *            future.
+ *         -# Note that there must be an ENDPOINT for the MPORT/MASTER_INFO,
+ *            and the ENDPOINT (DestID) must match the MPORT & MASTER_INFO.
+ *         -# The ENDPOINT (DestID) value must be unique.
+ *         -# The ENDPOINT (Hopcount) value must be 255 for the 
+ *            the MPORT/MASTER_INFO, and 1 for all others.
+ *         .
+ *     -# The SWITCH has a large number of parameters.
+ *         -# The SWITCH is assigned a DestID, which must be unique.
+ *         -# There must be one PORT (parms) line for each used port.
+ *            The PortNum must be exist on the device.
+ *         -# There must be one DESTID line for each ENDPOINT.  The rt_value
+ *            must match the switch port that the ENDPOINT is connected to.
+ *         .
+ *     -# There must be one CONNECT line for each ENDPOINT
+ *         -# Typically, CONNECT (switch_name.PortNum) (endpoint_name.0)
+ *         -# The endpoint port number will always be 0.
+ *         -# The switch_name must match the dev_name in the SWITCH line.
+ *         -# The endpoint_name must match the dev_name in and ENDPOINT line.
+ *         -# The switch_name (PortNum) must match the DESTID PortNum value
+ *            for the connected endpoint.
+ *         .
+ *     .
+ * -# Create the file /etc/rapidio/fmd.conf on all nodes except the  
+ *    Fabric Management master node, using the 
+ *    rapidio_sw/fabric_management/daemon/cfg/GRY06.cfg 
+ *    file as an example.  This file tells the fabric management slave nodes
+ *    where to find the fabric management master node.  See 
+ *    \ref fabric_management_details for more information.
+ *	-# The DEV_DIR and DEV_DIR_MTX lines should not change
+ *	-# The MPORT (DestID) must match the DestID value for this node in
+ *         the Fabric Management master node fmd.conf file.
+ *      -# The MASTER_INFO (DestID) must match the 
+ *         Fabric Management master node fmd.conf MPORT (DestID) value.
+ *      -# The ENDPOINT (DestID) value must match the 
+ *         Fabric Management master node fmd.conf ENDPOINT (DestID) value
+ *         for this endpoint.
+ *      .
+ *
+ * -# Create a copy of the software source files on all nodes.  The directory
+ *    path to the software must be the same on all nodes.
+ * -# Compile the software on all nodes by typing "make all" in the rapidio_sw
+ *    directory.
+ * -# Create a copy of the rapidio_sw/common/scripts/create_gry9-12.sh 
+ *    system startup bash script in the /opt/rapidio/ directory.
+ *    Use the bash "chmod" command
+ *    to allow all users to run the script.  This script assumes that there 
+ *    is ssh connectivity over Ethernet to all nodes, which will allow
+ *    automated system startup.
+ *    -# Change the script RDMA_ROOT_PATH value to be the directory path to the
+ *       software.
+ *    =# Change the script NODES list to reflect the Ethernet address/node
+ *       names used to address each node.
+ * -# Start the software by executing the system start up script.
+ *
+ * The system startup script runs each daemon under "screen".  To access the
+ * command line interpreter for each daemon, use "sudo screen -r (name)"
+ * where (name) is the daemon name (fmd, rdmad, rsktd) of interest.
+ *
+ * \section fabric_management Fabric Management 
+ *
+ * The Fabric Management daemon is required for the RDMA Daemon or the
+ * RDMA Sockets Daemon to execute.  The RDMA Daemon and RDMA Sockets Daemon
+ * register with the Fabric Management Daemon on startup, and receive events
+ * informing them of the appearance and disappearance of daemons on other
+ * nodes.
+ *
+ * The Fabric Management Daemon allows applications to be notified when 
+ * an application enters or leaves the system.  A slave Fabric Management 
+ * Daemon learns that an application has left the system when the AF_UNIX
+ * socket connection to the application fails.  The slave Fabric Management
+ * Daemon informs the master Fabric Management Daemon of the change.  The
+ * master Fabric Management Daemon then informs all slave Fabric Management
+ * Daemons of the change.  The slave Fabric Management Daemons in turn 
+ * notify the connected applications of the change.
+ *
+ * A similar sequence of communication occurs when an application enters the
+ * system.
+ *
+ * Example code for registering with and managing Fabric Management Daemon
+ * events is found in rapidio_sw/rdma/rskt/daemon/src/librsktd_fm.c
+ *
+ * \subsection fabric_management_details Fabric Management Daemon Details
+ *
+ * The master Fabric Management Daemon initializes switch routing tables and
+ * and other switch and endpoint configuration details on startup.  The 
+ * slave Fabric Management Daemons use Channelized Messaging (rio_cm kernel
+ * module) to connect to the Master Fabric Management Daemons.  Once this
+ * connection is successful, the slave Fabric Management Daemons are informed 
+ * of changes in the system. 
+ *
+ * The Slave Fabric Management Daemons will not allow applications to connect
+ * to it until it has connected to the Master Fabric Management Daemon.
+ * 
+ * \section remote_direct_memory_access Remote Direct Memory Access (RDMA)
+ *
+ * The RDMA Daemon uses three concepts to manage memory:
+ * - Memory space owner: A unique identifier for a memory owner
+ * - Memory space: A unique identifier for a memory space.  A memory space is
+ *   an area of memory that can be written remotely from another node over a 
+ *   RapidIO network.  Every memory space is associated with a memory space
+ *   owner.
+ * - Memory subspace: A portion of a memory space.
+ *
+ * The RDMA Daemon is responsible for managing accesses to memory spaces/
+ * subspaces.  Memory space owner handles and memory space/subspace handles 
+ * may be passed between processes.  Typically, an "owner" process is
+ * responsible for
+ * creating the memory space owner handles and memory space handles.
+ * An "owner" process tells a "user" process what memory space owner handles
+ * and memory spaces it can access.  The method for communication is up to the
+ * implementer.
+ * 
+ * Two "user" processes can transfer data through memory subspaces after the
+ * memory subspaces have been connected.  This is done with the socket-like
+ * interfaces rdma_connect and rdma_accept.
+ *
+ * Once a connection is made, data can be written to or read from a remote 
+ * memory subspace. The source of the written data and the recepticle for the
+ * read data can be either a local memory subspace or a local memory buffer.
+ *
+ * The reads and writes (pulls and pushes) can use threed distinct
+ * synchronization styles:
+ * - Synchronous: Execution does not continue until the transfer is completed.
+ *   Note that written data may still be in flight through the network after
+ *   the transaction is "completed", depending on the underlying hardware.
+ * - Asynchronous: Execution continues separately.  At a later time, the
+ *   process may check that the transfer has completed.
+ * - Fire and forget: There is no notification when a transfer has completed.
+ *   Transfer completion must be detected based on changes in memory.
+ *
+ * The RDMA Daemon is informed when a process dies, and cleans up
+ * all memory space/subspace accesses and connections for process.
+
+ * Example code for using the RDMA interfaces is found at
+ * rapidio_sw/rdma/samples/src.
+ *
+ * \subsection rdma_known_limitations RDMA Limitations
+ *
+ * The known limitations of the RDMA implementation are:
+ *
+ * - Only one memory subspace can be connected per memory space.
+ * - Closing memory spaces/subspaces results in unpredictable behavior.
+ *
+ * \section rdma_sockets RDMA Sockets (RSKT)
+ *
+ * RDMA Sockets implements a socket style interface using RDMA to manage
+ * bounded buffers.
+ *
+ * The number and throughput of sockets supported varies with the buffer size
+ * and total memory allocated by the RDMA Socket daemon.  These quantities are
+ * controlled by the following RDMA Socket daemon command line paramenters:
+ *
+ * -s (num_spaces): Number of memory spaces to use. Maximum is 64.
+ * -S (size): Size in kilobytes of memory spaces to request.  Valid values are
+ *            128, 256, 512, 1024, and 2048
+ * -k (size): Size of rskt socket buffers in kilobytes.  Valid values are
+ *            2, 4, 8, 16, 32, 64, and 128. Must be less than -s value.
+ *
+ * Note that the maximum possible single transfer for a socket is 16 bytes 
+ * less than half the -k (size) value.
+ *
+ * For RDMA Sockets code examples, refer to
+ * rapidio_sw/rdma/rskt/daemon/src, rskt_server.c and rskt_client.c.
+ *
+ * \subsection rdma_skts_known_limitations RDMA Sockets Limitations
+ *
+ * The known limitations of the RDMA Sockets implementation are:
+ *
+ * - The RDMA Sockets implementation leaks memory on all actions except
+ *   rskt_read and rskt_write.
+ * - The RDMA Sockets implementation uses synchronous transfers, which 
+ *   reduces throughput.
+ * - The rskt_flush and rskt_recv interfaces are not supported by the current
+ *   release.
+ * - Closing a socket results in undefined behavior.
+ *
+ * \section file_transfer_demo File Transfer Demo
+ *
+ * The file transfer utiltiies are found at rapidio_sw/utilities/file_transfer.
+ * They are created and compiled separately from the main software stack.
+ * For more information, refer to rapidio_sw/utilities/file_transfer/docs.
+
+ * \section goodput_demo Goodput/Ugoodput Demo
+ *
+ * The Goodput/UGoodput utilties are found at rapidio_sw/utilities/goodput.
+ * They are build and documented separately from the main stak.  For more 
+ * information, make the documentation with "doxygen doxyconfig" in 
+ * rapidio_sw/utilties/goodput.
+ */

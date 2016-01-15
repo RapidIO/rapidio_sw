@@ -26,6 +26,8 @@
  * *************************************************************************
  * */
 
+#define _GNU_SOURCE
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sched.h>
@@ -35,6 +37,7 @@
 #include "test_unit_test.h"
 #include "liblog.h"
 #include "libcli.h"
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -671,7 +674,7 @@ int worker_body(struct worker *info)
 			sem_post(&work->action_done);
 			break;
 	case ACTION_HLT_REQ: while (info->stop_req == worker_running)
-				sched_yield();
+				sleep(0);
 			break;
 	case ACTION_HLT_SEM: 
 			do {

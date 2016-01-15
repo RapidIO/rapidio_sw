@@ -53,7 +53,9 @@ extern "C" {
 #define SPEER_CONN 5
 #define WPEER_ACC 6
 
-#define LAST_TEST     7
+#define SPEER_WPEER_DRIVER 7
+
+#define LAST_TEST     8
 
 struct rskt_test_info {
 	int num_wkrs;
@@ -61,6 +63,8 @@ struct rskt_test_info {
 	int end_sn;
 	int max_iter;
 	int rc;
+	volatile int new_req;
+	volatile int new_resp;
 	rskt_h *skts;
 	struct worker *buddy;
 	sem_t accepting;
@@ -80,15 +84,22 @@ struct rskt_test_info {
 				sent by speer */
 	sem_t speer_resp_mtx; /* Use this for mutex on speer_rsp */
 	
-	int new_req;
 	struct rsktd_req_msg req;
-	int new_resp;
 	struct rsktd_resp_msg resp;
 	struct rsktd_resp_msg act_resp;
 	int acc_sent;
 	int acc_received;
 	int con_sent;
 	int con_received;
+	int sp_idx; /* test_speer_wpeer_driver configuration */
+	int wp_idx; 
+	uint32_t speer_acc_sn;
+	uint32_t speer_seq_no;
+	uint32_t speer_sn; 
+	uint32_t speer_cm_skt_num;
+	uint32_t wpeer_cm_skt;
+	sem_t speer_wpeer_init_complete;
+	sem_t all_workers_ready;
 };
 	
 #ifdef __cplusplus

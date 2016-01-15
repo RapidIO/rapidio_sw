@@ -106,7 +106,6 @@ char the_name[256];
 uint32_t the_flag;
 
 struct destid_tracking destids[MAX_DESTIDS];
-uint32_t dids[MAX_DESTIDS];
 
 void init_destids(void)
 {
@@ -232,10 +231,12 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 {
 	int i;
 	int valid_cnt = 0;
+	uint32_t *dids;
 
 	if (h != the_name)
 		return 1;
 
+	dids = (uint32_t *)malloc(MAX_DESTIDS * sizeof(uint32_t));;
 	for (i = 0; i < MAX_DESTIDS; i++) {
 		if (destids[i].valid) {
 			dids[valid_cnt] = destids[i].destid;
@@ -261,6 +262,7 @@ int fmdd_free_did_list(fmdd_h h, uint32_t **did_list)
 	if (h != the_name)
 		return 1;
 
+	free(*did_list);
 	*did_list = NULL;
 	return 0;
 };

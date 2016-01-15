@@ -3,6 +3,9 @@
 level?=$(LOG_LEVEL)
 debug?=$(DEBUG)
 
+CC?=$(CROSS_COMPILE)g++
+CXX?=$(CROSS_COMPILE)g++
+
 AR:=$(CROSS_COMPILE)ar
 
 # Common link flags for all shared libraries
