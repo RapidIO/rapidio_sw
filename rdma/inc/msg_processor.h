@@ -10,59 +10,14 @@
 
 #include "liblog.h"
 
-using std::vector;
-using std::find;
-using std::string;
-
-/**
- * Dispatch entry correlating a message type and the dispatch
- * function to be called to process the message.
- */
-template <typename T, typename M>
-struct msg_proc_dispatch_entry {
-	rdma_msg_type	type;
-	int (*disp_func)(const M *msg, tx_engine<T, M> *tx_eng);
-	bool operator==(rdma_msg_type type)
-	{
-		return this->type == type;
-	}
-};
 
 template <typename T, typename M>
 class msg_processor {
 
 public:
-	msg_processor(vector<msg_proc_dispatch_entry<T, M>>& dispatch_table) :
-		dispatch_table(dispatch_table)
-	{
-	}
+	virtual ~msg_processor() {}
 
-	int process_msg(M* msg, tx_engine<T, M> *tx_eng)
-	{
-		auto rc = 0;
-
-		string family(typeid(M).name());
-		if (family.find("unix_msg_t") != string::npos) {
-			/* Place Lib-to-daemon message processing here */
-			DBG("This is a Unix message\n");
-		} else {
-			/* Place Daemon-to-daemon message processing here */
-			DBG("This a CM message\n");
-		}
-		DBG("Processing message: 0x%X\n", msg->type);
-		auto it = find(begin(dispatch_table),
-				end(dispatch_table),
-				msg->type);
-		if (it == end(dispatch_table)) {
-			ERR("Failed to find dispatch entry!\n");
-			rc = -1;
-		} else {
-			rc = it->disp_func(msg, tx_eng);
-		}
-		return rc;
-	}
-private:
-	vector<msg_proc_dispatch_entry<T, M>>& dispatch_table;
+	virtual int process_msg(void* msg, void *tx_eng) = 0;
 };
 #endif
 

@@ -110,7 +110,7 @@ public:
 		sem_post(&messages_waiting);
 	} /* send_message() */
 
-private:
+protected:
 	void worker() {
 		DBG("worker thread started\n");
 		while(1) {

@@ -30,32 +30,26 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef RDMAD_MAIN_H
-#define RDMAD_MAIN_H
+#ifndef RDMAD_RX_ENGINE_H
+#define RDMAD_RX_ENGINE_H
 
-#include "ts_map.h"
-#include "ts_vector.h"
-
-#include "rdmad_peer_utils.h"
-#include "rdmad_inbound.h"
-#include "rdmad_ms_owners.h"
-#include "rdmad_cm.h"
-#include "rdmad_rx_engine.h"
-#include "rdmad_tx_engine.h"
+#include "liblog.h"
+#include "unix_sock.h"
 #include "rdmad_unix_msg.h"
+#include "rdmad_msg_processor.h"
+#include "rx_engine.h"
 
+using std::shared_ptr;
 
-void shutdown(struct peer_info *peer);
-int send_disc_ms_cm(uint32_t server_destid,
-		    uint32_t server_msid,
-		    uint32_t client_msubid);
-
-extern struct peer_info	peer;
-extern inbound *the_inbound;
-extern ms_owners owners;
-extern bool shutting_down;
-extern ts_map<string, cm_accept_msg> accept_msg_map;
-extern ts_vector<string> wait_accept_mq_names;
-
+class unix_rx_engine : public rx_engine<unix_server, unix_msg_t>
+{
+public:
+	unix_rx_engine(shared_ptr<unix_server> client,
+			msg_processor<unix_server, unix_msg_t> &message_processor,
+			tx_engine<unix_server, unix_msg_t> *tx_eng,
+			sem_t *engine_cleanup_sem) :
+	rx_engine(client, message_processor, tx_eng, engine_cleanup_sem)
+	{}
+};
 #endif
 

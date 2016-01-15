@@ -7,7 +7,7 @@
 /**
  * Dispatch function for obtaining mport ID.
  */
-int get_mport_id_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng)
+int get_mport_id_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -24,7 +24,7 @@ int get_mport_id_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng)
 	return out_msg.get_mport_id_out.status;
 } /* get_mport_id_disp() */
 
-int create_mso_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng)
+int create_mso_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -45,7 +45,7 @@ int create_mso_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng)
 	return out_msg.create_mso_out.status;
 } /* create_mso_disp() */
 
-int destroy_mso_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng)
+int destroy_mso_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng)
 {
 	unix_msg_t out_msg;
 

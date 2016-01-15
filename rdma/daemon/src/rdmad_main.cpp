@@ -63,20 +63,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "unix_sock.h"
 #include "rdmad_unix_msg.h"
-#include "tx_engine.h"
-#include "rx_engine.h"
-#include "msg_processor.h"
+#include "rdmad_tx_engine.h"
+#include "rdmad_rx_engine.h"
+#include "rdmad_msg_processor.h"
 #include "rdmad_rpc.h"
 #include "rdmad_dispatch.h"
 
 using std::shared_ptr;
 using std::make_shared;
 
-typedef vector<daemon2lib_rx_engine *>	rx_engines_list;
-typedef vector<daemon2lib_tx_engine *>	tx_engines_list;
-
-typedef vector<msg_proc_dispatch_entry<unix_server, unix_msg_t>> daemon2lib_dispatch_table;
-typedef msg_processor<unix_server, unix_msg_t>	daemon2lib_msg_proc;
+typedef vector<unix_rx_engine *>	rx_engines_list;
+typedef vector<unix_tx_engine *>	tx_engines_list;
 
 static tx_engines_list	tx_eng_list;
 static rx_engines_list	rx_eng_list;
@@ -106,12 +103,7 @@ static	pthread_t cli_session_thread;
 
 static unix_server *server;
 
-static daemon2lib_dispatch_table	d2l_dispatch_table = {
-		{GET_MPORT_ID, get_mport_id_disp},
-		{CREATE_MSO, create_mso_disp},
-		{DESTROY_MSO, destroy_mso_disp}
-};
-static daemon2lib_msg_proc	d2l_msg_proc(d2l_dispatch_table);
+static unix_msg_processor	d2l_msg_proc;
 
 static void init_peer()
 {
@@ -614,12 +606,12 @@ int start_accepting_connections()
 			sem_init(engine_cleanup_sem, 0, 0);
 
 			/* Create Tx and Rx engine per connection */
-			daemon2lib_rx_engine *rx_eng;
-			daemon2lib_tx_engine *tx_eng;	// FIXME: one for all?
+			unix_rx_engine *rx_eng;
+			unix_tx_engine *tx_eng;	// FIXME: one for all?
 
-			tx_eng = new daemon2lib_tx_engine(other_server,
+			tx_eng = new unix_tx_engine(other_server,
 							  engine_cleanup_sem);
-			rx_eng = new daemon2lib_rx_engine(other_server,
+			rx_eng = new unix_rx_engine(other_server,
 							  d2l_msg_proc,
 							  tx_eng,
 							  engine_cleanup_sem);

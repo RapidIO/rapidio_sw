@@ -30,32 +30,25 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef RDMAD_MAIN_H
-#define RDMAD_MAIN_H
+#ifndef LIBRDMA_TX_ENGINE_H
+#define LIBRDMA_TX_ENGINE_H
 
-#include "ts_map.h"
-#include "ts_vector.h"
+#include <memory>
 
-#include "rdmad_peer_utils.h"
-#include "rdmad_inbound.h"
-#include "rdmad_ms_owners.h"
-#include "rdmad_cm.h"
-#include "rdmad_rx_engine.h"
-#include "rdmad_tx_engine.h"
+#include "unix_sock.h"
 #include "rdmad_unix_msg.h"
+#include "tx_engine.h"
 
+using std::shared_ptr;
 
-void shutdown(struct peer_info *peer);
-int send_disc_ms_cm(uint32_t server_destid,
-		    uint32_t server_msid,
-		    uint32_t client_msubid);
+class unix_tx_engine : public tx_engine<unix_client, unix_msg_t>
+{
+public:
+	unix_tx_engine(shared_ptr<unix_client> client, sem_t *engine_cleanup_sem) :
+	tx_engine<unix_client, unix_msg_t>(client, engine_cleanup_sem)
+	{}
 
-extern struct peer_info	peer;
-extern inbound *the_inbound;
-extern ms_owners owners;
-extern bool shutting_down;
-extern ts_map<string, cm_accept_msg> accept_msg_map;
-extern ts_vector<string> wait_accept_mq_names;
+}; /* unix_tx_engine */
 
 #endif
 

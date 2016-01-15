@@ -34,18 +34,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_DISPATCH_H
 
 #include "rdmad_unix_msg.h"
-#include "tx_engine.h"
-#include "rx_engine.h"
-#include "rdmad_main.h"
-#include "rdmad_rpc.h"
+#include "rdmad_tx_engine.h"
+
 
 /**
  * Dispatch function for obtaining mport ID.
  */
-int get_mport_id_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng);
+int get_mport_id_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
 
-int create_mso_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng);
+int create_mso_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
 
-int destroy_mso_disp(const unix_msg_t *in_msg, daemon2lib_tx_engine *tx_eng);
+int destroy_mso_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
 
 #endif

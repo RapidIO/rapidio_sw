@@ -60,8 +60,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_types.h"
 #include "liblog.h"
 #include "rdma_mq_msg.h"
-#include "rx_engine.h"
-#include "tx_engine.h"
+#include "librdma_rx_engine.h"
+#include "librdma_tx_engine.h"
+#include "librdma_msg_processor.h"
 #include "msg_q.h"
 
 #include "librdma.h"
@@ -78,16 +79,10 @@ using std::vector;
 using std::make_shared;
 using std::thread;
 
-typedef rx_engine<unix_client, unix_msg_t>	lib_rx_engine;
-typedef tx_engine<unix_client, unix_msg_t> 	lib_tx_engine;
-typedef vector<msg_proc_dispatch_entry<unix_client, unix_msg_t>> lib2daemon_dispatch_table;
-typedef msg_processor<unix_client, unix_msg_t>		lib2daemon_msg_processor;
+static unix_msg_processor	msg_proc;
 
-static lib2daemon_dispatch_table dispatch_table;
-static lib2daemon_msg_processor	msg_proc(dispatch_table);
-
-static lib_rx_engine *rx_eng;
-static lib_tx_engine *tx_eng;
+static unix_rx_engine *rx_eng;
+static unix_tx_engine *tx_eng;
 
 static thread *engine_monitoring_thread;
 
@@ -580,8 +575,8 @@ static int rdma_lib_init(void)
 			sem_init(engine_cleanup_sem, 0, 0);
 
 			/* Create Tx and Rx engines */
-			tx_eng = new lib_tx_engine(client, engine_cleanup_sem);
-			rx_eng = new lib_rx_engine(client, msg_proc, tx_eng,
+			tx_eng = new unix_tx_engine(client, engine_cleanup_sem);
+			rx_eng = new unix_rx_engine(client, msg_proc, tx_eng,
 							engine_cleanup_sem);
 
 			/* Start engine monitoring thread */

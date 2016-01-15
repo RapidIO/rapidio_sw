@@ -145,7 +145,7 @@ public:
 		return rc;
 	} /* get_message() */
 
-private:
+protected:
 	/* Notification parameters. */
 	struct notify_param {
 
