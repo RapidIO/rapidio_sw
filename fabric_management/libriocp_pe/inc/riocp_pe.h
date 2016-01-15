@@ -146,6 +146,8 @@ int RIOCP_WU riocp_sw_clear_lut(riocp_pe_handle sw, uint8_t lut);
 int RIOCP_WU riocp_pe_get_event_mask(riocp_pe_handle pe, uint8_t port, riocp_pe_event_mask_t *mask);
 int RIOCP_WU riocp_pe_set_event_mask(riocp_pe_handle pe, uint8_t port, riocp_pe_event_mask_t mask);
 int RIOCP_WU riocp_pe_receive_event(riocp_pe_handle pe, struct riocp_pe_event *e);
+int RIOCP_WU riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *pe,
+		struct riocp_pe_event *ev, int timeout);
 
 /* Debug functions */
 int riocp_pe_maint_read(riocp_pe_handle pe, uint32_t offset, uint32_t *val);

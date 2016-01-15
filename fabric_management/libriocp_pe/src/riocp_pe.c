@@ -1385,6 +1385,53 @@ int RIOCP_SO_ATTR riocp_pe_set_event_mask(riocp_pe_handle pe,
 	return 0;
 }
 
+int RIOCP_SO_ATTR riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *pe,
+		struct riocp_pe_event *ev, int timeout)
+{
+	int ret;
+	struct riocp_pe_event _e;
+	struct riomp_mgmt_event revent;
+	uint32_t comptag_nr;
+	struct riocp_pe *_pe;
+
+	ret = riomp_mgmt_get_event(mport->mp_hnd, &revent, timeout);
+	if (ret < 0)
+		return ret;
+	if (revent.header != RIO_EVENT_PORTWRITE) {
+		RIOCP_ERROR("Event not of type RIO_EVENT_PORTWRITE\n");
+		return -ENOMSG;
+	}
+
+	_e.port  = 0;
+	_e.event = 0;
+
+	RIOCP_TRACE("pw[0] = 0x%08x\n", revent.u.portwrite.payload[0]);
+	RIOCP_TRACE("pw[1] = 0x%08x\n", revent.u.portwrite.payload[1]);
+	RIOCP_TRACE("pw[2] = 0x%08x\n", revent.u.portwrite.payload[2]);
+	RIOCP_TRACE("pw[3] = 0x%08x\n", revent.u.portwrite.payload[3]);
+
+	comptag_nr = RIOCP_PE_COMPTAG_GET_NR(revent.u.portwrite.payload[0]);
+	ret = riocp_pe_comptag_get_slot(mport, comptag_nr, &_pe);
+	if (ret) {
+		RIOCP_ERROR("Failed to retrieve pe for comptag %d\n", comptag_nr);
+		return ret;
+	}
+
+	ret = riocp_pe_switch_handle_event(_pe, &revent, &_e);
+	if (ret) {
+		RIOCP_ERROR("Handle event on port %u failed (%s)",
+			_e.port, strerror(errno));
+		return ret;
+	}
+
+	*pe = _pe;
+
+	ev->port  = _e.port;
+	ev->event = _e.event;
+
+	return 0;
+}
+
 /**
  * Read an event off the event queue for the given PE.
  * @param pe This host or any switch
