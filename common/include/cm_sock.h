@@ -164,33 +164,69 @@ protected:
 		return riomp_sock_mbox_destroy_handle(&mailbox);
 	}
 
-	/* Send CM_BUF_SIZE bytes from 'send_buf' on specified socket */
-	int send(riomp_sock_t socket)
+	/* Uses specified buffer and length */
+	int send_buffer(riomp_sock_t socket, void *buffer, size_t len)
 	{
-		int rc;
-		rc = riomp_sock_send(socket, (void *)send_buf, CM_BUF_SIZE);
-		if (rc) {
-			ERR("riomp_sock_send failed for '%s': %s\n", name, strerror(rc));
-			return -1;
+		auto rc = 0;
+		if (len > CM_BUF_SIZE) {
+			ERR("'%s' failed in send() due to large message size\n",
+									name);
+			rc = -1;
+		} else {
+			rc = riomp_sock_send(socket, buffer, CM_BUF_SIZE);
+			if (rc) {
+				ERR("riomp_sock_send failed for '%s': %s\n",
+								name, strerror(rc));
+			}
 		}
-		return 0;
+		return rc;
+	} /* send_buffer() */
+
+	/* Send CM_BUF_SIZE bytes from 'send_buf' on specified socket */
+	int send(riomp_sock_t socket, size_t len)
+	{
+		auto rc = 0;
+		if (len > CM_BUF_SIZE) {
+			ERR("'%s' failed in send() due to large message size\n",
+									name);
+			rc = -1;
+		} else {
+			rc = riomp_sock_send(socket, (void *)send_buf, len);
+			if (rc) {
+				ERR("riomp_sock_send failed for '%s': %s\n",
+							name, strerror(rc));
+			}
+		}
+		return rc;
 	} /* send() */
 
 	/* Receive bytes to 'recv_buf' on specified socket */
-	int receive(riomp_sock_t socket)
+	int receive(riomp_sock_t socket, size_t *rcvd_len)
 	{
-		return timed_receive(socket, 0);
+		return receive_buffer(socket, (void *)recv_buf, rcvd_len);
 	} /* receive() */
+
+	/* Receive bytes to 'buffer' on specified socket */
+	int receive_buffer(riomp_sock_t socket, void *buffer, size_t *rcvd_len)
+	{
+		return timed_receive_buffer(socket, 0, buffer, rcvd_len);
+	} /* receive_buffer() */
 
 	/* If returns ETIME then it timed out. 0 means success,
 	 * EINTR means thread was killed (if not in gdb mode AND the)
 	 * shutting_down flag is set) anything else is an error. */
-	int timed_receive(riomp_sock_t socket, uint32_t timeout_ms)
+	int timed_receive_buffer(riomp_sock_t socket, uint32_t timeout_ms,
+			void *buffer, size_t *rcvd_len)
 	{
-		int rc = 0;
+		auto rc = 0;
+		void *buf;
+
+		if (buffer == nullptr)
+			buf = (void *)recv_buf;
+		else
+			buf = buffer;
 		do {
-			rc = riomp_sock_receive(socket,
-					(void **)&recv_buf, CM_BUF_SIZE,
+			rc = riomp_sock_receive(socket, &buf, CM_BUF_SIZE,
 					timeout_ms);
 		} while (rc && (errno==EINTR) && gdb && !*shutting_down);
 		if (rc) {
@@ -203,7 +239,14 @@ protected:
 						name, errno, strerror(errno));
 			}
 		}
+		if (rcvd_len != nullptr)
+			*rcvd_len = CM_BUF_SIZE;
 		return rc;
+	} /* timed_receive_buffer() */
+
+	int timed_receive(riomp_sock_t socket, uint32_t timeout)
+	{
+		return timed_receive_buffer(socket, timeout, nullptr, nullptr);
 	} /* timed_receive() */
 
 	const char *name;
@@ -305,7 +348,7 @@ public:
 	cm_server(const char *name, riomp_sock_t accept_socket,
 		  bool *shutting_down) :
 		cm_base(name, 0, 0, 0, shutting_down),
-		accept_socket(accept_socket)
+		listen_socket(0), accept_socket(accept_socket), accepted(false)
 	{
 	}
 
@@ -384,10 +427,15 @@ public:
 	} /* accept() */
 
 	/* Receive bytes to 'recv_buf' */
-	int receive()
+	int receive(size_t *rcvd_len = nullptr)
 	{
-		return cm_base::receive(accept_socket);
+		return cm_base::receive(accept_socket, rcvd_len);
 	} /* receive() */
+
+	int send_buffer(void *buffer, size_t len = CM_BUF_SIZE)
+	{
+		return cm_base::send_buffer(accept_socket, buffer, len);
+	} /* send_buffer() */
 
 	/* Receive bytes to 'recv_buf' with timeout */
 	int timed_receive(uint32_t timeout_ms)
@@ -396,9 +444,9 @@ public:
 	} /* receive() */
 
 	/* Send bytes from 'send_buf' */
-	int send()
+	int send(size_t len = CM_BUF_SIZE)
 	{
-		return cm_base::send(accept_socket);
+		return cm_base::send(accept_socket, len);
 	} /* send() */
 
 private:
@@ -413,7 +461,7 @@ public:
 	cm_client(const char *name, int mport_id, uint8_t mbox_id,
 		  uint16_t channel, bool *shutting_down) :
 		cm_base(name, mport_id, mbox_id, channel, shutting_down),
-		client_socket(0)
+		server_destid(0xFFFF), client_socket(0)
 	{
 		/* Create mailbox, throw exception if failed */
 		DBG("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
@@ -435,7 +483,8 @@ public:
 
 	/* construct from client socket only */
 	cm_client(const char *name, riomp_sock_t socket, bool *shutting_down) :
-		cm_base(name, 0, 0, 0, shutting_down), client_socket(socket)
+		cm_base(name, 0, 0, 0, shutting_down),
+		server_destid(0xFFFF), client_socket(socket)
 	{
 	}
 
@@ -488,15 +537,15 @@ public:
 	} /* connect() */
 
 	/* Send bytes from 'send_buf' */
-	int send()
+	int send(size_t len = CM_BUF_SIZE)
 	{
-		return cm_base::send(client_socket);
+		return cm_base::send(client_socket, len);
 	} /* send() */
 
 	/* Receive bytes to 'recv_buf' */
-	int receive()
+	int receive(size_t *rcvd_len = nullptr)
 	{
-		return cm_base::receive(client_socket);
+		return cm_base::receive(client_socket, rcvd_len);
 	} /* receive() */
 
 	/* Receive bytes to 'recv_buf' with timeout */
