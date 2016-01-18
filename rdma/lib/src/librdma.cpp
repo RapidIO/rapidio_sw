@@ -1041,7 +1041,8 @@ int rdma_destroy_mso_h(mso_h msoh)
 
 		/* For each one of the memory spaces, call destroy */
 		bool	ok = true;
-		for_each(begin(ms_list), end(ms_list), [&](loc_ms *ms)
+		for_each(begin(ms_list), end(ms_list),
+			[&](loc_ms *ms)
 			{
 				if (rdma_destroy_ms_h(msoh, ms_h(ms))) {
 					WARN("rdma_destroy_ms_h failed: msoh = 0x%"
@@ -1103,99 +1104,91 @@ int rdma_create_ms_h(const char *ms_name,
 		  ms_h *msh,
 		  uint32_t *bytes)
 {
-	create_ms_input	 in;
-	create_ms_output out;
-	uint32_t	dummy_bytes;
-	int		ret;
+	auto rc = 0;
 
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
+	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
+		/* Check for NULL parameters */
+		if (!ms_name || !msoh || !msh) {
+			ERR("NULL param: ms_name=%p, msoh=%u, msh=%p",
+					ms_name, msoh, msh);
+			throw RDMA_NULL_PARAM;
+		}
 
-	/* Check for NULL parameters */
-	if (!ms_name || !msoh || !msh) {
-		ERR("NULL param: ms_name=%p, msoh=%u, msh=%p",
-			ms_name, msoh, msh);
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
+		/* Disallow creating a duplicate ms name */
+		if (find_loc_ms_by_name(ms_name)) {
+			WARN("A memory space named \'%s\' exists\n", ms_name);
+			throw RDMA_DUPLICATE_MS;
+		}
 
-	/* Disallow creating a duplicate ms name */
-	if (find_loc_ms_by_name(ms_name)) {
-		WARN("A memory space named \'%s\' exists\n", ms_name);
-		sem_post(&rdma_lock);
-		return RDMA_DUPLICATE_MS;
-	}
+		/* A memory space must be aligned at 4K, therefore any previous
+		 * memory space must be rounded up in size to the nearest 4K.
+		 * But if caller knows their 'req_bytes' are aligned, allow them
+		 * to pass NULL for 'bytes' */
+		uint32_t dummy_bytes;
+		if (bytes == nullptr)
+			bytes = &dummy_bytes;
+		*bytes = round_up_to_4k(req_bytes);
 
-	/* A memory space must be aligned at 4K, therefore any previous
-	 * memory space must be rounded up in size to the nearest 4K.
-	 * But if caller knows their 'req_bytes' are aligned, allow them
-	 * to pass NULL for 'bytes' */
-	if (!bytes)
-		bytes = &dummy_bytes;
-	*bytes = round_up_to_4k(req_bytes);
+		/* Prevent buffer overflow due to very long name */
+		size_t len = strlen(ms_name);
+		if (len > UNIX_MS_NAME_MAX_LEN) {
+			ERR("String 'ms_name' is too long (%d)\n", len);
+			throw;
+			return RDMA_NAME_TOO_LONG;
+		}
 
-	/* Prevent buffer overflow due to very long name */
-	size_t len = strlen(ms_name);
-	if (len > UNIX_MS_NAME_MAX_LEN) {
-		ERR("String 'ms_name' is too long (%d)\n", len);
-		sem_post(&rdma_lock);
-		return RDMA_NAME_TOO_LONG;
-	}
+		/* Set up Unix message parameters */
+		unix_msg_t	in_msg;
+		unix_msg_t	out_msg;
+		in_msg.type     = CREATE_MS;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.create_ms_in.bytes = *bytes;
+		in_msg.create_ms_in.flags = flags;
+		in_msg.create_ms_in.msoid = ((loc_mso *)msoh)->msoid;
+		strcpy(in_msg.create_ms_in.ms_name, ms_name);
 
-	/* Set up input parameters */
-	strcpy(in.ms_name, ms_name);
-	in.msoid   = ((struct loc_mso *)msoh)->msoid;
-	in.bytes   = *bytes;
-	in.flags   = flags;
+		/* Call into daemon */
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in CREATE_MS daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
 
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
+		/* Failed to create mso? */
+		if (out_msg.create_ms_out.status) {
+			ERR("Failed to create ms '%s' in daemon\n", ms_name);
+			throw out_msg.create_ms_out.status;
+		}
 
-	in.msoid = ((struct loc_mso *)msoh)->msoid;
-	in_msg->type = CREATE_MS;
-	in_msg->create_ms_in = in;
-
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		sem_post(&rdma_lock);
-		return ret;
-	}
-
-	out = out_msg->create_ms_out;
-	if (out.status != 0) {
-		ERR("Failed to create '%s'\n", ms_name);
-		sem_post(&rdma_lock);
-		return out.status;
-	}
-
-	*msh = add_loc_ms(ms_name,
-			  *bytes,
-			  msoh,
-			  out.msid,
-			  out.phys_addr,
-			  out.rio_addr,
-			  0, true,
-			  0, nullptr,
-			  0, nullptr);
-	if (!*msh) {
-		ERR("Failed to store ms in database\n");
-		sem_post(&rdma_lock);
-		return RDMA_DB_ADD_FAIL;
-	}
-	INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")\n",
+		/* Store in local database */
+		*msh = add_loc_ms(ms_name,
+				*bytes,
+				msoh,
+				out_msg.create_ms_out.msid,
+				out_msg.create_ms_out.phys_addr,
+				out_msg.create_ms_out.rio_addr,
+				0, true,
+				0, nullptr,
+				0, nullptr);
+		if (!*msh) {
+			ERR("Failed to store ms in database\n");
+			throw RDMA_DB_ADD_FAIL;
+		}
+		INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")\n",
 								ms_name, *msh);
+	} /* try */
+	catch(int e) {
+		rc = e;
+	}
+
 	sem_post(&rdma_lock);
-	return 0;
+
+	return rc;
 } /* rdma_create_ms_h() */
 
 static int destroy_msubs_in_msh(ms_h msh)
@@ -1520,95 +1513,84 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 
 int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 {
-	destroy_ms_input	in;
-	destroy_ms_output	out;
-	loc_ms 			*ms;
-	int			ret;
+	auto rc = 0;
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
+	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
-
-	/* Check for NULL parameters */
-	if (!msoh || !msh) {
-		ERR("Invalid param(s): msoh=0x%" PRIx64 ", msh=0x%" PRIx64 "\n", msoh, msh);
-		return RDMA_NULL_PARAM;
-	}
-
-	ms = (loc_ms *)msh;
-
-	DBG("msid = 0x%X, ms_name = '%s', msh = 0x%" PRIx64 "\n",
-			ms->msid, ms->name, msh);
-
-	/* Set up input parameters */
-	in.msid = ms->msid;
-	in.msoid= ((loc_mso *)msoh)->msoid;
-
-	/* Destroy msubs in this msh */
-	if (destroy_msubs_in_msh(msh)) {
-		ERR("Failed to destroy msubs belonging to msh(0x%" PRIx64 ")\n", msh);
-		return RDMA_MSUB_DESTROY_FAIL;
-	}
-
-	/* Remove the remote memory subspace provided by the client
-	 * when it connected to the server using rdma_conn_ms_h() */
-	remove_rem_msub_by_loc_msh(msh);
-
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-
-	in_msg->type = DESTROY_MS;
-	in_msg->destroy_ms_in = in;
-
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		return ret;
-	}
-	out = out_msg->destroy_ms_out;
-
-	/* Check that we were actually able to find/destroy the ms */
-	if (out.status != 0) {
-		ERR("Failed to find/destroy msid(0x%X)' in daemon.\n", in.msid);
-		return out.status;
-	}
-
-	/* Kill the disconnection thread, if it exists */
-	pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
-	if (!disc_thread) {
-		WARN("disc_thread is NULL.\n");
-	} else {
-		if (pthread_cancel(disc_thread)) {
-			WARN("Failed to cancel disc_thread for msh(0x%" PRIx64 "):%s\n",
-						msh, strerror(errno));
+		/* Check for NULL parameters */
+		if (!msoh || !msh) {
+			ERR("Invalid param(s): msoh=0x%" PRIx64 ", msh=0x%" PRIx64
+								"\n", msoh, msh);
+			return RDMA_NULL_PARAM;
 		}
-	}
 
-	/**
-	 * Daemon should have closed the message queue so we can close and
-	 * unlink it here. */
-	msg_q<mq_rdma_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
-	if (disc_mq == nullptr) {
-		WARN("disc_mq is NULL\n");
-	} else {
-		delete disc_mq;
-	}
+		loc_ms *ms = (loc_ms *)msh;
+		DBG("msid = 0x%X, ms_name = '%s', msh = 0x%" PRIx64 "\n",
+							ms->msid, ms->name, msh);
+		/* Destroy msubs in this msh */
+		if (destroy_msubs_in_msh(msh)) {
+			ERR("Failed to destroy msubs belonging to msh(0x%" PRIx64 ")\n",
+										msh);
+			throw RDMA_MSUB_DESTROY_FAIL;
+		}
 
-	/* Memory space removed in daemon, remove from database as well */
-	if (remove_loc_ms(msh) < 0) {
-		WARN("Failed to remove 0x%" PRIx64 " from database\n", msh);
-		dump_loc_ms();
-		return RDMA_DB_REM_FAIL;
-	}
+		/* Set up input parameters */
+		unix_msg_t  in_msg;
+		unix_msg_t  out_msg;
+		in_msg.type     = DESTROY_MS;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.destroy_ms_in.msid = ms->msid;
+		in_msg.destroy_ms_in.msoid= ((loc_mso *)msoh)->msoid;
 
-	INFO("msh(0x%" PRIx64 ") removed from local database\n", msh);
-	return 0;
+		/* Call into daemon */
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in DESTROY_MS daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
+
+		/* Failed to destroy ms? */
+		if (out_msg.destroy_ms_out.status) {
+			ERR("Failed to destroy ms '%s' in daemon\n", ms->name);
+			throw out_msg.destroy_ms_out.status;
+		}
+
+		/* Kill the disconnection thread, if it exists */
+		pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
+		if (!disc_thread) {
+			WARN("disc_thread is NULL.\n");
+		} else {
+			if (pthread_cancel(disc_thread)) {
+				WARN("Failed to cancel disc_thread for msh(0x%" PRIx64 "):%s\n",
+						msh, strerror(errno));
+			}
+		}
+
+		/**
+		 * Daemon should have closed the message queue so we can close and
+		 * unlink it here. */
+		msg_q<mq_rdma_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
+		if (disc_mq == nullptr) {
+			WARN("disc_mq is NULL\n");
+		} else {
+			delete disc_mq;
+		}
+
+		/* Memory space removed in daemon, remove from database as well */
+		if (remove_loc_ms(msh) < 0) {
+			WARN("Failed to remove 0x%" PRIx64 " from database\n", msh);
+			dump_loc_ms();
+			throw RDMA_DB_REM_FAIL;
+		}
+
+		INFO("msh(0x%" PRIx64 ") removed from local database\n", msh);
+	}
+	catch(int e) {
+		rc = e;
+	}
+	return rc;
 } /* rdma_destroy_ms_h() */
 
 int rdma_create_msub_h(ms_h	msh,

@@ -48,8 +48,8 @@ public:
 	int process_msg(void *vmsg, void *vtx_eng)
 	{
 		auto rc = 0;
-		unix_msg_t *msg = static_cast<unix_msg_t *>(vmsg);
-		unix_tx_engine *tx_eng = static_cast<unix_tx_engine *>(vtx_eng);
+		unix_msg_t *msg = static_cast<unix_msg_t*>(vmsg);
+		unix_tx_engine *tx_eng = static_cast<unix_tx_engine*>(vtx_eng);
 
 		switch(msg->type) {
 		case GET_MPORT_ID:
@@ -58,14 +58,38 @@ public:
 		case CREATE_MSO:
 			rc = create_mso_disp(msg, tx_eng);
 			break;
+		case OPEN_MSO:
+			rc = open_mso_disp(msg, tx_eng);
+			break;
+		case CLOSE_MSO:
+			rc = close_mso_disp(msg, tx_eng);
+			break;
 		case DESTROY_MSO:
 			rc = destroy_mso_disp(msg, tx_eng);
+			break;
+		case CREATE_MS:
+			rc = create_ms_disp(msg, tx_eng);
+			break;
+		case OPEN_MS:
+			rc = open_ms_disp(msg, tx_eng);
+			break;
+		case CLOSE_MS:
+			rc = close_ms_disp(msg, tx_eng);
+			break;
+		case DESTROY_MS:
+			rc = destroy_ms_disp(msg, tx_eng);
+			break;
+		case CREATE_MSUB:
+			rc = create_msub_disp(msg, tx_eng);
+			break;
+		case DESTROY_MSUB:
+			rc = destroy_msub_disp(msg, tx_eng);
 			break;
 		default:
 			assert(!"Unhandled message");
 		}
 		return rc;
-	}
+	} /* process_msg() */
 };
 
 class cm_server_msg_processor : public msg_processor<cm_server, cm_msg_t>
