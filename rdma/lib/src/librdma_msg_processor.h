@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librdma_tx_engine.h"
 #include "msg_processor.h"
 #include "liblog.h"
+#include "librdma_db.h"
 
 class unix_tx_engine;
 class unix_client;
@@ -57,6 +58,27 @@ public:
 		auto rc = 0;
 
 		switch(msg->type) {
+
+		case FORCE_CLOSE_MSO:
+		{
+			HIGH("FORCE_CLOSE_MSO received\n");
+			/* Find the mso in the local database by its msoid */
+			mso_h msoh = find_mso(msg->force_close_mso_req.msoid);
+			if (!msoh) {
+				CRIT("Could not find msoid(0x%X) in database\n",
+						msg->force_close_mso_req.msoid);
+			} else {
+				/* Remove mso with specified msoid, msoh from database */
+				if (remove_loc_mso(msoh)) {
+					WARN("Failed removing msoid(0x%X) msoh(0x%" PRIx64 ")\n",
+						msg->force_close_mso_req.msoid, msoh);
+				} else {
+					HIGH("msoid(0x%X) force-closed\n",
+						msg->force_close_mso_req.msoid, msoh);
+				}
+			}
+		}
+		break;
 
 		default:
 			assert(!"Unhandled message");

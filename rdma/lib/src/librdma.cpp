@@ -751,58 +751,6 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 	return rc;
 } /* rdma_create_mso_h() */
 
-#if 0
-/**
- * This thread receives mq_close_mso_msg from the daemon when the owner
- * of the mso destroys the mso while there is an open connection to this
- * user.
- */
-static void *mso_close_thread_f(void *arg)
-{
-
-	/* Check for NULL argument */
-	if (!arg) {
-		CRIT("NULL argument. Exiting\n");
-		pthread_exit(0);
-	}
-
-	msg_q<mq_close_mso_msg>	*mq = (msg_q<mq_close_mso_msg> *)arg;
-
-	/* Wait for the POSIX mq_close_mso_msg */
-	INFO("Waiting for mq_close_mso_msg message...\n");
-	mq_close_mso_msg 	*close_msg;
-	mq->get_recv_buffer(&close_msg);
-	if (mq->receive()) {
-		CRIT("Failed to receive mq_mso_close_msg\n");
-		delete mq;
-		pthread_exit(0);
-	}
-
-	INFO("Got mq_close_mso_msg for msoid= 0x%X\n", close_msg->msoid);
-
-	/* Find the mso in the local database by its msoid */
-	mso_h msoh = find_mso(close_msg->msoid);
-	if (!msoh) {
-		CRIT("Could not find msoid(0x%X) in database\n", close_msg->msoid);
-		delete mq;
-		pthread_exit(0);
-	}
-
-	/* Remove mso with specified msoid, msoh from database */
-	if (remove_loc_mso(msoh)) {
-		WARN("Failed removing msoid(0x%X) msoh(0x%lX)\n",
-							close_msg->msoid, msoh);
-	} else {
-		INFO("mq_close_mso_msg successfully processed\n");
-	}
-
-	/* Delete the message queue */
-	INFO("Deleting '%s'\n", mq->get_name().c_str());
-	delete mq;
-	pthread_exit(0);
-} /* mso_close_thread_f() */
-#endif
-
 int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 {
 	auto rc = 0;
@@ -823,9 +771,8 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 
 		/* Check if the mso was created by same app, or already open */
 		*msoh = find_mso_by_name(owner_name);
-		loc_mso *mso;
 		if (*msoh) {
-			mso = (loc_mso *)(*msoh);
+			loc_mso *mso = (loc_mso *)(*msoh);
 			/* Don't allow opening from the same app that created the mso */
 			if (mso->owned) {
 				ERR("Cannot open mso '%s' from creator app\n",
@@ -857,43 +804,18 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 			ERR("Failed to open mso '%s', rc = %d\n", owner_name, rc);
 			throw out_msg.open_mso_out.status;
 		}
-#if 0
-		/* Open message queue for receiving mso close messages. Such messages are
-		 * sent when the owner of an 'mso' decides to destroy the mso. The close
-		 * messages are sent to users of the mso who have opened the mso.
-		 * The message instruct those users to close the mso since it will be gone. */
-		stringstream	qname;
-		qname << '/' << owner_name << out_msg.open_mso_out.mso_conn_id;
-		msg_q<mq_close_mso_msg>	*mso_close_mq;
-		mso_close_mq = new msg_q<mq_close_mso_msg>(qname.str(), MQ_OPEN);
-		INFO("Opened message queue '%s'\n", qname.str().c_str());
 
-		/* Create thread for handling mso close requests */
-		pthread_t mso_close_thread;
-		if (pthread_create(&mso_close_thread, NULL, mso_close_thread_f, (void *)mso_close_mq)) {
-			WARN("Failed to create mso_close_thread: %s\n", strerror(errno));
-			delete mso_close_mq;
-			sem_post(&rdma_lock);
-			return RDMA_PTHREAD_FAIL;
-		}
-		INFO("Created mso_close_thread with argument %d passed to it\n", mso_close_mq);
-#endif
-		/* Store in database, mso_conn_id from daemon, 'owned' is false, save the
-		 * thread and message queue to be used to notify app when mso is destroyed
-		 * by its owner. */
+		/* Store in database */
 		*msoh = add_loc_mso(owner_name,
 			    out_msg.open_mso_out.msoid,
 			    out_msg.open_mso_out.mso_conn_id,
-			    false);
+			    /* owned is */false);
 		if (!*msoh) {
 			WARN("add_loc_mso() failed, msoid = 0x%X\n", out_msg.open_mso_out.msoid);
 			throw RDMA_DB_ADD_FAIL;
 		}
 	} /* try */
-	catch(msg_q_exception& e) {
-		CRIT("Failed to create mso_close_mq: %s\n", e.msg.c_str());
-		rc = RDMA_MALLOC_FAIL;
-	}
+
 	catch(int e) {
 		rc = e;
 	}
@@ -954,35 +876,7 @@ int rdma_close_mso_h(mso_h msoh)
 			ERR("Failed to close one or more mem spaces\n");
 			throw RDMA_MS_CLOSE_FAIL;
 		}
-#if 0
-	/* Since we are closing the mso ourselves, the mso_close_thread_f
-	 * should be killed. We do this before closing the message queue
-	 * since otherwise I'm not sure what the mq_receive() will do.
-	 */
-	pthread_t  close_notify_thread = loc_mso_get_close_notify_thread(msoh);
-	if (!close_notify_thread) {
-		WARN("close_notify_thread is NULL!!\n");
-	} else if (pthread_cancel(close_notify_thread)) {
-		WARN("Failed to cancel close_notify_thread for msoh(0x%X)\n", msoh);
-	}
 
-	/**
-	 * Probably good practice to close the message queue here before
-	 * calling alt_rpc_call() since the daemon will close and unlink
-	 * the message queue. Unlink probably needs a queue
-	 * that is not open by anyone in order to succeed.
-	 */
-	msg_q<mq_close_mso_msg>	*close_notify_mq = loc_mso_get_close_notify_mq(msoh);
-	if (close_notify_mq == nullptr) {
-		WARN("close_notify_mq is NULL\n");
-	} else {
-		DBG("Deleting close_notify_mq\n");
-		delete close_notify_mq;
-	}
-
-	/* CLOSE_MSO will remove the message queue corresponding to the mso
-	 * user from the ms_owner struct in the daemon */
-#endif
 		/* Set up Unix message parameters */
 		unix_msg_t  in_msg;
 

@@ -58,6 +58,12 @@ public:
 
 	 void cleanup()
 	 {
+		 /**
+		  * When the Rx engine detects loss of connection with the
+		  * other side, then Tx engine automatically loses it too.
+		  * As such we use tx_eng to close and destroy any mso which
+		  * uses it.
+		  */
 		 owners.close_mso(tx_eng);
 		 owners.destroy_mso(tx_eng);
 	 }

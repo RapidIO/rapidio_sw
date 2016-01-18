@@ -38,7 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* Max memory space name length */
 #define	UNIX_MS_NAME_MAX_LEN	31
 
-/* Type codes */
+/* Type codes for RDMA_LIB_DAEMON_CALL messages */
 #define CREATE_MSO		0x0001
 #define CREATE_MSO_ACK		0x8001
 #define CREATE_MS		0x0002
@@ -76,6 +76,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define GET_IBWIN_PROPERTIES 	0x001B
 #define GET_IBWIN_PROPERTIES_ACK 	0x801B
 #define RDMAD_KILL_DAEMON	0x0666
+
+/* Type codes for RDMA_REQ_RESP messages */
+constexpr uint32_t FORCE_CLOSE_MSO = 0x1001;
 
 /* rdmad_is_alive() arguments */
 struct rdmad_is_alive_input {
@@ -283,6 +286,11 @@ struct get_ibwin_properties_output {
 	int		status;
 };
 
+/* ----------------------------- REQ / RESP -------------------------*/
+struct force_close_mso_req_input {
+	uint32_t msoid;
+};
+
 /* Unix message structure */
 struct unix_msg_t {
 	rdma_msg_type	type;
@@ -327,6 +335,7 @@ struct unix_msg_t {
 		struct rdmad_kill_daemon_output	rdmad_kill_daemon_out;
 		struct get_ibwin_properties_input  get_ibwin_properties_in;
 		struct get_ibwin_properties_output get_ibwin_properties_out;
+		struct force_close_mso_req_input   force_close_mso_req;
 	};
 };
 

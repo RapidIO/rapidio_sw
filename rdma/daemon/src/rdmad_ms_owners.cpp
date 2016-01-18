@@ -72,11 +72,11 @@ private:
 	const char *name;
 };
 
-struct has_owner_server {
-	has_owner_server(tx_engine<unix_server, unix_msg_t> *tx_eng) :
+struct has_tx_eng {
+	has_tx_eng(tx_engine<unix_server, unix_msg_t> *tx_eng) :
 		tx_eng(tx_eng) {}
 	bool operator()(ms_owner *mso) {
-		return mso->get_owner_server() == this->tx_eng->get_client();
+		return mso->get_tx_eng() == this->tx_eng;
 	}
 private:
 	tx_engine<unix_server, unix_msg_t> *tx_eng;
@@ -143,7 +143,7 @@ int ms_owners::create_mso(const char *name,
 	*fmsoid = false;
 
 	/* Create an owner with the free ID */
-	ms_owner *mso = new ms_owner(name, tx_eng->get_client(), *msoid);
+	ms_owner *mso = new ms_owner(name, tx_eng, *msoid);
 
 	/* Store in owners list */
 	owners.push_back(mso);
@@ -167,7 +167,7 @@ int ms_owners::open_mso(const char *name,
 	}
 
 	/* Open the memory space owner */
-	if ((*mso_it)->open(msoid, mso_conn_id, tx_eng->get_client()) < 0) {
+	if ((*mso_it)->open(msoid, mso_conn_id, tx_eng) < 0) {
 		ERR("Failed to open memory space owner %s\n", name);
 		pthread_mutex_unlock(&lock);
 		return -2;
@@ -199,12 +199,12 @@ int ms_owners::close_mso(uint32_t msoid, uint32_t mso_conn_id)
 	return 0;
 } /* close_mso() */
 
-void ms_owners::close_mso(tx_engine<unix_server, unix_msg_t>  *tx_eng)
+void ms_owners::close_mso(tx_engine<unix_server, unix_msg_t>  *user_tx_eng)
 {
 	for(auto& owner : owners) {
-		if (owner->has_user_server(tx_eng->get_client())) {
+		if (owner->has_user_tx_eng(user_tx_eng)) {
 			INFO("Closing conn to owner due to dead socket\n");
-			owner->close(tx_eng->get_client());
+			owner->close(user_tx_eng);
 		}
 	}
 } /* close_mso() */
@@ -214,7 +214,7 @@ int ms_owners::destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng)
 	pthread_mutex_lock(&lock);
 
 	auto mso_it = find_if(begin(owners), end(owners),
-					has_owner_server(tx_eng));
+					has_tx_eng(tx_eng));
 
 	/* Not found, warn and return code */
 	if (mso_it == owners.end()) {

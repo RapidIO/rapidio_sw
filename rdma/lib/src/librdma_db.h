@@ -46,7 +46,6 @@ using std::list;
 #include "msg_q.h"
 #include "rdma_mq_msg.h"
 
-
 int rdma_db_init();
 
 /**
@@ -55,11 +54,8 @@ int rdma_db_init();
 struct loc_mso {
 	char *name;
 	uint32_t msoid;
-	uint32_t mso_conn_id;
+	uint32_t mso_conn_id;	// if 'owned' is false
 	bool owned;
-	/* If !owned, the following 2 fields apply */
-//	pthread_t close_notify_thread;
-//	msg_q<mq_close_mso_msg>	  *close_notify_mq;
 };
 
 mso_h add_loc_mso(const char* mso_name,
@@ -69,15 +65,16 @@ mso_h add_loc_mso(const char* mso_name,
 
 void dump_loc_ms(void);
 
-pthread_t loc_mso_get_close_notify_thread(mso_h msoh);
-
-msg_q<mq_close_mso_msg> *loc_mso_get_close_notify_mq(mso_h msoh);
-
 int remove_loc_mso(mso_h msoh);
+
 int remove_loc_mso(uint32_t msoid);
+
 bool mso_is_open(const char *name);
+
 mso_h	find_mso(uint32_t msoid);
+
 mso_h	find_mso_by_name(const char *name);
+
 bool mso_h_exists(mso_h msoh);
 
 /**
@@ -209,4 +206,3 @@ void purge_loc_mso_list(void);
 void purge_local_database(void);
 
 #endif
-

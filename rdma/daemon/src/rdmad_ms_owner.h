@@ -41,8 +41,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <algorithm>
 
-#include "msg_q.h"
+#include "unix_sock.h"
 #include "rdma_types.h"
+#include "rdmad_unix_msg.h"
 #include "tx_engine.h"
 
 using std::vector;
@@ -52,37 +53,41 @@ using std::string;
 static const uint32_t MSO_CONN_ID_START	= 0x1;
 
 /* Referenced class declarations */
-class unix_server;
 class mspace;
 
 class mso_user
 {
 public:
 	mso_user(uint32_t mso_conn_id,
-		 unix_server *user_server, msg_q<mq_close_mso_msg> *mq) :
-		mso_conn_id(mso_conn_id), user_server(user_server), mq(mq) {}
-	bool operator==(uint32_t mso_conn_id) {
-		return this->mso_conn_id == mso_conn_id;
-	}
-	bool operator==(unix_server *user_server) {
-		return this->user_server == user_server;
+		tx_engine<unix_server, unix_msg_t> *tx_eng) :
+		mso_conn_id(mso_conn_id), tx_eng(tx_eng)
+	{
 	}
 
-	msg_q<mq_close_mso_msg> *get_mq() { return mq; }
-	unix_server *get_server() { return user_server; }
+	bool operator==(uint32_t mso_conn_id)
+	{
+		return this->mso_conn_id == mso_conn_id;
+	}
+
+	bool operator==(tx_engine<unix_server, unix_msg_t> *tx_eng)
+	{
+		return this->tx_eng == tx_eng;
+	}
+
+	tx_engine<unix_server, unix_msg_t> *get_tx_engine() { return tx_eng; }
 
 private:
 	static constexpr uint32_t MSO_CONN_ID_START = 0x01;
-	uint32_t	mso_conn_id;
-	unix_server 	*user_server;
-	msg_q<mq_close_mso_msg>	*mq;
+	uint32_t mso_conn_id;
+	tx_engine<unix_server, unix_msg_t> *tx_eng;
 };
 
 class ms_owner
 {
 public:
 	/* Constructor */
-	ms_owner(const char *owner_name, unix_server *owner_server, uint32_t msoid);
+	ms_owner(const char *owner_name,
+		 tx_engine<unix_server, unix_msg_t> *tx_eng, uint32_t msoid);
 
 	/* Destructor */
 	~ms_owner();
@@ -109,25 +114,26 @@ public:
 
 	void dump_info(struct cli_env *env);
 
-	int open(uint32_t *msoid, uint32_t *mso_conn_id, unix_server *user_server);
+	int open(uint32_t *msoid, uint32_t *mso_conn_id,
+		 tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
 	int close(uint32_t mso_conn_id);
 
-	int close(unix_server *other_server);
+	int close(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
-	unix_server *get_owner_server() const { return owner_server; }
+	tx_engine<unix_server, unix_msg_t> *get_tx_eng() const { return tx_eng; }
 
-	bool has_user_server(unix_server *server)
+	bool has_user_tx_eng(tx_engine<unix_server, unix_msg_t> *tx_eng)
 	{
-		auto it = find(begin(users), end(users), server);
+		auto it = find(begin(users), end(users), tx_eng);
 		return (it != end(users));
 	}
 
 private:
-	int close_connections();
+	void close_connections();
 
 	string			name;
-	unix_server		*owner_server;
+	tx_engine<unix_server, unix_msg_t> *tx_eng;
 	uint32_t		msoid;
 	vector<mspace *>	ms_list;
 	vector<mso_user>	users;

@@ -172,47 +172,7 @@ void purge_loc_mso_list()
 
 	HIGH("Local mso list purged!!!!\n");
 } /* purge_loc_mso() */
-#if 0
-/**
- * loc_mso_get_close_notify_thread
- */
-pthread_t loc_mso_get_close_notify_thread(mso_h msoh)
-{
-	/* Check for NULL msoh */
-	if (!msoh) {
-		WARN("NULL msoh passed\n");
-		return (pthread_t)0;
-	}
 
-	/* An mso that is created (owned) has no close notify threads */
-	if (((struct loc_mso *)msoh)->owned) {
-		WARN("msoh(0x%" PRIx64 ") is owned!\n", msoh);
-		return (pthread_t)0;
-	}
-
-	return ((struct loc_mso *)msoh)->close_notify_thread;
-} /* loc_mso_get_close_notify_thread() */
-
-/**
- * loc_mso_get_close_notify_thread
- */
-msg_q<mq_close_mso_msg> *loc_mso_get_close_notify_mq(mso_h msoh)
-{
-	/* Check for NULL msoh */
-	if (!msoh) {
-		WARN("NULL msoh passed\n");
-		return nullptr;
-	}
-
-	/* An mso that is created (owned) has no threads */
-	if (((struct loc_mso *)msoh)->owned) {
-		WARN("msoh(0x%" PRIx64 ") is owned!\n", msoh);
-		return nullptr;
-	}
-
-	return ((struct loc_mso *)msoh)->close_notify_mq;
-} /* loc_mso_get_close_notify_thread() */
-#endif
 /**
  * Finds mso with a particular msoid
  */
@@ -322,25 +282,6 @@ int remove_loc_mso(uint32_t msoid)
 
 	return rc;
 } /* remove_loc_mso() */
-#if 0
-/**
- * mso_is_open
- *
- * @name	Memory space owner's name
- *
- * @return	true if memory space is open, false otherwise
- */
-bool mso_is_open(const char *name)
-{
-	has_mso_name	hmn(name);
-
-	pthread_mutex_lock(&loc_mso_mutex);
-	bool is_open = find_if(loc_mso_list.begin(), loc_mso_list.end(), hmn)
-							!= loc_mso_list.end();
-	pthread_mutex_unlock(&loc_mso_mutex);
-	return is_open;
-} /* mso_is_open() */
-#endif
 
 /**
  * add_loc_ms

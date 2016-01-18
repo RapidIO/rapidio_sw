@@ -45,129 +45,96 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_types.h"
 #include "liblog.h"
 
-#include "rdma_mq_msg.h"
+#include "rdmad_unix_msg.h"
 #include "rdmad_ms_owner.h"
 #include "rdmad_mspace.h"
 #include "rdmad_main.h"
 
-int ms_owner::close_connections()
+void ms_owner::close_connections()
 {
 	if (!shutting_down) {
 		INFO("Sending messages for all apps which have 'open'ed this mso\n");
 	}
 
-	bool ok = true;
-
 	/* Send messages for all connections indicating mso will be destroyed */
 	for (mso_user& user : users) {
-		struct mq_close_mso_msg	*close_msg;
+		tx_engine<unix_server, unix_msg_t> *user_tx_eng =
+			user.get_tx_engine();
 
-		user.get_mq()->get_send_buffer(&close_msg);
-		close_msg->msoid = msoid;
-		if (user.get_mq()->send()) {
-			ERR("Failed to send close message for mso_conn_id(0x%X)\n",
-					mso_conn_id);
-			ok = false;
-		}
+		unix_msg_t	out_msg;
+
+		out_msg.category = RDMA_REQ_RESP;
+		out_msg.type     = FORCE_CLOSE_MSO;
+		out_msg.force_close_mso_req.msoid = msoid;
+		user_tx_eng->send_message(&out_msg);
 	}
-
-	return ok ? 0 : -1;
 } /* close_connections() */
 
-ms_owner::ms_owner(const char *owner_name, unix_server *owner_server, uint32_t msoid) :
-	 name(owner_name), owner_server(owner_server), msoid(msoid),
-	 mso_conn_id(MSO_CONN_ID_START)
+ms_owner::ms_owner(const char *owner_name,
+		   tx_engine<unix_server, unix_msg_t> *tx_eng, uint32_t msoid) :
+	           name(owner_name), tx_eng(tx_eng), msoid(msoid),
+	           mso_conn_id(MSO_CONN_ID_START)
 {
 }
 
 ms_owner::~ms_owner()
 {
-	/* Do not bother with warning if we are shutting down. It causes Valgrind
-	 * issues as well. */
-	if (!shutting_down && close_connections()) {
-		WARN("One or more connections to msoid(0x%X) failed to close\n",
-				msoid);
-	}
+	/* Force-close all open connections to this memory space owner */
+	close_connections();
 
-	/* Destroy all memory spaces */
+	/* Destroy all memory spaces owned by this memory space owner */
 	for (mspace* ms : ms_list) {
 		DBG("Destroying '%s'\n", ms->get_name());
 		ms->destroy();
 	}
-
-	/* Destroy message queues in the users' info */
-	for (auto user : users) {
-		delete user.get_mq();
-		/* Don't delete the server */
-	}
 } /* ~ms_owner() */
 
-int ms_owner::open(uint32_t *msoid, uint32_t *mso_conn_id, unix_server *user_server)
+int ms_owner::open(uint32_t *msoid, uint32_t *mso_conn_id,
+		tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
 	/* Don't allow the same application to open the same mso twice */
-	auto it = find(begin(users), end(users), user_server);
+	auto it = find(begin(users), end(users), user_tx_eng);
 	if (it != end(users)) {
 		ERR("mso('%s') already open by same app\n", name.c_str());
 		return -1;
 	}
 
-	stringstream		qname;
-
-	/* Prepare POSIX message queue name */
-	qname << '/' << name << this->mso_conn_id;
-	
-	/* Create POSIX message queue for request-close messages */
-	msg_q<mq_close_mso_msg>	*close_mq;
-	try {
-		close_mq = new msg_q<mq_close_mso_msg>(qname.str(), MQ_CREATE);
-	}
-	catch(msg_q_exception e) {
-		CRIT("Failed to create close_mq: %s\n", e.msg.c_str());
-		return -1;
-	}
-	INFO("Message queue %s created\n", qname.str().c_str());
-
 	/* Return msoid and mso_conn_id */
 	*mso_conn_id = this->mso_conn_id++;
 	*msoid = this->msoid;
-	users.emplace_back(*mso_conn_id, user_server, close_mq);
+	users.emplace_back(*mso_conn_id, user_tx_eng);
 
 	return 1;
 } /* open() */
 
-int ms_owner::close(unix_server *other_server)
+int ms_owner::close(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
-	auto it = find(begin(users), end(users), other_server);
+	auto rc = 0;
+	auto it = find(begin(users), end(users), user_tx_eng);
 	if (it == end(users)) {
-		ERR("mso is not using specified socket server\n");
-		return -1;
+		/* Not found */
+		ERR("mso is not using specified tx engine\n");
+		rc = -1;
+	} else {
+		/* Erase user element */
+		users.erase(it);
 	}
 
-	/* Destroy message queue used to notify user */
-	DBG("Destroying mq('%s')\n", it->get_mq()->get_name().c_str());
-	delete it->get_mq();
-
-	/* Erase user element containing user server socket and mso_conn_id */
-	users.erase(it);
-
-	return 1;
+	return rc;
 } /* close() */
 
 int ms_owner::close(uint32_t mso_conn_id)
 {
+	auto rc = 0;
 	auto it = find(begin(users), end(users), mso_conn_id);
 	if (it == end(users)) {
 		ERR("Cannot find user with mso_conn_id(0x%X)\n", mso_conn_id);
-		return -1;
+		rc = -1;
+	} else {
+		/* Erase user element */
+		users.erase(it);
 	}
-
-	/* Destroy message queue used to notify user */
-	DBG("Destroying mq('%s')\n", it->get_mq()->get_name().c_str());
-	delete it->get_mq();
-	
-	/* Erase user element containing user server socket and mso_conn_id */
-	users.erase(it);
-	return 1;
+	return rc;
 } /* close() */
 
 void ms_owner::add_ms(mspace *ms)
