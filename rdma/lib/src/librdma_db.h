@@ -58,16 +58,14 @@ struct loc_mso {
 	uint32_t mso_conn_id;
 	bool owned;
 	/* If !owned, the following 2 fields apply */
-	pthread_t close_notify_thread;
-	msg_q<mq_close_mso_msg>	  *close_notify_mq;
+//	pthread_t close_notify_thread;
+//	msg_q<mq_close_mso_msg>	  *close_notify_mq;
 };
 
 mso_h add_loc_mso(const char* mso_name,
 		  uint32_t msoid,
 		  uint32_t mso_conn_id,
-		  bool owned,
-		  pthread_t close_notify_thread,
-		  msg_q<mq_close_mso_msg> *close_notify_mq);
+		  bool owned);
 
 void dump_loc_ms(void);
 

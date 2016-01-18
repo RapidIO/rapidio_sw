@@ -45,13 +45,13 @@ inline int rdmad_get_mport_id(int *mport_id)
 } /* rdmad_get_mport_id() */
 
 inline int rdmad_create_mso(const char *mso_name,
-			    uint32_t *msoid, unix_server *server=nullptr)
+			    uint32_t *msoid, unix_server *server)
 {
 	return owners.create_mso(mso_name, server, msoid);
 } /* rdmad_create_mso() */
 
 inline int rdmad_open_mso(const char *mso_name, uint32_t *msoid,
-		   	  uint32_t *mso_conn_id, unix_server *server=nullptr)
+		   	  uint32_t *mso_conn_id, unix_server *server)
 {
 	return owners.open_mso(mso_name, msoid, mso_conn_id, server);
 } /* rdmad_open_mso() */

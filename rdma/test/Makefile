@@ -74,7 +74,9 @@ bat_child_SRC = src/bat_child.cpp
 
 sanity_SRC = src/sanity.cpp
 
-all: bat_server bat_client bat_child sanity
+sanity2_SRC = src/sanity2.cpp
+
+all: bat_server bat_client bat_child sanity sanity2
 
 # Batch Automated Test (BAT)
 bat_server: $(BAT_DEPS) $(bat_server_SRC)
@@ -91,6 +93,10 @@ bat_child: $(BAT_DEPS) $(bat_child_SRC)
 
 sanity: $(BAT_DEPS) $(sanity_SRC)
 	@echo ---------- Building sanity ...
+	$(BAT_BUILD_STRING)
+
+sanity2: $(BAT_DEPS) $(sanity2_SRC)
+	@echo ---------- Building sanity2 ...
 	$(BAT_BUILD_STRING)
 
 clean:

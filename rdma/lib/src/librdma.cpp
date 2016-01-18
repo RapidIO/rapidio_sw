@@ -695,6 +695,13 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 		/* Check that library has been initialized */
 		LIB_INIT_CHECK(rc);
 
+		/* Check for NULL parameters */
+		if (!owner_name || !msoh) {
+			ERR("NULL param: owner_name=%p, msoh=%p\n",
+							owner_name, msoh);
+			throw RDMA_NULL_PARAM;
+		}
+
 		/* Check that owner does not already exist */
 		if (find_mso_by_name(owner_name)) {
 			ERR("Cannot create another owner named '%s'\n", owner_name);
@@ -729,8 +736,7 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 		}
 
 		/* Store in database. mso_conn_id = 0 and owned = true */
-		*msoh = add_loc_mso(owner_name, out_msg.create_mso_out.msoid,
-						0, true, (pthread_t)0, nullptr);
+		*msoh = add_loc_mso(owner_name, out_msg.create_mso_out.msoid, 0, true);
 		if (!*msoh) {
 			WARN("add_loc_mso() failed, msoid = 0x%X\n",
 						out_msg.create_mso_out.msoid);
@@ -745,6 +751,7 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 	return rc;
 } /* rdma_create_mso_h() */
 
+#if 0
 /**
  * This thread receives mq_close_mso_msg from the daemon when the owner
  * of the mso destroys the mso while there is an open connection to this
@@ -794,6 +801,7 @@ static void *mso_close_thread_f(void *arg)
 	delete mq;
 	pthread_exit(0);
 } /* mso_close_thread_f() */
+#endif
 
 int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 {
@@ -806,18 +814,28 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		/* Check that library has been initialized */
 		LIB_INIT_CHECK(rc);
 
-		/* If the MSO was already open, just return the handle */
-		if (mso_is_open(owner_name)) {
-			WARN("%s is already open!\n", owner_name);
-			*msoh = find_mso_by_name(owner_name);
-			throw RDMA_ALREADY_OPEN;
+		/* Check for NULL parameters */
+		if (!owner_name || !msoh) {
+			ERR("NULL param: owner_name=%p, msoh=%p\n",
+							owner_name, msoh);
+			throw RDMA_NULL_PARAM;
 		}
 
-		/* Prevent buffer overflow due to very long name */
-		size_t len = strlen(owner_name);
-		if (len > UNIX_MS_NAME_MAX_LEN) {
-			ERR("String 'owner_name' is too long (%d)\n", len);
-			throw RDMA_NAME_TOO_LONG;
+		/* Check if the mso was created by same app, or already open */
+		*msoh = find_mso_by_name(owner_name);
+		loc_mso *mso;
+		if (*msoh) {
+			mso = (loc_mso *)(*msoh);
+			/* Don't allow opening from the same app that created the mso */
+			if (mso->owned) {
+				ERR("Cannot open mso '%s' from creator app\n",
+								owner_name);
+				throw RDMA_CANNOT_OPEN_MSO;
+			} else {
+				/* Already open, just return the handle */
+				WARN("%s is already open!\n", owner_name);
+				throw RDMA_ALREADY_OPEN;
+			}
 		}
 
 		/* Set up input parameters */
@@ -839,7 +857,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 			ERR("Failed to open mso '%s', rc = %d\n", owner_name, rc);
 			throw out_msg.open_mso_out.status;
 		}
-
+#if 0
 		/* Open message queue for receiving mso close messages. Such messages are
 		 * sent when the owner of an 'mso' decides to destroy the mso. The close
 		 * messages are sent to users of the mso who have opened the mso.
@@ -859,23 +877,16 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 			return RDMA_PTHREAD_FAIL;
 		}
 		INFO("Created mso_close_thread with argument %d passed to it\n", mso_close_mq);
-
+#endif
 		/* Store in database, mso_conn_id from daemon, 'owned' is false, save the
 		 * thread and message queue to be used to notify app when mso is destroyed
 		 * by its owner. */
 		*msoh = add_loc_mso(owner_name,
 			    out_msg.open_mso_out.msoid,
 			    out_msg.open_mso_out.mso_conn_id,
-			    false,
-			    mso_close_thread,
-			    mso_close_mq);
+			    false);
 		if (!*msoh) {
 			WARN("add_loc_mso() failed, msoid = 0x%X\n", out_msg.open_mso_out.msoid);
-			if(pthread_cancel(mso_close_thread)) {
-				CRIT("Failed to cancel mso_close_thread: %s\n",
-					strerror(errno));
-			}
-			delete mso_close_mq;
 			throw RDMA_DB_ADD_FAIL;
 		}
 	} /* try */
@@ -893,65 +904,57 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 
 int rdma_close_mso_h(mso_h msoh)
 {
-	close_mso_input		in;
-	close_mso_output	out;
-	int			ret;
+	auto rc = 0;
 
 	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
+	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
+		/* Check for NULL msoh */
+		if (!msoh) {
+			WARN("msoh is NULL\n");
+			throw RDMA_NULL_PARAM;
+		}
 
-	/* Check for NULL msoh */
-	if (!msoh) {
-		WARN("msoh is NULL\n");
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
+		/* Check if msoh has already been removed (as a result of the
+		 *  owner destroying, the owner dying, the daemon dying..etc.) */
+		if (!mso_h_exists(msoh)) {
+			WARN("msoh no longer exists\n");
+			throw RDMA_INVALID_MSO;
+		}
 
-	/* Check if msoh has already been closed (as a result of the owner
-	 * destroying it and sending a close message to this user */
-	if (!mso_h_exists(msoh)) {
-		WARN("msoh no longer exists\n");
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_MSO;
-	}
+		/* Get list of memory spaces opened by this owner */
+		list<loc_ms *>	ms_list(get_num_ms_by_msoh(msoh));
+		get_list_msh_by_msoh(msoh, ms_list);
 
-	/* Get list of memory spaces opened by this owner */
-	list<struct loc_ms *>	ms_list(get_num_ms_by_msoh(msoh));
-	get_list_msh_by_msoh(msoh, ms_list);
+		DBG("ms_list now has %d elements\n", ms_list.size());
 
-	DBG("ms_list now has %d elements\n", ms_list.size());
-
-	/* For each one of the memory spaces, close */
-	bool	ok =  true;
-	for_each(ms_list.cbegin(), ms_list.cend(),
-		[&](loc_ms *ms)
-		{
-			if (rdma_close_ms_h(msoh, ms_h(ms))) {
-				WARN("rdma_close_ms_h failed: msoh = 0x%"
-					PRIx64 ", msh = 0x%" PRIx64 "\n",
+		/* For each one of the memory spaces in this mso, close */
+		bool	ok =  true;
+		for_each(begin(ms_list),
+			 begin(ms_list),
+			[&](loc_ms *ms)
+			{
+				if (rdma_close_ms_h(msoh, ms_h(ms))) {
+					WARN("rdma_close_ms_h failed: msoh = 0x%"
+						PRIx64 ", msh = 0x%" PRIx64 "\n",
 								msoh, ms_h(ms));
 					ok = false;	/* Modify on error only */
 				} else {
 					INFO("msh(0x%" PRIx64 ") owned by msoh(0x%"
 						PRIx64 ") closed\n", ms_h(ms), msoh);
 				}
-		});
+			});
 
-	/* Fail on any error */
-	if (!ok) {
-		ERR("Failed to close one or more mem spaces\n");
-		sem_post(&rdma_lock);
-		return RDMA_MS_CLOSE_FAIL;
-	}
-
+		/* Fail on error. We can't close an mso if there are ms's open */
+		if (!ok) {
+			ERR("Failed to close one or more mem spaces\n");
+			throw RDMA_MS_CLOSE_FAIL;
+		}
+#if 0
 	/* Since we are closing the mso ourselves, the mso_close_thread_f
 	 * should be killed. We do this before closing the message queue
 	 * since otherwise I'm not sure what the mq_receive() will do.
@@ -979,42 +982,46 @@ int rdma_close_mso_h(mso_h msoh)
 
 	/* CLOSE_MSO will remove the message queue corresponding to the mso
 	 * user from the ms_owner struct in the daemon */
+#endif
+		/* Set up Unix message parameters */
+		unix_msg_t  in_msg;
 
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-	in.msoid = ((struct loc_mso *)msoh)->msoid;
-	in.mso_conn_id = ((struct loc_mso *)msoh)->mso_conn_id;
-	in_msg->type = CLOSE_MSO;
-	in_msg->close_mso_in = in;
+		in_msg.close_mso_in.msoid = ((loc_mso *)msoh)->msoid;
+		in_msg.close_mso_in.mso_conn_id = ((loc_mso *)msoh)->mso_conn_id;
+		in_msg.type 	= CLOSE_MSO;
+		in_msg.category = RDMA_REQ_RESP;
 
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		sem_post(&rdma_lock);
-		return ret;
-	}
+		/* Call into daemon */
+		unix_msg_t  out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc) {
+			ERR("Failed in CLOSE_MSO daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
 
-	out = out_msg->close_mso_out;
+		/* Check status returned by command on the daemon side */
+		if (out_msg.close_mso_out.status != 0) {
+			ERR("Failed to close mso(0x%X) in daemon\n",
+						in_msg.close_mso_in.msoid);
+			throw out_msg.close_mso_out.status;
+		}
 
-	/* Check status returned by command on the daemon side */
-	if (out.status != 0) {
-		ERR("Failed to close mso(0x%X) in daemon\n", in.msoid);
-		sem_post(&rdma_lock);
-		return out.status;
-	}
+		/* Take it out of database */
+		if (remove_loc_mso(msoh) < 0) {
+			WARN("Failed to find 0x%" PRIx64 " in db\n", msoh);
+			throw RDMA_DB_REM_FAIL;
+		}
 
-	/* Take it out of database */
-	if (remove_loc_mso(msoh) < 0) {
-		WARN("Failed to find 0x%" PRIx64 " in db\n", msoh);
-		sem_post(&rdma_lock);
-		return RDMA_DB_REM_FAIL;
-	}
-	INFO("msoh(0x%" PRIx64 ") removed from local database\n", msoh);
+		INFO("msoh(0x%" PRIx64 ") removed from local database\n", msoh);
+	} /* try */
+	catch(int e) {
+		rc = e;
+	} /* catch */
+
 	DBG("EXIT\n");
 	sem_post(&rdma_lock);
-	return out.status;
+
+	return rc;
 } /* rdma_close_mso_h() */
 
 int rdma_destroy_mso_h(mso_h msoh)
@@ -1046,12 +1053,13 @@ int rdma_destroy_mso_h(mso_h msoh)
 			{
 				if (rdma_destroy_ms_h(msoh, ms_h(ms))) {
 					WARN("rdma_destroy_ms_h failed: msoh = 0x%"
-							PRIx64 ", msh = 0x%" PRIx64 "\n",
-							msoh, ms_h(ms));
+						PRIx64 ", msh = 0x%" PRIx64 "\n",
+						msoh, ms_h(ms));
 					ok = false;
 				} else {
 					DBG("msh(0x%" PRIx64 ") owned by msoh(0x%"
-							PRIx64 ") destroyed\n", ms_h(ms), msoh);
+							PRIx64 ") destroyed\n",
+							ms_h(ms), msoh);
 				}
 			}
 		);
@@ -1538,13 +1546,13 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 
 		/* Set up input parameters */
 		unix_msg_t  in_msg;
-		unix_msg_t  out_msg;
 		in_msg.type     = DESTROY_MS;
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.destroy_ms_in.msid = ms->msid;
 		in_msg.destroy_ms_in.msoid= ((loc_mso *)msoh)->msoid;
 
 		/* Call into daemon */
+		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
 			ERR("Failed in DESTROY_MS daemon_call, rc = %d\n", rc);

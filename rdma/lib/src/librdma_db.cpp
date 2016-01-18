@@ -99,8 +99,7 @@ int rdma_db_init()
  * @return 	Handle to memory space owner, could be 0 (NULL) if failed
  */
 mso_h add_loc_mso(const char *mso_name, uint32_t msoid, uint32_t mso_conn_id,
-		  bool owned, pthread_t close_notify_thread,
-		  msg_q<mq_close_mso_msg> *close_notify_mq)
+		  bool owned)
 {
 	/* Allocate */
 	struct loc_mso *mso = (struct loc_mso *)malloc(sizeof(struct loc_mso));
@@ -114,8 +113,6 @@ mso_h add_loc_mso(const char *mso_name, uint32_t msoid, uint32_t mso_conn_id,
 	mso->msoid	= msoid;
 	mso->mso_conn_id= mso_conn_id;
 	mso->owned	= owned;
-	mso->close_notify_thread = close_notify_thread;
-	mso->close_notify_mq	 = close_notify_mq;
 
 	/* Add to list */
 	pthread_mutex_lock(&loc_mso_mutex);
@@ -175,7 +172,7 @@ void purge_loc_mso_list()
 
 	HIGH("Local mso list purged!!!!\n");
 } /* purge_loc_mso() */
-
+#if 0
 /**
  * loc_mso_get_close_notify_thread
  */
@@ -215,7 +212,7 @@ msg_q<mq_close_mso_msg> *loc_mso_get_close_notify_mq(mso_h msoh)
 
 	return ((struct loc_mso *)msoh)->close_notify_mq;
 } /* loc_mso_get_close_notify_thread() */
-
+#endif
 /**
  * Finds mso with a particular msoid
  */
@@ -325,7 +322,7 @@ int remove_loc_mso(uint32_t msoid)
 
 	return rc;
 } /* remove_loc_mso() */
-
+#if 0
 /**
  * mso_is_open
  *
@@ -343,6 +340,7 @@ bool mso_is_open(const char *name)
 	pthread_mutex_unlock(&loc_mso_mutex);
 	return is_open;
 } /* mso_is_open() */
+#endif
 
 /**
  * add_loc_ms
