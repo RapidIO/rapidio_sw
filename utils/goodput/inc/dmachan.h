@@ -71,8 +71,9 @@ public:
 
   enum {
     SIM_INJECT_TIMEOUT = 1,
-    SIM_INJECT_INP_ERR = 2,
-    SIM_INJECT_OUT_ERR = 4
+    SIM_INJECT_ERR_RSP = 2,
+    SIM_INJECT_INP_ERR = 4,
+    SIM_INJECT_OUT_ERR = 8
   };
 
   typedef struct {

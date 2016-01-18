@@ -2108,7 +2108,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	
         	for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
-			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = __LINE__; break; }
 
 			info->dmaopt[oi].destid      = info->did;
 			info->dmaopt[oi].bcount      = info->acc_size;
@@ -2409,7 +2409,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 		info->dmaopt[oi].bcount      = info->acc_size;
 		info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
 
-		if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+		if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = __LINE__; break; }
 
 		switch(op) {
 		case 'T': // TX - Master, it does its own start_iter_stats/finish_iter_stats
@@ -2576,7 +2576,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 
 		MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
         	while (!info->stop_req) {
-			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = __LINE__; break; }
 
                 	info->umd_dma_abort_reason = 0;
 			uint64_t rx_ts = 0;
@@ -2638,7 +2638,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 		opt.letter = info->umd_letter;
 		char str[PAGE_4K+1] = {0};
                 for (int cnt = 0; !info->stop_req; cnt++) {
-			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = __LINE__; break; }
 
 			bool q_was_full = false;
 			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
@@ -2744,7 +2744,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 		opt.destid = info->did;
 
         	while (!info->stop_req) {
-			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = __LINE__; break; }
 
 			bool q_was_full = false;
                 	info->umd_dma_abort_reason = 0;
@@ -2815,7 +2815,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 		opt.mbox   = info->umd_chan;
 		char str[PAGE_4K+1] = {0};
                 for (int cnt = 0; !info->stop_req; cnt++) {
-			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = 1; break; }
+			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = __LINE__; break; }
 
 			bool q_was_full = false;
 			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;

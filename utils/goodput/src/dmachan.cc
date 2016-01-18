@@ -148,10 +148,10 @@ void DMAChannel::resetHw()
   m_sim_abort_reason = 0;
   m_sim_err_stat     = 0;
   m_sim_fifo_wp      = 0;
-  // XXX what about m_sim_dma_rp ??
+  m_sim_dma_rp       = 0;
 
-  if (m_sim) return;
-
+  // NOTE: Got thru the motions even in sim mode.
+ 
   if(dmaIsRunning()) {
     wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_SUSP);
 
@@ -860,6 +860,7 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
       // Pretend registers report fault
       do {
         if (fault_bmask & SIM_INJECT_TIMEOUT) { m_sim_abort_reason = 5; break; }
+        if (fault_bmask & SIM_INJECT_ERR_RSP) { m_sim_abort_reason = 6; break; }
         if (fault_bmask & SIM_INJECT_INP_ERR) { m_sim_err_stat = TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP; break; }
         if (fault_bmask & SIM_INJECT_OUT_ERR) { m_sim_err_stat = TSI721_RIO_SP_ERR_STAT_OUTPUT_ERR_STOP; break; }
       } while(0);
