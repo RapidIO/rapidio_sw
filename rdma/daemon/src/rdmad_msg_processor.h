@@ -37,8 +37,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "msg_processor.h"
 #include "liblog.h"
 #include "rdmad_dispatch.h"
+#include "tx_engine.h"
 
-class unix_tx_engine;
 class unix_server;
 struct unix_msg_t;
 
@@ -49,7 +49,8 @@ public:
 	{
 		auto rc = 0;
 		unix_msg_t *msg = static_cast<unix_msg_t*>(vmsg);
-		unix_tx_engine *tx_eng = static_cast<unix_tx_engine*>(vtx_eng);
+		tx_engine<unix_server, unix_msg_t> *tx_eng
+			= static_cast<tx_engine<unix_server, unix_msg_t>*>(vtx_eng);
 
 		switch(msg->type) {
 		case GET_MPORT_ID:

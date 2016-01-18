@@ -34,40 +34,40 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_DISPATCH_H
 
 #include "rdmad_unix_msg.h"
-#include "rdmad_tx_engine.h"
+#include "tx_engine.h"
 
-int get_mport_id_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int get_mport_id_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int create_mso_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int create_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int open_mso_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int open_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int close_mso_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int close_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int destroy_mso_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int destroy_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int create_ms_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int create_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int open_ms_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int open_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int close_ms_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int close_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int destroy_ms_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int destroy_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int create_msub_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int create_msub_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int destroy_msub_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int destroy_msub_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int accept_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int accept_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int undo_accept_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int undo_accept_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int send_connect_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int send_connect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int undo_connect_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int undo_connect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int send_disconnect_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int send_disconnect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-int get_ibwin_properties_disp(const unix_msg_t *in_msg, unix_tx_engine *tx_eng);
+int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 #endif

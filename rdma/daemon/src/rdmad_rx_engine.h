@@ -58,8 +58,8 @@ public:
 
 	 void cleanup()
 	 {
-		 owners.close_mso(client.get());
-		 owners.destroy_mso(client.get());
+		 owners.close_mso(tx_eng);
+		 owners.destroy_mso(tx_eng);
 	 }
 };
 

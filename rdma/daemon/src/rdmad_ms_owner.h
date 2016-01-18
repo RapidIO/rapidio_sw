@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "msg_q.h"
 #include "rdma_types.h"
+#include "tx_engine.h"
 
 using std::vector;
 using std::string;

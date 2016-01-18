@@ -37,7 +37,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 
 #include "rdmad_ms_owner.h"
-
+//#include "rdmad_tx_engine.h"
+#include "rdmad_unix_msg.h"
+#include "tx_engine.h"
 #include "libcli.h"
 #include "liblog.h"
 
@@ -45,7 +47,6 @@ using std::vector;
 
 /* Reference class declarations */
 class ms_owner;
-class unix_server;
 
 class ms_owners
 {
@@ -55,14 +56,14 @@ public:
 
 	void dump_info(struct cli_env *env);
 
-	int create_mso(const char *name, unix_server *other_server, uint32_t *msoid);
+	int create_mso(const char *name, tx_engine<unix_server, unix_msg_t> *tx_eng, uint32_t *msoid);
 	int open_mso(const char *name, uint32_t *msoid, uint32_t *mso_conn_id,
-			unix_server *user_server);
+			tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 	int close_mso(uint32_t msoid, uint32_t mso_conn_id);
-	void close_mso(unix_server *other_server);
+	void close_mso(tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-	int destroy_mso(unix_server *other_server);
+	int destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng);
 	int destroy_mso(uint32_t msoid);
 
 	ms_owner* operator[](uint32_t msoid);

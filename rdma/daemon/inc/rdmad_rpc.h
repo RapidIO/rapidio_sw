@@ -36,7 +36,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 
 #include "unix_sock.h"
+#include "tx_engine.h"
 #include "rdmad_main.h"
+
 
 inline int rdmad_get_mport_id(int *mport_id)
 {
@@ -45,15 +47,15 @@ inline int rdmad_get_mport_id(int *mport_id)
 } /* rdmad_get_mport_id() */
 
 inline int rdmad_create_mso(const char *mso_name,
-			    uint32_t *msoid, unix_server *server)
+			    uint32_t *msoid, tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	return owners.create_mso(mso_name, server, msoid);
+	return owners.create_mso(mso_name, tx_eng, msoid);
 } /* rdmad_create_mso() */
 
 inline int rdmad_open_mso(const char *mso_name, uint32_t *msoid,
-		   	  uint32_t *mso_conn_id, unix_server *server)
+		uint32_t *mso_conn_id, tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	return owners.open_mso(mso_name, msoid, mso_conn_id, server);
+	return owners.open_mso(mso_name, msoid, mso_conn_id, tx_eng);
 } /* rdmad_open_mso() */
 
 inline int rdmad_close_mso(uint32_t msoid, uint32_t mso_conn_id)
