@@ -847,7 +847,13 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
   for (; m_sim_dma_rp < m_dma_wr; m_sim_dma_rp++) { // XXX "<=" ??
     // Handle wrap-arounds in BD array, m_dma_wr can go up to 0xFFFFFFFFL
     const int idx = m_sim_dma_rp % m_bd_num;
-    if (idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
+
+    struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
+    uint32_t* bytes03 = (uint32_t*)bd_p;
+    const uint32_t dtype = *bytes03 >> 29;
+
+    // Soft restart might have inserted T3 anywhere. Skip checks on them.
+    if (dtype == DTYPE3 || idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
 
     const uint64_t bd_linear = m_dmadesc.win_handle + idx * DMA_BUFF_DESCR_SIZE;
     assert(bd_linear < HW_END);
