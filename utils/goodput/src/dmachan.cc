@@ -874,7 +874,7 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
       // XXX FIXME: This will trip the assert above
 
       break; // for loop
-    }
+    } // END FAULT
 
     sts_ptr[m_sim_fifo_wp*8] = bd_linear;
 
@@ -885,4 +885,55 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
   pthread_spin_unlock(&m_bl_splock);
 
   return bd_cnt;
+}
+
+/** \brief Clean up queue of offending BDs. Replace them with T3 (jump+1) NOPs.
+ * \note If there's nothing pending call \ref softRestart(true)
+ * \return Count of pending BDs left after cleanup
+ */
+int DMAChannel::cleanupBDQueue()
+{
+  int pending = 0;
+  struct dmadesc T3_bd; memset(&T3_bd, 0, sizeof(T3_bd));
+
+  pthread_spin_lock(&m_bl_splock);
+
+  do {
+// This is the place where we faulted // XXX Really or rp-1?
+    uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
+
+    // Is there more stuff queued after faulting BD? -- Does NOT handle FFFFFFFF wrap-around!
+    if (! (m_dma_wr > rp)) break; // signal upstairs to nuke all BDs, etc. Nothing to salvage.
+
+// Replace all "free" BDs with T3 (jump+1) NOPs, just in case, Soviet-style 
+    for (int idx = 0; idx < (m_bd_num-1); idx++) {
+      if (m_bl_busy[idx]) continue;
+
+      const uint32_t next_off = (idx + 1) * DMA_BUFF_DESCR_SIZE;
+      struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
+
+      dmadesc_setT3_nextptr(T3_bd, (uint64_t)(m_dmadesc.win_handle + next_off));
+      T3_bd.pack(bd_p);
+    }
+
+// FIXME: Look at destid and nuke all similar BDs. Not done now.
+
+   const int idx = rp % m_bd_num;
+   if (idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
+
+   pending = m_dma_wr - rp - 1;
+
+// Replace faulting BD with T3 (jump+1) NOP
+    {{
+    const uint32_t next_off = (idx + 1) * DMA_BUFF_DESCR_SIZE;
+    struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
+
+    dmadesc_setT3_nextptr(T3_bd, (uint64_t)(m_dmadesc.win_handle + next_off));
+    T3_bd.pack(bd_p);
+    }}
+  } while(0);
+
+  pthread_spin_unlock(&m_bl_splock);
+
+  return pending;
 }

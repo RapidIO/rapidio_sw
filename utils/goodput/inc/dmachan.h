@@ -303,6 +303,7 @@ public:
   }
 
   void softRestart(const bool nuke_bds = true);
+  int cleanupBDQueue();
 
   volatile uint64_t   m_fifo_scan_cnt;
   volatile uint64_t   m_tx_cnt; ///< Number of DMA ops that succeeded / showed up in FIFO

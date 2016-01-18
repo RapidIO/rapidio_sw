@@ -2478,7 +2478,9 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 				// nuke faulting BD
 
-				info->umd_dch->softRestart(true); // Nuke BDs for now
+				const int pending = info->umd_dch->cleanupBDQueue();
+
+				info->umd_dch->softRestart(pending == 0); // Wipe clean BD queue if no outstanding
 			}
 
                 	finish_iter_stats(info);
