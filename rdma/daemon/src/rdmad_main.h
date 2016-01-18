@@ -40,9 +40,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_inbound.h"
 #include "rdmad_ms_owners.h"
 #include "rdmad_cm.h"
-#include "rdmad_rx_engine.h"
-#include "rdmad_tx_engine.h"
-#include "rdmad_unix_msg.h"
 
 
 void shutdown(struct peer_info *peer);

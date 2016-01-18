@@ -77,7 +77,7 @@ public:
 		worker_thread->detach();
 	} /* ctor */
 
-	~rx_engine()
+	virtual ~rx_engine()
 	{
 		DBG("dtor\n");
 		if (!worker_is_dead) {
@@ -168,6 +168,14 @@ protected:
 	};
 
 	/**
+	 * Clean up action specific to application using this Rx engine
+	 */
+	virtual void cleanup()
+	{
+
+	} /* cleanup() */
+
+	/**
 	 * Mark engines as dead, and trigger engine cleanup code.
 	 */
 	void die()
@@ -240,6 +248,7 @@ protected:
 				}
 			} else if (received_len == 0) {
 				CRIT("Other side has closed connection\n");
+				cleanup();
 				die();
 			} else { /* received_len < 0 */
 				assert(!"received_len < 0");

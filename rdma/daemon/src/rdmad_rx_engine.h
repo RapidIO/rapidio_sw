@@ -38,6 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "msg_processor.h"
 #include "rx_engine.h"
 #include "cm_sock.h"
+#include "rdmad_main.h"
 
 using std::shared_ptr;
 
@@ -54,6 +55,12 @@ public:
 			sem_t *engine_cleanup_sem) :
 	rx_engine<unix_server, unix_msg_t>(client, message_processor, tx_eng, engine_cleanup_sem)
 	{}
+
+	 void cleanup()
+	 {
+		 owners.close_mso(client.get());
+		 owners.destroy_mso(client.get());
+	 }
 };
 
 class cm_server_rx_engine : public rx_engine<cm_server, cm_msg_t>
