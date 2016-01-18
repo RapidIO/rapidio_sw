@@ -739,13 +739,20 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 		ret = riocp_pe_maint_write_remote(pe->mport, any_id, pe->hopcount+1,
 				0x100 + RIO_PORT_N_ACK_STS_CSR(peer_port), ackid_stat);
 		if (ret < 0) {
-			RIOCP_ERROR("Unable to update peer port %u for port %u with ackid_stat 0x%08x\n",
+			RIOCP_WARN("Unable to update peer port %u for port %u with ackid_stat 0x%08x\n",
 				peer_port, port, ackid_stat);
+		}
+
+		ret = riocp_pe_maint_write_remote(pe->mport, any_id, pe->hopcount+1,
+				0x100 + RIO_PORT_N_ERR_STS_CSR(peer_port), (port_err_stat & 0xe0000000) | 0x07120214);
+		if (ret < 0) {
+			RIOCP_ERROR("Unable to clear errors on peer port %u for port %u\n",
+				peer_port, port);
 			return ret;
 		}
 	}
 
-	RIOCP_TRACE("Peer link sync on pe 0x%08x:%u successfull\n", pe->comptag, port);
+	RIOCP_TRACE("Peer link sync on pe 0x%08x:%u successful\n", pe->comptag, port);
 	return ret;
 }
 
