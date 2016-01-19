@@ -976,6 +976,7 @@ int DMAChannel::cleanupBDQueue()
   }
 #endif
 
+  const uint64_t ts_s = rdtsc();
   pthread_spin_lock(&m_bl_splock);
 
   do {
@@ -1027,6 +1028,7 @@ int DMAChannel::cleanupBDQueue()
   } while(0);
 
   pthread_spin_unlock(&m_bl_splock);
+  const uint64_t ts_e = rdtsc();
 
 #ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
@@ -1035,6 +1037,8 @@ int DMAChannel::cleanupBDQueue()
     DBG("\n\tm_bl_busy_size=%d BD map after cleanup: %s\n", m_bl_busy_size, s.c_str());
   }
 #endif
+
+  INFO("dT = %llu TICKS\n", (ts_e - ts_s));
 
   return pending;
 }
