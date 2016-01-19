@@ -845,7 +845,7 @@ int rdma_close_mso_h(mso_h msoh)
 		 *  owner destroying, the owner dying, the daemon dying..etc.) */
 		if (!mso_h_exists(msoh)) {
 			WARN("msoh no longer exists\n");
-			throw RDMA_INVALID_MSO;
+			throw 0;
 		}
 
 		/* Get list of memory spaces opened by this owner */
@@ -1021,9 +1021,16 @@ int rdma_create_ms_h(const char *ms_name,
 			throw RDMA_NULL_PARAM;
 		}
 
+		/* Prevent buffer overflow due to very long name */
+		size_t len = strlen(ms_name);
+		if (len > UNIX_MS_NAME_MAX_LEN) {
+			ERR("String 'ms_name' is too long (%d)\n", len);
+			throw RDMA_NAME_TOO_LONG;
+		}
+
 		/* Disallow creating a duplicate ms name */
 		if (find_loc_ms_by_name(ms_name)) {
-			WARN("A memory space named \'%s\' exists\n", ms_name);
+			WARN("A memory space named '%s' exists\n", ms_name);
 			throw RDMA_DUPLICATE_MS;
 		}
 
@@ -1032,17 +1039,9 @@ int rdma_create_ms_h(const char *ms_name,
 		 * But if caller knows their 'req_bytes' are aligned, allow them
 		 * to pass NULL for 'bytes' */
 		uint32_t dummy_bytes;
-		if (bytes == nullptr)
+		if (bytes == NULL)
 			bytes = &dummy_bytes;
 		*bytes = round_up_to_4k(req_bytes);
-
-		/* Prevent buffer overflow due to very long name */
-		size_t len = strlen(ms_name);
-		if (len > UNIX_MS_NAME_MAX_LEN) {
-			ERR("String 'ms_name' is too long (%d)\n", len);
-			throw;
-			return RDMA_NAME_TOO_LONG;
-		}
 
 		/* Set up Unix message parameters */
 		unix_msg_t	in_msg;
@@ -1075,7 +1074,6 @@ int rdma_create_ms_h(const char *ms_name,
 				out_msg.create_ms_out.phys_addr,
 				out_msg.create_ms_out.rio_addr,
 				0, true,
-				0, nullptr,
 				0, nullptr);
 		if (!*msh) {
 			ERR("Failed to store ms in database\n");
@@ -1093,7 +1091,7 @@ int rdma_create_ms_h(const char *ms_name,
 	return rc;
 } /* rdma_create_ms_h() */
 
-static int destroy_msubs_in_msh(ms_h msh)
+int destroy_msubs_in_msh(ms_h msh)
 {
 	uint32_t 	msid = ((struct loc_ms *)msh)->msid;
 
@@ -1130,288 +1128,171 @@ static int destroy_msubs_in_msh(ms_h msh)
 	return 0;
 } /* destroy_msubs_in_msh */
 
-static void *ms_close_thread_f(void *arg)
+int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
+						uint32_t *bytes, ms_h *msh)
 {
-	msg_q<mq_close_ms_msg>	*close_mq = (msg_q<mq_close_ms_msg> *)arg;
-
-	/* Check for NULL */
-	if (!arg) {
-		CRIT("Null 'arg' passed. Exiting\n");
-		pthread_exit(0);
-	}
-
-	/* Wait for the POSIX mq_close_ms_msg */
-	INFO("Waiting for mq_close_ms_msg message...\n");
-	mq_close_ms_msg *close_msg;
-	close_mq->get_recv_buffer(&close_msg);
-	if (close_mq->receive()) {
-		CRIT("Failed to receive close message\n");
-		delete close_mq;
-		pthread_exit(0);
-	}
-
-	INFO("mq_close_ms_msg for msid= 0x%X\n", close_msg->msid);
-	/* Find the ms in local database */
-	ms_h msh = find_loc_ms(close_msg->msid);
-	if (!msh) {
-		CRIT("Could not find ms(0x%X)\n", close_msg->msid);
-		delete close_mq;
-		pthread_exit(0);
-	}
-
-	/* If this 'user' had created any msubs for that 'ms', then
-	 * those msubs should be destroyed as well.
-	 */
-	if (destroy_msubs_in_msh(msh)) {
-		WARN("Failed to destroy msubs in msid(0x%X)\n", close_msg->msid);
-	}
-
-	/* Remove ms with specified msid from database */
-	if (remove_loc_ms(msh)) {
-		WARN("Failed for msid(0x%X)\n", close_msg->msid);
-	}
-	INFO("msid(0x%X) removed from database\n", close_msg->msid);
-
-	/* Close the queue */
-	delete close_mq;
-
-	INFO("mq_close_ms_msg processed successfully\n");
-	pthread_exit(0);
-} /* ms_close_thread_f() */
-
-int rdma_open_ms_h(const char *ms_name,
-		   mso_h msoh,
-		   uint32_t flags,
-		   uint32_t *bytes,
-		   ms_h *msh)
-{
-	open_ms_input 	in;
-	open_ms_output 	out;
-	int		ret;
+	auto rc = 0;
 
 	DBG("ENTER, ms_name = %s\n", ms_name);
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
-
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
-
-	/* Prevent buffer overflow due to very long name */
-	size_t len = strlen(ms_name);
-	if (len > UNIX_MS_NAME_MAX_LEN) {
-		ERR("String 'ms_name' is too long (%d)\n", len);
-		sem_post(&rdma_lock);
-		return -3;
-	}
-
-	/* Set up input parameters */
-	strcpy(in.ms_name, ms_name);
-	in.msoid   = ((struct loc_mso *)msoh)->msoid;
-	in.flags   = flags;
-
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-
-	in_msg->type = OPEN_MS;
-	in_msg->open_ms_in = in;
-
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		sem_post(&rdma_lock);
-		return ret;
-	}
-
-	out = out_msg->open_ms_out;
-
-	/* Check status returned by command on the daemon side */
-	if (out.status != 0) {
-		ERR("Failed to open ms('%s') in daemon\n", in.ms_name);
-		sem_post(&rdma_lock);
-		return out.status;
-	}
-
-	INFO("Opened '%s' in the daemon\n", ms_name);
-
-	/* Create message queue for receiving ms close messages. */
-	stringstream  qname;
-	qname << '/' << ms_name << out.ms_conn_id;
-	msg_q<mq_close_ms_msg>	*close_mq;
 	try {
-		/* Call to open_ms_1() creates the message queue, so open it */
-		close_mq = new msg_q<mq_close_ms_msg>(qname.str(), MQ_OPEN);
-	}
-	catch(msg_q_exception& e) {
-		CRIT("Failed to create message queue: %s\n", e.msg.c_str());
-		sem_post(&rdma_lock);
-		return -6;
-	}
-	INFO("Created close_mq: '%s'\n", qname.str().c_str());
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	/* Create thread for handling ms close requests (destory notifications) */
-	pthread_t  ms_close_thread;
-	if (pthread_create(&ms_close_thread, NULL, ms_close_thread_f, close_mq)) {
-		CRIT("Failed to create ms_close_thread: %s\n", strerror(errno));
-		delete close_mq;
-		sem_post(&rdma_lock);
-		return -7;
-	}
-	INFO("Created ms_close_thread\n");
+		/* Check for NULL parameters */
+		if (!ms_name || !msoh || !msh) {
+			ERR("NULL param: ms_name=%p, msoh=%u, msh=%p",
+					ms_name, msoh, msh);
+			throw RDMA_NULL_PARAM;
+		}
 
-	/* Store memory space info in database */
-	*msh = add_loc_ms(ms_name,
-			  out.bytes,
-			  msoh,
-			  out.msid,
-			  out.phys_addr,
-			  out.rio_addr,
-			  out.ms_conn_id,
-			  false,
-			  0,
-			  nullptr,
-			  ms_close_thread,
-			  close_mq);
-	if (!*msh) {
-		CRIT("Failed to store ms in database\n");
-		pthread_cancel(ms_close_thread);
-		delete close_mq;
-		sem_post(&rdma_lock);
-		return -3;
-	}
-	INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")\n",
+		/* Prevent buffer overflow due to very long name */
+		size_t len = strlen(ms_name);
+		if (len > UNIX_MS_NAME_MAX_LEN) {
+			ERR("String 'ms_name' is too long (%d)\n", len);
+
+			throw RDMA_NAME_TOO_LONG;
+		}
+
+		/* Set up Unix message parameters */
+		unix_msg_t	in_msg;
+		in_msg.type     = OPEN_MS;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.open_ms_in.flags = flags;
+		in_msg.open_ms_in.msoid = ((loc_mso *)msoh)->msoid;
+		strcpy(in_msg.open_ms_in.ms_name, ms_name);
+
+		/* Call into daemon */
+		unix_msg_t	out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in OPEN_MS daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
+
+		/* Failed to open ms? */
+		if (out_msg.open_ms_out.status) {
+			ERR("Failed to open ms '%s' in daemon\n", ms_name);
+			throw out_msg.open_ms_out.status;
+		}
+
+		INFO("Opened '%s' in the daemon\n", ms_name);
+
+		/* Store memory space info in database */
+		*msh = add_loc_ms(ms_name,
+				out_msg.open_ms_out.bytes,
+				msoh,
+				out_msg.open_ms_out.msid,
+				out_msg.open_ms_out.phys_addr,
+				out_msg.open_ms_out.rio_addr,
+				out_msg.open_ms_out.ms_conn_id,
+				false,
+				0,
+				nullptr);
+		if (!*msh) {
+			CRIT("Failed to store ms in database\n");
+			throw RDMA_DB_ADD_FAIL;
+		}
+		INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")\n",
 								ms_name, *msh);
-	*bytes = out.bytes;
-
+		*bytes = out_msg.open_ms_out.bytes;
+	}
+	catch(int e) {
+		rc = e;
+	}
 	sem_post(&rdma_lock);
-	return 0;
+	return rc;
 } /* rdma_open_ms_h() */
-
 
 int rdma_close_ms_h(mso_h msoh, ms_h msh)
 {
-	close_ms_input	in;
-	close_ms_output	out;
-	int		ret;
-
+	auto rc = 0;
 	DBG("ENTER with msoh=0x%" PRIx64 ", msh = 0x%" PRIx64 "\n", msoh, msh);
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
+	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
-
-	/* Check for NULL parameters */
-	if (!msoh || !msh) {
-		ERR("Invalid param(s). Failing.\n");
-		return RDMA_NULL_PARAM;
-	}
-
-	/* Check if msh has already been closed (as a result of the owner
-	 * destroying it and sending a close message to this user) */
-	if (!loc_ms_exists(msh)) {
-		/* This is NOT an error; the memory space was destroyed
-		 * by its owner. Consider it closed by just warning and
-		 * returning a success code */
-		WARN("msh no longer exists\n");
-		return 0;
-	}
-
-	/* Destroy msubs opened under this msh */
-	if (destroy_msubs_in_msh(msh)) {
-		ERR("Failed to destroy msubs belonging to msh(0x%" PRIx64 ")\n", msh);
-		return RDMA_MSUB_DESTROY_FAIL;
-	}
-
-	/* Kill the disconnection thread, if it exists */
-	pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
-	if (!disc_thread) {
-		WARN("disc_thread is NULL.\n");
-	} else {
-
-		HIGH("Killing the wait-for-disconnection thread!!\n");
-		if (pthread_cancel(disc_thread)) {
-			WARN("Failed to cancel disc_thread for msh(0x%X):%s\n",
-						msh, strerror(errno));
+		/* Check for NULL parameters */
+		if (!msoh || !msh) {
+			ERR("Invalid param(s). Failing.\n");
+			throw RDMA_NULL_PARAM;
 		}
-	}
 
-	/* Since we are closing the ms ourselves, the ms_close_thread_f
-	 * should be killed. We do this before closing the message queue
-	 * since otherwise I'm not sure what the mq_receive() will do.
-	 */
-	pthread_t  close_thread = loc_ms_get_close_thread(msh);
-	if (!close_thread) {
-		WARN("close_thread is NULL!!\n");
-	} else {
-		HIGH("Killing the wait-for-close thread\n");
-		if (pthread_cancel(close_thread)) {
-			WARN("phread_cancel(close_thread): %s\n",
-							strerror(errno));
+		/* Check if msh has already been closed (as a result of the owner
+		 * destroying it and sending a close message to this user) */
+		if (!loc_ms_exists(msh)) {
+			/* This is NOT an error; the memory space was destroyed
+			 * by its owner. Consider it closed by just warning and
+			 * returning a success code */
+			WARN("msh no longer exists\n");
+			throw 0;
 		}
+
+		/* Destroy msubs opened under this msh */
+		if (destroy_msubs_in_msh(msh)) {
+			ERR("Failed to destroy msubs belonging to msh(0x%" PRIx64 ")\n", msh);
+			throw RDMA_MSUB_DESTROY_FAIL;
+		}
+
+		/* Kill the disconnection thread, if it exists */
+		pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
+		if (!disc_thread) {
+			WARN("disc_thread is NULL.\n");
+		} else {
+			HIGH("Killing the wait-for-disconnection thread!!\n");
+			if (pthread_cancel(disc_thread)) {
+				WARN("Failed to cancel disc_thread for msh(0x%X):%s\n",
+							msh, strerror(errno));
+			}
+		}
+
+		/* Kill the disconnection message queue */
+		msg_q<mq_rdma_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
+		if (disc_mq == nullptr) {
+			WARN("disc_mq is NULL\n");
+		} else {
+			delete disc_mq;
+		}
+
+		/* Set up Unix message parameters */
+		unix_msg_t	in_msg;
+		in_msg.type     = CLOSE_MS;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.close_ms_in.msid = ((loc_ms *)msh)->msid;
+		in_msg.close_ms_in.ms_conn_id = ((loc_ms *)msh)->ms_conn_id;
+
+		/* Call into daemon */
+		unix_msg_t	out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in CLOSE_MS daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
+
+		/* Failed to open ms? */
+		if (out_msg.close_ms_out.status) {
+			ERR("Failed to close ms '%s' in daemon\n",
+						((loc_ms *)msh)->name);
+			throw out_msg.close_ms_out.status;
+		}
+
+		INFO("Opened '%s' in the daemon\n", ((loc_ms *)msh)->name);
+
+		/* Take it out of databse */
+		if (remove_loc_ms(msh) < 0) {
+			ERR("Failed to find msh(0x%" PRIx64 ") in db\n", msh);
+			throw RDMA_DB_REM_FAIL;
+		}
+		INFO("msh(0x%" PRIx64 ") removed from local database\n", msh);
 	}
-
-	/* Kill the disconnection message queue */
-	msg_q<mq_rdma_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
-	if (disc_mq == nullptr) {
-		WARN("disc_mq is NULL\n");
-	} else {
-		delete disc_mq;
+	catch(int e) {
+		rc = e;
 	}
-
-	/* Since the daemon created the 'close_mq', closing it BEFORE
-	 * calling close_ms_1() ensures it can be unlinked there withour error
-	 */
-	msg_q<mq_close_ms_msg> *close_mq = loc_ms_get_destroy_notify_mq(msh);
-	if (close_mq == nullptr) {
-		WARN("close_mq is NULL\n");
-	} else {
-		delete close_mq;
-	}
-
-	/* Set up input parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-	in.msid    	= ((struct loc_ms *)msh)->msid;
-	in.ms_conn_id   = ((struct loc_ms *)msh)->ms_conn_id;
-
-	/* CLOSE_MS will remove the message queue corresponding to the ms
-	 * user from the ms_owner struct in the daemon, and close the queue */
-	in_msg->type = CLOSE_MS;
-	in_msg->close_ms_in = in;
-
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		return ret;
-	}
-	out = out_msg->close_ms_out;
-
-	/* Check status returned by command on the daemon side */
-	if (out.status != 0) {
-		ERR("Failed to close ms(0x%X) in daemon\n", in.msid);
-		return out.status;
-	}
-
-	/* Take it out of databse */
-	if (remove_loc_ms(msh) < 0) {
-		ERR("Failed to find msh(0x%" PRIx64 ") in db\n", msh);
-		return RDMA_DB_REM_FAIL;
-	}
-	INFO("msh(0x%" PRIx64 ") removed from local database\n", msh);
 	DBG("EXIT - success\n");
-	return 0;
+	return rc;
 } /* rdma_close_ms_h() */
-
 
 int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 {

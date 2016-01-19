@@ -98,9 +98,10 @@ RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=c++11 -c -g -ggdb \
 
 RDMALIB_SOURCES = lib/src/librdma.cpp \
 		lib/src/librdma_db.cpp \
+		lib/src/librdma_dispatch.cpp \
 		src/rdma_mq_msg.c
 
-RDMALIB_OBJS    = librdma.o librdma_db.o rdma_mq_msg.o
+RDMALIB_OBJS    = librdma.o librdma_db.o librdma_dispatch.o rdma_mq_msg.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
 all: librdma.a rdmad rsktd test samples rrdma

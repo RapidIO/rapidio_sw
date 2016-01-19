@@ -94,11 +94,6 @@ struct loc_ms {
 	/* The following fields are used for connect/disconnect notification. */
 	pthread_t  disc_thread;
 	msg_q<mq_rdma_msg> *disc_notify_mq;
-
-	/* If opened ONLY, they are used to indicate the ms must be closed because it is
-	 * being destroyed. */
-	pthread_t  close_thread;
-	msg_q<mq_close_ms_msg> *close_mq;
 };
 
 ms_h add_loc_ms(const char *ms_name,
@@ -110,9 +105,7 @@ ms_h add_loc_ms(const char *ms_name,
 		uint32_t mso_conn_id,
 		bool owned,
 		pthread_t disc_thread,
-		msg_q<mq_rdma_msg> *disc_msg,
-		pthread_t close_thread,
-		msg_q<mq_close_ms_msg> *close_mq);
+		msg_q<mq_rdma_msg> *disc_msg);
 
 int remove_loc_ms(ms_h msh);
 ms_h find_loc_ms(uint32_t msid);

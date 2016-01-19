@@ -296,8 +296,6 @@ int remove_loc_mso(uint32_t msoid)
  * @owned	true if creator, false if just opened ms
  * @disc_thread	thread that handles disconnections for this ms
  * @disc_notify_mq	message queue for disconnect notifications
- * @close_thread  thread that closes ms in response to destroy notification
- * @destroy_notify_mq	message queue for destroy notification
  *
  * @return pointer to stored struct, NULL on failure
  */
@@ -310,9 +308,7 @@ ms_h add_loc_ms(const char *ms_name,
 		uint32_t ms_conn_id,
 		bool owned,
 		pthread_t disc_thread,
-		msg_q<mq_rdma_msg> *disc_notify_mq,
-		pthread_t close_thread,
-		msg_q<mq_close_ms_msg> *close_mq)
+		msg_q<mq_rdma_msg> *disc_notify_mq)
 {
 	/* Allocate */
 	struct loc_ms *msp = (struct loc_ms *)malloc(sizeof(struct loc_ms));
@@ -332,8 +328,6 @@ ms_h add_loc_ms(const char *ms_name,
 	msp->owned	= owned;
 	msp->disc_thread = disc_thread;
 	msp->disc_notify_mq = disc_notify_mq;
-	msp->close_thread = close_thread;
-	msp->close_mq	 = close_mq;
 	msp->accepted	= false;
 
 	/* Add to list */
@@ -509,13 +503,13 @@ private:
  */
 ms_h find_loc_ms_by_name(const char *ms_name)
 {
-	has_ms_name	hmn(ms_name);
 	ms_h		msh;
 
 	pthread_mutex_lock(&loc_ms_mutex);
-	auto it = find_if(loc_ms_list.begin(), loc_ms_list.end(), hmn);
+	auto it = find_if(loc_ms_list.begin(), loc_ms_list.end(),
+							has_ms_name(ms_name));
 	if (it == loc_ms_list.end()) {
-		WARN("ms with name = \'%s\' not found\n", ms_name);
+		WARN("ms with name = '%s' not found\n", ms_name);
 		msh = 0;
 	} else {
 		msh = (ms_h)(*it);
@@ -524,34 +518,6 @@ ms_h find_loc_ms_by_name(const char *ms_name)
 
 	return msh;
 } /* find_loc_ms_by_name() */
-
-/**
- * loc_ms_get_close_thread
- */
-pthread_t loc_ms_get_close_thread(ms_h msh)
-{
-	/* Check for NULL msh */
-	if (!msh) {
-		WARN("NULL msh passed\n");
-		return (pthread_t)0;
-	}
-
-	return ((struct loc_ms *)msh)->close_thread;
-} /* loc_ms_get_close_thread() */
-
-/**
- * loc_ms_get_destroy_notify_mq
- */
-msg_q<mq_close_ms_msg> *loc_ms_get_destroy_notify_mq(ms_h msh)
-{
-	/* Check for NULL msh */
-	if (!msh) {
-		WARN("NULL msh passed\n");
-		return nullptr;
-	}
-
-	return ((struct loc_ms *)msh)->close_mq;
-} /* loc_ms_get_destroy_notify_thread() */
 
 /**
  * loc_ms_get_disc_thread
@@ -1139,14 +1105,14 @@ private:
  */
 void remove_rem_msub_by_loc_msh(ms_h loc_msh)
 {
-	rem_msub_has_this_loc_msh	has_it(loc_msh);
-
 	pthread_mutex_lock(&rem_msub_mutex);
 	/* Save old end of the list */
 	auto old_end = end(rem_msub_list);
 
 	/* remove_if() returns the new end after elements are removed */
-	auto new_end = remove_if(rem_msub_list.begin(), rem_msub_list.end(), has_it);
+	auto new_end = remove_if(begin(rem_msub_list),
+				 end(rem_msub_list),
+				 rem_msub_has_this_loc_msh(loc_msh));
 
 	/* If the new end is the same as the old one, nothing was removed */
 	if (new_end == old_end) {
@@ -1156,8 +1122,6 @@ void remove_rem_msub_by_loc_msh(ms_h loc_msh)
 		WARN("No remote msubs stored for loc_msh(0x%lX)\n", loc_msh);
 	}
 	pthread_mutex_unlock(&rem_msub_mutex);
-
-
 } /* remove_rem_msub_by_loc_msh() */
 
 void purge_local_database(void)

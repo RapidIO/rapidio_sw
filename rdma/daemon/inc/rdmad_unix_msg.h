@@ -79,6 +79,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /* Type codes for RDMA_REQ_RESP messages */
 constexpr uint32_t FORCE_CLOSE_MSO = 0x1001;
+constexpr uint32_t FORCE_CLOSE_MS  = 0x1002;
+
 
 /* rdmad_is_alive() arguments */
 struct rdmad_is_alive_input {
@@ -291,6 +293,10 @@ struct force_close_mso_req_input {
 	uint32_t msoid;
 };
 
+struct force_close_ms_req_input {
+	uint32_t msid;
+};
+
 /* Unix message structure */
 struct unix_msg_t {
 	rdma_msg_type	type;
@@ -336,7 +342,9 @@ struct unix_msg_t {
 		struct get_ibwin_properties_input  get_ibwin_properties_in;
 		struct get_ibwin_properties_output get_ibwin_properties_out;
 		struct force_close_mso_req_input   force_close_mso_req;
+		struct force_close_ms_req_input    force_close_ms_req;
 	};
+
 };
 
 #endif

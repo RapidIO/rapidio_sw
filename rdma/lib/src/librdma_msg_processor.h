@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "msg_processor.h"
 #include "liblog.h"
 #include "librdma_db.h"
+#include "librdma_dispatch.h"
 
 class unix_tx_engine;
 class unix_client;
@@ -60,24 +61,11 @@ public:
 		switch(msg->type) {
 
 		case FORCE_CLOSE_MSO:
-		{
-			HIGH("FORCE_CLOSE_MSO received\n");
-			/* Find the mso in the local database by its msoid */
-			mso_h msoh = find_mso(msg->force_close_mso_req.msoid);
-			if (!msoh) {
-				CRIT("Could not find msoid(0x%X) in database\n",
-						msg->force_close_mso_req.msoid);
-			} else {
-				/* Remove mso with specified msoid, msoh from database */
-				if (remove_loc_mso(msoh)) {
-					WARN("Failed removing msoid(0x%X) msoh(0x%" PRIx64 ")\n",
-						msg->force_close_mso_req.msoid, msoh);
-				} else {
-					HIGH("msoid(0x%X) force-closed\n",
-						msg->force_close_mso_req.msoid, msoh);
-				}
-			}
-		}
+			force_close_mso(msg->force_close_mso_req.msoid);
+		break;
+
+		case FORCE_CLOSE_MS:
+			force_close_ms(msg->force_close_ms_req.msid);
 		break;
 
 		default:

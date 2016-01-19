@@ -19,6 +19,17 @@ int main()
 	else
 		cout << "msoh opened successfully" << endl;
 
+	/* Open ms */
+	ms_h	msh;
+	uint32_t msh_size;
+	cout << "Press any key to open mso\n";
+	cin.get();
+	rc = rdma_open_ms_h("fareed", msoh, 0, &msh_size, &msh);
+	if (rc)
+		cerr << "open_mso_h() failed" << endl;
+	else
+		cout << "msh opened successfully" << endl;
+
 	cout << "Press any key to close mso\n";
 	cin.get();
 	rc = rdma_close_mso_h(msoh);
