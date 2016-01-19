@@ -150,8 +150,10 @@ void DMAChannel::resetHw()
   m_sim_fifo_wp      = 0;
   m_sim_dma_rp       = 0;
 
-  // NOTE: Got thru the motions even in sim mode.
+  m_dma_wr = 0;
  
+  if (m_sim) return;
+
   if(dmaIsRunning()) {
     wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_SUSP);
 
@@ -163,7 +165,7 @@ void DMAChannel::resetHw()
   wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_INIT);
   wr32dmachan(TSI721_DMAC_INT, TSI721_DMAC_INT_ALL);
   usleep(10);
-  wr32dmachan(TSI721_DMAC_DWRCNT, m_dma_wr = 0);
+  wr32dmachan(TSI721_DMAC_DWRCNT, m_dma_wr);
 }
 
 void DMAChannel::setInbound()
@@ -637,6 +639,14 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 {
   if(m_restart_pending) return 0;
 
+#ifdef UDMA_SIM_DEBUG
+  if (7 <= g_level) { // DEBUG
+    std::string s;
+    dumpBDs(s);
+    DBG("\n\tm_bl_busy_size=%d BD map before scan: %s\n", m_bl_busy_size, s.c_str());
+  }
+#endif
+
   int compl_size = 0;
   DmaCompl_t compl_hwbuf[m_bd_num*2];
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
@@ -645,11 +655,6 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
   int cwi = 0; // completed work index
 
   m_fifo_scan_cnt++;
-
-#if 0//def DEBUG
-  if(hexdump64bit(m_dmacompl.win_ptr, m_dmacompl.win_size))
-    DBG("\n\tFIFO hw RP=%u WP=%u\n", getFIFOReadCount(), getFIFOWriteCount());
-#endif
 
   /* Check and clear descriptor status FIFO entries */
   while (sts_ptr[j] && !umdemo_must_die) {
@@ -767,6 +772,15 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     // BDs might be completed out of order.
     pthread_spin_lock(&m_bl_splock); 
 
+#ifdef UDMA_SIM_DEBUG
+    { // clear DTYPE - DEBUG
+      struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (item.opt.bd_idx * DMA_BUFF_DESCR_SIZE));
+      uint32_t* bytes03 = (uint32_t*)bd_p;
+      *bytes03 &= 0x0FFFFFFFUL;
+      *bytes03 |= 0x7 << 29;
+    }
+#endif
+
     if (umdemo_must_die)
       return 0;
     m_bl_busy[item.opt.bd_idx] = false;
@@ -818,7 +832,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
 
   end_bd.pack(end_bd_p);
 
-  const uint32_t WR = m_dma_wr;
+  const uint32_t DMA_WP = m_dma_wr;
 
   resetHw(); // clears m_dma_wr
 
@@ -834,16 +848,15 @@ void DMAChannel::softRestart(const bool nuke_bds)
   wr32dmachan(TSI721_DMAC_DSSZ, m_sts_log_two);
 
 done:
-  if (! nuke_bds) {
-    m_dma_wr = WR;
-    if (!m_sim) wr32dmachan(TSI721_DMAC_DWRCNT, WR);
-  }
+  m_dma_wr = nuke_bds? 0: DMA_WP;
+
+  setWriteCount(m_dma_wr); // knows about sim
 
   pthread_spin_unlock(&m_bl_splock);
   m_restart_pending = 0;
   const uint64_t ts_e = rdtsc();
 
-  INFO("dT = %llu TICKS %s\n", (ts_e - ts_s), nuke_bds? "NUKED BDs": "");
+  INFO("dT = %llu TICKS; DMA WP := %d%s\n", (ts_e - ts_s), DMA_WP, (nuke_bds? "; NUKED BDs": ""));
 }
 
 /** \brief Simulate FIFO completions; NO errors are injected
@@ -860,11 +873,20 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
   const uint64_t HW_END = m_dmadesc.win_handle + m_dmadesc.win_size;
 
-  DBG("\n\tSTART: simRP=%d WP=%d simFifoWP=%d\n", m_sim_dma_rp, m_dma_wr, m_sim_fifo_wp);
+#ifdef UDMA_SIM_DEBUG
+  if (7 <= g_level) { // DEBUG
+    DBG("START: simRP=%d WP=%d simFifoWP=%d m_bl_busy_size=%d\n", m_sim_dma_rp, m_dma_wr, m_sim_fifo_wp, m_bl_busy_size);
+
+    std::string s;
+    dumpBDs(s);
+    DBG("\n\tm_bl_busy_size=%d BD map: %s\n", m_bl_busy_size, s.c_str());
+  }
+#endif
 
   pthread_spin_lock(&m_bl_splock);
 
   int bd_cnt = 0;
+  bool faulted = false;
   for (; m_sim_dma_rp < m_dma_wr; m_sim_dma_rp++) { // XXX "<=" ??
     // Handle wrap-arounds in BD array, m_dma_wr can go up to 0xFFFFFFFFL
     const int idx = m_sim_dma_rp % m_bd_num;
@@ -892,7 +914,7 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
         if (fault_bmask & SIM_INJECT_OUT_ERR) { m_sim_err_stat = TSI721_RIO_SP_ERR_STAT_OUTPUT_ERR_STOP; break; }
       } while(0);
 
-      // XXX FIXME: This will trip the assert above
+      faulted = true;
 
       break; // for loop
     } // END FAULT
@@ -905,9 +927,21 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
 
   pthread_spin_unlock(&m_bl_splock);
 
-  DBG("\n\tEND: simRP=%d WP=%d simFifoWP=%d processed %d BDs\n", m_sim_dma_rp, m_dma_wr, m_sim_fifo_wp, bd_cnt);
+  DBG("END: simRP=%d WP=%d simFifoWP=%d processed %d BDs%s\n", m_sim_dma_rp, m_dma_wr, m_sim_fifo_wp, bd_cnt, faulted? " WITH FAULT": "");
 
   return bd_cnt;
+}
+
+void DMAChannel::dumpBDs(std::string& s)
+{
+  std::stringstream ss;
+  for (int idx = 0; idx < m_bd_num; idx++) {
+    struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
+    uint32_t* bytes03 = (uint32_t*)bd_p;
+    const uint32_t dtype = *bytes03 >> 29;
+    ss << dtype << " ";
+  }
+  s.append(ss.str());
 }
 
 /** \brief Clean up queue of offending BDs. Replace them with T3 (jump+1) NOPs.
@@ -921,12 +955,12 @@ int DMAChannel::cleanupBDQueue()
   struct dmadesc T3_bd; memset(&T3_bd, 0, sizeof(T3_bd));
   dmadesc_setdtype(T3_bd, DTYPE3);
 
+#ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
-    DBG("\n\tQ_size=%d DMA RP/%s=%d WP=%d\n",
-        queueSize(),
+    DBG("DMA RP/%s=%d WP=%d m_bl_busy_size=%d\n",
         m_sim? "sim": "Tsi721",
         m_sim? m_sim_dma_rp: getReadCount(),
-        m_dma_wr);
+        m_dma_wr, m_bl_busy_size);
 
     std::stringstream ss;
     uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
@@ -939,8 +973,8 @@ int DMAChannel::cleanupBDQueue()
       else ss << "!" << dtype << "! ";
     }
     DBG("\n\tBD map before cleanup: %s\n", ss.str().c_str());
-    DBG("\n\tm_bl_busy_size=%d\n", m_bl_busy_size);
   }
+#endif
 
   pthread_spin_lock(&m_bl_splock);
 
@@ -949,10 +983,11 @@ int DMAChannel::cleanupBDQueue()
     uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
 
     // Is there more stuff queued after faulting BD? -- Does NOT handle FFFFFFFF wrap-around!
+    if (m_bl_busy_size < 2) break;
     if (! (m_dma_wr > rp)) break; // signal upstairs to nuke all BDs, etc. Nothing to salvage.
 
 // Replace all "free" BDs with T3 (jump+1) NOPs, just in case, Soviet-style 
-    for (int idx = 0; idx < (m_bd_num-1); idx++) {
+    for (int idx = 0; idx < (rp % m_bd_num); idx++) {
       if (m_bl_busy[idx]) continue;
 
       const uint32_t next_off = (idx + 1) * DMA_BUFF_DESCR_SIZE;
@@ -960,6 +995,10 @@ int DMAChannel::cleanupBDQueue()
 
       dmadesc_setT3_nextptr(T3_bd, (uint64_t)(m_dmadesc.win_handle + next_off));
       T3_bd.pack(bd_p);
+
+      m_bl_busy[idx] = true;
+      m_bl_busy_size++;
+      m_pending_work[idx].valid = 0xdeaddeedL;
     }
 
 // FIXME: Look at destid and nuke all similar BDs. Not done now.
@@ -983,25 +1022,19 @@ int DMAChannel::cleanupBDQueue()
     T3_bd.pack(bd_p);
     }}
 
-    m_bl_busy[idx] = false;
-    m_bl_busy_size--;
-    assert(m_bl_busy_size >= 0);
+    // Block at faulting idx still "busy"
     m_pending_work[idx].valid = 0xdeaddeedL;
   } while(0);
 
   pthread_spin_unlock(&m_bl_splock);
 
+#ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
-    std::stringstream ss;
-    for (int idx = 0; idx < m_bd_num; idx++) {
-      struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
-      uint32_t* bytes03 = (uint32_t*)bd_p;
-      const uint32_t dtype = *bytes03 >> 29;
-      ss << dtype << " ";
-    }
-    DBG("\n\tBD map after cleanup: %s\n", ss.str().c_str());
-    DBG("\n\tm_bl_busy_size=%d\n", m_bl_busy_size);
+    std::string s;
+    dumpBDs(s);
+    DBG("\n\tm_bl_busy_size=%d BD map after cleanup: %s\n", m_bl_busy_size, s.c_str());
   }
+#endif
 
   return pending;
 }
