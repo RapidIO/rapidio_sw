@@ -1,0 +1,4 @@
+thr 0 -1 0
+wait 0 h
+sleep 0.1
+nrudma 0 -1 7 $buf $sts 2 22abcdef 1000
