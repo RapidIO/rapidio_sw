@@ -2334,6 +2334,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	uint64_t cnt = 0;
 	int iter = 0;
 	bool sim = false;
+	bool skip_fault = false;
 
 	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
@@ -2445,7 +2446,14 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 				}
 			}
 
-			if (sim) info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
+			if (sim) {
+				if (skip_fault) {
+					info->umd_dch->simFIFO(0, 0); // No faults after a restart to process all T3 BDs
+					skip_fault = false;
+				} else {
+					info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
+				}
+			}
 
 			DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
 			while (!q_was_full && !info->stop_req && (bd_f_cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8)) == 0) { ; }
@@ -2481,6 +2489,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 				const int pending = info->umd_dch->cleanupBDQueue();
 
 				info->umd_dch->softRestart(pending == 0); // Wipe clean BD queue if no outstanding
+				skip_fault = true;
 			}
 
                 	finish_iter_stats(info);

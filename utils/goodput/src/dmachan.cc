@@ -78,7 +78,7 @@ void DMAChannel::init()
   m_fifo_scan_cnt = 0;
   m_tx_cnt        = 0;
   m_bl_busy       = NULL;
-  m_bl_busy_size  = -1;
+  m_bl_busy_size  = -666;
   m_check_reg     = false;
   m_restart_pending = 0;
   m_sts_log_two    = 0;
@@ -590,7 +590,7 @@ void DMAChannel::cleanup()
 
   if(m_bl_busy != NULL) {
     free(m_bl_busy); m_bl_busy = NULL;
-    m_bl_busy_size = -1;
+    m_bl_busy_size = -42;
   }
 }
 
@@ -727,6 +727,11 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
       continue;
     }
 
+    if(m_pending_work[idx].valid == 0xdeaddeedL) { // cleaned by cleanup?
+      pthread_spin_unlock(&m_pending_work_splock);
+      continue;
+    }
+
     // With the spinlock in mind we make a copy here
     WorkItem_t item = m_pending_work[idx];
     m_pending_work[idx].valid = 0xdeadbeefL;
@@ -778,10 +783,16 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
   return cwi;
 }
 
+/** \brief Restarts DMA channel
+ * \param nuke_bds Do a clean slate restart, everything is zero'ed
+ * \note IF nuke_bds==false THEN the current DMA WP is reprogrammed with the expectation that the list of BDs was cleaned by \ref cleanupBDQueue
+ */
 void DMAChannel::softRestart(const bool nuke_bds)
 {
   const uint64_t ts_s = rdtsc();
   m_restart_pending = 1;
+
+  pthread_spin_lock(&m_bl_splock);
 
   // Clear FIFO for good measure
   memset(m_dmacompl.win_ptr, 0, m_dmacompl.win_size);
@@ -807,6 +818,8 @@ void DMAChannel::softRestart(const bool nuke_bds)
 
   end_bd.pack(end_bd_p);
 
+  const uint32_t WR = m_dma_wr;
+
   resetHw(); // clears m_dma_wr
 
   if (m_sim) goto done;
@@ -821,10 +834,16 @@ void DMAChannel::softRestart(const bool nuke_bds)
   wr32dmachan(TSI721_DMAC_DSSZ, m_sts_log_two);
 
 done:
+  if (! nuke_bds) {
+    m_dma_wr = WR;
+    if (!m_sim) wr32dmachan(TSI721_DMAC_DWRCNT, WR);
+  }
+
+  pthread_spin_unlock(&m_bl_splock);
   m_restart_pending = 0;
   const uint64_t ts_e = rdtsc();
 
-  INFO("dT = %llu TICKS\n", (ts_e - ts_s));
+  INFO("dT = %llu TICKS %s\n", (ts_e - ts_s), nuke_bds? "NUKED BDs": "");
 }
 
 /** \brief Simulate FIFO completions; NO errors are injected
@@ -841,6 +860,8 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
   const uint64_t HW_END = m_dmadesc.win_handle + m_dmadesc.win_size;
 
+  DBG("\n\tSTART: simRP=%d WP=%d simFifoWP=%d\n", m_sim_dma_rp, m_dma_wr, m_sim_fifo_wp);
+
   pthread_spin_lock(&m_bl_splock);
 
   int bd_cnt = 0;
@@ -853,7 +874,7 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
     const uint32_t dtype = *bytes03 >> 29;
 
     // Soft restart might have inserted T3 anywhere. Skip checks on them.
-    if (dtype == DTYPE3 || idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
+    if (dtype != DTYPE3 && idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
 
     const uint64_t bd_linear = m_dmadesc.win_handle + idx * DMA_BUFF_DESCR_SIZE;
     assert(bd_linear < HW_END);
@@ -884,6 +905,8 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
 
   pthread_spin_unlock(&m_bl_splock);
 
+  DBG("\n\tEND: simRP=%d WP=%d simFifoWP=%d processed %d BDs\n", m_sim_dma_rp, m_dma_wr, m_sim_fifo_wp, bd_cnt);
+
   return bd_cnt;
 }
 
@@ -894,7 +917,30 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
 int DMAChannel::cleanupBDQueue()
 {
   int pending = 0;
+
   struct dmadesc T3_bd; memset(&T3_bd, 0, sizeof(T3_bd));
+  dmadesc_setdtype(T3_bd, DTYPE3);
+
+  if (7 <= g_level) { // DEBUG
+    DBG("\n\tQ_size=%d DMA RP/%s=%d WP=%d\n",
+        queueSize(),
+        m_sim? "sim": "Tsi721",
+        m_sim? m_sim_dma_rp: getReadCount(),
+        m_dma_wr);
+
+    std::stringstream ss;
+    uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
+    const int badidx = rp % m_bd_num;
+    for (int idx = 0; idx < m_bd_num; idx++) {
+      struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
+      uint32_t* bytes03 = (uint32_t*)bd_p;
+      const uint32_t dtype = *bytes03 >> 29;
+      if (idx != badidx) ss << dtype << " ";
+      else ss << "!" << dtype << "! ";
+    }
+    DBG("\n\tBD map before cleanup: %s\n", ss.str().c_str());
+    DBG("\n\tm_bl_busy_size=%d\n", m_bl_busy_size);
+  }
 
   pthread_spin_lock(&m_bl_splock);
 
@@ -919,21 +965,43 @@ int DMAChannel::cleanupBDQueue()
 // FIXME: Look at destid and nuke all similar BDs. Not done now.
 
    const int idx = rp % m_bd_num;
-   if (idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
+   struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
+   uint32_t* bytes03 = (uint32_t*)bd_p;
+   const uint32_t dtype = *bytes03 >> 29;
+
+   if (dtype != DTYPE3 && idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
 
    pending = m_dma_wr - rp - 1;
+
+   DBG("\n\tPatch BD at idx=%d with T3 pending=%d\n", idx, pending);
 
 // Replace faulting BD with T3 (jump+1) NOP
     {{
     const uint32_t next_off = (idx + 1) * DMA_BUFF_DESCR_SIZE;
-    struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
 
     dmadesc_setT3_nextptr(T3_bd, (uint64_t)(m_dmadesc.win_handle + next_off));
     T3_bd.pack(bd_p);
     }}
+
+    m_bl_busy[idx] = false;
+    m_bl_busy_size--;
+    assert(m_bl_busy_size >= 0);
+    m_pending_work[idx].valid = 0xdeaddeedL;
   } while(0);
 
   pthread_spin_unlock(&m_bl_splock);
+
+  if (7 <= g_level) { // DEBUG
+    std::stringstream ss;
+    for (int idx = 0; idx < m_bd_num; idx++) {
+      struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
+      uint32_t* bytes03 = (uint32_t*)bd_p;
+      const uint32_t dtype = *bytes03 >> 29;
+      ss << dtype << " ";
+    }
+    DBG("\n\tBD map after cleanup: %s\n", ss.str().c_str());
+    DBG("\n\tm_bl_busy_size=%d\n", m_bl_busy_size);
+  }
 
   return pending;
 }
