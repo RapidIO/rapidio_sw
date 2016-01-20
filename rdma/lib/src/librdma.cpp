@@ -257,7 +257,7 @@ int rdma_get_ibwin_properties(unsigned *num_ibwins,
 
 		if (out_msg.get_ibwin_properties_out.status) {
 			ERR("Failed to get ibwin props from daemon\n");
-			throw rc;
+			throw out_msg.get_ibwin_properties_out.status;
 		}
 
 		DBG("num_ibwins = %u, ibwin_size = %uKB\n",
