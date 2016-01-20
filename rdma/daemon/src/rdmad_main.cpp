@@ -227,159 +227,6 @@ void *lib_connections_thread_f(void *arg)
 				}
 				break;
 
-				case GET_MPORT_ID:
-				{
-					DBG("GET_MPORT_ID\n");
-					get_mport_id_output *out = &out_msg->get_mport_id_out;
-
-					out_msg->type = GET_MPORT_ID_ACK;
-					out->status = rdmad_get_mport_id(&out->mport_id);
-				}
-				break;
-
-				case CREATE_MSO:
-				{
-					DBG("CREATE_MSO\n");
-					create_mso_input *in = &in_msg->create_mso_in;
-					create_mso_output *out = &out_msg->create_mso_out;
-					out_msg->type = CREATE_MSO_ACK;
-					out->status = rdmad_create_mso(in->owner_name,
-								       &out->msoid,
-								       other_server);
-				}
-				break;
-
-				case OPEN_MSO:
-				{
-					DBG("OPEN_MSO\n");
-					open_mso_input	*in  = &in_msg->open_mso_in;
-					open_mso_output *out = &out_msg->open_mso_out;
-					out_msg->type = OPEN_MSO_ACK;
-					out->status = rdmad_open_mso(in->owner_name,
-								     &out->msoid,
-								     &out->mso_conn_id,
-								     other_server);
-				}
-				break;
-
-				case CLOSE_MSO:
-				{
-					DBG("CLOSE_MSO\n");
-					close_mso_input *in = &in_msg->close_mso_in;
-					close_mso_output *out = &out_msg->close_mso_out;
-					out_msg->type = CLOSE_MSO_ACK;
-					out->status = rdmad_close_mso(in->msoid,
-								      in->mso_conn_id);
-				}
-				break;
-
-				case DESTROY_MSO:
-				{
-					DBG("DESTROY_MSO\n");
-					destroy_mso_input *in = &in_msg->destroy_mso_in;
-					destroy_mso_output *out = &out_msg->destroy_mso_out;
-					out_msg->type = DESTROY_MSO_ACK;
-					out->status = rdmad_destroy_mso(in->msoid);
-				}
-				break;
-
-				case CREATE_MS:
-				{
-					DBG("CREATE_MS\n");
-					create_ms_input *in = &in_msg->create_ms_in;
-					create_ms_output *out = &out_msg->create_ms_out;
-					out_msg->type = CREATE_MS_ACK;
-					out->status = rdmad_create_ms(
-							in->ms_name,
-							in->bytes,
-							in->msoid,
-							&out->msid,
-							&out->phys_addr,
-							&out->rio_addr);
-				}
-				break;
-
-				case OPEN_MS:
-				{
-					DBG("OPEN_MS\n");
-					open_ms_input  *in = &in_msg->open_ms_in;
-					open_ms_output *out = &out_msg->open_ms_out;
-					out_msg->type = OPEN_MS_ACK;
-
-					out->status = rdmad_open_ms(in->ms_name,
-								    &out->msid,
-								    &out->phys_addr,
-								    &out->rio_addr,
-								    &out->ms_conn_id,
-								    &out->bytes,
-								    other_server);
-
-					DBG("the_inbound->open_mspace(%s) %s\n",
-							in->ms_name,
-							out->status ? "FAILED":"PASSED");
-				}
-				break;
-
-				case CLOSE_MS:
-				{
-					DBG("CLOSE_MS\n");
-					close_ms_input *in = &in_msg->close_ms_in;
-					close_ms_output *out = &out_msg->close_ms_out;
-					out_msg->type = CLOSE_MS_ACK;
-					out->status = rdmad_close_ms(in->msid,
-								     in->ms_conn_id);
-				}
-				break;
-
-				case DESTROY_MS:
-				{
-					DBG("DESTROY_MS\n");
-					destroy_ms_input *in = &in_msg->destroy_ms_in;
-					destroy_ms_output *out = &out_msg->destroy_ms_out;
-
-					out_msg->type = DESTROY_MS_ACK;
-					out->status = rdmad_destroy_ms(in->msoid, in->msid);
-				}
-				break;
-
-				case CREATE_MSUB:
-				{
-					DBG("CREATE_MSUB\n");
-					create_msub_input *in = &in_msg->create_msub_in;
-					create_msub_output *out = &out_msg->create_msub_out;
-					out_msg->type = CREATE_MSUB_ACK;
-					out->status = rdmad_create_msub(
-							in->msid,
-							in->offset,
-							in->req_bytes,
-							&out->bytes,
-		                                        &out->msubid,
-							&out->rio_addr,
-							&out->phys_addr);
-
-					if (out->status == 0) {
-						DBG("msubid=0x%X, bytes=%d, rio_addr = 0x%lX\n",
-								out->msubid,
-								out->bytes,
-								out->rio_addr);
-					} else {
-						ERR("Failed to create msub\n");
-					}
-				}
-				break;
-
-				case DESTROY_MSUB:
-				{
-					DBG("DESTROY_MSUB\n");
-					destroy_msub_input  *in  = &in_msg->destroy_msub_in;
-					destroy_msub_output *out = &out_msg->destroy_msub_out;
-					DBG("msid = 0x%X, msubid = 0x%X\n", in->msid,
-									    in->msubid);
-					out_msg->type = DESTROY_MSUB_ACK;
-					out->status = rdmad_destroy_msub(in->msid, in->msubid);
-				}
-				break;
-
 				case ACCEPT_MS:
 				{
 					DBG("ACCEPT_MS\n");
@@ -454,20 +301,6 @@ void *lib_connections_thread_f(void *arg)
 				case RDMAD_KILL_DAEMON:
 				{
 					raise(SIGTERM); /* Simulate 'kill' */
-				}
-				break;
-
-				case GET_IBWIN_PROPERTIES:
-				{
-					DBG("RDMAD_GET_IBWIN_PROPERTIES\n");
-					get_ibwin_properties_output *out =
-						&out_msg->get_ibwin_properties_out;
-					out_msg->type = GET_IBWIN_PROPERTIES_ACK;
-
-					out->status = rdmad_get_ibwin_properties(
-						&out->num_ibwins, &out->ibwin_size);
-					DBG("num_ibwins = %u, ibwin_size = %uKB\n",
-						out->num_ibwins, out->ibwin_size/1024);
 				}
 				break;
 
@@ -1023,11 +856,9 @@ int main (int argc, char **argv)
 	/* Never reached */
 
 out_free_inbound:
-	pthread_join(console_thread, NULL);
 	delete the_inbound;
 
 out_close_mport:
-	pthread_join(console_thread, NULL);
 	riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
 out:
 	pthread_join(console_thread, NULL);
