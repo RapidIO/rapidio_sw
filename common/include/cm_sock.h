@@ -185,19 +185,7 @@ protected:
 	/* Send CM_BUF_SIZE bytes from 'send_buf' on specified socket */
 	int send(riomp_sock_t socket, size_t len)
 	{
-		auto rc = 0;
-		if (len > CM_BUF_SIZE) {
-			ERR("'%s' failed in send() due to large message size\n",
-									name);
-			rc = -1;
-		} else {
-			rc = riomp_sock_send(socket, (void *)send_buf, len);
-			if (rc) {
-				ERR("riomp_sock_send failed for '%s': %s\n",
-							name, strerror(rc));
-			}
-		}
-		return rc;
+		return send_buffer(socket, (void *)send_buf, len);
 	} /* send() */
 
 	/* Receive bytes to 'recv_buf' on specified socket */
