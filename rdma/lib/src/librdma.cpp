@@ -175,62 +175,6 @@ int rdmad_kill_daemon()
 } /* rdmad_kill_daemon() */
 
 /**
- * For testing only. Not exposed in librdma.h.
- */
-int rdma_get_ibwin_properties(unsigned *num_ibwins,
-			      uint32_t *ibwin_size)
-{
-	get_ibwin_properties_input  in;
-	get_ibwin_properties_output out;
-	unix_msg_t	*in_msg;
-	unix_msg_t  	*out_msg;
-
-	client->get_send_buffer((void **)&in_msg);
-
-	in.dummy = 0xc0de;
-	in_msg->type = GET_IBWIN_PROPERTIES;
-	in_msg->get_ibwin_properties_in = in;
-
-	int ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		return ret;
-	}
-
-	out = out_msg->get_ibwin_properties_out;
-	if (out.status != 0) {
-		ERR("Failed to get IBWIN properties from daemon\n");
-		return out.status;
-	}
-	DBG("num_ibwins = %u, ibwin_size = %uKB\n",
-		out.num_ibwins, out.ibwin_size/1024);
-
-	*num_ibwins = out.num_ibwins;
-	*ibwin_size = out.ibwin_size;
-
-	return 0;
-} /* rdma_get_inbwin_properties() */
-
-/**
- * For testing only. Not exposed in librdma.h.
- */
-int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint32_t *bytes)
-{
-	if (msh == 0) {
-		ERR("NULL parameter.\n");
-		return -1;
-	}
-
-	loc_ms *msp = (loc_ms *)msh;
-
-	*rio_addr = msp->rio_addr;
-	*bytes	  = msp->bytes;
-
-	return 0;
-} /* rdma_get_msh_properties() */
-
-
-/**
  * Call a function in the daemon.
  *
  * @param in_msg
@@ -288,6 +232,66 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 
 	return rc;
 } /* daemon_call() */
+
+/**
+ * For testing only. Not exposed in librdma.h.
+ */
+int rdma_get_ibwin_properties(unsigned *num_ibwins,
+			      uint32_t *ibwin_size)
+{
+	auto rc = 0;
+
+	try {
+		unix_msg_t	in_msg;
+
+		in_msg.type = GET_IBWIN_PROPERTIES;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.get_ibwin_properties_in.dummy = 0xc0de;
+
+		unix_msg_t  	out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in daemon call to get ibwin props\n");
+			throw rc;
+		}
+
+		if (out_msg.get_ibwin_properties_out.status) {
+			ERR("Failed to get ibwin props from daemon\n");
+			throw rc;
+		}
+
+		DBG("num_ibwins = %u, ibwin_size = %uKB\n",
+			out_msg.get_ibwin_properties_out.num_ibwins,
+			out_msg.get_ibwin_properties_out.ibwin_size/1024);
+
+		*num_ibwins = out_msg.get_ibwin_properties_out.num_ibwins;
+		*ibwin_size = out_msg.get_ibwin_properties_out.ibwin_size;
+	}
+	catch(int e) {
+		rc = e;
+	}
+
+	return rc;
+} /* rdma_get_inbwin_properties() */
+
+/**
+ * For testing only. Not exposed in librdma.h.
+ */
+int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint32_t *bytes)
+{
+	auto rc = 0;
+
+	if (!msh || !rio_addr || !bytes) {
+		ERR("NULL parameter.\n");
+		rc = -1;
+	} else {
+		loc_ms *msp = (loc_ms *)msh;
+
+		*rio_addr = msp->rio_addr;
+		*bytes	  = msp->bytes;
+	}
+	return rc;
+} /* rdma_get_msh_properties() */
 
 /**
  * Internal function to determine whether the daemon is still reachable.

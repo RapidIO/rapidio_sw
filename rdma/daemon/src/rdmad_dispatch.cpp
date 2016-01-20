@@ -232,7 +232,8 @@ int create_msub_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t
 	return out_msg.destroy_ms_out.status;
 } /* create_msub_disp() */
 
-int destroy_msub_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int destroy_msub_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -253,6 +254,27 @@ int destroy_msub_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_
 
 	return out_msg.destroy_msub_out.status;
 } /* destroy_msub_disp() */
+
+int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server,
+				unix_msg_t> *tx_eng)
+{
+	unix_msg_t out_msg;
+
+	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+
+	out_msg.type	 = GET_IBWIN_PROPERTIES_ACK;
+	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.seq_no 	 = in_msg->seq_no;
+	out_msg.get_ibwin_properties_out.status =
+		rdmad_get_ibwin_properties(
+				&out_msg.get_ibwin_properties_out.num_ibwins,
+				&out_msg.get_ibwin_properties_out.ibwin_size);
+	if (out_msg.get_ibwin_properties_out.status) {
+		ERR("Failed in call rdmad_get_ibwin_properties\n");
+	}
+	tx_eng->send_message(&out_msg);
+	return out_msg.get_ibwin_properties_out.status;
+} /* get_ibwin_properties_disp() */
 
 #if 0
 int accept_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
@@ -279,10 +301,6 @@ int send_disconnect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_m
 {
 
 }
-
-int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
-{
-
-}
 #endif
+
 
