@@ -157,20 +157,19 @@ int mspace::close_connections()
 {
 	sem_wait(&users_sem);
 
-	HIGH("Sending close messages to applications which have 'open'ed '%s'\n",
-	                name.c_str());
+	HIGH("FORCE_CLOSE_MS to apps which have 'open'ed '%s'\n", name.c_str());
 
 	/* Tell local apps which have opened the ms that the ms will be destroyed */
 	for (ms_user& user : users) {
-		struct mq_close_ms_msg *close_msg;
+		tx_engine<unix_server, unix_msg_t> *user_tx_eng =
+			user.get_tx_engine();
 
-		user.get_mq()->get_send_buffer(&close_msg);
-		close_msg->msid = msid;
+		unix_msg_t	in_msg;
 
-		if (user.get_mq()->send()) {
-			ERR("Failed to close queue for msid(0x%X)\n", msid);
-		}
-		delete user.get_mq();
+		in_msg.type 	= FORCE_CLOSE_MS;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.force_close_ms_req.msid = msid;
+		user_tx_eng->send_message(&in_msg);
 	}
 
 	users.clear();
@@ -444,40 +443,31 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 	return 0;
 } /* create_msubspace() */
 
-int mspace::open(uint32_t *msid, unix_server *user_server, uint32_t *ms_conn_id, uint32_t *bytes)
+int mspace::open(uint32_t *msid, tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+					uint32_t *ms_conn_id, uint32_t *bytes)
 {
 	/* Return msid, mso_open_id, and bytes */
 	*ms_conn_id 	= this->current_ms_conn_id++;
 	*msid 		= this->msid;
 	*bytes 		= this->size;
 
-	/* Create POSIX message queue */
-	stringstream qname;
-	qname << '/' << name << *ms_conn_id;
-	msg_q<mq_close_ms_msg> *close_mq;
-	try {
-		close_mq = new msg_q<mq_close_ms_msg>(qname.str(), MQ_CREATE);
-	} catch (msg_q_exception& e) {
-		CRIT("Failed to create close_mq: %s\n", e.msg.c_str());
-		return -1;
-	}
-
 	/* Store info about user that opened the ms in the 'users' list */
 	sem_wait(&users_sem);
-	DBG("user with user_server(%p), ms_conn_id(0x%X) stored in msid(0x%X)\n",
-			user_server, *ms_conn_id, *msid);
-	users.emplace_back(user_server, *ms_conn_id, close_mq);
+	DBG("user with user_tx_eng(%p), ms_conn_id(0x%X) stored in msid(0x%X)\n",
+						user_tx_eng, *ms_conn_id, *msid);
+	users.emplace_back(*ms_conn_id, user_tx_eng);
 	sem_post(&users_sem);
 
 	return 1;
 } /* open() */
 
-bool mspace::has_user_with_user_server(unix_server *server, uint32_t *ms_conn_id)
+bool mspace::has_user_with_user_tx_eng(tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+					uint32_t *ms_conn_id)
 {
 	bool has_user = false;
 
 	sem_wait(&users_sem);
-	auto it = find(begin(users), end(users), server);
+	auto it = find(begin(users), end(users), user_tx_eng);
 
 	if (it != end(users)) {
 		*ms_conn_id = it->get_ms_conn_id();
@@ -526,7 +516,6 @@ int mspace::close(uint32_t ms_conn_id)
 		WARN("ms_conn_id(0x%X) not found in user list\n", ms_conn_id);
 		rc = -1;
 	} else {
-		delete (*it).get_mq();
 		users.erase(it);
 		rc = 0;	/* Success */
 	}

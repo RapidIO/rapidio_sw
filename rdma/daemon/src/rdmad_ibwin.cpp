@@ -443,25 +443,34 @@ exit:
 	return ret;
 } /* destroy_mspace() */
 
-struct mspace_is_open_by_server {
-	mspace_is_open_by_server(unix_server *server, uint32_t *ms_conn_id) :
-		server(server), ms_conn_id(ms_conn_id) {}
-	bool operator ()(mspace *ms) {
-		return ms->has_user_with_user_server(server, ms_conn_id);
+class mspace_is_open_by_user_using_tx_eng {
+public:
+	mspace_is_open_by_user_using_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+			uint32_t *ms_conn_id) :
+			user_tx_eng(user_tx_eng), ms_conn_id(ms_conn_id)
+	{
+	}
+
+	bool operator ()(mspace *ms)
+	{
+		return ms->has_user_with_user_tx_eng(user_tx_eng, ms_conn_id);
 	}
 private:
-	unix_server *server;
+	tx_engine<unix_server, unix_msg_t> *user_tx_eng;
 	uint32_t    *ms_conn_id;
 };
 
 // FIXME: What if there is more than one? In the new world there will be!
-mspace* ibwin::get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id)
+mspace* ibwin::get_mspace_open_by_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+			uint32_t *ms_conn_id)
 {
 	mspace *ms_ptr = nullptr;
 
 	pthread_mutex_lock(&mspaces_lock);
 	for (auto& ms : mspaces) {
-		if (ms->has_user_with_user_server(server, ms_conn_id)) {
+		if (ms->has_user_with_user_tx_eng(user_tx_eng, ms_conn_id)) {
 			ms_ptr = ms;
 			break;
 		}

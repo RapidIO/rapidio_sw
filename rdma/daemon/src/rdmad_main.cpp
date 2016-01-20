@@ -961,7 +961,7 @@ int main (int argc, char **argv)
 		goto out_close_mport;
 	}
 	catch(inbound_exception& e) {
-		CRIT("%s\n", e.err);
+		CRIT("%s\n", e.what());
 		goto out_free_inbound;
 	}
 

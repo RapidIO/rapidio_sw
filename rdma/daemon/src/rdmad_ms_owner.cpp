@@ -61,12 +61,12 @@ void ms_owner::close_connections()
 		tx_engine<unix_server, unix_msg_t> *user_tx_eng =
 			user.get_tx_engine();
 
-		unix_msg_t	out_msg;
+		unix_msg_t	in_msg;
 
-		out_msg.category = RDMA_REQ_RESP;
-		out_msg.type     = FORCE_CLOSE_MSO;
-		out_msg.force_close_mso_req.msoid = msoid;
-		user_tx_eng->send_message(&out_msg);
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.type     = FORCE_CLOSE_MSO;
+		in_msg.force_close_mso_req.msoid = msoid;
+		user_tx_eng->send_message(&in_msg);
 	}
 } /* close_connections() */
 

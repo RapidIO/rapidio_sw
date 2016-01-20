@@ -43,57 +43,103 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <vector>
 #include <set>
+#include <exception>
 
 #include "msg_q.h"
+#include "unix_sock.h"
+#include "rdma_types.h"
+#include "rdmad_unix_msg.h"
+#include "tx_engine.h"
 
 using std::set;
 using std::string;
 using std::vector;
+using std::exception;
 
 /* Global constants */
-static const uint32_t MSID_WIN_SHIFT = 28;
-static const uint32_t MSID_WIN_MASK  = 0xF0000000;
-static const uint32_t MSID_MSINDEX_MASK = 0x0000FFFF;
-static const uint32_t MSID_MSOID_MASK = 0x0FFF000;
-static const uint32_t MSID_MSOID_SHIFT = 16;
-static const uint32_t MSINDEX_MAX = 0xFFFF;
-static const uint32_t MSUBINDEX_MAX = 0xFFFF;
+constexpr uint32_t MSID_WIN_SHIFT 	= 28;
+constexpr uint32_t MSID_WIN_MASK  	= 0xF0000000;
+constexpr uint32_t MSID_MSINDEX_MASK 	= 0x0000FFFF;
+constexpr uint32_t MSID_MSOID_MASK 	= 0x0FFF000;
+constexpr uint32_t MSID_MSOID_SHIFT 	= 16;
+constexpr uint32_t MSINDEX_MAX 		= 0xFFFF;
+constexpr uint32_t MSUBINDEX_MAX 	= 0xFFFF;
 
 /* Referenced classes declarations */
 class unix_server;
 class msubspace;
 
-struct mspace_exception {
+class mspace_exception : public exception {
+public:
 	mspace_exception(const char *msg) : err(msg) {}
-
+	const char *what() { return err; }
+private:
 	const char *err;
 };
 
 class ms_user
 {
 public:
-	ms_user(unix_server *server,
-		uint32_t ms_conn_id,
-		msg_q<mq_close_ms_msg> *close_mq) :
-	server(server), ms_conn_id(ms_conn_id), close_mq(close_mq)
-	{}
+	ms_user(uint32_t ms_conn_id, tx_engine<unix_server, unix_msg_t> *tx_eng) :
+	tx_eng(tx_eng), ms_conn_id(ms_conn_id)
+	{
+	}
 
-	msg_q<mq_close_ms_msg> *get_mq() { return close_mq; }
+	ms_user(const ms_user& other) : tx_eng(other.tx_eng),
+					ms_conn_id(other.ms_conn_id)
+	{
+	}
+
+	ms_user& operator=(const ms_user& rhs)
+	{
+		tx_eng 		= rhs.tx_eng;
+		ms_conn_id	= rhs.ms_conn_id;
+		return *this;
+	}
+
 	uint32_t get_ms_conn_id() const { return ms_conn_id; }
-	bool operator ==(uint32_t ms_conn_id) { return ms_conn_id == this->ms_conn_id; }
-	bool operator ==(unix_server *server) { return server == this->server; }
+
+	tx_engine<unix_server, unix_msg_t> *get_tx_engine() const
+	{
+		return tx_eng;
+	}
+
+	bool operator ==(uint32_t ms_conn_id)
+	{
+		return ms_conn_id == this->ms_conn_id;
+	}
+
+	bool operator ==(tx_engine<unix_server, unix_msg_t> *tx_eng)
+	{
+		return tx_eng == this->tx_eng;
+	}
 
 private:
-	unix_server *server;
+
+
+	tx_engine<unix_server, unix_msg_t> *tx_eng;
 	uint32_t ms_conn_id;
-	msg_q<mq_close_ms_msg> *close_mq;
 };
 
-struct remote_connection
+class remote_connection
 {
+public:
 	remote_connection(uint16_t client_destid, uint32_t client_msubid) :
 		client_destid(client_destid), client_msubid(client_msubid)
 	{}
+
+	remote_connection(const remote_connection& other) :
+		client_destid(other.client_destid),
+		client_msubid(other.client_msubid)
+	{
+	}
+
+	remote_connection& operator=(const remote_connection& rhs)
+	{
+		client_destid = rhs.client_destid;
+		client_msubid = rhs.client_msubid;
+		return *this;
+	}
 
 	bool operator==(uint16_t client_destid)
 	{
@@ -162,10 +208,11 @@ public:
 	/* For finding a memory space by its name */
 	bool operator==(const char *name) { return this->name == name; }
 
-	int open(uint32_t *msid, unix_server *user_server,
-					uint32_t *ms_conn_id, uint32_t *bytes);
+	int open(uint32_t *msid, tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+				uint32_t *ms_conn_id, uint32_t *bytes);
 
-	bool has_user_with_user_server(unix_server *server, uint32_t *ms_conn_id);
+	bool has_user_with_user_tx_eng(tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+					uint32_t *ms_conn_id);
 
 	bool connected_by_destid(uint16_t destid);
 
@@ -184,6 +231,9 @@ public:
 	int disconnect_from_destid(uint16_t client_destid);
 
 private:
+	mspace(const mspace&);
+	mspace& operator=(const mspace&);
+
 	/* Constants */
 	static constexpr uint32_t MS_CONN_ID_START = 0x01;
 

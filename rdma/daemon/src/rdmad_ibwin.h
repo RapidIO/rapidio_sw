@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <algorithm>
 #include <vector>
+#include <exception>
 
 #include <cstdio>
 
@@ -51,16 +52,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_mspace.h"
 
 using std::vector;
+using std::exception;
 
-// TODO: Use a list instead of vector?
 typedef vector<mspace*>		mspace_list;
 typedef mspace_list::iterator	mspace_iterator;
 
-struct ibwin_map_exception {
+class ibwin_map_exception : public exception {
+public:
 	ibwin_map_exception(const char *msg) : err(msg)
 	{
 	}
 
+	const char *what() { return err; }
+private:
 	const char *err;
 };
 
@@ -102,7 +106,9 @@ public:
 
 	mspace* get_mspace(uint32_t msoid, uint32_t msid);
 
-	mspace *get_mspace_open_by_server(unix_server *server, uint32_t *ms_conn_id);
+	mspace *get_mspace_open_by_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+			uint32_t *ms_conn_id);
 
 	void get_mspaces_connected_by_destid(uint32_t destid, mspace_list& mspaces);
 

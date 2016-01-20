@@ -75,9 +75,9 @@ inline int rdmad_destroy_ms(uint32_t msoid, uint32_t msid)
 
 inline int rdmad_open_ms(const char *ms_name, uint32_t *msid, uint64_t *phys_addr,
 		         uint64_t *rio_addr, uint32_t *ms_conn_id, uint32_t *bytes,
-		         unix_server *server=nullptr)
+		         tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	return the_inbound->open_mspace(ms_name, server, msid, phys_addr,
+	return the_inbound->open_mspace(ms_name, tx_eng, msid, phys_addr,
 						rio_addr, ms_conn_id, bytes);
 } /* rdmad_open_ms() */
 

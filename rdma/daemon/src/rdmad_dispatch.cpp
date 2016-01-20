@@ -152,7 +152,7 @@ int open_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *t
 			      &out_msg.open_ms_out.rio_addr,
 			      &out_msg.open_ms_out.ms_conn_id,
 			      &out_msg.open_ms_out.bytes,
-			      tx_eng->get_client());
+			      tx_eng);
 
 	if (out_msg.open_ms_out.status) {
 		ERR("Failed in call rdmad_open_ms\n");

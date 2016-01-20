@@ -76,7 +76,7 @@ inbound::inbound(riomp_mport_t mport_hnd,
 			ibwins.push_back(win);
 		}
 		catch(ibwin_map_exception& e) {
-			throw inbound_exception(e.err);
+			throw inbound_exception(e.what());
 		}
 	}
 
@@ -147,11 +147,13 @@ mspace* inbound::get_mspace(uint32_t msid)
 } /* get_mspace() */
 
 /* Get mspace OPENED by msoid */
-mspace* inbound::get_mspace_open_by_server(unix_server *user_server, uint32_t *ms_conn_id)
+mspace* inbound::get_mspace_open_by_server(
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+			uint32_t *ms_conn_id)
 {
 	sem_wait(&ibwins_sem);
 	for (auto& ibwin : ibwins) {
-		mspace *ms = ibwin.get_mspace_open_by_server(user_server, ms_conn_id);
+		mspace *ms = ibwin.get_mspace_open_by_tx_eng(user_tx_eng, ms_conn_id);
 		if (ms) {
 			sem_post(&ibwins_sem);
 			return ms;
@@ -162,7 +164,8 @@ mspace* inbound::get_mspace_open_by_server(unix_server *user_server, uint32_t *m
 	return NULL;
 } /* get_mspace_open_by_msoid() */
 
-int inbound::get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces)
+int inbound::get_mspaces_connected_by_destid(uint32_t destid,
+					     vector<mspace *>& mspaces)
 {
 	vector<mspace *>::iterator ins_point = begin(mspaces);
 
@@ -315,7 +318,7 @@ int inbound::create_mspace(const char *name,
 /* Open memory space */
 // TODO: Just return pointer to the 'ms'
 int inbound::open_mspace(const char *name,
-			 unix_server *user_server,
+			 tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 			 uint32_t *msid,
 			 uint64_t *phys_addr,
 			 uint64_t *rio_addr,
@@ -332,7 +335,7 @@ int inbound::open_mspace(const char *name,
 		ret = -1;
 	} else {
 		/* Open the memory space */
-		if (ms->open(msid, user_server, ms_conn_id, bytes) < 0) {
+		if (ms->open(msid, user_tx_eng, ms_conn_id, bytes) < 0) {
 			WARN("Failed to open '%s'\n", name);
 			ret = -2;
 		} else {

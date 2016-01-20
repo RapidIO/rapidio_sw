@@ -38,15 +38,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 
 #include <iostream>
+#include <exception>
 
 #include "libcli.h"
 
 #include "rdmad_mspace.h"
 #include "rdmad_ibwin.h"
 
-struct inbound_exception {
+class inbound_exception : public exception {
+public:
 	inbound_exception(const char *msg) : err(msg) {}
-
+	~inbound_exception() throw() {}
+	const char *what() throw() { return err; }
+private:
 	const char *err;
 };
 
@@ -78,7 +82,8 @@ public:
 	/* get_mspace by msoid, msid */
 	mspace *get_mspace(uint32_t msoid, uint32_t msid);
 
-	mspace* get_mspace_open_by_server(unix_server *user_server, uint32_t *ms_conn_id);
+	mspace* get_mspace_open_by_server(tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+					  uint32_t *ms_conn_id);
 
 	int get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces);
 
@@ -100,7 +105,7 @@ public:
 
 	/* Open memory space */
 	int open_mspace(const char *name,
-			unix_server *user_server,
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 			uint32_t *msid,
 			uint64_t *phys_addr,
 			uint64_t *rio_addr,
