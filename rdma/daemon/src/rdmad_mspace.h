@@ -115,8 +115,6 @@ public:
 	}
 
 private:
-
-
 	tx_engine<unix_server, unix_msg_t> *tx_eng;
 	uint32_t ms_conn_id;
 };
@@ -160,8 +158,7 @@ class mspace
 public:
 	/* Constructor */
 	mspace(const char *name, uint32_t msid, uint64_t rio_addr,
-	       uint64_t phys_addr, uint64_t size);
-
+					uint64_t phys_addr, uint64_t size);
 	/* Destructor */
 	~mspace();
 

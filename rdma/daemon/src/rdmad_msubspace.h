@@ -38,7 +38,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#include "rdma_types.h"
 #include "liblog.h"
 #include "libcli.h"
 
@@ -49,11 +48,8 @@ public:
 	/* Constructor */
 	msubspace(uint32_t msid, uint64_t rio_addr, uint64_t phys_addr,
 					uint32_t size, uint32_t msubid) :
-		msid(msid),
-		rio_addr(rio_addr),
-		phys_addr(phys_addr),
-		size(size),
-		msubid(msubid)
+		msid(msid), rio_addr(rio_addr), phys_addr(phys_addr),
+		size(size), msubid(msubid)
 	{
 		INFO("msid = 0x%X, rio_addr = 0x%" PRIx64 ", size = 0x%08X\n",
 							msid, rio_addr, size);
@@ -66,8 +62,8 @@ public:
 	}
 
 	void dump_info(struct cli_env *env) {
-		sprintf(env->output, "%08X %016" PRIx64 " %08X %08X %016" PRIx64 "\n", msubid, rio_addr, size,
-							msid, phys_addr);
+		sprintf(env->output, "%08X %016" PRIx64 " %08X %08X %016" PRIx64
+				"\n", msubid, rio_addr, size, msid, phys_addr);
 		logMsg(env);
 	}
 

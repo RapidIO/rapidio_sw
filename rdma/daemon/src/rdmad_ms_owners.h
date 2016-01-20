@@ -31,13 +31,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef MS_OWNERS_H
-#define MS_OWNERS_H
+#ifndef RDMAD_MS_OWNERS_H
+#define RDMAD_MS_OWNERS_H
 
 #include <vector>
 
 #include "rdmad_ms_owner.h"
-//#include "rdmad_tx_engine.h"
 #include "rdmad_unix_msg.h"
 #include "tx_engine.h"
 #include "libcli.h"
