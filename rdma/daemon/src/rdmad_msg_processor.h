@@ -86,6 +86,9 @@ public:
 		case DESTROY_MSUB:
 			rc = destroy_msub_disp(msg, tx_eng);
 			break;
+		case GET_IBWIN_PROPERTIES:
+			rc = get_ibwin_properties_disp(msg, tx_eng);
+			break;
 		default:
 			assert(!"Unhandled message");
 		}
