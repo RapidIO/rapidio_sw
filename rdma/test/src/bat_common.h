@@ -1,10 +1,10 @@
 #ifndef BAT_COMMON_H
 #define BAT_COMMON_H
 
-/* CM channel to use for test messages */
-#define BAT_CM_CHANNEL	9
-#define BAT_MPORT_ID	0
-#define BAT_MBOX_ID	1
+#include <stdint.h>
+
+constexpr int 		BAT_MPORT_ID    = 0;
+constexpr uint8_t 	BAT_MBOX_ID	= 1;
 
 /* Max memory space name length */
 #define	CM_MS_NAME_MAX_LEN	31

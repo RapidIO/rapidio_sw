@@ -68,7 +68,7 @@ void accept_thread_f(uint64_t server_msh, uint64_t server_msubh)
 
 int main(int argc, char *argv[])
 {
-	int channel = BAT_CM_CHANNEL;
+	uint16_t channel;
 	int c;
 
 	signal(SIGINT, sig_handler);
