@@ -13,7 +13,6 @@
 
 #include "memory_supp.h"
 #include "librdma.h"
-#include "cm_sock.h"
 #include "bat_common.h"
 #include "bat_connection.h"
 #include "bat_client_private.h"
@@ -31,12 +30,12 @@ static bool shutting_down = false;
 static char log_filename[PATH_MAX];
 FILE *log_fp;
 
-auto num_channels = 0;
+static auto num_channels = 0;
 static int first_channel;
-unique_ptr<bat_connection>	server_conn_ptr;
+static unique_ptr<bat_connection>	server_conn_ptr;
 bat_connection			*server_conn;
 static int second_channel;
-unique_ptr<bat_connection>	user_conn_ptr;
+static unique_ptr<bat_connection>	user_conn_ptr;
 bat_connection			*user_conn;
 static uint32_t destid;
 

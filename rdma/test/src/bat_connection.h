@@ -6,6 +6,7 @@
 #include <exception>
 #include <memory>
 
+#include "cm_sock.h"
 #include "memory_supp.h"
 #include "bat_common.h"
 
