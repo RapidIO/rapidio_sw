@@ -5,27 +5,25 @@
 #include <unistd.h>
 #include <linux/limits.h>
 
+#include <memory>
+
 #include <cstdlib>
 #include <cstdio>
 #include <inttypes.h>
 
+#include "memory_supp.h"
 #include "librdma.h"
 #include "cm_sock.h"
 #include "bat_common.h"
+#include "bat_connection.h"
 #include "bat_client_private.h"
 #include "bat_client_test_cases.h"
 
+using std::unique_ptr;
 
 /* Signal end-of-test to server */
-#define BAT_EOT1() { \
-	bm_first_tx->type = BAT_END; \
-	bat_first_client->send(); \
-}
-
-#define BAT_EOT2() { \
-	bm_second_tx->type = BAT_END; \
-	bat_second_client->send(); \
-}
+#define BAT_EOT1() server_conn->send_eot();
+#define BAT_EOT2() user_conn->send_eot();
 
 static bool shutting_down = false;
 
@@ -33,21 +31,13 @@ static bool shutting_down = false;
 static char log_filename[PATH_MAX];
 FILE *log_fp;
 
-/* First client, buffers, message structs..etc. */
-static int first_channel;
-cm_client *bat_first_client;
-bat_msg_t *bm_first_tx;
-bat_msg_t *bm_first_rx;
-
-/* Second client, buffers, message structs..etc. */
-static int second_channel;
-cm_client *bat_second_client;
-bat_msg_t *bm_second_tx;
-bat_msg_t *bm_second_rx;
-
 auto num_channels = 0;
-
-/* Connection information */
+static int first_channel;
+unique_ptr<bat_connection>	server_conn_ptr;
+bat_connection			*server_conn;
+static int second_channel;
+unique_ptr<bat_connection>	user_conn_ptr;
+bat_connection			*user_conn;
 static uint32_t destid;
 
 static unsigned repetitions = 1;	/* Default is once */
@@ -66,44 +56,7 @@ static void show_help(void)
 	puts("<repetitions> is ignored for all other cases");
 	puts("-l List all test cases");
 	puts("-h Help");
-}
-
-int connect_to_channel(int channel,
-		       const char *name,
-		       cm_client **bat_client,
-		       bat_msg_t **bm_tx,
-		       bat_msg_t **bm_rx)
-{
-	auto rc = 0;
-
-	printf("%s: Creating client on channel %d\n", __func__, channel);
-	try {
-		*bat_client = new cm_client(name,
-					    BAT_MPORT_ID,
-					    BAT_MBOX_ID,
-					    channel,
-					    &shutting_down);
-		/* Set up buffers for BAT messages */
-		(*bat_client)->get_recv_buffer((void **)bm_rx);
-		(*bat_client)->get_send_buffer((void **)bm_tx);
-
-		if ((*bat_client)->connect(destid)) {
-			fprintf(stderr, "bat_client->connect() failed\n");
-			throw -2;
-		}
-		printf("Connected to channel %d\n", channel);
-	}
-	catch(exception& e) {
-		fprintf(stderr, "%s: %s\n", name, e.what());
-		rc = -1;
-	}
-	catch(int e) {
-		delete bat_client;
-		rc = e;
-	}
-
-	return rc;
-} /* connect_to_channel() */
+} /* show_help() */
 
 int main(int argc, char *argv[])
 {
@@ -194,22 +147,19 @@ int main(int argc, char *argv[])
 		}
 
 	/* Connect to 'server' */
-	int ret = connect_to_channel(first_channel, "first_channel",
-				&bat_first_client, &bm_first_tx, &bm_first_rx);
-	if (ret) {
-		fprintf(stderr, "Failed to connect to CM channel %d\n", first_channel);
-		return 1;
-	}
-
-	if (num_channels == 2) {
-		/* Connect to 'user' */
-		ret = connect_to_channel(second_channel, "second_channel",
-				&bat_second_client, &bm_second_tx, &bm_second_rx);
-		if (ret) {
-			fprintf(stderr, "Failed to connect to CM channel %d\n",
-								second_channel);
-			return 2;
+	try {
+		server_conn_ptr = make_unique<bat_connection>(destid, first_channel,
+						"server_conn", &shutting_down);
+		server_conn = server_conn_ptr.get();
+		if (num_channels == 2) {
+			user_conn_ptr = make_unique<bat_connection>(destid, second_channel,
+					"user_conn", &shutting_down);
+			user_conn = user_conn_ptr.get();
 		}
+	}
+	catch(...) {
+		fprintf(stderr, "Failed to connect to CM channel\n");
+		return 1;
 	}
 
 	/* Open log file for 'append'. Create if non-existent. */
@@ -311,7 +261,7 @@ int main(int argc, char *argv[])
 		BAT_EOT1();
 		break;
 	case '6':
-		test_case_6();
+		test_case_6(destid);
 		BAT_EOT1();
 		break;
 	case 'z':
@@ -363,10 +313,6 @@ int main(int argc, char *argv[])
 
 	shutting_down = true;
 	sleep(1);	/* Let sockets process the 'shutting_down=true' */
-
-	/* FIXME: Use unique_ptr<> ? */
-	delete bat_first_client;
-	delete bat_second_client;
 
 	/* Close log file */
 	fclose(log_fp);

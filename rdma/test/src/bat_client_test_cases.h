@@ -4,6 +4,8 @@
 #include "bat_common.h"
 #include "bat_client_private.h"
 
+
+#if 0
 #define DMA_DATA_SIZE	64
 #define DMA_DATA_SECTION_SIZE	8
 
@@ -21,7 +23,7 @@ extern char rem_mso_name[MAX_NAME];
 extern char rem_ms_name1[MAX_NAME];
 extern char rem_ms_name2[MAX_NAME];
 extern char rem_ms_name3[MAX_NAME];
-
+#endif
 /* New test cases */
 int test_case_a();
 int test_case_b();
@@ -40,7 +42,7 @@ int test_case_t_u(char tc, uint32_t destid);
 int test_case_v_w(char tc, uint32_t destid);
 int test_case_x();
 int test_case_y();
-int test_case_6();
+int test_case_6(uint32_t destid);
 
 int test_case_dma(char tc,
 		  uint32_t destid,
