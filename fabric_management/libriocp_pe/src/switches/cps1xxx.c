@@ -1963,11 +1963,16 @@ int cps1xxx_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, 
 	uint8_t port;
 	uint8_t event_code;
 
+	int i;
+	for (i=0;i<4;i++) {
+		RIOCP_INFO("PW[%d]: 0x%08x\n", i, revent->u.portwrite.payload[i]);
+	}
+
 	port = RIOCP_PE_EVENT_PW_PORT_ID((*revent).u.portwrite);
 	event->port = port;
 
 	event_code = CPS1xxx_PW_GET_EVENT_CODE(revent);
-	if (port >= LOG_PORT_ERR_FIRST && port <= LOG_PORT_ERR_LAST) {
+	if (event_code >= LOG_PORT_ERR_FIRST && event_code <= LOG_PORT_ERR_LAST) {
 		ret = cps1xxx_port_event_handler(sw, event);
 		if (ret)
 			return ret;
