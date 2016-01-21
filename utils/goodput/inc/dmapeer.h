@@ -33,7 +33,8 @@ public:
     volatile uint64_t  rio_rx_peer_full_ts; ///< Time at which we detected that this peer filled up our IBwin window
     volatile uint64_t  rio_rx_peer_full_ticks_total; ///< How many ticks we spent with peer's IBwin window filled up
 
-    volatile uint64_t  rio_isol_rx_pass; ///< How many times/passws we detected RO=1 in IB BDs
+    volatile uint64_t  rio_isol_rx_pass; ///< How many times we got called from isolcpu thread
+    volatile uint64_t  rio_isol_rx_pass_add; ///< How many times/passes we detected RO=1 in IB BDs
     volatile uint64_t  rio_rx_pass; ///< How many times we received (non-empty pass of) IB BDs
 
     uint64_t           total_ticks_rx; ///< How many ticks (total) between IB RO detection and write into Tun
@@ -329,6 +330,22 @@ error:
     goto unlock;
   }
 
+  /** \brief Scan & Count the RO IB "BDs" for this Peer
+   * \note This is done UNLOCKED and intended only for reporting
+   * \return Number of ready IB BDs
+   */
+  inline int count_RO()
+  {
+    if (m_info == NULL || m_rio_rx_bd_L2_ptr == NULL) return -42;
+
+    int cnt = 0;
+    for (int i = 0; i < (m_info->umd_tx_buf_cnt-1); i++) {
+      if(1 == m_rio_rx_bd_L2_ptr[i]->RO) cnt++;
+    }
+
+    return cnt;
+  }
+
   /** \brief Scan the IB "BDs" for this Peer and append them to a locked array [drained by \ref service_TUN_TX]
    * \note This is called in islcpu thread so the code must be brief
    * \note "RO" stands for "Reader Owned IB BD" aka fresh data indicator
@@ -340,9 +357,11 @@ error:
 
     volatile uint32_t* pRP = (uint32_t*)m_ib_ptr;
 
-    int k = *pRP;
+    uint32_t k = *pRP;
     assert(k >= 0);
     assert(k < (m_info->umd_tx_buf_cnt-1));
+
+    m_stats.rio_isol_rx_pass++;
 
     uint64_t now = rdtsc();
     if (m_rio_rx_bd_ready_size >= (m_info->umd_tx_buf_cnt-1)) { // Quick peek while unlocked -- Receiver too slow, go to next peer!
@@ -359,6 +378,10 @@ error:
     int idx = m_rio_rx_bd_ready_size; // If not zero then RIO RX thr is sloow
     assert(idx >= 0);
 
+#ifdef UDMA_TUN_DEBUG_IB_BD
+    const int N_pending = count_RO();
+    const uint32_t saved_RP = k;
+#endif
     for (int i = 0; i < (m_info->umd_tx_buf_cnt-1); i++) {
       if (m_info->stop_req) break;
       if (stop_req) continue;
@@ -366,6 +389,8 @@ error:
       if (idx >= (m_info->umd_tx_buf_cnt-1)) break;
 
       if(0 != m_rio_rx_bd_L2_ptr[k]->RO) {
+        if (42 == m_rio_rx_bd_L2_ptr[k]->RO) goto next; // Not yet cleared by "bottom half"
+
         const uint64_t now = rdtsc();
 #ifdef UDMA_TUN_DEBUG_IB
         DBG("\n\tFound ready buffer at RP=%u\n", k);
@@ -376,13 +401,14 @@ error:
 
         m_rio_rx_bd_ready[idx] = k;
         m_rio_rx_bd_ready_ts[idx] = now;
-        m_rio_rx_bd_L2_ptr[k]->RO = 0; // So we won't revisit
+        m_rio_rx_bd_L2_ptr[k]->RO = 42; // So we won't revisit
         idx++;
         cnt++;
       } else {
-        break; // Stop at 1st non-ready IB bd??
+        if (cnt > 0) break; // Stop at 1st non-ready IB bd?? But... RP might have been moved
       }
 
+ next:
       k++; if(k == (m_info->umd_tx_buf_cnt-1)) k = 0; // RP wrap-around
     }
 
@@ -390,8 +416,27 @@ error:
       assert(cnt <= (m_info->umd_tx_buf_cnt-1)); // XXX Cannot exceed that!
       m_rio_rx_bd_ready_size += cnt;
       assert(m_rio_rx_bd_ready_size <= (m_info->umd_tx_buf_cnt-1));
-      m_stats.rio_isol_rx_pass++;
+      m_stats.rio_isol_rx_pass_add++;
     }
+#ifdef UDMA_TUN_DEBUG_IB_BD
+    else {
+      if (N_pending > 0) {
+	char buf[81920+1] = {0};
+        std::stringstream ss;
+        for (int i = 0; i < (m_info->umd_tx_buf_cnt-1); i++) {
+          char tmp[17] = {0};
+          snprintf(tmp, 16, "%d ", m_rio_rx_bd_L2_ptr[i]->RO);
+          strncat(buf, tmp, 81920);
+        }
+        CRIT("\n\tBUG: IBBD[RP]->RO==0 k=%d savRP=%u volRP=%u pending %d IB BDs: %s\n", k, saved_RP, *pRP, N_pending, buf);
+        usleep(10 * 1000); fflush(NULL);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress"
+        assert("IB BD BUG" == "IT'S ALIVE");
+#pragma GCC diagnostic pop
+      }
+    }
+#endif // UDMA_TUN_DEBUG_IB
 
     spunlock();
 
@@ -472,6 +517,8 @@ error:
       } else m_stats.tun_tx_err++;
 
       m_rio_rx_bd_ready_ts[i] = 0;
+
+      m_rio_rx_bd_L2_ptr[rp]->RO = 0; // Signal "top half" that we're done with this
 
       rp++; if (rp == (m_info->umd_tx_buf_cnt-1)) rp = 0;
 #ifdef UDMA_TUN_DEBUG_IB
