@@ -1711,7 +1711,7 @@ void umd_mbox_watch_demo(struct worker *info)
 
 	// Clear on read
 	mport->rd32(TSI721_TXPKT_SMSG_CNT); // aka 0x41410  Sent Packet Count of Messaging Engine Register
-	mport->rd32(TSI721_RXPKT_SMSG_CNT); // aka 0x29900   Received Packet Count for Messaging Engine Register
+	mport->rd32(TSI721_RXPKT_SMSG_CNT); // aka 0x29900  Received Packet Count for Messaging Engine Register
 
         if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
@@ -2016,6 +2016,7 @@ void UMD_DD(struct worker* info)
 		INFO("\n\tDMA Channel stats: %s\n", ss.str().c_str());
 
 	std::vector<DmaPeer>     peer_list;
+	std::vector<int>         peer_list_rocnt;
 	std::vector<DmaPeerCommsStats_t> peer_list_enum;
 
 	time_t now = time(NULL);
@@ -2031,8 +2032,10 @@ void UMD_DD(struct worker* info)
 	  }
 
           std::map <uint16_t, int>::iterator itp = info->umd_dma_did_peer.begin();
-	  for (; itp != info->umd_dma_did_peer.end(); itp++)
+	  for (; itp != info->umd_dma_did_peer.end(); itp++) {
+		peer_list_rocnt.push_back(info->umd_dma_did_peer_list[itp->second]->count_RO()); // operator= does not copy m_rio_rx_bd_L2_ptr
 		peer_list.push_back(*info->umd_dma_did_peer_list[itp->second]); // Yeehaw! Make a copy of class!!
+	  }
 	}}
 	pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
@@ -2059,6 +2062,7 @@ void UMD_DD(struct worker* info)
 		std::stringstream ss;
 		for (int ip = 0; ip < peer_list.size(); ip++) {
 			DmaPeer& peer = peer_list[ip];
+			const int rocnt = peer_list_rocnt[ip];
 			char tmp[257] = {0};
 			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u tx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
 				 peer.get_destid(), peer.get_tun_name(), peer.get_rio_addr(),
@@ -2073,9 +2077,11 @@ void UMD_DD(struct worker* info)
 			assert(pRP);
 
 			float TotalTimeSpentFull = (float)peer.m_stats.rio_rx_peer_full_ticks_total / MHz;
-			snprintf(tmp, 256, "\n\t\t\trx.RP=%u IBBdReady=%d #IsolIBPass=%llu #IBPass=%llu IBBDFullTotal=%fuS",
-			                   *pRP, peer.get_rio_rx_bd_ready_size(),
-			                   peer.m_stats.rio_isol_rx_pass, peer.m_stats.rio_rx_pass,
+			snprintf(tmp, 256, "\n\t\t\trx.RP=%u #IBBdRO=%d IBBdReady=%d #IsolIBPass=%llu #IsolIBPassAdd=%llu #IBPass=%llu IBBDFullTotal=%fuS",
+			                   *pRP, rocnt, peer.get_rio_rx_bd_ready_size(),
+			                   peer.m_stats.rio_isol_rx_pass, 
+			                   peer.m_stats.rio_isol_rx_pass_add, 
+				           peer.m_stats.rio_rx_pass,
 			                   TotalTimeSpentFull);
 			ss << tmp;
 
