@@ -148,6 +148,7 @@ static void unprovision_dead_dids(uint32_t old_did_list_size,
  */
 bool daemon_not_running(uint32_t did)
 {
+	/* FIXME: Is this still buggy or can it be enabled?? */
 #ifdef ENABLE_DAEMON_DETECTION
 	DBG("did = 0x%X\n", did);
 	if (!fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
