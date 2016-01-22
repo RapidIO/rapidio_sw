@@ -6,6 +6,8 @@
 #endif
 #include <cinttypes>
 
+#include <vector>
+
 #include "cm_sock.h"
 #include "librdma.h"
 #include "bat_connection.h"
@@ -40,10 +42,10 @@
 
 #define LOG(fmt, args...)    fprintf(log_fp, fmt, ## args)
 
-extern FILE *log_fp;
+using namespace std;
 
-extern bat_connection *server_conn;
-extern bat_connection *user_conn;
+extern FILE *log_fp;
+extern vector<bat_connection *>	bat_connections;
 
 /* Functions in LIBRDMA but NOT published in LIBRDMA.H since they are
  * for testing only. */

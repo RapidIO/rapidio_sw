@@ -6,6 +6,9 @@
 #include <linux/limits.h>
 
 #include <memory>
+#include <string>
+#include <sstream>
+#include <vector>
 
 #include <cstdlib>
 #include <cstdio>
@@ -18,28 +21,22 @@
 #include "bat_client_private.h"
 #include "bat_client_test_cases.h"
 
-using std::unique_ptr;
+using namespace std;
 
-/* Signal end-of-test to server */
-#define BAT_EOT1() server_conn->send_eot();
-#define BAT_EOT2() user_conn->send_eot();
+inline void bat_eot(int num_channels)
+{
+	for (auto i = 0; i < num_channels; i++) {
+		bat_connections[i]->send_eot();
+	}
+}
 
 static bool shutting_down = false;
 
 /* Log file, name and handle */
 static char log_filename[PATH_MAX];
+
 FILE *log_fp;
-
-static auto num_channels = 0;
-static int first_channel;
-static unique_ptr<bat_connection>	server_conn_ptr;
-bat_connection			*server_conn;
-static int second_channel;
-static unique_ptr<bat_connection>	user_conn_ptr;
-bat_connection			*user_conn;
-static uint32_t destid;
-
-static unsigned repetitions = 1;	/* Default is once */
+vector<bat_connection *>	bat_connections;
 
 static void show_help(void)
 {
@@ -49,7 +46,7 @@ static void show_help(void)
 	puts("-u Specify CM channel used by user app (opens/closes/accepts..etc.)");
 	puts("-d Specify RapidIO destination ID for the node running bot the 'server' and 'user'");
 	puts("-t Specify which test case to run");
-	puts("-n Specify number of repetitions to run the tests for");
+	puts("-r Specify number of repetitions to run the tests for");
 	puts("if <test_case> is 'z', all tests are run");
 	puts("if <test_case> is 'z', <repetitions> is the number of times the tests are run");
 	puts("<repetitions> is ignored for all other cases");
@@ -61,6 +58,11 @@ int main(int argc, char *argv[])
 {
 	char tc = 'a';
 	int c;
+	auto first_channel = 2224;
+	auto num_channels  = 1;
+	auto repetitions   = 1;
+	uint32_t destid;
+	vector<unique_ptr<bat_connection> > connections;
 
 	/* List and help are special cases */
 	if (argc == 2) {
@@ -109,15 +111,13 @@ int main(int argc, char *argv[])
 	}
 
 
-	while ((c = getopt(argc, argv, "hld:o:s:t:u:n:")) != -1)
+	while ((c = getopt(argc, argv, "hld:o:c:t:n:r:")) != -1)
 		switch (c) {
-		case 's':
+		case 'c':
 			first_channel = atoi(optarg);
-			num_channels++;
 			break;
-		case 'u':
-			second_channel = atoi(optarg);
-			num_channels++;
+		case 'n':
+			num_channels = atoi(optarg);
 			break;
 		case 'd':
 			destid = atoi(optarg);
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 			show_help();
 			exit(1);
 			break;
-		case 'n':
+		case 'r':
 			repetitions = atoi(optarg);
 			printf("Tests will be run %d times!\n", repetitions);
 			break;
@@ -146,15 +146,17 @@ int main(int argc, char *argv[])
 			abort();
 		}
 
-	/* Connect to 'server' */
+	/* Connect to servers */
 	try {
-		server_conn_ptr = make_unique<bat_connection>(destid, first_channel,
-						"server_conn", &shutting_down);
-		server_conn = server_conn_ptr.get();
-		if (num_channels == 2) {
-			user_conn_ptr = make_unique<bat_connection>(destid, second_channel,
-					"user_conn", &shutting_down);
-			user_conn = user_conn_ptr.get();
+		for (auto i = 0 ; i < num_channels; i++ ) {
+			stringstream conn_name;
+			conn_name << "conn_" << i;
+
+			connections.push_back(make_unique<bat_connection>(destid,
+							first_channel + i,
+							conn_name.str().c_str(),
+							&shutting_down));
+			bat_connections.push_back(connections[i].get());
 		}
 	}
 	catch(...) {
@@ -173,15 +175,15 @@ int main(int argc, char *argv[])
 
 	case 'a':
 		test_case_a();
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 	case 'b':
 		test_case_b();
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 	case 'c':
 		test_case_c();
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 	case 'd':
 		test_case_d();
@@ -202,14 +204,14 @@ int main(int argc, char *argv[])
 
 	case 'h':
 		test_case_h(destid);
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 
 	case 'i':
 	case 'j':
 	case 'k':
 		test_case_i_j_k(tc, destid);
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 
 	case 'l':
@@ -219,20 +221,19 @@ int main(int argc, char *argv[])
 
 	case 'm':
 		test_case_m(destid);
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 
 	case 'n':
 		test_case_n();
-		BAT_EOT1();
-		BAT_EOT2();
+		bat_eot(num_channels);
 		break;
 
 		/* Old test cases */
 	case 't':
 	case 'u':
 		test_case_t_u(tc, destid);
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 	case 'v':
 	case 'w':
@@ -248,30 +249,30 @@ int main(int argc, char *argv[])
 		break;
 	case '1':
 		test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_sync_chk);
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 	case '2':
 		test_case_dma(tc, destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 	case '3':
 		test_case_dma(tc, destid, 0x00, 0x80, 0x00, rdma_sync_chk);
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 	case '4':
 		test_case_dma(tc, destid, 0x00, 0x00, 0x40, rdma_sync_chk);
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 	case '5':
 		test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_async_chk);
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 	case '6':
 		test_case_6(destid);
-		BAT_EOT1();
+		bat_eot(1);
 		break;
 	case 'z':
-		for (unsigned i = 0; i < repetitions; i++) {
+		for (auto i = 0; i < repetitions; i++) {
 			/* New test cases */
 			test_case_a();
 			test_case_b();
@@ -310,7 +311,7 @@ int main(int argc, char *argv[])
 			test_case_dma('4', destid, 0x00, 0x00, 0x40, rdma_sync_chk);
 			test_case_t_u('u', destid);
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
-			BAT_EOT1();
+			bat_eot(1);
 		}
 		break;
 	default:

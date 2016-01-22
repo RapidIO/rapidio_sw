@@ -64,7 +64,7 @@ int test_case_a(void)
 	 * except for the duplicate ones; those should reutnr RDMA_DUPLICATE_MSO
 	 */
 	for (unsigned i = 0; i < NUM_MSOS; i++) {
-		ret = create_mso_f(server_conn,
+		ret = create_mso_f(bat_connections[0],
 				   mso_names[i],
 				   &mso_handles[i]);
 		/* Compare with expected return codes */
@@ -80,7 +80,7 @@ int test_case_a(void)
 		/* The ones that were created successfully have non-0 handles */
 		if (mso_handles[i] != 0) {
 			/* Don't overwrite 'ret', use 'rc' */
-			ret = destroy_mso_f(server_conn,
+			ret = destroy_mso_f(bat_connections[0],
 					   mso_handles[i]);
 			if (ret != 0) {
 				fprintf(log_fp, "%s FAILED, line %d, ret=%d\n",
@@ -190,7 +190,7 @@ int test_case_b(void)
 	bool failed = false;
 
 	/* Create mso */
-	ret = create_mso_f(server_conn, REM_MSO_NAME, &msoh);
+	ret = create_mso_f(bat_connections[0], REM_MSO_NAME, &msoh);
 	if (ret != 0) {
 		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
 						__func__, __LINE__, ret);
@@ -201,7 +201,7 @@ int test_case_b(void)
 	for (unsigned i = 0; i < NUM_MSS; i++) {
 		uint32_t actual_size;
 
-		ret = create_ms_f(server_conn, ms_names[i], msoh, MS_SIZE, 0,
+		ret = create_ms_f(bat_connections[0], ms_names[i], msoh, MS_SIZE, 0,
 				  	  	  &ms_handles[i], &actual_size);
 
 		/* Compare with expected return codes */
@@ -216,7 +216,7 @@ int test_case_b(void)
 	}
 
 	/* Destroy the memory spaces by destroying the mso */
-	ret = destroy_mso_f(server_conn, msoh);
+	ret = destroy_mso_f(bat_connections[0], msoh);
 	if (ret != 0) {
 		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
 						__func__, __LINE__, ret);
@@ -231,7 +231,7 @@ int test_case_b(void)
 	/* Second test, requested by Barry */
 
 	/* Create mso */
-	ret = create_mso_f(server_conn, REM_MSO_NAME, &msoh);
+	ret = create_mso_f(bat_connections[0], REM_MSO_NAME, &msoh);
 	if (ret != 0) {
 		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
 						__func__, __LINE__, ret);
@@ -246,7 +246,7 @@ int test_case_b(void)
 	for (unsigned i = 0; i < NUM_UNIQUE_MSS; i++) {
 		uint32_t actual_size;
 
-		ret = create_ms_f(server_conn,
+		ret = create_ms_f(bat_connections[0],
 				  ms_unique_names[i],
 				  msoh,
 				  MS_SIZE,
@@ -265,7 +265,7 @@ int test_case_b(void)
 	/* Now create 3 duplicate mss at positions 0, 6, and 9 */
 	uint32_t actual_size;
 	ms_h	 dummy_msh;
-	ret = create_ms_f(server_conn,
+	ret = create_ms_f(bat_connections[0],
 			  "one",
 			  msoh,
 			  MS_SIZE,
@@ -277,7 +277,7 @@ int test_case_b(void)
 				__func__, __LINE__, ret);
 		failed = true;
 	}
-	ret = create_ms_f(server_conn,
+	ret = create_ms_f(bat_connections[0],
 			  "six",
 			  msoh,
 			  MS_SIZE,
@@ -289,7 +289,7 @@ int test_case_b(void)
 				__func__, __LINE__, ret);
 		failed = true;
 	}
-	ret = create_ms_f(server_conn,
+	ret = create_ms_f(bat_connections[0],
 			  "ten",
 			  msoh,
 			  MS_SIZE,
@@ -303,7 +303,7 @@ int test_case_b(void)
 	}
 
 	/* Destroy the memory spaces by destroying the mso */
-	ret = destroy_mso_f(server_conn,
+	ret = destroy_mso_f(bat_connections[0],
 			    msoh);
 	if (ret != 0) {
 		fprintf(log_fp, "%s FAILED, line %d, ret = %d\n",
@@ -1221,7 +1221,7 @@ int test_case_h(uint32_t destid)
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	/* Create server mso */
-	ret = create_mso_f(server_conn, "rem_mso", &server_msoh);
+	ret = create_mso_f(bat_connections[0], "rem_mso", &server_msoh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	/* Create remote memory spaces and subspaces */
@@ -1230,14 +1230,14 @@ int test_case_h(uint32_t destid)
 
 		/* Create remote memory space */
 		ms_name << "rem_ms" << c;
-		ret = create_ms_f(server_conn,
+		ret = create_ms_f(bat_connections[0],
 				  ms_name.str().c_str(),
 				  server_msoh, MS_SIZE, 0,
 				  &ms_info[c].msh, NULL);
 		BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 		/* Create msub on remote memory space */
-		ret = create_msub_f(server_conn,
+		ret = create_msub_f(bat_connections[0],
 				ms_info[c].msh, 0,
 				MSUB_SIZE, 0, &ms_info[c].msubh);
 		BAT_EXPECT_RET(ret, 0, free_server_mso);
@@ -1247,7 +1247,7 @@ int test_case_h(uint32_t destid)
 		/* Put all remote memory spaces in accept mode */
 		for (unsigned c = 0; c < NUM_CONNECTIONS; c++) {
 			/* Accept on remote ms on the server */
-			ret = accept_ms_thread_f(server_conn,
+			ret = accept_ms_thread_f(bat_connections[0],
 						ms_info[c].msh,
 						ms_info[c].msubh);
 			BAT_EXPECT_RET(ret, 0, free_server_mso);
@@ -1286,7 +1286,7 @@ int test_case_h(uint32_t destid)
 
 free_server_mso:
 	/* Delete the server mso */
-	ret = destroy_mso_f(server_conn, server_msoh);
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 free_client_mso:
@@ -1317,42 +1317,42 @@ int test_case_i_j_k(char tc, uint32_t destid)
 
 	/* Create server mso */
 	mso_h	server_msoh;
-	ret = create_mso_f(server_conn, "rem_mso", &server_msoh);
+	ret = create_mso_f(bat_connections[0], "rem_mso", &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create server ms1 of size 64K */
 	ms_h	server_msh1;
-	ret = create_ms_f(server_conn, "rem_ms1", server_msoh, 64*1024, 0,
+	ret = create_ms_f(bat_connections[0], "rem_ms1", server_msoh, 64*1024, 0,
 			  	  	  	  	  &server_msh1, NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create msub1 of size 4K on server_msh1 */
 	msub_h  server_msubh1;
-	ret = create_msub_f(server_conn, server_msh1, 0, 4*1024, 0,
+	ret = create_msub_f(bat_connections[0], server_msh1, 0, 4*1024, 0,
 							&server_msubh1);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create server ms2 of size 32K */
 	ms_h	server_msh2;
-	ret = create_ms_f(server_conn, "rem_ms2", server_msoh, 32*1024, 0,
+	ret = create_ms_f(bat_connections[0], "rem_ms2", server_msoh, 32*1024, 0,
 			  	  	  	  	&server_msh2, NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create msub2 of size 8K on server_msh2 */
 	msub_h  server_msubh2;
-	ret = create_msub_f(server_conn, server_msh2, 0, 8*1024, 0,
+	ret = create_msub_f(bat_connections[0], server_msh2, 0, 8*1024, 0,
 							&server_msubh2);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create server ms3 of size 16K */
 	ms_h	server_msh3;
-	ret = create_ms_f(server_conn, "rem_ms3", server_msoh, 16*1024, 0,
+	ret = create_ms_f(bat_connections[0], "rem_ms3", server_msoh, 16*1024, 0,
 			  	  	  	  	&server_msh3, NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create msub3 of size 16K on server_msh2 */
 	msub_h  server_msubh3;
-	ret = create_msub_f(server_conn, server_msh3, 0, 16*1024, 0,
+	ret = create_msub_f(bat_connections[0], server_msh3, 0, 16*1024, 0,
 							&server_msubh3);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
@@ -1376,7 +1376,7 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	 * Now accept/connect to the 3 memory spaces, one after the other.
 	 */
 	/* Accept on ms1 on the server */
-	ret = accept_ms_thread_f(server_conn, server_msh1, server_msubh1);
+	ret = accept_ms_thread_f(bat_connections[0], server_msh1, server_msubh1);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 	sleep(1);
 
@@ -1390,7 +1390,7 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	sleep(1);
 
 	/* Accept on ms2 on the server */
-	ret = accept_ms_thread_f(server_conn, server_msh2, server_msubh2);
+	ret = accept_ms_thread_f(bat_connections[0], server_msh2, server_msubh2);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 	sleep(1);
 
@@ -1404,7 +1404,7 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	sleep(1);
 
 	/* Accept on ms on the server */
-	ret = accept_ms_thread_f(server_conn, server_msh3, server_msubh3);
+	ret = accept_ms_thread_f(bat_connections[0], server_msh3, server_msubh3);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 	sleep(1);
 
@@ -1437,7 +1437,7 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	/* In test case 'k' we delete the remote (server) mso first */
 	if (tc == 'k') {
 		/* Delete the server mso */
-		ret = destroy_mso_f(server_conn, server_msoh);
+		ret = destroy_mso_f(bat_connections[0], server_msoh);
 		BAT_EXPECT_RET(ret, 0, exit);
 
 		/* Delete the client mso */
@@ -1459,7 +1459,7 @@ free_client_mso:
 
 free_server_mso:
 	/* Delete the server mso */
-	ret = destroy_mso_f(server_conn, server_msoh);
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 exit:
@@ -1578,12 +1578,12 @@ void m_thread_f(uint32_t destid, mso_h server_msoh, mso_h client_msoh, unsigned 
 	ms_name << "mspace" << i;
 
 	/* Create server_msh in server_msoh */
-	rc = create_ms_f(server_conn, ms_name.str().c_str(), server_msoh,
+	rc = create_ms_f(bat_connections[0], ms_name.str().c_str(), server_msoh,
 						MS_SIZE, 0, &server_msh, NULL);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* Create server_msubh in server_msh */
-	rc = create_msub_f(server_conn, server_msh, 0, MSUB_SIZE, 0,
+	rc = create_msub_f(bat_connections[0], server_msh, 0, MSUB_SIZE, 0,
 								&server_msubh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
@@ -1597,7 +1597,7 @@ void m_thread_f(uint32_t destid, mso_h server_msoh, mso_h client_msoh, unsigned 
 	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* Put server_msh in accept mode */
-	rc = accept_ms_thread_f(server_conn, server_msh, server_msubh);
+	rc = accept_ms_thread_f(bat_connections[0], server_msh, server_msubh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* Ensure server_msh is accepting before connecting */
@@ -1631,7 +1631,7 @@ int test_case_m(uint32_t destid)
 
 	/* Create server mso */
 	mso_h	server_msoh;
-	rc = create_mso_f(server_conn, "server_mso", &server_msoh);
+	rc = create_mso_f(bat_connections[0], "server_mso", &server_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* Create a client mso */
@@ -1665,7 +1665,7 @@ int test_case_m(uint32_t destid)
 	puts("Client mso destroyed with all its children");
 free_server_mso:
 	/* Delete the server mso */
-	rc = destroy_mso_f(server_conn, server_msoh);
+	rc = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
 	puts("Server mso destroyed with all its children");
 exit:
@@ -1688,34 +1688,34 @@ int test_case_n()
 
 	/* Create server mso */
 	mso_h	server_msoh;
-	ret = create_mso_f(server_conn, "rem_mso", &server_msoh);
+	ret = create_mso_f(bat_connections[0], "rem_mso", &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create server ms of size 64K */
 	ms_h	server_msh;
-	ret = create_ms_f(server_conn, "rem_ms", server_msoh, 64*1024, 0,
+	ret = create_ms_f(bat_connections[0], "rem_ms", server_msoh, 64*1024, 0,
 			  	  	  	  &server_msh, NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Open mso from user */
 	mso_h	user_msoh;
-	ret = open_mso_f(user_conn, "rem_mso", &user_msoh);
+	ret = open_mso_f(bat_connections[0], "rem_mso", &user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Open ms from user */
 	ms_h	user_msh;
 	uint32_t user_msh_size;
-	ret = open_ms_f(user_conn, "rem_ms", user_msoh, 0,
+	ret = open_ms_f(bat_connections[0], "rem_ms", user_msoh, 0,
 						&user_msh_size, &user_msh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Close mso from user */
-	ret = close_mso_f(user_conn, user_msoh);
+	ret = close_mso_f(bat_connections[0], user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 free_server_mso:
 	/* Delete the server mso */
-	ret = destroy_mso_f(server_conn, server_msoh);
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 exit:
 	fprintf(log_fp, "test_case_n %s\n", (ret == 0) ? "PASSED" : "FAILED");
@@ -1733,18 +1733,18 @@ int test_case_t_u(char tc, uint32_t destid)
 
 	/* Create server mso */
 	mso_h	server_msoh;
-	ret = create_mso_f(server_conn, "rem_mso", &server_msoh);
+	ret = create_mso_f(bat_connections[0], "rem_mso", &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create server ms of size 64K */
 	ms_h	server_msh;
-	ret = create_ms_f(server_conn, "rem_ms", server_msoh, 64*1024, 0,
+	ret = create_ms_f(bat_connections[0], "rem_ms", server_msoh, 64*1024, 0,
 			  	  	  	  &server_msh, NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create msub of size 4K on server */
 	msub_h  server_msubh;
-	ret = create_msub_f(server_conn, server_msh, 0, 4*1024, 0,
+	ret = create_msub_f(bat_connections[0], server_msh, 0, 4*1024, 0,
 								&server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
@@ -1765,7 +1765,7 @@ int test_case_t_u(char tc, uint32_t destid)
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	/* Accept on ms on the server */
-	ret = accept_ms_thread_f(server_conn, server_msh, server_msubh);
+	ret = accept_ms_thread_f(bat_connections[0], server_msh, server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	sleep(1);
@@ -1797,7 +1797,7 @@ free_client_mso:
 
 free_server_mso:
 	/* Delete the server mso */
-	ret = destroy_mso_f(server_conn, server_msoh);
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 exit:
@@ -1831,12 +1831,12 @@ int test_case_v_w(char tc, uint32_t destid)
 
 	/* Create server mso */
 	mso_h	server_msoh;
-	ret = create_mso_f(server_conn, REM_MSO_NAME, &server_msoh);
+	ret = create_mso_f(bat_connections[0], REM_MSO_NAME, &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create server ms */
 	ms_h	server_msh;
-	ret = create_ms_f(server_conn,
+	ret = create_ms_f(bat_connections[0],
 			  REM_MS_NAME1,
 			  server_msoh,
 			  1024*1024,
@@ -1846,7 +1846,7 @@ int test_case_v_w(char tc, uint32_t destid)
 
 	/* Create msub on server */
 	msub_h  server_msubh;
-	ret = create_msub_f(server_conn, server_msh, 0, 4096, 0, &server_msubh);
+	ret = create_msub_f(bat_connections[0], server_msh, 0, 4096, 0, &server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create a client mso */
@@ -1866,7 +1866,7 @@ int test_case_v_w(char tc, uint32_t destid)
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	/* Accept on ms on the server */
-	ret = accept_ms_f(server_conn, server_msh, server_msubh);
+	ret = accept_ms_f(bat_connections[0], server_msh, server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	sleep(1);
@@ -1885,12 +1885,12 @@ int test_case_v_w(char tc, uint32_t destid)
 	if (tc == 'w') {
 		/* Kill remote app */
 		puts("Telling remote app to die");
-		ret = kill_remote_app(server_conn);
+		ret = kill_remote_app(bat_connections[0]);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 	} else if (tc == 'x') {
 		/* Kill remote daemon */
 		puts("Telling remote daemon to die");
-		ret = kill_remote_daemon(server_conn);
+		ret = kill_remote_daemon(bat_connections[0]);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 	} else {
 		ret = -1;	/* FAIL. Wrong parameter */
@@ -1926,7 +1926,7 @@ free_client_mso:
 
 free_server_mso:
 	/* Delete the server mso */
-	ret = destroy_mso_f(server_conn, server_msoh);
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 exit:
@@ -2148,18 +2148,18 @@ int test_case_dma(char tc,
 
 	/* Create server mso */
 	mso_h	server_msoh;
-	ret = create_mso_f(server_conn, REM_MSO_NAME, &server_msoh);
+	ret = create_mso_f(bat_connections[0], REM_MSO_NAME, &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create server ms */
 	ms_h	server_msh;
-	ret = create_ms_f(server_conn, REM_MS_NAME1, server_msoh, 1024*1024,
+	ret = create_ms_f(bat_connections[0], REM_MS_NAME1, server_msoh, 1024*1024,
 							0, &server_msh,NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create msub on server */
 	msub_h  server_msubh;
-	ret = create_msub_f(server_conn, server_msh, 0, MSUB_SIZE,
+	ret = create_msub_f(bat_connections[0], server_msh, 0, MSUB_SIZE,
 							0, &server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
@@ -2181,7 +2181,7 @@ int test_case_dma(char tc,
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	/* Accept on ms on the server */
-	ret = accept_ms_f(server_conn, server_msh, server_msubh);
+	ret = accept_ms_f(bat_connections[0], server_msh, server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 	sleep(1);
 
@@ -2216,7 +2216,7 @@ free_client_mso:
 
 free_server_mso:
 	/* Delete the server mso */
-	ret = destroy_mso_f(server_conn, server_msoh);
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 exit:
 	return ret;
@@ -2238,33 +2238,33 @@ int test_case_6(uint32_t destid)
 	/* First create mso, and ms on server */
 	/* Create server mso */
 	mso_h	server_msoh;
-	ret = create_mso_f(server_conn, REM_MSO_NAME, &server_msoh);
+	ret = create_mso_f(bat_connections[0], REM_MSO_NAME, &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create server ms */
 	ms_h	server_msh;
-	ret = create_ms_f(server_conn, REM_MS_NAME1, server_msoh,
+	ret = create_ms_f(bat_connections[0], REM_MS_NAME1, server_msoh,
 					1024*1024, 0, &server_msh, NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 
 	/* On the 'user' application, open the mso & ms */
 	mso_h	user_msoh;
-	ret = open_mso_f(user_conn, REM_MSO_NAME, &user_msoh);
+	ret = open_mso_f(bat_connections[0], REM_MSO_NAME, &user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	ms_h	user_msh;
 	uint32_t user_msh_size;
-	ret = open_ms_f(user_conn, REM_MS_NAME1, user_msoh, 0,
+	ret = open_ms_f(bat_connections[0], REM_MS_NAME1, user_msoh, 0,
 						&user_msh_size, &user_msh);
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
 
 	/* On the 'user' create an msub, and then do accept on the ms */
 	msub_h  user_msubh;
-	ret = create_msub_f(server_conn, user_msh, 0, MSUB_SIZE, 0, &user_msubh);
+	ret = create_msub_f(bat_connections[0], user_msh, 0, MSUB_SIZE, 0, &user_msubh);
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
 
-	ret = accept_ms_thread_f(user_conn, user_msh, user_msubh);
+	ret = accept_ms_thread_f(bat_connections[0], user_msh, user_msubh);
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
 	sleep(1);
 
@@ -2315,12 +2315,12 @@ free_client_mso:
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
 
 free_user_mso:
-	ret = close_mso_f(user_conn, user_msoh);
+	ret = close_mso_f(bat_connections[0], user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 free_server_mso:
 	/* Delete the server mso */
-	ret = destroy_mso_f(server_conn, server_msoh);
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 exit:
 
