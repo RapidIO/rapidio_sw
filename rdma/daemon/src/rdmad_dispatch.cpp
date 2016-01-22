@@ -3,6 +3,22 @@
 #include "rdma_msg.h"
 #include "rdmad_unix_msg.h"
 
+int rdmad_is_alive_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+{
+	unix_msg_t out_msg;
+
+	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+
+	out_msg.type 	 = RDMAD_IS_ALIVE_ACK;
+	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.seq_no	 = in_msg->seq_no;
+	out_msg.rdmad_is_alive_out.dummy = 0x5678;
+
+	tx_eng->send_message(&out_msg);
+
+	return 0;
+} /* rdmad_is_alive() */
+
 /**
  * Dispatch function for obtaining mport ID.
  */

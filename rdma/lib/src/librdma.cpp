@@ -295,24 +295,19 @@ int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint32_t *bytes)
 
 /**
  * Internal function to determine whether the daemon is still reachable.
- * I think this is redundant now; in daemon_call() we consider the daemon
- * to be unreachable if we timeout on the reply semaphore. This is precisely
- * what this function will do as well.
- * FIXME: REMOVE.
+ * Useful ONLY for APIs that don't already call into the daemon such
+ * as the ones that map msubs.
  */
 static bool rdmad_is_alive()
 {
-	rdmad_is_alive_input	in;
-	unix_msg_t  *in_msg;
+	unix_msg_t  in_msg;
 
-	client->get_send_buffer((void **)&in_msg);
+	in_msg.type = RDMAD_IS_ALIVE;
+	in_msg.category = RDMA_REQ_RESP;
+	in_msg.rdmad_is_alive_in.dummy = 0x1234;
 
-	in.dummy = 0x1234;
-
-	in_msg->type = RDMAD_IS_ALIVE;
-	in_msg->rdmad_is_alive_in = in;
-
-	return alt_rpc_call(in_msg, NULL) != RDMA_DAEMON_UNREACHABLE;
+	unix_msg_t  out_msg;
+	return daemon_call(&in_msg, &out_msg) != RDMA_DAEMON_UNREACHABLE;
 } /* rdmad_is_alive() */
 
 static int open_mport(void)
@@ -367,8 +362,6 @@ static int open_mport(void)
 	}
 	return 0;
 } /* open_mport() */
-
-
 
 /**
  * client_wait_for_destroy_thread_f
@@ -1236,7 +1229,8 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 
 		/* Destroy msubs opened under this msh */
 		if (destroy_msubs_in_msh(msh)) {
-			ERR("Failed to destroy msubs belonging to msh(0x%" PRIx64 ")\n", msh);
+			ERR("Failed to destroy msubs of msh(0x%" PRIx64 ")\n",
+									msh);
 			throw RDMA_MSUB_DESTROY_FAIL;
 		}
 
@@ -1386,235 +1380,213 @@ int rdma_create_msub_h(ms_h	msh,
 		       uint32_t	flags,
 		       msub_h	*msubh)
 {
-	(void)flags;
-	create_msub_input	in;
-	create_msub_output	out;
-	int			ret;
+	(void)flags;	/* Disables warning until 'flags' have a use! */
+	auto rc = 0;
 	
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
+	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
+		/* Check for NULL */
+		if (!msh || !msubh) {
+			ERR("NULL param: msh=0x%" PRIx64 ", msubh=%p\n",
+								msh, msubh);
+			throw RDMA_NULL_PARAM;
+		}
 
-	/* Check for NULL */
-	if (!msh || !msubh) {
-		ERR("NULL param: msh=0x%" PRIx64 ", msubh=%p\n", msh, msubh);
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
+		/* In order for mmap() to work, the phys addr must be aligned
+		 * at 4K. This means the mspace must be aligned, the msub
+		 * must have a size that is a multiple of 4K, and the offset
+		 * of the msub within the mspace must be a multiple of 4K. */
+		if (!aligned_at_4k(offset) || !aligned_at_4k(req_bytes)) {
+			ERR("Offset & size must be multiples of 4K\n");
+			throw RDMA_ALIGN_ERROR;
+		}
 
-	/* In order for mmap() to work, the phys addr must be aligned
-	 * at 4K. This means the mspace must be aligned, the msub
-	 * must have a size that is a multiple of 4K, and the offset
-	 * of the msub within the mspace must be a multiple of 4K.
-	 */
-	if (!aligned_at_4k(offset) || !aligned_at_4k(req_bytes)) {
-		ERR("Offset & size must be multiples of 4K\n");
-		sem_post(&rdma_lock);
-		return RDMA_ALIGN_ERROR;
-	}
+		/* Set up input parameters */
+		unix_msg_t  in_msg;
+		in_msg.type     = CREATE_MSUB;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.create_msub_in.msid 	= ((loc_ms *)msh)->msid;
+		in_msg.create_msub_in.offset	= offset;
+		in_msg.create_msub_in.req_bytes = req_bytes;
+		DBG("msid = 0x%X, offset = 0x%X, req_bytes = 0x%x\n",
+						in_msg.create_msub_in.msid,
+						in_msg.create_msub_in.offset,
+						in_msg.create_msub_in.req_bytes);
+		/* Call into daemon */
+		unix_msg_t  out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in CREATE_MSUB daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
 
-	/* Set up input parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-	in.msid		= ((struct loc_ms *)msh)->msid;
-	in.offset	= offset;
-	in.req_bytes	= req_bytes;
+		/* Failed to create msub? */
+		if (out_msg.create_msub_out.status) {
+			ERR("Failed to create_msub in daemon\n");
+			throw out_msg.create_msub_out.status;
+		}
 
-	DBG("msid = 0x%X, offset = 0x%X, req_bytes = 0x%x\n",
-		in.msid, in.offset, in.req_bytes);
+		INFO("out->bytes=0x%X, out.phys_addr=0x%016" PRIx64
+				", out.rio_addr=0x%016" PRIx64 "\n",
+					out_msg.create_msub_out.bytes,
+					out_msg.create_msub_out.phys_addr,
+					out_msg.create_msub_out.rio_addr);
 
-	/* Set up Unix message parameters */
-	in_msg->type = CREATE_MSUB;
-	in_msg->create_msub_in = in;
+		/* Store msubh in database, obtain pointer thereto, convert to msub_h */
+		*msubh = (msub_h)add_loc_msub(out_msg.create_msub_out.msubid,
+				      	      out_msg.create_msub_in.msid,
+				      	      out_msg.create_msub_out.bytes,
+				      	      64,	/* 64-bit RIO address */
+				      	      out_msg.create_msub_out.rio_addr,
+				      	      0,	/* Bits 66 and 65 */
+				      	      out_msg.create_msub_out.phys_addr);
 
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		sem_post(&rdma_lock);
-		return ret;
-	}
-
-	out = out_msg->create_msub_out;
-
-	/* Check status returned by command on the daemon side */
-	if (out.status != 0) {
-		ERR("Failed to create msub in daemon\n");
-		sem_post(&rdma_lock);
-		return out.status;
-	}
-
-	INFO("out->bytes=0x%X, out.phys_addr=0x%016" PRIx64 ", out.rio_addr=0x%016" PRIx64 "\n",
-				out.bytes, out.phys_addr, out.rio_addr);
-
-	/* Store msubh in database, obtain pointer thereto, convert to msub_h */
-	*msubh = (msub_h)add_loc_msub(out.msubid,
-				      in.msid,
-				      out.bytes,
-				      64,	/* 64-bit RIO address */
-				      out.rio_addr,
-				      0,	/* Bits 66 and 65 */
-				      out.phys_addr);
-
-	/* Adding to database should never fail, but just in case... */
-	if (!*msubh) {
-		WARN("Failed to add msub to database\n");
-		sem_post(&rdma_lock);
-		return RDMA_DB_ADD_FAIL;
-	}
+		/* Adding to database should never fail, but just in case... */
+		if (!*msubh) {
+			WARN("Failed to add msub to database\n");
+			throw RDMA_DB_ADD_FAIL;
+		}
 	
-	DBG("msubh = 0x%" PRIx64 "\n", msubh);
+		DBG("msubh = 0x%" PRIx64 "\n", msubh);
+	} /* try */
+	catch(int e) {
+		rc = e;
+	} /* catch */
 	sem_post(&rdma_lock);
-	return 0;
+	return rc;
 } /* rdma_create_msub_h() */
 
 int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 {
-	destroy_msub_input	in;
-	destroy_msub_output	out;
-	struct loc_msub 	*msub;
-	int			ret;
+	auto rc = 0;
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
+	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
-
-	/* Check for NULL handles */
-	if (!msh || !msubh) {
-		ERR("Invalid param(s):msh=0x%" PRIx64 ",msubh=0x%" PRIx64 "\n",
+		/* Check for NULL handles */
+		if (!msh || !msubh) {
+			ERR("Invalid param(s):msh=0x%" PRIx64 ",msubh=0x%" PRIx64 "\n",
 								msh, msubh);
-		return RDMA_NULL_PARAM;
+			throw RDMA_NULL_PARAM;
+		}
+
+		DBG("msubh = 0x%" PRIx64 "\n", msubh);
+
+		/* Set up input parameters */
+		unix_msg_t  in_msg;
+
+		in_msg.type     = DESTROY_MSUB;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.destroy_msub_in.msid = ((loc_ms *)msh)->msid;
+		in_msg.destroy_msub_in.msubid = ((loc_msub *)msubh)->msubid;
+		DBG("Attempting to destroy msubid(0x%X) in msid(0x%X)\n",
+					in_msg.destroy_msub_in.msid,
+					in_msg.destroy_msub_in.msubid);
+
+		/* Remove msub from database */
+		if (remove_loc_msub(msubh) < 0) {
+			WARN("Failed to remove %p from database\n", msubh);
+			throw RDMA_DB_REM_FAIL;
+		}
+
+		DBG("Destroyed msub in msh = 0x%" PRIx64 ", msubh = 0x%"
+						PRIx64 "\n", msh, msubh);
 	}
-
-	DBG("msubh = 0x%" PRIx64 "\n", msubh);
-
-	/* Convert handle to an msub pointer to the element the database */
-	msub = (struct loc_msub *)msubh;
-
-	/* Set up input parameters */
-	in.msid		= ((struct loc_ms *)msh)->msid;
-	in.msubid	= msub->msubid;
-	DBG("Attempting to destroy msubid(0x%X) in msid(0x%X)\n", in.msubid,
-								  in.msid);
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-	in_msg->type = DESTROY_MSUB;
-	in_msg->destroy_msub_in = in;
-
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		return ret;
+	catch(int e) {
+		rc = e;
 	}
-
-	out = out_msg->destroy_msub_out;
-
-	/* Check status returned by command on the daemon side */
-	if (out.status != 0) {
-		ERR("Failed to destroy msub(0x%X)in daemon\n", in.msubid);
-		return out.status;
-	}
-
-	/* Remove msub from database */
-	if (remove_loc_msub(msubh) < 0) {
-		WARN("Failed to remove %p from database\n", msub);
-		return RDMA_DB_REM_FAIL;
-	}
-
-	DBG("Destroyed msub in msh = 0x%" PRIx64 ", msubh = 0x%" PRIx64 "\n", msh, msubh);
-
-	return 0;
+	return rc;
 } /* rdma_destroy_msub() */
 
 int rdma_mmap_msub(msub_h msubh, void **vaddr)
 {
-	struct loc_msub *pmsub = (struct loc_msub *)msubh;
-	int ret;
+	loc_msub *pmsub = (loc_msub *)msubh;
+	auto rc = 0;
 	
 	sem_wait(&rdma_lock);
 
-	if (!pmsub) {
-		ERR("msubh is NULL\n");
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
+	try {
+		if (!pmsub) {
+			ERR("msubh is NULL\n");
+			throw RDMA_NULL_PARAM;
+		}
 
-	if (!vaddr) {
-		ERR("vaddr is NULL\n");
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
+		if (!vaddr) {
+			ERR("vaddr is NULL\n");
+			throw RDMA_NULL_PARAM;
+		}
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
+		/* Check the daemon hasn't died since we established
+		 * its socket connection */
+		if (!rdmad_is_alive()) {
+			WARN("Local RDMA daemon has died.\n");
+		}
 
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	ret = riomp_dma_map_memory(peer.mport_hnd, pmsub->bytes, pmsub->paddr, vaddr);
-
-	if (ret) {
-		ERR("map(0x%" PRIx64 ") failed: %s\n", pmsub->paddr, strerror(-ret));
-		sem_post(&rdma_lock);
-		return ret;
-	}
-	INFO("phys_addr = 0x%" PRIx64 ", virt_addr = %p, size = 0x%x\n",
+		rc = riomp_dma_map_memory(peer.mport_hnd,
+					   pmsub->bytes,
+					   pmsub->paddr,
+					   vaddr);
+		if (rc) {
+			ERR("map(0x%" PRIx64 ") failed: %s\n",
+						pmsub->paddr, strerror(-rc));
+			throw rc;
+		}
+		INFO("phys_addr = 0x%" PRIx64 ", virt_addr = %p, size = 0x%x\n",
 						pmsub->paddr, *vaddr, pmsub->bytes);
+	} /* try */
+	catch(int e) {
+		rc = e;
+	}
 	sem_post(&rdma_lock);
-	return 0;
+	return rc;
 } /* rdma_mmap_msub() */
 
 int rdma_munmap_msub(msub_h msubh, void *vaddr)
 {
-	struct loc_msub *pmsub = (struct loc_msub *)msubh;
-	int ret;
+	loc_msub *pmsub = (loc_msub *)msubh;
+	auto rc = 0;
 
 	sem_wait(&rdma_lock);
+	try {
+		if (!pmsub) {
+			ERR("msubh is NULL\n");
+			throw RDMA_NULL_PARAM;
+		}
 
-	if (!pmsub) {
-		ERR("msubh is NULL\n");
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
+		if (!vaddr) {
+			ERR("vaddr is NULL\n");
+			throw RDMA_NULL_PARAM;
+		}
+
+		/* Check the daemon hasn't died since connection established */
+		if (!rdmad_is_alive()) {
+			WARN("Local RDMA daemon has died.\n");
+		}
+
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
+
+		if (munmap(vaddr, pmsub->bytes) == -1) {
+			ERR("munmap(): %s\n", strerror(errno));
+			throw RDMA_UNMAP_ERROR;
+		}
+
+		INFO("Unmapped vaddr(%p), of size %u\n", vaddr, pmsub->bytes);
 	}
-
-	if (!vaddr) {
-		ERR("vaddr is NULL\n");
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
+	catch(int e) {
+		rc = e;
 	}
-
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
-
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
-
-	if (munmap(vaddr, pmsub->bytes) == -1) {
-	        ERR("munmap(): %s\n", strerror(errno));
-		sem_post(&rdma_lock);
-		return RDMA_UNMAP_ERROR;
-	}
-
-	INFO("Unmapped vaddr(%p), of size %u\n", vaddr, pmsub->bytes);
-
 	sem_post(&rdma_lock);
-	return 0;
+
+	return rc;
 } /* rdma_unmap_msub() */
 
 int rdma_accept_ms_h(ms_h loc_msh,

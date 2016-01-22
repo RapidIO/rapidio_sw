@@ -36,6 +36,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_unix_msg.h"
 #include "tx_engine.h"
 
+int rdmad_is_alive_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
+
 int get_mport_id_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 int create_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);

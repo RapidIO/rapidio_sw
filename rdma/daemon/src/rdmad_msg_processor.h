@@ -53,6 +53,9 @@ public:
 			= static_cast<tx_engine<unix_server, unix_msg_t>*>(vtx_eng);
 
 		switch(msg->type) {
+		case RDMAD_IS_ALIVE:
+			rc = rdmad_is_alive_disp(msg, tx_eng);
+			break;
 		case GET_MPORT_ID:
 			rc = get_mport_id_disp(msg, tx_eng);
 			break;
