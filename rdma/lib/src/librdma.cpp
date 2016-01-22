@@ -778,7 +778,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 			} else {
 				/* Already open, just return the handle */
 				WARN("%s is already open!\n", owner_name);
-				throw RDMA_ALREADY_OPEN;
+				throw RDMA_SUCCESS; /* Not an error */
 			}
 		}
 
@@ -839,10 +839,11 @@ int rdma_close_mso_h(mso_h msoh)
 		}
 
 		/* Check if msoh has already been removed (as a result of the
-		 *  owner destroying, the owner dying, the daemon dying..etc.) */
+		 *  owner destroying, the owner dying, the daemon dying..etc.)
+		 *  or has already been closed once before. */
 		if (!mso_h_exists(msoh)) {
 			WARN("msoh no longer exists\n");
-			throw 0;
+			throw RDMA_SUCCESS;
 		}
 
 		/* Get list of memory spaces opened by this owner */
@@ -929,6 +930,12 @@ int rdma_destroy_mso_h(mso_h msoh)
 		if (!msoh) {
 			WARN("msoh is NULL\n");
 			throw RDMA_NULL_PARAM;
+		}
+
+		/* Check if msoh has already been destroyed. If so, success */
+		if (!mso_h_exists(msoh)) {
+			WARN("msoh no longer exists\n");
+			throw RDMA_SUCCESS;
 		}
 
 		/* Get list of memory spaces owned by this owner */
