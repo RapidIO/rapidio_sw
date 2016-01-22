@@ -51,8 +51,17 @@ int rdma_db_init();
 /**
  * Memory space owners.
  */
-struct loc_mso {
-	char *name;
+class loc_mso {
+public:
+	loc_mso(const char *name, uint32_t msoid, uint32_t mso_conn_id, bool owned) :
+		name(strdup(name)), msoid(msoid), mso_conn_id(mso_conn_id), owned(owned)
+	{
+	}
+	~loc_mso()
+	{
+		free((void *)name);
+	}
+	const char *name;
 	uint32_t msoid;
 	uint32_t mso_conn_id;	// if 'owned' is false
 	bool owned;
@@ -91,6 +100,19 @@ struct loc_ms {
 	bool	   owned;
 	bool	   accepted;
 
+	loc_ms(const char *name, uint32_t bytes, mso_h msoh, uint32_t msid,
+		uint64_t phys_addr, uint64_t rio_addr, uint32_t ms_conn_id,
+		bool owned, pthread_t disc_thread, msg_q<mq_rdma_msg> *disc_notify_mq) :
+	name(strdup(name)), bytes(bytes), msoh(msoh), msid(msid), phys_addr(phys_addr),
+	rio_addr(rio_addr), ms_conn_id(ms_conn_id), owned(owned), accepted(false),
+	disc_thread(disc_thread), disc_notify_mq(disc_notify_mq)
+	{
+	}
+
+	~loc_ms()
+	{
+		free((void *)name);
+	}
 	/* The following fields are used for connect/disconnect notification. */
 	pthread_t  disc_thread;
 	msg_q<mq_rdma_msg> *disc_notify_mq;
@@ -149,6 +171,12 @@ struct loc_msub {
 	uint64_t	rio_addr_lo;
 	uint8_t		rio_addr_hi;
 	uint64_t	paddr;
+	loc_msub(uint32_t msid, uint32_t msubid, uint32_t bytes, uint8_t rio_addr_len,
+		 uint64_t rio_addr_lo, uint8_t	rio_addr_hi, uint64_t paddr) :
+	msid(msid), msubid(msubid), bytes(bytes), rio_addr_len(rio_addr_len),
+		rio_addr_lo(rio_addr_lo), rio_addr_hi(rio_addr_hi), paddr(paddr)
+	{
+	}
 };
 
 struct rem_msub {
