@@ -2057,7 +2057,7 @@ int cps1xxx_init(struct riocp_pe *sw)
 	}
 
 	/* Set packet time-to-live to prevent final buffer deadlock.
-		see CPS1616 errate: maintenance packet buffer mananement for
+		see CPS1616 errata: maintenance packet buffer management for
 		more information. Default TTL is disabled.
 		use maximum value of approximate 110 ms */
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PKT_TTL_CSR, CPS1xxx_PKT_TTL_CSR_TTL_OFF);
@@ -2080,6 +2080,28 @@ int cps1xxx_init(struct riocp_pe *sw)
 	if (ret)
 		return ret;
 
+	/*
+	 * TODO: Move this to cps1xxx_init_em() and take it into use.
+	 * Set a route towards the enumeration host for the input port
+	 */
+	{
+		uint32_t port_info = 0;
+		ret = riocp_pe_maint_read(sw, 0x14, &port_info);
+		if (ret)
+			return ret;
+
+		RIOCP_WARN("%s: set workaround route 0x%04x-->%d\n", __func__, sw->mport->destid, 0x0ff & port_info);
+
+		ret = riocp_pe_maint_write(sw, 0x70, sw->mport->destid);
+		if (ret)
+			return ret;
+		ret = riocp_pe_maint_write(sw, 0x74, 0x0ff & port_info);
+		if (ret)
+			return ret;
+//		ret = cps1xxx_set_route_entry(sw, RIOCP_PE_ANY_PORT, sw->mport->destid, (uint8_t)port_info);
+//		if (ret)
+//			return ret;
+	}
 	return 0;
 }
 
