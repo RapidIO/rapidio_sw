@@ -1699,22 +1699,47 @@ int test_case_n()
 
 	/* Open mso from user */
 	mso_h	user_msoh;
-	ret = open_mso_f(bat_connections[0], "rem_mso", &user_msoh);
+	ret = open_mso_f(bat_connections[1], "rem_mso", &user_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Open mso AGAIN. Should be harmless */
+	ret = open_mso_f(bat_connections[1], "rem_mso", &user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Open ms from user */
 	ms_h	user_msh;
 	uint32_t user_msh_size;
-	ret = open_ms_f(bat_connections[0], "rem_ms", user_msoh, 0,
+	ret = open_ms_f(bat_connections[1], "rem_ms", user_msoh, 0,
 						&user_msh_size, &user_msh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Close mso from user */
-	ret = close_mso_f(bat_connections[0], user_msoh);
+	ret = close_mso_f(bat_connections[1], user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
+	/* Close mso from user AGAIN. Should be harmless */
+	ret = close_mso_f(bat_connections[1], user_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Destroy the server mso */
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Destroy the server mso AGAIN. Should be harmless */
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Re-create mso after destruction */
+	ret = create_mso_f(bat_connections[0], "rem_mso", &server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Open mso from user again */
+	ret = open_mso_f(bat_connections[1], "rem_mso", &user_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+
 free_server_mso:
-	/* Delete the server mso */
+	/* Delete the server mso while it is open */
 	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 exit:
