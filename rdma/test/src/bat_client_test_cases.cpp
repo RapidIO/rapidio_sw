@@ -1677,6 +1677,52 @@ exit:
 } /* test_case_m() */
 
 /**
+ * 1. Create mso
+ * 2. Open mso
+ * 3. Close mso
+ * 4. Destroy mso
+ */
+int test_case_n()
+{
+	int ret;
+
+	/* Create server mso */
+	mso_h	server_msoh;
+	ret = create_mso_f(server_conn, "rem_mso", &server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Create server ms of size 64K */
+	ms_h	server_msh;
+	ret = create_ms_f(server_conn, "rem_ms", server_msoh, 64*1024, 0,
+			  	  	  	  &server_msh, NULL);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Open mso from user */
+	mso_h	user_msoh;
+	ret = open_mso_f(user_conn, "rem_mso", &user_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Open ms from user */
+	ms_h	user_msh;
+	uint32_t user_msh_size;
+	ret = open_ms_f(user_conn, "rem_ms", user_msoh, 0,
+						&user_msh_size, &user_msh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Close mso from user */
+	ret = close_mso_f(user_conn, user_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+free_server_mso:
+	/* Delete the server mso */
+	ret = destroy_mso_f(server_conn, server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+exit:
+	fprintf(log_fp, "test_case_n %s\n", (ret == 0) ? "PASSED" : "FAILED");
+	return ret;
+} /* test_case_n() */
+
+/**
  * Test accept_ms_h()/conn_ms_h()/disc_ms_h()..etc.
  *
  * @ch	if tc is 't' run test case 't', else run test case 'u'

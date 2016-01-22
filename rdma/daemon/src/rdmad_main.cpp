@@ -700,18 +700,6 @@ int main (int argc, char **argv)
 	if (!foreground())
 		peer.run_cons = 0;
 
-	/* Register signal handler */
-	struct sigaction sig_action;
-	sig_action.sa_handler = sig_handler;
-	sigemptyset(&sig_action.sa_mask);
-	sig_action.sa_flags = 0;
-	sigaction(SIGINT, &sig_action, NULL);
-	sigaction(SIGTERM, &sig_action, NULL);
-	sigaction(SIGQUIT, &sig_action, NULL);
-	sigaction(SIGABRT, &sig_action, NULL);
-	sigaction(SIGUSR1, &sig_action, NULL);
-	sigaction(SIGSEGV, &sig_action, NULL);
-
 	/* Parse command-line parameters */
 	while ((c = getopt(argc, argv, "hnc:m:")) != -1)
 		switch (c) {
@@ -736,7 +724,7 @@ int main (int argc, char **argv)
 			/* Invalid command line option */
 			exit(1);
 		default:
-			abort();	
+			abort(); /* Unexpected error */
 		}
 
 	/* Initialize logger */
@@ -756,10 +744,22 @@ int main (int argc, char **argv)
 		cons_ret = pthread_create( &console_thread, NULL, 
 				console, (void *)((char *)"RDMADaemon> "));
 		if(cons_ret) {
-			CRIT("Error cons_thread rc: %d\n", cons_ret);
+			CRIT("Failed to start console, rc: %d\n", cons_ret);
 			exit(EXIT_FAILURE);
 		}
 	}
+
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
+	sigaction(SIGTERM, &sig_action, NULL);
+	sigaction(SIGQUIT, &sig_action, NULL);
+	sigaction(SIGABRT, &sig_action, NULL);
+	sigaction(SIGUSR1, &sig_action, NULL);
+	sigaction(SIGSEGV, &sig_action, NULL);
 
 	/* Open mport */
 	rc = riomp_mgmt_mport_create_handle(peer.mport_id, 0, &peer.mport_hnd);

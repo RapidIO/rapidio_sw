@@ -80,6 +80,7 @@ int main(int argc, char *argv[])
 			puts("'k' Connect/destroy(remote first) with 3 memory spaces");
 			puts("'l' Test coalescing of random equal memory spaces");
 			puts("'m' Test concurrent creation of ms, msub, accept, connect, disconnect");
+			puts("'n' Create mso/ms on server, open mso/ms on user, close, then destroy");
 
 			/* Old test cases */
 			puts("'t' Accept/Connect/Disconnect test");
@@ -221,6 +222,12 @@ int main(int argc, char *argv[])
 		BAT_EOT1();
 		break;
 
+	case 'n':
+		test_case_n();
+		BAT_EOT1();
+		BAT_EOT2();
+		break;
+
 		/* Old test cases */
 	case 't':
 	case 'u':
@@ -279,6 +286,7 @@ int main(int argc, char *argv[])
 			test_case_i_j_k('k', destid);
 			test_case_l();
 			test_case_m(destid);
+			test_case_n();
 
 			/* Old test cases */
 			test_case_t_u('t', destid);
