@@ -25,6 +25,17 @@ if [ "$#" -lt 5 ]; then
     exit
 fi
 
+for i in "${ALLNODES[@]}"
+do
+	ping -c 1 $i > /dev/null
+	if [ $? -ne 0 ]; then
+		echo $i " Not accessible, aborting..."
+		exit
+	else
+		echo $i "accessible."
+	fi
+done
+
 echo "Beginning installation..."
 
 for i in "${ALLNODES[@]}"
@@ -37,17 +48,6 @@ do
 	fi
 	ssh root@"$i" "$SCRIPTS_PATH/make_install.sh $SOURCE_PATH $GRP"
 	echo $i" Compilation and documentation generation COMPLETED.."
-done
-
-for i in "${ALLNODES[@]}"
-do
-	ping -c 1 $i > /dev/null
-	if [ $? -ne 0 ]; then
-		echo $i " Not accessible, aborting..."
-		exit
-	else
-		echo $i "accessible."
-	fi
 done
 
 echo "Installing configuration files..."
