@@ -1,6 +1,5 @@
 #!/bin/bash
 cd $1
-git checkout idt/release03_rdma
 make -s clean
 make -s all
 cd utils/goodput

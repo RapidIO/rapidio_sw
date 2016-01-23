@@ -10,18 +10,34 @@ ALLNODES=( $1 $2 $3 $4 )
 
 GRP=$5
 
-if [ "$#" -ne 5 ]; then
-    echo "Correct usage is <NODE1> <NODE2> <NODE3> <NODE4> <group>"
+REL=$6
+
+if [ "$#" -lt 5 ]; then
+    echo "Correct usage is <NODE1> <NODE2> <NODE3> <NODE4> <group> <release>"
     echo "<NODE1> Name of master, enumerating node"
     echo "<NODE2> Name of slave node conncected to Switch Port 2"
     echo "<NODE3> Name of slave node conncected to Switch Port 3"
     echo "<NODE4> Name of slave node conncected to Switch Port 4"
     echo "<group> Unix file ownership group which should have access to"
     echo "        the RapidIO software"
+    echo "<rel> is the software release/version to install."
+    echo "        If no release is supplied, the current release is installed."
     exit
 fi
 
 echo "Beginning installation..."
+
+for i in "${ALLNODES[@]}"
+do
+	echo $i" Compilation and documentation generation starting..."
+	if [ -z "$6" ]; then
+		ssh root@"$i" "cd $SOURCE_PATH; git branch | grep '*' "
+	else
+		ssh root@"$i" "cd $SOURCE_PATH; git checkout $REL "
+	fi
+	ssh root@"$i" "$SCRIPTS_PATH/make_install.sh $SOURCE_PATH $GRP"
+	echo $i" Compilation and documentation generation COMPLETED.."
+done
 
 for i in "${ALLNODES[@]}"
 do
@@ -58,12 +74,5 @@ do
 done
 
 echo "Installation of configuration files COMPLETED..."
-
-for i in "${ALLNODES[@]}"
-do
-	echo $i" Compilation and documentation generation starting..."
-	ssh root@"$i" "$SCRIPTS_PATH/make_install.sh $SOURCE_PATH $GRP"
-	echo $i" Compilation and documentation generation COMPLETED.."
-done
 
 echo "Installion complete."
