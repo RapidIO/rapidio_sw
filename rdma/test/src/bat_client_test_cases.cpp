@@ -1684,7 +1684,7 @@ exit:
  */
 int test_case_n()
 {
-	int ret;
+	int ret, rc;
 
 	/* Create server mso */
 	mso_h	server_msoh;
@@ -1733,18 +1733,35 @@ int test_case_n()
 	ret = create_mso_f(bat_connections[0], "rem_mso", &server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 
+	/* Re-create ms after mso destruction */
+	ret = create_ms_f(bat_connections[0], "rem_ms", server_msoh, 64*1024, 0,
+			  	  	  	  &server_msh, NULL);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
 	/* Open mso from user again */
 	ret = open_mso_f(bat_connections[1], "rem_mso", &user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
+	/* Open ms from user again */
+	ret = open_ms_f(bat_connections[1], "rem_ms", user_msoh, 0,
+						&user_msh_size, &user_msh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create msub from user */
+	msub_h	user_msubh;
+	ret = create_msub_f(bat_connections[1], user_msh, 0, 8192, 0,
+								&user_msubh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 free_server_mso:
+	rc = ret;
+
 	/* Delete the server mso while it is open */
 	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 exit:
-	fprintf(log_fp, "test_case_n %s\n", (ret == 0) ? "PASSED" : "FAILED");
-	return ret;
+	fprintf(log_fp, "test_case_n %s\n", (rc == 0) ? "PASSED" : "FAILED");
+	return rc;
 } /* test_case_n() */
 
 /**
