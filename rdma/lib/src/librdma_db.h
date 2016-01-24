@@ -144,15 +144,9 @@ bool loc_ms_exists(ms_h msh);
 struct rem_ms {
 	char 		*name;
 	uint32_t 	msid;
-	pthread_t	wait_for_destroy_thread;
-	msg_q<mq_destroy_msg>	*destroy_mq;
 };
 
-ms_h add_rem_ms(const char *name,
-		uint32_t msid,
-		pthread_t wait_for_destroy_thread,
-		msg_q<mq_destroy_msg> *destroy_mq);
-
+ms_h add_rem_ms(const char *name, uint32_t msid);
 ms_h find_rem_ms(uint32_t msid);
 int remove_rem_ms(ms_h msh);
 bool rem_ms_exists(ms_h msh);

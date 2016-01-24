@@ -544,15 +544,10 @@ bool loc_ms_exists(ms_h msh)
  *
  * @name	Memory space name
  * @msid	Memory space identifier
- * @wait_for_destroy_thread	Thread which waits for 'destroy' message
- * @destroy_mq	Message queue for receiving 'destroy' message
  *
  * @return pointer to stored struct, NULL on failure
  */
-ms_h add_rem_ms(const char *name,
-		uint32_t msid,
-		pthread_t wait_for_destroy_thread,
-		msg_q<mq_destroy_msg> *destroy_mq)
+ms_h add_rem_ms(const char *name, uint32_t msid)
 {
 	rem_ms *msp = nullptr;
 
@@ -563,8 +558,6 @@ ms_h add_rem_ms(const char *name,
 		/* Populate */
 		msp->name 	= strdup(name);
 		msp->msid	= msid;
-		msp->wait_for_destroy_thread = wait_for_destroy_thread;
-		msp->destroy_mq = destroy_mq;
 
 		/* Add to list */
 		pthread_mutex_lock(&rem_ms_mutex);

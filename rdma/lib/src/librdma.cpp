@@ -375,7 +375,7 @@ static int open_mport(void)
 	}
 	return 0;
 } /* open_mport() */
-
+#if 0
 /**
  * client_wait_for_destroy_thread_f
  *
@@ -448,7 +448,6 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 	pthread_exit(0);
 } /* client_wait_for_destroy_thread_f() */
 
-#if 0
 /**
  * wait_for_disc_thread_f
  *
@@ -1674,7 +1673,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			throw out_msg.accept_out.status;
 		}
 
-		/* Await connect message - no timeout for now */
+		/* Await connect message */
 		rc = await_message(RDMA_LIB_DAEMON_CALL,
 				   CONNECT_MS_REQ,
 				   0,
@@ -1686,7 +1685,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			} else {
 				ERR("Unknown failure\n");
 			}
-			/* We timeout so undo the accept */
+			/* We failed, so undo the accept */
 			in_msg.type     = UNDO_ACCEPT;
 			in_msg.category = RDMA_REQ_RESP;
 			strcpy(in_msg.undo_accept_in.server_ms_name, ms->name);
@@ -1698,7 +1697,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			}
 
 			/* Failed to undo the accept */
-			if (out_msg.accept_out.status) {
+			if (out_msg.undo_accept_out.status) {
 				ERR("Failed to accept (ms) in daemon\n");
 				throw out_msg.undo_accept_out.status;
 			}
@@ -1802,247 +1801,197 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		   ms_h	  *rem_msh,
 		   uint64_t timeout_secs)
 {
-	send_connect_input	in;
-	send_connect_output	out;
-	struct timespec	before, after, rtt;
-	int			ret;
-	struct loc_msub		*loc_msub = (struct loc_msub *)loc_msubh;
 	static uint32_t seq_num = 0x1234;
+	auto rc = 0;
 
 	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
-
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
-
-	/* Remote msubh pointer cannot point to NULL */
-	if (!rem_msubh) {
-		WARN("rem_msubh cannot be NULL\n");
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
-
-	/* Check for invalid destid */
-	if (rem_destid_len == 16 && rem_destid==0xFFFF) {
-		WARN("Invalid destid 0x%X\n", rem_destid);
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_DESTID;
-	}
-
-	/* Prevent buffer overflow due to very long name */
-	size_t len = strlen(rem_msname);
-	if (len > UNIX_MS_NAME_MAX_LEN) {
-		ERR("String 'ms_name' is too long (%d)\n", len);
-		sem_post(&rdma_lock);
-		return RDMA_NAME_TOO_LONG;
-	}
-
-	INFO("Connecting to '%s' on destid(0x%X)\n", rem_msname, rem_destid);
-	/* Set up parameters for RPC call */
-	strcpy(in.server_msname, rem_msname);
-	in.server_destid_len	= rem_destid_len;
-	in.server_destid	= rem_destid;
-	in.client_destid_len	= 16;
-	in.client_destid	= peer.destid;
-	in.seq_num		= seq_num++;
-
-	DBG("in.server_msname     = %s\n", rem_msname);
-	DBG("in.server_destid_len = 0x%X\n", in.server_destid_len);
-	DBG("in.server_destid     = 0x%X\n", in.server_destid);
-	DBG("in.client_destid_len = 0x%X\n", in.client_destid_len);
-	DBG("in.client_destid     = 0x%X\n", in.client_destid);
-	DBG("in.seq_num           = 0x%X\n", in.seq_num);
-
-	if (loc_msubh) {
-		in.client_msid		= loc_msub->msid;
-		in.client_msubid	= loc_msub->msubid;
-		in.client_bytes		= loc_msub->bytes;
-		in.client_rio_addr_len	= loc_msub->rio_addr_len;
-		in.client_rio_addr_lo	= loc_msub->rio_addr_lo;
-		in.client_rio_addr_hi	= loc_msub->rio_addr_hi;
-		DBG("in.client_msid = 0x%X\n", in.client_msid);
-		DBG("in.client_msubid = 0x%X\n", in.client_msubid);
-		DBG("in.client_bytes = 0x%X\n", in.client_bytes);
-		DBG("in.client_rio_addr_len = 0x%X\n", in.client_rio_addr_len);
-		DBG("in.client_rio_addr_lo = 0x%016" PRIx64 "\n", in.client_rio_addr_lo);
-		DBG("in.client_rio_addr_hi = 0x%X\n", in.client_rio_addr_hi);
-	} else {
-		HIGH("Client has provided a NULL msubh\n");
-	}
-	
-	/* NOTE: MUST create the message queue before the RPC call to
-	 * send_connect_1() since the call may result in creating a thread
-	 * in the daemon that attempts to access the message queue BEFORE
-	 * it is created here resulting in an error. */
-	string mq_name(rem_msname);
-	mq_name.insert(0, 1, '/');
-	msg_q<mq_accept_msg>	*accept_mq;
 	try {
-		accept_mq = new msg_q<mq_accept_msg>(mq_name, MQ_CREATE);
-	}
-	catch(msg_q_exception e) {
-		CRIT("Failed to create accept_mq: %s\n", e.msg.c_str());
-		sem_post(&rdma_lock);
-		return RDMA_MALLOC_FAIL;
-	}
-	INFO("Created 'accept' message queue: '%s'\n", mq_name.c_str());
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-__sync_synchronize();
-	clock_gettime( CLOCK_MONOTONIC, &before );
-__sync_synchronize();
-
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-	in_msg->type = SEND_CONNECT;
-	in_msg->send_connect_in = in;
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		delete accept_mq;
-		sem_post(&rdma_lock);
-		return ret;
-	}
-	out = out_msg->send_connect_out;
-	if (out.status) {
-		ERR("Connection to destid(0x%X) failed\n", rem_destid);
-		delete accept_mq;
-		sem_post(&rdma_lock);
-		return out.status;
-	}
-
-	/* Map the accept_msg to the receive buffer of the queue */
-	mq_accept_msg 	*accept_msg;
-	accept_mq->get_recv_buffer(&accept_msg);
-
-	INFO(" Waiting for accept message...\n");
-	if (timeout_secs) {
-		struct timespec tm;
-		clock_gettime(CLOCK_REALTIME, &tm);
-		tm.tv_sec += timeout_secs;
-
-		if (accept_mq->timed_receive(&tm)) {
-			ERR("Failed to receive accept message after timeout\n");
-			/* Remove the message queue from the awaiting-accept list */
-			undo_connect_input	undo_connect_in;
-			undo_connect_output	undo_connect_out;
-
-			strcpy(undo_connect_in.server_ms_name, rem_msname);
-
-			/* Set up Unix message parameters */
-			in_msg->type = UNDO_CONNECT;
-			in_msg->undo_connect_in = undo_connect_in;
-			ret = alt_rpc_call(in_msg, &out_msg);
-			if (ret) {
-				ERR("Call to RDMA daemon failed\n");
-				delete accept_mq;
-				sem_post(&rdma_lock);
-				return ret;
-			}
-			undo_connect_out = out_msg->undo_connect_out;
-			delete accept_mq;
-			sem_post(&rdma_lock);
-			return RDMA_CONNECT_TIMEOUT;
+		/* Remote msubh pointer cannot point to NULL */
+		if (!rem_msubh || !rem_msname || !rem_msub_len || rem_msh) {
+			throw RDMA_NULL_PARAM;
 		}
-	} else {
-#ifdef CONNECT_BEFORE_ACCEPT_HACK
-#error Do not use this feature anymore!
-		auto retries = 10;
-		struct timespec tm;
-		clock_gettime(CLOCK_REALTIME, &tm);
-		tm.tv_sec += 1;
 
-		if (accept_mq->timed_receive(&tm) && retries--) {
-			DBG("Retrying...\n");
-			ret = alt_rpc_call();
-			if (ret) {
-				ERR("Call to RDMA daemon failed\n");
-				delete accept_mq;
-				sem_post(&rdma_lock);
-				return ret;
-			}
-			out = out_msg->send_connect_out;
-			if (out.status) {
-				ERR("Connection to destid(0x%X) failed\n", rem_destid);
-				delete accept_mq;
-				sem_post(&rdma_lock);
-				return out.status;
-			}
+		/* Check for invalid destid */
+		if (rem_destid_len == 16 && rem_destid==0xFFFF) {
+			WARN("Invalid destid 0x%X\n", rem_destid);
+			throw RDMA_INVALID_DESTID;
 		}
-		if (retries == 0) {
-#else
-		if (accept_mq->receive()) {
-#endif
-			ERR("Failed to receive accept message\n");
-			delete accept_mq;
-			sem_post(&rdma_lock);
-			return RDMA_CONNECT_FAIL;
-		}
-	}
-	INFO(" Accept message received!\n");
-	accept_mq->dump_recv_buffer();
 
-__sync_synchronize();
-	clock_gettime(CLOCK_MONOTONIC, &after);
-__sync_synchronize();
-	rtt = time_difference(before, after);
-	HIGH("Round-trip-time for accept/connect = %u seconds and %u microseconds\n",
-			rtt.tv_sec, rtt.tv_nsec/1000);
-	if (accept_msg->server_destid != rem_destid) {
-		WARN("WRONG destid(0x%X) in accept message!\n", accept_msg->server_destid);
-		accept_msg->server_destid = rem_destid;	/* FIXME: should not need to do that */
-		accept_msg->server_destid_len = 16;	/* FIXME: should not need to do that */
-	}
-	/* Store info about remote msub in database and return handle */
-	*rem_msubh = (msub_h)add_rem_msub(accept_msg->server_msubid,
-					  accept_msg->server_msid,
-					  accept_msg->server_bytes,
+		/* Prevent buffer overflow due to very long name */
+		size_t len = strlen(rem_msname);
+		if (len > UNIX_MS_NAME_MAX_LEN) {
+			ERR("String 'ms_name' is too long (%d)\n", len);
+			throw RDMA_NAME_TOO_LONG;
+		}
+
+		loc_msub *client_msub = (loc_msub *)loc_msubh;
+
+		INFO("Connecting to '%s' on destid(0x%X)\n", rem_msname, rem_destid);
+
+		/* Set up parameters for daemon call */
+		unix_msg_t in_msg;
+		in_msg.type 	= SEND_CONNECT;
+		in_msg.category = RDMA_REQ_RESP;
+		strcpy(in_msg.send_connect_in.server_msname, rem_msname);
+		in_msg.send_connect_in.server_destid_len = rem_destid_len;
+		in_msg.send_connect_in.server_destid	 = rem_destid;
+		in_msg.send_connect_in.client_destid_len = 16;
+		in_msg.send_connect_in.client_destid	 = peer.destid;
+		in_msg.send_connect_in.seq_num		 = seq_num++;
+
+		send_connect_input *connect_msg = &in_msg.send_connect_in;
+
+		DBG("connect_msg->server_msname     = %s\n",
+						connect_msg->server_msname);
+		DBG("connect_msg->server_destid_len = 0x%X\n",
+						connect_msg->server_destid_len);
+		DBG("connect_msg->server_destid     = 0x%X\n",
+						connect_msg->server_destid);
+		DBG("connect_msg->client_destid_len = 0x%X\n",
+						connect_msg->client_destid_len);
+		DBG("connect_msg->client_destid     = 0x%X\n",
+						connect_msg->client_destid);
+		DBG("connect_msg->seq_num           = 0x%X\n",
+						connect_msg->seq_num);
+		if (client_msub) {
+			connect_msg->client_msid 	 = client_msub->msid;
+			connect_msg->client_msubid	 = client_msub->msubid;
+			connect_msg->client_bytes	 = client_msub->bytes;
+			connect_msg->client_rio_addr_len = client_msub->rio_addr_len;
+			connect_msg->client_rio_addr_lo  = client_msub->rio_addr_lo;
+			connect_msg->client_rio_addr_hi  = client_msub->rio_addr_hi;
+			DBG("connect_msg->client_msid = 0x%X\n",
+						connect_msg->client_msid);
+			DBG("connect_msg->client_msubid = 0x%X\n",
+						connect_msg->client_msubid);
+			DBG("connect_msg->client_bytes = 0x%X\n",
+						connect_msg->client_bytes);
+			DBG("connect_msg->client_rio_addr_len = 0x%X\n",
+						connect_msg->client_rio_addr_len);
+			DBG("connect_msg->client_rio_addr_lo = 0x%016" PRIx64 "\n",
+						connect_msg->client_rio_addr_lo);
+			DBG("connect_msg->client_rio_addr_hi = 0x%X\n",
+						connect_msg->client_rio_addr_hi);
+		} else {
+			HIGH("Client has provided a NULL msubh\n");
+		}
+
+		struct timespec	before, after, rtt;
+
+		/* Mark the time before sending the 'connect' */
+		__sync_synchronize();
+		clock_gettime( CLOCK_MONOTONIC, &before );
+		__sync_synchronize();
+
+		/* Call into daemon */
+		unix_msg_t  out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in SEND_CONNECT daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
+
+		/* Failed to send connect? */
+		if (out_msg.send_connect_out.status) {
+			ERR("Failed to connect to (ms) in daemon\n");
+			throw out_msg.send_connect_out.status;
+		}
+
+		INFO(" Waiting for connect response (accept) message...\n");
+		rc = await_message(RDMA_LIB_DAEMON_CALL,
+				CONNECT_MS_RESP,
+				0,
+				timeout_secs,
+				&out_msg);
+		if (rc) {
+			if (rc == ETIMEDOUT) {
+				ERR("Timeout before getting response to 'connect'\n");
+			} else {
+				ERR("Unknown failure\n");
+			}
+			/* We failed out, so undo the accept */
+			in_msg.type     = UNDO_CONNECT;
+			in_msg.category = RDMA_REQ_RESP;
+			strcpy(in_msg.undo_connect_in.server_ms_name, rem_msname);
+
+			rc = daemon_call(&in_msg, &out_msg);
+			if (rc ) {
+				ERR("Failed in UNDO_CONNECT daemon_call, rc = %d\n", rc);
+				throw rc;
+			}
+
+			/* Failed to undo the accept */
+			if (out_msg.undo_connect_out.status) {
+				ERR("Failed to undo accept (ms) in daemon\n");
+				throw out_msg.undo_connect_out.status;
+			}
+			throw rc;
+		}
+
+		/* Compute round-trip time between issuing 'connect' and
+		 * getting a 'connect response' ('accept') */
+		__sync_synchronize();
+		clock_gettime(CLOCK_MONOTONIC, &after);
+		__sync_synchronize();
+		rtt = time_difference(before, after);
+		HIGH("Round-trip-time for accept/connect = %u seconds and %u microseconds\n",
+							rtt.tv_sec, rtt.tv_nsec/1000);
+
+		connect_to_ms_resp_input *accept_msg = &out_msg.connect_to_ms_resp;
+
+		/* Some validation of the 'accept' (response-to-connect) message */
+		if (accept_msg->server_destid != rem_destid) {
+			WARN("WRONG destid(0x%X) in accept message!\n",
+							accept_msg->server_destid);
+		}
+
+		/* Store info about remote msub in database and return handle */
+		*rem_msubh = (msub_h)add_rem_msub(accept_msg->server_msubid,
+				accept_msg->server_msid,
+				accept_msg->server_bytes,
 					  accept_msg->server_rio_addr_len,
 					  accept_msg->server_rio_addr_lo,
 					  accept_msg->server_rio_addr_hi,
 					  accept_msg->server_destid_len,
 					  accept_msg->server_destid,
 					  0);
-	if (*rem_msubh == (msub_h)NULL) {
-		ERR("Failed to store rem_msub in database\n");
-		delete accept_mq;
-		sem_post(&rdma_lock);
-		return RDMA_DB_ADD_FAIL;
-	}
-	INFO("Remote msubh has size %d, rio_addr = 0x%016" PRIx64 "\n",
+		if (*rem_msubh == (msub_h)NULL) {
+			throw RDMA_DB_ADD_FAIL;
+		}
+		INFO("Remote msubh has size %d, rio_addr = 0x%016" PRIx64 "\n",
 			accept_msg->server_bytes, accept_msg->server_rio_addr_lo);
-	INFO("rem_msub has destid = 0x%X, destid_len = 0x%X\n",
+		INFO("rem_msub has destid = 0x%X, destid_len = 0x%X\n",
 			accept_msg->server_destid, accept_msg->server_destid_len);
 
-	/* Remote memory subspace length */
-	*rem_msub_len = accept_msg->server_bytes;
+		/* Remote memory subspace length */
+		*rem_msub_len = accept_msg->server_bytes;
 
-	/* Save server_msid since we need to store that in the databse */
-	uint32_t server_msid = accept_msg->server_msid;
+		/* Save server_msid since we need to store that in the databse */
+		uint32_t server_msid = accept_msg->server_msid;
 
-	/* Create a message queue for the 'destroy' message */
-	mq_name.insert(1, "dest-");
-	msg_q<mq_destroy_msg>	*destroy_mq;
-	DBG("Creating destroy_mq named '%s'\n", mq_name.c_str());
-	try {
-		destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_CREATE);
-	}
-	catch(msg_q_exception& e) {
-		CRIT("Failed to create destroy_mq: %s\n", e.msg.c_str());
-		sem_post(&rdma_lock);
-		return -6;
-	}
-	INFO("destroy_mq (%s) created\n", destroy_mq->get_name().c_str());
+#if 0
+		/* Create a message queue for the 'destroy' message */
+		mq_name.insert(1, "dest-");
+		msg_q<mq_destroy_msg>	*destroy_mq;
+		DBG("Creating destroy_mq named '%s'\n", mq_name.c_str());
+		try {
+			destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_CREATE);
+		}
+		catch(msg_q_exception& e) {
+			CRIT("Failed to create destroy_mq: %s\n", e.msg.c_str());
+			sem_post(&rdma_lock);
+			return -6;
+		}
+		INFO("destroy_mq (%s) created\n", destroy_mq->get_name().c_str());
 
-	/* Create a thread for the 'destroy' messages */
-	pthread_t client_wait_for_destroy_thread;
-	if (pthread_create(&client_wait_for_destroy_thread,
+		/* Create a thread for the 'destroy' messages */
+		pthread_t client_wait_for_destroy_thread;
+		if (pthread_create(&client_wait_for_destroy_thread,
 			   NULL,
 			   client_wait_for_destroy_thread_f,
 			   destroy_mq)) {
@@ -2052,31 +2001,25 @@ __sync_synchronize();
 		delete accept_mq;
 		sem_post(&rdma_lock);
 		return RDMA_MALLOC_FAIL;
-	}
-	INFO("client_wait_for_destroy_thread created.\n");
-
-	/* Remote memory space handle */
-	*rem_msh = (ms_h)add_rem_ms(rem_msname,
-				    server_msid,
-				    client_wait_for_destroy_thread,
-				    destroy_mq);
-	if (*rem_msh == (ms_h)NULL) {
-		ERR("Failed to store rem_ms in database\n");
-		pthread_cancel(client_wait_for_destroy_thread);
-		delete destroy_mq;
-		sem_post(&rdma_lock);
-		return RDMA_DB_ADD_FAIL;
-	} else {
-		DBG("Entry for '%s' stored in DB, handle = 0x%016" PRIx64 "\n",
+		}
+		INFO("client_wait_for_destroy_thread created.\n");
+#endif
+		/* Remote memory space handle */
+		*rem_msh = (ms_h)add_rem_ms(rem_msname, server_msid);
+		if (*rem_msh == (ms_h)NULL) {
+			ERR("Failed to store rem_ms in database\n");
+			throw RDMA_DB_ADD_FAIL;
+		} else {
+			DBG("Entry for '%s' stored in DB, handle = 0x%016" PRIx64 "\n",
 							rem_msname, *rem_msh);
+		}
+	} /* try */
+	catch(int e) {
+		rc = e;
 	}
-
-	/* Accept message queue is no longer needed */
-	delete accept_mq;
-
 	INFO("EXIT\n");
 	sem_post(&rdma_lock);
-	return 0;
+	return rc;
 } /* rdma_conn_ms_h() */
 
 int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
@@ -2154,7 +2097,7 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 	if (loc_msubh) {
 		in.loc_msubid = ((loc_msub *)loc_msubh)->msubid;
 	}
-
+#if 0
 	/* If we are going to disconnect from the server, then we don't
 	 * need the wait_for_destroy thread anymore, nor do we need the
 	 * destroy_mq
@@ -2168,7 +2111,7 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 	} else {
 		WARN("destroy_mq was NULL..already destroyed?\n");
 	}
-
+#endif
 	/* Remove remote entry for the memory space from the database */
 	if (remove_rem_ms(rem_msh)) {
 		ERR("Failed to remove remote ms(msid=0x%X) from database\n",
