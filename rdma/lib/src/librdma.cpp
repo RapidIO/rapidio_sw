@@ -174,6 +174,40 @@ int rdmad_kill_daemon()
 	return alt_rpc_call(in_msg, NULL);
 } /* rdmad_kill_daemon() */
 
+static int await_message(rdma_msg_cat category, rdma_msg_type type,
+			rdma_msg_seq_no seq_no, unsigned timeout_in_secs,
+			unix_msg_t *out_msg)
+{
+	auto rc = 0;
+
+	/* Prepare for reply */
+	auto reply_sem = make_shared<sem_t>();
+	sem_init(reply_sem.get(), 0, 0);
+
+	rc = rx_eng->set_notify(type, category, seq_no, reply_sem);
+
+	/* Wait for reply */
+	DBG("Notify configured...WAITING...\n");
+	struct timespec timeout;
+	clock_gettime(CLOCK_REALTIME, &timeout);
+	timeout.tv_sec += timeout_in_secs;
+	rc = sem_timedwait(reply_sem.get(), &timeout);
+	if (rc) {
+		ERR("reply_sem failed: %s\n", strerror(errno));
+		if (timeout_in_secs && errno == ETIMEDOUT) {
+			ERR("Timeout occurred\n");
+			rc = ETIMEDOUT;
+		}
+	} else {
+		DBG("Got reply!\n");
+		rc = rx_eng->get_message(type, category, seq_no, out_msg);
+		if (rc) {
+			ERR("Failed to obtain reply message, rc = %d\n", rc);
+		}
+	}
+	return rc;
+} /* await_message() */
+
 /**
  * Call a function in the daemon.
  *
@@ -198,35 +232,15 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 	tx_eng->send_message(in_msg);
 	DBG("Message queued\n");
 
-	/* Prepare for reply */
-	auto reply_sem = make_shared<sem_t>();
-	sem_init(reply_sem.get(), 0, 0);
-	auto rc = 0;
-	rc = rx_eng->set_notify(in_msg->type | 0x8000,
-			       RDMA_LIB_DAEMON_CALL, seq_no, reply_sem);
-
 	/* Wait for reply */
-	DBG("Notify configured...WAITING...\n");
-        struct timespec timeout;
-        clock_gettime(CLOCK_REALTIME, &timeout);
-        timeout.tv_sec++;
-	rc = sem_timedwait(reply_sem.get(), &timeout);
-	if (rc) {
-		ERR("reply_sem failed: %s\n", strerror(errno));
-		if (errno == ETIMEDOUT) {
-			ERR("Returning RDMA_DAEMON_UNREACHABLE\n");
-			rc = RDMA_DAEMON_UNREACHABLE;
-		}
-	} else {
-		/* Retrieve the reply */
-		DBG("Got reply!\n");
-		rc = rx_eng->get_message(in_msg->type | 0x8000, RDMA_LIB_DAEMON_CALL,
-							seq_no, out_msg);
-		if (rc) {
-			ERR("Failed to obtain reply message, rc = %d\n", rc);
-		}
+	int rc = await_message(RDMA_LIB_DAEMON_CALL,
+			       in_msg->type | 0x8000,
+			       seq_no,
+			       1,	/* 1 second */
+			       out_msg);
+	if (rc == ETIMEDOUT) {
+		rc = RDMA_DAEMON_UNREACHABLE;
 	}
-
 	/* Now increment seq_no for next call */
 	seq_no++;
 
@@ -236,8 +250,7 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 /**
  * For testing only. Not exposed in librdma.h.
  */
-int rdma_get_ibwin_properties(unsigned *num_ibwins,
-			      uint32_t *ibwin_size)
+int rdma_get_ibwin_properties(unsigned *num_ibwins, uint32_t *ibwin_size)
 {
 	auto rc = 0;
 
@@ -435,6 +448,7 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 	pthread_exit(0);
 } /* client_wait_for_destroy_thread_f() */
 
+#if 0
 /**
  * wait_for_disc_thread_f
  *
@@ -507,6 +521,7 @@ static void *wait_for_disc_thread_f(void *arg)
 	INFO("Exiting\n");
 	pthread_exit(0);
 } /* wait_for_disc_thread_f() */
+#endif
 
 /**
  * FIXME: Rename to something more general.
@@ -1538,9 +1553,9 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		LIB_INIT_CHECK(rc);
 
 		rc = riomp_dma_map_memory(peer.mport_hnd,
-					   pmsub->bytes,
-					   pmsub->paddr,
-					   vaddr);
+					  pmsub->bytes,
+					  pmsub->paddr,
+					  vaddr);
 		if (rc) {
 			ERR("map(0x%" PRIx64 ") failed: %s\n",
 						pmsub->paddr, strerror(-rc));
@@ -1602,177 +1617,119 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		     uint32_t *rem_msub_len,
 		     uint64_t timeout_secs)
 {
-	accept_input		accept_in;
-	accept_output		accept_out;
-	undo_accept_input	undo_accept_in;
-	undo_accept_output	undo_accept_out;
-	int			ret;
-	
+	auto rc = 0;
+
 	DBG("ENTER with timeout = %u\n", (unsigned)timeout_secs);
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
-
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
-
-	/* Check that parameters are not NULL */
-	if (!loc_msh || !loc_msubh || !rem_msubh) {
-		ERR("loc_msh=0x%" PRIx64 ",loc_msubh=0x%" PRIx64 ",rem_msubh=%p\n",
-					loc_msh, loc_msubh, rem_msubh);
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
-
-	loc_ms	*ms = (loc_ms *)loc_msh;
-
-	/* If this application has already accepted a connection, fail */
-	if (ms->accepted) {
-		ERR("Already accepted a connection and it is still active!\n");
-		sem_post(&rdma_lock);
-		return RDMA_DUPLICATE_ACCEPT;
-	}
-
-	/* Send the memory space name and the 'accept' parameters to the daemon
-	 * over RPC. This triggers channelized message reception waiting for 
-	 * a connection on the specified memory space. Then sends the accept
-	 * parameters also in a channelized message, to the remote daemon */
-	strcpy(accept_in.loc_ms_name, ms->name);
-	accept_in.loc_msid		= ms->msid;
-	accept_in.loc_msubid		= ((struct loc_msub *)loc_msubh)->msubid;
-	accept_in.loc_bytes		= ((struct loc_msub *)loc_msubh)->bytes;
-	accept_in.loc_rio_addr_len	= ((struct loc_msub *)loc_msubh)->rio_addr_len;
-	accept_in.loc_rio_addr_lo	= ((struct loc_msub *)loc_msubh)->rio_addr_lo;
-	accept_in.loc_rio_addr_hi	= ((struct loc_msub *)loc_msubh)->rio_addr_hi;
-
-	/* Create connection/disconnection message queue */
-	string mq_name(ms->name);
-	mq_name.insert(0, 1, '/');
-
-	/* Must create the queue before calling the daemon since the
-	 * connect request from the remote daemon might come quickly
-	 * and try to open the queue to notify us.
-	 */
-	msg_q<mq_rdma_msg>	*connect_disconnect_mq;
 	try {
-		connect_disconnect_mq = new msg_q<mq_rdma_msg>(mq_name, MQ_CREATE);
-	}
-	catch(msg_q_exception& e) {
-		ERR("Failed to create connect_disconnect_mq '%s': %s\n",
-						mq_name.c_str(),e.msg.c_str());
-		sem_post(&rdma_lock);
-		return RDMA_MALLOC_FAIL;
-	}
-	DBG("Message queue %s created for connection from %s\n",
-						mq_name.c_str(), ms->name);
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-	in_msg->type = ACCEPT_MS;
-	in_msg->accept_in = accept_in;
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		delete connect_disconnect_mq;
-		sem_post(&rdma_lock);
-		return ret;
-	}
-	accept_out = out_msg->accept_out;
-
-	/* Check status returned by command on the daemon side */
-	if (accept_out.status != 0) {
-		ERR("Failed to accept on '%s' in daemon\n", ms->name);
-		delete connect_disconnect_mq;
-		sem_post(&rdma_lock);
-		return accept_out.status;
-	}
-
-	/* Await 'connect()' from client */
-	mq_rdma_msg *mq_rdma_msg;
-	connect_disconnect_mq->get_recv_buffer(&mq_rdma_msg);
-	mq_connect_msg	*conn_msg = &mq_rdma_msg->connect_msg;
-	INFO("Waiting for connect message...\n");
-	if (timeout_secs) {
-		struct timespec tm;
-		clock_gettime(CLOCK_REALTIME, &tm);
-		tm.tv_sec += timeout_secs;
-
-		if (connect_disconnect_mq->timed_receive(&tm)) {
-			ERR("Failed to receive connect message before timeout\n");
-			delete connect_disconnect_mq;
-			/* Calling undo_accept() to remove the memory space from the list
-			 * of memory spaces awaiting a connect message from a remote daemon.
-			 */
-			strcpy(undo_accept_in.server_ms_name, ms->name);
-
-			/* Set up Unix message parameters */
-			client->flush_send_buffer();
-			client->flush_recv_buffer();
-			in_msg->type = UNDO_ACCEPT;
-			in_msg->undo_accept_in = undo_accept_in;
-			ret = alt_rpc_call(in_msg, &out_msg);
-			if (ret) {
-				ERR("Call to RDMA daemon failed\n");
-				sem_post(&rdma_lock);
-				return ret;
-			}
-			undo_accept_out = out_msg->undo_accept_out;
-			sem_post(&rdma_lock);
-			return RDMA_ACCEPT_TIMEOUT;
+		/* Check that parameters are not NULL */
+		if (!loc_msh || !loc_msubh || !rem_msubh || !rem_msub_len) {
+			ERR("loc_msh=0x%" PRIx64 ",loc_msubh=0x%" PRIx64
+				",rem_msubh=%p, rem_msub_len = %p\n",
+				loc_msh, loc_msubh, rem_msubh, rem_msub_len);
+			throw RDMA_NULL_PARAM;
 		}
-	} else {
-		unsigned retries = 10;
-		do {
-			if (connect_disconnect_mq->receive()) {
-				ERR("Failed to receive MQ_CONNECT_MS message\n");
-				delete connect_disconnect_mq;
-				sem_post(&rdma_lock);
-				return RDMA_ACCEPT_FAIL;
-			}
-			/* Ensure that it is indeed an MQ_CONNECT_MS message or else fail */
-			if (mq_rdma_msg->type == MQ_CONNECT_MS) {
-				INFO("*** Connect message received! ***\n");
-				DBG("conn_msg->seq_num = 0x%X\n", conn_msg->seq_num);
-				break;
+
+		loc_ms	*ms = (loc_ms *)loc_msh;
+		loc_msub *msub = (loc_msub *)loc_msubh;
+
+		/* If this application has already accepted a connection, fail */
+		/* FIXME: This needs to change soon! */
+		if (ms->accepted) {
+			ERR("Already accepted a connection and it is still active!\n");
+			throw RDMA_DUPLICATE_ACCEPT;
+		}
+
+		/* Send the memory space name and the 'accept' parameters to
+		 * the daemon. This triggers channelized message reception
+		 * waiting for a connection on the specified memory space.
+		 * Then sends the accept parameters also in a channelized
+		 * message, to the remote daemon */
+		unix_msg_t in_msg;
+		in_msg.type     = ACCEPT_MS;
+		in_msg.category = RDMA_REQ_RESP;
+		strcpy(in_msg.accept_in.loc_ms_name, ms->name);
+		in_msg.accept_in.loc_msid	  = ms->msid;
+		in_msg.accept_in.loc_msubid 	  = msub->msubid;
+		in_msg.accept_in.loc_bytes  	  = msub->bytes;
+		in_msg.accept_in.loc_rio_addr_len = msub->rio_addr_len;
+		in_msg.accept_in.loc_rio_addr_lo  = msub->rio_addr_lo;
+		in_msg.accept_in.loc_rio_addr_hi  = msub->rio_addr_hi;
+
+		/* Call into daemon */
+		unix_msg_t  out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in ACCEPT_MS daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
+
+		/* Failed to create msub? */
+		if (out_msg.accept_out.status) {
+			ERR("Failed to accept (ms) in daemon\n");
+			throw out_msg.accept_out.status;
+		}
+
+		/* Await connect message - no timeout for now */
+		rc = await_message(RDMA_LIB_DAEMON_CALL,
+				   CONNECT_MS_REQ,
+				   0,
+				   timeout_secs,
+				   &out_msg);
+		if (rc) {
+			if (rc == ETIMEDOUT) {
+				ERR("Timeout before getting 'connect' request\n");
 			} else {
-				ERR("Received message of type 0x%X. DISCARDING & RETRYING\n",
-								mq_rdma_msg->type);
-
-				continue;
+				ERR("Unknown failure\n");
 			}
-		} while (retries--);
-	}
+			/* We timeout so undo the accept */
+			in_msg.type     = UNDO_ACCEPT;
+			in_msg.category = RDMA_REQ_RESP;
+			strcpy(in_msg.undo_accept_in.server_ms_name, ms->name);
 
-	/* Validate the message contents based on known values */
-	if (
-		(conn_msg->rem_rio_addr_len < 16) ||
-		(conn_msg->rem_rio_addr_len > 65) ||
-		(conn_msg->rem_destid_len < 16) ||
-		(conn_msg->rem_destid_len > 64) ||
-		(conn_msg->rem_destid >= 0xFFFF)
-	   ) {
-		CRIT("** INVALID CONNECT MESSAGE CONTENTS** \n");
-		connect_disconnect_mq->dump_recv_buffer();
-		DBG("conn_msg->rem_msid = 0x%X\n", conn_msg->rem_msid);
-		DBG("conn_msg->rem_msubsid = 0x%X\n", conn_msg->rem_msubid);
-		DBG("conn_msg->rem_bytes = 0x%X\n", conn_msg->rem_bytes);
-		DBG("conn_msg->rem_rio_addr_len = 0x%X\n", conn_msg->rem_rio_addr_len);
-		DBG("conn_msg->rem_rio_addr_lo = 0x%X\n", conn_msg->rem_rio_addr_lo);
-		DBG("conn_msg->rem_rio_addr_hi = 0x%X\n", conn_msg->rem_rio_addr_hi);
-		DBG("conn_msg->rem_destid_len = 0x%X\n", conn_msg->rem_destid_len);
-		DBG("conn_msg->rem_destid = 0x%X\n", conn_msg->rem_destid);
-		delete connect_disconnect_mq;
-		sem_post(&rdma_lock);
-		return RDMA_ACCEPT_FAIL;
-	}
+			rc = daemon_call(&in_msg, &out_msg);
+			if (rc ) {
+				ERR("Failed in UNDO_ACCEPT daemon_call, rc = %d\n", rc);
+				throw rc;
+			}
 
-	/* Store info about remote msub in database and return handle */
-	*rem_msubh = (msub_h)add_rem_msub(conn_msg->rem_msubid,
+			/* Failed to undo the accept */
+			if (out_msg.accept_out.status) {
+				ERR("Failed to accept (ms) in daemon\n");
+				throw out_msg.undo_accept_out.status;
+			}
+			throw rc;
+		}
+
+		/* Validate the message contents based on known values */
+		connect_to_ms_req_input *conn_msg;
+		conn_msg = &out_msg.connect_to_ms_req;
+		if (
+			(conn_msg->rem_rio_addr_len < 16) ||
+			(conn_msg->rem_rio_addr_len > 65) ||
+			(conn_msg->rem_destid_len < 16) ||
+			(conn_msg->rem_destid_len > 64) ||
+			(conn_msg->rem_destid >= 0xFFFF)
+		) {
+			CRIT("** INVALID CONNECT MESSAGE CONTENTS** \n");
+			DBG("rem_msid = 0x%X\n", conn_msg->rem_msid);
+			DBG("rem_msubsid = 0x%X\n", conn_msg->rem_msubid);
+			DBG("rem_bytes = 0x%X\n", conn_msg->rem_bytes);
+			DBG("rem_rio_addr_len = 0x%X\n", conn_msg->rem_rio_addr_len);
+			DBG("rem_rio_addr_lo = 0x%X\n", conn_msg->rem_rio_addr_lo);
+			DBG("rem_rio_addr_hi = 0x%X\n", conn_msg->rem_rio_addr_hi);
+			DBG("rem_destid_len = 0x%X\n", conn_msg->rem_destid_len);
+			DBG("rem_destid = 0x%X\n", conn_msg->rem_destid);
+			throw RDMA_ACCEPT_FAIL;
+		}
+
+
+		/* Store info about remote msub in database and return handle */
+		*rem_msubh = (msub_h)add_rem_msub(conn_msg->rem_msubid,
 					  conn_msg->rem_msid,
 					  conn_msg->rem_bytes,
 					  conn_msg->rem_rio_addr_len,
@@ -1781,18 +1738,16 @@ int rdma_accept_ms_h(ms_h loc_msh,
 					  conn_msg->rem_destid_len,
 					  conn_msg->rem_destid,
 					  loc_msh);
-	if (*rem_msubh == (msub_h)NULL) {
-		WARN("Failed to add rem_msub to database\n");
-		delete connect_disconnect_mq;
-		sem_post(&rdma_lock);
-		return RDMA_DB_ADD_FAIL;
-	}
-	INFO("rem_bytes = %d, rio_addr = 0x%lX\n",
-			conn_msg->rem_bytes, conn_msg->rem_rio_addr_lo);
+		if (*rem_msubh == (msub_h)NULL) {
+			WARN("Failed to add rem_msub to database\n");
+			throw RDMA_DB_ADD_FAIL;
+		}
+		INFO("rem_bytes = %d, rio_addr = 0x%lX\n",
+				conn_msg->rem_bytes, conn_msg->rem_rio_addr_lo);
 
-	/* Return remote msub length to application */
-	*rem_msub_len = conn_msg->rem_bytes;
-
+		/* Return remote msub length to application */
+		*rem_msub_len = conn_msg->rem_bytes;
+#if 0
 	pthread_t wait_for_disc_thread;
 	if (pthread_create(&wait_for_disc_thread, NULL, wait_for_disc_thread_f, connect_disconnect_mq)) {
 		WARN("Failed to create wait_for_disc_thread: %s\n", strerror(errno));
@@ -1806,9 +1761,13 @@ int rdma_accept_ms_h(ms_h loc_msh,
 	ms->disc_thread = wait_for_disc_thread;
 	ms->disc_notify_mq = connect_disconnect_mq;
 	ms->accepted = true;
-
+#endif
+	}
+	catch(int e) {
+		rc = e;
+	}
 	sem_post(&rdma_lock);
-	return 0;
+	return rc;
 } /* rdma_accept_ms_h() */
 
 /**

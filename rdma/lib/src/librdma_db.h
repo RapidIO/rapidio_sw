@@ -136,9 +136,6 @@ int get_info_from_loc_ms(ms_h msh, uint32_t *msid);
 unsigned get_num_ms_by_msoh(mso_h msoh);
 void get_list_msh_by_msoh(mso_h msoh, list<struct loc_ms *>& msh_list);
 
-pthread_t loc_ms_get_close_thread(ms_h msh);
-msg_q<mq_close_ms_msg>  *loc_ms_get_destroy_notify_mq(ms_h msh);
-
 pthread_t loc_ms_get_disc_thread(ms_h msh);
 msg_q<mq_rdma_msg> *loc_ms_get_disc_notify_mq(ms_h msh);
 

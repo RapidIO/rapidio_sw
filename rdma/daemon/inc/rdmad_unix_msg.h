@@ -75,6 +75,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_IS_ALIVE_ACK	0x801A
 #define GET_IBWIN_PROPERTIES 	0x001B
 #define GET_IBWIN_PROPERTIES_ACK 	0x801B
+#define CONNECT_MS_REQ		0x001C
+#define CONNECT_MSG_RESP	0x801C
 #define RDMAD_KILL_DAEMON	0x0666
 
 /* Type codes for RDMA_REQ_RESP messages */
@@ -297,6 +299,33 @@ struct force_close_ms_req_input {
 	uint32_t msid;
 };
 
+struct connect_to_ms_req_input {
+	/* rem refers to client. Those are the client msub's
+	 * parameters.*/
+	uint32_t rem_bytes;
+	uint8_t	 rem_rio_addr_len;
+	uint64_t rem_rio_addr_lo;
+	uint8_t	 rem_rio_addr_hi;
+	uint32_t rem_destid_len;
+	uint32_t rem_destid;
+	uint32_t rem_msubid;
+	uint32_t rem_msid;	/* Client msid, used during disconnection */
+	uint32_t seq_num;
+};
+
+struct connect_to_ms_resp_input {
+	uint32_t server_msubid;
+	uint32_t server_msid;	/* To be used during disconnection to locate the
+				 * memory space and remove destids of client(s)
+				 * from it */
+	uint32_t server_bytes;
+	uint8_t	 server_rio_addr_len;
+	uint64_t server_rio_addr_lo;
+	uint8_t  server_rio_addr_hi;
+	uint8_t	 server_destid_len;
+	uint32_t server_destid;
+};
+
 /* Unix message structure */
 struct unix_msg_t {
 	rdma_msg_type	type;
@@ -343,6 +372,8 @@ struct unix_msg_t {
 		struct get_ibwin_properties_output get_ibwin_properties_out;
 		struct force_close_mso_req_input   force_close_mso_req;
 		struct force_close_ms_req_input    force_close_ms_req;
+		struct connect_to_ms_req_input	connect_to_ms_req;
+		struct connect_to_ms_resp_input	connect_to_ms_resp;
 	};
 
 };

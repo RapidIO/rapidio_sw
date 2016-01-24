@@ -75,14 +75,6 @@ struct mq_accept_msg {
 	uint32_t server_destid;
 };
 
-struct mq_close_mso_msg {
-	uint32_t msoid;
-};
-
-struct mq_close_ms_msg {
-	uint32_t msid;
-};
-
 struct mq_disconnect_msg {
 	uint32_t client_msubid;
 };
@@ -101,8 +93,6 @@ struct mq_rdma_msg {
 	union {
 		mq_connect_msg		connect_msg;
 		mq_accept_msg		accept_msg;
-		mq_close_mso_msg 	close_mso_msg;
-		mq_close_ms_msg 	close_ms_msg;
 		mq_disconnect_msg 	disconnect_msg;
 		mq_destroy_msg		destroy_msg;
 		mq_destroy_ack_msg	destroy_ack_msg;
