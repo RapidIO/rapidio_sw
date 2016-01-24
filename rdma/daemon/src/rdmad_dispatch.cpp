@@ -3,7 +3,8 @@
 #include "rdma_msg.h"
 #include "rdmad_unix_msg.h"
 
-int rdmad_is_alive_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int rdmad_is_alive_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -22,7 +23,8 @@ int rdmad_is_alive_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_ms
 /**
  * Dispatch function for obtaining mport ID.
  */
-int get_mport_id_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int get_mport_id_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -39,7 +41,8 @@ int get_mport_id_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_
 	return out_msg.get_mport_id_out.status;
 } /* get_mport_id_disp() */
 
-int create_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int create_mso_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -60,7 +63,8 @@ int create_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t>
 	return out_msg.create_mso_out.status;
 } /* create_mso_disp() */
 
-int open_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int open_mso_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -83,7 +87,8 @@ int open_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *
 	return out_msg.open_mso_out.status;
 } /* open_mso_disp() */
 
-int close_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int close_mso_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -104,7 +109,8 @@ int close_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> 
 	return out_msg.close_mso_out.status;
 } /* close_mso_disp() */
 
-int destroy_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int destroy_mso_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -125,7 +131,8 @@ int destroy_mso_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t
 } /* destroy_mso_disp() */
 
 
-int create_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int create_ms_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -151,7 +158,8 @@ int create_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> 
 	return out_msg.create_ms_out.status;
 } /* create_msg_disp() */
 
-int open_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int open_ms_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -178,7 +186,8 @@ int open_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *t
 	return out_msg.open_ms_out.status;
 } /* open_ms_disp() */
 
-int close_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int close_ms_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -200,7 +209,8 @@ int close_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *
 	return out_msg.close_ms_out.status;
 } /* close_ms_disp() */
 
-int destroy_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int destroy_ms_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -221,7 +231,8 @@ int destroy_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t>
 	return out_msg.destroy_ms_out.status;
 } /* destroy_ms_disp() */
 
-int create_msub_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int create_msub_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
 
@@ -289,19 +300,56 @@ int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server,
 		ERR("Failed in call rdmad_get_ibwin_properties\n");
 	}
 	tx_eng->send_message(&out_msg);
+
 	return out_msg.get_ibwin_properties_out.status;
 } /* get_ibwin_properties_disp() */
 
+int accept_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
+{
+	unix_msg_t out_msg;
+
+	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+
+	out_msg.type	 = ACCEPT_MS_ACK;
+	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.seq_no 	 = in_msg->seq_no;
+	out_msg.accept_out.status = rdmad_accept_ms(
+			      in_msg->accept_in.loc_ms_name,
+			      in_msg->accept_in.loc_msubid,
+			      in_msg->accept_in.loc_bytes,
+			      in_msg->accept_in.loc_rio_addr_len,
+			      in_msg->accept_in.loc_rio_addr_lo,
+			      in_msg->accept_in.loc_rio_addr_hi);
+	if (out_msg.accept_out.status) {
+		ERR("Failed in call rdmad_accept_ms\n");
+	}
+	tx_eng->send_message(&out_msg);
+
+	return out_msg.accept_out.status;
+} /* accept_disp() */
+
+int undo_accept_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
+{
+	unix_msg_t out_msg;
+
+	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+
+	out_msg.type	 = UNDO_ACCEPT_ACK;
+	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.seq_no 	 = in_msg->seq_no;
+	out_msg.undo_accept_out.status = rdmad_undo_accept_ms(
+					in_msg->undo_accept_in.server_ms_name);
+	if (out_msg.undo_accept_out.status) {
+		ERR("Failed in call to rdmad_undo_accpet()\n");
+	}
+	tx_eng->send_message(&out_msg);
+
+	return out_msg.undo_accept_out.status;
+} /* undo_accept_disp() */
+
 #if 0
-int accept_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
-{
-
-}
-
-int undo_accept_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
-{
-
-}
 
 int send_connect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
