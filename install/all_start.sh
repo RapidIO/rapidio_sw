@@ -27,8 +27,8 @@ do
 	echo "Start rdmad on $node destID=$DESTID"
 	ssh root@"$node" "screen -dmS rdmad $SOURCE_PATH/rdma/rdmad"
 	sleep 1
-	SOURCE_PATH=$(ssh root@"$node" pgrep rdmad)
-	echo "$node rdmad pid=$SOURCE_PATH"
+	RDMA_PID=$(ssh root@"$node" pgrep rdmad)
+	echo "$node rdmad pid=$RDMA_PID"
 done
 
 # Start RSKTD on each node
