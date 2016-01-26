@@ -218,16 +218,17 @@ struct destroy_msub_output {
 	int	status;
 };
 
-
 /* accept() arguments */
 struct accept_input {
+	uint32_t server_msid;
+#if 0
 	char loc_ms_name[UNIX_MS_NAME_MAX_LEN+1];
-	uint32_t loc_msid;
 	uint32_t loc_msubid;
 	uint32_t loc_bytes;
 	uint8_t	 loc_rio_addr_len;
 	uint64_t loc_rio_addr_lo;
 	uint8_t  loc_rio_addr_hi;
+#endif
 };
 
 struct accept_output {
@@ -236,7 +237,7 @@ struct accept_output {
 
 /* undo_accept() arguments */
 struct undo_accept_input {
-	char server_ms_name[UNIX_MS_NAME_MAX_LEN+1];
+	uint32_t server_msid;
 };
 struct undo_accept_output {
 	int	status;
@@ -299,31 +300,33 @@ struct force_close_ms_req_input {
 	uint32_t msid;
 };
 
+/* Server daemon to server library/app */
 struct connect_to_ms_req_input {
-	/* rem refers to client. Those are the client msub's
-	 * parameters.*/
-	uint32_t rem_bytes;
-	uint8_t	 rem_rio_addr_len;
-	uint64_t rem_rio_addr_lo;
-	uint8_t	 rem_rio_addr_hi;
-	uint32_t rem_destid_len;
-	uint32_t rem_destid;
-	uint32_t rem_msubid;
-	uint32_t rem_msid;	/* Client msid, used during disconnection */
+	uint32_t client_msid;
+	uint32_t client_msubid;
+	uint32_t client_msub_bytes;
+	uint8_t	 client_rio_addr_len;
+	uint64_t client_rio_addr_lo;
+	uint8_t	 client_rio_addr_hi;
+	uint32_t client_destid_len;
+	uint32_t client_destid;
 	uint32_t seq_num;
 };
 
+/* Server library/app to server daemon */
 struct connect_to_ms_resp_input {
+	uint32_t server_msid;
 	uint32_t server_msubid;
-	uint32_t server_msid;	/* To be used during disconnection to locate the
-				 * memory space and remove destids of client(s)
-				 * from it */
-	uint32_t server_bytes;
+	uint32_t server_msub_bytes;
 	uint8_t	 server_rio_addr_len;
 	uint64_t server_rio_addr_lo;
 	uint8_t  server_rio_addr_hi;
 	uint8_t	 server_destid_len;
 	uint32_t server_destid;
+	uint32_t client_msid;
+	uint32_t client_msubid;
+	uint32_t client_destid_len;
+	uint32_t client_destid;
 };
 
 /* Unix message structure */

@@ -272,7 +272,8 @@ int inbound::create_mspace(const char *name,
 			   uint64_t size,
 			   uint32_t msoid,
 			   uint32_t *msid,
-			   mspace **ms)
+			   mspace **ms,
+			   tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
 {
 	/* Find first inbound window having room for memory space */
 	sem_wait(&ibwins_sem);
@@ -286,7 +287,7 @@ int inbound::create_mspace(const char *name,
 	}
 
 	/* Create the space */
-	int ret = win_it->create_mspace(name, size, msoid, msid, ms);
+	int ret = win_it->create_mspace(name, size, msoid, msid, ms, creator_tx_eng);
 
 	/* MMAP, zero, then UNMAP the space */
 	void *vaddr;
@@ -335,7 +336,7 @@ int inbound::open_mspace(const char *name,
 		ret = -1;
 	} else {
 		/* Open the memory space */
-		if (ms->open(msid, user_tx_eng, ms_conn_id, bytes) < 0) {
+		if (ms->open(msid, user_tx_eng, ms_conn_id, bytes)) {
 			WARN("Failed to open '%s'\n", name);
 			ret = -2;
 		} else {

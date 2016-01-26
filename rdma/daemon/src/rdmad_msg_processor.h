@@ -92,6 +92,12 @@ public:
 		case GET_IBWIN_PROPERTIES:
 			rc = get_ibwin_properties_disp(msg, tx_eng);
 			break;
+		case ACCEPT_MS:
+			rc = accept_disp(msg, tx_eng);
+			break;
+		case CONNECT_MS_RESP:
+			rc = connect_ms_resp_disp(msg, tx_eng);
+			break;
 		default:
 			assert(!"Unhandled message");
 		}

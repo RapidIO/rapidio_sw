@@ -66,7 +66,8 @@ inline int rdmad_close_mso(uint32_t msoid, uint32_t mso_conn_id)
 int rdmad_destroy_mso(uint32_t msoid);
 
 int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
-		    uint32_t *msid, uint64_t *phys_addr, uint64_t *rio_addr);
+		    uint32_t *msid, uint64_t *phys_addr, uint64_t *rio_addr,
+		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng);
 
 inline int rdmad_destroy_ms(uint32_t msoid, uint32_t msid)
 {
@@ -105,11 +106,11 @@ inline int rdmad_destroy_msub(uint32_t msid, uint32_t msubid)
 	return the_inbound->destroy_msubspace(msid, msubid);
 } /* rdmad_destroy_msub() */
 
-int rdmad_accept_ms(const char *loc_ms_name, uint32_t loc_msubid,
-		    uint32_t loc_bytes, uint64_t loc_rio_addr_len,
-		    uint64_t loc_rio_addr_log, uint8_t loc_rio_addr_hi);
+int rdmad_accept_ms(uint32_t server_msid,
+		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng);
 
-int rdmad_undo_accept_ms(const char *ms_name);
+int rdmad_undo_accept_ms(uint32_t server_msid,
+		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng);
 
 int rdmad_send_connect(const char *server_ms_name,
 			uint32_t server_destid,
@@ -120,7 +121,7 @@ int rdmad_send_connect(const char *server_ms_name,
 		        uint64_t client_rio_addr_lo,
 		        uint8_t client_rio_addr_hi,
 		        uint64_t seq_num,
-		        unix_server *server=nullptr);
+		        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng);
 
 int rdmad_undo_connect(const char *server_ms_name);
 

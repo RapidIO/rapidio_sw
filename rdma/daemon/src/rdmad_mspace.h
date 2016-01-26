@@ -81,12 +81,14 @@ class ms_user
 {
 public:
 	ms_user(uint32_t ms_conn_id, tx_engine<unix_server, unix_msg_t> *tx_eng) :
-	tx_eng(tx_eng), ms_conn_id(ms_conn_id)
+	tx_eng(tx_eng), ms_conn_id(ms_conn_id), accepting(false), connected_to(false)
 	{
 	}
 
 	ms_user(const ms_user& other) : tx_eng(other.tx_eng),
-					ms_conn_id(other.ms_conn_id)
+					ms_conn_id(other.ms_conn_id),
+					accepting(other.accepting),
+					connected_to(other.connected_to)
 	{
 	}
 
@@ -94,10 +96,34 @@ public:
 	{
 		tx_eng 		= rhs.tx_eng;
 		ms_conn_id	= rhs.ms_conn_id;
+		accepting	= rhs.accepting;
+		connected_to	= rhs.connected_to;
 		return *this;
 	}
 
-	uint32_t get_ms_conn_id() const { return ms_conn_id; }
+	uint32_t get_ms_conn_id() const
+	{
+		return ms_conn_id;
+	}
+
+	void set_accepting(bool accepting)
+	{
+		this->accepting = accepting;
+	}
+
+	void set_connected_to(bool connected_to)
+	{
+		this->connected_to = connected_to;
+	}
+	bool is_connected_to() const
+	{
+		return connected_to;
+	}
+
+	bool is_accepting() const
+	{
+		return accepting;
+	}
 
 	tx_engine<unix_server, unix_msg_t> *get_tx_engine() const
 	{
@@ -117,7 +143,9 @@ public:
 private:
 	tx_engine<unix_server, unix_msg_t> *tx_eng;
 	uint32_t ms_conn_id;
-};
+	bool	accepting;
+	bool	connected_to;
+}; /* ms_user */
 
 class remote_connection
 {
@@ -151,7 +179,7 @@ public:
 
 	uint16_t client_destid;
 	uint32_t client_msubid;
-};
+}; /* remote_connection */
 
 class mspace 
 {
@@ -173,7 +201,8 @@ public:
 	uint32_t get_msoid() const { return msoid; }
 	bool is_free() const { return free;}
 	const char* get_name() const { return name.c_str(); }
-	bool is_accepted() const { return accepted;}
+	bool is_connected_to() const { return connected_to;}
+	bool is_accepting() const { return accepting; }
 
 	/* Mutators */
 	void set_size(uint64_t size) { this->size = size; }
@@ -186,7 +215,13 @@ public:
 		this->msid |= ((msoid << MSID_MSOID_SHIFT) & MSID_MSOID_MASK);
 	}
 	void set_name(const char *name) { this->name = name; }
-	void set_accepted(bool accepted) { this->accepted = accepted; }
+	void set_connected_to(bool connected_to) { this->connected_to = connected_to; }
+	void set_accepting(bool accepting) { this->accepting = accepting; }
+	void set_creator_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
+	{
+		this->creator_tx_eng = creator_tx_eng;
+	}
 
 	/* Connections by clients that have connected to this memory space */
 	void add_rem_connection(uint16_t client_destid, uint32_t client_msubid);
@@ -207,6 +242,10 @@ public:
 
 	int open(uint32_t *msid, tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 				uint32_t *ms_conn_id, uint32_t *bytes);
+
+	int accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
+
+	int undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
 	bool has_user_with_user_tx_eng(tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 					uint32_t *ms_conn_id);
@@ -245,7 +284,10 @@ private:
 	uint32_t	msoid;
 	bool		free;
 	uint32_t	current_ms_conn_id;
-	bool		accepted;
+	bool		connected_to;	/* Has a connection from a remote client
+					   to the 'accepting' OWNER */
+	bool		accepting;	/* Has called accept from the OWNER */
+	tx_engine<unix_server, unix_msg_t> *creator_tx_eng;
 
 	/* Info about users that have opened the ms */
 	vector<ms_user>		users;

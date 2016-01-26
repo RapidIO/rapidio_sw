@@ -58,6 +58,7 @@ int create_mso_disp(const unix_msg_t *in_msg,
 	if (out_msg.create_mso_out.status) {
 		ERR("Failed in call rdmad_create_mso\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.create_mso_out.status;
@@ -82,6 +83,7 @@ int open_mso_disp(const unix_msg_t *in_msg,
 	if (out_msg.open_mso_out.status) {
 		ERR("Failed in call rdmad_open_mso\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.open_mso_out.status;
@@ -104,6 +106,7 @@ int close_mso_disp(const unix_msg_t *in_msg,
 	if (out_msg.close_mso_out.status) {
 		ERR("Failed in call rdmad_open_mso\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.close_mso_out.status;
@@ -125,6 +128,7 @@ int destroy_mso_disp(const unix_msg_t *in_msg,
 	if (out_msg.destroy_mso_out.status) {
 		ERR("Failed in call rdmad_destroy_mso\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.destroy_mso_out.status;
@@ -148,11 +152,13 @@ int create_ms_disp(const unix_msg_t *in_msg,
 				in_msg->create_ms_in.msoid,
 				&out_msg.create_ms_out.msid,
 				&out_msg.create_ms_out.phys_addr,
-				&out_msg.create_ms_out.rio_addr);
+				&out_msg.create_ms_out.rio_addr,
+				tx_eng);
 
 	if (out_msg.create_ms_out.status) {
 		ERR("Failed in call rdmad_create_ms\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.create_ms_out.status;
@@ -181,6 +187,7 @@ int open_ms_disp(const unix_msg_t *in_msg,
 	if (out_msg.open_ms_out.status) {
 		ERR("Failed in call rdmad_open_ms\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.open_ms_out.status;
@@ -204,6 +211,7 @@ int close_ms_disp(const unix_msg_t *in_msg,
 	if (out_msg.close_ms_out.status) {
 		ERR("Failed in call rdmad_close_ms\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.close_ms_out.status;
@@ -226,6 +234,7 @@ int destroy_ms_disp(const unix_msg_t *in_msg,
 	if (out_msg.destroy_ms_out.status) {
 		ERR("Failed in call rdmad_destroy_ms\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.destroy_ms_out.status;
@@ -254,6 +263,7 @@ int create_msub_disp(const unix_msg_t *in_msg,
 	if (out_msg.create_msub_out.status) {
 		ERR("Failed in call rdmad_create_msub\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.destroy_ms_out.status;
@@ -277,6 +287,7 @@ int destroy_msub_disp(const unix_msg_t *in_msg,
 	if (out_msg.destroy_msub_out.status) {
 		ERR("Failed in call rdmad_destroy_msub\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.destroy_msub_out.status;
@@ -299,6 +310,7 @@ int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server,
 	if (out_msg.get_ibwin_properties_out.status) {
 		ERR("Failed in call rdmad_get_ibwin_properties\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.get_ibwin_properties_out.status;
@@ -314,16 +326,12 @@ int accept_disp(const unix_msg_t *in_msg,
 	out_msg.type	 = ACCEPT_MS_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
-	out_msg.accept_out.status = rdmad_accept_ms(
-			      in_msg->accept_in.loc_ms_name,
-			      in_msg->accept_in.loc_msubid,
-			      in_msg->accept_in.loc_bytes,
-			      in_msg->accept_in.loc_rio_addr_len,
-			      in_msg->accept_in.loc_rio_addr_lo,
-			      in_msg->accept_in.loc_rio_addr_hi);
+	out_msg.accept_out.status =
+		rdmad_accept_ms(in_msg->accept_in.server_msid, tx_eng);
 	if (out_msg.accept_out.status) {
 		ERR("Failed in call rdmad_accept_ms\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.accept_out.status;
@@ -339,27 +347,69 @@ int undo_accept_disp(const unix_msg_t *in_msg,
 	out_msg.type	 = UNDO_ACCEPT_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
-	out_msg.undo_accept_out.status = rdmad_undo_accept_ms(
-					in_msg->undo_accept_in.server_ms_name);
+	out_msg.undo_accept_out.status =
+		rdmad_undo_accept_ms(in_msg->undo_accept_in.server_msid, tx_eng);
 	if (out_msg.undo_accept_out.status) {
-		ERR("Failed in call to rdmad_undo_accpet()\n");
+		ERR("Failed in call to rdmad_undo_accept()\n");
 	}
+
 	tx_eng->send_message(&out_msg);
 
 	return out_msg.undo_accept_out.status;
 } /* undo_accept_disp() */
 
-#if 0
-
-int send_connect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int connect_ms_resp_disp(const unix_msg_t *in_msg,
+		tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
+	(void)in_msg;
+	(void)tx_eng;
+	/**
+	 * 1. Using client_destid determine the appropriate tx_engine
+	 * 2. Compose a cm_accept_ms message inside a cm_msg_t.
+	 * 3. Call the tx_engine from step 1. to send the message.
+	 */
+	return 0;
+} /* connect_msg_resp_disp() */
 
-}
+int send_connect_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
+{
+	unix_msg_t out_msg;
 
+	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+
+	out_msg.type	 = SEND_CONNECT_ACK;
+	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.seq_no 	 = in_msg->seq_no;
+
+	const send_connect_input *in = &in_msg->send_connect_in;
+	out_msg.send_connect_out.status = rdmad_send_connect(
+			in->server_msname,
+			in->server_destid,
+			in->client_msid,
+			in->client_msubid,
+			in->client_bytes,
+			in->client_rio_addr_len,
+			in->client_rio_addr_lo,
+			in->client_rio_addr_hi,
+			in->seq_num,
+			tx_eng);
+
+	if (out_msg.send_connect_out.status) {
+		ERR("Failed in call to rdmad_send_connect()\n");
+	}
+
+	tx_eng->send_message(&out_msg);
+
+	return out_msg.send_connect_out.status;
+} /* send_connect_disp() */
+
+#if 0
 int undo_connect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 
 }
+
 
 int send_disconnect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
 {

@@ -259,7 +259,8 @@ int ibwin::create_mspace(const char *name,
 		  	  uint64_t size,
 		  	  uint32_t msoid,
 		  	  uint32_t *msid,
-		  	  mspace **ms)
+		  	  mspace **ms,
+		  	  tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
 {
 	/* First get a list of the memory spaces large enough for 'size' */
 	mspace_list	le_mspaces;
@@ -294,6 +295,7 @@ int ibwin::create_mspace(const char *name,
 	(*ms)->set_used();
 	(*ms)->set_msoid(msoid);
 	(*ms)->set_name(name);
+	(*ms)->set_creator_tx_eng(creator_tx_eng);
 	*msid = (*ms)->get_msid();	/* Return as output param */
 
 	/* Create memory space for the remaining free inbound space, but

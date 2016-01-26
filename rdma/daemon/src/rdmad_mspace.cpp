@@ -46,6 +46,7 @@
 
 #include "cm_sock.h"
 #include "liblog.h"
+#include "rdma_types.h"
 #include "rdmad_cm.h"
 #include "rdma_mq_msg.h"
 #include "rdmad_mspace.h"
@@ -64,7 +65,8 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 		name(name), msid(msid), rio_addr(rio_addr), phys_addr(
 		                phys_addr), size(size), msoid(0), free(true),
 		                current_ms_conn_id(MS_CONN_ID_START),
-		                accepted(false)
+		                connected_to(false), accepting(false),
+		                creator_tx_eng(nullptr)
 {
 	INFO("name=%s, msid=0x%08X, rio_addr=0x%" PRIx64 ", size=0x%X\n",
 						name, msid, rio_addr, size);
@@ -208,7 +210,9 @@ int mspace::destroy()
 	/* Mark the memory space as free, and having no owner */
 	free = true;
 	name = "freemspace";
-	accepted = false; /* No connections */
+	connected_to = false; /* No connections */
+	accepting = false;    /* Not accepting connections either */
+	creator_tx_eng = nullptr;	/* No tx_eng associated therewith */
 
 	/* Remove memory space identifier from owner */
 	ms_owner *owner;
@@ -458,8 +462,116 @@ int mspace::open(uint32_t *msid, tx_engine<unix_server, unix_msg_t> *user_tx_eng
 	users.emplace_back(*ms_conn_id, user_tx_eng);
 	sem_post(&users_sem);
 
-	return 1;
+	return 0;
 } /* open() */
+
+/**
+ * @app_tx_eng could be the tx_eng of the creator of the mspace, or
+ * one of its users. Find it and SET the appropriate is_accepting
+ * flag (i.e. either in the main class or in one of the ms_users.
+ *
+ * Only 1 connection to the memory space can be accepting at a time.
+ * So make sure none are before allowing one to accept. Furthermore,
+ * the one that accepts cannot be already connected-to.
+ */
+int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
+{
+	auto rc = 0;
+
+	/* First check if it is the creator who is accepting */
+	if (app_tx_eng == creator_tx_eng) {
+		if (accepting || connected_to) {
+			/* Cannot accept twice from the same app, or accept
+			 * from an already connected app. */
+			ERR("Creator app already accepting or connected\n");
+			rc = RDMA_DUPLICATE_ACCEPT;
+		} else {
+			/* Cannot accept from creator app if we are already
+			 * accepting from a user app. */
+			auto n = count_if(begin(users),
+					  end(users),
+					  [](ms_user& user)
+					 {
+						return user.is_accepting();
+					 });
+			if (n > 0) {
+				ERR("'%s' already accepting from a user app\n");
+				rc = RDMA_ACCEPT_FAIL;
+			} else {
+				/* All is good, set 'accepting' flag */
+				HIGH("'%s' set to 'accepting'\n", name.c_str());
+				accepting = true;
+			}
+		}
+	} else { /* It is not the creator who is trying to 'accept' */
+		auto it = find(begin(users), end(users), app_tx_eng);
+		if (it == end(users)) {
+			ERR("Could not find matching tx_eng\n");
+			rc = RDMA_ACCEPT_FAIL;
+		} else {
+			if (it->is_accepting() || it->is_connected_to()) {
+				/* The user can't already be accepting or connected_to */
+				rc = RDMA_ACCEPT_FAIL;
+			} else if (accepting) {
+				/* The owner can't be accepting either */
+				ERR("'%s' already accepting from creator app\n");
+			} else {
+				/* And none of the users should be accepting! */
+				auto n = count_if(begin(users),
+						  end(users),
+						  [](ms_user& user)
+						 {
+							return user.is_accepting();
+						 });
+				if (n > 0) {
+					ERR("'%s' already accepting from a user app\n");
+					rc = RDMA_ACCEPT_FAIL;
+				} else {
+					/* All is good, set 'accepting' flag */
+					it->set_accepting(true);
+				}
+			}
+		}
+	}
+
+	return rc;
+} /* accept() */
+
+/**
+ * @app_tx_eng could be the tx_eng of the creator of the mspace, or
+ * one of its users. Find it and CLEAR the appropriate is_accepting
+ * flag (i.e. either in the main class or in one of the ms_users)
+ */
+int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
+{
+	auto rc = 0;
+
+	/* First check if it is the creator who is accepting */
+	if (app_tx_eng == creator_tx_eng) {
+		if (!accepting) {
+			ERR("'%s' was not accepting!\n", name.c_str());
+			rc = -1;
+		} else {
+			HIGH("Setting ms('%s' to 'NOT accepting'\n", name.c_str());
+			accepting = true;
+		}
+	} else {
+		/* It wasn't the creator so search the users by app_tx_eng */
+		auto it = find(begin(users), end(users), app_tx_eng);
+		if (it == end(users)) {
+			ERR("Could not find matching tx_eng\n");
+			rc = -1;
+		} else {
+			if (!it->is_accepting()) {
+				ERR("'%s' was not accepting!\n", name.c_str());
+				rc = RDMA_ACCEPT_FAIL;
+			} else {
+				it->set_accepting(false);
+			}
+		}
+	}
+	return rc;
+} /* undo_accept() */
 
 bool mspace::has_user_with_user_tx_eng(tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 					uint32_t *ms_conn_id)
@@ -508,7 +620,8 @@ int mspace::close(uint32_t ms_conn_id)
 	 * accepted = false even though the owner had set it to true. Next
 	 * time a user tries to do accept the flag will be false and 2 accepts
 	 * will be in effect. This needs to be thought through */
-	accepted = false;
+	connected_to = false;
+	accepting    = false;
 
 	sem_wait(&users_sem);
 	auto it = find(begin(users), end(users), ms_conn_id);

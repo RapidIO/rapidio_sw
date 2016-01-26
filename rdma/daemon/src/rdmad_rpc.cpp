@@ -68,13 +68,15 @@ int rdmad_destroy_mso(uint32_t msoid)
 
 int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 			uint32_t *msid, uint64_t *phys_addr,
-			uint64_t *rio_addr)
+			uint64_t *rio_addr,
+			tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
 	int rc;
 
 	/* Create memory space in the inbound space */
 	mspace *ms = nullptr;
-	rc = the_inbound->create_mspace(ms_name, bytes, msoid, msid, &ms);
+	rc = the_inbound->create_mspace(
+			ms_name, bytes, msoid, msid, &ms, to_lib_tx_eng);
 	if (rc != 0) {
 		ERR("Failed to create '%s'\n", ms_name);
 		return -1;
@@ -117,25 +119,19 @@ int rdmad_close_ms(uint32_t msid, uint32_t ms_conn_id)
 	}
 } /* rdmad_close_ms() */
 
-int rdmad_accept_ms(const char *loc_ms_name, uint32_t loc_msubid,
-		    uint32_t loc_bytes, uint64_t loc_rio_addr_len,
-		    uint64_t loc_rio_addr_lo, uint8_t loc_rio_addr_hi)
+int rdmad_accept_ms(uint32_t server_msid,
+		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
-	/* Does it exist? */
-	mspace *ms = the_inbound->get_mspace(loc_ms_name);
+	auto rc = 0;
+
+	mspace *ms = the_inbound->get_mspace(server_msid);
 	if (!ms) {
-		WARN("%s does not exist\n", loc_ms_name);
-		return -1;
+		WARN("ms with msid(0x%X) does not exist\n", server_msid);
+		rc =  RDMA_INVALID_MS;
+	} else {
+		rc = ms->accept(to_lib_tx_eng);
 	}
-
-	/* Prevent concurrent accept() calls to the same ms */
-	if (ms->is_accepted()) {
-		ERR("%s already in accept() or connected.\n", loc_ms_name);
-		return -2;
-	}
-
-	ms->set_accepted(true);	/* Prevent further accepts */
-
+#if 0
 	/* Get the memory space name, and prepend  '/' to make it a queue */
 	string	s(loc_ms_name);
 	s.insert(0, 1, '/');
@@ -165,20 +161,28 @@ int rdmad_accept_ms(const char *loc_ms_name, uint32_t loc_msubid,
 		DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
 		accept_msg_map.add(s, cmam);
 	}
-	return 0;
+#endif
+	return rc;
 } /* rdmad_accept_ms() */
 
-int rdmad_undo_accept_ms(const char *ms_name)
+
+int rdmad_undo_accept_ms(uint32_t server_msid,
+		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
-	/* Does it exist? */
-	mspace *ms = the_inbound->get_mspace(ms_name);
+	auto rc = 0;
+
+	mspace *ms = the_inbound->get_mspace(server_msid);
 	if (!ms) {
-		WARN("%s does not exist\n", ms_name);
-		return -1;
+		WARN("ms with msid(0x%X) does not exist\n", server_msid);
+		rc = RDMA_INVALID_MS;
+	} else {
+		rc = ms->undo_accept(to_lib_tx_eng);
 	}
 
+	return rc;
+#if 0
 	/* An accept() must be in effect to undo it. Double-check */
-	if (!ms->is_accepted()) {
+	if (!ms->is_accepting()) {
 		ERR("%s NOT in accept().\n", ms_name);
 		return -2;
 	}
@@ -195,9 +199,8 @@ int rdmad_undo_accept_ms(const char *ms_name)
 	 * so let's think about that. */
 
 	/* Now set it as unaccepted */
-	ms->set_accepted(false);
-
-	return 0;
+	ms->set_accepting(false);
+#endif
 } /* rdmad_undo_accept_ms() */
 
 int rdmad_send_connect(const char *server_ms_name,
@@ -209,7 +212,7 @@ int rdmad_send_connect(const char *server_ms_name,
 		        uint64_t client_rio_addr_lo,
 		        uint8_t client_rio_addr_hi,
 		        uint64_t seq_num,
-		        unix_server *server=nullptr)
+		        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
 	/* Do we have an entry for that destid ? */
 	sem_wait(&hello_daemon_info_list_sem);
@@ -299,7 +302,7 @@ int rdmad_send_connect(const char *server_ms_name,
 		connected_to_ms_info_list.emplace_back(client_msubid,
 						       server_ms_name,
 						       server_destid,
-						       server);
+						       to_lib_tx_eng);
 		sem_post(&connected_to_ms_info_list_sem);
 	}
 

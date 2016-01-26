@@ -59,7 +59,8 @@ sem_t				hello_daemon_info_list_sem;
 vector<connected_to_ms_info>	connected_to_ms_info_list;
 sem_t 				connected_to_ms_info_list_sem;
 
-static int send_destroy_ms_to_lib(const char *server_ms_name, uint32_t server_msid)
+static int send_destroy_ms_to_lib(const char *server_ms_name,
+				  uint32_t server_msid)
 {
 	int ret;
 
@@ -328,6 +329,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			/* POSIX accept message preparation */
 			mq_accept_msg	*accept_mq_msg;
 			accept_mq->get_send_buffer(&accept_mq_msg);
+
 			accept_mq_msg->server_msubid		= be64toh(accept_cm_msg->server_msubid);
 			accept_mq_msg->server_msid		= be64toh(accept_cm_msg->server_msid);
 			accept_mq_msg->server_bytes		= be64toh(accept_cm_msg->server_bytes);

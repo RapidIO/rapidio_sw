@@ -58,17 +58,28 @@ struct hello_daemon_info {
 extern vector<hello_daemon_info>	hello_daemon_info_list;
 extern sem_t 				hello_daemon_info_list_sem;
 
+/**
+ * Each daemon shall maintain a list of all connections to remote memory
+ * spaces. Each entry in that list represents a connection betwee one of
+ * the daemon's applications, and a REMOTE memory space. As such a memory
+ * space may appear multiple times in this list, each time with a different
+ * 'client_msubid'. This list is created during the 'connect-to-ms' phase
+ * and therefore each entry starts with 'connected' set to false. The tx_eng
+ * data member contains the tx engine that the daemon shall use to communicate
+ * with the application that requested the connection to the remote memory
+ * space.
+ */
 struct connected_to_ms_info {
 	connected_to_ms_info(uint32_t client_msubid,
 			     const char *server_msname,
 			     uint32_t server_destid,
-			     unix_server *other_server) :
+			     tx_engine<unix_server,unix_msg_t> *to_lib_tx_eng) :
 	connected(false),
 	client_msubid(client_msubid),
 	server_msname(server_msname),
 	server_msid(0xFFFF),
 	server_destid(server_destid),
-	other_server(other_server)
+	to_lib_tx_eng(to_lib_tx_eng)
 	{
 	}
 
@@ -82,9 +93,17 @@ struct connected_to_ms_info {
 		return this->server_msname.compare(server_msname) == 0;
 	}
 
-	bool operator==(unix_server *other_server)
+	bool operator==(tx_engine<unix_server,unix_msg_t> *to_lib_tx_eng)
 	{
-		return this->other_server == other_server;
+		return this->to_lib_tx_eng == to_lib_tx_eng;
+	}
+
+	bool operator==(connected_to_ms_info& other)
+	{
+		return (this->client_msubid == other.client_msubid) &&
+		       (this->server_msname == other.server_msname) &&
+		       (this->server_destid == other.server_destid) &&
+		       (this->server_msid == other.server_msid);
 	}
 
 	bool	 connected;
@@ -92,7 +111,7 @@ struct connected_to_ms_info {
 	string	 server_msname;
 	uint32_t server_msid;
 	uint32_t server_destid;
-	unix_server *other_server;
+	tx_engine<unix_server,unix_msg_t> *to_lib_tx_eng;
 };
 extern vector<connected_to_ms_info>	connected_to_ms_info_list;
 extern sem_t 				connected_to_ms_info_list_sem;

@@ -77,6 +77,7 @@ struct cm_accept_msg {
 	uint64_t	server_rio_addr_hi;
 	uint64_t	server_destid_len;
 	uint64_t	server_destid;
+	uint64_t	client_msid;	  /* Client msid */
 };
 
 struct cm_disconnect_msg {

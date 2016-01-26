@@ -1610,6 +1610,9 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 	return rc;
 } /* rdma_unmap_msub() */
 
+/**
+ * If it fails due to timeout, return value is ETIMEDOUT
+ */
 int rdma_accept_ms_h(ms_h loc_msh,
 		     msub_h loc_msubh,
 		     msub_h *rem_msubh,
@@ -1634,30 +1637,13 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 
 		loc_ms	*ms = (loc_ms *)loc_msh;
-		loc_msub *msub = (loc_msub *)loc_msubh;
 
-		/* If this application has already accepted a connection, fail */
-		/* FIXME: This needs to change soon! */
-		if (ms->accepted) {
-			ERR("Already accepted a connection and it is still active!\n");
-			throw RDMA_DUPLICATE_ACCEPT;
-		}
-
-		/* Send the memory space name and the 'accept' parameters to
-		 * the daemon. This triggers channelized message reception
-		 * waiting for a connection on the specified memory space.
-		 * Then sends the accept parameters also in a channelized
-		 * message, to the remote daemon */
+		/* Tell the daemon to flag this memory space as accepting
+		 * connections for this application. */
 		unix_msg_t in_msg;
 		in_msg.type     = ACCEPT_MS;
 		in_msg.category = RDMA_REQ_RESP;
-		strcpy(in_msg.accept_in.loc_ms_name, ms->name);
-		in_msg.accept_in.loc_msid	  = ms->msid;
-		in_msg.accept_in.loc_msubid 	  = msub->msubid;
-		in_msg.accept_in.loc_bytes  	  = msub->bytes;
-		in_msg.accept_in.loc_rio_addr_len = msub->rio_addr_len;
-		in_msg.accept_in.loc_rio_addr_lo  = msub->rio_addr_lo;
-		in_msg.accept_in.loc_rio_addr_hi  = msub->rio_addr_hi;
+		in_msg.accept_in.server_msid	  = ms->msid;
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
@@ -1667,7 +1653,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			throw rc;
 		}
 
-		/* Failed to create msub? */
+		/* Failed in daemon? */
 		if (out_msg.accept_out.status) {
 			ERR("Failed to accept (ms) in daemon\n");
 			throw out_msg.accept_out.status;
@@ -1680,72 +1666,87 @@ int rdma_accept_ms_h(ms_h loc_msh,
 				   timeout_secs,
 				   &out_msg);
 		if (rc) {
-			if (rc == ETIMEDOUT) {
-				ERR("Timeout before getting 'connect' request\n");
-			} else {
-				ERR("Unknown failure\n");
-			}
-			/* We failed, so undo the accept */
+			ERR("Failed to receive CONNECT_MS_REQ\n");
+			/* Switch back the ms to non-accepting mode for this app */
 			in_msg.type     = UNDO_ACCEPT;
 			in_msg.category = RDMA_REQ_RESP;
-			strcpy(in_msg.undo_accept_in.server_ms_name, ms->name);
+			in_msg.accept_in.server_msid = ms->msid;
 
+			/* Call into daemon */
+			unix_msg_t  out_msg;
 			rc = daemon_call(&in_msg, &out_msg);
 			if (rc ) {
 				ERR("Failed in UNDO_ACCEPT daemon_call, rc = %d\n", rc);
 				throw rc;
 			}
 
-			/* Failed to undo the accept */
+			/* Failed in daemon? */
 			if (out_msg.undo_accept_out.status) {
-				ERR("Failed to accept (ms) in daemon\n");
+				ERR("Failed to undo accept (ms) in daemon\n");
 				throw out_msg.undo_accept_out.status;
 			}
-			throw rc;
+			throw RDMA_ACCEPT_TIMEOUT;
 		}
 
 		/* Validate the message contents based on known values */
-		connect_to_ms_req_input *conn_msg;
-		conn_msg = &out_msg.connect_to_ms_req;
+		connect_to_ms_req_input *conn_msg = &out_msg.connect_to_ms_req;
 		if (
-			(conn_msg->rem_rio_addr_len < 16) ||
-			(conn_msg->rem_rio_addr_len > 65) ||
-			(conn_msg->rem_destid_len < 16) ||
-			(conn_msg->rem_destid_len > 64) ||
-			(conn_msg->rem_destid >= 0xFFFF)
+			(conn_msg->client_rio_addr_len < 16) ||
+			(conn_msg->client_rio_addr_len > 65) ||
+			(conn_msg->client_destid_len < 16) ||
+			(conn_msg->client_destid_len > 64) ||
+			(conn_msg->client_destid >= 0xFFFF)
 		) {
 			CRIT("** INVALID CONNECT MESSAGE CONTENTS** \n");
-			DBG("rem_msid = 0x%X\n", conn_msg->rem_msid);
-			DBG("rem_msubsid = 0x%X\n", conn_msg->rem_msubid);
-			DBG("rem_bytes = 0x%X\n", conn_msg->rem_bytes);
-			DBG("rem_rio_addr_len = 0x%X\n", conn_msg->rem_rio_addr_len);
-			DBG("rem_rio_addr_lo = 0x%X\n", conn_msg->rem_rio_addr_lo);
-			DBG("rem_rio_addr_hi = 0x%X\n", conn_msg->rem_rio_addr_hi);
-			DBG("rem_destid_len = 0x%X\n", conn_msg->rem_destid_len);
-			DBG("rem_destid = 0x%X\n", conn_msg->rem_destid);
+			DBG("client_msid = 0x%X\n", conn_msg->client_msid);
+			DBG("client_msubsid = 0x%X\n", conn_msg->client_msubid);
+			DBG("client_msub_bytes = 0x%X\n", conn_msg->client_msub_bytes);
+			DBG("client_rio_addr_len = 0x%X\n", conn_msg->client_rio_addr_len);
+			DBG("client_rio_addr_lo = 0x%X\n", conn_msg->client_rio_addr_lo);
+			DBG("client_rio_addr_hi = 0x%X\n", conn_msg->client_rio_addr_hi);
+			DBG("client_destid_len = 0x%X\n", conn_msg->client_destid_len);
+			DBG("client_destid = 0x%X\n", conn_msg->client_destid);
 			throw RDMA_ACCEPT_FAIL;
 		}
 
+		/* Now reply to the CONNECT_MS_REQ sith CONNECT_MS_RESP */
+		in_msg.type = CONNECT_MS_RESP;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.seq_no   = out_msg.seq_no;
+		in_msg.connect_to_ms_resp.client_msid  = conn_msg->client_msid;
+		in_msg.connect_to_ms_resp.client_msubid = conn_msg->client_msid;
+
+		loc_msub *msub = (loc_msub *)loc_msubh;
+		in_msg.connect_to_ms_resp.server_msubid       = msub->msubid;
+		in_msg.connect_to_ms_resp.server_msub_bytes   = msub->bytes;
+		in_msg.connect_to_ms_resp.server_rio_addr_len = msub->rio_addr_len;
+		in_msg.connect_to_ms_resp.server_rio_addr_lo  = msub->rio_addr_lo;
+		in_msg.connect_to_ms_resp.server_rio_addr_hi  = msub->rio_addr_hi;
+		in_msg.connect_to_ms_resp.client_destid_len   = conn_msg->client_destid_len;
+		in_msg.connect_to_ms_resp.client_destid	      = conn_msg->client_destid;
+
+		tx_eng->send_message(&in_msg);
 
 		/* Store info about remote msub in database and return handle */
-		*rem_msubh = (msub_h)add_rem_msub(conn_msg->rem_msubid,
-					  conn_msg->rem_msid,
-					  conn_msg->rem_bytes,
-					  conn_msg->rem_rio_addr_len,
-					  conn_msg->rem_rio_addr_lo,
-					  conn_msg->rem_rio_addr_hi,
-					  conn_msg->rem_destid_len,
-					  conn_msg->rem_destid,
+		*rem_msubh = (msub_h)add_rem_msub(conn_msg->client_msubid,
+					  conn_msg->client_msid,
+					  conn_msg->client_msub_bytes,
+					  conn_msg->client_rio_addr_len,
+					  conn_msg->client_rio_addr_lo,
+					  conn_msg->client_rio_addr_hi,
+					  conn_msg->client_destid_len,
+					  conn_msg->client_destid,
 					  loc_msh);
 		if (*rem_msubh == (msub_h)NULL) {
 			WARN("Failed to add rem_msub to database\n");
 			throw RDMA_DB_ADD_FAIL;
 		}
 		INFO("rem_bytes = %d, rio_addr = 0x%lX\n",
-				conn_msg->rem_bytes, conn_msg->rem_rio_addr_lo);
+				conn_msg->client_msub_bytes,
+				conn_msg->client_rio_addr_lo);
 
 		/* Return remote msub length to application */
-		*rem_msub_len = conn_msg->rem_bytes;
+		*rem_msub_len = conn_msg->client_msub_bytes;
 #if 0
 	pthread_t wait_for_disc_thread;
 	if (pthread_create(&wait_for_disc_thread, NULL, wait_for_disc_thread_f, connect_disconnect_mq)) {
@@ -1953,7 +1954,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		/* Store info about remote msub in database and return handle */
 		*rem_msubh = (msub_h)add_rem_msub(accept_msg->server_msubid,
 				accept_msg->server_msid,
-				accept_msg->server_bytes,
+				accept_msg->server_msub_bytes,
 					  accept_msg->server_rio_addr_len,
 					  accept_msg->server_rio_addr_lo,
 					  accept_msg->server_rio_addr_hi,
@@ -1964,12 +1965,12 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			throw RDMA_DB_ADD_FAIL;
 		}
 		INFO("Remote msubh has size %d, rio_addr = 0x%016" PRIx64 "\n",
-			accept_msg->server_bytes, accept_msg->server_rio_addr_lo);
+			accept_msg->server_msub_bytes, accept_msg->server_rio_addr_lo);
 		INFO("rem_msub has destid = 0x%X, destid_len = 0x%X\n",
 			accept_msg->server_destid, accept_msg->server_destid_len);
 
 		/* Remote memory subspace length */
-		*rem_msub_len = accept_msg->server_bytes;
+		*rem_msub_len = accept_msg->server_msub_bytes;
 
 		/* Save server_msid since we need to store that in the databse */
 		uint32_t server_msid = accept_msg->server_msid;

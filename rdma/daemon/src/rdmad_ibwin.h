@@ -46,6 +46,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_types.h"
 #include <rapidio_mport_mgmt.h>
 #include "rapidio_mport_dma.h"
+#include "rdmad_unix_msg.h"
+#include "tx_engine.h"
 #include "liblog.h"
 #include "libcli.h"
 
@@ -94,7 +96,8 @@ public:
 			  uint64_t size,
 			  uint32_t msoid,
 			  uint32_t *msid,
-			  mspace **ms);
+			  mspace **ms,
+			  tx_engine<unix_server, unix_msg_t> *creator_tx_eng);
 
 	int destroy_mspace(uint32_t msoid, uint32_t msid);
 

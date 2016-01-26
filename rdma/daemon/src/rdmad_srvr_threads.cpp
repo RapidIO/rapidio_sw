@@ -229,7 +229,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("conn_msg->client_destid_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid_len));
 			DBG("conn_msg->client_destid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid));
 			DBG("conn_msg->seq_num = 0x%016" PRIx64 "\n", be64toh(conn_msg->seq_num));
-
+#if 0
 			/* Form message queue name from memory space name */
 			/* TODO: Use a stream? */
 			char mq_name[CM_MS_NAME_MAX_LEN+2];
@@ -238,7 +238,16 @@ void *wait_conn_disc_thread_f(void *arg)
 			strcpy(&mq_name[1], conn_msg->server_msname);
 			string mq_str(mq_name);
 			DBG("mq_name = %s\n", mq_name);
+#endif
+			mspace *ms = the_inbound->get_mspace(conn_msg->server_msname);
+			if (ms == nullptr) {
+				WARN("'%s' not found. Ignore CM_CONNECT_MS\n",
+						conn_msg->server_msname);
+				continue;
+			} else {
 
+			}
+#if 0
 			/* If queue name not in map ignore message */
 			if (!accept_msg_map.contains(mq_str)) {
 				WARN("cm_connect_msg to %s ignored!\n",
@@ -312,7 +321,6 @@ void *wait_conn_disc_thread_f(void *arg)
 
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
 			connect_mq->dump_send_buffer();
-
 
 			/* Request a send buffer */
 			void *cm_send_buf;
@@ -394,6 +402,8 @@ void *wait_conn_disc_thread_f(void *arg)
 			rx_conn_disc_server->flush_recv_buffer();
 
 			delete connect_mq;
+#endif
+
 		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS) {
 			cm_disconnect_msg	*disc_msg;
 
@@ -437,7 +447,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			}
 
 			/* Consider this memory space disconnected. Allow accepting */
-			ms->set_accepted(false);
+			ms->set_connected_to(false);
 		} else if (be64toh(conn_msg->type) == CM_DESTROY_ACK_MS) {
 			cm_destroy_ack_msg *dest_ack_msg;
 
