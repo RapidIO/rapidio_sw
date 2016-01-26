@@ -229,16 +229,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("conn_msg->client_destid_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid_len));
 			DBG("conn_msg->client_destid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid));
 			DBG("conn_msg->seq_num = 0x%016" PRIx64 "\n", be64toh(conn_msg->seq_num));
-#if 0
-			/* Form message queue name from memory space name */
-			/* TODO: Use a stream? */
-			char mq_name[CM_MS_NAME_MAX_LEN+2];
-			memset(mq_name, '\0', CM_MS_NAME_MAX_LEN+2);	/* For Valgrind */
-			mq_name[0] = '/';
-			strcpy(&mq_name[1], conn_msg->server_msname);
-			string mq_str(mq_name);
-			DBG("mq_name = %s\n", mq_name);
-#endif
+
 			mspace *ms = the_inbound->get_mspace(conn_msg->server_msname);
 			if (ms == nullptr) {
 				WARN("'%s' not found. Ignore CM_CONNECT_MS\n",
@@ -252,81 +243,35 @@ void *wait_conn_disc_thread_f(void *arg)
 				continue;
 			}
 
-//			unix_msg_t connect_msg;
-#if 0
-			/* If queue name not in map ignore message */
-			if (!accept_msg_map.contains(mq_str)) {
-				WARN("cm_connect_msg to %s ignored!\n",
-						conn_msg->server_msname);
-				continue;
-			}
-
-			/* Open message queue */
-			msg_q<mq_rdma_msg>	*connect_mq;
-			try {
-				connect_mq = new msg_q<mq_rdma_msg>(mq_name, MQ_OPEN);
-
-			}
-			catch(msg_q_exception& e) {
-				ERR("Failed to open connect_mq: %s\n", e.msg.c_str());
-				/* Don't remove MS from accept_msg_map; the
-				 * client may retry connecting. However, don't also
-				 * send an ACCEPT_MS since the server didn't get
-				 * the message. */
-				/* FIXME: For now I think we would like to know if we try to
-				 * open a non-existing queue right away. This way we catch the
-				 * bug before we have loads of debugging messages!
-				 */
-#ifdef BE_STRICT
-				raise(SIGABRT);	/* TODO: Remove eventually? */
-#endif
-				continue;
-			}
-			DBG("Opened POSIX message queue: '%s'\n", mq_name);
-
 			/* Send 'connect' POSIX message contents to the RDMA library */
-			mq_rdma_msg	*rdma_mq_msg;
-			connect_mq->get_send_buffer(&rdma_mq_msg);
-			mq_connect_msg	*connect_msg = &rdma_mq_msg->connect_msg;
-			rdma_mq_msg->type = MQ_CONNECT_MS;
-			connect_msg->rem_msid		= be64toh(conn_msg->client_msid);
-			connect_msg->rem_msubid		= be64toh(conn_msg->client_msubid);
-			connect_msg->rem_bytes		= be64toh(conn_msg->client_bytes);
-			connect_msg->rem_rio_addr_len	= be64toh(conn_msg->client_rio_addr_len);
-			connect_msg->rem_rio_addr_lo	= be64toh(conn_msg->client_rio_addr_lo);
-			connect_msg->rem_rio_addr_hi	= be64toh(conn_msg->client_rio_addr_hi);
-			connect_msg->rem_destid_len	= be64toh(conn_msg->client_destid_len);
-			connect_msg->rem_destid		= be64toh(conn_msg->client_destid);
-			connect_msg->seq_num		= be64toh(conn_msg->seq_num);
+			unix_msg_t in_msg;
+			in_msg.type = CONNECT_MS_REQ;
+			in_msg.category = RDMA_LIB_DAEMON_CALL;
+			connect_to_ms_req_input *connect_msg = &in_msg.connect_to_ms_req;
+			connect_msg->client_msid = be64toh(conn_msg->client_msid);
+			connect_msg->client_msubid = be64toh(conn_msg->client_msubid);
+			connect_msg->client_msub_bytes = be64toh(conn_msg->client_bytes);
+			connect_msg->client_rio_addr_len = be64toh(conn_msg->client_rio_addr_len);
+			connect_msg->client_rio_addr_lo	= be64toh(conn_msg->client_rio_addr_lo);
+			connect_msg->client_rio_addr_hi	= be64toh(conn_msg->client_rio_addr_hi);
+			connect_msg->client_destid_len = be64toh(conn_msg->client_destid_len);
+			connect_msg->client_destid = be64toh(conn_msg->client_destid);
+			connect_msg->seq_num = be64toh(conn_msg->seq_num);
 
-			/* Send connect message to RDMA library/app */
-			if (connect_mq->send()) {
-				ERR("connect_mq->send() failed: %s\n", strerror(errno));
-				delete connect_mq;
-				/* Don't remove MS from accept_msg_map; the
-				 * client may retry connecting. However, don't also
-				 * send an ACCEPT_MS since the server didn't get
-				 * the message. */
-				/* FIXME: For now we need to know if we fail to notify an app.
-				 * Therefore we will raise a SIGABRT if the send fails.
-				 */
-#ifdef BE_STRICT
-				raise(SIGABRT);	/* TODO: Remove eventually? */
-#endif
-				continue;
-			}
-			DBG("connect_msg->rem_msid = 0x%X\n", connect_msg->rem_msid);
-			DBG("connect_msg->rem_msubsid = 0x%X\n", connect_msg->rem_msubid);
-			DBG("connect_msg->rem_bytes = 0x%X\n", connect_msg->rem_bytes);
-			DBG("connect_msg->rem_rio_addr_len = 0x%X\n", connect_msg->rem_rio_addr_len);
-			DBG("connect_msg->rem_rio_addr_lo = 0x%016" PRIx64 "\n", connect_msg->rem_rio_addr_lo);
-			DBG("connect_msg->rem_rio_addr_hi = 0x%X\n", connect_msg->rem_rio_addr_hi);
-			DBG("connect_msg->rem_destid_len = 0x%X\n", connect_msg->rem_destid_len);
-			DBG("connect_msg->rem_destid = 0x%X\n", connect_msg->rem_destid);
+			to_lib_tx_eng->send_message(&in_msg);
+
+			DBG("connect_msg->client_msid = 0x%X\n", connect_msg->client_msid);
+			DBG("connect_msg->client_msubid = 0x%X\n", connect_msg->client_msubid);
+			DBG("connect_msg->client_msub_bytes = 0x%X\n", connect_msg->client_msub_bytes);
+			DBG("connect_msg->client_rio_addr_len = 0x%X\n", connect_msg->client_rio_addr_len);
+			DBG("connect_msg->client_rio_addr_lo = 0x%016" PRIx64 "\n", connect_msg->client_rio_addr_lo);
+			DBG("connect_msg->client_rio_addr_hi = 0x%X\n", connect_msg->client_rio_addr_hi);
+			DBG("connect_msg->client_destid_len = 0x%X\n", connect_msg->client_destid_len);
+			DBG("connect_msg->client_destid = 0x%X\n", connect_msg->client_destid);
 			DBG("connect_msg->seq_num = 0x%X\n", connect_msg->seq_num);
 
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
-			connect_mq->dump_send_buffer();
+#if 0
 
 			/* Request a send buffer */
 			void *cm_send_buf;
