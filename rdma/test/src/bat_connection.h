@@ -15,10 +15,10 @@ using std::unique_ptr;
 
 class bat_connection {
 public:
-	bat_connection(uint32_t destid, uint16_t channel, const char *name, bool *shutting_down)
+	bat_connection(int mport_id, uint32_t destid, uint16_t channel, const char *name, bool *shutting_down)
 	{
 		try {
-			client = make_unique<cm_client>(name, BAT_MPORT_ID, BAT_MBOX_ID,
+			client = make_unique<cm_client>(name, mport_id, BAT_MBOX_ID,
 					channel, shutting_down);	
 			if (client->connect(destid))
 				throw -1;

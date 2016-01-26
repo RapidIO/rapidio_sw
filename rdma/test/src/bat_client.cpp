@@ -40,17 +40,17 @@ vector<bat_connection *>	bat_connections;
 
 static void show_help(void)
 {
-	// TODO: mport_id should be a command-line parameter
 	puts("bat_client -s<server_channel> -u<user_channel> -d<destid> -t<test_case> -n<repetitions> -o<output-file> [-l] [-h]");
-	puts("-s Specify CM channel used by server app (creates/destroys..etc.)");
-	puts("-u Specify CM channel used by user app (opens/closes/accepts..etc.)");
-	puts("-d Specify RapidIO destination ID for the node running bot the 'server' and 'user'");
-	puts("-t Specify which test case to run");
-	puts("-r Specify number of repetitions to run the tests for");
-	puts("if <test_case> is 'z', all tests are run");
-	puts("if <test_case> is 'z', <repetitions> is the number of times the tests are run");
-	puts("<repetitions> is ignored for all other cases");
+	puts("-c First CM channel number by server app (creates/destroys..etc.)");
+	puts("-n Total number of CM channels used by server+user apps (opens/closes/accepts..etc.)");
+	puts("-d RapidIO destination ID for the node running bot the 'server' and 'user'");
+	puts("-t Test case to run");
+	puts("-r Repetitions to run the tests for");
+	puts("\t If <test_case> is 'z', all tests are run");
+	puts("\t If <test_case> is 'z', <repetitions> is the number of times the tests are run");
+	puts("\t <repetitions> is ignored for all other cases");
 	puts("-l List all test cases");
+	puts("-m mport_id");
 	puts("-h Help");
 } /* show_help() */
 
@@ -61,6 +61,7 @@ int main(int argc, char *argv[])
 	auto first_channel = 2224;
 	auto num_channels  = 1;
 	auto repetitions   = 1;
+	auto mport_id = BAT_MPORT_ID;
 	uint32_t destid;
 	vector<unique_ptr<bat_connection> > connections;
 
@@ -105,7 +106,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Parse command-line parameters */
-	if (argc < 4) {
+	if (argc < 5) {
 		show_help();
 		exit(1);
 	}
@@ -116,27 +117,30 @@ int main(int argc, char *argv[])
 		case 'c':
 			first_channel = atoi(optarg);
 			break;
-		case 'n':
-			num_channels = atoi(optarg);
-			break;
 		case 'd':
 			destid = atoi(optarg);
-			break;
-		case 'l':
-			break;
-		case 'o':
-			strcpy(log_filename, optarg);
-			break;
-		case 't':
-			tc = optarg[0];
 			break;
 		case 'h':
 			show_help();
 			exit(1);
 			break;
+		case 'l':
+			break;
+		case 'm':
+			mport_id = atoi(optarg);
+			break;
+		case 'n':
+			num_channels = atoi(optarg);
+			break;
+		case 'o':
+			strcpy(log_filename, optarg);
+			break;
 		case 'r':
 			repetitions = atoi(optarg);
 			printf("Tests will be run %d times!\n", repetitions);
+			break;
+		case 't':	/* test case */
+			tc = optarg[0];
 			break;
 		case '?':
 			/* Invalid command line option */
@@ -152,7 +156,9 @@ int main(int argc, char *argv[])
 			stringstream conn_name;
 			conn_name << "conn_" << i;
 
-			connections.push_back(make_unique<bat_connection>(destid,
+			connections.push_back(make_unique<bat_connection>(
+							mport_id,
+							destid,
 							first_channel + i,
 							conn_name.str().c_str(),
 							&shutting_down));

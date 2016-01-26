@@ -1721,6 +1721,11 @@ int test_case_n()
 	ret = close_mso_f(bat_connections[1], user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
+	/* Open mso from ANOTHER user. Closing should not have destroyed msoh */
+	mso_h	user2_msoh;
+	ret = open_mso_f(bat_connections[2], "rem_mso", &user2_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
 	/* Destroy the server mso */
 	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
@@ -1728,6 +1733,16 @@ int test_case_n()
 	/* Destroy the server mso AGAIN. Should be harmless */
 	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Cannot open after destruction */
+	ret = open_mso_f(bat_connections[1], "rem_mso", &user_msoh);
+	if (ret == 0)
+		fprintf(log_fp, "%s at line %d\n",
+				(ret != 0) ? "PASSED" : "FAILED", __LINE__);
+	ret = open_mso_f(bat_connections[2], "rem_mso", &user_msoh);
+	if (ret == 0)
+		fprintf(log_fp, "%s at line %d\n",
+				(ret != 0) ? "PASSED" : "FAILED", __LINE__);
 
 	/* Re-create mso after destruction */
 	ret = create_mso_f(bat_connections[0], "rem_mso", &server_msoh);
