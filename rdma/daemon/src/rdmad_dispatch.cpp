@@ -2,6 +2,8 @@
 #include "rdmad_rpc.h"
 #include "rdma_msg.h"
 #include "rdmad_unix_msg.h"
+#include "cm_sock.h"
+#include "rdmad_srvr_threads.h"
 
 int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
@@ -358,17 +360,78 @@ int undo_accept_disp(const unix_msg_t *in_msg,
 	return out_msg.undo_accept_out.status;
 } /* undo_accept_disp() */
 
+/**
+ * 1. Using client_destid determine the appropriate tx_engine
+ * 2. Compose a cm_accept_ms message inside a cm_msg_t.
+ * 3. Call the tx_engine from step 1. to send the message.
+ */
 int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	(void)in_msg;
+	auto rc = 0;
 	(void)tx_eng;
-	/**
-	 * 1. Using client_destid determine the appropriate tx_engine
-	 * 2. Compose a cm_accept_ms message inside a cm_msg_t.
-	 * 3. Call the tx_engine from step 1. to send the message.
-	 */
-	return 0;
+
+	/* Find the right cm_server using the destid */
+	cm_server *server;
+	sem_wait(&prov_daemon_info_list_sem);
+	auto it = find(begin(prov_daemon_info_list),
+		       end(prov_daemon_info_list),
+		       in_msg->connect_to_ms_resp.client_destid);
+	if (it != end(prov_daemon_info_list)) {
+		server = it->conn_disc_server;
+	} else {
+		CRIT("No server provisioned for destid(0x%X)\n",
+				in_msg->connect_to_ms_resp.client_destid);
+		sem_post(&prov_daemon_info_list_sem);
+		return RDMA_REMOTE_UNREACHABLE;
+	}
+	sem_post(&prov_daemon_info_list_sem);
+
+	mspace *ms = the_inbound->get_mspace(in_msg->connect_to_ms_resp.server_msid);
+	if (ms == nullptr) {
+		CRIT("Cannot find memory space msid(0x%X)\n",
+				in_msg->connect_to_ms_resp.server_msid);
+		return RDMA_INVALID_MS;
+	}
+
+	/* Prepare accept message from input parameters */
+	cm_accept_msg	*cmam;
+	server->get_send_buffer((void **)&cmam);
+	server->flush_send_buffer();
+
+	cmam->type		= htobe64(CM_ACCEPT_MS);
+	strcpy(cmam->server_ms_name, ms->get_name());
+	cmam->server_msid	= htobe64(in_msg->connect_to_ms_resp.server_msid);
+	cmam->server_msubid	= htobe64(in_msg->connect_to_ms_resp.server_msubid);
+	cmam->server_msub_bytes	= htobe64(in_msg->connect_to_ms_resp.server_msub_bytes);
+	cmam->server_rio_addr_len= htobe64(in_msg->connect_to_ms_resp.server_rio_addr_len);
+	cmam->server_rio_addr_lo = htobe64(in_msg->connect_to_ms_resp.server_rio_addr_lo);
+	cmam->server_rio_addr_hi = htobe64(in_msg->connect_to_ms_resp.server_rio_addr_hi);
+	cmam->server_destid_len	= htobe64(16);
+	cmam->server_destid	= htobe64(peer.destid);
+	cmam->client_msid	= htobe64(in_msg->connect_to_ms_resp.client_msid);
+	cmam->client_msubid	= htobe64(in_msg->connect_to_ms_resp.client_msubid);
+	DBG("cm_accept_msg has server_destid = 0x%X\n",
+						be64toh(cmam->server_destid));
+	DBG("cm_accept_msg has server_destid_len = 0x%X\n",
+					be64toh(cmam->server_destid_len));
+
+	/* Send the CM_ACCEPT_MS message to remote (client) daemon */
+	rc = server->send();
+	if (rc) {
+		ERR("Failed to send CM_ACCEPT_MS\n");
+	} else {
+		/* Add the remote connectoin information to the memory space.
+		 * This for cleanup if the remote destid dies. */
+		ms->add_rem_connection(
+			be64toh(in_msg->connect_to_ms_resp.client_destid),
+			be64toh(in_msg->connect_to_ms_resp.client_msubid));
+		DBG("Added destid(0x%X),msubid(0x%X) to '%s' as rem conn\n",
+			be64toh(in_msg->connect_to_ms_resp.client_destid),
+			be64toh(in_msg->connect_to_ms_resp.client_msubid),
+			ms->get_name());
+	}
+	return rc;
 } /* connect_msg_resp_disp() */
 
 int send_connect_disp(const unix_msg_t *in_msg,

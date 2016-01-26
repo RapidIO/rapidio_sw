@@ -69,15 +69,16 @@ struct cm_connect_msg {
 struct cm_accept_msg {
 	uint64_t	type;
 	char		server_ms_name[CM_MS_NAME_MAX_LEN+1];
-	uint64_t	server_msid;	/* Server msid */
+	uint64_t	server_msid;
 	uint64_t	server_msubid;
-	uint64_t	server_bytes;	/* Length of msubh local to server */
+	uint64_t	server_msub_bytes;
 	uint64_t	server_rio_addr_len;
 	uint64_t	server_rio_addr_lo;
 	uint64_t	server_rio_addr_hi;
 	uint64_t	server_destid_len;
 	uint64_t	server_destid;
-	uint64_t	client_msid;	  /* Client msid */
+	uint64_t	client_msid;
+	uint64_t	client_msubid;
 };
 
 struct cm_disconnect_msg {

@@ -332,7 +332,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 			accept_mq_msg->server_msubid		= be64toh(accept_cm_msg->server_msubid);
 			accept_mq_msg->server_msid		= be64toh(accept_cm_msg->server_msid);
-			accept_mq_msg->server_bytes		= be64toh(accept_cm_msg->server_bytes);
+			accept_mq_msg->server_bytes		= be64toh(accept_cm_msg->server_msub_bytes);
 			accept_mq_msg->server_rio_addr_len	= be64toh(accept_cm_msg->server_rio_addr_len);
 			accept_mq_msg->server_rio_addr_lo	= be64toh(accept_cm_msg->server_rio_addr_lo);
 			accept_mq_msg->server_rio_addr_hi	= be64toh(accept_cm_msg->server_rio_addr_hi);
@@ -345,7 +345,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 							be64toh(accept_cm_msg->server_destid_len),
 							be64toh(accept_cm_msg->server_rio_addr_lo));
 			DBG("CM Accept: bytes = %u, rio_addr_len = %u\n",
-							be64toh(accept_cm_msg->server_bytes),
+							be64toh(accept_cm_msg->server_msub_bytes),
 							be64toh(accept_cm_msg->server_rio_addr_len));
 			DBG("MQ Accept: msubid=0x%X msid= 0x%X destid=0x%X destid_len=0x%X, rio=0x%lX\n",
 								accept_mq_msg->server_msubid,
