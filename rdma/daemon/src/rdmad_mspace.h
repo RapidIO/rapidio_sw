@@ -243,6 +243,8 @@ public:
 	int open(uint32_t *msid, tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 				uint32_t *ms_conn_id, uint32_t *bytes);
 
+	tx_engine<unix_server, unix_msg_t> *get_accepting_tx_eng();
+
 	int accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
 	int undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng);

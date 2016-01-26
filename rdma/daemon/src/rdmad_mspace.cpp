@@ -465,6 +465,25 @@ int mspace::open(uint32_t *msid, tx_engine<unix_server, unix_msg_t> *user_tx_eng
 	return 0;
 } /* open() */
 
+tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()
+{
+	tx_engine<unix_server, unix_msg_t> *tx_eng = nullptr;
+
+	if (accepting)
+		tx_eng = creator_tx_eng;
+	else {
+		auto it = find_if(begin(users),
+			       end(users),
+			       [](ms_user& user)
+			       {
+					return user.is_accepting();
+			       });
+		if (it != end(users))
+			tx_eng = it->get_tx_engine();
+	}
+	return tx_eng;
+} /* get_accepting_tx_eng() */
+
 /**
  * @app_tx_eng could be the tx_eng of the creator of the mspace, or
  * one of its users. Find it and SET the appropriate is_accepting

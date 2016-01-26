@@ -244,9 +244,15 @@ void *wait_conn_disc_thread_f(void *arg)
 				WARN("'%s' not found. Ignore CM_CONNECT_MS\n",
 						conn_msg->server_msname);
 				continue;
-			} else {
-
 			}
+			tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng;
+			to_lib_tx_eng = ms->get_accepting_tx_eng();
+			if (to_lib_tx_eng == nullptr) {
+				WARN("'%s' not accepting. Ignore CM_CONNECT_MS\n");
+				continue;
+			}
+
+//			unix_msg_t connect_msg;
 #if 0
 			/* If queue name not in map ignore message */
 			if (!accept_msg_map.contains(mq_str)) {
