@@ -81,7 +81,9 @@ void DMAChannel::init()
   m_bl_busy_size  = -666;
   m_check_reg     = false;
   m_restart_pending = 0;
-  m_sts_log_two    = 0;
+  m_sts_log_two   = 0;
+
+  memset(&m_BD0_T3_saved, 0, sizeof(m_BD0_T3_saved));
 
   m_sim           = false;
   m_sim_dma_rp    = 0;
@@ -150,7 +152,7 @@ void DMAChannel::resetHw()
   m_sim_fifo_wp      = 0;
   m_sim_dma_rp       = 0;
 
-  m_dma_wr = 0;
+  m_dma_wr = 1; // BD0 is T3
  
   if (m_sim) return;
 
@@ -213,7 +215,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 {
   struct dmadesc desc;
   bool queued_T3 = false;
-  WorkItem_t wk_end;
+  WorkItem_t wk_end, wk_0;
   WorkItem_t wk;
   struct hw_dma_desc* bd_hw = NULL;
 
@@ -261,6 +263,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   }
 
   memset(&wk_end, 0 , sizeof(wk_end));
+  memset(&wk_0, 0 , sizeof(wk_0));
 
   // Check if queue full -- as late as possible in view of MT
   if(queueFull()) {
@@ -278,17 +281,21 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     // wrap around to beginning of buffer.
     if ((bd_idx + 1) == m_bd_num) {
       wk_end.opt.bd_wp = m_dma_wr;
+      wk_0.opt.bd_wp   = m_dma_wr+1;
 
-      wk_end.opt.ts_start = rdtsc();
+      wk_end.opt.ts_start = wk_0.opt.ts_start = rdtsc();
       // FIXME: Should this really be FF..E, or should it be FF..F ???
       if (m_dma_wr == 0xFFFFFFFE)
-        m_dma_wr = 0;
+        m_dma_wr = 1; // Process BD0 which is a T3
       else
-        m_dma_wr++;
+        m_dma_wr += 2; // Process BD0 which is a T3
+
+      memcpy((uint8_t*)m_dmadesc.win_ptr, &m_BD0_T3_saved, DMA_BUFF_DESCR_SIZE); // Reset BD0 as jump+1
+
       setWriteCount(m_dma_wr);
       queued_T3 = true;
-      m_bl_busy_size++;
-      bd_idx = 0;
+      m_bl_busy_size += 2; // XXX BUG??
+      bd_idx = 1; // Skip BD0 which is a T3
     }
 
     // check-modulo in m_bl_busy[] if bd_idx is still busy!!
@@ -314,7 +321,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     m_dma_wr++;
     setWriteCount(m_dma_wr);
 
-    if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
+    if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 1; // Process BD0 which is a T3
   }}
   pthread_spin_unlock(&m_bl_splock); 
 
@@ -334,6 +341,9 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     wk_end.opt.dtype = DTYPE3;
     wk_end.valid = WI_SIG;
     m_pending_work[m_T3_bd_hw] = wk_end;
+    wk_0.opt.dtype = DTYPE3;
+    wk_0.valid = WI_SIG;
+    m_pending_work[0] = wk_0; // BD0 is T3
   }
   pthread_spin_unlock(&m_pending_work_splock);
 
@@ -405,13 +415,27 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 #endif
 
   // Initialize DMA descriptors ring using added link descriptor 
-  struct dmadesc end_bd; memset(&end_bd, 0, sizeof(end_bd));
-  dmadesc_setdtype(end_bd, DTYPE3);
-  dmadesc_setT3_nextptr(end_bd, (uint64_t)m_dmadesc.win_handle);
+  struct dmadesc T3_bd; memset(&T3_bd, 0, sizeof(T3_bd));
+  dmadesc_setdtype(T3_bd, DTYPE3);
+  dmadesc_setT3_nextptr(T3_bd, (uint64_t)m_dmadesc.win_handle);
 
-  end_bd.pack(end_bd_p); // XXX mask off lowest 5 bits
+  T3_bd.pack(end_bd_p); // XXX mask off lowest 5 bits
 
   m_T3_bd_hw = m_bd_num-1;
+
+  // Initialize BD0 DMA descriptor as jump+1
+  struct hw_dma_desc* bd0_p = (struct hw_dma_desc*)m_dmadesc.win_ptr; // Set BD0 as T3
+
+#ifdef DEBUG_BD
+  DBG("\n\tBD0 DTYPE3 @ HW 0x%lx [idx=0] jump+1 to HW 0x%lx\n",
+      m_dmadesc.win_handle,
+      m_dmadesc.win_handle + DMA_BUFF_DESCR_SIZE);
+#endif
+
+  dmadesc_setT3_nextptr(T3_bd, (uint64_t)m_dmadesc.win_handle + DMA_BUFF_DESCR_SIZE);
+  T3_bd.pack(bd0_p); // XXX mask off lowest 5 bits
+
+  memcpy(&m_BD0_T3_saved, (uint8_t*)m_dmadesc.win_ptr, DMA_BUFF_DESCR_SIZE);
 
   if (m_sim) return true;
 
@@ -790,7 +814,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     pthread_spin_lock(&m_bl_splock); 
 
 #ifdef UDMA_SIM_DEBUG
-    { // clear DTYPE - DEBUG
+    if (idx > 0 && idx < (m_bd_num - 1)) { // clear DTYPE - DEBUG
       struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (item.opt.bd_idx * DMA_BUFF_DESCR_SIZE));
       uint32_t* bytes03 = (uint32_t*)bd_p;
       *bytes03 &= 0x0FFFFFFFUL;
@@ -834,16 +858,18 @@ void DMAChannel::softRestart(const bool nuke_bds)
     // Clear BDs
     memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
 
+    memcpy((uint8_t*)m_dmadesc.win_ptr, &m_BD0_T3_saved, DMA_BUFF_DESCR_SIZE); // Reset BD0 as jump+1
+
     memset(m_bl_busy, 0,  m_bd_num * sizeof(bool));
     m_bl_busy_size = 0;
 
     memset(m_pending_work, 0, (m_bd_num+1) * sizeof(WorkItem_t));
   }
 
+  // Just be paranoid about wrap-around descriptor
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
     ((uint8_t*)m_dmadesc.win_ptr + ((m_bd_num-1) * DMA_BUFF_DESCR_SIZE));
 
-  // Initialize DMA descriptors ring using added link descriptor
   struct dmadesc end_bd; memset(&end_bd, 0, sizeof(end_bd));
   dmadesc_setdtype(end_bd, DTYPE3);
   dmadesc_setT3_nextptr(end_bd, (uint64_t)m_dmadesc.win_handle);
@@ -866,7 +892,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
   wr32dmachan(TSI721_DMAC_DSSZ, m_sts_log_two);
 
 done:
-  m_dma_wr = nuke_bds? 0: DMA_WP;
+  m_dma_wr = nuke_bds? 1 /*BD0 is T3*/: DMA_WP;
 
   setWriteCount(m_dma_wr); // knows about sim
 

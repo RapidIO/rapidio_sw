@@ -249,7 +249,7 @@ public:
     //     that should come from the completion FIFO but for now we brute-force it!
   
     //return SZ == (m_bd_num+1); // account for T3 BD as well
-    return (m_bl_busy_size + 2 >= m_bd_num); // account for T3 BD as well
+    return (m_bl_busy_size + 2 + 1 /*BD0 is T3*/ >= m_bd_num); // account for T3 BD as well
   }
   
   inline bool dmaCheckAbort(uint32_t& abort_reason)
@@ -335,6 +335,7 @@ private:
   uint64_t            m_T3_bd_hw;
   volatile int        m_restart_pending;
   uint32_t            m_sts_log_two; ///< Remember the calculation in alloc_dmacompldesc and re-use it at softReset
+  struct hw_dma_desc  m_BD0_T3_saved; ///< Pack this once, save, reuse when needed
   
   WorkItem_t*         m_pending_work;
 

@@ -2451,7 +2451,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			while (!q_was_full && !info->stop_req && (bd_f_cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8)) == 0) { ; }
 
 			// XXX check for errors, nuke faulting BD, do softRestart
-			if (q_was_full || bd_q_cnt != bd_f_cnt) {
+			if (q_was_full || bd_f_cnt < bd_q_cnt) {
 				if (q_was_full) {
 					CRIT("\n\tBUG: Queue Full!\n");
 					//info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8); continue; // No faults after a restart to process all T3 BDs
