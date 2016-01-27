@@ -78,6 +78,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CONNECT_MS_REQ		0x001C
 #define CONNECT_MS_RESP		0x001D
 #define CONNECT_MS_RESP_ACK	0x801D
+#define ACCEPT_FROM_MS_REQ	0x001E
 #define RDMAD_KILL_DAEMON	0x0666
 
 /* Type codes for RDMA_REQ_RESP messages */
@@ -292,7 +293,6 @@ struct get_ibwin_properties_output {
 	int		status;
 };
 
-/* ----------------------------- REQ / RESP -------------------------*/
 struct force_close_mso_req_input {
 	uint32_t msoid;
 };
@@ -312,6 +312,7 @@ struct connect_to_ms_req_input {
 	uint32_t client_destid_len;
 	uint32_t client_destid;
 	uint32_t seq_num;
+	uint64_t client_to_lib_tx_eng_h;
 };
 
 /* Server library/app to server daemon */
@@ -328,9 +329,27 @@ struct connect_to_ms_resp_input {
 	uint32_t client_msubid;
 	uint32_t client_destid_len;
 	uint32_t client_destid;
+	uint64_t client_to_lib_tx_eng_h;
 };
 struct connect_to_ms_resp_output {
 	int status;
+};
+
+/* Client daemon to client app */
+/* Basically this is the 'connect_to_ms_resp' (ABOVE)
+ * which is sent by the server,
+ * and by the time it arrives at the client,
+ * some of the fields are no  longer needed
+ * (they are consumed by the client daemon).  */
+struct accept_from_ms_req_input {
+	uint32_t server_msid;
+	uint32_t server_msubid;
+	uint32_t server_msub_bytes;
+	uint8_t	 server_rio_addr_len;
+	uint64_t server_rio_addr_lo;
+	uint8_t  server_rio_addr_hi;
+	uint8_t	 server_destid_len;
+	uint32_t server_destid;
 };
 
 /* Unix message structure */
@@ -382,6 +401,7 @@ struct unix_msg_t {
 		struct connect_to_ms_req_input	connect_to_ms_req;
 		struct connect_to_ms_resp_input	connect_to_ms_resp_in;
 		struct connect_to_ms_resp_output connect_to_ms_resp_out;
+		struct accept_from_ms_req_input	accept_from_ms_req_in;
 	};
 
 };

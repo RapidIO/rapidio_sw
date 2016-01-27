@@ -150,13 +150,18 @@ private:
 class remote_connection
 {
 public:
-	remote_connection(uint16_t client_destid, uint32_t client_msubid) :
-		client_destid(client_destid), client_msubid(client_msubid)
+	remote_connection(uint16_t client_destid,
+			  uint32_t client_msubid,
+			  uint64_t client_to_lib_tx_eng_h) :
+		client_destid(client_destid),
+		client_msubid(client_msubid),
+		client_to_lib_tx_eng_h(client_to_lib_tx_eng_h)
 	{}
 
 	remote_connection(const remote_connection& other) :
 		client_destid(other.client_destid),
-		client_msubid(other.client_msubid)
+		client_msubid(other.client_msubid),
+		client_to_lib_tx_eng_h(other.client_to_lib_tx_eng_h)
 	{
 	}
 
@@ -164,6 +169,8 @@ public:
 	{
 		client_destid = rhs.client_destid;
 		client_msubid = rhs.client_msubid;
+		client_to_lib_tx_eng_h = rhs.client_to_lib_tx_eng_h;
+
 		return *this;
 	}
 
@@ -179,6 +186,7 @@ public:
 
 	uint16_t client_destid;
 	uint32_t client_msubid;
+	uint64_t client_to_lib_tx_eng_h;
 }; /* remote_connection */
 
 class mspace 
@@ -215,7 +223,8 @@ public:
 		this->msid |= ((msoid << MSID_MSOID_SHIFT) & MSID_MSOID_MASK);
 	}
 	void set_name(const char *name) { this->name = name; }
-	void set_connected_to(bool connected_to) { this->connected_to = connected_to; }
+	void set_connected_to(bool connected_to)
+					{ this->connected_to = connected_to; }
 	void set_accepting(bool accepting) { this->accepting = accepting; }
 	void set_creator_tx_eng(
 			tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
@@ -224,8 +233,13 @@ public:
 	}
 
 	/* Connections by clients that have connected to this memory space */
-	void add_rem_connection(uint16_t client_destid, uint32_t client_msubid);
-	int remove_rem_connection(uint16_t destid, uint32_t client_msubid);
+	void add_rem_connection(uint16_t client_destid,
+				uint32_t client_msubid,
+				uint64_t client_to_lib_tx_eng_h);
+
+	int remove_rem_connection(uint16_t client_destid,
+				  uint32_t client_msubid,
+				  uint64_t client_to_lib_tx_eng_h);
 
 	set<uint16_t> get_rem_destids();
 
@@ -240,8 +254,10 @@ public:
 	/* For finding a memory space by its name */
 	bool operator==(const char *name) { return this->name == name; }
 
-	int open(uint32_t *msid, tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-				uint32_t *ms_conn_id, uint32_t *bytes);
+	int open(uint32_t *msid,
+		 tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+		 uint32_t *ms_conn_id,
+		 uint32_t *bytes);
 
 	tx_engine<unix_server, unix_msg_t> *get_accepting_tx_eng();
 
@@ -249,8 +265,9 @@ public:
 
 	int undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
-	bool has_user_with_user_tx_eng(tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-					uint32_t *ms_conn_id);
+	bool has_user_with_user_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+			uint32_t *ms_conn_id);
 
 	bool connected_by_destid(uint16_t destid);
 

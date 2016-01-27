@@ -283,7 +283,7 @@ int rdmad_send_connect(const char *server_ms_name,
 		return -3;
 	}
 	INFO("cm_connect_msg sent to remote daemon\n");
-
+#if 0
 	/* Add POSIX message queue name to list of queue names */
 	string	mq_name(server_ms_name);
 	mq_name.insert(0, 1, '/');
@@ -306,24 +306,23 @@ int rdmad_send_connect(const char *server_ms_name,
 						       to_lib_tx_eng);
 		sem_post(&connected_to_ms_info_list_sem);
 	}
-
+#endif
 	return 0;
 } /* rdmad_send_connect() */
 
-int rdmad_undo_connect(const char *server_ms_name)
+int rdmad_undo_connect(const char *server_ms_name,
+	        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
-	/* Add POSIX message queue name to list of queue names */
-	string	mq_name(server_ms_name);
-	mq_name.insert(0, 1, '/');
-
-	/* Remove from list of mq names awaiting an 'accept' reply to 'connect' */
-	wait_accept_mq_names.remove(mq_name);
-
-	/* Also remove from the connected_to_ms_info_list */
+	/* Remove from the connected_to_ms_info_list. Must match
+	 * on BOTH the server_ms_name and (client) to_lib_tx_eng */
 	sem_wait(&connected_to_ms_info_list_sem);
-	auto it = find(begin(connected_to_ms_info_list),
+	auto it = find_if(begin(connected_to_ms_info_list),
 		       end(connected_to_ms_info_list),
-		       server_ms_name);
+		       [server_ms_name,to_lib_tx_eng](connected_to_ms_info& info)
+		       {
+				return (info.server_msname == server_ms_name)
+					&& info.to_lib_tx_eng == to_lib_tx_eng;
+		       });
 	if (it == end(connected_to_ms_info_list)) {
 		WARN("Could not find '%s' in connected_to_ms_info_list\n",
 							server_ms_name);

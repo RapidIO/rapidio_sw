@@ -1689,23 +1689,23 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 
 		/* Validate the message contents based on known values */
-		connect_to_ms_req_input *conn_msg = &out_msg.connect_to_ms_req;
+		connect_to_ms_req_input *conn_req_msg = &out_msg.connect_to_ms_req;
 		if (
-			(conn_msg->client_rio_addr_len < 16) ||
-			(conn_msg->client_rio_addr_len > 65) ||
-			(conn_msg->client_destid_len < 16) ||
-			(conn_msg->client_destid_len > 64) ||
-			(conn_msg->client_destid >= 0xFFFF)
+			(conn_req_msg->client_rio_addr_len < 16) ||
+			(conn_req_msg->client_rio_addr_len > 65) ||
+			(conn_req_msg->client_destid_len < 16) ||
+			(conn_req_msg->client_destid_len > 64) ||
+			(conn_req_msg->client_destid >= 0xFFFF)
 		) {
 			CRIT("** INVALID CONNECT MESSAGE CONTENTS** \n");
-			DBG("client_msid = 0x%X\n", conn_msg->client_msid);
-			DBG("client_msubsid = 0x%X\n", conn_msg->client_msubid);
-			DBG("client_msub_bytes = 0x%X\n", conn_msg->client_msub_bytes);
-			DBG("client_rio_addr_len = 0x%X\n", conn_msg->client_rio_addr_len);
-			DBG("client_rio_addr_lo = 0x%X\n", conn_msg->client_rio_addr_lo);
-			DBG("client_rio_addr_hi = 0x%X\n", conn_msg->client_rio_addr_hi);
-			DBG("client_destid_len = 0x%X\n", conn_msg->client_destid_len);
-			DBG("client_destid = 0x%X\n", conn_msg->client_destid);
+			DBG("client_msid = 0x%X\n", conn_req_msg->client_msid);
+			DBG("client_msubsid = 0x%X\n", conn_req_msg->client_msubid);
+			DBG("client_msub_bytes = 0x%X\n", conn_req_msg->client_msub_bytes);
+			DBG("client_rio_addr_len = 0x%X\n", conn_req_msg->client_rio_addr_len);
+			DBG("client_rio_addr_lo = 0x%X\n", conn_req_msg->client_rio_addr_lo);
+			DBG("client_rio_addr_hi = 0x%X\n", conn_req_msg->client_rio_addr_hi);
+			DBG("client_destid_len = 0x%X\n", conn_req_msg->client_destid_len);
+			DBG("client_destid = 0x%X\n", conn_req_msg->client_destid);
 			throw RDMA_ACCEPT_FAIL;
 		}
 
@@ -1713,8 +1713,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		in_msg.type = CONNECT_MS_RESP;
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.seq_no   = out_msg.seq_no;
-		in_msg.connect_to_ms_resp_in.client_msid  = conn_msg->client_msid;
-		in_msg.connect_to_ms_resp_in.client_msubid = conn_msg->client_msid;
+		in_msg.connect_to_ms_resp_in.client_msid  = conn_req_msg->client_msid;		// FIXME
+		in_msg.connect_to_ms_resp_in.client_msubid = conn_req_msg->client_msubid;	// Needed?
 
 		loc_msub *msub = (loc_msub *)loc_msubh;
 		in_msg.connect_to_ms_resp_in.server_msubid       = msub->msubid;
@@ -1722,8 +1722,9 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		in_msg.connect_to_ms_resp_in.server_rio_addr_len = msub->rio_addr_len;
 		in_msg.connect_to_ms_resp_in.server_rio_addr_lo  = msub->rio_addr_lo;
 		in_msg.connect_to_ms_resp_in.server_rio_addr_hi  = msub->rio_addr_hi;
-		in_msg.connect_to_ms_resp_in.client_destid_len   = conn_msg->client_destid_len;
-		in_msg.connect_to_ms_resp_in.client_destid	      = conn_msg->client_destid;
+		in_msg.connect_to_ms_resp_in.client_destid_len   = conn_req_msg->client_destid_len;
+		in_msg.connect_to_ms_resp_in.client_destid	 = conn_req_msg->client_destid;
+		in_msg.connect_to_ms_resp_in.client_to_lib_tx_eng_h = conn_req_msg->client_to_lib_tx_eng_h;
 
 		/* Call into daemon */
 		rc = daemon_call(&in_msg, &out_msg);
@@ -1739,25 +1740,26 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 
 		/* Store info about remote msub in database and return handle */
-		*rem_msubh = (msub_h)add_rem_msub(conn_msg->client_msubid,
-					  conn_msg->client_msid,
-					  conn_msg->client_msub_bytes,
-					  conn_msg->client_rio_addr_len,
-					  conn_msg->client_rio_addr_lo,
-					  conn_msg->client_rio_addr_hi,
-					  conn_msg->client_destid_len,
-					  conn_msg->client_destid,
+		*rem_msubh = (msub_h)add_rem_msub(
+					  conn_req_msg->client_msubid,
+					  conn_req_msg->client_msid,
+					  conn_req_msg->client_msub_bytes,
+					  conn_req_msg->client_rio_addr_len,
+					  conn_req_msg->client_rio_addr_lo,
+					  conn_req_msg->client_rio_addr_hi,
+					  conn_req_msg->client_destid_len,
+					  conn_req_msg->client_destid,
 					  loc_msh);
 		if (*rem_msubh == (msub_h)NULL) {
 			WARN("Failed to add rem_msub to database\n");
 			throw RDMA_DB_ADD_FAIL;
 		}
 		INFO("rem_bytes = %d, rio_addr = 0x%lX\n",
-				conn_msg->client_msub_bytes,
-				conn_msg->client_rio_addr_lo);
+				conn_req_msg->client_msub_bytes,
+				conn_req_msg->client_rio_addr_lo);
 
 		/* Return remote msub length to application */
-		*rem_msub_len = conn_msg->client_msub_bytes;
+		*rem_msub_len = conn_req_msg->client_msub_bytes;
 #if 0
 	pthread_t wait_for_disc_thread;
 	if (pthread_create(&wait_for_disc_thread, NULL, wait_for_disc_thread_f, connect_disconnect_mq)) {
@@ -1858,31 +1860,22 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 		send_connect_input *connect_msg = &in_msg.send_connect_in;
 
-		DBG("connect_msg->server_msname     = %s\n",
-						connect_msg->server_msname);
-		DBG("connect_msg->server_destid_len = 0x%X\n",
-						connect_msg->server_destid_len);
-		DBG("connect_msg->server_destid     = 0x%X\n",
-						connect_msg->server_destid);
-		DBG("connect_msg->client_destid_len = 0x%X\n",
-						connect_msg->client_destid_len);
-		DBG("connect_msg->client_destid     = 0x%X\n",
-						connect_msg->client_destid);
-		DBG("connect_msg->seq_num           = 0x%X\n",
-						connect_msg->seq_num);
-		if (client_msub) {
+		DBG("server_msname     = %s\n", connect_msg->server_msname);
+		DBG("server_destid_len = 0x%X\n", connect_msg->server_destid_len);
+		DBG("server_destid     = 0x%X\n", connect_msg->server_destid);
+		DBG("client_destid_len = 0x%X\n", connect_msg->client_destid_len);
+		DBG("client_destid     = 0x%X\n", connect_msg->client_destid);
+		DBG("seq_num           = 0x%X\n", connect_msg->seq_num);
+		if (client_msub != NULL) {
 			connect_msg->client_msid 	 = client_msub->msid;
 			connect_msg->client_msubid	 = client_msub->msubid;
 			connect_msg->client_bytes	 = client_msub->bytes;
 			connect_msg->client_rio_addr_len = client_msub->rio_addr_len;
 			connect_msg->client_rio_addr_lo  = client_msub->rio_addr_lo;
 			connect_msg->client_rio_addr_hi  = client_msub->rio_addr_hi;
-			DBG("connect_msg->client_msid = 0x%X\n",
-						connect_msg->client_msid);
-			DBG("connect_msg->client_msubid = 0x%X\n",
-						connect_msg->client_msubid);
-			DBG("connect_msg->client_bytes = 0x%X\n",
-						connect_msg->client_bytes);
+			DBG("client_msid = 0x%X\n", connect_msg->client_msid);
+			DBG("client_msubid = 0x%X\n", connect_msg->client_msubid);
+			DBG("client_bytes = 0x%X\n", connect_msg->client_bytes);
 			DBG("connect_msg->client_rio_addr_len = 0x%X\n",
 						connect_msg->client_rio_addr_len);
 			DBG("connect_msg->client_rio_addr_lo = 0x%016" PRIx64 "\n",

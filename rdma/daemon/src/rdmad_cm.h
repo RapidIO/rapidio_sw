@@ -80,6 +80,7 @@ struct cm_accept_msg {
 	uint64_t	server_destid;
 	uint64_t	client_msid;
 	uint64_t	client_msubid;
+	uint64_t	client_to_lib_tx_eng_h;
 };
 
 struct cm_disconnect_msg {
@@ -87,6 +88,7 @@ struct cm_disconnect_msg {
 	uint64_t 	client_msubid;
 	uint64_t 	client_destid;
 	uint64_t 	client_destid_len;
+	uint64_t	client_to_lib_tx_eng_h;
 	uint64_t 	server_msid;
 };
 

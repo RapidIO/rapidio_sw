@@ -220,16 +220,16 @@ void *wait_conn_disc_thread_f(void *arg)
 		if (be64toh(conn_msg->type) == CM_CONNECT_MS) {
 			HIGH("Received CONNECT_MS '%s'\n", conn_msg->server_msname);
 			rx_conn_disc_server->dump_recv_buffer();
-			DBG("conn_msg->client_msid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_msid));
-			DBG("conn_msg->client_msubsid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_msubid));
-			DBG("conn_msg->client_bytes = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_bytes));
-			DBG("conn_msg->client_rio_addr_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_len));
+			DBG("conn_msg->client_msid = 0x%" PRIx64 "\n", be64toh(conn_msg->client_msid));
+			DBG("conn_msg->client_msubsid = 0x%" PRIx64 "\n", be64toh(conn_msg->client_msubid));
+			DBG("conn_msg->client_bytes = 0x%" PRIx64 "\n", be64toh(conn_msg->client_bytes));
+			DBG("conn_msg->client_rio_addr_len = 0x%" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_len));
 			DBG("conn_msg->client_rio_addr_lo = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_lo));
 			DBG("conn_msg->client_rio_addr_hi = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_rio_addr_hi));
-			DBG("conn_msg->client_destid_len = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid_len));
-			DBG("conn_msg->client_destid = 0x%016" PRIx64 "\n", be64toh(conn_msg->client_destid));
+			DBG("conn_msg->client_destid_len = 0x%" PRIx64 "\n", be64toh(conn_msg->client_destid_len));
+			DBG("conn_msg->client_destid = 0x%" PRIx64 "\n", be64toh(conn_msg->client_destid));
 			DBG("conn_msg->seq_num = 0x%016" PRIx64 "\n", be64toh(conn_msg->seq_num));
-
+			DBG("conn_msg->client_to_lib_tx_eng_h = 0x%" PRIx64 "\n", be64toh(conn_msg->client_to_lib_tx_eng_h));
 			mspace *ms = the_inbound->get_mspace(conn_msg->server_msname);
 			if (ms == nullptr) {
 				WARN("'%s' not found. Ignore CM_CONNECT_MS\n",
@@ -239,7 +239,8 @@ void *wait_conn_disc_thread_f(void *arg)
 			tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng;
 			to_lib_tx_eng = ms->get_accepting_tx_eng();
 			if (to_lib_tx_eng == nullptr) {
-				WARN("'%s' not accepting. Ignore CM_CONNECT_MS\n");
+				WARN("'%s' not accepting by owner or users\n");
+				WARN("Ignoring CM_CONNECT_MS\n");
 				continue;
 			}
 
@@ -257,6 +258,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			connect_msg->client_destid_len = be64toh(conn_msg->client_destid_len);
 			connect_msg->client_destid = be64toh(conn_msg->client_destid);
 			connect_msg->seq_num = be64toh(conn_msg->seq_num);
+			connect_msg->client_to_lib_tx_eng_h = be64toh(conn_msg->client_to_lib_tx_eng_h);
 
 			to_lib_tx_eng->send_message(&in_msg);
 
@@ -269,9 +271,12 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("connect_msg->client_destid_len = 0x%X\n", connect_msg->client_destid_len);
 			DBG("connect_msg->client_destid = 0x%X\n", connect_msg->client_destid);
 			DBG("connect_msg->seq_num = 0x%X\n", connect_msg->seq_num);
+			DBG("connect_msg->client_to_lib_tx_eng_h = 0x%X\n", connect_msg->client_to_lib_tx_eng_h);
 
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
+
 #if 0
+			// FIXME: TODO: This code belongs in the handling of 'connect_to_ms_resp'
 
 			/* Request a send buffer */
 			void *cm_send_buf;
@@ -377,7 +382,8 @@ void *wait_conn_disc_thread_f(void *arg)
 			 * have here.
 			 */
 			ret = ms->remove_rem_connection(be64toh(disc_msg->client_destid),
-						  be64toh(disc_msg->client_msubid));
+						  be64toh(disc_msg->client_msubid),
+						  be64toh(disc_msg->client_to_lib_tx_eng_h));
 			if (ret != 0) {
 				ERR("Failed to find connection destid(0x%X),msubid(0x%X)\n",
 						be64toh(disc_msg->client_destid),

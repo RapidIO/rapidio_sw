@@ -90,9 +90,6 @@ inbound *the_inbound;
 /* Global flag for shutting down */
 bool shutting_down = false;
 
-/* List of queue names awaiting accept */
-ts_vector<string>	wait_accept_mq_names;
-
 static 	pthread_t console_thread;
 static	pthread_t prov_thread;
 static	pthread_t cli_session_thread;

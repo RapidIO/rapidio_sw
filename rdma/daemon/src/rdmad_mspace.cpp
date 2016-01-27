@@ -241,39 +241,49 @@ int mspace::destroy()
 	return ret;
 } /* destroy() */
 
-void mspace::add_rem_connection(uint16_t client_destid, uint32_t client_msubid)
+void mspace::add_rem_connection(uint16_t client_destid,
+			        uint32_t client_msubid,
+			        uint64_t client_to_lib_tx_eng_h)
 {
-	DBG("Adding destid(0x%X) and msubid(0x%X) to '%s'\n",
-			client_destid, client_msubid, name.c_str());
+	DBG("Adding destid(0x%X), msubid(0x%X),	client_to_lib_tx_eng_h(0x%"
+			PRIx64 ")to '%s'\n", client_destid,
+			client_msubid, client_to_lib_tx_eng_h, name.c_str());
 	sem_wait(&rem_connections_sem);
-	rem_connections.emplace_back(client_destid, client_msubid);
+	rem_connections.emplace_back(client_destid,
+				     client_msubid,
+				     client_to_lib_tx_eng_h);
 	sem_post(&rem_connections_sem);
 } /* add_rem_connection() */
 
-int mspace::remove_rem_connection(uint16_t client_destid, uint32_t client_msubid)
-{
-	auto it = begin(rem_connections);
-	int  ret = -1;
 
-	DBG("Removing destid(0x%X) and msubid(0x%X) from '%s'\n",
+int mspace::remove_rem_connection(uint16_t client_destid,
+				  uint32_t client_msubid,
+				  uint64_t client_to_lib_tx_eng_h)
+{
+	auto rc = 0;
+
+	DBG("Removing destid(0x%X), msubid(0x%X) from '%s'\n",
 			client_destid, client_msubid, name.c_str());
 
 	sem_wait(&rem_connections_sem);
-	do {
-		it = find(it, end(rem_connections), client_destid);
-		if (it != end(rem_connections) && *it == client_msubid) {
-			DBG("Found it and erasing it!\n");
-			rem_connections.erase(it);
-			ret = 0;
-			break;
-		}
-	} while (it != end(rem_connections));
+	auto it = find_if(
+		begin(rem_connections),
+		end(rem_connections),
+		[client_destid, client_msubid, client_to_lib_tx_eng_h](remote_connection& r)
+		{
+			return (r.client_destid == client_destid) &&
+			       (r.client_msubid == client_msubid) &&
+			       (r.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h);
+			  });
+	if (it == end(rem_connections)) {
+		ERR("Could not find matching remote connection\n");
+		rc = -1;
+	} else {
+		rem_connections.erase(it);
+	}
 	sem_post(&rem_connections_sem);
 
-	if (ret) {
-		ERR("Could not find specified connection\n");
-	}
-	return ret;
+	return rc;
 } /* remove_rem_connection() */
 
 /* Disconnect all connections from the specified client_destid */

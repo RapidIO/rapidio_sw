@@ -296,21 +296,75 @@ void *wait_accept_destroy_thread_f(void *arg)
 		if (be64toh(accept_cm_msg->type) == CM_ACCEPT_MS) {
 			HIGH("Received ACCEPT_MS from %s\n",
 						accept_cm_msg->server_ms_name);
-
+#if 0
 			/* Form message queue name from memory space name */
 			char mq_name[CM_MS_NAME_MAX_LEN+2];
 			mq_name[0] = '/';
 			strcpy(&mq_name[1], accept_cm_msg->server_ms_name);
 			string mq_str(mq_name);
-
-			/* Is the message queue name in wait_accept_mq_names? */
-			/* Not found. Ignore message since no one is waiting for it */
-			if (!wait_accept_mq_names.contains(mq_str)) {
-				WARN("Ignoring message from ms('%s')!\n",
+#endif
+			auto it = find_if
+				(begin(connected_to_ms_info_list),
+				end(connected_to_ms_info_list),
+				[accept_cm_msg](connected_to_ms_info& info)
+				{
+					bool match = (info.server_msname ==
+							accept_cm_msg->server_ms_name);
+					match &= !info.connected;
+					match &=
+					(be64toh((uint64_t)info.to_lib_tx_eng)
+							==
+					accept_cm_msg->client_to_lib_tx_eng_h);
+					return match;
+				});
+			if (it == end(connected_to_ms_info_list)) {
+				WARN("Ignoring CM_ACCEPT_MS from ms('%s'\n",
 						accept_cm_msg->server_ms_name);
 				continue;
 			}
 
+			unix_msg_t in_msg;
+			accept_from_ms_req_input *accept_msg = &in_msg.accept_from_ms_req_in;
+
+			in_msg.category = RDMA_REQ_RESP;
+			in_msg.type	= ACCEPT_FROM_MS_REQ;
+			accept_msg->server_msid
+					= be64toh(accept_cm_msg->server_msid);
+			accept_msg->server_msubid
+					= be64toh(accept_cm_msg->server_msubid);
+			accept_msg->server_msub_bytes
+				= be64toh(accept_cm_msg->server_msub_bytes);
+			accept_msg->server_rio_addr_len
+				= be64toh(accept_cm_msg->server_rio_addr_len);
+			accept_msg->server_rio_addr_lo
+				= be64toh(accept_cm_msg->server_rio_addr_lo);
+			accept_msg->server_rio_addr_hi
+				= be64toh(accept_cm_msg->server_rio_addr_hi);
+			accept_msg->server_destid_len
+				= be64toh(accept_cm_msg->server_destid_len);
+			accept_msg->server_destid
+				= be64toh(accept_cm_msg->server_destid);
+			DBG("CM Accept: msubid=0x%X msid=0x%X destid=0x%X, destid_len=0x%X, rio=0x%lX\n",
+					be64toh(accept_cm_msg->server_msubid),
+					be64toh(accept_cm_msg->server_msid),
+					be64toh(accept_cm_msg->server_destid),
+					be64toh(accept_cm_msg->server_destid_len),
+					be64toh(accept_cm_msg->server_rio_addr_lo));
+			DBG("CM Accept: bytes = %u, rio_addr_len = %u\n",
+					be64toh(accept_cm_msg->server_msub_bytes),
+					be64toh(accept_cm_msg->server_rio_addr_len));
+			DBG("MQ Accept: msubid=0x%X msid= 0x%X destid=0x%X destid_len=0x%X, rio=0x%lX\n",
+						accept_msg->server_msubid,
+						accept_msg->server_msid,
+						accept_msg->server_destid,
+						accept_msg->server_destid_len,
+						accept_msg->server_rio_addr_lo);
+			DBG("MQ Accept: bytes = %u, rio_addr_len = %u\n",
+						accept_msg->server_msub_bytes,
+						accept_msg->server_rio_addr_len);
+
+			it->to_lib_tx_eng->send_message(&in_msg);
+#if 0
 			/* All is good, and we need to relay the message back
 			 * to rdma_conn_ms_h() via POSIX messaging */
 			/* Open message queue */
@@ -365,28 +419,14 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 			/* Delete the accept message queue object */
 			delete accept_mq;
-
-			/* All is good. Just remove the processed mq_name from the
-			 * wait_accept_mq_names list and go back and wait for the
-			 * next accept message */
-			/* FIXME: Just add an 'accepting' flag in each memory space.
-			 * and clear it here. No need for an explicit list. */
-			wait_accept_mq_names.remove(mq_str);
-
-			/* Update the corresponding element of connected_to_ms_info_list */
+#endif
 			sem_wait(&connected_to_ms_info_list_sem);
-			auto it = find(begin(connected_to_ms_info_list),
-				       end(connected_to_ms_info_list),
-				       accept_cm_msg->server_ms_name);
-			if (it == end(connected_to_ms_info_list)) {
-				ERR("Cannot find '%s' in connected_to_ms_info_list\n",
-						accept_cm_msg->server_ms_name);
-			} else {
-				it->connected = true;
-				it->server_msid = be64toh(accept_cm_msg->server_msid);
-				DBG("Setting '%s' to 'connected\n",
-						accept_cm_msg->server_ms_name);
-			}
+			/* Update the corresponding element of connected_to_ms_info_list */
+			/* By setting this entry to 'connected' it is ignored if there
+			 * is a ACCEPT_MS destined for another client. */
+			DBG("Setting '%s' to 'connected\n", accept_cm_msg->server_ms_name);
+			it->connected = true;
+			it->server_msid = be64toh(accept_cm_msg->server_msid);
 			sem_post(&connected_to_ms_info_list_sem);
 
 		} else if (be64toh(accept_cm_msg->type) == CM_DESTROY_MS) {
