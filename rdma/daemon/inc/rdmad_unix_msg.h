@@ -76,7 +76,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define GET_IBWIN_PROPERTIES 	0x001B
 #define GET_IBWIN_PROPERTIES_ACK 	0x801B
 #define CONNECT_MS_REQ		0x001C
-#define CONNECT_MS_RESP		0x801C
+#define CONNECT_MS_RESP		0x001D
+#define CONNECT_MS_RESP_ACK	0x801D
 #define RDMAD_KILL_DAEMON	0x0666
 
 /* Type codes for RDMA_REQ_RESP messages */
@@ -328,6 +329,9 @@ struct connect_to_ms_resp_input {
 	uint32_t client_destid_len;
 	uint32_t client_destid;
 };
+struct connect_to_ms_resp_output {
+	int status;
+};
 
 /* Unix message structure */
 struct unix_msg_t {
@@ -376,7 +380,8 @@ struct unix_msg_t {
 		struct force_close_mso_req_input   force_close_mso_req;
 		struct force_close_ms_req_input    force_close_ms_req;
 		struct connect_to_ms_req_input	connect_to_ms_req;
-		struct connect_to_ms_resp_input	connect_to_ms_resp;
+		struct connect_to_ms_resp_input	connect_to_ms_resp_in;
+		struct connect_to_ms_resp_output connect_to_ms_resp_out;
 	};
 
 };

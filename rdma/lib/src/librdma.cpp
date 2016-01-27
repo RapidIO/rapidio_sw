@@ -1713,19 +1713,30 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		in_msg.type = CONNECT_MS_RESP;
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.seq_no   = out_msg.seq_no;
-		in_msg.connect_to_ms_resp.client_msid  = conn_msg->client_msid;
-		in_msg.connect_to_ms_resp.client_msubid = conn_msg->client_msid;
+		in_msg.connect_to_ms_resp_in.client_msid  = conn_msg->client_msid;
+		in_msg.connect_to_ms_resp_in.client_msubid = conn_msg->client_msid;
 
 		loc_msub *msub = (loc_msub *)loc_msubh;
-		in_msg.connect_to_ms_resp.server_msubid       = msub->msubid;
-		in_msg.connect_to_ms_resp.server_msub_bytes   = msub->bytes;
-		in_msg.connect_to_ms_resp.server_rio_addr_len = msub->rio_addr_len;
-		in_msg.connect_to_ms_resp.server_rio_addr_lo  = msub->rio_addr_lo;
-		in_msg.connect_to_ms_resp.server_rio_addr_hi  = msub->rio_addr_hi;
-		in_msg.connect_to_ms_resp.client_destid_len   = conn_msg->client_destid_len;
-		in_msg.connect_to_ms_resp.client_destid	      = conn_msg->client_destid;
+		in_msg.connect_to_ms_resp_in.server_msubid       = msub->msubid;
+		in_msg.connect_to_ms_resp_in.server_msub_bytes   = msub->bytes;
+		in_msg.connect_to_ms_resp_in.server_rio_addr_len = msub->rio_addr_len;
+		in_msg.connect_to_ms_resp_in.server_rio_addr_lo  = msub->rio_addr_lo;
+		in_msg.connect_to_ms_resp_in.server_rio_addr_hi  = msub->rio_addr_hi;
+		in_msg.connect_to_ms_resp_in.client_destid_len   = conn_msg->client_destid_len;
+		in_msg.connect_to_ms_resp_in.client_destid	      = conn_msg->client_destid;
 
-		tx_eng->send_message(&in_msg);
+		/* Call into daemon */
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in CONNECT_MS_RESP daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
+
+		/* Failed in daemon? */
+		if (out_msg.connect_to_ms_resp_out.status) {
+			ERR("Failed to CONNECT_MS_RESP (ms) in daemon\n");
+			throw out_msg.connect_to_ms_resp_out.status;
+		}
 
 		/* Store info about remote msub in database and return handle */
 		*rem_msubh = (msub_h)add_rem_msub(conn_msg->client_msubid,
@@ -1943,7 +1954,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		HIGH("Round-trip-time for accept/connect = %u seconds and %u microseconds\n",
 							rtt.tv_sec, rtt.tv_nsec/1000);
 
-		connect_to_ms_resp_input *accept_msg = &out_msg.connect_to_ms_resp;
+		connect_to_ms_resp_input *accept_msg = &out_msg.connect_to_ms_resp_in;
 
 		/* Some validation of the 'accept' (response-to-connect) message */
 		if (accept_msg->server_destid != rem_destid) {
@@ -1953,14 +1964,14 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 		/* Store info about remote msub in database and return handle */
 		*rem_msubh = (msub_h)add_rem_msub(accept_msg->server_msubid,
-				accept_msg->server_msid,
-				accept_msg->server_msub_bytes,
-					  accept_msg->server_rio_addr_len,
-					  accept_msg->server_rio_addr_lo,
-					  accept_msg->server_rio_addr_hi,
-					  accept_msg->server_destid_len,
-					  accept_msg->server_destid,
-					  0);
+						accept_msg->server_msid,
+						accept_msg->server_msub_bytes,
+						accept_msg->server_rio_addr_len,
+						accept_msg->server_rio_addr_lo,
+						accept_msg->server_rio_addr_hi,
+						accept_msg->server_destid_len,
+						accept_msg->server_destid,
+						find_loc_ms(client_msub->msid));
 		if (*rem_msubh == (msub_h)NULL) {
 			throw RDMA_DB_ADD_FAIL;
 		}
