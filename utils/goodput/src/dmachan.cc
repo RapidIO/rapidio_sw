@@ -1037,51 +1037,32 @@ int DMAChannel::cleanupBDQueue()
     if (m_bl_busy_size < 2) break;
     if (! (m_dma_wr > rp)) break; // signal upstairs to nuke all BDs, etc. Nothing to salvage.
 
-// Replace all "free" BDs with T3 (jump+1) NOPs, just in case, Soviet-style 
-    for (int idx = 0; idx < (rp % m_bd_num); idx++) {
-      if (m_bl_busy[idx]) continue;
+    const int badidx = rp % m_bd_num;
 
-      const uint32_t next_off = (idx + 1) * DMA_BUFF_DESCR_SIZE;
-      struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
+    assert(badidx != 0 && badidx != (m_bd_num-1)); // Should never fault at wrap-around BD!!
+
+    struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (badidx * DMA_BUFF_DESCR_SIZE));
+    uint32_t* bytes03 = (uint32_t*)bd_p;
+    const uint32_t dtype = *bytes03 >> 29;
+
+    if (dtype != DTYPE3) { assert(m_bl_busy[badidx]); } // We don't mark the T3 BD as "busy"
+
+    pending = m_dma_wr - rp - 1;
+
+// Replace BD0 with T3 jump to next BD unless fault is at (bufc - 2)
+    if (badidx < (m_bd_num-2)) {
+      const uint32_t next_off = (badidx + 1) * DMA_BUFF_DESCR_SIZE;
+      struct hw_dma_desc* bd0_p = (struct hw_dma_desc*)m_dmadesc.win_ptr; // BD0
 
       dmadesc_setT3_nextptr(T3_bd, (uint64_t)(m_dmadesc.win_handle + next_off));
-      T3_bd.pack(bd_p);
+      T3_bd.pack(bd0_p);
 
-      //m_bl_busy[idx] = true;
-      //m_bl_busy_size++;
-      m_pending_work[idx].valid = 0xdeaddeedL;
-      m_pending_work[idx].opt.dtype = 3;
+      m_bl_busy[badidx] = false;
+      m_bl_busy_size--;
+      assert(m_bl_busy_size >= 0);
+
+      DBG("\n\tPatch BD0 to jump at idx=%d with T3 pending=%d\n", badidx+1, pending);
     }
-
-// FIXME: Look at destid and nuke all similar BDs. Not done now.
-
-   const int idx = rp % m_bd_num;
-   struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
-   uint32_t* bytes03 = (uint32_t*)bd_p;
-   const uint32_t dtype = *bytes03 >> 29;
-
-   if (dtype != DTYPE3 && idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
-
-   pending = m_dma_wr - rp - 1;
-
-   DBG("\n\tPatch BD at idx=%d with T3 pending=%d\n", idx, pending);
-   assert(idx != (m_bd_num-1)); // Should never fault at wrap-around BD!!
-
-// Replace faulting BD with T3 (jump+1) NOP
-    {{
-    const uint32_t next_off = (idx + 1) * DMA_BUFF_DESCR_SIZE;
-
-    dmadesc_setT3_nextptr(T3_bd, (uint64_t)(m_dmadesc.win_handle + next_off));
-    T3_bd.pack(bd_p);
-    }}
-
-    m_bl_busy[idx] = false;
-    m_bl_busy_size--;
-    assert(m_bl_busy_size >= 0);
-
-    // Block at faulting idx still "busy"
-    m_pending_work[idx].valid = 0xdeaddeedL;
-    m_pending_work[idx].opt.dtype = 3;
   } while(0);
 
   pthread_spin_unlock(&m_bl_splock);
