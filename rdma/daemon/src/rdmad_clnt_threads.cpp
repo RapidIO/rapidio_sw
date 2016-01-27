@@ -296,13 +296,11 @@ void *wait_accept_destroy_thread_f(void *arg)
 		if (be64toh(accept_cm_msg->type) == CM_ACCEPT_MS) {
 			HIGH("Received ACCEPT_MS from %s\n",
 						accept_cm_msg->server_ms_name);
-#if 0
-			/* Form message queue name from memory space name */
-			char mq_name[CM_MS_NAME_MAX_LEN+2];
-			mq_name[0] = '/';
-			strcpy(&mq_name[1], accept_cm_msg->server_ms_name);
-			string mq_str(mq_name);
-#endif
+
+			/* Find the entry matching the memory space and tx_eng
+			 * and also make sure it is not already marked as 'connected'.
+			 * If not found, there is nothing to do and the ACCEPT_MS
+			 * is ignored. */
 			auto it = find_if
 				(begin(connected_to_ms_info_list),
 				end(connected_to_ms_info_list),
@@ -318,11 +316,13 @@ void *wait_accept_destroy_thread_f(void *arg)
 					return match;
 				});
 			if (it == end(connected_to_ms_info_list)) {
-				WARN("Ignoring CM_ACCEPT_MS from ms('%s'\n",
+				WARN("Ignoring CM_ACCEPT_MS from ms('%s')\n",
 						accept_cm_msg->server_ms_name);
 				continue;
 			}
 
+			/* Compose the ACCEPT_FROM_MS_REQ that is to be sent
+			 * over to the BLOCKED rdma_conn_ms_h(). */
 			unix_msg_t in_msg;
 			accept_from_ms_req_input *accept_msg = &in_msg.accept_from_ms_req_in;
 
@@ -344,92 +344,39 @@ void *wait_accept_destroy_thread_f(void *arg)
 				= be64toh(accept_cm_msg->server_destid_len);
 			accept_msg->server_destid
 				= be64toh(accept_cm_msg->server_destid);
-			DBG("CM Accept: msubid=0x%X msid=0x%X destid=0x%X, destid_len=0x%X, rio=0x%lX\n",
-					be64toh(accept_cm_msg->server_msubid),
-					be64toh(accept_cm_msg->server_msid),
-					be64toh(accept_cm_msg->server_destid),
-					be64toh(accept_cm_msg->server_destid_len),
-					be64toh(accept_cm_msg->server_rio_addr_lo));
-			DBG("CM Accept: bytes = %u, rio_addr_len = %u\n",
-					be64toh(accept_cm_msg->server_msub_bytes),
-					be64toh(accept_cm_msg->server_rio_addr_len));
-			DBG("MQ Accept: msubid=0x%X msid= 0x%X destid=0x%X destid_len=0x%X, rio=0x%lX\n",
+			DBG("Accept: msubid=0x%X msid= 0x%X destid=0x%X destid_len=0x%X, rio=0x%"
+										PRIx64 "\n",
 						accept_msg->server_msubid,
 						accept_msg->server_msid,
 						accept_msg->server_destid,
 						accept_msg->server_destid_len,
 						accept_msg->server_rio_addr_lo);
-			DBG("MQ Accept: bytes = %u, rio_addr_len = %u\n",
+			DBG("Accept: msub_bytes = %u, rio_addr_len = %u\n",
 						accept_msg->server_msub_bytes,
 						accept_msg->server_rio_addr_len);
 
+			/* Send the ACCEPT_FROM_MS_REQ message to the blocked
+			 * rdma_conn_ms_h() via the tx engine */
 			it->to_lib_tx_eng->send_message(&in_msg);
-#if 0
-			/* All is good, and we need to relay the message back
-			 * to rdma_conn_ms_h() via POSIX messaging */
-			/* Open message queue */
-			msg_q<mq_accept_msg>	*accept_mq;
-			try {
-				accept_mq =
-				    new msg_q<mq_accept_msg>(mq_name, MQ_OPEN);
-			}
-			catch(msg_q_exception& e) {
-				ERR("Failed to open POSIX queue '%s': %s\n",
-						mq_name, e.msg.c_str());
-				continue;
-			}
-			DBG("Opened POSIX queue '%s'\n", mq_name);
 
-			/* POSIX accept message preparation */
-			mq_accept_msg	*accept_mq_msg;
-			accept_mq->get_send_buffer(&accept_mq_msg);
-
-			accept_mq_msg->server_msubid		= be64toh(accept_cm_msg->server_msubid);
-			accept_mq_msg->server_msid		= be64toh(accept_cm_msg->server_msid);
-			accept_mq_msg->server_bytes		= be64toh(accept_cm_msg->server_msub_bytes);
-			accept_mq_msg->server_rio_addr_len	= be64toh(accept_cm_msg->server_rio_addr_len);
-			accept_mq_msg->server_rio_addr_lo	= be64toh(accept_cm_msg->server_rio_addr_lo);
-			accept_mq_msg->server_rio_addr_hi	= be64toh(accept_cm_msg->server_rio_addr_hi);
-			accept_mq_msg->server_destid_len	= be64toh(accept_cm_msg->server_destid_len);
-			accept_mq_msg->server_destid		= be64toh(accept_cm_msg->server_destid);
-			DBG("CM Accept: msubid=0x%X msid=0x%X destid=0x%X, destid_len=0x%X, rio=0x%lX\n",
-							be64toh(accept_cm_msg->server_msubid),
-							be64toh(accept_cm_msg->server_msid),
-							be64toh(accept_cm_msg->server_destid),
-							be64toh(accept_cm_msg->server_destid_len),
-							be64toh(accept_cm_msg->server_rio_addr_lo));
-			DBG("CM Accept: bytes = %u, rio_addr_len = %u\n",
-							be64toh(accept_cm_msg->server_msub_bytes),
-							be64toh(accept_cm_msg->server_rio_addr_len));
-			DBG("MQ Accept: msubid=0x%X msid= 0x%X destid=0x%X destid_len=0x%X, rio=0x%lX\n",
-								accept_mq_msg->server_msubid,
-								accept_mq_msg->server_msid,
-								accept_mq_msg->server_destid,
-								accept_mq_msg->server_destid_len,
-								accept_mq_msg->server_rio_addr_lo);
-			DBG("MQ Accept: bytes = %u, rio_addr_len = %u\n",
-								accept_mq_msg->server_bytes,
-								accept_mq_msg->server_rio_addr_len);
-			/* Send POSIX accept back to conn_ms_h() */
-			if (accept_mq->send()) {
-				WARN("Failed to send accept_msg on '%s': %s\n", strerror(errno));
-				delete accept_mq;
-				continue;
-			}
-
-			/* Delete the accept message queue object */
-			delete accept_mq;
-#endif
 			sem_wait(&connected_to_ms_info_list_sem);
 			/* Update the corresponding element of connected_to_ms_info_list */
 			/* By setting this entry to 'connected' it is ignored if there
-			 * is a ACCEPT_MS destined for another client. */
+			 * is an ACCEPT_MS destined for another client. */
 			DBG("Setting '%s' to 'connected\n", accept_cm_msg->server_ms_name);
 			it->connected = true;
 			it->server_msid = be64toh(accept_cm_msg->server_msid);
 			sem_post(&connected_to_ms_info_list_sem);
 
 		} else if (be64toh(accept_cm_msg->type) == CM_DESTROY_MS) {
+			/**
+			 * TODO: Multiple applications may be connected to the same remote
+			 * memory space. As such when sending the destroy message it
+			 * may need to go to multiple libraries/apps. The code below assumes
+			 * only one. The comparison should be on the destid/msid and whenever
+			 * they match, the corresponding tx_eng stored with them is used
+			 * to relay the 'destroy' message.
+			 */
 			cm_destroy_msg	*destroy_msg;
 			accept_destroy_client->get_recv_buffer((void **)&destroy_msg);
 
