@@ -1909,7 +1909,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 		INFO(" Waiting for connect response (accept) message...\n");
 		rc = await_message(RDMA_LIB_DAEMON_CALL,
-				CONNECT_MS_RESP,
+				ACCEPT_FROM_MS_REQ,
 				0,
 				timeout_secs,
 				&out_msg);
@@ -1947,7 +1947,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		HIGH("Round-trip-time for accept/connect = %u seconds and %u microseconds\n",
 							rtt.tv_sec, rtt.tv_nsec/1000);
 
-		connect_to_ms_resp_input *accept_msg = &out_msg.connect_to_ms_resp_in;
+		accept_from_ms_req_input *accept_msg = &out_msg.accept_from_ms_req_in;
 
 		/* Some validation of the 'accept' (response-to-connect) message */
 		if (accept_msg->server_destid != rem_destid) {
