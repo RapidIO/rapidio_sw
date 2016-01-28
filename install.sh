@@ -68,8 +68,6 @@ echo "copying "$4
 ssh root@"$4" "mkdir -p $CONFIG_PATH"
 ssh root@"$4" "cp $SCRIPTS_PATH/node4.conf $FILENAME"
 
-exit
-
 for i in "${ALLNODES[@]}"
 do
 	echo "Editing "$i
