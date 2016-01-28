@@ -572,8 +572,8 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 /**
  * @app_tx_eng could be the tx_eng of the creator of the mspace, or
  * one of its users. Find it and CLEAR the appropriate is_accepting
- * flag (i.e. either in the main class or in one of the ms_users)
- */
+ * flag (i.e. either in the main class or in one of the ms_users).
+ * Also remove the server_msubid (by setting it to 0). */
 int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
 	auto rc = 0;
@@ -584,8 +584,10 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 			ERR("'%s' was not accepting!\n", name.c_str());
 			rc = -1;
 		} else {
+			/* Set accepting to 'false' and clear server_msubid */
 			HIGH("Setting ms('%s' to 'NOT accepting'\n", name.c_str());
 			accepting = false;
+			server_msubid = 0;
 		}
 	} else {
 		/* It wasn't the creator so search the users by app_tx_eng */
@@ -598,7 +600,9 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 				ERR("'%s' was not accepting!\n", name.c_str());
 				rc = RDMA_ACCEPT_FAIL;
 			} else {
+				/* Set accepting to 'false' and clear server_msubid */
 				it->set_accepting(false);
+				it->set_server_msubid(0);
 			}
 		}
 	}
