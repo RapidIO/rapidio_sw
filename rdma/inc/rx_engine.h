@@ -105,6 +105,8 @@ public:
 		if (rc != 0) {
 			ERR("Duplicate notify entry ignored!\n");
 		} else {
+			DBG("type=0x%X, category=0x%X, seq_no=0x%X\n",
+					type, category, seq_no);
 			notify_list.emplace_back(type, category, seq_no,
 								notify_sem);
 		}
@@ -211,6 +213,8 @@ protected:
 				die();
 			} else if (received_len > 0 ) {
 				if (msg->category == RDMA_LIB_DAEMON_CALL) {
+					DBG("Got RDMA_LIB_DAEMON_CALL\n");
+
 					/* If there is a notification set for the
 					 * message then act on it. */
 					pthread_mutex_lock(&notify_list_lock);
@@ -245,6 +249,10 @@ protected:
 					if (rc) {
 						ERR("Failed to process message, rc = %d\n", rc);
 					}
+				} else {
+					CRIT("msg->category = 0x%X\n", msg->category);
+					CRIT("mst->type = 0x%X\n", msg->type);
+					abort();
 				}
 			} else if (received_len == 0) {
 				CRIT("Other side has closed connection\n");

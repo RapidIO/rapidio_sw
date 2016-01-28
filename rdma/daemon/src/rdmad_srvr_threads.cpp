@@ -245,7 +245,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			}
 
 			/* Send 'connect' POSIX message contents to the RDMA library */
-			unix_msg_t in_msg;
+			static unix_msg_t in_msg;
 			in_msg.type = CONNECT_MS_REQ;
 			in_msg.category = RDMA_LIB_DAEMON_CALL;
 			connect_to_ms_req_input *connect_msg = &in_msg.connect_to_ms_req;

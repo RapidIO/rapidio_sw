@@ -330,10 +330,10 @@ DBG("be64toh((uint64_t)info.to_lib_tx_eng) = 0x%" PRIx64 "\n",
 
 			/* Compose the ACCEPT_FROM_MS_REQ that is to be sent
 			 * over to the BLOCKED rdma_conn_ms_h(). */
-			unix_msg_t in_msg;
+			static unix_msg_t in_msg;
 			accept_from_ms_req_input *accept_msg = &in_msg.accept_from_ms_req_in;
 
-			in_msg.category = RDMA_REQ_RESP;
+			in_msg.category = RDMA_LIB_DAEMON_CALL;
 			in_msg.type	= ACCEPT_FROM_MS_REQ;
 			accept_msg->server_msid
 					= be64toh(accept_cm_msg->server_msid);
