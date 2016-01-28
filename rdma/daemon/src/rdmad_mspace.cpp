@@ -66,7 +66,7 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 		                phys_addr), size(size), msoid(0), free(true),
 		                current_ms_conn_id(MS_CONN_ID_START),
 		                connected_to(false), accepting(false),
-		                creator_tx_eng(nullptr)
+		                server_msubid(0), creator_tx_eng(nullptr)
 {
 	INFO("name=%s, msid=0x%08X, rio_addr=0x%" PRIx64 ", size=0x%X\n",
 						name, msid, rio_addr, size);
@@ -503,7 +503,8 @@ tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()
  * So make sure none are before allowing one to accept. Furthermore,
  * the one that accepts cannot be already connected-to.
  */
-int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
+int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
+		   uint32_t server_msubid)
 {
 	auto rc = 0;
 
@@ -530,6 +531,7 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 				/* All is good, set 'accepting' flag */
 				HIGH("'%s' set to 'accepting'\n", name.c_str());
 				accepting = true;
+				this->server_msubid = server_msubid;
 			}
 		}
 	} else { /* It is not the creator who is trying to 'accept' */
@@ -558,6 +560,7 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 				} else {
 					/* All is good, set 'accepting' flag */
 					it->set_accepting(true);
+					it->set_server_msubid(server_msubid);
 				}
 			}
 		}

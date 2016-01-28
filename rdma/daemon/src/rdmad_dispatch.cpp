@@ -329,7 +329,9 @@ int accept_disp(const unix_msg_t *in_msg,
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 	out_msg.accept_out.status =
-		rdmad_accept_ms(in_msg->accept_in.server_msid, tx_eng);
+		rdmad_accept_ms(in_msg->accept_in.server_msid,
+				in_msg->accept_in.server_msubid,
+				tx_eng);
 	if (out_msg.accept_out.status) {
 		ERR("Failed in call rdmad_accept_ms\n");
 	}

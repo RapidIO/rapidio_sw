@@ -81,14 +81,16 @@ class ms_user
 {
 public:
 	ms_user(uint32_t ms_conn_id, tx_engine<unix_server, unix_msg_t> *tx_eng) :
-	tx_eng(tx_eng), ms_conn_id(ms_conn_id), accepting(false), connected_to(false)
+	tx_eng(tx_eng), ms_conn_id(ms_conn_id), accepting(false), connected_to(false),
+	server_msubid(0)
 	{
 	}
 
 	ms_user(const ms_user& other) : tx_eng(other.tx_eng),
 					ms_conn_id(other.ms_conn_id),
 					accepting(other.accepting),
-					connected_to(other.connected_to)
+					connected_to(other.connected_to),
+					server_msubid(other.server_msubid)
 	{
 	}
 
@@ -98,6 +100,7 @@ public:
 		ms_conn_id	= rhs.ms_conn_id;
 		accepting	= rhs.accepting;
 		connected_to	= rhs.connected_to;
+		server_msubid	= rhs.server_msubid;
 		return *this;
 	}
 
@@ -115,6 +118,12 @@ public:
 	{
 		this->connected_to = connected_to;
 	}
+
+	void set_server_msubid(uint32_t server_msubid)
+	{
+		this->server_msubid = server_msubid;
+	}
+
 	bool is_connected_to() const
 	{
 		return connected_to;
@@ -145,6 +154,7 @@ private:
 	uint32_t ms_conn_id;
 	bool	accepting;
 	bool	connected_to;
+	uint32_t server_msubid;
 }; /* ms_user */
 
 class remote_connection
@@ -261,7 +271,8 @@ public:
 
 	tx_engine<unix_server, unix_msg_t> *get_accepting_tx_eng();
 
-	int accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
+	int accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
+			uint32_t server_msubid);
 
 	int undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
@@ -306,6 +317,7 @@ private:
 	bool		connected_to;	/* Has a connection from a remote client
 					   to the 'accepting' OWNER */
 	bool		accepting;	/* Has called accept from the OWNER */
+	uint32_t	server_msubid;	/* Used when accepting from the OWNER */
 	tx_engine<unix_server, unix_msg_t> *creator_tx_eng;
 
 	/* Info about users that have opened the ms */

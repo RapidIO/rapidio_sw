@@ -290,6 +290,19 @@ void *wait_conn_disc_thread_f(void *arg)
 				continue;	/* Not much else to do without the ms */
 			}
 
+			/* Relay disconnection request to the RDMA library */
+			ret = ms->disconnect(be64toh(disc_msg->client_msubid));
+			if (ret) {
+				ERR("Failed to relay disconnect ms('%s') to RDMA library\n",
+					ms->get_name());
+#ifdef BE_STRICT
+				abort();
+#endif
+			} else {
+				HIGH("'Disconnect' for ms('%s') relayed to 'server'\n",
+					ms->get_name());
+			}
+
 			/* Remove the connection to client. */
 			ret = ms->remove_rem_connection(be64toh(disc_msg->client_destid),
 						  be64toh(disc_msg->client_msubid),
@@ -299,18 +312,7 @@ void *wait_conn_disc_thread_f(void *arg)
 						be64toh(disc_msg->client_destid),
 						be64toh(disc_msg->client_msubid));
 			} else {
-				/* Relay disconnection request to the RDMA library */
-				ret = ms->disconnect(be64toh(disc_msg->client_msubid));
-				if (ret) {
-					ERR("Failed to relay disconnect ms('%s') to RDMA library\n",
-						ms->get_name());
-#ifdef BE_STRICT
-					abort();
-#endif
-				} else {
-					HIGH("'Disconnect' for ms('%s') relayed to 'server'\n",
-						ms->get_name());
-				}
+
 			}
 
 			/* Consider this memory space disconnected. Allow accepting */

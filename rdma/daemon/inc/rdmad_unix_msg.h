@@ -223,6 +223,7 @@ struct destroy_msub_output {
 /* accept() arguments */
 struct accept_input {
 	uint32_t server_msid;
+	uint32_t server_msubid;	/* Uniquely identifies which app called accept */
 };
 
 struct accept_output {

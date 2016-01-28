@@ -119,7 +119,7 @@ int rdmad_close_ms(uint32_t msid, uint32_t ms_conn_id)
 	}
 } /* rdmad_close_ms() */
 
-int rdmad_accept_ms(uint32_t server_msid,
+int rdmad_accept_ms(uint32_t server_msid, uint32_t server_msubid,
 		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
 	auto rc = 0;
@@ -129,7 +129,7 @@ int rdmad_accept_ms(uint32_t server_msid,
 		WARN("ms with msid(0x%X) does not exist\n", server_msid);
 		rc =  RDMA_INVALID_MS;
 	} else {
-		rc = ms->accept(to_lib_tx_eng);
+		rc = ms->accept(to_lib_tx_eng, server_msubid);
 	}
 #if 0
 	/* Get the memory space name, and prepend  '/' to make it a queue */

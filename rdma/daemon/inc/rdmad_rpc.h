@@ -106,7 +106,7 @@ inline int rdmad_destroy_msub(uint32_t msid, uint32_t msubid)
 	return the_inbound->destroy_msubspace(msid, msubid);
 } /* rdmad_destroy_msub() */
 
-int rdmad_accept_ms(uint32_t server_msid,
+int rdmad_accept_ms(uint32_t server_msid, uint32_t server_msubid,
 		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng);
 
 int rdmad_undo_accept_ms(uint32_t server_msid,

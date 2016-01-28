@@ -1651,6 +1651,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 
 		loc_ms	*ms = (loc_ms *)loc_msh;
+		loc_msub *msub = (loc_msub *)loc_msubh;
 
 		/* Tell the daemon to flag this memory space as accepting
 		 * connections for this application. */
@@ -1658,6 +1659,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		in_msg.type     = ACCEPT_MS;
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.accept_in.server_msid	  = ms->msid;
+		in_msg.accept_in.server_msubid	  = msub->msubid;
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
@@ -1729,8 +1731,6 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		in_msg.seq_no   = out_msg.seq_no;
 		in_msg.connect_to_ms_resp_in.client_msid  = conn_req_msg->client_msid;		// FIXME
 		in_msg.connect_to_ms_resp_in.client_msubid = conn_req_msg->client_msubid;	// Needed?
-
-		loc_msub *msub = (loc_msub *)loc_msubh;
 		in_msg.connect_to_ms_resp_in.server_msubid       = msub->msubid;
 		in_msg.connect_to_ms_resp_in.server_msub_bytes   = msub->bytes;
 		in_msg.connect_to_ms_resp_in.server_rio_addr_len = msub->rio_addr_len;
