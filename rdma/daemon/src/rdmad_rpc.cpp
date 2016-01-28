@@ -323,30 +323,47 @@ int rdmad_undo_connect(const char *server_ms_name,
 	return 0;
 } /* rdmad_undo_connect() */
 
-int rdmad_send_disconnect(uint32_t rem_destid,
-			  uint32_t rem_msid,
-			  uint32_t loc_msubid)
+/**
+ * 1. Calls send_disc_ms_cm() which sends a CM_DISCONNECT_MS to the remote daemon
+ * 2. Removes the entry corresponding to this connection from
+ * 'connected_to_ms_info_list'
+ *
+ * NOTE: If we fail to send the disconnection, we don't remove the item
+ * from the connected_to_ms_info list to avoid inconsistency.
+ */
+int rdmad_send_disconnect(uint32_t server_destid,
+			  uint32_t server_msid,
+			  uint32_t client_msubid,
+			  tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
-	int rc = send_disc_ms_cm(rem_destid, rem_msid, loc_msubid);
-
-	/* Remove from the connected_to_ms_info_list */
-	sem_wait(&connected_to_ms_info_list_sem);
-	vector<connected_to_ms_info>::iterator it;
-	for (it = begin(connected_to_ms_info_list);
-		  it != end(connected_to_ms_info_list);
-		  it++) {
-		if (it->server_msid == rem_msid) {
-			DBG("Found msid(0x%X)\n", rem_msid);
-			break;
-		}
-	}
-	if (it != end(connected_to_ms_info_list)) {
-		DBG("Removing msid(0x%X) from connected list\n", rem_msid);
-		connected_to_ms_info_list.erase(it);
+	int rc = send_disc_ms_cm(server_destid,
+			         server_msid,
+			         client_msubid,
+			         (uint64_t)to_lib_tx_eng);
+	if (rc) {
+		ERR("Failed to send disconnection to server daemon\n");
 	} else {
-		DBG("msid(0x%X) NOT FOUND\n", rem_msid);
+		sem_wait(&connected_to_ms_info_list_sem);
+
+		/* Find the appropriate entry in connect_to_ms_info_list and erase */
+		auto it = find_if(begin(connected_to_ms_info_list),
+			  end(connected_to_ms_info_list),
+		  [&](connected_to_ms_info& info) {
+			bool match = info.server_msid == server_msid;
+
+			match &= info.connected;
+			match &= info.client_msubid == client_msubid;
+			match &= info.to_lib_tx_eng == to_lib_tx_eng;
+			return match;
+		  });
+		if (it == end(connected_to_ms_info_list)) {
+			ERR("Could not find entry for specified ms connection\n");
+			rc = -1;
+		} else {
+			connected_to_ms_info_list.erase(it);
+		}
+		sem_post(&connected_to_ms_info_list_sem);
 	}
-	sem_post(&connected_to_ms_info_list_sem);
 
 	return rc;
 } /* rdmad_send_disconnect() */

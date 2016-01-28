@@ -101,6 +101,9 @@ public:
 		case SEND_CONNECT:
 			rc = send_connect_disp(msg, tx_eng);
 			break;
+		case SEND_DISCONNECT:
+			rc = send_disconnect_disp(msg, tx_eng);
+			break;
 		default:
 			CRIT("Unhandled message type 0x%X cat 0x%X\n",
 						msg->type, msg->category);

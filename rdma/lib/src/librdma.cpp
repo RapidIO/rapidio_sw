@@ -1483,7 +1483,7 @@ int rdma_create_msub_h(ms_h	msh,
 
 int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 {
-	auto rc = 0;
+	int rc;
 
 	try {
 		/* Check that library has been initialized */
@@ -1508,6 +1508,20 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 		DBG("Attempting to destroy msubid(0x%X) in msid(0x%X)\n",
 					in_msg.destroy_msub_in.msid,
 					in_msg.destroy_msub_in.msubid);
+
+		/* Call into daemon */
+		unix_msg_t  out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in DESTROY_MSUB daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
+
+		/* Failed to destroy msub? */
+		if (out_msg.destroy_msub_out.status) {
+			ERR("Failed to destroy_msub_out in daemon\n");
+			throw out_msg.destroy_msub_out.status;
+		}
 
 		/* Remove msub from database */
 		if (remove_loc_msub(msubh) < 0) {
@@ -2033,79 +2047,96 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 {
-	send_disconnect_input	in;
-	send_disconnect_output	out;
-	int			ret;
+	int rc;
 
 	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
-	/* Check the daemon hasn't died since we established its socket connection */
-	if (!rdmad_is_alive()) {
-		WARN("Local RDMA daemon has died.\n");
-	}
+	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
 
-	/* Check that library has been initialized */
-	CHECK_LIB_INIT();
+		/* Check that rem_msh is not NULL. (loc_msubh CAN be NULL) */
+		if (!rem_msh) {
+			ERR("rem_msh is NULL\n");
+			throw RDMA_NULL_PARAM;
+		}
 
-	/* Check that parameters are not NULL */
-	if (!rem_msh) {
-		ERR("rem_msh=0x%016" PRIx64 ". FAILING (NULL parameter)!!\n",
-								rem_msh);
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
+		/* If not in database, so it was destroyed. Not an error */
+		if (!rem_ms_exists(rem_msh)) {
+			WARN("rem_msh(0x%" PRIx64 ") not in database.\n", rem_msh);
+			throw 0;	/* Not an error */
+		}
 
-	/* If the memory space was destroyed, it should not be in the database */
-	if (!rem_ms_exists(rem_msh)) {
-		WARN("rem_msh(0x%lX) not in database. Returning\n", rem_msh);
-		/* Not an error if the memory space was destroyed */
-		sem_post(&rdma_lock);
-		return 0;
-	}
+		rem_ms *server_ms = (rem_ms *)rem_msh;
+		DBG("rem_msh exists and has msid(0x%X), rem_msh(%" PRIx64 ")\n",
+						server_ms->msid, rem_msh);
 
-	rem_ms *ms = (rem_ms *)rem_msh;
-	uint32_t msid = ms->msid;
-	INFO("rem_msh exists and has msid(0x%X), rem_msh = %" PRIx64 "\n",
-								msid, rem_msh);
+		/* Check that we indeed have remote msubs belonging to that rem_msh.
+		 * If we don't that is a serious problem because:
+		 * 1. Even if we don't provide an msub, the server must provide one.
+		 * 2. If we did provide an msub, we cannot tell the server to remove it
+		 *    unless we know the server's destid. That destid is in the locally
+		 *    stored remote msub. */
+		/* NOTE: assumption is that there is only ONE msub provided to the remote
+		 * memory space per connection . */
+		rem_msub *msubp =
+			(rem_msub *)find_any_rem_msub_in_ms(server_ms->msid);
+		if (!msubp) {
+			CRIT("No msubs for rem_msh(0x%" PRIx64 "). IMPOSSIBLE\n",
+									rem_msh);
+			throw RDMA_INVALID_MS;
+		}
 
-	/* Once we disconnect from the remote memory space we should no longer
-	 * keep any record of its subspaces */
+		unix_msg_t in_msg;
 
-	/* Check that we indeed have remote msubs belonging to that rem_msh.
-	 * If we don't that is a serious problem because:
-	 * 1. Even if we don't provide an msub, the server must provide one.
-	 * 2. If we did provide an msub, we cannot tell the server to remove it
-	 *    unless we know the server's destid. That destid is in the locally
-	 *    stored remote msub. */
-	/* NOTE: assumption is that there is only ONE msub provided to the remote
-	 * memory space per connection . */
-	rem_msub *msubp = (rem_msub *)find_any_rem_msub_in_ms(msid);
-	if (!msubp) {
-		CRIT("No msubs for rem_msh(0x%lX). IMPOSSIBLE\n", rem_msh);
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_MS;
-	}
+		in_msg.type 	= SEND_DISCONNECT;
+		in_msg.category = RDMA_REQ_RESP;
 
-	/* Get destid info BEFORE we delete the msub; we need that info to
-	 * delete remote copies of the msubs in the server's database */
-	in.rem_destid_len = msubp->destid_len;
-	in.rem_destid 	  = msubp->destid;
+		/* Get destid info BEFORE we delete the msub. Otherwise we don't
+		 * know where that remote msub is (we could make it an input parameter
+		 * to the function, but the msubh should have it!). */
+		in_msg.send_disconnect_in.server_destid_len = msubp->destid_len;
+		in_msg.send_disconnect_in.server_destid     = msubp->destid;
 
-	/* Remove all remote msubs belonging to 'rem_msh', if any */
-	remove_rem_msubs_in_ms(msid);
-	DBG("Removed msubs in msid(0x%X)\n", msid);
+		/* Send the MSID of the remote memory space we wish to disconnect from;
+		 * this will be used by the SERVER daemon to remove CLIENT destid from
+		 * that memory space's object */
+		in_msg.send_disconnect_in.server_msid	 = server_ms->msid;
 
-	/* Send the MSID of the remote memory space we wish to disconnect from;
-	 * this will be used by the SERVER daemon to remove CLIENT destid from
-	 * that memory space's object */
-	in.rem_msid = msid;
+		/* If we had provided a local msub to the server, we need to tell the server
+		 * its msubid so it can delete it from tis remote databse */
+		if (loc_msubh) {
+			in_msg.send_disconnect_in.client_msubid =
+						((loc_msub *)loc_msubh)->msubid;
+		}
 
-	/* If we had provided a local msub to the server, we need to tell the server
-	 * its msubid so it can delete it from tis remote databse */
-	if (loc_msubh) {
-		in.loc_msubid = ((loc_msub *)loc_msubh)->msubid;
-	}
+		/* Call into daemon */
+		unix_msg_t  out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in SEND_DISCONNECT daemon_call, rc = %d\n", rc);
+			throw rc;
+		}
+
+		/* Failed to send disconnect? */
+		if (out_msg.send_disconnect_out.status) {
+			ERR("Failed to send_disconnect to (ms) in daemon\n");
+			throw out_msg.send_disconnect_out.status;
+		}
+
+		/* Remove all remote msubs belonging to 'rem_msh'. At this point,
+		 * "there can be only one". */
+		remove_rem_msubs_in_ms(server_ms->msid);
+		DBG("Removed msub(s) connected to msid(0x%X)\n", server_ms->msid);
+
+		/* Remove entry for the remote memory space from the database */
+		if (remove_rem_ms(rem_msh)) {
+			ERR("Failed to remove remote msid(0x%X) from database\n",
+								server_ms->msid);
+			throw RDMA_DB_REM_FAIL;
+		}
+
 #if 0
 	/* If we are going to disconnect from the server, then we don't
 	 * need the wait_for_destroy thread anymore, nor do we need the
@@ -2121,33 +2152,10 @@ int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
 		WARN("destroy_mq was NULL..already destroyed?\n");
 	}
 #endif
-	/* Remove remote entry for the memory space from the database */
-	if (remove_rem_ms(rem_msh)) {
-		ERR("Failed to remove remote ms(msid=0x%X) from database\n",
-									msid);
-		sem_post(&rdma_lock);
-		return RDMA_DB_REM_FAIL;
-	}
 
-	/* Set up Unix message parameters */
-	unix_msg_t  *in_msg;
-	unix_msg_t  *out_msg;
-	client->get_send_buffer((void **)&in_msg);
-	in_msg->type = SEND_DISCONNECT;
-	in_msg->send_disconnect_in = in;
-	ret = alt_rpc_call(in_msg, &out_msg);
-	if (ret) {
-		ERR("Call to RDMA daemon failed\n");
-		sem_post(&rdma_lock);
-		return ret;
-	}
-	out = out_msg->send_disconnect_out;
-
-	/* Check status returned by command on the daemon side */
-	if (out.status != 0) {
-		ERR("Failed to send disconnect from ms in daemon\n");
-		sem_post(&rdma_lock);
-		return out.status;
+	} /* try */
+	catch(int e) {
+		rc = e;
 	}
 	sem_post(&rdma_lock);
 	return 0;

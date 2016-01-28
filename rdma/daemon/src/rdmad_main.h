@@ -40,11 +40,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_ms_owners.h"
 #include "rdmad_cm.h"
 
-
 void shutdown(struct peer_info *peer);
 int send_disc_ms_cm(uint32_t server_destid,
 		    uint32_t server_msid,
-		    uint32_t client_msubid);
+		    uint32_t client_msubid,
+		    uint64_t client_to_lib_tx_eng_h);
+
 
 extern struct peer_info	peer;
 extern inbound *the_inbound;

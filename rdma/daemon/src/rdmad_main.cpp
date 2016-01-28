@@ -127,7 +127,8 @@ struct lib_connections_ti
 
 int send_disc_ms_cm(uint32_t server_destid,
 		    uint32_t server_msid,
-		    uint32_t client_msubid)
+		    uint32_t client_msubid,
+		    uint64_t client_to_lib_tx_eng_h)
 {
 	cm_client *the_client;
 	int ret = 0;
@@ -157,17 +158,18 @@ int send_disc_ms_cm(uint32_t server_destid,
 
 		disc_msg->type		    = htobe64(CM_DISCONNECT_MS);
 		disc_msg->client_msubid	    = htobe64(client_msubid);
-		disc_msg->server_msid       = htobe64(server_msid);
 		disc_msg->client_destid     = htobe64(peer.destid);
 		disc_msg->client_destid_len = htobe64(16);
+		disc_msg->client_to_lib_tx_eng_h = htobe64(client_to_lib_tx_eng_h);
+		disc_msg->server_msid       = htobe64(server_msid);
 
 		/* Send buffer to server */
 		if (the_client->send()) {
 			ret = -1;
 		} else {
-			DBG("Sent DISCONNECT_MS for msid = 0x%lX, client_destid = 0x%lX\n",
-					be64toh(disc_msg->server_msid),
-					be64toh(disc_msg->client_destid));
+			DBG("Sent DISCONNECT_MS for msid(0x%X) @ destid(0x%X)\n",
+					server_msid,
+					server_destid);
 		}
 	}
 

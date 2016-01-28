@@ -173,7 +173,7 @@ struct wait_accept_destroy_thread_info {
 };
 
 /**
- * Request for handling requests such as RDMA connection request, and
+ * Thread for handling requests such as RDMA connection request, and
  * RDMA disconnection requests.
  */
 void *wait_accept_destroy_thread_f(void *arg)
@@ -385,10 +385,11 @@ DBG("be64toh((uint64_t)info.to_lib_tx_eng) = 0x%" PRIx64 "\n",
 			 * to relay the 'destroy' message.
 			 */
 			cm_destroy_msg	*destroy_msg;
-			accept_destroy_client->get_recv_buffer((void **)&destroy_msg);
+			accept_destroy_client->get_recv_buffer(
+							(void **)&destroy_msg);
 
 			HIGH("Received CM destroy  containing '%s'\n",
-								destroy_msg->server_msname);
+						destroy_msg->server_msname);
 
 			/* Relay to library and get ACK back */
 			if (send_destroy_ms_to_lib(destroy_msg->server_msname, be64toh(destroy_msg->server_msid))) {

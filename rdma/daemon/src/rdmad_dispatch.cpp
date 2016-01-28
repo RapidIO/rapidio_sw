@@ -492,17 +492,58 @@ int send_connect_disp(const unix_msg_t *in_msg,
 	return out_msg.send_connect_out.status;
 } /* send_connect_disp() */
 
-#if 0
-int undo_connect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+
+int undo_connect_disp(const unix_msg_t *in_msg,
+			tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
+	unix_msg_t out_msg;
 
-}
+	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+
+	out_msg.type	 = UNDO_CONNECT_ACK;
+	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.seq_no 	 = in_msg->seq_no;
+
+	out_msg.undo_connect_out.status = rdmad_undo_connect(
+					in_msg->undo_connect_in.server_ms_name,
+					tx_eng);
+
+	if (out_msg.undo_connect_out.status) {
+		ERR("Failed in call to rdmad_undo_connect()\n");
+	}
+
+	tx_eng->send_message(&out_msg);
+
+	return out_msg.undo_connect_out.status;
+} /* undo_connect_disp() */
 
 
-int send_disconnect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int send_disconnect_disp(const unix_msg_t *in_msg,
+			tx_engine<unix_server,unix_msg_t> *tx_eng)
 {
+	unix_msg_t out_msg;
 
-}
-#endif
+	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+
+	out_msg.type	 = SEND_DISCONNECT_ACK;
+	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.seq_no 	 = in_msg->seq_no;
+
+	const send_disconnect_input *in = &in_msg->send_disconnect_in;
+	out_msg.send_connect_out.status = rdmad_send_disconnect(
+			in->server_destid,
+			in->server_msid,
+			in->client_msubid,
+			tx_eng);
+
+	if (out_msg.send_disconnect_out.status) {
+		ERR("Failed in call to rdmad_send_disconnect()\n");
+	}
+
+	tx_eng->send_message(&out_msg);
+
+	return out_msg.send_disconnect_out.status;
+} /* send_disconnect_disp() */
+
 
 

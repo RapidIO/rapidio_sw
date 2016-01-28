@@ -266,10 +266,10 @@ struct undo_connect_output {
 
 /* send_disconnect() arguments */
 struct send_disconnect_input {
-	uint32_t loc_msubid;
-	uint32_t rem_msid;
-	uint32_t rem_destid_len;
-	uint32_t rem_destid;
+	uint32_t client_msubid;
+	uint32_t server_msid;
+	uint32_t server_destid_len;
+	uint32_t server_destid;
 };
 struct send_disconnect_output {
 	int	status;
