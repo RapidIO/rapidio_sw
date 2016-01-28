@@ -1760,12 +1760,20 @@ outhere:
  * @param pe Target PE
  * @retval -EINVAL Invalid argument
  */
-int riocp_pe_announce(riocp_pe_handle pe)
+int RIOCP_WU riocp_pe_announce(riocp_pe_handle pe)
 {
+	int ret;
+
 	if (riocp_pe_handle_check(pe))
 		return -EINVAL;
 
-	return riocp_pe_maint_device_add(pe);
+	ret = riocp_pe_maint_device_add(pe);
+	if (ret)
+		return ret;
+	if (RIOCP_PE_IS_MPORT(pe) && !RIOCP_PE_IS_HOST(pe))
+		return ret;
+
+	return riocp_pe_set_discovered(pe);
 }
 
 /**
@@ -1774,7 +1782,7 @@ int riocp_pe_announce(riocp_pe_handle pe)
  * @param pe Target PE
  * @retval -EINVAL Invalid argument
  */
-int riocp_pe_revoke(riocp_pe_handle pe)
+int RIOCP_WU riocp_pe_revoke(riocp_pe_handle pe)
 {
 	if (riocp_pe_handle_check(pe))
 		return -EINVAL;
