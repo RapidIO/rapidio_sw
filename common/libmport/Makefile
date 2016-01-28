@@ -32,8 +32,11 @@
 CC?=$(CROSS_COMPILE)g++
 CXX?=$(CROSS_COMPILE)g++
 AR=$(CROSS_COMPILE)ar
+KERNEL_VERSION := $(shell uname -r)
+KERNELDIR = /lib/modules/$(KERNEL_VERSION)/build
 KDIR?=/usr/src/linux
-LINUX_INCLUDE_DIR ?= $(KDIR)/include
+RIO_DIR?=/usr/src/rapidio
+DRV_INCLUDE_DIR ?= $(KERNELDIR)/include $(RIO_DIR) $(KDIR)/include
 LOG_LEVEL ?= 4
 PREFIX?=/usr
 LIBDIR=$(DESTDIR)$(PREFIX)/lib
@@ -49,7 +52,7 @@ endif
 
 LIBS=rt	pthread
 LDFLAGS?=-static
-INCLUDES=$(INCDIR) $(LINUX_INCLUDE_DIR)
+INCLUDES=$(INCDIR) $(DRV_INCLUDE_DIR)
 LIBPATHS=$(LIBDIR) $(O)
 
 SAMPLES_TARGETS=$(addprefix $(O)/, riodp_test_dma riodp_test_misc \
