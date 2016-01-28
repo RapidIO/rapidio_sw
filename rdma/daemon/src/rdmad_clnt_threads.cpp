@@ -306,6 +306,13 @@ void *wait_accept_destroy_thread_f(void *arg)
 				end(connected_to_ms_info_list),
 				[accept_cm_msg](connected_to_ms_info& info)
 				{
+DBG("accept_cm_msg->server_ms_name = %s\n", accept_cm_msg->server_ms_name);
+DBG("info.server_msname = %s\n", info.server_msname.c_str());
+DBG("info.connected is %s\n", info.connected ? "TRUE" : "FALSE");
+DBG("accept_cm_msg->client_to_lib_tx_eng_h = 0x%" PRIx64 "\n",
+		accept_cm_msg->client_to_lib_tx_eng_h);
+DBG("be64toh((uint64_t)info.to_lib_tx_eng) = 0x%" PRIx64 "\n",
+		be64toh((uint64_t)info.to_lib_tx_eng));
 					bool match = (info.server_msname ==
 							accept_cm_msg->server_ms_name);
 					match &= !info.connected;

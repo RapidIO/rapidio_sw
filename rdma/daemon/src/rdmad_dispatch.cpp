@@ -441,6 +441,8 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 			be64toh(conn_resp->client_msubid),
 			be64toh(conn_resp->client_to_lib_tx_eng_h),
 			ms->get_name());
+
+
 	} /* try */
 	catch(int e) {
 		 rc = e;

@@ -214,6 +214,7 @@ int rdmad_send_connect(const char *server_ms_name,
 		        uint64_t seq_num,
 		        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
+	DBG("ENTER\n");
 	/* Do we have an entry for that destid ? */
 	sem_wait(&hello_daemon_info_list_sem);
 	auto it = find(begin(hello_daemon_info_list),
@@ -283,30 +284,16 @@ int rdmad_send_connect(const char *server_ms_name,
 		return -3;
 	}
 	INFO("cm_connect_msg sent to remote daemon\n");
-#if 0
-	/* Add POSIX message queue name to list of queue names */
-	string	mq_name(server_ms_name);
-	mq_name.insert(0, 1, '/');
 
-	/* Add to list of message queue names awaiting an 'accept' to 'connect' */
-	if (wait_accept_mq_names.contains(mq_name)) {
-		/* This would happen if we are retrying ... */
-		WARN("'%s' already in wait_accept_mq_names\n", mq_name.c_str());
-	} else {
-		wait_accept_mq_names.push_back(mq_name);
-		/* FIXME: This is not the best place for this. It really should be when
-		 * we get the CM_ACCEPT_MS message, but the problem is that the CM_ACCEPT_MS
-		 * message does not contain the client_msubid.
-		 */
-		/* Also add to the connected_to_ms_info_list */
-		sem_wait(&connected_to_ms_info_list_sem);
-		connected_to_ms_info_list.emplace_back(client_msubid,
-						       server_ms_name,
-						       server_destid,
-						       to_lib_tx_eng);
-		sem_post(&connected_to_ms_info_list_sem);
-	}
-#endif
+	/* Record the connection request in the list so when the remote
+	 * daemon sends back an ACCEPT_MS, we can match things up. */
+	sem_wait(&connected_to_ms_info_list_sem);
+	connected_to_ms_info_list.emplace_back(client_msubid,
+					       server_ms_name,
+					       server_destid,
+					       to_lib_tx_eng);
+	sem_post(&connected_to_ms_info_list_sem);
+	DBG("EXIT\n");
 	return 0;
 } /* rdmad_send_connect() */
 
