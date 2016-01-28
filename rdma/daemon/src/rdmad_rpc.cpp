@@ -107,7 +107,7 @@ int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 	return rc;
 } /* rdmad_create_ms() */
 
-int rdmad_close_ms(uint32_t msid, uint32_t ms_conn_id)
+int rdmad_close_ms(uint32_t msid, tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
 	mspace *ms = the_inbound->get_mspace(msid);
 	if (ms == nullptr) {
@@ -115,7 +115,7 @@ int rdmad_close_ms(uint32_t msid, uint32_t ms_conn_id)
 		return -1;
 	} else {
 		/* Now close the memory space */
-		return ms->close(ms_conn_id);
+		return ms->close(app_tx_eng);
 	}
 } /* rdmad_close_ms() */
 

@@ -82,7 +82,7 @@ inline int rdmad_open_ms(const char *ms_name, uint32_t *msid, uint64_t *phys_add
 						rio_addr, ms_conn_id, bytes);
 } /* rdmad_open_ms() */
 
-int rdmad_close_ms(uint32_t msid, uint32_t ms_conn_id);
+int rdmad_close_ms(uint32_t msid, tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
 int rdmad_destroy_ms(uint32_t msoid, uint32_t msid);
 

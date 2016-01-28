@@ -208,7 +208,7 @@ int close_ms_disp(const unix_msg_t *in_msg,
 
 	out_msg.close_ms_out.status =
 		rdmad_close_ms(in_msg->close_ms_in.msid,
-			       in_msg->close_ms_in.ms_conn_id);
+			       tx_eng);
 
 	if (out_msg.close_ms_out.status) {
 		ERR("Failed in call rdmad_close_ms\n");

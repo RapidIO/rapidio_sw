@@ -609,8 +609,9 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 	return rc;
 } /* undo_accept() */
 
-bool mspace::has_user_with_user_tx_eng(tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-					uint32_t *ms_conn_id)
+bool mspace::has_user_with_user_tx_eng(
+		tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+		uint32_t *ms_conn_id)
 {
 	bool has_user = false;
 
@@ -631,15 +632,23 @@ bool mspace::connected_by_destid(uint16_t client_destid)
 	bool connected;
 
 	sem_wait(&rem_connections_sem);
-	connected = find(begin(rem_connections), end(rem_connections), client_destid)!= end(rem_connections);
+	connected = find(begin(rem_connections),
+			 end(rem_connections),
+			 client_destid)!= end(rem_connections);
 	sem_post(&rem_connections_sem);
 
 	return connected;
 } /* connected_by_destid() */
 
-int mspace::close(uint32_t ms_conn_id)
+int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
 	int rc;
+
+	/* A creator of an ms cannot open/close it */
+	if (app_tx_eng == creator_tx_eng) {
+		ERR("Creator of memory space cannot open/close it\n");
+		return RDMA_MS_CLOSE_FAIL;
+	}
 
 	/* Before closing a memory space, tell its clients that it is being
 	 * closed (connection must be dropped) and have them acknowledge. */
@@ -647,23 +656,12 @@ int mspace::close(uint32_t ms_conn_id)
 		WARN("Failed to notify some or all remote clients\n");
 	}
 
-	/* If the memory space was in accepted state, clear that state */
-	/* FIXME: This assumes only 1 'open' to the ms and that the creator
-	 * of the ms does not call 'accept' on it.
-	 * There is another problem. If the owner of the ms does accept
-	 * and the user tries to accept and fails the user may try to close
-	 * the 'ms. The statement below will cause the 'ms' to have
-	 * accepted = false even though the owner had set it to true. Next
-	 * time a user tries to do accept the flag will be false and 2 accepts
-	 * will be in effect. This needs to be thought through */
-	connected_to = false;
-	accepting    = false;
-
+	/* Locate a user element by the app's tx engine. Then erase it! */
 	sem_wait(&users_sem);
-	auto it = find(begin(users), end(users), ms_conn_id);
+	auto it = find(begin(users), end(users), app_tx_eng);
 	if (it == end(users)) {
-		WARN("ms_conn_id(0x%X) not found in user list\n", ms_conn_id);
-		rc = -1;
+		WARN("Failed to find open connection!\n");
+		rc = RDMA_MS_CLOSE_FAIL;
 	} else {
 		users.erase(it);
 		rc = 0;	/* Success */

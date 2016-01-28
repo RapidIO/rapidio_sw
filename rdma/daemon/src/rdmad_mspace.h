@@ -282,7 +282,7 @@ public:
 
 	bool connected_by_destid(uint16_t destid);
 
-	int close(uint32_t ms_conn_id);
+	int close(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
 	/* For creating a memory sub-space */
 	int create_msubspace(uint32_t offset,
