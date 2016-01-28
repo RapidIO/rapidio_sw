@@ -585,7 +585,7 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 			rc = -1;
 		} else {
 			HIGH("Setting ms('%s' to 'NOT accepting'\n", name.c_str());
-			accepting = true;
+			accepting = false;
 		}
 	} else {
 		/* It wasn't the creator so search the users by app_tx_eng */
