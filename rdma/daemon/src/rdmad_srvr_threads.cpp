@@ -75,7 +75,7 @@ void *wait_conn_disc_thread_f(void *arg)
 
 	if (!arg) {
 		CRIT("arg is NULL. Fatal error. Aborting\n");
-		raise(SIGABRT);
+		abort();
 	}
 
 	wait_conn_disc_thread_info	*wcdti =
@@ -83,7 +83,7 @@ void *wait_conn_disc_thread_f(void *arg)
 
 	if (!wcdti->prov_server) {
 		CRIT("wcdti->prov_server is NULL. Fatal error.\n");
-		raise(SIGABRT);
+		abort();
 	}
 
 	cm_server *prov_server = wcdti->prov_server;
@@ -154,7 +154,7 @@ void *wait_conn_disc_thread_f(void *arg)
 	if (!pdi) {
 		CRIT("Failed to allocate prov_daemon_info: %s. Aborting\n",
 				strerror(errno));
-		raise(SIGABRT);
+		abort();
 	}
 	pdi->destid = remote_destid;
 	pdi->tid = wcdti->tid;
@@ -274,92 +274,6 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("connect_msg->client_to_lib_tx_eng_h = 0x%X\n", connect_msg->client_to_lib_tx_eng_h);
 
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
-
-#if 0
-			// FIXME: TODO: This code belongs in the handling of 'connect_to_ms_resp'
-
-			/* Request a send buffer */
-			void *cm_send_buf;
-			rx_conn_disc_server->get_send_buffer(&cm_send_buf);
-			rx_conn_disc_server->flush_send_buffer();	/* For Valgrind */
-
-			/* Copy the corresponding accept message from map into the send buffer */
-			cm_accept_msg	accept_msg = accept_msg_map.get_item(mq_str);
-			memcpy( cm_send_buf,
-				(void *)&accept_msg,
-				sizeof(cm_accept_msg));
-
-			DBG("cm_accept_msg has server_msid = 0x%X\n", be64toh(accept_msg.server_msid));
-			DBG("cm_accept_msg has server_msubid = 0x%X\n", be64toh(accept_msg.server_msubid));
-			DBG("cm_accept_msg has server_destid = 0x%X\n", be64toh(accept_msg.server_destid));
-			DBG("cm_accept_msg has server_destid_len = 0x%X\n", be64toh(accept_msg.server_destid_len));
-			DBG("cm_accept_msg has rio_addr_len = %d\n", be64toh(accept_msg.server_rio_addr_len));
-			DBG("cm_accept_msg has rio_addr_lo = 0x%016" PRIx64 "\n", be64toh(accept_msg.server_rio_addr_lo));
-			DBG("cm_accept_msg has rio_addr_hi = 0x%X\n", be64toh(accept_msg.server_rio_addr_hi));
-
-			/* Send 'accept' message to remote daemon */
-			DBG("Sending back ACCEPT_MS for '%s'\n", mq_str.c_str());
-			if (rx_conn_disc_server->send()) {
-				/* The server was already notified of the CONNECT_MS
-				 * via the POSIX message. Now that we are failing
-				 * to notify the client's daemon then we should remove
-				 * the memory space from the map because there is
-				 * no rdma_accept_ms_h() to receive a another CONNECT
-				 * notification.
-				 */
-				/* FIXME: TODO: We should go back and notify the server app
-				 * that the client could not be notified. The server may have
-				 * to be modified in rdma_accept_ms_h() to block on 2 messages.
-				 * The first being the 'connect' and the second being a confirmation
-				 * that the client daemon (at least) was sent the accept. Otherwise
-				 * we end up with the server thinking it has a connection from the
-				 * client when that is not the case.
-				 * If the accept cannot be sent because the remote daemon has died,
-				 * then potentially our fault tolerance code takes care of cleaning
-				 * up the client connection information? Verify.
-				 */
-				ERR("Failed to send back ACCEPT_MS to remote daemon\n");
-				accept_msg_map.remove(mq_str);
-				delete connect_mq;
-				/* FIXME: Given the above complications, I'm causing an abort here
-				 * if this fails, just for now so we can catch it if it happens.
-				 * To be removed if we are doing fault-tolerance.
-				 */
-#ifdef BE_STRICT
-				raise(SIGABRT);
-#endif
-				continue;
-			}
-			HIGH("ACCEPT_MS sent back to remote daemon!\n");
-
-			/* Now the destination ID must be added to the memory space.
-			 * This is for the case where the memory space is destroyed
-			 * and the remote users of that space need to be notified. */
-			mspace	*ms = the_inbound->get_mspace(conn_msg->server_msname);
-			if (ms) {
-				ms->add_rem_connection(be64toh(conn_msg->client_destid),
-						       be64toh(conn_msg->client_msubid));
-				DBG("Added destid(0x%X),msubid(0x%X)  as one that is connected to '%s'\n",
-						be64toh(conn_msg->client_destid),
-						be64toh(conn_msg->client_msubid),
-						conn_msg->server_msname);
-			} else {
-				WARN("memory space '%s' NOT found!\n",
-						conn_msg->server_msname);
-			}
-
-			/* Erase cm_accept_msg from map */
-			accept_msg_map.remove(mq_str);
-			DBG("%s now removed from the accept message map\n",
-							mq_str.c_str());
-			/* At this point the CM message is now copied into a
-			 * POSIX message, so flush the CM receive buffer.
-			 */
-			rx_conn_disc_server->flush_recv_buffer();
-
-			delete connect_mq;
-#endif
-
 		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS) {
 			cm_disconnect_msg	*disc_msg;
 
@@ -376,11 +290,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				continue;	/* Not much else to do without the ms */
 			}
 
-			/* Remove the connection to client destid and msubid */
-			/* TODO: Write a remove_rem_connection() method that
-			 * takes an 'msid' instead of the two-step process we
-			 * have here.
-			 */
+			/* Remove the connection to client. */
 			ret = ms->remove_rem_connection(be64toh(disc_msg->client_destid),
 						  be64toh(disc_msg->client_msubid),
 						  be64toh(disc_msg->client_to_lib_tx_eng_h));
@@ -395,7 +305,7 @@ void *wait_conn_disc_thread_f(void *arg)
 					ERR("Failed to relay disconnect ms('%s') to RDMA library\n",
 						ms->get_name());
 #ifdef BE_STRICT
-					raise(SIGABRT);
+					abort();
 #endif
 				} else {
 					HIGH("'Disconnect' for ms('%s') relayed to 'server'\n",
@@ -412,10 +322,9 @@ void *wait_conn_disc_thread_f(void *arg)
 			HIGH("Received CM_DESTROY_ACK_MS for msid(0x%X), '%s'\n",
 			    be64toh(dest_ack_msg->server_msid), dest_ack_msg->server_msname);
 		} else {
-			CRIT("Message of unknown type 0x%016" PRIx64 "\n",
-						be64toh(conn_msg->type));
+			CRIT("Message of unknown type 0x%016" PRIx64 "\n", be64toh(conn_msg->type));
 #ifdef BE_STRICT
-			raise(SIGABRT);
+			abort();
 #endif
 		}
 
@@ -433,7 +342,7 @@ void *prov_thread_f(void *arg)
 	DBG("ENTER\n");
 	if (!arg) {
 		CRIT("NULL peer_info argument. Failing.\n");
-		raise(SIGABRT);
+		abort();
 	}
 	struct peer_info *peer = (peer_info *)arg;
 
@@ -447,7 +356,7 @@ void *prov_thread_f(void *arg)
 	}
 	catch(exception& e) {
 		CRIT("Failed to create prov_server: %s. EXITING\n", e.what());
-		raise(SIGABRT);
+		abort();
 		pthread_exit(0);	/* For g++ warning */
 	}
 	DBG("prov_server created.\n");
@@ -468,7 +377,7 @@ void *prov_thread_f(void *arg)
 				 * from remote daemons. This is a fatal error so we should
 				 * just fail in a big way.
 				 */
-				raise(SIGABRT);
+				abort();
 			}
 		}
 
@@ -478,7 +387,7 @@ void *prov_thread_f(void *arg)
 		if (!wcdti) {
 			CRIT("Failed to allocate wcdti. Serious failure. Aborting\n");
 			delete prov_server;
-			raise(SIGABRT);
+			abort();
 		}
 		wcdti->prov_server = prov_server;
 		sem_init(&wcdti->started, 0, 0);
@@ -491,7 +400,7 @@ void *prov_thread_f(void *arg)
 			 * should simply just abort instead of trying to run without such
 			 * an important thread!
 			 */
-			raise(SIGABRT);
+			abort();
 		}
 
 		/* The thread was successfully created but maybe it failed for one reason or another.
@@ -501,7 +410,7 @@ void *prov_thread_f(void *arg)
 		if (wcdti->ret_code < 0) {
 			CRIT("Failure in wait_conn_disc_thread_f(), code = %d\n", wcdti->ret_code);
 #ifdef BE_STRICT
-			raise(SIGABRT);
+			abort();
 #endif
 		}
 		free(wcdti);	/* was just for passing the arguments */
