@@ -56,14 +56,19 @@ echo "Installing configuration files..."
 FILENAME=$CONFIG_PATH/fmd.conf
 
 echo "copying "$1
+ssh root@"$1" "mkdir -p $CONFIG_PATH"
 ssh root@"$1" "cp $SCRIPTS_PATH/node1.conf $FILENAME"
 echo "copying "$2
+ssh root@"$2" "mkdir -p $CONFIG_PATH"
 ssh root@"$2" "cp $SCRIPTS_PATH/node2.conf $FILENAME"
 echo "copying "$3
+ssh root@"$3" "mkdir -p $CONFIG_PATH"
 ssh root@"$3" "cp $SCRIPTS_PATH/node3.conf $FILENAME"
 echo "copying "$4
+ssh root@"$4" "mkdir -p $CONFIG_PATH"
 ssh root@"$4" "cp $SCRIPTS_PATH/node4.conf $FILENAME"
 
+exit
 
 for i in "${ALLNODES[@]}"
 do
