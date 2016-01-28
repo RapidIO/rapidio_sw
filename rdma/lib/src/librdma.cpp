@@ -1826,8 +1826,10 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		LIB_INIT_CHECK(rc);
 
 		/* Remote msubh pointer cannot point to NULL */
-		if (!rem_msubh || !rem_msname || !rem_msub_len || rem_msh) {
+		if (!rem_msubh || !rem_msname || !rem_msub_len || !rem_msh) {
 			ERR("Null parameter(s) passed.\n");
+			ERR("rem_msubh=%p,rem_msname=%p,rem_msub_len=%p,rem_msh=%p\n",
+				rem_msubh, rem_msname, rem_msub_len, rem_msh);
 			throw RDMA_NULL_PARAM;
 		}
 
