@@ -1827,6 +1827,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 		/* Remote msubh pointer cannot point to NULL */
 		if (!rem_msubh || !rem_msname || !rem_msub_len || rem_msh) {
+			ERR("Null parameter(s) passed.\n");
 			throw RDMA_NULL_PARAM;
 		}
 
@@ -2021,6 +2022,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	} /* try */
 	catch(int e) {
 		rc = e;
+		ERR("Exiting due to failure. rc = 0x%X\n", rc);
 	}
 	INFO("EXIT\n");
 	sem_post(&rdma_lock);

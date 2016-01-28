@@ -223,14 +223,6 @@ struct destroy_msub_output {
 /* accept() arguments */
 struct accept_input {
 	uint32_t server_msid;
-#if 0
-	char loc_ms_name[UNIX_MS_NAME_MAX_LEN+1];
-	uint32_t loc_msubid;
-	uint32_t loc_bytes;
-	uint8_t	 loc_rio_addr_len;
-	uint64_t loc_rio_addr_lo;
-	uint8_t  loc_rio_addr_hi;
-#endif
 };
 
 struct accept_output {

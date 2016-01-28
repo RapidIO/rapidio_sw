@@ -26,8 +26,10 @@
 
 #define BAT_EXPECT_PASS(ret) if (!ret) { \
 				fprintf(log_fp, "%s PASSED\n", __func__); \
+				fprintf(stdout, "%s PASSED\n", __func__); \
 			     } else { \
 				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
+				fprintf(stdout, "%s FAILED, line %d\n", __func__, __LINE__); \
 			     }
 
 #define BAT_EXPECT(cond, label) if (!(cond)) { \

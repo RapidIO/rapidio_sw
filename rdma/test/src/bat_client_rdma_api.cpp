@@ -45,7 +45,7 @@ int create_mso_f(bat_connection *bat_conn,
 	if (rc) {
 		fprintf(stderr, "Failed in remote_call()\n");
 	} else if ((rc = (int)bm_rx->create_mso_ack.ret)) {
-		fprintf(stderr, "create_mso_h returned %d\n", rc);
+		fprintf(stderr, "%s: create_mso_h returned %d\n", __func__, rc);
 	} else if (bm_rx->type != CREATE_MSO_ACK) {
 		fprintf(stderr, "%d: Received message with wrong type 0x%X\n",
 					__LINE__, (uint32_t)bm_rx->type);
@@ -74,9 +74,9 @@ int destroy_mso_f(bat_connection *bat_conn, mso_h msoh)
 	/* Send message, wait for ACK and verify it is an ACK */
 	rc = remote_call(bat_conn);
 	if (rc) {
-		fprintf(stderr, "Failed in remote_call()\n");
+		fprintf(stderr, "%s: Failed in remote_call()\n", __func__);
 	} else if ((rc = (int)bm_rx->destroy_mso_ack.ret)) {
-		fprintf(stderr, "destroy_mso_h returned %d\n", rc);
+		fprintf(stderr, "%s: destroy_mso_h returned %d\n", __func__, rc);
 	} else if (bm_rx->type != DESTROY_MSO_ACK) {
 		fprintf(stderr, "%d: Received message with wrong type 0x%X\n",
 					__LINE__, (uint32_t)bm_rx->type);

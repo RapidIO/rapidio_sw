@@ -99,6 +99,8 @@ public:
 			rc = connect_ms_resp_disp(msg, tx_eng);
 			break;
 		default:
+			CRIT("Unhandled message type 0x%X cat 0x%X\n",
+						msg->type, msg->category);
 			assert(!"Unhandled message");
 		}
 		return rc;
