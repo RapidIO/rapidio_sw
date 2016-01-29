@@ -90,12 +90,15 @@ struct cm_disconnect_msg {
 	uint64_t 	client_destid_len;
 	uint64_t	client_to_lib_tx_eng_h;
 	uint64_t 	server_msid;
+
 };
 
 struct cm_destroy_msg {
 	uint64_t	type;
-	char server_msname[CM_MS_NAME_MAX_LEN+1];
-	uint64_t server_msid;
+	char 		server_msname[CM_MS_NAME_MAX_LEN+1];
+	uint64_t	server_msid;
+	uint64_t	server_msubid;
+	uint64_t 	client_to_lib_tx_eng_h;
 };
 
 struct cm_destroy_ack_msg {

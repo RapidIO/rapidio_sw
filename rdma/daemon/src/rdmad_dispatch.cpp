@@ -431,18 +431,6 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 			throw rc;
 		}
 
-		/* Add the remote connectoin information to the memory space.
-		 * This for cleanup if the remote destid dies. */
-		ms->add_rem_connection(
-			be64toh(conn_resp->client_destid),
-			be64toh(conn_resp->client_msubid),
-			be64toh(conn_resp->client_to_lib_tx_eng_h));
-		DBG("Added destid(0x%X),msubid(0x%X),client_to_lib_rx_eng_h(0x%"
-				PRIx64 ") to '%s' as rem conn\n",
-			be64toh(conn_resp->client_destid),
-			be64toh(conn_resp->client_msubid),
-			be64toh(conn_resp->client_to_lib_tx_eng_h),
-			ms->get_name());
 
 
 	} /* try */

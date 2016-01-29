@@ -45,7 +45,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <set>
 #include <exception>
 
-#include "msg_q.h"
+#include "msg_q.h"	// TODO: Remove
+#include "cm_sock.h"
 #include "unix_sock.h"
 #include "rdma_types.h"
 #include "rdmad_unix_msg.h"
@@ -79,18 +80,29 @@ private:
 
 class ms_user
 {
+	friend class mspace;
 public:
 	ms_user(uint32_t ms_conn_id, tx_engine<unix_server, unix_msg_t> *tx_eng) :
-	tx_eng(tx_eng), ms_conn_id(ms_conn_id), accepting(false), connected_to(false),
-	server_msubid(0)
+		tx_eng(tx_eng),
+		ms_conn_id(ms_conn_id),
+		accepting(false),
+		connected_to(false),
+		server_msubid(0),
+		client_destid(0xFFFF),
+		client_msubid(0),
+		client_to_lib_tx_eng_h(0)
 	{
 	}
 
-	ms_user(const ms_user& other) : tx_eng(other.tx_eng),
-					ms_conn_id(other.ms_conn_id),
-					accepting(other.accepting),
-					connected_to(other.connected_to),
-					server_msubid(other.server_msubid)
+	ms_user(const ms_user& other) :
+		tx_eng(other.tx_eng),
+		ms_conn_id(other.ms_conn_id),
+		accepting(other.accepting),
+		connected_to(other.connected_to),
+		server_msubid(other.server_msubid),
+		client_destid(other.client_destid),
+		client_msubid(other.client_msubid),
+		client_to_lib_tx_eng_h(other.client_to_lib_tx_eng_h)
 	{
 	}
 
@@ -101,47 +113,20 @@ public:
 		accepting	= rhs.accepting;
 		connected_to	= rhs.connected_to;
 		server_msubid	= rhs.server_msubid;
+		client_destid	= rhs.client_destid;
+		client_msubid	= rhs.client_msubid;
+		client_to_lib_tx_eng_h = rhs.client_to_lib_tx_eng_h;
 		return *this;
+	}
+
+	bool connected_to_destid(uint16_t client_destid)
+	{
+		return this->client_destid == client_destid;
 	}
 
 	uint32_t get_ms_conn_id() const
 	{
 		return ms_conn_id;
-	}
-
-	void set_accepting(bool accepting)
-	{
-		this->accepting = accepting;
-	}
-
-	void set_connected_to(bool connected_to)
-	{
-		this->connected_to = connected_to;
-	}
-
-	void set_server_msubid(uint32_t server_msubid)
-	{
-		this->server_msubid = server_msubid;
-	}
-
-	bool is_connected_to() const
-	{
-		return connected_to;
-	}
-
-	bool is_accepting() const
-	{
-		return accepting;
-	}
-
-	tx_engine<unix_server, unix_msg_t> *get_tx_engine() const
-	{
-		return tx_eng;
-	}
-
-	bool operator ==(uint32_t ms_conn_id)
-	{
-		return ms_conn_id == this->ms_conn_id;
 	}
 
 	bool operator ==(tx_engine<unix_server, unix_msg_t> *tx_eng)
@@ -154,50 +139,11 @@ private:
 	uint32_t ms_conn_id;
 	bool	accepting;
 	bool	connected_to;
-	uint32_t server_msubid;
+	uint32_t server_msubid;		 /* Upon accepting */
+	uint16_t client_destid;		 /* When user is 'connected_to' */
+	uint32_t client_msubid;		 /* Ditto */
+	uint64_t client_to_lib_tx_eng_h; /* Ditto */
 }; /* ms_user */
-
-class remote_connection
-{
-public:
-	remote_connection(uint16_t client_destid,
-			  uint32_t client_msubid,
-			  uint64_t client_to_lib_tx_eng_h) :
-		client_destid(client_destid),
-		client_msubid(client_msubid),
-		client_to_lib_tx_eng_h(client_to_lib_tx_eng_h)
-	{}
-
-	remote_connection(const remote_connection& other) :
-		client_destid(other.client_destid),
-		client_msubid(other.client_msubid),
-		client_to_lib_tx_eng_h(other.client_to_lib_tx_eng_h)
-	{
-	}
-
-	remote_connection& operator=(const remote_connection& rhs)
-	{
-		client_destid = rhs.client_destid;
-		client_msubid = rhs.client_msubid;
-		client_to_lib_tx_eng_h = rhs.client_to_lib_tx_eng_h;
-
-		return *this;
-	}
-
-	bool operator==(uint16_t client_destid)
-	{
-		return this->client_destid == client_destid;
-	}
-
-	bool operator==(uint32_t client_msubid)
-	{
-		return this->client_msubid == client_msubid;
-	}
-
-	uint16_t client_destid;
-	uint32_t client_msubid;
-	uint64_t client_to_lib_tx_eng_h;
-}; /* remote_connection */
 
 class mspace 
 {
@@ -243,7 +189,7 @@ public:
 	}
 
 	/* Connections by clients that have connected to this memory space */
-	void add_rem_connection(uint16_t client_destid,
+	int  add_rem_connection(uint16_t client_destid,
 				uint32_t client_msubid,
 				uint64_t client_to_lib_tx_eng_h);
 
@@ -297,9 +243,11 @@ public:
 	int disconnect_from_destid(uint16_t client_destid);
 
 private:
+	/* Private methods */
 	mspace(const mspace&);
 	mspace& operator=(const mspace&);
-
+	int send_cm_destroy_ms(cm_server *server, uint32_t server_msubid,
+					uint64_t client_to_lib_tx_eng);
 	/* Constants */
 	static constexpr uint32_t MS_CONN_ID_START = 0x01;
 
@@ -314,11 +262,16 @@ private:
 	uint32_t	msoid;
 	bool		free;
 	uint32_t	current_ms_conn_id;
+
+	/* Data members specific to the mspace creator */
 	bool		connected_to;	/* Has a connection from a remote client
-					   to the 'accepting' OWNER */
-	bool		accepting;	/* Has called accept from the OWNER */
-	uint32_t	server_msubid;	/* Used when accepting from the OWNER */
+					   to the 'accepting' CREATOR */
+	bool		accepting;	/* Has called accept from the CREATOR */
+	uint32_t	server_msubid;	/* Used when accepting from the CREATOR */
 	tx_engine<unix_server, unix_msg_t> *creator_tx_eng;
+	uint16_t client_destid;		 /* When creator is 'connected_to' */
+	uint32_t client_msubid;		 /* Ditto */
+	uint64_t client_to_lib_tx_eng_h; /* Ditto */
 
 	/* Info about users that have opened the ms */
 	vector<ms_user>		users;
@@ -331,10 +284,6 @@ private:
 	/* Memory subspaces */
 	vector<msubspace>	msubspaces;
 	sem_t			msubspaces_sem;
-
-	/* List of connections to remote clients of this memory space */
-	vector<remote_connection>	rem_connections;
-	sem_t				rem_connections_sem;
 }; /* mspace */
 
 

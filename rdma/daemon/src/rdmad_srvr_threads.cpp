@@ -274,6 +274,12 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("connect_msg->client_to_lib_tx_eng_h = 0x%X\n", connect_msg->client_to_lib_tx_eng_h);
 
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");
+
+			/* Add the remote connectoin information to the memory space.
+			 * This for cleanup if the remote destid dies. */
+			ms->add_rem_connection(connect_msg->client_destid,
+					       connect_msg->client_msubid,
+					       connect_msg->client_to_lib_tx_eng_h);
 		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS) {
 			cm_disconnect_msg	*disc_msg;
 

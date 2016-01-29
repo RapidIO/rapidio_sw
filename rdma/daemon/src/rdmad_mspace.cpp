@@ -75,12 +75,6 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 	fill(msubindex_free_list, msubindex_free_list + MSUBINDEX_MAX + 1, true);
 	msubindex_free_list[0] = false; /* Start at 1 */
 
-	/* Initialize semaphores that will protect the lists */
-	if (sem_init(&rem_connections_sem, 0, 1) == -1) {
-		CRIT("Failed to initialize destids_sem: %s\n", strerror(errno));
-		throw mspace_exception("Failed to initialize destids_sem");
-	}
-
 	if (sem_init(&users_sem, 0, 1) == -1) {
 		CRIT("Failed to initialize users_sem: %s\n", strerror(errno));
 		throw mspace_exception("Failed to initialize users_sem");
@@ -103,56 +97,76 @@ mspace::~mspace()
 		destroy();
 } /* destructor */
 
+int mspace::send_cm_destroy_ms(cm_server *server, uint32_t server_msubid,
+				uint64_t client_to_lib_tx_eng_h)
+{
+	int rc;
+
+	/* Prepare destroy message */
+	cm_destroy_msg	*dm;
+	server->get_send_buffer((void **)&dm);
+	dm->type	= htobe64(CM_DESTROY_MS);
+	strcpy(dm->server_msname, name.c_str());
+	dm->server_msid = htobe64(msid);
+	dm->server_msubid = htobe64(server_msubid);
+	dm->client_to_lib_tx_eng_h = htobe64(client_to_lib_tx_eng_h);
+
+	/* Send to remote daemon @ 'client_destid' */
+	if (server->send()) {
+		WARN("Failed to send CM_DESTROY_MS to client_destid(0x%X)\n",
+							client_destid);
+		rc = -2;
+	} else {
+		DBG("CM_DESTROY_MS sent to client_destid(0x%X)\n",
+							client_destid);
+		rc = 0;
+	}
+
+	return rc;
+} /* send_cm_destroy_ms() */
+
 int mspace::notify_remote_clients()
 {
-	DBG("msid(0x%X) '%s' has %u remote clients associated therewith\n", msid,
-	                name.c_str(), rem_connections.size());
+	int rc;
 
-	/* For each element in the destids list, send a destroy message */
-	sem_wait(&rem_connections_sem);
-	for (auto& rem_conn : rem_connections ) {
+	if (connected_to) {
 		/* Need to use a 'prov' socket to send the CM_DESTROY_MS */
 		sem_wait(&prov_daemon_info_list_sem);
 		auto prov_it = find(begin(prov_daemon_info_list),
-		                end(prov_daemon_info_list), rem_conn.client_destid);
+		                end(prov_daemon_info_list), client_destid);
 		if (prov_it == end(prov_daemon_info_list)) {
 			ERR("Could not find entry for client_destid(0x%X)\n",
-							rem_conn.client_destid);
-			sem_post(&prov_daemon_info_list_sem);
-			continue; /* Better luck next time? */
+							client_destid);
+			rc = -1;
+		} else {
+			rc = send_cm_destroy_ms(prov_it->conn_disc_server,
+						server_msubid,
+						client_to_lib_tx_eng_h);
 		}
-		if (!prov_it->conn_disc_server) {
-			ERR("conn_disc_server for client_destid(0x%X) is NULL",
-					rem_conn.client_destid);
-			sem_post(&prov_daemon_info_list_sem);
-			continue; /* Better luck next time? */
-		}
-		cm_server *destroy_server = prov_it->conn_disc_server;
 		sem_post(&prov_daemon_info_list_sem);
-
-		/* Prepare destroy message */
-		cm_destroy_msg	*dm;
-		destroy_server->get_send_buffer((void **)&dm);
-		dm->type	= htobe64(CM_DESTROY_MS);
-		strcpy(dm->server_msname, name.c_str());
-		dm->server_msid = htobe64(msid);
-
-		/* Send to remote daemon @ 'client_destid' */
-		if (destroy_server->send()) {
-			WARN("Failed to send destroy to client_destid(0x%X)\n",
-					rem_conn.client_destid);
-			continue;
+	} else {
+		rc = 0;
+		/* It is not the creator who has a connection; search users */
+		for(auto& u : users) {
+			/* Need to use a 'prov' socket to send the CM_DESTROY_MS */
+			sem_wait(&prov_daemon_info_list_sem);
+			auto prov_it = find(begin(prov_daemon_info_list),
+			                end(prov_daemon_info_list), u.client_destid);
+			if (prov_it == end(prov_daemon_info_list)) {
+				ERR("Could not find entry for client_destid(0x%X)\n",
+								client_destid);
+				rc = -1;
+			} else if (u.connected_to) {
+				rc = send_cm_destroy_ms(prov_it->conn_disc_server,
+							u.server_msubid,
+							u.client_to_lib_tx_eng_h);
+			}
+				/* If the entry is not 'connected_to' then skip it */
+			sem_post(&prov_daemon_info_list_sem);
 		}
-		INFO("Sent cm_destroy_msg for %s to remote daemon on client_destid(0x%X)\n",
-		                dm->server_msname, rem_conn.client_destid);
-	} /* for() */
+	}
 
-	/* Now clear the list */
-	rem_connections.clear();
-
-	sem_post(&rem_connections_sem);
-
-	return 0;
+	return rc;
 } /* notify_remote_clients() */
 
 int mspace::close_connections()
@@ -164,7 +178,7 @@ int mspace::close_connections()
 	/* Tell local apps which have opened the ms that the ms will be destroyed */
 	for (ms_user& user : users) {
 		tx_engine<unix_server, unix_msg_t> *user_tx_eng =
-			user.get_tx_engine();
+			user.tx_eng;
 
 		unix_msg_t	in_msg;
 
@@ -241,18 +255,40 @@ int mspace::destroy()
 	return ret;
 } /* destroy() */
 
-void mspace::add_rem_connection(uint16_t client_destid,
+int mspace::add_rem_connection(uint16_t client_destid,
 			        uint32_t client_msubid,
 			        uint64_t client_to_lib_tx_eng_h)
 {
+	int rc;
 	DBG("Adding destid(0x%X), msubid(0x%X),	client_to_lib_tx_eng_h(0x%"
 			PRIx64 ")to '%s'\n", client_destid,
 			client_msubid, client_to_lib_tx_eng_h, name.c_str());
-	sem_wait(&rem_connections_sem);
-	rem_connections.emplace_back(client_destid,
-				     client_msubid,
-				     client_to_lib_tx_eng_h);
-	sem_post(&rem_connections_sem);
+	sem_wait(&users_sem);
+	if (accepting) {
+		this->client_destid = client_destid;
+		this->client_msubid = client_msubid;
+		this->client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
+		accepting = false;
+		connected_to = true;
+		rc = 0;
+	} else {
+		auto it = find_if(begin(users), end(users), [](ms_user& u) {
+			return u.accepting;
+		});
+		if (it == end(users)) {
+			CRIT("Failed to find a user in 'accepting' mode.\n");
+			rc = -1;
+		} else {
+			it->client_destid = client_destid;
+			it->client_msubid = client_msubid;
+			it->client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
+			accepting = false;
+			connected_to = true;
+			rc = 0;
+		}
+	}
+	sem_post(&users_sem);
+	return rc;
 } /* add_rem_connection() */
 
 
@@ -260,28 +296,41 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 				  uint32_t client_msubid,
 				  uint64_t client_to_lib_tx_eng_h)
 {
-	auto rc = 0;
+	int rc;
 
 	DBG("Removing destid(0x%X), msubid(0x%X) from '%s'\n",
 			client_destid, client_msubid, name.c_str());
-
-	sem_wait(&rem_connections_sem);
-	auto it = find_if(
-		begin(rem_connections),
-		end(rem_connections),
-		[client_destid, client_msubid, client_to_lib_tx_eng_h](remote_connection& r)
-		{
-			return (r.client_destid == client_destid) &&
-			       (r.client_msubid == client_msubid) &&
-			       (r.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h);
-			  });
-	if (it == end(rem_connections)) {
-		ERR("Could not find matching remote connection\n");
-		rc = -1;
+	/* First check to see if the connection belongs to the creator */
+	if ((this->client_destid == client_destid) &&
+	    (this->client_msubid == client_msubid) &&
+	    (this->client_to_lib_tx_eng_h)) {
+		INFO("Found connection info in creator of '%s'\n", name.c_str());
+		this->client_destid = 0xFFFF;
+		this->client_msubid = 0;
+		this->client_to_lib_tx_eng_h = 0;
+		connected_to = false;
+		rc = 0;
 	} else {
-		rem_connections.erase(it);
+		sem_wait(&users_sem);
+		/* It is possibly in one of the users so search for it */
+		auto it = find_if(begin(users), end(users),
+		[client_destid, client_msubid, client_to_lib_tx_eng_h](ms_user& u)
+		{
+			return (u.client_destid == client_destid) &&
+			       (u.client_msubid == client_msubid) &&
+			       (u.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h);
+		});
+		if (it == end(users)) {
+			ERR("Failed to find remote connection in %s\n", name.c_str());
+			rc = -1;
+		} else {
+			it->client_destid = 0xFFFF;
+			it->client_msubid = 0;
+			it->client_to_lib_tx_eng_h = 0;
+			it->connected_to = false;
+		}
+		sem_post(&users_sem);
 	}
-	sem_post(&rem_connections_sem);
 
 	return rc;
 } /* remove_rem_connection() */
@@ -289,29 +338,55 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 /* Disconnect all connections from the specified client_destid */
 int mspace::disconnect_from_destid(uint16_t client_destid)
 {
-	auto it = begin(rem_connections);
+	int rc;
 
-	DBG("Disconnecting client_destid(0x%X) from '%s'\n", client_destid, this->name.c_str());
-	sem_wait(&rem_connections_sem);
-	do {
-		it = find(it, end(rem_connections), client_destid);
-
-		if (it != end(rem_connections)) {
-			if (disconnect(it->client_msubid)) {
-				ERR("Failed to disconnect destid(0x%X), msubid(0x%X)\n",
-				client_destid, it->client_msubid);
-			} else {
-				rem_connections.erase(it);
-				it = begin(rem_connections);
+	if ((this->client_destid == client_destid) && connected_to) {
+		rc = disconnect(client_msubid);
+		if (rc) {
+			ERR("Failed to disconnect destid(0x%X), msubid(0x%X)\n",
+			client_destid, client_msubid);
+		} else {
+			INFO("%s disconnected from destid(0x%X)\n",
+					name.c_str(), client_destid);
+			this->client_destid = 0xFFFF;
+			this->client_msubid = 0;
+			this->client_to_lib_tx_eng_h = 0;
+			this->connected_to = false;
+			rc = 0;
+		}
+	} else {
+		/* Search all users looking for ones that are connected
+		 * to the specified destid. There can be more than one
+		 * user who have accepted connections on this memory space
+		 * but from different clients on the same remote node.
+		 */
+		rc = 0;	/* It is not an error if there are no users! */
+		sem_wait(&users_sem);
+		for (auto& u : users) {
+			if ((u.client_destid == client_destid) && u.connected_to) {
+				rc = disconnect(u.client_msubid);
+				if (rc) {
+					ERR("Failed to disconnect destid(0x%X), msubid(0x%X)\n",
+					client_destid, u.client_msubid);
+				} else {
+					INFO("%s disconnected from destid(0x%X)\n",
+							name.c_str(), u.client_destid);
+					u.client_destid = 0xFFFF;
+					u.client_msubid = 0;
+					u.client_to_lib_tx_eng_h = 0;
+					u.connected_to = false;
+					rc = 0;
+				}
 			}
 		}
-	} while (it != end(rem_connections));
-	sem_post(&rem_connections_sem);
+		sem_post(&users_sem);
+	}
 
-	return 0;
+	return rc;
 } /* disconnect_from_destid() */
 
 /* Disconnect only connection with specified client_msubid */
+// FIXME: Get rid of POSIX message queues.
 int mspace::disconnect(uint32_t client_msubid)
 {
 	/* Form message queue name from memory space name */
@@ -359,12 +434,15 @@ int mspace::disconnect(uint32_t client_msubid)
 
 set<uint16_t> mspace::get_rem_destids()
 {
-	sem_wait(&rem_connections_sem);
+	sem_wait(&users_sem);
 	set<uint16_t>	rem_destids;
-	for (auto &rem_conn : rem_connections) {
-		rem_destids.insert(rem_conn.client_destid);
+	if (connected_to)
+		rem_destids.insert(client_destid);
+	for( auto& u : users) {
+		if (u.connected_to)
+			rem_destids.insert(u.client_destid);
 	}
-	sem_post(&rem_connections_sem);
+	sem_post(&users_sem);
 	return rem_destids;
 } /* get_rem_destids() */
 
@@ -486,10 +564,10 @@ tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()
 			       end(users),
 			       [](ms_user& user)
 			       {
-					return user.is_accepting();
+					return user.accepting;
 			       });
 		if (it != end(users))
-			tx_eng = it->get_tx_engine();
+			tx_eng = it->tx_eng;
 	}
 	return tx_eng;
 } /* get_accepting_tx_eng() */
@@ -506,7 +584,7 @@ tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()
 int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 		   uint32_t server_msubid)
 {
-	auto rc = 0;
+	int rc;
 
 	/* First check if it is the creator who is accepting */
 	if (app_tx_eng == creator_tx_eng) {
@@ -518,11 +596,12 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 		} else {
 			/* Cannot accept from creator app if we are already
 			 * accepting from a user app. */
+			sem_wait(&users_sem);
 			auto n = count_if(begin(users),
 					  end(users),
 					  [](ms_user& user)
 					 {
-						return user.is_accepting();
+						return user.accepting;
 					 });
 			if (n > 0) {
 				ERR("'%s' already accepting from a user app\n");
@@ -532,38 +611,44 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 				HIGH("'%s' set to 'accepting'\n", name.c_str());
 				accepting = true;
 				this->server_msubid = server_msubid;
+				rc = 0;
 			}
+			sem_post(&users_sem);
 		}
 	} else { /* It is not the creator who is trying to 'accept' */
+		sem_wait(&users_sem);
 		auto it = find(begin(users), end(users), app_tx_eng);
 		if (it == end(users)) {
 			ERR("Could not find matching tx_eng\n");
 			rc = RDMA_ACCEPT_FAIL;
 		} else {
-			if (it->is_accepting() || it->is_connected_to()) {
+			if (it->accepting || it->connected_to) {
 				/* The user can't already be accepting or connected_to */
 				rc = RDMA_ACCEPT_FAIL;
 			} else if (accepting) {
 				/* The owner can't be accepting either */
 				ERR("'%s' already accepting from creator app\n");
+				rc = RDMA_ACCEPT_FAIL;
 			} else {
 				/* And none of the users should be accepting! */
 				auto n = count_if(begin(users),
 						  end(users),
 						  [](ms_user& user)
 						 {
-							return user.is_accepting();
+							return user.accepting;
 						 });
 				if (n > 0) {
 					ERR("'%s' already accepting from a user app\n");
 					rc = RDMA_ACCEPT_FAIL;
 				} else {
 					/* All is good, set 'accepting' flag */
-					it->set_accepting(true);
-					it->set_server_msubid(server_msubid);
+					it->accepting = true;;
+					it->server_msubid = server_msubid;
+					rc = 0;
 				}
 			}
 		}
+		sem_post(&users_sem);
 	}
 
 	return rc;
@@ -591,20 +676,22 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 		}
 	} else {
 		/* It wasn't the creator so search the users by app_tx_eng */
+		sem_wait(&users_sem);
 		auto it = find(begin(users), end(users), app_tx_eng);
 		if (it == end(users)) {
 			ERR("Could not find matching tx_eng\n");
 			rc = -1;
 		} else {
-			if (!it->is_accepting()) {
+			if (!it->accepting) {
 				ERR("'%s' was not accepting!\n", name.c_str());
 				rc = RDMA_ACCEPT_FAIL;
 			} else {
 				/* Set accepting to 'false' and clear server_msubid */
-				it->set_accepting(false);
-				it->set_server_msubid(0);
+				it->accepting = false;
+				it->server_msubid = 0;
 			}
 		}
+		sem_post(&users_sem);
 	}
 	return rc;
 } /* undo_accept() */
@@ -629,13 +716,18 @@ bool mspace::has_user_with_user_tx_eng(
 
 bool mspace::connected_by_destid(uint16_t client_destid)
 {
-	bool connected;
+	bool connected = false;
 
-	sem_wait(&rem_connections_sem);
-	connected = find(begin(rem_connections),
-			 end(rem_connections),
-			 client_destid)!= end(rem_connections);
-	sem_post(&rem_connections_sem);
+	connected = (this->client_destid == client_destid);
+
+	sem_wait(&users_sem);
+	for(auto& u : users) {
+		if (u.connected_to_destid(client_destid)) {
+			connected = true;
+			break;
+		}
+	}
+	sem_post(&users_sem);
 
 	return connected;
 } /* connected_by_destid() */
