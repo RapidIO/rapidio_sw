@@ -66,7 +66,9 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 		                phys_addr), size(size), msoid(0), free(true),
 		                current_ms_conn_id(MS_CONN_ID_START),
 		                connected_to(false), accepting(false),
-		                server_msubid(0), creator_tx_eng(nullptr)
+		                server_msubid(0), creator_tx_eng(nullptr),
+		                client_destid(0xFFFF), client_msubid(0),
+		                client_to_lib_tx_eng_h(0)
 {
 	INFO("name=%s, msid=0x%08X, rio_addr=0x%" PRIx64 ", size=0x%X\n",
 						name, msid, rio_addr, size);
