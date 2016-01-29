@@ -30,9 +30,15 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+#ifndef LIBRDMA_DISPATCH_H
+#define LIBRDMA_DISPATCH_H
+
 #include <stdint.h>
 
-void force_close_mso(uint32_t msoid);
+void force_close_mso_disp(uint32_t msoid);
 
-void force_close_ms(uint32_t msid);
+void force_close_ms_disp(uint32_t msid);
 
+void disconnect_ms_disp(uint32_t client_msubid);
+
+#endif

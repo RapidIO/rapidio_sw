@@ -48,10 +48,7 @@ static void unprovision_did(uint32_t did)
 	vector<mspace *> mspaces;
 	the_inbound->get_mspaces_connected_by_destid(did, mspaces);
 	for (auto& ms : mspaces) {
-		if(ms->disconnect_from_destid(did)) {
-			ERR("Failed to disconnect ms('%s') from did(0x%X)\n",
-				ms->get_name(), did);
-		}
+		ms->disconnect_from_destid(did);
 	}
 	/* Unprovision from PROV list */
 	sem_wait(&prov_daemon_info_list_sem);

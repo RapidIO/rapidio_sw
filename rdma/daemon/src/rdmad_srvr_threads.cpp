@@ -297,7 +297,8 @@ void *wait_conn_disc_thread_f(void *arg)
 			}
 
 			/* Relay disconnection request to the RDMA library */
-			ret = ms->disconnect(be64toh(disc_msg->client_msubid));
+			ret = ms->disconnect(be64toh(disc_msg->client_msubid),
+					     be64toh(disc_msg->client_to_lib_tx_eng_h));
 			if (ret) {
 				ERR("Failed to relay disconnect ms('%s') to RDMA library\n",
 					ms->get_name());

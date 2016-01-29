@@ -313,6 +313,7 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 		this->client_destid = 0xFFFF;
 		this->client_msubid = 0;
 		this->client_to_lib_tx_eng_h = 0;
+		this->server_msubid = 0;
 		connected_to = false;
 		rc = 0;
 	} else {
@@ -333,6 +334,7 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 			it->client_msubid = 0;
 			it->client_to_lib_tx_eng_h = 0;
 			it->connected_to = false;
+			it->server_msubid = 0;
 		}
 		sem_post(&users_sem);
 	}
@@ -340,99 +342,92 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 	return rc;
 } /* remove_rem_connection() */
 
-/* Disconnect all connections from the specified client_destid */
-int mspace::disconnect_from_destid(uint16_t client_destid)
+void mspace::send_disconnect_to_lib(uint32_t client_msubid,
+		tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	int rc;
+	static unix_msg_t	in_msg;
 
+	in_msg.category = RDMA_REQ_RESP;
+	in_msg.type	= DISCONNECT_MS;
+	in_msg.disconnect_from_ms_req_in.client_msubid = client_msubid;
+
+	tx_eng->send_message(&in_msg);
+} /* send_disconnect_to_lib() */
+
+/* Disconnect all connections from the specified client_destid */
+void mspace::disconnect_from_destid(uint16_t client_destid)
+{
 	if ((this->client_destid == client_destid) && connected_to) {
-		rc = disconnect(client_msubid);
-		if (rc) {
-			ERR("Failed to disconnect destid(0x%X), msubid(0x%X)\n",
-			client_destid, client_msubid);
-		} else {
-			INFO("%s disconnected from destid(0x%X)\n",
-					name.c_str(), client_destid);
-			this->client_destid = 0xFFFF;
-			this->client_msubid = 0;
-			this->client_to_lib_tx_eng_h = 0;
-			this->connected_to = false;
-			rc = 0;
-		}
+		send_disconnect_to_lib(client_msubid, creator_tx_eng);
+		INFO("%s disconnected from destid(0x%X)\n",
+						name.c_str(), client_destid);
+		this->client_destid = 0xFFFF;
+		this->client_msubid = 0;
+		this->client_to_lib_tx_eng_h = 0;
+		this->server_msubid = 0;
+		this->connected_to = false;
 	} else {
 		/* Search all users looking for ones that are connected
 		 * to the specified destid. There can be more than one
 		 * user who have accepted connections on this memory space
-		 * but from different clients on the same remote node.
-		 */
-		rc = 0;	/* It is not an error if there are no users! */
+		 * but from different clients on the same remote node. */
 		sem_wait(&users_sem);
 		for (auto& u : users) {
 			if ((u.client_destid == client_destid) && u.connected_to) {
-				rc = disconnect(u.client_msubid);
-				if (rc) {
-					ERR("Failed to disconnect destid(0x%X), msubid(0x%X)\n",
-					client_destid, u.client_msubid);
-				} else {
-					INFO("%s disconnected from destid(0x%X)\n",
-							name.c_str(), u.client_destid);
-					u.client_destid = 0xFFFF;
-					u.client_msubid = 0;
-					u.client_to_lib_tx_eng_h = 0;
-					u.connected_to = false;
-					rc = 0;
-				}
+				send_disconnect_to_lib(u.client_msubid,
+						       u.tx_eng);
+				INFO("%s disconnected from destid(0x%X)\n",
+						name.c_str(), u.client_destid);
+				u.client_destid = 0xFFFF;
+				u.client_msubid = 0;
+				u.client_to_lib_tx_eng_h = 0;
+				u.server_msubid = 0;
+				u.connected_to = false;
 			}
 		}
 		sem_post(&users_sem);
 	}
-
-	return rc;
 } /* disconnect_from_destid() */
 
 /* Disconnect only connection with specified client_msubid */
-// FIXME: Get rid of POSIX message queues.
-int mspace::disconnect(uint32_t client_msubid)
+int mspace::disconnect(uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h)
 {
-	/* Form message queue name from memory space name */
-	stringstream mq_name;
-	mq_name << '/' << name;
+	int rc;
 
-	/* Open message queue */
-	msg_q<mq_rdma_msg>	*disconnect_mq;
-	try {
-		disconnect_mq = new msg_q<mq_rdma_msg>(mq_name.str(), MQ_OPEN);
-	}
-	catch(msg_q_exception& e) {
-		ERR("Failed to open disconnect_mq('%s'): %s\n",
-					mq_name.str().c_str(), e.msg.c_str());
-		return -1;
-	}
-
-	/* Message buffer */
-	mq_rdma_msg	*rdma_msg;
-	disconnect_mq->get_send_buffer(&rdma_msg);
-
-	/* Message type */
-	rdma_msg->type = MQ_DISCONNECT_MS;
-
-	/* Message contents */
-	mq_disconnect_msg *disconnect_msg = &rdma_msg->disconnect_msg;
-	disconnect_msg->client_msubid = client_msubid;
-
-	int rc = 0;
-	/* Send MQ_DISCONNECT_MS to RDMA library */
-	if (disconnect_mq->send()) {
-		ERR("Failed to send back MQ_DISCONNECT_MS on '%s'\n",
-							mq_name.str().c_str());
-		rc = -2;
+	bool found = (this->client_msubid == client_msubid) &&
+		     (this->client_to_lib_tx_eng_h == client_to_lib_tx_eng_h) &&
+		     connected_to;
+	if (found) {
+		DBG("Creator has the connection\n");
+		send_disconnect_to_lib(client_msubid, creator_tx_eng);
+		this->client_destid = 0xFFFF;
+		this->client_msubid = 0;
+		this->client_to_lib_tx_eng_h = 0;
+		this->connected_to = false;
+		rc = 0;
 	} else {
-		HIGH("MQ_DISCONNECT_MS relayed to librdma on '%s', msubid(0x%X)\n",
-				mq_name.str().c_str(), client_msubid);
+		rc = -1;
+		sem_wait(&users_sem);
+		for (auto& u : users) {
+			found = (u.client_msubid == client_msubid) &&
+				(u.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h) &&
+				 u.connected_to;
+			if (found) {
+				DBG("A user has the connection\n");
+				send_disconnect_to_lib(u.client_msubid, u.tx_eng);
+				u.client_destid = 0xFFFF;
+				u.client_msubid = 0;
+				u.client_to_lib_tx_eng_h = 0;
+				u.connected_to = false;
+				rc = 0;
+			}
+		}
+		sem_post(&users_sem);
 	}
-
-	/* Close message queue */
-	delete disconnect_mq;
+	if (rc == -1) {
+		WARN("No matching connection to library found!!\n");
+	}
 
 	return rc;
 } /* disconnect() */

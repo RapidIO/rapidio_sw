@@ -447,79 +447,6 @@ static void *client_wait_for_destroy_thread_f(void *arg)
 
 	pthread_exit(0);
 } /* client_wait_for_destroy_thread_f() */
-
-/**
- * wait_for_disc_thread_f
- *
- * Runs on the server, and handles the case when the client disconnects
- * from the memory space on the server.
- *
- * @arg		message queue for disconnect message
- */
-static void *wait_for_disc_thread_f(void *arg)
-{
-	if (!arg) {
-		CRIT("Null arg passed to thread function. Exiting\n");
-		pthread_exit(0);
-	}
-
-	msg_q<mq_rdma_msg> *mq = (msg_q<mq_rdma_msg> *)arg;
-
-	/* Wait for the POSIX disconnect message containing rem_msh */
-	INFO("Waiting for DISconnect message...\n");
-	if (mq->receive()) {
-		CRIT("mq->receive() failed: %s", strerror(errno));
-		delete mq;
-		pthread_exit(0);
-	}
-
-	/* Extract message contents */
-	mq_rdma_msg *rdma_msg;
-	mq->get_recv_buffer(&rdma_msg);
-
-	if (rdma_msg->type != MQ_DISCONNECT_MS) {
-		CRIT("** Invalid message type: 0x%X **\n", rdma_msg->type);
-		raise(SIGABRT);
-		delete mq;
-		pthread_exit(0);
-	}
-	mq_disconnect_msg *disc_msg = &rdma_msg->disconnect_msg;
-	INFO("Received mq_disconnect on '%s' with client_msubid(0x%X)\n",
-			mq->get_name().c_str(),	disc_msg->client_msubid);
-
-	/* Find the msub in the database, and remove it */
-	msub_h client_msubh = find_rem_msub(disc_msg->client_msubid);
-	if (!client_msubh) {
-		ERR("client_msubid(0x%X) not found!\n",
-						disc_msg->client_msubid);
-	} else {
-		/* Remove client subspace from remote msub database */
-		remove_rem_msub(client_msubh);
-		INFO("client_msubid(0x%X) removed from database\n",
-						disc_msg->client_msubid);
-	}
-
-	/* Obtain memory space name from queue name and locate in database */
-	string ms_name = mq->get_name();
-	ms_name.erase(0, 1);
-	ms_h loc_msh = find_loc_ms_by_name(ms_name.c_str());
-	if (!loc_msh) {
-		CRIT("Failed to find ms(%s) in database\n", ms_name.c_str());
-	} else {
-		/* Mark memory space as NOT accepted */
-		((loc_ms *)loc_msh)->accepted = false;
-
-		/* Delete message queue and mark as nullptr */
-		delete mq;
-		((loc_ms *)loc_msh)->disc_notify_mq = nullptr;
-
-		/* Mark thread as dead */
-		((loc_ms *)loc_msh)->disc_thread = 0;
-	}
-
-	INFO("Exiting\n");
-	pthread_exit(0);
-} /* wait_for_disc_thread_f() */
 #endif
 
 /**
@@ -1091,8 +1018,7 @@ int rdma_create_ms_h(const char *ms_name,
 				out_msg.create_ms_out.msid,
 				out_msg.create_ms_out.phys_addr,
 				out_msg.create_ms_out.rio_addr,
-				0, true,
-				0, nullptr);
+				0, true);
 		if (!*msh) {
 			ERR("Failed to store ms in database\n");
 			throw RDMA_DB_ADD_FAIL;
@@ -1205,9 +1131,7 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 				out_msg.open_ms_out.phys_addr,
 				out_msg.open_ms_out.rio_addr,
 				out_msg.open_ms_out.ms_conn_id,
-				false,
-				0,
-				nullptr);
+				false);
 		if (!*msh) {
 			CRIT("Failed to store ms in database\n");
 			throw RDMA_DB_ADD_FAIL;
@@ -1253,26 +1177,6 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 			ERR("Failed to destroy msubs of msh(0x%" PRIx64 ")\n",
 									msh);
 			throw RDMA_MSUB_DESTROY_FAIL;
-		}
-
-		/* Kill the disconnection thread, if it exists */
-		pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
-		if (!disc_thread) {
-			WARN("disc_thread is NULL.\n");
-		} else {
-			HIGH("Killing the wait-for-disconnection thread!!\n");
-			if (pthread_cancel(disc_thread)) {
-				WARN("Failed to cancel disc_thread for msh(0x%X):%s\n",
-							msh, strerror(errno));
-			}
-		}
-
-		/* Kill the disconnection message queue */
-		msg_q<mq_rdma_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
-		if (disc_mq == nullptr) {
-			WARN("disc_mq is NULL\n");
-		} else {
-			delete disc_mq;
 		}
 
 		/* Set up Unix message parameters */
@@ -1357,27 +1261,6 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 		if (out_msg.destroy_ms_out.status) {
 			ERR("Failed to destroy ms '%s' in daemon\n", ms->name);
 			throw out_msg.destroy_ms_out.status;
-		}
-
-		/* Kill the disconnection thread, if it exists */
-		pthread_t  disc_thread = loc_ms_get_disc_thread(msh);
-		if (!disc_thread) {
-			WARN("disc_thread is NULL.\n");
-		} else {
-			if (pthread_cancel(disc_thread)) {
-				WARN("Failed to cancel disc_thread for msh(0x%" PRIx64 "):%s\n",
-						msh, strerror(errno));
-			}
-		}
-
-		/**
-		 * Daemon should have closed the message queue so we can close and
-		 * unlink it here. */
-		msg_q<mq_rdma_msg> *disc_mq = loc_ms_get_disc_notify_mq(msh);
-		if (disc_mq == nullptr) {
-			WARN("disc_mq is NULL\n");
-		} else {
-			delete disc_mq;
 		}
 
 		/* Memory space removed in daemon, remove from database as well */

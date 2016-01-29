@@ -61,11 +61,15 @@ public:
 		switch(msg->type) {
 
 		case FORCE_CLOSE_MSO:
-			force_close_mso(msg->force_close_mso_req.msoid);
+			force_close_mso_disp(msg->force_close_mso_req.msoid);
 		break;
 
 		case FORCE_CLOSE_MS:
-			force_close_ms(msg->force_close_ms_req.msid);
+			force_close_ms_disp(msg->force_close_ms_req.msid);
+		break;
+
+		case DISCONNECT_MS:
+			disconnect_ms_disp(msg->disconnect_from_ms_req_in.client_msubid);
 		break;
 
 		default:

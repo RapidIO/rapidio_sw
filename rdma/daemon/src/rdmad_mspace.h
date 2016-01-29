@@ -225,7 +225,6 @@ public:
 	bool has_user_with_user_tx_eng(
 			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 			uint32_t *ms_conn_id);
-
 	bool connected_by_destid(uint16_t destid);
 
 	int close(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
@@ -239,8 +238,14 @@ public:
 			     uint64_t *phys_addr);
 
 	int destroy_msubspace(uint32_t msubid);
-	int disconnect(uint32_t client_msubid);
-	int disconnect_from_destid(uint16_t client_destid);
+
+	int disconnect(uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h);
+
+	void disconnect_from_destid(uint16_t client_destid);
+
+	void send_disconnect_to_lib(uint32_t client_msubid,
+				tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 private:
 	/* Private methods */

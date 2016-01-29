@@ -43,7 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* From librdma.cpp */
 extern "C" int destroy_msubs_in_msh(ms_h msh);
 
-void force_close_mso(uint32_t msoid)
+void force_close_mso_disp(uint32_t msoid)
 {
 	HIGH("FORCE_CLOSE_MSO received\n");
 	/* Find the mso in the local database by its msoid */
@@ -59,9 +59,9 @@ void force_close_mso(uint32_t msoid)
 			HIGH("msoid(0x%X) force-closed\n", msoid, msoh);
 		}
 	}
-} /* force_close_mso() */
+} /* force_close_mso_disp() */
 
-void force_close_ms(uint32_t msid)
+void force_close_ms_disp(uint32_t msid)
 {
 	auto msh = find_loc_ms(msid);
 	if (!msh) {
@@ -73,5 +73,17 @@ void force_close_ms(uint32_t msid)
 	} else {
 		INFO("msid(0x%X) removed from database\n", msid);
 	}
-} /* force_close_ms() */
+} /* force_close_ms_disp() */
 
+void disconnect_ms_disp(uint32_t client_msubid)
+{
+	/* Find the client msub in the database, and remove it */
+	msub_h client_msubh = find_rem_msub(client_msubid);
+	if (!client_msubh) {
+		ERR("client_msubid(0x%X) not found!\n", client_msubid);
+	} else {
+		/* Remove client subspace from remote msub database */
+		remove_rem_msub(client_msubh);
+		INFO("client_msubid(0x%X) removed from database\n", client_msubid);
+	}
+} /* disconnect_ms_disp() */

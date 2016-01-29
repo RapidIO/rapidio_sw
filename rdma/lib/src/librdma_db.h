@@ -98,14 +98,12 @@ struct loc_ms {
 	uint64_t   rio_addr;	/* if direct mapping is used. */
 	uint32_t   ms_conn_id;
 	bool	   owned;
-	bool	   accepted;
 
 	loc_ms(const char *name, uint32_t bytes, mso_h msoh, uint32_t msid,
 		uint64_t phys_addr, uint64_t rio_addr, uint32_t ms_conn_id,
-		bool owned, pthread_t disc_thread, msg_q<mq_rdma_msg> *disc_notify_mq) :
+		bool owned) :
 	name(strdup(name)), bytes(bytes), msoh(msoh), msid(msid), phys_addr(phys_addr),
-	rio_addr(rio_addr), ms_conn_id(ms_conn_id), owned(owned), accepted(false),
-	disc_thread(disc_thread), disc_notify_mq(disc_notify_mq)
+	rio_addr(rio_addr), ms_conn_id(ms_conn_id), owned(owned)
 	{
 	}
 
@@ -113,9 +111,6 @@ struct loc_ms {
 	{
 		free((void *)name);
 	}
-	/* The following fields are used for connect/disconnect notification. */
-	pthread_t  disc_thread;
-	msg_q<mq_rdma_msg> *disc_notify_mq;
 };
 
 ms_h add_loc_ms(const char *ms_name,
@@ -125,9 +120,7 @@ ms_h add_loc_ms(const char *ms_name,
 		uint64_t phys_addr,
 		uint64_t rio_addr,
 		uint32_t mso_conn_id,
-		bool owned,
-		pthread_t disc_thread,
-		msg_q<mq_rdma_msg> *disc_msg);
+		bool owned);
 
 int remove_loc_ms(ms_h msh);
 ms_h find_loc_ms(uint32_t msid);
@@ -135,10 +128,6 @@ ms_h find_loc_ms_by_name(const char *ms_name);
 int get_info_from_loc_ms(ms_h msh, uint32_t *msid);
 unsigned get_num_ms_by_msoh(mso_h msoh);
 void get_list_msh_by_msoh(mso_h msoh, list<struct loc_ms *>& msh_list);
-
-pthread_t loc_ms_get_disc_thread(ms_h msh);
-msg_q<mq_rdma_msg> *loc_ms_get_disc_notify_mq(ms_h msh);
-
 bool loc_ms_exists(ms_h msh);
 
 struct rem_ms {

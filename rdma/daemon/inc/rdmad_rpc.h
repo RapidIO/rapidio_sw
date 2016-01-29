@@ -126,9 +126,9 @@ int rdmad_send_connect(const char *server_ms_name,
 int rdmad_undo_connect(const char *server_ms_name,
 	        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng);
 
-int rdmad_send_disconnect(uint32_t rem_destid,
-			  uint32_t rem_msid,
-			  uint32_t loc_msubid,
+int rdmad_send_disconnect(uint32_t server_destid,
+			  uint32_t server_msid,
+			  uint32_t server_msubid,
 			  tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng);
 
 inline int rdmad_get_ibwin_properties(unsigned *num_ibwins,

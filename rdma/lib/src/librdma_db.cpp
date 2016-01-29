@@ -283,8 +283,6 @@ int remove_loc_mso(uint32_t msoid)
  * @msid	Memory space identifier
  * @ms_conn_id	Memory space connection ID (for opened ones)
  * @owned	true if creator, false if just opened ms
- * @disc_thread	thread that handles disconnections for this ms
- * @disc_notify_mq	message queue for disconnect notifications
  *
  * @return pointer to stored struct, NULL on failure
  */
@@ -295,16 +293,13 @@ ms_h add_loc_ms(const char *ms_name,
 		uint64_t phys_addr,
 		uint64_t rio_addr,
 		uint32_t ms_conn_id,
-		bool owned,
-		pthread_t disc_thread,
-		msg_q<mq_rdma_msg> *disc_notify_mq)
+		bool owned)
 {
 	loc_ms *msp = nullptr;
 	try {
 		/* Construct */
 		msp = new loc_ms(ms_name, bytes, msoh, msid, phys_addr,
-				rio_addr, ms_conn_id, owned, disc_thread,
-				disc_notify_mq);
+				rio_addr, ms_conn_id, owned);
 		/* Add to list */
 		pthread_mutex_lock(&loc_ms_mutex);
 		loc_ms_list.push_back(msp);
@@ -492,34 +487,6 @@ ms_h find_loc_ms_by_name(const char *ms_name)
 
 	return msh;
 } /* find_loc_ms_by_name() */
-
-/**
- * loc_ms_get_disc_thread
- */
-pthread_t loc_ms_get_disc_thread(ms_h msh)
-{
-	/* Check for NULL msh */
-	if (!msh) {
-		WARN("NULL msh passed\n");
-		return (pthread_t)0;
-	}
-
-	return ((loc_ms *)msh)->disc_thread;
-} /* loc_ms_get_disc_thread() */
-
-/**
- * loc_ms_get_disc_notify_mq
- */
-msg_q<mq_rdma_msg> *loc_ms_get_disc_notify_mq(ms_h msh)
-{
-	/* Check for NULL msh */
-	if (!msh) {
-		WARN("NULL msh passed\n");
-		return NULL;
-	}
-
-	return ((loc_ms *)msh)->disc_notify_mq;
-} /* loc_ms_get_disc_notify_thread() */
 
 /**
  * loc_ms_exists

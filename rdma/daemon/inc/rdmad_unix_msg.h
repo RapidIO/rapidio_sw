@@ -84,7 +84,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* Type codes for RDMA_REQ_RESP messages */
 constexpr uint32_t FORCE_CLOSE_MSO = 0x1001;
 constexpr uint32_t FORCE_CLOSE_MS  = 0x1002;
-
+constexpr uint32_t DISCONNECT_MS = 0x1003;
 
 /* rdmad_is_alive() arguments */
 struct rdmad_is_alive_input {
@@ -308,6 +308,11 @@ struct connect_to_ms_req_input {
 	uint64_t client_to_lib_tx_eng_h;
 };
 
+/* Server daemon to server library/app */
+struct disconnect_from_ms_req_input {
+	uint32_t client_msubid;
+};
+
 /* Server library/app to server daemon */
 struct connect_to_ms_resp_input {
 	uint32_t server_msid;
@@ -395,6 +400,7 @@ struct unix_msg_t {
 		struct connect_to_ms_resp_input	connect_to_ms_resp_in;
 		struct connect_to_ms_resp_output connect_to_ms_resp_out;
 		struct accept_from_ms_req_input	accept_from_ms_req_in;
+		struct disconnect_from_ms_req_input disconnect_from_ms_req_in;
 	};
 
 };
