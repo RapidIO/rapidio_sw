@@ -42,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "memory_supp.h"
 
+#include "msg_q.h"
 #include "rdma_mq_msg.h"
 #include "liblog.h"
 #include "cm_sock.h"
@@ -113,6 +114,13 @@ static int send_destroy_ms_to_lib(const char *server_ms_name,
 	return ret;
 } /* send_destroy_ms_to_lib() */
 
+/**
+ * The server daemon has died. Client daemon needs to:
+ * 1. Notify the libraries of apps that have connected to memory spaces
+ *    on that 'did' so they self-disconnect and clean their databases
+ *    of the server's remove msub entries.
+ * 2. Remove entries for that 'did' from the connected_to_ms_info_list.
+ */
 int send_destroy_ms_for_did(uint32_t did)
 {
 	int ret = 0;
@@ -120,7 +128,7 @@ int send_destroy_ms_for_did(uint32_t did)
 	sem_wait(&connected_to_ms_info_list_sem);
 	for (auto& conn_to_ms : connected_to_ms_info_list) {
 		if ((conn_to_ms == did) && conn_to_ms.connected) {
-			int ret = send_destroy_ms_to_lib(
+			ret = send_destroy_ms_to_lib(
 					conn_to_ms.server_msname.c_str(),
 					conn_to_ms.server_msid);
 			if (ret) {
@@ -129,7 +137,14 @@ int send_destroy_ms_for_did(uint32_t did)
 			}
 		}
 	}
-	remove(begin(connected_to_ms_info_list), end(connected_to_ms_info_list), did);
+
+	/* Now remove all entries delonging to 'did' from the
+	 * connected_to_ms_info_list */
+	auto it = remove(begin(connected_to_ms_info_list),
+			 end(connected_to_ms_info_list),
+			 did);
+	connected_to_ms_info_list.erase(it, end(connected_to_ms_info_list));
+
 	sem_post(&connected_to_ms_info_list_sem);
 
 	return ret;
