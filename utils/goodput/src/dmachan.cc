@@ -659,9 +659,15 @@ void hexdump4byte(const char* msg, uint8_t* d, int len)
   }
 }
 
-int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
+/** \brief DMA Channel FIFO scanner
+ * \param[out] completed_work list of completed \ref WorkItem_t
+ * \param max_work max number of items; should be STS_SIZE*8
+ * \param force_scan DO NOT USE this outside DMAChannel class
+ * \return Number of completed items
+ */
+int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const int force_scan)
 {
-  if(m_restart_pending) return 0;
+  if(m_restart_pending && !force_scan) return 0;
 
 #ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
@@ -684,14 +690,16 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
   /* Check and clear descriptor status FIFO entries */
   while (sts_ptr[j] && !umdemo_must_die) {
-    if(m_restart_pending) return 0;
+    if(m_restart_pending && !force_scan) return 0;
 
     for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
+      if(m_restart_pending && !force_scan) return 0;
       DmaCompl_t c;
       c.ts_end = rdtsc();
       c.win_handle = sts_ptr[i]; c.fifo_offset = i;
       c.valid = COMPL_SIG;
       compl_hwbuf[compl_size++] = c;
+      if(m_restart_pending && !force_scan) return 0;
       sts_ptr[i] = 0;
       m_tx_cnt++; // rather number of successfuly completed DMA ops
     } // END for line-of-8
@@ -709,7 +717,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 #endif
 
   for(int ci = 0; ci < compl_size; ci++) {
-    if(m_restart_pending) return 0;
+    if(m_restart_pending && !force_scan) return 0;
 
     pthread_spin_lock(&m_pending_work_splock);
   
@@ -774,7 +782,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
     pthread_spin_unlock(&m_pending_work_splock);
 
-    if(m_restart_pending) return 0;
+    if(m_restart_pending && !force_scan) return 0;
 
 #ifdef DEBUG_BD
     DBG("\n\tFound idx=%d for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
@@ -1043,11 +1051,14 @@ void DMAChannel::dumpBDs(std::string& s)
 
 /** \brief Clean up queue of offending BDs. Replace them with T3 (jump+1) NOPs.
  * \note If there's nothing pending call \ref softRestart(true)
+ * \param multithreaded_fifo Hints whether we should expect another (isolcpu) thread to run scanFIFO and reap the results
  * \return Count of pending BDs left after cleanup
  */
-int DMAChannel::cleanupBDQueue()
+int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 {
   int pending = 0;
+
+  const uint64_t fifo_scan_cnt = m_fifo_scan_cnt;
 
 #ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
@@ -1076,6 +1087,26 @@ int DMAChannel::cleanupBDQueue()
   struct dmadesc T3_bd; memset(&T3_bd, 0, sizeof(T3_bd));
   dmadesc_setdtype(T3_bd, DTYPE3);
 
+// We must have the FIFO cleared of completed entries.
+// First wait a bit and hope there's another thread running it
+
+  if (multithreaded_fifo) {
+    for (int i = 0; i < 5; i++) {
+      if (fifo_scan_cnt < m_fifo_scan_cnt) break;
+      struct timespec tv = { 0, 1 };
+      nanosleep(&tv, NULL);
+    }
+  }
+
+// Nope, wasn't. DIY scanFIFO
+  if (! multithreaded_fifo || fifo_scan_cnt == m_fifo_scan_cnt) { // Run FIFO scanner ourselves
+    DMAChannel::WorkItem_t wi[m_sts_size*8]; memset(wi, 0, sizeof(wi));
+    int tmp = m_restart_pending;
+    m_restart_pending = 1; // Tell scanFIFO running from other thread to back off
+    scanFIFO(wi, m_sts_size*8, 1 /*force_scan*/);
+    m_restart_pending = tmp;
+  }
+
   const uint64_t ts_s = rdtsc();
   pthread_spin_lock(&m_bl_splock);
 
@@ -1089,7 +1120,7 @@ int DMAChannel::cleanupBDQueue()
 
     const int badidx = rp % m_bd_num;
 
-    assert(badidx != 0 && badidx != (m_bd_num-1)); // Should never fault at wrap-around BD!!
+    assert(badidx != 0 && badidx != (m_bd_num-1)); // Should never fault at BD0 or wrap-around BD!!
 
     struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (badidx * DMA_BUFF_DESCR_SIZE));
     uint32_t* bytes03 = (uint32_t*)bd_p;

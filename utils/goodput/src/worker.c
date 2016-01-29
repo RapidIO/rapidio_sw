@@ -2482,7 +2482,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 				// nuke faulting BD
 
-				const int pending = info->umd_dch->cleanupBDQueue();
+				const int pending = info->umd_dch->cleanupBDQueue(false /*multithreaded_fifo*/);
 
 				info->umd_dch->softRestart(pending == 0); // Wipe clean BD queue if no outstanding
 				info->umd_dch->simFIFO(0, 0); // No faults after a restart to process all T3 BDs

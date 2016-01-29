@@ -167,7 +167,7 @@ public:
   void shutdown();
   void init();
 
-  int scanFIFO(WorkItem_t* completed_work, const int max_work);
+  int scanFIFO(WorkItem_t* completed_work, const int max_work, const int force_scan = 0);
 
   /** \brief Switch to simulation mode. \ref simFIFO must be called frequently
    * \note Call this before \ref alloc_dmatxdesc
@@ -303,7 +303,7 @@ public:
   }
 
   void softRestart(const bool nuke_bds = true);
-  int cleanupBDQueue();
+  int cleanupBDQueue(bool multithreaded_fifo);
 
   volatile uint64_t   m_fifo_scan_cnt;
   volatile uint64_t   m_tx_cnt; ///< Number of DMA ops that succeeded / showed up in FIFO
