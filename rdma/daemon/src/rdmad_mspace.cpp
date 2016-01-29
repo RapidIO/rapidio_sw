@@ -48,7 +48,7 @@
 #include "liblog.h"
 #include "rdma_types.h"
 #include "rdmad_cm.h"
-#include "rdma_mq_msg.h"
+#include "rdma_mq_msg.h"	// TODO: Remove
 #include "rdmad_mspace.h"
 #include "rdmad_msubspace.h"
 #include "rdmad_ms_owner.h"
@@ -229,6 +229,9 @@ int mspace::destroy()
 	connected_to = false; /* No connections */
 	accepting = false;    /* Not accepting connections either */
 	creator_tx_eng = nullptr;	/* No tx_eng associated therewith */
+	client_destid = 0xFFFF;
+	client_msubid = 0;
+	client_to_lib_tx_eng_h = 0;
 
 	/* Remove memory space identifier from owner */
 	ms_owner *owner;

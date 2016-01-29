@@ -445,6 +445,7 @@ exit:
 	return ret;
 } /* destroy_mspace() */
 
+// FIXME: What is this used for? Do we need to include 'creator'?
 class mspace_is_open_by_user_using_tx_eng {
 public:
 	mspace_is_open_by_user_using_tx_eng(
