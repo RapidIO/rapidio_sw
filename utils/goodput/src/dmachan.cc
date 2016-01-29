@@ -919,7 +919,7 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
 
 #ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
-    DBG("START: simDmaRP=%d DmaWP=%d simFifoWP=%d m_bl_busy_size=%d\n", m_sim_dma_rp, m_dma_wr, m_sim_fifo_wp, m_bl_busy_size);
+    DBG("START: DMA simRP=%d WP=%d simFifoWP=%d m_bl_busy_size=%d\n", m_sim_dma_rp, m_dma_wr, m_sim_fifo_wp, m_bl_busy_size);
 
     std::string s;
     dumpBDs(s);
@@ -931,7 +931,7 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
 
   int bd_cnt = 0;
   bool faulted = false;
-  for (; m_sim_dma_rp < m_dma_wr; m_sim_dma_rp++) { // XXX "<=" ??
+  for (; m_sim_dma_rp < m_dma_wr; /*DONOTUSE continue*/) { // XXX "<=" ??
     // Handle wrap-arounds in BD array, m_dma_wr can go up to 0xFFFFFFFFL
     const int idx = m_sim_dma_rp % m_bd_num;
 
@@ -939,12 +939,15 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
     uint32_t* bytes03 = (uint32_t*)bd_p;
     const uint32_t dtype = *bytes03 >> 29;
 
+#ifdef UDMA_SIM_DEBUG
+    if (dtype > 3) {
+      CRIT("BUG: BD%d dtype=%d DMA WP=%d simRP=%d\n", idx, dtype, m_dma_wr, m_sim_dma_rp);
+      assert(dtype <= 3);
+    }
+#endif
+
     // Soft restart might have inserted T3 anywhere. Skip checks on them.
     if (dtype != DTYPE3 && idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
-
-#ifdef UDMA_SIM_DEBUG
-    assert(dtype <= 3);
-#endif
 
     const uint64_t bd_linear = m_dmadesc.win_handle + idx * DMA_BUFF_DESCR_SIZE;
     assert(bd_linear < HW_END);
@@ -952,8 +955,46 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
     bd_cnt++;
     assert(bd_cnt <= m_bd_num);
 
+    if (idx == (m_bd_num-1)) {
+      assert(dtype == DTYPE3); // BD(bufc-1) is T3
+      goto next;
+    }
+
+    if (idx == 0) {
+      assert(dtype == DTYPE3); // BD0 is T3
+    
+      if (! memcmp(m_dmadesc.win_ptr, &m_BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { goto next; } // BD0 jumps to BD1
+
+      // BD0 does not jump to BD1
+
+      const hw_dma_desc* bd_ptr = (hw_dma_desc*)m_dmadesc.win_ptr;
+
+      uint64_t next_linear = le32(bd_ptr->next_hi);
+      next_linear <<= 32;
+      next_linear |= le32(bd_ptr->next_lo);
+
+      assert(next_linear);
+      assert(m_dmadesc.win_handle < next_linear);
+      assert(next_linear < HW_END);
+
+      uint64_t next_off = next_linear - m_dmadesc.win_handle;
+      const int next_idx = next_off / DMA_BUFF_DESCR_SIZE; 
+
+      assert(next_idx > 0); // cannot be BD0
+      assert(next_idx < (m_bd_num - 1)); // cannot be BD(bufc-1)
+
+      DBG("BD0 jumps to linear address 0x%llx (offset 0x%llx) as BD%d -- DMA simRP %d->%d\n",
+          next_linear, next_off, next_idx, m_sim_dma_rp, m_sim_dma_rp + next_idx);
+
+      m_sim_dma_rp += next_idx;
+
+      goto move_fifo_wp;
+    }
+
+    assert(dtype == DTYPE1 || dtype == DTYPE3); // no other T3s than BD0 and BD(bufc-1)
+
     // FAULT INJECTION
-    if (max_bd > 0 && fault_bmask != 0 && bd_cnt == max_bd) {
+    if (max_bd > 0 && fault_bmask != 0 && bd_cnt == max_bd) { // T3 does not fault
       // DO NOT report BD in FIFO
       // Pretend registers report fault
       do {
@@ -968,11 +1009,15 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
       break; // for loop
     } // END FAULT
 
+next:
+    m_sim_dma_rp++;
+
+move_fifo_wp:
     sts_ptr[m_sim_fifo_wp*8] = bd_linear;
 
     m_sim_fifo_wp++;
     m_sim_fifo_wp %= m_sts_size;
-  }
+  } // END for DMA RP
 
   pthread_spin_unlock(&m_bl_splock);
 
@@ -985,10 +1030,13 @@ void DMAChannel::dumpBDs(std::string& s)
 {
   std::stringstream ss;
   for (int idx = 0; idx < m_bd_num; idx++) {
+    char* star = "";
     struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
+    if (idx == 0 && memcmp(m_dmadesc.win_ptr, &m_BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { star = "*"; }
+   
     uint32_t* bytes03 = (uint32_t*)bd_p;
     const uint32_t dtype = *bytes03 >> 29;
-    ss << dtype << " ";
+    ss << star << dtype << " ";
   }
   s.append(ss.str());
 }
@@ -1001,12 +1049,9 @@ int DMAChannel::cleanupBDQueue()
 {
   int pending = 0;
 
-  struct dmadesc T3_bd; memset(&T3_bd, 0, sizeof(T3_bd));
-  dmadesc_setdtype(T3_bd, DTYPE3);
-
 #ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
-    DBG("DMA RP/%s=%d WP=%d m_bl_busy_size=%d\n",
+    DBG("DMA %sRP=%d WP=%d m_bl_busy_size=%d\n",
         m_sim? "sim": "Tsi721",
         m_sim? m_sim_dma_rp: getReadCount(),
         m_dma_wr, m_bl_busy_size);
@@ -1014,17 +1059,22 @@ int DMAChannel::cleanupBDQueue()
     std::stringstream ss;
     uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
     const int badidx = rp % m_bd_num;
-    assert(badidx == (m_bd_num-1));
+    assert(badidx != (m_bd_num-1));
     for (int idx = 0; idx < m_bd_num; idx++) {
+      char* star = "";
+      if (idx == 0 && memcmp(m_dmadesc.win_ptr, &m_BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { star = "*"; }
       struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
       uint32_t* bytes03 = (uint32_t*)bd_p;
       const uint32_t dtype = *bytes03 >> 29;
       if (idx != badidx) ss << dtype << " ";
-      else ss << "!" << dtype << "! ";
+      else ss << star << "!" << dtype << "! ";
     }
     DBG("\n\tBD map before cleanup: %s\n", ss.str().c_str());
   }
 #endif
+
+  struct dmadesc T3_bd; memset(&T3_bd, 0, sizeof(T3_bd));
+  dmadesc_setdtype(T3_bd, DTYPE3);
 
   const uint64_t ts_s = rdtsc();
   pthread_spin_lock(&m_bl_splock);
@@ -1058,11 +1108,25 @@ int DMAChannel::cleanupBDQueue()
       T3_bd.pack(bd0_p);
 
       m_bl_busy[badidx] = false;
-      m_bl_busy_size--;
+      // m_bl_busy_size--; // NO: BD0 must be accounted for
+      m_pending_work[0].valid = WI_SIG; 
       assert(m_bl_busy_size >= 0);
 
       DBG("\n\tPatch BD0 to jump at idx=%d with T3 pending=%d\n", badidx+1, pending);
-    }
+
+#ifdef UDMA_SIM_DEBUG
+      {
+        struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (badidx * DMA_BUFF_DESCR_SIZE));
+        uint32_t* bytes03 = (uint32_t*)bd_p;
+        *bytes03 &= 0x0FFFFFFFUL;
+        *bytes03 |= 0x5 << 29;
+        m_pending_work[badidx].opt.dtype = 5;
+      }
+#endif
+    } 
+
+    m_dma_wr = 1 + pending; // Just skip BD0 which is T3 // Barry sez this is BD count
+    DBG("\n\tAfter reset DMA WP := %u\n", m_dma_wr);
   } while(0);
 
   pthread_spin_unlock(&m_bl_splock);
