@@ -635,7 +635,7 @@ int remove_rem_ms(ms_h msh)
 		pthread_mutex_lock(&rem_ms_mutex);
 		auto it = find(rem_ms_list.begin(), rem_ms_list.end(), (rem_ms *)msh);
 		if (it == rem_ms_list.end()) {
-			WARN("msh = 0x%lX not found\n");
+			WARN("msh = 0x%" PRIx64 " not found\n", msh);
 			rc = -2;
 		} else {
 			/* Free the ms, and remove from list */
@@ -802,7 +802,7 @@ int remove_loc_msub(msub_h msubh)
 		       end(loc_msub_list),
 		       (loc_msub *)msubh);
 	if (it == end(loc_msub_list)) {
-		WARN("msubh = 0x%lX not found\n");
+		WARN("msubh = 0x%" PRIx64 " not found\n", msubh);
 		rc = -2;
 	} else {
 		/* Free the msub, and remove from list */
@@ -876,7 +876,7 @@ msub_h add_rem_msub(uint32_t	rem_msubid,
 
 		DBG("*** STORING info about remote msubh ***\n");
 		DBG("rem_msubid = 0x%X\n", msubp->msubid);
-		DBG("rem_msid = 0x%lX\n", msubp->msid);
+		DBG("rem_msid = 0x%X\n", msubp->msid);
 		DBG("rem_rio_addr_len = %d\n", rem_rio_addr_len);
 		DBG("rem_rio_addr_lo = 0x%016" PRIx64 "\n", rem_rio_addr_lo);
 		DBG("rem_rio_addr_hi = 0x%X\n", rem_rio_addr_hi);
@@ -942,7 +942,7 @@ int remove_rem_msub(uint32_t msubid)
 			  end(rem_msub_list),
 			  rem_has_this_msubid(msubid));
 	if (it == rem_msub_list.end()) {
-		WARN("msubid(0x%X) not found\n");
+		WARN("msubid(0x%X) not found\n", msubid);
 		rc = -2;
 	} else {
 		/* Free the msub, and remove from list */
@@ -975,7 +975,7 @@ int remove_rem_msub(msub_h msubh)
 		pthread_mutex_lock(&rem_msub_mutex);
 		auto it = find(begin(rem_msub_list), end(rem_msub_list), (rem_msub *)msubh);
 		if (it == rem_msub_list.end()) {
-			WARN("msubh = 0x%lX not found\n");
+			WARN("msubh = 0x%" PRIx64 " not found\n", msubh);
 			rc = -2;
 		} else {
 			/* Free the msub, and remove from list */
@@ -1113,7 +1113,8 @@ void remove_rem_msub_by_loc_msh(ms_h loc_msh)
 		/* Since we allow a client to connect without providing
 		 * an msub, it is possible that the server may not have
 		 * an msub belonging to the client's ms. */
-		WARN("No remote msubs stored for loc_msh(0x%lX)\n", loc_msh);
+		WARN("No remote msubs stored for loc_msh(0x%" PRIx64 ")\n",
+								loc_msh);
 	} else {
 		rem_msub_list.erase(new_end, end(rem_msub_list));
 	}
