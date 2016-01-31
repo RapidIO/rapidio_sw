@@ -120,8 +120,8 @@ public:
 	{
 		auto rc = 0;
 		cm_msg_t *msg = static_cast<cm_msg_t *>(vmsg);
-		cm_server_tx_engine *tx_eng =
-			static_cast<cm_server_tx_engine *>(vtx_eng);
+		tx_engine<cm_server, unix_msg_t> *tx_eng =
+			static_cast<tx_engine<cm_server, unix_msg_t> *>(vtx_eng);
 
 		(void)tx_eng;	// Temporary
 
@@ -141,8 +141,8 @@ public:
 	{
 		auto rc = 0;
 		cm_msg_t *msg = static_cast<cm_msg_t *>(vmsg);
-		cm_client_tx_engine *tx_eng =
-			static_cast<cm_client_tx_engine *>(vtx_eng);
+		tx_engine<cm_client, unix_msg_t> *tx_eng =
+			static_cast<tx_engine<cm_client, unix_msg_t> *>(vtx_eng);
 
 		(void)tx_eng;	// Temporary
 		switch(msg->type) {
