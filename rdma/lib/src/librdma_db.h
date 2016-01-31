@@ -138,6 +138,7 @@ struct rem_ms {
 ms_h add_rem_ms(const char *name, uint32_t msid);
 ms_h find_rem_ms(uint32_t msid);
 int remove_rem_ms(ms_h msh);
+int remove_rem_ms(uint32_t msid);
 bool rem_ms_exists(ms_h msh);
 
 /**
@@ -195,6 +196,7 @@ msub_h add_rem_msub(uint32_t	rem_msubid,
 		    uint32_t	destid,
 		    ms_h	loc_msh);
 msub_h find_rem_msub(uint32_t msubid);
+int remove_rem_msub(uint32_t msubid);
 int remove_rem_msub(msub_h msub);
 unsigned get_num_rem_msubs(void);
 void remove_rem_msubs_in_ms(uint32_t msid);

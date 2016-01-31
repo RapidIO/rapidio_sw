@@ -587,12 +587,44 @@ bool rem_ms_exists(ms_h msh)
  *
  * Removes the specified remote memory space from the database.
  *
+ * @msid	Identifier of the memory space to be removed
+ * @return	0 if successful < 0 if unsuccessful
+ */
+int remove_rem_ms(uint32_t msid)
+{
+	int rc;
+
+	pthread_mutex_lock(&rem_ms_mutex);
+	auto it = find_if(begin(rem_ms_list),
+			  end(rem_ms_list),
+			  has_this_msid<rem_ms>(msid));
+	if (it == end(rem_ms_list)) {
+		ERR("msid(0x%X) not found in database!\n", msid);
+		rc = -1;
+	} else {
+		/* Free the ms, and remove from list */
+		free((*it)->name);	/* Free name string */
+		delete *it;		/* Free ms struct */
+		rem_ms_list.erase(it);	/* Remove pointer from list */
+		DBG("Now database has size = %d\n", rem_ms_list.size());
+		rc = 0;
+	}
+	pthread_mutex_unlock(&rem_ms_mutex);
+
+	return rc;
+} /* remove_rem_ms() */
+
+/**
+ * remove_rem_ms
+ *
+ * Removes the specified remote memory space from the database.
+ *
  * @msh		Memory space handle
  * @return	0 if successful < 0 if unsuccessful
  */
 int remove_rem_ms(ms_h msh)
 {
-	auto rc = 0;
+	int rc;
 
 	/* Check for NULL msh */
 	if (!msh) {
@@ -611,6 +643,7 @@ int remove_rem_ms(ms_h msh)
 			delete *it;		/* Free ms struct */
 			rem_ms_list.erase(it);	/* Remove pointer from list */
 			DBG("Now database has size = %d\n", rem_ms_list.size());
+			rc = 0;
 		}
 		pthread_mutex_unlock(&rem_ms_mutex);
 	}
@@ -897,6 +930,34 @@ msub_h find_rem_msub(uint32_t msubid)
  * remove_rem_msub:
  *
  * Removes the specified remote memory sub-space from the database.
+ *
+ * @msubid	Identifier of the memory sub-space to be removed
+ * @return	> 0 if successful < 0 if unsuccessful
+ */
+int remove_rem_msub(uint32_t msubid)
+{
+	int rc;
+	pthread_mutex_lock(&rem_msub_mutex);
+	auto it = find_if(begin(rem_msub_list),
+			  end(rem_msub_list),
+			  rem_has_this_msubid(msubid));
+	if (it == rem_msub_list.end()) {
+		WARN("msubid(0x%X) not found\n");
+		rc = -2;
+	} else {
+		/* Free the msub, and remove from list */
+		delete *it;		/* Free msub struct */
+		rem_msub_list.erase(it);/* Remove pointer from list */
+		rc = 0;
+	}
+	pthread_mutex_unlock(&rem_msub_mutex);
+	return rc;
+} /* remove_rem_msub() */
+
+/**
+ * remove_rem_msub:
+ *
+ * Removes the specified remote memory sub-space from the database.
  * 
  * @msubh	Handle to memory sub-space to be removed
  * @return	> 0 if successful < 0 if unsuccessful
@@ -955,7 +1016,7 @@ void remove_rem_msubs_in_ms(uint32_t msid)
 	/* Save old end of the list */
 	auto old_end = end(rem_msub_list);
 
-	/* remove_if() returns the new end after elements are removed */
+	/* remove_if() returns new end after matching elements pushed to back */
 	auto new_end = remove_if(begin(rem_msub_list),
 			         end(rem_msub_list),
 			         rem_msub_has_this_msid(msid));
@@ -966,6 +1027,9 @@ void remove_rem_msubs_in_ms(uint32_t msid)
 		 * an msub, it is possible that the server may not have
 		 * an msub belonging to the client's ms. */
 		INFO("No remote msubs stored for msid(0x%X)\n", msid);
+	} else {
+		/* Elements moved to the end, but still need to be purged */
+		rem_msub_list.erase(new_end, old_end);
 	}
 	pthread_mutex_unlock(&rem_msub_mutex);
 } /* remove_rem_msub_in_ms() */
@@ -1050,6 +1114,8 @@ void remove_rem_msub_by_loc_msh(ms_h loc_msh)
 		 * an msub, it is possible that the server may not have
 		 * an msub belonging to the client's ms. */
 		WARN("No remote msubs stored for loc_msh(0x%lX)\n", loc_msh);
+	} else {
+		rem_msub_list.erase(new_end, end(rem_msub_list));
 	}
 	pthread_mutex_unlock(&rem_msub_mutex);
 } /* remove_rem_msub_by_loc_msh() */
