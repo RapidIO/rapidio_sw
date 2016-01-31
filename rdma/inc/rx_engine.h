@@ -73,6 +73,8 @@ public:
 			CRIT("Failed to init message_queue_lock mutex\n");
 			throw -1;
 		}
+
+		tx_eng->set_rx_eng(this);
 		worker_thread = new thread(&rx_engine::worker, this);
 		worker_thread->detach();
 	} /* ctor */

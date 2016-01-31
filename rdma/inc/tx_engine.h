@@ -55,11 +55,14 @@ using std::thread;
 using std::shared_ptr;
 
 template <typename T, typename M>
+class rx_engine;
+
+template <typename T, typename M>
 class tx_engine {
 
 public:
 	tx_engine(shared_ptr<T> client, sem_t *engine_cleanup_sem) :
-			client(client), stop_worker_thread(false),
+			rx_eng(nullptr), client(client), stop_worker_thread(false),
 			worker_is_dead(false),
 			is_dead(false), engine_cleanup_sem(engine_cleanup_sem)
 	{
@@ -96,6 +99,10 @@ public:
 	bool isdead() const { return is_dead; }
 
 	void set_isdead() { is_dead = true; }
+
+	void set_rx_eng(rx_engine<T,M> *rx_eng) { this->rx_eng = rx_eng; }
+
+	rx_engine<T,M> *get_rx_eng() const { return rx_eng; }
 
 	T *get_client() { return client.get(); }
 
@@ -154,6 +161,7 @@ protected:
 		DBG("Exiting...()\n");
 	} /* worker() */
 
+	rx_engine<T,M>	*rx_eng;
 	queue<M*>	message_queue;
 	pthread_mutex_t	message_queue_lock;
 	shared_ptr<T>	client;
