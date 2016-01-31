@@ -41,8 +41,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "liblog.h"
 #include "rdmad_cm.h"
-#include "rdma_mq_msg.h"
-#include "msg_q.h"
 #include "cm_sock.h"
 #include "ts_vector.h"
 

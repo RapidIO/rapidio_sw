@@ -1657,21 +1657,6 @@ int rdma_accept_ms_h(ms_h loc_msh,
 
 		/* Return remote msub length to application */
 		*rem_msub_len = conn_req_msg->client_msub_bytes;
-#if 0
-	pthread_t wait_for_disc_thread;
-	if (pthread_create(&wait_for_disc_thread, NULL, wait_for_disc_thread_f, connect_disconnect_mq)) {
-		WARN("Failed to create wait_for_disc_thread: %s\n", strerror(errno));
-		delete connect_disconnect_mq;
-		sem_post(&rdma_lock);
-		return RDMA_PTHREAD_FAIL;
-	}
-	INFO("Disconnection thread for '%s' created\n", ms->name);
-
-	/* Add conn/disc message queue and disc thread to database entry */
-	ms->disc_thread = wait_for_disc_thread;
-	ms->disc_notify_mq = connect_disconnect_mq;
-	ms->accepted = true;
-#endif
 	}
 	catch(int e) {
 		rc = e;

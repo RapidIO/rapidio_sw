@@ -45,7 +45,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <set>
 #include <exception>
 
-#include "msg_q.h"	// TODO: Remove
 #include "cm_sock.h"
 #include "unix_sock.h"
 #include "rdma_types.h"

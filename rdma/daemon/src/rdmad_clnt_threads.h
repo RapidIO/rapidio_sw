@@ -77,7 +77,8 @@ struct connected_to_ms_info {
 	connected(false),
 	client_msubid(client_msubid),
 	server_msname(server_msname),
-	server_msid(0xFFFF),
+	server_msid(0),
+	server_msubid(0),
 	server_destid(server_destid),
 	to_lib_tx_eng(to_lib_tx_eng)
 	{
@@ -110,6 +111,7 @@ struct connected_to_ms_info {
 	uint32_t client_msubid;
 	string	 server_msname;
 	uint32_t server_msid;
+	uint32_t server_msubid;
 	uint32_t server_destid;
 	tx_engine<unix_server,unix_msg_t> *to_lib_tx_eng;
 };

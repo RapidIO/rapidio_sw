@@ -72,6 +72,9 @@ public:
 			disconnect_ms_disp(msg->disconnect_from_ms_req_in.client_msubid);
 		break;
 
+		case MS_DESTROYED:
+		break;
+
 		default:
 			CRIT("Unhandled message type 0x%X cat 0x%X\n",
 						msg->type, msg->category);

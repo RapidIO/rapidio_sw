@@ -84,7 +84,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* Type codes for RDMA_REQ_RESP messages */
 constexpr uint32_t FORCE_CLOSE_MSO = 0x1001;
 constexpr uint32_t FORCE_CLOSE_MS  = 0x1002;
-constexpr uint32_t DISCONNECT_MS = 0x1003;
+constexpr uint32_t DISCONNECT_MS   = 0x1003;
+constexpr uint32_t MS_DESTROYED    = 0x1004;
 
 /* rdmad_is_alive() arguments */
 struct rdmad_is_alive_input {
@@ -350,6 +351,15 @@ struct accept_from_ms_req_input {
 	uint32_t server_destid;
 };
 
+/* Client daemon to client app */
+/* The server destroyed the MS and the client is being
+ * notified so it cleans up its database off the server's
+ * ms, and msub. */
+struct ms_destroyed_input {
+	uint32_t server_msid;
+	uint32_t server_msubid;
+};
+
 /* Unix message structure */
 struct unix_msg_t {
 	rdma_msg_type	type;
@@ -401,6 +411,7 @@ struct unix_msg_t {
 		struct connect_to_ms_resp_output connect_to_ms_resp_out;
 		struct accept_from_ms_req_input	accept_from_ms_req_in;
 		struct disconnect_from_ms_req_input disconnect_from_ms_req_in;
+		struct ms_destroyed_input 	ms_destroyed_in;
 	};
 
 };

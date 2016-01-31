@@ -60,58 +60,46 @@ sem_t				hello_daemon_info_list_sem;
 vector<connected_to_ms_info>	connected_to_ms_info_list;
 sem_t 				connected_to_ms_info_list_sem;
 
-static int send_destroy_ms_to_lib(const char *server_ms_name,
-				  uint32_t server_msid)
+/**
+ * Sends MS_DESTROYED to RDMA library, and waits (with timeout)
+ * for MS_DESTROYED_ACK.
+ */
+static int send_destroy_ms_to_lib(uint32_t server_msid,
+				  uint32_t server_msubid,
+				  uint64_t client_to_lib_tx_eng_h)
 {
-	int ret;
+	int rc;
 
-	/* Prepare POSIX message queue name */
-	std::stringstream	mq_name;
-	mq_name << "/dest-" << server_ms_name;
+	/* First verify that there is an actual connection to the
+	 * specified msid. */
+	auto it = find_if(
+		begin(connected_to_ms_info_list),
+		end(connected_to_ms_info_list),
+		[server_msid, server_msubid, client_to_lib_tx_eng_h]
+		(connected_to_ms_info& info)
+		{
+			uint64_t to_lib_tx_eng = (uint64_t)info.to_lib_tx_eng;
+			return (info.server_msid == server_msid) &&
+			       (info.server_msubid == server_msubid) &&
+			       (to_lib_tx_eng == client_to_lib_tx_eng_h) &&
+			       info.connected;
+		});
+	if (it == end(connected_to_ms_info_list)) {
+		ERR("No clients connected to memory space!\n");
+		rc = -1;
+	} else {
+		unix_msg_t	in_msg;
+		in_msg.type = MS_DESTROYED;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.ms_destroyed_in.server_msid = server_msid;
+		in_msg.ms_destroyed_in.server_msubid = server_msubid;
+		it->to_lib_tx_eng->send_message(&in_msg);
 
-	try {
-		/* Open destroy/destroy-ack message queue */
-		auto destroy_mq = make_unique<msg_q<mq_destroy_msg>>(
-					mq_name.str().c_str(), MQ_OPEN);
-
-		/* Send 'destroy' POSIX message to the RDMA library */
-		mq_destroy_msg	*dest_msg;
-		destroy_mq->get_send_buffer(&dest_msg);
-		dest_msg->server_msid = server_msid;
-		if (destroy_mq->send()) {
-			ERR("Failed to send 'destroy' message to client.\n");
-			throw -2;
-		}
-
-		/* Message buffer for receiving destroy ack message */
-		mq_destroy_msg *destroy_ack_msg;
-		destroy_mq->get_recv_buffer(&destroy_ack_msg);
-
-		/* Wait for 'destroy_ack', but with timeout; we cannot be
-		 * stuck here if the library fails to send the 'destroy_ack' */
-		struct timespec tm;
-		clock_gettime(CLOCK_REALTIME, &tm);
-		tm.tv_sec += 5;
-		if (destroy_mq->timed_receive(&tm)) {
-			/* The server daemon will timeout on the destory_ack
-			 * reception since it is using a timed receive CM API */
-			HIGH("Timed out without receiving ACK to destroy\n");
-			throw -3;
-		} else {
-			HIGH("POSIX destroy_ack rcvd for %s\n", server_ms_name);
-			ret = 0;	/* SUCCESS */
-		}
-	}
-	catch(msg_q_exception& e) {
-		ERR("Failed to open 'destroy' POSIX queue (%s): %s\n",
-					mq_name.str().c_str(), e.msg.c_str());
-		ret = -1;
-	}
-	catch(int e) {
-		ret = e;
+		/* TODO: Wait for destroy ACK */
+		rc = 0;
 	}
 
-	return ret;
+	return rc;
 } /* send_destroy_ms_to_lib() */
 
 /**
@@ -129,8 +117,9 @@ int send_destroy_ms_for_did(uint32_t did)
 	for (auto& conn_to_ms : connected_to_ms_info_list) {
 		if ((conn_to_ms == did) && conn_to_ms.connected) {
 			ret = send_destroy_ms_to_lib(
-					conn_to_ms.server_msname.c_str(),
-					conn_to_ms.server_msid);
+					conn_to_ms.server_msid,
+					conn_to_ms.server_msubid,
+					(uint64_t)conn_to_ms.to_lib_tx_eng);
 			if (ret) {
 				ERR("Failed to send destroy for '%s'\n",
 					conn_to_ms.server_msname.c_str());
@@ -149,27 +138,6 @@ int send_destroy_ms_for_did(uint32_t did)
 
 	return ret;
 } /* send_destroy_ms_for_did() */
-
-
-
-/**
- * Functor for matching a memory space on both server_destid and
- * server_msid.
- */
-struct match_ms {
-	match_ms(uint16_t server_destid, uint32_t server_msid) :
-		server_destid(server_destid), server_msid(server_msid)
-	{}
-
-	bool operator()(connected_to_ms_info& cmi)
-	{
-		return (cmi.server_msid == this->server_msid) &&
-		       (cmi.server_destid == this->server_destid);
-	}
-
-	uint16_t server_destid;
-	uint32_t server_msid;
-};
 
 struct wait_accept_destroy_thread_info {
 	wait_accept_destroy_thread_info(cm_client *hello_client,
@@ -321,16 +289,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 				end(connected_to_ms_info_list),
 				[accept_cm_msg](connected_to_ms_info& info)
 				{
-DBG("accept_cm_msg->server_ms_name = %s\n", accept_cm_msg->server_ms_name);
-DBG("info.server_msname = %s\n", info.server_msname.c_str());
-DBG("info.connected is %s\n", info.connected ? "TRUE" : "FALSE");
-DBG("accept_cm_msg->client_to_lib_tx_eng_h = 0x%" PRIx64 "\n",
-		accept_cm_msg->client_to_lib_tx_eng_h);
-DBG("be64toh((uint64_t)info.to_lib_tx_eng) = 0x%" PRIx64 "\n",
-		be64toh((uint64_t)info.to_lib_tx_eng));
-
 					bool match = (info.server_msname ==
-							accept_cm_msg->server_ms_name);
+						accept_cm_msg->server_ms_name);
 					match &= !info.connected;
 					match &=
 					(be64toh((uint64_t)info.to_lib_tx_eng)
@@ -389,18 +349,12 @@ DBG("be64toh((uint64_t)info.to_lib_tx_eng) = 0x%" PRIx64 "\n",
 			DBG("Setting '%s' to 'connected\n", accept_cm_msg->server_ms_name);
 			it->connected = true;
 			it->server_msid = be64toh(accept_cm_msg->server_msid);
+			it->server_msubid = be64toh(accept_cm_msg->server_msubid);
 			sem_post(&connected_to_ms_info_list_sem);
 
 		} else if (be64toh(accept_cm_msg->type) == CM_DESTROY_MS) {
-			/**
-			 * TODO: Multiple applications may be connected to the same remote
-			 * memory space. As such when sending the destroy message it
-			 * may need to go to multiple libraries/apps. The code below assumes
-			 * only one. The comparison should be on the destid/msid and whenever
-			 * they match, the corresponding tx_eng stored with them is used
-			 * to relay the 'destroy' message.
-			 */
 			cm_destroy_msg	*destroy_msg;
+			/* Receive CM_DESTROY_MS */
 			accept_destroy_client->get_recv_buffer(
 							(void **)&destroy_msg);
 
@@ -408,7 +362,12 @@ DBG("be64toh((uint64_t)info.to_lib_tx_eng) = 0x%" PRIx64 "\n",
 						destroy_msg->server_msname);
 
 			/* Relay to library and get ACK back */
-			if (send_destroy_ms_to_lib(destroy_msg->server_msname, be64toh(destroy_msg->server_msid))) {
+			int rc = send_destroy_ms_to_lib(
+					be64toh(destroy_msg->server_msid),
+					be64toh(destroy_msg->server_msubid),
+					be64toh(destroy_msg->client_to_lib_tx_eng_h)
+					);
+			if (rc) {
 				ERR("Failed to send destroy message to library or get ack\n");
 				/* Don't exit; there maybe a problem with that memory space
 				 * but not with others */
@@ -421,13 +380,14 @@ DBG("be64toh((uint64_t)info.to_lib_tx_eng) = 0x%" PRIx64 "\n",
 			 * different memory spaces and they are distinct only by
 			 * the servers DID (destid) */
 			sem_wait(&connected_to_ms_info_list_sem);
-			remove_if(begin(connected_to_ms_info_list),
+			auto it = remove_if(begin(connected_to_ms_info_list),
 				  end(connected_to_ms_info_list),
-				  match_ms(
-					   accept_destroy_client->server_destid,
-					   be64toh(destroy_msg->server_msid)
-					  )
-				  );
+				  [&](connected_to_ms_info& info) {
+					return (info.server_msid == be64toh(destroy_msg->server_msid))
+					&&     (info.server_msubid == be64toh(destroy_msg->server_msubid))
+					&&     ((uint64_t)info.to_lib_tx_eng == be64toh(destroy_msg->client_to_lib_tx_eng_h));
+   				});
+			connected_to_ms_info_list.erase(it, end(connected_to_ms_info_list));
 			sem_post(&connected_to_ms_info_list_sem);
 
 			cm_destroy_ack_msg *dam;
@@ -447,7 +407,7 @@ DBG("be64toh((uint64_t)info.to_lib_tx_eng) = 0x%" PRIx64 "\n",
 			}
 		} else {
 			CRIT("Got an unknown message code (0x%X)\n",
-					accept_cm_msg->type);
+							accept_cm_msg->type);
 		}
 	} /* while(1) */
 	pthread_exit(0);
