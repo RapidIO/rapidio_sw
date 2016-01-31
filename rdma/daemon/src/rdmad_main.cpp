@@ -48,7 +48,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <memory>
 
 #include "cm_sock.h"
-#include "rdma_mq_msg.h"
 #include "liblog.h"
 
 #include "rdmad_cm.h"
@@ -792,9 +791,6 @@ int main (int argc, char **argv)
 		CRIT("%s\n", e.what());
 		goto out_free_inbound;
 	}
-
-	/* Initialize message queue attributes */
-	init_mq_attribs();
 
 	/* Initialize semaphores */
 	if (sem_init(&peer.cm_wait_connect_sem, 0, 0) == -1) {

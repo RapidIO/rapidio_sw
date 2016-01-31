@@ -86,6 +86,7 @@ constexpr uint32_t FORCE_CLOSE_MSO = 0x1001;
 constexpr uint32_t FORCE_CLOSE_MS  = 0x1002;
 constexpr uint32_t DISCONNECT_MS   = 0x1003;
 constexpr uint32_t MS_DESTROYED    = 0x1004;
+constexpr uint32_t MS_DESTROYED_ACK = 0x9004;
 
 /* rdmad_is_alive() arguments */
 struct rdmad_is_alive_input {
@@ -359,6 +360,10 @@ struct ms_destroyed_input {
 	uint32_t server_msid;
 	uint32_t server_msubid;
 };
+struct ms_destroyed_ack_input {
+	uint32_t server_msid;
+	uint32_t server_msubid;
+};
 
 /* Unix message structure */
 struct unix_msg_t {
@@ -412,6 +417,7 @@ struct unix_msg_t {
 		struct accept_from_ms_req_input	accept_from_ms_req_in;
 		struct disconnect_from_ms_req_input disconnect_from_ms_req_in;
 		struct ms_destroyed_input 	ms_destroyed_in;
+		struct ms_destroyed_ack_input	ms_destroyed_ack_in;
 	};
 
 };

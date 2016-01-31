@@ -41,4 +41,6 @@ void force_close_ms_disp(uint32_t msid);
 
 void disconnect_ms_disp(uint32_t client_msubid);
 
+void ms_destroyed_disp(uint32_t server_msid, uint32_t server_msubid);
+
 #endif

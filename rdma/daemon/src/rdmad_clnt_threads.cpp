@@ -42,16 +42,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "memory_supp.h"
 
-#include "msg_q.h"
-#include "rdma_mq_msg.h"
 #include "liblog.h"
 #include "cm_sock.h"
 #include "rdmad_cm.h"
 #include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
+#include "rdmad_rx_engine.h"
 
 using std::unique_ptr;
 using std::move;
+using std::make_shared;
 
 /* List of destids provisioned via the HELLO command/message */
 vector<hello_daemon_info>	hello_daemon_info_list;
@@ -59,6 +59,41 @@ sem_t				hello_daemon_info_list_sem;
 
 vector<connected_to_ms_info>	connected_to_ms_info_list;
 sem_t 				connected_to_ms_info_list_sem;
+
+static int await_message(rx_engine<unix_server, unix_msg_t> *rx_eng,
+			rdma_msg_cat category, rdma_msg_type type,
+			rdma_msg_seq_no seq_no, unsigned timeout_in_secs,
+			unix_msg_t *out_msg)
+{
+	auto rc = 0;
+
+	/* Prepare for reply */
+	auto reply_sem = make_shared<sem_t>();
+	sem_init(reply_sem.get(), 0, 0);
+
+	rc = rx_eng->set_notify(type, category, seq_no, reply_sem);
+
+	/* Wait for reply */
+	DBG("Notify configured...WAITING...\n");
+	struct timespec timeout;
+	clock_gettime(CLOCK_REALTIME, &timeout);
+	timeout.tv_sec += timeout_in_secs;
+	rc = sem_timedwait(reply_sem.get(), &timeout);
+	if (rc) {
+		ERR("reply_sem failed: %s\n", strerror(errno));
+		if (timeout_in_secs && errno == ETIMEDOUT) {
+			ERR("Timeout occurred\n");
+			rc = ETIMEDOUT;
+		}
+	} else {
+		DBG("Got reply!\n");
+		rc = rx_eng->get_message(type, category, seq_no, out_msg);
+		if (rc) {
+			ERR("Failed to obtain reply message, rc = %d\n", rc);
+		}
+	}
+	return rc;
+} /* await_message() */
 
 /**
  * Sends MS_DESTROYED to RDMA library, and waits (with timeout)
@@ -70,8 +105,7 @@ static int send_destroy_ms_to_lib(uint32_t server_msid,
 {
 	int rc;
 
-	/* First verify that there is an actual connection to the
-	 * specified msid. */
+	/* Verify that there is an actual connection to the specified msid. */
 	auto it = find_if(
 		begin(connected_to_ms_info_list),
 		end(connected_to_ms_info_list),
@@ -95,10 +129,23 @@ static int send_destroy_ms_to_lib(uint32_t server_msid,
 		in_msg.ms_destroyed_in.server_msubid = server_msubid;
 		it->to_lib_tx_eng->send_message(&in_msg);
 
-		/* TODO: Wait for destroy ACK */
-		rc = 0;
-	}
+		unix_msg_t	out_msg;
+		rx_engine<unix_server, unix_msg_t> *rx_eng
+					= it->to_lib_tx_eng->get_rx_eng();
+		rc = await_message(
+			rx_eng, RDMA_LIB_DAEMON_CALL, MS_DESTROYED_ACK,
+							0, 1, &out_msg);
+		bool ok = out_msg.ms_destroyed_ack_in.server_msid ==
+					in_msg.ms_destroyed_in.server_msid;
 
+		ok &= out_msg.ms_destroyed_ack_in.server_msubid ==
+					in_msg.ms_destroyed_in.server_msubid;
+		if (rc) {
+			ERR("Timeout waiting for MS_DESTROYED_ACK\n");
+		} else if (!ok) {
+			ERR("Mismatched MS_DESTROYED_ACK\n");
+		}
+	}
 	return rc;
 } /* send_destroy_ms_to_lib() */
 
@@ -109,7 +156,7 @@ static int send_destroy_ms_to_lib(uint32_t server_msid,
  *    of the server's remove msub entries.
  * 2. Remove entries for that 'did' from the connected_to_ms_info_list.
  */
-int send_destroy_ms_for_did(uint32_t did)
+int send_destroy_ms_to_lib_for_did(uint32_t did)
 {
 	int ret = 0;
 
@@ -121,7 +168,7 @@ int send_destroy_ms_for_did(uint32_t did)
 					conn_to_ms.server_msubid,
 					(uint64_t)conn_to_ms.to_lib_tx_eng);
 			if (ret) {
-				ERR("Failed to send destroy for '%s'\n",
+				ERR("Failed in send_destroy_ms_to_lib '%s'\n",
 					conn_to_ms.server_msname.c_str());
 			}
 		}
@@ -374,22 +421,24 @@ void *wait_accept_destroy_thread_f(void *arg)
 				continue;
 			}
 
-			/* Remove the entry relating to the destroy ms. Note that
-			 * it has to match both the server_destid and server_msid
-			 * since multiple daemons can allocate the same msid to
-			 * different memory spaces and they are distinct only by
-			 * the servers DID (destid) */
+			/* Remove the entry relating to the destroyed ms. The entry fields must
+			 * match the 'CM_DESTROY_MS */
 			sem_wait(&connected_to_ms_info_list_sem);
-			auto it = remove_if(begin(connected_to_ms_info_list),
+			connected_to_ms_info_list.erase (
+				remove_if(begin(connected_to_ms_info_list),
 				  end(connected_to_ms_info_list),
 				  [&](connected_to_ms_info& info) {
 					return (info.server_msid == be64toh(destroy_msg->server_msid))
 					&&     (info.server_msubid == be64toh(destroy_msg->server_msubid))
 					&&     ((uint64_t)info.to_lib_tx_eng == be64toh(destroy_msg->client_to_lib_tx_eng_h));
-   				});
-			connected_to_ms_info_list.erase(it, end(connected_to_ms_info_list));
+   				})
+   				, end(connected_to_ms_info_list));
 			sem_post(&connected_to_ms_info_list_sem);
 
+			/**
+			 * Send back CM_DESTROY_ACK_MS to the remote daemon on which
+			 * the memory space was created then destroyed.
+			 */
 			cm_destroy_ack_msg *dam;
 
 			/* Flush CM send buffer of previous message */
@@ -408,6 +457,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 		} else {
 			CRIT("Got an unknown message code (0x%X)\n",
 							accept_cm_msg->type);
+			assert(false);
 		}
 	} /* while(1) */
 	pthread_exit(0);

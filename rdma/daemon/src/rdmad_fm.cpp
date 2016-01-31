@@ -37,7 +37,7 @@ static void unprovision_did(uint32_t did)
 	 * we should send them destroy messages so they clear their spaces
 	 * and subspaces.
 	 */
-	if (send_destroy_ms_for_did(did)) {
+	if (send_destroy_ms_to_lib_for_did(did)) {
 		ERR("Failed to send destroy message for did(0x%X)\n", did);
 	}
 

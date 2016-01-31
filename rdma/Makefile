@@ -69,8 +69,7 @@ RDMAD_CFLAGS = -Wall -Werror -Wextra -std=c++11 -g -ggdb -O3 \
 		-I../common/libcli/inc \
 		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
 
-RDMAD_SOURCES = src/rdma_mq_msg.c \
-		daemon/src/rdmad_main.cpp \
+RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
 		daemon/src/rdmad_console.c \
 		daemon/src/rdmad_ms_owner.cpp \
 		daemon/src/rdmad_ms_owners.cpp \
@@ -98,10 +97,9 @@ RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=c++11 -c -g -ggdb \
 
 RDMALIB_SOURCES = lib/src/librdma.cpp \
 		lib/src/librdma_db.cpp \
-		lib/src/librdma_dispatch.cpp \
-		src/rdma_mq_msg.c
+		lib/src/librdma_dispatch.cpp
 
-RDMALIB_OBJS    = librdma.o librdma_db.o librdma_dispatch.o rdma_mq_msg.o
+RDMALIB_OBJS    = librdma.o librdma_db.o librdma_dispatch.o
 
 # ------------------------------!!! All targets ------------------------------!!!!
 all: librdma.a rdmad rsktd test samples rrdma

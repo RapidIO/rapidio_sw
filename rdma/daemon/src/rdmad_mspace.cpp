@@ -48,7 +48,6 @@
 #include "liblog.h"
 #include "rdma_types.h"
 #include "rdmad_cm.h"
-#include "rdma_mq_msg.h"	// TODO: Remove
 #include "rdmad_mspace.h"
 #include "rdmad_msubspace.h"
 #include "rdmad_ms_owner.h"

@@ -59,14 +59,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdma_types.h"
 #include "liblog.h"
-#include "rdma_mq_msg.h"
 #include "librdma_rx_engine.h"
 #include "librdma_tx_engine.h"
 #include "librdma_msg_processor.h"
-#include "msg_q.h"
-
 #include "librdma.h"
-
 #include "rapidio_mport_dma.h"
 #include "librdma_db.h"
 #include "unix_sock.h"
@@ -82,7 +78,7 @@ using std::thread;
 static unix_msg_processor	msg_proc;
 
 static unix_rx_engine *rx_eng;
-static unix_tx_engine *tx_eng;
+unix_tx_engine *tx_eng;
 
 static thread *engine_monitoring_thread;
 
@@ -375,79 +371,6 @@ static int open_mport(void)
 	}
 	return 0;
 } /* open_mport() */
-#if 0
-/**
- * client_wait_for_destroy_thread_f
- *
- * Thread that runs on the client and waits for an mq_destroy_msg from
- * the client's daemon indicating that a memory space to which the client
- * had connected has now been destroyed.
- *
- * @arg		memory space name
- */
-static void *client_wait_for_destroy_thread_f(void *arg)
-{
-	INFO("STARTED\n");
-
-	if (!arg) {
-		CRIT("Destroy message queue not passed. EXITING\n");
-		pthread_exit(0);
-	}
-
-	msg_q<mq_destroy_msg>	*destroy_mq = (msg_q<mq_destroy_msg> *)arg;
-
-	/* Message buffer for destroy POSIX message */
-	mq_destroy_msg	*dm;
-	destroy_mq->get_recv_buffer(&dm);
-
-	/* Wait for destroy POSIX message */
-	INFO("Waiting for destroy ms POSIX message on %s\n",
-						destroy_mq->get_name().c_str());
-	if (destroy_mq->receive()) {
-		CRIT("Failed to receive 'destroy' POSIX message\n");
-		pthread_exit(0);
-	}
-	INFO("Got 'destroy ms' POSIX message\n");
-
-	/* Remove the msubs belonging to that ms */
-	DBG("Removing msubs in server_msid(0x%X)\n", dm->server_msid);
-	remove_rem_msubs_in_ms(dm->server_msid);
-
-	/* Remove the ms itself */
-	DBG("Removing server_msid(0x%X) from database\n", dm->server_msid);
-	ms_h	msh = find_rem_ms(dm->server_msid);
-	if (msh == (ms_h)NULL) {
-		CRIT("Failed to find rem_ms with msid(0x%X)\n",
-							dm->server_msid);
-	} else if (remove_rem_ms(msh) < 0) {
-		WARN("Failed to remove msh(0x%lX)\n", msh);
-	} else {
-		DBG("Removed rem_ms with msid(0x%X) from remote database\n",
-							dm->server_msid);
-		if (rem_ms_exists(msh)) {
-			DBG("IMPOSSIBLE!!!! Still in database!\n");
-		}
-	}
-
-	/* Send back a destroy_ack message to the local daemon */
-	mq_destroy_msg	*dam;
-	destroy_mq->get_send_buffer(&dam);
-	dam->server_msid = dm->server_msid;
-	DBG("Sending back DESTROY ACK 4 server_msid(0x%X)\n", dm->server_msid);
-	if (destroy_mq->send()) {
-		CRIT("Failed to send destroy ack on %s\n",
-					destroy_mq->get_name().c_str());
-		delete destroy_mq;
-		pthread_exit(0);
-	}
-	INFO("Sent mq_destroy_ack message to local daemon\n");
-
-	/* Close and unlink the message queue */
-	delete destroy_mq;
-
-	pthread_exit(0);
-} /* client_wait_for_destroy_thread_f() */
-#endif
 
 /**
  * FIXME: Rename to something more general.
@@ -569,9 +492,6 @@ __attribute__((constructor)) int lib_init(void)
 
 	/* Initialize the logger */
 	rdma_log_init("librdma.log", 0);
-
-	/* Initialize message queue attributes */
-	init_mq_attribs();
 
 	/* Make threads cancellable at some points (e.g. mq_receive) */
 	if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)) {

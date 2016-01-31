@@ -73,6 +73,8 @@ public:
 		break;
 
 		case MS_DESTROYED:
+			ms_destroyed_disp(msg->ms_destroyed_in.server_msid,
+					  msg->ms_destroyed_in.server_msubid);
 		break;
 
 		default:

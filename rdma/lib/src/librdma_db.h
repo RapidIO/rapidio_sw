@@ -43,8 +43,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::list;
 
 #include "rdma_types.h"
-#include "msg_q.h"
-#include "rdma_mq_msg.h"
 
 int rdma_db_init();
 

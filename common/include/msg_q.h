@@ -40,11 +40,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstring>
 #include <string>
 
-#include "rdma_mq_msg.h"
 #include "liblog.h"
 
-/* TODO: Copy from rdma_mq_msg.h */
+#define MQ_RCV_BUF_SIZE		4*1024
 #define MQ_SEND_BUF_SIZE	MQ_RCV_BUF_SIZE
+#define	MQ_MSG_SIZE		128
 
 using std::string;
 using std::stringstream;
