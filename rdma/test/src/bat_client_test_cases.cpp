@@ -1438,15 +1438,14 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	if (tc == 'k') {
 		/* Delete the server mso */
 		ret = destroy_mso_f(bat_connections[0], server_msoh);
-		BAT_EXPECT_RET(ret, 0, exit);
+		if (ret)
+			fprintf(log_fp, "Failed on line %d\n", __LINE__);
 
 		/* Delete the client mso */
 		ret = rdma_destroy_mso_h(client_msoh);
-		BAT_EXPECT_RET(ret, 0, free_client_mso);
+		BAT_EXPECT_RET(ret, 0, exit);
 
-		fprintf(log_fp, "test_case %c %s\n",
-					tc, (rc == 0) ? "PASSED" : "FAILED");
-		return 0;
+		goto exit;
 	}
 
 	/* Test case 'j' is just the fall through here and we delete
@@ -1464,8 +1463,10 @@ free_server_mso:
 
 exit:
 	if (ret == 0) {
+		fprintf(stdout, "test_case %c %s\n",
+				tc, (rc == 0) ? "PASSED" : "FAILED");
 		fprintf(log_fp, "test_case %c %s\n",
-					tc, (rc == 0) ? "PASSED" : "FAILED");
+				tc, (rc == 0) ? "PASSED" : "FAILED");
 	}
 
 	return 0;
