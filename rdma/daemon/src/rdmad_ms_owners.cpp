@@ -211,6 +211,8 @@ void ms_owners::close_mso(tx_engine<unix_server, unix_msg_t>  *user_tx_eng)
 
 int ms_owners::destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
+	int rc;
+
 	pthread_mutex_lock(&lock);
 
 	auto mso_it = find_if(begin(owners), end(owners),
@@ -219,24 +221,28 @@ int ms_owners::destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng)
 	/* Not found, warn and return code */
 	if (mso_it == owners.end()) {
 		WARN("Could not find any MSOs with the specified socket!\n");
-		pthread_mutex_unlock(&lock);
-		return -1;
-	}
-
-	DBG("mso with specified socket found, name='%s'\n",
+		rc = -1;
+	} else {
+		DBG("mso with specified socket found, name='%s'\n",
 					(*mso_it)->get_mso_name());
-	/* Mark msoid as being free */
-	msoid_free_list[(*mso_it)->get_msoid()] = true;
-	DBG("msoid(0x%X) now marked as 'free'\n");
 
-	/* Remove owner */
-	delete *mso_it;
-	owners.erase(mso_it);
-	DBG("mso object deleted, and removed from owners list\n");
+		auto msoid = (*mso_it)->get_msoid();
+		assert(msoid <= MSOID_MAX);
+
+		/* Mark msoid as being free */
+		msoid_free_list[msoid] = true;
+		DBG("msoid(0x%X) now marked as 'free'\n");
+
+		/* Remove owner */
+		delete *mso_it;
+		owners.erase(mso_it);
+		DBG("mso object deleted, and removed from owners list\n");
+		rc = 0;
+	}
 
 	pthread_mutex_unlock(&lock);
 
-	return 0;
+	return rc;
 } /* destroy_mso() */
 
 int ms_owners::destroy_mso(uint32_t msoid)

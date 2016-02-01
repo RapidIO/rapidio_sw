@@ -79,50 +79,50 @@ int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 			ms_name, bytes, msoid, msid, &ms, to_lib_tx_eng);
 	if (rc != 0) {
 		ERR("Failed to create '%s'\n", ms_name);
-		return -1;
-	}
-
-	/* Check that ms is not NULL */
-	if (ms == nullptr) {
+		rc = -1;
+	} else  if (ms == nullptr) {
 		ERR("ms is null for '%s'\n", ms_name);
-		return -2;
-	}
+		rc = -2;
+	} else {
+		/* Obtain assigned physical & RIO addresses (which would be the
+		 * same if we are using direct mapping). */
+		*phys_addr = ms->get_phys_addr();
+		*rio_addr  = ms->get_rio_addr();
 
-	/* Obtain assigned physical & RIO addresses (which would be the
-	 * same if we are using direct mapping). */
-	*phys_addr = ms->get_phys_addr();
-	*rio_addr  = ms->get_rio_addr();
-
-	DBG("the_inbound->create_mspace(%s) %s\n", ms_name,
+		DBG("the_inbound->create_mspace(%s) %s\n", ms_name,
 						rc ? "FAILED" : "PASSED");
 
-	/* Add the memory space to the owner (if no errors) */
-	try {
-		owners[msoid]->add_ms(ms);
-	}
-	catch(...) {
-		ERR("Invalid msoid(0x%X) caused segfault\n", msoid);
-		rc = -3;
+		/* Add the memory space to the owner (if no errors) */
+		try {
+			owners[msoid]->add_ms(ms);
+			rc = 0;
+		}
+		catch(...) {
+			ERR("Invalid msoid(0x%X) caused segfault\n", msoid);
+			rc = -3;
+		}
 	}
 	return rc;
 } /* rdmad_create_ms() */
 
 int rdmad_close_ms(uint32_t msid, tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
+	int rc;
 	mspace *ms = the_inbound->get_mspace(msid);
 	if (ms == nullptr) {
 		ERR("Could not find mspace with msid(0x%X)\n", msid);
-		return -1;
+		rc = -1;
 	} else {
 		/* Now close the memory space */
-		return ms->close(app_tx_eng);
+		rc = ms->close(app_tx_eng);
 	}
+	return rc;
 } /* rdmad_close_ms() */
 
 int rdmad_accept_ms(uint32_t server_msid, uint32_t server_msubid,
 		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
-	auto rc = 0;
+	int rc;
 
 	mspace *ms = the_inbound->get_mspace(server_msid);
 	if (!ms) {
@@ -131,37 +131,7 @@ int rdmad_accept_ms(uint32_t server_msid, uint32_t server_msubid,
 	} else {
 		rc = ms->accept(to_lib_tx_eng, server_msubid);
 	}
-#if 0
-	/* Get the memory space name, and prepend  '/' to make it a queue */
-	string	s(loc_ms_name);
-	s.insert(0, 1, '/');
 
-	/* Prepare accept message from input parameters */
-	struct cm_accept_msg	cmam;
-	cmam.type		= htobe64(CM_ACCEPT_MS);
-	strcpy(cmam.server_ms_name, loc_ms_name);
-	cmam.server_msid	= htobe64(ms->get_msid());
-	cmam.server_msubid	= htobe64(loc_msubid);
-	cmam.server_bytes	= htobe64(loc_bytes);
-	cmam.server_rio_addr_len= htobe64(loc_rio_addr_len);
-	cmam.server_rio_addr_lo	= htobe64(loc_rio_addr_lo);
-	cmam.server_rio_addr_hi	= htobe64(loc_rio_addr_hi);
-	cmam.server_destid_len	= htobe64(16);
-	cmam.server_destid	= htobe64(peer.destid);
-	DBG("cm_accept_msg has server_destid = 0x%X\n",
-						be64toh(cmam.server_destid));
-	DBG("cm_accept_msg has server_destid_len = 0x%X\n",
-					be64toh(cmam.server_destid_len));
-
-	/* Add accept message content to map indexed by message queue name */
-	if (accept_msg_map.contains(s)) {
-		CRIT("%s is already in accept_msg_map\n");
-		return -1;
-	} else {
-		DBG("Adding entry in accept_msg_map for '%s'\n", s.c_str());
-		accept_msg_map.add(s, cmam);
-	}
-#endif
 	return rc;
 } /* rdmad_accept_ms() */
 
@@ -169,7 +139,7 @@ int rdmad_accept_ms(uint32_t server_msid, uint32_t server_msubid,
 int rdmad_undo_accept_ms(uint32_t server_msid,
 		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
-	auto rc = 0;
+	int rc;
 
 	mspace *ms = the_inbound->get_mspace(server_msid);
 	if (!ms) {
@@ -180,27 +150,6 @@ int rdmad_undo_accept_ms(uint32_t server_msid,
 	}
 
 	return rc;
-#if 0
-	/* An accept() must be in effect to undo it. Double-check */
-	if (!ms->is_accepting()) {
-		ERR("%s NOT in accept().\n", ms_name);
-		return -2;
-	}
-
-	/* Get the memory space name, and prepend '/' to make it a queue */
-	string	s(ms_name);
-	s.insert(0, 1, '/');
-
-	/* Remove accept message content from map indexed by message queue name */
-	accept_msg_map.remove(s);
-
-	/* TODO: How about if it is connected, but the server doesn't
-	 * get the notification. If it is connected it cannot do undo_accept
-	 * so let's think about that. */
-
-	/* Now set it as unaccepted */
-	ms->set_accepting(false);
-#endif
 } /* rdmad_undo_accept_ms() */
 
 int rdmad_send_connect(const char *server_ms_name,
@@ -252,19 +201,6 @@ int rdmad_send_connect(const char *server_ms_name,
 	c->seq_num		= htobe64((uint64_t)seq_num);
 	c->client_to_lib_tx_eng_h = htobe64((uint64_t)to_lib_tx_eng);
 
-	DBG("WITHOUT CONVERSION:\n");
-	DBG("c->type = 0x%016" PRIx64 "\n", c->type);
-	DBG("c->server_msname = %s\n", c->server_msname);
-	DBG("c->client_msid   = 0x%016" PRIx64 "\n", c->client_msid);
-	DBG("c->client_msubid   = 0x%016" PRIx64 "\n", c->client_msubid);
-	DBG("c->client_bytes   = 0x%016" PRIx64 "\n", c->client_bytes);
-	DBG("c->client_rio_addr_len = 0x%016" PRIx64 "\n", c->client_rio_addr_len);
-	DBG("c->client_rio_addr_lo = 0x%016" PRIx64 "\n", c->client_rio_addr_lo);
-	DBG("c->client_rio_addr_hi = 0x%016" PRIx64 "\n", c->client_rio_addr_hi);
-	DBG("c->client_destid_len = 0x%016" PRIx64 "\n", c->client_destid_len);
-	DBG("c->client_destid = 0x%016" PRIx64 "\n", c->client_destid);
-	DBG("c->seq_num = 0x%016" PRIx64 "\n", c->seq_num);
-	DBG("WITH CONVERSTION:\n");
 	DBG("c->type = 0x%016" PRIx64 "\n", be64toh(c->type));
 	DBG("c->server_msname = %s\n", c->server_msname);
 	DBG("c->client_msid   = 0x%016" PRIx64 "\n", be64toh(c->client_msid));
@@ -300,6 +236,8 @@ int rdmad_send_connect(const char *server_ms_name,
 int rdmad_undo_connect(const char *server_ms_name,
 	        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
+	int rc;
+
 	/* Remove from the connected_to_ms_info_list. Must match
 	 * on BOTH the server_ms_name and (client) to_lib_tx_eng */
 	sem_wait(&connected_to_ms_info_list_sem);
@@ -313,14 +251,16 @@ int rdmad_undo_connect(const char *server_ms_name,
 	if (it == end(connected_to_ms_info_list)) {
 		WARN("Could not find '%s' in connected_to_ms_info_list\n",
 							server_ms_name);
+		rc = -1;
 	} else {
 		DBG("Removing '%s' from connect_to_ms_info_list\n",
 							server_ms_name);
 		connected_to_ms_info_list.erase(it);
+		rc = 0;
 	}
 	sem_post(&connected_to_ms_info_list_sem);
 
-	return 0;
+	return rc;
 } /* rdmad_undo_connect() */
 
 /**
@@ -361,6 +301,7 @@ int rdmad_send_disconnect(uint32_t server_destid,
 			rc = -1;
 		} else {
 			connected_to_ms_info_list.erase(it);
+			rc = 0;
 		}
 		sem_post(&connected_to_ms_info_list_sem);
 	}

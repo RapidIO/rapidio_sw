@@ -37,7 +37,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstdio>
 
 #include <algorithm>
-#include <vector>
 
 #include "rdma_types.h"
 #include "liblog.h"
@@ -47,22 +46,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_mspace.h"
 #include "rdmad_ibwin.h"
 #include "rdmad_inbound.h"
-
-using std::vector;
-
-struct ibw_free {
-	void operator()(ibwin& ibw) { ibw.free(); }
-};
-
-/* Does inbound window have room for a memory space of specified size? */
-struct ibwin_has_room {
-	ibwin_has_room(uint64_t size) : size(size) {}
-	bool operator()(ibwin& ibw) {
-		return ibw.has_room_for_ms(size);
-	}
-private:
-	uint64_t size;
-}; /* ibwin_has_room */
 
 /* Constructor */
 inbound::inbound(riomp_mport_t mport_hnd,
@@ -91,7 +74,7 @@ inbound::inbound(riomp_mport_t mport_hnd,
 inbound::~inbound()
 {
 	/* Free inbound windows mapped with riomp_dma_ibwin_map() */
-	for_each(ibwins.begin(), ibwins.end(), ibw_free());
+	for_each(begin(ibwins), end(ibwins), [](ibwin& ibw) {ibw.free();});
 } /* destructor */
 
 void inbound::dump_info(struct cli_env *env)
@@ -145,8 +128,8 @@ mspace* inbound::get_mspace(uint32_t msid)
 	}
 	return ms;
 } /* get_mspace() */
-
-/* Get mspace OPENED by msoid */
+#if 0
+/* Get mspace OPENED by tx_engine */
 mspace* inbound::get_mspace_open_by_server(
 			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 			uint32_t *ms_conn_id)
@@ -163,15 +146,15 @@ mspace* inbound::get_mspace_open_by_server(
 	sem_post(&ibwins_sem);
 	return NULL;
 } /* get_mspace_open_by_msoid() */
-
+#endif
 int inbound::get_mspaces_connected_by_destid(uint32_t destid,
-					     vector<mspace *>& mspaces)
+					     mspace_list& mspaces)
 {
-	vector<mspace *>::iterator ins_point = begin(mspaces);
+	mspace_iterator ins_point = begin(mspaces);
 
 	sem_wait(&ibwins_sem);
 	for (auto& ibwin : ibwins) {
-		vector<mspace *>  ibw_mspaces;
+		mspace_list  ibw_mspaces;
 		DBG("Looking for mspaces connected to destid(0x%X)\n", destid);
 		ibwin.get_mspaces_connected_by_destid(destid, ibw_mspaces);
 
@@ -267,7 +250,6 @@ int inbound::destroy_mspace(uint32_t msoid, uint32_t msid)
 } /* destroy_mspace() */
 
 /* Create a memory space within a window that has enough space */
-// TODO: Returning msid is redundant as it can be obtained from 'ms'
 int inbound::create_mspace(const char *name,
 			   uint64_t size,
 			   uint32_t msoid,
@@ -277,7 +259,8 @@ int inbound::create_mspace(const char *name,
 {
 	/* Find first inbound window having room for memory space */
 	sem_wait(&ibwins_sem);
-	auto win_it = find_if(begin(ibwins), end(ibwins), ibwin_has_room(size));
+	auto win_it = find_if(begin(ibwins), end(ibwins),
+			[size](ibwin& ibw) { return ibw.has_room_for_ms(size); });
 
 	/* If none found, fail */
 	if (win_it == ibwins.end()) {

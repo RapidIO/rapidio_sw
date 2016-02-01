@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class unix_tx_engine;
 class unix_client;
+
 struct unix_msg_t;
 
 class unix_msg_processor : public msg_processor<unix_client, unix_msg_t>

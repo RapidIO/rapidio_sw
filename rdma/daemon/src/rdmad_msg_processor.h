@@ -38,6 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "rdmad_dispatch.h"
 #include "tx_engine.h"
+#include "rdmad_tx_engine.h"
 
 class unix_server;
 struct unix_msg_t;
@@ -49,8 +50,8 @@ public:
 	{
 		auto rc = 0;
 		unix_msg_t *msg = static_cast<unix_msg_t*>(vmsg);
-		tx_engine<unix_server, unix_msg_t> *tx_eng
-			= static_cast<tx_engine<unix_server, unix_msg_t>*>(vtx_eng);
+		unix_tx_engine *tx_eng
+			= static_cast<unix_tx_engine *>(vtx_eng);
 
 		switch(msg->type) {
 		case RDMAD_IS_ALIVE:
@@ -120,8 +121,8 @@ public:
 	{
 		auto rc = 0;
 		cm_msg_t *msg = static_cast<cm_msg_t *>(vmsg);
-		tx_engine<cm_server, unix_msg_t> *tx_eng =
-			static_cast<tx_engine<cm_server, unix_msg_t> *>(vtx_eng);
+		cm_server_tx_engine *tx_eng =
+			static_cast<cm_server_tx_engine *>(vtx_eng);
 
 		(void)tx_eng;	// Temporary
 
@@ -141,8 +142,8 @@ public:
 	{
 		auto rc = 0;
 		cm_msg_t *msg = static_cast<cm_msg_t *>(vmsg);
-		tx_engine<cm_client, unix_msg_t> *tx_eng =
-			static_cast<tx_engine<cm_client, unix_msg_t> *>(vtx_eng);
+		cm_client_tx_engine *tx_eng =
+			static_cast<cm_client_tx_engine *>(vtx_eng);
 
 		(void)tx_eng;	// Temporary
 		switch(msg->type) {

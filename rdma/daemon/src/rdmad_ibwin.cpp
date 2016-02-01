@@ -444,7 +444,7 @@ exit:
 	DBG("EXIT\n");
 	return ret;
 } /* destroy_mspace() */
-
+#if 0
 // FIXME: What is this used for? Do we need to include 'creator'?
 class mspace_is_open_by_user_using_tx_eng {
 public:
@@ -482,7 +482,7 @@ mspace* ibwin::get_mspace_open_by_tx_eng(
 
 	return ms_ptr;
 } /* get_mspace_open_by_server() */
-
+#endif
 void ibwin::get_mspaces_connected_by_destid(uint32_t destid, mspace_list& mspaces)
 {
 	pthread_mutex_lock(&mspaces_lock);
