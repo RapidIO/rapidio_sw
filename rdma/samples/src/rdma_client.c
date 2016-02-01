@@ -194,7 +194,7 @@ void test_case1(uint16_t destid,
 
 disconnect_rem_msh:
 	clock_gettime(CLOCK_MONOTONIC, &before);
-	status = rdma_disc_ms_h(rem_msh, msubh1);
+	status = rdma_disc_ms_h(connh, rem_msh, msubh1);
 	clock_gettime(CLOCK_MONOTONIC, &after);
 	diff = time_difference(before, after);
 	printf("Send disconnect: %ld seconds, %ld nanoseconds\n",
@@ -285,7 +285,7 @@ void test_case_h(uint16_t destid)
 	puts("Shutdown the computer running the server. Press ENTER when done");
 	getchar();
 
-	status = rdma_disc_ms_h(rem_msh, loc_msubh);
+	status = rdma_disc_ms_h(connh, rem_msh, loc_msubh);
 exit:
 	return;
 } /* test_case_h() */

@@ -1256,12 +1256,12 @@ int test_case_h(uint32_t destid)
 
 		/* Now all remote memory spaces are in 'accept' mode.
 		 * Connect to all of them. */
+		conn_h	connh;
 		for (unsigned c = 0; c < NUM_CONNECTIONS; c++) {
 			stringstream ms_name;
 
 			/* Connect to remote memory space */
 			ms_name << "rem_ms" << c;
-			conn_h	connh;
 			ret = rdma_conn_ms_h(16, destid, ms_name.str().c_str(),
 					client_msubh,
 					&connh,
@@ -1276,7 +1276,7 @@ int test_case_h(uint32_t destid)
 
 		/* Disconnect from all memory spaces */
 		for (unsigned c = 0; c < NUM_CONNECTIONS; c++) {
-			ret = rdma_disc_ms_h(ms_info[c].server_msh_rb,
+			ret = rdma_disc_ms_h(connh, ms_info[c].server_msh_rb,
 					     client_msubh);
 			rc = ret;
 			BAT_EXPECT_RET(ret, 0, free_server_mso);
@@ -1428,15 +1428,15 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	/* We only disconnect if it is test case 'i' */
 	if (tc == 'i') {
 		/* Disconnect from ms1 on server */
-		ret = rdma_disc_ms_h(server_msh1_rb, client_msubh);
+		ret = rdma_disc_ms_h(connh1, server_msh1_rb, client_msubh);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 		/* Disconnect from ms2 on server */
-		ret = rdma_disc_ms_h(server_msh2_rb, client_msubh);
+		ret = rdma_disc_ms_h(connh2, server_msh2_rb, client_msubh);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 		/* Disconnect from ms3 on server */
-		ret = rdma_disc_ms_h(server_msh3_rb, client_msubh);
+		ret = rdma_disc_ms_h(connh3, server_msh3_rb, client_msubh);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 	}
 
@@ -1623,7 +1623,7 @@ void m_thread_f(uint32_t destid, mso_h server_msoh, mso_h client_msoh, unsigned 
 	sleep(2);
 
 	/* Disconnect from ms1 on server */
-	rc = rdma_disc_ms_h(server_msh_rb, client_msubh);
+	rc = rdma_disc_ms_h(connh, server_msh_rb, client_msubh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 	rc = 0;
@@ -1854,7 +1854,7 @@ int test_case_t_u(char tc, uint32_t destid)
 	 * the ms on the server and processes the incoming destroy message. */
 	if (tc == 'h') {
 		/* Now disconnect from server */
-		ret = rdma_disc_ms_h(server_msh_rb, client_msubh);
+		ret = rdma_disc_ms_h(connh, server_msh_rb, client_msubh);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 	}
 
@@ -1979,7 +1979,7 @@ int test_case_v_w(char tc, uint32_t destid)
 	 * was nor properly cleared then rdma_disc_ms_h() will fail
 	 * at another stage.
 	 */
-	ret = rdma_disc_ms_h(server_msh_rb, client_msubh);
+	ret = rdma_disc_ms_h(connh, server_msh_rb, client_msubh);
 	BAT_EXPECT_PASS(ret);
 
 	rc = ret;
@@ -2280,7 +2280,7 @@ int test_case_dma(char tc,
 
 disconnect:
 	/* Now disconnect from server */
-	ret = rdma_disc_ms_h(server_msh_rb, client_msubh);
+	ret = rdma_disc_ms_h(connh, server_msh_rb, client_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 free_client_mso:
@@ -2382,7 +2382,7 @@ int test_case_6(uint32_t destid)
 
 disconnect:
 	/* Now disconnect from server */
-	ret = rdma_disc_ms_h(user_msh_rb, client_msubh);
+	ret = rdma_disc_ms_h(user_connh, user_msh_rb, client_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 free_client_mso:

@@ -279,7 +279,7 @@ int rdma_conn_ms_h(uint8_t destid_len,
 		   uint64_t timeout_secs);
 
 /**
- * Disconnect from a remote memory space
+ * Disconnect [from] a remote memory space
  *
  * Requests that this process/thread, should no longer have access to 
  * the remote memory space identified by rem_msh.
@@ -287,12 +287,13 @@ int rdma_conn_ms_h(uint8_t destid_len,
  * belonging to rem_msh, and further transactions to those sub-spaces
  * will fail.
  *
+ * @param[in] connh	Connection handle
  * @param[in] rem_msh	Remote memory space to disconnect from
  * @param[in] loc_msubh	Local memory subspace provided to remote server. 0 if none.
  *
  * @return 0 if successful
  */
-int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh);
+int rdma_disc_ms_h(conn_h connh, ms_h rem_msh, msub_h loc_msubh);
 
 /* DMA transfer synchronization types */
 typedef enum {
