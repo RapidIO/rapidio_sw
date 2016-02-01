@@ -69,4 +69,7 @@ int send_disconnect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_m
 int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 int connect_ms_resp_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
+
+int undo_connect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
+
 #endif
