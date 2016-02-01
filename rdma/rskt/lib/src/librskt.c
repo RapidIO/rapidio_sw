@@ -1452,7 +1452,8 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 
 	do {
 		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
-				skt->con_msh_name, skt->msubh, 
+				skt->con_msh_name, skt->msubh,
+				&skt->connh,
 				&skt->con_msubh, &skt->con_sz,
 				&skt->con_msh, RDMA_CONN_TO_SECS);
 	} while (rc == RDMA_CONNECT_TIMEOUT && conn_retries-- && 
