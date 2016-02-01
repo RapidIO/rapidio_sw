@@ -231,9 +231,10 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr);
  * Accept a connection to memory space
  *
  * @param[in] msh: Handle for memory space 
- * @param[in] loc_msubh: [OUT] Handle to created local memory subspace in database
- * @param[in] rem_msubh: [OUT] Handle to received remote memory subspace in database
- * @param[in] rem_msub_len: [OUT] Length in bytes of remote memory subspace
+ * @param[in] loc_msubh: Handle to created local memory subspace in database
+ * @param[out] conn_h: Connection handle
+ * @param[out] rem_msubh: Handle to received remote memory subspace in database
+ * @param[out] rem_msub_len: Length in bytes of remote memory subspace
  * @param[in] timeout_secs: timeout in seconds after which function returns
  * regardless of success
  *
@@ -241,6 +242,7 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr);
  */
 int rdma_accept_ms_h(ms_h msh,
 		     msub_h loc_msubh,
+		     conn_h *connh,
 		     msub_h *rem_msubh,
 		     uint32_t *rem_msub_len,
 		     uint64_t timeout_secs);
@@ -254,14 +256,15 @@ int rdma_accept_ms_h(ms_h msh,
  * Receives remote msubh information including length & rio_addr, 
  * also via a CM, as well as the remote memory space handle.
  *
- * @param[in] destid_len Size of destination ID of node hosting the memory space 
- * @param[in] destid	Destination ID of node hosting the memory space msh
- * @param[in] rem_msname remote memory space name
- * @param[in] loc_msubh Handle to created local memory subspace
- * @param[out] rem_msubh [OUT] Handle to remote memory subspace provided by server
- * @param[out] rem_msub_len [OUT] Remote memory subspace length in bytes
- * @param[out] rem_msh [OUT] Handle to remote memory space provided by server
- * @param[in] timeout_secs timeout in seconds, after which connection has failed
+ * @param[in] destid_len: Size of destination ID of node hosting the memory space
+ * @param[in] destid: Destination ID of node hosting the memory space msh
+ * @param[out] conn_h: Connection handle
+ * @param[in] rem_msname: Remote memory space name
+ * @param[in] loc_msubh: Handle to created local memory subspace
+ * @param[out] rem_msubh: Handle to remote memory subspace provided by server
+ * @param[out] rem_msub_len: Remote memory subspace length in bytes
+ * @param[out] rem_msh: Handle to remote memory space provided by server
+ * @param[in] timeout_secs: Timeout in seconds, after which connection has failed
  *
  * @return 0 if successful
  */
@@ -269,6 +272,7 @@ int rdma_conn_ms_h(uint8_t destid_len,
 		   uint32_t destid,
 		   const char *rem_msname,
 		   msub_h loc_msubh,
+		   conn_h *connh,
 		   msub_h *rem_msubh,
 		   uint32_t *rem_msub_len,
 		   ms_h	  *rem_msh,

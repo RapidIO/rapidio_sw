@@ -61,9 +61,10 @@ void accept_thread_f(uint64_t server_msh, uint64_t server_msubh)
 {
 	uint32_t dummy_client_msub_len;
 	msub_h	 dummy_client_msubh;
+	conn_h	 connh;
 
-	rdma_accept_ms_h(server_msh, server_msubh, &dummy_client_msubh,
-				   &dummy_client_msub_len, 30);
+	rdma_accept_ms_h(server_msh, server_msubh, &connh,
+			&dummy_client_msubh, &dummy_client_msub_len, 30);
 } /* accept_thread_f() */
 
 int main(int argc, char *argv[])
@@ -224,9 +225,11 @@ int main(int argc, char *argv[])
 			{
 				uint32_t dummy_client_msub_len;
 				msub_h	 dummy_client_msubh;
+				conn_h   connh;
 				/* This call is blocking. */
 				int ret = rdma_accept_ms_h(bm_rx->accept_ms.server_msh,
 							 bm_rx->accept_ms.server_msubh,
+							 &connh,
 							 &dummy_client_msubh,
 							 &dummy_client_msub_len,
 							 30);

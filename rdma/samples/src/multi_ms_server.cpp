@@ -50,7 +50,8 @@ using std::vector;
 #define MSO_NAME	"mso1"
 
 struct ti {
-	ti(mso_h msoh, unsigned ms_number) : msoh(msoh), ms_number(ms_number)
+	ti(mso_h msoh, unsigned ms_number) : tid(0), msoh(msoh), ms_number(ms_number),
+			msh(0), msubh(0)
 	{
 		sem_init(&started, 0, 0);
 	}
@@ -108,8 +109,9 @@ void *ms_thread_f(void *arg)
 	/* Accept connections */
 	unsigned client_msub_len;
 	msub_h	client_msubh;
+	conn_h  connh;
 	puts("Accepting connections...");
-	ret = rdma_accept_ms_h(tio->msh, tio->msubh, &client_msubh, &client_msub_len, 0);
+	ret = rdma_accept_ms_h(tio->msh, tio->msubh, &connh, &client_msubh, &client_msub_len, 0);
 	if (ret) {
 		printf("rdma_accept_ms_h() failed, ret = %d\n", ret);
 		delete tio;

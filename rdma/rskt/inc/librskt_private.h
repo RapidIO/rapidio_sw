@@ -177,6 +177,7 @@ struct rskt_socket_t {
 	uint32_t buf_sz; /* Size of TX and RX data buffers */
 	/* Connected MS */
 	char con_msh_name[MAX_MS_NAME];
+	conn_h connh;	/* Connection handle - for use in disconnection */
 	ms_h con_msh;
 	msub_h con_msubh;
 	uint32_t con_sz; 

@@ -241,11 +241,11 @@ int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 bool ibwin::has_room_for_ms(uint64_t size)
 {
 	pthread_mutex_lock(&mspaces_lock);
-	bool mspace_has_room = find_if(mspaces.begin(), mspaces.end(), has_room(size))
+	bool ms_has_room = find_if(begin(mspaces), end(mspaces), has_room(size))
 						!= mspaces.end();
 	pthread_mutex_unlock(&mspaces_lock);
 
-	return mspace_has_room;
+	return ms_has_room;
 } /* has_room_for_ms() */
 
 struct ms_compare_t {

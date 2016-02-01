@@ -65,6 +65,7 @@ void test_case1(uint16_t destid,
 	ms_h	rem_msh;
 	msub_h  rem_msubh;
 	uint32_t rem_msub_len;
+	conn_h	connh;
 	unsigned i, j;
 	int status;
 	struct rdma_xfer_ms_in	 in;
@@ -90,8 +91,8 @@ void test_case1(uint16_t destid,
 
 	/* Connect to server */
 	clock_gettime(CLOCK_MONOTONIC, &before);
-	status = rdma_conn_ms_h(16, destid, "sspace1", msubh1, &rem_msubh,
-						&rem_msub_len, &rem_msh, 0);
+	status = rdma_conn_ms_h(16, destid, "sspace1", msubh1, &connh,
+			&rem_msubh, &rem_msub_len, &rem_msh, 0);
 	clock_gettime(CLOCK_MONOTONIC, &after);
 	CHECK_AND_GOTO(status, "rdma_conn_ms_h", unmap_subspace1);
 	diff = time_difference(before, after);
@@ -224,6 +225,7 @@ void test_case5(uint16_t destid)
 	ms_h	rem_msh;
 	msub_h	loc_msubh;
 	msub_h	rem_msubh;
+	conn_h	connh;
 	uint32_t rem_msub_len;
 	int	status;
 
@@ -239,7 +241,8 @@ void test_case5(uint16_t destid)
 	puts("Press ENTER to connect to server");
 	getchar();
 
-	status = rdma_conn_ms_h(16, destid, "sspace1", loc_msubh, &rem_msubh, &rem_msub_len, &rem_msh, 0);
+	status = rdma_conn_ms_h(16, destid, "sspace1", loc_msubh,
+			&connh, &rem_msubh, &rem_msub_len, &rem_msh, 0);
 	CHECK_AND_GOTO(status, "rdma_conn_ms_h", destroy_msoh);
 	puts("CONNECTED");
 
@@ -258,6 +261,7 @@ void test_case_h(uint16_t destid)
 	ms_h	rem_msh;
 	msub_h	loc_msubh;
 	msub_h	rem_msubh;
+	conn_h	connh;
 	uint32_t rem_msub_len;
 	int	status;
 
@@ -273,7 +277,8 @@ void test_case_h(uint16_t destid)
 	puts("Press ENTER to connect to server");
 	getchar();
 
-	status = rdma_conn_ms_h(16, destid, "sspace1", loc_msubh, &rem_msubh, &rem_msub_len, &rem_msh, 0);
+	status = rdma_conn_ms_h(16, destid, "sspace1", loc_msubh,
+			&connh, &rem_msubh, &rem_msub_len, &rem_msh, 0);
 	CHECK_AND_GOTO(status, "rdma_conn_ms_h", exit);
 	puts("CONNECTED");
 

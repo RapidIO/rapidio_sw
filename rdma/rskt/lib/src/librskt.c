@@ -1280,7 +1280,8 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	memset((void *)skt->msub_p, 0, skt->msub_sz);
 
 	do {
-		rc = rdma_accept_ms_h(skt->msh, skt->msubh, 
+		rc = rdma_accept_ms_h(skt->msh, skt->msubh,
+				&skt->connh,
 				(msub_h *)&skt->con_msubh,
 				(uint32_t *)&skt->con_sz, RDMA_ACC_TO_SECS);
 	} while (-EINTR == rc);	/* FIXME: should it be ETIME? */

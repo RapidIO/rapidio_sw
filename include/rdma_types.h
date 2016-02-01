@@ -96,5 +96,10 @@ typedef uint64_t ms_h;
 */
 typedef uint64_t msub_h;
 
+/*
+ * conn_h - Connection handle to a memory space. This identifies a single
+ * connection between a single client and a memory space on a server application.
+ */
+typedef uint64_t conn_h;
 
 #endif /* __RDMA_TYPES_H__ */

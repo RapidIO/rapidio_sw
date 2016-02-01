@@ -1432,6 +1432,7 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
  */
 int rdma_accept_ms_h(ms_h loc_msh,
 		     msub_h loc_msubh,
+		     conn_h *connh,
 		     msub_h *rem_msubh,
 		     uint32_t *rem_msub_len,
 		     uint64_t timeout_secs)
@@ -1528,6 +1529,9 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			throw RDMA_ACCEPT_FAIL;
 		}
 
+		/* Use the client_to_lib_tx_eng_h as the connection handle */
+		*connh = conn_req_msg->client_to_lib_tx_eng_h;
+
 		/* Now reply to the CONNECT_MS_REQ sith CONNECT_MS_RESP */
 		in_msg.type = CONNECT_MS_RESP;
 		in_msg.category = RDMA_REQ_RESP;
@@ -1612,6 +1616,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		   uint32_t rem_destid,
 		   const char *rem_msname,
 		   msub_h loc_msubh,
+		   conn_h *connh,
 		   msub_h *rem_msubh,
 		   uint32_t *rem_msub_len,
 		   ms_h	  *rem_msh,
@@ -1784,36 +1789,9 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		/* Save server_msid since we need to store that in the databse */
 		uint32_t server_msid = accept_msg->server_msid;
 
-#if 0
-		/* Create a message queue for the 'destroy' message */
-		mq_name.insert(1, "dest-");
-		msg_q<mq_destroy_msg>	*destroy_mq;
-		DBG("Creating destroy_mq named '%s'\n", mq_name.c_str());
-		try {
-			destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_CREATE);
-		}
-		catch(msg_q_exception& e) {
-			CRIT("Failed to create destroy_mq: %s\n", e.msg.c_str());
-			sem_post(&rdma_lock);
-			return -6;
-		}
-		INFO("destroy_mq (%s) created\n", destroy_mq->get_name().c_str());
+		/* Return the Unix socket as the connection handle to the ms */
+		*connh = (conn_h)tx_eng;
 
-		/* Create a thread for the 'destroy' messages */
-		pthread_t client_wait_for_destroy_thread;
-		if (pthread_create(&client_wait_for_destroy_thread,
-			   NULL,
-			   client_wait_for_destroy_thread_f,
-			   destroy_mq)) {
-		WARN("Failed to create client_wait_for_destroy_thread: %s\n",
-							strerror(errno));
-		delete destroy_mq;
-		delete accept_mq;
-		sem_post(&rdma_lock);
-		return RDMA_MALLOC_FAIL;
-		}
-		INFO("client_wait_for_destroy_thread created.\n");
-#endif
 		/* Remote memory space handle */
 		*rem_msh = (ms_h)add_rem_ms(rem_msname, server_msid);
 		if (*rem_msh == (ms_h)NULL) {

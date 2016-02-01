@@ -1261,8 +1261,10 @@ int test_case_h(uint32_t destid)
 
 			/* Connect to remote memory space */
 			ms_name << "rem_ms" << c;
+			conn_h	connh;
 			ret = rdma_conn_ms_h(16, destid, ms_name.str().c_str(),
 					client_msubh,
+					&connh,
 					&ms_info[c].server_msubh_rb,
 					&ms_info[c].server_msub_len_rb,
 					&ms_info[c].server_msh_rb,
@@ -1384,8 +1386,10 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	msub_h	  server_msubh1_rb;
 	uint32_t  server_msub1_len_rb;
 	ms_h	  server_msh1_rb;
-	ret = rdma_conn_ms_h(16, destid, "rem_ms1", client_msubh, &server_msubh1_rb,
-					&server_msub1_len_rb, &server_msh1_rb, 30);
+	conn_h	  connh1;
+	ret = rdma_conn_ms_h(16, destid, "rem_ms1", client_msubh, &connh1,
+			&server_msubh1_rb, &server_msub1_len_rb,
+			&server_msh1_rb, 30);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 	sleep(1);
 
@@ -1398,8 +1402,10 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	msub_h	  server_msubh2_rb;
 	uint32_t  server_msub2_len_rb;
 	ms_h	  server_msh2_rb;
-	ret = rdma_conn_ms_h(16, destid, "rem_ms2", client_msubh, &server_msubh2_rb,
-					&server_msub2_len_rb, &server_msh2_rb, 30);
+	conn_h	  connh2;
+	ret = rdma_conn_ms_h(16, destid, "rem_ms2", client_msubh,
+				&connh2, &server_msubh2_rb,
+				&server_msub2_len_rb, &server_msh2_rb, 30);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 	sleep(1);
 
@@ -1412,8 +1418,10 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	msub_h	  server_msubh3_rb;
 	uint32_t  server_msub3_len_rb;
 	ms_h	  server_msh3_rb;
-	ret = rdma_conn_ms_h(16, destid, "rem_ms3", client_msubh, &server_msubh3_rb,
-					&server_msub3_len_rb, &server_msh3_rb, 30);
+	conn_h	  connh3;
+	ret = rdma_conn_ms_h(16, destid, "rem_ms3", client_msubh,
+				&connh3, &server_msubh3_rb,
+				&server_msub3_len_rb, &server_msh3_rb, 30);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 	sleep(1);
 
@@ -1574,6 +1582,7 @@ void m_thread_f(uint32_t destid, mso_h server_msoh, mso_h client_msoh, unsigned 
 	msub_h	  server_msubh_rb;
 	uint32_t  server_msub_len_rb;
 	ms_h	  server_msh_rb;
+	conn_h	  connh;
 	stringstream ms_name;
 
 	ms_name << "mspace" << i;
@@ -1606,7 +1615,8 @@ void m_thread_f(uint32_t destid, mso_h server_msoh, mso_h client_msoh, unsigned 
 
 	/* Connect to server_msh */
 	rc = rdma_conn_ms_h(16, destid, ms_name.str().c_str(), client_msubh,
-		&server_msubh_rb, &server_msub_len_rb, &server_msh_rb, 30);
+				&connh, &server_msubh_rb, &server_msub_len_rb,
+				&server_msh_rb, 30);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* Wait a couple of seconds before disconnecting */
@@ -1832,8 +1842,10 @@ int test_case_t_u(char tc, uint32_t destid)
 	msub_h	  server_msubh_rb;
 	uint32_t  server_msub_len_rb;
 	ms_h	  server_msh_rb;
-	ret = rdma_conn_ms_h(16, destid, "rem_ms", client_msubh, &server_msubh_rb,
-					&server_msub_len_rb, &server_msh_rb, 30);
+	conn_h	  connh;
+	ret = rdma_conn_ms_h(16, destid, "rem_ms", client_msubh,
+				&connh, &server_msubh_rb,
+				&server_msub_len_rb, &server_msh_rb, 30);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	sleep(1);
@@ -1933,8 +1945,10 @@ int test_case_v_w(char tc, uint32_t destid)
 	msub_h	server_msubh_rb;
 	uint32_t  server_msub_len_rb;
 	ms_h	server_msh_rb;
+	conn_h	connh;
 	ret = rdma_conn_ms_h(16, destid, REM_MS_NAME1,
 			     client_msubh,
+			     &connh,
 			     &server_msubh_rb, &server_msub_len_rb,
 			     &server_msh_rb,
 			     30);	/* 30 second-timeout */
@@ -2247,8 +2261,10 @@ int test_case_dma(char tc,
 	msub_h	server_msubh_rb;
 	uint32_t  server_msub_len_rb;
 	ms_h	server_msh_rb;
+	conn_h  connh;
 	ret = rdma_conn_ms_h(16, destid, REM_MS_NAME1,
 			     client_msubh,
+			     &connh,
 			     &server_msubh_rb, &server_msub_len_rb,
 			     &server_msh_rb,
 			     0);
@@ -2347,8 +2363,10 @@ int test_case_6(uint32_t destid)
 	msub_h	user_msubh_rb;
 	uint32_t  user_msub_len_rb;
 	ms_h	user_msh_rb;
+	conn_h  user_connh;
 	ret = rdma_conn_ms_h(16, destid, REM_MS_NAME1,
 			     client_msubh,
+			     &user_connh,
 			     &user_msubh_rb, &user_msub_len_rb,
 			     &user_msh_rb,
 			     0);
