@@ -219,7 +219,7 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 
 	/* First check that engines are still valid */
 	if ((tx_eng == nullptr) || (rx_eng == nullptr)) {
-		CRIT("Connection to daemon severed");
+		CRIT("Connection to daemon severed\n");
 		return RDMA_DAEMON_UNREACHABLE;
 	}
 
