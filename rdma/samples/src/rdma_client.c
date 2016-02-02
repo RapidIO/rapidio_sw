@@ -299,13 +299,11 @@ void sig_handler(int sig)
 	case SIGTERM:	/* kill <pid> */
 	break;
 
-	break;
-
 	default:
 		puts("UNKNOWN SIGNAL");
 	}
 	exit(0);
-}
+} /* sig_handler() */
 
 int main(int argc, char *argv[])
 {
@@ -405,8 +403,7 @@ int main(int argc, char *argv[])
 		default:
 			printf("Invalid option: %c\n", ch);
 		};
-
 	}
 
 	return 0;
-}
+} /* main() */

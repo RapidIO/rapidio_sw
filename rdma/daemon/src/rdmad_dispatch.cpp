@@ -462,9 +462,6 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 			ERR("Failed to send CM_ACCEPT_MS\n");
 			throw rc;
 		}
-
-
-
 	} /* try */
 	catch(int e) {
 		 rc = e;
@@ -514,7 +511,6 @@ int send_connect_disp(const unix_msg_t *in_msg,
 	return out_msg.send_connect_out.status;
 } /* send_connect_disp() */
 
-
 int undo_connect_disp(const unix_msg_t *in_msg,
 			tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
@@ -538,7 +534,6 @@ int undo_connect_disp(const unix_msg_t *in_msg,
 
 	return out_msg.undo_connect_out.status;
 } /* undo_connect_disp() */
-
 
 int send_disconnect_disp(const unix_msg_t *in_msg,
 			tx_engine<unix_server,unix_msg_t> *tx_eng)
@@ -567,5 +562,10 @@ int send_disconnect_disp(const unix_msg_t *in_msg,
 	return out_msg.send_disconnect_out.status;
 } /* send_disconnect_disp() */
 
+int server_disconnect_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+{
+	(void)in_msg;
+	(void)tx_eng;
 
-
+	return -1;
+} /* server_disconnect_ms_disp() */

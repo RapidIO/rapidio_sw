@@ -388,7 +388,11 @@ void mspace::disconnect_from_destid(uint16_t client_destid)
 	}
 } /* disconnect_from_destid() */
 
-/* Disconnect only connection with specified client_msubid */
+/* Disconnect only connection with specified client_msubid. This method
+ * is called when the client disconnects from the server. The server daemon
+ * cleans up the mspace entry of the connection, and notifies the server
+ * app about the disconnection request. */
+// TODO: FIXME: Disconnection acknowledgement from server back to client.
 int mspace::disconnect(uint32_t client_msubid,
 		       uint64_t client_to_lib_tx_eng_h)
 {

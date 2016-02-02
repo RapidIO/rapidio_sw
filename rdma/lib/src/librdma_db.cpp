@@ -761,6 +761,35 @@ unsigned get_num_loc_msub_in_ms(uint32_t msid)
 } /* get_num_loc_msub_in_ms() */
 
 /**
+ * find_loc_msub_by_connh
+ *
+ * Searches the local memory sub-space database for a memory sub-space
+ * having the specified connection handle
+ *
+ * @connh	Connection handle
+ * @return	Handle to memory sub-space, could be 0 (NULL) if not found
+ */
+msub_h find_loc_msub_by_connh(conn_h connh)
+{
+	msub_h			msubh;
+
+	pthread_mutex_lock(&loc_msub_mutex);
+	auto it = find_if(begin(loc_msub_list),
+			  end(loc_msub_list),
+			  [connh](loc_msub *msubp)
+			  {
+				return find(begin(msubp->conn_handles),
+					    end(msubp->conn_handles),
+					    connh) != end(msubp->conn_handles);
+			  });
+
+	msubh = (it != loc_msub_list.end()) ? (msub_h)(*it) : (msub_h)NULL;
+	pthread_mutex_unlock(&loc_msub_mutex);
+
+	return msubh;
+} /* find_loc_msub_by_connh() */
+
+/**
  * get_list_loc_msubh_in_msid
  *
  * Returns list of local memory subspace handles owned by specified memory space

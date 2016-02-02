@@ -40,11 +40,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstring>
 
 #include <list>
+#include <vector>
 using std::list;
+using std::vector;
 
 #include "rdma_types.h"
 
 int rdma_db_init();
+
+typedef vector<conn_h>	conn_h_list;
 
 /**
  * Memory space owners.
@@ -143,6 +147,13 @@ bool rem_ms_exists(ms_h msh);
  * Memory subspaces.
  */
 struct loc_msub {
+	loc_msub(uint32_t msid, uint32_t msubid, uint32_t bytes, uint8_t rio_addr_len,
+		 uint64_t rio_addr_lo, uint8_t	rio_addr_hi, uint64_t paddr) :
+	msid(msid), msubid(msubid), bytes(bytes), rio_addr_len(rio_addr_len),
+		rio_addr_lo(rio_addr_lo), rio_addr_hi(rio_addr_hi), paddr(paddr)
+	{
+	}
+
 	uint32_t	msid;
 	uint32_t	msubid;
 	uint32_t	bytes;
@@ -150,12 +161,7 @@ struct loc_msub {
 	uint64_t	rio_addr_lo;
 	uint8_t		rio_addr_hi;
 	uint64_t	paddr;
-	loc_msub(uint32_t msid, uint32_t msubid, uint32_t bytes, uint8_t rio_addr_len,
-		 uint64_t rio_addr_lo, uint8_t	rio_addr_hi, uint64_t paddr) :
-	msid(msid), msubid(msubid), bytes(bytes), rio_addr_len(rio_addr_len),
-		rio_addr_lo(rio_addr_lo), rio_addr_hi(rio_addr_hi), paddr(paddr)
-	{
-	}
+	conn_h_list	conn_handles;
 };
 
 struct rem_msub {
@@ -182,6 +188,7 @@ msub_h find_loc_msub(uint32_t msubid);
 int remove_loc_msub(msub_h msubh);
 unsigned get_num_loc_msub_in_ms(uint32_t msid);
 void get_list_loc_msub_in_msid(uint32_t msid, list<loc_msub *>& msub_list);
+msub_h find_loc_msub_by_connh(conn_h connh);
 
 /* Remote msub functions */
 msub_h add_rem_msub(uint32_t	rem_msubid,

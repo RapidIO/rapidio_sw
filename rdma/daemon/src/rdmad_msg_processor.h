@@ -108,6 +108,9 @@ public:
 		case UNDO_CONNECT:
 			rc = undo_connect_disp(msg, tx_eng);
 			break;
+		case SERVER_DISCONNECT_MS:
+			rc = server_disconnect_ms_disp(msg, tx_eng);
+			break;
 		default:
 			CRIT("Unhandled message type 0x%X cat 0x%X\n",
 						msg->type, msg->category);

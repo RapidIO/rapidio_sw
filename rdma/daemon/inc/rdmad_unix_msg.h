@@ -79,6 +79,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CONNECT_MS_RESP		0x001D
 #define CONNECT_MS_RESP_ACK	0x801D
 #define ACCEPT_FROM_MS_REQ	0x001E
+#define SERVER_DISCONNECT_MS	0x001F
+#define SERVER_DISCONNECT_MS_ACK	0x801F
 #define RDMAD_KILL_DAEMON	0x0666
 
 /* Type codes for RDMA_REQ_RESP messages */
@@ -335,6 +337,17 @@ struct connect_to_ms_resp_output {
 	int status;
 };
 
+/* Server disconnects MS connection with a particular client */
+struct server_disconnect_ms_input {
+	uint32_t client_msubid;
+	uint32_t server_msid;
+	uint32_t server_msubid;
+	uint64_t client_to_lib_tx_eng_h;
+};
+struct server_disconnect_ms_output {
+	int status;
+};
+
 /* Client daemon to client app */
 /* Basically this is the 'connect_to_ms_resp' (ABOVE)
  * which is sent by the server,
@@ -360,6 +373,7 @@ struct ms_destroyed_input {
 	uint32_t server_msid;
 	uint32_t server_msubid;
 };
+
 struct ms_destroyed_ack_input {
 	uint32_t server_msid;
 	uint32_t server_msubid;
@@ -418,6 +432,8 @@ struct unix_msg_t {
 		struct disconnect_from_ms_req_input disconnect_from_ms_req_in;
 		struct ms_destroyed_input 	ms_destroyed_in;
 		struct ms_destroyed_ack_input	ms_destroyed_ack_in;
+		struct server_disconnect_ms_input server_disconnect_ms_in;
+		struct server_disconnect_ms_output server_disconnect_ms_out;
 	};
 
 };

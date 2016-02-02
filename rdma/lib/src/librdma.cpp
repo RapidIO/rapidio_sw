@@ -520,15 +520,6 @@ __attribute__((constructor)) int lib_init(void)
  * initialization code again. 'init' is set to false when the engines
  * are killed to indicate the need for re-init.
  */
-#define CHECK_LIB_INIT() if (!init) { \
-				WARN("RDMA library not initialized, re-initializing\n"); \
-				ret = rdma_lib_init(); \
-				if (ret) { \
-					ERR("Failed to re-initialize RDMA library\n"); \
-					return ret; \
-				} \
-			}
-
 #define LIB_INIT_CHECK(rc) if (!init) { \
 		WARN("RDMA library not initialized, re-initializing\n"); \
 		rc = rdma_lib_init(); \
@@ -1455,7 +1446,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 
 		loc_ms	*ms = (loc_ms *)loc_msh;
-		loc_msub *msub = (loc_msub *)loc_msubh;
+		loc_msub *server_msub = (loc_msub *)loc_msubh;
 
 		/* Tell the daemon to flag this memory space as accepting
 		 * connections for this application. */
@@ -1463,7 +1454,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		in_msg.type     = ACCEPT_MS;
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.accept_in.server_msid	  = ms->msid;
-		in_msg.accept_in.server_msubid	  = msub->msubid;
+		in_msg.accept_in.server_msubid	  = server_msub->msubid;
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
@@ -1538,11 +1529,11 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		in_msg.seq_no   = out_msg.seq_no;
 		in_msg.connect_to_ms_resp_in.client_msid  = conn_req_msg->client_msid;		// FIXME
 		in_msg.connect_to_ms_resp_in.client_msubid = conn_req_msg->client_msubid;	// Needed?
-		in_msg.connect_to_ms_resp_in.server_msubid       = msub->msubid;
-		in_msg.connect_to_ms_resp_in.server_msub_bytes   = msub->bytes;
-		in_msg.connect_to_ms_resp_in.server_rio_addr_len = msub->rio_addr_len;
-		in_msg.connect_to_ms_resp_in.server_rio_addr_lo  = msub->rio_addr_lo;
-		in_msg.connect_to_ms_resp_in.server_rio_addr_hi  = msub->rio_addr_hi;
+		in_msg.connect_to_ms_resp_in.server_msubid       = server_msub->msubid;
+		in_msg.connect_to_ms_resp_in.server_msub_bytes   = server_msub->bytes;
+		in_msg.connect_to_ms_resp_in.server_rio_addr_len = server_msub->rio_addr_len;
+		in_msg.connect_to_ms_resp_in.server_rio_addr_lo  = server_msub->rio_addr_lo;
+		in_msg.connect_to_ms_resp_in.server_rio_addr_hi  = server_msub->rio_addr_hi;
 		in_msg.connect_to_ms_resp_in.client_destid_len   = conn_req_msg->client_destid_len;
 		in_msg.connect_to_ms_resp_in.client_destid	 = conn_req_msg->client_destid;
 		in_msg.connect_to_ms_resp_in.client_to_lib_tx_eng_h = conn_req_msg->client_to_lib_tx_eng_h;
@@ -1559,6 +1550,9 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			ERR("Failed to CONNECT_MS_RESP (ms) in daemon\n");
 			throw out_msg.connect_to_ms_resp_out.status;
 		}
+
+		/* Store connection handle with server_msub */
+		server_msub->conn_handles.push_back(conn_req_msg->client_to_lib_tx_eng_h);
 
 		/* Store info about remote msub in database and return handle */
 		*rem_msubh = (msub_h)add_rem_msub(
@@ -1919,7 +1913,25 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 
 	int rc;
 
-	rc = -1;
+	DBG("ENTER\n");
+	sem_wait(&rdma_lock);
+
+	try {
+		/* Check that library has been initialized */
+		LIB_INIT_CHECK(rc);
+
+		/* Check that server_msh is not NULL. (client_msubh CAN be NULL) */
+		if (!server_msh) {
+			ERR("server_msh is NULL\n");
+			throw RDMA_NULL_PARAM;
+		}
+		throw -1;
+	} /* try */
+	catch(int e) {
+		rc = e;
+	}
+	sem_post(&rdma_lock);
+	DBG("EXIT\n");
 
 	return rc;
 } /* server_disc_ms_h() */

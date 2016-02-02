@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_DISPATCH_H
 
 #include "rdmad_unix_msg.h"
-#include "tx_engine.h"
+#include "rdmad_tx_engine.h"
 
 int rdmad_is_alive_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
@@ -71,5 +71,7 @@ int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server, u
 int connect_ms_resp_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 int undo_connect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
+
+int server_disconnect_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 #endif
