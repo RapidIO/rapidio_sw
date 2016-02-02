@@ -388,14 +388,8 @@ void mspace::disconnect_from_destid(uint16_t client_destid)
 	}
 } /* disconnect_from_destid() */
 
-/* Disconnect only connection with specified client_msubid. This method
- * is called when the client disconnects from the server. The server daemon
- * cleans up the mspace entry of the connection, and notifies the server
- * app about the disconnection request. */
-// TODO: FIXME: Disconnection acknowledgement from server back to client,
-// (or from client back to server, if the server was the one that disconnected)
-int mspace::disconnect(uint32_t client_msubid,
-		       uint64_t client_to_lib_tx_eng_h)
+int mspace::disconnect(bool is_client, uint32_t client_msubid,
+		       	       	       uint64_t client_to_lib_tx_eng_h)
 {
 	int rc;
 
@@ -404,7 +398,8 @@ int mspace::disconnect(uint32_t client_msubid,
 		     connected_to;
 	if (found) {
 		DBG("Creator has the connection\n");
-		send_disconnect_to_lib(client_msubid, creator_tx_eng);
+		if (is_client)
+			send_disconnect_to_lib(client_msubid, creator_tx_eng);
 		this->client_destid = 0xFFFF;
 		this->client_msubid = 0;
 		this->client_to_lib_tx_eng_h = 0;
@@ -419,7 +414,8 @@ int mspace::disconnect(uint32_t client_msubid,
 				 u.connected_to;
 			if (found) {
 				DBG("A user has the connection\n");
-				send_disconnect_to_lib(u.client_msubid, u.tx_eng);
+				if (is_client)
+					send_disconnect_to_lib(u.client_msubid, u.tx_eng);
 				u.client_destid = 0xFFFF;
 				u.client_msubid = 0;
 				u.client_to_lib_tx_eng_h = 0;
@@ -435,6 +431,29 @@ int mspace::disconnect(uint32_t client_msubid,
 
 	return rc;
 } /* disconnect() */
+
+/* Disconnect only connection with specified client_msubid. This method
+ * is called when the client disconnects from the server. The server daemon
+ * cleans up the mspace entry of the connection, and notifies the server
+ * app about the disconnection request. */
+
+
+
+int mspace::client_disconnect(uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h)
+{
+	return disconnect(true, client_msubid, client_to_lib_tx_eng_h);
+} /* client_disconnect() */
+
+/**
+ * This is called when the server initiates the disconnection.
+ */
+int mspace::server_disconnect(uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h)
+{
+	return disconnect(false, client_msubid, client_to_lib_tx_eng_h);
+
+} /* server_disconnect() */
 
 set<uint16_t> mspace::get_rem_destids()
 {

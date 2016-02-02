@@ -576,7 +576,7 @@ int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 		}
 
 		/* Disconnect memory space from specified client */
-		rc = ms->disconnect(
+		rc = ms->server_disconnect(
 			in_msg->server_disconnect_ms_in.client_msubid,
 			in_msg->server_disconnect_ms_in.client_to_lib_tx_eng_h);
 		if (rc) {

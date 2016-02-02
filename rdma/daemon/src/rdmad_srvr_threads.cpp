@@ -295,7 +295,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			}
 
 			/* Relay disconnection request to the RDMA library */
-			ret = ms->disconnect(be64toh(disc_msg->client_msubid),
+			ret = ms->client_disconnect(be64toh(disc_msg->client_msubid),
 					     be64toh(disc_msg->client_to_lib_tx_eng_h));
 			if (ret) {
 				ERR("Failed to relay disconnect ms('%s') to RDMA library\n",
@@ -317,7 +317,7 @@ void *wait_conn_disc_thread_f(void *arg)
 						be64toh(disc_msg->client_destid),
 						be64toh(disc_msg->client_msubid));
 			} else {
-
+				DBG("Connection remove successfully!\n");
 			}
 
 			/* Consider this memory space disconnected. Allow accepting */

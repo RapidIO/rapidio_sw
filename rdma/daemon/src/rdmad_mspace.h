@@ -238,7 +238,10 @@ public:
 
 	int destroy_msubspace(uint32_t msubid);
 
-	int disconnect(uint32_t client_msubid,
+	int client_disconnect(uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h);
+
+	int server_disconnect(uint32_t client_msubid,
 		       uint64_t client_to_lib_tx_eng_h);
 
 	void disconnect_from_destid(uint16_t client_destid);
@@ -252,6 +255,8 @@ private:
 	mspace& operator=(const mspace&);
 	int send_cm_force_disconnect_ms(cm_server *server, uint32_t server_msubid,
 					uint64_t client_to_lib_tx_eng);
+	int disconnect(bool is_client, uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h);
 	/* Constants */
 	static constexpr uint32_t MS_CONN_ID_START = 0x01;
 
