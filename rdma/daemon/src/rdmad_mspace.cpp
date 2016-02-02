@@ -104,7 +104,7 @@ int mspace::send_cm_force_disconnect_ms(cm_server *server, uint32_t server_msubi
 	int rc;
 
 	/* Prepare destroy message */
-	cm_destroy_msg	*dm;
+	cm_force_disconnect_msg	*dm;
 	server->get_send_buffer((void **)&dm);
 	dm->type	= htobe64(CM_FORCE_DISCONNECT_MS);
 	strcpy(dm->server_msname, name.c_str());
@@ -114,11 +114,11 @@ int mspace::send_cm_force_disconnect_ms(cm_server *server, uint32_t server_msubi
 
 	/* Send to remote daemon @ 'client_destid' */
 	if (server->send()) {
-		WARN("Failed to send CM_DESTROY_MS to client_destid(0x%X)\n",
+		WARN("Failed to send CM_FORCE_DISCONNECT_MS to client_destid(0x%X)\n",
 							client_destid);
 		rc = -2;
 	} else {
-		DBG("CM_DESTROY_MS sent to client_destid(0x%X)\n",
+		DBG("CM_FORCE_DISCONNECT_MS sent to client_destid(0x%X)\n",
 							client_destid);
 		rc = 0;
 	}

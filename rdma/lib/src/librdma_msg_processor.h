@@ -73,9 +73,9 @@ public:
 			disconnect_ms_disp(msg->disconnect_from_ms_req_in.client_msubid);
 		break;
 
-		case MS_DESTROYED:
-			ms_destroyed_disp(msg->ms_destroyed_in.server_msid,
-					  msg->ms_destroyed_in.server_msubid);
+		case FORCE_DISCONNECT_MS:
+			force_disconnect_ms_disp(msg->force_disconnect_ms_in.server_msid,
+					  msg->force_disconnect_ms_in.server_msubid);
 		break;
 
 		default:

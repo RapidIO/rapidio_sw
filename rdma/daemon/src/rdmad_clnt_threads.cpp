@@ -96,10 +96,10 @@ static int await_message(rx_engine<unix_server, unix_msg_t> *rx_eng,
 } /* await_message() */
 
 /**
- * Sends MS_DESTROYED to RDMA library, and waits (with timeout)
- * for MS_DESTROYED_ACK.
+ * Sends FORCE_DISCONNECT_MS to RDMA library, and waits (with timeout)
+ * for FORCE_DISCONNECT_MS_ACK.
  */
-static int send_destroy_ms_to_lib(uint32_t server_msid,
+static int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 				  uint32_t server_msubid,
 				  uint64_t client_to_lib_tx_eng_h)
 {
@@ -123,31 +123,31 @@ static int send_destroy_ms_to_lib(uint32_t server_msid,
 		rc = -1;
 	} else {
 		unix_msg_t	in_msg;
-		in_msg.type = MS_DESTROYED;
+		in_msg.type = FORCE_DISCONNECT_MS;
 		in_msg.category = RDMA_REQ_RESP;
-		in_msg.ms_destroyed_in.server_msid = server_msid;
-		in_msg.ms_destroyed_in.server_msubid = server_msubid;
+		in_msg.force_disconnect_ms_in.server_msid = server_msid;
+		in_msg.force_disconnect_ms_in.server_msubid = server_msubid;
 		it->to_lib_tx_eng->send_message(&in_msg);
 
 		unix_msg_t	out_msg;
 		rx_engine<unix_server, unix_msg_t> *rx_eng
 					= it->to_lib_tx_eng->get_rx_eng();
 		rc = await_message(
-			rx_eng, RDMA_LIB_DAEMON_CALL, MS_DESTROYED_ACK,
+			rx_eng, RDMA_LIB_DAEMON_CALL, FORCE_DISCONNECT_MS_ACK,
 							0, 1, &out_msg);
-		bool ok = out_msg.ms_destroyed_ack_in.server_msid ==
-					in_msg.ms_destroyed_in.server_msid;
+		bool ok = out_msg.force_disconnect_ms_ack_in.server_msid ==
+					in_msg.force_disconnect_ms_in.server_msid;
 
-		ok &= out_msg.ms_destroyed_ack_in.server_msubid ==
-					in_msg.ms_destroyed_in.server_msubid;
+		ok &= out_msg.force_disconnect_ms_ack_in.server_msubid ==
+					in_msg.force_disconnect_ms_in.server_msubid;
 		if (rc) {
-			ERR("Timeout waiting for MS_DESTROYED_ACK\n");
+			ERR("Timeout waiting for FORCE_DISCONNECT_MS_ACK\n");
 		} else if (!ok) {
-			ERR("Mismatched MS_DESTROYED_ACK\n");
+			ERR("Mismatched FORCE_DISCONNECT_MS_ACK\n");
 		}
 	}
 	return rc;
-} /* send_destroy_ms_to_lib() */
+} /* send_force_disconnect_ms_to_lib() */
 
 /**
  * The server daemon has died. Client daemon needs to:
@@ -156,19 +156,19 @@ static int send_destroy_ms_to_lib(uint32_t server_msid,
  *    of the server's remove msub entries.
  * 2. Remove entries for that 'did' from the connected_to_ms_info_list.
  */
-int send_destroy_ms_to_lib_for_did(uint32_t did)
+int send_force_disconnect_ms_to_lib_for_did(uint32_t did)
 {
 	int ret = 0;
 
 	sem_wait(&connected_to_ms_info_list_sem);
 	for (auto& conn_to_ms : connected_to_ms_info_list) {
 		if ((conn_to_ms == did) && conn_to_ms.connected) {
-			ret = send_destroy_ms_to_lib(
+			ret = send_force_disconnect_ms_to_lib(
 					conn_to_ms.server_msid,
 					conn_to_ms.server_msubid,
 					(uint64_t)conn_to_ms.to_lib_tx_eng);
 			if (ret) {
-				ERR("Failed in send_destroy_ms_to_lib '%s'\n",
+				ERR("Failed in send_force_disconnect_ms_to_lib '%s'\n",
 					conn_to_ms.server_msname.c_str());
 			}
 		}
@@ -184,7 +184,7 @@ int send_destroy_ms_to_lib_for_did(uint32_t did)
 	sem_post(&connected_to_ms_info_list_sem);
 
 	return ret;
-} /* send_destroy_ms_for_did() */
+} /* send_force_disconnect_ms_to_lib_for_did() */
 
 struct wait_accept_destroy_thread_info {
 	wait_accept_destroy_thread_info(cm_client *hello_client,
@@ -400,19 +400,19 @@ void *wait_accept_destroy_thread_f(void *arg)
 			sem_post(&connected_to_ms_info_list_sem);
 
 		} else if (be64toh(accept_cm_msg->type) == CM_FORCE_DISCONNECT_MS) {
-			cm_destroy_msg	*destroy_msg;
+			cm_force_disconnect_msg	*force_disconnect_msg;
 			/* Receive CM_DESTROY_MS */
 			accept_destroy_client->get_recv_buffer(
-							(void **)&destroy_msg);
+							(void **)&force_disconnect_msg);
 
-			HIGH("Received CM destroy  containing '%s'\n",
-						destroy_msg->server_msname);
+			HIGH("Received CM_FORCE_DISCONNECT_MS containing '%s'\n",
+					force_disconnect_msg->server_msname);
 
 			/* Relay to library and get ACK back */
-			int rc = send_destroy_ms_to_lib(
-					be64toh(destroy_msg->server_msid),
-					be64toh(destroy_msg->server_msubid),
-					be64toh(destroy_msg->client_to_lib_tx_eng_h)
+			int rc = send_force_disconnect_ms_to_lib(
+					be64toh(force_disconnect_msg->server_msid),
+					be64toh(force_disconnect_msg->server_msubid),
+					be64toh(force_disconnect_msg->client_to_lib_tx_eng_h)
 					);
 			if (rc) {
 				ERR("Failed to send destroy message to library or get ack\n");
@@ -428,9 +428,9 @@ void *wait_accept_destroy_thread_f(void *arg)
 				remove_if(begin(connected_to_ms_info_list),
 				  end(connected_to_ms_info_list),
 				  [&](connected_to_ms_info& info) {
-					return (info.server_msid == be64toh(destroy_msg->server_msid))
-					&&     (info.server_msubid == be64toh(destroy_msg->server_msubid))
-					&&     ((uint64_t)info.to_lib_tx_eng == be64toh(destroy_msg->client_to_lib_tx_eng_h));
+					return (info.server_msid == be64toh(force_disconnect_msg->server_msid))
+					&&     (info.server_msubid == be64toh(force_disconnect_msg->server_msubid))
+					&&     ((uint64_t)info.to_lib_tx_eng == be64toh(force_disconnect_msg->client_to_lib_tx_eng_h));
    				})
    				, end(connected_to_ms_info_list));
 			sem_post(&connected_to_ms_info_list_sem);
@@ -447,12 +447,12 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 			/* Now send back a destroy_ack CM message */
 			dam->type	= htobe64(CM_FORCE_DISCONNECT_MS_ACK);
-			strcpy(dam->server_msname, destroy_msg->server_msname);
-			dam->server_msid = destroy_msg->server_msid; /* Both are BE */
+			strcpy(dam->server_msname, force_disconnect_msg->server_msname);
+			dam->server_msid = force_disconnect_msg->server_msid; /* Both are BE */
 			if (accept_destroy_client->send()) {
-				WARN("Failed to send destroy_ack to server daemon\n");
+				WARN("Failed to send CM_FORCE_DISCONNECT_MS_ACK to server daemon\n");
 			} else {
-				HIGH("Sent destroy_ack to server daemon\n");
+				HIGH("Sent CM_FORCE_DISCONNECT_MS_ACK to server daemon\n");
 			}
 		} else {
 			CRIT("Got an unknown message code (0x%X)\n",

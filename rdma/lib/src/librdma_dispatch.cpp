@@ -90,7 +90,7 @@ void disconnect_ms_disp(uint32_t client_msubid)
 	}
 } /* disconnect_ms_disp() */
 
-void ms_destroyed_disp(uint32_t server_msid, uint32_t server_msubid)
+void force_disconnect_ms_disp(uint32_t server_msid, uint32_t server_msubid)
 {
 	/* Remove the remote memory space and subspace from the database */
 	remove_rem_msubs_in_ms(server_msid);
@@ -99,11 +99,11 @@ void ms_destroyed_disp(uint32_t server_msid, uint32_t server_msubid)
 	/* ACK that the MS_DESTROYED has arrived and was acted upon */
 	unix_msg_t in_msg;
 	in_msg.category = RDMA_LIB_DAEMON_CALL;
-	in_msg.type = MS_DESTROYED_ACK;
-	in_msg.ms_destroyed_ack_in.server_msid = server_msid;
-	in_msg.ms_destroyed_ack_in.server_msubid = server_msubid;
+	in_msg.type = FORCE_DISCONNECT_MS_ACK;
+	in_msg.force_disconnect_ms_ack_in.server_msid = server_msid;
+	in_msg.force_disconnect_ms_ack_in.server_msubid = server_msubid;
 	in_msg.seq_no = 0;
 	tx_eng->send_message(&in_msg);
 
-} /* ms_destroyed_disp() */
+} /* force_disconnect_ms_disp() */
 

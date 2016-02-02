@@ -87,8 +87,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 constexpr uint32_t FORCE_CLOSE_MSO = 0x1001;
 constexpr uint32_t FORCE_CLOSE_MS  = 0x1002;
 constexpr uint32_t DISCONNECT_MS   = 0x1003;
-constexpr uint32_t MS_DESTROYED    = 0x1004;
-constexpr uint32_t MS_DESTROYED_ACK = 0x9004;
+constexpr uint32_t FORCE_DISCONNECT_MS = 0x1004;
+constexpr uint32_t FORCE_DISCONNECT_MS_ACK = 0x9004;
 
 /* rdmad_is_alive() arguments */
 struct rdmad_is_alive_input {
@@ -369,12 +369,12 @@ struct accept_from_ms_req_input {
 /* The server destroyed the MS and the client is being
  * notified so it cleans up its database off the server's
  * ms, and msub. */
-struct ms_destroyed_input {
+struct force_disconnect_ms_input {
 	uint32_t server_msid;
 	uint32_t server_msubid;
 };
 
-struct ms_destroyed_ack_input {
+struct force_disconnect_ms_ack_input {
 	uint32_t server_msid;
 	uint32_t server_msubid;
 };
@@ -430,8 +430,8 @@ struct unix_msg_t {
 		struct connect_to_ms_resp_output connect_to_ms_resp_out;
 		struct accept_from_ms_req_input	accept_from_ms_req_in;
 		struct disconnect_from_ms_req_input disconnect_from_ms_req_in;
-		struct ms_destroyed_input 	ms_destroyed_in;
-		struct ms_destroyed_ack_input	ms_destroyed_ack_in;
+		struct force_disconnect_ms_input force_disconnect_ms_in;
+		struct force_disconnect_ms_ack_input	force_disconnect_ms_ack_in;
 		struct server_disconnect_ms_input server_disconnect_ms_in;
 		struct server_disconnect_ms_output server_disconnect_ms_out;
 	};
