@@ -43,9 +43,9 @@ constexpr auto CM_MS_NAME_MAX_LEN 	= 31;
 constexpr uint32_t CM_HELLO 	 	= 0x01;
 constexpr uint32_t CM_CONNECT_MS 	= 0x02;
 constexpr uint32_t CM_ACCEPT_MS	 	= 0x03;
-constexpr uint32_t CM_DISCONNECT_MS	= 0x04;
-constexpr uint32_t CM_DESTROY_MS	= 0x05;
-constexpr uint32_t CM_DESTROY_ACK_MS	= 0x06;
+constexpr uint32_t CM_DISCONNECT_MS_REQ	= 0x04;
+constexpr uint32_t CM_FORCE_DISCONNECT_MS = 0x05;
+constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK = 0x06;
 
 struct hello_msg_t {
 	uint64_t destid;
@@ -83,7 +83,7 @@ struct cm_accept_msg {
 	uint64_t	client_to_lib_tx_eng_h;
 };
 
-struct cm_disconnect_msg {
+struct cm_disconnect_req_msg {
 	uint64_t	type;
 	uint64_t 	client_msubid;
 	uint64_t 	client_destid;
@@ -116,7 +116,7 @@ struct cm_msg_t {
 		hello_msg_t		hello;
 		cm_connect_msg		cm_connect;
 		cm_accept_msg		cm_accept;
-		cm_disconnect_msg 	cm_disconnect;
+		cm_disconnect_req_msg 	cm_disconnect_req;
 		cm_destroy_msg		cm_destroy;
 		cm_destroy_ack_msg	cm_destroy_ack;
 	};

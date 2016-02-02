@@ -98,7 +98,7 @@ mspace::~mspace()
 		destroy();
 } /* destructor */
 
-int mspace::send_cm_destroy_ms(cm_server *server, uint32_t server_msubid,
+int mspace::send_cm_force_disconnect_ms(cm_server *server, uint32_t server_msubid,
 				uint64_t client_to_lib_tx_eng_h)
 {
 	int rc;
@@ -106,7 +106,7 @@ int mspace::send_cm_destroy_ms(cm_server *server, uint32_t server_msubid,
 	/* Prepare destroy message */
 	cm_destroy_msg	*dm;
 	server->get_send_buffer((void **)&dm);
-	dm->type	= htobe64(CM_DESTROY_MS);
+	dm->type	= htobe64(CM_FORCE_DISCONNECT_MS);
 	strcpy(dm->server_msname, name.c_str());
 	dm->server_msid = htobe64(msid);
 	dm->server_msubid = htobe64(server_msubid);
@@ -140,7 +140,7 @@ int mspace::notify_remote_clients()
 							client_destid);
 			rc = -1;
 		} else {
-			rc = send_cm_destroy_ms(prov_it->conn_disc_server,
+			rc = send_cm_force_disconnect_ms(prov_it->conn_disc_server,
 						server_msubid,
 						client_to_lib_tx_eng_h);
 		}
@@ -158,7 +158,7 @@ int mspace::notify_remote_clients()
 								client_destid);
 				rc = -1;
 			} else if (u.connected_to) {
-				rc = send_cm_destroy_ms(prov_it->conn_disc_server,
+				rc = send_cm_force_disconnect_ms(prov_it->conn_disc_server,
 							u.server_msubid,
 							u.client_to_lib_tx_eng_h);
 			}

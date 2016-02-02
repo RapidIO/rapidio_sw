@@ -399,7 +399,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			it->server_msubid = be64toh(accept_cm_msg->server_msubid);
 			sem_post(&connected_to_ms_info_list_sem);
 
-		} else if (be64toh(accept_cm_msg->type) == CM_DESTROY_MS) {
+		} else if (be64toh(accept_cm_msg->type) == CM_FORCE_DISCONNECT_MS) {
 			cm_destroy_msg	*destroy_msg;
 			/* Receive CM_DESTROY_MS */
 			accept_destroy_client->get_recv_buffer(
@@ -446,7 +446,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			accept_destroy_client->flush_send_buffer();
 
 			/* Now send back a destroy_ack CM message */
-			dam->type	= htobe64(CM_DESTROY_ACK_MS);
+			dam->type	= htobe64(CM_FORCE_DISCONNECT_MS_ACK);
 			strcpy(dam->server_msname, destroy_msg->server_msname);
 			dam->server_msid = destroy_msg->server_msid; /* Both are BE */
 			if (accept_destroy_client->send()) {

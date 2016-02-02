@@ -149,13 +149,13 @@ int send_disc_ms_cm(uint32_t server_destid,
 	sem_post(&hello_daemon_info_list_sem);
 
 	if (ret == 0) {
-		cm_disconnect_msg *disc_msg;
+		cm_disconnect_req_msg *disc_msg;
 
 		/* Get and flush send buffer */
 		the_client->flush_send_buffer();
 		the_client->get_send_buffer((void **)&disc_msg);
 
-		disc_msg->type		    = htobe64(CM_DISCONNECT_MS);
+		disc_msg->type		    = htobe64(CM_DISCONNECT_MS_REQ);
 		disc_msg->client_msubid	    = htobe64(client_msubid);
 		disc_msg->client_destid     = htobe64(peer.destid);
 		disc_msg->client_destid_len = htobe64(16);

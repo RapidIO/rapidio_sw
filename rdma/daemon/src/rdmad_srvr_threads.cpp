@@ -278,8 +278,8 @@ void *wait_conn_disc_thread_f(void *arg)
 			ms->add_rem_connection(connect_msg->client_destid,
 					       connect_msg->client_msubid,
 					       connect_msg->client_to_lib_tx_eng_h);
-		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS) {
-			cm_disconnect_msg	*disc_msg;
+		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS_REQ) {
+			cm_disconnect_req_msg	*disc_msg;
 
 			rx_conn_disc_server->get_recv_buffer((void **)&disc_msg);
 			HIGH("Received DISCONNECT_MS for msid(0x%X)\n",
@@ -322,7 +322,7 @@ void *wait_conn_disc_thread_f(void *arg)
 
 			/* Consider this memory space disconnected. Allow accepting */
 			ms->set_connected_to(false);
-		} else if (be64toh(conn_msg->type) == CM_DESTROY_ACK_MS) {
+		} else if (be64toh(conn_msg->type) == CM_FORCE_DISCONNECT_MS_ACK) {
 			cm_destroy_ack_msg *dest_ack_msg;
 
 			rx_conn_disc_server->get_recv_buffer((void **)&dest_ack_msg);

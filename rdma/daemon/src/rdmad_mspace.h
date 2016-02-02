@@ -250,7 +250,7 @@ private:
 	/* Private methods */
 	mspace(const mspace&);
 	mspace& operator=(const mspace&);
-	int send_cm_destroy_ms(cm_server *server, uint32_t server_msubid,
+	int send_cm_force_disconnect_ms(cm_server *server, uint32_t server_msubid,
 					uint64_t client_to_lib_tx_eng);
 	/* Constants */
 	static constexpr uint32_t MS_CONN_ID_START = 0x01;
