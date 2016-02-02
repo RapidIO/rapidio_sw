@@ -1933,6 +1933,7 @@ void UMD_DD(struct worker* info)
 	uint64_t port_FIFO_WP[6] = {0};
 	uint64_t port_ticks_total[6] = {0};
 	uint64_t port_total_ticks_tx[6] = {0};
+	uint64_t* port_tx_histo[6] = {NULL};
         DmaChannelInfo_t* dch_list[6] = {0};
 
 	assert(info->umd_dch_nread);
@@ -1963,6 +1964,9 @@ void UMD_DD(struct worker* info)
 	  INFO("\n\tPerf counters:\n%s", ss.str().c_str());
 	}}
 
+	const int TX_HISTO_SZ = sizeof(uint64_t) * info->umd_tx_buf_cnt;
+	const int RX_HISTO_SZ = TX_HISTO_SZ;
+
         int dch_cnt = 0;
         for (int ch = info->umd_chan; info->umd_chan >= 0 && ch <= info->umd_chan_n; ch++) {
 		assert(info->umd_dch_list[ch]);
@@ -1977,6 +1981,10 @@ void UMD_DD(struct worker* info)
 
 		port_total_ticks_tx[dch_cnt] = info->umd_dch_list[ch]->total_ticks_tx;
 
+		if (info->umd_dch_list[ch]->dch->m_bl_busy_histo != NULL) {
+			port_tx_histo[dch_cnt] = (uint64_t*)alloca(TX_HISTO_SZ);
+			memcpy(port_tx_histo[dch_cnt], (void*)info->umd_dch_list[ch]->dch->m_bl_busy_histo, TX_HISTO_SZ);
+		}
 		dch_cnt++;
 	}
 
@@ -1997,6 +2005,7 @@ void UMD_DD(struct worker* info)
 	}
 	for (int ch = 0; ch < dch_cnt; ch++) {
 		assert(dch_list[ch]);
+		const uint64_t* tx_histo = port_tx_histo[ch];
 
 		char tmp[257] = {0};
 		snprintf(tmp, 256, "Chan  %d q_size=%d oi=%d", dch_list[ch]->chan, q_size[ch], dch_list[ch]->oi);
@@ -2011,12 +2020,21 @@ void UMD_DD(struct worker* info)
 		}
 		if (port_ok[ch]) ss << " ok";
 		if (port_err[ch]) ss << " ERROR";
+
+		std::stringstream ss_histo;
+		for (int i = 0; i < info->umd_tx_buf_cnt && tx_histo != NULL; i++) {
+			if (tx_histo[i] == 0) continue;
+			ss_histo << i << "->" << tx_histo[i] << " ";
+		}
+
+		if (ss_histo.str().size() > 0) ss << "\n\t\tTX Histo: " << ss_histo << "\n";
 	}
 	if (dch_cnt > 0)
 		INFO("\n\tDMA Channel stats: %s\n", ss.str().c_str());
 
 	std::vector<DmaPeer>     peer_list;
 	std::vector<int>         peer_list_rocnt;
+	std::vector<uint64_t*>   peer_list_rxhisto;
 	std::vector<DmaPeerCommsStats_t> peer_list_enum;
 
 	time_t now = time(NULL);
@@ -2033,7 +2051,15 @@ void UMD_DD(struct worker* info)
 
           std::map <uint16_t, int>::iterator itp = info->umd_dma_did_peer.begin();
 	  for (; itp != info->umd_dma_did_peer.end(); itp++) {
+		uint64_t* rxhisto = NULL;
+		if (info->umd_dma_did_peer_list[itp->second]->m_ib_histo != NULL) { // operator= does not copy m_ib_histo
+			rxhisto = (uint64_t*)alloca(RX_HISTO_SZ);
+			memcpy(rxhisto, (void*)info->umd_dma_did_peer_list[itp->second]->m_ib_histo, RX_HISTO_SZ);
+		}
+		peer_list_rxhisto.push_back(rxhisto);
+
 		peer_list_rocnt.push_back(info->umd_dma_did_peer_list[itp->second]->count_RO()); // operator= does not copy m_rio_rx_bd_L2_ptr
+
 		peer_list.push_back(*info->umd_dma_did_peer_list[itp->second]); // Yeehaw! Make a copy of class!!
 	  }
 	}}
@@ -2063,6 +2089,8 @@ void UMD_DD(struct worker* info)
 		for (int ip = 0; ip < peer_list.size(); ip++) {
 			DmaPeer& peer = peer_list[ip];
 			const int rocnt = peer_list_rocnt[ip];
+			const uint64_t* rx_histo = peer_list_rxhisto[ip];
+
 			char tmp[257] = {0};
 			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u tx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
 				 peer.get_destid(), peer.get_tun_name(), peer.get_rio_addr(),
@@ -2100,6 +2128,14 @@ void UMD_DD(struct worker* info)
 				ss << tmp;
 			}
 #endif // UDMA_TUN_DEBUG_SPLOCK
+
+			std::stringstream ss_histo;
+			for (int i = 0; i < info->umd_tx_buf_cnt && rx_histo != NULL; i++) {
+				if (rx_histo[i] == 0) continue;
+				ss_histo << i << "->" << rx_histo[i] << " ";
+			}
+
+			if (ss_histo.str().size() > 0) ss << "\n\t\t\tRX Histo: " << ss_histo << "\n";
 
 			if (peer.get_mutex().__data.__lock) {
 				snprintf(tmp, 256, "\n\t\t\tlocker.tid=0x%x", peer.get_mutex().__data.__owner);
