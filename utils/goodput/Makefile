@@ -53,6 +53,8 @@ CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 #CCFLAGS+=-DUDMA_TUN_DEBUG_IB_BD
 #CCFLAGS+=-DUDMA_TUN_DEBUG_NREAD
 #CCFLAGS+=-DUDMA_TUN_DEBUG_IN
+CCFLAGS+=-DUDMA_TUN_DEBUG_SPLOCK
+#CCFLAGS+=-rdynamic # use with mutrace
 
 INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c

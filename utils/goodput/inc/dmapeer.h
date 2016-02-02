@@ -37,6 +37,12 @@ public:
     volatile uint64_t  rio_isol_rx_pass_add; ///< How many times/passes we detected RO=1 in IB BDs
     volatile uint64_t  rio_rx_pass; ///< How many times we received (non-empty pass of) IB BDs
 
+#ifdef UDMA_TUN_DEBUG_SPLOCK
+    volatile uint64_t  rio_isol_rx_pass_spl_ts; ///< Total number of ticks spent acquiring spinlock [cumulative]
+    volatile uint64_t  rio_isol_rx_pass_spl_ts_max; ///< Max number of ticks spent acquiring spinlock
+    volatile uint64_t  rio_isol_rx_pass_spl; /// How many times we acquired spinlock in top half
+#endif
+
     uint64_t           total_ticks_rx; ///< How many ticks (total) between IB RO detection and write into Tun
 
     uint64_t           nread_ts; ///< rdtsc timestamp of last NREAD
@@ -368,12 +374,24 @@ error:
       if (m_stats.rio_rx_peer_full_ts == 0) m_stats.rio_rx_peer_full_ts = now;
       return 0;
     }
-    if (m_stats.rio_rx_peer_full_ts > 0 && now > m_stats.rio_rx_peer_full_ts) { // We just drained somw of IBwin window for this peer
+    if (m_stats.rio_rx_peer_full_ts > 0 && now > m_stats.rio_rx_peer_full_ts) { // We just drained some of IBwin window for this peer
       m_stats.rio_rx_peer_full_ticks_total += now - m_stats.rio_rx_peer_full_ts;
     }
     m_stats.rio_rx_peer_full_ts = 0;
 
+#ifdef UDMA_TUN_DEBUG_SPLOCK
+    const uint64_t spl_ts_s = rdtsc();
     splock();
+    const uint64_t spl_ts_a = rdtsc();
+    if (spl_ts_a > spl_ts_s) {
+      const uint64_t dT = (spl_ts_a - spl_ts_s);
+      m_stats.rio_isol_rx_pass_spl_ts += dT;
+      if (dT > m_stats.rio_isol_rx_pass_spl_ts_max) m_stats.rio_isol_rx_pass_spl_ts_max = dT;
+      m_stats.rio_isol_rx_pass_spl++;
+    }
+#else
+    splock();
+#endif
 
     int idx = m_rio_rx_bd_ready_size; // If not zero then RIO RX thr is sloow
     assert(idx >= 0);

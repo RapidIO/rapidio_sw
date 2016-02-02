@@ -2091,6 +2091,15 @@ void UMD_DD(struct worker* info)
 				snprintf(tmp, 64, "\n\t\t\tAvgSoftRX=%fuS", AvgUS);
 				ss << tmp;
 			}
+#ifdef UDMA_TUN_DEBUG_SPLOCK
+			if (peer.m_stats.rio_isol_rx_pass_spl > 0) {
+				float AvgTck = ((float)peer.m_stats.rio_isol_rx_pass_spl_ts / peer.m_stats.rio_isol_rx_pass_spl);
+				char tmp[65] = {0};
+				snprintf(tmp, 64, "\n\t\t\tAvgTckSplock=%f (%fuS) MaxTckSplock=%llu", AvgTck, AvgTck/MHz,
+                                                  peer.m_stats.rio_isol_rx_pass_spl_ts_max);
+				ss << tmp;
+			}
+#endif // UDMA_TUN_DEBUG_SPLOCK
 
 			if (peer.get_mutex().__data.__lock) {
 				snprintf(tmp, 256, "\n\t\t\tlocker.tid=0x%x", peer.get_mutex().__data.__owner);
