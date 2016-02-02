@@ -51,6 +51,7 @@ public:
 public:
   volatile uint32_t  sig;
   volatile int       stop_req; ///< For the thread minding this peer
+  volatile uint64_t* m_ib_histo;
 
 private:
   pthread_mutex_t    m_mutex;
@@ -88,6 +89,7 @@ public:
   DmaPeer() :
     sig(0),
     stop_req(0),
+    m_ib_histo(NULL),
     m_rio_addr(0),
     m_ib_ptr(NULL),
     m_tun_fd(-1), m_tun_MTU(0),
@@ -126,6 +128,7 @@ public:
     m_rio_rx_bd_ready_size = 0;
     m_rio_rx_bd_ready_ts = NULL;
     m_info     = NULL;
+    m_ib_histo = NULL;
     m_copy     = true;
     memcpy(&m_stats, &other.m_stats, sizeof(m_stats));
 
@@ -189,6 +192,9 @@ public:
     m_rio_rx_bd_ready_ts = (uint64_t*)calloc(info->umd_tx_buf_cnt, sizeof(uint64_t)); // +1 secret cell
     if (m_rio_rx_bd_ready_ts == NULL) goto error;
 
+    m_ib_histo = (uint64_t*)calloc(info->umd_tx_buf_cnt, sizeof(uint64_t));
+    if (m_ib_histo == NULL) goto error;
+
     m_rio_rx_bd_ready_size = 0;
 
     {{ // RX: Pre-populate the locations of the RO bit in IB BDs, and zero RO
@@ -219,6 +225,7 @@ public:
     if (m_rio_rx_bd_L2_ptr != NULL)   { free(m_rio_rx_bd_L2_ptr); m_rio_rx_bd_L2_ptr = NULL; }
     if (m_rio_rx_bd_ready != NULL)  { free(m_rio_rx_bd_ready); m_rio_rx_bd_ready = NULL; }
     if (m_rio_rx_bd_ready_ts != NULL) { free(m_rio_rx_bd_ready_ts); m_rio_rx_bd_ready_ts = NULL; }
+    if (m_ib_histo != NULL) { free((void*)m_ib_histo); m_ib_histo = NULL; }
     goto unlock;
   }
 
@@ -238,6 +245,7 @@ public:
     free(m_rio_rx_bd_ready); m_rio_rx_bd_ready = NULL;
     free(m_rio_rx_bd_ready_ts); m_rio_rx_bd_ready_ts = NULL;
     m_rio_rx_bd_ready_size = -1;
+    free((void*)m_ib_histo); m_ib_histo = NULL;
 
     m_info = NULL;
 
@@ -435,6 +443,7 @@ error:
       m_rio_rx_bd_ready_size += cnt;
       assert(m_rio_rx_bd_ready_size <= (m_info->umd_tx_buf_cnt-1));
       m_stats.rio_isol_rx_pass_add++;
+      if (m_ib_histo != NULL) m_ib_histo[m_rio_rx_bd_ready_size]++;
     }
 #ifdef UDMA_TUN_DEBUG_IB_BD
     else {

@@ -340,6 +340,9 @@ private:
   inline void setWriteCount(uint32_t cnt) { if (!m_sim) wr32dmachan(TSI721_DMAC_DWRCNT, cnt); }
 
 public:
+  volatile uint64_t*  m_bl_busy_histo;
+
+public:
   inline void trace_dmachan(uint32_t offset, uint32_t val)
   {
 	wr32dmachan_nolock(offset, val);

@@ -81,7 +81,8 @@ void DMAChannel::init()
   m_bl_busy_size  = -1;
   m_check_reg     = false;
   m_restart_pending = 0;
-  m_sts_log_two    = 0;
+  m_sts_log_two   = 0;
+  m_bl_busy_histo = NULL;
 
   m_sim           = false;
   m_sim_dma_rp    = 0;
@@ -295,6 +296,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     m_bl_busy[bd_idx] = true;
     m_bl_busy_size++;
 
+    if (m_bl_busy_histo != NULL) m_bl_busy_histo[m_bl_busy_size]++;
+
     bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
     desc.pack(bd_hw);
 
@@ -379,6 +382,8 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
   }
 
   m_bd_num = bd_cnt;
+
+  m_bl_busy_histo = (uint64_t*)calloc(m_bd_num, sizeof(uint64_t));
 
   m_bl_busy = (bool*)calloc(m_bd_num, sizeof(bool));
   m_bl_busy_size = 0;
@@ -585,6 +590,11 @@ void DMAChannel::cleanup()
   if(m_bl_busy != NULL) {
     free(m_bl_busy); m_bl_busy = NULL;
     m_bl_busy_size = -1;
+  }
+
+  if (m_bl_busy_histo != NULL) {
+    free((void*)m_bl_busy_histo);
+    m_bl_busy_histo = NULL;
   }
 }
 
