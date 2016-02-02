@@ -124,7 +124,76 @@ int mspace::send_cm_force_disconnect_ms(cm_server *server, uint32_t server_msubi
 	}
 
 	return rc;
-} /* send_cm_destroy_ms() */
+} /* send_cm_force_disconnect_ms() */
+
+int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
+				     uint64_t client_to_lib_tx_eng_h)
+{
+	int rc;
+	cm_server *server = nullptr;
+
+	/* If the mspace creator matches on the client_msubid,
+	 * client_to_lib_tx_eng_h (connh) and is 'connected_to', then
+	 * look up its destid and send the force disconnect message.
+	 */
+	if (connected_to &&
+	   (this->client_msubid == client_msubid) &&
+	   (this->client_to_lib_tx_eng_h == client_to_lib_tx_eng_h)) {
+		sem_wait(&prov_daemon_info_list_sem);
+		auto prov_it = find(begin(prov_daemon_info_list),
+		                end(prov_daemon_info_list), client_destid);
+		if (prov_it == end(prov_daemon_info_list)) {
+			ERR("Could not find entry for client_destid(0x%X)\n",
+							client_destid);
+			rc = -1;
+		} else {
+			server = prov_it->conn_disc_server;
+		}
+		sem_post(&prov_daemon_info_list_sem);
+	} else {
+		/* If the mspace creator does NOT match on the client_msubid,
+		 * client_to_lib_tx_eng_h (connh) or is NOT 'connected_to', then
+		 * search all the users for a match and, for the matched user
+		 * look up its destid and send the force disconnect message.
+		 */
+		auto it = find_if(begin(users), end(users),
+		[client_to_lib_tx_eng_h, client_msubid](ms_user& u) {
+			return u.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h
+			    && u.client_msubid == client_msubid
+			    && u.connected_to;
+		});
+		if (it == end(users)) {
+			CRIT("No user matches specified parameter(s)\n");
+			rc = -1;
+		} else {
+			/* Now find the cm_server to use by looking up the
+			 * user's destid in the prov_daemon_info_list
+			 */
+			sem_wait(&prov_daemon_info_list_sem);
+			auto prov_it = find(begin(prov_daemon_info_list),
+			                end(prov_daemon_info_list), it->client_destid);
+			if (prov_it == end(prov_daemon_info_list)) {
+				ERR("Could not find entry for client_destid(0x%X)\n",
+								it->client_destid);
+				rc = -1;
+			} else {
+				server = prov_it->conn_disc_server;
+			}
+			sem_post(&prov_daemon_info_list_sem);
+		}
+	}
+
+	if (server != nullptr) {
+		rc = send_cm_force_disconnect_ms(server,
+						server_msubid,
+						client_to_lib_tx_eng_h);
+		if (rc) {
+			ERR("Failed to send CM_FORCE_DISCONNECT_MS\n");
+		}
+	}
+
+	return rc;
+} /* send_disconnect_to_remote_daemon() */
 
 int mspace::notify_remote_clients()
 {
@@ -162,7 +231,7 @@ int mspace::notify_remote_clients()
 							u.server_msubid,
 							u.client_to_lib_tx_eng_h);
 			}
-				/* If the entry is not 'connected_to' then skip it */
+			/* If the entry is not 'connected_to' then skip it */
 			sem_post(&prov_daemon_info_list_sem);
 		}
 	}
@@ -400,6 +469,9 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 		DBG("Creator has the connection\n");
 		if (is_client)
 			send_disconnect_to_lib(client_msubid, creator_tx_eng);
+		else
+			send_disconnect_to_remote_daemon(client_msubid,
+							client_to_lib_tx_eng_h);
 		this->client_destid = 0xFFFF;
 		this->client_msubid = 0;
 		this->client_to_lib_tx_eng_h = 0;
@@ -416,6 +488,9 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 				DBG("A user has the connection\n");
 				if (is_client)
 					send_disconnect_to_lib(u.client_msubid, u.tx_eng);
+				else
+					send_disconnect_to_remote_daemon(client_msubid,
+								client_to_lib_tx_eng_h);
 				u.client_destid = 0xFFFF;
 				u.client_msubid = 0;
 				u.client_to_lib_tx_eng_h = 0;

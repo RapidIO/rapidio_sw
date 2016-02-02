@@ -401,7 +401,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 		} else if (be64toh(accept_cm_msg->type) == CM_FORCE_DISCONNECT_MS) {
 			cm_force_disconnect_msg	*force_disconnect_msg;
-			/* Receive CM_DESTROY_MS */
+			/* Receive CM_FORCE_DISCONNECT_MS */
 			accept_destroy_client->get_recv_buffer(
 							(void **)&force_disconnect_msg);
 
@@ -422,7 +422,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			}
 
 			/* Remove the entry relating to the destroyed ms. The entry fields must
-			 * match the 'CM_DESTROY_MS */
+			 * match the 'CM_FORCE_DISCONNECT_MS */
 			sem_wait(&connected_to_ms_info_list_sem);
 			connected_to_ms_info_list.erase (
 				remove_if(begin(connected_to_ms_info_list),
@@ -436,9 +436,9 @@ void *wait_accept_destroy_thread_f(void *arg)
 			sem_post(&connected_to_ms_info_list_sem);
 
 			/**
-			 * Send back CM_DESTROY_ACK_MS to the remote daemon on which
-			 * the memory space was created then destroyed.
-			 */
+			 * Send back CM_FORCE_DISCONNECT_MS_ACK to the remote
+			 * daemon on which the memory space was either
+			 * destroyed or self-disconnected by its server. */
 			cm_destroy_ack_msg *dam;
 
 			/* Flush CM send buffer of previous message */
@@ -455,8 +455,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 				HIGH("Sent CM_FORCE_DISCONNECT_MS_ACK to server daemon\n");
 			}
 		} else {
-			CRIT("Got an unknown message code (0x%X)\n",
-							accept_cm_msg->type);
+			CRIT("Got an unknown message code (0x%X)\n", accept_cm_msg->type);
 			assert(false);
 		}
 	} /* while(1) */

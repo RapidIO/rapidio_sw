@@ -259,7 +259,8 @@ private:
 		       uint64_t client_to_lib_tx_eng_h);
 	/* Constants */
 	static constexpr uint32_t MS_CONN_ID_START = 0x01;
-
+	int send_disconnect_to_remote_daemon(uint32_t client_msubid,
+					     uint64_t client_to_lib_tx_eng_h);
 	int notify_remote_clients();
 	int close_connections();
 
