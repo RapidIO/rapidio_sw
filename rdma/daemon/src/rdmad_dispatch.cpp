@@ -40,7 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -60,7 +60,7 @@ int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 int get_mport_id_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -78,7 +78,7 @@ int get_mport_id_disp(const unix_msg_t *in_msg,
 int create_mso_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -101,7 +101,7 @@ int create_mso_disp(const unix_msg_t *in_msg,
 int open_mso_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -126,7 +126,7 @@ int open_mso_disp(const unix_msg_t *in_msg,
 int close_mso_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -149,7 +149,7 @@ int close_mso_disp(const unix_msg_t *in_msg,
 int destroy_mso_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -172,7 +172,7 @@ int destroy_mso_disp(const unix_msg_t *in_msg,
 int create_ms_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -201,7 +201,7 @@ int create_ms_disp(const unix_msg_t *in_msg,
 int open_ms_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -230,7 +230,7 @@ int open_ms_disp(const unix_msg_t *in_msg,
 int close_ms_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -254,7 +254,7 @@ int close_ms_disp(const unix_msg_t *in_msg,
 int destroy_ms_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -277,7 +277,7 @@ int destroy_ms_disp(const unix_msg_t *in_msg,
 int create_msub_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -306,7 +306,7 @@ int create_msub_disp(const unix_msg_t *in_msg,
 int destroy_msub_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -330,7 +330,7 @@ int destroy_msub_disp(const unix_msg_t *in_msg,
 int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server,
 				unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -353,7 +353,7 @@ int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server,
 int accept_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -376,7 +376,7 @@ int accept_disp(const unix_msg_t *in_msg,
 int undo_accept_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -402,7 +402,7 @@ int undo_accept_disp(const unix_msg_t *in_msg,
 int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 	auto 	   rc = 0;
 
 	sem_wait(&prov_daemon_info_list_sem);
@@ -481,7 +481,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 int send_connect_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -514,7 +514,7 @@ int send_connect_disp(const unix_msg_t *in_msg,
 int undo_connect_disp(const unix_msg_t *in_msg,
 			tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -538,7 +538,7 @@ int undo_connect_disp(const unix_msg_t *in_msg,
 int send_disconnect_disp(const unix_msg_t *in_msg,
 			tx_engine<unix_server,unix_msg_t> *tx_eng)
 {
-	unix_msg_t out_msg;
+	static unix_msg_t out_msg;
 
 	DBG("seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -562,10 +562,39 @@ int send_disconnect_disp(const unix_msg_t *in_msg,
 	return out_msg.send_disconnect_out.status;
 } /* send_disconnect_disp() */
 
-int server_disconnect_ms_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng)
+int server_disconnect_ms_disp(const unix_msg_t *in_msg,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	(void)in_msg;
-	(void)tx_eng;
+	int rc;
+	try {
+		uint32_t server_msid = in_msg->server_disconnect_ms_in.server_msid;
+		mspace *ms = the_inbound->get_mspace(server_msid);
 
-	return -1;
+		if (ms == nullptr) {
+			ERR("Invalid server_msid(0x%X)\n", server_msid);
+			throw RDMA_INVALID_MS;
+		}
+
+		/* Disconnect memory space from specified client */
+		rc = ms->disconnect(
+			in_msg->server_disconnect_ms_in.client_msubid,
+			in_msg->server_disconnect_ms_in.client_to_lib_tx_eng_h);
+		if (rc) {
+			ERR("Failed to disconnect MS\n");
+			throw rc;
+		}
+
+		/* Reply to library indicating success */
+		static unix_msg_t out_msg;
+		out_msg.category = RDMA_LIB_DAEMON_CALL;
+		out_msg.type	 = SERVER_DISCONNECT_MS_ACK;
+		out_msg.seq_no	 = in_msg->seq_no;
+		out_msg.server_disconnect_ms_out.status = rc;
+
+		tx_eng->send_message(&out_msg);
+	}
+	catch(int e) {
+		rc = e;
+	}
+	return rc;
 } /* server_disconnect_ms_disp() */

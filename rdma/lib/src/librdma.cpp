@@ -1833,7 +1833,7 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		DBG("rem_msh exists and has msid(0x%X), rem_msh(%" PRIx64 ")\n",
 						server_ms->msid, server_msh);
 
-		/* Check that we indeed have remote msubs belonging to that rem_msh.
+		/* Check that we indeed have remote msubs belonging to that server_msh.
 		 * If we don't that is a serious problem because:
 		 * 1. Even if we don't provide an msub, the server must provide one.
 		 * 2. If we did provide an msub, we cannot tell the server to remove it
@@ -1907,10 +1907,6 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 
 int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 {
-	(void)connh;
-	(void)server_msh;
-	(void)client_msubh;
-
 	int rc;
 
 	DBG("ENTER\n");
@@ -1925,7 +1921,65 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 			ERR("server_msh is NULL\n");
 			throw RDMA_NULL_PARAM;
 		}
-		throw -1;
+
+		/* Get client msubid, if not null */
+		uint32_t client_msubid = 0;
+		if (client_msubh) {
+			client_msubid = ((rem_msub *)client_msubh)->msubid;
+		}
+
+		/* Get server_msid */
+		uint32_t server_msid = ((loc_ms *)server_msh)->msid;
+
+		/* Get server_msubid */
+		msub_h server_msubh = find_loc_msub_by_connh(connh);
+		if (!server_msubh) {
+			ERR("Invalid connh. No related server msubs\n");
+			throw -1;
+		}
+		loc_msub *server_msub = (loc_msub *)server_msubh;
+
+		/* Clean up local database */
+		/* Remove connh from server msub database entry */
+		auto it = find(begin(server_msub->conn_handles),
+				end(server_msub->conn_handles),connh);
+		if (it == end(server_msub->conn_handles)) {
+			ERR("Invalid connh. Not found in server_msub\n");
+			throw -2;
+		}
+		server_msub->conn_handles.erase(it);
+		uint32_t server_msubid = server_msub->msubid;
+
+		/* Remove client msub from database, if applicable */
+		if (client_msubh) {
+			if (remove_rem_msub(client_msubh) != 0) {
+				ERR("Failed to remove client msub\n");
+				throw RDMA_DB_REM_FAIL;
+			}
+		}
+
+		/* Tell daemon to relay to remove client that we disconnected
+		 * them from the memory space.  */
+		unix_msg_t in_msg;
+		in_msg.type 	= SERVER_DISCONNECT_MS;
+		in_msg.category = RDMA_REQ_RESP;
+		in_msg.server_disconnect_ms_in.client_to_lib_tx_eng_h = connh;
+		in_msg.server_disconnect_ms_in.server_msid = server_msid;
+		in_msg.server_disconnect_ms_in.server_msubid = server_msubid;
+		in_msg.server_disconnect_ms_in.client_msubid = client_msubid;
+
+		unix_msg_t out_msg;
+		rc = daemon_call(&in_msg, &out_msg);
+		if (rc ) {
+			ERR("Failed in SERVER_DISCONNECT_MS daemon _call, rc = %d\n", rc);
+			throw rc;
+		}
+
+		/* Failed to send server_disconnect_ms? */
+		if (out_msg.server_disconnect_ms_out.status) {
+			ERR("Failed in SERVER_DISCONNECT_MS handling in daemon\n");
+			throw out_msg.server_disconnect_ms_out.status;
+		}
 	} /* try */
 	catch(int e) {
 		rc = e;
