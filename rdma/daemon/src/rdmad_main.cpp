@@ -174,20 +174,6 @@ int send_disc_ms_cm(uint32_t server_destid,
 
 	return ret;
 } /* send_disc_ms_cm() */
-#if 0
-				case RDMAD_IS_ALIVE:
-				{
-					out_msg->type = RDMAD_IS_ALIVE_ACK;
-					out_msg->rdmad_is_alive_out.dummy = 0x5678;
-				}
-				break;
-
-				case RDMAD_KILL_DAEMON:
-				{
-					raise(SIGTERM); /* Simulate 'kill' */
-				}
-				break;
-#endif
 
 void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 {

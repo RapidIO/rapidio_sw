@@ -57,6 +57,9 @@ public:
 		case RDMAD_IS_ALIVE:
 			rc = rdmad_is_alive_disp(msg, tx_eng);
 			break;
+		case RDMAD_KILL_DAEMON:
+			raise(SIGTERM); /* Simulate kill */
+			break;
 		case GET_MPORT_ID:
 			rc = get_mport_id_disp(msg, tx_eng);
 			break;

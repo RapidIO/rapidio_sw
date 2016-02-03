@@ -120,7 +120,7 @@ static uint32_t round_up_to_4k(uint32_t length)
 
 	return (r == 0) ? FOUR_K*q : FOUR_K*(q + 1);
 } /* round_up_to_4k() */
-
+#if 0
 static int alt_rpc_call(unix_msg_t *in_msg, unix_msg_t **out_msg)
 {
 	auto ret = 0;
@@ -156,19 +156,8 @@ static int alt_rpc_call(unix_msg_t *in_msg, unix_msg_t **out_msg)
 
 	return ret;
 } /* alt_rpc_call() */
+#endif
 
-int rdmad_kill_daemon()
-{
-	struct rdmad_kill_daemon_input	in;
-	unix_msg_t  *in_msg;
-
-	client->get_send_buffer((void **)&in_msg);
-	in.dummy = 0x666;
-	in_msg->type = RDMAD_KILL_DAEMON;
-	in_msg->rdmad_kill_daemon_in = in;
-
-	return alt_rpc_call(in_msg, NULL);
-} /* rdmad_kill_daemon() */
 
 static int await_message(rdma_msg_cat category, rdma_msg_type type,
 			rdma_msg_seq_no seq_no, unsigned timeout_in_secs,
@@ -242,6 +231,27 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 
 	return rc;
 } /* daemon_call() */
+
+int rdmad_kill_daemon()
+{
+	int rc;
+
+	unix_msg_t	in_msg;
+
+	in_msg.type = RDMAD_KILL_DAEMON;
+	in_msg.category = RDMA_REQ_RESP;
+	in_msg.rdmad_kill_daemon_in.dummy = 0x666;
+
+	unix_msg_t  	out_msg;
+	rc = daemon_call(&in_msg, &out_msg);
+	if (rc ) {
+		ERR("Failed in daemon call to get kill daemon\n");
+	}
+
+	/* The daemon dies. It cannot send us back a reply */
+
+	return rc;
+} /* rdmad_kill_daemon() */
 
 /**
  * For testing only. Not exposed in librdma.h.

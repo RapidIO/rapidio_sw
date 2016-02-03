@@ -99,10 +99,6 @@ struct rdmad_kill_daemon_input {
 	int dummy;
 };
 
-struct rdmad_kill_daemon_output {
-	int dummy;
-};
-
 /* rdmad_is_alive() arguments */
 struct rdmad_is_alive_output {
 	int dummy;
@@ -420,7 +416,6 @@ struct unix_msg_t {
 		struct rdmad_is_alive_input	rdmad_is_alive_in;
 		struct rdmad_is_alive_output	rdmad_is_alive_out;
 		struct rdmad_kill_daemon_input	rdmad_kill_daemon_in;
-		struct rdmad_kill_daemon_output	rdmad_kill_daemon_out;
 		struct get_ibwin_properties_input  get_ibwin_properties_in;
 		struct get_ibwin_properties_output get_ibwin_properties_out;
 		struct force_close_mso_req_input   force_close_mso_req;
