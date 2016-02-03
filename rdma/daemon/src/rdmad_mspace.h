@@ -221,9 +221,15 @@ public:
 
 	int undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
+	bool created_using_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *app_tx_eng)
+	{
+		return this->creator_tx_eng == app_tx_eng;
+	}
+
 	bool has_user_with_user_tx_eng(
-			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-			uint32_t *ms_conn_id);
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng);
+
 	bool connected_by_destid(uint16_t destid);
 
 	int close(tx_engine<unix_server, unix_msg_t> *app_tx_eng);

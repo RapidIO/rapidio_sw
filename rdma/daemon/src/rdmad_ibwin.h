@@ -87,7 +87,8 @@ public:
 
 	void dump_mspace_and_subs_info(cli_env *env);
 
-	int get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces);
+	int get_free_mspaces_large_enough(
+				uint64_t size, mspace_list& le_mspaces);
 
 	bool has_room_for_ms(uint64_t size);
 
@@ -101,7 +102,8 @@ public:
 
 	int destroy_mspace(uint32_t msoid, uint32_t msid);
 
-	void merge_other_with_mspace(mspace_iterator current, mspace_iterator other);
+	void merge_other_with_mspace(mspace_iterator current,
+				     mspace_iterator other);
 
 	mspace* get_mspace(const char *name);
 
@@ -113,7 +115,14 @@ public:
 			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 			uint32_t *ms_conn_id);
 
-	void get_mspaces_connected_by_destid(uint32_t destid, mspace_list& mspaces);
+	void get_mspaces_connected_by_destid(uint32_t destid,
+					     mspace_list& mspaces);
+
+	void close_mspaces_using_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
+
+	void destroy_mspaces_using_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
 	vector<mspace *>& get_mspaces() { return mspaces; };
 

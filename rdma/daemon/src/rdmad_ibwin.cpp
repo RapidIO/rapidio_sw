@@ -444,45 +444,27 @@ exit:
 	DBG("EXIT\n");
 	return ret;
 } /* destroy_mspace() */
-#if 0
-// FIXME: What is this used for? Do we need to include 'creator'?
-class mspace_is_open_by_user_using_tx_eng {
-public:
-	mspace_is_open_by_user_using_tx_eng(
-			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-			uint32_t *ms_conn_id) :
-			user_tx_eng(user_tx_eng), ms_conn_id(ms_conn_id)
-	{
-	}
 
-	bool operator ()(mspace *ms)
-	{
-		return ms->has_user_with_user_tx_eng(user_tx_eng, ms_conn_id);
-	}
-private:
-	tx_engine<unix_server, unix_msg_t> *user_tx_eng;
-	uint32_t    *ms_conn_id;
-};
-
-// FIXME: What if there is more than one? In the new world there will be!
-mspace* ibwin::get_mspace_open_by_tx_eng(
-			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-			uint32_t *ms_conn_id)
+void ibwin::close_mspaces_using_tx_eng(
+		tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
-	mspace *ms_ptr = nullptr;
-
-	pthread_mutex_lock(&mspaces_lock);
-	for (auto& ms : mspaces) {
-		if (ms->has_user_with_user_tx_eng(user_tx_eng, ms_conn_id)) {
-			ms_ptr = ms;
-			break;
+	for(auto& ms : mspaces) {
+		if (ms->has_user_with_user_tx_eng(user_tx_eng)) {
+			ms->close(user_tx_eng);
 		}
 	}
-	pthread_mutex_unlock(&mspaces_lock);
+} /* close_mspaces_using_tx_eng() */
 
-	return ms_ptr;
-} /* get_mspace_open_by_server() */
-#endif
+void ibwin::destroy_mspaces_using_tx_eng(
+		tx_engine<unix_server, unix_msg_t> *app_tx_eng)
+{
+	for(auto& ms : mspaces) {
+		if (ms->created_using_tx_eng(app_tx_eng)) {
+			ms->destroy();
+		}
+	}
+} /* destroy_mspaces_using_tx_eng() */
+
 void ibwin::get_mspaces_connected_by_destid(uint32_t destid, mspace_list& mspaces)
 {
 	pthread_mutex_lock(&mspaces_lock);

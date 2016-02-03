@@ -60,15 +60,6 @@ public:
 	 void cleanup()
 	 {
 		 HIGH("Cleaning up from rdmad's unix_rx_engine\n");
-		 /**
-		  * When the Rx engine detects loss of connection with the
-		  * other side, then Tx engine automatically loses it too.
-		  * As such we close and destroy anything which uses tx_eng
-		  */
-//		 the_inbound->close_mspace_by_lib_tx_eng(tx_eng);
-//		 the_inbound->destroy_mspace_by_lib_tx_eng(tx_eng);
-		 owners.close_mso(tx_eng);
-		 owners.destroy_mso(tx_eng);
 	 }
 };
 

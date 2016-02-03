@@ -797,8 +797,8 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 } /* undo_accept() */
 
 bool mspace::has_user_with_user_tx_eng(
-		tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-		uint32_t *ms_conn_id)
+		tx_engine<unix_server, unix_msg_t> *user_tx_eng
+/*		uint32_t *ms_conn_id*/)
 {
 	bool has_user = false;
 
@@ -806,13 +806,14 @@ bool mspace::has_user_with_user_tx_eng(
 	auto it = find(begin(users), end(users), user_tx_eng);
 
 	if (it != end(users)) {
-		*ms_conn_id = it->get_ms_conn_id();
+//		*ms_conn_id = it->get_ms_conn_id();
 		has_user = true;
 	}
 	sem_post(&users_sem);
 
 	return has_user;
 } /* has_user_with_user_server() */
+
 
 bool mspace::connected_by_destid(uint16_t client_destid)
 {

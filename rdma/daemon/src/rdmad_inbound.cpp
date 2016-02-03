@@ -128,25 +128,7 @@ mspace* inbound::get_mspace(uint32_t msid)
 	}
 	return ms;
 } /* get_mspace() */
-#if 0
-/* Get mspace OPENED by tx_engine */
-mspace* inbound::get_mspace_open_by_server(
-			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-			uint32_t *ms_conn_id)
-{
-	sem_wait(&ibwins_sem);
-	for (auto& ibwin : ibwins) {
-		mspace *ms = ibwin.get_mspace_open_by_tx_eng(user_tx_eng, ms_conn_id);
-		if (ms) {
-			sem_post(&ibwins_sem);
-			return ms;
-		}
-	}
-	WARN("msid open with user_server not found\n");
-	sem_post(&ibwins_sem);
-	return NULL;
-} /* get_mspace_open_by_msoid() */
-#endif
+
 int inbound::get_mspaces_connected_by_destid(uint32_t destid,
 					     mspace_list& mspaces)
 {
@@ -171,6 +153,15 @@ int inbound::get_mspaces_connected_by_destid(uint32_t destid,
 
 	return 0;
 } /* get_mspaces_connected_by_destid */
+
+void inbound::close_and_destroy_mspaces_using_tx_eng(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
+{
+	sem_wait(&ibwins_sem);
+	for (auto& ibw : ibwins) {
+		ibw.close_mspaces_using_tx_eng(app_tx_eng);
+		ibw.destroy_mspaces_using_tx_eng(app_tx_eng);
+	}
+} /* close_mspaces_using_tx_eng() */
 
 /* get_mspace by msoid & msid */
 mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
@@ -300,7 +291,6 @@ int inbound::create_mspace(const char *name,
 } /* create_mspace() */
 
 /* Open memory space */
-// TODO: Just return pointer to the 'ms'
 int inbound::open_mspace(const char *name,
 			 tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 			 uint32_t *msid,

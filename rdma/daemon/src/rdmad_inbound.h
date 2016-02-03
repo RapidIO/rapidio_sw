@@ -60,9 +60,7 @@ class inbound
 {
 public:
 	/* Constructor */
-	inbound(riomp_mport_t mport_hnd,
-		unsigned num_wins,
-		uint32_t win_size);
+	inbound(riomp_mport_t mport_hnd, unsigned num_wins, uint32_t win_size);
 
 	/* Destructor */
 	~inbound();
@@ -84,10 +82,15 @@ public:
 	/* get_mspace by msoid, msid */
 	mspace *get_mspace(uint32_t msoid, uint32_t msid);
 
-	mspace* get_mspace_open_by_server(tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-					  uint32_t *ms_conn_id);
+	mspace* get_mspace_open_by_server(
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+			uint32_t *ms_conn_id);
 
-	int get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces);
+	int get_mspaces_connected_by_destid(
+				uint32_t destid, vector<mspace *>& mspaces);
+
+	void close_and_destroy_mspaces_using_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
 	/* Dump memory space info for a memory space specified by name */
 	int dump_mspace_info(struct cli_env *env, const char *name);
@@ -139,5 +142,3 @@ private:
 }; /* inbound */
 
 #endif
-
-

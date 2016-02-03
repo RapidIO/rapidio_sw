@@ -236,49 +236,6 @@ void *lib_connections_thread_f(void *arg)
 				delete other_server;
 				pthread_exit(0);
 			}
-		} else {
-			HIGH("Application has closed connection. Exiting!\n");
-			/* Find out if that dead application was connected to a memory
-			 * space and if so send a disconnect message to free up the
-			 * msub entry on the server app.
-			 */
-			sem_wait(&connected_to_ms_info_list_sem);
-			auto it = find(begin(connected_to_ms_info_list),
-					end(connected_to_ms_info_list),
-					other_server);
-			/* When an element is constructed the server_msid is initialized to the
-			 * invalid value of 0xFFFF until it gets updated later when there is
-			 * a connection from the memory space from that destid.
-			 * TODO: FIXME: It is better to not have a separate list but rather
-			 * embed that information within the memory space. Also support multiple
-			 * connections to a memory space by having a list of destid,msubid pairs.
-			 */
-			if (it != end(connected_to_ms_info_list) && (it->server_msid != 0xFFFF)) {
-				send_disc_ms_cm(it->server_destid,
-						it->server_msid,
-						it->client_msubid);
-			}
-			sem_post(&connected_to_ms_info_list_sem);
-
-			/* First destroy mso corresponding to socket */
-			if (owners.destroy_mso(other_server)) {
-				WARN("Failed to find owner mso using this sock conn\n");
-			}
-
-			/* Now find out if this socket is a user socket for an mso. If the
-			 * user app shuts down without closing the mso, we do it
-			 * here.
-			 */
-			owners.close_mso(other_server);
-
-			uint32_t ms_conn_id;
-			mspace *ms = the_inbound->get_mspace_open_by_server(
-					other_server, &ms_conn_id);
-			if (ms)
-				ms->close(ms_conn_id);
-			delete other_server;
-
-			pthread_exit(0);
 		}
 	} /* while */
 	pthread_exit(0);
@@ -319,7 +276,11 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 		/* Check the tx_eng_list for dead engines */
 		for (auto it = begin(tx_eng_list); it != end(tx_eng_list); it++) {
 			if ((*it)->isdead() || shutting_down) {
-				HIGH("Cleaning up a tx_engine\n");
+				HIGH("Cleaning up memory spaces & owners...\n");
+				the_inbound->close_and_destroy_mspaces_using_tx_eng(*it);
+				owners.close_mso(*it);
+				owners.destroy_mso(*it);
+				HIGH("Destroy Tx engine\n");
 				delete *it;
 				*it = nullptr;
 			}
@@ -394,7 +355,6 @@ int start_accepting_connections()
 		catch(exception& e) {
 			CRIT("Fatal error: %s. Aborting daemon!\n", e.what());
 			delete server;
-			server = nullptr;
 			abort();
 		}
 	} /* while */
