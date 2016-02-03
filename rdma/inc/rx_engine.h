@@ -176,7 +176,7 @@ protected:
 	 */
 	virtual void cleanup()
 	{
-
+		HIGH("cleanup in rx_engine (base class)\n");
 	} /* cleanup() */
 
 	/**

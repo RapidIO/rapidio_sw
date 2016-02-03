@@ -591,7 +591,8 @@ void mspace::dump_info_with_msubs(struct cli_env *env) {
 
 /* For creating a memory sub-space */
 int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
-                uint32_t *msubid, uint64_t *rio_addr, uint64_t *phys_addr)
+                uint32_t *msubid, uint64_t *rio_addr, uint64_t *phys_addr,
+                const tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	/* Make sure we don't straddle memory space boundaries */
 	if ((offset + req_size) > this->size) {
@@ -627,7 +628,7 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 
 	/* Add to list of subspaces */
 	sem_wait(&msubspaces_sem);
-	msubspaces.emplace_back(msid, *rio_addr, *phys_addr, *size, *msubid);
+	msubspaces.emplace_back(msid, *rio_addr, *phys_addr, *size, *msubid, tx_eng);
 	sem_post(&msubspaces_sem);
 
 	return 0;

@@ -291,6 +291,12 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 		/* Wait until there is a reason to perform cleanup */
 		sem_wait(engine_cleanup_sem);
 
+		/* If some engine is being killed then the app using
+		 * that engine may own memory spaces. The remote users
+		 * of such memory space (if any) need to be sent a
+		 * 'force disconnect' for proper cleanup.
+		 */
+
 		HIGH("Cleaning up dead engines!\n");
 		/* Check the rx_eng_list for dead engines */
 		for (auto it = begin(rx_eng_list); it != end(rx_eng_list); it++) {

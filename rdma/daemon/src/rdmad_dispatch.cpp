@@ -275,7 +275,7 @@ int destroy_ms_disp(const unix_msg_t *in_msg,
 } /* destroy_ms_disp() */
 
 int create_msub_disp(const unix_msg_t *in_msg,
-				tx_engine<unix_server, unix_msg_t> *tx_eng)
+		     tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	static unix_msg_t out_msg;
 
@@ -292,7 +292,8 @@ int create_msub_disp(const unix_msg_t *in_msg,
 				  &out_msg.create_msub_out.bytes,
 				  &out_msg.create_msub_out.msubid,
 				  &out_msg.create_msub_out.rio_addr,
-				  &out_msg.create_msub_out.phys_addr);
+				  &out_msg.create_msub_out.phys_addr,
+				  tx_eng);
 
 	if (out_msg.create_msub_out.status) {
 		ERR("Failed in call rdmad_create_msub\n");
@@ -584,6 +585,18 @@ int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 			throw rc;
 		}
 
+		/**
+		 * NOTE: FIXME: TODO:
+		 * The above call to ms->server_disconnect does not
+		 * block waiting for the CM_FORCE_DISCONNECT_MS_ACK message.
+		 * The reason is that we have a thread that is executing
+		 * a cm_server->receive(). This can be rectified when we
+		 * switch the daemon-to-daemon communications to use
+		 * rx_engine and tx_engine. For now the CM_FORCE_DISCONNECT_MS_ACK
+		 * is consumed by that thread in rdmad_srvr_threads.cpp and the
+		 * SERVER_DISCONNECT_MS_ACK is always sent back to the server
+		 * app/library (below).
+		 */
 		/* Reply to library indicating success */
 		static unix_msg_t out_msg;
 		out_msg.category = RDMA_LIB_DAEMON_CALL;

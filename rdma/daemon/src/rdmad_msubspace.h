@@ -40,16 +40,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "liblog.h"
 #include "libcli.h"
-
+#include "rdmad_tx_engine.h"
 
 class msubspace
 {
 public:
 	/* Constructor */
 	msubspace(uint32_t msid, uint64_t rio_addr, uint64_t phys_addr,
-					uint32_t size, uint32_t msubid) :
+					uint32_t size, uint32_t msubid,
+				const tx_engine<unix_server, unix_msg_t> *tx_eng) :
 		msid(msid), rio_addr(rio_addr), phys_addr(phys_addr),
-		size(size), msubid(msubid)
+		size(size), msubid(msubid), tx_eng(tx_eng)
 	{
 		INFO("msid = 0x%X, rio_addr = 0x%" PRIx64 ", size = 0x%08X\n",
 							msid, rio_addr, size);
@@ -73,6 +74,7 @@ private:
 	uint64_t	phys_addr;
 	uint32_t	size;
 	uint32_t	msubid;
+	const tx_engine<unix_server, unix_msg_t> *tx_eng;
 };
 
 #endif

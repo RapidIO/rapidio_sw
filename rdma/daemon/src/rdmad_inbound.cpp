@@ -335,7 +335,8 @@ int inbound::open_mspace(const char *name,
 /* Create a memory subspace */
 int inbound::create_msubspace(uint32_t msid, uint32_t offset, uint32_t req_bytes,
 			      uint32_t *size, uint32_t *msubid, uint64_t *rio_addr,
-			      uint64_t *phys_addr)
+			      uint64_t *phys_addr,
+			      const tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
 	uint8_t	win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
 	int	ret;
@@ -349,7 +350,8 @@ int inbound::create_msubspace(uint32_t msid, uint32_t offset, uint32_t req_bytes
 		mspace *ms = ibwins[win_num].get_mspace(msid);
 		if (ms != nullptr) {
 			ret = ms->create_msubspace(offset, req_bytes, size,
-					     msubid, rio_addr, phys_addr);
+					     msubid, rio_addr, phys_addr,
+					     user_tx_eng);
 		} else {
 			ERR("Failed to find mspace with msid(0x%X)\n", msid);
 			ret = -2;

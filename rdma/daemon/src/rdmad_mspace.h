@@ -234,7 +234,8 @@ public:
 			     uint32_t *size,
 			     uint32_t *msubid,
 			     uint64_t *rio_addr,
-			     uint64_t *phys_addr);
+			     uint64_t *phys_addr,
+			     const tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 	int destroy_msubspace(uint32_t msubid);
 

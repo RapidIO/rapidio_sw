@@ -119,9 +119,14 @@ public:
 	int destroy_mspace(uint32_t msoid, uint32_t msid);
 
 	/* Create a memory subspace */
-	int create_msubspace(uint32_t msid, uint32_t offset, uint32_t req_bytes,
-			     uint32_t *size, uint32_t *msubid, uint64_t *rio_addr,
-			     uint64_t *phys_addr);
+	int create_msubspace(uint32_t msid,
+			     uint32_t offset,
+			     uint32_t req_bytes,
+			     uint32_t *size,
+			     uint32_t *msubid,
+			     uint64_t *rio_addr,
+			     uint64_t *phys_addr,
+			     const tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
 	/* Destroy a memory subspace */
 	int destroy_msubspace(uint32_t msid, uint32_t msubid);

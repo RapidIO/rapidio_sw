@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <memory>
 
+#include "liblog.h"
 #include "msg_processor.h"
 #include "rx_engine.h"
 #include "cm_sock.h"
@@ -58,12 +59,14 @@ public:
 
 	 void cleanup()
 	 {
+		 HIGH("Cleaning up from rdmad's unix_rx_engine\n");
 		 /**
 		  * When the Rx engine detects loss of connection with the
 		  * other side, then Tx engine automatically loses it too.
-		  * As such we use tx_eng to close and destroy any mso which
-		  * uses it.
+		  * As such we close and destroy anything which uses tx_eng
 		  */
+//		 the_inbound->close_mspace_by_lib_tx_eng(tx_eng);
+//		 the_inbound->destroy_mspace_by_lib_tx_eng(tx_eng);
 		 owners.close_mso(tx_eng);
 		 owners.destroy_mso(tx_eng);
 	 }
