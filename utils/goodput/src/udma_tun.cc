@@ -1940,7 +1940,7 @@ void UMD_DD(struct worker* info)
 
 	std::string s;
 	if (info->umd_peer_ibmap->toString(s) > 0)
-		INFO("\n\tIBwin mappings:\n%s", s.c_str());
+		printf("\tIBwin mappings:\n%s", s.c_str());
 
 	RioMport* mport = new RioMport(info->mp_num, info->mp_h);
 
@@ -1961,7 +1961,7 @@ void UMD_DD(struct worker* info)
                               mport->rd32(TSI721_RXPKT_BRG_CNT), mport->rd32(TSI721_BRG_PKT_ERR_CNT));
 	  ss << "\t\t" << tmp;
 
-	  INFO("\n\tPerf counters:\n%s", ss.str().c_str());
+	  printf("\tPerf counters:\n%s", ss.str().c_str());
 	}}
 
 	const int TX_HISTO_SZ = sizeof(uint64_t) * info->umd_tx_buf_cnt;
@@ -1981,10 +1981,13 @@ void UMD_DD(struct worker* info)
 
 		port_total_ticks_tx[dch_cnt] = info->umd_dch_list[ch]->total_ticks_tx;
 
+#ifdef UDMA_TUN_DEBUG_HISTO
 		if (info->umd_dch_list[ch]->dch->m_bl_busy_histo != NULL) {
 			port_tx_histo[dch_cnt] = (uint64_t*)alloca(TX_HISTO_SZ);
 			memcpy(port_tx_histo[dch_cnt], (void*)info->umd_dch_list[ch]->dch->m_bl_busy_histo, TX_HISTO_SZ);
 		}
+#endif
+
 		dch_cnt++;
 	}
 
@@ -2027,10 +2030,10 @@ void UMD_DD(struct worker* info)
 			ss_histo << i << "->" << tx_histo[i] << " ";
 		}
 
-		if (ss_histo.str().size() > 0) ss << "\n\t\tTX Histo: " << ss_histo << "\n";
+		if (ss_histo.str().size() > 0) ss << "\n\t\tTX Histo: " << ss_histo.str();
 	}
 	if (dch_cnt > 0)
-		INFO("\n\tDMA Channel stats: %s\n", ss.str().c_str());
+		printf("\tDMA Channel stats: %s\n", ss.str().c_str());
 
 	std::vector<DmaPeer>     peer_list;
 	std::vector<int>         peer_list_rocnt;
@@ -2052,10 +2055,13 @@ void UMD_DD(struct worker* info)
           std::map <uint16_t, int>::iterator itp = info->umd_dma_did_peer.begin();
 	  for (; itp != info->umd_dma_did_peer.end(); itp++) {
 		uint64_t* rxhisto = NULL;
+
+#ifdef UDMA_TUN_DEBUG_HISTO
 		if (info->umd_dma_did_peer_list[itp->second]->m_ib_histo != NULL) { // operator= does not copy m_ib_histo
 			rxhisto = (uint64_t*)alloca(RX_HISTO_SZ);
 			memcpy(rxhisto, (void*)info->umd_dma_did_peer_list[itp->second]->m_ib_histo, RX_HISTO_SZ);
 		}
+#endif
 		peer_list_rxhisto.push_back(rxhisto);
 
 		peer_list_rocnt.push_back(info->umd_dma_did_peer_list[itp->second]->count_RO()); // operator= does not copy m_rio_rx_bd_L2_ptr
@@ -2081,7 +2087,7 @@ void UMD_DD(struct worker* info)
 				 peer_list_enum[ip].my_rio_addr);
 			ss << "\n\t\t" << tmp;
 		}
-		INFO("\n\tGot %d enumerated peer(s): %s\n", peer_list_enum.size(), ss.str().c_str());
+		printf("\tGot %d enumerated peer(s): %s\n", peer_list_enum.size(), ss.str().c_str());
 	}
 
 	if (peer_list.size() > 0) {
@@ -2135,14 +2141,15 @@ void UMD_DD(struct worker* info)
 				ss_histo << i << "->" << rx_histo[i] << " ";
 			}
 
-			if (ss_histo.str().size() > 0) ss << "\n\t\t\tRX Histo: " << ss_histo << "\n";
+			if (ss_histo.str().size() > 0) ss << "\n\t\tRX Histo: " << ss_histo.str();
 
 			if (peer.get_mutex().__data.__lock) {
 				snprintf(tmp, 256, "\n\t\t\tlocker.tid=0x%x", peer.get_mutex().__data.__owner);
 				ss << tmp;
 			}
 		}
-		INFO("\n\tGot %d UP peer(s): %s\n", peer_list.size(), ss.str().c_str());
+
+		printf("\tGot %d UP peer(s): %s\n", peer_list.size(), ss.str().c_str());
 	}
 
 	delete mport;
