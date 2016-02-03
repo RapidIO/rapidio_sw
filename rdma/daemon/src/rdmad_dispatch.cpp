@@ -31,7 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 #include "tx_engine.h"
-#include "rdmad_rpc.h"
+#include "rdmad_actions.h"
 #include "rdma_msg.h"
 #include "rdmad_unix_msg.h"
 #include "cm_sock.h"

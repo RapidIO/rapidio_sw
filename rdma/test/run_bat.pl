@@ -10,13 +10,6 @@ use Getopt::Std;
 # 1. On one computer run 'bat_server'
 # 2. On a second computer run this script
 
-# Make sure 'rpcbind' is running
-my @rpcbind = `ps -fewa | grep rpcbind`;
-if (!scalar @rpcbind) {
-	print "ERROR: 'rpcbind' is not running. Please start and try again\n";
-	exit;
-}
-
 # Command-line options
 my %options = ();
 getopts("c:d:h", \%options);

@@ -30,8 +30,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef RDMAD_RPC_H
-#define RDMAD_RPC_H
+#ifndef RDMAD_ACTIONS_H
+#define RDMAD_ACTIONS_H
 
 #include <stdint.h>
 

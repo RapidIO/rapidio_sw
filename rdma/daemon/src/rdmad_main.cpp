@@ -64,7 +64,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_tx_engine.h"
 #include "rdmad_rx_engine.h"
 #include "rdmad_msg_processor.h"
-#include "rdmad_rpc.h"
 #include "rdmad_dispatch.h"
 
 using std::shared_ptr;

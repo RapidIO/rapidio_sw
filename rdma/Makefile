@@ -80,7 +80,7 @@ RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
 		daemon/src/rdmad_clnt_threads.cpp \
 		daemon/src/rdmad_fm.cpp \
 		daemon/src/rdmad_dispatch.cpp \
-		daemon/src/rdmad_rpc.cpp
+		daemon/src/rdmad_actions.cpp
 
 REMDBG_SOURCES	= daemon/src/remdbg.c
 
@@ -115,7 +115,7 @@ rsktd: rdmad
 
 FORCE:
 
-# The RDMA shared library (the RPC client)
+# The RDMA shared library (the AF_UNIX client)
 librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.so ----------
@@ -134,7 +134,7 @@ librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 #Generate preprocessor output
 	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I../common/include -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
 
-# The RDMA daemon (the RPC server)
+# The RDMA daemon (the AF_UNIX server)
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR)/libs_a/* $(INCLUDE_DIR)/libs_a/* \
 	daemon/src/*.h $(INCLUDE_DIR)/*.h
 
