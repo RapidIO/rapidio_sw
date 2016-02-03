@@ -72,6 +72,10 @@ extern "C" {
 #define CPS1432_LANE_CTL_5_0G				0x00000014
 #define CPS1432_LANE_CTL_3_125G				0x0000000A
 #define CPS1432_LANE_CTL_6_25G				0x00000014
+#define CPS1xxx_LANE_X_ERR_RATE_EN(x)		(0xff8010 + 0x100*(x))
+#define CPS1xxx_LANE_ERR_SYNC_EN			0x00000001
+#define CPS1xxx_LANE_ERR_RDY_EN				0x00000002
+#define CPS1xxx_LANE_X_ERR_DET(x)			(0xff800c + 0x100*(x))
 
 #define CPS1xxx_PORT_LINK_TO_CTL_CSR			(0x00000120)
 #define CPS1xxx_PORT_X_LINK_MAINT_REQ_CSR(x)		(0x0140 + 0x020*(x))
@@ -282,13 +286,7 @@ extern "C" {
 #define CPS1xxx_ERR_RATE_RB_10SEC		0x10000000
 #define CPS1xxx_ERR_RATE_RR_16			0x00020000
 #define CPS1xxx_ERR_RATE_RR_NO_LIMIT		0x00030000
-#define CPS1xxx_ERR_RATE_RESET		(CPS1xxx_ERR_RATE_RB_DISABLE | CPS1xxx_ERR_RATE_RR_NO_LIMIT)
-
-#define CPS1xxx_ERR_RATE_RB_DISABLE		0x00000000
-#define CPS1xxx_ERR_RATE_RB_10SEC		0x10000000
-#define CPS1xxx_ERR_RATE_RR_16			0x00020000
-#define CPS1xxx_ERR_RATE_RR_NO_LIMIT		0x00030000
-#define CPS1xxx_ERR_RATE_RESET		(CPS1xxx_ERR_RATE_RB_DISABLE | CPS1xxx_ERR_RATE_RR_NO_LIMIT)
+#define CPS1xxx_ERR_RATE_RESET		(CPS1xxx_ERR_RATE_RB_DISABLE)
 
 #define CPS1xxx_ERR_THRESH_OUTPUT_FAIL		0x01000000
 #define CPS1xxx_ERR_THRESH_RFT_DISABLE		0x00000000
@@ -512,6 +510,8 @@ static const struct portmap gen2_portmaps[] = {
 };
 static const int gen2_portmaps_len = (sizeof(gen2_portmaps)/sizeof(gen2_portmaps[0]));
 
+static int cps1xxx_port_get_first_lane(struct riocp_pe *sw,	uint8_t port, uint8_t *lane);
+int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width);
 
 /*
  * The following function checks if a port went to PORT_OK during arming of the port.
@@ -595,7 +595,6 @@ static int cps1xxx_check_link_init(struct riocp_pe *sw, uint8_t port)
  * this function will:
  *	- enable interrupts for the port.
  *	- enable port-writes for the port.
- *	- enable the port to issue and receive any packets
  *	- Implement the procedure to prepare the port for hotswapping.
  *		see CPS1848 or CPS1616 manual: chapter 2.8
  */
@@ -603,6 +602,7 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 {
 	uint32_t result;
 	int ret;
+	uint8_t first_lane = 0, lane_count = 0, lane;
 
 	/* Disable error rate bias, clear error rate counter. */
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_ERR_RATE_CSR(port),
@@ -616,12 +616,24 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 	if (ret < 0)
 		return ret;
 
-#ifdef CONFIG_PORTWRITE_ENABLE
-	/* port write basic configuration */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_TRACE_PW_CTL(port), CPS1xxx_PORT_TRACE_PW_DIS);
+	/* enable los of lane trigger for all lanes on the current port */
+	ret = cps1xxx_port_get_first_lane(sw, port, &first_lane);
 	if (ret < 0)
 		return ret;
-#endif
+
+	ret = cps1xxx_get_lane_width(sw, port, &lane_count);
+	if (ret < 0)
+		return ret;
+
+	for (lane = 0; lane < lane_count; lane++) {
+		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_ERR_DET(lane + first_lane), 0);
+		if (ret < 0)
+			return ret;
+		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_ERR_RATE_EN(lane + first_lane),
+				CPS1xxx_LANE_ERR_SYNC_EN | CPS1xxx_LANE_ERR_RDY_EN);
+		if (ret < 0)
+			return ret;
+	}
 
 	/* enable port-writes and interrupts for port events */
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_OPS(port), &result);
@@ -642,21 +654,34 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 	if (ret < 0)
 		return ret;
 
-	/* set OUTPUT_EN and INPUT_EN */
+	/*
+	 * set STOP_ON_PORT_FAIL and DROP_PKT_EN to allow packets
+	 * getting dropped when the port is in error condition
+	 */
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &result);
 	if (ret < 0)
 		return ret;
 
-	result |= CPS1xxx_CTL_OUTPUT_EN | CPS1xxx_CTL_INPUT_EN |
-		CPS1xxx_CTL_STOP_ON_PORT_FAIL | CPS1xxx_CTL_DROP_PKT_EN;
+	result |= CPS1xxx_CTL_STOP_ON_PORT_FAIL | CPS1xxx_CTL_DROP_PKT_EN;
 
 	/* The STOP_ON_PORT_FAIL and DROP_PKT_EN are required to enable hot swapping */
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), result);
 	if (ret < 0)
 		return ret;
 
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_ERR_RPT_EN(port),
+		CPS1xxx_ERR_DET_IMP_SPEC_ERR);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * port write trigger events setup:
+	 * - port fatal timeout is used to handle "PORT_OK may indicate indirect status" errata.
+	 */
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_RPT_EN(port),
-		CPS1xxx_IMPL_SPEC_ERR_DET_ERR_RATE | CPS1xxx_IMPL_SPEC_ERR_DET_PORT_INIT);
+		CPS1xxx_IMPL_SPEC_ERR_DET_ERR_RATE |
+		CPS1xxx_IMPL_SPEC_ERR_DET_PORT_INIT |
+		CPS1xxx_IMPL_SPEC_ERR_DET_FATAL_TO);
 	if (ret < 0)
 		return ret;
 
@@ -872,6 +897,8 @@ int cps1xxx_recover_port(struct riocp_pe *sw, uint8_t port)
  * The following function will initialize a port by clearing the
  * error status csr. if there is no link detected on the port, the port will be
  * locked to improve switch performance.
+ * 	- enable the port to issue and receive any packets
+ *
  */
 static int cps1xxx_init_port(struct riocp_pe *sw, uint8_t port)
 {
@@ -900,6 +927,13 @@ static int cps1xxx_init_port(struct riocp_pe *sw, uint8_t port)
 		status | CPS1xxx_ERR_STATUS_CLEAR);
 	if (ret < 0)
 		return ret;
+
+#ifdef CONFIG_PORTWRITE_ENABLE
+	/* port write basic configuration */
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_TRACE_PW_CTL(port), CPS1xxx_PORT_TRACE_PW_DIS);
+	if (ret < 0)
+		return ret;
+#endif
 
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &result);
 	if (ret < 0)
@@ -1763,6 +1797,11 @@ skip_port_errors:
 			err_status |= CPS1xxx_ERR_STATUS_OUTPUT_FAIL | CPS1xxx_ERR_STATUS_OUTPUT_ERR;
 		}
 		event->event |= RIOCP_PE_EVENT_LINK_UP;
+
+		/* prepare port again for hot unplug */
+		ret = cps1xxx_arm_port(sw, port);
+		if (ret < 0)
+			goto out;
 	}
 
 	/* clear error rate register to see next error */
@@ -2047,13 +2086,17 @@ int cps1xxx_init(struct riocp_pe *sw)
 
 	/* initialize ports */
 	for (port = 0; port < RIOCP_PE_PORT_COUNT(sw->cap); port++) {
+
+		/* port basic initialization */
+		ret = cps1xxx_init_port(sw, port);
+		if (ret < 0)
+			return ret;
+
+		/* enable event handling for that port */
 		ret = cps1xxx_arm_port(sw, port);
 		if (ret < 0)
 			return ret;
 
-		ret = cps1xxx_init_port(sw, port);
-		if (ret < 0)
-			return ret;
 	}
 
 	/* Set packet time-to-live to prevent final buffer deadlock.
