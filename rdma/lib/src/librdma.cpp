@@ -120,44 +120,6 @@ static uint32_t round_up_to_4k(uint32_t length)
 
 	return (r == 0) ? FOUR_K*q : FOUR_K*(q + 1);
 } /* round_up_to_4k() */
-#if 0
-static int alt_rpc_call(unix_msg_t *in_msg, unix_msg_t **out_msg)
-{
-	auto ret = 0;
-
-	size_t received_len;
-
-	/* Send input parameters */
-	ret = client->send(sizeof(*in_msg));
-	if (ret == 0) {
-		/* Receive output parameters */
-		ret = client->receive(&received_len);
-		if (ret) {
-			ERR("Failed to receive output from RDMA daemon\n");
-		} else {
-			/* For API calls that don't require any return (output)
-			 * parameters, they just pass NULL for out_msg.
-			 */
-			if (out_msg != NULL)
-				client->get_recv_buffer((void **)out_msg);
-		}
-	} else {
-		ERR("Failed to send message to RDMA daemon, ret = %d\n", ret);
-	}
-
-	if (ret) {
-		CRIT("Daemon has died. Terminating socket connection\n");
-		client.reset();
-		CRIT("Daemon has died. Purging local database!\n");
-		purge_local_database();
-		init = 0;
-		ret = RDMA_DAEMON_UNREACHABLE;
-	}
-
-	return ret;
-} /* alt_rpc_call() */
-#endif
-
 
 static int await_message(rdma_msg_cat category, rdma_msg_type type,
 			rdma_msg_seq_no seq_no, unsigned timeout_in_secs,
@@ -718,7 +680,7 @@ int rdma_close_mso_h(mso_h msoh)
 		bool	ok =  true;
 		for_each(begin(ms_list),
 			 begin(ms_list),
-			[&](loc_ms *ms)
+			[&ok, msoh](loc_ms *ms)
 			{
 				if (rdma_close_ms_h(msoh, ms_h(ms))) {
 					WARN("rdma_close_ms_h failed: msoh = 0x%"
@@ -809,7 +771,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 		/* For each one of the memory spaces, call destroy */
 		bool	ok = true;
 		for_each(begin(ms_list), end(ms_list),
-			[&](loc_ms *ms)
+			[&ok, msoh](loc_ms *ms)
 			{
 				if (rdma_destroy_ms_h(msoh, ms_h(ms))) {
 					WARN("rdma_destroy_ms_h failed: msoh = 0x%"
@@ -974,7 +936,7 @@ int destroy_msubs_in_msh(ms_h msh)
 	/* For each one of the memory sub-spaces, call destroy */
 	bool	ok = true;
 	for_each(msub_list.begin(), msub_list.end(),
-		[&](loc_msub * msub)
+		[&ok, msh](loc_msub * msub)
 		{
 			if (rdma_destroy_msub_h(msh, msub_h(msub))) {
 				WARN("rdma_destroy_msub_h failed: msh=0x%"
