@@ -175,45 +175,6 @@ int send_disc_ms_cm(uint32_t server_destid,
 	return ret;
 } /* send_disc_ms_cm() */
 #if 0
-void *lib_connections_thread_f(void *arg)
-{
-	if (!arg) {
-		CRIT("Null argument.\n");
-		pthread_exit(0);
-	}
-
-	lib_connections_ti *ti = (lib_connections_ti *)arg;
-
-	DBG("Creating application-specific server object...\n");
-	unix_server *other_server;
-	try {
-		other_server = new unix_server("other_server", ti->accept_socket);
-	}
-	catch(unix_sock_exception& e) {
-		CRIT("Failed to create unix_server:%:\n", e.err);
-		sem_post(&ti->started);
-		pthread_exit(0);
-	}
-
-	sem_post(&ti->started);
-
-	while (1) {
-		/* Wait for data from clients */
-		size_t	received_len = 0;	/* For build warning */
-		if (other_server->receive(&received_len)) {
-			CRIT("Failed to receive\n");
-			delete other_server;
-			pthread_exit(0);
-		}
-
-		if (received_len > 0) {
-			unix_msg_t	*in_msg;
-			unix_msg_t	*out_msg;
-
-			other_server->get_recv_buffer((void **)&in_msg);
-			other_server->get_send_buffer((void **)&out_msg);
-
-			switch(in_msg->type) {
 				case RDMAD_IS_ALIVE:
 				{
 					out_msg->type = RDMAD_IS_ALIVE_ACK;
@@ -226,20 +187,6 @@ void *lib_connections_thread_f(void *arg)
 					raise(SIGTERM); /* Simulate 'kill' */
 				}
 				break;
-
-				default:
-					CRIT("UNKNOWN MESSAGE TYPE: 0x%X\n", in_msg->type);
-			} /* switch */
-
-			if (other_server->send(sizeof(unix_msg_t))) {
-				CRIT("Failed to send API output parameters back to library\n");
-				delete other_server;
-				pthread_exit(0);
-			}
-		}
-	} /* while */
-	pthread_exit(0);
-} /* rpc_thread_f() */
 #endif
 
 void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
@@ -265,7 +212,7 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 			}
 		}
 
-		/* Remove all entries for null engines */
+		/* Remove all null Rx engine entries */
 		DBG("rx_eng_list.size() = %u\n", rx_eng_list.size());
 		rx_eng_list.erase( std::remove(begin(rx_eng_list),
 				               end(rx_eng_list),
@@ -276,22 +223,38 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 		/* Check the tx_eng_list for dead engines */
 		for (auto it = begin(tx_eng_list); it != end(tx_eng_list); it++) {
 			if ((*it)->isdead() || shutting_down) {
-				HIGH("Cleaning up memory spaces & owners...\n");
+
+				/* If the tx_eng is being used by a client app, then
+				 * we must clear the connected_to_ms_info_list  */
+				DBG("Cleaning up connected_to_ms_info_list\n");
+				sem_wait(&connected_to_ms_info_list_sem);
+				connected_to_ms_info_list.erase(
+					remove(begin(connected_to_ms_info_list),
+					       end(connected_to_ms_info_list),
+					       *it),
+					end(connected_to_ms_info_list));
+				sem_post(&connected_to_ms_info_list_sem);
+
+				/* If the tx_eng is being used by a server app,
+				 * then we must clear all related memory spaces
+				 *  and owners using that tx_eng. */
+				DBG("Cleaning up memory spaces & owners...\n");
 				the_inbound->close_and_destroy_mspaces_using_tx_eng(*it);
 				owners.close_mso(*it);
 				owners.destroy_mso(*it);
-				HIGH("Destroy Tx engine\n");
+
+				HIGH("Destroying Tx engine\n");
 				delete *it;
 				*it = nullptr;
 			}
 		}
 
-		/* Remove all entries for null engines */
+		/* Remove all null Tx engine entries */
 		DBG("tx_eng_list.size() = %u\n", tx_eng_list.size());
 		tx_eng_list.erase(remove(begin(tx_eng_list),
 				         end(tx_eng_list),
 				         nullptr),
-				         end(tx_eng_list));
+				  end(tx_eng_list));
 		DBG("tx_eng_list.size() = %u\n", tx_eng_list.size());
 	} /* while */
 } /* engine_monitoring_thread_f() */
