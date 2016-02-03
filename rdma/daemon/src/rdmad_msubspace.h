@@ -68,6 +68,9 @@ public:
 		logMsg(env);
 	}
 
+	bool operator==(const tx_engine<unix_server, unix_msg_t> *tx_eng)
+		{ return this->tx_eng == tx_eng; }
+
 private:
 	uint32_t	msid;
 	uint64_t	rio_addr;

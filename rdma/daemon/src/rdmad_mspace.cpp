@@ -58,6 +58,7 @@
 using std::fill;
 using std::remove_if;
 using std::find;
+using std::remove;
 
 mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
                 uint64_t phys_addr, uint64_t size) :
@@ -846,6 +847,11 @@ int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 	if (notify_remote_clients()) {
 		WARN("Failed to notify some or all remote clients\n");
 	}
+
+	/* Destroy msubs that belong to the same 'app_tx_eng' */
+	msubspaces.erase(
+		remove(begin(msubspaces), end(msubspaces), app_tx_eng),
+		end(msubspaces));
 
 	/* Locate a user element by the app's tx engine. Then erase it! */
 	sem_wait(&users_sem);
