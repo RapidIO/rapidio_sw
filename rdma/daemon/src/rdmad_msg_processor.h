@@ -53,6 +53,9 @@ public:
 		unix_tx_engine *tx_eng
 			= static_cast<unix_tx_engine *>(vtx_eng);
 
+		DBG("Got message type: '%s',0x%X cat:'%s',0x%X\n",
+			type_name(msg->type), msg->type,
+			cat_name(msg->category), msg->category);
 		switch(msg->type) {
 		case RDMAD_IS_ALIVE:
 			rc = rdmad_is_alive_disp(msg, tx_eng);
@@ -118,8 +121,9 @@ public:
 			rc = server_disconnect_ms_disp(msg, tx_eng);
 			break;
 		default:
-			CRIT("Unhandled message type 0x%X cat 0x%X\n",
-						msg->type, msg->category);
+			CRIT("Unhandled message type: '%s',0x%X cat:'%s',0x%X\n",
+				type_name(msg->type), msg->type,
+				cat_name(msg->category), msg->category);
 			assert(!"Unhandled message");
 		}
 		return rc;

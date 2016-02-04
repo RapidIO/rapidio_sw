@@ -41,8 +41,13 @@ typedef uint32_t rdma_msg_type;
 typedef uint32_t rdma_msg_seq_no;
 
 /* Category codes */
-const uint32_t RDMA_LIB_DAEMON_CALL = 0x0055;	// Passed on
-const uint32_t RDMA_REQ_RESP	    = 0x00AA;	// Forwarded to message processor
+constexpr uint32_t RDMA_LIB_DAEMON_CALL = 0x0055;
+constexpr uint32_t RDMA_REQ_RESP        = 0x00AA;
+
+constexpr const char *cat_name(const uint32_t cat) {
+	return (cat == RDMA_LIB_DAEMON_CALL) ? "RDMA_LIB_DAEMON_CALL"
+					     : "RDMA_REQ_RESP_CALL";
+}
 
 #endif
 

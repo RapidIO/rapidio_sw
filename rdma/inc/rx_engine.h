@@ -47,6 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 
 #include "rdma_msg.h"
+#include "rdmad_unix_msg.h"
 #include "tx_engine.h"
 #include "msg_processor.h"
 
@@ -107,8 +108,8 @@ public:
 		if (rc != 0) {
 			ERR("Duplicate notify entry ignored!\n");
 		} else {
-			DBG("type=0x%X, category=0x%X, seq_no=0x%X\n",
-					type, category, seq_no);
+			DBG("type='%s',0x%X, category='%s',0x%X, seq_no=0x%X\n",
+			type_name(type), type, cat_name(category), category, seq_no);
 			notify_list.emplace_back(type, category, seq_no,
 								notify_sem);
 		}
@@ -134,7 +135,8 @@ public:
 				       (msg.seq_no == seq_no);
 			});
 		if (it == end(message_queue)) {
-			ERR("Message not found!\n");
+			ERR("Message (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X) not found!\n",
+			type_name(type), type, cat_name(category), category, seq_no);
 			rc = -1;
 		} else {
 			/* Copy message to caller's message buffer */
@@ -142,8 +144,8 @@ public:
 
 			/* Remove from queue */
 			message_queue.erase(it);
-			DBG("Message removed, now message_queue.size() = %u\n",
-							message_queue.size());
+			DBG("(type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X) removed\n",
+			type_name(type), type, cat_name(category), category, seq_no);
 		}
 		pthread_mutex_unlock(&message_queue_lock);
 		return rc;
@@ -214,9 +216,8 @@ protected:
 							rc, strerror(errno));
 				die();
 			} else if (received_len > 0 ) {
+				DBG("Got category='%s'\n", cat_name(msg->category));
 				if (msg->category == RDMA_LIB_DAEMON_CALL) {
-					DBG("Got RDMA_LIB_DAEMON_CALL\n");
-
 					/* If there is a notification set for the
 					 * message then act on it. */
 					pthread_mutex_lock(&notify_list_lock);
@@ -228,8 +229,10 @@ protected:
 									nullptr));
 					if (it != end(notify_list)) {
 						/* Found! Queue copy of message & post semaphore */
-						DBG("Found message of type 0x%X, seq_no=0x%X\n",
-									it->type, it->seq_no);
+						DBG("Found message of type '%s',0x%X, seq_no=0x%X\n",
+							type_name(it->type),
+							it->type,
+							it->seq_no);
 						pthread_mutex_lock(&message_queue_lock);
 						message_queue.push_back(*msg);
 						pthread_mutex_unlock(&message_queue_lock);
@@ -240,20 +243,24 @@ protected:
 						/* Post the notification semaphore */
 						sem_post(it->notify_sem.get());
 					} else {
-						CRIT("Non-matching API type(0x%X) seq_no(0x%X)\n",
-								msg->type, msg->seq_no);
+						CRIT("Non-matching API type('%s',0x%X) seq_no(0x%X)\n",
+								type_name(msg->type),
+								msg->type,
+								msg->seq_no);
 					}
 					pthread_mutex_unlock(&notify_list_lock);
 				} else if (msg->category == RDMA_REQ_RESP) {
 					/* Process request/resp by forwarding to message processor */
-					DBG("Got RDMA_REQ_RESP\n");
 					rc = message_processor.process_msg(msg, tx_eng);
 					if (rc) {
 						ERR("Failed to process message, rc = %d\n", rc);
 					}
 				} else {
-					CRIT("msg->category = 0x%X\n", msg->category);
-					CRIT("mst->type = 0x%X\n", msg->type);
+					CRIT("Unhandled msg->category = 0x%X\n",
+								msg->category);
+					CRIT("msg->type='%s',0x%X\n",
+							type_name(msg->type),
+							msg->type);
 					abort();
 				}
 			} else if (received_len == 0) {

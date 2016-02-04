@@ -59,6 +59,10 @@ public:
 
 		auto rc = 0;
 
+		DBG("Got message type: '%s',0x%X cat:'%s',0x%X\n",
+			type_name(msg->type), msg->type,
+			cat_name(msg->category), msg->category);
+
 		switch(msg->type) {
 
 		case FORCE_CLOSE_MSO:
@@ -79,8 +83,9 @@ public:
 		break;
 
 		default:
-			CRIT("Unhandled message type 0x%X cat 0x%X\n",
-						msg->type, msg->category);
+			CRIT("Unhandled message type: '%s',0x%X cat:'%s',0x%X\n",
+				type_name(msg->type), msg->type,
+				cat_name(msg->category), msg->category);
 			assert(!"Unhandled message");
 		}
 		return rc;

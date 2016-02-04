@@ -73,6 +73,7 @@ int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 {
 	int rc;
 
+	DBG("ENTER\n");
 	/* Create memory space in the inbound space */
 	mspace *ms = nullptr;
 	rc = the_inbound->create_mspace(
@@ -102,6 +103,7 @@ int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 			rc = -3;
 		}
 	}
+	DBG("EXIT\n");
 	return rc;
 } /* rdmad_create_ms() */
 

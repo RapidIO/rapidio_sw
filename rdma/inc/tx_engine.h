@@ -48,6 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <memory>
 
 #include "liblog.h"
+#include "rdmad_unix_msg.h"
 #include "rdma_msg.h"
 
 using std::queue;
@@ -109,8 +110,10 @@ public:
 	/* Returns sequence number to be used to receive reply */
 	void send_message(M* msg_ptr)
 	{
-		DBG("Sending type(0x%X) cat(0x%X) seq_no(0x%X)\n",
-			msg_ptr->type, msg_ptr->category, msg_ptr->seq_no);
+		DBG("Sending type:'%s',0x%X cat:'%s',0x%X seq_no(0x%X)\n",
+			type_name(msg_ptr->type), msg_ptr->type,
+			cat_name(msg_ptr->category), msg_ptr->category,
+			msg_ptr->seq_no);
 		pthread_mutex_lock(&message_queue_lock);
 		message_queue.push(msg_ptr);
 		pthread_mutex_unlock(&message_queue_lock);

@@ -195,6 +195,7 @@ int create_ms_disp(const unix_msg_t *in_msg,
 
 	tx_eng->send_message(&out_msg);
 
+	DBG("rc = 0x%X\n", out_msg.create_ms_out.status);
 	return out_msg.create_ms_out.status;
 } /* create_msg_disp() */
 

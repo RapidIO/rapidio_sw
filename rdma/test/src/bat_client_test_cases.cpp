@@ -1187,10 +1187,10 @@ exit:
  */
 int test_case_h(uint32_t destid)
 {
-	const uint32_t MS_SIZE = 64*1024;
-	const uint32_t MSUB_SIZE = 8*1024;
-	const unsigned NUM_CONNECTIONS = 3;
-	const unsigned NUM_ITERATIONS = 3;
+	constexpr uint32_t MS_SIZE = 64*1024;
+	constexpr uint32_t MSUB_SIZE = 8*1024;
+	constexpr unsigned NUM_CONNECTIONS = 3;
+	constexpr unsigned NUM_ITERATIONS = 3;
 
 	mso_h	server_msoh;
 	struct ms_info_t {

@@ -134,7 +134,8 @@ static int await_message(rdma_msg_cat category, rdma_msg_type type,
 	rc = rx_eng->set_notify(type, category, seq_no, reply_sem);
 
 	/* Wait for reply */
-	DBG("Notify configured...WAITING...\n");
+	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)",
+		type_name(type), type, cat_name(category), seq_no);
 	struct timespec timeout;
 	clock_gettime(CLOCK_REALTIME, &timeout);
 	timeout.tv_sec += timeout_in_secs;
@@ -177,7 +178,9 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 	/* Send message */
 	in_msg->seq_no = seq_no;
 	tx_eng->send_message(in_msg);
-	DBG("Message queued\n");
+	DBG("Queued for sending: type='%s',0x%X, cat='%s',0x%X, seq_no = 0x%X\n",
+		type_name(in_msg->type), in_msg->type,
+		cat_name(in_msg->category), in_msg->category, in_msg->seq_no);
 
 	/* Wait for reply */
 	int rc = await_message(RDMA_LIB_DAEMON_CALL,
