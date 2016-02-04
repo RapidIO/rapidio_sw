@@ -831,17 +831,20 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
 				info->umd_dma_fifo_callback(info);
 
 			get_seq_ts_m(&info->fifo_ts, 2);
+
 			const int cnt = dch_list[ch]->dch->scanFIFO(wi, info->umd_sts_entries*8);
 			if (!cnt) {
 				if (info->umd_tun_thruput) {
 					// for(int i = 0; i < 1000; i++) {;} continue; // "1000" busy wait seemd OK for latency, bad for thruput
+					get_seq_ts_m(&info->fifo_ts, 3);
 					struct timespec tv = { 0, 1 };
 					nanosleep(&tv, NULL);
 				}
 				continue;
 			}
 
-			get_seq_ts_m(&info->fifo_ts, 3);
+			get_seq_ts_m(&info->fifo_ts, 4);
+
 			for (int i = 0; i < cnt; i++) {
 				DMAChannel::WorkItem_t& item = wi[i];
 
