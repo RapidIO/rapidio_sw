@@ -327,6 +327,8 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
         const int Q_THR = (8 * (info->umd_tx_buf_cnt-1)) / 10;
 	
+	const bool q80p = dci->dch->queueSize() > Q_THR;
+
 	DMAChannel::DmaOptions_t& dmaopt = dci->dmaopt[dci->oi];
 
 	uint8_t* buffer = (uint8_t*)dci->dmamem[dci->oi].win_ptr;
@@ -387,7 +389,9 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	if (now > peer->m_stats.nread_ts && (now - peer->m_stats.nread_ts) > info->umd_nread_threshold)
 		force_nread = true;
 
-	if (first_message || force_nread ||  outstanding >= Q_THR || dci->dch->queueSize() > Q_THR) { // This must be done per-destid
+	if (q80p) get_seq_ts(&info->q80p_ts);
+
+	if (first_message || force_nread ||  outstanding >= Q_THR || q80p) { // This must be done per-destid
 		uint32_t newRP = ~0;
 		if (udma_nread_mem(info, destid_dpi, peer->get_rio_addr(), sizeof(newRP), (uint8_t*)&newRP)) {
 			peer->m_stats.nread_ts = rdtsc();
@@ -818,13 +822,15 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
         sem_post(&info->umd_fifo_proc_started);
 
         while (!info->umd_fifo_proc_must_die) {
-		get_seq_ts(&info->fifo_ts);
 		for (int ch = 0; ch < dch_cnt; ch++) {
+			get_seq_ts_m(&info->fifo_ts, 1);
+
 			// This is a hook to do stuff for IB buffers in isolcpu thread
 			// Note: No relation to TX FIFO/buffers, just CPU sharing
 			if (info->umd_dma_fifo_callback != NULL)
 				info->umd_dma_fifo_callback(info);
 
+			get_seq_ts_m(&info->fifo_ts, 2);
 			const int cnt = dch_list[ch]->dch->scanFIFO(wi, info->umd_sts_entries*8);
 			if (!cnt) {
 				if (info->umd_tun_thruput) {
@@ -835,6 +841,7 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
 				continue;
 			}
 
+			get_seq_ts_m(&info->fifo_ts, 3);
 			for (int i = 0; i < cnt; i++) {
 				DMAChannel::WorkItem_t& item = wi[i];
 

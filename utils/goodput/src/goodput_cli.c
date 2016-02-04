@@ -1798,6 +1798,9 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	case 'N':
 		ts_p = &wkr[idx].nread_ts;
 		break;
+	case '8':
+		ts_p = &wkr[idx].q80p_ts;
+		break;
 #endif
 	default:
                 sprintf(env->output, "FAILED: <type> not 'd', 'f' or 'm'.\n");
@@ -1940,6 +1943,7 @@ struct cli_cmd UTime = {
 	"      'f' - FIFO (descriptor completions)\n"
 #ifdef USER_MODE_DRIVER
 	"      'n' - NREAD one-shot completions\n"
+	"      '8' - NWRITE queue is at 80% full\n"
 #endif
 	"      'm' - measurement (development only)\n"
 	"<cmd> is the command to perform on the buffer, one of:\n"
