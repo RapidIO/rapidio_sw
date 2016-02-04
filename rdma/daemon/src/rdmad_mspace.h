@@ -224,7 +224,10 @@ public:
 	bool created_using_tx_eng(
 			tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 	{
-		return this->creator_tx_eng == app_tx_eng;
+		bool yes = (this->creator_tx_eng == app_tx_eng);
+		DBG("%s was%s created using tx_eng\n",
+			name.c_str(), yes ? "" : " not");
+		return yes;
 	}
 
 	bool has_user_with_user_tx_eng(

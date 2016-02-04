@@ -158,6 +158,7 @@ void inbound::close_and_destroy_mspaces_using_tx_eng(tx_engine<unix_server, unix
 {
 	sem_wait(&ibwins_sem);
 	for (auto& ibw : ibwins) {
+		INFO("Closing and destroying for ibwin %u\n", ibw.get_win_num());
 		ibw.close_mspaces_using_tx_eng(app_tx_eng);
 		ibw.destroy_mspaces_using_tx_eng(app_tx_eng);
 	}

@@ -449,7 +449,9 @@ void ibwin::close_mspaces_using_tx_eng(
 		tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
 	for(auto& ms : mspaces) {
+		INFO("Checking mspace '%s'\n", ms->get_name());
 		if (ms->has_user_with_user_tx_eng(user_tx_eng)) {
+			INFO("Closing connection to '%s'\n", ms->get_name());
 			ms->close(user_tx_eng);
 		}
 	}
@@ -459,7 +461,9 @@ void ibwin::destroy_mspaces_using_tx_eng(
 		tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
 	for(auto& ms : mspaces) {
+		INFO("Checking mspace '%s'\n", ms->get_name());
 		if (ms->created_using_tx_eng(app_tx_eng)) {
+			INFO("Closing connection to '%s'\n", ms->get_name());
 			ms->destroy();
 		}
 	}

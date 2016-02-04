@@ -210,7 +210,8 @@ int mspace::notify_remote_clients()
 							client_destid);
 			rc = -1;
 		} else {
-			rc = send_cm_force_disconnect_ms(prov_it->conn_disc_server,
+			rc = send_cm_force_disconnect_ms(
+						prov_it->conn_disc_server,
 						server_msubid,
 						client_to_lib_tx_eng_h);
 		}
@@ -228,7 +229,8 @@ int mspace::notify_remote_clients()
 								client_destid);
 				rc = -1;
 			} else if (u.connected_to) {
-				rc = send_cm_force_disconnect_ms(prov_it->conn_disc_server,
+				rc = send_cm_force_disconnect_ms(
+							prov_it->conn_disc_server,
 							u.server_msubid,
 							u.client_to_lib_tx_eng_h);
 			}
@@ -727,7 +729,8 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 				rc = RDMA_ACCEPT_FAIL;
 			} else if (accepting) {
 				/* The owner can't be accepting either */
-				ERR("'%s' already accepting from creator app\n");
+				ERR("'%s' already accepting from creator app\n",
+						name.c_str());
 				rc = RDMA_ACCEPT_FAIL;
 			} else {
 				/* And none of the users should be accepting! */
@@ -738,7 +741,8 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 							return user.accepting;
 						 });
 				if (n > 0) {
-					ERR("'%s' already accepting from a user app\n");
+					ERR("'%s' already accepting from a user app\n",
+							name.c_str());
 					rc = RDMA_ACCEPT_FAIL;
 				} else {
 					/* All is good, set 'accepting' flag */
@@ -797,8 +801,7 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 } /* undo_accept() */
 
 bool mspace::has_user_with_user_tx_eng(
-		tx_engine<unix_server, unix_msg_t> *user_tx_eng
-/*		uint32_t *ms_conn_id*/)
+		tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
 	bool has_user = false;
 
@@ -806,8 +809,9 @@ bool mspace::has_user_with_user_tx_eng(
 	auto it = find(begin(users), end(users), user_tx_eng);
 
 	if (it != end(users)) {
-//		*ms_conn_id = it->get_ms_conn_id();
 		has_user = true;
+	} else {
+		DBG("mspace '%s' does not use tx_eng\n", name.c_str());
 	}
 	sem_post(&users_sem);
 
@@ -837,6 +841,8 @@ int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
 	int rc;
 
+	DBG("ENTER\n");
+
 	/* A creator of an ms cannot open/close it */
 	if (app_tx_eng == creator_tx_eng) {
 		ERR("Creator of memory space cannot open/close it\n");
@@ -865,6 +871,8 @@ int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 		rc = 0;	/* Success */
 	}
 	sem_post(&users_sem);
+
+	DBG("EXIT\n");
 
 	return rc;
 } /* close() */

@@ -53,6 +53,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <exception>
 #include <vector>
 #include <iterator>
+#include <thread>
 #include <memory>
 
 #include <rapidio_mport_mgmt.h>
