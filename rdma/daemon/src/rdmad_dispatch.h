@@ -62,6 +62,8 @@ int destroy_msub_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_
 
 int accept_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
+int undo_accept_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
+
 int send_connect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 int send_disconnect_disp(const unix_msg_t *in_msg, tx_engine<unix_server, unix_msg_t> *tx_eng);

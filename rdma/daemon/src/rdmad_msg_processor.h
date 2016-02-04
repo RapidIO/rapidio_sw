@@ -99,6 +99,9 @@ public:
 		case ACCEPT_MS:
 			rc = accept_disp(msg, tx_eng);
 			break;
+		case UNDO_ACCEPT:
+			rc = undo_accept_disp(msg, tx_eng);
+			break;
 		case CONNECT_MS_RESP:
 			rc = connect_ms_resp_disp(msg, tx_eng);
 			break;
