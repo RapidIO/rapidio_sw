@@ -161,6 +161,7 @@ void inbound::close_and_destroy_mspaces_using_tx_eng(tx_engine<unix_server, unix
 		ibw.close_mspaces_using_tx_eng(app_tx_eng);
 		ibw.destroy_mspaces_using_tx_eng(app_tx_eng);
 	}
+	sem_post(&ibwins_sem);
 } /* close_mspaces_using_tx_eng() */
 
 /* get_mspace by msoid & msid */
@@ -248,6 +249,7 @@ int inbound::create_mspace(const char *name,
 			   mspace **ms,
 			   tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
 {
+	DBG("ENTER\n");
 	/* Find first inbound window having room for memory space */
 	sem_wait(&ibwins_sem);
 	auto win_it = find_if(begin(ibwins), end(ibwins),
@@ -287,6 +289,7 @@ int inbound::create_mspace(const char *name,
 	}
 
 	sem_post(&ibwins_sem);
+	DBG("EXIT\n");
 	return ret;
 } /* create_mspace() */
 
