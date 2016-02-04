@@ -337,6 +337,9 @@ struct worker {
 	struct seq_ts desc_ts;
 	struct seq_ts fifo_ts;
 	struct seq_ts meas_ts;
+#ifdef USER_MODE_DRIVER
+	struct seq_ts nread_ts;
+#endif
 #endif
 };
 

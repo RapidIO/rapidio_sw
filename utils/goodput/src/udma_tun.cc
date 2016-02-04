@@ -140,6 +140,8 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 	uint32_t umd_dma_abort_reason = 0;
 	DMAChannel::WorkItem_t wi[DMA_CHAN2_STS*8]; memset(wi, 0, sizeof(wi));
 
+	get_seq_ts_m(&info->nread_ts, 2);
+
 	int q_was_full = !dmac->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, umd_dma_abort_reason, &tx_ts);
 
 	i = 0;
@@ -181,6 +183,8 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 
 		return false;
 	}
+
+	get_seq_ts_m(&info->nread_ts, 8);
 
 #ifdef UDMA_TUN_DEBUG_NREAD
 	if (7 <= g_level) {
