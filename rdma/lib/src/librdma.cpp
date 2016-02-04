@@ -1704,6 +1704,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			in_msg.category = RDMA_REQ_RESP;
 			strcpy(in_msg.undo_connect_in.server_ms_name, rem_msname);
 
+			auto temp_rc = rc;
 			rc = daemon_call(&in_msg, &out_msg);
 			if (rc ) {
 				ERR("Failed in UNDO_CONNECT daemon_call, rc = %d\n", rc);
@@ -1715,6 +1716,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 				ERR("Failed to undo accept (ms) in daemon\n");
 				throw out_msg.undo_connect_out.status;
 			}
+			rc = temp_rc;
 			throw rc;
 		}
 
