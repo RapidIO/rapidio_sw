@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Parse command-line parameters */
-	if (argc < 5) {
+	if (argc < 6) {
 		show_help();
 		exit(1);
 	}
