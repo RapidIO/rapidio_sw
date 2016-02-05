@@ -218,7 +218,7 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
  */
 static inline bool udma_nwrite_mem(struct worker *info, const uint16_t destid, const uint64_t rio_addr, const int size, const uint8_t* data)
 {
-        int i;
+        int i = 0;
 
         if(info == NULL || size < 1 || size > 16 || data == NULL) return false;
 
@@ -226,7 +226,11 @@ static inline bool udma_nwrite_mem(struct worker *info, const uint16_t destid, c
         DBG("\n\tNREAD from RIO %d bytes destid %u addr 0x%llx\n", size, destid, rio_addr);
 #endif
 
+#ifdef UDMA_TUN_DEBUG_NWRITE_CH2
         DMAChannel* dmac = info->umd_dch_nread;
+#else
+        DMAChannel* dmac = info->umd_dch_list[info->umd_chan_n]->dch; // pick the last channel
+#endif
 
         DMAChannel::DmaOptions_t dmaopt; memset(&dmaopt, 0, sizeof(dmaopt));
         dmaopt.destid      = destid;
@@ -235,14 +239,17 @@ static inline bool udma_nwrite_mem(struct worker *info, const uint16_t destid, c
         dmaopt.raddr.lsb64 = rio_addr;
 
         struct seq_ts tx_ts;
-
         uint32_t umd_dma_abort_reason = 0;
+
+#ifdef UDMA_TUN_DEBUG_NWRITE_CH2
         DMAChannel::WorkItem_t wi[DMA_CHAN2_STS*8]; memset(wi, 0, sizeof(wi));
+#endif
 
         get_seq_ts_m(&info->nwrite_ts, 2);
 
         int q_was_full = !dmac->queueDmaOpT2((int)ALL_NWRITE_R, dmaopt, (uint8_t*)data, size, umd_dma_abort_reason, &tx_ts);
 
+#ifdef UDMA_TUN_DEBUG_NWRITE_CH2
         i = 0;
         if (! umd_dma_abort_reason) {
                 DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
@@ -255,11 +262,16 @@ static inline bool udma_nwrite_mem(struct worker *info, const uint16_t destid, c
                         usleep(1);
                 }
         }
+#endif
 
-        if (umd_dma_abort_reason || (dmac->queueSize() > 0)) { // Boooya!! Peer not responding
+        if (umd_dma_abort_reason
+#ifdef UDMA_TUN_DEBUG_NWRITE_CH2
+            || (dmac->queueSize() > 0)
+#endif
+        ) { // Boooya!! Peer not responding
                 uint32_t RXRSP_BDMA_CNT = 0;
                 bool inp_err = false, outp_err = false;
-                info->umd_dch_nread->checkPortInOutError(inp_err, outp_err);
+                dmac->checkPortInOutError(inp_err, outp_err);
 
                 {{
                   RioMport* mport = new RioMport(info->mp_num, info->mp_h);
@@ -786,7 +798,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 			upeer.UC = peer->get_serial();
 
 			const uint16_t destid = peer->get_destid();
-			const uint64_t rio_addr = peer->get_rio_addr() + offsetof(DmaPeerRP_t, peer);
+			const uint64_t rio_addr = peer->get_rio_addr() + offsetof(DmaPeerRP_t, rpeer);
 
 			if (! udma_nwrite_mem(info, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) {
 				DBG("\n\tHW error, something is FOOBAR with Chan %u\n", info->umd_chan2);

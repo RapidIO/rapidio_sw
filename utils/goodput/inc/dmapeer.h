@@ -64,7 +64,7 @@ private:
   int                m_tun_MTU;
 
   uint32_t           m_WP; ///< This is what we've done to the remote peer's IBwin "BD"
-///  uint32_t           m_RP; ///< This is what we *think* the remote peer's doing to its IBwin "BDs" -- updated from time to time via NREAD
+  uint32_t           m_rpeer_UC; ///< Last update count we've seen from peer
 
   sem_t              m_rio_rx_work; ///< Isolcpu thread signals per-Tun, per-destid RIO thread that it has ready IB BDs
   DMA_L2_t**         m_rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
@@ -94,7 +94,7 @@ public:
     m_rio_addr(0),
     m_ib_ptr(NULL),
     m_tun_fd(-1), m_tun_MTU(0),
-    m_WP(0), //m_RP(0),
+    m_WP(0), m_rpeer_UC(0),
     m_rio_rx_bd_L2_ptr(NULL),
     m_rio_rx_bd_ready(NULL), m_rio_rx_bd_ready_size(0),
     m_rio_rx_bd_ready_ts(NULL),
@@ -125,7 +125,7 @@ public:
     m_tun_MTU  = other.m_tun_MTU;
     strncpy(m_tun_name, other.m_tun_name, 32); m_tun_name[32] = '\0';
     m_WP       = other.m_WP;
-    //m_RP       = other.m_RP;
+    m_rpeer_UC = other.m_rpeer_UC;
     m_rio_rx_bd_ready = NULL;
     m_rio_rx_bd_ready_size = 0;
     m_rio_rx_bd_ready_ts = NULL;
@@ -146,12 +146,17 @@ public:
   inline uint32_t set_WP(const uint32_t wp) { return m_WP=wp; }  
   inline uint32_t inc_WP() { return ++m_WP; }  
 
-  //inline uint32_t get_RP() { return m_RP; }  
-  //inline uint32_t set_RP(const uint32_t rp) { return m_RP=rp; }  
+  inline uint32_t set_RP(const uint32_t rp)
+  {
+    m_rpeer_UC = 0;
+    ((DmaPeerRP_t*)m_ib_ptr)->rpeer.UC = 0;
+    ((DmaPeerRP_t*)m_ib_ptr)->rpeerLS = 0; // destroy time stamp
+    return ((DmaPeerRP_t*)m_ib_ptr)->rpeer.RP = rp;
+  }
 
-  inline uint32_t set_RP(const uint32_t rp) { ((DmaPeerRP_t*)m_ib_ptr)->peer.UC = 0; return ((DmaPeerRP_t*)m_ib_ptr)->peer.RP = rp; }
-  inline uint32_t get_RP() { return ((DmaPeerRP_t*)m_ib_ptr)->peer.RP; }
-  inline uint32_t get_RP_serial() { return ((DmaPeerRP_t*)m_ib_ptr)->peer.UC; }
+  inline uint32_t get_RP() { return ((DmaPeerRP_t*)m_ib_ptr)->rpeer.RP; }
+  inline uint32_t get_RP_serial() { return ((DmaPeerRP_t*)m_ib_ptr)->rpeer.UC; }
+  inline uint32_t get_RP_lastSeen() { return ((DmaPeerRP_t*)m_ib_ptr)->rpeerLS; }
 
   /** \brief Return IB RP that we keep in shared memory */
   inline uint32_t get_IB_RP() { return ((DmaPeerRP_t*)m_ib_ptr)->RP; }  
@@ -390,6 +395,13 @@ error:
     m_stats.rio_isol_rx_pass++;
 
     uint64_t now = rdtsc();
+
+    // Update last seen timestamp if peer pushed a new update counter
+    if (m_rpeer_UC != pRP->rpeer.UC) {
+      m_rpeer_UC = pRP->rpeer.UC;
+      pRP->rpeerLS = now;
+    }
+
     if (m_rio_rx_bd_ready_size >= (m_info->umd_tx_buf_cnt-1)) { // Quick peek while unlocked -- Receiver too slow, go to next peer!
       if (m_stats.rio_rx_peer_full_ts == 0) m_stats.rio_rx_peer_full_ts = now;
       return 0;
