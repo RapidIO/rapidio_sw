@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <semaphore.h>
 #include <pthread.h>
 #include <sys/types.h>
@@ -284,7 +285,7 @@ static inline bool udma_nwrite_mem(struct worker *info, const uint16_t destid, c
 
         get_seq_ts_m(&info->nwrite_ts, 8);
 
-        info->umd_ticks_total_chan2 += (wi[0].opt.ts_end - wi[0].opt.ts_start);
+        ///XXX info->umd_ticks_total_chan2 += (wi[0].opt.ts_end - wi[0].opt.ts_start);
 
         return true;
 }
@@ -776,7 +777,25 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
 		DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->get_rio_rx_bd_ready_size(), pRP->RP);
 
-		rx_ok += peer->service_TUN_TX();
+		int cnt = peer->service_TUN_TX();
+		rx_ok += cnt;
+
+		if (cnt > 0) { // Push to peer, but how often?
+			DmaPeerUpdateRP_t upeer;
+			upeer.RP = peer->get_IB_RP();
+			upeer.UC = peer->get_serial();
+
+			const uint16_t destid = peer->get_destid();
+			const uint64_t rio_addr = peer->get_rio_addr() + offsetof(DmaPeerRP_t, peer);
+
+			if (! udma_nwrite_mem(info, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) {
+				DBG("\n\tHW error, something is FOOBAR with Chan %u\n", info->umd_chan2);
+
+				peer->stop_req = 1;
+
+				umd_dma_goodput_tun_del_ep(info, destid, false); // Nuke Tun & Peer
+			}
+		}
         } // END while NOT stop requested
 
 stop_req:
@@ -2193,9 +2212,9 @@ void UMD_DD(struct worker* info)
 			const uint64_t* rx_histo = peer_list_rxhisto[ip];
 
 			char tmp[257] = {0};
-			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u tx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
+			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u/%u tx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
 				 peer.get_destid(), peer.get_tun_name(), peer.get_rio_addr(),
-				 peer.get_WP(), peer.get_RP(),
+				 peer.get_WP(), peer.get_RP(), peer.get_RP_serial(),
 				 peer.m_stats.tx_cnt, peer.m_stats.rx_cnt,
 				 peer.m_stats.tun_rx_cnt, peer.m_stats.tun_tx_cnt, peer.m_stats.tun_tx_err,
 			         peer.m_stats.rio_tx_peer_full

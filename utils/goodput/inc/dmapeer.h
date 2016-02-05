@@ -55,7 +55,7 @@ public:
 private:
   pthread_mutex_t    m_mutex;
   uint16_t           m_destid; ///< RIO destid of peer
-  uint64_t           m_rio_addr; ///< Peer's IBwin mapping
+  uint64_t           m_rio_addr; ///< Peer's IBwin mapping (REMOTE)
 
   void*              m_ib_ptr; ///< Pointer to some place in LOCAL IBwin
 
@@ -64,7 +64,7 @@ private:
   int                m_tun_MTU;
 
   uint32_t           m_WP; ///< This is what we've done to the remote peer's IBwin "BD"
-  uint32_t           m_RP; ///< This is what we *think* the remote peer's doing to its IBwin "BDs" -- updated from time to time via NREAD
+///  uint32_t           m_RP; ///< This is what we *think* the remote peer's doing to its IBwin "BDs" -- updated from time to time via NREAD
 
   sem_t              m_rio_rx_work; ///< Isolcpu thread signals per-Tun, per-destid RIO thread that it has ready IB BDs
   DMA_L2_t**         m_rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
@@ -72,6 +72,8 @@ private:
   volatile int       m_rio_rx_bd_ready_size;
   uint64_t*          m_rio_rx_bd_ready_ts; ///< IB BD RX timestamp
   pthread_spinlock_t m_rio_rx_bd_ready_splock; ///< This should be better than mutex as it spins and would not trip into a futex
+
+  uint32_t           m_serial; ///< A monotonic serial number we keep
 
   struct worker*     m_info; ///< "this" of the controlling struct worker object
 
@@ -92,10 +94,11 @@ public:
     m_rio_addr(0),
     m_ib_ptr(NULL),
     m_tun_fd(-1), m_tun_MTU(0),
-    m_WP(0), m_RP(0),
+    m_WP(0), //m_RP(0),
     m_rio_rx_bd_L2_ptr(NULL),
     m_rio_rx_bd_ready(NULL), m_rio_rx_bd_ready_size(0),
     m_rio_rx_bd_ready_ts(NULL),
+    m_serial(0),
     m_info(NULL),
     m_copy(false)
   {
@@ -117,12 +120,12 @@ public:
     stop_req   = other.stop_req;
     m_destid   = other.m_destid;
     m_rio_addr = other.m_rio_addr;
-    m_ib_ptr   = NULL;
+    m_ib_ptr   = other.m_ib_ptr;
     m_tun_fd   = -1;
     m_tun_MTU  = other.m_tun_MTU;
     strncpy(m_tun_name, other.m_tun_name, 32); m_tun_name[32] = '\0';
     m_WP       = other.m_WP;
-    m_RP       = other.m_RP;
+    //m_RP       = other.m_RP;
     m_rio_rx_bd_ready = NULL;
     m_rio_rx_bd_ready_size = 0;
     m_rio_rx_bd_ready_ts = NULL;
@@ -142,8 +145,18 @@ public:
   inline uint32_t get_WP() { return m_WP; }  
   inline uint32_t set_WP(const uint32_t wp) { return m_WP=wp; }  
   inline uint32_t inc_WP() { return ++m_WP; }  
-  inline uint32_t get_RP() { return m_RP; }  
-  inline uint32_t set_RP(const uint32_t rp) { return m_RP=rp; }  
+
+  //inline uint32_t get_RP() { return m_RP; }  
+  //inline uint32_t set_RP(const uint32_t rp) { return m_RP=rp; }  
+
+  inline uint32_t set_RP(const uint32_t rp) { ((DmaPeerRP_t*)m_ib_ptr)->peer.UC = 0; return ((DmaPeerRP_t*)m_ib_ptr)->peer.RP = rp; }
+  inline uint32_t get_RP() { return ((DmaPeerRP_t*)m_ib_ptr)->peer.RP; }
+  inline uint32_t get_RP_serial() { return ((DmaPeerRP_t*)m_ib_ptr)->peer.UC; }
+
+  /** \brief Return IB RP that we keep in shared memory */
+  inline uint32_t get_IB_RP() { return ((DmaPeerRP_t*)m_ib_ptr)->RP; }  
+
+  inline uint32_t get_serial() { return ++m_serial; }
 
   inline void set_copy() { m_copy = true; }
 
@@ -475,12 +488,12 @@ error:
   /** \brief Process all IB "BDs" identified by \ref scan_RO
    * \return Number of IB "BDs" decapped of L2 and successfully written into Tun
    */
-  inline uint32_t service_TUN_TX()
+  inline int service_TUN_TX()
   {
     assert(this);
     assert(m_rio_rx_bd_ready_size <= (m_info->umd_tx_buf_cnt-1));
 
-    uint32_t rx_ok = 0; // TX'ed into Tun device
+    int rx_ok = 0; // TX'ed into Tun device
 
     volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)m_ib_ptr;
 
