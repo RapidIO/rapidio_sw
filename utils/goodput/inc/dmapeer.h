@@ -198,7 +198,7 @@ public:
 
     {{ // RX: Pre-populate the locations of the RO bit in IB BDs, and zero RO
       std::stringstream ss;
-      uint8_t* p = sizeof(uint32_t) + (uint8_t*)ib_ptr;
+      uint8_t* p = sizeof(DmaPeerRP_t) + (uint8_t*)ib_ptr;
       for (int i = 0; i < (info->umd_tx_buf_cnt-1); i++, p += BD_PAYLOAD_SIZE(info)) {
         m_rio_rx_bd_L2_ptr[i] = (DMA_L2_t*)p;
         m_rio_rx_bd_L2_ptr[i]->RO = 0;
