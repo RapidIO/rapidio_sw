@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 class IBwinMap {
 public:
   /** \brief Constructor
-   * \note Thic class does not bang hardware. It is just a record keeper
+   * \note This class does not bang hardware. It is just a record keeper
    * \param     rio_addr RIO address at which this CMA memory IBwin was mapped by mport
    * \param[in] ib_ptr  Mmmap'ed address of CMA memory window
    * \param     ib_size Size of CMA memory window
@@ -63,12 +63,12 @@ public:
 
     if (tun_MTU < 580) throw std::runtime_error("IBwinMap: Invalid tun_MTU!");
 
-    if (ib_size < (sizeof(uint32_t) + sizeof(DMA_L2_SIZE) + tun_MTU))
+    if (ib_size < (sizeof(DmaPeerRP_t) + sizeof(DMA_L2_SIZE) + tun_MTU))
       throw std::runtime_error("IBwinMap: Invalid ib_size!");
 
     if (bufc < (0x20-1)) throw std::runtime_error("IBwinMap: Invalid bufc!");
 
-    PEER_IBWIN_SIZE = sizeof(uint32_t) + bufc * (sizeof(DMA_L2_SIZE) + tun_MTU);
+    PEER_IBWIN_SIZE = sizeof(DmaPeerRP_t) + bufc * (sizeof(DMA_L2_SIZE) + tun_MTU);
     MAX_PEERS = ib_size / PEER_IBWIN_SIZE;
 
     assert(MAX_PEERS);

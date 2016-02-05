@@ -17,8 +17,7 @@
 #define PEER_SIG_UP         0xbaaddeedL
 #define PEER_SIG_DESTROYED  0xdeadbeefL
 
-/** \brief Encapsulate Peer IB window logic and Tun TX
- */
+/** \brief Encapsulate Peer IB window logic and Tun TX */
 class DmaPeer {
 public:
   typedef struct {
@@ -369,9 +368,9 @@ error:
   {
     int cnt = 0;
 
-    volatile uint32_t* pRP = (uint32_t*)m_ib_ptr;
+    volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)m_ib_ptr;
 
-    uint32_t k = *pRP;
+    uint32_t k = pRP->RP;
     assert(k >= 0);
     assert(k < (m_info->umd_tx_buf_cnt-1));
 
@@ -455,7 +454,7 @@ error:
           snprintf(tmp, 16, "%d ", m_rio_rx_bd_L2_ptr[i]->RO);
           strncat(buf, tmp, 81920);
         }
-        CRIT("\n\tBUG: IBBD[RP]->RO==0 k=%d savRP=%u volRP=%u pending %d IB BDs: %s\n", k, saved_RP, *pRP, N_pending, buf);
+        CRIT("\n\tBUG: IBBD[RP]->RO==0 k=%d savRP=%u volRP=%u pending %d IB BDs: %s\n", k, saved_RP, pRP->RP, N_pending, buf);
         usleep(10 * 1000); fflush(NULL);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Waddress"
@@ -483,7 +482,7 @@ error:
 
     uint32_t rx_ok = 0; // TX'ed into Tun device
 
-    volatile uint32_t* pRP = (uint32_t*)m_ib_ptr;
+    volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)m_ib_ptr;
 
     int cnt = 0;
     int ready_bd_list[m_info->umd_tx_buf_cnt]; memset(ready_bd_list, 0xff, sizeof(ready_bd_list));
@@ -502,7 +501,7 @@ error:
     m_stats.rio_rx_pass++;
 
 #ifdef UDMA_TUN_DEBUG_IB
-    DBG("\n\tInbound %d buffers(s) will be processed from destid %u RP=%u\n", cnt, destid, *pRP);
+    DBG("\n\tInbound %d buffers(s) will be processed from destid %u RP=%u\n", cnt, destid, pRP->RP);
 #endif
 
     if (m_info->stop_req || stop_req) goto stop_req;
@@ -549,9 +548,9 @@ error:
 
       rp++; if (rp == (m_info->umd_tx_buf_cnt-1)) rp = 0;
 #ifdef UDMA_TUN_DEBUG_IB
-      DBG("\n\tUpdating old RP %d to %d\n", *pRP, rp);
+      DBG("\n\tUpdating old RP %d to %d\n", pRP->RP, rp);
 #endif
-      *pRP = rp;
+      pRP->RP = rp;
     }
 
 stop_req:

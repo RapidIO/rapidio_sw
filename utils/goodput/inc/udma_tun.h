@@ -3,6 +3,21 @@
 
 #include <stdint.h>
 
+struct DmaPeerUpdateRP_s {
+  volatile uint32_t RP;
+  volatile uint32_t UC; // S/n of last update of peerRP
+} __attribute__ ((packed));
+
+typedef struct DmaPeerUpdateRP_s DmaPeerUpdateRP_t;
+
+/** \brief This is where we keep the local and remote RP */
+struct DmaPeerRP_s {
+  volatile uint32_t RP; ///< Must keep this at offset &IBWin+0 for NREAD to work
+  DmaPeerUpdateRP_t peer;
+} __attribute__ ((packed));
+
+typedef struct DmaPeerRP_s DmaPeerRP_t;
+
 /** \brief This is the L2 header we use for transporting Tun L3 frames over RIO via DMA */
 struct DMA_L2_s {
         uint8_t  RO;     ///< Reader Owned flag(s), not "read only"

@@ -110,7 +110,9 @@ static inline uint64_t htonll(uint64_t value)
           return value;
 }
 
-/** \bried NREAD data from peer at high priority, all-in-one, blocking
+static inline int Q_THR(const int sz) { return (sz * 95) / 100; }
+
+/** \brief T2 NREAD data from peer at high priority, all-in-one, blocking
  * \param[in] info C-like this
  * \param destid RIO destination id of peer
  * \param rio_addr RIO mem address into peer's IBwin, not 50-but compatible
@@ -205,6 +207,87 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 	return true;
 }
 
+/** \brief T2 NWRITE_R data to peer at high priority, all-in-one, blocking
+ * \param[in] info C-like this
+ * \param destid RIO destination id of peer
+ * \param rio_addr RIO mem address into peer's IBwin, not 50-but compatible
+ * \param size How much data to write, up to 16 bytes
+ * \param[in] Points to where data are
+ * \retuen true if NWRITE_R completed OK
+ */
+static inline bool udma_nwrite_mem(struct worker *info, const uint16_t destid, const uint64_t rio_addr, const int size, const uint8_t* data)
+{
+        int i;
+
+        if(info == NULL || size < 1 || size > 16 || data == NULL) return false;
+
+#ifdef UDMA_TUN_DEBUG_NWRITE
+        DBG("\n\tNREAD from RIO %d bytes destid %u addr 0x%llx\n", size, destid, rio_addr);
+#endif
+
+        DMAChannel* dmac = info->umd_dch_nread;
+
+        DMAChannel::DmaOptions_t dmaopt; memset(&dmaopt, 0, sizeof(dmaopt));
+        dmaopt.destid      = destid;
+        dmaopt.prio        = 2; // We want to get in front all pending ALL_WRITEs in 721 silicon
+        dmaopt.bcount      = size;
+        dmaopt.raddr.lsb64 = rio_addr;
+
+        struct seq_ts tx_ts;
+
+        uint32_t umd_dma_abort_reason = 0;
+        DMAChannel::WorkItem_t wi[DMA_CHAN2_STS*8]; memset(wi, 0, sizeof(wi));
+
+        get_seq_ts_m(&info->nwrite_ts, 2);
+
+        int q_was_full = !dmac->queueDmaOpT2((int)ALL_NWRITE_R, dmaopt, (uint8_t*)data, size, umd_dma_abort_reason, &tx_ts);
+
+        i = 0;
+        if (! umd_dma_abort_reason) {
+                DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
+
+                for(i = 0;
+                        !q_was_full && !info->stop_req && (i < 100000)
+                        && dmac->queueSize();
+                    i++) {
+                        dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
+                        usleep(1);
+                }
+        }
+
+        if (umd_dma_abort_reason || (dmac->queueSize() > 0)) { // Boooya!! Peer not responding
+                uint32_t RXRSP_BDMA_CNT = 0;
+                bool inp_err = false, outp_err = false;
+                info->umd_dch_nread->checkPortInOutError(inp_err, outp_err);
+
+                {{
+                  RioMport* mport = new RioMport(info->mp_num, info->mp_h);
+                  RXRSP_BDMA_CNT = mport->rd32(TSI721_RXRSP_BDMA_CNT); // aka 0x29904 Received Response Count for Block DMA Engine Register
+                  delete mport;
+                }}
+
+                CRIT("\n\tChan2 %u stalled with %sq_size=%d WP=%lu FIFO.WP=%llu %s%s%s%sRXRSP_BDMA_CNT=%u abort reason 0x%x %s After %d checks qful %d stopreq %d\n",
+                      info->umd_chan2,
+                      (q_was_full? "QUEUE FULL ": ""), dmac->queueSize(),
+                      info->umd_dch_nread->getWP(), info->umd_dch_nread->m_tx_cnt,
+                      (info->umd_dch_nread->checkPortOK()? "Port:OK ": ""),
+                      (info->umd_dch_nread->checkPortError()? "Port:ERROR ": ""),
+                      (inp_err? "Port:OutpERROR ": ""),
+                      (inp_err? "Port:InpERROR ": ""),
+                      RXRSP_BDMA_CNT,
+                      umd_dma_abort_reason, DMAChannel::abortReasonToStr(umd_dma_abort_reason), i, q_was_full, info->stop_req);
+
+                dmac->softRestart();
+
+                return false;
+        }
+
+        get_seq_ts_m(&info->nwrite_ts, 8);
+
+        info->umd_ticks_total_chan2 += (wi[0].opt.ts_end - wi[0].opt.ts_start);
+
+        return true;
+}
 const int DESTID_TRANSLATE = 1;
 
 /** \brief Thread that services Tun TX, sends L3 frames to peer and does RIO TX throttling
@@ -325,9 +408,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	bool force_nread = false;
 	int outstanding = 0; // This is our guess of what's not consumed at other end, per-destid
 
-        const int Q_THR = (8 * (info->umd_tx_buf_cnt-1)) / 10;
-	
-	const bool q80p = dci->dch->queueSize() > Q_THR;
+	const bool q_fullish = dci->dch->queueSize() > Q_THR(info->umd_tx_buf_cnt-1);
 
 	DMAChannel::DmaOptions_t& dmaopt = dci->dmaopt[dci->oi];
 
@@ -389,9 +470,9 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	if (now > peer->m_stats.nread_ts && (now - peer->m_stats.nread_ts) > info->umd_nread_threshold)
 		force_nread = true;
 
-	if (q80p) get_seq_ts(&info->q80p_ts);
+	if (q_fullish) get_seq_ts(&info->q80p_ts);
 
-	if (first_message || force_nread ||  outstanding >= Q_THR || q80p) { // This must be done per-destid
+	if (first_message || force_nread || q_fullish || outstanding >= Q_THR(info->umd_tx_buf_cnt-1)) { // This must be done per-destid
 		uint32_t newRP = ~0;
 		if (udma_nread_mem(info, destid_dpi, peer->get_rio_addr(), sizeof(newRP), (uint8_t*)&newRP)) {
 			peer->m_stats.nread_ts = rdtsc();
@@ -441,7 +522,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
 	dmaopt.destid      = destid_dpi;
 	dmaopt.bcount      = ntohl(pL2->len);
-	dmaopt.raddr.lsb64 = peer->get_rio_addr() + sizeof(uint32_t) + peer->get_WP() * BD_PAYLOAD_SIZE(info);
+	dmaopt.raddr.lsb64 = peer->get_rio_addr() + sizeof(DmaPeerRP_t) + peer->get_WP() * BD_PAYLOAD_SIZE(info);
 	dmaopt.u_data      = now;
 
 	DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx WP=%d chan=%d oi=%d\n",
@@ -450,8 +531,8 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	dci->dch->setCheckHwReg(first_message);
 
 	info->umd_dma_abort_reason = 0;
-	if (! dci->dch->queueDmaOpT1(ALL_NWRITE, dci->dmaopt[dci->oi], dci->dmamem[dci->oi],
-					info->umd_dma_abort_reason, &info->meas_ts)) {
+	if (! dci->dch->queueDmaOpT1(LAST_NWRITE_R, dci->dmaopt[dci->oi], dci->dmamem[dci->oi],
+				     info->umd_dma_abort_reason, &info->meas_ts)) {
 		if(info->umd_dma_abort_reason != 0) { // HW error
 			// ICMPv4 dest unreachable id bad destid 
 			send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun
@@ -668,7 +749,7 @@ void* umd_dma_tun_TX_proc_thr(void* arg)
 
 	uint64_t rx_ok = 0; ///< TX'ed into Tun device
 
-	volatile uint32_t* pRP = (uint32_t*)peer->get_ib_ptr();
+	volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)peer->get_ib_ptr();
 
 	struct thread_cpu myself; memset(&myself, 0, sizeof(myself));
 
@@ -693,7 +774,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
         	if (info->stop_req || peer->stop_req) goto stop_req;
 		assert(peer->sig == PEER_SIG_UP);
 
-		DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->get_rio_rx_bd_ready_size(), *pRP);
+		DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->get_rio_rx_bd_ready_size(), pRP->RP);
 
 		rx_ok += peer->service_TUN_TX();
         } // END while NOT stop requested
@@ -1121,9 +1202,9 @@ exit:
  * \verbatim
 We maintain the (per-peer destid) IB window (or
 sub-section thereof) in the following format:
-+-4b-+---L2 size+MTU----+------------------+
-| RP | L2 | L3  payload | ... repeat L2+L3 |
-+----+------------------+------------------+
++-4b-+--------+-----+---L2 size+MTU----+------------------+
+| RP | peerRP | ... | L2 | L3  payload | ... repeat L2+L3 |
++----+--------+-----+----+-------------+------------------+
 We keep (bufc-1) IB L2+L3 combos
  * \endverbatim
  */
@@ -1143,7 +1224,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 	// Note: There's no reason to link info->umd_tx_buf_cnt other than
 	// convenience. However the IB ring should never be smaller than
 	// info->umd_tx_buf_cnt-1 members -- (dis)counting T3 BD on TX side
-	const int IBWIN_SIZE = sizeof(uint32_t) + BD_PAYLOAD_SIZE(info) * (info->umd_tx_buf_cnt-1);
+	const int IBWIN_SIZE = sizeof(DmaPeerRP_t) + BD_PAYLOAD_SIZE(info) * (info->umd_tx_buf_cnt-1);
 
 	assert(info->ib_ptr);
 	assert(info->ib_byte_cnt >= IBWIN_SIZE);
@@ -2121,12 +2202,12 @@ void UMD_DD(struct worker* info)
 				);
 			ss << "\n\t\t" << tmp;
 
-			uint32_t* pRP = (uint32_t*)peer.get_ib_ptr();
+			volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)peer.get_ib_ptr();
 			assert(pRP);
 
 			float TotalTimeSpentFull = (float)peer.m_stats.rio_rx_peer_full_ticks_total / MHz;
 			snprintf(tmp, 256, "\n\t\t\trx.RP=%u #IBBdRO=%d IBBdReady=%d #IsolIBPass=%llu #IsolIBPassAdd=%llu #IBPass=%llu IBBDFullTotal=%fuS",
-			                   *pRP, rocnt, peer.get_rio_rx_bd_ready_size(),
+			                   pRP->RP, rocnt, peer.get_rio_rx_bd_ready_size(),
 			                   peer.m_stats.rio_isol_rx_pass, 
 			                   peer.m_stats.rio_isol_rx_pass_add, 
 				           peer.m_stats.rio_rx_pass,
