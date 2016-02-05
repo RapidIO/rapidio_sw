@@ -100,13 +100,13 @@ found:
 		if (ret)
 			return ret;
 
-		ret = sw->sw->init(sw);
+		ret = riocp_pe_switch_init(sw);
 		if (ret) {
 			RIOCP_ERROR("Could not initialize switch\n");
 			return ret;
 		}
 
-		sw->sw->init_em(sw);
+		ret = riocp_pe_switch_init_em(sw);
 		if (ret) {
 			RIOCP_ERROR("Could not initialize switch error management\n");
 			return ret;

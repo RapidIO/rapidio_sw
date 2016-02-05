@@ -604,6 +604,17 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 	int ret;
 	uint8_t first_lane = 0, lane_count = 0, lane;
 
+	ret = cps1xxx_port_get_first_lane(sw, port, &first_lane);
+	if (ret < 0)
+		return (ret == -ENOTSUP)?(0):(ret); /* return success if port not supported */
+
+	ret = cps1xxx_get_lane_width(sw, port, &lane_count);
+	if (ret < 0)
+		return ret;
+
+	if (lane_count == 0)
+		return ret;
+
 	/* Disable error rate bias, clear error rate counter. */
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_ERR_RATE_CSR(port),
 		CPS1xxx_ERR_RATE_RESET);
@@ -617,14 +628,6 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 		return ret;
 
 	/* enable los of lane trigger for all lanes on the current port */
-	ret = cps1xxx_port_get_first_lane(sw, port, &first_lane);
-	if (ret < 0)
-		return ret;
-
-	ret = cps1xxx_get_lane_width(sw, port, &lane_count);
-	if (ret < 0)
-		return ret;
-
 	for (lane = 0; lane < lane_count; lane++) {
 		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_ERR_DET(lane + first_lane), 0);
 		if (ret < 0)
@@ -1510,10 +1513,10 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 		}
 
 		for(current_lane = lane; current_lane < (lane+width); current_lane++) {
-			ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(lane), &ctl);
+			ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(current_lane), &ctl);
 			if (ret < 0) {
-				RIOCP_ERROR("[0x%08x:%s:hc %u] Error reading lane x ctl\n",
-						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount);
+				RIOCP_ERROR("[0x%08x:%s:hc %u] Error reading lane %d ctl\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
 				cps1xxx_enable_port(sw, port);
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
@@ -1522,10 +1525,10 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 			ctl &= ~(CPS1xxx_LANE_CTL_PLL_SEL | CPS1xxx_LANE_CTL_RX_RATE | CPS1xxx_LANE_CTL_TX_RATE);
 			ctl_new |= ctl;
 
-			ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(lane), ctl_new);
+			ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(current_lane), ctl_new);
 			if (ret < 0) {
-				RIOCP_ERROR("[0x%08x:%s:hc %u] Error writing lane x ctl\n",
-						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount);
+				RIOCP_ERROR("[0x%08x:%s:hc %u] Error writing lane %d ctl\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
 				cps1xxx_enable_port(sw, port);
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
@@ -1619,10 +1622,10 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 			return ret;
 
 		for(current_lane = lane; current_lane < (lane+width); current_lane++) {
-			ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(lane), &ctl);
+			ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(current_lane), &ctl);
 			if (ret < 0) {
-				RIOCP_ERROR("[0x%08x:%s:hc %u] Error reading lane x ctl\n",
-						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount);
+				RIOCP_ERROR("[0x%08x:%s:hc %u] Error reading lane %d ctl\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
 				cps1xxx_enable_port(sw, port);
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
@@ -1631,10 +1634,10 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 			ctl &= ~(CPS1xxx_LANE_CTL_RX_RATE | CPS1xxx_LANE_CTL_TX_RATE);
 			ctl_new |= ctl;
 
-			ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(lane), ctl_new);
+			ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(current_lane), ctl_new);
 			if (ret < 0) {
-				RIOCP_ERROR("[0x%08x:%s:hc %u] Error writing lane x ctl\n",
-						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount);
+				RIOCP_ERROR("[0x%08x:%s:hc %u] Error writing lane %d ctl\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
 				cps1xxx_enable_port(sw, port);
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
@@ -1663,7 +1666,7 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 		return -ENOSYS;
 	}
 
-	RIOCP_TRACE("Port %u lane %u speed set to: %u\n", port, lane, _speed);
+	RIOCP_TRACE("Port %u speed set to: %u\n", port, _speed);
 
 	return ret;
 }
