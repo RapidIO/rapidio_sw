@@ -113,7 +113,7 @@ static inline uint64_t htonll(uint64_t value)
           return value;
 }
 
-static inline int Q_THR(const int sz) { return (sz * 95) / 100; }
+static inline int Q_THR(const int sz) { return (sz * 99) / 100; }
 
 /** \brief T2 NREAD data from peer at high priority, all-in-one, blocking
  * \param[in] info C-like this
@@ -420,7 +420,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	int destid_dpi = -1;
 	int is_bad_destid = 0;
 	bool first_message = false;
-	bool force_nread = false;
+	int force_nread = 0;
 	int outstanding = 0; // This is our guess of what's not consumed at other end, per-destid
 
 	const bool q_fullish = dci->dch->queueSize() > Q_THR(info->umd_tx_buf_cnt-1);
@@ -483,13 +483,17 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	// NWRITE does not barf  on bad destids
 	{{
 	  const uint64_t last_seen_rp_update = max_u64(peer->get_RP_lastSeen(), peer->m_stats.nread_ts);
-	  if ((now - last_seen_rp_update) > info->umd_nread_threshold)
-		force_nread = true;
+	  if ((rdtsc() - last_seen_rp_update) > info->umd_nread_threshold)
+		force_nread = 1;
 	}}
 
 	if (q_fullish) get_seq_ts(&info->q80p_ts);
 
-	if (first_message || force_nread || q_fullish || outstanding >= Q_THR(info->umd_tx_buf_cnt-1)) { // This must be done per-destid
+	if (first_message || force_nread /*|| q_fullish*/ || outstanding >= Q_THR(info->umd_tx_buf_cnt-1)) { // This must be done per-destid
+#if 0
+INFO("first_message=%d force_nread=%d q_fullish=%d \"outstanding[%d] >= Q_THR(info->umd_tx_buf_cnt-1) [%d]\"=%d\n",
+first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1), outstanding >= Q_THR(info->umd_tx_buf_cnt-1));
+#endif
 		uint32_t newRP = ~0;
 		if (udma_nread_mem(info, destid_dpi, peer->get_rio_addr(), sizeof(newRP), (uint8_t*)&newRP)) {
 			peer->m_stats.nread_ts = rdtsc();
@@ -753,6 +757,34 @@ error:
 	return false;
 }
 
+
+bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer)
+{
+	assert(info);
+	assert(peer);
+
+	bool ret = true;
+
+	DmaPeerUpdateRP_t upeer;
+	upeer.RP = peer->get_IB_RP();
+	upeer.UC = peer->get_serial();
+
+	const uint16_t destid = peer->get_destid();
+	const uint64_t rio_addr = peer->get_rio_addr() + offsetof(DmaPeerRP_t, rpeer);
+
+	if (! udma_nwrite_mem(info, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) {
+		DBG("\n\tHW error, something is FOOBAR with Chan %u\n", info->umd_chan2);
+
+		peer->stop_req = 1;
+
+		umd_dma_goodput_tun_del_ep(info, destid, false); // Nuke Tun & Peer
+
+		ret = false;
+	}
+
+	return ret;
+}
+
 /** \brief This waits for \ref umd_dma_goodput_tun_callback to signal that IBwin buffers are ready for this peer. Then stuffs L3 frames into Tun
  */
 void* umd_dma_tun_TX_proc_thr(void* arg)
@@ -793,25 +825,11 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
 		DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->get_rio_rx_bd_ready_size(), pRP->RP);
 
-		int cnt = peer->service_TUN_TX();
+		int cnt = peer->service_TUN_TX(info);
 		rx_ok += cnt;
 
-		if (cnt > 0) { // Push to peer, but how often?
-			DmaPeerUpdateRP_t upeer;
-			upeer.RP = peer->get_IB_RP();
-			upeer.UC = peer->get_serial();
-
-			const uint16_t destid = peer->get_destid();
-			const uint64_t rio_addr = peer->get_rio_addr() + offsetof(DmaPeerRP_t, rpeer);
-
-			if (! udma_nwrite_mem(info, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) {
-				DBG("\n\tHW error, something is FOOBAR with Chan %u\n", info->umd_chan2);
-
-				peer->stop_req = 1;
-
-				umd_dma_goodput_tun_del_ep(info, destid, false); // Nuke Tun & Peer
-			}
-		}
+		if (cnt > 0)
+			umd_dma_tun_update_peer_RP(info, peer);
         } // END while NOT stop requested
 
 stop_req:

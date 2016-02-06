@@ -17,6 +17,8 @@
 #define PEER_SIG_UP         0xbaaddeedL
 #define PEER_SIG_DESTROYED  0xdeadbeefL
 
+extern bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer);
+
 /** \brief Encapsulate Peer IB window logic and Tun TX */
 class DmaPeer {
 public:
@@ -509,9 +511,10 @@ error:
   /** \brief Process all IB "BDs" identified by \ref scan_RO
    * \return Number of IB "BDs" decapped of L2 and successfully written into Tun
    */
-  inline int service_TUN_TX()
+  inline int service_TUN_TX(struct worker* info)
   {
     assert(this);
+    assert(info);
     assert(m_rio_rx_bd_ready_size <= (m_info->umd_tx_buf_cnt-1));
 
     int rx_ok = 0; // TX'ed into Tun device
@@ -585,7 +588,10 @@ error:
       DBG("\n\tUpdating old RP %d to %d\n", pRP->RP, rp);
 #endif
       pRP->RP = rp;
-    }
+
+      // THIS is gasping at straws!
+      umd_dma_tun_update_peer_RP(info, this);
+    } // END for all ready BDs
 
 stop_req:
     return rx_ok;
