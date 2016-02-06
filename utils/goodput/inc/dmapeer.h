@@ -377,6 +377,16 @@ error:
     return cnt;
   }
 
+  /** \brief Update last seen timestamp if peer pushed a new update counter */
+  inline void update_RP_LS()
+  {
+    volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)m_ib_ptr;
+    if (m_rpeer_UC != pRP->rpeer.UC) {
+      m_rpeer_UC = pRP->rpeer.UC;
+      pRP->rpeerLS = rdtsc();
+    }
+  }
+
   /** \brief Scan the IB "BDs" for this Peer and append them to a locked array [drained by \ref service_TUN_TX]
    * \note This is called in islcpu thread so the code must be brief
    * \note "RO" stands for "Reader Owned IB BD" aka fresh data indicator
@@ -393,6 +403,8 @@ error:
     assert(k < (m_info->umd_tx_buf_cnt-1));
 
     m_stats.rio_isol_rx_pass++;
+
+    update_RP_LS();
 
     uint64_t now = rdtsc();
 
@@ -436,6 +448,7 @@ error:
       if (m_info->stop_req) break;
       if (stop_req) continue;
 
+      update_RP_LS();
       if (idx >= (m_info->umd_tx_buf_cnt-1)) break;
 
       if(0 != m_rio_rx_bd_L2_ptr[k]->RO) {
@@ -490,6 +503,8 @@ error:
 #endif // UDMA_TUN_DEBUG_IB
 
     spunlock();
+
+    update_RP_LS();
 
     if (cnt == 0) return 0;
 

@@ -101,6 +101,8 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
 void umd_dma_goodput_tun_del_ep_signal(struct worker* info, const uint32_t destid);
 static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, DmaPeer* peer, const uint16_t my_destid);
 
+static inline uint64_t max_u64(const uint64_t a, const uint64_t b) { return a > b? a: b; }
+
 ///< This be fishy! There's no standard for ntonll :(
 static inline uint64_t htonll(uint64_t value)
 {
@@ -479,9 +481,12 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
 	// We force reading RP from a "new" destid as a RIO ping as
 	// NWRITE does not barf  on bad destids
+	{{
+	const uint64_t last_seen_rp_update = max_u64(peer->get_RP_lastSeen(), peer->m_stats.nread_ts);
 
-	if (now > peer->m_stats.nread_ts && (now - peer->m_stats.nread_ts) > info->umd_nread_threshold)
+	if ((now - last_seen_rp_update) > info->umd_nread_threshold)
 		force_nread = true;
+	}}
 
 	if (q_fullish) get_seq_ts(&info->q80p_ts);
 
@@ -2223,10 +2228,17 @@ void UMD_DD(struct worker* info)
 			const int rocnt = peer_list_rocnt[ip];
 			const uint64_t* rx_histo = peer_list_rxhisto[ip];
 
+			float dT_RP = 0;
+			const uint64_t LS_rp_update = peer.get_RP_lastSeen();
+			if (LS_rp_update > 0) {
+				dT_RP = (rdtsc() - LS_rp_update) / MHz; // this is uS
+				dT_RP /= 1000; // convert to mS
+			}
+
 			char tmp[257] = {0};
-			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u/%u tx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
+			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u tx.rpUC=%u tx.rpLS=%fmS tx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
 				 peer.get_destid(), peer.get_tun_name(), peer.get_rio_addr(),
-				 peer.get_WP(), peer.get_RP(), peer.get_RP_serial(),
+				 peer.get_WP(), peer.get_RP(), peer.get_RP_serial(), dT_RP,
 				 peer.m_stats.tx_cnt, peer.m_stats.rx_cnt,
 				 peer.m_stats.tun_rx_cnt, peer.m_stats.tun_tx_cnt, peer.m_stats.tun_tx_err,
 			         peer.m_stats.rio_tx_peer_full
