@@ -156,7 +156,7 @@ public:
 
   inline uint32_t get_RP() { return ((DmaPeerRP_t*)m_ib_ptr)->rpeer.RP; }
   inline uint32_t get_RP_serial() { return ((DmaPeerRP_t*)m_ib_ptr)->rpeer.UC; }
-  inline uint32_t get_RP_lastSeen() { return ((DmaPeerRP_t*)m_ib_ptr)->rpeerLS; }
+  inline uint64_t get_RP_lastSeen() { return ((DmaPeerRP_t*)m_ib_ptr)->rpeerLS; }
 
   /** \brief Return IB RP that we keep in shared memory */
   inline uint32_t get_IB_RP() { return ((DmaPeerRP_t*)m_ib_ptr)->RP; }  
@@ -407,12 +407,6 @@ error:
     update_RP_LS();
 
     uint64_t now = rdtsc();
-
-    // Update last seen timestamp if peer pushed a new update counter
-    if (m_rpeer_UC != pRP->rpeer.UC) {
-      m_rpeer_UC = pRP->rpeer.UC;
-      pRP->rpeerLS = now;
-    }
 
     if (m_rio_rx_bd_ready_size >= (m_info->umd_tx_buf_cnt-1)) { // Quick peek while unlocked -- Receiver too slow, go to next peer!
       if (m_stats.rio_rx_peer_full_ts == 0) m_stats.rio_rx_peer_full_ts = now;
