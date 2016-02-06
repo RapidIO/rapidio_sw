@@ -482,9 +482,8 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 	// We force reading RP from a "new" destid as a RIO ping as
 	// NWRITE does not barf  on bad destids
 	{{
-	const uint64_t last_seen_rp_update = max_u64(peer->get_RP_lastSeen(), peer->m_stats.nread_ts);
-
-	if ((now - last_seen_rp_update) > info->umd_nread_threshold)
+	  const uint64_t last_seen_rp_update = max_u64(peer->get_RP_lastSeen(), peer->m_stats.nread_ts);
+	  if ((now - last_seen_rp_update) > info->umd_nread_threshold)
 		force_nread = true;
 	}}
 
@@ -2161,7 +2160,7 @@ void UMD_DD(struct worker* info)
 			ss_histo << i << "->" << tx_histo[i] << " ";
 		}
 
-		if (ss_histo.str().size() > 0) ss << "\n\t\tTX Histo: " << ss_histo.str();
+		if (GetEnv("verb") != NULL && ss_histo.str().size() > 0) ss << "\n\t\tTX Histo: " << ss_histo.str();
 	}
 	if (dch_cnt > 0)
 		printf("\tDMA Channel stats: %s\n", ss.str().c_str());
@@ -2279,7 +2278,7 @@ void UMD_DD(struct worker* info)
 				ss_histo << i << "->" << rx_histo[i] << " ";
 			}
 
-			if (ss_histo.str().size() > 0) ss << "\n\t\tRX Histo: " << ss_histo.str();
+			if (GetEnv("verb") != NULL && ss_histo.str().size() > 0) ss << "\n\t\tRX Histo: " << ss_histo.str();
 
 			if (peer.get_mutex().__data.__lock) {
 				snprintf(tmp, 256, "\n\t\t\tlocker.tid=0x%x", peer.get_mutex().__data.__owner);
