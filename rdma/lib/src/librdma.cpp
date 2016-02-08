@@ -171,6 +171,7 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 	constexpr uint32_t MSG_SEQ_NO_START = 0x0000000A;
 	static rdma_msg_seq_no seq_no = MSG_SEQ_NO_START;
 
+	DBG("ENTER\n");
 	/* First check that engines are still valid */
 	if ((tx_eng == nullptr) || (rx_eng == nullptr)) {
 		CRIT("Connection to daemon severed\n");
@@ -220,7 +221,7 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 	}
 	/* Now increment seq_no for next call */
 	seq_no++;
-
+	DBG("EXIT\n");
 	return rc;
 } /* daemon_call() */
 

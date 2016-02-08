@@ -100,16 +100,19 @@ public:
 	int set_notify(uint32_t type, uint32_t category, uint32_t seq_no,
 						shared_ptr<sem_t> notify_sem)
 	{
-		/* We should not be setting the same notification twice */
+
 		pthread_mutex_lock(&notify_list_lock);
+		DBG("type='%s',0x%X, category='%s',0x%X, seq_no=0x%X\n",
+		type_name(type), type, cat_name(category), category, seq_no);
+
+		/* We should not be setting the same notification twice */
 		int rc = count(begin(notify_list),
 			       end(notify_list),
-			       notify_param(type, category, seq_no, notify_sem));
+			       notify_param(type, category, seq_no,
+					       	       	       notify_sem));
 		if (rc != 0) {
 			ERR("Duplicate notify entry ignored!\n");
 		} else {
-			DBG("type='%s',0x%X, category='%s',0x%X, seq_no=0x%X\n",
-			type_name(type), type, cat_name(category), category, seq_no);
 			notify_list.emplace_back(type, category, seq_no,
 								notify_sem);
 		}
