@@ -213,6 +213,7 @@ void init_worker_info(struct worker *info, int first_time)
 	init_seq_ts(&info->q80p_ts);
 
 	info->umd_disable_nread = 0;
+	info->umd_push_rp_thr   = 0;
 #endif
 };
 

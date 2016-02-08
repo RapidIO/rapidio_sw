@@ -342,6 +342,7 @@ struct worker {
 	struct seq_ts q80p_ts;
 
 	volatile int umd_disable_nread;
+	volatile int umd_push_rp_thr; ///< Push RP via NWRITE every N packets; 0=after each packet
 #endif
 };
 

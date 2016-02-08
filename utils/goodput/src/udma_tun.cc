@@ -828,9 +828,6 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
 		int cnt = peer->service_TUN_TX(info);
 		rx_ok += cnt;
-
-		if (cnt > 0)
-			umd_dma_tun_update_peer_RP(info, peer);
         } // END while NOT stop requested
 
 stop_req:
@@ -1342,6 +1339,9 @@ void umd_dma_goodput_tun_demo(struct worker *info)
         info->umd_fifo_proc_must_die = 0;
         info->umd_fifo_proc_alive = 0;
 
+	info->umd_disable_nread  = GetDecParm("$disable_nread", 0);
+	info->umd_push_rp_thr    = GetDecParm("$push_rp_thr", 0);
+
         rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
                             umd_dma_tun_fifo_proc_thr, (void *)info);
         if (rc) {
@@ -1355,8 +1355,6 @@ void umd_dma_goodput_tun_demo(struct worker *info)
                 goto exit;
         }
 	dma_fifo_proc_thr_started = true;
-
-	info->umd_disable_nread  = GetDecParm("$disable_nread", 0);
 
         // Spawn Tap Transmitter Thread
         rc = pthread_create(&info->umd_dma_tap_thr.thr, NULL,

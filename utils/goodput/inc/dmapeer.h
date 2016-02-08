@@ -541,6 +541,8 @@ error:
     DBG("\n\tInbound %d buffers(s) will be processed from destid %u RP=%u\n", cnt, destid, pRP->RP);
 #endif
 
+    bool last_pkt_acked = false;
+
     if (m_info->stop_req || stop_req) goto stop_req;
     assert(sig == PEER_SIG_UP);
 
@@ -590,10 +592,23 @@ error:
       pRP->RP = rp;
 
       // THIS is gasping at straws!
-      umd_dma_tun_update_peer_RP(info, this);
+      if (info->umd_push_rp_thr == 0 || \
+          cnt == 1 ||
+          (i == 0) || i == (cnt-1) ||
+          (i % info->umd_push_rp_thr) == 0) {
+        umd_dma_tun_update_peer_RP(info, this);
+        last_pkt_acked = true;
+      } else {
+        last_pkt_acked = false;
+      }
     } // END for all ready BDs
 
 stop_req:
+    do {
+      if (last_pkt_acked) break;
+      if (m_info->stop_req || stop_req) break;
+      umd_dma_tun_update_peer_RP(info, this);
+    } while(0);
     return rx_ok;
   }
 }; // END class DmaPeer
