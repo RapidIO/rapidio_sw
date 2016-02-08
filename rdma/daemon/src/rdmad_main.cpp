@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_dma.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <execinfo.h>
 
 #include <memory>
 
@@ -411,7 +412,13 @@ void sig_handler(int sig)
 	break;
 
 	case SIGSEGV:
+	{
 		puts("SIGSEGV (Segmentation Fault)");
+		constexpr unsigned MAX_BT = 100;
+		void *buffer[MAX_BT];
+		size_t count = backtrace(buffer, MAX_BT);
+		backtrace_symbols_fd(buffer, count, STDERR_FILENO);
+	}
 	break;
 
 	case SIGUSR1:	/* pthread_kill() */
