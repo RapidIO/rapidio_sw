@@ -489,7 +489,8 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
 	if (q_fullish) get_seq_ts(&info->q80p_ts);
 
-	if (first_message || force_nread /*|| q_fullish*/ || outstanding >= Q_THR(info->umd_tx_buf_cnt-1)) { // This must be done per-destid
+	if (first_message || force_nread /*|| q_fullish*/ || outstanding >= Q_THR(info->umd_tx_buf_cnt-1)) do { // This must be done per-destid
+		if (info->umd_disable_nread && !first_message) break;
 #if 0
 INFO("first_message=%d force_nread=%d q_fullish=%d \"outstanding[%d] >= Q_THR(info->umd_tx_buf_cnt-1) [%d]\"=%d\n",
 first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1), outstanding >= Q_THR(info->umd_tx_buf_cnt-1));
@@ -510,7 +511,7 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
 
 			goto error;
 		}
-	}
+	} while(0);
 
 	if (info->stop_req || peer->stop_req) goto error;
 
@@ -1354,6 +1355,8 @@ void umd_dma_goodput_tun_demo(struct worker *info)
                 goto exit;
         }
 	dma_fifo_proc_thr_started = true;
+
+	info->umd_disable_nread  = GetDecParm("$disable_nread", 0);
 
         // Spawn Tap Transmitter Thread
         rc = pthread_create(&info->umd_dma_tap_thr.thr, NULL,

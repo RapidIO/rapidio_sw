@@ -208,6 +208,11 @@ void init_worker_info(struct worker *info, int first_time)
 	init_seq_ts(&info->desc_ts);
 	init_seq_ts(&info->fifo_ts);
 	init_seq_ts(&info->meas_ts);
+	init_seq_ts(&info->nread_ts);
+	init_seq_ts(&info->nwrite_ts);
+	init_seq_ts(&info->q80p_ts);
+
+	info->umd_disable_nread = 0;
 #endif
 };
 
