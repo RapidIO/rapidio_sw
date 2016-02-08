@@ -135,7 +135,7 @@ static int await_message(rdma_msg_cat category, rdma_msg_type type,
 	rc = rx_eng->set_notify(type, category, seq_no, reply_sem);
 
 	/* Wait for reply */
-	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)",
+	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)\n",
 		type_name(type), type, cat_name(category), seq_no);
 	struct timespec timeout;
 	clock_gettime(CLOCK_REALTIME, &timeout);
@@ -167,6 +167,7 @@ static int await_message(rdma_msg_cat category, rdma_msg_type type,
  */
 static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 {
+	int rc;
 	constexpr uint32_t MSG_SEQ_NO_START = 0x0000000A;
 	static rdma_msg_seq_no seq_no = MSG_SEQ_NO_START;
 
@@ -176,21 +177,46 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 		return RDMA_DAEMON_UNREACHABLE;
 	}
 
+	/* Prepare for reply */
+	auto reply_sem = make_shared<sem_t>();
+	sem_init(reply_sem.get(), 0, 0);
+
+	auto reply_type = in_msg->type | 0x8000;
+	auto reply_cat  = RDMA_LIB_DAEMON_CALL;
+	rc = rx_eng->set_notify(reply_type,
+			        reply_cat,
+			        seq_no,
+			        reply_sem);
+
 	/* Send message */
 	in_msg->seq_no = seq_no;
 	tx_eng->send_message(in_msg);
 	DBG("Queued for sending: type='%s',0x%X, cat='%s',0x%X, seq_no = 0x%X\n",
-		type_name(in_msg->type), in_msg->type,
-		cat_name(in_msg->category), in_msg->category, in_msg->seq_no);
-
+		type_name(reply_type), reply_type, cat_name(reply_cat),
+						reply_cat, in_msg->seq_no);
 	/* Wait for reply */
-	int rc = await_message(RDMA_LIB_DAEMON_CALL,
-			       in_msg->type | 0x8000,
-			       seq_no,
-			       1,	/* 1 second */
-			       out_msg);
+	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)\n",
+		type_name(reply_type), reply_type,
+			cat_name(RDMA_LIB_DAEMON_CALL),	in_msg->seq_no);
+	struct timespec timeout;
+	clock_gettime(CLOCK_REALTIME, &timeout);
+	timeout.tv_sec += 1;	/* 1 second timeout */
+	rc = sem_timedwait(reply_sem.get(), &timeout);
+	if (rc) {
+		ERR("reply_sem failed: %s\n", strerror(errno));
+		if (errno == ETIMEDOUT) {
+			ERR("Timeout occurred\n");
+			rc = ETIMEDOUT;
+		}
+	} else {
+		DBG("Got reply!\n");
+		rc = rx_eng->get_message(reply_type, reply_cat, seq_no, out_msg);
+		if (rc) {
+			ERR("Failed to obtain reply message, rc = %d\n", rc);
+		}
+	}
 	if (rc == ETIMEDOUT) {
-		rc = RDMA_DAEMON_UNREACHABLE;
+		rc = RDMA_ERRNO;
 	}
 	/* Now increment seq_no for next call */
 	seq_no++;

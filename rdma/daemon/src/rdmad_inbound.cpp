@@ -260,7 +260,7 @@ int inbound::create_mspace(const char *name,
 	if (win_it == ibwins.end()) {
 		WARN("No room for ms of size 0x%lX\n", size);
 		sem_post(&ibwins_sem);
-		return -1;
+		return RDMA_NO_ROOM_FOR_MS;
 	}
 
 	/* Create the space */
@@ -280,12 +280,12 @@ int inbound::create_mspace(const char *name,
 			        ERR("munmap(): %s\n", strerror(errno));
 				ERR("phys_addr = 0x%" PRIx64 ", size = 0x%X\n",
 						(*ms)->get_phys_addr(), size);
-				ret = -2;
+				ret = RDMA_UNMAP_ERROR;
 			}
 		} else {
 			ERR("Failed to MMAP mspace %s: %s\n",
 						name, strerror(errno));
-			ret = -3;
+			ret = RDMA_MAP_ERROR;
 		}
 	}
 

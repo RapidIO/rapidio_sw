@@ -173,6 +173,8 @@ int rdmad_send_connect(const char *server_ms_name,
 			server_destid);
 
 	/* If the server's destid is not found, just fail */
+	DBG("hello_daemon_info_list() has %u entries\n",
+					hello_daemon_info_list.size());
 	if (it == end(hello_daemon_info_list)) {
 		ERR("destid(0x%X) was not provisioned\n", server_destid);
 		sem_post(&hello_daemon_info_list_sem);
