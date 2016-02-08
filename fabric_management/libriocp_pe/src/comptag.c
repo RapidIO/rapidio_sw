@@ -290,6 +290,30 @@ int riocp_pe_comptag_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_
 }
 
 /**
+ * Read the component tag remote via destid/hop
+ *
+ * This is a test read which does not log if it fails.
+ *
+ * @param mport Target PE
+ * @param destid Destination ID
+ * @param hopcount Destination hopcount
+ * @param comptag Component tag to read
+ * @retval -EIO Could not read to the device
+ */
+int riocp_pe_comptag_test_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount, uint32_t *comptag)
+{
+  int ret;
+
+  ret = riocp_pe_maint_read_remote_silent(mport, destid, hopcount, RIO_COMPONENT_TAG_CSR, comptag);
+  if (ret < 0)
+    return ret;
+
+  *comptag &= RIOCP_PE_COMPTAG_MASK;
+
+  return 0;
+}
+
+/**
  * Write the component tag remote via destid/hop
  * @param pe Target PE
  * @param destid Destination ID

@@ -26,6 +26,7 @@ int riocp_pe_comptag_init(struct riocp_pe *pe);
 int riocp_pe_comptag_set_slot(struct riocp_pe *pe, uint32_t comptag_nr);
 int riocp_pe_comptag_get_slot(struct riocp_pe *mport, uint32_t comptag_nr, struct riocp_pe **pe);
 int riocp_pe_comptag_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount, uint32_t *comptag);
+int riocp_pe_comptag_test_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount, uint32_t *comptag);
 int riocp_pe_comptag_write_remote(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount, uint32_t comptag);
 int riocp_pe_comptag_clear(struct riocp_pe *pe);
 

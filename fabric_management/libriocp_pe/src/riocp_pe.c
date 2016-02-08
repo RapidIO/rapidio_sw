@@ -1834,11 +1834,11 @@ int RIOCP_SO_ATTR riocp_pe_probe_sync(riocp_pe_handle pe,
 		return -EIO;
 
 	/* Read component tag on peer */
-	ret = riocp_pe_comptag_read_remote(pe->mport, any_id, hopcount, &comptag);
+	ret = riocp_pe_comptag_test_read_remote(pe->mport, any_id, hopcount, &comptag);
 	if (ret) {
 		/* TODO try second time when failed, the ANY_ID route seems to be programmed correctly
 			at this point but the route was not working previous read */
-		RIOCP_WARN("Trying link sync and reading again component tag on h: %u\n", hopcount);
+		RIOCP_INFO("Trying link sync and reading again component tag on h: %u\n", hopcount);
 		ret = riocp_pe_link_sync_peer(pe, port, peer_port);
 		if (ret) {
 			RIOCP_ERROR("Link sync failed on h: %u\n", hopcount);
@@ -1848,7 +1848,7 @@ int RIOCP_SO_ATTR riocp_pe_probe_sync(riocp_pe_handle pe,
 			RIOCP_ERROR("Retry read comptag failed on h: %u\n", hopcount);
 			goto err_clear_any_id_route;
 		}
-		RIOCP_WARN("Retry read successfull: 0x%08x\n", comptag);
+		RIOCP_INFO("Retry read successfull: 0x%08x\n", comptag);
 	}
 
 	RIOCP_DEBUG("Probe peer(hc: %u, address: %s,%u) comptag 0x%08x\n",

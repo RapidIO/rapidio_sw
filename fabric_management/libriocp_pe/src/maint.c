@@ -378,6 +378,33 @@ int riocp_pe_maint_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_t 
 }
 
 /**
+ * Maintenance read from remote device
+ *
+ * This is a silent read, it does not log on error.
+ *
+ * @param mport    Target mport PE handle
+ * @param hopcount Hopcount to remote
+ * @param destid   Destination id of remote
+ * @param offset   Offset in the RapidIO address space
+ * @param val      Value read from offset
+ * @retval < 0 Error in remote maintenance read
+ */
+int riocp_pe_maint_read_remote_silent(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount,
+	uint32_t offset, uint32_t *val)
+{
+	int ret;
+
+	ret = riomp_mgmt_rcfg_read(mport->minfo->maint, destid, hopcount, offset, sizeof(*val), val);
+	if (ret)
+		return ret;
+
+	RIOCP_TRACE("d: %u (0x%08x), h: %u, o: 0x%08x, v: 0x%08x\n",
+		destid, destid, hopcount, offset, *val);
+
+	return ret;
+}
+
+/**
  * Add device to underlaying operating system
  * @param pe    Target PE handle
  * @retval < 0 Error in remote maintenance read
