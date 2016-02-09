@@ -47,6 +47,8 @@ public:
     uint64_t           total_ticks_rx; ///< How many ticks (total) between IB RO detection and write into Tun
 
     uint64_t           nread_ts; ///< rdtsc timestamp of last NREAD
+    volatile uint64_t  push_rp_cnt; ///< How many times we pushed the RP 
+    volatile uint64_t  push_rp_force_cnt; ///< How many times we pushed the RP 
   } DmaPeerStats_t;
 
 public:
@@ -511,13 +513,14 @@ error:
   /** \brief Process all IB "BDs" identified by \ref scan_RO
    * \return Number of IB "BDs" decapped of L2 and successfully written into Tun
    */
-  inline int service_TUN_TX(struct worker* info)
+  inline int service_TUN_TX(struct worker* info, const uint64_t MAX_RP_INTERVAL)
   {
     assert(this);
     assert(info);
     assert(m_rio_rx_bd_ready_size <= (m_info->umd_tx_buf_cnt-1));
 
     int rx_ok = 0; // TX'ed into Tun device
+    uint64_t last_ts = 0;
 
     volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)m_ib_ptr;
 
@@ -591,12 +594,22 @@ error:
 #endif
       pRP->RP = rp;
 
+      bool force_rp_push = false;
+      const uint64_t now = rdtsc();
+      if (MAX_RP_INTERVAL > 0 && last_ts != 0 && now > last_ts) {
+        if ((now - last_ts) > MAX_RP_INTERVAL) {
+          force_rp_push = true;
+          m_stats.push_rp_force_cnt++;
+        }
+      }
+      last_ts = now;
+
       // THIS is gasping at straws!
-      if (info->umd_push_rp_thr == 0 || \
+      if (force_rp_push || info->umd_push_rp_thr == 0 || \
           cnt == 1 ||
           (i == 0) || i == (cnt-1) ||
           (i % info->umd_push_rp_thr) == 0) {
-        umd_dma_tun_update_peer_RP(info, this);
+        umd_dma_tun_update_peer_RP(info, this); m_stats.push_rp_cnt++;
         last_pkt_acked = true;
       } else {
         last_pkt_acked = false;
@@ -607,7 +620,7 @@ stop_req:
     do {
       if (last_pkt_acked) break;
       if (m_info->stop_req || stop_req) break;
-      umd_dma_tun_update_peer_RP(info, this);
+      umd_dma_tun_update_peer_RP(info, this); m_stats.push_rp_cnt++;
     } while(0);
     return rx_ok;
   }

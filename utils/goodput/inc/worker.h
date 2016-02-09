@@ -343,6 +343,7 @@ struct worker {
 
 	volatile int umd_disable_nread;
 	volatile int umd_push_rp_thr; ///< Push RP via NWRITE every N packets; 0=after each packet
+	volatile int umd_chann_reserve; ///< Reserve chann (if more than 1) for push RP NWRITE
 #endif
 };
 

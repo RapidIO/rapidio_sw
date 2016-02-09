@@ -341,7 +341,12 @@ void* umd_dma_tun_RX_proc_thr(void *parm)
 
 	int dch_cnt = 0;
 	int dch_cur = 0;
-	for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) dch_list[dch_cnt++] = info->umd_dch_list[ch];
+
+        int CHAN_N = info->umd_chan_n;
+#ifndef UDMA_TUN_DEBUG_NWRITE_CH2
+	if (info->umd_chan < CHAN_N && info->umd_chann_reserve) CHAN_N--;
+#endif
+	for (int ch = info->umd_chan; ch <= CHAN_N; ch++) dch_list[dch_cnt++] = info->umd_dch_list[ch];
 
 	uint64_t tx_cnt = 0;
 
@@ -799,6 +804,11 @@ void* umd_dma_tun_TX_proc_thr(void* arg)
 
 	uint64_t rx_ok = 0; ///< TX'ed into Tun device
 
+	const int MHz = getCPUMHz();
+
+	// TODO: Compute this function of MTU and RIO transfer speed
+	const uint64_t MAX_RP_INTERVAL = 1000 * MHz; // no more that 1 ms for MTU=16k
+
 	volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)peer->get_ib_ptr();
 
 	struct thread_cpu myself; memset(&myself, 0, sizeof(myself));
@@ -826,7 +836,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
 		DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->get_rio_rx_bd_ready_size(), pRP->RP);
 
-		int cnt = peer->service_TUN_TX(info);
+		int cnt = peer->service_TUN_TX(info, MAX_RP_INTERVAL);
 		rx_ok += cnt;
         } // END while NOT stop requested
 
@@ -1341,6 +1351,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
 	info->umd_disable_nread  = GetDecParm("$disable_nread", 0);
 	info->umd_push_rp_thr    = GetDecParm("$push_rp_thr", 0);
+	info->umd_chann_reserve  = GetDecParm("$chann_reserve", 0);
 
         rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
                             umd_dma_tun_fifo_proc_thr, (void *)info);
@@ -2254,7 +2265,7 @@ void UMD_DD(struct worker* info)
 			}
 
 			char tmp[257] = {0};
-			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u tx.rpUC=%u tx.rpLS=%fmS tx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
+			snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u tx.rpUC=%u tx.rpLS=%fmS\n\t\t\ttx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
 				 peer.get_destid(), peer.get_tun_name(), peer.get_rio_addr(),
 				 peer.get_WP(), peer.get_RP(), peer.get_RP_serial(), dT_RP,
 				 peer.m_stats.tx_cnt, peer.m_stats.rx_cnt,
@@ -2262,6 +2273,10 @@ void UMD_DD(struct worker* info)
 			         peer.m_stats.rio_tx_peer_full
 				);
 			ss << "\n\t\t" << tmp;
+
+			snprintf(tmp, 256, "\n\t\t\tpushRP=%llu pushForceRP=%llu",
+				 peer.m_stats.push_rp_cnt, peer.m_stats.push_rp_force_cnt);
+			ss << tmp;
 
 			volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)peer.get_ib_ptr();
 			assert(pRP);
