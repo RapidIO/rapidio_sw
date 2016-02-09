@@ -341,6 +341,7 @@ int mspace::add_rem_connection(uint16_t client_destid,
 			client_msubid, client_to_lib_tx_eng_h, name.c_str());
 	sem_wait(&users_sem);
 	if (accepting) {
+		DBG("Adding to creator since it is 'accepting'\n");
 		this->client_destid = client_destid;
 		this->client_msubid = client_msubid;
 		this->client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
@@ -348,6 +349,7 @@ int mspace::add_rem_connection(uint16_t client_destid,
 		connected_to = true;
 		rc = 0;
 	} else {
+		DBG("The creator was not accepting..checking the users\n");
 		auto it = find_if(begin(users), end(users), [](ms_user& u) {
 			return u.accepting;
 		});
@@ -355,6 +357,7 @@ int mspace::add_rem_connection(uint16_t client_destid,
 			CRIT("Failed to find a user in 'accepting' mode.\n");
 			rc = -1;
 		} else {
+			DBG("Adding to user\n");
 			it->client_destid = client_destid;
 			it->client_msubid = client_msubid;
 			it->client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
@@ -377,6 +380,12 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 	DBG("Removing client_destid(0x%X), client_msubid(0x%X) from '%s'\n",
 			client_destid, client_msubid, name.c_str());
 	DBG("client_to_lib_tx_eng_h = 0x%" PRIx64 "\n", client_to_lib_tx_eng_h);
+
+	DBG("this->client_destid = 0x%X, this->client_msubid = 0x%X\n",
+				this->client_destid, this->client_msubid);
+	DBG("this->client_to_lib_tx_eng_h = 0x%" PRIx64 "\n",
+						this->client_to_lib_tx_eng_h);
+
 	/* First check to see if the connection belongs to the creator */
 	if ((this->client_destid == client_destid) &&
 	    (this->client_msubid == client_msubid) &&
