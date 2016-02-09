@@ -197,8 +197,8 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 		in_msg->category, in_msg->seq_no);
 	/* Wait for reply */
 	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)\n",
-		type_name(reply_type), reply_type,
-			cat_name(RDMA_LIB_DAEMON_CALL),	in_msg->seq_no);
+		type_name(reply_type), reply_type, cat_name(RDMA_LIB_DAEMON_CALL),
+					RDMA_LIB_DAEMON_CALL, in_msg->seq_no);
 	struct timespec timeout;
 	clock_gettime(CLOCK_REALTIME, &timeout);
 	timeout.tv_sec += 1;	/* 1 second timeout */
