@@ -220,6 +220,10 @@ int mspace::notify_remote_clients()
 		rc = 0;
 		/* It is not the creator who has a connection; search users */
 		for(auto& u : users) {
+			/* If the entry is not 'connected_to' then skip it */
+			if (!u.connected_to)
+				continue;
+
 			/* Need to use a 'prov' socket to send the CM_DESTROY_MS */
 			sem_wait(&prov_daemon_info_list_sem);
 			auto prov_it = find(begin(prov_daemon_info_list),
@@ -234,7 +238,6 @@ int mspace::notify_remote_clients()
 							u.server_msubid,
 							u.client_to_lib_tx_eng_h);
 			}
-			/* If the entry is not 'connected_to' then skip it */
 			sem_post(&prov_daemon_info_list_sem);
 		}
 	}
