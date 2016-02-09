@@ -1570,19 +1570,13 @@ exit:
 /**
  * Thread function -- part of test_case_m.
  */
-void m_thread_f(uint32_t destid, mso_h server_msoh, mso_h client_msoh, unsigned i)
+void m_accept_thread_f(mso_h server_msoh, unsigned i)
 {
 	const uint32_t	MS_SIZE   = 64 * 1024;
 	const uint32_t  MSUB_SIZE =  4 * 1024;
 	int rc;
 	ms_h	server_msh;
 	msub_h  server_msubh;
-	ms_h	client_msh;
-	msub_h	client_msubh;
-	msub_h	  server_msubh_rb;
-	uint32_t  server_msub_len_rb;
-	ms_h	  server_msh_rb;
-	conn_h	  connh;
 	stringstream ms_name;
 
 	ms_name << "mspace" << i;
@@ -1597,6 +1591,33 @@ void m_thread_f(uint32_t destid, mso_h server_msoh, mso_h client_msoh, unsigned 
 								&server_msubh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
+	/* Put server_msh in accept mode */
+	rc = accept_ms_thread_f(bat_connections[0], server_msh, server_msubh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
+	rc = 0;
+exit:
+	return;
+} /* m_accept_thread_f() */
+
+/**
+ * Thread function -- part of test_case_m.
+ */
+void m_connect_thread_f(uint32_t destid, mso_h client_msoh, unsigned i)
+{
+	const uint32_t	MS_SIZE   = 64 * 1024;
+	const uint32_t  MSUB_SIZE =  4 * 1024;
+	int rc;
+	ms_h	client_msh;
+	msub_h	client_msubh;
+	msub_h	  server_msubh_rb;
+	uint32_t  server_msub_len_rb;
+	ms_h	  server_msh_rb;
+	conn_h	  connh;
+	stringstream ms_name;
+
+	ms_name << "mspace" << i;
+
 	/* Create client_msh in client_msoh */
 	rc = rdma_create_ms_h(ms_name.str().c_str(), client_msoh, MS_SIZE, 0,
 							&client_msh, NULL);
@@ -1605,13 +1626,6 @@ void m_thread_f(uint32_t destid, mso_h server_msoh, mso_h client_msoh, unsigned 
 	/* Create a client_msubh in client_msh */
 	rc = rdma_create_msub_h(client_msh, 0, MSUB_SIZE, 0, &client_msubh);
 	BAT_EXPECT_RET(rc, 0, exit);
-
-	/* Put server_msh in accept mode */
-	rc = accept_ms_thread_f(bat_connections[0], server_msh, server_msubh);
-	BAT_EXPECT_RET(rc, 0, exit);
-
-	/* Ensure server_msh is accepting before connecting */
-	sleep(1);
 
 	/* Connect to server_msh */
 	rc = rdma_conn_ms_h(16, destid, ms_name.str().c_str(), client_msubh,
@@ -1629,7 +1643,7 @@ void m_thread_f(uint32_t destid, mso_h server_msoh, mso_h client_msoh, unsigned 
 	rc = 0;
 exit:
 	return;
-} /* m_thread_d() */
+} /* m_connect_thread_f() */
 
 /**
  * Try to connect to multiple memory spaces from multiple threads
@@ -1651,23 +1665,47 @@ int test_case_m(uint32_t destid)
 	BAT_EXPECT_RET(rc, 0, free_server_mso)
 
 	{
-		typedef std::vector<thread> thread_list;
-		thread_list m_thread_list;
+		typedef std::vector<thread> threads_list;
+		threads_list accept_threads;
 
-		/* Create threads for creating memory spaces, anda connecting */
+		/* Create threads for creating memory spaces and accepting */
 		for (unsigned i = 0; i < NUM_CONNECTIONS; i++) {
-			/* Create thread for handling accepts */
-			auto m_thread = thread(&m_thread_f, destid, server_msoh, client_msoh, i);
+			/* Create threads for handling accepts */
+			auto m_thread = thread(&m_accept_thread_f,
+					       server_msoh,
+					       i);
 
 			/* Store handle so we can join at the end of the test case */
-			m_thread_list.push_back(std::move(m_thread));
+			accept_threads.push_back(std::move(m_thread));
+			sleep(1);	/* Try to get them to accept in order */
+		}
+
+		/* Now create the 'connect' threads */
+		threads_list connect_threads;
+
+		/* Create threads for creating memory spaces and accepting */
+		for (unsigned i = 0; i < NUM_CONNECTIONS; i++) {
+			/* Create threads for sending connects */
+			auto m_thread = thread(&m_connect_thread_f,
+					       destid,
+					       client_msoh,
+					       i);
+
+			/* Store handle so we can join at the end of the test case */
+			connect_threads.push_back(std::move(m_thread));
 		}
 
 		/* Wait for threads to die */
-		for (auto& m_thread : m_thread_list) {
+		for (auto& m_thread : accept_threads) {
 			m_thread.join();
 		}
-		puts("Threads terminated.");
+
+		puts("Accept threads terminated.");
+		/* Wait for threads to die */
+		for (auto& m_thread : connect_threads) {
+			m_thread.join();
+		}
+		puts("Connect threads terminated.");
 	}
 
 	/* Delete the client mso */

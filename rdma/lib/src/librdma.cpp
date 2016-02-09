@@ -867,6 +867,7 @@ int rdma_create_ms_h(const char *ms_name,
 {
 	auto rc = 0;
 
+	DBG("ENTER with ms_name = '%s'\n", ms_name);
 	sem_wait(&rdma_lock);
 
 	try {
@@ -1459,6 +1460,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		in_msg.accept_in.server_msid	  = ms->msid;
 		in_msg.accept_in.server_msubid	  = server_msub->msubid;
 
+		DBG("name = '%s'\n", ms->name);
+
 		/* Call into daemon */
 		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
@@ -1480,7 +1483,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 				   timeout_secs,
 				   &out_msg);
 		if (rc) {
-			ERR("Failed to receive CONNECT_MS_REQ\n");
+			ERR("Failed to receive CONNECT_MS_REQ for '%s'\n", ms->name);
 			/* Switch back the ms to non-accepting mode for this app */
 			in_msg.type     = UNDO_ACCEPT;
 			in_msg.category = RDMA_REQ_RESP;
