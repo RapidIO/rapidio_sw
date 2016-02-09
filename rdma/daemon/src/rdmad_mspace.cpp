@@ -350,6 +350,7 @@ int mspace::add_rem_connection(uint16_t client_destid,
 		rc = 0;
 	} else {
 		DBG("The creator was not accepting..checking the users\n");
+		DBG("There are %u users\n", users.size());
 		auto it = find_if(begin(users), end(users), [](ms_user& u) {
 			return u.accepting;
 		});
@@ -369,7 +370,6 @@ int mspace::add_rem_connection(uint16_t client_destid,
 	sem_post(&users_sem);
 	return rc;
 } /* add_rem_connection() */
-
 
 int mspace::remove_rem_connection(uint16_t client_destid,
 				  uint32_t client_msubid,

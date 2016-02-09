@@ -307,21 +307,6 @@ void *wait_conn_disc_thread_f(void *arg)
 				HIGH("'Disconnect' for ms('%s') relayed to 'server'\n",
 					ms->get_name());
 			}
-
-			/* Remove the connection to client. */
-			ret = ms->remove_rem_connection(be64toh(disc_msg->client_destid),
-						  be64toh(disc_msg->client_msubid),
-						  be64toh(disc_msg->client_to_lib_tx_eng_h));
-			if (ret != 0) {
-				ERR("Failed to find connection destid(0x%X),msubid(0x%X)\n",
-						be64toh(disc_msg->client_destid),
-						be64toh(disc_msg->client_msubid));
-			} else {
-				DBG("Connection remove successfully!\n");
-			}
-
-			/* Consider this memory space disconnected. Allow accepting */
-			ms->set_connected_to(false);
 		} else if (be64toh(conn_msg->type) == CM_FORCE_DISCONNECT_MS_ACK) {
 			cm_destroy_ack_msg *dest_ack_msg;
 
