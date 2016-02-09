@@ -46,7 +46,7 @@ constexpr uint32_t RDMA_REQ_RESP        = 0x00AA;
 
 constexpr const char *cat_name(const uint32_t cat) {
 	return (cat == RDMA_LIB_DAEMON_CALL) ? "RDMA_LIB_DAEMON_CALL"
-					     : "RDMA_REQ_RESP_CALL";
+					     : "RDMA_REQ_RESP";
 }
 
 #endif

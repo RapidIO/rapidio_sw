@@ -374,12 +374,13 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 {
 	int rc;
 
-	DBG("Removing destid(0x%X), msubid(0x%X) from '%s'\n",
+	DBG("Removing client_destid(0x%X), client_msubid(0x%X) from '%s'\n",
 			client_destid, client_msubid, name.c_str());
+	DBG("client_to_lib_tx_eng_h = 0x%" PRIx64 "\n", client_to_lib_tx_eng_h);
 	/* First check to see if the connection belongs to the creator */
 	if ((this->client_destid == client_destid) &&
 	    (this->client_msubid == client_msubid) &&
-	    (this->client_to_lib_tx_eng_h)) {
+	    (this->client_to_lib_tx_eng_h == client_to_lib_tx_eng_h)) {
 		INFO("Found connection info in creator of '%s'\n", name.c_str());
 		this->client_destid = 0xFFFF;
 		this->client_msubid = 0;
@@ -388,6 +389,7 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 		connected_to = false;
 		rc = 0;
 	} else {
+		DBG("Not found in the creator; checking the users\n");
 		sem_wait(&users_sem);
 		/* It is possibly in one of the users so search for it */
 		auto it = find_if(begin(users), end(users),

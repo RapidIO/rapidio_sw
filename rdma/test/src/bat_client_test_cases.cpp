@@ -1409,12 +1409,12 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 	sleep(1);
 
-	/* Accept on ms on the server */
+	/* Accept on ms3 on the server */
 	ret = accept_ms_thread_f(bat_connections[0], server_msh3, server_msubh3);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 	sleep(1);
 
-	/* Connect to server */
+	/* Connect to ms3 on server */
 	msub_h	  server_msubh3_rb;
 	uint32_t  server_msub3_len_rb;
 	ms_h	  server_msh3_rb;
@@ -1718,9 +1718,7 @@ free_server_mso:
 	BAT_EXPECT_RET(rc, 0, exit);
 	puts("Server mso destroyed with all its children");
 exit:
-	if (rc == 0) {
-		BAT_EXPECT_PASS(rc);
-	}
+	/* The return codes in the threads are more relevant */
 	puts("test_case_m() Goodbye!");
 	return 0;
 } /* test_case_m() */
