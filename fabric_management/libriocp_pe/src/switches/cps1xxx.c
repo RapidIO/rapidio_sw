@@ -1710,7 +1710,7 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &err_status);
 	if (ret < 0) {
-		RIOCP_ERROR("Switch 0x%08x went down while processing event\n", sw->comptag);
+		RIOCP_ERROR("Switch 0x%04x (0x%08x) port %d read error while processing event\n", sw->destid, sw->comptag, port);
 		return -EIO;
 	}
 
@@ -1722,8 +1722,8 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 		will not be detected and no port-writes are sent anymore. This causes
 		the port to stop detecting any events. Therefore this check is added. */
 	if (!(err_status & (CPS1xxx_ERR_STATUS_PORT_OK | CPS1xxx_ERR_STATUS_PORT_UNINIT | CPS1xxx_ERR_STATUS_PORT_ERR))) {
-		RIOCP_ERROR("switch 0x%08x port %d is in invalid state,"
-			"ignoring port-write\n", sw->comptag, port);
+		RIOCP_ERROR("switch 0x%04 (0x%08x) port %d is in invalid state,"
+			"ignoring port-write\n", sw->destid, sw->comptag, port);
 		return -EIO;
 	}
 
@@ -1736,13 +1736,25 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 		goto out;
 
 	if (err_det & CPS1xxx_ERR_DET_LINK_TIMEOUT)
-		RIOCP_TRACE("Link timeout\n");
+		RIOCP_TRACE("switch 0x%04x (0x%08x) port %d Link timeout\n", sw->destid, sw->comptag, port);
 	if (err_det & CPS1xxx_ERR_DET_CS_ACK_ILL)
-		RIOCP_TRACE("Unexpected ack control symbol\n");
+		RIOCP_TRACE("switch 0x%04x (0x%08x) port %d Unexpected ack control symbol\n", sw->destid, sw->comptag, port);
 
 	if (err_status & CPS1xxx_ERR_STATUS_PORT_ERR) {
-		RIOCP_ERROR("switch 0x%08x port %d fatal error (0x%08x)\n", sw->comptag, port, err_status);
+		RIOCP_WARN("switch 0x%04x (0x%08x) port %d error detected (0x%08x)\n", sw->destid, sw->comptag, port, err_status);
 		/* probably both input and output error are set */
+
+		if(!(riocp_pe_maint_read(sw, 0xff800c + 0x100 * port, &val) < 0))
+			RIOCP_WARN("LANE0_ERR_DET: 0x%08x\n", val);
+		if(!(riocp_pe_maint_read(sw, 0xff800c + 0x100 * (port+1), &val) < 0))
+			RIOCP_WARN("LANE1_ERR_DET: 0x%08x\n", val);
+		if(!(riocp_pe_maint_read(sw, 0x148 + 0x20 * port, &val) < 0))
+			RIOCP_WARN("ACKID_STAT   : 0x%08x\n", val);
+		RIOCP_WARN("PORT_ERR_DET : 0x%08x\n", err_det);
+		if(!(riocp_pe_maint_read(sw, 0x1068 + 0x40 * port, &val) < 0))
+			RIOCP_WARN("PORT_ERR_RATE: 0x%08x\n", val);
+		RIOCP_WARN("PORT_IMP_ERR : 0x%08x\n", impl_err_det);
+
 		goto skip_port_errors;
 	}
 
@@ -1758,7 +1770,7 @@ skip_port_errors:
 			goto out;
 
 		if (!(ctl & CPS1xxx_CTL_PORT_LOCKOUT)) {
-			RIOCP_DEBUG("port %d un-initialized\n", port);
+			RIOCP_DEBUG("switch 0x%04x (0x%08x) port %d un-initialized\n", sw->destid, sw->comptag, port);
 			/* force link reinitialization as suggested in the CPS1616 errata
 				see PORT_OK may indicate incorrect status for more information */
 			ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_OPS(port), &val);
@@ -1778,17 +1790,26 @@ skip_port_errors:
 			if (ret < 0)
 				goto out;
 
-			cps1xxx_lock_port(sw, port);
-			event->event |= RIOCP_PE_EVENT_LINK_DOWN;
+			ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &err_status);
+			if (ret < 0) {
+				RIOCP_ERROR("Switch 0x%04x (0x%08x) went down while processing event\n", sw->destid, sw->comptag);
+				return -EIO;
+			}
+			if (!(err_status & CPS1xxx_ERR_STATUS_PORT_OK)) {
+				RIOCP_DEBUG("switch 0x%04x (0x%08x) port %d link down detected\n", sw->destid, sw->comptag, port);
+				cps1xxx_lock_port(sw, port);
+				event->event |= RIOCP_PE_EVENT_LINK_DOWN;
+			}
 		}
 	}
 
 	if (err_status & CPS1xxx_ERR_STATUS_OUTPUT_DROP)
-		RIOCP_WARN("dropped a packet\n");
+		RIOCP_WARN("switch 0x%04x (0x%08x) port %d dropped a packet\n", sw->destid, sw->comptag, port);
 
 	/* IMPL_SPEC_ERR_DET_PORT_INIT indicates that the link was initialized */
-	if (impl_err_det & CPS1xxx_IMPL_SPEC_ERR_DET_PORT_INIT) {
-		RIOCP_DEBUG("port %d link initialized\n", port);
+	if ((impl_err_det & CPS1xxx_IMPL_SPEC_ERR_DET_PORT_INIT) &&
+			(err_status & CPS1xxx_ERR_STATUS_PORT_OK)) {
+		RIOCP_DEBUG("switch 0x%04x (0x%08x) port %d link initialized\n", sw->destid, sw->comptag, port);
 		/* unlock port */
 		cps1xxx_unlock_port(sw, port);
 		/* do not clear link init notification when trigger new port failed */
@@ -1800,11 +1821,6 @@ skip_port_errors:
 			err_status |= CPS1xxx_ERR_STATUS_OUTPUT_FAIL | CPS1xxx_ERR_STATUS_OUTPUT_ERR;
 		}
 		event->event |= RIOCP_PE_EVENT_LINK_UP;
-
-		/* prepare port again for hot unplug */
-		ret = cps1xxx_arm_port(sw, port);
-		if (ret < 0)
-			goto out;
 	}
 
 	/* clear error rate register to see next error */
@@ -1863,10 +1879,17 @@ skip_port_errors:
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_OPS(port), &ctl);
 	if (ret < 0)
 		goto out;
-	RIOCP_DEBUG("errdet=%08x impl_err_det=%08x errsts=%08x ctl=%08x\n",
-		err_det, impl_err_det, err_status, ctl);
+	RIOCP_DEBUG("switch 0x%04x (0x%08x) port %d errdet=%08x impl_err_det=%08x errsts=%08x ctl=%08x\n",
+			sw->destid, sw->comptag, port,
+			err_det, impl_err_det, err_status, ctl);
 #endif
 
+	if (event->event | RIOCP_PE_EVENT_LINK_UP) {
+		/* prepare port again for hot unplug */
+		ret = cps1xxx_arm_port(sw, port);
+		if (ret < 0)
+			goto out;
+	}
 out:
 	return ret;
 }
