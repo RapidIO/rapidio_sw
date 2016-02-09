@@ -45,7 +45,7 @@ int create_mso_f(bat_connection *bat_conn,
 	if (rc) {
 		fprintf(stderr, "Failed in remote_call()\n");
 	} else if ((rc = (int)bm_rx->create_mso_ack.ret)) {
-		fprintf(stderr, "%s: create_mso_h returned %d\n", __func__, rc);
+		fprintf(stderr, "%s: create_mso_h returned 0x%X\n", __func__, rc);
 	} else if (bm_rx->type != CREATE_MSO_ACK) {
 		fprintf(stderr, "%d: Received message with wrong type 0x%X\n",
 					__LINE__, (uint32_t)bm_rx->type);
@@ -76,7 +76,7 @@ int destroy_mso_f(bat_connection *bat_conn, mso_h msoh)
 	if (rc) {
 		fprintf(stderr, "%s: Failed in remote_call()\n", __func__);
 	} else if ((rc = (int)bm_rx->destroy_mso_ack.ret)) {
-		fprintf(stderr, "%s: destroy_mso_h returned %d\n", __func__, rc);
+		fprintf(stderr, "%s: destroy_mso_h returned 0x%X\n", __func__, rc);
 	} else if (bm_rx->type != DESTROY_MSO_ACK) {
 		fprintf(stderr, "%d: Received message with wrong type 0x%X\n",
 					__LINE__, (uint32_t)bm_rx->type);
@@ -105,7 +105,7 @@ int open_mso_f(bat_connection *bat_conn,
 	if (rc) {
 		fprintf(stderr, "Failed in remote_call()\n");
 	} else if ((rc = (int)bm_rx->open_mso_ack.ret)) {
-		fprintf(stderr, "open_mso_h returned %d\n", rc);
+		fprintf(stderr, "open_mso_h returned 0x%X\n", rc);
 	} else if (bm_rx->type != OPEN_MSO_ACK) {
 		fprintf(stderr, "%d: Received message with wrong type 0x%X\n",
 					__LINE__, (uint32_t)bm_rx->type);
@@ -135,7 +135,7 @@ int close_mso_f(bat_connection *bat_conn, mso_h msoh)
 	if (rc) {
 		fprintf(stderr, "Failed in remote_call()\n");
 	} else if ((rc = (int)bm_rx->close_mso_ack.ret)) {
-		fprintf(stderr, "close_mso_h returned %d\n", rc);
+		fprintf(stderr, "close_mso_h returned 0x%X\n", rc);
 	} else if (bm_rx->type != CLOSE_MSO_ACK) {
 		fprintf(stderr, "%d: Received message with wrong type 0x%X\n",
 					__LINE__, (uint32_t)bm_rx->type);
@@ -167,7 +167,7 @@ int create_ms_f(bat_connection *bat_conn,
 	if (rc) {
 		fprintf(stderr, "Failed in remote_call()\n");
 	} else if ((rc = (int)bm_rx->create_ms_ack.ret)) {
-		fprintf(stderr, "create_ms_h returned %d\n", rc);
+		fprintf(stderr, "create_ms_h returned 0x%X\n", rc);
 	} else if (bm_rx->type != CREATE_MS_ACK) {
 		fprintf(stderr, "%d: Received message with wrong type 0x%X\n",
 					__LINE__, (uint32_t)bm_rx->type);
@@ -205,7 +205,7 @@ int open_ms_f(bat_connection *bat_conn, const char *name, mso_h msoh,
 	if (rc) {
 		fprintf(stderr, "Failed in remote_call()\n");
 	} else if ((rc = (int)bm_rx->open_ms_ack.ret)) {
-		fprintf(stderr, "open_ms_h returned %d\n", rc);
+		fprintf(stderr, "open_ms_h returned 0x%X\n", rc);
 	} else if (bm_rx->type != OPEN_MS_ACK) {
 		fprintf(stderr, "%d: Received message with wrong type 0x%X\n",
 					__LINE__, (uint32_t)bm_rx->type);
@@ -247,7 +247,7 @@ int create_msub_f(bat_connection *bat_conn,
 	if (rc) {
 		fprintf(stderr, "Failed in remote_call()\n");
 	} else if ((rc = (int)bm_rx->open_ms_ack.ret)) {
-		fprintf(stderr, "open_ms_h returned %d\n", rc);
+		fprintf(stderr, "open_ms_h returned 0x%X\n", rc);
 	} else if (bm_rx->type != CREATE_MSUB_ACK) {
 		fprintf(stderr, "%d: Received message with wrong type 0x%X\n",
 					__LINE__, (uint32_t)bm_rx->type);
