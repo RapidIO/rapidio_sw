@@ -193,8 +193,8 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 	in_msg->seq_no = seq_no;
 	tx_eng->send_message(in_msg);
 	DBG("Queued for sending: type='%s',0x%X, cat='%s',0x%X, seq_no = 0x%X\n",
-		type_name(reply_type), reply_type, cat_name(reply_cat),
-						reply_cat, in_msg->seq_no);
+		type_name(in_msg->type), in_msg->type, cat_name(in_msg->category),
+		in_msg->category, in_msg->seq_no);
 	/* Wait for reply */
 	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)\n",
 		type_name(reply_type), reply_type,
