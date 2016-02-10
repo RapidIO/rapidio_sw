@@ -1640,6 +1640,11 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			throw RDMA_NULL_PARAM;
 		}
 
+		if (timeout_secs == 0) {
+			ERR("Timeout cannot be 0\n");
+			throw RDMA_NULL_PARAM;
+		}
+
 		/* Check for invalid destid */
 		if (rem_destid_len == 16 && rem_destid==0xFFFF) {
 			WARN("Invalid destid 0x%X\n", rem_destid);

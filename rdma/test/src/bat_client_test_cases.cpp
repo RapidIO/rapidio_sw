@@ -1815,13 +1815,16 @@ int test_case_n()
 								&user_msubh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
-free_server_mso:
 	rc = ret;
+
+free_server_mso:
 
 	/* Delete the server mso while it is open */
 	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, exit);
 exit:
+	if (ret)
+		rc = ret;
 	fprintf(log_fp, "test_case_n %s\n", (rc == 0) ? "PASSED" : "FAILED");
 	return rc;
 } /* test_case_n() */
@@ -2303,7 +2306,7 @@ int test_case_dma(char tc,
 			     &connh,
 			     &server_msubh_rb, &server_msub_len_rb,
 			     &server_msh_rb,
-			     0);
+			     30);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	/* Do the DMA transfer and comparison */

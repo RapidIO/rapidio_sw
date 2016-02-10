@@ -292,7 +292,9 @@ int main(int argc, char *argv[])
 			test_case_i_j_k('j', destid);
 			test_case_i_j_k('k', destid);
 			test_case_l();
+#if 0
 			test_case_m(destid);
+#endif
 			test_case_n();
 
 			/* Old test cases */

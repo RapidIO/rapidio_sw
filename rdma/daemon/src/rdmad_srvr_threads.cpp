@@ -314,7 +314,8 @@ void *wait_conn_disc_thread_f(void *arg)
 			HIGH("Received CM_FORCE_DISCONNECT_MS_ACK for msid(0x%X), '%s'\n",
 			    be64toh(dest_ack_msg->server_msid), dest_ack_msg->server_msname);
 		} else {
-			CRIT("Message of unknown type 0x%016" PRIx64 "\n", be64toh(conn_msg->type));
+			CRIT("Message of unknown type 0x%016" PRIx64 "\n",
+						be64toh(conn_msg->type));
 #ifdef BE_STRICT
 			abort();
 #endif
