@@ -1441,8 +1441,10 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		/* Check that library has been initialized */
 		LIB_INIT_CHECK(rc);
 
-		/* Check that parameters are not NULL */
-		if (!loc_msh || !loc_msubh || !rem_msubh || !rem_msub_len) {
+		/* Check that parameters are not NULL. However, allow rem_msubh
+		 * and rem_msub_len to be NULL. If the server knows the client
+		 * will not be providing an msub then it can pass NULL here */
+		if (!loc_msh || !loc_msubh) {
 			ERR("loc_msh=0x%" PRIx64 ",loc_msubh=0x%" PRIx64
 				",rem_msubh=%p, rem_msub_len = %p\n",
 				loc_msh, loc_msubh, rem_msubh, rem_msub_len);
@@ -1505,28 +1507,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			throw RDMA_ACCEPT_TIMEOUT;
 		}
 
-		/* Validate the message contents based on known values */
-		connect_to_ms_req_input *conn_req_msg = &out_msg.connect_to_ms_req;
-		if (
-			(conn_req_msg->client_rio_addr_len < 16) ||
-			(conn_req_msg->client_rio_addr_len > 65) ||
-			(conn_req_msg->client_destid_len < 16) ||
-			(conn_req_msg->client_destid_len > 64) ||
-			(conn_req_msg->client_destid >= 0xFFFF)
-		) {
-			CRIT("** INVALID CONNECT MESSAGE CONTENTS** \n");
-			DBG("client_msid = 0x%X\n", conn_req_msg->client_msid);
-			DBG("client_msubsid = 0x%X\n", conn_req_msg->client_msubid);
-			DBG("client_msub_bytes = 0x%X\n", conn_req_msg->client_msub_bytes);
-			DBG("client_rio_addr_len = 0x%X\n", conn_req_msg->client_rio_addr_len);
-			DBG("client_rio_addr_lo = 0x%X\n", conn_req_msg->client_rio_addr_lo);
-			DBG("client_rio_addr_hi = 0x%X\n", conn_req_msg->client_rio_addr_hi);
-			DBG("client_destid_len = 0x%X\n", conn_req_msg->client_destid_len);
-			DBG("client_destid = 0x%X\n", conn_req_msg->client_destid);
-			throw RDMA_ACCEPT_FAIL;
-		}
-
 		/* Use the client_to_lib_tx_eng_h as the connection handle */
+		connect_to_ms_req_input *conn_req_msg = &out_msg.connect_to_ms_req;
 		*connh = conn_req_msg->client_to_lib_tx_eng_h;
 
 		/* Now reply to the CONNECT_MS_REQ sith CONNECT_MS_RESP */
@@ -1560,8 +1542,16 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		/* Store connection handle with server_msub */
 		server_msub->conn_handles.push_back(conn_req_msg->client_to_lib_tx_eng_h);
 
-		/* Store info about remote msub in database and return handle */
-		*rem_msubh = (msub_h)add_rem_msub(
+		/* Store info about remote msub in database and return handle,
+		 * but only if the remote msub is NOT NULL_MSUB
+		 */
+
+		if (conn_req_msg->client_msubid != NULL_MSUBID) {
+			if (!rem_msubh || !rem_msub_len) {
+				ERR("Client provided an msub, but rem_msubh and/or rem_msub_len is NULL\n");
+				throw RDMA_NULL_PARAM;
+			}
+			*rem_msubh = (msub_h)add_rem_msub(
 					  conn_req_msg->client_msubid,
 					  conn_req_msg->client_msid,
 					  conn_req_msg->client_msub_bytes,
@@ -1571,16 +1561,17 @@ int rdma_accept_ms_h(ms_h loc_msh,
 					  conn_req_msg->client_destid_len,
 					  conn_req_msg->client_destid,
 					  loc_msh);
-		if (*rem_msubh == (msub_h)NULL) {
-			WARN("Failed to add rem_msub to database\n");
-			throw RDMA_DB_ADD_FAIL;
-		}
-		INFO("rem_bytes = %d, rio_addr = 0x%lX\n",
-				conn_req_msg->client_msub_bytes,
-				conn_req_msg->client_rio_addr_lo);
+			if (*rem_msubh == (msub_h)NULL) {
+				WARN("Failed to add rem_msub to database\n");
+				throw RDMA_DB_ADD_FAIL;
+			}
+			INFO("rem_bytes = %d, rio_addr = 0x%lX\n",
+					conn_req_msg->client_msub_bytes,
+					conn_req_msg->client_rio_addr_lo);
 
-		/* Return remote msub length to application */
-		*rem_msub_len = conn_req_msg->client_msub_bytes;
+			/* Return remote msub length to application */
+			*rem_msub_len = conn_req_msg->client_msub_bytes;
+		}
 	}
 	catch(int e) {
 		rc = e;
@@ -1950,7 +1941,7 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		}
 
 		/* Get client msubid, if not null */
-		uint32_t client_msubid = 0xFFFFFFFF;
+		uint32_t client_msubid = NULL_MSUBID;
 		if (client_msubh) {
 			client_msubid = ((rem_msub *)client_msubh)->msubid;
 		}
