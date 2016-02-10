@@ -160,12 +160,12 @@ public:
 
   inline uint32_t queueSize()
   {
-    return m_bl_busy_size;
+    return m_state->bl_busy_size;
   }
 
   void cleanup();
   void shutdown();
-  void init();
+  void init(const uint32_t chan);
 
   int scanFIFO(WorkItem_t* completed_work, const int max_work, const int force_scan = 0);
 
@@ -187,29 +187,29 @@ public: // XXX test-public, make this section private
                           uint32_t data, const char* data_str)
   {
     REGDBG("\n\tW chan=%d offset %s (0x%x) :=  %s (0x%x)\n",
-        m_chan, offset_str, offset, data_str, data);
-    pthread_spin_lock(&m_hw_splock);
-    m_mport->__wr32dma(m_chan, offset, data);
-    pthread_spin_unlock(&m_hw_splock);
+        m_state->chan, offset_str, offset, data_str, data);
+    pthread_spin_lock(&m_state->hw_splock);
+    m_mport->__wr32dma(m_state->chan, offset, data);
+    pthread_spin_unlock(&m_state->hw_splock);
   }
 
   #define rd32dmachan(o) _rd32dmachan((o), #o)
   inline uint32_t _rd32dmachan(uint32_t offset, const char* offset_str)
   {
-    pthread_spin_lock(&m_hw_splock);
-    uint32_t ret = m_mport->__rd32dma(m_chan, offset);
-    pthread_spin_unlock(&m_hw_splock);
-    REGDBG("\n\tR chan=%d offset %s (0x%x) => 0x%x\n", m_chan, offset_str, offset, ret);
+    pthread_spin_lock(&m_state->hw_splock);
+    uint32_t ret = m_mport->__rd32dma(m_state->chan, offset);
+    pthread_spin_unlock(&m_state->hw_splock);
+    REGDBG("\n\tR chan=%d offset %s (0x%x) => 0x%x\n", m_state->chan, offset_str, offset, ret);
     return ret;
   }
 
   inline void wr32dmachan_nolock(uint32_t offset, uint32_t data)
   {
-    m_mport->__wr32dma(m_chan, offset, data);
+    m_mport->__wr32dma(m_state->chan, offset, data);
   }
   inline uint32_t rd32dmachan_nolock(uint32_t offset)
   {
-    return m_mport->__rd32dma(m_chan, offset);
+    return m_mport->__rd32dma(m_state->chan, offset);
   }
 
 public:
@@ -219,7 +219,7 @@ public:
   inline uint32_t getFIFOWriteCount() { return rd32dmachan(TSI721_DMAC_DSWP); }
   
   /** \brief Checks whether HW bd ring is empty
-   * \note This reads 2 PCIe register so it is slow
+   * \note This reads 2 PCIe registers so it is slow
    */
   inline bool queueEmptyHw()
   {
@@ -227,7 +227,7 @@ public:
   }
   
   /** \brief Checks whether there's more space in HW bd ring
-   * \note This reads 2 PCIe register so it is slow
+   * \note This reads 2 PCIe registers so it is slow
    */
   inline bool queueFullHw()
   {
@@ -239,17 +239,17 @@ public:
   
     // XXX unit-test logic
     if(rdc > 0  && wrc == (rdc-1))      return true;
-    if(rdc == 0 && wrc == (m_bd_num-1)) return true;
+    if(rdc == 0 && wrc == (m_state->bd_num-1)) return true;
     return false;
   }
   
   inline bool queueFull()
   {
-    // XXX we have control over the soft m_dma_wr but how to divine the read pointer?
+    // XXX we have control over the soft m_state->dma_wr but how to divine the read pointer?
     //     that should come from the completion FIFO but for now we brute-force it!
   
-    //return SZ == (m_bd_num+1); // account for T3 BD as well
-    return (m_bl_busy_size + 2 + 1 /*BD0 is T3*/ >= m_bd_num); // account for T3 BD as well
+    //return SZ == (m_state->bd_num+1); // account for T3 BD as well
+    return (m_state->bl_busy_size + 2 + 1 /*BD0 is T3*/ >= m_state->bd_num); // account for T3 BD as well
   }
   
   inline bool dmaCheckAbort(uint32_t& abort_reason)
@@ -309,7 +309,7 @@ public:
   volatile uint64_t   m_tx_cnt; ///< Number of DMA ops that succeeded / showed up in FIFO
 
   /** \brief Returns the number of BDs submitted to DMA engine */
-  inline uint32_t getWP() { return m_dma_wr; }
+  inline uint32_t getWP() { return m_state->dma_wr; }
 
 private:
   int umdemo_must_die = 0;
@@ -319,25 +319,38 @@ private:
   volatile uint32_t   m_sim_abort_reason; ///< Simulated abort error, cleared on reset
   volatile uint32_t   m_sim_err_stat; ///< Simulated port error, cleared on reset
   volatile bool       m_check_reg;
-  pthread_spinlock_t  m_hw_splock; ///< Serialize access to DMA chan registers
-  pthread_spinlock_t  m_pending_work_splock; ///< Serialize access to DMA pending queue object
   RioMport*           m_mport;
-  uint32_t            m_chan;
-  uint32_t            m_bd_num;
-  uint32_t            m_sts_size;
-  RioMport::DmaMem_t  m_dmadesc;
+  int                 m_mportid;
+  riomp_mport_t       m_mp_hd;
+  RioMport::DmaMem_t  m_dmadesc; ///< Populated from m_state->dmadesc_win_*
   RioMport::DmaMem_t  m_dmacompl;
-  volatile uint32_t   m_dma_wr;      ///< Mirror of Tsi721 write pointer
-  int32_t             m_fifo_rd;
   bool*               m_bl_busy;
-  volatile int32_t    m_bl_busy_size;
-  pthread_spinlock_t  m_bl_splock; ///< Serialize access to BD list
-  uint64_t            m_T3_bd_hw;
   volatile int        m_restart_pending;
-  uint32_t            m_sts_log_two; ///< Remember the calculation in alloc_dmacompldesc and re-use it at softReset
-  struct hw_dma_desc  m_BD0_T3_saved; ///< Pack this once, save, reuse when needed
+ 
+  bool                m_hw_master;
   
   WorkItem_t*         m_pending_work;
+
+  typedef struct {
+    volatile int        restart_pending;
+    uint64_t            dmadesc_win_handle; ///< Sharable among processes, mmap'able
+    uint64_t            dmadesc_win_size;
+    uint32_t            sts_log_two; ///< Remember the calculation in alloc_dmacompldesc and re-use it at softReset
+    pthread_spinlock_t  hw_splock; ///< Serialize access to DMA chan registers
+    pthread_spinlock_t  pending_work_splock; ///< Serialize access to DMA pending queue object
+    uint32_t            chan;
+    uint32_t            bd_num;
+    uint32_t            sts_size;
+    volatile uint32_t   dma_wr;      ///< Mirror of Tsi721 write pointer
+    int32_t             fifo_rd;
+    volatile int32_t    bl_busy_size;
+    pthread_spinlock_t  bl_splock; ///< Serialize access to BD list
+    uint64_t            T3_bd_hw;
+    volatile int        hw_ready; ///< Set to 2 only in Master when BD and FIFO CMA mem allocated & hw programmed
+    struct hw_dma_desc  BD0_T3_saved; ///< Pack this once, save, reuse when needed
+  } DmaChannelState_t;
+
+  DmaChannelState_t*  m_state;
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 

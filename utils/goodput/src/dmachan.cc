@@ -64,26 +64,16 @@ void hexdump4byte(const char* msg, uint8_t* d, int len);
 class {
 */
 
-void DMAChannel::init()
+void DMAChannel::init(const uint32_t chan)
 {
-  pthread_spin_init(&m_hw_splock, PTHREAD_PROCESS_PRIVATE);
-  pthread_spin_init(&m_pending_work_splock, PTHREAD_PROCESS_PRIVATE);
-  pthread_spin_init(&m_bl_splock, PTHREAD_PROCESS_PRIVATE);
+  bool first_opener = true;
 
-  m_bd_num        = 0;
-  m_sts_size      = 0;
-  m_dma_wr        = 0;
-  m_fifo_rd       = 0;
-  m_T3_bd_hw      = 0;
   m_fifo_scan_cnt = 0;
   m_tx_cnt        = 0;
-  m_bl_busy       = NULL;
-  m_bl_busy_size  = -666;
+  m_bl_busy       = NULL; // TODO: Stick in SHM
   m_check_reg     = false;
+  m_pending_work  = NULL; // TODO: Stick in SHM
   m_restart_pending = 0;
-  m_sts_log_two   = 0;
-
-  memset(&m_BD0_T3_saved, 0, sizeof(m_BD0_T3_saved));
 
   m_sim           = false;
   m_sim_dma_rp    = 0;
@@ -91,6 +81,31 @@ void DMAChannel::init()
 
   m_sim_abort_reason = 0;
   m_sim_err_stat = 0;
+
+  if (!first_opener) {
+    m_hw_master = false;
+    return;
+  }
+
+  m_hw_master = true;
+
+  m_state = (DmaChannelState_t*)calloc(1, sizeof(DmaChannelState_t)); // TEMP
+
+  pthread_spin_init(&m_state->hw_splock, PTHREAD_PROCESS_SHARED);
+  pthread_spin_init(&m_state->pending_work_splock, PTHREAD_PROCESS_SHARED);
+  pthread_spin_init(&m_state->bl_splock, PTHREAD_PROCESS_SHARED);
+
+  m_state->bd_num        = 0;
+  m_state->sts_size      = 0;
+  m_state->dma_wr        = 0;
+  m_state->fifo_rd       = 0;
+  m_state->T3_bd_hw      = 0;
+  m_state->bl_busy_size  = -666;
+  m_state->restart_pending = 0;
+  m_state->sts_log_two   = 0;
+  m_state->hw_ready      = 0;
+
+  memset(&m_state->BD0_T3_saved, 0, sizeof(m_state->BD0_T3_saved));
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
@@ -98,11 +113,12 @@ DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannel: Invalid channel!");
 
-  m_chan  = chan;
+  m_mportid = mportid;
 
   m_mport = new RioMport(mportid);
 
-  init();
+  init(chan);
+  m_state->chan  = chan;
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid,
@@ -112,11 +128,12 @@ DMAChannel::DMAChannel(const uint32_t mportid,
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannel: Invalid channel!");
 
-  m_chan  = chan;
+  m_mportid = mportid;
 
   m_mport = new RioMport(mportid, mp_hd);
 
-  init();
+  init(chan);
+  m_state->chan  = chan;
 }
 
 DMAChannel::~DMAChannel()
@@ -152,7 +169,7 @@ void DMAChannel::resetHw()
   m_sim_fifo_wp      = 0;
   m_sim_dma_rp       = 0;
 
-  m_dma_wr = 1; // BD0 is T3
+  m_state->dma_wr = 1; // BD0 is T3
  
   if (m_sim) return;
 
@@ -167,7 +184,7 @@ void DMAChannel::resetHw()
   wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_INIT);
   wr32dmachan(TSI721_DMAC_INT, TSI721_DMAC_INT_ALL);
   usleep(10);
-  wr32dmachan(TSI721_DMAC_DWRCNT, m_dma_wr);
+  wr32dmachan(TSI721_DMAC_DWRCNT, m_state->dma_wr);
 }
 
 void DMAChannel::setInbound()
@@ -219,6 +236,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   WorkItem_t wk;
   struct hw_dma_desc* bd_hw = NULL;
 
+  if (m_state->hw_ready < 2)
+    throw std::runtime_error("DMAChannel: HW is not ready!");
 
   if ((opt.dtype != DTYPE1) && (opt.dtype != DTYPE2))
     return false;
@@ -267,40 +286,40 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
   // Check if queue full -- as late as possible in view of MT
   if(queueFull()) {
-    ERR("\n\tFAILED: DMA TX Queue full! chan=%u\n", m_chan);
+    ERR("\n\tFAILED: DMA TX Queue full! chan=%u\n", m_state->chan);
     return false;
   }
   
-  pthread_spin_lock(&m_bl_splock); 
+  pthread_spin_lock(&m_state->bl_splock); 
   if (umdemo_must_die)
     return false;
 
-  int bd_idx = m_dma_wr % m_bd_num;
+  int bd_idx = m_state->dma_wr % m_state->bd_num;
   {{
     // If at end of buffer, account for T3 and
     // wrap around to beginning of buffer.
-    if ((bd_idx + 1) == m_bd_num) {
-      wk_end.opt.bd_wp = m_dma_wr;
-      wk_0.opt.bd_wp   = m_dma_wr+1;
+    if ((bd_idx + 1) == m_state->bd_num) {
+      wk_end.opt.bd_wp = m_state->dma_wr;
+      wk_0.opt.bd_wp   = m_state->dma_wr+1;
 
       wk_end.opt.ts_start = wk_0.opt.ts_start = rdtsc();
       // FIXME: Should this really be FF..E, or should it be FF..F ???
-      if (m_dma_wr == 0xFFFFFFFE)
-        m_dma_wr = 1; // Process BD0 which is a T3
+      if (m_state->dma_wr == 0xFFFFFFFE)
+        m_state->dma_wr = 1; // Process BD0 which is a T3
       else
-        m_dma_wr += 2; // Process BD0 which is a T3
+        m_state->dma_wr += 2; // Process BD0 which is a T3
 
-      memcpy((uint8_t*)m_dmadesc.win_ptr, &m_BD0_T3_saved, DMA_BUFF_DESCR_SIZE); // Reset BD0 as jump+1
+      memcpy((uint8_t*)m_dmadesc.win_ptr, &m_state->BD0_T3_saved, DMA_BUFF_DESCR_SIZE); // Reset BD0 as jump+1
 
-      setWriteCount(m_dma_wr);
+      setWriteCount(m_state->dma_wr);
       queued_T3 = true;
-      m_bl_busy_size += 2; // XXX BUG??
+      m_state->bl_busy_size += 2; // XXX BUG??
       bd_idx = 1; // Skip BD0 which is a T3
     }
 
     // check-modulo in m_bl_busy[] if bd_idx is still busy!!
     if(m_bl_busy[bd_idx]) {
-      pthread_spin_unlock(&m_bl_splock); 
+      pthread_spin_unlock(&m_state->bl_splock); 
 #ifdef DEBUG_BD
       INFO("\n\tDMA TX queueDmaOpT?: BD %d still busy!\n", bd_idx);
 #endif
@@ -308,22 +327,22 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     }
 
     m_bl_busy[bd_idx] = true;
-    m_bl_busy_size++;
+    m_state->bl_busy_size++;
 
     bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
     desc.pack(bd_hw);
 
-    opt.bd_wp = m_dma_wr;
+    opt.bd_wp = m_state->dma_wr;
     opt.bd_idx = bd_idx;
 
     opt.ts_start = rdtsc();
 
-    m_dma_wr++;
-    setWriteCount(m_dma_wr);
+    m_state->dma_wr++;
+    setWriteCount(m_state->dma_wr);
 
-    if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 1; // Process BD0 which is a T3
+    if(m_state->dma_wr == 0xFFFFFFFE) m_state->dma_wr = 1; // Process BD0 which is a T3
   }}
-  pthread_spin_unlock(&m_bl_splock); 
+  pthread_spin_unlock(&m_state->bl_splock); 
 
   if(m_check_reg && dmaCheckAbort(abort_reason)) {
     return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
@@ -334,18 +353,18 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   wk.opt = opt;
   wk.valid = WI_SIG;
 
-  pthread_spin_lock(&m_pending_work_splock);
+  pthread_spin_lock(&m_state->pending_work_splock);
   m_pending_work[bd_idx] = wk;
 
   if(queued_T3) {
     wk_end.opt.dtype = DTYPE3;
     wk_end.valid = WI_SIG;
-    m_pending_work[m_T3_bd_hw] = wk_end;
+    m_pending_work[m_state->T3_bd_hw] = wk_end;
     wk_0.opt.dtype = DTYPE3;
     wk_0.valid = WI_SIG;
     m_pending_work[0] = wk_0; // BD0 is T3
   }
-  pthread_spin_unlock(&m_pending_work_splock);
+  pthread_spin_unlock(&m_state->pending_work_splock);
 
   get_seq_ts_m(ts_p, 9);
 
@@ -356,7 +375,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
       wk.opt.dtype, dma_rtype_str[rtype], wk.opt.destid, m_dmadesc.win_handle + offset, wk.opt.bd_wp);
 
   if(queued_T3)
-     DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_T3_bd_hw, wk_end.opt.bd_wp);
+     DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_state->T3_bd_hw, wk_end.opt.bd_wp);
 #endif
 
   return true;
@@ -383,6 +402,9 @@ bool DMAChannel::free_dmamem(RioMport::DmaMem_t& mem)
 
 bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 {
+  if (!m_hw_master)
+    throw std::runtime_error("DMAChannel: Will not alloc HW BD mem for DMA transfers in non-master instance!");
+
   int size = (bd_cnt+1) * DMA_BUFF_DESCR_SIZE; 
 
   if(size < 4096)
@@ -396,22 +418,22 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
     return false;
   }
 
-  m_bd_num = bd_cnt;
+  m_state->bd_num = bd_cnt;
 
-  m_bl_busy = (bool*)calloc(m_bd_num, sizeof(bool));
-  m_bl_busy_size = 0;
+  m_bl_busy = (bool*)calloc(m_state->bd_num, sizeof(bool));
+  m_state->bl_busy_size = 0;
 
-  m_pending_work = (WorkItem_t*)calloc(m_bd_num+1, sizeof(WorkItem_t)); // +1 to have a guard, NOT used
+  m_pending_work = (WorkItem_t*)calloc(m_state->bd_num+1, sizeof(WorkItem_t)); // +1 to have a guard, NOT used
 
   memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
 
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
-    ((uint8_t*)m_dmadesc.win_ptr + ((m_bd_num-1) * DMA_BUFF_DESCR_SIZE));
+    ((uint8_t*)m_dmadesc.win_ptr + ((m_state->bd_num-1) * DMA_BUFF_DESCR_SIZE));
 
 #ifdef DEBUG_BD
   DBG("\n\tWrap BD DTYPE3 @ HW 0x%lx [idx=%d] points back to HW 0x%lx\n",
-      m_dmadesc.win_handle + ((m_bd_num-1) *DMA_BUFF_DESCR_SIZE),
-      m_bd_num-1, m_dmadesc.win_handle);
+      m_dmadesc.win_handle + ((m_state->bd_num-1) *DMA_BUFF_DESCR_SIZE),
+      m_state->bd_num-1, m_dmadesc.win_handle);
 #endif
 
   // Initialize DMA descriptors ring using added link descriptor 
@@ -421,7 +443,7 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 
   T3_bd.pack(end_bd_p); // XXX mask off lowest 5 bits
 
-  m_T3_bd_hw = m_bd_num-1;
+  m_state->T3_bd_hw = m_state->bd_num-1;
 
   // Initialize BD0 DMA descriptor as jump+1
   struct hw_dma_desc* bd0_p = (struct hw_dma_desc*)m_dmadesc.win_ptr; // Set BD0 as T3
@@ -435,20 +457,31 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
   dmadesc_setT3_nextptr(T3_bd, (uint64_t)m_dmadesc.win_handle + DMA_BUFF_DESCR_SIZE);
   T3_bd.pack(bd0_p); // XXX mask off lowest 5 bits
 
-  memcpy(&m_BD0_T3_saved, (uint8_t*)m_dmadesc.win_ptr, DMA_BUFF_DESCR_SIZE);
+  m_pending_work[0].valid = WI_SIG;
+  m_state->bl_busy_size++;
 
-  if (m_sim) return true;
+  memcpy(&m_state->BD0_T3_saved, (uint8_t*)m_dmadesc.win_ptr, DMA_BUFF_DESCR_SIZE);
+
+  if (m_sim) { m_state->hw_ready++; return true; }
 
   // Setup DMA descriptor pointers
-  wr32dmachan(TSI721_DMAC_DPTRH, (uint64_t)m_dmadesc.win_handle >> 32);
-  wr32dmachan(TSI721_DMAC_DPTRL, 
-    (uint64_t)m_dmadesc.win_handle & TSI721_DMAC_DPTRL_MASK); 
+  if (m_hw_master) {
+    wr32dmachan(TSI721_DMAC_DPTRH, (uint64_t)m_dmadesc.win_handle >> 32);
+    wr32dmachan(TSI721_DMAC_DPTRL, 
+      (uint64_t)m_dmadesc.win_handle & TSI721_DMAC_DPTRL_MASK); 
+  }
+
+  m_state->hw_ready++;
 
   return true;
 }
 
 void DMAChannel::free_dmatxdesc()
 {
+  // XXX What if hw master is not last user?
+  if (!m_hw_master) return;
+  m_state->hw_ready--;
+
   m_mport->unmap_dma_buf(m_dmadesc);
 }
 
@@ -523,6 +556,9 @@ static inline unsigned long __fls(unsigned long word)
 
 bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
 {
+  if (!m_hw_master)
+    throw std::runtime_error("DMAChannel: Will not alloc HW mem for DMA FIFO in non-master instance!");
+
   bool rc = false;
   uint64_t sts_entry_cnt = 0;
   const uint64_t max_entry_cnt = 1 << (TSI721_OBDMACXDSSZ_SIZE + 4);
@@ -546,11 +582,11 @@ bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
     sts_entry_cnt = max_entry_cnt;
   }
 
-  m_sts_size = roundup_pow_of_two(sts_entry_cnt);
-  m_sts_log_two = pow_of_two(sts_entry_cnt) - 4;
+  m_state->sts_size = roundup_pow_of_two(sts_entry_cnt);
+  m_state->sts_log_two = pow_of_two(sts_entry_cnt) - 4;
 
   m_dmacompl.rio_address = RIO_ANY_ADDR;
-  if (!m_mport->map_dma_buf(m_sts_size * 64, m_dmacompl)) {
+  if (!m_mport->map_dma_buf(m_state->sts_size * 64, m_dmacompl)) {
     ERR("DMAChannel: Cannot alloc HW mem for DMA completion ring!");
     goto exit;
   }
@@ -564,21 +600,26 @@ bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
     (uint64_t)m_dmacompl.win_handle >> 32);
   wr32dmachan(TSI721_DMAC_DSBL,
     (uint64_t)m_dmacompl.win_handle & TSI721_DMAC_DSBL_MASK);
-  wr32dmachan(TSI721_DMAC_DSSZ, m_sts_log_two);
+  wr32dmachan(TSI721_DMAC_DSSZ, m_state->sts_log_two);
 
 #if 0
   INFO("\n\tDMA compl entries %d bytes=%d @%p HW@0x%llx\n",
-       m_sts_size, sts_byte_cnt,
+       m_state->sts_size, sts_byte_cnt,
        m_dmacompl.win_ptr, m_dmacompl.win_handle);
 #endif
   rc = true;
 
 exit:
+  if (rc) m_state->hw_ready++;
   return rc;
 }
 
 void DMAChannel::free_dmacompldesc()
 {
+  // XXX What if hw master is not last user?
+  if (!m_hw_master) return;
+  m_state->hw_ready--;
+
   m_mport->unmap_dma_buf(m_dmacompl);
 }
 
@@ -587,12 +628,12 @@ void DMAChannel::shutdown()
   umdemo_must_die = 1;
 
 // Unlock twice, once for each thread, to guarantee forward progress...
-  pthread_spin_unlock(&m_pending_work_splock);
-  pthread_spin_unlock(&m_pending_work_splock);
-  pthread_spin_unlock(&m_hw_splock);
-  pthread_spin_unlock(&m_hw_splock);
-  pthread_spin_unlock(&m_bl_splock);
-  pthread_spin_unlock(&m_bl_splock);
+  pthread_spin_unlock(&m_state->pending_work_splock);
+  pthread_spin_unlock(&m_state->pending_work_splock);
+  pthread_spin_unlock(&m_state->hw_splock);
+  pthread_spin_unlock(&m_state->hw_splock);
+  pthread_spin_unlock(&m_state->bl_splock);
+  pthread_spin_unlock(&m_state->bl_splock);
 };
 
 void DMAChannel::cleanup()
@@ -610,13 +651,13 @@ void DMAChannel::cleanup()
   memset(&m_dmacompl, 0, sizeof(m_dmacompl));
   
   if(m_pending_work != NULL) {
-    assert(m_pending_work[m_bd_num].valid == 0);
+    assert(m_pending_work[m_state->bd_num].valid == 0);
     free(m_pending_work); m_pending_work = NULL;
   }
 
   if(m_bl_busy != NULL) {
     free(m_bl_busy); m_bl_busy = NULL;
-    m_bl_busy_size = -42;
+    m_state->bl_busy_size = -42;
   }
 }
 
@@ -667,22 +708,25 @@ void hexdump4byte(const char* msg, uint8_t* d, int len)
  */
 int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const int force_scan)
 {
+  if (!m_hw_master)
+    throw std::runtime_error("DMAChannel: Will not scan DMA FIFO in non-master instance!");
+
   if(m_restart_pending && !force_scan) return 0;
 
 #ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
     std::string s;
     dumpBDs(s);
-    DBG("\n\tm_bl_busy_size=%d fifoRP=%u fifoWP=%u BD map before scan: %s\n",
-        m_bl_busy_size, m_fifo_rd, (m_sim? m_sim_fifo_wp: getFIFOWriteCount()),
+    DBG("\n\tbl_busy_size=%d fifoRP=%u fifoWP=%u BD map before scan: %s\n",
+        m_state->bl_busy_size, m_state->fifo_rd, (m_sim? m_sim_fifo_wp: getFIFOWriteCount()),
         s.c_str());
   }
 #endif
 
   int compl_size = 0;
-  DmaCompl_t compl_hwbuf[m_bd_num*2];
+  DmaCompl_t compl_hwbuf[m_state->bd_num*2];
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
-  int j = m_fifo_rd * 8;
+  int j = m_state->fifo_rd * 8;
   const uint64_t HW_END = m_dmadesc.win_handle + m_dmadesc.win_size;
   int cwi = 0; // completed work index
 
@@ -704,9 +748,9 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
       m_tx_cnt++; // rather number of successfuly completed DMA ops
     } // END for line-of-8
 
-    ++m_fifo_rd;
-    m_fifo_rd %= m_sts_size;
-    j = m_fifo_rd * 8;
+    ++m_state->fifo_rd;
+    m_state->fifo_rd %= m_state->sts_size;
+    j = m_state->fifo_rd * 8;
   } // END while sts_ptr
 
   if(compl_size == 0) // No hw pointer to advance
@@ -719,13 +763,13 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
   for(int ci = 0; ci < compl_size; ci++) {
     if(m_restart_pending && !force_scan) return 0;
 
-    pthread_spin_lock(&m_pending_work_splock);
+    pthread_spin_lock(&m_state->pending_work_splock);
   
     if (umdemo_must_die)
       return 0;
 
     if(compl_hwbuf[ci].valid != COMPL_SIG) {
-      pthread_spin_unlock(&m_pending_work_splock);
+      pthread_spin_unlock(&m_state->pending_work_splock);
 
       const int idx = (compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE; 
 
@@ -739,7 +783,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
 
     if((compl_hwbuf[ci].win_handle < m_dmadesc.win_handle) ||
        (compl_hwbuf[ci].win_handle >= HW_END)) {
-      pthread_spin_unlock(&m_pending_work_splock);
+      pthread_spin_unlock(&m_state->pending_work_splock);
       ERR("\n\tCan't find BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
           getFIFOReadCount(), getFIFOWriteCount());
@@ -749,8 +793,8 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     // This should be optimised by g++
     const int idx = (compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE; 
 
-    if(idx < 0 || idx >= m_bd_num) {
-      pthread_spin_unlock(&m_pending_work_splock);
+    if(idx < 0 || idx >= m_state->bd_num) {
+      pthread_spin_unlock(&m_state->pending_work_splock);
 
       ERR("\n\tCan't find bd_idx=%d IN RANGE for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           idx,
@@ -761,7 +805,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     }
 
     if(! m_pending_work[idx].valid) {
-      pthread_spin_unlock(&m_pending_work_splock);
+      pthread_spin_unlock(&m_state->pending_work_splock);
 
       ERR("\n\tCan't find VALID entry for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           compl_hwbuf[ci].win_handle,
@@ -771,7 +815,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     }
 
     if(m_pending_work[idx].valid == 0xdeaddeedL) { // cleaned by cleanup?
-      pthread_spin_unlock(&m_pending_work_splock);
+      pthread_spin_unlock(&m_state->pending_work_splock);
       continue;
     }
 
@@ -780,7 +824,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     WorkItem_t item = m_pending_work[idx];
     m_pending_work[idx].valid = 0xdeadbeefL;
 
-    pthread_spin_unlock(&m_pending_work_splock);
+    pthread_spin_unlock(&m_state->pending_work_splock);
 
     if(m_restart_pending && !force_scan) return 0;
 
@@ -809,20 +853,20 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
       break;
 
 #ifdef UDMA_SIM_DEBUG
-    if ((m_bl_busy_size == 0 || m_pending_work[idx].opt.dtype > 3) && 7 <= g_level) { // DEBUG
+    if ((m_state->bl_busy_size == 0 || m_pending_work[idx].opt.dtype > 3) && 7 <= g_level) { // DEBUG
       std::string s;
       dumpBDs(s);
-      DBG("\n\tAt 0BUG point idx=%d bd_idx=%d WP=%u RP=%u BD map: %s\n", idx, item.opt.bd_idx, m_dma_wr, (m_sim? m_sim_dma_rp: getReadCount()), s.c_str());
+      DBG("\n\tAt 0BUG point idx=%d bd_idx=%d WP=%u RP=%u BD map: %s\n", idx, item.opt.bd_idx, m_state->dma_wr, (m_sim? m_sim_dma_rp: getReadCount()), s.c_str());
     }
 #endif
 
     assert(m_pending_work[idx].opt.dtype <= 3);
 
     // BDs might be completed out of order.
-    pthread_spin_lock(&m_bl_splock); 
+    pthread_spin_lock(&m_state->bl_splock); 
 
 #ifdef UDMA_SIM_DEBUG
-    if (idx > 0 && idx < (m_bd_num - 1)) { // clear DTYPE - DEBUG
+    if (idx > 0 && idx < (m_state->bd_num - 1)) { // clear DTYPE - DEBUG
       struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (item.opt.bd_idx * DMA_BUFF_DESCR_SIZE));
       uint32_t* bytes03 = (uint32_t*)bd_p;
       *bytes03 &= 0x0FFFFFFFUL;
@@ -834,15 +878,15 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     if (umdemo_must_die)
       return 0;
     m_bl_busy[item.opt.bd_idx] = false;
-    m_bl_busy_size--;
-    assert(m_bl_busy_size >= 0);
+    m_state->bl_busy_size--;
+    assert(m_state->bl_busy_size >= 0);
 
-    pthread_spin_unlock(&m_bl_splock); 
+    pthread_spin_unlock(&m_state->bl_splock); 
   } // END for compl_size
 
   // Before advancing FIFO RP I must have a "barrier" so no "older" BDs exist.
 
-  if (!m_sim) wr32dmachan(TSI721_DMAC_DSRP, m_fifo_rd);
+  if (!m_sim) wr32dmachan(TSI721_DMAC_DSRP, m_state->fifo_rd);
 
   return cwi;
 }
@@ -853,30 +897,36 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
  */
 void DMAChannel::softRestart(const bool nuke_bds)
 {
+  if (!m_hw_master)
+    throw std::runtime_error("DMAChannel: Will not restart DMA channel in non-master instance!");
+
+  if (m_state->hw_ready < 2)
+    throw std::runtime_error("DMAChannel: HW is not ready!");
+
   const uint64_t ts_s = rdtsc();
   m_restart_pending = 1;
 
-  pthread_spin_lock(&m_bl_splock);
+  pthread_spin_lock(&m_state->bl_splock);
 
   // Clear FIFO for good measure
   memset(m_dmacompl.win_ptr, 0, m_dmacompl.win_size);
-  m_fifo_rd = 0;
+  m_state->fifo_rd = 0;
 
   if (nuke_bds) {
     // Clear BDs
     memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
 
-    memcpy((uint8_t*)m_dmadesc.win_ptr, &m_BD0_T3_saved, DMA_BUFF_DESCR_SIZE); // Reset BD0 as jump+1
+    memcpy((uint8_t*)m_dmadesc.win_ptr, &m_state->BD0_T3_saved, DMA_BUFF_DESCR_SIZE); // Reset BD0 as jump+1
 
-    memset(m_bl_busy, 0,  m_bd_num * sizeof(bool));
-    m_bl_busy_size = 0;
+    memset(m_bl_busy, 0,  m_state->bd_num * sizeof(bool));
+    m_state->bl_busy_size = 0;
 
-    memset(m_pending_work, 0, (m_bd_num+1) * sizeof(WorkItem_t));
+    memset(m_pending_work, 0, (m_state->bd_num+1) * sizeof(WorkItem_t));
   }
 
   // Just be paranoid about wrap-around descriptor
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
-    ((uint8_t*)m_dmadesc.win_ptr + ((m_bd_num-1) * DMA_BUFF_DESCR_SIZE));
+    ((uint8_t*)m_dmadesc.win_ptr + ((m_state->bd_num-1) * DMA_BUFF_DESCR_SIZE));
 
   struct dmadesc end_bd; memset(&end_bd, 0, sizeof(end_bd));
   dmadesc_setdtype(end_bd, DTYPE3);
@@ -884,9 +934,9 @@ void DMAChannel::softRestart(const bool nuke_bds)
 
   end_bd.pack(end_bd_p);
 
-  const uint32_t DMA_WP = m_dma_wr;
+  const uint32_t DMA_WP = m_state->dma_wr;
 
-  resetHw(); // clears m_dma_wr
+  resetHw(); // clears m_state->dma_wr
 
   if (m_sim) goto done;
 
@@ -897,14 +947,14 @@ void DMAChannel::softRestart(const bool nuke_bds)
   // Setup descriptor status FIFO
   wr32dmachan(TSI721_DMAC_DSBH, (uint64_t)m_dmacompl.win_handle >> 32);
   wr32dmachan(TSI721_DMAC_DSBL, (uint64_t)m_dmacompl.win_handle & TSI721_DMAC_DSBL_MASK);
-  wr32dmachan(TSI721_DMAC_DSSZ, m_sts_log_two);
+  wr32dmachan(TSI721_DMAC_DSSZ, m_state->sts_log_two);
 
 done:
-  m_dma_wr = nuke_bds? 1 /*BD0 is T3*/: DMA_WP;
+  m_state->dma_wr = nuke_bds? 1 /*BD0 is T3*/: DMA_WP;
 
-  setWriteCount(m_dma_wr); // knows about sim
+  setWriteCount(m_state->dma_wr); // knows about sim
 
-  pthread_spin_unlock(&m_bl_splock);
+  pthread_spin_unlock(&m_state->bl_splock);
   m_restart_pending = 0;
   const uint64_t ts_e = rdtsc();
 
@@ -922,26 +972,31 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
   if (!m_sim)
     throw std::runtime_error("DMAChannel: Simulation was not flagged!");
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress"
+        assert("simFIFO" == "IT'S SUUUUPERBUGGY");
+#pragma GCC diagnostic pop
+
   uint64_t* sts_ptr = (uint64_t*)m_dmacompl.win_ptr;
   const uint64_t HW_END = m_dmadesc.win_handle + m_dmadesc.win_size;
 
 #ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
-    DBG("START: DMA simRP=%d WP=%d simFifoWP=%d m_bl_busy_size=%d\n", m_sim_dma_rp, m_dma_wr, m_sim_fifo_wp, m_bl_busy_size);
+    DBG("START: DMA simRP=%d WP=%d simFifoWP=%d bl_busy_size=%d\n", m_sim_dma_rp, m_state->dma_wr, m_sim_fifo_wp, m_state->bl_busy_size);
 
     std::string s;
     dumpBDs(s);
-    DBG("\n\tm_bl_busy_size=%d BD map: %s\n", m_bl_busy_size, s.c_str());
+    DBG("\n\tbl_busy_size=%d BD map: %s\n", m_state->bl_busy_size, s.c_str());
   }
 #endif
 
-  pthread_spin_lock(&m_bl_splock);
+  pthread_spin_lock(&m_state->bl_splock);
 
   int bd_cnt = 0;
   bool faulted = false;
-  for (; m_sim_dma_rp < m_dma_wr; /*DONOTUSE continue*/) { // XXX "<=" ??
-    // Handle wrap-arounds in BD array, m_dma_wr can go up to 0xFFFFFFFFL
-    const int idx = m_sim_dma_rp % m_bd_num;
+  for (; m_sim_dma_rp < m_state->dma_wr; /*DONOTUSE continue*/) { // XXX "<=" ??
+    // Handle wrap-arounds in BD array, m_state->dma_wr can go up to 0xFFFFFFFFL
+    const int idx = m_sim_dma_rp % m_state->bd_num;
 
     struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
     uint32_t* bytes03 = (uint32_t*)bd_p;
@@ -949,21 +1004,21 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
 
 #ifdef UDMA_SIM_DEBUG
     if (dtype > 3) {
-      CRIT("BUG: BD%d dtype=%d DMA WP=%d simRP=%d\n", idx, dtype, m_dma_wr, m_sim_dma_rp);
+      CRIT("BUG: BD%d dtype=%d DMA WP=%d simRP=%d\n", idx, dtype, m_state->dma_wr, m_sim_dma_rp);
       assert(dtype <= 3);
     }
 #endif
 
     // Soft restart might have inserted T3 anywhere. Skip checks on them.
-    if (dtype != DTYPE3 && idx != (m_bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
+    if (dtype != DTYPE3 && idx != (m_state->bd_num-1)) { assert(m_bl_busy[idx]); } // We don't mark the T3 BD as "busy"
 
     const uint64_t bd_linear = m_dmadesc.win_handle + idx * DMA_BUFF_DESCR_SIZE;
     assert(bd_linear < HW_END);
 
     bd_cnt++;
-    assert(bd_cnt <= m_bd_num);
+    assert(bd_cnt <= m_state->bd_num);
 
-    if (idx == (m_bd_num-1)) {
+    if (idx == (m_state->bd_num-1)) {
       assert(dtype == DTYPE3); // BD(bufc-1) is T3
       goto next;
     }
@@ -971,7 +1026,7 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
     if (idx == 0) {
       assert(dtype == DTYPE3); // BD0 is T3
     
-      if (! memcmp(m_dmadesc.win_ptr, &m_BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { goto next; } // BD0 jumps to BD1
+      if (! memcmp(m_dmadesc.win_ptr, &m_state->BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { goto next; } // BD0 jumps to BD1
 
       // BD0 does not jump to BD1
 
@@ -989,7 +1044,7 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
       const int next_idx = next_off / DMA_BUFF_DESCR_SIZE; 
 
       assert(next_idx > 0); // cannot be BD0
-      assert(next_idx < (m_bd_num - 1)); // cannot be BD(bufc-1)
+      assert(next_idx < (m_state->bd_num - 1)); // cannot be BD(bufc-1)
 
       DBG("BD0 jumps to linear address 0x%llx (offset 0x%llx) as BD%d -- DMA simRP %d->%d\n",
           next_linear, next_off, next_idx, m_sim_dma_rp, m_sim_dma_rp + next_idx);
@@ -1024,12 +1079,12 @@ move_fifo_wp:
     sts_ptr[m_sim_fifo_wp*8] = bd_linear;
 
     m_sim_fifo_wp++;
-    m_sim_fifo_wp %= m_sts_size;
+    m_sim_fifo_wp %= m_state->sts_size;
   } // END for DMA RP
 
-  pthread_spin_unlock(&m_bl_splock);
+  pthread_spin_unlock(&m_state->bl_splock);
 
-  DBG("END: simRP=%d WP=%d simFifoWP=%d processed %d BDs%s\n", m_sim_dma_rp, m_dma_wr, m_sim_fifo_wp, bd_cnt, faulted? " WITH FAULT": "");
+  DBG("END: simRP=%d WP=%d simFifoWP=%d processed %d BDs%s\n", m_sim_dma_rp, m_state->dma_wr, m_sim_fifo_wp, bd_cnt, faulted? " WITH FAULT": "");
 
   return bd_cnt;
 }
@@ -1037,10 +1092,10 @@ move_fifo_wp:
 void DMAChannel::dumpBDs(std::string& s)
 {
   std::stringstream ss;
-  for (int idx = 0; idx < m_bd_num; idx++) {
+  for (int idx = 0; idx < m_state->bd_num; idx++) {
     char* star = "";
     struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
-    if (idx == 0 && memcmp(m_dmadesc.win_ptr, &m_BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { star = "*"; }
+    if (idx == 0 && memcmp(m_dmadesc.win_ptr, &m_state->BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { star = "*"; }
    
     uint32_t* bytes03 = (uint32_t*)bd_p;
     const uint32_t dtype = *bytes03 >> 29;
@@ -1056,6 +1111,9 @@ void DMAChannel::dumpBDs(std::string& s)
  */
 int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 {
+  if (!m_hw_master)
+    throw std::runtime_error("DMAChannel: Will clean up BD queue in non-master instance!");
+
   int pending = 0;
 
   const uint64_t fifo_scan_cnt = m_fifo_scan_cnt;
@@ -1064,18 +1122,18 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
   if (7 <= g_level) { // DEBUG
     uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
 
-    DBG("DMA %sRP=%d WP=sw%d/hw%d m_bl_busy_size=%d\n",
+    DBG("DMA %sRP=%d WP=sw%d/hw%d m_state->bl_busy_size=%d\n",
         m_sim? "sim": "Tsi721",
         rp,
-        m_dma_wr, getWriteCount(),
-        m_bl_busy_size);
+        m_state->dma_wr, getWriteCount(),
+        m_state->bl_busy_size);
 
     std::stringstream ss;
-    const int badidx = rp % m_bd_num;
-    assert(badidx != (m_bd_num-1));
-    for (int idx = 0; idx < m_bd_num; idx++) {
+    const int badidx = rp % m_state->bd_num;
+    assert(badidx != (m_state->bd_num-1));
+    for (int idx = 0; idx < m_state->bd_num; idx++) {
       char* star = "";
-      if (idx == 0 && memcmp(m_dmadesc.win_ptr, &m_BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { star = "*"; }
+      if (idx == 0 && memcmp(m_dmadesc.win_ptr, &m_state->BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { star = "*"; }
       struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
       uint32_t* bytes03 = (uint32_t*)bd_p;
       const uint32_t dtype = *bytes03 >> 29;
@@ -1102,27 +1160,27 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 
 // Nope, wasn't. DIY scanFIFO
   if (! multithreaded_fifo || fifo_scan_cnt == m_fifo_scan_cnt) { // Run FIFO scanner ourselves
-    DMAChannel::WorkItem_t wi[m_sts_size*8]; memset(wi, 0, sizeof(wi));
+    DMAChannel::WorkItem_t wi[m_state->sts_size*8]; memset(wi, 0, sizeof(wi));
     int tmp = m_restart_pending;
     m_restart_pending = 1; // Tell scanFIFO running from other thread to back off
-    scanFIFO(wi, m_sts_size*8, 1 /*force_scan*/);
+    scanFIFO(wi, m_state->sts_size*8, 1 /*force_scan*/);
     m_restart_pending = tmp;
   }
 
   const uint64_t ts_s = rdtsc();
-  pthread_spin_lock(&m_bl_splock);
+  pthread_spin_lock(&m_state->bl_splock);
 
   do {
 // This is the place where we faulted // XXX Really or rp-1?
     uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
 
     // Is there more stuff queued after faulting BD? -- Does NOT handle FFFFFFFF wrap-around!
-    if (m_bl_busy_size < 2) break;
-    if (! (m_dma_wr > rp)) break; // signal upstairs to nuke all BDs, etc. Nothing to salvage.
+    if (m_state->bl_busy_size < 2) break;
+    if (! (m_state->dma_wr > rp)) break; // signal upstairs to nuke all BDs, etc. Nothing to salvage.
 
-    const int badidx = rp % m_bd_num;
+    const int badidx = rp % m_state->bd_num;
 
-    assert(badidx != 0 && badidx != (m_bd_num-1)); // Should never fault at BD0 or wrap-around BD!!
+    assert(badidx != 0 && badidx != (m_state->bd_num-1)); // Should never fault at BD0 or wrap-around BD!!
 
     struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (badidx * DMA_BUFF_DESCR_SIZE));
     uint32_t* bytes03 = (uint32_t*)bd_p;
@@ -1130,10 +1188,10 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 
     if (dtype != DTYPE3) { assert(m_bl_busy[badidx]); } // We don't mark the T3 BD as "busy"
 
-    pending = m_dma_wr - rp - 1;
+    pending = m_state->dma_wr - rp - 1;
 
 // Replace BD0 with T3 jump to next BD unless fault is at (bufc - 2)
-    if (badidx < (m_bd_num-2)) {
+    if (badidx < (m_state->bd_num-2)) {
       const uint32_t next_off = (badidx + 1) * DMA_BUFF_DESCR_SIZE;
       struct hw_dma_desc* bd0_p = (struct hw_dma_desc*)m_dmadesc.win_ptr; // BD0
 
@@ -1141,9 +1199,9 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
       T3_bd.pack(bd0_p);
 
       m_bl_busy[badidx] = false;
-      // m_bl_busy_size--; // NO: BD0 must be accounted for
+      // m_state->bl_busy_size--; // NO: BD0 must be accounted for
       m_pending_work[0].valid = WI_SIG; 
-      assert(m_bl_busy_size >= 0);
+      assert(m_state->bl_busy_size >= 0);
 
       DBG("\n\tPatch BD0 to jump at idx=%d with T3 pending=%d\n", badidx+1, pending);
 
@@ -1158,18 +1216,18 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 #endif
     } 
 
-    m_dma_wr = 1 + pending; // Just skip BD0 which is T3 // Barry sez this is BD count
-    DBG("\n\tAfter reset DMA WP := %u\n", m_dma_wr);
+    m_state->dma_wr = 1 + pending; // Just skip BD0 which is T3 // Barry sez this is BD count
+    DBG("\n\tAfter reset DMA WP := %u\n", m_state->dma_wr);
   } while(0);
 
-  pthread_spin_unlock(&m_bl_splock);
+  pthread_spin_unlock(&m_state->bl_splock);
   const uint64_t ts_e = rdtsc();
 
 #ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
     std::string s;
     dumpBDs(s);
-    DBG("\n\tm_bl_busy_size=%d BD map after cleanup: %s\n", m_bl_busy_size, s.c_str());
+    DBG("\n\tbl_busy_size=%d BD map after cleanup: %s\n", m_state->bl_busy_size, s.c_str());
   }
 #endif
 
