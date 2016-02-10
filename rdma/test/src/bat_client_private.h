@@ -101,6 +101,9 @@ int accept_ms_f(bat_connection *bat_conn, ms_h server_msh, msub_h server_msubh);
 int accept_ms_thread_f(bat_connection *bat_conn, ms_h server_msh,
 							msub_h server_msubh);
 
+int server_disconnect_ms(bat_connection *bat_conn, conn_h connh,
+		 	 	 	 ms_h server_msh, msub_h client_msubh);
+
 int kill_remote_app(bat_connection *bat_conn);
 
 int kill_remote_daemon(bat_connection *bat_conn);

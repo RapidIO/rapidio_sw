@@ -303,6 +303,33 @@ int accept_ms_thread_f(bat_connection *bat_conn, ms_h server_msh,
 	return rc;
 } /* accept_ms_thread_f() */
 
+int server_disconnect_ms(bat_connection *bat_conn, conn_h connh,
+		 	 	 	 ms_h server_msh, msub_h client_msubh)
+{
+	int rc = 0;
+
+	bat_msg_t *bm_tx = bat_conn->get_tx_buf();
+	bat_msg_t *bm_rx = bat_conn->get_rx_buf();
+
+	/* Populate the server_disconnect_ms message */
+	bm_tx->type = SERVER_DISCONNECT_MS;
+	bm_tx->server_disconnect_ms.connh = connh;
+	bm_tx->server_disconnect_ms.server_msh = server_msh;
+	bm_tx->server_disconnect_ms.client_msubh = client_msubh;
+
+	rc = remote_call(bat_conn);
+	if (rc) {
+		fprintf(stderr, "Failed in remote_call()\n");
+	} else if ((rc = (int)bm_rx->server_disconnect_ms_ack.ret)) {
+		fprintf(stderr, "server_disconnect_ms returned 0x%X\n", rc);
+	} else if (bm_rx->type != SERVER_DISCONNECT_MS_ACK) {
+		fprintf(stderr, "%d: Received message with wrong type 0x%X\n",
+					__LINE__, (uint32_t)bm_rx->type);
+		rc = -1;
+	}
+	return rc;
+} /* server_disconnect_ms() */
+
 int kill_remote_app(bat_connection *bat_conn)
 {
 	int rc = 0;

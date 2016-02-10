@@ -36,7 +36,7 @@ extern int rdmad_kill_daemon();
 
 typedef std::vector<std::thread> thread_list;
 
-thread_list	accept_thread_list;
+static thread_list	accept_thread_list;
 
 cm_server	*bat_server;
 bool shutting_down = false;
@@ -250,6 +250,19 @@ int main(int argc, char *argv[])
 			}
 			break;
 
+			case SERVER_DISCONNECT_MS:
+			{
+				bm_tx->server_disconnect_ms_ack.ret =
+					rdma_disc_ms_h(
+					bm_rx->server_disconnect_ms.connh,
+					bm_rx->server_disconnect_ms.server_msh,
+					bm_rx->server_disconnect_ms.client_msubh);
+				CHECK_BROKEN_PIPE(bm_tx->server_disconnect_ms_ack.ret);
+				bm_tx->type = SERVER_DISCONNECT_MS_ACK;
+				BAT_SEND();
+			}
+			break;
+
 			case KILL_REMOTE_APP:
 				puts("App told to die. Committing suicide!");
 				sleep(1);
@@ -264,7 +277,7 @@ int main(int argc, char *argv[])
 				break;
 
 			case BAT_END:
-				/* If there are threads still running, wait for them */
+				/* If there are threads still running,join */
 				for_each(begin(accept_thread_list),
 					 end(accept_thread_list),
 					 [](std::thread& th)
@@ -276,7 +289,8 @@ int main(int argc, char *argv[])
 				goto free_bat_server;
 
 			default:
-				fprintf(stderr, "Message type 0x%" PRIu64 " ignored\n", bm_rx->type);
+				fprintf(stderr, "Message type 0x%" PRIu64
+						" ignored\n", bm_rx->type);
 				break;
 			}
 		} /* while .. within test case */

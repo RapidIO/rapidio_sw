@@ -1724,10 +1724,7 @@ exit:
 } /* test_case_m() */
 
 /**
- * 1. Create mso
- * 2. Open mso
- * 3. Close mso
- * 4. Destroy mso
+ * Create/open mso multiple times, close multiple times..etc.
  */
 int test_case_n()
 {
@@ -1830,6 +1827,83 @@ exit:
 } /* test_case_n() */
 
 /**
+ * Test server-side disconnection.
+ */
+int test_case_o(uint32_t destid)
+{
+	int ret, rc;
+
+	/* Create server mso */
+	mso_h	server_msoh;
+	ret = create_mso_f(bat_connections[0], "rem_mso", &server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Create server ms of size 64K */
+	ms_h	server_msh;
+	ret = create_ms_f(bat_connections[0], "rem_ms", server_msoh, 64*1024, 0,
+			  	  	  	  &server_msh, NULL);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create msub of size 4K on server */
+	msub_h  server_msubh;
+	ret = create_msub_f(bat_connections[0], server_msh, 0, 4*1024, 0,
+								&server_msubh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	ret = rdma_create_mso_h("loc_mso", &client_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create a client ms of size 16K */
+	ms_h	client_msh;
+	ret = rdma_create_ms_h("loc_ms", client_msoh, 16*1024, 0,
+							&client_msh, NULL);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	/* Accept on ms on the server */
+	ret = accept_ms_thread_f(bat_connections[0], server_msh, server_msubh);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	sleep(1);
+
+	/* Connect to server */
+	msub_h	  server_msubh_rb;
+	uint32_t  server_msub_len_rb;
+	ms_h	  server_msh_rb;
+	conn_h	  connh;
+	ret = rdma_conn_ms_h(16, destid, "rem_ms", 0,
+				&connh, &server_msubh_rb,
+				&server_msub_len_rb, &server_msh_rb, 30);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	sleep(1);
+
+	/* Do a server-disconnect on the 'ms' */
+	ret = server_disconnect_ms(bat_connections[0],
+				connh, server_msh_rb, 0);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	rc = ret;	/* 'ret' is overwritten during destruction */
+
+free_client_mso:
+	/* Delete the client mso */
+	ret = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+free_server_mso:
+	/* Delete the server mso */
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+exit:
+	if (ret == 0)
+		fprintf(log_fp, "test_case 'o' %s\n",
+					(rc == 0) ? "PASSED" : "FAILED");
+	return rc;
+} /* test_case_o() */
+
+/**
  * Test accept_ms_h()/conn_ms_h()/disc_ms_h()..etc.
  *
  * @note: Since test cases 'i', 'j', 'k', and 'm' test connection/disconnection
@@ -1913,7 +1987,7 @@ exit:
 		fprintf(log_fp, "test_case %c %s\n",
 					tc, (rc == 0) ? "PASSED" : "FAILED");
 
-	return 0;
+	return rc;
 } /* test_case_t_u() */
 
 /**

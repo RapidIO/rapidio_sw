@@ -34,6 +34,8 @@ constexpr uint8_t 	BAT_MBOX_ID	= 1;
 #define KILL_REMOTE_APP		0x000C
 #define KILL_REMOTE_DAEMON	0x000D
 #define ACCEPT_MS_THREAD	0x000E
+#define SERVER_DISCONNECT_MS	0x000F
+#define SERVER_DISCONNECT_MS_ACK 0x800F
 
 /* End the tests */
 #define BAT_END		0x8888
@@ -152,6 +154,16 @@ struct accept_ms_t {
 	uint64_t	server_msubh;
 };
 
+/* Server-disconnect specified ms_h */
+struct server_disconnect_ms_t {
+	uint64_t	connh;
+	uint64_t	server_msh;
+	uint64_t	client_msubh;
+};
+struct server_disconnect_ms_ack_t {
+	uint64_t	ret;
+};
+
 /* End of test */
 struct bat_end_t {
 	uint64_t	dummy;
@@ -193,6 +205,8 @@ struct bat_msg_t {
 
 		struct accept_ms_t accept_ms;
 
+		struct server_disconnect_ms_t server_disconnect_ms;
+		struct server_disconnect_ms_ack_t server_disconnect_ms_ack;
 		struct bat_end_t bat_end;
 	};
 };
