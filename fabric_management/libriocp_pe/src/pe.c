@@ -24,7 +24,7 @@
 #include "rio_regs.h"
 #include "rio_devs.h"
 
-#define CONFIG_LINK_SYNC_FAR_LM_REQ 1
+/*fk: not working #define CONFIG_LINK_SYNC_FAR_LM_REQ 1 */
 
 #ifdef __cplusplus
 extern "C" {
