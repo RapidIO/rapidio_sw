@@ -1832,6 +1832,10 @@ exit:
 /**
  * Test accept_ms_h()/conn_ms_h()/disc_ms_h()..etc.
  *
+ * @note: Since test cases 'i', 'j', 'k', and 'm' test connection/disconnection
+ * test cases 't' and 'u' (which were the old test cases 'h' and 'i') will
+ * use a 0 client msub handle to test that special case.
+ *
  * @ch	if tc is 't' run test case 't', else run test case 'u'
  */
 int test_case_t_u(char tc, uint32_t destid)
@@ -1866,11 +1870,6 @@ int test_case_t_u(char tc, uint32_t destid)
 							&client_msh, NULL);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
-	/* Create a client msub of size 4K */
-	msub_h	client_msubh;
-	ret = rdma_create_msub_h(client_msh, 0, 4*1024, 0, &client_msubh);
-	BAT_EXPECT_RET(ret, 0, free_client_mso);
-
 	/* Accept on ms on the server */
 	ret = accept_ms_thread_f(bat_connections[0], server_msh, server_msubh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
@@ -1882,7 +1881,7 @@ int test_case_t_u(char tc, uint32_t destid)
 	uint32_t  server_msub_len_rb;
 	ms_h	  server_msh_rb;
 	conn_h	  connh;
-	ret = rdma_conn_ms_h(16, destid, "rem_ms", client_msubh,
+	ret = rdma_conn_ms_h(16, destid, "rem_ms", 0,
 				&connh, &server_msubh_rb,
 				&server_msub_len_rb, &server_msh_rb, 30);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
@@ -1893,7 +1892,7 @@ int test_case_t_u(char tc, uint32_t destid)
 	 * the ms on the server and processes the incoming destroy message. */
 	if (tc == 't') {
 		/* Now disconnect from server */
-		ret = rdma_disc_ms_h(connh, server_msh_rb, client_msubh);
+		ret = rdma_disc_ms_h(connh, server_msh_rb, 0);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 	}
 

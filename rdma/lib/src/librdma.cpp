@@ -1598,7 +1598,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
  *
  * @returns         difference
  */
-static struct timespec time_difference( struct timespec start, struct timespec end )
+static struct timespec time_difference( struct timespec start,
+					struct timespec end )
 {
 	struct timespec temp;
 
@@ -1632,14 +1633,15 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		/* Check that library has been initialized */
 		LIB_INIT_CHECK(rc);
 
-		/* Remote msubh pointer cannot point to NULL */
+		/* Check for null parameters */
 		if (!rem_msubh || !rem_msname || !rem_msub_len || !rem_msh) {
-			ERR("Null parameter(s) passed.\n");
+			ERR("NULL parameter(s) passed.\n");
 			ERR("rem_msubh=%p,rem_msname=%p,rem_msub_len=%p,rem_msh=%p\n",
 				rem_msubh, rem_msname, rem_msub_len, rem_msh);
 			throw RDMA_NULL_PARAM;
 		}
 
+		/* Ensure timeout is > 0 or things will fail */
 		if (timeout_secs == 0) {
 			ERR("Timeout cannot be 0\n");
 			throw RDMA_NULL_PARAM;
@@ -1658,7 +1660,6 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			throw RDMA_NAME_TOO_LONG;
 		}
 
-		loc_msub *client_msub = (loc_msub *)loc_msubh;
 
 		INFO("Connecting to '%s' on destid(0x%X)\n", rem_msname, rem_destid);
 
@@ -1681,7 +1682,11 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		DBG("client_destid_len = 0x%X\n", connect_msg->client_destid_len);
 		DBG("client_destid     = 0x%X\n", connect_msg->client_destid);
 		DBG("seq_num           = 0x%X\n", connect_msg->seq_num);
-		if (client_msub != NULL) {
+
+		loc_msub *client_msub = nullptr;
+		if (loc_msubh != 0) {
+			client_msub = (loc_msub *)loc_msubh;
+
 			connect_msg->client_msid 	 = client_msub->msid;
 			connect_msg->client_msubid	 = client_msub->msubid;
 			connect_msg->client_bytes	 = client_msub->bytes;
@@ -1698,7 +1703,8 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			DBG("connect_msg->client_rio_addr_hi = 0x%X\n",
 						connect_msg->client_rio_addr_hi);
 		} else {
-			HIGH("Client has provided a NULL msubh\n");
+			HIGH("Client has provided a 0 msubh\n");
+			connect_msg->client_msubid = NULL_MSUBID;
 		}
 
 		struct timespec	before, after, rtt;
@@ -1773,6 +1779,12 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		}
 
 		/* Store info about remote msub in database and return handle */
+		uint32_t client_msid;
+		if (client_msub != nullptr) {
+			client_msid = client_msub->msid;
+		} else {
+			client_msid = NULL_MSID;
+		}
 		*rem_msubh = (msub_h)add_rem_msub(accept_msg->server_msubid,
 						accept_msg->server_msid,
 						accept_msg->server_msub_bytes,
@@ -1781,7 +1793,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 						accept_msg->server_rio_addr_hi,
 						accept_msg->server_destid_len,
 						accept_msg->server_destid,
-						find_loc_ms(client_msub->msid));
+						client_msid);
 		if (*rem_msubh == (msub_h)NULL) {
 			throw RDMA_DB_ADD_FAIL;
 		}
@@ -1878,12 +1890,14 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		 * that memory space's object */
 		in_msg.send_disconnect_in.server_msid	 = server_ms->msid;
 
-		/* If we had provided a local msub to the server, we need to tell the server
-		 * its msubid so it can delete it from tis remote databse */
-		if (client_msubh) {
+		/* If we had provided a local msub to the server, we need to
+		 * tell the server its msubid so the server can delete the msub
+		 * from tis remote databse. Otherwise send a NULL_MSUBID */
+		if (client_msubh != 0)
 			in_msg.send_disconnect_in.client_msubid =
 						((loc_msub *)client_msubh)->msubid;
-		}
+		else
+			in_msg.send_disconnect_in.client_msubid = NULL_MSUBID;
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
@@ -1936,7 +1950,7 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		}
 
 		/* Get client msubid, if not null */
-		uint32_t client_msubid = 0;
+		uint32_t client_msubid = 0xFFFFFFFF;
 		if (client_msubh) {
 			client_msubid = ((rem_msub *)client_msubh)->msubid;
 		}

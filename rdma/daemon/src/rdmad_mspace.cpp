@@ -54,6 +54,7 @@
 #include "rdmad_ms_owners.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_main.h"
+#include "rdmad_unix_msg.h"
 
 using std::fill;
 using std::remove_if;
@@ -67,7 +68,7 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 		                current_ms_conn_id(MS_CONN_ID_START),
 		                connected_to(false), accepting(false),
 		                server_msubid(0), creator_tx_eng(nullptr),
-		                client_destid(0xFFFF), client_msubid(0),
+		                client_destid(0xFFFF), client_msubid(NULL_MSUBID),
 		                client_to_lib_tx_eng_h(0)
 {
 	INFO("name=%s, msid=0x%08X, rio_addr=0x%" PRIx64 ", size=0x%X\n",
@@ -304,7 +305,7 @@ int mspace::destroy()
 	accepting = false;    /* Not accepting connections either */
 	creator_tx_eng = nullptr;	/* No tx_eng associated therewith */
 	client_destid = 0xFFFF;
-	client_msubid = 0;
+	client_msubid = NULL_MSUBID;
 	client_to_lib_tx_eng_h = 0;
 
 	/* Remove memory space identifier from owner */
@@ -395,7 +396,7 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 	    (this->client_to_lib_tx_eng_h == client_to_lib_tx_eng_h)) {
 		INFO("Found connection info in creator of '%s'\n", name.c_str());
 		this->client_destid = 0xFFFF;
-		this->client_msubid = 0;
+		this->client_msubid = NULL_MSUBID;
 		this->client_to_lib_tx_eng_h = 0;
 		this->server_msubid = 0;
 		connected_to = false;
@@ -416,7 +417,7 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 			rc = -1;
 		} else {
 			it->client_destid = 0xFFFF;
-			it->client_msubid = 0;
+			it->client_msubid = NULL_MSUBID;
 			it->client_to_lib_tx_eng_h = 0;
 			it->connected_to = false;
 			it->server_msubid = 0;
@@ -447,7 +448,7 @@ void mspace::disconnect_from_destid(uint16_t client_destid)
 		INFO("%s disconnected from destid(0x%X)\n",
 						name.c_str(), client_destid);
 		this->client_destid = 0xFFFF;
-		this->client_msubid = 0;
+		this->client_msubid = NULL_MSUBID;
 		this->client_to_lib_tx_eng_h = 0;
 		this->server_msubid = 0;
 		this->connected_to = false;
@@ -464,7 +465,7 @@ void mspace::disconnect_from_destid(uint16_t client_destid)
 				INFO("%s disconnected from destid(0x%X)\n",
 						name.c_str(), u.client_destid);
 				u.client_destid = 0xFFFF;
-				u.client_msubid = 0;
+				u.client_msubid = NULL_MSUBID;
 				u.client_to_lib_tx_eng_h = 0;
 				u.server_msubid = 0;
 				u.connected_to = false;
@@ -490,7 +491,7 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 			send_disconnect_to_remote_daemon(client_msubid,
 							client_to_lib_tx_eng_h);
 		this->client_destid = 0xFFFF;
-		this->client_msubid = 0;
+		this->client_msubid = NULL_MSUBID;
 		this->client_to_lib_tx_eng_h = 0;
 		this->connected_to = false;
 		rc = 0;
@@ -509,7 +510,7 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 					send_disconnect_to_remote_daemon(client_msubid,
 								client_to_lib_tx_eng_h);
 				u.client_destid = 0xFFFF;
-				u.client_msubid = 0;
+				u.client_msubid = NULL_MSUBID;
 				u.client_to_lib_tx_eng_h = 0;
 				u.connected_to = false;
 				rc = 0;

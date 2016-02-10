@@ -260,7 +260,8 @@ int rdma_accept_ms_h(ms_h msh,
  * @param[in] destid: Destination ID of node hosting the memory space msh
  * @param[out] conn_h: Connection handle
  * @param[in] rem_msname: Remote memory space name
- * @param[in] loc_msubh: Handle to created local memory subspace
+ * @param[in] loc_msubh: Handle to created local memory subspace,
+ * 			 0 if not provided
  * @param[out] rem_msubh: Handle to remote memory subspace provided by server
  * @param[out] rem_msub_len: Remote memory subspace length in bytes
  * @param[out] rem_msh: Handle to remote memory space provided by server
@@ -290,7 +291,7 @@ int rdma_conn_ms_h(uint8_t destid_len,
  * @param[in] connh		Connection handle
  * @param[in] server_msh	Server memory space to disconnect from
  * @param[in] loc_msubh		Client memory subspace provided during
- * 				connection request. 0 if none.
+ * 				connection request, 0 if not provided.
  *
  * @return 0 if successful
  */

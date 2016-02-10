@@ -88,7 +88,7 @@ public:
 		connected_to(false),
 		server_msubid(0),
 		client_destid(0xFFFF),
-		client_msubid(0),
+		client_msubid(NULL_MSUBID),
 		client_to_lib_tx_eng_h(0)
 	{
 	}

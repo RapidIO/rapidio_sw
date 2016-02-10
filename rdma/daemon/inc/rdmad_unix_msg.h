@@ -104,6 +104,9 @@ struct type_name_entry {
 
 #define STRINGIFY(s) (#s)
 
+constexpr uint32_t NULL_MSUBID = 0xFFFFFFFF;
+constexpr uint32_t NULL_MSID   = 0xFFFFFFFF;
+
 constexpr type_name_entry type_name_table[] =
 {
 	{CREATE_MSO, STRINGIFY(CREATE_MSO)},
