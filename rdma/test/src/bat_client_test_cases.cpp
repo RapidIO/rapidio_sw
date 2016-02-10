@@ -1909,7 +1909,8 @@ free_server_mso:
 	BAT_EXPECT_RET(ret, 0, exit);
 
 exit:
-	fprintf(log_fp, "test_case %c %s\n",
+	if (ret == 0)
+		fprintf(log_fp, "test_case %c %s\n",
 					tc, (rc == 0) ? "PASSED" : "FAILED");
 
 	return 0;
