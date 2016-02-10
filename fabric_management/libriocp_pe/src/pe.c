@@ -659,6 +659,7 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 			return -ENODEV;
 		}
 
+		/* do maintenance request */
 		j = 3;
 		do {
 			ret = riocp_pe_maint_write(pe, efptr + RIO_PORT_N_MNT_REQ_CSR(port), RIO_MNT_REQ_CMD_IS);
@@ -668,6 +669,7 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 				return ret;
 			}
 
+			/* wait for valid maintenance response */
 			i = 5;
 			do {
 				ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_MNT_RSP_CSR(port), &lm_resp);
@@ -694,6 +696,7 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 
 		lm_resp = (lm_resp & RIO_PORT_N_MNT_RSP_ASTAT) >> 5;
 
+		/* update local outgoing ackid with peer expected inbound ackid */
 		ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_ACK_STS_CSR(port), &ackid_stat);
 		if (ret) {
 			RIOCP_ERROR("Unable to read RIO_PORT_N_ACK_STS_CSR(0x%08x) for port %u\n",
@@ -711,6 +714,7 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 			return ret;
 		}
 
+		/* clear local port errors */
 		ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_ERR_STS_CSR(port), &port_err_stat);
 		if (ret) {
 			RIOCP_ERROR("Unable to read RIO_PORT_N_ERR_STS_CSR(0x%08x) for port %u\n",
@@ -724,7 +728,7 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 			return ret;
 		}
 
-
+		/* read ackid again, maybe it changed in the mean time due to pending packets now sent out */
 		ret = riocp_pe_maint_read(pe, efptr + RIO_PORT_N_ACK_STS_CSR(port), &ackid_stat);
 		if (ret) {
 			RIOCP_ERROR("Unable to read RIO_PORT_N_ACK_STS_CSR(0x%08x) for port %u\n",
@@ -733,9 +737,19 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 		}
 
 		lm_resp = ackid_stat;
-		ackid_stat = ((((lm_resp&RIO_PORT_N_ACK_OUTBOUND)+1) << 24) & RIO_PORT_N_ACK_INBOUND) |
-				(((lm_resp&RIO_PORT_N_ACK_INBOUND)>>24) << 8) | ((lm_resp&RIO_PORT_N_ACK_INBOUND)>>24);
 
+		/* prepare far end ackid with well known values */
+		if (port_err_stat & RIO_PORT_N_ERR_STS_IDLE2_USED) {
+			ackid_stat = ((((lm_resp&RIO_PORT_N_ACK_OUTBOUND_IDLE2)+1) << 24) & RIO_PORT_N_ACK_INBOUND_IDLE2) |
+					(((lm_resp&RIO_PORT_N_ACK_INBOUND_IDLE2)>>24) << 8) | ((lm_resp&RIO_PORT_N_ACK_INBOUND_IDLE2)>>24);
+		} else {
+			ackid_stat = ((((lm_resp&RIO_PORT_N_ACK_OUTBOUND)+1) << 24) & RIO_PORT_N_ACK_INBOUND) |
+					(((lm_resp&RIO_PORT_N_ACK_INBOUND)>>24) << 8) | ((lm_resp&RIO_PORT_N_ACK_INBOUND)>>24);
+		}
+
+		/* assume that far end efptr is 0x100 */
+
+		/* update far end ackid */
 		ret = riocp_pe_maint_write_remote(pe->mport, any_id, pe->hopcount+1,
 				0x100 + RIO_PORT_N_ACK_STS_CSR(peer_port), ackid_stat);
 		if (ret < 0) {
@@ -743,8 +757,10 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 				peer_port, port, ackid_stat);
 		}
 
+		/* clear far end port pending errors */
 		ret = riocp_pe_maint_write_remote(pe->mport, any_id, pe->hopcount+1,
-				0x100 + RIO_PORT_N_ERR_STS_CSR(peer_port), (port_err_stat & 0xe0000000) | 0x07120214);
+				0x100 + RIO_PORT_N_ERR_STS_CSR(peer_port),
+				(port_err_stat & RIO_PORT_N_ERR_STS_IDLE2_MASK) | RIO_PORT_N_ERR_STS_CLEAR_ERR);
 		if (ret < 0) {
 			RIOCP_ERROR("Unable to clear errors on peer port %u for port %u\n",
 				peer_port, port);
