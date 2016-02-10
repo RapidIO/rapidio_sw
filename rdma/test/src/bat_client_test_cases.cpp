@@ -1889,9 +1889,9 @@ int test_case_t_u(char tc, uint32_t destid)
 
 	sleep(1);
 
-	/* Test case 'h' disconnects first. Test case 'i' destroys
+	/* Test case 't' disconnects first. Test case 'u' destroys
 	 * the ms on the server and processes the incoming destroy message. */
-	if (tc == 'h') {
+	if (tc == 't') {
 		/* Now disconnect from server */
 		ret = rdma_disc_ms_h(connh, server_msh_rb, client_msubh);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
@@ -2194,7 +2194,7 @@ int do_dma(msub_h client_msubh,
 	in.priority = 1;
 	in.sync_type = sync_type;
 
-	/* Temporarily to determine failure cause */
+	/* Temporary to determine failure cause */
 #if 0
 	LOG("client_msubh = 0x%016" PRIx64 ", server_msubh = 0x%016" PRIx64 "\n",
 			client_msubh, server_msubh);
