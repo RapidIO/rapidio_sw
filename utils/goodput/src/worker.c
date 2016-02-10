@@ -2333,7 +2333,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	int oi = 0;
 	uint64_t cnt = 0;
 	int iter = 0;
-	bool sim = false;
+        int FT_TEST = 0;
 
 	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
@@ -2351,7 +2351,12 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
                 goto exit;
         }
 
-	if (op == 'N' && GetEnv("sim") != NULL) { sim = true; info->umd_dch->setSim(); INFO("SIMULATION MODE - NREAD\n"); }
+	if (op == 'N') {
+		FT_TEST = (int)(GetEnv("sim") != NULL) << 1 | (int)(GetEnv("baddid") != NULL);
+		assert(FT_TEST != 0x3);
+		if (FT_TEST == 0x2) { info->umd_dch->setSim(); INFO("SIMULATION MODE - NREAD\n"); }
+		if (FT_TEST == 0x1) { INFO("Tsi721 FAULT MODE - NREAD\n"); }
+	}
 
 	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
 		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
@@ -2403,6 +2408,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
+
 	// TX Loop
 	for (cnt = 0; !info->stop_req; cnt++) {
 		info->dmaopt[oi].destid      = info->did;
@@ -2425,14 +2431,25 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 			int bd_q_cnt = 0;
 			int bd_f_cnt = 0;
-                	start_iter_stats(info);
-			if (GetEnv("sim") == NULL) {
+			if (! FT_TEST) {
+				start_iter_stats(info);
                 		if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
 				bd_q_cnt = 1;
-			} else {
+			} else { // XXX This is a Holly Mess of Spagetti code to exercise Fault Tolerance
 				// Can we recover/replay BD at sim+1 ?
-				const int N = GetDecParm("$sim", 0) + 1;
+				const int N = GetEnv("sim") != NULL?
+						 GetDecParm("$sim", -1) + 1:
+						 GetDecParm("$baddid", -1) + 1;
+				assert(N);
+				start_iter_stats(info);
 				for (int i = 0; !q_was_full && i < N; i++) {
+					info->dmaopt[oi].destid      = info->did;
+					info->dmaopt[oi].bcount      = info->acc_size;
+					info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
+
+					if (i == (GetDecParm("$baddid", -1) -1))
+						info->dmaopt[oi].destid = 0xDEAD;
+
 					if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
 					bd_q_cnt++;
 
@@ -2443,12 +2460,22 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 					// Wrap around, do no overwrite last buffer entry
 					oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
 				}
+
+				std::string s;
+      				info->umd_dch->dumpBDs(s);
+			        DBG("\n\tAfter fault enq [oi=%d] %s: %s\n", oi, (q_was_full? " queue FULL": ""),  s.c_str());
 			}
 
-			if (sim) info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
+			if (FT_TEST == 0x2) info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
 
 			DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
-			while (!q_was_full && !info->stop_req && (bd_f_cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8)) == 0) { ; }
+			while (!q_was_full && !info->stop_req && (bd_f_cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8)) == 0) {
+				if (FT_TEST == 0x1 && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) break;
+			}
+			if (FT_TEST == 0x1 && !q_was_full && !info->stop_req) {
+				usleep(500);
+				bd_f_cnt += info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
+			}
 
 			// XXX check for errors, nuke faulting BD, do softRestart
 			if (q_was_full || bd_f_cnt < bd_q_cnt) {
@@ -2485,7 +2512,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 				const int pending = info->umd_dch->cleanupBDQueue(false /*multithreaded_fifo*/);
 
 				info->umd_dch->softRestart(pending == 0); // Wipe clean BD queue if no outstanding
-				info->umd_dch->simFIFO(0, 0); // No faults after a restart to process all T3 BDs
+				if (FT_TEST == 0x2) info->umd_dch->simFIFO(0, 0); // No faults after a restart to process all T3 BDs
 			}
 
                 	finish_iter_stats(info);

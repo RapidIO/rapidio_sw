@@ -352,8 +352,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 #ifdef DEBUG_BD
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
-  DBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n",
-      wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.opt.bd_wp);
+  DBG("\n\tQueued DTYPE%d op=%s did=0x%x as BD HW @0x%lx bd_wp=%d\n",
+      wk.opt.dtype, dma_rtype_str[rtype], wk.opt.destid, m_dmadesc.win_handle + offset, wk.opt.bd_wp);
 
   if(queued_T3)
      DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_T3_bd_hw, wk_end.opt.bd_wp);
@@ -1062,13 +1062,15 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 
 #ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
-    DBG("DMA %sRP=%d WP=%d m_bl_busy_size=%d\n",
+    uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
+
+    DBG("DMA %sRP=%d WP=sw%d/hw%d m_bl_busy_size=%d\n",
         m_sim? "sim": "Tsi721",
-        m_sim? m_sim_dma_rp: getReadCount(),
-        m_dma_wr, m_bl_busy_size);
+        rp,
+        m_dma_wr, getWriteCount(),
+        m_bl_busy_size);
 
     std::stringstream ss;
-    uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
     const int badidx = rp % m_bd_num;
     assert(badidx != (m_bd_num-1));
     for (int idx = 0; idx < m_bd_num; idx++) {
