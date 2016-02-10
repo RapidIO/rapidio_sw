@@ -168,7 +168,7 @@ void ibwin::free()
 	pthread_mutex_unlock(&mspaces_lock);
 
 	/* Free inbound window */
-	INFO("win_num = %d, phys_addr = 0x%16" PRIx64 "\n",
+	INFO("win_num = %d, phys_addr = 0x%016" PRIx64 "\n",
 			win_num, phys_addr);
 	int ret = riomp_dma_ibwin_free(mport_hnd, &phys_addr);
 	if (ret) {
