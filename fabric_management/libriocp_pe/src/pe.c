@@ -24,6 +24,8 @@
 #include "rio_regs.h"
 #include "rio_devs.h"
 
+#define CONFIG_LINK_SYNC_FAR_LM_REQ 1
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -758,6 +760,17 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 		}
 
 		/* clear far end port pending errors */
+#ifdef CONFIG_LINK_SYNC_FAR_LM_REQ
+		for (i=0;i<2;i++) {
+			ret = riocp_pe_maint_write_remote(pe->mport, any_id, pe->hopcount+1,
+					0x100 + RIO_PORT_N_MNT_REQ_CSR(port), RIO_MNT_REQ_CMD_IS);
+			if (ret < 0) {
+				RIOCP_ERROR("Unable to clear errors on peer port %u for port %u by LM_REQ\n",
+					peer_port, port);
+				return ret;
+			}
+		}
+#else
 		ret = riocp_pe_maint_write_remote(pe->mport, any_id, pe->hopcount+1,
 				0x100 + RIO_PORT_N_ERR_STS_CSR(peer_port),
 				(port_err_stat & RIO_PORT_N_ERR_STS_IDLE2_MASK) | RIO_PORT_N_ERR_STS_CLEAR_ERR);
@@ -766,6 +779,7 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 				peer_port, port);
 			return ret;
 		}
+#endif
 	}
 
 	RIOCP_TRACE("Peer link sync on pe 0x%08x:%u successful\n", pe->comptag, port);
