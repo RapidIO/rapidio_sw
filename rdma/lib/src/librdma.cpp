@@ -1453,28 +1453,31 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		loc_ms	 *server_ms = (loc_ms *)loc_msh;
 		loc_msub *server_msub = (loc_msub *)loc_msubh;
 
-		/* Tell the daemon to flag this memory space as accepting
-		 * connections for this application. */
-		unix_msg_t accept_in_msg;
-		accept_in_msg.type     = ACCEPT_MS;
-		accept_in_msg.category = RDMA_REQ_RESP;
-		accept_in_msg.accept_in.server_msid	  = server_ms->msid;
-		accept_in_msg.accept_in.server_msubid	  = server_msub->msubid;
+		{
+			/* Tell the daemon to flag this memory space as accepting
+			 * connections for this application. */
+			unix_msg_t accept_in_msg;
+			accept_in_msg.type     = ACCEPT_MS;
+			accept_in_msg.category = RDMA_REQ_RESP;
+			accept_in_msg.accept_in.server_msid = server_ms->msid;
+			accept_in_msg.accept_in.server_msubid
+							= server_msub->msubid;
 
-		DBG("name = '%s'\n", server_ms->name);
+			DBG("name = '%s'\n", server_ms->name);
 
-		/* Call into daemon */
-		unix_msg_t  accept_out_msg;
-		rc = daemon_call(&accept_in_msg, &accept_out_msg);
-		if (rc ) {
-			ERR("Failed in ACCEPT_MS daemon_call, rc = %d\n", rc);
-			throw rc;
-		}
+			/* Call into daemon */
+			unix_msg_t  accept_out_msg;
+			rc = daemon_call(&accept_in_msg, &accept_out_msg);
+			if (rc ) {
+				ERR("Failed in ACCEPT_MS daemon_call, rc = 0x%X\n", rc);
+				throw rc;
+			}
 
-		/* Failed in daemon? */
-		if (accept_out_msg.accept_out.status) {
-			ERR("Failed to accept (ms) in daemon\n");
-			throw accept_out_msg.accept_out.status;
+			/* Failed in daemon? */
+			if (accept_out_msg.accept_out.status) {
+				ERR("Failed to accept (ms) in daemon\n");
+				throw accept_out_msg.accept_out.status;
+			}
 		}
 
 		/* Await connect message */
@@ -1543,6 +1546,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		connect_ms_resp_in_msg.seq_no   = conn_req_msg->seq_num;
 		conn_to_ms_resp->client_msid    = conn_req_msg->client_msid;
 		conn_to_ms_resp->client_msubid	= conn_req_msg->client_msubid;
+		conn_to_ms_resp->server_msid = server_ms->msid;
 		conn_to_ms_resp->server_msubid  = server_msub->msubid;
 		conn_to_ms_resp->server_msub_bytes = server_msub->bytes;
 		conn_to_ms_resp->server_rio_addr_len = server_msub->rio_addr_len;
@@ -1553,6 +1557,20 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		conn_to_ms_resp->client_destid = conn_req_msg->client_destid;
 		conn_to_ms_resp->client_to_lib_tx_eng_h =
 					conn_req_msg->client_to_lib_tx_eng_h;
+
+		DBG("CONNECT_MS_RESP to server daemon\n");
+		DBG("conn_to_ms_resp->server_msid = 0x%X\n",
+						conn_to_ms_resp->server_msid);
+		DBG("conn_to_ms_resp->server_msubid = 0x%X\n",
+						conn_to_ms_resp->server_msubid);
+		DBG("conn_to_ms_resp->server_msub_bytes = 0x%X\n",
+					conn_to_ms_resp->server_msub_bytes);
+		DBG("conn_to_ms_resp->server_rio_addr_len = 0x%X\n",
+					conn_to_ms_resp->server_rio_addr_len);
+		DBG("conn_to_ms_resp->server_rio_addr_lo = 0x%X\n",
+					conn_to_ms_resp->server_rio_addr_lo);
+		DBG("conn_to_ms_resp->server_rio_addr_hi = 0x%X\n",
+					conn_to_ms_resp->server_rio_addr_hi);
 		/* Call into daemon */
 		unix_msg_t connect_ms_resp_out_msg;
 		rc = daemon_call(&connect_ms_resp_in_msg, &connect_ms_resp_out_msg);

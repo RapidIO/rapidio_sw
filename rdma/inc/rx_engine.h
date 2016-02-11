@@ -256,7 +256,7 @@ protected:
 					/* Process request/resp by forwarding to message processor */
 					rc = message_processor.process_msg(msg, tx_eng);
 					if (rc) {
-						ERR("Failed to process message, rc = %d\n", rc);
+						ERR("Failed to process message, rc = 0x%X\n", rc);
 					}
 				} else {
 					CRIT("Unhandled msg->category = 0x%X\n",
