@@ -1465,7 +1465,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 
 		/* Call into daemon */
 		unix_msg_t  accept_out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(&accept_in_msg, &accept_out_msg);
 		if (rc ) {
 			ERR("Failed in ACCEPT_MS daemon_call, rc = %d\n", rc);
 			throw rc;
@@ -1474,7 +1474,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		/* Failed in daemon? */
 		if (accept_out_msg.accept_out.status) {
 			ERR("Failed to accept (ms) in daemon\n");
-			throw out_msg.accept_out.status;
+			throw accept_out_msg.accept_out.status;
 		}
 
 		/* Await connect message */
@@ -1528,9 +1528,9 @@ int rdma_accept_ms_h(ms_h loc_msh,
 					conn_req_msg->client_destid_len);
 		DBG("client_destid     = 0x%X\n", conn_req_msg->client_destid);
 		DBG("seq_num           = 0x%X\n", conn_req_msg->seq_num);
-		DBG("connh             = 0x%X\n", conn_msg->connh);
+		DBG("connh             = 0x%X\n", conn_req_msg->connh);
 		DBG("client_to_lib_tx_eng_h = 0x%X\n",
-					conn_msg->client_to_lib_tx_eng_h);
+					conn_req_msg->client_to_lib_tx_eng_h);
 
 		*connh = conn_req_msg->connh;	/* Conn. handle sent by client */
 
