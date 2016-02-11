@@ -1455,16 +1455,16 @@ int rdma_accept_ms_h(ms_h loc_msh,
 
 		/* Tell the daemon to flag this memory space as accepting
 		 * connections for this application. */
-		unix_msg_t in_msg;
-		in_msg.type     = ACCEPT_MS;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.accept_in.server_msid	  = server_ms->msid;
-		in_msg.accept_in.server_msubid	  = server_msub->msubid;
+		unix_msg_t accept_in_msg;
+		accept_in_msg.type     = ACCEPT_MS;
+		accept_in_msg.category = RDMA_REQ_RESP;
+		accept_in_msg.accept_in.server_msid	  = server_ms->msid;
+		accept_in_msg.accept_in.server_msubid	  = server_msub->msubid;
 
 		DBG("name = '%s'\n", server_ms->name);
 
 		/* Call into daemon */
-		unix_msg_t  out_msg;
+		unix_msg_t  accept_out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
 			ERR("Failed in ACCEPT_MS daemon_call, rc = %d\n", rc);
@@ -1472,75 +1472,104 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 
 		/* Failed in daemon? */
-		if (out_msg.accept_out.status) {
+		if (accept_out_msg.accept_out.status) {
 			ERR("Failed to accept (ms) in daemon\n");
 			throw out_msg.accept_out.status;
 		}
 
 		/* Await connect message */
+		unix_msg_t connect_ms_req_msg;
 		rc = await_message(RDMA_LIB_DAEMON_CALL,
 				   CONNECT_MS_REQ,
 				   0,
 				   timeout_secs,
-				   &out_msg);
+				   &connect_ms_req_msg);
 		if (rc) {
-			ERR("Failed to receive CONNECT_MS_REQ for '%s'\n", server_ms->name);
-			/* Switch back the ms to non-accepting mode for this app */
-			in_msg.type     = UNDO_ACCEPT;
-			in_msg.category = RDMA_REQ_RESP;
-			in_msg.accept_in.server_msid = server_ms->msid;
-
+			ERR("Failed to receive CONNECT_MS_REQ for '%s'\n",
+							server_ms->name);
+			/* Switch back the ms to non-accepting mode */
+			unix_msg_t undo_accept_in_msg;
+			undo_accept_in_msg.type     = UNDO_ACCEPT;
+			undo_accept_in_msg.category = RDMA_REQ_RESP;
+			undo_accept_in_msg.accept_in.server_msid
+							= server_ms->msid;
 			/* Call into daemon */
-			unix_msg_t  out_msg;
-			rc = daemon_call(&in_msg, &out_msg);
+			unix_msg_t  undo_accept_out_msg;
+			rc = daemon_call(&undo_accept_in_msg, &undo_accept_out_msg);
 			if (rc ) {
 				ERR("Failed in UNDO_ACCEPT daemon_call, rc = %d\n", rc);
 				throw rc;
 			}
 
 			/* Failed in daemon? */
-			if (out_msg.undo_accept_out.status) {
+			if (undo_accept_out_msg.undo_accept_out.status) {
 				ERR("Failed to undo accept (ms) in daemon\n");
-				throw out_msg.undo_accept_out.status;
+				throw undo_accept_out_msg.undo_accept_out.status;
 			}
 			throw RDMA_ACCEPT_TIMEOUT;
 		}
 
 		/* Shorter form */
-		connect_to_ms_req_input *conn_req_msg = &out_msg.connect_to_ms_req;
+		connect_to_ms_req_input *conn_req_msg
+						= &connect_ms_req_msg.connect_to_ms_req;
 
-		*connh = conn_req_msg->connh;	/* Connection handle sent by client */
+		DBG("CONNECT_MS_REQ message received from daemon:\n");
+		DBG("client_msid = 0x%X\n", conn_req_msg->client_msid);
+		DBG("client_msubid = 0x%X\n", conn_req_msg->client_msubid);
+		DBG("client_msub_bytes = 0x%X\n",
+					conn_req_msg->client_msub_bytes);
+		DBG("client_rio_addr_len = 0x%X\n",
+					conn_req_msg->client_rio_addr_len);
+		DBG("client_rio_addr_lo = 0x%016" PRIx64 "\n",
+					conn_req_msg->client_rio_addr_lo);
+		DBG("client_rio_addr_hi = 0x%X\n",
+					conn_req_msg->client_rio_addr_hi);
+		DBG("client_destid_len = 0x%X\n",
+					conn_req_msg->client_destid_len);
+		DBG("client_destid     = 0x%X\n", conn_req_msg->client_destid);
+		DBG("seq_num           = 0x%X\n", conn_req_msg->seq_num);
+		DBG("connh             = 0x%X\n", conn_msg->connh);
+		DBG("client_to_lib_tx_eng_h = 0x%X\n",
+					conn_msg->client_to_lib_tx_eng_h);
+
+		*connh = conn_req_msg->connh;	/* Conn. handle sent by client */
 
 		/* Now reply to the CONNECT_MS_REQ sith CONNECT_MS_RESP */
-		in_msg.type = CONNECT_MS_RESP;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.seq_no   = out_msg.seq_no;
-		in_msg.connect_to_ms_resp_in.client_msid  = conn_req_msg->client_msid;		// FIXME
-		in_msg.connect_to_ms_resp_in.client_msubid = conn_req_msg->client_msubid;	// Needed?
-		in_msg.connect_to_ms_resp_in.server_msubid       = server_msub->msubid;
-		in_msg.connect_to_ms_resp_in.server_msub_bytes   = server_msub->bytes;
-		in_msg.connect_to_ms_resp_in.server_rio_addr_len = server_msub->rio_addr_len;
-		in_msg.connect_to_ms_resp_in.server_rio_addr_lo  = server_msub->rio_addr_lo;
-		in_msg.connect_to_ms_resp_in.server_rio_addr_hi  = server_msub->rio_addr_hi;
-		in_msg.connect_to_ms_resp_in.client_destid_len   = conn_req_msg->client_destid_len;
-		in_msg.connect_to_ms_resp_in.client_destid	 = conn_req_msg->client_destid;
-		in_msg.connect_to_ms_resp_in.client_to_lib_tx_eng_h = conn_req_msg->client_to_lib_tx_eng_h;
-
+		unix_msg_t connect_ms_resp_in_msg;
+		connect_to_ms_resp_input *conn_to_ms_resp =
+				&connect_ms_resp_in_msg.connect_to_ms_resp_in;
+		connect_ms_resp_in_msg.type = CONNECT_MS_RESP;
+		connect_ms_resp_in_msg.category = RDMA_REQ_RESP;
+		connect_ms_resp_in_msg.seq_no   = conn_req_msg->seq_num;
+		conn_to_ms_resp->client_msid    = conn_req_msg->client_msid;
+		conn_to_ms_resp->client_msubid	= conn_req_msg->client_msubid;
+		conn_to_ms_resp->server_msubid  = server_msub->msubid;
+		conn_to_ms_resp->server_msub_bytes = server_msub->bytes;
+		conn_to_ms_resp->server_rio_addr_len = server_msub->rio_addr_len;
+		conn_to_ms_resp->server_rio_addr_lo = server_msub->rio_addr_lo;
+		conn_to_ms_resp->server_rio_addr_hi = server_msub->rio_addr_hi;
+		conn_to_ms_resp->client_destid_len =
+						conn_req_msg->client_destid_len;
+		conn_to_ms_resp->client_destid = conn_req_msg->client_destid;
+		conn_to_ms_resp->client_to_lib_tx_eng_h =
+					conn_req_msg->client_to_lib_tx_eng_h;
 		/* Call into daemon */
-		rc = daemon_call(&in_msg, &out_msg);
+		unix_msg_t connect_ms_resp_out_msg;
+		rc = daemon_call(&connect_ms_resp_in_msg, &connect_ms_resp_out_msg);
 		if (rc ) {
 			ERR("Failed in CONNECT_MS_RESP daemon_call, rc = %d\n", rc);
 			throw rc;
 		}
 
 		/* Failed in daemon? */
-		if (out_msg.connect_to_ms_resp_out.status) {
+		if (connect_ms_resp_out_msg.connect_to_ms_resp_out.status) {
 			ERR("Failed to CONNECT_MS_RESP (ms) in daemon\n");
-			throw out_msg.connect_to_ms_resp_out.status;
+			throw connect_ms_resp_out_msg.connect_to_ms_resp_out.status;
 		}
 
 		/* Store connection handle with server_msub */
-		DBG("Storing connh = %" PRIx64 "\n", *connh)
+		DBG("Storing connh = %, in server_msub's database entry"
+							PRIx64 "\n", *connh);
 		server_msub->conn_handles.push_back(*connh);
 
 		/* Store info about client msub in database and return handle,
@@ -1671,13 +1700,6 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		connect_msg->client_destid	= peer.destid;
 		connect_msg->seq_num		= seq_num++;
 		connect_msg->connh		= *connh;
-		DBG("server_msname     = %s\n", connect_msg->server_msname);
-		DBG("server_destid_len = 0x%X\n", connect_msg->server_destid_len);
-		DBG("server_destid     = 0x%X\n", connect_msg->server_destid);
-		DBG("client_destid_len = 0x%X\n", connect_msg->client_destid_len);
-		DBG("client_destid     = 0x%X\n", connect_msg->client_destid);
-		DBG("seq_num           = 0x%X\n", connect_msg->seq_num);
-		DBG("connh             = 0x%X\n", connect_msg->connh);
 
 		loc_msub *client_msub = nullptr;
 		if (loc_msubh != 0) {
@@ -1689,19 +1711,34 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			connect_msg->client_rio_addr_len = client_msub->rio_addr_len;
 			connect_msg->client_rio_addr_lo  = client_msub->rio_addr_lo;
 			connect_msg->client_rio_addr_hi  = client_msub->rio_addr_hi;
-			DBG("client_msid = 0x%X\n", connect_msg->client_msid);
-			DBG("client_msubid = 0x%X\n", connect_msg->client_msubid);
-			DBG("client_bytes = 0x%X\n", connect_msg->client_bytes);
-			DBG("connect_msg->client_rio_addr_len = 0x%X\n",
-						connect_msg->client_rio_addr_len);
-			DBG("connect_msg->client_rio_addr_lo = 0x%016" PRIx64 "\n",
-						connect_msg->client_rio_addr_lo);
-			DBG("connect_msg->client_rio_addr_hi = 0x%X\n",
-						connect_msg->client_rio_addr_hi);
 		} else {
 			HIGH("Client has provided a 0 msubh\n");
 			connect_msg->client_msubid = NULL_MSUBID;
+			/* Populate the fields with 0s instead of garbage */
+			connect_msg->client_msid = 0;
+			connect_msg->client_bytes = 0;
+			connect_msg->client_rio_addr_len = 0;
+			connect_msg->client_rio_addr_lo = 0;
+			connect_msg->client_rio_addr_hi = 0;
 		}
+
+		DBG("Contents of SEND_CONNECT message to daemon:\n");
+		DBG("server_msname     = %s\n", connect_msg->server_msname);
+		DBG("server_destid_len = 0x%X\n", connect_msg->server_destid_len);
+		DBG("server_destid     = 0x%X\n", connect_msg->server_destid);
+		DBG("client_destid_len = 0x%X\n", connect_msg->client_destid_len);
+		DBG("client_destid     = 0x%X\n", connect_msg->client_destid);
+		DBG("seq_num           = 0x%X\n", connect_msg->seq_num);
+		DBG("connh             = 0x%X\n", connect_msg->connh);
+		DBG("client_msid = 0x%X\n", connect_msg->client_msid);
+		DBG("client_msubid = 0x%X\n", connect_msg->client_msubid);
+		DBG("client_bytes = 0x%X\n", connect_msg->client_bytes);
+		DBG("client_rio_addr_len = 0x%X\n",
+					connect_msg->client_rio_addr_len);
+		DBG("client_rio_addr_lo = 0x%016" PRIx64 "\n",
+					connect_msg->client_rio_addr_lo);
+		DBG("client_rio_addr_hi = 0x%X\n",
+					connect_msg->client_rio_addr_hi);
 
 		struct timespec	before, after, rtt;
 

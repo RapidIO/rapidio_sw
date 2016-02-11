@@ -218,6 +218,7 @@ int rdmad_send_connect(const char *server_ms_name,
 	DBG("c->client_destid_len = 0x%016" PRIx64 "\n", be64toh(c->client_destid_len));
 	DBG("c->client_destid = 0x%016" PRIx64 "\n", be64toh(c->client_destid));
 	DBG("c->seq_num = 0x%016" PRIx64 "\n", be64toh(c->seq_num));
+	DBG("c->connh = 0x%" PRIx64 "\n", be64toh(c->connh));
 	main_client->dump_send_buffer();
 
 	/* Send buffer to server */
