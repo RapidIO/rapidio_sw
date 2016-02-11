@@ -303,7 +303,7 @@ int accept_ms_thread_f(bat_connection *bat_conn, ms_h server_msh,
 	return rc;
 } /* accept_ms_thread_f() */
 
-int server_disconnect_ms(bat_connection *bat_conn, conn_h connh,
+int server_disconnect_ms(bat_connection *bat_conn,
 		 	 	 	 ms_h server_msh, msub_h client_msubh)
 {
 	int rc = 0;
@@ -313,7 +313,6 @@ int server_disconnect_ms(bat_connection *bat_conn, conn_h connh,
 
 	/* Populate the server_disconnect_ms message */
 	bm_tx->type = SERVER_DISCONNECT_MS;
-	bm_tx->server_disconnect_ms.connh = connh;
 	bm_tx->server_disconnect_ms.server_msh = server_msh;
 	bm_tx->server_disconnect_ms.client_msubh = client_msubh;
 

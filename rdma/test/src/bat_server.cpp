@@ -120,6 +120,8 @@ int main(int argc, char *argv[])
 		bat_msg_t *bm_rx = (bat_msg_t *)buf_rx;
 		bat_msg_t *bm_tx = (bat_msg_t *)buf_tx;
 
+		conn_h   connh;	/* LAST connection from an RDMA client */
+
 		puts("Accepting connections...");
 		if (bat_server->accept()) {
 			fprintf(stderr, "bat_server->accept() failed\n");
@@ -225,7 +227,6 @@ int main(int argc, char *argv[])
 			{
 				uint32_t dummy_client_msub_len;
 				msub_h	 dummy_client_msubh;
-				conn_h   connh;
 				/* This call is blocking. */
 				int ret = rdma_accept_ms_h(bm_rx->accept_ms.server_msh,
 							 bm_rx->accept_ms.server_msubh,
@@ -244,7 +245,8 @@ int main(int argc, char *argv[])
 						&accept_thread_f,
 						bm_rx->accept_ms.server_msh,
 						bm_rx->accept_ms.server_msubh);
-
+				printf("*** bm_rx->accept_ms>server_msh = %" PRIx64 "\n",
+						bm_rx->accept_ms.server_msh);
 				/* Store handle so we can join at the end of the test case */
 				accept_thread_list.push_back(std::move(accept_thread));
 			}
@@ -254,9 +256,11 @@ int main(int argc, char *argv[])
 			{
 				bm_tx->server_disconnect_ms_ack.ret =
 					rdma_disc_ms_h(
-					bm_rx->server_disconnect_ms.connh,
+					connh,	/* Written in ACCEPT_MS */
 					bm_rx->server_disconnect_ms.server_msh,
 					bm_rx->server_disconnect_ms.client_msubh);
+				printf("*** bm_rx->server_disconnect_ms.server_msh = %" PRIx64 "\n",
+						bm_rx->server_disconnect_ms.server_msh);
 				CHECK_BROKEN_PIPE(bm_tx->server_disconnect_ms_ack.ret);
 				bm_tx->type = SERVER_DISCONNECT_MS_ACK;
 				BAT_SEND();

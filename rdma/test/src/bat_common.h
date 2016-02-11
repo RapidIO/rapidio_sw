@@ -156,7 +156,6 @@ struct accept_ms_t {
 
 /* Server-disconnect specified ms_h */
 struct server_disconnect_ms_t {
-	uint64_t	connh;
 	uint64_t	server_msh;
 	uint64_t	client_msubh;
 };

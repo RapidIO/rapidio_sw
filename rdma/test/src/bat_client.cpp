@@ -84,10 +84,11 @@ int main(int argc, char *argv[])
 			puts("'l' Test coalescing of random equal memory spaces");
 			puts("'m' Test concurrent creation of ms, msub, accept, connect, disconnect");
 			puts("'n' Create mso/ms on server, open mso/ms on user, close, then destroy");
+			puts("'o' Test server-side disconnection with 0 client msub");
 
 			/* Old test cases */
-			puts("'t' Accept/Connect/Disconnect test");
-			puts("'u' Accept/Connect/Destroy test");
+			puts("'t' Accept/Connect/Disconnect test with 0 client msub");
+			puts("'u' Accept/Connect/Destroy test with 0 client msub");
 			puts("'v' Accept/Connect then kill remote app");
 			puts("'w' Accept/Connect then kill remote daemon");
 			puts("'x' Create local mso, die, then try to open");
@@ -234,6 +235,10 @@ int main(int argc, char *argv[])
 		test_case_n();
 		bat_eot(num_channels);
 		break;
+	case 'o':
+		test_case_o(destid);
+		bat_eot(1);
+		break;
 
 		/* Old test cases */
 	case 't':
@@ -296,6 +301,7 @@ int main(int argc, char *argv[])
 			test_case_m(destid);
 #endif
 			test_case_n();
+			test_case_o(destid);
 
 			/* Old test cases */
 			test_case_t_u('t', destid);

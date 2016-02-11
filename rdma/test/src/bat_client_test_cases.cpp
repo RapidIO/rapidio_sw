@@ -1834,20 +1834,21 @@ int test_case_o(uint32_t destid)
 	int ret, rc;
 
 	/* Create server mso */
-	mso_h	server_msoh;
-	ret = create_mso_f(bat_connections[0], "rem_mso", &server_msoh);
+	mso_h	server_msoh_rb;
+	ret = create_mso_f(bat_connections[0], "rem_mso", &server_msoh_rb);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 	/* Create server ms of size 64K */
-	ms_h	server_msh;
-	ret = create_ms_f(bat_connections[0], "rem_ms", server_msoh, 64*1024, 0,
-			  	  	  	  &server_msh, NULL);
+	ms_h	server_msh_rb;
+	ret = create_ms_f(bat_connections[0], "rem_ms", server_msoh_rb, 64*1024, 0,
+			  	  	  	  &server_msh_rb, NULL);
+	printf("*** server_msh_rb = 0x%" PRIx64 "\n", server_msh_rb);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create msub of size 4K on server */
-	msub_h  server_msubh;
-	ret = create_msub_f(bat_connections[0], server_msh, 0, 4*1024, 0,
-								&server_msubh);
+	msub_h  server_msubh_rb;
+	ret = create_msub_f(bat_connections[0], server_msh_rb, 0, 4*1024, 0,
+								&server_msubh_rb);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create a client mso */
@@ -1862,26 +1863,25 @@ int test_case_o(uint32_t destid)
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	/* Accept on ms on the server */
-	ret = accept_ms_thread_f(bat_connections[0], server_msh, server_msubh);
+	ret = accept_ms_f(bat_connections[0], server_msh_rb, server_msubh_rb);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	sleep(1);
 
 	/* Connect to server */
-	msub_h	  server_msubh_rb;
-	uint32_t  server_msub_len_rb;
-	ms_h	  server_msh_rb;
+	msub_h	  server_msubh;
+	uint32_t  server_msub_len;
+	ms_h	  server_msh;
 	conn_h	  connh;
 	ret = rdma_conn_ms_h(16, destid, "rem_ms", 0,
-				&connh, &server_msubh_rb,
-				&server_msub_len_rb, &server_msh_rb, 30);
+				&connh, &server_msubh,
+				&server_msub_len, &server_msh, 30);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	sleep(1);
 
 	/* Do a server-disconnect on the 'ms' */
-	ret = server_disconnect_ms(bat_connections[0],
-				connh, server_msh_rb, 0);
+	ret = server_disconnect_ms(bat_connections[0], server_msh_rb, 0);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	rc = ret;	/* 'ret' is overwritten during destruction */
@@ -1893,7 +1893,7 @@ free_client_mso:
 
 free_server_mso:
 	/* Delete the server mso */
-	ret = destroy_mso_f(bat_connections[0], server_msoh);
+	ret = destroy_mso_f(bat_connections[0], server_msoh_rb);
 	BAT_EXPECT_RET(ret, 0, exit);
 
 exit:
