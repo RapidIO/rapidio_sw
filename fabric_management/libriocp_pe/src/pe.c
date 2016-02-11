@@ -749,6 +749,15 @@ int riocp_pe_link_sync_peer(struct riocp_pe *pe, uint8_t port, uint8_t peer_port
 					(((lm_resp&RIO_PORT_N_ACK_INBOUND)>>24) << 8) | ((lm_resp&RIO_PORT_N_ACK_INBOUND)>>24);
 		}
 
+		/* set route to host */
+		ret = riocp_pe_switch_set_route_entry(pe, port, pe->mport->destid,
+				(uint8_t)RIO_GET_PORT_NUM(pe->cap.sw_port));
+		if (ret) {
+			RIOCP_ERROR("Unable to set host route for 0x04x (0x%08x) port %u->%u\n",
+				pe->destid, pe->comptag, port, (uint8_t)RIO_GET_PORT_NUM(pe->cap.sw_port));
+			return ret;
+		}
+
 		/* assume that far end efptr is 0x100 */
 
 		/* update far end ackid */
