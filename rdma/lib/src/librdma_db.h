@@ -143,6 +143,15 @@ int remove_rem_ms(ms_h msh);
 int remove_rem_ms(uint32_t msid);
 bool rem_ms_exists(ms_h msh);
 
+struct client_connection {
+	client_connection(uint64_t connh, uint64_t client_to_lib_tx_eng_h)
+		: connh(connh), client_to_lib_tx_eng_h(client_to_lib_tx_eng_h)
+	{}
+	uint64_t connh;
+	uint64_t client_to_lib_tx_eng_h;
+};
+
+typedef vector<client_connection> connection_list;
 /**
  * Memory subspaces.
  */
@@ -161,7 +170,7 @@ struct loc_msub {
 	uint64_t	rio_addr_lo;
 	uint8_t		rio_addr_hi;
 	uint64_t	paddr;
-	conn_h_list	conn_handles;
+	connection_list	connections;
 };
 
 struct rem_msub {

@@ -778,9 +778,12 @@ msub_h find_loc_msub_by_connh(conn_h connh)
 			  end(loc_msub_list),
 			  [connh](loc_msub *msubp)
 			  {
-				return find(begin(msubp->conn_handles),
-					    end(msubp->conn_handles),
-					    connh) != end(msubp->conn_handles);
+				return find_if(begin(msubp->connections),
+					    end(msubp->connections),
+					    [connh](client_connection& c)
+					    {
+						return c.connh == connh;
+					    }) != end(msubp->connections);
 			  });
 
 	msubh = (it != loc_msub_list.end()) ? (msub_h)(*it) : (msub_h)NULL;

@@ -1588,7 +1588,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		/* Store connection handle with server_msub */
 		DBG("Storing connh = %, in server_msub's database entry"
 							PRIx64 "\n", *connh);
-		server_msub->conn_handles.push_back(*connh);
+		server_msub->connections.emplace_back(*connh,
+					conn_req_msg->client_to_lib_tx_eng_h);
 
 		/* Store info about client msub in database and return handle,
 		 * but only if the client msub is NOT NULL_MSUBID
@@ -2014,24 +2015,18 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 			throw -1;
 		}
 		loc_msub *server_msub = (loc_msub *)server_msubh;
-
-		/* Clean up local database */
-		/* Remove connh from server msub database entry */
-		auto it = find(begin(server_msub->conn_handles),
-				end(server_msub->conn_handles),connh);
-		if (it == end(server_msub->conn_handles)) {
-			ERR("Invalid connh. Not found in server_msub\n");
-			throw -2;
-		}
-		server_msub->conn_handles.erase(it);
 		uint32_t server_msubid = server_msub->msubid;
 
-		/* Remove client msub from database, if applicable */
-		if (client_msubh) {
-			if (remove_rem_msub(client_msubh) != 0) {
-				ERR("Failed to remove client msub\n");
-				throw RDMA_DB_REM_FAIL;
-			}
+		/* Locate connection in the msub */
+		auto connection_it = find_if(begin(server_msub->connections),
+				 end(server_msub->connections),
+				 [connh](client_connection& c)
+				 {
+					return c.connh == connh;
+				 });
+		if (connection_it == end(server_msub->connections)) {
+			ERR("Invalid connh. Not found in server_msub\n");
+			throw -2;
 		}
 
 		/* Tell daemon to relay to remove client that we disconnected
@@ -2039,7 +2034,8 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		unix_msg_t in_msg;
 		in_msg.type 	= SERVER_DISCONNECT_MS;
 		in_msg.category = RDMA_REQ_RESP;
-		in_msg.server_disconnect_ms_in.client_to_lib_tx_eng_h = connh;
+		in_msg.server_disconnect_ms_in.client_to_lib_tx_eng_h =
+					connection_it->client_to_lib_tx_eng_h;
 		in_msg.server_disconnect_ms_in.server_msid = server_msid;
 		in_msg.server_disconnect_ms_in.server_msubid = server_msubid;
 		in_msg.server_disconnect_ms_in.client_msubid = client_msubid;
@@ -2055,6 +2051,17 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		if (out_msg.server_disconnect_ms_out.status) {
 			ERR("Failed in SERVER_DISCONNECT_MS handling in daemon\n");
 			throw out_msg.server_disconnect_ms_out.status;
+		}
+
+		/* Remove connection from server msub database entry */
+		server_msub->connections.erase(connection_it);
+
+		/* Remove client msub from database, if applicable */
+		if (client_msubh) {
+			if (remove_rem_msub(client_msubh) != 0) {
+				ERR("Failed to remove client msub\n");
+				throw RDMA_DB_REM_FAIL;
+			}
 		}
 	} /* try */
 	catch(int e) {
