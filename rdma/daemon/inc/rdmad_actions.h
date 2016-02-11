@@ -123,6 +123,7 @@ int rdmad_send_connect(const char *server_ms_name,
 		        uint64_t client_rio_addr_lo,
 		        uint8_t client_rio_addr_hi,
 		        uint64_t seq_num,
+		        uint64_t connh,
 		        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng);
 
 int rdmad_undo_connect(const char *server_ms_name,

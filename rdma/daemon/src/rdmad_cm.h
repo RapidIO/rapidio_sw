@@ -61,6 +61,7 @@ struct cm_connect_msg {
 	uint64_t	client_rio_addr_hi;  /* Client lpper RIO address */
 	uint64_t	client_to_lib_tx_eng_h;
 	uint64_t	seq_num;
+	uint64_t	connh;
 	char		server_msname[CM_MS_NAME_MAX_LEN+1];
 	/* Populated by daemon */
 	uint64_t	client_destid_len;  /* Client length of destid */

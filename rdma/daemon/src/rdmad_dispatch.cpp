@@ -502,6 +502,7 @@ int send_connect_disp(const unix_msg_t *in_msg,
 			in->client_rio_addr_lo,
 			in->client_rio_addr_hi,
 			in->seq_num,
+			in->connh,
 			tx_eng);
 
 	if (out_msg.send_connect_out.status) {

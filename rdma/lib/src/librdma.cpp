@@ -1445,13 +1445,12 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		 * and rem_msub_len to be NULL. If the server knows the client
 		 * will not be providing an msub then it can pass NULL here */
 		if (!loc_msh || !loc_msubh) {
-			ERR("loc_msh=0x%" PRIx64 ",loc_msubh=0x%" PRIx64
-				",rem_msubh=%p, rem_msub_len = %p\n",
+			ERR("loc_msh=0x%" PRIx64 ",loc_msubh=0x%" PRIx64 "\n",
 				loc_msh, loc_msubh, rem_msubh, rem_msub_len);
 			throw RDMA_NULL_PARAM;
 		}
 
-		loc_ms	*ms = (loc_ms *)loc_msh;
+		loc_ms	 *server_ms = (loc_ms *)loc_msh;
 		loc_msub *server_msub = (loc_msub *)loc_msubh;
 
 		/* Tell the daemon to flag this memory space as accepting
@@ -1459,10 +1458,10 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		unix_msg_t in_msg;
 		in_msg.type     = ACCEPT_MS;
 		in_msg.category = RDMA_REQ_RESP;
-		in_msg.accept_in.server_msid	  = ms->msid;
+		in_msg.accept_in.server_msid	  = server_ms->msid;
 		in_msg.accept_in.server_msubid	  = server_msub->msubid;
 
-		DBG("name = '%s'\n", ms->name);
+		DBG("name = '%s'\n", server_ms->name);
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
@@ -1485,11 +1484,11 @@ int rdma_accept_ms_h(ms_h loc_msh,
 				   timeout_secs,
 				   &out_msg);
 		if (rc) {
-			ERR("Failed to receive CONNECT_MS_REQ for '%s'\n", ms->name);
+			ERR("Failed to receive CONNECT_MS_REQ for '%s'\n", server_ms->name);
 			/* Switch back the ms to non-accepting mode for this app */
 			in_msg.type     = UNDO_ACCEPT;
 			in_msg.category = RDMA_REQ_RESP;
-			in_msg.accept_in.server_msid = ms->msid;
+			in_msg.accept_in.server_msid = server_ms->msid;
 
 			/* Call into daemon */
 			unix_msg_t  out_msg;
@@ -1507,9 +1506,10 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			throw RDMA_ACCEPT_TIMEOUT;
 		}
 
-		/* Use the client_to_lib_tx_eng_h as the connection handle */
+		/* Shorter form */
 		connect_to_ms_req_input *conn_req_msg = &out_msg.connect_to_ms_req;
-		*connh = conn_req_msg->client_to_lib_tx_eng_h;
+
+		*connh = conn_req_msg->connh;	/* Connection handle sent by client */
 
 		/* Now reply to the CONNECT_MS_REQ sith CONNECT_MS_RESP */
 		in_msg.type = CONNECT_MS_RESP;
@@ -1540,10 +1540,11 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 
 		/* Store connection handle with server_msub */
-		server_msub->conn_handles.push_back(conn_req_msg->client_to_lib_tx_eng_h);
+		DBG("Storing connh = %" PRIx64 "\n", *connh)
+		server_msub->conn_handles.push_back(*connh);
 
-		/* Store info about remote msub in database and return handle,
-		 * but only if the remote msub is NOT NULL_MSUB
+		/* Store info about client msub in database and return handle,
+		 * but only if the client msub is NOT NULL_MSUBID
 		 */
 
 		if (conn_req_msg->client_msubid != NULL_MSUBID) {
@@ -1654,25 +1655,29 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 		INFO("Connecting to '%s' on destid(0x%X)\n", rem_msname, rem_destid);
 
+		/* Use the client LIBRDMA tx_eng as the connection handle to the ms */
+		*connh = (conn_h)tx_eng;
+
 		/* Set up parameters for daemon call */
 		unix_msg_t in_msg;
 		in_msg.type 	= SEND_CONNECT;
 		in_msg.category = RDMA_REQ_RESP;
-		strcpy(in_msg.send_connect_in.server_msname, rem_msname);
-		in_msg.send_connect_in.server_destid_len = rem_destid_len;
-		in_msg.send_connect_in.server_destid	 = rem_destid;
-		in_msg.send_connect_in.client_destid_len = 16;
-		in_msg.send_connect_in.client_destid	 = peer.destid;
-		in_msg.send_connect_in.seq_num		 = seq_num++;
-
 		send_connect_input *connect_msg = &in_msg.send_connect_in;
 
+		strcpy(connect_msg->server_msname, rem_msname);
+		connect_msg->server_destid_len	= rem_destid_len;
+		connect_msg->server_destid 	= rem_destid;
+		connect_msg->client_destid_len 	= 16;
+		connect_msg->client_destid	= peer.destid;
+		connect_msg->seq_num		= seq_num++;
+		connect_msg->connh		= *connh;
 		DBG("server_msname     = %s\n", connect_msg->server_msname);
 		DBG("server_destid_len = 0x%X\n", connect_msg->server_destid_len);
 		DBG("server_destid     = 0x%X\n", connect_msg->server_destid);
 		DBG("client_destid_len = 0x%X\n", connect_msg->client_destid_len);
 		DBG("client_destid     = 0x%X\n", connect_msg->client_destid);
 		DBG("seq_num           = 0x%X\n", connect_msg->seq_num);
+		DBG("connh             = 0x%X\n", connect_msg->connh);
 
 		loc_msub *client_msub = nullptr;
 		if (loc_msubh != 0) {
@@ -1798,9 +1803,6 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 		/* Save server_msid since we need to store that in the databse */
 		uint32_t server_msid = accept_msg->server_msid;
-
-		/* Return the Unix socket as the connection handle to the ms */
-		*connh = (conn_h)tx_eng;
 
 		/* Remote memory space handle */
 		*rem_msh = (ms_h)add_rem_ms(rem_msname, server_msid);
@@ -1952,7 +1954,8 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		/* Get server_msubid */
 		msub_h server_msubh = find_loc_msub_by_connh(connh);
 		if (!server_msubh) {
-			ERR("Invalid connh. No related server msubs\n");
+			ERR("Invalid connh: %" PRIx64
+				". No related server msubs\n", connh);
 			throw -1;
 		}
 		loc_msub *server_msub = (loc_msub *)server_msubh;

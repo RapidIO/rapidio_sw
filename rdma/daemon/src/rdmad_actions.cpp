@@ -163,6 +163,7 @@ int rdmad_send_connect(const char *server_ms_name,
 		        uint64_t client_rio_addr_lo,
 		        uint8_t client_rio_addr_hi,
 		        uint64_t seq_num,
+		        uint64_t connh,
 		        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
 	DBG("ENTER\n");
@@ -203,6 +204,7 @@ int rdmad_send_connect(const char *server_ms_name,
 	c->client_destid_len	= htobe64(peer.destid_len);
 	c->client_destid	= htobe64(peer.destid);
 	c->seq_num		= htobe64((uint64_t)seq_num);
+	c->connh		= htobe64(connh);
 	c->client_to_lib_tx_eng_h = htobe64((uint64_t)to_lib_tx_eng);
 
 	DBG("c->type = 0x%016" PRIx64 "\n", be64toh(c->type));

@@ -227,6 +227,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("conn_msg->client_destid_len = 0x%" PRIx64 "\n", be64toh(conn_msg->client_destid_len));
 			DBG("conn_msg->client_destid = 0x%" PRIx64 "\n", be64toh(conn_msg->client_destid));
 			DBG("conn_msg->seq_num = 0x%016" PRIx64 "\n", be64toh(conn_msg->seq_num));
+			DBG("conn_msg->connh = 0x%016" PRIx64 "\n", be64toh(conn_msg->connh));
 			DBG("conn_msg->client_to_lib_tx_eng_h = 0x%" PRIx64 "\n", be64toh(conn_msg->client_to_lib_tx_eng_h));
 			mspace *ms = the_inbound->get_mspace(conn_msg->server_msname);
 			if (ms == nullptr) {
@@ -256,6 +257,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			connect_msg->client_destid_len = be64toh(conn_msg->client_destid_len);
 			connect_msg->client_destid = be64toh(conn_msg->client_destid);
 			connect_msg->seq_num = be64toh(conn_msg->seq_num);
+			connect_msg->connh = be64toh(conn_msg->connh);
 			connect_msg->client_to_lib_tx_eng_h = be64toh(conn_msg->client_to_lib_tx_eng_h);
 
 			to_lib_tx_eng->send_message(&in_msg);
@@ -269,6 +271,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("connect_msg->client_destid_len = 0x%X\n", connect_msg->client_destid_len);
 			DBG("connect_msg->client_destid = 0x%X\n", connect_msg->client_destid);
 			DBG("connect_msg->seq_num = 0x%X\n", connect_msg->seq_num);
+			DBG("connect_msg->connh = 0x%X\n", connect_msg->connh);
 			DBG("connect_msg->client_to_lib_tx_eng_h = 0x%X\n", connect_msg->client_to_lib_tx_eng_h);
 
 			DBG("Relayed CONNECT_MS to RDMA library to unblock rdma_accept_ms_h()\n");

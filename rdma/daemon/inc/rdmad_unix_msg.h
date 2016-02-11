@@ -332,6 +332,7 @@ struct send_connect_input {
 	uint64_t client_rio_addr_lo;
 	uint8_t  client_rio_addr_hi;
 	uint32_t seq_num;
+	uint64_t connh;
 };
 struct send_connect_output {
 	int	status;
@@ -386,6 +387,7 @@ struct connect_to_ms_req_input {
 	uint32_t client_destid;
 	uint32_t seq_num;
 	uint64_t client_to_lib_tx_eng_h;
+	uint64_t connh;
 };
 
 /* Server daemon to server library/app */

@@ -234,6 +234,7 @@ int main(int argc, char *argv[])
 							 &dummy_client_msubh,
 							 &dummy_client_msub_len,
 							 30);
+				printf("connh = %" PRIx64 "\n", connh);
 				CHECK_BROKEN_PIPE(ret);
 			}
 			break;
