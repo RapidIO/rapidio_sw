@@ -86,7 +86,6 @@ int main(int argc, char *argv[])
 			puts("'n' Create mso/ms on server, open mso/ms on user, close, then destroy");
 			puts("'o' Test server-side disconnection with 0 client msub");
 
-			/* Old test cases */
 			puts("'t' Accept/Connect/Disconnect test with 0 client msub");
 			puts("'u' Accept/Connect/Destroy test with 0 client msub");
 			puts("'v' Accept/Connect then kill remote app");
@@ -98,7 +97,9 @@ int main(int argc, char *argv[])
 			puts("'3' As '1' but data offset in loc_msub");
 			puts("'4' As '1' but data offset in rem_msub");
 			puts("'5' As '1' but async mode");
-			puts("'6' Create mso+ms on one, open and DMA on another");
+			puts("'6' As '1' but FAF (rdma_no-wait) mode");
+			puts("'7' Create mso+ms on one, open and DMA on another");
+			puts("'8' As 1 but use a buffer instead of loc_msub");
 			puts("'z' RUN ALL TESTS (with some exceptions)");
 			exit(1);
 		}
@@ -286,9 +287,22 @@ int main(int argc, char *argv[])
 		test_case_7(destid);
 		bat_eot(2);
 		break;
+	case '8':
+		test_case_dma_buf(tc, destid, 0x00, rdma_sync_chk);
+		bat_eot(1);
+		break;
+	case '9':
+		test_case_dma_buf(tc, destid, 0x20, rdma_sync_chk);
+		bat_eot(1);
+		break;
+
+	case 'A':
+		test_case_dma_buf(tc, destid, 0x00, rdma_no_wait);
+		bat_eot(1);
+		break;
 	case 'z':
 		for (auto i = 0; i < repetitions; i++) {
-			/* New test cases */
+			/* Sequential test cases */
 			test_case_a();
 			test_case_b();
 			test_case_c();
@@ -307,7 +321,6 @@ int main(int argc, char *argv[])
 			test_case_n();
 			test_case_o(destid);
 
-			/* Old test cases */
 			test_case_t_u('t', destid);
 			test_case_t_u('u', destid);
 
@@ -320,6 +333,11 @@ int main(int argc, char *argv[])
 #endif
 			test_case_dma('6', destid, 0x00, 0x00, 0x00, rdma_no_wait);
 			test_case_7(destid);
+			test_case_dma_buf('8', destid, 0x00, rdma_sync_chk);
+			test_case_dma_buf('9', destid, 0x20, rdma_sync_chk);
+			test_case_dma_buf('A', destid, 0x00, rdma_no_wait);
+
+			/* Randomized test cases */
 			test_case_b();
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
 			test_case_t_u('t', destid);

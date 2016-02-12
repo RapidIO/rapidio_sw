@@ -35,5 +35,11 @@ int test_case_dma(char tc,
 
 int test_case_7(uint32_t destid);
 
+/* DMA test cases 8-?? */
+int test_case_dma_buf(char tc,
+		      uint32_t destid,
+		      uint32_t ofs_in_rem_msub,
+		      rdma_sync_type_t sync_type);
+
 #endif
 

@@ -2422,6 +2422,156 @@ exit:
 	return ret;
 } /* test_case_dma() */
 
+int do_dma_buf(void *buf,
+	       int num_bytes,
+	       msub_h server_msubh,
+	       uint32_t ofs_in_server_msub,
+	       int priority,
+	       rdma_sync_type_t sync_type)
+{
+	int ret;
+	uint8_t *dma_data = (uint8_t *)buf;
+
+	/* Prep DMA data */
+	prep_dma_data(dma_data);
+
+	rdma_xfer_ms_out out;
+
+	/* Push the RDMA data */
+	ret = rdma_push_buf(buf, num_bytes, server_msubh, ofs_in_server_msub,
+			priority, sync_type, &out);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Handle ASYNC and FAF modes appropriately */
+	if (sync_type == rdma_async_chk) {
+		/* If async mode, must call rdma_sync_chk_push_pull() */
+		LOG("ASYNC DMA: ");
+		ret = rdma_sync_chk_push_pull(out.chk_handle, NULL);
+		BAT_EXPECT_RET(ret, 0, exit);
+	} else if (sync_type == rdma_no_wait) {
+		/* If FAF mode (no wait), then sleep to allow data to arrive */
+		sleep(1);
+	}
+
+	/* Flush rdma_data */
+	memset(dma_data, 0xDD, DMA_DATA_SIZE);
+
+	/* Pull the DMA data back */
+	ret = rdma_pull_buf(buf, num_bytes, server_msubh,
+			ofs_in_server_msub, priority, sync_type, &out);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Handle ASYNC and FAF modes appropriately */
+	if (sync_type == rdma_async_chk) {
+		/* If async mode, must call rdma_sync_chk_push_pull() */
+		ret = rdma_sync_chk_push_pull(out.chk_handle, NULL);
+		BAT_EXPECT_RET(ret, 0, exit);
+	} else if (sync_type == rdma_no_wait) {
+		/* For FAF we poll for the data till it arrives */
+		auto timeout = 10000;
+		while (timeout--) {
+			if ((dma_data[0x00] == 0x01) &&
+			    (dma_data[0x08] == 0x09) &&
+			    (dma_data[0x10] == 0x11))
+				break;
+		}
+	}
+
+	/* Dump the data out for debugging */
+	dump_data(dma_data, 0);
+
+	/* Now compare recieved data with the copy */
+	ret = memcmp(dma_data, dma_data_copy, DMA_DATA_SIZE);
+	BAT_EXPECT_PASS(ret);
+
+exit:
+	return ret;
+} /* do_dma_buf() */
+
+int test_case_dma_buf(char tc,
+		      uint32_t destid,
+		      uint32_t ofs_in_rem_msub,
+		      rdma_sync_type_t sync_type)
+{
+	constexpr auto REM_MSO_NAME = "test_case_dma_mso_rem";
+	constexpr auto REM_MS_NAME1 = "test_case_dma_ms1_rem";
+	constexpr auto LOC_MSO_NAME = "test_case_dma_mso_loc";
+	constexpr unsigned MSUB_SIZE = 4096;
+
+	int ret;
+
+	LOG("test_case%c ", tc);
+
+	/* Create server mso */
+	mso_h	server_msoh;
+	ret = create_mso_f(bat_connections[0], REM_MSO_NAME, &server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Create server ms */
+	ms_h	server_msh;
+	ret = create_ms_f(bat_connections[0], REM_MS_NAME1, server_msoh,
+					1024*1024, 0, &server_msh,NULL);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create msub on server */
+	msub_h  server_msubh;
+	ret = create_msub_f(bat_connections[0], server_msh, 0, MSUB_SIZE,
+							0, &server_msubh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	ret = rdma_create_mso_h(LOC_MSO_NAME, &client_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+	/* Buffer for the data */
+	static uint8_t dma_data[MSUB_SIZE];
+
+	/* Accept on ms on the server */
+	ret = accept_ms_f(bat_connections[0], server_msh, server_msubh);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+	sleep(1);
+
+	/* Connect to server */
+	msub_h	server_msubh_rb;
+	uint32_t  server_msub_len_rb;
+	ms_h	server_msh_rb;
+	conn_h  connh;
+	ret = rdma_conn_ms_h(16, destid, REM_MS_NAME1,
+			     0,
+			     &connh,
+			     &server_msubh_rb, &server_msub_len_rb,
+			     &server_msh_rb,
+			     30);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	/* Do the DMA transfer and comparison */
+	ret = do_dma_buf(dma_data,
+		     DMA_DATA_SIZE,
+		     server_msubh_rb,
+		     ofs_in_rem_msub,
+		     0,
+		     sync_type);
+	BAT_EXPECT_RET(ret, 0, disconnect);
+
+disconnect:
+	/* Now disconnect from server */
+	ret = rdma_disc_ms_h(connh, server_msh_rb, 0);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+free_client_mso:
+	/* Delete the client mso */
+	ret = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(ret, 0, free_server_mso);
+
+free_server_mso:
+	/* Delete the server mso */
+	ret = destroy_mso_f(bat_connections[0], server_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+exit:
+	return ret;
+} /* test_case_dma_buf() */
+
 /**
  * Create mso, ms on server
  * Open mso, ms, and create msub on user
