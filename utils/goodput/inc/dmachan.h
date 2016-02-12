@@ -91,10 +91,14 @@ public:
         uint64_t lsb64;
       } raddr;
       uint64_t win_handle; ///< populated when queueing for TX
-      uint32_t bd_wp; ///< Soft WP at the moment of enqueuing this
+      uint32_t bd_wp; ///< soft WP at the moment of enqueuing this
       uint32_t bd_idx; ///< index into buffer ring of buffer used to handle this op
       uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
       uint64_t u_data; ///< whatever the user puts in here
+      uint64_t ticket; ///< ticket issued at enq time
+      uint64_t not_before; ///< earliest rdtsc ts when ticket can be checked
+      pid_t    pid; ///< process id of enqueueing process
+      pid_t    tid; ///< thread id of enqueueing thread; this is NOT a pthread id, it is issued by gettid(2)
   } DmaOptions_t;
 
   static const uint32_t WI_SIG = 0xb00fd00fL;
@@ -314,6 +318,8 @@ public:
 
 private:
   int umdemo_must_die = 0;
+  pid_t               m_pid;
+  pid_t               m_tid;
   bool                m_sim;        ///< Simulation: do not progtam HW with linear addrs of FIFO and BD array; do not read HW regs
   uint32_t            m_sim_dma_rp; ///< Simulated Tsi721 RP
   uint32_t            m_sim_fifo_wp; ///< Simulated Tsi721 FIFO WP
@@ -325,8 +331,6 @@ private:
   riomp_mport_t       m_mp_hd;
   RioMport::DmaMem_t  m_dmadesc; ///< Populated from m_state->dmadesc_win_*
   RioMport::DmaMem_t  m_dmacompl;
-  bool*               m_bl_busy;
-  volatile int        m_restart_pending;
  
   POSIXShm*           m_shm_state;
   char                m_shm_state_name[129] = {0};
@@ -334,9 +338,11 @@ private:
   POSIXShm*           m_shm_bl;
   char                m_shm_bl_name[129] = {0};
 
-  bool                m_hw_master;
-  
+  // These two live in m_shm_bl back-to-back
+  bool*               m_bl_busy;
   WorkItem_t*         m_pending_work;
+
+  bool                m_hw_master;
 
   typedef struct {
     volatile int        restart_pending;
@@ -355,6 +361,8 @@ private:
     uint64_t            T3_bd_hw;
     volatile int        hw_ready; ///< Set to 2 only in Master when BD and FIFO CMA mem allocated & hw programmed
     struct hw_dma_desc  BD0_T3_saved; ///< Pack this once, save, reuse when needed
+    volatile uint64_t   serial_number;
+    volatile uint64_t   acked_serial_number; ///< Arriere-garde of completed tickets
   } DmaChannelState_t;
 
   DmaChannelState_t*  m_state;
@@ -362,6 +370,14 @@ private:
   void cleanup();
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
+
+  typedef enum {
+    BORKED = -1,
+    INPROGRESS = 1,
+    COMPLETED  = 2
+  } TicketState_t;
+
+  TicketState_t checkTicket(const DmaOptions_t& opt);
 
   inline void setWriteCount(uint32_t cnt) { if (!m_sim) wr32dmachan(TSI721_DMAC_DWRCNT, cnt); }
 

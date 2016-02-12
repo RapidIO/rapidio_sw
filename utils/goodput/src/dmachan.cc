@@ -62,6 +62,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
+/** \brief Private gettid(2) implementation */
+static inline pid_t gettid() { return syscall(__NR_gettid); }
+
 /*
 class {
 */
@@ -85,6 +88,8 @@ void DMAChannel::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
 
 void DMAChannel::init(const uint32_t chan)
 {
+  m_pid = getpid();
+  m_tid = gettid();
   snprintf(m_shm_state_name, 128, DMA_SHM_STATE_NAME, m_mportid, chan);
 
   m_fifo_scan_cnt = 0;
@@ -92,7 +97,7 @@ void DMAChannel::init(const uint32_t chan)
   m_bl_busy       = NULL; // TODO: Stick in SHM
   m_check_reg     = false;
   m_pending_work  = NULL; // TODO: Stick in SHM
-  m_restart_pending = 0;
+  m_state->restart_pending = 0;
 
   m_sim           = false;
   m_sim_dma_rp    = 0;
@@ -152,6 +157,7 @@ void DMAChannel::init(const uint32_t chan)
   m_state->restart_pending = 0;
   m_state->sts_log_two   = 0;
   m_state->hw_ready      = 0;
+  m_state->serial_number = 0;
 
   memset(&m_state->BD0_T3_saved, 0, sizeof(m_state->BD0_T3_saved));
 }
@@ -282,14 +288,16 @@ uint32_t DMAChannel::clearIntBits()
  */
 bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
 {
+  if (m_state->hw_ready < 2)
+    throw std::runtime_error("DMAChannel: HW is not ready!");
+
+  if (m_state->restart_pending) return false;
+
   struct dmadesc desc;
   bool queued_T3 = false;
   WorkItem_t wk_end, wk_0;
   WorkItem_t wk;
   struct hw_dma_desc* bd_hw = NULL;
-
-  if (m_state->hw_ready < 2)
-    throw std::runtime_error("DMAChannel: HW is not ready!");
 
   if ((opt.dtype != DTYPE1) && (opt.dtype != DTYPE2))
     return false;
@@ -387,7 +395,15 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     opt.bd_wp = m_state->dma_wr;
     opt.bd_idx = bd_idx;
 
+    m_state->serial_number++;
+
     opt.ts_start = rdtsc();
+    opt.ticket   = m_state->serial_number;
+    opt.pid      = m_pid;
+    // XXX NOTE: If this func is used from multiple threads this will be incorrect.
+    //           However a trip into kernel for gettid(2) at each enq is unreasonable.
+    opt.tid      = m_tid;
+    opt.not_before = 0 ; // XXX magic function from Barry
 
     m_state->dma_wr++;
     setWriteCount(m_state->dma_wr);
@@ -423,8 +439,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 #ifdef DEBUG_BD
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
-  DBG("\n\tQueued DTYPE%d op=%s did=0x%x as BD HW @0x%lx bd_wp=%d\n",
-      wk.opt.dtype, dma_rtype_str[rtype], wk.opt.destid, m_dmadesc.win_handle + offset, wk.opt.bd_wp);
+  DBG("\n\tQueued DTYPE%d op=%s did=0x%x as BD HW @0x%lx bd_wp=%d pid=%d\n ticket=%llu",
+      wk.opt.dtype, dma_rtype_str[rtype], wk.opt.destid, m_dmadesc.win_handle + offset, wk.opt.bd_wp, m_pid, opt.ticket);
 
   if(queued_T3)
      DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_state->T3_bd_hw, wk_end.opt.bd_wp);
@@ -780,7 +796,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
   if (!m_hw_master)
     throw std::runtime_error("DMAChannel: Will not scan DMA FIFO in non-master instance!");
 
-  if(m_restart_pending && !force_scan) return 0;
+  if(m_state->restart_pending && !force_scan) return 0;
 
 #ifdef UDMA_SIM_DEBUG
   if (7 <= g_level) { // DEBUG
@@ -803,16 +819,16 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
 
   /* Check and clear descriptor status FIFO entries */
   while (sts_ptr[j] && !umdemo_must_die) {
-    if(m_restart_pending && !force_scan) return 0;
+    if(m_state->restart_pending && !force_scan) return 0;
 
     for (int i = j; i < (j+8) && sts_ptr[i]; i++) {
-      if(m_restart_pending && !force_scan) return 0;
+      if(m_state->restart_pending && !force_scan) return 0;
       DmaCompl_t c;
       c.ts_end = rdtsc();
       c.win_handle = sts_ptr[i]; c.fifo_offset = i;
       c.valid = COMPL_SIG;
       compl_hwbuf[compl_size++] = c;
-      if(m_restart_pending && !force_scan) return 0;
+      if(m_state->restart_pending && !force_scan) return 0;
       sts_ptr[i] = 0;
       m_tx_cnt++; // rather number of successfuly completed DMA ops
     } // END for line-of-8
@@ -830,7 +846,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
 #endif
 
   for(int ci = 0; ci < compl_size; ci++) {
-    if(m_restart_pending && !force_scan) return 0;
+    if(m_state->restart_pending && !force_scan) return 0;
 
     pthread_spin_lock(&m_state->pending_work_splock);
   
@@ -888,14 +904,13 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
       continue;
     }
 
-
     // With the spinlock in mind we make a copy here
     WorkItem_t item = m_pending_work[idx];
     m_pending_work[idx].valid = 0xdeadbeefL;
 
     pthread_spin_unlock(&m_state->pending_work_splock);
 
-    if(m_restart_pending && !force_scan) return 0;
+    if(m_state->restart_pending && !force_scan) return 0;
 
 #ifdef DEBUG_BD
     DBG("\n\tFound idx=%d for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
@@ -950,6 +965,8 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     m_state->bl_busy_size--;
     assert(m_state->bl_busy_size >= 0);
 
+    if (item.opt.ticket > m_state->acked_serial_number) m_state->acked_serial_number = item.opt.ticket;
+
     pthread_spin_unlock(&m_state->bl_splock); 
   } // END for compl_size
 
@@ -973,7 +990,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
     throw std::runtime_error("DMAChannel: HW is not ready!");
 
   const uint64_t ts_s = rdtsc();
-  m_restart_pending = 1;
+  m_state->restart_pending = 1;
 
   pthread_spin_lock(&m_state->bl_splock);
 
@@ -1024,7 +1041,7 @@ done:
   setWriteCount(m_state->dma_wr); // knows about sim
 
   pthread_spin_unlock(&m_state->bl_splock);
-  m_restart_pending = 0;
+  m_state->restart_pending = 0;
   const uint64_t ts_e = rdtsc();
 
   INFO("dT = %llu TICKS; DMA WP := %d%s\n", (ts_e - ts_s), DMA_WP, (nuke_bds? "; NUKED BDs": ""));
@@ -1230,10 +1247,10 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 // Nope, wasn't. DIY scanFIFO
   if (! multithreaded_fifo || fifo_scan_cnt == m_fifo_scan_cnt) { // Run FIFO scanner ourselves
     DMAChannel::WorkItem_t wi[m_state->sts_size*8]; memset(wi, 0, sizeof(wi));
-    int tmp = m_restart_pending;
-    m_restart_pending = 1; // Tell scanFIFO running from other thread to back off
+    int tmp = m_state->restart_pending;
+    m_state->restart_pending = 1; // Tell scanFIFO running from other thread to back off
     scanFIFO(wi, m_state->sts_size*8, 1 /*force_scan*/);
-    m_restart_pending = tmp;
+    m_state->restart_pending = tmp;
   }
 
   const uint64_t ts_s = rdtsc();
@@ -1303,4 +1320,19 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
   INFO("dT = %llu TICKS\n", (ts_e - ts_s));
 
   return pending;
+}
+
+/** \brief Check whether the transaction associated with this ticket has completed
+ * \note It could be completed or in error, true is returned anyways
+ */
+DMAChannel::TicketState_t DMAChannel::checkTicket(const DmaOptions_t& opt)
+{
+  if (opt.ticket == 0 || opt.ticket > m_state->serial_number)
+    throw std::runtime_error("DMAChannel: Invalid ticket!");
+
+  if (rdtsc() < opt.not_before) return INPROGRESS;
+
+  if (m_state->acked_serial_number > opt.ticket) return COMPLETED;
+
+  return BORKED;
 }
