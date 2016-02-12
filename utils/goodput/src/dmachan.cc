@@ -176,6 +176,7 @@ DMAChannel::DMAChannel(const uint32_t mportid,
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannel: Invalid channel!");
 
+  m_mp_hd = mp_hd;
   m_mportid = mportid;
 
   m_mport = new RioMport(mportid, mp_hd);

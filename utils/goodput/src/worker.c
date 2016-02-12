@@ -2269,7 +2269,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	int iter = 0;
         int FT_TEST = 0;
 
-	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+	//NOT WITH SHM// if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
 	//info->owner_func = (void*)umd_dma_goodput_latency_demo;
 
@@ -2292,16 +2292,18 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 		if (FT_TEST == 0x1) { INFO("Tsi721 FAULT MODE - NREAD\n"); }
 	}
 
-	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
-		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
-							info->umd_tx_buf_cnt);
-		goto exit;
-	};
-        if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
-		CRIT("\n\talloc_dmacompldesc failed: entries %d",
-							info->umd_sts_entries);
-		goto exit;
-	};
+	try {
+		if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
+			CRIT("\n\talloc_dmatxdesc failed: bufs %d",
+								info->umd_tx_buf_cnt);
+			goto exit;
+		};
+		if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
+			CRIT("\n\talloc_dmacompldesc failed: entries %d",
+								info->umd_sts_entries);
+			goto exit;
+		};
+        } catch(std::runtime_error ex) { INFO("\n\tException: %s\n", ex.what()); }
 
         memset(info->dmamem, 0, sizeof(info->dmamem));
         memset(info->dmaopt, 0, sizeof(info->dmaopt));
@@ -2403,6 +2405,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			if (FT_TEST == 0x2) info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
 
 			DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
+			try {
 			while (!q_was_full && !info->stop_req && (bd_f_cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8)) == 0) {
 				if (FT_TEST == 0x1 && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) break;
 			}
@@ -2410,6 +2413,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 				usleep(500);
 				bd_f_cnt += info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
 			}
+			} catch(std::runtime_error ex) { INFO("\n\tException: %s\n", ex.what()); }
 
 			// XXX check for errors, nuke faulting BD, do softRestart
 			if (q_was_full || bd_f_cnt < bd_q_cnt) {
