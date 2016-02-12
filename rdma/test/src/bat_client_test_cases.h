@@ -32,6 +32,7 @@ int test_case_dma(char tc,
 		  uint32_t ofs_in_loc_msub,
 		  uint32_t ofs_in_rem_msub,
 		  rdma_sync_type_t sync_type);
+
 int test_case_7(uint32_t destid);
 
 #endif

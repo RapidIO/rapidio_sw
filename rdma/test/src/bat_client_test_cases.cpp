@@ -2422,7 +2422,12 @@ exit:
 	return ret;
 } /* test_case_1() */
 
-/* NOTE: test_case_7() is BROKEN. Need to review ms names ..etc. */
+/**
+ * Create mso, ms on server
+ * Open mso, ms, and create msub on user
+ * Sync DMA transfer
+ * Close and destroy
+ */
 int test_case_7(uint32_t destid)
 {
 	int ret = 0;
@@ -2433,7 +2438,7 @@ int test_case_7(uint32_t destid)
 	constexpr auto REM_MSO_NAME = "test_case_dma_mso_rem";
 	constexpr auto REM_MS_NAME1 = "test_case_dma_ms1_rem";
 
-	LOG("test_case%c\n", '6');
+	LOG("%s ", __func__);
 
 	/* First create mso, and ms on server */
 	/* Create server mso */
@@ -2447,24 +2452,23 @@ int test_case_7(uint32_t destid)
 					1024*1024, 0, &server_msh, NULL);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
-
 	/* On the 'user' application, open the mso & ms */
 	mso_h	user_msoh;
-	ret = open_mso_f(bat_connections[0], REM_MSO_NAME, &user_msoh);
+	ret = open_mso_f(bat_connections[1], REM_MSO_NAME, &user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	ms_h	user_msh;
 	uint32_t user_msh_size;
-	ret = open_ms_f(bat_connections[0], REM_MS_NAME1, user_msoh, 0,
+	ret = open_ms_f(bat_connections[1], REM_MS_NAME1, user_msoh, 0,
 						&user_msh_size, &user_msh);
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
 
 	/* On the 'user' create an msub, and then do accept on the ms */
 	msub_h  user_msubh;
-	ret = create_msub_f(bat_connections[0], user_msh, 0, MSUB_SIZE, 0, &user_msubh);
+	ret = create_msub_f(bat_connections[1], user_msh, 0, MSUB_SIZE, 0, &user_msubh);
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
 
-	ret = accept_ms_thread_f(bat_connections[0], user_msh, user_msubh);
+	ret = accept_ms_thread_f(bat_connections[1], user_msh, user_msubh);
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
 	sleep(1);
 
@@ -2495,7 +2499,7 @@ int test_case_7(uint32_t destid)
 			     &user_connh,
 			     &user_msubh_rb, &user_msub_len_rb,
 			     &user_msh_rb,
-			     0);
+			     30);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
 	/* Do the DMA transfer and comparison */
@@ -2517,7 +2521,7 @@ free_client_mso:
 	BAT_EXPECT_RET(ret, 0, free_user_mso);
 
 free_user_mso:
-	ret = close_mso_f(bat_connections[0], user_msoh);
+	ret = close_mso_f(bat_connections[1], user_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 free_server_mso:
@@ -2527,4 +2531,4 @@ free_server_mso:
 exit:
 
 	return ret;
-} /* test_case_6() */
+} /* test_case_7() */
