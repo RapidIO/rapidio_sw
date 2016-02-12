@@ -213,6 +213,9 @@ bool DMAChannel::dmaIsRunning()
 
 void DMAChannel::resetHw()
 {
+  if (!m_hw_master)
+    throw std::runtime_error("DMAChannel: Will not alloc reset HW in non-master instance!");
+
   m_sim_abort_reason = 0;
   m_sim_err_stat     = 0;
   m_sim_fifo_wp      = 0;

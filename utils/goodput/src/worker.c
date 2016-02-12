@@ -2324,7 +2324,9 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
         info->tick_data_total = 0;
 	info->tick_count = info->tick_total = 0;
 
-        info->umd_dch->resetHw();
+        try { 
+		info->umd_dch->resetHw();
+	} catch(std::runtime_error ex) { INFO("\n\tException: %s\n", ex.what()); }
         if (!info->umd_dch->checkPortOK()) {
 		CRIT("\n\tPort is not OK!!! Exiting...");
 		goto exit;
@@ -2446,11 +2448,12 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 				}}
 
 				// nuke faulting BD
+				try {
+					const int pending = info->umd_dch->cleanupBDQueue(false /*multithreaded_fifo*/);
 
-				const int pending = info->umd_dch->cleanupBDQueue(false /*multithreaded_fifo*/);
-
-				info->umd_dch->softRestart(pending == 0); // Wipe clean BD queue if no outstanding
-				if (FT_TEST == 0x2) info->umd_dch->simFIFO(0, 0); // No faults after a restart to process all T3 BDs
+					info->umd_dch->softRestart(pending == 0); // Wipe clean BD queue if no outstanding
+					if (FT_TEST == 0x2) info->umd_dch->simFIFO(0, 0); // No faults after a restart to process all T3 BDs
+				} catch(std::runtime_error ex) { INFO("\n\tException: %s\n", ex.what()); }
 			}
 
                 	finish_iter_stats(info);
