@@ -518,9 +518,10 @@ int test_case_c(void)
 			BAT_EXPECT_RET(rc, 0, free_mso);
 		}
 	}
-	ret = rc;
 
 free_mso:
+	ret = rc;
+
 	/* Delete the mso */
 	rc = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
@@ -696,12 +697,12 @@ int test_case_d(void)
 			rc = -1;
 			BAT_EXPECT_RET(rc, 0, free_mso);
 		}
-
-		/* Save 'rc' since it will be overwritten while destroying mso */
-		ret = rc;
 	}
 
 free_mso:
+	/* Save 'rc' since it will be overwritten while destroying mso */
+	ret = rc;
+
 	/* Delete the mso */
 	rc = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
@@ -846,16 +847,14 @@ int test_case_e()
 			if (rc) {
 				fprintf(log_fp, "%s FAILED, line %d, rc = %d, j = %u\n",
 						__func__, __LINE__, rc, j);
-				/* Don't break; continue to try and unmap others */
+				break;
 			}
 		}
-		rc = 0;
-
-		/* Save 'rc' since it will be overwritten while destroying mso */
-		ret = rc;
 	}
 
 free_mso:
+	/* Save 'rc' since it will be overwritten while destroying mso */
+	ret = rc;
 	/* Delete the mso */
 	rc = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
@@ -964,11 +963,11 @@ int test_case_f()
 
 		rc = rdma_munmap_msub(msubh3, p3);
 		BAT_EXPECT_RET(rc, 0, free_mso);
-
-		ret = rc = 0;
 	}
 
 free_mso:
+	ret = rc;
+
 	/* Delete the mso */
 	rc = rdma_destroy_mso_h(msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
@@ -1165,11 +1164,11 @@ int test_case_g(void)
 
 		rc = rdma_create_ms_h("dummy8", client_msoh, 128*1024, 0, &msh, &size);
 		BAT_EXPECT_RET(rc, 0, free_mso);
-
-		ret = rc;	/* rc is overwritten when the mso is destroyed */
 	}
 
 free_mso:
+	ret = rc;	/* rc is overwritten when the mso is destroyed */
+
 	/* Delete the mso */
 	rc = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
@@ -1284,9 +1283,9 @@ int test_case_h(uint32_t destid)
 		}
 	}
 
+free_server_mso:
 	rc = ret;	/* 'ret' is overwritten during destruction */
 
-free_server_mso:
 	/* Delete the server mso */
 	ret = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
@@ -1440,7 +1439,6 @@ int test_case_i_j_k(char tc, uint32_t destid)
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 	}
 
-	rc = ret;	/* 'ret' is overwritten during destruction */
 
 	/* In test case 'k' we delete the remote (server) mso first */
 	if (tc == 'k') {
@@ -1460,6 +1458,8 @@ int test_case_i_j_k(char tc, uint32_t destid)
 	 * the local mso before the remote mso.
 	 */
 free_client_mso:
+	rc = ret;	/* 'ret' is overwritten during destruction */
+
 	/* Delete the client mso */
 	ret = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
@@ -1812,9 +1812,8 @@ int test_case_n()
 								&user_msubh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
-	rc = ret;
-
 free_server_mso:
+	rc = ret;
 
 	/* Delete the server mso while it is open */
 	ret = destroy_mso_f(bat_connections[0], server_msoh);
@@ -1842,7 +1841,6 @@ int test_case_o(uint32_t destid)
 	ms_h	server_msh_rb;
 	ret = create_ms_f(bat_connections[0], "rem_ms", server_msoh_rb, 64*1024, 0,
 			  	  	  	  &server_msh_rb, NULL);
-	printf("*** server_msh_rb = 0x%" PRIx64 "\n", server_msh_rb);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
 
 	/* Create msub of size 4K on server */
@@ -1884,9 +1882,9 @@ int test_case_o(uint32_t destid)
 	ret = server_disconnect_ms(bat_connections[0], server_msh_rb, 0);
 	BAT_EXPECT_RET(ret, 0, free_client_mso);
 
+free_client_mso:
 	rc = ret;	/* 'ret' is overwritten during destruction */
 
-free_client_mso:
 	/* Delete the client mso */
 	ret = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
@@ -1970,9 +1968,9 @@ int test_case_t_u(char tc, uint32_t destid)
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
 	}
 
+free_client_mso:
 	rc = ret;	/* 'ret' is overwritten during destruction */
 
-free_client_mso:
 	/* Delete the client mso */
 	ret = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_RET(ret, 0, free_server_mso);
