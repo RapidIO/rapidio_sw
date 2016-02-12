@@ -345,6 +345,7 @@ private:
   bool                m_hw_master;
 
   typedef struct {
+    pid_t               master_pid;
     volatile int        restart_pending;
     uint64_t            dmadesc_win_handle; ///< Sharable among processes, mmap'able
     uint64_t            dmadesc_win_size;
@@ -378,6 +379,13 @@ private:
   } TicketState_t;
 
   TicketState_t checkTicket(const DmaOptions_t& opt);
+ 
+  /** Crude Seventh Edition-style check for SHM Master liveliness */
+  inline bool pingMaster() {
+    assert(m_state);
+    if (m_hw_master) return true; // No-op
+    return (kill(m_state->master_pid, 0) == 0);
+  }
 
   inline void setWriteCount(uint32_t cnt) { if (!m_sim) wr32dmachan(TSI721_DMAC_DWRCNT, cnt); }
 

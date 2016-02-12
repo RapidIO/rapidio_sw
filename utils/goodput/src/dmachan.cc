@@ -148,6 +148,7 @@ void DMAChannel::init(const uint32_t chan)
   pthread_spin_init(&m_state->pending_work_splock, PTHREAD_PROCESS_SHARED);
   pthread_spin_init(&m_state->bl_splock,           PTHREAD_PROCESS_SHARED);
 
+  m_state->master_pid    = m_pid;
   m_state->bd_num        = 0;
   m_state->sts_size      = 0;
   m_state->dma_wr        = 0;
