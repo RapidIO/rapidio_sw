@@ -24,13 +24,15 @@ int test_case_t_u(char tc, uint32_t destid);
 int test_case_v_w(char tc, uint32_t destid);
 int test_case_x();
 int test_case_y();
-int test_case_6(uint32_t destid);
 
+/* DMA test cases 1-6 */
 int test_case_dma(char tc,
 		  uint32_t destid,
 		  uint32_t loc_msub_ofs_in_ms,
 		  uint32_t ofs_in_loc_msub,
 		  uint32_t ofs_in_rem_msub,
 		  rdma_sync_type_t sync_type);
+int test_case_7(uint32_t destid);
+
 #endif
 

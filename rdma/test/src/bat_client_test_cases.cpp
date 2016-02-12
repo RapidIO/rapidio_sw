@@ -2274,15 +2274,20 @@ int do_dma(msub_h client_msubh,
 			ofs_in_loc_msub, ofs_in_rem_msub);
 	LOG("num_bytes = 0x%X, sync_type: %d\n", DMA_DATA_SIZE, sync_type);
 #endif
+
 	/* Push the RDMA data */
 	ret = rdma_push_msub(&in, &out);
 	BAT_EXPECT_RET(ret, 0, unmap_msubh);
 
-	/* If async mode, must call rdma_sync_chk_push_pull() */
+	/* Handle ASYNC and FAF modes appropriately */
 	if (sync_type == rdma_async_chk) {
+		/* If async mode, must call rdma_sync_chk_push_pull() */
 		LOG("ASYNC DMA: ");
 		ret = rdma_sync_chk_push_pull(out.chk_handle, NULL);
 		BAT_EXPECT_RET(ret, 0, unmap_msubh);
+	} else if (sync_type == rdma_no_wait) {
+		/* If FAF mode (no wait), then sleep to allow data to arrive */
+		sleep(1);
 	}
 
 	/* Flush rdma_data */
@@ -2292,10 +2297,20 @@ int do_dma(msub_h client_msubh,
 	ret = rdma_pull_msub(&in, &out);
 	BAT_EXPECT_RET(ret, 0, unmap_msubh);
 
-	/* If async mode, must call rdma_sync_chk_push_pull() */
+	/* Handle ASYNC and FAF modes appropriately */
 	if (sync_type == rdma_async_chk) {
+		/* If async mode, must call rdma_sync_chk_push_pull() */
 		ret = rdma_sync_chk_push_pull(out.chk_handle, NULL);
 		BAT_EXPECT_RET(ret, 0, unmap_msubh);
+	} else if (sync_type == rdma_no_wait) {
+		/* For FAF we poll for the data till it arrives */
+		auto timeout = 10000;
+		while (timeout--) {
+			if ((dma_data[0x00] == 0x01) &&
+			    (dma_data[0x08] == 0x09) &&
+			    (dma_data[0x10] == 0x11))
+				break;
+		}
 	}
 
 	/* Dump the data out for debugging */
@@ -2407,8 +2422,8 @@ exit:
 	return ret;
 } /* test_case_1() */
 
-/* NOTE: test_case_6() is BROKEN. Need to review ms names ..etc. */
-int test_case_6(uint32_t destid)
+/* NOTE: test_case_7() is BROKEN. Need to review ms names ..etc. */
+int test_case_7(uint32_t destid)
 {
 	int ret = 0;
 

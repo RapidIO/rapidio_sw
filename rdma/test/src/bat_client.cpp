@@ -279,7 +279,11 @@ int main(int argc, char *argv[])
 		bat_eot(1);
 		break;
 	case '6':
-		test_case_6(destid);
+		test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_no_wait);
+		bat_eot(1);
+		break;
+	case '7':
+		test_case_7(destid);
 		bat_eot(1);
 		break;
 	case 'z':
@@ -313,6 +317,10 @@ int main(int argc, char *argv[])
 			test_case_dma('4', destid, 0x00, 0x00, 0x40, rdma_sync_chk);
 #if 0
 			test_case_dma('5', destid, 0x00, 0x00, 0x00, rdma_async_chk);
+#endif
+			test_case_dma('6', destid, 0x00, 0x00, 0x00, rdma_no_wait);
+#if 0
+			test_case_7(destid);
 #endif
 			test_case_b();
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
