@@ -284,7 +284,7 @@ int main(int argc, char *argv[])
 		break;
 	case '7':
 		test_case_7(destid);
-		bat_eot(1);
+		bat_eot(2);
 		break;
 	case 'z':
 		for (auto i = 0; i < repetitions; i++) {
