@@ -59,7 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 class POSIXShm {
 public:
-  POSIXShm(const char* name, const uint64_t size);
+  POSIXShm(const char* name, const uint64_t size, bool& first_opener);
   ~POSIXShm();
 
   void* getMem()        { return (char*)m_shm + PAGE_SIZE; }
@@ -107,7 +107,7 @@ private:
 extern "C" {
 #endif
 
-void* POSIXShm_new(const char* name, const int size);
+void* POSIXShm_new(const char* name, const int size, int* first_opener);
 void POSIXShm_delete(void* shm);
 void* POSIXShm_getMem(void* shm);
 void POSIXShm_lock(void* shm);

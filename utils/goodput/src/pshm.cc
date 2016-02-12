@@ -72,7 +72,7 @@ POSIXShm::mkname(const char* name)
  * \throws std::runtime_error
  * The size is rounded up to the next full page. Also a secret page is tacked before the "official" memory area.
  */
-POSIXShm::POSIXShm(const char* name, const uint64_t size)
+POSIXShm::POSIXShm(const char* name, const uint64_t size, bool& first_opener)
 {
   m_shm_name = mkname(name);
 
@@ -135,8 +135,11 @@ POSIXShm::POSIXShm(const char* name, const uint64_t size)
       m_reg_index           = reg->max_count - 1;
       reg->reg[m_reg_index] = MYSELF;
       reg->count            = 1;
+      first_opener = true;
       break;
     }
+
+    first_opener = false;
     // Hunt down an empty slot, in effect count backwards from last entry!!
     int found = 0;
     for(int i = 1; i < reg->max_count; i++) {
@@ -208,10 +211,12 @@ void POSIXShm::dumpRegistry(std::string& out)
   out = ss.str();
 }
 
-extern "C" void* POSIXShm_new(const char* name, const int size)
+extern "C" void* POSIXShm_new(const char* name, const int size, int* fo)
 {
   try {
-    POSIXShm* shm = new POSIXShm(name, size);
+    bool first_opener = false;
+    POSIXShm* shm = new POSIXShm(name, size, first_opener);
+    if (fo != NULL) *fo = first_opener;
     return shm;
   } catch(std::runtime_error e) { fprintf(stderr, "Exception: %s\n", e.what()); }
 

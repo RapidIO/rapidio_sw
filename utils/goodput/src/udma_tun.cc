@@ -74,7 +74,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mhz.h"
 
 #include "dmachan.h"
-#include "hash.cc"
+//#include "hash.cc"
 #include "lockfile.h"
 #include "tun_ipv4.h"
 

@@ -55,8 +55,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* DMA Status FIFO */
 #define DMA_STATUS_FIFO_LENGTH (4096)
 
-static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa8 };
-#define PATTERN_SZ  sizeof(PATTERN)
+#define DMA_SHM_STATE_NAME	"DMAChannel-state:%d:%d"
+
+#define DMA_SHM_TXDESC_NAME	"DMAChannel-txdesc:%d:%d"
+#define DMA_SHM_TXDESC_SIZE	((m_state->bd_num+1)*sizeof(bool) + (m_state->bd_num+1)*sizeof(WorkItem_t))
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
@@ -64,9 +66,28 @@ void hexdump4byte(const char* msg, uint8_t* d, int len);
 class {
 */
 
+void DMAChannel::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
+{
+  char pshm_name[129] = {0};
+  snprintf(pshm_name, 128, DMA_SHM_TXDESC_NAME, mportid, chan);
+
+  bool first_opener_bl = true;
+  const int shm_size = DMA_SHM_TXDESC_SIZE;
+  m_shm_bl = new POSIXShm(pshm_name, shm_size, first_opener_bl);
+
+  if (first_opener_bl && !m_hw_master)
+    throw std::runtime_error("DMAChannel: First opener for BD shm area even if master is ready!");
+
+  uint8_t* pshm = (uint8_t*)m_shm_bl->getMem();
+
+  m_bl_busy = (bool*)pshm;
+  m_pending_work = (WorkItem_t*)(pshm + (m_state->bd_num+1)*sizeof(bool));
+}
+
 void DMAChannel::init(const uint32_t chan)
 {
-  bool first_opener = true;
+  char pshm_name[129] = {0};
+  snprintf(pshm_name, 128, DMA_SHM_STATE_NAME, m_mportid, chan);
 
   m_fifo_scan_cnt = 0;
   m_tx_cnt        = 0;
@@ -82,18 +103,47 @@ void DMAChannel::init(const uint32_t chan)
   m_sim_abort_reason = 0;
   m_sim_err_stat = 0;
 
+  bool first_opener = true;
+  const int shm_size = sizeof(DmaChannelState_t);
+  m_shm = new POSIXShm(pshm_name, shm_size, first_opener);
+
+  m_state = (DmaChannelState_t*)m_shm->getMem();
+
   if (!first_opener) {
     m_hw_master = false;
+
+    // Check readiness of master
+    if (m_state->hw_ready < 2)
+      throw std::runtime_error("DMAChannel: HW not reported as ready by master instance!");
+
+    if (m_state->bd_num == 0)
+      throw std::runtime_error("DMAChannel: alloc_dmatxdesc not called yet in master instance! #1");
+    if (m_state->dmadesc_win_handle == 0 || m_state->dmadesc_win_size == 0)
+      throw std::runtime_error("DMAChannel: alloc_dmatxdesc not called yet in master instance! #2");
+
+    if (m_state->sts_size == 0)
+      throw std::runtime_error("DMAChannel: alloc_dmacompldesc not called yet in master instance!");
+
+    open_txdesc_shm(m_mportid, chan);
+
+    // Map txdesc!
+    m_dmadesc.win_handle = m_state->dmadesc_win_handle;
+    m_dmadesc.win_size   = m_state->dmadesc_win_size;
+    int ret = riomp_dma_map_memory(m_mp_hd, m_dmadesc.win_size, m_dmadesc.win_handle, &m_dmadesc.win_ptr);
+    if (ret) {
+      CRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(ret));
+      throw std::runtime_error("DMAChannel: Bad BD linear address!");
+    }
+    m_dmadesc.type = RioMport::DMAMEM;
+
     return;
   }
 
   m_hw_master = true;
 
-  m_state = (DmaChannelState_t*)calloc(1, sizeof(DmaChannelState_t)); // TEMP
-
-  pthread_spin_init(&m_state->hw_splock, PTHREAD_PROCESS_SHARED);
+  pthread_spin_init(&m_state->hw_splock,           PTHREAD_PROCESS_SHARED);
   pthread_spin_init(&m_state->pending_work_splock, PTHREAD_PROCESS_SHARED);
-  pthread_spin_init(&m_state->bl_splock, PTHREAD_PROCESS_SHARED);
+  pthread_spin_init(&m_state->bl_splock,           PTHREAD_PROCESS_SHARED);
 
   m_state->bd_num        = 0;
   m_state->sts_size      = 0;
@@ -418,14 +468,16 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
     return false;
   }
 
+  open_txdesc_shm(m_mportid, m_state->chan); // allocates m_bl_busy, m_pending_work; set to 0 on 1st opener
+
   m_state->bd_num = bd_cnt;
 
-  m_bl_busy = (bool*)calloc(m_state->bd_num, sizeof(bool));
+  m_state->dmadesc_win_handle = m_dmadesc.win_handle;
+  m_state->dmadesc_win_size   = m_dmadesc.win_size;
+
   m_state->bl_busy_size = 0;
-
-  m_pending_work = (WorkItem_t*)calloc(m_state->bd_num+1, sizeof(WorkItem_t)); // +1 to have a guard, NOT used
-
   memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
+
 
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
     ((uint8_t*)m_dmadesc.win_ptr + ((m_state->bd_num-1) * DMA_BUFF_DESCR_SIZE));
@@ -465,11 +517,8 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
   if (m_sim) { m_state->hw_ready++; return true; }
 
   // Setup DMA descriptor pointers
-  if (m_hw_master) {
-    wr32dmachan(TSI721_DMAC_DPTRH, (uint64_t)m_dmadesc.win_handle >> 32);
-    wr32dmachan(TSI721_DMAC_DPTRL, 
-      (uint64_t)m_dmadesc.win_handle & TSI721_DMAC_DPTRL_MASK); 
-  }
+  wr32dmachan(TSI721_DMAC_DPTRH, (uint64_t)m_dmadesc.win_handle >> 32);
+  wr32dmachan(TSI721_DMAC_DPTRL, (uint64_t)m_dmadesc.win_handle & TSI721_DMAC_DPTRL_MASK); 
 
   m_state->hw_ready++;
 
@@ -918,7 +967,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
 
     memcpy((uint8_t*)m_dmadesc.win_ptr, &m_state->BD0_T3_saved, DMA_BUFF_DESCR_SIZE); // Reset BD0 as jump+1
 
-    memset(m_bl_busy, 0,  m_state->bd_num * sizeof(bool));
+    memset(m_bl_busy, 0,  (m_state->bd_num+1) * sizeof(bool));
     m_state->bl_busy_size = 0;
 
     memset(m_pending_work, 0, (m_state->bd_num+1) * sizeof(WorkItem_t));

@@ -45,6 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IDT_Tsi721.h"
 
 #include "mport.h"
+#include "pshm.h"
 #include "dmadesc.h"
 #include "rdtsc.h"
 #include "debug.h"
@@ -165,6 +166,7 @@ public:
 
   void cleanup();
   void shutdown();
+  void open_txdesc_shm(const uint32_t mportid, const uint32_t chan);
   void init(const uint32_t chan);
 
   int scanFIFO(WorkItem_t* completed_work, const int max_work, const int force_scan = 0);
@@ -327,6 +329,8 @@ private:
   bool*               m_bl_busy;
   volatile int        m_restart_pending;
  
+  POSIXShm*           m_shm;
+  POSIXShm*           m_shm_bl;
   bool                m_hw_master;
   
   WorkItem_t*         m_pending_work;
