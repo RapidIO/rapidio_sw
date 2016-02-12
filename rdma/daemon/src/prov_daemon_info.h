@@ -44,10 +44,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * (i.e. by receiving a HELLO message).
  */
 struct prov_daemon_info {
+	prov_daemon_info(uint32_t destid, cm_server *conn_disc_server, pthread_t tid)
+		: destid(destid), conn_disc_server(conn_disc_server), tid(tid)
+{	}
+	bool operator==(uint32_t destid) { return this->destid == destid; }
+
 	uint32_t 	destid;
 	cm_server	*conn_disc_server;
 	pthread_t	tid;
-	bool operator==(uint32_t destid) { return this->destid == destid; }
 };
 
 #endif
