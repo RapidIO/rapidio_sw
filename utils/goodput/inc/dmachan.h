@@ -164,7 +164,6 @@ public:
     return m_state->bl_busy_size;
   }
 
-  void cleanup();
   void shutdown();
   void open_txdesc_shm(const uint32_t mportid, const uint32_t chan);
   void init(const uint32_t chan);
@@ -329,8 +328,12 @@ private:
   bool*               m_bl_busy;
   volatile int        m_restart_pending;
  
-  POSIXShm*           m_shm;
+  POSIXShm*           m_shm_state;
+  char                m_shm_state_name[129] = {0};
+
   POSIXShm*           m_shm_bl;
+  char                m_shm_bl_name[129] = {0};
+
   bool                m_hw_master;
   
   WorkItem_t*         m_pending_work;
@@ -355,6 +358,8 @@ private:
   } DmaChannelState_t;
 
   DmaChannelState_t*  m_state;
+
+  void cleanup();
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 

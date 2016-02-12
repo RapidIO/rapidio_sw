@@ -68,12 +68,11 @@ class {
 
 void DMAChannel::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
 {
-  char pshm_name[129] = {0};
-  snprintf(pshm_name, 128, DMA_SHM_TXDESC_NAME, mportid, chan);
+  snprintf(m_shm_bl_name, 128, DMA_SHM_TXDESC_NAME, mportid, chan);
 
   bool first_opener_bl = true;
   const int shm_size = DMA_SHM_TXDESC_SIZE;
-  m_shm_bl = new POSIXShm(pshm_name, shm_size, first_opener_bl);
+  m_shm_bl = new POSIXShm(m_shm_bl_name, shm_size, first_opener_bl);
 
   if (first_opener_bl && !m_hw_master)
     throw std::runtime_error("DMAChannel: First opener for BD shm area even if master is ready!");
@@ -86,8 +85,7 @@ void DMAChannel::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
 
 void DMAChannel::init(const uint32_t chan)
 {
-  char pshm_name[129] = {0};
-  snprintf(pshm_name, 128, DMA_SHM_STATE_NAME, m_mportid, chan);
+  snprintf(m_shm_state_name, 128, DMA_SHM_STATE_NAME, m_mportid, chan);
 
   m_fifo_scan_cnt = 0;
   m_tx_cnt        = 0;
@@ -105,9 +103,9 @@ void DMAChannel::init(const uint32_t chan)
 
   bool first_opener = true;
   const int shm_size = sizeof(DmaChannelState_t);
-  m_shm = new POSIXShm(pshm_name, shm_size, first_opener);
+  m_shm_state = new POSIXShm(m_shm_state_name, shm_size, first_opener);
 
-  m_state = (DmaChannelState_t*)m_shm->getMem();
+  m_state = (DmaChannelState_t*)m_shm_state->getMem();
 
   if (!first_opener) {
     m_hw_master = false;
@@ -468,9 +466,9 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
     return false;
   }
 
-  open_txdesc_shm(m_mportid, m_state->chan); // allocates m_bl_busy, m_pending_work; set to 0 on 1st opener
+  m_state->bd_num = bd_cnt; // This comes before open_txdesc_shm
 
-  m_state->bd_num = bd_cnt;
+  open_txdesc_shm(m_mportid, m_state->chan); // allocates m_bl_busy, m_pending_work; set to 0 on 1st opener
 
   m_state->dmadesc_win_handle = m_dmadesc.win_handle;
   m_state->dmadesc_win_size   = m_dmadesc.win_size;
@@ -687,6 +685,8 @@ void DMAChannel::shutdown()
 
 void DMAChannel::cleanup()
 {
+  assert(m_state);
+
   // Reset HW here
   resetHw();
  
@@ -699,15 +699,31 @@ void DMAChannel::cleanup()
   memset(&m_dmadesc, 0, sizeof(m_dmadesc));
   memset(&m_dmacompl, 0, sizeof(m_dmacompl));
   
-  if(m_pending_work != NULL) {
+  if (m_pending_work != NULL) {
     assert(m_pending_work[m_state->bd_num].valid == 0);
-    free(m_pending_work); m_pending_work = NULL;
+    m_pending_work = NULL;
   }
 
-  if(m_bl_busy != NULL) {
-    free(m_bl_busy); m_bl_busy = NULL;
-    m_state->bl_busy_size = -42;
+  if (m_bl_busy != NULL) {
+    m_bl_busy = NULL;
+    if (m_hw_master) m_state->bl_busy_size = -42;
   }
+
+  if (m_hw_master) m_state->hw_ready = -42;
+
+  delete m_shm_state; m_shm_state = NULL;
+  delete m_shm_bl;    m_shm_bl    = NULL;
+  m_state = NULL;
+
+  if (!m_hw_master) return;
+
+  std::string s_state = "/dev/shm/";
+  s_state.append(m_shm_state_name);
+  unlink(s_state.c_str());
+
+  std::string s_bl = "/dev/shm/";
+  s_bl.append(m_shm_bl_name);
+  unlink(s_bl.c_str());
 }
 
 static inline bool hexdump64bit(const void* p, int len)

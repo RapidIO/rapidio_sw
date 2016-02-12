@@ -251,8 +251,6 @@ void shutdown_worker_thread(struct worker *info)
 	if (info->umd_dch) {
 		int i;
 
-		info->umd_dch->cleanup();
-
 		for (i = 0; i < MAX_UMD_BUF_COUNT; i++)
 			info->umd_dch->free_dmamem(info->dmamem[i]);
 
@@ -1918,7 +1916,6 @@ void umd_dma_calibrate(struct worker *info)
 	calibrate_sched_yield(info);
 
 exit:
-        info->umd_dch->cleanup();
         delete info->umd_dch;
 	delete info->umd_lock; info->umd_lock = NULL;
 	info->umd_dch = NULL;
@@ -2116,8 +2113,6 @@ exit_nomsg:
 		info->umd_dch->shutdown();
 
         pthread_join(info->umd_fifo_thr.thr, NULL);
-
-        info->umd_dch->cleanup();
 
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 
@@ -2482,8 +2477,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 exit:
 	if (info->umd_dch)
 		info->umd_dch->shutdown();
-
-        info->umd_dch->cleanup();
 
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 
