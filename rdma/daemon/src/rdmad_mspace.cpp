@@ -349,12 +349,12 @@ int mspace::add_rem_connection(uint16_t client_destid,
 		this->client_destid = client_destid;
 		this->client_msubid = client_msubid;
 		this->client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
-		accepting = false;
-		connected_to = true;
+		this->accepting = false;
+		this->connected_to = true;
 		rc = 0;
 	} else {
 		DBG("The creator was not accepting..checking the users\n");
-		DBG("There are %u users\n", users.size());
+		DBG("There are %u user(s)\n", users.size());
 		auto it = find_if(begin(users), end(users), [](ms_user& u) {
 			return u.accepting;
 		});
@@ -362,12 +362,13 @@ int mspace::add_rem_connection(uint16_t client_destid,
 			CRIT("Failed to find a user in 'accepting' mode.\n");
 			rc = -1;
 		} else {
-			DBG("Adding to user\n");
+			DBG("Adding to user whose tx_eng = 0x%" PRIx64 "\n",
+					(uint64_t)it->tx_eng);
 			it->client_destid = client_destid;
 			it->client_msubid = client_msubid;
 			it->client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
-			accepting = false;
-			connected_to = true;
+			it->accepting = false;
+			it->connected_to = true;
 			rc = 0;
 		}
 	}
@@ -421,6 +422,8 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 			it->client_to_lib_tx_eng_h = 0;
 			it->connected_to = false;
 			it->server_msubid = 0;
+			it->connected_to = false;
+			rc = 0;
 		}
 		sem_post(&users_sem);
 	}
@@ -524,13 +527,6 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 
 	return rc;
 } /* disconnect() */
-
-/* Disconnect only connection with specified client_msubid. This method
- * is called when the client disconnects from the server. The server daemon
- * cleans up the mspace entry of the connection, and notifies the server
- * app about the disconnection request. */
-
-
 
 int mspace::client_disconnect(uint32_t client_msubid,
 		       uint64_t client_to_lib_tx_eng_h)
@@ -761,6 +757,10 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 					rc = RDMA_ACCEPT_FAIL;
 				} else {
 					/* All is good, set 'accepting' flag */
+					INFO("'%s' set to accepting for a user\n",
+							name.c_str());
+					DBG("tx_eng = 0x%" PRIx64 "\n",
+							(uint64_t)it->tx_eng);
 					it->accepting = true;;
 					it->server_msubid = server_msubid;
 					rc = 0;
