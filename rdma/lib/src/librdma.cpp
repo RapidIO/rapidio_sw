@@ -2089,95 +2089,90 @@ int rdma_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 		   struct rdma_xfer_ms_out *out)
 {
-	struct loc_msub *lmsub;
-	struct rem_msub *rmsub;
+	loc_msub *lmsub;
+	rem_msub *rmsub;
+	int rc;
 
 	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
-	/* Check for NULL pointers */
-	if (!in || !out) {
-		ERR("%s: NULL. in=%p, out=%p\n", in, out);
-		out->in_param_ok = -1;
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
-	lmsub = (struct loc_msub *)in->loc_msubh;
-	rmsub = (struct rem_msub *)in->rem_msubh;
-	if (!lmsub || !rmsub) {
-		ERR("%s: NULL. lmsub=%p, rmsub=%p\n", lmsub, rmsub);
-		out->in_param_ok = -1;
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
-
-	/* Check for destid > 16 */
-	if (rmsub->destid_len > 16) {
-		ERR("destid_len=%u unsupported\n", rmsub->destid_len);
-		out->in_param_ok = -2;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_DESTID;
-	}
-
-	/* Check for RIO address > 64-bits */
-	if (rmsub->rio_addr_len > 64) {
-		ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
-		out->in_param_ok = -3;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_RIO_ADDR;
-	}
-
-	/* Check if local daemon is alive */
-	DBG("Check if local daemon is alive\n");
-	if (!rdmad_is_alive()) {
-		ERR("Local RDMA daemon is dead. Exiting\n");
-		sem_post(&rdma_lock);
-		return RDMA_DAEMON_UNREACHABLE;
-	}
-
-	/* Check if remote daemon is alive */
-	DBG("Check if remote daemon is alive\n");
-	if (fm_alive && (dd_h != NULL))
-		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
-			ERR("Remote destination daemon NOT running!\n");
-			sem_post(&rdma_lock);
-			return RDMA_REMOTE_UNREACHABLE;
+	try {
+		/* Check for NULL pointers */
+		if (!in || !out) {
+			ERR("%s: NULL. in=%p, out=%p\n", in, out);
+			out->in_param_ok = -1;
+			throw RDMA_NULL_PARAM;
+		}
+		lmsub = (struct loc_msub *)in->loc_msubh;
+		rmsub = (struct rem_msub *)in->rem_msubh;
+		if (!lmsub || !rmsub) {
+			ERR("%s: NULL. lmsub=%p, rmsub=%p\n", lmsub, rmsub);
+			out->in_param_ok = -1;
+			throw RDMA_NULL_PARAM;
 		}
 
-	/* All input parameters are OK */
-	out->in_param_ok = 0;
+		/* Check for destid > 16 */
+		if (rmsub->destid_len > 16) {
+			ERR("destid_len=%u unsupported\n", rmsub->destid_len);
+			out->in_param_ok = -2;
+			throw RDMA_INVALID_DESTID;
+		}
 
-	/* Echo parameters for debugging */
-	INFO("Sending %u bytes over DMA to destid=0x%X\n", in->num_bytes,
+		/* Check for RIO address > 64-bits */
+		if (rmsub->rio_addr_len > 64) {
+			ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
+			out->in_param_ok = -3;
+			throw RDMA_INVALID_RIO_ADDR;
+		}
+
+		/* Check if local daemon is alive */
+		DBG("Check if local daemon is alive\n");
+		if (!rdmad_is_alive()) {
+			ERR("Local RDMA daemon is dead. Exiting\n");
+			throw RDMA_DAEMON_UNREACHABLE;
+		}
+
+		/* Check if remote daemon is alive */
+		DBG("Check if remote daemon is alive\n");
+		if (fm_alive && (dd_h != NULL))
+			if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+				ERR("Remote destination daemon NOT running!\n");
+				throw RDMA_REMOTE_UNREACHABLE;
+			}
+
+		/* All input parameters are OK */
+		out->in_param_ok = 0;
+
+		/* Echo parameters for debugging */
+		INFO("Sending %u bytes over DMA to destid=0x%X\n", in->num_bytes,
 								rmsub->destid);
-	INFO("Dest RIO addr =  %016" PRIx64 ", lmsub->paddr = %016" PRIx64 "\n",
+		INFO("Dest RIO addr =  %016" PRIx64 ", lmsub->paddr = %016" PRIx64 "\n",
 					rmsub->rio_addr_lo + in->rem_offset,
 					lmsub->paddr);
-	/* Determine sync type */
-	enum riomp_dma_directio_transfer_sync rd_sync;
+		/* Determine sync type */
+		enum riomp_dma_directio_transfer_sync rd_sync;
 
-	switch (in->sync_type) {
+		switch (in->sync_type) {
 
-	case rdma_no_wait:
-		rd_sync = RIO_DIRECTIO_TRANSFER_FAF;
-		INFO("RIO_DIRECTIO_TRANSFER_FAF\n");
+		case rdma_no_wait:
+			rd_sync = RIO_DIRECTIO_TRANSFER_FAF;
+			INFO("RIO_DIRECTIO_TRANSFER_FAF\n");
 		break;
-	case rdma_sync_chk:
-		rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
-		INFO("RIO_DIRECTIO_TRANSFER_SYNC\n");
+		case rdma_sync_chk:
+			rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
+			INFO("RIO_DIRECTIO_TRANSFER_SYNC\n");
 		break;
-	case rdma_async_chk:
-		rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
-		INFO("RIO_DIRECTIO_TRANSFER_ASYNC\n");
+		case rdma_async_chk:
+			rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
+			INFO("RIO_DIRECTIO_TRANSFER_ASYNC\n");
 		break;
-	default:
-		ERR("Invalid sync_type\n", in->sync_type);
-		out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_SYNC_TYPE;
-	}
+		default:
+			ERR("Invalid sync_type\n", in->sync_type);
+			out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
+			throw RDMA_INVALID_SYNC_TYPE;
+		}
 
-	int ret = riomp_dma_write_d(peer.mport_hnd,
+		rc = riomp_dma_write_d(peer.mport_hnd,
 				    (uint16_t)rmsub->destid,
 				    rmsub->rio_addr_lo + in->rem_offset,
 				    lmsub->paddr,
@@ -2185,23 +2180,25 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 				    in->num_bytes,
 					RIO_DIRECTIO_TYPE_NWRITE_R,
 				    rd_sync);
-	if (ret) {
-		ERR("riomp_dma_write_d() failed:(%d) %s\n", ret, strerror(errno));
-		sem_post(&rdma_lock);
-		return ret;
-	}
+		if (rc) {
+			ERR("riomp_dma_write_d() failed:(%d) %s\n", rc, strerror(errno));
+			throw rc;
+		}
 
-	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value of riomp_dma_write_d() is the token (if >= 0) */
-	if (in->sync_type == rdma_sync_chk)
-		out->dma_xfr_status = ret;
-	else if (in->sync_type == rdma_async_chk && ret >= 0) {
-		out->chk_handle = ret;	/* token */
-		ret = 0;	/* success */
+		/* If synchronous, the return value is the xfer status. If async,
+		 * the return value of riomp_dma_write_d() is the token (if >= 0) */
+		if (in->sync_type == rdma_sync_chk)
+			out->dma_xfr_status = rc;
+		else if (in->sync_type == rdma_async_chk && rc >= 0) {
+			out->chk_handle = rc;	/* token */
+			rc = 0;	/* success */
+		}
 	}
-
+	catch(int& e) {
+		rc = e;
+	}
 	sem_post(&rdma_lock);
-	return ret;
+	return rc;
 } /* rdma_push_msub() */
 
 int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
@@ -2209,204 +2206,203 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		  struct rdma_xfer_ms_out *out)
 {
 	(void)priority;
-	struct rem_msub *rmsub;
+	rem_msub *rmsub;
+	int rc;
 
 	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
-	/* Check for NULL pointer */
-	if (!buf || !out || !rem_msubh) {
-		ERR("NULL param(s). buf=%p, out=%p, rem_msubh = %u\n",
+	try {
+		/* Check for NULL pointer */
+		if (!buf || !out || !rem_msubh) {
+			ERR("NULL param(s). buf=%p, out=%p, rem_msubh = %u\n",
 							buf, out, rem_msubh);
-		out->in_param_ok = -1;
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
-	rmsub = (struct rem_msub *)rem_msubh;
+			out->in_param_ok = -1;
+			throw RDMA_NULL_PARAM;
+		}
+		rmsub = (rem_msub *)rem_msubh;
 
-	/* Check for destid > 16 */
-	if (rmsub->destid_len > 16) {
-		ERR("destid_len=%u unsupported\n", rmsub->destid_len);
-		out->in_param_ok = -2;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_DESTID;
-	}
-
-	/* Check for RIO address > 64-bits */
-	if (rmsub->rio_addr_len > 64) {
-		ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
-		out->in_param_ok = -3;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_RIO_ADDR;
-	}
-
-	/* Check if remote daemon is alive */
-	if (fm_alive && (dd_h != NULL))
-		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
-			ERR("Remote destination daemon NOT running!\n");
-			sem_post(&rdma_lock);
-			return RDMA_REMOTE_UNREACHABLE;
+		/* Check for destid > 16 */
+		if (rmsub->destid_len > 16) {
+			ERR("destid_len=%u unsupported\n", rmsub->destid_len);
+			out->in_param_ok = -2;
+			throw RDMA_INVALID_DESTID;
 		}
 
-	/* Determine sync type */
-	enum riomp_dma_directio_transfer_sync rd_sync;
+		/* Check for RIO address > 64-bits */
+		if (rmsub->rio_addr_len > 64) {
+			ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
+			out->in_param_ok = -3;
+			throw RDMA_INVALID_RIO_ADDR;
+		}
 
-	switch (sync_type) {
+		/* Check if remote daemon is alive */
+		if (fm_alive && (dd_h != NULL))
+			if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+				ERR("Remote destination daemon NOT running!\n");
+				throw RDMA_REMOTE_UNREACHABLE;
+			}
 
-	case rdma_no_wait:
-		rd_sync = RIO_DIRECTIO_TRANSFER_FAF;
+		/* Determine sync type */
+		enum riomp_dma_directio_transfer_sync rd_sync;
+
+		switch (sync_type) {
+
+		case rdma_no_wait:
+			rd_sync = RIO_DIRECTIO_TRANSFER_FAF;
 		break;
-	case rdma_sync_chk:
-		rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
+		case rdma_sync_chk:
+			rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
 		break;
-	case rdma_async_chk:
-		rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
+		case rdma_async_chk:
+			rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
 		break;
-	default:
-		ERR("Invalid sync_type: %d\n", sync_type);
-		out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_SYNC_TYPE;
-	}
+		default:
+			ERR("Invalid sync_type: %d\n", sync_type);
+			out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
+			throw RDMA_INVALID_SYNC_TYPE;
+		}
 
-	/* All input parameters are OK */
-	out->in_param_ok = 0;
+		/* All input parameters are OK */
+		out->in_param_ok = 0;
 
-	INFO("Sending %u bytes over DMA to destid=0x%X, rio_addr = 0x%X\n",
+		INFO("Sending %u bytes over DMA to destid=0x%X, rio_addr = 0x%X\n",
 				num_bytes,
 				rmsub->destid,
 				rmsub->rio_addr_lo + rem_offset);
 
-	int ret = riomp_dma_write(peer.mport_hnd,
+		rc = riomp_dma_write(peer.mport_hnd,
 				  (uint16_t)rmsub->destid,
 				  rmsub->rio_addr_lo + rem_offset,
 				  buf,
 				  num_bytes,
 				  RIO_DIRECTIO_TYPE_NWRITE_R,
 				  rd_sync);
-	if (ret < 0) {
-		ERR("riomp_dma_write() failed:(%d) %s\n", ret, strerror(ret));
-	}
+		if (rc < 0) {
+			ERR("riomp_dma_write() failed:(%d) %s\n", rc, strerror(rc));
+		}
 
-	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value riomp_dma_write() is the token (if >= 0) */
-	if (sync_type == rdma_sync_chk)
-		out->dma_xfr_status = ret;
-	else if (sync_type == rdma_async_chk && ret >= 0 ) {
-		out->chk_handle = ret;	/* token */
-		ret = 0;	/* success */
+		/* If synchronous, the return value is the xfer status. If async,
+		 * the return value riomp_dma_write() is the token (if >= 0) */
+		if (sync_type == rdma_sync_chk)
+			out->dma_xfr_status = rc;
+		else if (sync_type == rdma_async_chk && rc >= 0 ) {
+			out->chk_handle = rc;	/* token */
+			rc = 0;	/* success */
+		}
 	}
-
+	catch(int& e) {
+		rc = e;
+	}
 	sem_post(&rdma_lock);
-	return ret;
+	return rc;
 } /* rdma_push_buf() */
 
 int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 		   struct rdma_xfer_ms_out *out)
 {
-	struct loc_msub *lmsub;
-	struct rem_msub *rmsub;
+	loc_msub *lmsub;
+	rem_msub *rmsub;
+	int rc;
 
 	DBG("ENTER\n");
 	
 	sem_wait(&rdma_lock);
-	/* Check for NULL pointers */
-	if (!in || !out) {
-		ERR("NULL. in=%p, out=%p\n", in, out);
-		out->in_param_ok = -1;
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
-	lmsub = (struct loc_msub *)in->loc_msubh;
-	rmsub = (struct rem_msub *)in->rem_msubh;
-	if (!lmsub || !rmsub) {
-		ERR("%s: NULL. lmsub=%p, rmsub=%p", lmsub, rmsub);
-		out->in_param_ok = -1;
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
-
-	/* Check for destid > 16 */
-	if (rmsub->destid_len > 16) {
-		ERR("destid_len=%u unsupported\n", rmsub->destid_len);
-		out->in_param_ok = -2;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_DESTID;
-	}
-
-	/* Check for RIO address > 64-bits */
-	if (rmsub->rio_addr_len > 64) {
-		ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
-		out->in_param_ok = -3;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_RIO_ADDR;
-	}
-
-	/* Check if local daemon is alive */
-	if (!rdmad_is_alive()) {
-		ERR("Local RDMA daemon is dead. Exiting\n");
-		sem_post(&rdma_lock);
-		return RDMA_DAEMON_UNREACHABLE;
-	}
-
-	/* Check if remote daemon is alive */
-	if (fm_alive && (dd_h != NULL))
-		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
-			ERR("Remote destination daemon NOT running!\n");
-			sem_post(&rdma_lock);
-			return RDMA_REMOTE_UNREACHABLE;
+	try {
+		/* Check for NULL pointers */
+		if (!in || !out) {
+			ERR("NULL. in=%p, out=%p\n", in, out);
+			out->in_param_ok = -1;
+			throw RDMA_NULL_PARAM;
+		}
+		lmsub = (struct loc_msub *)in->loc_msubh;
+		rmsub = (struct rem_msub *)in->rem_msubh;
+		if (!lmsub || !rmsub) {
+			ERR("%s: NULL. lmsub=%p, rmsub=%p", lmsub, rmsub);
+			out->in_param_ok = -1;
+			throw RDMA_NULL_PARAM;
 		}
 
-	/* Determine sync type */
-	enum riomp_dma_directio_transfer_sync rd_sync;
+		/* Check for destid > 16 */
+		if (rmsub->destid_len > 16) {
+			ERR("destid_len=%u unsupported\n", rmsub->destid_len);
+			out->in_param_ok = -2;
+			throw RDMA_INVALID_DESTID;
+		}
 
-	switch (in->sync_type) {
+		/* Check for RIO address > 64-bits */
+		if (rmsub->rio_addr_len > 64) {
+			ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
+			out->in_param_ok = -3;
+			throw RDMA_INVALID_RIO_ADDR;
+		}
 
-	case rdma_no_wait:	/* No FAF in reads, change to synchronous */
-	case rdma_sync_chk:
-		rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
-		break;
-	case rdma_async_chk:
-		rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
-		break;
-	default:
-		ERR("Invalid sync_type: %d\n", in->sync_type);
-		out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_SYNC_TYPE;
+		/* Check if local daemon is alive */
+		if (!rdmad_is_alive()) {
+			ERR("Local RDMA daemon is dead. Exiting\n");
+			throw RDMA_DAEMON_UNREACHABLE;
+		}
+
+		/* Check if remote daemon is alive */
+		if (fm_alive && (dd_h != NULL))
+			if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+				ERR("Remote destination daemon NOT running!\n");
+				throw RDMA_REMOTE_UNREACHABLE;
+			}
+
+		/* Determine sync type */
+		enum riomp_dma_directio_transfer_sync rd_sync;
+
+		switch (in->sync_type) {
+
+		case rdma_no_wait:	/* No FAF in reads, change to synchronous */
+		case rdma_sync_chk:
+			rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
+			break;
+		case rdma_async_chk:
+			rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
+			break;
+		default:
+			ERR("Invalid sync_type: %d\n", in->sync_type);
+			out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
+			throw RDMA_INVALID_SYNC_TYPE;
+		}
+
+		/* All input parameters are OK */
+		out->in_param_ok = 0;
+
+		INFO("Receiving %u bytes over DMA from destid=0x%X\n",
+							in->num_bytes, rmsub->destid);
+		INFO("Source RIO addr = 0x%X, lmsub->paddr = 0x%lX\n",
+					rmsub->rio_addr_lo + in->rem_offset,
+					lmsub->paddr);
+
+		rc = riomp_dma_read_d(peer.mport_hnd,
+					   (uint16_t)rmsub->destid,
+					   rmsub->rio_addr_lo + in->rem_offset,
+					   lmsub->paddr,
+					   in->loc_offset,
+					   in->num_bytes,
+					   rd_sync);
+		if (rc < 0) {
+			ERR("riomp_dma_read_d() failed:(%d) %s\n", rc, strerror(rc));
+		}
+
+		/* If synchronous, the return value is the xfer status. If async,
+		 * the return value of riomp_dma_read_d() is the token (if >= 0) */
+		if (in->sync_type == rdma_sync_chk)
+			out->dma_xfr_status = rc;
+		else if (in->sync_type == rdma_async_chk && rc >= 0) {
+			out->chk_handle = rc; /* token */
+			rc = 0; /* success */
+		}
 	}
-
-	/* All input parameters are OK */
-	out->in_param_ok = 0;
-
-	INFO("Receiving %u bytes over DMA from destid=0x%X\n",
-						in->num_bytes, rmsub->destid);
-	INFO("Source RIO addr = 0x%X, lmsub->paddr = 0x%lX\n",
-				rmsub->rio_addr_lo + in->rem_offset,
-				lmsub->paddr);
-
-	int ret = riomp_dma_read_d(peer.mport_hnd,
-				   (uint16_t)rmsub->destid,
-				   rmsub->rio_addr_lo + in->rem_offset,
-				   lmsub->paddr,
-				   in->loc_offset,
-				   in->num_bytes,
-				   rd_sync);
-	if (ret < 0) {
-		ERR("riomp_dma_read_d() failed:(%d) %s\n", ret, strerror(ret));
-	}
-
-	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value of riomp_dma_read_d() is the token (if >= 0) */
-	if (in->sync_type == rdma_sync_chk)
-		out->dma_xfr_status = ret;
-	else if (in->sync_type == rdma_async_chk && ret >= 0) {
-		out->chk_handle = ret; /* token */
-		ret = 0; /* success */
+	catch(int& e) {
+		rc = e;
 	}
 
 	sem_post(&rdma_lock);
-	return ret;
+	return rc;
 } /* rdma_pull_msub() */
 
 int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
@@ -2414,99 +2410,98 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		  struct rdma_xfer_ms_out *out)
 {
 	(void)priority;
-	struct rem_msub *rmsub;
+	rem_msub *rmsub;
+	int rc;
 
 	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
-	/* Check for NULL pointers */
-	if (!buf || !out || !rem_msubh) {
-		ERR("NULL param(s): buf=%p, out=%p, rem_msubh=%u\n",
-							buf, out, rem_msubh);
-		out->in_param_ok = -1;
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
-	rmsub = (struct rem_msub *)rem_msubh;
-	if (!rmsub) {
-		ERR("NULL param(s): rem_msubh=%u\n", rem_msubh);
-		out->in_param_ok = -1;
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
-
-	/* Check for destid > 16 */
-	if (rmsub->destid_len > 16) {
-		ERR("destid_len=%u unsupported\n",rmsub->destid_len);
-		out->in_param_ok = -2;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_DESTID;
-	}
-
-	/* Check for RIO address > 64-bits */
-	if (rmsub->rio_addr_len > 64) {
-		ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
-		out->in_param_ok = -3;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_RIO_ADDR;
-	}
-
-	/* Check if remote daemon is alive */
-	if (fm_alive && (dd_h != NULL))
-		if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
-			ERR("Remote destination daemon NOT running!\n");
-			sem_post(&rdma_lock);
-			return RDMA_REMOTE_UNREACHABLE;
+	try {
+		/* Check for NULL pointers */
+		if (!buf || !out || !rem_msubh) {
+			ERR("NULL param(s): buf=%p, out=%p, rem_msubh=%u\n",
+								buf, out, rem_msubh);
+			out->in_param_ok = -1;
+			throw RDMA_NULL_PARAM;
+		}
+		rmsub = (struct rem_msub *)rem_msubh;
+		if (!rmsub) {
+			ERR("NULL param(s): rem_msubh=%u\n", rem_msubh);
+			out->in_param_ok = -1;
+			throw RDMA_NULL_PARAM;
 		}
 
-	/* Determine sync type */
-	enum riomp_dma_directio_transfer_sync rd_sync;
+		/* Check for destid > 16 */
+		if (rmsub->destid_len > 16) {
+			ERR("destid_len=%u unsupported\n",rmsub->destid_len);
+			out->in_param_ok = -2;
+			throw RDMA_INVALID_DESTID;
+		}
 
-	switch (sync_type) {
+		/* Check for RIO address > 64-bits */
+		if (rmsub->rio_addr_len > 64) {
+			ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
+			out->in_param_ok = -3;
+			throw RDMA_INVALID_RIO_ADDR;
+		}
 
-	case rdma_no_wait:	/* No FAF in reads, change to synchronous */
-	case rdma_sync_chk:
-		rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
-		break;
-	case rdma_async_chk:
-		rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
-		break;
-	default:
-		ERR("Invalid sync_type: %d\n", sync_type);
-		out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
-		sem_post(&rdma_lock);
-		return RDMA_INVALID_SYNC_TYPE;
+		/* Check if remote daemon is alive */
+		if (fm_alive && (dd_h != NULL))
+			if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
+				ERR("Remote destination daemon NOT running!\n");
+				throw RDMA_REMOTE_UNREACHABLE;
+			}
+
+		/* Determine sync type */
+		enum riomp_dma_directio_transfer_sync rd_sync;
+
+		switch (sync_type) {
+
+		case rdma_no_wait:	/* No FAF in reads, change to synchronous */
+		case rdma_sync_chk:
+			rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
+			break;
+		case rdma_async_chk:
+			rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
+			break;
+		default:
+			ERR("Invalid sync_type: %d\n", sync_type);
+			out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
+			throw RDMA_INVALID_SYNC_TYPE;
+		}
+
+		/* All input parameters are OK */
+		out->in_param_ok = 0;
+
+		INFO("Receiving %u DMA bytes from destid=0x%X, RIO addr = 0x%X\n",
+						num_bytes,
+						rmsub->destid,
+						rmsub->rio_addr_lo + rem_offset);
+
+		rc = riomp_dma_read(peer.mport_hnd,
+					 (uint16_t)rmsub->destid,
+					 rmsub->rio_addr_lo + rem_offset,
+					 buf,
+					 num_bytes,
+					 rd_sync);
+		if (rc < 0) {
+			ERR("riomp_dma_read() failed:(%d) %s\n", rc, strerror(rc));
+		}
+
+		/* If synchronous, the return value is the xfer status. If async,
+		 * the return value of riomp_dma_read() is the token (if >= 0) */
+		if (sync_type == rdma_sync_chk)
+			out->dma_xfr_status = rc;
+		else if (sync_type == rdma_async_chk && rc >= 0) {
+			out->chk_handle = rc; /* token */
+			rc = 0; /* success */
+		}
 	}
-
-	/* All input parameters are OK */
-	out->in_param_ok = 0;
-
-	INFO("Receiving %u DMA bytes from destid=0x%X, RIO addr = 0x%X\n",
-					num_bytes,
-					rmsub->destid,
-					rmsub->rio_addr_lo + rem_offset);
-
-	int ret = riomp_dma_read(peer.mport_hnd,
-				 (uint16_t)rmsub->destid,
-				 rmsub->rio_addr_lo + rem_offset,
-				 buf,
-				 num_bytes,
-				 rd_sync);
-	if (ret < 0) {
-		ERR("riomp_dma_read() failed:(%d) %s\n", ret, strerror(ret));
+	catch(int& e) {
+		rc = e;
 	}
-
-	/* If synchronous, the return value is the xfer status. If async,
-	 * the return value of riomp_dma_read() is the token (if >= 0) */
-	if (sync_type == rdma_sync_chk)
-		out->dma_xfr_status = ret;
-	else if (sync_type == rdma_async_chk && ret >= 0) {
-		out->chk_handle = ret; /* token */
-		ret = 0; /* success */
-	}
-
 	sem_post(&rdma_lock);
-	return ret;
+	return rc;
 } /* rdma_pull_buf() */
 
 struct dma_async_wait_param {
@@ -2532,48 +2527,52 @@ int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 			    const struct timespec *wait)
 {
 	dma_async_wait_param	wait_param;
+	int rc;
 
 	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 
-	/* Make sure handle is valid */
-	if (!chk_handle) {
-		ERR("Invalid chk_handle(%d)\n", chk_handle);
-		sem_post(&rdma_lock);
-		return RDMA_NULL_PARAM;
-	}
+	try {
+		/* Make sure handle is valid */
+		if (!chk_handle) {
+			ERR("Invalid chk_handle(%d)\n", chk_handle);
+			throw RDMA_NULL_PARAM;
+		}
 
-	/* Check for NULL or 0 wait times */
-	if (!wait || !(wait->tv_sec | wait->tv_nsec)) {
-		wait_param.timeout = 0;
-		WARN("Timeout not specified, using default value\n");
-		/* as indicated in rio_mport_cdev.h (rio_async_tx_wait) */
-	} else {
-		/* Timeout is specified as a timespec. The mport library
-		 * expects the the timeout in milliseconds so convert to ms */
-		wait_param.timeout = wait->tv_sec * 1000 + wait->tv_nsec / 1000000;
-	}
-	wait_param.token = chk_handle;
-	wait_param.err = -1;
+		/* Check for NULL or 0 wait times */
+		if (!wait || !(wait->tv_sec | wait->tv_nsec)) {
+			wait_param.timeout = 0;
+			WARN("Timeout not specified, using default value\n");
+			/* as indicated in rio_mport_cdev.h (rio_async_tx_wait) */
+		} else {
+			/* Timeout is specified as a timespec. The mport library
+			 * expects the the timeout in milliseconds so convert to ms */
+			wait_param.timeout = wait->tv_sec * 1000 + wait->tv_nsec / 1000000;
+		}
+		wait_param.token = chk_handle;
+		wait_param.err = -1;
 
-	/* Now create a thread for checking the DMA transfer completion */
-	pthread_t compl_thread;
-	if (pthread_create(&compl_thread, NULL, compl_thread_f, (void *)&wait_param)) {
-		ERR("pthread_create(): %s\n", strerror(errno));
-		sem_post(&rdma_lock);
-		return RDMA_PTHREAD_FAIL;
-	}
+		/* Now create a thread for checking the DMA transfer completion */
+		pthread_t compl_thread;
+		if (pthread_create(&compl_thread, NULL, compl_thread_f, (void *)&wait_param)) {
+			ERR("pthread_create(): %s\n", strerror(errno));
+			throw RDMA_PTHREAD_FAIL;
+		}
 
-	/* Wait for transfer completion or timeout in thread */
-	if (pthread_join(compl_thread, NULL)) {
-		ERR("pthread_join(): %s\n", strerror(errno));
-		sem_post(&rdma_lock);
-		return RDMA_PTHREAD_FAIL;
+		/* Wait for transfer completion or timeout in thread */
+		if (pthread_join(compl_thread, NULL)) {
+			ERR("pthread_join(): %s\n", strerror(errno));
+			throw RDMA_PTHREAD_FAIL;
+		}
+		rc = wait_param.err;
+	}
+	catch(int& e) {
+		rc = e;
 	}
 
 	/* wait_param->err was populated with result (including timeout) */
 	sem_post(&rdma_lock);
-	return wait_param.err;
+	return rc;
 } /* rdma_sync_chk_push_pull() */
 
 #ifdef __cplusplus

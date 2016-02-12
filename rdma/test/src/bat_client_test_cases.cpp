@@ -2420,7 +2420,7 @@ free_server_mso:
 	BAT_EXPECT_RET(ret, 0, exit);
 exit:
 	return ret;
-} /* test_case_1() */
+} /* test_case_dma() */
 
 /**
  * Create mso, ms on server
