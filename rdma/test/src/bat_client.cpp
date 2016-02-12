@@ -40,12 +40,12 @@ vector<bat_connection *>	bat_connections;
 
 static void show_help(void)
 {
-	puts("bat_client -s<server_channel> -u<user_channel> -d<destid> -t<test_case> -n<repetitions> -o<output-file> [-l] [-h]");
+	puts("bat_client -c<first_channel> -n<num of channels> -d<destid> -t<test_case> -o<output-file> [-r<repetitions>] [-l] [-h]");
 	puts("-c First CM channel number by server app (creates/destroys..etc.)");
 	puts("-n Total number of CM channels used by server+user apps (opens/closes/accepts..etc.)");
 	puts("-d RapidIO destination ID for the node running bot the 'server' and 'user'");
 	puts("-t Test case to run");
-	puts("-r Repetitions to run the tests for");
+	puts("-r Repetitions to run the tests for (Optional. Default is 1)");
 	puts("\t If <test_case> is 'z', all tests are run");
 	puts("\t If <test_case> is 'z', <repetitions> is the number of times the tests are run");
 	puts("\t <repetitions> is ignored for all other cases");
