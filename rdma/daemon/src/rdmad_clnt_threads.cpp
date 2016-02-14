@@ -351,6 +351,21 @@ void *wait_accept_destroy_thread_f(void *arg)
 				continue;
 			}
 
+			/* If this is a rejection (NACK), then handle it */
+			if (be64toh(accept_cm_msg->sub_type) == CM_ACCEPT_MS_NACK) {
+				/* Compose an ACCEPT_FROM_MS_REQ message but with a
+				 * sub_type of ACCEPT_FROM_MS_REQ_NACK  */
+				static unix_msg_t in_msg;
+
+				in_msg.category = RDMA_LIB_DAEMON_CALL;
+				in_msg.type	= ACCEPT_FROM_MS_REQ;
+				in_msg.sub_type = ACCEPT_FROM_MS_REQ_NACK;
+				/* Send the ACCEPT_FROM_MS_REQ message to the blocked
+				 * rdma_conn_ms_h() via the tx engine */
+				it->to_lib_tx_eng->send_message(&in_msg);
+				continue;
+			}
+
 			/* Compose the ACCEPT_FROM_MS_REQ that is to be sent
 			 * over to the BLOCKED rdma_conn_ms_h(). */
 			static unix_msg_t in_msg;

@@ -97,6 +97,9 @@ using std::find_if;
 #define FORCE_DISCONNECT_MS	0x1004
 #define FORCE_DISCONNECT_MS_ACK 0x9004
 
+/* SUB_TYPEs */
+#define ACCEPT_FROM_MS_REQ_NACK	0x02
+
 struct type_name_entry {
 	uint32_t type;
 	const char *name;
@@ -460,6 +463,7 @@ struct force_disconnect_ms_ack_input {
 /* Unix message structure */
 struct unix_msg_t {
 	rdma_msg_type	type;
+	rdma_msg_sub_type sub_type;
 	rdma_msg_cat	category;
 	rdma_msg_seq_no	seq_no;
 	union {

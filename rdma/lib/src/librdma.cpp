@@ -1786,9 +1786,11 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 				0,
 				timeout_secs,
 				&out_msg);
-		if (rc) {
+		if (rc || out_msg.sub_type == ACCEPT_FROM_MS_REQ_NACK) {
 			if (rc == ETIMEDOUT) {
 				ERR("Timeout before getting response to 'connect'\n");
+			} else if(out_msg.sub_type == ACCEPT_FROM_MS_REQ_NACK) {
+				ERR("Connection rejected by remote daemon/server\n");
 			} else {
 				ERR("Unknown failure\n");
 			}

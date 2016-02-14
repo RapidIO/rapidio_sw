@@ -38,6 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* Types */
 typedef uint32_t rdma_msg_cat;
 typedef uint32_t rdma_msg_type;
+typedef uint32_t rdma_msg_sub_type;
 typedef uint32_t rdma_msg_seq_no;
 
 /* Category codes */

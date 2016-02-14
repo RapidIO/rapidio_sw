@@ -68,6 +68,29 @@ struct wait_conn_disc_thread_info {
 	int		ret_code;
 };
 
+int send_accept_nack(const char *server_msname,
+		cm_server *rx_conn_disc_server)
+{
+	int rc;
+
+	/* Prepare CM_ACCEPT_MS message from CONNECT_MS_RESP params */
+	cm_accept_msg	*cmnam;
+	rx_conn_disc_server->get_send_buffer((void **)&cmnam);
+	rx_conn_disc_server->flush_send_buffer();
+
+	cmnam->type = htobe64(CM_ACCEPT_MS);
+	cmnam->sub_type = CM_ACCEPT_MS_NACK;
+	strcpy(cmnam->server_ms_name, server_msname);
+
+	/* Send the CM_ACCEPT_MS message to remote (client) daemon */
+	rc = rx_conn_disc_server->send();
+	if (rc) {
+		ERR("Failed to send CM_ACCEPT_MS\n");
+		throw rc;
+	}
+	return rc;
+} /* send_accept_nack() */
+
 /**
  * Handles incoming 'connect', 'disconnect', and 'destroy'
  * Sends back 'accept', and 'destroy_ack'
@@ -240,6 +263,10 @@ void *wait_conn_disc_thread_f(void *arg)
 			if (ms == nullptr) {
 				WARN("'%s' not found. Ignore CM_CONNECT_MS\n",
 						conn_msg->server_msname);
+				if(send_accept_nack(conn_msg->server_msname,
+						rx_conn_disc_server)) {
+					CRIT("Failed to send ACCEPT NACK message\n");
+				}
 				continue;
 			}
 			tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng;
@@ -248,6 +275,10 @@ void *wait_conn_disc_thread_f(void *arg)
 				WARN("'%s' not accepting by owner or users\n",
 							conn_msg->server_msname);
 				WARN("Ignoring CM_CONNECT_MS\n");
+				if(send_accept_nack(conn_msg->server_msname,
+						rx_conn_disc_server)) {
+					CRIT("Failed to send ACCEPT NACK message\n");
+				}
 				continue;
 			}
 

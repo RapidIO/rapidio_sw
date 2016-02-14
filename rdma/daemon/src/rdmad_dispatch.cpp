@@ -440,6 +440,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		conn_server->flush_send_buffer();
 
 		cmam->type = htobe64(CM_ACCEPT_MS);
+		cmam->sub_type = CM_ACCEPT_MS_ACK;
 		strcpy(cmam->server_ms_name, ms->get_name());
 		cmam->server_msid = htobe64(conn_resp->server_msid);
 		cmam->server_msubid = htobe64(conn_resp->server_msubid);
