@@ -1902,6 +1902,48 @@ exit:
 } /* test_case_o() */
 
 /**
+ * Ensure that connecting to a non-existent or non-accepting 'ms' returns
+ * RDMA_CONNECT_FAIL
+ */
+int test_case_p(uint32_t destid)
+{
+	int ret, rc;
+
+	/* Create a client mso */
+	mso_h	client_msoh;
+	ret = rdma_create_mso_h("loc_mso", &client_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+
+	/* Create a client ms of size 16K */
+	ms_h	client_msh;
+	ret = rdma_create_ms_h("loc_ms", client_msoh, 16*1024, 0,
+							&client_msh, NULL);
+	BAT_EXPECT_RET(ret, 0, free_client_mso);
+
+	/* Attempt to connect to an ms that doesn't exist */
+	msub_h	  server_msubh;
+	uint32_t  server_msub_len;
+	ms_h	  server_msh;
+	conn_h	  connh;
+	ret = rdma_conn_ms_h(16, destid, "rem_ms", 0,
+				&connh, &server_msubh,
+				&server_msub_len, &server_msh, 30);
+	BAT_EXPECT_RET(ret, RDMA_CONNECT_FAIL, free_client_mso);
+
+free_client_mso:
+	rc = ret;
+
+	/* Delete the client mso */
+	ret = rdma_destroy_mso_h(client_msoh);
+	BAT_EXPECT_RET(ret, 0, exit);
+exit:
+	if (rc == RDMA_CONNECT_FAIL)
+		fprintf(log_fp, "%s %s\n", __func__,
+			(rc == RDMA_CONNECT_FAIL) ? "PASSED" : "FAILED");
+	return ret;
+} /* test_case_p() */
+
+/**
  * Test accept_ms_h()/conn_ms_h()/disc_ms_h()..etc.
  *
  * @note: Since test cases 'i', 'j', 'k', and 'm' test connection/disconnection

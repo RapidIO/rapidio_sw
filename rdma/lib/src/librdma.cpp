@@ -1789,8 +1789,10 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		if (rc || out_msg.sub_type == ACCEPT_FROM_MS_REQ_NACK) {
 			if (rc == ETIMEDOUT) {
 				ERR("Timeout before getting response to 'connect'\n");
+				rc = RDMA_CONNECT_TIMEOUT;
 			} else if(out_msg.sub_type == ACCEPT_FROM_MS_REQ_NACK) {
 				ERR("Connection rejected by remote daemon/server\n");
+				rc = RDMA_CONNECT_FAIL;
 			} else {
 				ERR("Unknown failure\n");
 			}
@@ -1799,7 +1801,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			in_msg.category = RDMA_REQ_RESP;
 			strcpy(in_msg.undo_connect_in.server_ms_name, rem_msname);
 
-			auto temp_rc = rc;
+			auto temp_rc = rc;	/* Save 'rc' */
 			rc = daemon_call(&in_msg, &out_msg);
 			if (rc ) {
 				ERR("Failed in UNDO_CONNECT daemon_call, rc = %d\n", rc);
@@ -1811,7 +1813,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 				ERR("Failed to undo accept (ms) in daemon\n");
 				throw out_msg.undo_connect_out.status;
 			}
-			rc = temp_rc;
+			rc = temp_rc;		/* Restore 'rc' */
 			throw rc;
 		}
 

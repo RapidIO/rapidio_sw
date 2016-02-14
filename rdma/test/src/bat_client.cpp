@@ -23,20 +23,20 @@
 
 using namespace std;
 
-inline void bat_eot(int num_channels)
+static inline void bat_eot(int num_channels)
 {
 	for (auto i = 0; i < num_channels; i++) {
 		bat_connections[i]->send_eot();
 	}
 }
 
+/* Static -- local to this module only */
 static bool shutting_down = false;
-
-/* Log file, name and handle */
 static char log_filename[PATH_MAX];
 
-FILE *log_fp;
-vector<bat_connection *>	bat_connections;
+/* Globals - referred to by the test cases */
+FILE *log_fp;	/* Log file */
+vector<bat_connection *>	bat_connections; /* Connections to BAT servers */
 
 static void show_help(void)
 {
@@ -56,7 +56,7 @@ static void show_help(void)
 
 int main(int argc, char *argv[])
 {
-	char tc = 'a';
+	auto tc = 'a';
 	int c;
 	auto first_channel = 2224;
 	auto num_channels  = 1;
@@ -85,6 +85,7 @@ int main(int argc, char *argv[])
 			puts("'m' Test concurrent creation of ms, msub, accept, connect, disconnect");
 			puts("'n' Create mso/ms on server, open mso/ms on user, close, then destroy");
 			puts("'o' Test server-side disconnection with 0 client msub");
+			puts("'p' Connect without Accept returns connection failure (not timeout)");
 
 			puts("'t' Accept/Connect/Disconnect test with 0 client msub");
 			puts("'u' Accept/Connect/Destroy test with 0 client msub");
@@ -112,7 +113,6 @@ int main(int argc, char *argv[])
 		show_help();
 		exit(1);
 	}
-
 
 	while ((c = getopt(argc, argv, "hld:o:c:t:n:r:")) != -1)
 		switch (c) {
@@ -195,19 +195,19 @@ int main(int argc, char *argv[])
 		break;
 	case 'd':
 		test_case_d();
-		/* Local test. No need for BAT_EOT1 */
+		/* Local test. No need for bat_eot */
 		break;
 	case 'e':
 		test_case_e();
-		/* Local test. No need for BAT_EOT1 */
+		/* Local test. No need for bat_eot */
 		break;
 	case 'f':
 		test_case_f();
-		/* Local test. No need for BAT_EOT1 */
+		/* Local test. No need for bat_eot */
 		break;
 	case 'g':
 		test_case_g();
-		/* Local test. No need for BAT_EOT1 */
+		/* Local test. No need for bat_eot */
 		break;
 
 	case 'h':
@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
 
 	case 'l':
 		test_case_l();
-		/* Local test. No need for BAT_EOT1 */
+		/* Local test. No need for bat_eot */
 		break;
 
 	case 'm':
@@ -240,8 +240,11 @@ int main(int argc, char *argv[])
 		test_case_o(destid);
 		bat_eot(1);
 		break;
+	case 'p':
+		test_case_p(destid);
+		/* Local test. No need for bat_eot */
+		break;
 
-		/* Old test cases */
 	case 't':
 	case 'u':
 		test_case_t_u(tc, destid);
@@ -320,6 +323,7 @@ int main(int argc, char *argv[])
 #endif
 			test_case_n();
 			test_case_o(destid);
+			test_case_p(destid);
 
 			test_case_t_u('t', destid);
 			test_case_t_u('u', destid);

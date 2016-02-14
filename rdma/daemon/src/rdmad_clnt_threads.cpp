@@ -327,6 +327,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			HIGH("Received ACCEPT_MS from %s\n",
 						accept_cm_msg->server_ms_name);
 
+
 			/* Find the entry matching the memory space and tx_eng
 			 * and also make sure it is not already marked as 'connected'.
 			 * If not found, there is nothing to do and the ACCEPT_MS
