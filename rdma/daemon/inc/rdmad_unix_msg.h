@@ -396,6 +396,8 @@ struct connect_to_ms_req_input {
 /* Server daemon to server library/app */
 struct disconnect_from_ms_req_input {
 	uint32_t client_msubid;
+	uint32_t server_msubid;
+	uint64_t client_to_lib_tx_eng_h;
 };
 
 /* Server library/app to server daemon */

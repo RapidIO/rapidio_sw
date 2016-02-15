@@ -39,7 +39,8 @@ void force_close_mso_disp(uint32_t msoid);
 
 void force_close_ms_disp(uint32_t msid);
 
-void disconnect_ms_disp(uint32_t client_msubid);
+void disconnect_ms_disp(uint32_t client_msubid, uint32_t server_msubid,
+			uint64_t client_to_lib_tx_eng_h);
 
 void force_disconnect_ms_disp(uint32_t server_msid, uint32_t server_msubid);
 

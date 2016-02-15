@@ -432,6 +432,8 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 } /* remove_rem_connection() */
 
 void mspace::send_disconnect_to_lib(uint32_t client_msubid,
+		uint32_t server_msubid,
+		uint64_t client_to_lib_tx_eng_h,
 		tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	static unix_msg_t	in_msg;
@@ -439,6 +441,8 @@ void mspace::send_disconnect_to_lib(uint32_t client_msubid,
 	in_msg.category = RDMA_REQ_RESP;
 	in_msg.type	= DISCONNECT_MS;
 	in_msg.disconnect_from_ms_req_in.client_msubid = client_msubid;
+	in_msg.disconnect_from_ms_req_in.server_msubid = server_msubid;
+	in_msg.disconnect_from_ms_req_in.client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
 
 	tx_eng->send_message(&in_msg);
 } /* send_disconnect_to_lib() */
@@ -447,7 +451,10 @@ void mspace::send_disconnect_to_lib(uint32_t client_msubid,
 void mspace::disconnect_from_destid(uint16_t client_destid)
 {
 	if ((this->client_destid == client_destid) && connected_to) {
-		send_disconnect_to_lib(client_msubid, creator_tx_eng);
+		send_disconnect_to_lib(client_msubid,
+				       server_msubid,
+				       client_to_lib_tx_eng_h,
+				       creator_tx_eng);
 		INFO("%s disconnected from destid(0x%X)\n",
 						name.c_str(), client_destid);
 		this->client_destid = 0xFFFF;
@@ -464,6 +471,8 @@ void mspace::disconnect_from_destid(uint16_t client_destid)
 		for (auto& u : users) {
 			if ((u.client_destid == client_destid) && u.connected_to) {
 				send_disconnect_to_lib(u.client_msubid,
+						       u.server_msubid,
+						       u.client_to_lib_tx_eng_h,
 						       u.tx_eng);
 				INFO("%s disconnected from destid(0x%X)\n",
 						name.c_str(), u.client_destid);
@@ -482,48 +491,63 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 		       	       	       uint64_t client_to_lib_tx_eng_h)
 {
 	int rc;
-
+	int ret = 0;
 	bool found = (this->client_msubid == client_msubid) &&
 		     (this->client_to_lib_tx_eng_h == client_to_lib_tx_eng_h) &&
 		     connected_to;
 	if (found) {
 		DBG("Creator has the connection\n");
-		if (is_client)
-			send_disconnect_to_lib(client_msubid, creator_tx_eng);
-		else
-			send_disconnect_to_remote_daemon(client_msubid,
-							client_to_lib_tx_eng_h);
+		if (is_client) {
+			send_disconnect_to_lib(client_msubid,
+					       server_msubid,
+					       client_to_lib_tx_eng_h,
+					       creator_tx_eng);
+			rc = 0;
+		} else {
+			rc = send_disconnect_to_remote_daemon(client_msubid,
+						client_to_lib_tx_eng_h);
+		}
 		this->client_destid = 0xFFFF;
 		this->client_msubid = NULL_MSUBID;
 		this->client_to_lib_tx_eng_h = 0;
 		this->connected_to = false;
-		rc = 0;
 	} else {
-		rc = -1;
 		sem_wait(&users_sem);
+		rc = 0;	/* For the case where there are NO users */
 		for (auto& u : users) {
 			found = (u.client_msubid == client_msubid) &&
 				(u.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h) &&
 				 u.connected_to;
 			if (found) {
 				DBG("A user has the connection\n");
-				if (is_client)
-					send_disconnect_to_lib(u.client_msubid, u.tx_eng);
-				else
-					send_disconnect_to_remote_daemon(client_msubid,
-								client_to_lib_tx_eng_h);
+				if (is_client) {/* Disconnect by remote client */
+					send_disconnect_to_lib(
+						u.client_msubid,
+						u.server_msubid,
+						u.client_to_lib_tx_eng_h,
+						u.tx_eng);
+					rc = 0;
+				} else { /* Self disconnection by local server */
+					rc = send_disconnect_to_remote_daemon(
+							client_msubid,
+							client_to_lib_tx_eng_h);
+					if (rc) {
+						ERR("Failed to send disconnect to remote daemon");
+						ret = rc;
+					}
+				}
 				u.client_destid = 0xFFFF;
 				u.client_msubid = NULL_MSUBID;
 				u.client_to_lib_tx_eng_h = 0;
 				u.connected_to = false;
-				rc = 0;
 			}
 		}
 		sem_post(&users_sem);
 	}
-	if (rc == -1) {
-		WARN("No matching connection to library found!!\n");
-	}
+
+	/* If we had failed during the loop, error status was saved in 'ret' */
+	if (ret)
+		rc = ret;
 
 	return rc;
 } /* disconnect() */
@@ -833,20 +857,13 @@ bool mspace::has_user_with_user_tx_eng(
 	return has_user;
 } /* has_user_with_user_server() */
 
-
 bool mspace::connected_by_destid(uint16_t client_destid)
 {
-	bool connected = false;
-
-	connected = (this->client_destid == client_destid);
+	bool connected = (this->client_destid == client_destid);
 
 	sem_wait(&users_sem);
-	for(auto& u : users) {
-		if (u.connected_to_destid(client_destid)) {
-			connected = true;
-			break;
-		}
-	}
+	connected = connected ||
+		(find(begin(users), end(users), client_destid) != end(users));
 	sem_post(&users_sem);
 
 	return connected;

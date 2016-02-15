@@ -77,16 +77,44 @@ void force_close_ms_disp(uint32_t msid)
 	}
 } /* force_close_ms_disp() */
 
-void disconnect_ms_disp(uint32_t client_msubid)
+void disconnect_ms_disp(uint32_t client_msubid, uint32_t server_msubid,
+			uint64_t client_to_lib_tx_eng_h)
 {
-	/* Find the client msub in the database, and remove it */
-	msub_h client_msubh = find_rem_msub(client_msubid);
-	if (!client_msubh) {
-		ERR("client_msubid(0x%X) not found!\n", client_msubid);
+	/* Remove client msub from the database, if not NULL_MSUB */
+	if (client_msubid != NULL_MSUBID) {
+		msub_h client_msubh = find_rem_msub(client_msubid);
+		if (!client_msubh) {
+			ERR("client_msubid(0x%X) not found!\n", client_msubid);
+		} else {
+			/* Remove client subspace from remote msub database */
+			remove_rem_msub(client_msubh);
+			INFO("client_msubid(0x%X) removed from database\n",
+							client_msubid);
+		}
+	}
+
+	/* Find the server msub, then remove the matching connection therefrom */
+	msub_h server_msubh = find_loc_msub(server_msubid);
+	if (server_msubh) {
+		loc_msub *server_msub = (loc_msub *)server_msubh;
+		/* Locate connection entry matching client_to_lib_tx_eng_h */
+		auto it = find_if(begin(server_msub->connections),
+				  end(server_msub->connections),
+				  [client_to_lib_tx_eng_h](client_connection& cc)
+				  {
+				  	  return cc.client_to_lib_tx_eng_h ==
+				  			client_to_lib_tx_eng_h;
+				  });
+		if (it == end(server_msub->connections)) {
+			ERR("Could not find specified connection in msub\n");
+		} else {
+			/* Erase the connection entry */
+			INFO("Removed connection from msubid(0x%X)\n",
+								server_msubid);
+			server_msub->connections.erase(it);
+		}
 	} else {
-		/* Remove client subspace from remote msub database */
-		remove_rem_msub(client_msubh);
-		INFO("client_msubid(0x%X) removed from database\n", client_msubid);
+		ERR("server_msubid(0x%X) not found!\n", server_msubid);
 	}
 } /* disconnect_ms_disp() */
 

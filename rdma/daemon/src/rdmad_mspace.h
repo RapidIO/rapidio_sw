@@ -81,6 +81,9 @@ class ms_user
 {
 	friend class mspace;
 public:
+	/**
+	 *  @brief Construct ms_user from specified parameters
+	 */
 	ms_user(uint32_t ms_conn_id, tx_engine<unix_server, unix_msg_t> *tx_eng) :
 		tx_eng(tx_eng),
 		ms_conn_id(ms_conn_id),
@@ -91,8 +94,11 @@ public:
 		client_msubid(NULL_MSUBID),
 		client_to_lib_tx_eng_h(0)
 	{
-	}
+	} /* Constructor */
 
+	/**
+	 * @brief Construct ms_user from another ms_user
+	 */
 	ms_user(const ms_user& other) :
 		tx_eng(other.tx_eng),
 		ms_conn_id(other.ms_conn_id),
@@ -103,8 +109,11 @@ public:
 		client_msubid(other.client_msubid),
 		client_to_lib_tx_eng_h(other.client_to_lib_tx_eng_h)
 	{
-	}
+	} /* Copy constructor */
 
+	/**
+	 * @brief Assign one ms_user to another
+	 */
 	ms_user& operator=(const ms_user& rhs)
 	{
 		tx_eng 		= rhs.tx_eng;
@@ -116,22 +125,22 @@ public:
 		client_msubid	= rhs.client_msubid;
 		client_to_lib_tx_eng_h = rhs.client_to_lib_tx_eng_h;
 		return *this;
-	}
+	} /* Assignment operator */
 
-	bool connected_to_destid(uint16_t client_destid)
+	/**
+	 * @brief Tells whether this ms is connected to specified client destid
+	 *
+	 * @param client_destid Destination ID of client daemon
+	 */
+	bool operator==(const uint32_t client_destid)
 	{
 		return this->client_destid == client_destid;
-	}
+	} /* operator == */
 
-	uint32_t get_ms_conn_id() const
-	{
-		return ms_conn_id;
-	}
-
-	bool operator ==(tx_engine<unix_server, unix_msg_t> *tx_eng)
+	bool operator==(tx_engine<unix_server, unix_msg_t> *tx_eng)
 	{
 		return tx_eng == this->tx_eng;
-	}
+	} /* operator == */
 
 private:
 	tx_engine<unix_server, unix_msg_t> *tx_eng;
@@ -256,23 +265,85 @@ public:
 
 	void disconnect_from_destid(uint16_t client_destid);
 
-	void send_disconnect_to_lib(uint32_t client_msubid,
-				tx_engine<unix_server, unix_msg_t> *tx_eng);
-
 private:
-	/* Private methods */
-	mspace(const mspace&);
-	mspace& operator=(const mspace&);
-	int send_cm_force_disconnect_ms(cm_server *server, uint32_t server_msubid,
-					uint64_t client_to_lib_tx_eng);
-	int disconnect(bool is_client, uint32_t client_msubid,
-		       uint64_t client_to_lib_tx_eng_h);
 	/* Constants */
 	static constexpr uint32_t MS_CONN_ID_START = 0x01;
+
+	/* Private methods */
+	/**
+	 *@brief Copy constructor unimplemented
+	 */
+	mspace(const mspace&) = delete;
+
+	/**
+	 *@brief Assignment operator unimplemented
+	 */
+	mspace& operator=(const mspace&) = delete;
+
+	/**
+	 * @brief Sends CM_FORCE_DISCONNECT_MS to the client of an ms.
+	 *
+	 * @param server  CM socket server between server and client daemons
+	 * @param server_msubid  ID of msub provided by server during 'accept'
+	 * @param client_to_lib_tx_eng Tx engine handle between the client
+	 *                             daemon and the client app
+	 */
+	int send_cm_force_disconnect_ms(cm_server *server,
+					uint32_t server_msubid,
+					uint64_t client_to_lib_tx_eng_h);
+
+	/**
+	 * @brief Disconnect this memory space from a particular client
+	 *
+	 * @param is_client true if called by client, false if by server
+	 * @param client_msubid the msubid provided by client during connect
+	 * 			request, maybe NULL_MSUBID.
+	 * @param client_to_lib_tx_eng_h Tx engine handle between the client
+	 * 				 daemon and the client app
+	 */
+	int disconnect(bool is_client, uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h);
+
+	/**
+	 * @brief Looks up a connection to the ms by client parameters
+	 * then calls send_cm_force_disconnect_ms() with the correct
+	 * server parameter to send CM_FORCE_DISCONNECT_MS
+	 *
+	 * @param client_msubid the msubid provided by client during connect
+	 * 			request, maybe NULL_MSUBID.
+	 * @param client_to_lib_tx_eng_h Tx engine handle between the client
+	 * 				 daemon and the client app
+	 */
 	int send_disconnect_to_remote_daemon(uint32_t client_msubid,
 					     uint64_t client_to_lib_tx_eng_h);
+
+	/**
+	 * @brief Calls send_cm_force_disconnect_ms for ALL connections
+	 * to this ms. Called from destroy()
+	 */
 	int notify_remote_clients();
+
+	/**
+	 * @brief Closes connections with applications that have called
+	 * rdma_open_ms_h(). Called from destroy().
+	 */
 	int close_connections();
+
+	/**
+	 * @brief Sends message to server library telling it that
+	 * a specific connection to the ms has dropped and the library
+	 * needs to clean the database. Typically called from
+	 * disconnect_from_destid() which is called when a remote daemon dies.
+	 *
+	 * @param client_msubid
+	 * @param server_msubid
+	 * @param client_to_lib_tx_eng_h
+	 * @param tx_eng
+	 */
+	void send_disconnect_to_lib(uint32_t client_msubid,
+				    uint32_t server_msubid,
+				    uint64_t client_to_lib_tx_eng_h,
+				    tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 	string		name;
 	uint32_t	msid;

@@ -74,7 +74,9 @@ public:
 		break;
 
 		case DISCONNECT_MS:
-			disconnect_ms_disp(msg->disconnect_from_ms_req_in.client_msubid);
+			disconnect_ms_disp(msg->disconnect_from_ms_req_in.client_msubid,
+					   msg->disconnect_from_ms_req_in.server_msubid,
+					   msg->disconnect_from_ms_req_in.client_to_lib_tx_eng_h);
 		break;
 
 		case FORCE_DISCONNECT_MS:
