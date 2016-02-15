@@ -220,7 +220,8 @@ int ms_owners::destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng)
 
 	/* Not found, warn and return code */
 	if (mso_it == owners.end()) {
-		WARN("Could not find any MSOs with the specified socket!\n");
+		WARN("No MSOs with the specified tx_eng(0x%" PRIx64 ")\n",
+				(uint64_t)tx_eng);
 		rc = -1;
 	} else {
 		DBG("mso with specified socket found, name='%s'\n",

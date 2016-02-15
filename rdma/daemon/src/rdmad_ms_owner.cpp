@@ -75,6 +75,8 @@ ms_owner::ms_owner(const char *owner_name,
 	           name(owner_name), tx_eng(tx_eng), msoid(msoid),
 	           mso_conn_id(MSO_CONN_ID_START)
 {
+	DBG("Owner '%s' created with tx_eng(0x%" PRIx64 ")\n",
+			owner_name, (uint64_t)tx_eng);
 }
 
 ms_owner::~ms_owner()

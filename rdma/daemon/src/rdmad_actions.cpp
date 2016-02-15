@@ -53,9 +53,12 @@ int rdmad_destroy_mso(uint32_t msoid)
 			rc = -2;
 		} else {
 			/* No memory spaces owned by mso, just destroy it */
-			int ret = owners.destroy_mso(msoid);
-			rc = (ret > 0) ? 0 : ret;
-			DBG("owners.destroy_mso() %s\n", rc ? "FAILED":"PASSED");
+			rc = owners.destroy_mso(msoid);
+			if (rc) {
+				ERR("Failed to destroy msoid(0x%X)\n", msoid);
+			} else {
+				INFO("msoid(0x%X) destroyed\n", msoid);
+			}
 		}
 	}
 	catch(...) {
