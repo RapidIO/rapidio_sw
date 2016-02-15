@@ -35,11 +35,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PEER_UTILS_H
 
 #include <stdint.h>
-#include <semaphore.h>
 
-//#include <rapidio_mport_mgmt.h>
 #include "rapidio_mport_dma.h"
-//#include <rapidio_mport_sock.h>
+
+constexpr uint16_t DEFAULT_PROV_CHANNEL = 10;
+constexpr uint8_t  DEFAULT_PROV_MBOX_ID =  0;
 
 struct peer_info {
 	/* Device ID */
@@ -50,26 +50,14 @@ struct peer_info {
 	int mport_id;
 	riomp_mport_t mport_hnd;
 
-	/* RIO */
-	#define DEFAULT_RIO_ADDRESS     0x00000000 
-
-	/* INBOUND WINDOW */
-	#define DEFAULT_INBOUND_WINDOW_SIZE     0x00200000
-
-	#define DEFAULT_PROV_CHANNEL		10
+	/* Provisioning channel and mailbox */
 	uint16_t	prov_channel;
-
-	#define DEFAULT_PROV_MBOX_ID 0
 	uint8_t		prov_mbox_id;
-
-	sem_t	cm_wait_connect_sem;
 
 	/* Daemon CLI connection */
 	int	cons_skt;	/* Console socket number, default 4444 */
 	int	run_cons;	/* Run console on Daemon? */
 };
-
-void init_peer_info(int num_peers,struct peer_info peers[]);
 
 extern struct peer_info peer;
 

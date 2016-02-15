@@ -47,20 +47,22 @@ struct hello_daemon_info {
 	{
 	}
 
-	cm_client	*client;
-	uint32_t	destid;
-	pthread_t	tid;
+
 	bool operator==(uint32_t destid)
 	{
 		return this->destid == destid;
 	}
+	cm_client	*client;
+	uint32_t	destid;
+	pthread_t	tid;
 };
+
 extern vector<hello_daemon_info>	hello_daemon_info_list;
 extern sem_t 				hello_daemon_info_list_sem;
 
 /**
  * Each daemon shall maintain a list of all connections to remote memory
- * spaces. Each entry in that list represents a connection betwee one of
+ * spaces. Each entry in that list represents a connection between one of
  * the daemon's applications, and a REMOTE memory space. As such a memory
  * space may appear multiple times in this list, each time with a different
  * 'client_msubid'. This list is created during the 'connect-to-ms' phase
@@ -115,10 +117,11 @@ struct connected_to_ms_info {
 	uint32_t server_destid;
 	tx_engine<unix_server,unix_msg_t> *to_lib_tx_eng;
 };
+
 extern vector<connected_to_ms_info>	connected_to_ms_info_list;
 extern sem_t 				connected_to_ms_info_list_sem;
-int send_force_disconnect_ms_to_lib_for_did(uint32_t did);
 
+int send_force_disconnect_ms_to_lib_for_did(uint32_t did);
 void *wait_accept_thread_f(void *arg);
 void *client_wait_destroy_thread_f(void *arg);
 int provision_rdaemon(uint32_t destid);

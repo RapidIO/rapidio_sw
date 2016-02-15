@@ -642,12 +642,6 @@ int main (int argc, char **argv)
 		goto out_free_inbound;
 	}
 
-	/* Initialize semaphores */
-	if (sem_init(&peer.cm_wait_connect_sem, 0, 0) == -1) {
-		CRIT("Failed to initialize cm_wait_connect_sem: %s\n",
-							strerror(errno));
-		goto out_free_inbound;
-	}
 	if (sem_init(&hello_daemon_info_list_sem, 0, 1) == -1) {
 		CRIT("Failed to initialize hello_daemon_info_list_sem: %s\n",
 							strerror(errno));
