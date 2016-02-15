@@ -147,7 +147,7 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 		if (prov_it == end(prov_daemon_info_list)) {
 			ERR("Could not find entry for client_destid(0x%X)\n",
 							client_destid);
-			rc = -1;
+			rc = RDMA_REMOTE_UNREACHABLE;
 		} else {
 			server = prov_it->conn_disc_server;
 		}
@@ -177,7 +177,7 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 			if (prov_it == end(prov_daemon_info_list)) {
 				ERR("Could not find entry for client_destid(0x%X)\n",
 								it->client_destid);
-				rc = -1;
+				rc = RDMA_REMOTE_UNREACHABLE;
 			} else {
 				server = prov_it->conn_disc_server;
 			}
@@ -857,33 +857,42 @@ int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 	int rc;
 
 	DBG("ENTER\n");
-
-	/* A creator of an ms cannot open/close it */
-	if (app_tx_eng == creator_tx_eng) {
-		ERR("Creator of memory space cannot open/close it\n");
-		return RDMA_MS_CLOSE_FAIL;
-	}
-
-	/* Before closing a memory space, tell its clients that it is being
-	 * closed (connection must be dropped) and have them acknowledge. */
-	if (notify_remote_clients()) {
-		WARN("Failed to notify some or all remote clients\n");
-	}
-
-	/* Destroy msubs that belong to the same 'app_tx_eng' */
-	msubspaces.erase(
-		remove(begin(msubspaces), end(msubspaces), app_tx_eng),
-		end(msubspaces));
-
-	/* Locate a user element by the app's tx engine. Then erase it! */
 	sem_wait(&users_sem);
-	auto it = find(begin(users), end(users), app_tx_eng);
-	if (it == end(users)) {
-		WARN("Failed to find open connection!\n");
-		rc = RDMA_MS_CLOSE_FAIL;
-	} else {
+	try {
+		/* A creator of an ms cannot open/close it */
+		if (app_tx_eng == creator_tx_eng) {
+			ERR("Creator of memory space cannot open/close it\n");
+			throw RDMA_MS_CLOSE_FAIL;
+		}
+
+
+		auto it = find(begin(users), end(users), app_tx_eng);
+		if (it == end(users)) {
+			WARN("Failed to find open connection!\n");
+			throw RDMA_MS_CLOSE_FAIL;
+		}
+
+		/* Before closing a memory space, tell its clients that it is being
+		 * closed (connection must be dropped) and have them acknowledge. */
+		rc = send_disconnect_to_remote_daemon(it->client_msubid,
+						      it->client_to_lib_tx_eng_h);
+		if (rc) {
+			ERR("Failed to send disconnection to remote daemon\n");
+			throw rc;
+		}
+
+		/* Destroy msubs that belong to the same 'app_tx_eng' */
+		msubspaces.erase(
+			remove(begin(msubspaces), end(msubspaces), app_tx_eng),
+			end(msubspaces)
+		);
+
+		/* Erase user element */
 		users.erase(it);
 		rc = 0;	/* Success */
+	}
+	catch(int& e) {
+		rc = e;
 	}
 	sem_post(&users_sem);
 
