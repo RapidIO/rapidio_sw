@@ -59,6 +59,9 @@ using std::exception;
 typedef vector<mspace*>		mspace_list;
 typedef mspace_list::iterator	mspace_iterator;
 
+/**
+ * @brief Inbound window mapping exception
+ */
 class ibwin_map_exception : public exception {
 public:
 	ibwin_map_exception(const char *msg) : err(msg)
@@ -73,30 +76,99 @@ private:
 class ibwin 
 {
 public:
-	/* Constructor */
+	/**
+	 * @brief Construct an inbound window object
+	 *
+	 * @param mport_hnd	Master port handle
+	 *
+	 * @param win_num	Window number
+	 *
+	 * @param size		Size in bytes
+	 *
+	 * @throws ibwin_map_exception
+	 */
 	ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size);
 
-	/* Called from destructor ~inbound() */
+	/**
+	 * @brief Free up memory spaces, if any, in the inbound window,
+	 *  	  and then free up the window itself
+	 */
 	void free();
 
+	/* Accessors */
+	mspace_list& get_mspaces() { return mspaces; };
+
+	unsigned get_win_num() const { return win_num; };
+
+	/**
+	 * @brief Dump inbound window information to the CLI console
+	 *
+	 * @param CLI console object
+	 */
 	void dump_info(struct cli_env *env);
 
+	/**
+	 * @brief Print a header for memory spaces that maybe in the window
+	 *
+	 * @param CLI console object
+	 */
 	void print_mspace_header(struct cli_env *env);
 
+	/**
+	 * @brief Dump info for memory spaces in this window to the CLI console
+	 *
+	 * @param CLI console object
+	 */
 	void dump_mspace_info(struct cli_env *env);
 
+	/**
+	 * @brief Dump info for memory spaces, and subspaces in this window
+	 * 	  to the CLI console
+	 *
+	 * @param CLI console object
+	 */
 	void dump_mspace_and_subs_info(cli_env *env);
 
+	/**
+	 * @brief Populate a list of memory spaces "large enough" to hold 'size'
+	 *
+	 * @param size	Requested size of memory spaces to obtain a list of,
+	 * 		in bytes
+	 *
+	 * @param le_mspaces	An empty list, to be populated with memory
+	 * 			spaces large enough to hold 'size' bytes
+	 *
+	 */
 	int get_free_mspaces_large_enough(
 				uint64_t size, mspace_list& le_mspaces);
 
+	/**
+	 * @brief Returns whether this inbound window has room to be used to
+	 * 	  create a memory space of the specified size
+	 *
+	 * @param size	Size in bytes to test for
+	 *
+	 * @return 0 if there is at least 1 space large enough to hold size,
+	 * 	   non-zero otherwise
+	 */
 	bool has_room_for_ms(uint64_t size);
 
-	/* Create memory space */
+	/**
+	 * @brief  Create a memory space with specified name, size and owner
+	 *
+	 * @param name	Desired memory space name
+	 *
+	 * @param size	Desired memory space size in bytes
+	 *
+	 * @param msoid	Memory space owner identifier
+	 *
+	 * @param creator_tx_eng Tx engine from daemon to mspace creator
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int create_mspace(const char *name,
 			  uint64_t size,
 			  uint32_t msoid,
-			  uint32_t *msid,
 			  mspace **ms,
 			  tx_engine<unix_server, unix_msg_t> *creator_tx_eng);
 
@@ -105,8 +177,22 @@ public:
 	void merge_other_with_mspace(mspace_iterator current,
 				     mspace_iterator other);
 
+	/**
+	 * @brief Return memory space with specified name
+	 *
+	 * @param name Memory space name
+	 *
+	 * @return pointer to memory space if successful, nullptr if not
+	 */
 	mspace* get_mspace(const char *name);
 
+	/**
+	 * @brief Return memory space with specified memory space identifier
+	 *
+	 * @param name Memory space name
+	 *
+	 * @return pointer to memory space if successful, nullptr if not
+	 */
 	mspace* get_mspace(uint32_t msid);
 
 	mspace* get_mspace(uint32_t msoid, uint32_t msid);
@@ -116,7 +202,7 @@ public:
 			uint32_t *ms_conn_id);
 
 	void get_mspaces_connected_by_destid(uint32_t destid,
-					     mspace_list& mspaces);
+					     	     mspace_list& mspaces);
 
 	void close_mspaces_using_tx_eng(
 			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
@@ -124,9 +210,7 @@ public:
 	void destroy_mspaces_using_tx_eng(
 			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
-	vector<mspace *>& get_mspaces() { return mspaces; };
 
-	unsigned get_win_num() const { return win_num; };
 
 private:
 	riomp_mport_t mport_hnd;	/* Master port handle */

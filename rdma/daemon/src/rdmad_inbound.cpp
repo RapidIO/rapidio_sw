@@ -246,7 +246,6 @@ int inbound::destroy_mspace(uint32_t msoid, uint32_t msid)
 int inbound::create_mspace(const char *name,
 			   uint64_t size,
 			   uint32_t msoid,
-			   uint32_t *msid,
 			   mspace **ms,
 			   tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
 {
@@ -264,7 +263,7 @@ int inbound::create_mspace(const char *name,
 	}
 
 	/* Create the space */
-	int ret = win_it->create_mspace(name, size, msoid, msid, ms, creator_tx_eng);
+	int ret = win_it->create_mspace(name, size, msoid, ms, creator_tx_eng);
 
 	/* MMAP, zero, then UNMAP the space */
 	void *vaddr;

@@ -105,7 +105,6 @@ public:
 	int create_mspace(const char *name,
 			  uint64_t size,
 			  uint32_t msoid,
-			  uint32_t *msid,
 			  mspace **ms,
 			  tx_engine<unix_server, unix_msg_t> *creator_tx_eng);
 

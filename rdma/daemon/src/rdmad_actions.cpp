@@ -80,7 +80,7 @@ int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 	/* Create memory space in the inbound space */
 	mspace *ms = nullptr;
 	rc = the_inbound->create_mspace(
-			ms_name, bytes, msoid, msid, &ms, to_lib_tx_eng);
+			ms_name, bytes, msoid, &ms, to_lib_tx_eng);
 	if (rc != 0) {
 		ERR("Failed to create '%s'\n", ms_name);
 		rc = -1;
@@ -89,9 +89,10 @@ int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 		rc = -2;
 	} else {
 		/* Obtain assigned physical & RIO addresses (which would be the
-		 * same if we are using direct mapping). */
+		 * same if we are using direct mapping), and msid */
 		*phys_addr = ms->get_phys_addr();
 		*rio_addr  = ms->get_rio_addr();
+		*msid	   = ms->get_msid();
 
 		DBG("the_inbound->create_mspace(%s) %s\n", ms_name,
 						rc ? "FAILED" : "PASSED");
