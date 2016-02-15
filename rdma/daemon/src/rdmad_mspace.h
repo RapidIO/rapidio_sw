@@ -84,9 +84,8 @@ public:
 	/**
 	 *  @brief Construct ms_user from specified parameters
 	 */
-	ms_user(uint32_t ms_conn_id, tx_engine<unix_server, unix_msg_t> *tx_eng) :
+	ms_user(tx_engine<unix_server, unix_msg_t> *tx_eng) :
 		tx_eng(tx_eng),
-		ms_conn_id(ms_conn_id),
 		accepting(false),
 		connected_to(false),
 		server_msubid(0),
@@ -97,35 +96,14 @@ public:
 	} /* Constructor */
 
 	/**
-	 * @brief Construct ms_user from another ms_user
+	 * @brief Copy constructor
 	 */
-	ms_user(const ms_user& other) :
-		tx_eng(other.tx_eng),
-		ms_conn_id(other.ms_conn_id),
-		accepting(other.accepting),
-		connected_to(other.connected_to),
-		server_msubid(other.server_msubid),
-		client_destid(other.client_destid),
-		client_msubid(other.client_msubid),
-		client_to_lib_tx_eng_h(other.client_to_lib_tx_eng_h)
-	{
-	} /* Copy constructor */
+	ms_user(const ms_user&) = default;
 
 	/**
-	 * @brief Assign one ms_user to another
+	 * @brief Assignment operator
 	 */
-	ms_user& operator=(const ms_user& rhs)
-	{
-		tx_eng 		= rhs.tx_eng;
-		ms_conn_id	= rhs.ms_conn_id;
-		accepting	= rhs.accepting;
-		connected_to	= rhs.connected_to;
-		server_msubid	= rhs.server_msubid;
-		client_destid	= rhs.client_destid;
-		client_msubid	= rhs.client_msubid;
-		client_to_lib_tx_eng_h = rhs.client_to_lib_tx_eng_h;
-		return *this;
-	} /* Assignment operator */
+	ms_user& operator=(const ms_user&) = default;
 
 	/**
 	 * @brief Tells whether this ms is connected to specified client destid
@@ -137,6 +115,12 @@ public:
 		return this->client_destid == client_destid;
 	} /* operator == */
 
+	/**
+	 * @brief Tells whether the daemon is connected to this user
+	 * 	  via the specified tx engine
+	 *
+	 * @param Tx engine between daemon and user app/library
+	 */
 	bool operator==(tx_engine<unix_server, unix_msg_t> *tx_eng)
 	{
 		return tx_eng == this->tx_eng;
@@ -144,13 +128,12 @@ public:
 
 private:
 	tx_engine<unix_server, unix_msg_t> *tx_eng;
-	uint32_t ms_conn_id;
-	bool	accepting;
-	bool	connected_to;
-	uint32_t server_msubid;		 /* Upon accepting */
-	uint16_t client_destid;		 /* When user is 'connected_to' */
-	uint32_t client_msubid;		 /* Ditto */
-	uint64_t client_to_lib_tx_eng_h; /* Ditto */
+	bool	accepting;		 /* Set when 'accept' is called */
+	bool	connected_to;		 /* Set when connected */
+	uint32_t server_msubid;		 /* Assigned upon accepting */
+	uint16_t client_destid;		 /* Assigned When connected */
+	uint32_t client_msubid;		 /* Assigned When connected */
+	uint64_t client_to_lib_tx_eng_h; /* Assigned When connected */
 }; /* ms_user */
 
 class mspace 
@@ -218,9 +201,8 @@ public:
 	/* For finding a memory space by its name */
 	bool operator==(const char *name) { return this->name == name; }
 
-	int open(uint32_t *msid,
+	void open(uint32_t *msid,
 		 tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-		 uint32_t *ms_conn_id,
 		 uint32_t *bytes);
 
 	tx_engine<unix_server, unix_msg_t> *get_accepting_tx_eng();
@@ -335,10 +317,11 @@ private:
 	 * needs to clean the database. Typically called from
 	 * disconnect_from_destid() which is called when a remote daemon dies.
 	 *
-	 * @param client_msubid
-	 * @param server_msubid
-	 * @param client_to_lib_tx_eng_h
-	 * @param tx_eng
+	 * @param client_msubid	Client msubid. Could be NULL_MSUB
+	 * @param server_msubid Server msubid provided during accept
+	 * @param client_to_lib_tx_eng_h Client daemon-to-library tx engine
+	 * @param tx_eng Server daemon to library tx engine used to relay
+	 * 		 the disconnection message.
 	 */
 	void send_disconnect_to_lib(uint32_t client_msubid,
 				    uint32_t server_msubid,
@@ -352,7 +335,6 @@ private:
 	uint32_t	size;
 	uint32_t	msoid;
 	bool		free;
-	uint32_t	current_ms_conn_id;
 
 	/* Data members specific to the mspace creator */
 	bool		connected_to;	/* Has a connection from a remote client

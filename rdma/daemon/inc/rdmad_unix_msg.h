@@ -257,7 +257,6 @@ struct open_ms_output {
 	uint32_t msid;
 	uint64_t phys_addr;
 	uint64_t rio_addr;
-	uint32_t ms_conn_id;
 	uint32_t bytes;
 	int	status;
 };
@@ -265,7 +264,6 @@ struct open_ms_output {
 /* close_ms() arguments */
 struct close_ms_input {
 	uint32_t msid;
-	uint32_t ms_conn_id;
 };
 struct close_ms_output {
 	int	status;

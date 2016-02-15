@@ -93,7 +93,7 @@ public:
 			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
 	/* Dump memory space info for a memory space specified by name */
-	int dump_mspace_info(struct cli_env *env, const char *name);
+	void dump_mspace_info(struct cli_env *env, const char *name);
 
 	/* Dump memory space info for all memory spaces */
 	void dump_all_mspace_info(struct cli_env *env);
@@ -115,7 +115,6 @@ public:
 			uint32_t *msid,
 			uint64_t *phys_addr,
 			uint64_t *rio_addr,
-			uint32_t *ms_conn_id,
 			uint32_t *bytes);
 
 	/* Destroy memory space */

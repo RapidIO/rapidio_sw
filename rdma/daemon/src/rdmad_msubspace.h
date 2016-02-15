@@ -45,31 +45,73 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 class msubspace
 {
 public:
-	/* Constructor */
-	msubspace(uint32_t msid, uint64_t rio_addr, uint64_t phys_addr,
-					uint32_t size, uint32_t msubid,
-				const tx_engine<unix_server, unix_msg_t> *tx_eng) :
-		msid(msid), rio_addr(rio_addr), phys_addr(phys_addr),
-		size(size), msubid(msubid), tx_eng(tx_eng)
+	/**
+	 *  @brief Constructor
+	 *
+	 *  @param msid		Memory space identifier
+	 *  @param rio_addr	RapidIO address
+	 *  @param phys_addr	PCIe address. Same as RapidIO if direct mapped
+	 *  @param size		Size of subspace in bytes
+	 *  @param msubid	Memory subspace identifier
+	 *  @tx_eng		Tx engine used to communicate with library
+	 */
+	msubspace(uint32_t msid,
+		  uint64_t rio_addr,
+		  uint64_t phys_addr,
+		  uint32_t size,
+		  uint32_t msubid,
+		  const tx_engine<unix_server, unix_msg_t> *tx_eng) :
+		msid(msid),
+		rio_addr(rio_addr),
+		phys_addr(phys_addr),
+		size(size),
+		msubid(msubid),
+		tx_eng(tx_eng)
 	{
 		INFO("msid = 0x%X, rio_addr = 0x%" PRIx64 ", size = 0x%08X\n",
 							msid, rio_addr, size);
-		INFO("msubid = 0x%X, phys_addr = 0x%" PRIx64 "\n", msubid, phys_addr);
-	}
+		INFO("msubid = 0x%X, phys_addr = 0x%" PRIx64 "\n",
+							msubid, phys_addr);
+	} /* ctor */
 
-	/* For finding a memory sub-space by its msubid */
+	/**
+	 * @brief Copy constructor
+	 */
+	msubspace(const msubspace& other) = default; /* Use default */
+
+	/**
+	 * @brief Assignment operator
+	 */
+	msubspace& operator=(const msubspace&) = default; /* Use default */
+
+	/**
+	 * @brief Equality operator for finding a memory subspace by its msubid
+	 *
+	 * @param msubid	Memory subspace identifier
+	 */
 	bool operator==(uint32_t msubid) {
 		return this->msubid == msubid;
 	}
 
+	/**
+	 * @brief Equality operator for finding a memory subspace by Tx engine
+	 *
+	 * @param tx_eng	Tx engine connecting the daemon to the app
+	 * 			that created this memory subspace
+	 */
+	bool operator==(const tx_engine<unix_server, unix_msg_t> *tx_eng)
+		{ return this->tx_eng == tx_eng; }
+
+	/**
+	 * @brief Dumps information about this msub to the CLI console
+	 *
+	 * @env	  CLI console environment object
+	 */
 	void dump_info(struct cli_env *env) {
 		sprintf(env->output, "%08X %016" PRIx64 " %08X %08X %016" PRIx64
 				"\n", msubid, rio_addr, size, msid, phys_addr);
 		logMsg(env);
-	}
-
-	bool operator==(const tx_engine<unix_server, unix_msg_t> *tx_eng)
-		{ return this->tx_eng == tx_eng; }
+	} /* dump_info() */
 
 private:
 	uint32_t	msid;
@@ -81,5 +123,3 @@ private:
 };
 
 #endif
-
-

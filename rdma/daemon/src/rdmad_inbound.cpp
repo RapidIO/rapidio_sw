@@ -154,7 +154,8 @@ int inbound::get_mspaces_connected_by_destid(uint32_t destid,
 	return 0;
 } /* get_mspaces_connected_by_destid */
 
-void inbound::close_and_destroy_mspaces_using_tx_eng(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
+void inbound::close_and_destroy_mspaces_using_tx_eng(tx_engine<unix_server,
+						     unix_msg_t> *app_tx_eng)
 {
 	sem_wait(&ibwins_sem);
 	for (auto& ibw : ibwins) {
@@ -191,7 +192,7 @@ mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
 
 
 /* Dump memory space info for a memory space specified by name */
-int inbound::dump_mspace_info(struct cli_env *env, const char *name)
+void inbound::dump_mspace_info(struct cli_env *env, const char *name)
 {
 	/* Find the memory space by name */
 	mspace	*ms = get_mspace(name);
@@ -200,7 +201,6 @@ int inbound::dump_mspace_info(struct cli_env *env, const char *name)
 	} else {
 		ms->dump_info(env);
 	}
-	return 0;
 } /* dump_mspace_info() */
 
 /* Dump memory space info for all memory spaces */
@@ -300,7 +300,6 @@ int inbound::open_mspace(const char *name,
 			 uint32_t *msid,
 			 uint64_t *phys_addr,
 			 uint64_t *rio_addr,
-			 uint32_t *ms_conn_id,
 			 uint32_t *bytes)
 {
 	DBG("ENTER\n");
@@ -310,17 +309,13 @@ int inbound::open_mspace(const char *name,
 	mspace	*ms = get_mspace(name);
 	if (ms == nullptr) {
 		WARN("%s not found\n", name);
-		ret = -1;
+		ret = RDMA_INVALID_MS;
 	} else {
 		/* Open the memory space */
-		if (ms->open(msid, user_tx_eng, ms_conn_id, bytes)) {
-			WARN("Failed to open '%s'\n", name);
-			ret = -2;
-		} else {
-			*phys_addr = ms->get_phys_addr();
-			*rio_addr  = ms->get_rio_addr();
-			ret = 0;
-		}
+		ms->open(msid, user_tx_eng, bytes);
+		*phys_addr = ms->get_phys_addr();
+		*rio_addr  = ms->get_rio_addr();
+		ret = 0;
 	}
 	DBG("EXIT\n");
 	return ret;

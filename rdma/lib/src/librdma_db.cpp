@@ -292,14 +292,13 @@ ms_h add_loc_ms(const char *ms_name,
 		uint32_t msid,
 		uint64_t phys_addr,
 		uint64_t rio_addr,
-		uint32_t ms_conn_id,
 		bool owned)
 {
 	loc_ms *msp = nullptr;
 	try {
 		/* Construct */
 		msp = new loc_ms(ms_name, bytes, msoh, msid, phys_addr,
-				rio_addr, ms_conn_id, owned);
+				rio_addr, owned);
 		/* Add to list */
 		pthread_mutex_lock(&loc_ms_mutex);
 		loc_ms_list.push_back(msp);

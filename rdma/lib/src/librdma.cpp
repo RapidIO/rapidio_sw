@@ -933,7 +933,7 @@ int rdma_create_ms_h(const char *ms_name,
 				out_msg.create_ms_out.msid,
 				out_msg.create_ms_out.phys_addr,
 				out_msg.create_ms_out.rio_addr,
-				0, true);
+				true);
 		if (!*msh) {
 			ERR("Failed to store ms in database\n");
 			throw RDMA_DB_ADD_FAIL;
@@ -1045,7 +1045,6 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 				out_msg.open_ms_out.msid,
 				out_msg.open_ms_out.phys_addr,
 				out_msg.open_ms_out.rio_addr,
-				out_msg.open_ms_out.ms_conn_id,
 				false);
 		if (!*msh) {
 			CRIT("Failed to store ms in database\n");
@@ -1099,7 +1098,6 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		in_msg.type     = CLOSE_MS;
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.close_ms_in.msid = ((loc_ms *)msh)->msid;
-		in_msg.close_ms_in.ms_conn_id = ((loc_ms *)msh)->ms_conn_id;
 
 		/* Call into daemon */
 		unix_msg_t	out_msg;

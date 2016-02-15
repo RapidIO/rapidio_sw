@@ -92,20 +92,11 @@ bool mso_h_exists(mso_h msoh);
  * Memory spaces.
  */
 struct loc_ms {
-	char *name;
-	uint32_t   bytes;
-	uint64_t   msoh;
-	uint32_t   msid;
-	uint64_t   phys_addr;	/* phys_addr and rio_addr maybe the same */
-	uint64_t   rio_addr;	/* if direct mapping is used. */
-	uint32_t   ms_conn_id;
-	bool	   owned;
 
 	loc_ms(const char *name, uint32_t bytes, mso_h msoh, uint32_t msid,
-		uint64_t phys_addr, uint64_t rio_addr, uint32_t ms_conn_id,
-		bool owned) :
+		uint64_t phys_addr, uint64_t rio_addr, bool owned) :
 	name(strdup(name)), bytes(bytes), msoh(msoh), msid(msid), phys_addr(phys_addr),
-	rio_addr(rio_addr), ms_conn_id(ms_conn_id), owned(owned)
+	rio_addr(rio_addr), owned(owned)
 	{
 	}
 
@@ -113,6 +104,14 @@ struct loc_ms {
 	{
 		free((void *)name);
 	}
+
+	char *name;
+	uint32_t   bytes;
+	uint64_t   msoh;
+	uint32_t   msid;
+	uint64_t   phys_addr;	/* phys_addr and rio_addr maybe the same */
+	uint64_t   rio_addr;	/* if direct mapping is used. */
+	bool	   owned;
 };
 
 ms_h add_loc_ms(const char *ms_name,
@@ -121,7 +120,6 @@ ms_h add_loc_ms(const char *ms_name,
 		uint32_t msid,
 		uint64_t phys_addr,
 		uint64_t rio_addr,
-		uint32_t mso_conn_id,
 		bool owned);
 
 int remove_loc_ms(ms_h msh);

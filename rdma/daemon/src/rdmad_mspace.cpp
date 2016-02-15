@@ -65,7 +65,6 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
                 uint64_t phys_addr, uint64_t size) :
 		name(name), msid(msid), rio_addr(rio_addr), phys_addr(
 		                phys_addr), size(size), msoid(0), free(true),
-		                current_ms_conn_id(MS_CONN_ID_START),
 		                connected_to(false), accepting(false),
 		                server_msubid(0), creator_tx_eng(nullptr),
 		                client_destid(0xFFFF), client_msubid(NULL_MSUBID),
@@ -672,22 +671,19 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 	return 0;
 } /* create_msubspace() */
 
-int mspace::open(uint32_t *msid, tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-					uint32_t *ms_conn_id, uint32_t *bytes)
+void mspace::open(uint32_t *msid, tx_engine<unix_server, unix_msg_t> *user_tx_eng,
+								uint32_t *bytes)
 {
 	/* Return msid, mso_open_id, and bytes */
-	*ms_conn_id 	= this->current_ms_conn_id++;
 	*msid 		= this->msid;
 	*bytes 		= this->size;
 
 	/* Store info about user that opened the ms in the 'users' list */
 	sem_wait(&users_sem);
-	DBG("user with user_tx_eng(%p), ms_conn_id(0x%X) stored in msid(0x%X)\n",
-						user_tx_eng, *ms_conn_id, *msid);
-	users.emplace_back(*ms_conn_id, user_tx_eng);
+	DBG("user with user_tx_eng(%p) stored in msid(0x%X)\n",
+							user_tx_eng, *msid);
+	users.emplace_back(user_tx_eng);
 	sem_post(&users_sem);
-
-	return 0;
 } /* open() */
 
 tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()

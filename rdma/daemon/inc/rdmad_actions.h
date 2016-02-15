@@ -75,11 +75,11 @@ inline int rdmad_destroy_ms(uint32_t msoid, uint32_t msid)
 } /* rdmad_destroy_ms() */
 
 inline int rdmad_open_ms(const char *ms_name, uint32_t *msid, uint64_t *phys_addr,
-		         uint64_t *rio_addr, uint32_t *ms_conn_id, uint32_t *bytes,
+		         uint64_t *rio_addr, uint32_t *bytes,
 		         tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	return the_inbound->open_mspace(ms_name, tx_eng, msid, phys_addr,
-						rio_addr, ms_conn_id, bytes);
+						rio_addr, bytes);
 } /* rdmad_open_ms() */
 
 int rdmad_close_ms(uint32_t msid, tx_engine<unix_server, unix_msg_t> *app_tx_eng);

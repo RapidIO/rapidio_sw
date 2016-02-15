@@ -215,7 +215,6 @@ int open_ms_disp(const unix_msg_t *in_msg,
 			      &out_msg.open_ms_out.msid,
 			      &out_msg.open_ms_out.phys_addr,
 			      &out_msg.open_ms_out.rio_addr,
-			      &out_msg.open_ms_out.ms_conn_id,
 			      &out_msg.open_ms_out.bytes,
 			      tx_eng);
 
