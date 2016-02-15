@@ -145,34 +145,57 @@ public:
 	/* Destructor */
 	~mspace();
 
+	/**
+	 * @brief Destroys the memory space parameters and turns it into
+	 * 	  a free memory space. Merges with continguous memory spaces
+	 * 	  if possible.
+	 */
 	int destroy();
 
 	/* Accessors */
 	uint64_t get_size() const { return size; }
+
 	uint64_t get_rio_addr() const { return rio_addr; }
+
 	uint64_t get_phys_addr() const { return phys_addr; }
+
 	uint32_t get_msid() const { return msid; }
+
 	uint16_t get_msindex() const { return msid & MSID_MSINDEX_MASK; }
+
 	uint32_t get_msoid() const { return msoid; }
+
 	bool is_free() const { return free;}
+
 	const char* get_name() const { return name.c_str(); }
+
 	bool is_connected_to() const { return connected_to;}
+
 	bool is_accepting() const { return accepting; }
+
 
 	/* Mutators */
 	void set_size(uint64_t size) { this->size = size; }
+
 	void set_msid(uint32_t msid) { this->msid = msid;}
+
 	void set_used() { free = false; }
+
 	void set_free() { free = true; }
+
 	void set_msoid(uint32_t msoid) {
 		this->msoid = msoid;
 		this->msid &= ~MSID_MSOID_MASK;	/* Clear previous owner */
 		this->msid |= ((msoid << MSID_MSOID_SHIFT) & MSID_MSOID_MASK);
 	}
+
 	void set_name(const char *name) { this->name = name; }
+
 	void set_connected_to(bool connected_to)
 					{ this->connected_to = connected_to; }
+
 	void set_accepting(bool accepting) { this->accepting = accepting; }
+
 	void set_creator_tx_eng(
 			tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
 	{
@@ -191,14 +214,51 @@ public:
 	set<uint16_t> get_rem_destids();
 
 	/* Debugging */
+
+	/**
+	 * @brief Dumps infor about memory space such as name, size, free
+	 * 	  status, and so on.
+	 *
+	 * @param env CLI console environment object
+	 */
 	void dump_info(struct cli_env *env);
+
+	/**
+	 * @brief Dumps information about the memory subspaces contained
+	 * 	  within this memory space.
+	 *
+	 * @param env CLI console environment object
+	 */
 	void dump_info_msubs_only(struct cli_env *env);
+
+
+	/**
+	 * @brief Dumps infor about memory space such as name, size, free
+	 * 	  status..etc. as well as information about the memory
+	 * 	  subspaces contained within this memory space.
+	 *
+	 * @param env CLI console environment object
+	 */
 	void dump_info_with_msubs(struct cli_env *env);
 
-	/* For finding a memory space by its msid */
+	/**
+	 * @brief Equality operator for matching the memory space by
+	 * 	  a memory space identifier (msid)
+	 *
+	 * @param msid	Memory space identifier to compare with
+	 *
+	 * @return true if matching, false if not
+	 */
 	bool operator==(uint32_t msid) { return this->msid == msid; }
 
-	/* For finding a memory space by its name */
+	/**
+	 * @brief Equality operator for matching the memory space by
+	 * 	  a memory space name.
+	 *
+	 * @param name	Memory space name to compare with
+	 *
+	 * @return true if matching, false if not
+	 */
 	bool operator==(const char *name) { return this->name == name; }
 
 	void open(uint32_t *msid,
@@ -248,10 +308,6 @@ public:
 	void disconnect_from_destid(uint16_t client_destid);
 
 private:
-	/* Constants */
-	static constexpr uint32_t MS_CONN_ID_START = 0x01;
-
-	/* Private methods */
 	/**
 	 *@brief Copy constructor unimplemented
 	 */

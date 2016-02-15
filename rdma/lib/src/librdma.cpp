@@ -583,7 +583,8 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 
 		/* Failed to create mso? */
 		if (out_msg.create_mso_out.status) {
-			ERR("Failed to create mso '%s' in daemon\n", owner_name);
+			ERR("Failed to create mso '%s' in daemon, status = 0x%X\n",
+				owner_name, out_msg.create_mso_out.status);
 			throw out_msg.create_mso_out.status;
 		}
 
@@ -647,13 +648,14 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc) {
-			ERR("Failed in OPEN_MSO daemon_call, rc = %d\n", rc);
+			ERR("Failed in OPEN_MSO daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Failed to open mso? */
 		if (out_msg.open_mso_out.status) {
-			ERR("Failed to open mso '%s', rc = %d\n", owner_name, rc);
+			ERR("Failed to open mso '%s', status = 0x%X\n",
+				owner_name, out_msg.open_mso_out.status);
 			throw out_msg.open_mso_out.status;
 		}
 
@@ -663,7 +665,8 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 			    out_msg.open_mso_out.mso_conn_id,
 			    /* owned is */false);
 		if (!*msoh) {
-			WARN("add_loc_mso() failed, msoid = 0x%X\n", out_msg.open_mso_out.msoid);
+			WARN("add_loc_mso() failed, msoid = 0x%X\n",
+					out_msg.open_mso_out.msoid);
 			throw RDMA_DB_ADD_FAIL;
 		}
 	} /* try */
@@ -742,14 +745,15 @@ int rdma_close_mso_h(mso_h msoh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc) {
-			ERR("Failed in CLOSE_MSO daemon_call, rc = %d\n", rc);
+			ERR("Failed in CLOSE_MSO daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Check status returned by command on the daemon side */
 		if (out_msg.close_mso_out.status != 0) {
-			ERR("Failed to close mso(0x%X) in daemon\n",
-						in_msg.close_mso_in.msoid);
+			ERR("Failed to close mso(0x%X) in daemon, status = 0x%X\n",
+						in_msg.close_mso_in.msoid,
+						out_msg.close_mso_out.status);
 			throw out_msg.close_mso_out.status;
 		}
 
@@ -801,7 +805,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 
 		/* For each one of the memory spaces, call destroy */
 		bool	ok = true;
-		for_each(begin(ms_list), end(ms_list),
+		for_each(begin(ms_list),end(ms_list),
 			[&ok, msoh](loc_ms *ms)
 			{
 				if (rdma_destroy_ms_h(msoh, ms_h(ms))) {
@@ -833,14 +837,15 @@ int rdma_destroy_mso_h(mso_h msoh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc) {
-			ERR("Failed in DESTROY_MSO daemon_call, rc = %d\n", rc);
+			ERR("Failed in DESTROY_MSO daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Failed to destroy mso? */
 		if (out_msg.destroy_mso_out.status) {
-			ERR("Failed to destroy msoid(0x%X), rc = %d\n",
-						((loc_mso *)msoh)->msoid, rc);
+			ERR("Failed to destroy msoid(0x%X), status = 0x%X\n",
+					((loc_mso *)msoh)->msoid,
+					out_msg.destroy_mso_out.status);
 			throw out_msg.destroy_mso_out.status;
 		}
 
@@ -916,13 +921,14 @@ int rdma_create_ms_h(const char *ms_name,
 		/* Call into daemon */
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
-			ERR("Failed in CREATE_MS daemon_call, rc = %d\n", rc);
+			ERR("Failed in CREATE_MS daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Failed to create mso? */
 		if (out_msg.create_ms_out.status) {
-			ERR("Failed to create ms '%s' in daemon\n", ms_name);
+			ERR("Failed to create ms '%s' in daemon, status = 0x%X\n",
+				ms_name, out_msg.create_ms_out.status);
 			throw out_msg.create_ms_out.status;
 		}
 
@@ -958,12 +964,7 @@ int destroy_msubs_in_msh(ms_h msh)
 	list<struct loc_msub *>	msub_list(get_num_loc_msub_in_ms(msid));
 	get_list_loc_msub_in_msid(msid, msub_list);
 
-	DBG("%d msub(s) in msh(0x%lX):\n", msub_list.size(), msh);
-#ifdef DEBUG
-	copy(msub_list.begin(),
-	     msub_list.end(),
-	     ostream_iterator<loc_msub *>(cout, "\n"));
-#endif
+	DBG("%d msub(s) in msh(0x%" PRIx64 "):\n", msub_list.size(), msh);
 
 	/* For each one of the memory sub-spaces, call destroy */
 	bool	ok = true;
@@ -1026,13 +1027,14 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 		unix_msg_t	out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
-			ERR("Failed in OPEN_MS daemon_call, rc = %d\n", rc);
+			ERR("Failed in OPEN_MS daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Failed to open ms? */
 		if (out_msg.open_ms_out.status) {
-			ERR("Failed to open ms '%s' in daemon\n", ms_name);
+			ERR("Failed to open ms '%s' in daemon, status = 0x%X\n",
+				ms_name, out_msg.open_ms_out.status);
 			throw out_msg.open_ms_out.status;
 		}
 
@@ -1103,14 +1105,14 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		unix_msg_t	out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
-			ERR("Failed in CLOSE_MS daemon_call, rc = %d\n", rc);
+			ERR("Failed in CLOSE_MS daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Failed to open ms? */
 		if (out_msg.close_ms_out.status) {
-			ERR("Failed to close ms '%s' in daemon\n",
-						((loc_ms *)msh)->name);
+			ERR("Failed to close ms '%s' in daemon, status = 0x%X\n",
+			((loc_ms *)msh)->name, out_msg.close_ms_out.status);
 			throw out_msg.close_ms_out.status;
 		}
 
@@ -1166,13 +1168,14 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
-			ERR("Failed in DESTROY_MS daemon_call, rc = %d\n", rc);
+			ERR("Failed in DESTROY_MS daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Failed to destroy ms? */
 		if (out_msg.destroy_ms_out.status) {
-			ERR("Failed to destroy ms '%s' in daemon\n", ms->name);
+			ERR("Failed to destroy ms '%s' in daemon, status = 0x%X\n",
+				ms->name, out_msg.destroy_ms_out.status);
 			throw out_msg.destroy_ms_out.status;
 		}
 
@@ -1237,13 +1240,14 @@ int rdma_create_msub_h(ms_h	msh,
 		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
-			ERR("Failed in CREATE_MSUB daemon_call, rc = %d\n", rc);
+			ERR("Failed in CREATE_MSUB daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Failed to create msub? */
 		if (out_msg.create_msub_out.status) {
-			ERR("Failed to create_msub in daemon\n");
+			ERR("Failed to create_msub in daemon, status = 0x%X\n",
+				out_msg.create_msub_out.status);
 			throw out_msg.create_msub_out.status;
 		}
 
@@ -1309,13 +1313,14 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
-			ERR("Failed in DESTROY_MSUB daemon_call, rc = %d\n", rc);
+			ERR("Failed in DESTROY_MSUB daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Failed to destroy msub? */
 		if (out_msg.destroy_msub_out.status) {
-			ERR("Failed to destroy_msub_out in daemon\n");
+			ERR("Failed to destroy_msub_out in daemon, status = 0x%X\n",
+				out_msg.destroy_msub_out.status);
 			throw out_msg.destroy_msub_out.status;
 		}
 
@@ -1337,7 +1342,7 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 int rdma_mmap_msub(msub_h msubh, void **vaddr)
 {
 	loc_msub *pmsub = (loc_msub *)msubh;
-	auto rc = 0;
+	int rc;
 	
 	sem_wait(&rdma_lock);
 
@@ -1383,7 +1388,7 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 int rdma_munmap_msub(msub_h msubh, void *vaddr)
 {
 	loc_msub *pmsub = (loc_msub *)msubh;
-	auto rc = 0;
+	int rc;
 
 	sem_wait(&rdma_lock);
 	try {
@@ -1411,6 +1416,7 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 		}
 
 		INFO("Unmapped vaddr(%p), of size %u\n", vaddr, pmsub->bytes);
+		rc = 0;
 	}
 	catch(int e) {
 		rc = e;
@@ -1430,7 +1436,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		     uint32_t *rem_msub_len,
 		     uint64_t timeout_secs)
 {
-	auto rc = 0;
+	int rc;
 
 	DBG("ENTER with timeout = %u\n", (unsigned)timeout_secs);
 	sem_wait(&rdma_lock);
@@ -1473,7 +1479,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 
 			/* Failed in daemon? */
 			if (accept_out_msg.accept_out.status) {
-				ERR("Failed to accept (ms) in daemon\n");
+				ERR("Failed to accept (ms) in daemon, status = 0x%X\n",
+					accept_out_msg.accept_out.status);
 				throw accept_out_msg.accept_out.status;
 			}
 		}
@@ -1498,13 +1505,14 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			unix_msg_t  undo_accept_out_msg;
 			rc = daemon_call(&undo_accept_in_msg, &undo_accept_out_msg);
 			if (rc ) {
-				ERR("Failed in UNDO_ACCEPT daemon_call, rc = %d\n", rc);
+				ERR("Failed in UNDO_ACCEPT daemon_call, rc = 0x%X\n", rc);
 				throw rc;
 			}
 
 			/* Failed in daemon? */
 			if (undo_accept_out_msg.undo_accept_out.status) {
-				ERR("Failed to undo accept (ms) in daemon\n");
+				ERR("Failed to undo accept in daemon, status = 0x%X\n",
+					undo_accept_out_msg.undo_accept_out.status);
 				throw undo_accept_out_msg.undo_accept_out.status;
 			}
 			throw RDMA_ACCEPT_TIMEOUT;
@@ -1573,13 +1581,14 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		unix_msg_t connect_ms_resp_out_msg;
 		rc = daemon_call(&connect_ms_resp_in_msg, &connect_ms_resp_out_msg);
 		if (rc ) {
-			ERR("Failed in CONNECT_MS_RESP daemon_call, rc = %d\n", rc);
+			ERR("Failed in CONNECT_MS_RESP daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Failed in daemon? */
 		if (connect_ms_resp_out_msg.connect_to_ms_resp_out.status) {
-			ERR("Failed to CONNECT_MS_RESP (ms) in daemon\n");
+			ERR("Failed to CONNECT_MS_RESP (ms) in daemon, status = 0x%X\n",
+				connect_ms_resp_out_msg.connect_to_ms_resp_out.status);
 			throw connect_ms_resp_out_msg.connect_to_ms_resp_out.status;
 		}
 
@@ -1662,7 +1671,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		   uint64_t timeout_secs)
 {
 	static uint32_t seq_num = 0x1234;
-	auto rc = 0;
+	int rc;
 
 	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
@@ -1768,13 +1777,14 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
-			ERR("Failed in SEND_CONNECT daemon_call, rc = %d\n", rc);
+			ERR("Failed in SEND_CONNECT daemon_call, rc = 0x%X\n", rc);
 			throw rc;
 		}
 
 		/* Failed to send connect? */
 		if (out_msg.send_connect_out.status) {
-			ERR("Failed to connect to (ms) in daemon\n");
+			ERR("Failed to connect in daemon, status = 0x%X\n",
+					out_msg.send_connect_out.status);
 			throw out_msg.send_connect_out.status;
 		}
 
@@ -1808,7 +1818,8 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 			/* Failed to undo the accept */
 			if (out_msg.undo_connect_out.status) {
-				ERR("Failed to undo accept (ms) in daemon\n");
+				ERR("Failed to undo acceptin daemon, status=0x%X\n",
+					out_msg.undo_connect_out.status);
 				throw out_msg.undo_connect_out.status;
 			}
 			rc = temp_rc;		/* Restore 'rc' */
@@ -1954,13 +1965,15 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
-			ERR("Failed in SEND_DISCONNECT daemon_call, rc = %d\n", rc);
+			ERR("Failed in SEND_DISCONNECT daemon_call, rc=0x%X\n",
+									rc);
 			throw rc;
 		}
 
 		/* Failed to send disconnect? */
 		if (out_msg.send_disconnect_out.status) {
-			ERR("Failed to send_disconnect to (ms) in daemon\n");
+			ERR("Failed to send_disconnect in daemon\n, status=0x%X",
+					out_msg.send_disconnect_out.status);
 			throw out_msg.send_disconnect_out.status;
 		}
 
@@ -2045,13 +2058,15 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		unix_msg_t out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
 		if (rc ) {
-			ERR("Failed in SERVER_DISCONNECT_MS daemon _call, rc = %d\n", rc);
+			ERR("Failed in SERVER_DISCONNECT_MS daemon_call, rc = 0x%X\n",
+										rc);
 			throw rc;
 		}
 
 		/* Failed to send server_disconnect_ms? */
 		if (out_msg.server_disconnect_ms_out.status) {
-			ERR("Failed in SERVER_DISCONNECT_MS handling in daemon\n");
+			ERR("Failed in SERVER_DISCONNECT_MS in daemon, status=0x%X\n",
+					out_msg.server_disconnect_ms_out.status);
 			throw out_msg.server_disconnect_ms_out.status;
 		}
 
