@@ -88,6 +88,8 @@ public:
 	 * @brief Equality operator for finding a memory subspace by its msubid
 	 *
 	 * @param msubid	Memory subspace identifier
+	 *
+	 * @return true if matching, false if not
 	 */
 	bool operator==(uint32_t msubid) {
 		return this->msubid == msubid;
@@ -98,6 +100,8 @@ public:
 	 *
 	 * @param tx_eng	Tx engine connecting the daemon to the app
 	 * 			that created this memory subspace
+	 *
+	 * @return true if maching, false if not
 	 */
 	bool operator==(const tx_engine<unix_server, unix_msg_t> *tx_eng)
 		{ return this->tx_eng == tx_eng; }

@@ -671,19 +671,29 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 	return 0;
 } /* create_msubspace() */
 
-void mspace::open(uint32_t *msid, tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-								uint32_t *bytes)
+int mspace::open(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
-	/* Return msid, mso_open_id, and bytes */
-	*msid 		= this->msid;
-	*bytes 		= this->size;
+	int rc;
 
-	/* Store info about user that opened the ms in the 'users' list */
 	sem_wait(&users_sem);
-	DBG("user with user_tx_eng(%p) stored in msid(0x%X)\n",
-							user_tx_eng, *msid);
-	users.emplace_back(user_tx_eng);
+
+	/* Altough LIBRDMA should contain some safegaurds against the same
+	 * memory space being opened twice by the same application, it doesn't
+	 * hurt to add a quick check here. */
+	auto it = find(begin(users), end(users), user_tx_eng);
+	if (it != end(users)) {
+		ERR("'%s' already open by this application\n", name.c_str());
+		rc = RDMA_ALREADY_OPEN;
+	} else {
+		/* Store info about user that opened the ms in 'users' */
+		users.emplace_back(user_tx_eng);
+		DBG("user with user_tx_eng(%p) stored in msid(0x%X)\n",
+							user_tx_eng, msid);
+		rc = 0;
+	}
 	sem_post(&users_sem);
+
+	return rc;
 } /* open() */
 
 tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()
@@ -793,14 +803,9 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 	return rc;
 } /* accept() */
 
-/**
- * @app_tx_eng could be the tx_eng of the creator of the mspace, or
- * one of its users. Find it and CLEAR the appropriate is_accepting
- * flag (i.e. either in the main class or in one of the ms_users).
- * Also remove the server_msubid (by setting it to 0). */
 int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
-	auto rc = 0;
+	int rc;
 
 	/* First check if it is the creator who is accepting */
 	if (app_tx_eng == creator_tx_eng) {
@@ -812,6 +817,7 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 			HIGH("Setting ms('%s' to 'NOT accepting'\n", name.c_str());
 			accepting = false;
 			server_msubid = 0;
+			rc = 0;
 		}
 	} else {
 		/* It wasn't the creator so search the users by app_tx_eng */
@@ -826,8 +832,10 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 				rc = RDMA_ACCEPT_FAIL;
 			} else {
 				/* Set accepting to 'false' and clear server_msubid */
+				HIGH("Setting ms('%s' to 'NOT accepting'\n", name.c_str());
 				it->accepting = false;
 				it->server_msubid = 0;
+				rc = 0;
 			}
 		}
 		sem_post(&users_sem);
@@ -877,7 +885,6 @@ int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 			ERR("Creator of memory space cannot open/close it\n");
 			throw RDMA_MS_CLOSE_FAIL;
 		}
-
 
 		auto it = find(begin(users), end(users), app_tx_eng);
 		if (it == end(users)) {

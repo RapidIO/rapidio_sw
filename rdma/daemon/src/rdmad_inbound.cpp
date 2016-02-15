@@ -231,7 +231,7 @@ int inbound::destroy_mspace(uint32_t msoid, uint32_t msid)
 	sem_wait(&ibwins_sem);
 
 	if (win_num >= ibwins.size()) {
-		ERR("Bad window size: %u\n", win_num);
+		ERR("Bad window number: %u\n", win_num);
 		ret = -1;
 	} else {
 		auto& ibw = ibwins[win_num];
@@ -312,10 +312,16 @@ int inbound::open_mspace(const char *name,
 		ret = RDMA_INVALID_MS;
 	} else {
 		/* Open the memory space */
-		ms->open(msid, user_tx_eng, bytes);
-		*phys_addr = ms->get_phys_addr();
-		*rio_addr  = ms->get_rio_addr();
-		ret = 0;
+		ret = ms->open(user_tx_eng);
+		if (ret) {
+			ERR("Failed to open '%s'\n", name);
+		} else {
+			*msid      = ms->get_msid();
+			*phys_addr = ms->get_phys_addr();
+			*rio_addr  = ms->get_rio_addr();
+			*bytes	   = ms->get_size();
+			ret = 0;
+		}
 	}
 	DBG("EXIT\n");
 	return ret;

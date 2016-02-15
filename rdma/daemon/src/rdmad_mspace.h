@@ -261,34 +261,121 @@ public:
 	 */
 	bool operator==(const char *name) { return this->name == name; }
 
-	void open(uint32_t *msid,
-		 tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-		 uint32_t *bytes);
+	/**
+	 * @brief Opens memory space and associates it with a tx_eng
+	 *
+	 * @param user_tx_eng	Tx engine used by the daemon to communicate
+	 * 			with the user app which opened the memory space
+	 *
+	 */
+	int open(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
+	/**
+	 * @brief Returns the tx_eng either of the owner of the ms, or of
+	 * 	  one of its users, whoever happens to be in the 'accepting'
+	 * 	  state (and there can only be one at a single time).
+	 *
+	 * @return Tx engine used by the daemon to communicate with the owner
+	 * 	   or the user, which happens to be in 'accepting' state.
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	tx_engine<unix_server, unix_msg_t> *get_accepting_tx_eng();
 
+	/**
+	 * @brief Place this ms in accepting state by either its owner
+	 * 	  or by one of its user apps.
+	 *
+	 * @param app_tx_eng Tx engine used by the daemon to communicate with
+	 * 		     either the owner or one of its users, whoever
+	 * 		     called rdma_accept_ms_h()
+	 *
+	 * @param server_msubid A memory subspace identifier specifying
+	 * 			the memory subspace provided by the app
+	 * 			that called rdma_accept_ms_h()
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 			uint32_t server_msubid);
 
+	/**
+	 * @brief Clears previous accept request, most likely due
+	 * 	  to a failure detected at the RDMA library side.
+	 *
+	 * @param  app_tx_eng Tx engine used by the daemon to communicate with
+	 * 		     either the owner or one of its users, whoever
+	 * 		     tried to undo the previous 'accept' request
+	 */
 	int undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
+	/**
+	 * @brief Determines whether mspace was created by app connected
+	 * 	  to the daemon via specified Tx engine
+	 *
+	 * @param app_tx_eng Tx engine
+	 *
+	 * @return true if matching, false if not
+	 */
 	bool created_using_tx_eng(
 			tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 	{
-		bool yes = (this->creator_tx_eng == app_tx_eng);
-		DBG("%s was%s created using tx_eng\n",
-			name.c_str(), yes ? "" : " not");
-		return yes;
+		return this->creator_tx_eng == app_tx_eng;
 	}
 
+	/**
+	 * @brief Determines whether mspace was opened by app connected
+	 * 	  to the daemon via specified Tx engine
+	 *
+	 * @param app_tx_eng Tx engine
+	 *
+	 * @return true if matching, false if not
+	 */
 	bool has_user_with_user_tx_eng(
 			tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
+	/**
+	 * @brief Determines whether mspace has a remote connection with
+	 * 	  a client on a node having the specified destid
+	 *
+	 * @param destid Destination ID of remote node to check
+	 *
+	 * @return true if matching, false if not
+	 */
 	bool connected_by_destid(uint16_t destid);
 
+	/**
+	 * @brief Close memory space by user app specified by app_tx_eng
+	 *
+	 * @param app_tx_eng  Tx engine used by daemon to connect to app
+	 * 		      requesting memory space closure
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int close(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
-	/* For creating a memory sub-space */
+	/**
+	 * @brief Create a memory subspace a specified offset with requested
+	 * 	  size
+	 *
+	 * @param offset Subspace offset within memory space
+	 *
+	 * @param req_size Requested subspace size
+	 *
+	 * @param size	  Actual allocated size for the subspace
+	 *
+	 * @param msubid  Memory subspace identifier assigned to subspace
+	 *
+	 * @param rio_addr RapidIO address of the first byte of the subspace
+	 *
+	 * @param phys_addr Physical address of the first byte of the subspace
+	 * 		    (same as RapidIO address if directly mapped)
+	 * @param tx_eng  Tx engine used by daemon to communicate with either
+	 * 		  the memory space creator or whichever user that
+	 * 		  has created the memory subspace
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int create_msubspace(uint32_t offset,
 			     uint32_t req_size,
 			     uint32_t *size,
@@ -297,14 +384,51 @@ public:
 			     uint64_t *phys_addr,
 			     const tx_engine<unix_server, unix_msg_t> *tx_eng);
 
+	/**
+	 * @brief Destroys subspace denoted by msubid
+	 *
+	 * @param Memory subspace identifier
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int destroy_msubspace(uint32_t msubid);
 
+	/**
+	 * @brief Client-initiated disconnection from memory space
+	 *
+	 * @param client_msubid Client memory subspace identifier.
+	 * 			Can be NULL_MSUB.
+	 *
+	 * @param client_to_lib_tx_eng_h Handle of Tx engine between
+	 * 				 client daemon and client app
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int client_disconnect(uint32_t client_msubid,
-		       uint64_t client_to_lib_tx_eng_h);
+			      uint64_t client_to_lib_tx_eng_h);
 
+	/**
+	 * @brief Server-initiated disconnection from memory space
+	 *
+	 * @param client_msubid Client memory subspace identifier.
+	 * 			Can be NULL_MSUB.
+	 *
+	 * @param client_to_lib_tx_eng_h Handle of Tx engine between
+	 * 				 client daemon and client app
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int server_disconnect(uint32_t client_msubid,
 		       uint64_t client_to_lib_tx_eng_h);
 
+	/**
+	 * @brief Disconnect memory space from specified destid
+	 * 	  Used when a remote node dies and we need to tell
+	 * 	  apps that had connections with that remote node
+	 * 	  to clear their databases of corresponding connections.
+	 *
+	 * @param Remote (client) node destination ID.
+	 */
 	void disconnect_from_destid(uint16_t client_destid);
 
 private:
