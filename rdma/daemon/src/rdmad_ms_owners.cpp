@@ -201,7 +201,8 @@ int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_
 	pthread_mutex_lock(&owners_lock);
 	try {
 		/* Find the mso */
-		auto it = find_if(begin(owners), end(owners), [msoid](ms_owner *o)
+		auto it = find_if(begin(owners), end(owners),
+				[msoid](ms_owner *o)
 				{
 					return o->get_msoid() == msoid;
 				});
@@ -213,7 +214,7 @@ int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_
 		/* Close the connection belonging to the tx_eng */
 		rc = (*it)->close(tx_eng);
 		if (rc) {
-			ERR("Failed to close connection with tx_eng(0x%p)\n", tx_eng);
+			ERR("Failed to close mso, tx_eng = 0x%p\n", tx_eng);
 			throw rc;
 		}
 	}
@@ -292,12 +293,12 @@ int ms_owners::destroy_mso(uint32_t msoid)
 		/* Remove owner */
 		delete *mso_it;
 		owners.erase(mso_it);
-		DBG("mso(0x%X) object deleted, and removed from owners list\n",
-									msoid);
+		DBG("mso(0x%X) deleted & removed from owners list\n", msoid);
+
 		/* Mark msoid as being free */
 		msoid_free_list[msoid] = true;
-
 		DBG("msoid(0x%X) now marked as 'free'\n");
+
 		rc = 0;	/* Success */
 	}
 	catch(int& e) {

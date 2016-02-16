@@ -115,7 +115,7 @@ int ms_owner::close(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 	auto it = find(begin(users_tx_eng), end(users_tx_eng), user_tx_eng);
 	if (it == end(users_tx_eng)) {
 		/* Not found */
-		ERR("mso is not using specified tx engine\n");
+		ERR("mso is not using specified tx engine (0x%p)\n", user_tx_eng);
 		rc = -1;
 	} else {
 		/* Erase user element */
