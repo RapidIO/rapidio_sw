@@ -201,17 +201,16 @@ int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_
 	pthread_mutex_lock(&owners_lock);
 	try {
 		/* Find the mso */
-		auto it = find_if(begin(owners), end(owners),
-				[tx_eng](ms_owner* o)
+		auto it = find_if(begin(owners), end(owners), [msoid](ms_owner *o)
 				{
-					return o->tx_eng == tx_eng;
+					return o->get_msoid() == msoid;
 				});
 		if (it == end(owners)) {
-			ERR("msoid(0x%X) with specified tx_eng not found\n", msoid);
+			ERR("No mso with msoid(0x%X) found\n", msoid);
 			throw RDMA_INVALID_MSO;
 		}
 
-		/* Close the connection */
+		/* Close the connection belonging to the tx_eng */
 		rc = (*it)->close(tx_eng);
 		if (rc) {
 			ERR("Failed to close connection with tx_eng(0x%p)\n", tx_eng);
