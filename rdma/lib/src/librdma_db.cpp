@@ -95,18 +95,16 @@ int rdma_db_init()
  *
  * @mso_name	Memory space owner name
  * @msoid	Memory space owner identifier
- * @mso_conn_id	Memory space owner connection ID to an app which has it open
  * @owned	true if app created mso, false if it just opened it
  *
  * @return 	Handle to memory space owner, could be 0 (NULL) if failed
  */
-mso_h add_loc_mso(const char *mso_name, uint32_t msoid, uint32_t mso_conn_id,
-		  bool owned)
+mso_h add_loc_mso(const char *mso_name, uint32_t msoid, bool owned)
 {
 	loc_mso *mso = nullptr;
 	try {
 		/* Allocate */
-		mso = new loc_mso(mso_name, msoid, mso_conn_id, owned);
+		mso = new loc_mso(mso_name, msoid, owned);
 
 		/* Add to list */
 		pthread_mutex_lock(&loc_mso_mutex);

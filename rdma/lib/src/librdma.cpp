@@ -588,8 +588,8 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 			throw out_msg.create_mso_out.status;
 		}
 
-		/* Store in database. mso_conn_id = 0 and owned = true */
-		*msoh = add_loc_mso(owner_name, out_msg.create_mso_out.msoid, 0, true);
+		/* Store in database, with owned = true */
+		*msoh = add_loc_mso(owner_name, out_msg.create_mso_out.msoid, true);
 		if (!*msoh) {
 			WARN("add_loc_mso() failed, msoid = 0x%X\n",
 						out_msg.create_mso_out.msoid);
@@ -662,7 +662,6 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		/* Store in database */
 		*msoh = add_loc_mso(owner_name,
 			    out_msg.open_mso_out.msoid,
-			    out_msg.open_mso_out.mso_conn_id,
 			    /* owned is */false);
 		if (!*msoh) {
 			WARN("add_loc_mso() failed, msoid = 0x%X\n",
@@ -737,7 +736,6 @@ int rdma_close_mso_h(mso_h msoh)
 		unix_msg_t  in_msg;
 
 		in_msg.close_mso_in.msoid = ((loc_mso *)msoh)->msoid;
-		in_msg.close_mso_in.mso_conn_id = ((loc_mso *)msoh)->mso_conn_id;
 		in_msg.type 	= CLOSE_MSO;
 		in_msg.category = RDMA_REQ_RESP;
 

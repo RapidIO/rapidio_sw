@@ -53,14 +53,15 @@ inline int rdmad_create_mso(const char *mso_name,
 } /* rdmad_create_mso() */
 
 inline int rdmad_open_mso(const char *mso_name, uint32_t *msoid,
-		uint32_t *mso_conn_id, tx_engine<unix_server, unix_msg_t> *tx_eng)
+		tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	return owners.open_mso(mso_name, msoid, mso_conn_id, tx_eng);
+	return owners.open_mso(mso_name, msoid, tx_eng);
 } /* rdmad_open_mso() */
 
-inline int rdmad_close_mso(uint32_t msoid, uint32_t mso_conn_id)
+inline int rdmad_close_mso(uint32_t msoid,
+				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	return owners.close_mso(msoid, mso_conn_id);
+	return owners.close_mso(msoid, tx_eng);
 } /* rdmad_close_mso() */
 
 int rdmad_destroy_mso(uint32_t msoid);

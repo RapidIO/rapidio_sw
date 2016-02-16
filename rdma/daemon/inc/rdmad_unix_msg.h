@@ -212,14 +212,12 @@ struct open_mso_input {
 };
 struct open_mso_output {
 	uint32_t msoid;
-	uint32_t mso_conn_id;
 	int	status;
 };
 
 /* close_mso() arguments */
 struct close_mso_input {
 	uint32_t msoid;
-	uint32_t mso_conn_id;
 };
 struct close_mso_output {
 	int	status;
@@ -516,7 +514,6 @@ struct unix_msg_t {
 		struct server_disconnect_ms_input server_disconnect_ms_in;
 		struct server_disconnect_ms_output server_disconnect_ms_out;
 	};
-
 };
 
 #endif

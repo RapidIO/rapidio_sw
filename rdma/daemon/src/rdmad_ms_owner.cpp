@@ -50,13 +50,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_mspace.h"
 #include "rdmad_main.h"
 
-/* Global constants */
-constexpr uint32_t MSO_CONN_ID_START	= 0x1;
-
 ms_owner::ms_owner(const char *owner_name,
 		   tx_engine<unix_server, unix_msg_t> *tx_eng, uint32_t msoid) :
-	           name(owner_name), tx_eng(tx_eng), msoid(msoid),
-	           mso_conn_id(MSO_CONN_ID_START)
+	           name(owner_name), tx_eng(tx_eng), msoid(msoid)
 {
 	DBG("Owner '%s' created with tx_eng(0x%" PRIx64 ")\n",
 			owner_name, (uint64_t)tx_eng);
@@ -81,21 +77,18 @@ void ms_owner::close_connections()
 	}
 
 	/* Send messages for all connections indicating mso will be destroyed */
-	for (mso_user& user : users) {
-		tx_engine<unix_server, unix_msg_t> *user_tx_eng =
-			user.get_tx_engine();
-
+	for (mso_user& u : users) {
 		unix_msg_t	in_msg;
 
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.type     = FORCE_CLOSE_MSO;
 		in_msg.force_close_mso_req.msoid = msoid;
-		user_tx_eng->send_message(&in_msg);
+		u.get_tx_engine()->send_message(&in_msg);
 	}
 } /* close_connections() */
 
-int ms_owner::open(uint32_t *msoid, uint32_t *mso_conn_id,
-		tx_engine<unix_server, unix_msg_t> *user_tx_eng)
+int ms_owner::open(uint32_t *msoid,
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
 	int rc;
 
@@ -103,12 +96,11 @@ int ms_owner::open(uint32_t *msoid, uint32_t *mso_conn_id,
 	auto it = find(begin(users), end(users), user_tx_eng);
 	if (it != end(users)) {
 		ERR("mso('%s') already open by same app\n", name.c_str());
-		rc = -RDMA_ALREADY_OPEN;
+		rc = RDMA_ALREADY_OPEN;
 	} else {
 		/* Return msoid and mso_conn_id */
-		*mso_conn_id = this->mso_conn_id++;
 		*msoid = this->msoid;
-		users.emplace_back(*mso_conn_id, user_tx_eng);
+		users.emplace_back(user_tx_eng);
 		rc = 0;
 	}
 	return rc;
@@ -128,21 +120,6 @@ int ms_owner::close(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 		rc = 0;
 	}
 
-	return rc;
-} /* close() */
-
-int ms_owner::close(uint32_t mso_conn_id)
-{
-	int rc;
-	auto it = find(begin(users), end(users), mso_conn_id);
-	if (it == end(users)) {
-		ERR("Cannot find user with mso_conn_id(0x%X)\n", mso_conn_id);
-		rc = -1;
-	} else {
-		/* Erase user element */
-		users.erase(it);
-		rc = 0;
-	}
 	return rc;
 } /* close() */
 

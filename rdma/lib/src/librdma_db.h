@@ -55,8 +55,8 @@ typedef vector<conn_h>	conn_h_list;
  */
 class loc_mso {
 public:
-	loc_mso(const char *name, uint32_t msoid, uint32_t mso_conn_id, bool owned) :
-		name(strdup(name)), msoid(msoid), mso_conn_id(mso_conn_id), owned(owned)
+	loc_mso(const char *name, uint32_t msoid, bool owned) :
+		name(strdup(name)), msoid(msoid), owned(owned)
 	{
 	}
 	~loc_mso()
@@ -65,13 +65,11 @@ public:
 	}
 	const char *name;
 	uint32_t msoid;
-	uint32_t mso_conn_id;	// if 'owned' is false
 	bool owned;
 };
 
 mso_h add_loc_mso(const char* mso_name,
 		  uint32_t msoid,
-		  uint32_t mso_conn_id,
 		  bool owned);
 
 void dump_loc_ms(void);

@@ -71,10 +71,10 @@ public:
 			tx_engine<unix_server, unix_msg_t> *tx_eng,
 			uint32_t *msoid);
 
-	int open_mso(const char *name, uint32_t *msoid, uint32_t *mso_conn_id,
+	int open_mso(const char *name, uint32_t *msoid,
 			tx_engine<unix_server, unix_msg_t> *tx_eng);
 
-	int close_mso(uint32_t msoid, uint32_t mso_conn_id);
+	int close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 	void close_mso(tx_engine<unix_server, unix_msg_t> *tx_eng);
 

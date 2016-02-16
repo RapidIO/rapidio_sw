@@ -165,7 +165,6 @@ int ms_owners::create_mso(const char *name,
 
 int ms_owners::open_mso(const char *name,
 			uint32_t *msoid,
-			uint32_t *mso_conn_id,
 			tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	int rc;
@@ -181,7 +180,7 @@ int ms_owners::open_mso(const char *name,
 		}
 
 		/* Open the memory space owner */
-		rc = (*mso_it)->open(msoid, mso_conn_id, tx_eng);
+		rc = (*mso_it)->open(msoid, tx_eng);
 		if (rc) {
 			ERR("Failed to open memory space owner %s\n", name);
 			throw rc;
@@ -195,23 +194,27 @@ int ms_owners::open_mso(const char *name,
 	return 0;
 } /* open_mso() */
 
-int ms_owners::close_mso(uint32_t msoid, uint32_t mso_conn_id)
+int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	int rc;
 
 	pthread_mutex_lock(&owners_lock);
 	try {
 		/* Find the mso */
-		auto it = find_if(begin(owners), end(owners), has_msoid(msoid));
+		auto it = find_if(begin(owners), end(owners),
+				[tx_eng](ms_owner* o)
+				{
+					return o->tx_eng == tx_eng;
+				});
 		if (it == end(owners)) {
-			ERR("msoid(0x%X) not found\n", msoid);
+			ERR("msoid(0x%X) with specified tx_eng not found\n", msoid);
 			throw RDMA_INVALID_MSO;
 		}
 
 		/* Close the connection */
-		rc = (*it)->close(mso_conn_id);
+		rc = (*it)->close(tx_eng);
 		if (rc) {
-			ERR("Failed to close connection (0x%X)\n", mso_conn_id);
+			ERR("Failed to close connection with tx_eng(0x%p)\n", tx_eng);
 			throw rc;
 		}
 	}

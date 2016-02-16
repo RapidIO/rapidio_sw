@@ -51,18 +51,14 @@ class unix_server;
 
 class ms_owner
 {
+	friend class ms_owners;
+
 	class mso_user
 	{
 	public:
-		mso_user(uint32_t mso_conn_id,
-			tx_engine<unix_server, unix_msg_t> *tx_eng) :
-			mso_conn_id(mso_conn_id), tx_eng(tx_eng)
+		mso_user(tx_engine<unix_server, unix_msg_t> *tx_eng) :
+			tx_eng(tx_eng)
 		{
-		}
-
-		bool operator==(uint32_t mso_conn_id)
-		{
-			return this->mso_conn_id == mso_conn_id;
 		}
 
 		bool operator==(tx_engine<unix_server, unix_msg_t> *tx_eng)
@@ -70,10 +66,9 @@ class ms_owner
 			return this->tx_eng == tx_eng;
 		}
 
-		tx_engine<unix_server, unix_msg_t> *get_tx_engine() { return tx_eng; }
-
+		tx_engine<unix_server, unix_msg_t> *get_tx_engine()
+				{ return tx_eng; }
 	private:
-		uint32_t mso_conn_id;
 		tx_engine<unix_server, unix_msg_t> *tx_eng;
 	};
 public:
@@ -93,7 +88,10 @@ public:
 	bool operator ==(uint32_t msoid) { return this->msoid == msoid; }
 
 	/* For finding an ms_owner by its name */
-	bool operator ==(const char *owner_name) { return this->name == owner_name; }
+	bool operator ==(const char *owner_name)
+	{
+		return this->name == owner_name;
+	}
 
 	/* Stores handle of memory spaces currently owned by owner */
 	void add_ms(mspace *ms);
@@ -106,10 +104,8 @@ public:
 
 	void dump_info(struct cli_env *env);
 
-	int open(uint32_t *msoid, uint32_t *mso_conn_id,
+	int open(uint32_t *msoid,/* uint32_t *mso_conn_id,*/
 		 tx_engine<unix_server, unix_msg_t> *user_tx_eng);
-
-	int close(uint32_t mso_conn_id);
 
 	int close(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
@@ -132,9 +128,7 @@ private:
 	uint32_t	msoid;
 	mspace_list	ms_list;
 	user_list	users;
-	uint32_t	mso_conn_id;	// Next available mso_conn_id
 };
-
 
 #endif
 

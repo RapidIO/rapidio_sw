@@ -112,7 +112,6 @@ int open_mso_disp(const unix_msg_t *in_msg,
 	out_msg.open_mso_out.status =
 		rdmad_open_mso(in_msg->open_mso_in.owner_name,
 				&out_msg.open_mso_out.msoid,
-				&out_msg.open_mso_out.mso_conn_id,
 				tx_eng);
 
 	if (out_msg.open_mso_out.status) {
@@ -136,7 +135,7 @@ int close_mso_disp(const unix_msg_t *in_msg,
 	out_msg.seq_no   = in_msg->seq_no;
 	out_msg.close_mso_out.status =
 		rdmad_close_mso(in_msg->close_mso_in.msoid,
-				in_msg->close_mso_in.mso_conn_id);
+				tx_eng);
 
 	if (out_msg.close_mso_out.status) {
 		ERR("Failed in call rdmad_open_mso\n");
