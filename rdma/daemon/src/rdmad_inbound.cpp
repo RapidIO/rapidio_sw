@@ -41,7 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_types.h"
 #include "liblog.h"
 #include "rapidio_mport_mgmt.h"
-
+#include "rapidio_mport_dma.h"
 #include "rdmad_msubspace.h"
 #include "rdmad_mspace.h"
 #include "rdmad_ibwin.h"

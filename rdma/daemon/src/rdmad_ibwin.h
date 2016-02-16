@@ -34,30 +34,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef IBWIN_H
 #define IBWIN_H
 
-#include <algorithm>
 #include <vector>
 #include <exception>
 
-#include <cstdio>
-
-#define __STDC_FORMAT_MACROS
-#include <cinttypes>
-
-#include "rdma_types.h"
-#include <rapidio_mport_mgmt.h>
-#include "rapidio_mport_dma.h"
-#include "rdmad_unix_msg.h"
-#include "tx_engine.h"
-#include "liblog.h"
 #include "libcli.h"
 
-#include "rdmad_mspace.h"
+#include "tx_engine.h"
 
 using std::vector;
 using std::exception;
+using mspace_list = vector<mspace *>;
+using mspace_iterator = mspace_list::iterator;
 
-typedef vector<mspace*>		mspace_list;
-typedef mspace_list::iterator	mspace_iterator;
+class mspace;
 
 /**
  * @brief Inbound window mapping exception
@@ -85,7 +74,8 @@ public:
 	 *
 	 * @param size		Size in bytes
 	 *
-	 * @throws ibwin_map_exception
+	 * @throws ibwin_map_exception if failed during riomp_dma_ibwin_map()
+	 * @throws integer exception if failed during mutex initialization
 	 */
 	ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size);
 
@@ -174,8 +164,7 @@ public:
 
 	int destroy_mspace(uint32_t msoid, uint32_t msid);
 
-	void merge_other_with_mspace(mspace_iterator current,
-				     mspace_iterator other);
+
 
 	/**
 	 * @brief Return memory space with specified name
@@ -189,30 +178,62 @@ public:
 	/**
 	 * @brief Return memory space with specified memory space identifier
 	 *
-	 * @param name Memory space name
+	 * @param msid Memory space identifier
 	 *
 	 * @return pointer to memory space if successful, nullptr if not
 	 */
 	mspace* get_mspace(uint32_t msid);
 
+	/**
+	 * @brief Return memory space with specified memory space, and
+	 * 	  memory space owner identifiers
+	 *
+	 * @param msoid Memory space owner identifier
+	 *
+	 * @param msid  Memory space identifier
+	 *
+	 * @return pointer to memory space if successful, nullptr if not
+	 */
 	mspace* get_mspace(uint32_t msoid, uint32_t msid);
 
-	mspace *get_mspace_open_by_tx_eng(
-			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
-			uint32_t *ms_conn_id);
-
+	/**
+	 * @brief Provided a list of memory spaces that have remote connections
+	 * 	  from clients on a node having the specified destid
+	 *
+	 * @param destid Destination ID of remote node
+	 *
+	 * @param mspaces Empty list of memory spaces that gets populated
+	 * 		  with matching memory spaces
+	 */
 	void get_mspaces_connected_by_destid(uint32_t destid,
 					     	     mspace_list& mspaces);
 
+	/**
+	 * @brief CLose all memory spaces opened by the specified Tx
+	 * 	  engine. Used when the engine detects that the application
+	 * 	  has died, so the daemon needs to clean up the open
+	 * 	  connection by that application.
+	 *
+	 * @param app_tx_eng Tx engine between the daemon and a server app
+	 */
 	void close_mspaces_using_tx_eng(
 			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
+	/**
+	 * @brief Destroy all memory spaces created by the specified Tx
+	 * 	  engine. Used when the engine detects that the application
+	 * 	  has died, so the daemon needs to destroy the memory spaces
+	 * 	  created by that application.
+	 *
+	 * @param app_tx_eng Tx engine between the daemon and a server app
+	 */
 	void destroy_mspaces_using_tx_eng(
 			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
-
-
 private:
+	void merge_other_with_mspace(mspace_iterator current,
+				     mspace_iterator other);
+
 	riomp_mport_t mport_hnd;	/* Master port handle */
 	unsigned	win_num;	/* window number */
 	uint64_t	rio_addr;	/* starting address in RIO space */

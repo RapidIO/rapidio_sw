@@ -32,16 +32,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <algorithm>
 #include <vector>
-#include <list>
 #include <iterator>
-
-#include <cstdio>
 
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
 #include "rdma_types.h"
-#include <rapidio_mport_mgmt.h>
+#include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_dma.h"
 #include "liblog.h"
 #include "libcli.h"
@@ -50,12 +47,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_ibwin.h"
 
 using std::vector;
-using std::list;
 using std::find;
 using std::fill;
 using std::begin;
 using std::end;
-
 
 /**
  * @brief Function object that determines whether a memory space is
@@ -65,8 +60,7 @@ using std::end;
  *
  * @return true if larger or equal to desired size and is free, false otherwise
  */
-struct has_room
-{
+struct has_room {
 	has_room(uint64_t size) : size(size) {}
 
 	bool operator()(mspace* ms) {
@@ -86,6 +80,7 @@ private:
  */
 struct has_msid {
 	has_msid(uint32_t msid) : msid(msid) {}
+
 	bool operator()(mspace *ms) {
 		return ms->get_msid() == msid;
 	}
@@ -104,6 +99,7 @@ private:
 struct has_msid_and_msoid {
 	has_msid_and_msoid(uint32_t msid, uint32_t msoid) :
 		msid(msid), msoid(msoid) {}
+
 	bool operator()(mspace *ms) {
 		if (ms->get_msid() == msid) {
 			if (ms->get_msoid() == msoid) {
@@ -235,7 +231,6 @@ void ibwin::dump_mspace_and_subs_info(cli_env *env)
 	pthread_mutex_unlock(&mspaces_lock);
 } /* dump_mspace_and_subs_info() */
 
-/* Returns pointer to memory space large enough to hold 'size' */
 int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 {
 	pthread_mutex_lock(&mspaces_lock);
@@ -256,7 +251,6 @@ int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 	return (le_mspaces.size() > 0) ? 0 : -1;
 } /* free_ms_large_enough() */
 
-/* Returns whether there is a memory space large enough to hold 'size' */
 bool ibwin::has_room_for_ms(uint64_t size)
 {
 	pthread_mutex_lock(&mspaces_lock);
@@ -273,7 +267,6 @@ struct ms_compare_t {
 	}
 } ms_compare;
 
-/* Create memory space */
 int ibwin::create_mspace(const char *name,
 		  	  uint64_t size,
 		  	  uint32_t msoid,
@@ -298,10 +291,8 @@ int ibwin::create_mspace(const char *name,
 
 	/* Determine index of new, free, memory space */
 	pthread_mutex_lock(&msindex_lock);
-	bool *fmlit  = find(begin(msindex_free_list),
-			    end(msindex_free_list),
-		    	    true);
-
+	bool *fmlit  = find(begin(msindex_free_list), end(msindex_free_list),
+		    	    	    	    	    	    	    true);
 	/* If none found, return error */
 	if (fmlit == (end(msindex_free_list))) {
 		CRIT("No free memory space indexes\n");
@@ -325,9 +316,8 @@ int ibwin::create_mspace(const char *name,
 	/* Create memory space for the remaining free inbound space, but
 	 * only if that space is non-zero in size */
 	if (new_size > 0) {
-		/* The new free memory space has no owner, but has a
-		 * win_num the same as the original free one, and has a
-		 * new index */
+		/* The new free memory space has no owner, but has a win_num
+		 * the same as the original free one, and has a new index */
 		uint32_t new_msid = ((*ms)->get_msid() & MSID_WIN_MASK) |
 				 (fmlit - begin(msindex_free_list));
 		/* Create a new space for unused portion */
@@ -462,6 +452,8 @@ void ibwin::close_mspaces_using_tx_eng(
 		if (ms->has_user_with_user_tx_eng(user_tx_eng)) {
 			INFO("Closing connection to '%s'\n", ms->get_name());
 			ms->close(user_tx_eng);
+		} else {
+			DBG("Skipping '%s' since it doesn't use app_tx_eng\n");
 		}
 	}
 } /* close_mspaces_using_tx_eng() */
@@ -470,7 +462,6 @@ void ibwin::destroy_mspaces_using_tx_eng(
 		tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
 	for(auto& ms : mspaces) {
-		INFO("Checking mspace '%s'\n", ms->get_name());
 		if (ms->created_using_tx_eng(app_tx_eng)) {
 			INFO("Destroying '%s'\n", ms->get_name());
 			ms->destroy();

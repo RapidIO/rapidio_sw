@@ -33,16 +33,11 @@
 #include <stdint.h>
 #include <errno.h>
 
-#include <cstdio>
-#include <cstring>
-
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
 #include <algorithm>
-#include <utility>
 #include <vector>
-#include <sstream>
 
 #include "cm_sock.h"
 #include "liblog.h"
@@ -50,14 +45,12 @@
 #include "rdmad_cm.h"
 #include "rdmad_mspace.h"
 #include "rdmad_msubspace.h"
-#include "rdmad_ms_owner.h"
 #include "rdmad_ms_owners.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_main.h"
 #include "rdmad_unix_msg.h"
 
 using std::fill;
-using std::remove_if;
 using std::find;
 using std::remove;
 
@@ -117,7 +110,7 @@ int mspace::send_cm_force_disconnect_ms(cm_server *server, uint32_t server_msubi
 	if (server->send()) {
 		WARN("Failed to send CM_FORCE_DISCONNECT_MS to client_destid(0x%X)\n",
 							client_destid);
-		rc = -2;
+		rc = RDMA_REMOTE_UNREACHABLE;
 	} else {
 		DBG("CM_FORCE_DISCONNECT_MS sent to client_destid(0x%X)\n",
 							client_destid);
@@ -491,18 +484,23 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 {
 	int rc;
 	int ret = 0;
+
 	bool found = (this->client_msubid == client_msubid) &&
 		     (this->client_to_lib_tx_eng_h == client_to_lib_tx_eng_h) &&
 		     connected_to;
 	if (found) {
 		DBG("Creator has the connection\n");
 		if (is_client) {
+			/* This was client-initiated. Need to relay this to
+			 * the server library to clear connection info there. */
 			send_disconnect_to_lib(client_msubid,
 					       server_msubid,
 					       client_to_lib_tx_eng_h,
 					       creator_tx_eng);
 			rc = 0;
 		} else {
+			/* Server-initiated: The client needs to be told via
+			 * its daemon, that this connection is now invalid. */
 			rc = send_disconnect_to_remote_daemon(client_msubid,
 						client_to_lib_tx_eng_h);
 		}
@@ -571,8 +569,10 @@ set<uint16_t> mspace::get_rem_destids()
 {
 	sem_wait(&users_sem);
 	set<uint16_t>	rem_destids;
+	/* Check if the memory space creator is connected */
 	if (connected_to)
 		rem_destids.insert(client_destid);
+	/* Now check the memory space users for connections */
 	for( auto& u : users) {
 		if (u.connected_to)
 			rem_destids.insert(u.client_destid);
@@ -584,8 +584,8 @@ set<uint16_t> mspace::get_rem_destids()
 /* Debugging */
 void mspace::dump_info(struct cli_env *env)
 {
-	sprintf(env->output, "%34s %08X %08X %016" PRIx64 " %08X\n", name.c_str(),
-	                msoid, msid, rio_addr, size);
+	sprintf(env->output, "%34s %08X %08X %016" PRIx64 " %08X\n",
+				name.c_str(), msoid, msid, rio_addr, size);
 	logMsg(env);
 	sprintf(env->output, "destids: ");
 	logMsg(env);
@@ -715,19 +715,19 @@ tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()
 	return tx_eng;
 } /* get_accepting_tx_eng() */
 
-/**
- * @app_tx_eng could be the tx_eng of the creator of the mspace, or
- * one of its users. Find it and SET the appropriate is_accepting
- * flag (i.e. either in the main class or in one of the ms_users.
- *
- * Only 1 connection to the memory space can be accepting at a time.
- * So make sure none are before allowing one to accept. Furthermore,
- * the one that accepts cannot be already connected-to.
- */
 int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 		   uint32_t server_msubid)
 {
 	int rc;
+
+	/**
+	 * app_tx_eng could be the tx_eng from the daemon to either the creator of
+	 * the mspace, or of one of its users. Set the appropriate is_accepting
+	 * flag (i.e. either in the main class or in one of the ms_users).
+	 *
+	 * Only 1 connection to the memory space can be accepting at a time.
+	 * Furthermore, the one that accepts cannot be already connected-to.
+	 */
 
 	/* First check if it is the creator who is accepting */
 	if (app_tx_eng == creator_tx_eng) {

@@ -35,6 +35,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <unistd.h>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include <cstdio>
 
 #include <sstream>

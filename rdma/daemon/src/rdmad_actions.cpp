@@ -32,6 +32,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <stdint.h>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include "unix_sock.h"
 #include "rdmad_main.h"
 #include "rdmad_srvr_threads.h"

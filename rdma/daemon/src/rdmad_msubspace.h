@@ -40,7 +40,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "liblog.h"
 #include "libcli.h"
-#include "rdmad_tx_engine.h"
+#include "tx_engine.h"
+
+class unix_server;
+class unix_msg_t;
 
 class msubspace
 {

@@ -36,6 +36,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <signal.h>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include <vector>
 #include <algorithm>
 

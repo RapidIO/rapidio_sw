@@ -38,17 +38,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <semaphore.h>
 
-#include <cstdio>
-
 #include <string>
 #include <vector>
 #include <set>
 #include <exception>
 
-#include "cm_sock.h"
-#include "unix_sock.h"
-#include "rdma_types.h"
-#include "rdmad_unix_msg.h"
 #include "tx_engine.h"
 
 using std::set;
@@ -67,8 +61,13 @@ constexpr uint32_t MSUBINDEX_MAX 	= 0xFFFF;
 
 /* Referenced classes declarations */
 class unix_server;
+class unix_msg_t;
+class cm_server;
 class msubspace;
 
+/**
+ * @brief Exception thrown by mspace on error during construction
+ */
 class mspace_exception : public exception {
 public:
 	mspace_exception(const char *msg) : err(msg) {}
@@ -77,67 +76,67 @@ private:
 	const char *err;
 };
 
-class ms_user
+class mspace
 {
-	friend class mspace;
-public:
-	/**
-	 *  @brief Construct ms_user from specified parameters
-	 */
-	ms_user(tx_engine<unix_server, unix_msg_t> *tx_eng) :
-		tx_eng(tx_eng),
-		accepting(false),
-		connected_to(false),
-		server_msubid(0),
-		client_destid(0xFFFF),
-		client_msubid(NULL_MSUBID),
-		client_to_lib_tx_eng_h(0)
+	class ms_user
 	{
-	} /* Constructor */
+		friend class mspace;
+	public:
+		/**
+		 *  @brief Construct ms_user from specified parameters
+		 */
+		ms_user(tx_engine<unix_server, unix_msg_t> *tx_eng) :
+			tx_eng(tx_eng),
+			accepting(false),
+			connected_to(false),
+			server_msubid(0),
+			client_destid(0xFFFF),
+			client_msubid(NULL_MSUBID),
+			client_to_lib_tx_eng_h(0)
+		{
+		} /* Constructor */
 
-	/**
-	 * @brief Copy constructor
-	 */
-	ms_user(const ms_user&) = default;
+		/**
+		 * @brief Copy constructor
+		 */
+		ms_user(const ms_user&) = default;
 
-	/**
-	 * @brief Assignment operator
-	 */
-	ms_user& operator=(const ms_user&) = default;
+		/**
+		 * @brief Assignment operator
+		 */
+		ms_user& operator=(const ms_user&) = default;
 
-	/**
-	 * @brief Tells whether this ms is connected to specified client destid
-	 *
-	 * @param client_destid Destination ID of client daemon
-	 */
-	bool operator==(const uint32_t client_destid)
-	{
-		return this->client_destid == client_destid;
-	} /* operator == */
+		/**
+		 * @brief Tells whether this ms is connected to specified client destid
+		 *
+		 * @param client_destid Destination ID of client daemon
+		 */
+		bool operator==(const uint32_t client_destid)
+		{
+			return this->client_destid == client_destid;
+		} /* operator == */
 
-	/**
-	 * @brief Tells whether the daemon is connected to this user
-	 * 	  via the specified tx engine
-	 *
-	 * @param Tx engine between daemon and user app/library
-	 */
-	bool operator==(tx_engine<unix_server, unix_msg_t> *tx_eng)
-	{
-		return tx_eng == this->tx_eng;
-	} /* operator == */
+		/**
+		 * @brief Tells whether the daemon is connected to this user
+		 * 	  via the specified tx engine
+		 *
+		 * @param Tx engine between daemon and user app/library
+		 */
+		bool operator==(tx_engine<unix_server, unix_msg_t> *tx_eng)
+		{
+			return tx_eng == this->tx_eng;
+		} /* operator == */
 
-private:
-	tx_engine<unix_server, unix_msg_t> *tx_eng;
-	bool	accepting;		 /* Set when 'accept' is called */
-	bool	connected_to;		 /* Set when connected */
-	uint32_t server_msubid;		 /* Assigned upon accepting */
-	uint16_t client_destid;		 /* Assigned When connected */
-	uint32_t client_msubid;		 /* Assigned When connected */
-	uint64_t client_to_lib_tx_eng_h; /* Assigned When connected */
-}; /* ms_user */
+	private:
+		tx_engine<unix_server, unix_msg_t> *tx_eng;
+		bool	accepting;		 /* Set when 'accept' is called */
+		bool	connected_to;		 /* Set when connected */
+		uint32_t server_msubid;		 /* Assigned upon accepting */
+		uint16_t client_destid;		 /* Assigned When connected */
+		uint32_t client_msubid;		 /* Assigned When connected */
+		uint64_t client_to_lib_tx_eng_h; /* Assigned When connected */
+	}; /* ms_user */
 
-class mspace 
-{
 public:
 	/* Constructor */
 	mspace(const char *name, uint32_t msid, uint64_t rio_addr,
@@ -202,19 +201,43 @@ public:
 		this->creator_tx_eng = creator_tx_eng;
 	}
 
-	/* Connections by clients that have connected to this memory space */
+	/**
+	 * @brief Upon having a remote connection from a client app to this
+	 * 	  memory space, store information about that client.
+	 *
+	 * @param client_destid	DestID of node on which client app resides
+	 *
+	 * @param client_msubid Memory subspace identifier provided by client
+	 * 			in rdma_conn_ms_h(). May be NULL_MSUB.
+	 *
+	 * @param client_to_lib_tx_eng_h Handle of the client-daemon to
+	 *  				 client-app Tx engine
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int  add_rem_connection(uint16_t client_destid,
 				uint32_t client_msubid,
 				uint64_t client_to_lib_tx_eng_h);
 
+	/**
+	 * @brief When this memory space is disconnected from a remote client
+	 * 	  app, remote relevant information.
+	 *
+	 * @param client_destid	DestID of node on which client app resides
+	 *
+	 * @param client_msubid Memory subspace identifier provided by client
+	 * 			in rdma_conn_ms_h(). May be NULL_MSUB.
+	 *
+	 * @param client_to_lib_tx_eng_h Handle of the client-daemon to
+	 *  				 client-app Tx engine
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int remove_rem_connection(uint16_t client_destid,
 				  uint32_t client_msubid,
 				  uint64_t client_to_lib_tx_eng_h);
 
-	set<uint16_t> get_rem_destids();
-
 	/* Debugging */
-
 	/**
 	 * @brief Dumps infor about memory space such as name, size, free
 	 * 	  status, and so on.
@@ -443,6 +466,13 @@ private:
 	mspace& operator=(const mspace&) = delete;
 
 	/**
+	 * @brief Return a set of remote destination IDs that have active
+	 * 	  connections with this mspace. Used for displaying info about
+	 * 	  this memory space from the CLI commands.
+	 */
+	set<uint16_t> get_rem_destids();
+
+	/**
 	 * @brief Sends CM_FORCE_DISCONNECT_MS to the client of an ms.
 	 *
 	 * @param server  CM socket server between server and client daemons
@@ -508,6 +538,9 @@ private:
 				    uint64_t client_to_lib_tx_eng_h,
 				    tx_engine<unix_server, unix_msg_t> *tx_eng);
 
+	using ms_user_list   = vector<ms_user>;
+	using msubspace_list = vector<msubspace>;
+
 	string		name;
 	uint32_t	msid;
 	uint64_t	rio_addr;
@@ -527,16 +560,16 @@ private:
 	uint64_t client_to_lib_tx_eng_h; /* Ditto */
 
 	/* Info about users that have opened the ms */
-	vector<ms_user>		users;
-	sem_t			users_sem;
+	ms_user_list	users;
+	sem_t		users_sem;
 
 	/* Memory sub-space indexes */
 	bool msubindex_free_list[MSUBINDEX_MAX+1];	/* List of memory sub-space IDs */
 	sem_t 			msubindex_free_list_sem;
 
 	/* Memory subspaces */
-	vector<msubspace>	msubspaces;
-	sem_t			msubspaces_sem;
+	msubspace_list	msubspaces;
+	sem_t		msubspaces_sem;
 }; /* mspace */
 
 

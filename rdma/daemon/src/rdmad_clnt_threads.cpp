@@ -38,6 +38,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 #include <assert.h>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include <memory>
 
 #include "memory_supp.h"
