@@ -56,6 +56,11 @@ ms_owner::ms_owner(const char *owner_name,
 {
 	DBG("Owner '%s' created with tx_eng(0x%" PRIx64 ")\n",
 			owner_name, (uint64_t)tx_eng);
+
+	if (pthread_mutex_init(&ms_list_lock, NULL)) {
+		CRIT("Failed to initialize ms_list_lock\n");
+		throw ms_owner_exception("Failed to initialize ms_list_lock");
+	}
 } /* ctor */
 
 ms_owner::~ms_owner()
@@ -72,10 +77,6 @@ ms_owner::~ms_owner()
 
 void ms_owner::close_connections()
 {
-	if (!shutting_down) {
-		INFO("Sending messages for all apps which have 'open'ed this mso\n");
-	}
-
 	/* Send messages for all connections indicating mso will be destroyed */
 	for (user_tx_eng* t : users_tx_eng) {
 		unix_msg_t	in_msg;
@@ -101,6 +102,8 @@ int ms_owner::open(uint32_t *msoid,
 		/* Return msoid and mso_conn_id */
 		*msoid = this->msoid;
 		users_tx_eng.emplace_back(user_tx_eng);
+		DBG("Storing tx_eng(0x%p) with mso('%s')\n",
+						user_tx_eng, name.c_str());
 		rc = 0;
 	}
 	return rc;
@@ -125,13 +128,19 @@ int ms_owner::close(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 
 void ms_owner::add_ms(mspace *ms)
 {
+	pthread_mutex_lock(&ms_list_lock);
+
 	INFO("Adding msid(0x%X) to msoid(0x%X)\n", ms->get_msid(), msoid);
 	ms_list.push_back(ms);
+
+	pthread_mutex_unlock(&ms_list_lock);
 } /* add_ms() */
 
 int ms_owner::remove_ms(mspace* ms)
 {
 	int rc;
+
+	pthread_mutex_lock(&ms_list_lock);
 
 	/* Find memory space by the handle, return error if not there */
 	auto it = find(begin(ms_list), end(ms_list), ms);
@@ -139,25 +148,46 @@ int ms_owner::remove_ms(mspace* ms)
 		WARN("ms('%s', 0x%X) not owned by msoid('%s',0x%X)\n",
 				ms->get_name(), ms->get_msid(),
 				name.c_str(), msoid);
-		rc = -1;
+		rc = RDMA_INVALID_MS;
 	} else {
 		/* Erase memory space handle from list */
 		INFO("Removing msid(0x%X) from msoid(0x%X)\n",
-						ms->get_msid(), msoid);
+							ms->get_msid(), msoid);
 		ms_list.erase(it);
 		rc = 0;
 	}
+
+	pthread_mutex_unlock(&ms_list_lock);
+
 	return rc;
 } /* remove_ms_h() */
+
+bool ms_owner::owns_mspaces()
+{
+	bool yes;
+
+	pthread_mutex_lock(&ms_list_lock);
+	yes = ms_list.size() > 0;
+	pthread_mutex_unlock(&ms_list_lock);
+
+	return yes;
+} /* owns_mspaces() */
+
 
 void ms_owner::dump_info(struct cli_env *env)
 {
 	sprintf(env->output, "%8X %32s\t", msoid, name.c_str());
 	logMsg(env);
+
+	pthread_mutex_lock(&ms_list_lock);
+
 	for (auto& ms : ms_list) {
 		sprintf(env->output, "%8X ", ms->get_msid());
 		logMsg(env);
 	}
+
+	pthread_mutex_unlock(&ms_list_lock);
+
 	sprintf(env->output, "\n");
 	logMsg(env);
 } /* dump_info() */

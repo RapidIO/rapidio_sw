@@ -35,59 +35,105 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MS_OWNER_H
 
 #include <stdint.h>
+#include <pthread.h>
 
 #include <string>
 #include <vector>
+#include <exception>
 
 #include "tx_engine.h"
 
 using std::vector;
 using std::string;
+using std::exception;
 
 /* Referenced class declarations */
 class mspace;
 class unix_msg_t;
 class unix_server;
 
+/**
+ * @brief Inbound window mapping exception
+ */
+class ms_owner_exception : public exception {
+public:
+	ms_owner_exception(const char *msg) : err(msg)
+	{
+	}
+
+	const char *what() { return err; }
+private:
+	const char *err;
+};
+
 class ms_owner
 {
 	friend class ms_owners;
 
 public:
-	/* Constructor */
+	/**
+	 * @brief Constructor
+	 *
+	 * @param owner_name	Owner name
+	 *
+	 * @param tx_eng	Daemon-to-app Tx engine
+	 *
+	 * @param msoid		Memory space owner identifier
+	 *
+	 * @throws ms_owner_exception
+	 */
 	ms_owner(const char *owner_name,
 		 tx_engine<unix_server, unix_msg_t> *tx_eng, uint32_t msoid);
 
-	/* Destructor */
+	/**
+	 * @brief Destructor
+	 */
 	~ms_owner();
 
-	/* Accessor */
+	/* Accessors */
 	uint32_t get_msoid() const { return msoid; }
 
 	const char *get_mso_name() const { return name.c_str(); }
 
-	/* For finding an ms_owner by its msoid */
+	/**
+	 * @brief Equality operator fr finding an ms_owner by its msoid
+	 */
 	bool operator ==(uint32_t msoid) { return this->msoid == msoid; }
 
-	/* For finding an ms_owner by its name */
-	bool operator ==(const char *owner_name)
+	/**
+	 * @brief Equality operator fr finding an ms_owner by its name
+	 */
+	bool operator ==(const char *owner_name) const
 	{
 		return this->name == owner_name;
 	}
 
-	/* Stores handle of memory spaces currently owned by owner */
+	/**
+	 * @brief Stores memory space in list of owned spaces
+	 *
+	 * @param ms	Pointer to memory space
+	 */
 	void add_ms(mspace *ms);
 
-	/* Removes handle of memory space from list of owned spaces */
+	/**
+	 * @brief Removes memory space from list of owned spaces
+	 *
+	 * @param ms	Pointer to memory space
+	 *
+	 * @return 0 if successful, non-zer otherwise
+	 */
 	int remove_ms(mspace* ms);
 
-	/* Returns whether this owner sill owns some memory spaces */
-	bool owns_mspaces() { return ms_list.size() != 0; }
+	/**
+	 * @brief Returns whether this owner still owns memory spaces
+	 *
+	 * @return true if still owns, false otherwise
+	 */
+	bool owns_mspaces();
 
 	void dump_info(struct cli_env *env);
 
-	int open(uint32_t *msoid,/* uint32_t *mso_conn_id,*/
-		 tx_engine<unix_server, unix_msg_t> *user_tx_eng);
+	int open(uint32_t *msoid, tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
 	int close(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
@@ -110,6 +156,7 @@ private:
 	tx_engine<unix_server, unix_msg_t> *tx_eng;
 	uint32_t	msoid;
 	mspace_list	ms_list;
+	pthread_mutex_t	ms_list_lock;
 	user_tx_eng_list   users_tx_eng;
 };
 
