@@ -152,7 +152,7 @@ int open_outb_mbox(struct peer_info *peer, int mbox, uint32_t entries)
 		peer->omsg_ring[mbox].omq_base[i] = dmatest_buf_alloc(peer->mp_h,
                                                        ONE_PAGE_LENGTH,
                                            &peer->omsg_ring[mbox].omq_phys[i]);
-        DPRINT("%s: peer->omsg_ring[mbox].omq_phys[%d] = 0x%lX",
+        DPRINT("%s: peer->omsg_ring[mbox].omq_phys[%d] = 0x%" PRIx64 "\n",
                                             __FUNCTION__,
                                             i,
                                             peer->omsg_ring[mbox].omq_phys[i]);

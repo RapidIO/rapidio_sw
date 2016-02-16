@@ -1619,7 +1619,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 				WARN("Failed to add rem_msub to database\n");
 				throw RDMA_DB_ADD_FAIL;
 			}
-			INFO("rem_bytes = %d, rio_addr = 0x%lX\n",
+			INFO("rem_bytes = %d, rio_addr = 0x%" PRIx64 "\n",
 					conn_req_msg->client_msub_bytes,
 					conn_req_msg->client_rio_addr_lo);
 
@@ -2388,7 +2388,7 @@ int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 
 		INFO("Receiving %u bytes over DMA from destid=0x%X\n",
 							in->num_bytes, rmsub->destid);
-		INFO("Source RIO addr = 0x%X, lmsub->paddr = 0x%lX\n",
+		INFO("Source RIO addr = 0x%X, lmsub->paddr = 0x%" PRIx64 "\n",
 					rmsub->rio_addr_lo + in->rem_offset,
 					lmsub->paddr);
 

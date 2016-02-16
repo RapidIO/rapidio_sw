@@ -257,7 +257,7 @@ int inbound::create_mspace(const char *name,
 
 	/* If none found, fail */
 	if (win_it == ibwins.end()) {
-		WARN("No room for ms of size 0x%lX\n", size);
+		WARN("No room for ms of size 0x%" PRIx64 "\n", size);
 		sem_post(&ibwins_sem);
 		return RDMA_NO_ROOM_FOR_MS;
 	}

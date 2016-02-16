@@ -266,7 +266,7 @@ int mspace::close_connections()
 
 int mspace::destroy()
 {
-	DBG("name=%s, msid=0x%08X, rio_addr=0x%lX, size=0x%X\n", name.c_str(),
+	DBG("name=%s, msid=0x%08X, rio_addr=0x%" PRIx64 ", size=0x%X\n", name.c_str(),
 	                msid, rio_addr, size);
 
 	/* Before destroying a memory space, tell its clients that it is being

@@ -145,7 +145,8 @@ ibwin::ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size) :
 
 	/* If direct mapping is used then the physical address and the
 	 * RIO address are the same. */
-	INFO("%d, rio_addr = 0x%lX, size = 0x%lX, phys_addr = 0x%lX\n",
+	INFO("%d, rio_addr = 0x%" PRIx64 ", size = 0x%" PRIx64
+					", phys_addr = 0x%lX\n",
 		win_num, rio_addr, size, phys_addr);
 
 	/* Create first memory space. It is free, has no owner, has
