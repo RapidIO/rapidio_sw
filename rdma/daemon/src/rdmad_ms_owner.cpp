@@ -77,13 +77,13 @@ void ms_owner::close_connections()
 	}
 
 	/* Send messages for all connections indicating mso will be destroyed */
-	for (mso_user& u : users) {
+	for (user_tx_eng* t : users_tx_eng) {
 		unix_msg_t	in_msg;
 
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.type     = FORCE_CLOSE_MSO;
 		in_msg.force_close_mso_req.msoid = msoid;
-		u.get_tx_engine()->send_message(&in_msg);
+		t->send_message(&in_msg);
 	}
 } /* close_connections() */
 
@@ -93,14 +93,14 @@ int ms_owner::open(uint32_t *msoid,
 	int rc;
 
 	/* Don't allow the same application to open the same mso twice */
-	auto it = find(begin(users), end(users), user_tx_eng);
-	if (it != end(users)) {
+	auto it = find(begin(users_tx_eng), end(users_tx_eng), user_tx_eng);
+	if (it != end(users_tx_eng)) {
 		ERR("mso('%s') already open by same app\n", name.c_str());
 		rc = RDMA_ALREADY_OPEN;
 	} else {
 		/* Return msoid and mso_conn_id */
 		*msoid = this->msoid;
-		users.emplace_back(user_tx_eng);
+		users_tx_eng.emplace_back(user_tx_eng);
 		rc = 0;
 	}
 	return rc;
@@ -109,14 +109,14 @@ int ms_owner::open(uint32_t *msoid,
 int ms_owner::close(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
 	int rc;
-	auto it = find(begin(users), end(users), user_tx_eng);
-	if (it == end(users)) {
+	auto it = find(begin(users_tx_eng), end(users_tx_eng), user_tx_eng);
+	if (it == end(users_tx_eng)) {
 		/* Not found */
 		ERR("mso is not using specified tx engine\n");
 		rc = -1;
 	} else {
 		/* Erase user element */
-		users.erase(it);
+		users_tx_eng.erase(it);
 		rc = 0;
 	}
 

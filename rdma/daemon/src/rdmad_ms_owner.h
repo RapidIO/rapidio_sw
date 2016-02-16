@@ -53,24 +53,6 @@ class ms_owner
 {
 	friend class ms_owners;
 
-	class mso_user
-	{
-	public:
-		mso_user(tx_engine<unix_server, unix_msg_t> *tx_eng) :
-			tx_eng(tx_eng)
-		{
-		}
-
-		bool operator==(tx_engine<unix_server, unix_msg_t> *tx_eng)
-		{
-			return this->tx_eng == tx_eng;
-		}
-
-		tx_engine<unix_server, unix_msg_t> *get_tx_engine()
-				{ return tx_eng; }
-	private:
-		tx_engine<unix_server, unix_msg_t> *tx_eng;
-	};
 public:
 	/* Constructor */
 	ms_owner(const char *owner_name,
@@ -113,13 +95,14 @@ public:
 
 	bool has_user_tx_eng(tx_engine<unix_server, unix_msg_t> *tx_eng)
 	{
-		auto it = find(begin(users), end(users), tx_eng);
-		return (it != end(users));
+		auto it = find(begin(users_tx_eng), end(users_tx_eng), tx_eng);
+		return (it != end(users_tx_eng));
 	}
 
 private:
-	using mspace_list = vector<mspace *>;
-	using user_list   = vector<mso_user>;
+	using mspace_list 	= vector<mspace *>;
+	using user_tx_eng	= tx_engine<unix_server, unix_msg_t>;
+	using user_tx_eng_list  = vector<user_tx_eng *>;
 
 	void close_connections();
 
@@ -127,7 +110,7 @@ private:
 	tx_engine<unix_server, unix_msg_t> *tx_eng;
 	uint32_t	msoid;
 	mspace_list	ms_list;
-	user_list	users;
+	user_tx_eng_list   users_tx_eng;
 };
 
 #endif
