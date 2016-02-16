@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <algorithm>
 
+#include "rdma_types.h"
 #include "rdmad_ms_owner.h"
 #include "rdmad_ms_owners.h"
 #include "rdmad_main.h"
@@ -94,8 +95,8 @@ ms_owners::ms_owners()
 	/* Reserve msoid to mean "no owner" */
 	msoid_free_list[0] = false;
 
-	if (pthread_mutex_init(&lock, NULL)) {
-		throw -1;
+	if (pthread_mutex_init(&owners_lock, NULL)) {
+		throw ms_owners_exception("Failed to initialize owners_lock mutex");
 	}
 } /* Constructor */
 
@@ -111,49 +112,55 @@ void ms_owners::dump_info(struct cli_env *env)
 	logMsg(env);
 	sprintf(env->output, "%8s %32s %8s\n", "-----", "----", "------------------");
 	logMsg(env);
-	pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&owners_lock);
 	for (auto& owner : owners) {
 		owner->dump_info(env);
 	}
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&owners_lock);
 } /* dump_info() */
 
 int ms_owners::create_mso(const char *name,
 			  tx_engine<unix_server, unix_msg_t> *tx_eng,
 			  uint32_t *msoid)
 {
-	if (!name || !msoid) {
-		ERR("Null parameter passed: %p, %p\n", name, msoid);
-		return -1;
-	}
+	int rc;
 
-	/* Find a free memory space owner handle */
-	pthread_mutex_lock(&lock);
-	bool *fmsoid = find(msoid_free_list,
-			    msoid_free_list + MSOID_MAX + 1,
-			    true);
+	try {
+		if (!name || !msoid) {
+			ERR("Null parameter passed: %p, %p\n", name, msoid);
+			throw RDMA_NULL_PARAM;
+		}
 
-	/* Not found, return with error */
-	if (fmsoid == (msoid_free_list + MSOID_MAX + 1)) {
-		fprintf(stderr, "%s: Too many memory space owners!\n",
-							__func__);
-		return -1;
-	}
+		/* Find a free memory space owner handle */
+		pthread_mutex_lock(&owners_lock);
+		bool *fmsoid = find(msoid_free_list,
+				msoid_free_list + MSOID_MAX + 1,
+				true);
+
+		/* Not found, return with error */
+		if (fmsoid == (msoid_free_list + MSOID_MAX + 1)) {
+			ERR("Too many memory space owners!\n");
+			throw RDMA_INVALID_MSO;
+		}
 		
-	/* Get the free handle */
-	*msoid = fmsoid - msoid_free_list;
+		/* Get the free handle */
+		*msoid = fmsoid - msoid_free_list;
 	
-	/* Mark msoid as used */
-	*fmsoid = false;
+		/* Mark msoid as used */
+		*fmsoid = false;
 
-	/* Create an owner with the free ID */
-	ms_owner *mso = new ms_owner(name, tx_eng, *msoid);
+		/* Create an owner with the free ID */
+		ms_owner *mso = new ms_owner(name, tx_eng, *msoid);
 
-	/* Store in owners list */
-	owners.push_back(mso);
-	pthread_mutex_unlock(&lock);
-
-	return 0;
+		/* Store in owners list */
+		owners.push_back(mso);
+		rc = 0;	/* Success */
+		pthread_mutex_unlock(&owners_lock);
+	}
+	catch(int& e) {
+		rc = e;
+	}
+	return rc;
 } /* get_mso() */
 
 int ms_owners::open_mso(const char *name,
@@ -161,46 +168,59 @@ int ms_owners::open_mso(const char *name,
 			uint32_t *mso_conn_id,
 			tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	/* Find the owner having specified name */
-	pthread_mutex_lock(&lock);
-	auto mso_it = find_if(owners.begin(), owners.end(), has_mso_name(name));
-	if (mso_it == owners.end()) {
-		ERR("%s is not a memory space owner's name\n", name);
-		pthread_mutex_unlock(&lock);
-		return -1;
-	}
+	int rc;
 
-	/* Open the memory space owner */
-	if ((*mso_it)->open(msoid, mso_conn_id, tx_eng)) {
-		ERR("Failed to open memory space owner %s\n", name);
-		pthread_mutex_unlock(&lock);
-		return -2;
+	pthread_mutex_lock(&owners_lock);
+	try {
+		/* Find the owner having specified name */
+		auto mso_it = find_if(begin(owners), end(owners),
+						has_mso_name(name));
+		if (mso_it == end(owners)) {
+			ERR("%s is not a memory space owner's name\n", name);
+			throw RDMA_INVALID_MSO;
+		}
+
+		/* Open the memory space owner */
+		rc = (*mso_it)->open(msoid, mso_conn_id, tx_eng);
+		if (rc) {
+			ERR("Failed to open memory space owner %s\n", name);
+			throw rc;
+		}
 	}
-	pthread_mutex_unlock(&lock);
+	catch(int& e) {
+		rc = e;
+	}
+	pthread_mutex_unlock(&owners_lock);
 
 	return 0;
 } /* open_mso() */
 
 int ms_owners::close_mso(uint32_t msoid, uint32_t mso_conn_id)
 {
-	/* Find the mso */
-	pthread_mutex_lock(&lock);
-	auto it = find_if(begin(owners), end(owners), has_msoid(msoid));
-	if (it == end(owners)) {
-		ERR("msoid(0x%X) not found\n", msoid);
-		pthread_mutex_unlock(&lock);
-		return -1;
-	}
+	int rc;
 
-	/* Close the connection */
-	if ((*it)->close(mso_conn_id) < 0) {
-		ERR("Failed to close connection (0x%X)\n", mso_conn_id);
-		pthread_mutex_unlock(&lock);
-		return -1;
-	}
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_lock(&owners_lock);
+	try {
+		/* Find the mso */
+		auto it = find_if(begin(owners), end(owners), has_msoid(msoid));
+		if (it == end(owners)) {
+			ERR("msoid(0x%X) not found\n", msoid);
+			throw RDMA_INVALID_MSO;
+		}
 
-	return 0;
+		/* Close the connection */
+		rc = (*it)->close(mso_conn_id);
+		if (rc) {
+			ERR("Failed to close connection (0x%X)\n", mso_conn_id);
+			throw rc;
+		}
+	}
+	catch(int& e) {
+		rc = e;
+	}
+	pthread_mutex_unlock(&owners_lock);
+
+	return rc;
 } /* close_mso() */
 
 void ms_owners::close_mso(tx_engine<unix_server, unix_msg_t>  *user_tx_eng)
@@ -217,7 +237,7 @@ int ms_owners::destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	int rc;
 
-	pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&owners_lock);
 
 	auto mso_it = find_if(begin(owners), end(owners),
 					has_tx_eng(tx_eng));
@@ -245,39 +265,45 @@ int ms_owners::destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng)
 		rc = 0;
 	}
 
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&owners_lock);
 
 	return rc;
 } /* destroy_mso() */
 
 int ms_owners::destroy_mso(uint32_t msoid)
 {
+	int rc;
+
 	/* Find the owner belonging to msoid */
-	pthread_mutex_lock(&lock);
-	auto mso_it = find_if(owners.begin(), owners.end(), has_msoid(msoid));
-	/* Not found, return error */
-	if (mso_it == owners.end()) {
-		ERR("msoid(0x%X) not found\n", msoid);
-		pthread_mutex_unlock(&lock);
-		return -1;
+	pthread_mutex_lock(&owners_lock);
+	try {
+		auto mso_it = find_if(begin(owners), end(owners),
+							has_msoid(msoid));
+		/* Not found, return error */
+		if (mso_it == owners.end()) {
+			ERR("msoid(0x%X) not found\n", msoid);
+			throw RDMA_INVALID_MSO;
+		}
+
+		DBG("mso with msoid(0x%X) found, name='%s'\n", msoid,
+						(*mso_it)->get_mso_name());
+		/* Remove owner */
+		delete *mso_it;
+		owners.erase(mso_it);
+		DBG("mso(0x%X) object deleted, and removed from owners list\n",
+									msoid);
+		/* Mark msoid as being free */
+		msoid_free_list[msoid] = true;
+
+		DBG("msoid(0x%X) now marked as 'free'\n");
+		rc = 0;	/* Success */
 	}
+	catch(int& e) {
+		rc = e;
+	}
+	pthread_mutex_unlock(&owners_lock);
 
-	DBG("mso with msoid(0x%X) found, name='%s'\n", msoid,
-				(*mso_it)->get_mso_name());
-
-	/* Remove owner */
-	delete *mso_it;
-	owners.erase(mso_it);
-	DBG("mso(0x%X) object deleted, and removed from owners list\n",
-								msoid);
-
-	/* Mark msoid as being free */
-	msoid_free_list[msoid] = true;
-
-	DBG("msoid(0x%X) now marked as 'free'\n");
-	pthread_mutex_unlock(&lock);
-
-	return 0;
+	return rc;
 } /* destroy_msoid() */
 
 ms_owner* ms_owners::operator[](uint32_t msoid)
@@ -285,7 +311,7 @@ ms_owner* ms_owners::operator[](uint32_t msoid)
 	auto it = find_if(begin(owners), end(owners), has_msoid(msoid));
 	if (it == end(owners)) {
 		ERR("Could not find owner with msoid(0x%X)\n", msoid);
-		return NULL;
+		return nullptr;
 	} else {
 		return *it;
 	}

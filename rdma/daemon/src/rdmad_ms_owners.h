@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_MS_OWNERS_H
 
 #include <vector>
+#include <exception>
 
 #include "rdmad_ms_owner.h"
 #include "rdmad_unix_msg.h"
@@ -43,10 +44,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 
 using std::vector;
+using std::exception;
 
 /* Reference class declarations */
 class ms_owner;
 
+/**
+ * @brief Exception thrown by ms_owners on error during construction
+ */
+class ms_owners_exception : public exception {
+public:
+	ms_owners_exception(const char *msg) : err(msg) {}
+	const char *what() { return err; }
+private:
+	const char *err;
+};
 class ms_owners
 {
 public:
@@ -55,25 +67,32 @@ public:
 
 	void dump_info(struct cli_env *env);
 
-	int create_mso(const char *name, tx_engine<unix_server, unix_msg_t> *tx_eng, uint32_t *msoid);
+	int create_mso(const char *name,
+			tx_engine<unix_server, unix_msg_t> *tx_eng,
+			uint32_t *msoid);
+
 	int open_mso(const char *name, uint32_t *msoid, uint32_t *mso_conn_id,
 			tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 	int close_mso(uint32_t msoid, uint32_t mso_conn_id);
+
 	void close_mso(tx_engine<unix_server, unix_msg_t> *tx_eng);
 
 	int destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng);
+
 	int destroy_mso(uint32_t msoid);
 
 	ms_owner* operator[](uint32_t msoid);
 
 private:
+	using owner_list = vector<ms_owner *>;
+
 	/* Constants */
 	static constexpr uint32_t MSOID_MAX = 0xFFF; /* Owners are 12-bits */
 
 	bool msoid_free_list[MSOID_MAX+1];
-	vector<ms_owner *>	owners;
-	pthread_mutex_t		lock;
+	owner_list		owners;
+	pthread_mutex_t		owners_lock;
 };
 
 
