@@ -171,7 +171,7 @@ int ms_owners::open_mso(const char *name,
 	}
 
 	/* Open the memory space owner */
-	if ((*mso_it)->open(msoid, mso_conn_id, tx_eng) < 0) {
+	if ((*mso_it)->open(msoid, mso_conn_id, tx_eng)) {
 		ERR("Failed to open memory space owner %s\n", name);
 		pthread_mutex_unlock(&lock);
 		return -2;

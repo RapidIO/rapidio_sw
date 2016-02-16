@@ -38,10 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
-#include <cstdio>
-
 #include <sstream>
-#include <utility>
 #include <vector>
 #include <string>
 
@@ -52,6 +49,30 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_ms_owner.h"
 #include "rdmad_mspace.h"
 #include "rdmad_main.h"
+
+/* Global constants */
+constexpr uint32_t MSO_CONN_ID_START	= 0x1;
+
+ms_owner::ms_owner(const char *owner_name,
+		   tx_engine<unix_server, unix_msg_t> *tx_eng, uint32_t msoid) :
+	           name(owner_name), tx_eng(tx_eng), msoid(msoid),
+	           mso_conn_id(MSO_CONN_ID_START)
+{
+	DBG("Owner '%s' created with tx_eng(0x%" PRIx64 ")\n",
+			owner_name, (uint64_t)tx_eng);
+} /* ctor */
+
+ms_owner::~ms_owner()
+{
+	/* Force-close all open connections to this memory space owner */
+	close_connections();
+
+	/* Destroy all memory spaces owned by this memory space owner */
+	for (mspace* ms : ms_list) {
+		DBG("Destroying '%s'\n", ms->get_name());
+		ms->destroy();
+	}
+} /* ~ms_owner() */
 
 void ms_owner::close_connections()
 {
@@ -73,48 +94,29 @@ void ms_owner::close_connections()
 	}
 } /* close_connections() */
 
-ms_owner::ms_owner(const char *owner_name,
-		   tx_engine<unix_server, unix_msg_t> *tx_eng, uint32_t msoid) :
-	           name(owner_name), tx_eng(tx_eng), msoid(msoid),
-	           mso_conn_id(MSO_CONN_ID_START)
-{
-	DBG("Owner '%s' created with tx_eng(0x%" PRIx64 ")\n",
-			owner_name, (uint64_t)tx_eng);
-}
-
-ms_owner::~ms_owner()
-{
-	/* Force-close all open connections to this memory space owner */
-	close_connections();
-
-	/* Destroy all memory spaces owned by this memory space owner */
-	for (mspace* ms : ms_list) {
-		DBG("Destroying '%s'\n", ms->get_name());
-		ms->destroy();
-	}
-} /* ~ms_owner() */
-
 int ms_owner::open(uint32_t *msoid, uint32_t *mso_conn_id,
 		tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
+	int rc;
+
 	/* Don't allow the same application to open the same mso twice */
 	auto it = find(begin(users), end(users), user_tx_eng);
 	if (it != end(users)) {
 		ERR("mso('%s') already open by same app\n", name.c_str());
-		return -1;
+		rc = -RDMA_ALREADY_OPEN;
+	} else {
+		/* Return msoid and mso_conn_id */
+		*mso_conn_id = this->mso_conn_id++;
+		*msoid = this->msoid;
+		users.emplace_back(*mso_conn_id, user_tx_eng);
+		rc = 0;
 	}
-
-	/* Return msoid and mso_conn_id */
-	*mso_conn_id = this->mso_conn_id++;
-	*msoid = this->msoid;
-	users.emplace_back(*mso_conn_id, user_tx_eng);
-
-	return 1;
+	return rc;
 } /* open() */
 
 int ms_owner::close(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
-	auto rc = 0;
+	int rc;
 	auto it = find(begin(users), end(users), user_tx_eng);
 	if (it == end(users)) {
 		/* Not found */
@@ -123,6 +125,7 @@ int ms_owner::close(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 	} else {
 		/* Erase user element */
 		users.erase(it);
+		rc = 0;
 	}
 
 	return rc;
@@ -130,7 +133,7 @@ int ms_owner::close(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 
 int ms_owner::close(uint32_t mso_conn_id)
 {
-	auto rc = 0;
+	int rc;
 	auto it = find(begin(users), end(users), mso_conn_id);
 	if (it == end(users)) {
 		ERR("Cannot find user with mso_conn_id(0x%X)\n", mso_conn_id);
@@ -138,6 +141,7 @@ int ms_owner::close(uint32_t mso_conn_id)
 	} else {
 		/* Erase user element */
 		users.erase(it);
+		rc = 0;
 	}
 	return rc;
 } /* close() */
@@ -150,20 +154,23 @@ void ms_owner::add_ms(mspace *ms)
 
 int ms_owner::remove_ms(mspace* ms)
 {
+	int rc;
+
 	/* Find memory space by the handle, return error if not there */
 	auto it = find(begin(ms_list), end(ms_list), ms);
 	if (it == end(ms_list)) {
 		WARN("ms('%s', 0x%X) not owned by msoid('%s',0x%X)\n",
 				ms->get_name(), ms->get_msid(),
 				name.c_str(), msoid);
-		return -1;
+		rc = -1;
+	} else {
+		/* Erase memory space handle from list */
+		INFO("Removing msid(0x%X) from msoid(0x%X)\n",
+						ms->get_msid(), msoid);
+		ms_list.erase(it);
+		rc = 0;
 	}
-
-	/* Erase memory space handle from list */
-	INFO("Removing msid(0x%X) from msoid(0x%X)\n", ms->get_msid(), msoid);
-	ms_list.erase(it);
-
-	return 1;
+	return rc;
 } /* remove_ms_h() */
 
 void ms_owner::dump_info(struct cli_env *env)

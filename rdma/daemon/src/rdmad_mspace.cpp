@@ -315,7 +315,7 @@ int mspace::destroy()
 		if (!owner) {
 			ERR("Failed to find owner msoid(0x%X)\n", msoid);
 			ret = -4;
-		} else if (owner->remove_ms(this) < 0) {
+		} else if (owner->remove_ms(this)) {
 			WARN("Failed to remove ms from owner\n");
 			ret = -5;
 		}

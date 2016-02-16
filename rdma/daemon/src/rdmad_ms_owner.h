@@ -37,53 +37,45 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 
 #include <string>
-#include <sstream>
 #include <vector>
-#include <algorithm>
 
-#include "unix_sock.h"
-#include "rdma_types.h"
-#include "rdmad_unix_msg.h"
 #include "tx_engine.h"
 
 using std::vector;
 using std::string;
 
-/* Global constants */
-static const uint32_t MSO_CONN_ID_START	= 0x1;
-
 /* Referenced class declarations */
 class mspace;
-
-class mso_user
-{
-public:
-	mso_user(uint32_t mso_conn_id,
-		tx_engine<unix_server, unix_msg_t> *tx_eng) :
-		mso_conn_id(mso_conn_id), tx_eng(tx_eng)
-	{
-	}
-
-	bool operator==(uint32_t mso_conn_id)
-	{
-		return this->mso_conn_id == mso_conn_id;
-	}
-
-	bool operator==(tx_engine<unix_server, unix_msg_t> *tx_eng)
-	{
-		return this->tx_eng == tx_eng;
-	}
-
-	tx_engine<unix_server, unix_msg_t> *get_tx_engine() { return tx_eng; }
-
-private:
-	static constexpr uint32_t MSO_CONN_ID_START = 0x01;
-	uint32_t mso_conn_id;
-	tx_engine<unix_server, unix_msg_t> *tx_eng;
-};
+class unix_msg_t;
+class unix_server;
 
 class ms_owner
 {
+	class mso_user
+	{
+	public:
+		mso_user(uint32_t mso_conn_id,
+			tx_engine<unix_server, unix_msg_t> *tx_eng) :
+			mso_conn_id(mso_conn_id), tx_eng(tx_eng)
+		{
+		}
+
+		bool operator==(uint32_t mso_conn_id)
+		{
+			return this->mso_conn_id == mso_conn_id;
+		}
+
+		bool operator==(tx_engine<unix_server, unix_msg_t> *tx_eng)
+		{
+			return this->tx_eng == tx_eng;
+		}
+
+		tx_engine<unix_server, unix_msg_t> *get_tx_engine() { return tx_eng; }
+
+	private:
+		uint32_t mso_conn_id;
+		tx_engine<unix_server, unix_msg_t> *tx_eng;
+	};
 public:
 	/* Constructor */
 	ms_owner(const char *owner_name,
@@ -130,14 +122,17 @@ public:
 	}
 
 private:
+	using mspace_list = vector<mspace *>;
+	using user_list   = vector<mso_user>;
+
 	void close_connections();
 
-	string			name;
+	string		name;
 	tx_engine<unix_server, unix_msg_t> *tx_eng;
-	uint32_t		msoid;
-	vector<mspace *>	ms_list;
-	vector<mso_user>	users;
-	uint32_t		mso_conn_id;	// Next available mso_conn_id
+	uint32_t	msoid;
+	mspace_list	ms_list;
+	user_list	users;
+	uint32_t	mso_conn_id;	// Next available mso_conn_id
 };
 
 

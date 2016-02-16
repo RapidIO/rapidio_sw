@@ -51,6 +51,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cm_sock.h"
 #include "liblog.h"
 
+#include "rdma_types.h"
 #include "rdmad_cm.h"
 #include "rdmad_inbound.h"
 #include "rdmad_ms_owners.h"

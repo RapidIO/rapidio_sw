@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cinttypes>
 
 #include "unix_sock.h"
+#include "rdma_types.h"
 #include "rdmad_main.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_clnt_threads.h"
