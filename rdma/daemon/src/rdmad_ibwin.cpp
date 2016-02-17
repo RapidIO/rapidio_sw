@@ -371,7 +371,8 @@ mspace* ibwin::get_mspace(uint32_t msoid, uint32_t msid)
 
 void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator other)
 {
-	pthread_mutex_lock(&mspaces_lock);
+	/* Called from destroy_mspace() which already locks mspaces access */
+
 	/* Current mspace size is inflated by the size of the 'other' mspace */
 	uint64_t other_size = (*other)->get_size();
 	uint64_t curr_size = (*current)->get_size();
@@ -385,7 +386,6 @@ void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator oth
 	/* Delete the other item and erase from the list */
 	delete *other;
 	mspaces.erase(other);
-	pthread_mutex_unlock(&mspaces_lock);
 } /* merge_next_with_mspace() */
 
 int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
