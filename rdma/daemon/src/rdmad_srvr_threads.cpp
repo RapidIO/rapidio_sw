@@ -271,6 +271,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				}
 				continue;
 			}
+			DBG("mspace '%s' found\n", conn_msg->server_msname);
 			tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng;
 			to_lib_tx_eng = ms->get_accepting_tx_eng();
 			if (to_lib_tx_eng == nullptr) {
@@ -282,6 +283,7 @@ void *wait_conn_disc_thread_f(void *arg)
 				}
 				continue;
 			}
+			DBG("Found Tx engine in accepting mode\n");
 
 			/* Send 'connect' POSIX message contents to the RDMA library */
 			static unix_msg_t in_msg;
@@ -312,7 +314,7 @@ void *wait_conn_disc_thread_f(void *arg)
 
 			to_lib_tx_eng->send_message(&in_msg);
 
-			DBG("Sending CONNECT_MS_REQ to Server RDMA library. Contents:\n");
+			DBG("Sent CONNECT_MS_REQ to Server RDMA library. Contents:\n");
 			DBG("connect_msg->client_msid = 0x%X\n",
 						connect_msg->client_msid);
 			DBG("connect_msg->client_msubid = 0x%X\n",
@@ -334,8 +336,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			DBG("connect_msg->client_to_lib_tx_eng_h = 0x%X\n",
 						connect_msg->client_to_lib_tx_eng_h);
 
-			/* Add the remote connectoin information to the memory space.
-			 * This for cleanup if the remote destid dies. */
+			DBG("Adding remote connection to memory space\n");
 			ms->add_rem_connection(connect_msg->client_destid,
 					       connect_msg->client_msubid,
 					       connect_msg->client_to_lib_tx_eng_h);
