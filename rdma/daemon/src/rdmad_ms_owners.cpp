@@ -137,8 +137,8 @@ int ms_owners::create_mso(const char *name,
 } /* get_mso() */
 
 int ms_owners::open_mso(const char *name,
-			uint32_t *msoid,
-			tx_engine<unix_server, unix_msg_t> *tx_eng)
+			tx_engine<unix_server, unix_msg_t> *tx_eng,
+			uint32_t *msoid)
 {
 	int rc;
 
@@ -167,6 +167,21 @@ int ms_owners::open_mso(const char *name,
 	return rc;
 } /* open_mso() */
 
+ms_owner* ms_owners::operator[](uint32_t msoid)
+{
+	lock_guard<mutex> owners_lock(owners_mutex);
+
+	auto mso_it = find_if(begin(owners), end(owners),
+				[msoid](ms_owner *mso)
+				{ return mso->msoid == msoid; });
+	if (mso_it == end(owners)) {
+		ERR("Could not find owner with msoid(0x%X)\n", msoid);
+		return nullptr;
+	} else {
+		return *mso_it;
+	}
+} /* operator[] */
+
 int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	int rc;
@@ -174,16 +189,14 @@ int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_
 	lock_guard<mutex> owners_lock(owners_mutex);
 	try {
 		/* Find the mso */
-		auto it = find_if(begin(owners), end(owners),
-				[msoid](ms_owner *mso)
-				{ return mso->get_msoid() == msoid; });
-		if (it == end(owners)) {
+		ms_owner *mso = (*this)[msoid];
+		if (mso == nullptr) {
 			ERR("No mso with msoid(0x%X) found\n", msoid);
 			throw RDMA_INVALID_MSO;
 		}
 
 		/* Close the connection belonging to the tx_eng */
-		rc = (*it)->close(tx_eng);
+		rc = mso->close(tx_eng);
 		if (rc) {
 			ERR("Failed to close mso, tx_eng = 0x%p\n", tx_eng);
 			throw rc;
@@ -279,17 +292,3 @@ int ms_owners::destroy_mso(uint32_t msoid)
 	return rc;
 } /* destroy_msoid() */
 
-ms_owner* ms_owners::operator[](uint32_t msoid)
-{
-	lock_guard<mutex> owners_lock(owners_mutex);
-
-	auto mso_it = find_if(begin(owners), end(owners),
-				[msoid](ms_owner *mso)
-				{ return mso->msoid == msoid; });
-	if (mso_it == end(owners)) {
-		ERR("Could not find owner with msoid(0x%X)\n", msoid);
-		return nullptr;
-	} else {
-		return *mso_it;
-	}
-} /* operator[] */
