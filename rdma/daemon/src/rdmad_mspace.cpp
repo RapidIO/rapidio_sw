@@ -53,6 +53,8 @@
 using std::fill;
 using std::find;
 using std::remove;
+using std::lock_guard;
+using std::unique_lock;
 
 mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
                 uint64_t phys_addr, uint64_t size) :
@@ -69,21 +71,6 @@ mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
 	/* Initially all free list sub-indexes are available */
 	fill(msubindex_free_list, msubindex_free_list + MSUBINDEX_MAX + 1, true);
 	msubindex_free_list[0] = false; /* Start at 1 */
-
-	if (sem_init(&users_sem, 0, 1) == -1) {
-		CRIT("Failed to initialize users_sem: %s\n", strerror(errno));
-		throw mspace_exception("Failed to initialize users_sem");
-	}
-
-	if (sem_init(&msubspaces_sem, 0, 1) == -1) {
-		CRIT("Failed to initialize subspaces_sem: %s\n", strerror(errno));
-		throw mspace_exception("Failed to initialize subpaces_sem");
-	}
-
-	if (sem_init(&msubindex_free_list_sem, 0, 1) == -1) {
-		CRIT("Failed to initialize subspaces_sem: %s\n", strerror(errno));
-		throw mspace_exception("Failed to initialize msubindex_free_list_sem");
-	}
 } /* constructor */
 
 mspace::~mspace()
@@ -150,6 +137,8 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 		 * search all the users for a match and, for the matched user
 		 * look up its destid and send the force disconnect message.
 		 */
+		lock_guard<mutex> users_lock(users_mutex);
+
 		auto it = find_if(begin(users), end(users),
 		[client_to_lib_tx_eng_h, client_msubid](ms_user& u) {
 			return u.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h
@@ -212,6 +201,8 @@ int mspace::notify_remote_clients()
 	} else {
 		rc = 0;
 		/* It is not the creator who has a connection; search users */
+		lock_guard<mutex> users_lock(users_mutex);
+
 		for(auto& u : users) {
 			/* If the entry is not 'connected_to' then skip it */
 			if (!u.connected_to)
@@ -240,7 +231,7 @@ int mspace::notify_remote_clients()
 
 int mspace::close_connections()
 {
-	sem_wait(&users_sem);
+	lock_guard<mutex> users_lock(users_mutex);
 
 	HIGH("FORCE_CLOSE_MS to apps which have 'open'ed '%s'\n", name.c_str());
 
@@ -258,8 +249,6 @@ int mspace::close_connections()
 	}
 
 	users.clear();
-
-	sem_post(&users_sem);
 
 	return 0;
 } /* close_connections() */
@@ -288,7 +277,9 @@ int mspace::destroy()
 	 * marked as free.
 	 */
 	INFO("Destroying all subspaces in '%s'\n", name.c_str());
+	unique_lock<mutex> msubspaces_lock(msubspaces_mutex);
 	msubspaces.clear();
+	msubspaces_lock.unlock();
 
 	/* Mark the memory space as free, and having no owner */
 	free = true;
@@ -335,7 +326,6 @@ int mspace::add_rem_connection(uint16_t client_destid,
 	DBG("Adding destid(0x%X), msubid(0x%X),	client_to_lib_tx_eng_h(0x%"
 			PRIx64 ")to '%s'\n", client_destid,
 			client_msubid, client_to_lib_tx_eng_h, name.c_str());
-	sem_wait(&users_sem);
 	if (accepting) {
 		DBG("Adding to creator since it is 'accepting'\n");
 		this->client_destid = client_destid;
@@ -345,6 +335,8 @@ int mspace::add_rem_connection(uint16_t client_destid,
 		this->connected_to = true;
 		rc = 0;
 	} else {
+		lock_guard<mutex> users_lock(users_mutex);
+
 		DBG("The creator was not accepting..checking the users\n");
 		DBG("There are %u user(s)\n", users.size());
 		auto it = find_if(begin(users), end(users), [](ms_user& u) {
@@ -364,7 +356,6 @@ int mspace::add_rem_connection(uint16_t client_destid,
 			rc = 0;
 		}
 	}
-	sem_post(&users_sem);
 	return rc;
 } /* add_rem_connection() */
 
@@ -396,8 +387,10 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 		rc = 0;
 	} else {
 		DBG("Not found in the creator; checking the users\n");
-		sem_wait(&users_sem);
+
 		/* It is possibly in one of the users so search for it */
+		lock_guard<mutex> users_lock(users_mutex);
+
 		auto it = find_if(begin(users), end(users),
 		[client_destid, client_msubid, client_to_lib_tx_eng_h](ms_user& u)
 		{
@@ -405,6 +398,7 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 			       (u.client_msubid == client_msubid) &&
 			       (u.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h);
 		});
+
 		if (it == end(users)) {
 			ERR("Failed to find remote connection in %s\n", name.c_str());
 			rc = -1;
@@ -417,7 +411,6 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 			it->connected_to = false;
 			rc = 0;
 		}
-		sem_post(&users_sem);
 	}
 
 	return rc;
@@ -459,7 +452,7 @@ void mspace::disconnect_from_destid(uint16_t client_destid)
 		 * to the specified destid. There can be more than one
 		 * user who have accepted connections on this memory space
 		 * but from different clients on the same remote node. */
-		sem_wait(&users_sem);
+		lock_guard<mutex> users_lock(users_mutex);
 		for (auto& u : users) {
 			if ((u.client_destid == client_destid) && u.connected_to) {
 				send_disconnect_to_lib(u.client_msubid,
@@ -475,7 +468,6 @@ void mspace::disconnect_from_destid(uint16_t client_destid)
 				u.connected_to = false;
 			}
 		}
-		sem_post(&users_sem);
 	}
 } /* disconnect_from_destid() */
 
@@ -509,7 +501,7 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 		this->client_to_lib_tx_eng_h = 0;
 		this->connected_to = false;
 	} else {
-		sem_wait(&users_sem);
+		lock_guard<mutex> users_lock(users_mutex);
 		rc = 0;	/* For the case where there are NO users */
 		for (auto& u : users) {
 			found = (u.client_msubid == client_msubid) &&
@@ -539,7 +531,6 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 				u.connected_to = false;
 			}
 		}
-		sem_post(&users_sem);
 	}
 
 	/* If we had failed during the loop, error status was saved in 'ret' */
@@ -567,17 +558,20 @@ int mspace::server_disconnect(uint32_t client_msubid,
 
 set<uint16_t> mspace::get_rem_destids()
 {
-	sem_wait(&users_sem);
 	set<uint16_t>	rem_destids;
+
 	/* Check if the memory space creator is connected */
 	if (connected_to)
 		rem_destids.insert(client_destid);
+
 	/* Now check the memory space users for connections */
+	lock_guard<mutex> users_lock(users_mutex);
+
 	for( auto& u : users) {
 		if (u.connected_to)
 			rem_destids.insert(u.client_destid);
 	}
-	sem_post(&users_sem);
+
 	return rem_destids;
 } /* get_rem_destids() */
 
@@ -600,7 +594,8 @@ void mspace::dump_info(struct cli_env *env)
 	logMsg(env);
 } /* dump_info() */
 
-void mspace::dump_info_msubs_only(struct cli_env *env) {
+void mspace::dump_info_msubs_only(struct cli_env *env)
+{
 	sprintf(env->output, "%8s %16s %8s %8s %16s\n", "msubid", "rio_addr",
 	                "size", "msid", "phys_addr");
 	logMsg(env);
@@ -608,20 +603,23 @@ void mspace::dump_info_msubs_only(struct cli_env *env) {
 	                "----", "----", "---------");
 	logMsg(env);
 
+	/* Called from dump_info_with_msubs --> no mutex locking needed here */
 	for (auto& msub : msubspaces) {
 		msub.dump_info(env);
 	}
 } /* dump_info_msubs_only() */
 
-void mspace::dump_info_with_msubs(struct cli_env *env) {
+void mspace::dump_info_with_msubs(struct cli_env *env)
+{
 	dump_info(env);
-	sem_wait(&msubspaces_sem);
+
+	lock_guard<mutex> msubspaces_lock(msubspaces_mutex);
 	if (msubspaces.size()) {
 		dump_info_msubs_only(env);
 	} else {
 		puts("No subspaces in above memory space");
 	}
-	sem_post(&msubspaces_sem);
+
 	sprintf(env->output, "\n"); /* Extra line */
 	logMsg(env);
 } /* dump_info_with_msubs() */
@@ -639,15 +637,13 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 	}
 
 	/* Determine index of new, free, memory sub-space */
-	sem_wait(&msubindex_free_list_sem);
+	lock_guard<mutex> msubindex_free_list_lock(msubindex_free_list_mutex);
 	bool *fmsubit = find(msubindex_free_list,
 	                msubindex_free_list + MSUBINDEX_MAX + 1, true);
 	if (fmsubit == (msubindex_free_list + MSUBINDEX_MAX + 1)) {
 		ERR("No free subspace handles!\n");
-		sem_post(&msubindex_free_list_sem);
 		return -2;
 	}
-	sem_post(&msubindex_free_list_sem);
 
 	/* Set msub ID as being used */
 	*fmsubit = false;
@@ -664,9 +660,8 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 	*size = req_size;
 
 	/* Add to list of subspaces */
-	sem_wait(&msubspaces_sem);
+	lock_guard<mutex> msubspaces_lock(msubspaces_mutex);
 	msubspaces.emplace_back(msid, *rio_addr, *phys_addr, *size, *msubid, tx_eng);
-	sem_post(&msubspaces_sem);
 
 	return 0;
 } /* create_msubspace() */
@@ -675,11 +670,11 @@ int mspace::open(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
 	int rc;
 
-	sem_wait(&users_sem);
-
 	/* Altough LIBRDMA should contain some safegaurds against the same
 	 * memory space being opened twice by the same application, it doesn't
 	 * hurt to add a quick check here. */
+	lock_guard<mutex> users_lock(users_mutex);
+
 	auto it = find(begin(users), end(users), user_tx_eng);
 	if (it != end(users)) {
 		ERR("'%s' already open by this application\n", name.c_str());
@@ -691,7 +686,6 @@ int mspace::open(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 							user_tx_eng, msid);
 		rc = 0;
 	}
-	sem_post(&users_sem);
 
 	return rc;
 } /* open() */
@@ -700,9 +694,11 @@ tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()
 {
 	tx_engine<unix_server, unix_msg_t> *tx_eng = nullptr;
 
+
 	if (accepting)
 		tx_eng = creator_tx_eng;
 	else {
+		lock_guard<mutex> users_lock(users_mutex);
 		auto it = find_if(begin(users),
 			       end(users),
 			       [](ms_user& user)
@@ -712,6 +708,7 @@ tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()
 		if (it != end(users))
 			tx_eng = it->tx_eng;
 	}
+
 	return tx_eng;
 } /* get_accepting_tx_eng() */
 
@@ -739,7 +736,7 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 		} else {
 			/* Cannot accept from creator app if we are already
 			 * accepting from a user app. */
-			sem_wait(&users_sem);
+			lock_guard<mutex> users_lock(users_mutex);
 			auto n = count_if(begin(users),
 					  end(users),
 					  [](ms_user& user)
@@ -756,10 +753,9 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 				this->server_msubid = server_msubid;
 				rc = 0;
 			}
-			sem_post(&users_sem);
 		}
 	} else { /* It is not the creator who is trying to 'accept' */
-		sem_wait(&users_sem);
+		lock_guard<mutex> users_lock(users_mutex);
 		auto it = find(begin(users), end(users), app_tx_eng);
 		if (it == end(users)) {
 			ERR("Could not find matching tx_eng\n");
@@ -797,7 +793,6 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 				}
 			}
 		}
-		sem_post(&users_sem);
 	}
 
 	return rc;
@@ -821,7 +816,7 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 		}
 	} else {
 		/* It wasn't the creator so search the users by app_tx_eng */
-		sem_wait(&users_sem);
+		lock_guard<mutex> users_lock(users_mutex);
 		auto it = find(begin(users), end(users), app_tx_eng);
 		if (it == end(users)) {
 			ERR("Could not find matching tx_eng\n");
@@ -838,7 +833,6 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 				rc = 0;
 			}
 		}
-		sem_post(&users_sem);
 	}
 	return rc;
 } /* undo_accept() */
@@ -848,7 +842,7 @@ bool mspace::has_user_with_user_tx_eng(
 {
 	bool has_user = false;
 
-	sem_wait(&users_sem);
+	lock_guard<mutex> users_lock(users_mutex);
 	auto it = find(begin(users), end(users), user_tx_eng);
 
 	if (it != end(users)) {
@@ -856,7 +850,6 @@ bool mspace::has_user_with_user_tx_eng(
 	} else {
 		DBG("mspace '%s' does not use tx_eng\n", name.c_str());
 	}
-	sem_post(&users_sem);
 
 	return has_user;
 } /* has_user_with_user_server() */
@@ -865,10 +858,9 @@ bool mspace::connected_by_destid(uint16_t client_destid)
 {
 	bool connected = (this->client_destid == client_destid);
 
-	sem_wait(&users_sem);
+	lock_guard<mutex> users_lock(users_mutex);
 	connected = connected ||
 		(find(begin(users), end(users), client_destid) != end(users));
-	sem_post(&users_sem);
 
 	return connected;
 } /* connected_by_destid() */
@@ -878,13 +870,15 @@ int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 	int rc;
 
 	DBG("ENTER\n");
-	sem_wait(&users_sem);
+
 	try {
 		/* A creator of an ms cannot open/close it */
 		if (app_tx_eng == creator_tx_eng) {
 			ERR("Creator of memory space cannot open/close it\n");
 			throw RDMA_MS_CLOSE_FAIL;
 		}
+
+		lock_guard<mutex> users_lock(users_mutex);
 
 		auto it = find(begin(users), end(users), app_tx_eng);
 		if (it == end(users)) {
@@ -901,20 +895,21 @@ int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 			throw rc;
 		}
 
+		/* Erase user element */
+		users.erase(it);
+
 		/* Destroy msubs that belong to the same 'app_tx_eng' */
+		lock_guard<mutex> msubspaces_lock(msubspaces_mutex);
 		msubspaces.erase(
 			remove(begin(msubspaces), end(msubspaces), app_tx_eng),
 			end(msubspaces)
 		);
 
-		/* Erase user element */
-		users.erase(it);
 		rc = 0;	/* Success */
 	}
 	catch(int& e) {
 		rc = e;
 	}
-	sem_post(&users_sem);
 
 	DBG("EXIT\n");
 
@@ -925,7 +920,8 @@ int mspace::destroy_msubspace(uint32_t msubid)
 {
 	int rc;
 
-	sem_wait(&msubspaces_sem);
+	lock_guard<mutex> msubspaces_lock(msubspaces_mutex);
+
 	/* Find memory sub-space in list within this memory space */
 	auto msub_it = find(msubspaces.begin(), msubspaces.end(), msubid);
 
@@ -938,7 +934,6 @@ int mspace::destroy_msubspace(uint32_t msubid)
 		msubspaces.erase(msub_it);
 		rc = 0;	/* Success */
 	}
-	sem_post(&msubspaces_sem);
 
 	return rc;
 } /* destroy_msubspace() */

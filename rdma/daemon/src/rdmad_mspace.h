@@ -42,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <set>
 #include <exception>
+#include <mutex>
 
 #include "tx_engine.h"
 
@@ -49,6 +50,7 @@ using std::set;
 using std::string;
 using std::vector;
 using std::exception;
+using std::mutex;
 
 /* Global constants */
 constexpr uint32_t MSID_WIN_SHIFT 	= 28;
@@ -561,15 +563,15 @@ private:
 
 	/* Info about users that have opened the ms */
 	ms_user_list	users;
-	sem_t		users_sem;
+	mutex		users_mutex;
 
 	/* Memory sub-space indexes */
 	bool msubindex_free_list[MSUBINDEX_MAX+1];	/* List of memory sub-space IDs */
-	sem_t 			msubindex_free_list_sem;
+	mutex 		msubindex_free_list_mutex;
 
 	/* Memory subspaces */
 	msubspace_list	msubspaces;
-	sem_t		msubspaces_sem;
+	mutex		msubspaces_mutex;
 }; /* mspace */
 
 
