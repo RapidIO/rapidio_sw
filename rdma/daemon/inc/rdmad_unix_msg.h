@@ -280,12 +280,11 @@ struct destroy_ms_output {
 struct create_msub_input {
 	uint32_t msid;
 	uint32_t offset;
-	uint32_t req_bytes;
+	uint32_t size;
 };
 struct create_msub_output {
 	int	status;
 	uint32_t msubid;
-	uint32_t bytes;
 	uint64_t rio_addr;
 	uint64_t phys_addr;
 };

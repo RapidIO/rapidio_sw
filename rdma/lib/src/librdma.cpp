@@ -1194,7 +1194,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 
 int rdma_create_msub_h(ms_h	msh,
 		       uint32_t	offset,
-		       uint32_t	req_bytes,
+		       uint32_t	size,
 		       uint32_t	flags,
 		       msub_h	*msubh)
 {
@@ -1218,7 +1218,7 @@ int rdma_create_msub_h(ms_h	msh,
 		 * at 4K. This means the mspace must be aligned, the msub
 		 * must have a size that is a multiple of 4K, and the offset
 		 * of the msub within the mspace must be a multiple of 4K. */
-		if (!aligned_at_4k(offset) || !aligned_at_4k(req_bytes)) {
+		if (!aligned_at_4k(offset) || !aligned_at_4k(size)) {
 			ERR("Offset & size must be multiples of 4K\n");
 			throw RDMA_ALIGN_ERROR;
 		}
@@ -1229,11 +1229,11 @@ int rdma_create_msub_h(ms_h	msh,
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.create_msub_in.msid 	= ((loc_ms *)msh)->msid;
 		in_msg.create_msub_in.offset	= offset;
-		in_msg.create_msub_in.req_bytes = req_bytes;
+		in_msg.create_msub_in.size 	= size;
 		DBG("msid = 0x%X, offset = 0x%X, req_bytes = 0x%x\n",
 						in_msg.create_msub_in.msid,
 						in_msg.create_msub_in.offset,
-						in_msg.create_msub_in.req_bytes);
+						in_msg.create_msub_in.size);
 		/* Call into daemon */
 		unix_msg_t  out_msg;
 		rc = daemon_call(&in_msg, &out_msg);
@@ -1249,16 +1249,14 @@ int rdma_create_msub_h(ms_h	msh,
 			throw out_msg.create_msub_out.status;
 		}
 
-		INFO("out->bytes=0x%X, out.phys_addr=0x%016" PRIx64
-				", out.rio_addr=0x%016" PRIx64 "\n",
-					out_msg.create_msub_out.bytes,
+		INFO("out.phys_addr=0x%016" PRIx64 ", out.rio_addr=0x%016" PRIx64 "\n",
 					out_msg.create_msub_out.phys_addr,
 					out_msg.create_msub_out.rio_addr);
 
 		/* Store msubh in database, obtain pointer thereto, convert to msub_h */
 		*msubh = (msub_h)add_loc_msub(out_msg.create_msub_out.msubid,
 				      	      out_msg.create_msub_in.msid,
-				      	      out_msg.create_msub_out.bytes,
+				      	      size,
 				      	      64,	/* 64-bit RIO address */
 				      	      out_msg.create_msub_out.rio_addr,
 				      	      0,	/* Bits 66 and 65 */

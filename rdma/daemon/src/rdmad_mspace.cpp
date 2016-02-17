@@ -625,14 +625,14 @@ void mspace::dump_info_with_msubs(struct cli_env *env)
 } /* dump_info_with_msubs() */
 
 /* For creating a memory sub-space */
-int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
+int mspace::create_msubspace(uint32_t offset, uint32_t size,
                 uint32_t *msubid, uint64_t *rio_addr, uint64_t *phys_addr,
                 const tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	/* Make sure we don't straddle memory space boundaries */
-	if ((offset + req_size) > this->size) {
+	if ((offset + size) > this->size) {
 		ERR("Out of range: offset(0x%X)+req_size(0x%X) > size(0x%X)\n",
-				offset, req_size, this->size);
+				offset, size, this->size);
 		return -1;
 	}
 
@@ -656,12 +656,9 @@ int mspace::create_msubspace(uint32_t offset, uint32_t req_size, uint32_t *size,
 	*rio_addr = this->rio_addr + offset;
 	*phys_addr = this->phys_addr + offset;
 
-	/* Determine actual size of msub */
-	*size = req_size;
-
 	/* Add to list of subspaces */
 	lock_guard<mutex> msubspaces_lock(msubspaces_mutex);
-	msubspaces.emplace_back(msid, *rio_addr, *phys_addr, *size, *msubid, tx_eng);
+	msubspaces.emplace_back(msid, *rio_addr, *phys_addr, size, *msubid, tx_eng);
 
 	return 0;
 } /* create_msubspace() */

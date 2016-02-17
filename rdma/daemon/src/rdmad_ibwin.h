@@ -88,6 +88,11 @@ public:
 	ibwin(const ibwin&) = default;
 
 	/**
+	 * @brief	Assignment operator deleted.
+	 */
+	ibwin& operator=(const ibwin&) = delete;
+
+	/**
 	 * @brief Free up memory spaces, if any, in the inbound window,
 	 *  	  and then free up the window itself
 	 */
@@ -246,11 +251,6 @@ public:
 			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
 private:
-	/**
-	 * @brief	Assignment operator deleted.
-	 */
-	ibwin& operator=(const ibwin&) = delete;
-
 	/**
 	 * @brief	Merges two free memory spaces together to form
 	 * 		a larger memory space

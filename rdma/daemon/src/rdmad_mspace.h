@@ -385,9 +385,7 @@ public:
 	 *
 	 * @param offset Subspace offset within memory space
 	 *
-	 * @param req_size Requested subspace size
-	 *
-	 * @param size	  Actual allocated size for the subspace
+	 * @param size Requested subspace size
 	 *
 	 * @param msubid  Memory subspace identifier assigned to subspace
 	 *
@@ -402,8 +400,7 @@ public:
 	 * @return 0 if successful, non-zero otherwise
 	 */
 	int create_msubspace(uint32_t offset,
-			     uint32_t req_size,
-			     uint32_t *size,
+			     uint32_t size,
 			     uint32_t *msubid,
 			     uint64_t *rio_addr,
 			     uint64_t *phys_addr,

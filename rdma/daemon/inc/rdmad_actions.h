@@ -87,17 +87,18 @@ int rdmad_close_ms(uint32_t msid, tx_engine<unix_server, unix_msg_t> *app_tx_eng
 
 int rdmad_destroy_ms(uint32_t msoid, uint32_t msid);
 
-inline int rdmad_create_msub(uint32_t msid, uint32_t offset,
-			     uint32_t req_bytes, uint32_t *bytes,
-			     uint32_t *msubid, uint64_t *rio_addr,
+inline int rdmad_create_msub(uint32_t msid,
+			     uint32_t offset,
+			     uint32_t size,
+			     uint32_t *msubid,
+			     uint64_t *rio_addr,
 			     uint64_t *phys_addr,
 			     tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
 	return the_inbound->create_msubspace(
 				msid,
 				offset,
-				req_bytes,
-				bytes,
+				size,
                                 msubid,
 				rio_addr,
 				phys_addr,

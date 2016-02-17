@@ -45,11 +45,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_mspace.h"
 #include "rdmad_ibwin.h"
 
-using std::vector;
 using std::find;
 using std::fill;
-using std::begin;
-using std::end;
 
 /**
  * @brief Function object that determines whether a memory space is
