@@ -75,13 +75,13 @@ void ms_owner::close_connections()
 	lock_guard<mutex> users_tx_eng_lock(users_tx_eng_mutex);
 
 	/* Send messages for all connections indicating mso will be destroyed */
-	for (user_tx_eng* t : users_tx_eng) {
+	for (user_tx_eng* tx_eng : users_tx_eng) {
 		unix_msg_t	in_msg;
 
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.type     = FORCE_CLOSE_MSO;
 		in_msg.force_close_mso_req.msoid = msoid;
-		t->send_message(&in_msg);
+		tx_eng->send_message(&in_msg);
 	}
 } /* close_connections() */
 

@@ -55,20 +55,6 @@ using std::fill;
 using std::find;
 using std::lock_guard;
 
-struct has_msoid {
-	has_msoid(uint32_t msoid) : msoid(msoid) {}
-	bool operator()(ms_owner *mso) {
-		if (!mso) {
-			CRIT("NULL mso\n");
-			return false;
-		}
-
-		return mso->get_msoid() == msoid;
-	}
-private:
-	uint32_t msoid;
-};
-
 struct has_mso_name {
 	has_mso_name(const char *name) : name(name) {}
 	bool operator()(ms_owner *mso) {
@@ -76,16 +62,6 @@ struct has_mso_name {
 	}
 private:
 	const char *name;
-};
-
-struct has_tx_eng {
-	has_tx_eng(tx_engine<unix_server, unix_msg_t> *tx_eng) :
-		tx_eng(tx_eng) {}
-	bool operator()(ms_owner *mso) {
-		return mso->get_tx_eng() == this->tx_eng;
-	}
-private:
-	tx_engine<unix_server, unix_msg_t> *tx_eng;
 };
 
 ms_owners::ms_owners()
@@ -199,10 +175,8 @@ int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_
 	try {
 		/* Find the mso */
 		auto it = find_if(begin(owners), end(owners),
-				[msoid](ms_owner *o)
-				{
-					return o->get_msoid() == msoid;
-				});
+				[msoid](ms_owner *mso)
+				{ return mso->get_msoid() == msoid; });
 		if (it == end(owners)) {
 			ERR("No mso with msoid(0x%X) found\n", msoid);
 			throw RDMA_INVALID_MSO;
@@ -240,7 +214,8 @@ int ms_owners::destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng)
 	lock_guard<mutex> owners_lock(owners_mutex);
 
 	auto mso_it = find_if(begin(owners), end(owners),
-					has_tx_eng(tx_eng));
+				[tx_eng](ms_owner *mso)
+				{ return mso->tx_eng == tx_eng; });
 
 	/* Not found, warn and return code */
 	if (mso_it == owners.end()) {
@@ -276,7 +251,8 @@ int ms_owners::destroy_mso(uint32_t msoid)
 	lock_guard<mutex> owners_lock(owners_mutex);
 	try {
 		auto mso_it = find_if(begin(owners), end(owners),
-							has_msoid(msoid));
+					[msoid](ms_owner *mso)
+					{ return mso->msoid == msoid; });
 		/* Not found, return error */
 		if (mso_it == owners.end()) {
 			ERR("msoid(0x%X) not found\n", msoid);
@@ -307,11 +283,13 @@ ms_owner* ms_owners::operator[](uint32_t msoid)
 {
 	lock_guard<mutex> owners_lock(owners_mutex);
 
-	auto it = find_if(begin(owners), end(owners), has_msoid(msoid));
-	if (it == end(owners)) {
+	auto mso_it = find_if(begin(owners), end(owners),
+				[msoid](ms_owner *mso)
+				{ return mso->msoid == msoid; });
+	if (mso_it == end(owners)) {
 		ERR("Could not find owner with msoid(0x%X)\n", msoid);
 		return nullptr;
 	} else {
-		return *it;
+		return *mso_it;
 	}
 } /* operator[] */

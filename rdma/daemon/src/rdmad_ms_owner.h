@@ -140,21 +140,39 @@ public:
 	void dump_info(struct cli_env *env);
 
 	/**
-	 * @brief Opens the memory space owner and associated it with the Tx
+	 * @brief Opens the memory space owner and associates it with the Tx
 	 * 	  engine that connects the daemon with the app that called
 	 * 	  rdma_ms_open_mso_h()
+	 *
+	 * @param user_tx_eng Tx engine connecting the daemon to the app
+	 * 		      that called rdma_open_mso_h()
+	 *
+	 * @return 0 if successful, non-zer otherwise
 	 */
 	int open(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
+	/**
+	 * @brief Closes the instance of the memory space owner associated
+	 * 	  with the specified Tx engine
+	 *
+	 * @param user_tx_eng Tx engine connecting the daemon to the app
+	 * 		      that called rdma_close_mso_h()
+	 *
+	 * @return 0 if successful, non-zer otherwise
+	 */
 	int close(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
-	tx_engine<unix_server, unix_msg_t> *get_tx_eng() const { return tx_eng; }
-
+	/**
+	 * @brief Indicates whether a user with the specified Tx engine
+	 * 	  currently opens this memory space owner
+	 *
+	 * @param tx_eng Tx engine to be checked
+	 */
 	bool has_user_tx_eng(tx_engine<unix_server, unix_msg_t> *tx_eng)
 	{
 		auto it = find(begin(users_tx_eng), end(users_tx_eng), tx_eng);
 		return (it != end(users_tx_eng));
-	}
+	} /* has_user_tx_eng() */
 
 private:
 	using mspace_list 	= vector<mspace *>;
