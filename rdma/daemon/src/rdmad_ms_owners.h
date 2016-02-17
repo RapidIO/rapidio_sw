@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <vector>
 #include <exception>
+#include <mutex>
 
 #include "rdmad_ms_owner.h"
 #include "rdmad_unix_msg.h"
@@ -45,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::vector;
 using std::exception;
+using std::mutex;
 
 /* Reference class declarations */
 class ms_owner;
@@ -85,6 +87,9 @@ public:
 	ms_owner* operator[](uint32_t msoid);
 
 private:
+	ms_owners(const ms_owners&) = delete;
+	ms_owners& operator=(const ms_owners&) = delete;
+
 	using owner_list = vector<ms_owner *>;
 
 	/* Constants */
@@ -92,7 +97,7 @@ private:
 
 	bool msoid_free_list[MSOID_MAX+1];
 	owner_list		owners;
-	pthread_mutex_t		owners_lock;
+	mutex			owners_mutex;
 };
 
 

@@ -53,6 +53,7 @@ using std::vector;
 using std::string;
 using std::fill;
 using std::find;
+using std::lock_guard;
 
 struct has_msoid {
 	has_msoid(uint32_t msoid) : msoid(msoid) {}
@@ -94,10 +95,6 @@ ms_owners::ms_owners()
 
 	/* Reserve msoid to mean "no owner" */
 	msoid_free_list[0] = false;
-
-	if (pthread_mutex_init(&owners_lock, NULL)) {
-		throw ms_owners_exception("Failed to initialize owners_lock mutex");
-	}
 } /* Constructor */
 
 ms_owners::~ms_owners()
@@ -112,11 +109,12 @@ void ms_owners::dump_info(struct cli_env *env)
 	logMsg(env);
 	sprintf(env->output, "%8s %32s %8s\n", "-----", "----", "------------------");
 	logMsg(env);
-	pthread_mutex_lock(&owners_lock);
+
+	lock_guard<mutex> owners_lock(owners_mutex);
+
 	for (auto& owner : owners) {
 		owner->dump_info(env);
 	}
-	pthread_mutex_unlock(&owners_lock);
 } /* dump_info() */
 
 int ms_owners::create_mso(const char *name,
@@ -132,7 +130,7 @@ int ms_owners::create_mso(const char *name,
 		}
 
 		/* Find a free memory space owner handle */
-		pthread_mutex_lock(&owners_lock);
+		lock_guard<mutex> owners_lock(owners_mutex);
 		bool *fmsoid = find(msoid_free_list,
 				msoid_free_list + MSOID_MAX + 1,
 				true);
@@ -155,7 +153,6 @@ int ms_owners::create_mso(const char *name,
 		/* Store in owners list */
 		owners.push_back(mso);
 		rc = 0;	/* Success */
-		pthread_mutex_unlock(&owners_lock);
 	}
 	catch(int& e) {
 		rc = e;
@@ -169,7 +166,7 @@ int ms_owners::open_mso(const char *name,
 {
 	int rc;
 
-	pthread_mutex_lock(&owners_lock);
+	lock_guard<mutex> owners_lock(owners_mutex);
 	try {
 		/* Find the owner having specified name */
 		auto mso_it = find_if(begin(owners), end(owners),
@@ -189,7 +186,6 @@ int ms_owners::open_mso(const char *name,
 	catch(int& e) {
 		rc = e;
 	}
-	pthread_mutex_unlock(&owners_lock);
 
 	return rc;
 } /* open_mso() */
@@ -198,7 +194,7 @@ int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_
 {
 	int rc;
 
-	pthread_mutex_lock(&owners_lock);
+	lock_guard<mutex> owners_lock(owners_mutex);
 	try {
 		/* Find the mso */
 		auto it = find_if(begin(owners), end(owners),
@@ -221,13 +217,13 @@ int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_
 	catch(int& e) {
 		rc = e;
 	}
-	pthread_mutex_unlock(&owners_lock);
 
 	return rc;
 } /* close_mso() */
 
 void ms_owners::close_mso(tx_engine<unix_server, unix_msg_t>  *user_tx_eng)
 {
+	lock_guard<mutex> owners_lock(owners_mutex);
 	for(auto& owner : owners) {
 		if (owner->has_user_tx_eng(user_tx_eng)) {
 			INFO("Closing conn to owner due to dead socket\n");
@@ -240,7 +236,7 @@ int ms_owners::destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	int rc;
 
-	pthread_mutex_lock(&owners_lock);
+	lock_guard<mutex> owners_lock(owners_mutex);
 
 	auto mso_it = find_if(begin(owners), end(owners),
 					has_tx_eng(tx_eng));
@@ -268,8 +264,6 @@ int ms_owners::destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng)
 		rc = 0;
 	}
 
-	pthread_mutex_unlock(&owners_lock);
-
 	return rc;
 } /* destroy_mso() */
 
@@ -278,7 +272,7 @@ int ms_owners::destroy_mso(uint32_t msoid)
 	int rc;
 
 	/* Find the owner belonging to msoid */
-	pthread_mutex_lock(&owners_lock);
+	lock_guard<mutex> owners_lock(owners_mutex);
 	try {
 		auto mso_it = find_if(begin(owners), end(owners),
 							has_msoid(msoid));
@@ -304,13 +298,14 @@ int ms_owners::destroy_mso(uint32_t msoid)
 	catch(int& e) {
 		rc = e;
 	}
-	pthread_mutex_unlock(&owners_lock);
 
 	return rc;
 } /* destroy_msoid() */
 
 ms_owner* ms_owners::operator[](uint32_t msoid)
 {
+	lock_guard<mutex> owners_lock(owners_mutex);
+
 	auto it = find_if(begin(owners), end(owners), has_msoid(msoid));
 	if (it == end(owners)) {
 		ERR("Could not find owner with msoid(0x%X)\n", msoid);
