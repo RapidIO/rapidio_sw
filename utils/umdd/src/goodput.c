@@ -155,9 +155,9 @@ int main(int argc, char *argv[])
         cli_init_base(goodput_thread_shutdown);
         bind_goodput_cmds();
 	liblog_bind_cli_cmds();
-	splashScreen((char *)"Goodput Evaluation Application");
+	splashScreen((char *)"UMDd/SHM");
 
-	console((void *)((char *)"GoodPut> "));
+	console((void *)((char *)"UMDd> "));
 
 	goodput_thread_shutdown(NULL);
 
@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
 		mp_h_valid = 0;
 	};
 
-	printf("\nGoodput Evaluation Application EXITING!!!!\n");
+	printf("\nUMDd/SHM Exiting. All Your Base Are Belong To Us!\n");
 	rc = EXIT_SUCCESS;
 
 	exit(rc);
