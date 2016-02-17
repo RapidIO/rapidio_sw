@@ -174,10 +174,8 @@ ibwin::ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size) :
 void ibwin::free()
 {
 	/* Delete all memory spaces */
-	pthread_mutex_lock(&mspaces_lock);
 	for_each(begin(mspaces), end(mspaces), [](mspace* ms) { delete ms;});
 	mspaces.clear();
-	pthread_mutex_unlock(&mspaces_lock);
 
 	/* Free inbound window */
 	INFO("win_num = %d, phys_addr = 0x%" PRIx64 "\n", win_num, phys_addr);
