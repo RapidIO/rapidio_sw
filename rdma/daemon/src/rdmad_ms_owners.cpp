@@ -191,7 +191,7 @@ int ms_owners::open_mso(const char *name,
 	}
 	pthread_mutex_unlock(&owners_lock);
 
-	return 0;
+	return rc;
 } /* open_mso() */
 
 int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_eng)
