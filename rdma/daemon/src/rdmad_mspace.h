@@ -557,16 +557,16 @@ private:
 	bool		accepting;	/* Has called accept from the CREATOR */
 	uint32_t	server_msubid;	/* Used when accepting from the CREATOR */
 	tx_engine<unix_server, unix_msg_t> *creator_tx_eng;
-	uint16_t client_destid;		 /* When creator is 'connected_to' */
-	uint32_t client_msubid;		 /* Ditto */
-	uint64_t client_to_lib_tx_eng_h; /* Ditto */
+	uint16_t 	client_destid;	/* When creator is 'connected_to' */
+	uint32_t 	client_msubid;		/* Ditto */
+	uint64_t 	client_to_lib_tx_eng_h; /* Ditto */
 
 	/* Info about users that have opened the ms */
 	ms_user_list	users;
 	mutex		users_mutex;
 
 	/* Memory sub-space indexes */
-	bool msubindex_free_list[MSUBINDEX_MAX+1];	/* List of memory sub-space IDs */
+	bool 		msubindex_free_list[MSUBINDEX_MAX+1];
 	mutex 		msubindex_free_list_mutex;
 
 	/* Memory subspaces */

@@ -31,7 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 #include <algorithm>
-#include <vector>
 #include <iterator>
 
 #define __STDC_FORMAT_MACROS
@@ -375,6 +374,7 @@ mspace* ibwin::get_mspace(uint32_t msoid, uint32_t msid)
 
 void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator other)
 {
+	pthread_mutex_lock(&mspaces_lock);
 	/* Current mspace size is inflated by the size of the 'other' mspace */
 	uint64_t other_size = (*other)->get_size();
 	uint64_t curr_size = (*current)->get_size();
@@ -388,6 +388,7 @@ void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator oth
 	/* Delete the other item and erase from the list */
 	delete *other;
 	mspaces.erase(other);
+	pthread_mutex_unlock(&mspaces_lock);
 } /* merge_next_with_mspace() */
 
 int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
@@ -448,6 +449,7 @@ exit:
 void ibwin::close_mspaces_using_tx_eng(
 		tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
+	pthread_mutex_lock(&mspaces_lock);
 	for(auto& ms : mspaces) {
 		INFO("Checking mspace '%s'\n", ms->get_name());
 		if (ms->has_user_with_user_tx_eng(user_tx_eng)) {
@@ -457,11 +459,13 @@ void ibwin::close_mspaces_using_tx_eng(
 			DBG("Skipping '%s' since it doesn't use app_tx_eng\n");
 		}
 	}
+	pthread_mutex_unlock(&mspaces_lock);
 } /* close_mspaces_using_tx_eng() */
 
 void ibwin::destroy_mspaces_using_tx_eng(
 		tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
+	pthread_mutex_lock(&mspaces_lock);
 	for(auto& ms : mspaces) {
 		if (ms->created_using_tx_eng(app_tx_eng)) {
 			INFO("Destroying '%s'\n", ms->get_name());
@@ -470,6 +474,7 @@ void ibwin::destroy_mspaces_using_tx_eng(
 			DBG("Skipping '%s' since it doesn't use app_tx_eng\n");
 		}
 	}
+	pthread_mutex_unlock(&mspaces_lock);
 } /* destroy_mspaces_using_tx_eng() */
 
 void ibwin::get_mspaces_connected_by_destid(uint32_t destid, mspace_list& mspaces)

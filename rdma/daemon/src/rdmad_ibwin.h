@@ -34,6 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef IBWIN_H
 #define IBWIN_H
 
+#include <pthread.h>
+
 #include <vector>
 #include <exception>
 
@@ -43,6 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::vector;
 using std::exception;
+
 using mspace_list = vector<mspace *>;
 using mspace_iterator = mspace_list::iterator;
 
@@ -78,6 +81,11 @@ public:
 	 * @throws integer exception if failed during mutex initialization
 	 */
 	ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size);
+
+	/**
+	 * @brief	Copy constructor
+	 */
+	ibwin(const ibwin&) = default;
 
 	/**
 	 * @brief Free up memory spaces, if any, in the inbound window,
@@ -162,9 +170,16 @@ public:
 			  mspace **ms,
 			  tx_engine<unix_server, unix_msg_t> *creator_tx_eng);
 
+	/**
+	 * @brief  Destroy memory space specified by msoid and msid
+	 *
+	 * @param msoid	Memory space owner identifier
+	 *
+	 * @param msid	Memory space identifier
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int destroy_mspace(uint32_t msoid, uint32_t msid);
-
-
 
 	/**
 	 * @brief Return memory space with specified name
@@ -231,6 +246,19 @@ public:
 			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
 private:
+	/**
+	 * @brief	Assignment operator deleted.
+	 */
+	ibwin& operator=(const ibwin&) = delete;
+
+	/**
+	 * @brief	Merges two free memory spaces together to form
+	 * 		a larger memory space
+	 *
+	 * @param current First memory space
+	 *
+	 * @param other	  Second memory space
+	 */
 	void merge_other_with_mspace(mspace_iterator current,
 				     mspace_iterator other);
 
