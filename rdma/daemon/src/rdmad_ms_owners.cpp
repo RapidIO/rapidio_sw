@@ -177,11 +177,12 @@ int ms_owners::open_mso(const char *name,
 		}
 
 		/* Open the memory space owner */
-		rc = (*mso_it)->open(msoid, tx_eng);
+		rc = (*mso_it)->open(tx_eng);
 		if (rc) {
 			ERR("Failed to open memory space owner %s\n", name);
 			throw rc;
 		}
+		*msoid = (*mso_it)->msoid;
 	}
 	catch(int& e) {
 		rc = e;

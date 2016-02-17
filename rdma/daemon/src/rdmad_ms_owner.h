@@ -35,17 +35,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MS_OWNER_H
 
 #include <stdint.h>
-#include <pthread.h>
 
 #include <string>
 #include <vector>
 #include <exception>
+#include <mutex>
 
 #include "tx_engine.h"
 
 using std::vector;
 using std::string;
 using std::exception;
+using std::mutex;
 
 /* Referenced class declarations */
 class mspace;
@@ -131,9 +132,19 @@ public:
 	 */
 	bool owns_mspaces();
 
+	/**
+	 * @brief Dumps memory space owner information to CLI console
+	 *
+	 * @param env	CLI console environment object
+	 */
 	void dump_info(struct cli_env *env);
 
-	int open(uint32_t *msoid, tx_engine<unix_server, unix_msg_t> *user_tx_eng);
+	/**
+	 * @brief Opens the memory space owner and associated it with the Tx
+	 * 	  engine that connects the daemon with the app that called
+	 * 	  rdma_ms_open_mso_h()
+	 */
+	int open(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
 	int close(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
@@ -155,9 +166,12 @@ private:
 	string		name;
 	tx_engine<unix_server, unix_msg_t> *tx_eng;
 	uint32_t	msoid;
+
 	mspace_list	ms_list;
-	pthread_mutex_t	ms_list_lock;
+	mutex		ms_list_mutex;
+
 	user_tx_eng_list   users_tx_eng;
+	mutex		   users_tx_eng_mutex;
 };
 
 #endif
