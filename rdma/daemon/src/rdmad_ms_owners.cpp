@@ -186,17 +186,20 @@ int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_
 {
 	int rc;
 
+	DBG("ENTER\n");
 	lock_guard<mutex> owners_lock(owners_mutex);
 	try {
 		/* Find the mso */
-		ms_owner *mso = (*this)[msoid];
-		if (mso == nullptr) {
+		auto mso_it = find_if(begin(owners), end(owners),
+					[msoid](ms_owner *mso)
+					{ return mso->msoid == msoid; });
+		if (mso_it == end(owners)) {
 			ERR("No mso with msoid(0x%X) found\n", msoid);
 			throw RDMA_INVALID_MSO;
 		}
 
 		/* Close the connection belonging to the tx_eng */
-		rc = mso->close(tx_eng);
+		rc = (*mso_it)->close(tx_eng);
 		if (rc) {
 			ERR("Failed to close mso, tx_eng = 0x%p\n", tx_eng);
 			throw rc;
@@ -205,7 +208,7 @@ int ms_owners::close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_
 	catch(int& e) {
 		rc = e;
 	}
-
+	DBG("EXIT\n");
 	return rc;
 } /* close_mso() */
 
