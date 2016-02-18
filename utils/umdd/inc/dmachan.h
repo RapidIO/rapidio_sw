@@ -404,6 +404,7 @@ private:
   DmaChannelState_t*  m_state;
 
   void cleanup();
+  void cleanupSHM();
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 

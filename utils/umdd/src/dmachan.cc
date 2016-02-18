@@ -767,6 +767,13 @@ void DMAChannel::cleanup()
 
   if (!m_hw_master) return;
 
+  cleanupSHM();
+}
+
+void DMAChannel::cleanupSHM()
+{
+  if (!m_hw_master) return;
+
   std::string s_state = "/dev/shm/";
   s_state.append(m_shm_state_name);
   unlink(s_state.c_str());

@@ -545,8 +545,14 @@ no_post:
 	pthread_exit(parm);
 };
 
-void UMD_DD(const struct worker* info)
+/** \brief Dump UMD DMA Tun status
+ *  * \note This executes within the CLI thread but targets Main Battle Tank thread's data
+ *   */
+extern "C"
+void UMD_DD(struct worker* info)
 {
+        assert(info->umd_dch);
+
 	const int MHz = getCPUMHz();
 
 	const int idx = info->idx;
@@ -625,6 +631,100 @@ bool umd_check_cpu_allocation(struct worker *info)
 	CRIT("\n\tWorker thread and FIFO thread request the same cpu (%d). Set env IGNORE_CPUALLOC to disable this check.\n", info->wkr_thr.cpu_req);
 
 	return false;
+}
+
+void umd_shm_goodput_demo(struct worker *info)
+{
+	if (! umd_check_cpu_allocation(info)) return;
+	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+
+	info->owner_func = umd_shm_goodput_demo;
+
+        info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
+        if (NULL == info->umd_dch) {
+                CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+                        info->umd_chan, info->mp_num, info->mp_h);
+                goto exit;
+        };
+
+        if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+                CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
+                goto exit;
+        }
+
+        if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
+                CRIT("\n\talloc_dmatxdesc failed: bufs %d",
+                                                        info->umd_tx_buf_cnt);
+                goto exit;
+        };
+        if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
+                CRIT("\n\talloc_dmacompldesc failed: entries %d",
+                                                        info->umd_sts_entries);
+                goto exit;
+        };
+
+	// NOT USED by SHM server
+        memset(info->dmamem, 0, sizeof(info->dmamem));
+        memset(info->dmaopt, 0, sizeof(info->dmaopt));
+
+        info->umd_dch->resetHw();
+        if (!info->umd_dch->checkPortOK()) {
+                CRIT("\n\tPort is not OK!!! Exiting...");
+                goto exit;
+        };
+
+	INFO("\n\tUMDd/SHM my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+		info->umd_dch->getDestId(),
+		info->did, info->rio_addr, info->acc_size,
+		info->umd_tx_buf_cnt, info->umd_sts_entries);
+
+        DMAChannel::WorkItem_t wi[info->umd_sts_entries*8];
+        memset(wi, 0, sizeof(wi));
+
+        while (!info->stop_req) {
+                const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
+                if (!cnt)
+                        continue;
+
+                get_seq_ts(&info->fifo_ts);
+
+                for (int i = 0; i < cnt; i++) {
+                        DMAChannel::WorkItem_t& item = wi[i];
+
+                        switch (item.opt.dtype) {
+                        case DTYPE1:
+                        case DTYPE2:
+                                info->perf_byte_cnt += info->acc_size;
+                                break;
+                        case DTYPE3:
+                                break;
+                        default:
+                                ERR("\n\tUNKNOWN BD %d bd_wp=%u\n",
+                                        item.opt.dtype, item.opt.bd_wp);
+                                break;
+                        }
+
+                        wi[i].valid = 0xdeadabba;
+                } // END for WorkItem_t vector
+                clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+        } // END while
+
+        goto exit_nomsg;
+exit:
+        INFO("\n\tDMA %srunning after %d %dus polls\n",
+                info->umd_dch->dmaIsRunning()? "": "NOT ",
+                        info->perf_msg_cnt, DMA_RUNPOLL_US);
+
+        INFO("\n\tEXITING (FIFO iter=%lu hw RP=%u WP=%u)\n",
+                info->umd_dch->m_fifo_scan_cnt,
+                info->umd_dch->getFIFOReadCount(),
+                info->umd_dch->getFIFOWriteCount());
+exit_nomsg:
+        if (info->umd_dch)
+                info->umd_dch->shutdown();
+
+        delete info->umd_dch; info->umd_dch = NULL;
+        delete info->umd_lock; info->umd_lock = NULL;
 }
 
 static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa8 };
@@ -1203,6 +1303,9 @@ void *worker_thread(void *parm)
 				dma_free_ibwin(info);
 				break;
 #ifdef USER_MODE_DRIVER
+		case umd_shm:
+				umd_shm_goodput_demo(info);
+				break;
 		case umd_dma:
 				umd_dma_goodput_demo(info);
 				break;

@@ -107,18 +107,11 @@ enum req_type {
 	free_ibwin,
 	shutdown_worker,
 #ifdef USER_MODE_DRIVER
-	umd_calibrate,
+        umd_shm,
 	umd_dma,
 	umd_dmaltx,
 	umd_dmalrx,
 	umd_dmalnr,
-	umd_dma_tap,
-	umd_mbox,
-	umd_mboxl,
-	umd_mbox_tap,
-	umd_epwatch,
-	umd_mbox_watch,
-	umd_afu_watch,
 #endif
 	last_action
 };

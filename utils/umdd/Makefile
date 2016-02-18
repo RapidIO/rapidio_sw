@@ -47,7 +47,7 @@ CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 #CCFLAGS+=-pg
 CCFLAGS+=-DDEBUG_BD
 #CCFLAGS+=-DDEBUG=2
-CCFLAGS+=-DUDMA_SIM_DEBUG
+#CCFLAGS+=-DUDMA_SIM_DEBUG
 
 INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c
