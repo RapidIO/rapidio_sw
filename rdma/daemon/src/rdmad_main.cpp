@@ -79,7 +79,9 @@ static rx_engines_list	rx_eng_list;
 
 static thread *engine_monitoring_thread;
 static sem_t  *engine_cleanup_sem;
-struct peer_info	peer;
+
+struct peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL, DEFAULT_PROV_MBOX_ID,
+			DEFAULT_CONSOLE_SKT, DEFAULT_RUN_CONS);
 
 /* Memory Space Owner data */
 ms_owners owners;
@@ -97,24 +99,6 @@ static	pthread_t cli_session_thread;
 static unix_server *server;
 
 static unix_msg_processor	d2l_msg_proc;
-
-static void init_peer()
-{
-	peer.destid = 0xFFFF;
-	peer.destid_len = 16;
-
-	/* MPORT */
-	peer.mport_id = 0;	/* Overriden on the command line */
-	peer.mport_hnd = 0;
-
-	/* Messaging */
-	peer.prov_channel	= DEFAULT_PROV_CHANNEL;
-	peer.prov_mbox_id	= DEFAULT_PROV_MBOX_ID;
-
-	/* CLI */
-	peer.cons_skt = 4444;
-	peer.run_cons = 1;
-}
 
 struct lib_connections_ti
 {
@@ -535,11 +519,6 @@ int main (int argc, char **argv)
 	int c;
 	int rc = 0;
 	int cons_ret;
-
-	/* Initialize peer_info struct with default values. This must be done
- 	 * before parsing command line parameters as command line parameters
- 	 * may override some of the default values assigned here */
-	init_peer();
 
 	/* Do no show console if started in background mode (rdmad &) */
 	if (!foreground())

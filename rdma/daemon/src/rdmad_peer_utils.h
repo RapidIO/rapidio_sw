@@ -40,8 +40,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 constexpr uint16_t DEFAULT_PROV_CHANNEL = 10;
 constexpr uint8_t  DEFAULT_PROV_MBOX_ID =  0;
+constexpr auto	   DEFAULT_CONSOLE_SKT  = 4444;
+constexpr auto	   DEFAULT_RUN_CONS	= 1;
 
-struct peer_info {
+struct peer_info
+{
+	/**
+	 * @brief Constructor
+	 */
+	peer_info(uint8_t destid_len, uint32_t destid, int mport_id,
+		  riomp_mport_t mport_hnd, uint16_t prov_channel,
+		  uint8_t prov_mbox_id, int cons_skt, int run_cons)
+	: destid_len(destid_len), destid(destid), mport_id(mport_id),
+	  mport_hnd(mport_hnd), prov_channel(prov_channel),
+	  prov_mbox_id(prov_mbox_id), cons_skt(cons_skt), run_cons(run_cons)
+	{}
+
 	/* Device ID */
 	uint8_t	destid_len;
 	uint32_t destid;
