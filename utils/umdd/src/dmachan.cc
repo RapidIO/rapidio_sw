@@ -146,7 +146,8 @@ void DMAChannel::init(const uint32_t chan)
 
       memset(&m_state->client_completion[cl], 0, sizeof(m_state->client_completion[cl]));
 
-      m_state->client_completion[cl].busy = true;
+      m_state->client_completion[cl].busy      = true;
+      m_state->client_completion[cl].owner_pid = m_pid;
       m_cliidx = cl;
       break;
     }
@@ -217,7 +218,8 @@ DMAChannel::~DMAChannel()
 
   if (m_cliidx != -1) {
     pthread_spin_lock(&m_state->client_splock);
-    m_state->client_completion[m_cliidx].busy = false;
+    m_state->client_completion[m_cliidx].busy      = false;
+    m_state->client_completion[m_cliidx].owner_pid = -666;
     pthread_spin_unlock(&m_state->client_splock);
   }
 
@@ -967,6 +969,32 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
 
       memcpy(item.t2_rddata, bd->data, 16);
       item.t2_rddata_len = le32(bd->bcount & 0xf);
+
+      do {
+        if (item.opt.cliidx < 0) break;
+
+        assert(item.opt.cliidx < DMA_SHM_MAX_CLIENTS);
+        
+        if (!m_state->client_completion[item.opt.cliidx].busy || m_state->client_completion[item.opt.cliidx].owner_pid < 2) {
+          CRIT("\n\tGot a NREAD/T2 completion for a deadbeat client at idx=%d pid?=%d\n",
+               item.opt.cliidx, m_state->client_completion[item.opt.cliidx].owner_pid);
+          break;
+        }
+
+        NREAD_Result_t nr_t2_res;
+        nr_t2_res.ticket = item.opt.ticket;
+        nr_t2_res.bcount = le32(bd->bcount & 0xf);
+        memcpy(nr_t2_res.data, bd->data, 16);
+
+        pthread_spin_lock(&m_state->client_splock); 
+        const bool r = m_state->client_completion[item.opt.cliidx].NREAD_T2_results.enq(nr_t2_res);
+        if (r) m_state->client_completion[item.opt.cliidx].change_cnt++;
+        pthread_spin_unlock(&m_state->client_splock); 
+
+        if (!r)
+          CRIT("\n\tFailed to enqueue a NREAD/T2 completion for client idx=%d pid=%d\n. Queue FULL?\n",
+               item.opt.cliidx, m_state->client_completion[item.opt.cliidx].owner_pid);
+      } while(0);
     }
 
     completed_work[cwi++] = item;

@@ -357,9 +357,9 @@ public:
   } NREAD_Result_t;
 
   typedef struct {
-    bool     busy; ///< Did any client claim this?
-    pid_t    owner_pid;
-    uint64_t change_cnt; ///< Master bumps this when adds stuff
+    volatile bool     busy; ///< Did any client claim this?
+    pid_t             owner_pid;
+    volatile uint64_t change_cnt; ///< Master bumps this when adds stuff
 
     // EVIL PLAN: Keep WP, RP as 64-bit and use them modulo DMA_SHM_MAX_ITEMS_PER_CLIENT
  
@@ -398,7 +398,7 @@ public:
       }
 
       // Call following in splocked context!
-      inline bool enq(const NREAD_Result_t& res) { // Call in splocked context!
+      inline bool enq(const NREAD_Result_t& res) {
         if ((WP-RP) >= DMA_SHM_MAX_ITEMS_PER_CLIENT) return false; // FULL
         results[(WP++ % DMA_SHM_MAX_ITEMS_PER_CLIENT)] = res;
         return true;
