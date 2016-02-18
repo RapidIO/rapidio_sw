@@ -30,6 +30,10 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+
 #include <cstdio>
 #include <cstring>
 
@@ -234,3 +238,96 @@ void custom_quit(struct cli_env *e)
 	(void)e;
 	shutdown(&peer);
 }
+
+/**
+ * Server for remote debug (remdbg) application.
+ */
+void *cli_session(void *arg)
+{
+	int sockfd;
+	int portno;
+	socklen_t clilen;
+	char buffer[256];
+	struct sockaddr_in serv_addr;
+	struct sockaddr_in cli_addr;
+	int one = 1;
+	int session_num = 0;
+
+	/* Check for NULL */
+	if (arg == NULL) {
+		CRIT("Argument is NULL. Exiting\n");
+		pthread_exit(0);
+	}
+
+	/* TCP port number */
+	portno = *((int *)arg);
+
+	/* Create listen socket */
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0) {
+		CRIT("ERROR opening socket. Exiting\n");
+		pthread_exit(0);
+	}
+
+	/* Prepare the family, address, and port */
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serv_addr.sin_port = htons(portno);
+
+	/* Enable reuse of addresses as long as there is no active accept() */
+	setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
+
+	/* For socket to send data in buffer right away */
+	setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
+
+	/* Bind socket to address */
+	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+		CRIT("ERROR on binding. Exiting\n");
+		close(sockfd);
+		pthread_exit(0);
+	}
+
+	INFO("RDMAD bound to socket on port number %d\n", portno);
+
+	while (strncmp(buffer, "done", 4)) {
+		struct cli_env env;
+
+		/* Initialize the environment */
+		env.script = NULL;
+		env.fout = NULL;
+		bzero(env.output, BUFLEN);
+		bzero(env.input, BUFLEN);
+		env.DebugLevel = 0;
+		env.progressState = 0;
+		env.sess_socket = -1;
+
+		/* Set the prompt for the CLI */
+		bzero(env.prompt, PROMPTLEN+1);
+		strcpy(env.prompt, "RRDMAD> ");
+
+		/* Prepare socket for listening */
+		listen(sockfd,5);
+
+		/* Accept connections from remdbg apps */
+		clilen = sizeof(cli_addr);
+		env.sess_socket = accept(sockfd,
+				(struct sockaddr *) &cli_addr,
+				&clilen);
+		if (env.sess_socket < 0) {
+			CRIT("ERROR on accept\n");
+			close(sockfd);
+			pthread_exit(0);
+		}
+
+		/* Start the session */
+		INFO("\nStarting session %d\n", session_num);
+		cli_terminal(&env);
+		INFO("\nFinishing session %d\n", session_num);
+		close(env.sess_socket);
+		session_num++;
+	}
+
+	pthread_exit(0);
+} /* cli_session() */
+

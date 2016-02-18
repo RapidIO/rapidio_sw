@@ -42,5 +42,7 @@ unsigned rdmad_cmds_size(void);
 /* Logging level */
 extern unsigned g_level;
 
+void *cli_session(void *arg);
+
 #endif
 
