@@ -43,7 +43,7 @@ int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type 	 = RDMAD_IS_ALIVE_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -52,6 +52,7 @@ int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 
 	tx_eng->send_message(&out_msg);
 
+	DBG("EXIT\n");
 	return 0;
 } /* rdmad_is_alive() */
 
@@ -63,7 +64,7 @@ int get_mport_id_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type 	 = GET_MPORT_ID_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -72,7 +73,7 @@ int get_mport_id_disp(const unix_msg_t *in_msg,
 		rdmad_get_mport_id(&out_msg.get_mport_id_out.mport_id);
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.get_mport_id_out.status;
 } /* get_mport_id_disp() */
 
@@ -81,7 +82,7 @@ int create_mso_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type 	 = CREATE_MSO_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -95,7 +96,7 @@ int create_mso_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.create_mso_out.status;
 } /* create_mso_disp() */
 
@@ -104,7 +105,7 @@ int open_mso_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type 	 = OPEN_MSO_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -119,7 +120,7 @@ int open_mso_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.open_mso_out.status;
 } /* open_mso_disp() */
 
@@ -128,7 +129,7 @@ int close_mso_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type 	 = CLOSE_MSO_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -142,7 +143,7 @@ int close_mso_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.close_mso_out.status;
 } /* close_mso_disp() */
 
@@ -151,7 +152,7 @@ int destroy_mso_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = DESTROY_MSO_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -164,7 +165,7 @@ int destroy_mso_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.destroy_mso_out.status;
 } /* destroy_mso_disp() */
 
@@ -174,7 +175,7 @@ int create_ms_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = CREATE_MS_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -195,7 +196,7 @@ int create_ms_disp(const unix_msg_t *in_msg,
 
 	tx_eng->send_message(&out_msg);
 
-	DBG("rc = 0x%X\n", out_msg.create_ms_out.status);
+	DBG("EXIT, rc = 0x%X\n", out_msg.create_ms_out.status);
 	return out_msg.create_ms_out.status;
 } /* create_msg_disp() */
 
@@ -204,7 +205,7 @@ int open_ms_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = OPEN_MS_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -223,7 +224,7 @@ int open_ms_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.open_ms_out.status;
 } /* open_ms_disp() */
 
@@ -232,7 +233,7 @@ int close_ms_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = CLOSE_MS_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -247,7 +248,7 @@ int close_ms_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.close_ms_out.status;
 } /* close_ms_disp() */
 
@@ -256,7 +257,7 @@ int destroy_ms_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = DESTROY_MS_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -270,7 +271,7 @@ int destroy_ms_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.destroy_ms_out.status;
 } /* destroy_ms_disp() */
 
@@ -279,7 +280,7 @@ int create_msub_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = CREATE_MSUB_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -299,7 +300,7 @@ int create_msub_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.destroy_ms_out.status;
 } /* create_msub_disp() */
 
@@ -308,7 +309,7 @@ int destroy_msub_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = DESTROY_MSUB_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -323,7 +324,7 @@ int destroy_msub_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.destroy_msub_out.status;
 } /* destroy_msub_disp() */
 
@@ -332,7 +333,7 @@ int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = GET_IBWIN_PROPERTIES_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -355,7 +356,7 @@ int accept_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = ACCEPT_MS_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -378,7 +379,7 @@ int undo_accept_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = UNDO_ACCEPT_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -390,7 +391,7 @@ int undo_accept_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.undo_accept_out.status;
 } /* undo_accept_disp() */
 
@@ -475,7 +476,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 	tx_eng->send_message(&out_msg);
 
 	sem_post(&prov_daemon_info_list_sem);
-
+	DBG("EXIT\n");
 	return rc;
 } /* connect_msg_resp_disp() */
 
@@ -484,7 +485,7 @@ int send_connect_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = SEND_CONNECT_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -509,7 +510,7 @@ int send_connect_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.send_connect_out.status;
 } /* send_connect_disp() */
 
@@ -518,7 +519,7 @@ int undo_connect_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = UNDO_CONNECT_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -542,7 +543,7 @@ int send_disconnect_disp(const unix_msg_t *in_msg,
 {
 	static unix_msg_t out_msg;
 
-	DBG("seq_no = 0x%X\n", in_msg->seq_no);
+	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = SEND_DISCONNECT_ACK;
 	out_msg.category = RDMA_LIB_DAEMON_CALL;
@@ -560,7 +561,7 @@ int send_disconnect_disp(const unix_msg_t *in_msg,
 	}
 
 	tx_eng->send_message(&out_msg);
-
+	DBG("EXIT\n");
 	return out_msg.send_disconnect_out.status;
 } /* send_disconnect_disp() */
 
@@ -568,6 +569,7 @@ int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	int rc;
+	DBG("ENTER\n");
 	try {
 		uint32_t server_msid = in_msg->server_disconnect_ms_in.server_msid;
 		mspace *ms = the_inbound->get_mspace(server_msid);
@@ -610,5 +612,6 @@ int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 	catch(int e) {
 		rc = e;
 	}
+	DBG("EXIT\n");
 	return rc;
 } /* server_disconnect_ms_disp() */
