@@ -92,12 +92,13 @@ void DMAChannel::init(const uint32_t chan)
   m_tid = gettid();
   snprintf(m_shm_state_name, 128, DMA_SHM_STATE_NAME, m_mportid, chan);
 
+  m_cliidx        = -1;
+
   m_fifo_scan_cnt = 0;
   m_tx_cnt        = 0;
   m_bl_busy       = NULL; // TODO: Stick in SHM
   m_check_reg     = false;
   m_pending_work  = NULL; // TODO: Stick in SHM
-  m_state->restart_pending = 0;
 
   m_sim           = false;
   m_sim_dma_rp    = 0;
@@ -139,6 +140,21 @@ void DMAChannel::init(const uint32_t chan)
     }
     m_dmadesc.type = RioMport::DMAMEM;
 
+    pthread_spin_lock(&m_state->client_splock);
+    for (int cl = 0; cl < DMA_SHM_MAX_CLIENTS; cl++) {
+      if (m_state->client_completion[cl].busy) continue;
+
+      memset(&m_state->client_completion[cl], 0, sizeof(m_state->client_completion[cl]));
+
+      m_state->client_completion[cl].busy = true;
+      m_cliidx = cl;
+      break;
+    }
+    pthread_spin_unlock(&m_state->client_splock);
+
+    if (m_cliidx < 0)
+      throw std::runtime_error("DMAChannel: Client array is full!");
+
     return;
   }
 
@@ -147,6 +163,7 @@ void DMAChannel::init(const uint32_t chan)
   pthread_spin_init(&m_state->hw_splock,           PTHREAD_PROCESS_SHARED);
   pthread_spin_init(&m_state->pending_work_splock, PTHREAD_PROCESS_SHARED);
   pthread_spin_init(&m_state->bl_splock,           PTHREAD_PROCESS_SHARED);
+  pthread_spin_init(&m_state->client_splock,       PTHREAD_PROCESS_SHARED);
 
   m_state->master_pid    = m_pid;
   m_state->bd_num        = 0;
@@ -161,9 +178,11 @@ void DMAChannel::init(const uint32_t chan)
   m_state->serial_number = 0;
 
   memset(&m_state->BD0_T3_saved, 0, sizeof(m_state->BD0_T3_saved));
+
+  memset(m_state->client_completion, 0, sizeof(m_state->client_completion));
 }
 
-DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
+DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan) : m_state(NULL)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannel: Invalid channel!");
@@ -178,7 +197,7 @@ DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
 
 DMAChannel::DMAChannel(const uint32_t mportid,
                        const uint32_t chan,
-                       riomp_mport_t mp_hd)
+                       riomp_mport_t mp_hd) : m_state(NULL)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannel: Invalid channel!");
@@ -195,6 +214,13 @@ DMAChannel::DMAChannel(const uint32_t mportid,
 DMAChannel::~DMAChannel()
 {
   shutdown();
+
+  if (m_cliidx != -1) {
+    pthread_spin_lock(&m_state->client_splock);
+    m_state->client_completion[m_cliidx].busy = false;
+    pthread_spin_unlock(&m_state->client_splock);
+  }
+
   cleanup();
   delete m_mport;
 };
@@ -404,6 +430,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     // XXX NOTE: If this func is used from multiple threads this will be incorrect.
     //           However a trip into kernel for gettid(2) at each enq is unreasonable.
     opt.tid      = m_tid;
+    opt.cliidx   = m_cliidx;
     opt.not_before = 0 ; // XXX magic function from Barry
 
     m_state->dma_wr++;
@@ -440,8 +467,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 #ifdef DEBUG_BD
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
-  DBG("\n\tQueued DTYPE%d op=%s did=0x%x as BD HW @0x%lx bd_wp=%d pid=%d\n ticket=%llu",
-      wk.opt.dtype, dma_rtype_str[rtype], wk.opt.destid, m_dmadesc.win_handle + offset, wk.opt.bd_wp, m_pid, opt.ticket);
+  DBG("\n\tQueued DTYPE%d op=%s did=0x%x as BD HW @0x%lx bd_wp=%d pid=%d\n ticket=%llu cliidx=%d",
+      wk.opt.dtype, dma_rtype_str[rtype], wk.opt.destid, m_dmadesc.win_handle + offset, wk.opt.bd_wp, m_pid, opt.ticket, m_cliidx);
 
   if(queued_T3)
      DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_state->T3_bd_hw, wk_end.opt.bd_wp);
@@ -735,6 +762,8 @@ void DMAChannel::cleanup()
   delete m_shm_state; m_shm_state = NULL;
   delete m_shm_bl;    m_shm_bl    = NULL;
   m_state = NULL;
+
+  m_cliidx = -1;
 
   if (!m_hw_master) return;
 

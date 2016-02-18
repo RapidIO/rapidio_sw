@@ -70,6 +70,9 @@ class DMAChannel {
 public:
   static const int DMA_BUFF_DESCR_SIZE = 32;
 
+  static const int DMA_SHM_MAX_CLIENTS = 64;
+  static const int DMA_SHM_MAX_ITEMS_PER_CLIENT = 1024;
+
   enum {
     SIM_INJECT_TIMEOUT = 1,
     SIM_INJECT_ERR_RSP = 2,
@@ -99,6 +102,7 @@ public:
       uint64_t not_before; ///< earliest rdtsc ts when ticket can be checked
       pid_t    pid; ///< process id of enqueueing process
       pid_t    tid; ///< thread id of enqueueing thread; this is NOT a pthread id, it is issued by gettid(2)
+      int      cliidx;
   } DmaOptions_t;
 
   static const uint32_t WI_SIG = 0xb00fd00fL;
@@ -320,6 +324,7 @@ private:
   int umdemo_must_die = 0;
   pid_t               m_pid;
   pid_t               m_tid;
+  int                 m_cliidx; ///< Index into m_state->client_completion if running as client 
   bool                m_sim;        ///< Simulation: do not progtam HW with linear addrs of FIFO and BD array; do not read HW regs
   uint32_t            m_sim_dma_rp; ///< Simulated Tsi721 RP
   uint32_t            m_sim_fifo_wp; ///< Simulated Tsi721 FIFO WP
@@ -345,6 +350,30 @@ private:
   bool                m_hw_master;
 
   typedef struct {
+    uint64_t ticket;
+    uint16_t bcount;
+    uint8_t  data[16];
+  } NREAD_Result_t;
+
+  typedef struct {
+    bool     busy; ///< Did any client claim this?
+    pid_t    owner_pid;
+    uint64_t change_cnt; ///< Master bumps this when adds stuff
+
+    struct { ///< All per-client bad transactions reported here
+      uint32_t WP;
+      uint32_t RP;
+      uint64_t tickets[DMA_SHM_MAX_ITEMS_PER_CLIENT];
+    } bad_tik;
+
+    struct {
+      uint32_t WP;
+      uint32_t RP;
+      NREAD_Result_t results[DMA_SHM_MAX_ITEMS_PER_CLIENT];
+    } NREAD_T2_results;
+  } ShmClientCompl_t;
+
+  typedef struct {
     pid_t               master_pid;
     volatile int        restart_pending;
     uint64_t            dmadesc_win_handle; ///< Sharable among processes, mmap'able
@@ -362,8 +391,12 @@ private:
     uint64_t            T3_bd_hw;
     volatile int        hw_ready; ///< Set to 2 only in Master when BD and FIFO CMA mem allocated & hw programmed
     struct hw_dma_desc  BD0_T3_saved; ///< Pack this once, save, reuse when needed
+
     volatile uint64_t   serial_number;
     volatile uint64_t   acked_serial_number; ///< Arriere-garde of completed tickets
+
+    pthread_spinlock_t  client_splock; ///< Serialize access to clients' data structures.
+    ShmClientCompl_t    client_completion[DMA_SHM_MAX_CLIENTS];
   } DmaChannelState_t;
 
   DmaChannelState_t*  m_state;

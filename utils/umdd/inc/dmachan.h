@@ -355,6 +355,7 @@ private:
     uint8_t  data[16];
   } NREAD_Result_t;
 
+public:
   typedef struct {
     bool     busy; ///< Did any client claim this?
     pid_t    owner_pid;
@@ -399,12 +400,14 @@ private:
     ShmClientCompl_t    client_completion[DMA_SHM_MAX_CLIENTS];
   } DmaChannelState_t;
 
+private:
   DmaChannelState_t*  m_state;
 
   void cleanup();
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 
+public:
   typedef enum {
     BORKED = -1,
     INPROGRESS = 1,
@@ -413,11 +416,40 @@ private:
 
   TicketState_t checkTicket(const DmaOptions_t& opt);
  
-  /** Crude Seventh Edition-style check for SHM Master liveliness */
+  /** \brief Crude Seventh Edition-style check for SHM Master liveliness */
   inline bool pingMaster() {
     assert(m_state);
     if (m_hw_master) return true; // No-op
     return (kill(m_state->master_pid, 0) == 0);
+  }
+
+  /** \brief Brutal way of cleaning up dead clients. Locks out ALL clients during the proceedings
+   * \note This takes a trip into the kernel for each client. VERY SLOW.
+   */
+  inline void cleanupDeadClients() {
+    assert(m_state);
+
+    pthread_spin_lock(&m_state->client_splock);
+    for (int i = 0; i < DMA_SHM_MAX_CLIENTS; i++) {
+      if (!m_state->client_completion[i].busy) continue;
+      if (kill(m_state->client_completion[i].owner_pid, 0) == 0) continue;
+
+      // Cleanup
+      m_state->client_completion[i].owner_pid = -1;
+      m_state->client_completion[i].busy      = false;
+    }
+    pthread_spin_unlock(&m_state->client_splock);
+  }
+
+  /** \brief List clients. Locks out ALL clients shortly during the proceedings */
+  inline void listClients(ShmClientCompl_t* client_compl, const int client_compl_size) {
+    if (client_compl_size < sizeof(m_state->client_completion)) return;
+
+    assert(m_state);
+
+    pthread_spin_lock(&m_state->client_splock);
+    memcpy(client_compl, m_state->client_completion, sizeof(m_state->client_completion));
+    pthread_spin_unlock(&m_state->client_splock);
   }
 
   inline void setWriteCount(uint32_t cnt) { if (!m_sim) wr32dmachan(TSI721_DMAC_DWRCNT, cnt); }
