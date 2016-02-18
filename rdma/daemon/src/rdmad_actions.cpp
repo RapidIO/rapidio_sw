@@ -41,6 +41,57 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_srvr_threads.h"
 #include "rdmad_clnt_threads.h"
 
+static int send_disc_ms_cm(uint32_t server_destid,
+		    uint32_t server_msid,
+		    uint32_t client_msubid,
+		    uint64_t client_to_lib_tx_eng_h)
+{
+	cm_client *the_client;
+	int ret = 0;
+
+	/* Do we have an entry for that destid ? */
+	sem_wait(&hello_daemon_info_list_sem);
+	auto it = find(begin(hello_daemon_info_list),
+		       end(hello_daemon_info_list),
+		       server_destid);
+
+	/* If the server's destid is not found, just fail */
+	if (it == end(hello_daemon_info_list)) {
+		ERR("destid(0x%X) was not provisioned\n", server_destid);
+		ret = RDMA_REMOTE_UNREACHABLE;
+	} else {
+		/* Obtain pointer to socket object connected to destid */
+		the_client = it->client;
+	}
+	sem_post(&hello_daemon_info_list_sem);
+
+	if (ret == 0) {
+		cm_disconnect_req_msg *disc_msg;
+
+		/* Get and flush send buffer */
+		the_client->flush_send_buffer();
+		the_client->get_send_buffer((void **)&disc_msg);
+
+		disc_msg->type		    = htobe64(CM_DISCONNECT_MS_REQ);
+		disc_msg->client_msubid	    = htobe64(client_msubid);
+		disc_msg->client_destid     = htobe64(peer.destid);
+		disc_msg->client_destid_len = htobe64(16);
+		disc_msg->client_to_lib_tx_eng_h = htobe64(client_to_lib_tx_eng_h);
+		disc_msg->server_msid       = htobe64(server_msid);
+
+		/* Send buffer to server */
+		if (the_client->send()) {
+			ret = -1;
+		} else {
+			DBG("Sent DISCONNECT_MS for msid(0x%X) @ destid(0x%X)\n",
+					server_msid,
+					server_destid);
+		}
+	}
+
+	return ret;
+} /* send_disc_ms_cm() */
+
 int rdmad_destroy_mso(uint32_t msoid)
 {
 	int	rc;
