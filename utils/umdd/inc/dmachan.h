@@ -349,28 +349,67 @@ private:
 
   bool                m_hw_master;
 
+public:
   typedef struct {
     uint64_t ticket;
     uint16_t bcount;
     uint8_t  data[16];
   } NREAD_Result_t;
 
-public:
   typedef struct {
     bool     busy; ///< Did any client claim this?
     pid_t    owner_pid;
     uint64_t change_cnt; ///< Master bumps this when adds stuff
 
+    // EVIL PLAN: Keep WP, RP as 64-bit and use them modulo DMA_SHM_MAX_ITEMS_PER_CLIENT
+ 
     struct { ///< All per-client bad transactions reported here
-      uint32_t WP;
-      uint32_t RP;
+      volatile uint64_t WP;
+      volatile uint64_t RP;
       uint64_t tickets[DMA_SHM_MAX_ITEMS_PER_CLIENT];
+
+      inline uint64_t queueSize() {
+        assert(RP <= WP);
+        return WP-RP;
+      }
+
+      // Call following in splocked context!
+      inline bool enq(const uint64_t tik) {
+        if ((WP-RP) >= DMA_SHM_MAX_ITEMS_PER_CLIENT) return false; // FULL
+        tickets[(WP++ % DMA_SHM_MAX_ITEMS_PER_CLIENT)] = tik;
+        return true;
+      }
+      inline bool deq(uint64_t& tik) {
+        assert(RP <= WP);
+        if (WP == RP) return false; // empty
+        tik = tickets[(RP++ % DMA_SHM_MAX_ITEMS_PER_CLIENT)];
+        return true;
+      }
     } bad_tik;
 
     struct {
-      uint32_t WP;
-      uint32_t RP;
+      volatile uint64_t WP;
+      volatile uint64_t RP;
       NREAD_Result_t results[DMA_SHM_MAX_ITEMS_PER_CLIENT];
+
+      inline uint64_t queueSize() {
+        assert(RP <= WP);
+        return WP-RP;
+      }
+
+      // Call following in splocked context!
+      inline bool enq(const NREAD_Result_t& res) { // Call in splocked context!
+        if ((WP-RP) >= DMA_SHM_MAX_ITEMS_PER_CLIENT) return false; // FULL
+        results[(WP++ % DMA_SHM_MAX_ITEMS_PER_CLIENT)] = res;
+        return true;
+      }
+      inline bool deq(NREAD_Result_t& res) {
+        assert(RP <= WP);
+        if (WP == RP) return false; // empty
+        res = results[(WP++ % DMA_SHM_MAX_ITEMS_PER_CLIENT)];
+        return true;
+      }
+
     } NREAD_T2_results;
   } ShmClientCompl_t;
 
