@@ -1397,12 +1397,29 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
  */
 DMAChannel::TicketState_t DMAChannel::checkTicket(const DmaOptions_t& opt)
 {
+  assert(m_state);
+
   if (opt.ticket == 0 || opt.ticket > m_state->serial_number)
     throw std::runtime_error("DMAChannel: Invalid ticket!");
 
   if (rdtsc() < opt.not_before) return INPROGRESS;
 
+  bool found_bad = false;
+  if (m_state->client_completion[m_cliidx].bad_tik.queueSize() > 0) {
+    pthread_spin_lock(&m_state->client_splock);
+    for (uint64_t idx = m_state->client_completion[m_cliidx].bad_tik.RP; idx < m_state->client_completion[m_cliidx].bad_tik.WP; idx++) {
+      if (m_state->client_completion[m_cliidx].bad_tik.tickets[idx % DMA_SHM_MAX_ITEMS_PER_CLIENT]) {
+        found_bad = true;
+        break;
+      }
+    }
+    pthread_spin_unlock(&m_state->client_splock);
+  }
+
+  if (found_bad) return BORKED;
+
   if (m_state->acked_serial_number > opt.ticket) return COMPLETED;
 
+  // Should never get here
   return BORKED;
 }

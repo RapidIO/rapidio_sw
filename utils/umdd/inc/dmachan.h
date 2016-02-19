@@ -189,6 +189,20 @@ public:
     return r;
   }
 
+  /** \brief Dequeue 1st available faulted ticket
+   * \return true if something was dequeued
+   */
+  inline bool dequeueFaultedTucket(uint64_t& res)
+  {
+    assert(m_state);
+
+    pthread_spin_lock(&m_state->client_splock);
+    const bool r = m_state->client_completion[m_cliidx].bad_tik.deq(res);
+    pthread_spin_unlock(&m_state->client_splock);
+
+    return r;
+  }
+
   inline uint32_t queueSize()
   {
     return m_state->bl_busy_size;
