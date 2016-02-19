@@ -322,6 +322,7 @@ public:
 
 private:
   int umdemo_must_die = 0;
+  uint64_t            MHz_1e3;
   pid_t               m_pid;
   pid_t               m_tid;
   int                 m_cliidx; ///< Index into m_state->client_completion if running as client 
@@ -446,6 +447,23 @@ private:
   void cleanupSHM();
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
+
+  uint64_t computeNotBefore(const DmaOptions_t& opt) {
+    uint64_t ns = 0;
+    switch(opt.rtype) {
+        case NREAD:         ns = opt.bcount; break;
+        case LAST_NWRITE_R: ns = opt.bcount/2; break;
+        case ALL_NWRITE:    ns = opt.bcount/2; break;
+        case ALL_NWRITE_R:  ns = opt.bcount; break;
+        case MAINT_RD:
+        case MAINT_WR:
+             throw std::runtime_error("DMAChannel: Maint operations not supported!");
+             break;
+        default: assert(0); break;
+    }
+
+    return opt.ts_start + ns * MHz_1e3; // convert to microseconds, then to rdtsc units
+  }
 
 public:
   typedef enum {

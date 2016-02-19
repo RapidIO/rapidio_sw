@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "IDT_Tsi721.h"
 
+#include "mhz.h"
 #include "mport.h"
 #include "dmadesc.h"
 #include "rdtsc.h"
@@ -88,6 +89,8 @@ void DMAChannel::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
 
 void DMAChannel::init(const uint32_t chan)
 {
+  MHz_1e3 = getCPUMHz() * 1000; // pre-scale for later use
+
   m_pid = getpid();
   m_tid = gettid();
   snprintf(m_shm_state_name, 128, DMA_SHM_STATE_NAME, m_mportid, chan);
@@ -445,6 +448,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   if(m_check_reg && dmaCheckAbort(abort_reason)) {
     return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
   }
+
+  opt.not_before = computeNotBefore(opt); // not in locked context
 
   memset(&wk, 0, sizeof(wk));
   wk.mem = mem;
