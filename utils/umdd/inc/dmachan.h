@@ -394,7 +394,7 @@ public:
 
     // EVIL PLAN: Keep WP, RP as 64-bit and use them modulo DMA_SHM_MAX_ITEMS_PER_CLIENT
  
-    struct { ///< All per-client bad transactions reported here
+    typedef struct { ///< All per-client bad transactions reported here
       volatile uint64_t WP;
       volatile uint64_t RP;
       uint64_t tickets[DMA_SHM_MAX_ITEMS_PER_CLIENT];
@@ -416,9 +416,9 @@ public:
         tik = tickets[(RP++ % DMA_SHM_MAX_ITEMS_PER_CLIENT)];
         return true;
       }
-    } bad_tik;
+    } Faulted_Ticket_t;
 
-    struct {
+    typedef struct {
       volatile uint64_t WP;
       volatile uint64_t RP;
       NREAD_Result_t results[DMA_SHM_MAX_ITEMS_PER_CLIENT];
@@ -441,7 +441,10 @@ public:
         return true;
       }
 
-    } NREAD_T2_results;
+    } NREAD_T2_Res_t;
+
+    Faulted_Ticket_t bad_tik;
+    NREAD_T2_Res_t   NREAD_T2_results;
   } ShmClientCompl_t;
 
   typedef struct {

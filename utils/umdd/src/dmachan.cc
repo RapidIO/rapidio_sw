@@ -1405,10 +1405,11 @@ DMAChannel::TicketState_t DMAChannel::checkTicket(const DmaOptions_t& opt)
   if (rdtsc() < opt.not_before) return INPROGRESS;
 
   bool found_bad = false;
-  if (m_state->client_completion[m_cliidx].bad_tik.queueSize() > 0) {
+  ShmClientCompl_t::Faulted_Ticket_t& bad_tik = m_state->client_completion[m_cliidx].bad_tik;
+  if (bad_tik.queueSize() > 0) {
     pthread_spin_lock(&m_state->client_splock);
-    for (uint64_t idx = m_state->client_completion[m_cliidx].bad_tik.RP; idx < m_state->client_completion[m_cliidx].bad_tik.WP; idx++) {
-      if (m_state->client_completion[m_cliidx].bad_tik.tickets[idx % DMA_SHM_MAX_ITEMS_PER_CLIENT]) {
+    for (uint64_t idx = bad_tik.RP; idx < bad_tik.WP; idx++) {
+      if (opt.ticket == bad_tik.tickets[idx % DMA_SHM_MAX_ITEMS_PER_CLIENT]) {
         found_bad = true;
         break;
       }
