@@ -40,25 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "unix_sock.h"
 #include "rdmad_cm.h"
 #include "ts_vector.h"
+#include "daemon_info.h"
 
-struct hello_daemon_info {
-	hello_daemon_info(uint32_t destid, cm_client *client, pthread_t tid) :
-		client(client), destid(destid), tid(tid)
-	{
-	}
-
-
-	bool operator==(uint32_t destid)
-	{
-		return this->destid == destid;
-	}
-	cm_client	*client;
-	uint32_t	destid;
-	pthread_t	tid;
-};
-
-extern vector<hello_daemon_info>	hello_daemon_info_list;
-extern sem_t 				hello_daemon_info_list_sem;
 
 /**
  * Each daemon shall maintain a list of all connections to remote memory
@@ -117,6 +100,8 @@ struct connected_to_ms_info {
 	uint32_t server_destid;
 	tx_engine<unix_server,unix_msg_t> *to_lib_tx_eng;
 };
+
+extern daemon_list	hello_daemon_info_list;
 
 extern vector<connected_to_ms_info>	connected_to_ms_info_list;
 extern sem_t 				connected_to_ms_info_list_sem;

@@ -38,7 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 
 #include "cm_sock.h"
-#include "prov_daemon_info.h"
+#include "daemon_info.h"
 
 using std::vector;
 
@@ -46,10 +46,8 @@ void *accept_thread_f(void *arg);
 void *server_wait_disc_thread_f(void *arg);
 void *prov_thread_f(void *arg);
 
-
 /* List of destids provisioned via the provisioning thread */
-extern vector<prov_daemon_info>	prov_daemon_info_list;
-extern sem_t prov_daemon_info_list_sem;
+extern daemon_list	prov_daemon_info_list;
 
 #endif
 

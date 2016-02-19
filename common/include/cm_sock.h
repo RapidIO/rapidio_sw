@@ -75,6 +75,10 @@ private:
 class cm_base {
 
 public:
+	virtual int send(size_t len = CM_BUF_SIZE) = 0;
+
+	virtual int receive(size_t *rcvd_len = nullptr) = 0;
+
 	/* Return pointer to pre-allocated send buffer */
 	void get_send_buffer(void **buf)
 	{
@@ -141,7 +145,7 @@ protected:
 		gdb = is_debugger_present();
 	}
 
-	~cm_base()
+	virtual ~cm_base()
 	{
 		/* Delete send buffer */
 		if (send_buf)

@@ -54,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_inbound.h"
 #include "rdmad_ms_owners.h"
 #include "rdmad_peer_utils.h"
+#include "daemon_info.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_clnt_threads.h"
 #include "rdmad_console.h"
@@ -254,6 +255,7 @@ void shutdown(struct peer_info *peer)
 
 	/* Kill threads for remote daemons provisioned via incoming HELLO */
 	HIGH("Killing remote daemon threads provisioned via incoming HELLO\n");
+#if 0
 	sem_wait(&prov_daemon_info_list_sem);
 	for (auto it = begin(prov_daemon_info_list);
 	    it != end(prov_daemon_info_list);
@@ -273,9 +275,10 @@ void shutdown(struct peer_info *peer)
 	}
 	prov_daemon_info_list.clear();	/* Not really needed; we are exiting anyway */
 	sem_post(&prov_daemon_info_list_sem);
-
+#endif
 	/* Kill threads for remote daemons provisioned via outgoing HELLO */
 	HIGH("Killing remote daemon threads provisioned via outgoing HELLO\n");
+#if 0
 	sem_wait(&hello_daemon_info_list_sem);
 	for (auto it = begin(hello_daemon_info_list);
 	    it != end(hello_daemon_info_list);
@@ -295,7 +298,7 @@ void shutdown(struct peer_info *peer)
 	}
 	hello_daemon_info_list.clear();	/* Not really needed; we are exiting anyway */
 	sem_post(&hello_daemon_info_list_sem);
-
+#endif
 	/* Kill Tx/Rx engines */
 	sem_post(engine_cleanup_sem);
 
@@ -476,7 +479,7 @@ int main (int argc, char **argv)
 		CRIT("%s\n", e.what());
 		goto out_free_inbound;
 	}
-
+#if 0
 	if (sem_init(&hello_daemon_info_list_sem, 0, 1) == -1) {
 		CRIT("Failed to initialize hello_daemon_info_list_sem: %s\n",
 							strerror(errno));
@@ -487,6 +490,7 @@ int main (int argc, char **argv)
 							strerror(errno));
 		goto out_free_inbound;
 	}
+#endif
 	if (sem_init(&connected_to_ms_info_list_sem, 0, 1) == -1) {
 		CRIT("Failed to initialize connected_to_ms_info_list_sem: %s\n",
 							strerror(errno));

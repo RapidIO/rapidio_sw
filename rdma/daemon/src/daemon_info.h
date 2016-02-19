@@ -30,28 +30,75 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef PROV_DAEMON_INFO_H_
-#define PROV_DAEMON_INFO_H_
+#ifndef DAEMON_INFO_H_
+#define DAEMON_INFO_H_
 
 #include <stdint.h>
 #include <pthread.h>
 
+#include <vector>
+#include <memory>
+#include <mutex>
+#include <algorithm>
+
+#include "memory_supp.h"
 #include "cm_sock.h"
 
+using std::vector;
+using std::unique_ptr;
+using std::move;
+using std::find;
+using std::mutex;
+
+class daemon_list;
 
 /**
- * Info for remote daemons provisined by the provisioning thread
- * (i.e. by receiving a HELLO message).
+ * @brief Info for remote daemons provisined by the provisioning thread
+ * 	  (i.e. by receiving a HELLO message).
  */
-struct prov_daemon_info {
-	prov_daemon_info(uint32_t destid, cm_server *conn_disc_server, pthread_t tid)
-		: destid(destid), conn_disc_server(conn_disc_server), tid(tid)
-{	}
-	bool operator==(uint32_t destid) { return this->destid == destid; }
+class daemon_info
+{
+public:
+	friend daemon_list;
 
+	daemon_info(uint32_t destid,
+	   	   cm_base *cm_sock,
+		   pthread_t tid);
+
+	~daemon_info();
+
+	bool operator==(uint32_t destid);
+
+private:
 	uint32_t 	destid;
-	cm_server	*conn_disc_server;
+	cm_base		*cm_sock;
 	pthread_t	tid;
+};
+
+class daemon_list
+{
+public:
+	daemon_list() = default;
+
+	~daemon_list();
+
+	cm_base* get_cm_sock_by_destid(uint32_t destid);
+
+	void delete_if_exists(uint32_t destid);
+
+	void add_daemon(uint32_t destid, cm_base *cm_sock, pthread_t tid);
+
+	int remove_daemon(uint32_t destid);
+
+	void clear_daemons();
+
+private:
+	using daemon_element  = unique_ptr<daemon_info>;
+	using daemon_list_t   = vector<daemon_element>;
+	using daemon_iterator = daemon_list_t::iterator;
+
+	daemon_list_t	daemons;
+	mutex		daemons_mutex;
 };
 
 #endif

@@ -51,14 +51,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
 #include "rdmad_rx_engine.h"
+#include "daemon_info.h"
 
 using std::unique_ptr;
 using std::move;
 using std::make_shared;
 
 /* List of destids provisioned via the HELLO command/message */
-vector<hello_daemon_info>	hello_daemon_info_list;
-sem_t				hello_daemon_info_list_sem;
+daemon_list	hello_daemon_info_list;
 
 vector<connected_to_ms_info>	connected_to_ms_info_list;
 sem_t 				connected_to_ms_info_list_sem;
@@ -215,7 +215,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 	wait_accept_destroy_thread_info *wadti =
 			(wait_accept_destroy_thread_info *)arg;
 	uint32_t destid = wadti->destid;
-	cm_client *accept_destroy_client;
+	cm_client *accept_destroy_client = nullptr;
 
 	try {
 		/* Obtain pointer to hello_client */
@@ -254,12 +254,16 @@ void *wait_accept_destroy_thread_f(void *arg)
 		HIGH("HELLO ACK received from destid(0x%X)\n", destid);
 
 		/* Store remote daemon info in the 'hello' daemon list */
+#if 0
 		sem_wait(&hello_daemon_info_list_sem);
 		hello_daemon_info_list.emplace_back(destid,
 					accept_destroy_client, wadti->tid);
 		HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n",
 								wadti->destid);
 		sem_post(&hello_daemon_info_list_sem);
+#endif
+		hello_daemon_info_list.add_daemon(destid, accept_destroy_client,
+				wadti->tid);
 
 		/* Post semaphore to caller to indicate thread is up */
 		wadti->rc = 0;
@@ -305,6 +309,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			 * the list so we should NOT erase an element from it. */
 			if (!shutting_down) {
 				/* Remove entry from hello_daemon_info_list */
+#if 0
 				WARN("Removing entry from hello_daemon_info_list\n");
 				sem_wait(&hello_daemon_info_list_sem);
 				auto it = find(begin(hello_daemon_info_list),
@@ -313,6 +318,10 @@ void *wait_accept_destroy_thread_f(void *arg)
 				if (it != end(hello_daemon_info_list))
 					hello_daemon_info_list.erase(it);
 				sem_post(&hello_daemon_info_list_sem);
+#endif
+				if (hello_daemon_info_list.remove_daemon(destid)) {
+					ERR("Failed to remove destid(0x%X)\n");
+				}
 			}
 
 			delete accept_destroy_client;
@@ -492,7 +501,7 @@ int provision_rdaemon(uint32_t destid)
 	const auto FAILED_TO_ALLOCATE = -2;
 	const auto FAILED_TO_CREATE_THREAD = -3;
 	wait_accept_destroy_thread_info *wadti = NULL;
-
+#if 0
 	/* If the 'destid' is already known, kill its thread */
 	sem_wait(&hello_daemon_info_list_sem);
 	auto it = find(begin(hello_daemon_info_list), end(hello_daemon_info_list),
@@ -507,7 +516,7 @@ int provision_rdaemon(uint32_t destid)
 		pthread_kill(it->tid, SIGUSR1);
 	}
 	sem_post(&hello_daemon_info_list_sem);
-
+#endif
 	cm_client *hello_client = nullptr;
 
 	try {
