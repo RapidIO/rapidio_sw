@@ -123,6 +123,13 @@ public:
     uint64_t ts_end;
   } DmaCompl_t;
 
+  typedef struct {
+    uint64_t ticket;
+    uint16_t bcount;
+    uint8_t  data[16];
+  } NREAD_Result_t;
+
+public:
   DMAChannel(const uint32_t mportid, const uint32_t chan);
   DMAChannel(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_h);
   ~DMAChannel();
@@ -165,6 +172,21 @@ public:
 
     opt.dtype = DTYPE2;
     return queueDmaOpT12(rtype, opt, lmem, abort_reason, ts_p);
+  }
+
+  /** \brief Dequeue 1st available NREAD T2 result
+   * \note It is caller's responsability to match result with ticket
+   * \return true if something was dequeued
+   */
+  inline bool dequeueDmaNREADT2(NREAD_Result_t& res)
+  {
+    assert(m_state);
+
+    pthread_spin_lock(&m_state->client_splock);
+    const bool r = m_state->client_completion[m_cliidx].NREAD_T2_results.deq(res);
+    pthread_spin_unlock(&m_state->client_splock);
+
+    return r;
   }
 
   inline uint32_t queueSize()
@@ -352,12 +374,6 @@ private:
 
 public:
   typedef struct {
-    uint64_t ticket;
-    uint16_t bcount;
-    uint8_t  data[16];
-  } NREAD_Result_t;
-
-  typedef struct {
     volatile bool     busy; ///< Did any client claim this?
     pid_t             owner_pid;
     volatile uint64_t change_cnt; ///< Master bumps this when adds stuff
@@ -448,7 +464,8 @@ private:
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 
-  uint64_t computeNotBefore(const DmaOptions_t& opt) {
+  uint64_t computeNotBefore(const DmaOptions_t& opt)
+  {
     uint64_t ns = 0;
     switch(opt.rtype) {
         case NREAD:         ns = opt.bcount; break;
@@ -484,7 +501,8 @@ public:
   /** \brief Brutal way of cleaning up dead clients. Locks out ALL clients during the proceedings
    * \note This takes a trip into the kernel for each client. VERY SLOW.
    */
-  inline void cleanupDeadClients() {
+  inline void cleanupDeadClients()
+  {
     assert(m_state);
 
     pthread_spin_lock(&m_state->client_splock);
@@ -500,7 +518,8 @@ public:
   }
 
   /** \brief List clients. Locks out ALL clients shortly during the proceedings */
-  inline void listClients(ShmClientCompl_t* client_compl, const int client_compl_size) {
+  inline void listClients(ShmClientCompl_t* client_compl, const int client_compl_size)
+  {
     if (client_compl_size < sizeof(m_state->client_completion)) return;
 
     assert(m_state);
