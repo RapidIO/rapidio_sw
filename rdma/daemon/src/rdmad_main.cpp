@@ -84,7 +84,7 @@ static tx_engines_list	tx_eng_list;
 static rx_engines_list	rx_eng_list;
 
 static thread *engine_monitoring_thread;
-static sem_t  *engine_cleanup_sem;
+static sem_t  *engine_cleanup_sem = nullptr;
 
 static peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL, DEFAULT_PROV_MBOX_ID,
 			DEFAULT_CONSOLE_SKT, DEFAULT_RUN_CONS);
@@ -258,7 +258,9 @@ void shutdown(struct peer_info *peer)
 	HIGH("Killing remote daemon threads provisioned via outgoing HELLO\n");
 
 	/* Kill Tx/Rx engines */
-	sem_post(engine_cleanup_sem);
+	if (engine_cleanup_sem != nullptr) { /* Only if apps had connected */
+		sem_post(engine_cleanup_sem);
+	}
 
 	/* Next, kill provisioning thread */
 	HIGH("Killing provisioning thread\n");
