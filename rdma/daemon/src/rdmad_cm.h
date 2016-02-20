@@ -36,6 +36,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
+#include "liblog.h"
 #include "rdma_msg.h"
 
 constexpr auto CM_MS_NAME_MAX_LEN 	= 31;
@@ -66,6 +70,26 @@ struct cm_connect_msg {
 	/* Populated by daemon */
 	uint64_t	client_destid_len;  /* Client length of destid */
 	uint64_t	client_destid;	  /* Client node destination ID */
+
+	void dump()
+	{
+		DBG("client_msid = 0x%" PRIx64 "\n", be64toh(client_msid));
+		DBG("client_msubsid = 0x%" PRIx64 "\n",be64toh(client_msubid));
+		DBG("client_bytes = 0x%" PRIx64 "\n", be64toh(client_bytes));
+		DBG("client_rio_addr_len = 0x%" PRIx64 "\n",
+						be64toh(client_rio_addr_len));
+		DBG("client_rio_addr_lo = 0x%016" PRIx64 "\n",
+						be64toh(client_rio_addr_lo));
+		DBG("client_rio_addr_hi = 0x%016" PRIx64 "\n",
+						be64toh(client_rio_addr_hi));
+		DBG("client_destid_len = 0x%" PRIx64 "\n",
+						be64toh(client_destid_len));
+		DBG("client_destid = 0x%" PRIx64 "\n", be64toh(client_destid));
+		DBG("seq_num = 0x%016" PRIx64 "\n", be64toh(seq_num));
+		DBG("connh = 0x%016" PRIx64 "\n", be64toh(connh));
+		DBG("client_to_lib_tx_eng_h = 0x%" PRIx64 "\n",
+					be64toh(client_to_lib_tx_eng_h));
+	}
 };
 
 constexpr uint32_t CM_ACCEPT_MS_ACK  = 0x01;

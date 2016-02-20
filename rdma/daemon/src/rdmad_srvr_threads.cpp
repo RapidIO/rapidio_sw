@@ -215,29 +215,7 @@ void *wait_conn_disc_thread_f(void *arg)
 		if (be64toh(conn_msg->type) == CM_CONNECT_MS) {
 			HIGH("Received CONNECT_MS for '%s'. Contents:\n",
 						conn_msg->server_msname);
-			rx_conn_disc_server->dump_recv_buffer();
-			DBG("conn_msg->client_msid = 0x%" PRIx64 "\n",
-					be64toh(conn_msg->client_msid));
-			DBG("conn_msg->client_msubsid = 0x%" PRIx64 "\n",
-					be64toh(conn_msg->client_msubid));
-			DBG("conn_msg->client_bytes = 0x%" PRIx64 "\n",
-					be64toh(conn_msg->client_bytes));
-			DBG("conn_msg->client_rio_addr_len = 0x%" PRIx64 "\n",
-					be64toh(conn_msg->client_rio_addr_len));
-			DBG("conn_msg->client_rio_addr_lo = 0x%016" PRIx64 "\n",
-					be64toh(conn_msg->client_rio_addr_lo));
-			DBG("conn_msg->client_rio_addr_hi = 0x%016" PRIx64 "\n",
-					be64toh(conn_msg->client_rio_addr_hi));
-			DBG("conn_msg->client_destid_len = 0x%" PRIx64 "\n",
-					be64toh(conn_msg->client_destid_len));
-			DBG("conn_msg->client_destid = 0x%" PRIx64 "\n",
-					be64toh(conn_msg->client_destid));
-			DBG("conn_msg->seq_num = 0x%016" PRIx64 "\n",
-					be64toh(conn_msg->seq_num));
-			DBG("conn_msg->connh = 0x%016" PRIx64 "\n",
-					be64toh(conn_msg->connh));
-			DBG("conn_msg->client_to_lib_tx_eng_h = 0x%" PRIx64 "\n",
-					be64toh(conn_msg->client_to_lib_tx_eng_h));
+			conn_msg->dump();
 			mspace *ms = the_inbound->get_mspace(
 						conn_msg->server_msname);
 			if (ms == nullptr) {
