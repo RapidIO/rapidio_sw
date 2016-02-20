@@ -141,8 +141,9 @@ class mspace
 
 public:
 	/* Constructor */
-	mspace(const char *name, uint32_t msid, uint64_t rio_addr,
-					uint64_t phys_addr, uint64_t size);
+	mspace(const char *name, uint32_t msid,
+		uint64_t rio_addr, uint64_t phys_addr, uint64_t size);
+
 	/* Destructor */
 	~mspace();
 

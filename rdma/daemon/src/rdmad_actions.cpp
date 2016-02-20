@@ -90,7 +90,7 @@ int rdmad_destroy_mso(uint32_t msoid)
 	ms_owner *owner;
 
 	try {
-		owner = owners[msoid];
+		owner = the_inbound->get_owners()[msoid];
 		if (owner==nullptr) {
 			ERR("Invalid msoid(0x%X)\n", msoid);
 			rc = -1;
@@ -99,7 +99,7 @@ int rdmad_destroy_mso(uint32_t msoid)
 			rc = -2;
 		} else {
 			/* No memory spaces owned by mso, just destroy it */
-			rc = owners.destroy_mso(msoid);
+			rc = the_inbound->get_owners().destroy_mso(msoid);
 			if (rc) {
 				ERR("Failed to destroy msoid(0x%X)\n", msoid);
 			} else {
@@ -145,7 +145,7 @@ int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 
 		/* Add the memory space to the owner (if no errors) */
 		try {
-			owners[msoid]->add_ms(ms);
+			the_inbound->get_owners()[msoid]->add_ms(ms);
 			rc = 0;
 		}
 		catch(...) {

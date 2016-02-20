@@ -49,19 +49,19 @@ inline int rdmad_get_mport_id(int *mport_id)
 inline int rdmad_create_mso(const char *mso_name,
 			    uint32_t *msoid, tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	return owners.create_mso(mso_name, tx_eng, msoid);
+	return the_inbound->get_owners().create_mso(mso_name, tx_eng, msoid);
 } /* rdmad_create_mso() */
 
 inline int rdmad_open_mso(const char *mso_name, uint32_t *msoid,
 		tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	return owners.open_mso(mso_name, tx_eng, msoid);
+	return the_inbound->get_owners().open_mso(mso_name, tx_eng, msoid);
 } /* rdmad_open_mso() */
 
 inline int rdmad_close_mso(uint32_t msoid,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	return owners.close_mso(msoid, tx_eng);
+	return the_inbound->get_owners().close_mso(msoid, tx_eng);
 } /* rdmad_close_mso() */
 
 int rdmad_destroy_mso(uint32_t msoid);

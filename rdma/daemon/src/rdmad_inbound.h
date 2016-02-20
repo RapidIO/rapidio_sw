@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_mspace.h"
 #include "rdmad_ibwin.h"
 
+
 using std::vector;
 using std::mutex;
 
@@ -60,6 +61,7 @@ private:
 
 class unix_msg_t;
 class unix_server;
+class ms_owners;
 
 class inbound
 {
@@ -67,13 +69,18 @@ public:
 	/**
 	 * @brief Constructor
 	 *
+	 * @param owners	Memory space owners object
+	 *
 	 * @param mport_hand	Master port handle
 	 *
 	 * @param num_wins	Number of inbound windows to create
 	 *
 	 * @param win_size	Size of each inbound window, in bytes
 	 */
-	inbound(riomp_mport_t mport_hnd, unsigned num_wins, uint32_t win_size);
+	inbound(ms_owners &owners,
+		riomp_mport_t mport_hnd,
+		unsigned num_wins,
+		uint32_t win_size);
 
 	/**
 	 * @brief Destructor
@@ -102,6 +109,7 @@ public:
 	 */
 	unsigned get_num_ibwins() { return ibwins.size(); }
 	uint64_t get_ibwin_size() { return ibwin_size; }
+	ms_owners &get_owners() { return owners; }
 
 	/**
 	 * @brief Searches for and returns a memory space given its name
@@ -279,6 +287,7 @@ public:
 private:
 	using ibwin_list = vector<ibwin>;
 
+	ms_owners	&owners;
 	uint32_t 	ibwin_size;
 	ibwin_list	ibwins;
 	mutex		ibwins_mutex;

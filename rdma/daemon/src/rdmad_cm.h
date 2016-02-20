@@ -135,8 +135,9 @@ struct cm_destroy_ack_msg {
 	uint64_t server_msid;
 };
 
-// FIXME: This is currently unused. But should be used when we
-// use tx_engine and rx_engine for communication between two daemons.
+/* Currently only used when tx_engine and rx_engine templates
+ * are instantiated in terms of cm sockets and messages.
+ */
 struct cm_msg_t {
 	rdma_msg_type	type;
 	rdma_msg_cat	category;

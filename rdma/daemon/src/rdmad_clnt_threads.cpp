@@ -68,7 +68,7 @@ static int await_message(rx_engine<unix_server, unix_msg_t> *rx_eng,
 			rdma_msg_seq_no seq_no, unsigned timeout_in_secs,
 			unix_msg_t *out_msg)
 {
-	auto rc = 0;
+	int rc;
 
 	/* Prepare for reply */
 	auto reply_sem = make_shared<sem_t>();
@@ -479,10 +479,10 @@ int provision_rdaemon(uint32_t destid)
 {
 	int rc;
 
-	const auto FAILED_TO_CONNECT  = -1;
-	const auto FAILED_TO_ALLOCATE = -2;
-	const auto FAILED_TO_CREATE_THREAD = -3;
-	wait_accept_destroy_thread_info *wadti = NULL;
+	constexpr auto FAILED_TO_CONNECT  = -1;
+	constexpr auto FAILED_TO_ALLOCATE = -2;
+	constexpr auto FAILED_TO_CREATE_THREAD = -3;
+	wait_accept_destroy_thread_info *wadti = nullptr;
 	cm_client *hello_client = nullptr;
 
 	try {

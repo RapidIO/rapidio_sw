@@ -70,8 +70,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::shared_ptr;
 using std::make_shared;
 
-typedef vector<unix_rx_engine *>	rx_engines_list;
-typedef vector<unix_tx_engine *>	tx_engines_list;
+using rx_engines_list = vector<unix_rx_engine *>;
+using tx_engines_list = vector<unix_tx_engine *>;
 
 static tx_engines_list	tx_eng_list;
 static rx_engines_list	rx_eng_list;
@@ -83,7 +83,7 @@ struct peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL, DEFAULT_PROV_MBOX_
 			DEFAULT_CONSOLE_SKT, DEFAULT_RUN_CONS);
 
 /* Memory Space Owner data */
-ms_owners owners;
+static ms_owners owners;
 
 /* Inbound space */
 inbound *the_inbound;
@@ -212,7 +212,7 @@ int start_accepting_connections()
 
 			/* Create Tx and Rx engine per connection */
 			unix_rx_engine *rx_eng;
-			unix_tx_engine *tx_eng;	// FIXME: one for all?
+			unix_tx_engine *tx_eng;
 
 			tx_eng = new unix_tx_engine(other_server,
 							  engine_cleanup_sem);
@@ -424,7 +424,9 @@ int main (int argc, char **argv)
 
 	/* Create inbound space */
 	try {
-		the_inbound = new inbound(peer.mport_hnd,
+		the_inbound = new inbound(
+				 owners,
+				 peer.mport_hnd,
 				 2,		/* No. of windows */
 				 4*1024*1024);	/* Size in MB */
 	}

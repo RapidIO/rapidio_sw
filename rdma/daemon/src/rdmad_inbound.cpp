@@ -49,14 +49,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::lock_guard;
 
-inbound::inbound(riomp_mport_t mport_hnd,
+inbound::inbound(ms_owners &owners,
+		 riomp_mport_t mport_hnd,
 		 unsigned num_wins,
-		 uint32_t win_size) : ibwin_size(win_size), mport_hnd(mport_hnd)
+		 uint32_t win_size) : owners(owners),
+				      ibwin_size(win_size),
+				      mport_hnd(mport_hnd)
 {
 	/* Initialize inbound windows */
 	for (unsigned i = 0; i < num_wins; i++) {
 		try {
-			ibwin win(mport_hnd, i, win_size);
+			ibwin win(owners, mport_hnd, i, win_size);
 			ibwins.push_back(win);
 		}
 		catch(ibwin_map_exception& e) {

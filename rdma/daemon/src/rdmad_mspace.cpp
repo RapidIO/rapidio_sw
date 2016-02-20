@@ -45,7 +45,6 @@
 #include "rdmad_cm.h"
 #include "rdmad_mspace.h"
 #include "rdmad_msubspace.h"
-#include "rdmad_ms_owners.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_main.h"
 #include "rdmad_unix_msg.h"
@@ -56,13 +55,21 @@ using std::remove;
 using std::lock_guard;
 using std::unique_lock;
 
-mspace::mspace(const char *name, uint32_t msid, uint64_t rio_addr,
+mspace::mspace(	const char *name, uint32_t msid, uint64_t rio_addr,
                 uint64_t phys_addr, uint64_t size) :
-		name(name), msid(msid), rio_addr(rio_addr), phys_addr(
-		                phys_addr), size(size), msoid(0), free(true),
-		                connected_to(false), accepting(false),
-		                server_msubid(0), creator_tx_eng(nullptr),
-		                client_destid(0xFFFF), client_msubid(NULL_MSUBID),
+                		name(name),
+                		msid(msid),
+                		rio_addr(rio_addr),
+                		phys_addr(phys_addr),
+                		size(size),
+                		msoid(0),
+                		free(true),
+		                connected_to(false),
+		                accepting(false),
+		                server_msubid(0),
+		                creator_tx_eng(nullptr),
+		                client_destid(0xFFFF),
+		                client_msubid(NULL_MSUBID),
 		                client_to_lib_tx_eng_h(0)
 {
 	INFO("name=%s, msid=0x%08X, rio_addr=0x%" PRIx64 ", size=0x%X\n",
@@ -223,64 +230,53 @@ int mspace::destroy()
 	DBG("name=%s, msid=0x%08X, rio_addr=0x%" PRIx64 ", size=0x%X\n", name.c_str(),
 	                msid, rio_addr, size);
 
-	/* Before destroying a memory space, tell its clients that it is being
-	 * destroyed and have them acknowledge that. Then remove their destids */
-	if (notify_remote_clients()) {
-		WARN("Failed to notify some or all remote clients\n");
-		return -1;
-	}
-
-	/* Close connections from other local 'user' applications and
-	 * delete message queues used to communicate with those apps.
-	 */
-	if (close_connections()) {
-		WARN("Connection(s) to msid(0x%X) did not close\n", msid);
-		return -2;
-	}
-
-	/* Remove all subspaces; they can't exist when the memory space is
-	 * marked as free.
-	 */
-	INFO("Destroying all subspaces in '%s'\n", name.c_str());
-	unique_lock<mutex> msubspaces_lock(msubspaces_mutex);
-	msubspaces.clear();
-	msubspaces_lock.unlock();
-
-	/* Mark the memory space as free, and having no owner */
-	free = true;
-	name = "freemspace";
-	connected_to = false; /* No connections */
-	accepting = false;    /* Not accepting connections either */
-	creator_tx_eng = nullptr;	/* No tx_eng associated therewith */
-	client_destid = 0xFFFF;
-	client_msubid = NULL_MSUBID;
-	client_to_lib_tx_eng_h = 0;
-
-	/* Remove memory space identifier from owner */
-	ms_owner *owner;
-	int 	 ret = 0;
+	int rc;
 
 	try {
-		owner = owners[msoid];
-	} catch (...) {
-		ERR("Failed to find owner msoid(0x%X)\n", msoid);
-		ret = -3;
-	}
-
-	if (ret == 0) {
-		if (!owner) {
-			ERR("Failed to find owner msoid(0x%X)\n", msoid);
-			ret = -4;
-		} else if (owner->remove_ms(this)) {
-			WARN("Failed to remove ms from owner\n");
-			ret = -5;
+		/* Before destroying a memory space, tell its clients that
+		 * it is being destroyed and have them acknowledge that.
+		 * Then remove their destids */
+		rc = notify_remote_clients();
+		if (rc) {
+			WARN("Failed to notify some or all remote clients\n");
+			throw rc;
 		}
+
+		/* Close connections from other local 'user' applications and
+		 * delete message queues used to communicate with those apps.
+		 */
+		rc = close_connections();
+		if (rc) {
+			WARN("Connection(s) to msid(0x%X) did not close\n", msid);
+			throw rc;
+		}
+
+		/* Remove all subspaces; they can't exist when the memory space
+		 * is  marked as free. */
+		INFO("Destroying all subspaces in '%s'\n", name.c_str());
+		unique_lock<mutex> msubspaces_lock(msubspaces_mutex);
+		msubspaces.clear();
+		msubspaces_lock.unlock();
+
+		/* Mark the memory space as free, and having no owner */
+		free = true;
+		name = "freemspace";
+		connected_to = false; /* No connections */
+		accepting = false;    /* Not accepting connections either */
+		creator_tx_eng = nullptr;	/* No tx_eng associated therewith */
+		client_destid = 0xFFFF;
+		client_msubid = NULL_MSUBID;
+		client_to_lib_tx_eng_h = 0;
+
+		/* Clear the owner. No free space should have an owner */
+		set_msoid(0);
+	}
+	catch(int& e) {
+		rc = e;
 	}
 
-	/* Clear the owner. No free space should have an owner */
-	set_msoid(0);
 
-	return ret;
+	return rc;
 } /* destroy() */
 
 int mspace::add_rem_connection(uint16_t client_destid,

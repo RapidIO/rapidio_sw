@@ -49,7 +49,6 @@ using std::exception;
 using mspace_list = vector<mspace *>;
 using mspace_iterator = mspace_list::iterator;
 
-class mspace;
 
 /**
  * @brief Inbound window mapping exception
@@ -65,11 +64,16 @@ private:
 	const char *err;
 };
 
+class mspace;
+class ms_owners;
+
 class ibwin 
 {
 public:
 	/**
 	 * @brief Construct an inbound window object
+	 *
+	 * @param ms_owners	Memory space owners object
 	 *
 	 * @param mport_hnd	Master port handle
 	 *
@@ -80,7 +84,8 @@ public:
 	 * @throws ibwin_map_exception if failed during riomp_dma_ibwin_map()
 	 * @throws integer exception if failed during mutex initialization
 	 */
-	ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size);
+	ibwin(ms_owners &owners, riomp_mport_t mport_hnd, unsigned win_num,
+								uint64_t size);
 
 	/**
 	 * @brief	Copy constructor
@@ -262,6 +267,7 @@ private:
 	void merge_other_with_mspace(mspace_iterator current,
 				     mspace_iterator other);
 
+	ms_owners	&owners;	/* Reference to memory space owners */
 	riomp_mport_t mport_hnd;	/* Master port handle */
 	unsigned	win_num;	/* window number */
 	uint64_t	rio_addr;	/* starting address in RIO space */

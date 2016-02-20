@@ -46,8 +46,6 @@ extern struct peer_info	peer;
 
 extern inbound *the_inbound;
 
-extern ms_owners owners;
-
 extern bool shutting_down;
 
 #endif

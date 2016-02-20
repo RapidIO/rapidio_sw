@@ -44,6 +44,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdmad_mspace.h"
 #include "rdmad_ibwin.h"
+#include "rdmad_ms_owner.h"
+#include "rdmad_ms_owners.h"
 
 using std::find;
 using std::fill;
@@ -128,9 +130,10 @@ private:
 	const char *name;
 };
 
-ibwin::ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size) :
-	mport_hnd(mport_hnd), win_num(win_num), rio_addr(RIO_MAP_ANY_ADDR),
-	phys_addr(0), size(size)
+ibwin::ibwin(ms_owners &owners, riomp_mport_t mport_hnd,
+				unsigned win_num, uint64_t size) :
+	owners(owners), mport_hnd(mport_hnd), win_num(win_num),
+	rio_addr(RIO_MAP_ANY_ADDR), phys_addr(0), size(size)
 {
 	/* First, obtain an inbound handle from the mport driver */
 	if (riomp_dma_ibwin_map(mport_hnd, &rio_addr, size, &phys_addr)) {
@@ -263,10 +266,10 @@ struct ms_compare_t {
 } ms_compare;
 
 int ibwin::create_mspace(const char *name,
-		  	  uint64_t size,
-		  	  uint32_t msoid,
-		  	  mspace **ms,
-		  	  tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
+		  	 uint64_t size,
+		  	 uint32_t msoid,
+		  	 mspace **ms,
+		  	 tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
 {
 	/* As a precaution, check if a memory space by that name
 	 * already exists.  */
@@ -403,6 +406,27 @@ int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
 		if (ret) {
 			ERR("Failed to destroy msid(0x%X)\n", msid);
 			ret = RDMA_MS_DESTROY_FAIL;
+			goto exit;
+		}
+
+		/* Remove this memory space from the owner */
+		ms_owner *owner;
+
+		try {
+			owner = owners[msoid];
+		} catch (...) {
+			ERR("Failed to find owner msoid(0x%X)\n", msoid);
+			ret = -3;
+			goto exit;
+		}
+
+		if (owner == nullptr) {
+			ERR("Failed to find owner msoid(0x%X)\n", msoid);
+			ret = -4;
+			goto exit;
+		} else if (owner->remove_ms((*current_ms))) {
+			WARN("Failed to remove ms from owner\n");
+			ret = -5;
 			goto exit;
 		}
 

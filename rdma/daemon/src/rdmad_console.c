@@ -78,7 +78,7 @@ int owners_cmd_f(struct cli_env *env, int argc, char **argv)
 {
 	(void)argc;
 	(void)argv;
-	owners.dump_info(env);
+	the_inbound->get_owners().dump_info(env);
 	return 0;
 }
 
