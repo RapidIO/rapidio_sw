@@ -132,6 +132,7 @@ static int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 		in_msg.force_disconnect_ms_in.server_msubid = server_msubid;
 		it->to_lib_tx_eng->send_message(&in_msg);
 
+		/* Wait for an ACKnowldegement of the message */
 		unix_msg_t	out_msg;
 		rx_engine<unix_server, unix_msg_t> *rx_eng
 					= it->to_lib_tx_eng->get_rx_eng();
@@ -139,10 +140,10 @@ static int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 			rx_eng, RDMA_LIB_DAEMON_CALL, FORCE_DISCONNECT_MS_ACK,
 							0, 1, &out_msg);
 		bool ok = out_msg.force_disconnect_ms_ack_in.server_msid ==
-					in_msg.force_disconnect_ms_in.server_msid;
+				in_msg.force_disconnect_ms_in.server_msid;
 
 		ok &= out_msg.force_disconnect_ms_ack_in.server_msubid ==
-					in_msg.force_disconnect_ms_in.server_msubid;
+				in_msg.force_disconnect_ms_in.server_msubid;
 		if (rc) {
 			ERR("Timeout waiting for FORCE_DISCONNECT_MS_ACK\n");
 		} else if (!ok) {
@@ -161,7 +162,7 @@ static int send_force_disconnect_ms_to_lib(uint32_t server_msid,
  */
 int send_force_disconnect_ms_to_lib_for_did(uint32_t did)
 {
-	int ret = 0;
+	int ret = 0;	/* The list could be empty */
 
 	sem_wait(&connected_to_ms_info_list_sem);
 	for (auto& conn_to_ms : connected_to_ms_info_list) {
@@ -179,11 +180,11 @@ int send_force_disconnect_ms_to_lib_for_did(uint32_t did)
 
 	/* Now remove all entries delonging to 'did' from the
 	 * connected_to_ms_info_list */
-	auto it = remove(begin(connected_to_ms_info_list),
-			 end(connected_to_ms_info_list),
-			 did);
-	connected_to_ms_info_list.erase(it, end(connected_to_ms_info_list));
-
+	connected_to_ms_info_list.erase(
+			remove(begin(connected_to_ms_info_list),
+			       end(connected_to_ms_info_list),
+			       did),
+			end(connected_to_ms_info_list));
 	sem_post(&connected_to_ms_info_list_sem);
 
 	return ret;
@@ -233,7 +234,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 		/* Send HELLO message containing our destid */
 		hello_msg_t	*hm;
 		accept_destroy_client->get_send_buffer((void **)&hm);
-		hm->destid = htobe64(peer.destid);
+		hm->destid = htobe64(the_inbound->get_peer().destid);
 		if (accept_destroy_client->send()) {
 			ERR("Failed to send HELLO to destid(0x%X)\n", destid);
 			throw -3;
@@ -364,7 +365,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 			/* Compose the ACCEPT_FROM_MS_REQ that is to be sent
 			 * over to the BLOCKED rdma_conn_ms_h(). */
 			static unix_msg_t in_msg;
-			accept_from_ms_req_input *accept_msg = &in_msg.accept_from_ms_req_in;
+			accept_from_ms_req_input *accept_msg =
+						&in_msg.accept_from_ms_req_in;
 
 			in_msg.category = RDMA_LIB_DAEMON_CALL;
 			in_msg.type	= ACCEPT_FROM_MS_REQ;
@@ -488,6 +490,7 @@ int provision_rdaemon(uint32_t destid)
 	try {
 		/* Create provision client to connect to remote
 		 * daemon's provisioning thread */
+		peer_info &peer = the_inbound->get_peer();
 		hello_client = new cm_client("hello_client",
 						peer.mport_id,
 						peer.prov_mbox_id,

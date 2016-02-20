@@ -49,10 +49,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::lock_guard;
 
-inbound::inbound(ms_owners &owners,
+inbound::inbound(peer_info &peer,
+		 ms_owners &owners,
 		 riomp_mport_t mport_hnd,
 		 unsigned num_wins,
-		 uint32_t win_size) : owners(owners),
+		 uint32_t win_size) : peer(peer),
+				      owners(owners),
 				      ibwin_size(win_size),
 				      mport_hnd(mport_hnd)
 {

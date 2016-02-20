@@ -37,12 +37,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "unix_sock.h"
 #include "tx_engine.h"
+#include "rdmad_ms_owners.h"
 #include "rdmad_main.h"
 
 
 inline int rdmad_get_mport_id(int *mport_id)
 {
-	*mport_id = peer.mport_id;
+	*mport_id = the_inbound->get_peer().mport_id;
 	return 0;
 } /* rdmad_get_mport_id() */
 

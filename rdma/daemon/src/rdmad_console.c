@@ -47,6 +47,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 #include "rdmad_clnt_threads.h"
 #include "rdmad_cm.h"
+#include "rdmad_inbound.h"
+#include "rdmad_ms_owners.h"
+
 #include "libcli.h"
 
 int ibwin_info_cmd_f(struct cli_env *env, int argc, char **argv)
@@ -236,7 +239,7 @@ unsigned rdmad_cmds_size(void)
 void custom_quit(struct cli_env *e)
 {
 	(void)e;
-	shutdown(&peer);
+	shutdown(&the_inbound->get_peer());
 }
 
 /**

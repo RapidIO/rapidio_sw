@@ -73,7 +73,5 @@ struct peer_info
 	int	run_cons;	/* Run console on Daemon? */
 };
 
-extern struct peer_info peer;
-
 #endif
 

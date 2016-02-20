@@ -40,6 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_clnt_threads.h"
+#include "rdmad_ms_owner.h"
+#include "rdmad_ms_owners.h"
 
 static int send_disc_ms_cm(uint32_t server_destid,
 		    uint32_t server_msid,
@@ -65,7 +67,7 @@ static int send_disc_ms_cm(uint32_t server_destid,
 
 		disc_msg->type		    	 = htobe64(CM_DISCONNECT_MS_REQ);
 		disc_msg->client_msubid	    	 = htobe64(client_msubid);
-		disc_msg->client_destid     	 = htobe64(peer.destid);
+		disc_msg->client_destid     	 = htobe64(the_inbound->get_peer().destid);
 		disc_msg->client_destid_len 	 = htobe64(16);
 		disc_msg->client_to_lib_tx_eng_h = htobe64(client_to_lib_tx_eng_h);
 		disc_msg->server_msid       	 = htobe64(server_msid);
@@ -237,8 +239,8 @@ int rdmad_send_connect(const char *server_ms_name,
 	c->client_rio_addr_len	= htobe64((uint64_t)client_rio_addr_len);
 	c->client_rio_addr_lo	= htobe64(client_rio_addr_lo);
 	c->client_rio_addr_hi	= htobe64((uint64_t)client_rio_addr_hi);
-	c->client_destid_len	= htobe64(peer.destid_len);
-	c->client_destid	= htobe64(peer.destid);
+	c->client_destid_len	= htobe64(the_inbound->get_peer().destid_len);
+	c->client_destid	= htobe64(the_inbound->get_peer().destid);
 	c->seq_num		= htobe64((uint64_t)seq_num);
 	c->connh		= htobe64(connh);
 	c->client_to_lib_tx_eng_h = htobe64((uint64_t)to_lib_tx_eng);

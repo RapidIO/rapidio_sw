@@ -62,6 +62,7 @@ private:
 class unix_msg_t;
 class unix_server;
 class ms_owners;
+struct peer_info;
 
 class inbound
 {
@@ -77,7 +78,8 @@ public:
 	 *
 	 * @param win_size	Size of each inbound window, in bytes
 	 */
-	inbound(ms_owners &owners,
+	inbound(peer_info &peer,
+		ms_owners &owners,
 		riomp_mport_t mport_hnd,
 		unsigned num_wins,
 		uint32_t win_size);
@@ -110,6 +112,7 @@ public:
 	unsigned get_num_ibwins() { return ibwins.size(); }
 	uint64_t get_ibwin_size() { return ibwin_size; }
 	ms_owners &get_owners() { return owners; }
+	peer_info &get_peer() { return peer; }
 
 	/**
 	 * @brief Searches for and returns a memory space given its name
@@ -287,6 +290,7 @@ public:
 private:
 	using ibwin_list = vector<ibwin>;
 
+	peer_info	&peer;
 	ms_owners	&owners;
 	uint32_t 	ibwin_size;
 	ibwin_list	ibwins;

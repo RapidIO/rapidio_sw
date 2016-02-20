@@ -36,7 +36,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 
 void custom_quit(struct cli_env *e);
+
 extern struct cli_cmd *rdmad_cmds[];
+
 unsigned rdmad_cmds_size(void);
 
 /* Logging level */

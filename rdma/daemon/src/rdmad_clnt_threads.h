@@ -107,8 +107,11 @@ extern vector<connected_to_ms_info>	connected_to_ms_info_list;
 extern sem_t 				connected_to_ms_info_list_sem;
 
 int send_force_disconnect_ms_to_lib_for_did(uint32_t did);
+
 void *wait_accept_thread_f(void *arg);
+
 void *client_wait_destroy_thread_f(void *arg);
+
 int provision_rdaemon(uint32_t destid);
 
 #endif

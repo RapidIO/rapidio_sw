@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_msg.h"
 #include "rdmad_unix_msg.h"
 #include "cm_sock.h"
+#include "rdmad_cm.h"
 #include "rdmad_srvr_threads.h"
 
 int rdmad_is_alive_disp(const unix_msg_t *in_msg,
@@ -442,7 +443,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		cmam->server_rio_addr_lo = htobe64(conn_resp->server_rio_addr_lo);
 		cmam->server_rio_addr_hi = htobe64(conn_resp->server_rio_addr_hi);
 		cmam->server_destid_len = htobe64(16);
-		cmam->server_destid = htobe64(peer.destid);
+		cmam->server_destid = htobe64(the_inbound->get_peer().destid);
 		cmam->client_msid = htobe64(conn_resp->client_msid);
 		cmam->client_msubid = htobe64(conn_resp->client_msubid);
 		cmam->client_to_lib_tx_eng_h = htobe64(conn_resp->client_to_lib_tx_eng_h);

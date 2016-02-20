@@ -73,23 +73,24 @@ using std::make_shared;
 using rx_engines_list = vector<unix_rx_engine *>;
 using tx_engines_list = vector<unix_tx_engine *>;
 
+/* Inbound space */
+inbound *the_inbound;
+
+/* Global flag for shutting down */
+bool shutting_down = false;
+
+
 static tx_engines_list	tx_eng_list;
 static rx_engines_list	rx_eng_list;
 
 static thread *engine_monitoring_thread;
 static sem_t  *engine_cleanup_sem;
 
-struct peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL, DEFAULT_PROV_MBOX_ID,
+static peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL, DEFAULT_PROV_MBOX_ID,
 			DEFAULT_CONSOLE_SKT, DEFAULT_RUN_CONS);
 
 /* Memory Space Owner data */
 static ms_owners owners;
-
-/* Inbound space */
-inbound *the_inbound;
-
-/* Global flag for shutting down */
-bool shutting_down = false;
 
 static 	pthread_t console_thread;
 static	pthread_t prov_thread;
@@ -425,6 +426,7 @@ int main (int argc, char **argv)
 	/* Create inbound space */
 	try {
 		the_inbound = new inbound(
+				 peer,
 				 owners,
 				 peer.mport_hnd,
 				 2,		/* No. of windows */

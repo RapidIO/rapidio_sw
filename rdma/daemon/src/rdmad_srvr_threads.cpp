@@ -140,7 +140,7 @@ void *wait_conn_disc_thread_f(void *arg)
 	/* Send HELLO ACK with our own destid */
 	prov_server->get_send_buffer((void **)&hello_msg);
 	prov_server->flush_send_buffer();
-	hello_msg->destid = htobe64(peer.destid);
+	hello_msg->destid = htobe64(the_inbound->get_peer().destid);
 	if (prov_server->send()) {
 		CRIT("Failed to send HELLO_ACK message: %s. EXITING\n",
 							strerror(ret));
