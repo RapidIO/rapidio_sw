@@ -87,38 +87,11 @@ static void unprovision_did(uint32_t did)
 	if (prov_daemon_info_list.remove_daemon(did)) {
 		ERR("Failed to remove daemon entry for did(0x%X)\n", did);
 	}
-#if 0
-	sem_wait(&prov_daemon_info_list_sem);
-	/* Delete entry for dead 'did' from both daemon lists */
-	auto it1 = find (begin(prov_daemon_info_list),
-			end(prov_daemon_info_list),
-			did);
-	if (it1 != end(prov_daemon_info_list))
-		if (pthread_kill(it1->tid, SIGUSR1)) {
-			ERR("Failed to kill wait_conn_disc_thread\n");
-		}
-	/* Note: It is OK if it is not found; it means we took care of
-	 * it in wait_conn_disc_thread_f() when the cm receive failed. */
-	sem_post(&prov_daemon_info_list_sem);
-#endif
+
 	/* Unprovision from HELLO list */
 	if (hello_daemon_info_list.remove_daemon(did)) {
 		ERR("Failed to remove daemon entry for did(0x%X)\n", did);
 	}
-#if 0
-	sem_wait(&hello_daemon_info_list_sem);
-	auto it2 = find(begin(hello_daemon_info_list),
-			end(hello_daemon_info_list),
-			did);
-	if (it2 != end(hello_daemon_info_list))
-		if (pthread_kill(it2->tid, SIGUSR1)) {
-			ERR("Failed to kill wait_accept_destroy_thread\n");
-		}
-	/* Note: It is OK if it is not found; it means we took care of
-	 * it in wait_accept_destroy_thread_f() when the cm receive failed.
-	 */
-	sem_post(&hello_daemon_info_list_sem);
-#endif
 } /* un_provision_did() */
 
 static int provision_new_dids(uint32_t old_did_list_size,

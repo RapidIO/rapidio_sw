@@ -253,52 +253,9 @@ void shutdown(struct peer_info *peer)
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
 
-	/* Kill threads for remote daemons provisioned via incoming HELLO */
-	HIGH("Killing remote daemon threads provisioned via incoming HELLO\n");
-#if 0
-	sem_wait(&prov_daemon_info_list_sem);
-	for (auto it = begin(prov_daemon_info_list);
-	    it != end(prov_daemon_info_list);
-	    it++) {
-		/* We must post the semaphore so that the thread can access
-		 * the list. Otherwise we'll have a deadlock with the thread waiting
-		 * on the semaphore while we wait in pthread_join below!
-		 */
-		sem_post(&prov_daemon_info_list_sem);
-		ret = pthread_kill(it->tid, SIGUSR1);
-		if (ret == EINVAL) {
-			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
-		}
-		pthread_join(it->tid, NULL);
-		/* Thread has terminated and posted the semaphore. Lock again */
-		sem_wait(&prov_daemon_info_list_sem);
-	}
-	prov_daemon_info_list.clear();	/* Not really needed; we are exiting anyway */
-	sem_post(&prov_daemon_info_list_sem);
-#endif
 	/* Kill threads for remote daemons provisioned via outgoing HELLO */
 	HIGH("Killing remote daemon threads provisioned via outgoing HELLO\n");
-#if 0
-	sem_wait(&hello_daemon_info_list_sem);
-	for (auto it = begin(hello_daemon_info_list);
-	    it != end(hello_daemon_info_list);
-	    it++) {
-		/* We must post the semaphore so that the thread can access
-		 * the list. Otherwise we'll have a deadlock with the thread waiting
-		 * on the semaphore while we wait in pthread_join below!
-		 */
-		sem_post(&hello_daemon_info_list_sem);
-		ret = pthread_kill(it->tid, SIGUSR1);
-		if (ret == EINVAL) {
-			CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
-		}
-		pthread_join(it->tid, NULL);
-		/* Thread has terminated and posted the semaphore. Lock again */
-		sem_wait(&hello_daemon_info_list_sem);
-	}
-	hello_daemon_info_list.clear();	/* Not really needed; we are exiting anyway */
-	sem_post(&hello_daemon_info_list_sem);
-#endif
+
 	/* Kill Tx/Rx engines */
 	sem_post(engine_cleanup_sem);
 
@@ -479,18 +436,7 @@ int main (int argc, char **argv)
 		CRIT("%s\n", e.what());
 		goto out_free_inbound;
 	}
-#if 0
-	if (sem_init(&hello_daemon_info_list_sem, 0, 1) == -1) {
-		CRIT("Failed to initialize hello_daemon_info_list_sem: %s\n",
-							strerror(errno));
-		goto out_free_inbound;
-	}
-	if (sem_init(&prov_daemon_info_list_sem, 0, 1) == -1) {
-		CRIT("Failed to initialize prov_daemon_info_list_sem: %s\n",
-							strerror(errno));
-		goto out_free_inbound;
-	}
-#endif
+
 	if (sem_init(&connected_to_ms_info_list_sem, 0, 1) == -1) {
 		CRIT("Failed to initialize connected_to_ms_info_list_sem: %s\n",
 							strerror(errno));
@@ -516,7 +462,8 @@ int main (int argc, char **argv)
 	}
 
 	/* Create remote CLI terminal thread */
-	rc = pthread_create(&cli_session_thread, NULL, cli_session, (void*)(&peer.cons_skt));
+	rc = pthread_create(&cli_session_thread, NULL, cli_session,
+						(void*)(&peer.cons_skt));
 	if(rc) {
 		CRIT("Failed to create cli_session_thread: %s\n", strerror(errno));
 		rc = 9;

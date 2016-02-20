@@ -406,9 +406,6 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 	static unix_msg_t out_msg;
 	auto 	   rc = 0;
 
-#if 0
-	sem_wait(&prov_daemon_info_list_sem);
-#endif
 	try {
 		/* Short form */
 		const connect_to_ms_resp_input *conn_resp =
@@ -423,18 +420,6 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 					conn_resp->client_destid);
 			throw RDMA_REMOTE_UNREACHABLE;
 		}
-#if 0
-		auto it = find(begin(prov_daemon_info_list),
-				end(prov_daemon_info_list),
-				conn_resp->client_destid);
-		if (it != end(prov_daemon_info_list)) {
-			conn_server = it->conn_disc_server;
-		} else {
-			CRIT("No server provisioned for destid(0x%X)\n",
-					conn_resp->client_destid);
-			throw RDMA_REMOTE_UNREACHABLE;
-		}
-#endif
 		mspace *ms = the_inbound->get_mspace(conn_resp->server_msid);
 		if (ms == nullptr) {
 			CRIT("Cannot find memory space msid(0x%X)\n",
@@ -483,9 +468,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 	out_msg.seq_no 	 = in_msg->seq_no;
 	out_msg.connect_to_ms_resp_out.status = rc;
 	tx_eng->send_message(&out_msg);
-#if 0
-	sem_post(&prov_daemon_info_list_sem);
-#endif
+
 	DBG("EXIT\n");
 	return rc;
 } /* connect_msg_resp_disp() */

@@ -121,19 +121,6 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 	   (this->client_to_lib_tx_eng_h == client_to_lib_tx_eng_h)) {
 		server =
 		     prov_daemon_info_list.get_cm_sock_by_destid(client_destid);
-#if 0
-		sem_wait(&prov_daemon_info_list_sem);
-		auto prov_it = find(begin(prov_daemon_info_list),
-		                end(prov_daemon_info_list), client_destid);
-		if (prov_it == end(prov_daemon_info_list)) {
-			ERR("Could not find entry for client_destid(0x%X)\n",
-							client_destid);
-			rc = RDMA_REMOTE_UNREACHABLE;
-		} else {
-			server = prov_it->conn_disc_server;
-		}
-		sem_post(&prov_daemon_info_list_sem);
-#endif
 	} else {
 		/* If the mspace creator does NOT match on the client_msubid,
 		 * client_to_lib_tx_eng_h (connh) or is NOT 'connected_to', then
@@ -156,19 +143,6 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 			 * user's destid in the prov_daemon_info_list */
 			server = prov_daemon_info_list.get_cm_sock_by_destid(
 					     	     	     	client_destid);
-#if 0
-			sem_wait(&prov_daemon_info_list_sem);
-			auto prov_it = find(begin(prov_daemon_info_list),
-			                end(prov_daemon_info_list), it->client_destid);
-			if (prov_it == end(prov_daemon_info_list)) {
-				ERR("Could not find entry for client_destid(0x%X)\n",
-								it->client_destid);
-				rc = RDMA_REMOTE_UNREACHABLE;
-			} else {
-				server = prov_it->conn_disc_server;
-			}
-			sem_post(&prov_daemon_info_list_sem);
-#endif
 		}
 	}
 
@@ -196,22 +170,6 @@ int mspace::notify_remote_clients()
 		rc = send_cm_force_disconnect_ms(dynamic_cast<cm_server *>(server),
 						 server_msubid,
 						 client_to_lib_tx_eng_h);
-#if 0
-		sem_wait(&prov_daemon_info_list_sem);
-		auto prov_it = find(begin(prov_daemon_info_list),
-		                end(prov_daemon_info_list), client_destid);
-		if (prov_it == end(prov_daemon_info_list)) {
-			ERR("Could not find entry for client_destid(0x%X)\n",
-							client_destid);
-			rc = -1;
-		} else {
-			rc = send_cm_force_disconnect_ms(
-						prov_it->conn_disc_server,
-						server_msubid,
-						client_to_lib_tx_eng_h);
-		}
-		sem_post(&prov_daemon_info_list_sem);
-#endif
 	} else {
 		rc = 0;
 		/* It is not the creator who has a connection; search users */
@@ -230,23 +188,6 @@ int mspace::notify_remote_clients()
 			rc = send_cm_force_disconnect_ms(dynamic_cast<cm_server *>(server),
 							u.server_msubid,
 							u.client_to_lib_tx_eng_h);
-
-#if 0
-			sem_wait(&prov_daemon_info_list_sem);
-			auto prov_it = find(begin(prov_daemon_info_list),
-			                end(prov_daemon_info_list), u.client_destid);
-			if (prov_it == end(prov_daemon_info_list)) {
-				ERR("Could not find entry for client_destid(0x%X)\n",
-								client_destid);
-				rc = -1;
-			} else if (u.connected_to) {
-				rc = send_cm_force_disconnect_ms(
-							prov_it->conn_disc_server,
-							u.server_msubid,
-							u.client_to_lib_tx_eng_h);
-			}
-			sem_post(&prov_daemon_info_list_sem);
-#endif
 		}
 	}
 

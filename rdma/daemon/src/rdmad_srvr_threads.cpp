@@ -150,19 +150,6 @@ void *wait_conn_disc_thread_f(void *arg)
 	}
 	DBG("Sent HELLO_ACK message back\n");
 
-	/* If destid already in our list, kill its thread; we are replacing it */
-#if 0
-	sem_wait(&prov_daemon_info_list_sem);
-	auto it = find(begin(prov_daemon_info_list),
-		       end(prov_daemon_info_list), remote_destid);
-	if (it != end(prov_daemon_info_list)) {
-		WARN("Killing thread for known destid(0x%X).\n",
-						remote_destid);
-		pthread_kill(it->tid, SIGUSR1);
-	}
-	sem_post(&prov_daemon_info_list_sem);
-#endif
-
 	/* Create CM server object based on the accept socket */
 	cm_server *rx_conn_disc_server;
 	try {
@@ -183,15 +170,7 @@ void *wait_conn_disc_thread_f(void *arg)
 	prov_daemon_info_list.add_daemon(remote_destid,
 			   	   	 rx_conn_disc_server,
 			   	   	 wcdti->tid);
-#if 0
-	sem_wait(&prov_daemon_info_list_sem);
-	prov_daemon_info_list.emplace_back(remote_destid,
-					   rx_conn_disc_server,
-					   wcdti->tid);
-	sem_post(&prov_daemon_info_list_sem);
-	DBG("prov_daemon_info_list now has %u destids\n",
-						prov_daemon_info_list.size());
-#endif
+
 	/* Notify prov_thread so it can loop back and accept more connections */
 	wcdti->ret_code = 0;		/* No errors. HELLO exchange worked. */
 	sem_post(&wcdti->started);	/* Unblock provisioning thread */
@@ -224,19 +203,6 @@ void *wait_conn_disc_thread_f(void *arg)
 					ERR("Failed to remove entry for destid(0x%X)\n",
 							remote_destid);
 				}
-#if 0
-				sem_wait(&prov_daemon_info_list_sem);
-				auto it = find(begin(prov_daemon_info_list),
-					       end(prov_daemon_info_list),
-					       remote_destid);
-				if (it != end(prov_daemon_info_list))
-					prov_daemon_info_list.erase(it);
-				else {
-					WARN("Entry for destid(0x%X)\n not found",
-							remote_destid);
-				}
-				sem_post(&prov_daemon_info_list_sem);
-#endif
 				CRIT("Exiting thread on error\n");
 			}
 			pthread_exit(0);

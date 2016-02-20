@@ -254,14 +254,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 		HIGH("HELLO ACK received from destid(0x%X)\n", destid);
 
 		/* Store remote daemon info in the 'hello' daemon list */
-#if 0
-		sem_wait(&hello_daemon_info_list_sem);
-		hello_daemon_info_list.emplace_back(destid,
-					accept_destroy_client, wadti->tid);
-		HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n",
-								wadti->destid);
-		sem_post(&hello_daemon_info_list_sem);
-#endif
 		hello_daemon_info_list.add_daemon(destid, accept_destroy_client,
 				wadti->tid);
 
@@ -309,16 +301,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 			 * the list so we should NOT erase an element from it. */
 			if (!shutting_down) {
 				/* Remove entry from hello_daemon_info_list */
-#if 0
-				WARN("Removing entry from hello_daemon_info_list\n");
-				sem_wait(&hello_daemon_info_list_sem);
-				auto it = find(begin(hello_daemon_info_list),
-					       end(hello_daemon_info_list),
-					       destid);
-				if (it != end(hello_daemon_info_list))
-					hello_daemon_info_list.erase(it);
-				sem_post(&hello_daemon_info_list_sem);
-#endif
 				if (hello_daemon_info_list.remove_daemon(destid)) {
 					ERR("Failed to remove destid(0x%X)\n");
 				}
@@ -501,22 +483,6 @@ int provision_rdaemon(uint32_t destid)
 	const auto FAILED_TO_ALLOCATE = -2;
 	const auto FAILED_TO_CREATE_THREAD = -3;
 	wait_accept_destroy_thread_info *wadti = NULL;
-#if 0
-	/* If the 'destid' is already known, kill its thread */
-	sem_wait(&hello_daemon_info_list_sem);
-	auto it = find(begin(hello_daemon_info_list), end(hello_daemon_info_list),
-			destid);
-	if (it != end(hello_daemon_info_list)) {
-		WARN("destid(0x%X) is already known\n", destid);
-		/* FIXME: 1. When does this happen?
-		 * 	  2. Don't we also need to remove the entry from
-		 * 	  hello_daemon_info_list so we don't have multiple entries
-		 * 	  for the same destid?
-		 */
-		pthread_kill(it->tid, SIGUSR1);
-	}
-	sem_post(&hello_daemon_info_list_sem);
-#endif
 	cm_client *hello_client = nullptr;
 
 	try {

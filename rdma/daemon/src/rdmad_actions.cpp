@@ -55,22 +55,7 @@ static int send_disc_ms_cm(uint32_t server_destid,
 		ERR("destid(0x%X) was not provisioned\n", server_destid);
 		ret = RDMA_REMOTE_UNREACHABLE;
 	}
-#if 0
-	sem_wait(&hello_daemon_info_list_sem);
-	auto it = find(begin(hello_daemon_info_list),
-		       end(hello_daemon_info_list),
-		       server_destid);
 
-	/* If the server's destid is not found, just fail */
-	if (it == end(hello_daemon_info_list)) {
-		ERR("destid(0x%X) was not provisioned\n", server_destid);
-		ret = RDMA_REMOTE_UNREACHABLE;
-	} else {
-		/* Obtain pointer to socket object connected to destid */
-		the_client = it->client;
-	}
-	sem_post(&hello_daemon_info_list_sem);
-#endif
 	if (ret == 0) {
 		cm_disconnect_req_msg *disc_msg;
 
@@ -233,22 +218,6 @@ int rdmad_send_connect(const char *server_ms_name,
 {
 	DBG("ENTER\n");
 	/* Do we have an entry for that destid ? */
-#if 0
-	sem_wait(&hello_daemon_info_list_sem);
-	auto it = find(begin(hello_daemon_info_list),
-		       end(hello_daemon_info_list),
-			server_destid);
-
-	/* If the server's destid is not found, just fail */
-	DBG("hello_daemon_info_list() has %u entries\n",
-					hello_daemon_info_list.size());
-	if (it == end(hello_daemon_info_list)) {
-		ERR("destid(0x%X) was not provisioned\n", server_destid);
-		sem_post(&hello_daemon_info_list_sem);
-		return RDMA_REMOTE_UNREACHABLE;
-	}
-	sem_post(&hello_daemon_info_list_sem);
-#endif
 	/* Obtain pointer to socket object already connected to destid */
 	cm_base   *main_client =
 		hello_daemon_info_list.get_cm_sock_by_destid(server_destid);
