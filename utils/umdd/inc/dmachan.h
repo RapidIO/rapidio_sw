@@ -192,7 +192,7 @@ public:
   /** \brief Dequeue 1st available faulted ticket
    * \return true if something was dequeued
    */
-  inline bool dequeueFaultedTucket(uint64_t& res)
+  inline bool dequeueFaultedTicket(uint64_t& res)
   {
     assert(m_state);
 
