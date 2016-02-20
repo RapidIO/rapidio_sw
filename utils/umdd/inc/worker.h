@@ -211,6 +211,8 @@ struct worker {
 	struct timespec min_iter_time; /* Minimum time over all iterations */
 	struct timespec max_iter_time; /* Maximum time over all iterations */
 
+	struct timespec fifo_work_time; /* Last time FIFO had work to do */
+
 #ifdef USER_MODE_DRIVER
 	void            (*owner_func)(struct worker*);     ///< Who is the owner of this
 	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this

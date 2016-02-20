@@ -635,6 +635,8 @@ bool umd_check_cpu_allocation(struct worker *info)
 
 void umd_shm_goodput_demo(struct worker *info)
 {
+	bool fifo_unwork_ACK = false;
+
 	if (! umd_check_cpu_allocation(info)) return;
 	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
@@ -681,12 +683,14 @@ void umd_shm_goodput_demo(struct worker *info)
         DMAChannel::WorkItem_t wi[info->umd_sts_entries*8];
         memset(wi, 0, sizeof(wi));
 
+	clock_gettime(CLOCK_MONOTONIC, &info->iter_st_time);
         while (!info->stop_req) {
                 const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
                 if (!cnt)
-                        continue;
+                        goto next;
 
-                get_seq_ts(&info->fifo_ts);
+		fifo_unwork_ACK = false;
+                clock_gettime(CLOCK_MONOTONIC, &info->fifo_work_time);
 
                 for (int i = 0; i < cnt; i++) {
                         DMAChannel::WorkItem_t& item = wi[i];
@@ -706,7 +710,40 @@ void umd_shm_goodput_demo(struct worker *info)
 
                         wi[i].valid = 0xdeadabba;
                 } // END for WorkItem_t vector
-                clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+
+	next:
+                if (!cnt) clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
+                else      info->iter_end_time = info->fifo_work_time;
+
+		bool check_abort = false;
+		do {
+			if (info->umd_dch->queueFull()) { check_abort = true; break; }
+
+			struct timespec dT = time_difference(info->iter_end_time, info->iter_st_time);
+			const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
+			if (nsec > 10 * 1000000) { // Every 10 ms
+				info->iter_st_time = info->iter_end_time;
+				check_abort = true;
+				break;
+			}
+
+			if (cnt) break;
+			if (fifo_unwork_ACK) break; // No sense polling PCIe sensessly
+
+			struct timespec dT_FIFO = time_difference(info->iter_end_time, info->fifo_work_time);
+			const uint64_t nsec_FIFO = dT_FIFO.tv_nsec + (dT_FIFO.tv_sec * 1000000000);
+			if (nsec_FIFO > 100 * 1000) { // Nothing popped in FIFO in the last 100 microsec
+				fifo_unwork_ACK = true;
+				check_abort = true;
+				break;
+			}
+		} while(0);
+
+		if (check_abort && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) {
+			CRIT("\n\tDMA abort 0x%x: %s. SOFT RESTART\n", info->umd_dma_abort_reason,
+			     DMAChannel::abortReasonToStr(info->umd_dma_abort_reason));
+			info->umd_dch->softRestart(true);
+		}
         } // END while
 
         goto exit_nomsg;

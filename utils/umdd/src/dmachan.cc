@@ -1068,6 +1068,22 @@ void DMAChannel::softRestart(const bool nuke_bds)
   memset(m_dmacompl.win_ptr, 0, m_dmacompl.win_size);
   m_state->fifo_rd = 0;
 
+  if (nuke_bds) { // Declare ALL tickets toast
+    pthread_spin_lock(&m_state->client_splock);
+    for (int idx = 1; idx < (m_state->bd_num - 1); idx++) {
+      if (! m_bl_busy[idx]) continue;
+
+      const uint64_t ticket = m_pending_work[idx].opt.ticket;
+      const int cliidx      = m_pending_work[idx].opt.cliidx;
+
+      m_state->client_completion[cliidx].bad_tik.enq(ticket);
+    }
+    pthread_spin_unlock(&m_state->client_splock);
+
+    // FUUDGE
+    m_state->acked_serial_number = m_state->serial_number;
+  }
+
   if (nuke_bds) {
     // Clear BDs
     memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
