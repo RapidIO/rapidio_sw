@@ -86,8 +86,8 @@ static rx_engines_list	rx_eng_list;
 static thread *engine_monitoring_thread;
 static sem_t  *engine_cleanup_sem = nullptr;
 
-static peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL, DEFAULT_PROV_MBOX_ID,
-			DEFAULT_CONSOLE_SKT, DEFAULT_RUN_CONS);
+static peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL,
+		DEFAULT_PROV_MBOX_ID, DEFAULT_CONSOLE_SKT, DEFAULT_RUN_CONS);
 
 /* Memory Space Owner data */
 static ms_owners owners;
@@ -100,14 +100,6 @@ static unix_server *server;
 
 static unix_msg_processor	d2l_msg_proc;
 
-struct lib_connections_ti
-{
-	lib_connections_ti(int accept_socket) : accept_socket(accept_socket), tid(0)
-	{}
-	int accept_socket;
-	sem_t	started;
-	pthread_t tid;
-};
 
 void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 {
