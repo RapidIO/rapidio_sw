@@ -335,8 +335,13 @@ bool foreground(void)
 int main (int argc, char **argv)
 {
 	int c;
-	int rc = 0;
+	int rc;
 	int cons_ret;
+	constexpr auto OUT_KILL_CONSOLE_THREAD = 4;
+	constexpr auto OUT_CLOSE_PORT = 5;
+	constexpr auto OUT_DELETE_INBOUND = 6;
+	constexpr auto OUT_KILL_PROV_THREAD = 7;
+	constexpr auto OUT_KILL_FM_THREAD = 8;
 
 	/* Do no show console if started in background mode (rdmad &) */
 	if (!foreground())
@@ -369,125 +374,145 @@ int main (int argc, char **argv)
 			abort(); /* Unexpected error */
 		}
 
-	/* Initialize logger */
-	if (rdma_log_init("rdmad.log", 1)) {
-		puts("Failed to initialize logging system");
-		return 1;
+	try {
+		/* Initialize logger */
+		if (rdma_log_init("rdmad.log", 1)) {
+			puts("Failed to initialize logging system");
+			throw 1;
+		}
+
+		/* Prepare and start console thread, if applicable */
+		if (peer.run_cons) {
+			cli_init_base(custom_quit);
+
+			add_commands_to_cmd_db(rdmad_cmds_size()/sizeof(rdmad_cmds[0]),
+					rdmad_cmds);
+			liblog_bind_cli_cmds();
+			splashScreen((char *)"RDMA Daemon Command Line Interface");
+			cons_ret = pthread_create( &console_thread, NULL,
+					console, (void *)((char *)"RDMADaemon> "));
+			if(cons_ret) {
+				CRIT("Failed to start console, rc: %d\n", cons_ret);
+				throw 2;
+			}
+		}
+
+		/* Register signal handler */
+		struct sigaction sig_action;
+		sig_action.sa_handler = sig_handler;
+		sigemptyset(&sig_action.sa_mask);
+		sig_action.sa_flags = 0;
+		sigaction(SIGINT, &sig_action, NULL);
+		sigaction(SIGTERM, &sig_action, NULL);
+		sigaction(SIGQUIT, &sig_action, NULL);
+		sigaction(SIGABRT, &sig_action, NULL);
+		sigaction(SIGUSR1, &sig_action, NULL);
+		sigaction(SIGSEGV, &sig_action, NULL);
+
+		/* Open mport */
+		rc = riomp_mgmt_mport_create_handle(peer.mport_id, 0, &peer.mport_hnd);
+		if (rc < 0) {
+			CRIT("Failed in riomp_mgmt_mport_create_handle(): %s\n",
+								strerror(-rc));
+			throw OUT_KILL_CONSOLE_THREAD;
+		}
+		DBG("peer.mport_hnd = 0x%X\n", peer.mport_hnd);
+
+		/* Query device information, and store destid */
+		struct riomp_mgmt_mport_properties prop;
+
+		rc = riomp_mgmt_query(peer.mport_hnd, &prop);
+		if (rc != 0) {
+			CRIT("Failed in riodp_query_mport(): %s\n", strerror(errno));
+			throw OUT_CLOSE_PORT;
+		}
+		peer.destid = prop.hdid;
+		INFO("mport(%d), destid = 0x%X\n",
+					peer.mport_id, peer.destid);
+
+		/* Create inbound space */
+		try {
+			the_inbound = new inbound(
+					peer,
+					owners,
+					peer.mport_hnd,
+					2,		/* No. of windows */
+					4*1024*1024);	/* Size in MB */
+		}
+		catch(std::bad_alloc& e) {
+			CRIT("Failed to allocate the_inbound\n");
+			throw OUT_CLOSE_PORT;
+		}
+		catch(inbound_exception& e) {
+			CRIT("%s\n", e.what());
+			throw OUT_CLOSE_PORT;
+		}
+
+		if (sem_init(&connected_to_ms_info_list_sem, 0, 1) == -1) {
+			CRIT("Failed to initialize connected_to_ms_info_list_sem: %s\n",
+							strerror(errno));
+			throw OUT_DELETE_INBOUND;
+		}
+
+		/* Create provisioning thread */
+		rc = pthread_create(&prov_thread, NULL, prov_thread_f, &peer);
+		if (rc) {
+			CRIT("Failed to create prov_thread: %s\n", strerror(errno));
+			throw OUT_DELETE_INBOUND;
+		}
+
+		/* Create fabric management thread */
+		rc = start_fm_thread();
+		if (rc) {
+			CRIT("Failed to create fm_thread: %s\n", strerror(errno));
+			throw OUT_KILL_PROV_THREAD;
+		}
+
+		/* Create remote CLI terminal thread */
+		rc = pthread_create(&cli_session_thread, NULL, cli_session,
+						(void*)(&peer.cons_skt));
+		if(rc) {
+			CRIT("Failed to create cli_session_thread: %s\n", strerror(errno));
+			throw OUT_KILL_FM_THREAD;
+		}
+
+		/* Start accepting connections from apps linked with LIBRDMA */
+		start_accepting_connections();
 	}
+	/* Never reached */
 
-	/* Prepare and start console thread, if applicable */
-	if (peer.run_cons) {
-		cli_init_base(custom_quit);
+	catch(int& e) {
+		switch(e) {
 
-		add_commands_to_cmd_db(rdmad_cmds_size()/sizeof(rdmad_cmds[0]),
-				rdmad_cmds);
-		liblog_bind_cli_cmds();
-		splashScreen((char *)"RDMA Daemon Command Line Interface");
-		cons_ret = pthread_create( &console_thread, NULL, 
-				console, (void *)((char *)"RDMADaemon> "));
-		if(cons_ret) {
-			CRIT("Failed to start console, rc: %d\n", cons_ret);
-			exit(EXIT_FAILURE);
+		case OUT_KILL_FM_THREAD:
+			/* Kill the fabric management thread */
+			HIGH("Killing fabric management thread\n");
+			halt_fm_thread();
+			HIGH("Fabric management thread is dead\n");
+
+		case OUT_KILL_PROV_THREAD:
+			HIGH("Killing provisioning thread\n");
+			rc = pthread_kill(prov_thread, SIGUSR1);
+			if (rc == EINVAL) {
+				CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
+			}
+			pthread_join(prov_thread, NULL);
+			HIGH("Provisioning thread is dead\n");
+
+		case OUT_DELETE_INBOUND:
+			delete the_inbound;
+
+		case OUT_CLOSE_PORT:
+			riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
+
+		case OUT_KILL_CONSOLE_THREAD:
+			pthread_kill(console_thread, SIGUSR1);
+			pthread_join(console_thread, NULL);
+			/* No break */
+		default:
+			rc = e;
 		}
 	}
 
-	/* Register signal handler */
-	struct sigaction sig_action;
-	sig_action.sa_handler = sig_handler;
-	sigemptyset(&sig_action.sa_mask);
-	sig_action.sa_flags = 0;
-	sigaction(SIGINT, &sig_action, NULL);
-	sigaction(SIGTERM, &sig_action, NULL);
-	sigaction(SIGQUIT, &sig_action, NULL);
-	sigaction(SIGABRT, &sig_action, NULL);
-	sigaction(SIGUSR1, &sig_action, NULL);
-	sigaction(SIGSEGV, &sig_action, NULL);
-
-	/* Open mport */
-	rc = riomp_mgmt_mport_create_handle(peer.mport_id, 0, &peer.mport_hnd);
-	if (rc < 0) {
-		CRIT("Failed in riomp_mgmt_mport_create_handle(): %s\n", strerror(-rc));
-	        rc = 1;
-		goto out;
-    	}
-	DBG("peer.mport_hnd = 0x%X\n", peer.mport_hnd);
-
-	/* Query device information, and store destid */
-	struct riomp_mgmt_mport_properties prop;
-
-	rc = riomp_mgmt_query(peer.mport_hnd, &prop);
-	if (rc != 0) {
-		CRIT("Failed in riodp_query_mport(): %s\n", strerror(errno));
-		rc = 2;
-		goto out_close_mport;
-	}
-	peer.destid = prop.hdid;
-	INFO("mport(%d), destid = 0x%X\n",
-				peer.mport_id, peer.destid);
-
-	/* Create inbound space */
-	try {
-		the_inbound = new inbound(
-				 peer,
-				 owners,
-				 peer.mport_hnd,
-				 2,		/* No. of windows */
-				 4*1024*1024);	/* Size in MB */
-	}
-	catch(std::bad_alloc& e) {
-		CRIT("Failed to allocate the_inbound\n");
-		goto out_close_mport;
-	}
-	catch(inbound_exception& e) {
-		CRIT("%s\n", e.what());
-		goto out_free_inbound;
-	}
-
-	if (sem_init(&connected_to_ms_info_list_sem, 0, 1) == -1) {
-		CRIT("Failed to initialize connected_to_ms_info_list_sem: %s\n",
-							strerror(errno));
-		goto out_free_inbound;
-	}
-
-	/* Create provisioning thread */
-	rc = pthread_create(&prov_thread, NULL, prov_thread_f, &peer);
-	if (rc) {
-		CRIT("Failed to create prov_thread: %s\n", strerror(errno));
-		rc = 7;
-		shutdown(&peer);
-		goto out_free_inbound;
-	}
-
-	/* Create fabric management thread */
-	rc = start_fm_thread();
-	if (rc) {
-		CRIT("Failed to create fm_thread: %s\n", strerror(errno));
-		rc = 8;
-		shutdown(&peer);
-		goto out_free_inbound;
-	}
-
-	/* Create remote CLI terminal thread */
-	rc = pthread_create(&cli_session_thread, NULL, cli_session,
-						(void*)(&peer.cons_skt));
-	if(rc) {
-		CRIT("Failed to create cli_session_thread: %s\n", strerror(errno));
-		rc = 9;
-		shutdown(&peer);
-		goto out_free_inbound;
-	}
-
-	/* Start accepting connections from apps linked with LIBRDMA */
-	start_accepting_connections();
-
-	/* Never reached */
-
-out_free_inbound:
-	delete the_inbound;
-
-out_close_mport:
-	riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
-out:
-	pthread_join(console_thread, NULL);
 	return rc;	
 } /* main() */
