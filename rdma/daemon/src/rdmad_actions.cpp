@@ -43,6 +43,23 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_ms_owner.h"
 #include "rdmad_ms_owners.h"
 
+/**
+ * @brief Sends a CM_DISCONNECT_MS_REQ message to remote (server) daemon
+ *
+ * @param server_destid  Destination ID of server daemon's node
+ *
+ * @param server_msid	 Memory space identifier on the server daemon
+ *
+ * @param client_msubid	 The client msubid for the msub provided during the
+ * 			 rdma_conn_ms_h() call. Could be a NULL_MSUBID if
+ * 			 none was provided.
+ *
+ * @param client_to_lib_tx_eng_h   The handle for the Tx engine on the client
+ * 			 daemon that the client daemon uses to communicate with
+ * 			 the client application.
+ *
+ * @return 0 if successful, non-zero otherwise
+ */
 static int send_disc_ms_cm(uint32_t server_destid,
 		    uint32_t server_msid,
 		    uint32_t client_msubid,
@@ -85,6 +102,13 @@ static int send_disc_ms_cm(uint32_t server_destid,
 	return ret;
 } /* send_disc_ms_cm() */
 
+/**
+ * @brief Destroy memory space owner specified by an msoid
+ *
+ * @param msoid	Memory space owner identifier
+ *
+ * @return 0 if successful, non-zero if unsuccessful
+ */
 int rdmad_destroy_mso(uint32_t msoid)
 {
 	int	rc;
@@ -117,6 +141,26 @@ int rdmad_destroy_mso(uint32_t msoid)
 	return rc;
 } /* rdmad_destroy_mso() */
 
+/**
+ * @brief Create a memory space
+ *
+ * @param ms_name	Memory space name
+ *
+ * @param bytes		Size in bytes of requested memory space
+ *
+ * @param msoid		Memory space owner identifier
+ *
+ * @param msid		The assigned memory space identifier to the created space
+ *
+ * @param phys_addr	Starting PCIe address of the created memory space
+ *
+ * @param rio_addr	Starting RapidIO address of the created memory space
+ *
+ * @to_lib_tx_eng	The Tx engine that the daemon uses to communicate with the
+ * 			library/app that created the memory space
+ *
+ * @return 0f if succesful, non-zero otherwise
+ */
 int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 			uint32_t *msid, uint64_t *phys_addr,
 			uint64_t *rio_addr,
@@ -159,6 +203,16 @@ int rdmad_create_ms(const char *ms_name, uint32_t bytes, uint32_t msoid,
 	return rc;
 } /* rdmad_create_ms() */
 
+/**
+ * @brief Close an open memory space
+ *
+ * @param msid		Memory space identifier
+ *
+ * @param to_lib_tx_eng	The Tx engine that the daemon uses to communicate with the
+ * 			library/app that created the memory space
+ *
+ * @return 0f if succesful, non-zero otherwise
+ */
 int rdmad_close_ms(uint32_t msid, tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
 	int rc;
@@ -173,6 +227,17 @@ int rdmad_close_ms(uint32_t msid, tx_engine<unix_server, unix_msg_t> *app_tx_eng
 	return rc;
 } /* rdmad_close_ms() */
 
+/**
+ * @brief Accept connection on specified memory space
+ *
+ * @param server_msid   Memory space identifier to accept connections to
+ *
+ * @param server_msubid Memory subspace identifier provided by server
+ * 			for exchanging DMA data with client therethrough
+ *
+ * @param to_lib_tx_eng	The Tx engine that the daemon uses to communicate with
+ * 			the library/app that created the memory space
+ */
 int rdmad_accept_ms(uint32_t server_msid, uint32_t server_msubid,
 		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
@@ -190,6 +255,13 @@ int rdmad_accept_ms(uint32_t server_msid, uint32_t server_msubid,
 } /* rdmad_accept_ms() */
 
 
+/**
+ * @brief Undo accepting connection on specified memory space
+ * 	  Used when server wishes to cancel accepting due to error conditions
+ *
+ * @param to_lib_tx_eng	The Tx engine that the daemon uses to communicate with
+ * 			the library/app that created the memory space
+ */
 int rdmad_undo_accept_ms(uint32_t server_msid,
 		    tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
@@ -206,6 +278,34 @@ int rdmad_undo_accept_ms(uint32_t server_msid,
 	return rc;
 } /* rdmad_undo_accept_ms() */
 
+/** @brief Send connect message from client daemon to server daemon
+ *
+ * @param server_ms_name  Memory space name to connect to on server
+ *
+ * @param server_destid   Destination ID of node where the server's daemon runs
+ *
+ * @param client_msid	  Memory space identier on client. Maybe NULL_MSID
+ *
+ * @param client_msubid	  Memory subspace identifier on client, maybe NULL_MSUBID
+ *
+ * @param client_rio_addr_len  Length of client's Rapidio address. Valid only if
+ * 			  client_msubid is not NULL_MSUBID
+ *
+ * @param client_rio_addr_lo  Low part of client msub's Rapidio address.
+ * 			      Valid only if client_msubid is not NULL_MSUBID
+ *
+ * @param client_rio_addr_hi  High part of client msub's Rapidio address.
+ * 			      Valid only if client_msubid is not NULL_MSUBID
+ *
+ * @param seq_num	Connect/accept matching sequence number
+ *
+ * @param connh		Connection handle identifying the client to the server
+ *
+ * @param to_lib_tx_eng	The Tx engine that the daemon uses to communicate with the
+ * 			library/app that created the memory space
+ *
+ * @return 0 if successful, non-zero otherwise
+ */
 int rdmad_send_connect(const char *server_ms_name,
 			uint32_t server_destid,
 			uint32_t client_msid,
@@ -267,6 +367,16 @@ int rdmad_send_connect(const char *server_ms_name,
 	return 0;
 } /* rdmad_send_connect() */
 
+/**
+ * @brief Undo connection request to remote server's memory space
+ *
+ * @param server_ms_name	Server memory space name
+ *
+ * @param to_lib_tx_eng	The Tx engine that the daemon uses to communicate with the
+ * 			library/app that created the memory space
+ *
+ * @return 0 if successful, non-zero otherwise
+ */
 int rdmad_undo_connect(const char *server_ms_name,
 	        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
@@ -298,12 +408,23 @@ int rdmad_undo_connect(const char *server_ms_name,
 } /* rdmad_undo_connect() */
 
 /**
- * 1. Calls send_disc_ms_cm() which sends a CM_DISCONNECT_MS to the remote daemon
- * 2. Removes the entry corresponding to this connection from
- * 'connected_to_ms_info_list'
+ * @brief Calls send_disc_ms_cm() which sends a CM_DISCONNECT_MS to the
+ * 	  remote daemon, then removes the entry corresponding to this
+ * 	  connection from the 'connected_to_ms_info_list'. If we fail
+ * 	  to send the disconnection, we don't remove the item from the
+ * 	  connected_to_ms_info list to avoid inconsistency.
  *
- * NOTE: If we fail to send the disconnection, we don't remove the item
- * from the connected_to_ms_info list to avoid inconsistency.
+ * @param server_destid Server destination ID
+ *
+ * @param server_msid	Server memory space identifier
+ *
+ * @param client_msubid Client memory subspace identifier previously provided
+ * 			when the client connected. Mabye NULL_MSUBID
+ *
+ * @param to_lib_tx_eng	The Tx engine that the daemon uses to communicate with the
+ * 			library/app that created the memory space
+ *
+ * @return 0 if successful, non-zero otherwise
  */
 int rdmad_send_disconnect(uint32_t server_destid,
 			  uint32_t server_msid,
