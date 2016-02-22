@@ -78,19 +78,25 @@ struct fmd_slave *slv;
 
 int send_slave_hello_message(void)
 {
+	struct cfg_mport_info mp;
+	struct cfg_dev dev;
+
+	if (cfg_find_mport(0, &mp))
+		goto fail;
+
+	if (cfg_find_dev_by_ct(mp.ct, &dev))
+		goto fail;
+
 	sem_wait(&slv->tx_mtx);
 	slv->s2m->msg_type = htonl(FMD_P_REQ_HELLO);
 	slv->s2m->src_did = htonl(slv->mast_did);
 	memset(slv->s2m->hello_rq.peer_name, 0, MAX_P_NAME+1);
-	strncpy(slv->s2m->hello_rq.peer_name, fmd->cfg->eps[0].name,
-		MAX_P_NAME);
+	strncpy(slv->s2m->hello_rq.peer_name, dev.name, MAX_P_NAME);
 	slv->s2m->hello_rq.pid = htonl(getpid());
-	slv->s2m->hello_rq.did =
-		htonl(fmd->cfg->eps[0].ports[0].devids[FMD_DEV08].devid);
+	slv->s2m->hello_rq.did = htonl(dev.did);
 	slv->s2m->hello_rq.did_sz = htonl(FMD_DEV08);
-	slv->s2m->hello_rq.ct = htonl(fmd->cfg->eps[0].ports[0].ct);
-	slv->s2m->hello_rq.hc =
-		htonl(fmd->cfg->eps[0].ports[0].devids[FMD_DEV08].hc);
+	slv->s2m->hello_rq.ct = htonl(dev.ct);
+	slv->s2m->hello_rq.hc = htonl(dev.hc);
 
 	slv->tx_buff_used = 1;
 	slv->tx_rc |= riomp_sock_send(slv->skt_h, slv->tx_buff,
@@ -413,7 +419,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 		};
 
 		conn_rc = riomp_sock_connect(slv->skt_h, slv->mast_did, 0,
-					fmd->cfg->mast_cm_port);
+					fmd->opts->mast_cm_port);
 		if (!conn_rc)
 			break;
 

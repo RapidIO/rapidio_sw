@@ -318,7 +318,8 @@ STATUS DARrioGetPortList ( DAR_DEV_INFO_t  *dev_info ,
 /* NEW DAR ROUTINE, sets enumeration boundary bit for specified port(s)
 */
 
-STATUS DARrioSetEnumBound ( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl );
+STATUS DARrioSetEnumBound (DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
+			int enum_bnd_val);
 
 /* NEW DAR ROUTINE, gets status of device reset initialization
    Returns either RIO_SUCCESS or a non-zero failure code.

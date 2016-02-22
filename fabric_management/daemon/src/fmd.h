@@ -69,6 +69,7 @@ extern "C" {
 #endif
 
 void set_prompt(struct cli_env *e);
+extern riocp_pe_handle mport_pe;
 
 #ifdef __cplusplus
 }
