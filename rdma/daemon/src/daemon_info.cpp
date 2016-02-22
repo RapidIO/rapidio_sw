@@ -130,12 +130,3 @@ int daemon_list::remove_daemon(uint32_t destid)
 	return rc;
 } /* remove_daemon() */
 
-void daemon_list::clear_daemons()
-{
-	for_each(begin(daemons), end(daemons), [](unique_ptr<daemon_info>& p)
-			{
-				pthread_kill(p->tid, SIGUSR1);
-
-			});
-
-}
