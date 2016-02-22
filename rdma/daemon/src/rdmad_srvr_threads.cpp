@@ -163,7 +163,7 @@ void *wait_conn_disc_thread_f(void *arg)
 		sem_post(&wcdti->started);	/* Unblock provisioning thread */
 		pthread_exit(0);
 	}
-	DBG("Created rx_conn_disc_server cm_sock\n");
+	DBG("Created rx_conn_disc_server=0x%X\n", rx_conn_disc_server);
 
 	/* Store info about the remote daemon/destid in list */
 	HIGH("Storing info for destid=0x%X\n", remote_destid);
@@ -179,7 +179,8 @@ void *wait_conn_disc_thread_f(void *arg)
 		int	ret;
 
 		/* Receive CONNECT_MS, or DISCONNECT_MS */
-		DBG("Waiting for CONNECT_MS or DISCONNECT_MS\n");
+		DBG("Waiting for CONNECT_MS or DISCONNECT_MS on rx_conn_disc_server(0x%X)\n",
+				rx_conn_disc_server);
 		ret = rx_conn_disc_server->receive();
 		if (ret) {
 			if (ret == EINTR) {

@@ -421,6 +421,7 @@ public:
 	/* Receive bytes to 'recv_buf' */
 	int receive(size_t *rcvd_len = nullptr)
 	{
+		DBG("cm_server: accept_socket=0x%X\n", accept_socket);
 		return cm_base::receive(accept_socket, rcvd_len);
 	} /* receive() */
 
@@ -432,6 +433,7 @@ public:
 	/* Receive bytes to 'recv_buf' with timeout */
 	int timed_receive(uint32_t timeout_ms)
 	{
+		DBG("cm_server: accept_socket=0x%X\n", accept_socket);
 		return cm_base::timed_receive(accept_socket, timeout_ms);
 	} /* receive() */
 
