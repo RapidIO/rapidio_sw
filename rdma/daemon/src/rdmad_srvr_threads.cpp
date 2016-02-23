@@ -165,15 +165,16 @@ void *wait_conn_disc_thread_f(void *arg)
 	}
 	DBG("Created rx_conn_disc_server=0x%X\n", rx_conn_disc_server);
 
+#if 0
 	/* Store info about the remote daemon/destid in list */
 	HIGH("Storing info for destid=0x%X\n", remote_destid);
 	prov_daemon_info_list.add_daemon(remote_destid,
 			   	   	 rx_conn_disc_server,
 			   	   	 wcdti->tid);
-
 	/* Notify prov_thread so it can loop back and accept more connections */
 	wcdti->ret_code = 0;		/* No errors. HELLO exchange worked. */
 	sem_post(&wcdti->started);	/* Unblock provisioning thread */
+#endif
 
 	while(1) {
 		int	ret;

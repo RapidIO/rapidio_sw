@@ -342,6 +342,7 @@ public:
 		cm_base(name, 0, 0, 0, shutting_down),
 		listen_socket(0), accept_socket(accept_socket), accepted(false)
 	{
+		DBG("'%s': accept_socket = 0x%X\n", name, accept_socket);
 	}
 
 	~cm_server()
@@ -427,6 +428,7 @@ public:
 
 	int send_buffer(void *buffer, size_t len = CM_BUF_SIZE)
 	{
+		DBG("cm_server: accept_socket=0x%X\n", accept_socket);
 		return cm_base::send_buffer(accept_socket, buffer, len);
 	} /* send_buffer() */
 
