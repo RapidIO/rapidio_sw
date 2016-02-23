@@ -93,12 +93,12 @@ static void unprovision_did(uint32_t did)
 
 	/* Remove from PROV list */
 	if (prov_daemon_info_list.remove_daemon(did)) {
-		ERR("Failed to remove daemon entry for did(0x%X)\n", did);
+		ERR("No entry for did(0x%X) in prov_daemon_info_list\n", did);
 	}
 
 	/* Remove from HELLO list */
 	if (hello_daemon_info_list.remove_daemon(did)) {
-		ERR("Failed to remove daemon entry for did(0x%X)\n", did);
+		ERR("No entry for did(0x%X) in hello_daemon_info_list\n", did);
 	}
 } /* un_provision_did() */
 
@@ -176,44 +176,6 @@ static void unprovision_dead_dids(uint32_t old_did_list_size,
 	}
 } /* remove_dead_dids() */
 
-/**
- * If daemon isn't running on 'did' then unprovision the 'did' and
- * return true.
- */
-bool daemon_not_running(uint32_t did)
-{
-	/* FIXME: Is this still buggy or can it be enabled?? */
-#ifdef ENABLE_DAEMON_DETECTION
-	DBG("did = 0x%X\n", did);
-	if (!fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
-		HIGH("Daemon for did (0x%x) not running. Removing!\n", did);
-		unprovision_did(did);
-		return true;
-	} else {
-		return false;
-	}
-#else
-	(void)did;
-	return false;
-#endif
-} /* daemon_not_running() */
-
-/**
- * @brief Call daemon_not_running on every element of the current 'did'
- * list. If daemon_no_running() returns 'true' then remove the
- * 'did' from the current list.
- */
-static void validate_remote_daemons(uint32_t *old_did_list_size,
-		  	  	    uint32_t *old_did_list)
-{
-	DBG("*old_did_list_size = %u\n", *old_did_list_size);
-	uint32_t *old_did_list_end = remove_if(old_did_list,
-			      old_did_list + *old_did_list_size,
-			      daemon_not_running);
-	*old_did_list_size = old_did_list_end - old_did_list;
-	DBG("Now *old_did_list_size = %u\n", *old_did_list_size);
-} /* validate_remove_daemons() */
-
 /* Sends requests and responses to all apps */
 void *fm_loop(void *unused)
 {
@@ -269,12 +231,6 @@ void *fm_loop(void *unused)
 
 		sort(old_did_list, old_did_list + old_did_list_size);
 		DBG("old_did_list_size = %u\n", old_did_list_size);
-
-		/* Check that all the daemons are accessible in the current list.
-		 * If any of them isn't then remove it from the current list so
-		 * that we re-check them on the next iteration.
-		 */
-		validate_remote_daemons(&old_did_list_size, old_did_list);
 
 		/* Loop again only if Fabric Management reports change */
 		DBG("Waiting for FM to report change...\n");
