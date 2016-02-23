@@ -30,27 +30,18 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
 #include <unistd.h>
-#include <string.h>
-#include <memory.h>
-
 #include <pthread.h>
-#include <rapidio_mport_dma.h>
 #include <semaphore.h>
 #include <signal.h>
 #include <execinfo.h>
 
 #include <memory>
 
-#include "cm_sock.h"
 #include "liblog.h"
+#include "rapidio_mport_dma.h"
+#include "unix_sock.h"
 
-#include "rdma_types.h"
-#include "rdmad_cm.h"
 #include "rdmad_inbound.h"
 #include "rdmad_ms_owners.h"
 #include "rdmad_peer_utils.h"
@@ -59,13 +50,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_clnt_threads.h"
 #include "rdmad_console.h"
 #include "rdmad_fm.h"
-#include "libcli.h"
-#include "unix_sock.h"
 #include "rdmad_unix_msg.h"
 #include "rdmad_tx_engine.h"
 #include "rdmad_rx_engine.h"
 #include "rdmad_msg_processor.h"
-#include "rdmad_dispatch.h"
 
 using std::shared_ptr;
 using std::make_shared;
@@ -78,7 +66,6 @@ inbound *the_inbound;
 
 /* Global flag for shutting down */
 bool shutting_down = false;
-
 
 static tx_engines_list	tx_eng_list;
 static rx_engines_list	rx_eng_list;
@@ -100,18 +87,11 @@ static unix_server *server;
 
 static unix_msg_processor	d2l_msg_proc;
 
-
 void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 {
 	while (1) {
 		/* Wait until there is a reason to perform cleanup */
 		sem_wait(engine_cleanup_sem);
-
-		/* If some engine is being killed then the app using
-		 * that engine may own memory spaces. The remote users
-		 * of such memory space (if any) need to be sent a
-		 * 'force disconnect' for proper cleanup.
-		 */
 
 		HIGH("Cleaning up dead engines!\n");
 		/* Check the rx_eng_list for dead engines */
