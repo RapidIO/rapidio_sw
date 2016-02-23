@@ -246,10 +246,12 @@ void shutdown(struct peer_info *peer)
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
 
-	/* Kill threads for remote daemons provisioned via outgoing HELLO */
-	HIGH("Killing remote daemon threads provisioned via outgoing HELLO\n");
+	/* For the prov daemon and hello daemon lists, kill threads */
+	HIGH("Killing daemon-to-daemon connection threads\n");
+	prov_daemon_info_list.kill_all_threads();
+	hello_daemon_info_list.kill_all_threads();
 
-	/* Kill Tx/Rx engines */
+	/* Kill Tx/Rx engines that connect with libraries */
 	if (engine_cleanup_sem != nullptr) { /* Only if apps had connected */
 		sem_post(engine_cleanup_sem);
 	}

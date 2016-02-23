@@ -321,26 +321,19 @@ void *wait_accept_destroy_thread_f(void *arg)
 		DBG("Waiting for ACCEPT_MS or DESTROY_MS\n");
 		ret = accept_destroy_client->receive();
 		if (ret) {
+			delete accept_destroy_client;
+
 			if (ret == EINTR) {
 				WARN("pthread_kill() called\n");
 			} else {
 				CRIT("Failed to receive on hello_client: %s\n",
 								strerror(ret));
-			}
-
-			/* If we just failed to receive() then we should also
-			 * clear the entry in hello_daemon_info_list. If we are
-			 * shutting down, the shutdown function would be accessing
-			 * the list so we should NOT erase an element from it. */
-			if (!shutting_down) {
-				/* Remove entry from hello_daemon_info_list */
+				WARN("Removing entry from hello_daemon_info_list\n");
 				if (hello_daemon_info_list.remove_daemon(destid)) {
 					ERR("Failed to remove destid(0x%X)\n");
 				}
 			}
-
-			delete accept_destroy_client;
-			CRIT("Exiting thread\n");
+			CRIT("Exiting thread on error/shutdown\n");
 			pthread_exit(0);
 		}
 

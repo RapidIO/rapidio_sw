@@ -64,45 +64,6 @@ static pthread_t fm_thread;
 static fmdd_h dd_h;
 
 /**
- * @brief Upon detecting that a node with a particular destination ID (DID)
- * 	  has died clean up steps need to be taken as outlined below.
- *
- * @param did Destination ID of the node that died
- */
-static void unprovision_did(uint32_t did)
-{
-	/**
-	 * FOR CLIENTS:
-	 * For any clients connected to memory space on that remote daemon
-	 * we should send them force-disconnect messages so they clear their spaces
-	 * and subspaces. */
-	if (send_force_disconnect_ms_to_lib_for_did(did)) {
-		ERR("Failed to send CM_FORCE_DISCONNECT_MS for did(0x%X)\n", did);
-	}
-
-	/**
-	 * FOR SERVERS:
-	 * For any memory spaces that have remote clients connected to them
-	 * on the 'dead destid', relay a 'disc_ms' message to their
-	 * server apps to clean up local databases of the client msubs */
-	vector<mspace *> mspaces;
-	the_inbound->get_mspaces_connected_by_destid(did, mspaces);
-	for (auto& ms : mspaces) {
-		ms->disconnect_from_destid(did);
-	}
-
-	/* Remove from PROV list */
-	if (prov_daemon_info_list.remove_daemon(did)) {
-		ERR("No entry for did(0x%X) in prov_daemon_info_list\n", did);
-	}
-
-	/* Remove from HELLO list */
-	if (hello_daemon_info_list.remove_daemon(did)) {
-		ERR("No entry for did(0x%X) in hello_daemon_info_list\n", did);
-	}
-} /* un_provision_did() */
-
-/**
  * @brief	Given an old DID list and a new DID list, do a set difference
  * 		(new - old) to determine new nodes that need provisioning.
  * 		However, only provision a new node if there is a daemon
@@ -116,6 +77,8 @@ static int provision_new_dids(uint32_t old_did_list_size,
 			      uint32_t *new_did_list_size,
 			      uint32_t *new_did_list)
 {
+	int rc = 0;
+
 	/* Determine which dids are new since last time */
 	vector<uint32_t> result(*new_did_list_size);
 	vector<uint32_t>::iterator end_result = set_difference(
@@ -131,7 +94,8 @@ static int provision_new_dids(uint32_t old_did_list_size,
 		if (fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
 			/* SEND HELLO */
 			INFO("Provisioning 0x%X\n", did);
-			if (provision_rdaemon(did)) {
+			rc = provision_rdaemon(did);
+			if (rc) {
 				CRIT("Fail to provision destid(0x%X)\n", did);
 			} else {
 				HIGH("Provisioned destid(0x%X)\n", did);
@@ -145,36 +109,12 @@ static int provision_new_dids(uint32_t old_did_list_size,
 			 * then by decrementing the size, it is off the list. */
 			remove(new_did_list, new_did_list + *new_did_list_size, did);
 			(*new_did_list_size)--;
+			rc = 0;	/* Not an error; daemon not started */
 		}
 	}
 
-	return 0;
+	return rc;
 } /* provision_new_dids() */
-
-/**
- * @brief	Given an old DID list and a new DID list, do a set difference
- * 		(old - new) to determine the DIDs for the nodes that have died
- * 		then call unprovision_did() to unprovision them.
- */
-static void unprovision_dead_dids(uint32_t old_did_list_size,
-				  uint32_t *old_did_list,
-				  uint32_t new_did_list_size,
-				  uint32_t *new_did_list)
-{
-	/* Determine which dids died since last time */
-	vector<uint32_t> result(old_did_list_size);
-	vector<uint32_t>::iterator end_result = set_difference(
-			old_did_list, old_did_list + old_did_list_size,
-			new_did_list, new_did_list + new_did_list_size,
-			begin(result));
-	result.resize(end_result - begin(result));
-	INFO("%u endpoints died\n", result.size());
-
-	/* Unprovision dead dids */
-	for (uint32_t& did : result) {
-		unprovision_did(did);
-	}
-} /* remove_dead_dids() */
 
 /* Sends requests and responses to all apps */
 void *fm_loop(void *unused)
@@ -215,12 +155,6 @@ void *fm_loop(void *unused)
 				   old_did_list,
 				   &new_did_list_size,
 				   new_did_list);
-
-		/* Remove any DIDs that dropped off, if any */
-		unprovision_dead_dids(old_did_list_size,
-				      old_did_list,
-				      new_did_list_size,
-				      new_did_list);
 
 		/* Save a copy of the current list for comparison next time */
 		if (old_did_list != NULL)

@@ -58,10 +58,12 @@ daemon_info::daemon_info(uint32_t destid, cm_base *cm_sock, pthread_t tid)
 
 daemon_info::~daemon_info()
 {
-	if (tid != 0)
-		pthread_kill(tid, SIGUSR1);
-	/* Killing the thread causes the conn_disc_server to be freed */
 } /* dtor */
+
+void daemon_info::kill()
+{
+	pthread_kill(tid, SIGUSR1);
+} /* kill() */
 
 bool daemon_info::operator==(uint32_t destid)
 {
@@ -127,3 +129,9 @@ int daemon_list::remove_daemon(uint32_t destid)
 	return rc;
 } /* remove_daemon() */
 
+void daemon_list::kill_all_threads()
+{
+	for(auto& de : daemons) {
+		de->kill();
+	}
+}

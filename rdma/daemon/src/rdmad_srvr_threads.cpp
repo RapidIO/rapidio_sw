@@ -167,7 +167,6 @@ void *wait_conn_disc_thread_f(void *arg)
 	wcdti->ret_code = 0;		/* No errors. HELLO exchange worked. */
 	sem_post(&wcdti->started);	/* Unblock provisioning thread */
 
-
 	while(1) {
 		int	ret;
 
@@ -176,29 +175,21 @@ void *wait_conn_disc_thread_f(void *arg)
 				rx_conn_disc_server);
 		ret = rx_conn_disc_server->receive();
 		if (ret) {
+			delete rx_conn_disc_server;
+
 			if (ret == EINTR) {
-				WARN("pthread_kill() called. Exiting thread.\n");
+				WARN("pthread_kill() called\n");
 			} else {
 				CRIT("Failed to rx on rx_conn_disc_server: %s\n",
 								strerror(ret));
-			}
 
-			/* Delete the cm_server object */
-			delete rx_conn_disc_server;
-
-			/* If we just failed to receive() then we should also
-			 * clear the entry in prov_daemon_info_list. If we are
-			 * shutting down, the shutdown function would be
-			 * accessing the list so we should NOT erase an
-			 * element from it here.  */
-			if (!shutting_down) {
 				WARN("Removing entry from prov_daemon_info_list\n");
 				if( prov_daemon_info_list.remove_daemon(remote_destid)) {
 					ERR("Failed to remove entry for destid(0x%X)\n",
 							remote_destid);
 				}
-				CRIT("Exiting thread on error\n");
 			}
+			CRIT("Exiting thread on error/shutdown\n");
 			pthread_exit(0);
 		}
 

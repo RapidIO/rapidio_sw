@@ -80,6 +80,12 @@ public:
 	~daemon_info();
 
 	/**
+	 * @brief Kill thread
+	 *
+	 */
+	void kill();
+
+	/**
 	 * @brief Equality operator matching daemon with destid
 	 *
 	 * @param destid Destination ID for remote daemon
@@ -138,6 +144,10 @@ public:
 	 */
 	int remove_daemon(uint32_t destid);
 
+	/**
+	 * @brief Kills all threads (used at shutdown)
+	 */
+	void kill_all_threads();
 
 private:
 	using daemon_element  = unique_ptr<daemon_info>;
