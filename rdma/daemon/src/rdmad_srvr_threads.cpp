@@ -34,25 +34,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <semaphore.h>
 #include <pthread.h>
-#include <signal.h>
 
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
-#include <vector>
-#include <algorithm>
-
 #include "liblog.h"
 #include "rdmad_cm.h"
 #include "cm_sock.h"
-#include "ts_vector.h"
 
 #include "rdmad_main.h"
 #include "rdmad_srvr_threads.h"
-#include "rdmad_clnt_threads.h"
 #include "rdmad_peer_utils.h"
-
-using std::vector;
 
 /* List of destids provisioned via the provisioning thread */
 daemon_list	prov_daemon_info_list;
@@ -338,11 +330,6 @@ void *wait_conn_disc_thread_f(void *arg)
 	pthread_exit(0);	/* Not reached */
 } /* conn_disc_thread_f() */
 
-/**
- * Provisioning thread.
- * For waiting for HELLO messages from other daemons and updating the
- * provisioned daemon info list.
- */
 void *prov_thread_f(void *arg)
 {
 	DBG("ENTER\n");

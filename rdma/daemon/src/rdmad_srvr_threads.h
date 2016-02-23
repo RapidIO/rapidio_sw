@@ -33,20 +33,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMAD_SRVR_THREADS_H
 #define RDMAD_SRVR_THREADS_H
 
-#include <stdint.h>
-
-#include <vector>
-
-#include "cm_sock.h"
 #include "daemon_info.h"
 
-using std::vector;
-
-void *accept_thread_f(void *arg);
-void *server_wait_disc_thread_f(void *arg);
+/**
+ * @brief Provisioning thread.
+ * 	  For waiting for HELLO messages from other daemons and updating the
+ * 	  provisioned daemon info list.
+ */
 void *prov_thread_f(void *arg);
 
-/* List of destids provisioned via the provisioning thread */
 extern daemon_list	prov_daemon_info_list;
 
 #endif
