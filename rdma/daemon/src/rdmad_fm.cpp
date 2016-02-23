@@ -63,37 +63,54 @@ static uint32_t fm_must_die;
 static pthread_t fm_thread;
 static fmdd_h dd_h;
 
+/**
+ * @brief Upon detecting that a node with a particular destination ID (DID)
+ * 	  has died clean up steps need to be taken as outlined below.
+ *
+ * @param did Destination ID of the node that died
+ */
 static void unprovision_did(uint32_t did)
 {
-	/* For any clients connected to memory space on that remote daemon
-	 * we should send them destroy messages so they clear their spaces
-	 * and subspaces.
-	 */
+	/**
+	 * FOR CLIENTS:
+	 * For any clients connected to memory space on that remote daemon
+	 * we should send them force-disconnect messages so they clear their spaces
+	 * and subspaces. */
 	if (send_force_disconnect_ms_to_lib_for_did(did)) {
 		ERR("Failed to send CM_FORCE_DISCONNECT_MS for did(0x%X)\n", did);
 	}
 
-	/* For any memory spaces that have remote clients connected to them
-	 * on the 'dead destid', relay a POSIX 'disc_ms' message to their
-	 * server apps to clean up local databases of the remote (client) msubs
-	 */
+	/**
+	 * FOR SERVERS:
+	 * For any memory spaces that have remote clients connected to them
+	 * on the 'dead destid', relay a 'disc_ms' message to their
+	 * server apps to clean up local databases of the client msubs */
 	vector<mspace *> mspaces;
 	the_inbound->get_mspaces_connected_by_destid(did, mspaces);
 	for (auto& ms : mspaces) {
 		ms->disconnect_from_destid(did);
 	}
 
-	/* Unprovision from PROV list */
+	/* Remove from PROV list */
 	if (prov_daemon_info_list.remove_daemon(did)) {
 		ERR("Failed to remove daemon entry for did(0x%X)\n", did);
 	}
 
-	/* Unprovision from HELLO list */
+	/* Remove from HELLO list */
 	if (hello_daemon_info_list.remove_daemon(did)) {
 		ERR("Failed to remove daemon entry for did(0x%X)\n", did);
 	}
 } /* un_provision_did() */
 
+/**
+ * @brief	Given an old DID list and a new DID list, do a set difference
+ * 		(new - old) to determine new nodes that need provisioning.
+ * 		However, only provision a new node if there is a daemon
+ * 		running on it. Otherwise, remove the DID from the new list
+ * 		(which will become the old list next time around), so it
+ * 		re-appears again next time there is a change (daemon started)
+ * 		and we provision it then
+ */
 static int provision_new_dids(uint32_t old_did_list_size,
 			      uint32_t *old_did_list,
 			      uint32_t *new_did_list_size,
@@ -121,9 +138,11 @@ static int provision_new_dids(uint32_t old_did_list_size,
 			}
 		} else {
 			INFO("NOT provisioning 0x%X since daemon not running\n", did);
-			/* Remove it from list since we need to attempt to provision it again
-			 * when the daemon is actually up and running.
-			 */
+			/* Remove it from list since we need to attempt to
+			 * provision it again when the daemon is actually
+			 * up and running.
+			 * 'remove' will put the 'did' at the end of the list,
+			 * then by decrementing the size, it is off the list. */
 			remove(new_did_list, new_did_list + *new_did_list_size, did);
 			(*new_did_list_size)--;
 		}
@@ -132,6 +151,11 @@ static int provision_new_dids(uint32_t old_did_list_size,
 	return 0;
 } /* provision_new_dids() */
 
+/**
+ * @brief	Given an old DID list and a new DID list, do a set difference
+ * 		(old - new) to determine the DIDs for the nodes that have died
+ * 		then call unprovision_did() to unprovision them.
+ */
 static void unprovision_dead_dids(uint32_t old_did_list_size,
 				  uint32_t *old_did_list,
 				  uint32_t new_did_list_size,
@@ -147,7 +171,6 @@ static void unprovision_dead_dids(uint32_t old_did_list_size,
 	INFO("%u endpoints died\n", result.size());
 
 	/* Unprovision dead dids */
-
 	for (uint32_t& did : result) {
 		unprovision_did(did);
 	}
@@ -176,7 +199,7 @@ bool daemon_not_running(uint32_t did)
 } /* daemon_not_running() */
 
 /**
- * Call daemon_not_running on every element of the current 'did'
+ * @brief Call daemon_not_running on every element of the current 'did'
  * list. If daemon_no_running() returns 'true' then remove the
  * 'did' from the current list.
  */
