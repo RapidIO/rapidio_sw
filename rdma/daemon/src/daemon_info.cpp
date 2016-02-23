@@ -119,9 +119,6 @@ int daemon_list::remove_daemon(uint32_t destid)
 		ERR("Cannot find entry with destid(0x%X)\n", destid);
 		rc = -1;
 	} else {
-		WARN("Killing thread for known destid(0x%X).\n", destid);
-		/* Killing the thread causes the conn_disc_server to be freed */
-		pthread_kill((*it)->tid, SIGUSR1);
 		daemons.erase(it);
 		INFO("Daemon entry for destid(0x%X) removed\n", destid);
 		rc = 0;
