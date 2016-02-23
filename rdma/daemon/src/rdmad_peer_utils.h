@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define PEER_UTILS_H
 
 #include <stdint.h>
+#include <semaphore.h>
 
 #include "rapidio_mport_dma.h"
 
@@ -54,7 +55,9 @@ struct peer_info
 	: destid_len(destid_len), destid(destid), mport_id(mport_id),
 	  mport_hnd(mport_hnd), prov_channel(prov_channel),
 	  prov_mbox_id(prov_mbox_id), cons_skt(cons_skt), run_cons(run_cons)
-	{}
+	{
+		sem_init(&prov_started, 0, 0);
+	}
 
 	/* Device ID */
 	uint8_t	destid_len;
@@ -67,6 +70,7 @@ struct peer_info
 	/* Provisioning channel and mailbox */
 	uint16_t	prov_channel;
 	uint8_t		prov_mbox_id;
+	sem_t		prov_started;
 
 	/* Daemon CLI connection */
 	int	cons_skt;	/* Console socket number, default 4444 */

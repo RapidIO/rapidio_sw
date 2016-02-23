@@ -452,6 +452,7 @@ int main (int argc, char **argv)
 			CRIT("Failed to create prov_thread: %s\n", strerror(errno));
 			throw OUT_DELETE_INBOUND;
 		}
+		sem_wait(&peer.prov_started);
 
 		/* Create fabric management thread */
 		rc = start_fm_thread();

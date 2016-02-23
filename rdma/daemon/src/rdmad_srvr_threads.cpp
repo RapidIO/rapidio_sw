@@ -365,6 +365,7 @@ void *prov_thread_f(void *arg)
 		pthread_exit(0);	/* For g++ warning */
 	}
 	DBG("prov_server created.\n");
+	sem_post(&peer->prov_started);
 
 	while(1) {
 		/* Accept connections from other daemons */
