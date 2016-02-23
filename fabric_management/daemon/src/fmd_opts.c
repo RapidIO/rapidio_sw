@@ -84,7 +84,7 @@ void fmd_print_help(void)
 	printf("-i<interval>: Interval between Device Directory updates.\n");
 	printf("       Default is %d\n", FMD_DFLT_MAST_INTERVAL);
 	printf("-l, -L<level>: Set starting logging level.\n");
-	printf("       Default is %x\n", RDMA_LL);
+	printf("       Default is %x\n",FMD_DFLT_LOG_LEVEL); 
 	printf("-m, -M<filename>: Device directory Mutex SM file name.\n");
 	printf("       Default is \"%s\"\n", FMD_DFLT_DD_MTX_FN);
 	printf("-n, -N: Do not start console CLI.\n");
@@ -112,7 +112,7 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 	opts->cli_port_num = FMD_DFLT_CLI_PORT_NUM;
 	opts->app_port_num = FMD_DFLT_APP_PORT_NUM;
 	opts->run_cons = 1;
-	opts->log_level = RDMA_LL;
+	opts->log_level = FMD_DFLT_LOG_LEVEL;
 	opts->mast_mode = 0;
 	opts->mast_interval = FMD_DFLT_MAST_INTERVAL;
 	opts->mast_devid_sz = FMD_DFLT_MAST_DEVID_SZ;

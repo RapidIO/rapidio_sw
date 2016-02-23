@@ -422,6 +422,7 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 	struct mpsw_drv_private_data *p_dat;
 	int ret = 1;
 	uint32_t temp_devid;
+	uint32_t gen_ctl;
 
 	DBG("ENTRY\n");
 
@@ -468,8 +469,27 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
 		goto error;
 	};
-	goto exit;
 
+	if (!p_dat->dev_h.extFPtrForPort)
+		goto exit;
+
+	ret = mpsw_drv_reg_rd(pe, 
+		RIO_PORT_GEN_CTRL_CSR(p_dat->dev_h.extFPtrForPort), &gen_ctl);
+	if (ret) {
+		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
+		goto error;
+	};
+
+	gen_ctl |= RIO_STD_SW_GEN_CTL_MAST_EN | RIO_STD_SW_GEN_CTL_DISC;
+
+	ret = mpsw_drv_reg_wr(pe, 
+		RIO_PORT_GEN_CTRL_CSR(p_dat->dev_h.extFPtrForPort), gen_ctl);
+	if (ret) {
+		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
+		goto error;
+	};
+
+	goto exit;
 error: 
 	mpsw_destroy_priv_data(pe);
 exit:

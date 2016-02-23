@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <dirent.h>
 #include <errno.h>
 #include "cfg.h"
+#include "liblog.h"
 
 #ifndef _FMD_OPTS_H_
 #define _FMD_OPTS_H_
@@ -52,6 +53,7 @@ extern "C" {
 #define FMD_DFLT_CLI_PORT_NUM 2222
 #define FMD_DFLT_APP_PORT_NUM 3434
 #define FMD_DFLT_RUN_CONS 1
+#define FMD_DFLT_LOG_LEVEL ((RDMA_LL_WARN < RDMA_LL)?RDMA_LL_WARN:RDMA_LL)
 #define FMD_DFLT_MAST_CM_PORT CFG_DFLT_MAST_CM_PORT 
 #define FMD_DFLT_MAST_INTERVAL 5
 #define FMD_DFLT_MAST_DEVID_SZ FMD_DEV08
