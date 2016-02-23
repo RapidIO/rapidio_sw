@@ -187,7 +187,7 @@ void *fm_loop(void *unused)
 
 		/* Need to check for dead daemons only to remove them from
 		 * the old_did_list */
-		validate_remote_daemons(&old_did_list_size, old_did_list);
+		validate_remote_daemons(&new_did_list_size, new_did_list);
 
 		/* Save a copy of the current list for comparison next time */
 		if (old_did_list != NULL)	/* Delete if ncessary */
