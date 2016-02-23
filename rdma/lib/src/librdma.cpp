@@ -1589,8 +1589,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		}
 
 		/* Store connection handle with server_msub */
-		DBG("Storing connh = %, in server_msub's database entry"
-							PRIx64 "\n", *connh);
+		DBG("Storing connh = 0x%" PRIx64 ", in server_msub's database entry\n",
+								*connh);
 		server_msub->connections.emplace_back(*connh,
 					conn_req_msg->client_to_lib_tx_eng_h);
 
