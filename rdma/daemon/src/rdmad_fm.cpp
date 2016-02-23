@@ -116,6 +116,35 @@ static int provision_new_dids(uint32_t old_did_list_size,
 	return rc;
 } /* provision_new_dids() */
 
+/**
+ * @brief If daemon isn't running on 'did' return true, otherwise
+ *	  return false;
+ */
+bool daemon_not_running(uint32_t did)
+{
+ 	if (!fmdd_check_did(dd_h, did, FMDD_RDMA_FLAG)) {
+		return true;
+	} else {
+		return false;
+	}
+} /* daemon_not_running() */
+
+/**
+ * @brief Call daemon_not_running on every element of the current 'did'
+ * list. If daemon_no_running() returns 'true' then remove the
+ * 'did' from the current list.
+ */
+static void validate_remote_daemons(uint32_t *old_did_list_size,
+ 		  	  	    uint32_t *old_did_list)
+{
+	DBG("*old_did_list_size = %u\n", *old_did_list_size);
+	uint32_t *old_did_list_end = remove_if(old_did_list,
+			      old_did_list + *old_did_list_size,
+			      daemon_not_running);
+	*old_did_list_size = old_did_list_end - old_did_list;
+	DBG("Now *old_did_list_size = %u\n", *old_did_list_size);
+} /* validate_remove_daemons() */
+
 /* Sends requests and responses to all apps */
 void *fm_loop(void *unused)
 {
@@ -156,13 +185,16 @@ void *fm_loop(void *unused)
 				   &new_did_list_size,
 				   new_did_list);
 
+		/* Need to check for dead daemons only to remove them from
+		 * the old_did_list */
+		validate_remote_daemons(&old_did_list_size, old_did_list);
+
 		/* Save a copy of the current list for comparison next time */
-		if (old_did_list != NULL)
+		if (old_did_list != NULL)	/* Delete if ncessary */
 			delete old_did_list;
-		old_did_list_size = new_did_list_size;
+		old_did_list_size = new_did_list_size;	/* Same size */
 		old_did_list = new uint32_t[old_did_list_size];
 		copy(new_did_list, new_did_list + new_did_list_size, old_did_list);
-
 		sort(old_did_list, old_did_list + old_did_list_size);
 		DBG("old_did_list_size = %u\n", old_did_list_size);
 
