@@ -227,59 +227,31 @@ void *wait_conn_disc_thread_f(void *arg)
 
 			/* Send 'connect' POSIX message contents to the RDMA library */
 			static unix_msg_t in_msg;
+			connect_to_ms_req_input *cm = &in_msg.connect_to_ms_req;
+
 			in_msg.type = CONNECT_MS_REQ;
 			in_msg.category = RDMA_LIB_DAEMON_CALL;
-			connect_to_ms_req_input *connect_msg =
-						&in_msg.connect_to_ms_req;
-			connect_msg->client_msid =
-						be64toh(conn_msg->client_msid);
-			connect_msg->client_msubid =
-						be64toh(conn_msg->client_msubid);
-			connect_msg->client_msub_bytes =
-						be64toh(conn_msg->client_bytes);
-			connect_msg->client_rio_addr_len =
-					be64toh(conn_msg->client_rio_addr_len);
-			connect_msg->client_rio_addr_lo	=
-					be64toh(conn_msg->client_rio_addr_lo);
-			connect_msg->client_rio_addr_hi	=
-					be64toh(conn_msg->client_rio_addr_hi);
-			connect_msg->client_destid_len =
-					be64toh(conn_msg->client_destid_len);
-			connect_msg->client_destid =
-					be64toh(conn_msg->client_destid);
-			connect_msg->seq_num = be64toh(conn_msg->seq_num);
-			connect_msg->connh = be64toh(conn_msg->connh);
-			connect_msg->client_to_lib_tx_eng_h =
-					be64toh(conn_msg->client_to_lib_tx_eng_h);
+			cm->client_msid = be64toh(conn_msg->client_msid);
+			cm->client_msubid = be64toh(conn_msg->client_msubid);
+			cm->client_msub_bytes = be64toh(conn_msg->client_bytes);
+			cm->client_rio_addr_len = be64toh(conn_msg->client_rio_addr_len);
+			cm->client_rio_addr_lo	= be64toh(conn_msg->client_rio_addr_lo);
+			cm->client_rio_addr_hi	= be64toh(conn_msg->client_rio_addr_hi);
+			cm->client_destid_len = be64toh(conn_msg->client_destid_len);
+			cm->client_destid = be64toh(conn_msg->client_destid);
+			cm->seq_num = be64toh(conn_msg->seq_num);
+			cm->connh = be64toh(conn_msg->connh);
+			cm->client_to_lib_tx_eng_h = be64toh(conn_msg->client_to_lib_tx_eng_h);
 
 			to_lib_tx_eng->send_message(&in_msg);
 
 			DBG("Sent CONNECT_MS_REQ to Server RDMA library. Contents:\n");
-			DBG("connect_msg->client_msid = 0x%X\n",
-						connect_msg->client_msid);
-			DBG("connect_msg->client_msubid = 0x%X\n",
-						connect_msg->client_msubid);
-			DBG("connect_msg->client_msub_bytes = 0x%X\n",
-						connect_msg->client_msub_bytes);
-			DBG("connect_msg->client_rio_addr_len = 0x%X\n",
-						connect_msg->client_rio_addr_len);
-			DBG("connect_msg->client_rio_addr_lo = 0x%016" PRIx64 "\n",
-						connect_msg->client_rio_addr_lo);
-			DBG("connect_msg->client_rio_addr_hi = 0x%X\n",
-						connect_msg->client_rio_addr_hi);
-			DBG("connect_msg->client_destid_len = 0x%X\n",
-						connect_msg->client_destid_len);
-			DBG("connect_msg->client_destid = 0x%X\n",
-						connect_msg->client_destid);
-			DBG("connect_msg->seq_num = 0x%X\n", connect_msg->seq_num);
-			DBG("connect_msg->connh = 0x%X\n", connect_msg->connh);
-			DBG("connect_msg->client_to_lib_tx_eng_h = 0x%X\n",
-						connect_msg->client_to_lib_tx_eng_h);
+			cm->dump();
 
 			DBG("Adding remote connection to memory space\n");
-			ms->add_rem_connection(connect_msg->client_destid,
-					       connect_msg->client_msubid,
-					       connect_msg->client_to_lib_tx_eng_h);
+			ms->add_rem_connection(cm->client_destid,
+					       cm->client_msubid,
+					       cm->client_to_lib_tx_eng_h);
 		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS_REQ) {
 			cm_disconnect_req_msg	*disc_msg;
 
