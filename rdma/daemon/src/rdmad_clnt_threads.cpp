@@ -32,19 +32,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <stdint.h>
 
-#include <mqueue.h>
 #include <semaphore.h>
 #include <pthread.h>
-#include <signal.h>
-#include <assert.h>
 
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
 #include <memory>
 
-#include "memory_supp.h"
+#include <cassert>
 
+#include "memory_supp.h"
+#include "rdma_types.h"
 #include "liblog.h"
 #include "cm_sock.h"
 #include "rdmad_cm.h"
@@ -63,6 +62,24 @@ daemon_list	hello_daemon_info_list;
 vector<connected_to_ms_info>	connected_to_ms_info_list;
 sem_t 				connected_to_ms_info_list_sem;
 
+/**
+ * @brief Awaits a message from the RDMA library. Times out if the
+ * 	  message doesn't arrive after 'timeout_in_secs'
+ *
+ * @param rx_eng Tx engine used to receive messages from an RDMA library/app
+ *
+ * @param category	Message category
+ *
+ * @param type		Message type
+ *
+ * @param seq_no	Sequence number
+ *
+ * @param timeout_in_secs	Timeout in seconds
+ *
+ * @param out_msg	Pointer to received message contents
+ *
+ * @return 0 if successful, non-zero otherwise
+ */
 static int await_message(rx_engine<unix_server, unix_msg_t> *rx_eng,
 			rdma_msg_cat category, rdma_msg_type type,
 			rdma_msg_seq_no seq_no, unsigned timeout_in_secs,
@@ -99,8 +116,17 @@ static int await_message(rx_engine<unix_server, unix_msg_t> *rx_eng,
 } /* await_message() */
 
 /**
- * Sends FORCE_DISCONNECT_MS to RDMA library, and waits (with timeout)
- * for FORCE_DISCONNECT_MS_ACK.
+ * @brief Sends FORCE_DISCONNECT_MS to RDMA library, and waits (with timeout)
+ * 	  for FORCE_DISCONNECT_MS_ACK.
+ *
+ * @param server_msid	Server memory space identifier
+ *
+ * @param server_msubid	Server memory subspace identifier
+ *
+ * @param to_lib_tx_eng	The Tx engine that the daemon uses to communicate with the
+ * 			library/app that created the memory space
+ *
+ * @return 0 if successul, non-zero otherwise
  */
 static int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 				  uint32_t server_msubid,
@@ -154,11 +180,16 @@ static int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 } /* send_force_disconnect_ms_to_lib() */
 
 /**
- * The server daemon has died. Client daemon needs to:
- * 1. Notify the libraries of apps that have connected to memory spaces
- *    on that 'did' so they self-disconnect and clean their databases
- *    of the server's remove msub entries.
- * 2. Remove entries for that 'did' from the connected_to_ms_info_list.
+ * @brief The server daemon has died. Client daemon needs to:
+ * 	  1. Notify the libraries of apps that have connected to memory spaces
+ *           on that 'did' so they self-disconnect and clean their databases
+ *           of the server's remove msub entries.
+ *        2. Remove entries for that 'did' from the connected_to_ms_info_list.
+ *
+ * @param did	Destination ID of remote server daemon that has died
+ *
+ * @return 0 if successful OR there are no connections to the remote daemon.
+ * 	   Non-zero otherwise
  */
 int send_force_disconnect_ms_to_lib_for_did(uint32_t did)
 {
@@ -190,6 +221,9 @@ int send_force_disconnect_ms_to_lib_for_did(uint32_t did)
 	return ret;
 } /* send_force_disconnect_ms_to_lib_for_did() */
 
+/**
+ * @brief Struct for passing info to thread
+ */
 struct wait_accept_destroy_thread_info {
 	wait_accept_destroy_thread_info(cm_client *hello_client,
 					uint32_t destid) :
@@ -207,8 +241,8 @@ struct wait_accept_destroy_thread_info {
 };
 
 /**
- * Thread for handling requests such as RDMA connection request, and
- * RDMA disconnection requests.
+ * @brief Thread for handling requests such as RDMA connection request, and
+ * 	  RDMA disconnection requests.
  */
 void *wait_accept_destroy_thread_f(void *arg)
 {
@@ -274,7 +308,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 		case -3:
 		case -4:
 			delete accept_destroy_client;
-			delete wadti->hello_client;	/* FIXME: Is this OK?? */
 			/* no break */
 		default:
 			wadti->rc = e;
@@ -308,8 +341,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 			}
 
 			delete accept_destroy_client;
-			delete wadti->hello_client;	/* FIXME: Is this OK?? */
-
 			CRIT("Exiting thread\n");
 			pthread_exit(0);
 		}
@@ -321,7 +352,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 		if (be64toh(accept_cm_msg->type) == CM_ACCEPT_MS) {
 			HIGH("Received ACCEPT_MS from %s\n",
 						accept_cm_msg->server_ms_name);
-
 
 			/* Find the entry matching the memory space and tx_eng
 			 * and also make sure it is not already marked as 'connected'.
@@ -480,18 +510,15 @@ void *wait_accept_destroy_thread_f(void *arg)
 int provision_rdaemon(uint32_t destid)
 {
 	int rc;
-
-	constexpr auto FAILED_TO_CONNECT  = -1;
-	constexpr auto FAILED_TO_ALLOCATE = -2;
-	constexpr auto FAILED_TO_CREATE_THREAD = -3;
-	wait_accept_destroy_thread_info *wadti = nullptr;
-	cm_client *hello_client = nullptr;
+	unique_ptr<cm_client> hello_client;
+	unique_ptr<wait_accept_destroy_thread_info> wadti;
 
 	try {
 		/* Create provision client to connect to remote
 		 * daemon's provisioning thread */
 		peer_info &peer = the_inbound->get_peer();
-		hello_client = new cm_client("hello_client",
+		hello_client = make_unique<cm_client>(
+						"hello_client",
 						peer.mport_id,
 						peer.prov_mbox_id,
 						peer.prov_channel,
@@ -500,23 +527,20 @@ int provision_rdaemon(uint32_t destid)
 		rc = hello_client->connect(destid);
 		if (rc) {
 			CRIT("Failed to connect to destid(0x%X)\n", destid);
-			throw FAILED_TO_CONNECT;
+			throw RDMA_MALLOC_FAIL;
 		}
 		HIGH("Connected to remote daemon on destid(0x%X)\n", destid);
 
-		wadti = new wait_accept_destroy_thread_info(hello_client, destid);
-		if (!wadti) {
-			CRIT("Failed to allocate wadti: %s\n", strerror(errno));
-			throw FAILED_TO_ALLOCATE;
-		}
+		wadti = make_unique<wait_accept_destroy_thread_info>(
+				hello_client.get(), destid);
 
 		DBG("Creating wait_accept_destroy_thread\n");
 		rc = pthread_create(&wadti->tid, NULL,
-				    wait_accept_destroy_thread_f, wadti);
+				    wait_accept_destroy_thread_f, wadti.get());
 		if (rc) {
 			CRIT("Failed to create wait_accept_destroy_thread: rc = %d, '%s'\n",
 					rc, strerror(errno));
-			throw FAILED_TO_CREATE_THREAD;
+			throw RDMA_PTHREAD_FAIL;
 		}
 
 		/* Determine whether thread worked or failed from 'rc' */
@@ -527,26 +551,17 @@ int provision_rdaemon(uint32_t destid)
 		} else {
 			DBG("wait_accept_destroy_thread started successfully\n");
 		}
-
-		/* Free the wadti struct */
-		delete wadti;
 	}
 	catch(exception& e) {
 		CRIT("Failed to create hello_client %s\n", e.what());
 		rc = -100;
 	}
 	catch(int e) {
-		switch(e) {
-		case FAILED_TO_CREATE_THREAD:
-			delete wadti;
-			/* no break */
-		case FAILED_TO_ALLOCATE:
-		case FAILED_TO_CONNECT:
-			if (hello_client != nullptr)
-				delete hello_client;
-			break;
-		}
 		rc = e;
+	}
+	catch(...) {
+		CRIT("Other exception\n");
+		rc = -1;
 	}
 	return rc;
 } /* provision_rdaemon() */
