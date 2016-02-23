@@ -567,13 +567,15 @@ exit:
 };
 
 static STATUS DARDB_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
-                                     struct DAR_ptl *ptl )
+                                     struct DAR_ptl *ptl,
+					int enum_bnd_val )
 {
     STATUS rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
-    UINT32 tempCSR;
+    UINT32 currCSR, tempCSR;
 	struct DAR_ptl good_ptl;
 	UINT8 idx;
-
+    enum_bnd_val = !!enum_bnd_val;
+	
     if ( dev_info->extFPtrForPort )
     {
 		rc = DARrioGetPortList( dev_info, ptl, &good_ptl);
@@ -585,10 +587,17 @@ static STATUS DARDB_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
             rc = DARRegRead( dev_info,
                              RIO_PORT_N_CONTROL_CSR( dev_info->extFPtrForPort,
                                                      good_ptl.pnums[idx] ),
-                            &tempCSR ) ;
+                            &currCSR ) ;
             if ( RIO_SUCCESS == rc )
             {
-                tempCSR |= RIO_SPX_CTL_ENUM_B ;
+		if (enum_bnd_val) {
+                	tempCSR = currCSR | RIO_SPX_CTL_ENUM_B;
+		} else {
+                	tempCSR = currCSR & ~RIO_SPX_CTL_ENUM_B;
+		};
+		if (tempCSR == currCSR)
+			continue;
+
                 rc = DARRegWrite( dev_info,
                                   RIO_PORT_N_CONTROL_CSR(
                                                       dev_info->extFPtrForPort,
@@ -601,7 +610,7 @@ static STATUS DARDB_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
                                                       dev_info->extFPtrForPort,
                                                       good_ptl.pnums[idx] ),
                                     &tempCSR ) ;
-                    if ( !(tempCSR & RIO_SPX_CTL_ENUM_B) )
+                    if ( tempCSR != currCSR )
                         rc = RIO_ERR_FEATURE_NOT_SUPPORTED ;
                 }
             }

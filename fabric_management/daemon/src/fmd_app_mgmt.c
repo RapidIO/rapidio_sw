@@ -240,6 +240,13 @@ void halt_app_handler(void);
 void *app_conn_loop( void *unused )
 {
 	int rc = open_app_conn_socket(); 
+        char my_name[16];
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "FMD_APP_CONN");
+        pthread_setname_np(app_st.conn_thread, my_name);
+
+        pthread_detach(app_st.conn_thread);
 
 	/* Open Unix domain socket */
 	app_st.loop_alive = (!rc);

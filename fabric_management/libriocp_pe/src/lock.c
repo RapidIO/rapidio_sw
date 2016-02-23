@@ -11,7 +11,7 @@
 
 #include "inc/riocp_pe_internal.h"
 
-#include "maint.h"
+#include "driver.h"
 #include "rio_regs.h"
 
 #ifdef __cplusplus
@@ -26,15 +26,10 @@ int riocp_pe_lock_read(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, u
 	int ret;
 	uint32_t _lock;
 
-	if (RIOCP_PE_IS_MPORT(pe)) {
-		ret = riocp_pe_maint_read_local(pe, RIO_HOST_DID_LOCK_CSR, &_lock);
-		if (ret)
-			return -EIO;
-	} else {
-		ret = riocp_pe_maint_read_remote(pe->mport, destid, hopcount, RIO_HOST_DID_LOCK_CSR, &_lock);
-		if (ret)
-			return -EIO;
-	}
+	ret = riocp_drv_raw_reg_rd(pe, destid, hopcount,
+						RIO_HOST_DID_LOCK_CSR, &_lock);
+	if (ret)
+		return -EIO;
 
 	*lock = _lock & RIO_HOST_LOCK_BASE_ID_MASK;
 
@@ -48,15 +43,10 @@ int riocp_pe_lock_write(struct riocp_pe *pe, uint32_t destid, uint8_t hopcount, 
 {
 	int ret;
 
-	if (RIOCP_PE_IS_MPORT(pe)) {
-		ret = riocp_pe_maint_write_local(pe, RIO_HOST_DID_LOCK_CSR, lock);
-		if (ret)
-			return -EIO;
-	} else {
-		ret = riocp_pe_maint_write_remote(pe->mport, destid, hopcount, RIO_HOST_DID_LOCK_CSR, lock);
-		if (ret)
-			return -EIO;
-	}
+	ret = riocp_drv_raw_reg_wr(pe, destid, hopcount,
+						RIO_HOST_DID_LOCK_CSR, lock);
+	if (ret)
+		return -EIO;
 
 	return 0;
 }

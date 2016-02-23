@@ -25,11 +25,10 @@
 #include "handle.h"
 #include "comptag.h"
 #include "llist.h"
-#include "maint.h"
 #include "pe.h"
-#include "switch.h"
 #include "rio_regs.h"
 #include "rio_devs.h"
+#include "driver.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -252,15 +251,20 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 
 	/* When handle is of type mport free the mport info */
 	if (RIOCP_PE_IS_MPORT(*handle)) {
+		int ret;
 		RIOCP_TRACE("Destroying mport handle %p (ct: 0x%08x)\n",
 			*handle, (*handle)->comptag);
-		riomp_mgmt_mport_destroy_handle(&(*handle)->minfo->maint);
 		riocp_pe_llist_foreach_safe(item, next, &(*handle)->minfo->handles) {
 			p = (struct riocp_pe *)item->data;
 			if (p)
 				riocp_pe_handle_destroy(&p);
 		}
 		riocp_pe_llist_del(&riocp_pe_mport_handles, *handle);
+		ret = riocp_drv_destroy_pe(*handle);
+		if (ret)
+			RIOCP_TRACE(
+			"Drv err %d destroying PE hndl %p (ct: 0x%08x)\n",
+				ret, *handle, (*handle)->comptag);
 		free((*handle)->minfo->comptag_pool);
 		free((*handle)->minfo);
 	} else {
@@ -269,55 +273,11 @@ static void riocp_pe_handle_destroy(struct riocp_pe **handle)
 		riocp_pe_llist_del(&(*handle)->mport->minfo->handles, *handle);
 	}
 
-	if ((*handle)->mp_hnd != RIOCP_PE_HANDLE_FD_UNSET)
-		riomp_mgmt_mport_destroy_handle(&(*handle)->mp_hnd);
-
 	free((*handle)->port);
-	free((*handle)->port_event_mask);
 	free((*handle)->peers);
 	free(*handle);
 
 	*handle = NULL;
-}
-
-/**
- * Open handle pe mport handle
- * @param pe Target PE
- */
-int riocp_pe_handle_open_mport(struct riocp_pe *pe)
-{
-	char mport[64] = { 0 };
-	int ret, mport_id;
-	riomp_mport_t mport_handle;
-
-	RIOCP_TRACE("Open mport for PE 0x%08x\n", pe->comptag);
-
-	if (pe->mp_hnd != RIOCP_PE_HANDLE_FD_UNSET) {
-		RIOCP_ERROR("mport already open\n");
-		return -EEXIST;
-	}
-
-	snprintf(mport, sizeof(mport) - 1, "%s/%s%u", RIOCP_PE_DEV_DIR,
-		RIOCP_PE_DEV_NAME, pe->mport->minfo->id);
-
-	ret = riomp_mgmt_mport_create_handle(pe->mport->minfo->id, 0, &mport_handle);
-	if (ret < 0) {
-		RIOCP_ERROR("Failed to open mport %d\n", pe->mport->minfo->id);
-		return -ENOENT;
-	}
-
-	ret = riomp_mgmt_get_handle_id(mport_handle, &mport_id);
-	if (ret < 0) {
-		RIOCP_ERROR("Failed to get mport %d handle identifier\n", pe->mport->minfo->id);
-		riomp_mgmt_mport_destroy_handle(&mport_handle);
-		return ret;
-	}
-
-	RIOCP_TRACE("Opened mport %d got handle id %d\n",
-		pe->mport->minfo->id, mport_id);
-	pe->mp_hnd = mport_handle;
-
-	return 0;
 }
 
 /**
@@ -332,9 +292,8 @@ int riocp_pe_handle_open_mport(struct riocp_pe *pe)
  * @param port       RapidIO port
  */
 int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uint8_t hopcount,
-	uint32_t destid, uint8_t port)
+	uint32_t destid, uint8_t port, uint32_t *comptag_in, char *name)
 {
-	bool initialize = false;
 	struct riocp_pe *h = NULL;
 	uint32_t comptag_nr = 0;
 	uint8_t peer_port = 0;
@@ -356,7 +315,6 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 
 	/* Initialize handle attributes */
 	h->version  = RIOCP_PE_HANDLE_REV;
-	h->mp_hnd   = RIOCP_PE_HANDLE_FD_UNSET;
 	h->mport    = pe->mport;
 	h->hopcount = hopcount;
 	h->destid   = destid;
@@ -385,6 +343,14 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 	/* Add new handle to mport handle list BEFORE any maintenance access
 		(which depends on checking for valid handle in list) */
 	riocp_pe_llist_add(&h->mport->minfo->handles, h);
+	h->comptag = *comptag_in;
+
+	ret = riocp_drv_init_pe(h, comptag_in, pe, name);
+	if (ret) {
+		RIOCP_ERROR("Could not initialize PE with CT 0x%x\n",
+				pe->comptag);
+		goto err;
+	}
 
 	ret = riocp_pe_read_capabilities(h);
 	if (ret) {
@@ -432,8 +398,6 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 				goto err;
 			}
 		}
-
-		initialize = true;
 	} else {
 		/* Add h to comptag_pool at comptag_nr */
 		ret = riocp_pe_comptag_set_slot(h, comptag_nr);
@@ -448,24 +412,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 	}
 
 	/* Initialize switch port event mask and attach switch driver */
-	if (RIOCP_PE_IS_SWITCH(h->cap)) {
-		if (RIOCP_PE_IS_HOST(h)) {
-			h->port_event_mask = (riocp_pe_event_mask_t *)
-				calloc(RIOCP_PE_PORT_COUNT(h->cap),
-				sizeof(*h->port_event_mask));
-			if (h->port_event_mask == NULL) {
-				RIOCP_ERROR("Unable to allocate memory for h->port_event_mask\n");
-				ret = -ENOMEM;
-				goto err;
-			}
-		}
-
-		ret = riocp_pe_switch_attach_driver(h, initialize);
-		if (ret) {
-			RIOCP_ERROR("Could not attach switch driver\n");
-			goto err;
-		}
-	} else {
+	if (!RIOCP_PE_IS_SWITCH(h->cap)) {
 		ret = riocp_pe_get_destid(h, &h->destid);
 		if (ret) {
 			RIOCP_ERROR("Could not read destid\n");
@@ -514,11 +461,12 @@ err:
  * @retval -ENOMEM Cannot allocate memory
  * @retval -EIO Unable to initialize or read rapidio maintenance
  */
-int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **handle)
+int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
+	struct riocp_pe **handle, struct riocp_reg_rw_driver *drv,
+	uint32_t *comptag, char *name)
 {
 	int ret = 0;
 	struct riocp_pe *h = NULL;
-	riomp_mport_t mport_hnd;
 
 	RIOCP_TRACE("Creating mport %d handle\n", mport);
 
@@ -541,28 +489,28 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 		goto err;
 	}
 
-	/* Initialize maintainance access */
-	ret = riomp_mgmt_mport_create_handle(mport, 0, &mport_hnd);
-	if (ret < 0) {
-		goto err;
-	} else {
-		h->minfo->maint = mport_hnd;
-	}
-
 	/* Initialize handle attributes */
 	h->version        = RIOCP_PE_HANDLE_REV;
-	h->mp_hnd         = RIOCP_PE_HANDLE_FD_UNSET;
 	h->hopcount       = 0;
 	h->mport          = h;
 	h->minfo->ref     = 1; /* Initialize reference count */
 	h->minfo->id      = mport;
 	h->minfo->is_host = is_host;
+	h->minfo->reg_acc = *drv;
+	if (NULL != comptag)
+		h->comptag = *comptag;
 
 	/* Add new handle to mport handles list BEFORE any maintenace access
 		(which depends on checking for valid handle in list) */
 	ret = riocp_pe_llist_add(&riocp_pe_mport_handles, h);
 	if (ret) {
 		RIOCP_ERROR("Could not add new handle to list\n");
+		goto err;
+	}
+
+	ret = riocp_drv_init_pe(h, comptag, NULL, name);
+	if (ret) {
+		RIOCP_ERROR("Could not intialize pe\n");
 		goto err;
 	}
 
@@ -580,38 +528,17 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host, struct riocp_pe **
 	}
 #endif
 
-	if (RIOCP_PE_IS_HOST(h)) {
-		ret = riocp_pe_comptag_init(h);
-		if (ret) {
-			RIOCP_ERROR("Unable to initialize component tag");
-			goto err;
-		}
-	} else {
-		ret = riocp_pe_comptag_read(h, &h->comptag);
-		if (ret) {
-			RIOCP_ERROR("Could not read comptag\n");
-			ret = -EIO;
-			goto err;
-		}
+	ret = riocp_pe_comptag_read(h, &h->comptag);
+	if (ret) {
+		RIOCP_ERROR("Could not read comptag\n");
+		ret = -EIO;
+		goto err;
 	}
 
 	ret = riocp_pe_get_destid(h, &h->destid);
 	if (ret) {
 		RIOCP_ERROR("Could not read destid\n");
 		ret = -EIO;
-		goto err;
-	}
-
-	ret = riocp_pe_handle_open_mport(h);
-	if (ret) {
-		RIOCP_ERROR("failed to open mport\n");
-		goto err;
-	}
-
-	ret = riomp_mgmt_query(h->mp_hnd, &h->mport->minfo->prop);
-	if (ret) {
-		RIOCP_ERROR("failed to get mport properties: %s (%d)\n",
-			strerror(errno), errno);
 		goto err;
 	}
 
@@ -676,11 +603,12 @@ void riocp_pe_handle_mport_put(struct riocp_pe **mport)
  * @retval 0 Handle not found
  * @retval -EIO Error in reading remote
  */
-int riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag, struct riocp_pe **peer)
+int riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag,
+				struct riocp_pe **peer)
 {
 	int ret;
 	struct riocp_pe_llist_item *item;
-	struct riocp_pe *p;
+	struct riocp_pe *ptr;
 
 	RIOCP_TRACE("Check of PE with comptag 0x%08x exists\n", comptag);
 
@@ -689,27 +617,29 @@ int riocp_pe_handle_pe_exists(struct riocp_pe *mport, uint32_t comptag, struct r
 		goto notfound;
 
 	/* Loop trough all mport handles */
-	riocp_pe_llist_foreach(item, &riocp_pe_mport_handles) {
-		p = (struct riocp_pe *)item->data;
-		if (p)
-			if (p->comptag == comptag &&
-				p->mport->minfo->is_host == mport->minfo->is_host)
+	item = riocp_pe_mport_handles.next;
+	while (item != NULL) {
+		ptr = (struct riocp_pe *)item->data;
+		if (NULL != ptr) {
+			if ((ptr->comptag == comptag) &&
+			(ptr->mport->minfo->is_host == mport->minfo->is_host))
 				goto found;
+		};
+		item = item->next;
 	}
 
-	ret = riocp_pe_comptag_get_slot(mport, RIOCP_PE_COMPTAG_GET_NR(comptag), &p);
+	ret = riocp_pe_comptag_get_slot(mport, RIOCP_PE_COMPTAG_GET_NR(comptag), &ptr);
 	if (ret)
 		goto notfound;
 
 found:
 	RIOCP_TRACE("[%p] Handle found for PE with ct 0x%08x (host: %s)\n",
-		p, p->comptag, mport->minfo->is_host ? "true" : "false");
-	*peer = p;
+		ptr, ptr->comptag, mport->minfo->is_host ? "true" : "false");
+	*peer = ptr;
 	return 1;
 
 notfound:
-	RIOCP_DEBUG("No handle found for comptag 0x%08x\n",
-		comptag);
+	RIOCP_DEBUG("No handle found for comptag 0x%08x\n", comptag);
 	return 0;
 }
 

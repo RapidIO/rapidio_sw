@@ -15,7 +15,7 @@ do
 	echo -n "Iteration " $i
 	echo ""
 
-	NODES="gry13 gry14 gry15 gry16"
+	NODES="gry09 gry10 gry11 gry12"
 
 	# Load all drivers FIRST
 	for node in $NODES
@@ -169,7 +169,7 @@ do
 		echo "	Everything worked. Retrying, but cleaning up first"
 		echo ""
 
-		NODES="gry16 gry15 gry14 gry13"
+		NODES="gry12 gry11 gry10 gry09"
 
 		# For each node, kill RSKTD RDMAD and FMD
 		for node in $NODES

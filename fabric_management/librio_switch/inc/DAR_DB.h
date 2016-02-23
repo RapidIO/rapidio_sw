@@ -253,7 +253,8 @@ typedef struct DAR_DB_Driver_t_TAG
 										struct DAR_ptl	*ptl_in,
 										struct DAR_ptl	*ptl_out );
     STATUS (*rioSetEnumBound         )( DAR_DEV_INFO_t  *dev_info, 
-                                        struct DAR_ptl  *ptl_in     );
+                                        struct DAR_ptl  *ptl_in,
+					int             enum_bnd_val);
     STATUS (*rioGetDevResetInitStatus)( DAR_DEV_INFO_t *dev_info    );
     STATUS (*rioPortEnable           )( DAR_DEV_INFO_t *dev_info,
                                         struct DAR_ptl	*ptl_in, 
