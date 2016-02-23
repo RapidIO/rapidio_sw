@@ -223,6 +223,12 @@ int send_force_disconnect_ms_to_lib_for_did(uint32_t did)
 
 /**
  * @brief Struct for passing info to thread
+ *
+ * @param hello_client Pointer to cm_client used to do HELLO message
+ * 	  	       exchange.
+ *
+ * @param destid	Destination ID of detected remote daemon
+ * 			to which HELLO messages shall be sent
  */
 struct wait_accept_destroy_thread_info {
 	wait_accept_destroy_thread_info(cm_client *hello_client,
@@ -235,14 +241,17 @@ struct wait_accept_destroy_thread_info {
 
 	cm_client	*hello_client;
 	pthread_t	tid;
-	sem_t		started;
+	sem_t		started; /* For synchronization when thread has started */
 	uint32_t	destid;
-	int		rc;	/* Whether thread working or failed */
+	int		rc;	 /* Whether thread working or failed */
 };
 
 /**
  * @brief Thread for handling requests such as RDMA connection request, and
  * 	  RDMA disconnection requests.
+ *
+ * @param arg	Argument to thread. Contains a wait_accept_destroy_thread_info
+ * 		struct.
  */
 void *wait_accept_destroy_thread_f(void *arg)
 {
@@ -282,6 +291,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			ERR("NO HELLO ACK from destid(0x%X)\n", destid);
 			throw -4;
 		}
+		/* Warn if there is a mismatch */
 		if (be64toh(ham->destid) != destid) {
 			WARN("hello-ack destid(0x%X) != destid(0x%X)\n",
 						be64toh(ham->destid), destid);
@@ -293,7 +303,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 				wadti->tid);
 
 		/* Post semaphore to caller to indicate thread is up */
-		wadti->rc = 0;
+		wadti->rc = 0;	/* Success */
 		sem_post(&wadti->started);
 	}
 	catch(exception& e) {
@@ -357,6 +367,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			 * and also make sure it is not already marked as 'connected'.
 			 * If not found, there is nothing to do and the ACCEPT_MS
 			 * is ignored. */
+			sem_wait(&connected_to_ms_info_list_sem);
 			auto it = find_if
 				(begin(connected_to_ms_info_list),
 				end(connected_to_ms_info_list),
@@ -374,6 +385,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			if (it == end(connected_to_ms_info_list)) {
 				WARN("Ignoring CM_ACCEPT_MS from ms('%s')\n",
 						accept_cm_msg->server_ms_name);
+				sem_post(&connected_to_ms_info_list_sem);
 				continue;
 			}
 
@@ -389,49 +401,42 @@ void *wait_accept_destroy_thread_f(void *arg)
 				/* Send the ACCEPT_FROM_MS_REQ message to the blocked
 				 * rdma_conn_ms_h() via the tx engine */
 				it->to_lib_tx_eng->send_message(&in_msg);
+				sem_post(&connected_to_ms_info_list_sem);
 				continue;
 			}
 
 			/* Compose the ACCEPT_FROM_MS_REQ that is to be sent
 			 * over to the BLOCKED rdma_conn_ms_h(). */
 			static unix_msg_t in_msg;
-			accept_from_ms_req_input *accept_msg =
+			accept_from_ms_req_input *am = /* short form */
 						&in_msg.accept_from_ms_req_in;
 
 			in_msg.category = RDMA_LIB_DAEMON_CALL;
 			in_msg.type	= ACCEPT_FROM_MS_REQ;
-			accept_msg->server_msid
-					= be64toh(accept_cm_msg->server_msid);
-			accept_msg->server_msubid
-					= be64toh(accept_cm_msg->server_msubid);
-			accept_msg->server_msub_bytes
-				= be64toh(accept_cm_msg->server_msub_bytes);
-			accept_msg->server_rio_addr_len
-				= be64toh(accept_cm_msg->server_rio_addr_len);
-			accept_msg->server_rio_addr_lo
-				= be64toh(accept_cm_msg->server_rio_addr_lo);
-			accept_msg->server_rio_addr_hi
-				= be64toh(accept_cm_msg->server_rio_addr_hi);
-			accept_msg->server_destid_len
-				= be64toh(accept_cm_msg->server_destid_len);
-			accept_msg->server_destid
-				= be64toh(accept_cm_msg->server_destid);
+			am->server_msid	= be64toh(accept_cm_msg->server_msid);
+			am->server_msubid = be64toh(accept_cm_msg->server_msubid);
+			am->server_msub_bytes = be64toh(accept_cm_msg->server_msub_bytes);
+			am->server_rio_addr_len = be64toh(accept_cm_msg->server_rio_addr_len);
+			am->server_rio_addr_lo = be64toh(accept_cm_msg->server_rio_addr_lo);
+			am->server_rio_addr_hi = be64toh(accept_cm_msg->server_rio_addr_hi);
+			am->server_destid_len = be64toh(accept_cm_msg->server_destid_len);
+			am->server_destid = be64toh(accept_cm_msg->server_destid);
+
 			DBG("Accept: msubid=0x%X msid= 0x%X destid=0x%X destid_len=0x%X, rio=0x%"
 										PRIx64 "\n",
-						accept_msg->server_msubid,
-						accept_msg->server_msid,
-						accept_msg->server_destid,
-						accept_msg->server_destid_len,
-						accept_msg->server_rio_addr_lo);
+						am->server_msubid,
+						am->server_msid,
+						am->server_destid,
+						am->server_destid_len,
+						am->server_rio_addr_lo);
 			DBG("Accept: msub_bytes = %u, rio_addr_len = %u\n",
-						accept_msg->server_msub_bytes,
-						accept_msg->server_rio_addr_len);
+						am->server_msub_bytes,
+						am->server_rio_addr_len);
 
 			/* Send the ACCEPT_FROM_MS_REQ message to the blocked
 			 * rdma_conn_ms_h() via the tx engine */
 			it->to_lib_tx_eng->send_message(&in_msg);
 
-			sem_wait(&connected_to_ms_info_list_sem);
 			/* Update the corresponding element of connected_to_ms_info_list */
 			/* By setting this entry to 'connected' it is ignored if there
 			 * is an ACCEPT_MS destined for another client. */
@@ -506,6 +511,8 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 /**
  * Provision a remote daemon by sending a HELLO message.
+ *
+ * @param destid	Destination ID of node running remote daemon
  */
 int provision_rdaemon(uint32_t destid)
 {
