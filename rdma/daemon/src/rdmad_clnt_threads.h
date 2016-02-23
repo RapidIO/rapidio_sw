@@ -34,17 +34,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_CLNT_THREADS_H
 
 #include <stdint.h>
-#include <pthread.h>
+#include <semaphore.h>
 
-#include "cm_sock.h"
 #include "unix_sock.h"
-#include "rdmad_cm.h"
-#include "ts_vector.h"
 #include "daemon_info.h"
 
-
 /**
- * Each daemon shall maintain a list of all connections to remote memory
+ * @brief Each daemon shall maintain a list of all connections to remote memory
  * spaces. Each entry in that list represents a connection between one of
  * the daemon's applications, and a REMOTE memory space. As such a memory
  * space may appear multiple times in this list, each time with a different
@@ -53,6 +49,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * data member contains the tx engine that the daemon shall use to communicate
  * with the application that requested the connection to the remote memory
  * space.
+ *
+ * @param client_msubid	Client memory subspace identifier provided by client
+ * 			application when it called rdma_conn_ms_h(). Maybe
+ * 			NULL_MSUBID.
+ *
+ * @param server_msname	Memory space name to connect to on the server daemon
+ *
+ * @param server_destid	Destination ID of the node hosting the server daemon
+ *
+ * @param to_lib_tx_eng Tx engine on the daemon that is used to communicate
+ * 			with the client application.
  */
 struct connected_to_ms_info {
 	connected_to_ms_info(uint32_t client_msubid,
@@ -101,17 +108,29 @@ struct connected_to_ms_info {
 	tx_engine<unix_server,unix_msg_t> *to_lib_tx_eng;
 };
 
-extern daemon_list	hello_daemon_info_list;
-
+extern daemon_list			hello_daemon_info_list;
 extern vector<connected_to_ms_info>	connected_to_ms_info_list;
 extern sem_t 				connected_to_ms_info_list_sem;
 
+/**
+ * @brief The server daemon has died. Client daemon needs to:
+ * 	  1. Notify the libraries of apps that have connected to memory spaces
+ *           on that 'did' so they self-disconnect and clean their databases
+ *           of the server's remove msub entries.
+ *        2. Remove entries for that 'did' from the connected_to_ms_info_list.
+ *
+ * @param did	Destination ID of remote server daemon that has died
+ *
+ * @return 0 if successful OR there are no connections to the remote daemon.
+ * 	   Non-zero otherwise
+ */
 int send_force_disconnect_ms_to_lib_for_did(uint32_t did);
 
-void *wait_accept_thread_f(void *arg);
-
-void *client_wait_destroy_thread_f(void *arg);
-
+/**
+ * Provision a remote daemon by sending a HELLO message.
+ *
+ * @param destid	Destination ID of node running remote daemon
+ */
 int provision_rdaemon(uint32_t destid);
 
 #endif

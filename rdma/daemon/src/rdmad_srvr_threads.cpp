@@ -324,12 +324,12 @@ void *wait_conn_disc_thread_f(void *arg)
 					ms->get_name());
 			}
 		} else if (be64toh(conn_msg->type) == CM_FORCE_DISCONNECT_MS_ACK) {
-			cm_destroy_ack_msg *dest_ack_msg;
+			cm_force_disconnect_ack_msg *force_disconnect_ack_msg;
 
-			rx_conn_disc_server->get_recv_buffer((void **)&dest_ack_msg);
+			rx_conn_disc_server->get_recv_buffer((void **)&force_disconnect_ack_msg);
 			HIGH("Received CM_FORCE_DISCONNECT_MS_ACK for msid(0x%X), '%s'\n",
-					be64toh(dest_ack_msg->server_msid),
-					dest_ack_msg->server_msname);
+					be64toh(force_disconnect_ack_msg->server_msid),
+					force_disconnect_ack_msg->server_msname);
 		} else {
 			CRIT("Unknown message type 0x%016" PRIx64 "\n",
 							be64toh(conn_msg->type));

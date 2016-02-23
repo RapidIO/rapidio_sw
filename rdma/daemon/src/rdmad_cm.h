@@ -51,10 +51,17 @@ constexpr uint32_t CM_DISCONNECT_MS_REQ		= 0x04;
 constexpr uint32_t CM_FORCE_DISCONNECT_MS 	= 0x05;
 constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK 	= 0x06;
 
+/**
+ * @brief HELLO message exchanged between daemons during provisioning
+ */
 struct hello_msg_t {
 	uint64_t destid;
 };
 
+/**
+ * @brief Sent from client daemon to server daemon requesting connection
+ * 	  to a server memory space
+ */
 struct cm_connect_msg {
 	uint64_t	type;
 	uint64_t	client_msid;	  /* Client msid */
@@ -62,7 +69,7 @@ struct cm_connect_msg {
 	uint64_t	client_bytes;	  /* Client msub length in bytes */
 	uint64_t	client_rio_addr_len; /* Client length of RIO address */
 	uint64_t	client_rio_addr_lo;  /* Client RIO address lo 64-bits */
-	uint64_t	client_rio_addr_hi;  /* Client lpper RIO address */
+	uint64_t	client_rio_addr_hi;  /* Client upper RIO address */
 	uint64_t	client_to_lib_tx_eng_h;
 	uint64_t	seq_num;
 	uint64_t	connh;
@@ -95,6 +102,10 @@ struct cm_connect_msg {
 constexpr uint32_t CM_ACCEPT_MS_ACK  = 0x01;
 constexpr uint32_t CM_ACCEPT_MS_NACK = 0x02;
 
+/**
+ * @brief Sent from server daemon to client daemon indicating connection
+ * 	  request to memory space was accepted.
+ */
 struct cm_accept_msg {
 	uint64_t	type;
 	uint64_t	sub_type;
@@ -112,6 +123,10 @@ struct cm_accept_msg {
 	uint64_t	client_to_lib_tx_eng_h;
 };
 
+/**
+ * @brief Sent from client daemon to server daemon requesting disconnection
+ * 	  from specified memory space
+ */
 struct cm_disconnect_req_msg {
 	uint64_t	type;
 	uint64_t 	client_msubid;
@@ -121,6 +136,13 @@ struct cm_disconnect_req_msg {
 	uint64_t 	server_msid;
 };
 
+/**
+ * @brief Sent from server daemon to client daemon to force disconnection
+ * 	  from specified memory space either:
+ * 	  - because the server has self-disconnected the memory space from
+ * 	    the client; or
+ * 	  - because the server has closed/destroyed the memory space.
+ */
 struct cm_force_disconnect_msg {
 	uint64_t	type;
 	char 		server_msname[CM_MS_NAME_MAX_LEN+1];
@@ -129,11 +151,15 @@ struct cm_force_disconnect_msg {
 	uint64_t 	client_to_lib_tx_eng_h;
 };
 
-struct cm_destroy_ack_msg {
+/**
+ * @brief Acknowledge forced disconnection
+ */
+struct cm_force_disconnect_ack_msg {
 	uint64_t	type;
 	char server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t server_msid;
 };
+
 
 /* Currently only used when tx_engine and rx_engine templates
  * are instantiated in terms of cm sockets and messages.
@@ -148,7 +174,7 @@ struct cm_msg_t {
 		cm_accept_msg		cm_accept;
 		cm_disconnect_req_msg 	cm_disconnect_req;
 		cm_force_disconnect_msg		cm_destroy;
-		cm_destroy_ack_msg	cm_destroy_ack;
+		cm_force_disconnect_ack_msg	cm_force_disconnect_ack;
 	};
 };
 #endif

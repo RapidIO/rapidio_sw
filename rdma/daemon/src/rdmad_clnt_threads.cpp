@@ -179,18 +179,7 @@ static int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 	return rc;
 } /* send_force_disconnect_ms_to_lib() */
 
-/**
- * @brief The server daemon has died. Client daemon needs to:
- * 	  1. Notify the libraries of apps that have connected to memory spaces
- *           on that 'did' so they self-disconnect and clean their databases
- *           of the server's remove msub entries.
- *        2. Remove entries for that 'did' from the connected_to_ms_info_list.
- *
- * @param did	Destination ID of remote server daemon that has died
- *
- * @return 0 if successful OR there are no connections to the remote daemon.
- * 	   Non-zero otherwise
- */
+
 int send_force_disconnect_ms_to_lib_for_did(uint32_t did)
 {
 	int ret = 0;	/* The list could be empty */
@@ -486,7 +475,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			 * Send back CM_FORCE_DISCONNECT_MS_ACK to the remote
 			 * daemon on which the memory space was either
 			 * destroyed or self-disconnected by its server. */
-			cm_destroy_ack_msg *dam;
+			cm_force_disconnect_ack_msg *dam;
 
 			/* Flush CM send buffer of previous message */
 			accept_destroy_client->get_send_buffer((void **) &dam);
@@ -509,11 +498,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 	pthread_exit(0);
 } /* wait_accept_destroy_thread_f() */
 
-/**
- * Provision a remote daemon by sending a HELLO message.
- *
- * @param destid	Destination ID of node running remote daemon
- */
+
 int provision_rdaemon(uint32_t destid)
 {
 	int rc;
