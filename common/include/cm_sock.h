@@ -213,6 +213,7 @@ protected:
 		auto rc = 0;
 		void *buf;
 
+		DBG("socket = 0x%X\n", socket);
 		if (buffer == nullptr)
 			buf = (void *)recv_buf;
 		else
@@ -489,7 +490,7 @@ public:
 	~cm_client()
 	{
 		/* Close client socket */
-		DBG("client_socket = 0x%X\n", client_socket);
+		DBG("'%s': client_socket = 0x%X\n", name, client_socket);
 		if (riomp_sock_close(&client_socket)) {
 			WARN("Failed to close client socket for '%s': %s\n",
 							name, strerror(errno));

@@ -225,7 +225,7 @@ int send_force_disconnect_ms_to_lib_for_did(uint32_t did)
  * @brief Struct for passing info to thread
  */
 struct wait_accept_destroy_thread_info {
-	wait_accept_destroy_thread_info(shared_ptr<cm_client> hello_client,
+	wait_accept_destroy_thread_info(cm_client *hello_client,
 					uint32_t destid) :
 					hello_client(hello_client),
 					tid(0), destid(destid), rc(0)
@@ -233,7 +233,7 @@ struct wait_accept_destroy_thread_info {
 		sem_init(&started, 0, 0);
 	}
 
-	shared_ptr<cm_client>	hello_client;
+	cm_client	*hello_client;
 	pthread_t	tid;
 	sem_t		started;
 	uint32_t	destid;
@@ -510,14 +510,14 @@ void *wait_accept_destroy_thread_f(void *arg)
 int provision_rdaemon(uint32_t destid)
 {
 	int rc;
-	shared_ptr<cm_client> hello_client;
+	cm_client *hello_client;
 	unique_ptr<wait_accept_destroy_thread_info> wadti;
 
 	try {
 		/* Create provision client to connect to remote
 		 * daemon's provisioning thread */
 		peer_info &peer = the_inbound->get_peer();
-		hello_client = make_shared<cm_client>(
+		hello_client = new cm_client(
 						"hello_client",
 						peer.mport_id,
 						peer.prov_mbox_id,
