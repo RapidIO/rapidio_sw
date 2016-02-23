@@ -553,37 +553,21 @@ void UMD_DD(struct worker* info)
 {
         assert(info->umd_dch);
 
-	const int MHz = getCPUMHz();
+	//const int MHz = getCPUMHz();
+	//const int idx = info->idx;
 
-	const int idx = info->idx;
+	DMAChannel::ShmClientCompl_t comp[DMAChannel::DMA_SHM_MAX_CLIENTS];
+	memset(&comp, 0, sizeof(comp));
 
-	float    avgTf_scanfifo = 0;
-	uint64_t cnt_scanfifo = 0;
-	if (g_FifoStats[idx].fifo_count_scanfifo > 0) {
-		float avg_tick = (float)g_FifoStats[idx].fifo_deltats_scanfifo / (cnt_scanfifo = g_FifoStats[idx].fifo_count_scanfifo);
-		avgTf_scanfifo = (float)avg_tick / MHz;
+	info->umd_dch->listClients(&comp[0], sizeof(comp));
+	for (int i = 0; i < DMAChannel::DMA_SHM_MAX_CLIENTS; i++) {
+		if (! comp[i].busy) continue;
+		INFO("\n\tpid=%d%s change_cnt=%llu bad_tik.{RP=%llu WP=%llu} NREAD_T2_res.{RP=%llu WP=%llu}\n",
+		     comp[i].owner_pid, (kill(comp[i].owner_pid,0)? " DEAD": ""),
+		     comp[i].change_cnt,
+		     comp[i].bad_tik.RP, comp[i].bad_tik.WP,
+		     comp[i].NREAD_T2_results.RP, comp[i].NREAD_T2_results.WP);
 	}
-
-	float    avgTf_other = 0;
-	uint64_t cnt_other = 0;
-	if (g_FifoStats[idx].fifo_count_other > 0) {
-		float avg_tick = (float)g_FifoStats[idx].fifo_deltats_other / (cnt_other = g_FifoStats[idx].fifo_count_other);
-		avgTf_other = (float)avg_tick / MHz;
-	}
-
-	char tmp[257] = {0};
-	std::stringstream ss; ss << "\n";
-	snprintf(tmp, 256, "scanFIFO       avg %fuS total %fuS %llu times\n",
-		 avgTf_scanfifo, (float)g_FifoStats[idx].fifo_deltats_scanfifo/MHz, cnt_scanfifo);
-	ss<<"\t"<<tmp;
-	snprintf(tmp, 256, "other FIFO thr avg %fuS total %fuS %llu times\n",
-		 avgTf_other, (float)g_FifoStats[idx].fifo_deltats_other/MHz, cnt_other);
-	ss<<"\t"<<tmp;
-	if (g_FifoStats[idx].fifo_deltats_all > 0) {
-		snprintf(tmp, 256, "FIFO thread total %fuS\n", (float)g_FifoStats[idx].fifo_deltats_all/MHz);
-		ss<<"\t"<<tmp;
-	}
-	CRIT("%s", ss.str().c_str());
 }
 
 void UMD_Test(const struct worker* wkr)
@@ -1313,7 +1297,8 @@ exit:
 	if(info->dmamem[0].type != 0) 
                 info->umd_dch->free_dmamem(info->dmamem[0]);
 
-        delete info->umd_dch; info->umd_dch = NULL;
+        try { delete info->umd_dch; info->umd_dch = NULL; }
+	catch(std::runtime_error ex) {}
 	delete info->umd_lock; info->umd_lock = NULL;
 }
 

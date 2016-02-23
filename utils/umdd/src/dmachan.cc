@@ -252,7 +252,7 @@ bool DMAChannel::dmaIsRunning()
 void DMAChannel::resetHw()
 {
   if (!m_hw_master)
-    throw std::runtime_error("DMAChannel: Will not alloc reset HW in non-master instance!");
+    throw std::runtime_error("DMAChannel: Will not reset HW in non-master instance!");
 
   m_sim_abort_reason = 0;
   m_sim_err_stat     = 0;
@@ -743,7 +743,7 @@ void DMAChannel::cleanup()
   assert(m_state);
 
   // Reset HW here
-  resetHw();
+  if (m_hw_master) resetHw();
  
   try { // May not have these things allocated at all
     free_dmacompldesc();
@@ -997,7 +997,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
         pthread_spin_unlock(&m_state->client_splock); 
 
         if (!r)
-          CRIT("\n\tFailed to enqueue a NREAD/T2 completion for client idx=%d pid=%d\n. Queue FULL?\n",
+          CRIT("\n\tFailed to enqueue a NREAD/T2 completion for client idx=%d pid=%d Queue FULL?\n",
                item.opt.cliidx, m_state->client_completion[item.opt.cliidx].owner_pid);
       } while(0);
     }
