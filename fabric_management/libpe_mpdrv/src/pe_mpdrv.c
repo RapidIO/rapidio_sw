@@ -105,9 +105,10 @@ int mpsw_drv_reg_wr(struct riocp_pe  *pe, uint32_t offset, uint32_t val)
 	if (RIO_BASE_DEVICE_ID_CSR == offset) {
         	if (RIOCP_PE_IS_MPORT(pe)) {
 			struct mpsw_drv_pe_acc_info *p_acc;
+			uint16_t dev8_did = ((val >> 16) & 0xFF);
 			p_acc = (struct mpsw_drv_pe_acc_info *)
 					priv_ptr->dev_h.accessInfo;
-                	ret = riomp_mgmt_destid_set(p_acc->maint, val);
+                	ret = riomp_mgmt_destid_set(p_acc->maint, dev8_did);
 		};
 	};
 
@@ -170,8 +171,10 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 {
 	int rc = 0;
 	struct mpsw_drv_pe_acc_info *p_acc;
+	struct mpsw_drv_private_data *p_dat;
 	char dev_fn[MPSW_MAX_DEV_FN];
 
+	p_dat = (struct mpsw_drv_private_data *)pe->private_data;
 	p_acc = (struct mpsw_drv_pe_acc_info *)
 			pe->mport->minfo->private_data;
 
@@ -180,11 +183,8 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 
 	pe->name = (const char *)name;
 
-	if (RIOCP_PE_IS_SWITCH(pe->cap))
+	if (SWITCH(&p_dat->dev_h))
 		return 0;
-
-	if (!RIOCP_PE_IS_HOST(pe))
-		return -ENOSYS;
 
 	memset(dev_fn, 0, MPSW_MAX_DEV_FN);
 	snprintf(dev_fn, MPSW_MAX_DEV_FN-1, "%s%s", MPSW_DFLT_DEV_DIR, name);
