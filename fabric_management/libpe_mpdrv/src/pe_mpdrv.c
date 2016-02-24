@@ -180,7 +180,7 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 
 	pe->name = (const char *)name;
 
-	if (RIOCP_PE_IS_MPORT(pe))
+	if (RIOCP_PE_IS_SWITCH(pe->cap))
 		return 0;
 
 	if (!RIOCP_PE_IS_HOST(pe))

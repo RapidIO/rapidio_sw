@@ -491,7 +491,7 @@ int riocp_pe_handle_create_mport(uint8_t mport, bool is_host,
 
 	/* Initialize handle attributes */
 	h->version        = RIOCP_PE_HANDLE_REV;
-	h->hopcount       = 0;
+	h->hopcount       = 0xFF;
 	h->mport          = h;
 	h->minfo->ref     = 1; /* Initialize reference count */
 	h->minfo->id      = mport;

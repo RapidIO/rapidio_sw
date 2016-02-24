@@ -126,6 +126,9 @@ int riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe)
 	if (!RIOCP_PE_IS_HOST(pe))
 		return 0;
 
+	if (RIOCP_PE_IS_MPORT(pe))
+		return 0;
+
 	/* If the ANY_ID is already programmed for this pe, skip it */
 	if (pe->mport->minfo->any_id_target == NULL)
 		return 0;
