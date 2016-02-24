@@ -502,13 +502,6 @@ __attribute__((constructor)) int lib_init(void)
 		exit(RDMA_ERRNO);
 	}
 
-	/* Iinitialize the database */
-	if (rdma_db_init()) {
-		CRIT("Failed to initialized RDMA database. Exiting.\n");
-		exit(RDMA_ERRNO);
-	}
-	HIGH("Database initialized\n");
-
 	/* Library initialization */
 	if (rdma_lib_init()) {
 		CRIT("Failed to connect to daemon. Exiting.\n");
@@ -1110,11 +1103,11 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		/* Failed to open ms? */
 		if (out_msg.close_ms_out.status) {
 			ERR("Failed to close ms '%s' in daemon, status = 0x%X\n",
-			((loc_ms *)msh)->name, out_msg.close_ms_out.status);
+			((loc_ms *)msh)->name.c_str(), out_msg.close_ms_out.status);
 			throw out_msg.close_ms_out.status;
 		}
 
-		INFO("Opened '%s' in the daemon\n", ((loc_ms *)msh)->name);
+		INFO("Opened '%s' in the daemon\n", ((loc_ms *)msh)->name.c_str());
 
 		/* Take it out of databse */
 		if (remove_loc_ms(msh) < 0) {
@@ -1147,7 +1140,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 
 		loc_ms *ms = (loc_ms *)msh;
 		DBG("msid = 0x%X, ms_name = '%s', msh = 0x%" PRIx64 "\n",
-							ms->msid, ms->name, msh);
+						ms->msid, ms->name.c_str(), msh);
 		/* Destroy msubs in this msh */
 		if (destroy_msubs_in_msh(msh)) {
 			ERR("Failed to destroy msubs belonging to msh(0x%" PRIx64 ")\n",
@@ -1173,7 +1166,7 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 		/* Failed to destroy ms? */
 		if (out_msg.destroy_ms_out.status) {
 			ERR("Failed to destroy ms '%s' in daemon, status = 0x%X\n",
-				ms->name, out_msg.destroy_ms_out.status);
+				ms->name.c_str(), out_msg.destroy_ms_out.status);
 			throw out_msg.destroy_ms_out.status;
 		}
 
@@ -1463,7 +1456,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			accept_in_msg.accept_in.server_msubid
 							= server_msub->msubid;
 
-			DBG("name = '%s'\n", server_ms->name);
+			DBG("name = '%s'\n", server_ms->name.c_str());
 
 			/* Call into daemon */
 			unix_msg_t  accept_out_msg;
@@ -1490,7 +1483,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 				   &connect_ms_req_msg);
 		if (rc) {
 			ERR("Failed to receive CONNECT_MS_REQ for '%s'\n",
-							server_ms->name);
+							server_ms->name.c_str());
 			/* Switch back the ms to non-accepting mode */
 			unix_msg_t undo_accept_in_msg;
 			undo_accept_in_msg.type     = UNDO_ACCEPT;
