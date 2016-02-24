@@ -437,7 +437,7 @@ public:
       inline bool deq(NREAD_Result_t& res) {
         assert(RP <= WP);
         if (WP == RP) return false; // empty
-        res = results[(WP++ % DMA_SHM_MAX_ITEMS_PER_CLIENT)];
+        res = results[(RP++ % DMA_SHM_MAX_ITEMS_PER_CLIENT)];
         return true;
       }
 
