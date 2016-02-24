@@ -1075,7 +1075,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	int oi = 0;
 	uint64_t cnt = 0;
 	int iter = 0;
-        int FT_TEST = 0;
 
 	//NOT WITH SHM// if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
@@ -1092,26 +1091,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
                 goto exit;
         }
-
-	if (op == 'N') {
-		FT_TEST = (int)(GetEnv("sim") != NULL) << 1 | (int)(GetEnv("baddid") != NULL);
-		assert(FT_TEST != 0x3);
-		if (FT_TEST == 0x2) { info->umd_dch->setSim(); INFO("SIMULATION MODE - NREAD\n"); }
-		if (FT_TEST == 0x1) { INFO("Tsi721 FAULT MODE - NREAD\n"); }
-	}
-
-	try {
-		if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
-			CRIT("\n\talloc_dmatxdesc failed: bufs %d",
-								info->umd_tx_buf_cnt);
-			goto exit;
-		};
-		if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
-			CRIT("\n\talloc_dmacompldesc failed: entries %d",
-								info->umd_sts_entries);
-			goto exit;
-		};
-        } catch(std::runtime_error ex) { INFO("\n\tException: %s\n", ex.what()); }
 
         memset(info->dmamem, 0, sizeof(info->dmamem));
         memset(info->dmaopt, 0, sizeof(info->dmaopt));
@@ -1132,9 +1111,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
         info->tick_data_total = 0;
 	info->tick_count = info->tick_total = 0;
 
-        try { 
-		info->umd_dch->resetHw();
-	} catch(std::runtime_error ex) { INFO("\n\tException: %s\n", ex.what()); }
         if (!info->umd_dch->checkPortOK()) {
 		CRIT("\n\tPort is not OK!!! Exiting...");
 		goto exit;
@@ -1150,10 +1126,9 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	}
 
 	if(op == 'T' || op == 'R') // Not used for NREAD
-		memset(info->ib_ptr, 0,info->acc_size);
+		memset(info->ib_ptr, 0, info->acc_size);
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
-
 
 	// TX Loop
 	for (cnt = 0; !info->stop_req; cnt++) {
@@ -1224,7 +1199,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 					results.push_back(res);
 				}
 			}
-#if 1
 			if (7 <= g_level && results.size() > 0) { // DEBUG
 				std::vector<DMAChannel::NREAD_Result_t>::iterator it = results.begin();
 				for (; it != results.end(); it++) {
@@ -1237,7 +1211,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 					DBG("\n\tTicket %llu NREAD-in data: %s\n", it->ticket, ss.str().c_str());
 				}
 			}
-#endif
 			}}
 			break;
 
@@ -1252,16 +1225,12 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	} // END for infinite transmit
 
 exit:
-	if (info->umd_dch)
-		info->umd_dch->shutdown();
-
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 
                 info->umd_dch->free_dmamem(info->dmamem[0]);
 
         try { delete info->umd_dch; info->umd_dch = NULL; }
 	catch(std::runtime_error ex) {}
-	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 static inline int MIN(int a, int b) { return a < b? a: b; }
