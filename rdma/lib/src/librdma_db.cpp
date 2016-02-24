@@ -118,25 +118,14 @@ int remove_loc_mso(mso_h msoh)
 	return rc;
 } /* remove_loc_mso() */
 
-/**
- * Finds mso with a particular msoid
- */
-struct has_msoid {
-	has_msoid(uint32_t msoid) : msoid(msoid) {}
-	bool operator()(loc_mso* mso) {
-		return mso->msoid == msoid;
-	}
-private:
-	uint32_t msoid;
-}; /* has_msoid */
-
 int remove_loc_mso(uint32_t msoid)
 {
 	int rc;
 
 	/* Find the mso identified by msoid */
 	lock_guard<mutex> lock(loc_mso_mutex);
-	auto it = find_if(begin(loc_mso_list), end(loc_mso_list), has_msoid(msoid));
+	auto it = find_if(begin(loc_mso_list), end(loc_mso_list),
+			[msoid](loc_mso * mso){ return mso->msoid == msoid;});
 	if (it == end(loc_mso_list)) {
 		WARN("msoid = 0x%X not found\n", msoid);
 		rc = -1;
@@ -178,34 +167,17 @@ bool mso_h_exists(mso_h msoh)
 mso_h find_mso(uint32_t msoid)
 {
 	lock_guard<mutex> lock(loc_mso_mutex);
-	auto it = find_if(begin(loc_mso_list), end(loc_mso_list), has_msoid(msoid));
-	return (it == end(loc_mso_list)) ? (mso_h)(*it) : (mso_h)NULL;
+	auto it = find_if(begin(loc_mso_list), end(loc_mso_list),
+			[msoid](loc_mso * mso){ return mso->msoid == msoid;});
+	return (it != end(loc_mso_list)) ? (mso_h)(*it) : (mso_h)NULL;
 } /* find_mso */
-
-struct has_mso_name {
-	has_mso_name(const char *name) : name(name) {}
-	bool operator()(loc_mso* mso) {
-		return this->name == mso->name;
-	}
-private:
-	const char *name;
-}; /* has_mso_name */
 
 mso_h find_mso_by_name(const char *name)
 {
-	mso_h	msoh;
-
 	lock_guard<mutex> lock(loc_mso_mutex);
 	auto it = find_if(begin(loc_mso_list), end(loc_mso_list),
-							has_mso_name(name));
-	if (it == end(loc_mso_list)) {
-		WARN("mso with name = '%s' not found\n", name);
-		msoh = (mso_h)NULL;
-	} else {
-		msoh =  (mso_h)(*it);
-	}
-
-	return msoh;
+		[name](loc_mso *mso) { return name == mso->name; });
+	return (it != end(loc_mso_list)) ? (mso_h)(*it) : (mso_h)NULL;
 } /* find_mso_by_name() */
 
 ms_h add_loc_ms(const char *ms_name,
@@ -290,44 +262,23 @@ ms_h find_loc_ms(uint32_t msid)
 {
 	lock_guard<mutex> lock(loc_ms_mutex);
 	auto it = find_if(begin(loc_ms_list), end(loc_ms_list),
-				has_this_msid<loc_ms>(msid));
+			[msid](loc_ms *ms) { return ms->msid == msid; });
 	return (it != end(loc_ms_list)) ? (ms_h)(*it) : (ms_h)NULL;
 } /* find_loc_ms() */
-
-struct has_ms_name {
-	has_ms_name(const char *name) : name(name) {}
-	bool operator()(loc_ms* ms) {
-		return this->name == ms->name;
-	}
-private:
-	const char *name;
-};
 
 ms_h find_loc_ms_by_name(const char *ms_name)
 {
 	lock_guard<mutex> lock(loc_ms_mutex);
-	auto it = find_if(begin(loc_ms_list), end(loc_ms_list), has_ms_name(ms_name));
+	auto it = find_if(begin(loc_ms_list), end(loc_ms_list),
+			[ms_name](loc_ms *ms) { return ms->name == ms_name; });
 	return (it != end(loc_ms_list)) ? (ms_h)(*it) : (ms_h)NULL;
 } /* find_loc_ms_by_name() */
-
-/**
- * @brief returns true if the ms has owner msoh.
- */
-struct has_this_owner {
-	has_this_owner(mso_h msoh) : msoh(msoh) {}
-
-	bool operator()(loc_ms *msp) {
-		return msp->msoh == this->msoh;
-	}
-
-private:
-	mso_h msoh;
-}; /* has_this_owner() */
 
 unsigned get_num_ms_by_msoh(mso_h msoh)
 {
 	lock_guard<mutex> lock(loc_ms_mutex);
-	return count_if(begin(loc_ms_list), end(loc_ms_list), has_this_owner(msoh));
+	return count_if(begin(loc_ms_list), end(loc_ms_list),
+			[msoh](loc_ms *ms) { return ms->msoh == msoh;});
 } /* get_num_ms_by_msoh() */
 
 void get_list_msh_by_msoh(mso_h msoh, msp_list& ms_list)
@@ -336,7 +287,7 @@ void get_list_msh_by_msoh(mso_h msoh, msp_list& ms_list)
 	copy_if(begin(loc_ms_list),
 		end(loc_ms_list),
 		begin(ms_list),
-		has_this_owner(msoh));
+		[msoh](loc_ms *ms) { return ms->msoh == msoh;});
 } /* get_list_msh_by_msoh() */
 
 bool loc_ms_exists(ms_h msh)
@@ -492,25 +443,12 @@ int remove_loc_msub(msub_h msubh)
 	return rc;
 } /* remove_loc_msub() */
 
-/**
- * Returns true if loc_msub has the specified msubid.
- */
-struct loc_has_this_msubid {
-	loc_has_this_msubid(uint32_t msubid) : msubid(msubid) {}
-
-	bool operator()(struct loc_msub *msubp) {
-		return msubp->msubid == this->msubid;
-	}
-private:
-	uint32_t msubid;
-};
-
 msub_h find_loc_msub(uint32_t msubid)
 {
 	lock_guard<mutex> lock(loc_msub_mutex);
 	auto it = find_if(begin(loc_msub_list),
 			  end(loc_msub_list),
-			  loc_has_this_msubid(msubid));
+			  [msubid](loc_msub *msub) { return msub->msubid == msubid; });
 	return (it != end(loc_msub_list)) ? (msub_h)(*it) : (msub_h)NULL;
 } /* find_loc_msub() */
 
@@ -529,29 +467,15 @@ msub_h find_loc_msub_by_connh(conn_h connh)
 					    }) != end(msubp->connections);
 			  });
 
-	return (it != loc_msub_list.end()) ? (msub_h)(*it) : (msub_h)NULL;
+	return (it != end(loc_msub_list)) ? (msub_h)(*it) : (msub_h)NULL;
 } /* find_loc_msub_by_connh() */
-
-/**
- * Returns true if loc_msub has memory space identifier 'msid'
- */
-struct loc_msub_has_this_msid {
-	loc_msub_has_this_msid(uint32_t msid) : msid(msid) {}
-
-	bool operator()(struct loc_msub *msubp) {
-		return msubp->msid == this->msid;
-	}
-
-private:
-	uint32_t msid;
-}; /* loc_msub_has_this_msid */
 
 unsigned get_num_loc_msub_in_ms(uint32_t msid)
 {
 	lock_guard<mutex> lock(loc_msub_mutex);
 	return count_if(begin(loc_msub_list),
 		        end(loc_msub_list),
-			loc_msub_has_this_msid(msid));
+			[msid](loc_msub *msub) { return msub->msid == msid; });
 } /* get_num_loc_msub_in_ms() */
 
 void get_list_loc_msub_in_msid(uint32_t msid, msubp_list& msub_list)
@@ -560,7 +484,7 @@ void get_list_loc_msub_in_msid(uint32_t msid, msubp_list& msub_list)
 	copy_if(begin(loc_msub_list),
 		end(loc_msub_list),
 		begin(msub_list),
-		loc_msub_has_this_msid(msid));
+		[msid](loc_msub *msub) { return msub->msid == msid; });
 } /* get_list_loc_msubh_in_msid() */
 
 void purge_loc_msub_list()
@@ -599,26 +523,14 @@ msub_h add_rem_msub(uint32_t	rem_msubid,
 	return (msub_h)msubp;
 } /* add_rem_msub() */
 
-/**
- * @brief Returns true if remote msub has specified msubid.
- */
-struct rem_has_this_msubid {
-	rem_has_this_msubid(uint32_t msubid) : msubid(msubid) {}
-
-	bool operator()(struct rem_msub *msubp) {
-		return msubp->msubid == this->msubid;
-	}
-private:
-	uint32_t msubid;
-};
-
 int remove_rem_msub(uint32_t msubid)
 {
 	int rc;
 	lock_guard<mutex> lock(rem_msub_mutex);
 	auto it = find_if(begin(rem_msub_list),
 			  end(rem_msub_list),
-			  rem_has_this_msubid(msubid));
+		[msubid](rem_msub *msub) { return msub->msubid == msubid;});
+
 	if (it == rem_msub_list.end()) {
 		WARN("msubid(0x%X) not found\n", msubid);
 		rc = -2;
@@ -643,7 +555,7 @@ int remove_rem_msub(msub_h msubh)
 		/* Find the msub defined by msubh */
 		lock_guard<mutex> lock(rem_msub_mutex);
 		auto it = find(begin(rem_msub_list), end(rem_msub_list), (rem_msub *)msubh);
-		if (it == rem_msub_list.end()) {
+		if (it == end(rem_msub_list)) {
 			WARN("msubh = 0x%" PRIx64 " not found\n", msubh);
 			rc = -2;
 		} else {
@@ -662,7 +574,7 @@ msub_h find_rem_msub(uint32_t msubid)
 	lock_guard<mutex> lock(rem_msub_mutex);
 	auto it = find_if(begin(rem_msub_list),
 			  end(rem_msub_list),
-			  rem_has_this_msubid(msubid));
+		[msubid](rem_msub *msub) { return msub->msubid == msubid;});
 	return (it != rem_msub_list.end()) ? (msub_h)(*it) : (msub_h)NULL;
 } /* find_rem_msub() */
 
@@ -706,27 +618,13 @@ msub_h find_any_rem_msub_in_ms(uint32_t msid)
 	return (it != end(rem_msub_list)) ? (msub_h)(*it) : (msub_h)NULL;
 } /* find_any_rem_msub_in_ms() */
 
-/**
- * Returns true if rem_msub is associated with loc_msh
- */
-struct rem_msub_has_this_loc_msh {
-	rem_msub_has_this_loc_msh(ms_h loc_msh) : loc_msh(loc_msh) {}
-
-	bool operator()(struct rem_msub *msubp) {
-		return msubp->loc_msh == this->loc_msh;
-	}
-private:
-	ms_h loc_msh;
-};
-
 void remove_rem_msub_by_loc_msh(ms_h loc_msh)
 {
 	lock_guard<mutex> lock(rem_msub_mutex);
-
 	rem_msub_list.erase(
 		remove_if(begin(rem_msub_list),
 			  end(rem_msub_list),
-			  rem_msub_has_this_loc_msh(loc_msh)),
+		[loc_msh](rem_msub *msub) { return msub->loc_msh == loc_msh;}),
 		end(rem_msub_list)
 	);
 } /* remove_rem_msub_by_loc_msh() */
