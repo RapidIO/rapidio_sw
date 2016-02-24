@@ -1173,69 +1173,15 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 		case 'N': // TX - NREAD
 			{{
 			bool q_was_full = false;
-			DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
-			int bd_q_cnt = 0;
-			int bd_f_cnt = 0;
-			if (! FT_TEST) {
-				start_iter_stats(info);
-                		if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
-				bd_q_cnt = 1;
-			} else { // XXX This is a Holly Mess of Spagetti code to exercise Fault Tolerance
-				// Can we recover/replay BD at sim+1 ?
-				const int N = GetEnv("sim") != NULL?
-						 GetDecParm("$sim", -1) + 1:
-						 GetDecParm("$baddid", -1) + 1;
-				assert(N);
-				start_iter_stats(info);
-				for (int i = 0; !q_was_full && i < N; i++) {
-					info->dmaopt[oi].destid      = info->did;
-					info->dmaopt[oi].bcount      = info->acc_size;
-					info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
+			start_iter_stats(info);
+			if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
 
-					if (i == (GetDecParm("$baddid", -1) -1))
-						info->dmaopt[oi].destid = 0xDEAD;
-
-					if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
-					bd_q_cnt++;
-
-					if (info->stop_req) goto exit;
-
-					if (i == (N-1)) continue; // Don't advance oi twice
-
-					// Wrap around, do no overwrite last buffer entry
-					oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
-				}
-
-				std::string s;
-      				info->umd_dch->dumpBDs(s);
-			        DBG("\n\tAfter fault enq [oi=%d] %s: %s\n", oi, (q_was_full? " queue FULL": ""),  s.c_str());
-			}
-
-			if (FT_TEST == 0x2) info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
-
-			DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
-			try {
-			while (!q_was_full && !info->stop_req && (bd_f_cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8)) == 0) {
-				if (FT_TEST == 0x1 && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) break;
-			}
-			if (FT_TEST == 0x1 && !q_was_full && !info->stop_req) {
-				usleep(500);
-				bd_f_cnt += info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
-			}
-			} catch(std::runtime_error ex) { INFO("\n\tException: %s\n", ex.what()); }
-
-			// XXX check for errors, nuke faulting BD, do softRestart
-			if (q_was_full || bd_f_cnt < bd_q_cnt) {
-				if (q_was_full) {
-					CRIT("\n\tBUG: Queue Full!\n");
-					//info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8); continue; // No faults after a restart to process all T3 BDs
-					goto exit;
-				}
-
+			if (q_was_full) {
+				CRIT("\n\tBUG: Queue Full!\n");
+			
                                 if (info->umd_dch->dmaCheckAbort(
                                         info->umd_dma_abort_reason)) {
-                                        CRIT("\n\tCould not TX/RX NREAD bd_q_cnt=%d bd_f_cnt=%d\n", bd_q_cnt, bd_f_cnt);
                                         CRIT("\n\tDMA abort %x: %s\n",
                                                 info->umd_dma_abort_reason,
                                                 DMAChannel::abortReasonToStr(
@@ -1246,34 +1192,50 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 					bool outp_err = false;
 					info->umd_dch->checkPortInOutError(inp_err, outp_err);
 					if(inp_err || outp_err) {
-						CRIT("Tsi721 port error%s%s bd_q_cnt=%d bd_f_cnt=%d\n",
+						CRIT("Tsi721 port error%s%s\n",
 							(inp_err? " INPUT": ""),
-							(outp_err? " OUTPUT": ""),
-							bd_q_cnt, bd_f_cnt);
+							(outp_err? " OUTPUT": ""));
 						goto exit;
 					}
 
 				}}
-
-				// nuke faulting BD
-				try {
-					const int pending = info->umd_dch->cleanupBDQueue(false /*multithreaded_fifo*/);
-
-					info->umd_dch->softRestart(pending == 0); // Wipe clean BD queue if no outstanding
-					if (FT_TEST == 0x2) info->umd_dch->simFIFO(0, 0); // No faults after a restart to process all T3 BDs
-				} catch(std::runtime_error ex) { INFO("\n\tException: %s\n", ex.what()); }
 			}
 
                 	finish_iter_stats(info);
-#if 0
-			if (7 <= g_level) { // DEBUG
-				std::stringstream ss;
-				for(int i = 0; i < 16; i++) {
-					char tmp[9] = {0};
-					snprintf(tmp, 8, "%02x ", wi[0].t2_rddata[i]);
-					ss << tmp;
+
+			std::vector<uint64_t> faults;
+			for (;;) {
+				uint64_t t = 0;
+				if (!info->umd_dch->dequeueFaultedTicket(t)) break;
+				assert(t);
+				faults.push_back(t);
+			}
+			if (7 <= g_level && faults.size() > 0) {
+				std::vector<uint64_t>::iterator it = faults.begin();
+				for (; it != faults.end(); it++) INFO("Faulted ticket: %llu\n", *it);
+			}
+
+			std::vector<DMAChannel::NREAD_Result_t> results;
+			if (info->acc_size <= 16) {
+				for (;;) {
+					DMAChannel::NREAD_Result_t res;
+					if (!info->umd_dch->dequeueDmaNREADT2(res)) break;
+					assert(res.ticket);
+					results.push_back(res);
 				}
-				DBG("\n\tNREAD-in data: %s\n", ss.str().c_str());
+			}
+#if 1
+			if (7 <= g_level && results.size() > 0) { // DEBUG
+				std::vector<DMAChannel::NREAD_Result_t>::iterator it = results.begin();
+				for (; it != results.end(); it++) {
+					std::stringstream ss;
+					for(int i = 0; i < 16; i++) {
+						char tmp[9] = {0};
+						snprintf(tmp, 8, "%02x ", it->data[i]);
+						ss << tmp;
+					}
+					DBG("\n\tTicket %llu NREAD-in data: %s\n", it->ticket, ss.str().c_str());
+				}
 			}
 #endif
 			}}
