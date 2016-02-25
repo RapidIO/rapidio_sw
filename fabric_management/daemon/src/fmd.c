@@ -474,7 +474,6 @@ int setup_mport_slave(int mport, uint32_t m_did, uint32_t m_cm_port)
 	uint32_t comptag;
 	struct cfg_mport_info mp;
 	struct cfg_dev cfg_dev;
-	char slave_mp_fn[FMD_MAX_DEV_FN];
 	char mast_dev_fn[FMD_MAX_DEV_FN];
 	struct mpsw_drv_private_data *p_dat;
 	struct mpsw_drv_pe_acc_info *acc_p;
@@ -509,30 +508,13 @@ int setup_mport_slave(int mport, uint32_t m_did, uint32_t m_cm_port)
 		exit(EXIT_FAILURE);
 	};
 
-	/* Poll to add the mport  and FMD master devices until the master
+	/* Poll to add the FMD master devices until the master
 	* completes network initialization.
 	*/
-	memset(slave_mp_fn, 0, FMD_MAX_DEV_FN);
-	snprintf(slave_mp_fn, FMD_MAX_DEV_FN-1, "%s%s",
-                        FMD_DFLT_DEV_DIR, FMD_SLAVE_MPORT_NAME);
 	memset(mast_dev_fn, 0, FMD_MAX_DEV_FN);
 	snprintf(mast_dev_fn, FMD_MAX_DEV_FN-1, "%s%s",
                         FMD_DFLT_DEV_DIR, FMD_SLAVE_MASTER_NAME);
 	do {
-		if (access(slave_mp_fn, F_OK) != -1) {
-                        rc = 0;
-                } else {
-			rc = riomp_mgmt_device_add(acc_p->maint,
-				mp.devids[CFG_DEV08].devid,
-				(uint8_t)0xFF, comptag, FMD_SLAVE_MPORT_NAME);
-		};
-		if (rc) {
-			INFO("\nCannot add mport0 object %d %d: %s\n", 
-				rc, errno, strerror(errno));
-			sleep(5);
-			continue;
-		};
-
 		if (access(mast_dev_fn, F_OK) != -1) {
                         rc = 0;
                 } else {

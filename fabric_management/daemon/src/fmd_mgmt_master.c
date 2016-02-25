@@ -468,6 +468,7 @@ int start_new_peer(riomp_sock_t new_skt)
 	peer->rx_must_die = 0;
 	peer->tx_buff_used = 0;
 	peer->tx_rc = 0;
+	peer->rx_rc = 0;
 	sem_init(&peer->tx_mtx, 0, 1);
 	sem_init(&peer->started, 0, 0);
 	peer->rx_alive = 0;

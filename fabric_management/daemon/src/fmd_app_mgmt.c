@@ -237,16 +237,27 @@ fail:
 
 void halt_app_handler(void);
 
+void sigusr1_sig_handler(int sig)
+{
+	if (sig)
+		return;
+}
+
 void *app_conn_loop( void *unused )
 {
 	int rc = open_app_conn_socket(); 
         char my_name[16];
+	struct sigaction sigh;
 
         memset(my_name, 0, 16);
         snprintf(my_name, 15, "FMD_APP_CONN");
         pthread_setname_np(app_st.conn_thread, my_name);
 
         pthread_detach(app_st.conn_thread);
+
+	memset(&sigh, 0, sizeof(sigh));
+	sigh.sa_handler = sigusr1_sig_handler;
+	sigaction(SIGUSR1, &sigh, NULL);
 
 	/* Open Unix domain socket */
 	app_st.loop_alive = (!rc);
@@ -333,7 +344,7 @@ void halt_app_handler(void)
 	int i;
 
 	if (app_st.loop_alive && !app_st.all_must_die) {
-		pthread_kill(app_st.conn_thread, SIGHUP);
+		pthread_kill(app_st.conn_thread, SIGUSR1);
 		app_st.all_must_die = 1;
 		app_st.loop_alive = 0;
 	}
