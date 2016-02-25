@@ -436,7 +436,6 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     //           However a trip into kernel for gettid(2) at each enq is unreasonable.
     opt.tid      = m_tid;
     opt.cliidx   = m_cliidx;
-    opt.not_before = 0 ; // XXX magic function from Barry
 
     m_state->dma_wr++;
     setWriteCount(m_state->dma_wr);
@@ -449,7 +448,9 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
   }
 
-  opt.not_before = computeNotBefore(opt); // not in locked context
+  // Not in locked context
+  opt.not_before = computeNotBefore(opt);
+  if (m_cliidx >= 0) m_state->client_completion[m_cliidx].bytes_enq += opt.bcount;
 
   memset(&wk, 0, sizeof(wk));
   wk.mem = mem;
@@ -1037,6 +1038,8 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
 
     if (item.opt.ticket > m_state->acked_serial_number) m_state->acked_serial_number = item.opt.ticket;
 
+    if (item.opt.cliidx >= 0) m_state->client_completion[item.opt.cliidx].bytes_txd += item.opt.bcount;
+
     pthread_spin_unlock(&m_state->bl_splock); 
   } // END for compl_size
 
@@ -1077,6 +1080,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
       const int cliidx      = m_pending_work[idx].opt.cliidx;
 
       m_state->client_completion[cliidx].bad_tik.enq(ticket);
+      m_state->client_completion[cliidx].change_cnt++;
     }
     pthread_spin_unlock(&m_state->client_splock);
 

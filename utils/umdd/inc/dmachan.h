@@ -203,6 +203,18 @@ public:
     return r;
   }
 
+  inline uint64_t getBytesEnqueued()
+  {
+    assert(m_state);
+   return  m_state->client_completion[m_cliidx].bytes_enq;
+  }
+
+  inline uint64_t getBytesTxed()
+  {
+    assert(m_state);
+    return m_state->client_completion[m_cliidx].bytes_txd;
+  }
+
   inline uint32_t queueSize()
   {
     return m_state->bl_busy_size;
@@ -390,7 +402,9 @@ public:
   typedef struct {
     volatile bool     busy; ///< Did any client claim this?
     pid_t             owner_pid;
-    volatile uint64_t change_cnt; ///< Master bumps this when adds stuff
+    volatile uint64_t change_cnt; ///< Master bumps this when adds stuff to either q
+    volatile uint64_t bytes_enq; ///< Total bytes added to TX queue
+    volatile uint64_t bytes_txd; ///< Total bytes transmitted as confirmed by appearing in FIFO
 
     // EVIL PLAN: Keep WP, RP as 64-bit and use them modulo DMA_SHM_MAX_ITEMS_PER_CLIENT
  

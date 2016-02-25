@@ -1,7 +1,7 @@
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2016, Integrated Device Technology Inc.
+Copyright (c) 2016, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -51,28 +51,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-//#include <netinet/in.h>
-//#include <netinet/tcp.h>
 #include <unistd.h>
-#include <sys/socket.h>
-#include <linux/if.h>
-#include <linux/if_tun.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <arpa/inet.h> 
-#include <sys/select.h>
 
 #include <pthread.h>
 #include <sstream>
 
 #include <sched.h>
 
-
 #include "libcli.h"
 #include "rapidio_mport_mgmt.h"
-#include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
 #include "liblog.h"
 
@@ -342,61 +333,6 @@ void finish_iter_stats(struct worker *info)
 #define ADDR_L(x,y) ((uint64_t)((uint64_t)x + (uint64_t)y))
 #define ADDR_P(x,y) ((void *)((uint64_t)x + (uint64_t)y))
 
-
-int alloc_dma_tx_buffer(struct worker *info)
-{
-	int rc = 0;
-
-	if (info->use_kbuf) {
-		rc = riomp_dma_dbuf_alloc(info->mp_h, info->rdma_buff_size,
-					&info->rdma_kbuff);
-		if (rc) {
-			ERR("FAILED: riomp_dma_dbuf_alloc rc %d:%s\n",
-						rc, strerror(errno));
-			goto exit;;
-		};
-		info->rdma_ptr = NULL;
-		rc = riomp_dma_map_memory(info->mp_h, info->rdma_buff_size,
-					info->rdma_kbuff, &info->rdma_ptr);
-		if (rc) {
-			ERR("FAILED: riomp_dma_map_memory rc %d:%s\n",
-						rc, strerror(errno));
-			goto exit;;
-		};
-	} else {
-		info->rdma_ptr = malloc(info->rdma_buff_size);
-		if (NULL == info->rdma_ptr) {
-			rc = 1;
-			ERR("FAILED: Could not allocate local memory!\n");
-			goto exit;
-		}
-	};
-
-	return 0;
-exit:
-	return rc;
-};
-
-void dealloc_dma_tx_buffer(struct worker *info)
-{
-	if (info->use_kbuf) {
-		if (NULL != info->rdma_ptr) {
-			riomp_dma_unmap_memory(info->mp_h, info->rdma_buff_size,
-				info->rdma_ptr);
-			info->rdma_ptr = NULL;
-		};
-		if (info->rdma_kbuff) {
-			riomp_dma_dbuf_free(info->mp_h, &info->rdma_kbuff);
-			info->rdma_kbuff = 0;
-		};
-	} else {
-		if (NULL != info->rdma_ptr) {
-			free(info->rdma_ptr);
-			info->rdma_ptr = NULL;
-		};
-	};
-};
-
 void dma_alloc_ibwin(struct worker *info)
 {
 	uint64_t i;
@@ -464,89 +400,14 @@ void dma_free_ibwin(struct worker *info)
 
 #ifdef USER_MODE_DRIVER
 
-typedef struct {
-	volatile uint64_t fifo_count_scanfifo;
-	volatile uint64_t fifo_deltats_scanfifo;
-	volatile uint64_t fifo_count_other;
-	volatile uint64_t fifo_deltats_other;
-	volatile uint64_t fifo_deltats_all;
-
-	volatile uint64_t fifo_thr_iter;
-} FifoStats_t;
-
-FifoStats_t g_FifoStats[8];
-
 #ifndef PAGE_4K
   #define PAGE_4K	4096
 #endif
 
 extern char* dma_rtype_str[];
 
-void *umd_dma_fifo_proc_thr(void *parm)
-{
-	struct worker* info = NULL;
-
-	if (NULL == parm)
-		goto exit;
-
-	info = (struct worker *)parm;
-	if (NULL == info->umd_dch)
-		goto exit;
-	
-	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; 
-	memset(wi, 0, sizeof(wi));
-
-	migrate_thread_to_cpu(&info->umd_fifo_thr);
-
-	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
-		CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing ou!\n",
-		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
-		goto exit;
-	}
-
-	info->umd_fifo_proc_alive = 1;
-	sem_post(&info->umd_fifo_proc_started); 
-
-	while (!info->umd_fifo_proc_must_die) {
-		if (info->umd_dch->isSim()) info->umd_dch->simFIFO(0, 0); // no faults injected
-
-		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
-		if (!cnt) 
-			continue;
-
-		get_seq_ts(&info->fifo_ts);
-
-		for (int i = 0; i < cnt; i++) {
-			DMAChannel::WorkItem_t& item = wi[i];
-
-			switch (item.opt.dtype) {
-			case DTYPE1:
-			case DTYPE2:
-				info->perf_byte_cnt += info->acc_size;
-				break;
-			case DTYPE3:
-				break;
-			default:
-				ERR("\n\tUNKNOWN BD %d bd_wp=%u\n",
-					item.opt.dtype, item.opt.bd_wp);
-				break;
-      			}
-
-			wi[i].valid = 0xdeadabba;
-                } // END for WorkItem_t vector
-		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
-	} // END while
-	goto no_post;
-exit:
-	sem_post(&info->umd_fifo_proc_started); 
-no_post:
-	info->umd_fifo_proc_alive = 0;
-
-	pthread_exit(parm);
-};
-
-/** \brief Dump UMD DMA Tun status
- *  * \note This executes within the CLI thread but targets Main Battle Tank thread's data
+/** \brief Dump UMDd Tun status
+ *  * \note This executes within the CLI thread but targets Main thread's data
  *   */
 extern "C"
 void UMD_DD(struct worker* info)
@@ -659,9 +520,8 @@ void umd_shm_goodput_demo(struct worker *info)
                 goto exit;
         };
 
-	INFO("\n\tUMDd/SHM my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
+	INFO("\n\tUMDd/SHM my_destid=%u #buf=%d #fifo=%d\n",
 		info->umd_dch->getDestId(),
-		info->did, info->rio_addr, info->acc_size,
 		info->umd_tx_buf_cnt, info->umd_sts_entries);
 
         DMAChannel::WorkItem_t wi[info->umd_sts_entries*8];
@@ -682,7 +542,7 @@ void umd_shm_goodput_demo(struct worker *info)
                         switch (item.opt.dtype) {
                         case DTYPE1:
                         case DTYPE2:
-                                info->perf_byte_cnt += info->acc_size;
+                                //info->perf_byte_cnt += info->acc_size;
                                 break;
                         case DTYPE3:
                                 break;
@@ -754,12 +614,11 @@ static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa
 
 void umd_dma_goodput_demo(struct worker *info)
 {
-	int oi = 0, rc;
+	int oi = 0;//, rc;
 	uint64_t cnt = 0;
 	int iter = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
 	info->owner_func = umd_dma_goodput_demo;
 
@@ -826,22 +685,6 @@ void umd_dma_goodput_demo(struct worker *info)
 	init_seq_ts(&info->fifo_ts);
 	init_seq_ts(&info->meas_ts);
 
-        info->umd_fifo_proc_must_die = 0;
-        info->umd_fifo_proc_alive = 0;
-
-        rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
-			    umd_dma_fifo_proc_thr, (void *)info);
-	if (rc) {
-		CRIT("\n\tCould not create umd_fifo_proc thread, exiting...");
-		goto exit;
-	};
-	sem_wait(&info->umd_fifo_proc_started);
-
-	if (!info->umd_fifo_proc_alive) {
-		CRIT("\n\tumd_fifo_proc thread is dead, exiting..");
-		goto exit;
-	};
-
 	zero_stats(info);
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
@@ -878,27 +721,23 @@ void umd_dma_goodput_demo(struct worker *info)
 				CRIT("\n\t Cnt=0x%lx Qsize=%d oi=%d\n", 
 					cnt, info->umd_dch->queueSize(), oi);
 
+			uint64_t t = 0;
+			if (info->umd_dch->dequeueFaultedTicket(t)) {
+				CRIT("\n\tFaulted ticket %llu current ticket %llu\n", t, info->dmaopt[oi].ticket);
+				goto exit;
+			}
+
+			info->perf_byte_cnt = info->umd_dch->getBytesTxed();
+
 			// Busy-wait for queue to drain
 			for (iq = 0; !info->stop_req && q_was_full && 
 				(iq < 1000000000) &&
 				(info->umd_dch->queueSize() >= Q_THR);
 			    	iq++) {
-  				if (info->umd_dch->dmaCheckAbort(
-					info->umd_dma_abort_reason)) {
-					CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
-					CRIT("\n\tDMA abort %x: %s\n", 
-						info->umd_dma_abort_reason,
-						DMAChannel::abortReasonToStr(
-						info->umd_dma_abort_reason));
-					goto exit;
-  				}
 			}
 
 			// Wrap around, do no overwrite last buffer entry
-			oi++;
-			if ((info->umd_tx_buf_cnt - 1) == oi) {
-				oi = 0;
-			}
+			oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; }
                 } // END for transmit burst
 
 		// RX Check
@@ -916,18 +755,11 @@ exit:
 		info->umd_dch->getFIFOReadCount(),
                 info->umd_dch->getFIFOWriteCount());
 exit_nomsg:
-        info->umd_fifo_proc_must_die = 1;
-	if (info->umd_dch)
-		info->umd_dch->shutdown();
-
-        pthread_join(info->umd_fifo_thr.thr, NULL);
-
 	// Only allocatd one DMA buffer for performance reasons
 	if(info->dmamem[0].type != 0) 
                 info->umd_dch->free_dmamem(info->dmamem[0]);
 
         delete info->umd_dch; info->umd_dch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
 }
 
 static inline bool queueDmaOp(struct worker* info, const int oi, const int cnt, bool& q_was_full)
@@ -996,8 +828,6 @@ static inline bool umd_dma_goodput_latency_demo_SLAVE(struct worker *info, const
 	assert(info->ib_ptr);
 	assert(info->dmamem[oi].win_ptr);
 
-        DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
-
 	bool q_was_full = false;
 
 	DBG("\n\tPolling %p for Master transfer\n", info->ib_ptr);
@@ -1018,8 +848,30 @@ static inline bool umd_dma_goodput_latency_demo_SLAVE(struct worker *info, const
 
 	if(! queueDmaOp(info, oi, cnt, q_was_full)) return false;
 
-	DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
-	while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+        if (q_was_full) {
+                uint64_t t = 0;
+                if (info->umd_dch->dequeueFaultedTicket(t))
+                     { CRIT("\n\tQueue FULL faulted ticket %llu current ticket %llu\n", t, info->dmaopt[oi].ticket); }
+                else { CRIT("\n\tQueue FULL current ticket %llu\n", t, info->dmaopt[oi].ticket); }
+
+                return false;
+        }
+
+        for (; !info->stop_req; ) {
+                const DMAChannel::TicketState_t st = info->umd_dch->checkTicket(info->dmaopt[oi]);
+                if (st == DMAChannel::COMPLETED) break;
+                //if (st == DMAChannel::INPROGRESS) continue;
+
+                if (st == DMAChannel::BORKED) {
+                        CRIT("\n\tTicket %llu status BORKED\n", info->dmaopt[oi].ticket);
+                        return false;
+                }
+
+                uint64_t t = 0;
+                if (!info->umd_dch->dequeueFaultedTicket(t)) continue;
+
+                assert(t != info->dmaopt[oi].ticket);
+        }
 
 	return true;
 }
@@ -1029,8 +881,6 @@ static inline bool umd_dma_goodput_latency_demo_MASTER(struct worker *info, cons
 	assert(info);
 	assert(info->ib_ptr);
 	assert(info->dmamem[oi].win_ptr);
-
-        DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
 	bool q_was_full = false;
 
@@ -1044,13 +894,34 @@ static inline bool umd_dma_goodput_latency_demo_MASTER(struct worker *info, cons
 
 	if(! queueDmaOp(info, oi, cnt, q_was_full)) return false;
 
-	//DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
-	while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+	if (q_was_full) {
+		uint64_t t = 0;
+		if (info->umd_dch->dequeueFaultedTicket(t))
+		     { CRIT("\n\tQueue FULL faulted ticket %llu current ticket %llu\n", t, info->dmaopt[oi].ticket); }
+		else { CRIT("\n\tQueue FULL current ticket %llu\n", t, info->dmaopt[oi].ticket); }
+
+		return false;
+	}
+
+	for (; !info->stop_req; ) {
+		const DMAChannel::TicketState_t st = info->umd_dch->checkTicket(info->dmaopt[oi]);
+		if (st == DMAChannel::COMPLETED) break;
+		//if (st == DMAChannel::INPROGRESS) continue;
+		
+		if (st == DMAChannel::BORKED) {
+			CRIT("\n\tTicket %llu status BORKED\n", info->dmaopt[oi].ticket);
+			return false;
+		}
+
+		uint64_t t = 0;
+		if (!info->umd_dch->dequeueFaultedTicket(t)) continue;
+
+		assert(t != info->dmaopt[oi].ticket);
+	}
 
 	if(info->stop_req) return false;
 
 	// Wait for Slave to TX
-	//DBG("\n\tPolling %p for Slave transfer\n", info->ib_ptr);
 	{{
 		volatile uint8_t* datain_ptr8 = (uint8_t*)info->ib_ptr + info->acc_size - sizeof(uint8_t);
 
@@ -1075,8 +946,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	int oi = 0;
 	uint64_t cnt = 0;
 	int iter = 0;
-
-	//NOT WITH SHM// if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
 	//info->owner_func = (void*)umd_dma_goodput_latency_demo;
 
@@ -1134,7 +1003,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	for (cnt = 0; !info->stop_req; cnt++) {
 		info->dmaopt[oi].destid      = info->did;
 		info->dmaopt[oi].bcount      = info->acc_size;
-		info->dmaopt[oi].raddr.lsb64 = info->rio_addr;;
+		info->dmaopt[oi].raddr.lsb64 = info->rio_addr;
 
 		if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = __LINE__; break; }
 
@@ -1176,7 +1045,30 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 				}}
 			}
 
+			std::vector<DMAChannel::NREAD_Result_t> results;
+			if (info->acc_size <= 16) {
+				for (;;) {
+					DMAChannel::NREAD_Result_t res;
+					if (!info->umd_dch->dequeueDmaNREADT2(res)) break;
+					assert(res.ticket);
+					results.push_back(res);
+				}
+			}
+
                 	finish_iter_stats(info);
+
+			if (7 <= g_level && results.size() > 0) { // DEBUG
+				std::vector<DMAChannel::NREAD_Result_t>::iterator it = results.begin();
+				for (; it != results.end(); it++) {
+					std::stringstream ss;
+					for(int i = 0; i < 16; i++) {
+						char tmp[9] = {0};
+						snprintf(tmp, 8, "%02x ", it->data[i]);
+						ss << tmp;
+					}
+					DBG("\n\tTicket %llu NREAD-in data: %s\n", it->ticket, ss.str().c_str());
+				}
+			}
 
 			std::vector<uint64_t> faults;
 			for (;;) {
@@ -1190,27 +1082,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 				for (; it != faults.end(); it++) INFO("Faulted ticket: %llu\n", *it);
 			}
 
-			std::vector<DMAChannel::NREAD_Result_t> results;
-			if (info->acc_size <= 16) {
-				for (;;) {
-					DMAChannel::NREAD_Result_t res;
-					if (!info->umd_dch->dequeueDmaNREADT2(res)) break;
-					assert(res.ticket);
-					results.push_back(res);
-				}
-			}
-			if (7 <= g_level && results.size() > 0) { // DEBUG
-				std::vector<DMAChannel::NREAD_Result_t>::iterator it = results.begin();
-				for (; it != results.end(); it++) {
-					std::stringstream ss;
-					for(int i = 0; i < 16; i++) {
-						char tmp[9] = {0};
-						snprintf(tmp, 8, "%02x ", it->data[i]);
-						ss << tmp;
-					}
-					DBG("\n\tTicket %llu NREAD-in data: %s\n", it->ticket, ss.str().c_str());
-				}
-			}
 			}}
 			break;
 
@@ -1232,8 +1103,6 @@ exit:
         try { delete info->umd_dch; info->umd_dch = NULL; }
 	catch(std::runtime_error ex) {}
 }
-
-static inline int MIN(int a, int b) { return a < b? a: b; }
 
 #endif // USER_MODE_DRIVER
 
