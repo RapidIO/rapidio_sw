@@ -423,11 +423,12 @@ void UMD_DD(struct worker* info)
 	info->umd_dch->listClients(&comp[0], sizeof(comp));
 	for (int i = 0; i < DMAChannel::DMA_SHM_MAX_CLIENTS; i++) {
 		if (! comp[i].busy) continue;
-		INFO("\n\tpid=%d%s change_cnt=%llu bad_tik.{RP=%llu WP=%llu} NREAD_T2_res.{RP=%llu WP=%llu}\n",
+		INFO("\n\tpid=%d%s change_cnt=%llu bad_tik.{RP=%llu WP=%llu} NREAD_T2_res.{RP=%llu WP=%llu} Enq=%llu TXd=%llu\n",
 		     comp[i].owner_pid, (kill(comp[i].owner_pid,0)? " DEAD": ""),
 		     comp[i].change_cnt,
 		     comp[i].bad_tik.RP, comp[i].bad_tik.WP,
-		     comp[i].NREAD_T2_results.RP, comp[i].NREAD_T2_results.WP);
+		     comp[i].NREAD_T2_results.RP, comp[i].NREAD_T2_results.WP,
+		     comp[i].bytes_enq, comp[i].bytes_txd);
 	}
 }
 
