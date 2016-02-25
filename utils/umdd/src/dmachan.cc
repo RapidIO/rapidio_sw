@@ -782,13 +782,8 @@ void DMAChannel::cleanupSHM()
 {
   if (!m_hw_master) return;
 
-  std::string s_state = "/dev/shm/";
-  s_state.append(m_shm_state_name);
-  unlink(s_state.c_str());
-
-  std::string s_bl = "/dev/shm/";
-  s_bl.append(m_shm_bl_name);
-  unlink(s_bl.c_str());
+  POSIXShm::unlink(m_shm_state_name);
+  POSIXShm::unlink(m_shm_bl_name);
 }
 
 static inline bool hexdump64bit(const void* p, int len)

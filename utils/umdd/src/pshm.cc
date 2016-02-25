@@ -186,7 +186,7 @@ void POSIXShm::unlink(const char* name)
   std::string shm_path = "/dev/shm";
   std::string shm_name = mkname(name);
   shm_path.append(shm_name);
-  unlink(shm_path.c_str());
+  ::unlink(shm_path.c_str());
 }
 
 void POSIXShm::dumpRegistry(std::string& out)
