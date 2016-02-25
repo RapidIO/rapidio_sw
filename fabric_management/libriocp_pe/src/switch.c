@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include <unistd.h>
+
 #include "inc/riocp_pe.h"
 #include "inc/riocp_pe_internal.h"
 
@@ -188,6 +190,14 @@ int riocp_pe_switch_port_clear_enumerated(struct riocp_pe *sw, uint8_t port)
 int riocp_pe_switch_handle_event(struct riocp_pe *sw, struct riomp_mgmt_event *revent,
 	struct riocp_pe_event *event)
 {
+	int timeout = 20;
+	while (!sw->sw) {
+		usleep(100000);
+		timeout--;
+		if(timeout <= 0)
+			return -ETIMEDOUT;
+		RIOCP_ERROR("Waiting for switch 0x%04x:%d (0x%08x) to be set.\n", sw->destid, sw->hopcount, sw->comptag);
+	}
 	if (sw->sw->event_handler)
 		return sw->sw->event_handler(sw, revent, event);
 	else
