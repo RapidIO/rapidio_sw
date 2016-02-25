@@ -79,7 +79,7 @@ struct fmd_slave {
 };
 
 extern int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
-			uint32_t  mp_num, struct fmd_slave *slave, riomp_mport_t hnd);
+			uint32_t  mp_num, struct fmd_slave *slave);
 
 extern void shutdown_slave_mgmt(void);
 

@@ -174,7 +174,14 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 	struct mpsw_drv_private_data *p_dat;
 	char dev_fn[MPSW_MAX_DEV_FN];
 
+	if (RIOCP_PE_IS_MPORT(pe))
+		return 0;
+
 	p_dat = (struct mpsw_drv_private_data *)pe->private_data;
+
+	if (SWITCH(&p_dat->dev_h))
+		return 0;
+
 	p_acc = (struct mpsw_drv_pe_acc_info *)
 			pe->mport->minfo->private_data;
 
@@ -182,9 +189,6 @@ int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 		return -EINVAL;
 
 	pe->name = (const char *)name;
-
-	if (SWITCH(&p_dat->dev_h))
-		return 0;
 
 	memset(dev_fn, 0, MPSW_MAX_DEV_FN);
 	snprintf(dev_fn, MPSW_MAX_DEV_FN-1, "%s%s", MPSW_DFLT_DEV_DIR, name);
@@ -331,7 +335,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	pe->name = (const char *)priv->dev_h.name;
 	dev_h = &priv->dev_h;
 
-	if (RIOCP_PE_IS_HOST(pe)) {
+	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe)) {
 		/* ensure destID/comptag is configured correctly */
 		/* FIXME: Assumes comptag and destID is passed in, not
  		* administered by riocp_pe.

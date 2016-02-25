@@ -1066,7 +1066,7 @@ int RIOCP_SO_ATTR riocp_pe_set_destid(riocp_pe_handle pe,
 	if (ret)
 		return ret;
 
-	if (!RIOCP_PE_IS_HOST(pe)) {
+	if (!RIOCP_PE_IS_HOST(pe) && !RIOCP_PE_IS_MPORT(pe)) {
 		RIOCP_ERROR("Pe is not a host\n");
 		return -EPERM;
 	}

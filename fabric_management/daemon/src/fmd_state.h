@@ -78,7 +78,6 @@ struct app_state {
 };
 
 struct fmd_state {
-	riomp_mport_t mp_hnd; /* MPORT handle, used for register access */
 	riocp_pe_handle *mp_h;
 	struct fmd_opt_vals *opts;
 	int fmd_rw;
