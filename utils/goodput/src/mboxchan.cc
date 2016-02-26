@@ -109,7 +109,7 @@ MboxChannel::MboxChannel(const uint32_t mportid, const uint32_t mbox) :
   m_mbox(mbox), m_ib_mbox(mbox)
 {
   if(mbox > 3)
-    throw std::runtime_error("DMAChannel: Invalid mbox!");
+    throw std::runtime_error("MboxChannel: Invalid mbox!");
 
   m_mport = new RioMport(mportid);
   init();
@@ -119,7 +119,7 @@ MboxChannel::MboxChannel(const uint32_t mportid, const uint32_t mbox, riomp_mpor
   m_mbox(mbox), m_ib_mbox(mbox)
 {
   if(mbox > 3)
-    throw std::runtime_error("DMAChannel: Invalid mbox!");
+    throw std::runtime_error("MboxChannel: Invalid mbox!");
 
   m_mport = new RioMport(mportid, mp_hd);
   init();
@@ -549,6 +549,10 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
 {
   uint32_t regi = 0, regs = 0;
   bool sts_abort = false;
+#ifdef MBOXDEBUG
+  int timeout = 0;
+  uint32_t reg = 0, rd_count = 0;
+#endif
 
   const uint16_t mbox = opt.mbox;
 
