@@ -171,6 +171,7 @@ int mspace::notify_remote_clients()
 {
 	int rc;
 
+	DBG("ENTER\n");
 	if (connected_to) {
 		/* Need to use a 'prov' socket to send the CM_DESTROY_MS */
 		cm_base *server =
@@ -199,7 +200,7 @@ int mspace::notify_remote_clients()
 							u.client_to_lib_tx_eng_h);
 		}
 	}
-
+	DBG("EXIT\n");
 	return rc;
 } /* notify_remote_clients() */
 
@@ -223,7 +224,7 @@ int mspace::close_connections()
 	}
 
 	users.clear();
-
+	DBG("EXIT\n");
 	return 0;
 } /* close_connections() */
 

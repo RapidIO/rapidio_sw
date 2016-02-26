@@ -1456,15 +1456,15 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 				&skt->connh,
 				&skt->con_msubh, &skt->con_sz,
 				&skt->con_msh, RDMA_CONN_TO_SECS);
-	} while ( (rc == RDMA_CONNECT_TIMEOUT || rc == RDMA_CONNECT_FAIL)
-		 	&& conn_retries-- && !lib.all_must_die
-		);
+	} while ( ((rc == RDMA_CONNECT_TIMEOUT) || (rc == RDMA_CONNECT_FAIL))
+		&& conn_retries-- && !lib.all_must_die	);
 
 	if (rc) {
-		ERR("rdma_conn_ms_h() failed, rc = %d..closing\n", rc);
+		ERR("rdma_conn_ms_h() failed, retries = %d, rc = 0x%X..closing\n",
+				rc, conn_retries);
 		goto close;
 	} else {
-		HIGH("CONNECTED, skt->con_msh = %016" PRIx64 "\n", skt->con_msh);
+		HIGH("CONNECTED, skt->con_msh = 0x%" PRIx64 "\n", skt->con_msh);
 	}
 
 	skt_h->st = rskt_connected;
