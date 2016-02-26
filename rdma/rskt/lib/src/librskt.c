@@ -62,8 +62,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#define RDMA_CONN_TO_SECS 1
-#define RDMA_ACC_TO_SECS 0
+#define RDMA_CONN_TO_SECS 30
+#define RDMA_ACC_TO_SECS  30
 
 struct librskt_globals lib;
 

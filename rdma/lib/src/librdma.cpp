@@ -1443,6 +1443,12 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			throw RDMA_NULL_PARAM;
 		}
 
+		/* Ensure timeout is > 0 or things will fail */
+		if (timeout_secs == 0) {
+			ERR("Timeout cannot be 0\n");
+			throw RDMA_NULL_PARAM;
+		}
+
 		loc_ms	 *server_ms = (loc_ms *)loc_msh;
 		loc_msub *server_msub = (loc_msub *)loc_msubh;
 
