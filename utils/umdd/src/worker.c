@@ -423,7 +423,7 @@ void UMD_DD(struct worker* info)
 	info->umd_dch->listClients(&comp[0], sizeof(comp));
 	for (int i = 0; i < DMAChannel::DMA_SHM_MAX_CLIENTS; i++) {
 		if (! comp[i].busy) continue;
-		INFO("\n\tpid=%d%s change_cnt=%llu bad_tik.{RP=%llu WP=%llu} NREAD_T2_res.{RP=%llu WP=%llu} Enq=%llu TXd=%llu\n",
+		INFO("\n\tpid=%d%s change_cnt=%llu bad_tik.{RP=%llu WP=%llu} NREAD_T2_res.{RP=%llu WP=%llu} EnqBy=%llu TXdBy=%llu\n",
 		     comp[i].owner_pid, (kill(comp[i].owner_pid,0)? " DEAD": ""),
 		     comp[i].change_cnt,
 		     comp[i].bad_tik.RP, comp[i].bad_tik.WP,
@@ -637,19 +637,6 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	}
 
-        if (GetEnv("sim") != NULL) { info->umd_dch->setSim(); INFO("SIMULATION MODE\n"); }
-
-	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
-		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
-							info->umd_tx_buf_cnt);
-		goto exit;
-	};
-        if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
-		CRIT("\n\talloc_dmacompldesc failed: entries %d",
-							info->umd_sts_entries);
-		goto exit;
-	};
-
         memset(info->dmamem, 0, sizeof(info->dmamem));
         memset(info->dmaopt, 0, sizeof(info->dmaopt));
 
@@ -669,7 +656,6 @@ void umd_dma_goodput_demo(struct worker *info)
         info->tick_data_total = 0;
 	info->tick_count = info->tick_total = 0;
 
-        info->umd_dch->resetHw();
         if (!info->umd_dch->checkPortOK()) {
 		CRIT("\n\tPort is not OK!!! Exiting...");
 		goto exit;
