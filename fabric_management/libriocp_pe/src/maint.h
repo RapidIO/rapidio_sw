@@ -17,19 +17,12 @@
 extern "C" {
 #endif
 
-int RIOCP_SO_ATTR riocp_pe_maint_read(struct riocp_pe *pe, uint32_t offset, uint32_t *val);
-int RIOCP_SO_ATTR riocp_pe_maint_write(struct riocp_pe *pe, uint32_t offset, uint32_t val);
-
-/*
-int riocp_pe_maint_write_local(struct riocp_pe *mport, uint32_t offset, uint32_t val);
-int riocp_pe_maint_read_local(struct riocp_pe *mport, uint32_t offset, uint32_t *val);
-
-int riocp_pe_maint_write_remote(struct riocp_pe *mport, uint32_t destid,
-		uint8_t hopcount, uint32_t offset, uint32_t val);
-int riocp_pe_maint_read_remote(struct riocp_pe *mport, uint32_t destid,
-		uint8_t hopcount, uint32_t offset, uint32_t *val);
-*/
-
+int RIOCP_WU riocp_pe_maint_write_local(struct riocp_pe *mport, uint32_t offset, uint32_t val);
+int RIOCP_WU riocp_pe_maint_read_local(struct riocp_pe *mport, uint32_t offset, uint32_t *val);
+int RIOCP_WU riocp_pe_maint_write_remote(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount,
+	uint32_t offset, uint32_t val);
+int RIOCP_WU riocp_pe_maint_read_remote(struct riocp_pe *mport, uint32_t destid, uint8_t hopcount,
+	uint32_t offset, uint32_t *val);
 
 int RIOCP_WU riocp_pe_maint_set_anyid_route(struct riocp_pe *pe);
 int RIOCP_WU riocp_pe_maint_unset_anyid_route(struct riocp_pe *pe);

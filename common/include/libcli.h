@@ -116,15 +116,6 @@ int GetDecParm(char* arg, int dflt);
 uint64_t GetHex(char* arg, int dflt);
 float GetFloatParm(char* arg, float dflt);
 
-/* Updates *target with a copy of length len bytes of new_str
- *  */
-void update_string(char **target, char *new_str, int len);
-
-/* Updates *target with a copy of length len bytes of new_str
- *  * If chk_slash <> 0, then parm must start with '/' to be valid.
- *   */
-int get_v_str(char **target, char *parm, int chk_slash);
-
 /* CLI initialization/command binding routine.
  * The console_cleanup function is invoked by the "quit" command
  * on exit from the CLI.

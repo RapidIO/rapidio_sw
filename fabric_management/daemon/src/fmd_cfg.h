@@ -59,58 +59,67 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riocp_pe_internal.h"
 #include "fmd_dd.h"
 
-#ifndef _CFG_PRIVATE_H_
-#define _CFG_PRIVATE_H_
+#ifndef _FMD_CFG_H_
+#define _FMD_CFG_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define CFG_OP_MODE_SLAVE 0
-#define CFG_OP_MODE_MASTER 1
-#define CFG_DEV08 0
-#define CFG_DEV16 1
-#define CFG_DEV32 2
-#define CFG_DEVID_MAX (CFG_DEV32+1)
+#define FMD_OP_MODE_SLAVE 0
+#define FMD_OP_MODE_MASTER 1
+#define FMD_DEV08 0
+#define FMD_DEV16 1
+#define FMD_DEV32 2
+#define FMD_DEVID_MAX (FMD_DEV32+1)
 
-struct int_cfg_ep;
+struct dev_id {
+	uint32_t devid;
+	uint32_t hc;
+	uint32_t valid;
+};
 
-struct int_mport_info {
+struct fmd_cfg_ep;
+
+struct fmd_mport_info {
 	uint32_t num;
 	riocp_pe_handle mp_h;
 	uint32_t ct; /* Updated when MPORT is initialized */
 	int op_mode;
-	struct dev_id devids[CFG_DEVID_MAX];
-	struct int_cfg_ep *ep; /* Link to endpoint definition for this MPORT */
+	struct dev_id devids[FMD_DEVID_MAX];
+	struct fmd_cfg_ep *ep; /* Link to endpoint definition for this MPORT */
 	int ep_pnum; /* EP port number that matches this MPORT */
 };
 
-#define CFG_MAX_MPORTS 4
-#define CFG_DFLT_INIT_DD 0
-#define CFG_DFLT_CLI_PORT_NUM 2222
-#define CFG_DFLT_APP_PORT_NUM 3434
-#define CFG_DFLT_RUN_CONS 1
-#define CFG_DFLT_MAST_DEVID_SZ FMD_DEV08
-#define CFG_DFLT_MAST_DEVID 1
-#define CFG_DFLT_MAST_CM_PORT 3434
-#define CFG_DFLT_MAST_INTERVAL 5
-#define CFG_INVALID_CT 0
-#define CFG_MAX_EP 4
-#define CFG_MAX_EP_PORT 1
-#define CFG_MAX_SW 1
-#define CFG_MAX_SW_PORT 18
-#define CFG_MAX_CONN 10
-#define CFG_MAX_CONN_PORT 18
-#define CFG_MAX_DEVS 20
+#define FMD_MAX_MPORTS 4
+#define FMD_DFLT_INIT_DD 0
+#define FMD_DFLT_CLI_PORT_NUM 2222
+#define FMD_DFLT_APP_PORT_NUM 3434
+#define FMD_DFLT_RUN_CONS 1
+#define FMD_DFLT_MAST_DEVID_SZ FMD_DEV08
+#define FMD_DFLT_MAST_DEVID 1
+#define FMD_DFLT_MAST_CM_PORT 4545
+#define FMD_DFLT_MAST_INTERVAL 5
+#define FMD_DFLT_CFG_FN "/etc/rapidio/fmd.conf"
+#define FMD_DFLT_DD_FN "/RIO_DEV_DIR_SM"
+#define FMD_DFLT_DD_MTX_FN "/RIO_DEV_DIR_MTX_SM"
+#define FMD_INVALID_CT 0
+#define FMD_MAX_EP 4
+#define FMD_MAX_EP_PORT 1
+#define FMD_MAX_SW 1
+#define FMD_MAX_SW_PORT 18
+#define FMD_MAX_CONN 10
+#define FMD_MAX_CONN_PORT 18
+#define FMD_MAX_DEVS 20
 
-#define CFG_DFLT_DEV_DIR "/sys/bus/rapidio/devices/"
-#define CFG_MAX_DEV_FN 256
+#define FMD_DFLT_DEV_DIR "/sys/bus/rapidio/devices/"
+#define FMD_MAX_DEV_FN 256
 
 #define OTHER_END(x) ((1 == x)?0:((0==x)?1:2))
 
-#define CFG_SLAVE -1
+#define FMD_SLAVE -1
 
-struct int_cfg_rapidio {
+struct fmd_cfg_rapidio {
 	idt_pc_pw_t max_pw;
 	idt_pc_pw_t op_pw;
 	idt_pc_ls_t ls;
@@ -118,33 +127,33 @@ struct int_cfg_rapidio {
 	int em; /* 0 for no error management, 1 to enable erro management */
 };
 
-struct int_cfg_ep_port {
+struct fmd_cfg_ep_port {
 	int valid;
 	uint32_t port;
 	uint32_t ct;
-	struct int_cfg_rapidio rio;
-	struct dev_id devids[CFG_DEVID_MAX];
-	struct int_cfg_conn *conn;
+	struct fmd_cfg_rapidio rio;
+	struct dev_id devids[FMD_DEVID_MAX];
+	struct fmd_cfg_conn *conn;
 	int conn_end; /* index of *conn for this switch */
 };
 
-struct int_cfg_ep {
+struct fmd_cfg_ep {
 	int valid;
 	riocp_pe_handle ep_h;
 	char *name;
 	int port_cnt;
-	struct int_cfg_ep_port ports[CFG_MAX_EP_PORT];
+	struct fmd_cfg_ep_port ports[FMD_MAX_EP_PORT];
 };
 
-struct int_cfg_sw_port {
+struct fmd_cfg_sw_port {
 	int valid;
 	int port;
-	struct int_cfg_rapidio rio;
-	struct int_cfg_conn *conn;
+	struct fmd_cfg_rapidio rio;
+	struct fmd_cfg_conn *conn;
 	int conn_end; /* index of *conn for this switch */
 };
 
-struct int_cfg_sw {
+struct fmd_cfg_sw {
 	int valid;
 	riocp_pe_handle sw_h;
 	char *name;
@@ -154,47 +163,62 @@ struct int_cfg_sw {
 	uint32_t hc;
 	uint32_t ct;
 	uint32_t traversed;
-	struct int_cfg_sw_port ports[CFG_MAX_SW_PORT];
+	struct fmd_cfg_sw_port ports[FMD_MAX_SW_PORT];
 	// One routing table for each devID size
-	idt_rt_state_t rt[CFG_DEVID_MAX]; 
+	idt_rt_state_t rt[FMD_DEVID_MAX]; 
 };
 
-struct int_cfg_conn_pe {
+struct fmd_cfg_conn_pe {
 	int port_num;
 	int ep; /* 1 - Endpoint, 0 - Switch */
 	union {
-		struct int_cfg_sw *sw_h;
-		struct int_cfg_ep *ep_h;
+		struct fmd_cfg_sw *sw_h;
+		struct fmd_cfg_ep *ep_h;
 	};
 };
 
-struct int_cfg_conn {
+struct fmd_cfg_conn {
 	int valid;
-	struct int_cfg_conn_pe ends[2];
+	struct fmd_cfg_conn_pe ends[2];
 };
 
-struct int_cfg_parms {
-	char *dd_mtx_fn;
-	char *dd_fn;
-	int init_err;
+struct fmd_cfg_parms {
+	int init_err;		/* If asserted, abort initialization */
+	int init_and_quit;	/* If asserted, exit after completing init */
+	int simple_init;	/* If asserted, do not init device directory */
+	int print_help;		/* If asserted, print help and exit */
+	int cli_port_num;	/* POSIX Socket for remote CLI session */
+	int app_port_num;	/* POSIX Socket for applications to connect */
+	int run_cons;		/* Run a console on this daemon. */
+	int log_level;		/* Starting log level */
 	int mast_idx;		/* Idx of the mport_info that is master */
 	uint32_t max_mport_info_idx; /* Maximum number of mports */
-	struct int_mport_info mport_info[CFG_MAX_MPORTS]; 
-	uint32_t mast_devid_sz;	/* Master CFG location information */
-	uint32_t mast_devid;		/* Master CFG location information */
-	uint32_t mast_cm_port; 	/* Master CFG location information */
+	struct fmd_mport_info mport_info[FMD_MAX_MPORTS]; 
+	uint32_t mast_devid_sz;	/* Master FMD location information */
+	uint32_t mast_devid;		/* Master FMD location information */
+	uint32_t mast_cm_port; 	/* Master FMD location information */
+	int mast_interval;	/* Master FMD location information */
+	char *fmd_cfg; /* FMD configuration file */
+	FILE *fmd_cfg_fd; /* FMD configuration file file descriptor */
+	char *dd_fn; /* Device directory file name */
+	char *dd_mtx_fn; /* Device directory mutext file name */
 	uint32_t ep_cnt;
-	struct int_cfg_ep eps[CFG_MAX_EP];
+	struct fmd_cfg_ep eps[FMD_MAX_EP];
 	uint32_t sw_cnt;
-	struct int_cfg_sw sws[CFG_MAX_SW];
+	struct fmd_cfg_sw sws[FMD_MAX_SW];
 	uint32_t conn_cnt;
-	struct int_cfg_conn cons[CFG_MAX_CONN];
+	struct fmd_cfg_conn cons[FMD_MAX_CONN];
 };
 
-extern struct int_cfg_parms *cfg;
+extern struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[]);
+extern void fmd_process_cfg_file(struct fmd_cfg_parms *cfg);
+extern struct fmd_cfg_sw *find_cfg_sw_by_ct(uint32_t ct, 
+					struct fmd_cfg_parms *cfg);
+extern struct fmd_cfg_ep *find_cfg_ep_by_ct(uint32_t ct, 
+					struct fmd_cfg_parms *cfg);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _CFG_PRIVATE_H_ */
+#endif /* _FMD_CFG_H_ */

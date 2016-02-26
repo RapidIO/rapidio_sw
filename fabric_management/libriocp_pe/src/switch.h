@@ -33,17 +33,17 @@ int RIOCP_WU riocp_pe_switch_port_set_enumerated(struct riocp_pe *sw, uint8_t po
 int RIOCP_WU riocp_pe_switch_port_clear_enumerated(struct riocp_pe *sw, uint8_t port);
 
 /* Callback wrappers */
-int RIOCP_WU riocp_pe_init(struct riocp_pe *sw);
-int RIOCP_WU riocp_pe_init_em(struct riocp_pe *sw);
-int RIOCP_WU riocp_pe_set_route_entry(struct riocp_pe *sw, uint8_t lut,
+int RIOCP_WU riocp_pe_switch_init(struct riocp_pe *sw);
+int RIOCP_WU riocp_pe_switch_init_em(struct riocp_pe *sw);
+int RIOCP_WU riocp_pe_switch_set_route_entry(struct riocp_pe *sw, uint8_t lut,
 	uint32_t destid, uint8_t port);
-int RIOCP_WU riocp_pe_get_route_entry(struct riocp_pe *sw, uint8_t lut,
+int RIOCP_WU riocp_pe_switch_get_route_entry(struct riocp_pe *sw, uint8_t lut,
 	uint32_t destid, uint8_t *port);
-int RIOCP_WU riocp_pe_clear_lut(struct riocp_pe *sw, uint8_t lut);
-int RIOCP_WU riocp_pe_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *speed);
-int RIOCP_WU riocp_pe_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width);
-int RIOCP_WU riocp_pe_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_port_state_t *state);
-int RIOCP_WU riocp_pe_handle_event(struct riocp_pe *sw, struct riomp_mgmt_event *revent,
+int RIOCP_WU riocp_pe_switch_clear_lut(struct riocp_pe *sw, uint8_t lut);
+int RIOCP_WU riocp_pe_switch_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint32_t *speed);
+int RIOCP_WU riocp_pe_switch_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width);
+int RIOCP_WU riocp_pe_switch_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_port_state_t *state);
+int RIOCP_WU riocp_pe_switch_handle_event(struct riocp_pe *sw, struct riomp_mgmt_event *revent,
 	struct riocp_pe_event *event);
 
 #ifdef __cplusplus

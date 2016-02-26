@@ -30,7 +30,7 @@ extern "C" {
 static int riocp_pe_dot_print_node(FILE *file, struct riocp_pe *pe)
 {
 	uint32_t route_destid;
-	pe_rt_val route_port;
+	uint8_t route_port;
 	int ret = 0;
 
 	fprintf(file, "\t\"0x%08x\" ", pe->comptag);

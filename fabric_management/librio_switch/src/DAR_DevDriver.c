@@ -399,8 +399,7 @@ STATUS DARrioGetPortList( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl_in, stru
    return rc;
 }
 
-STATUS DARrioSetEnumBound( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
-			int enum_bnd_val)
+STATUS DARrioSetEnumBound( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl )
 {
    STATUS rc = DAR_DB_INVALID_HANDLE;
 
@@ -409,7 +408,7 @@ STATUS DARrioSetEnumBound( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioSetEnumBound( dev_info,
-                                                          ptl, enum_bnd_val );
+                                                                ptl );
    return rc;
 }
 

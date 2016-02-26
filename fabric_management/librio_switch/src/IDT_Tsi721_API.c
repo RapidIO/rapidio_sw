@@ -30,8 +30,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+#include <IDT_Tsi721_API.h>
 #include "IDT_Tsi721.h"
-#include "IDT_Tsi721_API.h"
 #include "DAR_DB.h"
 #include "DAR_DB_Private.h"
 #include "DAR_Utilities.h"
@@ -58,63 +58,6 @@ extern "C" {
 static DSF_Handle_t Tsi721_driver_handle;
 static UINT32 num_Tsi721_driver_instances;
 
-STATUS IDT_tsi721ReadReg( DAR_DEV_INFO_t *dev_info,
-                                UINT32  offset,
-                                UINT32  *readdata )
-{
-        STATUS rc = RIO_SUCCESS;
-
-	switch(offset) {
-	case RIO_SWITCH_PORT_INF_CAR: *readdata = 0x00000100;
-				break;
-	case TSI721_RIO_SR_RSP_TO: *readdata = 0x00000100;
-		rc = ReadReg(dev_info, offset, readdata);
-		*readdata = (*readdata) << 8; 
-				break;
-	/* Never enable reliable port-write reception.  Ever. */
-	case TSI721_RIO_PW_CTL:
-		rc = ReadReg(dev_info, offset, readdata);
-		*readdata &= ~TSI721_RIO_PW_CTL_PWC_MODE;
-		break;
-		
-	default:
-		rc = ReadReg(dev_info, offset, readdata);
-	};
-
-        return rc;
-}
-
-STATUS IDT_tsi721WriteReg( DAR_DEV_INFO_t *dev_info,
-                                UINT32  offset,
-                                UINT32  writedata )
-{
-        STATUS rc = RIO_SUCCESS;
-	UINT32 temp_data;
-
-	switch (offset) {
-	/* Correct register errata in Tsi721 */
-	case TSI721_RIO_SR_RSP_TO: writedata = writedata >> 8;
-			rc = WriteReg(dev_info, offset, writedata);
-			break;
-	/* Only support 8 bit device IDs */
-	case TSI721_RIO_BASE_ID:
-			temp_data = (writedata & TSI721_RIO_BASE_ID_BASE_ID)
-				>> 16;
-			rc = WriteReg(dev_info, offset, writedata);
-			if (rc)
-				break;
-			rc = WriteReg(dev_info, TSI721_IB_DEVID, temp_data);
-			break;
-	case TSI721_RIO_PW_CTL:
-		/* Never enable reliable port-write reception.  Ever. */
-		writedata &= ~TSI721_RIO_PW_CTL_PWC_MODE;
-		rc = WriteReg(dev_info, offset, writedata);
-		break;
-	default:
-		rc = WriteReg(dev_info, offset, writedata);
-	}
-	return rc;
-};
 // Routing table entry value to use when requesting
 // default route or packet discard (no route)
 #define HW_DFLT_RT 0xFF
@@ -147,8 +90,6 @@ STATUS bind_tsi721_DAR_support( void )
     DAR_DB_Driver_t DAR_info;
 
     DARDB_Init_Driver_Info( IDT_TSI_VENDOR_ID, &DAR_info );
-    DAR_info.WriteReg = IDT_tsi721WriteReg;
-    DAR_info.ReadReg = IDT_tsi721ReadReg;
 
     DAR_info.rioDeviceSupported = IDT_tsi721DeviceSupported;
 
@@ -334,7 +275,7 @@ STATUS idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_inf
 {
     STATUS rc = RIO_SUCCESS;
 	UINT32 spxCtl, spxCtl2, devCtl, plmCtl;
-	UINT32 saved_plmCtl, saved_devCtl;
+	UINT32 saved_plmCtl, saved_devCtl, JUNK;
 
 
     rc = DARRegRead( dev_info, TSI721_RIO_PLM_SP_IMP_SPEC_CTL, &saved_plmCtl );
@@ -366,6 +307,13 @@ STATUS idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_inf
 	rc = DARRegWrite( dev_info, TSI721_DEVCTL, devCtl );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = PC_SET_CONFIG(9);
+       goto idt_tsi721_pc_set_config_resets_exit;
+    }
+
+	// FIXME: REMOVE BEFORE SHIPMENT
+	rc = DARRegRead( dev_info, 0, &JUNK );
+    if (RIO_SUCCESS != rc) {
+       out_parms->imp_rc = PC_SET_CONFIG(3);
        goto idt_tsi721_pc_set_config_resets_exit;
     }
 
@@ -1345,11 +1293,7 @@ STATUS idt_tsi721_rt_change_mc_mask (
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
-*/
 
-/* NOTE: TSI721_RIO_PW_CTL_PWC_MODE (Reliable port-write reception) is
-* always disabled by this routine.
-*/
 STATUS idt_tsi721_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
                                idt_em_cfg_pw_in_t   *in_parms, 
                                idt_em_cfg_pw_out_t  *out_parms ) 
@@ -1464,10 +1408,7 @@ STATUS idt_tsi721_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
                                idt_em_notfn_ctl_t    notfn   ,
                                UINT32               *imp_rc  )
 {
-	if (NULL != dev_info)
-		*imp_rc = pnum + (int)notfn;
-
-	return RIO_ERR_FEATURE_NOT_SUPPORTED;
+    return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
 
 STATUS tsi721_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  , 
@@ -1475,9 +1416,6 @@ STATUS tsi721_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  ,
                                   UINT8                 pnum      ,
                                   UINT32               *imp_rc    ) 
 {
-	if (NULL != dev_info)
-		*imp_rc = pnum + *(int*)notfn;
-
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 } 
 
@@ -1485,9 +1423,6 @@ STATUS idt_tsi721_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
                                 idt_em_cfg_set_in_t   *in_parms, 
                                 idt_em_cfg_set_out_t  *out_parms ) 
 {
-	if (NULL != dev_info)
-		out_parms->imp_rc = in_parms->ptl.num_ports;
-
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
@@ -1495,9 +1430,6 @@ STATUS idt_tsi721_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
                                 idt_em_cfg_get_in_t   *in_parms, 
                                 idt_em_cfg_get_out_t  *out_parms ) 
 {
-	if (NULL != dev_info)
-		out_parms->imp_rc = in_parms->port_num;
-
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
@@ -1505,9 +1437,6 @@ STATUS idt_tsi721_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info,
                                     idt_em_dev_rpt_ctl_in_t   *in_parms, 
                                     idt_em_dev_rpt_ctl_out_t  *out_parms ) 
 {
-	if (NULL != dev_info)
-		out_parms->imp_rc = in_parms->ptl.num_ports;
-
     return RIO_SUCCESS;
 }
 
@@ -1515,9 +1444,6 @@ STATUS idt_tsi721_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info,
                                  idt_em_parse_pw_in_t   *in_parms, 
                                  idt_em_parse_pw_out_t  *out_parms ) 
 {
-	if (NULL != dev_info)
-		out_parms->imp_rc = in_parms->num_events;
-
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
 
@@ -1525,9 +1451,6 @@ STATUS idt_tsi721_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
                                      idt_em_get_int_stat_in_t   *in_parms, 
                                      idt_em_get_int_stat_out_t  *out_parms ) 
 {
-	if (NULL != dev_info)
-		out_parms->imp_rc = in_parms->num_events;
-
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
@@ -1535,9 +1458,6 @@ STATUS idt_tsi721_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
                                     idt_em_get_pw_stat_in_t   *in_parms, 
                                     idt_em_get_pw_stat_out_t  *out_parms )
 {
-	if (NULL != dev_info)
-		out_parms->imp_rc = in_parms->ptl.num_ports;
-
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
@@ -1545,9 +1465,6 @@ STATUS idt_tsi721_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                                     idt_em_clr_events_in_t   *in_parms, 
                                     idt_em_clr_events_out_t  *out_parms ) 
 {
-	if (NULL != dev_info)
-		out_parms->imp_rc = in_parms->num_events;
-
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
@@ -1555,9 +1472,6 @@ STATUS idt_tsi721_em_create_events( DAR_DEV_INFO_t              *dev_info,
                                     idt_em_create_events_in_t   *in_parms, 
                                     idt_em_create_events_out_t  *out_parms ) 
 {
-	if (NULL != dev_info)
-		out_parms->imp_rc = in_parms->num_events;
-
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
@@ -1566,11 +1480,9 @@ STATUS idt_tsi721_sc_init_dev_ctrs (
     idt_sc_init_dev_ctrs_in_t  *in_parms,
     idt_sc_init_dev_ctrs_out_t *out_parms)
 {
-	if (NULL != dev_info)
-		out_parms->imp_rc = in_parms->ptl.num_ports;
-	
     return RIO_SUCCESS;
 };
+*/
 
 /* Routine to bind in all Tsi721 specific Device Specific Function routines.
 */
@@ -1604,7 +1516,6 @@ UINT32 bind_tsi721_DSF_support( void )
     idt_driver.idt_rt_change_rte      = idt_tsi721_rt_change_rte;
     idt_driver.idt_rt_change_mc_mask  = idt_tsi721_rt_change_mc_mask;
 
-*/
     idt_driver.idt_em_cfg_pw       = idt_tsi721_em_cfg_pw       ;
     idt_driver.idt_em_cfg_set      = idt_tsi721_em_cfg_set      ;
     idt_driver.idt_em_cfg_get      = idt_tsi721_em_cfg_get      ;
@@ -1616,6 +1527,7 @@ UINT32 bind_tsi721_DSF_support( void )
     idt_driver.idt_em_create_events= idt_tsi721_em_create_events;
 
     idt_driver.idt_sc_init_dev_ctrs= idt_tsi721_sc_init_dev_ctrs;
+*/
 
     IDT_DSF_bind_driver( &idt_driver, &Tsi721_driver_handle);
 

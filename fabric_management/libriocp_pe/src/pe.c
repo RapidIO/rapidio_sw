@@ -17,11 +17,12 @@
 #include "pe.h"
 
 #include "maint.h"
+#include "event.h"
 #include "handle.h"
+#include "switch.h"
 #include "comptag.h"
 #include "rio_regs.h"
 #include "rio_devs.h"
-#include "driver.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -374,23 +375,21 @@ int riocp_pe_probe_prepare(struct riocp_pe *pe, uint8_t port)
 
 	/* Set ANY_ID route to access PE */
 	if (RIOCP_PE_IS_SWITCH(pe->cap)) {
-		struct riocp_pe_port_state_t state;
-
 		ret = riocp_pe_maint_set_anyid_route(pe);
 		if (ret) {
 			RIOCP_ERROR("Could not program anyid route\n");
 			return -EIO;
 		}
-		ret = riocp_drv_get_port_state(pe, port, &state);
+		ret = riocp_pe_is_port_active(pe, port);
 		if (ret < 0) {
-			RIOCP_ERROR("Unable to read port state\n");
+			RIOCP_ERROR("Unable to read if port is active\n");
 			return -EIO;
 		}
-		if (!state.port_ok) {
+		if (ret == 0) {
 			RIOCP_ERROR("Try to probe inactive port\n");
 			return -ENODEV;
 		}
-		ret = riocp_drv_set_route_entry(pe, RIOCP_PE_ANY_PORT, ANY_ID, port);
+		ret = riocp_pe_switch_set_route_entry(pe, RIOCP_PE_ANY_PORT, ANY_ID, port);
 		if (ret) {
 			RIOCP_ERROR("Could not program route\n");
 			return -EIO;
@@ -423,7 +422,7 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 		peer->hopcount, peer->comptag, port);
 
 	/* Reset the component tag for alternative route */
-	ret = riocp_drv_raw_reg_wr(pe->mport, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, 0);
+	ret = riocp_pe_maint_write_remote(pe->mport, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, 0);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", ANY_ID, hopcount_alt);
 		return -EIO;
@@ -431,7 +430,7 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 
 	/* read same comptag again to make sure write has been performed
 		(we read pe comptag from potentially (shorter) different path) */
-	ret = riocp_drv_raw_reg_rd(pe->mport, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, &comptag_alt);
+	ret = riocp_pe_maint_read_remote(pe->mport, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, &comptag_alt);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", ANY_ID, hopcount_alt);
 		return -EIO;
@@ -481,12 +480,19 @@ int riocp_pe_probe_initialize_peer(struct riocp_pe *peer)
 
 	/* Set route on new switch to port routing to the host destid */
 	if (RIOCP_PE_IS_SWITCH(peer->cap)) {
-		ret = riocp_drv_set_route_entry(peer, RIOCP_PE_ANY_PORT,
+		ret = riocp_pe_switch_set_route_entry(peer, RIOCP_PE_ANY_PORT,
 			peer->mport->destid, RIOCP_PE_SW_PORT(peer->cap));
 		if (ret) {
 			RIOCP_ERROR("Unable to set route on peer\n");
 			return ret;
 		}
+	}
+
+	/* Initialize peer event management (port-write receival) */
+	ret = riocp_pe_event_init(peer);
+	if (ret) {
+		RIOCP_ERROR("Unable to initialize events for new pe\n");
+		return ret;
 	}
 
 	return 0;

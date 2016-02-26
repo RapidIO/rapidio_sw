@@ -27,11 +27,15 @@ CFLAGS+=-I../../common/include
 CFLAGS+=-DRDMA_LL=$(level) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 LDFLAGS+=-L. -l$(NAME)
 
-OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) 
+OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) $(patsubst src/switches/%.c,src/switches/%.o,$(wildcard src/switches/*.c))
 
 src/%.o: src/%.c $(HEADERS)
 	echo "real rule"
-	g++ -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CFLAGS) $< -o $@
+
+src/switches/%.o: src/switches/%.c $(HEADERS)
+	echo "real rule"
+	$(CXX) -c $(CFLAGS) $< -o $@
 
 %.a: $(OBJECTS)
 	$(AR) rcs $@ $^

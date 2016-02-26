@@ -55,7 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_app_msg.h"
 #include "liblog.h"
 #include "fmd_app_mgmt.h"
-#include "cfg.h"
+#include "fmd_cfg.h"
 #include "fmd_state.h"
 #include "fmd.h"
 // #include "cli_cmd_line.h"
