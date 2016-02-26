@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -29,6 +28,7 @@
 using std::vector;
 using std::stringstream;
 using std::thread;
+using std::move;
 
 static constexpr uint16_t  BAT_MIN_BLOCK_SIZE = 4096;
 
@@ -1570,32 +1570,41 @@ exit:
 /**
  * Thread function -- part of test_case_m.
  */
-void m_accept_thread_f(mso_h server_msoh, unsigned i)
+void m_accept_thread_f(unsigned i)
 {
-	const uint32_t	MS_SIZE   = 64 * 1024;
-	const uint32_t  MSUB_SIZE =  4 * 1024;
-	int rc;
+	constexpr uint32_t MS_SIZE   = 64 * 1024;
+	constexpr uint32_t MSUB_SIZE =  4 * 1024;
+	int		   rc;
 	ms_h	server_msh;
 	msub_h  server_msubh;
 	stringstream ms_name;
 
-	ms_name << "mspace" << i;
+	/* Create server mso */
+	mso_h	server_msoh;
+	rc = create_mso_f(bat_connections[i], "server_mso", &server_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* Create server_msh in server_msoh */
-	rc = create_ms_f(bat_connections[0], ms_name.str().c_str(), server_msoh,
+	ms_name << "mspace" << i;
+	rc = create_ms_f(bat_connections[i], ms_name.str().c_str(), server_msoh,
 						MS_SIZE, 0, &server_msh, NULL);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* Create server_msubh in server_msh */
-	rc = create_msub_f(bat_connections[0], server_msh, 0, MSUB_SIZE, 0,
+	rc = create_msub_f(bat_connections[i], server_msh, 0, MSUB_SIZE, 0,
 								&server_msubh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* Put server_msh in accept mode */
-	rc = accept_ms_thread_f(bat_connections[0], server_msh, server_msubh);
+	rc = accept_ms_thread_f(bat_connections[i], server_msh, server_msubh);
 	BAT_EXPECT_RET(rc, 0, exit);
 
-	rc = 0;
+	/* Wait for disconnection before destroying the mso */
+	sleep(3);
+
+	/* Delete the server mso */
+	rc = destroy_mso_f(bat_connections[i], server_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
 exit:
 	return;
 } /* m_accept_thread_f() */
@@ -1605,8 +1614,8 @@ exit:
  */
 void m_connect_thread_f(uint32_t destid, mso_h client_msoh, unsigned i)
 {
-	const uint32_t	MS_SIZE   = 64 * 1024;
-	const uint32_t  MSUB_SIZE =  4 * 1024;
+	constexpr uint32_t  MS_SIZE   = 64 * 1024;
+	constexpr uint32_t  MSUB_SIZE =  4 * 1024;
 	int rc;
 	ms_h	client_msh;
 	msub_h	client_msubh;
@@ -1633,8 +1642,8 @@ void m_connect_thread_f(uint32_t destid, mso_h client_msoh, unsigned i)
 				&server_msh_rb, 30);
 	BAT_EXPECT_RET(rc, 0, exit);
 
-	/* Wait a couple of seconds before disconnecting */
-	sleep(2);
+	/* Wait a seconds before disconnecting */
+	sleep(1);
 
 	/* Disconnect from ms1 on server */
 	rc = rdma_disc_ms_h(connh, server_msh_rb, client_msubh);
@@ -1651,39 +1660,32 @@ exit:
  */
 int test_case_m(uint32_t destid)
 {
-	const unsigned NUM_CONNECTIONS = 3;
+	constexpr unsigned NUM_CONNECTIONS = 3;
 	int rc;
-
-	/* Create server mso */
-	mso_h	server_msoh;
-	rc = create_mso_f(bat_connections[0], "server_mso", &server_msoh);
-	BAT_EXPECT_RET(rc, 0, exit);
 
 	/* Create a client mso */
 	mso_h	client_msoh;
 	rc = rdma_create_mso_h("client_mso", &client_msoh);
-	BAT_EXPECT_RET(rc, 0, free_server_mso)
-
+	BAT_EXPECT_RET(rc, 0, exit)
 	{
-		typedef std::vector<thread> threads_list;
-		threads_list accept_threads;
+		using threads_list =  vector<thread> ;
+		threads_list 	accept_threads;
 
 		/* Create threads for creating memory spaces and accepting */
 		for (unsigned i = 0; i < NUM_CONNECTIONS; i++) {
 			/* Create threads for handling accepts */
-			auto m_thread = thread(&m_accept_thread_f,
-					       server_msoh,
-					       i);
+			auto m_thread = thread(&m_accept_thread_f, i);
 
-			/* Store handle so we can join at the end of the test case */
-			accept_threads.push_back(std::move(m_thread));
+			/* Store handle so we can join at the end of the test case,
+			 * and store msoh so we can destroy the mso */
+			accept_threads.push_back(move(m_thread));
 			sleep(1);	/* Try to get them to accept in order */
 		}
 
 		/* Now create the 'connect' threads */
 		threads_list connect_threads;
 
-		/* Create threads for creating memory spaces and accepting */
+		/* Create threads for connecting to memory spaces */
 		for (unsigned i = 0; i < NUM_CONNECTIONS; i++) {
 			/* Create threads for sending connects */
 			auto m_thread = thread(&m_connect_thread_f,
@@ -1710,16 +1712,13 @@ int test_case_m(uint32_t destid)
 
 	/* Delete the client mso */
 	rc = rdma_destroy_mso_h(client_msoh);
-	BAT_EXPECT_RET(rc, 0, free_server_mso);
-	puts("Client mso destroyed with all its children");
-free_server_mso:
-	/* Delete the server mso */
-	rc = destroy_mso_f(bat_connections[0], server_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
-	puts("Server mso destroyed with all its children");
+	puts("Client mso destroyed with all its children");
+
 exit:
-	/* The return codes in the threads are more relevant */
-	puts("test_case_m() Goodbye!");
+	if (rc == 0) {
+		BAT_EXPECT_PASS(rc);
+	}
 	return 0;
 } /* test_case_m() */
 
