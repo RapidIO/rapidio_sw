@@ -82,8 +82,10 @@ mspace::mspace(	const char *name, uint32_t msid, uint64_t rio_addr,
 
 mspace::~mspace()
 {
-	if (!free)
+	if (!free) {
+		DBG("Destroying %s\n", name.c_str());
 		destroy();
+	}
 } /* destructor */
 
 int mspace::send_cm_force_disconnect_ms(cm_server *server, uint32_t server_msubid,

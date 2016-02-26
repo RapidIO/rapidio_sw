@@ -177,6 +177,7 @@ ibwin::ibwin(ms_owners &owners, riomp_mport_t mport_hnd,
 void ibwin::free()
 {
 	/* Delete all memory spaces */
+	INFO("Freeing %u mspaces in ibwin %u\n", mspaces.size(), win_num);
 	for_each(begin(mspaces), end(mspaces), [](mspace* ms) { delete ms;});
 	mspaces.clear();
 
