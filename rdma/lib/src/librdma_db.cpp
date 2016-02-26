@@ -41,10 +41,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <mutex>
 #include <string>
 
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-
 #include "rdma_types.h"
 #include "liblog.h"
 
