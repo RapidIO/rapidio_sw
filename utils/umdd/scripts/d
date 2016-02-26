@@ -1,0 +1,3 @@
+th 0 -1 0
+wait 0 h
+udma 0 -1 7 $buf $sts $did 22fc00000 1000000 1000000 2

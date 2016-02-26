@@ -850,7 +850,7 @@ static inline bool umd_dma_goodput_latency_demo_SLAVE(struct worker *info, const
                 //if (st == DMAChannel::INPROGRESS) continue;
 
                 if (st == DMAChannel::BORKED) {
-                        CRIT("\n\tTicket %llu status BORKED\n", info->dmaopt[oi].ticket);
+                        CRIT("\n\tTicket %llu status BORKED (%d)\n", info->dmaopt[oi].ticket, st);
                         return false;
                 }
 

@@ -953,8 +953,8 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     if(m_state->restart_pending && !force_scan) return 0;
 
 #ifdef DEBUG_BD
-    DBG("\n\tFound idx=%d for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
-        idx,
+    DBG("\n\tFound idx=%d ticket=%llu for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+        idx, item.opt.ticket,
         compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
         getFIFOReadCount(), getFIFOWriteCount());
 #endif
@@ -1434,7 +1434,7 @@ DMAChannel::TicketState_t DMAChannel::checkTicket(const DmaOptions_t& opt)
 
   if (found_bad) return BORKED;
 
-  if (m_state->acked_serial_number > opt.ticket) return COMPLETED;
+  if (m_state->acked_serial_number >= opt.ticket) return COMPLETED;
 
   // Should never get here
   return BORKED;
