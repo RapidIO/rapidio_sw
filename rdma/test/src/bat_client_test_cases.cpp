@@ -1518,8 +1518,6 @@ int test_case_l()
 			ms_info.emplace_back(BAT_MIN_BLOCK_SIZE, 0, 0);
 		}
 
-		/* FIXME: Hack only */
-		num_mspaces = 16;
 		vector<unsigned> ms_indexes;	/* Indexes for use in random deletion */
 		for (unsigned i = 0; i < num_mspaces; i++) {
 			stringstream ms_name;
