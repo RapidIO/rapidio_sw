@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
 
 	case 'm':
 		test_case_m(destid);
-		bat_eot(1);
+		bat_eot(3);
 		break;
 
 	case 'n':
@@ -347,7 +347,8 @@ int main(int argc, char *argv[])
 			test_case_dma('4', destid, 0x00, 0x00, 0x40, rdma_sync_chk);
 			test_case_t_u('u', destid);
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
-			bat_eot(1);
+
+			bat_eot(3);
 		}
 		break;
 	default:
