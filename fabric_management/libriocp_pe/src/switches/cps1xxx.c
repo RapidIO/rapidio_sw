@@ -930,6 +930,9 @@ static int cps1xxx_init_port(struct riocp_pe *sw, uint8_t port)
 		status | CPS1xxx_ERR_STATUS_CLEAR);
 	if (ret < 0)
 		return ret;
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_DET(port), 0);
+	if (ret < 0)
+		return ret;
 
 #ifdef CONFIG_PORTWRITE_ENABLE
 	/* port write basic configuration */
@@ -1757,6 +1760,7 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 
 		goto skip_port_errors;
 	}
+	RIOCP_INFO("PORT:%u ERR_STAT_CSR:0x%08x ERR_DET_CSR:0x%08x IMP_ERR_DET_CSR:0x%08x\n", port, err_status, err_det, impl_err_det);
 
 skip_port_errors:
 	/* in case both fatal error and link initialized set (slow software)
@@ -1970,6 +1974,9 @@ static int cps1xxx_cfg_event_handler(struct riocp_pe *sw, struct riomp_mgmt_even
 	case LOG_CFG_BAD_MCAST:
 		RIOCP_DEBUG("has a Multicast translation error\n");
 		break;
+	default:
+		RIOCP_WARN("unknown configuration event: %d\n", event_code);
+		break;
 	}
 
 	/* Clear configuration block errors */
@@ -1991,31 +1998,37 @@ static int cps1xxx_cfg_event_handler(struct riocp_pe *sw, struct riomp_mgmt_even
 }
 
 /*
- * The following function handles the CPS1616 repeated port-writes.
+ * The following function handles the CPS1616 and SPS1616 repeated port-writes.
  * See CPS1616 user manual figure 26 for repeated port-write format where impl_spec is zero.
  *
- * This function verifies if it comes from CPS1616 and then calls
+ * This function verifies if it comes from CPS1616 or SPS1616 and then calls
  * the Port event or CFG event handler.
  */
 static int cps1xxx_rpw_event(struct riocp_pe *sw, struct riomp_mgmt_event *revent,
 	struct riocp_pe_event *event)
 {
 	int ret = 0;
-	uint32_t cfg_err_det;
-
-	RIOCP_TRACE("Got repeated pw\n");
-
-	/* For Configuration Errors the ERROR_LOG_CODE is incorrect therefore
-		read the CFG_ERR_DET register. */
-	ret = riocp_pe_maint_read(sw, CPS1xxx_CFG_ERR_DET, &cfg_err_det);
-	if (ret < 0)
-		return 0;
 
 	if ((RIOCP_PE_DID(sw->cap) == RIO_DID_IDT_CPS1616) || (RIOCP_PE_DID(sw->cap) == RIO_DID_IDT_SPS1616)) {
-		if ((*revent).u.portwrite.payload[2] > 0)
+		if ((*revent).u.portwrite.payload[1])
 			ret = cps1xxx_port_event_handler(sw, event);
-		if (cfg_err_det > 0)
-			ret = cps1xxx_cfg_event_handler(sw, revent, event);
+		else {
+			uint32_t cfg_err_det;
+
+			/* For Configuration Errors the ERROR_LOG_CODE is incorrect therefore
+				read the CFG_ERR_DET register. */
+			ret = riocp_pe_maint_read(sw, CPS1xxx_CFG_ERR_DET, &cfg_err_det);
+			if (ret < 0)
+				return 0;
+
+			RIOCP_INFO("CFG_ERR_DET:0x%08x\n", cfg_err_det);
+			if (cfg_err_det > 0)
+				ret = cps1xxx_cfg_event_handler(sw, revent, event);
+			else
+				RIOCP_TRACE("Got repeated pw\n");
+		}
+	} else {
+		RIOCP_TRACE("Got repeated pw\n");
 	}
 
 	return ret;
@@ -2034,9 +2047,11 @@ int cps1xxx_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, 
 	}
 
 	port = RIOCP_PE_EVENT_PW_PORT_ID((*revent).u.portwrite);
-	event->port = port;
-
 	event_code = CPS1xxx_PW_GET_EVENT_CODE(revent);
+
+	event->port = port;
+	RIOCP_INFO("PW: event_code:0x%x port:%d\n", event_code, port);
+
 	if (event_code >= LOG_PORT_ERR_FIRST && event_code <= LOG_PORT_ERR_LAST) {
 		ret = cps1xxx_port_event_handler(sw, event);
 		if (ret)
@@ -2047,7 +2062,7 @@ int cps1xxx_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, 
 			return ret;
 	} else {
 		/* when no known error is reported. it might be a repeated port-write
-			from the CPS1616.
+			from the CPS1616 and SPS1616.
 			This is checked after all other possible events have been detected.
 			For some events the ERROR_LOG_CODE does not comply with the user manual.
 			Therefore the right registers are read in the event handler. */
