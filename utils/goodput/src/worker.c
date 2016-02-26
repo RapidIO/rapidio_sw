@@ -2526,6 +2526,7 @@ void umd_mbox_goodput_demo(struct worker *info)
         info->tick_count = info->tick_total = 0;
 
         info->umd_mch->setInitState();
+	info->umd_mch->softRestart();
 
 	if (GetEnv("verb") != NULL) {
 		INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%d #buf=%d #fifo=%d\n",
@@ -2685,6 +2686,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
         info->tick_count = info->tick_total = 0;
 
         info->umd_mch->setInitState();
+	info->umd_mch->softRestart();
 
 	if (GetEnv("verb") != NULL) {
 		INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
@@ -3043,6 +3045,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
         info->tick_count = info->tick_total = 0;
 
         info->umd_mch->setInitState();
+	info->umd_mch->softRestart();
 
 	INFO("\n\t%s %s mtu %d on MBOX=%d my_destid=%u #buf=%d #fifo=%d\n",
 	     if_name, TapIPv4Addr, MTU,
