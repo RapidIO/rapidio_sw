@@ -12,11 +12,11 @@ static inline int remote_call(bat_connection *bat_conn)
 {
 	auto rc = 0;
 	if (bat_conn->send()) {
-		fprintf(stderr, "bat_conn->send() failed\n");
+		fprintf(stderr, "%s FAILED, line %d\n", __func__, __LINE__);
 		fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__);
 		rc = -1;
 	} else if (bat_conn->receive()) {
-		fprintf(stderr, "bat_conn->receive() failed\n");
+		fprintf(stderr, "%s FAILED, line %d\n", __func__, __LINE__);
 		fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__);
 		rc = -2;
 	}
@@ -43,7 +43,7 @@ int create_mso_f(bat_connection *bat_conn,
 	/* Send message, wait for ACK and verify it is an ACK */
 	rc = remote_call(bat_conn);
 	if (rc) {
-		fprintf(stderr, "Failed in remote_call()\n");
+		fprintf(stderr, "%s: Failed in remote_call()\n", __func__);
 	} else if ((rc = (int)bm_rx->create_mso_ack.ret)) {
 		fprintf(stderr, "%s: create_mso_h returned 0x%X\n", __func__, rc);
 	} else if (bm_rx->type != CREATE_MSO_ACK) {
@@ -103,7 +103,7 @@ int open_mso_f(bat_connection *bat_conn,
 
 	rc = remote_call(bat_conn);
 	if (rc) {
-		fprintf(stderr, "Failed in remote_call()\n");
+		fprintf(stderr, "%s: Failed in remote_call()\n", __func__);
 	} else if ((rc = (int)bm_rx->open_mso_ack.ret)) {
 		fprintf(stderr, "open_mso_h returned 0x%X\n", rc);
 	} else if (bm_rx->type != OPEN_MSO_ACK) {
@@ -133,7 +133,7 @@ int close_mso_f(bat_connection *bat_conn, mso_h msoh)
 
 	rc = remote_call(bat_conn);
 	if (rc) {
-		fprintf(stderr, "Failed in remote_call()\n");
+		fprintf(stderr, "%s: Failed in remote_call()\n", __func__);
 	} else if ((rc = (int)bm_rx->close_mso_ack.ret)) {
 		fprintf(stderr, "close_mso_h returned 0x%X\n", rc);
 	} else if (bm_rx->type != CLOSE_MSO_ACK) {
@@ -165,7 +165,7 @@ int create_ms_f(bat_connection *bat_conn,
 
 	rc = remote_call(bat_conn);
 	if (rc) {
-		fprintf(stderr, "Failed in remote_call()\n");
+		fprintf(stderr, "%s: Failed in remote_call()\n", __func__);
 	} else if ((rc = (int)bm_rx->create_ms_ack.ret)) {
 		fprintf(stderr, "create_ms_h returned 0x%X\n", rc);
 	} else if (bm_rx->type != CREATE_MS_ACK) {
@@ -203,7 +203,7 @@ int open_ms_f(bat_connection *bat_conn, const char *name, mso_h msoh,
 
 	rc = remote_call(bat_conn);
 	if (rc) {
-		fprintf(stderr, "Failed in remote_call()\n");
+		fprintf(stderr, "%s: Failed in remote_call()\n", __func__);
 	} else if ((rc = (int)bm_rx->open_ms_ack.ret)) {
 		fprintf(stderr, "open_ms_h returned 0x%X\n", rc);
 	} else if (bm_rx->type != OPEN_MS_ACK) {
@@ -245,7 +245,7 @@ int create_msub_f(bat_connection *bat_conn,
 
 	rc = remote_call(bat_conn);
 	if (rc) {
-		fprintf(stderr, "Failed in remote_call()\n");
+		fprintf(stderr, "%s: Failed in remote_call()\n", __func__);
 	} else if ((rc = (int)bm_rx->open_ms_ack.ret)) {
 		fprintf(stderr, "open_ms_h returned 0x%X\n", rc);
 	} else if (bm_rx->type != CREATE_MSUB_ACK) {
@@ -274,7 +274,7 @@ int accept_ms_f(bat_connection *bat_conn, ms_h server_msh, msub_h server_msubh)
 
 	/* Send message. No ACK excepted since accept_ms_h() is blocking */
 	if (bat_conn->send()) {
-		fprintf(stderr, "bat_conn->send() failed\n");
+		fprintf(stderr, "%s: bat_conn->send() failed\n", __func__);
 		fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__);
 		rc = -1;
 	}
@@ -296,7 +296,7 @@ int accept_ms_thread_f(bat_connection *bat_conn, ms_h server_msh,
 
 	/* Send message. No ACK excepted */
 	if (bat_conn->send()) {
-		fprintf(stderr, "bat_conn->send() failed\n");
+		fprintf(stderr, "%s: bat_conn->send() failed\n", __func__);
 		fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__);
 		rc = -1;
 	}
@@ -318,7 +318,7 @@ int server_disconnect_ms(bat_connection *bat_conn,
 
 	rc = remote_call(bat_conn);
 	if (rc) {
-		fprintf(stderr, "Failed in remote_call()\n");
+		fprintf(stderr, "%s: Failed in remote_call()\n", __func__);
 	} else if ((rc = (int)bm_rx->server_disconnect_ms_ack.ret)) {
 		fprintf(stderr, "server_disconnect_ms returned 0x%X\n", rc);
 	} else if (bm_rx->type != SERVER_DISCONNECT_MS_ACK) {
@@ -339,7 +339,7 @@ int kill_remote_app(bat_connection *bat_conn)
 
 	/* Send message. No ACK excepted since remote app will die! */
 	if (bat_conn->send()) {
-		fprintf(stderr, "bat_conn->send() failed\n");
+		fprintf(stderr, "%s: bat_conn->send() failed\n", __func__);
 		fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__);
 		rc = -1;
 	}
@@ -356,7 +356,7 @@ int kill_remote_daemon(bat_connection *bat_conn)
 
 	/* Send message. No ACK excepted since remote app will die! */
 	if (bat_conn->send()) {
-		fprintf(stderr, "bat_conn->send() failed\n");
+		fprintf(stderr, "%s: bat_conn->send() failed\n", __func__);
 		fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__);
 		rc = -1;
 	}
