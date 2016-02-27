@@ -64,7 +64,7 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -I../../samples/latency/common/ -Iinc/ -O3
 
 # RDMA Daemon flags & sources
-RDMAD_CFLAGS = -Wall -Werror -Wextra -std=c++11 -rdynamic -g -ggdb -O3 \
+RDMAD_CFLAGS = -Wall -Werror -Wextra -std=c++11 -rdynamic -flto -g -ggdb -O3 \
 		-DRDMA_LL=$(level) -DBE_STRICT -I$(MPORTLIB_INC) \
 		-I../common/libcli/inc \
 		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
@@ -133,7 +133,7 @@ librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	mkdir -p $(TOP_LEVEL)/include/libs_a
 	cp librdma.a $(TOP_LEVEL)/include/libs_a
 #Generate preprocessor output
-	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I../common/include -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
+#	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I../common/include -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
 
 # The RDMA daemon (the AF_UNIX server)
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR)/libs_a/* $(INCLUDE_DIR)/libs_a/* \
@@ -144,9 +144,9 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR
 	-Wl,-rpath=$(TOP_LEVEL)/common/liblist \
 	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -llist -lmport -lrt -lcli -llog -lfmdd -ldd -lriocp_pe -pthread
 # Building preprocessor output for select files.
-	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_main.cpp > rdmad_main.i
-	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_srvr_threads.cpp > rdmad_srvr_threads.i
-	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_clnt_threads.cpp > rdmad_clnt_threads.i
+#	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_main.cpp > rdmad_main.i
+#	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_srvr_threads.cpp > rdmad_srvr_threads.i
+#	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_clnt_threads.cpp > rdmad_clnt_threads.i
 
 # Remote debug
 rrdma:  $(REMDBG_SOURCES)

@@ -134,8 +134,7 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 		/* If the mspace creator does NOT match on the client_msubid,
 		 * client_to_lib_tx_eng_h (connh) or is NOT 'connected_to', then
 		 * search all the users for a match and, for the matched user
-		 * look up its destid and send the force disconnect message.
-		 */
+		 * look up its destid and send the force disconnect message. */
 		lock_guard<mutex> users_lock(users_mutex);
 
 		auto it = find_if(begin(users), end(users),
@@ -183,8 +182,19 @@ int mspace::notify_remote_clients()
 	} else {
 		rc = 0;
 		/* It is not the creator who has a connection; search users */
-		lock_guard<mutex> users_lock(users_mutex);
-
+		DBG("Searching users...\n");
+		/* If called during shutdown, don't block if mutex already locked */
+		bool locked;
+		if (shutting_down) {
+			if (users_mutex.try_lock()) {
+				locked = true;
+			} else {
+				locked = false;
+			}
+		} else {
+			users_mutex.lock();
+			locked = true;
+		}
 		for(auto& u : users) {
 			/* If the entry is not 'connected_to' then skip it */
 			if (!u.connected_to)
@@ -199,7 +209,8 @@ int mspace::notify_remote_clients()
 							u.server_msubid,
 							u.client_to_lib_tx_eng_h);
 		}
-	}
+		if (locked)
+			users_mutex.unlock();	}
 	DBG("EXIT\n");
 	return rc;
 } /* notify_remote_clients() */
@@ -246,8 +257,7 @@ int mspace::destroy()
 		}
 
 		/* Close connections from other local 'user' applications and
-		 * delete message queues used to communicate with those apps.
-		 */
+		 * delete message queues used to communicate with those apps. */
 		rc = close_connections();
 		if (rc) {
 			WARN("Connection(s) to msid(0x%X) did not close\n", msid);
