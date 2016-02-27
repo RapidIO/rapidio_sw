@@ -64,7 +64,9 @@ SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -I../../samples/latency/common/ -Iinc/ -O3
 
 # RDMA Daemon flags & sources
-RDMAD_CFLAGS = -Wall -Werror -Wextra -std=c++11 -rdynamic -flto -g -ggdb -O3 \
+RDMAD_CFLAGS = -Wall -Werror -Wextra -std=c++11 -rdynamic -g -ggdb -O3 \
+		-ffunction-sections -fdata-sections -flto \
+		-Wl,-gc-sections \
 		-DRDMA_LL=$(level) -DBE_STRICT -I$(MPORTLIB_INC) \
 		-I../common/libcli/inc \
 		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include

@@ -163,6 +163,8 @@ int rdma_log(unsigned level,
 #ifdef DEBUG
 	if (level <= g_disp_level)
 		printf("%s", log_line.c_str());
+#else
+	(void)level;	/* Disable error on unused variable */
 #endif
 	sem_post(&log_buf_sem);
 
