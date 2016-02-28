@@ -949,6 +949,7 @@ int rdma_create_ms_h(const char *ms_name,
 
 int destroy_msubs_in_msh(ms_h msh)
 {
+	int rc;
 	uint32_t 	msid = ((struct loc_ms *)msh)->msid;
 
 	/* Get list of memory sub-spaces belonging to this msh */
@@ -973,10 +974,12 @@ int destroy_msubs_in_msh(ms_h msh)
 	/* Fail on any error */
 	if (!ok) {
 		ERR("Failure during destroying one of the msubs\n");
-		return RDMA_MSUB_DESTROY_FAIL;
+		rc = RDMA_MSUB_DESTROY_FAIL;
+	} else {
+		rc = 0;
 	}
 
-	return 0;
+	return rc;
 } /* destroy_msubs_in_msh */
 
 int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
@@ -1004,6 +1007,14 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 			ERR("String 'ms_name' is too long (%d)\n", len);
 
 			throw RDMA_NAME_TOO_LONG;
+		}
+
+		/* If already open, just return the handle, and the size */
+		*msh = find_loc_ms_by_name(ms_name);
+		if (*msh != (ms_h)NULL) {
+			INFO("'%s' already open by this app\n", ms_name);
+			*bytes = ((loc_ms *)msh)->bytes;
+			throw 0;	/* Not an error */
 		}
 
 		/* Set up Unix message parameters */

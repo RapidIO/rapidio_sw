@@ -286,6 +286,7 @@ void sig_handler(int sig)
 		constexpr unsigned MAX_BT = 100;
 		void *buffer[MAX_BT];
 		size_t count = backtrace(buffer, MAX_BT);
+		printf("Backtrace can hold %u entries\n", (unsigned)count);
 		backtrace_symbols_fd(buffer, count, STDERR_FILENO);
 	}
 	break;

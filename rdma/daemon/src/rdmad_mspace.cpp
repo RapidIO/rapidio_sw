@@ -187,11 +187,14 @@ int mspace::notify_remote_clients()
 		if (shutting_down) {
 			if (users_mutex.try_lock()) {
 				locked = true;
+				DBG("Locked users_mutex\n");
 			} else {
+				DBG("users_mutex already locked\n");
 				locked = false;
 			}
 		} else {
 			users_mutex.lock();
+			DBG("Locked users_mutex\n");
 			locked = true;
 		}
 		for(auto& u : users) {
@@ -208,8 +211,11 @@ int mspace::notify_remote_clients()
 							u.server_msubid,
 							u.client_to_lib_tx_eng_h);
 		}
-		if (locked)
-			users_mutex.unlock();	}
+		if (locked) {
+			users_mutex.unlock();
+			DBG("Unlocked users_mutex\n");
+		}
+	}
 	DBG("EXIT\n");
 	return rc;
 } /* notify_remote_clients() */
