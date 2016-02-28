@@ -122,6 +122,9 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 	int rc;
 	cm_base *server = nullptr;
 
+	DBG("ENTER with client_msubid=0x%X, client_to_lib_tx_eng=0x%"
+			PRIx64 "\n", client_msubid, client_to_lib_tx_eng_h);
+
 	/* If the mspace creator matches on the client_msubid,
 	 * client_to_lib_tx_eng_h (connh) and is 'connected_to', then
 	 * look up its destid and send the force disconnect message. */
@@ -137,6 +140,8 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 		 * look up its destid and send the force disconnect message. */
 		auto it = find_if(begin(users), end(users),
 		[client_to_lib_tx_eng_h, client_msubid](ms_user& u) {
+			DBG("u.client_msubid=0x%X, u.client_to_lib_tx_eng=0x%"
+				PRIx64 "\n", u.client_msubid, u.client_to_lib_tx_eng_h);
 			return u.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h
 			    && u.client_msubid == client_msubid
 			    && u.connected_to;
