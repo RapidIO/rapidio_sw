@@ -491,7 +491,8 @@ void ibwin::destroy_mspaces_using_tx_eng(
 			INFO("Destroying '%s'\n", ms->get_name());
 			ms->destroy();
 		} else {
-			DBG("Skipping '%s' since it doesn't use app_tx_eng\n");
+			DBG("Skipping '%s' since it doesn't use app_tx_eng\n",
+					ms->get_name());
 		}
 	}
 	pthread_mutex_unlock(&mspaces_lock);
