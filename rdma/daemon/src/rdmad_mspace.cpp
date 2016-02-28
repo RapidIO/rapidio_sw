@@ -135,7 +135,6 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 		 * client_to_lib_tx_eng_h (connh) or is NOT 'connected_to', then
 		 * search all the users for a match and, for the matched user
 		 * look up its destid and send the force disconnect message. */
-		lock_guard<mutex> users_lock(users_mutex);
 
 		auto it = find_if(begin(users), end(users),
 		[client_to_lib_tx_eng_h, client_msubid](ms_user& u) {
@@ -150,7 +149,7 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 			/* Now find the cm_server to use by looking up the
 			 * user's destid in the prov_daemon_info_list */
 			server = prov_daemon_info_list.get_cm_sock_by_destid(
-					     	     	     	client_destid);
+					     	     	     	it->client_destid);
 		}
 	}
 
@@ -641,11 +640,12 @@ int mspace::open(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
 	int rc;
 
+	DBG("ENTER\n");
+	lock_guard<mutex> users_lock(users_mutex);
+
 	/* Altough LIBRDMA should contain some safegaurds against the same
 	 * memory space being opened twice by the same application, it doesn't
 	 * hurt to add a quick check here. */
-	lock_guard<mutex> users_lock(users_mutex);
-
 	auto it = find(begin(users), end(users), user_tx_eng);
 	if (it != end(users)) {
 		ERR("'%s' already open by this application\n", name.c_str());
@@ -657,7 +657,7 @@ int mspace::open(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 							user_tx_eng, msid);
 		rc = 0;
 	}
-
+	DBG("EXIT\n");
 	return rc;
 } /* open() */
 
@@ -749,7 +749,7 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 							return user.accepting;
 						 });
 				if (n > 0) {
-					ERR("'%s' already accepting from a user app\n",
+					ERR("'%s' already accepting by user\n",
 							name.c_str());
 					rc = RDMA_ACCEPT_FAIL;
 				} else {
