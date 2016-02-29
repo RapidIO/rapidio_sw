@@ -390,45 +390,39 @@ void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator oth
 	mspaces.erase(other);
 } /* merge_next_with_mspace() */
 
-int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
+/* Private method called from other methods which have already locked
+ * the mutex around mspaces so don't lock it here */
+int ibwin::destroy_mspace(mspace_iterator current_ms)
 {
-	int ret = 0;
+	int rc;
 
-	pthread_mutex_lock(&mspaces_lock);
+	try {
+		/* Save the owner before destroying the ms */
+		uint32_t msoid = (*current_ms)->get_msoid();
 
-	mspace_iterator current_ms =
-			find_if(begin(mspaces),
-				end(mspaces),
-				has_msid_and_msoid(msid, msoid));
-
-	if (current_ms != end(mspaces)) {
 		/* Destroy the memory space */
-		ret = (*current_ms)->destroy();
-		if (ret) {
-			ERR("Failed to destroy msid(0x%X)\n", msid);
-			ret = RDMA_MS_DESTROY_FAIL;
-			goto exit;
+		rc = (*current_ms)->destroy();
+		if (rc) {
+			ERR("Failed to destroy '%s', msid(0x%X)\n",
+				(*current_ms)->get_name(), (*current_ms)->get_msid());
+			throw RDMA_MS_DESTROY_FAIL;
 		}
 
 		/* Remove this memory space from the owner */
 		ms_owner *owner;
-
 		try {
 			owner = owners[msoid];
 		} catch (...) {
 			ERR("Failed to find owner msoid(0x%X)\n", msoid);
-			ret = -3;
-			goto exit;
+			throw RDMA_INVALID_MSO;
 		}
 
 		if (owner == nullptr) {
 			ERR("Failed to find owner msoid(0x%X)\n", msoid);
-			ret = -4;
-			goto exit;
+			throw RDMA_INVALID_MSO;
 		} else if (owner->remove_ms((*current_ms))) {
 			WARN("Failed to remove ms from owner\n");
-			ret = -5;
-			goto exit;
+			throw -5;
 		}
 
 		/* If it is the last mspace in the list there is no 'next'
@@ -455,15 +449,33 @@ int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
 		} else {
 			DBG("First ms in the list. Cannot merge with prev!\n");
 		}
+	}
+	catch(int& e) {
+		rc = e;
+	}
+	return rc;
+} /* destroy_mspace() */
+
+int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
+{
+	int rc;
+
+	pthread_mutex_lock(&mspaces_lock);
+	mspace_iterator current_ms =
+			find_if(begin(mspaces),
+				end(mspaces),
+				has_msid_and_msoid(msid, msoid));
+
+	if (current_ms != end(mspaces)) {
+		rc = destroy_mspace(current_ms);
 	} else {
 		ERR("Cannot find ms w/ msoid(0x%X) and msid(0x%X) in ibwin%u\n",
 				msoid, msid, win_num);
-		ret = RDMA_INVALID_MS;	/* Not found */
+		rc = RDMA_INVALID_MS;	/* Not found */
 	}
-exit:
 	pthread_mutex_unlock(&mspaces_lock);
 
-	return ret;
+	return rc;
 } /* destroy_mspace() */
 
 void ibwin::close_mspaces_using_tx_eng(
@@ -486,22 +498,33 @@ void ibwin::destroy_mspaces_using_tx_eng(
 		tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
 	pthread_mutex_lock(&mspaces_lock);
-	for(auto& ms : mspaces) {
-		if (ms->created_using_tx_eng(app_tx_eng)) {
-			INFO("Destroying '%s'\n", ms->get_name());
-			ms->destroy();
-		} else {
-			DBG("Skipping '%s' since it doesn't use app_tx_eng\n",
-					ms->get_name());
-		}
-	}
+
+	/* NOTE: destroy_mspace() may potentially alter 'mspaces'
+	 * if it decides to merge 2 contiguous free spaces. That
+	 * is why a simple iteration across 'mspaces' won't work. */
+	bool done;
+	do {
+		auto it = find_if(begin(mspaces),
+				  end(mspaces),
+				  [app_tx_eng](mspace* ms)
+				  {
+					return ms->created_using_tx_eng(app_tx_eng);
+				  });
+		if (it != end(mspaces)) {
+			INFO("Destroying '%s'\n", (*it)->get_name());
+			destroy_mspace(it);
+			done = false;
+		} else
+			done = true;
+	} while (!done);
+
 	pthread_mutex_unlock(&mspaces_lock);
 } /* destroy_mspaces_using_tx_eng() */
 
 void ibwin::get_mspaces_connected_by_destid(uint32_t destid, mspace_list& mspaces)
 {
 	pthread_mutex_lock(&mspaces_lock);
-	for (auto& ms : mspaces) {
+	for (auto& ms : this->mspaces) {
 		if (ms->connected_by_destid(destid)) {
 			mspaces.push_back(ms);
 		}

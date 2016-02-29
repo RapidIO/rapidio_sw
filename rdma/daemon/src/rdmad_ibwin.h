@@ -267,6 +267,15 @@ private:
 	void merge_other_with_mspace(mspace_iterator current,
 				     mspace_iterator other);
 
+	/**
+	 * @brief  Destroy memory space specified by iterator
+	 *
+	 * @param current_ms	Memory space iterator
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int destroy_mspace(mspace_iterator current_ms);
+
 	ms_owners	&owners;	/* Reference to memory space owners */
 	riomp_mport_t mport_hnd;	/* Master port handle */
 	unsigned	win_num;	/* window number */
