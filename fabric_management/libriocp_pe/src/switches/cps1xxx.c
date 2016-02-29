@@ -409,9 +409,9 @@ static const struct portmap gen2_portmaps[] = {
 		{RIO_DID_IDT_CPS1432, 2, 1, 0, 1, 4, 4, 1},
 		{RIO_DID_IDT_CPS1432, 2, 1, 0, 5, 20, 4, 5},
 
-		{RIO_DID_IDT_CPS1432, 2, 1, 1, 1, 4, 2, 5},
+		{RIO_DID_IDT_CPS1432, 2, 1, 1, 1, 4, 2, 1},
 		{RIO_DID_IDT_CPS1432, 2, 1, 1, 5, 20, 4, 5},
-		{RIO_DID_IDT_CPS1432, 2, 1, 1, 13, 4, 2, 5},
+		{RIO_DID_IDT_CPS1432, 2, 1, 1, 13, 6, 2, 1},
 
 		{RIO_DID_IDT_CPS1432, 2, 2, 0, 2, 8, 4, 2},
 		{RIO_DID_IDT_CPS1432, 2, 2, 0, 6, 24, 4, 6},
