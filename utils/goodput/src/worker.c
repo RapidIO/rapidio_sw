@@ -202,6 +202,9 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_dma_did_peer.clear();
 	info->umd_dma_did_enum_list.clear();
 
+	info->umd_fifo_total_ticks = 0;
+	info->umd_fifo_total_ticks_count = 0;
+
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
 	//};
@@ -1342,6 +1345,10 @@ void *umd_dma_fifo_proc_thr(void *parm)
 			case DTYPE1:
 			case DTYPE2:
 				info->perf_byte_cnt += info->acc_size;
+				if (item.opt.ts_end > item.opt.ts_start) {
+				       info->umd_fifo_total_ticks += item.opt.ts_end - item.opt.ts_start;
+				       info->umd_fifo_total_ticks_count++;
+				} 
 				break;
 			case DTYPE3:
 				break;
@@ -1468,11 +1475,15 @@ no_post:
 	pthread_exit(parm);
 }
 
-#if 0
-void UMD_DD(const struct worker* info)
+void UMD_DDD(const struct worker* info)
 {
 	const int MHz = getCPUMHz();
 
+	if (info->umd_fifo_total_ticks_count > 0) {
+	       float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
+	       INFO("\n\tFIFO Avg TX %f uS cnt=%llu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
+	}
+#if 0
 	const int idx = info->idx;
 
 	float    avgTf_scanfifo = 0;
@@ -1502,8 +1513,8 @@ void UMD_DD(const struct worker* info)
 		ss<<"\t"<<tmp;
 	}
 	CRIT("%s", ss.str().c_str());
-}
 #endif
+}
 
 void calibrate_map_performance(struct worker *info)
 {

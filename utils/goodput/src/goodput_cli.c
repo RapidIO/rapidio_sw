@@ -2380,6 +2380,33 @@ UMDTestCmd,
 ATTR_NONE
 };
 
+extern void UMD_DDD(const struct worker* wkr);
+
+int UMDDDDDCmd(struct cli_env *env, int argc, char **argv)
+{
+        int idx = argc > 0? GetDecParm(argv[0], 0): 0;
+        if (idx < 0 || idx >= MAX_WORKERS) {
+                sprintf(env->output, "Bad idx %d\n", idx);
+                logMsg(env);
+                goto exit;
+        }
+        UMD_DDD(&wkr[idx]);
+
+exit:
+        return 0;
+}
+
+struct cli_cmd UMDDDD = {
+"ddd",
+3,
+0,
+"Dump UMD DMA status",
+"<idx>\n"
+        "<idx> [optional, default=0] is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
+UMDDDDDCmd,
+ATTR_RPT
+};
+
 
 int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 {
@@ -3093,6 +3120,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&UMSGL,
 	&UMSGT,
 	&UMDDD,
+	&UMDDDD,
 	&UTime,
 	&UMDTest,
 	&EPWatch,

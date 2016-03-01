@@ -288,6 +288,9 @@ struct worker {
 
 	struct thread_cpu umd_mbox_tap_thr;
 
+	volatile uint64_t umd_fifo_total_ticks;
+	volatile uint64_t umd_fifo_total_ticks_count;
+
 	void		(*umd_dma_fifo_callback)(struct worker* info);
 
 	// Used only for MBOX Tun
