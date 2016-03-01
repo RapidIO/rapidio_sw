@@ -117,10 +117,6 @@ void init_worker_info(struct worker *info, int first_time)
         info->mp_h_is_mine = 0;
         info->mp_h = NULL;
 
-        info->ob_valid = 0;
-        info->ob_handle = 0;
-        info->ob_byte_cnt = 0;
-
         info->ib_valid = 0;
 	info->ib_handle = 0;
         info->ib_rio_addr = 0;
@@ -138,19 +134,6 @@ void init_worker_info(struct worker *info, int first_time)
         info->data64_rx = 0;
 
 	info->use_kbuf = 0;
-	info->dma_trans_type = RIO_DIRECTIO_TYPE_NWRITE;
-	info->dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
-	info->rdma_kbuff = 0;
-	info->rdma_ptr = NULL;
-
-        info-> mb_valid = 0;
-        info->acc_skt = NULL;
-        info->acc_skt_valid = 0;
-        info->con_skt = NULL;
-        info->con_skt_valid = 0;
-        info->sock_num = 0; 
-        info->sock_tx_buf = NULL;
-        info->sock_rx_buf = NULL;
 
 #ifdef USER_MODE_DRIVER
 	info->owner_func = NULL;
@@ -168,12 +151,17 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_fifo_proc_must_die = 0;
 	info->umd_dma_abort_reason = 0;
 
+	info->umd_fifo_total_ticks = 0;
+	info->umd_fifo_total_ticks_count = 0;
+
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
 	//};
 	init_seq_ts(&info->desc_ts);
 	init_seq_ts(&info->fifo_ts);
 	init_seq_ts(&info->meas_ts);
+
+	memset(info->check_abort_stats, 0, sizeof(info->check_abort_stats));
 #endif
 };
 
@@ -414,12 +402,27 @@ void UMD_DD(struct worker* info)
 {
         assert(info->umd_dch);
 
-	//const int MHz = getCPUMHz();
+	const int MHz = getCPUMHz();
 	//const int idx = info->idx;
+
+	std::string ab;
+	for (int i = 0; i < 255; i++) {
+		if (0 == info->check_abort_stats[i]) continue;
+
+		char tmp[257] = {0};
+		snprintf(tmp, 256, "%c=%llu", i, info->check_abort_stats[i]);
+		ab.append(tmp).append(" ");
+	}
+	if (ab.size() > 0)
+		INFO("\n\tcheckAbort stats: %s\n", ab.c_str());
 
 	DMAChannel::ShmClientCompl_t comp[DMAChannel::DMA_SHM_MAX_CLIENTS];
 	memset(&comp, 0, sizeof(comp));
 
+	if (info->umd_fifo_total_ticks_count > 0) {
+		float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
+		INFO("\n\tFIFO Avg TX %f uS cnt=%llu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
+	}
 	info->umd_dch->listClients(&comp[0], sizeof(comp));
 	for (int i = 0; i < DMAChannel::DMA_SHM_MAX_CLIENTS; i++) {
 		if (! comp[i].busy) continue;
@@ -544,6 +547,10 @@ void umd_shm_goodput_demo(struct worker *info)
                         case DTYPE1:
                         case DTYPE2:
                                 //info->perf_byte_cnt += info->acc_size;
+                                if (item.opt.ts_end > item.opt.ts_start) {
+					info->umd_fifo_total_ticks += item.opt.ts_end - item.opt.ts_start;
+					info->umd_fifo_total_ticks_count++;
+				}
                                 break;
                         case DTYPE3:
                                 break;
@@ -560,7 +567,7 @@ void umd_shm_goodput_demo(struct worker *info)
                 if (!cnt) clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
                 else      info->iter_end_time = info->fifo_work_time;
 
-		bool check_abort = false;
+		char check_abort = 0;
 		do {
 			if (info->umd_dch->queueFull()) { check_abort = true; break; }
 
@@ -568,7 +575,7 @@ void umd_shm_goodput_demo(struct worker *info)
 			const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
 			if (nsec > 10 * 1000000) { // Every 10 ms
 				info->iter_st_time = info->iter_end_time;
-				check_abort = true;
+				check_abort = 'T';
 				break;
 			}
 
@@ -577,12 +584,15 @@ void umd_shm_goodput_demo(struct worker *info)
 
 			struct timespec dT_FIFO = time_difference(info->iter_end_time, info->fifo_work_time);
 			const uint64_t nsec_FIFO = dT_FIFO.tv_nsec + (dT_FIFO.tv_sec * 1000000000);
-			if (nsec_FIFO > 100 * 1000) { // Nothing popped in FIFO in the last 100 microsec
+			if (nsec_FIFO > 1000 * 1000) { // Nothing popped in FIFO in the last 1000 microsec
 				fifo_unwork_ACK = true;
-				check_abort = true;
+				check_abort = 't';
 				break;
 			}
 		} while(0);
+
+		if (check_abort) info->check_abort_stats[(int)check_abort]++;
+check_abort=0;
 
 		if (check_abort && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) {
 			CRIT("\n\tDMA abort 0x%x: %s. SOFT RESTART\n", info->umd_dma_abort_reason,

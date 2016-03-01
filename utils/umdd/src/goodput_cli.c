@@ -825,7 +825,7 @@ void display_gen_status(struct cli_env *env)
 	int i;
 
 	sprintf(env->output,
-        "\n W STS CPU RUN ACTION  MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H OB IB MB\n");
+        "\n W STS CPU RUN ACTION  MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H IB\n");
         logMsg(env);
 
 	for (i = 0; i < MAX_WORKERS; i++) {
@@ -834,13 +834,12 @@ void display_gen_status(struct cli_env *env)
 		display_cpu(env, wkr[i].wkr_thr.cpu_req);
 		display_cpu(env, wkr[i].wkr_thr.cpu_run);
 		sprintf(env->output,
-			"%7s %4s %3d %16lx %7lx %7lx %1d %1d %2d %2d %2d\n",
+			"%7s %4s %3d %16lx %7lx %7lx %1d %1d %2d\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), wkr[i].did,
 			wkr[i].rio_addr, wkr[i].byte_cnt, wkr[i].acc_size, 
 			wkr[i].wr, wkr[i].mp_h_is_mine,
-			wkr[i].ob_valid, wkr[i].ib_valid, 
-			wkr[i].mb_valid);
+			wkr[i].ib_valid);
         	logMsg(env);
 	};
 };
@@ -868,32 +867,6 @@ void display_ibwin_status(struct cli_env *env)
 	};
 };
 
-void display_msg_status(struct cli_env *env)
-{
-	int i;
-
-	sprintf(env->output,
-	"\n W STS CPU RUN ACTION  MODE MB ACC CON Msg_Size SockNum TX RX\n");
-        logMsg(env);
-
-	for (i = 0; i < MAX_WORKERS; i++) {
-		sprintf(env->output, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
-        	logMsg(env);
-		display_cpu(env, wkr[i].wkr_thr.cpu_req);
-		display_cpu(env, wkr[i].wkr_thr.cpu_run);
-		sprintf(env->output,
-			"%7s %4s %2d %3d %3d %8d %7d %2d %2d\n",
-			ACTION_STR(wkr[i].action), 
-			MODE_STR(wkr[i].action_mode), 
-			wkr[i].mb_valid, wkr[i].acc_skt_valid,
-			wkr[i].con_skt_valid, wkr[i].msg_size,
-			wkr[i].sock_num, (NULL != wkr[i].sock_tx_buf),
-			(NULL != wkr[i].sock_rx_buf)
-		);
-        	logMsg(env);
-	};
-};
-
 int StatusCmd(struct cli_env *env, int argc, char **argv)
 {
 	char sel_stat = 'g';
@@ -905,10 +878,6 @@ int StatusCmd(struct cli_env *env, int argc, char **argv)
 		case 'i':
 		case 'I': 
 			display_ibwin_status(env);
-			break;
-		case 'm':
-		case 'M': 
-			display_msg_status(env);
 			break;
 		case 'g':
 		case 'G': 

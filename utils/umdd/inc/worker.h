@@ -160,11 +160,6 @@ struct worker {
 	int mp_h_is_mine; /* 0 - common mp_h, 1 - worker specific mp_h */
 	riomp_mport_t mp_h;
 
-	int ob_valid;
-	uint64_t ob_handle; /* Outbound window RapidIO address */
-	uint64_t ob_byte_cnt; /* Outbound window size */
-	void *ob_ptr; /* Pointer to mapped ob_handle */
-
 	int ib_valid;
 	uint64_t ib_handle; /* Inbound window RapidIO handle */
 	uint64_t ib_rio_addr; /* Inbound window RapidIO address */
@@ -182,25 +177,10 @@ struct worker {
 	uint64_t data64_rx;
 
 	int use_kbuf; 
-	enum riomp_dma_directio_type dma_trans_type;
-	enum riomp_dma_directio_transfer_sync dma_sync_type;
-	uint64_t rdma_kbuff; 
-	uint64_t rdma_buff_size; 
-	void *rdma_ptr; 
-
-	int mb_valid;
-	riomp_mailbox_t mb;
-	riomp_sock_t acc_skt;
-	int acc_skt_valid;
-	riomp_sock_t con_skt;
-	int con_skt_valid;
-	int msg_size;  /* Minimum 20 bytes for CM messaging!!! */
-	uint16_t sock_num; /* RIO CM socket to connect to */
-	void *sock_tx_buf; 
-	void *sock_rx_buf; 
 
 	uint64_t perf_msg_cnt; /* Messages read/written */
 	uint64_t perf_byte_cnt; /* bytes read/written */
+
 	struct timespec st_time; /* Start of the run, for throughput */
 	struct timespec end_time; /* End of the run, for throughput*/
 
@@ -232,6 +212,9 @@ struct worker {
         volatile uint64_t tick_count, tick_total;
         volatile uint64_t tick_data_total;
 
+	volatile uint64_t umd_fifo_total_ticks;
+	volatile uint64_t umd_fifo_total_ticks_count;
+
 	void		(*umd_dma_fifo_callback)(struct worker* info);
 
         RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
@@ -240,6 +223,8 @@ struct worker {
 	struct seq_ts desc_ts;
 	struct seq_ts fifo_ts;
 	struct seq_ts meas_ts;
+
+	uint64_t check_abort_stats[256];
 #endif
 };
 

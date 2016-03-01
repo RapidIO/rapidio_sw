@@ -45,7 +45,7 @@ CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 	-pthread -DRDMA_LL=7
 
 #CCFLAGS+=-pg
-CCFLAGS+=-DDEBUG_BD
+#CCFLAGS+=-DDEBUG_BD
 #CCFLAGS+=-DDEBUG=2
 #CCFLAGS+=-DUDMA_SIM_DEBUG
 
