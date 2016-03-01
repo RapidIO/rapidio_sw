@@ -245,6 +245,11 @@ int main(int argc, char *argv[])
 		/* Local test. No need for bat_eot */
 		break;
 
+	case 'r':
+		test_case_r(destid);
+		bat_eot(2);
+		break;
+
 	case 't':
 	case 'u':
 		test_case_t_u(tc, destid);
@@ -322,6 +327,8 @@ int main(int argc, char *argv[])
 			test_case_n();
 			test_case_o(destid);
 			test_case_p(destid);
+
+			test_case_r(destid);
 
 			test_case_t_u('t', destid);
 			test_case_t_u('u', destid);

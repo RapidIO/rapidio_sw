@@ -4,7 +4,6 @@
 #include "bat_common.h"
 #include "bat_client_private.h"
 
-/* New test cases */
 int test_case_a();
 int test_case_b();
 int test_case_c();
@@ -19,12 +18,14 @@ int test_case_m(uint32_t destid);
 int test_case_n();
 int test_case_o(uint32_t destid);
 int test_case_p(uint32_t destid);
-
-/* Old test cases */
+/* 'q' */
+int test_case_r(uint32_t destid);
+/* 's' */
 int test_case_t_u(char tc, uint32_t destid);
 int test_case_v_w(char tc, uint32_t destid);
 int test_case_x();
 int test_case_y();
+/* 'z' means all */
 
 /* DMA test cases 1-6 */
 int test_case_dma(char tc,

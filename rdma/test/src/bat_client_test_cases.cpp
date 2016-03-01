@@ -1941,6 +1941,137 @@ exit:
 } /* test_case_p() */
 
 /**
+ * This test case shall try to mimic what RSKT daemon and apps
+ * do.
+ */
+int test_case_r(uint32_t destid)
+{
+	(void)destid;	// FIXME: Temporary
+
+	int			rc;
+	int			ret;
+	constexpr auto 		NUM_MS = 8;
+	constexpr unsigned 	MS_SIZE = 0x10000;
+	constexpr unsigned	MSUB_SIZE = 0x1000;
+
+	/* Client RSKTD */
+	mso_h client_rsktd_msoh;
+	ms_h client_rsktd_ms_handles[NUM_MS];
+	msub_h client_rstkd_msubh;
+	msub_h	  server_msubh;
+	uint32_t  server_msub_len;
+	ms_h	  server_msh;
+	conn_h	  connh;
+
+	/* Server RSKTD */
+	mso_h server_rsktd_msoh_rb;
+	ms_h server_rsktd_ms_handles_rb[NUM_MS];
+
+	/* Server app */
+	mso_h server_app_msoh_rb;
+	ms_h server_app_msh_rb;
+	uint32_t server_app_ms_size_rb;
+	msub_h	server_app_msubh_rb;
+
+	/* Initially just create the msos */
+	rc = rdma_create_mso_h("CLIENT_MSO", &client_rsktd_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+
+	rc = create_mso_f(bat_connections[0], "SERVER_MSO", &server_rsktd_msoh_rb);
+	BAT_EXPECT_RET(rc, 0, free_client_mso);
+
+	/* Each RSTKD creates 8 x 64K memory spaces. */
+	for (auto i = 0; i < NUM_MS; i++) {
+		/* Create client memory space */
+		stringstream client_ms_name;
+		client_ms_name << "CLIENT_MSPACE.00" << i;
+		rc = rdma_create_ms_h(client_ms_name.str().c_str(),
+				      client_rsktd_msoh,
+				      MS_SIZE,
+				      0,
+				      &client_rsktd_ms_handles[i],
+				      NULL);
+		BAT_EXPECT_RET(rc, 0, free_server_mso);
+
+		/* Create server memory space */
+		stringstream server_ms_name;
+		server_ms_name << "SERVER_MSPACE.00" << i;
+		rc = create_ms_f(bat_connections[0],
+				 server_ms_name.str().c_str(),
+				 server_rsktd_msoh_rb,
+				 MS_SIZE,
+				 0,
+				 &server_rsktd_ms_handles_rb[i],
+				 NULL);
+		BAT_EXPECT_RET(rc, 0, free_server_mso);
+	}
+
+	/* MIMIC THE ACTIONS OF rskt_accept() in librskt.c */
+	rc = open_mso_f(bat_connections[1], "SERVER_MSO", &server_app_msoh_rb);
+	BAT_EXPECT_RET(rc, 0, free_server_mso);
+	rc = open_ms_f(bat_connections[1],
+			"SERVER_MSPACE.007", /* Random 000 thru 007 are OK */
+			server_app_msoh_rb,
+			0,
+			&server_app_ms_size_rb,
+			&server_app_msh_rb);
+	BAT_EXPECT_RET(rc, 0, free_server_mso);
+	rc = create_msub_f(bat_connections[1],
+			    server_app_msh_rb,
+			    0,	/* offset */
+			    MSUB_SIZE, /* size */
+			    0,	/* flags */
+			    &server_app_msubh_rb);
+	BAT_EXPECT_RET(rc, 0, free_server_mso);
+	rc = accept_ms_f(bat_connections[1], server_app_msh_rb, server_app_msubh_rb);
+	BAT_EXPECT_RET(rc, 0, free_server_mso);
+
+	sleep(2);
+
+	/* Since there is only 1 bat_client application we will make an
+	 * exception here and NOT open an mso/ms (it is not allowed to do so
+	 * from the same application that created them). We'll pick an msh,
+	 * then create an msubh, and then connect. */
+	rc = rdma_create_msub_h(client_rsktd_ms_handles[6],
+			0,
+			MSUB_SIZE,
+			0,
+			&client_rstkd_msubh);
+	BAT_EXPECT_RET(rc, 0, free_server_mso);
+	rc = rdma_conn_ms_h(16,
+			    destid,
+			    "SERVER_MSPACE.007",
+			    0,
+			    &connh,
+			    &server_msubh,
+			    &server_msub_len,
+			    &server_msh,
+			    30);
+	BAT_EXPECT_RET(rc, 0, free_server_mso);
+
+	sleep(2);
+
+	rc = rdma_disc_ms_h(connh, server_msh, 0);
+	BAT_EXPECT_RET(rc, 0, free_server_mso);
+
+free_server_mso:
+	ret = rc;	/* Save before it gets overwritten */
+
+	/* Delete the server mso */
+	rc = destroy_mso_f(bat_connections[0], server_rsktd_msoh_rb);
+	BAT_EXPECT_RET(rc, 0, free_client_mso);
+
+free_client_mso:
+	rc = rdma_destroy_mso_h(client_rsktd_msoh);
+	BAT_EXPECT_RET(rc, 0, exit);
+exit:
+	if (rc == 0) {
+		BAT_EXPECT_PASS(ret);
+	}
+	return ret;
+} /* test_case_r() */
+
+/**
  * Test accept_ms_h()/conn_ms_h()/disc_ms_h()..etc.
  *
  * @note: Since test cases 'i', 'j', 'k', and 'm' test connection/disconnection
