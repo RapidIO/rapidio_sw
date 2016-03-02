@@ -241,6 +241,7 @@ int mspace::close_connections()
 
 		in_msg.type 	= FORCE_CLOSE_MS;
 		in_msg.category = RDMA_REQ_RESP;
+		in_msg.seq_no   = 0;
 		in_msg.force_close_ms_req.msid = msid;
 		user_tx_eng->send_message(&in_msg);
 	}

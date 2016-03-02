@@ -80,6 +80,7 @@ void ms_owner::close_connections()
 
 		in_msg.category = RDMA_REQ_RESP;
 		in_msg.type     = FORCE_CLOSE_MSO;
+		in_msg.seq_no   = 0;
 		in_msg.force_close_mso_req.msoid = msoid;
 		tx_eng->send_message(&in_msg);
 	}

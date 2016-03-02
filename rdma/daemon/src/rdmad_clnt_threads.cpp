@@ -152,8 +152,9 @@ static int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 		rc = -1;
 	} else {
 		unix_msg_t	in_msg;
-		in_msg.type = FORCE_DISCONNECT_MS;
+		in_msg.type 	= FORCE_DISCONNECT_MS;
 		in_msg.category = RDMA_REQ_RESP;
+		in_msg.seq_no 	= 0;
 		in_msg.force_disconnect_ms_in.server_msid = server_msid;
 		in_msg.force_disconnect_ms_in.server_msubid = server_msubid;
 		it->to_lib_tx_eng->send_message(&in_msg);

@@ -42,7 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -63,7 +63,7 @@ int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 int get_mport_id_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -81,7 +81,7 @@ int get_mport_id_disp(const unix_msg_t *in_msg,
 int create_mso_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -104,7 +104,7 @@ int create_mso_disp(const unix_msg_t *in_msg,
 int open_mso_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -128,7 +128,7 @@ int open_mso_disp(const unix_msg_t *in_msg,
 int close_mso_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -151,7 +151,7 @@ int close_mso_disp(const unix_msg_t *in_msg,
 int destroy_mso_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -174,7 +174,7 @@ int destroy_mso_disp(const unix_msg_t *in_msg,
 int create_ms_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -204,7 +204,7 @@ int create_ms_disp(const unix_msg_t *in_msg,
 int open_ms_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -232,7 +232,7 @@ int open_ms_disp(const unix_msg_t *in_msg,
 int close_ms_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -256,7 +256,7 @@ int close_ms_disp(const unix_msg_t *in_msg,
 int destroy_ms_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -279,7 +279,7 @@ int destroy_ms_disp(const unix_msg_t *in_msg,
 int create_msub_disp(const unix_msg_t *in_msg,
 		     tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -308,7 +308,7 @@ int create_msub_disp(const unix_msg_t *in_msg,
 int destroy_msub_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -332,7 +332,7 @@ int destroy_msub_disp(const unix_msg_t *in_msg,
 int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server,
 				unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -355,7 +355,7 @@ int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server,
 int accept_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -378,7 +378,7 @@ int accept_disp(const unix_msg_t *in_msg,
 int undo_accept_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -404,8 +404,8 @@ int undo_accept_disp(const unix_msg_t *in_msg,
 int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
-	auto 	   rc = 0;
+	unix_msg_t out_msg;
+	int 	   rc;
 
 	try {
 		/* Short form */
@@ -477,7 +477,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 int send_connect_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -511,7 +511,7 @@ int send_connect_disp(const unix_msg_t *in_msg,
 int undo_connect_disp(const unix_msg_t *in_msg,
 			tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
@@ -535,7 +535,7 @@ int undo_connect_disp(const unix_msg_t *in_msg,
 int send_disconnect_disp(const unix_msg_t *in_msg,
 			tx_engine<unix_server,unix_msg_t> *tx_eng)
 {
-	static unix_msg_t out_msg;
+	unix_msg_t out_msg;
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 

@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <queue>
 #include <thread>
 #include <memory>
+#include "memory_supp.h"
 
 #include "liblog.h"
 #include "rdmad_unix_msg.h"
@@ -54,6 +55,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::queue;
 using std::thread;
 using std::shared_ptr;
+using std::unique_ptr;
+
 
 template <typename T, typename M>
 class rx_engine;
@@ -115,7 +118,7 @@ public:
 			cat_name(msg_ptr->category), msg_ptr->category,
 			msg_ptr->seq_no);
 		pthread_mutex_lock(&message_queue_lock);
-		message_queue.push(msg_ptr);
+		message_queue.push(make_unique<M>(*msg_ptr));
 		pthread_mutex_unlock(&message_queue_lock);
 		sem_post(&messages_waiting);
 	} /* send_message() */
@@ -139,7 +142,7 @@ protected:
 
 			/* Grab next message to be sent and send it */
 			pthread_mutex_lock(&message_queue_lock);
-			M*	msg_ptr = message_queue.front();
+			M*	msg_ptr = message_queue.front().get();
 			pthread_mutex_unlock(&message_queue_lock);
 
 			int rc = client->send_buffer(msg_ptr, sizeof(*msg_ptr));
@@ -165,7 +168,7 @@ protected:
 	} /* worker() */
 
 	rx_engine<T,M>	*rx_eng;
-	queue<M*>	message_queue;
+	queue<unique_ptr<M>>	message_queue;
 	pthread_mutex_t	message_queue_lock;
 	shared_ptr<T>	client;
 	sem_t		messages_waiting;
