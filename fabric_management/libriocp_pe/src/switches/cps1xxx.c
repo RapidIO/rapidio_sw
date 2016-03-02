@@ -19,7 +19,8 @@
 extern "C" {
 #endif
 
-#define CONFIG_IDTGEN2_DIRECT_ROUTING
+#define CONFIG_IDTGEN2_DIRECT_ROUTING 1
+#define CONFIG_PRINT_LANE_STATUS_ON_EVENT 1
 
 #define CPS1xxx_DEBUG_INT_STATUS 1
 
@@ -1761,6 +1762,24 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 		goto skip_port_errors;
 	}
 	RIOCP_INFO("PORT:%u ERR_STAT_CSR:0x%08x ERR_DET_CSR:0x%08x IMP_ERR_DET_CSR:0x%08x\n", port, err_status, err_det, impl_err_det);
+#ifdef CONFIG_PRINT_LANE_STATUS_ON_EVENT
+	{
+		uint8_t first_lane, lane_count, lane;
+
+		ret = cps1xxx_port_get_first_lane(sw, port, &first_lane);
+		if (ret < 0)
+			goto out;
+
+		ret = cps1xxx_get_lane_width(sw, port, &lane_count);
+		if (ret < 0)
+			goto out;
+
+		for(lane=first_lane; lane<(lane_count+first_lane);lane++) {
+			if(!(riocp_pe_maint_read(sw, 0xff800c + 0x100 * lane, &val) < 0))
+				RIOCP_WARN("LANE_%u_ERR_DET: 0x%08x\n", lane, val);
+		}
+	}
+#endif
 
 skip_port_errors:
 	/* in case both fatal error and link initialized set (slow software)
