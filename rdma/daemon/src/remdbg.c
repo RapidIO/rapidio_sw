@@ -157,10 +157,10 @@ struct cli_cmd CLIConnect = {
 "connect",
 3,
 2,
-"Connects CLI session to File Transfer Server",
+"Connects CLI session to RDMA Daemon",
 "connect <addr> <skt>\n" 
-"<addr>: File Transfer Server IP host address\n"
-"<skt> : CLI socket number for the File Transfer Server.\n"
+"<addr>: RDMA Daemon IP host address\n"
+"<skt> : CLI socket number for the RDMA Daemon.\n"
 "	Enter \"status\" command on server to get the CLI socket number",
 CLIConnectCmd,
 ATTR_NONE
@@ -192,9 +192,9 @@ int main(int argc, char *argv[])
         env.sess_socket = -1;
         env.cmd_prev = NULL;
         bzero(env.prompt, PROMPTLEN+1);
-	strncpy(env.prompt, "RemDbg> ", PROMPTLEN);
+	strncpy(env.prompt, "Rem_RDMAD> ", PROMPTLEN);
 
-	splashScreen((char *)"Remote Debug Session Client");
+	splashScreen((char *)"Remote Debug Session Client for RDMA Daemon");
 	cli_terminal(&env);
 
 	exit(EXIT_SUCCESS);
