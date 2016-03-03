@@ -30,14 +30,17 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+#include "cm_sock.h"
+#include "liblog.h"
+
 #include "rdma_types.h"
 #include "tx_engine.h"
 #include "rdmad_actions.h"
 #include "rdma_msg.h"
 #include "rdmad_unix_msg.h"
-#include "cm_sock.h"
 #include "rdmad_cm.h"
 #include "rdmad_srvr_threads.h"
+#include "rdmad_peer_utils.h"
 
 int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)

@@ -87,7 +87,15 @@ static unix_server *server;
 
 static unix_msg_processor	d2l_msg_proc;
 
-void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
+/**
+ * @brief Thread for monitoring and destroying Tx and Rx engines
+ * 	  when they die.
+ *
+ * @param engine_cleanup_sem	Semaphore posted by an engine when
+ * 				it self-dies due to an unbroken
+ * 				connection.
+ */
+static void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 {
 	while (1) {
 		/* Wait until there is a reason to perform cleanup */
@@ -151,7 +159,12 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 	} /* while */
 } /* engine_monitoring_thread_f() */
 
-int start_accepting_connections()
+/**
+ * @brief Begins accepting connections from RDMA applications via Unix sockets
+ *
+ * @return Aborts on any serious error.
+ */
+static void start_accepting_connections()
 {
 	/* Create a server */
 	DBG("Creating Unix socket server object...\n");
@@ -215,7 +228,11 @@ int start_accepting_connections()
 	} /* while */
 } /* start_accepting_connections() */
 
-void shutdown(struct peer_info *peer)
+/**
+ * @brief Shutdown the RDMA daemeon
+ *
+ */
+void shutdown()
 {
 	int	ret = 0;
 
@@ -250,17 +267,22 @@ void shutdown(struct peer_info *peer)
 	halt_fm_thread();
 	HIGH("Fabric management thread is dead\n");
 	/* Close mport device */
-	if (peer->mport_hnd != 0) {
+	if (peer.mport_hnd != 0) {
 		INFO("Closing mport\n");
-		riomp_mgmt_mport_destroy_handle(&peer->mport_hnd);
+		riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
 	}
-	INFO("Mport %d closed\n", peer->mport_id);
+	INFO("Mport %d closed\n", peer.mport_id);
 
 	rdma_log_close();
 	exit(1);
 } /* shutdown() */
 
-void sig_handler(int sig)
+/**
+ * @brief Signal handler
+ *
+ * @param sig  Signal code
+ */
+static void sig_handler(int sig)
 {
 	switch (sig) {
 
@@ -299,10 +321,16 @@ void sig_handler(int sig)
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
 	}
 
-	shutdown(&peer);
+	shutdown();
 } /* sig_handler() */
 
-bool foreground(void)
+/**
+ * @brief Determines whether daemon was started in the foreground or background
+ * 	  (i.e. "rdmad &")
+ *
+ * @return true if foreground, false if background
+ */
+static bool foreground(void)
 {
 	return (tcgetpgrp(STDIN_FILENO) == getpgrp());
 }
@@ -333,13 +361,13 @@ int main (int argc, char **argv)
 			puts("-h		Display this help message");
 			puts("-m<mport>		Use specified master port number");
 			puts("-c<sock num>	Use specified socket number for console");
-			puts("-n		Do not display console (for background operation");
+			puts("-n		Do not run console (background operation");
 			exit(1);
 		break;
 		case 'm':
 			peer.mport_id = atoi(optarg);
 		break;
-		case 'n':
+		case 'n':	/* Same as doing "rdmad &" */
 			peer.run_cons = 0;
 		break;
 		case '?':

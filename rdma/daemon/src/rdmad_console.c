@@ -239,7 +239,7 @@ unsigned rdmad_cmds_size(void)
 void custom_quit(struct cli_env *e)
 {
 	(void)e;
-	shutdown(&the_inbound->get_peer());
+	shutdown();
 }
 
 /**

@@ -42,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_cm.h"
 #include "cm_sock.h"
 
+#include "rdmad_inbound.h"
 #include "rdmad_main.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_peer_utils.h"

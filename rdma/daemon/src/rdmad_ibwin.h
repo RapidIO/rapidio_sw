@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <exception>
 
 #include "libcli.h"
+#include "rapidio_mport_mgmt.h"
 
 #include "tx_engine.h"
 

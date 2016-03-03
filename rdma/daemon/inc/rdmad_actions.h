@@ -38,6 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "unix_sock.h"
 #include "tx_engine.h"
 #include "rdmad_ms_owners.h"
+#include "rdmad_inbound.h"
+#include "rdmad_peer_utils.h"
 #include "rdmad_main.h"
 
 

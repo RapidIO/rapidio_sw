@@ -141,7 +141,8 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 		auto it = find_if(begin(users), end(users),
 		[client_to_lib_tx_eng_h, client_msubid](ms_user& u) {
 			DBG("u.client_msubid=0x%X, u.client_to_lib_tx_eng=0x%"
-				PRIx64 "\n", u.client_msubid, u.client_to_lib_tx_eng_h);
+				PRIx64 "\n",
+				u.client_msubid, u.client_to_lib_tx_eng_h);
 			return u.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h
 			    && u.client_msubid == client_msubid
 			    && u.connected_to;

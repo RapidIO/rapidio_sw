@@ -48,8 +48,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cm_sock.h"
 #include "rdmad_cm.h"
 #include "rdmad_main.h"
+#include "rdmad_inbound.h"
 #include "rdmad_clnt_threads.h"
 #include "rdmad_rx_engine.h"
+#include "rdmad_peer_utils.h"
 #include "daemon_info.h"
 
 using std::unique_ptr;

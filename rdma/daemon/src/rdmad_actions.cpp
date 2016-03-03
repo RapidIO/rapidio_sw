@@ -43,6 +43,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_clnt_threads.h"
 #include "rdmad_ms_owner.h"
 #include "rdmad_ms_owners.h"
+#include "rdmad_inbound.h"
+#include "rdmad_mspace.h"
+#include "rdmad_peer_utils.h"
 
 /**
  * @brief Sends a CM_DISCONNECT_MS_REQ message to remote (server) daemon

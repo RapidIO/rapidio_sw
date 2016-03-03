@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rdma_types.h"
 #include "liblog.h"
+#include "libcli.h"
 
 #include "rdmad_unix_msg.h"
 #include "rdmad_ms_owner.h"

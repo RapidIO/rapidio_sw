@@ -33,10 +33,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMAD_MAIN_H
 #define RDMAD_MAIN_H
 
-#include "rdmad_peer_utils.h"
-#include "rdmad_inbound.h"
+/**
+ * @brief Shut down RDMA daemon
+ */
+void shutdown();
 
-void shutdown(peer_info *peer);
+class inbound;
 
 extern inbound *the_inbound;
 

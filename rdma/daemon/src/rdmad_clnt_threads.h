@@ -36,8 +36,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <semaphore.h>
 
+#include <string>
+
+#include "tx_engine.h"
 #include "unix_sock.h"
 #include "daemon_info.h"
+
+using std::string;
+
+class unix_msg_t;
 
 /**
  * @brief Each daemon shall maintain a list of all connections to remote memory
