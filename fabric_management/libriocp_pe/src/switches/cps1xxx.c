@@ -21,6 +21,7 @@ extern "C" {
 
 #define CONFIG_IDTGEN2_DIRECT_ROUTING 1
 #define CONFIG_PRINT_LANE_STATUS_ON_EVENT 1
+#define CONFIG_ERROR_LOG_SUPPORT 1
 
 #define CPS1xxx_DEBUG_INT_STATUS 1
 
@@ -387,6 +388,7 @@ extern "C" {
 #define CPS1xxx_RTE_DM_TO_DEV				(0x000000DD)
 #endif
 #define CPS1xxx_RTE_RIO_DOMAIN				(0x00F20020)
+#define CPS1xxx_LOG_DATA					(0x00FD0004)
 
 struct portmap {
 	uint16_t did;
@@ -513,6 +515,168 @@ static const int gen2_portmaps_len = (sizeof(gen2_portmaps)/sizeof(gen2_portmaps
 
 static int cps1xxx_port_get_first_lane(struct riocp_pe *sw,	uint8_t port, uint8_t *lane);
 int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width);
+
+#ifdef CONFIG_ERROR_LOG_SUPPORT
+
+struct event_pair {
+	uint8_t id;
+	const char *txt;
+};
+
+static const struct event_pair event_source_set[] = {
+{0x40,"Lane 0"},
+{0x41,"Lane 1"},
+{0x42,"Lane 2"},
+{0x43,"Lane 3"},
+{0x44,"Lane 4"},
+{0x45,"Lane 5"},
+{0x46,"Lane 6"},
+{0x47,"Lane 7"},
+{0x48,"Lane 8"},
+{0x49,"Lane 9"},
+{0x4a,"Lane 10"},
+{0x4b,"Lane 11"},
+{0x4c,"Lane 12"},
+{0x4d,"Lane 13"},
+{0x4e,"Lane 14"},
+{0x4f,"Lane 15"},
+{0x2a,"Port 0"},
+{0x29,"Port 1"},
+{0x34,"Port 2"},
+{0x33,"Port 3"},
+{0x32,"Port 4"},
+{0x31,"Port 5"},
+{0x3c,"Port 6"},
+{0x3b,"Port 7"},
+{0x3a,"Port 8"},
+{0x39,"Port 9"},
+{0x3d,"Port 10"},
+{0x3e,"Port 11"},
+{0x1c,"Port 12"},
+{0x1d,"Port 13"},
+{0x27,"Port 14"},
+{0x26,"Port 15"},
+{0x1e,"LT Layer"},
+{0x00,"Config,JTAG,I2C"}
+};
+#define EVENT_SOURCE_COUNT (sizeof(event_source_set)/sizeof(event_source_set[0]))
+
+struct event_pair event_name_set[] = {
+{0x30,"Maintenance_Handler_route_error"},
+{0x31,"BAD_READ_SIZE"},
+{0x32,"BAD_WRITE_SIZE"},
+{0x33,"READ_REQ_WITH_DATA"},
+{0x34,"WRITE_REQ_WITHOUT_DATA"},
+{0x35,"INVALID_READ_WRITE_SIZE"},
+{0x36,"BAD_MTC_TRANS"},
+{0x71,"DELINEATION_ERROR"},
+{0x78,"PROTOCOL_ERROR"},
+{0x79,"PROTOCOL_ERROR"},
+{0x7E,"UNSOLICITED_ACKNOWLEDGEMENT_CONTROL_SYMBOL"},
+{0x80,"RECEIVED_CORRUPT_CONTROL_SYMBOL"},
+{0x81,"RECEIVED_PACKET_WITH_BAD_CRC"},
+{0x82,"RECEIVED_PACKET_WITH_BAD_ACKID"},
+{0x83,"PROTOCOL_ERROR"},
+{0x84,"PROTOCOL_ERROR"},
+{0x87,"RECEIVED_ACKNOWLEDGE_CONTROL_SYMBOL_WITH_UNEXPECTED_ACKID"},
+{0x88,"RECEIVED_RETRY_CONTROL_SYMBOL_WITH_UNEXPECTED_ACKID"},
+{0x8A,"RECEIVED_PACKET_NOT_ACCEPTED_CONTROL_SYMBOL"},
+{0x8B,"NON_OUTSTANDING_ACKID"},
+{0x8D,"LINK_TIME_OUT"},
+{0x8E,"PROTOCOL_ERROR"},
+{0x8F,"PROTOCOL_ERROR"},
+{0x90,"RECEIVED_PACKET_EXCEEDS_276_BYTES"},
+{0xA0,"RECEIVED_DATA_CHARACTER_IN_IDLE1"},
+{0x72,"SET_OUTSTANDING_ACKID_INVALID"},
+{0x73,"DISCARDED_A_NON-MAINTENANCE_PACKET_TO_BE_TRANSMITTED"},
+{0x74,"IDLE_CHARACTER_IN_PACKET"},
+{0x75,"PORT_WIDTH_DOWNGRADE"},
+{0x76,"LANES_REORDERED"},
+{0x77,"LOSS_OF_ALIGNMENT"},
+{0x78,"DOUBLE_LINK_REQUEST"},
+{0x79,"LINK_REQUEST_WITH_RESERVED_COMMAND_FIELD_ENCODING"},
+{0x7A,"STOMP_TIMEOUT"},
+{0x7B,"STOMP_RECEIVED"},
+{0x7C,"CONTINUOUS_MODE_PACKET_WAS_NACKED_AND_DISCARDED"},
+{0x7D,"RECEIVED_PACKET_TOO_SHORT"},
+{0x7F,"BAD_CONTROL_CHARACTER_SEQUENCE"},
+{0x83,"RECEIVE_STOMP_OUTSIDE_OF_PACKET"},
+{0x84,"RECEIVE_EOP_OUTSIDE_OF_PACKET"},
+{0x85,"PORT_INIT_TX_ACQUIRED"},
+{0x86,"DISCARDED_A_RECEIVED_NON-MAINTENANCE_PACKET"},
+{0x87,"RECEIVED_ACCEPT_CONTROL_SYMBOL_WITH_UNEXPECTED_ACKID"},
+{0x88,"RECEIVED__RETRY_CONTROL_SYMBOL_WITH_UNEXPECTED_ACKID"},
+{0x89,"RECEIVED_RETRY_CONTROL_SYMBOL_WITH_VALID_ACKID"},
+{0x8C,"FATAL_LINK_RESPONSE_TIMEOUT"},
+{0x8E,"UNSOLICITED_RESTART_FROM_RETRY"},
+{0x8F,"RECEIVED_UNSOLICITED_LINK_RESPONSE"},
+{0x91,"RECEIVED_PACKET_HAS_INVALID_TT"},
+{0x92,"RECEIVED_NACK_OTHER_THAN_LACK_OF_RESOURCES"},
+{0x97,"RECEIVED_PACKET_NOT_ACCEPTED_RX_BUFFER_UNAVAILABLE"},
+{0x99,"TRANSMITTED_PACKET_DROPPED_VIA_CRC_RETRANSMIT_LIMIT"},
+{0xA1,"PACKET_RECEIVED_THAT_REFERENCES_NO_ROUTE_AND_DROPPED"},
+{0xA2,"PACKET_RECEIVED_THAT_REFERENCES_A_DISABLED_PORT_AND_DROPPED"},
+{0xA3,"PACKET_RECEIVED_THAT_REFERENCES_A_PORT_IN_THE_FATAL_ERROR_STATE_AND_DROPPED"},
+{0xA4,"PACKET_DROPPED_DUE_TO_TIME_TO_LIVE_EVENT"},
+{0xA6,"A_PACKET_WAS_RECEIVED_WITH_A_CRC_ERROR_WITH_CRC_SUPPRESSION_WAS_ENABLED"},
+{0xA7,"A_PACKET_WAS_RECEIVED_WHEN_AN_ERROR_RATE_THRESHOLD_EVENT_HAS_OCURRED_ANDDROP_PACKET_MODE_IS_ENABLED"},
+{0xA9,"PACKET_RECEIVED_THAT_REFERENCES_A_PORT_CONFIGURED_IN_PORT_LOCKOUT_AND_DROPPED"},
+{0xAA,"RX_RETRY_COUNT_TRIGGERED_CONGESTION_EVENT"},
+{0x60,"LOSS_OF_LANE_SYNC"},
+{0x61,"LOSS_OF_LANE_READY"},
+{0x62,"RECEIVED_ILLEGAL_OR_INVALID_CHARACTER"},
+{0x63,"LOSS_OF_DESCRAMBLER_SYNCHRONIZATION"},
+{0x64,"RECEIVER_TRANSMITTER_TYPE_MISMATCH"},
+{0x65,"TRAINING_ERROR"},
+{0x66,"RECEIVER_TRANSMITTER_SCRAMBLING_MISMATCH"},
+{0x67,"IDLE2_FRAMING_ERROR"},
+{0x68,"LANE_INVERSION_DETECTED"},
+{0x69,"REQUEST_LINK_SPEED_NOT_SUPPORTED"},
+{0x6A,"RECEIVED_NACK_IN_IDLE2_CS_FIELD"},
+{0x6B,"RECEIVED_TAP_MINUS_1_UPDATE_REQUEST_WHEN_TAP_IS_SATURATED"},
+{0x6C,"RECEIVED_TAP_PLUS_1_UPDATE_REQUEST_WHEN_TAP_IS_SATURATED"},
+{0x10,"I2C_LENGTH_ERROR"},
+{0x11,"I2C_ACK_ERROR"},
+{0x12,"I2C_22_BIT_MEMORY_ADDRESS_INCOMPLETE_ERROR"},
+{0x13,"I2C_UNEXPECTED_START_STOP"},
+{0x14,"I2C_EPROM_CHECKSUM_ERROR"},
+{0x20,"JTAG_INCOMPLETE_WRITE"},
+{0x50,"MULTICAST_MASK_CONFIG_ERROR"},
+{0x53,"PORT_CONFIG_ERROR"},
+{0x54,"FORCE_LOCAL_CONFIG_ERROR"},
+{0x55,"ROUTE_TABLE_CONFIG_ERROR"},
+{0x56,"MULTICAST_TRANSLATION_ERROR"},
+{0x9E,"TRACE_MATCH_OCCURRED"},
+{0x9F,"FILTER_MATCH_OCCURRED"},
+{0xA8,"PGC_COMPLETE"}
+};
+#define EVENT_NAME_COUNT (sizeof(event_name_set)/sizeof(event_name_set[0]))
+
+static void cps1xxx_dump_event_log(struct riocp_pe *sw)
+{
+	int ret;
+	unsigned i;
+	uint32_t log_data;
+	const char *evt_src_str = "unkown";
+	const char *evt_name_str = "unknown";
+	uint8_t evt_src, evt_name;
+
+	do {
+		ret = riocp_pe_maint_read(sw, CPS1xxx_LOG_DATA, &log_data);
+		if(ret == 0 && log_data != 0) {
+			evt_src = (log_data >> 8) & 0x7f;
+			evt_name = log_data & 0xff;
+			for(i=0;i<EVENT_SOURCE_COUNT;i++)
+				if(event_source_set[i].id == evt_src)
+					evt_src_str = event_source_set[i].txt;
+			for(i=0;i<EVENT_NAME_COUNT;i++)
+				if(event_name_set[i].id == evt_name)
+					evt_name_str = event_name_set[i].txt;
+			RIOCP_INFO("0x%04x %s %s\n", log_data, evt_src_str, evt_name_str);
+		}
+	} while(ret == 0 && log_data != 0);
+}
+#endif
 
 /*
  * The following function checks if a port went to PORT_OK during arming of the port.
@@ -653,6 +817,9 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 #ifdef CONFIG_PORTWRITE_ENABLE
 	result |= CPS1xxx_OPS_PORT_PW_EN;
 #endif
+#ifdef CONFIG_ERROR_LOG_SUPPORT
+	result |= (CPS1xxx_OPS_LT_LOG_EN | CPS1xxx_OPS_LANE_LOG_EN | CPS1xxx_OPS_PORT_LOG_EN);
+#endif
 
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_OPS(port), result);
 	if (ret < 0)
@@ -691,6 +858,10 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 
 	/* check whether we missed link initialization between lockout and arming now */
 	ret = cps1xxx_check_link_init(sw, port);
+
+#ifdef CONFIG_ERROR_LOG_SUPPORT
+	cps1xxx_dump_event_log(sw);
+#endif
 
 	return ret;
 }
@@ -1748,10 +1919,6 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 		RIOCP_WARN("switch 0x%04x (0x%08x) port %d error detected (0x%08x)\n", sw->destid, sw->comptag, port, err_status);
 		/* probably both input and output error are set */
 
-		if(!(riocp_pe_maint_read(sw, 0xff800c + 0x100 * port, &val) < 0))
-			RIOCP_WARN("LANE0_ERR_DET: 0x%08x\n", val);
-		if(!(riocp_pe_maint_read(sw, 0xff800c + 0x100 * (port+1), &val) < 0))
-			RIOCP_WARN("LANE1_ERR_DET: 0x%08x\n", val);
 		if(!(riocp_pe_maint_read(sw, 0x148 + 0x20 * port, &val) < 0))
 			RIOCP_WARN("ACKID_STAT   : 0x%08x\n", val);
 		RIOCP_WARN("PORT_ERR_DET : 0x%08x\n", err_det);
@@ -2074,11 +2241,11 @@ int cps1xxx_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, 
 	if (event_code >= LOG_PORT_ERR_FIRST && event_code <= LOG_PORT_ERR_LAST) {
 		ret = cps1xxx_port_event_handler(sw, event);
 		if (ret)
-			return ret;
+			goto errout;
 	} else if (event_code >= LOG_CFG_ERR_FIRST && event_code <= LOG_CFG_ERR_LAST) {
 		ret = cps1xxx_cfg_event_handler(sw, revent, event);
 		if (ret)
-			return ret;
+			goto errout;
 	} else {
 		/* when no known error is reported. it might be a repeated port-write
 			from the CPS1616 and SPS1616.
@@ -2087,9 +2254,13 @@ int cps1xxx_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, 
 			Therefore the right registers are read in the event handler. */
 		ret = cps1xxx_rpw_event(sw, revent, event);
 		if (ret)
-			return ret;
+			goto errout;
 	}
 
+errout:
+#ifdef CONFIG_ERROR_LOG_SUPPORT
+	cps1xxx_dump_event_log(sw);
+#endif
 	return ret;
 }
 
