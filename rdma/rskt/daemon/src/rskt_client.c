@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <assert.h>
 
+#include "liblog.h"
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
 #include "librsktd_private.h"
@@ -134,8 +135,7 @@ int main(int argc, char *argv[])
 
 	rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
 	if (rc) {
-		fprintf(stderr, "Failed in librskt_init, rc = %d: %s\n", 
-							rc, strerror(errno));
+		CRIT("librskt_init failed, rc=%d: %s\n", rc, strerror(errno));
 		goto exit_main;
 	}
 
@@ -147,16 +147,14 @@ int main(int argc, char *argv[])
 	client_socket = rskt_create_socket();
 
 	if (!client_socket) {
-		fprintf(stderr, "Create client socket failed, rc = %d: %s\n",
-							rc, strerror(errno));
+		CRIT("rskt_create_socket fail, rc=%d: %s\n", rc, strerror(errno));
 		goto cleanup_rskt;
 	}
 
 	/* Connect to server */
 	rc = rskt_connect(client_socket, &sock_addr);
 	if (rc) {
-		fprintf(stderr, "Connect to %u on %u failed\n",
-						destid, socket_number);
+		CRIT("rskt_connect to %u on %u failed\n",destid, socket_number);
 		goto close_client_socket;
 	}
 #endif
@@ -166,15 +164,15 @@ int main(int argc, char *argv[])
 		client_socket = rskt_create_socket();
 
 		if (!client_socket) {
-			fprintf(stderr, "Create client socket failed, rc = %d: %s\n",
-								rc, strerror(errno));
+			CRIT("Create client socket failed, rc = %d: %s\n",
+							rc, strerror(errno));
 			goto cleanup_rskt;
 		}
 
 		/* Connect to server */
 		rc = rskt_connect(client_socket, &sock_addr);
 		if (rc) {
-			fprintf(stderr, "Connect to %u on %u failed\n",
+			CRIT("Connect to %u on %u failed\n",
 							destid, socket_number);
 			goto close_client_socket;
 		}
@@ -185,8 +183,8 @@ int main(int argc, char *argv[])
 		/* Send the data */
 		rc = rskt_write(client_socket, send_buf, data_length);
 		if (rc) {
-			fprintf(stderr, "rskt_write failed, rc = %d: %s\n",
-					rc, strerror(errno));
+			CRIT("rskt_write failed, rc = %d: %s\n",
+							rc, strerror(errno));
 			goto close_client_socket;
 		}
 
@@ -195,21 +193,20 @@ retry_read:
 		rc = rskt_read(client_socket, recv_buf, RSKT_DEFAULT_RECV_BUF_SIZE);
 		if (rc < 0) {
 			if (rc == -ETIMEDOUT) {
-				fprintf(stderr, "rskt_read() timedout. Retrying!\n");
+				ERR("rskt_read() timedout. Retrying!\n");
 				goto retry_read;
 			}
-			fprintf(stderr, "Failed to receive, rc = %d: %s\n",
-							rc, strerror(errno));
+			CRIT("rskt_read failed, rc=%d: %s\n", rc, strerror(errno));
 			goto close_client_socket;
 		}
 		if (rc != data_length) {
-			fprintf(stderr, "Sent %u bytes but received %u bytes\n",
-					data_length, rc);
+			ERR("Sent %u bytes but received %u bytes\n",
+							data_length, rc);
 		}
 
 		/* Compare with the original data that we'd sent */
 		if (memcmp(send_buf, recv_buf, data_length))
-			puts("Data did not compare. FAILED.\n");
+			puts("!!! Data did not compare. FAILED. !!!\n");
 		else
 			printf("*** Iteration %u, DATA COMPARED OK ***\n", i);
 #if SINGLE_CONNECTION == 0
@@ -217,8 +214,8 @@ retry_read:
 		puts("Closing socket and destroying it.");
 		rc = rskt_close(client_socket);
 		if (rc) {
-			fprintf(stderr, "Failed to close client socket, rc=%d: %s\n",
-					rc, strerror(errno));
+			CRIT("Failed to close client socket, rc=%d: %s\n",
+							rc, strerror(errno));
 			goto destroy_client_socket;
 		}
 
@@ -228,18 +225,18 @@ retry_read:
 
 #if SINGLE_CONNECTION == 1
 	/* Close the socket and destroy it */
-	puts("Closing socket and destroying it.");
+	HIGH("Closing socket and destroying it.");
 	rc = rskt_close(client_socket);
 	if (rc) {
-		fprintf(stderr, "Failed to close client socket, rc=%d: %s\n",
-				rc, strerror(errno));
+		ERR("Failed to close client socket, rc=%d: %s\n",
+							rc, strerror(errno));
 		goto destroy_client_socket;
 	}
 
 	rskt_destroy_socket(&client_socket);
 #endif
 	librskt_finish();
-	puts("Graceful Goodbye!");
+	puts("@@@ Graceful Goodbye! @@@");
 	return rc;
 
 	/* Code below is only for handling errors */
@@ -254,6 +251,6 @@ cleanup_rskt:
 	librskt_finish();
 
 exit_main:
-	puts("Errorish Goodbye!");
+	puts("#### Errorish Goodbye! ###");
 	return rc;
 } /* main() */
