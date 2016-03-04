@@ -115,6 +115,9 @@ struct type_name_entry {
 constexpr uint32_t NULL_MSUBID = 0xFFFFFFFF;
 constexpr uint32_t NULL_MSID   = 0xFFFFFFFF;
 
+/**
+ * @brief Message types and string versions for debug messages.
+ */
 constexpr type_name_entry type_name_table[] =
 {
 	{CREATE_MSO, STRINGIFY(CREATE_MSO)},
@@ -167,6 +170,13 @@ constexpr type_name_entry type_name_table[] =
 	{FORCE_DISCONNECT_MS_ACK, STRINGIFY(FORCE_DISCONNECT_MS_ACK)}
 };
 
+/**
+ * @brief Look up message type and return corresponding string for debug prints
+ *
+ * @param type Message type
+ *
+ * @return String containing the type name, or "shit" if not found :)
+ */
 inline const char *type_name(const uint32_t type)
 {
 	auto it = find_if(begin(type_name_table),
@@ -178,31 +188,30 @@ inline const char *type_name(const uint32_t type)
 	return (it != end(type_name_table)) ? it->name : "shit";
 } /* type_name() */
 
-/* rdmad_is_alive() arguments */
+/* @brief rdmad_is_alive() arguments */
 struct rdmad_is_alive_input {
 	int dummy;
 };
-
-struct rdmad_kill_daemon_input {
-	int dummy;
-};
-
-/* rdmad_is_alive() arguments */
 struct rdmad_is_alive_output {
 	int dummy;
 };
 
-/* get_mport_id() arguments */
-struct get_mport_id_input {
+/* @brief rdmad_kill_daemon arguments */
+struct rdmad_kill_daemon_input {
 	int dummy;
 };
 
+
+/* @brief get_mport_id() arguments */
+struct get_mport_id_input {
+	int dummy;
+};
 struct get_mport_id_output {
 	int mport_id;
 	int status;
 };
 
-/* create_mso() arguments */
+/* @brief create_mso() arguments */
 struct create_mso_input {
 	char owner_name[UNIX_MS_NAME_MAX_LEN+1];
 };
@@ -211,7 +220,7 @@ struct create_mso_output {
 	int	status;
 };
 
-/* open_mso() arguments */
+/* @brief open_mso() arguments */
 struct open_mso_input {
 	char owner_name[UNIX_MS_NAME_MAX_LEN+1];
 };
@@ -220,7 +229,7 @@ struct open_mso_output {
 	int	status;
 };
 
-/* close_mso() arguments */
+/* @brief close_mso() arguments */
 struct close_mso_input {
 	uint32_t msoid;
 };
@@ -228,7 +237,7 @@ struct close_mso_output {
 	int	status;
 };
 
-/* destroy_mso() arguments */
+/* @brief destroy_mso() arguments */
 struct destroy_mso_input {
 	uint32_t msoid;
 };
@@ -236,7 +245,7 @@ struct destroy_mso_output {
 	int	status;
 };
 
-/* create_ms() arguments */
+/* @brief create_ms() arguments */
 struct create_ms_input {
 	char ms_name[UNIX_MS_NAME_MAX_LEN+1];
 	uint32_t msoid;
@@ -250,7 +259,7 @@ struct create_ms_output {
 	int	status;
 };
 
-/* open_ms() arguments */
+/* @brief open_ms() arguments */
 struct open_ms_input {
 	char ms_name[UNIX_MS_NAME_MAX_LEN+1];
 	uint32_t msoid;
@@ -264,7 +273,7 @@ struct open_ms_output {
 	int	status;
 };
 
-/* close_ms() arguments */
+/* @brief close_ms() arguments */
 struct close_ms_input {
 	uint32_t msid;
 };
@@ -272,7 +281,7 @@ struct close_ms_output {
 	int	status;
 };
 
-/* destroy_ms() arguments */
+/* @brief destroy_ms() arguments */
 struct destroy_ms_input {
 	uint32_t msoid;
 	uint32_t msid;
@@ -281,7 +290,7 @@ struct destroy_ms_output {
 	int	status;
 };
 
-/* create_msub_h() arguments */
+/* @brief create_msub_h() arguments */
 struct create_msub_input {
 	uint32_t msid;
 	uint32_t offset;
@@ -294,7 +303,7 @@ struct create_msub_output {
 	uint64_t phys_addr;
 };
 
-/* destroy_msub() arguments */
+/* @brief destroy_msub() arguments */
 struct destroy_msub_input {
 	uint32_t msid;
 	uint32_t msubid;
@@ -303,17 +312,16 @@ struct destroy_msub_output {
 	int	status;
 };
 
-/* accept() arguments */
+/* @brief accept() arguments */
 struct accept_input {
 	uint32_t server_msid;
 	uint32_t server_msubid;	/* Uniquely identifies which app called accept */
 };
-
 struct accept_output {
 	int	status;
 };
 
-/* undo_accept() arguments */
+/* @brief undo_accept() arguments */
 struct undo_accept_input {
 	uint32_t server_msid;
 };
@@ -321,7 +329,7 @@ struct undo_accept_output {
 	int	status;
 };
 
-/* send_connect() arguments */
+/* @brief send_connect() arguments */
 struct send_connect_input {
 	char server_msname[UNIX_MS_NAME_MAX_LEN+1];
 	uint8_t  server_destid_len;
@@ -341,7 +349,7 @@ struct send_connect_output {
 	int	status;
 };
 
-/* undo_connect() arguments */
+/* @brief undo_connect() arguments */
 struct undo_connect_input {
 	char server_ms_name[UNIX_MS_NAME_MAX_LEN+1];
 };
@@ -349,7 +357,7 @@ struct undo_connect_output {
 	int	status;
 };
 
-/* send_disconnect() arguments */
+/* @brief send_disconnect() arguments */
 struct send_disconnect_input {
 	uint32_t client_msubid;
 	uint32_t server_msid;
@@ -360,7 +368,7 @@ struct send_disconnect_output {
 	int	status;
 };
 
-/* get_ibwin_properties arguments */
+/* @brief get_ibwin_properties arguments */
 struct get_ibwin_properties_input {
 	int	dummy;
 };
@@ -370,15 +378,17 @@ struct get_ibwin_properties_output {
 	int		status;
 };
 
+/* @brief Force close mso arguments */
 struct force_close_mso_req_input {
 	uint32_t msoid;
 };
 
+/* @brief Force close ms arguments */
 struct force_close_ms_req_input {
 	uint32_t msid;
 };
 
-/* Server daemon to server library/app */
+/* @brief Server daemon to server library/app connect request message */
 struct connect_to_ms_req_input {
 	uint32_t client_msid;
 	uint32_t client_msubid;
@@ -407,14 +417,7 @@ struct connect_to_ms_req_input {
 	}
 };
 
-/* Server daemon to server library/app */
-struct disconnect_from_ms_req_input {
-	uint32_t client_msubid;
-	uint32_t server_msubid;
-	uint64_t client_to_lib_tx_eng_h;
-};
-
-/* Server library/app to server daemon */
+/* @brief Server library/app to server daemon connect-to-ms response */
 struct connect_to_ms_resp_input {
 	uint32_t server_msid;
 	uint32_t server_msubid;
@@ -434,7 +437,14 @@ struct connect_to_ms_resp_output {
 	int status;
 };
 
-/* Server disconnects MS connection with a particular client */
+/* @brief Server daemon to server library/app */
+struct disconnect_from_ms_req_input {
+	uint32_t client_msubid;
+	uint32_t server_msubid;
+	uint64_t client_to_lib_tx_eng_h;
+};
+
+/* @brief Server disconnects MS connection with a particular client */
 struct server_disconnect_ms_input {
 	uint32_t client_msubid;
 	uint32_t server_msid;
@@ -445,7 +455,7 @@ struct server_disconnect_ms_output {
 	int status;
 };
 
-/* Client daemon to client app */
+/** @brief Client daemon to client app */
 /* Basically this is the 'connect_to_ms_resp' (ABOVE)
  * which is sent by the server,
  * and by the time it arrives at the client,
@@ -462,7 +472,7 @@ struct accept_from_ms_req_input {
 	uint32_t server_destid;
 };
 
-/* Client daemon to client app */
+/** @brief Client daemon to client app */
 /* The server destroyed the MS and the client is being
  * notified so it cleans up its database off the server's
  * ms, and msub. */
@@ -476,7 +486,7 @@ struct force_disconnect_ms_ack_input {
 	uint32_t server_msubid;
 };
 
-/* Unix message structure */
+/* @brief Unix message structure */
 struct unix_msg_t {
 	rdma_msg_type	type;
 	rdma_msg_sub_type sub_type;

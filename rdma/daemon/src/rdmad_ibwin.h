@@ -83,13 +83,14 @@ public:
 	 * @param size		Size in bytes
 	 *
 	 * @throws ibwin_map_exception if failed during riomp_dma_ibwin_map()
+	 *
 	 * @throws integer exception if failed during mutex initialization
 	 */
 	ibwin(ms_owners &owners, riomp_mport_t mport_hnd, unsigned win_num,
 								uint64_t size);
 
 	/**
-	 * @brief	Copy constructor
+	 * @brief	Copy constructor deleted
 	 */
 	ibwin(const ibwin&) = default;
 

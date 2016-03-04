@@ -52,11 +52,16 @@ public:
 	 *  @brief Constructor
 	 *
 	 *  @param msid		Memory space identifier
+	 *
 	 *  @param rio_addr	RapidIO address
+	 *
 	 *  @param phys_addr	PCIe address. Same as RapidIO if direct mapped
+	 *
 	 *  @param size		Size of subspace in bytes
+	 *
 	 *  @param msubid	Memory subspace identifier
-	 *  @tx_eng		Tx engine used to communicate with library
+	 *
+	 *  @param tx_eng	Tx engine used to communicate with library
 	 */
 	msubspace(uint32_t msid,
 		  uint64_t rio_addr,
