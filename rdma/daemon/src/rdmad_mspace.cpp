@@ -748,10 +748,11 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 		} else {
 			if (it->accepting || it->connected_to) {
 				/* The user can't already be accepting or connected_to */
+				WARN("Cannot accept since already accepting or connected_to\n");
 				rc = RDMA_ACCEPT_FAIL;
 			} else if (accepting) {
 				/* The owner can't be accepting either */
-				ERR("'%s' already accepting from creator app\n",
+				ERR("'%s' already accepting from creator app, so can't do same from user\n",
 						name.c_str());
 				rc = RDMA_ACCEPT_FAIL;
 			} else {
@@ -763,7 +764,7 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 							return user.accepting;
 						 });
 				if (n > 0) {
-					ERR("'%s' already accepting by user\n",
+					ERR("'%s' already accepting by user. Limit is 1 accept at a time!\n",
 							name.c_str());
 					rc = RDMA_ACCEPT_FAIL;
 				} else {
@@ -774,7 +775,7 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 							(uint64_t)it->tx_eng);
 					it->accepting = true;;
 					it->server_msubid = server_msubid;
-					rc = 0;
+					rc = 0;	/* Success */
 				}
 			}
 		}
@@ -809,7 +810,7 @@ int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 		} else {
 			if (!it->accepting) {
 				ERR("'%s' was not accepting!\n", name.c_str());
-				rc = RDMA_ACCEPT_FAIL;
+				rc = -1;
 			} else {
 				/* Set accepting to 'false' and clear server_msubid */
 				HIGH("Setting ms('%s' to 'NOT accepting'\n", name.c_str());
@@ -905,10 +906,10 @@ int mspace::destroy_msubspace(uint32_t msubid)
 	lock_guard<mutex> msubspaces_lock(msubspaces_mutex);
 
 	/* Find memory sub-space in list within this memory space */
-	auto msub_it = find(msubspaces.begin(), msubspaces.end(), msubid);
+	auto msub_it = find(begin(msubspaces), end(msubspaces), msubid);
 
 	/* Not found, return with error */
-	if (msub_it == msubspaces.end()) {
+	if (msub_it == end(msubspaces)) {
 		ERR("msubid 0x%X not found in %s\n", msubid, name.c_str());
 		rc = -1;
 	} else {
