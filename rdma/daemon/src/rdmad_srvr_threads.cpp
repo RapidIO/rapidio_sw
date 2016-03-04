@@ -39,9 +39,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cinttypes>
 
 #include "liblog.h"
-#include "rdmad_cm.h"
 #include "cm_sock.h"
 
+#include "rdmad_cm.h"
 #include "rdmad_inbound.h"
 #include "rdmad_main.h"
 #include "rdmad_srvr_threads.h"
@@ -63,6 +63,17 @@ struct wait_conn_disc_thread_info {
 	int		ret_code;
 };
 
+/**
+ * @brief Send indication to remote daemon that the connect request to
+ * 	  the specified memory space was declined, most likley since
+ * 	  the memory space was no in accept mode in the first place
+ *
+ * @param conn_msg Pointer to cm_connect_msg sent by remote daemon
+ *
+ * @param rx_conn_disc_server CM server used to communicate with remote daemon
+ *
+ * @return 0 if successful, non-zero otherwise
+ */
 int send_accept_nack(cm_connect_msg *conn_msg, cm_server *rx_conn_disc_server)
 {
 	int rc;
@@ -87,8 +98,7 @@ int send_accept_nack(cm_connect_msg *conn_msg, cm_server *rx_conn_disc_server)
 } /* send_accept_nack() */
 
 /**
- * Handles incoming 'connect', 'disconnect', and 'destroy'
- * Sends back 'accept', and 'destroy_ack'
+ * @brief Thread for handling requests from remote client daemons
  */
 void *wait_conn_disc_thread_f(void *arg)
 {
@@ -294,6 +304,11 @@ void *wait_conn_disc_thread_f(void *arg)
 	pthread_exit(0);	/* Not reached */
 } /* conn_disc_thread_f() */
 
+/**
+ * @brief Provisioning thread. Accepts requests from other daemons,
+ * 	  then spawns conn_disc_threads for receiving HELLO provisionin
+ * 	  messages then handling other daemon-to-daemon communication
+ */
 void *prov_thread_f(void *arg)
 {
 	DBG("ENTER\n");

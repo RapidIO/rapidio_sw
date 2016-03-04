@@ -71,6 +71,14 @@ static fmdd_h dd_h;
  * 		(which will become the old list next time around), so it
  * 		re-appears again next time there is a change (daemon started)
  * 		and we provision it then
+ *
+ * @param old_did_list_size	Size of old DID list
+ *
+ * @param *old_did_list		Pointer to start of old DID list
+ *
+ * @param *new_did_list_size	Pointer to new DID list size
+ *
+ * @param *new_did_list		Pointer to start of new DID list
  */
 static int provision_new_dids(uint32_t old_did_list_size,
 			      uint32_t *old_did_list,
@@ -80,6 +88,7 @@ static int provision_new_dids(uint32_t old_did_list_size,
 	int rc = 0;
 
 	/* Determine which dids are new since last time */
+	/* result = new_list - old_list */
 	vector<uint32_t> result(*new_did_list_size);
 	vector<uint32_t>::iterator end_result = set_difference(
 			new_did_list, new_did_list + *new_did_list_size,
@@ -117,8 +126,11 @@ static int provision_new_dids(uint32_t old_did_list_size,
 } /* provision_new_dids() */
 
 /**
- * @brief If daemon isn't running on 'did' return true, otherwise
- *	  return false;
+ * @brief Verifies that daemon on specified DID is not running
+ *
+ * @param did	Destination ID
+ *
+ * @return true if Daemon is NOT running, false if running
  */
 bool daemon_not_running(uint32_t did)
 {
@@ -133,6 +145,10 @@ bool daemon_not_running(uint32_t did)
  * @brief Call daemon_not_running on every element of the current 'did'
  * list. If daemon_no_running() returns 'true' then remove the
  * 'did' from the current list.
+ *
+ * @param *old_did_list_size	Pointer to old DID list size
+ *
+ * @param *old_did_list		Pointer to old DID list
  */
 static void validate_remote_daemons(uint32_t *old_did_list_size,
  		  	  	    uint32_t *old_did_list)
@@ -145,7 +161,10 @@ static void validate_remote_daemons(uint32_t *old_did_list_size,
 	DBG("Now *old_did_list_size = %u\n", *old_did_list_size);
 } /* validate_remove_daemons() */
 
-/* Sends requests and responses to all apps */
+/**
+ * @brief Fabric management main thread. Communicates with local FM daemon
+ * 	  and provisions/de-provisions daemons as needed
+ */
 void *fm_loop(void *unused)
 {
 	uint32_t old_did_list_size = 0;
@@ -215,7 +234,7 @@ void *fm_loop(void *unused)
 	fm_alive = 0;
 	fmdd_destroy_handle(&dd_h);
 	pthread_exit(unused);
-};
+} /* fm_loop() */
 
 int start_fm_thread(void)
 {
@@ -237,7 +256,7 @@ int start_fm_thread(void)
 
         HIGH("EXIT\n");
 	return ret;
-};
+} /* start_fm_thread() */
 
 void halt_fm_thread(void)
 {
@@ -245,7 +264,7 @@ void halt_fm_thread(void)
 	fmdd_destroy_handle(&dd_h);
 	pthread_kill(fm_thread, SIGHUP);
 	pthread_join(fm_thread, NULL);
-};
+} /* halt_fm_thread() */
 
 #ifdef __cplusplus
 }
