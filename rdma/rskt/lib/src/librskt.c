@@ -1162,6 +1162,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	struct rskt_socket_t *l_skt, *skt;
 	int rc = -1;
 
+	DBG("ENTER\n");
 	if (lib_uninit()) {
 		CRIT("lib_uninit() failed..exiting\n");
 		goto exit;
@@ -1284,7 +1285,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 				&skt->connh,
 				(msub_h *)&skt->con_msubh,
 				(uint32_t *)&skt->con_sz, RDMA_ACC_TO_SECS);
-	} while (-EINTR == rc);	/* FIXME: should it be ETIME? */
+	} while (rc == RDMA_ACCEPT_TIMEOUT);
 	if (rc) {
 		ERR("Failed in rdma_accept_ms_h()\n");
 		goto close2;
@@ -1314,6 +1315,7 @@ close1:
 exit:
 	if (NULL != rx)
 		free(rx);
+	DBG("EXIT, rc = 0x%X\n", rc);
 	return rc;
 }; /* rskt_accept() */
 
