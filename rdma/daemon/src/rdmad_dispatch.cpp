@@ -431,6 +431,11 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 			throw RDMA_INVALID_MS;
 		}
 
+		DBG("Adding remote connection to memory space\n");
+		ms->add_rem_connection(conn_resp->client_destid,
+				conn_resp->client_msubid,
+				conn_resp->client_to_lib_tx_eng_h);
+
 		/* Prepare CM_ACCEPT_MS message from CONNECT_MS_RESP params */
 		cm_accept_msg	*cmam;
 		conn_server->get_send_buffer((void **)&cmam);

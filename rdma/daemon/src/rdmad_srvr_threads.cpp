@@ -258,11 +258,6 @@ void *wait_conn_disc_thread_f(void *arg)
 
 			DBG("Sent CONNECT_MS_REQ to Server RDMA library. Contents:\n");
 			cm->dump();
-
-			DBG("Adding remote connection to memory space\n");
-			ms->add_rem_connection(cm->client_destid,
-					       cm->client_msubid,
-					       cm->client_to_lib_tx_eng_h);
 		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS_REQ) {
 			cm_disconnect_req_msg	*disc_msg;
 
