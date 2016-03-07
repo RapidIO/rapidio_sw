@@ -1081,10 +1081,12 @@
  * Latency measurements are displayed by the "lat" command, as described
  * in \ref latency_cmd_overview_secn.
  *
- * \subsection IP Tunnelling with Tsi721 User Mode Driver
+ * \subsection IP Tunnelling with Tsi721 User Mode Driver (DMA)
  *
  * The demonstration is limited to two nodes: server and client.  To run the
  * demonstration:
+ *
+ * It is beneficial to reserve 1 or 2 cores for isolcpu (GRUB command line).
  *
  * -# On the Server, install thttpd and create a 1 GB random data file.  This 
  *    step need only be performed once.  This can be accomplished with the 
@@ -1107,9 +1109,7 @@
  *    - cat /rd/sample.txt > /dev/null
  *
  * -# Run the following commands on the client each time the demo is started:
- *   - sudo su
- *   - iptables -F
- *   - exit
+ *   - sudo /sbin/iptables -F
  *
  * -# Start ugoodput on the server using the following command:
  *    - sudo ./ugoodput 0 buf=100 sts=400 mtu=17000 thruput=1
@@ -1136,5 +1136,55 @@
  *   -  wget -O /dev/null http://169.254.0.y/sample.txt
  *
  *    where 'y' is (RapidIO destination ID + 1) of the server.
+ *
+ * -# DMA Tun status
+ *  - udd 0
+ *  Has counters galore that reflect the behavious of DMA Tun
+ *
+ * -# Experimental running notes:
+ *
+ *   - ugoodput 0 buf=100 sts=400 mtu=17000 disable_nread=0 thruput=1 push_rp_thr=16 chan=5 chann_reserve=1
+ *
+ *   0 = mport ID (one may have more than 1 PCIe card installed)
+ *   buf = hex number of BDs (min 20)
+ *   sts = FIFO size, should not be less than buf
+ *   thruput = optimise tun for thruput (1) or latency (0) {a latency run will yield horrible thruput}
+ *   mtu = MTU of tun interface, mas 64K
+ *     Note1: Kernel's tun.c has a max MTU size of 64K so no point going over that
+ *     Note2: UDP max datagram size is 64K
+ *   disable_nread = do away with NREADs when we divine that peer's IBs are almost full. EXPERIMENTAL
+ *   push_rp_thr = force NWRITE push of IB RP to peer every NNN packets
+ *     Note: 16 seems best for high thruput bidi iperf
+ *   chan = N aka "chann"
+ *     Note1: DMA channel 7 is used by default for NREADs at prio=2
+ *     Note2: By default chan 6 is used for NWRITEs
+ *     Note3: One can use multiple channels for NWRITE; specify chan=N where N < 6
+ *   chann_reserve = Reserve chann (if more than 1) for push RP NWRITEs. EXPERIMENTAL
+ *
+ * -# "TCP Mindset" notes:
+ *
+ *  Most networked applications are written with TCP in mind and MTU=1500 Ethernet.
+ *  As such their internal buffers are fixed size and hardcoded (e.g. wget is 8K).
+ *  Extending the MTU past 16k offers no gain with off-the-shelf software and limits the
+ *  number of peers as all buffers are carved off the 16M of CMA memory currently
+ *  supported by goodput.
+ *
+ * \subsection IP Tunnelling with Tsi721 User Mode Driver (MBOX) EXPERIMENTAL
+ *
+ * The client/server setup is the same as with DMA Tun.
+ *
+ * This must be done on all nodes in the cluster
+ *
+ * - ugoodput 0 buf=100 sts=400
+ *
+ * then
+ *
+ * - GoodPut> . umsgtun
+ *
+ * Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1  MTU will be fixed to 4092.
+ *
+ * Note: As Tsi721 has a limited number of MBOX reassembly contexts this demo hits this constraint.
+ *
+ * Note: Due in part to higher MTUs DMA Tun will offer better thruput.
  *
  */
