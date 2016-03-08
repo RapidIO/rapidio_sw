@@ -1913,8 +1913,8 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 		will not be detected and no port-writes are sent anymore. This causes
 		the port to stop detecting any events. Therefore this check is added. */
 	if (!(err_status & (CPS1xxx_ERR_STATUS_PORT_OK | CPS1xxx_ERR_STATUS_PORT_UNINIT | CPS1xxx_ERR_STATUS_PORT_ERR))) {
-		RIOCP_ERROR("switch 0x%04 (0x%08x) port %d is in invalid state,"
-			"ignoring port-write\n", sw->destid, sw->comptag, port);
+		RIOCP_ERROR("switch 0x%04x (0x%08x) port %d is in invalid state, ignoring port-write\n",
+				sw->destid, sw->comptag, port);
 		return -EIO;
 	}
 
