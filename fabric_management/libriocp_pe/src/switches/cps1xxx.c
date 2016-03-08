@@ -349,7 +349,7 @@ extern "C" {
 #define CPS1xxx_PW_TMO_TIMOUT_DIS			(0x00000001)
 #define CPS1xxx_PW_TMO_TIMEOU(tm)			(0xffffff00 & ((tm) << 8))
 #define CPS1xxx_DEVICE_RESET_CTL_DO_RESET	0x80000000
-#define CPS1xxx_RIO_LINK_TIMEOUT_DEFAULT	0x00002000	/* approx 10 usecs */
+#define CPS1xxx_RIO_LINK_TIMEOUT_DEFAULT	0x00000500	/* approx 1.76 usecs */
 #define CPS1xxx_PKT_TTL_CSR_TTL_MAXTTL		0xffff0000
 #define CPS1xxx_PKT_TTL_CSR_TTL_OFF			0x00000000
 #define CPS1xxx_DEFAULT_ROUTE			0xde
