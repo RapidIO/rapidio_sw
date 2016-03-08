@@ -44,7 +44,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdexcept>
 
 #include "IDT_Tsi721.h"
-#include "tsi721_msg.h"
 
 #include "mport.h"
 #include "dmadesc.h"

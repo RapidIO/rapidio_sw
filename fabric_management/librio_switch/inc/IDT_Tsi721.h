@@ -2768,6 +2768,11 @@ extern "C" {
 #define TSI721_IBDMACXINT_PC_ERROR                                  (0x00000004)
 #define TSI721_IBDMACXINT_SUSPENDED                                 (0x00000008)
 #define TSI721_IBDMACXINT_SRTO                                      (0x00001000)
+#define TSI721_IBDMACXINT_MASK (TSI721_IBDMACXINT_DQ_RCV | \
+				TSI721_IBDMACXINT_FQ_LOW | \
+				TSI721_IBDMACXINT_PC_ERROR | \
+				TSI721_IBDMACXINT_SUSPENDED | \
+				TSI721_IBDMACXINT_SRTO)
 
 /* TSI721_IBDMACXINTSET : Register Bits Masks Definitions */
 #define TSI721_IBDMACXINTSET_DQ_RCV_SET                             (0x00000001)
@@ -3443,6 +3448,54 @@ extern "C" {
 #define TSI721_NUM_WA_REGS            4
 #define TSI721_WA_VAL_5G              0x0000006F
 #define TSI721_WA_VAL_3G              0x0000000F
+
+#define RIO_MAX_MSG_SIZE        0x1000
+
+/******************************************************/
+/* TSI721 : MESSAGE DESCRIPTOR BIT DEFINITIONS        */
+/******************************************************/
+
+#define TSI721_MSG_BUFFER_SIZE          RIO_MAX_MSG_SIZE
+#define TSI721_MSG_MAX_SIZE             RIO_MAX_MSG_SIZE
+#define TSI721_IMSG_MAXCH               8
+#define TSI721_IMSGD_MIN_RING_SIZE      32
+
+#define TSI721_OMSGD_MIN_RING_SIZE      32
+
+/******************************************************/
+/* Inbound Message Descriptors                        */
+/******************************************************/
+
+#define TSI721_IMD_DEVID        0x0000ffff
+#define TSI721_IMD_CRF          0x00010000
+#define TSI721_IMD_PRIO         0x00060000
+#define TSI721_IMD_TT           0x00180000
+#define TSI721_IMD_DTYPE        0xe0000000
+#define TSI721_IMD_BCOUNT       0x00000ff8
+#define TSI721_IMD_SSIZE        0x0000f000
+#define TSI721_IMD_LETER        0x00030000
+#define TSI721_IMD_XMBOX        0x003c0000
+#define TSI721_IMD_MBOX         0x00c00000
+#define TSI721_IMD_CS           0x78000000
+#define TSI721_IMD_HO           0x80000000
+
+/******************************************************/
+/* Outbound Message Descriptors                       */
+/******************************************************/
+
+#define TSI721_OMD_DEVID        0x0000ffff
+#define TSI721_OMD_CRF          0x00010000
+#define TSI721_OMD_PRIO         0x00060000
+#define TSI721_OMD_IOF          0x08000000
+#define TSI721_OMD_DTYPE        0xe0000000
+#define TSI721_OMD_RSRVD        0x17f80000
+
+#define TSI721_OMD_BCOUNT       0x00000ff8
+#define TSI721_OMD_SSIZE        0x0000f000
+#define TSI721_OMD_LETTER       0x00030000
+#define TSI721_OMD_XMBOX        0x003c0000
+#define TSI721_OMD_MBOX         0x00c00000
+#define TSI721_OMD_TT           0x0c000000
 
 #ifdef __cplusplus
 }

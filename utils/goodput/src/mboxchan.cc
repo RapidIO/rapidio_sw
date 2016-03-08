@@ -90,18 +90,18 @@ dump_msg_regs(RioMport* mport, int ch)
   char tmp[129] = {0};
   std::stringstream ss;
   ss << "OUTBOUND MESSAGING REGISTERS:\n";
-  snprintf(tmp, 128, "  DWRCNT = %X\t", mport->rd32(TSI721_OBDMAC_DWRCNT(ch))); ss << tmp;
-  snprintf(tmp, 128, "  DRDCNT = %X\n", mport->rd32(TSI721_OBDMAC_DRDCNT(ch))); ss << tmp;
-  snprintf(tmp, 128, "  CTL = %X\t", mport->rd32(TSI721_OBDMAC_CTL(ch))); ss << tmp;
-  snprintf(tmp, 128, "  INT = %X\n", mport->rd32(TSI721_OBDMAC_INT(ch))); ss << tmp;
-  snprintf(tmp, 128, "  STS = %X\n", mport->rd32(TSI721_OBDMAC_STS(ch))); ss << tmp;
-  snprintf(tmp, 128, "  DPTRL = %X ", mport->rd32(TSI721_OBDMAC_DPTRL(ch))); ss << tmp;
-  snprintf(tmp, 128, "  DPTRH = %X\n", mport->rd32(TSI721_OBDMAC_DPTRH(ch))); ss << tmp;
-  snprintf(tmp, 128, "  DSBL = %X ", mport->rd32(TSI721_OBDMAC_DSBL(ch))); ss << tmp;
-  snprintf(tmp, 128, "  DSBH = %X\n", mport->rd32(TSI721_OBDMAC_DSBH(ch))); ss << tmp;
-  snprintf(tmp, 128, "  DSSZ = %X\n", mport->rd32(TSI721_OBDMAC_DSSZ(ch))); ss << tmp;
-  snprintf(tmp, 128, "  DSRP = %X\t", mport->rd32(TSI721_OBDMAC_DSRP(ch))); ss << tmp;
-  snprintf(tmp, 128, "  DSWP = %X\n", mport->rd32(TSI721_OBDMAC_DSWP(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DWRCNT = %X\t", mport->rd32(TSI721_OBDMACXDWRCNT(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DRDCNT = %X\n", mport->rd32(TSI721_OBDMACXDRDCNT(ch))); ss << tmp;
+  snprintf(tmp, 128, "  CTL = %X\t", mport->rd32(TSI721_OBDMACXCTL(ch))); ss << tmp;
+  snprintf(tmp, 128, "  INT = %X\n", mport->rd32(TSI721_OBDMACXINT(ch))); ss << tmp;
+  snprintf(tmp, 128, "  STS = %X\n", mport->rd32(TSI721_OBDMACXSTS(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DPTRL = %X ", mport->rd32(TSI721_OBDMACXDPTRL(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DPTRH = %X\n", mport->rd32(TSI721_OBDMACXDPTRH(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DSBL = %X ", mport->rd32(TSI721_OBDMACXDSBL(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DSBH = %X\n", mport->rd32(TSI721_OBDMACXDSBH(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DSSZ = %X\n", mport->rd32(TSI721_OBDMACXDSSZ(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DSRP = %X\t", mport->rd32(TSI721_OBDMACXDSRP(ch))); ss << tmp;
+  snprintf(tmp, 128, "  DSWP = %X\n", mport->rd32(TSI721_OBDMACXDSWP(ch))); ss << tmp;
   DBG("\n%s", ss.str().c_str());
 }
 
@@ -160,12 +160,14 @@ void MboxChannel::setInitState()
   const int ch = m_mbox + 4;
 
   /* Clear interrupt bits */
-  m_mport->wr32(TSI721_IBDMAC_INT(ch), TSI721_IBDMAC_INT_MASK);
+  m_mport->wr32(TSI721_IBDMACXINT(ch), TSI721_IBDMACXINT_MASK);
 
   /* Clear Status */
-  m_mport->wr32(TSI721_IBDMAC_STS(ch),0);
-  m_mport->wr32(TSI721_SMSG_ECC_COR_LOG(ch), TSI721_SMSG_ECC_COR_LOG_MASK);
-  m_mport->wr32(TSI721_SMSG_ECC_NCOR(ch), TSI721_SMSG_ECC_NCOR_MASK);
+  m_mport->wr32(TSI721_IBDMACXSTS(ch),0);
+  m_mport->wr32(TSI721_SMSG_ECC_CORRXLOG(ch),
+               TSI721_SMSG_ECC_CORRXLOG_ECC_CORR_MEM);
+  m_mport->wr32(TSI721_SMSG_ECC_UNCORRXLOG(ch),
+                TSI721_SMSG_ECC_UNCORRXLOG_ECC_UNCORR_MEM);
 }
 
 static inline bool is_pow_of_two(const uint32_t n) { return ((n & (n - 1)) == 0) ? 1 : 0; }
@@ -327,25 +329,25 @@ void MboxChannel::set_inb_mbox_hwregs(const uint32_t fq_wrptr)
    */
 
   /* Setup Inbound Message free queue */
-  m_mport->wr32(TSI721_IBDMAC_FQBH(ch), (uint64_t) m_imsg_ring.imfq.win_handle >> 32);
-  m_mport->wr32(TSI721_IBDMAC_FQBL(ch), (uint64_t) m_imsg_ring.imfq.win_handle & TSI721_IBDMAC_FQBL_MASK);
+  m_mport->wr32(TSI721_IBDMACXFQBH(ch), (uint64_t) m_imsg_ring.imfq.win_handle >> 32);
+  m_mport->wr32(TSI721_IBDMACXFQBL(ch), (uint64_t) m_imsg_ring.imfq.win_handle & TSI721_IBDMACXFQBL_ADD);
 
-  m_mport->wr32(TSI721_IBDMAC_FQSZ(ch), TSI721_DMAC_DSSZ_SIZE(m_imsg_ring.size));
+  m_mport->wr32(TSI721_IBDMACXFQSZ(ch), TSI721_DMAC_DSSZ_SIZE(m_imsg_ring.size));
 
   /* Setup Inbound Message descriptor queue */
-  m_mport->wr32(TSI721_IBDMAC_DQBH(ch), (uint64_t) m_imsg_ring.imd.win_handle >> 32);
-  m_mport->wr32(TSI721_IBDMAC_DQBL(ch), (uint32_t) m_imsg_ring.imd.win_handle & (uint32_t) TSI721_IBDMAC_DQBL_MASK);
+  m_mport->wr32(TSI721_IBDMACXDQBH(ch), (uint64_t) m_imsg_ring.imd.win_handle >> 32);
+  m_mport->wr32(TSI721_IBDMACXDQBL(ch), (uint32_t) m_imsg_ring.imd.win_handle & (uint32_t) TSI721_IBDMACXDQBL_ADD);
 
-  m_mport->wr32(TSI721_IBDMAC_DQSZ(ch), TSI721_DMAC_DSSZ_SIZE(m_imsg_ring.size));
+  m_mport->wr32(TSI721_IBDMACXDQSZ(ch), TSI721_DMAC_DSSZ_SIZE(m_imsg_ring.size));
 
   /* Initialize Inbound Message Engine */
-  m_mport->wr32(TSI721_IBDMAC_CTL(ch), TSI721_IBDMAC_CTL_INIT);
+  m_mport->wr32(TSI721_IBDMACXCTL(ch), TSI721_IBDMACXCTL_INIT);
 
-  (void)m_mport->rd32(TSI721_IBDMAC_CTL(ch));
+  (void)m_mport->rd32(TSI721_IBDMACXCTL(ch));
   usleep(10);
 
   m_imsg_ring.fq_wrptr = fq_wrptr;
-  m_mport->wr32(TSI721_IBDMAC_FQWP(ch), fq_wrptr);
+  m_mport->wr32(TSI721_IBDMACXFQWP(ch), fq_wrptr);
 }
 
 #define CHECK_END_BD() \
@@ -458,7 +460,7 @@ void MboxChannel::set_outb_mbox_hwregs(const uint32_t wr_count)
 
   /* Setup Outbound Message descriptor status FIFO */
   m_mport->wr32(TSI721_OBDMACXDSBH(m_mbox), m_omsg_ring.sts.win_handle >> 32);
-  m_mport->wr32(TSI721_OBDMACXDSBL(m_mbox), m_omsg_ring.sts.win_handle & TSI721_OBDMAC_DSBL_MASK);
+  m_mport->wr32(TSI721_OBDMACXDSBL(m_mbox), m_omsg_ring.sts.win_handle & TSI721_OBDMACXDSBL_ADD);
   m_mport->wr32((uint32_t)TSI721_OBDMACXDSSZ(m_mbox), reg_size);
 
   /* Initialize Outbound Message descriptors ring */
@@ -657,7 +659,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
 
     opt.ts_start = rdtsc();
     /* Set new write count value */
-    wr32mboxchan(TSI721_OBDMAC_DWRCNT(m_mbox), m_omsg_ring.wr_count);
+    wr32mboxchan(TSI721_OBDMACXDWRCNT(m_mbox), m_omsg_ring.wr_count);
 
     wi.opt = opt;
     wi.valid = WI_SIG;
@@ -682,15 +684,15 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   /* Now poll the RDCNT until it is equal to the WRCNT */
   /* This tells us the descriptors were processed */
   do {
-    rd_count = rd32mboxchan(TSI721_OBDMAC_DRDCNT(m_mbox));
+    rd_count = rd32mboxchan(TSI721_OBDMACXDRDCNT(m_mbox));
   } while (rd_count < m_omsg_ring.wr_count);
 
   DDBG("\n\t%s: After: rd_count = %08X, wr_count = %08X\n", __FUNCTION__, rd_count, m_omsg_ring.wr_count);
 
   /* Wait until DMA message transfer is finished */
   do {
-    reg = rd32mboxchan(TSI721_OBDMAC_STS(m_mbox));
-  } while ((reg & TSI721_OBDMAC_STS_RUN) && timeout--);
+    reg = rd32mboxchan(TSI721_OBDMACXSTS(m_mbox));
+  } while ((reg & TSI721_OBDMACXSTS_RUN) && timeout--);
 
   if (timeout <= 0) {
     ERR("\n\tDMA[%d] read timeout CH_STAT = %08X\n", m_mbox, reg);
@@ -698,22 +700,22 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   }
 #endif
 
-  regi = rd32mboxchan(TSI721_OBDMAC_INT(m_mbox));
-  regs = rd32mboxchan(TSI721_OBDMAC_STS(m_mbox));
+  regi = rd32mboxchan(TSI721_OBDMACXINT(m_mbox));
+  regs = rd32mboxchan(TSI721_OBDMACXSTS(m_mbox));
 
-  DDBG("\n\tOBDMAC_STS = %08X\n\tOBDMAC_INT_DONE = %08X\n", regs, regi)
-  //DBG("\n\tOBDMAC_STS abort ?= %08X\n\t", regs >> 20)
+  DDBG("\n\tOBDMACXSTS = %08X\n\tOBDMACXINT_DONE = %08X\n", regs, regi)
+  //DBG("\n\tOBDMACXSTS abort ?= %08X\n\t", regs >> 20)
 
 /*
-  if (regi & TSI721_OBDMAC_INT_DONE) { // All is good, DONE bit is set
-    DDBG("\n\t%s: After: OBDMAC_INT = %08X OK\n", __FUNCTION__, regi);
+  if (regi & TSI721_OBDMACXINT_DONE) { // All is good, DONE bit is set
+    DDBG("\n\t%s: After: OBDMACXINT = %08X OK\n", __FUNCTION__, regi);
     goto out;
   }
 */
 
-  sts_abort = regs & TSI721_OBDMAC_STS_ABORT;
+  sts_abort = regs & TSI721_OBDMACXSTS_ABORT;
 
-  if ((! (regi & TSI721_OBDMAC_INT_DONE) && (regi & TSI721_OBDMAC_INT_ERROR)) || sts_abort) {
+  if ((! (regi & TSI721_OBDMACXINT_DONE) && (regi & TSI721_OBDMACXINT_ERROR)) || sts_abort) {
     fail_reason = STOP_REG_ERR;
     pthread_spin_lock(&m_bltx_splock);
     m_omsg_trk.bl_busy[opt.bd_idx] = 0;
@@ -724,14 +726,14 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
     }
     pthread_spin_unlock(&m_bltx_splock);
 
-    DDBG("\n\tAfter: OBDMAC_INT = %08X ERROR\n", regi);
+    DDBG("\n\tAfter: OBDMACXINT = %08X ERROR\n", regi);
     /* If there is an error, read the status register for more info */
     volatile uint32_t reg_out_err_stop = rd32mboxchan(RIO_PORT_N_ERR_STATUS_OUTPUT_ERR_STOP);
     volatile uint32_t reg_inp_err_stop = rd32mboxchan(RIO_PORT_N_ERR_STATUS_INPUT_ERR_STOP);
 
     reg_out_err_stop += 0; // silence g++ warnings
     reg_inp_err_stop += 0;
-    DDBG("\n\tOBDMAC_STS = %08X\n\tOUTPUT_ERR_STOP = %08X\n\tINPUT_ERR_STOP  = %08X\n",
+    DDBG("\n\tOBDMACXSTS = %08X\n\tOUTPUT_ERR_STOP = %08X\n\tINPUT_ERR_STOP  = %08X\n",
         regs, reg_out_err_stop, reg_inp_err_stop)
 
     if (sts_abort) {
@@ -782,16 +784,16 @@ bool MboxChannel::inb_message_ready_REG(uint64_t& rx_ts)
   const int ch = m_ib_mbox + 4;
 
 #if 0//def MBOXDEBUG
-  rd_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQRP(ch));
-  wr_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQWR(ch));
+  rd_ptr = (int32_t)rd32mboxchan(TSI721_IBDMACXDQRP(ch));
+  wr_ptr = (int32_t)rd32mboxchan(TSI721_IBDMACXDQWR(ch));
 
   if (rd_ptr == wr_ptr) return false;
 #endif
 
   uint64_t tmp_ts = 0;
   do {
-    rd_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQRP(ch));
-    wr_ptr = (int32_t)rd32mboxchan(TSI721_IBDMAC_DQWR(ch));
+    rd_ptr = (int32_t)rd32mboxchan(TSI721_IBDMACXDQRP(ch));
+    wr_ptr = (int32_t)rd32mboxchan(TSI721_IBDMACXDQWP(ch));
     tmp_ts = rdtsc();
     //if (wr_ptr == (m_imsg_ring.size -1)) break; // XXX why?
     if (rd_ptr == (m_imsg_ring.size - 1) && wr_ptr == 0) break; // XXX why?
@@ -897,12 +899,12 @@ void* MboxChannel::get_inb_message(MboxOptions_t& opt)
     m_imsg_ring.desc_rdptr = 0;
 
   /* Update the Descriptor Queue Read Pointer */
-  wr32mboxchan(TSI721_IBDMAC_DQRP(ch), m_imsg_ring.desc_rdptr);
+  wr32mboxchan(TSI721_IBDMACXDQRP(ch), m_imsg_ring.desc_rdptr);
   //usleep(1);
   DDBG("\n\tNow DQRP := %X -- HW DQRP = %X HW DQWR = %X\n",
       m_imsg_ring.desc_rdptr,
-      rd32mboxchan(TSI721_IBDMAC_DQRP(ch)),
-      rd32mboxchan(TSI721_IBDMAC_DQWR(ch)));
+      rd32mboxchan(TSI721_IBDMACXDQRP(ch)),
+      rd32mboxchan(TSI721_IBDMACXDQWR(ch)));
 
   /* Return free buffer into the pointer list */
   uint64_t* free_ptr = (uint64_t *) m_imsg_ring.imfq.win_ptr;
@@ -917,7 +919,7 @@ void* MboxChannel::get_inb_message(MboxOptions_t& opt)
     m_imsg_ring.fq_wrptr = 0;
 
   /* Update the free queue write pointer in the FQWP register */
-  wr32mboxchan(TSI721_IBDMAC_FQWP(ch), m_imsg_ring.fq_wrptr);
+  wr32mboxchan(TSI721_IBDMACXFQWP(ch), m_imsg_ring.fq_wrptr);
 
   pthread_spin_unlock(&m_rx_splock);
 
@@ -1043,7 +1045,7 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 #ifdef MBOXDEBUG
           DBG("\n\tFIFO line=%d off=%d 0x%llx => BD idx %d %sfound -- TX HW RP=%d soft RP=%d WP=%d -- pending %d\n",
                    j, i, hwptr, bd_idx, (found? "": "NOT "),
-                   rd32mboxchan(TSI721_OBDMAC_DRDCNT(m_mbox)), soft_rp, m_omsg_ring.wr_count,
+                   rd32mboxchan(TSI721_OBDMACXDRDCNT(m_mbox)), soft_rp, m_omsg_ring.wr_count,
                    m_omsg_trk.bltx_busy_size);
 #endif
         } else {
@@ -1057,7 +1059,7 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
   } // END for scan full FIFO every line-of-8
 
   if(old_rdptr != m_omsg_ring.sts_rdptr)
-    wr32mboxchan(TSI721_OBDMAC_DSRP(m_mbox), m_omsg_ring.sts_rdptr);
+    wr32mboxchan(TSI721_OBDMACXDSRP(m_mbox), m_omsg_ring.sts_rdptr);
 
 #ifdef FIFODEBUG
   if(fifo_count > 0 && queueTxSize(m_mbox) > (m_num_ob_desc/2))

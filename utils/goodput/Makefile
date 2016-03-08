@@ -37,7 +37,6 @@ CXX?= $(CROSS_COMPILE)g++
 config?=NODEBUG
 COMMONDIR=../../common
 COMMONINC=$(COMMONDIR)/include
-HACKINC=../../utils/latency/common
 COMMONLIB=$(COMMONDIR)/libs_a
 REGSDIR=../../fabric_management/librio_switch/inc
 LOG_LEVEL?=7
@@ -85,7 +84,7 @@ LIBRARIES =  -lpthread -lcli -lmport -llog -lrt
 all: goodput ugoodput
 
 ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES) 
-	$(CXX) $(CCFLAGS) -I$(HACKINC) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
+	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
 	$(LIBRARIES) -L$(COMMONLIB)
 
 goodput: $(SOURCES) $(INCLUDES)
