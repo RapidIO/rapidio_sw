@@ -19,7 +19,7 @@ wait 0 H
 
 IBA 0 400000
 sleep 1
-wait 1 H
+wait 0 H
 
 st i
 mpd

@@ -71,6 +71,9 @@ char *req_type_str[(int)last_action+1] = {
         (char*)"UMSG",
         (char*)"UMSGLat",
         (char*)"UMSGTun",
+        (char*)"EPWa",
+        (char*)"UMSGWa",
+        (char*)"AFUWa",
 #endif
 	(char *)"LAST"
 };
@@ -1790,6 +1793,15 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	case 'M':
 		ts_p = &wkr[idx].meas_ts;
 		break;
+#ifdef USER_MODE_DRIVER
+	case 'n':
+	case 'N':
+		ts_p = &wkr[idx].nread_ts;
+		break;
+	case '8':
+		ts_p = &wkr[idx].q80p_ts;
+		break;
+#endif
 	default:
                 sprintf(env->output, "FAILED: <type> not 'd', 'f' or 'm'.\n");
         	logMsg(env);
@@ -1929,6 +1941,10 @@ struct cli_cmd UTime = {
 	"<type> is:\n"
 	"      'd' - descriptor timestamps\n"
 	"      'f' - FIFO (descriptor completions)\n"
+#ifdef USER_MODE_DRIVER
+	"      'n' - NREAD one-shot completions\n"
+	"      '8' - NWRITE queue is at 80% full\n"
+#endif
 	"      'm' - measurement (development only)\n"
 	"<cmd> is the command to perform on the buffer, one of:\n"
 	"      's' - sample timestamps again\n"
@@ -2050,7 +2066,8 @@ struct cli_cmd UDMA = {
 	"<rio_addr> RapidIO memory address to access\n"
 	"<bytes> total bytes to transfer\n"
 	"<acc_sz> Access size\n"
-	"<trans>  0 NREAD, 1 LAST_NWR, 2 NW, 3 NW_R\n",
+	"<trans>  0 NREAD, 1 LAST_NWR, 2 NW, 3 NW_R\n"
+        "NOTE:  Enter simulation with \"set sim 1\" before running this command\n",
 UDMACmd,
 ATTR_NONE
 };
@@ -2300,7 +2317,8 @@ struct cli_cmd UDMALRR = {
         "<did> target device ID\n"
         "<rio_addr> RapidIO memory address to access\n"
         "<acc_sz> Access size\n"
-        "NOTE:  IBAlloc on <did> of size >= acc_sz needed before running this command\n",
+        "NOTE:  IBAlloc on <did> of size >= acc_sz needed before running this command\n"
+        "NOTE:  Enter simulation with \"set sim 1\" before running this command\n",
 UDMALatNREAD,
 ATTR_NONE
 };
@@ -2309,7 +2327,7 @@ extern void UMD_DD(const struct worker* wkr);
 
 int UMDDDDCmd(struct cli_env *env, int argc, char **argv)
 {
-	int idx = GetDecParm(argv[0], 0);
+	int idx = argc > 0? GetDecParm(argv[0], 0): 0;
 	if (idx < 0 || idx >= MAX_WORKERS) {
                 sprintf(env->output, "Bad idx %d\n", idx);
         	logMsg(env);
@@ -2323,25 +2341,84 @@ exit:
 struct cli_cmd UMDDD = {
 "udd",
 1,
-1,
-"Dump UMD misc counters",
+0,
+"Dump UMD Tun status",
 "<idx>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
+	"<idx> [optional, default=0] is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
 UMDDDDCmd,
+ATTR_RPT
+};
+
+extern void UMD_Test(const struct worker* wkr);
+
+int UMDTestCmd(struct cli_env *env, int argc, char **argv)
+{
+        int idx = argc > 0? GetDecParm(argv[0], 0): 0;
+        int did = argc > 1? GetDecParm(argv[1], 666): 666;
+
+        if (idx < 0 || idx >= MAX_WORKERS) {
+                sprintf(env->output, "Bad idx %d\n", idx);
+                logMsg(env);
+                goto exit;
+        }
+
+	wkr[idx].did = did;
+        UMD_Test(&wkr[idx]);
+
+exit:
+        return 0;
+}
+
+struct cli_cmd UMDTest = {
+"udt",
+1,
+0,
+"UMD Tun misc tests",
+"<idx>\n"
+        "<idx> [optional, default=0] is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
+UMDTestCmd,
 ATTR_NONE
 };
+
+extern void UMD_DDD(const struct worker* wkr);
+
+int UMDDDDDCmd(struct cli_env *env, int argc, char **argv)
+{
+        int idx = argc > 0? GetDecParm(argv[0], 0): 0;
+        if (idx < 0 || idx >= MAX_WORKERS) {
+                sprintf(env->output, "Bad idx %d\n", idx);
+                logMsg(env);
+                goto exit;
+        }
+        UMD_DDD(&wkr[idx]);
+
+exit:
+        return 0;
+}
+
+struct cli_cmd UMDDDD = {
+"ddd",
+3,
+0,
+"Dump UMD DMA status",
+"<idx>\n"
+        "<idx> [optional, default=0] is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n",
+UMDDDDDCmd,
+ATTR_RPT
+};
+
 
 int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 {
         int idx;
         int chan;
+        int chan_n;
 	int chan2;
         int cpu;
         uint32_t buff;
         uint32_t sts;
-	uint32_t did;
-	uint64_t rio_addr;
 	int mtu;
+	int thruput = 0;
 
         int n = 0; // this be a trick from X11 source tree ;)
 
@@ -2349,23 +2426,40 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         if (get_cpu(env, argv[n++], &cpu))
                 goto exit;
         chan     = GetDecParm(argv[n++], 0);
+        chan_n   = GetDecParm(argv[n++], 0);
         chan2     = GetDecParm(argv[n++], 0);
         buff     = GetHex(argv[n++], 0);
         sts      = GetHex(argv[n++], 0);
-	did      = GetDecParm(argv[n++], 0);
-	rio_addr = GetHex(argv[n++], 0);
         mtu      = GetDecParm(argv[n++], 0);
+
+	if (n <= (argc-1))
+		thruput      = GetDecParm(argv[n++], 0);
 
         if (check_idx(env, idx, 1))
                 goto exit;
 
         if ((chan < 1) || (chan > 7)) {
-                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
+                sprintf(env->output, "Chan_1 %d illegal, must be 1 to 7\n", chan);
+                logMsg(env);
+                goto exit;
+        };
+        if ((chan_n < 1) || (chan_n > 7)) {
+                sprintf(env->output, "Chan_n %d illegal, must be 1 to 7\n", chan);
+                logMsg(env);
+                goto exit;
+        };
+	if (chan > chan_n) {
+                sprintf(env->output, "Chan {%d...%d} range illegal\n", chan, chan_n);
                 logMsg(env);
                 goto exit;
         };
         if ((chan2 < 1) || (chan2 > 7)) {
-                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan2);
+                sprintf(env->output, "Chan2 %d illegal, must be 1 to 7\n", chan2);
+                logMsg(env);
+                goto exit;
+        };
+	if (chan2 >= chan && chan2 <= chan_n) {
+                sprintf(env->output, "Chan2 %d illegal, cannot be in {%d...%d} range\n", chan2, chan, chan_n);
                 logMsg(env);
                 goto exit;
         };
@@ -2398,24 +2492,19 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
                 goto exit;
         };
 
-	if (!rio_addr) {
-                sprintf(env->output,
-			"Addr be non-zero\n");
-        	logMsg(env);
-		goto exit;
-	};
-
         wkr[idx].action = umd_dma_tap;
         wkr[idx].action_mode = user_mode_action;
         wkr[idx].umd_chan    = chan;
+        wkr[idx].umd_chan_n  = chan_n;
         wkr[idx].umd_chan2   = chan2; // for NREAD
         wkr[idx].umd_tun_MTU = mtu;
         wkr[idx].umd_fifo_thr.cpu_req = cpu;
         wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
         wkr[idx].umd_tx_buf_cnt = buff;
         wkr[idx].umd_sts_entries = sts;
-	wkr[idx].did = did;
-	wkr[idx].rio_addr = rio_addr;
+        wkr[idx].umd_tun_thruput = !!thruput;
+	wkr[idx].did = ~0;
+	wkr[idx].rio_addr = 0;
         wkr[idx].byte_cnt = 0;
         wkr[idx].acc_size = mtu+DMA_L2_SIZE;
         wkr[idx].umd_tx_rtype = ALL_NWRITE;
@@ -2431,21 +2520,21 @@ exit:
 struct cli_cmd UDMAT = {
 "tundma",
 5,
-7,
+6,
 "TUN/TAP (L3) over DMA with User-Mode demo driver -- pointopoint",
-"<idx> <cpu> <chan> <chan_nread> <buff> <sts> <did> <rio_addr> <mtu>\n"
-        "<idx> is a worker index from 0 to 7\n"
+"<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <mtu> <thruput>\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
-        "<chan> is a MBOX channel number from 1 through 7\n"
-        "<chan_nread> is a MBOX channel number from 1 through 7 used for NREAD\n"
+        "<chan_1> is a DMA channel number from 1 through 7\n"
+        "<chan_n> is a DMA channel number from 1 through 7 -- we use chan{1...n} for TX round-robin\n"
+        "<chan_nread> is a DMA channel number from 1 through 7 used for NREAD, distinct from range above\n"
         "<buff> is the number of transmit descriptors/buffers to allocate\n"
         "       Must be a power of two from 0x20 up to 0x80000\n"
         "<sts> is the number of status entries for completed descriptors\n"
         "       Must be a power of two from 0x20 up to 0x80000\n"
-        "<did> target device ID\n"
-        "<rio_addr> RapidIO memory address to access on peer\n"
         "<mtu> is interface MTU\n"
         "       Must be between (576+4) and 128k; upper bound depends on kernel\n"
+        "<thruput> [optional] optimise for 1=thruput 0=latency {default}\n"
         "Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1\n"
         "Note: IBAlloc size = (8+MTU)*buf+4 needed before running this command\n",
 UDMACmdTun,
@@ -2643,7 +2732,7 @@ int UMSGCmdTun(struct cli_env *env, int argc, char **argv)
                 goto exit;
         };
 
-        wkr[idx].action = umd_mbox_tap;
+        wkr[idx].action      = umd_mbox_tap;
         wkr[idx].action_mode = user_mode_action;
         wkr[idx].umd_chan    = chan;
         wkr[idx].umd_chan_to = chan; // FUGE
@@ -2693,7 +2782,7 @@ struct cli_cmd UMSGT = {
 5,
 "TUN/TAP (L3) over MBOX with User-Mode demo driver",
 "<idx> <cpu> <chan> <buff> <sts>\n"
-        "<idx> is a worker index from 0 to 7\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan> is a MBOX channel number from 2 through 3\n"
         "<buff> is the number of transmit descriptors/buffers to allocate\n"
@@ -2775,6 +2864,223 @@ IsolcpuCmd,
 ATTR_NONE
 };
 
+#ifdef USER_MODE_DRIVER
+
+int EpWatchCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx = 0;
+        int tundmathreadindex = -1;
+        int epdid = ~0;
+
+        int n = 0; // this be a trick from X11 source tree ;)
+
+        idx               = GetDecParm(argv[n++], 0);
+	tundmathreadindex = GetDecParm(argv[n++], 0);
+	if (argc > 2)
+		epdid = GetDecParm(argv[n++], 0);
+
+        if (check_idx(env, idx, 1))
+                goto exit;
+
+        if (check_idx(env, tundmathreadindex, 0))
+                goto exit;
+
+	if (idx == tundmathreadindex) {
+                sprintf(env->output, "Must use different worker threads!\n");
+                logMsg(env);
+                goto exit;
+	}
+
+        wkr[idx].action      = umd_epwatch;
+        wkr[idx].action_mode = user_mode_action;
+        wkr[idx].umd_chan    = -1; // FUGE
+        wkr[idx].umd_chan_to = tundmathreadindex; // FUDGE
+        wkr[idx].umd_fifo_thr.cpu_req = -1;
+        wkr[idx].umd_fifo_thr.cpu_run = -1;
+        wkr[idx].umd_tx_buf_cnt = 0;
+        wkr[idx].umd_sts_entries = 0;
+	wkr[idx].did = epdid; // FUDGE
+        wkr[idx].rio_addr = 0;
+        wkr[idx].byte_cnt = 0;
+        wkr[idx].acc_size = 0;
+        wkr[idx].umd_tx_rtype = MAINT_WR;
+        wkr[idx].wr = 0;
+        wkr[idx].use_kbuf = 0;
+
+        wkr[idx].stop_req = 0;
+        sem_post(&wkr[idx].run);
+
+	return 0;
+
+exit:
+	return 0;
+}
+
+struct cli_cmd EPWatch = {
+"epwatch",
+3,
+2,
+"Watches RIO endpoints coming/going",
+"<idx> <tundmathreadindex> <ep-did>\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<tundmathreadindex> Idx of tundma thread which must be started prior to this thread.\n"
+	"<ep-did> [optional] EP to delete (simulates EP going away)",
+EpWatchCmd,
+ATTR_NONE
+};
+
+int UMSGCmdWatch(struct cli_env *env, int argc, char **argv)
+{
+        int idx;
+        int tundmathreadindex = -1;
+        int chan;
+        uint32_t buff;
+        uint32_t sts;
+
+        int n = 0; // this be a trick from X11 source tree ;)
+
+        idx      = GetDecParm(argv[n++], 0);
+        tundmathreadindex = GetDecParm(argv[n++], 0);
+
+        if (check_idx(env, idx, 1))
+                goto exit;
+
+        if (check_idx(env, tundmathreadindex, 0))
+                goto exit;
+
+        if (idx == tundmathreadindex) {
+                sprintf(env->output, "Must use different worker threads!\n");
+                logMsg(env);
+                goto exit;
+        }
+
+        chan     = GetDecParm(argv[n++], 0);
+        buff     = GetHex(argv[n++], 0);
+        sts      = GetHex(argv[n++], 0);
+
+        if (check_idx(env, idx, 1))
+                goto exit;
+
+        if ((chan < 2) || (chan > 3)) {
+                sprintf(env->output, "Chan %d illegal, must be 2 to 3\n", chan);
+                logMsg(env);
+                goto exit;
+        };
+
+        if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
+                        (buff > MAX_UMD_BUF_COUNT)) {
+                sprintf(env->output,
+                        "Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
+                        buff, MAX_UMD_BUF_COUNT);
+                logMsg(env);
+                goto exit;
+        };
+
+        if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
+                sprintf(env->output,
+                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
+                        sts);
+                logMsg(env);
+                goto exit;
+        };
+
+        wkr[idx].action      = umd_mbox_watch;
+        wkr[idx].action_mode = user_mode_action;
+        wkr[idx].umd_chan    = chan;
+        wkr[idx].umd_chan_to    = tundmathreadindex; // FUDGE
+        wkr[idx].umd_fifo_thr.cpu_req = -1;
+        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+        wkr[idx].umd_tx_buf_cnt = buff;
+        wkr[idx].umd_sts_entries = sts;
+	wkr[idx].did = ~0;
+        wkr[idx].rio_addr = 0;
+        wkr[idx].byte_cnt = 0;
+        wkr[idx].acc_size = 0;
+        wkr[idx].umd_tx_rtype = MAINT_WR;
+        wkr[idx].wr = 1;
+        wkr[idx].use_kbuf = 1;
+
+        wkr[idx].stop_req = 0;
+        sem_post(&wkr[idx].run);
+exit:
+        return 0;
+}
+
+struct cli_cmd UMSGWATCH = {
+"mboxwatch",
+5,
+5,
+"Watches MBOX messages about peers' IBwin allocations",
+"<idx> <tundmathreadindex> <chan> <buff> <sts>\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<tundmathreadindex> idx of tundma thread which must be started prior to this thread.\n"
+        "<chan> is a MBOX channel number from 2 through 3\n"
+        "<buff> is the number of transmit descriptors/buffers to allocate\n"
+        "       Must be a power of two from 0x20 up to 0x80000\n"
+        "<sts> is the number of status entries for completed descriptors\n"
+        "       Must be a power of two from 0x20 up to 0x80000\n",
+UMSGCmdWatch,
+ATTR_NONE
+};
+
+int AFUCmdWatch(struct cli_env *env, int argc, char **argv)
+{
+        int idx;
+	int max_tag;
+        int n = 0; // this be a trick from X11 source tree ;)
+
+        idx      = GetDecParm(argv[n++], 0);
+
+        if (check_idx(env, idx, 1))
+                goto exit;
+
+        max_tag   = GetDecParm(argv[n++], 8);
+
+	if ((max_tag < 4) || (max_tag > 1024) || (max_tag & (max_tag-1))) {
+                sprintf(env->output, "Bad max_tag %x, must be power of 2, 4 to 1024\n", max_tag);
+                logMsg(env);
+                goto exit;
+        };
+
+
+        wkr[idx].action      = umd_afu_watch;
+        wkr[idx].action_mode = user_mode_action;
+        wkr[idx].umd_chan       = max_tag; // FUDGE
+        wkr[idx].umd_chan_to    = -1;
+        wkr[idx].umd_fifo_thr.cpu_req = -1;
+        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+        wkr[idx].umd_tx_buf_cnt = 0;
+        wkr[idx].umd_sts_entries = 0;
+        wkr[idx].did = ~0;
+        wkr[idx].rio_addr = 0;
+        wkr[idx].byte_cnt = 0;
+        wkr[idx].acc_size = 0;
+        wkr[idx].umd_tx_rtype = MAINT_WR;
+        wkr[idx].wr = 0;
+        wkr[idx].use_kbuf = 0;
+
+        wkr[idx].stop_req = 0;
+
+        sem_post(&wkr[idx].run);
+exit:
+        return 0;
+}
+
+struct cli_cmd AFUWATCH = {
+"afuwatch",
+4,
+2,
+"Spawns an AF_UNIX server which listens to <max_tag> AF_UNIX sockets named " AFU_PATH "NNN",
+"<idx> <max_tag>\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<max_tag> maximum number of CM \"tags\" aka number of listening AF_UNIX sockets\n",
+AFUCmdWatch,
+ATTR_NONE
+};
+
+
+#endif // USER_MODE_DRIVER
+
 struct cli_cmd *goodput_cmds[] = {
 	&IBAlloc,
 	&IBDealloc,
@@ -2814,7 +3120,12 @@ struct cli_cmd *goodput_cmds[] = {
 	&UMSGL,
 	&UMSGT,
 	&UMDDD,
+	&UMDDDD,
 	&UTime,
+	&UMDTest,
+	&EPWatch,
+	&UMSGWATCH,
+	&AFUWATCH,
 #endif
 };
 

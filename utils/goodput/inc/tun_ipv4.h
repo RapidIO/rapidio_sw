@@ -10,7 +10,9 @@ int tun_alloc(char* dev, int flags);
 int cread(int fd, uint8_t* buf, int n);
 int cwrite(int fd, uint8_t* buf, int n);
 int read_n(int fd, uint8_t* buf, int n);
+
 int icmp_host_unreachable(uint8_t* l3_in, const int l3_in_size, uint8_t* l3_out, int& l3_out_size);
+int send_icmp_host_unreachable(const int tun_fd, uint8_t* l3_in, const int l3_in_size);
 
 #ifdef __cplusplus
 };

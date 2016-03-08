@@ -69,6 +69,12 @@ class DMAChannel {
 public:
   static const int DMA_BUFF_DESCR_SIZE = 32;
 
+  enum {
+    SIM_INJECT_TIMEOUT = 1,
+    SIM_INJECT_INP_ERR = 2,
+    SIM_INJECT_OUT_ERR = 4
+  };
+
   typedef struct {
       uint8_t dtype;
       uint8_t rtype:4;
@@ -86,6 +92,7 @@ public:
       uint32_t bd_wp; ///< Soft WP at the moment of enqueuing this
       uint32_t bd_idx; ///< index into buffer ring of buffer used to handle this op
       uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
+      uint64_t u_data; ///< whatever the user puts in here
   } DmaOptions_t;
 
   static const uint32_t WI_SIG = 0xb00fd00fL;
@@ -138,7 +145,8 @@ public:
   }
   inline bool queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
-    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16)) return false;
+    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16))
+	return false;
   
     RioMport::DmaMem_t lmem; memset(&lmem, 0, sizeof(lmem));
   
@@ -154,30 +162,20 @@ public:
     return m_bl_busy_size;
   }
 
-  inline void switch_evlog(bool x) { m_keep_evlog = x; if(x) m_evlog.reserve(20000000); else m_evlog.clear(); }
-
-  inline void evlog(char ev)
-  {
-    if(! m_keep_evlog) return;
-    char ev_str[2] = {0}; ev_str[0] = ev;
-    pthread_spin_lock(&m_evlog_splock);
-    m_evlog.append(ev_str);
-    pthread_spin_unlock(&m_evlog_splock);
-  }
-
-  inline int get_evlog(std::string& e)
-  {
-    pthread_spin_lock(&m_evlog_splock);
-    e = m_evlog;
-    pthread_spin_unlock(&m_evlog_splock);
-    return e.size();
-  }
-
   void cleanup();
   void shutdown();
   void init();
 
   int scanFIFO(WorkItem_t* completed_work, const int max_work);
+
+  /** \brief Switch to simulation mode. \ref simFIFO must be called frequently
+   * \note Call this before \ref alloc_dmatxdesc
+   * \note Call this before \ref alloc_dmacompldesc
+   * \note Object cannot be switched out of simulation mode.
+   */
+  void setSim() { m_check_reg = false; m_sim = true; }
+  inline bool isSim() { return m_sim; }
+  int simFIFO(const int max_bd, const uint32_t fault_bmask);
 
 public: // XXX test-public, make this section private
 
@@ -232,6 +230,8 @@ public:
    */
   inline bool queueFullHw()
   {
+    if (m_sim) return false;
+
     uint32_t wrc = getWriteCount();
     uint32_t rdc = getReadCount();
     if(wrc == rdc) return false; // empty
@@ -253,6 +253,11 @@ public:
   
   inline bool dmaCheckAbort(uint32_t& abort_reason)
   {
+    if (m_sim) {
+      if (m_sim_abort_reason != 0) { abort_reason = m_sim_abort_reason; return true; }
+      return false;
+    }
+
     uint32_t channel_status = rd32dmachan(TSI721_DMAC_STS);
   
     if(channel_status & TSI721_DMAC_STS_RUN) return false;
@@ -265,18 +270,27 @@ public:
   
   inline bool checkPortOK()
   {
+    if (m_sim) return (m_sim_err_stat == 0);
+
     uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
     return status & TSI721_RIO_SP_ERR_STAT_PORT_OK;
   }
   
   inline bool checkPortError()
   {
+    if (m_sim) return false;
     uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
     return status & TSI721_RIO_SP_ERR_STAT_PORT_ERR;
   }
   
   inline void checkPortInOutError(bool& inp_err, bool& outp_err)
   {
+    if (m_sim) {
+      inp_err  = !! (m_sim_err_stat & TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP);
+      outp_err = !! (m_sim_err_stat & TSI721_RIO_SP_ERR_STAT_OUTPUT_ERR_STOP);
+      return;
+    }
+
     uint32_t status = m_mport->rd32(TSI721_RIO_SP_ERR_STAT);
   
     if(status & TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP) inp_err = true;
@@ -286,12 +300,21 @@ public:
     else outp_err = false;
   }
 
-  void softRestart();
+  void softRestart(const bool nuke_bds = true);
 
   volatile uint64_t   m_fifo_scan_cnt;
+  volatile uint64_t   m_tx_cnt; ///< Number of DMA ops that succeeded / showed up in FIFO
+
+  /** \brief Returns the number of BDs submitted to DMA engine */
+  inline uint32_t getWP() { return m_dma_wr; }
 
 private:
   int umdemo_must_die = 0;
+  bool                m_sim;        ///< Simulation: do not progtam HW with linear addrs of FIFO and BD array; do not read HW regs
+  uint32_t            m_sim_dma_rp; ///< Simulated Tsi721 RP
+  uint32_t            m_sim_fifo_wp; ///< Simulated Tsi721 FIFO WP
+  volatile uint32_t   m_sim_abort_reason; ///< Simulated abort error, cleared on reset
+  volatile uint32_t   m_sim_err_stat; ///< Simulated port error, cleared on reset
   volatile bool       m_check_reg;
   pthread_spinlock_t  m_hw_splock; ///< Serialize access to DMA chan registers
   pthread_spinlock_t  m_pending_work_splock; ///< Serialize access to DMA pending queue object
@@ -307,15 +330,17 @@ private:
   volatile int32_t    m_bl_busy_size;
   pthread_spinlock_t  m_bl_splock; ///< Serialize access to BD list
   uint64_t            m_T3_bd_hw;
-  volatile bool       m_keep_evlog;
-  std::string         m_evlog;
-  pthread_spinlock_t  m_evlog_splock; ///< Serialize access to event log
+  volatile int        m_restart_pending;
+  uint32_t            m_sts_log_two; ///< Remember the calculation in alloc_dmacompldesc and re-use it at softReset
   
   WorkItem_t*         m_pending_work;
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 
-  inline void setWriteCount(uint32_t cnt) { wr32dmachan(TSI721_DMAC_DWRCNT, cnt); }
+  inline void setWriteCount(uint32_t cnt) { if (!m_sim) wr32dmachan(TSI721_DMAC_DWRCNT, cnt); }
+
+public:
+  volatile uint64_t*  m_bl_busy_histo;
 
 public:
   inline void trace_dmachan(uint32_t offset, uint32_t val)

@@ -216,7 +216,7 @@ public:
     return m_omsg_trk.bltx_busy_size;
   }
 
-  void softRestart();
+  void softRestart(const bool nuke_bds = true);
 
 public: // test-public
   #define wr32mboxchan(o, d) _wr32mboxchan((o), #o, (d), #d)
@@ -266,6 +266,8 @@ private:
   hw_omsg_ring        m_omsg_ring;
   bool                m_imsg_init;
   bool                m_omsg_init;
+
+  volatile int        m_restart_pending; ///< Don't scan FIFO during soft restart
 
   static const uint32_t WI_SIG = 0xb00fd00fL;
 

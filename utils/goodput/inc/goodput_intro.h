@@ -828,7 +828,7 @@
  * following steps:
  *
  * -# Start the ugoodput tool, as described in \ref exec_ugoodput_sec.
- * =# At the ugoodput CLI prompt, type: . ugoodput_info  This should result
+ * -# At the ugoodput CLI prompt, type: . ugoodput_info  This should result
  *    in output of the form similar to the following:
  *
  * <pre>
@@ -851,7 +851,6 @@
  *         3 Endpoints (dest_ID): 0 2 3
  * </pre>
  *
- * The (AAAAAAAAA) and (DID) 
  * The bash script "scripts/create_umd_scripts.sh" requires the parameters shown
  * in the sample "help" output below.  "Create_umd_scripts.sh" must be run 
  * on both the source and the target nodes.  Parameter values entered must
@@ -1068,5 +1067,122 @@
  *
  * Latency measurements are displayed by the "lat" command, as described
  * in \ref latency_cmd_overview_secn.
+ *
+ * \section tun_dma IP Tunnelling with Tsi721 User Mode Driver (DMA)
+ *
+ * It is beneficial to dedicate 1 or 2 cores to run the IP Tunnelling demo.
+ * GRUB based platforms support the "isolcpu" command line parameter 
+ * to reserve CPUs for specific applications.
+ *
+ * The demonstration is limited to two nodes: server and client.  To run the
+ * demonstration:
+ *
+ * -# On the Server, install thttpd and create a 1 GB random data file.  This 
+ *    step need only be performed once.  This can be accomplished with the 
+ *    following commands:
+ *    - sudo su
+ *    - yum install thttpd
+ *    - mkdir /rd
+ *    - chmod 0755 rd
+ *    - mount none /rd -t tmpfs
+ *    - cd /rd
+ *    - dd if=/dev/urandom of=sample.txt bs=64M count=16
+ *    - chmod 0644 sample.txt
+ * -# The following commands must be executed 
+ *    on the server each time the demo is started. 
+ *    - sudo su
+ *    - killall thttpd
+ *    - iptables -F
+ *    - thttpd -u nobody -d /rd
+ *    - exit
+ *    - cat /rd/sample.txt > /dev/null
+ *
+ * -# Run the following commands on the client each time the demo is started:
+ *   - sudo /sbin/iptables -F
+ *
+ * -# Start ugoodput on the server using the following command:
+ *    - sudo ./ugoodput 0 buf=100 sts=400 mtu=17000 thruput=1
+ *
+ * -# From the server ugoodput command prompt, execute the startup script
+ *    as follows:
+ *    - . s
+ *
+ * -# Start ugoodput on the client using the following command:
+ *    - sudo ./ugoodput 0 buf=100 sts=400 mtu=17000 thruput=1
+ *    
+ * -# From the client ugoodput command prompt, execute the startup script 
+ *    as follows:
+ *    - . s
+ *
+ * -# If the previous commands were successful, executing "ifconfig" at the 
+ *    command prompt should show an IP tunnel with an address of the form
+ *    169.254.0.x,
+ *    where "x" is (Rapidio destination ID + 1) of the client or server.
+ *
+ * -# To perform a file transfer from the client to the server,
+ *    execute the following command on the client:
+ *
+ *   -  wget -O /dev/null http://169.254.0.y/sample.txt
+ *
+ *    where "y" is (RapidIO destination ID + 1) of the server.
+ *
+ * -# DMA Tun status
+ *  - udd 0
+ *  Has counters galore that reflect the behavious of DMA Tun
+ *
+ * \subsection tun_dma_parms DMA TUN Command Line Parameters 
+ *
+ *   - ugoodput 0 buf=100 sts=400 mtu=17000 disable_nread=0 thruput=1 push_rp_thr=16 chan=5 chann_reserve=1
+ *
+ *     - 0 = mport ID (one may have more than 1 PCIe card installed)
+ *     - buf = hex number of BDs (min 20)
+ *     - sts = FIFO size, should not be less than buf
+ *     - mtu = MTU of tun interface, max 64K
+ *       - Note1: Kernel's tun.c has a max MTU size of 64K so no
+ *              point going over that
+ *       - Note2: UDP max datagram size is 64K
+ *     - disable_nread = do away with NREADs when we divine that peer's
+ *        IBs are almost full. DEBUG ONLY
+ *     - thruput = optimise tun for thruput (1) or latency (0) 
+ *       (a latency run will yield horrible thruput)
+ *     - push_rp_thr = force NWRITE push of IB RP to peer every NNN packets.
+ *       A value of 16 was found optimal for high throughput bidirectional iperf
+ *       measurements.
+ *
+ *     - chan = N aka "chann"
+ *       - Note1: DMA channel 7 is used by default for NREADs at prio=2
+ *       - Note2: By default chan 6 is used for NWRITEs
+ *       - Note3: One can use multiple channels for NWRITE; specify 
+ *         chan=N where N is less than 6
+ *     - chann_reserve = Reserve chann (if more than 1) for push RP NWRITEs. 
+ *
+ * \subsection buf_discussion Application Buffer Constraints
+ *
+ *  Most networked applications are written with TCP in mind and MTU=1500 
+ *  Ethernet.  As such their internal buffers are not configurable.  For
+ *  example, wget always uses 8KB.  Extending the MTU past 16k offers 
+ *  no gain with off-the-shelf software and limits the number of peers as
+ *  all buffers are carved off the 16M of CMA memory currently supported
+ *  by goodput.
+ *
+ * \section tun_msg IP Tunnelling with Tsi721 User Mode Driver (MBOX)
+ *
+ * Like DMA transactions, RapidIO messaging packets can also be
+ * used to  transport IP frames.    
+ *
+ * Messaging (MBOX) tunnelling uses the same client/server architecture 
+ * documented in \ref tun_dma.
+ *
+ * UGoodput should be started as follows for messaging based tunnelling:
+ * ugoodput 0 buf=100 sts=400
+ *
+ * Once UGoodput has started, run the umsgtun script as follows:
+ * . umsgtun
+ *
+ * Note: A tunX device will be configured at IP address 169.254.x.y,
+ * where x.y is destid+1.  The message MTU is always 4092 bytes.
+ *
+ * Note: Due in part to larger allowable MTU,  DMA Tunnelling generally 
+ * delivers higher throughput.
  *
  */
