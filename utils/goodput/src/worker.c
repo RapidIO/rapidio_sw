@@ -757,7 +757,7 @@ int single_dma_access(struct worker *info, uint64_t offset)
 						ADDR_P(info->rdma_ptr, offset),
 						info->acc_size,
 						info->dma_sync_type);
-	} while ((EINTR == dma_rc) || (EBUSY == dma_rc) || (EAGAIN == dma_rc));
+	} while ((EINTR == -dma_rc) || (EBUSY == -dma_rc) || (EAGAIN == -dma_rc));
 
 	return dma_rc;
 };
@@ -815,15 +815,27 @@ void dma_goodput(struct worker *info)
 		*/
 		for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
-			dma_rc = single_dma_access(info, cnt);
+			// FAF transactions go so fast they can overwhelm the
+			// small kernel transmit buffer.  Attempt the 
+			// transaction until the resource is not busy.
+			do {
+				dma_rc = single_dma_access(info, cnt);
+				if (dma_rc < 0)
+					sleep(0);
+// FIXME: when libmport is fixed to return negative return codes,
+// this statement should be fixed to check -dma_rc
+			} while  ((EBUSY == dma_rc) && 
+                        (RIO_DIRECTIO_TRANSFER_FAF == info->dma_sync_type));
 
-			if (RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
+			if ((RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
+				&& (dma_rc > 0))
 			{
 				do {
 					dma_rc = riomp_dma_wait_async(
 						info->mp_h, dma_rc, 0);
-				} while ((EINTR == dma_rc) || (EBUSY == dma_rc)
-					|| (EAGAIN == dma_rc));
+				} while ((EINTR == -dma_rc)
+					|| (EBUSY == -dma_rc)
+					|| (EAGAIN == -dma_rc));
 			};
 			if (dma_rc) {
 				ERR("FAILED: dma transfer rc %d:%s\n",
@@ -910,9 +922,9 @@ void dma_rx_latency(struct worker *info)
 		dma_rc = single_dma_access(info, 0);
 		info->perf_iter_cnt ++;
 		*tx_flag = info->perf_iter_cnt;
-		if (dma_rc) {
+		if (dma_rc < 0) {
 			ERR("FAILED: dma transfer rc %d:%s\n",
-					dma_rc, strerror(errno));
+					-dma_rc, strerror(errno));
 			goto exit;
 		};
 	};

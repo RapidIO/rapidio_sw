@@ -222,7 +222,7 @@ void send_dma_buffer(struct fxfr_tx_state *info, int idx)
 				RIO_DIRECTIO_TRANSFER_SYNC);
 		};
 	};
-	if (rc) {
+	if (rc < 0) {
 		info->fail_abort = 1;
 		info->bytes_txed = 0;
 	} else {
