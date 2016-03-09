@@ -688,7 +688,9 @@ static void cps1xxx_dump_event_log(struct riocp_pe *sw)
 			for(i=0;i<EVENT_NAME_COUNT;i++)
 				if(event_name_set[i].id == evt_name)
 					evt_name_str = event_name_set[i].txt;
-			RIOCP_INFO("0x%04x %s %s\n", log_data, evt_src_str, evt_name_str);
+			RIOCP_INFO("[0x%08x:%s:hc %u] %s %s\n",
+					sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
+					evt_src_str, evt_name_str);
 		}
 	} while(ret == 0 && log_data != 0);
 }

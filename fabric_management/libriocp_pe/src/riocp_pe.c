@@ -1697,13 +1697,16 @@ int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum rioc
 				goto outhere;
 			}
 
+			RIOCP_INFO("[0x%08x:%s:hc %u] Port %u auto speed port state is %d\n",
+				pe->comptag, RIOCP_SW_DRV_NAME(pe), pe->hopcount, port, port_state);
+
 			if (port_state & RIOCP_PE_PORT_STATE_OK)
 				goto outhere;
 
 			for (i=0;i<sizeof(supported_speeds)/sizeof(supported_speeds[0]);i++) {
 				speed = supported_speeds[i];
 
-				RIOCP_DEBUG("[0x%08x:%s:hc %u] Port %u test speed %u\n",
+				RIOCP_INFO("[0x%08x:%s:hc %u] Port %u test speed %u\n",
 					pe->comptag, RIOCP_SW_DRV_NAME(pe), pe->hopcount, port, speed);
 
 				ret = riocp_pe_switch_set_port_speed(pe, port, speed);
@@ -1743,7 +1746,7 @@ int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum rioc
 			}
 		}
 speedchg:
-		RIOCP_DEBUG("[0x%08x:%s:hc %u] Port %u speed changed to %u\n",
+		RIOCP_INFO("[0x%08x:%s:hc %u] Port %u speed changed to %u\n",
 			pe->comptag, RIOCP_SW_DRV_NAME(pe), pe->hopcount, port, speed);
 
 	} else {
