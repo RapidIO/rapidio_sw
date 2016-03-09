@@ -95,6 +95,7 @@ struct fmd_state *fmd;
 
 void custom_quit(cli_env *env)
 {
+	riocp_pe_destroy_handle(&mport_pe);
 	shutdown_mgmt();
 	halt_app_handler();
 	cleanup_app_handler();
@@ -448,21 +449,22 @@ int setup_mport_master(int mport)
 
 	if (cfg_find_mport(mport, &mp)) {
 		CRIT("\nCannot find configured mport, exiting...\n");
-		exit(EXIT_FAILURE);
+		return 1;
 	};
 
 	comptag = mp.ct;
 
 	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
 		CRIT("\nCannot find configured mport device, exiting...\n");
-		exit(EXIT_FAILURE);
+		return 1;
 	};
 
 	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &pe_mpsw_rw_driver,
 			&comptag, (char *)cfg_dev.name)) {
 		CRIT("\nCannot create host handle mport %d, exiting...",
 			mport);
-		exit(EXIT_FAILURE);
+		riocp_pe_destroy_handle(&mport_pe);
+		return 1;
 	};
 
 	return fmd_traverse_network(mport, mport_pe, &cfg_dev);
@@ -480,32 +482,32 @@ int setup_mport_slave(int mport, uint32_t m_did, uint32_t m_cm_port)
 
 	if (cfg_find_mport(mport, &mp)) {
 		CRIT("\nCannot find configured mport, exiting...\n");
-		exit(EXIT_FAILURE);
+		return 1;
 	};
 
 	comptag = mp.ct;
 
 	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
 		CRIT("\nCannot find configured mport device, exiting...\n");
-		exit(EXIT_FAILURE);
+		return 1;
 	};
 
 	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0,
 			&pe_mpsw_rw_driver, &comptag, (char *)cfg_dev.name)) {
 		CRIT("\nCannot create agent handle, exiting...\n");
-		exit(EXIT_FAILURE);
+		return 1;
 	};
 
 	ret = riocp_pe_handle_get_private(mport_pe, (void **)&p_dat);
 	if (ret) {
 		CRIT("\nCannot retrieve mport private data, exiting...\n");
-		exit(EXIT_FAILURE);
+		return 1;
 	};
 
 	acc_p = (mpsw_drv_pe_acc_info *)p_dat->dev_h.accessInfo;
 	if ((NULL == acc_p) || !acc_p->maint_valid) {
 		CRIT("\nMport access info is NULL, exiting...\n");
-		exit(EXIT_FAILURE);
+		return 1;
 	};
 
 	/* Poll to add the FMD master devices until the master
@@ -534,7 +536,7 @@ int setup_mport_slave(int mport, uint32_t m_did, uint32_t m_cm_port)
 
 void setup_mport(struct fmd_state *fmd)
 {
-	int rc = 0;
+	int rc = 1;
 	int mport = 0;
 	STATUS dsf_rc;
 
@@ -543,12 +545,12 @@ void setup_mport(struct fmd_state *fmd)
                                 SRIO_API_DelayFunc);
         if (dsf_rc) {
                 CRIT("\nCannot initialize RapidIO APIs...\n");
-                exit(EXIT_FAILURE);
+		goto fail;
         };
 
         if (riocp_bind_driver(&pe_mpsw_driver)) {
                 CRIT("\nFailed to bind riocp driver, exiting...\n");
-                exit(EXIT_FAILURE);
+		goto fail;
         };
 
 	fmd->mp_h = &mport_pe;
@@ -558,9 +560,10 @@ void setup_mport(struct fmd_state *fmd)
 	else
 		rc = setup_mport_slave(mport, fmd->opts->mast_devid,
 						fmd->opts->mast_cm_port);
-
+fail:
 	if (rc) {
 		CRIT("\nNetwork initialization failed...\n");
+		riocp_pe_destroy_handle(&mport_pe);
 	};
 }
 
