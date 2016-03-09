@@ -38,7 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdma_msg.h"
 #include "msg_processor.h"
 #include "liblog.h"
-#include "rdmad_dispatch.h"
+#include "rdmad_l2d_dispatch.h"
 #include "tx_engine.h"
 #include "rdmad_tx_engine.h"
 
