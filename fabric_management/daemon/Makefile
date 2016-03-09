@@ -52,8 +52,9 @@ DAEMON=./
 
 LOCAL_LIBRARY_DIR ?= libs_a
 
-LIB_DIRS?= -L$(COMMON_DIR)/libs_so -L../$(LOCAL_LIBRARY_DIR)
-	
+LIBS_RPATH?=-Wl,-rpath=$(COMMON_DIR)/libs_so
+
+LIB_DIRS?= -L$(COMMON_DIR)/libs_so -L../$(LOCAL_LIBRARY_DIR) $(LIBS_RPATH)
 
 CXX ?= $(CROSS_COMPILE)g++
 AR ?= $(CROSS_COMPILE)ar
