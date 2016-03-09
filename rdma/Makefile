@@ -56,6 +56,8 @@ LIB_DIRS = \
 	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
 	-L$(TOP_LEVEL)/fabric_management/libdd
 
+LIBS_RPATH?=-Wl,-rpath=$(COMMON_DIR)/libs_so
+
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
 
@@ -119,7 +121,7 @@ librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.so ----------
 	$(CXX) $(RDMALIB_SHARED_CFLAGS) $(RDMALIB_SOURCES)
-	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
+	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) $(LIBS_RPATH) \
 	-o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -ldl -lrt -ltime_utils -lmport -llog -pthread -lfmdd -ldd -lriocp_pe
 
 # The RDMA static library
@@ -138,7 +140,7 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR
 	daemon/src/*.h $(INCLUDE_DIR)/*.h
 
 	@echo ---------- Building the RDMA Daemon...
-	$(CXX) -L../common/liblist/ $(LIB_DIRS) -L$(MPORTLIB_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
+	$(CXX) -L../common/liblist/ $(LIB_DIRS) -L$(MPORTLIB_PATH) $(LIBS_RPATH) \
 	-Wl,-rpath=$(TOP_LEVEL)/common/liblist \
 	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -llist -ldl -lrt -ltime_utils -lmport -lcli -llog -lfmdd -ldd -lriocp_pe -pthread
 # Building preprocessor output for select files.
@@ -150,7 +152,7 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR
 rrdma:  $(REMDBG_SOURCES)
 	@echo ---------- Building remote debug CLI ...
 	$(CXX) $(RDMAD_CFLAGS) -L$(MPORT_DIR) $(LIB_DIRS) \
-	-Wl,-rpath=$(MPORT_DIR) \
+	$(LIBS_RPATH) \
 	-o $@ $(REMDBG_SOURCES) \
 	-lcli -lrt -ldl -ltime_utils -lmport -llog -pthread
 
