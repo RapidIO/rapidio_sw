@@ -42,11 +42,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "pciebar.h"
 #include "mport.h"
-#include "liblog.h"
 
 #include "IDT_Tsi721.h"
 #include "tsi721_dma.h"
-#include "liblog.h"
+//#include "liblog.h"
 
 extern "C" {
 #include "rapidio_mport_dma.h"
@@ -60,33 +59,31 @@ extern "C" {
  */
 RioMport::RioMport(const int mportid)
 {
-	int rc;
-	m_portid = mportid;
-	is_my_mport_handle = 1;
-	rc = riomp_mgmt_mport_create_handle(m_portid, 0, &mp_h);
+  int rc;
+  m_portid = mportid;
+  is_my_mport_handle = 1;
+  rc = riomp_mgmt_mport_create_handle(m_portid, 0x666, &mp_h);
 
-	if(rc) {
-		CRIT("Failed to open mport%d %d:%s",
-					m_portid, rc, strerror(errno));
-		throw std::runtime_error("Failed to open mport");
-	}
+  if(rc) {
+    printf("Failed to open mport%d %d:%s", m_portid, rc, strerror(errno));
+    throw std::runtime_error("Failed to open mport");
+  }
 
-	rc = riomp_mgmt_query(mp_h, &m_props);
-	if (rc) {
-		riomp_mgmt_mport_destroy_handle(&mp_h);
+  rc = riomp_mgmt_query(mp_h, &m_props);
+  if (rc) {
+    riomp_mgmt_mport_destroy_handle(&mp_h);
 
-		CRIT("Failed to query mport%d %d:%s",
-					m_portid, rc, strerror(errno));
-		throw std::runtime_error("Failed to query mport");
-	};
+    printf("Failed to query mport%d %d:%s", m_portid, rc, strerror(errno));
+    throw std::runtime_error("Failed to query mport");
+  };
 
-	try {
-		m_bar0 = new PCIeBAR(m_portid, 0);                    
-	} catch(std::runtime_error e) {
-		riomp_mgmt_mport_destroy_handle(&mp_h);
-		throw std::runtime_error("failed PCIeBAR");
-	}
-	m_bar0_base_ptr = m_bar0->getMem(m_bar0_size); 
+  try {
+    m_bar0 = new PCIeBAR(m_portid, 0);                    
+  } catch(std::runtime_error e) {
+    riomp_mgmt_mport_destroy_handle(&mp_h);
+    throw std::runtime_error("failed PCIeBAR");
+  }
+  m_bar0_base_ptr = m_bar0->getMem(m_bar0_size); 
 }
 
 /** \brief Creates an instance of RioMport class
@@ -100,26 +97,25 @@ RioMport::RioMport(const int mportid)
  */
 RioMport::RioMport(const int mportid, riomp_mport_t mp_h_in)
 {
-	int rc;
-	m_portid = mportid;
+  int rc;
+  m_portid = mportid;
 
 
-	is_my_mport_handle = 0;
-	mp_h = mp_h_in;
+  is_my_mport_handle = 0;
+  mp_h = mp_h_in;
 
-	rc = riomp_mgmt_query(mp_h, &m_props);
-	if (rc) {
-		CRIT("Failed to query mport%d %d:%s",
-					m_portid, rc, strerror(errno));
-		throw std::runtime_error("Failed to query mport");
-	};
+  rc = riomp_mgmt_query(mp_h, &m_props);
+  if (rc) {
+    printf("Failed to query mport%d %d:%s", m_portid, rc, strerror(errno));
+    throw std::runtime_error("Failed to query mport");
+  };
 
-	try {
-		m_bar0 = new PCIeBAR(m_portid, 0);                    
-	} catch(std::runtime_error e) {
-		throw std::runtime_error("failed PCIeBAR");
-	}
-	m_bar0_base_ptr = m_bar0->getMem(m_bar0_size); 
+  try {
+    m_bar0 = new PCIeBAR(m_portid, 0);                    
+  } catch(std::runtime_error e) {
+    throw std::runtime_error("failed PCIeBAR");
+  }
+  m_bar0_base_ptr = m_bar0->getMem(m_bar0_size); 
 }
 
 /** \brief Request an inbound HW memory window from mport_cdev
@@ -129,31 +125,27 @@ RioMport::RioMport(const int mportid, riomp_mport_t mp_h_in)
  */
 bool RioMport::map_ibwin(const uint32_t size, DmaMem_t& ibwin)
 {
-	/* First, obtain an inbound handle from the mport driver */
-	int ret = riomp_dma_ibwin_map(mp_h, &ibwin.rio_address, size,
-							&ibwin.win_handle);
-	if (ret) {
-		CRIT("Failed to map ibwin %d:%s",
-					ret, strerror(errno));
-		return false;
-	};
+  /* First, obtain an inbound handle from the mport driver */
+  int ret = riomp_dma_ibwin_map(mp_h, &ibwin.rio_address, size, &ibwin.win_handle);
+  if (ret) {
+    printf("Failed to map ibwin %d:%s", ret, strerror(errno));
+    return false;
+  };
 
-	/* Memory-map the inbound window */
-	ret = riomp_dma_map_memory(mp_h, size, ibwin.win_handle,
-								&ibwin.win_ptr);
-	if (ret) {
-		riomp_dma_ibwin_free(mp_h, &ibwin.win_handle);
-		CRIT("Failed to memory map ibwin %d %d:%s",
-					ret, strerror(errno));
-		return false;
-	};
+  /* Memory-map the inbound window */
+  ret = riomp_dma_map_memory(mp_h, size, ibwin.win_handle, &ibwin.win_ptr);
+  if (ret) {
+    riomp_dma_ibwin_free(mp_h, &ibwin.win_handle);
+    printf("Failed to memory map ibwin %d %d:%s", ret, strerror(errno));
+    return false;
+  };
 
-	ibwin.type = IBWIN;
-	ibwin.win_size = size;
+  ibwin.type = IBWIN;
+  ibwin.win_size = size;
 
-	m_dmaibwin_reg[ibwin.win_handle] = ibwin;
+  m_dmaibwin_reg[ibwin.win_handle] = ibwin;
 
-	return true;
+  return true;
 }
 
 /** \brief Release an inbound HW memory window to mport_cdev
@@ -164,81 +156,81 @@ bool RioMport::map_ibwin(const uint32_t size, DmaMem_t& ibwin)
 
 bool RioMport::unmap_ibwin(DmaMem_t& ibwin)
 {
-	bool ret = true;
-	int rc;
+  bool ret = true;
+  int rc;
 
-	if(ibwin.type != IBWIN)
-		throw std::runtime_error("RioMport: Invalid type for ibwin!");
+  if(ibwin.type != IBWIN)
+    throw std::runtime_error("RioMport: Invalid type for ibwin!");
 
-	std::map <uint64_t, DmaMem_t>::iterator it
-				= m_dmaibwin_reg.find(ibwin.win_handle);
-	if (it == m_dmaibwin_reg.end())
-		throw std::runtime_error("RioMport: Invalid DMA ibwin to unmap"
-					" -- does NOT belog to this instance!");
+  std::map <uint64_t, DmaMem_t>::iterator it
+        = m_dmaibwin_reg.find(ibwin.win_handle);
+  if (it == m_dmaibwin_reg.end())
+    throw std::runtime_error("RioMport: Invalid DMA ibwin to unmap"
+          " -- does NOT belog to this instance!");
 
-	m_dmaibwin_reg.erase(it);
+  m_dmaibwin_reg.erase(it);
 
-	/* Memory-unmap the inbound window's virtual pointer */
-	rc = riomp_dma_unmap_memory(mp_h, ibwin.win_size, ibwin.win_ptr);
-	if (rc) {
-    		CRIT("Failed to unmap inbound memory: @%p %d:%s\n",
-			ibwin.win_ptr, ret, strerror(ret));
-		/* Don't return; still try to free the inbound window */
-		ret = false;
-	}
+  /* Memory-unmap the inbound window's virtual pointer */
+  rc = riomp_dma_unmap_memory(mp_h, ibwin.win_size, ibwin.win_ptr);
+  if (rc) {
+    printf("Failed to unmap inbound memory: @%p %d:%s\n",
+         ibwin.win_ptr, ret, strerror(ret));
+    /* Don't return; still try to free the inbound window */
+    ret = false;
+  }
 
-	/* Free the inbound window via the mport driver */
-	rc = riomp_dma_ibwin_free(mp_h, &ibwin.win_handle);
-	if (rc) {
-    		CRIT("Failed to free inbound memory: %d:%s\n",
-							ret, strerror(ret));
-		/* Don't return; still try to free the inbound window */
-		ret = false;
-	}
+  /* Free the inbound window via the mport driver */
+  rc = riomp_dma_ibwin_free(mp_h, &ibwin.win_handle);
+  if (rc) {
+        printf("Failed to free inbound memory: %d:%s\n",
+              ret, strerror(ret));
+    /* Don't return; still try to free the inbound window */
+    ret = false;
+  }
 
-	return ret;
+  return ret;
 }
 
 int RioMport::lcfg_read(uint32_t offset, uint32_t size, uint32_t *data)
 {
-	if(data == NULL)
-		return -1;
+  if(data == NULL)
+    return -1;
 
-	return riomp_mgmt_lcfg_read(mp_h, offset, size, data);
+  return riomp_mgmt_lcfg_read(mp_h, offset, size, data);
 }
 
 int RioMport::lcfg_read_u32(uint32_t offset, uint32_t *data)
 {
-	return riomp_mgmt_lcfg_read(mp_h, offset, 4, data);
+  return riomp_mgmt_lcfg_read(mp_h, offset, 4, data);
 }
 
 bool RioMport::check_ibwin_reg()
 {
-	int found_one = 0;
-	uint32_t regval, regval2;
+  int found_one = 0;
+  uint32_t regval, regval2;
 
-	// Check that inbound window mapping isn't broken...
-	for (int i = 0; i < 8; i++) {
-		if (lcfg_read_u32(TSI721_IBWIN_LBX(i), &regval))
-			goto fail;
+  // Check that inbound window mapping isn't broken...
+  for (int i = 0; i < 8; i++) {
+    if (lcfg_read_u32(TSI721_IBWIN_LBX(i), &regval))
+      goto fail;
 
-		if (regval & TSI721_IBWIN_LBX_WIN_EN) {
-			uint64_t ib_win = 0;
+    if (regval & TSI721_IBWIN_LBX_WIN_EN) {
+      uint64_t ib_win = 0;
 
-			if (lcfg_read_u32(TSI721_IBWIN_UBX(i), &regval2))
-				goto fail;
+      if (lcfg_read_u32(TSI721_IBWIN_UBX(i), &regval2))
+        goto fail;
 
-			ib_win = ((uint64_t)(regval2) << 32) + regval;
-			printf("Tsi721: IBWIN %d RIOADDR 0x%lx\n", i, ib_win);
-			if (found_one)
-				printf("Tsi721: Multiple ib win!\n");
-			found_one++;
-		}
-	}
+      ib_win = ((uint64_t)(regval2) << 32) + regval;
+      printf("Tsi721: IBWIN %d RIOADDR 0x%lx\n", i, ib_win);
+      if (found_one)
+        printf("Tsi721: Multiple ib win!\n");
+      found_one++;
+    }
+  }
 
-	return true;
+  return true;
 fail:
-	return false;
+  return false;
 }
 
 /** \brief Request a DMA buffer in HW memory from mport_cdev
@@ -248,33 +240,33 @@ fail:
  */
 bool RioMport::map_dma_buf(uint32_t size, DmaMem_t& mem)
 {
-	int ret;
-	if ((size % 4096) != 0) {
-		int k = size / 4096;
-		k++;
-		size = k * 4096;
-	}
+  int ret;
+  if ((size % 4096) != 0) {
+    int k = size / 4096;
+    k++;
+    size = k * 4096;
+  }
 
-	ret = riomp_dma_dbuf_alloc(mp_h, size, &mem.win_handle);
-	if (ret) {
-    		CRIT("riodp_dbuf_alloc failed: %d:%s\n", ret, strerror(ret));
-		return false;
-	}
+  ret = riomp_dma_dbuf_alloc(mp_h, size, &mem.win_handle);
+  if (ret) {
+        printf("riodp_dbuf_alloc failed: %d:%s\n", ret, strerror(ret));
+    return false;
+  }
 
-	ret = riomp_dma_map_memory(mp_h, size, mem.win_handle, &mem.win_ptr);
-  	if (ret) {
-    		riomp_dma_dbuf_free(mp_h, &mem.win_handle);
-		mem.win_handle = 0;
-    		CRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(ret));
-		return false;
-	};
+  ret = riomp_dma_map_memory(mp_h, size, mem.win_handle, &mem.win_ptr);
+    if (ret) {
+        riomp_dma_dbuf_free(mp_h, &mem.win_handle);
+    mem.win_handle = 0;
+        printf("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(ret));
+    return false;
+  };
 
-	mem.type = DMAMEM;
-	mem.win_size = size;
+  mem.type = DMAMEM;
+  mem.win_size = size;
 
-	m_dmatxmem_reg[mem.win_handle] = mem;
+  m_dmatxmem_reg[mem.win_handle] = mem;
 
-	return true;
+  return true;
 }
 
 /** \brief Release a DMA buffer in HW memory to mport_cdev
@@ -284,53 +276,53 @@ bool RioMport::map_dma_buf(uint32_t size, DmaMem_t& mem)
  */
 bool RioMport::unmap_dma_buf(DmaMem_t& mem)
 {
-	int rc;
-	bool ret = true;
+  int rc;
+  bool ret = true;
 
-	if(mem.type != DMAMEM)
-		throw std::runtime_error("RioMport: Invalid type for DMA buffer!");
+  if(mem.type != DMAMEM)
+    throw std::runtime_error("RioMport: Invalid type for DMA buffer!");
 
-	std::map <uint64_t, DmaMem_t>::iterator it =
-					m_dmatxmem_reg.find(mem.win_handle);
-	if (it == m_dmatxmem_reg.end())
-		throw std::runtime_error("RioMport: Invalid DMA buffer to unmap -- does NOT belog to this instance!");
+  std::map <uint64_t, DmaMem_t>::iterator it =
+          m_dmatxmem_reg.find(mem.win_handle);
+  if (it == m_dmatxmem_reg.end())
+    throw std::runtime_error("RioMport: Invalid DMA buffer to unmap -- does NOT belog to this instance!");
 
-	DmaMem_t mymem = it->second;
+  DmaMem_t mymem = it->second;
 
-	m_dmatxmem_reg.erase(it);
+  m_dmatxmem_reg.erase(it);
 
-	rc = riomp_dma_unmap_memory(mp_h, mymem.win_size, mymem.win_ptr);
-	if (rc) {
-    		CRIT("FAIL riomp_dma_unmap_memory: %d:%s\n", rc, strerror(rc));
-		ret = false;
-	}
+  rc = riomp_dma_unmap_memory(mp_h, mymem.win_size, mymem.win_ptr);
+  if (rc) {
+        printf("FAIL riomp_dma_unmap_memory: %d:%s\n", rc, strerror(rc));
+    ret = false;
+  }
 
-	rc = riomp_dma_dbuf_free(mp_h, &mem.win_handle);
-	if (rc) {
-    		CRIT("FAIL riomp_dma_dbuf_free: %d:%s\n", rc, strerror(rc));
-		ret = false;
-	}
+  rc = riomp_dma_dbuf_free(mp_h, &mem.win_handle);
+  if (rc) {
+        printf("FAIL riomp_dma_dbuf_free: %d:%s\n", rc, strerror(rc));
+    ret = false;
+  }
 
-	return ret;
+  return ret;
 }
 
 #ifdef MPORT_TEST
 int main()
 {
-	RioMport mp(0);
+  RioMport mp(0);
  
-	RioMport::DmaMem_t ibwin; memset(&ibwin, 0, sizeof(ibwin));
-	mp.map_ibwin(2097152, ibwin);
-	printf("Got HW DMA ibwin @0x%llx\n", ibwin.win_handle);
-	mp.unmap_ibwin(ibwin);
+  RioMport::DmaMem_t ibwin; memset(&ibwin, 0, sizeof(ibwin));
+  mp.map_ibwin(2097152, ibwin);
+  printf("Got HW DMA ibwin @0x%llx\n", ibwin.win_handle);
+  mp.unmap_ibwin(ibwin);
 
-	RioMport::DmaMem_t mem; memset(&mem, 0, sizeof(mem));
+  RioMport::DmaMem_t mem; memset(&mem, 0, sizeof(mem));
 
-	mp.map_dma_buf(4096*10, mem);
-	printf("Got HW DMA mem @0x%llx\n", mem.win_handle);
+  mp.map_dma_buf(4096*10, mem);
+  printf("Got HW DMA mem @0x%llx\n", mem.win_handle);
 
-	mp.unmap_dma_buf(mem);
+  mp.unmap_dma_buf(mem);
 
-	return 0;
+  return 0;
 }
 #endif

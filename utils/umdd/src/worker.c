@@ -690,13 +690,12 @@ void umd_dma_goodput_demo(struct worker *info)
 		uint64_t iq;
 		info->umd_dma_abort_reason = 0;
 	
-        	for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
-							cnt += info->acc_size) {
+        	for (cnt = 0; info->stop_req; cnt += info->acc_size) {
 			if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = __LINE__; break; }
 
 			info->dmaopt[oi].destid      = info->did;
 			info->dmaopt[oi].bcount      = info->acc_size;
-			info->dmaopt[oi].raddr.lsb64 = info->rio_addr + cnt;
+			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;
 
 			bool q_was_full = info->umd_dch->queueFull();
 			info->umd_dma_abort_reason = 0;
@@ -724,7 +723,7 @@ void umd_dma_goodput_demo(struct worker *info)
 				goto exit;
 			}
 
-			info->perf_byte_cnt = info->umd_dch->getBytesTxed();
+			info->perf_byte_cnt = info->umd_dch->getBytesEnqueued();
 
 			// Busy-wait for queue to drain
 			for (iq = 0; !info->stop_req && q_was_full && 

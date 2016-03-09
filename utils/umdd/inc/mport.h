@@ -48,7 +48,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "pciebar.h"
 #include "local_endian.h"
 
-#include "liblog.h"
+#ifdef RDMA_LL
+ #include "liblog.h"
+#endif
 #include "IDT_Tsi721.h"
 #include "tsi721_dma.h"
 
@@ -58,8 +60,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "debug.h"
 
-#if defined(REGDEBUG)
-  #define REGDBG(format, ...) DBG(stdout, format, __VA_ARGS__)
+#if defined(REGDEBUG) && defined(RDMA_LL)
+  #define REGDBG(format, ...) DBG(format, __VA_ARGS__)
 #else
   #define REGDBG(format, ...)
 #endif
@@ -67,137 +69,142 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /** \brief A class to encapsulate mport_cdev and low level DMA buffer ops */
 class RioMport {
 public:
-	static const int DMA_CHAN_COUNT  = 8;
-	static const int MBOX_CHAN_COUNT = 8;
+  static const int DMA_CHAN_COUNT  = 8;
+  static const int MBOX_CHAN_COUNT = 8;
 
-	typedef enum { IBWIN = 1, DMAMEM = 2 } DmaMemType_t;
+  typedef enum { IBWIN = 1, DMAMEM = 2, DONOTCHECK = 42 } DmaMemType_t;
 
-	typedef struct {
-		DmaMemType_t type;
-		uint64_t     rio_address;
-		uint64_t     win_handle; ///< physical mem address
-		void*        win_ptr;    ///< mmaped   mem address
-		uint32_t     win_size;
-	} DmaMem_t;
+  typedef struct {
+    DmaMemType_t type;
+    uint64_t     rio_address;
+    uint64_t     win_handle; ///< physical mem address
+    void*        win_ptr;    ///< mmaped   mem address
+    uint32_t     win_size;
+  } DmaMem_t;
 
-	RioMport(const int mportid);
-	RioMport(const int mportid, riomp_mport_t mp_h_in);
-	~RioMport()
-	{
-		delete m_bar0;
-		if (is_my_mport_handle)
-			riomp_mgmt_mport_destroy_handle(&mp_h);
-	}
+  RioMport(const int mportid);
+  RioMport(const int mportid, riomp_mport_t mp_h_in);
 
-	int getDeviceId() { return m_props.hdid; }
-	uint8_t getLinkSpeed() { return m_props.link_speed; }
+  ~RioMport()
+  {
+    delete m_bar0;
+    if (is_my_mport_handle)
+      riomp_mgmt_mport_destroy_handle(&mp_h);
+  }
 
-	#define rd32(o) _rd32((o), #o)
-	/** \brief Read a 32 bit mmaped register
-	* \param[in] offset Tsi721 register to read
-	* \param[in] offset_str Code fragment used to compute offset
-	* \return contents of register
-	*/
-	inline uint32_t _rd32(const uint32_t offset, const char* offset_str)
-	{
-		uint32_t ret = le32(*((volatile uint32_t *)
-					((uint8_t *)m_bar0_base_ptr + offset)));
-		REGDBG("\n\tR offset %s (0x%x) = 0x%x\n", offset_str, offset, ret);
-		return ret;
-	}
+  int getDeviceId() { return m_props.hdid; }
+  uint8_t getLinkSpeed() { return m_props.link_speed; }
 
-	inline uint32_t __rd32(const uint32_t offset)
-	{
-		uint32_t ret = le32(*((volatile uint32_t *)
-					((uint8_t *)m_bar0_base_ptr + offset)));
-		REGDBG("\n\tR offset (0x%x) = 0x%x\n", offset, ret);
-		return ret;
-	}
+  #define rd32(o) _rd32((o), #o)
+  /** \brief Read a 32 bit mmaped register
+  * \param[in] offset Tsi721 register to read
+  * \param[in] offset_str Code fragment used to compute offset
+  * \return contents of register
+  */
+  inline uint32_t _rd32(const uint32_t offset, const char* offset_str)
+  {
+    uint32_t ret = le32(*((volatile uint32_t *)
+          ((uint8_t *)m_bar0_base_ptr + offset)));
+    REGDBG("\n\tR offset %s (0x%x) = 0x%x\n", offset_str, offset, ret);
+    return ret;
+  }
 
-	#define wr32(o, d) _wr32((o), #o, (d), #d)
-	/** \brief Write a 32 bit mmaped register
-	* \param[in] offset Tsi721 register to write
-	* \param[in] offset_str Code fragment used to compute offset
-	* \param[in] data Data value to be written at offset
-	* \param[in] data_str Code fragment used to compute data
-	* \param data data to be written to register
-	*/
-	inline void _wr32(const uint32_t offset, const char* offset_str,
-				const uint32_t data, const char* data_str)
-	{
-		REGDBG("\n\tW offset %s (0x%x) :=  %s (0x%x)\n",
-				offset_str, offset, data_str, data);
-		*((volatile uint32_t *)
-			((uint8_t *)m_bar0_base_ptr + offset)) = le32(data);
-	}
+  inline uint32_t __rd32(const uint32_t offset)
+  {
+    uint32_t ret = le32(*((volatile uint32_t *)
+          ((uint8_t *)m_bar0_base_ptr + offset)));
+    REGDBG("\n\tR offset (0x%x) = 0x%x\n", offset, ret);
+    return ret;
+  }
 
-	inline void     __wr32(const uint32_t offset, const uint32_t data)
-	{
-		REGDBG("\n\tR offset 0x%x := 0x%x\n", offset, data);
-		*((volatile uint32_t *)
-			((uint8_t *)m_bar0_base_ptr + offset)) = le32(data);
-	}
+  #define wr32(o, d) _wr32((o), #o, (d), #d)
+  /** \brief Write a 32 bit mmaped register
+  * \param[in] offset Tsi721 register to write
+  * \param[in] offset_str Code fragment used to compute offset
+  * \param[in] data Data value to be written at offset
+  * \param[in] data_str Code fragment used to compute data
+  * \param data data to be written to register
+  */
+  inline void _wr32(const uint32_t offset, const char* offset_str,
+        const uint32_t data, const char* data_str)
+  {
+    REGDBG("\n\tW offset %s (0x%x) :=  %s (0x%x)\n",
+        offset_str, offset, data_str, data);
+    *((volatile uint32_t *)
+      ((uint8_t *)m_bar0_base_ptr + offset)) = le32(data);
+  }
+
+  inline void     __wr32(const uint32_t offset, const uint32_t data)
+  {
+    REGDBG("\n\tR offset 0x%x := 0x%x\n", offset, data);
+    *((volatile uint32_t *)
+      ((uint8_t *)m_bar0_base_ptr + offset)) = le32(data);
+  }
 
 
-	/** \brief Read a 32 bit DMA channel mmaped register
-	* \throws std::runtime_error
-	* \param chan DMA channel 0..7 to read
-	* \param offset Tsi721 DMA register to read
-	* \return contents of register
-	*/
-	inline uint32_t __rd32dma(const uint32_t chan, const uint32_t offset)
-	{
-		if (chan >= DMA_CHAN_COUNT)
-  			throw std::runtime_error("RioMport: Invalid DMA channel to read!");
-		return __rd32(TSI721_DMAC_BASE(chan) + offset);
-	}
+  /** \brief Read a 32 bit DMA channel mmaped register
+  * \throws std::runtime_error
+  * \param chan DMA channel 0..7 to read
+  * \param offset Tsi721 DMA register to read
+  * \return contents of register
+  */
+  inline uint32_t __rd32dma(const uint32_t chan, const uint32_t offset)
+  {
+    if (chan >= DMA_CHAN_COUNT)
+        throw std::runtime_error("RioMport: Invalid DMA channel to read!");
+    return __rd32(TSI721_DMAC_BASE(chan) + offset);
+  }
 
-	/** \brief Write a 32 bit DMA channel mmaped register
-	 * \throws std::runtime_error
-	 * \param chan DMA channel 0..7 to write
-	 * \param offset Tsi721 DMA register to write
-	 * \param data data write
-	 * \return contents of register
-	 */
-	inline void __wr32dma(const uint32_t chan, const uint32_t offset,
-							const uint32_t data)
-	{
-		if (chan >= DMA_CHAN_COUNT)
-			throw std::runtime_error(
-				"RioMport: Invalid DMA channel to write!");
-		__wr32(TSI721_DMAC_BASE(chan) + offset, data);
-	}
+  /** \brief Write a 32 bit DMA channel mmaped register
+   * \throws std::runtime_error
+   * \param chan DMA channel 0..7 to write
+   * \param offset Tsi721 DMA register to write
+   * \param data data write
+   * \return contents of register
+   */
+  inline void __wr32dma(const uint32_t chan, const uint32_t offset,
+              const uint32_t data)
+  {
+    if (chan >= DMA_CHAN_COUNT)
+      throw std::runtime_error(
+        "RioMport: Invalid DMA channel to write!");
+    __wr32(TSI721_DMAC_BASE(chan) + offset, data);
+  }
 
-	bool map_ibwin(const uint32_t size, DmaMem_t& ibwin);
-	bool unmap_ibwin(DmaMem_t& ibwin);
-	bool check_ibwin_reg();
+  bool map_ibwin(const uint32_t size, DmaMem_t& ibwin);
+  bool unmap_ibwin(DmaMem_t& ibwin);
+  bool check_ibwin_reg();
 
-	int lcfg_read(uint32_t offset, uint32_t size, uint32_t* data);
-	int lcfg_read_u32(uint32_t offset, uint32_t* data);
+  int lcfg_read(uint32_t offset, uint32_t size, uint32_t* data);
+  int lcfg_read_u32(uint32_t offset, uint32_t* data);
 
-	bool map_dma_buf(uint32_t size, DmaMem_t& mem);
-	bool unmap_dma_buf(DmaMem_t& mem);
+  bool map_dma_buf(uint32_t size, DmaMem_t& mem);
+  bool unmap_dma_buf(DmaMem_t& mem);
 
-	/** \brief Check whether a DMA buffer is allocated by this instance
-	 *  */
-	inline bool check_dma_buf(DmaMem_t& mem)
-	{
-		std::map <uint64_t, DmaMem_t>::iterator it =
-						m_dmatxmem_reg.find(mem.win_handle);
-		return (it != m_dmatxmem_reg.end());
-	}
+  /** \brief Check whether a DMA buffer is allocated by this instance
+   *  */
+  inline bool check_dma_buf(DmaMem_t& mem)
+  {
+    if (mem.type == DONOTCHECK) return true;
+
+    std::map <uint64_t, DmaMem_t>::iterator it =
+            m_dmatxmem_reg.find(mem.win_handle);
+    return (it != m_dmatxmem_reg.end());
+  }
+
+  inline riomp_mport_t getMPortHandle() { return mp_h; }
 
 private:
-	int is_my_mport_handle; ///< 0 if shared handle, 1 if private handle
-	int m_portid; 		///< mport_cdev port ID
-	riomp_mport_t mp_h;	///< mport handle
-	struct riomp_mgmt_mport_properties  m_props;
-	void* m_bar0_base_ptr;
-	int m_bar0_size;
-	PCIeBAR *m_bar0;
+  int is_my_mport_handle; ///< 0 if shared handle, 1 if private handle
+  int m_portid;     ///< mport_cdev port ID
+  riomp_mport_t mp_h;  ///< mport handle
+  struct riomp_mgmt_mport_properties  m_props;
+  void* m_bar0_base_ptr;
+  int m_bar0_size;
+  PCIeBAR *m_bar0;
 
-	std::map <uint64_t, DmaMem_t> m_dmaibwin_reg; ///< registry of ibwin allocated by this instance
-	std::map <uint64_t, DmaMem_t> m_dmatxmem_reg; ///< registry of CMA memory allocated by this instance
+  std::map <uint64_t, DmaMem_t> m_dmaibwin_reg; ///< registry of ibwin allocated by this instance
+  std::map <uint64_t, DmaMem_t> m_dmatxmem_reg; ///< registry of CMA memory allocated by this instance
 };
 
 #endif // __MPORT_H__

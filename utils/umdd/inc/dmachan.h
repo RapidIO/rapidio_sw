@@ -37,6 +37,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sched.h>
 #include <sys/syscall.h>   /* For SYS_xxx definitions */
 
+#ifdef __cplusplus
+
 #include <stdexcept>
 #include <string>
 #include <sstream>
@@ -54,12 +56,24 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __DMACHAN_H__
 #define __DMACHAN_H__
 
+#ifdef RDMA_LL
+  #define XDBG		DBG
+  #define XINFO		INFO
+  #define XCRIT		CRIT
+  #define XERR		ERR
+#else
+  #define XDBG(format, ...) 
+  #define XINFO(format, ...) 
+  #define XCRIT(format, ...) 
+  #define XERR(format, ...) 
+#endif
+
 /* DMA Status FIFO */
 #define DMA_STATUS_FIFO_LENGTH (4096)
 #define DMA_RUNPOLL_US 10
 
 #if defined(REGDEBUG)
-  #define REGDBG(format, ...) DBG(stdout, format, __VA_ARGS__)
+  #define REGDBG(format, ...) XDBG(format, __VA_ARGS__)
 #else
   #define REGDBG(format, ...) 
 #endif
@@ -206,7 +220,7 @@ public:
   inline uint64_t getBytesEnqueued()
   {
     assert(m_state);
-   return  m_state->client_completion[m_cliidx].bytes_enq;
+    return  m_state->client_completion[m_cliidx].bytes_enq;
   }
 
   inline uint64_t getBytesTxed()
@@ -296,7 +310,7 @@ public:
   
     // XXX unit-test logic
     if(rdc > 0  && wrc == (rdc-1))      return true;
-    if(rdc == 0 && wrc == (m_state->bd_num-1)) return true;
+    if(rdc == 0 && (int)wrc == (m_state->bd_num-1)) return true;
     return false;
   }
   
@@ -369,7 +383,7 @@ public:
   inline uint32_t getWP() { return m_state->dma_wr; }
 
 private:
-  int umdemo_must_die = 0;
+  int umdemo_must_die;
   uint64_t            MHz_1e3;
   pid_t               m_pid;
   pid_t               m_tid;
@@ -387,10 +401,10 @@ private:
   RioMport::DmaMem_t  m_dmacompl;
  
   POSIXShm*           m_shm_state;
-  char                m_shm_state_name[129] = {0};
+  char                m_shm_state_name[129];
 
   POSIXShm*           m_shm_bl;
-  char                m_shm_bl_name[129] = {0};
+  char                m_shm_bl_name[129];
 
   // These two live in m_shm_bl back-to-back
   bool*               m_bl_busy;
@@ -470,7 +484,7 @@ public:
     pthread_spinlock_t  hw_splock; ///< Serialize access to DMA chan registers
     pthread_spinlock_t  pending_work_splock; ///< Serialize access to DMA pending queue object
     uint32_t            chan;
-    uint32_t            bd_num;
+    int32_t            bd_num;
     uint32_t            sts_size;
     volatile uint32_t   dma_wr;      ///< Mirror of Tsi721 write pointer
     int32_t             fifo_rd;
@@ -551,7 +565,7 @@ public:
   /** \brief List clients. Locks out ALL clients shortly during the proceedings */
   inline void listClients(ShmClientCompl_t* client_compl, const int client_compl_size)
   {
-    if (client_compl_size < sizeof(m_state->client_completion)) return;
+    if (client_compl_size < (int)sizeof(m_state->client_completion)) return;
 
     assert(m_state);
 
@@ -570,5 +584,32 @@ public:
 	wr32dmachan_nolock(offset, val);
   };
 };
+
+#endif // __cplusplus
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void* DMAChannel_create(const uint32_t mportid, const uint32_t chan);
+void DMAChannel_destroy(void* dch);
+int DMAChannel_pingMaster(void* dch);
+int DMAChannel_checkPortOK(void* dch);
+int DMAChannel_dmaCheckAbort(void* dch, uint32_t* abort_reason);
+uint16_t DMAChannel_getDestId(void* dch);
+int DMAChannel_queueSize(void* dch);
+int DMAChannel_queueFull(void* dch);
+uint64_t DMAChannel_getBytesEnqueued(void* dch);
+uint64_t DMAChannel_getBytesTxed(void* dch);
+int DMAChannel_dequeueFaultedTicket(void* dch, uint64_t* tik);
+int DMAChannel_dequeueDmaNREADT2(void* dch, DMAChannel::NREAD_Result_t* res);
+int DMAChannel_checkTicket(void* dch, const DMAChannel::DmaOptions_t* opt);
+
+int DMAChannel_queueDmaOpT1(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p);
+int DMAChannel_queueDmaOpT2(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
+
+#ifdef __cplusplus
+}; // END extern "C"
+#endif
 
 #endif /* __DMACHAN_H__ */
