@@ -1,0 +1,5 @@
+th 0 -1 0
+wait 0 h
+IBAlloc 0 4000
+st i
+ltudma 0 -1 7 $buf $sts $did 22ed94000 4000 2

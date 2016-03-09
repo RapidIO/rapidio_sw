@@ -1,14 +1,18 @@
 debug?=NDEBUG
 LIBMPORT_PATH=../libmport
+LIBTU_PATH=../libtime_utils
 LIBLOG_PATH=../liblog
 LIBCLI_PATH=../libcli
 
-CM_BUILD_STRING = $(CXX) -L$(LIBMPORT_PATH) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
-	-Wl,-rpath=$(LIBMPORT_PATH) -Wl,-rpath=$(LIBLOG_PATH) \
+CM_BUILD_STRING = $(CXX) \
+	-L$(LIBTU_PATH) -L$(LIBMPORT_PATH) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
+	-Wl,-rpath=$(LIBTU_PATH) \
+	-Wl,-rpath=$(LIBMPORT_PATH) \
+	-Wl,-rpath=$(LIBLOG_PATH) \
 	-Wl,-rpath=$(LIBCLI_PATH) \
 	-DRDMA_LL=6 \
 	-I../../common/include -I../../include -o $@ $(RDMAD_CFLAGS) \
-	 src/$@.cpp -lmport -llog -lcli -lrt
+	 src/$@.cpp -ltime_utils -lmport -llog -lcli -lrt
 
 UNIX_BUILD_STRING = $(CXX) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
 	-Wl,-rpath=$(LIBLOG_PATH) \
