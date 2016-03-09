@@ -50,7 +50,7 @@ int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type 	 = RDMAD_IS_ALIVE_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no	 = in_msg->seq_no;
 	out_msg.rdmad_is_alive_out.dummy = 0x5678;
 
@@ -71,7 +71,7 @@ int get_mport_id_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type 	 = GET_MPORT_ID_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 	out_msg.get_mport_id_out.status =
 		rdmad_get_mport_id(&out_msg.get_mport_id_out.mport_id);
@@ -89,7 +89,7 @@ int create_mso_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type 	 = CREATE_MSO_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 	out_msg.create_mso_out.status =
 		rdmad_create_mso(in_msg->create_mso_in.owner_name,
@@ -112,7 +112,7 @@ int open_mso_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type 	 = OPEN_MSO_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no   = in_msg->seq_no;
 	out_msg.open_mso_out.status =
 		rdmad_open_mso(in_msg->open_mso_in.owner_name,
@@ -136,7 +136,7 @@ int close_mso_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type 	 = CLOSE_MSO_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no   = in_msg->seq_no;
 	out_msg.close_mso_out.status =
 		rdmad_close_mso(in_msg->close_mso_in.msoid,
@@ -159,7 +159,7 @@ int destroy_mso_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = DESTROY_MSO_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 
 	out_msg.destroy_mso_out.status =
@@ -182,7 +182,7 @@ int create_ms_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = CREATE_MS_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 
 	out_msg.create_ms_out.status =
@@ -212,7 +212,7 @@ int open_ms_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = OPEN_MS_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 
 	out_msg.open_ms_out.status =
@@ -240,7 +240,7 @@ int close_ms_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = CLOSE_MS_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 
 	out_msg.close_ms_out.status =
@@ -264,7 +264,7 @@ int destroy_ms_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = DESTROY_MS_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 
 	out_msg.destroy_ms_out.status =
@@ -287,7 +287,7 @@ int create_msub_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = CREATE_MSUB_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 
 	out_msg.create_msub_out.status =
@@ -316,7 +316,7 @@ int destroy_msub_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = DESTROY_MSUB_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 
 	out_msg.destroy_msub_out.status =
@@ -340,7 +340,7 @@ int get_ibwin_properties_disp(const unix_msg_t *in_msg, tx_engine<unix_server,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = GET_IBWIN_PROPERTIES_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 	out_msg.get_ibwin_properties_out.status =
 		rdmad_get_ibwin_properties(
@@ -363,7 +363,7 @@ int accept_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = ACCEPT_MS_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 	out_msg.accept_out.status =
 		rdmad_accept_ms(in_msg->accept_in.server_msid,
@@ -386,7 +386,7 @@ int undo_accept_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = UNDO_ACCEPT_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 	out_msg.undo_accept_out.status =
 		rdmad_undo_accept_ms(in_msg->undo_accept_in.server_msid, tx_eng);
@@ -408,7 +408,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
 	unix_msg_t out_msg;
-	int 	   rc;
+	int 	   rc = 0;
 
 	try {
 		/* Short form */
@@ -435,7 +435,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		ms->add_rem_connection(conn_resp->client_destid,
 				conn_resp->client_msubid,
 				conn_resp->client_to_lib_tx_eng_h);
-
+#if 0
 		/* Prepare CM_ACCEPT_MS message from CONNECT_MS_RESP params */
 		cm_accept_msg	*cmam;
 		conn_server->get_send_buffer((void **)&cmam);
@@ -467,13 +467,14 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 			ERR("Failed to send CM_ACCEPT_MS\n");
 			throw rc;
 		}
+#endif
 	} /* try */
 	catch(int e) {
 		 rc = e;
 	} /* catch() */
 
 	out_msg.type	 = CONNECT_MS_RESP_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 	out_msg.connect_to_ms_resp_out.status = rc;
 	tx_eng->send_message(&out_msg);
@@ -490,7 +491,7 @@ int send_connect_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = SEND_CONNECT_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 
 	const send_connect_input *in = &in_msg->send_connect_in;
@@ -524,7 +525,7 @@ int undo_connect_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = UNDO_CONNECT_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 
 	out_msg.undo_connect_out.status = rdmad_undo_connect(
@@ -548,7 +549,7 @@ int send_disconnect_disp(const unix_msg_t *in_msg,
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
 	out_msg.type	 = SEND_DISCONNECT_ACK;
-	out_msg.category = RDMA_LIB_DAEMON_CALL;
+	out_msg.category = RDMA_CALL;
 	out_msg.seq_no 	 = in_msg->seq_no;
 
 	const send_disconnect_input *in = &in_msg->send_disconnect_in;
@@ -604,7 +605,7 @@ int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 		 */
 		/* Reply to library indicating success */
 		static unix_msg_t out_msg;
-		out_msg.category = RDMA_LIB_DAEMON_CALL;
+		out_msg.category = RDMA_CALL;
 		out_msg.type	 = SERVER_DISCONNECT_MS_ACK;
 		out_msg.seq_no	 = in_msg->seq_no;
 		out_msg.server_disconnect_ms_out.status = rc;

@@ -126,7 +126,7 @@ void force_disconnect_ms_disp(uint32_t server_msid, uint32_t server_msubid)
 
 	/* ACK that the MS_DESTROYED has arrived and was acted upon */
 	unix_msg_t in_msg;
-	in_msg.category = RDMA_LIB_DAEMON_CALL;
+	in_msg.category = RDMA_CALL;
 	in_msg.type = FORCE_DISCONNECT_MS_ACK;
 	in_msg.force_disconnect_ms_ack_in.server_msid = server_msid;
 	in_msg.force_disconnect_ms_ack_in.server_msubid = server_msubid;

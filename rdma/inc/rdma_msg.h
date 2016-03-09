@@ -42,20 +42,23 @@ typedef uint32_t rdma_msg_sub_type;
 typedef uint32_t rdma_msg_seq_no;
 
 /* Category codes */
-constexpr uint32_t RDMA_LIB_DAEMON_CALL = 0x0055;
+/**
+ * RDMA_CALL blocks waiting for results
+ * RDMA_REQ_RESP is asynchronous. A request doesn't wait and
+ * a response arrives asynchronously without any notification
+ * configured for it; it is handled by the message processor
+ */
+constexpr uint32_t RDMA_CALL 		= 0x0055;
 constexpr uint32_t RDMA_REQ_RESP        = 0x00AA;
-constexpr uint32_t RDMAD_DAEMON_TO_DAEMON_CALL = 0x33CC;
 
 inline const char *cat_name(const uint32_t cat) {
-	if(cat == RDMA_LIB_DAEMON_CALL)
-		return "RDMA_LIB_DAEMON_CALL";
+	if(cat == RDMA_CALL)
+		return "RDMA_CALL";
 	else if (cat == RDMA_REQ_RESP)
 		return "RDMA_REQ_RESP";
-	else if (cat == RDMAD_DAEMON_TO_DAEMON_CALL)
-		return "RDMAD_DAEMON_TO_DAEMON_CALL";
 	else
 		return "CRAP";
-}
+} /* cat_name() */
 
 #endif
 

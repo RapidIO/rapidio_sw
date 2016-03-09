@@ -220,7 +220,7 @@ protected:
 				die();
 			} else if (received_len > 0 ) {
 				DBG("Got category='%s'\n", cat_name(msg->category));
-				if (msg->category == RDMA_LIB_DAEMON_CALL) {
+				if (msg->category == RDMA_CALL) {
 					/* If there is a notification set for the
 					 * message then act on it. */
 					pthread_mutex_lock(&notify_list_lock);

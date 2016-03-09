@@ -183,7 +183,7 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 	sem_init(reply_sem.get(), 0, 0);
 
 	auto reply_type = in_msg->type | 0x8000;
-	auto reply_cat  = RDMA_LIB_DAEMON_CALL;
+	auto reply_cat  = RDMA_CALL;
 	rc = rx_eng->set_notify(reply_type,
 			        reply_cat,
 			        seq_no,
@@ -197,8 +197,8 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 		in_msg->category, in_msg->seq_no);
 	/* Wait for reply */
 	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)\n",
-		type_name(reply_type), reply_type, cat_name(RDMA_LIB_DAEMON_CALL),
-					RDMA_LIB_DAEMON_CALL, in_msg->seq_no);
+		type_name(reply_type), reply_type, cat_name(RDMA_CALL),
+					RDMA_CALL, in_msg->seq_no);
 	struct timespec timeout;
 	clock_gettime(CLOCK_REALTIME, &timeout);
 	timeout.tv_sec += 1;	/* 1 second timeout */
@@ -1493,7 +1493,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 
 		/* Await connect message */
 		unix_msg_t connect_ms_req_msg;
-		rc = await_message(RDMA_LIB_DAEMON_CALL,
+		rc = await_message(RDMA_CALL,
 				   CONNECT_MS_REQ,
 				   0,
 				   timeout_secs,
@@ -1795,7 +1795,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		}
 
 		INFO(" Waiting for connect response (accept) message...\n");
-		rc = await_message(RDMA_LIB_DAEMON_CALL,
+		rc = await_message(RDMA_CALL,
 				ACCEPT_FROM_MS_REQ,
 				0,
 				timeout_secs,

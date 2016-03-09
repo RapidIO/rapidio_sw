@@ -100,24 +100,25 @@ struct wait_conn_disc_thread_info {
  */
 int send_accept_nack(cm_connect_msg *conn_msg, cm_server *rx_conn_disc_server)
 {
-	int rc;
+	int rc = 0;
+	(void)rx_conn_disc_server;
 
 	/* Prepare CM_ACCEPT_MS message from CONNECT_MS_RESP params */
-	cm_accept_msg	*cmnam;
-	rx_conn_disc_server->get_send_buffer((void **)&cmnam);
-	rx_conn_disc_server->flush_send_buffer();
-
-	cmnam->type = htobe64(CM_ACCEPT_MS);
+	cm_msg_t	cm_msg;
+	cm_msg.type = htobe64(CM_ACCEPT_MS);
+	/* TODO: cm_msg.category */
+	cm_accept_msg	*cmnam = &cm_msg.cm_accept;
 	cmnam->sub_type = htobe64(CM_ACCEPT_MS_NACK);
 	strcpy(cmnam->server_ms_name, conn_msg->server_msname);
 	cmnam->client_to_lib_tx_eng_h = conn_msg->client_to_lib_tx_eng_h;
-
+#if 0
 	/* Send the CM_ACCEPT_MS message to remote (client) daemon */
 	rc = rx_conn_disc_server->send();
 	if (rc) {
 		ERR("Failed to send CM_ACCEPT_MS\n");
 		throw rc;
 	}
+#endif
 	return rc;
 } /* send_accept_nack() */
 
@@ -230,9 +231,11 @@ void *wait_conn_disc_thread_f(void *arg)
 
 		/* Read all messages as a connect message first, then if the
 		 * type is different then cast message buffer accordingly. */
-		cm_connect_msg	*conn_msg;
-		rx_conn_disc_server->get_recv_buffer((void **)&conn_msg);
-		if (be64toh(conn_msg->type) == CM_CONNECT_MS) {
+		cm_msg_t	*cm_msg;
+		rx_conn_disc_server->get_recv_buffer((void **)&cm_msg);
+		if (be64toh(cm_msg->type) == CM_CONNECT_MS) {
+			cm_connect_msg	*conn_msg = &cm_msg->cm_connect;
+
 			HIGH("Received CONNECT_MS for '%s'. Contents:\n",
 						conn_msg->server_msname);
 			conn_msg->dump();
@@ -265,7 +268,7 @@ void *wait_conn_disc_thread_f(void *arg)
 			connect_to_ms_req_input *cm = &in_msg.connect_to_ms_req;
 
 			in_msg.type = CONNECT_MS_REQ;
-			in_msg.category = RDMA_LIB_DAEMON_CALL;
+			in_msg.category = RDMA_CALL;
 			cm->client_msid = be64toh(conn_msg->client_msid);
 			cm->client_msubid = be64toh(conn_msg->client_msubid);
 			cm->client_msub_bytes = be64toh(conn_msg->client_bytes);
@@ -282,8 +285,8 @@ void *wait_conn_disc_thread_f(void *arg)
 
 			DBG("Sent CONNECT_MS_REQ to Server RDMA library. Contents:\n");
 			cm->dump();
-		} else if (be64toh(conn_msg->type) == CM_DISCONNECT_MS_REQ) {
-			cm_disconnect_req_msg	*disc_msg;
+		} else if (be64toh(cm_msg->type) == CM_DISCONNECT_MS_REQ) {
+			cm_disconnect_req_msg	*disc_msg = &cm_msg->cm_disconnect_req;
 
 			rx_conn_disc_server->get_recv_buffer((void **)&disc_msg);
 			HIGH("Received DISCONNECT_MS for msid(0x%X)\n",
@@ -308,16 +311,20 @@ void *wait_conn_disc_thread_f(void *arg)
 				HIGH("'Disconnect' for ms('%s') relayed to 'server'\n",
 					ms->get_name());
 			}
-		} else if (be64toh(conn_msg->type) == CM_FORCE_DISCONNECT_MS_ACK) {
-			cm_force_disconnect_ack_msg *force_disconnect_ack_msg;
+		} else if (be64toh(cm_msg->type) == CM_FORCE_DISCONNECT_MS_ACK) {
+			cm_force_disconnect_ack_msg *force_disconnect_ack_msg =
+					&cm_msg->cm_force_disconnect_ack;
 
 			rx_conn_disc_server->get_recv_buffer((void **)&force_disconnect_ack_msg);
 			HIGH("Received CM_FORCE_DISCONNECT_MS_ACK for msid(0x%X), '%s'\n",
 					be64toh(force_disconnect_ack_msg->server_msid),
 					force_disconnect_ack_msg->server_msname);
+			/* TODO: What do we do this this ACK? whoever forced
+			 * disconnection was probably the daemon anyway.
+			 */
 		} else {
 			CRIT("Unknown message type 0x%016" PRIx64 "\n",
-							be64toh(conn_msg->type));
+							be64toh(cm_msg->type));
 		}
 	} /* while(1) */
 	pthread_exit(0);	/* Not reached */

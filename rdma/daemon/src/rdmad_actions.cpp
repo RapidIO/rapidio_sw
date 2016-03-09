@@ -323,6 +323,14 @@ int rdmad_send_connect(const char *server_ms_name,
 		        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
 	DBG("ENTER\n");
+	(void)client_msid;
+	(void)client_bytes;
+	(void)client_rio_addr_len;
+	(void)client_rio_addr_lo;
+	(void)client_rio_addr_hi;
+	(void)seq_num;
+	(void)connh;
+#if 0
 	/* Do we have an entry for that destid ? */
 	/* Obtain pointer to socket object already connected to destid */
 	cm_base   *main_client =
@@ -358,7 +366,7 @@ int rdmad_send_connect(const char *server_ms_name,
 		return -3;
 	}
 	INFO("cm_connect_msg sent to remote daemon\n");
-
+#endif
 	/* Record the connection request in the list so when the remote
 	 * daemon sends back an ACCEPT_MS, we can match things up. */
 	sem_wait(&connected_to_ms_info_list_sem);

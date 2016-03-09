@@ -166,7 +166,7 @@ static int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 		rx_engine<unix_server, unix_msg_t> *rx_eng
 					= it->to_lib_tx_eng->get_rx_eng();
 		rc = await_message(
-			rx_eng, RDMA_LIB_DAEMON_CALL, FORCE_DISCONNECT_MS_ACK,
+			rx_eng, RDMA_CALL, FORCE_DISCONNECT_MS_ACK,
 							0, 1, &out_msg);
 		bool ok = out_msg.force_disconnect_ms_ack_in.server_msid ==
 				in_msg.force_disconnect_ms_in.server_msid;
@@ -339,7 +339,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			CRIT("Exiting thread on error/shutdown\n");
 			pthread_exit(0);
 		}
-
+#if 0
 		/* Read all messages as ACCEPT_MS first, then if the
 		 * type is different then cast message buffer accordingly. */
 		cm_accept_msg	*accept_cm_msg;
@@ -380,7 +380,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 				 * sub_type of ACCEPT_FROM_MS_REQ_NACK  */
 				static unix_msg_t in_msg;
 
-				in_msg.category = RDMA_LIB_DAEMON_CALL;
+				in_msg.category = RDMA_CALL;
 				in_msg.type	= ACCEPT_FROM_MS_REQ;
 				in_msg.sub_type = ACCEPT_FROM_MS_REQ_NACK;
 				/* Send the ACCEPT_FROM_MS_REQ message to the blocked
@@ -490,6 +490,7 @@ void *wait_accept_destroy_thread_f(void *arg)
 			CRIT("Got an unknown message code (0x%X)\n", accept_cm_msg->type);
 			assert(false);
 		}
+#endif
 	} /* while(1) */
 	pthread_exit(0);
 } /* wait_accept_destroy_thread_f() */

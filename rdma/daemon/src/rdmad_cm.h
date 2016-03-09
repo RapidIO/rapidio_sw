@@ -64,7 +64,6 @@ struct hello_msg_t {
  * 	  to a server memory space
  */
 struct cm_connect_msg {
-	uint64_t	type;
 	uint64_t	client_msid;	  /* Client msid */
 	uint64_t	client_msubid;	  /* Client msub ID */
 	uint64_t	client_bytes;	  /* Client msub length in bytes */
@@ -108,7 +107,7 @@ constexpr uint32_t CM_ACCEPT_MS_NACK = 0x02;
  * 	  request to memory space was accepted.
  */
 struct cm_accept_msg {
-	uint64_t	type;
+//	uint64_t	type;
 	uint64_t	sub_type;
 	char		server_ms_name[CM_MS_NAME_MAX_LEN+1];
 	uint64_t	server_msid;

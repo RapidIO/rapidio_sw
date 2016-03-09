@@ -146,6 +146,18 @@ public:
 
 		switch(msg->type) {
 
+		case CM_HELLO:
+		break;
+
+		case CM_CONNECT_MS:
+		break;
+
+		case CM_DISCONNECT_MS_REQ:
+		break;
+
+		case CM_FORCE_DISCONNECT_MS_ACK:
+		break;
+
 		default:
 			assert(!"Unhandled message");
 		}
