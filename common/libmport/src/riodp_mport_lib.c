@@ -56,6 +56,8 @@
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_sock.h>
 
+#include "dmachan.h"
+
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
 
@@ -84,6 +86,7 @@ struct rapidio_mport_socket {
  */
 struct rapidio_mport_handle {
 	int fd;				/**< posix api compatible fd to be used with poll/select */
+	void* dch;
 };
 
 int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle)
@@ -97,6 +100,9 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	if (fd == -1)
 		return -errno;
 
+// XXX VLAD new DMAChannel
+	printf("UMDD %s: mport_id=%d flags=%d\n", __func__, mport_id, flags);
+
 	hnd = (struct rapidio_mport_handle *)malloc(sizeof(struct rapidio_mport_handle));
 	if(!(hnd)) {
 		ret = -errno;
@@ -105,8 +111,13 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	}
 
 	hnd->fd = fd;
+	hnd->dch = NULL;
 
 	*mport_handle = hnd;
+
+	const char* chan_s = getenv("UMDD_CHAN");
+	if (flags != 0x666 && chan_s != NULL)
+		hnd->dch = DMAChannel_create(0, atoi(chan_s));
 
 	return 0;
 }
@@ -117,6 +128,8 @@ int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
 
 	if(hnd == NULL)
 		return -EINVAL;
+
+	if (hnd->dch != NULL) { DMAChannel_destroy(hnd->dch); hnd->dch = NULL; }
 
 	close(hnd->fd);
 	free(hnd);
@@ -304,7 +317,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
 	tran.block = &xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)? -errno: ret;
 }
 
 /*
@@ -323,11 +336,17 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	if(hnd == NULL)
 		return -EINVAL;
 
+// XXX VLAD DMAChannel tx, if sync transfer poll/wait
+	printf("UMDD %s: destid=%u rio_addr=0x%lx bcount=%d op=%d sync=%d\n", __func__, destid, tgt_addr, size, wr_mode, sync);
+
+	if (hnd->dch != NULL) goto umdd;
+
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
 	xfer.loc_addr = NULL;
 	xfer.length = size;
-	xfer.handle = handle;
+	xfer.handle = handle; // According to drivers/rapidio/devices/rio_mport_cdev.c in rio_dma_transfer()
+			      //    baddr = (dma_addr_t)xfer->handle;
 	xfer.offset = offset;
 	xfer.method = convert_directio_type(wr_mode);
 
@@ -338,7 +357,47 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	tran.block = &xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)? -errno: ret;
+
+   umdd:
+	DMAChannel::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
+
+	opt.destid      = destid;
+	opt.bcount      = size;
+	opt.raddr.lsb64 = tgt_addr + offset; // XXX really offset?
+
+	RioMport::DmaMem_t dmamem; memset(&dmamem, 0, sizeof(dmamem));
+
+	dmamem.type       = RioMport::DONOTCHECK;
+	dmamem.win_handle = handle;
+        dmamem.win_size   = size;
+
+	bool q_was_full = false;
+	uint32_t dma_abort_reason = 0;
+
+	if (! DMAChannel_queueDmaOpT1(hnd->dch, wr_mode, &opt, &dmamem, &dma_abort_reason, NULL)) {
+		if (q_was_full) return -(errno = ENOSPC);
+		return -(errno = EINVAL);
+	}
+
+	if (sync == RIO_DIRECTIO_TRANSFER_FAF) return 0;
+
+	if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) return opt.ticket;
+
+	// Only left RIO_DIRECTIO_TRANSFER_SYNC
+	for (;;) {
+		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannel::COMPLETED) break;
+                if (st == DMAChannel::INPROGRESS) continue;
+                if (st == DMAChannel::BORKED) {
+                        uint64_t t = 0;
+                        DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
+			fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+			return -(errno = EIO);
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -369,7 +428,7 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_add
 	tran.block = &xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)? -errno: ret;
 }
 
 /*
@@ -387,6 +446,11 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	if(hnd == NULL)
 		return -EINVAL;
 
+// XXX VLAD DMAChannel tx, if sync transfer poll/wait
+	printf("UMDD %s: destid=%u rio_addr=0x%lx\n bcount=%d sync=%d\n", __func__, destid, tgt_addr, size, sync);
+
+	if (hnd->dch != NULL) goto umdd;
+
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
 	xfer.loc_addr = NULL;
@@ -401,7 +465,47 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	tran.block = &xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)? -errno: ret;
+
+   umdd:
+	DMAChannel::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
+
+	opt.destid      = destid;
+	opt.bcount      = size;
+	opt.raddr.lsb64 = tgt_addr + offset; // XXX really offset?
+
+	RioMport::DmaMem_t dmamem; memset(&dmamem, 0, sizeof(dmamem));
+
+	dmamem.type       = RioMport::DONOTCHECK;
+	dmamem.win_handle = handle;
+        dmamem.win_size   = size;
+
+	bool q_was_full = false;
+	uint32_t dma_abort_reason = 0;
+
+	if (! DMAChannel_queueDmaOpT1(hnd->dch, NREAD, &opt, &dmamem, &dma_abort_reason, NULL)) {
+		if (q_was_full) return -(errno = ENOSPC);
+		return -(errno = EINVAL);
+	}
+
+	if (sync == RIO_DIRECTIO_TRANSFER_FAF) return 0;
+
+	if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) return opt.ticket;
+
+	// Only left RIO_DIRECTIO_TRANSFER_SYNC
+	for (;;) {
+		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannel::COMPLETED) break;
+                if (st == DMAChannel::INPROGRESS) continue;
+                if (st == DMAChannel::BORKED) {
+                        uint64_t t = 0;
+                        DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
+			fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+			return -(errno = EIO);
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -415,11 +519,54 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 	if(hnd == NULL)
 		return -EINVAL;
 
+// XXX VLAD DMAChannel wait for cookie to complete
+	printf("UMDD %s: cookie=%u\n", __func__, cookie);
+
+	if (hnd->dch != NULL) goto umdd;
+
 	wparam.token = cookie;
 	wparam.timeout = tmo;
 
 	if (ioctl(hnd->fd, RIO_WAIT_FOR_ASYNC, &wparam))
-		return errno;
+		return -errno;
+
+   umdd:
+	// Kernel's rio_mport_wait_for_async_dma wants miliseconds of timeout
+
+	struct timespec st_time; /* Start of the run, for throughput */
+	if (tmo > 0) clock_gettime(CLOCK_MONOTONIC, &st_time);
+
+        DMAChannel::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
+
+        opt.ticket = cookie;
+
+	int timed_out = 0;
+        for (int cnt = 0; !timed_out; cnt++) {
+		if (tmo > 0 && cnt > 0) {
+			struct timespec end_time;
+			clock_gettime(CLOCK_MONOTONIC, &end_time);
+
+			struct timespec dT = time_difference(end_time, st_time);
+
+                        const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
+                        const uint64_t msec = nsec * 1000;
+
+			if (msec >= tmo) timed_out = msec;
+		}
+
+                const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannel::COMPLETED) return 0;
+                if (st == DMAChannel::INPROGRESS) continue;
+                if (st == DMAChannel::BORKED) {
+                        uint64_t t = 0;
+                        DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
+                        fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+                        return -(errno = EIO);
+                }
+        }
+
+	if (timed_out) return -(errno = ETIME);
+
 	return 0;
 }
 
@@ -440,7 +587,7 @@ int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t
 	ib.length = size;
 
 	if (ioctl(hnd->fd, RIO_MAP_INBOUND, &ib))
-		return errno;
+		return -errno;
 	*handle = ib.handle;
 	*rio_base = ib.rio_addr;
 	return 0;
@@ -457,7 +604,7 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_UNMAP_INBOUND, handle))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -475,7 +622,7 @@ int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid, uint64_t ri
 	ob.length = size;
 
 	if (ioctl(hnd->fd, RIO_MAP_OUTBOUND, &ob))
-		return errno;
+		return -errno;
 	*handle = ob.handle;
 	return 0;
 }
@@ -488,7 +635,7 @@ int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_UNMAP_OUTBOUND, handle))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -506,7 +653,7 @@ int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *ha
 	db.length = size;
 
 	if (ioctl(hnd->fd, RIO_ALLOC_DMA, &db))
-		return errno;
+		return -errno;
 	*handle = db.dma_handle;
 	return 0;
 }
@@ -522,7 +669,7 @@ int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_FREE_DMA, handle))
-		return errno;
+		return -errno;
 
 	return 0;
 }
@@ -566,7 +713,7 @@ int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_propert
 
 	memset(&prop, 0, sizeof(prop));
 	if (ioctl(hnd->fd, RIO_MPORT_GET_PROPERTIES, &prop))
-		return errno;
+		return -errno;
 
 	qresp->hdid               = prop.hdid;
 	qresp->id                 = prop.id;
@@ -604,7 +751,7 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t s
 	mt.u.buffer = data;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_LOCAL, &mt))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -625,7 +772,7 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t 
 	mt.u.buffer = &data;   /* when length != 0 */
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_LOCAL, &mt))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -648,7 +795,7 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t h
 	mt.u.buffer = data;   /* when length != 0 */
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_REMOTE, &mt))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -672,7 +819,7 @@ int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t 
 	mt.u.buffer = &data;   /* when length != 0 */
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_REMOTE, &mt))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -692,7 +839,7 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16
 	dbf.high = end;
 
 	if (ioctl(hnd->fd, RIO_ENABLE_DOORBELL_RANGE, &dbf))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -712,7 +859,7 @@ int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint1
 	dbf.high = end;
 
 	if (ioctl(hnd->fd, RIO_DISABLE_DOORBELL_RANGE, &dbf))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -732,7 +879,7 @@ int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_
 	pwf.high = high;
 
 	if (ioctl(hnd->fd, RIO_ENABLE_PORTWRITE_RANGE, &pwf))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -752,7 +899,7 @@ int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32
 	pwf.high = high;
 
 	if (ioctl(hnd->fd, RIO_DISABLE_PORTWRITE_RANGE, &pwf))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -770,7 +917,7 @@ int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask)
 	if (mask & RIO_EVENT_DOORBELL) evt_mask |= RIO_DOORBELL;
 	if (mask & RIO_EVENT_PORTWRITE) evt_mask |= RIO_PORTWRITE;
 	if (ioctl(hnd->fd, RIO_SET_EVENT_MASK, evt_mask))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -787,7 +934,7 @@ int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask)
 
 	if (!mask) return -EINVAL;
 	if (ioctl(hnd->fd, RIO_GET_EVENT_MASK, &evt_mask))
-		return errno;
+		return -errno;
 	*mask = 0;
 	if (evt_mask & RIO_DOORBELL) *mask |= RIO_EVENT_DOORBELL;
 	if (evt_mask & RIO_PORTWRITE) *mask |= RIO_EVENT_PORTWRITE;
