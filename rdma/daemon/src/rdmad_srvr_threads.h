@@ -35,12 +35,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "daemon_info.h"
 
-/**
- * @brief Provisioning thread.
- * 	  For waiting for HELLO messages from other daemons and updating the
- * 	  provisioned daemon info list.
- */
-void *prov_thread_f(void *arg);
+void prov_thread_f(int mport_id,
+		   uint8_t prov_mbox_id,
+		   uint16_t prov_channel);
 
 extern daemon_list	prov_daemon_info_list;
 

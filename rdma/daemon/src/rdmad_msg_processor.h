@@ -33,6 +33,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMAD_MSG_PROCESSOR_H
 #define RDMAD_MSG_PROCESSOR_H
 
+#include <signal.h>
+
 #include "rdma_msg.h"
 #include "msg_processor.h"
 #include "liblog.h"

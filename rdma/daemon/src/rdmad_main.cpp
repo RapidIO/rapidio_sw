@@ -67,11 +67,11 @@ inbound *the_inbound;
 /* Global flag for shutting down */
 bool shutting_down = false;
 
-static tx_engines_list	tx_eng_list;
-static rx_engines_list	rx_eng_list;
+static tx_engines_list	unix_tx_eng_list;
+static rx_engines_list	unix_rx_eng_list;
 
 static thread *engine_monitoring_thread;
-static sem_t  *engine_cleanup_sem = nullptr;
+static sem_t  *unix_engine_cleanup_sem = nullptr;
 
 static peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL,
 		DEFAULT_PROV_MBOX_ID, DEFAULT_CONSOLE_SKT, DEFAULT_RUN_CONS);
@@ -80,10 +80,10 @@ static peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL,
 static ms_owners owners;
 
 static 	pthread_t console_thread;
-static	pthread_t prov_thread;
+static	thread 	  prov_thread;
 static	pthread_t cli_session_thread;
 
-static unix_server *server;
+static unix_server *app_conn_server = nullptr;
 
 static unix_msg_processor	d2l_msg_proc;
 
@@ -95,15 +95,15 @@ static unix_msg_processor	d2l_msg_proc;
  * 				it self-dies due to an unbroken
  * 				connection.
  */
-static void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
+static void unix_engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 {
 	while (1) {
 		/* Wait until there is a reason to perform cleanup */
 		sem_wait(engine_cleanup_sem);
 
-		HIGH("Cleaning up dead engines!\n");
+		HIGH("Cleaning up Unix dead engines!\n");
 		/* Check the rx_eng_list for dead engines */
-		for (auto it = begin(rx_eng_list); it != end(rx_eng_list); it++) {
+		for (auto it = begin(unix_rx_eng_list); it != end(unix_rx_eng_list); it++) {
 			if ((*it)->isdead() || shutting_down) {
 				/* Delete rx_engine and set pointer to null */
 				HIGH("Cleaning up an rx_engine\n");
@@ -113,15 +113,13 @@ static void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 		}
 
 		/* Remove all null Rx engine entries */
-		DBG("rx_eng_list.size() = %u\n", rx_eng_list.size());
-		rx_eng_list.erase( std::remove(begin(rx_eng_list),
-				               end(rx_eng_list),
+		unix_rx_eng_list.erase( std::remove(begin(unix_rx_eng_list),
+				               end(unix_rx_eng_list),
 				               nullptr),
-					       end(rx_eng_list));
-		DBG("rx_eng_list.size() = %u\n", rx_eng_list.size());
+					       end(unix_rx_eng_list));
 
 		/* Check the tx_eng_list for dead engines */
-		for (auto it = begin(tx_eng_list); it != end(tx_eng_list); it++) {
+		for (auto it = begin(unix_tx_eng_list); it != end(unix_tx_eng_list); it++) {
 			if ((*it)->isdead() || shutting_down) {
 
 				/* If the tx_eng is being used by a client app, then
@@ -150,83 +148,80 @@ static void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 		}
 
 		/* Remove all null Tx engine entries */
-		DBG("tx_eng_list.size() = %u\n", tx_eng_list.size());
-		tx_eng_list.erase(remove(begin(tx_eng_list),
-				         end(tx_eng_list),
+		DBG("tx_eng_list.size() = %u\n", unix_tx_eng_list.size());
+		unix_tx_eng_list.erase(remove(begin(unix_tx_eng_list),
+				         end(unix_tx_eng_list),
 				         nullptr),
-				  end(tx_eng_list));
-		DBG("tx_eng_list.size() = %u\n", tx_eng_list.size());
+				  end(unix_tx_eng_list));
+		DBG("tx_eng_list.size() = %u\n", unix_tx_eng_list.size());
 	} /* while */
-} /* engine_monitoring_thread_f() */
+} /* unix_engine_monitoring_thread_f() */
 
 /**
  * @brief Begins accepting connections from RDMA applications via Unix sockets
  *
  * @return Aborts on any serious error.
  */
-static void start_accepting_connections()
+static void start_accepting_app_connections()
 {
-	/* Create a server */
-	DBG("Creating Unix socket server object...\n");
 	try {
-		server = new unix_server("main_server");
-	}
-	catch(unix_sock_exception& e) {
-		CRIT("Failed to create server: %s. Aborting.\n",  e.what());
-		abort();
-	}
+		/* Create a server */
+		DBG("Creating Unix socket server object...\n");
+			app_conn_server = new unix_server("main_server");
 
-	while (1) {
-		try {
+		/* Engine cleanup semaphore. Posted by engines that die
+		 * so we can clean up after them. */
+		unix_engine_cleanup_sem = new sem_t();
+		sem_init(unix_engine_cleanup_sem, 0, 0);
+
+		/* Start engine monitoring thread */
+		engine_monitoring_thread =
+			new thread(unix_engine_monitoring_thread_f,
+						unix_engine_cleanup_sem);
+		while (1) {
 			/* Wait for client to connect */
-			HIGH("Waiting for (another) RDMA application to connect..\n");
-			if (server->accept()) {
+			HIGH("Waiting for RDMA app to connect..\n");
+			if (app_conn_server->accept()) {
 				CRIT("Failed to accept connections.\n");
-				throw unix_sock_exception("Failed in server->accept()");
+				throw unix_sock_exception(
+						"Failed in server->accept()");
 			}
 			HIGH("Application connected!\n");
 
 			/* Create other server for handling connection with app */
-			auto accept_socket = server->get_accept_socket();
-			auto other_server = make_shared<unix_server>("other_server",
+			auto accept_socket = app_conn_server->get_accept_socket();
+			auto other_server = make_shared<unix_server>(
+								"other_server",
 								accept_socket);
 
-			/* Engine cleanup semaphore. Posted by engines that die
-			 * so we can clean up after them. */
-			engine_cleanup_sem = new sem_t();
-			sem_init(engine_cleanup_sem, 0, 0);
-
 			/* Create Tx and Rx engine per connection */
-			unix_rx_engine *rx_eng;
-			unix_tx_engine *tx_eng;
+			unix_rx_engine *unix_rx_eng;
+			unix_tx_engine *unix_tx_eng;
 
-			tx_eng = new unix_tx_engine(other_server,
-							  engine_cleanup_sem);
-			rx_eng = new unix_rx_engine(other_server,
+			unix_tx_eng = new unix_tx_engine(other_server,
+							  unix_engine_cleanup_sem);
+			unix_rx_eng = new unix_rx_engine(other_server,
 							  d2l_msg_proc,
-							  tx_eng,
-							  engine_cleanup_sem);
+							  unix_tx_eng,
+							  unix_engine_cleanup_sem);
 
 			/* We passed 'other_server' to both engines. Now
 			 * relinquish ownership. They own it. Together.	 */
 			other_server.reset();
 
 			/* Store engines in list for later cleanup */
-			rx_eng_list.push_back(rx_eng);
-			tx_eng_list.push_back(tx_eng);
+			unix_rx_eng_list.push_back(unix_rx_eng);
+			unix_tx_eng_list.push_back(unix_tx_eng);
 
-			/* Start engine monitoring thread */
-			engine_monitoring_thread =
-					new thread(engine_monitoring_thread_f,
-						   engine_cleanup_sem);
-		}
-		catch(exception& e) {
-			CRIT("Fatal error: %s. Aborting daemon!\n", e.what());
-			delete server;
-			abort();
-		}
-	} /* while */
-} /* start_accepting_connections() */
+		} /* while */
+	} /* try */
+	catch(exception& e) {
+		CRIT("Fatal error: %s. Aborting daemon!\n", e.what());
+		if (app_conn_server != nullptr)
+			delete app_conn_server;
+		abort();
+	}
+} /* start_accepting_app_connections() */
 
 /**
  * @brief Shutdown the RDMA daemeon
@@ -234,7 +229,7 @@ static void start_accepting_connections()
  */
 void shutdown()
 {
-	int	ret = 0;
+	int ret;
 
 	/* Kill the threads */
 	shutting_down = true;
@@ -249,17 +244,16 @@ void shutdown()
 	hello_daemon_info_list.kill_all_threads();
 
 	/* Kill Tx/Rx engines that connect with libraries */
-	if (engine_cleanup_sem != nullptr) { /* Only if apps had connected */
-		sem_post(engine_cleanup_sem);
+	if (unix_engine_cleanup_sem != nullptr) {
+		sem_post(unix_engine_cleanup_sem);
 	}
 
 	/* Next, kill provisioning thread */
 	HIGH("Killing provisioning thread\n");
-	ret = pthread_kill(prov_thread, SIGUSR1);
+	ret = pthread_kill(prov_thread.native_handle(), SIGUSR1);
 	if (ret == EINVAL) {
 		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
 	}
-	pthread_join(prov_thread, NULL);
 	HIGH("Provisioning thread is dead\n");
 
 	/* Kill the fabric management thread */
@@ -340,6 +334,8 @@ int main (int argc, char **argv)
 	int c;
 	int rc;
 	int cons_ret;
+	constexpr auto LOGGER_FAILURE = 1;
+	constexpr auto CONSOLE_FAILURE = 2;
 	constexpr auto OUT_KILL_CONSOLE_THREAD = 4;
 	constexpr auto OUT_CLOSE_PORT = 5;
 	constexpr auto OUT_DELETE_INBOUND = 6;
@@ -381,14 +377,15 @@ int main (int argc, char **argv)
 		/* Initialize logger */
 		if (rdma_log_init("rdmad.log", 1)) {
 			puts("Failed to initialize logging system");
-			throw 1;
+			throw LOGGER_FAILURE;
 		}
 
 		/* Prepare and start console thread, if applicable */
 		if (peer.run_cons) {
 			cli_init_base(custom_quit);
 
-			add_commands_to_cmd_db(rdmad_cmds_size()/sizeof(rdmad_cmds[0]),
+			add_commands_to_cmd_db(
+					rdmad_cmds_size()/sizeof(rdmad_cmds[0]),
 					rdmad_cmds);
 			liblog_bind_cli_cmds();
 			splashScreen((char *)"RDMA Daemon Command Line Interface");
@@ -396,7 +393,7 @@ int main (int argc, char **argv)
 					console, (void *)((char *)"RDMADaemon> "));
 			if(cons_ret) {
 				CRIT("Failed to start console, rc: %d\n", cons_ret);
-				throw 2;
+				throw CONSOLE_FAILURE;
 			}
 		}
 
@@ -452,18 +449,21 @@ int main (int argc, char **argv)
 		}
 
 		if (sem_init(&connected_to_ms_info_list_sem, 0, 1) == -1) {
-			CRIT("Failed to initialize connected_to_ms_info_list_sem: %s\n",
+			CRIT("sem_init failed for connected_to_ms_info_list_sem: %s\n",
 							strerror(errno));
 			throw OUT_DELETE_INBOUND;
 		}
 
 		/* Create provisioning thread */
-		rc = pthread_create(&prov_thread, NULL, prov_thread_f, &peer);
-		if (rc) {
-			CRIT("Failed to create prov_thread: %s\n", strerror(errno));
+		try {
+			prov_thread = thread(prov_thread_f,
+				peer.mport_id, peer.prov_mbox_id, peer.prov_channel);
+			prov_thread.detach();
+		}
+		catch(exception& e) {
+			ERR("Failed to create prov_thread: %s\n", e.what());
 			throw OUT_DELETE_INBOUND;
 		}
-		sem_wait(&peer.prov_started);
 
 		/* Create fabric management thread */
 		rc = start_fm_thread();
@@ -481,8 +481,9 @@ int main (int argc, char **argv)
 		}
 
 		/* Start accepting connections from apps linked with LIBRDMA */
-		start_accepting_connections();
-	}
+		start_accepting_app_connections();
+	} /* try */
+
 	/* Never reached */
 
 	catch(int& e) {
@@ -490,18 +491,10 @@ int main (int argc, char **argv)
 
 		case OUT_KILL_FM_THREAD:
 			/* Kill the fabric management thread */
-			HIGH("Killing fabric management thread\n");
 			halt_fm_thread();
-			HIGH("Fabric management thread is dead\n");
 
 		case OUT_KILL_PROV_THREAD:
-			HIGH("Killing provisioning thread\n");
-			rc = pthread_kill(prov_thread, SIGUSR1);
-			if (rc == EINVAL) {
-				CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
-			}
-			pthread_join(prov_thread, NULL);
-			HIGH("Provisioning thread is dead\n");
+			pthread_kill(prov_thread.native_handle(), SIGUSR1);
 
 		case OUT_DELETE_INBOUND:
 			delete the_inbound;
@@ -512,7 +505,14 @@ int main (int argc, char **argv)
 		case OUT_KILL_CONSOLE_THREAD:
 			pthread_kill(console_thread, SIGUSR1);
 			pthread_join(console_thread, NULL);
+
+		case CONSOLE_FAILURE:
+			rdma_log_close();
+
+		case LOGGER_FAILURE:
+			fprintf(stderr, "Exiting due to logger failure\n");
 			/* No break */
+
 		default:
 			rc = e;
 		}

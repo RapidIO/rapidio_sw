@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 constexpr auto CM_MS_NAME_MAX_LEN 	= 31;
 
+/* Message types */
 constexpr uint32_t CM_HELLO 	 		= 0x01;
 constexpr uint32_t CM_CONNECT_MS 		= 0x02;
 constexpr uint32_t CM_ACCEPT_MS	 		= 0x03;

@@ -31,9 +31,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 #include <stdint.h>
-
 #include <semaphore.h>
 #include <pthread.h>
+
+#include <thread>
+#include <memory>
+#include "memory_supp.h"
 
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
@@ -46,6 +49,27 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_peer_utils.h"
+#include "rdmad_msg_processor.h"
+#include "rdmad_tx_engine.h"
+#include "rdmad_rx_engine.h"
+
+using std::thread;
+using std::make_shared;
+using std::unique_ptr;
+
+using cm_server_tx_engine_ptr = unique_ptr<cm_server_tx_engine>;
+using cm_server_rx_engine_ptr = unique_ptr<cm_server_rx_engine>;
+
+using tx_engines_list = vector<cm_server_tx_engine_ptr>;
+using rx_engines_list = vector<cm_server_rx_engine_ptr>;
+
+static tx_engines_list	cm_tx_eng_list;
+static rx_engines_list	cm_rx_eng_list;
+
+static thread cm_engine_monitoring_thread;
+static sem_t  *cm_engine_cleanup_sem = nullptr;
+
+static cm_server_msg_processor d2d_msg_proc;
 
 /* List of destids provisioned via the provisioning thread */
 daemon_list	prov_daemon_info_list;
@@ -299,6 +323,94 @@ void *wait_conn_disc_thread_f(void *arg)
 	pthread_exit(0);	/* Not reached */
 } /* conn_disc_thread_f() */
 
+static void cm_engine_monitoring_thread_f(sem_t *cm_engine_cleanup_sem)
+{
+	while(1) {
+		sem_wait(cm_engine_cleanup_sem);
+
+
+	}
+} /* cm_engine_monitoring_thread_f() */
+
+/**
+ * @brief Provisioning thread.
+ * 	  For waiting for HELLO messages from other daemons and updating the
+ * 	  provisioned daemon info list.
+ */
+void prov_thread_f(int mport_id,
+		   uint8_t prov_mbox_id,
+		   uint16_t prov_channel)
+{
+	unique_ptr<cm_server>	prov_server;
+
+	try {
+		prov_server = make_unique<cm_server>("prov_server",
+				mport_id,
+				prov_mbox_id,
+				prov_channel,
+				&shutting_down);
+
+		/* Engine cleanup semaphore. Posted by engines that die
+		 * so we can clean up after them. */
+		cm_engine_cleanup_sem = new sem_t();
+		sem_init(cm_engine_cleanup_sem, 0, 0);
+
+		/* Start engine monitoring thread */
+		cm_engine_monitoring_thread =
+				thread(cm_engine_monitoring_thread_f,
+						cm_engine_cleanup_sem);
+		while(1) {
+			/* Accept connections from other daemons */
+			DBG("Accepting connections from other daemons...\n");
+			int ret = prov_server->accept();
+			if (ret) {
+				if (ret == EINTR) {
+					WARN("pthread_kill() called. Exiting!\n");
+					break;
+				} else {
+					CRIT("Failed to accept on prov_server: %s\n",
+									strerror(ret));
+					/* Not much we can do here if we can't accept
+					 * connections from remote daemons. This is
+					 * a fatal error so we fail in a big way! */
+					abort();
+				}
+			}
+			HIGH("Remote daemon connected!\n");
+
+			/* Create other server for handling connections with daemons */
+			auto accept_socket = prov_server->get_accept_socket();
+			auto other_server = make_shared<cm_server>(
+							"other_server",
+							accept_socket,
+							&shutting_down);
+
+			/* Create Tx and Rx engines per connection */
+			auto cm_tx_eng = make_unique<cm_server_tx_engine>(
+					other_server, cm_engine_cleanup_sem);
+
+			auto cm_rx_eng = make_unique<cm_server_rx_engine>(
+					other_server,
+					d2d_msg_proc,
+					cm_tx_eng.get(),
+					cm_engine_cleanup_sem);
+
+			/* We passed 'other_server' to both engines. Now
+			 * relinquish ownership. They own it. Together.	 */
+			other_server.reset();
+
+			/* Store engines in list for later cleanup */
+			cm_tx_eng_list.push_back(move(cm_tx_eng));
+			cm_rx_eng_list.push_back(move(cm_rx_eng));
+		}
+
+	}
+	catch(exception& e) {
+		CRIT("Failed: %s. EXITING\n", e.what());
+	}
+} /* prov_thread_f() */
+
+#if 0
 /**
  * @brief Provisioning thread. Accepts requests from other daemons,
  * 	  then spawns conn_disc_threads for receiving HELLO provisionin
@@ -385,3 +497,5 @@ void *prov_thread_f(void *arg)
 	} /* while(1) */
 	pthread_exit(0);
 } /* prov_thread() */
+
+#endif

@@ -44,10 +44,17 @@ typedef uint32_t rdma_msg_seq_no;
 /* Category codes */
 constexpr uint32_t RDMA_LIB_DAEMON_CALL = 0x0055;
 constexpr uint32_t RDMA_REQ_RESP        = 0x00AA;
+constexpr uint32_t RDMAD_DAEMON_TO_DAEMON_CALL = 0x33CC;
 
-constexpr const char *cat_name(const uint32_t cat) {
-	return (cat == RDMA_LIB_DAEMON_CALL) ? "RDMA_LIB_DAEMON_CALL"
-					     : "RDMA_REQ_RESP";
+inline const char *cat_name(const uint32_t cat) {
+	if(cat == RDMA_LIB_DAEMON_CALL)
+		return "RDMA_LIB_DAEMON_CALL";
+	else if (cat == RDMA_REQ_RESP)
+		return "RDMA_REQ_RESP";
+	else if (cat == RDMAD_DAEMON_TO_DAEMON_CALL)
+		return "RDMAD_DAEMON_TO_DAEMON_CALL";
+	else
+		return "CRAP";
 }
 
 #endif
