@@ -27,6 +27,7 @@ extern "C" {
 #define CPS1xxx_DEBUG_INT_STATUS 1
 
 #define CPS1xxx_RTE_PORT_SEL			(0x00010070)
+#define CPS1xxx_MCAST_RTE_SEL			(0x00010080)
 
 #define CPS1xxx_RIO_PW_DESTID_CSR		0x1028
 #define CPS1xxx_RIO_SET_PW_DESTID(destid)	((destid) << 16)
@@ -361,6 +362,8 @@ extern "C" {
 #define CPS1xxx_PKT_TTL_CSR_TTL_OFF			0x00000000
 #define CPS1xxx_DEFAULT_ROUTE			0xde
 #define CPS1xxx_NO_ROUTE			0xdf
+#define CPS1xxx_MCAST_MASK_FIRST		0x40
+#define CPS1xxx_MCAST_MASK_LAST			0x67
 #define CPS1xxx_QUAD_CFG            0xF20200
 
 /* CPS1616 */
@@ -393,6 +396,8 @@ extern "C" {
 #define CPS1xxx_RTE_BCAST_DM(domain)		(0x00e00400+(domain)*0x4)
 #define CPS1xxx_RTE_BCAST_DEV(device)		(0x00e00000+(device)*0x4)
 #define CPS1xxx_RTE_DM_TO_DEV				(0x000000DD)
+#define CPS1xxx_BCAST_MCAST_MASK(maskid)	(0x00f30000+(maskid)*0x4)
+#define CPS1xxx_PORT_MCAST_MASK(port, maskid)	(0x00f38000+(port)*0x100+(maskid)*0x4)
 #endif
 #define CPS1xxx_RTE_RIO_DOMAIN				(0x00F20020)
 #define CPS1xxx_LOG_DATA					(0x00FD0004)
@@ -1492,6 +1497,24 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	else
 		lut++;
 
+	/* Multicast route */
+	if (port >= CPS1xxx_MCAST_MASK_FIRST && port <= CPS1xxx_MCAST_MASK_LAST) {
+		ret = riocp_pe_maint_write(sw, CPS1xxx_MCAST_RTE_SEL, lut);
+		if (ret < 0)
+			return ret;
+
+		/* Associate destid with the mcast mask index stored in port */
+		port -= CPS1xxx_MCAST_MASK_FIRST;
+		ret = riocp_pe_maint_write(sw, RIO_STD_MC_ASSOCIATE_SEL_CSR,
+				(destid << 16) | port);
+		if (ret < 0)
+			return ret;
+
+		/* Add association */
+		return riocp_pe_maint_write(sw, RIO_STD_MC_ASSOCIATE_OPS_CSR,
+				RIO_STD_MC_DESTID_ASSOC_CMD_ADD_ASSOC);
+	}
+
 	ret = riocp_pe_maint_write(sw, CPS1xxx_RTE_PORT_SEL, lut);
 	if (ret < 0)
 		return ret;
@@ -1644,6 +1667,61 @@ int cps1xxx_set_domain(struct riocp_pe *sw, uint8_t domain)
 {
 	sw->sw->domain = domain;
 	return riocp_pe_maint_write(sw, CPS1xxx_RTE_RIO_DOMAIN, domain);
+}
+
+int cps1xxx_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid, uint16_t port_mask, bool clear)
+{
+#ifdef CONFIG_IDTGEN2_DIRECT_ROUTING
+	uint32_t off, val;
+	int ret;
+
+	if (maskid < CPS1xxx_MCAST_MASK_FIRST || maskid > CPS1xxx_MCAST_MASK_LAST)
+		return -EINVAL;
+
+	if (lut == RIOCP_PE_ANY_PORT)
+		off = CPS1xxx_BCAST_MCAST_MASK(maskid);
+	else if (lut < sw->sw->port_count)
+		off = CPS1xxx_PORT_MCAST_MASK(lut, maskid);
+	else
+		return -EINVAL;
+
+	ret = riocp_pe_maint_read(sw, off, &val);
+	if (ret < 0)
+		return ret;
+
+	if (clear)
+		val = val & ~port_mask;
+	else
+		val = val | port_mask;
+
+	ret = riocp_pe_maint_write(sw, off, val);
+	if (ret < 0)
+		return ret;
+#else
+	uint32_t val;
+	int ret, i;
+
+	if (maskid < CPS1xxx_MCAST_MASK_FIRST || maskid > CPS1xxx_MCAST_MASK_LAST)
+		return -EINVAL;
+
+	/* Add/delete ports as indicated by port_mask */
+	for (i = 0; i < sw->sw->port_count; i++) {
+		val = (maskid << 16) | (i << 8);
+
+		if (port_mask & (1 << i)) {
+			if (clear)
+				val |= RIO_STD_MC_MASK_CFG_MASK_CMD_DEL_PORT;
+			else
+				val |= RIO_STD_MC_MASK_CFG_MASK_CMD_ADD_PORT;
+		}
+
+		ret = riocp_pe_main_write(sw, RIO_STD_MC_MASK_PORT_CSR, val);
+		if (ret < 0)
+			return ret;
+	}
+
+#endif
+	return 0;
 }
 
 /**
@@ -2642,7 +2720,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	NULL,
 	cps1xxx_set_domain,
 	cps1xxx_enable_port,
-	cps1xxx_disable_port
+	cps1xxx_disable_port,
+	cps1xxx_set_multicast_mask
 };
 
 struct riocp_pe_device_id cps1432_id_table[] = {
@@ -2668,7 +2747,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	cps1xxx_set_lane_speed,
 	cps1xxx_set_domain,
 	cps1xxx_enable_port,
-	cps1xxx_disable_port
+	cps1xxx_disable_port,
+	cps1xxx_set_multicast_mask
 };
 
 struct riocp_pe_device_id cps1616_id_table[] = {
@@ -2694,7 +2774,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	NULL,
 	cps1xxx_set_domain,
 	cps1xxx_enable_port,
-	cps1xxx_disable_port
+	cps1xxx_disable_port,
+	cps1xxx_set_multicast_mask
 };
 
 struct riocp_pe_device_id sps1616_id_table[] = {
@@ -2720,7 +2801,8 @@ struct riocp_pe_switch riocp_pe_switch_sps1616 = {
 	cps1xxx_set_lane_speed,
 	cps1xxx_set_domain,
 	cps1xxx_enable_port,
-	cps1xxx_disable_port
+	cps1xxx_disable_port,
+	cps1xxx_set_multicast_mask
 };
 
 #ifdef __cplusplus
