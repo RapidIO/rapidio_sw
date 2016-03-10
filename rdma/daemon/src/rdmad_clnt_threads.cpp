@@ -59,7 +59,7 @@ using std::move;
 using std::make_shared;
 
 /* List of destids provisioned via the HELLO command/message */
-daemon_list	hello_daemon_info_list;
+daemon_list<cm_client>	hello_daemon_info_list;
 
 vector<connected_to_ms_info>	connected_to_ms_info_list;
 sem_t 				connected_to_ms_info_list_sem;

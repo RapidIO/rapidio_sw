@@ -88,39 +88,30 @@ mspace::~mspace()
 	}
 } /* destructor */
 
-int mspace::send_cm_force_disconnect_ms(cm_server *server, uint32_t server_msubid,
+void mspace::send_cm_force_disconnect_ms(tx_engine<cm_server, cm_msg_t>* tx_eng,
+				uint32_t server_msubid,
 				uint64_t client_to_lib_tx_eng_h)
 {
-	int rc;
-
 	/* Prepare destroy message */
-	cm_force_disconnect_msg	*dm;
-	server->get_send_buffer((void **)&dm);
-	dm->type	= htobe64(CM_FORCE_DISCONNECT_MS);
+	cm_msg_t  the_msg;
+	the_msg.type = htobe64(CM_FORCE_DISCONNECT_MS);
+	the_msg.category = RDMA_REQ_RESP;
+	the_msg.seq_no = 0;
+	cm_force_disconnect_msg	*dm = &the_msg.cm_force_disconnect;
 	strcpy(dm->server_msname, name.c_str());
 	dm->server_msid = htobe64(msid);
 	dm->server_msubid = htobe64(server_msubid);
 	dm->client_to_lib_tx_eng_h = htobe64(client_to_lib_tx_eng_h);
 
 	/* Send to remote daemon @ 'client_destid' */
-	if (server->send()) {
-		WARN("Failed to send CM_FORCE_DISCONNECT_MS to client_destid(0x%X)\n",
-							client_destid);
-		rc = RDMA_REMOTE_UNREACHABLE;
-	} else {
-		DBG("CM_FORCE_DISCONNECT_MS sent to client_destid(0x%X)\n",
-							client_destid);
-		rc = 0;
-	}
-
-	return rc;
+	tx_eng->send_message(&the_msg);
 } /* send_cm_force_disconnect_ms() */
 
 int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 				     uint64_t client_to_lib_tx_eng_h)
 {
 	int rc;
-	cm_base *server = nullptr;
+	tx_engine<cm_server, cm_msg_t>* tx_eng = nullptr;
 
 	DBG("ENTER with client_msubid=0x%X, client_to_lib_tx_eng=0x%"
 			PRIx64 "\n", client_msubid, client_to_lib_tx_eng_h);
@@ -131,8 +122,8 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 	if (connected_to &&
 	   (this->client_msubid == client_msubid) &&
 	   (this->client_to_lib_tx_eng_h == client_to_lib_tx_eng_h)) {
-		server =
-		     prov_daemon_info_list.get_cm_sock_by_destid(client_destid);
+		tx_eng =
+		     prov_daemon_info_list.get_tx_eng_by_destid(client_destid);
 	} else {
 		/* If the mspace creator does NOT match on the client_msubid,
 		 * client_to_lib_tx_eng_h (connh) or is NOT 'connected_to', then
@@ -153,40 +144,43 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 				PRIx64 "\n", client_msubid, client_to_lib_tx_eng_h);
 			rc = -1;
 		} else {
-			/* Now find the cm_server to use by looking up the
+			/* Now find the tx_eng to use by looking up the
 			 * user's destid in the prov_daemon_info_list */
-			server = prov_daemon_info_list.get_cm_sock_by_destid(
+			tx_eng = prov_daemon_info_list.get_tx_eng_by_destid(
 					     	     	    it->client_destid);
 		}
 	}
 
-	if (server != nullptr) {
-		rc = send_cm_force_disconnect_ms(dynamic_cast<cm_server *>(server),
-						server_msubid,
-						client_to_lib_tx_eng_h);
-		if (rc) {
-			ERR("Failed to send CM_FORCE_DISCONNECT_MS\n");
-		}
+	/* Could we find a tx engine for the specified destid? */
+	if (tx_eng != nullptr) {
+		/* Yes, use it to send the force disconnect message */
+		send_cm_force_disconnect_ms(tx_eng,
+					server_msubid,
+					client_to_lib_tx_eng_h);
+		DBG("Sent force disconnect to remote daemon\n");
+		rc = 0;
+	} else {
+		ERR("Failed to obtain a tx_eng\n");
+		rc = -1;
 	}
-
 	return rc;
 } /* send_disconnect_to_remote_daemon() */
 
-int mspace::notify_remote_clients()
+void mspace::notify_remote_clients()
 {
-	int rc;
-
 	DBG("ENTER\n");
 	if (connected_to) {
-		/* Need to use a 'prov' socket to send the CM_DESTROY_MS */
-		cm_base *server =
-				prov_daemon_info_list.get_cm_sock_by_destid(
-								client_destid);
-		rc = send_cm_force_disconnect_ms(dynamic_cast<cm_server *>(server),
-						 server_msubid,
-						 client_to_lib_tx_eng_h);
+		/* Need to use the tx engine created on provisioning via
+		 * incoming HELLO (prov_daemon_info_list), to send the
+		 * force-disconnect message.
+		 */
+		tx_engine<cm_server, cm_msg_t>* tx_eng =
+		     prov_daemon_info_list.get_tx_eng_by_destid(client_destid);
+
+		send_cm_force_disconnect_ms(tx_eng,
+		 			    server_msubid,
+					    client_to_lib_tx_eng_h);
 	} else {
-		rc = 0;
 		/* It is not the creator who has a connection; search users */
 		DBG("Searching users...\n");
 		/* If called during shutdown, don't block if mutex already locked */
@@ -209,14 +203,17 @@ int mspace::notify_remote_clients()
 			if (!u.connected_to)
 				continue;
 
-			/* Need to use a 'prov' socket to send the CM_DESTROY_MS */
-			cm_base *server =
-				prov_daemon_info_list.get_cm_sock_by_destid(
+			/* Need to use the tx engine created on provisioning via
+			 * incoming HELLO (prov_daemon_info_list), to send the
+			 * force-disconnect message.
+			 */
+			tx_engine<cm_server, cm_msg_t>* tx_eng =
+				prov_daemon_info_list.get_tx_eng_by_destid(
 							u.client_destid);
 
-			rc = send_cm_force_disconnect_ms(dynamic_cast<cm_server *>(server),
-							u.server_msubid,
-							u.client_to_lib_tx_eng_h);
+			send_cm_force_disconnect_ms(tx_eng,
+						    u.server_msubid,
+						    u.client_to_lib_tx_eng_h);
 		}
 		if (locked) {
 			users_mutex.unlock();
@@ -224,7 +221,6 @@ int mspace::notify_remote_clients()
 		}
 	}
 	DBG("EXIT\n");
-	return rc;
 } /* notify_remote_clients() */
 
 int mspace::close_connections()
@@ -263,11 +259,7 @@ int mspace::destroy()
 		/* Before destroying a memory space, tell its clients that
 		 * it is being destroyed and have them acknowledge that.
 		 * Then remove their destids */
-		rc = notify_remote_clients();
-		if (rc) {
-			WARN("Failed to notify some or all remote clients\n");
-			throw rc;
-		}
+		notify_remote_clients();
 
 		/* Close connections from other local 'user' applications and
 		 * delete message queues used to communicate with those apps. */

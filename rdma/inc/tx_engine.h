@@ -80,7 +80,7 @@ public:
 		worker_thread->detach();
 	} /* ctor */
 
-	~tx_engine()
+	virtual ~tx_engine()
 	{
 		DBG("dtor\n");
 		/* If worker_is_dead was true, then the thread has already

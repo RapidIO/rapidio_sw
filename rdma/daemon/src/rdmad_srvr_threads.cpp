@@ -56,15 +56,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::thread;
 using std::make_shared;
 using std::unique_ptr;
+using std::move;
 
-using cm_server_tx_engine_ptr = unique_ptr<cm_server_tx_engine>;
-using cm_server_rx_engine_ptr = unique_ptr<cm_server_rx_engine>;
-
-//using tx_engines_list = vector<cm_server_tx_engine_ptr>;
-//using rx_engines_list = vector<cm_server_rx_engine_ptr>;
-
-static tx_engines_list	cm_tx_eng_list;
-static rx_engines_list	cm_rx_eng_list;
+//using cm_server_tx_engine_ptr = unique_ptr<cm_server_tx_engine>;
+//using cm_server_rx_engine_ptr = unique_ptr<cm_server_rx_engine>;
 
 static thread cm_engine_monitoring_thread;
 static sem_t  *cm_engine_cleanup_sem = nullptr;
@@ -408,9 +403,7 @@ void prov_thread_f(int mport_id,
 			/* Create entry for remote daemon. At this point we don't
 			 * know the destid, but it will be assigned to the created
 			 * entry upon the HELLO exchange */
-			prov_daemon_info_list.add_daemon_element(
-					move(cm_tx_eng), move(cm_rx_eng));
-
+			prov_daemon_info_list.add_daemon(move(cm_tx_eng), move(cm_rx_eng));
 		} /* while */
 	} /* try */
 	catch(exception& e) {

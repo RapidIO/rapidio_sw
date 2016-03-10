@@ -144,7 +144,7 @@ struct cm_disconnect_req_msg {
  * 	  - because the server has closed/destroyed the memory space.
  */
 struct cm_force_disconnect_msg {
-	uint64_t	type;
+//	uint64_t	type;
 	char 		server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t	server_msid;
 	uint64_t	server_msubid;
@@ -173,7 +173,7 @@ struct cm_msg_t {
 		cm_connect_msg		cm_connect;
 		cm_accept_msg		cm_accept;
 		cm_disconnect_req_msg 	cm_disconnect_req;
-		cm_force_disconnect_msg		cm_destroy;
+		cm_force_disconnect_msg		cm_force_disconnect;
 		cm_force_disconnect_ack_msg	cm_force_disconnect_ack;
 	};
 };

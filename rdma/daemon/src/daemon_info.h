@@ -72,10 +72,14 @@ public:
 	 * @brief Constructor
 	 *
 	 * @param tx_eng Tx engine for communicating with remote daemon
+	 *
+	 * @param rx_eng Rx engine for communicating with remote daemon
 	 */
 	daemon_info(unique_ptr<tx_engine<C,cm_msg_t> > tx_eng,
-		    unique_ptr<tx_engine<C,cm_msg_t> > rx_eng) :
-		destid(NULL_DESTID), tx_eng(tx_eng), rx_eng(rx_eng)
+		    unique_ptr<rx_engine<C,cm_msg_t> > rx_eng) :
+		destid(NULL_DESTID),
+		m_tx_eng(move(tx_eng)),
+		m_rx_eng(move(rx_eng))
 	{
 	} /* ctor */
 
@@ -91,8 +95,8 @@ public:
 
 private:
 	uint32_t 			   destid;
-	unique_ptr<tx_engine<C, cm_msg_t>> tx_eng;
-	unique_ptr<tx_engine<C, cm_msg_t>> rx_eng;
+	unique_ptr<tx_engine<C, cm_msg_t>> m_tx_eng;
+	unique_ptr<rx_engine<C, cm_msg_t>> m_rx_eng;
 };
 
 /**
@@ -128,7 +132,7 @@ public:
 			[destid](daemon_element_t& daemon_element)
 				{return daemon_element->destid == destid;});
 
-		return (it == end(daemons)) ? nullptr : (*it)->tx_eng.get();
+		return (it == end(daemons)) ? nullptr : (*it)->m_tx_eng.get();
 	} /* get_tx_eng_by_destid() */
 
 	/**
@@ -138,24 +142,26 @@ public:
 	 *
 	 * @param rx_eng	Rx engine used to communicate with remote daemon
 	 */
-	void add_daemon_element(unique_ptr<tx_engine<C, cm_msg_t>> tx_eng,
-				unique_ptr<rx_engine<C, cm_msg_t>> rx_eng)
+	void add_daemon(unique_ptr<tx_engine<C, cm_msg_t>> tx_eng,
+			unique_ptr<rx_engine<C, cm_msg_t>> rx_eng)
 	{
+		(void)rx_eng;
 		lock_guard<mutex> daemons_lock(daemons_mutex);
 
 		auto it = find_if(begin(daemons), end(daemons),
-			[tx_eng](daemon_element_t& daemon_element)
-				{ return daemon_element->tx_eng == tx_eng;});
+			[&tx_eng](daemon_element_t& daemon_element)
+				{ return daemon_element->m_tx_eng == tx_eng;});
 		if (it != end(daemons)) {
 			CRIT("Trying to add same Tx engine twice\n");
 			abort();
 		} else {
 			/* This is a brand new entry */
-			auto daemon_element = make_unique<daemon_info>
-					(move(tx_eng), move(rx_eng));
-			daemons.push_back(move(daemon_element));
+			daemon_element_t daemon =
+				make_unique<daemon_info<C>>(move(tx_eng), move(rx_eng));
+
+			daemons.push_back(move(daemon));
 		}
-	} /* add_tx_eng() */
+	} /* add_daemon() */
 
 	/**
 	 * @brief Sets destid for an existing entry specified by tx_eng
@@ -174,9 +180,9 @@ public:
 		lock_guard<mutex> daemons_lock(daemons_mutex);
 		auto it = find_if(begin(daemons), end(daemons),
 			[tx_eng](daemon_element_t& daemon_element)
-				{ return daemon_element->tx_eng.get() == tx_eng;});
+				{ return daemon_element->m_tx_eng.get() == tx_eng;});
 		if (it != end(daemons)) {
-			it->destid = destid;
+			(*it)->destid = destid;
 			rc = 0;
 		} else {
 			ERR("Failed to find tx_eng in daemons list\n");
@@ -185,6 +191,23 @@ public:
 		return rc;
 	} /* set_destid() */
 
+	int set_rx_eng(unique_ptr<rx_engine<C, cm_msg_t>> rx_eng, tx_engine<C, cm_msg_t> *tx_eng)
+	{
+		int rc;
+
+		lock_guard<mutex> daemons_lock(daemons_mutex);
+		auto it = find_if(begin(daemons), end(daemons),
+			[tx_eng](daemon_element_t& daemon_element)
+				{ return daemon_element->m_tx_eng.get() == tx_eng;});
+		if (it != end(daemons)) {
+			(*it)->m_rx_eng = move(rx_eng);
+			rc = 0;
+		} else {
+			ERR("Failed to find tx_eng in daemons list\n");
+			rc = -1;
+		}
+		return rc;
+	} /* set_destid() */
 	/**
 	 * @brief Remove daemon entry specified by destid
 	 *
@@ -212,7 +235,6 @@ public:
 
 		return rc;
 	} /* remove_daemon() */
-
 
 private:
 	using daemon_element_t  = unique_ptr<daemon_info<C>>;

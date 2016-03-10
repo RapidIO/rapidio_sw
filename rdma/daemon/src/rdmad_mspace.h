@@ -45,6 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <mutex>
 
 #include "tx_engine.h"
+#include "rdmad_cm.h"
 
 using std::set;
 using std::string;
@@ -475,12 +476,14 @@ private:
 	/**
 	 * @brief Sends CM_FORCE_DISCONNECT_MS to the client of an ms.
 	 *
-	 * @param server  CM socket server between server and client daemons
+	 * @param tx_eng  Tx engine from server to client daemons
+	 *
 	 * @param server_msubid  ID of msub provided by server during 'accept'
+	 *
 	 * @param client_to_lib_tx_eng Tx engine handle between the client
 	 *                             daemon and the client app
 	 */
-	int send_cm_force_disconnect_ms(cm_server *server,
+	void send_cm_force_disconnect_ms(tx_engine<cm_server, cm_msg_t>* tx_eng,
 					uint32_t server_msubid,
 					uint64_t client_to_lib_tx_eng_h);
 
@@ -513,7 +516,7 @@ private:
 	 * @brief Calls send_cm_force_disconnect_ms for ALL connections
 	 * to this ms. Called from destroy()
 	 */
-	int notify_remote_clients();
+	void notify_remote_clients();
 
 	/**
 	 * @brief Closes connections with applications that have called
