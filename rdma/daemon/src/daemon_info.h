@@ -43,61 +43,64 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "memory_supp.h"
 #include "cm_sock.h"
+#include "rdmad_cm.h"
+#include "tx_engine.h"
 
 using std::vector;
 using std::unique_ptr;
 using std::move;
 using std::find;
 using std::mutex;
+using std::lock_guard;
 
+template <typename C>
 class daemon_list;
 
 /**
- * @brief Info for remote daemons provisined by the provisioning thread
- * 	  (i.e. by receiving a HELLO message).
+ * @brief Info for remote daemons provisioned by sending (client) or
+ * 	  receiving (server) HELLO.
+ *
+ * @param C	CM socket client or server (i.e. cm_client or cm_server)
  */
+template <typename C>
 class daemon_info
 {
 public:
-	friend daemon_list;
+	friend daemon_list<C>;
 
 	/**
 	 * @brief Constructor
 	 *
-	 * @param destid  Destination ID for remote daemon
-	 *
-	 * @param cm_sock CM socket for communicating with remote daemon
-	 *
-	 * @param tid	  Thread for receiving messages from remote daemon
+	 * @param tx_eng Tx engine for communicating with remote daemon
 	 */
-	daemon_info(uint32_t destid,
-	   	   cm_base *cm_sock,
-		   pthread_t tid);
+	daemon_info(unique_ptr<tx_engine<C,cm_msg_t> > tx_eng,
+		    unique_ptr<tx_engine<C,cm_msg_t> > rx_eng) :
+		destid(NULL_DESTID), tx_eng(tx_eng), rx_eng(rx_eng)
+	{
+	} /* ctor */
 
 	/**
 	 * @brief Destructor
 	 */
-	~daemon_info();
+	~daemon_info() = default;
 
 	/**
-	 * @brief Kill thread
-	 *
+	 * @brief Mutator(s)
 	 */
-	void kill();
-
-	/**
-	 * @brief Equality operator matching daemon with destid
-	 *
-	 * @param destid Destination ID for remote daemon
-	 */
-	bool operator==(uint32_t destid);
+	void set_destid(uint32_t destid) { this->destid = destid; }
 
 private:
-	uint32_t 	destid;
-	cm_base		*cm_sock;
-	pthread_t	tid;
+	uint32_t 			   destid;
+	unique_ptr<tx_engine<C, cm_msg_t>> tx_eng;
+	unique_ptr<tx_engine<C, cm_msg_t>> rx_eng;
 };
 
+/**
+ * @brief List of daemon info elements containing the Tx engine and destid
+ *
+ * @param C	CM socket client or server (i.e. cm_client or cm_server)
+ */
+template <typename C>
 class daemon_list
 {
 public:
@@ -109,31 +112,78 @@ public:
 	/**
 	 * @brief Destructor
 	 */
-	~daemon_list();
+	~daemon_list() { daemons.clear(); }
+
+	void clear() { daemons.clear(); }
 
 	/**
-	 * @brief Returns CM socket used to communicate with remote daemons
-	 * 	  using specified destination ID.
+	 * @brief Returns pointer to Tx engine used to communicate with
+	 * 	  remote daemons using specified destination ID.
 	 */
-	cm_base* get_cm_sock_by_destid(uint32_t destid);
+	tx_engine<C, cm_msg_t>* get_tx_eng_by_destid(uint32_t destid)
+	{
+		lock_guard<mutex> daemons_lock(daemons_mutex);
+
+		auto it = find_if(begin(daemons), end(daemons),
+			[destid](daemon_element_t& daemon_element)
+				{return daemon_element->destid == destid;});
+
+		return (it == end(daemons)) ? nullptr : (*it)->tx_eng.get();
+	} /* get_tx_eng_by_destid() */
 
 	/**
-	 * @brief Add daemon entry. If an entry exists for the specified destid
-	 * 	  the corresponding thread is killed and the entry is updated
-	 * 	  with the new information specified here.
+	 * @brief Create daemon element with only tx_eng/rx_eng populated
 	 *
-	 * @param destid	Destination ID for remote daemon
+	 * @param tx_eng	Tx engine used to communicate with remote daemon
 	 *
-	 * @param cm_sock	CM socket object used to communicate with
-	 * 			remote node
-	 *
-	 * @param tid		Thread handling incoming messages from remote
-	 * 			daemon
-	 *
-	 * @return 0 if successful, non-zero otherwise
+	 * @param rx_eng	Rx engine used to communicate with remote daemon
 	 */
-	void add_daemon(uint32_t destid, cm_base *cm_sock, pthread_t tid);
+	void add_daemon_element(unique_ptr<tx_engine<C, cm_msg_t>> tx_eng,
+				unique_ptr<rx_engine<C, cm_msg_t>> rx_eng)
+	{
+		lock_guard<mutex> daemons_lock(daemons_mutex);
 
+		auto it = find_if(begin(daemons), end(daemons),
+			[tx_eng](daemon_element_t& daemon_element)
+				{ return daemon_element->tx_eng == tx_eng;});
+		if (it != end(daemons)) {
+			CRIT("Trying to add same Tx engine twice\n");
+			abort();
+		} else {
+			/* This is a brand new entry */
+			auto daemon_element = make_unique<daemon_info>
+					(move(tx_eng), move(rx_eng));
+			daemons.push_back(move(daemon_element));
+		}
+	} /* add_tx_eng() */
+
+	/**
+	 * @brief Sets destid for an existing entry specified by tx_eng
+	 * 	  Typically called after HELLO exchange.
+	 *
+	 * @param destid	Destination ID to be added to the existing
+	 * 			daemon element
+	 *
+	 * @param tx_eng	Pointer to tx engine specifying the daemon
+	 * 			element
+	 */
+	int set_destid(uint32_t destid, tx_engine<C, cm_msg_t> *tx_eng)
+	{
+		int rc;
+
+		lock_guard<mutex> daemons_lock(daemons_mutex);
+		auto it = find_if(begin(daemons), end(daemons),
+			[tx_eng](daemon_element_t& daemon_element)
+				{ return daemon_element->tx_eng.get() == tx_eng;});
+		if (it != end(daemons)) {
+			it->destid = destid;
+			rc = 0;
+		} else {
+			ERR("Failed to find tx_eng in daemons list\n");
+			rc = -1;
+		}
+		return rc;
+	} /* set_destid() */
 
 	/**
 	 * @brief Remove daemon entry specified by destid
@@ -142,17 +192,31 @@ public:
 	 *
 	 * @return 0 if successful, non-zero otherwise
 	 */
-	int remove_daemon(uint32_t destid);
+	int remove_daemon(uint32_t destid)
+	{
+		int rc;
 
-	/**
-	 * @brief Kills all threads (used at shutdown)
-	 */
-	void kill_all_threads();
+		lock_guard<mutex> daemons_lock(daemons_mutex);
+		auto it = find_if(begin(daemons), end(daemons),
+			[destid](daemon_element_t& daemon_element)
+			{ return daemon_element->destid == destid;});
+
+		if (it != end(daemons)) {
+			daemons.erase(it);
+			INFO("Daemon entry for destid(0x%X) removed\n", destid);
+			rc = 0;
+		} else {
+			ERR("Cannot find entry with destid(0x%X)\n", destid);
+			rc = -1;
+		}
+
+		return rc;
+	} /* remove_daemon() */
+
 
 private:
-	using daemon_element  = unique_ptr<daemon_info>;
-	using daemon_list_t   = vector<daemon_element>;
-	using daemon_iterator = daemon_list_t::iterator;
+	using daemon_element_t  = unique_ptr<daemon_info<C>>;
+	using daemon_list_t   = vector<daemon_element_t>;
 
 	daemon_list_t	daemons;
 	mutex		daemons_mutex;

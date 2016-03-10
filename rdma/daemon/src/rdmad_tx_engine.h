@@ -56,19 +56,24 @@ public:
 class cm_server_tx_engine : public tx_engine<cm_server, cm_msg_t>
 {
 public:
-	cm_server_tx_engine(shared_ptr<cm_server> client, sem_t *engine_cleanup_sem) :
-	tx_engine<cm_server, cm_msg_t>(client, engine_cleanup_sem)
+	cm_server_tx_engine(shared_ptr<cm_server> client,
+			    sem_t *engine_cleanup_sem) :
+	tx_engine<cm_server, cm_msg_t>(client, engine_cleanup_sem),
+	destid(NULL_DESTID)
 	{}
-
+private:
+	uint32_t destid;
 }; /* cm_server_tx_engine */
 
 class cm_client_tx_engine : public tx_engine<cm_client, cm_msg_t>
 {
 public:
 	cm_client_tx_engine(shared_ptr<cm_client> client, sem_t *engine_cleanup_sem) :
-	tx_engine<cm_client, cm_msg_t>(client, engine_cleanup_sem)
+	tx_engine<cm_client, cm_msg_t>(client, engine_cleanup_sem),
+	destid(NULL_DESTID)
 	{}
-
+private:
+	uint32_t destid;
 }; /* cm_client_tx_engine */
 
 #endif

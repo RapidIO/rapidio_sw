@@ -82,8 +82,8 @@ RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
 		daemon/src/rdmad_clnt_threads.cpp \
 		daemon/src/rdmad_fm.cpp \
 		daemon/src/rdmad_l2d_dispatch.cpp \
-		daemon/src/rdmad_actions.cpp \
-		daemon/src/daemon_info.cpp
+		daemon/src/rdmad_d2d_dispatch.cpp \
+		daemon/src/rdmad_actions.cpp
 
 REMDBG_SOURCES	= daemon/src/remdbg.c
 

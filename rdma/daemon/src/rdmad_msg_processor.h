@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "msg_processor.h"
 #include "liblog.h"
 #include "rdmad_l2d_dispatch.h"
+#include "rdmad_d2d_dispatch.h"
 #include "tx_engine.h"
 #include "rdmad_tx_engine.h"
 
@@ -147,15 +148,19 @@ public:
 		switch(msg->type) {
 
 		case CM_HELLO:
+			hello_disp(msg, tx_eng);
 		break;
 
 		case CM_CONNECT_MS:
+			connect_ms_disp(msg, tx_eng);
 		break;
 
 		case CM_DISCONNECT_MS_REQ:
+			disconnect_ms_disp(msg, tx_eng);
 		break;
 
 		case CM_FORCE_DISCONNECT_MS_ACK:
+			force_disconnect_ms_ack_disp(msg, tx_eng);
 		break;
 
 		default:

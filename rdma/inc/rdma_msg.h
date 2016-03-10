@@ -35,6 +35,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 
+constexpr uint32_t NULL_MSUBID = 0xFFFFFFFF;
+constexpr uint32_t NULL_MSID   = 0xFFFFFFFF;
+constexpr uint32_t NULL_DESTID = 0xFFFFFFFF;
+
 /* Types */
 typedef uint32_t rdma_msg_cat;
 typedef uint32_t rdma_msg_type;

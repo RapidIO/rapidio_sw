@@ -30,8 +30,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef RDMAD_DISPATCH_H
-#define RDMAD_DISPATCH_H
+#ifndef RDMAD_L2D_DISPATCH_H
+#define RDMAD_L2D_DISPATCH_H
 
 #include "rdmad_unix_msg.h"
 #include "rdmad_tx_engine.h"

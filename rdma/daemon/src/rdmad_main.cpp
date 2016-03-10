@@ -239,9 +239,9 @@ void shutdown()
 	delete the_inbound;
 
 	/* For the prov daemon and hello daemon lists, kill threads */
-	HIGH("Killing daemon-to-daemon connection threads\n");
-	prov_daemon_info_list.kill_all_threads();
-	hello_daemon_info_list.kill_all_threads();
+	HIGH("Clear daemon lists\n");
+	prov_daemon_info_list.clear();
+	hello_daemon_info_list.clear();
 
 	/* Kill Tx/Rx engines that connect with libraries */
 	if (unix_engine_cleanup_sem != nullptr) {

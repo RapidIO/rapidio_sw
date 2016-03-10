@@ -60,8 +60,8 @@ using std::unique_ptr;
 using cm_server_tx_engine_ptr = unique_ptr<cm_server_tx_engine>;
 using cm_server_rx_engine_ptr = unique_ptr<cm_server_rx_engine>;
 
-using tx_engines_list = vector<cm_server_tx_engine_ptr>;
-using rx_engines_list = vector<cm_server_rx_engine_ptr>;
+//using tx_engines_list = vector<cm_server_tx_engine_ptr>;
+//using rx_engines_list = vector<cm_server_rx_engine_ptr>;
 
 static tx_engines_list	cm_tx_eng_list;
 static rx_engines_list	cm_rx_eng_list;
@@ -72,7 +72,7 @@ static sem_t  *cm_engine_cleanup_sem = nullptr;
 static cm_server_msg_processor d2d_msg_proc;
 
 /* List of destids provisioned via the provisioning thread */
-daemon_list	prov_daemon_info_list;
+daemon_list<cm_server>	prov_daemon_info_list;
 
 struct wait_conn_disc_thread_info {
 	wait_conn_disc_thread_info(cm_server *prov_server) :
@@ -86,7 +86,7 @@ struct wait_conn_disc_thread_info {
 	sem_t		started;
 	int		ret_code;
 };
-
+#if 0
 /**
  * @brief Send indication to remote daemon that the connect request to
  * 	  the specified memory space was declined, most likley since
@@ -111,17 +111,15 @@ int send_accept_nack(cm_connect_msg *conn_msg, cm_server *rx_conn_disc_server)
 	cmnam->sub_type = htobe64(CM_ACCEPT_MS_NACK);
 	strcpy(cmnam->server_ms_name, conn_msg->server_msname);
 	cmnam->client_to_lib_tx_eng_h = conn_msg->client_to_lib_tx_eng_h;
-#if 0
 	/* Send the CM_ACCEPT_MS message to remote (client) daemon */
 	rc = rx_conn_disc_server->send();
 	if (rc) {
 		ERR("Failed to send CM_ACCEPT_MS\n");
 		throw rc;
 	}
-#endif
+
 	return rc;
 } /* send_accept_nack() */
-
 /**
  * @brief Thread for handling requests from remote client daemons
  */
@@ -329,6 +327,7 @@ void *wait_conn_disc_thread_f(void *arg)
 	} /* while(1) */
 	pthread_exit(0);	/* Not reached */
 } /* conn_disc_thread_f() */
+#endif
 
 static void cm_engine_monitoring_thread_f(sem_t *cm_engine_cleanup_sem)
 {
@@ -406,12 +405,14 @@ void prov_thread_f(int mport_id,
 			 * relinquish ownership. They own it. Together.	 */
 			other_server.reset();
 
-			/* Store engines in list for later cleanup */
-			cm_tx_eng_list.push_back(move(cm_tx_eng));
-			cm_rx_eng_list.push_back(move(cm_rx_eng));
-		}
+			/* Create entry for remote daemon. At this point we don't
+			 * know the destid, but it will be assigned to the created
+			 * entry upon the HELLO exchange */
+			prov_daemon_info_list.add_daemon_element(
+					move(cm_tx_eng), move(cm_rx_eng));
 
-	}
+		} /* while */
+	} /* try */
 	catch(exception& e) {
 		CRIT("Failed: %s. EXITING\n", e.what());
 	}

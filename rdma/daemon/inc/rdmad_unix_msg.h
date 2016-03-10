@@ -112,8 +112,7 @@ struct type_name_entry {
 
 #define STRINGIFY(s) (#s)
 
-constexpr uint32_t NULL_MSUBID = 0xFFFFFFFF;
-constexpr uint32_t NULL_MSID   = 0xFFFFFFFF;
+
 
 /**
  * @brief Message types and string versions for debug messages.

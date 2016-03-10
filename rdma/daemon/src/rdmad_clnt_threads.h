@@ -38,8 +38,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string>
 
-#include "tx_engine.h"
 #include "unix_sock.h"
+#include "cm_sock.h"
+#include "tx_engine.h"
 #include "daemon_info.h"
 
 using std::string;
@@ -115,7 +116,7 @@ struct connected_to_ms_info {
 	tx_engine<unix_server,unix_msg_t> *to_lib_tx_eng;
 };
 
-extern daemon_list			hello_daemon_info_list;
+extern daemon_list<cm_client>		hello_daemon_info_list;
 extern vector<connected_to_ms_info>	connected_to_ms_info_list;
 extern sem_t 				connected_to_ms_info_list_sem;
 

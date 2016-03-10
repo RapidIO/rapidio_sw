@@ -46,11 +46,12 @@ constexpr auto CM_MS_NAME_MAX_LEN 	= 31;
 
 /* Message types */
 constexpr uint32_t CM_HELLO 	 		= 0x01;
-constexpr uint32_t CM_CONNECT_MS 		= 0x02;
-constexpr uint32_t CM_ACCEPT_MS	 		= 0x03;
-constexpr uint32_t CM_DISCONNECT_MS_REQ		= 0x04;
-constexpr uint32_t CM_FORCE_DISCONNECT_MS 	= 0x05;
-constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK 	= 0x06;
+constexpr uint32_t CM_HELLO_ACK	 		= 0x02;
+constexpr uint32_t CM_CONNECT_MS 		= 0x03;
+constexpr uint32_t CM_ACCEPT_MS	 		= 0x04;
+constexpr uint32_t CM_DISCONNECT_MS_REQ		= 0x05;
+constexpr uint32_t CM_FORCE_DISCONNECT_MS 	= 0x06;
+constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK 	= 0x07;
 
 /**
  * @brief HELLO message exchanged between daemons during provisioning
@@ -107,7 +108,6 @@ constexpr uint32_t CM_ACCEPT_MS_NACK = 0x02;
  * 	  request to memory space was accepted.
  */
 struct cm_accept_msg {
-//	uint64_t	type;
 	uint64_t	sub_type;
 	char		server_ms_name[CM_MS_NAME_MAX_LEN+1];
 	uint64_t	server_msid;

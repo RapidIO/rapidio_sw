@@ -33,13 +33,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMAD_SRVR_THREADS_H
 #define RDMAD_SRVR_THREADS_H
 
+#include <stdint.h>
+
+#include "cm_sock.h"
 #include "daemon_info.h"
 
 void prov_thread_f(int mport_id,
 		   uint8_t prov_mbox_id,
 		   uint16_t prov_channel);
 
-extern daemon_list	prov_daemon_info_list;
+extern daemon_list<cm_server>	prov_daemon_info_list;
 
 #endif
 
