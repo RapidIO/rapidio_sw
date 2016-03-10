@@ -337,7 +337,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 		return -EINVAL;
 
 // XXX VLAD DMAChannel tx, if sync transfer poll/wait
-	printf("UMDD %s: destid=%u rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, tgt_addr, offset, size, wr_mode, sync);
+	printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
 
 	if (hnd->dch != NULL) goto umdd;
 
@@ -449,7 +449,7 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 		return -EINVAL;
 
 // XXX VLAD DMAChannel tx, if sync transfer poll/wait
-	printf("UMDD %s: destid=%u rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, tgt_addr, offset, size, sync);
+	printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
 
 	if (hnd->dch != NULL) goto umdd;
 
