@@ -337,7 +337,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 		return -EINVAL;
 
 // XXX VLAD DMAChannel tx, if sync transfer poll/wait
-	printf("UMDD %s: destid=%u rio_addr=0x%lx bcount=%d op=%d sync=%d\n", __func__, destid, tgt_addr, size, wr_mode, sync);
+	printf("UMDD %s: destid=%u rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, tgt_addr, offset, size, wr_mode, sync);
 
 	if (hnd->dch != NULL) goto umdd;
 
@@ -391,8 +391,10 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
                 if (st == DMAChannel::INPROGRESS) continue;
                 if (st == DMAChannel::BORKED) {
                         uint64_t t = 0;
-                        DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
-			fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+                        const int deq = DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
+			if (deq)
+			     fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+			else fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
 			return -(errno = EIO);
 		}
 	}
@@ -447,7 +449,7 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 		return -EINVAL;
 
 // XXX VLAD DMAChannel tx, if sync transfer poll/wait
-	printf("UMDD %s: destid=%u rio_addr=0x%lx\n bcount=%d sync=%d\n", __func__, destid, tgt_addr, size, sync);
+	printf("UMDD %s: destid=%u rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, tgt_addr, offset, size, sync);
 
 	if (hnd->dch != NULL) goto umdd;
 
@@ -499,8 +501,10 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
                 if (st == DMAChannel::INPROGRESS) continue;
                 if (st == DMAChannel::BORKED) {
                         uint64_t t = 0;
-                        DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
-			fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+                        const int deq = DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
+			if (deq)
+			     fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+			else fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
 			return -(errno = EIO);
 		}
 	}

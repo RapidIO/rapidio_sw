@@ -82,6 +82,8 @@ void hexdump4byte(const char* msg, uint8_t* d, int len);
 
 class DMAChannel {
 public:
+  static const int DMA_MAX_CHAN = 8;
+
   static const int DMA_BUFF_DESCR_SIZE = 32;
 
   static const int DMA_SHM_MAX_CLIENTS = 64;

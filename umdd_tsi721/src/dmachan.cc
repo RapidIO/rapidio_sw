@@ -91,6 +91,11 @@ void DMAChannel::init(const uint32_t chan)
 {
   umdemo_must_die = 0;
 
+  if (chan == 0 || chan >= DMA_MAX_CHAN) { // DMA CHAN 0 reserved by kernel for main writes
+    static char tmp[67] = {0};
+    snprintf(tmp, 128, "DMAChannel: Init called with invalid channel %u\n", chan);
+    throw std::runtime_error(tmp);
+  }
   memset(m_shm_bl_name, 0, sizeof(m_shm_bl_name));
   memset(m_shm_state_name, 0, sizeof(m_shm_state_name));
 
@@ -1444,7 +1449,7 @@ DMAChannel::TicketState_t DMAChannel::checkTicket(const DmaOptions_t& opt)
   if (m_state->acked_serial_number >= opt.ticket) return COMPLETED;
 
   // Should never get here
-  return BORKED;
+  return INPROGRESS;
 }
 
 extern "C" {
