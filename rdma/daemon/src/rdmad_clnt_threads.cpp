@@ -495,6 +495,7 @@ int provision_rdaemon(uint32_t destid)
 	int rc;
 	shared_ptr<cm_client> the_client;
 
+	DBG("ENTER\n");
 	try {
 		/* Create provision client to connect to remote
 		 * daemon's provisioning thread */
@@ -511,11 +512,13 @@ int provision_rdaemon(uint32_t destid)
 			CRIT("Failed to connect to destid(0x%X)\n", destid);
 			throw RDMA_MALLOC_FAIL;
 		}
+		DBG("Connected to remote daemon at destid(0x%X)\n", destid);
 
 		/* Now create a Tx and Rx engines for communicating
 		 * with remote client. */
 		auto cm_tx_eng = make_unique<cm_client_tx_engine>(
-				the_client, cm_engine_cleanup_sem);
+				the_client,
+				cm_engine_cleanup_sem);
 
 		auto cm_rx_eng = make_unique<cm_client_rx_engine>(
 				the_client,
@@ -527,22 +530,15 @@ int provision_rdaemon(uint32_t destid)
 		the_client.reset();
 
 		/* Create entry for remote daemon */
-		hello_daemon_info_list.add_daemon(move(cm_tx_eng), move(cm_rx_eng));
-		hello_daemon_info_list.set_destid(destid, cm_tx_eng.get());
-
-		/* Set notification for HELLO ACK message */
-		auto reply_sem = make_shared<sem_t>();
-		sem_init(reply_sem.get(), 0, 0);
-		rc = cm_rx_eng->set_notify(CM_HELLO_ACK, RDMA_CALL, 0, reply_sem);
-		if (rc < 0) {
-			CRIT("Failed to set notification for HELLO ACK\n");
-			throw -1;
-		}
+		hello_daemon_info_list.add_daemon(move(cm_tx_eng),
+						  move(cm_rx_eng),
+						  destid);
+		DBG("Created daemon entry in hello_damon_info_list\n");
 
 		/* Send HELLO message containing our destid */
 		cm_msg_t in_msg;
 		in_msg.type = CM_HELLO;
-		in_msg.category = RDMA_CALL;
+		in_msg.category = RDMA_REQ_RESP;
 		in_msg.seq_no = 0;
 		cm_hello_msg_t	*hm = &in_msg.cm_hello;
 		hm->destid = htobe64(the_inbound->get_peer().destid);
@@ -560,6 +556,7 @@ int provision_rdaemon(uint32_t destid)
 		CRIT("Other exception\n");
 		rc = -1;
 	}
+	DBG("EXIT\n");
 	return rc;
 } /* provision_rdaemon() */
 

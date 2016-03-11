@@ -63,12 +63,12 @@ void cm_hello_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 	 */
 	auto rc = prov_daemon_info_list.set_destid(remote_destid, tx_eng);
 	if (rc < 0) {
-		CRIT("Failed to set destid for tx_eng\n");
+		CRIT("Failed to set destid for tx_eng (%p)\n", tx_eng);
 	} else {
 		/* Send HELLO ACK with our own destid */
 		cm_msg_t hello_ack_msg;
 		hello_ack_msg.type = be64toh(CM_HELLO_ACK);
-		hello_ack_msg.category = be64toh(RDMA_CALL);
+		hello_ack_msg.category = be64toh(RDMA_REQ_RESP);
 		hello_ack_msg.seq_no = msg->seq_no;
 		hello_ack_msg.cm_hello.destid =
 				htobe64(the_inbound->get_peer().destid);

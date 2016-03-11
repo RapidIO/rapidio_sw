@@ -76,8 +76,9 @@ public:
 	 * @param rx_eng Rx engine for communicating with remote daemon
 	 */
 	daemon_info(unique_ptr<tx_engine<C,cm_msg_t> > tx_eng,
-		    unique_ptr<rx_engine<C,cm_msg_t> > rx_eng) :
-		destid(NULL_DESTID),
+		    unique_ptr<rx_engine<C,cm_msg_t> > rx_eng,
+		    uint32_t destid = NULL_DESTID) :
+		destid(destid),
 		m_tx_eng(move(tx_eng)),
 		m_rx_eng(move(rx_eng)),
 		provisioned(false)
@@ -145,11 +146,14 @@ public:
 	 * @param tx_eng	Tx engine used to communicate with remote daemon
 	 *
 	 * @param rx_eng	Rx engine used to communicate with remote daemon
+	 *
+	 * @param destid	Destination ID of remote daemon
 	 */
 	void add_daemon(unique_ptr<tx_engine<C, cm_msg_t>> tx_eng,
-			unique_ptr<rx_engine<C, cm_msg_t>> rx_eng)
+			unique_ptr<rx_engine<C, cm_msg_t>> rx_eng,
+			uint32_t destid = NULL_DESTID)
 	{
-		(void)rx_eng;
+		DBG("ENTER\n");
 		lock_guard<mutex> daemons_lock(daemons_mutex);
 
 		auto it = find_if(begin(daemons), end(daemons),
@@ -160,11 +164,14 @@ public:
 			abort();
 		} else {
 			/* This is a brand new entry */
+			DBG("Adding daemon entry with tx_eng = %p\n", tx_eng.get());
 			daemon_element_t daemon =
-				make_unique<daemon_info<C>>(move(tx_eng), move(rx_eng));
-
+				make_unique<daemon_info<C>>(move(tx_eng),
+							    move(rx_eng),
+							    destid);
 			daemons.push_back(move(daemon));
 		}
+		DBG("EXIT\n");
 	} /* add_daemon() */
 
 	/**
@@ -181,6 +188,7 @@ public:
 	{
 		int rc;
 
+		DBG("Setting destid for entry with tx_eng = %p\n", tx_eng);
 		lock_guard<mutex> daemons_lock(daemons_mutex);
 		auto it = find_if(begin(daemons), end(daemons),
 			[tx_eng](daemon_element_t& daemon_element)
