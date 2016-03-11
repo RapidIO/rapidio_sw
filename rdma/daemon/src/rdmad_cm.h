@@ -42,16 +42,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "rdma_msg.h"
 
-constexpr auto CM_MS_NAME_MAX_LEN 	= 31;
+constexpr auto CM_MS_NAME_MAX_LEN 		= 31;
 
 /* Message types */
-constexpr uint32_t CM_HELLO 	 		= 0x01;
-constexpr uint32_t CM_HELLO_ACK	 		= 0x02;
-constexpr uint32_t CM_CONNECT_MS 		= 0x03;
-constexpr uint32_t CM_ACCEPT_MS	 		= 0x04;
-constexpr uint32_t CM_DISCONNECT_MS_REQ		= 0x05;
-constexpr uint32_t CM_FORCE_DISCONNECT_MS 	= 0x06;
-constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK 	= 0x07;
+constexpr uint32_t CM_HELLO 	 		= 0x101;
+constexpr uint32_t CM_HELLO_ACK	 		= 0x102;
+constexpr uint32_t CM_CONNECT_MS 		= 0x103;
+constexpr uint32_t CM_ACCEPT_MS	 		= 0x104;
+constexpr uint32_t CM_DISCONNECT_MS_REQ		= 0x105;
+constexpr uint32_t CM_FORCE_DISCONNECT_MS 	= 0x106;
+constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK 	= 0x107;
 
 /**
  * @brief HELLO message exchanged between daemons during provisioning
@@ -131,7 +131,6 @@ struct cm_accept_ms_msg {
  * 	  from specified memory space
  */
 struct cm_disconnect_ms_req_msg {
-	uint64_t	type;
 	uint64_t 	client_msubid;
 	uint64_t 	client_destid;
 	uint64_t 	client_destid_len;
@@ -147,7 +146,6 @@ struct cm_disconnect_ms_req_msg {
  * 	  - because the server has closed/destroyed the memory space.
  */
 struct cm_force_disconnect_ms_msg {
-//	uint64_t	type;
 	char 		server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t	server_msid;
 	uint64_t	server_msubid;
@@ -158,7 +156,6 @@ struct cm_force_disconnect_ms_msg {
  * @brief Acknowledge forced disconnection
  */
 struct cm_force_disconnect_ms_ack_msg {
-	uint64_t	type;
 	char server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t server_msid;
 };

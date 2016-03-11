@@ -345,7 +345,6 @@ void cm_force_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 
 	/* CM_FORCE_DISCONNECT_MS_ACK content */
 	cm_force_disconnect_ms_ack_msg *dam = &in_msg.cm_force_disconnect_ms_ack;
-	dam->type	= htobe64(CM_FORCE_DISCONNECT_MS_ACK);
 	strcpy(dam->server_msname, cm_force_disconnect_ms->server_msname);
 	dam->server_msid = cm_force_disconnect_ms->server_msid; /* Both are BE */
 

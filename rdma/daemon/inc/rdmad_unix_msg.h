@@ -184,7 +184,7 @@ inline const char *type_name(const uint32_t type)
 			  {
 				return entry.type == type;
 			  });
-	return (it != end(type_name_table)) ? it->name : "shit";
+	return (it != end(type_name_table)) ? it->name : "unknown";
 } /* type_name() */
 
 /* @brief rdmad_is_alive() arguments */
