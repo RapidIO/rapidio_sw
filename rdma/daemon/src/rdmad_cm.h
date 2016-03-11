@@ -56,15 +56,17 @@ constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK 	= 0x07;
 /**
  * @brief HELLO message exchanged between daemons during provisioning
  */
-struct hello_msg_t {
+struct cm_hello_msg_t {
 	uint64_t destid;
 };
-
+struct cm_hello_ack_msg_t {
+	uint64_t destid;
+};
 /**
  * @brief Sent from client daemon to server daemon requesting connection
  * 	  to a server memory space
  */
-struct cm_connect_msg {
+struct cm_connect_ms_msg {
 	uint64_t	client_msid;	  /* Client msid */
 	uint64_t	client_msubid;	  /* Client msub ID */
 	uint64_t	client_bytes;	  /* Client msub length in bytes */
@@ -100,6 +102,7 @@ struct cm_connect_msg {
 	}
 };
 
+/* CM_ACCEPT_MS subtypes */
 constexpr uint32_t CM_ACCEPT_MS_ACK  = 0x01;
 constexpr uint32_t CM_ACCEPT_MS_NACK = 0x02;
 
@@ -107,7 +110,7 @@ constexpr uint32_t CM_ACCEPT_MS_NACK = 0x02;
  * @brief Sent from server daemon to client daemon indicating connection
  * 	  request to memory space was accepted.
  */
-struct cm_accept_msg {
+struct cm_accept_ms_msg {
 	uint64_t	sub_type;
 	char		server_ms_name[CM_MS_NAME_MAX_LEN+1];
 	uint64_t	server_msid;
@@ -127,7 +130,7 @@ struct cm_accept_msg {
  * @brief Sent from client daemon to server daemon requesting disconnection
  * 	  from specified memory space
  */
-struct cm_disconnect_req_msg {
+struct cm_disconnect_ms_req_msg {
 	uint64_t	type;
 	uint64_t 	client_msubid;
 	uint64_t 	client_destid;
@@ -143,7 +146,7 @@ struct cm_disconnect_req_msg {
  * 	    the client; or
  * 	  - because the server has closed/destroyed the memory space.
  */
-struct cm_force_disconnect_msg {
+struct cm_force_disconnect_ms_msg {
 //	uint64_t	type;
 	char 		server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t	server_msid;
@@ -154,7 +157,7 @@ struct cm_force_disconnect_msg {
 /**
  * @brief Acknowledge forced disconnection
  */
-struct cm_force_disconnect_ack_msg {
+struct cm_force_disconnect_ms_ack_msg {
 	uint64_t	type;
 	char server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t server_msid;
@@ -169,12 +172,13 @@ struct cm_msg_t {
 	rdma_msg_cat	category;
 	rdma_msg_seq_no	seq_no;
 	union {
-		hello_msg_t		hello;
-		cm_connect_msg		cm_connect;
-		cm_accept_msg		cm_accept;
-		cm_disconnect_req_msg 	cm_disconnect_req;
-		cm_force_disconnect_msg		cm_force_disconnect;
-		cm_force_disconnect_ack_msg	cm_force_disconnect_ack;
+		cm_hello_msg_t			cm_hello;
+		cm_hello_ack_msg_t		cm_hello_ack;
+		cm_connect_ms_msg		cm_connect_ms;
+		cm_accept_ms_msg		cm_accept_ms;
+		cm_disconnect_ms_req_msg 	cm_disconnect_ms_req;
+		cm_force_disconnect_ms_msg		cm_force_disconnect_ms;
+		cm_force_disconnect_ms_ack_msg	cm_force_disconnect_ms_ack;
 	};
 };
 #endif

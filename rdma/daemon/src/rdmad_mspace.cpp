@@ -97,7 +97,7 @@ void mspace::send_cm_force_disconnect_ms(tx_engine<cm_server, cm_msg_t>* tx_eng,
 	the_msg.type = htobe64(CM_FORCE_DISCONNECT_MS);
 	the_msg.category = RDMA_REQ_RESP;
 	the_msg.seq_no = 0;
-	cm_force_disconnect_msg	*dm = &the_msg.cm_force_disconnect;
+	cm_force_disconnect_ms_msg	*dm = &the_msg.cm_force_disconnect_ms;
 	strcpy(dm->server_msname, name.c_str());
 	dm->server_msid = htobe64(msid);
 	dm->server_msubid = htobe64(server_msubid);

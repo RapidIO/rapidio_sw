@@ -196,6 +196,24 @@ public:
 		return rc;
 	} /* set_destid() */
 
+	int set_provisioned(uint32_t destid, tx_engine<C, cm_msg_t> *tx_eng)
+	{
+		int rc;
+		lock_guard<mutex> daemons_lock(daemons_mutex);
+		auto it = find_if(begin(daemons), end(daemons),
+			[tx_eng, destid](daemon_element_t& daemon_element)
+			{ return (daemon_element->m_tx_eng.get() == tx_eng) &&
+				  daemon_element->destid == destid;});
+		if (it != end(daemons)) {
+			(*it)->provisioned = true;
+			rc = 0;
+		} else {
+			ERR("Failed to find tx_eng/destid in daemons list\n");
+			rc = -1;
+		}
+		return rc;
+	} /* set_provisioned() */
+
 	int set_rx_eng(unique_ptr<rx_engine<C, cm_msg_t>> rx_eng, tx_engine<C, cm_msg_t> *tx_eng)
 	{
 		int rc;

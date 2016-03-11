@@ -148,19 +148,19 @@ public:
 		switch(msg->type) {
 
 		case CM_HELLO:
-			hello_disp(msg, tx_eng);
+			cm_hello_disp(msg, tx_eng);
 		break;
 
 		case CM_CONNECT_MS:
-			connect_ms_disp(msg, tx_eng);
+			cm_connect_ms_disp(msg, tx_eng);
 		break;
 
 		case CM_DISCONNECT_MS_REQ:
-			disconnect_ms_disp(msg, tx_eng);
+			cm_disconnect_ms_disp(msg, tx_eng);
 		break;
 
 		case CM_FORCE_DISCONNECT_MS_ACK:
-			force_disconnect_ms_ack_disp(msg, tx_eng);
+			cm_force_disconnect_ms_ack_disp(msg, tx_eng);
 		break;
 
 		default:
@@ -182,6 +182,14 @@ public:
 
 		(void)tx_eng;	// Temporary
 		switch(msg->type) {
+
+		case CM_HELLO_ACK:
+			cm_hello_ack_disp(msg, tx_eng);
+		break;
+
+		case CM_ACCEPT_MS:
+			cm_accept_ms_disp(msg, tx_eng);
+		break;
 
 		default:
 			assert(!"Unhandled message");

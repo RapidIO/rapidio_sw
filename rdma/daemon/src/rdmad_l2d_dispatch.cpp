@@ -440,7 +440,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		in_msg.type = htobe64(CM_ACCEPT_MS);
 		in_msg.category = htobe64(RDMA_REQ_RESP);
 		in_msg.seq_no = 0;
-		cm_accept_msg	*cmam = &in_msg.cm_accept;
+		cm_accept_ms_msg	*cmam = &in_msg.cm_accept_ms;
 
 		/* Prepare CM_ACCEPT_MS message from CONNECT_MS_RESP params */
 		cmam->sub_type = CM_ACCEPT_MS_ACK;

@@ -124,20 +124,7 @@ static int await_message(rx_engine<unix_server, unix_msg_t> *rx_eng,
 	return rc;
 } /* await_message() */
 
-/**
- * @brief Sends FORCE_DISCONNECT_MS to RDMA library, and waits (with timeout)
- * 	  for FORCE_DISCONNECT_MS_ACK.
- *
- * @param server_msid	Server memory space identifier
- *
- * @param server_msubid	Server memory subspace identifier
- *
- * @param to_lib_tx_eng	The Tx engine that the daemon uses to communicate with the
- * 			library/app that created the memory space
- *
- * @return 0 if successul, non-zero otherwise
- */
-static int send_force_disconnect_ms_to_lib(uint32_t server_msid,
+int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 				  uint32_t server_msubid,
 				  uint64_t client_to_lib_tx_eng_h)
 {
@@ -542,31 +529,25 @@ int provision_rdaemon(uint32_t destid)
 		/* Create entry for remote daemon */
 		hello_daemon_info_list.add_daemon(move(cm_tx_eng), move(cm_rx_eng));
 		hello_daemon_info_list.set_destid(destid, cm_tx_eng.get());
-#if 0
 
-		HIGH("Connected to remote daemon on destid(0x%X)\n", destid);
-
-		wadti = make_unique<wait_accept_destroy_thread_info>(
-				hello_client, destid);
-
-		DBG("Creating wait_accept_destroy_thread\n");
-		rc = pthread_create(&wadti->tid, NULL,
-				    wait_accept_destroy_thread_f, wadti.get());
-		if (rc) {
-			CRIT("Failed to create wait_accept_destroy_thread: rc = %d, '%s'\n",
-					rc, strerror(errno));
-			throw RDMA_PTHREAD_FAIL;
+		/* Set notification for HELLO ACK message */
+		auto reply_sem = make_shared<sem_t>();
+		sem_init(reply_sem.get(), 0, 0);
+		rc = cm_rx_eng->set_notify(CM_HELLO_ACK, RDMA_CALL, 0, reply_sem);
+		if (rc < 0) {
+			CRIT("Failed to set notification for HELLO ACK\n");
+			throw -1;
 		}
 
-		/* Determine whether thread worked or failed from 'rc' */
-		sem_wait(&wadti->started);
-		rc = wadti->rc;
-		if (rc) {
-			ERR("wait_accept_destroy_thread failed\n");
-		} else {
-			DBG("wait_accept_destroy_thread started successfully\n");
-		}
-#endif
+		/* Send HELLO message containing our destid */
+		cm_msg_t in_msg;
+		in_msg.type = CM_HELLO;
+		in_msg.category = RDMA_CALL;
+		in_msg.seq_no = 0;
+		cm_hello_msg_t	*hm = &in_msg.cm_hello;
+		hm->destid = htobe64(the_inbound->get_peer().destid);
+		cm_tx_eng->send_message(&in_msg);
+		HIGH("HELLO message sent to destid(0x%X)\n", destid);
 	}
 	catch(exception& e) {
 		CRIT("Failed to create hello_client %s\n", e.what());

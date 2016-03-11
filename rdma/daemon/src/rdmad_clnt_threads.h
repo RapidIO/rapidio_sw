@@ -121,6 +121,23 @@ extern vector<connected_to_ms_info>	connected_to_ms_info_list;
 extern sem_t 				connected_to_ms_info_list_sem;
 
 /**
+ * @brief Sends FORCE_DISCONNECT_MS to RDMA library, and waits (with timeout)
+ * 	  for FORCE_DISCONNECT_MS_ACK.
+ *
+ * @param server_msid	Server memory space identifier
+ *
+ * @param server_msubid	Server memory subspace identifier
+ *
+ * @param to_lib_tx_eng	The Tx engine that the daemon uses to communicate with the
+ * 			library/app that created the memory space
+ *
+ * @return 0 if successul, non-zero otherwise
+ */
+int send_force_disconnect_ms_to_lib(uint32_t server_msid,
+				  uint32_t server_msubid,
+				  uint64_t client_to_lib_tx_eng_h);
+
+/**
  * @brief The server daemon has died. Client daemon needs to:
  * 	  1. Notify the libraries of apps that have connected to memory spaces
  *           on that 'did' so they self-disconnect and clean their databases
@@ -140,6 +157,7 @@ int send_force_disconnect_ms_to_lib_for_did(uint32_t did);
  * @param destid	Destination ID of node running remote daemon
  */
 int provision_rdaemon(uint32_t destid);
+
 
 #endif
 
