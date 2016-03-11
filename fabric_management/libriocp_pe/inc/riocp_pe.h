@@ -160,6 +160,9 @@ int RIOCP_WU riocp_sw_set_route_entry(riocp_pe_handle sw, uint8_t lut, uint32_t 
 int RIOCP_WU riocp_sw_clear_lut(riocp_pe_handle sw, uint8_t lut);
 int RIOCP_WU riocp_pe_set_sw_domain(riocp_pe_handle sw, uint8_t domain);
 int RIOCP_WU riocp_sw_set_port_enable(riocp_pe_handle sw, uint8_t port, bool enable);
+int RIOCP_WU riocp_sw_set_multicast_mask(riocp_pe_handle sw, uint8_t lut, uint8_t maskid,
+		uint16_t port_mask, bool clear);
+
 
 /* Event management functions */
 int RIOCP_WU riocp_pe_get_event_mask(riocp_pe_handle pe, uint8_t port, riocp_pe_event_mask_t *mask);

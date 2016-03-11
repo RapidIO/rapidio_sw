@@ -2007,6 +2007,32 @@ int RIOCP_SO_ATTR riocp_sw_set_port_enable(riocp_pe_handle sw, uint8_t port, boo
 		return riocp_pe_switch_port_disable(sw, port);
 }
 
+/**
+ * Add or remove ports from a multicast mask
+ * @param sw        Target switch
+ * @param maskid    Index of the mask being modified
+ * @param port_mask Bitmask with the ports that are being added/removed
+ * @param clear     If true the bits in port_mask are being cleared,
+ *                  otherwise the bits in port_mask are OR'ed to the
+ *                  current mask value
+ */
+int RIOCP_SO_ATTR riocp_sw_set_multicast_mask(riocp_pe_handle sw,
+		uint8_t lut,
+		uint8_t maskid,
+		uint16_t port_mask,
+		bool clear)
+
+{
+	if (riocp_pe_handle_check(sw))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_HOST(sw))
+		return -EPERM;
+	if (!RIOCP_PE_IS_SWITCH(sw->cap))
+		return -ENOSYS;
+
+	return riocp_pe_switch_set_multicast_mask(sw, lut, maskid, port_mask, clear);
+}
+
 #ifdef __cplusplus
 }
 #endif
