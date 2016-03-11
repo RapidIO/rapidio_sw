@@ -2,6 +2,8 @@
 
 g++ -O3 -Wall -ggdb -I./inc -I../common/include \
 	-I../fabric_management/librio_switch/inc \
+	-Wno-unused-variable \
+	-Wno-unused-but-set-variable \
 	-DNODEBUG -std=gnu++0x -pthread  \
 	-DUSER_MODE_DRIVER -Wall -Wno-format -Wno-sign-compare -Wno-write-strings -DRIO_ANY_ADDR=0 \
 	-ggdb -O0  \
