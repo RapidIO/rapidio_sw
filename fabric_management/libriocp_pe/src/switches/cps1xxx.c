@@ -1138,6 +1138,20 @@ static int cps1xxx_enable_port(struct riocp_pe *sw, uint8_t port)
 	return riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), val);
 }
 
+static int cps1xxx_is_port_disabled(struct riocp_pe *sw, uint8_t port, uint32_t *status)
+{
+	int ret;
+	uint32_t port_ctl;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &port_ctl);
+	if (ret < 0)
+		return ret;
+
+	*status = port_ctl & CPS1xxx_CTL_PORT_DIS;
+
+	return 0;
+}
+
 /**
  * The function clears all port errors by rewriting the port error
  * and status register. It returns > 1 when there are error bits
@@ -1775,7 +1789,7 @@ found:
 int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed speed)
 {
 	int ret, retr;
-	uint32_t ctl, ctl_new;
+	uint32_t ctl, ctl_new, port_disabled;
 	enum riocp_pe_speed _speed = RIOCP_SPEED_UNKNOWN;
 	uint8_t lane = 0, width = 0, current_lane;
 
@@ -1793,6 +1807,13 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 	ret = cps1xxx_port_get_first_lane(sw, port, &lane);
 	if (ret < 0) {
 		RIOCP_ERROR("Could net get first lane of port %u (ret = %d, %s)\n",
+			port, ret, strerror(-ret));
+		return ret;
+	}
+
+	ret = cps1xxx_is_port_disabled(sw, port, &port_disabled);
+	if (ret < 0) {
+		RIOCP_ERROR("Could net get disabled state of port %u (ret = %d, %s)\n",
 			port, ret, strerror(-ret));
 		return ret;
 	}
@@ -1854,11 +1875,13 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 			}
 		}
 
-		ret = cps1xxx_enable_port(sw, port);
-		if (ret < 0) {
-			RIOCP_ERROR("[0x%08x:%s:hc %u] Error enable port %u failed\n",
-					sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
-			return ret;
+		if(!port_disabled) {
+			ret = cps1xxx_enable_port(sw, port);
+			if (ret < 0) {
+				RIOCP_ERROR("[0x%08x:%s:hc %u] Error enable port %u failed\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
+				return ret;
+			}
 		}
 		cps1xxx_reset_port(sw, port);
 		retr = 20;
@@ -1966,11 +1989,13 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 		if (pll_chg)
 			cps1xxx_reset_pll(sw, _pll);
 
-		ret = cps1xxx_enable_port(sw, port);
-		if (ret < 0) {
-			RIOCP_ERROR("[0x%08x:%s:hc %u] Error enable port %u failed\n",
-					sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
-			return ret;
+		if(!port_disabled) {
+			ret = cps1xxx_enable_port(sw, port);
+			if (ret < 0) {
+				RIOCP_ERROR("[0x%08x:%s:hc %u] Error enable port %u failed\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
+				return ret;
+			}
 		}
 		cps1xxx_reset_port(sw, port);
 		retr = 20;
