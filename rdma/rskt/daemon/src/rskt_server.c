@@ -200,8 +200,8 @@ void show_help()
 {
 	printf("rskt_server [-s<socket_number>] [-l<loglevel>] [-h]\n");
 	printf("-s<socket_number>: Socket number for clients to connect on\n");
-	printf("-l<log level>    : Log severity to display and capture\n");
 	printf("                   Default is 1234\n");
+	printf("-l<log level>    : Log severity to display and capture\n");
 	printf("-h	         This help message.\n");
 } /* show_help() */
 
