@@ -69,23 +69,22 @@ static int send_disc_ms_cm(uint32_t server_destid,
 		    uint32_t client_msubid,
 		    uint64_t client_to_lib_tx_eng_h)
 {
-	cm_base *the_client;
-	int ret = 0;
+	tx_engine<cm_client, cm_msg_t> *cm_tx_eng;
+	int ret;
 
 	/* Do we have an entry for that destid ? */
-	the_client = hello_daemon_info_list.get_cm_sock_by_destid(server_destid);
-	if (the_client == nullptr) {
+	cm_tx_eng = hello_daemon_info_list.get_tx_eng_by_destid(server_destid);
+	if (cm_tx_eng == nullptr) {
 		ERR("destid(0x%X) was not provisioned\n", server_destid);
 		ret = RDMA_REMOTE_UNREACHABLE;
-	}
+	} else {
+		cm_msg_t	in_msg;
 
-	if (ret == 0) {
-		cm_disconnect_req_msg *disc_msg;
+		in_msg.type = htobe64(CM_DISCONNECT_MS_REQ);
+		in_msg.category = htobe64(RDMA_REQ_RESP);
+		in_msg.seq_no = 0;
 
-		/* Get and flush send buffer */
-		the_client->flush_send_buffer();
-		the_client->get_send_buffer((void **)&disc_msg);
-
+		cm_disconnect_req_msg *disc_msg = &in_msg.cm_disconnect_req;
 		disc_msg->type		    	 = htobe64(CM_DISCONNECT_MS_REQ);
 		disc_msg->client_msubid	    	 = htobe64(client_msubid);
 		disc_msg->client_destid     	 = htobe64(the_inbound->get_peer().destid);
@@ -94,13 +93,11 @@ static int send_disc_ms_cm(uint32_t server_destid,
 		disc_msg->server_msid       	 = htobe64(server_msid);
 
 		/* Send buffer to server */
-		if (the_client->send()) {
-			ret = -1;
-		} else {
-			DBG("Sent DISCONNECT_MS for msid(0x%X) @ destid(0x%X)\n",
-					server_msid,
-					server_destid);
-		}
+		cm_tx_eng->send_message(&in_msg);
+		DBG("Sent DISCONNECT_MS for msid(0x%X) @ destid(0x%X)\n",
+				server_msid,
+				server_destid);
+		ret = 0;
 	}
 
 	return ret;

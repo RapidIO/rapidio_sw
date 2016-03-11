@@ -79,7 +79,8 @@ public:
 		    unique_ptr<rx_engine<C,cm_msg_t> > rx_eng) :
 		destid(NULL_DESTID),
 		m_tx_eng(move(tx_eng)),
-		m_rx_eng(move(rx_eng))
+		m_rx_eng(move(rx_eng)),
+		provisioned(false)
 	{
 	} /* ctor */
 
@@ -93,10 +94,13 @@ public:
 	 */
 	void set_destid(uint32_t destid) { this->destid = destid; }
 
+	void set_provisioned(bool provisioned) { this->provisioned = provisioned; }
+
 private:
 	uint32_t 			   destid;
 	unique_ptr<tx_engine<C, cm_msg_t>> m_tx_eng;
 	unique_ptr<rx_engine<C, cm_msg_t>> m_rx_eng;
+	bool				   provisioned;
 };
 
 /**
@@ -183,6 +187,7 @@ public:
 				{ return daemon_element->m_tx_eng.get() == tx_eng;});
 		if (it != end(daemons)) {
 			(*it)->destid = destid;
+			(*it)->provisioned = true;
 			rc = 0;
 		} else {
 			ERR("Failed to find tx_eng in daemons list\n");

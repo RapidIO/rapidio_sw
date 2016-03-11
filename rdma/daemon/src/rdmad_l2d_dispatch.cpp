@@ -34,13 +34,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 
 #include "rdma_types.h"
-#include "tx_engine.h"
 #include "rdmad_actions.h"
 #include "rdma_msg.h"
 #include "rdmad_unix_msg.h"
 #include "rdmad_cm.h"
 #include "rdmad_srvr_threads.h"
 #include "rdmad_peer_utils.h"
+#include "rdmad_tx_engine.h"
 
 int rdmad_is_alive_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
@@ -416,11 +416,11 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 				&in_msg->connect_to_ms_resp_in;
 
 		/* Find the right cm_server using the destid */
-		cm_base *conn_server =
-			prov_daemon_info_list.get_cm_sock_by_destid(
+		tx_engine<cm_server, cm_msg_t> *cm_tx_eng =
+			prov_daemon_info_list.get_tx_eng_by_destid(
 						conn_resp->client_destid);
-		if (conn_server == nullptr) {
-			CRIT("No server provisioned for destid(0x%X)\n",
+		if (cm_tx_eng == nullptr) {
+			CRIT("No Tx engine provisioned for destid(0x%X)\n",
 					conn_resp->client_destid);
 			throw RDMA_REMOTE_UNREACHABLE;
 		}
@@ -435,13 +435,14 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		ms->add_rem_connection(conn_resp->client_destid,
 				conn_resp->client_msubid,
 				conn_resp->client_to_lib_tx_eng_h);
-#if 0
-		/* Prepare CM_ACCEPT_MS message from CONNECT_MS_RESP params */
-		cm_accept_msg	*cmam;
-		conn_server->get_send_buffer((void **)&cmam);
-		conn_server->flush_send_buffer();
 
-		cmam->type = htobe64(CM_ACCEPT_MS);
+		cm_msg_t in_msg;
+		in_msg.type = htobe64(CM_ACCEPT_MS);
+		in_msg.category = htobe64(RDMA_REQ_RESP);
+		in_msg.seq_no = 0;
+		cm_accept_msg	*cmam = &in_msg.cm_accept;
+
+		/* Prepare CM_ACCEPT_MS message from CONNECT_MS_RESP params */
 		cmam->sub_type = CM_ACCEPT_MS_ACK;
 		strcpy(cmam->server_ms_name, ms->get_name());
 		cmam->server_msid = htobe64(conn_resp->server_msid);
@@ -462,12 +463,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 					be64toh(cmam->server_destid_len));
 
 		/* Send the CM_ACCEPT_MS message to remote (client) daemon */
-		rc = conn_server->send();
-		if (rc) {
-			ERR("Failed to send CM_ACCEPT_MS\n");
-			throw rc;
-		}
-#endif
+		cm_tx_eng->send_message(&in_msg);
 	} /* try */
 	catch(int e) {
 		 rc = e;

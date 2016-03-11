@@ -50,19 +50,26 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 #include "rdmad_inbound.h"
 #include "rdmad_clnt_threads.h"
+#include "rdmad_tx_engine.h"
 #include "rdmad_rx_engine.h"
+#include "rdmad_msg_processor.h"
 #include "rdmad_peer_utils.h"
 #include "daemon_info.h"
 
 using std::unique_ptr;
 using std::move;
 using std::make_shared;
+using std::shared_ptr;
 
 /* List of destids provisioned via the HELLO command/message */
 daemon_list<cm_client>	hello_daemon_info_list;
 
 vector<connected_to_ms_info>	connected_to_ms_info_list;
 sem_t 				connected_to_ms_info_list_sem;
+
+static sem_t  *cm_engine_cleanup_sem = nullptr;
+
+static cm_client_msg_processor d2d_msg_proc;
 
 /**
  * @brief Awaits a message from the RDMA library. Times out if the
@@ -212,6 +219,7 @@ int send_force_disconnect_ms_to_lib_for_did(uint32_t did)
 
 	return ret;
 } /* send_force_disconnect_ms_to_lib_for_did() */
+#if 0
 
 /**
  * @brief Struct for passing info to thread
@@ -339,7 +347,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 			CRIT("Exiting thread on error/shutdown\n");
 			pthread_exit(0);
 		}
-#if 0
 		/* Read all messages as ACCEPT_MS first, then if the
 		 * type is different then cast message buffer accordingly. */
 		cm_accept_msg	*accept_cm_msg;
@@ -490,34 +497,53 @@ void *wait_accept_destroy_thread_f(void *arg)
 			CRIT("Got an unknown message code (0x%X)\n", accept_cm_msg->type);
 			assert(false);
 		}
-#endif
 	} /* while(1) */
 	pthread_exit(0);
 } /* wait_accept_destroy_thread_f() */
 
+#endif
 
 int provision_rdaemon(uint32_t destid)
 {
 	int rc;
-	cm_client *hello_client;
-	unique_ptr<wait_accept_destroy_thread_info> wadti;
+	shared_ptr<cm_client> the_client;
 
 	try {
 		/* Create provision client to connect to remote
 		 * daemon's provisioning thread */
 		peer_info &peer = the_inbound->get_peer();
-		hello_client = new cm_client(
-						"hello_client",
+		the_client = make_shared<cm_client>(
+						"the_client",
 						peer.mport_id,
 						peer.prov_mbox_id,
 						peer.prov_channel,
 						&shutting_down);
 		/* Connect to remote daemon */
-		rc = hello_client->connect(destid);
-		if (rc) {
+		rc = the_client->connect(destid);
+		if (rc < 0) {
 			CRIT("Failed to connect to destid(0x%X)\n", destid);
 			throw RDMA_MALLOC_FAIL;
 		}
+
+		/* Now create a Tx and Rx engines for communicating
+		 * with remote client. */
+		auto cm_tx_eng = make_unique<cm_client_tx_engine>(
+				the_client, cm_engine_cleanup_sem);
+
+		auto cm_rx_eng = make_unique<cm_client_rx_engine>(
+				the_client,
+				d2d_msg_proc,
+				cm_tx_eng.get(),
+				cm_engine_cleanup_sem);
+
+		/* Release ownership of 'the_client' here */
+		the_client.reset();
+
+		/* Create entry for remote daemon */
+		hello_daemon_info_list.add_daemon(move(cm_tx_eng), move(cm_rx_eng));
+		hello_daemon_info_list.set_destid(destid, cm_tx_eng.get());
+#if 0
+
 		HIGH("Connected to remote daemon on destid(0x%X)\n", destid);
 
 		wadti = make_unique<wait_accept_destroy_thread_info>(
@@ -540,6 +566,7 @@ int provision_rdaemon(uint32_t destid)
 		} else {
 			DBG("wait_accept_destroy_thread started successfully\n");
 		}
+#endif
 	}
 	catch(exception& e) {
 		CRIT("Failed to create hello_client %s\n", e.what());
