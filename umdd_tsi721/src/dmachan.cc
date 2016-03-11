@@ -908,11 +908,9 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     if(compl_hwbuf[ci].valid != COMPL_SIG) {
       pthread_spin_unlock(&m_state->pending_work_splock);
 
-      const int idx = (compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE; 
-
       XERR("\n\tFound INVALID completion iten for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           compl_hwbuf[ci].win_handle,
-          idx,
+          ((compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE),
           compl_hwbuf[ci].fifo_offset,
           getFIFOReadCount(), getFIFOWriteCount());
       continue;
@@ -1070,7 +1068,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
     throw std::runtime_error("DMAChannel: HW is not ready!");
 
   const uint64_t ts_s = rdtsc();
-  m_state->restart_pending = 1;
+  m_state->restart_pending = (1)?1:ts_s;
 
   pthread_spin_lock(&m_state->bl_splock);
 
@@ -1139,9 +1137,8 @@ done:
 
   pthread_spin_unlock(&m_state->bl_splock);
   m_state->restart_pending = 0;
-  const uint64_t ts_e = rdtsc();
 
-  XINFO("dT = %llu TICKS; DMA WP := %d%s\n", (ts_e - ts_s), DMA_WP, (nuke_bds? "; NUKED BDs": ""));
+  XINFO("dT = %llu TICKS; DMA WP := %d%s\n", (rdtsc() - ts_s), DMA_WP, (nuke_bds? "; NUKED BDs": ""));
 }
 
 /** \brief Simulate FIFO completions; NO errors are injected
@@ -1177,6 +1174,7 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
 
   int bd_cnt = 0;
   bool faulted = false;
+  if (faulted) {};
   for (; m_sim_dma_rp < m_state->dma_wr; /*DONOTUSE continue*/) { // XXX "<=" ??
     // Handle wrap-arounds in BD array, m_state->dma_wr can go up to 0xFFFFFFFFL
     const int idx = m_sim_dma_rp % m_state->bd_num;
@@ -1353,6 +1351,8 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
   const uint64_t ts_s = rdtsc();
   pthread_spin_lock(&m_state->bl_splock);
 
+  if (ts_s) {};
+
   do {
 // This is the place where we faulted // XXX Really or rp-1?
     uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
@@ -1404,7 +1404,6 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
   } while(0);
 
   pthread_spin_unlock(&m_state->bl_splock);
-  const uint64_t ts_e = rdtsc();
 
 #if defined(UDMA_SIM_DEBUG) && defined(RDMA_LL)
   if (7 <= g_level) { // DEBUG
@@ -1414,7 +1413,7 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
   }
 #endif
 
-  XINFO("dT = %llu TICKS\n", (ts_e - ts_s));
+  XINFO("dT = %llu TICKS\n", (rdtsc() - ts_s));
 
   return pending;
 }
