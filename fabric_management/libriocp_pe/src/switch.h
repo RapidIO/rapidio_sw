@@ -47,6 +47,8 @@ int RIOCP_WU riocp_pe_switch_handle_event(struct riocp_pe *sw, struct riomp_mgmt
 	struct riocp_pe_event *event);
 int RIOCP_WU riocp_pe_switch_set_port_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed speed);
 int RIOCP_WU riocp_pe_switch_set_domain(struct riocp_pe *sw, uint8_t domain);
+int RIOCP_WU riocp_pe_switch_port_enable(struct riocp_pe *sw, uint8_t port);
+int RIOCP_WU riocp_pe_switch_port_disable(struct riocp_pe *sw, uint8_t port);
 
 #ifdef __cplusplus
 }

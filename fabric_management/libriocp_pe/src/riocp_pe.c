@@ -1992,6 +1992,21 @@ int RIOCP_SO_ATTR riocp_pe_set_sw_domain(riocp_pe_handle sw, uint8_t domain)
 	return riocp_pe_switch_set_domain(sw, domain);
 }
 
+int RIOCP_SO_ATTR riocp_sw_set_port_enable(riocp_pe_handle sw, uint8_t port, bool enable)
+{
+	if (riocp_pe_handle_check(sw))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_HOST(sw))
+		return -EPERM;
+	if (!RIOCP_PE_IS_SWITCH(sw->cap))
+		return -ENOSYS;
+
+	if(enable)
+		return riocp_pe_switch_port_enable(sw, port);
+	else
+		return riocp_pe_switch_port_disable(sw, port);
+}
+
 #ifdef __cplusplus
 }
 #endif

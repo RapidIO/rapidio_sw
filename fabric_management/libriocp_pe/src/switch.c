@@ -310,6 +310,22 @@ int riocp_pe_switch_set_domain(struct riocp_pe *sw, uint8_t domain)
 		return -ENOSYS;
 }
 
+int riocp_pe_switch_port_enable(struct riocp_pe *sw, uint8_t port)
+{
+	if (sw->sw->port_enable)
+		return sw->sw->port_enable(sw, port);
+	else
+		return -ENOSYS;
+}
+
+int riocp_pe_switch_port_disable(struct riocp_pe *sw, uint8_t port)
+{
+	if (sw->sw->port_disable)
+		return sw->sw->port_disable(sw, port);
+	else
+		return -ENOSYS;
+}
+
 #ifdef __cplusplus
 }
 #endif

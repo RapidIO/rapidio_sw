@@ -2575,7 +2575,9 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	cps1xxx_event_handler,
 	NULL,
 	NULL,
-	cps1xxx_set_domain
+	cps1xxx_set_domain,
+	NULL,
+	NULL
 };
 
 struct riocp_pe_device_id cps1432_id_table[] = {
@@ -2599,7 +2601,9 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	cps1xxx_event_handler,
 	NULL,
 	cps1xxx_set_lane_speed,
-	cps1xxx_set_domain
+	cps1xxx_set_domain,
+	NULL,
+	NULL
 };
 
 struct riocp_pe_device_id cps1616_id_table[] = {
@@ -2623,7 +2627,9 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	cps1xxx_event_handler,
 	NULL,
 	NULL,
-	cps1xxx_set_domain
+	cps1xxx_set_domain,
+	NULL,
+	NULL
 };
 
 struct riocp_pe_device_id sps1616_id_table[] = {
@@ -2647,7 +2653,9 @@ struct riocp_pe_switch riocp_pe_switch_sps1616 = {
 	cps1xxx_event_handler,
 	NULL,
 	cps1xxx_set_lane_speed,
-	cps1xxx_set_domain
+	cps1xxx_set_domain,
+	NULL,
+	NULL
 };
 
 #ifdef __cplusplus
