@@ -526,7 +526,7 @@ private:
         default: assert(0); break;
     }
 
-    return opt.ts_start + ns * MHz_1e3; // convert to microseconds, then to rdtsc units
+    return opt.ts_start + ns; // convert to microseconds, then to rdtsc units
   }
 
 public:

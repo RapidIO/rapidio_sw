@@ -37,7 +37,7 @@ CXX?= $(CROSS_COMPILE)g++
 config?=NODEBUG
 COMMONDIR=../../common
 COMMONINC=$(COMMONDIR)/include
-COMMONLIB=$(COMMONDIR)/libs_a
+COMMONLIB=-Wl,rpath=$(COMMONDIR)/libs_so -L$(COMMONDIR)/libs_a
 REGSDIR=../../fabric_management/librio_switch/inc
 LOG_LEVEL?=7
 export LOG_LEVEL
@@ -79,16 +79,16 @@ UMD_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc src/mboxchan.cc \
 	src/udma_tun.cc src/tun_ipv4.c \
 	src/umbox_afu.cc
 
-LIBRARIES =  -lpthread -lcli -lmport -llog -lrt
+LIBRARIES =  -lpthread -ldl -lmport -lcli -ltime_utils -llog -lrt
 
 all: goodput ugoodput
 
 ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES) 
 	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
-	$(LIBRARIES) -L$(COMMONLIB)
+	-L$(COMMONLIB) $(LIBRARIES) 
 
 goodput: $(SOURCES) $(INCLUDES)
-	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(LIBRARIES) -L$(COMMONLIB)
+	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ -L$(COMMONLIB) $(LIBRARIES)
 
 clean:
 	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out 

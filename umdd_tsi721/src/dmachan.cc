@@ -894,7 +894,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     return 0;
 
 #ifdef DEBUG_BD
-    XDBG("compl_size=%d\n", compl_size);
+    // XDBG("compl_size=%d\n", compl_size);
 #endif
 
   for(int ci = 0; ci < compl_size; ci++) {
@@ -963,10 +963,12 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     if(m_state->restart_pending && !force_scan) return 0;
 
 #ifdef DEBUG_BD
-    XDBG("\n\tFound idx=%d ticket=%llu for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+/*
+     XDBG("\n\tFound idx=%d ticket=%llu for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
         idx, item.opt.ticket,
         compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
         getFIFOReadCount(), getFIFOWriteCount());
+*/
 #endif
 
     item.opt.ts_end = compl_hwbuf[ci].ts_end;

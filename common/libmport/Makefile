@@ -73,7 +73,7 @@ all: $(LIB_TARGETS) $(SAMPLES_TARGETS)
 samples: $(SAMPLES_TARGETS)
 
 libmport.so: src/riodp_mport_lib.o src/dmachan_dl.o
-	$(CXX) -shared -ldl -L../libtime_utils -ltime_utils -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER) $^
+	$(CXX) -shared -ldl -L../libs_so -ltime_utils -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER) $^
 	@ln -s $@.$(SOVER) $@ &>/dev/null
 
 libmport.a: src/riodp_mport_lib.o src/dmachan_dl.o

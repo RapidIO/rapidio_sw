@@ -116,7 +116,7 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	*mport_handle = hnd;
 
 	const char* chan_s = getenv("UMDD_CHAN");
-	if (flags != 0x666 && chan_s != NULL)
+	if ((flags != 0x666) && (chan_s != NULL))
 		hnd->dch = DMAChannel_create(0, atoi(chan_s));
 
 	return 0;
@@ -336,8 +336,6 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	if(hnd == NULL)
 		return -EINVAL;
 
-// XXX VLAD DMAChannel tx, if sync transfer poll/wait
-	printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
 
 	if (hnd->dch != NULL) goto umdd;
 
@@ -360,12 +358,15 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	return (ret < 0)? -errno: ret;
 
    umdd:
-	DMAChannel::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
+	DMAChannel::DmaOptions_t opt;
 
+// XXX VLAD DMAChannel tx, if sync transfer poll/wait
+	// printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
+
+	memset(&opt, 0, sizeof(opt));
 	opt.destid      = destid;
 	opt.bcount      = size;
 	opt.raddr.lsb64 = tgt_addr + offset; // XXX really offset?
-
 	RioMport::DmaMem_t dmamem; memset(&dmamem, 0, sizeof(dmamem));
 
 	dmamem.type       = RioMport::DONOTCHECK;
@@ -448,8 +449,6 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	if(hnd == NULL)
 		return -EINVAL;
 
-// XXX VLAD DMAChannel tx, if sync transfer poll/wait
-	printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
 
 	if (hnd->dch != NULL) goto umdd;
 
@@ -470,8 +469,12 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	return (ret < 0)? -errno: ret;
 
    umdd:
-	DMAChannel::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
+	DMAChannel::DmaOptions_t opt;
 
+// XXX VLAD DMAChannel tx, if sync transfer poll/wait
+	printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
+
+	memset(&opt, 0, sizeof(opt));
 	opt.destid      = destid;
 	opt.bcount      = size;
 	opt.raddr.lsb64 = tgt_addr + offset; // XXX really offset?
