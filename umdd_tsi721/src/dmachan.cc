@@ -908,7 +908,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
     if(compl_hwbuf[ci].valid != COMPL_SIG) {
       pthread_spin_unlock(&m_state->pending_work_splock);
 
-      XERR("\n\tFound INVALID completion iten for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+      XERR("\n\tFound INVALID completion item for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           compl_hwbuf[ci].win_handle,
           ((compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE),
           compl_hwbuf[ci].fifo_offset,
@@ -1065,10 +1065,10 @@ void DMAChannel::softRestart(const bool nuke_bds)
     throw std::runtime_error("DMAChannel: Will not restart DMA channel in non-master instance!");
 
   if (m_state->hw_ready < 2)
-    throw std::runtime_error("DMAChannel: HW is not ready!");
+    throw std::runtime_error("DMAChannel: UMDd/SHM master is not ready [HW not fully initialised} OR not running!");
 
   const uint64_t ts_s = rdtsc();
-  m_state->restart_pending = (1)?1:ts_s;
+  m_state->restart_pending = 1;
 
   pthread_spin_lock(&m_state->bl_splock);
 
@@ -1142,6 +1142,7 @@ done:
 }
 
 /** \brief Simulate FIFO completions; NO errors are injected
+ * XXX This SIM is AAA Grade Super-Borked XXX
  * \note Should be called in isolcpu thread before \ref scanFIFO
  * \param max_bd Process at most max_bd then report fault. If 0 no faults reported
  * \param fault_bmask Which fault registers to fake
@@ -1174,7 +1175,7 @@ int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
 
   int bd_cnt = 0;
   bool faulted = false;
-  if (faulted) {};
+
   for (; m_sim_dma_rp < m_state->dma_wr; /*DONOTUSE continue*/) { // XXX "<=" ??
     // Handle wrap-arounds in BD array, m_state->dma_wr can go up to 0xFFFFFFFFL
     const int idx = m_sim_dma_rp % m_state->bd_num;
@@ -1350,8 +1351,6 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 
   const uint64_t ts_s = rdtsc();
   pthread_spin_lock(&m_state->bl_splock);
-
-  if (ts_s) {};
 
   do {
 // This is the place where we faulted // XXX Really or rp-1?

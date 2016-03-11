@@ -79,7 +79,7 @@ UMD_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc src/mboxchan.cc \
 	src/udma_tun.cc src/tun_ipv4.c \
 	src/umbox_afu.cc
 
-LIBRARIES =  -lpthread -lcli -lmport -llog -lrt
+LIBRARIES =  -lpthread -lcli -ldl -lmport -llog -lrt
 
 all: goodput ugoodput
 
