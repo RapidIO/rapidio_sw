@@ -1675,7 +1675,7 @@ int cps1xxx_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid,
 	uint32_t off, val;
 	int ret;
 
-	if (maskid < CPS1xxx_MCAST_MASK_FIRST || maskid > CPS1xxx_MCAST_MASK_LAST)
+	if (maskid > CPS1xxx_MCAST_MASK_LAST - CPS1xxx_MCAST_MASK_FIRST)
 		return -EINVAL;
 
 	if (lut == RIOCP_PE_ANY_PORT)
@@ -1701,7 +1701,7 @@ int cps1xxx_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid,
 	uint32_t val;
 	int ret, i;
 
-	if (maskid < CPS1xxx_MCAST_MASK_FIRST || maskid > CPS1xxx_MCAST_MASK_LAST)
+	if (maskid > CPS1xxx_MCAST_MASK_LAST - CPS1xxx_MCAST_MASK_FIRST)
 		return -EINVAL;
 
 	/* Add/delete ports as indicated by port_mask */
