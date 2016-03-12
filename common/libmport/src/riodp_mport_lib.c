@@ -388,15 +388,17 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) return opt.ticket;
 
 	// Only left RIO_DIRECTIO_TRANSFER_SYNC
-	for (;;) {
+	for (int cnt = 0;; cnt++) {
 		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) break;
                 if (st == DMAChannel::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
-			uint64_t total_data_pending = 0;
-			DMAChannel_getShmPendingData(hnd->dch, &total_data_pending, NULL);
 			struct timespec sl = {0, UMD_SLEEP_NS};
-			if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+			if (cnt == 0) {
+				uint64_t total_data_pending = 0;
+				DMAChannel_getShmPendingData(hnd->dch, &total_data_pending, NULL);
+				if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+			}
 			nanosleep(&sl, NULL);
 #endif
 			continue;
@@ -509,15 +511,17 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) return opt.ticket;
 
 	// Only left RIO_DIRECTIO_TRANSFER_SYNC
-	for (;;) {
+	for (int cnt = 0;; cnt++) {
 		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) break;
                 if (st == DMAChannel::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
-			uint64_t total_data_pending = 0;
-			DMAChannel_getShmPendingData(hnd->dch, &total_data_pending, NULL);
 			struct timespec sl = {0, UMD_SLEEP_NS};
-			if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+			if (cnt == 0) {
+				uint64_t total_data_pending = 0;
+				DMAChannel_getShmPendingData(hnd->dch, &total_data_pending, NULL);
+				if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+			}
 			nanosleep(&sl, NULL);
 #endif
 			continue;
@@ -585,10 +589,12 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
                 if (st == DMAChannel::COMPLETED) return 0;
                 if (st == DMAChannel::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
-			uint64_t total_data_pending = 0;
-			DMAChannel_getShmPendingData(hnd->dch, &total_data_pending, NULL);
 			struct timespec sl = {0, UMD_SLEEP_NS};
-			if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+			if (cnt == 0) {
+				uint64_t total_data_pending = 0;
+				DMAChannel_getShmPendingData(hnd->dch, &total_data_pending, NULL);
+				if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+			}
 			nanosleep(&sl, NULL);
 #endif
 			continue;
