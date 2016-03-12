@@ -61,7 +61,7 @@
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
 
-#define SLEEP_NS	1
+#define UMD_SLEEP_NS	1 // Setting this to 0 will compile out nanosleep syscall
 
 struct rapidio_mport_mailbox {
 	int fd;
@@ -392,8 +392,8 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) break;
                 if (st == DMAChannel::INPROGRESS) {
-#if defined(SLEEP_NS) && SLEEP_NS > 0
-			const struct timespec sl = {0, SLEEP_NS};
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+			const struct timespec sl = {0, UMD_SLEEP_NS};
 			nanosleep(&sl, NULL);
 #endif
 			continue;
@@ -510,8 +510,8 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) break;
                 if (st == DMAChannel::INPROGRESS) {
-#if defined(SLEEP_NS) && SLEEP_NS > 0
-			const struct timespec sl = {0, SLEEP_NS};
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+			const struct timespec sl = {0, UMD_SLEEP_NS};
 			nanosleep(&sl, NULL);
 #endif
 			continue;
@@ -578,8 +578,8 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
                 const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) return 0;
                 if (st == DMAChannel::INPROGRESS) {
-#if defined(SLEEP_NS) && SLEEP_NS > 0
-			const struct timespec sl = {0, SLEEP_NS};
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+			const struct timespec sl = {0, UMD_SLEEP_NS};
 			nanosleep(&sl, NULL);
 #endif
 			continue;
