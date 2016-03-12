@@ -392,8 +392,10 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) break;
                 if (st == DMAChannel::INPROGRESS) {
+#if defined(SLEEP_NS) && SLEEP_NS > 0
 			const struct timespec sl = {0, SLEEP_NS};
 			nanosleep(&sl, NULL);
+#endif
 			continue;
 		}
                 if (st == DMAChannel::BORKED) {
@@ -508,8 +510,10 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) break;
                 if (st == DMAChannel::INPROGRESS) {
+#if defined(SLEEP_NS) && SLEEP_NS > 0
 			const struct timespec sl = {0, SLEEP_NS};
 			nanosleep(&sl, NULL);
+#endif
 			continue;
 		}
                 if (st == DMAChannel::BORKED) {
@@ -574,8 +578,10 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
                 const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) return 0;
                 if (st == DMAChannel::INPROGRESS) {
+#if defined(SLEEP_NS) && SLEEP_NS > 0
 			const struct timespec sl = {0, SLEEP_NS};
 			nanosleep(&sl, NULL);
+#endif
 			continue;
 		}
                 if (st == DMAChannel::BORKED) {
