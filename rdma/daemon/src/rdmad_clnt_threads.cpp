@@ -490,24 +490,37 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 #endif
 
+/**
+ * TODO: There has to be a better way than to keep allocating a main_client
+ * for each connection, and then letting them leak. They do need to stay alive
+ * though;
+ */
+static cm_client *main_client;
+
 int provision_rdaemon(uint32_t destid)
 {
 	int rc;
-	shared_ptr<cm_client> the_client;
 
 	DBG("ENTER\n");
 	try {
 		/* Create provision client to connect to remote
 		 * daemon's provisioning thread */
 		peer_info &peer = the_inbound->get_peer();
-		the_client = make_shared<cm_client>(
-						"the_client",
-						peer.mport_id,
-						peer.prov_mbox_id,
-						peer.prov_channel,
-						&shutting_down);
+		main_client = new cm_client("the_client",
+					    peer.mport_id,
+					    peer.prov_mbox_id,
+					    peer.prov_channel,
+					    &shutting_down);
+
+		/* Create a sub-client to be used with the Tx/Rx engines */
+		riomp_sock_t client_socket = main_client->get_socket();
+		shared_ptr<cm_client> sub_client =
+				make_shared<cm_client>(
+					"sub_client",
+					client_socket,
+					&shutting_down);
 		/* Connect to remote daemon */
-		rc = the_client->connect(destid);
+		rc = sub_client->connect(destid);
 		if (rc < 0) {
 			CRIT("Failed to connect to destid(0x%X)\n", destid);
 			throw RDMA_MALLOC_FAIL;
@@ -517,17 +530,17 @@ int provision_rdaemon(uint32_t destid)
 		/* Now create a Tx and Rx engines for communicating
 		 * with remote client. */
 		auto cm_tx_eng = make_unique<cm_client_tx_engine>(
-				the_client,
+				sub_client,
 				cm_engine_cleanup_sem);
 
 		auto cm_rx_eng = make_unique<cm_client_rx_engine>(
-				the_client,
+				sub_client,
 				d2d_msg_proc,
 				cm_tx_eng.get(),
 				cm_engine_cleanup_sem);
 
 		/* Release ownership of 'the_client' here */
-		the_client.reset();
+		sub_client.reset();
 
 		/* Create entry for remote daemon */
 		hello_daemon_info_list.add_daemon(move(cm_tx_eng),
