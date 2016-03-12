@@ -512,6 +512,14 @@ int provision_rdaemon(uint32_t destid)
 					    peer.prov_channel,
 					    &shutting_down);
 
+		/* Connect to remote daemon */
+		rc = main_client->connect(destid);
+		if (rc < 0) {
+			CRIT("Failed to connect to destid(0x%X)\n", destid);
+			throw RDMA_DAEMON_UNREACHABLE;
+		}
+		DBG("Connected to remote daemon at destid(0x%X)\n", destid);
+
 		/* Create a sub-client to be used with the Tx/Rx engines */
 		riomp_sock_t client_socket = main_client->get_socket();
 		shared_ptr<cm_client> sub_client =
@@ -519,13 +527,6 @@ int provision_rdaemon(uint32_t destid)
 					"sub_client",
 					client_socket,
 					&shutting_down);
-		/* Connect to remote daemon */
-		rc = sub_client->connect(destid);
-		if (rc < 0) {
-			CRIT("Failed to connect to destid(0x%X)\n", destid);
-			throw RDMA_MALLOC_FAIL;
-		}
-		DBG("Connected to remote daemon at destid(0x%X)\n", destid);
 
 		/* Now create a Tx and Rx engines for communicating
 		 * with remote client. */
@@ -538,9 +539,6 @@ int provision_rdaemon(uint32_t destid)
 				d2d_msg_proc,
 				cm_tx_eng.get(),
 				cm_engine_cleanup_sem);
-
-		/* Release ownership of 'the_client' here */
-		sub_client.reset();
 
 		/* Create entry for remote daemon */
 		hello_daemon_info_list.add_daemon(move(cm_tx_eng),

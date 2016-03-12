@@ -344,6 +344,7 @@ void prov_thread_f(int mport_id,
 {
 	unique_ptr<cm_server>	prov_server;
 
+	DBG("*** Start provisioning thread...\n");
 	try {
 		prov_server = make_unique<cm_server>("prov_server",
 				mport_id,
