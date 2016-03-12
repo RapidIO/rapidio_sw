@@ -61,6 +61,8 @@
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
 
+#define SLEEP_NS	1
+
 struct rapidio_mport_mailbox {
 	int fd;
 	uint8_t mport_id;
@@ -389,7 +391,11 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	for (;;) {
 		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) break;
-                if (st == DMAChannel::INPROGRESS) continue;
+                if (st == DMAChannel::INPROGRESS) {
+			const struct timespec sl = {0, SLEEP_NS};
+			nanosleep(&sl, NULL);
+			continue;
+		}
                 if (st == DMAChannel::BORKED) {
                         uint64_t t = 0;
                         const int deq = DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
@@ -501,7 +507,11 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	for (;;) {
 		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) break;
-                if (st == DMAChannel::INPROGRESS) continue;
+                if (st == DMAChannel::INPROGRESS) {
+			const struct timespec sl = {0, SLEEP_NS};
+			nanosleep(&sl, NULL);
+			continue;
+		}
                 if (st == DMAChannel::BORKED) {
                         uint64_t t = 0;
                         const int deq = DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
@@ -563,7 +573,11 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 
                 const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) return 0;
-                if (st == DMAChannel::INPROGRESS) continue;
+                if (st == DMAChannel::INPROGRESS) {
+			const struct timespec sl = {0, SLEEP_NS};
+			nanosleep(&sl, NULL);
+			continue;
+		}
                 if (st == DMAChannel::BORKED) {
                         uint64_t t = 0;
                         DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
