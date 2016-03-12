@@ -65,6 +65,9 @@ typedef struct {
 
   int (*queueDmaOpT1)(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p);
   int (*queueDmaOpT2)(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
+
+  void (*getShmPendingData)(void* dch, uint64_t* total, DMAChannel::DmaShmPendingData_t* per_client);
+
 } DMAChannelPtr_t;
 
 void* DMAChannel_create(const uint32_t mportid, const uint32_t chan)
@@ -105,6 +108,9 @@ void* DMAChannel_create(const uint32_t mportid, const uint32_t chan)
   assert(libp->queueDmaOpT1);
   libp->queueDmaOpT2 = (int (*)(void*, int, DMAChannel::DmaOptions_t*, uint8_t*, int, uint32_t*, seq_ts*))dlsym(libp->dlh, "DMAChannel_queueDmaOpT2");
   assert(libp->queueDmaOpT2);
+
+  libp->getShmPendingData = (void (*)(void*, uint64_t*, DMAChannel::DmaShmPendingData_t*))dlsym(libp->dlh, "DMAChannel_getShmPendingData");
+  assert(libp->getShmPendingData);
 
   libp->dch = libp->create(mportid, chan);
   assert(libp->dch);
@@ -190,6 +196,13 @@ int DMAChannel_queueDmaOpT2(void* dch, int rtype, DMAChannel::DmaOptions_t* opt,
   assert(((DMAChannelPtr_t*)dch)->sig == SIG);
   return ((DMAChannelPtr_t*)dch)->queueDmaOpT2(((DMAChannelPtr_t*)dch)->dch, rtype, opt, data, data_len, abort_reason, ts_p);
 }
+
+void DMAChannel_getShmPendingData(void* dch, uint64_t* total, DMAChannel::DmaShmPendingData_t* per_client)
+{
+  assert(((DMAChannelPtr_t*)dch)->sig == SIG);
+  ((DMAChannelPtr_t*)dch)->getShmPendingData(((DMAChannelPtr_t*)dch)->dch, total, per_client);
+}
+
 #ifdef __cplusplus
 }; // END extern "C"
 #endif

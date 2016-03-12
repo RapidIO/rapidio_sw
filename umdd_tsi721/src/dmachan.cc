@@ -61,6 +61,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DMA_SHM_TXDESC_NAME	"DMAChannel-txdesc:%d:%d"
 #define DMA_SHM_TXDESC_SIZE	((m_state->bd_num+1)*sizeof(bool) + (m_state->bd_num+1)*sizeof(WorkItem_t))
 
+#define DMA_SHM_PENDINGDATA_NAME "DMAChannels-pendingdata:%d"
+
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
 /** \brief Private gettid(2) implementation */
@@ -98,8 +100,9 @@ void DMAChannel::init(const uint32_t chan)
   }
   memset(m_shm_bl_name, 0, sizeof(m_shm_bl_name));
   memset(m_shm_state_name, 0, sizeof(m_shm_state_name));
+  memset(m_shm_pendingdata_name, 0, sizeof(m_shm_pendingdata_name));
 
-  MHz_1e3 = getCPUMHz() * 1000; // pre-scale for later use
+  MHz = getCPUMHz();
 
   m_pid = getpid();
   m_tid = gettid();
@@ -119,6 +122,12 @@ void DMAChannel::init(const uint32_t chan)
 
   m_sim_abort_reason = 0;
   m_sim_err_stat = 0;
+
+
+  bool first_opener_pdata = true;
+  snprintf(m_shm_pendingdata_name, 128, DMA_SHM_PENDINGDATA_NAME, m_mportid);
+  m_shm_pendingdata = new POSIXShm(m_shm_pendingdata_name, sizeof(DmaShmPendingData_t), first_opener_pdata);
+  m_pendingdata_tally = (DmaShmPendingData_t*)m_shm_pendingdata->getMem();
 
   bool first_opener = true;
   const int shm_size = sizeof(DmaChannelState_t);
@@ -173,6 +182,8 @@ void DMAChannel::init(const uint32_t chan)
   }
 
   m_hw_master = true;
+
+  /*if (first_opener_pdata)*/ m_pendingdata_tally->data[chan] = 0;
 
   pthread_spin_init(&m_state->hw_splock,           PTHREAD_PROCESS_SHARED);
   pthread_spin_init(&m_state->pending_work_splock, PTHREAD_PROCESS_SHARED);
@@ -453,6 +464,11 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     setWriteCount(m_state->dma_wr);
 
     if(m_state->dma_wr == 0xFFFFFFFE) m_state->dma_wr = 1; // Process BD0 which is a T3
+
+    if (m_pendingdata_tally != NULL) {
+      assert(m_pendingdata_tally->data[m_state->chan] >= 0);
+      m_pendingdata_tally->data[m_state->chan] += opt.bcount;
+    }
   }}
   pthread_spin_unlock(&m_state->bl_splock); 
 
@@ -461,8 +477,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   }
 
   // Not in locked context
-  opt.not_before = computeNotBefore(opt);
   if (m_cliidx >= 0) m_state->client_completion[m_cliidx].bytes_enq += opt.bcount;
+  opt.not_before = computeNotBefore(opt);
 
   memset(&wk, 0, sizeof(wk));
   wk.mem = mem;
@@ -1045,6 +1061,11 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
 
     if (item.opt.cliidx >= 0) m_state->client_completion[item.opt.cliidx].bytes_txd += item.opt.bcount;
 
+    if (m_pendingdata_tally != NULL) {
+      assert(m_pendingdata_tally->data[m_state->chan] >= 0);
+      m_pendingdata_tally->data[m_state->chan] -= item.opt.bcount;
+    }
+
     pthread_spin_unlock(&m_state->bl_splock); 
   } // END for compl_size
 
@@ -1552,6 +1573,16 @@ int DMAChannel_queueDmaOpT2(void* dch, int rtype, DMAChannel::DmaOptions_t* opt,
   const bool r = ((DMAChannel*)dch)->queueDmaOpT2(rtype, *opt, data, data_len, ar, ts_p);
   *abort_reason = ar;
   return r;
+}
+
+void DMAChannel_getShmPendingData(void* dch, uint64_t* total, DMAChannel::DmaShmPendingData_t* per_client)
+{
+  if (dch == NULL || total == NULL) return;
+
+  DMAChannel::DmaShmPendingData_t perc;
+  ((DMAChannel*)dch)->getShmPendingData(*total, perc);
+
+  if (per_client != NULL) *per_client = perc;
 }
 
 }; // END extern "C"

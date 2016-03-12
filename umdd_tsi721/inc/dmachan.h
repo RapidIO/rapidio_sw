@@ -89,6 +89,11 @@ public:
   static const int DMA_SHM_MAX_CLIENTS = 64;
   static const int DMA_SHM_MAX_ITEMS_PER_CLIENT = 1024;
 
+  /** \brief Track in-flight pending bytes for all channels. This lives in SHM. */
+  typedef struct {
+    volatile uint64_t data[DMA_MAX_CHAN];
+  } DmaShmPendingData_t;
+
   enum {
     SIM_INJECT_TIMEOUT = 1,
     SIM_INJECT_ERR_RSP = 2,
@@ -386,7 +391,7 @@ public:
 
 private:
   int umdemo_must_die;
-  uint64_t            MHz_1e3;
+  uint64_t            MHz;
   pid_t               m_pid;
   pid_t               m_tid;
   int                 m_cliidx; ///< Index into m_state->client_completion if running as client 
@@ -407,6 +412,10 @@ private:
 
   POSIXShm*           m_shm_bl;
   char                m_shm_bl_name[129];
+
+  POSIXShm*           m_shm_pendingdata;
+  char                m_shm_pendingdata_name[129];
+  DmaShmPendingData_t*m_pendingdata_tally;
 
   // These two live in m_shm_bl back-to-back
   bool*               m_bl_busy;
@@ -514,7 +523,12 @@ private:
   uint64_t computeNotBefore(const DmaOptions_t& opt)
   {
     uint64_t ns = 0;
-    switch(opt.rtype) {
+
+    if (m_pendingdata_tally != NULL) {
+      // Assume all pending are NREADs
+      for(int i = 1 /*Kern uses 0 for maint*/; i < DMA_MAX_CHAN; i++) ns += m_pendingdata_tally->data[i];
+    } else { // Fall back to information at hand
+      switch(opt.rtype) {
         case NREAD:         ns = opt.bcount; break;
         case LAST_NWRITE_R: ns = opt.bcount/2; break;
         case ALL_NWRITE:    ns = opt.bcount/2; break;
@@ -524,9 +538,11 @@ private:
              throw std::runtime_error("DMAChannel: Maint operations not supported!");
              break;
         default: assert(0); break;
+      }
     }
 
-    return opt.ts_start + ns; // convert to microseconds, then to rdtsc units
+    // Eq: (rdtsc * 1000) / MHz = nsec <=> rdtsc = (nsec * MHz) / 1000
+    return opt.ts_start + (ns * MHz) / 1000; // convert to microseconds, then to rdtsc units
   }
 
 public:
@@ -538,6 +554,19 @@ public:
 
   TicketState_t checkTicket(const DmaOptions_t& opt);
  
+  /** \brief Tally up all pending data across all channels managed by THIS class per mport
+   * \note Kernel may have in-flight data fighting for the same bandwidth. We cannot account for that.
+   */
+  inline void getShmPendingData(uint64_t& total, DmaShmPendingData_t& per_client)
+  {
+    if (m_pendingdata_tally) {
+      total = 0;
+      return;
+    }
+    memcpy(&per_client, m_pendingdata_tally, sizeof(DmaShmPendingData_t));
+    for(int i = 0; i < DMA_MAX_CHAN; i++) total += per_client.data[i];
+  }
+
   /** \brief Crude Seventh Edition-style check for SHM Master liveliness */
   inline bool pingMaster() {
     assert(m_state);
@@ -609,6 +638,8 @@ int DMAChannel_checkTicket(void* dch, const DMAChannel::DmaOptions_t* opt);
 
 int DMAChannel_queueDmaOpT1(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p);
 int DMAChannel_queueDmaOpT2(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
+
+void DMAChannel_getShmPendingData(void* dch, uint64_t* total, DMAChannel::DmaShmPendingData_t* per_client);
 
 #ifdef __cplusplus
 }; // END extern "C"
