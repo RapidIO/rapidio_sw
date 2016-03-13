@@ -525,8 +525,14 @@ private:
     uint64_t ns = 0;
 
     if (m_pendingdata_tally != NULL) {
-      // Assume all pending are NREADs
-      for(int i = 1 /*Kern uses 0 for maint*/; i < DMA_MAX_CHAN; i++) ns += m_pendingdata_tally->data[i];
+	uint64_t max_data = m_pendingdata_tally->data[m_state->chan];
+      for(int i = 1 /*Kern uses 0 for maint*/; i < DMA_MAX_CHAN; i++) {
+	if (m_pendingdata_tally->data[i] < max_data)
+		ns += m_pendingdata_tally->data[i];
+	else
+		ns += max_data;
+	};
+	ns = ns/2;
     } else { // Fall back to information at hand
       switch(opt.rtype) {
         case NREAD:         ns = opt.bcount; break;
@@ -542,7 +548,7 @@ private:
     }
 
     // Eq: (rdtsc * 1000) / MHz = nsec <=> rdtsc = (nsec * MHz) / 1000
-    return opt.ts_start + (ns * MHz) / 1000; // convert to microseconds, then to rdtsc units
+    return opt.ts_start + (ns * 1000 / MHz); // convert to microseconds, then to rdtsc units
   }
 
 public:
@@ -559,12 +565,15 @@ public:
    */
   inline void getShmPendingData(uint64_t& total, DmaShmPendingData_t& per_client)
   {
+	uint64_t max_mem;
     if (m_pendingdata_tally) {
       total = 0;
       return;
     }
     memcpy(&per_client, m_pendingdata_tally, sizeof(DmaShmPendingData_t));
-    for(int i = 0; i < DMA_MAX_CHAN; i++) total += per_client.data[i];
+	max_mem = per_client.data[m_state->chan];
+    for(int i = 0; i < DMA_MAX_CHAN; i++)
+	total += (per_client.data[i] < max_mem)?per_client.data[i]:max_mem;
   }
 
   /** \brief Crude Seventh Edition-style check for SHM Master liveliness */
