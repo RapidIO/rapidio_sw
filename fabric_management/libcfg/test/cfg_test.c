@@ -153,16 +153,72 @@ int test_case_3(void)
 	if (cfg_find_dev_by_ct(0x10005, &dev))
 		goto fail;
 
+	if (dev.ep_pt.max_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.ep_pt.op_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.ep_pt.ls != idt_pc_ls_5p0)
+		goto fail;
+
 	if (cfg_find_dev_by_ct(0x20006, &dev))
 		goto fail;
 
+	if (dev.ep_pt.max_pw != idt_pc_pw_2x)
+		goto fail;
+	if (dev.ep_pt.op_pw != idt_pc_pw_2x)
+		goto fail;
+	if (dev.ep_pt.ls != idt_pc_ls_6p25)
+		goto fail;
+
 	if (cfg_find_dev_by_ct(0x30007, &dev))
+		goto fail;
+
+	if (dev.ep_pt.max_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.ep_pt.op_pw != idt_pc_pw_2x)
+		goto fail;
+	if (dev.ep_pt.ls != idt_pc_ls_1p25)
 		goto fail;
 
 	if (cfg_find_dev_by_ct(0x40008, &dev))
 		goto fail;
 
 	if (cfg_find_dev_by_ct(0x70000, &dev))
+		goto fail;
+
+	if (dev.sw_info.sw_pt[0].max_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.sw_info.sw_pt[0].op_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.sw_info.sw_pt[0].ls != idt_pc_ls_6p25)
+		goto fail;
+
+	if (dev.sw_info.sw_pt[1].max_pw != idt_pc_pw_2x)
+		goto fail;
+	if (dev.sw_info.sw_pt[1].op_pw != idt_pc_pw_2x)
+		goto fail;
+	if (dev.sw_info.sw_pt[1].ls != idt_pc_ls_5p0)
+		goto fail;
+
+	if (dev.sw_info.sw_pt[2].max_pw != idt_pc_pw_2x)
+		goto fail;
+	if (dev.sw_info.sw_pt[2].op_pw != idt_pc_pw_1x)
+		goto fail;
+	if (dev.sw_info.sw_pt[2].ls != idt_pc_ls_3p125)
+		goto fail;
+
+	if (dev.sw_info.sw_pt[3].max_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.sw_info.sw_pt[3].op_pw != idt_pc_pw_1x)
+		goto fail;
+	if (dev.sw_info.sw_pt[3].ls != idt_pc_ls_2p5)
+		goto fail;
+
+	if (dev.sw_info.sw_pt[4].max_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.sw_info.sw_pt[4].op_pw != idt_pc_pw_4x)
+		goto fail;
+	if (dev.sw_info.sw_pt[4].ls != idt_pc_ls_1p25)
 		goto fail;
 
 	if (cfg_get_conn_dev(0x70000, 0, &dev, &conn_pt))

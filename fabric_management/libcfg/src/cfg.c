@@ -1345,6 +1345,9 @@ int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 	dev->did = ep->ports[0].devids[CFG_DEV08].devid;
 	dev->ep_pt.valid = 1;
 	dev->ep_pt.port = 0;
+	dev->ep_pt.max_pw = ep->ports[0].rio.max_pw;
+	dev->ep_pt.op_pw = ep->ports[0].rio.op_pw;
+	dev->ep_pt.ls = ep->ports[0].rio.ls;
 	dev->ep_pt.ct = dev->ct;
 	memcpy(dev->ep_pt.devids, ep->ports[0].devids,
 		sizeof(dev->ep_pt.devids));
@@ -1371,6 +1374,12 @@ int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 			sw->ports[i].valid;
 		dev->sw_info.sw_pt[i].port =
 			sw->ports[i].port;
+		dev->sw_info.sw_pt[i].max_pw =
+			sw->ports[i].rio.max_pw;
+		dev->sw_info.sw_pt[i].op_pw =
+			sw->ports[i].rio.op_pw;
+		dev->sw_info.sw_pt[i].ls =
+			sw->ports[i].rio.ls;
 	};
 	dev->sw_info.rt[CFG_DEV08] = &sw->rt[CFG_DEV08];
 	dev->sw_info.rt[CFG_DEV16] = &sw->rt[CFG_DEV16];
