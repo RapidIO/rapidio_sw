@@ -501,6 +501,32 @@ exit:
 	return ret;
 };
 
+int RIOCP_WU mpsw_drv_init_pe_em(struct riocp_pe *pe, bool en_em)
+{
+        idt_em_dev_rpt_ctl_in_t         rpt_in;
+	struct mpsw_drv_private_data *priv;
+	DAR_DEV_INFO_t *dev_h;
+
+	if (RIOCP_PE_IS_MPORT(pe))
+		return 0;
+
+	priv =(struct mpsw_drv_private_data *)(pe->private_data); 
+
+	if (NULL == priv) {
+		ERR("Private Data is NULL, exiting\n");
+		return -1;
+	};
+
+	dev_h = &priv->dev_h;
+
+	if (en_em)
+        	rpt_in.notfn = idt_em_notfn_pw;
+	else
+        	rpt_in.notfn = idt_em_notfn_none;
+        rpt_in.ptl.num_ports = RIO_ALL_PORTS;
+        return idt_em_dev_rpt_ctl(dev_h, &rpt_in, &priv->st.em_notfn);
+};
+
 int RIOCP_WU mpsw_drv_destroy_pe(struct riocp_pe *pe)
 {
 	DBG("ENTRY\n");
@@ -509,7 +535,8 @@ int RIOCP_WU mpsw_drv_destroy_pe(struct riocp_pe *pe)
 	return 0;
 };
 
-int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, uint8_t port)
+int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, uint8_t port,
+				uint8_t peer_port)
 {
 	struct mpsw_drv_private_data *p_dat;
 	int ret;
@@ -529,9 +556,10 @@ int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, uint8_t port)
 	};
 
 	clr_errs_in.port_num = port;
-	clr_errs_in.clr_lp_port_err = 0;
+	clr_errs_in.clr_lp_port_err = 1;
 	clr_errs_in.lp_dev_info = NULL;
-	clr_errs_in.num_lp_ports = 0;
+	clr_errs_in.num_lp_ports = 1;
+	clr_errs_in.lp_port_list[0] = peer_port;
 
 	ret = idt_pc_clr_errs(&p_dat->dev_h, &clr_errs_in, &clr_errs_out);
 	if (ret) {
@@ -686,10 +714,10 @@ int mpsw_drv_get_port_state(struct riocp_pe  *pe, uint8_t port,
 		state->port_cur_width = 0;
 	switch (p_dat->st.pc.pc[port].ls) {
 	case idt_pc_ls_1p25 : state->port_lane_speed = 1250;
-	case idt_pc_ls_2p5  : state->port_lane_speed = 2000;
-	case idt_pc_ls_3p125: state->port_lane_speed = 2500;
-	case idt_pc_ls_5p0  : state->port_lane_speed = 4000;
-	case idt_pc_ls_6p25 : state->port_lane_speed = 5000;
+	case idt_pc_ls_2p5  : state->port_lane_speed = 2500;
+	case idt_pc_ls_3p125: state->port_lane_speed = 3125;
+	case idt_pc_ls_5p0  : state->port_lane_speed = 5000;
+	case idt_pc_ls_6p25 : state->port_lane_speed = 6250;
 	default: state->port_lane_speed = 0;
 	};
 	state->link_errs = p_dat->st.ps.ps[port].port_error |
@@ -703,14 +731,56 @@ fail:
 	return 1;
 };
 
+int mpsw_drv_set_port_speed(struct riocp_pe  *pe, uint8_t port,
+			uint32_t lane_speed)
+{
+	struct mpsw_drv_private_data *p_dat;
+	int ret = 1;
+	idt_pc_set_config_in_t pc_in;
+
+	DBG("ENTRY\n");
+	if (riocp_pe_handle_get_private(pe, (void **)&p_dat)) {
+		DBG("Private Data does not exist EXITING!\n");
+		return ret;
+	};
+
+	if (!p_dat->dev_h_valid) {
+		DBG("Device handle not valid EXITING!\n");
+		return ret;
+	};
+
+	if (port >= NUM_PORTS(&p_dat->dev_h)) {
+		DBG("State or port illegal, EXITING!\n");
+		return ret;
+	};
+
+	pc_in.lrto = p_dat->st.pc.lrto;
+	pc_in.oob_reg_acc = 0;
+	pc_in.reg_acc_port = RIO_ALL_PORTS;
+	pc_in.num_ports = p_dat->st.pc.num_ports;
+	memcpy(&pc_in.pc, p_dat->st.pc.pc, sizeof(pc_in.pc));
+	switch (lane_speed) {
+	case 1250: pc_in.pc[port].ls = idt_pc_ls_1p25;
+	case 2500: pc_in.pc[port].ls = idt_pc_ls_2p5;
+	case 3125: pc_in.pc[port].ls = idt_pc_ls_3p125;
+	case 5000: pc_in.pc[port].ls = idt_pc_ls_5p0;
+	case 6250: pc_in.pc[port].ls = idt_pc_ls_6p25; 
+	default  : pc_in.pc[port].ls = idt_pc_ls_last;
+	};
+
+	return idt_pc_set_config(&p_dat->dev_h, &pc_in, &p_dat->st.pc);
+};
+
 
 struct riocp_pe_driver pe_mpsw_driver = {
 	mpsw_drv_init_pe,
+	mpsw_drv_init_pe_em,
 	mpsw_drv_destroy_pe,
 	mpsw_drv_recover_port,
 	mpsw_drv_set_route_entry,
 	mpsw_drv_get_route_entry,
-	mpsw_drv_get_port_state
+	mpsw_drv_get_port_state,
+	mpsw_drv_set_port_speed
 };
 	
 struct riocp_reg_rw_driver pe_mpsw_rw_driver = {

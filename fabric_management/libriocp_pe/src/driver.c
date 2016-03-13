@@ -115,6 +115,8 @@ struct riocp_pe_driver drvr =
 { NULL,
 NULL,
 NULL, 
+NULL, 
+NULL, 
 NULL,
 NULL,
 NULL };
@@ -171,6 +173,7 @@ int RIOCP_WU riocp_drv_destroy_pe(struct riocp_pe *pe)
 *
 * @param[in] pe Processing element to be initialized.
 * @param[in] port Port number on the pe to be initialized.
+* @param[in] lp_port Port number on the link partner to be recovered
 *
 * It should be possible to exchange packets with the link partner
 * after this routine has been called.
@@ -178,10 +181,11 @@ int RIOCP_WU riocp_drv_destroy_pe(struct riocp_pe *pe)
 * If errors are present, the routine may invoke local and remote resets and
 * other severe measures to recover the port.
 */
-int RIOCP_WU riocp_drv_recover_port(struct riocp_pe *pe, uint8_t port)
+int RIOCP_WU riocp_drv_recover_port(struct riocp_pe *pe, uint8_t port,
+				uint8_t lp_port)
 {
 	if(drvr.recover_port && drvr_ok)
-		return drvr.recover_port(pe, port);
+		return drvr.recover_port(pe, port, lp_port);
 	else
 		return -ENOSYS;
 }
