@@ -239,6 +239,12 @@ protected:
 		}
 		if (rcvd_len != nullptr)
 			*rcvd_len = CM_BUF_SIZE;
+		DBG("buf[0] = 0x%" PRIx64 "\n", *(uint64_t *)buf);
+		DBG("buf[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 8));
+		DBG("buf[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 16));
+		DBG("buf[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 24));
+		DBG("buf[4] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 32));
+		DBG("buf[5] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 40));
 		return rc;
 	} /* timed_receive_buffer() */
 
