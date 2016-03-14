@@ -93,18 +93,18 @@ void mspace::send_cm_force_disconnect_ms(tx_engine<cm_server, cm_msg_t>* tx_eng,
 				uint64_t client_to_lib_tx_eng_h)
 {
 	/* Prepare destroy message */
-	cm_msg_t  the_msg;
-	the_msg.type = htobe64(CM_FORCE_DISCONNECT_MS);
-	the_msg.category = RDMA_REQ_RESP;
-	the_msg.seq_no = 0;
-	cm_force_disconnect_ms_msg	*dm = &the_msg.cm_force_disconnect_ms;
+	auto the_msg = make_unique<cm_msg_t>();
+	the_msg->type = htobe64(CM_FORCE_DISCONNECT_MS);
+	the_msg->category = RDMA_REQ_RESP;
+	the_msg->seq_no = 0;
+	cm_force_disconnect_ms_msg	*dm = &the_msg->cm_force_disconnect_ms;
 	strcpy(dm->server_msname, name.c_str());
 	dm->server_msid = htobe64(msid);
 	dm->server_msubid = htobe64(server_msubid);
 	dm->client_to_lib_tx_eng_h = htobe64(client_to_lib_tx_eng_h);
 
 	/* Send to remote daemon @ 'client_destid' */
-	tx_eng->send_message(&the_msg);
+	tx_eng->send_message(move(the_msg));
 } /* send_cm_force_disconnect_ms() */
 
 int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
@@ -234,13 +234,13 @@ int mspace::close_connections()
 		tx_engine<unix_server, unix_msg_t> *user_tx_eng =
 			user.tx_eng;
 
-		unix_msg_t	in_msg;
+		auto in_msg = make_unique<unix_msg_t>();
 
-		in_msg.type 	= FORCE_CLOSE_MS;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.seq_no   = 0;
-		in_msg.force_close_ms_req.msid = msid;
-		user_tx_eng->send_message(&in_msg);
+		in_msg->type 	= FORCE_CLOSE_MS;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->seq_no   = 0;
+		in_msg->force_close_ms_req.msid = msid;
+		user_tx_eng->send_message(move(in_msg));
 	}
 
 	users.clear();
@@ -400,15 +400,16 @@ void mspace::send_disconnect_to_lib(uint32_t client_msubid,
 		uint64_t client_to_lib_tx_eng_h,
 		tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
-	static unix_msg_t	in_msg;
+	auto in_msg = make_unique<unix_msg_t>();
 
-	in_msg.category = RDMA_REQ_RESP;
-	in_msg.type	= DISCONNECT_MS;
-	in_msg.disconnect_from_ms_req_in.client_msubid = client_msubid;
-	in_msg.disconnect_from_ms_req_in.server_msubid = server_msubid;
-	in_msg.disconnect_from_ms_req_in.client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
+	in_msg->category = RDMA_REQ_RESP;
+	in_msg->type	= DISCONNECT_MS;
+	in_msg->disconnect_from_ms_req_in.client_msubid = client_msubid;
+	in_msg->disconnect_from_ms_req_in.server_msubid = server_msubid;
+	in_msg->disconnect_from_ms_req_in.client_to_lib_tx_eng_h =
+							client_to_lib_tx_eng_h;
 
-	tx_eng->send_message(&in_msg);
+	tx_eng->send_message(move(in_msg));
 } /* send_disconnect_to_lib() */
 
 /* Disconnect all connections from the specified client_destid */

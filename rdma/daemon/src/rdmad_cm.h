@@ -39,6 +39,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
+#include <cstring>
+
 #include "liblog.h"
 #include "rdma_msg.h"
 
@@ -158,6 +160,11 @@ struct cm_force_disconnect_ms_msg {
 struct cm_force_disconnect_ms_ack_msg {
 	char server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t server_msid;
+	cm_force_disconnect_ms_ack_msg(cm_force_disconnect_ms_ack_msg& other) {
+		strcpy(server_msname, other.server_msname);
+		server_msid = other.server_msid;
+	}
+
 };
 
 
@@ -177,5 +184,42 @@ struct cm_msg_t {
 		cm_force_disconnect_ms_msg		cm_force_disconnect_ms;
 		cm_force_disconnect_ms_ack_msg	cm_force_disconnect_ms_ack;
 	};
+
+	cm_msg_t() {}
+
+	cm_msg_t(const cm_msg_t& other) :
+		type(other.type),
+		category(other.category),
+		seq_no(other.seq_no)
+	{
+		DBG("######### COPY CTOR CALLED #########");
+		switch(type) {
+		case CM_HELLO:
+			cm_hello = other.cm_hello;
+		break;
+		case CM_HELLO_ACK:
+			cm_hello_ack = other.cm_hello_ack;
+		break;
+
+		case CM_CONNECT_MS:
+			cm_connect_ms = other.cm_connect_ms;
+		break;
+
+		case CM_DISCONNECT_MS_REQ:
+			cm_disconnect_ms_req = other.cm_disconnect_ms_req;
+		break;
+
+		case CM_FORCE_DISCONNECT_MS:
+			cm_force_disconnect_ms = other.cm_force_disconnect_ms;
+		break;
+
+		case CM_FORCE_DISCONNECT_MS_ACK:
+			cm_force_disconnect_ms_ack =
+					other.cm_force_disconnect_ms_ack;
+		break;
+		default:
+			abort();
+		}
+	}
 };
 #endif

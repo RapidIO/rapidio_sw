@@ -147,13 +147,13 @@ int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 		ERR("No clients connected to memory space!\n");
 		rc = -1;
 	} else {
-		unix_msg_t	in_msg;
-		in_msg.type 	= FORCE_DISCONNECT_MS;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.seq_no 	= 0;
-		in_msg.force_disconnect_ms_in.server_msid = server_msid;
-		in_msg.force_disconnect_ms_in.server_msubid = server_msubid;
-		it->to_lib_tx_eng->send_message(&in_msg);
+		auto in_msg = make_unique<unix_msg_t>();
+		in_msg->type 	= FORCE_DISCONNECT_MS;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->seq_no 	= 0;
+		in_msg->force_disconnect_ms_in.server_msid = server_msid;
+		in_msg->force_disconnect_ms_in.server_msubid = server_msubid;
+		it->to_lib_tx_eng->send_message(move(in_msg));
 
 		/* Wait for an ACKnowldegement of the message */
 		unix_msg_t	out_msg;
@@ -163,10 +163,10 @@ int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 			rx_eng, RDMA_CALL, FORCE_DISCONNECT_MS_ACK,
 							0, 1, &out_msg);
 		bool ok = out_msg.force_disconnect_ms_ack_in.server_msid ==
-				in_msg.force_disconnect_ms_in.server_msid;
+								server_msid;
 
 		ok &= out_msg.force_disconnect_ms_ack_in.server_msubid ==
-				in_msg.force_disconnect_ms_in.server_msubid;
+								server_msubid;
 		if (rc) {
 			ERR("Timeout waiting for FORCE_DISCONNECT_MS_ACK\n");
 		} else if (!ok) {
@@ -547,13 +547,14 @@ int provision_rdaemon(uint32_t destid)
 		DBG("Created daemon entry in hello_damon_info_list\n");
 
 		/* Send HELLO message containing our destid */
-		cm_msg_t in_msg;
-		in_msg.type = CM_HELLO;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.seq_no = 0;
-		cm_hello_msg_t	*hm = &in_msg.cm_hello;
+		auto in_msg = make_unique<cm_msg_t>();
+		in_msg->type = CM_HELLO;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->seq_no = 0;
+		cm_hello_msg_t	*hm = &in_msg->cm_hello;
 		hm->destid = htobe64(the_inbound->get_peer().destid);
-		cm_tx_eng->send_message(&in_msg);
+		HIGH("Sending HELLO message to destid(0x%X)\n", destid);
+		cm_tx_eng->send_message(move(in_msg));
 		HIGH("HELLO message sent to destid(0x%X)\n", destid);
 	}
 	catch(exception& e) {

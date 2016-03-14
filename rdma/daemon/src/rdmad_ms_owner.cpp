@@ -38,6 +38,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
+#include <memory>
+#include "memory_supp.h"
+
 #include "rdma_types.h"
 #include "liblog.h"
 #include "libcli.h"
@@ -48,6 +51,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 
 using std::lock_guard;
+using std::unique_ptr;
 
 ms_owner::ms_owner(const char *owner_name,
 		   tx_engine<unix_server, unix_msg_t> *tx_eng, uint32_t msoid) :
@@ -77,13 +81,13 @@ void ms_owner::close_connections()
 
 	/* Send messages for all connections indicating mso will be destroyed */
 	for (user_tx_eng* tx_eng : users_tx_eng) {
-		unix_msg_t	in_msg;
+		auto in_msg = make_unique<unix_msg_t>();
 
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.type     = FORCE_CLOSE_MSO;
-		in_msg.seq_no   = 0;
-		in_msg.force_close_mso_req.msoid = msoid;
-		tx_eng->send_message(&in_msg);
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->type     = FORCE_CLOSE_MSO;
+		in_msg->seq_no   = 0;
+		in_msg->force_close_mso_req.msoid = msoid;
+		tx_eng->send_message(move(in_msg));
 	}
 } /* close_connections() */
 

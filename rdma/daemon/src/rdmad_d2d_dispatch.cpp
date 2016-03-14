@@ -66,14 +66,14 @@ void cm_hello_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 		CRIT("Failed to set destid for tx_eng (%p)\n", tx_eng);
 	} else {
 		/* Send HELLO ACK with our own destid */
-		cm_msg_t hello_ack_msg;
-		hello_ack_msg.type = be64toh(CM_HELLO_ACK);
-		hello_ack_msg.category = be64toh(RDMA_REQ_RESP);
-		hello_ack_msg.seq_no = msg->seq_no;
-		hello_ack_msg.cm_hello.destid =
+		auto hello_ack_msg = make_unique<cm_msg_t>();
+		hello_ack_msg->type = be64toh(CM_HELLO_ACK);
+		hello_ack_msg->category = be64toh(RDMA_REQ_RESP);
+		hello_ack_msg->seq_no = msg->seq_no;
+		hello_ack_msg->cm_hello.destid =
 				htobe64(the_inbound->get_peer().destid);
 
-		tx_eng->send_message(&hello_ack_msg);
+		tx_eng->send_message(move(hello_ack_msg));
 		INFO("CM_HELLO_ACK sent to destid(0x%X)\n", remote_destid);
 	}
 } /* cm_hello_disp() */
@@ -90,23 +90,23 @@ void cm_hello_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 static void send_accept_nack(cm_msg_t *msg,
 			     cm_server_tx_engine *tx_eng)
 {
-	cm_msg_t	cm_msg;
+	auto cm_msg = make_unique<cm_msg_t>();
 
 	DBG("Sending CM_ACCEPT_MS_NACK\n");
 	/* Prepare negative accept message common fields */
-	cm_msg.type = htobe64(CM_ACCEPT_MS);
-	cm_msg.category = htobe64(RDMA_CALL);
-	cm_msg.seq_no = msg->seq_no;
+	cm_msg->type = htobe64(CM_ACCEPT_MS);
+	cm_msg->category = htobe64(RDMA_CALL);
+	cm_msg->seq_no = msg->seq_no;
 
 	/* Populate accept-specific fields */
-	cm_accept_ms_msg	*cmnam = &cm_msg.cm_accept_ms;
+	cm_accept_ms_msg	*cmnam = &cm_msg->cm_accept_ms;
 	cmnam->sub_type = htobe64(CM_ACCEPT_MS_NACK);
 	cm_connect_ms_msg	*conn_msg = &msg->cm_connect_ms;
 	strcpy(cmnam->server_ms_name, conn_msg->server_msname);
 	cmnam->client_to_lib_tx_eng_h = conn_msg->client_to_lib_tx_eng_h;
 
 	/* Send! */
-	tx_eng->send_message(&cm_msg);
+	tx_eng->send_message(move(cm_msg));
 } /* send_accept_nack() */
 
 void cm_connect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
@@ -140,12 +140,12 @@ void cm_connect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 	DBG("Found Tx engine in accepting mode\n");
 
 	/* Send 'connect' Unix message contents to the RDMA library */
-	unix_msg_t in_msg;
-	connect_to_ms_req_input *cm = &in_msg.connect_to_ms_req;
+	auto in_msg = make_unique<unix_msg_t>();
+	connect_to_ms_req_input *cm = &in_msg->connect_to_ms_req;
 
-	in_msg.type = CONNECT_MS_REQ;
-	in_msg.category = RDMA_CALL;
-	in_msg.seq_no = 0;	/* Important as librdma also expects 0 */
+	in_msg->type = CONNECT_MS_REQ;
+	in_msg->category = RDMA_CALL;
+	in_msg->seq_no = 0;	/* Important as librdma also expects 0 */
 	cm->client_msid = be64toh(conn_msg->client_msid);
 	cm->client_msubid = be64toh(conn_msg->client_msubid);
 	cm->client_msub_bytes = be64toh(conn_msg->client_bytes);
@@ -158,7 +158,7 @@ void cm_connect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 	cm->connh = be64toh(conn_msg->connh);
 	cm->client_to_lib_tx_eng_h = be64toh(conn_msg->client_to_lib_tx_eng_h);
 
-	to_lib_tx_eng->send_message(&in_msg);
+	to_lib_tx_eng->send_message(move(in_msg));
 
 	DBG("Sent CONNECT_MS_REQ to Server RDMA library. Contents:\n");
 	cm->dump();
@@ -245,25 +245,25 @@ void cm_accept_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 	if (be64toh(cm_accept_ms->sub_type) == CM_ACCEPT_MS_NACK) {
 		/* Compose an ACCEPT_FROM_MS_REQ message but with a
 		 * sub_type of ACCEPT_FROM_MS_REQ_NACK  */
-		static unix_msg_t in_msg;
+		auto in_msg = make_unique<unix_msg_t>();
 
-		in_msg.category = RDMA_CALL;
-		in_msg.type	= ACCEPT_FROM_MS_REQ;
-		in_msg.sub_type = ACCEPT_FROM_MS_REQ_NACK;
+		in_msg->category = RDMA_CALL;
+		in_msg->type	= ACCEPT_FROM_MS_REQ;
+		in_msg->sub_type = ACCEPT_FROM_MS_REQ_NACK;
 		/* Send the ACCEPT_FROM_MS_REQ message to the blocked
 		 * rdma_conn_ms_h() via the tx engine */
-		it->to_lib_tx_eng->send_message(&in_msg);
+		it->to_lib_tx_eng->send_message(move(in_msg));
 		sem_post(&connected_to_ms_info_list_sem);
 		return;
 	} else if (be64toh(cm_accept_ms->sub_type) == CM_ACCEPT_MS_ACK) {
 		/* Compose the ACCEPT_FROM_MS_REQ that is to be sent
 		 * over to the BLOCKED rdma_conn_ms_h(). */
-		static unix_msg_t in_msg;
+		auto in_msg = make_unique<unix_msg_t>();
 		accept_from_ms_req_input *am = /* short form */
-					&in_msg.accept_from_ms_req_in;
+					&in_msg->accept_from_ms_req_in;
 
-		in_msg.category = RDMA_CALL;
-		in_msg.type	= ACCEPT_FROM_MS_REQ;
+		in_msg->category = RDMA_CALL;
+		in_msg->type	= ACCEPT_FROM_MS_REQ;
 		am->server_msid	= be64toh(cm_accept_ms->server_msid);
 		am->server_msubid = be64toh(cm_accept_ms->server_msubid);
 		am->server_msub_bytes = be64toh(cm_accept_ms->server_msub_bytes);
@@ -286,7 +286,7 @@ void cm_accept_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 
 		/* Send the ACCEPT_FROM_MS_REQ message to the blocked
 		 * rdma_conn_ms_h() via the tx engine */
-		it->to_lib_tx_eng->send_message(&in_msg);
+		it->to_lib_tx_eng->send_message(move(in_msg));
 
 		/* Update the corresponding element of connected_to_ms_info_list */
 		/* By setting this entry to 'connected' it is ignored if there
@@ -338,17 +338,17 @@ void cm_force_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 	 * the ms was either destroyed or self-disconnected by its server. */
 
 	/* Header */
-	cm_msg_t in_msg;
-	in_msg.type = htobe64(CM_FORCE_DISCONNECT_MS_ACK);
-	in_msg.category = htobe64(RDMA_REQ_RESP);
-	in_msg.seq_no = 0;
+	auto in_msg = make_unique<cm_msg_t>();
+	in_msg->type = htobe64(CM_FORCE_DISCONNECT_MS_ACK);
+	in_msg->category = htobe64(RDMA_REQ_RESP);
+	in_msg->seq_no = 0;
 
 	/* CM_FORCE_DISCONNECT_MS_ACK content */
-	cm_force_disconnect_ms_ack_msg *dam = &in_msg.cm_force_disconnect_ms_ack;
+	cm_force_disconnect_ms_ack_msg *dam = &in_msg->cm_force_disconnect_ms_ack;
 	strcpy(dam->server_msname, cm_force_disconnect_ms->server_msname);
 	dam->server_msid = cm_force_disconnect_ms->server_msid; /* Both are BE */
 
 	/* Send to remote server daemon */
-	tx_eng->send_message(&in_msg);
+	tx_eng->send_message(move(in_msg));
 } /* cm_force_disconnect_ms_disp() */
 

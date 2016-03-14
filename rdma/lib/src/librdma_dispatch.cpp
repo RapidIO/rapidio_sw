@@ -125,13 +125,13 @@ void force_disconnect_ms_disp(uint32_t server_msid, uint32_t server_msubid)
 	remove_rem_ms(server_msid);
 
 	/* ACK that the MS_DESTROYED has arrived and was acted upon */
-	unix_msg_t in_msg;
-	in_msg.category = RDMA_CALL;
-	in_msg.type = FORCE_DISCONNECT_MS_ACK;
-	in_msg.force_disconnect_ms_ack_in.server_msid = server_msid;
-	in_msg.force_disconnect_ms_ack_in.server_msubid = server_msubid;
-	in_msg.seq_no = 0;
-	tx_eng->send_message(&in_msg);
+	auto in_msg = make_unique<unix_msg_t>();
+	in_msg->category = RDMA_CALL;
+	in_msg->type = FORCE_DISCONNECT_MS_ACK;
+	in_msg->force_disconnect_ms_ack_in.server_msid = server_msid;
+	in_msg->force_disconnect_ms_ack_in.server_msubid = server_msubid;
+	in_msg->seq_no = 0;
+	tx_eng->send_message(move(in_msg));
 
 } /* force_disconnect_ms_disp() */
 

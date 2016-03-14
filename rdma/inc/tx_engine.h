@@ -111,8 +111,11 @@ public:
 	T *get_client() { return client.get(); }
 
 	/* Returns sequence number to be used to receive reply */
-	void send_message(M* msg_ptr)
+	void send_message(unique_ptr<M> msg_ptr)
 	{
+		(void)msg_ptr;
+		DBG("ENTER\n");
+#if 0
 		DBG("Sending type:'%s',0x%X cat:'%s',0x%X seq_no(0x%X)\n",
 			type_name(msg_ptr->type), msg_ptr->type,
 			cat_name(msg_ptr->category), msg_ptr->category,
@@ -121,6 +124,9 @@ public:
 		message_queue.push(make_unique<M>(*msg_ptr));
 		pthread_mutex_unlock(&message_queue_lock);
 		sem_post(&messages_waiting);
+#endif
+
+		DBG("EXIT\n");
 	} /* send_message() */
 
 protected:
@@ -130,7 +136,7 @@ protected:
 			/* Wait until a message is enqueued for transmission */
 			DBG("Waiting for message to be sent...\n");
 			sem_wait(&messages_waiting);
-
+			DBG("Not waiting anymore..\n");
 			/* This happens when we are trying to exit the thread
 			 * from the destructor: stop_worker_thread is set to true
 			 * and the semaphore 'messages_waiting is posted with the
@@ -142,6 +148,7 @@ protected:
 
 			/* Grab next message to be sent and send it */
 			pthread_mutex_lock(&message_queue_lock);
+			DBG("Getting message at front of queue\n");
 			M*	msg_ptr = message_queue.front().get();
 			pthread_mutex_unlock(&message_queue_lock);
 
@@ -159,6 +166,7 @@ protected:
 			} else {
 				/* Remove message from queue */
 				pthread_mutex_lock(&message_queue_lock);
+				DBG("Popping message out of queue\n");
 				message_queue.pop();
 				pthread_mutex_unlock(&message_queue_lock);
 			}

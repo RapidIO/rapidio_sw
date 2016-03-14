@@ -165,7 +165,7 @@ static int await_message(rdma_msg_cat category, rdma_msg_type type,
  *
  * @return 0 if successful
  */
-static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
+static int daemon_call(unique_ptr<unix_msg_t> in_msg, unix_msg_t *out_msg)
 {
 	int rc;
 	constexpr uint32_t MSG_SEQ_NO_START = 0x0000000A;
@@ -191,7 +191,7 @@ static int daemon_call(unix_msg_t *in_msg, unix_msg_t *out_msg)
 
 	/* Send message */
 	in_msg->seq_no = seq_no;
-	tx_eng->send_message(in_msg);
+	tx_eng->send_message(move(in_msg));
 	DBG("Queued for sending: type='%s',0x%X, cat='%s',0x%X, seq_no = 0x%X\n",
 		type_name(in_msg->type), in_msg->type, cat_name(in_msg->category),
 		in_msg->category, in_msg->seq_no);
@@ -229,14 +229,14 @@ int rdmad_kill_daemon()
 {
 	int rc;
 
-	unix_msg_t	in_msg;
+	auto in_msg = make_unique<unix_msg_t>();
 
-	in_msg.type = RDMAD_KILL_DAEMON;
-	in_msg.category = RDMA_REQ_RESP;
-	in_msg.rdmad_kill_daemon_in.dummy = 0x666;
+	in_msg->type = RDMAD_KILL_DAEMON;
+	in_msg->category = RDMA_REQ_RESP;
+	in_msg->rdmad_kill_daemon_in.dummy = 0x666;
 
 	unix_msg_t  	out_msg;
-	rc = daemon_call(&in_msg, &out_msg);
+	rc = daemon_call(move(in_msg), &out_msg);
 	if (rc ) {
 		ERR("Failed in daemon call to get kill daemon\n");
 	}
@@ -254,14 +254,14 @@ int rdma_get_ibwin_properties(unsigned *num_ibwins, uint32_t *ibwin_size)
 	auto rc = 0;
 
 	try {
-		unix_msg_t	in_msg;
+		auto in_msg = make_unique<unix_msg_t>();
 
-		in_msg.type = GET_IBWIN_PROPERTIES;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.get_ibwin_properties_in.dummy = 0xc0de;
+		in_msg->type = GET_IBWIN_PROPERTIES;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->get_ibwin_properties_in.dummy = 0xc0de;
 
 		unix_msg_t  	out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in daemon call to get ibwin props\n");
 			throw rc;
@@ -312,14 +312,14 @@ int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint32_t *bytes)
  */
 static bool rdmad_is_alive()
 {
-	unix_msg_t  in_msg;
+	auto in_msg = make_unique<unix_msg_t>();
 
-	in_msg.type = RDMAD_IS_ALIVE;
-	in_msg.category = RDMA_REQ_RESP;
-	in_msg.rdmad_is_alive_in.dummy = 0x1234;
+	in_msg->type = RDMAD_IS_ALIVE;
+	in_msg->category = RDMA_REQ_RESP;
+	in_msg->rdmad_is_alive_in.dummy = 0x1234;
 
 	unix_msg_t  out_msg;
-	return daemon_call(&in_msg, &out_msg) != RDMA_DAEMON_UNREACHABLE;
+	return daemon_call(move(in_msg), &out_msg) != RDMA_DAEMON_UNREACHABLE;
 } /* rdmad_is_alive() */
 
 static int open_mport(void)
@@ -328,14 +328,14 @@ static int open_mport(void)
 	DBG("ENTER\n");
 
 	/* Set up Unix message parameters */
-	unix_msg_t	in_msg;
+	auto in_msg = make_unique<unix_msg_t>();
 	unix_msg_t	out_msg;
 
-	in_msg.type = GET_MPORT_ID;
-	in_msg.category = RDMA_REQ_RESP;
-	in_msg.get_mport_id_in.dummy = 0x1234;
+	in_msg->type = GET_MPORT_ID;
+	in_msg->category = RDMA_REQ_RESP;
+	in_msg->get_mport_id_in.dummy = 0x1234;
 
-	rc = daemon_call(&in_msg, &out_msg);
+	rc = daemon_call(move(in_msg), &out_msg);
 	if (rc ) {
 		ERR("Failed to obtain mport ID\n");
 		return rc;
@@ -561,14 +561,14 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 		}
 
 		/* Set up Unix message parameters */
-		unix_msg_t	in_msg;
+		auto in_msg = make_unique<unix_msg_t>();
 		unix_msg_t	out_msg;
-		in_msg.type     = CREATE_MSO;
-		in_msg.category = RDMA_REQ_RESP;
-		strcpy(in_msg.create_mso_in.owner_name, owner_name);
+		in_msg->type     = CREATE_MSO;
+		in_msg->category = RDMA_REQ_RESP;
+		strcpy(in_msg->create_mso_in.owner_name, owner_name);
 
 		/* Call into daemon */
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in CREATE_MSO daemon_call, rc = %d\n", rc);
 			throw rc;
@@ -632,14 +632,14 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		}
 
 		/* Set up input parameters */
-		unix_msg_t  in_msg;
-		in_msg.type = OPEN_MSO;
-		in_msg.category = RDMA_REQ_RESP;
-		strcpy(in_msg.open_mso_in.owner_name, owner_name);
+		auto in_msg = make_unique<unix_msg_t>();
+		in_msg->type = OPEN_MSO;
+		in_msg->category = RDMA_REQ_RESP;
+		strcpy(in_msg->open_mso_in.owner_name, owner_name);
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc) {
 			ERR("Failed in OPEN_MSO daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -726,15 +726,15 @@ int rdma_close_mso_h(mso_h msoh)
 		}
 
 		/* Set up Unix message parameters */
-		unix_msg_t  in_msg;
+		auto in_msg = make_unique<unix_msg_t>();
 
-		in_msg.close_mso_in.msoid = ((loc_mso *)msoh)->msoid;
-		in_msg.type 	= CLOSE_MSO;
-		in_msg.category = RDMA_REQ_RESP;
+		in_msg->close_mso_in.msoid = ((loc_mso *)msoh)->msoid;
+		in_msg->type 	= CLOSE_MSO;
+		in_msg->category = RDMA_REQ_RESP;
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc) {
 			ERR("Failed in CLOSE_MSO daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -743,7 +743,7 @@ int rdma_close_mso_h(mso_h msoh)
 		/* Check status returned by command on the daemon side */
 		if (out_msg.close_mso_out.status != 0) {
 			ERR("Failed to close mso(0x%X) in daemon, status = 0x%X\n",
-						in_msg.close_mso_in.msoid,
+						((loc_mso *)msoh)->msoid,
 						out_msg.close_mso_out.status);
 			throw out_msg.close_mso_out.status;
 		}
@@ -819,14 +819,14 @@ int rdma_destroy_mso_h(mso_h msoh)
 		}
 
 		/* Set up input parameters */
-		unix_msg_t	in_msg;
-		in_msg.destroy_mso_in.msoid = ((loc_mso *)msoh)->msoid;
-		in_msg.type = DESTROY_MSO;
-		in_msg.category = RDMA_REQ_RESP;
+		auto in_msg = make_unique<unix_msg_t>();
+		in_msg->destroy_mso_in.msoid = ((loc_mso *)msoh)->msoid;
+		in_msg->type = DESTROY_MSO;
+		in_msg->category = RDMA_REQ_RESP;
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc) {
 			ERR("Failed in DESTROY_MSO daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -900,17 +900,17 @@ int rdma_create_ms_h(const char *ms_name,
 		*bytes = round_up_to_4k(req_bytes);
 
 		/* Set up Unix message parameters */
-		unix_msg_t	in_msg;
+		auto in_msg = make_unique<unix_msg_t>();
 		unix_msg_t	out_msg;
-		in_msg.type     = CREATE_MS;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.create_ms_in.bytes = *bytes;
-		in_msg.create_ms_in.flags = flags;
-		in_msg.create_ms_in.msoid = ((loc_mso *)msoh)->msoid;
-		strcpy(in_msg.create_ms_in.ms_name, ms_name);
+		in_msg->type     = CREATE_MS;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->create_ms_in.bytes = *bytes;
+		in_msg->create_ms_in.flags = flags;
+		in_msg->create_ms_in.msoid = ((loc_mso *)msoh)->msoid;
+		strcpy(in_msg->create_ms_in.ms_name, ms_name);
 
 		/* Call into daemon */
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in CREATE_MS daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -1018,16 +1018,16 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 		}
 
 		/* Set up Unix message parameters */
-		unix_msg_t	in_msg;
-		in_msg.type     = OPEN_MS;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.open_ms_in.flags = flags;
-		in_msg.open_ms_in.msoid = ((loc_mso *)msoh)->msoid;
-		strcpy(in_msg.open_ms_in.ms_name, ms_name);
+		auto in_msg = make_unique<unix_msg_t>();
+		in_msg->type     = OPEN_MS;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->open_ms_in.flags = flags;
+		in_msg->open_ms_in.msoid = ((loc_mso *)msoh)->msoid;
+		strcpy(in_msg->open_ms_in.ms_name, ms_name);
 
 		/* Call into daemon */
 		unix_msg_t	out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in OPEN_MS daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -1098,14 +1098,14 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 		}
 
 		/* Set up Unix message parameters */
-		unix_msg_t	in_msg;
-		in_msg.type     = CLOSE_MS;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.close_ms_in.msid = ((loc_ms *)msh)->msid;
+		auto in_msg = make_unique<unix_msg_t>();
+		in_msg->type     = CLOSE_MS;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->close_ms_in.msid = ((loc_ms *)msh)->msid;
 
 		/* Call into daemon */
 		unix_msg_t	out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in CLOSE_MS daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -1160,15 +1160,15 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 		}
 
 		/* Set up input parameters */
-		unix_msg_t  in_msg;
-		in_msg.type     = DESTROY_MS;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.destroy_ms_in.msid = ms->msid;
-		in_msg.destroy_ms_in.msoid= ((loc_mso *)msoh)->msoid;
+		auto in_msg = make_unique<unix_msg_t>();
+		in_msg->type     = DESTROY_MS;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->destroy_ms_in.msid = ms->msid;
+		in_msg->destroy_ms_in.msoid= ((loc_mso *)msoh)->msoid;
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in DESTROY_MS daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -1228,19 +1228,19 @@ int rdma_create_msub_h(ms_h	msh,
 		}
 
 		/* Set up input parameters */
-		unix_msg_t  in_msg;
-		in_msg.type     = CREATE_MSUB;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.create_msub_in.msid 	= ((loc_ms *)msh)->msid;
-		in_msg.create_msub_in.offset	= offset;
-		in_msg.create_msub_in.size 	= size;
+		auto in_msg = make_unique<unix_msg_t>();
+		in_msg->type     = CREATE_MSUB;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->create_msub_in.msid 	= ((loc_ms *)msh)->msid;
+		in_msg->create_msub_in.offset	= offset;
+		in_msg->create_msub_in.size 	= size;
 		DBG("msid = 0x%X, offset = 0x%X, req_bytes = 0x%x\n",
-						in_msg.create_msub_in.msid,
-						in_msg.create_msub_in.offset,
-						in_msg.create_msub_in.size);
+						in_msg->create_msub_in.msid,
+						in_msg->create_msub_in.offset,
+						in_msg->create_msub_in.size);
 		/* Call into daemon */
 		unix_msg_t  out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in CREATE_MSUB daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -1299,19 +1299,19 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 		DBG("msubh = 0x%" PRIx64 "\n", msubh);
 
 		/* Set up input parameters */
-		unix_msg_t  in_msg;
+		auto in_msg = make_unique<unix_msg_t>();
 
-		in_msg.type     = DESTROY_MSUB;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.destroy_msub_in.msid = ((loc_ms *)msh)->msid;
-		in_msg.destroy_msub_in.msubid = ((loc_msub *)msubh)->msubid;
+		in_msg->type     = DESTROY_MSUB;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->destroy_msub_in.msid = ((loc_ms *)msh)->msid;
+		in_msg->destroy_msub_in.msubid = ((loc_msub *)msubh)->msubid;
 		DBG("Attempting to destroy msubid(0x%X) in msid(0x%X)\n",
-					in_msg.destroy_msub_in.msid,
-					in_msg.destroy_msub_in.msubid);
+					in_msg->destroy_msub_in.msid,
+					in_msg->destroy_msub_in.msubid);
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in DESTROY_MSUB daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -1466,18 +1466,18 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		{
 			/* Tell the daemon to flag this memory space as accepting
 			 * connections for this application. */
-			unix_msg_t accept_in_msg;
-			accept_in_msg.type     = ACCEPT_MS;
-			accept_in_msg.category = RDMA_REQ_RESP;
-			accept_in_msg.accept_in.server_msid = server_ms->msid;
-			accept_in_msg.accept_in.server_msubid
+			auto accept_in_msg = make_unique<unix_msg_t>();
+			accept_in_msg->type     = ACCEPT_MS;
+			accept_in_msg->category = RDMA_REQ_RESP;
+			accept_in_msg->accept_in.server_msid = server_ms->msid;
+			accept_in_msg->accept_in.server_msubid
 							= server_msub->msubid;
 
 			DBG("name = '%s'\n", server_ms->name.c_str());
 
 			/* Call into daemon */
 			unix_msg_t  accept_out_msg;
-			rc = daemon_call(&accept_in_msg, &accept_out_msg);
+			rc = daemon_call(move(accept_in_msg), &accept_out_msg);
 			if (rc ) {
 				ERR("Failed in ACCEPT_MS daemon_call, rc = 0x%X\n", rc);
 				throw rc;
@@ -1502,14 +1502,14 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			ERR("Failed to receive CONNECT_MS_REQ for '%s'\n",
 							server_ms->name.c_str());
 			/* Switch back the ms to non-accepting mode */
-			unix_msg_t undo_accept_in_msg;
-			undo_accept_in_msg.type     = UNDO_ACCEPT;
-			undo_accept_in_msg.category = RDMA_REQ_RESP;
-			undo_accept_in_msg.accept_in.server_msid
+			auto undo_accept_in_msg = make_unique<unix_msg_t>();
+			undo_accept_in_msg->type     = UNDO_ACCEPT;
+			undo_accept_in_msg->category = RDMA_REQ_RESP;
+			undo_accept_in_msg->accept_in.server_msid
 							= server_ms->msid;
 			/* Call into daemon */
 			unix_msg_t  undo_accept_out_msg;
-			rc = daemon_call(&undo_accept_in_msg, &undo_accept_out_msg);
+			rc = daemon_call(move(undo_accept_in_msg), &undo_accept_out_msg);
 			if (rc ) {
 				ERR("Failed in UNDO_ACCEPT daemon_call, rc = 0x%X\n", rc);
 				throw rc;
@@ -1550,12 +1550,12 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		*connh = conn_req_msg->connh;	/* Conn. handle sent by client */
 
 		/* Now reply to the CONNECT_MS_REQ sith CONNECT_MS_RESP */
-		unix_msg_t connect_ms_resp_in_msg;
+		auto connect_ms_resp_in_msg = make_unique<unix_msg_t>();
 		connect_to_ms_resp_input *conn_to_ms_resp =
-				&connect_ms_resp_in_msg.connect_to_ms_resp_in;
-		connect_ms_resp_in_msg.type = CONNECT_MS_RESP;
-		connect_ms_resp_in_msg.category = RDMA_REQ_RESP;
-		connect_ms_resp_in_msg.seq_no   = conn_req_msg->seq_num;
+				&connect_ms_resp_in_msg->connect_to_ms_resp_in;
+		connect_ms_resp_in_msg->type = CONNECT_MS_RESP;
+		connect_ms_resp_in_msg->category = RDMA_REQ_RESP;
+		connect_ms_resp_in_msg->seq_no   = conn_req_msg->seq_num;
 		conn_to_ms_resp->client_msid    = conn_req_msg->client_msid;
 		conn_to_ms_resp->client_msubid	= conn_req_msg->client_msubid;
 		conn_to_ms_resp->server_msid = server_ms->msid;
@@ -1585,7 +1585,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 					conn_to_ms_resp->server_rio_addr_hi);
 		/* Call into daemon */
 		unix_msg_t connect_ms_resp_out_msg;
-		rc = daemon_call(&connect_ms_resp_in_msg, &connect_ms_resp_out_msg);
+		rc = daemon_call(move(connect_ms_resp_in_msg), &connect_ms_resp_out_msg);
 		if (rc ) {
 			ERR("Failed in CONNECT_MS_RESP daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -1720,10 +1720,10 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		*connh = (conn_h)tx_eng;
 
 		/* Set up parameters for daemon call */
-		unix_msg_t in_msg;
-		in_msg.type 	= SEND_CONNECT;
-		in_msg.category = RDMA_REQ_RESP;
-		send_connect_input *connect_msg = &in_msg.send_connect_in;
+		auto in_msg = make_unique<unix_msg_t>();
+		in_msg->type 	= SEND_CONNECT;
+		in_msg->category = RDMA_REQ_RESP;
+		send_connect_input *connect_msg = &in_msg->send_connect_in;
 
 		strcpy(connect_msg->server_msname, rem_msname);
 		connect_msg->server_destid_len	= rem_destid_len;
@@ -1781,7 +1781,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in SEND_CONNECT daemon_call, rc = 0x%X\n", rc);
 			throw rc;
@@ -1811,12 +1811,13 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 				ERR("Unknown failure\n");
 			}
 			/* We failed out, so undo the accept */
-			in_msg.type     = UNDO_CONNECT;
-			in_msg.category = RDMA_REQ_RESP;
-			strcpy(in_msg.undo_connect_in.server_ms_name, rem_msname);
+			auto undo_in_msg = make_unique<unix_msg_t>();
+			undo_in_msg->type     = UNDO_CONNECT;
+			undo_in_msg->category = RDMA_REQ_RESP;
+			strcpy(undo_in_msg->undo_connect_in.server_ms_name, rem_msname);
 
 			auto temp_rc = rc;	/* Save 'rc' */
-			rc = daemon_call(&in_msg, &out_msg);
+			rc = daemon_call(move(undo_in_msg), &out_msg);
 			if (rc ) {
 				ERR("Failed in UNDO_CONNECT daemon_call, rc = %d\n", rc);
 				throw rc;
@@ -1942,34 +1943,34 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 			throw RDMA_INVALID_MS;
 		}
 
-		unix_msg_t in_msg;
+		auto in_msg = make_unique<unix_msg_t>();
 
-		in_msg.type 	= SEND_DISCONNECT;
-		in_msg.category = RDMA_REQ_RESP;
+		in_msg->type 	= SEND_DISCONNECT;
+		in_msg->category = RDMA_REQ_RESP;
 
 		/* Get destid info BEFORE we delete the msub. Otherwise we don't
 		 * know where that remote msub is (we could make it an input parameter
 		 * to the function, but the msubh should have it!). */
-		in_msg.send_disconnect_in.server_destid_len = msubp->destid_len;
-		in_msg.send_disconnect_in.server_destid     = msubp->destid;
+		in_msg->send_disconnect_in.server_destid_len = msubp->destid_len;
+		in_msg->send_disconnect_in.server_destid     = msubp->destid;
 
 		/* Send the MSID of the remote memory space we wish to disconnect from;
 		 * this will be used by the SERVER daemon to remove CLIENT destid from
 		 * that memory space's object */
-		in_msg.send_disconnect_in.server_msid	 = server_ms->msid;
+		in_msg->send_disconnect_in.server_msid	 = server_ms->msid;
 
 		/* If we had provided a local msub to the server, we need to
 		 * tell the server its msubid so the server can delete the msub
 		 * from tis remote databse. Otherwise send a NULL_MSUBID */
 		if (client_msubh != 0)
-			in_msg.send_disconnect_in.client_msubid =
+			in_msg->send_disconnect_in.client_msubid =
 						((loc_msub *)client_msubh)->msubid;
 		else
-			in_msg.send_disconnect_in.client_msubid = NULL_MSUBID;
+			in_msg->send_disconnect_in.client_msubid = NULL_MSUBID;
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in SEND_DISCONNECT daemon_call, rc=0x%X\n",
 									rc);
@@ -2052,17 +2053,17 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 
 		/* Tell daemon to relay to remove client that we disconnected
 		 * them from the memory space.  */
-		unix_msg_t in_msg;
-		in_msg.type 	= SERVER_DISCONNECT_MS;
-		in_msg.category = RDMA_REQ_RESP;
-		in_msg.server_disconnect_ms_in.client_to_lib_tx_eng_h =
+		auto in_msg = make_unique<unix_msg_t>();
+		in_msg->type 	= SERVER_DISCONNECT_MS;
+		in_msg->category = RDMA_REQ_RESP;
+		in_msg->server_disconnect_ms_in.client_to_lib_tx_eng_h =
 					connection_it->client_to_lib_tx_eng_h;
-		in_msg.server_disconnect_ms_in.server_msid = server_msid;
-		in_msg.server_disconnect_ms_in.server_msubid = server_msubid;
-		in_msg.server_disconnect_ms_in.client_msubid = client_msubid;
+		in_msg->server_disconnect_ms_in.server_msid = server_msid;
+		in_msg->server_disconnect_ms_in.server_msubid = server_msubid;
+		in_msg->server_disconnect_ms_in.client_msubid = client_msubid;
 
 		unix_msg_t out_msg;
-		rc = daemon_call(&in_msg, &out_msg);
+		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
 			ERR("Failed in SERVER_DISCONNECT_MS daemon_call, rc = 0x%X\n",
 										rc);
