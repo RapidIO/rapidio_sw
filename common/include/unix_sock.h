@@ -105,6 +105,22 @@ public:
 		pthread_mutex_unlock(&recv_buf_mutex);
 	}
 
+	void dump_buffer(uint8_t *buffer)
+	{
+		unsigned offset = 0;
+		const uint8_t chars_per_line = 32;
+
+		cout << hex << setfill('0') << setw(2);
+
+		for (unsigned i = 0; i < 4; i++, offset += chars_per_line) {
+			copy(buffer + offset,
+			     buffer + offset + chars_per_line,
+			     ostream_iterator<int>(cout, "-"));
+
+			cout << endl;
+		}
+	}
+
 	void dump_send_buffer()
 	{
 		pthread_mutex_lock(&send_buf_mutex);
@@ -118,6 +134,7 @@ public:
 		dump_buffer(recv_buf);
 		pthread_mutex_unlock(&recv_buf_mutex);
 	}
+
 
 protected:
 	unix_base(const char *name, const char *sun_path) :
@@ -251,6 +268,8 @@ protected:
 		return rc;
 	}
 
+
+
 	int		the_socket;	/* listen or client socket */
 	const char 	*name;
 	sockaddr_un	addr;
@@ -259,21 +278,7 @@ protected:
 	pthread_mutex_t recv_buf_mutex;
 
 private:
-	void dump_buffer(uint8_t *buffer)
-	{
-		unsigned offset = 0;
-		const uint8_t chars_per_line = 32;
 
-		cout << hex << setfill('0') << setw(2);
-
-		for (unsigned i = 0; i < 4; i++, offset += chars_per_line) {
-			copy(buffer + offset,
-			     buffer + offset + chars_per_line,
-			     ostream_iterator<int>(cout, "-"));
-
-			cout << endl;
-		}
-	}
 
 	uint8_t *send_buf;
 	uint8_t *recv_buf;

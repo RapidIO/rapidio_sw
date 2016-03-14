@@ -219,7 +219,9 @@ protected:
 							rc, strerror(errno));
 				die();
 			} else if (received_len > 0 ) {
-				DBG("Got category='%s'\n", cat_name(msg->category));
+				client->dump_recv_buffer();
+				DBG("Got category=0x%X,'%s'\n", msg->category,
+							cat_name(msg->category));
 				if (msg->category == RDMA_CALL) {
 					/* If there is a notification set for the
 					 * message then act on it. */

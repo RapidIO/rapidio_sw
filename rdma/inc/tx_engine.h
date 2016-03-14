@@ -147,6 +147,7 @@ protected:
 			DBG("Getting message at front of queue\n");
 			M*	msg_ptr = message_queue.front().get();
 			pthread_mutex_unlock(&message_queue_lock);
+			client->dump_buffer((uint8_t *)msg_ptr);
 
 			int rc = client->send_buffer(msg_ptr, sizeof(*msg_ptr));
 			if (rc != 0) {
