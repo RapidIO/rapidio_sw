@@ -542,10 +542,10 @@ int provision_rdaemon(uint32_t destid)
 
 		/* Send HELLO message containing our destid */
 		auto in_msg = make_unique<cm_msg_t>();
-		in_msg->type = htonl(CM_HELLO);
-		in_msg->category = htonl(RDMA_REQ_RESP);
-		in_msg->seq_no = htonl(0);
-		in_msg->cm_hello.destid = htonl(the_inbound->get_peer().destid);
+		in_msg->type = htobe64(CM_HELLO);
+		in_msg->category = htobe64(RDMA_REQ_RESP);
+		in_msg->seq_no = htobe64(0);
+		in_msg->cm_hello.destid = htobe64(the_inbound->get_peer().destid);
 		HIGH("Sending HELLO message to destid(0x%X)\n", destid);
 		cm_tx_eng->send_message(move(in_msg));
 		HIGH("HELLO message sent to destid(0x%X)\n", destid);

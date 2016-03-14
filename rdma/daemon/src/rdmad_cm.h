@@ -35,7 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CM_RDMA_H
 
 #include <stdint.h>
-#include <arpa/inet.h>
 
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
@@ -48,22 +47,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 constexpr auto CM_MS_NAME_MAX_LEN 		= 31;
 
 /* Message types */
-constexpr uint32_t CM_HELLO 	 		= 0x11111111;
-constexpr uint32_t CM_HELLO_ACK	 		= 0x22222222;
-constexpr uint32_t CM_CONNECT_MS 		= 0x33333333;
-constexpr uint32_t CM_ACCEPT_MS	 		= 0x44444444;
-constexpr uint32_t CM_DISCONNECT_MS_REQ		= 0x55555555;
-constexpr uint32_t CM_FORCE_DISCONNECT_MS 	= 0x66666666;
-constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK 	= 0x77777777;
+constexpr rdma_msg_type CM_HELLO 	 		= 0x1111111111111111;
+constexpr rdma_msg_type CM_HELLO_ACK	 		= 0x2222222222222222;
+constexpr rdma_msg_type CM_CONNECT_MS 			= 0x3333333333333333;
+constexpr rdma_msg_type CM_ACCEPT_MS	 		= 0x4444444444444444;
+constexpr rdma_msg_type CM_DISCONNECT_MS_REQ		= 0x5555555555555555;
+constexpr rdma_msg_type CM_FORCE_DISCONNECT_MS 		= 0x6666666666666666;
+constexpr rdma_msg_type CM_FORCE_DISCONNECT_MS_ACK 	= 0x7777777777777777;
 
 /**
  * @brief HELLO message exchanged between daemons during provisioning
  */
 struct cm_hello_msg_t {
-	uint32_t destid;
+	uint64_t destid;
 };
 struct cm_hello_ack_msg_t {
-	uint32_t destid;
+	uint64_t destid;
 };
 /**
  * @brief Sent from client daemon to server daemon requesting connection
@@ -173,9 +172,9 @@ struct cm_force_disconnect_ms_ack_msg {
  * are instantiated in terms of cm sockets and messages.
  */
 struct cm_msg_t {
-	rdma_msg_type	type;
-	rdma_msg_cat	category;
-	rdma_msg_seq_no	seq_no;
+	uint64_t	type;
+	uint64_t	category;
+	uint64_t	seq_no;
 	union {
 		cm_hello_msg_t			cm_hello;
 		cm_hello_ack_msg_t		cm_hello_ack;

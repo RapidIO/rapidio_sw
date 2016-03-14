@@ -48,7 +48,7 @@ void cm_hello_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {
 	cm_hello_msg_t *hello_msg = &msg->cm_hello;
 
-	uint32_t remote_destid = ntohl(hello_msg->destid);
+	uint32_t remote_destid = htobe64(hello_msg->destid);
 	DBG("Received HELLO message from destid(0x%X)\n", remote_destid);
 
 	/* Note that if we have recieved a HELLO message then we have
@@ -67,11 +67,11 @@ void cm_hello_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 	} else {
 		/* Send HELLO ACK with our own destid */
 		auto hello_ack_msg = make_unique<cm_msg_t>();
-		hello_ack_msg->type = ntohl(CM_HELLO_ACK);
-		hello_ack_msg->category = ntohl(RDMA_REQ_RESP);
-		hello_ack_msg->seq_no = ntohl(msg->seq_no);
+		hello_ack_msg->type = htobe64(CM_HELLO_ACK);
+		hello_ack_msg->category = htobe64(RDMA_REQ_RESP);
+		hello_ack_msg->seq_no = htobe64(msg->seq_no);
 		hello_ack_msg->cm_hello.destid =
-				ntohl(the_inbound->get_peer().destid);
+				htobe64(the_inbound->get_peer().destid);
 
 		tx_eng->send_message(move(hello_ack_msg));
 		INFO("CM_HELLO_ACK sent to destid(0x%X)\n", remote_destid);

@@ -40,10 +40,10 @@ constexpr uint32_t NULL_MSID   = 0xFFFFFFFF;
 constexpr uint32_t NULL_DESTID = 0xFFFFFFFF;
 
 /* Types */
-typedef uint32_t rdma_msg_cat;
-typedef uint32_t rdma_msg_type;
+typedef uint64_t rdma_msg_cat;
+typedef uint64_t rdma_msg_type;
 typedef uint32_t rdma_msg_sub_type;
-typedef uint32_t rdma_msg_seq_no;
+typedef uint64_t rdma_msg_seq_no;
 
 /* Category codes */
 /**
@@ -52,10 +52,10 @@ typedef uint32_t rdma_msg_seq_no;
  * a response arrives asynchronously without any notification
  * configured for it; it is handled by the message processor
  */
-constexpr uint32_t RDMA_CALL 		= 0xDDDDDDDD;
-constexpr uint32_t RDMA_REQ_RESP        = 0xAAAAAAAA;
+constexpr rdma_msg_cat RDMA_CALL 		= 0xDDDDDDDDDDDDDDDD;
+constexpr rdma_msg_cat RDMA_REQ_RESP        = 0xAAAAAAAAAAAAAAAA;
 
-inline const char *cat_name(const uint32_t cat) {
+inline const char *cat_name(const rdma_msg_cat cat) {
 	if(cat == RDMA_CALL)
 		return "RDMA_CALL";
 	else if (cat == RDMA_REQ_RESP)
