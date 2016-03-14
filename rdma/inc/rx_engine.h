@@ -38,6 +38,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <memory>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include <cstdlib>
 #include <cstdio>
 #include <cerrno>
@@ -220,7 +223,7 @@ protected:
 				die();
 			} else if (received_len > 0 ) {
 				client->dump_recv_buffer();
-				DBG("Got category=0x%X,'%s'\n", msg->category,
+				DBG("Got category=0x%" PRIx64 ",'%s'\n", msg->category,
 							cat_name(msg->category));
 				if (msg->category == RDMA_CALL) {
 					/* If there is a notification set for the
@@ -261,7 +264,7 @@ protected:
 						ERR("Failed to process message, rc = 0x%X\n", rc);
 					}
 				} else {
-					CRIT("Unhandled msg->category = 0x%X\n",
+					CRIT("Unhandled msg->category = 0x%" PRIx64 "\n",
 								msg->category);
 					CRIT("msg->type='%s',0x%X\n",
 							type_name(msg->type),

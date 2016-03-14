@@ -37,6 +37,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <pthread.h>
 
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
+
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
@@ -147,7 +150,6 @@ protected:
 			DBG("Getting message at front of queue\n");
 			M*	msg_ptr = message_queue.front().get();
 			pthread_mutex_unlock(&message_queue_lock);
-			client->dump_buffer((uint8_t *)msg_ptr);
 
 			int rc = client->send_buffer(msg_ptr, sizeof(*msg_ptr));
 			if (rc != 0) {
