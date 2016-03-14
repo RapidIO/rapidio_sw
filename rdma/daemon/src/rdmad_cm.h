@@ -47,13 +47,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 constexpr auto CM_MS_NAME_MAX_LEN 		= 31;
 
 /* Message types */
-constexpr uint32_t CM_HELLO 	 		= 0x101;
-constexpr uint32_t CM_HELLO_ACK	 		= 0x102;
-constexpr uint32_t CM_CONNECT_MS 		= 0x103;
-constexpr uint32_t CM_ACCEPT_MS	 		= 0x104;
-constexpr uint32_t CM_DISCONNECT_MS_REQ		= 0x105;
-constexpr uint32_t CM_FORCE_DISCONNECT_MS 	= 0x106;
-constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK 	= 0x107;
+constexpr uint32_t CM_HELLO 	 		= 0x11111111;
+constexpr uint32_t CM_HELLO_ACK	 		= 0x22222222;
+constexpr uint32_t CM_CONNECT_MS 		= 0x33333333;
+constexpr uint32_t CM_ACCEPT_MS	 		= 0x44444444;
+constexpr uint32_t CM_DISCONNECT_MS_REQ		= 0x55555555;
+constexpr uint32_t CM_FORCE_DISCONNECT_MS 	= 0x66666666;
+constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK 	= 0x77777777;
 
 /**
  * @brief HELLO message exchanged between daemons during provisioning
