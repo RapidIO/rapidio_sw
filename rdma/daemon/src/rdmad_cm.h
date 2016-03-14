@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CM_RDMA_H
 
 #include <stdint.h>
+#include <arpa/inet.h>
 
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
@@ -59,10 +60,10 @@ constexpr uint32_t CM_FORCE_DISCONNECT_MS_ACK 	= 0x77777777;
  * @brief HELLO message exchanged between daemons during provisioning
  */
 struct cm_hello_msg_t {
-	uint64_t destid;
+	uint32_t destid;
 };
 struct cm_hello_ack_msg_t {
-	uint64_t destid;
+	uint32_t destid;
 };
 /**
  * @brief Sent from client daemon to server daemon requesting connection
