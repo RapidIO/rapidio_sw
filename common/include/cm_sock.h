@@ -172,6 +172,7 @@ protected:
 	int send_buffer(riomp_sock_t socket, void *buffer, size_t len)
 	{
 		auto rc = 0;
+		DBG("ENTER\n");
 		DBG("buffer[0] = 0x%" PRIx64 "\n", *(uint64_t *)buffer);
 		DBG("buffer[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buffer + 8));
 		DBG("buffer[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buffer + 16));
@@ -187,6 +188,7 @@ protected:
 								name, strerror(rc));
 			}
 		}
+		DBG("EXIT\n");
 		return rc;
 	} /* send_buffer() */
 
@@ -431,6 +433,7 @@ public:
 
 	int send_buffer(void *buffer, size_t len = CM_BUF_SIZE)
 	{
+		DBG("Called\n");
 		return cm_base::send_buffer(accept_socket, buffer, len);
 	} /* send_buffer() */
 
@@ -546,6 +549,7 @@ public:
 	{
 		// FIXME: HACK
 		len = CM_BUF_SIZE;
+		DBG("Calling cm_base::send_buffer\n");
 		return cm_base::send_buffer(client_socket, buffer, len);
 	} /* send_buffer() */
 
