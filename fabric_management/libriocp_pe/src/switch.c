@@ -334,6 +334,14 @@ int riocp_pe_switch_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t
 		return -ENOSYS;
 }
 
+int riocp_pe_switch_set_congestion_limit(struct riocp_pe *sw, uint8_t port, uint16_t limit)
+{
+	if (sw->sw->set_congest_limit)
+		return sw->sw->set_congest_limit(sw, port, limit);
+	else
+		return -ENOSYS;
+}
+
 #ifdef __cplusplus
 }
 #endif

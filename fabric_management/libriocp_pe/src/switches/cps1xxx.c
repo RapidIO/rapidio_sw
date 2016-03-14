@@ -103,6 +103,8 @@ extern "C" {
 #define CPS1xxx_PORT_X_IMPL_SPEC_ERR_RATE_EN(x)		(0xf4000c + 0x100*(x))
 #define CPS1xxx_PORT_X_IMPL_SPEC_ERR_RPT_EN(x)		(0x03104c + 0x040*(x))
 #define CPS1xxx_PORT_X_ERR_RPT_EN(x)			(0x031044 + 0x040*(x))
+#define CPS1xxx_PORT_X_STAT_CTRL(x)				(0xf400F0 + 0x100*(x))
+#define CPS1xxx_PORT_X_RETRY_CNTR(x)			(0xf400CC + 0x100*(x))
 
 #define CPS1xxx_PORT_X_TRACE_PW_CTL(x)			(0xf40058 + 0x100*(x))
 #define CPS1xxx_PORT_TRACE_PW_DIS				(0x00000001)
@@ -316,6 +318,11 @@ extern "C" {
 #define CPS1xxx_I2C_UNEXP_START_STOP			(1 << 27)
 #define CPS1xxx_I2C_CPS10Q_BAD_IMG_VERSION		(1 << 28)
 
+#define CPS1xxx_PORT_STAT_CTL_CLR_MANY_RETRY	0x00000004
+#define CPS1xxx_PORT_STAT_CTL_RETRY_LIM_EN		0x00000002
+
+#define CPS1xxx_PORT_RETRY_CNTR_LIM(x)		((x) << 16)
+
 /* Port-write */
 #define CPS1xxx_PW_GET_EVENT_CODE(revent) (((*(revent)).u.portwrite.payload[2] >> 8) & 0xFF)
 
@@ -401,6 +408,15 @@ extern "C" {
 #endif
 #define CPS1xxx_RTE_RIO_DOMAIN				(0x00F20020)
 #define CPS1xxx_LOG_DATA					(0x00FD0004)
+
+struct switch_port_priv_t {
+	uint16_t retry_lim;
+};
+
+struct switch_priv_t {
+	int dummy;
+	struct switch_port_priv_t ports[];
+};
 
 struct portmap {
 	uint16_t did;
@@ -1002,6 +1018,7 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_RPT_EN(port),
 		CPS1xxx_IMPL_SPEC_ERR_DET_ERR_RATE |
 		CPS1xxx_IMPL_SPEC_ERR_DET_PORT_INIT |
+		CPS1xxx_IMPL_SPEC_ERR_DET_MANY_RETRY |
 		CPS1xxx_IMPL_SPEC_ERR_DET_FATAL_TO);
 	if (ret < 0)
 		return ret;
@@ -1724,6 +1741,67 @@ int cps1xxx_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid,
 	return 0;
 }
 
+int cps1xxx_set_retry_limit(struct riocp_pe *sw, uint8_t port, uint16_t limit)
+{
+	int ret;
+	uint32_t port_stat_ctrl, port_impl_err_det;
+	struct switch_priv_t *priv = (struct switch_priv_t *)sw->sw->private_data;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_DET(port), &port_impl_err_det);
+	if (ret < 0)
+		return ret;
+
+	port_impl_err_det &= ~CPS1xxx_IMPL_SPEC_ERR_DET_MANY_RETRY;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_DET(port), port_impl_err_det);
+	if (ret < 0)
+		return ret;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_STAT_CTRL(port), &port_stat_ctrl);
+	if (ret < 0) {
+		RIOCP_ERROR("[0x%08x:%s:hc %u] Error reading port %d status and control register\n",
+				sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
+		return ret;
+	}
+
+	port_stat_ctrl |= CPS1xxx_PORT_STAT_CTL_CLR_MANY_RETRY;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_STAT_CTRL(port), port_stat_ctrl);
+	if (ret < 0) {
+		RIOCP_ERROR("[0x%08x:%s:hc %u] Disable port %d retry limit failed.\n",
+				sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
+		return ret;
+	}
+
+	if(!limit) {
+		/* disable the retry limit for that port */
+
+		port_stat_ctrl &= ~CPS1xxx_PORT_STAT_CTL_RETRY_LIM_EN;
+	} else {
+		/* enable the retry limit for that port */
+
+		ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_RETRY_CNTR(port), CPS1xxx_PORT_RETRY_CNTR_LIM(limit));
+		if (ret < 0) {
+			RIOCP_ERROR("[0x%08x:%s:hc %u] Error write port %d retry limit value %u failed.\n",
+					sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port, limit);
+			return ret;
+		}
+
+		priv->ports[port].retry_lim = limit;
+
+		port_stat_ctrl |= CPS1xxx_PORT_STAT_CTL_RETRY_LIM_EN;
+	}
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_STAT_CTRL(port), port_stat_ctrl);
+	if (ret < 0) {
+		RIOCP_ERROR("[0x%08x:%s:hc %u] Enable port %d retry limit failed.\n",
+				sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
+		return ret;
+	}
+
+	return 0;
+}
+
 /**
  * Get lane speed of port
  */
@@ -2190,6 +2268,7 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 	uint32_t err_det, err_det_after;
 	uint32_t impl_err_det, impl_err_det_after;
 	uint8_t port;
+	struct switch_priv_t *priv = (struct switch_priv_t *)sw->sw->private_data;
 
 	port = event->port;
 
@@ -2323,6 +2402,14 @@ skip_port_errors:
 			err_status |= CPS1xxx_ERR_STATUS_OUTPUT_FAIL | CPS1xxx_ERR_STATUS_OUTPUT_ERR;
 		}
 		event->event |= RIOCP_PE_EVENT_LINK_UP;
+	}
+
+	if (impl_err_det & CPS1xxx_IMPL_SPEC_ERR_DET_MANY_RETRY) {
+		RIOCP_DEBUG("switch 0x%04x (0x%08x) port %d retry limit (%u) triggered\n", sw->destid, sw->comptag, port, priv->ports[port].retry_lim);
+
+		impl_err_det &= ~CPS1xxx_IMPL_SPEC_ERR_DET_MANY_RETRY;
+
+		event->event |= RIOCP_PE_EVENT_RETRY_LIMIT;
 	}
 
 	/* clear error rate register to see next error */
@@ -2581,6 +2668,7 @@ int cps1xxx_init(struct riocp_pe *sw)
 	int ret;
 	uint8_t port;
 	uint32_t result;
+	struct switch_priv_t *switch_priv;
 
 	/* Check if the switch read the EEPROM successfully */
 	ret = riocp_pe_maint_read(sw, CPS1xxx_I2C_MASTER_STAT_CTL, &result);
@@ -2688,6 +2776,13 @@ int cps1xxx_init(struct riocp_pe *sw)
 //		if (ret)
 //			return ret;
 	}
+
+	switch_priv = (struct switch_priv_t *)calloc(1, sizeof(struct switch_priv_t) + sizeof(struct switch_port_priv_t) * RIOCP_PE_PORT_COUNT(sw->cap));
+	if (!switch_priv)
+		return -ENOMEM;
+
+	sw->sw->private_data = switch_priv;
+
 	return 0;
 }
 
@@ -2721,7 +2816,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	cps1xxx_set_domain,
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
-	cps1xxx_set_multicast_mask
+	cps1xxx_set_multicast_mask,
+	cps1xxx_set_retry_limit
 };
 
 struct riocp_pe_device_id cps1432_id_table[] = {
@@ -2748,7 +2844,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	cps1xxx_set_domain,
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
-	cps1xxx_set_multicast_mask
+	cps1xxx_set_multicast_mask,
+	cps1xxx_set_retry_limit
 };
 
 struct riocp_pe_device_id cps1616_id_table[] = {
@@ -2775,7 +2872,8 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	cps1xxx_set_domain,
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
-	cps1xxx_set_multicast_mask
+	cps1xxx_set_multicast_mask,
+	cps1xxx_set_retry_limit
 };
 
 struct riocp_pe_device_id sps1616_id_table[] = {
@@ -2802,7 +2900,8 @@ struct riocp_pe_switch riocp_pe_switch_sps1616 = {
 	cps1xxx_set_domain,
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
-	cps1xxx_set_multicast_mask
+	cps1xxx_set_multicast_mask,
+	cps1xxx_set_retry_limit
 };
 
 #ifdef __cplusplus

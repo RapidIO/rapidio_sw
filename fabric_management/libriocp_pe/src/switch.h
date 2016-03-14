@@ -50,6 +50,7 @@ int RIOCP_WU riocp_pe_switch_set_domain(struct riocp_pe *sw, uint8_t domain);
 int RIOCP_WU riocp_pe_switch_port_enable(struct riocp_pe *sw, uint8_t port);
 int RIOCP_WU riocp_pe_switch_port_disable(struct riocp_pe *sw, uint8_t port);
 int RIOCP_WU riocp_pe_switch_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid, uint16_t port_mask, bool clear);
+int RIOCP_WU riocp_pe_switch_set_congestion_limit(struct riocp_pe *sw, uint8_t port, uint16_t limit);
 
 #ifdef __cplusplus
 }

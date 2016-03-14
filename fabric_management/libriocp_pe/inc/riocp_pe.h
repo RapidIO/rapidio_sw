@@ -94,6 +94,7 @@ enum riocp_sw_default_route_action {
 #define RIOCP_PE_EVENT_NONE             0      /* no event */
 #define RIOCP_PE_EVENT_LINK_UP          (1<<0) /* link up event */
 #define RIOCP_PE_EVENT_LINK_DOWN        (1<<1) /* link down event */
+#define RIOCP_PE_EVENT_RETRY_LIMIT      (1<<2) /* retry limit event */
 
 typedef uint32_t riocp_pe_event_mask_t;
 
@@ -162,7 +163,7 @@ int RIOCP_WU riocp_pe_set_sw_domain(riocp_pe_handle sw, uint8_t domain);
 int RIOCP_WU riocp_sw_set_port_enable(riocp_pe_handle sw, uint8_t port, bool enable);
 int RIOCP_WU riocp_sw_set_multicast_mask(riocp_pe_handle sw, uint8_t lut, uint8_t maskid,
 		uint16_t port_mask, bool clear);
-
+int RIOCP_WU riocp_sw_set_congestion_limit(riocp_pe_handle sw, uint8_t port, uint16_t limit);
 
 /* Event management functions */
 int RIOCP_WU riocp_pe_get_event_mask(riocp_pe_handle pe, uint8_t port, riocp_pe_event_mask_t *mask);

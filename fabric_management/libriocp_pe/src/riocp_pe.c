@@ -2033,6 +2033,32 @@ int RIOCP_SO_ATTR riocp_sw_set_multicast_mask(riocp_pe_handle sw,
 	return riocp_pe_switch_set_multicast_mask(sw, lut, maskid, port_mask, clear);
 }
 
+/**
+ * Set the congestion protection for a switch port.
+ *
+ * The function resets a currently pending congestion state and
+ * reprogams the threshold with the given limit value.
+ *
+ * A limit value of 0 disables the congestion limit function.
+ *
+ * @param sw        Target switch
+ * @param port      Switch port number
+ * @param limit     Threshold limit for that port
+ */
+int RIOCP_SO_ATTR riocp_sw_set_congestion_limit(riocp_pe_handle sw,
+		uint8_t port,
+		uint16_t limit)
+{
+	if (riocp_pe_handle_check(sw))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_HOST(sw))
+		return -EPERM;
+	if (!RIOCP_PE_IS_SWITCH(sw->cap))
+		return -ENOSYS;
+
+	return riocp_pe_switch_set_congestion_limit(sw, port, limit);
+}
+
 #ifdef __cplusplus
 }
 #endif

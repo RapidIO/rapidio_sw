@@ -119,6 +119,7 @@ struct riocp_pe_switch {
 	int (*port_enable)(struct riocp_pe *sw, uint8_t port);
 	int (*port_disable)(struct riocp_pe *sw, uint8_t port);
 	int (*set_multicast_mask)(struct riocp_pe *sw, uint8_t lut, uint8_t maskid, uint16_t port_mask, bool clear);
+	int (*set_congest_limit)(struct riocp_pe *sw, uint8_t port, uint16_t limit);
 };
 
 /** RapidIO Processing element */

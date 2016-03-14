@@ -571,6 +571,7 @@ struct riocp_pe_switch riocp_pe_switch_tsi57x = {
 	NULL,
 	NULL,
 	NULL,
+	NULL,
 	NULL
 };
 
