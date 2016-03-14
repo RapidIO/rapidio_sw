@@ -113,19 +113,15 @@ public:
 	/* Returns sequence number to be used to receive reply */
 	void send_message(unique_ptr<M> msg_ptr)
 	{
-		(void)msg_ptr;
 		DBG("ENTER\n");
-#if 0
 		DBG("Sending type:'%s',0x%X cat:'%s',0x%X seq_no(0x%X)\n",
 			type_name(msg_ptr->type), msg_ptr->type,
 			cat_name(msg_ptr->category), msg_ptr->category,
 			msg_ptr->seq_no);
 		pthread_mutex_lock(&message_queue_lock);
-		message_queue.push(make_unique<M>(*msg_ptr));
+		message_queue.push(move(msg_ptr));
 		pthread_mutex_unlock(&message_queue_lock);
 		sem_post(&messages_waiting);
-#endif
-
 		DBG("EXIT\n");
 	} /* send_message() */
 

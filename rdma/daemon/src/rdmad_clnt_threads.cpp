@@ -540,12 +540,6 @@ int provision_rdaemon(uint32_t destid)
 				cm_tx_eng.get(),
 				cm_engine_cleanup_sem);
 
-		/* Create entry for remote daemon */
-		hello_daemon_info_list.add_daemon(move(cm_tx_eng),
-						  move(cm_rx_eng),
-						  destid);
-		DBG("Created daemon entry in hello_damon_info_list\n");
-
 		/* Send HELLO message containing our destid */
 		auto in_msg = make_unique<cm_msg_t>();
 		in_msg->type = CM_HELLO;
@@ -556,6 +550,12 @@ int provision_rdaemon(uint32_t destid)
 		HIGH("Sending HELLO message to destid(0x%X)\n", destid);
 		cm_tx_eng->send_message(move(in_msg));
 		HIGH("HELLO message sent to destid(0x%X)\n", destid);
+
+		/* Create entry for remote daemon */
+		hello_daemon_info_list.add_daemon(move(cm_tx_eng),
+						  move(cm_rx_eng),
+						  destid);
+		DBG("Created daemon entry in hello_damon_info_list\n");
 	}
 	catch(exception& e) {
 		CRIT("Failed to create hello_client %s\n", e.what());
