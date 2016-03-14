@@ -67,7 +67,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_dma.h"
 #include "liblog.h"
 
-#include "time_utils.h"
+#include "libtime_utils.h"
 #include "worker.h"
 #include "goodput.h"
 #include "mhz.h"
@@ -157,9 +157,9 @@ void init_worker_info(struct worker *info, int first_time)
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
 	//};
-	init_seq_ts(&info->desc_ts);
-	init_seq_ts(&info->fifo_ts);
-	init_seq_ts(&info->meas_ts);
+	init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 
 	memset(info->check_abort_stats, 0, sizeof(info->check_abort_stats));
 #endif
@@ -410,7 +410,7 @@ void UMD_DD(struct worker* info)
 		if (0 == info->check_abort_stats[i]) continue;
 
 		char tmp[257] = {0};
-		snprintf(tmp, 256, "%c=%llu", i, info->check_abort_stats[i]);
+		snprintf(tmp, 256, "%c=%lu", i, info->check_abort_stats[i]);
 		ab.append(tmp).append(" ");
 	}
 	if (ab.size() > 0)
@@ -469,7 +469,7 @@ bool umd_check_cpu_allocation(struct worker *info)
 {
 	assert(info);
 
-	if (GetEnv("IGNORE_CPUALLOC") != NULL) return true;
+	if (GetEnv((char *)"IGNORE_CPUALLOC") != NULL) return true;
 
 	if (info->wkr_thr.cpu_req != info->umd_fifo_thr.cpu_req) return true;
 
@@ -498,7 +498,7 @@ void umd_shm_goodput_demo(struct worker *info)
                 goto exit;
         };
 
-        if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+        if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
                 goto exit;
         }
@@ -625,7 +625,7 @@ static const uint8_t PATTERN[] = { 0xa1, 0xa2, 0xa3, 0xa4, 0xa4, 0xa6, 0xaf, 0xa
 
 void umd_dma_goodput_demo(struct worker *info)
 {
-	int oi = 0;//, rc;
+	uint32_t oi = 0;//, rc;
 	uint64_t cnt = 0;
 	int iter = 0;
 
@@ -633,7 +633,7 @@ void umd_dma_goodput_demo(struct worker *info)
 
 	info->owner_func = umd_dma_goodput_demo;
 
-	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
+	const uint32_t Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
 	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
 	if (NULL == info->umd_dch) {
@@ -642,7 +642,7 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
-	if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+	if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
 		CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
 		goto exit;
 	}
@@ -659,7 +659,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	};
         memset(info->dmamem[0].win_ptr, PATTERN[0], info->acc_size);
 
-        for (int i = 1; i < info->umd_tx_buf_cnt; i++) {
+        for (uint32_t i = 1; i < info->umd_tx_buf_cnt; i++) {
 		info->dmamem[i] = info->dmamem[0];
         };
 
@@ -671,16 +671,16 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
-        if (GetEnv("verb") != NULL) {
+        if (GetEnv((char *)"verb") != NULL) {
 	        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
 			info->umd_dch->getDestId(),
 			info->did, info->rio_addr, info->acc_size,
 			info->umd_tx_buf_cnt, info->umd_sts_entries);
 	}
 
-	init_seq_ts(&info->desc_ts);
-	init_seq_ts(&info->fifo_ts);
-	init_seq_ts(&info->meas_ts);
+	init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 
 	zero_stats(info);
 
@@ -706,7 +706,7 @@ void umd_dma_goodput_demo(struct worker *info)
 					info->dmaopt[oi], info->dmamem[oi],
                                         info->umd_dma_abort_reason,
 					&info->meas_ts)) {
-					get_seq_ts(&info->desc_ts);
+					ts_now(&info->desc_ts);
 				} else {
 					q_was_full = true;
 				};
@@ -939,7 +939,7 @@ static inline bool umd_dma_goodput_latency_demo_MASTER(struct worker *info, cons
  */
 void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 {
-	int oi = 0;
+	uint32_t oi = 0;
 	uint64_t cnt = 0;
 	int iter = 0;
 
@@ -952,7 +952,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 		goto exit;
 	};
 
-        if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+        if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
                 goto exit;
         }
@@ -969,7 +969,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	};
         memset(info->dmamem[0].win_ptr, PATTERN[0], info->acc_size);
 
-        for (int i = 1; i < info->umd_tx_buf_cnt; i++) {
+        for (uint32_t i = 1; i < info->umd_tx_buf_cnt; i++) {
 		info->dmamem[i] = info->dmamem[0];
         };
 
@@ -983,7 +983,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 	zero_stats(info);
 
-	if (GetEnv("verb") != NULL) {
+	if (GetEnv((char *)"verb") != NULL) {
 		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
 		     info->umd_dch->getDestId(),
 		     info->did, info->rio_addr, info->acc_size,

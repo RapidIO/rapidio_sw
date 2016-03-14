@@ -136,7 +136,7 @@ bool RioMport::map_ibwin(const uint32_t size, DmaMem_t& ibwin)
   ret = riomp_dma_map_memory(mp_h, size, ibwin.win_handle, &ibwin.win_ptr);
   if (ret) {
     riomp_dma_ibwin_free(mp_h, &ibwin.win_handle);
-    printf("Failed to memory map ibwin %d %d:%s", ret, strerror(errno));
+    printf("Failed to memory map ibwin %d:%s", ret, strerror(errno));
     return false;
   };
 

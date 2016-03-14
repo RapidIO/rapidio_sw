@@ -44,7 +44,7 @@ export CXX
 TOP_LEVEL = $(shell pwd)
 export TOP_LEVEL
 
-TARGETS = common fabric_management rdma 
+TARGETS = common umdd fabric_management rdma 
 
 all: $(TARGETS)
 
@@ -54,6 +54,9 @@ fabric_management: common FORCE
 rdma: common fabric_management FORCE
 	$(MAKE) all -C rdma
 		
+umdd: FORCE
+	$(MAKE) all -C umdd_tsi721
+		
 common: FORCE
 	$(MAKE) all -C common 
 		
@@ -61,6 +64,7 @@ FORCE:
 
 clean: FORCE
 	$(MAKE) clean -C common
+	$(MAKE) clean -C umdd_tsi721
 	$(MAKE) clean -C rdma
 	$(MAKE) clean -C fabric_management
 	rm -rf include/libs_a/*

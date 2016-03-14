@@ -68,7 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 
-#include "time_utils.h"
+#include "libtime_utils.h"
 
 #ifdef USER_MODE_DRIVER
 #include <string>
@@ -148,7 +148,7 @@ struct worker {
 	sem_t run;  /* Managed by controller, post this sem to start a stopped woker */
 	req_type action;
 	req_mode action_mode;
-	int did; /* destID */
+	uint32_t did; /* destID */
 
 	uint64_t rio_addr; /* Target RapidIO address for direct IO and DMA */
 	uint64_t byte_cnt; /* Number of bytes to access for direct IO and DMA */
@@ -201,7 +201,7 @@ struct worker {
 	int		umd_chan; ///< Local mailbox OR DMA channel
 	DMAChannel 	*umd_dch; ///< Used for anything but DMA Tun
 	enum dma_rtype	umd_tx_rtype;
-	int 		umd_tx_buf_cnt;
+	uint32_t	umd_tx_buf_cnt;
 	int		umd_sts_entries;
 	int		umd_tx_iter_cnt;
 	struct thread_cpu umd_fifo_thr;

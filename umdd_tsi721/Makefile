@@ -33,29 +33,22 @@ CXX ?= $(CROSS_COMPILE)g++
 config?=NODEBUG
 COMMONDIR=../common
 COMMONINC=$(COMMONDIR)/include
-HACKINC=../utils/latency/common
-COMMONLIB=$(COMMONDIR)/libs_a
+COMMONLIB=$(COMMONDIR)/libs_so
 REGSDIR=../fabric_management/librio_switch/inc
 LOG_LEVEL?=7
 export LOG_LEVEL
 
-
-# Kernel-mode flags
 CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
-	-pthread -DRDMA_LL=7
+	-pthread -DRDMA_LL=7 
 
-#CCFLAGS+=-pg
 CCFLAGS+=-DDEBUG_BD
-#CCFLAGS+=-DDEBUG=2
-#CCFLAGS+=-DUDMA_SIM_DEBUG
 
-INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
-SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c
+INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
+SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 
 # User-mode only flags
 # FIXME: Work to remove these as time permits
-UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
-	 -Wall -Wno-format -Wno-sign-compare -Wno-write-strings \
+UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER -Wall \
 	 -DRIO_ANY_ADDR=0 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
 
 UMD_INCLUDES = inc/debug.h inc/dmadesc.h inc/local_endian.h inc/mapfile.h \
@@ -66,16 +59,29 @@ UMD_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc \
 	src/crc32.c \
 	src/psem.cc src/pshm.cc
 
-LIBRARIES =  -lpthread -lcli -lmport -llog -lrt
+UMDDLIB_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc \
+		src/crc32.c src/psem.cc src/pshm.cc
 
-all: umdd
+LIBRARIES =  -lpthread -lcli -lmport -ltime_utils -llog -lrt
+
+all: umdd umddlib
 
 umdd: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES) 
-	$(CXX) $(CCFLAGS) -I$(HACKINC) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
+	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
 	$(LIBRARIES) -L$(COMMONLIB)
 
+umddlib: $(UMDDLIB_SOURCES) 
+	$(CXX) -O3 -Wall -ggdb -I./inc -I../common/include \
+        -I../fabric_management/librio_switch/inc \
+        -DNODEBUG -std=gnu++0x -pthread \
+        -DUSER_MODE_DRIVER -Wall -Wno-format -DRIO_ANY_ADDR=0 \
+        -ggdb -O0  \
+        src/mapfile.cc src/mport.cc src/dmachan.cc src/crc32.c src/psem.cc src/pshm.cc \
+        -fPIC   -shared -Wl,-soname,libUMDd.so.1 -o libUMDd.so.1.0 \
+        -lrt -L../common/libs_so -lmport -ltime_utils
+
 clean:
-	rm -f *.o umdd *~ src/*~ inc/*~ gmon.out 
+	rm -f *.o umdd libUMDd.so.1.0 *~ src/*~ inc/*~ gmon.out 
 
 FORCE:
 

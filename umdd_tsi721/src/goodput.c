@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 		SetEnvVar((char *)arg);
         }
 
-	rdma_log_init("goodput_log.txt", 1);
+	rdma_log_init("umdd_log.txt", 1);
 	if (setup_mport(mport_num)) {
 		printf("\nCould not open mport %d, exiting\n", mport_num);
 		exit(EXIT_FAILURE);

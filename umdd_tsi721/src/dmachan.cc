@@ -49,7 +49,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdtsc.h"
 #include "debug.h"
 #include "dmachan.h"
-#include "time_utils.h"
+#include "libtime_utils.h"
 
 #pragma GCC diagnostic ignored "-fpermissive"
 
@@ -254,12 +254,12 @@ DMAChannel::~DMAChannel()
 };
 
 char* dma_rtype_str[] = {
-  "NREAD",
-  "LAST_NWRITE_R",
-  "ALL_NWRITE",
-  "ALL_NWRITE_R",
-  "MAINT_RD",
-  "MAINT_WR",
+  (char *)"NREAD",
+  (char *)"LAST_NWRITE_R",
+  (char *)"ALL_NWRITE",
+  (char *)"ALL_NWRITE_R",
+  (char *)"MAINT_RD",
+  (char *)"MAINT_WR",
   NULL
 };
 
@@ -362,7 +362,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
   abort_reason = 0;
 
-  if (ts_p != NULL) get_seq_ts_m(ts_p, 1);
+  if (ts_p != NULL) ts_now_mark(ts_p, 1);
 
   dmadesc_setdtype(desc, opt.dtype);
 
@@ -498,7 +498,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   }
   pthread_spin_unlock(&m_state->pending_work_splock);
 
-  if (ts_p != NULL) get_seq_ts_m(ts_p, 9);
+  if (ts_p != NULL) ts_now_mark(ts_p, 9);
 
 #ifdef DEBUG_BD
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
@@ -826,7 +826,7 @@ static inline bool hexdump64bit(const void* p, int len)
   uint64_t* q = (uint64_t*)p; len /= 8;
   for(int i=0; i<len; i++) {
     if(! q[i]) continue;
-    snprintf(tmp, 256, " 0x%04x/%d(d) = 0x%llx\n", i, i, q[i]); ss << tmp;
+    snprintf(tmp, 256, " 0x%04x/%d(d) = 0x%lx\n", i, i, q[i]); ss << tmp;
     empty = false;
   }
   if(empty) return false;
@@ -1089,7 +1089,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
     throw std::runtime_error("DMAChannel: UMDd/SHM master is not ready [HW not fully initialised} OR not running!");
 
   const uint64_t ts_s = rdtsc();
-  m_state->restart_pending = 1;
+  m_state->restart_pending = !!ts_s;
 
   pthread_spin_lock(&m_state->bl_splock);
 
@@ -1286,6 +1286,8 @@ move_fifo_wp:
   } // END for DMA RP
 
   pthread_spin_unlock(&m_state->bl_splock);
+  if (faulted)
+	faulted = true;
 
   XDBG("END: simRP=%d WP=%d simFifoWP=%d processed %d BDs%s\n", m_sim_dma_rp, m_state->dma_wr, m_sim_fifo_wp, bd_cnt, faulted? " WITH FAULT": "");
 
@@ -1296,9 +1298,9 @@ void DMAChannel::dumpBDs(std::string& s)
 {
   std::stringstream ss;
   for (int idx = 0; idx < m_state->bd_num; idx++) {
-    char* star = "";
+    char* star = (char *)"";
     struct hw_dma_desc* bd_p = (struct hw_dma_desc*)((uint8_t*)m_dmadesc.win_ptr + (idx * DMA_BUFF_DESCR_SIZE));
-    if (idx == 0 && memcmp(m_dmadesc.win_ptr, &m_state->BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { star = "*"; }
+    if (idx == 0 && memcmp(m_dmadesc.win_ptr, &m_state->BD0_T3_saved, DMA_BUFF_DESCR_SIZE)) { star = (char *)"*"; }
    
     uint32_t* bytes03 = (uint32_t*)bd_p;
     const uint32_t dtype = *bytes03 >> 29;
@@ -1375,7 +1377,8 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 
   do {
 // This is the place where we faulted // XXX Really or rp-1?
-    uint32_t rp = m_sim? m_sim_dma_rp: getReadCount();
+    uint32_t rp = ts_s;
+    rp = m_sim? m_sim_dma_rp: getReadCount();
 
     // Is there more stuff queued after faulting BD? -- Does NOT handle FFFFFFFF wrap-around!
     if (m_state->bl_busy_size < 2) break;

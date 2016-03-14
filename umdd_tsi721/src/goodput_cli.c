@@ -37,7 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <vector>
 #include "goodput_cli.h"
-#include "time_utils.h"
+#include "libtime_utils.h"
 #include "mhz.h"
 #include "liblog.h"
 #include "assert.h"
@@ -1166,7 +1166,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	switch (argv[2][0]) {
 	case 's':
 	case 'S':
-		init_seq_ts(ts_p);
+		init_seq_ts(ts_p, MAX_TIMESTAMPS);
 		break;
 	case '-':
 		if (argc > 4) {
@@ -1245,7 +1245,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 				&tot, &min, &max);
 			diff = time_difference(ts_p->ts_val[idx],
 						ts_p->ts_val[idx+1]);
-			if (diff.tv_nsec < lim)
+			if ((uint64_t)diff.tv_nsec < lim)
 				continue;
 			if (!got_one) {
                 		sprintf(env->output,
@@ -1261,7 +1261,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 
 		if (!got_one) {
                 	sprintf(env->output,
-				"\nNo delays found bigger than %d\n", lim);
+				"\nNo delays found bigger than %ld\n", lim);
         		logMsg(env);
 		};
                 sprintf(env->output,
@@ -1475,7 +1475,7 @@ int UDMACmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].use_kbuf = 1;
 
 	wkr[idx].stop_req = 0;
-	wkr[idx].max_iter = GetDecParm("$maxit", -1);
+	wkr[idx].max_iter = GetDecParm((char *)"$maxit", -1);
 
 	sem_post(&wkr[idx].run);
 exit:
@@ -1582,7 +1582,7 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 		goto exit;
 	}
 	if (wkr[idx].ib_byte_cnt < acc_sz) {
-		sprintf(env->output, "IBwin too small (0x%x) must be at least 0x%x\n", wkr[idx].ib_byte_cnt, acc_sz);
+		sprintf(env->output, "IBwin too small (0x%lx) must be at least 0x%x\n", wkr[idx].ib_byte_cnt, acc_sz);
 		logMsg(env);
 		goto exit;
 	}
@@ -1603,7 +1603,7 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 	wkr[idx].use_kbuf = 1;
 
 	wkr[idx].stop_req = 0;
-	wkr[idx].max_iter = GetDecParm("$maxit", -1);
+	wkr[idx].max_iter = GetDecParm((char *)"$maxit", -1);
 
 	sem_post(&wkr[idx].run);
 exit:
@@ -1727,7 +1727,7 @@ int UDMALatNREAD(struct cli_env *env, int argc, char **argv)
 	wkr[idx].use_kbuf = 1;
 
 	wkr[idx].stop_req = 0;
-	wkr[idx].max_iter = GetDecParm("$maxit", -1);
+	wkr[idx].max_iter = GetDecParm((char *)"$maxit", -1);
 
 	sem_post(&wkr[idx].run);
 exit:

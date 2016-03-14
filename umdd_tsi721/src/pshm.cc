@@ -142,7 +142,7 @@ POSIXShm::POSIXShm(const char* name, const uint64_t size, bool& first_opener)
     first_opener = false;
     // Hunt down an empty slot, in effect count backwards from last entry!!
     int found = 0;
-    for(int i = 1; i < reg->max_count; i++) {
+    for(uint32_t i = 1; i < reg->max_count; i++) {
       if(reg->reg[i].pid == 0 && reg->reg[i].tid == 0)         { found = i; }
       if(reg->reg[i].pid == MYSELF.pid && reg->reg[i].tid == MYSELF.tid) { found = -i; }
     }
@@ -199,7 +199,7 @@ void POSIXShm::dumpRegistry(std::string& out)
   m_mutex->lock();
   ((ProcRegistry_t*)m_shm)->locker = MYSELF;
   ss << "Registry count: " << reg->count << "\n";
-  for(int i = 0; i < reg->max_count; i++) {
+  for(uint32_t i = 0; i < reg->max_count; i++) {
     if(reg->reg[i].pid == 0) continue;
     ss << "  [" << i <<"] pid = " << reg->reg[i].pid << " tid = " << reg->reg[i].tid;
     kill(reg->reg[i].pid, 0) == 0 || ss << " DEAD";

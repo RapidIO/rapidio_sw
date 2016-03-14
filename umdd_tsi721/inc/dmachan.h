@@ -51,7 +51,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dmadesc.h"
 #include "rdtsc.h"
 #include "debug.h"
-#include "time_utils.h"
+#include "libtime_utils.h"
 
 #ifndef __DMACHAN_H__
 #define __DMACHAN_H__
