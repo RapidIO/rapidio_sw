@@ -117,7 +117,7 @@ public:
 	void send_message(unique_ptr<M> msg_ptr)
 	{
 		DBG("ENTER\n");
-		DBG("Sending type:'%s',0x%X cat:'%s',0x%X seq_no(0x%X)\n",
+		DBG("Sending type:'%s',0x%" PRIx64 ", cat:'%s',0x%" PRIx64 " seq_no(0x%" PRIx64 ")\n",
 			type_name(msg_ptr->type), msg_ptr->type,
 			cat_name(msg_ptr->category), msg_ptr->category,
 			msg_ptr->seq_no);
@@ -149,9 +149,11 @@ protected:
 			pthread_mutex_lock(&message_queue_lock);
 			DBG("Getting message at front of queue\n");
 			M*	msg_ptr = message_queue.front().get();
+			DBG("msg_ptr[0] = 0x%" PRIx64 "\n", *(uint64_t *)msg_ptr);
+			DBG("msg_ptr[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg_ptr + 8));
 			pthread_mutex_unlock(&message_queue_lock);
 
-			int rc = client->send_buffer(msg_ptr, sizeof(*msg_ptr));
+			int rc = client->send_buffer(msg_ptr, sizeof(M));
 			if (rc != 0) {
 				/* This code may not be needed. The rx_engine always
 				 * senses that the other peer has disappeared and
