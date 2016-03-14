@@ -188,17 +188,17 @@ static int daemon_call(unique_ptr<unix_msg_t> in_msg, unix_msg_t *out_msg)
 			        reply_cat,
 			        seq_no,
 			        reply_sem);
-
 	/* Send message */
 	in_msg->seq_no = seq_no;
-	tx_eng->send_message(move(in_msg));
-	DBG("Queued for sending: type='%s',0x%X, cat='%s',0x%X, seq_no = 0x%X\n",
+	DBG("Queuing for sending: type='%s',0x%X, cat='%s',0x%X, seq_no = 0x%X\n",
 		type_name(in_msg->type), in_msg->type, cat_name(in_msg->category),
 		in_msg->category, in_msg->seq_no);
+	tx_eng->send_message(move(in_msg));
+
 	/* Wait for reply */
 	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)\n",
 		type_name(reply_type), reply_type, cat_name(RDMA_CALL),
-					RDMA_CALL, in_msg->seq_no);
+					RDMA_CALL, seq_no);
 	struct timespec timeout;
 	clock_gettime(CLOCK_REALTIME, &timeout);
 	timeout.tv_sec += 1;	/* 1 second timeout */
