@@ -182,7 +182,8 @@ protected:
 									name);
 			rc = -1;
 		} else {
-			rc = riomp_sock_send(socket, buffer, CM_BUF_SIZE);
+			memcpy(send_buf + CM_BUF_SIZE, buffer, len);
+			rc = riomp_sock_send(socket, send_buf, CM_BUF_SIZE);
 			if (rc) {
 				ERR("riomp_sock_send failed for '%s': %s\n",
 								name, strerror(rc));
