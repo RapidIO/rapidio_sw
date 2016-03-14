@@ -181,7 +181,7 @@ struct cm_msg_t {
 		cm_connect_ms_msg		cm_connect_ms;
 		cm_accept_ms_msg		cm_accept_ms;
 		cm_disconnect_ms_req_msg 	cm_disconnect_ms_req;
-		cm_force_disconnect_ms_msg		cm_force_disconnect_ms;
+		cm_force_disconnect_ms_msg	cm_force_disconnect_ms;
 		cm_force_disconnect_ms_ack_msg	cm_force_disconnect_ms_ack;
 	};
 

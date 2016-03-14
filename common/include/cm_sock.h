@@ -39,6 +39,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fcntl.h>
 #include <unistd.h>
 
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+#include <cinttypes>
+
 #include <cstring>
 #include <iostream>
 #include <iomanip>
@@ -167,6 +172,10 @@ protected:
 	int send_buffer(riomp_sock_t socket, void *buffer, size_t len)
 	{
 		auto rc = 0;
+		DBG("buffer[0] = 0x%" PRIx64 "\n", *(uint64_t *)buffer);
+		DBG("buffer[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buffer + 8));
+		DBG("buffer[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buffer + 16));
+		DBG("buffer[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buffer + 24));
 		if (len > CM_BUF_SIZE) {
 			ERR("'%s' failed in send() due to large message size\n",
 									name);
