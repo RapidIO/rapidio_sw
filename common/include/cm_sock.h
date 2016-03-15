@@ -171,6 +171,7 @@ protected:
 	/* Uses specified buffer and length */
 	int send_buffer(riomp_sock_t socket, void *buffer, size_t len)
 	{
+		DBG("ENTER\n");
 		auto rc = 0;
 		if (len > CM_BUF_SIZE) {
 			ERR("'%s' failed in send() due to large message size\n",
@@ -184,6 +185,7 @@ protected:
 								name, strerror(rc));
 			}
 		}
+		DBG("EXIT\n");
 		return rc;
 	} /* send_buffer() */
 
@@ -211,6 +213,7 @@ protected:
 	int timed_receive_buffer(riomp_sock_t socket, uint32_t timeout_ms,
 			void *buffer, size_t *rcvd_len)
 	{
+		DBG("ENTER\n");
 		auto rc = 0;
 		void *buf;
 
@@ -240,6 +243,7 @@ protected:
 		DBG("buf[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 24));
 		DBG("buf[4] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 32));
 		DBG("buf[5] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 40));
+		DBG("EXIT\n");
 		return rc;
 	} /* timed_receive_buffer() */
 
