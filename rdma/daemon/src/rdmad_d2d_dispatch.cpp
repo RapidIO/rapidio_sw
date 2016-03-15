@@ -203,7 +203,7 @@ void cm_force_disconnect_ms_ack_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 
 void cm_hello_ack_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 {
-	uint32_t destid = msg->cm_hello_ack.destid;
+	uint32_t destid = be64toh(msg->cm_hello_ack.destid);
 	auto rc = hello_daemon_info_list.set_provisioned(destid, tx_eng);
 	if (rc < 0) {
 		ERR("Failed to provision destid(0x%X)\n", destid);

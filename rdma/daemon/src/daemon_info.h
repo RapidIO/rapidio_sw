@@ -217,6 +217,7 @@ public:
 				  daemon_element->destid == destid;});
 		if (it != end(daemons)) {
 			(*it)->provisioned = true;
+			INFO("destid(0x%X) now set to 'provisioned'\n", destid);
 			rc = 0;
 		} else {
 			ERR("Failed to find tx_eng(%p)/destid(0x%X) in daemons list\n",
