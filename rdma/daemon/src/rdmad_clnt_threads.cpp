@@ -497,8 +497,7 @@ int provision_rdaemon(uint32_t destid)
 
 	DBG("ENTER\n");
 	try {
-		/* Create provision client to connect to remote
-		 * daemon's provisioning thread */
+		/* Create Client to connect to remote daemon */
 		peer_info &peer = the_inbound->get_peer();
 		shared_ptr<cm_client> the_client = make_shared<cm_client>
 					   ("the_client",

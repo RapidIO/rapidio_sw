@@ -400,9 +400,9 @@ int undo_accept_disp(const unix_msg_t *in_msg,
 } /* undo_accept_disp() */
 
 /**
- * 1. Using client_destid determine the appropriate tx_engine
- * 2. Compose a cm_accept_ms message inside a cm_msg_t (NOT YET).
- * 3. Call the tx_engine from step 1. to send the message.
+ * 1. Using client_destid determine the appropriate cm_tx_engine
+ * 2. Compose a cm_accept_ms message inside a cm_msg_t.
+ * 3. Call the cm_tx_engine from step 1, to send the message.
  */
 int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		tx_engine<unix_server, unix_msg_t> *tx_eng)
@@ -442,7 +442,7 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		cm_accept_ms_msg	*cmam = &in_msg->cm_accept_ms;
 
 		/* Prepare CM_ACCEPT_MS message from CONNECT_MS_RESP params */
-		cmam->sub_type = CM_ACCEPT_MS_ACK;
+		cmam->sub_type = htobe64(CM_ACCEPT_MS_ACK);
 		strcpy(cmam->server_ms_name, ms->get_name());
 		cmam->server_msid = htobe64(conn_resp->server_msid);
 		cmam->server_msubid = htobe64(conn_resp->server_msubid);
@@ -487,9 +487,9 @@ int send_connect_disp(const unix_msg_t *in_msg,
 
 	DBG("ENTER, seq_no = 0x%X\n", in_msg->seq_no);
 
-	out_msg->type	 = SEND_CONNECT_ACK;
+	out_msg->type	  = SEND_CONNECT_ACK;
 	out_msg->category = RDMA_CALL;
-	out_msg->seq_no 	 = in_msg->seq_no;
+	out_msg->seq_no   = in_msg->seq_no;
 
 	const send_connect_input *in = &in_msg->send_connect_in;
 	auto rc = out_msg->send_connect_out.status = rdmad_send_connect(
