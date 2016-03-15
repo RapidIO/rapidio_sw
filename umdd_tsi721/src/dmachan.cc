@@ -478,7 +478,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
   // Not in locked context
   if (m_cliidx >= 0) m_state->client_completion[m_cliidx].bytes_enq += opt.bcount;
-  opt.not_before = computeNotBefore(opt);
+
+  computeNotBefore(opt);
 
   memset(&wk, 0, sizeof(wk));
   wk.mem = mem;

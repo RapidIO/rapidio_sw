@@ -31,12 +31,18 @@
 
 CXX ?= $(CROSS_COMPILE)g++
 config?=NODEBUG
-COMMONDIR=../common
+
+TOP_LEVEL?=..
+COMMONDIR?=$(TOP_LEVEL)/common
 COMMONINC=$(COMMONDIR)/include
 COMMONLIB=$(COMMONDIR)/libs_so
 REGSDIR=../fabric_management/librio_switch/inc
 LOG_LEVEL?=7
 export LOG_LEVEL
+
+SOVER?=1.0
+
+LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so
 
 CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 	-pthread -DRDMA_LL=7 
@@ -68,20 +74,18 @@ all: umdd umddlib
 
 umdd: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES) 
 	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
-	$(LIBRARIES) -L$(COMMONLIB)
+	$(LIBRARIES) -L$(COMMONLIB) $(LIBS_RPATH)
 
 umddlib: $(UMDDLIB_SOURCES) 
-	$(CXX) -O3 -Wall -ggdb -I./inc -I../common/include \
-        -I../fabric_management/librio_switch/inc \
-        -DNODEBUG -std=gnu++0x -pthread \
-        -DUSER_MODE_DRIVER -Wall -Wno-format -DRIO_ANY_ADDR=0 \
-        -ggdb -O0  \
-        src/mapfile.cc src/mport.cc src/dmachan.cc src/crc32.c src/psem.cc src/pshm.cc \
-        -fPIC   -shared -Wl,-soname,libUMDd.so.1 -o libUMDd.so.1.0 \
-        -lrt -L../common/libs_so -lmport -ltime_utils
+	$(CXX) -O3 -Wall -ggdb -pthread -std=gnu++0x \
+	-Iinc -I$(COMMONINC) -I$(TOP_LEVEL)/fabric_management/librio_switch/inc \
+        -DNODEBUG -DUSER_MODE_DRIVER -Wall -Wno-format -DRIO_ANY_ADDR=0 \
+        $(UMDDLIB_SOURCES) \
+        -fPIC -shared -Wl,-soname,libUMD.so.$(SOVER) -o libUMD.so.$(SOVER) \
+        -lrt -L$(COMMONLIB) $(LIBS_RPATH) -lmport -ltime_utils
 
 clean:
-	rm -f *.o umdd libUMDd.so.1.0 *~ src/*~ inc/*~ gmon.out 
+	rm -f *.o umdd libUMDd.so* *~ src/*~ inc/*~ gmon.out 
 
 FORCE:
 

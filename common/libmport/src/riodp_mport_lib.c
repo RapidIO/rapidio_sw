@@ -106,7 +106,6 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	if (fd == -1)
 		return -errno;
 
-// XXX VLAD new DMAChannel
 	printf("UMDD %s: mport_id=%d flags=%d\n", __func__, mport_id, flags);
 
 	hnd = (struct rapidio_mport_handle *)calloc(1, sizeof(struct rapidio_mport_handle));
@@ -370,7 +369,6 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
    umdd:
 	DMAChannel::DmaOptions_t opt;
 
-// XXX VLAD DMAChannel tx, if sync transfer poll/wait
 	// printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
 
 	memset(&opt, 0, sizeof(opt));
@@ -494,11 +492,9 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	return (ret < 0)? -errno: ret;
 
    umdd:
-	DMAChannel::DmaOptions_t opt;
-
-// XXX VLAD DMAChannel tx, if sync transfer poll/wait
 	printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
 
+	DMAChannel::DmaOptions_t opt;
 	memset(&opt, 0, sizeof(opt));
 	opt.destid      = destid;
 	opt.bcount      = size;
@@ -566,9 +562,6 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 	if(hnd == NULL)
 		return -EINVAL;
 
-// XXX VLAD DMAChannel wait for cookie to complete
-	printf("UMDD %s: cookie=%u\n", __func__, cookie);
-
 	if (hnd->dch != NULL) goto umdd;
 
 	wparam.token = cookie;
@@ -578,6 +571,8 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 		return -errno;
 
    umdd:
+	printf("UMDD %s: cookie=%u\n", __func__, cookie);
+
 	// Kernel's rio_mport_wait_for_async_dma wants miliseconds of timeout
 
 	assert(cookie <= hnd->cookie_cutter);
@@ -600,7 +595,7 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 #endif
 	}
 
-        for (int cnt = 0; cnt < 4; cnt++) {
+        for (int cnt = 0 ;; cnt++) {
                 const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
                 if (st == DMAChannel::COMPLETED) return 0;
                 if (st == DMAChannel::BORKED) {
@@ -614,7 +609,7 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
                 if (st == DMAChannel::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
 			struct timespec sl = {0, UMD_SLEEP_NS};
-			sl.tv_nsec = opt.bcount / 4;
+			sl.tv_nsec = opt.not_before_dns;
 			nanosleep(&sl, NULL);
 #endif
 			continue;

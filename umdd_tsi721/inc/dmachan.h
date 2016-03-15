@@ -121,6 +121,7 @@ public:
       uint64_t u_data; ///< whatever the user puts in here
       uint64_t ticket; ///< ticket issued at enq time
       uint64_t not_before; ///< earliest rdtsc ts when ticket can be checked
+      uint64_t not_before_dns; ///< delta nanoseconds wait
       pid_t    pid; ///< process id of enqueueing process
       pid_t    tid; ///< thread id of enqueueing thread; this is NOT a pthread id, it is issued by gettid(2)
       int      cliidx;
@@ -520,7 +521,7 @@ private:
 
   bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 
-  uint64_t computeNotBefore(const DmaOptions_t& opt)
+  inline void computeNotBefore(DmaOptions_t& opt)
   {
     uint64_t ns = 0;
 
@@ -548,7 +549,9 @@ private:
     }
 
     // Eq: (rdtsc * 1000) / MHz = nsec <=> rdtsc = (nsec * MHz) / 1000
-    return opt.ts_start + (ns * 1000 / MHz); // convert to microseconds, then to rdtsc units
+    opt.not_before_dns = ns;
+    //opt.not_before     = opt.ts_start + (ns * 1000 / MHz); // convert to microseconds, then to rdtsc units
+    opt.not_before     = opt.ts_start + (ns * MHz / 1000); // convert to microseconds, then to rdtsc units
   }
 
 public:
