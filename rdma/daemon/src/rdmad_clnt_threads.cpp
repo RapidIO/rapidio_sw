@@ -490,12 +490,6 @@ void *wait_accept_destroy_thread_f(void *arg)
 
 #endif
 
-/**
- * TODO: There has to be a better way than to keep allocating a main_client
- * for each connection, and then letting them leak. They do need to stay alive
- * though;
- */
-static cm_client *main_client;
 
 int provision_rdaemon(uint32_t destid)
 {
@@ -506,36 +500,29 @@ int provision_rdaemon(uint32_t destid)
 		/* Create provision client to connect to remote
 		 * daemon's provisioning thread */
 		peer_info &peer = the_inbound->get_peer();
-		main_client = new cm_client("the_client",
+		shared_ptr<cm_client> the_client = make_shared<cm_client>
+					   ("the_client",
 					    peer.mport_id,
 					    peer.prov_mbox_id,
 					    peer.prov_channel,
 					    &shutting_down);
 
 		/* Connect to remote daemon */
-		rc = main_client->connect(destid);
+		rc = the_client->connect(destid);
 		if (rc < 0) {
 			CRIT("Failed to connect to destid(0x%X)\n", destid);
 			throw RDMA_DAEMON_UNREACHABLE;
 		}
 		DBG("Connected to remote daemon at destid(0x%X)\n", destid);
 
-		/* Create a sub-client to be used with the Tx/Rx engines */
-		riomp_sock_t client_socket = main_client->get_socket();
-		shared_ptr<cm_client> sub_client =
-				make_shared<cm_client>(
-					"sub_client",
-					client_socket,
-					&shutting_down);
-
 		/* Now create a Tx and Rx engines for communicating
 		 * with remote client. */
 		auto cm_tx_eng = make_unique<cm_client_tx_engine>(
-				sub_client,
+				the_client,
 				cm_engine_cleanup_sem);
 
 		auto cm_rx_eng = make_unique<cm_client_rx_engine>(
-				sub_client,
+				the_client,
 				d2d_msg_proc,
 				cm_tx_eng.get(),
 				cm_engine_cleanup_sem);
@@ -546,7 +533,6 @@ int provision_rdaemon(uint32_t destid)
 		in_msg->category = htobe64(RDMA_REQ_RESP);
 		in_msg->seq_no = htobe64(0);
 		in_msg->cm_hello.destid = htobe64(the_inbound->get_peer().destid);
-		HIGH("Sending HELLO message to destid(0x%X)\n", destid);
 		cm_tx_eng->send_message(move(in_msg));
 		HIGH("HELLO message sent to destid(0x%X)\n", destid);
 
@@ -558,7 +544,7 @@ int provision_rdaemon(uint32_t destid)
 	}
 	catch(exception& e) {
 		CRIT("Failed to create hello_client %s\n", e.what());
-		rc = -100;
+		rc = RDMA_MALLOC_FAIL;
 	}
 	catch(int e) {
 		rc = e;

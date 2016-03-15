@@ -405,6 +405,7 @@ void prov_thread_f(int mport_id,
 			 * know the destid, but it will be assigned to the created
 			 * entry upon the HELLO exchange */
 			prov_daemon_info_list.add_daemon(move(cm_tx_eng), move(cm_rx_eng));
+			INFO("Added entry for remote daemon, destid TBD from HELLO\n");
 		} /* while */
 	} /* try */
 	catch(exception& e) {
