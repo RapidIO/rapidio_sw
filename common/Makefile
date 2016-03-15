@@ -56,21 +56,21 @@ libcli: FORCE
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libcli/libcli.a libs_a/
-	cp --preserve=links libcli/libcli.so libs_so/
+	(cd libcli; tar cf - libcli.so*) | (cd libs_so; tar xvf -)
 		
 liblist: FORCE
 	$(MAKE) all -C liblist
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp liblist/liblist.a libs_a/
-	cp --preserve=links liblist/liblist.so* libs_so/
+	(cd liblist; tar cf - liblist.so*) | (cd libs_so; tar xvf -)
 		
 liblog: FORCE
 	$(MAKE) all -C liblog
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp liblog/liblog.a libs_a/
-	cp --preserve=links liblog/liblog.so* libs_so/
+	(cd liblog; tar cf - liblog.so*) | (cd libs_so; tar xvf -)
 		
 libtime_utils: FORCE
 	$(MAKE) all -C libtime_utils

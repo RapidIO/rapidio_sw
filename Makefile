@@ -35,6 +35,9 @@ export LOG_LEVEL
 DEBUG?=DEBUG
 export DEBUG
 
+SOVER?=0.4
+export SOVER
+
 CC = $(CROSS_COMPILE)g++
 export CC
 
