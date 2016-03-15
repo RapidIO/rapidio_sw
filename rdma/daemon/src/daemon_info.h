@@ -160,11 +160,13 @@ public:
 			[&tx_eng](daemon_element_t& daemon_element)
 				{ return daemon_element->m_tx_eng == tx_eng;});
 		if (it != end(daemons)) {
-			CRIT("Trying to add same Tx engine twice\n");
+			CRIT("Trying to add same Tx engine(%p) twice\n",
+								tx_eng.get());
 			abort();
 		} else {
 			/* This is a brand new entry */
-			DBG("Adding daemon entry with tx_eng = %p\n", tx_eng.get());
+			DBG("Adding daemon entry with tx_eng(%p), destid(0x%X)\n",
+					tx_eng.get(), destid);
 			daemon_element_t daemon =
 				make_unique<daemon_info<C>>(move(tx_eng),
 							    move(rx_eng),
@@ -188,17 +190,18 @@ public:
 	{
 		int rc;
 
-		DBG("Setting destid for entry with tx_eng = %p\n", tx_eng);
 		lock_guard<mutex> daemons_lock(daemons_mutex);
 		auto it = find_if(begin(daemons), end(daemons),
 			[tx_eng](daemon_element_t& daemon_element)
-				{ return daemon_element->m_tx_eng.get() == tx_eng;});
+			{ return daemon_element->m_tx_eng.get() == tx_eng;});
 		if (it != end(daemons)) {
+			DBG("Setting destid(0x%X) for entry with tx_eng = %p\n",
+							destid, tx_eng);
 			(*it)->destid = destid;
 			(*it)->provisioned = true;
 			rc = 0;
 		} else {
-			ERR("Failed to find tx_eng in daemons list\n");
+			ERR("Failed to find tx_eng(%p) in daemons list\n", tx_eng);
 			rc = -1;
 		}
 		return rc;
@@ -216,7 +219,8 @@ public:
 			(*it)->provisioned = true;
 			rc = 0;
 		} else {
-			ERR("Failed to find tx_eng/destid in daemons list\n");
+			ERR("Failed to find tx_eng(%p)/destid(0x%X) in daemons list\n",
+					tx_eng, destid);
 			rc = -1;
 		}
 		return rc;

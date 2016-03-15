@@ -222,10 +222,12 @@ protected:
 							rc, strerror(errno));
 				die();
 			} else if (received_len > 0 ) {
+#ifdef EXTRA_DEBUG
 				DBG("msg[0] = 0x%" PRIx64 "\n", *(uint64_t *)msg);
 				DBG("msg[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg + 8));
 				DBG("msg[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg + 16));
 				DBG("msg[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg + 24));
+#endif
 				DBG("Got category=0x%" PRIx64 ",'%s'\n", msg->category,
 							cat_name(msg->category));
 				if (msg->category == RDMA_CALL) {

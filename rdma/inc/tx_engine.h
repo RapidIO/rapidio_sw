@@ -149,10 +149,12 @@ protected:
 			pthread_mutex_lock(&message_queue_lock);
 			DBG("Getting message at front of queue\n");
 			M*	msg_ptr = message_queue.front().get();
+#ifdef EXTRA_DEBUG
 			DBG("msg_ptr[0] = 0x%" PRIx64 "\n", *(uint64_t *)msg_ptr);
 			DBG("msg_ptr[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg_ptr + 8));
 			DBG("msg_ptr[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg_ptr + 16));
 			DBG("msg_ptr[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg_ptr + 24));
+#endif
 			pthread_mutex_unlock(&message_queue_lock);
 
 			int rc = client->send_buffer(msg_ptr, sizeof(M));
