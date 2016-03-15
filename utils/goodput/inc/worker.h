@@ -264,7 +264,14 @@ struct worker {
 	struct timespec min_iter_time; /* Minimum time over all iterations */
 	struct timespec max_iter_time; /* Maximum time over all iterations */
 
+	struct seq_ts desc_ts;
+	struct seq_ts fifo_ts;
+	struct seq_ts meas_ts;
 #ifdef USER_MODE_DRIVER
+	struct seq_ts nread_ts;
+	struct seq_ts nwrite_ts;
+	struct seq_ts q80p_ts;
+
 	void            (*owner_func)(struct worker*);     ///< Who is the owner of this
 	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this
 	uint16_t	my_destid;
@@ -337,12 +344,6 @@ struct worker {
         RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
         DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 
-	struct seq_ts desc_ts;
-	struct seq_ts fifo_ts;
-	struct seq_ts meas_ts;
-	struct seq_ts nread_ts;
-	struct seq_ts nwrite_ts;
-	struct seq_ts q80p_ts;
 
 	volatile int umd_disable_nread;
 	volatile int umd_push_rp_thr; ///< Push RP via NWRITE every N packets; 0=after each packet

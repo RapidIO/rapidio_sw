@@ -1708,66 +1708,6 @@ MpdevsCmd,
 ATTR_NONE
 };
 
-#ifdef USER_MODE_DRIVER
-
-int UCalCmd(struct cli_env *env, int argc, char **argv)
-{
-	int n = 0, idx, chan, map_sz, sy_iter, hash = 0;
-
-	idx = GetDecParm(argv[n++], 0);
-	if (check_idx(env, idx, 1))
-		goto exit;
-
-	chan = GetDecParm(argv[n++], 0);
-	map_sz = GetHex(argv[n++], 0);
-	sy_iter = GetHex(argv[n++], 0);
-	hash = GetDecParm(argv[n++], 0);
-	
-	if ((chan < 1) || (chan > 7)) {
-                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
-        	logMsg(env);
-		goto exit;
-	};
-
-	if ((map_sz < 32) || (map_sz > 0x800000) || (map_sz & (map_sz-1))) {
-                sprintf(env->output,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
-			map_sz, MAX_UMD_BUF_COUNT);
-        	logMsg(env);
-		goto exit;
-	};
-
-	wkr[idx].action = umd_calibrate;
-	wkr[idx].action_mode = user_mode_action;
-	wkr[idx].umd_chan = chan;
-	wkr[idx].umd_tx_buf_cnt = map_sz;
-	wkr[idx].umd_sts_entries = sy_iter;
-	wkr[idx].wr = hash;
-	
-	wkr[idx].stop_req = 0;
-	sem_post(&wkr[idx].run);
-exit:
-	return 0;
-};
-
-struct cli_cmd UCal = {
-"ucal",
-4,
-5,
-"Calibrate performance of various facilities.",
-"<idx> <chan> <map_sz> <sy_iter> <hash>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<chan> is a DMA channel number from 1 through 7\n"
-	"<map_sz> is number of entries in a map to test\n"
-	"<sy_iter> is the number of times to perform sched_yield and other\n"
-	"       operating system related testing.\n"
-	"<hash> If non-zero, attempt hash calibration.\n",
-
-UCalCmd,
-ATTR_NONE
-};
-
-
 int UTimeCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, st_i = 0, end_i = MAX_TIMESTAMPS-1;
@@ -1890,7 +1830,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 				&tot, &min, &max);
 			diff = time_difference(ts_p->ts_val[idx],
 						ts_p->ts_val[idx+1]);
-			if (diff.tv_nsec < lim)
+			if ((uint64_t)diff.tv_nsec < lim)
 				continue;
 			if (!got_one) {
                 		sprintf(env->output,
@@ -1906,7 +1846,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 
 		if (!got_one) {
                 	sprintf(env->output,
-				"\nNo delays found bigger than %d\n", lim);
+				"\nNo delays found bigger than %ld\n", lim);
         		logMsg(env);
 		};
                 sprintf(env->output,
@@ -1957,6 +1897,66 @@ struct cli_cmd UTime = {
 UTimeCmd,
 ATTR_NONE
 };
+
+#ifdef USER_MODE_DRIVER
+
+int UCalCmd(struct cli_env *env, int argc, char **argv)
+{
+	int n = 0, idx, chan, map_sz, sy_iter, hash = 0;
+
+	idx = GetDecParm(argv[n++], 0);
+	if (check_idx(env, idx, 1))
+		goto exit;
+
+	chan = GetDecParm(argv[n++], 0);
+	map_sz = GetHex(argv[n++], 0);
+	sy_iter = GetHex(argv[n++], 0);
+	hash = GetDecParm(argv[n++], 0);
+	
+	if ((chan < 1) || (chan > 7)) {
+                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if ((map_sz < 32) || (map_sz > 0x800000) || (map_sz & (map_sz-1))) {
+                sprintf(env->output,
+			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
+			map_sz, MAX_UMD_BUF_COUNT);
+        	logMsg(env);
+		goto exit;
+	};
+
+	wkr[idx].action = umd_calibrate;
+	wkr[idx].action_mode = user_mode_action;
+	wkr[idx].umd_chan = chan;
+	wkr[idx].umd_tx_buf_cnt = map_sz;
+	wkr[idx].umd_sts_entries = sy_iter;
+	wkr[idx].wr = hash;
+	
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+exit:
+	return 0;
+};
+
+struct cli_cmd UCal = {
+"ucal",
+4,
+5,
+"Calibrate performance of various facilities.",
+"<idx> <chan> <map_sz> <sy_iter> <hash>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<chan> is a DMA channel number from 1 through 7\n"
+	"<map_sz> is number of entries in a map to test\n"
+	"<sy_iter> is the number of times to perform sched_yield and other\n"
+	"       operating system related testing.\n"
+	"<hash> If non-zero, attempt hash calibration.\n",
+
+UCalCmd,
+ATTR_NONE
+};
+
 
 int UDMACmd(struct cli_env *env, int argc, char **argv)
 {
@@ -3109,6 +3109,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&CPUOccSet,
 	&CPUOccDisplay,
 	&Mpdevs,
+	&UTime,
 #ifdef USER_MODE_DRIVER
 	&UCal,
 	&UDMA,
@@ -3121,7 +3122,6 @@ struct cli_cmd *goodput_cmds[] = {
 	&UMSGT,
 	&UMDDD,
 	&UMDDDD,
-	&UTime,
 	&UMDTest,
 	&EPWatch,
 	&UMSGWATCH,

@@ -818,6 +818,7 @@ void dma_goodput(struct worker *info)
 			// FAF transactions go so fast they can overwhelm the
 			// small kernel transmit buffer.  Attempt the 
 			// transaction until the resource is not busy.
+			get_seq_ts_m(&info->meas_ts, 5);
 			do {
 				dma_rc = single_dma_access(info, cnt);
 				if (dma_rc < 0)
@@ -837,6 +838,7 @@ void dma_goodput(struct worker *info)
 					|| (EBUSY == -dma_rc)
 					|| (EAGAIN == -dma_rc));
 			};
+			get_seq_ts_m(&info->meas_ts, 555);
 			if (dma_rc) {
 				ERR("FAILED: dma transfer rc %d:%s\n",
 						dma_rc, strerror(errno));
