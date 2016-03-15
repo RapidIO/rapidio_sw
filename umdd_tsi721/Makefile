@@ -81,7 +81,7 @@ umddlib: $(UMDDLIB_SOURCES)
 	-Iinc -I$(COMMONINC) -I$(TOP_LEVEL)/fabric_management/librio_switch/inc \
         -DNODEBUG -DUSER_MODE_DRIVER -Wall -Wno-format -DRIO_ANY_ADDR=0 \
         $(UMDDLIB_SOURCES) \
-        -fPIC -shared -Wl,-soname,libUMD.so.$(SOVER) -o libUMD.so.$(SOVER) \
+        -fPIC -shared -Wl,-soname,libUMDd.so.$(SOVER) -o libUMDd.so.$(SOVER) \
         -lrt -L$(COMMONLIB) $(LIBS_RPATH) -lmport -ltime_utils
 
 clean:
