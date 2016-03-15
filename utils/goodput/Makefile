@@ -90,8 +90,11 @@ ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES)
 goodput: $(SOURCES) $(INCLUDES)
 	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ -L$(COMMONLIB) $(LIBRARIES)
 
+mboxsample: src/mboxsample.c 
+	$(CXX) $(CCFLAGS) $(UMD_FLAGS) -Wno-unused-variable src/mboxsample.c src/mboxchan.cc src/mport.cc src/mapfile.cc -o $@ -L$(COMMONLIB) $(LIBRARIES)
+
 clean:
-	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out 
+	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out mboxsample
 
 FORCE:
 
