@@ -34,9 +34,11 @@ CC?=$(CROSS_COMPILE)g++
 CXX?=$(CROSS_COMPILE)g++
 
 AR:=$(CROSS_COMPILE)ar
+SOVER?=0.42
+NAME=cli
 
 # Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
+SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb -Wl,-soname,lib$(NAME).so.$(SOVER)
 
 # CLI library flags, sources and objects
 CLILIB_CFLAGS = -Wall -std=gnu++0x -c -g -ggdb -fPIC \
@@ -55,10 +57,11 @@ all: libcli.so libcli.a
 libcli.so: $(CLILIB_SOURCES) src/*.h ../../rdma/daemon/inc/*_console.h
 	@echo ---------- Building libcli.so...
 	$(CXX) $(CLILIB_CFLAGS) $(CLILIB_SOURCES)
-	$(CXX) -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@ $(CLILIB_OBJS) $(SO_LIB_LKFLAGS)
+	$(CXX) -L$(shell pwd) -Wl,-rpath=$(shell pwd) -o $@.$(SOVER) $(CLILIB_OBJS) $(SO_LIB_LKFLAGS)
+	@ln -s $@.$(SOVER) $@ &>/dev/null
 
 %.a: libcli.so
 	$(AR) rcs $@ $(CLILIB_OBJS)
 
 clean:
-	@rm -f *.o libcli.so *~ libcli.a
+	@rm -f *.o libcli.so* *~ libcli.a 

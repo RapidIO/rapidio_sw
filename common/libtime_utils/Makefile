@@ -34,7 +34,7 @@ DEBUG?=DEBUG
 CC?=$(CROSS_COMPILE)g++
 CXX?=$(CROSS_COMPILE)g++
 TOP_LEVEL = $(shell pwd)
-SOVER?=0.1
+SOVER?=0.42
 
 level=$(LOG_LEVEL)
 
@@ -78,6 +78,6 @@ $(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS)
 	-L. -L../../common/libs_a
 
 clean:
-	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a lib$(NAME).so.*
+	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a lib$(NAME).so*
 
 .PHONY: all clean

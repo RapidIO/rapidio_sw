@@ -43,7 +43,7 @@ LIBDIR=$(DESTDIR)$(PREFIX)/lib
 BINDIR=$(DESTDIR)$(PREFIX)/bin
 INCDIR=../include
 O?=.
-SOVER?=0.1
+SOVER?=0.42
 
 ifdef DEBUG
 CFLAGS=-Wall -Wsign-compare -fPIC -DDEBUG -g
@@ -89,4 +89,4 @@ $(O)/%.o: %.c
 	$(CXX) -c -o $@ $(addprefix -I, $(INCLUDES)) $(CFLAGS) $<
 
 clean:
-	rm -rf $(SAMPLES_TARGETS) $(LIB_TARGETS) $(O)/src/*.o $(O)/samples/*.o libmport.so.*
+	rm -rf $(SAMPLES_TARGETS) $(LIB_TARGETS) $(O)/src/*.o $(O)/samples/*.o libmport.so*

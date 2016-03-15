@@ -45,7 +45,7 @@ DEBUG ?= DEBUG
 export DEBUG
 endif
 
-SOVER?=0.42
+SOVER?=0.666
 export SOVER
 
 
@@ -84,7 +84,7 @@ libunit_test: FORCE
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libunit_test/libunit_test.a libs_a/
-	cp -v --preserve=links libunit_test/libunit_test.so* libs_so/
+	(cd libunit_test; tar cf - libunit_test.so*) | (cd libs_so; tar xvf -)
 		
 libmport: FORCE libtime_utils
 	$(MAKE) all LDFLAGS= -C libmport

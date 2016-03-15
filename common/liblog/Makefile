@@ -32,7 +32,7 @@ level?=$(LOG_LEVEL)
 debug?=$(DEBUG)
 CC = $(CROSS_COMPILE)g++
 CXX = $(CROSS_COMPILE)g++
-SOVER?=0.1
+SOVER?=0.42
 
 NAME:=log
 
@@ -65,4 +65,4 @@ liblog.so: $(LOGLIB_SOURCES) ../include/liblog.h
 	$(AR) rcs $@ $(LOGLIB_OBJS)
 
 clean:
-	@rm -f *.o *~ *.so *.a
+	@rm -f *.o *~ *.so* *.a
