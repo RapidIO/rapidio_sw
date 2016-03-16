@@ -89,6 +89,7 @@ public:
   static const int DMA_SHM_MAX_CLIENTS = 64;
   static const int DMA_SHM_MAX_ITEMS_PER_CLIENT = 1024;
 
+
   /** \brief Track in-flight pending bytes for all channels. This lives in SHM. */
   typedef struct {
     volatile uint64_t data[DMA_MAX_CHAN];
@@ -167,6 +168,18 @@ public:
 
   static const char* abortReasonToStr(const uint32_t abort_reason);
 
+  static enum dma_rtype  convert_riomp_dma_directio(enum riomp_dma_directio_type type)
+  {
+        switch(type) {
+        case RIO_DIRECTIO_TYPE_NWRITE: return ALL_NWRITE;
+        case RIO_DIRECTIO_TYPE_NWRITE_R: return LAST_NWRITE_R;
+        case RIO_DIRECTIO_TYPE_NWRITE_R_ALL: return ALL_NWRITE_R;
+        case RIO_DIRECTIO_TYPE_SWRITE: return ALL_NWRITE;
+        case RIO_DIRECTIO_TYPE_SWRITE_R: return LAST_NWRITE_R;
+        default: return ALL_NWRITE;
+        }
+  }
+
   bool alloc_dmatxdesc(const uint32_t bd_num);
   void free_dmatxdesc();
   bool alloc_dmacompldesc(const uint32_t bd_num);
@@ -177,12 +190,12 @@ public:
 
   bool check_ibwin_reg() { return m_mport->check_ibwin_reg(); }
 
-  inline bool queueDmaOpT1(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
+  inline bool queueDmaOpT1(enum dma_rtype  rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
     opt.dtype = DTYPE1;
     return queueDmaOpT12(rtype, opt, mem, abort_reason, ts_p);
   }
-  inline bool queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason, struct seq_ts *ts_p)
+  inline bool queueDmaOpT2(enum dma_rtype  rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
     if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16))
 	return false;
@@ -519,7 +532,7 @@ private:
   void cleanup();
   void cleanupSHM();
 
-  bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
+  bool queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 
   inline void computeNotBefore(DmaOptions_t& opt)
   {
@@ -648,8 +661,8 @@ int DMAChannel_dequeueFaultedTicket(void* dch, uint64_t* tik);
 int DMAChannel_dequeueDmaNREADT2(void* dch, DMAChannel::NREAD_Result_t* res);
 int DMAChannel_checkTicket(void* dch, const DMAChannel::DmaOptions_t* opt);
 
-int DMAChannel_queueDmaOpT1(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p);
-int DMAChannel_queueDmaOpT2(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
+int DMAChannel_queueDmaOpT1(void* dch, enum dma_rtype rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p);
+int DMAChannel_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
 
 void DMAChannel_getShmPendingData(void* dch, uint64_t* total, DMAChannel::DmaShmPendingData_t* per_client);
 

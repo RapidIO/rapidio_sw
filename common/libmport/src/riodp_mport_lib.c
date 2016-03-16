@@ -384,7 +384,9 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	bool q_was_full = false;
 	uint32_t dma_abort_reason = 0;
 
-	if (! DMAChannel_queueDmaOpT1(hnd->dch, wr_mode, &opt, &dmamem, &dma_abort_reason, NULL)) {
+	if (! DMAChannel_queueDmaOpT1(hnd->dch,
+			DMAChannel::convert_riomp_dma_directio(wr_mode), &opt,
+			&dmamem, &dma_abort_reason, NULL)) {
 		if (q_was_full) return -(errno = ENOSPC);
 		return -(errno = EINVAL);
 	}
@@ -571,7 +573,7 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 		return -errno;
 
    umdd:
-	printf("UMDD %s: cookie=%u\n", __func__, cookie);
+	// printf("UMDD %s: cookie=%u\n", __func__, cookie);
 
 	// Kernel's rio_mport_wait_for_async_dma wants miliseconds of timeout
 

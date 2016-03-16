@@ -161,7 +161,7 @@ struct tsi721_dma_desc {
 enum dma_dtype {
 	DTYPE1 = 1, /* Data Transfer DMA Descriptor */
 	DTYPE2 = 2, /* Immediate Data Transfer DMA Descriptor */
-	DTYPE3 = 3, /* Block Pointer DMA Descriptor */
+DTYPE3 = 3, /* Block Pointer DMA Descriptor */
 	DTYPE4 = 4, /* Outbound Msg DMA Descriptor */
 	DTYPE5 = 5, /* OB Messaging Block Pointer Descriptor */
 	DTYPE6 = 6  /* Inbound Messaging Descriptor */

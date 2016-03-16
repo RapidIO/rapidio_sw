@@ -797,6 +797,19 @@ OBDIORxLatCmd,
 ATTR_NONE
 };
 
+// "<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
+riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(int trans)
+{
+	switch (trans) {
+	default:
+	case 0: return RIO_DIRECTIO_TYPE_NWRITE;
+	case 1: return RIO_DIRECTIO_TYPE_SWRITE;
+	case 2: return RIO_DIRECTIO_TYPE_NWRITE_R;
+	case 3: return RIO_DIRECTIO_TYPE_SWRITE_R;
+	case 4: return RIO_DIRECTIO_TYPE_NWRITE_R_ALL;
+	};
+}
+
 int dmaCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
@@ -822,7 +835,7 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	if (check_idx(env, idx, 1))
 		goto exit;
 
-	if (trans > (int)RIO_DIRECTIO_TYPE_NWRITE_R_ALL)
+	if (trans > 4)
 		trans = RIO_DIRECTIO_TYPE_NWRITE;
 
 	if (sync > RIO_DIRECTIO_TRANSFER_FAF)
@@ -836,7 +849,7 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].acc_size = acc_sz;
 	wkr[idx].wr = wr;
 	wkr[idx].use_kbuf = kbuf;
-	wkr[idx].dma_trans_type = (enum riomp_dma_directio_type)trans;
+	wkr[idx].dma_trans_type = convert_int_to_riomp_dma_directio_type(trans);
 	wkr[idx].dma_sync_type = (enum riomp_dma_directio_transfer_sync)sync;
 	wkr[idx].rdma_buff_size = bytes;
 
@@ -903,7 +916,7 @@ int dmaTxLatCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].acc_size = bytes;
 	wkr[idx].wr = wr;
 	wkr[idx].use_kbuf = kbuf;
-	wkr[idx].dma_trans_type = (enum riomp_dma_directio_type)trans;
+	wkr[idx].dma_trans_type = convert_int_to_riomp_dma_directio_type(trans);
 	if (wr)
 		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
 	else

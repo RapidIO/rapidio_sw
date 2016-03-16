@@ -2,7 +2,7 @@ kill all
 wait 0 d
 t 0 2 0
 wait 0 h
-dma 0 5 22f000000 10000 10000 1 1 0 0
+dma 0 3 22f000000 10000 10000 1 1 0 1
 wait 0 r
 g
 g c

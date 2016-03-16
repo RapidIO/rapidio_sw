@@ -52,7 +52,7 @@ CFLAGS=-O2 -Wall -Wsign-compare -fPIC -DNDEBUG
 endif
 
 CFLAGS += -ggdb
-CFLAGS += -I../../fabric_management/librio_switch/inc # clusterf**K
+CFLAGS += -I../../fabric_management/librio_switch/inc
 
 LIBS=rt	pthread dl
 LDFLAGS?=-static

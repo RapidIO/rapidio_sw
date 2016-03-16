@@ -341,7 +341,7 @@ uint32_t DMAChannel::clearIntBits()
  * \param[out] abort_reason HW reason for DMA abort if function returned false
  * \return true if buffer enqueued, false if queue full or HW error -- check abort_reason
  */
-bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
+bool DMAChannel::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
 {
   if (m_state->hw_ready < 2)
     throw std::runtime_error("DMAChannel: HW is not ready!");
@@ -373,8 +373,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   if(opt.prio)
     dmadesc_setprio(desc, opt.prio);
 
-  opt.rtype = rtype;
-  dmadesc_setrtype(desc, rtype); // NWRITE_R, etc
+  opt.rtype = (int)rtype;
+  dmadesc_setrtype(desc, (int)rtype); // NWRITE_R, etc
 
   dmadesc_set_raddr(desc, opt.raddr.msb2, opt.raddr.lsb64);
 
@@ -1560,7 +1560,7 @@ int DMAChannel_checkTicket(void* dch, const DMAChannel::DmaOptions_t* opt)
   return ((DMAChannel*)dch)->checkTicket(*opt);
 }
 
-int DMAChannel_queueDmaOpT1(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p)
+int DMAChannel_queueDmaOpT1(void* dch, enum dma_rtype rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p)
 {
   if (dch == NULL || opt == NULL || mem == NULL || abort_reason == NULL) return -666;
 
@@ -1569,7 +1569,7 @@ int DMAChannel_queueDmaOpT1(void* dch, int rtype, DMAChannel::DmaOptions_t* opt,
   *abort_reason = ar;
   return r;
 }
-int DMAChannel_queueDmaOpT2(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p)
+int DMAChannel_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p)
 {
   if (dch == NULL || opt == NULL || data == NULL || data_len < 1 || abort_reason == NULL) return -666;
 

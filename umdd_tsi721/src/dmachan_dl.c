@@ -63,8 +63,8 @@ typedef struct {
   int (*dequeueDmaNREADT2)(void* dch, DMAChannel::NREAD_Result_t* res);
   int (*checkTicket)(void* dch, const DMAChannel::DmaOptions_t* opt);
 
-  int (*queueDmaOpT1)(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p);
-  int (*queueDmaOpT2)(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
+  int (*queueDmaOpT1)(void* dch, enum dma_rtype rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p);
+  int (*queueDmaOpT2)(void* dch, enum dma_rtype rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
 
   void (*getShmPendingData)(void* dch, uint64_t* total, DMAChannel::DmaShmPendingData_t* per_client);
 
@@ -104,9 +104,9 @@ void* DMAChannel_create(const uint32_t mportid, const uint32_t chan)
   libp->checkTicket         = (int (*)(void*, const DMAChannel::DmaOptions_t*))dlsym(libp->dlh, "DMAChannel_checkTicket");
   assert(libp->checkTicket);
 
-  libp->queueDmaOpT1 = (int (*)(void*, int, DMAChannel::DmaOptions_t*, RioMport::DmaMem_t*, uint32_t*, seq_ts*))dlsym(libp->dlh, "DMAChannel_queueDmaOpT1");
+  libp->queueDmaOpT1 = (int (*)(void*, enum dma_rtype, DMAChannel::DmaOptions_t*, RioMport::DmaMem_t*, uint32_t*, seq_ts*))dlsym(libp->dlh, "DMAChannel_queueDmaOpT1");
   assert(libp->queueDmaOpT1);
-  libp->queueDmaOpT2 = (int (*)(void*, int, DMAChannel::DmaOptions_t*, uint8_t*, int, uint32_t*, seq_ts*))dlsym(libp->dlh, "DMAChannel_queueDmaOpT2");
+  libp->queueDmaOpT2 = (int (*)(void*, enum dma_rtype, DMAChannel::DmaOptions_t*, uint8_t*, int, uint32_t*, seq_ts*))dlsym(libp->dlh, "DMAChannel_queueDmaOpT2");
   assert(libp->queueDmaOpT2);
 
   libp->getShmPendingData = (void (*)(void*, uint64_t*, DMAChannel::DmaShmPendingData_t*))dlsym(libp->dlh, "DMAChannel_getShmPendingData");
@@ -186,12 +186,12 @@ int DMAChannel_checkTicket(void* dch, const DMAChannel::DmaOptions_t* opt)
   return ((DMAChannelPtr_t*)dch)->checkTicket(((DMAChannelPtr_t*)dch)->dch, opt);
 }
 
-int DMAChannel_queueDmaOpT1(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p)
+int DMAChannel_queueDmaOpT1(void* dch, dma_rtype rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p)
 {
   assert(((DMAChannelPtr_t*)dch)->sig == SIG);
   return ((DMAChannelPtr_t*)dch)->queueDmaOpT1(((DMAChannelPtr_t*)dch)->dch, rtype, opt, mem, abort_reason, ts_p);
 }
-int DMAChannel_queueDmaOpT2(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p)
+int DMAChannel_queueDmaOpT2(void* dch, dma_rtype rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p)
 {
   assert(((DMAChannelPtr_t*)dch)->sig == SIG);
   return ((DMAChannelPtr_t*)dch)->queueDmaOpT2(((DMAChannelPtr_t*)dch)->dch, rtype, opt, data, data_len, abort_reason, ts_p);
