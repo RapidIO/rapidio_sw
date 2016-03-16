@@ -61,9 +61,11 @@ constexpr rdma_msg_type CM_FORCE_DISCONNECT_MS_ACK 	= 0x7777777777777777;
 struct cm_hello_msg_t {
 	uint64_t destid;
 };
+
 struct cm_hello_ack_msg_t {
 	uint64_t destid;
 };
+
 /**
  * @brief Sent from client daemon to server daemon requesting connection
  * 	  to a server memory space

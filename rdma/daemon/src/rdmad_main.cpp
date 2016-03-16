@@ -125,13 +125,12 @@ static void unix_engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 				/* If the tx_eng is being used by a client app, then
 				 * we must clear the connected_to_ms_info_list  */
 				DBG("Cleaning up connected_to_ms_info_list\n");
-				sem_wait(&connected_to_ms_info_list_sem);
+				lock_guard<mutex> conn_lock(connected_to_ms_info_list_mutex);
 				connected_to_ms_info_list.erase(
 					remove(begin(connected_to_ms_info_list),
 					       end(connected_to_ms_info_list),
 					       *it),
 					end(connected_to_ms_info_list));
-				sem_post(&connected_to_ms_info_list_sem);
 
 				/* If the tx_eng is being used by a server app,
 				 * then we must clear all related memory spaces
@@ -446,12 +445,6 @@ int main (int argc, char **argv)
 		catch(inbound_exception& e) {
 			CRIT("%s\n", e.what());
 			throw OUT_CLOSE_PORT;
-		}
-
-		if (sem_init(&connected_to_ms_info_list_sem, 0, 1) == -1) {
-			CRIT("sem_init failed for connected_to_ms_info_list_sem: %s\n",
-							strerror(errno));
-			throw OUT_DELETE_INBOUND;
 		}
 
 		/* Create provisioning thread */

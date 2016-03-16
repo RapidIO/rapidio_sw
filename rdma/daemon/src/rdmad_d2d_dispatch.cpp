@@ -224,7 +224,7 @@ void cm_accept_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 	 * and also make sure it is not already marked as 'connected'.
 	 * If not found, there is nothing to do and the CM_ACCEPT_MS
 	 * is ignored. */
-	sem_wait(&connected_to_ms_info_list_sem);
+	lock_guard<mutex> conn_lock(connected_to_ms_info_list_mutex);
 	auto it = find_if(begin(connected_to_ms_info_list),
 			  end(connected_to_ms_info_list),
 		[cm_accept_ms](connected_to_ms_info& info)
@@ -240,7 +240,6 @@ void cm_accept_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 	if (it == end(connected_to_ms_info_list)) {
 		WARN("Ignoring CM_ACCEPT_MS from ms('%s')\n",
 				cm_accept_ms->server_ms_name);
-		sem_post(&connected_to_ms_info_list_sem);
 		return;
 	}
 
@@ -256,7 +255,6 @@ void cm_accept_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 		/* Send the ACCEPT_FROM_MS_REQ message to the blocked
 		 * rdma_conn_ms_h() via the tx engine */
 		it->to_lib_tx_eng->send_message(move(in_msg));
-		sem_post(&connected_to_ms_info_list_sem);
 		return;
 	} else if (be64toh(cm_accept_ms->sub_type) == CM_ACCEPT_MS_ACK) {
 		/* Compose the ACCEPT_FROM_MS_REQ that is to be sent
@@ -299,7 +297,6 @@ void cm_accept_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 		it->server_msid = be64toh(cm_accept_ms->server_msid);
 		it->server_msubid = be64toh(cm_accept_ms->server_msubid);
 	}
-	sem_post(&connected_to_ms_info_list_sem);
 } /* cm_accept_ms_disp() */
 
 void cm_force_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
@@ -324,7 +321,7 @@ void cm_force_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 
 	/* Remove the entry relating to the destroyed ms. The entry fields must
 	 * match the 'CM_FORCE_DISCONNECT_MS */
-	sem_wait(&connected_to_ms_info_list_sem);
+	lock_guard<mutex> conn_lock(connected_to_ms_info_list_mutex);
 	connected_to_ms_info_list.erase (
 		remove_if(begin(connected_to_ms_info_list),
 		  end(connected_to_ms_info_list),
@@ -334,7 +331,6 @@ void cm_force_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 			&&     ((uint64_t)info.to_lib_tx_eng == client_to_lib_tx_eng_h);
 			})
 			, end(connected_to_ms_info_list));
-	sem_post(&connected_to_ms_info_list_sem);
 
 	/**
 	 * Send back CM_FORCE_DISCONNECT_MS_ACK to the remote daemon on which

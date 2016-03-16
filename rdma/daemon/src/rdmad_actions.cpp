@@ -356,12 +356,11 @@ int rdmad_send_connect(const char *server_ms_name,
 
 	/* Record the connection request in the list so when the remote
 	 * daemon sends back an ACCEPT_MS, we can match things up. */
-	sem_wait(&connected_to_ms_info_list_sem);
+	lock_guard<mutex> conn_lock(connected_to_ms_info_list_mutex);
 	connected_to_ms_info_list.emplace_back(client_msubid,
 					       server_ms_name,
 					       server_destid,
 					       to_lib_tx_eng);
-	sem_post(&connected_to_ms_info_list_sem);
 	DBG("EXIT\n");
 	return 0;
 } /* rdmad_send_connect() */
@@ -383,7 +382,7 @@ int rdmad_undo_connect(const char *server_ms_name,
 
 	/* Remove from the connected_to_ms_info_list. Must match
 	 * on BOTH the server_ms_name and (client) to_lib_tx_eng */
-	sem_wait(&connected_to_ms_info_list_sem);
+	lock_guard<mutex> conn_lock(connected_to_ms_info_list_mutex);
 	auto it = find_if(begin(connected_to_ms_info_list),
 		       end(connected_to_ms_info_list),
 		       [server_ms_name,to_lib_tx_eng](connected_to_ms_info& info)
@@ -401,7 +400,6 @@ int rdmad_undo_connect(const char *server_ms_name,
 		connected_to_ms_info_list.erase(it);
 		rc = 0;
 	}
-	sem_post(&connected_to_ms_info_list_sem);
 
 	return rc;
 } /* rdmad_undo_connect() */
@@ -437,7 +435,7 @@ int rdmad_send_disconnect(uint32_t server_destid,
 	if (rc) {
 		ERR("Failed to send disconnection to server daemon\n");
 	} else {
-		sem_wait(&connected_to_ms_info_list_sem);
+		lock_guard<mutex> conn_lock(connected_to_ms_info_list_mutex);
 
 		/* Find the appropriate entry in connect_to_ms_info_list and erase */
 		auto it = find_if(begin(connected_to_ms_info_list),
@@ -457,7 +455,6 @@ int rdmad_send_disconnect(uint32_t server_destid,
 			connected_to_ms_info_list.erase(it);
 			rc = 0;
 		}
-		sem_post(&connected_to_ms_info_list_sem);
 	}
 
 	return rc;

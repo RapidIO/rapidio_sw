@@ -34,9 +34,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_CLNT_THREADS_H
 
 #include <stdint.h>
-#include <semaphore.h>
 
 #include <string>
+#include <mutex>
 
 #include "unix_sock.h"
 #include "cm_sock.h"
@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "daemon_info.h"
 
 using std::string;
+using std::mutex;
 
 class unix_msg_t;
 
@@ -118,7 +119,7 @@ struct connected_to_ms_info {
 
 extern daemon_list<cm_client>		hello_daemon_info_list;
 extern vector<connected_to_ms_info>	connected_to_ms_info_list;
-extern sem_t 				connected_to_ms_info_list_sem;
+extern mutex 				connected_to_ms_info_list_mutex;
 
 /**
  * @brief Sends FORCE_DISCONNECT_MS to RDMA library, and waits (with timeout)
