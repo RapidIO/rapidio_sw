@@ -36,6 +36,7 @@ CXX?= $(CROSS_COMPILE)g++
 
 config?=NODEBUG
 COMMONDIR=../../common
+LIBMPINCDIR=$(COMMONDIR)/libmport/src
 COMMONINC=$(COMMONDIR)/include
 COMMONLIB=-Wl,rpath=$(COMMONDIR)/libs_so -L$(COMMONDIR)/libs_a
 REGSDIR=../../fabric_management/librio_switch/inc
@@ -45,7 +46,7 @@ export LOG_LEVEL
 
 # Kernel-mode flags
 CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
-	-pthread -DRDMA_LL=7
+	-pthread -DRDMA_LL=7 -I$(LIBMPINCDIR) -I$(REGSDIR)
 
 #CCFLAGS+=-pg
 #CCFLAGS+=-DDEBUG_BD
@@ -60,8 +61,8 @@ CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 CCFLAGS+=-DUDMA_TUN_DEBUG_HISTO
 #CCFLAGS+=-rdynamic # use with mutrace
 
-INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
-SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c
+INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
+SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 
 # User-mode only flags
 # FIXME: Work to remove these as time permits

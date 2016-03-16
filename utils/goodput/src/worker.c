@@ -74,9 +74,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
+#include "riodp_mport_lib.h"
 #include "liblog.h"
 
-#include "time_utils.h"
+#include "libtime_utils.h"
 #include "worker.h"
 #include "goodput.h"
 #include "mhz.h"
@@ -167,9 +168,9 @@ void init_worker_info(struct worker *info, int first_time)
         info->sock_tx_buf = NULL;
         info->sock_rx_buf = NULL;
 
-	init_seq_ts(&info->desc_ts);
-	init_seq_ts(&info->fifo_ts);
-	init_seq_ts(&info->meas_ts);
+	init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 #ifdef USER_MODE_DRIVER
 	info->owner_func = NULL;
 	info->umd_set_rx_fd = NULL;
@@ -212,9 +213,9 @@ void init_worker_info(struct worker *info, int first_time)
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
 	//};
-	init_seq_ts(&info->nread_ts);
-	init_seq_ts(&info->nwrite_ts);
-	init_seq_ts(&info->q80p_ts);
+	init_seq_ts(&info->nread_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->nwrite_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->q80p_ts, MAX_TIMESTAMPS);
 
 	info->umd_disable_nread = 0;
 	info->umd_push_rp_thr   = 0;
@@ -819,7 +820,7 @@ void dma_goodput(struct worker *info)
 			// FAF transactions go so fast they can overwhelm the
 			// small kernel transmit buffer.  Attempt the 
 			// transaction until the resource is not busy.
-			get_seq_ts_m(&info->meas_ts, 5);
+			ts_now_mark(&info->meas_ts, 5);
 			do {
 				dma_rc = single_dma_access(info, cnt);
 				if (dma_rc < 0)
@@ -839,7 +840,7 @@ void dma_goodput(struct worker *info)
 					|| (EBUSY == -dma_rc)
 					|| (EAGAIN == -dma_rc));
 			};
-			get_seq_ts_m(&info->meas_ts, 555);
+			ts_now_mark(&info->meas_ts, 555);
 			if (dma_rc) {
 				ERR("FAILED: dma transfer rc %d:%s\n",
 						dma_rc, strerror(errno));
@@ -895,19 +896,20 @@ void dma_tx_num_cmd(struct worker *info)
 	if (alloc_dma_tx_buffer(info))
 		goto exit;
 
+	info->mp_h->stats = &info->meas_ts;
 	zero_stats(info);
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	for (trans_count = 0; trans_count < info->num_trans; trans_count++) {
-		get_seq_ts_m(&info->meas_ts, 5);
+		ts_now_mark(&info->meas_ts, 5);
 		dma_rc = single_dma_access(info, 0);
 		if (dma_rc < 0) {
 			ERR("FAILED: dma_rc %d on trans %d!\n",
 				dma_rc, trans_count);
 			return;
 		}
-		get_seq_ts_m(&info->meas_ts, 555);
+		ts_now_mark(&info->meas_ts, 555);
 	};
 
 	clock_gettime(CLOCK_MONOTONIC, &info->end_time);
@@ -916,6 +918,7 @@ void dma_tx_num_cmd(struct worker *info)
 		sleep(0);
 	}
 exit:
+	info->mp_h->stats = NULL;
 	dealloc_dma_tx_buffer(info);
 };
 	
@@ -1393,7 +1396,7 @@ void *umd_dma_fifo_proc_thr(void *parm)
 		if (!cnt) 
 			continue;
 
-		get_seq_ts(&info->fifo_ts);
+		ts_now(&info->fifo_ts);
 
 		for (int i = 0; i < cnt; i++) {
 			DMAChannel::WorkItem_t& item = wi[i];
@@ -1471,7 +1474,7 @@ again:
 			continue;
 		}
 
-		get_seq_ts(&info->fifo_ts);
+		ts_now(&info->fifo_ts);
 
 		const uint64_t tsm1 = rdtsc();
 		for (int i = 0; i < cnt; i++) {
@@ -2152,9 +2155,9 @@ void umd_dma_goodput_demo(struct worker *info)
 			info->umd_tx_buf_cnt, info->umd_sts_entries);
 	}
 
-	init_seq_ts(&info->desc_ts);
-	init_seq_ts(&info->fifo_ts);
-	init_seq_ts(&info->meas_ts);
+	init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 
         info->umd_fifo_proc_must_die = 0;
         info->umd_fifo_proc_alive = 0;
@@ -2197,7 +2200,7 @@ void umd_dma_goodput_demo(struct worker *info)
 					info->dmaopt[oi], info->dmamem[oi],
                                         info->umd_dma_abort_reason,
 					&info->meas_ts)) {
-					get_seq_ts(&info->desc_ts);
+					ts_now(&info->desc_ts);
 				} else {
 					q_was_full = true;
 				};
@@ -2692,7 +2695,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 				} else { q_was_full = true; }
 		      	} else {
 				tx_ok++;
-				get_seq_ts(&info->desc_ts);
+				ts_now(&info->desc_ts);
 			}
 			if (info->stop_req) break;
 

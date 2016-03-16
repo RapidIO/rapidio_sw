@@ -37,7 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <vector>
 #include "goodput_cli.h"
-#include "time_utils.h"
+#include "libtime_utils.h"
 #include "mhz.h"
 #include "liblog.h"
 #include "assert.h"
@@ -1837,7 +1837,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	switch (argv[2][0]) {
 	case 's':
 	case 'S':
-		init_seq_ts(ts_p);
+		init_seq_ts(ts_p, MAX_TIMESTAMPS);
 		break;
 	case '-':
 		if (argc > 4) {

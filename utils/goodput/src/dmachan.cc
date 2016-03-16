@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdtsc.h"
 #include "debug.h"
 #include "dmachan.h"
-#include "time_utils.h"
+#include "libtime_utils.h"
 
 #pragma GCC diagnostic ignored "-fpermissive"
 
@@ -219,7 +219,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
   abort_reason = 0;
 
-  get_seq_ts_m(ts_p, 1);
+  ts_now_mark(ts_p, 1);
 
   dmadesc_setdtype(desc, opt.dtype);
 
@@ -332,7 +332,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   }
   pthread_spin_unlock(&m_pending_work_splock);
 
-  get_seq_ts_m(ts_p, 9);
+  ts_now_mark(ts_p, 9);
 
 #ifdef DEBUG_BD
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;

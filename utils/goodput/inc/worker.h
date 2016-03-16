@@ -68,7 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 
-#include "time_utils.h"
+#include "libtime_utils.h"
 
 #ifdef USER_MODE_DRIVER
 #include <string>

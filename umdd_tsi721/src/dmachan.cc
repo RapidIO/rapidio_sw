@@ -1515,12 +1515,12 @@ uint16_t DMAChannel_getDestId(void* dch)
 
 int DMAChannel_queueSize(void* dch)
 {
-  if (dch == NULL) return -666;
+  if (dch == NULL) return -EINVAL;
   return ((DMAChannel*)dch)->queueSize();
 }
 int DMAChannel_queueFull(void* dch)
 {
-  if (dch == NULL) return -666;
+  if (dch == NULL) return -EINVAL;
   return ((DMAChannel*)dch)->queueFull();
 }
 uint64_t DMAChannel_getBytesEnqueued(void* dch)
@@ -1536,7 +1536,7 @@ uint64_t DMAChannel_getBytesTxed(void* dch)
 
 int DMAChannel_dequeueFaultedTicket(void* dch, uint64_t* tik)
 {
-  if (dch == NULL || tik == NULL) return -666;
+  if (dch == NULL || tik == NULL) return -EINVAL;
 
   uint64_t t = 0;
   const bool r = ((DMAChannel*)dch)->dequeueFaultedTicket(t);
@@ -1545,7 +1545,7 @@ int DMAChannel_dequeueFaultedTicket(void* dch, uint64_t* tik)
 }
 int DMAChannel_dequeueDmaNREADT2(void* dch, DMAChannel::NREAD_Result_t* res)
 {
-  if (dch == NULL || res == NULL) return -666;
+  if (dch == NULL || res == NULL) return -EINVAL;
 
   DMAChannel::NREAD_Result_t rr;
   const bool r = ((DMAChannel*)dch)->dequeueDmaNREADT2(rr);
@@ -1555,14 +1555,14 @@ int DMAChannel_dequeueDmaNREADT2(void* dch, DMAChannel::NREAD_Result_t* res)
 
 int DMAChannel_checkTicket(void* dch, const DMAChannel::DmaOptions_t* opt)
 {
-  if (dch == NULL || opt == NULL) return -666;
+  if (dch == NULL || opt == NULL) return -EINVAL;
 
   return ((DMAChannel*)dch)->checkTicket(*opt);
 }
 
 int DMAChannel_queueDmaOpT1(void* dch, enum dma_rtype rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p)
 {
-  if (dch == NULL || opt == NULL || mem == NULL || abort_reason == NULL) return -666;
+  if (dch == NULL || opt == NULL || mem == NULL || abort_reason == NULL) return -EINVAL;
 
   uint32_t ar = 0;
   const bool r = ((DMAChannel*)dch)->queueDmaOpT1(rtype, *opt, *mem, ar, ts_p);
@@ -1571,7 +1571,7 @@ int DMAChannel_queueDmaOpT1(void* dch, enum dma_rtype rtype, DMAChannel::DmaOpti
 }
 int DMAChannel_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p)
 {
-  if (dch == NULL || opt == NULL || data == NULL || data_len < 1 || abort_reason == NULL) return -666;
+  if (dch == NULL || opt == NULL || data == NULL || data_len < 1 || abort_reason == NULL) return -EINVAL;
 
   uint32_t ar = 0;
   const bool r = ((DMAChannel*)dch)->queueDmaOpT2(rtype, *opt, data, data_len, ar, ts_p);

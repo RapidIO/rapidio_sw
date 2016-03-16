@@ -59,6 +59,7 @@
 #include <map>
 
 #include "dmachan.h"
+#include "riodp_mport_lib.h"
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
@@ -85,16 +86,6 @@ struct rapidio_mport_socket {
 	uint8_t	*tx_buffer;
 };
 
-/**
- * @brief mport opaque handle structure
- */
-struct rapidio_mport_handle {
-	int fd;				/**< posix api compatible fd to be used with poll/select */
-	void* dch;
-	volatile uint32_t cookie_cutter; // XXX THIS STINKS but the API wants 32-bit!!
-	std::map <uint64_t, DMAChannel::DmaOptions_t> asyncm;
-};
-
 int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle)
 {
 	char path[32];
@@ -117,6 +108,7 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 
 	hnd->fd = fd;
 	hnd->dch = NULL;
+	hnd->stats = NULL;
 
 	*mport_handle = hnd;
 
@@ -385,11 +377,21 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	bool q_was_full = false;
 	uint32_t dma_abort_reason = 0;
 
-	if (! DMAChannel_queueDmaOpT1(hnd->dch,
-			DMAChannel::convert_riomp_dma_directio(wr_mode), &opt,
-			&dmamem, &dma_abort_reason, NULL)) {
-		if (q_was_full) return -(errno = ENOSPC);
-		return -(errno = EINVAL);
+	if (size > 16) {
+		if (! DMAChannel_queueDmaOpT1(hnd->dch,
+				DMAChannel::convert_riomp_dma_directio(wr_mode), &opt,
+				&dmamem, &dma_abort_reason, (seq_ts *)hnd->stats)) {
+			if (q_was_full) return -(errno = ENOSPC);
+			return -(errno = EINVAL);
+		}
+	} else {
+		if (! DMAChannel_queueDmaOpT2(hnd->dch,
+				DMAChannel::convert_riomp_dma_directio(wr_mode),
+				&opt, (uint8_t *)handle + offset, size, 
+				&dma_abort_reason, (seq_ts *)hnd->stats)) {
+			if (q_was_full) return -(errno = ENOSPC);
+			return -(errno = EINVAL);
+		}
 	}
 
 	if (sync == RIO_DIRECTIO_TRANSFER_FAF) return 0;
@@ -514,10 +516,20 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	bool q_was_full = false;
 	uint32_t dma_abort_reason = 0;
 
-	if (! DMAChannel_queueDmaOpT1(hnd->dch, NREAD, &opt, &dmamem, &dma_abort_reason, NULL)) {
-		if (q_was_full) return -(errno = ENOSPC);
-		return -(errno = EINVAL);
-	}
+	if (size > 16) {
+		if (! DMAChannel_queueDmaOpT1(hnd->dch, NREAD, &opt, &dmamem,
+				&dma_abort_reason, (seq_ts *)hnd->stats)) {
+			if (q_was_full) return -(errno = ENOSPC);
+			return -(errno = EINVAL);
+		}
+	} else {
+		if (! DMAChannel_queueDmaOpT2(hnd->dch, NREAD, &opt, 
+				(uint8_t *)handle + offset, size, 
+				&dma_abort_reason, (seq_ts *)hnd->stats)) {
+			if (q_was_full) return -(errno = ENOSPC);
+			return -(errno = EINVAL);
+		}
+	};
 
 	if (sync == RIO_DIRECTIO_TRANSFER_FAF) return 0;
 
