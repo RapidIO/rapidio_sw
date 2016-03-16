@@ -233,12 +233,15 @@ protected:
 		if (rcvd_len != nullptr)
 			*rcvd_len = CM_PAYLOAD_SIZE;
 
-		DBG("recv_buf[0] = 0x%" PRIx64 "\n", *(uint64_t *)recv_buf);
-		DBG("recv_buf[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 8));
-		DBG("recv_buf[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 16));
-		DBG("recv_buf[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 24));
-		DBG("recv_buf[4] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 32));
-		DBG("recv_buf[5] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 40));
+		/* Only show buffer contents if we actually receive */
+		if (rc == 0) {
+			DBG("recv_buf[0] = 0x%" PRIx64 "\n", *(uint64_t *)recv_buf);
+			DBG("recv_buf[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 8));
+			DBG("recv_buf[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 16));
+			DBG("recv_buf[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 24));
+			DBG("recv_buf[4] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 32));
+			DBG("recv_buf[5] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 40));
+		}
 
 		/* A buffer was provided, copy the data to it */
 		if (buffer != nullptr)

@@ -96,14 +96,14 @@ static void send_accept_nack(cm_msg_t *msg,
 	/* Prepare negative accept message common fields */
 	cm_msg->type = htobe64(CM_ACCEPT_MS);
 	cm_msg->category = htobe64(RDMA_CALL);
-	cm_msg->seq_no = msg->seq_no;
+	cm_msg->seq_no = msg->seq_no; /* Both are BE */
 
 	/* Populate accept-specific fields */
 	cm_accept_ms_msg	*cmnam = &cm_msg->cm_accept_ms;
 	cmnam->sub_type = htobe64(CM_ACCEPT_MS_NACK);
-	cm_connect_ms_msg	*conn_msg = &msg->cm_connect_ms;
-	strcpy(cmnam->server_ms_name, conn_msg->server_msname);
-	cmnam->client_to_lib_tx_eng_h = conn_msg->client_to_lib_tx_eng_h;
+	cm_connect_ms_msg	*cm_conn_msg = &msg->cm_connect_ms;
+	strcpy(cmnam->server_ms_name, cm_conn_msg->server_msname);
+	cmnam->client_to_lib_tx_eng_h = cm_conn_msg->client_to_lib_tx_eng_h;
 
 	/* Send! */
 	tx_eng->send_message(move(cm_msg));
@@ -166,7 +166,6 @@ void cm_connect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 
 void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {
-	(void)tx_eng;	/* TODO: Will be used to send the disconnect ack */
 	cm_disconnect_ms_req_msg	*disc_msg = &msg->cm_disconnect_ms_req;
 
 	uint32_t server_msid = static_cast<uint32_t>(be64toh(disc_msg->server_msid));
@@ -179,7 +178,8 @@ void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 		return ;	/* Can't do much without the ms */
 	}
 	/* Relay disconnection request to the RDMA library */
-	auto rc = ms->client_disconnect(be64toh(disc_msg->client_msubid),
+	auto rc = ms->client_disconnect(
+			     be64toh(disc_msg->client_msubid),
 			     be64toh(disc_msg->client_to_lib_tx_eng_h));
 	if (rc < 0) {
 		ERR("Failed to relay disconnect ms('%s') to lib\n",
@@ -188,6 +188,9 @@ void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 		HIGH("'Disconnect' for ms('%s') relayed to 'server'\n",
 			ms->get_name());
 	}
+
+	/* TODO: Acknowledge disconnection */
+	(void)tx_eng;	/* TODO: Will be used to send the disconnect ack */
 } /* cm_disconnect_ms_disp() */
 
 void cm_force_disconnect_ms_ack_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)

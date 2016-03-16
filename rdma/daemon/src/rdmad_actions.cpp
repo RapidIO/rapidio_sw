@@ -319,27 +319,21 @@ int rdmad_send_connect(const char *server_ms_name,
 		        tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng)
 {
 	DBG("ENTER\n");
-	(void)client_msid;
-	(void)client_bytes;
-	(void)client_rio_addr_len;
-	(void)client_rio_addr_lo;
-	(void)client_rio_addr_hi;
-	(void)seq_num;
-	(void)connh;
-#if 0
-	/* Do we have an entry for that destid ? */
-	/* Obtain pointer to socket object already connected to destid */
-	cm_base   *main_client =
-		hello_daemon_info_list.get_cm_sock_by_destid(server_destid);
 
-	/* Obtain and flush send buffer for sending CM_CONNECT_MS message */
-	cm_connect_msg *c;
+	/* Find the CM tx engine to use based on the server destid */
+	tx_engine<cm_client, cm_msg_t> *cm_tx_eng =
+		hello_daemon_info_list.get_tx_eng_by_destid(server_destid);
+	if (cm_tx_eng == nullptr) {
+		ERR("destid(0x%X) was not provisioned\n", server_destid);
+		return RDMA_REMOTE_UNREACHABLE;
+	}
 
-	main_client->get_send_buffer((void **)&c);
-	main_client->flush_send_buffer();
-
-	/* Compose CONNECT_MS message */
-	c->type			= htobe64(CM_CONNECT_MS);
+	/* Compose CM_CONNECT_MS message */
+	auto cm_msg = make_unique<cm_msg_t>();
+	cm_msg->type     = htobe64(CM_CONNECT_MS);
+	cm_msg->category = htobe64(RDMA_REQ_RESP);
+	cm_msg->seq_no   = 0;
+	cm_connect_ms_msg *c = &cm_msg->cm_connect_ms;
 	strcpy(c->server_msname, server_ms_name);
 	c->client_msid		= htobe64((uint64_t)client_msid);
 	c->client_msubid	= htobe64((uint64_t)client_msubid);
@@ -357,12 +351,9 @@ int rdmad_send_connect(const char *server_ms_name,
 	c->dump();
 
 	/* Send buffer to server */
-	if (main_client->send()) {
-		ERR("Failed to send CONNECT_MS to destid(0x%X)\n", server_destid);
-		return -3;
-	}
+	cm_tx_eng->send_message(move(cm_msg));
 	INFO("cm_connect_msg sent to remote daemon\n");
-#endif
+
 	/* Record the connection request in the list so when the remote
 	 * daemon sends back an ACCEPT_MS, we can match things up. */
 	sem_wait(&connected_to_ms_info_list_sem);
