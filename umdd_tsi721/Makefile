@@ -40,7 +40,7 @@ REGSDIR=../fabric_management/librio_switch/inc
 LOG_LEVEL?=7
 export LOG_LEVEL
 
-SOVER?=1.0
+SOVER?=0.42
 
 LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so
 
