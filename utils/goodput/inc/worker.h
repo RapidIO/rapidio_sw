@@ -111,6 +111,7 @@ enum req_type {
 	direct_io_tx_lat,
 	direct_io_rx_lat,
 	dma_tx,
+	dma_tx_num,
 	dma_tx_lat,
 	dma_rx_lat,
 	message_tx,
@@ -240,6 +241,7 @@ struct worker {
 	uint64_t rdma_kbuff; 
 	uint64_t rdma_buff_size; 
 	void *rdma_ptr; 
+	int num_trans;
 
 	int mb_valid;
 	riomp_mailbox_t mb;

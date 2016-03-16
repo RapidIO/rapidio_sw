@@ -156,6 +156,7 @@ void init_worker_info(struct worker *info, int first_time)
 	info->dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
 	info->rdma_kbuff = 0;
 	info->rdma_ptr = NULL;
+	info->num_trans = 0;
 
         info-> mb_valid = 0;
         info->acc_skt = NULL;
@@ -166,6 +167,9 @@ void init_worker_info(struct worker *info, int first_time)
         info->sock_tx_buf = NULL;
         info->sock_rx_buf = NULL;
 
+	init_seq_ts(&info->desc_ts);
+	init_seq_ts(&info->fifo_ts);
+	init_seq_ts(&info->meas_ts);
 #ifdef USER_MODE_DRIVER
 	info->owner_func = NULL;
 	info->umd_set_rx_fd = NULL;
@@ -208,9 +212,6 @@ void init_worker_info(struct worker *info, int first_time)
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
 	//};
-	init_seq_ts(&info->desc_ts);
-	init_seq_ts(&info->fifo_ts);
-	init_seq_ts(&info->meas_ts);
 	init_seq_ts(&info->nread_ts);
 	init_seq_ts(&info->nwrite_ts);
 	init_seq_ts(&info->q80p_ts);
@@ -872,6 +873,48 @@ void dma_goodput(struct worker *info)
 		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 
 	};
+exit:
+	dealloc_dma_tx_buffer(info);
+};
+
+void dma_tx_num_cmd(struct worker *info)
+{
+	int dma_rc;
+	int trans_count;
+
+	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
+		ERR("FAILED: rio_addr, byte_cnd or access size is 0!\n");
+		return;
+	};
+
+	if (!info->rdma_buff_size) {
+		ERR("FAILED: rdma_buff_size is 0!\n");
+		return;
+	};
+
+	if (alloc_dma_tx_buffer(info))
+		goto exit;
+
+	zero_stats(info);
+
+	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+
+	for (trans_count = 0; trans_count < info->num_trans; trans_count++) {
+		get_seq_ts_m(&info->meas_ts, 5);
+		dma_rc = single_dma_access(info, 0);
+		if (dma_rc < 0) {
+			ERR("FAILED: dma_rc %d on trans %d!\n",
+				dma_rc, trans_count);
+			return;
+		}
+		get_seq_ts_m(&info->meas_ts, 555);
+	};
+
+	clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+
+	while (!info->stop_req) {
+		sleep(0);
+	}
 exit:
 	dealloc_dma_tx_buffer(info);
 };
@@ -3212,6 +3255,9 @@ void *worker_thread(void *parm)
 				break;
         	case dma_tx:	
 			dma_goodput(info);
+			break;
+        	case dma_tx_num:	
+			dma_tx_num_cmd(info);
 			break;
         	case dma_tx_lat:	
 			dma_goodput(info);

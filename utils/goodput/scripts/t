@@ -2,9 +2,7 @@ kill all
 wait 0 d
 t 0 2 0
 wait 0 h
-dma 0 3 22f000000 10000 10000 1 1 0 1
+dnum 0 3 22f000000 400000 400000 1 1 0 1 100
 wait 0 r
-g
-g c
-g
-wait 0 r
+sleep 1
+ut 0 m l 1
