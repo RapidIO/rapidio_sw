@@ -66,7 +66,7 @@ RioMport::RioMport(const int mportid)
 	rc = riomp_mgmt_mport_create_handle(m_portid, 0, &mp_h);
 
 	if(rc) {
-		CRIT("Failed to open mport%d %d:%s",
+		CRIT("Failed to open mport%d code %d (%s)",
 					m_portid, rc, strerror(errno));
 		throw std::runtime_error("Failed to open mport");
 	}
