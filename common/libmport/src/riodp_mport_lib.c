@@ -367,10 +367,11 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	return (ret < 0)? -errno: ret;
 
    umdd:
-	DMAChannel::DmaOptions_t opt;
+	if (DMAChannel_queueFull(hnd->dch)) return -(errno = EBUSY);
 
 	// printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
 
+	DMAChannel::DmaOptions_t opt;
 	memset(&opt, 0, sizeof(opt));
 	opt.destid      = destid;
 	opt.bcount      = size;
@@ -495,6 +496,8 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 
    umdd:
 	printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
+
+	if (DMAChannel_queueFull(hnd->dch)) return -(errno = EBUSY);
 
 	DMAChannel::DmaOptions_t opt;
 	memset(&opt, 0, sizeof(opt));
