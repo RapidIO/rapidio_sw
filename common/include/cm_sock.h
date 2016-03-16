@@ -34,8 +34,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CM_SOCK_H
 
 #include <stdint.h>
-#include <errno.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -43,27 +41,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #endif
 #include <cinttypes>
-
+#include <cerrno>
 #include <cstring>
-#include <iostream>
-#include <iomanip>
-#include <exception>
-#include <iterator>
+#include <cstdlib>
+#include <cstdio>
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
+#include <exception>
+
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_sock.h"
 #include "liblog.h"
 
-#define	CM_MSG_OFFSET 20
-#define	CM_BUF_SIZE	4096
+constexpr auto CM_MSG_OFFSET = 20;
+constexpr auto CM_BUF_SIZE   = 4*1024;
+constexpr auto CM_PAYLOAD_SIZE = CM_BUF_SIZE - CM_MSG_OFFSET;
 
-using std::iterator;
-using std::cout;
-using std::endl;
-using std::ostream_iterator;
-using std::setfill;
-using std::hex;
-using std::setw;
 using std::exception;
 
 class cm_exception : public exception {
@@ -98,12 +90,12 @@ public:
 
 	void flush_send_buffer()
 	{
-		memset(send_buf + CM_MSG_OFFSET, 0, CM_BUF_SIZE - CM_MSG_OFFSET);
+		memset(send_buf + CM_MSG_OFFSET, 0, CM_PAYLOAD_SIZE);
 	}
 
 	void flush_recv_buffer()
 	{
-		memset(recv_buf + CM_MSG_OFFSET, 0, CM_BUF_SIZE - CM_MSG_OFFSET);
+		memset(recv_buf + CM_MSG_OFFSET, 0, CM_PAYLOAD_SIZE);
 	}
 
 	void dump_send_buffer()
@@ -172,13 +164,16 @@ protected:
 	int send_buffer(riomp_sock_t socket, void *buffer, size_t len)
 	{
 		DBG("ENTER\n");
-		auto rc = 0;
-		if (len > CM_BUF_SIZE) {
-			ERR("'%s' failed in send() due to large message size\n",
-									name);
+		int rc;
+		if (len > CM_PAYLOAD_SIZE) {
+			ERR("'%s' failed in send() due to large message size(%d)\n",
+								name, len);
 			rc = -1;
 		} else {
-			memcpy(send_buf + CM_MSG_OFFSET, buffer, len);
+			/* Buffer was specified, copy contents after CM header */
+			if (buffer != nullptr)
+				memcpy(send_buf + CM_MSG_OFFSET, buffer, len);
+			/* else the message is at CM_MSG_OFFSET in recv_buf */
 			rc = riomp_sock_send(socket, send_buf, CM_BUF_SIZE);
 			if (rc) {
 				ERR("riomp_sock_send failed for '%s': %s\n",
@@ -192,13 +187,15 @@ protected:
 	/* Send CM_BUF_SIZE bytes from 'send_buf' on specified socket */
 	int send(riomp_sock_t socket, size_t len)
 	{
-		return send_buffer(socket, (void *)send_buf, len);
+		/* Must pass nullptr as the buffer */
+		return send_buffer(socket, nullptr, len);
 	} /* send() */
 
 	/* Receive bytes to 'recv_buf' on specified socket */
 	int receive(riomp_sock_t socket, size_t *rcvd_len)
 	{
-		return receive_buffer(socket, (void *)recv_buf, rcvd_len);
+		/* Passing nullptr means use 'recv_buf' */
+		return receive_buffer(socket, nullptr, rcvd_len);
 	} /* receive() */
 
 	/* Receive bytes to 'buffer' on specified socket */
@@ -214,15 +211,10 @@ protected:
 			void *buffer, size_t *rcvd_len)
 	{
 		DBG("ENTER\n");
-		auto rc = 0;
-		void *buf;
+		int rc;
 
-		if (buffer == nullptr)
-			buf = (void *)recv_buf;
-		else
-			buf = buffer;
 		do {
-			rc = riomp_sock_receive(socket, &buf, CM_BUF_SIZE,
+			rc = riomp_sock_receive(socket, (void **)&recv_buf, CM_BUF_SIZE,
 					timeout_ms);
 		} while (rc && (errno==EINTR) && gdb && !*shutting_down);
 		if (rc) {
@@ -235,14 +227,23 @@ protected:
 						name, errno, strerror(errno));
 			}
 		}
+
+		/* riomp_sock_receive(0 doesn't return actual bytes read, so
+		 * the bytes read are considedered to be the max payload size */
 		if (rcvd_len != nullptr)
-			*rcvd_len = CM_BUF_SIZE;
-		DBG("buf[0] = 0x%" PRIx64 "\n", *(uint64_t *)buf);
-		DBG("buf[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 8));
-		DBG("buf[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 16));
-		DBG("buf[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 24));
-		DBG("buf[4] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 32));
-		DBG("buf[5] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)buf + 40));
+			*rcvd_len = CM_PAYLOAD_SIZE;
+
+		DBG("recv_buf[0] = 0x%" PRIx64 "\n", *(uint64_t *)recv_buf);
+		DBG("recv_buf[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 8));
+		DBG("recv_buf[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 16));
+		DBG("recv_buf[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 24));
+		DBG("recv_buf[4] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 32));
+		DBG("recv_buf[5] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 40));
+
+		/* A buffer was provided, copy the data to it */
+		if (buffer != nullptr)
+			memcpy(buffer, recv_buf + CM_MSG_OFFSET, CM_PAYLOAD_SIZE);
+
 		DBG("EXIT\n");
 		return rc;
 	} /* timed_receive_buffer() */
@@ -436,7 +437,7 @@ public:
 		return cm_base::receive(accept_socket, rcvd_len);
 	} /* receive() */
 
-	int send_buffer(void *buffer, size_t len = CM_BUF_SIZE)
+	int send_buffer(void *buffer, size_t len = CM_PAYLOAD_SIZE)
 	{
 		DBG("Called\n");
 		return cm_base::send_buffer(accept_socket, buffer, len);
@@ -542,18 +543,14 @@ public:
 	} /* connect() */
 
 	/* Send bytes from 'send_buf' */
-	int send(size_t len = CM_BUF_SIZE)
+	int send(size_t len = CM_PAYLOAD_SIZE)
 	{
-		// FIXME: HACK
-		len = CM_BUF_SIZE;
 		return cm_base::send(client_socket, len);
 	} /* send() */
 
 	/* Send from 'buffer' */
-	int send_buffer(void *buffer, size_t len = CM_BUF_SIZE)
+	int send_buffer(void *buffer, size_t len = CM_PAYLOAD_SIZE)
 	{
-		// FIXME: HACK
-		len = CM_BUF_SIZE;
 		DBG("Calling cm_base::send_buffer\n");
 		return cm_base::send_buffer(client_socket, buffer, len);
 	} /* send_buffer() */
