@@ -42,7 +42,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
-
 #include <errno.h>
 
 #include "liblog.h"
@@ -60,8 +59,8 @@ struct worker {
   int mp_num;			/* Mport index */
 
   int             umd_chan; ///< Local mailbox OR DMA channel
-  int             umd_chan_to; ///< Remote mailbox
-  int             umd_letter; ///< Remote mailbox letter
+  //int             umd_chan_to; ///< Remote mailbox
+  //int             umd_letter; ///< Remote mailbox letter
   MboxChannelMgr* umd_mch;
 
   uint32_t        umd_dma_abort_reason;
@@ -83,25 +82,20 @@ static inline int MIN(int a, int b) { return a < b ? a : b; }
 
 void umd_mbox_latency_demo(struct worker *info)
 {
-  int iter = 0;
-
   info->umd_mch = new MboxChannelMgr(info->mp_num, info->umd_chan);
   if (NULL == info->umd_mch) {
     CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d", info->umd_chan, info->mp_num);
     return;
   };
 
-  bool r = info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries);
-
-  if (!r) {
+  if (info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)){
     CRIT("\n\tMboxChannel: Failed to open mbox!");
     delete info->umd_mch;
     return;
   }
 
-  uint64_t tx_ok = 0;
-  uint64_t rx_ok = 0;
   uint64_t big_cnt = 0;		// how may attempts to TX a packet
+  uint64_t rx_ok = 0, tx_ok = 0;
 
   const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
@@ -177,8 +171,6 @@ void umd_mbox_latency_demo(struct worker *info)
       while (!q_was_full && !info->stop_req && info->umd_mch->scanFIFO(wi, info->umd_sts_entries * 8) == 0) {;}
     } // END infinite loop
 
-    // Note: Inbound buffers freed in MboxChannel::cleanup
-
     goto exit_rx;
   }				// END Receiver
 
@@ -234,7 +226,7 @@ void umd_mbox_latency_demo(struct worker *info)
       }
       if (!rx_buf) {
 	ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);
-	goto exit_rx;
+	goto exit;
       }
 
       big_cnt++;
@@ -253,7 +245,6 @@ static void sig_handler(int signo)
   info.stop_req = 1; 
   INFO("\n\tQuitting time (sig=%d)\n", signo);
 }
-
 
 static void usage(const char* name)
 {
@@ -294,12 +285,10 @@ int main(int argc, char* argv[])
   assert(info.mp_num >= 0); 
   assert(info.umd_chan == 2 || info.umd_chan == 3);
   assert(info.umd_tx_buf_cnt >= 0x20);
-  if (info.wr) { assert(info.umd_sts_entries >= 0x20); }
+  assert(info.umd_sts_entries >= 0x20);
 
   signal(SIGINT, sig_handler);
-  signal(SIGHUP, sig_handler);
   signal(SIGTERM, sig_handler);
-  signal(SIGUSR1, sig_handler);
   
   umd_mbox_latency_demo(&info);
 
