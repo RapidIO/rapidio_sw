@@ -42,13 +42,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
-
 #include <errno.h>
 
-#include "mboxchan.h"
-#include "lockfile.h"
+#include "liblog.h"
 
-#define PAGE_4K		4096
+#include "mboxmgr.h"
 
 struct worker {
   volatile int stop_req;	/* 0 - continue, 1 - stop */
@@ -60,11 +58,10 @@ struct worker {
   int wr;
   int mp_num;			/* Mport index */
 
-  LockFile*       umd_lock;
   int             umd_chan; ///< Local mailbox OR DMA channel
-  int             umd_chan_to; ///< Remote mailbox
-  int             umd_letter; ///< Remote mailbox letter
-  MboxChannel     *umd_mch;
+  //int             umd_chan_to; ///< Remote mailbox
+  //int             umd_letter; ///< Remote mailbox letter
+  MboxChannelMgr* umd_mch;
 
   uint32_t        umd_dma_abort_reason;
 
@@ -81,81 +78,40 @@ static void init_worker_info(struct worker *info)
   info->acc_size = 256;
 }
 
-/** \brief Lock other processes out of this UMD module/channel
- * \note Due to POSIX locking semantics this has no effect on the current process
- * \note Using the same channel twice in this process will NOT be prevented
- * \parm[out] info info->umd_lock will be populated on success
- * \param[in] module DMA or Mbox, ASCII string
- * \param instance Channel number
- * \return true if lock was acquited, false if somebody else is using it
- */
-bool TakeLock(struct worker* info, const char* module, int instance)
-{
-  if (info == NULL || module == NULL || module[0] == '\0' || instance < 0)
-    return false;
-
-  char lock_name[81] = { 0 };
-  snprintf(lock_name, 80, "/var/lock/UMD-%s-%d..LCK", module, instance);
-  try {
-    info->umd_lock = new LockFile(lock_name);
-  } catch(std::runtime_error ex) {
-    CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
-    return false;
-  }
-  // NOT catching std::logic_error
-  return true;
-}
-
 static inline int MIN(int a, int b) { return a < b ? a : b; }
 
 void umd_mbox_latency_demo(struct worker *info)
 {
-  int iter = 0;
-
-  if (!TakeLock(info, "MBOX", info->umd_chan)) return;
-
-  info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan);
+  info->umd_mch = new MboxChannelMgr(info->mp_num, info->umd_chan);
   if (NULL == info->umd_mch) {
     CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d", info->umd_chan, info->mp_num);
-    delete info->umd_lock;
-    info->umd_lock = NULL;
     return;
   };
 
-  if (!info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
+  if (info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)){
     CRIT("\n\tMboxChannel: Failed to open mbox!");
     delete info->umd_mch;
-    delete info->umd_lock;
-    info->umd_lock = NULL;
     return;
   }
 
-  uint64_t tx_ok = 0;
-  uint64_t rx_ok = 0;
   uint64_t big_cnt = 0;		// how may attempts to TX a packet
+  uint64_t rx_ok = 0, tx_ok = 0;
 
   const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
-  info->umd_mch->setInitState();
-  info->umd_mch->softRestart();
-
-  INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
+  INFO("\n\tMBOX %s my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
+       (info->wr? "Master": "Slave"),
        info->umd_mch->getDestId(), info->did,
        info->acc_size,
        info->umd_tx_buf_cnt, info->umd_sts_entries);
 
   MboxChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
-  for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
-    void *b = calloc(1, PAGE_4K);
-    info->umd_mch->add_inb_buffer(b);
-  }
-
 // Slave/Receiver
   if (info->wr == 0) {
-    char msg_buf[PAGE_4K + 1] = { 0 };
+    char msg_buf[MboxChannelMgr::PAGE_4K + 1] = { 0 };
 #ifndef MBOXDEBUG
-    strncpy(msg_buf, "Generic pingback - Mary had a little lamb", PAGE_4K);
+    strncpy(msg_buf, "Generic pingback - Mary had a little lamb", MboxChannelMgr::PAGE_4K);
 #endif
 
     MboxChannel::MboxOptions_t opt; memset(&opt, 0, sizeof(opt));
@@ -181,7 +137,7 @@ void umd_mbox_latency_demo(struct worker *info)
 	rx_ok++;
 	rx_buf = true;
 #ifdef MBOXDEBUG
-	memcpy(msg_buf, buf, MIN(PAGE_4K, opt_in.bcount));
+	memcpy(msg_buf, buf, MIN(MboxChannelMgr::PAGE_4K, opt_in.bcount));
 #endif
 	info->umd_mch->add_inb_buffer(buf);	// recycle
 #ifdef MBOXDEBUG
@@ -215,8 +171,6 @@ void umd_mbox_latency_demo(struct worker *info)
       while (!q_was_full && !info->stop_req && info->umd_mch->scanFIFO(wi, info->umd_sts_entries * 8) == 0) {;}
     } // END infinite loop
 
-    // Note: Inbound buffers freed in MboxChannel::cleanup
-
     goto exit_rx;
   }				// END Receiver
 
@@ -229,7 +183,7 @@ void umd_mbox_latency_demo(struct worker *info)
 
     opt.destid = info->did;
     opt.mbox = info->umd_chan;
-    char str[PAGE_4K + 1] = { 0 };
+    char str[MboxChannelMgr::PAGE_4K + 1] = { 0 };
     for (int cnt = 0; !info->stop_req; cnt++) {
       bool q_was_full = false;
       MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
@@ -272,7 +226,7 @@ void umd_mbox_latency_demo(struct worker *info)
       }
       if (!rx_buf) {
 	ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);
-	goto exit_rx;
+	goto exit;
       }
 
       big_cnt++;
@@ -282,36 +236,42 @@ void umd_mbox_latency_demo(struct worker *info)
 exit:
 exit_rx:
   delete info->umd_mch;  info->umd_mch = NULL;
-  delete info->umd_lock; info->umd_lock = NULL;
 }
 
 static struct worker info;
 
-static void sig_handler(int signo) { info.stop_req = 1; }
-
-static void usage()
+static void sig_handler(int signo)
 {
-  // Write me
+  info.stop_req = 1; 
+  INFO("\n\tQuitting time (sig=%d)\n", signo);
+}
+
+static void usage(const char* name)
+{
+  fprintf(stderr, "usage: %s [-M] -d <destid> -m <mportid> -c <chan> -b <buf> -s <sts> [-A <acc_size>]\n" \
+"\t\tM       - Function as Master (TX) [requires -s], not present function as Slave (RX)\n" \
+"\t\tdestid  - RapidIO destid (8-bit)\n" \
+"\t\tmportid - MPORT aka RapidIO PICe index -- usually 0\n" \
+"\t\tchan    - MBOX 2 or MBOX 3\n" \
+"\t\tbuf     - buffer descriptor count, min 32, power-of-2, base10\n" \
+"\t\tsts     - TX FIFO size, min 32, power-of-2, base10\n",
+          name);
   exit(0);
 }
 
 int main(int argc, char* argv[])
 {
+  if(argc == 1) usage(0 [argv]);
+
   init_worker_info(&info);
 
-  // Populate the following from argv[]
-  // info->mp_num
-  // info->did, info->acc_size,
-  // info->umd_tx_buf_cnt, info->umd_sts_entries
-  // info->umd_chan
-  // info->wr -- this dictates Master/Slave behaviour
+  rdma_log_init("mboxsample.txt", 0);
 
   int c;
-
   opterr = 0;
-  while ((c = getopt (argc, argv, "hMm:d:A:b:s:")) != -1)
+  while ((c = getopt (argc, argv, "hMm:d:A:b:s:c:")) != -1)
     switch (c) {
-      case 'h': usage(); break;
+      case 'h': usage(0 [argv]); break;
       case 'M': info.wr = 1; break; // Master
       case 'm': info.mp_num   = atoi(optarg); break;
       case 'd': info.did      = atoi(optarg); break;
@@ -322,14 +282,17 @@ int main(int argc, char* argv[])
       default: ERR("\n\tUnknown argument '%c'. Bye!", c); return 1; break;
     };
 
-  // Barry: validate args, write blurb for usage()
-  
+  assert(info.mp_num >= 0); 
+  assert(info.umd_chan == 2 || info.umd_chan == 3);
+  assert(info.umd_tx_buf_cnt >= 0x20);
+  assert(info.umd_sts_entries >= 0x20);
+
   signal(SIGINT, sig_handler);
-  signal(SIGHUP, sig_handler);
   signal(SIGTERM, sig_handler);
-  signal(SIGUSR1, sig_handler);
   
   umd_mbox_latency_demo(&info);
+
+  INFO("\n\tCe ne'est pas un Abandon du Travail. Vive le RapidIO ;-)\n");
 
   return 0;
 }
