@@ -191,6 +191,10 @@ public:
 			cm_accept_ms_disp(msg, tx_eng);
 		break;
 
+		case CM_FORCE_DISCONNECT_MS:
+			cm_force_disconnect_ms_disp(msg, tx_eng);
+		break;
+
 		default:
 			assert(!"Unhandled message");
 		}

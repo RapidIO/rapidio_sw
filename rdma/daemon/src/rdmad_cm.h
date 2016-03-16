@@ -164,12 +164,10 @@ struct cm_force_disconnect_ms_ack_msg {
 		strcpy(server_msname, other.server_msname);
 		server_msid = other.server_msid;
 	}
-
 };
 
-
-/* Currently only used when tx_engine and rx_engine templates
- * are instantiated in terms of cm sockets and messages.
+/**
+ * @brief Main struct that encapsulates all CM messages.
  */
 struct cm_msg_t {
 	uint64_t	type;
