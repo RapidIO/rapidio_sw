@@ -450,7 +450,7 @@ public:
 	} /* receive() */
 
 	/* Send bytes from 'send_buf' */
-	int send(size_t len = CM_BUF_SIZE)
+	int send(size_t len = CM_PAYLOAD_SIZE)
 	{
 		return cm_base::send(accept_socket, len);
 	} /* send() */
