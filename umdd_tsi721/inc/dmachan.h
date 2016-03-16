@@ -164,20 +164,20 @@ public:
   bool dmaIsRunning();
   uint32_t clearIntBits();
 
-  uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
+  inline uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 
   static const char* abortReasonToStr(const uint32_t abort_reason);
 
-  static enum dma_rtype  convert_riomp_dma_directio(enum riomp_dma_directio_type type)
+  inline static enum dma_rtype convert_riomp_dma_directio(enum riomp_dma_directio_type type)
   {
-        switch(type) {
-        case RIO_DIRECTIO_TYPE_NWRITE: return ALL_NWRITE;
-        case RIO_DIRECTIO_TYPE_NWRITE_R: return LAST_NWRITE_R;
-        case RIO_DIRECTIO_TYPE_NWRITE_R_ALL: return ALL_NWRITE_R;
-        case RIO_DIRECTIO_TYPE_SWRITE: return ALL_NWRITE;
-        case RIO_DIRECTIO_TYPE_SWRITE_R: return LAST_NWRITE_R;
-        default: return ALL_NWRITE;
-        }
+     switch(type) {
+       case RIO_DIRECTIO_TYPE_NWRITE:       return ALL_NWRITE;
+       case RIO_DIRECTIO_TYPE_NWRITE_R:     return LAST_NWRITE_R;
+       case RIO_DIRECTIO_TYPE_NWRITE_R_ALL: return ALL_NWRITE_R;
+       case RIO_DIRECTIO_TYPE_SWRITE:       return ALL_NWRITE;
+       case RIO_DIRECTIO_TYPE_SWRITE_R:     return LAST_NWRITE_R;
+       default: return ALL_NWRITE;
+     }
   }
 
   bool alloc_dmatxdesc(const uint32_t bd_num);
