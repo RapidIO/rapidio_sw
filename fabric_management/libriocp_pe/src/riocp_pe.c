@@ -1678,7 +1678,7 @@ int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum rioc
 	unsigned int i;
 	riocp_pe_port_state_t port_state;
 	enum riocp_pe_speed current_speed;
-	enum riocp_pe_speed supported_speeds[] = {RIOCP_SPEED_1_25G, RIOCP_SPEED_2_5G, RIOCP_SPEED_3_125G, RIOCP_SPEED_5_0G, RIOCP_SPEED_6_25G};
+	enum riocp_pe_speed supported_speeds[] = {RIOCP_SPEED_1_25G, RIOCP_SPEED_2_5G, RIOCP_SPEED_5_0G, RIOCP_SPEED_6_25G, RIOCP_SPEED_3_125G};
 
 	if (riocp_pe_handle_check(pe))
 		return -EINVAL;
