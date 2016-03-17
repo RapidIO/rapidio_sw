@@ -362,28 +362,27 @@ public:
 
 	~cm_server()
 	{
-		printf("'%s'\n", name);
 		/* Close accept socket, if open */
-//		DBG("'%s': accept_socket = 0x%X\n", name, accept_socket);
+		DBG("'%s': accept_socket = 0x%X\n", name, accept_socket);
 		if (accept_socket && accepted)
 			if (riomp_sock_close(&accept_socket)) {
-//				WARN("Failed to close accept socket for '%s': %s\n",
-//							name, strerror(errno));
+				WARN("Failed to close accept socket for '%s': %s\n",
+							name, strerror(errno));
 			}
 
 		/* Close listen socket, opened during construction */
-//		DBG("'%s': Closing listen_socket = 0x%X\n", name, listen_socket);
+		DBG("'%s': Closing listen_socket = 0x%X\n", name, listen_socket);
 		if (listen_socket)
 			if (riomp_sock_close(&listen_socket)) {
-//				WARN("Failed to close listen socket: for '%s': %s\n",
-//							name, strerror(errno));
+				WARN("Failed to close listen socket: for '%s': %s\n",
+							name, strerror(errno));
 			}
 
 		/* Destroy mailbox handle, opened during construction */
 		if (mailbox) {
-//			DBG("'%s': Destroying mailbox\n", name);
+			DBG("'%s': Destroying mailbox\n", name);
 			if (close_mailbox()) {
-//				WARN("Failed to close mailbox for '%s'\n", name);
+				WARN("Failed to close mailbox for '%s'\n", name);
 			}
 		}
 	} /* ~cm_server() */

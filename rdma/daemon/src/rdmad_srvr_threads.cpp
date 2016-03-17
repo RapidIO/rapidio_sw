@@ -76,18 +76,20 @@ daemon_list<cm_server>	prov_daemon_info_list;
  *
  * @param prov_channel	Channel to be used by the provisioning CM socket
  */
-void prov_thread_f(int mport_id,
-		   uint8_t prov_mbox_id,
-		   uint16_t prov_channel)
+void *prov_thread_f(void *arg)
 {
-	unique_ptr<cm_server>	prov_server;
-
 	DBG("*** Start provisioning thread...\n");
 	try {
-		prov_server = make_unique<cm_server>("prov_server",
-				mport_id,
-				prov_mbox_id,
-				prov_channel,
+		if (arg == nullptr) {
+			CRIT("NULL argument passed!!!\n");
+			abort();
+		}
+		peer_info *peer = (peer_info *)arg;
+		unique_ptr<cm_server> prov_server = make_unique<cm_server>(
+				"prov_server",
+				peer->mport_id,
+				peer->prov_mbox_id,
+				peer->prov_channel,
 				&shutting_down);
 		while(1) {
 			/* Accept connections from other daemons */
@@ -139,4 +141,5 @@ void prov_thread_f(int mport_id,
 	catch(exception& e) {
 		CRIT("Failed: %s. EXITING\n", e.what());
 	}
+	pthread_exit(0);
 } /* prov_thread_f() */

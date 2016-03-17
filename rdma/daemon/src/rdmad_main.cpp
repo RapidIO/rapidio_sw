@@ -80,8 +80,9 @@ static peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL,
 /* Memory Space Owner data */
 static ms_owners owners;
 
+/* POSIX Threads */
 static 	pthread_t console_thread;
-static	unique_ptr<thread> 	  prov_thread;
+static	pthread_t prov_thread;
 static	pthread_t cli_session_thread;
 
 static unique_ptr<unix_server> app_conn_server;
@@ -235,9 +236,6 @@ static void start_accepting_app_connections()
  */
 void shutdown()
 {
-#if 0
-	int ret;
-#endif
 	/* Kill the threads */
 	shutting_down = true;
 
@@ -253,15 +251,13 @@ void shutdown()
 	sem_post(unix_engine_cleanup_sem);
 	unix_engine_monitoring_thread->join();
 
-#if 0
 	/* Next, kill provisioning thread */
 	HIGH("Killing provisioning thread\n");
-	ret = pthread_kill(prov_thread.native_handle(), SIGUSR1);
-	if (ret == EINVAL) {
-		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
-	}
-	HIGH("Provisioning thread is dead\n");
-#endif
+	if (pthread_kill(prov_thread, SIGUSR1) == 0)
+		if (pthread_join(prov_thread, NULL) == 0) {
+			HIGH("Provisioning thread is dead\n");
+		}
+
 	/* Kill the fabric management thread */
 	halt_fm_thread();
 
@@ -455,13 +451,9 @@ int main (int argc, char **argv)
 		}
 
 		/* Create provisioning thread */
-		try {
-			prov_thread = make_unique<thread>(prov_thread_f,
-				peer.mport_id, peer.prov_mbox_id, peer.prov_channel);
-			prov_thread->detach();
-		}
-		catch(exception& e) {
-			ERR("Failed to create prov_thread: %s\n", e.what());
+		rc = pthread_create(&prov_thread, NULL, prov_thread_f, (void *)&peer);
+		if (rc) {
+			CRIT("Failed to create prov_thread: %s\n", strerror(errno));
 			throw OUT_DELETE_INBOUND;
 		}
 
@@ -514,9 +506,9 @@ int main (int argc, char **argv)
 			halt_fm_thread();
 
 		case OUT_KILL_PROV_THREAD:
-#if 0
-			pthread_kill(prov_thread->native_handle(), SIGUSR1);
-#endif
+			pthread_kill(prov_thread, SIGUSR1);
+			pthread_join(prov_thread, NULL);
+
 		case OUT_DELETE_INBOUND:
 			delete the_inbound;
 

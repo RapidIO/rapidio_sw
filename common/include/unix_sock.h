@@ -345,6 +345,8 @@ public:
 	{
 		if ((shutting_down != nullptr) && !*shutting_down) {
 			HIGH("dtor\n");
+		} else {
+			puts(__func__);
 		}
 		close(accept_socket);
 	}
@@ -417,6 +419,8 @@ public:
 	{
 		if ((shutting_down) != nullptr && !*shutting_down) {
 			HIGH("dtor for %s\n", name);
+		} else {
+			puts(__func__);
 		}
 	}
 
