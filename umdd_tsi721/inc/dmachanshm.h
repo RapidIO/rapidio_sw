@@ -434,6 +434,9 @@ private:
   // These two live in m_shm_bl back-to-back
   bool*               m_bl_busy;
   WorkItem_t*         m_pending_work;
+  uint64_t*           m_pending_tickets;
+
+  uint64_t            m_pending_tickets_RP;
 
   bool                m_hw_master;
 

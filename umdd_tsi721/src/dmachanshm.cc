@@ -59,7 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DMA_SHM_STATE_NAME	"DMAChannelSHM-state:%d:%d"
 
 #define DMA_SHM_TXDESC_NAME	"DMAChannelSHM-txdesc:%d:%d"
-#define DMA_SHM_TXDESC_SIZE	((m_state->bd_num+1)*sizeof(bool) + (m_state->bd_num+1)*sizeof(WorkItem_t))
+#define DMA_SHM_TXDESC_SIZE	((m_state->bd_num+1)*sizeof(bool) + (m_state->bd_num+1)*sizeof(WorkItem_t) + (m_state->bd_num+1)*sizeof(uint64_t))
 
 #define DMA_SHM_PENDINGDATA_NAME "DMAChannelSHMs-pendingdata:%d"
 
@@ -85,8 +85,15 @@ void DMAChannelSHM::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
 
   uint8_t* pshm = (uint8_t*)m_shm_bl->getMem();
 
-  m_bl_busy = (bool*)pshm;
-  m_pending_work = (WorkItem_t*)(pshm + (m_state->bd_num+1)*sizeof(bool));
+  int n = 0;
+  m_bl_busy = (bool*)(pshm + n);
+  n += (m_state->bd_num+1)*sizeof(bool);
+
+  m_pending_work = (WorkItem_t*)(pshm + n);
+  n += (m_state->bd_num+1)*sizeof(WorkItem_t);
+
+  m_pending_tickets = (uint64_t*)(pshm + n);
+  //n += (m_state->bd_num+1)*sizeof(uint64_t);
 }
 
 void DMAChannelSHM::init(const uint32_t chan)
@@ -112,9 +119,10 @@ void DMAChannelSHM::init(const uint32_t chan)
 
   m_fifo_scan_cnt = 0;
   m_tx_cnt        = 0;
-  m_bl_busy       = NULL; // TODO: Stick in SHM
+  m_bl_busy       = NULL;
   m_check_reg     = false;
-  m_pending_work  = NULL; // TODO: Stick in SHM
+  m_pending_work  = NULL;
+  m_pending_tickets_RP = 0;
 
   m_sim           = false;
   m_sim_dma_rp    = 0;
@@ -464,6 +472,9 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
     setWriteCount(m_state->dma_wr);
 
     if(m_state->dma_wr == 0xFFFFFFFE) m_state->dma_wr = 1; // Process BD0 which is a T3
+
+    assert(m_pending_tickets[bd_idx]);
+    m_pending_tickets[bd_idx] = opt.ticket;
 
     if (m_pendingdata_tally != NULL) {
       assert(m_pendingdata_tally->data[m_state->chan] >= 0);
@@ -1058,13 +1069,30 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     m_state->bl_busy_size--;
     assert(m_state->bl_busy_size >= 0);
 
-    if (item.opt.ticket > m_state->acked_serial_number) m_state->acked_serial_number = item.opt.ticket;
-
     if (item.opt.cliidx >= 0) m_state->client_completion[item.opt.cliidx].bytes_txd += item.opt.bcount;
 
     if (m_pendingdata_tally != NULL) {
       assert(m_pendingdata_tally->data[m_state->chan] >= 0);
       m_pendingdata_tally->data[m_state->chan] -= item.opt.bcount;
+    }
+
+///    if (item.opt.ticket > m_state->acked_serial_number) m_state->acked_serial_number = item.opt.ticket;
+
+    assert(m_pending_tickets[item.opt.bd_idx] > 0);
+    m_pending_tickets[item.opt.bd_idx] = 0; // cancel ticket
+
+    int k = 0;
+    int i = m_pending_tickets_RP % m_state->bd_num;
+    for (; k < m_state->bd_num; i++) {
+      assert(i < m_state->bd_num);
+      if (i == 0) break; // T3 BD0 does not get a ticket
+      if (i == (m_state->bd_num-1)) break; // T3 BD(bufc-1) does not get a ticket
+      if (m_pending_tickets[i] > 0) break;
+      k++;
+    }
+    if (k > 0) {
+      m_pending_tickets_RP += k;
+      m_state->acked_serial_number = m_pending_tickets_RP; // XXX Perhaps +1?
     }
 
     pthread_spin_unlock(&m_state->bl_splock); 
@@ -1125,6 +1153,8 @@ void DMAChannelSHM::softRestart(const bool nuke_bds)
     m_state->bl_busy_size = 0;
 
     memset(m_pending_work, 0, (m_state->bd_num+1) * sizeof(WorkItem_t));
+
+    memset(m_pending_tickets, 0, (m_state->bd_num+1)*sizeof(uint64_t));
   }
 
   // Just be paranoid about wrap-around descriptor
