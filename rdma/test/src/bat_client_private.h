@@ -15,30 +15,37 @@
 
 #define BAT_EXPECT_RET(ret, value, label) if (ret != value) { \
 			fprintf(log_fp, "%s FAILED, line %d, ret = 0x%X\n", __func__, __LINE__, ret); \
+			fflush(log_fp); \
 			goto label; \
 		   }
 
 #define BAT_EXPECT_FAIL(ret) if (ret) { \
 				fprintf(log_fp, "%s PASSED\n", __func__); \
+				fflush(log_fp); \
 			     } else { \
 				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
+				fflush(log_fp); \
 			     }
 
 #define BAT_EXPECT_PASS(ret) if (!ret) { \
 				fprintf(log_fp, "%s PASSED\n", __func__); \
 				fprintf(stdout, "%s PASSED\n", __func__); \
+				fflush(log_fp); \
 			     } else { \
 				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
 				fprintf(stdout, "%s FAILED, line %d\n", __func__, __LINE__); \
+				fflush(log_fp); \
 			     }
 
 #define BAT_EXPECT(cond, label) if (!(cond)) { \
 				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
+				fflush(log_fp); \
 				goto label; \
 			     }
 
 #define BAT_EXPECT_NOT(cond, label) if (cond) { \
 				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
+				fflush(log_fp); \
 				goto label; \
 			     }
 
