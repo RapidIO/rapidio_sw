@@ -1992,6 +1992,16 @@ int RIOCP_SO_ATTR riocp_pe_set_sw_domain(riocp_pe_handle sw, uint8_t domain)
 	return riocp_pe_switch_set_domain(sw, domain);
 }
 
+/**
+ * Enable or disable a port on a switch
+ *
+ * This function handles the port logic and the assigned
+ * SERDES. So ti can be used for EMI reduction.
+ *
+ * @param sw        Target switch
+ * @param port      Port to enable or disable
+ * @param enable    True for enable the port, false for disable the port
+ */
 int RIOCP_SO_ATTR riocp_sw_set_port_enable(riocp_pe_handle sw, uint8_t port, bool enable)
 {
 	if (riocp_pe_handle_check(sw))
