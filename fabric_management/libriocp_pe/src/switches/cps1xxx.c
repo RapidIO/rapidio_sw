@@ -1159,6 +1159,10 @@ static int cps1xxx_disable_port(struct riocp_pe *sw, uint8_t port)
 	if (ret < 0)
 		return ret;
 
+	/* this port has no lanes assigned */
+	if (width == 0)
+		return 0;
+
 	ret = cps1xxx_port_get_first_lane(sw, port, &lane);
 	if (ret < 0)
 		return ret;
