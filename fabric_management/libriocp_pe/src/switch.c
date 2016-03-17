@@ -342,6 +342,23 @@ int riocp_pe_switch_set_congestion_limit(struct riocp_pe *sw, uint8_t port, uint
 		return -ENOSYS;
 }
 
+int riocp_pe_switch_get_counter_capabilites(struct riocp_pe *sw, riocp_sw_cap_t *reg_cap)
+{
+    if (sw->sw->get_register_capabilities)
+        return sw->sw->get_register_capabilities(reg_cap);
+    else
+        return -ENOSYS;
+}
+
+int riocp_pe_switch_get_counters(struct riocp_pe *sw, uint8_t port,
+        riocp_sw_cap_t reg_cap, uint32_t *reg_values, uint32_t reg_cnt)
+{
+    if (sw->sw->get_counters)
+        return sw->sw->get_counters(sw, port, reg_cap, reg_values, reg_cnt);
+    else
+        return -ENOSYS;
+}
+
 #ifdef __cplusplus
 }
 #endif

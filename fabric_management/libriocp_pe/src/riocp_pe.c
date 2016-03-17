@@ -40,6 +40,10 @@
 extern "C" {
 #endif
 
+const char *riocp_switch_cap_desc[] = {
+    ALL_CAPABILITIES(CREATE_CAP_STRING)
+};
+
 static struct riocp_pe_llist_item _riocp_mport_list_head; /**< List of created mport lists */
 
 /**
@@ -2081,6 +2085,46 @@ int RIOCP_SO_ATTR riocp_sw_set_congestion_limit(riocp_pe_handle sw,
 		return -ENOSYS;
 
 	return riocp_pe_switch_set_congestion_limit(sw, port, limit);
+}
+
+/**
+ * Read switch capabilities
+ * @param sw                Target switch
+ * @param reg_cap           Capability bit field that specifies the counter
+ *                          registers that this switch offers
+ */
+int RIOCP_SO_ATTR riocp_pe_get_sw_counter_capabilites(riocp_pe_handle sw,
+        riocp_sw_cap_t *reg_cap)
+{
+    if (riocp_pe_handle_check(sw))
+        return -EINVAL;
+    if (!RIOCP_PE_IS_HOST(sw))
+        return -EPERM;
+    if (!RIOCP_PE_IS_SWITCH(sw->cap))
+        return -ENOSYS;
+    return riocp_pe_switch_get_counter_capabilites(sw, reg_cap);
+}
+
+/**
+ * Read port counter values from switch.
+ * @param sw                Target switch
+ * @param port              Port ID
+ * @param reg_cap           Capability bit field that specifies the counter
+ *                          registers that this switch offers
+ * @param counter_val       Container to hold the counter register values
+ * @param counter_val_size  Size of container for counter values
+ */
+int RIOCP_SO_ATTR riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port,
+        riocp_sw_cap_t reg_cap, uint32_t *reg_values, uint32_t reg_cnt)
+{
+    if (riocp_pe_handle_check(sw))
+        return -EINVAL;
+    if (!RIOCP_PE_IS_HOST(sw))
+        return -EPERM;
+    if (!RIOCP_PE_IS_SWITCH(sw->cap))
+        return -ENOSYS;
+
+    return riocp_pe_switch_get_counters(sw, port, reg_cap, reg_values, reg_cnt);
 }
 
 #ifdef __cplusplus

@@ -109,6 +109,28 @@ extern "C" {
 #define CPS1xxx_PORT_X_TRACE_PW_CTL(x)			(0xf40058 + 0x100*(x))
 #define CPS1xxx_PORT_TRACE_PW_DIS				(0x00000001)
 
+#define CPS1xxx_PORT_X_VC0_PA_TX_CNTR           (0xf40010)
+#define CPS1xxx_PORT_X_VC0_NACK_TX_CNTR         (0xf40014)
+#define CPS1xxx_PORT_X_VC0_RTRY_TX_CNTR         (0xf40018)
+#define CPS1xxx_PORT_X_VC0_PKT_TX_CNTR          (0xf4001c)
+#define CPS1xxx_PORT_X_VC0_PA_RX_CNTR           (0xf40040)
+#define CPS1xxx_PORT_X_VC0_NACK_RX_CNTR         (0xf40044)
+#define CPS1xxx_PORT_X_VC0_RTRY_RX_CNTR         (0xf40048)
+#define CPS1xxx_PORT_X_VC0_PKT_RX_CNTR          (0xf40050)
+#define CPS1xxx_PORT_X_VC0_CPB_TX_CNTR          (0xf4004c)
+#define CPS1xxx_PORT_X_VC0_PKT_DROP_RX_CNTR     (0xf40064)
+#define CPS1xxx_PORT_X_VC0_PKT_DROP_TX_CNTR     (0xf40068)
+#define CPS1xxx_PORT_X_VC0_TTL_DROP_CNTR        (0xf4006c)
+#define CPS1xxx_PORT_X_VC0_CRC_LIMIT_DROP_CNTR  (0xf40070)
+#define CPS1xxx_PORT_X_TRC_MATCH_0              (0xf40020)
+#define CPS1xxx_PORT_X_TRC_MATCH_1              (0xf40024)
+#define CPS1xxx_PORT_X_TRC_MATCH_2              (0xf40028)
+#define CPS1xxx_PORT_X_TRC_MATCH_3              (0xf4002c)
+#define CPS1xxx_PORT_X_FIL_MATCH_0              (0xf40030)
+#define CPS1xxx_PORT_X_FIL_MATCH_1              (0xf40034)
+#define CPS1xxx_PORT_X_FIL_MATCH_2              (0xf40038)
+#define CPS1xxx_PORT_X_FIL_MATCH_3              (0xf4003c)
+
 #define CPS1xxx_BCAST_PORT_ERR_RPT_EN			(0x0003ff04)
 #define CPS1xxx_BCAST_PORT_IMPL_SPEC_ERR_RPT_EN		(0x0003ff0c)
 #define CPS1xxx_BCAST_PORT_OPS				(0x00f4ff04)
@@ -1319,6 +1341,25 @@ int cps1xxx_recover_port(struct riocp_pe *sw, uint8_t port)
 	return ret;
 }
 
+static int cps1xxx_enable_counters(struct riocp_pe *sw, uint8_t port)
+{
+    uint32_t result;
+    int ret;
+
+    /* enable port-writes and interrupts for port events */
+    ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_OPS(port), &result);
+    if (ret < 0)
+        return ret;
+
+    result |= CPS1xxx_OPS_CNTRS_EN;
+
+    ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_OPS(port), result);
+    if (ret < 0)
+        return ret;
+
+    return 0;
+}
+
 /*
  * The following function will initialize a port by clearing the
  * error status csr. if there is no link detected on the port, the port will be
@@ -1367,6 +1408,12 @@ static int cps1xxx_init_port(struct riocp_pe *sw, uint8_t port)
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &result);
 	if (ret < 0)
 		return ret;
+
+    ret = cps1xxx_enable_counters(sw, port);
+    if (ret) {
+        RIOCP_ERROR("Failed to enable counters on port %d\n", port);
+        return ret;
+    }
 
 	/* lock uninitialized ports */
 	if (!(status & CPS1xxx_ERR_STATUS_PORT_OK)) {
@@ -1698,6 +1745,124 @@ int cps1xxx_set_domain(struct riocp_pe *sw, uint8_t domain)
 {
 	sw->sw->domain = domain;
 	return riocp_pe_maint_write(sw, CPS1xxx_RTE_RIO_DOMAIN, domain);
+}
+
+/*
+ * Defining a bit field that describes the capabilities of this switch
+ * (i.e. the registers). The interface to this data structure is given in
+ * enum riocp_switch_capabilities
+ */
+static int cps1xxx_get_capabilities(riocp_sw_cap_t *reg_cap)
+{
+    uint32_t register_cap = 0;
+    register_cap |= (1 << PORT_X_VC0_PA_TX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_NACK_TX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_RTRY_TX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_PKT_TX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_PA_RX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_NACK_RX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_RTRY_RX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_PKT_RX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_CPB_TX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_PKT_DROP_RX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_PKT_DROP_TX_CNTR);
+    register_cap |= (1 << PORT_X_VC0_TTL_DROP_CNTR);
+    register_cap |= (1 << PORT_X_VC0_CRC_LIMIT_DROP_CNTR);
+    register_cap |= (1 << PORT_X_TRC_MATCH_0);
+    register_cap |= (1 << PORT_X_TRC_MATCH_1);
+    register_cap |= (1 << PORT_X_TRC_MATCH_2);
+    register_cap |= (1 << PORT_X_TRC_MATCH_3);
+    register_cap |= (1 << PORT_X_FIL_MATCH_0);
+    register_cap |= (1 << PORT_X_FIL_MATCH_1);
+    register_cap |= (1 << PORT_X_FIL_MATCH_2);
+    register_cap |= (1 << PORT_X_FIL_MATCH_3);
+
+    *reg_cap = register_cap;
+    return 0;
+}
+
+/* Map cps1xxx register offsets to the capability interface (which is
+ * actually defined in riocp.h)
+ * The intention is that the enum riocp_switch_capabilities defined in riocp_pe.h
+ * specifies all available capabilities across all switches there may be.
+ * A specific switch (like this one, the cps1xxx) needs to define an array of
+ * register addresses that includes its register addresses for each capability.
+ * So technically, there is an address at an index which equals to some enum value.
+ * Or 0, if there is no such capability (i.e. register).
+ *
+ * TODO This is quite a loose binding between the interface and the implementation.
+ * There might be a better design.
+ */
+#define CPS1xxx_NOT_DEFINED 0
+
+static uint32_t cps1xxx_cap_offsets [] = {
+        CPS1xxx_PORT_X_VC0_PA_TX_CNTR,
+        CPS1xxx_PORT_X_VC0_NACK_TX_CNTR,
+        CPS1xxx_PORT_X_VC0_RTRY_TX_CNTR,
+        CPS1xxx_PORT_X_VC0_PKT_TX_CNTR,
+        CPS1xxx_PORT_X_VC0_PA_RX_CNTR,
+        CPS1xxx_PORT_X_VC0_NACK_RX_CNTR,
+        CPS1xxx_PORT_X_VC0_RTRY_RX_CNTR,
+        CPS1xxx_PORT_X_VC0_PKT_RX_CNTR,
+        CPS1xxx_PORT_X_VC0_CPB_TX_CNTR,
+        CPS1xxx_PORT_X_VC0_PKT_DROP_RX_CNTR,
+        CPS1xxx_PORT_X_VC0_PKT_DROP_TX_CNTR,
+        CPS1xxx_PORT_X_VC0_TTL_DROP_CNTR,
+        CPS1xxx_PORT_X_VC0_CRC_LIMIT_DROP_CNTR,
+        CPS1xxx_PORT_X_TRC_MATCH_0,
+        CPS1xxx_PORT_X_TRC_MATCH_1,
+        CPS1xxx_PORT_X_TRC_MATCH_2,
+        CPS1xxx_PORT_X_TRC_MATCH_3,
+        CPS1xxx_PORT_X_FIL_MATCH_0,
+        CPS1xxx_PORT_X_FIL_MATCH_1,
+        CPS1xxx_PORT_X_FIL_MATCH_2,
+        CPS1xxx_PORT_X_FIL_MATCH_3
+};
+
+/**
+ * Read port counter values from switch.
+ * @param sw                Target switch
+ * @param port              Port ID
+ * @param reg_cap           Capability bit field that specifies the counter
+ *                          registers that this switch offers
+ * @param counter_val       Container to hold the counter register values
+ * @param counter_val_size  Size of container for counter values
+ */
+int cps1xxx_get_counters(struct riocp_pe *sw, uint8_t port, riocp_sw_cap_t reg_cap,
+        uint32_t *counter_val, uint32_t counter_val_size)
+{
+    int ret=0;
+    uint32_t cap_idx=0;
+
+    RIOCP_ERROR("Register capabilities %x\n", reg_cap);
+
+    while (reg_cap) {
+        uint32_t reg_val, reg_addr;
+        uint32_t cap_reg_offset = cps1xxx_cap_offsets[cap_idx];
+
+        if ((reg_cap & 1) == 0) {
+            RIOCP_ERROR("Ignore capability, not set %x\n", reg_cap);
+            continue;
+        }
+
+        if (cap_idx >= counter_val_size) {
+            RIOCP_ERROR("No space left in register result array (index %d vs %d)",
+                    cap_idx, counter_val_size);
+            return -ENOMEM;
+        }
+
+        reg_addr = cap_reg_offset+0x100*port;
+        ret = riocp_pe_maint_read(sw, reg_addr, &reg_val);
+        if (ret) {
+            RIOCP_ERROR("Failed to read register %x\n", reg_addr);
+            return ret;
+        }
+        RIOCP_ERROR("Read register %#x: %#x\n", reg_addr, reg_val);
+        counter_val[cap_idx] = reg_val;
+        reg_cap = reg_cap >> 1;
+        cap_idx++;
+    }
+    return ret;
 }
 
 int cps1xxx_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid, uint16_t port_mask, bool clear)
@@ -2832,7 +2997,9 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
 	cps1xxx_set_multicast_mask,
-	cps1xxx_set_retry_limit
+	cps1xxx_set_retry_limit,
+    cps1xxx_get_capabilities,
+    cps1xxx_get_counters
 };
 
 struct riocp_pe_device_id cps1432_id_table[] = {
@@ -2860,7 +3027,9 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
 	cps1xxx_set_multicast_mask,
-	cps1xxx_set_retry_limit
+	cps1xxx_set_retry_limit,
+    cps1xxx_get_capabilities,
+    cps1xxx_get_counters
 };
 
 struct riocp_pe_device_id cps1616_id_table[] = {
@@ -2888,7 +3057,9 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
 	cps1xxx_set_multicast_mask,
-	cps1xxx_set_retry_limit
+	cps1xxx_set_retry_limit,
+    cps1xxx_get_capabilities,
+    cps1xxx_get_counters
 };
 
 struct riocp_pe_device_id sps1616_id_table[] = {
@@ -2916,7 +3087,9 @@ struct riocp_pe_switch riocp_pe_switch_sps1616 = {
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
 	cps1xxx_set_multicast_mask,
-	cps1xxx_set_retry_limit
+	cps1xxx_set_retry_limit,
+    cps1xxx_get_capabilities,
+    cps1xxx_get_counters
 };
 
 #ifdef __cplusplus

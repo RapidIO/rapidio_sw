@@ -134,6 +134,43 @@ enum riocp_log_level {
 /* RapidIO control plane log callback function */
 typedef int (*riocp_log_output_func_t)(enum riocp_log_level, const char *);
 
+/* define the as well the content and the order of the switch capability
+ * structures (see below)
+ */
+#define ALL_CAPABILITIES(CAPABILITY) \
+    CAPABILITY(PORT_X_VC0_PA_TX_CNTR) \
+    CAPABILITY(PORT_X_VC0_NACK_TX_CNTR) \
+    CAPABILITY(PORT_X_VC0_RTRY_TX_CNTR) \
+    CAPABILITY(PORT_X_VC0_PKT_TX_CNTR) \
+    CAPABILITY(PORT_X_VC0_PA_RX_CNTR) \
+    CAPABILITY(PORT_X_VC0_NACK_RX_CNTR) \
+    CAPABILITY(PORT_X_VC0_RTRY_RX_CNTR) \
+    CAPABILITY(PORT_X_VC0_PKT_RX_CNTR) \
+    CAPABILITY(PORT_X_VC0_CPB_TX_CNTR) \
+    CAPABILITY(PORT_X_VC0_PKT_DROP_RX_CNTR) \
+    CAPABILITY(PORT_X_VC0_PKT_DROP_TX_CNTR) \
+    CAPABILITY(PORT_X_VC0_TTL_DROP_CNTR) \
+    CAPABILITY(PORT_X_VC0_CRC_LIMIT_DROP_CNTR) \
+    CAPABILITY(PORT_X_TRC_MATCH_0) \
+    CAPABILITY(PORT_X_TRC_MATCH_1) \
+    CAPABILITY(PORT_X_TRC_MATCH_2) \
+    CAPABILITY(PORT_X_TRC_MATCH_3) \
+    CAPABILITY(PORT_X_FIL_MATCH_0) \
+    CAPABILITY(PORT_X_FIL_MATCH_1) \
+    CAPABILITY(PORT_X_FIL_MATCH_2) \
+    CAPABILITY(PORT_X_FIL_MATCH_3) \
+
+#define CREATE_CAP_ENUM(CAP_ENUM) CAP_ENUM,
+#define CREATE_CAP_STRING(CAP_STRING) #CAP_STRING,
+
+typedef enum riocp_switch_capabilities {
+    ALL_CAPABILITIES(CREATE_CAP_ENUM)
+} riocp_switch_capabilities_t;
+
+extern const char *riocp_switch_cap_desc[];
+
+typedef uint32_t riocp_sw_cap_t;
+
 
 /*
  * API functions
@@ -182,6 +219,11 @@ int RIOCP_WU riocp_sw_set_port_enable(riocp_pe_handle sw, uint8_t port, bool ena
 int RIOCP_WU riocp_sw_set_multicast_mask(riocp_pe_handle sw, uint8_t lut, uint8_t maskid,
 		uint16_t port_mask, bool clear);
 int RIOCP_WU riocp_sw_set_congestion_limit(riocp_pe_handle sw, uint8_t port, uint16_t limit);
+
+/* Counters */
+int RIOCP_WU riocp_pe_get_sw_counter_capabilites(riocp_pe_handle sw, riocp_sw_cap_t *reg_cap);
+int RIOCP_WU riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port,
+        riocp_sw_cap_t reg_offsets, uint32_t *reg_values, uint32_t reg_cnt);
 
 /* Event management functions */
 int RIOCP_WU riocp_pe_get_event_mask(riocp_pe_handle pe, uint8_t port, riocp_pe_event_mask_t *mask);
