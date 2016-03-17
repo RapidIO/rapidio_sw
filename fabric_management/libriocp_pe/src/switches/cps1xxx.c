@@ -2347,7 +2347,8 @@ skip_port_errors:
 	/* in case both fatal error and link initialized set (slow software)
 	 handle fatal error first, then link initialized */
 	/* PORT_UNINIT can be set sometimes even when port is still operational */
-	if (err_status & (CPS1xxx_ERR_STATUS_PORT_ERR | CPS1xxx_ERR_STATUS_OUTPUT_FAIL)) {
+	if (err_status & (CPS1xxx_ERR_STATUS_PORT_ERR | CPS1xxx_ERR_STATUS_OUTPUT_FAIL) ||
+	   (impl_err_det & (CPS1xxx_IMPL_SPEC_ERR_DET_ERR_RATE | CPS1xxx_IMPL_SPEC_ERR_DET_LOA))) {
 		/* check if we got an extra port-write (e.g. input-err then fatal)
 		 see whether we already locked the port */
 		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &ctl);
