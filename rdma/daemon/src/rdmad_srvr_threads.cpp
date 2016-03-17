@@ -57,21 +57,13 @@ using std::make_shared;
 using std::unique_ptr;
 using std::move;
 
-static thread cm_engine_monitoring_thread;
-static sem_t  *cm_engine_cleanup_sem = nullptr;
+
 
 static cm_server_msg_processor d2d_msg_proc;
 
 /* List of destids provisioned via the provisioning thread */
 daemon_list<cm_server>	prov_daemon_info_list;
 
-static void cm_engine_monitoring_thread_f(sem_t *cm_engine_cleanup_sem)
-{
-	while(1) {
-		sem_wait(cm_engine_cleanup_sem);
-		/* TODO: Clean up dead CM engines */
-	}
-} /* cm_engine_monitoring_thread_f() */
 
 /**
  * @brief Provisioning thread.
@@ -97,16 +89,6 @@ void prov_thread_f(int mport_id,
 				prov_mbox_id,
 				prov_channel,
 				&shutting_down);
-
-		/* Engine cleanup semaphore. Posted by engines that die
-		 * so we can clean up after them. */
-		cm_engine_cleanup_sem = new sem_t();
-		sem_init(cm_engine_cleanup_sem, 0, 0);
-
-		/* Start engine monitoring thread */
-		cm_engine_monitoring_thread =
-				thread(cm_engine_monitoring_thread_f,
-						cm_engine_cleanup_sem);
 		while(1) {
 			/* Accept connections from other daemons */
 			DBG("Accepting connections from other daemons...\n");

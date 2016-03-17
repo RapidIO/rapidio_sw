@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMAD_MAIN_H
 #define RDMAD_MAIN_H
 
+#include <semaphore.h>
 /**
  * @brief Shut down RDMA daemon
  */
@@ -43,6 +44,7 @@ class inbound;
 extern inbound *the_inbound;
 
 extern bool shutting_down;
+extern sem_t  *cm_engine_cleanup_sem;
 
 #endif
 

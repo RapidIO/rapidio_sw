@@ -159,6 +159,12 @@ int send_force_disconnect_ms_to_lib_for_did(uint32_t did);
  */
 int provision_rdaemon(uint32_t destid);
 
+/**
+ * @brief Engine cleanup thread. This thread wakes up when the engine_cleanup_sem
+ * 	  is posted. The thread searches hello_daemon_info_list for dead engines
+ * 	  and cleans up the corresponding entries.
+ */
+void client_engine_cleanup_thread();
 
 #endif
 

@@ -427,7 +427,7 @@ static int rdma_lib_init(void)
 	/* Create a client */
 	DBG("Creating client object...\n");
 	try {
-		client = make_shared<unix_client>();
+		client = make_shared<unix_client>("librdma", nullptr);
 
 		/* Connect to server */
 		if (client->connect() == 0) {

@@ -86,6 +86,13 @@ public:
 	} /* ctor */
 
 	/**
+	 * @brief Accessors
+	 */
+	unique_ptr<rx_engine<C, cm_msg_t>> get_rx_eng() { return m_rx_eng; }
+
+	unique_ptr<tx_engine<C, cm_msg_t>> get_tx_eng() { return m_tx_eng; }
+
+	/**
 	 * @brief Destructor
 	 */
 	~daemon_info() = default;
@@ -244,8 +251,34 @@ public:
 		}
 		return rc;
 	} /* set_destid() */
+
 	/**
-	 * @brief Remove daemon entry specified by destid
+	 * @brief Remove any daemon entry that has a dead engine
+	 */
+	void remove_daemon_with_dead_eng()
+	{
+		lock_guard<mutex> daemons_lock(daemons_mutex);
+
+		daemons.erase(
+			remove_if(begin(daemons),
+				  end(daemons),
+				  [](daemon_element_t& daemon_element)
+				  {
+					bool erase_daemon =
+					daemon_element->m_rx_eng->isdead() ||
+					daemon_element->m_tx_eng->isdead();
+					if (erase_daemon) {
+						INFO("Erasing daemon %p\n",
+							daemon_element.get());
+					}
+					return erase_daemon;
+				  }),
+			end(daemons)
+			     );
+	} /* remove_daemon_with_dead_eng() */
+
+	/**
+	 * @brief Remove the daemon entry specified by destid
 	 *
 	 * @param destid  Destination ID for remote daemon
 	 *

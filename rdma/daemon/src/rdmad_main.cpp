@@ -31,12 +31,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 #include <unistd.h>
-#include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
 #include <execinfo.h>
 
 #include <memory>
+#include "memory_supp.h"
 
 #include "liblog.h"
 #include "rapidio_mport_dma.h"
@@ -57,9 +57,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::shared_ptr;
 using std::make_shared;
+using std::unique_ptr;
 
-using rx_engines_list = vector<unix_rx_engine *>;
-using tx_engines_list = vector<unix_tx_engine *>;
+using rx_engines_list = vector<unique_ptr<unix_rx_engine>>;
+using tx_engines_list = vector<unique_ptr<unix_tx_engine>>;
 
 /* Inbound space */
 inbound *the_inbound;
@@ -70,7 +71,7 @@ bool shutting_down = false;
 static tx_engines_list	unix_tx_eng_list;
 static rx_engines_list	unix_rx_eng_list;
 
-static thread *engine_monitoring_thread;
+static unique_ptr<thread> unix_engine_monitoring_thread;
 static sem_t  *unix_engine_cleanup_sem = nullptr;
 
 static peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL,
@@ -80,12 +81,37 @@ static peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL,
 static ms_owners owners;
 
 static 	pthread_t console_thread;
-static	thread 	  prov_thread;
+static	unique_ptr<thread> 	  prov_thread;
 static	pthread_t cli_session_thread;
 
-static unix_server *app_conn_server = nullptr;
+static unique_ptr<unix_server> app_conn_server;
 
 static unix_msg_processor	d2l_msg_proc;
+
+static unique_ptr<thread> cm_engine_monitoring_thread;
+sem_t  *cm_engine_cleanup_sem = nullptr;
+
+void cm_engine_monitoring_thread_f(sem_t *cm_engine_cleanup_sem)
+{
+	while(1) {
+		assert(cm_engine_cleanup_sem != nullptr);
+		/* Wait for notification to check for dead engines */
+		sem_wait(cm_engine_cleanup_sem);
+
+		HIGH("Cleaning up Unix dead engines, or shutting down all!\n");
+
+		/* Check both the prov and Hello daemon lists for dead
+		 * CM engines. Remove if necessary. */
+		prov_daemon_info_list.remove_daemon_with_dead_eng();
+		hello_daemon_info_list.remove_daemon_with_dead_eng();
+
+		/* If shutting down then self-terminate the thread */
+		if (shutting_down) {
+			INFO("Shutting down. Exiting '%s'\n", __func__);
+			return;
+		}
+	}
+} /* cm_engine_monitoring_thread_f() */
 
 /**
  * @brief Thread for monitoring and destroying Tx and Rx engines
@@ -101,27 +127,19 @@ static void unix_engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 		/* Wait until there is a reason to perform cleanup */
 		sem_wait(engine_cleanup_sem);
 
-		HIGH("Cleaning up Unix dead engines!\n");
-		/* Check the rx_eng_list for dead engines */
-		for (auto it = begin(unix_rx_eng_list); it != end(unix_rx_eng_list); it++) {
-			if ((*it)->isdead() || shutting_down) {
-				/* Delete rx_engine and set pointer to null */
-				HIGH("Cleaning up an rx_engine\n");
-				delete *it;
-				*it = nullptr;
-			}
-		}
+		HIGH("Cleaning up Unix dead engines, or shutting down all!\n");
+		unix_rx_eng_list.erase(
+				 	 remove_if(begin(unix_rx_eng_list),
+				 		   end(unix_rx_eng_list),
+				 		   [](unique_ptr<unix_rx_engine> &e)
+				 		   {return e->isdead() || shutting_down;}),
+				 	 end(unix_rx_eng_list)
+				      );
 
-		/* Remove all null Rx engine entries */
-		unix_rx_eng_list.erase( std::remove(begin(unix_rx_eng_list),
-				               end(unix_rx_eng_list),
-				               nullptr),
-					       end(unix_rx_eng_list));
-
-		/* Check the tx_eng_list for dead engines */
-		for (auto it = begin(unix_tx_eng_list); it != end(unix_tx_eng_list); it++) {
-			if ((*it)->isdead() || shutting_down) {
-
+		/* Check the tx_eng_list for dead engines. This is more complicated
+		 * as we need to close and destroy entities...etc. */
+		for(unique_ptr<unix_tx_engine>& tx_eng : unix_tx_eng_list) {
+			if (tx_eng->isdead() || shutting_down) {
 				/* If the tx_eng is being used by a client app, then
 				 * we must clear the connected_to_ms_info_list  */
 				DBG("Cleaning up connected_to_ms_info_list\n");
@@ -129,30 +147,29 @@ static void unix_engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 				connected_to_ms_info_list.erase(
 					remove(begin(connected_to_ms_info_list),
 					       end(connected_to_ms_info_list),
-					       *it),
+					       tx_eng.get()),
 					end(connected_to_ms_info_list));
 
 				/* If the tx_eng is being used by a server app,
 				 * then we must clear all related memory spaces
 				 *  and owners using that tx_eng. */
 				DBG("Cleaning up memory spaces & owners...\n");
-				the_inbound->close_and_destroy_mspaces_using_tx_eng(*it);
-				owners.close_mso(*it);
-				owners.destroy_mso(*it);
-
-				HIGH("Destroying Tx engine\n");
-				delete *it;
-				*it = nullptr;
+				the_inbound->close_and_destroy_mspaces_using_tx_eng(tx_eng.get());
+				owners.close_mso(tx_eng.get());
+				owners.destroy_mso(tx_eng.get());
 			}
 		}
 
-		/* Remove all null Tx engine entries */
+		/* Remove all dead Tx engine entries, or all if shutting down */
 		DBG("tx_eng_list.size() = %u\n", unix_tx_eng_list.size());
-		unix_tx_eng_list.erase(remove(begin(unix_tx_eng_list),
+		unix_tx_eng_list.erase(remove_if(begin(unix_tx_eng_list),
 				         end(unix_tx_eng_list),
-				         nullptr),
-				  end(unix_tx_eng_list));
-		DBG("tx_eng_list.size() = %u\n", unix_tx_eng_list.size());
+			 		   [](unique_ptr<unix_tx_engine> &e)
+			 		   {return e->isdead() || shutting_down;}),				  end(unix_tx_eng_list));
+		if (shutting_down) {
+			INFO("Shutting down. Exiting '%s'\n", __func__);
+			return;
+		}
 	} /* while */
 } /* unix_engine_monitoring_thread_f() */
 
@@ -166,17 +183,8 @@ static void start_accepting_app_connections()
 	try {
 		/* Create a server */
 		DBG("Creating Unix socket server object...\n");
-			app_conn_server = new unix_server("main_server");
+		app_conn_server = make_unique<unix_server>("main_server", &shutting_down);
 
-		/* Engine cleanup semaphore. Posted by engines that die
-		 * so we can clean up after them. */
-		unix_engine_cleanup_sem = new sem_t();
-		sem_init(unix_engine_cleanup_sem, 0, 0);
-
-		/* Start engine monitoring thread */
-		engine_monitoring_thread =
-			new thread(unix_engine_monitoring_thread_f,
-						unix_engine_cleanup_sem);
 		while (1) {
 			/* Wait for client to connect */
 			HIGH("Waiting for RDMA app to connect..\n");
@@ -191,33 +199,32 @@ static void start_accepting_app_connections()
 			auto accept_socket = app_conn_server->get_accept_socket();
 			auto other_server = make_shared<unix_server>(
 								"other_server",
+								&shutting_down,
 								accept_socket);
 
 			/* Create Tx and Rx engine per connection */
-			unix_rx_engine *unix_rx_eng;
-			unix_tx_engine *unix_tx_eng;
+			unique_ptr<unix_tx_engine> unix_tx_eng =
+				make_unique<unix_tx_engine>(other_server,
+							    unix_engine_cleanup_sem);
 
-			unix_tx_eng = new unix_tx_engine(other_server,
-							  unix_engine_cleanup_sem);
-			unix_rx_eng = new unix_rx_engine(other_server,
-							  d2l_msg_proc,
-							  unix_tx_eng,
-							  unix_engine_cleanup_sem);
+			unique_ptr<unix_rx_engine> unix_rx_eng =
+				make_unique<unix_rx_engine> (other_server,
+							     d2l_msg_proc,
+							     unix_tx_eng.get(),
+							     unix_engine_cleanup_sem);
 
 			/* We passed 'other_server' to both engines. Now
 			 * relinquish ownership. They own it. Together.	 */
 			other_server.reset();
 
 			/* Store engines in list for later cleanup */
-			unix_rx_eng_list.push_back(unix_rx_eng);
-			unix_tx_eng_list.push_back(unix_tx_eng);
+			unix_rx_eng_list.push_back(move(unix_rx_eng));
+			unix_tx_eng_list.push_back(move(unix_tx_eng));
 
 		} /* while */
 	} /* try */
 	catch(exception& e) {
 		CRIT("Fatal error: %s. Aborting daemon!\n", e.what());
-		if (app_conn_server != nullptr)
-			delete app_conn_server;
 		abort();
 	}
 } /* start_accepting_app_connections() */
@@ -228,8 +235,9 @@ static void start_accepting_app_connections()
  */
 void shutdown()
 {
+#if 0
 	int ret;
-
+#endif
 	/* Kill the threads */
 	shutting_down = true;
 
@@ -237,16 +245,15 @@ void shutdown()
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
 
-	/* For the prov daemon and hello daemon lists, kill threads */
-	HIGH("Clear daemon lists\n");
-	prov_daemon_info_list.clear();
-	hello_daemon_info_list.clear();
+	INFO("Clear the prov and hello daemon lists\n");
+	sem_post(cm_engine_cleanup_sem);
+	cm_engine_monitoring_thread->join();
 
 	/* Kill Tx/Rx engines that connect with libraries */
-	if (unix_engine_cleanup_sem != nullptr) {
-		sem_post(unix_engine_cleanup_sem);
-	}
+	sem_post(unix_engine_cleanup_sem);
+	unix_engine_monitoring_thread->join();
 
+#if 0
 	/* Next, kill provisioning thread */
 	HIGH("Killing provisioning thread\n");
 	ret = pthread_kill(prov_thread.native_handle(), SIGUSR1);
@@ -254,18 +261,16 @@ void shutdown()
 		CRIT("Invalid signal specified 'SIGUSR1' for pthread_kill\n");
 	}
 	HIGH("Provisioning thread is dead\n");
-
+#endif
 	/* Kill the fabric management thread */
-	HIGH("Killing fabric management thread\n");
 	halt_fm_thread();
-	HIGH("Fabric management thread is dead\n");
+
 	/* Close mport device */
 	if (peer.mport_hnd != 0) {
 		INFO("Closing mport\n");
 		riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
 	}
 	INFO("Mport %d closed\n", peer.mport_id);
-
 	rdma_log_close();
 	exit(1);
 } /* shutdown() */
@@ -314,7 +319,9 @@ static void sig_handler(int sig)
 		printf("UNKNOWN SIGNAL (%d)\n", sig);
 	}
 
-	shutdown();
+	/* Don't call shutdown again if we are shutting down */
+	if (!shutting_down)
+		shutdown();
 } /* sig_handler() */
 
 /**
@@ -449,14 +456,24 @@ int main (int argc, char **argv)
 
 		/* Create provisioning thread */
 		try {
-			prov_thread = thread(prov_thread_f,
+			prov_thread = make_unique<thread>(prov_thread_f,
 				peer.mport_id, peer.prov_mbox_id, peer.prov_channel);
-			prov_thread.detach();
+			prov_thread->detach();
 		}
 		catch(exception& e) {
 			ERR("Failed to create prov_thread: %s\n", e.what());
 			throw OUT_DELETE_INBOUND;
 		}
+
+		/* CM Engine cleanup semaphore. Posted by engines that die
+		 * so we can clean up after them. */
+		cm_engine_cleanup_sem = new sem_t();
+		sem_init(cm_engine_cleanup_sem, 0, 0);
+
+		/* Create and detach engine monitoring thread */
+		cm_engine_monitoring_thread = make_unique<thread>(
+						cm_engine_monitoring_thread_f,
+						cm_engine_cleanup_sem);
 
 		/* Create fabric management thread */
 		rc = start_fm_thread();
@@ -473,6 +490,16 @@ int main (int argc, char **argv)
 			throw OUT_KILL_FM_THREAD;
 		}
 
+		/* Engine cleanup semaphore. Posted by engines that die
+		 * so we can clean up after them. */
+		unix_engine_cleanup_sem = new sem_t();
+		sem_init(unix_engine_cleanup_sem, 0, 0);
+
+		/* Create, start, and detach Unix engine monitoring thread */
+		unix_engine_monitoring_thread = make_unique<thread>(
+					unix_engine_monitoring_thread_f,
+					unix_engine_cleanup_sem);
+
 		/* Start accepting connections from apps linked with LIBRDMA */
 		start_accepting_app_connections();
 	} /* try */
@@ -487,8 +514,9 @@ int main (int argc, char **argv)
 			halt_fm_thread();
 
 		case OUT_KILL_PROV_THREAD:
-			pthread_kill(prov_thread.native_handle(), SIGUSR1);
-
+#if 0
+			pthread_kill(prov_thread->native_handle(), SIGUSR1);
+#endif
 		case OUT_DELETE_INBOUND:
 			delete the_inbound;
 

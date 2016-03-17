@@ -58,8 +58,6 @@ extern "C" {
 #endif
 
 static sem_t fm_started;
-uint32_t fm_alive;
-static uint32_t fm_must_die;
 static pthread_t fm_thread;
 static fmdd_h dd_h;
 
@@ -176,7 +174,6 @@ void *fm_loop(void *unused)
 
 	if (dd_h != NULL) {
 		fmdd_bind_dbg_cmds(dd_h);
-		fm_alive = 1;
 		HIGH("FM is alive\n");
 	} else {
 		CRIT("Cannot obtain dd_h. Exiting\n");
@@ -187,7 +184,7 @@ void *fm_loop(void *unused)
 	/* FM thread is up and running */
 	sem_post(&fm_started);
 
-	do {
+	while(1) {
 		/* Get fresh list of dids */
 		if (new_did_list != NULL)
 			fmdd_free_did_list(dd_h, &new_did_list);
@@ -220,10 +217,14 @@ void *fm_loop(void *unused)
 		/* Loop again only if Fabric Management reports change */
 		DBG("Waiting for FM to report change...\n");
 		if (fmdd_wait_for_dd_change(dd_h)) {
-			ERR("Failed in fmdd_wait_for_dd_change(). Exiting\n");
+			if(shutting_down) {
+				INFO("Exitig '%s' due to shutdown\n", __func__);
+			} else {
+				ERR("Failed in fmdd_wait_for_dd_change(). Exiting\n");
+			}
 			break;
 		}
-	} while (!fm_must_die);
+	}
 
 	/* Clean up */
 	if (old_did_list != NULL)
@@ -231,7 +232,6 @@ void *fm_loop(void *unused)
         if (new_did_list != NULL)
         	fmdd_free_did_list(dd_h, &new_did_list);
 
-	fm_alive = 0;
 	fmdd_destroy_handle(&dd_h);
 	pthread_exit(unused);
 } /* fm_loop() */
@@ -243,8 +243,6 @@ int start_fm_thread(void)
         /* Prepare and start library connection handling threads */
 	HIGH("ENTER\n");
         sem_init(&fm_started, 0, 0);
-	fm_alive = 0;
-	fm_must_die = 0;
 
         ret = pthread_create(&fm_thread, NULL, fm_loop, NULL);
         if (ret) {
@@ -260,10 +258,10 @@ int start_fm_thread(void)
 
 void halt_fm_thread(void)
 {
-	fm_must_die = 1;
 	fmdd_destroy_handle(&dd_h);
-	pthread_kill(fm_thread, SIGHUP);
+	pthread_kill(fm_thread, SIGUSR1);
 	pthread_join(fm_thread, NULL);
+	INFO("Fabric management thread terminated\n");
 } /* halt_fm_thread() */
 
 #ifdef __cplusplus

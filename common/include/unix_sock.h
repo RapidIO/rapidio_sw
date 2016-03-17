@@ -288,9 +288,13 @@ class unix_server : public unix_base
 {
 public:
 	unix_server(const char *name,
+		    bool *shutting_down = nullptr,
 		    const char *sun_path = UNIX_PATH_RDMA,
 		    int backlog = UNIX_SOCK_DEFAULT_BACKLOG)
-	try : unix_base(name, sun_path), accept_socket(0), can_accept(true)
+	try : unix_base(name, sun_path),
+		accept_socket(0),
+		can_accept(true),
+		shutting_down(shutting_down)
 	{
 		/* If file exists, delete it before binding */
 		struct stat st;
@@ -325,8 +329,11 @@ public:
 	 * accept new connections. Deleting those objects does NOT kill
 	 * the base class socket ('the_socket').
 	 */
-	unix_server(const char *name, int accept_socket)
-	try : unix_base(name), accept_socket(accept_socket), can_accept(false)
+	unix_server(const char *name, bool *shutting_down, int accept_socket)
+	try : unix_base(name),
+	accept_socket(accept_socket),
+	can_accept(false),
+	shutting_down(shutting_down)
 	{
 	}
 	catch(...)	/* Catch failures in unix_base::unix_base() */
@@ -336,7 +343,9 @@ public:
 
 	~unix_server()
 	{
-		HIGH("dtor\n");
+		if ((shutting_down != nullptr) && !*shutting_down) {
+			HIGH("dtor\n");
+		}
 		close(accept_socket);
 	}
 
@@ -386,14 +395,17 @@ public:
 private:
 	int	accept_socket;
 	bool	can_accept;	/* Objects created with the minimal constructor can't */
+	bool	*shutting_down;
 };
 
 class unix_client : public unix_base
 {
 public:
-	unix_client(const char *name = "client",
+	unix_client(const char *name,
+		    bool *shutting_down,
 		    const char *sun_path = UNIX_PATH_RDMA)
-	try : unix_base(name, sun_path)
+	try : unix_base(name, sun_path),
+	shutting_down(shutting_down)
 	{
 	}
 	catch(...)	/* Catch failures in unix_base::unix_base() */
@@ -403,7 +415,9 @@ public:
 
 	~unix_client()
 	{
-		HIGH("dtor\n");
+		if ((shutting_down) != nullptr && !*shutting_down) {
+			HIGH("dtor for %s\n", name);
+		}
 	}
 
 	int connect()
@@ -434,6 +448,8 @@ public:
 	{
 		return unix_base::receive_buffer(the_socket, buffer, rcvd_len);
 	}
+private:
+	bool *shutting_down;
 };
 
 #endif

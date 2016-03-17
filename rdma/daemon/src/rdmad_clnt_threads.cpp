@@ -35,16 +35,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
-#include <memory>
 #include <mutex>
+#include <memory>
+#include "memory_supp.h"
 
 #include <cassert>
 
-#include "memory_supp.h"
 #include "rdma_types.h"
 #include "liblog.h"
 #include "cm_sock.h"
-#include "rdmad_cm.h"
 #include "rdmad_main.h"
 #include "rdmad_inbound.h"
 #include "rdmad_clnt_threads.h"
@@ -66,8 +65,6 @@ daemon_list<cm_client>	hello_daemon_info_list;
 
 vector<connected_to_ms_info>	connected_to_ms_info_list;
 mutex 				connected_to_ms_info_list_mutex;
-
-static sem_t  *cm_engine_cleanup_sem = nullptr;
 
 static cm_client_msg_processor d2d_msg_proc;
 

@@ -163,7 +163,6 @@ protected:
 	/* Uses specified buffer and length */
 	int send_buffer(riomp_sock_t socket, void *buffer, size_t len)
 	{
-		DBG("ENTER\n");
 		int rc;
 		if (len > CM_PAYLOAD_SIZE) {
 			ERR("'%s' failed in send() due to large message size(%d)\n",
@@ -180,7 +179,6 @@ protected:
 								name, strerror(rc));
 			}
 		}
-		DBG("EXIT\n");
 		return rc;
 	} /* send_buffer() */
 
@@ -235,12 +233,14 @@ protected:
 
 		/* Only show buffer contents if we actually receive */
 		if (rc == 0) {
+#ifdef EXTRA_DEBUG
 			DBG("recv_buf[0] = 0x%" PRIx64 "\n", *(uint64_t *)recv_buf);
 			DBG("recv_buf[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 8));
 			DBG("recv_buf[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 16));
 			DBG("recv_buf[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 24));
 			DBG("recv_buf[4] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 32));
 			DBG("recv_buf[5] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 40));
+#endif
 		}
 
 		/* A buffer was provided, copy the data to it */
@@ -362,27 +362,28 @@ public:
 
 	~cm_server()
 	{
+		printf("'%s'\n", name);
 		/* Close accept socket, if open */
-		DBG("'%s': accept_socket = 0x%X\n", name, accept_socket);
+//		DBG("'%s': accept_socket = 0x%X\n", name, accept_socket);
 		if (accept_socket && accepted)
 			if (riomp_sock_close(&accept_socket)) {
-				WARN("Failed to close accept socket for '%s': %s\n",
-							name, strerror(errno));
+//				WARN("Failed to close accept socket for '%s': %s\n",
+//							name, strerror(errno));
 			}
 
 		/* Close listen socket, opened during construction */
-		DBG("'%s': Closing listen_socket = 0x%X\n", name, listen_socket);
+//		DBG("'%s': Closing listen_socket = 0x%X\n", name, listen_socket);
 		if (listen_socket)
 			if (riomp_sock_close(&listen_socket)) {
-				WARN("Failed to close listen socket: for '%s': %s\n",
-							name, strerror(errno));
+//				WARN("Failed to close listen socket: for '%s': %s\n",
+//							name, strerror(errno));
 			}
 
 		/* Destroy mailbox handle, opened during construction */
 		if (mailbox) {
-			DBG("'%s': Destroying mailbox\n", name);
+//			DBG("'%s': Destroying mailbox\n", name);
 			if (close_mailbox()) {
-				WARN("Failed to close mailbox for '%s'\n", name);
+//				WARN("Failed to close mailbox for '%s'\n", name);
 			}
 		}
 	} /* ~cm_server() */

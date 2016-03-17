@@ -32,7 +32,7 @@ int main()
 	/* Create a client */
 	puts("Creating client object...");
 	try {
-		client = new unix_client();
+		client = new unix_client("sample", nullptr);
 	}
 	catch(unix_sock_exception e) {
 		cout << e.what() << endl;

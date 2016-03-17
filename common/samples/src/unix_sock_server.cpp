@@ -37,7 +37,7 @@ void *rpc_thread_f(void *arg)
 	puts("Creating other server object...");
 	unix_server *other_server;
 	try {
-		other_server = new unix_server("other_server", ti->accept_socket);
+		other_server = new unix_server("other_server", nullptr, ti->accept_socket);
 	}
 	catch(unix_sock_exception e) {
 		cout << e.what() << endl;
