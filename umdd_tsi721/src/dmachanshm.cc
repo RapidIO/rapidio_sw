@@ -1078,6 +1078,11 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
 
 ///    if (item.opt.ticket > m_state->acked_serial_number) m_state->acked_serial_number = item.opt.ticket;
 
+    assert(m_pending_tickets_RP > m_state->serial_number);
+
+    const int P = m_state->serial_number - m_pending_tickets_RP; // Pending issued tickets
+    assert(P); // If we're here it cannot be 0
+
     assert(m_pending_tickets[item.opt.bd_idx] > 0);
     m_pending_tickets[item.opt.bd_idx] = 0; // cancel ticket
 
@@ -1087,11 +1092,13 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
       assert(i < m_state->bd_num);
       if (i == 0) break; // T3 BD0 does not get a ticket
       if (i == (m_state->bd_num-1)) break; // T3 BD(bufc-1) does not get a ticket
-      if (m_pending_tickets[i] > 0) break;
+      if (m_pending_tickets[i] > 0) break; // still in flight
       k++;
+      if (k == P) break; // Upper bound
     }
     if (k > 0) {
       m_pending_tickets_RP += k;
+      assert(m_pending_tickets_RP > m_state->serial_number);
       m_state->acked_serial_number = m_pending_tickets_RP; // XXX Perhaps +1?
     }
 
