@@ -66,6 +66,8 @@ class {
 
 void DMAChannel::init()
 {
+  umdemo_must_die = 0;
+
   pthread_spin_init(&m_hw_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_pending_work_splock, PTHREAD_PROCESS_PRIVATE);
   pthread_spin_init(&m_bl_splock, PTHREAD_PROCESS_PRIVATE);
@@ -257,7 +259,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
   // Check if queue full -- as late as possible in view of MT
   if(queueFull()) {
-    ERR("\n\tFAILED: DMA TX Queue full! chan=%u\n", m_chan);
+    XERR("\n\tFAILED: DMA TX Queue full! chan=%u\n", m_chan);
     return false;
   }
   
@@ -288,7 +290,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     if(m_bl_busy[bd_idx]) {
       pthread_spin_unlock(&m_bl_splock); 
 #ifdef DEBUG_BD
-      INFO("\n\tDMA TX queueDmaOpT?: BD %d still busy!\n", bd_idx);
+      XINFO("\n\tDMA TX queueDmaOpT?: BD %d still busy!\n", bd_idx);
 #endif
       return false;
     }
@@ -337,11 +339,11 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 #ifdef DEBUG_BD
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
-  DBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n",
+  XDBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n",
       wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.opt.bd_wp);
 
   if(queued_T3)
-     DBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_T3_bd_hw, wk_end.opt.bd_wp);
+     XDBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_T3_bd_hw, wk_end.opt.bd_wp);
 #endif
 
   return true;
@@ -377,7 +379,7 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 
   m_dmadesc.rio_address = RIO_ANY_ADDR;
   if(! m_mport->map_dma_buf(size, m_dmadesc)) {
-    CRIT("DMAChannel: Cannot alloc DMA TX ring descriptors!");
+    XCRIT("DMAChannel: Cannot alloc DMA TX ring descriptors!");
     return false;
   }
 
@@ -396,7 +398,7 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
     ((uint8_t*)m_dmadesc.win_ptr + ((m_bd_num-1) * DMA_BUFF_DESCR_SIZE));
 
 #ifdef DEBUG_BD
-  DBG("\n\tWrap BD DTYPE3 @ HW 0x%lx [idx=%d] points back to HW 0x%lx\n",
+  XDBG("\n\tWrap BD DTYPE3 @ HW 0x%lx [idx=%d] points back to HW 0x%lx\n",
       m_dmadesc.win_handle + ((m_bd_num-1) *DMA_BUFF_DESCR_SIZE),
       m_bd_num-1, m_dmadesc.win_handle);
 #endif
@@ -511,11 +513,11 @@ bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
 
   sts_entry_cnt = bd_cnt;
   if (sts_entry_cnt < TSI721_DMA_MINSTSSZ) {
-    DBG("\n\tDMA Completion Count too small: %d", bd_cnt);
+    XDBG("\n\tDMA Completion Count too small: %d", bd_cnt);
     sts_entry_cnt = TSI721_DMA_MINSTSSZ;
   }
   if (sts_entry_cnt > max_entry_cnt) {
-    DBG("\n\tDMA Completion Count TOO BIG: %d", bd_cnt);
+    XDBG("\n\tDMA Completion Count TOO BIG: %d", bd_cnt);
     sts_entry_cnt = max_entry_cnt;
   }
 
@@ -524,7 +526,7 @@ bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
 
   m_dmacompl.rio_address = RIO_ANY_ADDR;
   if (!m_mport->map_dma_buf(m_sts_size * 64, m_dmacompl)) {
-    ERR("DMAChannel: Cannot alloc HW mem for DMA completion ring!");
+    XERR("DMAChannel: Cannot alloc HW mem for DMA completion ring!");
     goto exit;
   }
 
@@ -540,7 +542,7 @@ bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
   wr32dmachan(TSI721_DMAC_DSSZ, m_sts_log_two);
 
 #if 0
-  INFO("\n\tDMA compl entries %d bytes=%d @%p HW@0x%llx\n",
+  XINFO("\n\tDMA compl entries %d bytes=%d @%p HW@0x%llx\n",
        m_sts_size, sts_byte_cnt,
        m_dmacompl.win_ptr, m_dmacompl.win_handle);
 #endif
@@ -614,15 +616,15 @@ static inline bool hexdump64bit(const void* p, int len)
     empty = false;
   }
   if(empty) return false;
-  DBG("%s", ss.str().c_str());
+  XDBG("%s", ss.str().c_str());
   return true;
 }
 
 void hexdump4byte(const char* msg, uint8_t* d, int len)
 {
   if(msg != NULL)
-    DBG("%s", msg);
-  DBG("Mem @%p size %d:\n", d, len);
+    XDBG("%s", msg);
+  XDBG("Mem @%p size %d:\n", d, len);
 
    uint32_t tmp = 0;
   for(int i = 0; i < len; i++) {
@@ -631,7 +633,7 @@ void hexdump4byte(const char* msg, uint8_t* d, int len)
  */
     tmp = tmp + ((uint32_t)(d[i]) << (8 * (i%4)));
     if(((i + 1) % 4) == 0) {
-      DBG("%08x\n", tmp);
+      XDBG("%08x\n", tmp);
       tmp = 0;
     }
   }
@@ -652,7 +654,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
 #if 0//def DEBUG
   if(hexdump64bit(m_dmacompl.win_ptr, m_dmacompl.win_size))
-    DBG("\n\tFIFO hw RP=%u WP=%u\n", getFIFOReadCount(), getFIFOWriteCount());
+    XDBG("\n\tFIFO hw RP=%u WP=%u\n", getFIFOReadCount(), getFIFOWriteCount());
 #endif
 
   /* Check and clear descriptor status FIFO entries */
@@ -690,7 +692,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
       const int idx = (compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE; 
 
-      ERR("\n\tFound INVALID completion iten for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+      XERR("\n\tFound INVALID completion iten for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           compl_hwbuf[ci].win_handle,
           idx,
           compl_hwbuf[ci].fifo_offset,
@@ -701,7 +703,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     if((compl_hwbuf[ci].win_handle < m_dmadesc.win_handle) ||
        (compl_hwbuf[ci].win_handle >= HW_END)) {
       pthread_spin_unlock(&m_pending_work_splock);
-      ERR("\n\tCan't find BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+      XERR("\n\tCan't find BD HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
           getFIFOReadCount(), getFIFOWriteCount());
       continue;
@@ -713,7 +715,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     if(idx < 0 || idx >= m_bd_num) {
       pthread_spin_unlock(&m_pending_work_splock);
 
-      ERR("\n\tCan't find bd_idx=%d IN RANGE for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+      XERR("\n\tCan't find bd_idx=%d IN RANGE for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           idx,
           compl_hwbuf[ci].win_handle,
           compl_hwbuf[ci].fifo_offset,
@@ -724,7 +726,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     if(! m_pending_work[idx].valid) {
       pthread_spin_unlock(&m_pending_work_splock);
 
-      ERR("\n\tCan't find VALID entry for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+      XERR("\n\tCan't find VALID entry for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           compl_hwbuf[ci].win_handle,
           compl_hwbuf[ci].fifo_offset,
           getFIFOReadCount(), getFIFOWriteCount());
@@ -740,7 +742,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     if(m_restart_pending) return 0;
 
 #ifdef DEBUG_BD
-    DBG("\n\tFound idx=%d for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+    XDBG("\n\tFound idx=%d for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
         idx,
         compl_hwbuf[ci].win_handle, compl_hwbuf[ci].fifo_offset,
         getFIFOReadCount(), getFIFOWriteCount());
@@ -828,7 +830,7 @@ done:
   m_restart_pending = 0;
   const uint64_t ts_e = rdtsc();
 
-  INFO("dT = %llu TICKS\n", (ts_e - ts_s));
+  XINFO("dT = %llu TICKS\n", (ts_e - ts_s));
 }
 
 /** \brief Simulate FIFO completions; NO errors are injected

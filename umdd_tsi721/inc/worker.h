@@ -74,7 +74,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <map>
 
-#include "dmachan.h"
+#include "dmachanshm.h"
 #include "debug.h"
 #include "dmadesc.h"
 #include "local_endian.h"
@@ -199,7 +199,7 @@ struct worker {
 	uint16_t	my_destid;
 	LockFile*	umd_lock;
 	int		umd_chan; ///< Local mailbox OR DMA channel
-	DMAChannel 	*umd_dch; ///< Used for anything but DMA Tun
+	DMAChannelSHM 	*umd_dch; ///< Used for anything but DMA Tun
 	enum dma_rtype	umd_tx_rtype;
 	uint32_t	umd_tx_buf_cnt;
 	int		umd_sts_entries;
@@ -218,7 +218,7 @@ struct worker {
 	void		(*umd_dma_fifo_callback)(struct worker* info);
 
         RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
-        DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
+        DMAChannelSHM::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 
 	struct seq_ts desc_ts;
 	struct seq_ts fifo_ts;

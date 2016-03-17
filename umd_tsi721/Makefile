@@ -1,6 +1,6 @@
 #----------------------------------------------------------------------------*
-#Copyright (c) 2015, Integrated Device Technology Inc.
-#Copyright (c) 2015, RapidIO Trade Association
+#Copyright (c) 2016, Integrated Device Technology Inc.
+#Copyright (c) 2016, RapidIO Trade Association
 #All rights reserved.
 #
 #Redistribution and use in source and binary forms, with or without modification,
@@ -31,66 +31,61 @@
 
 LOG_LEVEL?=7
 DEBUG?=DEBUG
-CC?= $(CROSS_COMPILE)g++
 CXX?= $(CROSS_COMPILE)g++
+AR?=$(CROSS_COMPILE)ar
 
 config?=NODEBUG
-COMMONDIR=../../common
-UMDDIR=../../umd_tsi721
+COMMONDIR=../common
 LIBMPINCDIR=$(COMMONDIR)/libmport/src
 COMMONINC=$(COMMONDIR)/include
-COMMONLIB=-Wl,-rpath=$(COMMONDIR)/libs_so -L$(COMMONDIR)/libs_so
-REGSDIR=../../fabric_management/librio_switch/inc
+COMMONLIB=$(COMMONDIR)/libs_so
+REGSDIR=../fabric_management/librio_switch/inc
 LOG_LEVEL?=7
 export LOG_LEVEL
 
+LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so
 
-# Kernel-mode flags
-CCFLAGS = -O3 -ggdb -I./inc  -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) \
-	-std=gnu++0x \
-	-Wall -Wno-sign-compare \
-	-pthread -DRDMA_LL=7 -I$(LIBMPINCDIR) -I$(REGSDIR)
+INCLUDES = inc/debug.h inc/dmachan.h inc/dmadesc.h inc/local_endian.h inc/lockfile.h \
+		inc/mapfile.h inc/mboxchan.h inc/mhz.h inc/mport.h inc/pciebar.h \
+		inc/psem.h inc/pshm.h inc/rdtsc.h
+SOURCES = src/crc32.c src/dmachan.cc src/mapfile.cc src/mboxchan.cc src/mport.cc src/psem.cc src/pshm.cc
 
-#CCFLAGS+=-pg
-#CCFLAGS+=-DDEBUG_BD
-#CCFLAGS+=-DDEBUG=2
-#CCFLAGS+=-DMBOX_TUN_DEBUG
-#CCFLAGS+=-DUDMA_TUN_DEBUG
-#CCFLAGS+=-DUDMA_TUN_DEBUG_IB
-#CCFLAGS+=-DUDMA_TUN_DEBUG_IB_BD
-#CCFLAGS+=-DUDMA_TUN_DEBUG_NREAD
-#CCFLAGS+=-DUDMA_TUN_DEBUG_IN
-#CCFLAGS+=-DUDMA_TUN_DEBUG_SPLOCK
-CCFLAGS+=-DUDMA_TUN_DEBUG_HISTO
-#CCFLAGS+=-rdynamic # use with mutrace
-
-INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
-SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
-
-# User-mode only flags
-UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
+CXXFLAGS = -I./inc -I$(REGSDIR) -I$(COMMONINC) \
+	 -std=gnu++0x \
+	 -ggdb -O3 \
+	 -fPIC -shared \
 	 -Wall -Wno-format -Wno-sign-compare -Wno-write-strings \
-	 -DRIO_ANY_ADDR=0 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
+	 -Wno-unused-variable -Wno-unused-but-set-variable \
+	 -DRIO_ANY_ADDR=0 \
 
+#CXXFLAGS+=-pg
+#CXXFLAGS+=-DDEBUG=2
 
-UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc
+LIBRARIES = -lrt -lpthread -ldl -lmport -ltime_utils
 
-LIBRARIES =  -lpthread -ldl -lmport -lcli -ltime_utils -llog -lrt -lumd
+all: libumd.a libumd_nolog.a
 
-all: goodput ugoodput
+libumd.a: $(SOURCES) $(INCLUDES)
+	@rm -f *.o
+	$(CXX) $(CXXFLAGS) -DRDMA_LL=$(LOG_LEVEL) $(SOURCES) -c -L$(COMMONLIB) $(LIBRARIES) -llog
+	$(AR) rcs $@ *.o
+	@rm -f *.o
 
-ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) 
-	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
-	$(COMMONLIB) -L$(UMDDIR) $(LIBRARIES) 
+libumd_nolog.a: $(SOURCES) $(INCLUDES)
+	@rm -f *.o
+	$(CXX) $(CXXFLAGS) $(SOURCES) -c -L$(COMMONLIB) $(LIBRARIES) 
+	$(AR) rcs $@ *.o
+	@rm -f *.o
 
-goodput: $(SOURCES) $(INCLUDES)
-	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(COMMONLIB) -L$(UMDDIR) $(LIBRARIES)
+mboxsample: src/mboxsample.c
+	$(CXX) $(CCFLAGS) $(UMD_FLAGS) \
+		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
+		-DRDMA_LL=$(LOG_LEVEL) \
+		-Wno-unused-variable src/mboxsample.c -o $@ \
+		-L$(COMMONLIB) -L$(UMDDIR) $(LIBRARIES) $(LIBS_RPATH) -lcli -llog -L. -lumd
 
 clean:
-	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out
+	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out mboxsample
 
 FORCE:
-
-logs: FORCE
-	rm -f logs/*.log logs/*.res
 

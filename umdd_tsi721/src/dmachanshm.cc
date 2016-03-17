@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dmadesc.h"
 #include "rdtsc.h"
 #include "debug.h"
-#include "dmachan.h"
+#include "dmachanshm.h"
 #include "libtime_utils.h"
 
 #pragma GCC diagnostic ignored "-fpermissive"
@@ -56,12 +56,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* DMA Status FIFO */
 #define DMA_STATUS_FIFO_LENGTH (4096)
 
-#define DMA_SHM_STATE_NAME	"DMAChannel-state:%d:%d"
+#define DMA_SHM_STATE_NAME	"DMAChannelSHM-state:%d:%d"
 
-#define DMA_SHM_TXDESC_NAME	"DMAChannel-txdesc:%d:%d"
+#define DMA_SHM_TXDESC_NAME	"DMAChannelSHM-txdesc:%d:%d"
 #define DMA_SHM_TXDESC_SIZE	((m_state->bd_num+1)*sizeof(bool) + (m_state->bd_num+1)*sizeof(WorkItem_t))
 
-#define DMA_SHM_PENDINGDATA_NAME "DMAChannels-pendingdata:%d"
+#define DMA_SHM_PENDINGDATA_NAME "DMAChannelSHMs-pendingdata:%d"
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
@@ -72,7 +72,7 @@ static inline pid_t gettid() { return syscall(__NR_gettid); }
 class {
 */
 
-void DMAChannel::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
+void DMAChannelSHM::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
 {
   snprintf(m_shm_bl_name, 128, DMA_SHM_TXDESC_NAME, mportid, chan);
 
@@ -81,7 +81,7 @@ void DMAChannel::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
   m_shm_bl = new POSIXShm(m_shm_bl_name, shm_size, first_opener_bl);
 
   if (first_opener_bl && !m_hw_master)
-    throw std::runtime_error("DMAChannel: First opener for BD shm area even if master is ready!");
+    throw std::runtime_error("DMAChannelSHM: First opener for BD shm area even if master is ready!");
 
   uint8_t* pshm = (uint8_t*)m_shm_bl->getMem();
 
@@ -89,13 +89,13 @@ void DMAChannel::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
   m_pending_work = (WorkItem_t*)(pshm + (m_state->bd_num+1)*sizeof(bool));
 }
 
-void DMAChannel::init(const uint32_t chan)
+void DMAChannelSHM::init(const uint32_t chan)
 {
   umdemo_must_die = 0;
 
   if (chan == 0 || chan >= DMA_MAX_CHAN) { // DMA CHAN 0 reserved by kernel for main writes
     static char tmp[67] = {0};
-    snprintf(tmp, 128, "DMAChannel: Init called with invalid channel %u\n", chan);
+    snprintf(tmp, 128, "DMAChannelSHM: Init called with invalid channel %u\n", chan);
     throw std::runtime_error(tmp);
   }
   memset(m_shm_bl_name, 0, sizeof(m_shm_bl_name));
@@ -140,15 +140,15 @@ void DMAChannel::init(const uint32_t chan)
 
     // Check readiness of master
     if (m_state->hw_ready < 2)
-      throw std::runtime_error("DMAChannel: HW not reported as ready by master instance!");
+      throw std::runtime_error("DMAChannelSHM: HW not reported as ready by master instance!");
 
     if (m_state->bd_num == 0)
-      throw std::runtime_error("DMAChannel: alloc_dmatxdesc not called yet in master instance! #1");
+      throw std::runtime_error("DMAChannelSHM: alloc_dmatxdesc not called yet in master instance! #1");
     if (m_state->dmadesc_win_handle == 0 || m_state->dmadesc_win_size == 0)
-      throw std::runtime_error("DMAChannel: alloc_dmatxdesc not called yet in master instance! #2");
+      throw std::runtime_error("DMAChannelSHM: alloc_dmatxdesc not called yet in master instance! #2");
 
     if (m_state->sts_size == 0)
-      throw std::runtime_error("DMAChannel: alloc_dmacompldesc not called yet in master instance!");
+      throw std::runtime_error("DMAChannelSHM: alloc_dmacompldesc not called yet in master instance!");
 
     open_txdesc_shm(m_mportid, chan);
 
@@ -158,7 +158,7 @@ void DMAChannel::init(const uint32_t chan)
     int ret = riomp_dma_map_memory(m_mp_hd, m_dmadesc.win_size, m_dmadesc.win_handle, &m_dmadesc.win_ptr);
     if (ret) {
       XCRIT("FAIL riomp_dma_map_memory: %d:%s\n", ret, strerror(ret));
-      throw std::runtime_error("DMAChannel: Bad BD linear address!");
+      throw std::runtime_error("DMAChannelSHM: Bad BD linear address!");
     }
     m_dmadesc.type = RioMport::DMAMEM;
 
@@ -176,7 +176,7 @@ void DMAChannel::init(const uint32_t chan)
     pthread_spin_unlock(&m_state->client_splock);
 
     if (m_cliidx < 0)
-      throw std::runtime_error("DMAChannel: Client array is full!");
+      throw std::runtime_error("DMAChannelSHM: Client array is full!");
 
     return;
   }
@@ -207,10 +207,10 @@ void DMAChannel::init(const uint32_t chan)
   memset(m_state->client_completion, 0, sizeof(m_state->client_completion));
 }
 
-DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan) : m_state(NULL)
+DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan) : m_state(NULL)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
-    throw std::runtime_error("DMAChannel: Invalid channel!");
+    throw std::runtime_error("DMAChannelSHM: Invalid channel!");
 
   m_mportid = mportid;
 
@@ -222,12 +222,12 @@ DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan) : m_state(NU
   m_state->chan  = chan;
 }
 
-DMAChannel::DMAChannel(const uint32_t mportid,
+DMAChannelSHM::DMAChannelSHM(const uint32_t mportid,
                        const uint32_t chan,
                        riomp_mport_t mp_hd) : m_state(NULL)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
-    throw std::runtime_error("DMAChannel: Invalid channel!");
+    throw std::runtime_error("DMAChannelSHM: Invalid channel!");
 
   m_mp_hd = mp_hd;
   m_mportid = mportid;
@@ -238,7 +238,7 @@ DMAChannel::DMAChannel(const uint32_t mportid,
   m_state->chan  = chan;
 }
 
-DMAChannel::~DMAChannel()
+DMAChannelSHM::~DMAChannelSHM()
 {
   shutdown();
 
@@ -263,7 +263,7 @@ char* dma_rtype_str[] = {
   NULL
 };
 
-bool DMAChannel::dmaIsRunning()
+bool DMAChannelSHM::dmaIsRunning()
 {
   // XXX What about sim mode?
  
@@ -272,10 +272,10 @@ bool DMAChannel::dmaIsRunning()
   return false;
 }
 
-void DMAChannel::resetHw()
+void DMAChannelSHM::resetHw()
 {
   if (!m_hw_master)
-    throw std::runtime_error("DMAChannel: Will not reset HW in non-master instance!");
+    throw std::runtime_error("DMAChannelSHM: Will not reset HW in non-master instance!");
 
   m_sim_abort_reason = 0;
   m_sim_err_stat     = 0;
@@ -300,7 +300,7 @@ void DMAChannel::resetHw()
   wr32dmachan(TSI721_DMAC_DWRCNT, m_state->dma_wr);
 }
 
-void DMAChannel::setInbound()
+void DMAChannelSHM::setInbound()
 {
   // Enable inbound window and disable PHY error checking
   uint32_t reg = m_mport->rd32(TSI721_RIO_SP_CTL);
@@ -310,7 +310,7 @@ void DMAChannel::setInbound()
 /** \brief Decode to ASCII a DMA engine error
  * \note Do not call this if no error occured -- use \ref dmaCheckAbort to check first
  */
-const char* DMAChannel::abortReasonToStr(const uint32_t abort_reason)
+const char* DMAChannelSHM::abortReasonToStr(const uint32_t abort_reason)
 {
   switch (abort_reason) {
     case 0:  return "No abort"; break;
@@ -327,7 +327,7 @@ const char* DMAChannel::abortReasonToStr(const uint32_t abort_reason)
 /**
  * \return Contents of TSI721_DMAC_INT
  */
-uint32_t DMAChannel::clearIntBits()
+uint32_t DMAChannelSHM::clearIntBits()
 {
    wr32dmachan(TSI721_DMAC_INT, TSI721_DMAC_INT_ALL);
    uint32_t reg = rd32dmachan(TSI721_DMAC_INT);
@@ -341,10 +341,10 @@ uint32_t DMAChannel::clearIntBits()
  * \param[out] abort_reason HW reason for DMA abort if function returned false
  * \return true if buffer enqueued, false if queue full or HW error -- check abort_reason
  */
-bool DMAChannel::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
+bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
 {
   if (m_state->hw_ready < 2)
-    throw std::runtime_error("DMAChannel: HW is not ready!");
+    throw std::runtime_error("DMAChannelSHM: HW is not ready!");
 
   if (m_state->restart_pending) return false;
 
@@ -514,13 +514,13 @@ bool DMAChannel::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMport
   return true;
 }
 
-bool DMAChannel::alloc_dmamem(const uint32_t size, RioMport::DmaMem_t& mem)
+bool DMAChannelSHM::alloc_dmamem(const uint32_t size, RioMport::DmaMem_t& mem)
 {
   if(size > SIXTYFOURMEG) return false;
 
   mem.rio_address = RIO_ANY_ADDR;
   if(! m_mport->map_dma_buf(size, mem))
-    throw std::runtime_error("DMAChannel: Cannot alloc HW mem for DMA transfers!");
+    throw std::runtime_error("DMAChannelSHM: Cannot alloc HW mem for DMA transfers!");
 
   assert(mem.win_ptr);
 
@@ -528,15 +528,15 @@ bool DMAChannel::alloc_dmamem(const uint32_t size, RioMport::DmaMem_t& mem)
   
   return true;
 }
-bool DMAChannel::free_dmamem(RioMport::DmaMem_t& mem)
+bool DMAChannelSHM::free_dmamem(RioMport::DmaMem_t& mem)
 {
    return m_mport->unmap_dma_buf(mem);
 }
 
-bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
+bool DMAChannelSHM::alloc_dmatxdesc(const uint32_t bd_cnt)
 {
   if (!m_hw_master)
-    throw std::runtime_error("DMAChannel: Will not alloc HW BD mem for DMA transfers in non-master instance!");
+    throw std::runtime_error("DMAChannelSHM: Will not alloc HW BD mem for DMA transfers in non-master instance!");
 
   int size = (bd_cnt+1) * DMA_BUFF_DESCR_SIZE; 
 
@@ -547,7 +547,7 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 
   m_dmadesc.rio_address = RIO_ANY_ADDR;
   if(! m_mport->map_dma_buf(size, m_dmadesc)) {
-    XCRIT("DMAChannel: Cannot alloc DMA TX ring descriptors!");
+    XCRIT("DMAChannelSHM: Cannot alloc DMA TX ring descriptors!");
     return false;
   }
 
@@ -608,7 +608,7 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
   return true;
 }
 
-void DMAChannel::free_dmatxdesc()
+void DMAChannelSHM::free_dmatxdesc()
 {
   // XXX What if hw master is not last user?
   if (!m_hw_master) return;
@@ -686,10 +686,10 @@ static inline unsigned long __fls(unsigned long word)
   return num;
 }
 
-bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
+bool DMAChannelSHM::alloc_dmacompldesc(const uint32_t bd_cnt)
 {
   if (!m_hw_master)
-    throw std::runtime_error("DMAChannel: Will not alloc HW mem for DMA FIFO in non-master instance!");
+    throw std::runtime_error("DMAChannelSHM: Will not alloc HW mem for DMA FIFO in non-master instance!");
 
   bool rc = false;
   uint64_t sts_entry_cnt = 0;
@@ -719,7 +719,7 @@ bool DMAChannel::alloc_dmacompldesc(const uint32_t bd_cnt)
 
   m_dmacompl.rio_address = RIO_ANY_ADDR;
   if (!m_mport->map_dma_buf(m_state->sts_size * 64, m_dmacompl)) {
-    XERR("DMAChannel: Cannot alloc HW mem for DMA completion ring!");
+    XERR("DMAChannelSHM: Cannot alloc HW mem for DMA completion ring!");
     goto exit;
   }
 
@@ -746,7 +746,7 @@ exit:
   return rc;
 }
 
-void DMAChannel::free_dmacompldesc()
+void DMAChannelSHM::free_dmacompldesc()
 {
   // XXX What if hw master is not last user?
   if (!m_hw_master) return;
@@ -755,7 +755,7 @@ void DMAChannel::free_dmacompldesc()
   m_mport->unmap_dma_buf(m_dmacompl);
 }
 
-void DMAChannel::shutdown()
+void DMAChannelSHM::shutdown()
 {
   umdemo_must_die = 1;
 
@@ -768,7 +768,7 @@ void DMAChannel::shutdown()
   pthread_spin_unlock(&m_state->bl_splock);
 };
 
-void DMAChannel::cleanup()
+void DMAChannelSHM::cleanup()
 {
   assert(m_state);
 
@@ -807,7 +807,7 @@ void DMAChannel::cleanup()
   cleanupSHM();
 }
 
-void DMAChannel::cleanupSHM()
+void DMAChannelSHM::cleanupSHM()
 {
   if (!m_hw_master) return;
 
@@ -857,13 +857,13 @@ void hexdump4byte(const char* msg, uint8_t* d, int len)
 /** \brief DMA Channel FIFO scanner
  * \param[out] completed_work list of completed \ref WorkItem_t
  * \param max_work max number of items; should be STS_SIZE*8
- * \param force_scan DO NOT USE this outside DMAChannel class
+ * \param force_scan DO NOT USE this outside DMAChannelSHM class
  * \return Number of completed items
  */
-int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const int force_scan)
+int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, const int force_scan)
 {
   if (!m_hw_master)
-    throw std::runtime_error("DMAChannel: Will not scan DMA FIFO in non-master instance!");
+    throw std::runtime_error("DMAChannelSHM: Will not scan DMA FIFO in non-master instance!");
 
   if(m_state->restart_pending && !force_scan) return 0;
 
@@ -1081,13 +1081,13 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work, const i
  * \param nuke_bds Do a clean slate restart, everything is zero'ed
  * \note IF nuke_bds==false THEN the current DMA WP is reprogrammed with the expectation that the list of BDs was cleaned by \ref cleanupBDQueue
  */
-void DMAChannel::softRestart(const bool nuke_bds)
+void DMAChannelSHM::softRestart(const bool nuke_bds)
 {
   if (!m_hw_master)
-    throw std::runtime_error("DMAChannel: Will not restart DMA channel in non-master instance!");
+    throw std::runtime_error("DMAChannelSHM: Will not restart DMA channel in non-master instance!");
 
   if (m_state->hw_ready < 2)
-    throw std::runtime_error("DMAChannel: UMDd/SHM master is not ready [HW not fully initialised} OR not running!");
+    throw std::runtime_error("DMAChannelSHM: UMDd/SHM master is not ready [HW not fully initialised} OR not running!");
 
   const uint64_t ts_s = rdtsc();
   m_state->restart_pending = !!ts_s;
@@ -1170,10 +1170,10 @@ done:
  * \param fault_bmask Which fault registers to fake
  * \return How many BDs have been processed (but not necessarily reported in FIFO)
  */
-int DMAChannel::simFIFO(const int max_bd, const uint32_t fault_bmask)
+int DMAChannelSHM::simFIFO(const int max_bd, const uint32_t fault_bmask)
 {
   if (!m_sim)
-    throw std::runtime_error("DMAChannel: Simulation was not flagged!");
+    throw std::runtime_error("DMAChannelSHM: Simulation was not flagged!");
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Waddress"
@@ -1295,7 +1295,7 @@ move_fifo_wp:
   return bd_cnt;
 }
 
-void DMAChannel::dumpBDs(std::string& s)
+void DMAChannelSHM::dumpBDs(std::string& s)
 {
   std::stringstream ss;
   for (int idx = 0; idx < m_state->bd_num; idx++) {
@@ -1315,10 +1315,10 @@ void DMAChannel::dumpBDs(std::string& s)
  * \param multithreaded_fifo Hints whether we should expect another (isolcpu) thread to run scanFIFO and reap the results
  * \return Count of pending BDs left after cleanup
  */
-int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
+int DMAChannelSHM::cleanupBDQueue(bool multithreaded_fifo)
 {
   if (!m_hw_master)
-    throw std::runtime_error("DMAChannel: Will clean up BD queue in non-master instance!");
+    throw std::runtime_error("DMAChannelSHM: Will clean up BD queue in non-master instance!");
 
   int pending = 0;
 
@@ -1366,7 +1366,7 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 
 // Nope, wasn't. DIY scanFIFO
   if (! multithreaded_fifo || fifo_scan_cnt == m_fifo_scan_cnt) { // Run FIFO scanner ourselves
-    DMAChannel::WorkItem_t wi[m_state->sts_size*8]; memset(wi, 0, sizeof(wi));
+    DMAChannelSHM::WorkItem_t wi[m_state->sts_size*8]; memset(wi, 0, sizeof(wi));
     int tmp = m_state->restart_pending;
     m_state->restart_pending = 1; // Tell scanFIFO running from other thread to back off
     scanFIFO(wi, m_state->sts_size*8, 1 /*force_scan*/);
@@ -1445,12 +1445,12 @@ int DMAChannel::cleanupBDQueue(bool multithreaded_fifo)
 /** \brief Check whether the transaction associated with this ticket has completed
  * \note It could be completed or in error, true is returned anyways
  */
-DMAChannel::TicketState_t DMAChannel::checkTicket(const DmaOptions_t& opt)
+DMAChannelSHM::TicketState_t DMAChannelSHM::checkTicket(const DmaOptions_t& opt)
 {
   assert(m_state);
 
   if (opt.ticket == 0 || opt.ticket > m_state->serial_number)
-    throw std::runtime_error("DMAChannel: Invalid ticket!");
+    throw std::runtime_error("DMAChannelSHM: Invalid ticket!");
 
   if (rdtsc() < opt.not_before) return INPROGRESS;
 
@@ -1477,114 +1477,114 @@ DMAChannel::TicketState_t DMAChannel::checkTicket(const DmaOptions_t& opt)
 
 extern "C" {
 
-void* DMAChannel_create(const uint32_t mportid, const uint32_t chan)
+void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan)
 {
-  return new DMAChannel(mportid, chan);
+  return new DMAChannelSHM(mportid, chan);
 }
-void DMAChannel_destroy(void* dch)
+void DMAChannelSHM_destroy(void* dch)
 {
-  if (dch != NULL) delete (DMAChannel*)dch;
+  if (dch != NULL) delete (DMAChannelSHM*)dch;
 }
 
-int DMAChannel_pingMaster(void* dch)
+int DMAChannelSHM_pingMaster(void* dch)
 {
-  if (dch != NULL) return ((DMAChannel*)dch)->pingMaster();
+  if (dch != NULL) return ((DMAChannelSHM*)dch)->pingMaster();
   else return 0;
 }
 
-int DMAChannel_checkPortOK(void* dch)
+int DMAChannelSHM_checkPortOK(void* dch)
 {
-  if (dch != NULL) return ((DMAChannel*)dch)->checkPortOK();
+  if (dch != NULL) return ((DMAChannelSHM*)dch)->checkPortOK();
   else return 0;
 }
-int DMAChannel_dmaCheckAbort(void* dch, uint32_t* abort_reason)
+int DMAChannelSHM_dmaCheckAbort(void* dch, uint32_t* abort_reason)
 {
   if (dch == NULL || abort_reason == NULL) return 0;
 
   uint32_t ar = 0;
-  const bool r = ((DMAChannel*)dch)->dmaCheckAbort(ar);
+  const bool r = ((DMAChannelSHM*)dch)->dmaCheckAbort(ar);
   *abort_reason = ar;
 
   return r;
 }
-uint16_t DMAChannel_getDestId(void* dch)
+uint16_t DMAChannelSHM_getDestId(void* dch)
 {
   if (dch == NULL) return 0xFFFF;
-  return ((DMAChannel*)dch)->getDestId();
+  return ((DMAChannelSHM*)dch)->getDestId();
 }
 
-int DMAChannel_queueSize(void* dch)
+int DMAChannelSHM_queueSize(void* dch)
 {
   if (dch == NULL) return -EINVAL;
-  return ((DMAChannel*)dch)->queueSize();
+  return ((DMAChannelSHM*)dch)->queueSize();
 }
-int DMAChannel_queueFull(void* dch)
+int DMAChannelSHM_queueFull(void* dch)
 {
   if (dch == NULL) return -EINVAL;
-  return ((DMAChannel*)dch)->queueFull();
+  return ((DMAChannelSHM*)dch)->queueFull();
 }
-uint64_t DMAChannel_getBytesEnqueued(void* dch)
+uint64_t DMAChannelSHM_getBytesEnqueued(void* dch)
 {
   if (dch == NULL) return 0;
-  return ((DMAChannel*)dch)->getBytesEnqueued();
+  return ((DMAChannelSHM*)dch)->getBytesEnqueued();
 }
-uint64_t DMAChannel_getBytesTxed(void* dch)
+uint64_t DMAChannelSHM_getBytesTxed(void* dch)
 {
   if (dch == NULL) return 0;
-  return ((DMAChannel*)dch)->getBytesTxed();
+  return ((DMAChannelSHM*)dch)->getBytesTxed();
 }
 
-int DMAChannel_dequeueFaultedTicket(void* dch, uint64_t* tik)
+int DMAChannelSHM_dequeueFaultedTicket(void* dch, uint64_t* tik)
 {
   if (dch == NULL || tik == NULL) return -EINVAL;
 
   uint64_t t = 0;
-  const bool r = ((DMAChannel*)dch)->dequeueFaultedTicket(t);
+  const bool r = ((DMAChannelSHM*)dch)->dequeueFaultedTicket(t);
   *tik = t;
   return r;
 }
-int DMAChannel_dequeueDmaNREADT2(void* dch, DMAChannel::NREAD_Result_t* res)
+int DMAChannelSHM_dequeueDmaNREADT2(void* dch, DMAChannelSHM::NREAD_Result_t* res)
 {
   if (dch == NULL || res == NULL) return -EINVAL;
 
-  DMAChannel::NREAD_Result_t rr;
-  const bool r = ((DMAChannel*)dch)->dequeueDmaNREADT2(rr);
+  DMAChannelSHM::NREAD_Result_t rr;
+  const bool r = ((DMAChannelSHM*)dch)->dequeueDmaNREADT2(rr);
   *res = rr;
   return r;
 }
 
-int DMAChannel_checkTicket(void* dch, const DMAChannel::DmaOptions_t* opt)
+int DMAChannelSHM_checkTicket(void* dch, const DMAChannelSHM::DmaOptions_t* opt)
 {
   if (dch == NULL || opt == NULL) return -EINVAL;
 
-  return ((DMAChannel*)dch)->checkTicket(*opt);
+  return ((DMAChannelSHM*)dch)->checkTicket(*opt);
 }
 
-int DMAChannel_queueDmaOpT1(void* dch, enum dma_rtype rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p)
+int DMAChannelSHM_queueDmaOpT1(void* dch, enum dma_rtype rtype, DMAChannelSHM::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p)
 {
   if (dch == NULL || opt == NULL || mem == NULL || abort_reason == NULL) return -EINVAL;
 
   uint32_t ar = 0;
-  const bool r = ((DMAChannel*)dch)->queueDmaOpT1(rtype, *opt, *mem, ar, ts_p);
+  const bool r = ((DMAChannelSHM*)dch)->queueDmaOpT1(rtype, *opt, *mem, ar, ts_p);
   *abort_reason = ar;
   return r;
 }
-int DMAChannel_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p)
+int DMAChannelSHM_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannelSHM::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p)
 {
   if (dch == NULL || opt == NULL || data == NULL || data_len < 1 || abort_reason == NULL) return -EINVAL;
 
   uint32_t ar = 0;
-  const bool r = ((DMAChannel*)dch)->queueDmaOpT2(rtype, *opt, data, data_len, ar, ts_p);
+  const bool r = ((DMAChannelSHM*)dch)->queueDmaOpT2(rtype, *opt, data, data_len, ar, ts_p);
   *abort_reason = ar;
   return r;
 }
 
-void DMAChannel_getShmPendingData(void* dch, uint64_t* total, DMAChannel::DmaShmPendingData_t* per_client)
+void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client)
 {
   if (dch == NULL || total == NULL) return;
 
-  DMAChannel::DmaShmPendingData_t perc;
-  ((DMAChannel*)dch)->getShmPendingData(*total, perc);
+  DMAChannelSHM::DmaShmPendingData_t perc;
+  ((DMAChannelSHM*)dch)->getShmPendingData(*total, perc);
 
   if (per_client != NULL) *per_client = perc;
 }

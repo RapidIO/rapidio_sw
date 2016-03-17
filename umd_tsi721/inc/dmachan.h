@@ -309,7 +309,7 @@ public:
   inline uint32_t getWP() { return m_dma_wr; }
 
 private:
-  int umdemo_must_die = 0;
+  int umdemo_must_die;
   bool                m_sim;        ///< Simulation: do not progtam HW with linear addrs of FIFO and BD array; do not read HW regs
   uint32_t            m_sim_dma_rp; ///< Simulated Tsi721 RP
   uint32_t            m_sim_fifo_wp; ///< Simulated Tsi721 FIFO WP

@@ -45,12 +45,8 @@
 /**
  * @brief mport opaque handle structure
  */
-struct rapidio_mport_handle {
-	int fd;				/**< posix api compatible fd to be used with poll/select */
-	void* dch;
-	void* stats;                    /**< Pointer to statistics gathering back door for driver... */
-	volatile uint32_t cookie_cutter; // XXX THIS STINKS but the API wants 32-bit!!
-	std::map <uint64_t, DMAChannel::DmaOptions_t> asyncm;
-};
+struct rapidio_mport_handle;
 
+void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd);
+void riomp_mgmt_mport_set_stats(struct rapidio_mport_handle* hnd, void* stats);
 

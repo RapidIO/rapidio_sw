@@ -73,7 +73,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mhz.h"
 
 #ifdef USER_MODE_DRIVER
-#include "dmachan.h"
+#include "dmachanshm.h"
 #include "lockfile.h"
 #endif
 
@@ -416,7 +416,7 @@ void UMD_DD(struct worker* info)
 	if (ab.size() > 0)
 		INFO("\n\tcheckAbort stats: %s\n", ab.c_str());
 
-	DMAChannel::ShmClientCompl_t comp[DMAChannel::DMA_SHM_MAX_CLIENTS];
+	DMAChannelSHM::ShmClientCompl_t comp[DMAChannelSHM::DMA_SHM_MAX_CLIENTS];
 	memset(&comp, 0, sizeof(comp));
 
 	if (info->umd_fifo_total_ticks_count > 0) {
@@ -424,7 +424,7 @@ void UMD_DD(struct worker* info)
 		INFO("\n\tFIFO Avg TX %f uS cnt=%llu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
 	}
 	info->umd_dch->listClients(&comp[0], sizeof(comp));
-	for (int i = 0; i < DMAChannel::DMA_SHM_MAX_CLIENTS; i++) {
+	for (int i = 0; i < DMAChannelSHM::DMA_SHM_MAX_CLIENTS; i++) {
 		if (! comp[i].busy) continue;
 		INFO("\n\tpid=%d%s change_cnt=%llu bad_tik.{RP=%llu WP=%llu} NREAD_T2_res.{RP=%llu WP=%llu} EnqBy=%llu TXdBy=%llu\n",
 		     comp[i].owner_pid, (kill(comp[i].owner_pid,0)? " DEAD": ""),
@@ -491,9 +491,9 @@ void umd_shm_goodput_demo(struct worker *info)
 
 	info->owner_func = umd_shm_goodput_demo;
 
-        info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
+        info->umd_dch = new DMAChannelSHM(info->mp_num, info->umd_chan, info->mp_h);
         if (NULL == info->umd_dch) {
-                CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+                CRIT("\n\tDMAChannelSHM alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan, info->mp_num, info->mp_h);
                 goto exit;
         };
@@ -528,7 +528,7 @@ void umd_shm_goodput_demo(struct worker *info)
 		info->umd_dch->getDestId(),
 		info->umd_tx_buf_cnt, info->umd_sts_entries);
 
-        DMAChannel::WorkItem_t wi[info->umd_sts_entries*8];
+        DMAChannelSHM::WorkItem_t wi[info->umd_sts_entries*8];
         memset(wi, 0, sizeof(wi));
 
 	clock_gettime(CLOCK_MONOTONIC, &info->iter_st_time);
@@ -541,7 +541,7 @@ void umd_shm_goodput_demo(struct worker *info)
                 clock_gettime(CLOCK_MONOTONIC, &info->fifo_work_time);
 
                 for (int i = 0; i < cnt; i++) {
-                        DMAChannel::WorkItem_t& item = wi[i];
+                        DMAChannelSHM::WorkItem_t& item = wi[i];
 
                         switch (item.opt.dtype) {
                         case DTYPE1:
@@ -596,7 +596,7 @@ check_abort=0;
 
 		if (check_abort && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) {
 			CRIT("\n\tDMA abort 0x%x: %s. SOFT RESTART\n", info->umd_dma_abort_reason,
-			     DMAChannel::abortReasonToStr(info->umd_dma_abort_reason));
+			     DMAChannelSHM::abortReasonToStr(info->umd_dma_abort_reason));
 			info->umd_dch->softRestart(true);
 		}
         } // END while
@@ -635,9 +635,9 @@ void umd_dma_goodput_demo(struct worker *info)
 
 	const uint32_t Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
-	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
+	info->umd_dch = new DMAChannelSHM(info->mp_num, info->umd_chan, info->mp_h);
 	if (NULL == info->umd_dch) {
-		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+		CRIT("\n\tDMAChannelSHM alloc FAIL: chan %d mp_num %d hnd %x",
 			info->umd_chan, info->mp_num, info->mp_h);
 		goto exit;
 	};
@@ -783,7 +783,7 @@ static inline bool queueDmaOp(struct worker* info, const int oi, const int cnt, 
 			CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
 			CRIT("DMA abort %x: %s\n",
 				info->umd_dma_abort_reason,
-				DMAChannel::abortReasonToStr(
+				DMAChannelSHM::abortReasonToStr(
 				info->umd_dma_abort_reason));
 			goto exit;
 		}
@@ -854,11 +854,11 @@ static inline bool umd_dma_goodput_latency_demo_SLAVE(struct worker *info, const
         }
 
         for (; !info->stop_req; ) {
-                const DMAChannel::TicketState_t st = info->umd_dch->checkTicket(info->dmaopt[oi]);
-                if (st == DMAChannel::COMPLETED) break;
-                //if (st == DMAChannel::INPROGRESS) continue;
+                const DMAChannelSHM::TicketState_t st = info->umd_dch->checkTicket(info->dmaopt[oi]);
+                if (st == DMAChannelSHM::COMPLETED) break;
+                //if (st == DMAChannelSHM::INPROGRESS) continue;
 
-                if (st == DMAChannel::BORKED) {
+                if (st == DMAChannelSHM::BORKED) {
                         CRIT("\n\tTicket %llu status BORKED (%d)\n", info->dmaopt[oi].ticket, st);
                         return false;
                 }
@@ -900,11 +900,11 @@ static inline bool umd_dma_goodput_latency_demo_MASTER(struct worker *info, cons
 	}
 
 	for (; !info->stop_req; ) {
-		const DMAChannel::TicketState_t st = info->umd_dch->checkTicket(info->dmaopt[oi]);
-		if (st == DMAChannel::COMPLETED) break;
-		//if (st == DMAChannel::INPROGRESS) continue;
+		const DMAChannelSHM::TicketState_t st = info->umd_dch->checkTicket(info->dmaopt[oi]);
+		if (st == DMAChannelSHM::COMPLETED) break;
+		//if (st == DMAChannelSHM::INPROGRESS) continue;
 		
-		if (st == DMAChannel::BORKED) {
+		if (st == DMAChannelSHM::BORKED) {
 			CRIT("\n\tTicket %llu status BORKED\n", info->dmaopt[oi].ticket);
 			return false;
 		}
@@ -945,9 +945,9 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 	//info->owner_func = (void*)umd_dma_goodput_latency_demo;
 
-	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
+	info->umd_dch = new DMAChannelSHM(info->mp_num, info->umd_chan, info->mp_h);
 	if (NULL == info->umd_dch) {
-		CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+		CRIT("\n\tDMAChannelSHM alloc FAIL: chan %d mp_num %d hnd %x",
 			info->umd_chan, info->mp_num, info->mp_h);
 		goto exit;
 	};
@@ -1024,7 +1024,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
                                         info->umd_dma_abort_reason)) {
                                         CRIT("\n\tDMA abort %x: %s\n",
                                                 info->umd_dma_abort_reason,
-                                                DMAChannel::abortReasonToStr(
+                                                DMAChannelSHM::abortReasonToStr(
                                                 info->umd_dma_abort_reason));
                                 }
 				{{
@@ -1041,10 +1041,10 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 				}}
 			}
 
-			std::vector<DMAChannel::NREAD_Result_t> results;
+			std::vector<DMAChannelSHM::NREAD_Result_t> results;
 			if (info->acc_size <= 16) {
 				for (;;) {
-					DMAChannel::NREAD_Result_t res;
+					DMAChannelSHM::NREAD_Result_t res;
 					if (!info->umd_dch->dequeueDmaNREADT2(res)) break;
 					assert(res.ticket);
 					results.push_back(res);
@@ -1054,7 +1054,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
                 	finish_iter_stats(info);
 
 			if (7 <= g_level && results.size() > 0) { // DEBUG
-				std::vector<DMAChannel::NREAD_Result_t>::iterator it = results.begin();
+				std::vector<DMAChannelSHM::NREAD_Result_t>::iterator it = results.begin();
 				for (; it != results.end(); it++) {
 					std::stringstream ss;
 					for(int i = 0; i < 16; i++) {
