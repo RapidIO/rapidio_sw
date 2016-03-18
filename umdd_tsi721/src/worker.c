@@ -592,7 +592,7 @@ void umd_shm_goodput_demo(struct worker *info)
 		} while(0);
 
 		if (check_abort) info->check_abort_stats[(int)check_abort]++;
-check_abort=0;
+//check_abort=0;
 
 		if (check_abort && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) {
 			CRIT("\n\tDMA abort 0x%x: %s. SOFT RESTART\n", info->umd_dma_abort_reason,
@@ -780,8 +780,7 @@ static inline bool queueDmaOp(struct worker* info, const int oi, const int cnt, 
 	}
 	if (! rr) {
 		if(info->umd_dma_abort_reason != 0) {
-			CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d\n", cnt, oi);
-			CRIT("DMA abort %x: %s\n",
+			CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d DMA abort %x: %s\n", cnt, oi,
 				info->umd_dma_abort_reason,
 				DMAChannelSHM::abortReasonToStr(
 				info->umd_dma_abort_reason));
@@ -1137,15 +1136,10 @@ void umd_dma_goodput_testbed(struct worker* info)
 		info->dmamem[i] = info->dmamem[0];
         };
 
-        info->tick_data_total = 0;
-	info->tick_count = info->tick_total = 0;
-
         if (!info->umd_dch->checkPortOK()) {
 		CRIT("\n\tPort is not OK!!! Exiting...");
 		goto exit;
 	};
-
-	zero_stats(info);
 
 	if (GetEnv((char *)"verb") != NULL) {
 		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
@@ -1156,23 +1150,28 @@ void umd_dma_goodput_testbed(struct worker* info)
 
 	if (info->ib_ptr != NULL) memset(info->ib_ptr, 0, info->acc_size);
 
-	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+	{{
+	const int N = GetDecParm((char*)"$simnr", 0) + 1;
+	const int M = GetDecParm((char*)"$simnw", 0);
+
+	if (GetDecParm((char*)"$checkreg", 0)) info->umd_dch->setCheckHwReg(true);
 
 	// TX Loop
 	for (cnt = 0; !info->stop_req; cnt++) {
-		info->dmaopt[oi].destid      = info->did;
-		info->dmaopt[oi].bcount      = info->acc_size;
-		info->dmaopt[oi].raddr.lsb64 = info->rio_addr;
-
 		if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = __LINE__; break; }
 
 		bool q_was_full = false;
 
-		const int N = GetDecParm((char*)"$simnr", 0) + 1;
-		const int M = GetDecParm((char*)"$simnw", 0);
-
 		// Can we recover/replay BD at sim+1 ?
 		for (int i = 0; !q_was_full && i < N; i++) {
+			info->dmaopt[oi].destid      = info->did;
+			info->dmaopt[oi].bcount      = info->acc_size;
+			info->dmaopt[oi].raddr.lsb64 = info->rio_addr;
+
+			DBG("\n\tEnq rtype=%d did=%u acc_size=0x%x rio_addr=0x%llx\n",
+			    info->umd_tx_rtype, info->dmaopt[oi].destid,
+			    info->dmaopt[oi].bcount, info->dmaopt[oi].raddr.lsb64);
+
 			if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
 
 			// Wrap around, do no overwrite last buffer entry
@@ -1185,10 +1184,21 @@ void umd_dma_goodput_testbed(struct worker* info)
 			for (int j = 0; j < M; j++) {
 				if (info->stop_req) goto exit;
 
+				info->dmaopt[oi].destid      = info->did;
+				info->dmaopt[oi].raddr.lsb64 = info->rio_addr;
+
 				info->dmaopt[oi].bcount = 0x20;
 
 				info->umd_dch->queueDmaOpT1(LAST_NWRITE_R, info->dmaopt[oi], info->dmamem[oi],
 							    info->umd_dma_abort_reason, &info->meas_ts);
+				if(info->umd_dma_abort_reason != 0) {
+					CRIT("\n\tCould not enqueue T1 cnt=%d oi=%d DMA abort %x: %s\n", cnt, oi,
+						info->umd_dma_abort_reason,
+						DMAChannelSHM::abortReasonToStr(
+						info->umd_dma_abort_reason));
+					goto exit;
+				}
+
 				// Wrap around, do no overwrite last buffer entry
 				oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
 
@@ -1258,6 +1268,7 @@ void umd_dma_goodput_testbed(struct worker* info)
 
 		if (info->stop_req) goto exit;
 	} // END for infinite transmit
+	}} // FKK GCC
 
 exit:
 	// Only allocatd one DMA buffer for performance reasons
