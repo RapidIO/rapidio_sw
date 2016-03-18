@@ -112,6 +112,7 @@ enum req_type {
 	umd_dmaltx,
 	umd_dmalrx,
 	umd_dmalnr,
+	umd_dmatest,
 #endif
 	last_action
 };

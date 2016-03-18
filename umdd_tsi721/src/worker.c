@@ -1100,6 +1100,173 @@ exit:
 	catch(std::runtime_error ex) {}
 }
 
+/** \brief UMD SHM Testbed for BD ordering. Possible broken code.
+ * \param[in] info
+ */
+void umd_dma_goodput_testbed(struct worker* info)
+{
+	uint32_t oi = 0;
+	uint64_t cnt = 0;
+	int iter = 0;
+
+	info->umd_dch = new DMAChannelSHM(info->mp_num, info->umd_chan, info->mp_h);
+	if (NULL == info->umd_dch) {
+		CRIT("\n\tDMAChannelSHM alloc FAIL: chan %d mp_num %d hnd %x",
+			info->umd_chan, info->mp_num, info->mp_h);
+		goto exit;
+	};
+
+        if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
+                CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
+                goto exit;
+        }
+
+        memset(info->dmamem, 0, sizeof(info->dmamem));
+        memset(info->dmaopt, 0, sizeof(info->dmaopt));
+
+	// Reduce number of allocated buffers to 1 to allow
+	// more transactions to be sent with a larger ring.
+        if (!info->umd_dch->alloc_dmamem(info->acc_size, info->dmamem[0])) {
+		CRIT("\n\talloc_dmamem failed: i %d size %x",
+							0, info->acc_size);
+		goto exit;
+	};
+        memset(info->dmamem[0].win_ptr, PATTERN[0], info->acc_size);
+
+        for (uint32_t i = 1; i < info->umd_tx_buf_cnt; i++) {
+		info->dmamem[i] = info->dmamem[0];
+        };
+
+        info->tick_data_total = 0;
+	info->tick_count = info->tick_total = 0;
+
+        if (!info->umd_dch->checkPortOK()) {
+		CRIT("\n\tPort is not OK!!! Exiting...");
+		goto exit;
+	};
+
+	zero_stats(info);
+
+	if (GetEnv((char *)"verb") != NULL) {
+		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
+		     info->umd_dch->getDestId(),
+		     info->did, info->rio_addr, info->acc_size,
+		     info->umd_tx_buf_cnt, info->umd_sts_entries);
+	}
+
+	if (info->ib_ptr != NULL) memset(info->ib_ptr, 0, info->acc_size);
+
+	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+
+	// TX Loop
+	for (cnt = 0; !info->stop_req; cnt++) {
+		info->dmaopt[oi].destid      = info->did;
+		info->dmaopt[oi].bcount      = info->acc_size;
+		info->dmaopt[oi].raddr.lsb64 = info->rio_addr;
+
+		if (info->max_iter > 0 && ++iter > info->max_iter) { info->stop_req = __LINE__; break; }
+
+		bool q_was_full = false;
+
+		const int N = GetDecParm((char*)"$simnr", 0) + 1;
+		const int M = GetDecParm((char*)"$simnw", 0);
+
+		// Can we recover/replay BD at sim+1 ?
+		for (int i = 0; !q_was_full && i < N; i++) {
+			if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+
+			// Wrap around, do no overwrite last buffer entry
+			oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
+
+			if (q_was_full) goto full_test;
+
+			if (info->stop_req) goto exit;
+
+			for (int j = 0; j < M; j++) {
+				if (info->stop_req) goto exit;
+
+				info->dmaopt[oi].bcount = 0x20;
+
+				info->umd_dch->queueDmaOpT1(LAST_NWRITE_R, info->dmaopt[oi], info->dmamem[oi],
+							    info->umd_dma_abort_reason, &info->meas_ts);
+				// Wrap around, do no overwrite last buffer entry
+				oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
+
+				if (q_was_full) goto full_test;
+			}
+		}
+
+	full_test:
+		if (q_was_full) {
+			CRIT("\n\tBUG: Queue Full!\n");
+		
+			if (info->umd_dch->dmaCheckAbort(
+				info->umd_dma_abort_reason)) {
+				CRIT("\n\tDMA abort %x: %s\n",
+					info->umd_dma_abort_reason,
+					DMAChannelSHM::abortReasonToStr(
+					info->umd_dma_abort_reason));
+			}
+			{{
+				bool inp_err = false;
+				bool outp_err = false;
+				info->umd_dch->checkPortInOutError(inp_err, outp_err);
+				if(inp_err || outp_err) {
+					CRIT("Tsi721 port error%s%s\n",
+						(inp_err? " INPUT": ""),
+						(outp_err? " OUTPUT": ""));
+					goto exit;
+				}
+
+			}}
+		}
+
+		std::vector<DMAChannelSHM::NREAD_Result_t> results;
+		if (info->acc_size <= 16) {
+			for (;;) {
+				DMAChannelSHM::NREAD_Result_t res;
+				if (!info->umd_dch->dequeueDmaNREADT2(res)) break;
+				assert(res.ticket);
+				results.push_back(res);
+			}
+		}
+
+		if (7 <= g_level && results.size() > 0) { // DEBUG
+			std::vector<DMAChannelSHM::NREAD_Result_t>::iterator it = results.begin();
+			for (; it != results.end(); it++) {
+				std::stringstream ss;
+				for(int i = 0; i < 16; i++) {
+					char tmp[9] = {0};
+					snprintf(tmp, 8, "%02x ", it->data[i]);
+					ss << tmp;
+				}
+				DBG("\n\tTicket %llu NREAD-in data: %s\n", it->ticket, ss.str().c_str());
+			}
+		}
+
+		std::vector<uint64_t> faults;
+		for (;;) {
+			uint64_t t = 0;
+			if (!info->umd_dch->dequeueFaultedTicket(t)) break;
+			assert(t);
+			faults.push_back(t);
+		}
+		if (7 <= g_level && faults.size() > 0) {
+			std::vector<uint64_t>::iterator it = faults.begin();
+			for (; it != faults.end(); it++) INFO("Faulted ticket: %llu\n", *it);
+		}
+
+		if (info->stop_req) goto exit;
+	} // END for infinite transmit
+
+exit:
+	// Only allocatd one DMA buffer for performance reasons
+	if(info->dmamem[0].type != 0) 
+                info->umd_dch->free_dmamem(info->dmamem[0]);
+
+        try { delete info->umd_dch; info->umd_dch = NULL; }
+	catch(std::runtime_error ex) {}
+}
 #endif // USER_MODE_DRIVER
 
 void *worker_thread(void *parm)
@@ -1135,6 +1302,9 @@ void *worker_thread(void *parm)
 				break;
 		case umd_dmalnr: // NREAD
 				umd_dma_goodput_latency_demo(info, 'N');
+				break;
+		case umd_dmatest: 
+				umd_dma_goodput_testbed(info);
 				break;
 #endif // USER_MODE_DRIVER
 		

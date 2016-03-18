@@ -57,6 +57,7 @@ char *req_type_str[(int)last_action+1] = {
         (char*)"ltudma",
         (char*)"lrudma",
         (char*)"nrudma",
+        (char*)"tstudma",
 #endif
 	(char *)"LAST"
 };
@@ -1756,6 +1757,107 @@ UDMALatNREAD,
 ATTR_NONE
 };
 
+int UDMATestBed(struct cli_env *env, int argc, char **argv)
+{
+        int idx;
+        int chan;
+        int cpu;
+        uint32_t buff;
+        uint32_t sts;
+        uint32_t did;
+        uint64_t rio_addr;
+        uint32_t acc_sz;
+
+        int n = 0; // this be a trick from X11 source tree ;)
+
+        idx      = GetDecParm(argv[n++], 0);
+        if (get_cpu(env, argv[n++], &cpu))
+                goto exit;
+        chan     = GetDecParm(argv[n++], 0);
+        buff     = GetHex(argv[n++], 0);
+        sts      = GetHex(argv[n++], 0);
+        did      = GetDecParm(argv[n++], 0);
+        rio_addr = GetHex(argv[n++], 0);
+        acc_sz   = GetHex(argv[n++], 0);
+
+        if (check_idx(env, idx, 1))
+                goto exit;
+
+        if ((chan < 1) || (chan > 7)) {
+                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
+                logMsg(env);
+                goto exit;
+        };
+
+        if ((buff < 32) || (buff > 0x800000) || (buff & (buff-1)) ||
+                        (buff > MAX_UMD_BUF_COUNT)) {
+                sprintf(env->output,
+                        "Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
+                        buff, MAX_UMD_BUF_COUNT);
+                logMsg(env);
+                goto exit;
+	}
+
+        if ((sts < 32) || (sts > 0x800000) || (sts & (sts-1))) {
+                sprintf(env->output,
+                        "Bad Buff %x, must be power of 2, 0x20 to 0x80000\n",
+                        sts);
+                logMsg(env);
+                goto exit;
+        };
+
+        if (!rio_addr || !acc_sz) {
+                sprintf(env->output,
+                        "Addr and acc_size must be non-zero\n");
+                logMsg(env);
+                goto exit;
+        };
+
+        wkr[idx].action = umd_dmatest;
+        wkr[idx].action_mode = user_mode_action;
+        wkr[idx].umd_chan = chan;
+        wkr[idx].umd_fifo_thr.cpu_req = cpu;
+        wkr[idx].umd_fifo_thr.cpu_run = wkr[idx].wkr_thr.cpu_run;
+        wkr[idx].umd_tx_buf_cnt = buff;
+        wkr[idx].umd_sts_entries = sts;
+        wkr[idx].did = did;
+        wkr[idx].rio_addr = rio_addr;
+        wkr[idx].byte_cnt = 0;
+        wkr[idx].acc_size = acc_sz;
+        wkr[idx].umd_tx_rtype = NREAD;
+        wkr[idx].wr = 0;
+        wkr[idx].use_kbuf = 1;
+
+        wkr[idx].stop_req = 0;
+        wkr[idx].max_iter = GetDecParm((char *)"$maxit", -1);
+
+        sem_post(&wkr[idx].run);
+exit:
+        return 0;
+}
+
+struct cli_cmd UDMATB = {
+"tstudma",
+6,
+8,
+"DMA BD testbed with User-Mode demo driver",
+"<idx> <cpu> <chan> <buff> <sts> <did> <rio_addr> <acc_sz>\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
+        "<chan> is a DMA channel number from 1 through 7\n"
+        "<buff> is the number of transmit descriptors/buffers to allocate\n"
+        "       Must be a power of two from 0x20 up to 0x80000\n"
+        "<sts> is the number of status entries for completed descriptors\n"
+        "       Must be a power of two from 0x20 up to 0x80000\n"
+        "<did> target device ID\n"
+        "<rio_addr> RapidIO memory address to access\n"
+        "<acc_sz> Access size\n"
+        "NOTE:  IBAlloc on <did> of size >= acc_sz needed before running this command\n"
+        "NOTE:  Enter simulation with \"set sim 1\" before running this command\n",
+UDMATestBed,
+ATTR_NONE
+};
+
 extern void UMD_DD(const struct worker* wkr);
 
 int UMDDDDCmd(struct cli_env *env, int argc, char **argv)
@@ -1905,6 +2007,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&UDMALRR,
 	&UDMALTX,
 	&UDMALRX,
+        &UDMATB,
 	&UMDDD,
 	&UTime,
 	&UMDTest,
