@@ -45,7 +45,7 @@ DEBUG ?= DEBUG
 export DEBUG
 endif
 
-SOVER?=0.666
+SOVER?=0.4
 export SOVER
 
 
