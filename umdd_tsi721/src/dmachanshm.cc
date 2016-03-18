@@ -476,7 +476,7 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
 
     if(m_state->dma_wr == 0xFFFFFFFE) m_state->dma_wr = 1; // Process BD0 which is a T3
 
-    assert(m_pending_tickets[bd_idx]);
+    assert(m_pending_tickets[bd_idx] == 0);
     m_pending_tickets[bd_idx] = opt.ticket;
 
     if (m_pendingdata_tally != NULL) {
