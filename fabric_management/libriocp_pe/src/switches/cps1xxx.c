@@ -1579,9 +1579,13 @@ int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 		return -EINVAL;
 	}
 
-	ret = riocp_pe_maint_read(sw, off_dm, &_port);
-	if (ret < 0)
-		return ret;
+	if ((destid >> 8)) {
+		ret = riocp_pe_maint_read(sw, off_dm, &_port);
+		if (ret < 0)
+			return ret;
+	} else {
+		_port = CPS1xxx_RTE_DM_TO_DEV;
+	}
 
 	if (_port == CPS1xxx_RTE_DM_TO_DEV) {
 		ret = riocp_pe_maint_read(sw, off_dev, &_port);
