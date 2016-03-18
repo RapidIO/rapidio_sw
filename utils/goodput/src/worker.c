@@ -2369,16 +2369,18 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 	if (op == 'N' && GetEnv("sim") != NULL) { sim = true; info->umd_dch->setSim(); INFO("SIMULATION MODE - NREAD\n"); }
 
-	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
-		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
-							info->umd_tx_buf_cnt);
-		goto exit;
-	};
-        if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
-		CRIT("\n\talloc_dmacompldesc failed: entries %d",
-							info->umd_sts_entries);
-		goto exit;
-	};
+	if (info->umd_dch->isMaster()) {
+		if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
+			CRIT("\n\talloc_dmatxdesc failed: bufs %d",
+								info->umd_tx_buf_cnt);
+			goto exit;
+		}
+		if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
+			CRIT("\n\talloc_dmacompldesc failed: entries %d",
+								info->umd_sts_entries);
+			goto exit;
+		}
+	}
 
         memset(info->dmamem, 0, sizeof(info->dmamem));
         memset(info->dmaopt, 0, sizeof(info->dmaopt));
@@ -2439,28 +2441,44 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			bool q_was_full = false;
 			DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
+			const int N = GetDecParm("$sim", 0) + 1;
+			const int M = GetDecParm("$simw", 0);
+
                 	start_iter_stats(info);
 			if (GetEnv("sim") == NULL) {
                 		if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
 			} else {
 				// Can we recover/replay BD at sim+1 ?
-				const int N = GetDecParm("$sim", 0) + 1;
 				for (int i = 0; !q_was_full && i < N; i++) {
 					if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
 
 					if (info->stop_req) goto exit;
 
-					if (i == (N-1)) continue; // Don't advance oi twice
+					for (int j = 0; j < M; j++) {
+						if (info->stop_req) goto exit;
 
-					// Wrap around, do no overwrite last buffer entry
-					oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
+						info->dmaopt[oi].bcount = 0x20;
+
+						info->umd_dch->queueDmaOpT1(NWRITE, info->dmaopt[oi], info->dmamem[oi],
+						                            info->umd_dma_abort_reason, &info->meas_ts);
+
+						// Wrap around, do no overwrite last buffer entry
+						oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
+					}
+
+					if (i != (N-1)) { // Don't advance oi twice
+						// Wrap around, do no overwrite last buffer entry
+						oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
+					}
 				}
 			}
 
-			if (sim) info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
+			if (info->umd_dch->isMaster()) {
+				if (sim) info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
 
-			DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
-			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+				DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
+				while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+			}
 
 			// XXX check for errors, nuke faulting BD, do softRestart
 
