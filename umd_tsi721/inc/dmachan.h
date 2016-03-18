@@ -124,6 +124,8 @@ public:
   bool dmaIsRunning();
   uint32_t clearIntBits();
 
+  inline bool isMaster() { return true; }
+
   uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 
   static const char* abortReasonToStr(const uint32_t abort_reason);
