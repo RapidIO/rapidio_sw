@@ -53,8 +53,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "debug.h"
 #include "libtime_utils.h"
 
-#ifndef __DMACHAN_H__
-#define __DMACHAN_H__
+#ifndef __DMACHANSHM_H__
+#define __DMACHANSHM_H__
+
+#ifdef RDMA_LL
+  #include "liblog.h"
+#endif
 
 #ifdef RDMA_LL
   #define XDBG		DBG
@@ -80,7 +84,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
-class DMAChannel {
+class DMAChannelSHM {
 public:
   static const int DMA_MAX_CHAN = 8;
 
@@ -88,6 +92,7 @@ public:
 
   static const int DMA_SHM_MAX_CLIENTS = 64;
   static const int DMA_SHM_MAX_ITEMS_PER_CLIENT = 1024;
+
 
   /** \brief Track in-flight pending bytes for all channels. This lives in SHM. */
   typedef struct {
@@ -152,9 +157,9 @@ public:
   } NREAD_Result_t;
 
 public:
-  DMAChannel(const uint32_t mportid, const uint32_t chan);
-  DMAChannel(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_h);
-  ~DMAChannel();
+  DMAChannelSHM(const uint32_t mportid, const uint32_t chan);
+  DMAChannelSHM(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_h);
+  ~DMAChannelSHM();
 
   inline void setCheckHwReg(bool b) { m_check_reg = true; }
 
@@ -163,9 +168,23 @@ public:
   bool dmaIsRunning();
   uint32_t clearIntBits();
 
-  uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
+  inline bool isMaster() { return m_hw_master; }
+
+  inline uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 
   static const char* abortReasonToStr(const uint32_t abort_reason);
+
+  inline static enum dma_rtype convert_riomp_dma_directio(enum riomp_dma_directio_type type)
+  {
+     switch(type) {
+       case RIO_DIRECTIO_TYPE_NWRITE:       return ALL_NWRITE;
+       case RIO_DIRECTIO_TYPE_NWRITE_R:     return LAST_NWRITE_R;
+       case RIO_DIRECTIO_TYPE_NWRITE_R_ALL: return ALL_NWRITE_R;
+       case RIO_DIRECTIO_TYPE_SWRITE:       return ALL_NWRITE;
+       case RIO_DIRECTIO_TYPE_SWRITE_R:     return LAST_NWRITE_R;
+       default: return ALL_NWRITE;
+     }
+  }
 
   bool alloc_dmatxdesc(const uint32_t bd_num);
   void free_dmatxdesc();
@@ -177,12 +196,12 @@ public:
 
   bool check_ibwin_reg() { return m_mport->check_ibwin_reg(); }
 
-  inline bool queueDmaOpT1(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
+  inline bool queueDmaOpT1(enum dma_rtype  rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
     opt.dtype = DTYPE1;
     return queueDmaOpT12(rtype, opt, mem, abort_reason, ts_p);
   }
-  inline bool queueDmaOpT2(int rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason, struct seq_ts *ts_p)
+  inline bool queueDmaOpT2(enum dma_rtype  rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
     if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16))
 	return false;
@@ -421,6 +440,9 @@ private:
   // These two live in m_shm_bl back-to-back
   bool*               m_bl_busy;
   WorkItem_t*         m_pending_work;
+  uint64_t*           m_pending_tickets;
+
+  uint64_t            m_pending_tickets_RP;
 
   bool                m_hw_master;
 
@@ -519,7 +541,7 @@ private:
   void cleanup();
   void cleanupSHM();
 
-  bool queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
+  bool queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p);
 
   inline void computeNotBefore(DmaOptions_t& opt)
   {
@@ -542,7 +564,7 @@ private:
         case ALL_NWRITE_R:  ns = opt.bcount; break;
         case MAINT_RD:
         case MAINT_WR:
-             throw std::runtime_error("DMAChannel: Maint operations not supported!");
+             throw std::runtime_error("DMAChannelSHM: Maint operations not supported!");
              break;
         default: assert(0); break;
       }
@@ -634,27 +656,27 @@ public:
 extern "C" {
 #endif
 
-void* DMAChannel_create(const uint32_t mportid, const uint32_t chan);
-void DMAChannel_destroy(void* dch);
-int DMAChannel_pingMaster(void* dch);
-int DMAChannel_checkPortOK(void* dch);
-int DMAChannel_dmaCheckAbort(void* dch, uint32_t* abort_reason);
-uint16_t DMAChannel_getDestId(void* dch);
-int DMAChannel_queueSize(void* dch);
-int DMAChannel_queueFull(void* dch);
-uint64_t DMAChannel_getBytesEnqueued(void* dch);
-uint64_t DMAChannel_getBytesTxed(void* dch);
-int DMAChannel_dequeueFaultedTicket(void* dch, uint64_t* tik);
-int DMAChannel_dequeueDmaNREADT2(void* dch, DMAChannel::NREAD_Result_t* res);
-int DMAChannel_checkTicket(void* dch, const DMAChannel::DmaOptions_t* opt);
+void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan);
+void DMAChannelSHM_destroy(void* dch);
+int DMAChannelSHM_pingMaster(void* dch);
+int DMAChannelSHM_checkPortOK(void* dch);
+int DMAChannelSHM_dmaCheckAbort(void* dch, uint32_t* abort_reason);
+uint16_t DMAChannelSHM_getDestId(void* dch);
+int DMAChannelSHM_queueSize(void* dch);
+int DMAChannelSHM_queueFull(void* dch);
+uint64_t DMAChannelSHM_getBytesEnqueued(void* dch);
+uint64_t DMAChannelSHM_getBytesTxed(void* dch);
+int DMAChannelSHM_dequeueFaultedTicket(void* dch, uint64_t* tik);
+int DMAChannelSHM_dequeueDmaNREADT2(void* dch, DMAChannelSHM::NREAD_Result_t* res);
+int DMAChannelSHM_checkTicket(void* dch, const DMAChannelSHM::DmaOptions_t* opt);
 
-int DMAChannel_queueDmaOpT1(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p);
-int DMAChannel_queueDmaOpT2(void* dch, int rtype, DMAChannel::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
+int DMAChannelSHM_queueDmaOpT1(void* dch, enum dma_rtype rtype, DMAChannelSHM::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p);
+int DMAChannelSHM_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannelSHM::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
 
-void DMAChannel_getShmPendingData(void* dch, uint64_t* total, DMAChannel::DmaShmPendingData_t* per_client);
+void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client);
 
 #ifdef __cplusplus
 }; // END extern "C"
 #endif
 
-#endif /* __DMACHAN_H__ */
+#endif /* __DMACHANSHM_H__ */

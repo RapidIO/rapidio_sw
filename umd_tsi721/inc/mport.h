@@ -48,15 +48,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "pciebar.h"
 #include "local_endian.h"
 
-#ifdef RDMA_LL
- #include "liblog.h"
-#endif
 #include "IDT_Tsi721.h"
 #include "tsi721_dma.h"
 
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
-#include "rapidio_mport_sock.h"
+//#include "rapidio_mport_sock.h"
 
 #include "debug.h"
 

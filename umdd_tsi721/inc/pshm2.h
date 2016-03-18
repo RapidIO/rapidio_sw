@@ -31,8 +31,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef __PSHM_H__
-#define __PSHM_H__
+#ifndef __PSHM2_H__
+#define __PSHM2_H__
 
 #include <sys/stat.h>        /* For mode constants */
 #include <sys/types.h>
@@ -57,10 +57,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * Uses an instance of \ref POSIXSem for locking
  * \note This is a singleton (based on name) across multiple processes.
  */
-class POSIXShm {
+class POSIXShm2 {
 public:
-  POSIXShm(const char* name, const uint64_t size);
-  ~POSIXShm();
+  POSIXShm2(const char* name, const uint64_t size, bool& first_opener);
+  ~POSIXShm2();
 
   void* getMem()        { return (char*)m_shm + PAGE_SIZE; }
   int   getMemSize()    { return m_shm_size; }
@@ -107,14 +107,14 @@ private:
 extern "C" {
 #endif
 
-void* POSIXShm_new(const char* name, const int size);
-void POSIXShm_delete(void* shm);
-void* POSIXShm_getMem(void* shm);
-void POSIXShm_lock(void* shm);
-void POSIXShm_unlock(void* shm);
+void* POSIXShm2_new(const char* name, const int size, int* first_opener);
+void POSIXShm2_delete(void* shm);
+void* POSIXShm2_getMem(void* shm);
+void POSIXShm2_lock(void* shm);
+void POSIXShm2_unlock(void* shm);
 
 #ifdef __cplusplus
 };
 #endif
 
-#endif // __PSHM_H__
+#endif // __PSHM2_H__

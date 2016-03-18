@@ -34,20 +34,21 @@ config?=NODEBUG
 
 TOP_LEVEL?=..
 COMMONDIR?=$(TOP_LEVEL)/common
+UMDDIR?=$(TOP_LEVEL)/umd_tsi721
 COMMONINC=$(COMMONDIR)/include
 COMMONLIB=$(COMMONDIR)/libs_so
 REGSDIR=../fabric_management/librio_switch/inc
 LOG_LEVEL?=7
 export LOG_LEVEL
 
-SOVER?=1.0
+SOVER?=0.42
 
 LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so
 
-CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
+CXXFLAGS = -O3 -Wall -g -I./inc -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 	-pthread -DRDMA_LL=7 
 
-CCFLAGS+=-DDEBUG_BD
+CXXFLAGS+=-DDEBUG_BD
 
 INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
@@ -57,32 +58,28 @@ SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER -Wall \
 	 -DRIO_ANY_ADDR=0 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
 
-UMD_INCLUDES = inc/debug.h inc/dmadesc.h inc/local_endian.h inc/mapfile.h \
-	inc/mport.h inc/pciebar.h inc/psem.h inc/pshm.h inc/rdtsc.h \
-	inc/spinlock.h
+UMD_INCLUDES = inc/dmachanshm.h
 
-UMD_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc \
-	src/crc32.c \
-	src/psem.cc src/pshm.cc
+UMD_SOURCES = src/dmachanshm.cc
 
-UMDDLIB_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc \
-		src/crc32.c src/psem.cc src/pshm.cc
+UMDDLIB_SOURCES = src/dmachanshm.cc
 
-LIBRARIES =  -lpthread -lcli -lmport -ltime_utils -llog -lrt
+LIBRARIES =  -lpthread -lcli -lmport -ltime_utils -llog -lrt -lumd
 
 all: umdd umddlib
 
 umdd: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES) 
-	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
-	$(LIBRARIES) -L$(COMMONLIB) $(LIBS_RPATH)
+	$(CXX) $(CXXFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
+	$(LIBRARIES) -L$(COMMONLIB) -L$(UMDDIR) $(LIBS_RPATH)
 
 umddlib: $(UMDDLIB_SOURCES) 
 	$(CXX) -O3 -Wall -ggdb -pthread -std=gnu++0x \
-	-Iinc -I$(COMMONINC) -I$(TOP_LEVEL)/fabric_management/librio_switch/inc \
+	-Iinc -I$(COMMONINC)  -I$(UMDDIR)/inc \
+	-I$(TOP_LEVEL)/fabric_management/librio_switch/inc \
         -DNODEBUG -DUSER_MODE_DRIVER -Wall -Wno-format -DRIO_ANY_ADDR=0 \
         $(UMDDLIB_SOURCES) \
         -fPIC -shared -Wl,-soname,libUMDd.so.$(SOVER) -o libUMDd.so.$(SOVER) \
-        -lrt -L$(COMMONLIB) $(LIBS_RPATH) -lmport -ltime_utils
+        -lrt -L$(COMMONLIB) -L$(UMDDIR) $(LIBS_RPATH) -lmport -ltime_utils -lumd_nolog
 
 clean:
 	rm -f *.o umdd libUMDd.so* *~ src/*~ inc/*~ gmon.out 

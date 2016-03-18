@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dmadesc.h"
 #include "rdtsc.h"
 #include "debug.h"
-#include "time_utils.h"
+#include "libtime_utils.h"
 
 #ifndef __DMACHAN_H__
 #define __DMACHAN_H__
@@ -123,6 +123,8 @@ public:
   void setInbound();
   bool dmaIsRunning();
   uint32_t clearIntBits();
+
+  inline bool isMaster() { return true; }
 
   uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 
@@ -309,7 +311,7 @@ public:
   inline uint32_t getWP() { return m_dma_wr; }
 
 private:
-  int umdemo_must_die = 0;
+  int umdemo_must_die;
   bool                m_sim;        ///< Simulation: do not progtam HW with linear addrs of FIFO and BD array; do not read HW regs
   uint32_t            m_sim_dma_rp; ///< Simulated Tsi721 RP
   uint32_t            m_sim_fifo_wp; ///< Simulated Tsi721 FIFO WP

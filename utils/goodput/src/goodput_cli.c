@@ -37,7 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <vector>
 #include "goodput_cli.h"
-#include "time_utils.h"
+#include "libtime_utils.h"
 #include "mhz.h"
 #include "liblog.h"
 #include "assert.h"
@@ -52,6 +52,7 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"ioTlat",
 	(char *)"ioRlat",
 	(char *)"DMA",
+	(char *)"DmaNum",
 	(char *)"dT_Lat",
 	(char *)"dR_Lat",
 	(char *)"MSG_Tx",
@@ -797,6 +798,19 @@ OBDIORxLatCmd,
 ATTR_NONE
 };
 
+// "<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
+riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(int trans)
+{
+	switch (trans) {
+	default:
+	case 0: return RIO_DIRECTIO_TYPE_NWRITE;
+	case 1: return RIO_DIRECTIO_TYPE_SWRITE;
+	case 2: return RIO_DIRECTIO_TYPE_NWRITE_R;
+	case 3: return RIO_DIRECTIO_TYPE_SWRITE_R;
+	case 4: return RIO_DIRECTIO_TYPE_NWRITE_R_ALL;
+	};
+}
+
 int dmaCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
@@ -822,7 +836,7 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	if (check_idx(env, idx, 1))
 		goto exit;
 
-	if (trans > (int)RIO_DIRECTIO_TYPE_NWRITE_R_ALL)
+	if (trans > 4)
 		trans = RIO_DIRECTIO_TYPE_NWRITE;
 
 	if (sync > RIO_DIRECTIO_TRANSFER_FAF)
@@ -836,7 +850,7 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].acc_size = acc_sz;
 	wkr[idx].wr = wr;
 	wkr[idx].use_kbuf = kbuf;
-	wkr[idx].dma_trans_type = (enum riomp_dma_directio_type)trans;
+	wkr[idx].dma_trans_type = convert_int_to_riomp_dma_directio_type(trans);
 	wkr[idx].dma_sync_type = (enum riomp_dma_directio_transfer_sync)sync;
 	wkr[idx].rdma_buff_size = bytes;
 
@@ -862,6 +876,78 @@ struct cli_cmd dma = {
 	"<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
 	"<sync>  0 SYNC 1 ASYNC 2 FAF\n",
 dmaCmd,
+ATTR_NONE
+};
+
+int dmaNumCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx;
+	int did;
+	uint64_t rio_addr;
+	uint64_t bytes;
+	uint64_t acc_sz;
+	int wr;
+	int kbuf;
+	int trans;
+	int sync;
+	int num_trans;
+
+	idx = getDecParm(argv[0], 0);
+	did = getDecParm(argv[1], 0);
+	rio_addr = getHex(argv[2], 0);
+	bytes = getHex(argv[3], 0);
+	acc_sz = getHex(argv[4], 0);
+	wr = getDecParm(argv[5], 0);
+	kbuf = getDecParm(argv[6], 0);
+	trans = getDecParm(argv[7], 0);
+	sync = getDecParm(argv[8], 0);
+	num_trans = getDecParm(argv[9], 0);
+
+	if (check_idx(env, idx, 1))
+		goto exit;
+
+	if (trans > 4)
+		trans = RIO_DIRECTIO_TYPE_NWRITE;
+
+	if (sync > RIO_DIRECTIO_TRANSFER_FAF)
+		sync = RIO_DIRECTIO_TRANSFER_SYNC;
+
+	wkr[idx].action = dma_tx_num;
+	wkr[idx].action_mode = kernel_action;
+	wkr[idx].did = did;
+	wkr[idx].rio_addr = rio_addr;
+	wkr[idx].byte_cnt = bytes;
+	wkr[idx].acc_size = acc_sz;
+	wkr[idx].wr = wr;
+	wkr[idx].use_kbuf = kbuf;
+	wkr[idx].dma_trans_type = convert_int_to_riomp_dma_directio_type(trans);
+	wkr[idx].dma_sync_type = (enum riomp_dma_directio_transfer_sync)sync;
+	wkr[idx].rdma_buff_size = bytes;
+	wkr[idx].num_trans = num_trans;
+
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+exit:
+        return 0;
+};
+
+struct cli_cmd dmaNum = {
+"dnum",
+3,
+10,
+"Send a specified number of DMA reads/writes",
+"<idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync> <num>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did> target device ID\n"
+	"<rio_addr> RapidIO memory address to access\n"
+	"<bytes> total bytes to transfer\n"
+	"<acc_sz> Access size, min 0x1000 max 0x1000000\n"
+	"<wr>  0: Read, <>0: Write\n"
+	"<kbuf>  0: User memory, <>0: Kernel buffer\n"
+	"<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
+	"<sync>  0 SYNC 1 ASYNC 2 FAF\n"
+	"<num>   Number of transactions to send.\n",
+dmaNumCmd,
 ATTR_NONE
 };
 
@@ -903,7 +989,7 @@ int dmaTxLatCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].acc_size = bytes;
 	wkr[idx].wr = wr;
 	wkr[idx].use_kbuf = kbuf;
-	wkr[idx].dma_trans_type = (enum riomp_dma_directio_type)trans;
+	wkr[idx].dma_trans_type = convert_int_to_riomp_dma_directio_type(trans);
 	if (wr)
 		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
 	else
@@ -1751,7 +1837,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	switch (argv[2][0]) {
 	case 's':
 	case 'S':
-		init_seq_ts(ts_p);
+		init_seq_ts(ts_p, MAX_TIMESTAMPS);
 		break;
 	case '-':
 		if (argc > 4) {
@@ -3092,6 +3178,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&dmaTxLat,
 	&dmaRxLat,
 	&dma,
+	&dmaNum,
 	&msgTx,
 	&msgRx,
 	&msgTxLat,

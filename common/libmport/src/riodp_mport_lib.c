@@ -58,7 +58,8 @@
 
 #include <map>
 
-#include "dmachan.h"
+#include "dmachanshm.h"
+#include "riodp_mport_lib.h"
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
@@ -69,6 +70,25 @@ struct rapidio_mport_mailbox {
 	int fd;
 	uint8_t mport_id;
 };
+
+struct rapidio_mport_handle {
+        int fd;                         /**< posix api compatible fd to be used with poll/select */
+        void* dch;
+        void* stats;                    /**< Pointer to statistics gathering back door for driver... */
+        volatile uint32_t cookie_cutter; // XXX THIS STINKS but the API wants 32-bit!!
+        std::map <uint64_t, DMAChannelSHM::DmaOptions_t> asyncm;
+};
+
+void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd)
+{
+	if (hnd == NULL) return NULL;
+	return hnd->stats;
+}
+void riomp_mgmt_mport_set_stats(struct rapidio_mport_handle* hnd, void* stats)
+{
+	if (hnd == NULL) return;
+	hnd->stats = stats;
+}
 
 struct rio_channel {
 	uint16_t id;
@@ -83,16 +103,6 @@ struct rapidio_mport_socket {
 	struct rio_channel ch;
 	uint8_t	*rx_buffer;
 	uint8_t	*tx_buffer;
-};
-
-/**
- * @brief mport opaque handle structure
- */
-struct rapidio_mport_handle {
-	int fd;				/**< posix api compatible fd to be used with poll/select */
-	void* dch;
-	volatile uint32_t cookie_cutter; // XXX THIS STINKS but the API wants 32-bit!!
-	std::map <uint64_t, DMAChannel::DmaOptions_t> asyncm;
 };
 
 int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle)
@@ -117,6 +127,7 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 
 	hnd->fd = fd;
 	hnd->dch = NULL;
+	hnd->stats = NULL;
 
 	*mport_handle = hnd;
 
@@ -124,7 +135,7 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 
 	const char* chan_s = getenv("UMDD_CHAN");
 	if ((flags != 0x666) && (chan_s != NULL))
-		hnd->dch = DMAChannel_create(0, atoi(chan_s));
+		hnd->dch = DMAChannelSHM_create(0, atoi(chan_s));
 
 	return 0;
 }
@@ -136,7 +147,7 @@ int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
 	if(hnd == NULL)
 		return -EINVAL;
 
-	if (hnd->dch != NULL) { DMAChannel_destroy(hnd->dch); hnd->dch = NULL; }
+	if (hnd->dch != NULL) { DMAChannelSHM_destroy(hnd->dch); hnd->dch = NULL; }
 
 	hnd->asyncm.clear();
 
@@ -367,10 +378,11 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	return (ret < 0)? -errno: ret;
 
    umdd:
-	DMAChannel::DmaOptions_t opt;
+	if (DMAChannelSHM_queueFull(hnd->dch)) return -(errno = EBUSY);
 
 	// printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
 
+	DMAChannelSHM::DmaOptions_t opt;
 	memset(&opt, 0, sizeof(opt));
 	opt.destid      = destid;
 	opt.bcount      = size;
@@ -384,9 +396,21 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	bool q_was_full = false;
 	uint32_t dma_abort_reason = 0;
 
-	if (! DMAChannel_queueDmaOpT1(hnd->dch, wr_mode, &opt, &dmamem, &dma_abort_reason, NULL)) {
-		if (q_was_full) return -(errno = ENOSPC);
-		return -(errno = EINVAL);
+	if (size > 16) {
+		if (! DMAChannelSHM_queueDmaOpT1(hnd->dch,
+				DMAChannelSHM::convert_riomp_dma_directio(wr_mode), &opt,
+				&dmamem, &dma_abort_reason, (seq_ts *)hnd->stats)) {
+			if (q_was_full) return -(errno = ENOSPC);
+			return -(errno = EINVAL);
+		}
+	} else {
+		if (! DMAChannelSHM_queueDmaOpT2(hnd->dch,
+				DMAChannelSHM::convert_riomp_dma_directio(wr_mode),
+				&opt, (uint8_t *)handle + offset, size, 
+				&dma_abort_reason, (seq_ts *)hnd->stats)) {
+			if (q_was_full) return -(errno = ENOSPC);
+			return -(errno = EINVAL);
+		}
 	}
 
 	if (sync == RIO_DIRECTIO_TRANSFER_FAF) return 0;
@@ -399,23 +423,23 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 
 	// Only left RIO_DIRECTIO_TRANSFER_SYNC
 	for (int cnt = 0;; cnt++) {
-		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
-                if (st == DMAChannel::COMPLETED) break;
-                if (st == DMAChannel::INPROGRESS) {
+		const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannelSHM::COMPLETED) break;
+                if (st == DMAChannelSHM::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
 			struct timespec sl = {0, UMD_SLEEP_NS};
 			if (cnt == 0) {
 				uint64_t total_data_pending = 0;
-				DMAChannel_getShmPendingData(hnd->dch, &total_data_pending, NULL);
+				DMAChannelSHM_getShmPendingData(hnd->dch, &total_data_pending, NULL);
 				if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
 			}
 			nanosleep(&sl, NULL);
 #endif
 			continue;
 		}
-                if (st == DMAChannel::BORKED) {
+                if (st == DMAChannelSHM::BORKED) {
                         uint64_t t = 0;
-                        const int deq = DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
+                        const int deq = DMAChannelSHM_dequeueFaultedTicket(hnd->dch, &t);
 			if (deq)
 			     fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
 			else fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
@@ -494,7 +518,9 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
    umdd:
 	printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
 
-	DMAChannel::DmaOptions_t opt;
+	if (DMAChannelSHM_queueFull(hnd->dch)) return -(errno = EBUSY);
+
+	DMAChannelSHM::DmaOptions_t opt;
 	memset(&opt, 0, sizeof(opt));
 	opt.destid      = destid;
 	opt.bcount      = size;
@@ -509,10 +535,20 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	bool q_was_full = false;
 	uint32_t dma_abort_reason = 0;
 
-	if (! DMAChannel_queueDmaOpT1(hnd->dch, NREAD, &opt, &dmamem, &dma_abort_reason, NULL)) {
-		if (q_was_full) return -(errno = ENOSPC);
-		return -(errno = EINVAL);
-	}
+	if (size > 16) {
+		if (! DMAChannelSHM_queueDmaOpT1(hnd->dch, NREAD, &opt, &dmamem,
+				&dma_abort_reason, (seq_ts *)hnd->stats)) {
+			if (q_was_full) return -(errno = ENOSPC);
+			return -(errno = EINVAL);
+		}
+	} else {
+		if (! DMAChannelSHM_queueDmaOpT2(hnd->dch, NREAD, &opt, 
+				(uint8_t *)handle + offset, size, 
+				&dma_abort_reason, (seq_ts *)hnd->stats)) {
+			if (q_was_full) return -(errno = ENOSPC);
+			return -(errno = EINVAL);
+		}
+	};
 
 	if (sync == RIO_DIRECTIO_TRANSFER_FAF) return 0;
 
@@ -524,23 +560,23 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 
 	// Only left RIO_DIRECTIO_TRANSFER_SYNC
 	for (int cnt = 0;; cnt++) {
-		const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
-                if (st == DMAChannel::COMPLETED) break;
-                if (st == DMAChannel::INPROGRESS) {
+		const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannelSHM::COMPLETED) break;
+                if (st == DMAChannelSHM::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
 			struct timespec sl = {0, UMD_SLEEP_NS};
 			if (cnt == 0) {
 				uint64_t total_data_pending = 0;
-				DMAChannel_getShmPendingData(hnd->dch, &total_data_pending, NULL);
+				DMAChannelSHM_getShmPendingData(hnd->dch, &total_data_pending, NULL);
 				if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
 			}
 			nanosleep(&sl, NULL);
 #endif
 			continue;
 		}
-                if (st == DMAChannel::BORKED) {
+                if (st == DMAChannelSHM::BORKED) {
                         uint64_t t = 0;
-                        const int deq = DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
+                        const int deq = DMAChannelSHM_dequeueFaultedTicket(hnd->dch, &t);
 			if (deq)
 			     fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
 			else fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
@@ -571,14 +607,14 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 		return -errno;
 
    umdd:
-	printf("UMDD %s: cookie=%u\n", __func__, cookie);
+	// printf("UMDD %s: cookie=%u\n", __func__, cookie);
 
 	// Kernel's rio_mport_wait_for_async_dma wants miliseconds of timeout
 
 	assert(cookie <= hnd->cookie_cutter);
 
-        DMAChannel::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
-	std::map<uint64_t, DMAChannel::DmaOptions_t>::iterator it = hnd->asyncm.find(cookie);
+        DMAChannelSHM::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
+	std::map<uint64_t, DMAChannelSHM::DmaOptions_t>::iterator it = hnd->asyncm.find(cookie);
 
 	if (it == hnd->asyncm.end()) // Tough luck
 		throw std::runtime_error("riomp_dma_wait_async: Requested cookie not found in internal database");
@@ -596,17 +632,17 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 	}
 
         for (int cnt = 0 ;; cnt++) {
-                const DMAChannel::TicketState_t st = (DMAChannel::TicketState_t)DMAChannel_checkTicket(hnd->dch, &opt);
-                if (st == DMAChannel::COMPLETED) return 0;
-                if (st == DMAChannel::BORKED) {
+                const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannelSHM::COMPLETED) return 0;
+                if (st == DMAChannelSHM::BORKED) {
                         uint64_t t = 0;
-                        DMAChannel_dequeueFaultedTicket(hnd->dch, &t);
+                        DMAChannelSHM_dequeueFaultedTicket(hnd->dch, &t);
                         fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
                         return -(errno = EIO);
                 }
 	
 		// Last-ditch wait ??
-                if (st == DMAChannel::INPROGRESS) {
+                if (st == DMAChannelSHM::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
 			struct timespec sl = {0, UMD_SLEEP_NS};
 			sl.tv_nsec = opt.not_before_dns;

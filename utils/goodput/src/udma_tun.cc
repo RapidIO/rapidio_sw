@@ -69,13 +69,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "liblog.h"
 
-#include "time_utils.h"
+#include "libtime_utils.h"
 #include "worker.h"
 #include "goodput.h"
 #include "mhz.h"
 
 #include "dmachan.h"
-#include "hash.cc"
 #include "lockfile.h"
 #include "tun_ipv4.h"
 
@@ -145,7 +144,7 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 	uint32_t umd_dma_abort_reason = 0;
 	DMAChannel::WorkItem_t wi[DMA_CHAN2_STS*8]; memset(wi, 0, sizeof(wi));
 
-	get_seq_ts_m(&info->nread_ts, 2);
+	ts_now_mark(&info->nread_ts, 2);
 
 	int q_was_full = !dmac->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, umd_dma_abort_reason, &tx_ts);
 
@@ -189,7 +188,7 @@ static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, co
 		return false;
 	}
 
-	get_seq_ts_m(&info->nread_ts, 8);
+	ts_now_mark(&info->nread_ts, 8);
 
 #ifdef UDMA_TUN_DEBUG_NREAD
 	if (7 <= g_level) {
@@ -247,7 +246,7 @@ static inline bool udma_nwrite_mem(struct worker *info, const uint16_t destid, c
         DMAChannel::WorkItem_t wi[DMA_CHAN2_STS*8]; memset(wi, 0, sizeof(wi));
 #endif
 
-        get_seq_ts_m(&info->nwrite_ts, 2);
+        ts_now_mark(&info->nwrite_ts, 2);
 
         int q_was_full = !dmac->queueDmaOpT2((int)ALL_NWRITE_R, dmaopt, (uint8_t*)data, size, umd_dma_abort_reason, &tx_ts);
 
@@ -297,7 +296,7 @@ static inline bool udma_nwrite_mem(struct worker *info, const uint16_t destid, c
                 return false;
         }
 
-        get_seq_ts_m(&info->nwrite_ts, 8);
+        ts_now_mark(&info->nwrite_ts, 8);
 
         ///XXX info->umd_ticks_total_chan2 += (wi[0].opt.ts_end - wi[0].opt.ts_start);
 
@@ -492,7 +491,7 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 		force_nread = 1;
 	}}
 
-	if (q_fullish) get_seq_ts(&info->q80p_ts);
+	if (q_fullish) ts_now(&info->q80p_ts);
 
 	if (first_message || force_nread /*|| q_fullish*/ || outstanding >= Q_THR(info->umd_tx_buf_cnt-1)) do { // This must be done per-destid
 		if (info->umd_disable_nread && !first_message) break;
@@ -965,27 +964,27 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
 
         while (!info->umd_fifo_proc_must_die) {
 		for (int ch = 0; ch < dch_cnt; ch++) {
-			get_seq_ts_m(&info->fifo_ts, 1);
+			ts_now_mark(&info->fifo_ts, 1);
 
 			// This is a hook to do stuff for IB buffers in isolcpu thread
 			// Note: No relation to TX FIFO/buffers, just CPU sharing
 			if (info->umd_dma_fifo_callback != NULL)
 				info->umd_dma_fifo_callback(info);
 
-			get_seq_ts_m(&info->fifo_ts, 2);
+			ts_now_mark(&info->fifo_ts, 2);
 
 			const int cnt = dch_list[ch]->dch->scanFIFO(wi, info->umd_sts_entries*8);
 			if (!cnt) {
 				if (info->umd_tun_thruput) {
 					// for(int i = 0; i < 1000; i++) {;} continue; // "1000" busy wait seemd OK for latency, bad for thruput
-					get_seq_ts_m(&info->fifo_ts, 3);
+					ts_now_mark(&info->fifo_ts, 3);
 					struct timespec tv = { 0, 1 };
 					nanosleep(&tv, NULL);
 				}
 				continue;
 			}
 
-			get_seq_ts_m(&info->fifo_ts, 4);
+			ts_now_mark(&info->fifo_ts, 4);
 
 			for (int i = 0; i < cnt; i++) {
 				DMAChannel::WorkItem_t& item = wi[i];
@@ -1342,9 +1341,9 @@ void umd_dma_goodput_tun_demo(struct worker *info)
           if(epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, info->umd_sockp_quit[1], &event) < 0) goto exit;
 	}}
 
-        init_seq_ts(&info->desc_ts);
-        init_seq_ts(&info->fifo_ts);
-        init_seq_ts(&info->meas_ts);
+        init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
+        init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
+        init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 
         info->umd_fifo_proc_must_die = 0;
         info->umd_fifo_proc_alive = 0;

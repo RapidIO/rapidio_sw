@@ -42,17 +42,19 @@ PREFIX?=/usr
 LIBDIR=$(DESTDIR)$(PREFIX)/lib
 BINDIR=$(DESTDIR)$(PREFIX)/bin
 INCDIR=../include
+UMDINCDIR=../../umd_tsi721/inc
 O?=.
 SOVER?=0.42
 
 ifdef DEBUG
-CFLAGS=-Wall -Wsign-compare -fPIC -DDEBUG -g
+CFLAGS=-Wall -Wno-sign-compare -fPIC -DDEBUG -g
 else
-CFLAGS=-O2 -Wall -Wsign-compare -fPIC -DNDEBUG
+CFLAGS=-O2 -Wall -Wno-sign-compare -fPIC -DNDEBUG
 endif
 
 CFLAGS += -ggdb
-CFLAGS += -I../../fabric_management/librio_switch/inc # clusterf**K
+CFLAGS += -I../../fabric_management/librio_switch/inc
+CFLAGS += -I$(UMDINCDIR)
 
 LIBS=rt	pthread dl
 LDFLAGS?=-static
@@ -72,11 +74,11 @@ all: $(LIB_TARGETS) $(SAMPLES_TARGETS)
 
 samples: $(SAMPLES_TARGETS)
 
-libmport.so: src/riodp_mport_lib.o src/dmachan_dl.o
+libmport.so: src/riodp_mport_lib.o src/dmachanshm_dl.o
 	$(CXX) -shared -ldl -L../libs_so -ltime_utils -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER) $^
 	@ln -s $@.$(SOVER) $@ &>/dev/null
 
-libmport.a: src/riodp_mport_lib.o src/dmachan_dl.o
+libmport.a: src/riodp_mport_lib.o src/dmachanshm_dl.o
 	$(AR) -r $@ $^
 
 $(O)/%: $(O)/samples/%.o libmport.so libmport.a

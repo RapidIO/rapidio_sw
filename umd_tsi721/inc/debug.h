@@ -31,59 +31,29 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-/** @file */ 
+#ifndef __DEBUG_H__
+#define __DEBUG_H__
 
-#ifndef __PSEM_H__
-#define __PSEM_H__
-#include <semaphore.h>
-#include <stdio.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <errno.h>
-
-/** \file psem.h Definition of a POSIX name semaphore
- */
-
-#include <string>
-#include <stdexcept>
-
-/** \brief Shallow wrapper for a POSIX named semaphore sharable among processes
- * \note In Linux the name appears as /dev/shm/sem.NAME
- */
-class POSIXSem {
-public:
-  POSIXSem(const char* name);
-  ~POSIXSem();
-
-  void lock() { sem_wait(m_sem); }
-  void unlock() { sem_post(m_sem); }
-
-  ///< \brief Returns the short name of the semaphore
-  const char* getName() { return m_semaname.c_str(); }
-
-  static void unlink(const char* name);
-
-private:
-  static std::string mkname(const char* name);
-
-  sem_t*      m_sem;
-  std::string m_semaname;
-};
-
-#ifdef __cplusplus
-extern "C" {
+#ifdef RDMA_LL
+ #include "liblog.h"
 #endif
 
-// C wrappers if any
-//
-#ifdef __cplusplus
-};
+#ifdef DEBUG
+  #define Dprintf(format, ...) fprintf (stdout, format, __VA_ARGS__)
+#else
+  #define Dprintf(format, ...) 
 #endif
 
-#endif // __PSEM_H__
+#ifdef RDMA_LL
+  #define XDBG          DBG
+  #define XINFO         INFO
+  #define XCRIT         CRIT
+  #define XERR          ERR
+#else
+  #define XDBG(format, ...)
+  #define XINFO(format, ...)
+  #define XCRIT(format, ...)
+  #define XERR(format, ...)
+#endif
+
+#endif // __DEBUG_H__
