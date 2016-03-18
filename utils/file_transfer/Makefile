@@ -70,12 +70,12 @@ libfxfr:
 server: $(SERVER_OBJS) 
 	g++ -o server $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
 	-DRDMA_LL=7 \
-	-lfxfr -lcli -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
+	-lfxfr -lcli -ldl -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
 
 client: $(CLIENT_OBJS) 
 	g++ -o rftp $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
 	-DRDMA_LL=7 \
-	-lfxfr -lcli -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
+	-lfxfr -lcli -ldl -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
 
 remdbg: $(REMDBG_OBJS)
 	g++ -o remdbg $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
