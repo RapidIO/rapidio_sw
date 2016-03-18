@@ -38,6 +38,24 @@ extern "C" {
 /* Flags */
 #define RIOCP_PE_FLAG_FORCE  (1<<0)  /* Force operation */
 
+/* Routing table definitions */
+#define RIOCP_PE_ANY_PORT 0xff /* Use the global LUT */
+
+/* Routing table entry values */
+#define RIOCP_PE_EGRESS_PORT(n)          (0x000 + ((n) & 0xff)) /* Egress Port Number */
+#define RIOCP_PE_MULTICAST_MASK(n)       (0x100 + ((n) & 0xff)) /* Multicast Mask Number */
+#define RIOCP_PE_NEXT_LEVEL_GROUP(n)     (0x200 + ((n) & 0xff)) /* Next Level Group Number */
+#define RIOCP_PE_NO_ROUTE                (0x300)                /* Drop packet */
+#define RIOCP_PE_DEFAULT_ROUTE           (0x301)                /* Use default route */
+
+#define RIOCP_PE_IS_EGRESS_PORT(n)       ((n) <= 0xff)
+#define RIOCP_PE_IS_MULTICAST_MASK(n)    ((n) >= 0x100 && (n) <= 0x1ff)
+#define RIOCP_PE_IS_NEXT_LEVEL_GROUP(n)  ((n) >= 0x200 && (n) <= 0x2ff)
+
+#define RIOCP_PE_GET_EGRESS_PORT(n)      ((n) & 0xff)
+#define RIOCP_PE_GET_MULTICAST_MASK(n)   (((n) - 0x100) & 0xff)
+#define RIOCP_PE_GET_NEXT_LEVEL_GROUP(n) (((n) - 0x200) & 0xff)
+
 /* Structure describing standard RapidIO capabilities registers (CARs) */
 struct riocp_pe_capabilities {
 	uint32_t dev_id;         /* 0x00 Device identity */
@@ -148,16 +166,16 @@ int RIOCP_WU riocp_pe_get_comptag(riocp_pe_handle pe, uint32_t *comptag);
 int RIOCP_WU riocp_pe_get_hopcount(riocp_pe_handle pe, uint8_t *hopcount);
 int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t *comptag, uint32_t did, uint32_t wr_did);
 int RIOCP_WU riocp_pe_get_peer_pe(riocp_pe_handle pe, uint8_t port, riocp_pe_handle *peer);
-	
+
 /* Routing */
 int RIOCP_WU riocp_sw_get_default_route_action(riocp_pe_handle sw,
 		enum riocp_sw_default_route_action *action, uint8_t *port);
 int RIOCP_WU riocp_sw_set_default_route_action(riocp_pe_handle sw,
 		enum riocp_sw_default_route_action action, uint8_t port);
 int RIOCP_WU riocp_sw_get_route_entry(riocp_pe_handle sw, uint8_t lut, uint32_t destid,
-		uint8_t *port);
+		uint16_t *value);
 int RIOCP_WU riocp_sw_set_route_entry(riocp_pe_handle sw, uint8_t lut, uint32_t destid,
-		uint8_t port);
+		uint16_t value);
 int RIOCP_WU riocp_sw_clear_lut(riocp_pe_handle sw, uint8_t lut);
 int RIOCP_WU riocp_pe_set_sw_domain(riocp_pe_handle sw, uint8_t domain);
 int RIOCP_WU riocp_sw_set_port_enable(riocp_pe_handle sw, uint8_t port, bool enable);

@@ -23,8 +23,6 @@ extern "C" {
 
 #define RIOCP_PE_HANDLE_REV 1
 
-#define RIOCP_PE_ANY_PORT 0xff
-
 #define RIOCP_PE_IS_MPORT(pe) ((pe)->minfo) /**< Check if pe is a master port handle */
 #define RIOCP_PE_IS_HOST(pe) ((pe)->mport->minfo->is_host) /**< Check if PE is host */
 #define RIOCP_SW_DRV_NAME(pe) ((pe)->sw->name) /**< Switch driver name */
@@ -106,8 +104,8 @@ struct riocp_pe_switch {
 	struct riocp_pe_device_id *id_table; /**< Driver support for matching DID/VID */
 	int (*init)(struct riocp_pe *sw);
 	int (*init_em)(struct riocp_pe *sw);
-	int (*set_route_entry)(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint8_t port);
-	int (*get_route_entry)(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint8_t *port);
+	int (*set_route_entry)(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint16_t value);
+	int (*get_route_entry)(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint16_t *value);
 	int (*clear_lut)(struct riocp_pe *sw, uint8_t lut);
 	int (*get_lane_speed)(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed *speed);
 	int (*get_lane_width)(struct riocp_pe *sw, uint8_t port, uint8_t *width);

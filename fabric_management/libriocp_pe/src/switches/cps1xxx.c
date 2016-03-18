@@ -1463,7 +1463,7 @@ static int cps10q_get_lane_speed(struct riocp_pe *sw, uint8_t port, uint8_t lane
 }
 #endif
 
-int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint8_t port)
+int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint16_t value)
 {
 	int ret;
 #ifdef CONFIG_IDTGEN2_DIRECT_ROUTING
@@ -1471,16 +1471,14 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 #else
 	uint32_t val;
 #endif
-
-	/*
-	 * Change 0xff to CPS1xxx_NO_ROUTE as values higher than 0xdf are not allowed
-	 * in the routing table. See CPS1848 or CPS1616 user manual chapter: 2.3
-	 * for more information.
-	 */
-	if (port == 0xff)
-		port = CPS1xxx_NO_ROUTE;
+	if (value == RIOCP_PE_NO_ROUTE)
+		value = CPS1xxx_NO_ROUTE;
+	else if (value == RIOCP_PE_DEFAULT_ROUTE)
+		value = CPS1xxx_DEFAULT_ROUTE;
 
 #ifdef CONFIG_IDTGEN2_DIRECT_ROUTING
+	if (RIOCP_PE_IS_MULTICAST_MASK(value))
+		value = CPS1xxx_MCAST_MASK_FIRST + RIOCP_PE_GET_MULTICAST_MASK(value);
 
 	if (lut == RIOCP_PE_ANY_PORT) {
 		off_dm = CPS1xxx_RTE_BCAST_DM(0x0ff&(destid>>8));
@@ -1493,24 +1491,22 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	}
 
 	if ((destid & 0xff00) == 0 || (int)((destid>>8)&0x0ff) == sw->sw->domain) {
-		ret = riocp_pe_maint_write(sw, off_dev, port);
+		ret = riocp_pe_maint_write(sw, off_dev, value);
 		if (ret < 0)
 			return ret;
 	} else if ((destid & 0x00ff) == 0) {
-		ret = riocp_pe_maint_write(sw, off_dm, port);
+		ret = riocp_pe_maint_write(sw, off_dm, value);
 		if (ret < 0)
 			return ret;
 	} else {
-		ret = riocp_pe_maint_write(sw, off_dm, (port == CPS1xxx_NO_ROUTE)?(CPS1xxx_NO_ROUTE):(CPS1xxx_RTE_DM_TO_DEV));
+		ret = riocp_pe_maint_write(sw, off_dm, (value == CPS1xxx_NO_ROUTE)?(CPS1xxx_NO_ROUTE):(CPS1xxx_RTE_DM_TO_DEV));
 		if (ret < 0)
 			return ret;
 
-		ret = riocp_pe_maint_write(sw, off_dev, port);
+		ret = riocp_pe_maint_write(sw, off_dev, value);
 		if (ret < 0)
 			return ret;
 	}
-
-
 #else
 	/* Select routing table to update */
 	if (lut == RIOCP_PE_ANY_PORT)
@@ -1519,15 +1515,16 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 		lut++;
 
 	/* Multicast route */
-	if (port >= CPS1xxx_MCAST_MASK_FIRST && port <= CPS1xxx_MCAST_MASK_LAST) {
+	if (RIOCP_PE_IS_MULTICAST_MASK(value)) {
+		value = RIOCP_PE_GET_MULTICAST_MASK(value);
+
 		ret = riocp_pe_maint_write(sw, CPS1xxx_MCAST_RTE_SEL, lut);
 		if (ret < 0)
 			return ret;
 
-		/* Associate destid with the mcast mask index stored in port */
-		port -= CPS1xxx_MCAST_MASK_FIRST;
+		/* Associate destid with the mcast mask index */
 		ret = riocp_pe_maint_write(sw, RIO_STD_MC_ASSOCIATE_SEL_CSR,
-				(destid << 16) | port);
+				(destid << 16) | value);
 		if (ret < 0)
 			return ret;
 
@@ -1548,7 +1545,7 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	if (ret < 0)
 		return ret;
 
-	ret = riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_PORT_SEL_CSR, port);
+	ret = riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_PORT_SEL_CSR, value);
 	if (ret < 0)
 		return ret;
 
@@ -1562,7 +1559,7 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	return ret;
 }
 
-int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint8_t *port)
+int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint16_t *value)
 {
 	int ret;
 	uint32_t _port;
@@ -1616,7 +1613,16 @@ int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 #endif
 	_port &= CPS1xxx_RTE_PORT_CSR_PORT;
 
-	*port = _port;
+	if (_port >= CPS1xxx_MCAST_MASK_FIRST && _port <= CPS1xxx_MCAST_MASK_LAST)
+		_port = RIOCP_PE_MULTICAST_MASK(_port - CPS1xxx_MCAST_MASK_FIRST);
+	else if (_port == CPS1xxx_DEFAULT_ROUTE)
+		_port = RIOCP_PE_DEFAULT_ROUTE;
+	else if (_port == CPS1xxx_NO_ROUTE)
+		_port = RIOCP_PE_NO_ROUTE;
+	else if (!RIOCP_PE_IS_EGRESS_PORT(_port))
+		return -EINVAL;
+
+	*value = _port;
 
 	return ret;
 }

@@ -30,7 +30,7 @@ extern "C" {
 static int riocp_pe_dot_print_node(FILE *file, struct riocp_pe *pe)
 {
 	uint32_t route_destid;
-	uint8_t route_port;
+	uint16_t route_port;
 	int ret = 0;
 
 	fprintf(file, "\t\"0x%08x\" ", pe->comptag);
@@ -51,7 +51,7 @@ static int riocp_pe_dot_print_node(FILE *file, struct riocp_pe *pe)
 				RIOCP_ERROR("Could not get route for pe 0x%08x\n", pe->comptag);
 				return ret;
 			}
-			if (route_port != 0xff)
+			if (RIOCP_PE_IS_EGRESS_PORT(route_port))
 				fprintf(file, "%02x:%u&#10;", route_destid, route_port);
 		}
 	}

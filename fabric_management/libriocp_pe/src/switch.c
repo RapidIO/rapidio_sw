@@ -231,13 +231,13 @@ int riocp_pe_switch_init_em(struct riocp_pe *sw)
  * @param sw     Target switch PE
  * @param lut    Route lookup table
  * @param destid Destination ID
- * @param port   Output port for destid
+ * @param value  Routing table entry value
  */
 int riocp_pe_switch_set_route_entry(struct riocp_pe *sw, uint8_t lut,
-	uint32_t destid, uint8_t port)
+	uint32_t destid, uint16_t value)
 {
 	if(sw->sw->set_route_entry)
-		return sw->sw->set_route_entry(sw, lut, destid, port);
+		return sw->sw->set_route_entry(sw, lut, destid, value);
 	else
 		return -ENOSYS;
 }
@@ -247,12 +247,12 @@ int riocp_pe_switch_set_route_entry(struct riocp_pe *sw, uint8_t lut,
  * @param sw     Target switch PE
  * @param lut    Route lookup table
  * @param destid Destination ID
- * @param port   Output port for destid
+ * @param port   Routing table value
  */
-int riocp_pe_switch_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint8_t *port)
+int riocp_pe_switch_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, uint16_t *value)
 {
 	if (sw->sw->get_route_entry)
-		return sw->sw->get_route_entry(sw, lut, destid, port);
+		return sw->sw->get_route_entry(sw, lut, destid, value);
 	else
 		return -ENOSYS;
 }

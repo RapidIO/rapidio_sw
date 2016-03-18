@@ -165,14 +165,14 @@ static int tsi57x_unlock_port(struct riocp_pe *sw, uint8_t port)
 }
 
 static int tsi57x_set_route_entry(struct riocp_pe *sw, uint8_t lut,
-	uint32_t destid, uint8_t port)
+	uint32_t destid, uint16_t value)
 {
 	uint32_t val;
 	uint32_t cfg_destid;
 	uint32_t cfg_port;
 
-	RIOCP_TRACE("Write LUT 0x%02x for switch 0x%08x, destid %u (0x%08x), port %02x\n",
-		lut, sw->comptag, destid, destid, port);
+	RIOCP_TRACE("Write LUT 0x%02x for switch 0x%08x, destid %u (0x%08x), port %04x\n",
+		lut, sw->comptag, destid, destid, value);
 
 	if (lut == RIOCP_PE_ANY_PORT) {
 		cfg_destid = RIO_STD_RTE_CONF_DESTID_SEL_CSR;
@@ -187,21 +187,20 @@ static int tsi57x_set_route_entry(struct riocp_pe *sw, uint8_t lut,
 
 	if (riocp_pe_maint_write(sw, cfg_destid, destid))
 		return -EIO;
-	if (riocp_pe_maint_write(sw, cfg_port, port))
+	if (riocp_pe_maint_write(sw, cfg_port, value))
 		return -EIO;
 
 	/* Wait for entry to be committed */
 	if (riocp_pe_maint_read(sw, cfg_port, &val))
 		return -EIO;
 
-	RIOCP_TRACE("Write LUT successfull\n",
-		lut, sw->comptag, destid, port);
+	RIOCP_TRACE("Write LUT successful\n");
 
 	return 0;
 }
 
 static int tsi57x_get_route_entry(struct riocp_pe *sw, uint8_t lut,
-	uint32_t destid, uint8_t *port)
+	uint32_t destid, uint16_t *value)
 {
 	uint32_t _port;
 
@@ -220,7 +219,7 @@ static int tsi57x_get_route_entry(struct riocp_pe *sw, uint8_t lut,
 		return -EINVAL;
 	}
 
-	*port = _port;
+	*value = _port;
 
 	return 0;
 }

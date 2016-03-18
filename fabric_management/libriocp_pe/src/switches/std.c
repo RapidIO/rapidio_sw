@@ -22,17 +22,17 @@ extern "C" {
 #endif
 
 static int std_set_route_entry(struct riocp_pe *sw, uint8_t __attribute__((unused))lut,
-	uint32_t destid, uint8_t port)
+	uint32_t destid, uint16_t value)
 {
 	if (riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_DESTID_SEL_CSR, destid))
 		return -EIO;
-	if (riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_PORT_SEL_CSR, port))
+	if (riocp_pe_maint_write(sw, RIO_STD_RTE_CONF_PORT_SEL_CSR, value))
 		return -EIO;
 	return 0;
 }
 
 static int std_get_route_entry(struct riocp_pe *sw, uint8_t __attribute__((unused))lut,
-	uint32_t destid, uint8_t *port)
+	uint32_t destid, uint16_t *value)
 {
 	uint32_t _port;
 
@@ -41,7 +41,7 @@ static int std_get_route_entry(struct riocp_pe *sw, uint8_t __attribute__((unuse
 	if (riocp_pe_maint_read(sw, RIO_STD_RTE_CONF_PORT_SEL_CSR, &_port))
 		return -EIO;
 
-	*port = _port;
+	*value = _port;
 
 	return 0;
 }

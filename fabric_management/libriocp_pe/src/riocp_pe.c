@@ -338,7 +338,7 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 	uint32_t destid;
 	uint32_t any_id;
 	unsigned int i;
-	uint8_t _port = 0;
+	uint16_t _port = 0;
 	int ret;
 
 	RIOCP_TRACE("Discover behind port %d on handle %p\n", port, pe);
@@ -403,7 +403,7 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 			goto err;
 		}
 
-		if (_port != 0xff) {
+		if (RIOCP_PE_IS_EGRESS_PORT(_port)) {
 			if (port == _port) {
 				destid = i;
 				goto found_unlock_pe;
@@ -1272,7 +1272,7 @@ int RIOCP_SO_ATTR riocp_sw_set_default_route_action(riocp_pe_handle sw,
  * @param sw     Target switch
  * @param lut    Target route LUT, specify 0xff to address the global route LUT
  * @param destid Destination ID to route
- * @param port   Egress port; 0xff indicates unmapped route
+ * @param value  Routing table entry value
  * @retval -EINVAL Invalid handle
  * @retval -ENOSYS Handle is not of switch type
  * @retval -EIO When the lut entry is invalid
@@ -1280,12 +1280,12 @@ int RIOCP_SO_ATTR riocp_sw_set_default_route_action(riocp_pe_handle sw,
 int RIOCP_SO_ATTR riocp_sw_get_route_entry(riocp_pe_handle sw,
 	uint8_t lut,
 	uint32_t destid,
-	uint8_t *port)
+	uint16_t *value)
 {
 	int ret;
 	int err = 0;
 
-	if (port == NULL)
+	if (value == NULL)
 		return -EINVAL;
 	if (riocp_pe_handle_check(sw))
 		return -EINVAL;
@@ -1297,7 +1297,7 @@ int RIOCP_SO_ATTR riocp_sw_get_route_entry(riocp_pe_handle sw,
 	if (ret)
 		return -EAGAIN;
 
-	ret = riocp_pe_switch_get_route_entry(sw, lut, destid, port);
+	ret = riocp_pe_switch_get_route_entry(sw, lut, destid, value);
 	if (ret)
 		err = -EIO;
 
@@ -1316,12 +1316,12 @@ int RIOCP_SO_ATTR riocp_sw_get_route_entry(riocp_pe_handle sw,
  * @param sw     Target switch
  * @param lut    Target route LUT, specify 0xff to address the global route LUT
  * @param destid Destination ID to route
- * @param port   Egress port; 0xff indicates unmapped route
+ * @param value  Routing table entry value
  */
 int RIOCP_SO_ATTR riocp_sw_set_route_entry(riocp_pe_handle sw,
 	uint8_t lut,
 	uint32_t destid,
-	uint8_t port)
+	uint16_t value)
 {
 	int ret;
 
@@ -1340,7 +1340,7 @@ int RIOCP_SO_ATTR riocp_sw_set_route_entry(riocp_pe_handle sw,
 	if (destid == RIOCP_PE_ANY_ID(sw))
 		return -EACCES;
 
-	ret = riocp_pe_switch_set_route_entry(sw, lut, destid, port);
+	ret = riocp_pe_switch_set_route_entry(sw, lut, destid, value);
 
 	return ret;
 }

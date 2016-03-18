@@ -36,9 +36,9 @@ int RIOCP_WU riocp_pe_switch_port_clear_enumerated(struct riocp_pe *sw, uint8_t 
 int RIOCP_WU riocp_pe_switch_init(struct riocp_pe *sw);
 int RIOCP_WU riocp_pe_switch_init_em(struct riocp_pe *sw);
 int RIOCP_WU riocp_pe_switch_set_route_entry(struct riocp_pe *sw, uint8_t lut,
-	uint32_t destid, uint8_t port);
+	uint32_t destid, uint16_t value);
 int RIOCP_WU riocp_pe_switch_get_route_entry(struct riocp_pe *sw, uint8_t lut,
-	uint32_t destid, uint8_t *port);
+	uint32_t destid, uint16_t *value);
 int RIOCP_WU riocp_pe_switch_clear_lut(struct riocp_pe *sw, uint8_t lut);
 int RIOCP_WU riocp_pe_switch_get_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed *speed);
 int RIOCP_WU riocp_pe_switch_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width);
