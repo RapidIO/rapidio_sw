@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <execinfo.h>
 
 #include <memory>
+#include <thread>
 #include "memory_supp.h"
 
 #include "liblog.h"
@@ -58,6 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::shared_ptr;
 using std::make_shared;
 using std::unique_ptr;
+using std::thread;
 
 using rx_engines_list = vector<unique_ptr<unix_rx_engine>>;
 using tx_engines_list = vector<unique_ptr<unix_tx_engine>>;
@@ -101,15 +103,19 @@ void cm_engine_monitoring_thread_f(sem_t *cm_engine_cleanup_sem)
 
 		HIGH("Cleaning up Unix dead engines, or shutting down all!\n");
 
-		/* Check both the prov and Hello daemon lists for dead
-		 * CM engines. Remove if necessary. */
-		prov_daemon_info_list.remove_daemon_with_dead_eng();
-		hello_daemon_info_list.remove_daemon_with_dead_eng();
+
 
 		/* If shutting down then self-terminate the thread */
 		if (shutting_down) {
+			prov_daemon_info_list.clear();
+			hello_daemon_info_list.clear();
 			INFO("Shutting down. Exiting '%s'\n", __func__);
 			return;
+		} else {
+			/* Check both the prov and Hello daemon lists for dead
+			 * CM engines. Remove if necessary. */
+			prov_daemon_info_list.remove_daemon_with_dead_eng();
+			hello_daemon_info_list.remove_daemon_with_dead_eng();
 		}
 	}
 } /* cm_engine_monitoring_thread_f() */
@@ -267,7 +273,7 @@ void shutdown()
 		riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
 	}
 	INFO("Mport %d closed\n", peer.mport_id);
-	rdma_log_close();
+	//rdma_log_close();
 	exit(1);
 } /* shutdown() */
 

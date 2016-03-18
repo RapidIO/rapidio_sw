@@ -217,7 +217,7 @@ protected:
 		} while (rc && (errno==EINTR) && gdb && !*shutting_down);
 		if (rc) {
 			if (errno == EINTR) {
-				WARN("%s: Abort receive() for pthread_kill()\n",
+				printf("%s: Abort receive() for pthread_kill()\n",
 									name);
 				rc = EINTR;
 			} else {
@@ -362,19 +362,23 @@ public:
 
 	~cm_server()
 	{
-		/* Close accept socket, if open */
-		DBG("'%s': accept_socket = 0x%X\n", name, accept_socket);
+		if((shutting_down != nullptr) && !*shutting_down) {
+			DBG("%s called for '%s'\n", __func__, name);
+		} else {
+			printf("%s called for '%s'\n", __func__, name);
+		}
+
+		/* Close socket, if open */
 		if (accept_socket && accepted)
 			if (riomp_sock_close(&accept_socket)) {
-				WARN("Failed to close accept socket for '%s': %s\n",
+				printf("Failed to close accept socket for '%s': %s\n",
 							name, strerror(errno));
 			}
 
 		/* Close listen socket, opened during construction */
-		DBG("'%s': Closing listen_socket = 0x%X\n", name, listen_socket);
 		if (listen_socket)
 			if (riomp_sock_close(&listen_socket)) {
-				WARN("Failed to close listen socket: for '%s': %s\n",
+				printf("Failed to close listen socket: for '%s': %s\n",
 							name, strerror(errno));
 			}
 
@@ -382,7 +386,7 @@ public:
 		if (mailbox) {
 			DBG("'%s': Destroying mailbox\n", name);
 			if (close_mailbox()) {
-				WARN("Failed to close mailbox for '%s'\n", name);
+				printf("Failed to close mailbox for '%s'\n", name);
 			}
 		}
 	} /* ~cm_server() */
@@ -501,18 +505,23 @@ public:
 
 	~cm_client()
 	{
+		if((shutting_down != nullptr) && !*shutting_down) {
+			DBG("%s called for '%s'\n", __func__, name);
+		} else {
+			printf("%s called for '%s'\n", __func__, name);
+		}
+
 		/* Close client socket */
-		DBG("'%s': client_socket = 0x%X\n", name, client_socket);
 		if (riomp_sock_close(&client_socket)) {
 			WARN("Failed to close client socket for '%s': %s\n",
 							name, strerror(errno));
 		}
-		DBG("Client socket closed\n");
+
 		/* Destroy mailbox handle, opened during construction */
 		if (close_mailbox()) {
 			WARN("Failed to close mailbox for '%s'\n", name);
 		}
-		DBG("Mailbox destroyed\n");
+
 	} /* Destructor */
 
 	/* Connect to server specified by RapidIO destination ID */

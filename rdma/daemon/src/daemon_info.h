@@ -95,7 +95,10 @@ public:
 	/**
 	 * @brief Destructor
 	 */
-	~daemon_info() = default;
+	~daemon_info()
+	{
+		printf("~daemon_info\n");
+	}
 
 	/**
 	 * @brief Mutator(s)
@@ -128,7 +131,10 @@ public:
 	/**
 	 * @brief Destructor
 	 */
-	~daemon_list() { daemons.clear(); }
+	~daemon_list() {
+		puts(__func__);
+		daemons.clear();
+	}
 
 	void clear() { daemons.clear(); }
 

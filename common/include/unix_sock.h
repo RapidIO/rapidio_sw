@@ -346,7 +346,7 @@ public:
 		if ((shutting_down != nullptr) && !*shutting_down) {
 			HIGH("dtor\n");
 		} else {
-			puts(__func__);
+			printf("~unix_server called for '%s'\n", name);
 		}
 		close(accept_socket);
 	}
