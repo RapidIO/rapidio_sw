@@ -57,6 +57,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __DMACHANSHM_H__
 
 #ifdef RDMA_LL
+  #include "liblog.h"
+#endif
+
+#ifdef RDMA_LL
   #define XDBG		DBG
   #define XINFO		INFO
   #define XCRIT		CRIT
@@ -163,6 +167,8 @@ public:
   void setInbound();
   bool dmaIsRunning();
   uint32_t clearIntBits();
+
+  inline bool isMaster() { return m_hw_master; }
 
   inline uint32_t getDestId() { return m_mport->rd32(TSI721_IB_DEVID); }
 

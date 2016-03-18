@@ -423,7 +423,10 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
     // wrap around to beginning of buffer.
     if ((bd_idx + 1) == m_state->bd_num) {
       wk_end.opt.bd_wp = m_state->dma_wr;
+      wk_end.opt.dtype = DTYPE3;
+
       wk_0.opt.bd_wp   = m_state->dma_wr+1;
+      wk_0.opt.dtype   = DTYPE3;
 
       wk_end.opt.ts_start = wk_0.opt.ts_start = rdtsc();
       // FIXME: Should this really be FF..E, or should it be FF..F ???
@@ -1063,11 +1066,15 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     }
 #endif
 
-    if (umdemo_must_die)
-      return 0;
+    if (umdemo_must_die) return 0;
+
     m_bl_busy[item.opt.bd_idx] = false;
     m_state->bl_busy_size--;
     assert(m_state->bl_busy_size >= 0);
+
+    if (item.opt.dtype == DTYPE3 || idx == 0 || idx == (m_state->bd_num-1)) goto unlock;
+
+    {{ 
 
     if (item.opt.cliidx >= 0) m_state->client_completion[item.opt.cliidx].bytes_txd += item.opt.bcount;
 
@@ -1078,12 +1085,14 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
 
 ///    if (item.opt.ticket > m_state->acked_serial_number) m_state->acked_serial_number = item.opt.ticket;
 
-    assert(m_pending_tickets_RP > m_state->serial_number);
+    assert(m_pending_tickets_RP <= m_state->serial_number);
 
     const int P = m_state->serial_number - m_pending_tickets_RP; // Pending issued tickets
     assert(P); // If we're here it cannot be 0
 
     assert(m_pending_tickets[item.opt.bd_idx] > 0);
+    assert(m_pending_tickets[item.opt.bd_idx] == item.opt.ticket);
+
     m_pending_tickets[item.opt.bd_idx] = 0; // cancel ticket
 
     int k = 0;
@@ -1096,13 +1105,20 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
       k++;
       if (k == P) break; // Upper bound
     }
+#ifdef DEBUG_BD
+    XDBG("\n\tDMA bd_idx=%d Ticket=%llu S/N=%llu pending_tickets_RP=%llu => k=%d\n",
+         item.opt.bd_idx, item.opt.ticket, m_state->serial_number, m_pending_tickets_RP, k);
+#endif
     if (k > 0) {
       m_pending_tickets_RP += k;
       assert(m_pending_tickets_RP > m_state->serial_number);
       m_state->acked_serial_number = m_pending_tickets_RP; // XXX Perhaps +1?
     }
 
+    }}
+unlock:
     pthread_spin_unlock(&m_state->bl_splock); 
+
   } // END for compl_size
 
   // Before advancing FIFO RP I must have a "barrier" so no "older" BDs exist.
