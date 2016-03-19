@@ -214,9 +214,6 @@ void init_worker_info(struct worker *info, int first_time)
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
 	//};
-	init_seq_ts(&info->nread_ts, MAX_TIMESTAMPS);
-	init_seq_ts(&info->nwrite_ts, MAX_TIMESTAMPS);
-	init_seq_ts(&info->q80p_ts, MAX_TIMESTAMPS);
 
 	info->umd_disable_nread = 0;
 	info->umd_push_rp_thr   = 0;

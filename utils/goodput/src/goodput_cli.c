@@ -1819,15 +1819,6 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	case 'M':
 		ts_p = &wkr[idx].meas_ts;
 		break;
-#ifdef USER_MODE_DRIVER
-	case 'n':
-	case 'N':
-		ts_p = &wkr[idx].nread_ts;
-		break;
-	case '8':
-		ts_p = &wkr[idx].q80p_ts;
-		break;
-#endif
 	default:
                 sprintf(env->output, "FAILED: <type> not 'd', 'f' or 'm'.\n");
         	logMsg(env);

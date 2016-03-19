@@ -273,10 +273,6 @@ struct worker {
 #ifdef USER_MODE_DRIVER
 	int dma_method; // Only for DMA Tun 0=DMAChannel 1=libmport
 
-	struct seq_ts nread_ts;
-	struct seq_ts nwrite_ts;
-	struct seq_ts q80p_ts;
-
 	void            (*owner_func)(struct worker*);     ///< Who is the owner of this
 	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this
 
