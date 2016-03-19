@@ -161,6 +161,7 @@ public:
   DMAChannelSHM(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_h);
   ~DMAChannelSHM();
 
+  inline int getChannel() { return m_state->chan; }
   inline void setCheckHwReg(bool b) { m_check_reg = true; }
 
   void resetHw();

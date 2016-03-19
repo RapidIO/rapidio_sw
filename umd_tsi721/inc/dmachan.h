@@ -117,6 +117,8 @@ public:
   DMAChannel(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_h);
   ~DMAChannel();
 
+  inline int getChannel() { return m_chan; }
+
   inline void setCheckHwReg(bool b) { m_check_reg = true; }
 
   void resetHw();
