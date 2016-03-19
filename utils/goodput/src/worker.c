@@ -171,8 +171,10 @@ void init_worker_info(struct worker *info, int first_time)
 	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
 	init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 #ifdef USER_MODE_DRIVER
+	info->dma_method = 0;
 	info->owner_func = NULL;
 	info->umd_set_rx_fd = NULL;
+	info->rdma = NULL;
 	info->my_destid = 0xFFFF;
 	info->umd_chan = -1;
 	info->umd_chan_n = -1;
@@ -2459,7 +2461,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 						info->dmaopt[oi].bcount = 0x20;
 
-						info->umd_dch->queueDmaOpT1(NWRITE, info->dmaopt[oi], info->dmamem[oi],
+						info->umd_dch->queueDmaOpT1(LAST_NWRITE_R, info->dmaopt[oi], info->dmamem[oi],
 						                            info->umd_dma_abort_reason, &info->meas_ts);
 
 						// Wrap around, do no overwrite last buffer entry

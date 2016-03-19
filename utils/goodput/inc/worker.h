@@ -75,6 +75,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <map>
 
 #include "dmachan.h"
+#include "rdmaops.h"
 #include "mboxchan.h"
 #include "debug.h"
 #include "dmadesc.h"
@@ -270,12 +271,17 @@ struct worker {
 	struct seq_ts fifo_ts;
 	struct seq_ts meas_ts;
 #ifdef USER_MODE_DRIVER
+	int dma_method; // Only for DMA Tun 0=DMAChannel 1=libmport
+
 	struct seq_ts nread_ts;
 	struct seq_ts nwrite_ts;
 	struct seq_ts q80p_ts;
 
 	void            (*owner_func)(struct worker*);     ///< Who is the owner of this
 	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this
+
+	RdmaOpsIntf*    rdma;
+
 	uint16_t	my_destid;
 	LockFile*	umd_lock;
 	int		umd_chan; ///< Local mailbox OR DMA channel
