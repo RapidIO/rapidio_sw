@@ -1088,7 +1088,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     assert(m_pending_tickets_RP <= m_state->serial_number);
 
     const int P = m_state->serial_number - m_pending_tickets_RP; // Pending issued tickets
-    assert(P); // If we're here it cannot be 0
+    //assert(P); // If we're here it cannot be 0
 
     assert(m_pending_tickets[item.opt.bd_idx] > 0);
     assert(m_pending_tickets[item.opt.bd_idx] == item.opt.ticket);
@@ -1097,7 +1097,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
 
     int k = 0;
     int i = m_pending_tickets_RP % m_state->bd_num;
-    for (; k < m_state->bd_num; i++) {
+    for (; P > 0 && k < m_state->bd_num; i++) {
       assert(i < m_state->bd_num);
       if (i == 0) continue; // T3 BD0 does not get a ticket
       if (i == (m_state->bd_num-1)) continue; // T3 BD(bufc-1) does not get a ticket
@@ -1106,8 +1106,8 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
       if (k == P) break; // Upper bound
     }
 #ifdef DEBUG_BD
-    XDBG("\n\tDMA bd_idx=%d rtype=%d Ticket=%llu S/N=%llu pending_tickets_RP=%llu => k=%d\n",
-         item.opt.bd_idx, item.opt.rtype, item.opt.ticket, m_state->serial_number, m_pending_tickets_RP, k);
+    XDBG("\n\tDMA bd_idx=%d rtype=%d Ticket=%llu S/N=%llu Pending=%d pending_tickets_RP=%llu => k=%d\n",
+         item.opt.bd_idx, item.opt.rtype, item.opt.ticket, m_state->serial_number, P, m_pending_tickets_RP, k);
 #endif
     if (k > 0) {
       m_pending_tickets_RP += k;
