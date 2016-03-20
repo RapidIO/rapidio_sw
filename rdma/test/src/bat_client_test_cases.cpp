@@ -2240,7 +2240,7 @@ int test_case_v_w(char tc, uint32_t destid)
 		puts("Telling remote app to die");
 		ret = kill_remote_app(bat_connections[0]);
 		BAT_EXPECT_RET(ret, 0, free_client_mso);
-	} else if (tc == 'x') {
+	} else if (tc == 'v') {
 		/* Kill remote daemon */
 		puts("Telling remote daemon to die");
 		ret = kill_remote_daemon(bat_connections[0]);
