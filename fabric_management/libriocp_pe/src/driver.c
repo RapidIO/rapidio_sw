@@ -115,6 +115,11 @@ struct riocp_pe_driver drvr =
 { NULL,
 NULL,
 NULL, 
+NULL, 
+NULL, 
+NULL, 
+NULL, 
+NULL, 
 NULL,
 NULL,
 NULL };
@@ -187,6 +192,55 @@ int RIOCP_WU riocp_drv_recover_port(struct riocp_pe *pe, uint8_t port)
 }
 
 /**
+* @brief Get the current state of a port on a PE.
+*
+* @param[in] pe Processing element to be queried
+* @param[in] port Port number on the pe to be queried.
+*       Note that ALL_PE_PORTS is a valid parameter.
+* @param[in] did Destination ID whose routing behavior will be returned.
+* @param[in] rt_val Current routing table control value for the Destination ID;
+*
+*/
+int RIOCP_WU riocp_drv_get_port_state(struct riocp_pe *pe,
+                        uint8_t port, struct riocp_pe_port_state_t *state)
+{
+	if (drvr.get_port_state && drvr_ok)
+		return drvr.get_port_state(pe, port, state);
+	else
+		return -ENOSYS;
+}
+
+/**
+* @brief Enable packet exchange on this port, whatever the current port state
+*
+* @param[in] pe Processing element whose port should be started
+* @param[in] port Port number on the pe to be started.
+*
+*/
+int RIOCP_WU riocp_drv_port_start(struct riocp_pe *pe, uint8_t port)
+{
+	if (drvr.port_start && drvr_ok)
+		return drvr.port_start(pe, port);
+	else
+		return -ENOSYS;
+}
+
+/**
+* @brief Halt all activity on this port and power it down if possible
+*
+* @param[in] pe Processing element whose port should be stopped
+* @param[in] port Stop this port number
+*
+*/
+int RIOCP_WU riocp_drv_port_stop(struct riocp_pe *pe, uint8_t port)
+{
+	if (drvr.port_start && drvr_ok)
+		return drvr.port_start(pe, port);
+	else
+		return -ENOSYS;
+}
+
+/**
 * @brief Set the routing behavior for a device ID on a PE+port
 *
 * @param[in] pe Processing element to be programmed
@@ -225,23 +279,60 @@ int RIOCP_WU riocp_drv_get_route_entry(struct riocp_pe *pe,
 }
 
 /**
-* @brief Get the current state of a port on a PE.
+* @brief Free an allocated multicast mask on this PE
 *
 * @param[in] pe Processing element to be queried
-* @param[in] port Port number on the pe to be queried.
-*       Note that ALL_PE_PORTS is a valid parameter.
-* @param[in] did Destination ID whose routing behavior will be returned.
-* @param[in] rt_val Current routing table control value for the Destination ID;
+* @param[in] lut Look up table where the multicast mask should be freed.
+* @param[in] rt_val Routing table value which identifies the multicast mask.
+*                    to be freed.
 *
 */
-int RIOCP_WU riocp_drv_get_port_state(struct riocp_pe *pe,
-                        uint8_t port, struct riocp_pe_port_state_t *state)
+int RIOCP_WU riocp_drv_alloc_mcast_mask(struct riocp_pe *sw, uint8_t lut,
+                        pe_rt_val *rt_val, uint32_t port_mask)
 {
-	if (drvr.get_port_state && drvr_ok)
-		return drvr.get_port_state(pe, port, state);
+	if (drvr.alloc_mcast_mask && drvr_ok)
+		return drvr.alloc_mcast_mask(sw, lut, rt_val, port_mask);
 	else
 		return -ENOSYS;
 }
+
+/**
+* @brief Free an allocated multicast mask on this PE
+*
+* @param[in] pe Processing element to be queried
+* @param[in] lut Look up table where the multicast mask should be freed.
+* @param[in] rt_val Routing table value which identifies the multicast mask.
+*                    to be freed.
+*
+*/
+int RIOCP_WU riocp_drv_free_mcast_mask(struct riocp_pe *sw, uint8_t lut,
+                        		pe_rt_val rt_val)
+{
+	if (drvr.free_mcast_mask && drvr_ok)
+		return drvr.free_mcast_mask(sw, lut, rt_val);
+	else
+		return -ENOSYS;
+}
+
+/**
+* @brief Modify an allocated multicast mask
+*
+* @param[in] pe Processing element to be queried
+* @param[in] lut Look up table where the multicast mask should be allocated.
+* @param[in] port_mask One bit set for each port to include in the multicast  
+* @param[in] rt_val Routing table value used to set this multicast mask.
+*                    Only valid on success.
+*
+*/
+int RIOCP_WU riocp_drv_change_mcast_mask(struct riocp_pe *sw, uint8_t lut,
+                        pe_rt_val rt_val, uint32_t port_mask)
+{
+	if (drvr.change_mcast_mask && drvr_ok)
+		return drvr.change_mcast_mask(sw, lut, rt_val, port_mask);
+	else
+		return -ENOSYS;
+}
+
 
 /**
 * @brief Read a register on a PE

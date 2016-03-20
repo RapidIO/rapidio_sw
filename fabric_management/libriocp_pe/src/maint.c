@@ -25,7 +25,7 @@
 
 #include "lock.h"
 #include "maint.h"
-#include "switch.h"
+// #include "switch.h"
 #include "handle.h"
 #include "rio_regs.h"
 #include "driver.h"
