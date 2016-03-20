@@ -208,7 +208,6 @@ protected:
 	int timed_receive_buffer(riomp_sock_t socket, uint32_t timeout_ms,
 			void *buffer, size_t *rcvd_len)
 	{
-		DBG("ENTER\n");
 		int rc;
 
 		do {
@@ -247,7 +246,6 @@ protected:
 		if (buffer != nullptr)
 			memcpy(buffer, recv_buf + CM_MSG_OFFSET, CM_PAYLOAD_SIZE);
 
-		DBG("EXIT\n");
 		return rc;
 	} /* timed_receive_buffer() */
 

@@ -132,7 +132,6 @@ public:
 	 * @brief Destructor
 	 */
 	~daemon_list() {
-		puts(__func__);
 		daemons.clear();
 	}
 

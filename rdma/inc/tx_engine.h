@@ -92,9 +92,7 @@ void *tx_worker_thread_f(void *arg)
 	while(1) {
 		/* Wait until a message is enqueued for transmission or the
 		 * destructor posts the semaphore to terminate the thread */
-		DBG("Waiting for message to be sent...\n");
 		sem_wait(messages_waiting_sem);
-		DBG("Not waiting anymore..\n");
 
 		/* This happens when we are trying to exit the thread
 		 * from the destructor: stop_worker_thread is set to true
@@ -106,7 +104,6 @@ void *tx_worker_thread_f(void *arg)
 		}
 
 		pthread_mutex_lock(message_queue_lock);
-		DBG("Getting message at front of queue\n");
 		M*	msg_ptr = message_queue->front().get();
 		pthread_mutex_unlock(message_queue_lock);
 
@@ -124,7 +121,6 @@ void *tx_worker_thread_f(void *arg)
 		} else {
 			/* Remove message from queue */
 			pthread_mutex_lock(message_queue_lock);
-			DBG("Popping message out of queue\n");
 			message_queue->pop();
 			pthread_mutex_unlock(message_queue_lock);
 		}

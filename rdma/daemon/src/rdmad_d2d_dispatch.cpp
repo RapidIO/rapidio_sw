@@ -95,7 +95,7 @@ static void send_accept_nack(cm_msg_t *msg,
 	DBG("Sending CM_ACCEPT_MS_NACK\n");
 	/* Prepare negative accept message common fields */
 	cm_msg->type = htobe64(CM_ACCEPT_MS);
-	cm_msg->category = htobe64(RDMA_CALL);
+	cm_msg->category = htobe64(RDMA_REQ_RESP);
 	cm_msg->seq_no = msg->seq_no; /* Both are BE */
 
 	/* Populate accept-specific fields */
