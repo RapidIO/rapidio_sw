@@ -101,7 +101,7 @@ void *tx_worker_thread_f(void *arg)
 		 * and the semaphore 'messages_waiting' is posted with the
 		 * queue being empty. */
 		if (*stop_worker_thread) {
-			printf("%s: stop_worker_thread is set\n", __func__);
+			DBG("%s: stop_worker_thread is set\n", __func__);
 			break;
 		}
 
@@ -131,7 +131,7 @@ void *tx_worker_thread_f(void *arg)
 
 	}
 	*worker_is_dead = true;
-	printf("Exiting %s\n", __func__);
+	DBG("Exiting %s\n", __func__);
 	pthread_exit(0);
 }
 
@@ -179,12 +179,11 @@ public:
 
 	virtual ~tx_engine()
 	{
-		puts(__func__);
 		/* If worker_is_dead was true, then the thread has already
 		 * self-terminated and we can just delete the worker_thread object.
 		 * Otherwise, the thread is alive and we need to kill it first.	 */
 		if (!worker_is_dead) {
-			printf("worker() still running...\n");
+			DBG("worker() still running...\n");
 			stop_worker_thread = true;
 			sem_post(&messages_waiting_sem); // Wake up the thread.
 			if (pthread_join(work_thread, NULL)) {

@@ -136,14 +136,14 @@ void *rx_worker_thread_f(void *arg)
 			/* If we fail to receive, the engine dies, whatever the reason! */
 			if (rc == EINTR) {
 				if (*stop_worker_thread) {
-					printf("pthread_kill() called from destructor\n");
+					WARN("pthread_kill() called from destructor\n");
 					break;
 				} else {
-					printf("Someone called pthread_kill(). Who???\n");
+					WARN("Someone called pthread_kill(). Who???\n");
 					break;
 				}
 			} else {
-				printf("Failed to receive for some UNKNOWN reason!\n");
+				ERR("Failed to receive for some UNKNOWN reason!\n");
 				break;
 			}
 		} else if (received_len == 0) {
@@ -212,7 +212,7 @@ void *rx_worker_thread_f(void *arg)
 	*is_dead = true;
 	tx_eng->set_isdead();	// Kill corresponding tx_engine too
 	sem_post(engine_cleanup_sem);
-	printf("Exiting %s\n", __func__);
+	DBG("Exiting %s\n", __func__);
 	pthread_exit(0);
 }
 
@@ -264,7 +264,6 @@ public:
 
 	virtual ~rx_engine()
 	{
-		puts(__func__);
 		/**
 		 * @brief There are two possiblities:
 		 * 1. The worker thread detected an error, it self exited, set the
@@ -277,10 +276,10 @@ public:
 		 *
 		 */
 		if (!worker_is_dead) {
-			printf("%s: Stopping worker thread\n", __func__);
+			DBG("%s: Stopping worker thread\n", __func__);
 			pthread_kill(rx_work_thread, SIGUSR1);
 			pthread_join(rx_work_thread, NULL);
-			printf("%s: rx_work_thread terminated.\n", __func__);
+			DBG("%s: rx_work_thread terminated.\n", __func__);
 		}
 	} /* dtor */
 

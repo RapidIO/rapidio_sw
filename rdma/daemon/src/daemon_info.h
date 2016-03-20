@@ -97,7 +97,7 @@ public:
 	 */
 	~daemon_info()
 	{
-		printf("~daemon_info\n");
+		DBG("~daemon_info\n");
 	}
 
 	/**

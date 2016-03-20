@@ -217,7 +217,7 @@ protected:
 		} while (rc && (errno==EINTR) && gdb && !*shutting_down);
 		if (rc) {
 			if (errno == EINTR) {
-				printf("%s: Abort receive() for pthread_kill()\n",
+				WARN("%s: Abort receive() for pthread_kill()\n",
 									name);
 				rc = EINTR;
 			} else {
@@ -362,23 +362,19 @@ public:
 
 	~cm_server()
 	{
-		if((shutting_down != nullptr) && !*shutting_down) {
-			DBG("%s called for '%s'\n", __func__, name);
-		} else {
-			printf("%s called for '%s'\n", __func__, name);
-		}
+		DBG("%s called for '%s'\n", __func__, name);
 
 		/* Close socket, if open */
 		if (accept_socket && accepted)
 			if (riomp_sock_close(&accept_socket)) {
-				printf("Failed to close accept socket for '%s': %s\n",
+				ERR("Failed to close accept socket for '%s': %s\n",
 							name, strerror(errno));
 			}
 
 		/* Close listen socket, opened during construction */
 		if (listen_socket)
 			if (riomp_sock_close(&listen_socket)) {
-				printf("Failed to close listen socket: for '%s': %s\n",
+				ERR("Failed to close listen socket: for '%s': %s\n",
 							name, strerror(errno));
 			}
 
@@ -386,7 +382,7 @@ public:
 		if (mailbox) {
 			DBG("'%s': Destroying mailbox\n", name);
 			if (close_mailbox()) {
-				printf("Failed to close mailbox for '%s'\n", name);
+				ERR("Failed to close mailbox for '%s'\n", name);
 			}
 		}
 	} /* ~cm_server() */
@@ -505,11 +501,7 @@ public:
 
 	~cm_client()
 	{
-		if((shutting_down != nullptr) && !*shutting_down) {
-			DBG("%s called for '%s'\n", __func__, name);
-		} else {
-			printf("%s called for '%s'\n", __func__, name);
-		}
+		DBG("%s called for '%s'\n", __func__, name);
 
 		/* Close client socket */
 		if (riomp_sock_close(&client_socket)) {

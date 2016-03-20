@@ -190,7 +190,7 @@ static void start_accepting_app_connections()
 	try {
 		/* Create a server */
 		DBG("Creating Unix socket server object...\n");
-		app_conn_server = make_unique<unix_server>("main_server", &shutting_down);
+		app_conn_server = make_unique<unix_server>("app_conn_server", &shutting_down);
 
 		while (1) {
 			/* Wait for client to connect */
@@ -273,7 +273,9 @@ void shutdown()
 		riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
 	}
 	INFO("Mport %d closed\n", peer.mport_id);
-	//rdma_log_close();
+	app_conn_server.reset();
+
+	rdma_log_close();
 	exit(1);
 } /* shutdown() */
 
