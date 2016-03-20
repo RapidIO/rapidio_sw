@@ -518,7 +518,7 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
 #ifdef DEBUG_BD
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
-  XDBG("\n\tQueued DTYPE%d op=%s did=0x%x as BD HW @0x%lx bd_wp=%d pid=%d\n ticket=%llu cliidx=%d",
+  XDBG("\n\tQueued DTYPE%d op=%s did=0x%x as BD HW @0x%lx bd_wp=%d pid=%d  ticket=%llu cliidx=%d\n",
       wk.opt.dtype, dma_rtype_str[rtype], wk.opt.destid, m_dmadesc.win_handle + offset, wk.opt.bd_wp, m_pid, opt.ticket, m_cliidx);
 
   if(queued_T3)
@@ -1088,7 +1088,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     assert(m_pending_tickets_RP <= m_state->serial_number);
 
     const int P = m_state->serial_number - m_pending_tickets_RP; // Pending issued tickets
-    assert(P); // If we're here it cannot be 0
+    //assert(P); // If we're here it cannot be 0
 
     assert(m_pending_tickets[item.opt.bd_idx] > 0);
     assert(m_pending_tickets[item.opt.bd_idx] == item.opt.ticket);
@@ -1097,21 +1097,21 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
 
     int k = 0;
     int i = m_pending_tickets_RP % m_state->bd_num;
-    for (; k < m_state->bd_num; i++) {
+    for (; P > 0 && k < m_state->bd_num; i++) {
       assert(i < m_state->bd_num);
-      if (i == 0) break; // T3 BD0 does not get a ticket
-      if (i == (m_state->bd_num-1)) break; // T3 BD(bufc-1) does not get a ticket
+      if (i == 0) continue; // T3 BD0 does not get a ticket
+      if (i == (m_state->bd_num-1)) continue; // T3 BD(bufc-1) does not get a ticket
       if (m_pending_tickets[i] > 0) break; // still in flight
       k++;
       if (k == P) break; // Upper bound
     }
 #ifdef DEBUG_BD
-    XDBG("\n\tDMA bd_idx=%d Ticket=%llu S/N=%llu pending_tickets_RP=%llu => k=%d\n",
-         item.opt.bd_idx, item.opt.ticket, m_state->serial_number, m_pending_tickets_RP, k);
+    XDBG("\n\tDMA bd_idx=%d rtype=%d Ticket=%llu S/N=%llu Pending=%d pending_tickets_RP=%llu => k=%d\n",
+         item.opt.bd_idx, item.opt.rtype, item.opt.ticket, m_state->serial_number, P, m_pending_tickets_RP, k);
 #endif
     if (k > 0) {
       m_pending_tickets_RP += k;
-      assert(m_pending_tickets_RP > m_state->serial_number);
+      assert(m_pending_tickets_RP <= m_state->serial_number);
       m_state->acked_serial_number = m_pending_tickets_RP; // XXX Perhaps +1?
     }
 
