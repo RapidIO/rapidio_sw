@@ -1,5 +1,7 @@
 isol
 set cpu1 ? -1
+// 0=DMAChannel, 1=libmport
+set dma_access? 0
 set thruput ? 0
 thread 0 -1 0
 wait 0 h
@@ -9,5 +11,5 @@ sleep 0.5
 // Kernel drivers/net/tun.c has 64k as upper bound in mainline
 set mtu ? 8000
 set chan ? 6
-tundma 0 $cpu1 $chan 6 7 $buf $sts $mtu $thruput
+tundma 0 $cpu1 $chan 6 7 $buf $sts $mtu $dma_access $thruput
 sleep 0
