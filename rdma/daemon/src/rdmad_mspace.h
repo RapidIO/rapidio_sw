@@ -67,6 +67,7 @@ class unix_server;
 class unix_msg_t;
 class cm_server;
 class msubspace;
+class ms_owners;
 
 /**
  * @brief Exception thrown by mspace on error during construction
@@ -143,7 +144,8 @@ class mspace
 public:
 	/* Constructor */
 	mspace(const char *name, uint32_t msid,
-		uint64_t rio_addr, uint64_t phys_addr, uint64_t size);
+		uint64_t rio_addr, uint64_t phys_addr, uint64_t size,
+		ms_owners& owners);
 
 	/* Destructor */
 	~mspace();
@@ -551,6 +553,7 @@ private:
 	uint32_t	size;
 	uint32_t	msoid;
 	bool		free;
+	ms_owners&	owners;
 
 	/* Data members specific to the mspace creator */
 	bool		connected_to;	/* Has a connection from a remote client

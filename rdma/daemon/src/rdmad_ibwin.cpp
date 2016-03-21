@@ -154,7 +154,8 @@ ibwin::ibwin(ms_owners &owners, riomp_mport_t mport_hnd,
 				win_num << MSID_WIN_SHIFT | 0x00000001,
 				rio_addr,
 				phys_addr,
-				size);
+				size,
+				owners);
 	mspaces.push_back(ms);
 
 	/* Skip msindex of 0 and msindex of 1 used above. Free list starts at 2 */
@@ -324,7 +325,8 @@ int ibwin::create_mspace(const char *name,
 						new_msid,
 						new_rio_addr,
 						new_phys_addr,
-						new_size);
+						new_size,
+						owners);
 
 		/* Add new free memory space to list */
 		pthread_mutex_lock(&mspaces_lock);
@@ -397,32 +399,12 @@ int ibwin::destroy_mspace(mspace_iterator current_ms)
 	int rc;
 
 	try {
-		/* Save the owner before destroying the ms */
-		uint32_t msoid = (*current_ms)->get_msoid();
-
 		/* Destroy the memory space */
 		rc = (*current_ms)->destroy();
 		if (rc) {
 			ERR("Failed to destroy '%s', msid(0x%X)\n",
 				(*current_ms)->get_name(), (*current_ms)->get_msid());
 			throw RDMA_MS_DESTROY_FAIL;
-		}
-
-		/* Remove this memory space from the owner */
-		ms_owner *owner;
-		try {
-			owner = owners[msoid];
-		} catch (...) {
-			ERR("Failed to find owner msoid(0x%X)\n", msoid);
-			throw RDMA_INVALID_MSO;
-		}
-
-		if (owner == nullptr) {
-			ERR("Failed to find owner msoid(0x%X)\n", msoid);
-			throw RDMA_INVALID_MSO;
-		} else if (owner->remove_ms((*current_ms))) {
-			WARN("Failed to remove ms from owner\n");
-			throw -5;
 		}
 
 		/* If it is the last mspace in the list there is no 'next'

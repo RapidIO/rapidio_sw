@@ -43,6 +43,7 @@
 #include "liblog.h"
 #include "rdma_types.h"
 #include "rdmad_cm.h"
+#include "rdmad_ms_owners.h"
 #include "rdmad_mspace.h"
 #include "rdmad_msubspace.h"
 #include "rdmad_srvr_threads.h"
@@ -56,7 +57,7 @@ using std::lock_guard;
 using std::unique_lock;
 
 mspace::mspace(	const char *name, uint32_t msid, uint64_t rio_addr,
-                uint64_t phys_addr, uint64_t size) :
+                uint64_t phys_addr, uint64_t size, ms_owners& owners) :
                 		name(name),
                 		msid(msid),
                 		rio_addr(rio_addr),
@@ -64,6 +65,7 @@ mspace::mspace(	const char *name, uint32_t msid, uint64_t rio_addr,
                 		size(size),
                 		msoid(0),
                 		free(true),
+                		owners(owners),
 		                connected_to(false),
 		                accepting(false),
 		                server_msubid(0),
@@ -286,13 +288,27 @@ int mspace::destroy()
 		client_msubid = NULL_MSUBID;
 		client_to_lib_tx_eng_h = 0;
 
-		/* Clear the owner. No free space should have an owner */
+		/* Remove from owners then clear the owner.
+		 * No free space should have an owner */
+		auto mso = owners[msoid];
+		if (mso == nullptr) {
+			ERR("Failed to find owner msoid(0x%X)\n", msoid);
+			throw RDMA_INVALID_MSO;
+		}
+		rc = mso->remove_ms(this);
+		if (rc) {
+			WARN("Failed to remove ms from owner\n");
+			throw rc;
+		}
 		set_msoid(0);
 	}
 	catch(int& e) {
 		rc = e;
 	}
-
+	catch(...) {
+		ERR("Failed to find owner msoid(0x%X)\n", msoid);
+		return RDMA_INVALID_MSO;
+	}
 
 	return rc;
 } /* destroy() */

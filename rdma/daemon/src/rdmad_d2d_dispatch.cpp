@@ -44,6 +44,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_main.h"
 #include "rdmad_tx_engine.h"
 
+/**
+ * @brief Handles a HELLO message sent from client daemon and received
+ * 	  by server daemon.
+ */
 void cm_hello_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {
 	cm_hello_msg_t *hello_msg = &msg->cm_hello;
@@ -82,10 +86,6 @@ void cm_hello_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
  * @brief Send indication to remote daemon that the connect request to
  * 	  the specified memory space was declined, most likley since
  * 	  the memory space was no in accept mode in the first place
- *
- * @param conn_msg Pointer to cm_connect_msg sent by remote daemon
- *
- * @param tx_eng Tx engine used to communicate with remote daemon
  */
 static void send_accept_nack(cm_msg_t *msg,
 			     cm_server_tx_engine *tx_eng)
@@ -109,6 +109,14 @@ static void send_accept_nack(cm_msg_t *msg,
 	tx_eng->send_message(move(cm_msg));
 } /* send_accept_nack() */
 
+/**
+ * @brief Runs on server daemon. Handles incoming CM_CONNECT_MS.
+ * 	  If the requested MS was NOT in accept mode, then
+ * 	  a NACK is sent back to the client daemon. If all goes well
+ * 	  then a CONNECT_MS_REQ is sent to the library thus
+ * 	  unblocking the call to rdma_accept_ms_h(). rdma_accept_ms_h()
+ * 	  in term sends a CONNECT_MS_RESP to the server daemon.
+ */
 void cm_connect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {
 	cm_connect_ms_msg	*conn_msg = &msg->cm_connect_ms;
@@ -165,8 +173,13 @@ void cm_connect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 } /* cm_connect_ms_disp() */
 
 /**
- * @brief Runs on server daemon and returns ACK to disconnection from
- * 	  a memory space.
+ * @brief Runs on server daemon:
+ * 	  - Locates memory space
+ * 	  - Executes 'disconnect' method in memory space which removes
+ * 	    connection parameters from the memory space AND notifies the
+ * 	    library.
+ * 	  - Acknowledges disconnection by sending CM_DISCONNECT_ACK
+ * 	    to the client daemon.
  */
 void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {
@@ -175,12 +188,13 @@ void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 	uint32_t server_msid = static_cast<uint32_t>(be64toh(disc_msg->server_msid));
 	HIGH("Received DISCONNECT_MS for msid(0x%X)\n", server_msid);
 
-	/* Remove client_destid from 'ms' identified by server_msid */
+	/* Find the memory space specified in the CM_DISCONNECT_MS message */
 	mspace *ms = the_inbound->get_mspace(server_msid);
 	if (ms == nullptr) {
 		ERR("Failed to find ms(0x%X). Was it destroyed?\n", server_msid);
 		return ;	/* Can't do much without the ms */
 	}
+
 	/* Relay disconnection request to the RDMA library */
 	auto rc = ms->client_disconnect(
 			     be64toh(disc_msg->client_msubid),
@@ -216,7 +230,7 @@ void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 
 /**
  * @brief Runs on client daemon, and is dispatched when CM_DISCONNECT_MS_ACK
- * 	  is received. Relays this to the library as a DISCONNECT_MS_ACK
+ * 	  is received. Relays disconnection to the library as a DISCONNECT_MS_ACK
  * 	  RDMA_CALL
  */
 void cm_disconnect_ms_ack_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
