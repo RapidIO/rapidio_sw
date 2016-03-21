@@ -242,9 +242,8 @@ public:
 
 		tx_eng->set_rx_eng(this);
 
-		rx_work_thread_info<T,M> *wti;
 		try {
-			wti = new rx_work_thread_info<T,M>(message_processor);
+			wti = make_unique<rx_work_thread_info<T,M>>(message_processor);
 		}
 		catch(...) {
 			CRIT("'%s': Failed to create work thread info\n", name);
@@ -264,7 +263,7 @@ public:
 		auto rc = pthread_create(&rx_work_thread,
 					 NULL,
 					 &rx_worker_thread_f<T,M>,
-					 (void *)wti);
+					 (void *)wti.get());
 		if (rc) {
 			CRIT("'%s': Failed to start work_thread: %s\n",
 							name, strerror(errno));
@@ -384,6 +383,7 @@ protected:
 		sem_post(engine_cleanup_sem);
 	} /* die() */
 
+	unique_ptr<rx_work_thread_info<T,M>> wti;
 	string			name;
 	vector<M>		message_queue;
 	pthread_mutex_t		message_queue_lock;

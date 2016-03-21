@@ -155,9 +155,8 @@ public:
 			throw -1;
 		}
 
-		tx_work_thread_info<T,M> *wti;
 		try {
-			wti = new tx_work_thread_info<T,M>();
+			wti = make_unique<tx_work_thread_info<T,M>>();
 		}
 		catch(...) {
 			CRIT("'%s': Failed to create work thread info\n", name);
@@ -173,7 +172,11 @@ public:
 		wti->worker_is_dead	= &worker_is_dead;
 		wti->messages_waiting_sem = &messages_waiting_sem;
 
-		if (pthread_create(&work_thread, NULL, &tx_worker_thread_f<T,M>, (void *)wti)) {
+		auto rc = pthread_create(&work_thread,
+					 NULL,
+					 &tx_worker_thread_f<T,M>,
+					 (void *)wti.get());
+		if (rc) {
 			CRIT("'%s': Failed to start work_thread: %s\n",
 							name, strerror(errno));
 			throw -2;
@@ -222,6 +225,7 @@ public:
 	} /* send_message() */
 
 protected:
+	unique_ptr<tx_work_thread_info<T,M>> wti;
 	string		name;
 	rx_engine<T,M>	*rx_eng;
 	queue<unique_ptr<M>>	message_queue;
