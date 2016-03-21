@@ -50,11 +50,15 @@ struct cm_msg_t;
 class unix_rx_engine : public rx_engine<unix_server, unix_msg_t>
 {
 public:
-	unix_rx_engine(shared_ptr<unix_server> client,
+	unix_rx_engine(const char *name, shared_ptr<unix_server> client,
 			msg_processor<unix_server, unix_msg_t> &message_processor,
 			tx_engine<unix_server, unix_msg_t> *tx_eng,
 			sem_t *engine_cleanup_sem) :
-	rx_engine<unix_server, unix_msg_t>(client, message_processor, tx_eng, engine_cleanup_sem)
+	rx_engine<unix_server, unix_msg_t>(name,
+					   client,
+					   message_processor,
+					   tx_eng,
+					   engine_cleanup_sem)
 	{}
 
 	 void cleanup()
@@ -66,22 +70,30 @@ public:
 class cm_server_rx_engine : public rx_engine<cm_server, cm_msg_t>
 {
 public:
-	cm_server_rx_engine(shared_ptr<cm_server> client,
+	cm_server_rx_engine(const char *name, shared_ptr<cm_server> client,
 			msg_processor<cm_server, cm_msg_t> &message_processor,
 			tx_engine<cm_server, cm_msg_t> *tx_eng,
 			sem_t *engine_cleanup_sem) :
-	rx_engine<cm_server, cm_msg_t>(client, message_processor, tx_eng, engine_cleanup_sem)
+	rx_engine<cm_server, cm_msg_t>(name,
+				       client,
+				       message_processor,
+				       tx_eng,
+				       engine_cleanup_sem)
 	{}
 };
 
 class cm_client_rx_engine : public rx_engine<cm_client, cm_msg_t>
 {
 public:
-	cm_client_rx_engine(shared_ptr<cm_client> client,
+	cm_client_rx_engine(const char *name, shared_ptr<cm_client> client,
 			msg_processor<cm_client, cm_msg_t> &message_processor,
 			tx_engine<cm_client, cm_msg_t> *tx_eng,
 			sem_t *engine_cleanup_sem) :
-	rx_engine<cm_client, cm_msg_t>(client, message_processor, tx_eng, engine_cleanup_sem)
+	rx_engine<cm_client, cm_msg_t>(name,
+				       client,
+				       message_processor,
+				       tx_eng,
+				       engine_cleanup_sem)
 	{}
 };
 

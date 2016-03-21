@@ -41,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
+#include <string>
 #include <list>
 #include <thread>
 #include <vector>
@@ -59,6 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "tx_engine.h"
 #include "msg_processor.h"
 
+using std::string;
 using std::list;
 using std::vector;
 using std::shared_ptr;
@@ -220,18 +222,21 @@ template <typename T, typename M>
 class rx_engine {
 
 public:
-	rx_engine(shared_ptr<T> client, msg_processor<T, M> &message_processor,
+	rx_engine(const char *name, shared_ptr<T> client,
+			msg_processor<T, M> &message_processor,
 			tx_engine<T, M> *tx_eng, sem_t *engine_cleanup_sem) :
-		message_processor(message_processor), client(client), tx_eng(tx_eng),
-		is_dead(false), worker_is_dead(false),
+		name(name), message_processor(message_processor), client(client),
+		tx_eng(tx_eng), is_dead(false), worker_is_dead(false),
 		stop_worker_thread(false), engine_cleanup_sem(engine_cleanup_sem)
 	{
 		if (pthread_mutex_init(&notify_list_lock, NULL)) {
-			CRIT("Failed to init notify_list_lock mutex\n");
+			CRIT("'%s': Failed to init notify_list_lock mutex\n",
+									name);
 			throw -1;
 		}
 		if (pthread_mutex_init(&message_queue_lock, NULL)) {
-			CRIT("Failed to init message_queue_lock mutex\n");
+			CRIT("'%s': Failed to init message_queue_lock mutex\n",
+									name);
 			throw -1;
 		}
 
@@ -242,7 +247,7 @@ public:
 			wti = new rx_work_thread_info<T,M>(message_processor);
 		}
 		catch(...) {
-			CRIT("Failed to create work thread info\n");
+			CRIT("'%s': Failed to create work thread info\n", name);
 			throw -2;
 		}
 		wti->stop_worker_thread = &stop_worker_thread;
@@ -256,8 +261,13 @@ public:
 		wti->notify_list_lock	= &notify_list_lock;
 		wti->tx_eng		= tx_eng;
 
-		if (pthread_create(&rx_work_thread, NULL, &rx_worker_thread_f<T,M>, (void *)wti)) {
-			CRIT("Failed to start work_thread: %s\n", strerror(errno));
+		auto rc = pthread_create(&rx_work_thread,
+					 NULL,
+					 &rx_worker_thread_f<T,M>,
+					 (void *)wti);
+		if (rc) {
+			CRIT("'%s': Failed to start work_thread: %s\n",
+							name, strerror(errno));
 			throw -2;
 		}
 	} /* ctor */
@@ -276,10 +286,10 @@ public:
 		 *
 		 */
 		if (!worker_is_dead) {
-			DBG("%s: Stopping worker thread\n", __func__);
+			DBG("'%s': Stopping worker thread\n", name.c_str());
 			pthread_kill(rx_work_thread, SIGUSR1);
 			pthread_join(rx_work_thread, NULL);
-			DBG("%s: rx_work_thread terminated.\n", __func__);
+			DBG("'%s': rx_work_thread terminated.\n", name.c_str());
 		}
 	} /* dtor */
 
@@ -294,8 +304,13 @@ public:
 	{
 
 		pthread_mutex_lock(&notify_list_lock);
-		DBG("type='%s',0x%X, category='%s',0x%X, seq_no=0x%X\n",
-		type_name(type), type, cat_name(category), category, seq_no);
+		DBG("'%s': type='%s',0x%X, category='%s',0x%X, seq_no=0x%X\n",
+				name.c_str(),
+				type_name(type),
+				type,
+				cat_name(category),
+				category,
+				seq_no);
 
 		/* We should not be setting the same notification twice */
 		int rc = count(begin(notify_list),
@@ -303,7 +318,8 @@ public:
 			       notify_param(type, category, seq_no,
 					       	       	       notify_sem));
 		if (rc != 0) {
-			ERR("Duplicate notify entry ignored!\n");
+			ERR("'%s': Duplicate notify entry ignored!\n",
+								name.c_str());
 		} else {
 			notify_list.emplace_back(type, category, seq_no,
 								notify_sem);
@@ -330,8 +346,8 @@ public:
 				       (msg.seq_no == seq_no);
 			});
 		if (it == end(message_queue)) {
-			ERR("Message (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X) not found!\n",
-			type_name(type), type, cat_name(category), category, seq_no);
+			ERR("'%s': Message (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X) not found!\n",
+			name.c_str(), type_name(type), type, cat_name(category), category, seq_no);
 			rc = -1;
 		} else {
 			/* Copy message to caller's message buffer */
@@ -339,8 +355,8 @@ public:
 
 			/* Remove from queue */
 			message_queue.erase(it);
-			DBG("(type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X) removed\n",
-			type_name(type), type, cat_name(category), category, seq_no);
+			DBG("'%s': (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X) removed\n",
+			name.c_str(), type_name(type), type, cat_name(category), category, seq_no);
 			rc = 0;
 		}
 		pthread_mutex_unlock(&message_queue_lock);
@@ -353,7 +369,7 @@ protected:
 	 */
 	virtual void cleanup()
 	{
-		HIGH("cleanup in rx_engine (base class)\n");
+		HIGH("'%s': cleanup in rx_engine (base class)\n", name.c_str());
 	} /* cleanup() */
 
 	/**
@@ -361,13 +377,14 @@ protected:
 	 */
 	void die()
 	{
-		HIGH("Dying...\n");
+		HIGH("'%s': Dying...\n", name.c_str());
 		stop_worker_thread = true;
 		is_dead = true;
 		tx_eng->set_isdead();	// Kill corresponding tx_engine too
 		sem_post(engine_cleanup_sem);
 	} /* die() */
 
+	string			name;
 	vector<M>		message_queue;
 	pthread_mutex_t		message_queue_lock;
 	msg_processor<T, M>	&message_processor;

@@ -47,8 +47,10 @@ using std::shared_ptr;
 class unix_tx_engine : public tx_engine<unix_server, unix_msg_t>
 {
 public:
-	unix_tx_engine(shared_ptr<unix_server> client, sem_t *engine_cleanup_sem) :
-	tx_engine<unix_server, unix_msg_t>(client, engine_cleanup_sem)
+	unix_tx_engine(const char *name,
+		       shared_ptr<unix_server> client,
+		       sem_t *engine_cleanup_sem) :
+	tx_engine<unix_server, unix_msg_t>(name, client, engine_cleanup_sem)
 	{}
 
 }; /* unix_tx_engine */
@@ -56,9 +58,10 @@ public:
 class cm_server_tx_engine : public tx_engine<cm_server, cm_msg_t>
 {
 public:
-	cm_server_tx_engine(shared_ptr<cm_server> client,
+	cm_server_tx_engine(const char *name,
+			    shared_ptr<cm_server> client,
 			    sem_t *engine_cleanup_sem) :
-	tx_engine<cm_server, cm_msg_t>(client, engine_cleanup_sem),
+	tx_engine<cm_server, cm_msg_t>(name, client, engine_cleanup_sem),
 	destid(NULL_DESTID)
 	{}
 private:
@@ -68,8 +71,10 @@ private:
 class cm_client_tx_engine : public tx_engine<cm_client, cm_msg_t>
 {
 public:
-	cm_client_tx_engine(shared_ptr<cm_client> client, sem_t *engine_cleanup_sem) :
-	tx_engine<cm_client, cm_msg_t>(client, engine_cleanup_sem),
+	cm_client_tx_engine(const char *name,
+			    shared_ptr<cm_client> client,
+			    sem_t *engine_cleanup_sem) :
+	tx_engine<cm_client, cm_msg_t>(name, client, engine_cleanup_sem),
 	destid(NULL_DESTID)
 	{}
 private:

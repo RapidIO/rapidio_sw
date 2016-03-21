@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstdlib>
 #include <cassert>
 
+#include <string>
 #include <queue>
 #include <memory>
 #include "memory_supp.h"
@@ -54,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmad_unix_msg.h"
 #include "rdma_msg.h"
 
+using std::string;
 using std::queue;
 using std::shared_ptr;
 using std::unique_ptr;
@@ -64,6 +66,7 @@ class rx_engine;
 
 template <typename T, typename M>
 struct tx_work_thread_info {
+	string			name;
 	bool 			*stop_worker_thread;
 	pthread_mutex_t		*message_queue_lock;
 	queue<unique_ptr<M>>	*message_queue;
@@ -79,6 +82,7 @@ void *tx_worker_thread_f(void *arg)
 {
 	tx_work_thread_info<T,M> *wti = (tx_work_thread_info<T,M> *)arg;
 
+	string name			    = wti->name;
 	bool *stop_worker_thread 	    = wti->stop_worker_thread;
 	pthread_mutex_t	*message_queue_lock = wti->message_queue_lock;
 	queue<unique_ptr<M>> *message_queue = wti->message_queue;
@@ -88,7 +92,7 @@ void *tx_worker_thread_f(void *arg)
 	bool *worker_is_dead		    = wti->worker_is_dead;
 	sem_t 	    *messages_waiting_sem   = wti->messages_waiting_sem;
 
-	DBG("worker thread started\n");
+	DBG("'%s': worker thread started\n", name.c_str());
 	while(1) {
 		/* Wait until a message is enqueued for transmission or the
 		 * destructor posts the semaphore to terminate the thread */
@@ -99,7 +103,7 @@ void *tx_worker_thread_f(void *arg)
 		 * and the semaphore 'messages_waiting' is posted with the
 		 * queue being empty. */
 		if (*stop_worker_thread) {
-			DBG("%s: stop_worker_thread is set\n", __func__);
+			DBG("'%s': stop_worker_thread is set\n", name.c_str());
 			break;
 		}
 
@@ -113,8 +117,8 @@ void *tx_worker_thread_f(void *arg)
 			 * senses that the other peer has disappeared and
 			 * sets our is_dead flag there. This then triggers
 			 * the engine cleanup thread to kill us. */
-			ERR("Failed to send, rc = %d: %s\n",
-						rc, strerror(errno));
+			ERR("'%s': Failed to send, rc = %d: %s\n",
+					name.c_str(), rc, strerror(errno));
 			*is_dead = true;
 			sem_post(engine_cleanup_sem);
 			break;
@@ -127,26 +131,27 @@ void *tx_worker_thread_f(void *arg)
 
 	}
 	*worker_is_dead = true;
-	DBG("Exiting %s\n", __func__);
+	DBG("'%s': Exiting\n", name.c_str());
 	pthread_exit(0);
-}
+} /* tx_worker_thread_f() */
 
 template <typename T, typename M>
 class tx_engine {
 
 public:
-	tx_engine(shared_ptr<T> client, sem_t *engine_cleanup_sem) :
-			rx_eng(nullptr), client(client), stop_worker_thread(false),
-			worker_is_dead(false),
+	tx_engine(const char *name, shared_ptr<T> client, sem_t *engine_cleanup_sem) :
+			name(name), rx_eng(nullptr), client(client),
+			stop_worker_thread(false), worker_is_dead(false),
 			is_dead(false), engine_cleanup_sem(engine_cleanup_sem)
 	{
 		if (sem_init(&messages_waiting_sem, 0, 0)) {
-			CRIT("Failed to sem_init 'messages_waiting': %s\n",
-						strerror(errno));
+			CRIT("'%s': Failed to sem_init 'messages_waiting': %s\n",
+						name, strerror(errno));
 			throw -1;
 		}
 		if (pthread_mutex_init(&message_queue_lock, NULL)) {
-			CRIT("Failed to init message_queue_lock mutex\n");
+			CRIT("'%s': Failed to init message_queue_lock mutex\n",
+									name);
 			throw -1;
 		}
 
@@ -155,9 +160,10 @@ public:
 			wti = new tx_work_thread_info<T,M>();
 		}
 		catch(...) {
-			CRIT("Failed to create work thread info\n");
+			CRIT("'%s': Failed to create work thread info\n", name);
 			throw -2;
 		}
+		wti->name		= name;
 		wti->stop_worker_thread = &stop_worker_thread;
 		wti->message_queue_lock = &message_queue_lock;
 		wti->message_queue	= &message_queue;
@@ -168,7 +174,8 @@ public:
 		wti->messages_waiting_sem = &messages_waiting_sem;
 
 		if (pthread_create(&work_thread, NULL, &tx_worker_thread_f<T,M>, (void *)wti)) {
-			CRIT("Failed to start work_thread: %s\n", strerror(errno));
+			CRIT("'%s': Failed to start work_thread: %s\n",
+							name, strerror(errno));
 			throw -2;
 		}
 	} /* ctor */
@@ -179,12 +186,12 @@ public:
 		 * self-terminated and we can just delete the worker_thread object.
 		 * Otherwise, the thread is alive and we need to kill it first.	 */
 		if (!worker_is_dead) {
-			DBG("worker() still running...\n");
+			DBG("'%s': worker() still running...\n", name.c_str());
 			stop_worker_thread = true;
 			sem_post(&messages_waiting_sem); // Wake up the thread.
 			if (pthread_join(work_thread, NULL)) {
-				CRIT("Failed to join work_thread: %s\n",
-							strerror(errno));
+				CRIT("'%s': Failed to join work_thread: %s\n",
+						name.c_str(), strerror(errno));
 			}
 		}
 	} /* dtor */
@@ -202,19 +209,20 @@ public:
 	/* Returns sequence number to be used to receive reply */
 	void send_message(unique_ptr<M> msg_ptr)
 	{
-		DBG("ENTER\n");
-		DBG("Sending type:'%s',0x%" PRIx64 ", cat:'%s',0x%" PRIx64 " seq_no(0x%" PRIx64 ")\n",
-			type_name(msg_ptr->type), msg_ptr->type,
+		DBG("'%s': ENTER\n", name.c_str());
+		DBG("'%s': Sending type:'%s',0x%" PRIx64 ", cat:'%s',0x%" PRIx64 " seq_no(0x%" PRIx64 ")\n",
+			name.c_str(), type_name(msg_ptr->type), msg_ptr->type,
 			cat_name(msg_ptr->category), msg_ptr->category,
 			msg_ptr->seq_no);
 		pthread_mutex_lock(&message_queue_lock);
 		message_queue.push(move(msg_ptr));
 		pthread_mutex_unlock(&message_queue_lock);
 		sem_post(&messages_waiting_sem);
-		DBG("EXIT\n");
+		DBG("'%s': EXIT\n", name.c_str());
 	} /* send_message() */
 
 protected:
+	string		name;
 	rx_engine<T,M>	*rx_eng;
 	queue<unique_ptr<M>>	message_queue;
 	pthread_mutex_t	message_queue_lock;

@@ -231,10 +231,12 @@ int provision_rdaemon(uint32_t destid)
 		/* Now create a Tx and Rx engines for communicating
 		 * with remote client. */
 		auto cm_tx_eng = make_unique<cm_client_tx_engine>(
+				"hello_tx_eng",
 				the_client,
 				cm_engine_cleanup_sem);
 
 		auto cm_rx_eng = make_unique<cm_client_rx_engine>(
+				"hello_rx_eng",
 				the_client,
 				d2d_msg_proc,
 				cm_tx_eng.get(),

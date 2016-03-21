@@ -46,11 +46,15 @@ struct unix_msg_t;
 class unix_rx_engine : public rx_engine<unix_client, unix_msg_t>
 {
 public:
-	unix_rx_engine(shared_ptr<unix_client> client,
+	unix_rx_engine(const char *name, shared_ptr<unix_client> client,
 			msg_processor<unix_client, unix_msg_t> &message_processor,
 			tx_engine<unix_client, unix_msg_t> *tx_eng,
 			sem_t *engine_cleanup_sem) :
-	rx_engine<unix_client, unix_msg_t>(client, message_processor, tx_eng, engine_cleanup_sem)
+	rx_engine<unix_client, unix_msg_t>(name,
+					   client,
+					   message_processor,
+					   tx_eng,
+					   engine_cleanup_sem)
 	{}
 };
 #endif

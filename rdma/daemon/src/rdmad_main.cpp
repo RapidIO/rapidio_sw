@@ -98,12 +98,11 @@ void cm_engine_monitoring_thread_f(sem_t *cm_engine_cleanup_sem)
 {
 	while(1) {
 		assert(cm_engine_cleanup_sem != nullptr);
+
 		/* Wait for notification to check for dead engines */
 		sem_wait(cm_engine_cleanup_sem);
 
-		HIGH("Cleaning up Unix dead engines, or shutting down all!\n");
-
-
+		HIGH("Cleaning up CM dead engines, or shutting down all!\n");
 
 		/* If shutting down then self-terminate the thread */
 		if (shutting_down) {
@@ -216,11 +215,13 @@ static void start_accepting_app_connections()
 
 			/* Create Tx and Rx engine per connection */
 			unique_ptr<unix_tx_engine> unix_tx_eng =
-				make_unique<unix_tx_engine>(other_server,
+				make_unique<unix_tx_engine>("to_lib_tx_eng",
+							    other_server,
 							    unix_engine_cleanup_sem);
 
 			unique_ptr<unix_rx_engine> unix_rx_eng =
-				make_unique<unix_rx_engine> (other_server,
+				make_unique<unix_rx_engine> ("from_lib_rx_eng",
+							     other_server,
 							     d2l_msg_proc,
 							     unix_tx_eng.get(),
 							     unix_engine_cleanup_sem);

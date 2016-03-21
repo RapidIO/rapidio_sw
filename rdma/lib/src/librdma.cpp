@@ -439,8 +439,8 @@ static int rdma_lib_init(void)
 			sem_init(engine_cleanup_sem, 0, 0);
 
 			/* Create Tx and Rx engines */
-			tx_eng = new unix_tx_engine(client, engine_cleanup_sem);
-			rx_eng = new unix_rx_engine(client, msg_proc, tx_eng,
+			tx_eng = new unix_tx_engine("librdma_tx_eng", client, engine_cleanup_sem);
+			rx_eng = new unix_rx_engine("librdma_rx_eng", client, msg_proc, tx_eng,
 							engine_cleanup_sem);
 
 			/* Start engine monitoring thread */

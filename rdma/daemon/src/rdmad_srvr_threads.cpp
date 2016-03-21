@@ -119,9 +119,12 @@ void *prov_thread_f(void *arg)
 
 			/* Create Tx and Rx engines per connection */
 			auto cm_tx_eng = make_unique<cm_server_tx_engine>(
-					other_server, cm_engine_cleanup_sem);
+					"prov_tx_eng",
+					other_server,
+					cm_engine_cleanup_sem);
 
 			auto cm_rx_eng = make_unique<cm_server_rx_engine>(
+					"prov_rx_eng",
 					other_server,
 					d2d_msg_proc,
 					cm_tx_eng.get(),
