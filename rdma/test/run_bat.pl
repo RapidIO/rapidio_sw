@@ -46,17 +46,17 @@ open(my $fh, ">", $logfilename)
 
 # List of tests
 my @tests = (
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -ta -o" . $logfilename, # 0
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -tb -o" . $logfilename, # 1
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -tc -o" . $logfilename, # 2
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -tg -o" . $logfilename, # 3
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -th -o" . $logfilename, # 4
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -ti -o" . $logfilename, # 5
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t1 -o" . $logfilename, # 6
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t2 -o" . $logfilename, # 7
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t3 -o" . $logfilename, # 8
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t4 -o" . $logfilename, # 9
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -t5 -o" . $logfilename, # 10
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -ta -o" . $logfilename, # 0
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tb -o" . $logfilename, # 1
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tc -o" . $logfilename, # 2
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tg -o" . $logfilename, # 3
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -th -o" . $logfilename, # 4
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -ti -o" . $logfilename, # 5
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t1 -o" . $logfilename, # 6
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t2 -o" . $logfilename, # 7
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t3 -o" . $logfilename, # 8
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t4 -o" . $logfilename, # 9
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t5 -o" . $logfilename, # 10
 );
 
 my $num_bat = scalar@tests;
