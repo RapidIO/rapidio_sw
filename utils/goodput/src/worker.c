@@ -2045,8 +2045,6 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	}
 
-        if (GetEnv("sim") != NULL) { info->umd_dch->setSim(); INFO("SIMULATION MODE\n"); }
-
 	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
 		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
 							info->umd_tx_buf_cnt);
@@ -2345,7 +2343,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	int oi = 0;
 	uint64_t cnt = 0;
 	int iter = 0;
-	bool sim = false;
 
 	if (! TakeLock(info, "DMA", info->umd_chan)) return;
 
@@ -2362,8 +2359,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
                 goto exit;
         }
-
-	if (op == 'N' && GetEnv("sim") != NULL) { sim = true; info->umd_dch->setSim(); INFO("SIMULATION MODE - NREAD\n"); }
 
 	if (info->umd_dch->isMaster()) {
 		if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
@@ -2470,8 +2465,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			}
 
 			if (info->umd_dch->isMaster()) {
-				if (sim) info->umd_dch->simFIFO(GetDecParm("$sim", 0), GetDecParm("$simf", 0));
-
 				DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
 				while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
 			}
