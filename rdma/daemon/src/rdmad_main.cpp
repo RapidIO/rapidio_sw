@@ -307,11 +307,12 @@ static void sig_handler(int sig)
 	case SIGSEGV:
 	{
 		puts("SIGSEGV (Segmentation Fault)");
-		constexpr unsigned MAX_BT = 100;
+		constexpr unsigned MAX_BT = 1000;
 		void *buffer[MAX_BT];
 		size_t count = backtrace(buffer, MAX_BT);
 		printf("Backtrace can hold %u entries\n", (unsigned)count);
 		backtrace_symbols_fd(buffer, count, STDERR_FILENO);
+		exit(1);
 	}
 	break;
 
