@@ -163,8 +163,6 @@ typedef struct idt_pc_one_port_config_t_TAG
                                 */
 } idt_pc_one_port_config_t;
 
-
-
 /* Structure which captures the status of a port.
 */
 typedef struct idt_pc_one_port_status_t_TAG
@@ -232,7 +230,7 @@ typedef struct idt_pc_set_config_in_t_TAG
                                All ports will be configured according to
                                  this entry.
                             */
-    idt_pc_one_port_config_t pc[IDT_MAX_PORTS]; 
+    idt_pc_one_port_config_t pc[IDT_MAX_PORTS];
 } idt_pc_set_config_in_t;
 
 typedef struct idt_pc_set_config_out_t_TAG
