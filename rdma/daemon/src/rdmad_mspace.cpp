@@ -404,9 +404,9 @@ void mspace::send_disconnect_to_lib(uint32_t client_msubid,
 
 	in_msg->category = RDMA_REQ_RESP;
 	in_msg->type	= DISCONNECT_MS;
-	in_msg->disconnect_from_ms_req_in.client_msubid = client_msubid;
-	in_msg->disconnect_from_ms_req_in.server_msubid = server_msubid;
-	in_msg->disconnect_from_ms_req_in.client_to_lib_tx_eng_h =
+	in_msg->disconnect_from_ms_in.client_msubid = client_msubid;
+	in_msg->disconnect_from_ms_in.server_msubid = server_msubid;
+	in_msg->disconnect_from_ms_in.client_to_lib_tx_eng_h =
 							client_to_lib_tx_eng_h;
 
 	tx_eng->send_message(move(in_msg));

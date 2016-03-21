@@ -58,4 +58,7 @@ void cm_accept_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng);
 
 void cm_force_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng);
 
+void cm_disconnect_ms_ack_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng);
+
+
 #endif

@@ -164,6 +164,10 @@ void cm_connect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 	cm->dump();
 } /* cm_connect_ms_disp() */
 
+/**
+ * @brief Runs on server daemon and returns ACK to disconnection from
+ * 	  a memory space.
+ */
 void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {
 	cm_disconnect_ms_msg	*disc_msg = &msg->cm_disconnect_ms;
@@ -209,6 +213,34 @@ void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 		tx_eng->send_message(move(out_msg));
 	}
 } /* cm_disconnect_ms_disp() */
+
+/**
+ * @brief Runs on client daemon, and is dispatched when CM_DISCONNECT_MS_ACK
+ * 	  is received. Relays this to the library as a DISCONNECT_MS_ACK
+ * 	  RDMA_CALL
+ */
+void cm_disconnect_ms_ack_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
+{
+	(void)tx_eng;
+
+	/* Obtain the to-library Tx engine from the message */
+	tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng =
+			(tx_engine<unix_server, unix_msg_t>*)
+			be64toh(msg->cm_disconnect_ms_ack.client_to_lib_tx_eng_h);
+
+	/* Compose the proper to-library message which unblocks the call
+	 * rdma_disc_ms_h() waiting for confirmation of disconnection */
+	auto	in_msg = make_unique<unix_msg_t>();
+	in_msg->type = DISCONNECT_MS_ACK;
+	in_msg->category = RDMA_CALL;
+	in_msg->seq_no = 0;
+	in_msg->disconnect_from_ms_ack.server_msid =
+				be64toh(msg->cm_disconnect_ms_ack.server_msid);
+	in_msg->disconnect_from_ms_ack.client_msubid =
+				be64toh(msg->cm_disconnect_ms_ack.client_msubid);
+
+	to_lib_tx_eng->send_message(move(in_msg));
+} /* cm_disconnect_ms_ack_disp() */
 
 void cm_force_disconnect_ms_ack_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {

@@ -438,10 +438,16 @@ struct connect_to_ms_resp_output {
 };
 
 /* @brief Server daemon to server library/app */
-struct disconnect_from_ms_req_input {
+struct disconnect_from_ms_input {
 	uint32_t client_msubid;
 	uint32_t server_msubid;
 	uint64_t client_to_lib_tx_eng_h;
+};
+
+/* @brief Client daemon to client library/app */
+struct disconnect_from_ms_ack_input {
+	uint32_t client_msubid;
+	uint32_t server_msid;
 };
 
 /* @brief Server disconnects MS connection with a particular client */
@@ -536,7 +542,8 @@ struct unix_msg_t {
 		struct connect_to_ms_resp_input	connect_to_ms_resp_in;
 		struct connect_to_ms_resp_output connect_to_ms_resp_out;
 		struct accept_from_ms_req_input	accept_from_ms_req_in;
-		struct disconnect_from_ms_req_input disconnect_from_ms_req_in;
+		struct disconnect_from_ms_input disconnect_from_ms_in;
+		struct disconnect_from_ms_ack_input disconnect_from_ms_ack;
 		struct force_disconnect_ms_input force_disconnect_ms_in;
 		struct force_disconnect_ms_ack_input	force_disconnect_ms_ack_in;
 		struct server_disconnect_ms_input server_disconnect_ms_in;
