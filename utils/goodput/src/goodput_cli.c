@@ -228,8 +228,7 @@ int HaltCmd(struct cli_env *env, int argc, char **argv)
 		wkr[i].stop_req = 2;
 #ifdef USER_MODE_DRIVER
 		wkr[i].umd_fifo_proc_must_die = 1;
-		if (wkr[i].umd_dch)
-			wkr[i].umd_dch->shutdown();
+		if (wkr[i].umd_dch) wkr[i].umd_dch->shutdown();
 #endif
 	};
 
@@ -2573,7 +2572,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 
         wkr[idx].action = umd_dma_tap;
         wkr[idx].action_mode = user_mode_action;
-        wkr[idx].dma_method  = dma_method;
+        wkr[idx].dma_method  = dma_method? ACCESS_MPORT: ACCESS_UMD;
         wkr[idx].umd_chan    = chan;
         wkr[idx].umd_chan_n  = chan_n;
         wkr[idx].umd_chan2   = chan2; // for NREAD

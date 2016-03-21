@@ -91,9 +91,6 @@ extern "C" {
 
 #define PAGE_4K    4096
 
-#define DMA_CHAN2_BUFC  0x20
-#define DMA_CHAN2_STS   0x20
-
 #define MBOX_BUFC  0x20
 #define MBOX_STS   0x20
 
@@ -115,30 +112,39 @@ static inline uint64_t htonll(uint64_t value)
 
 static inline int Q_THR(const int sz) { return (sz * 99) / 100; }
 
+class RdmaOpsMport : public RdmaOpsIntf {
+public:
+  virtual bool canRestart() { return false; }
+};
+
 class RdmaOpsUMD : public RdmaOpsIntf {
+public:
+  static const int DMA_CHAN2_BUFC = 0x20;
+  static const int DMA_CHAN2_STS  = 0x20;
+
 private:
   DMAChannel*   m_dmac;
   DMAChannel*   m_dmac2;
   uint32_t      m_dma_abort_reason;
   int           m_mp_num;     ///< mport_cdev port ID
   riomp_mport_t m_mp_h; 
+
 public:
   struct seq_ts m_meas_ts;
 
 public:
   RdmaOpsUMD() { m_dmac = NULL; m_dmac2 = NULL; m_dma_abort_reason = 0; }
 
-  ~RdmaOpsUMD() {
-    delete m_dmac;
-    if (m_dmac != m_dmac2) delete m_dmac2;
+  virtual ~RdmaOpsUMD() {
+    if (m_dmac  != NULL) delete m_dmac;
+    if (m_dmac2 != NULL) delete m_dmac2;
   }
 
   virtual bool canRestart() { return true; }
 
-  virtual void setCheckHwReg(bool sw) { assert(m_dmac); m_dmac->setCheckHwReg(sw); }
+  virtual void setCheckHwReg(bool sw) { assert(m_dmac); (m_dmac?: m_dmac2)->setCheckHwReg(sw); }
 
-  inline void setDmac(DMAChannel* dmac) { m_dmac = NULL; }
-  inline void setDmac2(DMAChannel* dmac) { m_dmac2 = NULL; }
+  virtual bool queueFull() { assert(m_dmac); return (m_dmac?: m_dmac2)->queueFull(); }
 
   // T2 Ops
   virtual bool nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out);
@@ -153,6 +159,18 @@ public:
   {
     return DMAChannel::abortReasonToStr(dma_abort_reason);
   }
+
+  virtual uint16_t getDestId() { return (m_dmac?: m_dmac2)->getDestId(); }
+
+// This is implementation-specific, not in base class (interface)
+
+  inline void setMportInfo(int mportid, riomp_mport_t mp_h) { m_mp_num = mportid; m_mp_h = mp_h; }
+
+  DMAChannel* setup_chan2(struct worker *info);
+  DMAChannel* setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem);
+
+  inline DMAChannel* getChannel() { return m_dmac; }
+  inline DMAChannel* getChannel2() { return m_dmac2; }
 };
 
 /** \brief T2 NREAD data from peer at high priority, all-in-one, blocking
@@ -330,24 +348,113 @@ bool RdmaOpsUMD::nwrite_mem(DMAChannel::DmaOptions_t& dmaopt, RioMport::DmaMem_t
   return m_dmac->queueDmaOpT1(LAST_NWRITE_R, dmaopt, dmamem, m_dma_abort_reason, &m_meas_ts);
 }
 
-static inline bool udma_nread_mem(struct worker *info, const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
+static inline bool udma_nread_mem(DmaChannelInfo_t* dch, const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
 {
-  assert(info->rdma);
-  return info->rdma->nread_mem_T2(destid, rio_addr, size, data_out);
+  assert(dch->rdma);
+  return dch->rdma->nread_mem_T2(destid, rio_addr, size, data_out);
 }
 
-static inline bool udma_nwrite_mem(struct worker *info, const uint16_t destid, const uint64_t rio_addr, const int size, const uint8_t* data)
+static inline bool udma_nwrite_mem(DmaChannelInfo_t* dch, const uint16_t destid, const uint64_t rio_addr, const int size, const uint8_t* data)
 {
-  assert(info->rdma);
-  return info->rdma->nwrite_mem_T2(destid, rio_addr, size, data);
+  assert(dch->rdma);
+  return dch->rdma->nwrite_mem_T2(destid, rio_addr, size, data);
 }
 
-static inline bool udma_nwrite_mem_T1(struct worker *info, DMAChannel::DmaOptions_t& dmaopt, RioMport::DmaMem_t& dmamem, int& dma_abort_reason)
+/** \brief Setup the TX/NREAD DMA channel
+ * \note This channel will do only one operation at a time
+ * \note It will get only the minimum number of BDs \ref DMA_CHAN2_BUFC
+ */
+DMAChannel* RdmaOpsUMD::setup_chan2(struct worker *info)
 {
-  assert(info->rdma);
-  const bool r = info->rdma->nwrite_mem(dmaopt, dmamem);
+  assert(m_dmac == NULL);
+  if (info == NULL) return NULL;
 
-  dma_abort_reason = info->rdma->getAbortReason();
+  setMportInfo(info->mp_num, info->mp_h);
+
+  DMAChannel* dch = new DMAChannel(info->mp_num, info->umd_chan2, info->mp_h);
+  if (NULL == dch) {
+    CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+            info->umd_chan2, info->mp_num, info->mp_h);
+    goto error;
+  }
+
+  // TX - Chan 2
+  dch->setCheckHwReg(true);
+  if (! dch->alloc_dmatxdesc(DMA_CHAN2_BUFC)) {
+    CRIT("\n\talloc_dmatxdesc failed: bufs %d", DMA_CHAN2_BUFC);
+    goto error;
+  }
+  if (! dch->alloc_dmacompldesc(DMA_CHAN2_STS)) {
+    CRIT("\n\talloc_dmacompldesc failed: entries %d", DMA_CHAN2_STS);
+    goto error;
+  }
+
+  dch->resetHw();
+  if (!dch->checkPortOK()) {
+    CRIT("\n\tPort %d is not OK!!! Exiting...", info->umd_chan2);
+    goto error;
+  }
+
+  return (m_dmac2 = dch);
+
+error:
+  if (dch != NULL) delete dch;
+  return NULL;
+}
+
+/** \brief Setup a TX/NWRITE DMA channel
+ */
+DMAChannel* RdmaOpsUMD::setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem)
+{
+  assert(m_dmac2 == NULL);
+
+  if (info == NULL || dmamem == NULL) return NULL;
+
+  setMportInfo(info->mp_num, info->mp_h);
+
+  DMAChannel* dch = new DMAChannel(info->mp_num, chan, info->mp_h);
+  if (NULL == dch) {
+    CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
+         chan, info->mp_num, info->mp_h);
+    goto error;
+  }
+
+  // TX
+  if (! dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
+    CRIT("\n\talloc_dmatxdesc failed: bufs %d", info->umd_tx_buf_cnt);
+    goto error;
+  }
+  if (! dch->alloc_dmacompldesc(info->umd_sts_entries)) {
+    CRIT("\n\talloc_dmacompldesc failed: entries %d", info->umd_sts_entries);
+    goto error;
+  }
+
+  for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
+    if (! dch->alloc_dmamem(BD_PAYLOAD_SIZE(info), dmamem[i])) {
+      CRIT("\n\talloc_dmamem failed: i %d size %x", i, BD_PAYLOAD_SIZE(info));
+      goto error;
+    };
+    memset(dmamem[i].win_ptr, 0, dmamem[i].win_size);
+  }
+
+  dch->resetHw();
+  if (! dch->checkPortOK()) {
+    CRIT("\n\tPort %d is not OK!!! Exiting...", chan);
+    goto error;
+  }
+
+  return (m_dmac = dch);
+
+error:
+  if (dch != NULL) delete dch;
+  return NULL;
+}
+static inline bool udma_nwrite_mem_T1(DmaChannelInfo_t* dch, DMAChannel::DmaOptions_t& dmaopt, RioMport::DmaMem_t& dmamem, int& dma_abort_reason)
+{
+  assert(dch->rdma);
+  const bool r = dch->rdma->nwrite_mem(dmaopt, dmamem);
+
+  dma_abort_reason = dch->rdma->getAbortReason();
   return r;
 }
 
@@ -360,24 +467,24 @@ void* umd_dma_tun_RX_proc_thr(void *parm)
 {
   struct epoll_event* events = NULL;
 
-        if (NULL == parm) return NULL;
+  if (NULL == parm) return NULL;
 
-        struct worker* info = (struct worker *)parm;
-        if (NULL == info->umd_dch_list[info->umd_chan]) goto exit;
-        if (NULL == info->umd_dch_nread) goto exit;
+  struct worker* info = (struct worker *)parm;
+  if (NULL == info->umd_dci_list[info->umd_chan]) goto exit;
+  if (NULL == info->umd_dci_nread) goto exit;
 
   if ((events = (struct epoll_event*)calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event))) == NULL) goto exit;
 
 #if 0
   info->umd_dma_tap_thr.cpu_req = GetDecParm("$cpu2", -1);
 
-        migrate_thread_to_cpu(&info->umd_dma_tap_thr);
+  migrate_thread_to_cpu(&info->umd_dma_tap_thr);
 
-        if (info->umd_dma_tap_thr.cpu_req != info->umd_dma_tap_thr.cpu_run) {
-                CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing out!\n",
-                     info->umd_dma_tap_thr.cpu_req, info->umd_dma_tap_thr.cpu_run);
-                goto exit;
-        }
+  if (info->umd_dma_tap_thr.cpu_req != info->umd_dma_tap_thr.cpu_run) {
+    CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing out!\n",
+         info->umd_dma_tap_thr.cpu_req, info->umd_dma_tap_thr.cpu_run);
+    goto exit;
+  }
 
   INFO("\n\tReady to receive from multiplexed Tun devices {isolcpu $cpu2=%d}. MAX_PEERS=%d\n", info->umd_dma_tap_thr.cpu_req, MAX_PEERS);
 #else
@@ -394,7 +501,7 @@ void* umd_dma_tun_RX_proc_thr(void *parm)
 #ifndef UDMA_TUN_DEBUG_NWRITE_CH2
   if (info->umd_chan < CHAN_N && info->umd_chann_reserve) CHAN_N--;
 #endif
-  for (int ch = info->umd_chan; ch <= CHAN_N; ch++) dch_list[dch_cnt++] = info->umd_dch_list[ch];
+  for (int ch = info->umd_chan; ch <= CHAN_N; ch++) dch_list[dch_cnt++] = info->umd_dci_list[ch];
 
   uint64_t tx_cnt = 0;
 
@@ -458,9 +565,9 @@ exit:
 
 no_post:
   free(events);
-        info->umd_dma_tap_proc_alive = 0;
+  info->umd_dma_tap_proc_alive = 0;
 
-        return parm;
+  return parm;
 } // END umd_dma_tun_RX_proc_thr
 
 /** \brief Process data from Tun and send it over DMA NWRITE
@@ -547,7 +654,7 @@ INFO("first_message=%d force_nread=%d q_fullish=%d \"outstanding[%d] >= Q_THR(in
 first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1), outstanding >= Q_THR(info->umd_tx_buf_cnt-1));
 #endif
     uint32_t newRP = ~0;
-    if (udma_nread_mem(info, destid_dpi, peer->get_rio_addr(), sizeof(newRP), (uint8_t*)&newRP)) {
+    if (udma_nread_mem(info->umd_dci_nread, destid_dpi, peer->get_rio_addr(), sizeof(newRP), (uint8_t*)&newRP)) {
       peer->m_stats.nread_ts = rdtsc();
       DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", destid_dpi, peer->get_RP(), newRP);
       peer->set_RP(newRP);
@@ -581,12 +688,12 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
 
   // Barry dixit "If full sleep for (queue size / 2) nanoseconds"
   for (int i = 0; i < (dci->tx_buf_cnt-1)/2; i++) {
-    if (! dci->dch->queueFull()) break;
+    if (! dci->rdma->queueFull()) break;
     struct timespec tv = { 0, 1};
     nanosleep(&tv, NULL);
   }
 
-  if (dci->dch->queueFull()) {
+  if (dci->rdma->queueFull()) {
     DBG("\n\tQueue full #1 on chan %d!\n", dci->chan);
     goto error; // Drop L3 frame
   }
@@ -601,18 +708,18 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
   DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx WP=%d chan=%d oi=%d\n",
       nread, DMA_L2_SIZE, destid_dpi, dmaopt.raddr.lsb64, peer->get_WP(), dci->chan, dci->oi);
 
-  info->rdma->setCheckHwReg(first_message);
+  dci->rdma->setCheckHwReg(first_message);
 
   info->umd_dma_abort_reason = 0;
 
-  if (! udma_nwrite_mem_T1(info, dci->dmaopt[dci->oi], dci->dmamem[dci->oi], (int&)info->umd_dma_abort_reason)) {
+  if (! udma_nwrite_mem_T1(dci, dci->dmaopt[dci->oi], dci->dmamem[dci->oi], (int&)info->umd_dma_abort_reason)) {
     if(info->umd_dma_abort_reason != 0) { // HW error
       // ICMPv4 dest unreachable id bad destid 
       send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun
 
       umd_dma_goodput_tun_del_ep(info, destid_dpi, false); // Nuke Tun & Peer
 
-      if (info->rdma->canRestart()) {
+      if (dci->rdma->canRestart()) {
         DBG("\n\tHW error, triggering soft restart\n");
         peer->stop_req = 1;
         info->stop_req = SOFT_RESTART; // XXX of which channel?
@@ -712,43 +819,44 @@ void* umd_dma_wakeup_proc_thr(void* arg)
   return NULL;
 }
 
-/** \brief Setup the TX/NREAD DMA channel
- * \note This channel will do only one operation at a time
- * \note It will get only the minimum number of BDs \ref DMA_CHAN2_BUFC
- */
+
+DmaChannelInfo_t* umd_rdma_factory(struct worker *info, int chan)
+{
+  assert(info);
+
+  DmaChannelInfo_t* ci = (DmaChannelInfo_t*)calloc(1, sizeof(DmaChannelInfo_t));
+  if (ci == NULL) return NULL;
+
+  switch (info->dma_method) {
+    case ACCESS_UMD: ci->rdma = new RdmaOpsUMD();   break;
+    //case ACCESS_MPORT: ci->rdma = new RdmaOpsMport(); break;
+    default: return NULL; break;
+  }
+
+  return ci;
+}
+
 bool umd_dma_goodput_tun_setup_chan2(struct worker *info)
 {
-  if (info == NULL) return false;
+  info->umd_dci_nread = umd_rdma_factory(info, info->umd_chan2);
+  if (info->umd_dci_nread == NULL) return false;
 
-  info->umd_dch_nread = new DMAChannel(info->mp_num, info->umd_chan2, info->mp_h);
-  if (NULL == info->umd_dch_nread) {
-    CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
-            info->umd_chan2, info->mp_num, info->mp_h);
-    return false;
+  switch (info->dma_method) {
+    case ACCESS_UMD: {{
+              DMAChannel* ch = (dynamic_cast<RdmaOpsUMD*>(info->umd_dci_nread->rdma))->setup_chan2(info);
+              assert(ch);
+              info->umd_dci_nread->tx_buf_cnt = RdmaOpsUMD::DMA_CHAN2_BUFC;
+              info->umd_dci_nread->sts_entries= RdmaOpsUMD::DMA_CHAN2_STS;
+            }}
+            break;
+    case ACCESS_MPORT: assert(0); // TBI
+            break;
+    default: return false; break;
   }
-
-  // TX - Chan 2
-  info->umd_dch_nread->setCheckHwReg(true);
-  if (!info->umd_dch_nread->alloc_dmatxdesc(DMA_CHAN2_BUFC)) {
-    CRIT("\n\talloc_dmatxdesc failed: bufs %d", DMA_CHAN2_BUFC);
-    return false;
-  }
-  if (!info->umd_dch_nread->alloc_dmacompldesc(DMA_CHAN2_STS)) {
-    CRIT("\n\talloc_dmacompldesc failed: entries %d", DMA_CHAN2_STS);
-    return false;
-  }
-
-  info->umd_dch_nread->resetHw();
-  if (!info->umd_dch_nread->checkPortOK()) {
-    CRIT("\n\tPort %d is not OK!!! Exiting...", info->umd_chan2);
-    return false;
-  }
-
   return true;
 }
 
-/** \brief Setup a TX/NWRITE DMA channel
- */
+
 bool umd_dma_goodput_tun_setup_chanN(struct worker *info, const int n)
 {
   if (info == NULL) return false;
@@ -756,61 +864,34 @@ bool umd_dma_goodput_tun_setup_chanN(struct worker *info, const int n)
   if (n < 0 || n > 7) return false;
   if (n < info->umd_chan || n > info->umd_chan_n) return false;
 
-  if (info->umd_dch_list[n] != NULL) return false; // already setup
+  if (info->umd_dci_list[n] != NULL) return false; // already setup
 
-  DmaChannelInfo_t* dci = (DmaChannelInfo_t*)calloc(1, sizeof(DmaChannelInfo_t));
-  if (dci == NULL) return false;
+  DmaChannelInfo_t* dci = umd_rdma_factory(info, n);
+  if (dci == NULL) goto error;
 
-  info->umd_dch_list[n] = dci;
-
-  dci->chan        = n;
-  dci->tx_buf_cnt  = info->umd_tx_buf_cnt;
-  dci->sts_entries = info->umd_sts_entries;
-
-  dci->dch = new DMAChannel(info->mp_num, n, info->mp_h);
-  if (NULL == dci->dch) {
-    CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
-                     dci->chan, info->mp_num, info->mp_h);
-    goto error;
+  switch (info->dma_method) {
+    case ACCESS_UMD: {{
+              memset(dci->dmamem, 0, sizeof(dci->dmamem));
+              memset(dci->dmaopt, 0, sizeof(dci->dmaopt));
+              DMAChannel* ch = (dynamic_cast<RdmaOpsUMD*>(info->umd_dci_nread->rdma))->setup_chanN(info, n, dci->dmamem);
+              assert(ch);
+              dci->tx_buf_cnt  = info->umd_tx_buf_cnt;
+              dci->sts_entries = info->umd_sts_entries;
+            }}
+            break;
+    case ACCESS_MPORT: assert(0); // TBI
+            break;
+    default: goto error; break;
   }
 
-  // TX
-  if (! dci->dch->alloc_dmatxdesc(dci->tx_buf_cnt)) {
-    CRIT("\n\talloc_dmatxdesc failed: bufs %d", dci->tx_buf_cnt);
-    goto error;
-  }
-  if (! dci->dch->alloc_dmacompldesc(dci->sts_entries)) {
-    CRIT("\n\talloc_dmacompldesc failed: entries %d", dci->sts_entries);
-    goto error;
-  }
-
-  memset(dci->dmamem, 0, sizeof(dci->dmamem));
-  memset(dci->dmaopt, 0, sizeof(dci->dmaopt));
-
-  // TX - Chan 1
-  for (int i = 0; i < dci->tx_buf_cnt; i++) {
-    if (! dci->dch->alloc_dmamem(BD_PAYLOAD_SIZE(info), dci->dmamem[i])) {
-      CRIT("\n\talloc_dmamem failed: i %d size %x", i, BD_PAYLOAD_SIZE(info));
-      goto error;
-    };
-    memset(dci->dmamem[i].win_ptr, 0, dci->dmamem[i].win_size);
-  }
-
-  dci->dch->resetHw();
-  if (! dci->dch->checkPortOK()) {
-    CRIT("\n\tPort %d is not OK!!! Exiting...", dci->chan);
-    goto error;
-  }
-
+  info->umd_dci_list[n] = dci;
   return true;
 
 error:
-  if (dci->dch != NULL) delete dci->dch;
-  info->umd_dch_list[n] = NULL;
+  info->umd_dci_list[n] = NULL;
   free(dci);
   return false;
 }
-
 
 bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer)
 {
@@ -826,7 +907,13 @@ bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer)
   const uint16_t destid = peer->get_destid();
   const uint64_t rio_addr = peer->get_rio_addr() + offsetof(DmaPeerRP_t, rpeer);
 
-  if (! udma_nwrite_mem(info, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) {
+#ifdef UDMA_TUN_DEBUG_NWRITE_CH2
+  DmaChannelInfo_t* dch = info->umd_dci_nread;
+#else
+  DmaChannelInfo_t* dch = info->umd_dci_list[info->umd_chan_n]; // pick the last channel
+#endif
+
+  if (! udma_nwrite_mem(dch, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) {
     DBG("\n\tHW error, something is FOOBAR with Chan %u\n", info->umd_chan2);
 
     peer->stop_req = 1;
@@ -988,12 +1075,14 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
 
   info = (struct worker *)parm;
 
-  if (NULL == info->umd_dch_list[info->umd_chan]) goto exit;
-  if (NULL == info->umd_dch_list[info->umd_chan_n]) goto exit;
+  if (info->dma_method == ACCESS_UMD) {
+    if (NULL == info->umd_dci_list[info->umd_chan]) goto exit;
+    if (NULL == info->umd_dci_list[info->umd_chan_n]) goto exit;
 
-  for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) dch_list[dch_cnt++] = info->umd_dch_list[ch];
+    for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) dch_list[dch_cnt++] = info->umd_dci_list[ch];
   
-  assert(dch_cnt);
+    assert(dch_cnt);
+  }
 
   DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
@@ -1010,6 +1099,21 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
   info->umd_fifo_proc_alive = 1;
   sem_post(&info->umd_fifo_proc_started);
 
+  // Emulate isolcpu scanning for mport
+  if (info->dma_method == ACCESS_MPORT) {
+    while (!info->umd_fifo_proc_must_die) {
+      // This is a hook to do stuff for IB buffers in isolcpu thread
+      // Note: No relation to TX FIFO/buffers, just CPU sharing
+      if (info->umd_dma_fifo_callback != NULL)
+        info->umd_dma_fifo_callback(info);
+
+      struct timespec tv = { 0, 1 };
+      nanosleep(&tv, NULL);
+    }
+    goto exit;
+  }
+
+  // Vanilla UMD
   while (!info->umd_fifo_proc_must_die) {
     for (int ch = 0; ch < dch_cnt; ch++) {
       ts_now_mark(&info->fifo_ts, 1);
@@ -1021,7 +1125,10 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
 
       ts_now_mark(&info->fifo_ts, 2);
 
-      const int cnt = dch_list[ch]->dch->scanFIFO(wi, info->umd_sts_entries*8);
+      DMAChannel* dch = dynamic_cast<RdmaOpsUMD*>(dch_list[ch]->rdma)->getChannel();
+      assert(dch);
+
+      const int cnt = dch->scanFIFO(wi, info->umd_sts_entries*8);
       if (!cnt) {
         if (info->umd_tun_thruput) {
           // for(int i = 0; i < 1000; i++) {;} continue; // "1000" busy wait seemd OK for latency, bad for thruput
@@ -1372,7 +1479,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
   if (!umd_dma_goodput_tun_setup_chan2(info)) goto exit;
 
-  info->my_destid = info->umd_dch_nread->getDestId();
+  info->my_destid = info->umd_dci_nread->rdma->getDestId();
 
   if (info->my_destid == 0xffff) {
     CRIT("\n\tMy_destid=0x%x which is BORKED -- bad enumeration?\n", info->my_destid);
@@ -1470,12 +1577,13 @@ exit:
   if (dma_tap_thr_started) pthread_join(info->umd_dma_tap_thr.thr, NULL);
 
   for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
-    if (info->umd_dch_list[ch] == NULL) continue;
-    DmaChannelInfo_t* dci = info->umd_dch_list[ch];
+    if (info->umd_dci_list[ch] == NULL) continue;
+    DmaChannelInfo_t* dci = info->umd_dci_list[ch];
+    DMAChannel* dch = dynamic_cast<RdmaOpsUMD*>(dci->rdma)->getChannel();
 
     for (int i = 0; i < dci->tx_buf_cnt; i++) {
       if(dci->dmamem[i].type == 0) continue;
-      dci->dch->free_dmamem(dci->dmamem[i]);
+      dch->free_dmamem(dci->dmamem[i]);
     }
   }
 
@@ -1522,11 +1630,11 @@ exit:
   close(info->umd_epollfd); info->umd_epollfd = -1;
 
   for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
-    if (info->umd_dch_list[ch] == NULL) continue;
-    delete info->umd_dch_list[ch]->dch;
-    free(info->umd_dch_list[ch]); info->umd_dch_list[ch] = NULL;
+    if (info->umd_dci_list[ch] == NULL) continue;
+    delete info->umd_dci_list[ch]->rdma;
+    free(info->umd_dci_list[ch]); info->umd_dci_list[ch] = NULL;
   }
-  delete info->umd_dch_nread; info->umd_dch_nread = NULL;
+  delete info->umd_dci_nread; info->umd_dci_nread = NULL;
   delete info->umd_lock; info->umd_lock = NULL;
   info->umd_tun_name[0] = '\0';
 
@@ -1616,7 +1724,7 @@ bool umd_dma_goodput_tun_ep_has_peer(struct worker* info, const uint16_t destid)
 void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool signal)
 {
   assert(info);
-  //assert(info->umd_dch_nread);
+  //assert(info->umd_dci_nread);
 
   const uint16_t my_destid = info->my_destid;
   assert(my_destid != destid);
@@ -2143,7 +2251,7 @@ void UMD_DD(struct worker* info)
   uint64_t* port_tx_histo[6] = {NULL};
   DmaChannelInfo_t* dch_list[6] = {0};
 
-  assert(info->umd_dch_nread);
+  assert(info->umd_dci_nread);
 
   std::string s;
   if (info->umd_peer_ibmap->toString(s) > 0)
@@ -2174,73 +2282,83 @@ void UMD_DD(struct worker* info)
   const int TX_HISTO_SZ = sizeof(uint64_t) * info->umd_tx_buf_cnt;
   const int RX_HISTO_SZ = TX_HISTO_SZ;
 
-  int dch_cnt = 0;
-  for (int ch = info->umd_chan; info->umd_chan >= 0 && ch <= info->umd_chan_n; ch++) {
-    assert(info->umd_dch_list[ch]);
-
-    dch_list[dch_cnt]         = info->umd_dch_list[ch];
-    q_size[dch_cnt]           = info->umd_dch_list[ch]->dch->queueSize();
-    port_ok[dch_cnt]          = info->umd_dch_list[ch]->dch->checkPortOK();
-    port_err[dch_cnt]         = info->umd_dch_list[ch]->dch->checkPortError();
-    port_WP[dch_cnt]          = info->umd_dch_list[ch]->dch->getWP();
-    port_FIFO_WP[dch_cnt]     = info->umd_dch_list[ch]->dch->m_tx_cnt;
-    port_ticks_total[dch_cnt] = info->umd_dch_list[ch]->ticks_total;
-
-    port_total_ticks_tx[dch_cnt] = info->umd_dch_list[ch]->total_ticks_tx;
-
-#ifdef UDMA_TUN_DEBUG_HISTO
-    if (info->umd_dch_list[ch]->dch->m_bl_busy_histo != NULL) {
-      port_tx_histo[dch_cnt] = (uint64_t*)alloca(TX_HISTO_SZ);
-      memcpy(port_tx_histo[dch_cnt], (void*)info->umd_dch_list[ch]->dch->m_bl_busy_histo, TX_HISTO_SZ);
-    }
-#endif
-
-    dch_cnt++;
-  } // END for umd_chan
-
   const int MHz = getCPUMHz();
 
+  int dch_cnt = 0;
   std::stringstream ss;
-  {
+
+  if (info->dma_method == ACCESS_UMD) {
+    for (int ch = info->umd_chan; info->umd_chan >= 0 && ch <= info->umd_chan_n; ch++) {
+      assert(info->umd_dci_list[ch]);
+
+      dch_list[dch_cnt]         = info->umd_dci_list[ch];
+
+      DMAChannel* dch = dynamic_cast<RdmaOpsUMD*>(info->umd_dci_list[ch]->rdma)->getChannel();
+      assert(dch);
+
+      q_size[dch_cnt]           = dch->queueSize();
+      port_ok[dch_cnt]          = dch->checkPortOK();
+      port_err[dch_cnt]         = dch->checkPortError();
+      port_WP[dch_cnt]          = dch->getWP();
+      port_FIFO_WP[dch_cnt]     = dch->m_tx_cnt;
+      port_ticks_total[dch_cnt] = info->umd_dci_list[ch]->ticks_total;
+
+      port_total_ticks_tx[dch_cnt] = info->umd_dci_list[ch]->total_ticks_tx;
+
+#ifdef UDMA_TUN_DEBUG_HISTO
+      if (dch->m_bl_busy_histo != NULL) {
+        port_tx_histo[dch_cnt] = (uint64_t*)alloca(TX_HISTO_SZ);
+        memcpy(port_tx_histo[dch_cnt], (void*)dch->m_bl_busy_histo, TX_HISTO_SZ);
+      }
+#endif
+
+      dch_cnt++;
+    } // END for umd_chan
+
+
+    DMAChannel* dch2 = dynamic_cast<RdmaOpsUMD*>(info->umd_dci_nread->rdma)->getChannel2();
+    assert(dch2);
+
     char tmp[257] = {0};
-    snprintf(tmp, 256, "Chan2 %d q_size=%d", info->umd_chan2, info->umd_dch_nread->queueSize());
+    snprintf(tmp, 256, "Chan2 %d q_size=%d", info->umd_chan2, dch2->queueSize());
     ss << "\n\t\t" << tmp;
-    ss << "      WP=" << info->umd_dch_nread->getWP() << " FIFO.WP=" << info->umd_dch_nread->m_tx_cnt;
-    if (info->umd_dch_nread->m_tx_cnt > 0) {
-      float AvgUS = ((float)info->umd_ticks_total_chan2 / info->umd_dch_nread->m_tx_cnt) / MHz;
+    ss << "      WP=" << dch2->getWP() << " FIFO.WP=" << dch2->m_tx_cnt;
+    if (dch2->m_tx_cnt > 0) {
+      float AvgUS = ((float)info->umd_ticks_total_chan2 / dch2->m_tx_cnt) / MHz;
       ss << " AvgNRTxRx=" << AvgUS << "uS";
     }
-    if (info->umd_dch_nread->checkPortOK()) ss << " ok";
-    if (info->umd_dch_nread->checkPortError()) ss << " ERROR";
-  }
-  for (int ch = 0; ch < dch_cnt; ch++) {
-    assert(dch_list[ch]);
-    const uint64_t* tx_histo = port_tx_histo[ch];
+    if (dch2->checkPortOK()) ss << " ok";
+    if (dch2->checkPortError()) ss << " ERROR";
 
-    char tmp[257] = {0};
-    snprintf(tmp, 256, "Chan  %d q_size=%d oi=%d", dch_list[ch]->chan, q_size[ch], dch_list[ch]->oi);
-    ss << "\n\t\t" << tmp;
-    ss << " WP=" << port_WP[ch];
-    ss << " FIFO.WP=" << port_FIFO_WP[ch];
-    if (port_FIFO_WP[ch] > 0) {
-      float AvgUS = ((float)port_ticks_total[ch] / port_FIFO_WP[ch]) / MHz;
-      ss << " AvgNWTX=" << AvgUS << "uS";
-      float AvgUSTun = ((float)port_total_ticks_tx[ch] / port_FIFO_WP[ch]) / MHz;
-      ss << " AvgTxTun=" << AvgUSTun << "uS";
+    for (int ch = 0; ch < dch_cnt; ch++) {
+      assert(dch_list[ch]);
+      const uint64_t* tx_histo = port_tx_histo[ch];
+
+      char tmp[257] = {0};
+      snprintf(tmp, 256, "Chan  %d q_size=%d oi=%d", dch_list[ch]->chan, q_size[ch], dch_list[ch]->oi);
+      ss << "\n\t\t" << tmp;
+      ss << " WP=" << port_WP[ch];
+      ss << " FIFO.WP=" << port_FIFO_WP[ch];
+      if (port_FIFO_WP[ch] > 0) {
+        float AvgUS = ((float)port_ticks_total[ch] / port_FIFO_WP[ch]) / MHz;
+        ss << " AvgNWTX=" << AvgUS << "uS";
+        float AvgUSTun = ((float)port_total_ticks_tx[ch] / port_FIFO_WP[ch]) / MHz;
+        ss << " AvgTxTun=" << AvgUSTun << "uS";
+      }
+      if (port_ok[ch]) ss << " ok";
+      if (port_err[ch]) ss << " ERROR";
+
+      std::stringstream ss_histo;
+      for (int i = 0; i < info->umd_tx_buf_cnt && tx_histo != NULL; i++) {
+        if (tx_histo[i] == 0) continue;
+        ss_histo << i << "->" << tx_histo[i] << " ";
+      }
+
+      if (GetEnv("verb") != NULL && ss_histo.str().size() > 0) ss << "\n\t\tTX Histo: " << ss_histo.str();
     }
-    if (port_ok[ch]) ss << " ok";
-    if (port_err[ch]) ss << " ERROR";
-
-    std::stringstream ss_histo;
-    for (int i = 0; i < info->umd_tx_buf_cnt && tx_histo != NULL; i++) {
-      if (tx_histo[i] == 0) continue;
-      ss_histo << i << "->" << tx_histo[i] << " ";
-    }
-
-    if (GetEnv("verb") != NULL && ss_histo.str().size() > 0) ss << "\n\t\tTX Histo: " << ss_histo.str();
-  }
-  if (dch_cnt > 0)
-    printf("\tDMA Channel stats: %s\n", ss.str().c_str());
+    if (dch_cnt > 0)
+      printf("\tDMA Channel stats: %s\n", ss.str().c_str());
+  } // END if dma_method == ACCESS_UMD 
 
   std::vector<DmaPeer>     peer_list;
   std::vector<int>         peer_list_rocnt;
@@ -2380,7 +2498,7 @@ void UMD_Test(struct worker* info)
   assert(info->ib_rio_addr);
 
   uint32_t u4 = 0;
-  bool r = udma_nread_mem(info, info->did, info->ib_rio_addr, sizeof(u4), (uint8_t*)&u4);
+  bool r = udma_nread_mem(info->umd_dci_nread, info->did, info->ib_rio_addr, sizeof(u4), (uint8_t*)&u4);
 
   INFO("\n\tNREAD %s did=%d rio_addr=0x%llx => %u\n", (r? "ok": "FAILED"), info->did, info->ib_rio_addr, u4);
 }

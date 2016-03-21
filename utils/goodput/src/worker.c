@@ -174,7 +174,6 @@ void init_worker_info(struct worker *info, int first_time)
 	info->dma_method = 0;
 	info->owner_func = NULL;
 	info->umd_set_rx_fd = NULL;
-	info->rdma = NULL;
 	info->my_destid = 0xFFFF;
 	info->umd_chan = -1;
 	info->umd_chan_n = -1;
@@ -198,7 +197,7 @@ void init_worker_info(struct worker *info, int first_time)
 
 	pthread_mutex_init(&info->umd_dma_did_peer_mutex, NULL);
 
-	memset(&info->umd_dch_list, 0, sizeof(info->umd_dch_list));
+	memset(&info->umd_dci_list, 0, sizeof(info->umd_dci_list));
 
 	info->umd_peer_ibmap = NULL;
 
@@ -1389,8 +1388,6 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	sem_post(&info->umd_fifo_proc_started); 
 
 	while (!info->umd_fifo_proc_must_die) {
-		if (info->umd_dch->isSim()) info->umd_dch->simFIFO(0, 0); // no faults injected
-
 		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
 		if (!cnt) 
 			continue;

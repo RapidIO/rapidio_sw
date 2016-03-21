@@ -8,9 +8,14 @@
 
 class RdmaOpsIntf {
 public:
+  virtual ~RdmaOpsIntf() {;}
+
   virtual bool canRestart() { return false; }
   
+  virtual bool queueFull() = 0;
+
   virtual void setCheckHwReg(bool sw) = 0;
+  virtual uint16_t getDestId() = 0;
 
   // T2 Ops
   virtual bool nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out) = 0;
