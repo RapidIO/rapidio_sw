@@ -80,11 +80,11 @@ static int send_disc_ms_cm(uint32_t server_destid,
 	} else {
 		auto in_msg = make_unique<cm_msg_t>();
 
-		in_msg->type = htobe64(CM_DISCONNECT_MS_REQ);
+		in_msg->type = htobe64(CM_DISCONNECT_MS);
 		in_msg->category = htobe64(RDMA_REQ_RESP);
 		in_msg->seq_no = 0;
 
-		cm_disconnect_ms_req_msg *disc_msg = &in_msg->cm_disconnect_ms_req;
+		cm_disconnect_ms_msg *disc_msg = &in_msg->cm_disconnect_ms;
 		disc_msg->client_msubid	    	 = htobe64(client_msubid);
 		disc_msg->client_destid     	 = htobe64(the_inbound->get_peer().destid);
 		disc_msg->client_destid_len 	 = htobe64(16);

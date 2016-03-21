@@ -143,8 +143,6 @@ public:
 		cm_server_tx_engine *tx_eng =
 			static_cast<cm_server_tx_engine *>(vtx_eng);
 
-		(void)tx_eng;	// Temporary
-
 		switch(msg->type) {
 
 		case CM_HELLO:
@@ -155,7 +153,7 @@ public:
 			cm_connect_ms_disp(msg, tx_eng);
 		break;
 
-		case CM_DISCONNECT_MS_REQ:
+		case CM_DISCONNECT_MS:
 			cm_disconnect_ms_disp(msg, tx_eng);
 		break;
 

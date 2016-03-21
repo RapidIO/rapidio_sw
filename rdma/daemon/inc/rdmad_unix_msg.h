@@ -94,6 +94,7 @@ using std::find_if;
 #define SERVER_DISCONNECT_MS	0x001F
 #define SERVER_DISCONNECT_MS_ACK	0x801F
 #define RDMAD_KILL_DAEMON	0x0666
+#define DISCONNECT_MS_ACK	0x0020
 
 /* Type codes for RDMA_REQ_RESP messages */
 #define FORCE_CLOSE_MSO		0x1001

@@ -1899,7 +1899,8 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	return rc;
 } /* rdma_conn_ms_h() */
 
-int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
+int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
+		     uint64_t timeout_secs)
 {
 	int rc;
 
@@ -1982,6 +1983,18 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 			ERR("Failed to send_disconnect in daemon\n, status=0x%X",
 					out_msg.send_disconnect_out.status);
 			throw out_msg.send_disconnect_out.status;
+		}
+
+		/* Now wait for a disconnect acknowledgement */
+		INFO(" Waiting for connect response (accept) message...\n");
+		rc = await_message(RDMA_CALL,
+				DISCONNECT_MS_ACK,
+				0,
+				timeout_secs,
+				&out_msg);
+		if (rc == ETIMEDOUT) {
+			ERR("Timeout before getting response to 'disconnect'\n");
+			throw RDMA_DISCONNECT_TIMEOUT;
 		}
 
 		/* Remove all remote msubs belonging to 'rem_msh'. At this point,
@@ -2102,7 +2115,7 @@ int rdma_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 	int rc;
 	if (connh == (conn_h)tx_eng) {
 		HIGH("CLIENT DISCONNECTING\n");
-		rc = client_disc_ms_h(connh, server_msh, client_msubh);
+		rc = client_disc_ms_h(connh, server_msh, client_msubh, 5);
 	} else {
 		HIGH("SERVER DISCONNECTING\n");
 		rc = server_disc_ms_h(connh, server_msh, client_msubh);

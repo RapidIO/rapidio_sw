@@ -166,7 +166,7 @@ void cm_connect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 
 void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {
-	cm_disconnect_ms_req_msg	*disc_msg = &msg->cm_disconnect_ms_req;
+	cm_disconnect_ms_msg	*disc_msg = &msg->cm_disconnect_ms;
 
 	uint32_t server_msid = static_cast<uint32_t>(be64toh(disc_msg->server_msid));
 	HIGH("Received DISCONNECT_MS for msid(0x%X)\n", server_msid);
@@ -187,10 +187,27 @@ void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 	} else {
 		HIGH("'Disconnect' for ms('%s') relayed to 'server'\n",
 			ms->get_name());
-	}
 
-	/* TODO: Acknowledge disconnection */
-	(void)tx_eng;	/* TODO: Will be used to send the disconnect ack */
+		/* Acknowledge disconnection */
+		auto out_msg = make_unique<cm_msg_t>();
+		out_msg->category = htobe64(RDMA_REQ_RESP);
+		out_msg->type	 = htobe64(CM_DISCONNECT_MS_ACK);
+		out_msg->seq_no	 = 0;
+
+		/* The rest of the fields are copied from the CM_DISCONNECT_MS
+		 * message and are already in Big Endian (network) order. */
+		out_msg->cm_disconnect_ms_ack.client_msubid =
+							disc_msg->client_msubid;
+		out_msg->cm_disconnect_ms_ack.client_destid =
+							disc_msg->client_destid;
+		out_msg->cm_disconnect_ms_ack.client_destid_len =
+							disc_msg->client_destid_len;
+		out_msg->cm_disconnect_ms_ack.client_to_lib_tx_eng_h =
+						disc_msg->client_to_lib_tx_eng_h;
+		out_msg->cm_disconnect_ms_ack.server_msid =
+							disc_msg->server_msid;
+		tx_eng->send_message(move(out_msg));
+	}
 } /* cm_disconnect_ms_disp() */
 
 void cm_force_disconnect_ms_ack_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)

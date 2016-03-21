@@ -44,16 +44,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "rdma_msg.h"
 
-constexpr auto CM_MS_NAME_MAX_LEN 		= 31;
+constexpr auto CM_MS_NAME_MAX_LEN 			= 31;
 
 /* Message types */
 constexpr rdma_msg_type CM_HELLO 	 		= 0x1111111111111111;
 constexpr rdma_msg_type CM_HELLO_ACK	 		= 0x2222222222222222;
 constexpr rdma_msg_type CM_CONNECT_MS 			= 0x3333333333333333;
 constexpr rdma_msg_type CM_ACCEPT_MS	 		= 0x4444444444444444;
-constexpr rdma_msg_type CM_DISCONNECT_MS_REQ		= 0x5555555555555555;
-constexpr rdma_msg_type CM_FORCE_DISCONNECT_MS 		= 0x6666666666666666;
-constexpr rdma_msg_type CM_FORCE_DISCONNECT_MS_ACK 	= 0x7777777777777777;
+constexpr rdma_msg_type CM_DISCONNECT_MS		= 0x5555555555555555;
+constexpr rdma_msg_type CM_DISCONNECT_MS_ACK		= 0x6666666666666666;
+constexpr rdma_msg_type CM_FORCE_DISCONNECT_MS 		= 0x7777777777777777;
+constexpr rdma_msg_type CM_FORCE_DISCONNECT_MS_ACK 	= 0x8888888888888888;
 
 /**
  * @brief HELLO message exchanged between daemons during provisioning
@@ -134,7 +135,20 @@ struct cm_accept_ms_msg {
  * @brief Sent from client daemon to server daemon requesting disconnection
  * 	  from specified memory space
  */
-struct cm_disconnect_ms_req_msg {
+struct cm_disconnect_ms_msg {
+	uint64_t 	client_msubid;
+	uint64_t 	client_destid;
+	uint64_t 	client_destid_len;
+	uint64_t	client_to_lib_tx_eng_h;
+	uint64_t 	server_msid;
+};
+
+/**
+ * @brief Sent from server daemon to client daemon acknowledging that
+ * 	  disconnection from memory space was successful.
+ * 	  TODO: Do we need all fields?
+ */
+struct cm_disconnect_ms_ack_msg {
 	uint64_t 	client_msubid;
 	uint64_t 	client_destid;
 	uint64_t 	client_destid_len;
@@ -180,7 +194,8 @@ struct cm_msg_t {
 		cm_hello_ack_msg_t		cm_hello_ack;
 		cm_connect_ms_msg		cm_connect_ms;
 		cm_accept_ms_msg		cm_accept_ms;
-		cm_disconnect_ms_req_msg 	cm_disconnect_ms_req;
+		cm_disconnect_ms_msg 		cm_disconnect_ms;
+		cm_disconnect_ms_ack_msg	cm_disconnect_ms_ack;
 		cm_force_disconnect_ms_msg	cm_force_disconnect_ms;
 		cm_force_disconnect_ms_ack_msg	cm_force_disconnect_ms_ack;
 	};
@@ -205,8 +220,8 @@ struct cm_msg_t {
 			cm_connect_ms = other.cm_connect_ms;
 		break;
 
-		case CM_DISCONNECT_MS_REQ:
-			cm_disconnect_ms_req = other.cm_disconnect_ms_req;
+		case CM_DISCONNECT_MS:
+			cm_disconnect_ms = other.cm_disconnect_ms;
 		break;
 
 		case CM_FORCE_DISCONNECT_MS:

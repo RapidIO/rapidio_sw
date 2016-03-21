@@ -73,6 +73,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMA_CANNOT_OPEN_MSO		0x101E
 #define RDMA_NO_ROOM_FOR_MS		0x101F
 #define RDMA_MAP_ERROR			0x1020
+#define RDMA_DISCONNECT_TIMEOUT		0x1021
 
 /*
 * mso_h - A memory space owner handle. This is a globally unique value within
