@@ -161,7 +161,12 @@ static void unix_engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 				 * then we must clear all related memory spaces
 				 *  and owners using that tx_eng. */
 				DBG("Cleaning up memory spaces & owners...\n");
-				the_inbound->close_and_destroy_mspaces_using_tx_eng(tx_eng.get());
+
+				/* Note that if shutting down, the inbound was already deleted
+				 * before we got here so 'the_inbound' is not a valid pointer
+				 */
+				if (!shutting_down)
+					the_inbound->close_and_destroy_mspaces_using_tx_eng(tx_eng.get());
 				owners.close_mso(tx_eng.get());
 				owners.destroy_mso(tx_eng.get());
 			}
@@ -248,6 +253,7 @@ void shutdown()
 	/* Delete the inbound object */
 	INFO("Deleting the_inbound\n");
 	delete the_inbound;
+	the_inbound = nullptr;
 
 	INFO("Clear the prov and hello daemon lists\n");
 	sem_post(cm_engine_cleanup_sem);
