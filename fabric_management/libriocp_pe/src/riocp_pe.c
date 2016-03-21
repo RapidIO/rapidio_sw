@@ -1416,6 +1416,13 @@ int RIOCP_SO_ATTR riocp_pe_set_event_mask(riocp_pe_handle pe,
 	return 0;
 }
 
+/**
+ * Read an event from a dedicated mport
+ * @param mport mport handle
+ * @param pe PE pointer upated by the function with the PE the event comes from
+ * @param ev pointer to event data
+ * @param timout in milliseconds
+ */
 int RIOCP_SO_ATTR riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *pe,
 		struct riocp_pe_event *ev, int timeout)
 {
@@ -1424,6 +1431,13 @@ int RIOCP_SO_ATTR riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *p
 	struct riomp_mgmt_event revent;
 	uint32_t comptag_nr;
 	struct riocp_pe *_pe;
+
+	if (!pe || !ev)
+		return -EINVAL;
+	if (riocp_pe_handle_check(mport))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_MPORT(mport))
+		return -EINVAL;
 
 	ret = riomp_mgmt_get_event(mport->mp_hnd, &revent, timeout);
 	if (ret < 0)
