@@ -189,7 +189,7 @@ void *rx_worker_thread_f(void *arg)
 						it->type,
 						it->seq_no);
 					pthread_mutex_lock(message_queue_lock);
-					message_queue->push_back(*msg);
+					message_queue->push_back(std::move(*msg));
 					pthread_mutex_unlock(message_queue_lock);
 
 					/* Remove notify entry from notify list */
