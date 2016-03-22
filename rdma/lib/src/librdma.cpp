@@ -55,6 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iterator>
 #include <thread>
 #include <memory>
+#include "memory_supp.h"
 
 #include <rapidio_mport_mgmt.h>
 
@@ -75,11 +76,13 @@ using std::exception;
 using std::vector;
 using std::make_shared;
 using std::thread;
+using std::unique_ptr;
+
 
 static unix_msg_processor	msg_proc;
 
-static unix_rx_engine *rx_eng;
-static unix_tx_engine *tx_eng;
+static unique_ptr<unix_rx_engine> rx_eng;
+static unique_ptr<unix_tx_engine> tx_eng;
 
 static thread *engine_monitoring_thread;
 
@@ -388,14 +391,12 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 		HIGH("Cleaning up dead engines!\n");
 		if (tx_eng->isdead()) {
 			HIGH("Killing tx_eng\n");
-			delete tx_eng;
-			tx_eng = nullptr;
+			tx_eng.reset();
 		}
 
 		if (rx_eng->isdead()) {
 			HIGH("Killing rx_eng\n");
-			delete rx_eng;
-			rx_eng = nullptr;
+			rx_eng.reset();
 		}
 
 		/* Purge database and set state to uninitialized */
@@ -439,9 +440,16 @@ static int rdma_lib_init(void)
 			sem_init(engine_cleanup_sem, 0, 0);
 
 			/* Create Tx and Rx engines */
-			tx_eng = new unix_tx_engine("librdma_tx_eng", client, engine_cleanup_sem);
-			rx_eng = new unix_rx_engine("librdma_rx_eng", client, msg_proc, tx_eng,
-							engine_cleanup_sem);
+			tx_eng = make_unique<unix_tx_engine>(
+					"librdma_tx_eng",
+					client,
+					engine_cleanup_sem);
+			rx_eng = make_unique<unix_rx_engine>(
+					"librdma_rx_eng",
+					client,
+					msg_proc,
+					tx_eng.get(),
+					engine_cleanup_sem);
 
 			/* Start engine monitoring thread */
 			engine_monitoring_thread =
@@ -477,8 +485,8 @@ static int rdma_lib_init(void)
 		switch (e) {
 		case RDMA_MPORT_OPEN_FAIL:
 		case RDMA_DAEMON_UNREACHABLE:
-			delete tx_eng;
-			delete rx_eng;
+			tx_eng.reset();
+			rx_eng.reset();
 			ret = e;
 			break;
 		default:
@@ -1719,7 +1727,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		INFO("Connecting to '%s' on destid(0x%X)\n", rem_msname, rem_destid);
 
 		/* Use the client LIBRDMA tx_eng as the connection handle to the ms */
-		*connh = (conn_h)tx_eng;
+		*connh = (conn_h)tx_eng.get();
 
 		/* Set up parameters for daemon call */
 		auto in_msg = make_unique<unix_msg_t>();
@@ -2115,7 +2123,7 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 int rdma_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 {
 	int rc;
-	if (connh == (conn_h)tx_eng) {
+	if (connh == (conn_h)tx_eng.get()) {
 		HIGH("CLIENT DISCONNECTING\n");
 		rc = client_disc_ms_h(connh, server_msh, client_msubh, 5);
 	} else {
