@@ -77,6 +77,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dmachan.h"
 #include "rdmaops.h"
 #include "rdmaopsumd.h"
+#include "rdmaopsmport.h"
 #include "lockfile.h"
 #include "tun_ipv4.h"
 
@@ -112,118 +113,6 @@ static inline uint64_t htonll(uint64_t value)
 }
 
 static inline int Q_THR(const int sz) { return (sz * 99) / 100; }
-
-class RdmaOpsMport : public RdmaOpsIntf {
-  int m_errno;
-  bool m_check_reg; ///< Means faf or async
-  bool m_q_full;
-  riomp_mport_t m_mp_h;
-  bool m_mp_h_mine;
-  RioMport* m_mport;
-
-public:
-  RdmaOpsMport() { m_errno = 0; m_check_reg = false; m_q_full = false; m_mp_h_mine = false; m_mport = NULL; }
-  virtual ~RdmaOpsMport() { if (m_mp_h_mine) riomp_mgmt_mport_destroy_handle(&m_mp_h); delete m_mport; }
-
-  virtual bool canRestart() { return false; }
-  virtual void setCheckHwReg(bool sw) { m_check_reg = sw; }
-  virtual bool queueFull() { return m_q_full; }
-
-  // T2 Ops
-  virtual bool nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
-  {
-    m_errno = 0;
-    m_q_full = false;
-    int dma_rc = riomp_dma_read(m_mp_h, destid, rio_addr,
-                                data_out, size,
-                                RIO_DIRECTIO_TRANSFER_SYNC);
-    if (dma_rc == 0) return true;
-    if (dma_rc == -EBUSY) m_q_full = true;
-    m_errno = -dma_rc;
-    return false;
-  }
-  virtual bool nwrite_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, const uint8_t* data)
-  {
-    m_errno = 0;
-    m_q_full = false;
-    int dma_rc = riomp_dma_write(m_mp_h, destid, rio_addr,
-                                 (void*)data, size,
-                                 RIO_DIRECTIO_TYPE_NWRITE_R, RIO_DIRECTIO_TRANSFER_SYNC);
-    if (dma_rc == 0) return true;
-    if (dma_rc == -EBUSY) m_q_full = true;
-    m_errno = -dma_rc;
-    return false;
-  }
-
-  // T1 Ops
-  virtual bool nwrite_mem(DMAChannel::DmaOptions_t& dmaopt, RioMport::DmaMem_t& dmamem)
-  {
-    enum riomp_dma_directio_transfer_sync rd_sync = m_check_reg?
-       RIO_DIRECTIO_TRANSFER_SYNC:
-       RIO_DIRECTIO_TRANSFER_FAF;
-
-    m_errno = 0;
-    m_q_full = false;
-    int dma_rc = riomp_dma_write_d(m_mp_h, dmaopt.destid, dmaopt.raddr.lsb64,
-                                   dmamem.win_handle, 0 /*offset*/,
-                                   dmaopt.bcount,
-                                   RIO_DIRECTIO_TYPE_NWRITE_R, rd_sync);
-    if (dma_rc == 0) return true;
-    if (dma_rc == -EBUSY) m_q_full = true;
-    m_errno = -dma_rc;
-    return false;
-  }
-
-  virtual int getAbortReason() { return m_errno; }
-
-  virtual const char* abortReasonToStr(const int dma_abort_reason)
-  {
-    return strerror(dma_abort_reason);
-  }
-
-  virtual uint16_t getDestId()
-  {
-    struct riomp_mgmt_mport_properties qresp;
-    memset(&qresp, 0, sizeof(qresp));
-    const int rc = riomp_mgmt_query(m_mp_h, &qresp);
-    if (rc) return 0xFFFF;
-    return qresp.hdid;
-  }
-
-// This is implementation-specific, not in base class (interface)
-  inline void setup_chan2(struct worker* info) { m_mp_h = info->mp_h; m_mp_h_mine = false; }
-
-  inline bool setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem)
-  {
-    assert(info);
-    if (dmamem == NULL) return false;
-
-    int rc = riomp_mgmt_mport_create_handle(info->mp_num, 0, &m_mp_h);
-    if (rc) return false;
-    m_mp_h_mine = true;
-
-    m_mport = new RioMport(info->mp_num, m_mp_h);
-
-    const int size = BD_PAYLOAD_SIZE(info);
-    for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
-      RioMport::DmaMem_t& mem = dmamem[i];
-      mem.rio_address = RIO_ANY_ADDR;
-      if(! m_mport->map_dma_buf(size, mem))
-        throw std::runtime_error("DMAChannel: Cannot alloc HW mem for DMA transfers!");
-
-      assert(mem.win_ptr);
-      memset(mem.win_ptr, 0, size);
-    }
-
-    return true;
-  }
-
-  inline bool free_dmamem(RioMport::DmaMem_t& mem)
-  {
-    assert(m_mport);
-    return m_mport->unmap_dma_buf(mem);
-  }
-};
 
 const int DESTID_TRANSLATE = 1;
 
