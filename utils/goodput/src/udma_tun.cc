@@ -76,6 +76,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "dmachan.h"
 #include "rdmaops.h"
+#include "rdmaopsumd.h"
 #include "lockfile.h"
 #include "tun_ipv4.h"
 
@@ -223,344 +224,6 @@ public:
     return m_mport->unmap_dma_buf(mem);
   }
 };
-
-class RdmaOpsUMD : public RdmaOpsIntf {
-public:
-  static const int DMA_CHAN2_BUFC = 0x20;
-  static const int DMA_CHAN2_STS  = 0x20;
-
-private:
-  DMAChannel*   m_dmac;
-  uint32_t      m_dma_abort_reason;
-  int           m_mp_num;     ///< mport_cdev port ID
-  riomp_mport_t m_mp_h; 
-
-public:
-  struct seq_ts m_meas_ts;
-
-public:
-  RdmaOpsUMD() { m_dmac = NULL; m_dma_abort_reason = 0; memset(&m_meas_ts, 0, sizeof(m_meas_ts)); }
-
-  virtual ~RdmaOpsUMD() { delete m_dmac; }
-
-  virtual bool canRestart() { return true; }
-
-  virtual void setCheckHwReg(bool sw) { assert(m_dmac); m_dmac->setCheckHwReg(sw); }
-
-  virtual bool queueFull() { assert(m_dmac); return m_dmac->queueFull(); }
-
-  // T2 Ops
-  virtual bool nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out);
-  virtual bool nwrite_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, const uint8_t* data);
-
-  // T1 Ops
-  virtual bool nwrite_mem(DMAChannel::DmaOptions_t& dmaopt, RioMport::DmaMem_t& dmamem);
-
-  virtual int getAbortReason() { return m_dma_abort_reason; }
-
-  virtual const char* abortReasonToStr(const int dma_abort_reason)
-  {
-    return DMAChannel::abortReasonToStr(dma_abort_reason);
-  }
-
-  virtual uint16_t getDestId() { return m_dmac->getDestId(); }
-
-// This is implementation-specific, not in base class (interface)
-
-  inline void setMportInfo(int mportid, riomp_mport_t mp_h) { m_mp_num = mportid; m_mp_h = mp_h; }
-
-  DMAChannel* setup_chan2(struct worker* info);
-  DMAChannel* setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem);
-
-  inline DMAChannel* getChannel() { return m_dmac; }
-};
-
-/** \brief T2 NREAD data from peer at high priority, all-in-one, blocking
- * \param[in] info C-like this
- * \param destid RIO destination id of peer
- * \param rio_addr RIO mem address into peer's IBwin, not 50-but compatible
- * \param size How much data to read, up to 16 bytes
- * \param[out] Points to where data will be deposited
- * \retuen true if NREAD completed OK
- */
-bool RdmaOpsUMD::nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
-{
-  int i;
-
-  assert(m_dmac);
-
-  if(size < 1 || size > 16 || data_out == NULL) return false;
-
-#ifdef UDMA_TUN_DEBUG_NREAD
-  DBG("\n\tNREAD from RIO %d bytes destid %u addr 0x%llx\n", size, destid, rio_addr);
-#endif
-
-  DMAChannel::DmaOptions_t dmaopt; memset(&dmaopt, 0, sizeof(dmaopt));
-  dmaopt.destid      = destid;
-  dmaopt.prio        = 2; // We want to get in front all pending ALL_WRITEs in 721 silicon
-  dmaopt.bcount      = size;
-  dmaopt.raddr.lsb64 = rio_addr;
-
-  struct seq_ts tx_ts;
-  DMAChannel::WorkItem_t wi[DMA_CHAN2_STS*8]; memset(wi, 0, sizeof(wi));
-
-  int q_was_full = !m_dmac->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, m_dma_abort_reason, &tx_ts);
-
-  i = 0;
-  if (! m_dma_abort_reason) {
-    DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
-
-    for(i = 0;
-          !q_was_full && (i < 100000)
-      && m_dmac->queueSize(); 
-        i++) {
-      m_dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
-      usleep(1);
-    }
-  }
-
-  if (m_dma_abort_reason || (m_dmac->queueSize() > 0)) { // Boooya!! Peer not responding
-    uint32_t RXRSP_BDMA_CNT = 0;
-    bool inp_err = false, outp_err = false;
-    m_dmac->checkPortInOutError(inp_err, outp_err);
-
-    {{
-      RioMport* mport = new RioMport(m_mp_num, m_mp_h);
-      RXRSP_BDMA_CNT = mport->rd32(TSI721_RXRSP_BDMA_CNT); // aka 0x29904 Received Response Count for Block DMA Engine Register
-      delete mport;
-    }}
-
-    CRIT("\n\tChan2 %u stalled with %sq_size=%d WP=%lu FIFO.WP=%llu %s%s%s%sRXRSP_BDMA_CNT=%u abort reason 0x%x %s After %d checks qful %d\n",
-          m_dmac->getChannel(),
-          (q_was_full? "QUEUE FULL ": ""), m_dmac->queueSize(),
-                      m_dmac->getWP(), m_dmac->m_tx_cnt, 
-          (m_dmac->checkPortOK()? "Port:OK ": ""),
-          (m_dmac->checkPortError()? "Port:ERROR ": ""),
-          (inp_err? "Port:OutpERROR ": ""),
-          (inp_err? "Port:InpERROR ": ""),
-          RXRSP_BDMA_CNT,
-          m_dma_abort_reason, DMAChannel::abortReasonToStr(m_dma_abort_reason), i, q_was_full);
-
-    m_dmac->softRestart();
-
-    return false;
-  }
-
-#ifdef UDMA_TUN_DEBUG_NREAD
-  if (7 <= g_level) {
-    std::stringstream ss;
-    for(int i = 0; i < size; i++) {
-      char tmp[9] = {0};
-      snprintf(tmp, 8, "%02x ", wi[0].t2_rddata[i]);
-      ss << tmp;
-    }
-    DBG("\n\tNREAD-in data: %s\n", ss.str().c_str());
-  }
-#endif
-
-  memcpy(data_out, wi[0].t2_rddata, size);
-
-  return true;
-}
-
-/** \brief T2 NWRITE_R data to peer at high priority, all-in-one, blocking
- * \param[in] info C-like this
- * \param destid RIO destination id of peer
- * \param rio_addr RIO mem address into peer's IBwin, not 50-but compatible
- * \param size How much data to write, up to 16 bytes
- * \param[in] Points to where data are
- * \retuen true if NWRITE_R completed OK
- */
-bool RdmaOpsUMD::nwrite_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, const uint8_t* data)
-{
-  int i = 0;
-
-  assert(m_dmac);
-
-  if(size < 1 || size > 16 || data == NULL) return false;
-
-#ifdef UDMA_TUN_DEBUG_NWRITE
-  DBG("\n\tNREAD from RIO %d bytes destid %u addr 0x%llx\n", size, destid, rio_addr);
-#endif
-
-  DMAChannel::DmaOptions_t dmaopt; memset(&dmaopt, 0, sizeof(dmaopt));
-  dmaopt.destid      = destid;
-  dmaopt.prio        = 2; // We want to get in front all pending ALL_WRITEs in 721 silicon
-  dmaopt.bcount      = size;
-  dmaopt.raddr.lsb64 = rio_addr;
-
-  struct seq_ts tx_ts;
-
-#ifdef UDMA_TUN_DEBUG_NWRITE_CH2
-  DMAChannel::WorkItem_t wi[DMA_CHAN2_STS*8]; memset(wi, 0, sizeof(wi));
-#endif
-
-  int q_was_full = !m_dmac->queueDmaOpT2((int)ALL_NWRITE_R, dmaopt, (uint8_t*)data, size, m_dma_abort_reason, &tx_ts);
-
-#ifdef UDMA_TUN_DEBUG_NWRITE_CH2
-  i = 0;
-  if (! m_dma_abort_reason) {
-    DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
-
-    for(i = 0; !q_was_full && (i < 100000) && m_dmac->queueSize(); i++) {
-      m_dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
-      usleep(1);
-    }
-  }
-#endif
-
-  if (m_dma_abort_reason
-#ifdef UDMA_TUN_DEBUG_NWRITE_CH2
-      || (m_dmac->queueSize() > 0)
-#endif
-        ) { // Boooya!! Peer not responding
-    uint32_t RXRSP_BDMA_CNT = 0;
-    bool inp_err = false, outp_err = false;
-    m_dmac->checkPortInOutError(inp_err, outp_err);
-
-    {{
-      RioMport* mport = new RioMport(m_mp_num, m_mp_h);
-      RXRSP_BDMA_CNT = mport->rd32(TSI721_RXRSP_BDMA_CNT); // aka 0x29904 Received Response Count for Block DMA Engine Register
-      delete mport;
-    }}
-
-    CRIT("\n\tChan2 %u stalled with %sq_size=%d WP=%lu FIFO.WP=%llu %s%s%s%sRXRSP_BDMA_CNT=%u abort reason 0x%x %s After %d checks qful %d\n",
-          m_dmac->getChannel(),
-          (q_was_full? "QUEUE FULL ": ""), m_dmac->queueSize(),
-          m_dmac->getWP(), m_dmac->m_tx_cnt,
-          (m_dmac->checkPortOK()? "Port:OK ": ""),
-          (m_dmac->checkPortError()? "Port:ERROR ": ""),
-          (inp_err? "Port:OutpERROR ": ""),
-          (inp_err? "Port:InpERROR ": ""),
-          RXRSP_BDMA_CNT,
-          m_dma_abort_reason, DMAChannel::abortReasonToStr(m_dma_abort_reason), i, q_was_full);
-
-    m_dmac->softRestart();
-
-    return false;
-  } // END if not responding
-
-  return true;
-}
-
-bool RdmaOpsUMD::nwrite_mem(DMAChannel::DmaOptions_t& dmaopt, RioMport::DmaMem_t& dmamem)
-{
-  assert(m_dmac);
-
-  return m_dmac->queueDmaOpT1(LAST_NWRITE_R, dmaopt, dmamem, m_dma_abort_reason, &m_meas_ts);
-}
-
-static inline bool udma_nread_mem(DmaChannelInfo_t* dch, const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
-{
-  assert(dch->rdma);
-  return dch->rdma->nread_mem_T2(destid, rio_addr, size, data_out);
-}
-
-static inline bool udma_nwrite_mem(DmaChannelInfo_t* dch, const uint16_t destid, const uint64_t rio_addr, const int size, const uint8_t* data)
-{
-  assert(dch->rdma);
-  return dch->rdma->nwrite_mem_T2(destid, rio_addr, size, data);
-}
-
-/** \brief Setup the TX/NREAD DMA channel
- * \note This channel will do only one operation at a time
- * \note It will get only the minimum number of BDs \ref DMA_CHAN2_BUFC
- */
-DMAChannel* RdmaOpsUMD::setup_chan2(struct worker *info)
-{
-  assert(info);
-  assert(m_dmac == NULL);
-  if (info == NULL) return NULL;
-
-  setMportInfo(info->mp_num, info->mp_h);
-
-  DMAChannel* dch = new DMAChannel(info->mp_num, info->umd_chan2, info->mp_h);
-  if (NULL == dch) {
-    CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
-            info->umd_chan2, info->mp_num, info->mp_h);
-    goto error;
-  }
-
-  // TX - Chan 2
-  dch->setCheckHwReg(true);
-  if (! dch->alloc_dmatxdesc(DMA_CHAN2_BUFC)) {
-    CRIT("\n\talloc_dmatxdesc failed: bufs %d", DMA_CHAN2_BUFC);
-    goto error;
-  }
-  if (! dch->alloc_dmacompldesc(DMA_CHAN2_STS)) {
-    CRIT("\n\talloc_dmacompldesc failed: entries %d", DMA_CHAN2_STS);
-    goto error;
-  }
-
-  dch->resetHw();
-  if (!dch->checkPortOK()) {
-    CRIT("\n\tPort %d is not OK!!! Exiting...", info->umd_chan2);
-    goto error;
-  }
-
-  return (m_dmac = dch);
-
-error:
-  if (dch != NULL) delete dch;
-  return NULL;
-}
-
-/** \brief Setup a TX/NWRITE DMA channel
- */
-DMAChannel* RdmaOpsUMD::setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem)
-{
-  assert(info);
-  assert(m_dmac == NULL);
-
-  if (info == NULL || dmamem == NULL) return NULL;
-
-  setMportInfo(info->mp_num, info->mp_h);
-
-  DMAChannel* dch = new DMAChannel(info->mp_num, chan, info->mp_h);
-  if (NULL == dch) {
-    CRIT("\n\tDMAChannel alloc FAIL: chan %d mp_num %d hnd %x",
-         chan, info->mp_num, info->mp_h);
-    goto error;
-  }
-
-  // TX
-  if (! dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
-    CRIT("\n\talloc_dmatxdesc failed: bufs %d", info->umd_tx_buf_cnt);
-    goto error;
-  }
-  if (! dch->alloc_dmacompldesc(info->umd_sts_entries)) {
-    CRIT("\n\talloc_dmacompldesc failed: entries %d", info->umd_sts_entries);
-    goto error;
-  }
-
-  for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
-    if (! dch->alloc_dmamem(BD_PAYLOAD_SIZE(info), dmamem[i])) {
-      CRIT("\n\talloc_dmamem failed: i %d size %x", i, BD_PAYLOAD_SIZE(info));
-      goto error;
-    };
-    memset(dmamem[i].win_ptr, 0, dmamem[i].win_size);
-  }
-
-  dch->resetHw();
-  if (! dch->checkPortOK()) {
-    CRIT("\n\tPort %d is not OK!!! Exiting...", chan);
-    goto error;
-  }
-
-  return (m_dmac = dch);
-
-error:
-  if (dch != NULL) delete dch;
-  return NULL;
-}
-static inline bool udma_nwrite_mem_T1(DmaChannelInfo_t* dch, DMAChannel::DmaOptions_t& dmaopt, RioMport::DmaMem_t& dmamem, int& dma_abort_reason)
-{
-  assert(dch->rdma);
-  const bool r = dch->rdma->nwrite_mem(dmaopt, dmamem);
-
-  dma_abort_reason = dch->rdma->getAbortReason();
-  return r;
-}
 
 const int DESTID_TRANSLATE = 1;
 
@@ -761,7 +424,7 @@ INFO("first_message=%d force_nread=%d q_fullish=%d \"outstanding[%d] >= Q_THR(in
 first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1), outstanding >= Q_THR(info->umd_tx_buf_cnt-1));
 #endif
     uint32_t newRP = ~0;
-    if (udma_nread_mem(info->umd_dci_nread, destid_dpi, peer->get_rio_addr(), sizeof(newRP), (uint8_t*)&newRP)) {
+    if (udma_nread_mem(info->umd_dci_nread->rdma, destid_dpi, peer->get_rio_addr(), sizeof(newRP), (uint8_t*)&newRP)) {
       peer->m_stats.nread_ts = rdtsc();
       DBG("\n\tPulled RP from destid %u old RP=%d actual RP=%d\n", destid_dpi, peer->get_RP(), newRP);
       peer->set_RP(newRP);
@@ -819,7 +482,7 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
 
   info->umd_dma_abort_reason = 0;
 
-  if (! udma_nwrite_mem_T1(dci, dmaopt, dci->dmamem[dci->oi], (int&)info->umd_dma_abort_reason)) {
+  if (! udma_nwrite_mem_T1(dci->rdma, dmaopt, dci->dmamem[dci->oi], (int&)info->umd_dma_abort_reason)) {
     if(info->umd_dma_abort_reason != 0) { // HW error
       // ICMPv4 dest unreachable id bad destid 
       send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun
@@ -1023,7 +686,7 @@ bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer)
   DmaChannelInfo_t* dch = info->umd_dci_list[info->umd_chan_n]; // pick the last channel
 #endif
 
-  if (! udma_nwrite_mem(dch, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) {
+  if (! udma_nwrite_mem(dch->rdma, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) {
     DBG("\n\tHW error, something is FOOBAR with Chan %u\n", info->umd_chan2);
 
     peer->stop_req = 1;
@@ -2625,7 +2288,7 @@ void UMD_Test(struct worker* info)
   assert(info->ib_rio_addr);
 
   uint32_t u4 = 0;
-  bool r = udma_nread_mem(info->umd_dci_nread, info->did, info->ib_rio_addr, sizeof(u4), (uint8_t*)&u4);
+  bool r = udma_nread_mem(info->umd_dci_nread->rdma, info->did, info->ib_rio_addr, sizeof(u4), (uint8_t*)&u4);
 
   INFO("\n\tNREAD %s did=%d rio_addr=0x%llx => %u\n", (r? "ok": "FAILED"), info->did, info->ib_rio_addr, u4);
 }
