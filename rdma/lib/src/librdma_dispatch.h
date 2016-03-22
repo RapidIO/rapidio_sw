@@ -35,13 +35,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 
-void force_close_mso_disp(uint32_t msoid);
+class unix_msg_t;
+class unix_tx_engine;
 
-void force_close_ms_disp(uint32_t msid);
+void force_close_mso_disp(unix_msg_t *msg, unix_tx_engine *tx_eng);
 
-void disconnect_ms_disp(uint32_t client_msubid, uint32_t server_msubid,
-			uint64_t client_to_lib_tx_eng_h);
+void force_close_mso_disp(unix_msg_t *msg, unix_tx_engine *tx_eng);
 
-void force_disconnect_ms_disp(uint32_t server_msid, uint32_t server_msubid);
+void force_close_ms_disp(unix_msg_t *msg, unix_tx_engine *tx_eng);
+
+void disconnect_ms_disp(unix_msg_t *msg, unix_tx_engine *tx_eng);
+
+void force_disconnect_ms_disp(unix_msg_t *msg, unix_tx_engine *tx_eng);
 
 #endif

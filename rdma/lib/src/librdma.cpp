@@ -79,7 +79,7 @@ using std::thread;
 static unix_msg_processor	msg_proc;
 
 static unix_rx_engine *rx_eng;
-unix_tx_engine *tx_eng;
+static unix_tx_engine *tx_eng;
 
 static thread *engine_monitoring_thread;
 
@@ -477,6 +477,8 @@ static int rdma_lib_init(void)
 		switch (e) {
 		case RDMA_MPORT_OPEN_FAIL:
 		case RDMA_DAEMON_UNREACHABLE:
+			delete tx_eng;
+			delete rx_eng;
 			ret = e;
 			break;
 		default:

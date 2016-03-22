@@ -43,13 +43,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /* From librdma.cpp */
 extern "C" int destroy_msubs_in_msh(ms_h msh);
-extern unix_tx_engine *tx_eng;
 
-void force_close_mso_disp(uint32_t msoid)
+void force_close_mso_disp(unix_msg_t *msg, unix_tx_engine *tx_eng)
 {
+	(void)tx_eng;
+
 	HIGH("FORCE_CLOSE_MSO received\n");
+
+	auto msoid = msg->force_close_mso_req.msoid;
+
 	/* Find the mso in the local database by its msoid */
-	mso_h msoh = find_mso(msoid);
+	auto msoh = find_mso(msoid);
 	if (!msoh) {
 		CRIT("Could not find msoid(0x%X) in database\n", msoid);
 	} else {
@@ -63,8 +67,13 @@ void force_close_mso_disp(uint32_t msoid)
 	}
 } /* force_close_mso_disp() */
 
-void force_close_ms_disp(uint32_t msid)
+void force_close_ms_disp(unix_msg_t *msg, unix_tx_engine *tx_eng)
 {
+	(void)tx_eng;
+
+	auto msid = msg->force_close_ms_req.msid;
+
+	/* Find the ms in the local database by its msid */
 	auto msh = find_loc_ms(msid);
 	if (!msh) {
 		CRIT("Could not find ms(0x%X)\n", msid);
@@ -77,9 +86,15 @@ void force_close_ms_disp(uint32_t msid)
 	}
 } /* force_close_ms_disp() */
 
-void disconnect_ms_disp(uint32_t client_msubid, uint32_t server_msubid,
-			uint64_t client_to_lib_tx_eng_h)
+void disconnect_ms_disp(unix_msg_t *msg, unix_tx_engine *tx_eng)
 {
+	(void)tx_eng;
+
+	auto client_msubid = msg->disconnect_from_ms_in.client_msubid;
+	auto server_msubid = msg->disconnect_from_ms_in.server_msubid;
+	auto client_to_lib_tx_eng_h =
+			msg->disconnect_from_ms_in.client_to_lib_tx_eng_h;
+
 	/* Remove client msub from the database, if not NULL_MSUB */
 	if (client_msubid != NULL_MSUBID) {
 		msub_h client_msubh = find_rem_msub(client_msubid);
@@ -118,8 +133,11 @@ void disconnect_ms_disp(uint32_t client_msubid, uint32_t server_msubid,
 	}
 } /* disconnect_ms_disp() */
 
-void force_disconnect_ms_disp(uint32_t server_msid, uint32_t server_msubid)
+void force_disconnect_ms_disp(unix_msg_t *msg, unix_tx_engine *tx_eng)
 {
+	auto server_msid   = msg->force_disconnect_ms_in.server_msid;
+	auto server_msubid = msg->force_disconnect_ms_in.server_msubid;
+
 	/* Remove the remote memory space and subspace from the database */
 	remove_rem_msubs_in_ms(server_msid);
 	remove_rem_ms(server_msid);
@@ -131,6 +149,7 @@ void force_disconnect_ms_disp(uint32_t server_msid, uint32_t server_msubid)
 	in_msg->force_disconnect_ms_ack_in.server_msid = server_msid;
 	in_msg->force_disconnect_ms_ack_in.server_msubid = server_msubid;
 	in_msg->seq_no = 0;
+
 	tx_eng->send_message(move(in_msg));
 
 } /* force_disconnect_ms_disp() */
