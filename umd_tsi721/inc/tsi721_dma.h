@@ -217,6 +217,24 @@ struct tsi721_bdma_chan {
 //	bool			active;
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void packT3(tsi721_dma_desc* bd_ptr, uint64_t next_ptr);
+
+void packT1n2(tsi721_dma_desc* bd_ptr, 
+                uint8_t rtype, uint8_t prio, uint8_t crf,
+                uint16_t devid, uint8_t tt, uint32_t bcount,
+                uint64_t raddr_lsb64, uint8_t raddr_msb2,
+                uint8_t *buffer_ptr);
+
+// 0 - pass, 1 fail
+int test_packing(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
