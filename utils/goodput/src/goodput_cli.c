@@ -41,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mhz.h"
 #include "liblog.h"
 #include "assert.h"
+#include "tsi721_dma.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -3159,6 +3160,30 @@ ATTR_NONE
 };
 
 
+int TESTdmapackCmd(struct cli_env *env, int argc, char **argv)
+{
+
+	if (test_packing()) {
+		sprintf(env->output, "\ntest_packing FAILED...\n");
+	} else {
+		sprintf(env->output, "\ntest_packing Passed...\n");
+	};
+        logMsg(env);
+
+        return 0;
+}
+
+struct cli_cmd TESTdmapack = {
+"testdmapack",
+11,
+0,
+"Tests DMA descriptor packing routines",
+"<No Parameters>\n",
+TESTdmapackCmd,
+ATTR_NONE
+};
+
+
 #endif // USER_MODE_DRIVER
 
 struct cli_cmd *goodput_cmds[] = {
@@ -3207,6 +3232,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&EPWatch,
 	&UMSGWATCH,
 	&AFUWATCH,
+	&TESTdmapack 
 #endif
 };
 
