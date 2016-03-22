@@ -92,7 +92,8 @@ void *tx_worker_thread_f(void *arg)
 	bool *worker_is_dead		    = wti->worker_is_dead;
 	sem_t 	    *messages_waiting_sem   = wti->messages_waiting_sem;
 
-	DBG("'%s': worker thread started\n", name.c_str());
+	DBG("'%s': Started tx_worker_thread_f\n", name.c_str());
+
 	while(1) {
 		/* Wait until a message is enqueued for transmission or the
 		 * destructor posts the semaphore to terminate the thread */
@@ -181,6 +182,8 @@ public:
 							name, strerror(errno));
 			throw -2;
 		}
+
+		DBG("'%s' created\n", this->name.c_str());
 	} /* ctor */
 
 	virtual ~tx_engine()
@@ -212,7 +215,6 @@ public:
 	/* Returns sequence number to be used to receive reply */
 	void send_message(unique_ptr<M> msg_ptr)
 	{
-		DBG("'%s': ENTER\n", name.c_str());
 		DBG("'%s': Sending type:'%s',0x%" PRIx64 ", cat:'%s',0x%" PRIx64 " seq_no(0x%" PRIx64 ")\n",
 			name.c_str(), type_name(msg_ptr->type), msg_ptr->type,
 			cat_name(msg_ptr->category), msg_ptr->category,
@@ -221,7 +223,6 @@ public:
 		message_queue.push(move(msg_ptr));
 		pthread_mutex_unlock(&message_queue_lock);
 		sem_post(&messages_waiting_sem);
-		DBG("'%s': EXIT\n", name.c_str());
 	} /* send_message() */
 
 protected:

@@ -127,6 +127,8 @@ void *rx_worker_thread_f(void *arg)
 	M	*msg;
 	client->get_recv_buffer((void **)&msg);
 
+	DBG("'%s': Started rx_worker_thread_f()\n", name.c_str());
+
 	while(1) {
 		size_t	received_len = 0;
 
@@ -183,7 +185,7 @@ void *rx_worker_thread_f(void *arg)
 							     nullptr));
 				if (it != end(*notify_list)) {
 					/* Found! Queue copy of message & post semaphore */
-					DBG("'%': Found message of type '%s',0x%X, seq_no=0x%X\n",
+					DBG("'%s': Found message of type '%s',0x%X, seq_no=0x%X\n",
 						name.c_str(),
 						type_name(it->type),
 						it->type,
@@ -262,6 +264,7 @@ public:
 			CRIT("'%s': Failed to create work thread info\n", name);
 			throw -2;
 		}
+		wti->name		= name;
 		wti->stop_worker_thread = &stop_worker_thread;
 		wti->message_queue_lock = &message_queue_lock;
 		wti->message_queue	= &message_queue;
@@ -282,6 +285,8 @@ public:
 							name, strerror(errno));
 			throw -2;
 		}
+
+		DBG("'%s' created\n", this->name.c_str());
 	} /* ctor */
 
 	virtual ~rx_engine()
