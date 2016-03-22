@@ -144,10 +144,10 @@ enum req_mode {
 	user_mode_action
 };
 
-enum {
+typedef enum {
 	ACCESS_UMD   = 42,
 	ACCESS_MPORT = -42
-};
+} DMAAccess_t;
 
 #define MIN_RDMA_BUFF_SIZE 0x10000
 
@@ -277,7 +277,7 @@ struct worker {
 	struct seq_ts fifo_ts;
 	struct seq_ts meas_ts;
 #ifdef USER_MODE_DRIVER
-	int dma_method; // Only for DMA Tun 0=DMAChannel 1=libmport
+	DMAAccess_t     dma_method; // Only for DMA Tun
 
 	void            (*owner_func)(struct worker*);     ///< Who is the owner of this
 	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this

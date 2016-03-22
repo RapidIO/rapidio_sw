@@ -171,7 +171,7 @@ void init_worker_info(struct worker *info, int first_time)
 	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
 	init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 #ifdef USER_MODE_DRIVER
-	info->dma_method = 0;
+	info->dma_method = ACCESS_UMD;
 	info->owner_func = NULL;
 	info->umd_set_rx_fd = NULL;
 	info->my_destid = 0xFFFF;

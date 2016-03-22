@@ -3162,14 +3162,14 @@ ATTR_NONE
 
 int TESTdmapackCmd(struct cli_env *env, int argc, char **argv)
 {
-
+#if 0
 	if (test_packing()) {
 		sprintf(env->output, "\ntest_packing FAILED...\n");
 	} else {
 		sprintf(env->output, "\ntest_packing Passed...\n");
 	};
         logMsg(env);
-
+#endif
         return 0;
 }
 

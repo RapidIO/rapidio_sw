@@ -113,15 +113,16 @@ static inline uint64_t htonll(uint64_t value)
 static inline int Q_THR(const int sz) { return (sz * 99) / 100; }
 
 class RdmaOpsMport : public RdmaOpsIntf {
-  bool m_errno;
+  int m_errno;
   bool m_check_reg; ///< Means faf or async
   bool m_q_full;
   riomp_mport_t m_mp_h;
   bool m_mp_h_mine;
+  RioMport* m_mport;
 
 public:
-  RdmaOpsMport() { m_errno = 0; m_check_reg = false; m_q_full = false; m_mp_h_mine = false; }
-  virtual ~RdmaOpsMport() { if (m_mp_h_mine) riomp_mgmt_mport_destroy_handle(&m_mp_h); }
+  RdmaOpsMport() { m_errno = 0; m_check_reg = false; m_q_full = false; m_mp_h_mine = false; m_mport = NULL; }
+  virtual ~RdmaOpsMport() { if (m_mp_h_mine) riomp_mgmt_mport_destroy_handle(&m_mp_h); delete m_mport; }
 
   virtual bool canRestart() { return false; }
   virtual void setCheckHwReg(bool sw) { m_check_reg = sw; }
@@ -130,24 +131,26 @@ public:
   // T2 Ops
   virtual bool nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
   {
+    m_errno = 0;
     m_q_full = false;
     int dma_rc = riomp_dma_read(m_mp_h, destid, rio_addr,
                                 data_out, size,
                                 RIO_DIRECTIO_TRANSFER_SYNC);
     if (dma_rc == 0) return true;
     if (dma_rc == -EBUSY) m_q_full = true;
-    m_errno = dma_rc;
+    m_errno = -dma_rc;
     return false;
   }
   virtual bool nwrite_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, const uint8_t* data)
   {
+    m_errno = 0;
     m_q_full = false;
     int dma_rc = riomp_dma_write(m_mp_h, destid, rio_addr,
                                  (void*)data, size,
                                  RIO_DIRECTIO_TYPE_NWRITE_R, RIO_DIRECTIO_TRANSFER_SYNC);
     if (dma_rc == 0) return true;
     if (dma_rc == -EBUSY) m_q_full = true;
-    m_errno = dma_rc;
+    m_errno = -dma_rc;
     return false;
   }
 
@@ -158,6 +161,7 @@ public:
        RIO_DIRECTIO_TRANSFER_SYNC:
        RIO_DIRECTIO_TRANSFER_FAF;
 
+    m_errno = 0;
     m_q_full = false;
     int dma_rc = riomp_dma_write_d(m_mp_h, dmaopt.destid, dmaopt.raddr.lsb64,
                                    dmamem.win_handle, 0 /*offset*/,
@@ -165,7 +169,7 @@ public:
                                    RIO_DIRECTIO_TYPE_NWRITE_R, rd_sync);
     if (dma_rc == 0) return true;
     if (dma_rc == -EBUSY) m_q_full = true;
-    m_errno = dma_rc;
+    m_errno = -dma_rc;
     return false;
   }
 
@@ -186,14 +190,37 @@ public:
   }
 
 // This is implementation-specific, not in base class (interface)
-  inline void setup_chan2(struct worker *info) { m_mp_h = info->mp_h; m_mp_h_mine = false; }
+  inline void setup_chan2(struct worker* info) { m_mp_h = info->mp_h; m_mp_h_mine = false; }
 
-  inline bool setup_chanN(struct worker* info, int chan)
+  inline bool setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem)
   {
+    assert(info);
+    if (dmamem == NULL) return false;
+
     int rc = riomp_mgmt_mport_create_handle(info->mp_num, 0, &m_mp_h);
     if (rc) return false;
     m_mp_h_mine = true;
+
+    m_mport = new RioMport(info->mp_num, m_mp_h);
+
+    const int size = BD_PAYLOAD_SIZE(info);
+    for (int i = 0; i < info->umd_tx_buf_cnt; i++) {
+      RioMport::DmaMem_t& mem = dmamem[i];
+      mem.rio_address = RIO_ANY_ADDR;
+      if(! m_mport->map_dma_buf(size, mem))
+        throw std::runtime_error("DMAChannel: Cannot alloc HW mem for DMA transfers!");
+
+      assert(mem.win_ptr);
+      memset(mem.win_ptr, 0, size);
+    }
+
     return true;
+  }
+
+  inline bool free_dmamem(RioMport::DmaMem_t& mem)
+  {
+    assert(m_mport);
+    return m_mport->unmap_dma_buf(mem);
   }
 };
 
@@ -246,7 +273,7 @@ public:
 
   inline void setMportInfo(int mportid, riomp_mport_t mp_h) { m_mp_num = mportid; m_mp_h = mp_h; }
 
-  DMAChannel* setup_chan2(struct worker *info);
+  DMAChannel* setup_chan2(struct worker* info);
   DMAChannel* setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem);
 
   inline DMAChannel* getChannel() { return m_dmac; }
@@ -446,6 +473,7 @@ static inline bool udma_nwrite_mem(DmaChannelInfo_t* dch, const uint16_t destid,
  */
 DMAChannel* RdmaOpsUMD::setup_chan2(struct worker *info)
 {
+  assert(info);
   assert(m_dmac == NULL);
   if (info == NULL) return NULL;
 
@@ -486,6 +514,7 @@ error:
  */
 DMAChannel* RdmaOpsUMD::setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem)
 {
+  assert(info);
   assert(m_dmac2 == NULL);
 
   if (info == NULL || dmamem == NULL) return NULL;
@@ -667,7 +696,10 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 
   DMAChannel::DmaOptions_t& dmaopt = dci->dmaopt[dci->oi];
 
+  assert(dci->tx_buf_cnt);
+
   uint8_t* buffer = (uint8_t*)dci->dmamem[dci->oi].win_ptr;
+  assert(buffer);
 
   const int nread = read(peer->get_tun_fd(), buffer+DMA_L2_SIZE, info->umd_tun_MTU);
   const uint64_t now = rdtsc();
@@ -792,7 +824,7 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
 
   info->umd_dma_abort_reason = 0;
 
-  if (! udma_nwrite_mem_T1(dci, dci->dmaopt[dci->oi], dci->dmamem[dci->oi], (int&)info->umd_dma_abort_reason)) {
+  if (! udma_nwrite_mem_T1(dci, dmaopt, dci->dmamem[dci->oi], (int&)info->umd_dma_abort_reason)) {
     if(info->umd_dma_abort_reason != 0) { // HW error
       // ICMPv4 dest unreachable id bad destid 
       send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun
@@ -908,9 +940,9 @@ DmaChannelInfo_t* umd_rdma_factory(struct worker *info, int chan)
   if (ci == NULL) return NULL;
 
   switch (info->dma_method) {
-    case ACCESS_UMD: ci->rdma = new RdmaOpsUMD();   break;
-    //case ACCESS_MPORT: ci->rdma = new RdmaOpsMport(); break;
-    default: return NULL; break;
+    case ACCESS_UMD:   ci->rdma = new RdmaOpsUMD();   break;
+    case ACCESS_MPORT: ci->rdma = new RdmaOpsMport(); break;
+    default: assert(0); break;
   }
 
   return ci;
@@ -923,6 +955,7 @@ bool umd_dma_goodput_tun_setup_chan2(struct worker *info)
 
   switch (info->dma_method) {
     case ACCESS_UMD: {{
+              assert(info->umd_dci_nread->rdma);
               DMAChannel* ch = (dynamic_cast<RdmaOpsUMD*>(info->umd_dci_nread->rdma))->setup_chan2(info);
               assert(ch);
               info->umd_dci_nread->tx_buf_cnt = RdmaOpsUMD::DMA_CHAN2_BUFC;
@@ -949,33 +982,30 @@ bool umd_dma_goodput_tun_setup_chanN(struct worker *info, const int n)
   if (info->umd_dci_list[n] != NULL) return false; // already setup
 
   DmaChannelInfo_t* dci = umd_rdma_factory(info, n);
-  if (dci == NULL) goto error;
+  if (dci == NULL) return false;
+
+  RdmaOpsIntf* rdma = dci->rdma;
+  assert(rdma);
 
   switch (info->dma_method) {
     case ACCESS_UMD: {{
-              memset(dci->dmamem, 0, sizeof(dci->dmamem));
-              memset(dci->dmaopt, 0, sizeof(dci->dmaopt));
-              DMAChannel* ch = (dynamic_cast<RdmaOpsUMD*>(info->umd_dci_nread->rdma))->setup_chanN(info, n, dci->dmamem);
+              DMAChannel* ch = (dynamic_cast<RdmaOpsUMD*>(rdma))->setup_chanN(info, n, dci->dmamem);
               assert(ch);
               dci->tx_buf_cnt  = info->umd_tx_buf_cnt;
               dci->sts_entries = info->umd_sts_entries;
             }}
             break;
     case ACCESS_MPORT: {{
-              bool r = (dynamic_cast<RdmaOpsMport*>(info->umd_dci_nread->rdma))->setup_chanN(info, n);
+              bool r = (dynamic_cast<RdmaOpsMport*>(rdma))->setup_chanN(info, n, dci->dmamem);
               assert(r);
+              dci->tx_buf_cnt  = info->umd_tx_buf_cnt;
             }}
             break;
-    default: goto error; break;
+    default: assert(0); break;
   }
 
   info->umd_dci_list[n] = dci;
   return true;
-
-error:
-  info->umd_dci_list[n] = NULL;
-  free(dci);
-  return false;
 }
 
 bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer)
@@ -1664,11 +1694,25 @@ exit:
   for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
     if (info->umd_dci_list[ch] == NULL) continue;
     DmaChannelInfo_t* dci = info->umd_dci_list[ch];
-    DMAChannel* dch = dynamic_cast<RdmaOpsUMD*>(dci->rdma)->getChannel();
 
-    for (int i = 0; i < dci->tx_buf_cnt; i++) {
-      if(dci->dmamem[i].type == 0) continue;
-      dch->free_dmamem(dci->dmamem[i]);
+    if (info->dma_method == ACCESS_UMD) {
+      assert(dci->rdma);
+      DMAChannel* dch = dynamic_cast<RdmaOpsUMD*>(dci->rdma)->getChannel();
+
+      for (int i = 0; i < dci->tx_buf_cnt; i++) {
+        if(dci->dmamem[i].type == 0) continue;
+        dch->free_dmamem(dci->dmamem[i]);
+      }
+    }
+
+    if (info->dma_method == ACCESS_MPORT) {
+      assert(dci->rdma);
+      RdmaOpsMport* rdma_mport = dynamic_cast<RdmaOpsMport*>(dci->rdma);
+
+      for (int i = 0; i < dci->tx_buf_cnt; i++) {
+        if(dci->dmamem[i].type == 0) continue;
+        rdma_mport->free_dmamem(dci->dmamem[i]);
+      }
     }
   }
 
@@ -1680,31 +1724,31 @@ exit:
     do {{
       if (info->umd_dma_did_peer.size() == 0) break;
 
-            for (int epi = 0; epi < info->umd_dma_did_peer_list_high_wm; epi++) {
-                DmaPeer* peer = info->umd_dma_did_peer_list[epi];
-                if (peer == NULL) continue; // Just vacated one slot?
+      for (int epi = 0; epi < info->umd_dma_did_peer_list_high_wm; epi++) {
+        DmaPeer* peer = info->umd_dma_did_peer_list[epi];
+        if (peer == NULL) continue; // Just vacated one slot?
 
-    assert(peer->sig == PEER_SIG_UP);
+        assert(peer->sig == PEER_SIG_UP);
 
-    {{ // A close removes tun_fd from poll set but NOT if it was dupe(2)'ed
-      struct epoll_event event;
-      event.data.fd = peer->get_tun_fd();
-      event.events = EPOLLIN;
-      epoll_ctl(info->umd_epollfd, EPOLL_CTL_DEL, event.data.fd, &event);
-    }}
+        {{ // A close removes tun_fd from poll set but NOT if it was dupe(2)'ed
+          struct epoll_event event;
+          event.data.fd = peer->get_tun_fd();
+          event.events = EPOLLIN;
+          epoll_ctl(info->umd_epollfd, EPOLL_CTL_DEL, event.data.fd, &event);
+        }}
 
-    // Tell peer we stop?
-    umd_dma_goodput_tun_del_ep_signal(info, peer->get_destid());
+        // Tell peer we stop?
+        umd_dma_goodput_tun_del_ep_signal(info, peer->get_destid());
 
-    peer->stop_req = 1;
-    peer->rx_work_sem_post();
+        peer->stop_req = 1;
+        peer->rx_work_sem_post();
 
-    info->umd_dma_did_peer.erase(peer->get_destid());
-    info->umd_dma_did_peer_list[epi] = NULL;
+        info->umd_dma_did_peer.erase(peer->get_destid());
+        info->umd_dma_did_peer_list[epi] = NULL;
 
-    peer->sig = ~0;
-    delete peer;
-      }
+        peer->sig = ~0;
+        delete peer;
+      } // END for peers
     }} while(0);
     info->umd_dma_did_peer.clear();
   pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
