@@ -231,7 +231,6 @@ public:
 
 private:
   DMAChannel*   m_dmac;
-  DMAChannel*   m_dmac2;
   uint32_t      m_dma_abort_reason;
   int           m_mp_num;     ///< mport_cdev port ID
   riomp_mport_t m_mp_h; 
@@ -240,18 +239,15 @@ public:
   struct seq_ts m_meas_ts;
 
 public:
-  RdmaOpsUMD() { m_dmac = NULL; m_dmac2 = NULL; m_dma_abort_reason = 0; }
+  RdmaOpsUMD() { m_dmac = NULL; m_dma_abort_reason = 0; memset(&m_meas_ts, 0, sizeof(m_meas_ts)); }
 
-  virtual ~RdmaOpsUMD() {
-    if (m_dmac  != NULL) delete m_dmac;
-    if (m_dmac2 != NULL) delete m_dmac2;
-  }
+  virtual ~RdmaOpsUMD() { delete m_dmac; }
 
   virtual bool canRestart() { return true; }
 
-  virtual void setCheckHwReg(bool sw) { assert(m_dmac); (m_dmac?: m_dmac2)->setCheckHwReg(sw); }
+  virtual void setCheckHwReg(bool sw) { assert(m_dmac); m_dmac->setCheckHwReg(sw); }
 
-  virtual bool queueFull() { assert(m_dmac); return (m_dmac?: m_dmac2)->queueFull(); }
+  virtual bool queueFull() { assert(m_dmac); return m_dmac->queueFull(); }
 
   // T2 Ops
   virtual bool nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out);
@@ -267,7 +263,7 @@ public:
     return DMAChannel::abortReasonToStr(dma_abort_reason);
   }
 
-  virtual uint16_t getDestId() { return (m_dmac?: m_dmac2)->getDestId(); }
+  virtual uint16_t getDestId() { return m_dmac->getDestId(); }
 
 // This is implementation-specific, not in base class (interface)
 
@@ -277,7 +273,6 @@ public:
   DMAChannel* setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem);
 
   inline DMAChannel* getChannel() { return m_dmac; }
-  inline DMAChannel* getChannel2() { return m_dmac2; }
 };
 
 /** \brief T2 NREAD data from peer at high priority, all-in-one, blocking
@@ -292,7 +287,7 @@ bool RdmaOpsUMD::nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, co
 {
   int i;
 
-  assert(m_dmac2);
+  assert(m_dmac);
 
   if(size < 1 || size > 16 || data_out == NULL) return false;
 
@@ -309,7 +304,7 @@ bool RdmaOpsUMD::nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, co
   struct seq_ts tx_ts;
   DMAChannel::WorkItem_t wi[DMA_CHAN2_STS*8]; memset(wi, 0, sizeof(wi));
 
-  int q_was_full = !m_dmac2->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, m_dma_abort_reason, &tx_ts);
+  int q_was_full = !m_dmac->queueDmaOpT2((int)NREAD, dmaopt, data_out, size, m_dma_abort_reason, &tx_ts);
 
   i = 0;
   if (! m_dma_abort_reason) {
@@ -317,17 +312,17 @@ bool RdmaOpsUMD::nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, co
 
     for(i = 0;
           !q_was_full && (i < 100000)
-      && m_dmac2->queueSize(); 
+      && m_dmac->queueSize(); 
         i++) {
-      m_dmac2->scanFIFO(wi, DMA_CHAN2_STS*8);
+      m_dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
       usleep(1);
     }
   }
 
-  if (m_dma_abort_reason || (m_dmac2->queueSize() > 0)) { // Boooya!! Peer not responding
+  if (m_dma_abort_reason || (m_dmac->queueSize() > 0)) { // Boooya!! Peer not responding
     uint32_t RXRSP_BDMA_CNT = 0;
     bool inp_err = false, outp_err = false;
-    m_dmac2->checkPortInOutError(inp_err, outp_err);
+    m_dmac->checkPortInOutError(inp_err, outp_err);
 
     {{
       RioMport* mport = new RioMport(m_mp_num, m_mp_h);
@@ -336,17 +331,17 @@ bool RdmaOpsUMD::nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, co
     }}
 
     CRIT("\n\tChan2 %u stalled with %sq_size=%d WP=%lu FIFO.WP=%llu %s%s%s%sRXRSP_BDMA_CNT=%u abort reason 0x%x %s After %d checks qful %d\n",
-          m_dmac2->getChannel(),
-          (q_was_full? "QUEUE FULL ": ""), m_dmac2->queueSize(),
-                      m_dmac2->getWP(), m_dmac2->m_tx_cnt, 
-          (m_dmac2->checkPortOK()? "Port:OK ": ""),
-          (m_dmac2->checkPortError()? "Port:ERROR ": ""),
+          m_dmac->getChannel(),
+          (q_was_full? "QUEUE FULL ": ""), m_dmac->queueSize(),
+                      m_dmac->getWP(), m_dmac->m_tx_cnt, 
+          (m_dmac->checkPortOK()? "Port:OK ": ""),
+          (m_dmac->checkPortError()? "Port:ERROR ": ""),
           (inp_err? "Port:OutpERROR ": ""),
           (inp_err? "Port:InpERROR ": ""),
           RXRSP_BDMA_CNT,
           m_dma_abort_reason, DMAChannel::abortReasonToStr(m_dma_abort_reason), i, q_was_full);
 
-    m_dmac2->softRestart();
+    m_dmac->softRestart();
 
     return false;
   }
@@ -380,7 +375,7 @@ bool RdmaOpsUMD::nwrite_mem_T2(const uint16_t destid, const uint64_t rio_addr, c
 {
   int i = 0;
 
-  assert(m_dmac2);
+  assert(m_dmac);
 
   if(size < 1 || size > 16 || data == NULL) return false;
 
@@ -400,15 +395,15 @@ bool RdmaOpsUMD::nwrite_mem_T2(const uint16_t destid, const uint64_t rio_addr, c
   DMAChannel::WorkItem_t wi[DMA_CHAN2_STS*8]; memset(wi, 0, sizeof(wi));
 #endif
 
-  int q_was_full = !m_dmac2->queueDmaOpT2((int)ALL_NWRITE_R, dmaopt, (uint8_t*)data, size, m_dma_abort_reason, &tx_ts);
+  int q_was_full = !m_dmac->queueDmaOpT2((int)ALL_NWRITE_R, dmaopt, (uint8_t*)data, size, m_dma_abort_reason, &tx_ts);
 
 #ifdef UDMA_TUN_DEBUG_NWRITE_CH2
   i = 0;
   if (! m_dma_abort_reason) {
     DBG("\n\tPolling FIFO transfer completion destid=%d\n", destid);
 
-    for(i = 0; !q_was_full && (i < 100000) && m_dmac2->queueSize(); i++) {
-      m_dmac2->scanFIFO(wi, DMA_CHAN2_STS*8);
+    for(i = 0; !q_was_full && (i < 100000) && m_dmac->queueSize(); i++) {
+      m_dmac->scanFIFO(wi, DMA_CHAN2_STS*8);
       usleep(1);
     }
   }
@@ -416,12 +411,12 @@ bool RdmaOpsUMD::nwrite_mem_T2(const uint16_t destid, const uint64_t rio_addr, c
 
   if (m_dma_abort_reason
 #ifdef UDMA_TUN_DEBUG_NWRITE_CH2
-      || (m_dmac2->queueSize() > 0)
+      || (m_dmac->queueSize() > 0)
 #endif
         ) { // Boooya!! Peer not responding
     uint32_t RXRSP_BDMA_CNT = 0;
     bool inp_err = false, outp_err = false;
-    m_dmac2->checkPortInOutError(inp_err, outp_err);
+    m_dmac->checkPortInOutError(inp_err, outp_err);
 
     {{
       RioMport* mport = new RioMport(m_mp_num, m_mp_h);
@@ -430,17 +425,17 @@ bool RdmaOpsUMD::nwrite_mem_T2(const uint16_t destid, const uint64_t rio_addr, c
     }}
 
     CRIT("\n\tChan2 %u stalled with %sq_size=%d WP=%lu FIFO.WP=%llu %s%s%s%sRXRSP_BDMA_CNT=%u abort reason 0x%x %s After %d checks qful %d\n",
-          m_dmac2->getChannel(),
-          (q_was_full? "QUEUE FULL ": ""), m_dmac2->queueSize(),
-          m_dmac2->getWP(), m_dmac2->m_tx_cnt,
-          (m_dmac2->checkPortOK()? "Port:OK ": ""),
-          (m_dmac2->checkPortError()? "Port:ERROR ": ""),
+          m_dmac->getChannel(),
+          (q_was_full? "QUEUE FULL ": ""), m_dmac->queueSize(),
+          m_dmac->getWP(), m_dmac->m_tx_cnt,
+          (m_dmac->checkPortOK()? "Port:OK ": ""),
+          (m_dmac->checkPortError()? "Port:ERROR ": ""),
           (inp_err? "Port:OutpERROR ": ""),
           (inp_err? "Port:InpERROR ": ""),
           RXRSP_BDMA_CNT,
           m_dma_abort_reason, DMAChannel::abortReasonToStr(m_dma_abort_reason), i, q_was_full);
 
-    m_dmac2->softRestart();
+    m_dmac->softRestart();
 
     return false;
   } // END if not responding
@@ -503,7 +498,7 @@ DMAChannel* RdmaOpsUMD::setup_chan2(struct worker *info)
     goto error;
   }
 
-  return (m_dmac2 = dch);
+  return (m_dmac = dch);
 
 error:
   if (dch != NULL) delete dch;
@@ -515,7 +510,7 @@ error:
 DMAChannel* RdmaOpsUMD::setup_chanN(struct worker* info, int chan, RioMport::DmaMem_t* dmamem)
 {
   assert(info);
-  assert(m_dmac2 == NULL);
+  assert(m_dmac == NULL);
 
   if (info == NULL || dmamem == NULL) return NULL;
 
@@ -2446,17 +2441,19 @@ void UMD_DD(struct worker* info)
     } // END for umd_chan
 
 
-    DMAChannel* dch2 = dynamic_cast<RdmaOpsUMD*>(info->umd_dci_nread->rdma)->getChannel2();
+    DMAChannel* dch2 = dynamic_cast<RdmaOpsUMD*>(info->umd_dci_nread->rdma)->getChannel();
     assert(dch2);
 
     char tmp[257] = {0};
     snprintf(tmp, 256, "Chan2 %d q_size=%d", info->umd_chan2, dch2->queueSize());
     ss << "\n\t\t" << tmp;
     ss << "      WP=" << dch2->getWP() << " FIFO.WP=" << dch2->m_tx_cnt;
+#if 0
     if (dch2->m_tx_cnt > 0) {
       float AvgUS = ((float)info->umd_ticks_total_chan2 / dch2->m_tx_cnt) / MHz;
       ss << " AvgNRTxRx=" << AvgUS << "uS";
     }
+#endif
     if (dch2->checkPortOK()) ss << " ok";
     if (dch2->checkPortError()) ss << " ERROR";
 
