@@ -91,6 +91,8 @@ struct rx_work_thread_info {
 	rx_work_thread_info(msg_processor<T, M>	&message_processor) :
 		message_processor(message_processor)
 	{}
+
+	string			name;
 	bool 			*stop_worker_thread;
 	pthread_mutex_t		*message_queue_lock;
 	vector<M>		*message_queue;
@@ -109,6 +111,7 @@ void *rx_worker_thread_f(void *arg)
 {
 	rx_work_thread_info<T,M> *wti = (rx_work_thread_info<T,M> *)arg;
 
+	string name			    = wti->name;
 	bool *stop_worker_thread 	    = wti->stop_worker_thread;
 	pthread_mutex_t	*message_queue_lock = wti->message_queue_lock;
 	vector<M> 	*message_queue 	    = wti->message_queue;
@@ -132,24 +135,27 @@ void *rx_worker_thread_f(void *arg)
 		client->flush_recv_buffer();
 
 		/* Wait for new message to arrive */
-		DBG("Waiting for new message to arrive...\n");
+		DBG("'%s': Waiting for new message to arrive...\n", name.c_str());
 		int rc = client->receive(&received_len);
 		if (rc) {
 			/* If we fail to receive, the engine dies, whatever the reason! */
 			if (rc == EINTR) {
 				if (*stop_worker_thread) {
-					WARN("pthread_kill() called from destructor\n");
+					WARN("'%s': pthread_kill() called from destructor\n",
+							name.c_str());
 					break;
 				} else {
-					WARN("Someone called pthread_kill(). Who???\n");
+					WARN("'%s': pthread_kill() called during shutdown!\n",
+							name.c_str());
 					break;
 				}
 			} else {
-				ERR("Failed to receive for some UNKNOWN reason!\n");
+				ERR("'%s': Failed to receive. Reason UNKNOWN!\n",
+							name.c_str());
 				break;
 			}
 		} else if (received_len == 0) {
-			WARN("Other side has disconnected\n");
+			WARN("'%s': Other side has disconnected\n", name.c_str());
 			break;
 		} else if (received_len < 0) {
 			assert(!"received_len < 0");
@@ -160,8 +166,11 @@ void *rx_worker_thread_f(void *arg)
 			DBG("msg[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg + 16));
 			DBG("msg[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)msg + 24));
 #endif
-			DBG("Got category=0x%" PRIx64 ",'%s'\n", msg->category,
-						cat_name(msg->category));
+			DBG("'%s': Got category=0x%" PRIx64 ",'%s'\n",
+							name.c_str(),
+							msg->category,
+							cat_name(msg->category));
+
 			if (msg->category == RDMA_CALL) {
 				/* If there is a notification set for the
 				 * message then act on it. */
@@ -169,12 +178,13 @@ void *rx_worker_thread_f(void *arg)
 				auto it = find(begin(*notify_list),
 						end(*notify_list),
 						notify_param(msg->type,
-								msg->category,
-								msg->seq_no,
-								nullptr));
+							     msg->category,
+							     msg->seq_no,
+							     nullptr));
 				if (it != end(*notify_list)) {
 					/* Found! Queue copy of message & post semaphore */
-					DBG("Found message of type '%s',0x%X, seq_no=0x%X\n",
+					DBG("'%': Found message of type '%s',0x%X, seq_no=0x%X\n",
+						name.c_str(),
 						type_name(it->type),
 						it->type,
 						it->seq_no);
@@ -188,7 +198,8 @@ void *rx_worker_thread_f(void *arg)
 					/* Post the notification semaphore */
 					sem_post(it->notify_sem.get());
 				} else {
-					CRIT("Non-matching API type('%s',0x%X) seq_no(0x%X)\n",
+					CRIT("'%s': Non-matching API type('%s',0x%X) seq_no(0x%X)\n",
+							name.c_str(),
 							type_name(msg->type),
 							msg->type,
 							msg->seq_no);
@@ -198,12 +209,14 @@ void *rx_worker_thread_f(void *arg)
 				/* Process request/resp by forwarding to message processor */
 				rc = message_processor.process_msg(msg, tx_eng);
 				if (rc) {
-					ERR("Failed to process message, rc = 0x%X\n", rc);
+					ERR("'%s': Failed to process message, rc = 0x%X\n",
+									name.c_str(), rc);
 				}
 			} else {
-				CRIT("Unhandled msg->category = 0x%" PRIx64 "\n",
-							msg->category);
-				CRIT("msg->type='%s',0x%X\n",
+				CRIT("'%s': Unhandled category = 0x%" PRIx64 "\n",
+						name.c_str(), msg->category);
+				CRIT("'%s': type='%s',0x%X\n",
+						name.c_str(),
 						type_name(msg->type),
 						msg->type);
 				abort();
@@ -214,7 +227,7 @@ void *rx_worker_thread_f(void *arg)
 	*is_dead = true;
 	tx_eng->set_isdead();	// Kill corresponding tx_engine too
 	sem_post(engine_cleanup_sem);
-	DBG("Exiting %s\n", __func__);
+	DBG("'%s': Exiting %s\n", name.c_str(), __func__);
 	pthread_exit(0);
 }
 
