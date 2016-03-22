@@ -44,7 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 
 //#include "libcli.h"
-//#include "liblog.h"
+#include "liblog.h"
 
 //#include "libtime_utils.h"
 #include "worker.h"
@@ -78,6 +78,7 @@ public:
                                 RIO_DIRECTIO_TRANSFER_SYNC);
     if (dma_rc == 0) return true;
     if (dma_rc == -EBUSY) m_q_full = true;
+    DBG("\n\t%s riomp_dma_read => %d (%s)\n", __func__, dma_rc, strerror(-dma_rc));
     m_errno = -dma_rc;
     return false;
   }
@@ -90,6 +91,7 @@ public:
                                  RIO_DIRECTIO_TYPE_NWRITE_R, RIO_DIRECTIO_TRANSFER_SYNC);
     if (dma_rc == 0) return true;
     if (dma_rc == -EBUSY) m_q_full = true;
+    DBG("\n\t%s riomp_dma_write => %d (%s)\n", __func__, dma_rc, strerror(-dma_rc));
     m_errno = -dma_rc;
     return false;
   }
@@ -109,6 +111,7 @@ public:
                                    RIO_DIRECTIO_TYPE_NWRITE_R, rd_sync);
     if (dma_rc == 0) return true;
     if (dma_rc == -EBUSY) m_q_full = true;
+    DBG("\n\t%s riomp_dma_write_d => %d (%s)\n", __func__, dma_rc, strerror(-dma_rc));
     m_errno = -dma_rc;
     return false;
   }
