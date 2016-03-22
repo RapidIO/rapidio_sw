@@ -513,10 +513,10 @@ error:
   /** \brief Process all IB "BDs" identified by \ref scan_RO
    * \return Number of IB "BDs" decapped of L2 and successfully written into Tun
    */
-  inline int service_TUN_TX(struct worker* info, const uint64_t MAX_RP_INTERVAL)
+  inline int service_TUN_TX(const uint64_t MAX_RP_INTERVAL)
   {
     assert(this);
-    assert(info);
+    assert(m_info);
     assert(m_rio_rx_bd_ready_size <= (m_info->umd_tx_buf_cnt-1));
 
     int rx_ok = 0; // TX'ed into Tun device
@@ -605,11 +605,11 @@ error:
       last_ts = now;
 
       // THIS is gasping at straws!
-      if (force_rp_push || info->umd_push_rp_thr == 0 || \
+      if (force_rp_push || m_info->umd_push_rp_thr == 0 || \
           cnt == 1 ||
           (i == 0) || i == (cnt-1) ||
-          (i % info->umd_push_rp_thr) == 0) {
-        umd_dma_tun_update_peer_RP(info, this); m_stats.push_rp_cnt++;
+          (i % m_info->umd_push_rp_thr) == 0) {
+        umd_dma_tun_update_peer_RP(m_info, this); m_stats.push_rp_cnt++;
         last_pkt_acked = true;
       } else {
         last_pkt_acked = false;
@@ -620,7 +620,7 @@ stop_req:
     do {
       if (last_pkt_acked) break;
       if (m_info->stop_req || stop_req) break;
-      umd_dma_tun_update_peer_RP(info, this); m_stats.push_rp_cnt++;
+      umd_dma_tun_update_peer_RP(m_info, this); m_stats.push_rp_cnt++;
     } while(0);
     return rx_ok;
   }

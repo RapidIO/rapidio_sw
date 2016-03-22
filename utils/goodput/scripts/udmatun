@@ -6,7 +6,8 @@ set thruput ? 0
 thread 0 -1 0
 wait 0 h
 sleep 0.5
-IBAlloc 0 1000000
+//IBAlloc 0 1000000
+IBAlloc 0 400000
 sleep 0.5
 // Kernel drivers/net/tun.c has 64k as upper bound in mainline
 set mtu ? 8000

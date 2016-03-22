@@ -319,8 +319,10 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
       peer->set_RP(newRP);
       if (first_message) peer->set_WP(newRP); // XXX maybe newRP+1 ?? Test
     } else {
+      RdmaOpsIntf* rdma = info->umd_dci_nread->rdma;
       send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun fd??
-      DBG("\n\tHW error, something is FOOBAR with Chan %u\n", info->umd_chan2);
+      ERR("\n\tHW error (NREAD), something is FOOBAR with Chan %u reason %d (%s). Nuke peer.\n", info->umd_chan2, 
+          rdma->getAbortReason(), rdma->abortReasonToStr(rdma->getAbortReason()));
 
       peer->stop_req = 1;
 
@@ -372,9 +374,13 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
   info->umd_dma_abort_reason = 0;
 
   if (! udma_nwrite_mem_T1(dci->rdma, dmaopt, dci->dmamem[dci->oi], (int&)info->umd_dma_abort_reason)) {
-    if(info->umd_dma_abort_reason != 0) { // HW error
+    if((info->dma_method == ACCESS_UMD && info->umd_dma_abort_reason != 0) ||
+       (info->dma_method == ACCESS_MPORT && info->umd_dma_abort_reason != EBUSY)) { // HW error
       // ICMPv4 dest unreachable id bad destid 
       send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun
+
+      ERR("\n\tHW error (NWRITE_R), something is FOOBAR with Chan %u reason %d (%s). Nuke peer.\n", info->umd_chan2, 
+          dci->rdma->getAbortReason(), dci->rdma->abortReasonToStr(dci->rdma->getAbortReason()));
 
       umd_dma_goodput_tun_del_ep(info, destid_dpi, false); // Nuke Tun & Peer
 
@@ -570,20 +576,26 @@ bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer)
   const uint64_t rio_addr = peer->get_rio_addr() + offsetof(DmaPeerRP_t, rpeer);
 
 #ifdef UDMA_TUN_DEBUG_NWRITE_CH2
-  DmaChannelInfo_t* dch = info->umd_dci_nread;
+  DmaChannelInfo_t* dci = info->umd_dci_nread;
 #else
-  DmaChannelInfo_t* dch = info->umd_dci_list[info->umd_chan_n]; // pick the last channel
+  DmaChannelInfo_t* dci = info->umd_dci_list[info->umd_chan_n]; // pick the last channel
 #endif
 
-  if (! udma_nwrite_mem(dch->rdma, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) {
-    DBG("\n\tHW error, something is FOOBAR with Chan %u\n", info->umd_chan2);
+  if (! udma_nwrite_mem(dci->rdma, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) do {
+    if (info->dma_method == ACCESS_MPORT && dci->rdma->getAbortReason() == EBUSY) {
+      usleep(1);
+      return false;
+    }
+
+    ERR("\n\tHW error (NWRITE/T2), something is FOOBAR with Chan %u reason %d (%s). Nuke peer.\n", info->umd_chan2, 
+        dci->rdma->getAbortReason(), dci->rdma->abortReasonToStr(dci->rdma->getAbortReason()));
 
     peer->stop_req = 1;
 
     umd_dma_goodput_tun_del_ep(info, destid, false); // Nuke Tun & Peer
 
     ret = false;
-  }
+  } while(0);
 
   return ret;
 }
@@ -633,7 +645,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
     DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->get_rio_rx_bd_ready_size(), pRP->RP);
 
-    int cnt = peer->service_TUN_TX(info, MAX_RP_INTERVAL);
+    int cnt = peer->service_TUN_TX(MAX_RP_INTERVAL);
     rx_ok += cnt;
         } // END while NOT stop requested
 
