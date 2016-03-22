@@ -182,7 +182,7 @@ public:
     memset(&qresp, 0, sizeof(qresp));
     const int rc = riomp_mgmt_query(m_mp_h, &qresp);
     if (rc) return 0xFFFF;
-    return qresp.id; // XXX Perhaps qresp.hdid?
+    return qresp.hdid;
   }
 
 // This is implementation-specific, not in base class (interface)
