@@ -447,14 +447,18 @@ int connect_ms_resp_disp(const unix_msg_t *in_msg,
 		cmam->server_msid = htobe64(conn_resp->server_msid);
 		cmam->server_msubid = htobe64(conn_resp->server_msubid);
 		cmam->server_msub_bytes = htobe64(conn_resp->server_msub_bytes);
-		cmam->server_rio_addr_len = htobe64(conn_resp->server_rio_addr_len);
-		cmam->server_rio_addr_lo = htobe64(conn_resp->server_rio_addr_lo);
-		cmam->server_rio_addr_hi = htobe64(conn_resp->server_rio_addr_hi);
+		cmam->server_rio_addr_len =
+				htobe64(conn_resp->server_rio_addr_len);
+		cmam->server_rio_addr_lo =
+					htobe64(conn_resp->server_rio_addr_lo);
+		cmam->server_rio_addr_hi =
+					htobe64(conn_resp->server_rio_addr_hi);
 		cmam->server_destid_len = htobe64(16);
 		cmam->server_destid = htobe64(the_inbound->get_peer().destid);
 		cmam->client_msid = htobe64(conn_resp->client_msid);
 		cmam->client_msubid = htobe64(conn_resp->client_msubid);
-		cmam->client_to_lib_tx_eng_h = htobe64(conn_resp->client_to_lib_tx_eng_h);
+		cmam->client_to_lib_tx_eng_h =
+				htobe64(conn_resp->client_to_lib_tx_eng_h);
 
 		DBG("cm_accept_msg has server_destid = 0x%X\n",
 					be64toh(cmam->server_destid));
@@ -563,13 +567,20 @@ int send_disconnect_disp(const unix_msg_t *in_msg,
 	return rc;
 } /* send_disconnect_disp() */
 
+/**
+ * @brief Runs on server daemon. When server app/library wants to
+ * 	  disconnect, it sends CM_FORCE_DISCONNECT_MS to the remote
+ * 	  daemon.
+ */
 int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 				tx_engine<unix_server, unix_msg_t> *tx_eng)
 {
+	(void)tx_eng;
 	int rc;
 	DBG("ENTER\n");
 	try {
-		uint32_t server_msid = in_msg->server_disconnect_ms_in.server_msid;
+		uint32_t server_msid =
+				in_msg->server_disconnect_ms_in.server_msid;
 		mspace *ms = the_inbound->get_mspace(server_msid);
 
 		if (ms == nullptr) {
@@ -585,27 +596,8 @@ int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 			ERR("Failed to disconnect MS\n");
 			throw rc;
 		}
+		INFO("CM_FORCE_DISCONNECT_MS sent to Client daemon!\n");
 
-		/**
-		 * NOTE: FIXME: TODO:
-		 * The above call to ms->server_disconnect does not
-		 * block waiting for the CM_FORCE_DISCONNECT_MS_ACK message.
-		 * The reason is that we have a thread that is executing
-		 * a cm_server->receive(). This can be rectified when we
-		 * switch the daemon-to-daemon communications to use
-		 * rx_engine and tx_engine. For now the CM_FORCE_DISCONNECT_MS_ACK
-		 * is consumed by that thread in rdmad_srvr_threads.cpp and the
-		 * SERVER_DISCONNECT_MS_ACK is always sent back to the server
-		 * app/library (below).
-		 */
-		/* Reply to library indicating success */
-		auto out_msg = make_unique<unix_msg_t>();
-		out_msg->category = RDMA_CALL;
-		out_msg->type	 = SERVER_DISCONNECT_MS_ACK;
-		out_msg->seq_no	 = in_msg->seq_no;
-		out_msg->server_disconnect_ms_out.status = rc;
-
-		tx_eng->send_message(move(out_msg));
 	}
 	catch(int e) {
 		rc = e;

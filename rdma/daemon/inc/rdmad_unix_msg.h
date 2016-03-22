@@ -461,6 +461,7 @@ struct server_disconnect_ms_output {
 	int status;
 };
 
+
 /** @brief Client daemon to client app */
 /* Basically this is the 'connect_to_ms_resp' (ABOVE)
  * which is sent by the server,

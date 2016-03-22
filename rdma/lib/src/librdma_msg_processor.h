@@ -64,29 +64,18 @@ public:
 		switch(msg->type) {
 
 		case FORCE_CLOSE_MSO:
-//			force_close_mso_disp(msg->force_close_mso_req.msoid);
 			force_close_mso_disp(msg, tx_eng);
 		break;
 
 		case FORCE_CLOSE_MS:
-//			force_close_ms_disp(msg->force_close_ms_req.msid);
 			force_close_ms_disp(msg, tx_eng);
 		break;
 
 		case DISCONNECT_MS:
-/*
-			disconnect_ms_disp(msg->disconnect_from_ms_in.client_msubid,
-					   msg->disconnect_from_ms_in.server_msubid,
-					   msg->disconnect_from_ms_in.client_to_lib_tx_eng_h);
-*/
 			disconnect_ms_disp(msg, tx_eng);
 		break;
 
 		case FORCE_DISCONNECT_MS:
-/*
-			force_disconnect_ms_disp(msg->force_disconnect_ms_in.server_msid,
-					  msg->force_disconnect_ms_in.server_msubid);
-*/
 			force_disconnect_ms_disp(msg, tx_eng);
 		break;
 

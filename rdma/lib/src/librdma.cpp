@@ -2100,6 +2100,18 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 			throw out_msg.server_disconnect_ms_out.status;
 		}
 
+		/* Now wait for a SERVER_DISCONNECT_MS_ACK */
+		INFO(" Waiting for connect response (accept) message...\n");
+		rc = await_message(RDMA_CALL,
+				SERVER_DISCONNECT_MS_ACK,
+				0,
+				5,	/* 5 seconds */
+				&out_msg);
+		if (rc == ETIMEDOUT) {
+			ERR("Timeout before getting SERVER_DISCONNECT_MS_ACK\n");
+			throw RDMA_DISCONNECT_TIMEOUT;
+		}
+
 		/* Remove connection from server msub database entry */
 		server_msub->connections.erase(connection_it);
 

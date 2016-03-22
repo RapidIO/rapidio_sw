@@ -176,10 +176,7 @@ struct cm_force_disconnect_ms_msg {
 struct cm_force_disconnect_ms_ack_msg {
 	char server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t server_msid;
-	cm_force_disconnect_ms_ack_msg(cm_force_disconnect_ms_ack_msg& other) {
-		strcpy(server_msname, other.server_msname);
-		server_msid = other.server_msid;
-	}
+	uint64_t client_to_lib_tx_eng_h;
 };
 
 /**
