@@ -306,7 +306,7 @@ riocp_pe_handle_destroy(struct riocp_pe **handle){
     RIOCP_TRACE("Destroying PE handle %p (ct: 0x%08x)\n", pe, pe->comptag);
     /* Cleanup references in other peer PEs to this PE */
     for(port = 0; port < RIOCP_PE_PORT_COUNT(pe->cap); port++){
-      if(pe->peers[port].peer)
+      if(pe->peers && pe->peers[port].peer)
         if(riocp_pe_remove_peer(pe, port))
           RIOCP_WARN("Failed to remove PE from peer ports\n");
     }
