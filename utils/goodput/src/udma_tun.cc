@@ -113,8 +113,88 @@ static inline uint64_t htonll(uint64_t value)
 static inline int Q_THR(const int sz) { return (sz * 99) / 100; }
 
 class RdmaOpsMport : public RdmaOpsIntf {
+  bool m_errno;
+  bool m_check_reg; ///< Means faf or async
+  bool m_q_full;
+  riomp_mport_t m_mp_h;
+  bool m_mp_h_mine;
+
 public:
+  RdmaOpsMport() { m_errno = 0; m_check_reg = false; m_q_full = false; m_mp_h_mine = false; }
+  virtual ~RdmaOpsMport() { if (m_mp_h_mine) riomp_mgmt_mport_destroy_handle(&m_mp_h); }
+
   virtual bool canRestart() { return false; }
+  virtual void setCheckHwReg(bool sw) { m_check_reg = sw; }
+  virtual bool queueFull() { return m_q_full; }
+
+  // T2 Ops
+  virtual bool nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
+  {
+    m_q_full = false;
+    int dma_rc = riomp_dma_read(m_mp_h, destid, rio_addr,
+                                data_out, size,
+                                RIO_DIRECTIO_TRANSFER_SYNC);
+    if (dma_rc == 0) return true;
+    if (dma_rc == -EBUSY) m_q_full = true;
+    m_errno = dma_rc;
+    return false;
+  }
+  virtual bool nwrite_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, const uint8_t* data)
+  {
+    m_q_full = false;
+    int dma_rc = riomp_dma_write(m_mp_h, destid, rio_addr,
+                                 (void*)data, size,
+                                 RIO_DIRECTIO_TYPE_NWRITE_R, RIO_DIRECTIO_TRANSFER_SYNC);
+    if (dma_rc == 0) return true;
+    if (dma_rc == -EBUSY) m_q_full = true;
+    m_errno = dma_rc;
+    return false;
+  }
+
+  // T1 Ops
+  virtual bool nwrite_mem(DMAChannel::DmaOptions_t& dmaopt, RioMport::DmaMem_t& dmamem)
+  {
+    enum riomp_dma_directio_transfer_sync rd_sync = m_check_reg?
+       RIO_DIRECTIO_TRANSFER_SYNC:
+       RIO_DIRECTIO_TRANSFER_FAF;
+
+    m_q_full = false;
+    int dma_rc = riomp_dma_write_d(m_mp_h, dmaopt.destid, dmaopt.raddr.lsb64,
+                                   dmamem.win_handle, 0 /*offset*/,
+                                   dmaopt.bcount,
+                                   RIO_DIRECTIO_TYPE_NWRITE_R, rd_sync);
+    if (dma_rc == 0) return true;
+    if (dma_rc == -EBUSY) m_q_full = true;
+    m_errno = dma_rc;
+    return false;
+  }
+
+  virtual int getAbortReason() { return m_errno; }
+
+  virtual const char* abortReasonToStr(const int dma_abort_reason)
+  {
+    return strerror(dma_abort_reason);
+  }
+
+  virtual uint16_t getDestId()
+  {
+    struct riomp_mgmt_mport_properties qresp;
+    memset(&qresp, 0, sizeof(qresp));
+    const int rc = riomp_mgmt_query(m_mp_h, &qresp);
+    if (rc) return 0xFFFF;
+    return qresp.id; // XXX Perhaps qresp.hdid?
+  }
+
+// This is implementation-specific, not in base class (interface)
+  inline void setup_chan2(struct worker *info) { m_mp_h = info->mp_h; m_mp_h_mine = false; }
+
+  inline bool setup_chanN(struct worker* info, int chan)
+  {
+    int rc = riomp_mgmt_mport_create_handle(info->mp_num, 0, &m_mp_h);
+    if (rc) return false;
+    m_mp_h_mine = true;
+    return true;
+  }
 };
 
 class RdmaOpsUMD : public RdmaOpsIntf {
@@ -849,10 +929,12 @@ bool umd_dma_goodput_tun_setup_chan2(struct worker *info)
               info->umd_dci_nread->sts_entries= RdmaOpsUMD::DMA_CHAN2_STS;
             }}
             break;
-    case ACCESS_MPORT: assert(0); // TBI
+    case ACCESS_MPORT:
+            (dynamic_cast<RdmaOpsMport*>(info->umd_dci_nread->rdma))->setup_chan2(info); 
             break;
     default: return false; break;
   }
+
   return true;
 }
 
@@ -879,7 +961,10 @@ bool umd_dma_goodput_tun_setup_chanN(struct worker *info, const int n)
               dci->sts_entries = info->umd_sts_entries;
             }}
             break;
-    case ACCESS_MPORT: assert(0); // TBI
+    case ACCESS_MPORT: {{
+              bool r = (dynamic_cast<RdmaOpsMport*>(info->umd_dci_nread->rdma))->setup_chanN(info, n);
+              assert(r);
+            }}
             break;
     default: goto error; break;
   }
@@ -1634,7 +1719,8 @@ exit:
     delete info->umd_dci_list[ch]->rdma;
     free(info->umd_dci_list[ch]); info->umd_dci_list[ch] = NULL;
   }
-  delete info->umd_dci_nread; info->umd_dci_nread = NULL;
+  delete info->umd_dci_nread->rdma;
+  free(info->umd_dci_nread); info->umd_dci_nread = NULL;
   delete info->umd_lock; info->umd_lock = NULL;
   info->umd_tun_name[0] = '\0';
 
