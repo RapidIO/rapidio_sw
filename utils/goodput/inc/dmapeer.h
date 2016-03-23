@@ -15,6 +15,7 @@
 
 #define PEER_SIG_INIT       0x66666666L
 #define PEER_SIG_UP         0xbaaddeedL
+#define PEER_SIG_CLONE      0xc00cc00cL	
 #define PEER_SIG_DESTROYED  0xdeadbeefL
 
 extern bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer);
@@ -116,11 +117,11 @@ public:
 
   ~DmaPeer() { destroy(); }
 
-  DmaPeer& operator=(const DmaPeer& other) // copy assignment -- we just clone data
+private:
+  inline void copyFieldsFrom(const DmaPeer& other)
   {
-    if (this == &other) return *this; // self-assignment
-
-    sig        = other.sig;
+    sig        = PEER_SIG_CLONE; //other.sig;
+    m_copy     = true;
     stop_req   = other.stop_req;
     m_destid   = other.m_destid;
     m_rio_addr = other.m_rio_addr;
@@ -135,8 +136,17 @@ public:
     m_rio_rx_bd_ready_ts = NULL;
     m_info     = NULL;
     m_ib_histo = NULL;
-    m_copy     = true;
     memcpy(&m_stats, &other.m_stats, sizeof(m_stats));
+  }
+
+public:
+  DmaPeer(const DmaPeer& other) { copyFieldsFrom(other); }
+
+  DmaPeer& operator=(const DmaPeer& other) // copy assignment -- we just clone data
+  {
+    if (this == &other) return *this; // self-assignment
+
+    copyFieldsFrom(other);
 
     return *this;
   }
@@ -199,8 +209,6 @@ public:
 
     m_tun_fd = -1;
 
-    m_info = (struct worker*)info;
-
     // Set up array of pointers to IB L2 headers
 
     m_ib_ptr = (void*)ib_ptr;
@@ -236,6 +244,8 @@ public:
 #endif // UDMA_TUN_DEBUG_IB
     }}
 
+    m_info = (struct worker*)info;
+
     ret = true;
 
   unlock:
@@ -244,7 +254,7 @@ public:
 
   error:
     if (m_rio_rx_bd_L2_ptr != NULL)   { free(m_rio_rx_bd_L2_ptr); m_rio_rx_bd_L2_ptr = NULL; }
-    if (m_rio_rx_bd_ready != NULL)  { free(m_rio_rx_bd_ready); m_rio_rx_bd_ready = NULL; }
+    if (m_rio_rx_bd_ready != NULL)    { free(m_rio_rx_bd_ready); m_rio_rx_bd_ready = NULL; }
     if (m_rio_rx_bd_ready_ts != NULL) { free(m_rio_rx_bd_ready_ts); m_rio_rx_bd_ready_ts = NULL; }
     if (m_ib_histo != NULL) { free((void*)m_ib_histo); m_ib_histo = NULL; }
     goto unlock;
@@ -262,11 +272,13 @@ public:
     if (m_tun_fd >= 0) { close(m_tun_fd); m_tun_fd = -1; }
     m_tun_name[0] = '\0';
 
-    free(m_rio_rx_bd_L2_ptr); m_rio_rx_bd_L2_ptr = NULL;
-    free(m_rio_rx_bd_ready); m_rio_rx_bd_ready = NULL;
+    if (m_info == NULL) return; // ::init was not called?
+
+    free(m_rio_rx_bd_L2_ptr);   m_rio_rx_bd_L2_ptr = NULL;
+    free(m_rio_rx_bd_ready);    m_rio_rx_bd_ready = NULL;
     free(m_rio_rx_bd_ready_ts); m_rio_rx_bd_ready_ts = NULL;
     m_rio_rx_bd_ready_size = -1;
-    free((void*)m_ib_histo); m_ib_histo = NULL;
+    free((void*)m_ib_histo);    m_ib_histo = NULL;
 
     m_info = NULL;
 
@@ -400,6 +412,10 @@ error:
   {
     int cnt = 0;
 
+    assert(m_info); // Not initlialised?
+
+    assert(sig == PEER_SIG_UP);
+
     volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)m_ib_ptr;
 
     uint32_t k = pRP->RP;
@@ -448,6 +464,9 @@ error:
 
       update_RP_LS();
       if (idx >= (m_info->umd_tx_buf_cnt-1)) break;
+
+      assert(sig == PEER_SIG_UP);
+      assert(m_rio_rx_bd_L2_ptr[k]);
 
       if(0 != m_rio_rx_bd_L2_ptr[k]->RO) {
         if (42 == m_rio_rx_bd_L2_ptr[k]->RO) goto next; // Not yet cleared by "bottom half"
