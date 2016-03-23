@@ -382,9 +382,9 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	if (check_idx(env, idx, 1))
 		goto exit;
 
-	if ((ib_size < FOUR_KB) || (ib_size > SIXTEEN_MB)) {
+	if ((ib_size < FOUR_KB) || (ib_size > 4*SIXTEEN_MB)) {
 		sprintf(env->output, "\nIbwin size range: 0x%x to 0x%x\n",
-			FOUR_KB, SIXTEEN_MB);
+			FOUR_KB, 4*SIXTEEN_MB);
         	logMsg(env);
 		goto exit;
 	};
