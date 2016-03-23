@@ -320,7 +320,9 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
       if (first_message) peer->set_WP(newRP); // XXX maybe newRP+1 ?? Test
     } else {
       RdmaOpsIntf* rdma = info->umd_dci_nread->rdma;
+
       send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun fd??
+
       ERR("\n\tHW error (NREAD), something is FOOBAR with Chan %u reason %d (%s). Nuke peer.\n", info->umd_chan2, 
           rdma->getAbortReason(), rdma->abortReasonToStr(rdma->getAbortReason()));
 
@@ -374,12 +376,28 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
   info->umd_dma_abort_reason = 0;
 
   if (! udma_nwrite_mem_T1(dci->rdma, dmaopt, dci->dmamem[dci->oi], (int&)info->umd_dma_abort_reason)) {
-    if((info->dma_method == ACCESS_UMD && info->umd_dma_abort_reason != 0) ||
-       (info->dma_method == ACCESS_MPORT && info->umd_dma_abort_reason != EBUSY)) { // HW error
+    if (info->dma_method == ACCESS_MPORT) {
+      if (info->umd_dma_abort_reason == EBUSY) {
+        DBG("\n\tQueue full #2 on Mport Chan %d!\n", dci->chan);
+        usleep(RdmaOpsMport::QUEUE_FULL_DELAY_MS);
+      } else { // all other errors
+        send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun
+
+        ERR("\n\tHW error (NWRITE_R), something is FOOBAR with Mport Chan %d reason %d (%s). Nuke peer.\n",
+            dci->chan, 
+            dci->rdma->getAbortReason(), dci->rdma->abortReasonToStr(dci->rdma->getAbortReason()));
+
+        umd_dma_goodput_tun_del_ep(info, destid_dpi, false); // Nuke Tun & Peer
+      }
+      goto error;
+    }
+
+    if (info->dma_method == ACCESS_UMD && info->umd_dma_abort_reason != 0) { // HW error
       // ICMPv4 dest unreachable id bad destid 
       send_icmp_host_unreachable(peer->get_tun_fd(), buffer+DMA_L2_SIZE, nread); // XXX which tun
 
-      ERR("\n\tHW error (NWRITE_R), something is FOOBAR with Chan %u reason %d (%s). Nuke peer.\n", info->umd_chan2, 
+      ERR("\n\tHW error (NWRITE_R), something is FOOBAR with Chan %d reason %d (%s). Nuke peer.\n",
+          dci->chan, 
           dci->rdma->getAbortReason(), dci->rdma->abortReasonToStr(dci->rdma->getAbortReason()));
 
       umd_dma_goodput_tun_del_ep(info, destid_dpi, false); // Nuke Tun & Peer
@@ -389,12 +407,10 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
         peer->stop_req = 1;
         info->stop_req = SOFT_RESTART; // XXX of which channel?
       }
-
-      goto error;
     } else { // queue really full
-      DBG("\n\tQueue full #2 on chan %d!\n", dci->chan);
-      goto error; // Drop L3 frame
+      DBG("\n\tQueue full #2 on Chan %d!\n", dci->chan);
     }
+    goto error; // Drop L3 frase
   }
 
   dci->oi++; if (dci->oi == (dci->tx_buf_cnt-1)) dci->oi = 0; // Account for T3
@@ -462,7 +478,7 @@ void* umd_dma_wakeup_proc_thr(void* arg)
   if(arg == NULL) return NULL;
   struct worker* info = (struct worker*)arg;
 
-        while (!info->stop_req) // every 1 mS which is about HZ/10. stupid
+  while (!info->stop_req) // every 1 mS which is about HZ/10. stupid
     usleep(1000);
   
   pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
@@ -489,16 +505,19 @@ DmaChannelInfo_t* umd_rdma_factory(struct worker *info, int chan)
 {
   assert(info);
 
-  DmaChannelInfo_t* ci = (DmaChannelInfo_t*)calloc(1, sizeof(DmaChannelInfo_t));
-  if (ci == NULL) return NULL;
+  DmaChannelInfo_t* dci = (DmaChannelInfo_t*)calloc(1, sizeof(DmaChannelInfo_t));
+  if (dci == NULL) return NULL;
 
   switch (info->dma_method) {
-    case ACCESS_UMD:   ci->rdma = new RdmaOpsUMD();   break;
-    case ACCESS_MPORT: ci->rdma = new RdmaOpsMport(); break;
+    case ACCESS_UMD:   dci->rdma = new RdmaOpsUMD();   break;
+    case ACCESS_MPORT: dci->rdma = new RdmaOpsMport(); break;
     default: assert(0); break;
   }
 
-  return ci;
+  assert(dci->rdma);
+  dci->chan = chan;
+
+  return dci;
 }
 
 bool umd_dma_goodput_tun_setup_chan2(struct worker *info)
@@ -558,6 +577,7 @@ bool umd_dma_goodput_tun_setup_chanN(struct worker *info, const int n)
   }
 
   info->umd_dci_list[n] = dci;
+
   return true;
 }
 
@@ -579,11 +599,15 @@ bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer)
   DmaChannelInfo_t* dci = info->umd_dci_nread;
 #else
   DmaChannelInfo_t* dci = info->umd_dci_list[info->umd_chan_n]; // pick the last channel
+
+  // We cannot set prio=2 via Mport so we force the 2nd channel here
+  if (info->dma_method == ACCESS_MPORT)
+    dci = info->umd_dci_nread;
 #endif
 
   if (! udma_nwrite_mem(dci->rdma, destid, rio_addr, sizeof(DmaPeerUpdateRP_t), (uint8_t*)&upeer)) do {
     if (info->dma_method == ACCESS_MPORT && dci->rdma->getAbortReason() == EBUSY) {
-      usleep(1);
+      usleep(RdmaOpsMport::QUEUE_FULL_DELAY_MS);
       return false;
     }
 
