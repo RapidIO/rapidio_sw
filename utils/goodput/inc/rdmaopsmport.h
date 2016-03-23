@@ -46,27 +46,62 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //#include "libcli.h"
 #include "liblog.h"
 
-//#include "libtime_utils.h"
+#include "libtime_utils.h"
 #include "worker.h"
 
 #include "dmachan.h"
 #include "rdmaops.h"
 
 class RdmaOpsMport : public RdmaOpsIntf {
-  int           m_errno;
-  bool          m_check_reg; ///< Means faf or async
-  bool          m_q_full;
-  riomp_mport_t m_mp_h;
-  bool          m_mp_h_mine;
-  RioMport*     m_mport;
+public:
+  static const int QUEUE_FULL_DELAY_MS = 50; // microseconds
+
+private:
+  int             m_errno;
+  bool            m_check_reg; ///< Means faf or async
+  volatile bool   m_q_full;
+  struct timespec m_q_full_ts;
+  riomp_mport_t   m_mp_h;
+  bool            m_mp_h_mine;
+  RioMport*       m_mport;
+
+  inline void flagQFull()
+  {
+    clock_gettime(CLOCK_MONOTONIC, &m_q_full_ts);
+    m_q_full = true;
+  }
 
 public:
-  RdmaOpsMport() { m_errno = 0; m_check_reg = false; m_q_full = false; m_mp_h_mine = false; m_mport = NULL; }
+  RdmaOpsMport()
+  {
+    m_errno = 0;
+    m_check_reg = false;
+    m_mp_h_mine = false;
+    m_mport = NULL;
+    m_q_full = false;
+    memset(&m_q_full_ts, 0, sizeof(m_q_full_ts));
+  }
   virtual ~RdmaOpsMport() { if (m_mp_h_mine) riomp_mgmt_mport_destroy_handle(&m_mp_h); delete m_mport; }
 
   virtual bool canRestart() { return false; }
   virtual void setCheckHwReg(bool sw) { m_check_reg = sw; }
-  virtual bool queueFull() { return m_q_full; }
+
+  /** \brief Report kernel queue fullness but only if it happend less than \ref QUEUE_FULL_DELAY_MS miliseconds ago
+   */
+  virtual bool queueFull()
+  {
+    if (!m_q_full) return false;
+
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    
+    struct timespec elapsed = time_difference(m_q_full_ts, now);
+    const uint64_t dTnsec = elapsed.tv_nsec + (elapsed.tv_sec * 1000000000);
+    
+    if (dTnsec > (QUEUE_FULL_DELAY_MS * 1000)) return false;
+
+    return true;
+  }
 
   // T2 Ops
   virtual bool nread_mem_T2(const uint16_t destid, const uint64_t rio_addr, const int size, uint8_t* data_out)
@@ -77,7 +112,7 @@ public:
                                 data_out, size,
                                 RIO_DIRECTIO_TRANSFER_SYNC);
     if (dma_rc == 0) return true;
-    if (dma_rc == -EBUSY) m_q_full = true;
+    if (dma_rc == -EBUSY) flagQFull();
     DBG("\n\t%s riomp_dma_read => %d (%s)\n", __func__, dma_rc, strerror(-dma_rc));
     m_errno = -dma_rc;
     return false;
@@ -90,7 +125,7 @@ public:
                                  (void*)data, size,
                                  RIO_DIRECTIO_TYPE_NWRITE_R, RIO_DIRECTIO_TRANSFER_SYNC);
     if (dma_rc == 0) return true;
-    if (dma_rc == -EBUSY) m_q_full = true;
+    if (dma_rc == -EBUSY) flagQFull();
     DBG("\n\t%s riomp_dma_write => %d (%s)\n", __func__, dma_rc, strerror(-dma_rc));
     m_errno = -dma_rc;
     return false;
@@ -110,7 +145,7 @@ public:
                                    dmaopt.bcount,
                                    RIO_DIRECTIO_TYPE_NWRITE_R, rd_sync);
     if (dma_rc == 0) return true;
-    if (dma_rc == -EBUSY) m_q_full = true;
+    if (dma_rc == -EBUSY) flagQFull();
     DBG("\n\t%s riomp_dma_write_d => %d (%s)\n", __func__, dma_rc, strerror(-dma_rc));
     m_errno = -dma_rc;
     return false;
