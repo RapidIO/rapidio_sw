@@ -836,7 +836,7 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
 
 		DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->get_rio_rx_bd_ready_size(), pRP->RP);
 
-		int cnt = peer->service_TUN_TX(info, MAX_RP_INTERVAL);
+		int cnt = peer->service_TUN_TX(MAX_RP_INTERVAL);
 		rx_ok += cnt;
         } // END while NOT stop requested
 
