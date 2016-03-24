@@ -359,6 +359,30 @@ int riocp_pe_switch_get_counters(struct riocp_pe *sw, uint8_t port,
         return -ENOSYS;
 }
 
+int riocp_pe_switch_get_trace_filter_caps(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps)
+{
+	if (sw->sw->get_trace_filter_capabilities)
+		return sw->sw->get_trace_filter_capabilities(sw, caps);
+    else
+        return -ENOSYS;
+}
+
+int riocp_pe_switch_set_trace_filter(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *val, uint32_t *mask)
+{
+	if (sw->sw->set_trace_filter)
+		return sw->sw->set_trace_filter(sw, port, filter, flags, val, mask);
+    else
+        return -ENOSYS;
+}
+
+int riocp_pe_switch_set_trace_port(struct riocp_pe *sw, uint8_t port, uint32_t flags)
+{
+	if (sw->sw->set_trace_port)
+		return sw->sw->set_trace_port(sw, port, flags);
+    else
+        return -ENOSYS;
+}
+
 #ifdef __cplusplus
 }
 #endif

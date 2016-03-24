@@ -2127,6 +2127,73 @@ int RIOCP_SO_ATTR riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port,
     return riocp_pe_switch_get_counters(sw, port, reg_cap, reg_values, reg_cnt);
 }
 
+/**
+ * Read switch trace and filter capabilities
+ * @param sw   Target switch
+ * @param caps pointer to trace filter capability structure
+ */
+int RIOCP_SO_ATTR riocp_pe_get_sw_trace_filter_caps(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps)
+{
+    if (riocp_pe_handle_check(sw))
+        return -EINVAL;
+    if (!RIOCP_PE_IS_HOST(sw))
+        return -EPERM;
+    if (!RIOCP_PE_IS_SWITCH(sw->cap))
+        return -ENOSYS;
+
+    return riocp_pe_switch_get_trace_filter_caps(sw, caps);
+}
+
+/**
+ * Set a port trace filter
+ * @param sw          Target switch
+ * @param port        Port number to put the trace filter on
+ * @param filter      Trace filter number
+ * @param flags       Trace filter flags
+ * @param match_val   pointer to trace match values array
+ * @param match_mask  pointer to trace match mask array
+ *
+ * Based on the flags bits set or cleared the corresponding
+ * functionality is switched off or on.
+ * If match_val and/or match_mask is NULL the match resgisters
+ * are not updated. This can be used to update the flags only
+ * for enable/disable the match/trace function for a dedicated
+ * filter.
+ * If the port is set to RIOCP_PE_ANY_PORT all match_val and
+ * match_mask, if not NULL, registers will be udpated for all
+ * ports to the same values, but the flags will not be udpated.
+ * The flags need to be modified dedicated per port.
+ */
+int RIOCP_SO_ATTR riocp_pe_set_sw_trace_filter(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *match_val, uint32_t *match_mask)
+{
+    if (riocp_pe_handle_check(sw))
+        return -EINVAL;
+    if (!RIOCP_PE_IS_HOST(sw))
+        return -EPERM;
+    if (!RIOCP_PE_IS_SWITCH(sw->cap))
+        return -ENOSYS;
+
+    return riocp_pe_switch_set_trace_filter(sw, port, filter, flags, match_val, match_mask);
+}
+
+/**
+ * Set the trace port
+ * @param sw     Target switch
+ * @param port   Trace destination port
+ * @param flags  Trace port configuration flags
+ */
+int RIOCP_SO_ATTR riocp_pe_set_sw_trace_port(struct riocp_pe *sw, uint8_t port, uint32_t flags)
+{
+    if (riocp_pe_handle_check(sw))
+        return -EINVAL;
+    if (!RIOCP_PE_IS_HOST(sw))
+        return -EPERM;
+    if (!RIOCP_PE_IS_SWITCH(sw->cap))
+        return -ENOSYS;
+
+    return riocp_pe_switch_set_trace_port(sw, port, flags);
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -148,6 +148,10 @@ extern "C" {
 #define CPS1xxx_BCAST_LANE_DFE_2			(0x00ffff1c)
 
 #define CPS1xxx_DEVICE_CTL_1				(0x00f2000c)
+#define CPS1xxx_DEVICE_CTL_TRACE_PORT_MODE	(0x00010000)
+#define CPS1xxx_DEVICE_CTL_TRACE_EN			(0x00008000)
+#define CPS1xxx_DEVICE_CTL_TRACE_PORT(p)	((p) << 1)
+#define CPS1xxx_DEVICE_CTL_TRACE_PORT_MASK	(0x1f << 1)
 #define CPS1xxx_PW_CTL						(0x00f20024)
 #define CPS1xxx_PW_TMO						(0x00f20180)
 #define CPS1xxx_DEVICE_RESET_CTL			(0x00f20300)
@@ -430,6 +434,14 @@ extern "C" {
 #endif
 #define CPS1xxx_RTE_RIO_DOMAIN				(0x00F20020)
 #define CPS1xxx_LOG_DATA					(0x00FD0004)
+
+#define CPS1xxx_TRACE_FILTER_UNITS			4
+#define CPS1xxx_TRACE_FILTER_WORDS			5
+#define CPS1xxx_TRACE_FILTER_VALUE(p, u, w) (0xe40000 + 0x100 * (p) + 0x28 * (u) + 4 * (w))
+#define CPS1xxx_TRACE_FILTER_MASK(p, u, w)  (0xe40014 + 0x100 * (p) + 0x28 * (u) + 4 * (w))
+#define CPS1xxx_TRACE_FILTER_VALUE_BC(u, w) (0xe4f000 + 0x28 * (u) + 4 * (w))
+#define CPS1xxx_TRACE_FILTER_MASK_BC(u, w)  (0xe4f014 + 0x28 * (u) + 4 * (w))
+
 
 struct switch_port_priv_t {
 	uint16_t retry_lim;
@@ -1920,6 +1932,9 @@ int cps1xxx_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid,
 	return 0;
 }
 
+/*
+ * set the retry limit per port
+ */
 int cps1xxx_set_retry_limit(struct riocp_pe *sw, uint8_t port, uint16_t limit)
 {
 	int ret;
@@ -1977,6 +1992,135 @@ int cps1xxx_set_retry_limit(struct riocp_pe *sw, uint8_t port, uint16_t limit)
 				sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
 		return ret;
 	}
+
+	return 0;
+}
+
+/*
+ * Get the trace and filter capabilities
+ */
+int cps1xxx_get_trace_filter_capabilities(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps)
+{
+	caps->match_unit_count = CPS1xxx_TRACE_FILTER_UNITS;
+	caps->match_unit_words = CPS1xxx_TRACE_FILTER_WORDS;
+	caps->filter_caps = RIOCP_PE_TRACE_FILTER_FORWARD | RIOCP_PE_TRACE_FILTER_DROP;
+	caps->port_caps = RIOCP_PE_TRACE_PORT_EXCLUSIVE;
+
+	(void)sw;
+	return 0;
+}
+
+/*
+ * set a trace filter per port
+ */
+int cps1xxx_set_trace_filter(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *val, uint32_t *mask)
+{
+	int ret, word;
+	uint32_t port_ops;
+
+	if(flags & RIOCP_PE_TRACE_FILTER_NOTIFY) {
+		RIOCP_ERROR("[0x%08x:%s:hc %u] port %d RIOCP_PE_TRACE_FILTER_NOTIFY not supported.\n",
+				sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
+		return -ENOSYS;
+	}
+
+	if(filter >= CPS1xxx_TRACE_FILTER_UNITS) {
+		RIOCP_ERROR("[0x%08x:%s:hc %u] port %d filter number %d exceeds limit of %d.\n",
+				sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port, filter, CPS1xxx_TRACE_FILTER_UNITS);
+		return -EINVAL;
+	}
+
+	if(flags) {
+		if (port == RIOCP_PE_ANY_PORT) {
+			for(word=0;word<CPS1xxx_TRACE_FILTER_WORDS;word++) {
+				if (val) {
+					ret = riocp_pe_maint_write(sw, CPS1xxx_TRACE_FILTER_VALUE_BC(filter, word), val[word]);
+					if (ret < 0)
+						return ret;
+				}
+				if (mask) {
+					ret = riocp_pe_maint_write(sw, CPS1xxx_TRACE_FILTER_MASK_BC(filter, word), mask[word]);
+					if (ret < 0)
+						return ret;
+				}
+			}
+		} else {
+			for(word=0;word<CPS1xxx_TRACE_FILTER_WORDS;word++) {
+				if (val) {
+					ret = riocp_pe_maint_write(sw, CPS1xxx_TRACE_FILTER_VALUE(port, filter, word), val[word]);
+					if (ret < 0)
+						return ret;
+				}
+				if (mask) {
+					ret = riocp_pe_maint_write(sw, CPS1xxx_TRACE_FILTER_MASK(port, filter, word), mask[word]);
+					if (ret < 0)
+						return ret;
+				}
+			}
+		}
+	}
+
+	if (port == RIOCP_PE_ANY_PORT)
+		goto outhere;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_OPS(port), &port_ops);
+	if (ret < 0)
+		return ret;
+
+	if(flags & RIOCP_PE_TRACE_FILTER_FORWARD)
+		port_ops |= (CPS1xxx_OPS_TRACE_0_EN << filter);
+	else
+		port_ops &= ~(CPS1xxx_OPS_TRACE_0_EN << filter);
+
+	if(flags & RIOCP_PE_TRACE_FILTER_DROP)
+		port_ops |= (CPS1xxx_OPS_FILTER_0_EN << filter);
+	else
+		port_ops &= ~(CPS1xxx_OPS_FILTER_0_EN << filter);
+
+	port_ops &= ~CPS1xxx_OPS_TRACE_PW_EN;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_OPS(port), port_ops);
+	if (ret < 0)
+		return ret;
+outhere:
+	return 0;
+}
+
+/*
+ * set the trace port
+ */
+int cps1xxx_set_trace_port(struct riocp_pe *sw, uint8_t port, uint32_t flags)
+{
+	int ret;
+	uint32_t dev_ctrl_1;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_DEVICE_CTL_1, &dev_ctrl_1);
+	if (ret < 0)
+		return ret;
+
+	/* disable trace */
+	dev_ctrl_1 &= ~CPS1xxx_DEVICE_CTL_TRACE_EN;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_DEVICE_CTL_1, dev_ctrl_1);
+	if (ret < 0)
+		return ret;
+
+	/* change port */
+	dev_ctrl_1 &= ~CPS1xxx_DEVICE_CTL_TRACE_PORT_MASK;
+	dev_ctrl_1 |= CPS1xxx_DEVICE_CTL_TRACE_PORT(port);
+
+	/* update flags */
+	if (flags & RIOCP_PE_TRACE_PORT_EXCLUSIVE)
+		dev_ctrl_1 |= CPS1xxx_DEVICE_CTL_TRACE_PORT_MODE;
+	else
+		dev_ctrl_1 &= ~CPS1xxx_DEVICE_CTL_TRACE_PORT_MODE;
+
+	/* enable trace */
+	dev_ctrl_1 |= CPS1xxx_DEVICE_CTL_TRACE_EN;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_DEVICE_CTL_1, dev_ctrl_1);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -2999,7 +3143,10 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	cps1xxx_set_multicast_mask,
 	cps1xxx_set_retry_limit,
     cps1xxx_get_capabilities,
-    cps1xxx_get_counters
+    cps1xxx_get_counters,
+	NULL,
+	NULL,
+	NULL
 };
 
 struct riocp_pe_device_id cps1432_id_table[] = {
@@ -3029,7 +3176,10 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	cps1xxx_set_multicast_mask,
 	cps1xxx_set_retry_limit,
     cps1xxx_get_capabilities,
-    cps1xxx_get_counters
+    cps1xxx_get_counters,
+	cps1xxx_get_trace_filter_capabilities,
+	cps1xxx_set_trace_filter,
+	cps1xxx_set_trace_port
 };
 
 struct riocp_pe_device_id cps1616_id_table[] = {
@@ -3059,7 +3209,10 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	cps1xxx_set_multicast_mask,
 	cps1xxx_set_retry_limit,
     cps1xxx_get_capabilities,
-    cps1xxx_get_counters
+    cps1xxx_get_counters,
+	NULL,
+	NULL,
+	NULL
 };
 
 struct riocp_pe_device_id sps1616_id_table[] = {
@@ -3089,7 +3242,10 @@ struct riocp_pe_switch riocp_pe_switch_sps1616 = {
 	cps1xxx_set_multicast_mask,
 	cps1xxx_set_retry_limit,
     cps1xxx_get_capabilities,
-    cps1xxx_get_counters
+    cps1xxx_get_counters,
+	cps1xxx_get_trace_filter_capabilities,
+	cps1xxx_set_trace_filter,
+	cps1xxx_set_trace_port
 };
 
 #ifdef __cplusplus

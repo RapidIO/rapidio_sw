@@ -121,6 +121,9 @@ struct riocp_pe_switch {
     int (*get_register_capabilities)(riocp_sw_cap_t *reg_cap);
     int (*get_counters)(struct riocp_pe *sw, uint8_t port,
             riocp_sw_cap_t reg_offsets, uint32_t *reg_cap_val, uint32_t reg_cap_val_size);
+    int (*get_trace_filter_capabilities)(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps);
+    int (*set_trace_filter)(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *val, uint32_t *mask);
+    int (*set_trace_port)(struct riocp_pe *sw, uint8_t port, uint32_t flags);
 };
 
 /** RapidIO Processing element */

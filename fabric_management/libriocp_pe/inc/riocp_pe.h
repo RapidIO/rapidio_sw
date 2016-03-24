@@ -172,6 +172,24 @@ extern const char *riocp_switch_cap_desc[];
 typedef uint32_t riocp_sw_cap_t;
 
 
+/** Trace filter match will forward packet to trace port */
+#define RIOCP_PE_TRACE_FILTER_FORWARD 1
+/** Trace filter match will drop packet */
+#define RIOCP_PE_TRACE_FILTER_DROP 2
+/** trace filter match will send a port write event to the host */
+#define RIOCP_PE_TRACE_FILTER_NOTIFY 4
+/** trace port is used exclusive for trace */
+#define RIOCP_PE_TRACE_PORT_EXCLUSIVE 1
+
+/** Trace filter capabilities */
+struct riocp_pe_trace_filter_caps {
+	int match_unit_count;	/**< Amount of trace match units per port */
+	int match_unit_words;	/**< Amount of 32 bit words per patch unit */
+	uint32_t filter_caps;	/**< capability flags the trace filter is able to do */
+	uint32_t port_caps;		/**< capability flags the trace port is able to do */
+};
+
+
 /*
  * API functions
  */
@@ -224,6 +242,11 @@ int RIOCP_WU riocp_sw_set_congestion_limit(riocp_pe_handle sw, uint8_t port, uin
 int RIOCP_WU riocp_pe_get_sw_counter_capabilites(riocp_pe_handle sw, riocp_sw_cap_t *reg_cap);
 int RIOCP_WU riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port,
         riocp_sw_cap_t reg_offsets, uint32_t *reg_values, uint32_t reg_cnt);
+
+/* Trace and Filters */
+int RIOCP_WU riocp_pe_get_sw_trace_filter_caps(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps);
+int RIOCP_WU riocp_pe_set_sw_trace_filter(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *match_val, uint32_t *match_mask);
+int RIOCP_WU riocp_pe_set_sw_trace_port(struct riocp_pe *sw, uint8_t port, uint32_t flags);
 
 /* Event management functions */
 int RIOCP_WU riocp_pe_get_event_mask(riocp_pe_handle pe, uint8_t port, riocp_pe_event_mask_t *mask);
