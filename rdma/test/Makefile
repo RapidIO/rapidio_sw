@@ -64,7 +64,7 @@ BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_P
 	-L$(TOP_LEVEL)/fabric_management/libdd \
 	-Wl,-rpath=$(LIBMPORT_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
-	$($@_SRC) -lrt -llog -lmport -lrdma -lcli -pthread -lfmdd -ldd -lriocp_pe
+	$($@_SRC) -lrt -lmport -llog -lrdma -lcli -pthread -lfmdd -ldd -lriocp_pe
 
 bat_server_SRC = src/bat_server.cpp
 
