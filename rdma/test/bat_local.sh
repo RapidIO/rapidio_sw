@@ -2,7 +2,19 @@
 RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
-# Script for BAT tests
+# ***************** Script for BAT tests ***********************
+# This should be run on either a client or a server node
+# Subsequent to running this shell one can manually run
+# run_bat.pl
+#
+# NOTE: Once that is working will look into calling run_bat.pl
+# from here, then killing the processes when done.
+# Subsequent to that we can look into repeating the entire process
+# as we did with RSKTD.
+
+# ALSO NOTE: For this local version we DON'T explicitly load
+# rio_cm & rio_mport_cdev as they are loaded by default
+# on the local machines.
 
 # Use NODES for common programs such as FMD and RDMAD
 NODES="10.10.10.51 10.10.10.50"
@@ -14,7 +26,9 @@ SERVERS="10.10.10.51"
 CLIENTS="10.10.10.50"
 
 # Server-base port number. Increments by for each new server on the same machine.
-SERVER_CM_CHANNEL=2224
+SERVER_CM_CHANNEL1=2224
+SERVER_CM_CHANNEL2=2225
+SERVER_CM_CHANNEL3=2226
 
 # Start Fabric Management Daemon on each node
 for node in $NODES
@@ -38,19 +52,22 @@ do
 	echo "$node rdmad pid=$RDMAD_PID"
 done
 
-# Start BAT_SERVER on each server node
+# Start 3 BAT_SERVERs on each server node
 for node in $SERVERS
 do
+	# Start 3 servers on channels 2224, 2225, 2226
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
-	echo "Start bat_server on $node destID=$DESTID"
+	echo "Start bat_servers on $node destID=$DESTID"
 	echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
-	ssh root@"$node" "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
+	ssh root@"$node" "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL1"
+	echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
+	ssh root@"$node" "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL2"
+	echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
+	ssh root@"$node" "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL3"
 	sleep 1
-	# Display PID for verification
-	BAT_SERVER_PID=$(ssh root@"$node" pgrep bat_server)
-	echo "$node bat_server pid=$BAT_SERVER_PID"
 
-	# Increment channel number
-	((SERVER_CM_CHANNEL++ ))
+	# Display PIDs for verification
+	BAT_SERVER_PID=$(ssh root@"$node" pgrep bat_server)
+	echo "$node bat_server pids=$BAT_SERVER_PID"
 done
 
