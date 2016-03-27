@@ -11,10 +11,7 @@
 #include <thread>
 #include <random>
 
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS
 #include <cinttypes>
-#endif
 #include <cstdlib>
 #include <cstdio>
 
@@ -29,6 +26,7 @@ using std::vector;
 using std::stringstream;
 using std::thread;
 using std::move;
+using std::min;
 
 static constexpr uint16_t  BAT_MIN_BLOCK_SIZE = 4096;
 
@@ -622,16 +620,12 @@ int test_case_d(void)
 				ms_info[i].handle, ms_info[i].rio_addr, ms_info[i].size);
 
 			/* For the current memory space, create 3 subspaces
-			 * or fewer if the memory space cannot hold 3 subspaces.
-			 */
-#define MIN(a,b) ((a) < (b)) ? (a) : (b)
-			unsigned max_msubs = ms_info[i].size / BAT_MIN_BLOCK_SIZE;
-			max_msubs = MIN(max_msubs, 3);
-			for (unsigned j = 0;
-				j < max_msubs;
-				j++) {
+			 * or fewer if the memory space cannot hold 3 subspaces. */
+			size_t max_msubs = ms_info[i].size / BAT_MIN_BLOCK_SIZE;
+			max_msubs = min<size_t>(max_msubs, 3);
+			for (unsigned j = 0; j < max_msubs; j++) {
 				msub_h	msubh;
-				uint32_t offset = j*BAT_MIN_BLOCK_SIZE;
+				uint32_t offset = j * BAT_MIN_BLOCK_SIZE;
 				rc = rdma_create_msub_h(ms_info[i].handle,
 							 offset,
 							 BAT_MIN_BLOCK_SIZE,
@@ -640,7 +634,6 @@ int test_case_d(void)
 				BAT_EXPECT_RET(rc, 0, free_mso);
 				msub_info.emplace_back(ms_info[i].handle, msubh, offset);
 			}
-#undef MIN
 		}
 
 		/* Pick 2 random memory sub-spaces */
@@ -2382,8 +2375,8 @@ exit:
 	return ret;
 } /* test_case_y() */
 
-#define DMA_DATA_SIZE	64
-#define DMA_DATA_SECTION_SIZE	8
+static constexpr unsigned DMA_DATA_SIZE	 = 64;
+static constexpr unsigned DMA_DATA_SECTION_SIZE =  8;
 
 uint8_t dma_data_copy[DMA_DATA_SIZE];
 
