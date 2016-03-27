@@ -31,7 +31,6 @@
 
 LOG_LEVEL?=7
 DEBUG?=DEBUG
-CC?= $(CROSS_COMPILE)g++
 CXX?= $(CROSS_COMPILE)g++
 
 # Library paths

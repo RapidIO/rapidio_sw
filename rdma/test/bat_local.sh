@@ -135,7 +135,7 @@ done
 # at this (local) machine. We should be able to modify it to run
 # multiple tests originating at multiple nodes
 
-#/usr/bin/perl run_bat.pl -c$SERVER_CM_CHANNEL_START -d$DESTID
+/usr/bin/perl run_bat.pl -c$SERVER_CM_CHANNEL_START -d$DESTID
 
 # ******************* Kill all processes *******************
 
