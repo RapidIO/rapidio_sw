@@ -192,7 +192,7 @@ do
 				echo "Killing fmd on $node, fmd PID=$THE_PID"
 				for proc in $THE_PID
 				do
-					ssh root@"$node" "kill -s 2 $proc"
+					ssh root@"$node" "kill -9 $proc"
 					sleep 1
 				done
 			else
