@@ -41,7 +41,7 @@ if (!defined($options{d})) {
 	print "ERROR: Destination not specified. Use -d<destid>\n";
 	exit;
 } else {
-	$destid = $options{d};
+	$destid = hex($options{d});
 }
 # Open log file for storing PASS/FAIL results of tests
 my $logfilename = "bat" . $channel . ".log";
