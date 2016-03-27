@@ -34,10 +34,10 @@ DEBUG?=DEBUG
 CC?= $(CROSS_COMPILE)g++
 CXX?= $(CROSS_COMPILE)g++
 
-LIBRDMA_PATH=..
-LIBMPORT_PATH=../../common/libs_so
-COMMON_LIBS_PATH=../../common/libs_a
+# Library paths
 TOP_LEVEL=../..
+LIBS_A_PATH =$(TOP_LEVEL)/common/libs_a
+
 # LOG_LEVEL is set by the master Makefile. If this Makefile is run alone, 
 # it can override the loglevel on the command line by specifying 'level=XXX'
 # otherwise it defaults to 7
@@ -55,14 +55,13 @@ RDMAAPP_CFLAGS = --std=c++11 -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
 		-I$(TOP_LEVEL)/rdma/inc \
 		-D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
-BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a \
+BAT_DEPS = $(LIBS_A_PATH)/libmport.a $(LIBS_A_PATH)/librdma.a \
 	../inc/* ../daemon/src/* ../daemon/inc/*
 
-BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
+BAT_BUILD_STRING = $(CXX) -L$(LIBS_A_PATH) \
 	-L$(TOP_LEVEL)/fabric_management/libfmdd \
 	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
 	-L$(TOP_LEVEL)/fabric_management/libdd \
-	-Wl,-rpath=$(LIBMPORT_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
 	$($@_SRC) -lrt -lmport -llog -lrdma -lcli -pthread -lfmdd -ldd -lriocp_pe
 
@@ -72,11 +71,12 @@ bat_client_SRC = src/bat_client.cpp src/bat_client_rdma_api.cpp src/bat_client_t
 
 bat_child_SRC = src/bat_child.cpp
 
-sanity_SRC = src/sanity.cpp
-
-sanity2_SRC = src/sanity2.cpp
-
-all: bat_server bat_client bat_child sanity sanity2
+# NOTE: FIXME: bat_child is needed for test case 'x'. But test case 'x' isn't
+# run as part of the automated tests. However, it is still curious as to why
+# bat_child gives linker errors related to 'liblog' while bat_server and bat_client
+# don't even though they both call librdma APIs.
+#all: bat_server bat_client bat_child
+all: bat_server bat_client
 
 # Batch Automated Test (BAT)
 bat_server: $(BAT_DEPS) $(bat_server_SRC)
@@ -91,13 +91,5 @@ bat_child: $(BAT_DEPS) $(bat_child_SRC)
 	@echo ---------- Building bat_child...
 	$(BAT_BUILD_STRING)
 
-sanity: $(BAT_DEPS) $(sanity_SRC)
-	@echo ---------- Building sanity ...
-	$(BAT_BUILD_STRING)
-
-sanity2: $(BAT_DEPS) $(sanity2_SRC)
-	@echo ---------- Building sanity2 ...
-	$(BAT_BUILD_STRING)
-
 clean:
-	@rm -f bat_client bat_server bat_child sanity *.o *~
+	@rm -f bat_client bat_server bat_child *.o *~

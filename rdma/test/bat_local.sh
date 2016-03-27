@@ -50,6 +50,8 @@ do
 	echo "$node rdmad pid=$RDMAD_PID"
 done
 
+sleep 2
+
 # Start 3 BAT_SERVERs on each server node. This is mainly because we have a BAT
 # test case that creates a memory space from one server app, and opens that memory
 # space from 2 other server apps. So we need three.
@@ -61,21 +63,21 @@ do
 
 	# Create first server on current node
 	echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
-	ssh root@"$node" "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
+	ssh root@"$node" "screen -dmS server1 $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
 
 	# Increment CM channel number for the next server app on the same node
 	((SERVER_CM_CHANNEL++ ))
 
 	# Create second server on current node
 	echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
-	ssh root@"$node" "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
+	ssh root@"$node" "screen -dmS server2 $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
 
 	# Increment CM channel number for the next server app on the same node
 	((SERVER_CM_CHANNEL++ ))
 
 	# Create third server on current node
 	echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
-	ssh root@"$node" "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
+	ssh root@"$node" "screen -dmS server3 $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
 
 	# Increment CM channel number for next node
 	((SERVER_CM_CHANNEL++ ))

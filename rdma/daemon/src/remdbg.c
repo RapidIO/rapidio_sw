@@ -30,7 +30,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-/* LIN_RTA_CLI.cpp : Defines "main" for the Linux console application.  */
 
 #include <stdint.h>
 #include <unistd.h>
