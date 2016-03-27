@@ -1,12 +1,12 @@
 #!/bin/bash
-RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
-RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 # Script for automated execution of BAT tests.
 
-# NOTE: For this local version we DON'T explicitly load
-# rio_cm & rio_mport_cdev as they are loaded by default
-# on the local machines.
+# Location of binaries
+RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
+
+# Location of RIO mport infor (e.g. destid)
+RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 # Use NODES for common programs such as FMD and RDMAD
 # Note the ORDER is IMPORTANT as we MUST start FMD
@@ -19,7 +19,7 @@ SERVER_NODES="10.10.10.51"
 # Use CLIENT_NODES for nodes that run "bat_client"
 CLIENT_NODES="10.10.10.50"
 
-# Server-base port number. Increments by for each new server on the same machine.
+# Server-base port number. Increments by 1 for each new server on the same machine.
 # Also increments for other machines. So the first machine shall use 2224, 2225, and 2226;
 # the second machine shall use 2227, 2228, and 2229; and so on.
 SERVER_CM_CHANNEL_START=2224
@@ -27,6 +27,32 @@ SERVER_CM_CHANNEL=$SERVER_CM_CHANNEL_START
 
 # Unix signal to send to processes via the 'kill' command
 SIGINT=2	# CTRL-C
+
+
+
+# Load drivers on each node
+for node in $NODES
+do
+	THE_DRIVER=$(ssh root@"$node" lsmod | grep rio_cm)
+	if [ -n "$THE_DRIVER" ]
+		then
+			echo "rio_cm already loaded on $node!";
+		else
+			ssh root@"$node" "modprobe rio_cm"
+			sleep 1
+	fi
+
+	THE_DRIVER=$(ssh root@"$node" lsmod | grep rio_mport_cdev)
+	if [ -n "$THE_DRIVER" ]
+		then
+			echo "rio_mport_cdev already loaded on $node!";
+		else
+			ssh root@"$node" "modprobe rio_mport_cdev"
+			sleep 1
+	fi
+
+	sleep 1
+done
 
 # Start Fabric Management Daemon on all nodes
 for node in $NODES
