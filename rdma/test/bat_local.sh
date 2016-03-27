@@ -42,8 +42,8 @@ do
 		else
 			ssh root@"$node" "screen -dmS fmd $RDMA_ROOT_PATH/fabric_management/daemon/fmd -l7"
 			sleep 1
-			FMD_PID=$(ssh root@"$node" pgrep fmd)
-			echo "$node fmd pid=$FMD_PID"
+			THE_PID=$(ssh root@"$node" pgrep -d"," fmd)
+			echo "$node fmd pid=$THE_PID"
 	fi
 done
 
@@ -57,12 +57,13 @@ do
 	THE_PID=$(ssh root@"$node" pgrep rdmad)
 	if [ -n "$THE_PID" ]
 		then
+			THE_PID=$(ssh root@"$node" pgrep -d, rdmad)
 			echo "rdmad already running on $node, rdmad PID=$THE_PID"
 		else
 			ssh root@"$node" "screen -dmS rdmad $RDMA_ROOT_PATH/rdma/rdmad"
 			sleep 1
-			RDMAD_PID=$(ssh root@"$node" pgrep rdmad)
-			echo "$node rdmad pid=$RDMAD_PID"
+			THE_PID=$(ssh root@"$node" pgrep -d, rdmad)
+			echo "$node rdmad PID=$THE_PID"
 	fi
 done
 
@@ -100,7 +101,7 @@ do
 
 	# Display PIDs for verification
 	sleep 1
-	BAT_SERVER_PID=$(ssh root@"$node" pgrep bat_server)
+	BAT_SERVER_PID=$(ssh root@"$node" pgrep -d, bat_server)
 	echo "$node bat_server pids=$BAT_SERVER_PID"
 done
 
@@ -108,7 +109,7 @@ done
 # at this (local) machine. We should be able to modify it to run
 # multiple tests originating at multiple nodes
 
-/usr/bin/perl run_bat.pl -c$SERVER_CM_CHANNEL_START -d$DESTID
+#/usr/bin/perl run_bat.pl -c$SERVER_CM_CHANNEL_START -d$DESTID
 
 # ******************* Kill all processes *******************
 
@@ -121,9 +122,9 @@ do
 		THE_PID=$(ssh root@"$node" pgrep bat_server)
 		if [ -n "$THE_PID" ]
 			then
-				echo "Killing bat_server on $node, bat_server PID=$THE_PID"
 				for proc in $THE_PID
 				do
+					echo "Killing bat_server on $node, bat_server PID=$proc"
 					ssh root@"$node" "kill -s $SIGINT $proc"
 					sleep 1
 				done
