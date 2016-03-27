@@ -33,10 +33,18 @@ for node in $NODES
 do
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 	echo "Starting fmd on $node destID=$DESTID"
-	ssh root@"$node" "screen -dmS fmd $RDMA_ROOT_PATH/fabric_management/daemon/fmd -l7"
-	sleep 1
-	FMD_PID=$(ssh root@"$node" pgrep fmd)
-	echo "$node fmd pid=$FMD_PID"
+
+	# Only start fmd if not already running
+	THE_PID=$(ssh root@"$node" pgrep fmd)
+	if [ -n "$THE_PID" ]
+		then
+			echo "fmd already running on $node, fmd PID=$THE_PID"
+		else
+			ssh root@"$node" "screen -dmS fmd $RDMA_ROOT_PATH/fabric_management/daemon/fmd -l7"
+			sleep 1
+			FMD_PID=$(ssh root@"$node" pgrep fmd)
+			echo "$node fmd pid=$FMD_PID"
+	fi
 done
 
 # Start RDMAD on all nodes
@@ -44,10 +52,18 @@ for node in $NODES
 do
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 	echo "Start rdmad on $node destID=$DESTID"
-	ssh root@"$node" "screen -dmS rdmad $RDMA_ROOT_PATH/rdma/rdmad"
-	sleep 1
-	RDMAD_PID=$(ssh root@"$node" pgrep rdmad)
-	echo "$node rdmad pid=$RDMAD_PID"
+
+	# Only start rdmad if not already running
+	THE_PID=$(ssh root@"$node" pgrep rdmad)
+	if [ -n "$THE_PID" ]
+		then
+			echo "rdmad already running on $node, rdmad PID=$THE_PID"
+		else
+			ssh root@"$node" "screen -dmS rdmad $RDMA_ROOT_PATH/rdma/rdmad"
+			sleep 1
+			RDMAD_PID=$(ssh root@"$node" pgrep rdmad)
+			echo "$node rdmad pid=$RDMAD_PID"
+	fi
 done
 
 sleep 2
