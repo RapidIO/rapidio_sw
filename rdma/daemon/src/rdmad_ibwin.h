@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <exception>
 #include <mutex>
+#include <memory>
 
 #include "libcli.h"
 #include "rapidio_mport_mgmt.h"
@@ -46,11 +47,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::vector;
 using std::exception;
 using std::mutex;
-
+using std::unique_ptr;
 
 using mspace_list = vector<mspace *>;
 using mspace_iterator = mspace_list::iterator;
-
 
 /**
  * @brief Inbound window mapping exception
@@ -107,8 +107,6 @@ public:
 	void free();
 
 	/* Accessors */
-	mspace_list& get_mspaces() { return mspaces; };
-
 	unsigned get_win_num() const { return win_num; };
 
 	/**
@@ -259,6 +257,9 @@ public:
 			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
 private:
+	using mspace_ptr_list = vector<unique_ptr<mspace>>;
+	using mspace_ptr_iterator = mspace_ptr_list::iterator;
+
 	/**
 	 * @brief	Merges two free memory spaces together to form
 	 * 		a larger memory space
@@ -267,8 +268,8 @@ private:
 	 *
 	 * @param other	  Second memory space
 	 */
-	void merge_other_with_mspace(mspace_iterator current,
-				     mspace_iterator other);
+	void merge_other_with_mspace(mspace_ptr_iterator current,
+				     mspace_ptr_iterator other);
 
 	/**
 	 * @brief  Destroy memory space specified by iterator
@@ -277,7 +278,7 @@ private:
 	 *
 	 * @return 0 if successful, non-zero otherwise
 	 */
-	int destroy_mspace(mspace_iterator current_ms);
+	int destroy_mspace(mspace_ptr_iterator current_ms);
 
 	ms_owners	&owners;	/* Reference to memory space owners */
 	riomp_mport_t mport_hnd;	/* Master port handle */
@@ -290,7 +291,7 @@ private:
 	bool msindex_free_list[MSINDEX_MAX+1];	/* List of memory space IDs */
 	mutex		msindex_mutex;
 
-	mspace_list	mspaces;
+	mspace_ptr_list	mspaces;
 	mutex		mspaces_mutex;
 }; /* ibwin */
 

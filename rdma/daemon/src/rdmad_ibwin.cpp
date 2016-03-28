@@ -32,6 +32,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <algorithm>
 #include <iterator>
+#include <memory>
+#include "memory_supp.h"
 
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
@@ -51,24 +53,9 @@ using std::find;
 using std::fill;
 using std::mutex;
 using std::lock_guard;
+using std::move;
+using std::unique_ptr;
 
-/**
- * @brief Function object that determines whether a memory space is
- * 	  equal or greater than a specified size, and is free.
- *
- * @param size Desired size to create a memory space for
- *
- * @return true if larger or equal to desired size and is free, false otherwise
- */
-struct has_room {
-	has_room(uint64_t size) : size(size) {}
-
-	bool operator()(mspace* ms) {
-		return (ms->get_size() >= size) && ms->is_free();
-	}
-private:
-	uint64_t size;
-};
 
 /**
  * @brief Function object that determines whether a memory space has
@@ -81,7 +68,7 @@ private:
 struct has_msid {
 	has_msid(uint32_t msid) : msid(msid) {}
 
-	bool operator()(mspace *ms) {
+	bool operator()(const unique_ptr<mspace>& ms) {
 		return ms->get_msid() == msid;
 	}
 private:
@@ -100,7 +87,7 @@ struct has_msid_and_msoid {
 	has_msid_and_msoid(uint32_t msid, uint32_t msoid) :
 		msid(msid), msoid(msoid) {}
 
-	bool operator()(mspace *ms) {
+	bool operator()(const unique_ptr<mspace>& ms) {
 		if (ms->get_msid() == msid) {
 			if (ms->get_msoid() == msoid) {
 				return true;
@@ -125,7 +112,7 @@ private:
  */
 struct has_ms_name {
 	has_ms_name(const char *name) : name(name) {}
-	bool operator()(mspace *ms) {
+	bool operator()(const unique_ptr<mspace>& ms) {
 		return *ms == name;	/* mspace::operator==(const char *s) */
 	}
 private:
@@ -152,13 +139,13 @@ ibwin::ibwin(ms_owners &owners, riomp_mport_t mport_hnd,
 
 	/* Create first memory space. It is free, has no owner, has
 	 * msindex of 0x00000001 and occupies the entire window */
-	mspace	*ms = new mspace("freemspace",
+	auto	ms = make_unique<mspace>("freemspace",
 				win_num << MSID_WIN_SHIFT | 0x00000001,
 				rio_addr,
 				phys_addr,
 				size,
 				owners);
-	mspaces.push_back(ms);
+	mspaces.push_back(move(ms));
 
 	/* Skip msindex of 0 and msindex of 1 used above. Free list starts at 2 */
 	fill(msindex_free_list, msindex_free_list + MSINDEX_MAX + 1, true);
@@ -171,7 +158,6 @@ void ibwin::free()
 {
 	/* Delete all memory spaces */
 	INFO("Freeing %u mspaces in ibwin %u\n", mspaces.size(), win_num);
-	for_each(begin(mspaces), end(mspaces), [](mspace* ms) { delete ms;});
 	mspaces.clear();
 
 	/* Free inbound window */
@@ -224,9 +210,14 @@ int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 	lock_guard<mutex> lock(mspaces_mutex);
 	auto it = begin(mspaces);
 	while (1) {
-		it = find_if(it, end(mspaces), has_room(size));
+		it = find_if(it, end(mspaces),
+			[size](const unique_ptr<mspace>& ms)
+			{
+				return (ms->get_size() >= size) && ms->is_free();
+			});
+
 		if (it != end(mspaces)) {
-			le_mspaces.push_back(*it);
+			le_mspaces.push_back((*it).get());
 			it++;
 		} else { /* end(mspaces) */
 			DBG("Found %u mspaces that can hold %" PRIx64 "\n",
@@ -240,15 +231,11 @@ int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 bool ibwin::has_room_for_ms(uint64_t size)
 {
 	lock_guard<mutex> lock(mspaces_mutex);
-	return find_if(begin(mspaces), end(mspaces), has_room(size))
-						!= end(mspaces);
+	return find_if(begin(mspaces), end(mspaces),
+			[size](const unique_ptr<mspace>& ms)
+			{ return (ms->get_size() >= size) && ms->is_free(); })
+			!= end(mspaces);
 } /* has_room_for_ms() */
-
-struct ms_compare_t {
-	bool operator()(mspace *ms1, mspace *ms2) {
-		return ms1->get_size() < ms2->get_size();
-	}
-} ms_compare;
 
 int ibwin::create_mspace(const char *name,
 		  	 uint64_t size,
@@ -271,7 +258,10 @@ int ibwin::create_mspace(const char *name,
 	}
 
 	/* Then find the smallest space that can accomodate 'size' */
-	*ms = *std::min_element(begin(le_mspaces), end(le_mspaces), ms_compare);
+	*ms = *std::min_element(begin(le_mspaces),
+				     end(le_mspaces),
+			     [](const mspace *ms1, const mspace *ms2)
+			     {return ms1->get_size() < ms2->get_size();});
 
 	/* Determine index of new, free, memory space */
 	lock_guard<mutex> lock(msindex_mutex);
@@ -303,7 +293,7 @@ int ibwin::create_mspace(const char *name,
 		uint32_t new_msid = ((*ms)->get_msid() & MSID_WIN_MASK) |
 				 (fmlit - begin(msindex_free_list));
 		/* Create a new space for unused portion */
-		mspace	 *new_free = new mspace("freemspace",
+		auto new_free = make_unique<mspace>("freemspace",
 						new_msid,
 						new_rio_addr,
 						new_phys_addr,
@@ -312,7 +302,7 @@ int ibwin::create_mspace(const char *name,
 
 		/* Add new free memory space to list */
 		lock_guard<mutex> lock(mspaces_mutex);
-		mspaces.push_back(new_free);
+		mspaces.push_back(move(new_free));
 	}
 
 	/* Mark new memory space index as unavailable */
@@ -324,14 +314,14 @@ mspace* ibwin::get_mspace(const char *name)
 {
 	lock_guard<mutex> lock(mspaces_mutex);
 	auto msit = find_if(begin(mspaces), end(mspaces), has_ms_name(name));
-	return (msit == end(mspaces)) ? nullptr : *msit;
+	return (msit == end(mspaces)) ? nullptr : (*msit).get();
 } /* get_mspace() */
 
 mspace* ibwin::get_mspace(uint32_t msid)
 {
 	lock_guard<mutex> lock(mspaces_mutex);
 	auto it = find_if(begin(mspaces), end(mspaces), has_msid(msid));
-	return (it == end(mspaces)) ? nullptr : *it;
+	return (it == end(mspaces)) ? nullptr : (*it).get();
 } /* get_mspace() */
 
 mspace* ibwin::get_mspace(uint32_t msoid, uint32_t msid)
@@ -339,10 +329,10 @@ mspace* ibwin::get_mspace(uint32_t msoid, uint32_t msid)
 	lock_guard<mutex> lock(mspaces_mutex);
 	auto it = find_if(begin(mspaces), end(mspaces),
 					has_msid_and_msoid(msid, msoid));
-	return (it == end(mspaces)) ? nullptr : *it;
+	return (it == end(mspaces)) ? nullptr : (*it).get();
 } /* get_mspace() */
 
-void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator other)
+void ibwin::merge_other_with_mspace(mspace_ptr_iterator current, mspace_ptr_iterator other)
 {
 	/* Called from destroy_mspace() which already locks mspaces access */
 
@@ -356,13 +346,12 @@ void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator oth
 	msindex_free_list[(*other)->get_msindex()] = true;
 
 	/* Delete the other item and erase from the list */
-	delete *other;
 	mspaces.erase(other);
 } /* merge_next_with_mspace() */
 
 /* Private method called from other methods which have already locked
  * the mutex around mspaces so don't lock it here */
-int ibwin::destroy_mspace(mspace_iterator current_ms)
+int ibwin::destroy_mspace(mspace_ptr_iterator current_ms)
 {
 	int rc;
 
@@ -379,7 +368,7 @@ int ibwin::destroy_mspace(mspace_iterator current_ms)
 		 * mspace to merge it with. Otherwise, merge and remove the
 		 * 'next'. Removing 'next' should not alter 'prev' */
 		if ((current_ms + 1) != end(mspaces)) {
-			mspace_iterator next_ms = current_ms + 1;
+			mspace_ptr_iterator next_ms = current_ms + 1;
 			if ((*next_ms)->is_free()) {
 				DBG("Next ms is also free. Merging!\n");
 				merge_other_with_mspace(current_ms, next_ms);
@@ -391,7 +380,7 @@ int ibwin::destroy_mspace(mspace_iterator current_ms)
 		/* If it is the first mspace in the list there is no 'prev'
 		 * mspace to merge with. Otherwise, merge and remove 'prev' */
 		if (current_ms != begin(mspaces)) {
-			mspace_iterator prev_ms = current_ms -1;
+			mspace_ptr_iterator prev_ms = current_ms -1;
 			if ((*prev_ms)->is_free()) {
 				DBG("Prev ms is also free. Merging!\n");
 				merge_other_with_mspace(prev_ms, current_ms);
@@ -410,7 +399,7 @@ int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
 {
 	/* Locate the memory space by its mosid and msid */
 	lock_guard<mutex> lock(mspaces_mutex);
-	mspace_iterator current_ms =
+	mspace_ptr_iterator current_ms =
 			find_if(begin(mspaces),
 				end(mspaces),
 				has_msid_and_msoid(msid, msoid));
@@ -451,7 +440,7 @@ void ibwin::destroy_mspaces_using_tx_eng(
 	do {
 		auto it = find_if(begin(mspaces),
 				  end(mspaces),
-				  [app_tx_eng](mspace* ms)
+				  [app_tx_eng](unique_ptr<mspace>& ms)
 				  {
 					return ms->created_using_tx_eng(app_tx_eng);
 				  });
@@ -469,5 +458,5 @@ void ibwin::get_mspaces_connected_by_destid(uint32_t destid, mspace_list& mspace
 	lock_guard<mutex> lock(mspaces_mutex);
 	for (auto& ms : this->mspaces)
 		if (ms->connected_by_destid(destid))
-			mspaces.push_back(ms);
+			mspaces.push_back(ms.get());
 } /* get_mspaces_connected_by_destid() */
