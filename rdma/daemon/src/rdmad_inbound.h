@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <exception>
 #include <vector>
 #include <mutex>
+#include <memory>
 
 #include "libcli.h"
 
@@ -49,6 +50,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::vector;
 using std::mutex;
+using std::unique_ptr;
+
 
 class inbound_exception : public exception {
 public:
@@ -288,7 +291,7 @@ public:
 	int destroy_msubspace(uint32_t msid, uint32_t msubid);
 
 private:
-	using ibwin_list = vector<ibwin>;
+	using ibwin_list = vector<unique_ptr<ibwin>>;
 
 	peer_info	&peer;
 	ms_owners	&owners;

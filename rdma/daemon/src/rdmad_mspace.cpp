@@ -334,9 +334,8 @@ int mspace::add_rem_connection(uint16_t client_destid,
 
 		DBG("The creator was not accepting..checking the users\n");
 		DBG("There are %u user(s)\n", users.size());
-		auto it = find_if(begin(users), end(users), [](ms_user& u) {
-			return u.accepting;
-		});
+		auto it = find_if(begin(users), end(users), [](ms_user& u)
+							{return u.accepting;});
 		if (it == end(users)) {
 			CRIT("Failed to find a user in 'accepting' mode.\n");
 			rc = -1;
