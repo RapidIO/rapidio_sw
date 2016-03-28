@@ -34,10 +34,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef IBWIN_H
 #define IBWIN_H
 
-#include <pthread.h>
-
 #include <vector>
 #include <exception>
+#include <mutex>
 
 #include "libcli.h"
 #include "rapidio_mport_mgmt.h"
@@ -46,6 +45,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::vector;
 using std::exception;
+using std::mutex;
+
 
 using mspace_list = vector<mspace *>;
 using mspace_iterator = mspace_list::iterator;
@@ -92,7 +93,7 @@ public:
 	/**
 	 * @brief	Copy constructor deleted
 	 */
-	ibwin(const ibwin&) = default;
+	ibwin(const ibwin&) = delete;
 
 	/**
 	 * @brief	Assignment operator deleted.
@@ -287,10 +288,10 @@ private:
 
 	/* Memory space indexes */
 	bool msindex_free_list[MSINDEX_MAX+1];	/* List of memory space IDs */
-	pthread_mutex_t msindex_lock;
+	mutex		msindex_mutex;
 
 	mspace_list	mspaces;
-	pthread_mutex_t mspaces_lock;
+	mutex		mspaces_mutex;
 }; /* ibwin */
 
 

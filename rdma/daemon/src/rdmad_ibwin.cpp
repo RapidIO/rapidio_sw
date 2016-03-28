@@ -49,6 +49,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::find;
 using std::fill;
+using std::mutex;
+using std::lock_guard;
 
 /**
  * @brief Function object that determines whether a memory space is
@@ -162,16 +164,6 @@ ibwin::ibwin(ms_owners &owners, riomp_mport_t mport_hnd,
 	fill(msindex_free_list, msindex_free_list + MSINDEX_MAX + 1, true);
 	msindex_free_list[0] = false;
 	msindex_free_list[1] = false;
-
-	if (pthread_mutex_init(&mspaces_lock, NULL)) {
-		CRIT("Failed to init mspaces_lock mutex\n");
-		throw -1;
-	}
-
-	if (pthread_mutex_init(&msindex_lock, NULL)) {
-		CRIT("Failed to init msindex_lock mutex\n");
-		throw -1;
-	}
 } /* Constructor */
 
 /* Called from destructor ~inbound() */
@@ -214,26 +206,22 @@ void ibwin::print_mspace_header(struct cli_env *env)
 void ibwin::dump_mspace_info(struct cli_env *env)
 {
 	print_mspace_header(env);
-	pthread_mutex_lock(&mspaces_lock);
-	for (auto& ms : mspaces) {
+	lock_guard<mutex> lock(mspaces_mutex);
+	for (auto& ms : mspaces)
 		ms->dump_info(env);
-	}
-	pthread_mutex_unlock(&mspaces_lock);
 } /* dump_mspace_info() */
 
 void ibwin::dump_mspace_and_subs_info(cli_env *env)
 {
-	pthread_mutex_lock(&mspaces_lock);
 	print_mspace_header(env);
-	for (auto& ms : mspaces) {
+	lock_guard<mutex> lock(mspaces_mutex);
+	for (auto& ms : mspaces)
 		ms->dump_info_with_msubs(env);
-	}
-	pthread_mutex_unlock(&mspaces_lock);
 } /* dump_mspace_and_subs_info() */
 
 int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 {
-	pthread_mutex_lock(&mspaces_lock);
+	lock_guard<mutex> lock(mspaces_mutex);
 	auto it = begin(mspaces);
 	while (1) {
 		it = find_if(it, end(mspaces), has_room(size));
@@ -246,19 +234,14 @@ int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 			break;
 		}
 	}
-	pthread_mutex_unlock(&mspaces_lock);
-
 	return (le_mspaces.size() > 0) ? 0 : -1;
 } /* free_ms_large_enough() */
 
 bool ibwin::has_room_for_ms(uint64_t size)
 {
-	pthread_mutex_lock(&mspaces_lock);
-	bool ms_has_room = find_if(begin(mspaces), end(mspaces), has_room(size))
-						!= mspaces.end();
-	pthread_mutex_unlock(&mspaces_lock);
-
-	return ms_has_room;
+	lock_guard<mutex> lock(mspaces_mutex);
+	return find_if(begin(mspaces), end(mspaces), has_room(size))
+						!= end(mspaces);
 } /* has_room_for_ms() */
 
 struct ms_compare_t {
@@ -286,20 +269,19 @@ int ibwin::create_mspace(const char *name,
 		ERR("No memory space large enough to hold '%s'\n", name);
 		return RDMA_NO_ROOM_FOR_MS;
 	}
+
 	/* Then find the smallest space that can accomodate 'size' */
 	*ms = *std::min_element(begin(le_mspaces), end(le_mspaces), ms_compare);
 
 	/* Determine index of new, free, memory space */
-	pthread_mutex_lock(&msindex_lock);
+	lock_guard<mutex> lock(msindex_mutex);
 	bool *fmlit  = find(begin(msindex_free_list), end(msindex_free_list),
 		    	    	    	    	    	    	    true);
 	/* If none found, return error */
 	if (fmlit == (end(msindex_free_list))) {
 		CRIT("No free memory space indexes\n");
-		pthread_mutex_unlock(&msindex_lock);
 		return -2;
 	}
-	pthread_mutex_unlock(&msindex_lock);
 
 	/* Compute values for new memory space */
 	uint64_t new_rio_addr	= (*ms)->get_rio_addr() + size;
@@ -329,9 +311,8 @@ int ibwin::create_mspace(const char *name,
 						owners);
 
 		/* Add new free memory space to list */
-		pthread_mutex_lock(&mspaces_lock);
+		lock_guard<mutex> lock(mspaces_mutex);
 		mspaces.push_back(new_free);
-		pthread_mutex_unlock(&mspaces_lock);
 	}
 
 	/* Mark new memory space index as unavailable */
@@ -341,36 +322,24 @@ int ibwin::create_mspace(const char *name,
 
 mspace* ibwin::get_mspace(const char *name)
 {
-	pthread_mutex_lock(&mspaces_lock);
+	lock_guard<mutex> lock(mspaces_mutex);
 	auto msit = find_if(begin(mspaces), end(mspaces), has_ms_name(name));
-	mspace *ms = (msit == end(mspaces)) ? nullptr : *msit;
-	pthread_mutex_unlock(&mspaces_lock);
-
-	return ms;
+	return (msit == end(mspaces)) ? nullptr : *msit;
 } /* get_mspace() */
 
 mspace* ibwin::get_mspace(uint32_t msid)
 {
-	pthread_mutex_lock(&mspaces_lock);
-
+	lock_guard<mutex> lock(mspaces_mutex);
 	auto it = find_if(begin(mspaces), end(mspaces), has_msid(msid));
-	mspace *ms = (it == end(mspaces)) ? nullptr : *it;
-
-	pthread_mutex_unlock(&mspaces_lock);
-
-	return ms;
+	return (it == end(mspaces)) ? nullptr : *it;
 } /* get_mspace() */
 
 mspace* ibwin::get_mspace(uint32_t msoid, uint32_t msid)
 {
-	pthread_mutex_lock(&mspaces_lock);
-
-	auto it = find_if(begin(mspaces), end(mspaces), has_msid_and_msoid(msid, msoid));
-	mspace *ms = (it == end(mspaces)) ? nullptr : *it;
-
-	pthread_mutex_unlock(&mspaces_lock);
-
-	return ms;
+	lock_guard<mutex> lock(mspaces_mutex);
+	auto it = find_if(begin(mspaces), end(mspaces),
+					has_msid_and_msoid(msid, msoid));
+	return (it == end(mspaces)) ? nullptr : *it;
 } /* get_mspace() */
 
 void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator other)
@@ -383,9 +352,8 @@ void ibwin::merge_other_with_mspace(mspace_iterator current, mspace_iterator oth
 	(*current)->set_size(curr_size  + other_size);
 
 	/* The ms index belonging to the 'other' ms will be freed for reuse */
-	pthread_mutex_lock(&msindex_lock);
+	lock_guard<mutex> lock(msindex_mutex);
 	msindex_free_list[(*other)->get_msindex()] = true;
-	pthread_mutex_unlock(&msindex_lock);
 
 	/* Delete the other item and erase from the list */
 	delete *other;
@@ -440,30 +408,26 @@ int ibwin::destroy_mspace(mspace_iterator current_ms)
 
 int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
 {
-	int rc;
-
-	pthread_mutex_lock(&mspaces_lock);
+	/* Locate the memory space by its mosid and msid */
+	lock_guard<mutex> lock(mspaces_mutex);
 	mspace_iterator current_ms =
 			find_if(begin(mspaces),
 				end(mspaces),
 				has_msid_and_msoid(msid, msoid));
 
 	if (current_ms != end(mspaces)) {
-		rc = destroy_mspace(current_ms);
+		return destroy_mspace(current_ms);
 	} else {
 		ERR("Cannot find ms w/ msoid(0x%X) and msid(0x%X) in ibwin%u\n",
 				msoid, msid, win_num);
-		rc = RDMA_INVALID_MS;	/* Not found */
+		return RDMA_INVALID_MS;	/* Not found */
 	}
-	pthread_mutex_unlock(&mspaces_lock);
-
-	return rc;
 } /* destroy_mspace() */
 
 void ibwin::close_mspaces_using_tx_eng(
 		tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
-	pthread_mutex_lock(&mspaces_lock);
+	lock_guard<mutex> lock(mspaces_mutex);
 	for(auto& ms : mspaces) {
 		INFO("Checking mspace '%s'\n", ms->get_name());
 		if (ms->has_user_with_user_tx_eng(user_tx_eng)) {
@@ -473,13 +437,12 @@ void ibwin::close_mspaces_using_tx_eng(
 			DBG("Skipping '%s' since it doesn't use app_tx_eng\n");
 		}
 	}
-	pthread_mutex_unlock(&mspaces_lock);
 } /* close_mspaces_using_tx_eng() */
 
 void ibwin::destroy_mspaces_using_tx_eng(
 		tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
-	pthread_mutex_lock(&mspaces_lock);
+	lock_guard<mutex> lock(mspaces_mutex);
 
 	/* NOTE: destroy_mspace() may potentially alter 'mspaces'
 	 * if it decides to merge 2 contiguous free spaces. That
@@ -499,17 +462,12 @@ void ibwin::destroy_mspaces_using_tx_eng(
 		} else
 			done = true;
 	} while (!done);
-
-	pthread_mutex_unlock(&mspaces_lock);
 } /* destroy_mspaces_using_tx_eng() */
 
 void ibwin::get_mspaces_connected_by_destid(uint32_t destid, mspace_list& mspaces)
 {
-	pthread_mutex_lock(&mspaces_lock);
-	for (auto& ms : this->mspaces) {
-		if (ms->connected_by_destid(destid)) {
+	lock_guard<mutex> lock(mspaces_mutex);
+	for (auto& ms : this->mspaces)
+		if (ms->connected_by_destid(destid))
 			mspaces.push_back(ms);
-		}
-	}
-	pthread_mutex_unlock(&mspaces_lock);
 } /* get_mspaces_connected_by_destid() */
