@@ -152,9 +152,12 @@ POSIXShm::POSIXShm(const char* name, const uint64_t size, bool& first_opener)
     }
     if(found < 0) {
       m_mutex->unlock();
+#if 0
       throw std::runtime_error("Duplicate registry entry!");
+#else // Allow same-proces duplicate SHM mappings
+      found = -found;
+#endif
     }
-
     m_reg_index = found;
     reg->reg[m_reg_index] = MYSELF;
     reg->count++;

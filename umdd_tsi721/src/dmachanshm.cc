@@ -61,7 +61,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DMA_SHM_TXDESC_NAME	"DMAChannelSHM-txdesc:%d:%d"
 #define DMA_SHM_TXDESC_SIZE	((m_state->bd_num+1)*sizeof(bool) + (m_state->bd_num+1)*sizeof(WorkItem_t) + (m_state->bd_num+1)*sizeof(uint64_t))
 
-#define DMA_SHM_PENDINGDATA_NAME "DMAChannelSHMs-pendingdata:%d"
+#define DMA_SHM_PENDINGDATA_NAME "DMAChannelSHM-pendingdata:%d"
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
