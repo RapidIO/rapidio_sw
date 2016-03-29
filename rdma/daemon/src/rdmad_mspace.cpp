@@ -562,10 +562,9 @@ set<uint16_t> mspace::get_rem_destids()
 	/* Now check the memory space users for connections */
 	lock_guard<mutex> users_lock(users_mutex);
 
-	for( auto& u : users) {
+	for( auto& u : users)
 		if (u.connected_to)
 			rem_destids.insert(u.client_destid);
-	}
 
 	return rem_destids;
 } /* get_rem_destids() */
@@ -599,9 +598,8 @@ void mspace::dump_info_msubs_only(struct cli_env *env)
 	logMsg(env);
 
 	/* Called from dump_info_with_msubs --> no mutex locking needed here */
-	for (auto& msub : msubspaces) {
+	for (auto& msub : msubspaces)
 		msub.dump_info(env);
-	}
 } /* dump_info_msubs_only() */
 
 void mspace::dump_info_with_msubs(struct cli_env *env)
@@ -660,257 +658,212 @@ int mspace::create_msubspace(uint32_t offset, uint32_t size,
 
 int mspace::open(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
-	int rc;
-
-	DBG("ENTER\n");
-	lock_guard<mutex> users_lock(users_mutex);
-
 	/* Altough LIBRDMA should contain some safegaurds against the same
 	 * memory space being opened twice by the same application, it doesn't
 	 * hurt to add a quick check here. */
+	lock_guard<mutex> users_lock(users_mutex);
 	auto it = find(begin(users), end(users), user_tx_eng);
 	if (it != end(users)) {
 		ERR("'%s' already open by this application\n", name.c_str());
-		rc = RDMA_ALREADY_OPEN;
-	} else {
-		/* Store info about user that opened the ms in 'users' */
-		users.emplace_back(user_tx_eng);
-		DBG("user with user_tx_eng(%p) stored in msid(0x%X)\n",
-							user_tx_eng, msid);
-		rc = 0;
+		return RDMA_ALREADY_OPEN;
 	}
-	DBG("EXIT\n");
-	return rc;
+
+	/* Store info about user that opened the ms in 'users' */
+	users.emplace_back(user_tx_eng);
+	DBG("user with user_tx_eng(%p) stored in msid(0x%X)\n",
+							user_tx_eng, msid);
+	return 0;
 } /* open() */
 
 tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()
 {
-	tx_engine<unix_server, unix_msg_t> *tx_eng = nullptr;
-
-
-	if (accepting)
-		tx_eng = creator_tx_eng;
-	else {
-		lock_guard<mutex> users_lock(users_mutex);
-		auto it = find_if(begin(users),
-			       end(users),
-			       [](ms_user& user)
-			       {
-					return user.accepting;
-			       });
-		if (it != end(users))
-			tx_eng = it->tx_eng;
+	/* Owner is accepting? */
+	if (accepting) {
+		return creator_tx_eng;
 	}
 
-	return tx_eng;
+	/* One of the users is accepting? */
+	lock_guard<mutex> users_lock(users_mutex);
+	auto it = find_if(begin(users), end(users),
+		       [](ms_user& user) { return user.accepting; });
+	if (it != end(users))
+		return it->tx_eng;
+
+	/* No one is accepting! */
+	WARN("'%s': No accepting tx_eng()\n", name.c_str());
+	return nullptr;
 } /* get_accepting_tx_eng() */
 
 int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 		   uint32_t server_msubid)
 {
-	int rc;
-
-	/**
-	 * app_tx_eng could be the tx_eng from the daemon to either the creator of
+	/* app_tx_eng could be the tx_eng from the daemon to either the creator of
 	 * the mspace, or of one of its users. Set the appropriate is_accepting
 	 * flag (i.e. either in the main class or in one of the ms_users).
 	 *
 	 * Only 1 connection to the memory space can be accepting at a time.
-	 * Furthermore, the one that accepts cannot be already connected-to.
-	 */
+	 * Furthermore, the one that accepts cannot be already connected-to. */
 
 	/* First check if it is the creator who is accepting */
 	if (app_tx_eng == creator_tx_eng) {
 		if (accepting || connected_to) {
 			/* Cannot accept twice from the same app, or accept
 			 * from an already connected app. */
-			ERR("Creator app already accepting or connected\n");
-			rc = RDMA_DUPLICATE_ACCEPT;
-		} else {
-			/* Cannot accept from creator app if we are already
-			 * accepting from a user app. */
-			lock_guard<mutex> users_lock(users_mutex);
-			auto n = count_if(begin(users),
-					  end(users),
-					  [](ms_user& user)
-					 {
-						return user.accepting;
-					 });
-			if (n > 0) {
-				ERR("'%s' already accepting from a user app\n");
-				rc = RDMA_ACCEPT_FAIL;
-			} else {
-				/* All is good, set 'accepting' flag */
-				HIGH("'%s' set to 'accepting'\n", name.c_str());
-				accepting = true;
-				this->server_msubid = server_msubid;
-				rc = 0;
-			}
+			ERR("Creator app already accepting or connected to\n");
+			return RDMA_DUPLICATE_ACCEPT;
 		}
-	} else { /* It is not the creator who is trying to 'accept' */
+
+		/* Cannot accept from creator app if we are already
+		 * accepting from a user app. */
 		lock_guard<mutex> users_lock(users_mutex);
-		auto it = find(begin(users), end(users), app_tx_eng);
-		if (it == end(users)) {
-			ERR("Could not find matching tx_eng\n");
-			rc = RDMA_ACCEPT_FAIL;
-		} else {
-			if (it->accepting || it->connected_to) {
-				/* The user can't already be accepting or connected_to */
-				WARN("Cannot accept since already accepting or connected_to\n");
-				rc = RDMA_ACCEPT_FAIL;
-			} else if (accepting) {
-				/* The owner can't be accepting either */
-				ERR("'%s' already accepting from creator app, so can't do same from user\n",
-						name.c_str());
-				rc = RDMA_ACCEPT_FAIL;
-			} else {
-				/* And none of the users should be accepting! */
-				auto n = count_if(begin(users),
-						  end(users),
-						  [](ms_user& user)
-						 {
-							return user.accepting;
-						 });
-				if (n > 0) {
-					ERR("'%s' already accepting by user. Limit is 1 accept at a time!\n",
-							name.c_str());
-					rc = RDMA_ACCEPT_FAIL;
-				} else {
-					/* All is good, set 'accepting' flag */
-					INFO("'%s' set to accepting for a user\n",
-							name.c_str());
-					DBG("tx_eng = 0x%" PRIx64 "\n",
-							(uint64_t)it->tx_eng);
-					it->accepting = true;;
-					it->server_msubid = server_msubid;
-					rc = 0;	/* Success */
-				}
-			}
+		auto n = count_if(begin(users), end(users),
+				  [](ms_user& user) { return user.accepting;});
+		if (n > 0) {
+			ERR("'%s' already accepting from a user app\n");
+			return RDMA_ACCEPT_FAIL;
 		}
+
+		/* All is good, set 'accepting' flag */
+		HIGH("'%s' set to 'accepting'\n", name.c_str());
+		accepting = true;
+		this->server_msubid = server_msubid;
+		return 0;
 	}
 
-	return rc;
+	/* It is not the creator who is trying to 'accept' - check 'users' */
+	lock_guard<mutex> users_lock(users_mutex);
+	auto it = find(begin(users), end(users), app_tx_eng);
+	if (it == end(users)) {
+		ERR("Could not find a user matching app_tx_eng\n");
+		return RDMA_ACCEPT_FAIL;
+	}
+
+	/* The user can't already be accepting or connected_to */
+	if (it->accepting || it->connected_to) {
+		WARN("Cannot accept since already accepting or connected_to\n");
+		return RDMA_ACCEPT_FAIL;
+	}
+
+	/* The creator can't be accepting (using another tx_eng) */
+	if (accepting) {
+		ERR("'%s' Already accepting from creator\n", name.c_str());
+		return RDMA_ACCEPT_FAIL;
+	}
+
+	/* And none of the users should be accepting! */
+	auto n = count_if(begin(users), end(users),
+			  [](ms_user& user) { return user.accepting; });
+	if (n > 0) {
+		ERR("'%s' already accepting by a user.\n", name.c_str());
+		return RDMA_ACCEPT_FAIL;
+	}
+
+	/* All is good, set 'accepting' flag */
+	INFO("'%s' set to accepting for a user\n", name.c_str());
+	DBG("tx_eng = 0x%" PRIx64 "\n", (uint64_t)it->tx_eng);
+	it->accepting = true;;
+	it->server_msubid = server_msubid;
+	return 0;
 } /* accept() */
 
 int mspace::undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
-	int rc;
-
 	/* First check if it is the creator who is accepting */
 	if (app_tx_eng == creator_tx_eng) {
+		/* Not accepting, return with error */
 		if (!accepting) {
 			ERR("'%s' was not accepting!\n", name.c_str());
-			rc = -1;
-		} else {
-			/* Set accepting to 'false' and clear server_msubid */
-			HIGH("Setting ms('%s' to 'NOT accepting'\n", name.c_str());
-			accepting = false;
-			server_msubid = 0;
-			rc = 0;
+			return -1;
 		}
-	} else {
-		/* It wasn't the creator so search the users by app_tx_eng */
-		lock_guard<mutex> users_lock(users_mutex);
-		auto it = find(begin(users), end(users), app_tx_eng);
-		if (it == end(users)) {
-			ERR("Could not find matching tx_eng\n");
-			rc = -1;
-		} else {
-			if (!it->accepting) {
-				ERR("'%s' was not accepting!\n", name.c_str());
-				rc = -1;
-			} else {
-				/* Set accepting to 'false' and clear server_msubid */
-				HIGH("Setting ms('%s' to 'NOT accepting'\n", name.c_str());
-				it->accepting = false;
-				it->server_msubid = 0;
-				rc = 0;
-			}
-		}
+
+		/* Set accepting to 'false' and clear server_msubid */
+		HIGH("Setting ms('%s' to 'NOT accepting'\n", name.c_str());
+		accepting = false;
+		server_msubid = 0;
+		return 0;
 	}
-	return rc;
+
+	/* It wasn't the creator so search the users by app_tx_eng */
+	lock_guard<mutex> users_lock(users_mutex);
+	auto it = find(begin(users), end(users), app_tx_eng);
+	if (it == end(users)) {
+		ERR("Could not find matching tx_eng\n");
+		return -1;
+	}
+
+	if (!it->accepting) {
+		ERR("'%s' was not accepting!\n", name.c_str());
+		return -1;
+	}
+
+	/* Set accepting to 'false' and clear server_msubid */
+	HIGH("Setting ms('%s' to 'NOT accepting'\n", name.c_str());
+	it->accepting = false;
+	it->server_msubid = 0;
+	return 0;
 } /* undo_accept() */
 
 bool mspace::has_user_with_user_tx_eng(
 		tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
-	bool has_user = false;
-
 	lock_guard<mutex> users_lock(users_mutex);
 	auto it = find(begin(users), end(users), user_tx_eng);
 
 	if (it != end(users)) {
-		has_user = true;
+		return true;
 	} else {
 		DBG("mspace '%s' does not use tx_eng\n", name.c_str());
+		return false;
 	}
-
-	return has_user;
 } /* has_user_with_user_server() */
 
 bool mspace::connected_by_destid(uint16_t client_destid)
 {
-	bool connected = (this->client_destid == client_destid);
-
 	lock_guard<mutex> users_lock(users_mutex);
-	connected = connected ||
+	return (this->client_destid == client_destid) ||
 		(find(begin(users), end(users), client_destid) != end(users));
-
-	return connected;
 } /* connected_by_destid() */
 
 int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 {
-	int rc;
+	/* A creator of an ms cannot open/close it */
+	if (app_tx_eng == creator_tx_eng) {
+		ERR("Creator of memory space cannot open/close it\n");
+		return RDMA_MS_CLOSE_FAIL;
+	}
 
-	DBG("ENTER\n");
+	/* Find a the user that has opened the tx_eng connection to the ms */
+	lock_guard<mutex> users_lock(users_mutex);
+	auto it = find(begin(users), end(users), app_tx_eng);
+	if (it == end(users)) {
+		WARN("Failed to find open connection!\n");
+		return RDMA_MS_CLOSE_FAIL;
+	}
 
-	try {
-		/* A creator of an ms cannot open/close it */
-		if (app_tx_eng == creator_tx_eng) {
-			ERR("Creator of memory space cannot open/close it\n");
-			throw RDMA_MS_CLOSE_FAIL;
-		}
+	/* Before closing a memory space, tell its clients that it is being
+	 * closed (connection must be dropped) and have them acknowledge. */
+	auto rc = send_disconnect_to_remote_daemon(it->client_msubid,
+					      it->client_to_lib_tx_eng_h);
+	if (rc) {
+		ERR("Failed to send disconnection to remote daemon\n");
+		/* I think we should proceed with closing the connection even
+		 * if we cannot notify the remote daemon. So no error here.*/
+	}
 
-		lock_guard<mutex> users_lock(users_mutex);
+	/* Erase user element */
+	users.erase(it);
 
-		auto it = find(begin(users), end(users), app_tx_eng);
-		if (it == end(users)) {
-			WARN("Failed to find open connection!\n");
-			throw RDMA_MS_CLOSE_FAIL;
-		}
-
-		/* Before closing a memory space, tell its clients that it is being
-		 * closed (connection must be dropped) and have them acknowledge. */
-		rc = send_disconnect_to_remote_daemon(it->client_msubid,
-						      it->client_to_lib_tx_eng_h);
-		if (rc) {
-			ERR("Failed to send disconnection to remote daemon\n");
-		}
-
-		/* Erase user element */
-		users.erase(it);
-
-		/* Destroy msubs that belong to the same 'app_tx_eng' */
-		lock_guard<mutex> msubspaces_lock(msubspaces_mutex);
-		msubspaces.erase(
+	/* Destroy msubs that belong to the same 'app_tx_eng' */
+	lock_guard<mutex> msubspaces_lock(msubspaces_mutex);
+	msubspaces.erase(
 			remove(begin(msubspaces), end(msubspaces), app_tx_eng),
-			end(msubspaces)
-		);
-	}
-	catch(int& e) {
-		rc = e;
-	}
-
-	DBG("EXIT\n");
+			end(msubspaces));
 
 	return rc;
 } /* close() */
 
 int mspace::destroy_msubspace(uint32_t msubid)
 {
-	int rc;
-
 	lock_guard<mutex> msubspaces_lock(msubspaces_mutex);
 
 	/* Find memory sub-space in list within this memory space */
@@ -919,13 +872,12 @@ int mspace::destroy_msubspace(uint32_t msubid)
 	/* Not found, return with error */
 	if (msub_it == end(msubspaces)) {
 		ERR("msubid 0x%X not found in %s\n", msubid, name.c_str());
-		rc = -1;
-	} else {
-		/* Erase the subspace */
-		msubspaces.erase(msub_it);
-		rc = 0;	/* Success */
+		return -1;
 	}
 
-	return rc;
+	/* Erase the subspace */
+	msubspaces.erase(msub_it);
+
+	return 0;
 } /* destroy_msubspace() */
 

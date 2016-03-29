@@ -142,8 +142,7 @@ int ms_owners::open_mso(const char *name,
 	lock_guard<mutex> owners_lock(owners_mutex);
 
 	/* Find the owner having specified name */
-	auto mso_it = find_if(begin(owners), end(owners),
-					has_mso_name(name));
+	auto mso_it = find_if(begin(owners), end(owners), has_mso_name(name));
 	if (mso_it == end(owners)) {
 		ERR("%s is not a memory space owner's name\n", name);
 		return RDMA_INVALID_MSO;
