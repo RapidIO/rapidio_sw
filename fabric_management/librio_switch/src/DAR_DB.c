@@ -316,6 +316,19 @@ static STATUS DARDB_rioSetComponentTag( DAR_DEV_INFO_t *dev_info,
     return DARRegWrite( dev_info, RIO_COMPONENT_TAG_CSR, componenttag );
 }
 
+static STATUS DARDB_rioGetAddrMode( DAR_DEV_INFO_t *dev_info,
+                                                RIO_ADDR_MODE  *addr_mode )
+{
+    return DARRegRead( dev_info, RIO_PE_LLAYER_CONTROL_CSR, addr_mode );
+}
+
+
+static STATUS DARDB_rioSetAddrMode( DAR_DEV_INFO_t *dev_info,
+                                                RIO_ADDR_MODE  addr_mode )
+{
+    return DARRegWrite( dev_info, RIO_PE_LLAYER_CONTROL_CSR, addr_mode );
+}
+
 
 static STATUS DARDB_rioGetPortErrorStatus( DAR_DEV_INFO_t *dev_info,
                                                    UINT16  portnum,
@@ -915,6 +928,8 @@ void init_DAR_driver( DAR_DB_Driver_t *DAR_info )
     DAR_info->rioReleaseDeviceLock     = DARDB_rioReleaseDeviceLock ;
     DAR_info->rioGetComponentTag       = DARDB_rioGetComponentTag ;
     DAR_info->rioSetComponentTag       = DARDB_rioSetComponentTag ;
+    DAR_info->rioGetAddrMode           = DARDB_rioGetAddrMode ;
+    DAR_info->rioSetAddrMode           = DARDB_rioSetAddrMode ;
     DAR_info->rioGetPortErrorStatus    = DARDB_rioGetPortErrorStatus ;
     DAR_info->rioLinkReqNResp          = DARDB_rioLinkReqNResp;
 

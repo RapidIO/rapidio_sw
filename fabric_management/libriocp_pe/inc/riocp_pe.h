@@ -80,19 +80,36 @@ struct riocp_pe_port {
 #define ALL_PE_PORTS ((uint8_t)(0xFF))
 
 typedef uint32_t pe_rt_val;
-#define PE_RT_VAL_FIRST_PORT		((pe_rt_val)(0x00000000))
-#define PE_RT_VAL_LAST_PORT		((pe_rt_val)(0x000000FF))
-#define PE_RT_VAL_FIRST_MC		((pe_rt_val)(0x00000100))
-#define PE_RT_VAL_LAST_MC		((pe_rt_val)(0x000001FF))
-#define PE_RT_VAL_FIRST_NEXT_LVL 	((pe_rt_val)(0x00000200))
-#define PE_RT_VAL_LAST_NEXT_LVL 	((pe_rt_val)(0x000002FF))
-#define PE_RT_VAL_DROP			((pe_rt_val)(0x00000300))
-#define PE_RT_VAL_DEFAULT_ROUTE		((pe_rt_val)(0x00000301))
+#define RT_VAL_FIRST_PORT	((pe_rt_val)(0x00000000))
+#define RT_VAL_LAST_PORT	((pe_rt_val)(0x000000FF))
+#define RT_VAL_FIRST_MC		((pe_rt_val)(0x00000100))
+#define RT_VAL_LAST_MC		((pe_rt_val)(0x000001FF))
+#define RT_VAL_FIRST_NEXT_LVL 	((pe_rt_val)(0x00000200))
+#define RT_VAL_LAST_NEXT_LVL 	((pe_rt_val)(0x000002FF))
+#define RT_VAL_DROP		((pe_rt_val)(0x00000300))
+#define RT_VAL_DEFAULT_ROUTE	((pe_rt_val)(0x00000301))
+#define RT_VAL_BAD		((pe_rt_val)(0x0FFFFFFF))
 
-typedef uint8_t pe_lut_sel;
-#define PE_LUT_PORT0	((pe_lut_sel)0x00)
-#define PE_LUT_PORT254	((pe_lut_sel)0xFE)
-#define PE_LUT_ALL	((pe_lut_sel)0xFF)
+/* Routing table definitions */
+typedef uint8_t pe_port_t;
+#define RIOCP_PE_ALL_PORTS (pe_port_t)0xff /* Use the global LUT */
+
+/* Routing table entry values */
+#define RIOCP_PE_EGRESS_PORT(n)	((pe_rt_val)(RT_VAL_FIRST_PORT + ((n) & 0xff)))
+#define RIOCP_PE_MULTICAST_MASK(n) ((pe_rt_val)(RT_VAL_FIRST_MC + ((n) & 0xff)))
+#define RIOCP_PE_NEXT_LEVEL_GROUP(n) ((pe_rt_val)(RT_VAL_FIRST_NEXT_LVL + ((n) & 0xff)))
+#define RIOCP_PE_NO_ROUTE           ((pe_rt_val)(0x300))
+#define RIOCP_PE_DEFAULT_ROUTE      ((pe_rt_val)(0x301))
+
+#define RIOCP_PE_IS_EGRESS_PORT(n)       ((n) <= 0xff)
+#define RIOCP_PE_IS_MULTICAST_MASK(n)    ((n) >= 0x100 && (n) <= 0x1ff)
+#define RIOCP_PE_IS_NEXT_LEVEL_GROUP(n)  ((n) >= 0x200 && (n) <= 0x2ff)
+
+#define RIOCP_PE_GET_EGRESS_PORT(n)      (RIOCP_PE_IS_EGRESS_PORT(n)?(((n) & 0xff)):RT_VAL_BAD)
+#define RIOCP_PE_GET_MULTICAST_MASK(n)   (RIOCP_PE_IS_MULTICAST_MASK(n)?(((n) - 0x100) & 0xff):RT_VAL_BAD)
+#define RIOCP_PE_GET_NEXT_LEVEL_GROUP(n) (RIOCP_PE_IS_NEXT_LEVEL_GROUP(n)?(((n) - 0x200) & 0xff):RT_VAL_BAD)
+
+
 
 struct riocp_pe_driver {
 	int RIOCP_WU (* init_pe)(struct riocp_pe *pe, uint32_t *ct,
@@ -106,16 +123,15 @@ struct riocp_pe_driver {
 	int RIOCP_WU (* port_stop)(struct riocp_pe *pe, uint8_t port);
 
 	int RIOCP_WU (* set_route_entry)(struct riocp_pe *pe,
-			uint8_t port, uint32_t did, pe_rt_val rt_val);
+			pe_port_t port, uint32_t did, pe_rt_val rt_val);
 	int RIOCP_WU (* get_route_entry)(struct riocp_pe *pe,
-			uint8_t port, uint32_t did, pe_rt_val *rt_val);
-	int RIOCP_WU (* alloc_mcast_mask)(struct riocp_pe *sw, uint8_t lut, 
+			pe_port_t port, uint32_t did, pe_rt_val *rt_val);
+	int RIOCP_WU (* alloc_mcast_mask)(struct riocp_pe *sw, pe_port_t port, 
 			pe_rt_val *rt_val, int32_t port_mask);
-	int RIOCP_WU (* free_mcast_mask)(struct riocp_pe *sw, uint8_t lut,
+	int RIOCP_WU (* free_mcast_mask)(struct riocp_pe *sw, pe_port_t port,
 			pe_rt_val rt_val);
-	int RIOCP_WU (* change_mcast_mask)(struct riocp_pe *sw, uint8_t lut,
+	int RIOCP_WU (* change_mcast_mask)(struct riocp_pe *sw, pe_port_t port,
 			pe_rt_val rt_val, uint32_t port_mask);
-
 };
 
 struct riocp_reg_rw_driver {
@@ -174,15 +190,15 @@ int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t *comptag,
 int RIOCP_WU riocp_pe_clear_enumerated(struct riocp_pe *pe);
 
 /* Routing */
-int RIOCP_WU riocp_sw_get_route_entry(riocp_pe_handle sw, pe_lut_sel lut,
-		uint32_t destid, pe_rt_val *port);
-int RIOCP_WU riocp_sw_set_route_entry(riocp_pe_handle sw, pe_lut_sel lut,
-		uint32_t destid, pe_rt_val port);
-int RIOCP_WU riocp_sw_alloc_mcast_mask(riocp_pe_handle sw, pe_lut_sel lut,
+int RIOCP_WU riocp_sw_get_route_entry(riocp_pe_handle sw, pe_port_t port,
+		uint32_t destid, pe_rt_val *rt_val);
+int RIOCP_WU riocp_sw_set_route_entry(riocp_pe_handle sw, pe_port_t port,
+		uint32_t destid, pe_rt_val rt_val);
+int RIOCP_WU riocp_sw_alloc_mcast_mask(riocp_pe_handle sw, pe_port_t port,
 		pe_rt_val *rt_val, uint32_t port_mask);
-int RIOCP_WU riocp_sw_free_mcast_mask(riocp_pe_handle sw, pe_lut_sel lut,
+int RIOCP_WU riocp_sw_free_mcast_mask(riocp_pe_handle sw, pe_port_t port,
 		pe_rt_val rt_val);
-int RIOCP_WU riocp_sw_change_mcast_mask(riocp_pe_handle sw, pe_lut_sel lut,
+int RIOCP_WU riocp_sw_change_mcast_mask(riocp_pe_handle sw, pe_port_t port,
 		pe_rt_val rt_val, uint32_t port_mask);
 
 /* Debug functions */
