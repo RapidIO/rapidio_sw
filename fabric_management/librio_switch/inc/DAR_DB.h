@@ -220,6 +220,10 @@ typedef struct DAR_DB_Driver_t_TAG
                                                 UINT32 *componenttag );
     STATUS (*rioSetComponentTag      )( DAR_DEV_INFO_t *dev_info, 
                                                 UINT32  componenttag );
+    STATUS (*rioGetAddrMode          )( DAR_DEV_INFO_t *dev_info, 
+                                         RIO_ADDR_MODE *addr_mode );
+    STATUS (*rioSetAddrMode          )( DAR_DEV_INFO_t *dev_info, 
+                                         RIO_ADDR_MODE  addr_mode );
     STATUS (*rioGetPortErrorStatus   )( DAR_DEV_INFO_t *dev_info, 
                                                 UINT16  portnum,
                                  RIO_PORT_ERROR_STATUS *err_status   );

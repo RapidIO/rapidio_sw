@@ -52,6 +52,7 @@ CFLAGS+=-O2 -D$(DEBUG) -g
 CFLAGS+=-I. -Iinc -I../inc -Isrc
 CFLAGS+=-I../libriocp_pe/inc -I../libriocp_pe/src
 CFLAGS+=-I../librio_switch/inc
+CFLAGS+=-I../libcfg/inc
 CFLAGS+=-I../../common/include
 CFLAGS+=-DRDMA_LL=$(level)
 LDFLAGS+=-L. -l$(NAME)

@@ -229,6 +229,10 @@ STATUS DARrioGetComponentTag    ( DAR_DEV_INFO_t *dev_info,
                                           UINT32 *componenttag );
 STATUS DARrioSetComponentTag    ( DAR_DEV_INFO_t *dev_info, 
                                           UINT32 componenttag );
+STATUS DARrioGetAddrMode        ( DAR_DEV_INFO_t *dev_info, 
+                                   RIO_ADDR_MODE *addr_mode );
+STATUS DARrioSetAddrMode        ( DAR_DEV_INFO_t *dev_info, 
+                                   RIO_ADDR_MODE  addr_mode );
 STATUS DARrioGetPortErrorStatus ( DAR_DEV_INFO_t *dev_info, 
                                            UINT8  portnum, 
                            RIO_PORT_ERROR_STATUS *err_status );

@@ -275,6 +275,26 @@ STATUS DARrioSetComponentTag( DAR_DEV_INFO_t *dev_info, UINT32 componenttag )
    return rc;
 }
 
+STATUS DARrioGetAddrMode( DAR_DEV_INFO_t *dev_info, RIO_ADDR_MODE *addr_mode )
+{
+   STATUS rc = DAR_DB_INVALID_HANDLE;
+
+   if ( VALIDATE_DEV_INFO( dev_info ) )
+       rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetAddrMode( dev_info,
+                                                              addr_mode );
+   return rc;
+}
+
+STATUS DARrioSetAddrMode( DAR_DEV_INFO_t *dev_info, RIO_ADDR_MODE addr_mode )
+{
+   STATUS rc = DAR_DB_INVALID_HANDLE;
+
+   if ( VALIDATE_DEV_INFO( dev_info ) )
+       rc = driver_db[DAR_DB_INDEX(dev_info)].rioSetAddrMode( dev_info,
+                                                              addr_mode );
+   return rc;
+}
+
 
 STATUS DARrioGetPortErrorStatus( DAR_DEV_INFO_t *dev_info,
                                          UINT8  portnum,
