@@ -1,6 +1,13 @@
 #!/bin/bash
 
 # Script for automated execution of BAT tests.
+# To run a specific test do:
+#
+# sudo ./bat_local.sh <test>
+# e.g.   sudo ./bat_local.sh c        (runs test case 'c' ONLY)
+#
+# To run ALL tests do:
+# sudo ./bat_local.sh
 
 # Location of binaries
 RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
@@ -28,7 +35,13 @@ SERVER_CM_CHANNEL=$SERVER_CM_CHANNEL_START
 # Unix signal to send to processes via the 'kill' command
 SIGINT=2	# CTRL-C
 
-
+# Indicate whether a single test or ALL tests will be run
+if [ -n "$1" ]
+	then
+		echo "NOTE: Running test case '$1' only"
+	else
+		echo "Running ALL tests"
+fi
 
 # Load drivers on each node
 for node in $NODES
@@ -135,7 +148,7 @@ done
 # at this (local) machine. We should be able to modify it to run
 # multiple tests originating at multiple nodes
 
-/usr/bin/perl run_bat.pl -c$SERVER_CM_CHANNEL_START -d$DESTID
+/usr/bin/perl run_bat.pl -c$SERVER_CM_CHANNEL_START -d$DESTID -t$1
 
 # ******************* Kill all processes *******************
 
