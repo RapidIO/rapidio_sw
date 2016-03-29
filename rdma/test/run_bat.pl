@@ -16,13 +16,14 @@ use Getopt::Std;
 
 # Command-line options
 my %options = ();
-getopts("c:d:h", \%options);
+getopts("c:d:h:t:", \%options);
 
 if (defined($options{h})) {
 	print "run_bat.pl -h -d<destid> -c<channel\n";
 	print "-h	Displays this help message\n";
 	print "-d	Destination ID running bat_server\n";
 	print "-c	Channel for test signalling with FIRST of THREE bat_servers\n";
+	print "-t	Test case to run - if omitted run all\n";
 	exit;
 }
 
@@ -47,6 +48,13 @@ if (!defined($options{d})) {
 my $logfilename = "bat" . $channel . ".log";
 open(my $fh, ">", $logfilename)
 	or die "cannot open $logfilename!";
+
+# Test case to run -- if specified
+if (defined($options{t})) {
+	system("sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t$options{t} -o" . $logfilename);
+	close($fh);
+	exit;
+}
 
 # List of tests
 my @tests = (
