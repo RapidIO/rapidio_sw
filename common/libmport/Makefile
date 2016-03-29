@@ -81,6 +81,12 @@ libmport.so: src/riodp_mport_lib.o src/dmachanshm_dl.o
 libmport.a: src/riodp_mport_lib.o src/dmachanshm_dl.o
 	$(AR) -r $@ $^
 
+umdmporttest: src/riodp_mport_lib.c src/dmachanshm_dl.c
+	$(CXX) -DTEST_UMDD \
+		$(addprefix -I, $(INCLUDES)) -I../../fabric_management/librio_switch/inc -I$(UMDINCDIR) \
+		-Wall -Wno-sign-compare -ggdb \
+		-ldl -L../libs_a -ltime_utils -o $@ $^
+
 $(O)/%: $(O)/samples/%.o libmport.so libmport.a
 	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) libmport.a -L../libtime_utils -ltime_utils
 
@@ -91,4 +97,4 @@ $(O)/%.o: %.c
 	$(CXX) -c -o $@ $(addprefix -I, $(INCLUDES)) $(CFLAGS) $<
 
 clean:
-	rm -rf $(SAMPLES_TARGETS) $(LIB_TARGETS) $(O)/src/*.o $(O)/samples/*.o libmport.so*
+	rm -rf $(SAMPLES_TARGETS) $(LIB_TARGETS) $(O)/src/*.o $(O)/samples/*.o libmport.so* umdmporttest
