@@ -42,14 +42,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <mutex>
 
 #include "tx_engine.h"
+#include "rdmad_mspace.h"
 
 using std::vector;
 using std::string;
 using std::exception;
 using std::mutex;
+using std::lock_guard;
 
 /* Referenced class declarations */
-class mspace;
 class unix_msg_t;
 class unix_server;
 
@@ -107,14 +108,20 @@ public:
 	bool operator ==(const char *owner_name) const
 	{
 		return this->name == owner_name;
-	}
+	} /* operator ==() */
 
 	/**
 	 * @brief Stores memory space in list of owned spaces
 	 *
 	 * @param ms	Pointer to memory space
 	 */
-	void add_ms(mspace *ms);
+	void add_ms(mspace *ms)
+	{
+		lock_guard<mutex> ms_list_lock(ms_list_mutex);
+
+		INFO("Adding msid(0x%X) to msoid(0x%X)\n", ms->get_msid(), msoid);
+		ms_list.push_back(ms);
+	} /* add_ms() */
 
 	/**
 	 * @brief Removes memory space from list of owned spaces
@@ -130,7 +137,11 @@ public:
 	 *
 	 * @return true if still owns, false otherwise
 	 */
-	bool owns_mspaces();
+	bool owns_mspaces()
+	{
+		lock_guard<mutex> ms_list_lock(ms_list_mutex);
+		return !ms_list.empty();
+	}
 
 	/**
 	 * @brief Dumps memory space owner information to CLI console

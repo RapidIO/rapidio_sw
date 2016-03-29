@@ -65,7 +65,7 @@ using rx_engines_list = vector<unique_ptr<unix_rx_engine>>;
 using tx_engines_list = vector<unique_ptr<unix_tx_engine>>;
 
 /* Inbound space */
-inbound *the_inbound;
+unique_ptr<inbound> the_inbound;
 
 /* Global flag for shutting down */
 bool shutting_down = false;
@@ -253,8 +253,7 @@ void shutdown()
 
 	/* Delete the inbound object */
 	INFO("Deleting the_inbound\n");
-	delete the_inbound;
-	the_inbound = nullptr;
+	the_inbound.reset();
 
 	INFO("Clear the prov and hello daemon lists\n");
 	sem_post(cm_engine_cleanup_sem);
@@ -450,7 +449,7 @@ int main (int argc, char **argv)
 
 		/* Create inbound space */
 		try {
-			the_inbound = new inbound(
+			the_inbound = make_unique<inbound>(
 					peer,
 					owners,
 					peer.mport_hnd,
@@ -520,13 +519,16 @@ int main (int argc, char **argv)
 		case OUT_KILL_FM_THREAD:
 			/* Kill the fabric management thread */
 			halt_fm_thread();
+			/* No break */
 
 		case OUT_KILL_PROV_THREAD:
 			pthread_kill(prov_thread, SIGUSR1);
 			pthread_join(prov_thread, NULL);
+			/* No break */
 
 		case OUT_DELETE_INBOUND:
-			delete the_inbound;
+			the_inbound.reset();
+			/* No break */
 
 		case OUT_CLOSE_PORT:
 			riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
@@ -534,9 +536,11 @@ int main (int argc, char **argv)
 		case OUT_KILL_CONSOLE_THREAD:
 			pthread_kill(console_thread, SIGUSR1);
 			pthread_join(console_thread, NULL);
+			/* No break */
 
 		case CONSOLE_FAILURE:
 			rdma_log_close();
+			/* No break */
 
 		case LOGGER_FAILURE:
 			fprintf(stderr, "Exiting due to logger failure\n");

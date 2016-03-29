@@ -93,56 +93,41 @@ void ms_owner::close_connections()
 
 int ms_owner::open(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
-	int rc;
-
 	lock_guard<mutex> users_tx_eng_lock(users_tx_eng_mutex);
 
 	/* Don't allow the same application to open the same mso twice */
 	auto it = find(begin(users_tx_eng), end(users_tx_eng), user_tx_eng);
 	if (it != end(users_tx_eng)) {
 		ERR("mso('%s') already open by same app\n", name.c_str());
-		rc = RDMA_ALREADY_OPEN;
-	} else {
-		DBG("Storing tx_eng(0x%p) with mso('%s')\n",
-						user_tx_eng, name.c_str());
-		users_tx_eng.emplace_back(user_tx_eng);
-		rc = 0;
+		return RDMA_ALREADY_OPEN;
 	}
-	return rc;
+
+	DBG("Storing tx_eng(0x%p) with mso('%s')\n",
+					user_tx_eng, name.c_str());
+	users_tx_eng.emplace_back(user_tx_eng);
+
+	return 0;
 } /* open() */
 
 int ms_owner::close(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
-	int rc;
-
 	lock_guard<mutex> users_tx_eng_lock(users_tx_eng_mutex);
 
 	auto it = find(begin(users_tx_eng), end(users_tx_eng), user_tx_eng);
 	if (it == end(users_tx_eng)) {
 		/* Not found */
 		ERR("mso is not using specified tx engine (0x%p)\n", user_tx_eng);
-		rc = -1;
-	} else {
-		/* Erase user element */
-		users_tx_eng.erase(it);
-		rc = 0;
+		return -1;
 	}
 
-	return rc;
+	/* Erase user element */
+	users_tx_eng.erase(it);
+
+	return 0;
 } /* close() */
-
-void ms_owner::add_ms(mspace *ms)
-{
-	lock_guard<mutex> ms_list_lock(ms_list_mutex);
-
-	INFO("Adding msid(0x%X) to msoid(0x%X)\n", ms->get_msid(), msoid);
-	ms_list.push_back(ms);
-} /* add_ms() */
 
 int ms_owner::remove_ms(mspace* ms)
 {
-	int rc;
-
 	lock_guard<mutex> ms_list_lock(ms_list_mutex);
 
 	/* Find memory space by the handle, return error if not there */
@@ -151,28 +136,15 @@ int ms_owner::remove_ms(mspace* ms)
 		WARN("ms('%s', 0x%X) not owned by msoid('%s',0x%X)\n",
 				ms->get_name(), ms->get_msid(),
 				name.c_str(), msoid);
-		rc = RDMA_INVALID_MS;
-	} else {
-		/* Erase memory space handle from list */
-		INFO("Removing msid(0x%X) from msoid(0x%X)\n",
-							ms->get_msid(), msoid);
-		ms_list.erase(it);
-		rc = 0;
+		return RDMA_INVALID_MS;
 	}
 
-	return rc;
+	/* Erase memory space handle from list */
+	INFO("Removing msid(0x%X) from msoid(0x%X)\n", ms->get_msid(), msoid);
+	ms_list.erase(it);
+
+	return 0;
 } /* remove_ms_h() */
-
-bool ms_owner::owns_mspaces()
-{
-	bool yes;
-
-	lock_guard<mutex> ms_list_lock(ms_list_mutex);
-	yes = ms_list.size() > 0;
-
-	return yes;
-} /* owns_mspaces() */
-
 
 void ms_owner::dump_info(struct cli_env *env)
 {

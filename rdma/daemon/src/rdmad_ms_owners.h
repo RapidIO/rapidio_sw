@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 #include <exception>
 #include <mutex>
+#include <memory>
 
 #include "rdmad_ms_owner.h"
 #include "rdmad_unix_msg.h"
@@ -47,6 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::vector;
 using std::exception;
 using std::mutex;
+using std::unique_ptr;
 
 /* Reference class declarations */
 class ms_owner;
@@ -71,9 +73,9 @@ public:
 	ms_owners();
 
 	/**
-	 * @brief Destructor. Destroys all memory space owners.
+	 * @brief	Default destructor
 	 */
-	~ms_owners();
+	~ms_owners() = default;
 
 	/**
 	 * @brief Debug function to display info about memory space owners
@@ -177,7 +179,7 @@ private:
 	 */
 	ms_owners& operator=(const ms_owners&) = delete;
 
-	using owner_list = vector<ms_owner *>;
+	using owner_list = vector<unique_ptr<ms_owner>>;
 
 	/* Constants */
 	static constexpr uint32_t MSOID_MAX = 0xFFF; /* Owners are 12-bits */

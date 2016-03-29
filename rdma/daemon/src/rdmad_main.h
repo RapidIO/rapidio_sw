@@ -34,6 +34,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMAD_MAIN_H
 
 #include <semaphore.h>
+
+#include <memory>
+
+using std::unique_ptr;
+
 /**
  * @brief Shut down RDMA daemon
  */
@@ -41,7 +46,7 @@ void shutdown();
 
 class inbound;
 
-extern inbound *the_inbound;
+extern unique_ptr<inbound> the_inbound;
 
 extern bool shutting_down;
 extern sem_t  *cm_engine_cleanup_sem;
