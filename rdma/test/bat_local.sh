@@ -185,7 +185,7 @@ do
 				echo "Killing rdmad on $node, rdmad PID=$THE_PID"
 				for proc in $THE_PID
 				do
-					ssh root@"$node" "kill -s $SIGINT $proc"
+					ssh root@"$node" "kill -9 $proc"
 					sleep 1
 				done
 			else
@@ -214,5 +214,18 @@ do
 	done
 done
 
+# Unload drivers
+for node in $NODES
+do
+	# Unload rio_cm
+	echo "Unloading rio_cm on $node"
+	ssh root@"$node" "modprobe -r rio_cm"
+	sleep 1
+
+	# Unload rio_mport_cdev
+	echo "Unloading rio_mport_cdev on $node"
+	ssh root@"$node" "modprobe -r rio_mport_cdev"
+	sleep 1
+done
 
 echo "GOODBYE!"
