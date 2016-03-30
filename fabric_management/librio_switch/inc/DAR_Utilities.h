@@ -37,7 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#include "DAR_Basic_Defs.h"
+#include "stdint.h"
 #include "DAR_DevDriver.h"
 
 #define RIO_MAX_PKT_BYTES 276
@@ -59,14 +59,14 @@ extern "C" {
 /* --->>>>>>>START Multi-register read/modify/write utilities <<<<<<---
 */
 typedef struct DAR_read_entry_in_t_TAG {
-    UINT32 offset;  /* Offset for the register to be read from
+    uint32_t offset;  /* Offset for the register to be read from
                     */
 } DAR_read_entry_in_t;
 
 typedef struct DAR_read_entry_out_t_TAG {
-    UINT32 value_read;  /* Value read
+    uint32_t value_read;  /* Value read
                         */
-    STATUS rc;          /* Status of the read request
+    uint32_t rc;          /* Status of the read request
                         */
 } DAR_read_entry_out_t;
 
@@ -74,25 +74,25 @@ typedef struct DAR_read_entry_out_t_TAG {
 /* Host Specific routine for performing a delay.
    Delays can be longer than specified, but must not be shorter.
 */
-extern VOID (*WaitSec) ( UINT32 delay_nsec,
-                         UINT32 delay_sec );
+extern void (*WaitSec) ( uint32_t delay_nsec,
+                         uint32_t delay_sec );
 
-VOID DAR_WaitSec( UINT32 delay_nsec, UINT32 delay_sec );
+void DAR_WaitSec( uint32_t delay_nsec, uint32_t delay_sec );
 
 /* Read num_entries worth of register offsets passed in as in_parms,
    storing the values read and return code in out_parms.
 */
-STATUS DAR_multi_reg_read( DAR_DEV_INFO_t       *dev_info, 
+uint32_t DAR_multi_reg_read( DAR_DEV_INFO_t       *dev_info, 
                            DAR_read_entry_in_t  *in_parms, 
                            DAR_read_entry_out_t *out_parms, 
-                           UINT32                num_entries);
+                           uint32_t                num_entries);
 
 typedef struct DAR_read_write_entry_in_t_TAG {
-    UINT32 offset; /* offset of the register to be read from
+    uint32_t offset; /* offset of the register to be read from
                    */ 
-    UINT32 mask  ; /* bit mask for bits to change
+    uint32_t mask  ; /* bit mask for bits to change
                    */
-    UINT32 value_delta;
+    uint32_t value_delta;
                      /* Value to be written.
                      *  value written is ((*offset)    &  mask) | 
                      *                   (value_delta & ^mask))
@@ -102,24 +102,24 @@ typedef struct DAR_read_write_entry_in_t_TAG {
 } DAR_read_write_entry_in_t;
 
 typedef struct DAR_read_write_entry_out_t_TAG {
-    UINT32 read_value;  /* Value read
+    uint32_t read_value;  /* Value read
                         */
-    STATUS read_rc;     /* RC for read of register
+    uint32_t read_rc;     /* RC for read of register
                         */
-    UINT32 write_value; /* Actual value written
+    uint32_t write_value; /* Actual value written
                         */
             
-    STATUS write_rc;    /* RC for write of register
+    uint32_t write_rc;    /* RC for write of register
                         */
 } DAR_read_write_entry_out_t;
 
 /* Perform num_entries read-modify-write operations as described in in_parms.
    Store the results of the operations in out_parms.
 */
-STATUS DAR_multi_reg_acc ( DAR_DEV_INFO_t             *dev_info, 
+uint32_t DAR_multi_reg_acc ( DAR_DEV_INFO_t             *dev_info, 
                            DAR_read_write_entry_in_t  *in_parms,
                            DAR_read_write_entry_out_t *out_parms,
-                           UINT32                      num_entries);
+                           uint32_t                      num_entries);
 
 /* --->>>>>>>  END Multi-register read and read/modify/write utilities <<<<<<---
    --->>>>>>>  START  Control symbol support routines <<<<<<---
@@ -185,16 +185,16 @@ typedef struct CS_field_t_TAG
     rio_cs_size    cs_size;    /* cs_invalid means no fields are valid
                                */
     stype0         cs_t0;
-    UINT32         parm_0;
-    UINT32         parm_1;
+    uint32_t         parm_0;
+    uint32_t         parm_1;
     stype1         cs_t1;
-    UINT32         cs_t1_cmd;
+    uint32_t         cs_t1_cmd;
     stype2         cs_t2;      /* Valid if cs_size is cs_large
                                */
-    UINT32         cs_t2_val;  /* Valid if cs_size is cs_large
+    uint32_t         cs_t2_val;  /* Valid if cs_size is cs_large
                                */
-    UINT32         cs_crc;
-    BOOL           cs_crc_correct;
+    uint32_t         cs_crc;
+    bool           cs_crc_correct;
                                   /* Ignored by CS_fields_to_bytes,
                                        set by CS_bytes_to_fields
                                   */
@@ -204,7 +204,7 @@ typedef struct CS_bytes_t_TAG {
     rio_cs_size   cs_type_valid;  /* true if cs_type & cs_bytes are valid, 
                                         false if not
                                   */
-    UINT8         cs_bytes[8];    /* Bytes occur in network byte order i.e. 
+    uint8_t         cs_bytes[8];    /* Bytes occur in network byte order i.e. 
                                         byte 0 is first to be transmitted.
                                   */
 } CS_bytes_t;
@@ -213,12 +213,12 @@ typedef struct CS_bytes_t_TAG {
    comprise the actual control symbol as latched in error registers or
    written to control symbol transmission registers.
 */
-STATUS CS_fields_to_bytes( CS_field_t *fields_in, CS_bytes_t *bytes_out); 
+uint32_t CS_fields_to_bytes( CS_field_t *fields_in, CS_bytes_t *bytes_out); 
 
 /* Accept 3, 4, 6 or 8 bytes of the control symbol, and parse the control
    symbol into the appropriate fields.
 */
-STATUS CS_bytes_to_fields( CS_bytes_t *bytes_in, CS_field_t *fields_out);
+uint32_t CS_bytes_to_fields( CS_bytes_t *bytes_in, CS_field_t *fields_out);
 
 /* Strings which name the 8 types of STYPE0 control symbols
 */
@@ -326,18 +326,18 @@ typedef enum { fc_fam_000, fc_fam_001, fc_fam_010, fc_fam_011,
 */
 typedef struct DAR_pkt_phy_hdr_t_TAG
 {
-    UINT32       pkt_vc;    /* Virtual channel the packet is associated with, 
+    uint32_t       pkt_vc;    /* Virtual channel the packet is associated with, 
                                   with a value between 0 and 8.
                                   VC 0 uses pkt_prio and crf to determine 
                                       packet priority.
                                   VC 1-8 does not have a packet priority.
                             */
-    UINT32       pkt_prio;  /* Packet priority, value 0-3
+    uint32_t       pkt_prio;  /* Packet priority, value 0-3
                             */
-    BOOL         crf;       /* TRUE if this is a critical request flow packet.
+    bool         crf;       /* true if this is a critical request flow packet.
                                   CRF affects packet priority
                             */
-    UINT32       pkt_ackID; /* Packet ackID.  All composed packets have an 
+    uint32_t       pkt_ackID; /* Packet ackID.  All composed packets have an 
                                    ackID of 0.  All ackIDS are assumed to have
                                    6 bits - it is up to the user to determine
                                    if large or small ackIDs are in use, and to
@@ -347,14 +347,14 @@ typedef struct DAR_pkt_phy_hdr_t_TAG
 
 typedef struct DAR_pkt_phy_mask_t_TAG
 {
-	UINT8 pkt_ackID_m;    // AckID field mask value. 6 bits.
-	BOOL  pkt_vc_m;       // VC   field mask value. 1 bit
-	UINT8 pkt_prio_m;     // PRIO field mask value.  2 bits.
-	BOOL  pkt_crf_m;      // CRF  field mask value. 1 bit
-	BOOL  pkt_ftype_m;    // FType field mask value. 4 bits
+	uint8_t pkt_ackID_m;    // AckID field mask value. 6 bits.
+	bool  pkt_vc_m;       // VC   field mask value. 1 bit
+	uint8_t pkt_prio_m;     // PRIO field mask value.  2 bits.
+	bool  pkt_crf_m;      // CRF  field mask value. 1 bit
+	bool  pkt_ftype_m;    // FType field mask value. 4 bits
 
-	UINT16 pkt_int_crc_m;    // Intermediate CRC field mask value.  Only used for packets > 80 bytes.
-	UINT16 pkt_fin_crc_m;    // Final CRC field mask value.
+	uint16_t pkt_int_crc_m;    // Intermediate CRC field mask value.  Only used for packets > 80 bytes.
+	uint16_t pkt_fin_crc_m;    // Final CRC field mask value.
 } DAR_pkt_phy_mask_t;
 
 /* Transport layer header fields
@@ -365,22 +365,22 @@ typedef struct DAR_pkt_trans_hdr_t_TAG
     */
     rio_TT_code  tt_code;   /* TT code, as per enum above
                             */
-    UINT32       destID;    /* 8/16 bits, depending on tt_code value.
+    uint32_t       destID;    /* 8/16 bits, depending on tt_code value.
                             */
-    UINT32       srcID;     /* Both destID and srcID are the same size.
+    uint32_t       srcID;     /* Both destID and srcID are the same size.
                             */
-    UINT32       hopcount;  /* Only Valid for Maintenance packets.
+    uint32_t       hopcount;  /* Only Valid for Maintenance packets.
                                Max value 255
                             */
 } DAR_pkt_trans_hdr_t;
 
 typedef struct DAR_pkt_trans_mask_t_TAG
 {
-    UINT8        tt_m;      // Mask value for TT     field.  2 bits. 
+    uint8_t        tt_m;      // Mask value for TT     field.  2 bits. 
 	rio_TT_code  tt_code;   // TT code, determines how many bits of destID/srcID mask are used
-	UINT32       destID_m;  // Mask value for DestID field.  8, 16, or 32 bits
-	UINT32       srcID_m;   // Mask value for SrcID  field.  8, 16, or 32 bits
-	UINT8        hc_m;      // Mask value for hopcount field.  8 bits.  Only used for Maintenance packets.
+	uint32_t       destID_m;  // Mask value for DestID field.  8, 16, or 32 bits
+	uint32_t       srcID_m;   // Mask value for SrcID  field.  8, 16, or 32 bits
+	uint8_t        hc_m;      // Mask value for hopcount field.  8 bits.  Only used for Maintenance packets.
 } DAR_pkt_trans_mask_t;
 
 
@@ -403,8 +403,8 @@ typedef struct DAR_pkt_log_rw_hdr_t_TAG
        rio_addr_50 - addr[0-1], addr[1] max value is 0x3_FFFF
        rio_addr_66 - addr[0-2], addr[2] max value is 3
     */
-    UINT32         addr[3]; 
-    UINT32         tid;     /* Transaction ID.  Valid for FTYPE 2, 5, 8 and 13
+    uint32_t         addr[3]; 
+    uint32_t         tid;     /* Transaction ID.  Valid for FTYPE 2, 5, 8 and 13
                             */
     rio_pkt_status status;  /* Only valid for response types
                                (FTYPE 8, FTYPE 13)
@@ -415,16 +415,16 @@ typedef struct DAR_pkt_log_rw_hdr_t_TAG
 // NOTE: Msg responses also need log_ms header filled in.
 typedef struct DAR_pkt_log_rw_mask_t_TAG 
 {
-	UINT8  ttype_m; // TransType Mask Value, 4 bits.  Used for FType 2, 5, 8, 10 and 13 (R/W and Msg)
-	UINT8  size_m;  // Read/write size mask, 4 bits
-	BOOL   ptr_m;   // Read/Write pointer mask
+	uint8_t  ttype_m; // TransType Mask Value, 4 bits.  Used for FType 2, 5, 8, 10 and 13 (R/W and Msg)
+	uint8_t  size_m;  // Read/write size mask, 4 bits
+	bool   ptr_m;   // Read/Write pointer mask
 	rio_addr_size  pkt_addr_size;   // pkt_addr_size is only valid for nr, nw, nwr, sw, mr, mw
                                     // pkt_addr_size values affect which portion of addr_m[] are used.
-    UINT32 addr_m[3];  // Address   Mask Value. addr_m[0] is least significant, addr_m[2] is most significant.
-	UINT8  addr_l;     // Least significant byte of address, used for FTYPE 2, 5, 8 to ensure
+    uint32_t addr_m[3];  // Address   Mask Value. addr_m[0] is least significant, addr_m[2] is most significant.
+	uint8_t  addr_l;     // Least significant byte of address, used for FTYPE 2, 5, 8 to ensure
 	                   //    data is aligned correctly in the packet payload.
-	UINT8  tid_m;      // TransID   Mask value, 8 bits.  Used for FType 2, 5, 8, and 10
-	UINT8  status_m;   // Status    Mask value, 4 bits.  Used for FType 2, 5, 8, 10 and 13 (R/W and Msg)
+	uint8_t  tid_m;      // TransID   Mask value, 8 bits.  Used for FType 2, 5, 8, and 10
+	uint8_t  status_m;   // Status    Mask value, 4 bits.  Used for FType 2, 5, 8, 10 and 13 (R/W and Msg)
 } DAR_pkt_log_rw_mask_t;
 
 /* FTYPE 7 (Flow Control) Packet Fields
@@ -432,15 +432,15 @@ typedef struct DAR_pkt_log_rw_mask_t_TAG
 typedef struct DAR_pkt_log_fc_hdr_t_TAG
 {
     /* Logical layer fields for flow control transactions (FType 7) */
-    BOOL            fc_xon;        /* True if this is an XON, false for XOFF.
+    bool            fc_xon;        /* True if this is an XON, false for XOFF.
                                    */
     rio_fc_flow_id  fc_flow;       /* Flow ID for flow control
                                    */
-    UINT32          fc_destID;     /* Flow control destID
+    uint32_t          fc_destID;     /* Flow control destID
                                    */
-    UINT32          fc_srcID;      /* Flow control sourceID
+    uint32_t          fc_srcID;      /* Flow control sourceID
                                    */
-    BOOL            fc_soc_is_ep;  /* True if source of FC is an endpoint, 
+    bool            fc_soc_is_ep;  /* True if source of FC is an endpoint, 
                                           false if source is a switch
                                    */
     rio_fc_fam_t    fc_fam;        /* Value 0-7, used to control buffer 
@@ -451,10 +451,10 @@ typedef struct DAR_pkt_log_fc_hdr_t_TAG
 typedef struct DAR_pkt_log_fc_mask_t_TAG
 {
     /* Logical layer fields for flow control transactions (FType 7) */
-    BOOL   fc_xon_m;       // XON Mask value, 4 bits   
-    BOOL   fc_soc_is_ep_m; // SRC is EP Mask value, 1 bits 
-	UINT8  fc_flow_m;      // Status Mask value, 4 bits 
-	UINT8  fc_fam_m;       // Fam    Mask value, 3 bits
+    bool   fc_xon_m;       // XON Mask value, 4 bits   
+    bool   fc_soc_is_ep_m; // SRC is EP Mask value, 1 bits 
+	uint8_t  fc_flow_m;      // Status Mask value, 4 bits 
+	uint8_t  fc_fam_m;       // Fam    Mask value, 3 bits
 } DAR_pkt_log_fc_mask_t;
 
 /* FTYPE 9 (Data Streaming) Packet Fields
@@ -464,42 +464,42 @@ typedef struct DAR_pkt_log_ds_hdr_t_TAG
 {
     /* Logical layer fields for Data Streaming (FType 9) Request transactions
     */
-    BOOL         dstm_start_seg;
-    BOOL         dstm_end_seg;
-    BOOL         dstm_xh_seg;       /* TRUE if this is an "extended header" 
+    bool         dstm_start_seg;
+    bool         dstm_end_seg;
+    bool         dstm_xh_seg;       /* true if this is an "extended header" 
                                            segment.
                                     */
-    UINT32       dstm_COS;          /* Present for all Data Streaming packets
+    uint32_t       dstm_COS;          /* Present for all Data Streaming packets
                                     */
-    UINT32       dstm_streamid;     /* Present if dstm_start_seg or dstm_xh_seg
+    uint32_t       dstm_streamid;     /* Present if dstm_start_seg or dstm_xh_seg
                                     */
-    BOOL         dstm_odd_data_amt; /* True if there is an odd number of 
+    bool         dstm_odd_data_amt; /* True if there is an odd number of 
                                            halfwords in the data
                                     */
-    BOOL         dstm_pad_data_amt; /* True if there is a one byte pad in the 
+    bool         dstm_pad_data_amt; /* True if there is a one byte pad in the 
                                            last halfword.
                                     */
-    UINT32       dstm_PDU_len;      /* Total length of the PDU. 
+    uint32_t       dstm_PDU_len;      /* Total length of the PDU. 
                                            Present IFF !dstm_start_seg & 
                                            dstm_end_seg
                                     */
     /* Logical layer fields for Data Streaming Extended Header request 
           transactions
     */
-    UINT32       dstm_xh_type;      /* Extended header type
+    uint32_t       dstm_xh_type;      /* Extended header type
                                     */
-    UINT32       dstm_xh_tm_op;     /* Type of extended header flow control 
+    uint32_t       dstm_xh_tm_op;     /* Type of extended header flow control 
                                           operation
                                     */
-    UINT32       dstm_xh_wildcard;  /* Optionally apply to all destIDs, 
+    uint32_t       dstm_xh_wildcard;  /* Optionally apply to all destIDs, 
                                           classes, or streamIDs.
                                     */
-    UINT32       dstm_xh_COS_mask;  /* Specify a mask for COS to select a 
+    uint32_t       dstm_xh_COS_mask;  /* Specify a mask for COS to select a 
                                           subset of COS for this operation
                                     */
-    UINT32       dstm_xh_parm1;     /* tm_op specific parameter 1
+    uint32_t       dstm_xh_parm1;     /* tm_op specific parameter 1
                                     */
-    UINT32       dstm_xh_parm2;     /* tm_op specific parameter 2
+    uint32_t       dstm_xh_parm2;     /* tm_op specific parameter 2
                                     */
 } DAR_pkt_log_ds_hdr_t;
 
@@ -507,22 +507,22 @@ typedef struct DAR_pkt_log_ds_mask_t_TAG
 {
     /* Logical layer fields for Data Streaming (FType 9) Request transactions
     */
-    BOOL dstm_s_m;            // Mask value for S bit
-    BOOL dstm_e_m;            // Mask value for E bit
-    BOOL dstm_xh_m;           // Mask value for XH bit
-    UINT8 dstm_COS_m;         // Mask value for COS field
-    BOOL   dstm_strm_or_len;  // TRUE if STRM/LEN    field should be included in the mask, FALSE if not
-    UINT16 dstm_strm_or_len_m; // Mask value for StreamID/Length field
-    BOOL dstm_o_m;            // Mask value for O bit
-    BOOL dstm_p_m;            // Mask value for P bit
-	BOOL dtsm_xh_pkt;       // TRUE if should use an extended header packet format, false if not.
-	                        //    If dtsm_xh_pkt is FALSE, none of the folllowing fields need to be filled in.
-	UINT8 dstm_xh_type_m;   // Mask value for XH_TYPE field
-	UINT8 dstm_xh_tm_op_m;  // Mask value for XH TM Op field
-	UINT8 dstm_xh_wc_m;     // Mask value for XH TWildcard field
-	UINT8 dstm_xh_COS_m;    // Mask value for XH COS mask field
-	UINT8 dstm_xh_parm1_m;    // Mask value for XH COS mask field
-	UINT8 dstm_xh_parm2_m;    // Mask value for XH COS mask field
+    bool dstm_s_m;            // Mask value for S bit
+    bool dstm_e_m;            // Mask value for E bit
+    bool dstm_xh_m;           // Mask value for XH bit
+    uint8_t dstm_COS_m;         // Mask value for COS field
+    bool   dstm_strm_or_len;  // true if STRM/LEN    field should be included in the mask, false if not
+    uint16_t dstm_strm_or_len_m; // Mask value for StreamID/Length field
+    bool dstm_o_m;            // Mask value for O bit
+    bool dstm_p_m;            // Mask value for P bit
+	bool dtsm_xh_pkt;       // true if should use an extended header packet format, false if not.
+	                        //    If dtsm_xh_pkt is false, none of the folllowing fields need to be filled in.
+	uint8_t dstm_xh_type_m;   // Mask value for XH_TYPE field
+	uint8_t dstm_xh_tm_op_m;  // Mask value for XH TM Op field
+	uint8_t dstm_xh_wc_m;     // Mask value for XH TWildcard field
+	uint8_t dstm_xh_COS_m;    // Mask value for XH COS mask field
+	uint8_t dstm_xh_parm1_m;    // Mask value for XH COS mask field
+	uint8_t dstm_xh_parm2_m;    // Mask value for XH COS mask field
 } DAR_pkt_log_ds_mask_t;
 
 /* FTYPE 11 (Message) Packet Fields
@@ -532,16 +532,16 @@ typedef struct DAR_pkt_log_ms_hdr_t_TAG
     /* Logical Layer fields for Message Request (FType 11) transactions,
        and Message responses
     */
-    UINT32         msg_len;   /* # of messages in PDU
+    uint32_t         msg_len;   /* # of messages in PDU
                                  Only valid for msg packets.
                               */
-    UINT32         mbid;      /* Mailbox ID.  0-63 if msg_len = 0, 
+    uint32_t         mbid;      /* Mailbox ID.  0-63 if msg_len = 0, 
                                               0- 3 otherwise
                               */
-    UINT32         msgseg;    /* Segment of message. 0 if msg_len = 0,
+    uint32_t         msgseg;    /* Segment of message. 0 if msg_len = 0,
                                      <=msg_len
                               */
-    UINT32         letter;    /* Letter ID.  Invalid if msg_len = 0, 
+    uint32_t         letter;    /* Letter ID.  Invalid if msg_len = 0, 
                                      0-3 otherwise.
                               */
     rio_pkt_status status;    /* Only valid for message response
@@ -555,17 +555,17 @@ typedef struct DAR_pkt_log_ms_mask_t_TAG
     /* Logical Layer fields for Message Request (FType 11) transactions,
        and Message responses
     */
-    UINT8 msg_len_m;  // Mask value for Len  field, 4 bits
-	UINT8 msg_size_m; // Mask value for Size field, 4 bits
-	BOOL  msg_xmbox;  // Determines size of Mbid.
+    uint8_t msg_len_m;  // Mask value for Len  field, 4 bits
+	uint8_t msg_size_m; // Mask value for Size field, 4 bits
+	bool  msg_xmbox;  // Determines size of Mbid.
 	                  //    Required for requests and responses.
 	                  //    If True,  MBID is 6 bits and MSGSEG is not used.
 	                  //    If False, MBID is 2 bits and MSGSEG is used.
-    UINT8 msg_mbid_m; // Mask value for mailbox/xmbox  field.
+    uint8_t msg_mbid_m; // Mask value for mailbox/xmbox  field.
 		              //    Required for requests and responses.
-    UINT8 msg_seg_m;  // Mask value for message segment field, 4 bits
+    uint8_t msg_seg_m;  // Mask value for message segment field, 4 bits
 		              //    Required for requests and responses.
-    UINT8 msg_letter_m; // Mask value for letter field, 2 bits
+    uint8_t msg_letter_m; // Mask value for letter field, 2 bits
 		                //    Required for requests and responses.
 } DAR_pkt_log_ms_mask_t;
 
@@ -573,11 +573,11 @@ typedef struct DAR_pkt_log_ms_mask_t_TAG
 */
 typedef struct DAR_pkt_fields_t_TAG 
 {
-    UINT32       tot_bytes; /* Total size of packet in bytes.  
+    uint32_t       tot_bytes; /* Total size of packet in bytes.  
                                    If tot_bytes = -1, the structure is not 
                                    initialized.
                             */
-    UINT32       pad_bytes; /* Number of pad bytes (0's) at the end of the 
+    uint32_t       pad_bytes; /* Number of pad bytes (0's) at the end of the 
                                   packet.  Will be either 0, or 2.
                                   Ignored by DAR_pkt_fields_to_bytes, 
                                   computed by DAR_pkt_bytes_to_fields
@@ -591,10 +591,10 @@ typedef struct DAR_pkt_fields_t_TAG
     */
     DAR_pkt_type pkt_type;   /* Packet type, as per enum above
                              */
-    UINT32       pkt_bytes;  /* Amount of pkt_data[] which is valid, 
+    uint32_t       pkt_bytes;  /* Amount of pkt_data[] which is valid, 
                                     starting at pkt_data[0].
                              */  
-    UINT8       *pkt_data;   /* Pointer to data, an array of at least
+    uint8_t       *pkt_data;   /* Pointer to data, an array of at least
                                     276 bytes.
                              */
     DAR_pkt_log_rw_hdr_t log_rw; /* FTYPE 2, 5, 6, 8, 13
@@ -611,7 +611,7 @@ typedef struct DAR_pkt_fields_t_TAG
 */
 typedef struct DAR_pkt_mask_t_TAG 
 {
-    UINT32       tot_bytes; /* Total size of packet in bytes.  
+    uint32_t       tot_bytes; /* Total size of packet in bytes.  
                                    If tot_bytes = -1, the structure is not 
                                    initialized.
                             */
@@ -622,8 +622,8 @@ typedef struct DAR_pkt_mask_t_TAG
     /* Common Logical Layer Fields
     */
     DAR_pkt_type pkt_type;   // Packet type
-    UINT32       pkt_bytes;  // Amount of pkt_data[] which is valid, starting at pkt_data[0].
-    UINT8       *pkt_data;   // Mask value for data, an array of at least 276 bytes.
+    uint32_t       pkt_bytes;  // Amount of pkt_data[] which is valid, starting at pkt_data[0].
+    uint8_t       *pkt_data;   // Mask value for data, an array of at least 276 bytes.
     DAR_pkt_log_rw_mask_t log_rw; // FTYPE 2, 5, 6, 8, 13 TTYPE 0
     DAR_pkt_log_fc_mask_t log_fc; // FTYPE 7
     DAR_pkt_log_ds_mask_t log_ds; // FTYPE 9
@@ -638,16 +638,16 @@ typedef struct DAR_pkt_bytes_t_TAG
     rio_addr_size pkt_addr_size; /* Address size of packet, determined by 
                                         system not packet fields
                                  */
-    BOOL          pkt_has_crc;   /* True of the packet incorporates the CRC 
+    bool          pkt_has_crc;   /* True of the packet incorporates the CRC 
                                         codes, false otherwise
                                  */
-    BOOL          pkt_padded;    /* True if the last 2 bytes of the packet 
+    bool          pkt_padded;    /* True if the last 2 bytes of the packet 
 				    are padding, false if not.
 				 */
-    UINT32        num_chars;     /* Number of valid bytes in pkt_data, 
+    uint32_t        num_chars;     /* Number of valid bytes in pkt_data, 
                                         -1 means nothing is valid
                                  */ 
-    UINT8         pkt_data[RIO_MAX_PKT_BYTES];
+    uint8_t         pkt_data[RIO_MAX_PKT_BYTES];
 } DAR_pkt_bytes_t;
 
 /* Error codes for packet composition and parsing routines
@@ -661,14 +661,14 @@ typedef struct DAR_pkt_bytes_t_TAG
 #define DAR_UTIL_BAD_RESP_DSIZE 0x78000006 
 #define DAR_UTIL_UNKNOWN_TRANS  0x78000007  
 #define DAR_UTIL_BAD_DS_DSIZE   0x78000008  
-#define DAR_UTIL_UNKNOWN_STATUS 0x78000009  
+#define DAR_UTIL_UNKNOWN_uint32_t 0x78000009  
 #define DAR_UTIL_UNKNOWN_FTYPE  0x78000010  
 #define DAR_UTIL_0_MASK_VAL_ERR 0x78000011  
 
 /* To compose a packet as a stream of bytes, pass in an initialized 
    rio_pkt_fields_t, and get out a rio_pkt_bytes_t.
 */
-STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in, 
+uint32_t DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in, 
                                  DAR_pkt_bytes_t  *bytes_out );
 
 /* If the stream of bytes must be altered after the packet has been composed, 
@@ -678,12 +678,12 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
  * the num_chars and pkt_padded fields are consistent after the stream of
  * bytes has been altered.
  */
-STATUS DAR_update_pkt_CRC ( DAR_pkt_bytes_t  *bytes_in );
+uint32_t DAR_update_pkt_CRC ( DAR_pkt_bytes_t  *bytes_in );
 
 /* To parse a packet, pass in a rio_pkt_bytes_t stream of bytes and get 
    back a rio_pkt_fields_t.
 */
-STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in, 
+uint32_t DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in, 
                                  DAR_pkt_fields_t *fields_out );
 
 /* Routines to return strings describing field values

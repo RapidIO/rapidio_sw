@@ -50,14 +50,14 @@ extern "C" {
 /* ************************************************ */
 /* Tsi575 : Register address offset definitions     */
 /* ************************************************ */
-#define Tsi575_CG_INT_STATUS                             (CG_BASE + 0x00000000)
+#define Tsi575_CG_INT_uint32_t                             (CG_BASE + 0x00000000)
 #define Tsi575_CG_INT_SET                                (CG_BASE + 0x00000004)
 #define Tsi575_CG_INT_CTRL                               (CG_BASE + 0x00000008)
 #define Tsi575_CG_PLL0_CTRL0                             (CG_BASE + 0x00000010)
 #define Tsi575_CG_PLL0_CTRL1                             (CG_BASE + 0x00000020)
 #define Tsi575_CG_IO_CTRL                                (CG_BASE + 0x00000030)
-#define Tsi575_CG_RIO_PWRUP_STATUS                       (CG_BASE + 0x00000034)
-#define Tsi575_CG_PWRUP_STATUS                           (CG_BASE + 0x00000038)
+#define Tsi575_CG_RIO_PWRUP_uint32_t                       (CG_BASE + 0x00000034)
+#define Tsi575_CG_PWRUP_uint32_t                           (CG_BASE + 0x00000038)
 #define Tsi575_CG_PCI_OUT_DLY                            (CG_BASE + 0x00000050)
 
 
@@ -68,10 +68,10 @@ extern "C" {
 
 
 
-/* Tsi575_CG_INT_STATUS : Register Bits Masks Definitions */
-#define Tsi575_CG_INT_STATUS_R_SLIP                                (0x00000001)
-#define Tsi575_CG_INT_STATUS_FB_SLIP                               (0x00000100)
-#define Tsi575_CG_INT_STATUS_LOL                                   (0x00030000)
+/* Tsi575_CG_INT_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_CG_INT_uint32_t_R_SLIP                                (0x00000001)
+#define Tsi575_CG_INT_uint32_t_FB_SLIP                               (0x00000100)
+#define Tsi575_CG_INT_uint32_t_LOL                                   (0x00030000)
 
 /* Tsi575_CG_INT_SET : Register Bits Masks Definitions */
 #define Tsi575_CG_INT_SET_R_SLIP_SET                               (0x00000001)
@@ -93,36 +93,36 @@ extern "C" {
 #define Tsi575_CG_IO_CTRL_PCI_EN                                   (0x00001f00)
 #define Tsi575_CG_IO_CTRL_PCI_VAL                                  (0x001f0000)
 
-/* Tsi575_CG_RIO_PWRUP_STATUS : Register Bits Masks Definitions */
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP1_PWRDN                       (0x00000002)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP2_PWRDN                       (0x00000004)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP3_PWRDN                       (0x00000008)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP4_PWRDN                       (0x00000010)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP5_PWRDN                       (0x00000020)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP6_PWRDN                       (0x00000040)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP0_MODE                        (0x00010000)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP2_MODE                        (0x00020000)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP4_MODE                        (0x00040000)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP6_MODE                        (0x00080000)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP_IO_SPEED                     (0x03000000)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP_REF_CLK                      (0x0c000000)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP_RX_SWAP                      (0x10000000)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP_TX_SWAP                      (0x20000000)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP_HOST                         (0x40000000)
-#define Tsi575_CG_RIO_PWRUP_STATUS_SP_MAST_EN                      (0x80000000)
+/* Tsi575_CG_RIO_PWRUP_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP1_PWRDN                       (0x00000002)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP2_PWRDN                       (0x00000004)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP3_PWRDN                       (0x00000008)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP4_PWRDN                       (0x00000010)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP5_PWRDN                       (0x00000020)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP6_PWRDN                       (0x00000040)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP0_MODE                        (0x00010000)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP2_MODE                        (0x00020000)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP4_MODE                        (0x00040000)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP6_MODE                        (0x00080000)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP_IO_SPEED                     (0x03000000)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP_REF_CLK                      (0x0c000000)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP_RX_SWAP                      (0x10000000)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP_TX_SWAP                      (0x20000000)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP_HOST                         (0x40000000)
+#define Tsi575_CG_RIO_PWRUP_uint32_t_SP_MAST_EN                      (0x80000000)
 
-/* Tsi575_CG_PWRUP_STATUS : Register Bits Masks Definitions */
-#define Tsi575_CG_PWRUP_STATUS_I2C_SA                              (0x0000007f)
-#define Tsi575_CG_PWRUP_STATUS_I2C_MA                              (0x00000100)
-#define Tsi575_CG_PWRUP_STATUS_I2C_SLAVE                           (0x00000200)
-#define Tsi575_CG_PWRUP_STATUS_I2C_DISABLE                         (0x00000400)
-#define Tsi575_CG_PWRUP_STATUS_I2C_SEL                             (0x00000800)
-#define Tsi575_CG_PWRUP_STATUS_PCI_PLL_BYPASS                      (0x00010000)
-#define Tsi575_CG_PWRUP_STATUS_PCI_M66EN                           (0x00020000)
-#define Tsi575_CG_PWRUP_STATUS_PCI_RSTDIR                          (0x00040000)
-#define Tsi575_CG_PWRUP_STATUS_PCI_ARBEN                           (0x00080000)
-#define Tsi575_CG_PWRUP_STATUS_PCI_HOLD_BOOT                       (0x00100000)
-#define Tsi575_CG_PWRUP_STATUS_VARIANT                             (0x03000000)
+/* Tsi575_CG_PWRUP_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_CG_PWRUP_uint32_t_I2C_SA                              (0x0000007f)
+#define Tsi575_CG_PWRUP_uint32_t_I2C_MA                              (0x00000100)
+#define Tsi575_CG_PWRUP_uint32_t_I2C_SLAVE                           (0x00000200)
+#define Tsi575_CG_PWRUP_uint32_t_I2C_DISABLE                         (0x00000400)
+#define Tsi575_CG_PWRUP_uint32_t_I2C_SEL                             (0x00000800)
+#define Tsi575_CG_PWRUP_uint32_t_PCI_PLL_BYPASS                      (0x00010000)
+#define Tsi575_CG_PWRUP_uint32_t_PCI_M66EN                           (0x00020000)
+#define Tsi575_CG_PWRUP_uint32_t_PCI_RSTDIR                          (0x00040000)
+#define Tsi575_CG_PWRUP_uint32_t_PCI_ARBEN                           (0x00080000)
+#define Tsi575_CG_PWRUP_uint32_t_PCI_HOLD_BOOT                       (0x00100000)
+#define Tsi575_CG_PWRUP_uint32_t_VARIANT                             (0x03000000)
 
 /* Tsi575_CG_PCI_OUT_DLY : Register Bits Masks Definitions */
 #define Tsi575_CG_PCI_OUT_DLY_PCI_DLY                              (0x00000003)

@@ -37,17 +37,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#include <DAR_Basic_Defs.h>
+#include <stdint.h>
 
 /* Routine to bind in all Tsi57x specific DAR support routines.
    Supports Tsi574, Tsi576, Tsi577, Tsi578
 */
-STATUS bind_tsi57x_DAR_support( void );
+uint32_t bind_tsi57x_DAR_support( void );
 
 /* Routine to bind in all Tsi57x specific Device Specific Function routines.
    Supports Tsi574, Tsi576, Tsi577, Tsi578
 */
-UINT32 bind_tsi57x_DSF_support( void );
+uint32_t bind_tsi57x_DSF_support( void );
 
 #ifdef __cplusplus
 }

@@ -56,18 +56,18 @@ extern "C" {
 #define MAX_OTHER_MAC_PORTS 3
 
 typedef struct port_mac_relations_t_TAG {
-    UINT8    port_num       ;    // Port number
-    UINT8    mac_num        ;    // MAC number associated with configuration for this port.
-    UINT8    first_mac_lane ;    // Port associated with the first lane of the MAC
-    UINT8    lane_count_4x  ;    // If the MAC is in 4x mode, how many lanes?
-    UINT8    lane_count_1x  ;    // If the MAC is in 1x mode, how many lanes?
-    UINT8    pwr_mac_num    ;    // MAC number for power control of this port.
+    uint8_t    port_num       ;    // Port number
+    uint8_t    mac_num        ;    // MAC number associated with configuration for this port.
+    uint8_t    first_mac_lane ;    // Port associated with the first lane of the MAC
+    uint8_t    lane_count_4x  ;    // If the MAC is in 4x mode, how many lanes?
+    uint8_t    lane_count_1x  ;    // If the MAC is in 1x mode, how many lanes?
+    uint8_t    pwr_mac_num    ;    // MAC number for power control of this port.
                                  //    usually the same as mac_num, not on Tsi577
-    UINT32   pwr_down_mask  ;    // Either Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4 or
+    uint32_t   pwr_down_mask  ;    // Either Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4 or
                                  //    Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1
-    UINT32   rst_mask       ;    // Either Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4 or
+    uint32_t   rst_mask       ;    // Either Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X4 or
                                  //    Tsi578_SMACX_DLOOP_CLK_SEL_SOFT_RST_X1
-    UINT8   other_mac_ports[MAX_OTHER_MAC_PORTS];    
+    uint8_t   other_mac_ports[MAX_OTHER_MAC_PORTS];    
                                  // List of other MAC ports related to this MAC.
                                  //    Terminated with RIO_ALL_PORTS.
 } port_mac_relations_t;
@@ -75,12 +75,12 @@ typedef struct port_mac_relations_t_TAG {
 // Sets up sw_pmr pointer. 
 // Only exposed here for software verification purposes.
 
-STATUS init_sw_pmr(DAR_DEV_INFO_t        *dev_info, 
+uint32_t init_sw_pmr(DAR_DEV_INFO_t        *dev_info, 
                  port_mac_relations_t **sw_pmr   );
 
 struct scrpad_info {
-       UINT32 offset;
-	UINT32 rw_mask;
+       uint32_t offset;
+	uint32_t rw_mask;
 };
 
 const struct scrpad_info *get_scrpad_info( void );

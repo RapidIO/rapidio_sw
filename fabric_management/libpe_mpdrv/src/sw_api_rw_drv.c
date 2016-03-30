@@ -42,10 +42,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-STATUS SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info,
+uint32_t SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info,
 				uint32_t offset, uint32_t *readdata)
 {
-	STATUS rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	uint32_t x;
         struct mpsw_drv_pe_acc_info *acc_p;
 	riocp_pe_handle pe_h;
@@ -81,11 +81,11 @@ exit:
 	return rc;
 };
 
-STATUS SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info,
+uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info,
 				uint32_t  offset,
 				uint32_t  writedata)
 {
-	STATUS rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
         struct mpsw_drv_pe_acc_info *acc_p;
 	riocp_pe_handle pe_h;
 

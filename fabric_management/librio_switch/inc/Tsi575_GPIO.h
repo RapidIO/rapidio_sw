@@ -52,7 +52,7 @@ extern "C" {
 #define Tsi575_GPIOX_DATA_n(X)                 (GPIO_BASE + 0x0000 + 0x010*(X))
 #define Tsi575_GPIOX_CNTRL_n(X)                (GPIO_BASE + 0x0004 + 0x010*(X))
 #define Tsi575_GPIOX_EDGE_CNTRL_n(X)           (GPIO_BASE + 0x0008 + 0x010*(X))
-#define Tsi575_GPIOX_INT_STATUS_n(X)           (GPIO_BASE + 0x000c + 0x010*(X))
+#define Tsi575_GPIOX_INT_uint32_t_n(X)           (GPIO_BASE + 0x000c + 0x010*(X))
 
 
 /* ************************************************ */
@@ -74,9 +74,9 @@ extern "C" {
 #define Tsi575_GPIOX_EDGE_CNTRL_n_EDGE                             (0x0000ffff)
 #define Tsi575_GPIOX_EDGE_CNTRL_n_STATE                            (0xffff0000)
 
-/* Tsi575_GPIOX_INT_STATUS_n : Register Bits Masks Definitions */
-#define Tsi575_GPIOX_INT_STATUS_n_ENABLE                           (0x0000ffff)
-#define Tsi575_GPIOX_INT_STATUS_n_STATUS                           (0xffff0000)
+/* Tsi575_GPIOX_INT_uint32_t_n : Register Bits Masks Definitions */
+#define Tsi575_GPIOX_INT_uint32_t_n_ENABLE                           (0x0000ffff)
+#define Tsi575_GPIOX_INT_uint32_t_n_uint32_t                           (0xffff0000)
 
                                                                                
 

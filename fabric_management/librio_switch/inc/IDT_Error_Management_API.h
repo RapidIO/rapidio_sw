@@ -47,17 +47,17 @@ extern "C" {
 
 typedef struct idt_em_cfg_pw_t_TAG
 {
-  UINT32 imp_rc;            // Implementation specific return code, useful for debug.  
+  uint32_t imp_rc;            // Implementation specific return code, useful for debug.  
                             //     Only valid on output, not useful for input.
   tt_t   deviceID_tt;       // tt_dev16 if this is a 16-bit destID, 
                             // tt_dev8  if this is an 8-bit destID. 
-  UINT16 port_write_destID; // Where to send the port-write
-  BOOL   srcID_valid;       // True if the sourceID can be set on this device, and should be set on this device.
-  UINT16 port_write_srcID;  // Control of the source ID of the port-write, which is a reserved field.
-  UINT8  priority;          // Priority of the port-write.  Value is 0-3.  Generally should be 3.
-  BOOL   CRF;               // Set Critical Request Flow bit for port-write priority. Not available on all devices.
+  uint16_t port_write_destID; // Where to send the port-write
+  bool   srcID_valid;       // True if the sourceID can be set on this device, and should be set on this device.
+  uint16_t port_write_srcID;  // Control of the source ID of the port-write, which is a reserved field.
+  uint8_t  priority;          // Priority of the port-write.  Value is 0-3.  Generally should be 3.
+  bool   CRF;               // Set Critical Request Flow bit for port-write priority. Not available on all devices.
                             //    Should be set whenever possible.
-  UINT32 port_write_re_tx;  // Controls the rate at which port-writes are retransmitted.
+  uint32_t port_write_re_tx;  // Controls the rate at which port-writes are retransmitted.
                             //    Max value is 0xFFFFFF.  Granularity is 352 nsec.  0 means retransmission is disabled.
                             //    Some implementations restrict the retransmit granularity further.  Refer to 
                             //    definitions of constants below.
@@ -160,25 +160,25 @@ typedef enum idt_em_events_t_TAG {
 //
 // NOTE: The RIO_SPX_RATE_EN_IMP_SPEC_ERR cannot be enabled by this routine.
 //       Depending on the device, some events will not be enabled/counted.
-//       The RIO_SPX_ERR_RATE_ERR_RR, RIO_SPX_ERR_RATE_ERR_RB and 
-//          RIO_SPX_ERR_THRESH_ERR_RFT are packet into *info.
+//       The RIO_EMHS_SPX_RATE_RR, RIO_EMHS_SPX_RATE_RB and 
+//          RIO_EMHS_SPX_THRESH_FAIL are packet into *info.
 
-STATUS idt_em_compute_f_err_rate_info( UINT32 spx_rate_en,
-                                       UINT32 spx_err_rate,
-                                       UINT32 spx_err_thresh,
-                                       UINT32 *info          );
+uint32_t idt_em_compute_f_err_rate_info( uint32_t spx_rate_en,
+                                       uint32_t spx_err_rate,
+                                       uint32_t spx_err_thresh,
+                                       uint32_t *info          );
 
 // The idt_em_get_f_err_rate_info extracts register values from
 // the "info" value used to configure the idt_em_f_err_rate event.
 // The "info" value is computed by idt_em_compute_f_err_rate_info.
-STATUS idt_em_get_f_err_rate_info( UINT32  info          ,
-                                   UINT32 *spx_rate_en   ,
-                                   UINT32 *spx_err_rate  ,
-                                   UINT32 *spx_err_thresh );
+uint32_t idt_em_get_f_err_rate_info( uint32_t  info          ,
+                                   uint32_t *spx_rate_en   ,
+                                   uint32_t *spx_err_rate  ,
+                                   uint32_t *spx_err_thresh );
 
-extern char *idt_em_events_names[ (UINT8)(idt_em_last) ];
+extern char *idt_em_events_names[ (uint8_t)(idt_em_last) ];
 
-#define EVENT_NAME_STR(x) ((x < (UINT8)(idt_em_last))?(idt_em_events_names[x]):"OORange") 
+#define EVENT_NAME_STR(x) ((x < (uint8_t)(idt_em_last))?(idt_em_events_names[x]):"OORange") 
 
 typedef enum idt_em_notfn_ctl_t_TAG {
    idt_em_notfn_none  ,    // Disable event notification
@@ -189,9 +189,9 @@ typedef enum idt_em_notfn_ctl_t_TAG {
    idt_em_notfn_last       // Last control value, used for loop comparisons
 } idt_em_notfn_ctl_t;
 
-extern char *idt_em_notfn_names[ (UINT8)(idt_em_notfn_last) ];
+extern char *idt_em_notfn_names[ (uint8_t)(idt_em_notfn_last) ];
 
-#define NOTFN_CTL_STR(x) ((x < (UINT8)(idt_em_notfn_last))?(idt_em_notfn_names[x]):"OORange")
+#define NOTFN_CTL_STR(x) ((x < (uint8_t)(idt_em_notfn_last))?(idt_em_notfn_names[x]):"OORange")
 
 typedef enum idt_em_detect_t_TAG  {
    idt_em_detect_off   , // Disable event detection
@@ -200,44 +200,44 @@ typedef enum idt_em_detect_t_TAG  {
    idt_em_detect_last    // Last control value, used for loop comparisons
 } idt_em_detect_t;
 
-extern char *idt_em_detect_names[ (UINT8)(idt_em_detect_last) ];
+extern char *idt_em_detect_names[ (uint8_t)(idt_em_detect_last) ];
 
-#define DETECT_CTL_STR(x) ((x < (UINT8)(idt_em_detect_last))?(idt_em_detect_names[x]):"OORange")
+#define DETECT_CTL_STR(x) ((x < (uint8_t)(idt_em_detect_last))?(idt_em_detect_names[x]):"OORange")
 
 typedef struct idt_em_cfg_t_TAG
 {
         idt_em_events_t  em_event;    // Event 
         idt_em_detect_t  em_detect;   // Indicates whether detection of the
                                       //   event should be enabled/disabled.
-        UINT32           em_info;     // Parameter which controls detection
+        uint32_t           em_info;     // Parameter which controls detection
                                       //   of an event.
 } idt_em_cfg_t;
  
-#define EM_MAX_EVENT_LIST_SIZE ((UINT8)(idt_em_last) * IDT_MAX_PORTS)
+#define EM_MAX_EVENT_LIST_SIZE ((uint8_t)(idt_em_last) * IDT_MAX_PORTS)
 
 typedef struct idt_em_cfg_set_in_t_TAG
 {
         struct DAR_ptl		ptl;   // Port list to configure these events for.
         idt_em_notfn_ctl_t notfn;      // Notification setting for ALL events for the port.
-        UINT8              num_events; // Number of entries in the events[] array
+        uint8_t              num_events; // Number of entries in the events[] array
                                        //    Maximum value is idt_em_last.
         idt_em_cfg_t      *events;     // All events to be configured for selected port.
 } idt_em_cfg_set_in_t;
 
 typedef struct idt_em_cfg_set_out_t_TAG
 {
-        UINT32              imp_rc;         // Implementation specific return code, useful for debug
-        UINT8               fail_port_num;  // Indicates the port that was being configured 
+        uint32_t              imp_rc;         // Implementation specific return code, useful for debug
+        uint8_t               fail_port_num;  // Indicates the port that was being configured 
                                             //    at the time of a failure.
-        UINT8               fail_idx;       // Index in events[] of the entry that failed.
+        uint8_t               fail_idx;       // Index in events[] of the entry that failed.
         idt_em_notfn_ctl_t  notfn;          // Current notification setting for ALL events for the port.
 } idt_em_cfg_set_out_t;
 
 typedef struct idt_em_cfg_get_in_t_TAG
 {
-    UINT8            port_num;       // Retrieve configuration for this port number.
+    uint8_t            port_num;       // Retrieve configuration for this port number.
                                      //    RIO_ALL_PORTS is an illegal value.
-    UINT8            num_events;     // Number of entries in events[]
+    uint8_t            num_events;     // Number of entries in events[]
                                      //    Maximum value is idt_em_last.
     idt_em_events_t *event_list;     // Events whose status is requested
     idt_em_cfg_t    *events;         // Location to return requested information. 
@@ -248,8 +248,8 @@ typedef struct idt_em_cfg_get_in_t_TAG
 
 typedef struct idt_em_cfg_get_out_t_TAG
 {
-        UINT32              imp_rc;    // Implementation specific return code, useful for debug
-        UINT8               fail_idx;  // Index in events of the entry that failed.
+        uint32_t              imp_rc;    // Implementation specific return code, useful for debug
+        uint8_t               fail_idx;  // Index in events of the entry that failed.
         idt_em_notfn_ctl_t  notfn;     // Current notification setting for ALL events for the port.
 } idt_em_cfg_get_out_t;
 
@@ -262,13 +262,13 @@ typedef struct idt_em_dev_rpt_ctl_in_t_TAG
 
 typedef struct idt_em_dev_rpt_ctl_out_t_TAG
 {
-       UINT32              imp_rc;     // Implementation specific return code, useful for debug
+       uint32_t              imp_rc;     // Implementation specific return code, useful for debug
        idt_em_notfn_ctl_t  notfn;      // Current notification setting for ALL events for the port(s).
 } idt_em_dev_rpt_ctl_out_t;
 
 typedef struct idt_em_event_n_loc_t_TAG
 {
-    UINT8            port_num;       // Port number where the event occurred.
+    uint8_t            port_num;       // Port number where the event occurred.
     idt_em_events_t  event;          // One of the events which triggered the notification
 } idt_em_event_n_loc_t;
 
@@ -282,11 +282,11 @@ typedef struct idt_em_event_n_loc_t_TAG
 
 typedef struct idt_em_parse_pw_in_t_TAG
 {
-   UINT32            pw[4];          // Payload of a port-write packet.
+   uint32_t            pw[4];          // Payload of a port-write packet.
                                      // Note that the handling routine must select the correct
                                      // device to decode the port-write format based on the
                                      //   component tag value in the port-write.
-    UINT8            num_events;     // Maximum number of events that can be 
+    uint8_t            num_events;     // Maximum number of events that can be 
                                      //    saved in array pointed to by *events
                                      // - Array is indexed from 0 to num_events-1
                                      // - Valid range is from 1 to idt_em_last 
@@ -295,31 +295,31 @@ typedef struct idt_em_parse_pw_in_t_TAG
 
 typedef struct idt_em_parse_pw_out_t_TAG
 {
-    UINT32           imp_rc;         // Implementation specific return code, useful for debug
-    UINT8            num_events;     // Number of entries in the arrays pointed to by
+    uint32_t           imp_rc;         // Implementation specific return code, useful for debug
+    uint8_t            num_events;     // Number of entries in the arrays pointed to by
                                      //    *events which are valid.
-    BOOL             too_many;       // TRUE if there were more events present than could be
+    bool             too_many;       // true if there were more events present than could be
                                      //    returned 
-    BOOL             other_events;   // TRUE if other (debug?) events are indicaed by the port-write.
+    bool             other_events;   // true if other (debug?) events are indicaed by the port-write.
 } idt_em_parse_pw_out_t;
 
 typedef struct idt_em_get_int_stat_in_t_TAG
 {
     struct DAR_ptl		ptl;    // Port number which may have an interrupt asserted.
                                        //    May be set to RIO_ALL_PORTS.  All ports will be checked for events.
-    UINT16                num_events;  // Number of entries in events[]. 
+    uint16_t                num_events;  // Number of entries in events[]. 
                                        //    Maximum value is EM_MAX_EVENT_LIST_SIZE.
     idt_em_event_n_loc_t *events;      // Array of returned event(s), which triggered the interrupt  
 } idt_em_get_int_stat_in_t;
 
 typedef struct idt_em_get_int_stat_out_t_TAG
 {
-    UINT32           imp_rc;         // Implementation specific return code, useful for debug
-    UINT8            num_events;     // Number of entries in events[] which are valid.  
+    uint32_t           imp_rc;         // Implementation specific return code, useful for debug
+    uint8_t            num_events;     // Number of entries in events[] which are valid.  
                                      //    Maximum value is IDT_MAX_PORTS * idt_em_last.
-    BOOL             too_many;       // TRUE if there were more events present than could be
+    bool             too_many;       // true if there were more events present than could be
                                      //    returned 
-    BOOL             other_events;   // TRUE if debug events are present in the port-write.
+    bool             other_events;   // true if debug events are present in the port-write.
 } idt_em_get_int_stat_out_t;
 
 typedef struct idt_em_get_pw_stat_in_t_TAG
@@ -327,25 +327,25 @@ typedef struct idt_em_get_pw_stat_in_t_TAG
     struct DAR_ptl		ptl;       // Port number for which port-write event status must be gathered.
                                      //    May be set to RIO_ALL_PORTS if port-write status for
                                      //    all ports must be gathered.
-    UINT8            pw_port_num;    // Port writes are currently being sent for this port number.
+    uint8_t            pw_port_num;    // Port writes are currently being sent for this port number.
                                      //    To successfully clear all events triggering port-write
                                      //    transmission, events for this port number must be 
                                      //    cleared last.  If set to RIO_ALL_PORTS, then the device may 
                                      //    be sending port-writes only for logical layer errors, or not
                                      //    sending port-writes at all.
-    UINT16           num_events;     // Maximum size of *events.
+    uint16_t           num_events;     // Maximum size of *events.
                                      //    Maximum value is EM_MAX_EVENT_LIST_SIZE.
     idt_em_event_n_loc_t *events;    // Array of returned event(s), which can/will trigger port-writes  
 } idt_em_get_pw_stat_in_t;
 
 typedef struct idt_em_get_pw_stat_out_t_TAG
 {
-    UINT32           imp_rc;         // Implementation specific return code, useful for debug
-    UINT16           num_events;     // Number of entries in the arrays popwed to by
+    uint32_t           imp_rc;         // Implementation specific return code, useful for debug
+    uint16_t           num_events;     // Number of entries in the arrays popwed to by
                                      //    *events which are valid.
-    BOOL             too_many;       // TRUE if there were more events present than could be
+    bool             too_many;       // true if there were more events present than could be
                                      //    returned 
-    BOOL             other_events;   // TRUE if debug events can/will trigger port-writes.  
+    bool             other_events;   // true if debug events can/will trigger port-writes.  
 } idt_em_get_pw_stat_out_t;
 
 // Note: It is possible to set num_events to 1, and the *event entry to {RIO_ALL_PORTS,idt_em_last}
@@ -356,30 +356,30 @@ typedef struct idt_em_get_pw_stat_out_t_TAG
 //
 typedef struct idt_em_clr_events_in_t_TAG
 {
-   UINT16                num_events;    // Number of valid entries in *events
+   uint16_t                num_events;    // Number of valid entries in *events
                                         //    Maximum value is EM_MAX_EVENT_LIST_SIZE.
    idt_em_event_n_loc_t *events;        // Array of events which must be cleared.                          
 } idt_em_clr_events_in_t;
 
 typedef struct idt_em_clr_events_out_t_TAG
 {
-   UINT32 imp_rc;             // Implementation specific return code.
-   UINT16 failure_idx;        // Index in *events where failure occurred.
-   BOOL   pw_events_remain;   // True if there are still events reported via interrupt asserted by the device
-   BOOL   int_events_remain;  // True if there are still events reported via port-write asserted by the device
+   uint32_t imp_rc;             // Implementation specific return code.
+   uint16_t failure_idx;        // Index in *events where failure occurred.
+   bool   pw_events_remain;   // True if there are still events reported via interrupt asserted by the device
+   bool   int_events_remain;  // True if there are still events reported via port-write asserted by the device
 } idt_em_clr_events_out_t;
 
 typedef struct idt_em_create_events_in_t_TAG
 {
-   UINT16                num_events; // Number of valid entries in *events
+   uint16_t                num_events; // Number of valid entries in *events
                                      //    Maximum value is EM_MAX_EVENT_LIST_SIZE.
    idt_em_event_n_loc_t *events;     // Array of events which must be created.                          
 } idt_em_create_events_in_t;
 
 typedef struct idt_em_create_events_out_t_TAG
 {
-   UINT32 imp_rc;      // Implementation specific return code.
-   UINT16 failure_idx; // Index in *events where failure occurred.
+   uint32_t imp_rc;      // Implementation specific return code.
+   uint16_t failure_idx; // Index in *events where failure occurred.
 } idt_em_create_events_out_t;
 
 // Implementation specific error return codes
@@ -401,19 +401,19 @@ typedef struct idt_em_create_events_out_t_TAG
 
 #define EM_CFG_PW(x) (EM_CFG_PW_0+x)
 
-STATUS idt_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_cfg_pw_in_t   *in_parms, 
                         idt_em_cfg_pw_out_t  *out_parms );
 
 #define EM_CFG_SET(x) (EM_CFG_SET_0+x)
 
-STATUS idt_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info, 
+uint32_t idt_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info, 
                          idt_em_cfg_set_in_t   *in_parms, 
                          idt_em_cfg_set_out_t  *out_parms );
 
 #define EM_CFG_GET(x) (EM_CFG_GET_0+x)
 
-STATUS idt_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info, 
+uint32_t idt_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info, 
                          idt_em_cfg_get_in_t   *in_parms, 
                          idt_em_cfg_get_out_t  *out_parms );
 
@@ -422,7 +422,7 @@ STATUS idt_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
 
 #define EM_DEV_RPT_CTL(x) (EM_DEV_RPT_CTL_0+x)
 
-STATUS idt_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info, 
                              idt_em_dev_rpt_ctl_in_t   *in_parms, 
                              idt_em_dev_rpt_ctl_out_t  *out_parms );
 
@@ -432,19 +432,19 @@ STATUS idt_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info,
 
 #define EM_PARSE_PW(x) (EM_PARSE_PW_0+x)
 
-STATUS idt_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_parse_pw_in_t   *in_parms, 
                         idt_em_parse_pw_out_t  *out_parms );
 
 #define EM_GET_INT_STAT(x) (EM_GET_INT_STAT_0+x)
 
-STATUS idt_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info, 
+uint32_t idt_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info, 
                               idt_em_get_int_stat_in_t   *in_parms, 
                               idt_em_get_int_stat_out_t  *out_parms );
 
 #define EM_GET_PW_STAT(x) (EM_GET_PW_STAT_0+x)
 
-STATUS idt_em_get_pw_stat  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_get_pw_stat  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_get_pw_stat_in_t   *in_parms, 
                         idt_em_get_pw_stat_out_t  *out_parms );
 
@@ -461,13 +461,13 @@ STATUS idt_em_get_pw_stat  ( DAR_DEV_INFO_t       *dev_info,
 
 #define EM_CLR_EVENTS(x) (EM_CLR_EVENTS_0+x)
 
-STATUS idt_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
                              idt_em_clr_events_in_t   *in_parms, 
                              idt_em_clr_events_out_t  *out_parms );
 
 #define EM_CREATE_EVENTS(x)    (EM_CREATE_EVENTS_0+x)
 
-STATUS idt_em_create_events( DAR_DEV_INFO_t              *dev_info, 
+uint32_t idt_em_create_events( DAR_DEV_INFO_t              *dev_info, 
                              idt_em_create_events_in_t   *in_parms, 
                              idt_em_create_events_out_t  *out_parms );
 

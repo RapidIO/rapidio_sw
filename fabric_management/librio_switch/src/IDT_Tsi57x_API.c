@@ -47,7 +47,7 @@ extern "C" {
 //
 
 static DSF_Handle_t Tsi57x_driver_handle;
-static UINT32 num_Tsi57x_driver_instances;
+static uint32_t num_Tsi57x_driver_instances;
 
 // Routing table entry value to use when requesting
 // default route or packet discard (no route)
@@ -140,19 +140,19 @@ port_mac_relations_t tsi572_pmr[] = {
 
 struct {
         const char   *name;  /* Constant name string */
-        const UINT32 devID;  /* Vendor + Device ID   */
+        const uint32_t devID;  /* Vendor + Device ID   */
 } device_names[] = {
-{"Tsi572", ((UINT32)(Tsi572_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
-{"Tsi574", ((UINT32)(Tsi574_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
-{"Tsi578", ((UINT32)(Tsi578_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
-{"Tsi576", ((UINT32)(Tsi576_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
-{"Tsi620", ((UINT32)(Tsi575_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
-{"Tsi577", ((UINT32)(Tsi577_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
+{"Tsi572", ((uint32_t)(Tsi572_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
+{"Tsi574", ((uint32_t)(Tsi574_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
+{"Tsi578", ((uint32_t)(Tsi578_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
+{"Tsi576", ((uint32_t)(Tsi576_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
+{"Tsi620", ((uint32_t)(Tsi575_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
+{"Tsi577", ((uint32_t)(Tsi577_RIO_DEVID_VAL) << 16) + IDT_TSI_VENDOR_ID },
 };
 
 void getTsiName(DAR_DEV_INFO_t *dev_info)
 {
-        UINT32 i;
+        uint32_t i;
 
         for (i = 0; i < (sizeof(device_names)/sizeof(device_names[0])); i++) {
                 if (device_names[i].devID == dev_info->devID) {
@@ -177,14 +177,14 @@ void getTsiName(DAR_DEV_INFO_t *dev_info)
 #define ERR_DET_MASK (Tsi578_RIO_LOG_ERR_DET_EN_UNSUP_TRANS_EN | \
 		Tsi578_RIO_LOG_ERR_DET_EN_ILL_RESP_EN | \
 		Tsi578_RIO_LOG_ERR_DET_EN_ILL_TRANS_EN)
-#define MC_MASK_CFG_MASK ((UINT32)(Tsi578_RIO_MC_MASK_CFG_PORT_PRESENT | \
+#define MC_MASK_CFG_MASK ((uint32_t)(Tsi578_RIO_MC_MASK_CFG_PORT_PRESENT | \
 			  Tsi578_RIO_MC_MASK_CFG_MASK_CMD | \
 			Tsi578_RIO_MC_MASK_CFG_EG_PORT_NUM | \
 			Tsi578_RIO_MC_MASK_CFG_MC_MASK_NUM))
-#define MC_DESTID_MASK ((UINT32)(Tsi578_RIO_MC_DESTID_CFG_DESTID_BASE | \
+#define MC_DESTID_MASK ((uint32_t)(Tsi578_RIO_MC_DESTID_CFG_DESTID_BASE | \
 			Tsi578_RIO_MC_DESTID_CFG_DESTID_BASE_LT | \
 			Tsi578_RIO_MC_DESTID_CFG_MASK_NUM_BASE))
-#define MC_ASSOC_MASK ((UINT32)(Tsi578_RIO_MC_DESTID_ASSOC_ASSOC_PRESENT | \
+#define MC_ASSOC_MASK ((uint32_t)(Tsi578_RIO_MC_DESTID_ASSOC_ASSOC_PRESENT | \
 			Tsi578_RIO_MC_DESTID_ASSOC_CMD | \
 			Tsi578_RIO_MC_DESTID_ASSOC_LARGE))
 
@@ -226,14 +226,14 @@ const struct scrpad_info *get_scrpad_info( void )
 };
 
 
-STATUS IDT_tsi57xWriteReg( DAR_DEV_INFO_t *dev_info,
-                                UINT32  offset,
-                                UINT32  writedata )
+uint32_t IDT_tsi57xWriteReg( DAR_DEV_INFO_t *dev_info,
+                                uint32_t  offset,
+                                uint32_t  writedata )
 {
-	STATUS rc = WriteReg( dev_info, offset, writedata );
+	uint32_t rc = WriteReg( dev_info, offset, writedata );
 
 	if (RIO_SUCCESS == rc) {
-		UINT8 idx = 0;
+		uint8_t idx = 0;
 		for (idx = SCRPAD_FIRST_IDX; idx < MAX_DAR_SCRPAD_IDX; idx++) {
 			if (scratchpad_const[idx].offset == offset) {
 				writedata &= scratchpad_const[idx].rw_mask;
@@ -242,25 +242,25 @@ STATUS IDT_tsi57xWriteReg( DAR_DEV_INFO_t *dev_info,
 				switch (offset) {
 				case Tsi578_RIO_MC_MASK_CFG    : 
 				{
-					UINT32 mask = (writedata & Tsi578_RIO_MC_MASK_CFG_MC_MASK_NUM) >> 16;
-					UINT8 port = (writedata & RIO_STD_MC_MASK_CFG_EG_PORT_NUM) >> 8;
-					UINT32 cmd  = (writedata & RIO_STD_MC_MASK_CFG_MASK_CMD);
+					uint32_t mask = (writedata & Tsi578_RIO_MC_MASK_CFG_MC_MASK_NUM) >> 16;
+					uint8_t port = (writedata & RIO_MC_MSK_CFG_PT_NUM) >> 8;
+					uint32_t cmd  = (writedata & RIO_MC_MSK_CFG_CMD);
 					/* Write to Tsi578_RIO_MC_MASK_CFG can update mask registers.
 					 * Emulate effect on mask registers, as we can't trust reading the
 					 * global mask registers if Port 0 is powered down.
 					 */
 
 					switch (cmd) {
-					case RIO_STD_MC_MASK_CFG_MASK_CMD_ADD_PORT:
-						dev_info->scratchpad[mask+SCRPAD_MASK_IDX] |= ((UINT32)(1) << (port + 16));
+					case RIO_MC_MSK_CFG_CMD_ADD:
+						dev_info->scratchpad[mask+SCRPAD_MASK_IDX] |= ((uint32_t)(1) << (port + 16));
 						break;
-					case RIO_STD_MC_MASK_CFG_MASK_CMD_DEL_PORT:
-						dev_info->scratchpad[mask+SCRPAD_MASK_IDX] &= ~((UINT32)(1) << (port + 16));
+					case RIO_MC_MSK_CFG_CMD_DEL:
+						dev_info->scratchpad[mask+SCRPAD_MASK_IDX] &= ~((uint32_t)(1) << (port + 16));
 						break;
-					case RIO_STD_MC_MASK_CFG_MASK_CMD_DEL_ALL_PORTS:
+					case RIO_MC_MSK_CFG_CMD_DEL_ALL:
 						dev_info->scratchpad[mask+SCRPAD_MASK_IDX] &= ~Tsi578_RIO_MC_MSKX_MC_MSK;
 						break;
-					case RIO_STD_MC_MASK_CFG_MASK_CMD_ADD_ALL_PORTS:
+					case RIO_MC_MSK_CFG_CMD_ADD_ALL:
 						dev_info->scratchpad[mask+SCRPAD_MASK_IDX] |= Tsi578_RIO_MC_MSKX_MC_MSK;
 						break;
 					default:
@@ -271,21 +271,21 @@ STATUS IDT_tsi57xWriteReg( DAR_DEV_INFO_t *dev_info,
 
 				case Tsi578_RIO_MC_DESTID_ASSOC:
 				{
-					UINT8 mask = (dev_info->scratchpad[idx - 1] & RIO_STD_MC_DESTID_CFG_MASK_NUM_BASE);
-					BOOL large = (dev_info->scratchpad[idx] & RIO_STD_MC_DESTID_ASSOC_LARGE);
-					UINT32 destid = dev_info->scratchpad[idx - 1] & 
-						(RIO_STD_MC_DESTID_CFG_DESTID_BASE | RIO_STD_MC_DESTID_CFG_DESTID_BASE_LT);
-					UINT32 cmd = (dev_info->scratchpad[idx] & RIO_STD_MC_DESTID_ASSOC_CMD);
+					uint8_t mask = (dev_info->scratchpad[idx - 1] & RIO_MC_CON_SEL_MASK);
+					bool large = (dev_info->scratchpad[idx] & RIO_MC_CON_OP_DEV16M);
+					uint32_t destid = dev_info->scratchpad[idx - 1] & 
+						(RIO_MC_CON_SEL_DEV8 | RIO_MC_CON_SEL_DEV16);
+					uint32_t cmd = (dev_info->scratchpad[idx] & RIO_MC_CON_OP_CMD);
 					
 					/* Write to Tsi578_RIO_MC_DESTID_ASSOC can update destID registers.
 					 * Must emulate the effect, as it is not possible to trust the value
 					 * of the destID register selected when port 0 is powered down.
 					 */
 					switch (cmd) {
-					case RIO_STD_MC_DESTID_ASSOC_CMD_DEL_ASSOC:
+					case RIO_MC_CON_OP_CMD_DEL:
 						dev_info->scratchpad[mask] = 0;
 						break;
-					case RIO_STD_MC_DESTID_ASSOC_CMD_ADD_ASSOC:
+					case RIO_MC_CON_OP_CMD_ADD:
 						dev_info->scratchpad[mask] = (destid >> 16) |
 							Tsi578_RIO_MC_IDX_MC_EN | ((large)?(Tsi578_RIO_MC_IDX_LARGE_SYS):0);
 						break;
@@ -303,13 +303,13 @@ STATUS IDT_tsi57xWriteReg( DAR_DEV_INFO_t *dev_info,
 	return rc;
 }
 
-STATUS IDT_tsi57xReadReg( DAR_DEV_INFO_t *dev_info,
-                                UINT32  offset,
-                                UINT32  *readdata )
+uint32_t IDT_tsi57xReadReg( DAR_DEV_INFO_t *dev_info,
+                                uint32_t  offset,
+                                uint32_t  *readdata )
 {
-	STATUS rc = RIO_SUCCESS;
-	BOOL found_one = FALSE;
-	UINT8 idx = 0;
+	uint32_t rc = RIO_SUCCESS;
+	bool found_one = false;
+	uint8_t idx = 0;
 
 	for (idx = SCRPAD_FIRST_IDX; idx < MAX_DAR_SCRPAD_IDX; idx++) {
 		if (scratchpad_const[idx].offset == offset) {
@@ -320,7 +320,7 @@ STATUS IDT_tsi57xReadReg( DAR_DEV_INFO_t *dev_info,
 				continue;
 			default:
 				*readdata = dev_info->scratchpad[idx];
-				found_one = TRUE;
+				found_one = true;
 				continue;
 			};
 		};
@@ -333,10 +333,10 @@ STATUS IDT_tsi57xReadReg( DAR_DEV_INFO_t *dev_info,
 }
 
 
-STATUS init_scratchpad( DAR_DEV_INFO_t *DAR_info )
+uint32_t init_scratchpad( DAR_DEV_INFO_t *DAR_info )
 {
-	STATUS rc;
-	UINT8 idx;
+	uint32_t rc;
+	uint8_t idx;
 
 	for (idx = SCRPAD_FIRST_IDX; idx < MAX_DAR_SCRPAD_IDX; idx++) {
 		if (SCRPAD_EOF_OFFSET == scratchpad_const[idx].offset)
@@ -349,13 +349,13 @@ STATUS init_scratchpad( DAR_DEV_INFO_t *DAR_info )
 	return rc;
 };
 
-STATUS IDT_tsi57xDeviceSupported( DAR_DEV_INFO_t *DAR_info )
+uint32_t IDT_tsi57xDeviceSupported( DAR_DEV_INFO_t *DAR_info )
 {
-    STATUS rc = DAR_DB_NO_DRIVER;
+    uint32_t rc = DAR_DB_NO_DRIVER;
 
-    if ( IDT_TSI_VENDOR_ID ==  ( DAR_info->devID & RIO_DEV_ID_DEV_VEN_ID ) )
+    if ( IDT_TSI_VENDOR_ID ==  ( DAR_info->devID & RIO_DEV_IDENT_VEND ) )
     {
-        if ( (IDT_TSI57x_DEV_ID >> 4) == ( (DAR_info->devID & RIO_DEV_ID_DEV_ID) >> 20) )
+        if ( (IDT_TSI57x_DEV_ID >> 4) == ( (DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 20) )
         {
             /* Now fill out the DAR_info structure... */
             rc = DARDB_rioDeviceSupportedDefault( DAR_info );
@@ -373,7 +373,7 @@ STATUS IDT_tsi57xDeviceSupported( DAR_DEV_INFO_t *DAR_info )
     return rc;
 }
 
-STATUS bind_tsi57x_DAR_support( void )
+uint32_t bind_tsi57x_DAR_support( void )
 {
     DAR_DB_Driver_t DAR_info;
 
@@ -388,18 +388,18 @@ STATUS bind_tsi57x_DAR_support( void )
     return RIO_SUCCESS;
 }
 
-#define TSI57X_HIDDEN_SERDES_REG(xx,yy) ((UINT32)(0x1E00C+(2*0x100*xx)+(0x40*yy)))
+#define TSI57X_HIDDEN_SERDES_REG(xx,yy) ((uint32_t)(0x1E00C+(2*0x100*xx)+(0x40*yy)))
 #define TSI57X_HIDDEN_SERDES_TX_INV 0x00080000
 #define TSI57X_HIDDEN_SERDES_RX_INV 0x00040000
 #define MAX(a,b) ((a>b)?a:b)
 #define MAC(x) (x/2)
 #define EVEN_PORT(x) (x & ~1)
 
-STATUS init_sw_pmr(DAR_DEV_INFO_t        *dev_info, 
+uint32_t init_sw_pmr(DAR_DEV_INFO_t        *dev_info, 
                  port_mac_relations_t **sw_pmr   ) {
-   STATUS rc = RIO_SUCCESS;
+   uint32_t rc = RIO_SUCCESS;
 
-   switch ( (dev_info->devID & Tsi578_RIO_DEV_ID_DEV_ID) >> 16 ) {
+   switch ( (dev_info->devID & Tsi578_RIO_DEV_IDENT_DEVI) >> 16 ) {
            case Tsi578_RIO_DEVID_VAL:  *sw_pmr = tsi578_pmr;
                                         break;
            case Tsi574_RIO_DEVID_VAL:  *sw_pmr = tsi574_pmr;
@@ -414,11 +414,11 @@ STATUS init_sw_pmr(DAR_DEV_INFO_t        *dev_info,
    return rc;
 };
 
-STATUS tsi57x_set_lrto( DAR_DEV_INFO_t           *dev_info , 
+uint32_t tsi57x_set_lrto( DAR_DEV_INFO_t           *dev_info , 
                         idt_pc_set_config_in_t   *in_parms )
 {
- STATUS rc;
- UINT32 lrto;
+ uint32_t rc;
+ uint32_t lrto;
 
  // LRTO register has a granularity of 320 nsec.
  
@@ -436,11 +436,11 @@ STATUS tsi57x_set_lrto( DAR_DEV_INFO_t           *dev_info ,
  return rc;   
 }
 
-STATUS tsi57x_get_lrto( DAR_DEV_INFO_t           *dev_info , 
+uint32_t tsi57x_get_lrto( DAR_DEV_INFO_t           *dev_info , 
                         idt_pc_set_config_out_t  *out_parms )
 {
- STATUS rc;
- UINT32 lrto;
+ uint32_t rc;
+ uint32_t lrto;
 
  rc = DARRegRead( dev_info, Tsi578_RIO_SW_LT_CTL, &lrto );
  if (RIO_SUCCESS != rc)
@@ -455,15 +455,15 @@ STATUS tsi57x_get_lrto( DAR_DEV_INFO_t           *dev_info ,
 }
 
 
-STATUS idt_tsi57x_pc_get_config  ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_tsi57x_pc_get_config  ( DAR_DEV_INFO_t           *dev_info, 
                                    idt_pc_get_config_in_t   *in_parms, 
                                    idt_pc_get_config_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8  port_num;
-    UINT32 port_idx;
-    UINT32 dloopRegVal, SerDesRegVal, spxCtl;
-    INT32  first_lane, num_lanes = 4, lane_num;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t  port_num;
+    uint32_t port_idx;
+    uint32_t dloopRegVal, SerDesRegVal, spxCtl;
+    int32_t  first_lane, num_lanes = 4, lane_num;
     port_mac_relations_t *sw_pmr;
 	struct DAR_ptl good_ptl;
 
@@ -498,14 +498,14 @@ STATUS idt_tsi57x_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
         port_num = out_parms->pc[port_idx].pnum;
 	out_parms->pc[port_idx].pw = idt_pc_pw_last;
         out_parms->pc[port_idx].ls = idt_pc_ls_last;
-        out_parms->pc[port_idx].nmtc_xfer_enable = FALSE;
-        out_parms->pc[port_idx].xmitter_disable = FALSE;
-        out_parms->pc[port_idx].port_lockout = FALSE;
-        out_parms->pc[port_idx].rx_lswap = FALSE;
-        out_parms->pc[port_idx].tx_lswap = FALSE;
+        out_parms->pc[port_idx].nmtc_xfer_enable = false;
+        out_parms->pc[port_idx].xmitter_disable = false;
+        out_parms->pc[port_idx].port_lockout = false;
+        out_parms->pc[port_idx].rx_lswap = false;
+        out_parms->pc[port_idx].tx_lswap = false;
         for (lane_num = 0; lane_num < IDT_PC_MAX_LANES;lane_num++) {
-           out_parms->pc[port_idx].tx_linvert[lane_num] = FALSE;
-           out_parms->pc[port_idx].rx_linvert[lane_num] = FALSE;
+           out_parms->pc[port_idx].tx_linvert[lane_num] = false;
+           out_parms->pc[port_idx].rx_linvert[lane_num] = false;
         };
         
         /* 1x ports are not available when the 4x port is configured 
@@ -530,20 +530,20 @@ STATUS idt_tsi57x_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
        switch (num_lanes) {
            case 0: // If the port is not available, we still need to
                    // check if the port is powered up/down.
-                   out_parms->pc[port_idx].port_available = FALSE;
+                   out_parms->pc[port_idx].port_available = false;
                    break;
-           case 1: out_parms->pc[port_idx].port_available = TRUE;
+           case 1: out_parms->pc[port_idx].port_available = true;
                    out_parms->pc[port_idx].pw             = idt_pc_pw_1x;
                    // Get the real swap values for 4x ports, or for a 1x 
                    // port that could be a 4x port.
                    if (4 == sw_pmr[port_num].lane_count_4x) {
                       out_parms->pc[port_idx].rx_lswap =
-                          (dloopRegVal & Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_RX)?TRUE:FALSE;
+                          (dloopRegVal & Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_RX)?true:false;
                       out_parms->pc[port_idx].tx_lswap = 
-                          (dloopRegVal & Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_TX)?TRUE:FALSE;
+                          (dloopRegVal & Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_TX)?true:false;
                    };
                    break;
-           case 4: out_parms->pc[port_idx].port_available = TRUE;
+           case 4: out_parms->pc[port_idx].port_available = true;
                    // Check for port width overrides...
                    rc = DARRegRead( dev_info, Tsi578_SPX_CTL(port_num), &spxCtl );
                    if (RIO_SUCCESS != rc) 
@@ -551,19 +551,19 @@ STATUS idt_tsi57x_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
                       out_parms->imp_rc = PC_GET_CONFIG(5);
                       goto idt_tsi57x_pc_get_config_exit;
                    };
-                   switch (spxCtl & RIO_SPX_CTL_OVER_PWIDTH) {
-                       case RIO_SPX_CTL_OVER_PWIDTH_NONE : out_parms->pc[port_idx].pw = idt_pc_pw_4x;
+                   switch (spxCtl & RIO_SPX_CTL_PTW_OVER) {
+                       case RIO_SPX_CTL_PTW_OVER_NONE : out_parms->pc[port_idx].pw = idt_pc_pw_4x;
                                                            break;
-                       case RIO_SPX_CTL_OVER_PWIDTH_1x_L0: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l0;
+                       case RIO_SPX_CTL_PTW_OVER_1x_L0: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l0;
                                                            break;
-                       case RIO_SPX_CTL_OVER_PWIDTH_1x_LR: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l2;
+                       case RIO_SPX_CTL_PTW_OVER_1x_LR: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l2;
                                                            break;
                        default                           : out_parms->pc[port_idx].pw = idt_pc_pw_last;
                    };
                    out_parms->pc[port_idx].rx_lswap =
-                       (dloopRegVal & Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_RX)?TRUE:FALSE;
+                       (dloopRegVal & Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_RX)?true:false;
                    out_parms->pc[port_idx].tx_lswap = 
-                       (dloopRegVal & Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_TX)?TRUE:FALSE;
+                       (dloopRegVal & Tsi578_SMACX_DLOOP_CLK_SEL_SWAP_TX)?true:false;
                  break;
            default: rc = RIO_ERR_NOT_EXPECTED_RETURN_VALUE;
                     out_parms->imp_rc = PC_GET_CONFIG(6);
@@ -589,7 +589,7 @@ STATUS idt_tsi57x_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
           }
        };
 
-       out_parms->pc[port_idx].powered_up = (dloopRegVal & sw_pmr[port_num].pwr_down_mask)?FALSE:TRUE;
+       out_parms->pc[port_idx].powered_up = (dloopRegVal & sw_pmr[port_num].pwr_down_mask)?false:true;
         
        if (out_parms->pc[port_idx].powered_up) {
            rc = DARRegRead( dev_info, Tsi578_SPX_CTL(port_num), &spxCtl );
@@ -599,12 +599,12 @@ STATUS idt_tsi57x_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
           };
 
           out_parms->pc[port_idx].xmitter_disable = 
-             (spxCtl & Tsi578_SPX_CTL_PORT_DIS)?TRUE:FALSE;
+             (spxCtl & Tsi578_SPX_CTL_PORT_DIS)?true:false;
           out_parms->pc[port_idx].port_lockout = 
-             (spxCtl & Tsi578_SPX_CTL_PORT_LOCKOUT)?TRUE:FALSE;
+             (spxCtl & Tsi578_SPX_CTL_PORT_LOCKOUT)?true:false;
 		  out_parms->pc[port_idx].nmtc_xfer_enable =
              ((spxCtl & Tsi578_SPX_CTL_INPUT_EN) && 
-			  (spxCtl & Tsi578_SPX_CTL_OUTPUT_EN))?TRUE:FALSE;
+			  (spxCtl & Tsi578_SPX_CTL_OUTPUT_EN))?true:false;
 
           for (lane_num = first_lane; lane_num < (first_lane + num_lanes); lane_num++)
           {
@@ -614,8 +614,8 @@ STATUS idt_tsi57x_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
                  goto idt_tsi57x_pc_get_config_exit;       
               };
                 
-              out_parms->pc[port_idx].rx_linvert[lane_num - first_lane] = (SerDesRegVal & TSI57X_HIDDEN_SERDES_RX_INV)?TRUE:FALSE;
-              out_parms->pc[port_idx].tx_linvert[lane_num - first_lane] = (SerDesRegVal & TSI57X_HIDDEN_SERDES_TX_INV)?TRUE:FALSE;
+              out_parms->pc[port_idx].rx_linvert[lane_num - first_lane] = (SerDesRegVal & TSI57X_HIDDEN_SERDES_RX_INV)?true:false;
+              out_parms->pc[port_idx].tx_linvert[lane_num - first_lane] = (SerDesRegVal & TSI57X_HIDDEN_SERDES_TX_INV)?true:false;
           }
        }
     }
@@ -628,15 +628,15 @@ typedef enum { Tsi57x_no_ch, Tsi57x_1p25, Tsi57x_2p5, Tsi57x_3p125 } Tsi57x_LS;
 
 typedef struct mac_indexes_t_TAG
 {
-    INT32 port_idx[2]; 
+    int32_t port_idx[2]; 
 } mac_indexes_t;
 
 typedef struct idt_lane_diffs_per_port_t_TAG
 {
-    INT32 first_lane;
-    INT32 num_lanes;
-    INT32 change_mask;
-    INT32 invert_mask;
+    int32_t first_lane;
+    int32_t num_lanes;
+    int32_t change_mask;
+    int32_t invert_mask;
 } idt_lane_diffs_per_port_t;
 
 typedef struct idt_lane_diffs_per_mac_t_TAG
@@ -645,24 +645,24 @@ typedef struct idt_lane_diffs_per_mac_t_TAG
 } idt_lane_diffs_per_mac_t;
 
 typedef struct port_cfg_chg_t_TAG {
-   BOOL   valid[IDT_MAX_PORTS];
-   BOOL   laneRegsChanged[Tsi578_MAX_MAC][Tsi578_MAX_LANES];
-   UINT32 laneRegs[Tsi578_MAX_MAC][Tsi578_MAX_LANES];
-   UINT32 dloopCtl[Tsi578_MAX_MAC];
-   UINT32 dloopCtlOrig[Tsi578_MAX_MAC];
-   UINT32 spxCtl[IDT_MAX_PORTS];
-   UINT32 spxCtlOrig[IDT_MAX_PORTS];
+   bool   valid[IDT_MAX_PORTS];
+   bool   laneRegsChanged[Tsi578_MAX_MAC][Tsi578_MAX_LANES];
+   uint32_t laneRegs[Tsi578_MAX_MAC][Tsi578_MAX_LANES];
+   uint32_t dloopCtl[Tsi578_MAX_MAC];
+   uint32_t dloopCtlOrig[Tsi578_MAX_MAC];
+   uint32_t spxCtl[IDT_MAX_PORTS];
+   uint32_t spxCtlOrig[IDT_MAX_PORTS];
 } port_cfg_chg_t;
 
 void compute_lane_reg( port_mac_relations_t     *sw_pmr         ,
                        port_cfg_chg_t           *chg            ,
-                       UINT8                     port_num       ,
-                       UINT8                     lane_num       ,
-                       BOOL                      tx_linvert     ,
-                       BOOL                      rx_linvert      )
+                       uint8_t                     port_num       ,
+                       uint8_t                     lane_num       ,
+                       bool                      tx_linvert     ,
+                       bool                      rx_linvert      )
 {
-   UINT8  mac     = sw_pmr[port_num].mac_num;
-   UINT32 reg_val = chg->laneRegs[mac][lane_num];
+   uint8_t  mac     = sw_pmr[port_num].mac_num;
+   uint32_t reg_val = chg->laneRegs[mac][lane_num];
 
    if (tx_linvert)  {
       reg_val |=  TSI57X_HIDDEN_SERDES_TX_INV;
@@ -677,20 +677,20 @@ void compute_lane_reg( port_mac_relations_t     *sw_pmr         ,
 
    if (reg_val != chg->laneRegs[mac][lane_num]) {
       chg->laneRegs[mac][lane_num]= reg_val;
-      chg->laneRegsChanged[mac][lane_num]= TRUE;
+      chg->laneRegsChanged[mac][lane_num]= true;
    };
 };
 
-STATUS compute_port_config_changes( DAR_DEV_INFO_t           *dev_info       , 
+uint32_t compute_port_config_changes( DAR_DEV_INFO_t           *dev_info       , 
                                     port_cfg_chg_t           *chg            ,
                                     port_mac_relations_t     *sw_pmr         ,
                                     idt_pc_one_port_config_t *in_parms_sorted,
                                     idt_pc_set_config_out_t  *out_parms      )
 {
-    STATUS rc = RIO_SUCCESS;
+    uint32_t rc = RIO_SUCCESS;
     idt_pc_get_config_in_t  curr_cfg_in;
     idt_pc_get_config_out_t curr_cfg_out;
-    UINT8  mac, pnum, port_num, lane_idx, change_requested;
+    uint8_t  mac, pnum, port_num, lane_idx, change_requested;
 
     rc = init_sw_pmr( dev_info, &sw_pmr );
     if (RIO_SUCCESS != rc) {
@@ -744,7 +744,7 @@ STATUS compute_port_config_changes( DAR_DEV_INFO_t           *dev_info       ,
                                                          sizeof(idt_pc_one_port_config_t )));
          
        if (change_requested) {
-          UINT32 start_dloop;
+          uint32_t start_dloop;
           // Change the DLOOP CONTROL VALUE 
           mac = sw_pmr[pnum].mac_num;
 
@@ -774,7 +774,7 @@ STATUS compute_port_config_changes( DAR_DEV_INFO_t           *dev_info       ,
 
                  if (idt_pc_pw_4x == in_parms_sorted[pnum].pw) {
                     // Clear any overrides in the SPx_CTL register
-                    chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~Tsi578_SPX_CTL_OVER_PWIDTH) | RIO_SPX_CTL_OVER_PWIDTH_NONE;
+                    chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~Tsi578_SPX_CTL_OVER_PWIDTH) | RIO_SPX_CTL_PTW_OVER_NONE;
                      
                     // Apply the requested RX and TX swap values
                     if (in_parms_sorted[pnum].tx_lswap) {
@@ -794,19 +794,19 @@ STATUS compute_port_config_changes( DAR_DEV_INFO_t           *dev_info       ,
 
                     if (idt_pc_pw_1x == in_parms_sorted[pnum].pw) {
                        // Clear any overrides in the SPx_CTL register
-                       chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~Tsi578_SPX_CTL_OVER_PWIDTH) | RIO_SPX_CTL_OVER_PWIDTH_NONE;
+                       chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~Tsi578_SPX_CTL_OVER_PWIDTH) | RIO_SPX_CTL_PTW_OVER_NONE;
                     } else {
                        // Need to set overrides in the port width control register.
                        if (idt_pc_pw_1x_l0 == in_parms_sorted[pnum].pw) {
-                          chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~Tsi578_SPX_CTL_OVER_PWIDTH) | RIO_SPX_CTL_OVER_PWIDTH_1x_L0;
+                          chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~Tsi578_SPX_CTL_OVER_PWIDTH) | RIO_SPX_CTL_PTW_OVER_1x_L0;
                        } else {
-                          chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~Tsi578_SPX_CTL_OVER_PWIDTH) | RIO_SPX_CTL_OVER_PWIDTH_1x_LR;
+                          chg->spxCtl[pnum] = (chg->spxCtl[pnum] & ~Tsi578_SPX_CTL_OVER_PWIDTH) | RIO_SPX_CTL_PTW_OVER_1x_LR;
                        }
                     }
                  };
 
                  // Set link speed
-                 chg->dloopCtl[mac] = (chg->dloopCtl[mac] & ~(Tsi578_SMACX_DLOOP_CLK_SEL_CLK_SEL)) | (UINT32)(in_parms_sorted[pnum].ls);
+                 chg->dloopCtl[mac] = (chg->dloopCtl[mac] & ~(Tsi578_SMACX_DLOOP_CLK_SEL_CLK_SEL)) | (uint32_t)(in_parms_sorted[pnum].ls);
              }; // Powered up
           }; // 4x port
 
@@ -846,7 +846,7 @@ STATUS compute_port_config_changes( DAR_DEV_INFO_t           *dev_info       ,
            }
        } else {
            //  1x ports always have only one lane to check for inversions :)
-           UINT8  dep_lnum = sw_pmr[port_num].first_mac_lane;
+           uint8_t  dep_lnum = sw_pmr[port_num].first_mac_lane;
 
            compute_lane_reg( sw_pmr, chg, port_num, dep_lnum, in_parms_sorted[port_num].tx_linvert[0], 
                                                               in_parms_sorted[port_num].rx_linvert[0] );
@@ -861,26 +861,26 @@ compute_port_config_changes_exit:
 #define PC_DET_PORTS_2_SKIP(x) (PC_DET_PORTS_2_SKIP_0+x)
 #define MAX_PORTS_TO_SKIP      2
 
-STATUS idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info, 
+uint32_t idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info, 
                                  idt_pc_get_status_in_t   *in_parms, 
                                  idt_pc_get_status_out_t  *out_parms );
 
-#define RESET_PORT_SKIP   TRUE
-#define CONFIG_PORT_SKIP  FALSE
+#define RESET_PORT_SKIP   true
+#define CONFIG_PORT_SKIP  false
 
-STATUS determine_ports_to_skip ( DAR_DEV_INFO_t          *dev_info, 
-                                 BOOL                     oob_reg_acc,
-                                 UINT8                   *ports_to_skip,
-                                 UINT32                  *imp_rc,      
+uint32_t determine_ports_to_skip ( DAR_DEV_INFO_t          *dev_info, 
+                                 bool                     oob_reg_acc,
+                                 uint8_t                   *ports_to_skip,
+                                 uint32_t                  *imp_rc,      
                                  port_mac_relations_t    *sw_pmr,
-                                 BOOL                    reset_port ) 
+                                 bool                    reset_port ) 
 {
-   STATUS rc = RIO_SUCCESS;
-   UINT8  idx;
-   UINT8  conn_port;
+   uint32_t rc = RIO_SUCCESS;
+   uint8_t  idx;
+   uint8_t  conn_port;
    idt_pc_get_status_in_t  stat_in;
    idt_pc_get_status_out_t stat_out;
-   UINT32                  sw_port;
+   uint32_t                  sw_port;
    
    for (idx = 0; idx < MAX_PORTS_TO_SKIP; idx++) {
       ports_to_skip[idx] = RIO_ALL_PORTS;
@@ -901,7 +901,7 @@ STATUS determine_ports_to_skip ( DAR_DEV_INFO_t          *dev_info,
       goto determine_ports_to_skip_exit;
    }
 
-   conn_port = (UINT8)(sw_port & Tsi578_RIO_SW_PORT_PORT_NUM);
+   conn_port = (uint8_t)(sw_port & Tsi578_RIO_SW_PORT_PORT_NUM);
 
    // Check status:  If conn_port is not PORT_OK, then
    // it can't be in use to access this device.  Reset this port.
@@ -974,10 +974,10 @@ powerup_reg_offsets_t reg_offsets[]=
   { (uint32_t)Tsi578_SPX_PSC2n3_CTRL(0)     , (uint32_t)0x100, ALL_BITS }, 
   { (uint32_t)Tsi578_SPX_PSC4n5_CTRL(0)     , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)Tsi578_SPX_TX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_TX_Q_STATUS(0)     , (uint32_t)0x100, (uint32_t)Tsi578_SPX_TX_Q_STATUS_CONG_THRESH }, //  MASK
+  { (uint32_t)Tsi578_SPX_TX_Q_uint32_t(0)     , (uint32_t)0x100, (uint32_t)Tsi578_SPX_TX_Q_uint32_t_CONG_THRESH }, //  MASK
   { (uint32_t)Tsi578_SPX_TX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)Tsi578_SPX_RX_Q_D_THRESH(0)   , (uint32_t)0x100, ALL_BITS },
-  { (uint32_t)Tsi578_SPX_RX_Q_STATUS(0)     , (uint32_t)0x100, (uint32_t)Tsi578_SPX_RX_Q_STATUS_CONG_THRESH }, //  MASK
+  { (uint32_t)Tsi578_SPX_RX_Q_uint32_t(0)     , (uint32_t)0x100, (uint32_t)Tsi578_SPX_RX_Q_uint32_t_CONG_THRESH }, //  MASK
   { (uint32_t)Tsi578_SPX_RX_Q_PERIOD(0)     , (uint32_t)0x100, ALL_BITS },
   { (uint32_t)Tsi578_SPX_REORDER_CTR(0)     , (uint32_t)0x100, (uint32_t)Tsi578_SPX_REORDER_CTR_THRESH  }, //  MASK
   { (uint32_t)Tsi578_SPX_ISF_WM(0)          , (uint32_t)0x100, ALL_BITS },
@@ -987,16 +987,16 @@ powerup_reg_offsets_t reg_offsets[]=
   { (uint32_t)Tsi578_SPX_WRR_3(0)           , (uint32_t)0x100, ALL_BITS } 
 };
 
-#define PRESERVED_REGS_SIZE ((UINT32)(sizeof(reg_offsets)/sizeof(reg_offsets[0])))
-typedef UINT32 preserved_regs[PRESERVED_REGS_SIZE];
+#define PRESERVED_REGS_SIZE ((uint32_t)(sizeof(reg_offsets)/sizeof(reg_offsets[0])))
+typedef uint32_t preserved_regs[PRESERVED_REGS_SIZE];
                                    
-STATUS preserve_regs_for_powerup( DAR_DEV_INFO_t  *dev_info,
-                                  UINT8            port_num,
+uint32_t preserve_regs_for_powerup( DAR_DEV_INFO_t  *dev_info,
+                                  uint8_t            port_num,
                                   preserved_regs  *saved_regs,
-								  BOOL			   do_all_regs)
+								  bool			   do_all_regs)
 {
-    STATUS rc = RIO_SUCCESS;
-    UINT32  idx;
+    uint32_t rc = RIO_SUCCESS;
+    uint32_t  idx;
 
 	if (!do_all_regs)
 		goto preserve_regs_for_powerup_exit;
@@ -1014,13 +1014,13 @@ preserve_regs_for_powerup_exit:
     return rc;
 }                            
 
-STATUS restore_regs_from_powerup( DAR_DEV_INFO_t  *dev_info,
-                                  UINT8            port_num,
+uint32_t restore_regs_from_powerup( DAR_DEV_INFO_t  *dev_info,
+                                  uint8_t            port_num,
                                   preserved_regs  *saved_regs,
-								  BOOL			   do_all_regs )
+								  bool			   do_all_regs )
 {
-    STATUS rc = RIO_SUCCESS;
-    UINT32 idx;
+    uint32_t rc = RIO_SUCCESS;
+    uint32_t idx;
 
 	for (idx = 0; idx < MAX_DAR_SCRPAD_IDX; idx++) {
 		/* Multicast programming registers do not need to be restored. */
@@ -1050,13 +1050,13 @@ restore_regs_from_powerup_exit:
     return rc;
 }                     
 
-STATUS  update_lane_inversions( DAR_DEV_INFO_t       *dev_info     , 
-                                UINT8                 port_num     ,
+uint32_t  update_lane_inversions( DAR_DEV_INFO_t       *dev_info     , 
+                                uint8_t                 port_num     ,
                                 port_cfg_chg_t       *chg          ,
                                 port_mac_relations_t *sw_pmr       )
 {
-   STATUS rc = RIO_SUCCESS;
-   UINT8 mac_num = sw_pmr[port_num].mac_num, lane_idx;
+   uint32_t rc = RIO_SUCCESS;
+   uint8_t mac_num = sw_pmr[port_num].mac_num, lane_idx;
 
    for (lane_idx = 0; lane_idx < Tsi578_MAX_LANES; lane_idx++) {
       if ( chg->laneRegsChanged[mac_num][lane_idx] ) {
@@ -1071,15 +1071,15 @@ update_lane_inversions_exit:
    return rc;
 }
 
-STATUS pc_set_config_init_parms_check_conflicts_all_ports (DAR_DEV_INFO_t          *dev_info, 
+uint32_t pc_set_config_init_parms_check_conflicts_all_ports (DAR_DEV_INFO_t          *dev_info, 
                                                            port_cfg_chg_t          *chg,
                                                            port_mac_relations_t    *sw_pmr,
                                                            idt_pc_set_config_in_t  *in_parms, 
                                                            idt_pc_set_config_in_t  *in_parms_sorted,
                                                            idt_pc_set_config_out_t *out_parms )
 {
-    STATUS rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
-    UINT8  port_num;
+    uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+    uint8_t  port_num;
 
     out_parms->num_ports = NUM_PORTS(dev_info);
 
@@ -1104,8 +1104,8 @@ STATUS pc_set_config_init_parms_check_conflicts_all_ports (DAR_DEV_INFO_t       
     };
        
     for (port_num = 0; port_num < NUM_PORTS(dev_info); port_num+=2) {
-       chg->valid[port_num  ] = TRUE;
-       chg->valid[port_num+1] = TRUE;
+       chg->valid[port_num  ] = true;
+       chg->valid[port_num+1] = true;
        in_parms_sorted->pc[port_num  ].pnum = port_num;
        in_parms_sorted->pc[port_num+1].pnum = port_num+1;
 
@@ -1125,8 +1125,8 @@ STATUS pc_set_config_init_parms_check_conflicts_all_ports (DAR_DEV_INFO_t       
                       sizeof(idt_pc_one_port_config_t) );
           } else {
              // If even ports are being set to 4x, then 
-             in_parms_sorted->pc[port_num+1].port_available = FALSE;
-             in_parms_sorted->pc[port_num+1].powered_up     = FALSE;
+             in_parms_sorted->pc[port_num+1].port_available = false;
+             in_parms_sorted->pc[port_num+1].powered_up     = false;
           };
        } else {
           // Two 1x ports for a Tsi577 4 port 4 lane MAC.  
@@ -1142,10 +1142,10 @@ STATUS pc_set_config_init_parms_check_conflicts_all_ports (DAR_DEV_INFO_t       
                       sizeof(idt_pc_one_port_config_t) );
           } else {
              // If even ports are being set to 4x, then 
-             in_parms_sorted->pc[port_num  ].port_available = FALSE;
-             in_parms_sorted->pc[port_num+1].port_available = FALSE;
-             in_parms_sorted->pc[port_num  ].powered_up     = FALSE;
-             in_parms_sorted->pc[port_num+1].powered_up     = FALSE;
+             in_parms_sorted->pc[port_num  ].port_available = false;
+             in_parms_sorted->pc[port_num+1].port_available = false;
+             in_parms_sorted->pc[port_num  ].powered_up     = false;
+             in_parms_sorted->pc[port_num+1].powered_up     = false;
           };
        };
     };
@@ -1155,20 +1155,20 @@ pc_set_config_init_parms_check_conflicts_all_ports_exit:
     return rc;
 };
 
-STATUS pc_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_info, 
+uint32_t pc_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_info, 
                                                 port_cfg_chg_t          *chg,
                                                 port_mac_relations_t    *sw_pmr,
                                                 idt_pc_set_config_in_t  *in_parms, 
                                                 idt_pc_set_config_in_t  *in_parms_sorted, 
                                                 idt_pc_set_config_out_t *out_parms )
 {
-    STATUS rc;
-    UINT8  port_num, pnum, port_idx, lane_num;
+    uint32_t rc;
+    uint8_t  port_num, pnum, port_idx, lane_num;
 
     // Have to read all of the lane registers to know if they have changed or not.
     
     for (port_num = 0; port_num < NUM_PORTS(dev_info); port_num++) {
-       chg->valid[port_num]         = FALSE;
+       chg->valid[port_num]         = false;
        for (lane_num = 0; lane_num < Tsi578_MAX_LANES; lane_num++ ) 
        {
            if (sw_pmr[port_num].lane_count_4x) {
@@ -1179,7 +1179,7 @@ STATUS pc_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_inf
                  goto pc_set_config_init_parms_check_conflict_exit;
               };
            };
-           chg->laneRegsChanged[port_num][lane_num] = FALSE;
+           chg->laneRegsChanged[port_num][lane_num] = false;
        };
     };
 
@@ -1201,7 +1201,7 @@ STATUS pc_set_config_init_parms_check_conflict( DAR_DEV_INFO_t          *dev_inf
                out_parms->imp_rc = PC_SET_CONFIG(0x31);
                goto pc_set_config_init_parms_check_conflict_exit;
            }
-           chg->valid[port_num] = TRUE;
+           chg->valid[port_num] = true;
            memcpy( (void *)(&in_parms_sorted->pc[port_num]), 
                    (void *)(&in_parms->pc[port_idx]), 
                   sizeof(idt_pc_one_port_config_t) );
@@ -1279,18 +1279,18 @@ pc_set_config_init_parms_check_conflict_exit:
     return rc;
 } 
 
-STATUS idt_tsi57x_pc_set_config  ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_tsi57x_pc_set_config  ( DAR_DEV_INFO_t           *dev_info, 
                                    idt_pc_set_config_in_t   *in_parms, 
                                    idt_pc_set_config_out_t  *out_parms )
 {
-    STATUS rc = RIO_SUCCESS;
+    uint32_t rc = RIO_SUCCESS;
     idt_pc_get_config_in_t   curr_cfg_in;
     idt_pc_set_config_in_t   in_parms_sorted;
     port_mac_relations_t    *sw_pmr;
     port_cfg_chg_t           chg;
-    UINT8                    even_odd, port_num, idx;
-    UINT8                    ports_to_skip[MAX_PORTS_TO_SKIP];
-    BOOL restore_all_4x = FALSE, restore_all_1x = FALSE;
+    uint8_t                    even_odd, port_num, idx;
+    uint8_t                    ports_to_skip[MAX_PORTS_TO_SKIP];
+    bool restore_all_4x = false, restore_all_1x = false;
 
     out_parms->imp_rc = RIO_SUCCESS;
     out_parms->num_ports = 0;
@@ -1324,7 +1324,7 @@ STATUS idt_tsi57x_pc_set_config  ( DAR_DEV_INFO_t           *dev_info,
 
     for (idx = 0; idx < MAX_PORTS_TO_SKIP; idx++) {
        if (RIO_ALL_PORTS != ports_to_skip[idx]) {
-          chg.valid[ports_to_skip[idx]] = FALSE;
+          chg.valid[ports_to_skip[idx]] = false;
        };
     };
 
@@ -1336,17 +1336,17 @@ STATUS idt_tsi57x_pc_set_config  ( DAR_DEV_INFO_t           *dev_info,
     /* Implement the changes to the Dloop registers */
     for (port_num = 0; port_num < NUM_PORTS(dev_info); port_num+=2)
     {       
-       UINT8 mac = sw_pmr[port_num].mac_num;
-       BOOL  lanes_changed = chg.laneRegsChanged[mac][0] || chg.laneRegsChanged[mac][1] || 
+       uint8_t mac = sw_pmr[port_num].mac_num;
+       bool  lanes_changed = chg.laneRegsChanged[mac][0] || chg.laneRegsChanged[mac][1] || 
                              chg.laneRegsChanged[mac][2] || chg.laneRegsChanged[mac][3];
 
        if ((chg.dloopCtlOrig[mac] !=chg.dloopCtl[mac])  || lanes_changed)
        {
           /* Something changed.  Set up the powerdown mask, and preserve registers as necessary
           */
-          UINT32         powerdown_mask = 0;
+          uint32_t         powerdown_mask = 0;
           preserved_regs even_port_regs, odd_port_regs;
-          UINT32         reg_val = chg.dloopCtlOrig[mac];
+          uint32_t         reg_val = chg.dloopCtlOrig[mac];
 
           if ( ((chg.dloopCtlOrig[mac] ^ chg.dloopCtl[mac]) & ~Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1) || lanes_changed )
           {
@@ -1357,8 +1357,8 @@ STATUS idt_tsi57x_pc_set_config  ( DAR_DEV_INFO_t           *dev_info,
               powerdown_mask = Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1;
           }
 	  if (!(chg.dloopCtlOrig[mac] & Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X4)) { 
-	     restore_all_4x = TRUE;
-             rc = preserve_regs_for_powerup( dev_info, port_num, &even_port_regs, TRUE );
+	     restore_all_4x = true;
+             rc = preserve_regs_for_powerup( dev_info, port_num, &even_port_regs, true );
              if (RIO_SUCCESS != rc) {
                 out_parms->imp_rc = PC_SET_CONFIG(0x43);
                 goto idt_tsi57x_pc_set_config_exit;
@@ -1366,8 +1366,8 @@ STATUS idt_tsi57x_pc_set_config  ( DAR_DEV_INFO_t           *dev_info,
 	  };
 
 	  if (!(chg.dloopCtlOrig[mac] & Tsi578_SMACX_DLOOP_CLK_SEL_PWDN_X1)) { 
-	     restore_all_1x = TRUE;
-             rc = preserve_regs_for_powerup( dev_info, port_num+1, &odd_port_regs, TRUE );
+	     restore_all_1x = true;
+             rc = preserve_regs_for_powerup( dev_info, port_num+1, &odd_port_regs, true );
              if (RIO_SUCCESS != rc) {
                 out_parms->imp_rc = PC_SET_CONFIG(0x44);
                 goto idt_tsi57x_pc_set_config_exit;
@@ -1431,7 +1431,7 @@ STATUS idt_tsi57x_pc_set_config  ( DAR_DEV_INFO_t           *dev_info,
        // Set PORT_DIS, PORT_LOCKOUT, and INPUT/OUTPUT_ENABLE as requested.
        for (even_odd = 0; even_odd < 2; even_odd++) 
        {
-          UINT8 pnum = port_num + even_odd;
+          uint8_t pnum = port_num + even_odd;
           if (chg.valid[pnum] && (chg.spxCtl[pnum] != chg.spxCtlOrig[pnum]))
           {
              rc = DARRegWrite( dev_info, Tsi578_SPX_CTL(pnum), chg.spxCtl[pnum] );
@@ -1474,13 +1474,13 @@ idt_tsi57x_pc_set_config_exit:
     return rc;
 }
 
-STATUS idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info, 
+uint32_t idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info, 
                                  idt_pc_get_status_in_t   *in_parms, 
                                  idt_pc_get_status_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8  port_idx, port_num;
-    UINT32 dloop, err_n_stat, spx_ctl;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t  port_idx, port_num;
+    uint32_t dloop, err_n_stat, spx_ctl;
     port_mac_relations_t    *sw_pmr;
 	struct DAR_ptl good_ptl;
           
@@ -1489,7 +1489,7 @@ STATUS idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
 
 	rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
 	if (RIO_SUCCESS != rc) {
-		out_parms->imp_rc = PC_GET_STATUS(1);
+		out_parms->imp_rc = PC_GET_uint32_t(1);
         goto idt_tsi57x_pc_get_status_exit;       
     };
 
@@ -1499,7 +1499,7 @@ STATUS idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
 
     rc = init_sw_pmr( dev_info, &sw_pmr );
     if (RIO_SUCCESS != rc) {
-       out_parms->imp_rc = PC_GET_STATUS(3);
+       out_parms->imp_rc = PC_GET_uint32_t(3);
        goto idt_tsi57x_pc_get_status_exit;
     };
 
@@ -1509,13 +1509,13 @@ STATUS idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
 
        rc = DARRegRead( dev_info, Tsi578_SMACX_DLOOP_CLK_SEL(sw_pmr[port_num].mac_num*2), &dloop );
        if (RIO_SUCCESS != rc) {
-          out_parms->imp_rc = PC_GET_STATUS(0x10+port_idx);
+          out_parms->imp_rc = PC_GET_uint32_t(0x10+port_idx);
           goto idt_tsi57x_pc_get_status_exit;
        };
 
        out_parms->ps[port_idx].first_lane = sw_pmr[port_num].first_mac_lane;
        out_parms->ps[port_idx].num_lanes  = 
-             (UINT8)((dloop & Tsi578_SMACX_DLOOP_CLK_SEL_MAC_MODE)?sw_pmr[port_num].lane_count_1x:sw_pmr[port_num].lane_count_4x);
+             (uint8_t)((dloop & Tsi578_SMACX_DLOOP_CLK_SEL_MAC_MODE)?sw_pmr[port_num].lane_count_1x:sw_pmr[port_num].lane_count_4x);
 
        // If there are lanes assigned to the port, check to see if the power is powered down.
        if (out_parms->ps[port_idx].num_lanes) {
@@ -1523,7 +1523,7 @@ STATUS idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
              rc = DARRegRead( dev_info, Tsi578_SMACX_DLOOP_CLK_SEL(sw_pmr[port_num].pwr_mac_num*2),
                              &dloop );
              if (RIO_SUCCESS != rc) {
-                out_parms->imp_rc = PC_GET_STATUS(0x20+port_idx);
+                out_parms->imp_rc = PC_GET_uint32_t(0x20+port_idx);
                 goto idt_tsi57x_pc_get_status_exit;
              };
           };
@@ -1534,44 +1534,44 @@ STATUS idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
 
        out_parms->ps[port_idx].pw = idt_pc_pw_last;
        if (!out_parms->ps[port_idx].num_lanes) {
-          out_parms->ps[port_idx].port_ok        = FALSE;
-          out_parms->ps[port_idx].port_error     = FALSE;
-          out_parms->ps[port_idx].input_stopped  = FALSE;
-          out_parms->ps[port_idx].output_stopped = FALSE;
+          out_parms->ps[port_idx].port_ok        = false;
+          out_parms->ps[port_idx].port_error     = false;
+          out_parms->ps[port_idx].input_stopped  = false;
+          out_parms->ps[port_idx].output_stopped = false;
           continue;
        };
 
        // Port is available and powered up, so let's figure out the status...
-       rc = DARRegRead( dev_info, Tsi578_SPX_ERR_STATUS(port_num), &err_n_stat );
+       rc = DARRegRead( dev_info, Tsi578_SPX_ERR_uint32_t(port_num), &err_n_stat );
        if (RIO_SUCCESS != rc) {
-          out_parms->imp_rc = PC_GET_STATUS(0x30+port_idx);
+          out_parms->imp_rc = PC_GET_uint32_t(0x30+port_idx);
           goto idt_tsi57x_pc_get_status_exit;
        };
 
        rc = DARRegRead( dev_info, Tsi578_SPX_CTL(port_num), &spx_ctl );
        if (RIO_SUCCESS != rc) {
-          out_parms->imp_rc = PC_GET_STATUS(0x40+port_idx);
+          out_parms->imp_rc = PC_GET_uint32_t(0x40+port_idx);
           goto idt_tsi57x_pc_get_status_exit;
        };
 
        out_parms->ps[port_idx].port_ok        = 
-           (err_n_stat & Tsi578_SPX_ERR_STATUS_PORT_OK        ) ? TRUE : FALSE;
+           (err_n_stat & Tsi578_SPX_ERR_uint32_t_PORT_OK        ) ? true : false;
        out_parms->ps[port_idx].input_stopped  = 
-           (err_n_stat & Tsi578_SPX_ERR_STATUS_INPUT_ERR_STOP ) ? TRUE : FALSE;
+           (err_n_stat & Tsi578_SPX_ERR_uint32_t_INPUT_ERR_STOP ) ? true : false;
        out_parms->ps[port_idx].output_stopped = 
-           (err_n_stat & Tsi578_SPX_ERR_STATUS_OUTPUT_ERR_STOP) ? TRUE : FALSE;
+           (err_n_stat & Tsi578_SPX_ERR_uint32_t_OUTPUT_ERR_STOP) ? true : false;
 
        if (out_parms->ps[port_idx].port_ok) {
           switch (spx_ctl & Tsi578_SPX_CTL_INIT_PWIDTH) {
-             case RIO_SPX_CTL_INIT_PWIDTH_1x_L0: if (1 == out_parms->ps[port_idx].num_lanes) {
+             case RIO_SPX_CTL_PTW_INIT_1x_L0: if (1 == out_parms->ps[port_idx].num_lanes) {
                                                     out_parms->ps[port_idx].pw = idt_pc_pw_1x;
                                                  } else {
                                                     out_parms->ps[port_idx].pw = idt_pc_pw_1x_l0;
                                                  };
                                                  break;
-             case RIO_SPX_CTL_INIT_PWIDTH_1x_LR: out_parms->ps[port_idx].pw = idt_pc_pw_1x_l2;
+             case RIO_SPX_CTL_PTW_INIT_1x_LR: out_parms->ps[port_idx].pw = idt_pc_pw_1x_l2;
                                                  break;
-             case RIO_SPX_CTL_INIT_PWIDTH_4x   : out_parms->ps[port_idx].pw = idt_pc_pw_4x;
+             case RIO_SPX_CTL_PTW_INIT_4x   : out_parms->ps[port_idx].pw = idt_pc_pw_4x;
                                                  break;
              default:  out_parms->ps[port_idx].pw = idt_pc_pw_last;
           };
@@ -1580,25 +1580,25 @@ STATUS idt_tsi57x_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
        // Port Error is true if a PORT_ERR is present, OR
        // if a OUTPUT_FAIL is present when STOP_FAIL_EN is set.
        out_parms->ps[port_idx].port_error     = 
-           ((err_n_stat & Tsi578_SPX_ERR_STATUS_PORT_ERR       ) |
+           ((err_n_stat & Tsi578_SPX_ERR_uint32_t_PORT_ERR       ) |
            ((spx_ctl    & Tsi578_SPX_CTL_STOP_FAIL_EN ) && 
-             (err_n_stat & Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL))) ? TRUE : FALSE;
+             (err_n_stat & Tsi578_SPX_ERR_uint32_t_OUTPUT_FAIL))) ? true : false;
     }
 
 idt_tsi57x_pc_get_status_exit:
     return rc;
 }
 
-STATUS idt_tsi57x_rt_probe_all   ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi57x_rt_probe_all   ( DAR_DEV_INFO_t            *dev_info, 
                                  idt_rt_probe_all_in_t     *in_parms, 
                                  idt_rt_probe_all_out_t    *out_parms );
 
-STATUS idt_tsi57x_rt_set_all   ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi57x_rt_set_all   ( DAR_DEV_INFO_t            *dev_info, 
                                  idt_rt_set_all_in_t       *in_parms, 
                                  idt_rt_set_all_out_t      *out_parms );
 
-STATUS restore_luts( DAR_DEV_INFO_t         *dev_info, 
-                   UINT8                   port_num,
+uint32_t restore_luts( DAR_DEV_INFO_t         *dev_info, 
+                   uint8_t                   port_num,
                      idt_rt_state_t         *lut_save_in ) 
 {
     idt_rt_set_all_in_t    lut_restore_in;
@@ -1612,12 +1612,12 @@ STATUS restore_luts( DAR_DEV_INFO_t         *dev_info,
 
 #define TSI57X_LP(x) (TSI57X_LP_0+x)
 
-STATUS reset_tsi57x_lp( DAR_DEV_INFO_t          *dev_info, 
-                        UINT8                    port_num, 
-                        UINT32                  *imp_rc )
+uint32_t reset_tsi57x_lp( DAR_DEV_INFO_t          *dev_info, 
+                        uint8_t                    port_num, 
+                        uint32_t                  *imp_rc )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT32 lr_cmd = STYPE1_LREQ_CMD_RST_DEV;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t lr_cmd = STYPE1_LREQ_CMD_RST_DEV;
 
    if (port_num >= NUM_PORTS(dev_info)) {
       *imp_rc = TSI57X_LP(0x10 + port_num);
@@ -1634,18 +1634,18 @@ reset_tsi57x_lp_exit:
   return rc;
 };
 
-STATUS idt_tsi57x_pc_reset_port  ( DAR_DEV_INFO_t          *dev_info, 
+uint32_t idt_tsi57x_pc_reset_port  ( DAR_DEV_INFO_t          *dev_info, 
                                    idt_pc_reset_port_in_t  *in_parms, 
                                    idt_pc_reset_port_out_t *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     preserved_regs          saved_regs[2];
     idt_pc_get_config_in_t  cfg_in;
     idt_pc_get_config_out_t cfg_out;
-    UINT32 dloop   , pwrdwn;
-    UINT8  port_idx, port_num, dep_port_idx, dep_port_num, ports_to_skip[MAX_PORTS_TO_SKIP];
+    uint32_t dloop   , pwrdwn;
+    uint8_t  port_idx, port_num, dep_port_idx, dep_port_num, ports_to_skip[MAX_PORTS_TO_SKIP];
     port_mac_relations_t *sw_pmr;
-    BOOL   found;
+    bool   found;
 
     out_parms->imp_rc = RIO_SUCCESS;
 
@@ -1708,10 +1708,10 @@ STATUS idt_tsi57x_pc_reset_port  ( DAR_DEV_INFO_t          *dev_info,
          // If it is, then we're resetting 2 ports at a time, so save the state.
          if (sw_pmr[port_num].lane_count_4x && !(Tsi577_RIO_DEVID_VAL == DEV_CODE(dev_info))) {
             dep_port_num = port_num + 1;
-            found = FALSE;
+            found = false;
             for (dep_port_idx = 0; (dep_port_idx < cfg_out.num_ports) && !found; dep_port_idx++) {
                if (cfg_out.pc[dep_port_idx].pnum == dep_port_num) {
-                  found = TRUE;
+                  found = true;
                   if ((cfg_out.pc[port_idx].port_available) &&
                       (cfg_out.pc[port_idx].powered_up    )) {
                      rc = preserve_regs_for_powerup( dev_info, dep_port_num, &saved_regs[1], in_parms->preserve_config );
@@ -1783,12 +1783,12 @@ idt_tsi57x_pc_reset_port_exit:
     return rc;
 }
 
-STATUS idt_tsi57x_pc_reset_link_partner(
+uint32_t idt_tsi57x_pc_reset_link_partner(
     DAR_DEV_INFO_t                   *dev_info, 
     idt_pc_reset_link_partner_in_t   *in_parms, 
     idt_pc_reset_link_partner_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;;
 
     out_parms->imp_rc = RIO_SUCCESS;
 
@@ -1816,20 +1816,20 @@ idt_tsi57x_pc_reset_link_partner_exit:
 
 #define PC_CLR_ERRS(x) (PC_CLR_ERRS_0+x)
 
-STATUS idt_tsi57x_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_tsi57x_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info, 
                                idt_pc_clr_errs_in_t   *in_parms, 
                                idt_pc_clr_errs_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8 port_idx, lp_port_num; 
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t port_idx, lp_port_num; 
     CS_field_t magic_cs;
     CS_bytes_t magic_cs_bytes;
-    UINT32 cs_reg_val;
-    UINT32 dlay;
-    UINT32 lr_cmd = STYPE1_LREQ_CMD_PORT_STAT; /* Command for link-request/input-status. */
-    UINT32 lresp = 0;
-    UINT32 ackid_stat;
-    UINT32 err_stat;
+    uint32_t cs_reg_val;
+    uint32_t dlay;
+    uint32_t lr_cmd = STYPE1_LREQ_CMD_PORT_STAT; /* Command for link-request/input-status. */
+    uint32_t lresp = 0;
+    uint32_t ackid_stat;
+    uint32_t err_stat;
     idt_pc_get_status_in_t  status_in;
     idt_pc_get_status_out_t status_out;
 
@@ -1888,9 +1888,9 @@ STATUS idt_tsi57x_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info,
 
     CS_fields_to_bytes( &magic_cs, &magic_cs_bytes );
 
-    cs_reg_val = ( (UINT32)(magic_cs_bytes.cs_bytes[1]) << 24) ||
-                 ( (UINT32)(magic_cs_bytes.cs_bytes[2]) << 16) ||
-                 (((UINT32)(magic_cs_bytes.cs_bytes[3]) <<  8) & Tsi578_SPX_CS_TX_CMD);
+    cs_reg_val = ( (uint32_t)(magic_cs_bytes.cs_bytes[1]) << 24) ||
+                 ( (uint32_t)(magic_cs_bytes.cs_bytes[2]) << 16) ||
+                 (((uint32_t)(magic_cs_bytes.cs_bytes[3]) <<  8) & Tsi578_SPX_CS_TX_CMD);
 
     rc = DARRegWrite( dev_info, Tsi578_SPX_CS_TX(in_parms->port_num), cs_reg_val );
     if (RIO_SUCCESS != rc) {
@@ -1969,7 +1969,9 @@ STATUS idt_tsi57x_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info,
        for (port_idx = 0; port_idx < in_parms->num_lp_ports; port_idx++) 
        {
           lp_port_num = in_parms->lp_port_list[port_idx];
-          rc = DARRegWrite( in_parms->lp_dev_info, RIO_PORT_N_LOCAL_ACKID_CSR(in_parms->lp_dev_info->extFPtrForPort, lp_port_num),
+          rc = DARRegWrite( in_parms->lp_dev_info,
+			RIO_SPX_ACKID_ST(in_parms->lp_dev_info->extFPtrForPort,
+			RIO_EFB_T_FIXME, lp_port_num),
                             ackid_stat );
           if (RIO_SUCCESS != rc) 
           {
@@ -1978,10 +1980,10 @@ STATUS idt_tsi57x_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info,
              //    try the next link partner port.
              idt_pc_clr_errs_in_t  temp_in;
              idt_pc_clr_errs_out_t temp_out;
-             STATUS                temp_rc;
+             uint32_t                temp_rc;
 
              memcpy(&temp_in, &in_parms, sizeof(idt_pc_clr_errs_in_t));
-             temp_in.clr_lp_port_err = FALSE;
+             temp_in.clr_lp_port_err = false;
 
              temp_rc = idt_tsi57x_pc_clr_errs( dev_info, &temp_in, &temp_out );
              if (RIO_SUCCESS != temp_rc) 
@@ -1995,22 +1997,22 @@ STATUS idt_tsi57x_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info,
     };
 
     // Lastly, clear physical layer error status indications for the port.
-    rc = DARRegRead( dev_info, Tsi578_SPX_ERR_STATUS(in_parms->port_num), &err_stat );
+    rc = DARRegRead( dev_info, Tsi578_SPX_ERR_uint32_t(in_parms->port_num), &err_stat );
     if (RIO_SUCCESS != rc)
        goto idt_tsi57x_pc_clr_errs_exit;
 
-    rc = DARRegWrite( dev_info, Tsi578_SPX_ERR_STATUS(in_parms->port_num), err_stat );
+    rc = DARRegWrite( dev_info, Tsi578_SPX_ERR_uint32_t(in_parms->port_num), err_stat );
     if (RIO_SUCCESS != rc)
        goto idt_tsi57x_pc_clr_errs_exit;
 
-    rc = DARRegRead( dev_info, Tsi578_SPX_ERR_STATUS(in_parms->port_num), &err_stat );
+    rc = DARRegRead( dev_info, Tsi578_SPX_ERR_uint32_t(in_parms->port_num), &err_stat );
     if (RIO_SUCCESS != rc)
        goto idt_tsi57x_pc_clr_errs_exit;
 
-    if (err_stat & (Tsi578_SPX_ERR_STATUS_PORT_ERR        | 
-                    Tsi578_SPX_ERR_STATUS_INPUT_ERR_STOP  |  
-                    Tsi578_SPX_ERR_STATUS_OUTPUT_ERR_STOP |  
-                    Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL     ) ) 
+    if (err_stat & (Tsi578_SPX_ERR_uint32_t_PORT_ERR        | 
+                    Tsi578_SPX_ERR_uint32_t_INPUT_ERR_STOP  |  
+                    Tsi578_SPX_ERR_uint32_t_OUTPUT_ERR_STOP |  
+                    Tsi578_SPX_ERR_uint32_t_OUTPUT_FAIL     ) ) 
     {
        rc = RIO_ERR_ERRS_NOT_CL;  
        out_parms->imp_rc = PC_CLR_ERRS(0x20);
@@ -2022,7 +2024,7 @@ idt_tsi57x_pc_clr_errs_exit:
 }
 
 void tsi57x_rst_policy_vals( idt_pc_rst_handling  rst_policy_in,
-                             UINT32              *spx_mode_val,
+                             uint32_t              *spx_mode_val,
                              idt_pc_rst_handling *rst_policy_out )
 {
     *spx_mode_val   = 0;
@@ -2046,13 +2048,13 @@ void tsi57x_rst_policy_vals( idt_pc_rst_handling  rst_policy_in,
 
 #define UPDATE_RESET(x) (EM_UPDATE_RESET_0+x)
 
-STATUS update_reset_policy( DAR_DEV_INFO_t          *dev_info    , 
-                            UINT8                    pnum        ,
-                            UINT32                   spx_mode_val,
-                            UINT32                  *imp_rc      )
+uint32_t update_reset_policy( DAR_DEV_INFO_t          *dev_info    , 
+                            uint8_t                    pnum        ,
+                            uint32_t                   spx_mode_val,
+                            uint32_t                  *imp_rc      )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 ctl_indep;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t ctl_indep;
 
     if (pnum >= NUM_PORTS(dev_info)) {
        *imp_rc = UPDATE_RESET(1);
@@ -2092,13 +2094,13 @@ update_reset_policy_exit:
 
 #define PC_SECURE_PORT(x) (PC_SECURE_PORT_0+x)
 
-STATUS idt_tsi57x_pc_secure_port  ( DAR_DEV_INFO_t          *dev_info, 
+uint32_t idt_tsi57x_pc_secure_port  ( DAR_DEV_INFO_t          *dev_info, 
                                   idt_pc_secure_port_in_t   *in_parms, 
                                   idt_pc_secure_port_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-	UINT8 pnum;
-    UINT32 port_mode, port_mode_mod, port_mode_mask, port_ctl, glob_int_en, port_idx;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+	uint8_t pnum;
+    uint32_t port_mode, port_mode_mod, port_mode_mask, port_ctl, glob_int_en, port_idx;
 	struct DAR_ptl good_ptl;
 
     out_parms->imp_rc = RIO_SUCCESS;
@@ -2145,8 +2147,8 @@ STATUS idt_tsi57x_pc_secure_port  ( DAR_DEV_INFO_t          *dev_info,
 		   port_ctl &= ~Tsi578_SPX_CTL_MCS_EN;
 		}
 
-		out_parms->bc_mtc_pkts_allowed = TRUE;
-		out_parms->MECS_acceptance     = TRUE;
+		out_parms->bc_mtc_pkts_allowed = true;
+		out_parms->MECS_acceptance     = true;
 		out_parms->MECS_participant    = in_parms->MECS_participant;
 
 		port_mode = (port_mode & port_mode_mask) | port_mode_mod;
@@ -2190,19 +2192,19 @@ idt_tsi57x_pc_secure_port_exit:
 
 #define PC_DEV_RESET_CONFIG(x) (PC_DEV_RESET_CONFIG_0+x)
 
-STATUS idt_tsi57x_pc_dev_reset_config(
+uint32_t idt_tsi57x_pc_dev_reset_config(
     DAR_DEV_INFO_t                 *dev_info, 
     idt_pc_dev_reset_config_in_t   *in_parms, 
     idt_pc_dev_reset_config_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8 port_num;
-    UINT32 port_mode, port_mode_mask, port_mode_value, glob_int_en;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t port_num;
+    uint32_t port_mode, port_mode_mask, port_mode_value, glob_int_en;
 
     out_parms->rst = in_parms->rst;
     out_parms->imp_rc  = RIO_SUCCESS;
 
-    if ((UINT8)(out_parms->rst) >= (UINT8)(idt_pc_rst_last)) {
+    if ((uint8_t)(out_parms->rst) >= (uint8_t)(idt_pc_rst_last)) {
        out_parms->imp_rc = PC_DEV_RESET_CONFIG(1);
        goto idt_tsi57x_pc_dev_reset_config_exit;
     };
@@ -2257,18 +2259,18 @@ idt_tsi57x_pc_dev_reset_config_exit:
     return rc;
 }
 
-STATUS idt_tsi57x_rt_set_changed ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi57x_rt_set_changed ( DAR_DEV_INFO_t            *dev_info, 
                                    idt_rt_set_changed_in_t   *in_parms, 
                                    idt_rt_set_changed_out_t  *out_parms );
 
-STATUS idt_tsi57x_rt_initialize  ( DAR_DEV_INFO_t         *dev_info, 
+uint32_t idt_tsi57x_rt_initialize  ( DAR_DEV_INFO_t         *dev_info, 
                                  idt_rt_initialize_in_t   *in_parms, 
                                  idt_rt_initialize_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 destID, spx_mode;
-    UINT32 mc_idx;
-    UINT8  port, start_port, end_port;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t destID, spx_mode;
+    uint32_t mc_idx;
+    uint8_t  port, start_port, end_port;
     idt_rt_set_changed_in_t  all_in;
     idt_rt_set_changed_out_t all_out;
     idt_rt_state_t           rt_state; 
@@ -2337,16 +2339,16 @@ STATUS idt_tsi57x_rt_initialize  ( DAR_DEV_INFO_t         *dev_info,
     // Configure initialization of all of the routing table entries
     for (destID = 0; destID < IDT_DAR_RT_DEV_TABLE_SIZE; destID++)
     {
-        all_in.rt->dev_table[destID].changed = TRUE ;
+        all_in.rt->dev_table[destID].changed = true ;
         all_in.rt->dev_table[destID].rte_val = in_parms->default_route_table_port;
     };
     
-    all_in.rt->dom_table[0].changed = TRUE ;
+    all_in.rt->dom_table[0].changed = true ;
     all_in.rt->dom_table[0].rte_val = IDT_DSF_RT_USE_DEVICE_TABLE;
 
     for (destID = 1; destID < IDT_DAR_RT_DOM_TABLE_SIZE; destID++)
     {
-        all_in.rt->dom_table[destID].changed = TRUE ;
+        all_in.rt->dom_table[destID].changed = true ;
         all_in.rt->dom_table[destID].rte_val = in_parms->default_route_table_port;
     };
     
@@ -2356,16 +2358,16 @@ STATUS idt_tsi57x_rt_initialize  ( DAR_DEV_INFO_t         *dev_info,
        all_in.rt->mc_masks[mc_idx].mc_destID = 0;
        all_in.rt->mc_masks[mc_idx].tt        = tt_dev8;
        all_in.rt->mc_masks[mc_idx].mc_mask   = 0;
-       all_in.rt->mc_masks[mc_idx].in_use    = FALSE;
-       all_in.rt->mc_masks[mc_idx].allocd    = FALSE;
+       all_in.rt->mc_masks[mc_idx].in_use    = false;
+       all_in.rt->mc_masks[mc_idx].allocd    = false;
        // Only change multicast masks that exist AND
        // when all ports are being initialized.
        if ( (mc_idx < Tsi578_MAX_MC_MASKS )  &&
             (RIO_ALL_PORTS == in_parms->set_on_port) ) 
        {
-          all_in.rt->mc_masks[mc_idx].changed   = TRUE ;
+          all_in.rt->mc_masks[mc_idx].changed   = true ;
        } else {
-          all_in.rt->mc_masks[mc_idx].changed  = FALSE;
+          all_in.rt->mc_masks[mc_idx].changed  = false;
        };
     };
 
@@ -2383,14 +2385,14 @@ STATUS idt_tsi57x_rt_initialize  ( DAR_DEV_INFO_t         *dev_info,
     return rc;
 }
 
-STATUS idt_check_port_for_discard( DAR_DEV_INFO_t     *dev_info, 
+uint32_t idt_check_port_for_discard( DAR_DEV_INFO_t     *dev_info, 
                                    idt_rt_probe_in_t  *in_parms, 
                                    idt_rt_probe_out_t *out_parms ) 
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT32 ctlData;
-   UINT8  port;
-   BOOL  dflt_rt = (IDT_DSF_RT_USE_DEFAULT_ROUTE == out_parms->routing_table_value)?TRUE:FALSE;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t ctlData;
+   uint8_t  port;
+   bool  dflt_rt = (IDT_DSF_RT_USE_DEFAULT_ROUTE == out_parms->routing_table_value)?true:false;
    idt_pc_get_config_in_t  cfg_in;
    idt_pc_get_config_out_t cfg_out;
    idt_pc_get_status_in_t  stat_in;
@@ -2450,8 +2452,8 @@ STATUS idt_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
                       goto idt_check_port_for_discard_exit;
                    };
             
-                  if ( (RIO_SPX_CTL_INPUT_EN | RIO_SPX_CTL_OUTPUT_EN) != 
-                      ((RIO_SPX_CTL_INPUT_EN | RIO_SPX_CTL_OUTPUT_EN) & ctlData)) {
+                  if ( (RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN) != 
+                      ((RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN) & ctlData)) {
                      out_parms->reason_for_discard = (dflt_rt)?idt_rt_disc_dflt_pt_in_out_dis:idt_rt_disc_port_in_out_dis;
                   };
                }
@@ -2465,26 +2467,26 @@ STATUS idt_check_port_for_discard( DAR_DEV_INFO_t     *dev_info,
 idt_check_port_for_discard_exit:
 
     if (idt_rt_disc_not != out_parms->reason_for_discard)
-       out_parms->valid_route = FALSE;
+       out_parms->valid_route = false;
 
     return rc;
 }
 
-STATUS idt_tsi57x_rt_probe     ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi57x_rt_probe     ( DAR_DEV_INFO_t            *dev_info, 
                                  idt_rt_probe_in_t         *in_parms, 
                                  idt_rt_probe_out_t        *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8 bit;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t bit;
 
     out_parms->imp_rc                 = RIO_SUCCESS;
-    out_parms->valid_route            = FALSE;
+    out_parms->valid_route            = false;
     out_parms->routing_table_value    = RIO_ALL_PORTS;
-    out_parms->filter_function_active = FALSE; /* not supported on Tsi */
-    out_parms->trace_function_active  = FALSE; /* not supported on Tsi */
-    out_parms->time_to_live_active    = FALSE; /* not supported on Tsi */
+    out_parms->filter_function_active = false; /* not supported on Tsi */
+    out_parms->trace_function_active  = false; /* not supported on Tsi */
+    out_parms->time_to_live_active    = false; /* not supported on Tsi */
     for (bit = 0; bit < NUM_PORTS(dev_info); bit++)
-        out_parms->mcast_ports[bit] = FALSE;
+        out_parms->mcast_ports[bit] = false;
     out_parms->reason_for_discard     = idt_rt_disc_probe_abort;
 
     if (   ((NUM_PORTS(dev_info) <= in_parms->probe_on_port) &&
@@ -2524,13 +2526,13 @@ idt_tsi57x_rt_probe_exit:
 
 #define READ_MC_MASKS(x) (READ_MC_MASKS_0+x)
 
-STATUS tsi57x_read_mc_masks( DAR_DEV_INFO_t            *dev_info, 
+uint32_t tsi57x_read_mc_masks( DAR_DEV_INFO_t            *dev_info, 
                              idt_rt_state_t            *rt,
-                             UINT32                    *imp_rc  )  
+                             uint32_t                    *imp_rc  )  
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8  mask_idx;
-   UINT32 reg_val;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t  mask_idx;
+   uint32_t reg_val;
    idt_rt_dealloc_mc_mask_in_t  d_in_parm;
    idt_rt_dealloc_mc_mask_out_t d_out_parm;
 
@@ -2553,12 +2555,12 @@ STATUS tsi57x_read_mc_masks( DAR_DEV_INFO_t            *dev_info,
          goto read_mc_masks_exit;
       };
 
-      rt->mc_masks[mask_idx].allocd  = FALSE;
-      rt->mc_masks[mask_idx].changed = FALSE;
+      rt->mc_masks[mask_idx].allocd  = false;
+      rt->mc_masks[mask_idx].changed = false;
       rt->mc_masks[mask_idx].tt = (reg_val & Tsi578_RIO_MC_IDX_LARGE_SYS) ?
                                    tt_dev16 : tt_dev8;
       rt->mc_masks[mask_idx].in_use = (reg_val & Tsi578_RIO_MC_IDX_MC_EN) ? 
-                                   TRUE : FALSE;
+                                   true : false;
       rt->mc_masks[mask_idx].mc_destID = (reg_val & ( (tt_dev16 == rt->mc_masks[mask_idx].tt) ? 
                                                        Tsi578_RIO_MC_IDX_MC_ID : (Tsi578_RIO_MC_IDX_MC_ID>>8)) );
 
@@ -2583,13 +2585,13 @@ read_mc_masks_exit:
 
 #define READ_RTE_ENTRIES(x) (READ_RTE_ENTRIES_0+x)
 
-STATUS tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
-                                UINT8                      pnum,
+uint32_t tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
+                                uint8_t                      pnum,
                                 idt_rt_state_t            *rt,
-                                UINT32                    *imp_rc  )  
+                                uint32_t                    *imp_rc  )  
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT32 destID, idx_val, rte_val, base_reg;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t destID, idx_val, rte_val, base_reg;
 
    // Fill in default route value
 
@@ -2615,7 +2617,7 @@ STATUS tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
    //
    for (destID = 0; destID < IDT_DAR_RT_DOM_TABLE_SIZE; destID++)
    {
-      rt->dom_table[destID].changed = FALSE;
+      rt->dom_table[destID].changed = false;
 
       // Set deviceID, read routing table entry for deviceID
       idx_val = destID << 8;
@@ -2634,7 +2636,7 @@ STATUS tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       if (HW_DFLT_RT == rte_val) {
          rt->dom_table[destID].rte_val = IDT_DSF_RT_USE_DEFAULT_ROUTE;
       } else {
-         rt->dom_table[destID].rte_val = (UINT8)(rte_val & Tsi578_SPX_ROUTE_CFG_PORT_PORT);
+         rt->dom_table[destID].rte_val = (uint8_t)(rte_val & Tsi578_SPX_ROUTE_CFG_PORT_PORT);
       };
    };
    
@@ -2647,7 +2649,7 @@ STATUS tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
    //
    for (destID = 0; destID < IDT_DAR_RT_DEV_TABLE_SIZE; destID++)
    {
-      rt->dev_table[destID].changed = FALSE;
+      rt->dev_table[destID].changed = false;
 
       // Set deviceID, read routing table entry for deviceID,
       idx_val = base_reg + destID;
@@ -2667,7 +2669,7 @@ STATUS tsi57x_read_rte_entries( DAR_DEV_INFO_t            *dev_info,
       if (HW_DFLT_RT == rte_val) {
          rt->dev_table[destID].rte_val = IDT_DSF_RT_USE_DEFAULT_ROUTE;
       } else {
-         rt->dev_table[destID].rte_val = (UINT8)(rte_val & Tsi578_SPX_ROUTE_CFG_PORT_PORT);
+         rt->dev_table[destID].rte_val = (uint8_t)(rte_val & Tsi578_SPX_ROUTE_CFG_PORT_PORT);
       };
    };
    
@@ -2677,15 +2679,15 @@ read_rte_entries_exit:
 
 #define RT_PROBE_ALL(x) (RT_PROBE_ALL_0+x)
 
-STATUS idt_tsi57x_rt_probe_all  ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_tsi57x_rt_probe_all  ( DAR_DEV_INFO_t           *dev_info, 
                                  idt_rt_probe_all_in_t     *in_parms, 
                                  idt_rt_probe_all_out_t    *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8  probe_port;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t  probe_port;
 
     out_parms->imp_rc = RIO_SUCCESS;
-    if ( ( ( (UINT8)(RIO_ALL_PORTS) != in_parms->probe_on_port ) && 
+    if ( ( ( (uint8_t)(RIO_ALL_PORTS) != in_parms->probe_on_port ) && 
            ( in_parms->probe_on_port >= NUM_PORTS(dev_info)    ) ) ||
          ( NULL == in_parms->rt) ) 
     {
@@ -2705,22 +2707,22 @@ idt_tsi57x_rt_probe_all_exit:
     return rc;
 }
 
-#define ALL_ENTRIES TRUE
-#define CHG_ENTRIES FALSE
+#define ALL_ENTRIES true
+#define CHG_ENTRIES false
 #define PROGRAM_RTE_ENTRIES(x) (PROGRAM_RTE_ENTRIES_0+x)
 
-STATUS program_rte_entries( DAR_DEV_INFO_t            *dev_info,
+uint32_t program_rte_entries( DAR_DEV_INFO_t            *dev_info,
                             idt_rt_state_t            *rt,
-                            UINT8                      pnum,
-                            BOOL                       prog_all, // Use ALL_ENTRIES/CHG_ENTRIES
-                            UINT32                    *imp_rc  )  
+                            uint8_t                      pnum,
+                            bool                       prog_all, // Use ALL_ENTRIES/CHG_ENTRIES
+                            uint32_t                    *imp_rc  )  
 {
 
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT32 destID, baseID = 0;
-   UINT32 rte_val, idx_val;
-   BOOL   set_base = FALSE;
-   UINT8  port, start_port, end_port;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t destID, baseID = 0;
+   uint32_t rte_val, idx_val;
+   bool   set_base = false;
+   uint8_t  port, start_port, end_port;
 
    if (RIO_ALL_PORTS == pnum) {
       start_port = 0;
@@ -2753,7 +2755,7 @@ STATUS program_rte_entries( DAR_DEV_INFO_t            *dev_info,
                *imp_rc = PROGRAM_RTE_ENTRIES(2);
                goto program_rte_entries_exit;
          } else {
-               set_base = TRUE;
+               set_base = true;
                baseID   = idx_val;
          }
       };
@@ -2803,7 +2805,7 @@ STATUS program_rte_entries( DAR_DEV_INFO_t            *dev_info,
                };
             };
          };
-         rt->dom_table[destID].changed = FALSE;
+         rt->dom_table[destID].changed = false;
      }
    }
 
@@ -2842,7 +2844,7 @@ STATUS program_rte_entries( DAR_DEV_INFO_t            *dev_info,
                goto program_rte_entries_exit;
             }
          }
-         rt->dev_table[destID].changed = FALSE;
+         rt->dev_table[destID].changed = false;
       }
    }
    
@@ -2855,19 +2857,19 @@ program_rte_entries_exit:
 }
 
 
-#define ALL_MASKS TRUE
-#define CHG_MASKS FALSE
+#define ALL_MASKS true
+#define CHG_MASKS false
 #define PROGRAM_MC_MASKS(x) (PROGRAM_MC_MASKS_0+x)
 
-STATUS program_mc_masks( DAR_DEV_INFO_t            *dev_info, 
+uint32_t program_mc_masks( DAR_DEV_INFO_t            *dev_info, 
                          idt_rt_state_t            *rt,
-                         BOOL                      prog_all,  // Use ALL_MASKS or CHG_MASKS
-                         UINT32                    *imp_rc  )  
+                         bool                      prog_all,  // Use ALL_MASKS or CHG_MASKS
+                         uint32_t                    *imp_rc  )  
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8  mask_idx;
-   UINT32 reg_val;
-   UINT32 invalid_mc_mask = ~(UINT32)((1 << NUM_PORTS(dev_info)) - 1);
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t  mask_idx;
+   uint32_t reg_val;
+   uint32_t invalid_mc_mask = ~(uint32_t)((1 << NUM_PORTS(dev_info)) - 1);
 
    for (mask_idx = Tsi578_MAX_MC_MASKS; mask_idx < IDT_DSF_MAX_MC_MASK; mask_idx++ ) {
       if (rt->mc_masks[mask_idx].in_use || rt->mc_masks[mask_idx].changed || rt->mc_masks[mask_idx].allocd)  {
@@ -2882,8 +2884,8 @@ STATUS program_mc_masks( DAR_DEV_INFO_t            *dev_info,
          goto program_mc_masks_exit;
       };
       if (prog_all || rt->mc_masks[mask_idx].changed) {
-         rt->mc_masks[mask_idx].changed = FALSE;
-         reg_val = (UINT32)(rt->mc_masks[mask_idx].mc_destID);
+         rt->mc_masks[mask_idx].changed = false;
+         reg_val = (uint32_t)(rt->mc_masks[mask_idx].mc_destID);
          reg_val |= (tt_dev16 == rt->mc_masks[mask_idx].tt    )?Tsi578_RIO_MC_IDX_LARGE_SYS:0;
          reg_val |= (            rt->mc_masks[mask_idx].in_use)?Tsi578_RIO_MC_IDX_MC_EN:0;
          rc = DARRegWrite( dev_info, Tsi578_RIO_MC_IDX(mask_idx), reg_val );
@@ -2908,13 +2910,13 @@ program_mc_masks_exit:
    return rc;
 }
 
-STATUS idt_tsi57x_rt_set_all   ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi57x_rt_set_all   ( DAR_DEV_INFO_t            *dev_info, 
                                  idt_rt_set_all_in_t       *in_parms, 
                                  idt_rt_set_all_out_t      *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
-    if ( ( ( (UINT8)(RIO_ALL_PORTS) != in_parms->set_on_port ) && 
+    if ( ( ( (uint8_t)(RIO_ALL_PORTS) != in_parms->set_on_port ) && 
            ( in_parms->set_on_port >= NUM_PORTS(dev_info)    ) ) ||
          ( NULL == in_parms->rt) ) 
     {
@@ -2942,13 +2944,13 @@ idt_tsi57x_rt_set_all_exit:
     return rc;
 }
 
-STATUS idt_tsi57x_rt_set_changed   ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi57x_rt_set_changed   ( DAR_DEV_INFO_t            *dev_info, 
                                  idt_rt_set_changed_in_t       *in_parms, 
                                  idt_rt_set_changed_out_t      *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
-    if ( ( ( (UINT8)(RIO_ALL_PORTS) != in_parms->set_on_port ) && 
+    if ( ( ( (uint8_t)(RIO_ALL_PORTS) != in_parms->set_on_port ) && 
            ( in_parms->set_on_port >= NUM_PORTS(dev_info)    ) ) ||
          ( NULL == in_parms->rt) ) 
     {
@@ -2977,14 +2979,14 @@ idt_tsi57x_rt_set_changed_exit:
     return rc;
 };
 
-STATUS idt_tsi57x_rt_change_rte (
+uint32_t idt_tsi57x_rt_change_rte (
     DAR_DEV_INFO_t           *dev_info, 
     idt_rt_change_rte_in_t   *in_parms, 
     idt_rt_change_rte_out_t  *out_parms
 )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT16 idx;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint16_t idx;
 
    out_parms->imp_rc = RIO_SUCCESS;
 
@@ -3013,7 +3015,7 @@ STATUS idt_tsi57x_rt_change_rte (
    if (in_parms->dom_entry) {
       if (  !in_parms->rt->dom_table[in_parms->idx].changed ) {
          if (in_parms->rt->dom_table[in_parms->idx].rte_val  != in_parms->rte_value)
-             in_parms->rt->dom_table[in_parms->idx].changed = TRUE;
+             in_parms->rt->dom_table[in_parms->idx].changed = true;
       };
       in_parms->rt->dom_table[in_parms->idx].rte_val = in_parms->rte_value;
 
@@ -3026,14 +3028,14 @@ STATUS idt_tsi57x_rt_change_rte (
             if ((IDT_DSF_RT_USE_DEVICE_TABLE == in_parms->rt->dom_table[idx].rte_val) &&
                 (idx                         != in_parms->idx                       )) {
                in_parms->rt->dom_table[idx].rte_val = IDT_DSF_RT_NO_ROUTE;
-               in_parms->rt->dom_table[idx].changed = TRUE;
+               in_parms->rt->dom_table[idx].changed = true;
             };
          };
       };
    } else {
       if (  !in_parms->rt->dev_table[in_parms->idx].changed ) {
          if (in_parms->rt->dev_table[in_parms->idx].rte_val  != in_parms->rte_value)
-             in_parms->rt->dev_table[in_parms->idx].changed = TRUE;
+             in_parms->rt->dev_table[in_parms->idx].changed = true;
       };
       in_parms->rt->dev_table[in_parms->idx].rte_val = in_parms->rte_value;
    };
@@ -3042,15 +3044,15 @@ idt_tsi57x_rt_change_rte_exit:
    return rc;
 }
 
-STATUS idt_tsi57x_rt_change_mc_mask (
+uint32_t idt_tsi57x_rt_change_mc_mask (
     DAR_DEV_INFO_t               *dev_info, 
     idt_rt_change_mc_mask_in_t   *in_parms, 
     idt_rt_change_mc_mask_out_t  *out_parms
 )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8  mc_idx, chg_idx;
-   UINT32 illegal_ports = ~((1 << IDT_MAX_PORTS) - 1);
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t  mc_idx, chg_idx;
+   uint32_t illegal_ports = ~((1 << IDT_MAX_PORTS) - 1);
 
    out_parms->imp_rc = RIO_SUCCESS;
 
@@ -3097,7 +3099,7 @@ STATUS idt_tsi57x_rt_change_mc_mask (
           (in_parms->rt->mc_masks[chg_idx].tt        != in_parms->mc_info.tt       ) ||
           (in_parms->rt->mc_masks[chg_idx].mc_mask   != in_parms->mc_info.mc_mask  ) ||
           (in_parms->rt->mc_masks[chg_idx].in_use    != in_parms->mc_info.in_use   ))  {
-         in_parms->rt->mc_masks[chg_idx].changed = TRUE;
+         in_parms->rt->mc_masks[chg_idx].changed = true;
       };
    };
 
@@ -3110,19 +3112,19 @@ idt_tsi57x_rt_change_mc_mask_exit:
    return rc;
 }
 
-#define TSI57X_ALL_LOG_ERRS  ((UINT32)(Tsi578_RIO_LOG_ERR_DET_EN_UNSUP_TRANS_EN | \
+#define TSI57X_ALL_LOG_ERRS  ((uint32_t)(Tsi578_RIO_LOG_ERR_DET_EN_UNSUP_TRANS_EN | \
                                        Tsi578_RIO_LOG_ERR_DET_EN_ILL_RESP_EN    | \
                                        Tsi578_RIO_LOG_ERR_DET_EN_ILL_TRANS_EN   ))
 
 #define EM_CFG_PW(x) (EM_CFG_PW_0+x)
 
-STATUS idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
                                idt_em_cfg_pw_in_t   *in_parms, 
                                idt_em_cfg_pw_out_t  *out_parms ) 
 {
-  STATUS rc = RIO_ERR_INVALID_PARAMETER;
-  UINT32 regData;
-  UINT8  port_num;
+  uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+  uint32_t regData;
+  uint8_t  port_num;
 
   out_parms->imp_rc = RIO_SUCCESS;
 
@@ -3132,7 +3134,7 @@ STATUS idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
   };
       
   // Configure destination ID for port writes.
-  regData = ((UINT32)(in_parms->port_write_destID)) << 16;
+  regData = ((uint32_t)(in_parms->port_write_destID)) << 16;
   if (tt_dev16 == in_parms->deviceID_tt) {
      regData |= Tsi578_RIO_PW_DESTID_LARGE_DESTID;
   } else {
@@ -3152,10 +3154,10 @@ STATUS idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
   };
 
   out_parms->deviceID_tt = (regData & Tsi578_RIO_PW_DESTID_LARGE_DESTID)?tt_dev16:tt_dev8;
-  out_parms->port_write_destID = (UINT16)((regData & ( Tsi578_RIO_PW_DESTID_DESTID_LSB 
+  out_parms->port_write_destID = (uint16_t)((regData & ( Tsi578_RIO_PW_DESTID_DESTID_LSB 
                                                      | Tsi578_RIO_PW_DESTID_DESTID_MSB )) >> 16);
   // Cannot configure source ID for port-writes on Tsi57x family.
-  out_parms->srcID_valid      = TRUE;
+  out_parms->srcID_valid      = true;
   out_parms->port_write_srcID = 0;
 
   // Configure port-write priority.  Cannot configure CRF.
@@ -3168,7 +3170,7 @@ STATUS idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
      };
    
      regData &= ~Tsi578_SPX_DISCOVERY_TIMER_PW_PRIORITY;
-     regData |= (((UINT32)(in_parms->priority)) << 22) & Tsi578_SPX_DISCOVERY_TIMER_PW_PRIORITY;
+     regData |= (((uint32_t)(in_parms->priority)) << 22) & Tsi578_SPX_DISCOVERY_TIMER_PW_PRIORITY;
      rc = DARRegWrite( dev_info, Tsi578_SPX_DISCOVERY_TIMER(port_num), regData );
      if (RIO_SUCCESS != rc) {
         out_parms->imp_rc = EM_CFG_PW(5);
@@ -3177,7 +3179,7 @@ STATUS idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
   }
 
   out_parms->priority = in_parms->priority & (Tsi578_SPX_DISCOVERY_TIMER_PW_PRIORITY >> 22);
-  out_parms->CRF      = FALSE;
+  out_parms->CRF      = false;
 
   // Configure port-write re-transmission rate.
   // Assumption: it is better to choose a longer retransmission time than the value requested.
@@ -3241,14 +3243,14 @@ STATUS idt_tsi57x_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
 
 #define SET_EVENT_PW(x) (EM_SET_EVENT_PW_0+x)
 
-STATUS idt_tsi57x_set_pw_cfg( DAR_DEV_INFO_t       *dev_info , 
+uint32_t idt_tsi57x_set_pw_cfg( DAR_DEV_INFO_t       *dev_info , 
                               struct DAR_ptl       *good_ptl,  /* PTL has already been error-checked, just use it */
                               idt_em_notfn_ctl_t    notfn    ,
-                              UINT32               *imp_rc   )
+                              uint32_t               *imp_rc   )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 regData;
-    UINT8  port_idx, port_num;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t regData;
+    uint8_t  port_idx, port_num;
 
     // Validate notfn and pnum
     if (idt_em_notfn_last <= notfn) {
@@ -3297,15 +3299,15 @@ idt_tsi57x_set_event_pw_cfg_exit:
 #define EM_ERR_RATE_EVENT_EXCLUSIONS (Tsi578_SPX_ERR_DET_DELIN_ERR|Tsi578_SPX_ERR_DET_CS_NOT_ACC|Tsi578_SPX_ERR_DET_IMP_SPEC_ERR)
 #define SET_EVENT_INT(x) (EM_SET_EVENT_INT_0+x)
 
-STATUS idt_tsi57x_set_int_cfg( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_tsi57x_set_int_cfg( DAR_DEV_INFO_t       *dev_info, 
                                struct DAR_ptl       *good_ptl,  /* PTL has already been error-checked, just use it */
                                idt_em_notfn_ctl_t    notfn   ,
-                               UINT32               *imp_rc  )
+                               uint32_t               *imp_rc  )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 glob_int_en, spx_ctl_indep, spx_mode, i2c_int_en;
-    UINT8  port_idx, port_num;
-    BOOL  en_mecs_int = FALSE, en_rcs_int = FALSE;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t glob_int_en, spx_ctl_indep, spx_mode, i2c_int_en;
+    uint8_t  port_idx, port_num;
+    bool  en_mecs_int = false, en_rcs_int = false;
 
     // Validate notfn
     if (idt_em_notfn_last <= notfn) {
@@ -3369,11 +3371,11 @@ STATUS idt_tsi57x_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
                               glob_int_en |= 1 << port_num;
                               if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_RSVD1) {
                                  spx_mode |= Tsi578_SPX_MODE_RCS_INT_EN;
-                                 en_rcs_int = TRUE;
+                                 en_rcs_int = true;
                               };
                               spx_ctl_indep |= Tsi578_SPX_CTL_INDEP_IRQ_EN;
                               if (spx_mode & Tsi578_SPX_MODE_MCS_INT_EN)
-                                 en_mecs_int = TRUE;
+                                 en_mecs_int = true;
                               break;
       };
       rc = DARRegWrite( dev_info, Tsi578_SPX_MODE(port_num), spx_mode );
@@ -3428,13 +3430,13 @@ idt_tsi57x_set_event_int_cfg_exit:
 }
 #define DET_NOTFN(x) (EM_DET_NOTFN_0+x)
 
-STATUS tsi57x_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  , 
+uint32_t tsi57x_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  , 
                                   idt_em_notfn_ctl_t   *notfn      ,
-                                  UINT8                 pnum      ,
-                                  UINT32               *imp_rc    ) 
+                                  uint8_t                 pnum      ,
+                                  uint32_t               *imp_rc    ) 
 {
-    STATUS rc;
-    UINT32 spx_ctl_indep, spx_mode;
+    uint32_t rc;
+    uint32_t spx_ctl_indep, spx_mode;
 
     rc = DARRegRead( dev_info, Tsi578_SPX_MODE(pnum), &spx_mode );
     if (RIO_SUCCESS != rc) {
@@ -3468,16 +3470,16 @@ em_determine_notfn_exit:
 
 #define EN_ERR_CTR(x) (EM_EN_ERR_CTR_0+x)
 
-STATUS idt_tsi57x_enable_err_ctr( DAR_DEV_INFO_t  *dev_info        ,   
-                                  UINT8            pnum            ,
-                                  UINT32           spx_rate_en     ,
-                                  UINT32           spx_rate_en_mask,
-                                  UINT32           spx_err_rate    ,
-                                  UINT32           spx_err_thresh  ,
-                                  UINT32          *imp_rc           )
+uint32_t idt_tsi57x_enable_err_ctr( DAR_DEV_INFO_t  *dev_info        ,   
+                                  uint8_t            pnum            ,
+                                  uint32_t           spx_rate_en     ,
+                                  uint32_t           spx_rate_en_mask,
+                                  uint32_t           spx_err_rate    ,
+                                  uint32_t           spx_err_thresh  ,
+                                  uint32_t          *imp_rc           )
 {
-    STATUS rc;
-    UINT32 regData;
+    uint32_t rc;
+    uint32_t regData;
 
     // Enable event counting.
     rc = DARRegRead( dev_info, Tsi578_SPX_RATE_EN(pnum), &regData );
@@ -3543,13 +3545,13 @@ idt_tsi57x_enable_err_ctr_exit:
 
 #define SET_EVENT_EN(x) (EM_SET_EVENT_EN_0+x)
 
-STATUS idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info, 
-                                    UINT8                 pnum    , 
+uint32_t idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info, 
+                                    uint8_t                 pnum    , 
                                     idt_em_cfg_t         *event   , 
-                                    UINT32               *imp_rc   )
+                                    uint32_t               *imp_rc   )
 {
-    STATUS rc = RIO_SUCCESS;
-    UINT32 regData, temp;
+    uint32_t rc = RIO_SUCCESS;
+    uint32_t regData, temp;
     port_mac_relations_t *sw_pmr;
 
     rc = init_sw_pmr( dev_info, &sw_pmr );
@@ -3576,7 +3578,7 @@ STATUS idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
            //    result in LOS.
            
           {
-            BOOL set_delin_thresh = FALSE;
+            bool set_delin_thresh = false;
             if ( event->em_detect == idt_em_detect_on ) {
                // First, set up DLT
                rc = DARRegRead( dev_info, Tsi578_SMACX_DLOOP_CLK_SEL(sw_pmr[pnum].pwr_mac_num * 2), &regData );
@@ -3587,7 +3589,7 @@ STATUS idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
               temp = event->em_info / 81920;
               if (!temp) {
                  temp = 1;
-                 set_delin_thresh = TRUE;
+                 set_delin_thresh = true;
               };
               
               regData |= Tsi578_SMACX_DLOOP_CLK_SEL_DLT_EN;
@@ -3605,7 +3607,7 @@ STATUS idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                  // Configure the device to discard packets when the threshold has been met.
                  // NOTE: This is only effective on the Tsi578A device. See errata.
                  //
-                 UINT32 spx_err_rate_en, spx_err_rate, spx_err_thresh;
+                 uint32_t spx_err_rate_en, spx_err_rate, spx_err_thresh;
                  rc = DARRegRead( dev_info, Tsi578_SPX_RATE_EN(pnum), &spx_err_rate_en );
                  if (RIO_SUCCESS != rc) {
                     *imp_rc = SET_EVENT_EN(0x27);
@@ -3676,7 +3678,7 @@ STATUS idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                goto idt_tsi57x_set_event_en_cfg_exit;
             };
             if (event->em_detect == idt_em_detect_on) {
-                 UINT32 spx_err_rate, spx_err_thresh;
+                 uint32_t spx_err_rate, spx_err_thresh;
                  rc = DARRegRead( dev_info, Tsi578_SPX_ERR_RATE(pnum), &spx_err_rate );
                  if (RIO_SUCCESS != rc) {
                     *imp_rc = SET_EVENT_EN(0x28);
@@ -3716,8 +3718,8 @@ STATUS idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                   goto idt_tsi57x_set_event_en_cfg_exit;
                };
                if (event->em_detect == idt_em_detect_on) {
-                  UINT32 retry_thresh = event->em_info;
-                  UINT32 spx_err_rate, spx_err_thresh;
+                  uint32_t retry_thresh = event->em_info;
+                  uint32_t spx_err_rate, spx_err_thresh;
 
                   if (!retry_thresh) {
                      rc      = RIO_ERR_INVALID_PARAMETER;
@@ -3769,7 +3771,7 @@ STATUS idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
        case idt_em_f_2many_pna:
                // Enable/disable event detection
                if (event->em_detect == idt_em_detect_on) {
-                  UINT32 spx_err_rate, spx_err_thresh;
+                  uint32_t spx_err_rate, spx_err_thresh;
                   rc = DARRegRead( dev_info, Tsi578_SPX_ERR_RATE(pnum), &spx_err_rate );
                   if (RIO_SUCCESS != rc) {
                      *imp_rc = SET_EVENT_EN(0x28);
@@ -3812,7 +3814,7 @@ STATUS idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
                break;
 
        case idt_em_f_err_rate :
-               { UINT32 spx_rate_en, spx_err_rate, spx_err_thresh;
+               { uint32_t spx_rate_en, spx_err_rate, spx_err_thresh;
                  rc = idt_em_get_f_err_rate_info( event->em_info, &spx_rate_en, 
                                                                   &spx_err_rate, 
                                                                   &spx_err_thresh);
@@ -3825,7 +3827,7 @@ STATUS idt_tsi57x_set_event_en_cfg( DAR_DEV_INFO_t       *dev_info,
 
                  // Enable/disable event detection
                  if (event->em_detect == idt_em_detect_on) {
-                    UINT32 curr_thresh;
+                    uint32_t curr_thresh;
                     rc = DARRegRead( dev_info, Tsi578_SPX_ERR_THRESH(pnum), &curr_thresh );
                     if (RIO_SUCCESS != rc) {
                        *imp_rc = SET_EVENT_EN(0x28);
@@ -4026,13 +4028,13 @@ idt_tsi57x_set_event_en_cfg_exit:
 
 #define EM_CFG_SET(x) (EM_CFG_SET_0+x)
 
-STATUS idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info, 
+uint32_t idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info, 
                                 idt_em_cfg_set_in_t   *in_parms, 
                                 idt_em_cfg_set_out_t  *out_parms ) 
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8 pnum; 
-    UINT8 idx, e_idx;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t pnum; 
+    uint8_t idx, e_idx;
     idt_pc_get_config_in_t  cfg_in;
     idt_pc_get_config_out_t cfg_out;
 	struct DAR_ptl good_ptl;
@@ -4042,7 +4044,7 @@ STATUS idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
     out_parms->fail_idx      = idt_em_last;
     out_parms->notfn         = idt_em_notfn_0delta;
 
-    if ( (in_parms->num_events > (UINT8)(idt_em_last)) ||
+    if ( (in_parms->num_events > (uint8_t)(idt_em_last)) ||
          ( NULL == in_parms->events                  )) {
        out_parms->imp_rc = EM_CFG_SET(0x10);
        goto idt_tsi57x_em_cfg_set_exit;
@@ -4076,7 +4078,7 @@ STATUS idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
            out_parms->fail_idx   = 0;
 
            for (e_idx = 0; (e_idx < in_parms->num_events) && 
-                        (e_idx < (UINT8)(idt_em_last))   ; e_idx++) {
+                        (e_idx < (uint8_t)(idt_em_last))   ; e_idx++) {
              if (in_parms->events[e_idx].em_detect == idt_em_detect_off ) {
                 out_parms->fail_idx   = e_idx;
                 rc = idt_tsi57x_set_event_en_cfg( dev_info, pnum, &(in_parms->events[e_idx]), &out_parms->imp_rc );
@@ -4087,7 +4089,7 @@ STATUS idt_tsi57x_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
            };
 
            for (e_idx = 0; (e_idx < in_parms->num_events) && 
-                        (e_idx < (UINT8)(idt_em_last))   ; e_idx++) {
+                        (e_idx < (uint8_t)(idt_em_last))   ; e_idx++) {
              if (in_parms->events[e_idx].em_detect == idt_em_detect_on ) {
                 out_parms->fail_idx   = e_idx;
                 rc = idt_tsi57x_set_event_en_cfg( dev_info, pnum, &(in_parms->events[e_idx]), &out_parms->imp_rc );
@@ -4123,19 +4125,19 @@ idt_tsi57x_em_cfg_set_exit:
 
 #define EM_CFG_GET(x) (EM_CFG_GET_0+x)
 
-STATUS idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info, 
+uint32_t idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info, 
                                 idt_em_cfg_get_in_t   *in_parms, 
                                 idt_em_cfg_get_out_t  *out_parms ) 
 {
 
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 spx_ctl, spx_mode, spx_ctl_indep, spx_rate_en, spx_dloop, i2c_int_enable, log_err_en, spx_err_thresh, spx_err_rate;
-    UINT8 pnum; 
-    UINT8 e_idx;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t spx_ctl, spx_mode, spx_ctl_indep, spx_rate_en, spx_dloop, i2c_int_enable, log_err_en, spx_err_thresh, spx_err_rate;
+    uint8_t pnum; 
+    uint8_t e_idx;
     idt_pc_get_config_in_t  cfg_in;
     idt_pc_get_config_out_t cfg_out;
     
-    out_parms->fail_idx = (UINT8)(idt_em_last); 
+    out_parms->fail_idx = (uint8_t)(idt_em_last); 
     out_parms->imp_rc   = RIO_SUCCESS;
     out_parms->notfn    = idt_em_notfn_0delta;
 
@@ -4147,7 +4149,7 @@ STATUS idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
 	   cfg_in.ptl.pnums[0] = in_parms->port_num;
     };
 
-    if ((in_parms->num_events > (UINT8)(idt_em_last)) ||
+    if ((in_parms->num_events > (uint8_t)(idt_em_last)) ||
         (NULL == in_parms->event_list               ) ||
         (NULL == in_parms->events                   )) {
        out_parms->imp_rc = EM_CFG_GET(0x02);
@@ -4204,7 +4206,7 @@ STATUS idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
        goto idt_tsi57x_em_cfg_get_exit;
     }
 
-    for (e_idx = 0; ((e_idx < in_parms->num_events) && (e_idx < (UINT8)(idt_em_last))); e_idx++) {
+    for (e_idx = 0; ((e_idx < in_parms->num_events) && (e_idx < (uint8_t)(idt_em_last))); e_idx++) {
        // Initialize event such that event is disabled.
        out_parms->fail_idx   = e_idx;
        in_parms->events[e_idx].em_event  = in_parms->event_list[e_idx];
@@ -4324,7 +4326,7 @@ STATUS idt_tsi57x_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
        };
     };
 
-    out_parms->fail_idx = (UINT8)(idt_em_last); 
+    out_parms->fail_idx = (uint8_t)(idt_em_last); 
 
     // Now figure out the current notification setting for this port.
     rc = tsi57x_em_determine_notfn( dev_info, &out_parms->notfn, pnum, &out_parms->imp_rc);
@@ -4335,11 +4337,11 @@ idt_tsi57x_em_cfg_get_exit:
 
 #define DEV_RPT_CTL(x) (EM_DEV_RPT_CTL_0+x)
 
-STATUS idt_tsi57x_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi57x_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info, 
                                     idt_em_dev_rpt_ctl_in_t   *in_parms, 
                                     idt_em_dev_rpt_ctl_out_t  *out_parms ) 
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 	struct DAR_ptl good_ptl;
     
     out_parms->notfn  = idt_em_notfn_0delta;
@@ -4371,11 +4373,11 @@ idt_tsi57x_em_dev_rpt_ctl_exit:
 
 typedef struct pw_parsing_info_t_TAG
 {
-   UINT8           pw_index;  // Index of 32 bit word to test in the port write, 0-3
-   UINT32          check;     // If the bitwise and of this value and the port-write
+   uint8_t           pw_index;  // Index of 32 bit word to test in the port write, 0-3
+   uint32_t          check;     // If the bitwise and of this value and the port-write
                               //    word at "pw_index" is non-zero, then the event has occurred
    idt_em_events_t event;     // Event checked for.
-   BOOL            per_port;  // TRUE if this is a per-port event, FALSE for GLOBAL events
+   bool            per_port;  // true if this is a per-port event, false for GLOBAL events
 } pw_parsing_info_t;
 
 #define NOT_IN_PW (0x0)
@@ -4386,36 +4388,36 @@ typedef struct pw_parsing_info_t_TAG
 #define PW_PORT_ERR     0x10000000
 #define PW_LINK_INIT    0x00200000
 
-pw_parsing_info_t pw_parsing_info[ (UINT8)(idt_em_last) ] = {
-   { 1, Tsi578_SPX_ERR_DET_DELIN_ERR, idt_em_f_los       , TRUE },
-   { 2, PW_PORT_ERR                 , idt_em_f_port_err  , TRUE },
-   { 2, PW_MAX_RETRY                , idt_em_f_2many_retx, TRUE },
-   { 2, NOT_IN_PW                   , idt_em_i_init_fail , FALSE},
-   { 2, NOT_IN_PW                   , idt_em_d_ttl       , FALSE},
-   { 2, PW_ILL_TRANS                , idt_em_d_rte       , TRUE },
-   { 3, 0xFFFFFFFF                  , idt_em_d_log       , FALSE},
-   { 2, PW_LINK_INIT                , idt_em_i_sig_det   , TRUE }, 
-   { 2, NOT_IN_PW                   , idt_em_i_rst_req   , TRUE }  
+pw_parsing_info_t pw_parsing_info[ (uint8_t)(idt_em_last) ] = {
+   { 1, Tsi578_SPX_ERR_DET_DELIN_ERR, idt_em_f_los       , true },
+   { 2, PW_PORT_ERR                 , idt_em_f_port_err  , true },
+   { 2, PW_MAX_RETRY                , idt_em_f_2many_retx, true },
+   { 2, NOT_IN_PW                   , idt_em_i_init_fail , false},
+   { 2, NOT_IN_PW                   , idt_em_d_ttl       , false},
+   { 2, PW_ILL_TRANS                , idt_em_d_rte       , true },
+   { 3, 0xFFFFFFFF                  , idt_em_d_log       , false},
+   { 2, PW_LINK_INIT                , idt_em_i_sig_det   , true }, 
+   { 2, NOT_IN_PW                   , idt_em_i_rst_req   , true }  
 };
 
 #define PARSE_PW(x) (EM_PARSE_PW_0+x)
 
-STATUS idt_tsi57x_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info, 
+uint32_t idt_tsi57x_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info, 
                                  idt_em_parse_pw_in_t   *in_parms, 
                                  idt_em_parse_pw_out_t  *out_parms ) 
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8 idx;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t idx;
    // Do not check COMP_TAG, IMP_SPEC bit or port number field for other events.
-   UINT32 oth_masks[4] = {0xFFFFFFFF, 0x80000000, 0x000000FF, 0}; 
+   uint32_t oth_masks[4] = {0xFFFFFFFF, 0x80000000, 0x000000FF, 0}; 
 
    out_parms->imp_rc       = RIO_SUCCESS;
    out_parms->num_events   = 0;
-   out_parms->too_many     = FALSE;
-   out_parms->other_events = FALSE;
+   out_parms->too_many     = false;
+   out_parms->other_events = false;
 
    if (( !in_parms->num_events                        ) 
-      || (in_parms->num_events > (UINT8)(idt_em_last) )
+      || (in_parms->num_events > (uint8_t)(idt_em_last) )
       || (NULL == dev_info                            )
       || (NULL == in_parms->events                    )) {
       out_parms->imp_rc = PARSE_PW(1);
@@ -4423,28 +4425,28 @@ STATUS idt_tsi57x_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info,
    };
 
    // Check each bit within the port-write data for information on Error Management events
-   for (idx = 0; (idx < (UINT8)(idt_em_last)) && !(out_parms->too_many); idx++ ) {
+   for (idx = 0; (idx < (uint8_t)(idt_em_last)) && !(out_parms->too_many); idx++ ) {
       if (in_parms->pw[pw_parsing_info[idx].pw_index] & pw_parsing_info[idx].check) {
          if (out_parms->num_events < in_parms->num_events) {
             in_parms->events[out_parms->num_events].event = pw_parsing_info[idx].event;
             if (pw_parsing_info[idx].per_port)
                in_parms->events[out_parms->num_events].port_num = 
-                      (UINT8)(in_parms->pw[2] & 0x000000FF);
+                      (uint8_t)(in_parms->pw[2] & 0x000000FF);
            else
                in_parms->events[out_parms->num_events].port_num = RIO_ALL_PORTS;
            out_parms->num_events++;
         } else {
-           out_parms->too_many = TRUE;
+           out_parms->too_many = true;
         };
       };
    };
 
    // Check for "other" events that have happenned...
-   for (idx = 0; idx < (UINT8)(idt_em_last); idx++ ) {
+   for (idx = 0; idx < (uint8_t)(idt_em_last); idx++ ) {
       oth_masks [pw_parsing_info[idx].pw_index] |= pw_parsing_info[idx].check; 
    };
    for (idx = 0; (idx < 3) && !out_parms->other_events; idx++) {
-      out_parms->other_events = (in_parms->pw[idx] & ~oth_masks[idx])?TRUE:FALSE;
+      out_parms->other_events = (in_parms->pw[idx] & ~oth_masks[idx])?true:false;
    }
 
    rc = RIO_SUCCESS;
@@ -4455,15 +4457,15 @@ idt_tsi57x_em_parse_pw_exit:
 
 #define GET_INT_STAT(x) (EM_GET_INT_STAT_0+x)
 
-STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info, 
+uint32_t idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info, 
                                      idt_em_get_int_stat_in_t   *in_parms, 
                                      idt_em_get_int_stat_out_t  *out_parms ) 
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8 pnum; 
-    UINT8 idx;
-    UINT32 spx_int_stat, spx_err_stat, spx_err_det, spx_rate_en, spx_ctl_indep, spx_cs_int, spx_dloop;
-    UINT32 regData;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t pnum; 
+    uint8_t idx;
+    uint32_t spx_int_stat, spx_err_stat, spx_err_det, spx_rate_en, spx_ctl_indep, spx_cs_int, spx_dloop;
+    uint32_t regData;
     idt_pc_get_config_in_t  cfg_in;
     idt_pc_get_config_out_t cfg_out;
     port_mac_relations_t *sw_pmr;
@@ -4471,8 +4473,8 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
     
    out_parms->imp_rc       = RIO_SUCCESS;
    out_parms->num_events   = 0;
-   out_parms->too_many     = FALSE;
-   out_parms->other_events = FALSE;
+   out_parms->too_many     = false;
+   out_parms->other_events = false;
 
     if (( !in_parms->num_events                       ) 
        || (in_parms->num_events > EM_MAX_EVENT_LIST_SIZE )
@@ -4525,13 +4527,13 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
          goto idt_tsi57x_em_get_int_stat_exit;
       }
               
-      rc = DARRegRead( dev_info, Tsi578_SPX_INT_STATUS(pnum), &spx_int_stat );
+      rc = DARRegRead( dev_info, Tsi578_SPX_INT_uint32_t(pnum), &spx_int_stat );
       if (RIO_SUCCESS != rc) {
          out_parms->imp_rc = GET_INT_STAT(7);
          goto idt_tsi57x_em_get_int_stat_exit;
       }
               
-      rc = DARRegRead( dev_info, Tsi578_SPX_ERR_STATUS(pnum), &spx_err_stat );
+      rc = DARRegRead( dev_info, Tsi578_SPX_ERR_uint32_t(pnum), &spx_err_stat );
       if (RIO_SUCCESS != rc) {
          out_parms->imp_rc = GET_INT_STAT(8);
          goto idt_tsi57x_em_get_int_stat_exit;
@@ -4549,7 +4551,7 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
          goto idt_tsi57x_em_get_int_stat_exit;
       }
               
-      rc = DARRegRead( dev_info, Tsi578_SPX_CS_INT_STATUS(pnum), &spx_cs_int );
+      rc = DARRegRead( dev_info, Tsi578_SPX_CS_INT_uint32_t(pnum), &spx_cs_int );
       if (RIO_SUCCESS != rc) {
          out_parms->imp_rc = GET_INT_STAT(0xB);
          goto idt_tsi57x_em_get_int_stat_exit;
@@ -4564,8 +4566,8 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
       // Neither of these conditions is deterministic.
 
       if ( ((Tsi578_SPX_ERR_DET_DELIN_ERR      & spx_err_det ) && 
-            (Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL & spx_err_stat)) 
-       || ((spx_err_stat & Tsi578_SPX_ERR_STATUS_PORT_ERR   ) &&
+            (Tsi578_SPX_ERR_uint32_t_OUTPUT_FAIL & spx_err_stat)) 
+       || ((spx_err_stat & Tsi578_SPX_ERR_uint32_t_PORT_ERR   ) &&
           !(spx_err_det  & (Tsi578_SPX_ERR_DET_LINK_TO | Tsi578_SPX_ERR_DET_LR_ACKID_ILL)))) {
          if ( spx_dloop & Tsi578_SMACX_DLOOP_CLK_SEL_DLT_EN ) {
             add_int_event( in_parms, out_parms, pnum, idt_em_f_los );
@@ -4575,7 +4577,7 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
                add_int_event( in_parms, out_parms, sw_pmr[pnum].other_mac_ports[0], idt_em_f_port_err );
             }
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
@@ -4590,7 +4592,7 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
       // If none of these errors is present, do not report the PORT_ERR.
       // There is a hook to ensure that PORT_ERR is cleared on the EVEN MAC.
       
-      if (( spx_err_stat & Tsi578_SPX_ERR_STATUS_PORT_ERR   ) && 
+      if (( spx_err_stat & Tsi578_SPX_ERR_uint32_t_PORT_ERR   ) && 
           ( spx_err_det & (Tsi578_SPX_ERR_DET_LINK_TO | Tsi578_SPX_ERR_DET_LR_ACKID_ILL))) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_PORT_ERR_EN) {
             add_int_event( in_parms, out_parms, pnum, idt_em_f_port_err );
@@ -4600,20 +4602,20 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
                add_int_event( in_parms, out_parms, sw_pmr[pnum].other_mac_ports[0], idt_em_f_port_err );
             }
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
-      if ( spx_int_stat & Tsi578_SPX_INT_STATUS_MAX_RETRY   ) {
+      if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_MAX_RETRY   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_MAX_RETRY_EN) {
             add_int_event( in_parms, out_parms, pnum, idt_em_f_2many_retx );
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
       // Check for too many PNA and ERR_RATE.  
-      if (spx_err_stat & Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL) {
+      if (spx_err_stat & Tsi578_SPX_ERR_uint32_t_OUTPUT_FAIL) {
          if (Tsi578_SPX_ERR_DET_CS_NOT_ACC & spx_err_det & spx_rate_en) { 
             add_int_event( in_parms, out_parms, pnum, idt_em_f_2many_pna );
          };
@@ -4623,31 +4625,31 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
          };
 
          if (spx_err_det & ~spx_rate_en) {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
-      if ( spx_int_stat & Tsi578_SPX_INT_STATUS_ILL_TRANS_ERR   ) {
+      if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_ILL_TRANS_ERR   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_ILL_TRANS_ERR) {
             add_int_event( in_parms, out_parms, pnum, idt_em_d_rte );
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
-      if ( spx_int_stat & Tsi578_SPX_INT_STATUS_LINK_INIT_NOTIFICATION   ) {
+      if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_LINK_INIT_NOTIFICATION   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN) {
             add_int_event( in_parms, out_parms, pnum, idt_em_i_sig_det );
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
-      if ( spx_cs_int & Tsi578_SPX_CS_INT_STATUS_RCS   ) {
+      if ( spx_cs_int & Tsi578_SPX_CS_INT_uint32_t_RCS   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_RSVD1) {
             add_int_event( in_parms, out_parms, pnum, idt_em_i_rst_req );
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
    };
@@ -4661,7 +4663,7 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
    }
               
    if (regData) {
-      UINT32 enData;
+      uint32_t enData;
 
       rc = DARRegRead( dev_info, Tsi578_RIO_LOG_ERR_DET_EN, &enData );
       if (RIO_SUCCESS != rc) {
@@ -4671,7 +4673,7 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
       if (regData & enData) {
          add_int_event( in_parms, out_parms, RIO_ALL_PORTS, idt_em_d_log );
       } else {
-         out_parms->other_events = TRUE;
+         out_parms->other_events = true;
       };
    };
 
@@ -4692,7 +4694,7 @@ STATUS idt_tsi57x_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
       if (regData & Tsi578_I2C_INT_ENABLE_BL_FAIL) {
          add_int_event( in_parms, out_parms, RIO_ALL_PORTS, idt_em_i_init_fail );
       } else {
-         out_parms->other_events = TRUE;
+         out_parms->other_events = true;
       }
    }
 
@@ -4702,23 +4704,23 @@ idt_tsi57x_em_get_int_stat_exit:
 
 #define GET_PW_STAT(x) (EM_GET_PW_STAT_0+x)
 
-STATUS idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info, 
                                     idt_em_get_pw_stat_in_t   *in_parms, 
                                     idt_em_get_pw_stat_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8 pnum; 
-    UINT8 idx;
-    UINT32 spx_int_stat, spx_err_stat, spx_err_det, spx_rate_en, spx_ctl_indep, spx_dloop, start_idx;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t pnum; 
+    uint8_t idx;
+    uint32_t spx_int_stat, spx_err_stat, spx_err_det, spx_rate_en, spx_ctl_indep, spx_dloop, start_idx;
     idt_pc_get_config_in_t  cfg_in;
     idt_pc_get_config_out_t cfg_out;
-    UINT32 log_err_det, log_err_en;
+    uint32_t log_err_det, log_err_en;
 	struct DAR_ptl good_ptl;
     
    out_parms->imp_rc       = RIO_SUCCESS;
    out_parms->num_events   = 0;
-   out_parms->too_many     = FALSE;
-   out_parms->other_events = FALSE;
+   out_parms->too_many     = false;
+   out_parms->other_events = false;
 
     if (( !in_parms->num_events                          ) 
        || (in_parms->num_events > EM_MAX_EVENT_LIST_SIZE )
@@ -4765,7 +4767,7 @@ STATUS idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
      if ( log_err_en ) {
         add_pw_event( in_parms, out_parms, RIO_ALL_PORTS, idt_em_d_log );
       } else {
-         out_parms->other_events = TRUE;
+         out_parms->other_events = true;
       }
    }
    for (idx = 0; idx < cfg_out.num_ports; idx++) {
@@ -4790,13 +4792,13 @@ STATUS idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
          goto idt_tsi57x_em_get_pw_stat_exit;
       };
               
-      rc = DARRegRead( dev_info, Tsi578_SPX_INT_STATUS(pnum), &spx_int_stat );
+      rc = DARRegRead( dev_info, Tsi578_SPX_INT_uint32_t(pnum), &spx_int_stat );
       if (RIO_SUCCESS != rc) {
          out_parms->imp_rc = GET_PW_STAT(6);
          goto idt_tsi57x_em_get_pw_stat_exit;
       };
               
-      rc = DARRegRead( dev_info, Tsi578_SPX_ERR_STATUS(pnum), &spx_err_stat );
+      rc = DARRegRead( dev_info, Tsi578_SPX_ERR_uint32_t(pnum), &spx_err_stat );
       if (RIO_SUCCESS != rc) {
          out_parms->imp_rc = GET_PW_STAT(7);
          goto idt_tsi57x_em_get_pw_stat_exit;
@@ -4822,18 +4824,18 @@ STATUS idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
       //   is detected without link response timeouts or illegal ackIDs in the link response.
       // Neither of these conditions is deterministic.
       if (((spx_err_det & Tsi578_SPX_ERR_DET_DELIN_ERR      ) &&
-           (spx_err_stat & Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL))
-       || ((spx_err_stat & Tsi578_SPX_ERR_STATUS_PORT_ERR   ) &&
+           (spx_err_stat & Tsi578_SPX_ERR_uint32_t_OUTPUT_FAIL))
+       || ((spx_err_stat & Tsi578_SPX_ERR_uint32_t_PORT_ERR   ) &&
          !(spx_err_det & (Tsi578_SPX_ERR_DET_LINK_TO | Tsi578_SPX_ERR_DET_LR_ACKID_ILL)))) {
          if ( spx_dloop & Tsi578_SMACX_DLOOP_CLK_SEL_DLT_EN) {
             add_pw_event( in_parms, out_parms, pnum, idt_em_f_los );
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
-      if (spx_err_stat & Tsi578_SPX_ERR_STATUS_OUTPUT_FAIL) {
-         UINT32 errs = spx_err_det & spx_rate_en;
+      if (spx_err_stat & Tsi578_SPX_ERR_uint32_t_OUTPUT_FAIL) {
+         uint32_t errs = spx_err_det & spx_rate_en;
 
          if (Tsi578_SPX_ERR_DET_CS_NOT_ACC & errs) { 
             add_pw_event( in_parms, out_parms, pnum, idt_em_f_2many_pna );
@@ -4843,7 +4845,7 @@ STATUS idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
          };
 
          if (spx_err_det & ~spx_rate_en) {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
@@ -4854,36 +4856,36 @@ STATUS idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
       // illegal ackIDs.  If neither of these errors is present, do not report the PORT_ERR.
       // There is a special little hook to ensure that PORT_ERR is cleared on the EVEN MAC.
       
-      if (( spx_err_stat & Tsi578_SPX_ERR_STATUS_PORT_ERR   ) && 
+      if (( spx_err_stat & Tsi578_SPX_ERR_uint32_t_PORT_ERR   ) && 
           ( spx_err_det & (Tsi578_SPX_ERR_DET_LINK_TO | Tsi578_SPX_ERR_DET_LR_ACKID_ILL))) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_PORT_ERR_EN) {
             add_pw_event( in_parms, out_parms, pnum, idt_em_f_port_err );
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
-      if ( spx_int_stat & Tsi578_SPX_INT_STATUS_MAX_RETRY   ) {
+      if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_MAX_RETRY   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_MAX_RETRY_EN) {
            add_pw_event( in_parms, out_parms, pnum, idt_em_f_2many_retx );
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
-      if ( spx_int_stat & Tsi578_SPX_INT_STATUS_ILL_TRANS_ERR   ) {
+      if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_ILL_TRANS_ERR   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_ILL_TRANS_ERR) {
             add_pw_event( in_parms, out_parms, pnum, idt_em_d_rte );
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
-      if ( spx_int_stat & Tsi578_SPX_INT_STATUS_LINK_INIT_NOTIFICATION   ) {
+      if ( spx_int_stat & Tsi578_SPX_INT_uint32_t_LINK_INIT_NOTIFICATION   ) {
          if (spx_ctl_indep & Tsi578_SPX_CTL_INDEP_LINK_INIT_NOTIFICATION_EN) {
            add_pw_event( in_parms, out_parms, pnum, idt_em_i_sig_det );
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          }
       };
 
@@ -4894,7 +4896,7 @@ STATUS idt_tsi57x_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
       // Note: Clear Port-write-pending whether or not there are events
       // reported by the port.  
       if ((start_idx != out_parms->num_events) ||
-          (spx_err_stat & Tsi578_SPX_ERR_STATUS_PORT_W_PEND)) {
+          (spx_err_stat & Tsi578_SPX_ERR_uint32_t_PORT_W_PEND)) {
          add_pw_event( in_parms, out_parms, pnum, idt_em_a_clr_pwpnd );
       };
 
@@ -4935,20 +4937,20 @@ idt_tsi57x_em_get_pw_stat_exit:
    return rc;
 };
 
-STATUS idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
                                     idt_em_clr_events_in_t   *in_parms, 
                                     idt_em_clr_events_out_t  *out_parms ) 
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     int pnum; 
     int idx;
-    BOOL clear_port_fail = FALSE;
-    UINT32 regData;
+    bool clear_port_fail = false;
+    uint32_t regData;
     
     out_parms->imp_rc            = RIO_SUCCESS;
     out_parms->failure_idx       = 0;
-    out_parms->pw_events_remain  = FALSE;
-    out_parms->int_events_remain = FALSE;
+    out_parms->pw_events_remain  = false;
+    out_parms->int_events_remain = false;
 
     if (( !in_parms->num_events                          ) 
        || (in_parms->num_events > EM_MAX_EVENT_LIST_SIZE )
@@ -4991,16 +4993,16 @@ STATUS idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                   out_parms->imp_rc = EM_CLR_EVENTS(4);
                   goto idt_tsi57x_em_clr_events_exit;
                }
-               clear_port_fail = TRUE;
+               clear_port_fail = true;
                break;
 
           case idt_em_f_port_err  : // PORT_ERR occurs due to multiple causes,
-               clear_port_fail = TRUE;
+               clear_port_fail = true;
                break;
 
           case idt_em_f_2many_retx: 
                //  Clear MAX_RETRY and IMP_SPEC_ERR events
-               rc = DARRegWrite( dev_info, Tsi578_SPX_INT_STATUS(pnum), Tsi578_SPX_INT_STATUS_MAX_RETRY);
+               rc = DARRegWrite( dev_info, Tsi578_SPX_INT_uint32_t(pnum), Tsi578_SPX_INT_uint32_t_MAX_RETRY);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x10);
                   goto idt_tsi57x_em_clr_events_exit;
@@ -5018,7 +5020,7 @@ STATUS idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                   out_parms->imp_rc = EM_CLR_EVENTS(0x12);
                   goto idt_tsi57x_em_clr_events_exit;
                }
-               clear_port_fail = TRUE;
+               clear_port_fail = true;
                break;
 
          case idt_em_i_init_fail :
@@ -5033,7 +5035,7 @@ STATUS idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
               break;
 
          case idt_em_d_rte       :
-               rc = DARRegWrite( dev_info, Tsi578_SPX_INT_STATUS(pnum), Tsi578_SPX_INT_STATUS_ILL_TRANS_ERR);
+               rc = DARRegWrite( dev_info, Tsi578_SPX_INT_uint32_t(pnum), Tsi578_SPX_INT_uint32_t_ILL_TRANS_ERR);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x20);
                   goto idt_tsi57x_em_clr_events_exit;
@@ -5052,7 +5054,7 @@ STATUS idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                   out_parms->imp_rc = EM_CLR_EVENTS(0x23);
                   goto idt_tsi57x_em_clr_events_exit;
                };
-              clear_port_fail = TRUE;
+              clear_port_fail = true;
               break;
          case idt_em_f_err_rate  :
                // Clear all events that contribute to the fatal error rate event
@@ -5067,7 +5069,7 @@ STATUS idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                   out_parms->imp_rc = EM_CLR_EVENTS(0x25);
                   goto idt_tsi57x_em_clr_events_exit;
                };
-              clear_port_fail = TRUE;
+              clear_port_fail = true;
               break;
                                      
          case idt_em_d_log       : // Clear all logical layer errors, must write 0
@@ -5080,7 +5082,7 @@ STATUS idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
               break;
 
          case idt_em_i_sig_det   :
-               rc = DARRegWrite( dev_info, Tsi578_SPX_INT_STATUS(pnum), Tsi578_SPX_INT_STATUS_LINK_INIT_NOTIFICATION);
+               rc = DARRegWrite( dev_info, Tsi578_SPX_INT_uint32_t(pnum), Tsi578_SPX_INT_uint32_t_LINK_INIT_NOTIFICATION);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x28);
                   goto idt_tsi57x_em_clr_events_exit;
@@ -5093,7 +5095,7 @@ STATUS idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                   out_parms->imp_rc = EM_CLR_EVENTS(0x2A);
                   goto idt_tsi57x_em_clr_events_exit;
                }
-               rc = DARRegWrite( dev_info, Tsi578_SPX_CS_INT_STATUS(pnum), Tsi578_SPX_CS_INT_STATUS_RCS);
+               rc = DARRegWrite( dev_info, Tsi578_SPX_CS_INT_uint32_t(pnum), Tsi578_SPX_CS_INT_uint32_t_RCS);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x2B);
                   goto idt_tsi57x_em_clr_events_exit;
@@ -5101,13 +5103,13 @@ STATUS idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
               break;
 
          case idt_em_a_clr_pwpnd  :
-              { UINT32 err_stat;
-               rc = DARRegRead( dev_info, Tsi578_SPX_ERR_STATUS(pnum), &err_stat);
+              { uint32_t err_stat;
+               rc = DARRegRead( dev_info, Tsi578_SPX_ERR_uint32_t(pnum), &err_stat);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x2C);
                   goto idt_tsi57x_em_clr_events_exit;
                }
-               rc = DARRegWrite( dev_info, Tsi578_SPX_ERR_STATUS(pnum), err_stat | Tsi578_SPX_ERR_STATUS_PORT_W_PEND);
+               rc = DARRegWrite( dev_info, Tsi578_SPX_ERR_uint32_t(pnum), err_stat | Tsi578_SPX_ERR_uint32_t_PORT_W_PEND);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CLR_EVENTS(0x2E);
                   goto idt_tsi57x_em_clr_events_exit;
@@ -5149,15 +5151,15 @@ STATUS idt_tsi57x_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
              goto idt_tsi57x_em_clr_events_exit;
           }
 
-          clear_port_fail = FALSE;
-          rc = DARRegRead( dev_info, Tsi578_SPX_ERR_STATUS(pnum), &regData );
+          clear_port_fail = false;
+          rc = DARRegRead( dev_info, Tsi578_SPX_ERR_uint32_t(pnum), &regData );
           if (RIO_SUCCESS != rc) {
              out_parms->imp_rc = EM_CLR_EVENTS(0x33);
              goto idt_tsi57x_em_clr_events_exit;
           }
 
           // Clear all error conditions, except the port write pending indication
-          rc = DARRegWrite( dev_info, Tsi578_SPX_ERR_STATUS(pnum), regData & ~Tsi578_SPX_ERR_STATUS_PORT_W_PEND);
+          rc = DARRegWrite( dev_info, Tsi578_SPX_ERR_uint32_t(pnum), regData & ~Tsi578_SPX_ERR_uint32_t_PORT_W_PEND);
           if (RIO_SUCCESS != rc) {
              out_parms->imp_rc = EM_CLR_EVENTS(0x34);
              goto idt_tsi57x_em_clr_events_exit;
@@ -5173,13 +5175,13 @@ idt_tsi57x_em_clr_events_exit:
 
 #define CREATE_RATE(x) (EM_CREATE_RATE_0+x)
 
-STATUS create_rate_event( DAR_DEV_INFO_t             *dev_info, 
-                          UINT8                       pnum, 
-                          UINT32                      spx_rate_en,
-                          UINT32                     *imp_err )
+uint32_t create_rate_event( DAR_DEV_INFO_t             *dev_info, 
+                          uint8_t                       pnum, 
+                          uint32_t                      spx_rate_en,
+                          uint32_t                     *imp_err )
 {
-    STATUS rc;
-    UINT32 regVal, limit, idx;
+    uint32_t rc;
+    uint32_t regVal, limit, idx;
 
     rc = DARRegRead( dev_info, Tsi578_SPX_RATE_EN(pnum), &regVal );
     if (RIO_SUCCESS != rc) {
@@ -5233,14 +5235,14 @@ create_rate_event_exit:
    
 #define CREATE_EVENTS(x) (EM_CREATE_EVENTS_0+x)
 
-STATUS idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info, 
+uint32_t idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info, 
                                     idt_em_create_events_in_t   *in_parms, 
                                     idt_em_create_events_out_t  *out_parms ) 
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 regVal;
-    UINT8  pnum; 
-    UINT8  idx;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t regVal;
+    uint8_t  pnum; 
+    uint8_t  idx;
     idt_pc_get_config_in_t  cfg_in;
     idt_pc_get_config_out_t cfg_out;
     
@@ -5310,7 +5312,7 @@ STATUS idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info,
               break;
 
          case idt_em_f_2many_retx: 
-               rc = DARRegRead( dev_info, Tsi578_SPX_INT_STATUS(pnum), &regVal);
+               rc = DARRegRead( dev_info, Tsi578_SPX_INT_uint32_t(pnum), &regVal);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = CREATE_EVENTS(0x13);
                   goto idt_tsi57x_em_create_events_exit;
@@ -5343,7 +5345,7 @@ STATUS idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info,
               break;
 
          case idt_em_d_rte       :
-               rc = DARRegRead( dev_info, Tsi578_SPX_INT_STATUS(pnum), &regVal);
+               rc = DARRegRead( dev_info, Tsi578_SPX_INT_uint32_t(pnum), &regVal);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = CREATE_EVENTS(0x22);
                   goto idt_tsi57x_em_create_events_exit;
@@ -5364,7 +5366,7 @@ STATUS idt_tsi57x_em_create_events( DAR_DEV_INFO_t              *dev_info,
               break;
 
          case idt_em_i_sig_det   :
-               rc = DARRegRead( dev_info, Tsi578_SPX_INT_STATUS(pnum), &regVal);
+               rc = DARRegRead( dev_info, Tsi578_SPX_INT_uint32_t(pnum), &regVal);
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = CREATE_EVENTS(0x31);
                   goto idt_tsi57x_em_create_events_exit;
@@ -5405,13 +5407,13 @@ idt_tsi57x_em_create_events_exit:
 
 };
 
-STATUS idt_tsi57x_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
+uint32_t idt_tsi57x_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
                                      idt_sc_init_dev_ctrs_in_t  *in_parms,
                                      idt_sc_init_dev_ctrs_out_t *out_parms)
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    idt_sc_ctr_val_t init_val = INIT_IDT_SC_CTR_VAL;
-   UINT8 idx, cntr_i;
+   uint8_t idx, cntr_i;
    struct DAR_ptl good_ptl;
 
    out_parms->imp_rc = RIO_SUCCESS;
@@ -5462,13 +5464,13 @@ idt_tsi57x_sc_init_dev_ctrs_exit:
 /* Reads enabled counters on selected ports   
 */
 
-STATUS idt_tsi57x_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
+uint32_t idt_tsi57x_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
                                 idt_sc_read_ctrs_in_t    *in_parms,
                                 idt_sc_read_ctrs_out_t   *out_parms)
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8 p_to_i[Tsi578_MAX_PORTS], srch_i, srch_p, port_num, cntr;
-   BOOL found;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t p_to_i[Tsi578_MAX_PORTS], srch_i, srch_p, port_num, cntr;
+   bool found;
    struct DAR_ptl good_ptl;
 
    out_parms->imp_rc = RIO_SUCCESS;
@@ -5512,10 +5514,10 @@ STATUS idt_tsi57x_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
 
    for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p ++) {
       port_num = good_ptl.pnums[srch_p];
-	  found = FALSE;
+	  found = false;
       for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
          if ( in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num ) {
-			found = TRUE;
+			found = true;
             // If the port hasn't previously been read and the counter structure is
             // correctly initialized, keep going...
             if ((IDT_MAX_PORTS        == p_to_i[port_num]                           ) && 
@@ -5559,7 +5561,7 @@ idt_tsi57x_sc_read_ctrs_exit:
  */
 
 
-UINT8 tsi57x_ctl_to_ctr_t[8] = {
+uint8_t tsi57x_ctl_to_ctr_t[8] = {
    idt_sc_uc_req_pkts,
    idt_sc_uc_pkts,
    idt_sc_retries,
@@ -5575,15 +5577,15 @@ UINT8 tsi57x_ctl_to_ctr_t[8] = {
                    Tsi578_SPX_PSC0n1_CTRL_PS1_PRIO2 | \
                    Tsi578_SPX_PSC0n1_CTRL_PS1_PRIO3)
 
-STATUS idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
+uint32_t idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
                                idt_sc_cfg_tsi57x_ctr_in_t  *in_parms,
                                idt_sc_cfg_tsi57x_ctr_out_t *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT32 new_ctl = 0, ctl_reg, new_ctl_reg, reg_mask;
-   UINT8 p_to_i[Tsi578_MAX_PORTS];
-   UINT8 srch_i, srch_p, port_num;
-   BOOL  found;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t new_ctl = 0, ctl_reg, new_ctl_reg, reg_mask;
+   uint8_t p_to_i[Tsi578_MAX_PORTS];
+   uint8_t srch_i, srch_p, port_num;
+   bool  found;
    struct DAR_ptl good_ptl;
 
    out_parms->imp_rc = RIO_SUCCESS;
@@ -5621,7 +5623,7 @@ STATUS idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
 
    // Create SC_CTL
    if (idt_sc_disabled != in_parms->ctr_type) {
-      new_ctl  = ((UINT32)(in_parms->prio_mask) << 12) & PRIO_MASK;
+      new_ctl  = ((uint32_t)(in_parms->prio_mask) << 12) & PRIO_MASK;
       // It is a programming error to have an empty priority mask when counting
       // packets or packet data...
       if (!new_ctl && ((idt_sc_uc_req_pkts == in_parms->ctr_type) ||
@@ -5667,10 +5669,10 @@ STATUS idt_sc_cfg_tsi57x_ctr ( DAR_DEV_INFO_t              *dev_info,
    //
    for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p ++) {
 	   port_num = good_ptl.pnums[srch_p];
-	  found = FALSE;
+	  found = false;
       for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
          if ( in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num )  {
-			found = TRUE;
+			found = true;
             // If the port hasn't previously been programmed and the counter structure is
             // correctly initialized, keep going...
             if ((IDT_MAX_PORTS        == p_to_i[port_num]                           ) && 
@@ -5730,7 +5732,7 @@ idt_sc_cfg_tsi57x_ctr_exit:
    Supports Tsi574, Tsi576, Tsi577, Tsi578
 */
 
-UINT32 bind_tsi57x_DSF_support( void )
+uint32_t bind_tsi57x_DSF_support( void )
 {
     IDT_DSF_DB_t idt_driver;
     
