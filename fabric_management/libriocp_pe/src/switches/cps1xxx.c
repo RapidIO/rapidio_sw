@@ -8,6 +8,7 @@
  */
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "pe.h"
 #include "event.h"
@@ -76,16 +77,54 @@ extern "C" {
 #define CPS1432_LANE_CTL_5_0G				0x00000014
 #define CPS1432_LANE_CTL_3_125G				0x0000000A
 #define CPS1432_LANE_CTL_6_25G				0x00000014
+#define CPS1xxx_LANE_CTL_TX_AMP_S			(5)
+#define CPS1xxx_LANE_CTL_TX_AMP_M			(0x3f<<CPS1xxx_LANE_CTL_TX_AMP_S)
+#define CPS1xxx_LANE_CTL_TX_AMP(x)			(((x)<<CPS1xxx_LANE_CTL_TX_AMP_S)&CPS1xxx_LANE_CTL_TX_AMP_M)
 #define CPS1xxx_LANE_X_ERR_RATE_EN(x)		(0xff8010 + 0x100*(x))
 #define CPS1xxx_LANE_ERR_SYNC_EN			0x00000001
 #define CPS1xxx_LANE_ERR_RDY_EN				0x00000002
 #define CPS1xxx_LANE_X_ERR_DET(x)			(0xff800c + 0x100*(x))
+#define CPS1xxx_LANE_X_DFE1(x)				(0xff8028 + 0x100*(x))
+#define CPS1xxx_LANE_DFE1_RX_DFE_DIS		(0x00040000)
+#define CPS1xxx_LANE_DFE1_TAP_OFFS_SEL		(0x00020000)
+#define CPS1xxx_LANE_DFE1_TAP4_SEL			(0x00010000)
+#define CPS1xxx_LANE_DFE1_TAP3_SEL			(0x00008000)
+#define CPS1xxx_LANE_DFE1_TAP2_SEL			(0x00004000)
+#define CPS1xxx_LANE_DFE1_TAP1_SEL			(0x00002000)
+#define CPS1xxx_LANE_DFE1_TAP0_SEL			(0x00001000)
+#define CPS1xxx_LANE_X_DFE2(x)				(0xff802c + 0x100*(x))
+#define CPS1xxx_LANE_DFE2_CFG_EN			(0x00000001)
+#define CPS1xxx_LANE_DFE2_TAP_OFFS_CFG_S	(23)
+#define CPS1xxx_LANE_DFE2_TAP_OFFS_CFG_M	(0x3f<<CPS1xxx_LANE_DFE2_TAP_OFFS_CFG_S)
+#define CPS1xxx_LANE_DFE2_TAP_OFFS_CFG(x)	(((x)<<CPS1xxx_LANE_DFE2_TAP_OFFS_CFG_S)&CPS1xxx_LANE_DFE2_TAP_OFFS_CFG_M)
+#define CPS1xxx_LANE_DFE2_TAP4_CFG_S		(20)
+#define CPS1xxx_LANE_DFE2_TAP4_CFG_M		(0x7<<CPS1xxx_LANE_DFE2_TAP4_CFG_S)
+#define CPS1xxx_LANE_DFE2_TAP4_CFG(x)		(((x)<<CPS1xxx_LANE_DFE2_TAP4_CFG_S)&CPS1xxx_LANE_DFE2_TAP4_CFG_M)
+#define CPS1xxx_LANE_DFE2_TAP3_CFG_S		(16)
+#define CPS1xxx_LANE_DFE2_TAP3_CFG_M		(0xf<<CPS1xxx_LANE_DFE2_TAP3_CFG_S)
+#define CPS1xxx_LANE_DFE2_TAP3_CFG(x)		(((x)<<CPS1xxx_LANE_DFE2_TAP3_CFG_S)&CPS1xxx_LANE_DFE2_TAP3_CFG_M)
+#define CPS1xxx_LANE_DFE2_TAP2_CFG_S		(11)
+#define CPS1xxx_LANE_DFE2_TAP2_CFG_M		(0x1f<<CPS1xxx_LANE_DFE2_TAP2_CFG_S)
+#define CPS1xxx_LANE_DFE2_TAP2_CFG(x)		(((x)<<CPS1xxx_LANE_DFE2_TAP2_CFG_S)&CPS1xxx_LANE_DFE2_TAP2_CFG_M)
+#define CPS1xxx_LANE_DFE2_TAP1_CFG_S		(5)
+#define CPS1xxx_LANE_DFE2_TAP1_CFG_M		(0x3f<<CPS1xxx_LANE_DFE2_TAP1_CFG_S)
+#define CPS1xxx_LANE_DFE2_TAP1_CFG(x)		(((x)<<CPS1xxx_LANE_DFE2_TAP1_CFG_S)&CPS1xxx_LANE_DFE2_TAP1_CFG_M)
+#define CPS1xxx_LANE_DFE2_TAP0_CFG_S		(1)
+#define CPS1xxx_LANE_DFE2_TAP0_CFG_M		(0xf<<CPS1xxx_LANE_DFE2_TAP0_CFG_S)
+#define CPS1xxx_LANE_DFE2_TAP0_CFG(x)		(((x)<<CPS1xxx_LANE_DFE2_TAP0_CFG_S)&CPS1xxx_LANE_DFE2_TAP0_CFG_M)
 
 #define CPS1xxx_LANE_STAT_0_CSR(x)			(0x2010 + 0x020*(x))
 #define CPS1xxx_LANE_STAT_1_CSR(x)			(0x2014 + 0x020*(x))
 #define CPS1xxx_LANE_STAT_2_CSR(x)			(0x2018 + 0x020*(x))
 #define CPS1xxx_LANE_STAT_3_CSR(x)			(0x201c + 0x020*(x))
 #define CPS1xxx_LANE_STAT_4_CSR(x)			(0x2020 + 0x020*(x))
+#define CPS1xxx_LANE_STAT_3_AMP_PROG_EN		(0x20000000)
+#define CPS1xxx_LANE_STAT_3_NEG1_TAP_S		(6)
+#define CPS1xxx_LANE_STAT_3_NEG1_TAP_M		(0x3f<<CPS1xxx_LANE_STAT_3_NEG1_TAP_S)
+#define CPS1xxx_LANE_STAT_3_NEG1_TAP(x)		(((x)<<CPS1xxx_LANE_STAT_3_NEG1_TAP_S)&CPS1xxx_LANE_STAT_3_NEG1_TAP_M)
+#define CPS1xxx_LANE_STAT_3_POS1_TAP_S		(0)
+#define CPS1xxx_LANE_STAT_3_POS1_TAP_M		(0x3f<<CPS1xxx_LANE_STAT_3_POS1_TAP_S)
+#define CPS1xxx_LANE_STAT_3_POS1_TAP(x)		(((x)<<CPS1xxx_LANE_STAT_3_POS1_TAP_S)&CPS1xxx_LANE_STAT_3_POS1_TAP_M)
 
 #define CPS1xxx_PORT_LINK_TO_CTL_CSR			(0x00000120)
 #define CPS1xxx_PORT_X_LINK_MAINT_REQ_CSR(x)		(0x0140 + 0x020*(x))
@@ -2329,15 +2368,148 @@ found:
 	return 0;
 }
 
+/*
+ * program RX serdes data
+ */
+static int cps1xxx_set_rx_serdes(struct riocp_pe *sw, int lane, const struct riocp_pe_serdes_idtgen2_rx *serdes)
+{
+	uint32_t reg_dfe1 = 0, reg_dfe2 = 0;
+	int ret;
+
+	if(!serdes)
+		return 0;
+
+	if(serdes->dfe_tap0 == RIOCP_SERDES_NOVAL &&
+	   serdes->dfe_tap1 == RIOCP_SERDES_NOVAL &&
+	   serdes->dfe_tap2 == RIOCP_SERDES_NOVAL &&
+	   serdes->dfe_tap3 == RIOCP_SERDES_NOVAL &&
+	   serdes->dfe_tap4 == RIOCP_SERDES_NOVAL &&
+	   serdes->dfe_offs == RIOCP_SERDES_NOVAL)
+		return 0;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_DFE2(lane), &reg_dfe2);
+	if(ret < 0)
+		return ret;
+
+	reg_dfe1 |= CPS1xxx_LANE_DFE1_TAP_OFFS_SEL;
+	if(serdes->dfe_offs != RIOCP_SERDES_NOVAL) {
+		reg_dfe2 &= ~CPS1xxx_LANE_DFE2_TAP_OFFS_CFG_M;
+		reg_dfe2 |= CPS1xxx_LANE_DFE2_TAP_OFFS_CFG(serdes->dfe_offs);
+	}
+	reg_dfe1 |= CPS1xxx_LANE_DFE1_TAP4_SEL;
+	if(serdes->dfe_tap4 != RIOCP_SERDES_NOVAL) {
+		reg_dfe2 &= ~CPS1xxx_LANE_DFE2_TAP4_CFG_M;
+		reg_dfe2 |= CPS1xxx_LANE_DFE2_TAP4_CFG(serdes->dfe_tap4);
+	}
+	reg_dfe1 |= CPS1xxx_LANE_DFE1_TAP3_SEL;
+	if(serdes->dfe_tap3 != RIOCP_SERDES_NOVAL) {
+		reg_dfe2 &= ~CPS1xxx_LANE_DFE2_TAP3_CFG_M;
+		reg_dfe2 |= CPS1xxx_LANE_DFE2_TAP3_CFG(serdes->dfe_tap3);
+	}
+	reg_dfe1 |= CPS1xxx_LANE_DFE1_TAP2_SEL;
+	if(serdes->dfe_tap2 != RIOCP_SERDES_NOVAL) {
+		reg_dfe2 &= ~CPS1xxx_LANE_DFE2_TAP2_CFG_M;
+		reg_dfe2 |= CPS1xxx_LANE_DFE2_TAP2_CFG(serdes->dfe_tap2);
+	}
+	reg_dfe1 |= CPS1xxx_LANE_DFE1_TAP1_SEL;
+	if(serdes->dfe_tap1 != RIOCP_SERDES_NOVAL) {
+		reg_dfe2 &= ~CPS1xxx_LANE_DFE2_TAP1_CFG_M;
+		reg_dfe2 |= CPS1xxx_LANE_DFE2_TAP1_CFG(serdes->dfe_tap1);
+	}
+	reg_dfe1 |= CPS1xxx_LANE_DFE1_TAP0_SEL;
+	if(serdes->dfe_tap0 != RIOCP_SERDES_NOVAL) {
+		reg_dfe2 &= ~CPS1xxx_LANE_DFE2_TAP0_CFG_M;
+		reg_dfe2 |= CPS1xxx_LANE_DFE2_TAP0_CFG(serdes->dfe_tap0);
+	}
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_DFE1(lane), reg_dfe1);
+	if(ret < 0)
+		return ret;
+	ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_DFE2(lane), reg_dfe2);
+	if(ret < 0)
+		return ret;
+
+	reg_dfe2 |= CPS1xxx_LANE_DFE2_CFG_EN;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_DFE2(lane), reg_dfe2);
+	if(ret < 0)
+		return ret;
+
+	return 0;
+}
+
+/*
+ * program TX serdes data
+ */
+static int cps1xxx_set_tx_serdes(struct riocp_pe *sw, int lane, const struct riocp_pe_serdes_idtgen2_tx *serdes)
+{
+	uint32_t lane_status3_csr, lane_ctl;
+	int ret;
+
+	if(!serdes)
+		return 0;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_STAT_3_CSR(lane), &lane_status3_csr);
+	if (ret < 0)
+		return ret;
+
+	if(serdes->amplitude != RIOCP_SERDES_NOVAL) {
+		lane_status3_csr |= CPS1xxx_LANE_STAT_3_AMP_PROG_EN;
+
+		ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(lane), &lane_ctl);
+		if (ret < 0)
+			return ret;
+	}
+	if(serdes->pos1_tap != RIOCP_SERDES_NOVAL) {
+		lane_status3_csr &= ~CPS1xxx_LANE_STAT_3_POS1_TAP_M;
+		lane_status3_csr |= CPS1xxx_LANE_STAT_3_POS1_TAP(serdes->pos1_tap);
+	}
+	if(serdes->neg1_tap != RIOCP_SERDES_NOVAL) {
+		lane_status3_csr &= ~CPS1xxx_LANE_STAT_3_NEG1_TAP_M;
+		lane_status3_csr |= CPS1xxx_LANE_STAT_3_NEG1_TAP(serdes->neg1_tap);
+	}
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_STAT_3_CSR(lane), lane_status3_csr);
+	if (ret < 0)
+		return ret;
+
+	if(serdes->amplitude != RIOCP_SERDES_NOVAL) {
+		lane_ctl &= ~CPS1xxx_LANE_CTL_TX_AMP_M;
+		lane_ctl |= CPS1xxx_LANE_CTL_TX_AMP(serdes->amplitude);
+
+		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(lane), lane_ctl);
+		if (ret < 0)
+			return ret;
+
+		lane_status3_csr &= ~CPS1xxx_LANE_STAT_3_AMP_PROG_EN;
+
+		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_STAT_3_CSR(lane), lane_status3_csr);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+static char *serdes_val_2_str(char *str, size_t len, int val)
+{
+	if(val == RIOCP_SERDES_NOVAL)
+		strncpy(str, "x", len);
+	else
+		snprintf(str, len, "%d", val);
+	return str;
+}
+
 /**
  * Set lane speed of port
  */
-int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed speed)
+int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed speed, struct riocp_pe_serdes *serdes)
 {
 	int ret, retr;
 	uint32_t ctl, ctl_new, port_disabled;
 	enum riocp_pe_speed _speed = RIOCP_SPEED_UNKNOWN;
 	uint8_t lane = 0, width = 0, current_lane;
+	char serdes_str[9][4];
 
 	RIOCP_TRACE("[0x%08x:%s:hc %u] Set port %u speed\n",
 			sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
@@ -2419,6 +2591,35 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
 			}
+
+			if(serdes) {
+				ret = cps1xxx_set_tx_serdes(sw, current_lane, &serdes->val[current_lane-lane].idtgen2.tx);
+				if (ret < 0) {
+					RIOCP_WARN("[0x%08x:%s:hc %u] failed write lane %d TX SERDES\n",
+							sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
+				}
+				ret = cps1xxx_set_rx_serdes(sw, current_lane, &serdes->val[current_lane-lane].idtgen2.rx);
+				if (ret < 0) {
+					RIOCP_WARN("[0x%08x:%s:hc %u] failed write lane %d RX SERDES\n",
+							sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
+				}
+				RIOCP_DEBUG("[0x%08x:%s:hc %u] lane %u %dMBaud SERDES tx:(%s,%s,%s) rx:(%s,%s,%s,%s,%s,%s)\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
+						current_lane, (int)speed,
+						serdes_val_2_str(serdes_str[0], sizeof(serdes_str[0]), serdes->val[current_lane-lane].idtgen2.tx.amplitude),
+						serdes_val_2_str(serdes_str[1], sizeof(serdes_str[1]), serdes->val[current_lane-lane].idtgen2.tx.pos1_tap),
+						serdes_val_2_str(serdes_str[2], sizeof(serdes_str[2]), serdes->val[current_lane-lane].idtgen2.tx.neg1_tap),
+						serdes_val_2_str(serdes_str[3], sizeof(serdes_str[3]), serdes->val[current_lane-lane].idtgen2.rx.dfe_offs),
+						serdes_val_2_str(serdes_str[4], sizeof(serdes_str[4]), serdes->val[current_lane-lane].idtgen2.rx.dfe_tap4),
+						serdes_val_2_str(serdes_str[5], sizeof(serdes_str[5]), serdes->val[current_lane-lane].idtgen2.rx.dfe_tap3),
+						serdes_val_2_str(serdes_str[6], sizeof(serdes_str[6]), serdes->val[current_lane-lane].idtgen2.rx.dfe_tap2),
+						serdes_val_2_str(serdes_str[7], sizeof(serdes_str[7]), serdes->val[current_lane-lane].idtgen2.rx.dfe_tap1),
+						serdes_val_2_str(serdes_str[8], sizeof(serdes_str[8]), serdes->val[current_lane-lane].idtgen2.rx.dfe_tap0));
+			} else {
+				RIOCP_WARN("[0x%08x:%s:hc %u] lane %u %dMBaud SERDES missing.\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
+						current_lane, (int)speed);
+			}
 		}
 
 		if(!port_disabled) {
@@ -2494,6 +2695,10 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 		if (ret < 0)
 			return ret;
 
+		if (ctl & CPS1xxx_PLL_X_CTL_PLL_PWR_DOWN) {
+			ctl &= ~CPS1xxx_PLL_X_CTL_PLL_PWR_DOWN;
+			pll_chg = 1;
+		}
 		if (speed == RIOCP_SPEED_3_125G || speed == RIOCP_SPEED_6_25G) {
 			if (!(ctl & CPS1xxx_PLL_X_CTL_PLL_DIV_SEL))
 				pll_chg = 1;
@@ -2528,6 +2733,35 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 				cps1xxx_enable_port(sw, port);
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
+			}
+
+			if(serdes) {
+				ret = cps1xxx_set_tx_serdes(sw, current_lane, &serdes->val[current_lane-lane].idtgen2.tx);
+				if (ret < 0) {
+					RIOCP_WARN("[0x%08x:%s:hc %u] failed write lane %d TX SERDES\n",
+							sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
+				}
+				ret = cps1xxx_set_rx_serdes(sw, current_lane, &serdes->val[current_lane-lane].idtgen2.rx);
+				if (ret < 0) {
+					RIOCP_WARN("[0x%08x:%s:hc %u] failed write lane %d RX SERDES\n",
+							sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, current_lane);
+				}
+				RIOCP_DEBUG("[0x%08x:%s:hc %u] lane %u %dMBaud SERDES tx:(%s,%s,%s) rx:(%s,%s,%s,%s,%s,%s)\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
+						current_lane, (int)speed,
+						serdes_val_2_str(serdes_str[0], sizeof(serdes_str[0]), serdes->val[current_lane-lane].idtgen2.tx.amplitude),
+						serdes_val_2_str(serdes_str[1], sizeof(serdes_str[1]), serdes->val[current_lane-lane].idtgen2.tx.pos1_tap),
+						serdes_val_2_str(serdes_str[2], sizeof(serdes_str[2]), serdes->val[current_lane-lane].idtgen2.tx.neg1_tap),
+						serdes_val_2_str(serdes_str[3], sizeof(serdes_str[3]), serdes->val[current_lane-lane].idtgen2.rx.dfe_offs),
+						serdes_val_2_str(serdes_str[4], sizeof(serdes_str[4]), serdes->val[current_lane-lane].idtgen2.rx.dfe_tap4),
+						serdes_val_2_str(serdes_str[5], sizeof(serdes_str[5]), serdes->val[current_lane-lane].idtgen2.rx.dfe_tap3),
+						serdes_val_2_str(serdes_str[6], sizeof(serdes_str[6]), serdes->val[current_lane-lane].idtgen2.rx.dfe_tap2),
+						serdes_val_2_str(serdes_str[7], sizeof(serdes_str[7]), serdes->val[current_lane-lane].idtgen2.rx.dfe_tap1),
+						serdes_val_2_str(serdes_str[8], sizeof(serdes_str[8]), serdes->val[current_lane-lane].idtgen2.rx.dfe_tap0));
+			} else {
+				RIOCP_WARN("[0x%08x:%s:hc %u] lane %u %dMBaud SERDES missing.\n",
+						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
+						current_lane, (int)speed);
 			}
 		}
 

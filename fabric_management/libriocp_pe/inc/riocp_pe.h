@@ -72,6 +72,9 @@ struct riocp_pe_capabilities {
 /* Opaque handle for PE objects */
 typedef struct riocp_pe *riocp_pe_handle;
 
+/* Maximum port width that libriocp_pe supports */
+#define RIOCP_PE_PORT_MAX_WIDTH			(4)
+
 /* RapidIO port and status */
 #define RIOCP_PE_PORT_STATE_UNINITIALIZED	(1<<0) /* Port uninitialized */
 #define RIOCP_PE_PORT_STATE_OK			(1<<1) /* Port OK */
@@ -189,6 +192,38 @@ struct riocp_pe_trace_filter_caps {
 	uint32_t port_caps;		/**< capability flags the trace port is able to do */
 };
 
+/** Used for undefined serdes value that should not be set */
+#define RIOCP_SERDES_NOVAL		(-1000)
+
+struct riocp_pe_serdes_idtgen2_tx {
+	int amplitude;
+	int pos1_tap;
+	int neg1_tap;
+};
+struct riocp_pe_serdes_idtgen2_rx {
+	int dfe_tap0;
+	int dfe_tap1;
+	int dfe_tap2;
+	int dfe_tap3;
+	int dfe_tap4;
+	int dfe_offs;
+};
+struct riocp_pe_serdes_idtgen2 {
+	struct riocp_pe_serdes_idtgen2_tx tx;
+	struct riocp_pe_serdes_idtgen2_rx rx;
+};
+
+union riocp_pe_serdes_values {
+	struct riocp_pe_serdes_idtgen2 idtgen2;
+	/* add more vendors here */
+};
+
+/** SERDES data */
+struct riocp_pe_serdes {
+	enum riocp_pe_speed speed;
+	union riocp_pe_serdes_values val[RIOCP_PE_PORT_MAX_WIDTH];
+};
+
 
 /*
  * API functions
@@ -212,7 +247,7 @@ int riocp_pe_destroy_handle(riocp_pe_handle *pe);
 int RIOCP_WU riocp_pe_get_capabilities(riocp_pe_handle pe,
 	struct riocp_pe_capabilities *capabilities);
 int RIOCP_WU riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port ports[]);
-int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum riocp_pe_speed speed);
+int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum riocp_pe_speed speed, struct riocp_pe_serdes *serdes);
 int RIOCP_WU riocp_pe_lock(riocp_pe_handle pe, int flags);
 int RIOCP_WU riocp_pe_unlock(riocp_pe_handle pe);
 int RIOCP_WU riocp_pe_get_destid(riocp_pe_handle pe, uint32_t *destid);
