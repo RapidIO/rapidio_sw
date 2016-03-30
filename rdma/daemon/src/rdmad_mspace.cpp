@@ -109,8 +109,30 @@ void mspace::send_cm_force_disconnect_ms(tx_engine<cm_server, cm_msg_t>* tx_eng,
 	tx_eng->send_message(move(the_msg));
 } /* send_cm_force_disconnect_ms() */
 
+void mspace::send_cm_server_disconnect_ms(tx_engine<cm_server, cm_msg_t>* tx_eng,
+				uint32_t server_msubid,
+				uint64_t client_to_lib_tx_eng_h,
+				uint64_t server_to_lib_tx_eng_h)
+{
+	/* Prepare destroy message */
+	auto the_msg = make_unique<cm_msg_t>();
+	the_msg->type = htobe64(CM_SERVER_DISCONNECT_MS);
+	the_msg->category = RDMA_REQ_RESP;
+	the_msg->seq_no = 0;
+	cm_server_disconnect_ms_msg	*dm = &the_msg->cm_server_disconnect_ms;
+	strcpy(dm->server_msname, name.c_str());
+	dm->server_msid = htobe64(msid);
+	dm->server_msubid = htobe64(server_msubid);
+	dm->client_to_lib_tx_eng_h = htobe64(client_to_lib_tx_eng_h);
+	dm->server_to_lib_tx_eng_h = htobe64(server_to_lib_tx_eng_h);
+
+	/* Send to remote daemon @ 'client_destid' */
+	tx_eng->send_message(move(the_msg));
+} /* send_cm_force_disconnect_ms() */
+
 int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
-				     uint64_t client_to_lib_tx_eng_h)
+				     uint64_t client_to_lib_tx_eng_h,
+				     uint64_t server_to_lib_tx_eng_h)
 {
 	int rc;
 	tx_engine<cm_server, cm_msg_t>* tx_eng = nullptr;
@@ -155,10 +177,11 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 
 	/* Could we find a tx engine for the specified destid? */
 	if (tx_eng != nullptr) {
-		/* Yes, use it to send the force disconnect message */
-		send_cm_force_disconnect_ms(tx_eng,
+		/* Yes, use it to send the server disconnect message */
+		send_cm_server_disconnect_ms(tx_eng,
 					server_msubid,
-					client_to_lib_tx_eng_h);
+					client_to_lib_tx_eng_h,
+					server_to_lib_tx_eng_h);
 		DBG("Sent force disconnect to remote daemon\n");
 		rc = 0;
 	} else {
@@ -466,8 +489,10 @@ void mspace::disconnect_from_destid(uint16_t client_destid)
 	}
 } /* disconnect_from_destid() */
 
-int mspace::disconnect(bool is_client, uint32_t client_msubid,
-		       	       	       uint64_t client_to_lib_tx_eng_h)
+int mspace::disconnect(bool is_client,
+		       uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h,
+		       uint64_t server_to_lib_tx_eng_h)
 {
 	int rc;
 	int ret = 0;
@@ -489,7 +514,8 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 			/* Server-initiated: The client needs to be told via
 			 * its daemon, that this connection is now invalid. */
 			rc = send_disconnect_to_remote_daemon(client_msubid,
-						client_to_lib_tx_eng_h);
+						client_to_lib_tx_eng_h,
+						server_to_lib_tx_eng_h);
 		}
 		this->client_destid = 0xFFFF;
 		this->client_msubid = NULL_MSUBID;
@@ -514,7 +540,8 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 				} else { /* Self disconnection by local server */
 					rc = send_disconnect_to_remote_daemon(
 							client_msubid,
-							client_to_lib_tx_eng_h);
+							client_to_lib_tx_eng_h,
+							server_to_lib_tx_eng_h);
 					if (rc) {
 						ERR("Failed to send disconnect to remote daemon");
 						ret = rc;
@@ -538,16 +565,18 @@ int mspace::disconnect(bool is_client, uint32_t client_msubid,
 int mspace::client_disconnect(uint32_t client_msubid,
 		       uint64_t client_to_lib_tx_eng_h)
 {
-	return disconnect(true, client_msubid, client_to_lib_tx_eng_h);
+	return disconnect(true, client_msubid, client_to_lib_tx_eng_h, 0);
 } /* client_disconnect() */
 
 /**
  * This is called when the server initiates the disconnection.
  */
 int mspace::server_disconnect(uint32_t client_msubid,
-		       uint64_t client_to_lib_tx_eng_h)
+		       uint64_t client_to_lib_tx_eng_h,
+		       uint64_t server_to_lib_tx_eng_h)
 {
-	return disconnect(false, client_msubid, client_to_lib_tx_eng_h);
+	return disconnect(false, client_msubid, client_to_lib_tx_eng_h,
+			  server_to_lib_tx_eng_h);
 
 } /* server_disconnect() */
 
@@ -843,7 +872,8 @@ int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 	/* Before closing a memory space, tell its clients that it is being
 	 * closed (connection must be dropped) and have them acknowledge. */
 	auto rc = send_disconnect_to_remote_daemon(it->client_msubid,
-					      it->client_to_lib_tx_eng_h);
+					      it->client_to_lib_tx_eng_h,
+					      (uint64_t)app_tx_eng);
 	if (rc) {
 		ERR("Failed to send disconnection to remote daemon\n");
 		/* I think we should proceed with closing the connection even

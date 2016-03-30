@@ -391,37 +391,85 @@ void cm_force_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 			})
 			, end(connected_to_ms_info_list));
 
+	/* That's ALL. There is no acknowledgement for force disconnection
+	 * as there is generally no application on the other side awaiting that
+	 * acknowledgement. A force disconnection may happen if the server
+	 * destroys the memory space. However the rdma_destroy_ms_h() API
+	 * does not wait for any confirmations of remote disconnections.
+	 * Another reason for forced disconnection would be if the application
+	 * dies and obviously in that case there would be no one to receive
+	 * the forced disconnection acknowledgement.
+	 */
+	(void)tx_eng;	/* We're not sending anything back! */
+} /* cm_force_disconnect_ms_disp() */
+
+void cm_server_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
+{
+	cm_server_disconnect_ms_msg	*cm_server_disconnect_ms =
+						&msg->cm_server_disconnect_ms;
+	/* Receive CM_SERVER_DISCONNECT_MS */
+	HIGH("Received CM_SERVER_DISCONNECT_MS containing '%s'\n",
+					cm_server_disconnect_ms->server_msname);
+
+	uint32_t server_msid = static_cast<uint32_t>(
+				be64toh(cm_server_disconnect_ms->server_msid));
+	uint32_t server_msubid = static_cast<uint32_t>(
+				be64toh(cm_server_disconnect_ms->server_msubid));
+	uint64_t client_to_lib_tx_eng_h =
+			be64toh(cm_server_disconnect_ms->client_to_lib_tx_eng_h);
+
+	/* Relay to library and get ACK back */
+	int rc = send_force_disconnect_ms_to_lib(server_msid, server_msubid,
+						client_to_lib_tx_eng_h);
+	if (rc) {
+		ERR("Failed to send destroy message to library or get ack\n");
+		return;
+	}
+
+	/* Remove the entry relating to the destroyed ms. The entry fields must
+	 * match the 'CM_FORCE_DISCONNECT_MS */
+	lock_guard<mutex> conn_lock(connected_to_ms_info_list_mutex);
+	connected_to_ms_info_list.erase (
+		remove_if(begin(connected_to_ms_info_list),
+		  end(connected_to_ms_info_list),
+		  [&](connected_to_ms_info& info) {
+			return (info.server_msid == server_msid)
+			&&     (info.server_msubid == server_msubid)
+			&&     ((uint64_t)info.to_lib_tx_eng == client_to_lib_tx_eng_h);
+			})
+			, end(connected_to_ms_info_list));
+
 	/**
 	 * Send back CM_FORCE_DISCONNECT_MS_ACK to the remote daemon on which
 	 * the ms was either destroyed or self-disconnected by its server. */
 
 	/* Header */
 	auto in_msg = make_unique<cm_msg_t>();
-	in_msg->type = htobe64(CM_FORCE_DISCONNECT_MS_ACK);
+	in_msg->type = htobe64(CM_SERVER_DISCONNECT_MS_ACK);
 	in_msg->category = htobe64(RDMA_REQ_RESP);
 	in_msg->seq_no = 0;
 
-	/* CM_FORCE_DISCONNECT_MS_ACK content */
-	cm_force_disconnect_ms_ack_msg *dam = &in_msg->cm_force_disconnect_ms_ack;
-	strcpy(dam->server_msname, cm_force_disconnect_ms->server_msname);
+	/* CM_SERVER_DISCONNECT_MS_ACK contents */
+	cm_server_disconnect_ms_ack_msg *dam = &in_msg->cm_server_disconnect_ms_ack;
+	strcpy(dam->server_msname, cm_server_disconnect_ms->server_msname);
 
 	/* NOTE: All Big Endian below. No conversion needed */
-	dam->server_msid = cm_force_disconnect_ms->server_msid;
-	dam->client_to_lib_tx_eng_h = cm_force_disconnect_ms->client_to_lib_tx_eng_h;
-
+	dam->server_msid = cm_server_disconnect_ms->server_msid;
+	dam->client_to_lib_tx_eng_h = cm_server_disconnect_ms->client_to_lib_tx_eng_h;
+	dam->server_to_lib_tx_eng_h = cm_server_disconnect_ms->server_to_lib_tx_eng_h;
 	/* Send to remote server daemon */
 	tx_eng->send_message(move(in_msg));
-} /* cm_force_disconnect_ms_disp() */
+} /* cm_server_disconnect_ms_disp() */
 
 /**
- * @brief At the server daemon, in response to receiving CM_FORCE_DISCONNECT_MS_ACK.
+ * @brief At the server daemon, in response to receiving CM_SERVER_DISCONNECT_MS_ACK.
  * 	  Sends SERVER_DISCONNECT_MS_ACK to the library.
  */
-void cm_force_disconnect_ms_ack_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
+void cm_server_disconnect_ms_ack_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {
 	(void)tx_eng;
-	cm_force_disconnect_ms_ack_msg *force_disconnect_ms_ack_msg =
-						&msg->cm_force_disconnect_ms_ack;
+	cm_server_disconnect_ms_ack_msg *force_disconnect_ms_ack_msg =
+						&msg->cm_server_disconnect_ms_ack;
 
 	HIGH("Received CM_FORCE_DISCONNECT_MS_ACK for msid(0x%X), '%s'\n",
 			be64toh(force_disconnect_ms_ack_msg->server_msid),
@@ -430,7 +478,7 @@ void cm_force_disconnect_ms_ack_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 	/* Obtain the to-library Tx engine from the message */
 	tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng =
 			(tx_engine<unix_server, unix_msg_t>*)be64toh(
-			msg->cm_force_disconnect_ms_ack.client_to_lib_tx_eng_h);
+			msg->cm_server_disconnect_ms_ack.server_to_lib_tx_eng_h);
 
 	/* Reply to library indicating success */
 	auto out_msg = make_unique<unix_msg_t>();

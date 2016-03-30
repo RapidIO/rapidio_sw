@@ -157,8 +157,8 @@ public:
 			cm_disconnect_ms_disp(msg, tx_eng);
 		break;
 
-		case CM_FORCE_DISCONNECT_MS_ACK:
-			cm_force_disconnect_ms_ack_disp(msg, tx_eng);
+		case CM_SERVER_DISCONNECT_MS_ACK:
+			cm_server_disconnect_ms_ack_disp(msg, tx_eng);
 		break;
 
 		default:
@@ -191,6 +191,10 @@ public:
 
 		case CM_FORCE_DISCONNECT_MS:
 			cm_force_disconnect_ms_disp(msg, tx_eng);
+		break;
+
+		case CM_SERVER_DISCONNECT_MS:
+			cm_server_disconnect_ms_disp(msg, tx_eng);
 		break;
 
 		case CM_DISCONNECT_MS_ACK:

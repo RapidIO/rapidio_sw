@@ -442,10 +442,14 @@ public:
 	 * @param client_to_lib_tx_eng_h Handle of Tx engine between
 	 * 				 client daemon and client app
 	 *
+	 * @param server_to_lib_tx_eng_h Handle of Tx engine between
+	 * 				 server daemon and server app
+	 *
 	 * @return 0 if successful, non-zero otherwise
 	 */
 	int server_disconnect(uint32_t client_msubid,
-		       uint64_t client_to_lib_tx_eng_h);
+		       uint64_t client_to_lib_tx_eng_h,
+		       uint64_t server_to_lib_tx_eng_h);
 
 	/**
 	 * @brief Disconnect memory space from specified destid
@@ -490,29 +494,59 @@ private:
 					uint64_t client_to_lib_tx_eng_h);
 
 	/**
+	 * @brief Sends CM_SERVER_DISCONNECT_MS to the client of an ms.
+	 *
+	 * @param tx_eng  Tx engine from server to client daemons
+	 *
+	 * @param server_msubid  ID of msub provided by server during 'accept'
+	 *
+	 * @param client_to_lib_tx_eng Tx engine handle between the client
+	 *                             daemon and the client app
+	 *
+	 * @param server_to_lib_tx_eng_h Tx engine handle between the server
+	 * 				 daemon and the server app
+	 */
+	void send_cm_server_disconnect_ms(tx_engine<cm_server, cm_msg_t>* tx_eng,
+					uint32_t server_msubid,
+					uint64_t client_to_lib_tx_eng_h,
+					uint64_t server_to_lib_tx_eng_h);
+
+	/**
 	 * @brief Disconnect this memory space from a particular client
 	 *
 	 * @param is_client true if called by client, false if by server
+	 *
 	 * @param client_msubid the msubid provided by client during connect
 	 * 			request, maybe NULL_MSUBID.
+	 *
 	 * @param client_to_lib_tx_eng_h Tx engine handle between the client
 	 * 				 daemon and the client app
+	 *
+	 * @param server_to_lib_tx_eng_h Tx engine handle between the server
+	 * 				 daemon and the server app
 	 */
-	int disconnect(bool is_client, uint32_t client_msubid,
-		       uint64_t client_to_lib_tx_eng_h);
+	int disconnect(bool is_client,
+		       uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h,
+		       uint64_t server_to_lib_tx_eng_h);
 
 	/**
 	 * @brief Looks up a connection to the ms by client parameters
 	 * then calls send_cm_force_disconnect_ms() with the correct
-	 * server parameter to send CM_FORCE_DISCONNECT_MS
+	 * server parameter to send CM_SERVER_DISCONNECT_MS
 	 *
 	 * @param client_msubid the msubid provided by client during connect
 	 * 			request, maybe NULL_MSUBID.
+	 *
 	 * @param client_to_lib_tx_eng_h Tx engine handle between the client
 	 * 				 daemon and the client app
+	 *
+	 * @param server_to_lib_tx_eng_h Tx engine handle between the server
+	 * 				 daemon and the server app
 	 */
 	int send_disconnect_to_remote_daemon(uint32_t client_msubid,
-					     uint64_t client_to_lib_tx_eng_h);
+					     uint64_t client_to_lib_tx_eng_h,
+					     uint64_t server_to_lib_tx_eng_h);
 
 	/**
 	 * @brief Calls send_cm_force_disconnect_ms for ALL connections
@@ -533,8 +567,11 @@ private:
 	 * disconnect_from_destid() which is called when a remote daemon dies.
 	 *
 	 * @param client_msubid	Client msubid. Could be NULL_MSUB
+	 *
 	 * @param server_msubid Server msubid provided during accept
+	 *
 	 * @param client_to_lib_tx_eng_h Client daemon-to-library tx engine
+	 *
 	 * @param tx_eng Server daemon to library tx engine used to relay
 	 * 		 the disconnection message.
 	 */

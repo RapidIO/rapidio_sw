@@ -582,6 +582,9 @@ int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 		uint32_t server_msid =
 				in_msg->server_disconnect_ms_in.server_msid;
 		mspace *ms = the_inbound->get_mspace(server_msid);
+		/* This is needed so that we can route back the ACK */
+		uint64_t server_to_lib_tx_eng_h =
+				(uint64_t)tx_eng;
 
 		if (ms == nullptr) {
 			ERR("Invalid server_msid(0x%X)\n", server_msid);
@@ -591,7 +594,8 @@ int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 		/* Disconnect memory space from specified client */
 		rc = ms->server_disconnect(
 			in_msg->server_disconnect_ms_in.client_msubid,
-			in_msg->server_disconnect_ms_in.client_to_lib_tx_eng_h);
+			in_msg->server_disconnect_ms_in.client_to_lib_tx_eng_h,
+			server_to_lib_tx_eng_h);
 		if (rc) {
 			ERR("Failed to disconnect MS\n");
 			throw rc;

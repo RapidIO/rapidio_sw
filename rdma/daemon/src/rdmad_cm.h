@@ -54,7 +54,8 @@ constexpr rdma_msg_type CM_ACCEPT_MS	 		= 0x4444444444444444;
 constexpr rdma_msg_type CM_DISCONNECT_MS		= 0x5555555555555555;
 constexpr rdma_msg_type CM_DISCONNECT_MS_ACK		= 0x6666666666666666;
 constexpr rdma_msg_type CM_FORCE_DISCONNECT_MS 		= 0x7777777777777777;
-constexpr rdma_msg_type CM_FORCE_DISCONNECT_MS_ACK 	= 0x8888888888888888;
+constexpr rdma_msg_type CM_SERVER_DISCONNECT_MS		= 0x8888888888888888;
+constexpr rdma_msg_type CM_SERVER_DISCONNECT_MS_ACK	= 0x9999999999999999;
 
 /**
  * @brief HELLO message exchanged between daemons during provisioning
@@ -158,10 +159,8 @@ struct cm_disconnect_ms_ack_msg {
 
 /**
  * @brief Sent from server daemon to client daemon to force disconnection
- * 	  from specified memory space either:
- * 	  - because the server has self-disconnected the memory space from
- * 	    the client; or
- * 	  - because the server has closed/destroyed the memory space.
+ * 	  from specified memory space because the server has closed/destroyed
+ * 	  the memory space.
  */
 struct cm_force_disconnect_ms_msg {
 	char 		server_msname[CM_MS_NAME_MAX_LEN+1];
@@ -171,12 +170,26 @@ struct cm_force_disconnect_ms_msg {
 };
 
 /**
- * @brief Acknowledge forced disconnection
+ * @brief Sent from server daemon to client daemon to force disconnection
+ * 	  from specified memory space because the server has closed/destroyed
+ * 	  the memory space.
  */
-struct cm_force_disconnect_ms_ack_msg {
+struct cm_server_disconnect_ms_msg {
+	char 		server_msname[CM_MS_NAME_MAX_LEN+1];
+	uint64_t	server_msid;
+	uint64_t	server_msubid;
+	uint64_t 	client_to_lib_tx_eng_h;
+	uint64_t	server_to_lib_tx_eng_h;
+};
+
+/**
+ * @brief Acknowledge server disconnection
+ */
+struct cm_server_disconnect_ms_ack_msg {
 	char server_msname[CM_MS_NAME_MAX_LEN+1];
 	uint64_t server_msid;
 	uint64_t client_to_lib_tx_eng_h;
+	uint64_t	server_to_lib_tx_eng_h;
 };
 
 /**
@@ -194,7 +207,8 @@ struct cm_msg_t {
 		cm_disconnect_ms_msg 		cm_disconnect_ms;
 		cm_disconnect_ms_ack_msg	cm_disconnect_ms_ack;
 		cm_force_disconnect_ms_msg	cm_force_disconnect_ms;
-		cm_force_disconnect_ms_ack_msg	cm_force_disconnect_ms_ack;
+		cm_server_disconnect_ms_msg	cm_server_disconnect_ms;
+		cm_server_disconnect_ms_ack_msg	cm_server_disconnect_ms_ack;
 	};
 
 	cm_msg_t() {}
@@ -225,10 +239,16 @@ struct cm_msg_t {
 			cm_force_disconnect_ms = other.cm_force_disconnect_ms;
 		break;
 
-		case CM_FORCE_DISCONNECT_MS_ACK:
-			cm_force_disconnect_ms_ack =
-					other.cm_force_disconnect_ms_ack;
+		case CM_SERVER_DISCONNECT_MS:
+			cm_server_disconnect_ms =
+					other.cm_server_disconnect_ms;
 		break;
+
+		case CM_SERVER_DISCONNECT_MS_ACK:
+			cm_server_disconnect_ms_ack =
+					other.cm_server_disconnect_ms_ack;
+		break;
+
 		default:
 			abort();
 		}
