@@ -3,6 +3,7 @@
 trap "atexit" 0 1 2 15
 
 declare -a JOBS;
+let exitflag=0
 
 function atexit()
 {
@@ -11,13 +12,18 @@ function atexit()
     pid=${JOBS[$i]}
     kill -9 $pid &>/dev/null
   done
+  let exitflag=1
 }
 
 PEERS=$(/sbin/ip ro sh |awk '/dev tun/{print $1}');
 
-while [ -f IPERFBARR ]; do
-  sleep 0.1
-done
+if [ -f IPERFBARR ]; then
+  echo Please remove IPERFBARR barrier file. The folder $PWD should be exported via sshfs too all nodes of cluster.
+  while [ -f IPERFBARR ]; do
+    sleep 0.1
+    [ $exitflag -ne 0 ] && exit 0;
+  done
+fi
 
 let c=0;
 for p in $PEERS; do
