@@ -67,16 +67,16 @@ my @tests = (
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tg -o" . $logfilename, #  6
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -th -o" . $logfilename, #  7
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -ti -o" . $logfilename, #  8
-#	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tj -o" . $logfilename, #  9
-#	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tk -o" . $logfilename, # 10
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tj -o" . $logfilename, #  9
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tk -o" . $logfilename, # 10
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tl -o" . $logfilename, # 11
-#	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tm -o" . $logfilename, # 12
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tm -o" . $logfilename, # 12
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tn -o" . $logfilename, # 13
 #	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -to -o" . $logfilename, # 14
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tp -o" . $logfilename, # 15
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tr -o" . $logfilename, # 16
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tt -o" . $logfilename, # 17
-#	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tu -o" . $logfilename, # 18
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tu -o" . $logfilename, # 18
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t1 -o" . $logfilename, # 19
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t2 -o" . $logfilename, # 20
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t3 -o" . $logfilename, # 21
@@ -101,11 +101,11 @@ foreach my $bat(@tests) {
 }
 
 # Run tests, in a random order
-print "******* Running Tests in Random Order *******\n";
-for (my $i = 0; $i < $num_bat; $i++) {
-	my $j = int(rand($num_bat));
-	print "Running $tests[$j] at " . localtime() ."\n";
-	system($tests[$j]);
-}
+#print "******* Running Tests in Random Order *******\n";
+#for (my $i = 0; $i < $num_bat; $i++) {
+#	my $j = int(rand($num_bat));
+#	print "Running $tests[$j] at " . localtime() ."\n";
+#	system($tests[$j]);
+#}
 close($fh);
 
