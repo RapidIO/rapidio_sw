@@ -57,7 +57,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "compile_constants.h"
 #include "DAR_DevDriver.h"
-#include "DAR_RegDefs.h"
+#include "rio_standard.h"
+#include "rio_ecosystem.h"
 
 #include "IDT_DSF_DB_Private.h"
 #include "DAR_Utilities.h"
@@ -527,7 +528,7 @@ void setup_mport(struct fmd_state *fmd)
 {
 	int rc = 1;
 	int mport = 0;
-	STATUS dsf_rc;
+	uint32_t dsf_rc;
 
         dsf_rc = IDT_DSF_bind_DAR_routines(SRIO_API_ReadRegFunc,
                                 SRIO_API_WriteRegFunc,

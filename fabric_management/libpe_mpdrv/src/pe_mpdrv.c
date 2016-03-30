@@ -103,7 +103,7 @@ int mpsw_drv_reg_wr(struct riocp_pe  *pe, uint32_t offset, uint32_t val)
 		return -ret;
 	};
 
-	if (RIO_BASE_DEVICE_ID_CSR == offset) {
+	if (RIO_DEVID == offset) {
         	if (RIOCP_PE_IS_MPORT(pe)) {
 			struct mpsw_drv_pe_acc_info *p_acc;
 			uint16_t dev8_did = ((val >> 16) & 0xFF);
@@ -349,7 +349,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 		};
 
 		ptl.num_ports = RIO_ALL_PORTS;
-                rc = DARrioPortEnable(dev_h, &ptl, TRUE, FALSE, TRUE);
+                rc = DARrioPortEnable(dev_h, &ptl, true, false, true);
                 if (RIO_SUCCESS != rc)
                         goto exit;
 		rc = DARrioSetEnumBound(dev_h, &ptl, 0);
@@ -359,17 +359,17 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 		};
 		if (RIOCP_PE_IS_MPORT(pe)) {
 			uint8_t mem_sz;
-			RIO_ADDR_MODE addr_mode;
+			RIO_PE_ADDR_T addr_mode;
 			if (!cfg_get_mp_mem_sz(pe->minfo->id, &mem_sz)) {
 				switch (mem_sz) {
 				case CFG_MEM_SZ_34: 
-					addr_mode = RIO_PROC_ELEM_FEAT_AS_34BIT_SUPPORT;
+					addr_mode = RIO_PE_FEAT_EXT_ADDR34;
 					break;
 				case CFG_MEM_SZ_50:
-					addr_mode = RIO_PROC_ELEM_FEAT_AS_50BIT_SUPPORT;
+					addr_mode = RIO_PE_FEAT_EXT_ADDR50;
 					break;
 				case CFG_MEM_SZ_66:
-					addr_mode = RIO_PROC_ELEM_FEAT_AS_66BIT_SUPPORT;
+					addr_mode = RIO_PE_FEAT_EXT_ADDR66;
 					break;
 				default:
 					rc = -1;
@@ -405,7 +405,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
                 goto exit;
 
         if (SWITCH((&priv->dev_h))) {
-                UINT8 port;
+                uint8_t port;
                 rt_in.probe_on_port = RIO_ALL_PORTS;
                 rt_in.rt            = &priv->st.g_rt;
                 rc = idt_rt_probe_all(dev_h, &rt_in, &rt_out);
@@ -480,7 +480,7 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 	};
 
 	/* Select a driver for the device */
-	ret = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount, RIO_DEV_ID_CAR,
+	ret = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount, RIO_DEV_IDENT,
 				&temp_devid);
 	if (ret) {
 		CRIT("Unable to read device ID %d:%s\n", ret, strerror(ret));
@@ -513,16 +513,16 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 		goto exit;
 
 	ret = mpsw_drv_reg_rd(pe, 
-		RIO_PORT_GEN_CTRL_CSR(p_dat->dev_h.extFPtrForPort), &gen_ctl);
+		RIO_SP_GEN_CTL(p_dat->dev_h.extFPtrForPort), &gen_ctl);
 	if (ret) {
 		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
 		goto error;
 	};
 
-	gen_ctl |= RIO_STD_SW_GEN_CTL_MAST_EN | RIO_STD_SW_GEN_CTL_DISC;
+	gen_ctl |= RIO_SP_GEN_CTL_MAST_EN | RIO_SP_GEN_CTL_DISC;
 
 	ret = mpsw_drv_reg_wr(pe, 
-		RIO_PORT_GEN_CTRL_CSR(p_dat->dev_h.extFPtrForPort), gen_ctl);
+		RIO_SP_GEN_CTL(p_dat->dev_h.extFPtrForPort), gen_ctl);
 	if (ret) {
 		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
 		goto error;

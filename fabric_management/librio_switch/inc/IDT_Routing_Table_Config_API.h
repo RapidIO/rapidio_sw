@@ -107,8 +107,8 @@ extern "C" {
 #define IDT_LAST_DEV8_DESTID  0xFF
 #define IDT_LAST_DEV16_DESTID 0xFFFF
 
-#define MC_MASK_IDX_FROM_ROUTE(x) (UINT8)(((x >= IDT_DSF_FIRST_MC_MASK) && (x < IDT_DSF_BAD_MC_MASK))?(x - IDT_DSF_FIRST_MC_MASK):IDT_DSF_BAD_MC_MASK)
-#define MC_MASK_ROUTE_FROM_IDX(x) (UINT8)((x < IDT_DSF_MAX_MC_MASK)?(IDT_DSF_FIRST_MC_MASK + x):IDT_DSF_BAD_MC_MASK)
+#define MC_MASK_IDX_FROM_ROUTE(x) (uint8_t)(((x >= IDT_DSF_FIRST_MC_MASK) && (x < IDT_DSF_BAD_MC_MASK))?(x - IDT_DSF_FIRST_MC_MASK):IDT_DSF_BAD_MC_MASK)
+#define MC_MASK_ROUTE_FROM_IDX(x) (uint8_t)((x < IDT_DSF_MAX_MC_MASK)?(IDT_DSF_FIRST_MC_MASK + x):IDT_DSF_BAD_MC_MASK)
 
 typedef enum { tt_dev8, tt_dev16 } tt_t;
 
@@ -139,36 +139,36 @@ typedef enum idt_rt_disc_reason_t_TAG
    idt_rt_disc_dflt_pt_used          =0x16, // DEPRECATED
 } idt_rt_disc_reason_t;
 
-extern char *idt_em_disc_reason_names[ (UINT8)(idt_rt_disc_last) ];
+extern char *idt_em_disc_reason_names[ (uint8_t)(idt_rt_disc_last) ];
 
-#define DISC_REASON_STR(x) ((x < (UINT8)(idt_rt_disc_last))?(idt_em_disc_reason_names[x]):"OORange")
+#define DISC_REASON_STR(x) ((x < (uint8_t)(idt_rt_disc_last))?(idt_em_disc_reason_names[x]):"OORange")
 
 typedef struct idt_rt_mc_info_t_TAG
 {
-    UINT32 mc_destID;// Destination ID of packets to be multicast
+    uint32_t mc_destID;// Destination ID of packets to be multicast
     tt_t   tt;       // Size of mc_destID, either 8 or 16 bit.
-    UINT32 mc_mask;  // Bit vector of ports.
+    uint32_t mc_mask;  // Bit vector of ports.
                      // Least significant bit is port 0, 
                      // Most significant bit is port 31.
-    BOOL   in_use;   // TRUE if this multicast mask and mc_destID are in use.
-    BOOL   allocd;   // TRUE if this mask has been allocated by 
+    bool   in_use;   // true if this multicast mask and mc_destID are in use.
+    bool   allocd;   // true if this mask has been allocated by 
                      // idt_rt_alloc_mc_mask.  Otherwise, should be ignored.
-    BOOL   changed;  // TRUE if the mc_destID or mc_mask value has changed.
+    bool   changed;  // true if the mc_destID or mc_mask value has changed.
 } idt_rt_mc_info_t;
 
 typedef struct idt_rt_uc_info_t_TAG
 {
-    UINT8  rte_val;  // Routing table entry value.
-    BOOL   changed;  // TRUE if the rte_val value has changed.
+    uint8_t  rte_val;  // Routing table entry value.
+    bool   changed;  // true if the rte_val value has changed.
 } idt_rt_uc_info_t;
 
-#define MC_MASK_ADD_PORT(m,p) (m |  (UINT32)(1 << p))
-#define MC_MASK_REM_PORT(m,p) (m & ~(UINT32)(1 << p))
-#define MC_MASK_GOT_PORT(m,p) (m &  (UINT32)(1 << p))
+#define MC_MASK_ADD_PORT(m,p) (m |  (uint32_t)(1 << p))
+#define MC_MASK_REM_PORT(m,p) (m & ~(uint32_t)(1 << p))
+#define MC_MASK_GOT_PORT(m,p) (m &  (uint32_t)(1 << p))
 
 typedef struct idt_rt_state_t_TAG
 {
-    UINT8                 default_route;             // The 'default route' for ports routed using IDT_DAR_RT_USE_DEFAULT_ROUTE
+    uint8_t                 default_route;             // The 'default route' for ports routed using IDT_DAR_RT_USE_DEFAULT_ROUTE
     idt_rt_uc_info_t      dev_table[IDT_DAR_RT_DEV_TABLE_SIZE]; // Encoded routing table value, should never be IDT_DAR_RT_USE_DEVICE_TABLE
     idt_rt_uc_info_t      dom_table[IDT_DAR_RT_DOM_TABLE_SIZE]; // Encoded routing table value read, should never be DAR_RT_FIRST_MC_MASK
     idt_rt_mc_info_t      mc_masks[IDT_DSF_MAX_MC_MASK];
@@ -176,35 +176,35 @@ typedef struct idt_rt_state_t_TAG
 
 typedef struct idt_rt_initialize_in_t_TAG
 {
-    UINT8     set_on_port; // Must be a valid port number, or RIO_ALL_PORTS
+    uint8_t     set_on_port; // Must be a valid port number, or RIO_ALL_PORTS
                            // Note that when RIO_ALL_PORTS is specified, 
                            //   this function also clears all multicast masks and removes all
                            //   associations between multicast masks and ports.
 
-    UINT8     default_route; // Routing control for IDT_DSF_RT_DEFAULT_ROUTE routing table value.
+    uint8_t     default_route; // Routing control for IDT_DSF_RT_DEFAULT_ROUTE routing table value.
                              //    Must be a valid port number, or IDT_DSF_RT_NO_ROUTE
 
-    UINT8     default_route_table_port; // Select the default routing for every destination ID in the routing table
+    uint8_t     default_route_table_port; // Select the default routing for every destination ID in the routing table
                                         // Can be one of: a valid port number, IDT_DSF_RT_NO_ROUTE, or
                                         //   IDT_DSF_RT_USE_DEFAULT_ROUTE
-    BOOL      update_hw;  // TRUE : Update hardware state
-                          // FALSE: Do not update hardware state
+    bool      update_hw;  // true : Update hardware state
+                          // false: Do not update hardware state
     idt_rt_state_t *rt;   // Optionally provide a pointer to an idt_rt_state_t structure.
                           //   If provided, the structure is initialized to match the requested initial routing table.
 } idt_rt_initialize_in_t;
 
 typedef struct idt_rt_initialize_out_t_TAG
 {
-    STATUS imp_rc;  /* Implementation specific failure information */
+    uint32_t imp_rc;  /* Implementation specific failure information */
 
 } idt_rt_initialize_out_t;
 
 typedef struct idt_rt_probe_in_t_TAG
 {
-    UINT8  probe_on_port; // Must be a valid port number, or RIO_ALL_PORTS
+    uint8_t  probe_on_port; // Must be a valid port number, or RIO_ALL_PORTS
                           // RIO_ALL_PORTS probes the global routing table.
     tt_t   tt;            // DestID size (8 bit or 16 bit)
-    UINT16 destID;        // Check routing for specified device ID.
+    uint16_t destID;        // Check routing for specified device ID.
     idt_rt_state_t *rt;   // A pointer to an idt_rt_state_t structure.
                           //   This structure is used to determine the route.
 } idt_rt_probe_in_t;
@@ -213,25 +213,25 @@ typedef struct idt_rt_probe_out_t_TAG
 {
     /* Output fields necessary for IDT_DAR_RT_PROBE function
     */
-    STATUS imp_rc;  /* Implementation specific failure information */
-    BOOL   valid_route;  // TRUE : packets will exit the port as 
+    uint32_t imp_rc;  /* Implementation specific failure information */
+    bool   valid_route;  // true : packets will exit the port as 
                          //        defined by the routing_table_value.
-                         // FALSE: Packets will be discarded as 
+                         // false: Packets will be discarded as 
                          //        indicated by reason_for_discard.
-    UINT8  routing_table_value; // Encoded routing table value read
-    UINT8  default_route;       // When routing_table_value is 
+    uint8_t  routing_table_value; // Encoded routing table value read
+    uint8_t  default_route;       // When routing_table_value is 
                                 //    IDT_DSF_RT_USE_DEFAULT_ROUTE,
                                 //    this field contains the value of 
 				//    the default route register.
-    BOOL  filter_function_active;   // If TRUE, packets that
+    bool  filter_function_active;   // If true, packets that
                                     //   match the FILTER MASK will be
                                     //   dropped.
-    BOOL  trace_function_active;    // If TRUE, packets that
+    bool  trace_function_active;    // If true, packets that
                                     //   match the TRACE MASK will be
                                     //   copied to the trace port.
-    BOOL  time_to_live_active;  // If TRUE, packets buffered for longer than
+    bool  time_to_live_active;  // If true, packets buffered for longer than
                                 //   the time-to-live period may be discarded.
-    BOOL mcast_ports[IDT_MAX_PORTS];
+    bool mcast_ports[IDT_MAX_PORTS];
                                 // True if packet will be multicast to this
                                 //   port, false if not.
                                 // For completeness, will return true for
@@ -247,7 +247,7 @@ typedef struct idt_rt_probe_out_t_TAG
 
 typedef struct idt_rt_probe_all_in_t_TAG
 {
-    UINT8           probe_on_port; // Must be a valid port number, or RIO_ALL_PORTS.
+    uint8_t           probe_on_port; // Must be a valid port number, or RIO_ALL_PORTS.
                                    // RIO_ALL_PORTS probes the global routing table, which may not be consistent
                                    // with per-port routing tables.  No warning is given of inconsistency.
     idt_rt_state_t *rt; // Pointer to routing table state structure.
@@ -255,12 +255,12 @@ typedef struct idt_rt_probe_all_in_t_TAG
 
 typedef struct idt_rt_probe_all_out_t_TAG
 {
-    STATUS imp_rc;  // Implementation specific failure information 
+    uint32_t imp_rc;  // Implementation specific failure information 
 } idt_rt_probe_all_out_t;
 
 typedef struct idt_rt_set_all_in_t_TAG
 {
-    UINT8  set_on_port; // A valid port number, or RIO_ALL_PORTS.
+    uint8_t  set_on_port; // A valid port number, or RIO_ALL_PORTS.
 						// RIO_ALL_PORTS selects the global routing table
     idt_rt_state_t *rt; // Pointer to routing table state structure.
                         //   The state structure could be initialized using idt_rt_probe_all,
@@ -271,7 +271,7 @@ typedef struct idt_rt_set_all_in_t_TAG
 
 typedef struct idt_rt_set_all_out_t_TAG
 {
-    STATUS imp_rc;  // Implementation specific failure information 
+    uint32_t imp_rc;  // Implementation specific failure information 
 } idt_rt_set_all_out_t;
 
 typedef idt_rt_set_all_in_t  idt_rt_set_changed_in_t  ;
@@ -284,14 +284,14 @@ typedef struct idt_rt_alloc_mc_mask_in_t_TAG
 
 typedef struct idt_rt_alloc_mc_mask_out_t_TAG
 {
-    STATUS imp_rc     ; // Implementation specific failure information 
-    UINT8  mc_mask_rte; // Routing table value which selects the allocated multicast mask.
+    uint32_t imp_rc     ; // Implementation specific failure information 
+    uint8_t  mc_mask_rte; // Routing table value which selects the allocated multicast mask.
                         //   If no free multicast masks exist, set to IDT_DSF_BAD_MC_MASK.
 } idt_rt_alloc_mc_mask_out_t;
 
 typedef struct idt_rt_dealloc_mc_mask_in_t_TAG
 {
-    UINT8           mc_mask_rte; // Multicast mask routing value to be removed from
+    uint8_t           mc_mask_rte; // Multicast mask routing value to be removed from
                                  //    the routing table state pointed to by "rt".
                                  // The multicast mask is also cleared to 0 by this 
                                  //    routine.
@@ -300,15 +300,15 @@ typedef struct idt_rt_dealloc_mc_mask_in_t_TAG
 
 typedef struct idt_rt_dealloc_mc_mask_out_t_TAG 
 {
-    STATUS imp_rc     ; // Implementation specific failure information 
+    uint32_t imp_rc     ; // Implementation specific failure information 
 } idt_rt_dealloc_mc_mask_out_t;
 
 typedef struct idt_rt_change_rte_in_t_TAG
 {
-    BOOL            dom_entry;  // TRUE  if domain routing table entry is being updated 
-                                // FALSE if device routing table entry is being update
-    UINT8           idx;        // Index of routing table entry to be updated
-    UINT8           rte_value;  // Value for the routing table entry
+    bool            dom_entry;  // true  if domain routing table entry is being updated 
+                                // false if device routing table entry is being update
+    uint8_t           idx;        // Index of routing table entry to be updated
+    uint8_t           rte_value;  // Value for the routing table entry
                                 //  - Note that if the requested routing table entry
                                 //    matches the routing table entry value in *rt,
                                 //    the routing table entry status is "no change"
@@ -317,12 +317,12 @@ typedef struct idt_rt_change_rte_in_t_TAG
 
 typedef struct idt_rt_change_rte_out_t_TAG 
 {
-    STATUS imp_rc     ; // Implementation specific failure information 
+    uint32_t imp_rc     ; // Implementation specific failure information 
 } idt_rt_change_rte_out_t;
 
 typedef struct idt_rt_change_mc_mask_in_t_TAG
 {
-    UINT8            mc_mask_rte; // Multicast mask routing value which identifies the
+    uint8_t            mc_mask_rte; // Multicast mask routing value which identifies the
                                   //    mask to be modified.                          
     idt_rt_mc_info_t mc_info;     // Multicast information to be assigned to associated multicast entry
     idt_rt_state_t  *rt;          // Pointer to routing table state structure to be updated
@@ -330,7 +330,7 @@ typedef struct idt_rt_change_mc_mask_in_t_TAG
 
 typedef struct idt_rt_change_mc_mask_out_t_TAG 
 {
-    STATUS imp_rc     ; // Implementation specific failure information 
+    uint32_t imp_rc     ; // Implementation specific failure information 
 } idt_rt_change_mc_mask_out_t;
 
 
@@ -358,7 +358,7 @@ typedef struct idt_rt_change_mc_mask_out_t_TAG
 
 #define RT_INITIALIZE(x) (RT_INITIALIZE_0+x)
 
-STATUS idt_rt_initialize(
+uint32_t idt_rt_initialize(
     DAR_DEV_INFO_t           *dev_info,
     idt_rt_initialize_in_t   *in_parms,
     idt_rt_initialize_out_t  *out_parms
@@ -370,7 +370,7 @@ STATUS idt_rt_initialize(
 
 #define RT_PROBE(x) (RT_PROBE_0+x)
 
-STATUS idt_rt_probe(
+uint32_t idt_rt_probe(
     DAR_DEV_INFO_t      *dev_info,
     idt_rt_probe_in_t   *in_parms,
     idt_rt_probe_out_t  *out_parms
@@ -385,7 +385,7 @@ STATUS idt_rt_probe(
 
 #define RT_PROBE_ALL(x) (RT_PROBE_ALL_0+x)
 
-STATUS idt_rt_probe_all(
+uint32_t idt_rt_probe_all(
     DAR_DEV_INFO_t          *dev_info,
     idt_rt_probe_all_in_t   *in_parms,
     idt_rt_probe_all_out_t  *out_parms
@@ -399,7 +399,7 @@ STATUS idt_rt_probe_all(
 
 #define RT_SET_ALL(x) (RT_SET_ALL_0+x)
 
-STATUS idt_rt_set_all (
+uint32_t idt_rt_set_all (
     DAR_DEV_INFO_t        *dev_info, 
     idt_rt_set_all_in_t   *in_parms, 
     idt_rt_set_all_out_t  *out_parms
@@ -415,7 +415,7 @@ STATUS idt_rt_set_all (
 
 #define RT_SET_CHANGED(x) (RT_SET_CHANGED_0+x)
 
-STATUS idt_rt_set_changed (
+uint32_t idt_rt_set_changed (
     DAR_DEV_INFO_t            *dev_info, 
     idt_rt_set_changed_in_t   *in_parms, 
     idt_rt_set_changed_out_t  *out_parms
@@ -429,7 +429,7 @@ STATUS idt_rt_set_changed (
 
 #define RT_ALLOC_MC_MASK(x) (RT_ALLOC_MC_MASK_0+x)
 
-STATUS idt_rt_alloc_mc_mask(
+uint32_t idt_rt_alloc_mc_mask(
     DAR_DEV_INFO_t              *dev_info, 
     idt_rt_alloc_mc_mask_in_t   *in_parms, 
     idt_rt_alloc_mc_mask_out_t  *out_parms
@@ -444,7 +444,7 @@ STATUS idt_rt_alloc_mc_mask(
 
 #define RT_DEALLOC_MC_MASK(x) (RT_DEALLOC_MC_MASK_0+x)
 
-STATUS idt_rt_dealloc_mc_mask(
+uint32_t idt_rt_dealloc_mc_mask(
     DAR_DEV_INFO_t                *dev_info, 
     idt_rt_dealloc_mc_mask_in_t   *in_parms, 
     idt_rt_dealloc_mc_mask_out_t  *out_parms
@@ -464,7 +464,7 @@ STATUS idt_rt_dealloc_mc_mask(
 
 #define RT_CHANGE_RTE(x) (RT_CHANGE_RTE_0+x)
 
-STATUS idt_rt_change_rte(
+uint32_t idt_rt_change_rte(
     DAR_DEV_INFO_t           *dev_info, 
     idt_rt_change_rte_in_t   *in_parms, 
     idt_rt_change_rte_out_t  *out_parms
@@ -476,7 +476,7 @@ STATUS idt_rt_change_rte(
 
 #define CHANGE_MC_MASK(x) (RT_CHANGE_MC_MASK_0+x)
 
-STATUS idt_rt_change_mc_mask(
+uint32_t idt_rt_change_mc_mask(
     DAR_DEV_INFO_t               *dev_info, 
     idt_rt_change_mc_mask_in_t   *in_parms, 
     idt_rt_change_mc_mask_out_t  *out_parms

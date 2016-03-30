@@ -45,8 +45,8 @@ extern "C" {
 *  There are also hooks to extend the use of the DAR to support Device 
 *  Specific Functions (DSF)
 */
-#include <DAR_Basic_Defs.h>
-#include <DAR_RegDefs.h>
+#include <stdint.h>
+#include <rio_standard.h>
 #include <IDT_Common.h>
 
 /* Each unique device driver is identified with a handle.
@@ -55,8 +55,8 @@ extern "C" {
 */
 #define INVALID_HANDLE 0
 
-typedef UINT32 DAR_DB_Handle_t; /* DARDB Device Driver Handle */
-typedef UINT32 DSF_Handle_t;    /* Device Specific Function Handle, not */
+typedef uint32_t DAR_DB_Handle_t; /* DARDB Device Driver Handle */
+typedef uint32_t DSF_Handle_t;    /* Device Specific Function Handle, not */
                                 /*     defined by the DAR. */
 
 /* Structure whiche defines the location of the device being accessed.
@@ -74,10 +74,10 @@ typedef struct DAR_DEV_INFO_t_TAG
 {
     DAR_DB_Handle_t db_h; /* Handle value used to access DAR routines
                           */
-    VOID   *privateData;  /* Pointer to a fabric management private data
+    void   *privateData;  /* Pointer to a fabric management private data
 			   * for this device.
                            */
-    VOID   *accessInfo;   /* Pointer to an access info structure
+    void   *accessInfo;   /* Pointer to an access info structure
                           */
     char   name[NAME_SIZE];  /* Text name of this device.
 			      */
@@ -93,10 +93,10 @@ typedef struct DAR_DEV_INFO_t_TAG
     /* Address offsets for various register blocks.
        A value of 0x00000000 means that the block does not exist on this device.
     */
-    UINT32    extFPtrForPort;    /* Offset of LP-Serial Register Extensions 
+    uint32_t    extFPtrForPort;    /* Offset of LP-Serial Register Extensions 
                                         block.
                                  */
-    UINT32    extFPtrPortType;
+    uint32_t    extFPtrPortType;
                 /* RO: ID
                        0x01: Generic End Point Device
                        0x02: Generic End Point Device with Software Assisted 
@@ -105,59 +105,59 @@ typedef struct DAR_DEV_INFO_t_TAG
                        0x09: Generic End Point Free Device with Software 
                                  Assisted Error Recovery Opt
                 */
-    UINT32    extFPtrForLane; /* RO: ID  0x0D: Lane Status
+    uint32_t    extFPtrForLane; /* RO: ID  0x0D: Lane Status
                               */
-    UINT32    extFPtrForErr;  /* RO: ID  0x07: Error Management
+    uint32_t    extFPtrForErr;  /* RO: ID  0x07: Error Management
                               */
-    UINT32    extFPtrForVC;   /* RO: ID  0x0A: Virtual Channel
+    uint32_t    extFPtrForVC;   /* RO: ID  0x0A: Virtual Channel
                               */
-    UINT32    extFPtrForVOQ;  /* RO: ID  0x0B: Virtual Output Queueing
+    uint32_t    extFPtrForVOQ;  /* RO: ID  0x0B: Virtual Output Queueing
                               */
     /* Values of RapidIO Standard Registers, useful for understanding device
            capabilities without reading registers.
     */
-    UINT32  devID;       /* Contents of RapidIO Standard register 
-                                RIO_DEV_ID_CAR
+    uint32_t  devID;       /* Contents of RapidIO Standard register 
+                                RIO_DEV_IDENT
                          */
-    UINT32  devInfo;     /* Contents of RapidIO Standard register 
-                                RIO_DEV_INFO_CAR
+    uint32_t  devInfo;     /* Contents of RapidIO Standard register 
+                                RIO_DEV_INF
                          */
-    UINT32  assyInfo;    /* Contents of RapidIO Standard register 
+    uint32_t  assyInfo;    /* Contents of RapidIO Standard register 
                                 RIO_ASSY_INF_CAR
                          */
-    UINT32  features;    /* Contents of RapidIO Standard register 
-                                RIO_PROC_ELEM_FEAT_CAR
+    uint32_t  features;    /* Contents of RapidIO Standard register 
+                                RIO_PE_FEAT
                          */ 
-    UINT32  swPortInfo;  /* Contents of RapidIO Standard register 
-                                RIO_SWITCH_PORT_INF_CAR
+    uint32_t  swPortInfo;  /* Contents of RapidIO Standard register 
+                                RIO_SW_PORT_INF
                          */
-    UINT32  swRtInfo;    /* Contents of RapidIO Standard register 
-                                RIO_RT_INFO_CAR
+    uint32_t  swRtInfo;    /* Contents of RapidIO Standard register 
+                                RIO_SW_RT_TBL_LIM
                          */
-    UINT32  srcOps;      /* Contents of RapidIO Standard register 
-                                RIO_SRC_OPS_CAR
+    uint32_t  srcOps;      /* Contents of RapidIO Standard register 
+                                RIO_SRC_OPS
                          */
-    UINT32  dstOps;      /* Contents of RapidIO Standard register 
-                                RIO_DST_OPS_CAR
+    uint32_t  dstOps;      /* Contents of RapidIO Standard register 
+                                RIO_DST_OPS
                          */
-    UINT32  swMcastInfo; /* Contents of RapidIO Standard register 
-                                RIO_STD_SW_MC_INFO_CSR
+    uint32_t  swMcastInfo; /* Contents of RapidIO Standard register 
+                                RIO_SW_RT_TBL_LIM_MAX_DESTID
                          */
 	/* ctl1_reg values are tracked to implement EmergencyLockout as a 
 	 * single write, instead of a read/modify/write, for all devices.
 	 */
-    UINT32  ctl1_reg[MAX_DAR_PORTS]; // Last register value read from or 
+    uint32_t  ctl1_reg[MAX_DAR_PORTS]; // Last register value read from or 
                                          // written to the Port x Control 1 CSR
 	/* Scratchpad to be used by different devices as they see fit. */
-	UINT32 scratchpad[MAX_DAR_SCRPAD_IDX]; 
+	uint32_t scratchpad[MAX_DAR_SCRPAD_IDX]; 
 
 } DAR_DEV_INFO_t;
 
-#define NUM_PORTS(x)    (( UINT8)((((x)->swPortInfo ) & RIO_SWITCH_PORT_INF_PORT_TOTAL) >>  8))
-#define NUM_MC_MASKS(x) ( (UINT8)((((x)->swMcastInfo) & RIO_STD_SW_MC_INFO_MAX_MASKS  )      ))
-#define VEND_CODE(x)    ((UINT16)(((x)->devID      ) & RIO_DEV_ID_DEV_VEN_ID))
-#define DEV_CODE(x)     ((UINT16)((((x)->devID      ) & RIO_DEV_ID_DEV_ID             ) >> 16))
-#define SWITCH(x)	((BOOL)(((x)->features & RIO_PROC_ELEM_FEAT_SW)?TRUE:FALSE))
+#define NUM_PORTS(x)    (( uint8_t)((((x)->swPortInfo ) & RIO_SW_PORT_INF_TOT) >>  8))
+#define NUM_MC_MASKS(x) ( (uint8_t)((((x)->swMcastInfo) & RIO_SW_MC_INF_MC_MSK  )      ))
+#define VEND_CODE(x)    ((uint16_t)(((x)->devID      ) & RIO_DEV_IDENT_VEND))
+#define DEV_CODE(x)     ((uint16_t)((((x)->devID      ) & RIO_DEV_IDENT_DEVI             ) >> 16))
+#define SWITCH(x)	((bool)(((x)->features & RIO_PE_FEAT_SW)?true:false))
 
 /* DAR_Find_Driver_for_Device
 * 
@@ -170,7 +170,7 @@ typedef struct DAR_DEV_INFO_t_TAG
 *                         SRIO device to get the Device ID
 *  On exit, all fields in dev_info will be correctly initialized.
 */
-STATUS DAR_Find_Driver_for_Device( BOOL  dev_info_devID_valid,
+uint32_t DAR_Find_Driver_for_Device( bool  dev_info_devID_valid,
                                    DAR_DEV_INFO_t *dev_info );
 
 /* DAR_Release_Driver_for_Device
@@ -179,15 +179,15 @@ STATUS DAR_Find_Driver_for_Device( BOOL  dev_info_devID_valid,
 *  free up resources associated with the driver.
 */
 
-STATUS DAR_Release_Driver_for_Device ( DAR_DEV_INFO_t *dev_info );
+uint32_t DAR_Release_Driver_for_Device ( DAR_DEV_INFO_t *dev_info );
 
 /* Routines to access DAR device registers.  This is a hook to allow
 *      device specific register read/write routines to correct non-compliances
 *      with registers.  Could also be used as a hook for debugging.
 *  The default definition of these routines is a call to ReadReg/WriteReg.
 */
-STATUS DARRegRead ( DAR_DEV_INFO_t *dev_info, UINT32 offset, UINT32 *readdata );
-STATUS DARRegWrite( DAR_DEV_INFO_t *dev_info, UINT32 offset, UINT32 writedata );
+uint32_t DARRegRead ( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t *readdata );
+uint32_t DARRegWrite( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t writedata );
 
 /* Routines which invoke the associated device driver function bound into the 
 *  DAR DB.
@@ -197,49 +197,49 @@ STATUS DARRegWrite( DAR_DEV_INFO_t *dev_info, UINT32 offset, UINT32 writedata );
 *  For more information, refer to Annex I of the RapidIO Specification, 
 *      available from www.rapidio.org
 */
-STATUS DARrioGetNumLocalPorts   ( DAR_DEV_INFO_t *dev_info, 
-                                    UINT32 *numLocalPorts ); 
-STATUS DARrioGetFeatures        ( DAR_DEV_INFO_t *dev_info, 
-                                    RIO_FEATURES *features );
-STATUS DARrioGetSwitchPortInfo  ( DAR_DEV_INFO_t *dev_info, 
-                            RIO_SWITCH_PORT_INFO *portinfo );
-STATUS DARrioGetExtFeaturesPtr  ( DAR_DEV_INFO_t *dev_info, 
-                                          UINT32 *extfptr );
-STATUS DARrioGetNextExtFeaturesPtr 
+uint32_t DARrioGetNumLocalPorts   ( DAR_DEV_INFO_t *dev_info, 
+                                    uint32_t *numLocalPorts ); 
+uint32_t DARrioGetFeatures        ( DAR_DEV_INFO_t *dev_info, 
+                                    RIO_PE_FEAT_T *features );
+uint32_t DARrioGetSwitchPortInfo  ( DAR_DEV_INFO_t *dev_info, 
+                            RIO_SW_PORT_INF_T *portinfo );
+uint32_t DARrioGetExtFeaturesPtr  ( DAR_DEV_INFO_t *dev_info, 
+                                          uint32_t *extfptr );
+uint32_t DARrioGetNextExtFeaturesPtr 
                                 ( DAR_DEV_INFO_t *dev_info, 
-                                          UINT32  currfptr, 
-                                          UINT32 *extfptr );
-STATUS DARrioGetSourceOps       ( DAR_DEV_INFO_t *dev_info, 
-                                  RIO_SOURCE_OPS *srcops );
-STATUS DARrioGetDestOps         ( DAR_DEV_INFO_t *dev_info, 
-                                    RIO_DEST_OPS *dstops );
-STATUS DARrioGetAddressMode     ( DAR_DEV_INFO_t *dev_info, 
-                                   RIO_ADDR_MODE *amode );
-STATUS DARrioGetBaseDeviceId    ( DAR_DEV_INFO_t *dev_info, 
-                                          UINT32 *deviceid );
-STATUS DARrioSetBaseDeviceId    ( DAR_DEV_INFO_t *dev_info, 
-                                          UINT32  newdeviceid );
-STATUS DARrioAcquireDeviceLock  ( DAR_DEV_INFO_t *dev_info, 
-                                          UINT16  hostdeviceid, 
-                                          UINT16 *hostlockid );
-STATUS DARrioReleaseDeviceLock  ( DAR_DEV_INFO_t *dev_info, 
-                                          UINT16  hostdeviceid, 
-                                          UINT16 *hostlockid );
-STATUS DARrioGetComponentTag    ( DAR_DEV_INFO_t *dev_info, 
-                                          UINT32 *componenttag );
-STATUS DARrioSetComponentTag    ( DAR_DEV_INFO_t *dev_info, 
-                                          UINT32 componenttag );
-STATUS DARrioGetAddrMode        ( DAR_DEV_INFO_t *dev_info, 
-                                   RIO_ADDR_MODE *addr_mode );
-STATUS DARrioSetAddrMode        ( DAR_DEV_INFO_t *dev_info, 
-                                   RIO_ADDR_MODE  addr_mode );
-STATUS DARrioGetPortErrorStatus ( DAR_DEV_INFO_t *dev_info, 
-                                           UINT8  portnum, 
-                           RIO_PORT_ERROR_STATUS *err_status );
+                                          uint32_t  currfptr, 
+                                          uint32_t *extfptr );
+uint32_t DARrioGetSourceOps       ( DAR_DEV_INFO_t *dev_info, 
+                                  RIO_SRC_OPS_T *srcops );
+uint32_t DARrioGetDestOps         ( DAR_DEV_INFO_t *dev_info, 
+                                    RIO_DST_OPS_T *dstops );
+uint32_t DARrioGetAddressMode     ( DAR_DEV_INFO_t *dev_info, 
+                                   RIO_PE_ADDR_T *amode );
+uint32_t DARrioGetBaseDeviceId    ( DAR_DEV_INFO_t *dev_info, 
+                                          uint32_t *deviceid );
+uint32_t DARrioSetBaseDeviceId    ( DAR_DEV_INFO_t *dev_info, 
+                                          uint32_t  newdeviceid );
+uint32_t DARrioAcquireDeviceLock  ( DAR_DEV_INFO_t *dev_info, 
+                                          uint16_t  hostdeviceid, 
+                                          uint16_t *hostlockid );
+uint32_t DARrioReleaseDeviceLock  ( DAR_DEV_INFO_t *dev_info, 
+                                          uint16_t  hostdeviceid, 
+                                          uint16_t *hostlockid );
+uint32_t DARrioGetComponentTag    ( DAR_DEV_INFO_t *dev_info, 
+                                          uint32_t *componenttag );
+uint32_t DARrioSetComponentTag    ( DAR_DEV_INFO_t *dev_info, 
+                                          uint32_t componenttag );
+uint32_t DARrioGetAddrMode        ( DAR_DEV_INFO_t *dev_info, 
+                                   RIO_PE_ADDR_T *addr_mode );
+uint32_t DARrioSetAddrMode        ( DAR_DEV_INFO_t *dev_info, 
+                                   RIO_PE_ADDR_T  addr_mode );
+uint32_t DARrioGetPortErrorStatus ( DAR_DEV_INFO_t *dev_info, 
+                                           uint8_t  portnum, 
+                           RIO_SPX_ERR_STAT_T *err_status );
 
-STATUS DARrioLinkReqNResp ( DAR_DEV_INFO_t *dev_info, 
-                                     UINT8  portnum, 
-                      RIO_SPX_LM_LINK_STAT *link_stat );
+uint32_t DARrioLinkReqNResp ( DAR_DEV_INFO_t *dev_info, 
+                                     uint8_t  portnum, 
+                      RIO_SPX_LM_RESP_STAT_T *link_stat );
 
 /* Routing table support routines use the default routing table registers.
 * 
@@ -258,41 +258,41 @@ STATUS DARrioLinkReqNResp ( DAR_DEV_INFO_t *dev_info,
 */
 /* Use RIO_ALL_PORTS to cause packets with that routedestid to be discarded.
 */
-#define RIO_ALL_PORTS ((UINT8)(0xFF))
+#define RIO_ALL_PORTS ((uint8_t)(0xFF))
 
-STATUS DARrioStdRouteAddEntry ( DAR_DEV_INFO_t *dev_info, 
-                                        UINT16  routedestid, 
-                                         UINT8  routeportno  );
-STATUS DARrioStdRouteGetEntry ( DAR_DEV_INFO_t *dev_info, 
-                                        UINT16  routedestid, 
-                                         UINT8 *routeportno );
+uint32_t DARrioStdRouteAddEntry ( DAR_DEV_INFO_t *dev_info, 
+                                        uint16_t  routedestid, 
+                                         uint8_t  routeportno  );
+uint32_t DARrioStdRouteGetEntry ( DAR_DEV_INFO_t *dev_info, 
+                                        uint16_t  routedestid, 
+                                         uint8_t *routeportno );
 
 /* NEW DAR ROUTINE, initializes all routing table entries to use routeportno.
 */
-STATUS DARrioStdRouteInitAll ( DAR_DEV_INFO_t *dev_info, 
-                                        UINT8  routeportno );
+uint32_t DARrioStdRouteInitAll ( DAR_DEV_INFO_t *dev_info, 
+                                        uint8_t  routeportno );
 
 /* NEW DAR ROUTINE, invalidates the routing for the routedestid
 */
-STATUS DARrioStdRouteRemoveEntry ( DAR_DEV_INFO_t *dev_info, 
-                                           UINT16  routedestid );
+uint32_t DARrioStdRouteRemoveEntry ( DAR_DEV_INFO_t *dev_info, 
+                                           uint16_t  routedestid );
 
 /* NEW DAR ROUTINE, sets the default route
 */
-STATUS DARrioStdRouteSetDefault  ( DAR_DEV_INFO_t *dev_info, 
-                                            UINT8  routeportno );
+uint32_t DARrioStdRouteSetDefault  ( DAR_DEV_INFO_t *dev_info, 
+                                            uint8_t  routeportno );
 
 /* NEW DAR ROUTINE, sets assembly information
 */
-STATUS DARrioSetAssmblyInfo ( DAR_DEV_INFO_t *dev_info, 
-                                      UINT32  AsmblyVendID, 
-                                      UINT16  AsmblyRev    );
+uint32_t DARrioSetAssmblyInfo ( DAR_DEV_INFO_t *dev_info, 
+                                      uint32_t  AsmblyVendID, 
+                                      uint16_t  AsmblyRev    );
 
 /* NEW DAR ROUTINE, gets assembly information
 */
-STATUS DARrioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info, 
-		                      UINT32 *AsmblyVendID,
-				      UINT16 *AsmblyRev);
+uint32_t DARrioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info, 
+		                      uint32_t *AsmblyVendID,
+				      uint16_t *AsmblyRev);
 
 /* NEW DAR ROUTINE, lists of ports on a device.
  * if ptl_in->num_ports == RIO_ALL_PORTS,
@@ -308,44 +308,44 @@ STATUS DARrioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info,
 #define DAR_MAX_PORTS 18
 
 struct DAR_ptl {
-	UINT8	num_ports; /* Number of valid entries in port */
-	UINT8	pnums[DAR_MAX_PORTS]; /* List of port numbers available */
+	uint8_t	num_ports; /* Number of valid entries in port */
+	uint8_t	pnums[DAR_MAX_PORTS]; /* List of port numbers available */
 };
 
 #define PTL_ALL_PORTS { RIO_ALL_PORTS, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}}
 extern const struct DAR_ptl ptl_all_ports;
 
-STATUS DARrioGetPortList ( DAR_DEV_INFO_t  *dev_info ,
+uint32_t DARrioGetPortList ( DAR_DEV_INFO_t  *dev_info ,
 		                struct DAR_ptl	*ptl_in,  
 						struct DAR_ptl	*ptl_out );
 
 /* NEW DAR ROUTINE, sets enumeration boundary bit for specified port(s)
 */
 
-STATUS DARrioSetEnumBound (DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
+uint32_t DARrioSetEnumBound (DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
 			int enum_bnd_val);
 
 /* NEW DAR ROUTINE, gets status of device reset initialization
    Returns either RIO_SUCCESS or a non-zero failure code.
 */
-STATUS DARrioGetDevResetInitStatus ( DAR_DEV_INFO_t *dev_info );
+uint32_t DARrioGetDevResetInitStatus ( DAR_DEV_INFO_t *dev_info );
 
 /* NEW DAR ROUTINE, controls Port Enable, Port Lockout and In/Out Port Enable
    for specified list of ports
 */
-STATUS DARrioPortEnable ( DAR_DEV_INFO_t *dev_info,
+uint32_t DARrioPortEnable ( DAR_DEV_INFO_t *dev_info,
                           struct DAR_ptl *ptl,
-                          BOOL port_ena,
-                          BOOL port_lkout,
-                          BOOL in_out_ena );
+                          bool port_ena,
+                          bool port_lkout,
+                          bool in_out_ena );
 
 /* NEW DAR ROUTINE, ensures that the PORT_LOCKOUT bit is set for
                     the specified port
 */
-STATUS DARrioEmergencyLockout  ( DAR_DEV_INFO_t *dev_info,
-                                 UINT8          port_no );
+uint32_t DARrioEmergencyLockout  ( DAR_DEV_INFO_t *dev_info,
+                                 uint8_t          port_no );
 
-/* Definitions to subdivide the STATUS return code for implementation 
+/* Definitions to subdivide the uint32_t return code for implementation 
        specific routines
 */
 
@@ -356,30 +356,30 @@ STATUS DARrioEmergencyLockout  ( DAR_DEV_INFO_t *dev_info,
  
 /* Warning codes for DSF routines
 */
-#define DAR_FIRST_IMP_SPEC_WARNING  ((STATUS)(0x0800))  
+#define DAR_FIRST_IMP_SPEC_WARNING  ((uint32_t)(0x0800))  
 
 /*    Routine has succeeded, but something is a bit fishy.
 */
-#define DAR_LAST_IMP_SPEC_WARNING   ((STATUS)(0x0FFF))  
+#define DAR_LAST_IMP_SPEC_WARNING   ((uint32_t)(0x0FFF))  
 
 /* Error codes for DSF routines
 */
-#define DAR_FIRST_IMP_SPEC_ERROR    ((STATUS)(0x40000000)) 
+#define DAR_FIRST_IMP_SPEC_ERROR    ((uint32_t)(0x40000000)) 
 
 /*    Routine has failed for an Implementation/device specific reason.
 */
-#define DAR_LAST_IMP_SPEC_ERROR     ((STATUS)(0x6FFFFFFF)) 
+#define DAR_LAST_IMP_SPEC_ERROR     ((uint32_t)(0x6FFFFFFF)) 
 
 /* Definitions for DAR standard return codes.
    Success status code
 */
-#define RIO_SUCCESS                 ((STATUS)(0x0000)) 
+#define RIO_SUCCESS                 ((uint32_t)(0x0000)) 
 
 /* DAR Standard warnings
    Used by rioRouteGetEntry, indicates that the routeportno returned
    is not the same for all ports
 */
-#define RIO_WARN_INCONSISTENT       ((STATUS)(0x0001))  
+#define RIO_WARN_INCONSISTENT       ((uint32_t)(0x0001))  
 
 /* DAR Device Specific Function warnings
 */
@@ -390,160 +390,160 @@ STATUS DARrioEmergencyLockout  ( DAR_DEV_INFO_t *dev_info,
 
 /* Another host has a higher priority
 */
-#define RIO_ERR_SLAVE                ((STATUS)(0x1001))  
+#define RIO_ERR_SLAVE                ((uint32_t)(0x1001))  
 /* One or more input parameters had an invalid value
 */
-#define RIO_ERR_INVALID_PARAMETER    ((STATUS)(0x1002))  
+#define RIO_ERR_INVALID_PARAMETER    ((uint32_t)(0x1002))  
 /* The RapidIO fabric returned a Response Packet with ERROR status reported
 */
-#define RIO_ERR_RIO                  ((STATUS)(0x1003))  
+#define RIO_ERR_RIO                  ((uint32_t)(0x1003))  
 /* A device-specific hardware interface was unable to generate a maintenance
    transaction and reported an error
 */
-#define RIO_ERR_ACCESS               ((STATUS)(0x1004))  
+#define RIO_ERR_ACCESS               ((uint32_t)(0x1004))  
 /* Another host already acquired the specified processor element
 */
-#define RIO_ERR_LOCK                 ((STATUS)(0x1005))  
+#define RIO_ERR_LOCK                 ((uint32_t)(0x1005))  
 /* Device Access Routine does not provide services for this device
 */
-#define RIO_ERR_NO_DEVICE_SUPPORT    ((STATUS)(0x1006))  
+#define RIO_ERR_NO_DEVICE_SUPPORT    ((uint32_t)(0x1006))  
 /* Insufficient storage available in Device Access Routine private storage area
 */
-#define RIO_ERR_INSUFFICIENT_RESOURCES  ((STATUS)(0x1007))  
+#define RIO_ERR_INSUFFICIENT_RESOURCES  ((uint32_t)(0x1007))  
 /* Switch cannot support requested routing
 */
-#define RIO_ERR_ROUTE_ERROR          ((STATUS)(0x1008))  
+#define RIO_ERR_ROUTE_ERROR          ((uint32_t)(0x1008))  
 /* Target device is not a switch
 */
-#define RIO_ERR_NO_SWITCH            ((STATUS)(0x1009))  
+#define RIO_ERR_NO_SWITCH            ((uint32_t)(0x1009))  
 /* Target device is not capable of the feature requested.
 */
-#define RIO_ERR_FEATURE_NOT_SUPPORTED   ((STATUS)(0x100A))  
+#define RIO_ERR_FEATURE_NOT_SUPPORTED   ((uint32_t)(0x100A))  
 /* Port value is not correct/acceptable to this routine
 */
-#define RIO_ERR_BAD_PORT                ((STATUS)(0x100B))
+#define RIO_ERR_BAD_PORT                ((uint32_t)(0x100B))
 /* Value for default route register illegal/not supported
 */
-#define RIO_ERR_BAD_DEFAULT_ROUTE       ((STATUS)(0x100C))
+#define RIO_ERR_BAD_DEFAULT_ROUTE       ((uint32_t)(0x100C))
 /* Value for routing table initialize illegal/not supported
 */
-#define RIO_ERR_BAD_DEFAULT_ROUTE_TABLE_PORT ((STATUS)(0x100D))
+#define RIO_ERR_BAD_DEFAULT_ROUTE_TABLE_PORT ((uint32_t)(0x100D))
 /* Routing table values unintelligible/corrupted
 */
-#define RIO_ERR_RT_CORRUPTED            ((STATUS)(0x100E))
+#define RIO_ERR_RT_CORRUPTED            ((uint32_t)(0x100E))
 /* Port value for routing table illegal/not supported
 */
-#define RIO_ERR_BAD_ROUTE_PORT          ((STATUS)(0x100F))
+#define RIO_ERR_BAD_ROUTE_PORT          ((uint32_t)(0x100F))
 /* Multicast mask value illegal/not supported
 */
-#define RIO_ERR_BAD_MC_MASK             ((STATUS)(0x1010))
+#define RIO_ERR_BAD_MC_MASK             ((uint32_t)(0x1010))
 /* Port has error conditions after attempting to clear errors
 */
-#define RIO_ERR_ERRS_NOT_CL             ((STATUS)(0x1011))
+#define RIO_ERR_ERRS_NOT_CL             ((uint32_t)(0x1011))
 /* Routine was called with a pointer value of "NULL"
  * when this is not allowed.
 */
-#define RIO_ERR_NULL_PARM_PTR           ((STATUS)(0x1012))
+#define RIO_ERR_NULL_PARM_PTR           ((uint32_t)(0x1012))
 /* Requested action cannot be performed due to current     
  * configuration of the device.
 */
-#define RIO_ERR_NOT_SUP_BY_CONFIG       ((STATUS)(0x1013))
+#define RIO_ERR_NOT_SUP_BY_CONFIG       ((uint32_t)(0x1013))
 /* Requested action cannot be performed due to an internal 
  * software error.                 
 */
-#define RIO_ERR_SW_FAILURE              ((STATUS)(0x1014))
+#define RIO_ERR_SW_FAILURE              ((uint32_t)(0x1014))
 
 /* Routine has been stubbed out...
 */
-#define RIO_STUBBED                  ((STATUS)(0xffff))  
+#define RIO_STUBBED                  ((uint32_t)(0xffff))  
 
 /* Implementation specific routine has failed.  Check routine outputs for
        more information on failure.
 */
-#define RIO_DAR_IMP_SPEC_FAILURE     ((STATUS)(0x40000000))  
+#define RIO_DAR_IMP_SPEC_FAILURE     ((uint32_t)(0x40000000))  
 
 /* DAR DB Standard errors
    No devices have been bound to the DAR
 */
-#define DAR_DB_NO_DEVICES            ((STATUS)(0x70000001))  
+#define DAR_DB_NO_DEVICES            ((uint32_t)(0x70000001))  
 /* The DAR DB cannot accept more device drivers. See DAR_DB.h to increase 
       the size of the database.
 */
-#define DAR_DB_NO_HANDLES            ((STATUS)(0x70000002))  
+#define DAR_DB_NO_HANDLES            ((uint32_t)(0x70000002))  
 /* DAR DB initialization has been attempted more than once.
 */
-#define DAR_DB_MULTI_INIT            ((STATUS)(0x70000003))  
+#define DAR_DB_MULTI_INIT            ((uint32_t)(0x70000003))  
 /* dev_info.db_h parameter passed in is invalid.
 */
-#define DAR_DB_INVALID_HANDLE        ((STATUS)(0x70000004))  
+#define DAR_DB_INVALID_HANDLE        ((uint32_t)(0x70000004))  
 /* Warning that a previously bound device specific function has 
        been overwritten
 */
-#define DAR_DB_OVERWRITE_FUNC        ((STATUS)(0x70000005))  
+#define DAR_DB_OVERWRITE_FUNC        ((uint32_t)(0x70000005))  
 /* No device driver bound in supports the device.
 */
-#define DAR_DB_NO_DRIVER             ((STATUS)(0x70000006))  
+#define DAR_DB_NO_DRIVER             ((uint32_t)(0x70000006))  
 /* Device driver could not allocate device specific info
 */
-#define DAR_DB_DRIVER_INFO           ((STATUS)(0x70000007))
+#define DAR_DB_DRIVER_INFO           ((uint32_t)(0x70000007))
 
 /* Device driver no exceed maximum device driver bound in supports the device.
 */
-#define DAR_DB_NO_EXCEED_MAXIMUM     ((STATUS)(0x70000008))  
+#define DAR_DB_NO_EXCEED_MAXIMUM     ((uint32_t)(0x70000008))  
 
 /* Standard Register access errors
    Register Access Interface invalid
 */
-#define RIO_ERR_REG_ACCESS_IF_UNKNOWN       ((STATUS)(0x80000001))  
+#define RIO_ERR_REG_ACCESS_IF_UNKNOWN       ((uint32_t)(0x80000001))  
 /* Register Access I2C File Descriptor is unknown
 */
-#define RIO_ERR_REG_ACCESS_I2C_FD_UNKNOWN   ((STATUS)(0x80000002))  
+#define RIO_ERR_REG_ACCESS_I2C_FD_UNKNOWN   ((uint32_t)(0x80000002))  
 /* Register Access RIO File Descriptor is unknown
 */
-#define RIO_ERR_REG_ACCESS_RIO_FD_UNKNOWN   ((STATUS)(0x80000003))  
+#define RIO_ERR_REG_ACCESS_RIO_FD_UNKNOWN   ((uint32_t)(0x80000003))  
 /* Private Data Structure is not defined
 */
-#define RIO_ERR_PRIV_STRUCT_UNDEFINED       ((STATUS)(0x80000004))  
+#define RIO_ERR_PRIV_STRUCT_UNDEFINED       ((uint32_t)(0x80000004))  
 /* Invalid a returned parameter
 */
-#define RIO_ERR_INVALID_RETURN_PARAM        ((STATUS)(0x80000005))  
+#define RIO_ERR_INVALID_RETURN_PARAM        ((uint32_t)(0x80000005))  
 /* The device is not an end-point
 */
-#define RIO_ERR_NOT_ENDPOINT                ((STATUS)(0x80000006))  
+#define RIO_ERR_NOT_ENDPOINT                ((uint32_t)(0x80000006))  
 /* No function is supported
 */
-#define RIO_ERR_NO_FUNCTION_SUPPORT         ((STATUS)(0x80000007))  
+#define RIO_ERR_NO_FUNCTION_SUPPORT         ((uint32_t)(0x80000007))  
 /* Read Register return an invalid value
 */
-#define RIO_ERR_READ_REG_RETURN_INVALID_VAL ((STATUS)(0x80000008))  
+#define RIO_ERR_READ_REG_RETURN_INVALID_VAL ((uint32_t)(0x80000008))  
 /* Detected no Port OK
 */
-#define RIO_ERR_PORT_OK_NOT_DETECTED        ((STATUS)(0x80000009))  
+#define RIO_ERR_PORT_OK_NOT_DETECTED        ((uint32_t)(0x80000009))  
 /* No result returned
 */
-#define RIO_ERR_RETURN_NO_RESULT            ((STATUS)(0x8000000A))  
+#define RIO_ERR_RETURN_NO_RESULT            ((uint32_t)(0x8000000A))  
 /* Abort function call
 */
-#define RIO_ERR_ABORT_FUNCTION_CALL         ((STATUS)(0x8000000B))
+#define RIO_ERR_ABORT_FUNCTION_CALL         ((uint32_t)(0x8000000B))
 /* Not expected returned value
 */
-#define RIO_ERR_NOT_EXPECTED_RETURN_VALUE   ((STATUS)(0x8000000C))
+#define RIO_ERR_NOT_EXPECTED_RETURN_VALUE   ((uint32_t)(0x8000000C))
 /* No lane is available
 */
-#define RIO_ERR_NO_LANE_AVAIL               ((STATUS)(0x8000000D))
+#define RIO_ERR_NO_LANE_AVAIL               ((uint32_t)(0x8000000D))
 /* No port is available
 */
-#define RIO_ERR_NO_PORT_AVAIL               ((STATUS)(0x8000000E))
+#define RIO_ERR_NO_PORT_AVAIL               ((uint32_t)(0x8000000E))
 /* Port is unavailable
 */
-#define RIO_ERR_PORT_UNAVAIL                ((STATUS)(0x8000000F))
+#define RIO_ERR_PORT_UNAVAIL                ((uint32_t)(0x8000000F))
 /* Illegal port number at index X in list of ports
  * Used by DARRioGetPortList.
 */
-#define RIO_ERR_PORT_ILLEGAL(x)                ((STATUS)(0x80000010+x))
+#define RIO_ERR_PORT_ILLEGAL(x)                ((uint32_t)(0x80000010+x))
 /* No response for register access
 */
-#define RIO_ERR_REG_ACCESS_FAIL             ((STATUS)(0xFFFFFFFF))  
+#define RIO_ERR_REG_ACCESS_FAIL             ((uint32_t)(0xFFFFFFFF))  
 
 #ifdef __cplusplus
 }

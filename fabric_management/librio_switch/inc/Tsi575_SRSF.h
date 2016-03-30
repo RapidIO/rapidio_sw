@@ -73,7 +73,7 @@ extern "C" {
 #define Tsi575_SPX_LM_REQ(X)                   (SRSF_BASE + 0x0140 + 0x020*(X))
 #define Tsi575_SPX_LM_RESP(X)                  (SRSF_BASE + 0x0144 + 0x020*(X))
 #define Tsi575_SPX_ACKID_STAT(X)               (SRSF_BASE + 0x0148 + 0x020*(X))
-#define Tsi575_SPX_ERR_STATUS(X)               (SRSF_BASE + 0x0158 + 0x020*(X))
+#define Tsi575_SPX_ERR_uint32_t(X)               (SRSF_BASE + 0x0158 + 0x020*(X))
 #define Tsi575_SPX_CTL(X)                      (SRSF_BASE + 0x015c + 0x020*(X))
 #define Tsi575_RIO_ERR_RPT_BH                          (SRSF_BASE + 0x00001000)
 #define Tsi575_RIO_LOG_ERR_DET                         (SRSF_BASE + 0x00001008)
@@ -96,8 +96,8 @@ extern "C" {
 #define Tsi575_SPX_DISCOVERY_TIMER(X)         (SRSF_BASE + 0x11000 + 0x100*(X))
 #define Tsi575_SPBC_MODE                               (SRSF_BASE + 0x00010004) 
 #define Tsi575_SPX_MODE(X)                    (SRSF_BASE + 0x11004 + 0x100*(X))
-#define Tsi575_SPBC_CS_INT_STATUS                      (SRSF_BASE + 0x00010008) 
-#define Tsi575_SPX_CS_INT_STATUS(X)           (SRSF_BASE + 0x11008 + 0x100*(X))
+#define Tsi575_SPBC_CS_INT_uint32_t                      (SRSF_BASE + 0x00010008) 
+#define Tsi575_SPX_CS_INT_uint32_t(X)           (SRSF_BASE + 0x11008 + 0x100*(X))
 #define Tsi575_SPBC_RIO_WM                             (SRSF_BASE + 0x0001000c) 
 #define Tsi575_SPX_RIO_WM(X)                  (SRSF_BASE + 0x1100c + 0x100*(X))
 #define Tsi575_SPBC_ROUTE_CFG_DESTID                   (SRSF_BASE + 0x00010070) 
@@ -114,7 +114,7 @@ extern "C" {
 #define Tsi575_SPX_SEND_MCS(X)                (SRSF_BASE + 0x1300c + 0x100*(X))
 #define Tsi575_SPX_LUT_PAR_ERR_INFO(X)        (SRSF_BASE + 0x13010 + 0x100*(X))
 #define Tsi575_SPX_CS_TX(X)                   (SRSF_BASE + 0x13014 + 0x100*(X))
-#define Tsi575_SPX_INT_STATUS(X)              (SRSF_BASE + 0x13018 + 0x100*(X))
+#define Tsi575_SPX_INT_uint32_t(X)              (SRSF_BASE + 0x13018 + 0x100*(X))
 #define Tsi575_SPX_INT_GEN(X)                 (SRSF_BASE + 0x1301c + 0x100*(X))
 #define Tsi575_SPX_PSC0n1_CTRL(X)             (SRSF_BASE + 0x13020 + 0x100*(X))
 #define Tsi575_SPX_PSC2n3_CTRL(X)             (SRSF_BASE + 0x13024 + 0x100*(X))
@@ -126,10 +126,10 @@ extern "C" {
 #define Tsi575_SPX_PSC4(X)                    (SRSF_BASE + 0x13050 + 0x100*(X))
 #define Tsi575_SPX_PSC5(X)                    (SRSF_BASE + 0x13054 + 0x100*(X))
 #define Tsi575_SPX_TX_Q_D_THRESH(X)           (SRSF_BASE + 0x13080 + 0x100*(X))
-#define Tsi575_SPX_TX_Q_STATUS(X)             (SRSF_BASE + 0x13084 + 0x100*(X))
+#define Tsi575_SPX_TX_Q_uint32_t(X)             (SRSF_BASE + 0x13084 + 0x100*(X))
 #define Tsi575_SPX_TX_Q_PERIOD(X)             (SRSF_BASE + 0x13088 + 0x100*(X))
 #define Tsi575_SPX_RX_Q_D_THRESH(X)           (SRSF_BASE + 0x13090 + 0x100*(X))
-#define Tsi575_SPX_RX_Q_STATUS(X)             (SRSF_BASE + 0x13094 + 0x100*(X))
+#define Tsi575_SPX_RX_Q_uint32_t(X)             (SRSF_BASE + 0x13094 + 0x100*(X))
 #define Tsi575_SPX_RX_Q_PERIOD(X)             (SRSF_BASE + 0x13098 + 0x100*(X))
 #define Tsi575_SPX_REORDER_CTR(X)             (SRSF_BASE + 0x130a0 + 0x100*(X))
 #define Tsi575_SMACX_CFG_CH0(X)               (SRSF_BASE + 0x130b0 + 0x100*(X))
@@ -180,14 +180,14 @@ extern "C" {
 #define Tsi575_RIO_MC_LAT_ERR_SET                      (SRSF_BASE + 0x0001aa0c)
 #define Tsi575_PKTGEN_CNTRL                            (SRSF_BASE + 0x0001aaf0)
 #define Tsi575_WRKQ_DATA                               (SRSF_BASE + 0x0001aaf4)
-#define Tsi575_LST_DTM_STATUS                          (SRSF_BASE + 0x0001aaf8)
+#define Tsi575_LST_DTM_uint32_t                          (SRSF_BASE + 0x0001aaf8)
 #define Tsi575_TX_ENBL                                 (SRSF_BASE + 0x0001aafc)
-#define Tsi575_GLOB_INT_STATUS                         (SRSF_BASE + 0x0001ac00)
+#define Tsi575_GLOB_INT_uint32_t                         (SRSF_BASE + 0x0001ac00)
 #define Tsi575_GLOB_INT_ENABLE                         (SRSF_BASE + 0x0001ac04)
 #define Tsi575_GLOB_DEV_ID_SEL                         (SRSF_BASE + 0x0001ac08)
 #define Tsi575_GLOB_SPY_BUS_CFG                        (SRSF_BASE + 0x0001ac0c)
 #define Tsi575_RIO_PW_TIMEOUT                          (SRSF_BASE + 0x0001ac14)
-#define Tsi575_RIO_PW_OREQ_STATUS                      (SRSF_BASE + 0x0001ac18)
+#define Tsi575_RIO_PW_OREQ_uint32_t                      (SRSF_BASE + 0x0001ac18)
 #define Tsi575_RIOX_MC_LAT_LIMIT(X)           (SRSF_BASE + 0x1b004 + 0x100*(X))
 #define Tsi575_SPX_ISF_WM(X)                  (SRSF_BASE + 0x1b008 + 0x100*(X))
 #define Tsi575_SPX_WRR_0(X)                   (SRSF_BASE + 0x1b010 + 0x100*(X))
@@ -225,8 +225,8 @@ extern "C" {
 
 
 /* Tsi575_RIO_DEV_ID : Register Bits Masks Definitions */
-#define Tsi575_RIO_DEV_ID_DEV_VEN_ID                               (0x0000ffff)
-#define Tsi575_RIO_DEV_ID_DEV_ID                                   (0xffff0000)
+#define Tsi575_RIO_DEV_IDENT_VEND                               (0x0000ffff)
+#define Tsi575_RIO_DEV_IDENT_DEVI                                   (0xffff0000)
 
 #define Tsi575_RIO_DEVID_VAL 0x0575
 
@@ -239,8 +239,8 @@ extern "C" {
 #define Tsi575_RIO_ASBLY_ID_ASBLY_ID                               (0xffff0000)
 
 /* Tsi575_RIO_ASBLY_INFO : Register Bits Masks Definitions */
-#define Tsi575_RIO_ASBLY_INFO_EXT_FEAT_PTR                         (0x0000ffff)
-#define Tsi575_RIO_ASBLY_INFO_ASBLY_REV                            (0xffff0000)
+#define Tsi575_RIO_ASSY_INF_EFB_PTR                         (0x0000ffff)
+#define Tsi575_RIO_ASSY_INF_ASSY_REV                            (0xffff0000)
 
 /* Tsi575_RIO_PE_FEAT : Register Bits Masks Definitions */
 #define Tsi575_RIO_PE_FEAT_EXT_AS                                  (0x00000007)
@@ -342,22 +342,22 @@ extern "C" {
 #define Tsi575_SPX_ACKID_STAT_INBOUND                              (0x1f000000)
 #define Tsi575_SPX_ACKID_STAT_CLR_PKTS                             (0x80000000)
 
-/* Tsi575_SPX_ERR_STATUS : Register Bits Masks Definitions */
-#define Tsi575_SPX_ERR_STATUS_PORT_UNINIT                          (0x00000001)
-#define Tsi575_SPX_ERR_STATUS_PORT_OK                              (0x00000002)
-#define Tsi575_SPX_ERR_STATUS_PORT_ERR                             (0x00000004)
-#define Tsi575_SPX_ERR_STATUS_PORT_W_PEND                          (0x00000010)
-#define Tsi575_SPX_ERR_STATUS_INPUT_ERR_STOP                       (0x00000100)
-#define Tsi575_SPX_ERR_STATUS_INPUT_ERR                            (0x00000200)
-#define Tsi575_SPX_ERR_STATUS_INPUT_RS                             (0x00000400)
-#define Tsi575_SPX_ERR_STATUS_OUTPUT_ERR_STOP                      (0x00010000)
-#define Tsi575_SPX_ERR_STATUS_OUTPUT_ERR                           (0x00020000)
-#define Tsi575_SPX_ERR_STATUS_OUTPUT_RS                            (0x00040000)
-#define Tsi575_SPX_ERR_STATUS_OUTPUT_R                             (0x00080000)
-#define Tsi575_SPX_ERR_STATUS_OUTPUT_RE                            (0x00100000)
-#define Tsi575_SPX_ERR_STATUS_OUTPUT_DEG                           (0x01000000)
-#define Tsi575_SPX_ERR_STATUS_OUTPUT_FAIL                          (0x02000000)
-#define Tsi575_SPX_ERR_STATUS_OUTPUT_DROP                          (0x04000000)
+/* Tsi575_SPX_ERR_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_SPX_ERR_uint32_t_PORT_UNINIT                          (0x00000001)
+#define Tsi575_SPX_ERR_uint32_t_PORT_OK                              (0x00000002)
+#define Tsi575_SPX_ERR_uint32_t_PORT_ERR                             (0x00000004)
+#define Tsi575_SPX_ERR_uint32_t_PORT_W_PEND                          (0x00000010)
+#define Tsi575_SPX_ERR_uint32_t_INPUT_ERR_STOP                       (0x00000100)
+#define Tsi575_SPX_ERR_uint32_t_INPUT_ERR                            (0x00000200)
+#define Tsi575_SPX_ERR_uint32_t_INPUT_RS                             (0x00000400)
+#define Tsi575_SPX_ERR_uint32_t_OUTPUT_ERR_STOP                      (0x00010000)
+#define Tsi575_SPX_ERR_uint32_t_OUTPUT_ERR                           (0x00020000)
+#define Tsi575_SPX_ERR_uint32_t_OUTPUT_RS                            (0x00040000)
+#define Tsi575_SPX_ERR_uint32_t_OUTPUT_R                             (0x00080000)
+#define Tsi575_SPX_ERR_uint32_t_OUTPUT_RE                            (0x00100000)
+#define Tsi575_SPX_ERR_uint32_t_OUTPUT_DEG                           (0x01000000)
+#define Tsi575_SPX_ERR_uint32_t_OUTPUT_FAIL                          (0x02000000)
+#define Tsi575_SPX_ERR_uint32_t_OUTPUT_DROP                          (0x04000000)
 
 /* Tsi575_SPX_CTL : Register Bits Masks Definitions */
 #define Tsi575_SPX_CTL_PORT_TYPE                                   (0x00000001)
@@ -475,9 +475,9 @@ extern "C" {
 #define Tsi575_SPX_MODE_PW_DIS                                     (0x08000000)
 #define Tsi575_SPX_MODE_IDLE_ERR_DIS                               (0x20000000)
 
-/* Tsi575_SPX_CS_INT_STATUS : Register Bits Masks Definitions */
-#define Tsi575_SPX_CS_INT_STATUS_RCS                               (0x00000001)
-#define Tsi575_SPX_CS_INT_STATUS_MCS                               (0x00000002)
+/* Tsi575_SPX_CS_INT_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_SPX_CS_INT_uint32_t_RCS                               (0x00000001)
+#define Tsi575_SPX_CS_INT_uint32_t_MCS                               (0x00000002)
 
 /* Tsi575_SPX_RIO_WM : Register Bits Masks Definitions */
 #define Tsi575_SPX_RIO_WM_PRIO0WM                                  (0x00000007)
@@ -550,18 +550,18 @@ extern "C" {
 #define Tsi575_SPX_CS_TX_PAR_0                                     (0x1f000000)
 #define Tsi575_SPX_CS_TX_STYPE_0                                   (0xe0000000)
 
-/* Tsi575_SPX_INT_STATUS : Register Bits Masks Definitions */
-#define Tsi575_SPX_INT_STATUS_TEA                                  (0x00000001)
-#define Tsi575_SPX_INT_STATUS_TTL_EXPIRED                          (0x00000002)
-#define Tsi575_SPX_INT_STATUS_INB_RDR                              (0x00000004)
-#define Tsi575_SPX_INT_STATUS_INB_DEPTH                            (0x00000008)
-#define Tsi575_SPX_INT_STATUS_OUTB_DEPTH                           (0x00000010)
-#define Tsi575_SPX_INT_STATUS_MAX_RETRY                            (0x00000020)
-#define Tsi575_SPX_INT_STATUS_IRQ_ERR                              (0x00000040)
-#define Tsi575_SPX_INT_STATUS_ILL_TRANS_ERR                        (0x00000080)
-#define Tsi575_SPX_INT_STATUS_LUT_PAR_ERR                          (0x00010000)
-#define Tsi575_SPX_INT_STATUS_LINK_INIT_NOTIFICATION               (0x00020000)
-#define Tsi575_SPX_INT_STATUS_MC_TEA                               (0x00040000)
+/* Tsi575_SPX_INT_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_SPX_INT_uint32_t_TEA                                  (0x00000001)
+#define Tsi575_SPX_INT_uint32_t_TTL_EXPIRED                          (0x00000002)
+#define Tsi575_SPX_INT_uint32_t_INB_RDR                              (0x00000004)
+#define Tsi575_SPX_INT_uint32_t_INB_DEPTH                            (0x00000008)
+#define Tsi575_SPX_INT_uint32_t_OUTB_DEPTH                           (0x00000010)
+#define Tsi575_SPX_INT_uint32_t_MAX_RETRY                            (0x00000020)
+#define Tsi575_SPX_INT_uint32_t_IRQ_ERR                              (0x00000040)
+#define Tsi575_SPX_INT_uint32_t_ILL_TRANS_ERR                        (0x00000080)
+#define Tsi575_SPX_INT_uint32_t_LUT_PAR_ERR                          (0x00010000)
+#define Tsi575_SPX_INT_uint32_t_LINK_INIT_NOTIFICATION               (0x00020000)
+#define Tsi575_SPX_INT_uint32_t_MC_TEA                               (0x00040000)
 
 /* Tsi575_SPX_INT_GEN : Register Bits Masks Definitions */
 #define Tsi575_SPX_INT_GEN_TEA_GEN                                 (0x00000001)
@@ -640,9 +640,9 @@ extern "C" {
 #define Tsi575_SPX_TX_Q_D_THRESH_DEPTH                             (0x0000f000)
 #define Tsi575_SPX_TX_Q_D_THRESH_CONG_PERIOD                       (0xffff0000)
 
-/* Tsi575_SPX_TX_Q_STATUS : Register Bits Masks Definitions */
-#define Tsi575_SPX_TX_Q_STATUS_CONG_THRESH                         (0x0000ffff)
-#define Tsi575_SPX_TX_Q_STATUS_CONG_CTR                            (0xffff0000)
+/* Tsi575_SPX_TX_Q_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_SPX_TX_Q_uint32_t_CONG_THRESH                         (0x0000ffff)
+#define Tsi575_SPX_TX_Q_uint32_t_CONG_CTR                            (0xffff0000)
 
 /* Tsi575_SPX_TX_Q_PERIOD : Register Bits Masks Definitions */
 #define Tsi575_SPX_TX_Q_PERIOD_CONG_PERIOD_CTR                     (0xffffffff)
@@ -651,9 +651,9 @@ extern "C" {
 #define Tsi575_SPX_RX_Q_D_THRESH_DEPTH                             (0x0000f000)
 #define Tsi575_SPX_RX_Q_D_THRESH_CONG_PERIOD                       (0xffff0000)
 
-/* Tsi575_SPX_RX_Q_STATUS : Register Bits Masks Definitions */
-#define Tsi575_SPX_RX_Q_STATUS_CONG_THRESH                         (0x0000ffff)
-#define Tsi575_SPX_RX_Q_STATUS_CONG_CTR                            (0xffff0000)
+/* Tsi575_SPX_RX_Q_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_SPX_RX_Q_uint32_t_CONG_THRESH                         (0x0000ffff)
+#define Tsi575_SPX_RX_Q_uint32_t_CONG_CTR                            (0xffff0000)
 
 /* Tsi575_SPX_RX_Q_PERIOD : Register Bits Masks Definitions */
 #define Tsi575_SPX_RX_Q_PERIOD_CONG_PERIOD_CTR                     (0xffffffff)
@@ -958,30 +958,30 @@ extern "C" {
 /* Tsi575_WRKQ_DATA : Register Bits Masks Definitions */
 #define Tsi575_WRKQ_DATA_RD_WR_DATA                                (0xffffffff)
 
-/* Tsi575_LST_DTM_STATUS : Register Bits Masks Definitions */
-#define Tsi575_LST_DTM_STATUS_RD_PTR                               (0x000003ff)
-#define Tsi575_LST_DTM_STATUS_MC_PKT_DISCARD                       (0x01000000)
-#define Tsi575_LST_DTM_STATUS_STATUS                               (0x60000000)
-#define Tsi575_LST_DTM_STATUS_EOP                                  (0x80000000)
+/* Tsi575_LST_DTM_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_LST_DTM_uint32_t_RD_PTR                               (0x000003ff)
+#define Tsi575_LST_DTM_uint32_t_MC_PKT_DISCARD                       (0x01000000)
+#define Tsi575_LST_DTM_uint32_t_uint32_t                               (0x60000000)
+#define Tsi575_LST_DTM_uint32_t_EOP                                  (0x80000000)
 
 /* Tsi575_TX_ENBL : Register Bits Masks Definitions */
 #define Tsi575_TX_ENBL_DONE                                        (0x40000000)
 #define Tsi575_TX_ENBL_START                                       (0x80000000)
 
-/* Tsi575_GLOB_INT_STATUS : Register Bits Masks Definitions */
-#define Tsi575_GLOB_INT_STATUS_PORT0                               (0x00000001)
-#define Tsi575_GLOB_INT_STATUS_PORT1                               (0x00000002)
-#define Tsi575_GLOB_INT_STATUS_PORT2                               (0x00000004)
-#define Tsi575_GLOB_INT_STATUS_PORT3                               (0x00000008)
-#define Tsi575_GLOB_INT_STATUS_PORT4                               (0x00000010)
-#define Tsi575_GLOB_INT_STATUS_PORT5                               (0x00000020)
-#define Tsi575_GLOB_INT_STATUS_PORT6                               (0x00000040)
-#define Tsi575_GLOB_INT_STATUS_PORT8                               (0x00000100)
-#define Tsi575_GLOB_INT_STATUS_MC_LAT                              (0x00020000)
-#define Tsi575_GLOB_INT_STATUS_TEA                                 (0x01000000)
-#define Tsi575_GLOB_INT_STATUS_I2C                                 (0x02000000)
-#define Tsi575_GLOB_INT_STATUS_MCS                                 (0x04000000)
-#define Tsi575_GLOB_INT_STATUS_RCS                                 (0x08000000)
+/* Tsi575_GLOB_INT_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_GLOB_INT_uint32_t_PORT0                               (0x00000001)
+#define Tsi575_GLOB_INT_uint32_t_PORT1                               (0x00000002)
+#define Tsi575_GLOB_INT_uint32_t_PORT2                               (0x00000004)
+#define Tsi575_GLOB_INT_uint32_t_PORT3                               (0x00000008)
+#define Tsi575_GLOB_INT_uint32_t_PORT4                               (0x00000010)
+#define Tsi575_GLOB_INT_uint32_t_PORT5                               (0x00000020)
+#define Tsi575_GLOB_INT_uint32_t_PORT6                               (0x00000040)
+#define Tsi575_GLOB_INT_uint32_t_PORT8                               (0x00000100)
+#define Tsi575_GLOB_INT_uint32_t_MC_LAT                              (0x00020000)
+#define Tsi575_GLOB_INT_uint32_t_TEA                                 (0x01000000)
+#define Tsi575_GLOB_INT_uint32_t_I2C                                 (0x02000000)
+#define Tsi575_GLOB_INT_uint32_t_MCS                                 (0x04000000)
+#define Tsi575_GLOB_INT_uint32_t_RCS                                 (0x08000000)
 
 /* Tsi575_GLOB_INT_ENABLE : Register Bits Masks Definitions */
 #define Tsi575_GLOB_INT_ENABLE_PORT0_EN                            (0x00000001)
@@ -1009,8 +1009,8 @@ extern "C" {
 /* Tsi575_RIO_PW_TIMEOUT : Register Bits Masks Definitions */
 #define Tsi575_RIO_PW_TIMEOUT_PW_TIMER                             (0xf0000000)
 
-/* Tsi575_RIO_PW_OREQ_STATUS : Register Bits Masks Definitions */
-#define Tsi575_RIO_PW_OREQ_STATUS_PORTX_OREG                       (0x0000ffff)
+/* Tsi575_RIO_PW_OREQ_uint32_t : Register Bits Masks Definitions */
+#define Tsi575_RIO_PW_OREQ_uint32_t_PORTX_OREG                       (0x0000ffff)
 
 /* Tsi575_RIOX_MC_LAT_LIMIT : Register Bits Masks Definitions */
 #define Tsi575_RIOX_MC_LAT_LIMIT_MAX_MC_LAT                        (0x00ffffff)

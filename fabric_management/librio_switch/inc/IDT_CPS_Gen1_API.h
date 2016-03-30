@@ -50,19 +50,19 @@ extern "C" {
 
 #define CPS1_QUAD_CONF_CSR                          0xFF0000
 #define CPS1_QUAD_CONF_ADDR(quad) \
-            ((UINT32)CPS1_QUAD_CONF_CSR + ((UINT32)quad << 12))
+            ((uint32_t)CPS1_QUAD_CONF_CSR + ((uint32_t)quad << 12))
 
 #define CPS1_QUAD_ENH_MODE                          0x00000020
-#define IS_CPS1_QUAD_ENH_MODE(csr) ((UINT32)csr & CPS1_QUAD_ENH_MODE)
+#define IS_CPS1_QUAD_ENH_MODE(csr) ((uint32_t)csr & CPS1_QUAD_ENH_MODE)
 
 #define CPS1_QUAD_SPEED_MASK                        3
 #define CPS1_SPEED_RATE_1_25G                       0
 #define CPS1_SPEED_RATE_2_5G                        1
 #define CPS1_SPEED_RATE_3_125G                      2
-#define CPS1_QUAD_SPEED_SEL(csr)   ((UINT32)csr & CPS1_QUAD_SPEED_MASK)
+#define CPS1_QUAD_SPEED_SEL(csr)   ((uint32_t)csr & CPS1_QUAD_SPEED_MASK)
 
 #define IS_CPS1_SPEED_SEL_VALID(lane_rate) \
-            ( !((UINT32)lane_rate & 0xFFFFFFFC) )
+            ( !((uint32_t)lane_rate & 0xFFFFFFFC) )
 
 #define CPS1_SINGLE_LANE0_PORT                      0
 #define CPS1_SINGLE_LANE2_PORT                      1
@@ -83,10 +83,10 @@ extern "C" {
 #define CPS1_PW_OVERRIDE_REG_MASK                   0x07000000
 
 #define CPS1_GET_PW_OVERRIDE_VAL(port_n_ctrl1) \
-            (((UINT32)port_n_ctrl1 & CPS1_PW_OVERRIDE_REG_MASK) >> 24)
+            (((uint32_t)port_n_ctrl1 & CPS1_PW_OVERRIDE_REG_MASK) >> 24)
 
 #define CPS1_PUT_PW_OVERRIDE_VAL(pw_override) \
-            ((UINT32)pw_override << 24)
+            ((uint32_t)pw_override << 24)
 
 #define CPS1_1x_SUPPORT                             0x0
 #define CPS1_4x_SUPPORT                             0x1
@@ -95,9 +95,9 @@ extern "C" {
 #define CPS1_1x_4x_SUPPORT_REG_MASK                 0xC0000000
 
 #define CPS1_GET_PW_SUPPORT_VAL(port_n_ctrl1) \
-            (((UINT32)port_n_ctrl1 & CPS1_1x_4x_SUPPORT_REG_MASK) >> 30)
+            (((uint32_t)port_n_ctrl1 & CPS1_1x_4x_SUPPORT_REG_MASK) >> 30)
 
-#define CPS1_PUT_PW_SUPPORT_VAL(pw_support)         ((UINT32)pw_support << 30)
+#define CPS1_PUT_PW_SUPPORT_VAL(pw_support)         ((uint32_t)pw_support << 30)
 
 #define CPS1_TX_RATE_SEL                            0x00000007
 #define CPS1_TX_RATE_1_25G                          0x00000000
@@ -112,24 +112,24 @@ extern "C" {
 #define CPS1_SOFT_RESET                             0x00F20040
 #define CPS1_PORT_RESET_MASK                        0x80000000
 
-#define CPS1_CONV_PORT_RESET_REG(p)                 (1 << (15-(UINT8)p))
+#define CPS1_CONV_PORT_RESET_REG(p)                 (1 << (15-(uint8_t)p))
 
 /* Check whether a trace/filter function is enabled for the device or not
 */
-#define IS_CPS1_TRACE_FILTER_ENABLED(dev_ctrl1) ( (UINT32)dev_ctrl1 & 0x4000 )
+#define IS_CPS1_TRACE_FILTER_ENABLED(dev_ctrl1) ( (uint32_t)dev_ctrl1 & 0x4000 )
 
 /* Make a trace/filter function enable                                         
 */
-#define CPS1_TRACE_FILTER_ENABLE(dev_ctrl1) ( (UINT32)dev_ctrl1 | 0x4000 )
+#define CPS1_TRACE_FILTER_ENABLE(dev_ctrl1) ( (uint32_t)dev_ctrl1 | 0x4000 )
 
 /* Make a trace/filter function disable                                        
 */
-#define CPS1_TRACE_FILTER_DISABLE(dev_ctrl1) ( (UINT32)dev_ctrl1 & ~0x4000 )
+#define CPS1_TRACE_FILTER_DISABLE(dev_ctrl1) ( (uint32_t)dev_ctrl1 & ~0x4000 )
 
 /* Check whether a trace output port is enabled or not
 */
 #define IS_CPS1_TRACE_OUT_PORT_ENABLED( port, dev_ctrl1 ) \
-            ( (UINT8)port == (((UINT8)dev_ctrl1 & 0x1E) >> 1) )
+            ( (uint8_t)port == (((uint8_t)dev_ctrl1 & 0x1E) >> 1) )
 
 #define CPS1_PORT_N_ACK_CNTR_ADDR               0xF40010
 #define CPS1_PORT_N_NACK_CNTR_ADDR              0xF40014
@@ -144,54 +144,54 @@ extern "C" {
 #define CPS1_PORT_N_FILTER_MATCH_CNTR4_ADDR     0xF4003C
 
 #define CPS1_PORT_N_ACK_CNTR(p) \
-            ( CPS1_PORT_N_ACK_CNTR_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_ACK_CNTR_ADDR + ((uint32_t)p << 8) )
 
 #define CPS1_PORT_N_NACK_CNTR(p) \
-            ( CPS1_PORT_N_NACK_CNTR_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_NACK_CNTR_ADDR + ((uint32_t)p << 8) )
 
 #define CPS1_PORT_N_SW_PKT_CNTR(p) \
-            ( CPS1_PORT_N_SW_PKT_CNTR_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_SW_PKT_CNTR_ADDR + ((uint32_t)p << 8) )
 
 #define CPS1_PORT_N_TRACE_MATCH_CNTR1(p) \
-            ( CPS1_PORT_N_TRACE_MATCH_CNTR1_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_TRACE_MATCH_CNTR1_ADDR + ((uint32_t)p << 8) )
 
 #define CPS1_PORT_N_TRACE_MATCH_CNTR2(p) \
-            ( CPS1_PORT_N_TRACE_MATCH_CNTR2_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_TRACE_MATCH_CNTR2_ADDR + ((uint32_t)p << 8) )
 
 #define CPS1_PORT_N_TRACE_MATCH_CNTR3(p) \
-            ( CPS1_PORT_N_TRACE_MATCH_CNTR3_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_TRACE_MATCH_CNTR3_ADDR + ((uint32_t)p << 8) )
 
 #define CPS1_PORT_N_TRACE_MATCH_CNTR4(p) \
-            ( CPS1_PORT_N_TRACE_MATCH_CNTR4_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_TRACE_MATCH_CNTR4_ADDR + ((uint32_t)p << 8) )
 
 #define CPS1_PORT_N_FILTER_MATCH_CNTR1(p) \
-            ( CPS1_PORT_N_FILTER_MATCH_CNTR1_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_FILTER_MATCH_CNTR1_ADDR + ((uint32_t)p << 8) )
 
 #define CPS1_PORT_N_FILTER_MATCH_CNTR2(p) \
-            ( CPS1_PORT_N_FILTER_MATCH_CNTR2_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_FILTER_MATCH_CNTR2_ADDR + ((uint32_t)p << 8) )
 
 #define CPS1_PORT_N_FILTER_MATCH_CNTR3(p) \
-            ( CPS1_PORT_N_FILTER_MATCH_CNTR3_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_FILTER_MATCH_CNTR3_ADDR + ((uint32_t)p << 8) )
 
 #define CPS1_PORT_N_FILTER_MATCH_CNTR4(p) \
-            ( CPS1_PORT_N_FILTER_MATCH_CNTR4_ADDR + ((UINT32)p << 8) )
+            ( CPS1_PORT_N_FILTER_MATCH_CNTR4_ADDR + ((uint32_t)p << 8) )
 
 /* Conversion a structure field (Lane Speed) to register fields (Lane Rate)
 */
-STATUS idt_cps1_conv_lane_speed(
+uint32_t idt_cps1_conv_lane_speed(
     idt_pc_ls_t  lane_speed,
-    UINT32       *lane_rate
+    uint32_t       *lane_rate
 );
 
 /* Routine to bind in all CPS GEN1 specific DAR support routines.
    Supports CPS16, CPS12, CPS8, CPS6Q, CPS10Q
 */
-STATUS bind_CPSGEN1_DAR_support( void );
+uint32_t bind_CPSGEN1_DAR_support( void );
 
 /* Routine to bind in all CPS GEN1 specific Device Specific Function routines.
    Supports CPS16, CPS12, CPS8, CPS6Q, CPS10Q
 */
-UINT32 bind_CPSGEN1_DSF_support( void );
+uint32_t bind_CPSGEN1_DSF_support( void );
 
 #ifdef __cplusplus
 }
