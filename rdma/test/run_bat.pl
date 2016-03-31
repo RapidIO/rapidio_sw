@@ -54,7 +54,7 @@ if (!defined($options{d})) {
 	$destid = hex($options{d});
 }
 # Open log file for storing PASS/FAIL results of tests
-my $logfilename = "bat" . $channel . ".log";
+my $logfilename = $directory . "/bat" . $channel . ".log";
 open(my $fh, ">", $logfilename)
 	or die "cannot open $logfilename!";
 
