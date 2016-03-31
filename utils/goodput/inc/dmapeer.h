@@ -68,6 +68,8 @@ private:
   char               m_tun_name[33];
   int                m_tun_MTU;
 
+  DmaPeerRP_t*       m_pRP;
+
   uint32_t           m_WP; ///< This is what we've done to the remote peer's IBwin "BD"
   uint32_t           m_rpeer_UC; ///< Last update count we've seen from peer
 
@@ -99,6 +101,7 @@ public:
     m_rio_addr(0),
     m_ib_ptr(NULL),
     m_tun_fd(-1), m_tun_MTU(0),
+    m_pRP(NULL),
     m_WP(0), m_rpeer_UC(0),
     m_rio_rx_bd_L2_ptr(NULL),
     m_rio_rx_bd_ready(NULL), m_rio_rx_bd_ready_size(0),
@@ -162,18 +165,24 @@ public:
 
   inline uint32_t set_RP(const uint32_t rp)
   {
+    ASSERT_BUFC(rp);
     m_rpeer_UC = 0;
     ((DmaPeerRP_t*)m_ib_ptr)->rpeer.UC = 0;
-    ((DmaPeerRP_t*)m_ib_ptr)->rpeerLS = 0; // destroy time stamp
+    ((DmaPeerRP_t*)m_ib_ptr)->rpeerLS  = 0; // destroy time stamp
     return ((DmaPeerRP_t*)m_ib_ptr)->rpeer.RP = rp;
   }
 
   inline uint32_t get_RP() { return ((DmaPeerRP_t*)m_ib_ptr)->rpeer.RP; }
-  inline uint32_t get_RP_serial() { return ((DmaPeerRP_t*)m_ib_ptr)->rpeer.UC; }
+  inline uint32_t get_RP_serial()   { return ((DmaPeerRP_t*)m_ib_ptr)->rpeer.UC; }
   inline uint64_t get_RP_lastSeen() { return ((DmaPeerRP_t*)m_ib_ptr)->rpeerLS; }
 
   /** \brief Return IB RP that we keep in shared memory */
-  inline uint32_t get_IB_RP() { return ((DmaPeerRP_t*)m_ib_ptr)->RP; }  
+  inline uint32_t get_IB_RP()
+  {
+    register uint32_t rp = m_pRP->RP;
+    ASSERT_BUFC(rp);
+    return rp;
+  }  
 
   inline uint32_t get_serial() { return ++m_serial; }
 
@@ -243,6 +252,9 @@ public:
       write(STDOUT_FILENO, ss.str().c_str(), ss.str().size());
 #endif // UDMA_TUN_DEBUG_IB
     }}
+
+    m_pRP = (DmaPeerRP_t*)m_ib_ptr;
+    m_pRP->sig = DMAPEER_SIG;
 
     m_info = (struct worker*)info;
 
@@ -385,6 +397,8 @@ error:
   {
     if (m_info == NULL || m_rio_rx_bd_L2_ptr == NULL) return -42;
 
+    assert(m_pRP->sig == DMAPEER_SIG);
+
     int cnt = 0;
     for (int i = 0; i < (m_info->umd_tx_buf_cnt-1); i++) {
       if(1 == m_rio_rx_bd_L2_ptr[i]->RO) cnt++;
@@ -394,12 +408,12 @@ error:
   }
 
   /** \brief Update last seen timestamp if peer pushed a new update counter */
-  inline void update_RP_LS()
+  inline void update_RP_LastSeen()
   {
-    volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)m_ib_ptr;
-    if (m_rpeer_UC != pRP->rpeer.UC) {
-      m_rpeer_UC = pRP->rpeer.UC;
-      pRP->rpeerLS = rdtsc();
+    assert(m_pRP->sig == DMAPEER_SIG);
+    if (m_rpeer_UC != m_pRP->rpeer.UC) {
+      m_rpeer_UC = m_pRP->rpeer.UC;
+      m_pRP->rpeerLS = rdtsc();
     }
   }
 
@@ -416,15 +430,13 @@ error:
 
     assert(sig == PEER_SIG_UP);
 
-    volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)m_ib_ptr;
-
-    uint32_t k = pRP->RP;
+    uint32_t k = m_pRP->RP;
     assert(k >= 0);
-    assert(k < (m_info->umd_tx_buf_cnt-1));
+    ASSERT_BUFC(k);
 
     m_stats.rio_isol_rx_pass++;
 
-    update_RP_LS();
+    update_RP_LastSeen();
 
     uint64_t now = rdtsc();
 
@@ -462,11 +474,10 @@ error:
       if (m_info->stop_req) break;
       if (stop_req) continue;
 
-      update_RP_LS();
+      update_RP_LastSeen();
       if (idx >= (m_info->umd_tx_buf_cnt-1)) break;
 
       assert(sig == PEER_SIG_UP);
-      assert(m_rio_rx_bd_L2_ptr[k]);
 
       if(0 != m_rio_rx_bd_L2_ptr[k]->RO) {
         if (42 == m_rio_rx_bd_L2_ptr[k]->RO) goto next; // Not yet cleared by "bottom half"
@@ -476,8 +487,8 @@ error:
         DBG("\n\tFound ready buffer at RP=%u\n", k);
 #endif
 
-        assert(k < (m_info->umd_tx_buf_cnt-1));
-        assert(idx < (m_info->umd_tx_buf_cnt-1));
+        ASSERT_BUFC(k);
+        ASSERT_BUFC(idx);
 
         m_rio_rx_bd_ready[idx] = k;
         m_rio_rx_bd_ready_ts[idx] = now;
@@ -490,6 +501,7 @@ error:
 
  next:
       k++; if(k == (m_info->umd_tx_buf_cnt-1)) k = 0; // RP wrap-around
+      ASSERT_BUFC(k);
     }
 
     if (cnt > 0) {
@@ -509,7 +521,7 @@ error:
           snprintf(tmp, 16, "%d ", m_rio_rx_bd_L2_ptr[i]->RO);
           strncat(buf, tmp, 81920);
         }
-        CRIT("\n\tBUG: IBBD[RP]->RO==0 k=%d savRP=%u volRP=%u pending %d IB BDs: %s\n", k, saved_RP, pRP->RP, N_pending, buf);
+        CRIT("\n\tBUG: IBBD[RP]->RO==0 k=%d savRP=%u volRP=%u pending %d IB BDs: %s\n", k, saved_RP, m_pRP->RP, N_pending, buf);
         usleep(10 * 1000); fflush(NULL);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Waddress"
@@ -521,7 +533,7 @@ error:
 
     spunlock();
 
-    update_RP_LS();
+    update_RP_LastSeen();
 
     if (cnt == 0) return 0;
 
@@ -541,8 +553,6 @@ error:
     int rx_ok = 0; // TX'ed into Tun device
     uint64_t last_ts = 0;
 
-    volatile DmaPeerRP_t* pRP = (DmaPeerRP_t*)m_ib_ptr;
-
     int cnt = 0;
     int ready_bd_list[m_info->umd_tx_buf_cnt]; memset(ready_bd_list, 0xff, sizeof(ready_bd_list));
 
@@ -560,7 +570,7 @@ error:
     m_stats.rio_rx_pass++;
 
 #ifdef UDMA_TUN_DEBUG_IB
-    DBG("\n\tInbound %d buffers(s) will be processed from destid %u RP=%u\n", cnt, destid, pRP->RP);
+    DBG("\n\tInbound %d buffers(s) will be processed from destid %u RP=%u\n", cnt, destid, m_pRP->RP);
 #endif
 
     bool last_pkt_acked = false;
@@ -571,7 +581,7 @@ error:
     for (int i = 0; i < cnt && !m_info->stop_req; i++) {
       int rp = ready_bd_list[i];
       assert(rp >= 0);
-      assert(rp < (m_info->umd_tx_buf_cnt-1));
+      ASSERT_BUFC(rp);
 
       if (m_info->stop_req || stop_req) goto stop_req;
       assert(sig == PEER_SIG_UP);
@@ -608,10 +618,13 @@ error:
       m_rio_rx_bd_L2_ptr[rp]->RO = 0; // Signal "top half" that we're done with this
 
       rp++; if (rp == (m_info->umd_tx_buf_cnt-1)) rp = 0;
+      ASSERT_BUFC(rp);
+
 #ifdef UDMA_TUN_DEBUG_IB
       DBG("\n\tUpdating old RP %d to %d\n", pRP->RP, rp);
 #endif
-      pRP->RP = rp;
+
+      m_pRP->RP = rp;
 
       bool force_rp_push = false;
       const uint64_t now = rdtsc();
@@ -639,9 +652,17 @@ stop_req:
     do {
       if (last_pkt_acked) break;
       if (m_info->stop_req || stop_req) break;
+      assert(m_pRP->sig == DMAPEER_SIG);
       umd_dma_tun_update_peer_RP(m_info, this); m_stats.push_rp_cnt++;
+      assert(m_pRP->sig == DMAPEER_SIG);
     } while(0);
     return rx_ok;
+  }
+
+  inline void ASSERT_BUFC(const int n)
+  {
+    assert(m_pRP->sig == DMAPEER_SIG);
+    assert(n < (m_info->umd_tx_buf_cnt-1));
   }
 }; // END class DmaPeer
 

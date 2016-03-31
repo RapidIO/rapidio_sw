@@ -589,7 +589,7 @@ bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer)
   bool ret = true;
 
   DmaPeerUpdateRP_t upeer;
-  upeer.RP = peer->get_IB_RP();
+  upeer.RP = peer->get_IB_RP(); // this one will assert internally on bad RP
   upeer.UC = peer->get_serial();
 
   const uint16_t destid = peer->get_destid();
@@ -664,20 +664,20 @@ again: // Receiver (from RIO), TUN TX: Ingest L3 frames into Tun (zero-copy), up
     if (peer->get_rio_rx_bd_ready_size() == 0) // Unlocked op, we take a sneak peek at volatile counter
       peer->rx_work_sem_wait();
 
-          if (info->stop_req || peer->stop_req) goto stop_req;
+    if (info->stop_req || peer->stop_req) goto stop_req;
     assert(peer->sig == PEER_SIG_UP);
 
     DBG("\n\tInbound %d buffers(s) ready RP=%u\n", peer->get_rio_rx_bd_ready_size(), pRP->RP);
 
     int cnt = peer->service_TUN_TX(MAX_RP_INTERVAL);
     rx_ok += cnt;
-        } // END while NOT stop requested
+  } // END while NOT stop requested
 
 stop_req:
   if (info->stop_req == SOFT_RESTART && !peer->stop_req) {
-                DBG("\n\tSoft restart requested, sleeping in a 10uS loop\n");
+    DBG("\n\tSoft restart requested, sleeping in a 10uS loop\n");
     while(info->stop_req != 0) usleep(10);
-                DBG("\n\tAwakened after Soft restart!\n");
+    DBG("\n\tAwakened after Soft restart!\n");
     goto again;
   }
 
@@ -703,8 +703,8 @@ bool umd_dma_goodput_tun_setup_peer(struct worker* info, const uint16_t destid, 
 
   if (info == NULL || rio_addr == 0) return false;
 
-        DmaPeer* tmppeer = new DmaPeer();
-        if (tmppeer == NULL) return false;
+  DmaPeer* tmppeer = new DmaPeer();
+  if (tmppeer == NULL) return false;
 
   tmppeer->sig = PEER_SIG_INIT;
   tmppeer->set_destid(destid);

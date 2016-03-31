@@ -10,9 +10,12 @@ struct DmaPeerUpdateRP_s {
 
 typedef struct DmaPeerUpdateRP_s DmaPeerUpdateRP_t;
 
+#define DMAPEER_SIG	0xb000baaaL
+
 /** \brief This is where we keep the local and remote RP */
 struct DmaPeerRP_s {
   volatile uint32_t RP; ///< Must keep this at offset &IBWin+0 for NREAD to work
+  volatile uint32_t sig;
   volatile uint64_t rpeerLS; ///< Last time we detected peer.UC change. This is a rdtsc ts.
   DmaPeerUpdateRP_t rpeer;
 } __attribute__ ((packed));
