@@ -42,15 +42,21 @@ PREFIX?=/usr
 LIBDIR=$(DESTDIR)$(PREFIX)/lib
 BINDIR=$(DESTDIR)$(PREFIX)/bin
 INCDIR=../include
+UMDINCDIR=../../umd_tsi721/inc
 O?=.
+SOVER?=0.42
 
 ifdef DEBUG
-CFLAGS=-Wall -Wsign-compare -fPIC -DDEBUG -g
+CFLAGS=-Wall -Wno-sign-compare -fPIC -DDEBUG -g
 else
-CFLAGS=-O2 -Wall -Wsign-compare -fPIC -DNDEBUG
+CFLAGS=-O2 -Wall -Wno-sign-compare -fPIC -DNDEBUG
 endif
 
-LIBS=rt	pthread
+CFLAGS += -ggdb
+CFLAGS += -I../../fabric_management/librio_switch/inc
+CFLAGS += -I$(UMDINCDIR)
+
+LIBS=rt	pthread dl
 LDFLAGS?=-static
 INCLUDES=$(INCDIR) $(DRV_INCLUDE_DIR)
 LIBPATHS=$(LIBDIR) $(O)
@@ -68,14 +74,21 @@ all: $(LIB_TARGETS) $(SAMPLES_TARGETS)
 
 samples: $(SAMPLES_TARGETS)
 
-libmport.so: src/riodp_mport_lib.o
-	$(CXX) -shared -o $@ $^
+libmport.so: src/riodp_mport_lib.o src/dmachanshm_dl.o
+	$(CXX) -shared -ldl -L../libs_so -ltime_utils -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER) $^
+	@ln -s $@.$(SOVER) $@ &>/dev/null
 
-libmport.a: src/riodp_mport_lib.o
+libmport.a: src/riodp_mport_lib.o src/dmachanshm_dl.o
 	$(AR) -r $@ $^
 
+umdmporttest: src/riodp_mport_lib.c src/dmachanshm_dl.c
+	$(CXX) -DTEST_UMDD \
+		$(addprefix -I, $(INCLUDES)) -I../../fabric_management/librio_switch/inc -I$(UMDINCDIR) \
+		-Wall -Wno-sign-compare -ggdb \
+		-ldl -L../libs_a -ltime_utils -o $@ $^
+
 $(O)/%: $(O)/samples/%.o libmport.so libmport.a
-	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) libmport.a
+	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) libmport.a -L../libtime_utils -ltime_utils
 
 $(O)/%: $(O)/src/%.o
 	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS))
@@ -84,4 +97,4 @@ $(O)/%.o: %.c
 	$(CXX) -c -o $@ $(addprefix -I, $(INCLUDES)) $(CFLAGS) $<
 
 clean:
-	rm -rf $(SAMPLES_TARGETS) $(LIB_TARGETS) $(O)/src/*.o $(O)/samples/*.o
+	rm -rf $(SAMPLES_TARGETS) $(LIB_TARGETS) $(O)/src/*.o $(O)/samples/*.o libmport.so* umdmporttest

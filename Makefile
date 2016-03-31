@@ -35,6 +35,9 @@ export LOG_LEVEL
 DEBUG?=DEBUG
 export DEBUG
 
+SOVER?=0.4
+export SOVER
+
 CC = $(CROSS_COMPILE)g++
 export CC
 
@@ -44,7 +47,7 @@ export CXX
 TOP_LEVEL = $(shell pwd)
 export TOP_LEVEL
 
-TARGETS = common fabric_management rdma 
+TARGETS = common umd umdd fabric_management rdma 
 
 all: $(TARGETS)
 
@@ -54,6 +57,12 @@ fabric_management: common FORCE
 rdma: common fabric_management FORCE
 	$(MAKE) all -C rdma
 		
+umd: FORCE
+	$(MAKE) all -C umd_tsi721
+		
+umdd: FORCE
+	$(MAKE) all -C umdd_tsi721
+		
 common: FORCE
 	$(MAKE) all -C common 
 		
@@ -61,6 +70,8 @@ FORCE:
 
 clean: FORCE
 	$(MAKE) clean -C common
+	$(MAKE) clean -C umd_tsi721
+	$(MAKE) clean -C umdd_tsi721
 	$(MAKE) clean -C rdma
 	$(MAKE) clean -C fabric_management
 	rm -rf include/libs_a/*

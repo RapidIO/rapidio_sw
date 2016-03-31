@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-char *idt_em_disc_reason_names[ (UINT8)(idt_rt_disc_last) ] = {
+char *idt_em_disc_reason_names[ (uint8_t)(idt_rt_disc_last) ] = {
    (char *)"NoDiscard" ,  // idt_rt_disc_not
    (char *)"RteInvalid",  // idt_rt_disc_rt_invalid
    (char *)"Deliberate",   // idt_rt_disc_deliberately
@@ -61,11 +61,11 @@ char *idt_em_disc_reason_names[ (UINT8)(idt_rt_disc_last) ] = {
 };
 
 /* User function calls for a routing table configuration */
-STATUS idt_rt_initialize  ( DAR_DEV_INFO_t           *dev_info,
+uint32_t idt_rt_initialize  ( DAR_DEV_INFO_t           *dev_info,
                             idt_rt_initialize_in_t   *in_parms,
                             idt_rt_initialize_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 
@@ -80,11 +80,11 @@ STATUS idt_rt_initialize  ( DAR_DEV_INFO_t           *dev_info,
     return rc;
 }
 
-STATUS idt_rt_probe       ( DAR_DEV_INFO_t           *dev_info,
+uint32_t idt_rt_probe       ( DAR_DEV_INFO_t           *dev_info,
                             idt_rt_probe_in_t        *in_parms,
                             idt_rt_probe_out_t       *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 
@@ -100,11 +100,11 @@ STATUS idt_rt_probe       ( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-STATUS idt_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
+uint32_t idt_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
                          idt_rt_probe_all_in_t   *in_parms,
                          idt_rt_probe_all_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 
@@ -119,11 +119,11 @@ STATUS idt_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
     return rc;
 }
 
-STATUS idt_rt_set_all( DAR_DEV_INFO_t        *dev_info,
+uint32_t idt_rt_set_all( DAR_DEV_INFO_t        *dev_info,
                        idt_rt_set_all_in_t   *in_parms,
                        idt_rt_set_all_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 
@@ -138,11 +138,11 @@ STATUS idt_rt_set_all( DAR_DEV_INFO_t        *dev_info,
     return rc;
 }
 
-STATUS idt_rt_set_changed( DAR_DEV_INFO_t            *dev_info,
+uint32_t idt_rt_set_changed( DAR_DEV_INFO_t            *dev_info,
                            idt_rt_set_changed_in_t   *in_parms,
                            idt_rt_set_changed_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 
@@ -157,11 +157,11 @@ STATUS idt_rt_set_changed( DAR_DEV_INFO_t            *dev_info,
     return rc;
 }
 
-STATUS idt_rt_alloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
+uint32_t idt_rt_alloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
                        idt_rt_alloc_mc_mask_in_t   *in_parms,
                        idt_rt_alloc_mc_mask_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 
@@ -175,11 +175,11 @@ STATUS idt_rt_alloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
 
     return rc;
 }
-STATUS idt_rt_dealloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
+uint32_t idt_rt_dealloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
                        idt_rt_dealloc_mc_mask_in_t   *in_parms,
                        idt_rt_dealloc_mc_mask_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 
@@ -193,11 +193,11 @@ STATUS idt_rt_dealloc_mc_mask( DAR_DEV_INFO_t        *dev_info,
 
     return rc;
 }
-STATUS idt_rt_change_rte( DAR_DEV_INFO_t        *dev_info,
+uint32_t idt_rt_change_rte( DAR_DEV_INFO_t        *dev_info,
                        idt_rt_change_rte_in_t   *in_parms,
                        idt_rt_change_rte_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 
@@ -211,11 +211,11 @@ STATUS idt_rt_change_rte( DAR_DEV_INFO_t        *dev_info,
 
     return rc;
 }
-STATUS idt_rt_change_mc_mask( DAR_DEV_INFO_t        *dev_info,
+uint32_t idt_rt_change_mc_mask( DAR_DEV_INFO_t        *dev_info,
                        idt_rt_change_mc_mask_in_t   *in_parms,
                        idt_rt_change_mc_mask_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 

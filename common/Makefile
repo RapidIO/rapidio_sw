@@ -45,50 +45,53 @@ DEBUG ?= DEBUG
 export DEBUG
 endif
 
+SOVER?=0.4
+export SOVER
 
-all: libcli liblist liblog libmport libtime_utils libunit_test samples
+
+all: libcli liblist liblog libtime_utils libmport libunit_test samples
 
 libcli: FORCE
 	$(MAKE) all -C libcli
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libcli/libcli.a libs_a/
-	cp libcli/libcli.so libs_so/
+	(cd libcli; tar cf - libcli.so*) | (cd libs_so; tar xvf -)
 		
 liblist: FORCE
 	$(MAKE) all -C liblist
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp liblist/liblist.a libs_a/
-	cp liblist/liblist.so libs_so/
+	(cd liblist; tar cf - liblist.so*) | (cd libs_so; tar xvf -)
 		
 liblog: FORCE
 	$(MAKE) all -C liblog
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp liblog/liblog.a libs_a/
-	cp liblog/liblog.so libs_so/
+	(cd liblog; tar cf - liblog.so*) | (cd libs_so; tar xvf -)
 		
 libtime_utils: FORCE
 	$(MAKE) all -C libtime_utils
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libtime_utils/libtime_utils.a libs_a/
-	cp libtime_utils/libtime_utils.so libs_so/
+	(cd libtime_utils; tar cf - libtime_utils.so*) | (cd libs_so; tar xvf -)
 		
 libunit_test: FORCE
 	$(MAKE) all -C libunit_test
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libunit_test/libunit_test.a libs_a/
-	cp libunit_test/libunit_test.so libs_so/
+	(cd libunit_test; tar cf - libunit_test.so*) | (cd libs_so; tar xvf -)
 		
-libmport: FORCE
+libmport: FORCE libtime_utils
 	$(MAKE) all LDFLAGS= -C libmport
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libmport/libmport.a libs_a/
-	cp libmport/libmport.so libs_so/
+	(cd libmport; tar cf - libmport.so*) | (cd libs_so; tar xvf -)
 
 samples: FORCE
 	$(MAKE) -C samples

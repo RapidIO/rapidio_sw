@@ -48,7 +48,7 @@ extern "C" {
 #endif
 
 struct mpsw_drv_pe_state {
-        STATUS                   rc;      /* RC of last routine call      */
+        uint32_t                   rc;      /* RC of last routine call      */
         idt_pc_rst_handling      dev_rst; /* Device reset handling config */
         idt_pc_get_config_out_t  pc;      /* Standard config vals */
         idt_pc_get_status_out_t  ps;      /* Standard status vals */

@@ -27,15 +27,19 @@
 # #--------------------------------------------------------------------------***
 # Read values from ones exported in master Makefile. Or, override on the command
 # line if building separately.
+
 level?=$(LOG_LEVEL)
 debug?=$(DEBUG)
 CC = $(CROSS_COMPILE)g++
 CXX = $(CROSS_COMPILE)g++
+SOVER?=0.42
+
+NAME:=log
 
 AR:=$(CROSS_COMPILE)ar
 
 # Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
+SO_LIB_LKFLAGS = -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER) -lnsl -fPIC -g -ggdb
 
 # LOG library flags, sources and objects
 LOGLIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
@@ -53,11 +57,12 @@ all: liblog.so liblog.a
 liblog.so: $(LOGLIB_SOURCES) ../include/liblog.h
 	@echo ---------- Building liblog.so...
 	$(CXX) $(LOGLIB_CFLAGS) $(LOGLIB_SOURCES)
-	$(CXX) -o $@ $(LOGLIB_OBJS) $(SO_LIB_LKFLAGS)
+	$(CXX) -o $@.$(SOVER) $(LOGLIB_OBJS) $(SO_LIB_LKFLAGS)
+	@ln -s $@.$(SOVER) $@ &>/dev/null
 
 %.a: liblog.so
 	@echo ---------- Building liblog.a...
 	$(AR) rcs $@ $(LOGLIB_OBJS)
 
 clean:
-	@rm -f *.o *~ *.so *.a
+	@rm -f *.o *~ *.so* *.a

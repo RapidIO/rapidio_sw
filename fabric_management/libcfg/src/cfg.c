@@ -41,15 +41,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/sem.h>
 #include <fcntl.h>
 
-#ifdef __WINDOWS__
-#include "stdafx.h"
-#include <io.h>
-#include <windows.h>
-#include "tsi721api.h"
-#include "IDT_Tsi721.h"
-#endif
-
-// #ifdef __LINUX__
 #include <stdint.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -57,7 +48,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <netinet/in.h>
-// #endif
 
 #include "fmd_dd.h"
 #include "cfg.h"
@@ -94,6 +84,7 @@ int init_cfg_ptr(void)
 		cfg->mport_info[i].mp_h = NULL;
 		cfg->mport_info[i].ct = 0;
 		cfg->mport_info[i].op_mode = -1;
+		cfg->mport_info[i].mem_sz = CFG_MEM_SZ_DEFAULT;
 		for (j = 0; j < CFG_DEVID_MAX; j++) {
 			cfg->mport_info[i].devids[j].devid = 0;
 			cfg->mport_info[i].devids[j].hc = 0xFF;
@@ -650,6 +641,31 @@ fail:
 	return 1;
 };
 
+#define MEM_SZ_TOKENS "mem34 mem50 mem66"
+
+int parse_mport_mem_size(struct int_cfg_parms *cfg, uint8_t *mem_sz)
+{
+	uint32_t idx;
+
+	idx = get_parm_idx(cfg, (char *)MEM_SZ_TOKENS);
+	switch (idx) {
+	case 0: // mem34
+		*mem_sz = CFG_MEM_SZ_34;
+		break;
+	case 1: // mem50
+		*mem_sz = CFG_MEM_SZ_50;
+		break;
+	case 2: // mem66
+		*mem_sz = CFG_MEM_SZ_66;
+		break;
+	default: // Unknown
+		goto fail;
+	}
+	return 0;
+fail:
+	return 1;
+};
+
 int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 {
 	uint32_t devid_sz, done = 0;
@@ -767,6 +783,9 @@ int parse_mport_info(struct int_cfg_parms *cfg)
 		parse_err(cfg, (char *)"Unknown operating mode.");
 		goto fail;
 	};
+
+	if (parse_mport_mem_size(cfg, &cfg->mport_info[idx].mem_sz))
+		goto fail;
 
 	return parse_ep_devids(cfg, cfg->mport_info[idx].devids);
 fail:
@@ -1326,6 +1345,20 @@ int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp)
 		mp->op_mode = cfg->mport_info[i].op_mode;
 		memcpy(mp->devids, cfg->mport_info[i].devids,
 			sizeof(mp->devids));
+		return 0;
+	};
+	return 1;
+};
+
+int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz)
+{
+	unsigned int i;
+
+	for (i = 0; i < cfg->max_mport_info_idx; i++) {
+		if (mport != cfg->mport_info[i].num)
+			continue;
+
+		*mem_sz = cfg->mport_info[i].mem_sz;
 		return 0;
 	};
 	return 1;

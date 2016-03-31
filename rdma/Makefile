@@ -51,11 +51,12 @@ MPORTLIB_HEADER=rapidio_mport_dma.h
 LIBLOG_PATH=../common/libs_a
 LIB_DIRS = \
 	-L$(TOP_LEVEL)/fabric_management/libfmdd \
-	-L$(COMMON_DIR)/libs_a \
 	-L$(INCLUDE_DIR)/libs_a \
 	-L$(COMMON_DIR)/libs_so \
 	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
 	-L$(TOP_LEVEL)/fabric_management/libdd
+
+LIBS_RPATH?=-Wl,-rpath=$(COMMON_DIR)/libs_so
 
 # Common link flags for all shared libraries
 SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
@@ -120,8 +121,8 @@ librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.so ----------
 	$(CXX) $(RDMALIB_SHARED_CFLAGS) $(RDMALIB_SOURCES)
-	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
-	-o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -lmport -lrt -llog -pthread -lfmdd -ldd -lriocp_pe
+	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) $(LIBS_RPATH) \
+	-o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -ldl -lrt -ltime_utils -lmport -llog -pthread -lfmdd -ldd -lriocp_pe
 
 # The RDMA static library
 librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
@@ -139,9 +140,9 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR
 	daemon/src/*.h $(INCLUDE_DIR)/*.h
 
 	@echo ---------- Building the RDMA Daemon...
-	$(CXX) -L../common/liblist/ $(LIB_DIRS) -L$(MPORTLIB_PATH) -Wl,-rpath=$(MPORTLIB_PATH) \
+	$(CXX) -L../common/liblist/ $(LIB_DIRS) -L$(MPORTLIB_PATH) $(LIBS_RPATH) \
 	-Wl,-rpath=$(TOP_LEVEL)/common/liblist \
-	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -llist -lmport -lrt -lcli -llog -lfmdd -ldd -lriocp_pe -pthread
+	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -llist -ldl -lrt -ltime_utils -lmport -lcli -llog -lfmdd -ldd -lriocp_pe -pthread
 # Building preprocessor output for select files.
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_main.cpp > rdmad_main.i
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_srvr_threads.cpp > rdmad_srvr_threads.i
@@ -151,9 +152,9 @@ rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR
 rrdma:  $(REMDBG_SOURCES)
 	@echo ---------- Building remote debug CLI ...
 	$(CXX) $(RDMAD_CFLAGS) -L$(MPORT_DIR) $(LIB_DIRS) \
-	-Wl,-rpath=$(MPORT_DIR) \
+	$(LIBS_RPATH) \
 	-o $@ $(REMDBG_SOURCES) \
-	-lcli -lrt -lmport -llog -pthread
+	-lcli -lrt -ldl -ltime_utils -lmport -llog -pthread
 
 clean:
 	rm -f rdmad rrdma *.o librdma.so *.i

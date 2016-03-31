@@ -45,15 +45,16 @@ A_LIB_LKFLAGS = -lnsl -fPIC -g -ggdb
 
 CROSS_COMPILE?=/usr/bin/
 
-COMMON_DIR=$(TOP_LEVEL)/common/
-MPORT_DIR=$(TOP_LEVEL)/libmport
+COMMON_DIR=$(TOP_LEVEL)/common
+MPORT_DIR=$(COMMON_DIR)/libmport
+TU_DIR=$(COMMON_DIR)/libtime_utils
 DAEMON=./
 
-LOCAL_LIBRARY_DIR ?= "libs_a"
+LOCAL_LIBRARY_DIR ?= libs_a
 
-LIB_DIRS?=-L$(COMMON_DIR)libs_a -L$(COMMON_DIR)libs_so \
-	-L../$(LOCAL_LIBRARY_DIR) -L$(MPORT_DIR) 
-	
+LIBS_RPATH?=-Wl,-rpath=$(COMMON_DIR)/libs_so
+
+LIB_DIRS?= -L$(COMMON_DIR)/libs_so -L../$(LOCAL_LIBRARY_DIR) $(LIBS_RPATH)
 
 CXX ?= $(CROSS_COMPILE)g++
 AR ?= $(CROSS_COMPILE)ar
@@ -85,7 +86,7 @@ fmd:  $(FMD_OBJECTS) $(FMD_SOURCES) src/*.h
 	@echo ---------- Building fmd...
 	$(CXX) -pthread \
 	-o $@ $(FMD_OBJECTS) $(LIB_DIRS) \
-	-lcli -ldd -llist -lrt -lmport -llog -lriocp_pe \
+	-lcli -ldd -llist -lrt -ldl -ltime_utils -lmport -llog -lriocp_pe \
 	-lswitch_api -lcfg -lpe_mpdrv
 
 clean:

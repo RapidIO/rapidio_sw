@@ -60,7 +60,7 @@ void init_app_mgmt(struct fmd_app_mgmt_state *app, int init_sem)
 	app->alloced = 0;
 	app->app_fd = 0;
 	app->addr_size = 0;
-	memset((void *)&app->addr, sizeof(struct sockaddr_un), 0);
+	memset((void *)&app->addr, 0, sizeof(struct sockaddr_un));
 	app->alive = 0;
 	if (NO_SEM != init_sem) {
 		sem_init(&app->started, 0, 0);
@@ -70,9 +70,9 @@ void init_app_mgmt(struct fmd_app_mgmt_state *app, int init_sem)
 	};
 	app->i_must_die = 0;
 	app->proc_num = 0;
-	memset((void *)app->app_name, MAX_APP_NAME+1, 0);
-	memset((void *)&app->req, sizeof(struct libfmd_dmn_app_msg), 0);
-	memset((void *)&app->resp, sizeof(struct libfmd_dmn_app_msg), 0);
+	memset((void *)app->app_name, 0, MAX_APP_NAME+1);
+	memset((void *)&app->req, 0, sizeof(struct libfmd_dmn_app_msg));
+	memset((void *)&app->resp, 0, sizeof(struct libfmd_dmn_app_msg));
 };
 
 void init_app_mgmt_st(void)
@@ -86,7 +86,7 @@ void init_app_mgmt_st(void)
 	app_st.all_must_die = 0;
 	app_st.ct = 0;
 	app_st.fd = 0;
-	memset((void *)&app_st.addr, sizeof(struct sockaddr_un), 0);
+	memset((void *)&app_st.addr, 0, sizeof(struct sockaddr_un));
 	for (i = 0; i < FMD_MAX_APPS; i++) {
 		init_app_mgmt(&app_st.apps[i], INIT_SEM);
 		app_st.apps[i].index = i;
@@ -96,7 +96,7 @@ void init_app_mgmt_st(void)
 
 int handle_app_msg(struct fmd_app_mgmt_state *app)
 {
-	memset((void *)&app->resp, sizeof(struct libfmd_dmn_app_msg), 0);
+	memset((void *)&app->resp, 0, sizeof(struct libfmd_dmn_app_msg));
 
 	app->resp.msg_type = app->req.msg_type | htonl(FMD_APP_MSG_RESP);
 
@@ -265,7 +265,7 @@ void *app_conn_loop( void *unused )
 	sem_post(&app_st.loop_started);
 
 	while (!app_st.all_must_die) {
-		int rc, found, i, new_app_i;
+		int rc, found, i, new_app_i = - 1;
 		struct fmd_app_mgmt_state *new_app;
 
 		sem_wait(&app_st.apps_avail);

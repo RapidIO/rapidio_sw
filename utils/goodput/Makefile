@@ -36,16 +36,20 @@ CXX?= $(CROSS_COMPILE)g++
 
 config?=NODEBUG
 COMMONDIR=../../common
+UMDDIR=../../umd_tsi721
+LIBMPINCDIR=$(COMMONDIR)/libmport/src
 COMMONINC=$(COMMONDIR)/include
-COMMONLIB=$(COMMONDIR)/libs_a
+COMMONLIB=-Wl,-rpath=$(COMMONDIR)/libs_so -L$(COMMONDIR)/libs_so
 REGSDIR=../../fabric_management/librio_switch/inc
 LOG_LEVEL?=7
 export LOG_LEVEL
 
 
 # Kernel-mode flags
-CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
-	-pthread -DRDMA_LL=7
+CCFLAGS = -O3 -ggdb -I./inc  -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) \
+	-std=gnu++0x \
+	-Wall -Wno-sign-compare \
+	-pthread -DRDMA_LL=7 -I$(LIBMPINCDIR) -I$(REGSDIR)
 
 #CCFLAGS+=-pg
 #CCFLAGS+=-DDEBUG_BD
@@ -57,41 +61,34 @@ CCFLAGS = -O3 -Wall -g -I./inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 #CCFLAGS+=-DUDMA_TUN_DEBUG_NREAD
 #CCFLAGS+=-DUDMA_TUN_DEBUG_IN
 #CCFLAGS+=-DUDMA_TUN_DEBUG_SPLOCK
+#CCFLAGS+=-DUDMA_TUN_DEBUG_NWRITE_CH2
 CCFLAGS+=-DUDMA_TUN_DEBUG_HISTO
 #CCFLAGS+=-rdynamic # use with mutrace
 
-INCLUDES = inc/time_utils.h inc/worker.h inc/goodput.h inc/goodput_cli.h
-SOURCES = src/goodput.c src/goodput_cli.c src/time_utils.c src/worker.c
+INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
+SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 
 # User-mode only flags
-# FIXME: Work to remove these as time permits
 UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
 	 -Wall -Wno-format -Wno-sign-compare -Wno-write-strings \
 	 -DRIO_ANY_ADDR=0 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
 
-UMD_INCLUDES = inc/debug.h inc/dmadesc.h inc/local_endian.h inc/mapfile.h \
-	inc/mport.h inc/pciebar.h inc/psem.h inc/pshm.h inc/rdtsc.h \
-	inc/spinlock.h
 
-UMD_SOURCES = src/mapfile.cc src/mport.cc src/dmachan.cc src/mboxchan.cc \
-	src/crc32.c \
-	src/hash.cc src/psem.cc src/pshm.cc \
-	src/udma_tun.cc src/tun_ipv4.c \
-	src/umbox_afu.cc
+UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc src/rdmaopsumd.cc
 
-LIBRARIES =  -lpthread -lcli -lmport -llog -lrt
+LIBRARIES =  -lpthread -ldl -lmport -lcli -ltime_utils -llog -lrt -lumd
 
 all: goodput ugoodput
 
-ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES) 
+ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) 
 	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
-	$(LIBRARIES) -L$(COMMONLIB)
+	$(COMMONLIB) -L$(UMDDIR) $(LIBRARIES) 
 
 goodput: $(SOURCES) $(INCLUDES)
-	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(LIBRARIES) -L$(COMMONLIB)
+	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(COMMONLIB) -L$(UMDDIR) $(LIBRARIES)
 
 clean:
-	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out 
+	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out
 
 FORCE:
 

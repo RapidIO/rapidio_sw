@@ -68,7 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libcli.h"
 #include "liblog.h"
 
-#include "time_utils.h"
+#include "libtime_utils.h"
 #include "worker.h"
 #include "goodput.h"
 

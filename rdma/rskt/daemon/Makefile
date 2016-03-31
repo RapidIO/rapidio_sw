@@ -48,15 +48,17 @@ A_LIB_LKFLAGS = -lnsl -fPIC -g -ggdb
 CROSS_COMPILE?=/usr/bin/
 
 COMMON_DIR?=$(TOP_LEVEL)/common
-MPORT_DIR?=$(TOP_LEVEL)/libmport
+MPORT_DIR?=$(COMMON_DIR)/libmport
 RDMA_DIR?=$(TOP_LEVEL)/rdma
 RSKT_DIR?=../lib
 INCLUDE_DIR?=$(TOP_LEVEL)/include
 
-LIB_DIRS?=-L$(COMMON_DIR)/libs_a -L$(INCLUDE_DIR)/libs_a \
+LIB_DIRS?=-L$(INCLUDE_DIR)/libs_a \
 	-L$(COMMON_DIR)/libs_so -L$(TOP_LEVEL)/fabric_management/libriocp_pe \
 	-L$(TOP_LEVEL)/fabric_management/libdd \
-	-L$(MPORT_DIR)
+	#-L$(MPORT_DIR)
+
+LIBS_RPATH?=-Wl,-rpath=$(COMMON_DIR)/libs_so
 
 AR ?= $(CROSS_COMPILE)ar
 
@@ -100,21 +102,20 @@ all: rsktd rskts remdbg rskt_client rskt_server
 # The RDMA Sockets Daemon
 rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
 	@echo ---------- Building rsktd...
-	$(CXX) -pthread -Wl,-rpath=$(MPORT_DIR) \
-	-L$(MPORT_DIR) \
+	$(CXX) -pthread $(LIBS_RPATH) \
 	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) $(LIB_DIRS) \
-	-lrskt -lcli -lrt -lmport \
+	-lrskt -lcli -lrt -ldl -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
 # The RDMA Sockets Test Server
 rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
 	@echo ---------- Building rskt test server...
 	$(CXX) -L$(MPORT_DIR) -L$(shell pwd) -pthread \
-	-Wl,-rpath=$(MPORT_DIR) \
+	$(LIBS_RPATH) \
 	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) $(LIB_DIRS) \
-	-lrskt -lcli -lrt -lmport \
+	-lrskt -lcli -lrt -ldl -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
 rskt_server:  $(RSKTLIB_OBJECTS) $(RSKT_SERVER_SOURCE) src/*.h ../inc/*.h $(COMMON_DIR)/include/*.h
@@ -125,10 +126,10 @@ rskt_server:  $(RSKTLIB_OBJECTS) $(RSKT_SERVER_SOURCE) src/*.h ../inc/*.h $(COMM
 	-I$(COMMON_DIR)/include \
 	-I$(TOP_LEVEL)/include \
 	-DRDMA_LL=7 \
-	-Wl,-rpath=$(MPORT_DIR) \
+	$(LIBS_RPATH) \
 	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_SERVER_SOURCE) $(LIB_DIRS) \
-	-lrskt -lcli -lrt -lmport \
+	-lrskt -lcli -lrt -ldl -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
 rskt_client:  $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) src/*.h ../inc/*.h $(COMMON_DIR)/include/*.h
@@ -139,19 +140,19 @@ rskt_client:  $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) src/*.h ../inc/*.h $(COMM
 	-I$(COMMON_DIR)/include \
 	-I$(TOP_LEVEL)/include \
 	-DRDMA_LL=7 \
-	-Wl,-rpath=$(MPORT_DIR) \
+	$(LIBS_RPATH) \
 	-Wl,-rpath=$(RDMA_DIR) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) $(LIB_DIRS) \
-	-lrskt -lcli -lrt -lmport \
+	-lrskt -lcli -lrt -ldl -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
 # The Remote Debug shellsrc/librsktd_cli.c 
 remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
 	@echo ---------- Building remote debug CLI ...
 	$(CXX) -L$(shell pwd) -L$(MPORT_DIR) \
-	-pthread -Wl,-rpath=$(MPORT_DIR) \
+	-pthread $(LIBS_RPATH) \
 	-o $@ $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) $(LIB_DIRS) \
-	-lrskt -lcli -lrt -lmport \
+	-lrskt -lcli -lrt -ldl -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
 clean:

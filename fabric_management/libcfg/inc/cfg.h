@@ -62,6 +62,11 @@ extern "C" {
 #define CFG_DFLT_DD_MTX_FN "/RIO_SM_DEV_DIR_MUTEX"
 #define CFG_DFLT_MAST_CM_PORT 3434
 
+#define CFG_MEM_SZ_34 (uint8_t)(34)
+#define CFG_MEM_SZ_50 (uint8_t)(50)
+#define CFG_MEM_SZ_66 (uint8_t)(66)
+#define CFG_MEM_SZ_DEFAULT CFG_MEM_SZ_34
+
 struct dev_id {
         uint32_t devid;
         uint32_t hc;
@@ -115,6 +120,7 @@ extern int cfg_parse_file(char *cfg_fn, char **dd_mtx_fn, char **dd_fn,
 			uint32_t *m_did, uint32_t *m_cm_port, uint32_t *m_mode);
 extern int cfg_find_sys_mast(uint32_t *m_did, uint32_t *m_cm_port);
 extern int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp);
+extern int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz );
 extern int cfg_find_dev_by_ct(uint32_t ct, struct cfg_dev *dev);
 extern int cfg_get_conn_dev(uint32_t ct, int pt,
 			struct cfg_dev *dev, int *conn_pt);

@@ -37,10 +37,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream>
 #include <vector>
 #include "goodput_cli.h"
-#include "time_utils.h"
+#include "libtime_utils.h"
 #include "mhz.h"
 #include "liblog.h"
 #include "assert.h"
+#include "tsi721_dma.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,6 +53,7 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"ioTlat",
 	(char *)"ioRlat",
 	(char *)"DMA",
+	(char *)"DmaNum",
 	(char *)"dT_Lat",
 	(char *)"dR_Lat",
 	(char *)"MSG_Tx",
@@ -227,8 +229,7 @@ int HaltCmd(struct cli_env *env, int argc, char **argv)
 		wkr[i].stop_req = 2;
 #ifdef USER_MODE_DRIVER
 		wkr[i].umd_fifo_proc_must_die = 1;
-		if (wkr[i].umd_dch)
-			wkr[i].umd_dch->shutdown();
+		if (wkr[i].umd_dch) wkr[i].umd_dch->shutdown();
 #endif
 	};
 
@@ -381,9 +382,9 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	if (check_idx(env, idx, 1))
 		goto exit;
 
-	if ((ib_size < FOUR_KB) || (ib_size > SIXTEEN_MB)) {
+	if ((ib_size < FOUR_KB) || (ib_size > 4*SIXTEEN_MB)) {
 		sprintf(env->output, "\nIbwin size range: 0x%x to 0x%x\n",
-			FOUR_KB, SIXTEEN_MB);
+			FOUR_KB, 4*SIXTEEN_MB);
         	logMsg(env);
 		goto exit;
 	};
@@ -797,6 +798,19 @@ OBDIORxLatCmd,
 ATTR_NONE
 };
 
+// "<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
+riomp_dma_directio_type convert_int_to_riomp_dma_directio_type(int trans)
+{
+	switch (trans) {
+	default:
+	case 0: return RIO_DIRECTIO_TYPE_NWRITE;
+	case 1: return RIO_DIRECTIO_TYPE_SWRITE;
+	case 2: return RIO_DIRECTIO_TYPE_NWRITE_R;
+	case 3: return RIO_DIRECTIO_TYPE_SWRITE_R;
+	case 4: return RIO_DIRECTIO_TYPE_NWRITE_R_ALL;
+	};
+}
+
 int dmaCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
@@ -822,7 +836,7 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	if (check_idx(env, idx, 1))
 		goto exit;
 
-	if (trans > (int)RIO_DIRECTIO_TYPE_NWRITE_R_ALL)
+	if (trans > 4)
 		trans = RIO_DIRECTIO_TYPE_NWRITE;
 
 	if (sync > RIO_DIRECTIO_TRANSFER_FAF)
@@ -836,7 +850,7 @@ int dmaCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].acc_size = acc_sz;
 	wkr[idx].wr = wr;
 	wkr[idx].use_kbuf = kbuf;
-	wkr[idx].dma_trans_type = (enum riomp_dma_directio_type)trans;
+	wkr[idx].dma_trans_type = convert_int_to_riomp_dma_directio_type(trans);
 	wkr[idx].dma_sync_type = (enum riomp_dma_directio_transfer_sync)sync;
 	wkr[idx].rdma_buff_size = bytes;
 
@@ -862,6 +876,78 @@ struct cli_cmd dma = {
 	"<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
 	"<sync>  0 SYNC 1 ASYNC 2 FAF\n",
 dmaCmd,
+ATTR_NONE
+};
+
+int dmaNumCmd(struct cli_env *env, int argc, char **argv)
+{
+	int idx;
+	int did;
+	uint64_t rio_addr;
+	uint64_t bytes;
+	uint64_t acc_sz;
+	int wr;
+	int kbuf;
+	int trans;
+	int sync;
+	int num_trans;
+
+	idx = getDecParm(argv[0], 0);
+	did = getDecParm(argv[1], 0);
+	rio_addr = getHex(argv[2], 0);
+	bytes = getHex(argv[3], 0);
+	acc_sz = getHex(argv[4], 0);
+	wr = getDecParm(argv[5], 0);
+	kbuf = getDecParm(argv[6], 0);
+	trans = getDecParm(argv[7], 0);
+	sync = getDecParm(argv[8], 0);
+	num_trans = getDecParm(argv[9], 0);
+
+	if (check_idx(env, idx, 1))
+		goto exit;
+
+	if (trans > 4)
+		trans = RIO_DIRECTIO_TYPE_NWRITE;
+
+	if (sync > RIO_DIRECTIO_TRANSFER_FAF)
+		sync = RIO_DIRECTIO_TRANSFER_SYNC;
+
+	wkr[idx].action = dma_tx_num;
+	wkr[idx].action_mode = kernel_action;
+	wkr[idx].did = did;
+	wkr[idx].rio_addr = rio_addr;
+	wkr[idx].byte_cnt = bytes;
+	wkr[idx].acc_size = acc_sz;
+	wkr[idx].wr = wr;
+	wkr[idx].use_kbuf = kbuf;
+	wkr[idx].dma_trans_type = convert_int_to_riomp_dma_directio_type(trans);
+	wkr[idx].dma_sync_type = (enum riomp_dma_directio_transfer_sync)sync;
+	wkr[idx].rdma_buff_size = bytes;
+	wkr[idx].num_trans = num_trans;
+
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+exit:
+        return 0;
+};
+
+struct cli_cmd dmaNum = {
+"dnum",
+3,
+10,
+"Send a specified number of DMA reads/writes",
+"<idx> <did> <rio_addr> <bytes> <acc_sz> <wr> <kbuf> <trans> <sync> <num>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did> target device ID\n"
+	"<rio_addr> RapidIO memory address to access\n"
+	"<bytes> total bytes to transfer\n"
+	"<acc_sz> Access size, min 0x1000 max 0x1000000\n"
+	"<wr>  0: Read, <>0: Write\n"
+	"<kbuf>  0: User memory, <>0: Kernel buffer\n"
+	"<trans>  0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL\n"
+	"<sync>  0 SYNC 1 ASYNC 2 FAF\n"
+	"<num>   Number of transactions to send.\n",
+dmaNumCmd,
 ATTR_NONE
 };
 
@@ -903,7 +989,7 @@ int dmaTxLatCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].acc_size = bytes;
 	wkr[idx].wr = wr;
 	wkr[idx].use_kbuf = kbuf;
-	wkr[idx].dma_trans_type = (enum riomp_dma_directio_type)trans;
+	wkr[idx].dma_trans_type = convert_int_to_riomp_dma_directio_type(trans);
 	if (wr)
 		wkr[idx].dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
 	else
@@ -1708,66 +1794,6 @@ MpdevsCmd,
 ATTR_NONE
 };
 
-#ifdef USER_MODE_DRIVER
-
-int UCalCmd(struct cli_env *env, int argc, char **argv)
-{
-	int n = 0, idx, chan, map_sz, sy_iter, hash = 0;
-
-	idx = GetDecParm(argv[n++], 0);
-	if (check_idx(env, idx, 1))
-		goto exit;
-
-	chan = GetDecParm(argv[n++], 0);
-	map_sz = GetHex(argv[n++], 0);
-	sy_iter = GetHex(argv[n++], 0);
-	hash = GetDecParm(argv[n++], 0);
-	
-	if ((chan < 1) || (chan > 7)) {
-                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
-        	logMsg(env);
-		goto exit;
-	};
-
-	if ((map_sz < 32) || (map_sz > 0x800000) || (map_sz & (map_sz-1))) {
-                sprintf(env->output,
-			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
-			map_sz, MAX_UMD_BUF_COUNT);
-        	logMsg(env);
-		goto exit;
-	};
-
-	wkr[idx].action = umd_calibrate;
-	wkr[idx].action_mode = user_mode_action;
-	wkr[idx].umd_chan = chan;
-	wkr[idx].umd_tx_buf_cnt = map_sz;
-	wkr[idx].umd_sts_entries = sy_iter;
-	wkr[idx].wr = hash;
-	
-	wkr[idx].stop_req = 0;
-	sem_post(&wkr[idx].run);
-exit:
-	return 0;
-};
-
-struct cli_cmd UCal = {
-"ucal",
-4,
-5,
-"Calibrate performance of various facilities.",
-"<idx> <chan> <map_sz> <sy_iter> <hash>\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<chan> is a DMA channel number from 1 through 7\n"
-	"<map_sz> is number of entries in a map to test\n"
-	"<sy_iter> is the number of times to perform sched_yield and other\n"
-	"       operating system related testing.\n"
-	"<hash> If non-zero, attempt hash calibration.\n",
-
-UCalCmd,
-ATTR_NONE
-};
-
-
 int UTimeCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx, st_i = 0, end_i = MAX_TIMESTAMPS-1;
@@ -1793,15 +1819,6 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	case 'M':
 		ts_p = &wkr[idx].meas_ts;
 		break;
-#ifdef USER_MODE_DRIVER
-	case 'n':
-	case 'N':
-		ts_p = &wkr[idx].nread_ts;
-		break;
-	case '8':
-		ts_p = &wkr[idx].q80p_ts;
-		break;
-#endif
 	default:
                 sprintf(env->output, "FAILED: <type> not 'd', 'f' or 'm'.\n");
         	logMsg(env);
@@ -1811,7 +1828,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 	switch (argv[2][0]) {
 	case 's':
 	case 'S':
-		init_seq_ts(ts_p);
+		init_seq_ts(ts_p, MAX_TIMESTAMPS);
 		break;
 	case '-':
 		if (argc > 4) {
@@ -1890,7 +1907,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 				&tot, &min, &max);
 			diff = time_difference(ts_p->ts_val[idx],
 						ts_p->ts_val[idx+1]);
-			if (diff.tv_nsec < lim)
+			if ((uint64_t)diff.tv_nsec < lim)
 				continue;
 			if (!got_one) {
                 		sprintf(env->output,
@@ -1906,7 +1923,7 @@ int UTimeCmd(struct cli_env *env, int argc, char **argv)
 
 		if (!got_one) {
                 	sprintf(env->output,
-				"\nNo delays found bigger than %d\n", lim);
+				"\nNo delays found bigger than %ld\n", lim);
         		logMsg(env);
 		};
                 sprintf(env->output,
@@ -1957,6 +1974,66 @@ struct cli_cmd UTime = {
 UTimeCmd,
 ATTR_NONE
 };
+
+#ifdef USER_MODE_DRIVER
+
+int UCalCmd(struct cli_env *env, int argc, char **argv)
+{
+	int n = 0, idx, chan, map_sz, sy_iter, hash = 0;
+
+	idx = GetDecParm(argv[n++], 0);
+	if (check_idx(env, idx, 1))
+		goto exit;
+
+	chan = GetDecParm(argv[n++], 0);
+	map_sz = GetHex(argv[n++], 0);
+	sy_iter = GetHex(argv[n++], 0);
+	hash = GetDecParm(argv[n++], 0);
+	
+	if ((chan < 1) || (chan > 7)) {
+                sprintf(env->output, "Chan %d illegal, must be 1 to 7\n", chan);
+        	logMsg(env);
+		goto exit;
+	};
+
+	if ((map_sz < 32) || (map_sz > 0x800000) || (map_sz & (map_sz-1))) {
+                sprintf(env->output,
+			"Bad Buff %x, must be power of 2, 0x20 to 0x%x\n",
+			map_sz, MAX_UMD_BUF_COUNT);
+        	logMsg(env);
+		goto exit;
+	};
+
+	wkr[idx].action = umd_calibrate;
+	wkr[idx].action_mode = user_mode_action;
+	wkr[idx].umd_chan = chan;
+	wkr[idx].umd_tx_buf_cnt = map_sz;
+	wkr[idx].umd_sts_entries = sy_iter;
+	wkr[idx].wr = hash;
+	
+	wkr[idx].stop_req = 0;
+	sem_post(&wkr[idx].run);
+exit:
+	return 0;
+};
+
+struct cli_cmd UCal = {
+"ucal",
+4,
+5,
+"Calibrate performance of various facilities.",
+"<idx> <chan> <map_sz> <sy_iter> <hash>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<chan> is a DMA channel number from 1 through 7\n"
+	"<map_sz> is number of entries in a map to test\n"
+	"<sy_iter> is the number of times to perform sched_yield and other\n"
+	"       operating system related testing.\n"
+	"<hash> If non-zero, attempt hash calibration.\n",
+
+UCalCmd,
+ATTR_NONE
+};
+
 
 int UDMACmd(struct cli_env *env, int argc, char **argv)
 {
@@ -2419,6 +2496,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         uint32_t sts;
 	int mtu;
 	int thruput = 0;
+	int dma_method = 0;
 
         int n = 0; // this be a trick from X11 source tree ;)
 
@@ -2431,6 +2509,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
         buff     = GetHex(argv[n++], 0);
         sts      = GetHex(argv[n++], 0);
         mtu      = GetDecParm(argv[n++], 0);
+        dma_method = GetDecParm(argv[n++], 0);
 
 	if (n <= (argc-1))
 		thruput      = GetDecParm(argv[n++], 0);
@@ -2494,6 +2573,7 @@ int UDMACmdTun(struct cli_env *env, int argc, char **argv)
 
         wkr[idx].action = umd_dma_tap;
         wkr[idx].action_mode = user_mode_action;
+        wkr[idx].dma_method  = dma_method? ACCESS_MPORT: ACCESS_UMD;
         wkr[idx].umd_chan    = chan;
         wkr[idx].umd_chan_n  = chan_n;
         wkr[idx].umd_chan2   = chan2; // for NREAD
@@ -2520,9 +2600,9 @@ exit:
 struct cli_cmd UDMAT = {
 "tundma",
 5,
-6,
+7,
 "TUN/TAP (L3) over DMA with User-Mode demo driver -- pointopoint",
-"<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <mtu> <thruput>\n"
+"<idx> <cpu> <chan_1> <chan_n> <chan_nread> <buff> <sts> <mtu> <rdma> <thruput>\n"
         "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<cpu> is a cpu number, or -1 to indicate no cpu affinity\n"
         "<chan_1> is a DMA channel number from 1 through 7\n"
@@ -2534,6 +2614,7 @@ struct cli_cmd UDMAT = {
         "       Must be a power of two from 0x20 up to 0x80000\n"
         "<mtu> is interface MTU\n"
         "       Must be between (576+4) and 128k; upper bound depends on kernel\n"
+        "<rdma> 0=DMAChannel 1=libmport\n"
         "<thruput> [optional] optimise for 1=thruput 0=latency {default}\n"
         "Note: tunX device will be configured as 169.254.x.y where x.y is our destid+1\n"
         "Note: IBAlloc size = (8+MTU)*buf+4 needed before running this command\n",
@@ -3079,6 +3160,30 @@ ATTR_NONE
 };
 
 
+int TESTdmapackCmd(struct cli_env *env, int argc, char **argv)
+{
+#if 0
+	if (test_packing()) {
+		sprintf(env->output, "\ntest_packing FAILED...\n");
+	} else {
+		sprintf(env->output, "\ntest_packing Passed...\n");
+	};
+        logMsg(env);
+#endif
+        return 0;
+}
+
+struct cli_cmd TESTdmapack = {
+"testdmapack",
+11,
+0,
+"Tests DMA descriptor packing routines",
+"<No Parameters>\n",
+TESTdmapackCmd,
+ATTR_NONE
+};
+
+
 #endif // USER_MODE_DRIVER
 
 struct cli_cmd *goodput_cmds[] = {
@@ -3092,6 +3197,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&dmaTxLat,
 	&dmaRxLat,
 	&dma,
+	&dmaNum,
 	&msgTx,
 	&msgRx,
 	&msgTxLat,
@@ -3109,6 +3215,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&CPUOccSet,
 	&CPUOccDisplay,
 	&Mpdevs,
+	&UTime,
 #ifdef USER_MODE_DRIVER
 	&UCal,
 	&UDMA,
@@ -3121,11 +3228,11 @@ struct cli_cmd *goodput_cmds[] = {
 	&UMSGT,
 	&UMDDD,
 	&UMDDDD,
-	&UTime,
 	&UMDTest,
 	&EPWatch,
 	&UMSGWATCH,
 	&AFUWATCH,
+	&TESTdmapack 
 #endif
 };
 

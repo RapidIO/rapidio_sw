@@ -72,6 +72,7 @@ int test_case_1(void)
 	char *dd_mtx_fn, *dd_fn;
 	char *test_dd_mtx_fn = (char *)CFG_DFLT_DD_MTX_FN;
 	char *test_dd_fn = (char *)CFG_DFLT_DD_FN;
+	uint8_t mem_sz;
 
 	uint32_t m_did, m_cm_port, m_mode;
 
@@ -89,6 +90,21 @@ int test_case_1(void)
 		goto fail;
 
 	if (CFG_DFLT_MAST_CM_PORT != m_cm_port)
+		goto fail;
+
+	if (cfg_get_mp_mem_sz(0, &mem_sz))
+		goto fail;
+	if (mem_sz != CFG_MEM_SZ_34)
+		goto fail;
+
+	if (cfg_get_mp_mem_sz(1, &mem_sz))
+		goto fail;
+	if (mem_sz != CFG_MEM_SZ_50)
+		goto fail;
+
+	if (cfg_get_mp_mem_sz(2, &mem_sz))
+		goto fail;
+	if (mem_sz != CFG_MEM_SZ_66)
 		goto fail;
 
 	if (!m_mode)
@@ -147,7 +163,7 @@ int test_case_3(void)
 	if (mp.op_mode != 1)
 		goto fail;
 
-	if (!cfg_find_mport(1, &mp))
+	if (!cfg_find_mport(3, &mp))
 		goto fail;
 
 	if (cfg_find_dev_by_ct(0x10005, &dev))

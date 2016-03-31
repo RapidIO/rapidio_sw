@@ -37,7 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-char *sc_names[(UINT8)(idt_sc_last)+2] = {
+char *sc_names[(uint8_t)(idt_sc_last)+2] = {
     (char *)"Disabled  ",
     (char *)"Enabled   ",
     (char *)"UnicastReq",
@@ -59,12 +59,12 @@ char *sc_names[(UINT8)(idt_sc_last)+2] = {
 };
 
 /* User function calls for a routing table configuration */
-STATUS idt_sc_init_dev_ctrs (
+uint32_t idt_sc_init_dev_ctrs (
     DAR_DEV_INFO_t             *dev_info,
     idt_sc_init_dev_ctrs_in_t  *in_parms,
     idt_sc_init_dev_ctrs_out_t *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 
@@ -79,12 +79,12 @@ STATUS idt_sc_init_dev_ctrs (
     return rc;
 }
 
-STATUS idt_sc_read_ctrs(
+uint32_t idt_sc_read_ctrs(
     DAR_DEV_INFO_t           *dev_info,
     idt_sc_read_ctrs_in_t    *in_parms,
     idt_sc_read_ctrs_out_t   *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK;
 

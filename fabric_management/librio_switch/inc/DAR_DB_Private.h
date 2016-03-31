@@ -37,11 +37,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *  Trust me, you don't want to use this in your implementation of DAR routines.
 */
 
-#ifndef __DAR_DB_PRIVATE_H__
-#define __DAR_DB_PRIVATE_H__
-
+#include "rio_standard.h"
 #include <DAR_DB.h>
 #include <DAR_DevDriver.h>
+
+#ifndef __DAR_DB_PRIVATE_H__
+#define __DAR_DB_PRIVATE_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,21 +54,21 @@ extern DAR_DB_Driver_t driver_db[DAR_DB_MAX_DRIVERS];
 *  the device handle implementation.
 */
 #define VALIDATE_DEV_INFO(dev_info) ( (0 != dev_info) \
-                 && (   ((dev_info->db_h >> 16) & RIO_DEV_ID_DEV_VEN_ID)    \
-                        == (dev_info->devID       & RIO_DEV_ID_DEV_VEN_ID)) \
+                 && (   ((dev_info->db_h >> 16) & RIO_DEV_IDENT_VEND)    \
+                        == (dev_info->devID       & RIO_DEV_IDENT_VEND)) \
                  && ((DAR_DB_INDEX(dev_info)) < DAR_DB_MAX_DRIVERS) )
 
 #define DAR_DB_INDEX(dev_info) (((dev_info->db_h & 0x0000FFFF) >= DAR_DB_MAX_DRIVERS) \
 		                ? (DAR_DB_MAX_DRIVERS - 1):(dev_info->db_h & 0x0000FFFF))
 
-#define VENDOR_ID(dev_info) ((UINT16)(dev_info->devID & RIO_DEV_ID_DEV_VEN_ID))
+#define VENDOR_ID(dev_info) ((uint16_t)(dev_info->devID & RIO_DEV_IDENT_VEND))
 
-#define DEVICE_ID(dev_info) ((UINT16)((dev_info->devID & \
-                                RIO_DEV_ID_DEV_ID) >> 16))
+#define DEVICE_ID(dev_info) ((uint16_t)((dev_info->devID & \
+                                RIO_DEV_IDENT_DEVI) >> 16))
 
-#define DECODE_VENDOR_ID(device) ((UINT16)(device & RIO_DEV_ID_DEV_VEN_ID))
+#define DECODE_VENDOR_ID(device) ((uint16_t)(device & RIO_DEV_IDENT_VEND))
 
-#define DECODE_DEVICE_ID(device) ((UINT16)((device & RIO_DEV_ID_DEV_ID) >> 16))
+#define DECODE_DEVICE_ID(device) ((uint16_t)((device & RIO_DEV_IDENT_DEVI) >> 16))
 
 #ifdef __cplusplus
 }

@@ -68,13 +68,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 
-#include "time_utils.h"
+#include "libtime_utils.h"
 
 #ifdef USER_MODE_DRIVER
 #include <string>
 #include <map>
 
 #include "dmachan.h"
+#include "rdmaops.h"
 #include "mboxchan.h"
 #include "debug.h"
 #include "dmadesc.h"
@@ -111,6 +112,7 @@ enum req_type {
 	direct_io_tx_lat,
 	direct_io_rx_lat,
 	dma_tx,
+	dma_tx_num,
 	dma_tx_lat,
 	dma_rx_lat,
 	message_tx,
@@ -142,6 +144,11 @@ enum req_mode {
 	user_mode_action
 };
 
+typedef enum {
+	ACCESS_UMD   = 42,
+	ACCESS_MPORT = -42
+} DMAAccess_t;
+
 #define MIN_RDMA_BUFF_SIZE 0x10000
 
 #ifdef USER_MODE_DRIVER
@@ -165,13 +172,14 @@ struct thread_cpu {
 typedef struct {
 	int			 chan;
 	int                      oi;
-	int                      tx_buf_cnt; ///< Powersof 2, min 0x20, only (n-1) usable, last one for T3
+	int                      tx_buf_cnt; ///< Powers of 2, min 0x20, only (n-2) usable, 1st & last one for T3
 	int			 sts_entries;
 
 	volatile uint64_t        ticks_total;
 	volatile uint64_t        total_ticks_tx; ///< How many ticks (total) between read from Tun and NWRITE FIFO completion
 
-	DMAChannel*              dch;
+	RdmaOpsIntf*             rdma;
+
 	RioMport::DmaMem_t       dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 } DmaChannelInfo_t;
@@ -240,6 +248,7 @@ struct worker {
 	uint64_t rdma_kbuff; 
 	uint64_t rdma_buff_size; 
 	void *rdma_ptr; 
+	int num_trans;
 
 	int mb_valid;
 	riomp_mailbox_t mb;
@@ -264,9 +273,15 @@ struct worker {
 	struct timespec min_iter_time; /* Minimum time over all iterations */
 	struct timespec max_iter_time; /* Maximum time over all iterations */
 
+	struct seq_ts desc_ts;
+	struct seq_ts fifo_ts;
+	struct seq_ts meas_ts;
 #ifdef USER_MODE_DRIVER
+	DMAAccess_t     dma_method; // Only for DMA Tun
+
 	void            (*owner_func)(struct worker*);     ///< Who is the owner of this
 	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this
+
 	uint16_t	my_destid;
 	LockFile*	umd_lock;
 	int		umd_chan; ///< Local mailbox OR DMA channel
@@ -274,8 +289,7 @@ struct worker {
 	int		umd_chan2; ///< Local mailbox OR DMA channel
 	int		umd_chan_to; ///< Remote mailbox
 	int		umd_letter; ///< Remote mailbox letter
-	DMAChannel 	*umd_dch; ///< Used for anything but DMA Tun
-	DMAChannel 	*umd_dch_nread; ///< Used for NREAD in DMA Tun
+	DMAChannel      *umd_dch; ///< Used for anything but DMA Tun
 	MboxChannel 	*umd_mch;
 	enum dma_rtype	umd_tx_rtype;
 	int 		umd_tx_buf_cnt;
@@ -304,7 +318,9 @@ struct worker {
 	int             umd_mbox_rx_fd; // socketpair(2) server for MBOX RX; sharing a MboxChannel instance is out of question!
 
 	volatile uint64_t umd_ticks_total_chan2;
-	DmaChannelInfo_t* umd_dch_list[8]; // Used for round-robin TX. Only 6 usable!
+
+	DmaChannelInfo_t* umd_dci_nread; ///< Used for NREAD in DMA Tun
+	DmaChannelInfo_t* umd_dci_list[8]; // Used for round-robin TX. Only 6 usable!
 
 	int		umd_sockp_quit[2]; ///< Used to signal Tun RX thread to quit
 	int             umd_epollfd; ///< Epoll set
@@ -337,12 +353,6 @@ struct worker {
         RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
         DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 
-	struct seq_ts desc_ts;
-	struct seq_ts fifo_ts;
-	struct seq_ts meas_ts;
-	struct seq_ts nread_ts;
-	struct seq_ts nwrite_ts;
-	struct seq_ts q80p_ts;
 
 	volatile int umd_disable_nread;
 	volatile int umd_push_rp_thr; ///< Push RP via NWRITE every N packets; 0=after each packet

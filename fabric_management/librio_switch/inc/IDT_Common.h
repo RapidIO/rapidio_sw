@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __IDT_COMMON_H__
 #define __IDT_COMMON_H__
 
-#include "DAR_Basic_Defs.h"
+#include "stdint.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,7 +110,7 @@ extern "C" {
 /* Routine to bind IDT device drivers into the DAR
    Also makes device specific functions available
 */
-extern STATUS IDT_bind_DAR_routines( void );
+extern uint32_t IDT_bind_DAR_routines( void );
 
 #ifdef __cplusplus
 }

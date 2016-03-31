@@ -56,16 +56,16 @@ extern "C" {
 #define EM_UPDATE_RESET_0 EM_FIRST_SUBROUTINE_0
 
 static DSF_Handle_t Tsi721_driver_handle;
-static UINT32 num_Tsi721_driver_instances;
+static uint32_t num_Tsi721_driver_instances;
 
-STATUS IDT_tsi721ReadReg( DAR_DEV_INFO_t *dev_info,
-                                UINT32  offset,
-                                UINT32  *readdata )
+uint32_t IDT_tsi721ReadReg( DAR_DEV_INFO_t *dev_info,
+                                uint32_t  offset,
+                                uint32_t  *readdata )
 {
-        STATUS rc = RIO_SUCCESS;
+        uint32_t rc = RIO_SUCCESS;
 
 	switch(offset) {
-	case RIO_SWITCH_PORT_INF_CAR: *readdata = 0x00000100;
+	case RIO_SW_PORT_INF: *readdata = 0x00000100;
 				break;
 	case TSI721_RIO_SR_RSP_TO: *readdata = 0x00000100;
 		rc = ReadReg(dev_info, offset, readdata);
@@ -84,12 +84,12 @@ STATUS IDT_tsi721ReadReg( DAR_DEV_INFO_t *dev_info,
         return rc;
 }
 
-STATUS IDT_tsi721WriteReg( DAR_DEV_INFO_t *dev_info,
-                                UINT32  offset,
-                                UINT32  writedata )
+uint32_t IDT_tsi721WriteReg( DAR_DEV_INFO_t *dev_info,
+                                uint32_t  offset,
+                                uint32_t  writedata )
 {
-        STATUS rc = RIO_SUCCESS;
-	UINT32 temp_data;
+        uint32_t rc = RIO_SUCCESS;
+	uint32_t temp_data;
 
 	switch (offset) {
 	/* Correct register errata in Tsi721 */
@@ -119,13 +119,13 @@ STATUS IDT_tsi721WriteReg( DAR_DEV_INFO_t *dev_info,
 // default route or packet discard (no route)
 #define HW_DFLT_RT 0xFF
 
-STATUS IDT_tsi721DeviceSupported( DAR_DEV_INFO_t *DAR_info )
+uint32_t IDT_tsi721DeviceSupported( DAR_DEV_INFO_t *DAR_info )
 {
-    STATUS rc = DAR_DB_NO_DRIVER;
+    uint32_t rc = DAR_DB_NO_DRIVER;
 
-    if ( TSI721_RIO_DEVICE_VENDOR ==  ( DAR_info->devID & RIO_DEV_ID_DEV_VEN_ID ) )
+    if ( TSI721_RIO_DEVICE_VENDOR ==  ( DAR_info->devID & RIO_DEV_IDENT_VEND ) )
     {
-        if ( (TSI721_RIO_DEVICE_ID) == ( (DAR_info->devID & RIO_DEV_ID_DEV_ID) >> 16) )
+        if ( (TSI721_RIO_DEVICE_ID) == ( (DAR_info->devID & RIO_DEV_IDENT_DEVI) >> 16) )
         {
             /* Now fill out the DAR_info structure... */
             rc = DARDB_rioDeviceSupportedDefault( DAR_info );
@@ -142,7 +142,7 @@ STATUS IDT_tsi721DeviceSupported( DAR_DEV_INFO_t *DAR_info )
     return rc;
 }
 
-STATUS bind_tsi721_DAR_support( void )
+uint32_t bind_tsi721_DAR_support( void )
 {
     DAR_DB_Driver_t DAR_info;
 
@@ -158,30 +158,30 @@ STATUS bind_tsi721_DAR_support( void )
 }
 
 typedef struct spx_ctl2_ls_check_info_t_TAG {
-   UINT32      ls_en_val;
-   UINT32      ls_sup_val;
+   uint32_t      ls_en_val;
+   uint32_t      ls_sup_val;
    idt_pc_ls_t ls;
-   UINT32      prescalar_srv_clk;
+   uint32_t      prescalar_srv_clk;
 } spx_ctl2_ls_check_info_t;
 
 spx_ctl2_ls_check_info_t ls_check[] = {
-   { RIO_SPX_CTL_1P25_EN , RIO_SPX_CTL_1P25_SUP , idt_pc_ls_1p25 , 13 },
-   { RIO_SPX_CTL_2P5_EN  , RIO_SPX_CTL_2P5_SUP  , idt_pc_ls_2p5  , 13 },
-   { RIO_SPX_CTL_3P125_EN, RIO_SPX_CTL_3P125_SUP, idt_pc_ls_3p125, 16 },
-   { RIO_SPX_CTL_5P0_EN  , RIO_SPX_CTL_5P0_SUP  , idt_pc_ls_5p0  , 25 },
-   { RIO_SPX_CTL_6P25_EN , RIO_SPX_CTL_6P25_SUP , idt_pc_ls_6p25 , 31 }, 
+   { RIO_SPX_CTL2_GB_1p25_EN , RIO_SPX_CTL2_GB_1p25 , idt_pc_ls_1p25 , 13 },
+   { RIO_SPX_CTL2_GB_2p5_EN  , RIO_SPX_CTL2_GB_2p5  , idt_pc_ls_2p5  , 13 },
+   { RIO_SPX_CTL2_GB_3p125_EN, RIO_SPX_CTL2_GB_3p125, idt_pc_ls_3p125, 16 },
+   { RIO_SPX_CTL2_GB_5p0_EN  , RIO_SPX_CTL2_GB_5p0  , idt_pc_ls_5p0  , 25 },
+   { RIO_SPX_CTL2_GB_6p25_EN , RIO_SPX_CTL2_GB_6p25 , idt_pc_ls_6p25 , 31 }, 
    { 0x00000000          , 0x00000000           , idt_pc_ls_last ,  0 } 
 };
 
-STATUS idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info, 
                                    idt_pc_get_config_in_t   *in_parms, 
                                    idt_pc_get_config_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 port_idx, idx;
-    BOOL   misconfigured = FALSE;
-    UINT32 plmCtl, spxCtl, devStat, spxCtl2;
-    INT32  lane_num;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t port_idx, idx;
+    bool   misconfigured = false;
+    uint32_t plmCtl, spxCtl, devStat, spxCtl2;
+    int32_t  lane_num;
     struct DAR_ptl good_ptl;
 
     out_parms->num_ports = 0;
@@ -198,7 +198,7 @@ STATUS idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
         out_parms->pc[port_idx].pnum = good_ptl.pnums[port_idx];
 
    // Always get LRTO
-	{ UINT32 lrto;
+	{ uint32_t lrto;
       rc = DARRegRead( dev_info, TSI721_RIO_SP_LT_CTL, &lrto); 
 	  if (RIO_SUCCESS != rc) {
          out_parms->imp_rc = PC_SET_CONFIG(0x2);
@@ -210,17 +210,17 @@ STATUS idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
 
     for (port_idx = 0; port_idx < out_parms->num_ports; port_idx++)
     {
-        out_parms->pc[port_idx].port_available = TRUE;
+        out_parms->pc[port_idx].port_available = true;
         out_parms->pc[port_idx].pw = idt_pc_pw_last;
         out_parms->pc[port_idx].ls = idt_pc_ls_last;
-        out_parms->pc[port_idx].xmitter_disable = FALSE;
-        out_parms->pc[port_idx].port_lockout = FALSE;
-        out_parms->pc[port_idx].nmtc_xfer_enable = FALSE;
-        out_parms->pc[port_idx].rx_lswap = FALSE;
-        out_parms->pc[port_idx].tx_lswap = FALSE;
+        out_parms->pc[port_idx].xmitter_disable = false;
+        out_parms->pc[port_idx].port_lockout = false;
+        out_parms->pc[port_idx].nmtc_xfer_enable = false;
+        out_parms->pc[port_idx].rx_lswap = false;
+        out_parms->pc[port_idx].tx_lswap = false;
         for (lane_num = 0; lane_num < IDT_PC_MAX_LANES; lane_num++) {
-           out_parms->pc[port_idx].tx_linvert[lane_num] = FALSE;
-           out_parms->pc[port_idx].rx_linvert[lane_num] = FALSE;
+           out_parms->pc[port_idx].tx_linvert[lane_num] = false;
+           out_parms->pc[port_idx].rx_linvert[lane_num] = false;
         };
 
         // Check that the RapidIO port has been enabled...
@@ -232,7 +232,7 @@ STATUS idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
         };
 
         out_parms->pc[port_idx].powered_up = ((devStat & TSI721_DEVCTL_SRBOOT_CMPL) &&
-			                                  (devStat & TSI721_DEVCTL_PCBOOT_CMPL))?TRUE:FALSE;
+			                                  (devStat & TSI721_DEVCTL_PCBOOT_CMPL))?true:false;
 
         if (!out_parms->pc[port_idx].powered_up)
            goto idt_tsi721_pc_get_config_exit;
@@ -245,7 +245,7 @@ STATUS idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
         };
 
         out_parms->pc[port_idx].xmitter_disable = 
-            (spxCtl & TSI721_RIO_SP_CTL_PORT_DIS)?TRUE:FALSE;
+            (spxCtl & TSI721_RIO_SP_CTL_PORT_DIS)?true:false;
 
         // OK, port is enabled so it can train.
         // Check for port width overrides...
@@ -255,16 +255,16 @@ STATUS idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
            out_parms->imp_rc = PC_GET_CONFIG(0x10);
            goto idt_tsi721_pc_get_config_exit;
         };
-        switch (spxCtl & RIO_SPX_CTL_OVER_PWIDTH) {
-           case RIO_SPX_CTL_OVER_PWIDTH_4x_NO_2X : 
-           case RIO_SPX_CTL_OVER_PWIDTH_NONE_2   : 
-           case RIO_SPX_CTL_OVER_PWIDTH_NONE : out_parms->pc[port_idx].pw = idt_pc_pw_4x;
+        switch (spxCtl & RIO_SPX_CTL_PTW_OVER) {
+           case RIO_SPX_CTL_PTW_OVER_4x_NO_2X : 
+           case RIO_SPX_CTL_PTW_OVER_NONE_2   : 
+           case RIO_SPX_CTL_PTW_OVER_NONE : out_parms->pc[port_idx].pw = idt_pc_pw_4x;
                                                break;
-           case RIO_SPX_CTL_OVER_PWIDTH_1x_L0: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l0;
+           case RIO_SPX_CTL_PTW_OVER_1x_L0: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l0;
                                                break;
-           case RIO_SPX_CTL_OVER_PWIDTH_1x_LR: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l2;
+           case RIO_SPX_CTL_PTW_OVER_1x_LR: out_parms->pc[port_idx].pw = idt_pc_pw_1x_l2;
                                                break;
-           case RIO_SPX_CTL_OVER_PWIDTH_2x_NO_4X : out_parms->pc[port_idx].pw = idt_pc_pw_2x;
+           case RIO_SPX_CTL_PTW_OVER_2x_NO_4X : out_parms->pc[port_idx].pw = idt_pc_pw_2x;
                                                break;
            default                           : out_parms->pc[port_idx].pw = idt_pc_pw_last;
        };
@@ -277,16 +277,16 @@ STATUS idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
        };
        
        out_parms->pc[port_idx].ls = idt_pc_ls_last;
-       misconfigured = FALSE;
+       misconfigured = false;
 
        for (idx = 0; (ls_check[idx].ls_en_val) && !misconfigured; idx++) {
            if (ls_check[idx].ls_en_val & spxCtl2) {
               if (!(ls_check[idx].ls_sup_val & spxCtl2)) {
-                 misconfigured = TRUE;
+                 misconfigured = true;
                  out_parms->pc[port_idx].ls = idt_pc_ls_last;
               } else {
                  if (idt_pc_ls_last != out_parms->pc[port_idx].ls) {
-                    misconfigured = TRUE;
+                    misconfigured = true;
                     out_parms->pc[port_idx].ls = idt_pc_ls_last;
                  } else {
                     out_parms->pc[port_idx].ls = ls_check[idx].ls;
@@ -296,10 +296,10 @@ STATUS idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
        };
 
        out_parms->pc[port_idx].port_lockout = 
-          (spxCtl & TSI721_RIO_SP_CTL_PORT_LOCKOUT)?TRUE:FALSE;
+          (spxCtl & TSI721_RIO_SP_CTL_PORT_LOCKOUT)?true:false;
 
        out_parms->pc[port_idx].port_lockout = 
-          (!(spxCtl & (TSI721_RIO_SP_CTL_INP_EN|TSI721_RIO_SP_CTL_OTP_EN)))?FALSE:TRUE;
+          (!(spxCtl & (TSI721_RIO_SP_CTL_INP_EN|TSI721_RIO_SP_CTL_OTP_EN)))?false:true;
 
        // Check for lane swapping & inversion
        // FIXME!!! LANE SWAPPING AND INVERSION NOT SUPPORTED
@@ -310,11 +310,11 @@ STATUS idt_tsi721_pc_get_config  ( DAR_DEV_INFO_t           *dev_info,
        };
 
        if (plmCtl & TSI721_RIO_PLM_SP_IMP_SPEC_CTL_SWAP_RX) {
-          out_parms->pc[port_idx].rx_lswap = TRUE;
+          out_parms->pc[port_idx].rx_lswap = true;
        };
 
        if (plmCtl & TSI721_RIO_PLM_SP_IMP_SPEC_CTL_SWAP_TX) {
-          out_parms->pc[port_idx].tx_lswap = TRUE;
+          out_parms->pc[port_idx].tx_lswap = true;
        };
     };
 
@@ -325,16 +325,16 @@ idt_tsi721_pc_get_config_exit:
 // Note: in_parms contains the configuration to change to,
 //       out_parms contains the current configuration...
 //
-#define NO_RESETS     FALSE
-#define MANAGE_RESETS TRUE
-STATUS idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_info, 
+#define NO_RESETS     false
+#define MANAGE_RESETS true
+uint32_t idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_info, 
                                                idt_pc_set_config_in_t   *in_parms, 
                                                idt_pc_set_config_out_t  *out_parms,
-                                               BOOL                      manage_resets )
+                                               bool                      manage_resets )
 {
-    STATUS rc = RIO_SUCCESS;
-	UINT32 spxCtl, spxCtl2, devCtl, plmCtl;
-	UINT32 saved_plmCtl, saved_devCtl;
+    uint32_t rc = RIO_SUCCESS;
+	uint32_t spxCtl, spxCtl2, devCtl, plmCtl;
+	uint32_t saved_plmCtl, saved_devCtl;
 
 
     rc = DARRegRead( dev_info, TSI721_RIO_PLM_SP_IMP_SPEC_CTL, &saved_plmCtl );
@@ -401,14 +401,14 @@ STATUS idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_inf
 
            spxCtl &= ~TSI721_RIO_SP_CTL_OVER_PWIDTH;
            switch (in_parms->pc[0].pw) {
-              case idt_pc_pw_2x: spxCtl |= RIO_SPX_CTL_OVER_PWIDTH_2x_NO_4X;
+              case idt_pc_pw_2x: spxCtl |= RIO_SPX_CTL_PTW_OVER_2x_NO_4X;
                                  break;
-              case idt_pc_pw_4x: spxCtl |= RIO_SPX_CTL_OVER_PWIDTH_NONE;
+              case idt_pc_pw_4x: spxCtl |= RIO_SPX_CTL_PTW_OVER_NONE;
                                  break;
               case idt_pc_pw_1x:
-              case idt_pc_pw_1x_l0: spxCtl |= RIO_SPX_CTL_OVER_PWIDTH_1x_L0;
+              case idt_pc_pw_1x_l0: spxCtl |= RIO_SPX_CTL_PTW_OVER_1x_L0;
                                     break;
-              case idt_pc_pw_1x_l2: spxCtl |= RIO_SPX_CTL_OVER_PWIDTH_1x_LR;
+              case idt_pc_pw_1x_l2: spxCtl |= RIO_SPX_CTL_PTW_OVER_1x_LR;
                                     break;
               default:
               case idt_pc_pw_1x_l1: out_parms->imp_rc = PC_SET_CONFIG(8);
@@ -431,8 +431,8 @@ STATUS idt_tsi721_pc_set_config_with_resets  ( DAR_DEV_INFO_t           *dev_inf
 
         // Configure port speed, if necessary...
         if (out_parms->pc[0].ls != in_parms->pc[0].ls) {
-		   UINT32 reg;
-	       UINT32 fiveg_wa_val = (in_parms->pc[0].ls >= idt_pc_ls_5p0)?TSI721_WA_VAL_5G:TSI721_WA_VAL_3G;
+		   uint32_t reg;
+	       uint32_t fiveg_wa_val = (in_parms->pc[0].ls >= idt_pc_ls_5p0)?TSI721_WA_VAL_5G:TSI721_WA_VAL_3G;
 
            if (in_parms->pc[0].ls >= sizeof(ls_check)/sizeof(spx_ctl2_ls_check_info_t)) {
               out_parms->imp_rc = PC_SET_CONFIG(0x31);
@@ -543,13 +543,13 @@ idt_tsi721_pc_set_config_resets_exit:
        return rc;
 };
 
-STATUS idt_tsi721_pc_set_config  ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_tsi721_pc_set_config  ( DAR_DEV_INFO_t           *dev_info, 
                                    idt_pc_set_config_in_t   *in_parms, 
                                    idt_pc_set_config_out_t  *out_parms )
 {
-    STATUS rc = RIO_SUCCESS;
+    uint32_t rc = RIO_SUCCESS;
     idt_pc_get_config_in_t   curr_cfg_in;
-    UINT32 devStat;
+    uint32_t devStat;
 
     out_parms->imp_rc = RIO_SUCCESS;
     out_parms->num_ports = 0;
@@ -645,13 +645,13 @@ idt_tsi721_pc_set_config_exit:
     return rc;
 }
             
-STATUS idt_tsi721_pc_get_status  ( DAR_DEV_INFO_t         *dev_info, 
+uint32_t idt_tsi721_pc_get_status  ( DAR_DEV_INFO_t         *dev_info, 
                                  idt_pc_get_status_in_t   *in_parms, 
                                  idt_pc_get_status_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8  port_idx;
-    UINT32 errStat, spxCtl, devCtl;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t  port_idx;
+    uint32_t errStat, spxCtl, devCtl;
     struct DAR_ptl good_ptl;
 
     out_parms->num_ports = 0;
@@ -659,7 +659,7 @@ STATUS idt_tsi721_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
 
     rc = DARrioGetPortList(dev_info, &in_parms->ptl, &good_ptl);
     if (RIO_SUCCESS != rc) {
-        out_parms->imp_rc = PC_GET_STATUS(1);
+        out_parms->imp_rc = PC_GET_uint32_t(1);
           goto idt_tsi721_pc_get_status_exit;
     };
 
@@ -670,22 +670,22 @@ STATUS idt_tsi721_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
     for (port_idx = 0; port_idx < out_parms->num_ports; port_idx++)
     {
        out_parms->ps[port_idx].pw = idt_pc_pw_last;
-       out_parms->ps[port_idx].port_error = FALSE;
-       out_parms->ps[port_idx].input_stopped = FALSE;
-       out_parms->ps[port_idx].output_stopped = FALSE;
+       out_parms->ps[port_idx].port_error = false;
+       out_parms->ps[port_idx].input_stopped = false;
+       out_parms->ps[port_idx].output_stopped = false;
 
        rc = DARRegRead( dev_info, TSI721_DEVCTL, &devCtl );
        if (RIO_SUCCESS != rc) 
        {
-          out_parms->imp_rc = PC_GET_STATUS(5);
+          out_parms->imp_rc = PC_GET_uint32_t(5);
           goto idt_tsi721_pc_get_status_exit;
        };
 
        out_parms->ps[port_idx].first_lane = 0;
        if ( devCtl & TSI721_DEVCTL_SRBOOT_CMPL ) {
-          out_parms->ps[port_idx].num_lanes = TRUE;
+          out_parms->ps[port_idx].num_lanes = true;
        } else {
-          out_parms->ps[port_idx].num_lanes = FALSE;
+          out_parms->ps[port_idx].num_lanes = false;
        };
 
        if (!out_parms->ps[port_idx].num_lanes)
@@ -694,22 +694,22 @@ STATUS idt_tsi721_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
        // Port is available and powered up, so let's figure out the status...
        rc = DARRegRead( dev_info, TSI721_RIO_SP_ERR_STAT, &errStat );
        if (RIO_SUCCESS != rc) {
-          out_parms->imp_rc = PC_GET_STATUS(0x30+port_idx);
+          out_parms->imp_rc = PC_GET_uint32_t(0x30+port_idx);
           goto idt_tsi721_pc_get_status_exit;
        };
 
        rc = DARRegRead( dev_info, TSI721_RIO_SP_CTL, &spxCtl );
        if (RIO_SUCCESS != rc) {
-          out_parms->imp_rc = PC_GET_STATUS(0x40+port_idx);
+          out_parms->imp_rc = PC_GET_uint32_t(0x40+port_idx);
           goto idt_tsi721_pc_get_status_exit;
        };
 
        out_parms->ps[port_idx].port_ok        = 
-           (errStat & TSI721_RIO_SP_ERR_STAT_PORT_OK        ) ? TRUE : FALSE;
+           (errStat & TSI721_RIO_SP_ERR_STAT_PORT_OK        ) ? true : false;
        out_parms->ps[port_idx].input_stopped  = 
-           (errStat & TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP ) ? TRUE : FALSE;
+           (errStat & TSI721_RIO_SP_ERR_STAT_INPUT_ERR_STOP ) ? true : false;
        out_parms->ps[port_idx].output_stopped = 
-           (errStat & TSI721_RIO_SP_ERR_STAT_OUTPUT_ERR_STOP) ? TRUE : FALSE;
+           (errStat & TSI721_RIO_SP_ERR_STAT_OUTPUT_ERR_STOP) ? true : false;
 
        // Port Error is true if a PORT_ERR is present, OR
        // if a OUTPUT_FAIL is present when STOP_FAIL_EN is set.
@@ -722,13 +722,13 @@ STATUS idt_tsi721_pc_get_status  ( DAR_DEV_INFO_t         *dev_info,
        // PORT_OK is asserted... 
        if (out_parms->ps[port_idx].port_ok) {
           switch (spxCtl & TSI721_RIO_SP_CTL_INIT_PWIDTH) {
-             case RIO_SPX_CTL_INIT_PWIDTH_1x_L0: out_parms->ps[port_idx].pw = idt_pc_pw_1x_l0;
+             case RIO_SPX_CTL_PTW_INIT_1x_L0: out_parms->ps[port_idx].pw = idt_pc_pw_1x_l0;
                                                  break;
-             case RIO_SPX_CTL_INIT_PWIDTH_1x_LR: out_parms->ps[port_idx].pw = idt_pc_pw_1x_l2;
+             case RIO_SPX_CTL_PTW_INIT_1x_LR: out_parms->ps[port_idx].pw = idt_pc_pw_1x_l2;
                                                  break;
-             case RIO_SPX_CTL_INIT_PWIDTH_2x   : out_parms->ps[port_idx].pw = idt_pc_pw_2x;
+             case RIO_SPX_CTL_PTW_INIT_2x   : out_parms->ps[port_idx].pw = idt_pc_pw_2x;
                                                  break;
-             case RIO_SPX_CTL_INIT_PWIDTH_4x   : out_parms->ps[port_idx].pw = idt_pc_pw_4x;
+             case RIO_SPX_CTL_PTW_INIT_4x   : out_parms->ps[port_idx].pw = idt_pc_pw_4x;
                                                  break;
              default:  out_parms->ps[port_idx].pw = idt_pc_pw_last;
           };
@@ -739,12 +739,12 @@ idt_tsi721_pc_get_status_exit:
     return rc;
 }
 
-STATUS reset_tsi721_lp( DAR_DEV_INFO_t          *dev_info, 
-                        UINT32                  *imp_rc )
+uint32_t reset_tsi721_lp( DAR_DEV_INFO_t          *dev_info, 
+                        uint32_t                  *imp_rc )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT32 lr_cmd = STYPE1_LREQ_CMD_RST_DEV;
-   UINT32 lr_resp;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t lr_cmd = STYPE1_LREQ_CMD_RST_DEV;
+   uint32_t lr_resp;
 
    rc = DARRegWrite(dev_info, TSI721_RIO_SP_LM_REQ, lr_cmd);
    if (RIO_SUCCESS != rc) {
@@ -767,22 +767,22 @@ reset_tsi721_lp_exit:
   return rc;
 };
 
-STATUS update_tsi721_reset_policy( DAR_DEV_INFO_t      *dev_info     , 
+uint32_t update_tsi721_reset_policy( DAR_DEV_INFO_t      *dev_info     , 
                                    idt_pc_rst_handling  rst_policy_in,
-				   UINT32              *saved_plmctl,
-				   UINT32              *saved_devctl,
-				   UINT32              *saved_rstint,
-				   UINT32              *saved_rstpw,  
-                                   UINT32              *imp_rc      );
+				   uint32_t              *saved_plmctl,
+				   uint32_t              *saved_devctl,
+				   uint32_t              *saved_rstint,
+				   uint32_t              *saved_rstpw,  
+                                   uint32_t              *imp_rc      );
 
-STATUS idt_tsi721_pc_reset_port  ( DAR_DEV_INFO_t          *dev_info, 
+uint32_t idt_tsi721_pc_reset_port  ( DAR_DEV_INFO_t          *dev_info, 
                                    idt_pc_reset_port_in_t  *in_parms, 
                                    idt_pc_reset_port_out_t *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     idt_pc_get_config_in_t  cfg_in;
     idt_pc_get_config_out_t cfg_out;
-    UINT8  port_idx;
+    uint8_t  port_idx;
 
     out_parms->imp_rc = RIO_SUCCESS;
 
@@ -808,8 +808,8 @@ STATUS idt_tsi721_pc_reset_port  ( DAR_DEV_INFO_t          *dev_info,
     }
 
     for (port_idx = 0; port_idx < cfg_out.num_ports; port_idx++) {
-	   UINT32 devctl, plmctl, ctl2_saved, ctl2;
-	   UINT32 rstint, rstpw;
+	   uint32_t devctl, plmctl, ctl2_saved, ctl2;
+	   uint32_t rstint, rstpw;
 
        // Do not reset ports required for connectivity.
        // Also skip ports that are not available or powered down.
@@ -886,12 +886,12 @@ exit:
     return rc;
 }
 
-STATUS idt_tsi721_pc_reset_link_partner(
+uint32_t idt_tsi721_pc_reset_link_partner(
     DAR_DEV_INFO_t                   *dev_info, 
     idt_pc_reset_link_partner_in_t   *in_parms, 
     idt_pc_reset_link_partner_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;;
 
     out_parms->imp_rc = RIO_SUCCESS;
 
@@ -919,16 +919,16 @@ idt_tsi721_pc_reset_link_partner_exit:
 
 #define PC_CLR_ERRS(x) (PC_CLR_ERRS_0+x)
 
-STATUS idt_tsi721_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_tsi721_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info, 
                                idt_pc_clr_errs_in_t   *in_parms, 
                                idt_pc_clr_errs_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8 port_idx;
-    UINT32 dlay;
-    UINT32 lresp = 0;
-    UINT32 ackid_stat;
-    UINT32 err_stat;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t port_idx;
+    uint32_t dlay;
+    uint32_t lresp = 0;
+    uint32_t ackid_stat;
+    uint32_t err_stat;
     idt_pc_get_status_in_t  status_in;
     idt_pc_get_status_out_t status_out;
 
@@ -1054,7 +1054,7 @@ STATUS idt_tsi721_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info,
        for (port_idx = 0; port_idx < in_parms->num_lp_ports; port_idx++) 
        {
           lp_port_num = in_parms->lp_port_list[port_idx];
-          rc = DARRegWrite( in_parms->lp_dev_info, RIO_PORT_N_LOCAL_ACKID_CSR(in_parms->lp_dev_info->extFPtrForPort, lp_port_num),
+          rc = DARRegWrite( in_parms->lp_dev_info, RIO_SPX_ACKID_ST(in_parms->lp_dev_info->extFPtrForPort, lp_port_num),
                             ackid_stat );
           if (RIO_SUCCESS != rc) 
           {
@@ -1063,10 +1063,10 @@ STATUS idt_tsi721_pc_clr_errs  ( DAR_DEV_INFO_t       *dev_info,
              //    try the next link partner port.
              idt_pc_clr_errs_in_t  temp_in;
              idt_pc_clr_errs_out_t temp_out;
-             STATUS                temp_rc;
+             uint32_t                temp_rc;
 
              memcpy(&temp_in, &in_parms, sizeof(idt_pc_clr_errs_in_t));
-             temp_in.clr_lp_port_err = FALSE;
+             temp_in.clr_lp_port_err = false;
 
              temp_rc = idt_tsi721_pc_clr_errs( dev_info, &temp_in, &temp_out );
              if (RIO_SUCCESS != temp_rc) 
@@ -1108,16 +1108,16 @@ idt_tsi721_pc_clr_errs_exit:
 
 #define UPDATE_RESET(x) (EM_UPDATE_RESET_0+x)
 
-STATUS update_tsi721_reset_policy( DAR_DEV_INFO_t      *dev_info     , 
+uint32_t update_tsi721_reset_policy( DAR_DEV_INFO_t      *dev_info     , 
                                    idt_pc_rst_handling  rst_policy_in,
-				   UINT32              *saved_plmctl,
-				   UINT32              *saved_devctl,
-				   UINT32              *saved_rstint,
-				   UINT32              *saved_rstpw,  
-                                   UINT32              *imp_rc      )
+				   uint32_t              *saved_plmctl,
+				   uint32_t              *saved_devctl,
+				   uint32_t              *saved_rstint,
+				   uint32_t              *saved_rstpw,  
+                                   uint32_t              *imp_rc      )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 plmCtl, devCtl, rstInt = 0, rstPw = 0;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t plmCtl, devCtl, rstInt = 0, rstPw = 0;
 
     rc = DARRegRead( dev_info, TSI721_RIO_PLM_SP_IMP_SPEC_CTL, saved_plmctl );
     if (RIO_SUCCESS != rc) {
@@ -1195,14 +1195,14 @@ update_tsi721_reset_policy_exit:
 
 #define PC_SECURE_PORT(x) (PC_SECURE_PORT_0+x)
 
-STATUS idt_tsi721_pc_secure_port  ( DAR_DEV_INFO_t          *dev_info, 
+uint32_t idt_tsi721_pc_secure_port  ( DAR_DEV_INFO_t          *dev_info, 
                                   idt_pc_secure_port_in_t   *in_parms, 
                                   idt_pc_secure_port_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 ftype_filt;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t ftype_filt;
     struct DAR_ptl good_ptl;
-    UINT32 unused1, unused2, unused3, unused4;
+    uint32_t unused1, unused2, unused3, unused4;
 
     out_parms->imp_rc = RIO_SUCCESS;
 
@@ -1231,8 +1231,8 @@ STATUS idt_tsi721_pc_secure_port  ( DAR_DEV_INFO_t          *dev_info,
     // Will always accept MECS physically.  Since this is an endpoint
     // with only one port, MECS cannot be forwarded.    
     
-    out_parms->MECS_acceptance  = TRUE;
-    out_parms->MECS_participant = FALSE;
+    out_parms->MECS_acceptance  = true;
+    out_parms->MECS_participant = false;
 
     // Tsi721 allows maintenance packets to be filtered out.
     rc = DARRegRead( dev_info, TSI721_RIO_TLM_SP_FTYPE_FILTER_CTL, &ftype_filt );
@@ -1259,18 +1259,18 @@ idt_tsi721_pc_secure_port_exit:
 
 #define PC_DEV_RESET_CONFIG(x) (PC_DEV_RESET_CONFIG_0+x)
 
-STATUS idt_tsi721_pc_dev_reset_config(
+uint32_t idt_tsi721_pc_dev_reset_config(
     DAR_DEV_INFO_t                 *dev_info, 
     idt_pc_dev_reset_config_in_t   *in_parms, 
     idt_pc_dev_reset_config_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 unused1, unused2, unused3, unused4;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t unused1, unused2, unused3, unused4;
 
     out_parms->rst = in_parms->rst;
     out_parms->imp_rc  = RIO_SUCCESS;
 
-    if ((UINT8)(out_parms->rst) >= (UINT8)(idt_pc_rst_last)) {
+    if ((uint8_t)(out_parms->rst) >= (uint8_t)(idt_pc_rst_last)) {
        out_parms->imp_rc = PC_DEV_RESET_CONFIG(1);
        goto idt_tsi721_pc_dev_reset_config_exit;
     };
@@ -1287,7 +1287,7 @@ idt_tsi721_pc_dev_reset_config_exit:
 }
 
 /*
-STATUS idt_tsi721_rt_initialize  ( DAR_DEV_INFO_t         *dev_info, 
+uint32_t idt_tsi721_rt_initialize  ( DAR_DEV_INFO_t         *dev_info, 
                                  idt_rt_initialize_in_t   *in_parms, 
                                  idt_rt_initialize_out_t  *out_parms )
 {
@@ -1297,7 +1297,7 @@ STATUS idt_tsi721_rt_initialize  ( DAR_DEV_INFO_t         *dev_info,
 // FIXME: In future, may modify these routines to manage received deviceIDs
 //        rather than the routing table...  Should probably make this a 
 //        separate capability...
-STATUS idt_tsi721_rt_probe     ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi721_rt_probe     ( DAR_DEV_INFO_t            *dev_info, 
                                  idt_rt_probe_in_t         *in_parms, 
                                  idt_rt_probe_out_t        *out_parms )
 {
@@ -1307,28 +1307,28 @@ STATUS idt_tsi721_rt_probe     ( DAR_DEV_INFO_t            *dev_info,
 // FIXME: In future, may modify these routines to manage received deviceIDs
 //        rather than the routing table...  Should probably make this a 
 //        separate capability...
-STATUS idt_tsi721_rt_probe_all  ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_tsi721_rt_probe_all  ( DAR_DEV_INFO_t           *dev_info, 
                                  idt_rt_probe_all_in_t     *in_parms, 
                                  idt_rt_probe_all_out_t    *out_parms )
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
 
-STATUS idt_tsi721_rt_set_all   ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi721_rt_set_all   ( DAR_DEV_INFO_t            *dev_info, 
                                  idt_rt_set_all_in_t       *in_parms, 
                                  idt_rt_set_all_out_t      *out_parms )
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
 
-STATUS idt_tsi721_rt_set_changed   ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi721_rt_set_changed   ( DAR_DEV_INFO_t            *dev_info, 
                                  idt_rt_set_changed_in_t       *in_parms, 
                                  idt_rt_set_changed_out_t      *out_parms )
 {
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
-STATUS idt_tsi721_rt_change_rte (
+uint32_t idt_tsi721_rt_change_rte (
     DAR_DEV_INFO_t           *dev_info, 
     idt_rt_change_rte_in_t   *in_parms, 
     idt_rt_change_rte_out_t  *out_parms
@@ -1337,7 +1337,7 @@ STATUS idt_tsi721_rt_change_rte (
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
 
-STATUS idt_tsi721_rt_change_mc_mask (
+uint32_t idt_tsi721_rt_change_mc_mask (
     DAR_DEV_INFO_t               *dev_info, 
     idt_rt_change_mc_mask_in_t   *in_parms, 
     idt_rt_change_mc_mask_out_t  *out_parms
@@ -1350,13 +1350,13 @@ STATUS idt_tsi721_rt_change_mc_mask (
 /* NOTE: TSI721_RIO_PW_CTL_PWC_MODE (Reliable port-write reception) is
 * always disabled by this routine.
 */
-STATUS idt_tsi721_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_tsi721_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
                                idt_em_cfg_pw_in_t   *in_parms, 
                                idt_em_cfg_pw_out_t  *out_parms ) 
 {
-  STATUS rc = RIO_ERR_INVALID_PARAMETER;
-  UINT32 regData;
-  UINT32 retx;
+  uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+  uint32_t regData;
+  uint32_t retx;
 
   out_parms->imp_rc = RIO_SUCCESS;
 
@@ -1366,7 +1366,7 @@ STATUS idt_tsi721_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
   };
       
   // Configure destination ID for port writes.
-  regData = ((UINT32)(in_parms->port_write_destID)) << 16;
+  regData = ((uint32_t)(in_parms->port_write_destID)) << 16;
   if (tt_dev16 == in_parms->deviceID_tt) {
      regData |= TSI721_RIO_PW_TGT_ID_LRG_TRANS;
   } else {
@@ -1386,7 +1386,7 @@ STATUS idt_tsi721_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
   };
 
   out_parms->deviceID_tt = (regData & TSI721_RIO_PW_TGT_ID_LRG_TRANS)?tt_dev16:tt_dev8;
-  out_parms->port_write_destID = (UINT16)((regData & ( TSI721_RIO_PW_TGT_ID_PW_TGT_ID 
+  out_parms->port_write_destID = (uint16_t)((regData & ( TSI721_RIO_PW_TGT_ID_PW_TGT_ID 
                                                      | TSI721_RIO_PW_TGT_ID_MSB_PW_ID )) >> 16);
   // Source ID for port writes is found in the TSI721_RIO_BASE_ID of the endpoint
   // Source ID for port-writes cannot be set by this routine.
@@ -1396,14 +1396,14 @@ STATUS idt_tsi721_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
      goto idt_tsi721_em_cfg_pw_exit;
   };
 
-  out_parms->srcID_valid      = TRUE;
+  out_parms->srcID_valid      = true;
   out_parms->port_write_srcID = (tt_dev8 == out_parms->deviceID_tt)?((regData & TSI721_RIO_BASE_ID_BASE_ID)>> 16):
 	                                                             (regData & TSI721_RIO_BASE_ID_LAR_BASE_ID);
 
   // Cannot configure port-write priority or CRF.
   
   out_parms->priority = 3;
-  out_parms->CRF      = TRUE;
+  out_parms->CRF      = true;
 
   // Configure port-write re-transmission rate.
   // Assumption: it is better to choose a longer retransmission time than the value requested.
@@ -1459,10 +1459,10 @@ STATUS idt_tsi721_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
   return rc; 
 };
 
-STATUS idt_tsi721_set_int_cfg( DAR_DEV_INFO_t       *dev_info, 
-                               UINT8                 pnum    ,
+uint32_t idt_tsi721_set_int_cfg( DAR_DEV_INFO_t       *dev_info, 
+                               uint8_t                 pnum    ,
                                idt_em_notfn_ctl_t    notfn   ,
-                               UINT32               *imp_rc  )
+                               uint32_t               *imp_rc  )
 {
 	if (NULL != dev_info)
 		*imp_rc = pnum + (int)notfn;
@@ -1470,10 +1470,10 @@ STATUS idt_tsi721_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
 	return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
 
-STATUS tsi721_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  , 
+uint32_t tsi721_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  , 
                                   idt_em_notfn_ctl_t   *notfn      ,
-                                  UINT8                 pnum      ,
-                                  UINT32               *imp_rc    ) 
+                                  uint8_t                 pnum      ,
+                                  uint32_t               *imp_rc    ) 
 {
 	if (NULL != dev_info)
 		*imp_rc = pnum + *(int*)notfn;
@@ -1481,7 +1481,7 @@ STATUS tsi721_em_determine_notfn( DAR_DEV_INFO_t       *dev_info  ,
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 } 
 
-STATUS idt_tsi721_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info, 
+uint32_t idt_tsi721_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info, 
                                 idt_em_cfg_set_in_t   *in_parms, 
                                 idt_em_cfg_set_out_t  *out_parms ) 
 {
@@ -1491,7 +1491,7 @@ STATUS idt_tsi721_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
-STATUS idt_tsi721_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info, 
+uint32_t idt_tsi721_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info, 
                                 idt_em_cfg_get_in_t   *in_parms, 
                                 idt_em_cfg_get_out_t  *out_parms ) 
 {
@@ -1501,7 +1501,7 @@ STATUS idt_tsi721_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
-STATUS idt_tsi721_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi721_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info, 
                                     idt_em_dev_rpt_ctl_in_t   *in_parms, 
                                     idt_em_dev_rpt_ctl_out_t  *out_parms ) 
 {
@@ -1511,7 +1511,7 @@ STATUS idt_tsi721_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info,
     return RIO_SUCCESS;
 }
 
-STATUS idt_tsi721_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info, 
+uint32_t idt_tsi721_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info, 
                                  idt_em_parse_pw_in_t   *in_parms, 
                                  idt_em_parse_pw_out_t  *out_parms ) 
 {
@@ -1521,7 +1521,7 @@ STATUS idt_tsi721_em_parse_pw  ( DAR_DEV_INFO_t         *dev_info,
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 }
 
-STATUS idt_tsi721_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info, 
+uint32_t idt_tsi721_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info, 
                                      idt_em_get_int_stat_in_t   *in_parms, 
                                      idt_em_get_int_stat_out_t  *out_parms ) 
 {
@@ -1531,7 +1531,7 @@ STATUS idt_tsi721_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
-STATUS idt_tsi721_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_tsi721_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info, 
                                     idt_em_get_pw_stat_in_t   *in_parms, 
                                     idt_em_get_pw_stat_out_t  *out_parms )
 {
@@ -1541,7 +1541,7 @@ STATUS idt_tsi721_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
-STATUS idt_tsi721_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_tsi721_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
                                     idt_em_clr_events_in_t   *in_parms, 
                                     idt_em_clr_events_out_t  *out_parms ) 
 {
@@ -1551,7 +1551,7 @@ STATUS idt_tsi721_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
-STATUS idt_tsi721_em_create_events( DAR_DEV_INFO_t              *dev_info, 
+uint32_t idt_tsi721_em_create_events( DAR_DEV_INFO_t              *dev_info, 
                                     idt_em_create_events_in_t   *in_parms, 
                                     idt_em_create_events_out_t  *out_parms ) 
 {
@@ -1561,7 +1561,7 @@ STATUS idt_tsi721_em_create_events( DAR_DEV_INFO_t              *dev_info,
     return RIO_ERR_FEATURE_NOT_SUPPORTED;
 };
 
-STATUS idt_tsi721_sc_init_dev_ctrs (
+uint32_t idt_tsi721_sc_init_dev_ctrs (
     DAR_DEV_INFO_t             *dev_info,
     idt_sc_init_dev_ctrs_in_t  *in_parms,
     idt_sc_init_dev_ctrs_out_t *out_parms)
@@ -1575,7 +1575,7 @@ STATUS idt_tsi721_sc_init_dev_ctrs (
 /* Routine to bind in all Tsi721 specific Device Specific Function routines.
 */
 
-UINT32 bind_tsi721_DSF_support( void )
+uint32_t bind_tsi721_DSF_support( void )
 {
     IDT_DSF_DB_t idt_driver;
  

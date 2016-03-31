@@ -34,10 +34,12 @@ DEBUG?=DEBUG
 CC?=$(CROSS_COMPILE)g++
 CXX?=$(CROSS_COMPILE)g++
 TOP_LEVEL = $(shell pwd)
+SOVER?=0.42
 
 level=$(LOG_LEVEL)
 
 NAME:=unit_test
+
 TARGETS:=lib$(NAME).a lib$(NAME).so
 TEST_TARGET:=$(NAME)_test
 HEADERS:=inc/libunit_test_priv.h ../../common/include/libunit_test.h
@@ -53,7 +55,7 @@ CFLAGS+=-I. -Iinc -Isrc
 CFLAGS+=-I../../common/include
 CFLAGS+=-DRDMA_LL=$(level)
 LDFLAGS+=-L. -l$(NAME)
-LINK_FLAGS+= -rdynamic -shared
+SO_LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER) -lnsl -fPIC -g -ggdb
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
@@ -65,7 +67,8 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 %.so: $(OBJECTS)
-	$(CXX) -o $@ $(OBJECTS) $(LINK_FLAGS)
+	$(CXX) -o $@.$(SOVER) $(OBJECTS) $(SO_LINK_FLAGS)
+	@ln -s $@.$(SOVER) $@ &>/dev/null
 
 src/%.o: src/%.c $(HEADERS)
 	$(CXX) -c $(CFLAGS) $< -o $@
@@ -78,6 +81,6 @@ $(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS) $(HEADERS) $(TEST_HEADERS)
 	-L. -L../../common/libs_a
 
 clean:
-	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a
+	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a *.so*
 
 .PHONY: all clean

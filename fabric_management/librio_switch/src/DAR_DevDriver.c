@@ -48,21 +48,19 @@ const struct DAR_ptl ptl_all_ports = PTL_ALL_PORTS;
      dev_info device handle information.
 */
 
-STATUS update_dev_info_regvals( DAR_DEV_INFO_t *dev_info, UINT32 offset, UINT32 reg_val ) {
+uint32_t update_dev_info_regvals( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t reg_val ) {
 
-  STATUS rc = RIO_SUCCESS;
+  uint32_t rc = RIO_SUCCESS;
 
-  if (dev_info->extFPtrForPort && 
-       ((RIO_EXT_FEAT_PHYS_EP           == dev_info->extFPtrPortType) ||
-        (RIO_EXT_FEAT_PHYS_EP_SAER      == dev_info->extFPtrPortType) ||
-        (RIO_EXT_FEAT_PHYS_EP_FREE      == dev_info->extFPtrPortType) ||
-        (RIO_EXT_FEAT_PHYS_EP_FREE_SAER == dev_info->extFPtrPortType)) ) {
-     if ((offset >= RIO_PORT_N_CONTROL_CSR(dev_info->extFPtrForPort, 0                      )) && 
-         (offset <= RIO_PORT_N_CONTROL_CSR(dev_info->extFPtrForPort, (NUM_PORTS(dev_info) - 1)))) {
-        if (0x1C == (offset & 0x1C)) {
-	   UINT8 idx;
+  if (dev_info->extFPtrForPort && RIO_SP_VLD(dev_info->extFPtrPortType)) {
+     if ((offset >= RIO_SPX_CTL(dev_info->extFPtrForPort, dev_info->extFPtrPortType, 0                      )) && 
+         (offset <= RIO_SPX_CTL(dev_info->extFPtrForPort, dev_info->extFPtrPortType, (NUM_PORTS(dev_info) - 1)))) {
+        if ((0x1C == (offset & 0x1C) && !RIO_SP3_VLD(dev_info->extFPtrPortType)) ||
+            (0x3C == (offset & 0x3C) && RIO_SP3_VLD(dev_info->extFPtrPortType))) {
+	   uint8_t idx;
 
-           idx = (offset - RIO_PORT_N_CONTROL_CSR(dev_info->extFPtrForPort, 0)) / 0x20;
+           idx = (offset - RIO_SPX_CTL(dev_info->extFPtrForPort, dev_info->extFPtrPortType, 0)) /
+	 			RIO_SP_STEP(dev_info->extFPtrPortType);
            if (idx >= NUM_PORTS(dev_info)) { 
               rc = RIO_ERR_SW_FAILURE;
            } else {
@@ -75,9 +73,9 @@ STATUS update_dev_info_regvals( DAR_DEV_INFO_t *dev_info, UINT32 offset, UINT32 
   return rc;
 };
 
-STATUS DARRegRead( DAR_DEV_INFO_t *dev_info, UINT32 offset, UINT32 *readdata )
+uint32_t DARRegRead( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t *readdata )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) ) {
        rc = driver_db[DAR_DB_INDEX(dev_info)].ReadReg( dev_info,
@@ -93,9 +91,9 @@ STATUS DARRegRead( DAR_DEV_INFO_t *dev_info, UINT32 offset, UINT32 *readdata )
 
 
 
-STATUS DARRegWrite( DAR_DEV_INFO_t *dev_info, UINT32 offset, UINT32 writedata )
+uint32_t DARRegWrite( DAR_DEV_INFO_t *dev_info, uint32_t offset, uint32_t writedata )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].WriteReg( dev_info,
@@ -108,9 +106,9 @@ STATUS DARRegWrite( DAR_DEV_INFO_t *dev_info, UINT32 offset, UINT32 writedata )
 }
 
 
-STATUS DARrioGetNumLocalPorts( DAR_DEV_INFO_t *dev_info, UINT32 *numLocalPorts )
+uint32_t DARrioGetNumLocalPorts( DAR_DEV_INFO_t *dev_info, uint32_t *numLocalPorts )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetNumLocalPorts( dev_info,
@@ -119,9 +117,9 @@ STATUS DARrioGetNumLocalPorts( DAR_DEV_INFO_t *dev_info, UINT32 *numLocalPorts )
 }
 
 
-STATUS DARrioGetFeatures( DAR_DEV_INFO_t *dev_info, RIO_FEATURES *features )
+uint32_t DARrioGetFeatures( DAR_DEV_INFO_t *dev_info, RIO_PE_FEAT_T *features )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetFeatures( dev_info,
@@ -130,10 +128,10 @@ STATUS DARrioGetFeatures( DAR_DEV_INFO_t *dev_info, RIO_FEATURES *features )
 }
 
 
-STATUS DARrioGetSwitchPortInfo( DAR_DEV_INFO_t *dev_info,
-                         RIO_SWITCH_PORT_INFO *portinfo  )
+uint32_t DARrioGetSwitchPortInfo( DAR_DEV_INFO_t *dev_info,
+                         RIO_SW_PORT_INF_T *portinfo  )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetSwitchPortInfo( dev_info,
@@ -142,9 +140,9 @@ STATUS DARrioGetSwitchPortInfo( DAR_DEV_INFO_t *dev_info,
 }
 
 
-STATUS DARrioGetExtFeaturesPtr( DAR_DEV_INFO_t *dev_info, UINT32 *extfptr )
+uint32_t DARrioGetExtFeaturesPtr( DAR_DEV_INFO_t *dev_info, uint32_t *extfptr )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetExtFeaturesPtr( dev_info,
@@ -155,11 +153,11 @@ STATUS DARrioGetExtFeaturesPtr( DAR_DEV_INFO_t *dev_info, UINT32 *extfptr )
 }
 
 
-STATUS DARrioGetNextExtFeaturesPtr( DAR_DEV_INFO_t *dev_info,
-                                           UINT32  currfptr,
-                                           UINT32 *extfptr )
+uint32_t DARrioGetNextExtFeaturesPtr( DAR_DEV_INFO_t *dev_info,
+                                           uint32_t  currfptr,
+                                           uint32_t *extfptr )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetNextExtFeaturesPtr(
@@ -172,9 +170,9 @@ STATUS DARrioGetNextExtFeaturesPtr( DAR_DEV_INFO_t *dev_info,
 }
 
 
-STATUS DARrioGetSourceOps( DAR_DEV_INFO_t *dev_info, RIO_SOURCE_OPS *srcops )
+uint32_t DARrioGetSourceOps( DAR_DEV_INFO_t *dev_info, RIO_SRC_OPS_T *srcops )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetSourceOps( dev_info,
@@ -183,9 +181,9 @@ STATUS DARrioGetSourceOps( DAR_DEV_INFO_t *dev_info, RIO_SOURCE_OPS *srcops )
 }
 
 
-STATUS DARrioGetDestOps( DAR_DEV_INFO_t *dev_info, RIO_DEST_OPS *dstops )
+uint32_t DARrioGetDestOps( DAR_DEV_INFO_t *dev_info, RIO_DST_OPS_T *dstops )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetDestOps( dev_info, dstops);
@@ -193,9 +191,9 @@ STATUS DARrioGetDestOps( DAR_DEV_INFO_t *dev_info, RIO_DEST_OPS *dstops )
 }
 
 
-STATUS DARrioGetAddressMode( DAR_DEV_INFO_t *dev_info, RIO_ADDR_MODE *amode )
+uint32_t DARrioGetAddressMode( DAR_DEV_INFO_t *dev_info, RIO_PE_ADDR_T *amode )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetAddressMode( dev_info,
@@ -204,9 +202,9 @@ STATUS DARrioGetAddressMode( DAR_DEV_INFO_t *dev_info, RIO_ADDR_MODE *amode )
 }
 
 
-STATUS DARrioGetBaseDeviceId( DAR_DEV_INFO_t *dev_info, UINT32 *deviceid )
+uint32_t DARrioGetBaseDeviceId( DAR_DEV_INFO_t *dev_info, uint32_t *deviceid )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetBaseDeviceId( dev_info,
@@ -215,9 +213,9 @@ STATUS DARrioGetBaseDeviceId( DAR_DEV_INFO_t *dev_info, UINT32 *deviceid )
 }
 
 
-STATUS DARrioSetBaseDeviceId( DAR_DEV_INFO_t *dev_info, UINT32 newdeviceid )
+uint32_t DARrioSetBaseDeviceId( DAR_DEV_INFO_t *dev_info, uint32_t newdeviceid )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioSetBaseDeviceId( dev_info,
@@ -226,11 +224,11 @@ STATUS DARrioSetBaseDeviceId( DAR_DEV_INFO_t *dev_info, UINT32 newdeviceid )
 }
 
 
-STATUS DARrioAcquireDeviceLock( DAR_DEV_INFO_t *dev_info,
-                                       UINT16  hostdeviceid,
-                                       UINT16 *hostlockid )
+uint32_t DARrioAcquireDeviceLock( DAR_DEV_INFO_t *dev_info,
+                                       uint16_t  hostdeviceid,
+                                       uint16_t *hostlockid )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioAcquireDeviceLock( dev_info,
@@ -240,11 +238,11 @@ STATUS DARrioAcquireDeviceLock( DAR_DEV_INFO_t *dev_info,
 }
 
 
-STATUS DARrioReleaseDeviceLock( DAR_DEV_INFO_t *dev_info,
-                                       UINT16  hostdeviceid,
-                                       UINT16 *hostlockid )
+uint32_t DARrioReleaseDeviceLock( DAR_DEV_INFO_t *dev_info,
+                                       uint16_t  hostdeviceid,
+                                       uint16_t *hostlockid )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioReleaseDeviceLock( dev_info,
@@ -254,9 +252,9 @@ STATUS DARrioReleaseDeviceLock( DAR_DEV_INFO_t *dev_info,
 }
 
 
-STATUS DARrioGetComponentTag( DAR_DEV_INFO_t *dev_info, UINT32 *componenttag )
+uint32_t DARrioGetComponentTag( DAR_DEV_INFO_t *dev_info, uint32_t *componenttag )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetComponentTag( dev_info,
@@ -265,9 +263,9 @@ STATUS DARrioGetComponentTag( DAR_DEV_INFO_t *dev_info, UINT32 *componenttag )
 }
 
 
-STATUS DARrioSetComponentTag( DAR_DEV_INFO_t *dev_info, UINT32 componenttag )
+uint32_t DARrioSetComponentTag( DAR_DEV_INFO_t *dev_info, uint32_t componenttag )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioSetComponentTag( dev_info,
@@ -275,12 +273,32 @@ STATUS DARrioSetComponentTag( DAR_DEV_INFO_t *dev_info, UINT32 componenttag )
    return rc;
 }
 
-
-STATUS DARrioGetPortErrorStatus( DAR_DEV_INFO_t *dev_info,
-                                         UINT8  portnum,
-                         RIO_PORT_ERROR_STATUS *err_status )
+uint32_t DARrioGetAddrMode( DAR_DEV_INFO_t *dev_info, RIO_PE_ADDR_T *addr_mode )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
+
+   if ( VALIDATE_DEV_INFO( dev_info ) )
+       rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetAddrMode( dev_info,
+                                                              addr_mode );
+   return rc;
+}
+
+uint32_t DARrioSetAddrMode( DAR_DEV_INFO_t *dev_info, RIO_PE_ADDR_T addr_mode )
+{
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
+
+   if ( VALIDATE_DEV_INFO( dev_info ) )
+       rc = driver_db[DAR_DB_INDEX(dev_info)].rioSetAddrMode( dev_info,
+                                                              addr_mode );
+   return rc;
+}
+
+
+uint32_t DARrioGetPortErrorStatus( DAR_DEV_INFO_t *dev_info,
+                                         uint8_t  portnum,
+                         RIO_SPX_ERR_STAT_T *err_status )
+{
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetPortErrorStatus(dev_info,
@@ -289,22 +307,22 @@ STATUS DARrioGetPortErrorStatus( DAR_DEV_INFO_t *dev_info,
    return rc;
 }
 
-STATUS DARrioLinkReqNResp ( DAR_DEV_INFO_t *dev_info, 
-                                     UINT8  portnum, 
-                                    UINT32 *link_stat )
+uint32_t DARrioLinkReqNResp ( DAR_DEV_INFO_t *dev_info, 
+                                     uint8_t  portnum, 
+                                    uint32_t *link_stat )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioLinkReqNResp(dev_info, portnum, link_stat );
    return rc;
 }
 
-STATUS DARrioStdRouteAddEntry( DAR_DEV_INFO_t *dev_info,
-                                      UINT16  routedestid,
-                                       UINT8  routeportno  )
+uint32_t DARrioStdRouteAddEntry( DAR_DEV_INFO_t *dev_info,
+                                      uint16_t  routedestid,
+                                       uint8_t  routeportno  )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioStdRouteAddEntry( dev_info,
@@ -314,11 +332,11 @@ STATUS DARrioStdRouteAddEntry( DAR_DEV_INFO_t *dev_info,
 }
 
 
-STATUS DARrioStdRouteGetEntry( DAR_DEV_INFO_t *dev_info,
-                                      UINT16  routedestid,
-                                       UINT8 *routeportno  )
+uint32_t DARrioStdRouteGetEntry( DAR_DEV_INFO_t *dev_info,
+                                      uint16_t  routedestid,
+                                       uint8_t *routeportno  )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioStdRouteGetEntry( dev_info,
@@ -328,9 +346,9 @@ STATUS DARrioStdRouteGetEntry( DAR_DEV_INFO_t *dev_info,
 }
 
 
-STATUS DARrioStdRouteInitAll( DAR_DEV_INFO_t *dev_info, UINT8 routeportno )
+uint32_t DARrioStdRouteInitAll( DAR_DEV_INFO_t *dev_info, uint8_t routeportno )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioStdRouteInitAll( dev_info,
@@ -339,9 +357,9 @@ STATUS DARrioStdRouteInitAll( DAR_DEV_INFO_t *dev_info, UINT8 routeportno )
 }
 
 
-STATUS DARrioStdRouteRemoveEntry( DAR_DEV_INFO_t *dev_info, UINT16 routedestid )
+uint32_t DARrioStdRouteRemoveEntry( DAR_DEV_INFO_t *dev_info, uint16_t routedestid )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO(dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioStdRouteRemoveEntry(dev_info,
@@ -350,9 +368,9 @@ STATUS DARrioStdRouteRemoveEntry( DAR_DEV_INFO_t *dev_info, UINT16 routedestid )
 }
 
 
-STATUS DARrioStdRouteSetDefault( DAR_DEV_INFO_t *dev_info, UINT8 routeportno )
+uint32_t DARrioStdRouteSetDefault( DAR_DEV_INFO_t *dev_info, uint8_t routeportno )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioStdRouteSetDefault( dev_info,
@@ -360,11 +378,11 @@ STATUS DARrioStdRouteSetDefault( DAR_DEV_INFO_t *dev_info, UINT8 routeportno )
    return rc;
 }
 
-STATUS DARrioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info,
-                                     UINT32  AsmblyVendID,
-                                     UINT16  AsmblyRev )
+uint32_t DARrioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info,
+                                     uint32_t  AsmblyVendID,
+                                     uint16_t  AsmblyRev )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioSetAssmblyInfo( dev_info,
@@ -374,11 +392,11 @@ STATUS DARrioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info,
 }
 
 
-STATUS DARrioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info,
-                                      UINT32 *AsmblyVendID,
-                                      UINT16 *AsmblyRev )
+uint32_t DARrioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info,
+                                      uint32_t *AsmblyVendID,
+                                      uint16_t *AsmblyRev )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetAssmblyInfo( dev_info,
@@ -387,9 +405,9 @@ STATUS DARrioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info,
    return rc;
 }
 
-STATUS DARrioGetPortList( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl_in, struct DAR_ptl *ptl_out )
+uint32_t DARrioGetPortList( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl_in, struct DAR_ptl *ptl_out )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ((!dev_info) || (!ptl_in) || (!ptl_out))
 	   return RIO_ERR_NULL_PARM_PTR;
@@ -399,10 +417,10 @@ STATUS DARrioGetPortList( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl_in, stru
    return rc;
 }
 
-STATUS DARrioSetEnumBound( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
+uint32_t DARrioSetEnumBound( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
 			int enum_bnd_val)
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
      if (!ptl)
 	   return RIO_ERR_NULL_PARM_PTR;
@@ -413,9 +431,9 @@ STATUS DARrioSetEnumBound( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
    return rc;
 }
 
-STATUS DARrioGetDevResetInitStatus( DAR_DEV_INFO_t *dev_info )
+uint32_t DARrioGetDevResetInitStatus( DAR_DEV_INFO_t *dev_info )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioGetDevResetInitStatus(
@@ -423,14 +441,14 @@ STATUS DARrioGetDevResetInitStatus( DAR_DEV_INFO_t *dev_info )
    return rc;
 }
 
-STATUS DARrioPortEnable(
+uint32_t DARrioPortEnable(
     DAR_DEV_INFO_t  *dev_info,
     struct DAR_ptl	*ptl,
-    BOOL            port_ena,
-    BOOL            port_lkout,
-    BOOL            in_out_ena )
+    bool            port_ena,
+    bool            port_lkout,
+    bool            in_out_ena )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if (!ptl)
 	   return RIO_ERR_NULL_PARM_PTR;
@@ -444,11 +462,11 @@ STATUS DARrioPortEnable(
    return rc;
 }
 
-STATUS DARrioEmergencyLockout( 
+uint32_t DARrioEmergencyLockout( 
     DAR_DEV_INFO_t *dev_info,
-    UINT8           port_no  )
+    uint8_t           port_no  )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioEmergencyLockout ( dev_info,
@@ -457,9 +475,9 @@ STATUS DARrioEmergencyLockout(
    return rc;
 }
 
-STATUS DARrioDeviceRemoved( DAR_DEV_INFO_t *dev_info )
+uint32_t DARrioDeviceRemoved( DAR_DEV_INFO_t *dev_info )
 {
-   STATUS rc = DAR_DB_INVALID_HANDLE;
+   uint32_t rc = DAR_DB_INVALID_HANDLE;
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioDeviceRemoved( dev_info );

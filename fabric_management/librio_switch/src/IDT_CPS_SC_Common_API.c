@@ -44,8 +44,8 @@ extern "C" {
 
 typedef struct cps_sc_info_t_TAG {
    idt_sc_ctr_val_t sc_info;
-   UINT32           reg_base; // Port 0 address for this counter
-   UINT32           mask;     // PORT_X_OPS setting req'd to enable counter
+   uint32_t           reg_base; // Port 0 address for this counter
+   uint32_t           mask;     // PORT_X_OPS setting req'd to enable counter
 } cps_sc_info_t;
 
 #define TRACE_0_IDX  0
@@ -76,12 +76,12 @@ cps_sc_info_t cps_sc_info[] = {
 
 #define NUM_CPS_SC (sizeof(cps_sc_info)/sizeof(cps_sc_info_t))
 
-STATUS idt_cps_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
+uint32_t idt_cps_sc_init_dev_ctrs ( DAR_DEV_INFO_t             *dev_info,
                                   idt_sc_init_dev_ctrs_in_t  *in_parms,
                                   idt_sc_init_dev_ctrs_out_t *out_parms)
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8  idx, cntr_i;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t  idx, cntr_i;
    struct DAR_ptl good_ptl;
 
    out_parms->imp_rc = RIO_SUCCESS;
@@ -133,14 +133,14 @@ idt_cps_sc_init_dev_ctrs_exit:
 
 #define CPS_SC_ADDR(p,i) (cps_sc_info[i].reg_base+(0x100*p))
 
-STATUS idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
+uint32_t idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
                              idt_sc_read_ctrs_in_t    *in_parms,
                              idt_sc_read_ctrs_out_t   *out_parms)
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8 p_to_i[IDT_MAX_PORTS], srch_i, srch_p, port_num, cntr;
-   BOOL  found;
-   UINT32 ctl_reg;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t p_to_i[IDT_MAX_PORTS], srch_i, srch_p, port_num, cntr;
+   bool  found;
+   uint32_t ctl_reg;
    struct DAR_ptl good_ptl;
 
    out_parms->imp_rc = RIO_SUCCESS;
@@ -183,11 +183,11 @@ STATUS idt_cps_sc_read_ctrs( DAR_DEV_INFO_t           *dev_info,
       p_to_i[srch_i] = IDT_MAX_PORTS;
 
    for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p ++) {
-      found = FALSE;
+      found = false;
       port_num = good_ptl.pnums[srch_p];
       for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
          if ( in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num ) {
-	         found = TRUE;
+	         found = true;
             // If the port hasn't previously been read and the counter structure is
             // correctly initialized, keep going...
             if ((IDT_MAX_PORTS == p_to_i[port_num]    ) && 
@@ -237,16 +237,16 @@ idt_cps_sc_read_ctrs_exit:
  * CPS device.
  */
 
-STATUS idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
+uint32_t idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
                             idt_sc_cfg_cps_ctrs_in_t  *in_parms,
                             idt_sc_cfg_cps_ctrs_out_t *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT32 ctl_reg, new_ctl_reg = 0, unused;
-   UINT8 ctr;
-   UINT8 p_to_i[IDT_MAX_PORTS];
-   UINT8 srch_i, srch_p, port_num;
-   BOOL  found;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t ctl_reg, new_ctl_reg = 0, unused;
+   uint8_t ctr;
+   uint8_t p_to_i[IDT_MAX_PORTS];
+   uint8_t srch_i, srch_p, port_num;
+   bool  found;
    struct DAR_ptl good_ptl;
 
    out_parms->imp_rc = RIO_SUCCESS;
@@ -295,10 +295,10 @@ STATUS idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
    //
    for (srch_p = 0; srch_p < good_ptl.num_ports; srch_p ++) {
       port_num = good_ptl.pnums[srch_p];
-      found    = FALSE;
+      found    = false;
       for (srch_i = 0; srch_i < in_parms->dev_ctrs->valid_p_ctrs; srch_i++) {
          if ( in_parms->dev_ctrs->p_ctrs[srch_i].pnum == port_num ) {
-	        found = TRUE;
+	        found = true;
             // If the port hasn't previously been programmed and the counter structure is
             // correctly initialized, keep going...
             if ((IDT_MAX_PORTS == p_to_i[port_num]                           ) && 
@@ -348,8 +348,8 @@ STATUS idt_sc_cfg_cps_ctrs ( DAR_DEV_INFO_t           *dev_info,
 				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].tx   = cps_sc_info[ctr].sc_info.tx;
 			   } else {
 				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].sc   = idt_sc_disabled;
-				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].srio = TRUE;
-				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].tx   = TRUE;
+				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].srio = true;
+				   in_parms->dev_ctrs->p_ctrs[srch_i].ctrs[ctr].tx   = true;
 			   };
 			};
 			continue;

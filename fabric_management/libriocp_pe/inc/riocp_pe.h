@@ -81,29 +81,63 @@ struct riocp_pe_port {
 #define ALL_PE_PORTS ((uint8_t)(0xFF))
 
 typedef uint32_t pe_rt_val;
-#define PE_RT_VAL_FIRST_PORT	((pe_rt_val)(0x00000000))
-#define PE_RT_VAL_LAST_PORT	((pe_rt_val)(0x000000FF))
-#define PE_RT_VAL_FIRST_MC	((pe_rt_val)(0x00000100))
-#define PE_RT_VAL_LAST_MC	((pe_rt_val)(0x000001FF))
-#define PE_RT_VAL_DROP		((pe_rt_val)(0x00000300))
-#define PE_RT_VAL_DEFAULT_ROUTE	((pe_rt_val)(0x00000301))
+#define RT_VAL_FIRST_PORT	((pe_rt_val)(0x00000000))
+#define RT_VAL_LAST_PORT	((pe_rt_val)(0x000000FF))
+#define RT_VAL_FIRST_MC		((pe_rt_val)(0x00000100))
+#define RT_VAL_LAST_MC		((pe_rt_val)(0x000001FF))
+#define RT_VAL_FIRST_NEXT_LVL 	((pe_rt_val)(0x00000200))
+#define RT_VAL_LAST_NEXT_LVL 	((pe_rt_val)(0x000002FF))
+#define RT_VAL_DROP		((pe_rt_val)(0x00000300))
+#define RT_VAL_DEFAULT_ROUTE	((pe_rt_val)(0x00000301))
+#define RT_VAL_BAD		((pe_rt_val)(0x0FFFFFFF))
+
+/* Routing table definitions */
+typedef uint8_t pe_port_t;
+#define RIOCP_PE_ALL_PORTS (pe_port_t)0xff /* Use the global LUT */
+
+/* Routing table entry values */
+#define RIOCP_PE_EGRESS_PORT(n)	((pe_rt_val)(RT_VAL_FIRST_PORT + ((n) & 0xff)))
+#define RIOCP_PE_MULTICAST_MASK(n) ((pe_rt_val)(RT_VAL_FIRST_MC + ((n) & 0xff)))
+#define RIOCP_PE_NEXT_LEVEL_GROUP(n) ((pe_rt_val)(RT_VAL_FIRST_NEXT_LVL + ((n) & 0xff)))
+#define RIOCP_PE_NO_ROUTE           ((pe_rt_val)(0x300))
+#define RIOCP_PE_DEFAULT_ROUTE      ((pe_rt_val)(0x301))
+
+#define RIOCP_PE_IS_EGRESS_PORT(n)       ((n) <= 0xff)
+#define RIOCP_PE_IS_MULTICAST_MASK(n)    ((n) >= 0x100 && (n) <= 0x1ff)
+#define RIOCP_PE_IS_NEXT_LEVEL_GROUP(n)  ((n) >= 0x200 && (n) <= 0x2ff)
+
+#define RIOCP_PE_GET_EGRESS_PORT(n)      (RIOCP_PE_IS_EGRESS_PORT(n)?(((n) & 0xff)):RT_VAL_BAD)
+#define RIOCP_PE_GET_MULTICAST_MASK(n)   (RIOCP_PE_IS_MULTICAST_MASK(n)?(((n) - 0x100) & 0xff):RT_VAL_BAD)
+#define RIOCP_PE_GET_NEXT_LEVEL_GROUP(n) (RIOCP_PE_IS_NEXT_LEVEL_GROUP(n)?(((n) - 0x200) & 0xff):RT_VAL_BAD)
+
+
 
 struct riocp_pe_driver {
 	int RIOCP_WU (* init_pe)(struct riocp_pe *pe, uint32_t *ct,
 				struct riocp_pe *peer, char *name);
 	int RIOCP_WU (* init_pe_em)(struct riocp_pe *pe, bool en_em);
 	int RIOCP_WU (* destroy_pe)(struct riocp_pe *pe);
-	int RIOCP_WU (* recover_port)(struct riocp_pe *pe, uint8_t port,
-					uint8_t peer_port);
-	int RIOCP_WU (* set_route_entry)(struct riocp_pe *pe,
-			uint8_t port, uint32_t did, pe_rt_val rt_val);
-	int RIOCP_WU (* get_route_entry)(struct riocp_pe *pe,
-			uint8_t port, uint32_t did, pe_rt_val *rt_val);
 
-	int RIOCP_WU (*get_port_state)(struct riocp_pe *pe,
-			uint8_t port, struct riocp_pe_port_state_t *state);
-	int RIOCP_WU (*set_port_speed)(struct riocp_pe *pe,
-			uint8_t port, uint32_t lane_speed);
+	int RIOCP_WU (* recover_port)(struct riocp_pe *pe, pe_port_t port,
+				pe_port_t lp_port);
+	int RIOCP_WU (* set_port_speed)(struct riocp_pe *pe,
+				pe_port_t port, uint32_t lane_speed);
+	int RIOCP_WU (* get_port_state)(struct riocp_pe *pe,
+				pe_port_t port,
+				struct riocp_pe_port_state_t *state);
+	int RIOCP_WU (* port_start)(struct riocp_pe *pe, uint8_t port);
+	int RIOCP_WU (* port_stop)(struct riocp_pe *pe, uint8_t port);
+
+	int RIOCP_WU (* set_route_entry)(struct riocp_pe *pe,
+			pe_port_t port, uint32_t did, pe_rt_val rt_val);
+	int RIOCP_WU (* get_route_entry)(struct riocp_pe *pe,
+			pe_port_t port, uint32_t did, pe_rt_val *rt_val);
+	int RIOCP_WU (* alloc_mcast_mask)(struct riocp_pe *sw, pe_port_t port, 
+			pe_rt_val *rt_val, int32_t port_mask);
+	int RIOCP_WU (* free_mcast_mask)(struct riocp_pe *sw, pe_port_t port,
+			pe_rt_val rt_val);
+	int RIOCP_WU (* change_mcast_mask)(struct riocp_pe *sw, pe_port_t port,
+			pe_rt_val rt_val, uint32_t port_mask);
 };
 
 struct riocp_reg_rw_driver {
@@ -137,8 +171,11 @@ int RIOCP_WU riocp_mport_free_pe_list(riocp_pe_handle *pes[]);
 int RIOCP_WU riocp_pe_create_host_handle(riocp_pe_handle *handle, uint8_t mport, unsigned int rev, struct riocp_reg_rw_driver *drv, uint32_t *ct, char *name);
 int RIOCP_WU riocp_pe_create_agent_handle(riocp_pe_handle *handle, uint8_t mport, unsigned int rev, struct riocp_reg_rw_driver *drv, uint32_t *ct, char *name);
 
-int RIOCP_WU riocp_pe_discover(riocp_pe_handle pe, uint8_t port, riocp_pe_handle *peer, char *name);
-int RIOCP_WU riocp_pe_probe(riocp_pe_handle pe, uint8_t port, riocp_pe_handle *peer, uint32_t *comptag_in, char *name);
+int RIOCP_WU riocp_pe_discover(riocp_pe_handle pe, uint8_t port,
+				riocp_pe_handle *peer, char *name);
+int RIOCP_WU riocp_pe_probe(riocp_pe_handle pe, uint8_t port,
+				riocp_pe_handle *peer, uint32_t *comptag_in,
+				char *name);
 int RIOCP_WU riocp_pe_verify(riocp_pe_handle pe);
 riocp_pe_handle riocp_pe_peek(riocp_pe_handle pe, uint8_t port);
 int RIOCP_WU riocp_pe_restore(riocp_pe_handle pe);
@@ -146,20 +183,29 @@ int riocp_pe_destroy_handle(riocp_pe_handle *pe);
 int RIOCP_WU riocp_pe_get_capabilities(riocp_pe_handle pe,
 	struct riocp_pe_capabilities *capabilities);
 int RIOCP_WU riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port ports[]);
+int RIOCP_WU riocp_pe_port_enable(riocp_pe_handle pe, uint8_t port);
+int RIOCP_WU riocp_pe_port_disable(riocp_pe_handle pe, uint8_t port);
 int RIOCP_WU riocp_pe_lock(riocp_pe_handle pe, int flags);
 int RIOCP_WU riocp_pe_unlock(riocp_pe_handle pe);
 int RIOCP_WU riocp_pe_get_destid(riocp_pe_handle pe, uint32_t *destid);
 int RIOCP_WU riocp_pe_set_destid(riocp_pe_handle pe, uint32_t destid);
 int RIOCP_WU riocp_pe_get_comptag(riocp_pe_handle pe, uint32_t *comptag);
-int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t *comptag, uint32_t did, uint32_t wr_did);
+int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t *comptag,
+					uint32_t did, uint32_t wr_did);
 
 int RIOCP_WU riocp_pe_clear_enumerated(struct riocp_pe *pe);
 
 /* Routing */
-int RIOCP_WU riocp_sw_get_route_entry(riocp_pe_handle sw, uint8_t lut, uint32_t destid,
-		pe_rt_val *port);
-int RIOCP_WU riocp_sw_set_route_entry(riocp_pe_handle sw, uint8_t lut, uint32_t destid,
-		pe_rt_val port);
+int RIOCP_WU riocp_sw_get_route_entry(riocp_pe_handle sw, pe_port_t port,
+		uint32_t destid, pe_rt_val *rt_val);
+int RIOCP_WU riocp_sw_set_route_entry(riocp_pe_handle sw, pe_port_t port,
+		uint32_t destid, pe_rt_val rt_val);
+int RIOCP_WU riocp_sw_alloc_mcast_mask(riocp_pe_handle sw, pe_port_t port,
+		pe_rt_val *rt_val, uint32_t port_mask);
+int RIOCP_WU riocp_sw_free_mcast_mask(riocp_pe_handle sw, pe_port_t port,
+		pe_rt_val rt_val);
+int RIOCP_WU riocp_sw_change_mcast_mask(riocp_pe_handle sw, pe_port_t port,
+		pe_rt_val rt_val, uint32_t port_mask);
 
 /* Debug functions */
 int riocp_pe_maint_read(riocp_pe_handle pe, uint32_t offset, uint32_t *val);

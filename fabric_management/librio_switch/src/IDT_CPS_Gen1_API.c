@@ -46,11 +46,11 @@ extern "C" {
 #endif
 
 static DSF_Handle_t cpsgen1_driver_handle;
-static UINT32 num_cpsgen1_driver_instances;
+static uint32_t num_cpsgen1_driver_instances;
 
-STATUS IDT_CPSGEN1_DeviceSupported( DAR_DEV_INFO_t *dev_info )
+uint32_t IDT_CPSGEN1_DeviceSupported( DAR_DEV_INFO_t *dev_info )
 {
-    STATUS rc = DAR_DB_NO_DRIVER;
+    uint32_t rc = DAR_DB_NO_DRIVER;
 
     if ( IDT_CPS_VENDOR_ID == ( DECODE_VENDOR_ID( dev_info->devID ) ) )
     {
@@ -181,7 +181,7 @@ STATUS IDT_CPSGEN1_DeviceSupported( DAR_DEV_INFO_t *dev_info )
     return rc;
 }
 
-UINT32 bind_CPSGEN1_DSF_support( void )
+uint32_t bind_CPSGEN1_DSF_support( void )
 {
     IDT_DSF_DB_t idt_driver;
     
@@ -221,7 +221,7 @@ UINT32 bind_CPSGEN1_DSF_support( void )
     return RIO_SUCCESS;
 }
 
-STATUS bind_CPSGEN1_DAR_support( void )
+uint32_t bind_CPSGEN1_DAR_support( void )
 {
     DAR_DB_Driver_t DB_info;
 
