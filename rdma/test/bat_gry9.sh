@@ -18,13 +18,13 @@ RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 # Use NODES for common programs such as FMD and RDMAD
 # Note the ORDER is IMPORTANT as we MUST start FMD
 # on the SERVER machine first.
-NODES="GRY09 GRY12"
+NODES="GRY09 GRY10 GRY11 GRY12"
 
 # Use SERVER_NODES for nodes that shall run "bat_server"
 SERVER_NODES="GRY09"
 
 # Use CLIENT_NODES for nodes that run "bat_client"
-CLIENT_NODES="GRY12"
+CLIENT_NODES="GRY10 GRY11 GRY12"
 
 # Server-base port number. Increments by 1 for each new server on the same machine.
 # Also increments for other machines.
@@ -110,25 +110,30 @@ done
 
 sleep 2
 
-# Start multiple BAT_SERVERs on each server node. This is mainly because we have a BAT
+# Start multiple BAT_SERVERs on server node. This is mainly because we have a BAT
 # test case that creates a memory space from one server app, and opens that memory
-# space from 2 other server apps. So we need three per BAT test run.
+# space from 2 other server apps. So we need 3 BAT servers per BAT client. Mutiply
+# by the number of clients and that is the total number of BAT servers needed.
 for node in $SERVER_NODES
 do
 	# First get the destination ID of current node
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 	echo "Start bat_servers on $node destID=$DESTID"
 
-	COUNTER=0
-	while [ $COUNTER -lt $BAT_SERVER_APPS_PER_TEST ]; do
-		# Create server on current node
-		echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
-		ssh root@"$node" "screen -dmS server1 $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
+	# Need BAT_SERVER_APPS_PER_TEST servers FOR EACH client node
+	for client_node in $CLIENT_NODES
+	do
+		COUNTER=0
+		while [ $COUNTER -lt $BAT_SERVER_APPS_PER_TEST ]; do
+			# Create server on current node
+			echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
+			ssh root@"$node" "screen -dmS server1 $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
 
-		# Increment CM channel number for the next server app on the same node
-		((SERVER_CM_CHANNEL++ ))
+			# Increment CM channel number for the next server app on the same node
+			((SERVER_CM_CHANNEL++ ))
 	
-		((COUNTER++ ))	# increment loop variable
+			((COUNTER++ ))	# increment loop variable
+		done
 	done
 
 	# Display PIDs for verification
