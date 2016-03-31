@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Script for automated execution of BAT tests.
+# Script for automated execution of BAT tests with servers running on a single node
 #
 # Usage:  sudo ./bat_local.sh <server node> <3 client nodes> <channel> [<test case>]"
 
 # Check that at least a server and 3 client nodes have been specified on command line
 if [ "$#" -lt 5 ]; then
-	echo "Usage:  sudo ./bat_local.sh <server node> <3 client nodes> <channel> [<test case>]"
+	echo "Usage:  sudo ./bat_node.sh <server node> <3 client nodes> <channel> [<test case>]"
 	exit
 fi
 
