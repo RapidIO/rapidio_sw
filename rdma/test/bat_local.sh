@@ -1,13 +1,8 @@
 #!/bin/bash
 
 # Script for automated execution of BAT tests.
-# To run a specific test do:
 #
-# sudo ./bat_local.sh <test>
-# e.g.   sudo ./bat_local.sh c        (runs test case 'c' ONLY)
-#
-# To run ALL tests do:
-# sudo ./bat_local.sh
+# Usage:  sudo ./bat_local.sh <server IP> <client IP> <channel> [<test case>]"
 
 # Location of binaries
 RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
@@ -15,21 +10,20 @@ RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
 # Location of RIO mport infor (e.g. destid)
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
-# Use NODES for common programs such as FMD and RDMAD
-# Note the ORDER is IMPORTANT as we MUST start FMD
-# on the SERVER machine first. For the local setup it is 10.10.10.51
-NODES="10.10.10.51 10.10.10.50"
-
 # Use SERVER_NODES for nodes that shall run "bat_server"
-SERVER_NODES="10.10.10.51"
+SERVER_NODES="$1"
 
 # Use CLIENT_NODES for nodes that run "bat_client"
-CLIENT_NODES="10.10.10.50"
+CLIENT_NODES="$2"
 
-# Server-base port number. Increments by 1 for each new server on the same machine.
-# Also increments for other machines. So the first machine shall use 2224, 2225, and 2226;
-# the second machine shall use 2227, 2228, and 2229; and so on.
-SERVER_CM_CHANNEL_START=2224
+# Use NODES for common programs such as FMD and RDMAD
+# Note the ORDER is IMPORTANT as we MUST start FMD
+# on the SERVER machine first.
+NODES="$SERVER_NODES $CLIENT_NODES"
+
+# CM channel starting number. Each client uses 3 successive channel numbers
+# to communicate with 3 bat servers on a server node
+SERVER_CM_CHANNEL_START=$((10#$3))
 SERVER_CM_CHANNEL=$SERVER_CM_CHANNEL_START
 
 # Unix signal to send to processes via the 'kill' command
@@ -38,10 +32,16 @@ SIGINT=2	# CTRL-C
 # Number of BAT_SERVERs needed per node per BAT test
 BAT_SERVER_APPS_PER_TEST=3
 
+# Check that at least a server and a client IP have been specified on command line
+if [ "$#" -lt 3 ]; then
+	echo "Usage:  sudo ./bat_local.sh <server IP> <client IP> <channel> [<test case>]"
+	exit
+fi
+
 # Indicate whether a single test or ALL tests will be run
-if [ -n "$1" ]
+if [ -n "$4" ]
 	then
-		echo "NOTE: Running test case '$1' only"
+		echo "NOTE: Running test case '$4' only"
 	else
 		echo "Running ALL tests"
 fi
@@ -142,7 +142,7 @@ done
 SERVER_CM_CHANNEL=$SERVER_CM_CHANNEL_START
 for node in $CLIENT_NODES
 do
-	ssh -t root@"$node" "/usr/bin/perl $RDMA_ROOT_PATH/rdma/test/run_bat.pl -c$SERVER_CM_CHANNEL -d$DESTID -t$1"
+	ssh -t root@"$node" "/usr/bin/perl $RDMA_ROOT_PATH/rdma/test/run_bat.pl -c$SERVER_CM_CHANNEL -d$DESTID -t$4"
 
 	# Increment channel by 3 since each BAT client uses 3 channels to talk to the 3 BAT servers
 	let SERVER_CM_CHANNEL=SERVER_CM_CHANNEL+$BAT_SERVER_APPS_PER_TEST
