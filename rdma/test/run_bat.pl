@@ -4,6 +4,9 @@ use warnings;
 use strict;
 
 use Getopt::Std;
+use Cwd 'abs_path';
+use File::Spec;
+
 
 # Script for running Batch Automated Tests (BATs) on JUST TWO COMPUTERS
 #
@@ -13,6 +16,12 @@ use Getopt::Std;
 # 2. On a second computer run this script specifying the FIRST of the THREE channel numbers
 #    using the -c option
 #    (e.g. run_bat.pl -c2224)
+
+
+# Obtain current directory so we can find 'bat_client' when called from a remote
+# shell script
+my ($volume, $directory, $file) = File::Spec->splitpath(__FILE__);
+print "$directory\n";
 
 # Command-line options
 my %options = ();
@@ -51,42 +60,42 @@ open(my $fh, ">", $logfilename)
 
 # Test case to run -- if specified
 if (defined($options{t})) {
-	system("sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t$options{t} -o" . $logfilename);
+	system("sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t$options{t} -o" . $logfilename);
 	close($fh);
 	exit;
 }
 
 # List of tests
 my @tests = (
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -ta -o" . $logfilename, #  0
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tb -o" . $logfilename, #  1
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tc -o" . $logfilename, #  2
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -td -o" . $logfilename, #  3
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -te -o" . $logfilename, #  4
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tf -o" . $logfilename, #  5
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tg -o" . $logfilename, #  6
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -th -o" . $logfilename, #  7
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -ti -o" . $logfilename, #  8
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tj -o" . $logfilename, #  9
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tk -o" . $logfilename, # 10
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tl -o" . $logfilename, # 11
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tm -o" . $logfilename, # 12
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tn -o" . $logfilename, # 13
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -to -o" . $logfilename, # 14
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tp -o" . $logfilename, # 15
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tr -o" . $logfilename, # 16
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tt -o" . $logfilename, # 17
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tu -o" . $logfilename, # 18
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t1 -o" . $logfilename, # 19
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t2 -o" . $logfilename, # 20
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t3 -o" . $logfilename, # 21
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t4 -o" . $logfilename, # 22
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t5 -o" . $logfilename, # 23
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t6 -o" . $logfilename, # 24
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t7 -o" . $logfilename, # 25
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t8 -o" . $logfilename, # 26
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -t9 -o" . $logfilename, # 27
-	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tA -o" . $logfilename, # 28
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -ta -o" . $logfilename, #  0
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tb -o" . $logfilename, #  1
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tc -o" . $logfilename, #  2
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -td -o" . $logfilename, #  3
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -te -o" . $logfilename, #  4
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tf -o" . $logfilename, #  5
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tg -o" . $logfilename, #  6
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -th -o" . $logfilename, #  7
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -ti -o" . $logfilename, #  8
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tj -o" . $logfilename, #  9
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tk -o" . $logfilename, # 10
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tl -o" . $logfilename, # 11
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tm -o" . $logfilename, # 12
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tn -o" . $logfilename, # 13
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -to -o" . $logfilename, # 14
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tp -o" . $logfilename, # 15
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tr -o" . $logfilename, # 16
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tt -o" . $logfilename, # 17
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tu -o" . $logfilename, # 18
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t1 -o" . $logfilename, # 19
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t2 -o" . $logfilename, # 20
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t3 -o" . $logfilename, # 21
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t4 -o" . $logfilename, # 22
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t5 -o" . $logfilename, # 23
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t6 -o" . $logfilename, # 24
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t7 -o" . $logfilename, # 25
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t8 -o" . $logfilename, # 26
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t9 -o" . $logfilename, # 27
+	"sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -tA -o" . $logfilename, # 28
 );
 
 my $num_bat = scalar@tests;

@@ -144,11 +144,17 @@ do
 	echo "$node bat_server pids=$BAT_SERVER_PID"
 done
 
-# NOTE: For now run_bat.pl runs a single test sequence originating
-# at this (local) machine. We should be able to modify it to run
-# multiple tests originating at multiple nodes
+# Run BAT CLIENTS on client nodes
+SERVER_CM_CHANNEL=$SERVER_CM_CHANNEL_START
+for node in $CLIENT_NODES
+do
+	ssh -t root@"$node" "/usr/bin/perl $RDMA_ROOT_PATH/rdma/test/run_bat.pl -c$SERVER_CM_CHANNEL -d$DESTID -t$1"
 
-/usr/bin/perl run_bat.pl -c$SERVER_CM_CHANNEL_START -d$DESTID -t$1
+	# Increment channel by 3 since each BAT client uses 3 channels to talk to the 3 BAT servers
+	((SERVER_CM_CHANNEL++ ))
+	((SERVER_CM_CHANNEL++ ))
+	((SERVER_CM_CHANNEL++ ))
+done
 
 # ******************* Kill all processes *******************
 
