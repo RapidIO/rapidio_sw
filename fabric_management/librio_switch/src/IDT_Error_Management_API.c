@@ -66,63 +66,63 @@ char *idt_em_detect_names[ idt_em_detect_last] = {
      (char *)"DetNoChg" 
 };
 
-#define IDT_EM_REC_ERR_SET_LINK_TO       ((UINT32)(0x0001))
-#define IDT_EM_REC_ERR_SET_CS_ACK_ILL    ((UINT32)(0x0002))
-#define IDT_EM_REC_ERR_SET_DELIN_ERR     ((UINT32)(0x0004))
-#define IDT_EM_REC_ERR_SET_PROT_ERR      ((UINT32)(0x0008))
-#define IDT_EM_REC_ERR_SET_LR_ACKID_ILL  ((UINT32)(0x0010))
-#define IDT_EM_REC_ERR_SET_PKT_ILL_SIZE  ((UINT32)(0x0020))
-#define IDT_EM_REC_ERR_SET_PKT_CRC_ERR   ((UINT32)(0x0040))
-#define IDT_EM_REC_ERR_SET_PKT_ILL_ACKID ((UINT32)(0x0080))
-#define IDT_EM_REC_ERR_SET_CS_NOT_ACC    ((UINT32)(0x0100))
-#define IDT_EM_REC_ERR_SET_CS_ILL_ID     ((UINT32)(0x0200))
-#define IDT_EM_REC_ERR_SET_CS_CRC_ERR    ((UINT32)(0x0400))
+#define IDT_EM_REC_ERR_SET_LINK_TO       ((uint32_t)(0x0001))
+#define IDT_EM_REC_ERR_SET_CS_ACK_ILL    ((uint32_t)(0x0002))
+#define IDT_EM_REC_ERR_SET_DELIN_ERR     ((uint32_t)(0x0004))
+#define IDT_EM_REC_ERR_SET_PROT_ERR      ((uint32_t)(0x0008))
+#define IDT_EM_REC_ERR_SET_LR_ACKID_ILL  ((uint32_t)(0x0010))
+#define IDT_EM_REC_ERR_SET_PKT_ILL_SIZE  ((uint32_t)(0x0020))
+#define IDT_EM_REC_ERR_SET_PKT_CRC_ERR   ((uint32_t)(0x0040))
+#define IDT_EM_REC_ERR_SET_PKT_ILL_ACKID ((uint32_t)(0x0080))
+#define IDT_EM_REC_ERR_SET_CS_NOT_ACC    ((uint32_t)(0x0100))
+#define IDT_EM_REC_ERR_SET_CS_ILL_ID     ((uint32_t)(0x0200))
+#define IDT_EM_REC_ERR_SET_CS_CRC_ERR    ((uint32_t)(0x0400))
 
 typedef struct rec_err_n_spx_err_t_TAG
 {
-    UINT32 rec_err;
-    UINT32 spx_err;
+    uint32_t rec_err;
+    uint32_t spx_err;
 } rec_err_n_spx_err_t;
 
 // Convert from standard bit mask encodings to consecutive bit encodings.
 
 rec_err_n_spx_err_t rec_err_spx_err_table[] = {
-   { IDT_EM_REC_ERR_SET_LINK_TO      , RIO_SPX_ERR_DET_LINK_TO      },
-   { IDT_EM_REC_ERR_SET_CS_ACK_ILL   , RIO_SPX_ERR_DET_CS_ACK_ILL   },
-   { IDT_EM_REC_ERR_SET_DELIN_ERR    , RIO_SPX_ERR_DET_DELIN_ERR    },
-   { IDT_EM_REC_ERR_SET_PROT_ERR     , RIO_SPX_ERR_DET_PROT_ERR     },
-   { IDT_EM_REC_ERR_SET_LR_ACKID_ILL , RIO_SPX_ERR_DET_LR_ACKID_ILL },
-   { IDT_EM_REC_ERR_SET_PKT_ILL_SIZE , RIO_SPX_ERR_DET_PKT_ILL_SIZE },
-   { IDT_EM_REC_ERR_SET_PKT_CRC_ERR  , RIO_SPX_ERR_DET_PKT_CRC_ERR  },
-   { IDT_EM_REC_ERR_SET_PKT_ILL_ACKID, RIO_SPX_ERR_DET_PKT_ILL_ACKID},
-   { IDT_EM_REC_ERR_SET_CS_NOT_ACC   , RIO_SPX_ERR_DET_CS_NOT_ACC   },
-   { IDT_EM_REC_ERR_SET_CS_ILL_ID    , RIO_SPX_ERR_DET_CS_ILL_ID    },
-   { IDT_EM_REC_ERR_SET_CS_CRC_ERR   , RIO_SPX_ERR_DET_CS_CRC_ERR   } 
+   { IDT_EM_REC_ERR_SET_LINK_TO      , RIO_EMHS_SPX_ERR_DET_LINK_TO      },
+   { IDT_EM_REC_ERR_SET_CS_ACK_ILL   , RIO_EMHS_SPX_ERR_DET_CS_ACK_ILL   },
+   { IDT_EM_REC_ERR_SET_DELIN_ERR    , RIO_EMHS_SPX_ERR_DET_DELIN_ERR    },
+   { IDT_EM_REC_ERR_SET_PROT_ERR     , RIO_EMHS_SPX_ERR_DET_PROT_ERR     },
+   { IDT_EM_REC_ERR_SET_LR_ACKID_ILL , RIO_EMHS_SPX_ERR_DET_LR_ACKID_ILL },
+   { IDT_EM_REC_ERR_SET_PKT_ILL_SIZE , RIO_EMHS_SPX_ERR_DET_PKT_ILL_SIZE },
+   { IDT_EM_REC_ERR_SET_PKT_CRC_ERR  , RIO_EMHS_SPX_ERR_DET_PKT_CRC_ERR  },
+   { IDT_EM_REC_ERR_SET_PKT_ILL_ACKID, RIO_EMHS_SPX_ERR_DET_PKT_ILL_ACKID},
+   { IDT_EM_REC_ERR_SET_CS_NOT_ACC   , RIO_EMHS_SPX_ERR_DET_CS_NOT_ACC   },
+   { IDT_EM_REC_ERR_SET_CS_ILL_ID    , RIO_EMHS_SPX_ERR_DET_CS_ILL_ID    },
+   { IDT_EM_REC_ERR_SET_CS_CRC_ERR   , RIO_EMHS_SPX_ERR_DET_CS_CRC_ERR   } 
 };
 
 // Encoding for RB, index = RB value
-UINT32 rio_spx_err_rate_err_rb_vals[] = {
-   RIO_SPX_ERR_RATE_ERR_RB_NONE     ,
-   RIO_SPX_ERR_RATE_ERR_RB_1_MS     ,
-   RIO_SPX_ERR_RATE_ERR_RB_10_MS    ,
-   RIO_SPX_ERR_RATE_ERR_RB_100_MS   ,
-   RIO_SPX_ERR_RATE_ERR_RB_1_SEC    ,
-   RIO_SPX_ERR_RATE_ERR_RB_10_SEC   ,
-   RIO_SPX_ERR_RATE_ERR_RB_100_SEC  ,
-   RIO_SPX_ERR_RATE_ERR_RB_1000_SEC ,
-   RIO_SPX_ERR_RATE_ERR_RB_10000_SEC 
+uint32_t rio_spx_err_rate_err_rb_vals[] = {
+   RIO_EMHS_SPX_RATE_RB_NONE     ,
+   RIO_EMHS_SPX_RATE_RB_1_MS     ,
+   RIO_EMHS_SPX_RATE_RB_10_MS    ,
+   RIO_EMHS_SPX_RATE_RB_100_MS   ,
+   RIO_EMHS_SPX_RATE_RB_1_SEC    ,
+   RIO_EMHS_SPX_RATE_RB_10_SEC   ,
+   RIO_EMHS_SPX_RATE_RB_100_SEC  ,
+   RIO_EMHS_SPX_RATE_RB_1000_SEC ,
+   RIO_EMHS_SPX_RATE_RB_10000_SEC 
 };
 
 #define RB_SHIFT_AMT 20
 
-STATUS idt_em_compute_f_err_rate_info( UINT32 spx_rate_en,
-		                       UINT32 spx_err_rate,
-				       UINT32 spx_err_thresh,
-				       UINT32 *info          )
+uint32_t idt_em_compute_f_err_rate_info( uint32_t spx_rate_en,
+		                       uint32_t spx_err_rate,
+				       uint32_t spx_err_thresh,
+				       uint32_t *info          )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT32 all_errs = 0, idx;
-   BOOL   found_one = FALSE;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t all_errs = 0, idx;
+   bool   found_one = false;
 
    *info = 0;
 
@@ -137,13 +137,13 @@ STATUS idt_em_compute_f_err_rate_info( UINT32 spx_rate_en,
       goto idt_em_compute_f_err_rate_info_exit;
    };
 
-   *info |= (RIO_SPX_ERR_RATE_ERR_RR    & spx_err_rate  );
-   *info |= (RIO_SPX_ERR_THRESH_ERR_RFT & spx_err_thresh);
-   spx_err_rate &= RIO_SPX_ERR_RATE_ERR_RB;
+   *info |= (RIO_EMHS_SPX_RATE_RR    & spx_err_rate  );
+   *info |= (RIO_EMHS_SPX_THRESH_FAIL & spx_err_thresh);
+   spx_err_rate &= RIO_EMHS_SPX_RATE_RB;
 
-   for (idx = 0; idx < sizeof(rio_spx_err_rate_err_rb_vals)/sizeof(UINT32); idx++ ) {
+   for (idx = 0; idx < sizeof(rio_spx_err_rate_err_rb_vals)/sizeof(uint32_t); idx++ ) {
       if (rio_spx_err_rate_err_rb_vals[idx] == spx_err_rate) {
-	 found_one = TRUE;
+	 found_one = true;
 	 *info |= (idx << RB_SHIFT_AMT);
 	 break;
       };
@@ -159,17 +159,17 @@ idt_em_compute_f_err_rate_info_exit:
 };
 
 
-STATUS idt_em_get_f_err_rate_info( UINT32  info          ,
-		                   UINT32 *spx_rate_en   ,
-		                   UINT32 *spx_err_rate  ,
-				   UINT32 *spx_err_thresh )
+uint32_t idt_em_get_f_err_rate_info( uint32_t  info          ,
+		                   uint32_t *spx_rate_en   ,
+		                   uint32_t *spx_err_rate  ,
+				   uint32_t *spx_err_thresh )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT32 idx;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t idx;
 
    *spx_rate_en    = 0;
-   *spx_err_rate   = info & RIO_SPX_ERR_RATE_ERR_RR;
-   *spx_err_thresh = info & RIO_SPX_ERR_THRESH_ERR_RFT;
+   *spx_err_rate   = info & RIO_EMHS_SPX_RATE_RR;
+   *spx_err_thresh = info & RIO_EMHS_SPX_THRESH_FAIL;
 
    for (idx = 0; idx < sizeof(rec_err_spx_err_table)/sizeof(rec_err_n_spx_err_t); idx++ ) {
       if (rec_err_spx_err_table[idx].rec_err & info) {
@@ -192,11 +192,11 @@ idt_em_compute_f_err_rate_info_exit:
 // Routines to configure port write transmission, 
 // and set/query specific event detection/reporting.
 
-STATUS idt_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_cfg_pw_in_t   *in_parms, 
                         idt_em_cfg_pw_out_t  *out_parms )
 { 
-    STATUS rc =  DAR_DB_INVALID_HANDLE;
+    uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK
 
@@ -211,11 +211,11 @@ STATUS idt_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
     return rc;
 };
 
-STATUS idt_em_cfg_set  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_cfg_set  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_cfg_set_in_t   *in_parms, 
                         idt_em_cfg_set_out_t  *out_parms ) 
 { 
-    STATUS rc =  DAR_DB_INVALID_HANDLE;
+    uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK
 
@@ -231,11 +231,11 @@ STATUS idt_em_cfg_set  ( DAR_DEV_INFO_t       *dev_info,
 };
 
 
-STATUS idt_em_cfg_get  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_cfg_get  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_cfg_get_in_t   *in_parms, 
                         idt_em_cfg_get_out_t  *out_parms ) 
 { 
-    STATUS rc =  DAR_DB_INVALID_HANDLE;
+    uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK
 
@@ -254,11 +254,11 @@ STATUS idt_em_cfg_get  ( DAR_DEV_INFO_t       *dev_info,
 // Routines to query and control port-write and interrupt
 // reporting configuration for a port/device.
 
-STATUS idt_em_dev_rpt_ctl  ( DAR_DEV_INFO_t      *dev_info, 
+uint32_t idt_em_dev_rpt_ctl  ( DAR_DEV_INFO_t      *dev_info, 
                        idt_em_dev_rpt_ctl_in_t   *in_parms, 
                        idt_em_dev_rpt_ctl_out_t  *out_parms ) 
 { 
-    STATUS rc =  DAR_DB_INVALID_HANDLE;
+    uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK
 
@@ -277,11 +277,11 @@ STATUS idt_em_dev_rpt_ctl  ( DAR_DEV_INFO_t      *dev_info,
 // and to query a port/device and return a list of asserted events 
 // which are reported via interrupt or port-write, 
 
-STATUS idt_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_parse_pw_in_t   *in_parms, 
                         idt_em_parse_pw_out_t  *out_parms ) 
 { 
-    STATUS rc =  DAR_DB_INVALID_HANDLE;
+    uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK
 
@@ -296,11 +296,11 @@ STATUS idt_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info,
     return rc;
 };
 
-STATUS idt_em_get_int_stat  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_get_int_stat  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_get_int_stat_in_t   *in_parms, 
                         idt_em_get_int_stat_out_t  *out_parms ) 
 { 
-    STATUS rc =  DAR_DB_INVALID_HANDLE;
+    uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK
 
@@ -315,11 +315,11 @@ STATUS idt_em_get_int_stat  ( DAR_DEV_INFO_t       *dev_info,
     return rc;
 };
 
-STATUS idt_em_get_pw_stat  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_get_pw_stat  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_get_pw_stat_in_t   *in_parms, 
                         idt_em_get_pw_stat_out_t  *out_parms ) 
 { 
-    STATUS rc =  DAR_DB_INVALID_HANDLE;
+    uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK
 
@@ -337,11 +337,11 @@ STATUS idt_em_get_pw_stat  ( DAR_DEV_INFO_t       *dev_info,
 // Routine to clear events, and a routine to create events
 // for software testing purposes.
 
-STATUS idt_em_clr_events  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_clr_events  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_clr_events_in_t   *in_parms, 
                         idt_em_clr_events_out_t  *out_parms ) 
 { 
-    STATUS rc =  DAR_DB_INVALID_HANDLE;
+    uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK
 
@@ -356,11 +356,11 @@ STATUS idt_em_clr_events  ( DAR_DEV_INFO_t       *dev_info,
     return rc;
 };
 
-STATUS idt_em_create_events  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t idt_em_create_events  ( DAR_DEV_INFO_t       *dev_info, 
                         idt_em_create_events_in_t   *in_parms, 
                         idt_em_create_events_out_t  *out_parms ) 
 { 
-    STATUS rc =  DAR_DB_INVALID_HANDLE;
+    uint32_t rc =  DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK
 

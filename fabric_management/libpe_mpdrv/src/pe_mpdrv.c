@@ -58,6 +58,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riocp_pe_internal.h"
 #include "comptag.h"
 #include "IDT_Statistics_Counter_API.h"
+#include "cfg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,7 +103,7 @@ int mpsw_drv_reg_wr(struct riocp_pe  *pe, uint32_t offset, uint32_t val)
 		return -ret;
 	};
 
-	if (RIO_BASE_DEVICE_ID_CSR == offset) {
+	if (RIO_DEVID == offset) {
         	if (RIOCP_PE_IS_MPORT(pe)) {
 			struct mpsw_drv_pe_acc_info *p_acc;
 			uint16_t dev8_did = ((val >> 16) & 0xFF);
@@ -336,7 +337,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 	dev_h = &priv->dev_h;
 
 	if (RIOCP_PE_IS_HOST(pe) || RIOCP_PE_IS_MPORT(pe)) {
-		/* ensure destID/comptag is configured correctly */
+		/* ensure destID/comptag/addrmode is configured correctly */
 		/* FIXME: Assumes comptag and destID is passed in, not
  		* administered by riocp_pe.
  		*/
@@ -348,13 +349,47 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 		};
 
 		ptl.num_ports = RIO_ALL_PORTS;
-                rc = DARrioPortEnable(dev_h, &ptl, TRUE, FALSE, TRUE);
+                rc = DARrioPortEnable(dev_h, &ptl, true, false, true);
                 if (RIO_SUCCESS != rc)
                         goto exit;
 		rc = DARrioSetEnumBound(dev_h, &ptl, 0);
 		if (rc) {
 			ERR("Could not clear enumeration indication\n");
 			goto exit;
+		};
+		if (RIOCP_PE_IS_MPORT(pe)) {
+			uint8_t mem_sz;
+			RIO_PE_ADDR_T addr_mode;
+			if (!cfg_get_mp_mem_sz(pe->minfo->id, &mem_sz)) {
+				switch (mem_sz) {
+				case CFG_MEM_SZ_34: 
+					addr_mode = RIO_PE_FEAT_EXT_ADDR34;
+					break;
+				case CFG_MEM_SZ_50:
+					addr_mode = RIO_PE_FEAT_EXT_ADDR50;
+					break;
+				case CFG_MEM_SZ_66:
+					addr_mode = RIO_PE_FEAT_EXT_ADDR66;
+					break;
+				default:
+					rc = -1;
+					ERR("CT 0x%0x Unknown mem_sz 0x%x\n",
+						*ct, mem_sz);
+					goto exit;
+				};
+				if (!(addr_mode & dev_h->features)) {
+					rc = -1;
+					ERR("CT 0x%0x Addr mode 0x%x Failed\n",
+						addr_mode);
+					goto exit;
+				};
+				rc = DARrioSetAddrMode(dev_h, addr_mode);
+				if (RIO_SUCCESS != rc) {
+					ERR("CT 0x%0x DARrioSetAddrMode rc %x\n",
+						*ct, rc);
+					goto exit;
+				};
+			};
 		};
         };
 
@@ -370,7 +405,7 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
                 goto exit;
 
         if (SWITCH((&priv->dev_h))) {
-                UINT8 port;
+                uint8_t port;
                 rt_in.probe_on_port = RIO_ALL_PORTS;
                 rt_in.rt            = &priv->st.g_rt;
                 rc = idt_rt_probe_all(dev_h, &rt_in, &rt_out);
@@ -445,7 +480,7 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 	};
 
 	/* Select a driver for the device */
-	ret = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount, RIO_DEV_ID_CAR,
+	ret = mpsw_drv_raw_reg_rd(pe, pe->destid, pe->hopcount, RIO_DEV_IDENT,
 				&temp_devid);
 	if (ret) {
 		CRIT("Unable to read device ID %d:%s\n", ret, strerror(ret));
@@ -478,16 +513,16 @@ int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct,
 		goto exit;
 
 	ret = mpsw_drv_reg_rd(pe, 
-		RIO_PORT_GEN_CTRL_CSR(p_dat->dev_h.extFPtrForPort), &gen_ctl);
+		RIO_SP_GEN_CTL(p_dat->dev_h.extFPtrForPort), &gen_ctl);
 	if (ret) {
 		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
 		goto error;
 	};
 
-	gen_ctl |= RIO_STD_SW_GEN_CTL_MAST_EN | RIO_STD_SW_GEN_CTL_DISC;
+	gen_ctl |= RIO_SP_GEN_CTL_MAST_EN | RIO_SP_GEN_CTL_DISC;
 
 	ret = mpsw_drv_reg_wr(pe, 
-		RIO_PORT_GEN_CTRL_CSR(p_dat->dev_h.extFPtrForPort), gen_ctl);
+		RIO_SP_GEN_CTL(p_dat->dev_h.extFPtrForPort), gen_ctl);
 	if (ret) {
 		CRIT("Adding device to mport failed: %d (0x%x)\n", ret, ret);
 		goto error;
@@ -509,7 +544,7 @@ int RIOCP_WU mpsw_drv_destroy_pe(struct riocp_pe *pe)
 	return 0;
 };
 
-int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, uint8_t port)
+int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, pe_port_t port)
 {
 	struct mpsw_drv_private_data *p_dat;
 	int ret;
@@ -549,7 +584,7 @@ fail:
 };
 
 
-int mpsw_drv_get_route_entry(struct riocp_pe  *pe, uint8_t port,
+int mpsw_drv_get_route_entry(struct riocp_pe  *pe, pe_port_t port,
 					uint32_t did, pe_rt_val *rt_val)
 {
 	struct mpsw_drv_private_data *p_dat;
@@ -592,7 +627,7 @@ fail:
 };
 
 int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
-                       uint8_t port, uint32_t did, pe_rt_val rt_val)
+                       pe_port_t port, uint32_t did, pe_rt_val rt_val)
 {
 	struct mpsw_drv_private_data *p_dat;
 	int ret;
@@ -646,7 +681,7 @@ fail:
 	return 1;
 };
 
-int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, uint8_t lut,
+int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
                         pe_rt_val *rt_val, int32_t port_mask)
 {
 	struct mpsw_drv_private_data *p_dat;
@@ -673,21 +708,21 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, uint8_t lut,
 		goto fail;
 	};
 
-	if ((lut != PE_LUT_ALL) && (lut >= RIOCP_PE_PORT_COUNT(sw->cap))) {
+	if ((port != RIOCP_PE_ALL_PORTS) && (port >= RIOCP_PE_PORT_COUNT(sw->cap))) {
 		DBG("Illegal Look Up Table Selected - max is %d. EXITING!",
 			RIOCP_PE_PORT_COUNT(sw->cap)-1);
 		goto fail;
 	};
 
-	if (PE_LUT_ALL == lut)
+	if (RIOCP_PE_ALL_PORTS == port)
 		alloc_in.rt = &p_dat->st.g_rt;
 	else
-		alloc_in.rt = &p_dat->st.pprt[lut];
+		alloc_in.rt = &p_dat->st.pprt[port];
 
 	ret = idt_rt_alloc_mc_mask(&p_dat->dev_h, &alloc_in, &alloc_out);
 	if (ret) {
-		DBG("ALLOC_MC %s lut %d ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", lut, ret,
+		DBG("ALLOC_MC %s port %d ret 0x%x imp_rc 0x%x\n",
+			sw->name?sw->name:"Unknown", port, ret,
 			alloc_out.imp_rc);
 		goto fail;
 	};
@@ -700,19 +735,19 @@ int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, uint8_t lut,
 
 	ret = idt_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
 	if (ret) {
-		DBG("CHG_MC %s lut %d mask %x ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", lut, port_mask, ret,
+		DBG("CHG_MC %s port %d mask %x ret 0x%x imp_rc 0x%x\n",
+			sw->name?sw->name:"Unknown", port, port_mask, ret,
 			alloc_out.imp_rc);
 		goto fail;
 	};
 
-	set_in.set_on_port = lut;
+	set_in.set_on_port = port;
 	set_in.rt = alloc_in.rt;
 
 	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
-		DBG("RT_SET %s lut %d rte %x ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", lut, rt_val, ret,
+		DBG("RT_SET %s port %d rte %x ret 0x%x imp_rc 0x%x\n",
+			sw->name?sw->name:"Unknown", port, rt_val, ret,
 			set_out.imp_rc);
 		goto fail;
 	};
@@ -724,7 +759,7 @@ fail:
 	return 1;
 };
 
-int mpsw_drv_free_mcast_mask(struct riocp_pe *sw, uint8_t lut,
+int mpsw_drv_free_mcast_mask(struct riocp_pe *sw, pe_port_t port,
                         pe_rt_val rt_val)
 {
 	struct mpsw_drv_private_data *p_dat;
@@ -747,22 +782,22 @@ int mpsw_drv_free_mcast_mask(struct riocp_pe *sw, uint8_t lut,
 		goto fail;
 	};
 
-	if ((lut != PE_LUT_ALL) && (lut >= RIOCP_PE_PORT_COUNT(sw->cap))) {
+	if ((port != RIOCP_PE_ALL_PORTS) && (port >= RIOCP_PE_PORT_COUNT(sw->cap))) {
 		DBG("Illegal Look Up Table Selected - max is %d. EXITING!",
 			RIOCP_PE_PORT_COUNT(sw->cap)-1);
 		goto fail;
 	};
 
-	if (PE_LUT_ALL == lut)
+	if (RIOCP_PE_ALL_PORTS == port)
 		free_in.rt = &p_dat->st.g_rt;
 	else
-		free_in.rt = &p_dat->st.pprt[lut];
+		free_in.rt = &p_dat->st.pprt[port];
 	free_in.mc_mask_rte = rt_val;
 
 	ret = idt_rt_dealloc_mc_mask(&p_dat->dev_h, &free_in, &free_out);
 	if (ret) {
-		DBG("FREE_MC %s lut %d ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", lut, ret,
+		DBG("FREE_MC %s port %d ret 0x%x imp_rc 0x%x\n",
+			sw->name?sw->name:"Unknown", port, ret,
 			free_out.imp_rc);
 		goto fail;
 	};
@@ -774,7 +809,7 @@ fail:
 	return 1;
 };
 
-int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, uint8_t lut,
+int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
                         pe_rt_val rt_val, uint32_t port_mask)
 {
 	struct mpsw_drv_private_data *p_dat;
@@ -799,35 +834,35 @@ int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, uint8_t lut,
 		goto fail;
 	};
 
-	if ((lut != PE_LUT_ALL) && (lut >= RIOCP_PE_PORT_COUNT(sw->cap))) {
+	if ((port != RIOCP_PE_ALL_PORTS) && (port >= RIOCP_PE_PORT_COUNT(sw->cap))) {
 		DBG("Illegal Look Up Table Selected - max is %d. EXITING!",
 			RIOCP_PE_PORT_COUNT(sw->cap)-1);
 		goto fail;
 	};
 
-	if (PE_LUT_ALL == lut)
+	if (RIOCP_PE_ALL_PORTS == port)
 		chg_in.rt = &p_dat->st.g_rt;
 	else
-		chg_in.rt = &p_dat->st.pprt[lut];
+		chg_in.rt = &p_dat->st.pprt[port];
 
 	chg_in.mc_mask_rte = rt_val;
 	chg_in.mc_info.mc_mask = port_mask;
 
 	ret = idt_rt_change_mc_mask(&p_dat->dev_h, &chg_in, &chg_out);
 	if (ret) {
-		DBG("CHG_MC %s lut %d mask %x ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", lut, port_mask, ret,
+		DBG("CHG_MC %s port %d mask %x ret 0x%x imp_rc 0x%x\n",
+			sw->name?sw->name:"Unknown", port, port_mask, ret,
 			chg_out.imp_rc);
 		goto fail;
 	};
 
-	set_in.set_on_port = lut;
+	set_in.set_on_port = port;
 	set_in.rt = chg_in.rt;
 
 	ret = idt_rt_set_changed(&p_dat->dev_h, &set_in, &set_out);
 	if (ret) {
-		DBG("CHG_MC %s lut %d rte %x ret 0x%x imp_rc 0x%x\n",
-			sw->name?sw->name:"Unknown", lut, rt_val, ret,
+		DBG("CHG_MC %s port %d rte %x ret 0x%x imp_rc 0x%x\n",
+			sw->name?sw->name:"Unknown", port, rt_val, ret,
 			set_out.imp_rc);
 		goto fail;
 	};

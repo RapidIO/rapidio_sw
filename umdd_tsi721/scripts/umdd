@@ -1,4 +1,5 @@
 isol
 th 0 $cpu1 0
 wait 0 h
-umdd 0 -1 7 $buf $sts
+set chan ? 7
+umdd 0 -1 $chan $buf $sts

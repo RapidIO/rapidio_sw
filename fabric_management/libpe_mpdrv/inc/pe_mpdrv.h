@@ -43,9 +43,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-extern STATUS SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info, uint32_t offset,
+extern uint32_t SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info, uint32_t offset,
 							uint32_t *readdata);
-extern STATUS SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info, uint32_t  offset,
+extern uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info, uint32_t  offset,
                                 			uint32_t  writedata);
 extern void SRIO_API_DelayFunc(uint32_t delay_nsec, uint32_t delay_sec);
 

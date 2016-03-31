@@ -58,7 +58,7 @@ extern "C" {
 * 
 *  Example code for initializing the DAR DB
 * 
-*  STATUS example_DARDB_init( void )
+*  uint32_t example_DARDB_init( void )
 *  {
 *     DARDB_init();
 * 
@@ -74,11 +74,11 @@ extern "C" {
 *  Suppose Acme Co, with an RTA Vendor ID of 0xACDE, has to bind the driver for 
 *  Device 0xBEEF, versions 0x00, 0x01 and 0x02 into the DAR.
 * 
-*  STATUS bind_acme_driver_to_DAR ( void )
+*  uint32_t bind_acme_driver_to_DAR ( void )
 *  {
-*   STATUS          rc = SUCCESS;
-*   UINT32          vendor = 0xACDE;
-*   UINT32          device = 0xBEEF;
+*   uint32_t          rc = SUCCESS;
+*   uint32_t          vendor = 0xACDE;
+*   uint32_t          device = 0xBEEF;
 * 
 *   DAR_DB_Handle_t db_h;
 *   DAR_DB_Driver_t db_dev_driver; 
@@ -129,13 +129,13 @@ extern "C" {
 *  generate Maintenance Read/Write transactions.
 */
 
-extern STATUS    (*ReadReg ) ( DAR_DEV_INFO_t *dev_info, 
-                                       UINT32  offset, 
-                                       UINT32 *readdata );
+extern uint32_t    (*ReadReg ) ( DAR_DEV_INFO_t *dev_info, 
+                                       uint32_t  offset, 
+                                       uint32_t *readdata );
 
-extern STATUS    (*WriteReg) ( DAR_DEV_INFO_t *dev_info, 
-                                       UINT32  offset, 
-                                       UINT32  writedata );
+extern uint32_t    (*WriteReg) ( DAR_DEV_INFO_t *dev_info, 
+                                       uint32_t  offset, 
+                                       uint32_t  writedata );
 
 /* ----->>>>>>>>>>>>>  End of Host Specific Routines  <<<<<<<<<<-------- */
 
@@ -145,18 +145,18 @@ extern STATUS    (*WriteReg) ( DAR_DEV_INFO_t *dev_info,
 *  WriteReg routines, then these routines should be invoked to perform the 
 *  actual read or write.
 */
-extern STATUS DARDB_WriteReg( DAR_DEV_INFO_t *dev_info, 
-                                      UINT32  offset, 
-                                      UINT32  writedata );
-extern STATUS DARDB_ReadReg( DAR_DEV_INFO_t *dev_info, 
-                                     UINT32  offset, 
-                                     UINT32 *readdata );
+extern uint32_t DARDB_WriteReg( DAR_DEV_INFO_t *dev_info, 
+                                      uint32_t  offset, 
+                                      uint32_t  writedata );
+extern uint32_t DARDB_ReadReg( DAR_DEV_INFO_t *dev_info, 
+                                     uint32_t  offset, 
+                                     uint32_t *readdata );
 /* DARDB_init()
 * 
 *  Initializes the DAR DB array of drivers, and binds in default 
 *  non-functional Host Specific Routines.
 */
-STATUS DARDB_init( void ); 
+uint32_t DARDB_init( void ); 
 
 /* DARDB Device Driver Structure
 * 
@@ -176,93 +176,97 @@ typedef struct DAR_DB_Driver_t_TAG
     *  User code should call these routines, instead of calling DARRegRead 
     *  and DARRegWrite or the ReadReg and WriteReg routines above.
     */
-    STATUS (*ReadReg )( DAR_DEV_INFO_t *dev_info, 
-                                UINT32  offset, 
-                                UINT32 *readdata );
-    STATUS (*WriteReg)( DAR_DEV_INFO_t *dev_info, 
-                                UINT32  offset, 
-                                UINT32  writedata );
-    VOID   (*WaitSec) ( UINT32 delay_nsec,
-                        UINT32 delay_sec );
+    uint32_t (*ReadReg )( DAR_DEV_INFO_t *dev_info, 
+                                uint32_t  offset, 
+                                uint32_t *readdata );
+    uint32_t (*WriteReg)( DAR_DEV_INFO_t *dev_info, 
+                                uint32_t  offset, 
+                                uint32_t  writedata );
+    void   (*WaitSec) ( uint32_t delay_nsec,
+                        uint32_t delay_sec );
 
     /* Standard HAL routines for system bringup, all of which use standard 
     *      RapidIO registers.
     *  The default routines will function correctly for compliant devices.
     */
-    STATUS (*rioGetNumLocalPorts     )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT32 *numLocalPorts);
-    STATUS (*rioGetFeatures          )( DAR_DEV_INFO_t *dev_info, 
-                                          RIO_FEATURES *features     );
-    STATUS (*rioGetSwitchPortInfo    )( DAR_DEV_INFO_t *dev_info, 
-                                        RIO_SWITCH_PORT_INFO *portinfo     );
-    STATUS (*rioGetExtFeaturesPtr    )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT32 *extfptr      );
-    STATUS (*rioGetNextExtFeaturesPtr)( DAR_DEV_INFO_t *dev_info, 
-                                                UINT32  currfptr, 
-                                                UINT32 *extfptr      );
-    STATUS (*rioGetSourceOps         )( DAR_DEV_INFO_t *dev_info, 
-                                        RIO_SOURCE_OPS *srcops       );
-    STATUS (*rioGetDestOps           )( DAR_DEV_INFO_t *dev_info, 
-                                        RIO_DEST_OPS   *dstops       );
-    STATUS (*rioGetAddressMode       )( DAR_DEV_INFO_t *dev_info, 
-                                        RIO_ADDR_MODE  *amode         );
-    STATUS (*rioGetBaseDeviceId      )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT32 *deviceid     );
-    STATUS (*rioSetBaseDeviceId      )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT32  newdeviceid   );
-    STATUS (*rioAcquireDeviceLock    )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT16  hostdeviceid, 
-                                                UINT16 *hostlockid   );
-    STATUS (*rioReleaseDeviceLock    )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT16  hostdeviceid,
-                                                UINT16 *hostlockid   );
-    STATUS (*rioGetComponentTag      )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT32 *componenttag );
-    STATUS (*rioSetComponentTag      )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT32  componenttag );
-    STATUS (*rioGetPortErrorStatus   )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT16  portnum,
-                                 RIO_PORT_ERROR_STATUS *err_status   );
-    STATUS (*rioLinkReqNResp         )( DAR_DEV_INFO_t *dev_info, 
-                                                 UINT8  portnum, 
-                                  RIO_SPX_LM_LINK_STAT *link_stat );
+    uint32_t (*rioGetNumLocalPorts     )( DAR_DEV_INFO_t *dev_info, 
+                                                uint32_t *numLocalPorts);
+    uint32_t (*rioGetFeatures          )( DAR_DEV_INFO_t *dev_info, 
+                                          RIO_PE_FEAT_T *features     );
+    uint32_t (*rioGetSwitchPortInfo    )( DAR_DEV_INFO_t *dev_info, 
+                                        RIO_SW_PORT_INF_T *portinfo     );
+    uint32_t (*rioGetExtFeaturesPtr    )( DAR_DEV_INFO_t *dev_info, 
+                                                uint32_t *extfptr      );
+    uint32_t (*rioGetNextExtFeaturesPtr)( DAR_DEV_INFO_t *dev_info, 
+                                                uint32_t  currfptr, 
+                                                uint32_t *extfptr      );
+    uint32_t (*rioGetSourceOps         )( DAR_DEV_INFO_t *dev_info, 
+                                        RIO_SRC_OPS_T *srcops       );
+    uint32_t (*rioGetDestOps           )( DAR_DEV_INFO_t *dev_info, 
+                                        RIO_DST_OPS_T   *dstops       );
+    uint32_t (*rioGetAddressMode       )( DAR_DEV_INFO_t *dev_info, 
+                                        RIO_PE_ADDR_T  *amode         );
+    uint32_t (*rioGetBaseDeviceId      )( DAR_DEV_INFO_t *dev_info, 
+                                                uint32_t *deviceid     );
+    uint32_t (*rioSetBaseDeviceId      )( DAR_DEV_INFO_t *dev_info, 
+                                                uint32_t  newdeviceid   );
+    uint32_t (*rioAcquireDeviceLock    )( DAR_DEV_INFO_t *dev_info, 
+                                                uint16_t  hostdeviceid, 
+                                                uint16_t *hostlockid   );
+    uint32_t (*rioReleaseDeviceLock    )( DAR_DEV_INFO_t *dev_info, 
+                                                uint16_t  hostdeviceid,
+                                                uint16_t *hostlockid   );
+    uint32_t (*rioGetComponentTag      )( DAR_DEV_INFO_t *dev_info, 
+                                                uint32_t *componenttag );
+    uint32_t (*rioSetComponentTag      )( DAR_DEV_INFO_t *dev_info, 
+                                                uint32_t  componenttag );
+    uint32_t (*rioGetAddrMode          )( DAR_DEV_INFO_t *dev_info, 
+                                         RIO_PE_ADDR_T *addr_mode );
+    uint32_t (*rioSetAddrMode          )( DAR_DEV_INFO_t *dev_info, 
+                                         RIO_PE_ADDR_T  addr_mode );
+    uint32_t (*rioGetPortErrorStatus   )( DAR_DEV_INFO_t *dev_info, 
+                                                uint16_t  portnum,
+                                 RIO_SPX_ERR_STAT_T *err_status   );
+    uint32_t (*rioLinkReqNResp         )( DAR_DEV_INFO_t *dev_info, 
+                                                 uint8_t  portnum, 
+                                  RIO_SPX_LM_RESP_STAT_T *link_stat );
 
-    STATUS (*rioStdRouteAddEntry     )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT16  routedestid, 
-                                                 UINT8  routeportno  );
-    STATUS (*rioStdRouteGetEntry     )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT16  routedestid, 
-                                                 UINT8 *routeportno  );
+    uint32_t (*rioStdRouteAddEntry     )( DAR_DEV_INFO_t *dev_info, 
+                                                uint16_t  routedestid, 
+                                                 uint8_t  routeportno  );
+    uint32_t (*rioStdRouteGetEntry     )( DAR_DEV_INFO_t *dev_info, 
+                                                uint16_t  routedestid, 
+                                                 uint8_t *routeportno  );
 
     /* Device Specific routines for system bring up.
     *  Device drivers MUST implement their own versions of these routines.
     */
-    STATUS (*rioStdRouteInitAll      )( DAR_DEV_INFO_t *dev_info, 
-                                                 UINT8  routeportno );
-    STATUS (*rioStdRouteRemoveEntry  )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT16  routedestid );
-    STATUS (*rioStdRouteSetDefault   )( DAR_DEV_INFO_t *dev_info, 
-                                                 UINT8  routeportno );
-    STATUS (*rioSetAssmblyInfo       )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT32  AsmblyVendID, 
-                                                UINT16  AsmblyRev   );
-    STATUS (*rioGetAssmblyInfo       )( DAR_DEV_INFO_t *dev_info, 
-                                                UINT32 *AsmblyVendID, 
-                                                UINT16 *AsmblyRev   );
-	STATUS (*rioGetPortList	         )( DAR_DEV_INFO_t  *dev_info ,
+    uint32_t (*rioStdRouteInitAll      )( DAR_DEV_INFO_t *dev_info, 
+                                                 uint8_t  routeportno );
+    uint32_t (*rioStdRouteRemoveEntry  )( DAR_DEV_INFO_t *dev_info, 
+                                                uint16_t  routedestid );
+    uint32_t (*rioStdRouteSetDefault   )( DAR_DEV_INFO_t *dev_info, 
+                                                 uint8_t  routeportno );
+    uint32_t (*rioSetAssmblyInfo       )( DAR_DEV_INFO_t *dev_info, 
+                                                uint32_t  AsmblyVendID, 
+                                                uint16_t  AsmblyRev   );
+    uint32_t (*rioGetAssmblyInfo       )( DAR_DEV_INFO_t *dev_info, 
+                                                uint32_t *AsmblyVendID, 
+                                                uint16_t *AsmblyRev   );
+	uint32_t (*rioGetPortList	         )( DAR_DEV_INFO_t  *dev_info ,
 										struct DAR_ptl	*ptl_in,
 										struct DAR_ptl	*ptl_out );
-    STATUS (*rioSetEnumBound         )( DAR_DEV_INFO_t  *dev_info, 
+    uint32_t (*rioSetEnumBound         )( DAR_DEV_INFO_t  *dev_info, 
                                         struct DAR_ptl  *ptl_in,
 					int             enum_bnd_val);
-    STATUS (*rioGetDevResetInitStatus)( DAR_DEV_INFO_t *dev_info    );
-    STATUS (*rioPortEnable           )( DAR_DEV_INFO_t *dev_info,
+    uint32_t (*rioGetDevResetInitStatus)( DAR_DEV_INFO_t *dev_info    );
+    uint32_t (*rioPortEnable           )( DAR_DEV_INFO_t *dev_info,
                                         struct DAR_ptl	*ptl_in, 
-                                                BOOL    port_ena,
-                                                BOOL    port_lkout,
-                                                BOOL    in_out_ena );
-    STATUS (*rioEmergencyLockout     )( DAR_DEV_INFO_t *dev_info,
-                                                 UINT8  port_no  );
+                                                bool    port_ena,
+                                                bool    port_lkout,
+                                                bool    in_out_ena );
+    uint32_t (*rioEmergencyLockout     )( DAR_DEV_INFO_t *dev_info,
+                                                 uint8_t  port_no  );
    
     /* rioDeviceSupported will be invoked by DAR_Find_Driver_for_Device to see 
     *    if the device type specified by dev_info->devID (device manufacturer,
@@ -278,14 +282,14 @@ typedef struct DAR_DB_Driver_t_TAG
     *  If this is a device supported by the driver, rioDeviceSupported must 
     *    return RIO_SUCCESS.
     */ 
-    STATUS (*rioDeviceSupported)( DAR_DEV_INFO_t *dev_info );
-    STATUS (*rioDeviceRemoved  )( DAR_DEV_INFO_t *dev_info );
+    uint32_t (*rioDeviceSupported)( DAR_DEV_INFO_t *dev_info );
+    uint32_t (*rioDeviceRemoved  )( DAR_DEV_INFO_t *dev_info );
 } DAR_DB_Driver_t;
 
 /* Default implementation of DARRioGetPortList, made available for
  * device specific implementations.
  */
-STATUS DARDB_rioGetPortList(DAR_DEV_INFO_t  *dev_info ,
+uint32_t DARDB_rioGetPortList(DAR_DEV_INFO_t  *dev_info ,
 							struct DAR_ptl	*ptl_in,
 							struct DAR_ptl	*ptl_out );
 
@@ -293,7 +297,7 @@ STATUS DARDB_rioGetPortList(DAR_DEV_INFO_t  *dev_info ,
 *
 * Initialize device info such as handle, feature ptrs
 */
-VOID DARDB_Init_Device_Info( DAR_DEV_INFO_t *dev_info );
+void DARDB_Init_Device_Info( DAR_DEV_INFO_t *dev_info );
 
 /* DARDB_Init_Driver_Info
 *
@@ -301,7 +305,7 @@ VOID DARDB_Init_Device_Info( DAR_DEV_INFO_t *dev_info );
 *  After this is done, it is safe for a device to bind their own routines 
 *  into the DARDB_info structure directly. 
 */
-STATUS DARDB_Init_Driver_Info( UINT32 VendorID, DAR_DB_Driver_t *DAR_info );
+uint32_t DARDB_Init_Driver_Info( uint32_t VendorID, DAR_DB_Driver_t *DAR_info );
 
 /* DAR_DB_Bind_Driver
 *  Binds generic and implementation specific versions of standard API routines.
@@ -309,7 +313,7 @@ STATUS DARDB_Init_Driver_Info( UINT32 VendorID, DAR_DB_Driver_t *DAR_info );
 *  Will fail if implementation specific versions of rioDeviceSupported and
 *  rioDeviceRemoved are not bound in.
 */
-STATUS DARDB_Bind_Driver( DAR_DB_Driver_t *dev_info );
+uint32_t DARDB_Bind_Driver( DAR_DB_Driver_t *dev_info );
 
 /* DARDB_rioDeviceSupporetedDefault 
 *  Initializes the dev_info fields by reading RapidIO standard registers from 
@@ -318,14 +322,14 @@ STATUS DARDB_Bind_Driver( DAR_DB_Driver_t *dev_info );
 *  Intended to be called by any implementation of rioDeviceSupported to 
 *  initialize dev_info.
 */
-STATUS DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info );
+uint32_t DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info );
 
 /* DARDB_rioGetPortListDefault
  * Default implementation of rioGetPortList, intended to be called by
  * driver routines that support different devices which do and do not 
  * have contiguous port numbers.
  */
-STATUS DARDB_rioGetPortListDefault ( DAR_DEV_INFO_t  *dev_info ,
+uint32_t DARDB_rioGetPortListDefault ( DAR_DEV_INFO_t  *dev_info ,
 									struct DAR_ptl	*ptl_in,
 									struct DAR_ptl	*ptl_out );
 

@@ -178,7 +178,7 @@ typedef struct {
 	volatile uint64_t        ticks_total;
 	volatile uint64_t        total_ticks_tx; ///< How many ticks (total) between read from Tun and NWRITE FIFO completion
 
-	RdmaOpsIntf*    rdma;
+	RdmaOpsIntf*             rdma;
 
 	RioMport::DmaMem_t       dmamem[MAX_UMD_BUF_COUNT];
 	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];

@@ -75,11 +75,11 @@ char *rst_to_str[(int)(idt_pc_rst_ignore)+1] = {
 	(char *)"Ignr"
 };
 
-STATUS idt_pc_get_config( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_pc_get_config( DAR_DEV_INFO_t           *dev_info, 
                           idt_pc_get_config_in_t   *in_parms, 
                           idt_pc_get_config_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK 
 
@@ -95,11 +95,11 @@ STATUS idt_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-STATUS idt_pc_set_config( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_pc_set_config( DAR_DEV_INFO_t           *dev_info, 
                           idt_pc_set_config_in_t   *in_parms, 
                           idt_pc_set_config_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK 
 
@@ -115,11 +115,11 @@ STATUS idt_pc_set_config( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-STATUS idt_pc_get_status( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_pc_get_status( DAR_DEV_INFO_t           *dev_info, 
                           idt_pc_get_status_in_t   *in_parms, 
                           idt_pc_get_status_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK 
 
@@ -135,11 +135,11 @@ STATUS idt_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-STATUS idt_pc_reset_port( DAR_DEV_INFO_t           *dev_info, 
+uint32_t idt_pc_reset_port( DAR_DEV_INFO_t           *dev_info, 
                           idt_pc_reset_port_in_t   *in_parms, 
                           idt_pc_reset_port_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK 
 
@@ -155,11 +155,11 @@ STATUS idt_pc_reset_port( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-STATUS idt_pc_reset_link_partner( DAR_DEV_INFO_t                   *dev_info, 
+uint32_t idt_pc_reset_link_partner( DAR_DEV_INFO_t                   *dev_info, 
                                   idt_pc_reset_link_partner_in_t   *in_parms, 
                                   idt_pc_reset_link_partner_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK 
 
@@ -175,11 +175,11 @@ STATUS idt_pc_reset_link_partner( DAR_DEV_INFO_t                   *dev_info,
 }
 
 
-STATUS idt_pc_clr_errs( DAR_DEV_INFO_t         *dev_info, 
+uint32_t idt_pc_clr_errs( DAR_DEV_INFO_t         *dev_info, 
                         idt_pc_clr_errs_in_t   *in_parms, 
                         idt_pc_clr_errs_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK 
 
@@ -195,11 +195,11 @@ STATUS idt_pc_clr_errs( DAR_DEV_INFO_t         *dev_info,
 }
 
 
-STATUS idt_pc_secure_port( DAR_DEV_INFO_t            *dev_info, 
+uint32_t idt_pc_secure_port( DAR_DEV_INFO_t            *dev_info, 
                            idt_pc_secure_port_in_t   *in_parms, 
                            idt_pc_secure_port_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK 
 
@@ -214,11 +214,11 @@ STATUS idt_pc_secure_port( DAR_DEV_INFO_t            *dev_info,
     return rc;
 }
 
-STATUS idt_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info, 
+uint32_t idt_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info, 
                                 idt_pc_dev_reset_config_in_t   *in_parms, 
                                 idt_pc_dev_reset_config_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK 
 
@@ -233,11 +233,11 @@ STATUS idt_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info,
     return rc;
 }
 
-STATUS idt_pc_probe( DAR_DEV_INFO_t      *dev_info, 
+uint32_t idt_pc_probe( DAR_DEV_INFO_t      *dev_info, 
                      idt_pc_probe_in_t   *in_parms, 
                      idt_pc_probe_out_t  *out_parms )
 {
-    STATUS rc = DAR_DB_INVALID_HANDLE;
+    uint32_t rc = DAR_DB_INVALID_HANDLE;
 
     NULL_CHECK 
 

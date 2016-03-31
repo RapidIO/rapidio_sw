@@ -62,7 +62,7 @@ RioMport::RioMport(const int mportid)
   int rc;
   m_portid = mportid;
   is_my_mport_handle = 1;
-  rc = riomp_mgmt_mport_create_handle(m_portid, 0x666, &mp_h);
+  rc = riomp_mgmt_mport_create_handle(m_portid, UMD_RESERVED, &mp_h);
 
   if(rc) {
     XCRIT("Failed to open mport%d %d:%s", m_portid, rc, strerror(errno));
