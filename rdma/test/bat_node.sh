@@ -37,7 +37,7 @@ NODES="$SERVER_NODES $CLIENT_NODES"
 
 # Server-base port number. Increments by 1 for each new server on the same machine.
 # Also increments for other machines.
-SERVER_CM_CHANNEL_START=$((10#$3))
+SERVER_CM_CHANNEL_START=$((10#$5))
 SERVER_CM_CHANNEL=$SERVER_CM_CHANNEL_START
 
 # Unix signal to send to processes via the 'kill' command
