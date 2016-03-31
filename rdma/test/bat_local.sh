@@ -3,12 +3,32 @@
 # Script for automated execution of BAT tests.
 #
 # Usage:  sudo ./bat_local.sh <server IP> <client IP> <channel> [<test case>]"
+# Check that at least a server and a client IP have been specified on command line
+
+if [ "$#" -lt 3 ]; then
+	echo "Usage:  sudo ./bat_local.sh <server IP> <client IP> <channel> [<test case>]"
+	exit
+fi
+
+# Indicate whether a single test or ALL tests will be run
+if [ -n "$4" ]
+	then
+		echo "NOTE: Running test case '$4' only"
+	else
+		echo "Running ALL tests"
+fi
 
 # Location of binaries
 RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
 
 # Location of RIO mport infor (e.g. destid)
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
+
+# Unix signal to send to processes via the 'kill' command
+SIGINT=2	# CTRL-C
+
+# Number of BAT_SERVERs needed per node per BAT test
+BAT_SERVER_APPS_PER_TEST=3
 
 # Use SERVER_NODES for nodes that shall run "bat_server"
 SERVER_NODES="$1"
@@ -25,26 +45,6 @@ NODES="$SERVER_NODES $CLIENT_NODES"
 # to communicate with 3 bat servers on a server node
 SERVER_CM_CHANNEL_START=$((10#$3))
 SERVER_CM_CHANNEL=$SERVER_CM_CHANNEL_START
-
-# Unix signal to send to processes via the 'kill' command
-SIGINT=2	# CTRL-C
-
-# Number of BAT_SERVERs needed per node per BAT test
-BAT_SERVER_APPS_PER_TEST=3
-
-# Check that at least a server and a client IP have been specified on command line
-if [ "$#" -lt 3 ]; then
-	echo "Usage:  sudo ./bat_local.sh <server IP> <client IP> <channel> [<test case>]"
-	exit
-fi
-
-# Indicate whether a single test or ALL tests will be run
-if [ -n "$4" ]
-	then
-		echo "NOTE: Running test case '$4' only"
-	else
-		echo "Running ALL tests"
-fi
 
 # Load drivers on each node
 for node in $NODES
