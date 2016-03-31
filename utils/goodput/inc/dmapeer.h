@@ -61,6 +61,7 @@ private:
   pthread_mutex_t    m_mutex;
   uint16_t           m_destid; ///< RIO destid of peer
   uint64_t           m_rio_addr; ///< Peer's IBwin mapping (REMOTE)
+  uint32_t           m_base_size;; ///< Peer's IBwin mapping size (REMOTE)  
 
   void*              m_ib_ptr; ///< Pointer to some place in LOCAL IBwin
 
@@ -99,6 +100,7 @@ public:
     stop_req(0),
     m_ib_histo(NULL),
     m_rio_addr(0),
+    m_base_size(0),
     m_ib_ptr(NULL),
     m_tun_fd(-1), m_tun_MTU(0),
     m_pRP(NULL),
@@ -128,6 +130,7 @@ private:
     stop_req   = other.stop_req;
     m_destid   = other.m_destid;
     m_rio_addr = other.m_rio_addr;
+    m_base_size= other.m_base_size;
     m_ib_ptr   = other.m_ib_ptr;
     m_tun_fd   = -1;
     m_tun_MTU  = other.m_tun_MTU;
@@ -195,6 +198,8 @@ public:
 
   inline uint64_t get_rio_addr() { return m_rio_addr; }
   inline uint64_t set_rio_addr(const uint64_t rio_addr) { return m_rio_addr=rio_addr; }
+  inline uint32_t get_base_size() { return m_base_size; }
+  inline uint32_t set_base_size(const uint32_t base_size) { return m_base_size=base_size; }
 
   inline void rx_work_sem_post() { sem_post(&m_rio_rx_work); }
   inline void rx_work_sem_wait() { sem_wait(&m_rio_rx_work); }
