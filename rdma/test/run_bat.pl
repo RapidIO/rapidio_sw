@@ -21,7 +21,6 @@ use File::Spec;
 # Obtain current directory so we can find 'bat_client' when called from a remote
 # shell script
 my ($volume, $directory, $file) = File::Spec->splitpath(__FILE__);
-print "$directory\n";
 
 # Command-line options
 my %options = ();
@@ -54,12 +53,13 @@ if (!defined($options{d})) {
 	$destid = hex($options{d});
 }
 # Open log file for storing PASS/FAIL results of tests
-my $logfilename = $directory . "/bat" . $channel . ".log";
+my $logfilename = $directory . "bat" . $channel . ".log";
 open(my $fh, ">", $logfilename)
 	or die "cannot open $logfilename!";
 
 # Test case to run -- if specified
 if (defined($options{t})) {
+	print "sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t$options{t} -o" . $logfilename;
 	system("sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t$options{t} -o" . $logfilename);
 	close($fh);
 	exit;
