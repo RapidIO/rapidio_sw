@@ -2084,24 +2084,11 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		in_msg->server_disconnect_ms_in.server_msid = server_msid;
 		in_msg->server_disconnect_ms_in.server_msubid = server_msubid;
 		in_msg->server_disconnect_ms_in.client_msubid = client_msubid;
-
-		unix_msg_t out_msg;
-		rc = daemon_call(move(in_msg), &out_msg);
-		if (rc ) {
-			ERR("Failed in SERVER_DISCONNECT_MS daemon_call, rc = 0x%X\n",
-										rc);
-			throw rc;
-		}
-
-		/* Failed to send server_disconnect_ms? */
-		if (out_msg.server_disconnect_ms_out.status) {
-			ERR("Failed in SERVER_DISCONNECT_MS in daemon, status=0x%X\n",
-					out_msg.server_disconnect_ms_out.status);
-			throw out_msg.server_disconnect_ms_out.status;
-		}
+		tx_eng->send_message(move(in_msg));
 
 		/* Now wait for a SERVER_DISCONNECT_MS_ACK */
 		INFO(" Waiting for connect response (accept) message...\n");
+		unix_msg_t out_msg;
 		rc = await_message(RDMA_CALL,
 				SERVER_DISCONNECT_MS_ACK,
 				0,

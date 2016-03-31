@@ -600,8 +600,6 @@ int server_disconnect_ms_disp(const unix_msg_t *in_msg,
 			ERR("Failed to disconnect MS\n");
 			throw rc;
 		}
-		INFO("CM_FORCE_DISCONNECT_MS sent to Client daemon!\n");
-
 	}
 	catch(int e) {
 		rc = e;
