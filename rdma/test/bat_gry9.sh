@@ -10,7 +10,7 @@
 # sudo ./bat_gryxx.sh
 
 # Location of binaries
-RDMA_ROOT_PATH=/home/srio/git/rapidio_sw
+RDMA_ROOT_PATH=/home/sherif/git/rapidio_sw
 
 # Location of RIO mport infor (e.g. destid)
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
