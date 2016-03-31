@@ -35,6 +35,9 @@ SERVER_CM_CHANNEL=$SERVER_CM_CHANNEL_START
 # Unix signal to send to processes via the 'kill' command
 SIGINT=2	# CTRL-C
 
+# Number of BAT_SERVERs needed per node per BAT test
+BAT_SERVER_APPS_PER_TEST=3
+
 # Indicate whether a single test or ALL tests will be run
 if [ -n "$1" ]
 	then
@@ -108,35 +111,26 @@ done
 
 sleep 2
 
-# Start 3 BAT_SERVERs on each server node. This is mainly because we have a BAT
+# Start multiple BAT_SERVERs on each server node. This is mainly because we have a BAT
 # test case that creates a memory space from one server app, and opens that memory
-# space from 2 other server apps. So we need three.
+# space from 2 other server apps. So we need three per BAT test run.
 for node in $SERVER_NODES
 do
 	# First get the destination ID of current node
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 	echo "Start bat_servers on $node destID=$DESTID"
 
-	# Create first server on current node
-	echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
-	ssh root@"$node" "screen -dmS server1 $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
+	COUNTER=0
+	while [ $COUNTER -lt $BAT_SERVER_APPS_PER_TEST ]; do
+		# Create server on current node
+		echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
+		ssh root@"$node" "screen -dmS server1 $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
 
-	# Increment CM channel number for the next server app on the same node
-	((SERVER_CM_CHANNEL++ ))
-
-	# Create second server on current node
-	echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
-	ssh root@"$node" "screen -dmS server2 $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
-
-	# Increment CM channel number for the next server app on the same node
-	((SERVER_CM_CHANNEL++ ))
-
-	# Create third server on current node
-	echo "screen -dmS bat_server $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
-	ssh root@"$node" "screen -dmS server3 $RDMA_ROOT_PATH/rdma/test/bat_server -c$SERVER_CM_CHANNEL"
-
-	# Increment CM channel number for next node
-	((SERVER_CM_CHANNEL++ ))
+		# Increment CM channel number for the next server app on the same node
+		((SERVER_CM_CHANNEL++ ))
+	
+		((COUNTER++ ))	# increment loop variable
+	done
 
 	# Display PIDs for verification
 	sleep 1
@@ -151,9 +145,7 @@ do
 	ssh -t root@"$node" "/usr/bin/perl $RDMA_ROOT_PATH/rdma/test/run_bat.pl -c$SERVER_CM_CHANNEL -d$DESTID -t$1"
 
 	# Increment channel by 3 since each BAT client uses 3 channels to talk to the 3 BAT servers
-	((SERVER_CM_CHANNEL++ ))
-	((SERVER_CM_CHANNEL++ ))
-	((SERVER_CM_CHANNEL++ ))
+	let SERVER_CM_CHANNEL=SERVER_CM_CHANNEL+$BAT_SERVER_APPS_PER_TEST
 done
 
 # ******************* Kill all processes *******************
