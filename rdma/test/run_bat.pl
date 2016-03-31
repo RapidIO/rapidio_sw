@@ -72,7 +72,7 @@ my @tests = (
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tl -o" . $logfilename, # 11
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tm -o" . $logfilename, # 12
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tn -o" . $logfilename, # 13
-#	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -to -o" . $logfilename, # 14
+	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -to -o" . $logfilename, # 14
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tp -o" . $logfilename, # 15
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tr -o" . $logfilename, # 16
 	"sudo ./bat_client -d" . $destid. " -c" . $channel . " -n3 -tt -o" . $logfilename, # 17
