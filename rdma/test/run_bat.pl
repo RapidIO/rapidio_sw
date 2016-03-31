@@ -101,11 +101,11 @@ foreach my $bat(@tests) {
 }
 
 # Run tests, in a random order
-#print "******* Running Tests in Random Order *******\n";
-#for (my $i = 0; $i < $num_bat; $i++) {
-#	my $j = int(rand($num_bat));
-#	print "Running $tests[$j] at " . localtime() ."\n";
-#	system($tests[$j]);
-#}
+print "******* Running Tests in Random Order *******\n";
+for (my $i = 0; $i < $num_bat; $i++) {
+	my $j = int(rand($num_bat));
+	print "Running $tests[$j] at " . localtime() ."\n";
+	system($tests[$j]);
+}
 close($fh);
 
