@@ -71,7 +71,8 @@ SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 # User-mode only flags
 UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
 	 -Wall -Wno-format -Wno-sign-compare -Wno-write-strings \
-	 -DRIO_ANY_ADDR=0 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
+	 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
+	 #-DRIO_ANY_ADDR=0
 
 
 UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc src/rdmaopsumd.cc
