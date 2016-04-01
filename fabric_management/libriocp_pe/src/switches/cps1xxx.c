@@ -2501,7 +2501,7 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 		} else {
 			if (ctl & CPS1xxx_PLL_X_CTL_PLL_DIV_SEL)
 				pll_chg = 1;
-			ctl |= ~CPS1xxx_PLL_X_CTL_PLL_DIV_SEL;
+			ctl &= ~CPS1xxx_PLL_X_CTL_PLL_DIV_SEL;
 		}
 
 		ret = riocp_pe_maint_write(sw, CPS1xxx_PLL_X_CTL_1(_pll), ctl);
