@@ -40,7 +40,7 @@ LIBMPINCDIR=$(COMMONDIR)/libmport/src
 COMMONINC=$(COMMONDIR)/include
 COMMONLIB=$(COMMONDIR)/libs_so
 REGSDIR=../fabric_management/librio_switch/inc
-LOG_LEVEL?=7
+
 export LOG_LEVEL
 
 LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so
@@ -52,41 +52,48 @@ SOURCES = src/crc32.c src/dmachan.cc src/mapfile.cc src/mboxchan.cc \
 	src/mport.cc src/psem.cc src/pshm.cc src/tsi721_dma.c
 
 CXXFLAGS = -I./inc -I$(REGSDIR) -I$(COMMONINC) \
-	 -std=gnu++0x \
-	 -ggdb -O3 \
-	 -fPIC -shared \
-	 -Wall -Wno-format -Wno-sign-compare -Wno-write-strings \
-	 -Wno-unused-variable -Wno-unused-but-set-variable \
-	 -DRIO_ANY_ADDR=0 \
+	 -std=gnu++0x -g -ggdb -DDEBUG \
+	 -O3 -fPIC -Werror -pthread
+
+LIBFLAGS = -shared 
 
 #CXXFLAGS+=-pg
 #CXXFLAGS+=-DDEBUG=2
+SYSLIBS = -lrt -lpthread -ldl 
+LIBRARIES = -lmport -ltime_utils -lcli
 
-LIBRARIES = -lrt -lpthread -ldl -lmport -ltime_utils
-
-all: libumd.a libumd_nolog.a
+all: libumd.a libumd_nolog.a client server
 
 libumd.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
-	$(CXX) $(CXXFLAGS) -DRDMA_LL=$(LOG_LEVEL) $(SOURCES) -c -L$(COMMONLIB) $(LIBRARIES) -llog
+	$(CXX) $(CXXFLAGS) $(LIBFLAGS) -DRDMA_LL=$(LOG_LEVEL) $(SOURCES) \
+		-c $(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) -llog
 	$(AR) rcs $@ *.o
 	@rm -f *.o
 
 libumd_nolog.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
-	$(CXX) $(CXXFLAGS) $(SOURCES) -c -L$(COMMONLIB) $(LIBRARIES) 
+	$(CXX) $(CXXFLAGS) $(LIBFLAGS) $(SOURCES) \
+		-c $(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) 
 	$(AR) rcs $@ *.o
 	@rm -f *.o
 
-mboxsample: src/mboxsample.c
-	$(CXX) $(CCFLAGS) $(UMD_FLAGS) \
+client: src/mbox_example.c
+	$(CXX) $(CXXFLAGS) \
+		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
+		-DRDMA_LL=$(LOG_LEVEL) -DMBOX_CLIENT \
+		src/mbox_example.c -o $@ \
+		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd
+server: src/mbox_example.c
+	$(CXX) $(CXXFLAGS) \
 		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) \
-		-Wno-unused-variable src/mboxsample.c -o $@ \
-		-L$(COMMONLIB) -L$(UMDDIR) $(LIBRARIES) $(LIBS_RPATH) -lcli -llog -L. -lumd
+		src/mbox_example.c -o $@ \
+		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd
+
 
 clean:
-	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out mboxsample
+	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out client server
 
 FORCE:
 

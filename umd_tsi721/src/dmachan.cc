@@ -121,13 +121,13 @@ DMAChannel::~DMAChannel()
 };
 
 char* dma_rtype_str[] = {
-  "NREAD",
-  "LAST_NWRITE_R",
-  "ALL_NWRITE",
-  "ALL_NWRITE_R",
-  "MAINT_RD",
-  "MAINT_WR",
-  NULL
+  (char *)"NREAD",
+  (char *)"LAST_NWRITE_R",
+  (char *)"ALL_NWRITE",
+  (char *)"ALL_NWRITE_R",
+  (char *)"MAINT_RD",
+  (char *)"MAINT_WR",
+  (char *)NULL
 };
 
 bool DMAChannel::dmaIsRunning()

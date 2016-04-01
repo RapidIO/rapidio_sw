@@ -70,6 +70,7 @@ FORCE:
 
 clean: FORCE
 	$(MAKE) clean -C common
+	$(MAKE) clean -C umd_tsi721
 	$(MAKE) clean -C umdd_tsi721
 	$(MAKE) clean -C rdma
 	$(MAKE) clean -C fabric_management

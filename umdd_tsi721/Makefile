@@ -56,7 +56,7 @@ SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 # User-mode only flags
 # FIXME: Work to remove these as time permits
 UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER -Wall \
-	 -DRIO_ANY_ADDR=0 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
+	 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
 
 UMD_INCLUDES = inc/dmachanshm.h
 
@@ -76,7 +76,7 @@ umddlib: $(UMDDLIB_SOURCES)
 	$(CXX) -O3 -Wall -ggdb -pthread -std=gnu++0x \
 	-Iinc -I$(COMMONINC)  -I$(UMDDIR)/inc \
 	-I$(TOP_LEVEL)/fabric_management/librio_switch/inc \
-        -DNODEBUG -DUSER_MODE_DRIVER -Wall -Wno-format -DRIO_ANY_ADDR=0 \
+        -DNODEBUG -DUSER_MODE_DRIVER -Wall -Wno-format \
         $(UMDDLIB_SOURCES) \
         -fPIC -shared -Wl,-soname,libUMDd.so.$(SOVER) -o libUMDd.so.$(SOVER) \
         -lrt -L$(COMMONLIB) -L$(UMDDIR) $(LIBS_RPATH) -lmport -ltime_utils -lumd_nolog
