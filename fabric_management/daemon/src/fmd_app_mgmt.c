@@ -265,7 +265,7 @@ void *app_conn_loop( void *unused )
 	sem_post(&app_st.loop_started);
 
 	while (!app_st.all_must_die) {
-		int rc, found, i, new_app_i;
+		int rc, found, i, new_app_i = - 1;
 		struct fmd_app_mgmt_state *new_app;
 
 		sem_wait(&app_st.apps_avail);

@@ -363,10 +363,30 @@ first_message, force_nread, q_fullish, outstanding, Q_THR(info->umd_tx_buf_cnt-1
 
   if (info->stop_req) goto unlock;
 
-  dmaopt.destid      = destid_dpi;
-  dmaopt.bcount      = ntohl(pL2->len);
-  dmaopt.raddr.lsb64 = peer->get_rio_addr() + sizeof(DmaPeerRP_t) + peer->get_WP() * BD_PAYLOAD_SIZE(info);
-  dmaopt.u_data      = now;
+  {{
+    const int peer_WP = peer->get_WP();
+
+    dmaopt.destid      = destid_dpi;
+    dmaopt.bcount      = ntohl(pL2->len);
+    dmaopt.raddr.lsb64 = peer->get_rio_addr() + sizeof(DmaPeerRP_t) + peer_WP * BD_PAYLOAD_SIZE(info);
+    dmaopt.u_data      = now;
+
+    const uint64_t PEER_END_WIN = peer->get_rio_addr() + peer->get_ibwin_size();
+
+    if (dmaopt.raddr.lsb64 > (PEER_END_WIN-1)) {
+      CRIT("\n\tPeer did %u [WP=%d] address 0x%llx falls beyond allocated memory mark 0x%llx\n",
+           dmaopt.destid, peer_WP, dmaopt.raddr.lsb64, PEER_END_WIN-1);
+      assert(dmaopt.raddr.lsb64 < PEER_END_WIN-1);
+      goto error; // In case asserts disabled
+    }
+
+    if ((dmaopt.raddr.lsb64 + dmaopt.bcount) > PEER_END_WIN) {
+      CRIT("\n\tPeer did %u [WP=%d] mem exent 0x%llx+0x%x falls beyond allocated memory mark 0x%llx\n",
+           dmaopt.destid, peer_WP, dmaopt.raddr.lsb64, dmaopt.bcount, PEER_END_WIN);
+      assert((dmaopt.raddr.lsb64 + dmaopt.bcount) < PEER_END_WIN);
+      goto error; // In case asserts disabled
+    }
+  }}
 
   DBG("\n\tSending to RIO %d+%d bytes to RIO destid %u addr 0x%llx WP=%d chan=%d oi=%d\n",
       nread, DMA_L2_SIZE, destid_dpi, dmaopt.raddr.lsb64, peer->get_WP(), dci->chan, dci->oi);
@@ -593,6 +613,7 @@ bool umd_dma_tun_update_peer_RP(struct worker* info, DmaPeer* peer)
   upeer.UC = peer->get_serial();
 
   const uint16_t destid = peer->get_destid();
+  assert(offsetof(DmaPeerRP_t, rpeer) < peer->get_ibwin_size());
   const uint64_t rio_addr = peer->get_rio_addr() + offsetof(DmaPeerRP_t, rpeer);
 
 #ifdef UDMA_TUN_DEBUG_NWRITE_CH2
@@ -690,25 +711,26 @@ exit:
 /** \brief Setup a peer and spawn its associated thread
  * \param[in] info this-like
  * \param     destid peer's RIO destid
- * \param     rio_addr address into peer's IBwin
+ * \param[in] from_info IBwin info peer sent us, fields in host order
  * \param[in] ib_ptr address allocated for peer into LOCAL IBwin
  * \return true if everything is setup, false otherwise
  */
-bool umd_dma_goodput_tun_setup_peer(struct worker* info, const uint16_t destid, const uint64_t rio_addr, const void* ib_ptr)
+bool umd_dma_goodput_tun_setup_peer(struct worker* info, const uint16_t destid, const DMA_MBOX_PAYLOAD_t* from_info, const void* ib_ptr)
 {
   int rc = 0;
   int slot = -1;
   pthread_t tun_TX_thr;
   bool peer_list_full = false;
 
-  if (info == NULL || rio_addr == 0) return false;
+  if (info == NULL || from_info == NULL || from_info->rio_addr == 0) return false;
 
   DmaPeer* tmppeer = new DmaPeer();
   if (tmppeer == NULL) return false;
 
   tmppeer->sig = PEER_SIG_INIT;
   tmppeer->set_destid(destid);
-  tmppeer->set_rio_addr(rio_addr);
+  tmppeer->set_rio_addr(from_info->rio_addr);
+  tmppeer->set_ibwin_size(from_info->ibwin_size);
 
   // Set up array of pointers to IB L2 headers
   if (! tmppeer->init(info, ib_ptr)) goto exit;
@@ -933,8 +955,10 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 
       DMA_MBOX_L2_t* pL2 = (DMA_MBOX_L2_t*)buf;
 
+      // ENCAP
       DMA_MBOX_PAYLOAD_t* payload = (DMA_MBOX_PAYLOAD_t*)(buf + sizeof(DMA_MBOX_L2_t));
       payload->rio_addr      = htonll(rio_addr);
+      payload->ibwin_size    = htonl(info->umd_peer_ibmap->getIBwinSize());
       payload->base_rio_addr = htonll(info->umd_peer_ibmap->getBaseRioAddr());
       payload->base_size     = htonl(info->umd_peer_ibmap->getBaseSize());
       payload->MTU           = htonl(info->umd_tun_MTU);
@@ -945,9 +969,10 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
       pL2->destid_dst = htons(destid);
       pL2->len        = htons(sizeof(DMA_MBOX_L2_t) + sizeof(DMA_MBOX_PAYLOAD_t));
 
-      DBG("\n\tSignalling [tx_fd=%d] peer destid %u {base_rio_addr=0x%llx base_size=%lu rio_addr=0x%llx bufc=%u MTU=%lu}\n",
+      DBG("\n\tSignalling [tx_fd=%d] peer destid %u {base_rio_addr=0x%llx base_size=0x%lx ibwin_size=0x%lx rio_addr=0x%llx bufc=%u MTU=%lu}\n",
           info->umd_mbox_tx_fd, destid,
           info->umd_peer_ibmap->getBaseRioAddr(), info->umd_peer_ibmap->getBaseSize(),
+          info->umd_peer_ibmap->getIBwinSize(),
           rio_addr, info->umd_tx_buf_cnt-1, info->umd_tun_MTU);
 
       if (info->umd_mbox_tx_fd < 0) break;
@@ -1002,16 +1027,17 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
       pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
       {{
         if (info->umd_dma_did_enum_list[from_destid].on_time == 0) {
-        info->umd_dma_did_enum_list[from_destid].destid = from_destid;
-        info->umd_dma_did_enum_list[from_destid].on_time = now;
+          info->umd_dma_did_enum_list[from_destid].destid = from_destid;
+          info->umd_dma_did_enum_list[from_destid].on_time = now;
         }
+
         info->umd_dma_did_enum_list[from_destid].ls_time = now;
         info->umd_dma_did_enum_list[from_destid].bcast_cnt_in++;
 
         std::map<uint16_t, int>::iterator itp = info->umd_dma_did_peer.find(from_destid);
         if (itp != info->umd_dma_did_peer.end()) {
-        peer_setup = true;
-        peer_rio_addr = info->umd_dma_did_peer_list[itp->second]->get_rio_addr();
+          peer_setup = true;
+          peer_rio_addr = info->umd_dma_did_peer_list[itp->second]->get_rio_addr();
         }
       }}
       pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
@@ -1024,14 +1050,14 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
       DMA_MBOX_PAYLOAD_t* payload = (DMA_MBOX_PAYLOAD_t*)(buf + sizeof(DMA_MBOX_L2_t));
 
       if (payload->action == ACTION_DEL) {
-          if (peer_setup) {
-        INFO("\n\tPeer destid %u told us to go away. Nuking peer\n", from_destid);
-        umd_dma_goodput_tun_del_ep(info, from_destid, false);
-        break; // F*ck g++
-          } else {
-        ERR("\n\tPeer destid %u told us to go away but we have no peer for it!\n", from_destid);
-        break; // F*ck g++
-          }
+        if (peer_setup) {
+          INFO("\n\tPeer destid %u told us to go away. Nuking peer\n", from_destid);
+          umd_dma_goodput_tun_del_ep(info, from_destid, false);
+          break; // F*ck g++
+        } else {
+          ERR("\n\tPeer destid %u told us to go away but we have no peer for it!\n", from_destid);
+          break; // F*ck g++
+        }
       }
 
       // If rio_addr comes and != what we have for peer then nuke peer as it had restarted!!!!!
@@ -1042,8 +1068,8 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
       if (peer_setup) {
         assert(peer_rio_addr);
         if (from_rio_addr != peer_rio_addr) {
-            INFO("\n\tGot info [rx_fd=%d] for STALE destid %u NEW peer.rio_addr=0x%llx changed from stored peer.rio_addr=0x%llx. Nuking peer.\n",
-              info->umd_mbox_rx_fd, from_destid, from_rio_addr, peer_rio_addr);
+          INFO("\n\tGot info [rx_fd=%d] for STALE destid %u NEW peer.rio_addr=0x%llx changed from stored peer.rio_addr=0x%llx. Nuking peer.\n",
+               info->umd_mbox_rx_fd, from_destid, from_rio_addr, peer_rio_addr);
           umd_dma_goodput_tun_del_ep(info, from_destid, true);
           break;
         }
@@ -1051,26 +1077,31 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
         break; // Don't put up Tun twice // F*ck g++
       }
 
-      const uint64_t from_base_rio_addr = htonll(payload->base_rio_addr);
-      const uint32_t from_base_size     = ntohl(payload->base_size);
-      const uint16_t from_bufc          = ntohs(payload->bufc);
-      const uint32_t from_MTU           = ntohl(payload->MTU);
+      DMA_MBOX_PAYLOAD_t from_info; memset(&from_info, 0, sizeof(from_info));
 
-      assert(from_base_rio_addr);
-      assert(from_base_size);
+      // DECAP
+      from_info.rio_addr      = htonll(payload->rio_addr);
+      from_info.ibwin_size    = ntohl(payload->ibwin_size);
+      from_info.base_rio_addr = htonll(payload->base_rio_addr);
+      from_info.base_size     = ntohl(payload->base_size);
+      from_info.bufc          = ntohs(payload->bufc);
+      from_info.MTU           = ntohl(payload->MTU);
+
+      assert(from_info.base_rio_addr);
+      assert(from_info.base_size);
 
       do {{
-        if (from_MTU != info->umd_tun_MTU) {
+        if (from_info.MTU != info->umd_tun_MTU) {
           INFO("\n\tGot a mismatched MTU %lu from peer destid %u (expecting %lu). Ignoring peer.\n",
-               from_MTU, from_destid, info->umd_tun_MTU);
+               from_info.MTU, from_destid, info->umd_tun_MTU);
           break;
         }
-        if (from_bufc != (info->umd_tx_buf_cnt-1)) {
+        if (from_info.bufc != (info->umd_tx_buf_cnt-1)) {
           INFO("\n\tGot a mismatched bufc %u from peer destid %u (expecting %d). Ignoring peer.\n",
-               from_bufc, from_destid, (info->umd_tx_buf_cnt-1));
+               from_info.bufc, from_destid, (info->umd_tx_buf_cnt-1));
           break;
         }
-        if (from_rio_addr == 0) {
+        if (from_info.rio_addr == 0) {
           INFO("\n\tGot a 0 rio_addr from peer destid %u. Ignoring peer.\n", from_destid);
           break;
         }
@@ -1097,14 +1128,14 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
 
         DBG("\n\tGot info [rx_fd=%d] for NEW destid %u peer.{base_rio_addr=0x%llx base_size=%lu rio_addr=0x%llx bufc=%u MTU=%lu} allocated rio_addr=%llu ib_ptr=%p bcast_cnt=%d\n",
             info->umd_mbox_rx_fd,
-            from_destid, from_base_rio_addr, from_base_size, from_rio_addr, from_bufc, from_MTU,
+            from_destid, from_info.base_rio_addr, from_info.base_size, from_info.rio_addr, from_info.bufc, from_info.MTU,
             rio_addr, peer_ib_ptr, bcast_cnt);
 
          // We want to be doubleplus-sure the peer is ready to receive us once we put the Tun up
         if (bcast_cnt < (min_bcasts * 2) || bcast_cnt_in < min_bcasts) break;
 
         DBG("\n\tSetting up Tun for NEW peer destid %u\n", from_destid);
-        if (! umd_dma_goodput_tun_setup_peer(info, from_destid, from_rio_addr, peer_ib_ptr)) goto exit;
+        if (! umd_dma_goodput_tun_setup_peer(info, from_destid, &from_info, peer_ib_ptr)) goto exit;
       }} while(0);
     }} while(0); // END if FD_ISSET
   } // END while !info->stop_req
@@ -1139,10 +1170,12 @@ void umd_dma_goodput_tun_demo(struct worker *info)
   // Note: There's no reason to link info->umd_tx_buf_cnt other than
   // convenience. However the IB ring should never be smaller than
   // info->umd_tx_buf_cnt-1 members -- (dis)counting T3 BD on TX side
-  const int IBWIN_SIZE = sizeof(DmaPeerRP_t) + BD_PAYLOAD_SIZE(info) * (info->umd_tx_buf_cnt-1);
+  {{
+    const int IBWIN_SIZE = sizeof(DmaPeerRP_t) + BD_PAYLOAD_SIZE(info) * (info->umd_tx_buf_cnt-1);
 
-  assert(info->ib_ptr);
-  assert(info->ib_byte_cnt >= IBWIN_SIZE);
+    assert(info->ib_ptr);
+    assert(info->ib_byte_cnt >= IBWIN_SIZE);
+  }}
 
   memset(info->ib_ptr, 0, info->ib_byte_cnt);
 
@@ -2145,8 +2178,9 @@ void UMD_DD(struct worker* info)
       }
 
       char tmp[257] = {0};
-      snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx tx.WP=%u tx.RP~%u tx.rpUC=%u tx.rpLS=%fmS\n\t\t\ttx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
-         peer.get_destid(), peer.get_tun_name(), peer.get_rio_addr(),
+      snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx/0x%x tx.WP=%u tx.RP~%u tx.rpUC=%u tx.rpLS=%fmS\n\t\t\ttx.RIO=%llu rx.RIO=%llu\n\t\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\t\ttx.peer_full=%llu", 
+         peer.get_destid(), peer.get_tun_name(),
+         peer.get_rio_addr(), peer.get_ibwin_size(),
          peer.get_WP(), peer.get_RP(), peer.get_RP_serial(), dT_RP,
          peer.m_stats.tx_cnt, peer.m_stats.rx_cnt,
          peer.m_stats.tun_rx_cnt, peer.m_stats.tun_tx_cnt, peer.m_stats.tun_tx_err,
