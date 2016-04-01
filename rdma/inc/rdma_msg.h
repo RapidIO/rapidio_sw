@@ -52,8 +52,8 @@ typedef uint64_t rdma_msg_seq_no;
  * a response arrives asynchronously without any notification
  * configured for it; it is handled by the message processor
  */
-constexpr rdma_msg_cat RDMA_CALL 		= 0xDDDDDDDDDDDDDDDD;
-constexpr rdma_msg_cat RDMA_REQ_RESP        = 0xAAAAAAAAAAAAAAAA;
+constexpr rdma_msg_cat RDMA_CALL 	= 0xDDDDDDDDDDDDDDDD;
+constexpr rdma_msg_cat RDMA_REQ_RESP    = 0xAAAAAAAAAAAAAAAA;
 
 inline const char *cat_name(const rdma_msg_cat cat) {
 	if(cat == RDMA_CALL)

@@ -1979,6 +1979,13 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 		else
 			in_msg->send_disconnect_in.client_msubid = NULL_MSUBID;
 
+		/**
+		 * NOTE: Set the notification for DISCONNECT_MS_ACK. This way
+		 * the message won't be discarded if it arrives promplty */
+		auto reply_sem = make_shared<sem_t>();
+		sem_init(reply_sem.get(), 0, 0);
+		rc = rx_eng->set_notify(DISCONNECT_MS_ACK, RDMA_CALL, 0, reply_sem);
+
 		/* Call into daemon */
 		unix_msg_t  out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
@@ -1995,16 +2002,18 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 			throw out_msg.send_disconnect_out.status;
 		}
 
-		/* Now wait for a disconnect acknowledgement */
-		INFO(" Waiting for connect response (accept) message...\n");
-		rc = await_message(RDMA_CALL,
-				DISCONNECT_MS_ACK,
-				0,
-				timeout_secs,
-				&out_msg);
-		if (rc == ETIMEDOUT) {
-			ERR("Timeout before getting response to 'disconnect'\n");
-			throw RDMA_DISCONNECT_TIMEOUT;
+		struct timespec timeout;
+		clock_gettime(CLOCK_REALTIME, &timeout);
+		timeout.tv_sec += timeout_secs;
+		rc = sem_timedwait(reply_sem.get(), &timeout);
+		if (rc) {
+			ERR("reply_sem failed: %s\n", strerror(errno));
+			if (errno == ETIMEDOUT) {
+				ERR("Timeout occurred\n");
+				/* Don't throw an exception here since we
+				 * still need to clean up the database. */
+				rc = RDMA_DISCONNECT_TIMEOUT;
+			}
 		}
 
 		/* Remove all remote msubs belonging to 'rem_msh'. At this point,
@@ -2016,7 +2025,12 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 		if (remove_rem_ms(server_msh)) {
 			ERR("Failed to remove remote msid(0x%X) from database\n",
 								server_ms->msid);
-			throw RDMA_DB_REM_FAIL;
+			/* If we already had an RDMA_DISCONNECT_TIMEOUT error, then
+			 * don't throw anything since rc == RDMA_DISCONNECT_TIMEOUT
+			 * which is the higher priority error. Otherwise indicate
+			 * if there are database update problems. */
+			if (rc == 0)
+				throw RDMA_DB_REM_FAIL;
 		}
 	} /* try */
 	catch(int e) {

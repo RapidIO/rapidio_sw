@@ -68,7 +68,7 @@ using std::shared_ptr;
 /* Notification parameters. */
 struct notify_param {
 
-	notify_param(uint32_t type, uint32_t category, uint32_t seq_no,
+	notify_param(rdma_msg_type type, rdma_msg_cat category, uint32_t seq_no,
 					shared_ptr<sem_t> notify_sem) :
 		type(type), category(category), seq_no(seq_no),
 		notify_sem(notify_sem)
@@ -316,7 +316,7 @@ public:
 	 * Set the RX engine to post notify_sem when a message of the specified
 	 * type, category, and seq_no is received by this rx_engine.
 	 */
-	int set_notify(uint32_t type, uint32_t category, uint32_t seq_no,
+	int set_notify(rdma_msg_type type, rdma_msg_cat category, uint32_t seq_no,
 						shared_ptr<sem_t> notify_sem)
 	{
 
