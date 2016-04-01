@@ -49,6 +49,7 @@ enum { ACTION_ADD = 0, ACTION_DEL = 0xff };
 /** \brief These are the IBwin mapping data sent over MBOX */
 struct DMA_MBOX_PAYLOAD_s { // All below in network order!
 	uint64_t rio_addr;      ///< RIO address allocated for peer
+	uint32_t ibwin_size;    ///< Sizeof IBwin mapping
 	uint64_t base_rio_addr; ///< IBwin base RIO address -- for documentation purposes
 	uint32_t base_size;     ///< IBwin base size -- for documentation purposes
 	uint16_t bufc;
