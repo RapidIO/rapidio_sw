@@ -1508,8 +1508,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		/* Notification arrived fine; read the CONNECT_MS_REQ message */
 		unix_msg_t connect_ms_req_msg;
 
-		rc = rx_eng->get_message(RDMA_CALL,
-				   CONNECT_MS_REQ,
+		rc = rx_eng->get_message(CONNECT_MS_REQ,
+				   RDMA_CALL,
 				   0,
 				   &connect_ms_req_msg);
 		if (rc) {
