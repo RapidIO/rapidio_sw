@@ -74,12 +74,21 @@ struct notify_param {
 		notify_sem(notify_sem)
 	{}
 
-	bool operator ==(const notify_param& other) {
+	bool operator ==(const notify_param& other)
+	{
 		return (other.type == this->type) &&
 		       (other.category == this->category) &&
 		       (other.seq_no == this->seq_no);
 	}
 
+	bool identical(rdma_msg_type type, rdma_msg_cat category, uint32_t seq_no,
+			sem_t *notify_sem)
+	{
+		return (type == this->type) &&
+		       (category == this->category) &&
+		       (seq_no == this->seq_no) &&
+		       (notify_sem == this->notify_sem.get());
+	}
 	rdma_msg_type 	type;
 	rdma_msg_cat 	category;
 	rdma_msg_seq_no seq_no;
@@ -330,10 +339,10 @@ public:
 				seq_no);
 
 		/* We should not be setting the same notification twice */
-		int rc = count(begin(notify_list),
+		int rc = count_if(begin(notify_list),
 			       end(notify_list),
-			       notify_param(type, category, seq_no,
-					       	       	       notify_sem));
+			       [type, category, seq_no, notify_sem](notify_param& np)
+			       { return np.identical(type, category, seq_no, notify_sem.get());});
 		if (rc != 0) {
 			ERR("'%s': Duplicate notify entry ignored!\n",
 								name.c_str());
