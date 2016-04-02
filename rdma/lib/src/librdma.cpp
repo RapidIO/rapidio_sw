@@ -1450,7 +1450,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		/* Set notification for CONNECT_MS_REQ */
 		auto reply_sem = make_shared<sem_t>();
 		sem_init(reply_sem.get(), 0, 0);
-		rx_eng->set_notify(RDMA_CALL, CONNECT_MS_REQ, 0, reply_sem);
+		rx_eng->set_notify(CONNECT_MS_REQ, RDMA_CALL , 0, reply_sem);
 
 		/* Call into daemon */
 		unix_msg_t  accept_out_msg;
