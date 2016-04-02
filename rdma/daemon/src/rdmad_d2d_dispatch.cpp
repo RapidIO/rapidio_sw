@@ -468,12 +468,12 @@ void cm_server_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 void cm_server_disconnect_ms_ack_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {
 	(void)tx_eng;
-	cm_server_disconnect_ms_ack_msg *force_disconnect_ms_ack_msg =
+	cm_server_disconnect_ms_ack_msg *server_disconnect_ms_ack_msg =
 						&msg->cm_server_disconnect_ms_ack;
 
 	HIGH("Received CM_FORCE_DISCONNECT_MS_ACK for msid(0x%X), '%s'\n",
-			be64toh(force_disconnect_ms_ack_msg->server_msid),
-			force_disconnect_ms_ack_msg->server_msname);
+			be64toh(server_disconnect_ms_ack_msg->server_msid),
+			server_disconnect_ms_ack_msg->server_msname);
 
 	/* Obtain the to-library Tx engine from the message */
 	tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng =

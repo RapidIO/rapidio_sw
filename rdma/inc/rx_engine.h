@@ -316,7 +316,7 @@ public:
 	 * Set the RX engine to post notify_sem when a message of the specified
 	 * type, category, and seq_no is received by this rx_engine.
 	 */
-	int set_notify(rdma_msg_type type, rdma_msg_cat category, uint32_t seq_no,
+	void set_notify(rdma_msg_type type, rdma_msg_cat category, uint32_t seq_no,
 						shared_ptr<sem_t> notify_sem)
 	{
 
@@ -342,7 +342,6 @@ public:
 								notify_sem);
 		}
 		pthread_mutex_unlock(&notify_list_lock);
-		return rc;
 	} /* set_notify() */
 
 	/**

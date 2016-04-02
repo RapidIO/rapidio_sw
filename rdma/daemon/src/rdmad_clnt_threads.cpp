@@ -97,7 +97,7 @@ static int await_message(rx_engine<unix_server, unix_msg_t> *rx_eng,
 	auto reply_sem = make_shared<sem_t>();
 	sem_init(reply_sem.get(), 0, 0);
 
-	rc = rx_eng->set_notify(type, category, seq_no, reply_sem);
+	rx_eng->set_notify(type, category, seq_no, reply_sem);
 
 	/* Wait for reply */
 	DBG("Notify configured...WAITING...\n");

@@ -125,41 +125,6 @@ static uint32_t round_up_to_4k(uint32_t length)
 	return (r == 0) ? FOUR_K*q : FOUR_K*(q + 1);
 } /* round_up_to_4k() */
 
-static int await_message(rdma_msg_cat category, rdma_msg_type type,
-			rdma_msg_seq_no seq_no, unsigned timeout_in_secs,
-			unix_msg_t *out_msg)
-{
-	auto rc = 0;
-
-	/* Prepare for reply */
-	auto reply_sem = make_shared<sem_t>();
-	sem_init(reply_sem.get(), 0, 0);
-
-	rc = rx_eng->set_notify(type, category, seq_no, reply_sem);
-
-	/* Wait for reply */
-	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)\n",
-		type_name(type), type, cat_name(category), seq_no);
-	struct timespec timeout;
-	clock_gettime(CLOCK_REALTIME, &timeout);
-	timeout.tv_sec += timeout_in_secs;
-	rc = sem_timedwait(reply_sem.get(), &timeout);
-	if (rc) {
-		ERR("reply_sem failed: %s\n", strerror(errno));
-		if (timeout_in_secs && errno == ETIMEDOUT) {
-			ERR("Timeout occurred\n");
-			rc = ETIMEDOUT;
-		}
-	} else {
-		DBG("Got reply!\n");
-		rc = rx_eng->get_message(type, category, seq_no, out_msg);
-		if (rc) {
-			ERR("Failed to obtain reply message, rc = %d\n", rc);
-		}
-	}
-	return rc;
-} /* await_message() */
-
 /**
  * Call a function in the daemon.
  *
@@ -187,10 +152,8 @@ static int daemon_call(unique_ptr<unix_msg_t> in_msg, unix_msg_t *out_msg)
 
 	auto reply_type = in_msg->type | 0x8000;
 	auto reply_cat  = RDMA_CALL;
-	rc = rx_eng->set_notify(reply_type,
-			        reply_cat,
-			        seq_no,
-			        reply_sem);
+	rx_eng->set_notify(reply_type, reply_cat, seq_no, reply_sem);
+
 	/* Send message */
 	in_msg->seq_no = seq_no;
 	DBG("Queuing for sending: type='%s',0x%X, cat='%s',0x%X, seq_no = 0x%X\n",
@@ -1473,44 +1436,52 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		loc_ms	 *server_ms = (loc_ms *)loc_msh;
 		loc_msub *server_msub = (loc_msub *)loc_msubh;
 
-		{
-			/* Tell the daemon to flag this memory space as accepting
-			 * connections for this application. */
-			auto accept_in_msg = make_unique<unix_msg_t>();
-			accept_in_msg->type     = ACCEPT_MS;
-			accept_in_msg->category = RDMA_REQ_RESP;
-			accept_in_msg->accept_in.server_msid = server_ms->msid;
-			accept_in_msg->accept_in.server_msubid
-							= server_msub->msubid;
+		/* Tell the daemon to flag this memory space as accepting
+		 * connections for this application. */
+		auto accept_in_msg = make_unique<unix_msg_t>();
+		accept_in_msg->type     = ACCEPT_MS;
+		accept_in_msg->category = RDMA_REQ_RESP;
+		accept_in_msg->accept_in.server_msid = server_ms->msid;
+		accept_in_msg->accept_in.server_msubid
+						= server_msub->msubid;
 
-			DBG("name = '%s'\n", server_ms->name.c_str());
+		DBG("name = '%s'\n", server_ms->name.c_str());
 
-			/* Call into daemon */
-			unix_msg_t  accept_out_msg;
-			rc = daemon_call(move(accept_in_msg), &accept_out_msg);
-			if (rc ) {
-				ERR("Failed in ACCEPT_MS daemon_call, rc = 0x%X\n", rc);
-				throw rc;
-			}
+		/* Set notification for CONNECT_MS_REQ */
+		auto reply_sem = make_shared<sem_t>();
+		sem_init(reply_sem.get(), 0, 0);
+		rx_eng->set_notify(RDMA_CALL, CONNECT_MS_REQ, 0, reply_sem);
 
-			/* Failed in daemon? */
-			if (accept_out_msg.accept_out.status) {
-				ERR("Failed to accept (ms) in daemon, status = 0x%X\n",
-					accept_out_msg.accept_out.status);
-				throw accept_out_msg.accept_out.status;
-			}
+		/* Call into daemon */
+		unix_msg_t  accept_out_msg;
+		rc = daemon_call(move(accept_in_msg), &accept_out_msg);
+		if (rc ) {
+			ERR("Failed in ACCEPT_MS daemon_call, rc = 0x%X\n", rc);
+			throw rc;
 		}
 
-		/* Await connect message */
-		unix_msg_t connect_ms_req_msg;
-		rc = await_message(RDMA_CALL,
-				   CONNECT_MS_REQ,
-				   0,
-				   timeout_secs,
-				   &connect_ms_req_msg);
+		/* Failed in daemon? */
+		if (accept_out_msg.accept_out.status) {
+			ERR("Failed to accept (ms) in daemon, status = 0x%X\n",
+				accept_out_msg.accept_out.status);
+			throw accept_out_msg.accept_out.status;
+		}
+
+		/* Await CONNECT_MS_REQ */
+		struct timespec timeout;
+		clock_gettime(CLOCK_REALTIME, &timeout);
+		timeout.tv_sec += timeout_secs;
+		rc = sem_timedwait(reply_sem.get(), &timeout);
 		if (rc) {
+			ERR("reply_sem failed: %s\n", strerror(errno));
+			if (timeout_secs && errno == ETIMEDOUT) {
+				ERR("Timeout occurred\n");
+			} else {
+				ERR("UNKNOWN ERROR\n");
+			}
 			ERR("Failed to receive CONNECT_MS_REQ for '%s'\n",
-							server_ms->name.c_str());
+					server_ms->name.c_str());
+
 			/* Switch back the ms to non-accepting mode */
 			auto undo_accept_in_msg = make_unique<unix_msg_t>();
 			undo_accept_in_msg->type     = UNDO_ACCEPT;
@@ -1534,29 +1505,24 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			throw RDMA_ACCEPT_TIMEOUT;
 		}
 
+		/* Notification arrived fine; read the CONNECT_MS_REQ message */
+		unix_msg_t connect_ms_req_msg;
+
+		rc = rx_eng->get_message(RDMA_CALL,
+				   CONNECT_MS_REQ,
+				   0,
+				   &connect_ms_req_msg);
+		if (rc) {
+			CRIT("Message disappeared after notification!!!\n");
+			throw RDMA_ACCEPT_FAIL;
+		}
+
 		/* Shorter form */
 		connect_to_ms_req_input *conn_req_msg
-						= &connect_ms_req_msg.connect_to_ms_req;
+					= &connect_ms_req_msg.connect_to_ms_req;
 
 		DBG("CONNECT_MS_REQ message received from daemon:\n");
-		DBG("client_msid = 0x%X\n", conn_req_msg->client_msid);
-		DBG("client_msubid = 0x%X\n", conn_req_msg->client_msubid);
-		DBG("client_msub_bytes = 0x%X\n",
-					conn_req_msg->client_msub_bytes);
-		DBG("client_rio_addr_len = 0x%X\n",
-					conn_req_msg->client_rio_addr_len);
-		DBG("client_rio_addr_lo = 0x%016" PRIx64 "\n",
-					conn_req_msg->client_rio_addr_lo);
-		DBG("client_rio_addr_hi = 0x%X\n",
-					conn_req_msg->client_rio_addr_hi);
-		DBG("client_destid_len = 0x%X\n",
-					conn_req_msg->client_destid_len);
-		DBG("client_destid     = 0x%X\n", conn_req_msg->client_destid);
-		DBG("seq_num           = 0x%X\n", conn_req_msg->seq_num);
-		DBG("connh             = 0x%X\n", conn_req_msg->connh);
-		DBG("client_to_lib_tx_eng_h = 0x%X\n",
-					conn_req_msg->client_to_lib_tx_eng_h);
-
+		conn_req_msg->dump();
 		*connh = conn_req_msg->connh;	/* Conn. handle sent by client */
 
 		/* Now reply to the CONNECT_MS_REQ sith CONNECT_MS_RESP */
@@ -1581,18 +1547,8 @@ int rdma_accept_ms_h(ms_h loc_msh,
 					conn_req_msg->client_to_lib_tx_eng_h;
 
 		DBG("CONNECT_MS_RESP to server daemon\n");
-		DBG("conn_to_ms_resp->server_msid = 0x%X\n",
-						conn_to_ms_resp->server_msid);
-		DBG("conn_to_ms_resp->server_msubid = 0x%X\n",
-						conn_to_ms_resp->server_msubid);
-		DBG("conn_to_ms_resp->server_msub_bytes = 0x%X\n",
-					conn_to_ms_resp->server_msub_bytes);
-		DBG("conn_to_ms_resp->server_rio_addr_len = 0x%X\n",
-					conn_to_ms_resp->server_rio_addr_len);
-		DBG("conn_to_ms_resp->server_rio_addr_lo = 0x%X\n",
-					conn_to_ms_resp->server_rio_addr_lo);
-		DBG("conn_to_ms_resp->server_rio_addr_hi = 0x%X\n",
-					conn_to_ms_resp->server_rio_addr_hi);
+		conn_to_ms_resp->dump();
+
 		/* Call into daemon */
 		unix_msg_t connect_ms_resp_out_msg;
 		rc = daemon_call(move(connect_ms_resp_in_msg), &connect_ms_resp_out_msg);
@@ -1615,8 +1571,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 					conn_req_msg->client_to_lib_tx_eng_h);
 
 		/* Store info about client msub in database and return handle,
-		 * but only if the client msub is NOT NULL_MSUBID
-		 */
+		 * but only if the client msub is NOT NULL_MSUBID */
 
 		if (conn_req_msg->client_msubid != NULL_MSUBID) {
 			if (!rem_msubh || !rem_msub_len) {
@@ -1723,7 +1678,6 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			throw RDMA_NAME_TOO_LONG;
 		}
 
-
 		INFO("Connecting to '%s' on destid(0x%X)\n", rem_msname, rem_destid);
 
 		/* Use the client LIBRDMA tx_eng as the connection handle to the ms */
@@ -1765,22 +1719,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		}
 
 		DBG("Contents of SEND_CONNECT message to daemon:\n");
-		DBG("server_msname     = %s\n", connect_msg->server_msname);
-		DBG("server_destid_len = 0x%X\n", connect_msg->server_destid_len);
-		DBG("server_destid     = 0x%X\n", connect_msg->server_destid);
-		DBG("client_destid_len = 0x%X\n", connect_msg->client_destid_len);
-		DBG("client_destid     = 0x%X\n", connect_msg->client_destid);
-		DBG("seq_num           = 0x%X\n", connect_msg->seq_num);
-		DBG("connh             = 0x%X\n", connect_msg->connh);
-		DBG("client_msid = 0x%X\n", connect_msg->client_msid);
-		DBG("client_msubid = 0x%X\n", connect_msg->client_msubid);
-		DBG("client_bytes = 0x%X\n", connect_msg->client_bytes);
-		DBG("client_rio_addr_len = 0x%X\n",
-					connect_msg->client_rio_addr_len);
-		DBG("client_rio_addr_lo = 0x%016" PRIx64 "\n",
-					connect_msg->client_rio_addr_lo);
-		DBG("client_rio_addr_hi = 0x%X\n",
-					connect_msg->client_rio_addr_hi);
+		connect_msg->dump();
 
 		struct timespec	before, after, rtt;
 
@@ -1788,6 +1727,11 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		__sync_synchronize();
 		clock_gettime( CLOCK_MONOTONIC, &before );
 		__sync_synchronize();
+
+		/* Prepare for reply */
+		auto reply_sem = make_shared<sem_t>();
+		sem_init(reply_sem.get(), 0, 0);
+		rx_eng->set_notify(ACCEPT_FROM_MS_REQ, RDMA_CALL, 0, reply_sem);
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
@@ -1805,11 +1749,23 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		}
 
 		INFO(" Waiting for connect response (accept) message...\n");
-		rc = await_message(RDMA_CALL,
-				ACCEPT_FROM_MS_REQ,
-				0,
-				timeout_secs,
-				&out_msg);
+		struct timespec timeout;
+		clock_gettime(CLOCK_REALTIME, &timeout);
+		timeout.tv_sec += timeout_secs;
+		rc = sem_timedwait(reply_sem.get(), &timeout);
+		if (rc) {
+			ERR("reply_sem failed: %s\n", strerror(errno));
+			if (timeout_secs && errno == ETIMEDOUT) {
+				ERR("Timeout occurred\n");
+				rc = ETIMEDOUT;
+			}
+		} else {
+			DBG("Got reply!\n");
+			rc = rx_eng->get_message(ACCEPT_FROM_MS_REQ, RDMA_CALL, 0, &out_msg);
+			if (rc) {
+				ERR("Failed to obtain reply message, rc = %d\n", rc);
+			}
+		}
 		if (rc || out_msg.sub_type == ACCEPT_FROM_MS_REQ_NACK) {
 			if (rc == ETIMEDOUT) {
 				ERR("Timeout before getting response to 'connect'\n");
@@ -1852,6 +1808,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		HIGH("Round-trip-time for accept/connect = %u seconds and %u microseconds\n",
 							rtt.tv_sec, rtt.tv_nsec/1000);
 
+		/* Point to the accept message */
 		accept_from_ms_req_input *accept_msg = &out_msg.accept_from_ms_req_in;
 
 		/* Some validation of the 'accept' (response-to-connect) message */
@@ -1984,7 +1941,7 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 		 * the message won't be discarded if it arrives promplty */
 		auto reply_sem = make_shared<sem_t>();
 		sem_init(reply_sem.get(), 0, 0);
-		rc = rx_eng->set_notify(DISCONNECT_MS_ACK, RDMA_CALL, 0, reply_sem);
+		rx_eng->set_notify(DISCONNECT_MS_ACK, RDMA_CALL, 0, reply_sem);
 
 		/* Call into daemon */
 		unix_msg_t  out_msg;
@@ -2078,17 +2035,21 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 
 		/* Locate connection in the msub */
 		auto connection_it = find_if(begin(server_msub->connections),
-				 end(server_msub->connections),
-				 [connh](client_connection& c)
-				 {
-					return c.connh == connh;
-				 });
+				 	     end(server_msub->connections),
+				 	     [connh](client_connection& c)
+				 	     { return c.connh == connh; });
 		if (connection_it == end(server_msub->connections)) {
 			ERR("Invalid connh. Not found in server_msub\n");
 			throw -2;
 		}
 
-		/* Tell daemon to relay to remove client that we disconnected
+		/* Prepare for SERVER_DISCONNECT_MS_ACK reception BEFORE
+		 * sending SERVER_DISCONNECT_MS	 */
+		auto reply_sem = make_shared<sem_t>();
+		sem_init(reply_sem.get(), 0, 0);
+		rx_eng->set_notify(SERVER_DISCONNECT_MS_ACK, RDMA_CALL, 0, reply_sem);
+
+		/* Tell daemon to relay to remote client that we disconnected
 		 * them from the memory space.  */
 		auto in_msg = make_unique<unix_msg_t>();
 		in_msg->type 	= SERVER_DISCONNECT_MS;
@@ -2101,16 +2062,19 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		tx_eng->send_message(move(in_msg));
 
 		/* Now wait for a SERVER_DISCONNECT_MS_ACK */
-		INFO(" Waiting for connect response (accept) message...\n");
-		unix_msg_t out_msg;
-		rc = await_message(RDMA_CALL,
-				SERVER_DISCONNECT_MS_ACK,
-				0,
-				5,	/* 5 seconds */
-				&out_msg);
-		if (rc == ETIMEDOUT) {
-			ERR("Timeout before getting SERVER_DISCONNECT_MS_ACK\n");
-			throw RDMA_DISCONNECT_TIMEOUT;
+		INFO(" Waiting for SERVER_DISCONNECT_MS_ACK ...\n");
+		struct timespec timeout;
+		clock_gettime(CLOCK_REALTIME, &timeout);
+		timeout.tv_sec += 5;	/* 5 second timeout */
+		rc = sem_timedwait(reply_sem.get(), &timeout);
+		if (rc) {
+			ERR("reply_sem failed: %s\n", strerror(errno));
+			if (errno == ETIMEDOUT) {
+				ERR("Timeout occurred\n");
+				throw RDMA_DISCONNECT_TIMEOUT;
+			}
+		} else {
+			DBG("Got SERVER_DISCONNECT_MS_ACK\n");
 		}
 
 		/* Remove connection from server msub database entry */

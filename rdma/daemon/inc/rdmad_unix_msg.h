@@ -344,6 +344,23 @@ struct send_connect_input {
 	uint8_t  client_rio_addr_hi;
 	uint32_t seq_num;
 	uint64_t connh;
+	void dump()
+	{
+		DBG("server_msname     = %s\n", server_msname);
+		DBG("server_destid_len = 0x%X\n", server_destid_len);
+		DBG("server_destid     = 0x%X\n", server_destid);
+		DBG("client_destid_len = 0x%X\n", client_destid_len);
+		DBG("client_destid     = 0x%X\n", client_destid);
+		DBG("seq_num           = 0x%X\n", seq_num);
+		DBG("connh             = 0x%X\n", connh);
+		DBG("client_msid = 0x%X\n", client_msid);
+		DBG("client_msubid = 0x%X\n", client_msubid);
+		DBG("client_bytes = 0x%X\n", client_bytes);
+		DBG("client_rio_addr_len = 0x%X\n", client_rio_addr_len);
+		DBG("client_rio_addr_lo = 0x%016" PRIx64 "\n",
+							client_rio_addr_lo);
+		DBG("client_rio_addr_hi = 0x%X\n", client_rio_addr_hi);
+	}
 };
 struct send_connect_output {
 	int	status;
@@ -432,6 +449,15 @@ struct connect_to_ms_resp_input {
 	uint32_t client_destid_len;
 	uint32_t client_destid;
 	uint64_t client_to_lib_tx_eng_h;
+	void dump()
+	{
+		DBG("server_msid = 0x%X\n", server_msid);
+		DBG("server_msubid = 0x%X\n", server_msubid);
+		DBG("server_msub_bytes = 0x%X\n", server_msub_bytes);
+		DBG("server_rio_addr_len = 0x%X\n", server_rio_addr_len);
+		DBG("server_rio_addr_lo = 0x%X\n", server_rio_addr_lo);
+		DBG("server_rio_addr_hi = 0x%X\n", server_rio_addr_hi);
+	}
 };
 struct connect_to_ms_resp_output {
 	int status;
