@@ -1908,7 +1908,7 @@ int cps1xxx_get_counters(struct riocp_pe *sw, uint8_t port, riocp_sw_cap_t reg_c
             RIOCP_ERROR("Failed to read register %x\n", reg_addr);
             return ret;
         }
-        RIOCP_ERROR("Read register %#x: %#x\n", reg_addr, reg_val);
+        RIOCP_ERROR("Read register %#x: %#x (%d)\n", reg_addr, reg_val, reg_val);
         counter_val[cap_idx] = reg_val;
         reg_cap = reg_cap >> 1;
         cap_idx++;
