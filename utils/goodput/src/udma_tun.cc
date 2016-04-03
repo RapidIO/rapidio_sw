@@ -232,6 +232,9 @@ static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInf
 {
   if (info == NULL || dci == NULL || peer == NULL || my_destid == 0xffff) return false;
 
+  const int tun_fd = peer->get_tun_fd();
+  if (tun_fd < 0) return false; // peer is destroyed
+
   bool ret = false;
   int destid_dpi = -1;
   int is_bad_destid = 0;
