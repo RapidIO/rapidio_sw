@@ -142,6 +142,7 @@ done
 SERVER_CM_CHANNEL=$SERVER_CM_CHANNEL_START
 for node in $CLIENT_NODES
 do
+	echo "Starting test(s) on $node"
 	ssh -t root@"$node" "/usr/bin/perl $RDMA_ROOT_PATH/rdma/test/run_bat.pl -c$SERVER_CM_CHANNEL -d$DESTID -t$4"
 
 	# Increment channel by 3 since each BAT client uses 3 channels to talk to the 3 BAT servers

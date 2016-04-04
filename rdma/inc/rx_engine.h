@@ -203,11 +203,11 @@ void *rx_worker_thread_f(void *arg)
 					message_queue->push_back(std::move(*msg));
 					pthread_mutex_unlock(message_queue_lock);
 
-					/* Remove notify entry from notify list */
-					notify_list->erase(it);
-
 					/* Post the notification semaphore */
 					sem_post(it->notify_sem.get());
+
+					/* Remove notify entry from notify list */
+					notify_list->erase(it);
 				} else {
 					CRIT("'%s': Non-matching API type('%s',0x%X) seq_no(0x%X)\n",
 							name.c_str(),

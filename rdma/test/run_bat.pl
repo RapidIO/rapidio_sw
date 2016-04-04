@@ -1,22 +1,13 @@
 #!/usr/bin/perl
 
+# Perl script called during BAT runs.
+#
 use warnings;
 use strict;
 
 use Getopt::Std;
 use Cwd 'abs_path';
 use File::Spec;
-
-
-# Script for running Batch Automated Tests (BATs) on JUST TWO COMPUTERS
-#
-# 1. On a first computer run THREE instances of 'bat_server' using successive channel numbers
-#    (e.g. bat_server -c2224, bat_server -c2225, and bat_server -c2226)
-#
-# 2. On a second computer run this script specifying the FIRST of the THREE channel numbers
-#    using the -c option
-#    (e.g. run_bat.pl -c2224)
-
 
 # Obtain current directory so we can find 'bat_client' when called from a remote
 # shell script
