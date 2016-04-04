@@ -117,7 +117,7 @@ extern "C" {
 struct worker {
 	volatile int stop_req;	///< Set by signal handler to halt execution
 	int mp_num;   ///< Mport index to use, usually 0 i.e. /dev/mport0
-	int mbox;     ///< Local mailbox OR DMA channel
+	int mbox;     ///< Local mailbox 
 	int tgt_did;  ///< Server Destination ID 
 	int tgt_mbox; ///< Server Mailbox number, either 2 or 3
 	uint64_t msg_sz; ///< Message size, multiple of 8, 24 <= msg_sz <= 4096
