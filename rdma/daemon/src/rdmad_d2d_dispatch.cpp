@@ -478,7 +478,7 @@ void cm_server_disconnect_ms_ack_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng
 	/* Obtain the to-library Tx engine from the message */
 	tx_engine<unix_server, unix_msg_t> *to_lib_tx_eng =
 			(tx_engine<unix_server, unix_msg_t>*)be64toh(
-			msg->cm_server_disconnect_ms_ack.server_to_lib_tx_eng_h);
+			server_disconnect_ms_ack_msg->server_to_lib_tx_eng_h);
 
 	/* Reply to library indicating success */
 	auto out_msg = make_unique<unix_msg_t>();
