@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 
 		case 'd':
-			destid = atoi(optarg);
+			destid = atoi(&optarg[5]);
 			break;
 		case 'h':
 			show_help();
