@@ -134,7 +134,6 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 				     uint64_t client_to_lib_tx_eng_h,
 				     uint64_t server_to_lib_tx_eng_h)
 {
-	int rc;
 	tx_engine<cm_server, cm_msg_t>* tx_eng = nullptr;
 
 	DBG("ENTER with client_msubid=0x%X, client_to_lib_tx_eng=0x%"
@@ -166,7 +165,6 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 			CRIT("No user matches specified parameter(s)\n");
 			CRIT("client_msubid=0x%X, client_to_lib_tx_eng=0x%"
 				PRIx64 "\n", client_msubid, client_to_lib_tx_eng_h);
-			rc = -1;
 		} else {
 			/* Now find the tx_eng to use by looking up the
 			 * user's destid in the prov_daemon_info_list */
@@ -183,12 +181,11 @@ int mspace::send_disconnect_to_remote_daemon(uint32_t client_msubid,
 					client_to_lib_tx_eng_h,
 					server_to_lib_tx_eng_h);
 		DBG("Sent force disconnect to remote daemon\n");
-		rc = 0;
+		return 0;
 	} else {
 		ERR("Failed to obtain a tx_eng\n");
-		rc = -1;
+		return  -1;
 	}
-	return rc;
 } /* send_disconnect_to_remote_daemon() */
 
 void mspace::notify_remote_clients()
@@ -248,7 +245,7 @@ void mspace::notify_remote_clients()
 	DBG("EXIT\n");
 } /* notify_remote_clients() */
 
-int mspace::close_connections()
+void mspace::close_connections()
 {
 	lock_guard<mutex> users_lock(users_mutex);
 
@@ -256,21 +253,17 @@ int mspace::close_connections()
 
 	/* Tell local apps which have opened the ms that the ms will be destroyed */
 	for (ms_user& user : users) {
-		tx_engine<unix_server, unix_msg_t> *user_tx_eng =
-			user.tx_eng;
-
 		auto in_msg = make_unique<unix_msg_t>();
 
 		in_msg->type 	= FORCE_CLOSE_MS;
 		in_msg->category = RDMA_REQ_RESP;
 		in_msg->seq_no   = 0;
 		in_msg->force_close_ms_req.msid = msid;
-		user_tx_eng->send_message(move(in_msg));
+		user.tx_eng->send_message(move(in_msg));
 	}
 
 	users.clear();
-	DBG("EXIT\n");
-	return 0;
+	DBG("All users for '%s' now cleared\n", name.c_str());
 } /* close_connections() */
 
 int mspace::destroy()
@@ -278,72 +271,61 @@ int mspace::destroy()
 	DBG("name=%s, msid=0x%08X, rio_addr=0x%" PRIx64 ", size=0x%X\n", name.c_str(),
 	                msid, rio_addr, size);
 
-	int rc;
+	/* Before destroying a memory space, tell its clients that
+	 * it is being destroyed and have them acknowledge that.
+	 * Then remove their destids */
+	notify_remote_clients();
 
-	try {
-		/* Before destroying a memory space, tell its clients that
-		 * it is being destroyed and have them acknowledge that.
-		 * Then remove their destids */
-		notify_remote_clients();
+	/* Close connections from other local 'user' applications and
+	 * delete message queues used to communicate with those apps. */
+	close_connections();
 
-		/* Close connections from other local 'user' applications and
-		 * delete message queues used to communicate with those apps. */
-		rc = close_connections();
-		if (rc) {
-			WARN("Connection(s) to msid(0x%X) did not close\n", msid);
-			throw rc;
-		}
+	/* Remove all subspaces; they can't exist when the memory space
+	 * is  marked as free. */
+	INFO("Destroying all subspaces in '%s'\n", name.c_str());
+	unique_lock<mutex> msubspaces_lock(msubspaces_mutex);
+	msubspaces.clear();
+	msubspaces_lock.unlock();
 
-		/* Remove all subspaces; they can't exist when the memory space
-		 * is  marked as free. */
-		INFO("Destroying all subspaces in '%s'\n", name.c_str());
-		unique_lock<mutex> msubspaces_lock(msubspaces_mutex);
-		msubspaces.clear();
-		msubspaces_lock.unlock();
+	/* Mark the memory space as free, and having no owner */
+	free = true;
+	name = "freemspace";
+	connected_to = false; /* No connections */
+	accepting = false;    /* Not accepting connections either */
+	creator_tx_eng = nullptr;	/* No tx_eng associated therewith */
+	client_destid = 0xFFFF;
+	client_msubid = NULL_MSUBID;
+	client_to_lib_tx_eng_h = 0;
 
-		/* Mark the memory space as free, and having no owner */
-		free = true;
-		name = "freemspace";
-		connected_to = false; /* No connections */
-		accepting = false;    /* Not accepting connections either */
-		creator_tx_eng = nullptr;	/* No tx_eng associated therewith */
-		client_destid = 0xFFFF;
-		client_msubid = NULL_MSUBID;
-		client_to_lib_tx_eng_h = 0;
-
-		/* Remove from owners then clear the owner.
-		 * No free space should have an owner */
-		auto mso = owners[msoid];
-		if (mso == nullptr) {
-			ERR("Failed to find owner msoid(0x%X)\n", msoid);
-			throw RDMA_INVALID_MSO;
-		}
-		rc = mso->remove_ms(this);
-		if (rc) {
-			WARN("Failed to remove ms from owner\n");
-			throw rc;
-		}
-		set_msoid(0);
-	}
-	catch(int& e) {
-		rc = e;
-	}
-	catch(...) {
+	/* Remove from owners then clear the owner.
+	 * No free space should have an owner */
+	auto mso = owners[msoid];
+	if (mso == nullptr) {
 		ERR("Failed to find owner msoid(0x%X)\n", msoid);
 		return RDMA_INVALID_MSO;
 	}
+	auto rc = mso->remove_ms(this);
+	if (rc) {
+		WARN("Failed to remove ms from owner\n");
+		return rc;
+	}
 
-	return rc;
+	/* No owner */
+	set_msoid(0);
+
+	return 0;
 } /* destroy() */
 
 int mspace::add_rem_connection(uint16_t client_destid,
 			        uint32_t client_msubid,
 			        uint64_t client_to_lib_tx_eng_h)
 {
-	int rc;
 	DBG("Adding destid(0x%X), msubid(0x%X),	client_to_lib_tx_eng_h(0x%"
 			PRIx64 ")to '%s'\n", client_destid,
 			client_msubid, client_to_lib_tx_eng_h, name.c_str());
+
+	/* We are accepting by the owner then this is where the remote
+	 * connection belongs. */
 	if (accepting) {
 		DBG("Adding to creator since it is 'accepting'\n");
 		this->client_destid = client_destid;
@@ -351,37 +333,34 @@ int mspace::add_rem_connection(uint16_t client_destid,
 		this->client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
 		this->accepting = false;
 		this->connected_to = true;
-		rc = 0;
-	} else {
-		lock_guard<mutex> users_lock(users_mutex);
-
-		DBG("The creator was not accepting..checking the users\n");
-		DBG("There are %u user(s)\n", users.size());
-		auto it = find_if(begin(users), end(users), [](ms_user& u)
-							{return u.accepting;});
-		if (it == end(users)) {
-			CRIT("Failed to find a user in 'accepting' mode.\n");
-			rc = -1;
-		} else {
-			DBG("Adding to user whose tx_eng = 0x%" PRIx64 "\n",
-					(uint64_t)it->tx_eng);
-			it->client_destid = client_destid;
-			it->client_msubid = client_msubid;
-			it->client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
-			it->accepting = false;
-			it->connected_to = true;
-			rc = 0;
-		}
+		return 0;
 	}
-	return rc;
+
+	/* We were NOT accepting by the owner, so check the users */
+	lock_guard<mutex> users_lock(users_mutex);
+	DBG("The creator was not accepting..checking the users\n");
+	DBG("There are %u user(s)\n", users.size());
+	auto it = find_if(begin(users), end(users), [](ms_user& u)
+						{return u.accepting;});
+	if (it == end(users)) {
+		CRIT("Failed to find a user in 'accepting' mode.\n");
+		return -1;
+	}
+
+	DBG("Adding rem connection to user whose tx_eng = 0x%" PRIx64 "\n",
+							(uint64_t)it->tx_eng);
+	it->client_destid = client_destid;
+	it->client_msubid = client_msubid;
+	it->client_to_lib_tx_eng_h = client_to_lib_tx_eng_h;
+	it->accepting = false;
+	it->connected_to = true;
+	return 0;
 } /* add_rem_connection() */
 
 int mspace::remove_rem_connection(uint16_t client_destid,
 				  uint32_t client_msubid,
 				  uint64_t client_to_lib_tx_eng_h)
 {
-	int rc;
-
 	DBG("Removing client_destid(0x%X), client_msubid(0x%X) from '%s'\n",
 			client_destid, client_msubid, name.c_str());
 	DBG("client_to_lib_tx_eng_h = 0x%" PRIx64 "\n", client_to_lib_tx_eng_h);
@@ -401,36 +380,32 @@ int mspace::remove_rem_connection(uint16_t client_destid,
 		this->client_to_lib_tx_eng_h = 0;
 		this->server_msubid = 0;
 		connected_to = false;
-		rc = 0;
-	} else {
-		DBG("Not found in the creator; checking the users\n");
-
-		/* It is possibly in one of the users so search for it */
-		lock_guard<mutex> users_lock(users_mutex);
-
-		auto it = find_if(begin(users), end(users),
-		[client_destid, client_msubid, client_to_lib_tx_eng_h](ms_user& u)
-		{
-			return (u.client_destid == client_destid) &&
-			       (u.client_msubid == client_msubid) &&
-			       (u.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h);
-		});
-
-		if (it == end(users)) {
-			ERR("Failed to find remote connection in %s\n", name.c_str());
-			rc = -1;
-		} else {
-			it->client_destid = 0xFFFF;
-			it->client_msubid = NULL_MSUBID;
-			it->client_to_lib_tx_eng_h = 0;
-			it->connected_to = false;
-			it->server_msubid = 0;
-			it->connected_to = false;
-			rc = 0;
-		}
+		return 0;
 	}
 
-	return rc;
+	/* It is possibly in one of the users so search for it */
+	DBG("Not found in the creator; checking the users\n");
+	lock_guard<mutex> users_lock(users_mutex);
+	auto it = find_if(begin(users), end(users),
+	[client_destid, client_msubid, client_to_lib_tx_eng_h](ms_user& u)
+	{
+		return (u.client_destid == client_destid) &&
+		       (u.client_msubid == client_msubid) &&
+		       (u.client_to_lib_tx_eng_h == client_to_lib_tx_eng_h);
+	});
+
+	if (it == end(users)) {
+		ERR("Failed to find remote connection in %s\n", name.c_str());
+		return -1;
+	}
+
+	it->client_destid = 0xFFFF;
+	it->client_msubid = NULL_MSUBID;
+	it->client_to_lib_tx_eng_h = 0;
+	it->connected_to = false;
+	it->server_msubid = 0;
+	it->connected_to = false;
+	return 0;
 } /* remove_rem_connection() */
 
 void mspace::send_disconnect_to_lib(uint32_t client_msubid,
@@ -446,7 +421,6 @@ void mspace::send_disconnect_to_lib(uint32_t client_msubid,
 	in_msg->disconnect_from_ms_in.server_msubid = server_msubid;
 	in_msg->disconnect_from_ms_in.client_to_lib_tx_eng_h =
 							client_to_lib_tx_eng_h;
-
 	tx_eng->send_message(move(in_msg));
 } /* send_disconnect_to_lib() */
 
@@ -639,7 +613,8 @@ void mspace::dump_info_with_msubs(struct cli_env *env)
 	if (msubspaces.size()) {
 		dump_info_msubs_only(env);
 	} else {
-		puts("No subspaces in above memory space");
+		sprintf(env->output, "No subspaces in above memory space\n");
+		logMsg(env);
 	}
 
 	sprintf(env->output, "\n"); /* Extra line */
@@ -699,7 +674,7 @@ int mspace::open(tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 
 	/* Store info about user that opened the ms in 'users' */
 	users.emplace_back(user_tx_eng);
-	DBG("user with user_tx_eng(%p) stored in msid(0x%X)\n",
+	INFO("user with user_tx_eng(%p) stored in msid(0x%X)\n",
 							user_tx_eng, msid);
 	return 0;
 } /* open() */
@@ -719,13 +694,15 @@ tx_engine<unix_server, unix_msg_t> *mspace::get_accepting_tx_eng()
 		return it->tx_eng;
 
 	/* No one is accepting! */
-	WARN("'%s': No accepting tx_eng()\n", name.c_str());
+	WARN("'%s': No accepting tx_eng() found\n", name.c_str());
 	return nullptr;
 } /* get_accepting_tx_eng() */
 
 int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 		   uint32_t server_msubid)
 {
+	auto is_accepting = [](ms_user& user) { return user.accepting; };
+
 	/* app_tx_eng could be the tx_eng from the daemon to either the creator of
 	 * the mspace, or of one of its users. Set the appropriate is_accepting
 	 * flag (i.e. either in the main class or in one of the ms_users).
@@ -745,9 +722,7 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 		/* Cannot accept from creator app if we are already
 		 * accepting from a user app. */
 		lock_guard<mutex> users_lock(users_mutex);
-		auto n = count_if(begin(users), end(users),
-				  [](ms_user& user) { return user.accepting;});
-		if (n > 0) {
+		if (count_if(begin(users), end(users), is_accepting) > 0) {
 			ERR("'%s' already accepting from a user app\n");
 			return RDMA_ACCEPT_FAIL;
 		}
@@ -780,16 +755,14 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 	}
 
 	/* And none of the users should be accepting! */
-	auto n = count_if(begin(users), end(users),
-			  [](ms_user& user) { return user.accepting; });
-	if (n > 0) {
+	if (count_if(begin(users), end(users), is_accepting) > 0) {
 		ERR("'%s' already accepting by a user.\n", name.c_str());
 		return RDMA_ACCEPT_FAIL;
 	}
 
 	/* All is good, set 'accepting' flag */
-	INFO("'%s' set to accepting for a user\n", name.c_str());
-	DBG("tx_eng = 0x%" PRIx64 "\n", (uint64_t)it->tx_eng);
+	INFO("'%s' set to accepting for a user with tx_eng(%" PRIx64 ")\n",
+			name.c_str(), (uint64_t)it->tx_eng);
 	it->accepting = true;;
 	it->server_msubid = server_msubid;
 	return 0;

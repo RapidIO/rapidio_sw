@@ -212,9 +212,7 @@ int ibwin::get_free_mspaces_large_enough(uint64_t size, mspace_list& le_mspaces)
 	while (1) {
 		it = find_if(it, end(mspaces),
 			[size](const unique_ptr<mspace>& ms)
-			{
-				return (ms->get_size() >= size) && ms->is_free();
-			});
+			{ return (ms->get_size() >= size) && ms->is_free(); });
 
 		if (it != end(mspaces)) {
 			le_mspaces.push_back((*it).get());
@@ -353,64 +351,56 @@ void ibwin::merge_other_with_mspace(mspace_ptr_iterator current, mspace_ptr_iter
  * the mutex around mspaces so don't lock it here */
 int ibwin::destroy_mspace(mspace_ptr_iterator current_ms)
 {
-	int rc;
-
-	try {
-		/* Destroy the memory space */
-		rc = (*current_ms)->destroy();
-		if (rc) {
-			ERR("Failed to destroy '%s', msid(0x%X)\n",
-				(*current_ms)->get_name(), (*current_ms)->get_msid());
-			throw RDMA_MS_DESTROY_FAIL;
-		}
-
-		/* If it is the last mspace in the list there is no 'next'
-		 * mspace to merge it with. Otherwise, merge and remove the
-		 * 'next'. Removing 'next' should not alter 'prev' */
-		if ((current_ms + 1) != end(mspaces)) {
-			mspace_ptr_iterator next_ms = current_ms + 1;
-			if ((*next_ms)->is_free()) {
-				DBG("Next ms is also free. Merging!\n");
-				merge_other_with_mspace(current_ms, next_ms);
-			}
-		} else {
-			DBG("Last ms in the list. Cannot merge with next!\n");
-		}
-
-		/* If it is the first mspace in the list there is no 'prev'
-		 * mspace to merge with. Otherwise, merge and remove 'prev' */
-		if (current_ms != begin(mspaces)) {
-			mspace_ptr_iterator prev_ms = current_ms -1;
-			if ((*prev_ms)->is_free()) {
-				DBG("Prev ms is also free. Merging!\n");
-				merge_other_with_mspace(prev_ms, current_ms);
-			}
-		} else {
-			DBG("First ms in the list. Cannot merge with prev!\n");
-		}
+	/* Destroy the memory space */
+	if ((*current_ms)->destroy()) {
+		ERR("Failed to destroy '%s', msid(0x%X)\n",
+			(*current_ms)->get_name(), (*current_ms)->get_msid());
+		return RDMA_MS_DESTROY_FAIL;
 	}
-	catch(int& e) {
-		rc = e;
+
+	/* If it is the last mspace in the list there is no 'next'
+	 * mspace to merge it with. Otherwise, merge and remove the
+	 * 'next'. Removing 'next' should not alter 'prev' */
+	if ((current_ms + 1) != end(mspaces)) {
+		mspace_ptr_iterator next_ms = current_ms + 1;
+		if ((*next_ms)->is_free()) {
+			DBG("Next ms is also free. Merging!\n");
+			merge_other_with_mspace(current_ms, next_ms);
+		}
+	} else {
+		DBG("Last ms in the list. Cannot merge with next!\n");
 	}
-	return rc;
+
+	/* If it is the first mspace in the list there is no 'prev'
+	 * mspace to merge with. Otherwise, merge and remove 'prev' */
+	if (current_ms != begin(mspaces)) {
+		mspace_ptr_iterator prev_ms = current_ms -1;
+		if ((*prev_ms)->is_free()) {
+			DBG("Prev ms is also free. Merging!\n");
+			merge_other_with_mspace(prev_ms, current_ms);
+		}
+	} else {
+		DBG("First ms in the list. Cannot merge with prev!\n");
+	}
+
+	return 0;
 } /* destroy_mspace() */
 
 int ibwin::destroy_mspace(uint32_t msoid, uint32_t msid)
 {
 	/* Locate the memory space by its mosid and msid */
 	lock_guard<mutex> lock(mspaces_mutex);
-	mspace_ptr_iterator current_ms =
-			find_if(begin(mspaces),
+	auto current_ms = find_if(begin(mspaces),
 				end(mspaces),
 				has_msid_and_msoid(msid, msoid));
 
-	if (current_ms != end(mspaces)) {
-		return destroy_mspace(current_ms);
-	} else {
+	if (current_ms == end(mspaces)) {
 		ERR("Cannot find ms w/ msoid(0x%X) and msid(0x%X) in ibwin%u\n",
 				msoid, msid, win_num);
 		return RDMA_INVALID_MS;	/* Not found */
 	}
+
+	return destroy_mspace(current_ms);
 } /* destroy_mspace() */
 
 void ibwin::close_mspaces_using_tx_eng(
@@ -418,7 +408,6 @@ void ibwin::close_mspaces_using_tx_eng(
 {
 	lock_guard<mutex> lock(mspaces_mutex);
 	for(auto& ms : mspaces) {
-		INFO("Checking mspace '%s'\n", ms->get_name());
 		if (ms->has_user_with_user_tx_eng(user_tx_eng)) {
 			INFO("Closing connection to '%s'\n", ms->get_name());
 			ms->close(user_tx_eng);

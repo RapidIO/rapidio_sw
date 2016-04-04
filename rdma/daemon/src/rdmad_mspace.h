@@ -558,7 +558,7 @@ private:
 	 * @brief Closes connections with applications that have called
 	 * rdma_open_ms_h(). Called from destroy().
 	 */
-	int close_connections();
+	void close_connections();
 
 	/**
 	 * @brief Sends message to server library telling it that

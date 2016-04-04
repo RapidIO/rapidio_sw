@@ -52,6 +52,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using std::lock_guard;
 using std::unique_ptr;
 using std::move;
+using std::unique_lock;
 
 inbound::inbound(peer_info &peer,
 		 ms_owners &owners,
@@ -88,44 +89,31 @@ void inbound::dump_info(struct cli_env *env)
 	logMsg(env);
 
 	lock_guard<mutex> ibwins_lock(ibwins_mutex);
-	for (auto& ibwin : ibwins) {
+	for (auto& ibwin : ibwins)
 		ibwin->dump_info(env);
-	}
 } /* dump_info */
 
 mspace* inbound::get_mspace(const char *name)
 {
-	mspace *ms = nullptr;
-
 	lock_guard<mutex> ibwins_lock(ibwins_mutex);
 	for (auto& ibwin : ibwins) {
-		ms = ibwin->get_mspace(name);
-		if (ms != nullptr) /* Found it */
-			break;
+		auto ms = ibwin->get_mspace(name);
+		if (ms != nullptr) return ms;
 	}
 
-	if (ms == nullptr) {
-		WARN("%s not found\n", name);
-	}
-
-	return ms;
+	WARN("%s not found\n", name);
+	return nullptr;
 } /* get_mspace() */
 
 mspace* inbound::get_mspace(uint32_t msid)
 {
-	mspace *ms = nullptr;
-
 	lock_guard<mutex> ibwins_lock(ibwins_mutex);
 	for (auto& ibwin : ibwins) {
-		ms = ibwin->get_mspace(msid);
-		if (ms != nullptr)
-			break;
+		auto ms = ibwin->get_mspace(msid);
+		if (ms != nullptr) return ms;
 	}
-
-	if (ms == nullptr) {
-		WARN("msid(0x%X) not found\n", msid);
-	}
-	return ms;
+	WARN("msid(0x%X) not found\n", msid);
+	return nullptr;
 } /* get_mspace() */
 
 void inbound::get_mspaces_connected_by_destid(uint32_t destid,
@@ -162,68 +150,57 @@ void inbound::close_and_destroy_mspaces_using_tx_eng(tx_engine<unix_server,
 
 mspace* inbound::get_mspace(uint32_t msoid, uint32_t msid)
 {
-	mspace *ms = nullptr;
-
 	lock_guard<mutex> ibwins_lock(ibwins_mutex);
 	for (auto& ibw : ibwins) {
-		ms = ibw->get_mspace(msoid, msid);
+		auto ms = ibw->get_mspace(msoid, msid);
 		if (ms != nullptr) {
 			DBG("msid(0x%X) with msoid(0x%X) found in ibwin(%u)\n",
 				msid, msoid, ibw->get_win_num());
-			break;
+			return ms;
 		}
 	}
-
-	if (ms == nullptr) {
-		WARN("msid(0x%X) with msoid(0x%X) not found\n", msid, msoid);
-	}
-
-	return ms;
+	WARN("msid(0x%X) with msoid(0x%X) not found\n", msid, msoid);
+	return nullptr;
 } /* get_mspace() */
 
 void inbound::dump_mspace_info(struct cli_env *env, const char *name)
 {
 	/* Find the memory space by name */
-	mspace	*ms = get_mspace(name);
+	auto ms = get_mspace(name);
 	if (ms == nullptr) {
 		WARN("%s not found\n", name);
-	} else {
-		ms->dump_info(env);
+		return;
 	}
+
+	ms->dump_info(env);
 } /* dump_mspace_info() */
 
 void inbound::dump_all_mspace_info(struct cli_env *env)
 {
 	lock_guard<mutex> ibwins_lock(ibwins_mutex);
-	for (auto& ibwin : ibwins) {
+	for (auto& ibwin : ibwins)
 		ibwin->dump_mspace_info(env);
-	}
 } /* dump_all_mspace_info() */
 
 /* Dump memory space info for all memory spaces and their msubs */
 void inbound::dump_all_mspace_with_msubs_info(struct cli_env *env)
 {
 	lock_guard<mutex> ibwins_lock(ibwins_mutex);
-	for (auto& ibw : ibwins) {
+	for (auto& ibw : ibwins)
 		ibw->dump_mspace_and_subs_info(env);
-	}
 } /* dump_all_mspace_with_msubs_info() */
 
 int inbound::destroy_mspace(uint32_t msoid, uint32_t msid)
 {
-	int ret;
 	auto win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
 
 	lock_guard<mutex> ibwins_lock(ibwins_mutex);
 	if (win_num >= ibwins.size()) {
 		ERR("Bad window number: %u\n", win_num);
-		ret = -1;
-	} else {
-		auto& ibw = ibwins[win_num];
-		ret = ibw->destroy_mspace(msoid, msid);
+		return RDMA_INVALID_MS;
 	}
-
-	return ret;
+	auto& ibw = ibwins[win_num];
+	return ibw->destroy_mspace(msoid, msid);
 } /* destroy_mspace() */
 
 int inbound::create_mspace(const char *name,
@@ -232,11 +209,11 @@ int inbound::create_mspace(const char *name,
 			   mspace **ms,
 			   tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
 {
-	DBG("ENTER\n");
 	/* Find first inbound window having room for memory space */
-	lock_guard<mutex> ibwins_lock(ibwins_mutex);
+	unique_lock<mutex> ibwins_lock(ibwins_mutex);
 	auto win_it = find_if(begin(ibwins), end(ibwins),
-			[size](const unique_ptr<ibwin>& ibw) { return ibw->has_room_for_ms(size); });
+				[size](const unique_ptr<ibwin>& ibw)
+				{ return ibw->has_room_for_ms(size); });
 
 	/* If none found, fail */
 	if (win_it == end(ibwins)) {
@@ -246,32 +223,40 @@ int inbound::create_mspace(const char *name,
 
 	/* Create the space */
 	int ret = (*win_it)->create_mspace(name, size, msoid, ms, creator_tx_eng);
+	if (ret != 0) {
+		ERR("Failed to create mspace '%s'\n", name);
+		return ret;
+	}
+	ibwins_lock.unlock();
+
+	INFO("mspace('%s' with size(0x%" PRIx64 ") created!\n", name, size);
 
 	/* MMAP, zero, then UNMAP the space */
+
+	/* MMAP */
 	void *vaddr;
-	if (ret == 0 ) {
-		ret = riomp_dma_map_memory(mport_hnd,
-					   size,
-					   (*ms)->get_phys_addr(),
-					   &vaddr);
-		if (ret == 0) {
-			memset((uint8_t *)vaddr, 0, size);
-			INFO("Memory space '%s' filled with 0s\n", name);
-			if (munmap(vaddr, size) == -1) {
-			        ERR("munmap(): %s\n", strerror(errno));
-				ERR("phys_addr = 0x%" PRIx64 ", size = 0x%X\n",
-						(*ms)->get_phys_addr(), size);
-				ret = RDMA_UNMAP_ERROR;
-			}
-		} else {
-			ERR("Failed to MMAP mspace %s: %s\n",
-						name, strerror(errno));
-			ret = RDMA_MAP_ERROR;
-		}
+	ret = riomp_dma_map_memory(mport_hnd,
+				   size,
+				   (*ms)->get_phys_addr(),
+				   &vaddr);
+	if (ret) {
+		ERR("Failed to MMAP mspace %s: %s\n", name, strerror(errno));
+		return RDMA_MAP_ERROR;
 	}
 
-	DBG("EXIT\n");
-	return ret;
+	/* ZERO */
+	memset((uint8_t *)vaddr, 0, size);
+	INFO("Memory space '%s' filled with 0s\n", name);
+
+	/* UNMAP */
+	if (munmap(vaddr, size) == -1) {
+		ERR("munmap(): %s\n", strerror(errno));
+		ERR("phys_addr = 0x%" PRIx64 ", size = 0x%X\n",
+				(*ms)->get_phys_addr(), size);
+		return RDMA_UNMAP_ERROR;
+	}
+	INFO("Memory space '%s' unmapped successfully\n", name);
+	return 0;
 } /* create_mspace() */
 
 int inbound::open_mspace(const char *name,
@@ -281,29 +266,28 @@ int inbound::open_mspace(const char *name,
 			 uint64_t *rio_addr,
 			 uint32_t *size)
 {
-	DBG("ENTER\n");
-	int	ret;
-
 	/* Find the memory space by name */
-	mspace	*ms = get_mspace(name);
+	auto ms = get_mspace(name);
 	if (ms == nullptr) {
 		WARN("%s not found\n", name);
-		ret = RDMA_INVALID_MS;
-	} else {
-		/* Open the memory space */
-		ret = ms->open(user_tx_eng);
-		if (ret) {
-			ERR("Failed to open '%s'\n", name);
-		} else {
-			*msid      = ms->get_msid();
-			*phys_addr = ms->get_phys_addr();
-			*rio_addr  = ms->get_rio_addr();
-			*size	   = ms->get_size();
-			ret = 0;
-		}
+		return RDMA_INVALID_MS;
 	}
-	DBG("EXIT\n");
-	return ret;
+
+	/* Tru to open the memory space */
+	auto ret = ms->open(user_tx_eng);
+	if (ret) {
+		ERR("Failed to open '%s'\n", name);
+		return ret;
+	}
+
+	/* MS opened fine, return requested parameters */
+	*msid      = ms->get_msid();
+	*phys_addr = ms->get_phys_addr();
+	*rio_addr  = ms->get_rio_addr();
+	*size	   = ms->get_size();
+	INFO("'%s' opened successfully\n", name);
+
+	return 0;
 } /* open_mspace() */
 
 int inbound::create_msubspace(
@@ -313,48 +297,57 @@ int inbound::create_msubspace(
 			const tx_engine<unix_server, unix_msg_t> *user_tx_eng)
 {
 	uint8_t	win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
-	int	ret;
 
 	lock_guard<mutex> ibwins_lock(ibwins_mutex);
+
+	/* Check for overflow in win nuber */
 	if (win_num >= ibwins.size()) {
 		ERR("Invalid window number: %u\n", win_num);
-		ret = -1;
-	} else {
-		mspace *ms = ibwins[win_num]->get_mspace(msid);
-		if (ms != nullptr) {
-			ret = ms->create_msubspace(offset, size,
-					     msubid, rio_addr, phys_addr,
-					     user_tx_eng);
-		} else {
-			ERR("Failed to find mspace with msid(0x%X)\n", msid);
-			ret = -2;
-		}
+		return RDMA_INVALID_MS;
 	}
 
-	return ret;
+	/* Try to obtain the memory space */
+	auto ms = ibwins[win_num]->get_mspace(msid);
+	if (ms == nullptr) {
+		ERR("Failed to find mspace with msid(0x%X)\n", msid);
+		return RDMA_INVALID_MS;
+	}
+
+	auto rc = ms->create_msubspace(offset, size,
+				     msubid, rio_addr, phys_addr,
+				     user_tx_eng);
+	if (rc) {
+		ERR("Failed to create subspace in msid(0x%X), rc=%d\n",
+								msid, rc);
+		return RDMA_MSUB_CREATE_FAIL;
+	}
+
+	return 0;
 } /* create_msubspace() */
 
 int inbound::destroy_msubspace(uint32_t msid, uint32_t msubid)
 {
-	int	ret;
-	uint8_t	win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
+	auto	win_num = (msid & MSID_WIN_MASK) >> MSID_WIN_SHIFT;
 
-	DBG("msid = 0x%X, msubid = 0x%X\n", msid, msubid);
-
-	lock_guard<mutex> ibwins_lock(ibwins_mutex);
+	unique_lock<mutex> ibwins_lock(ibwins_mutex);
 	if (win_num >= ibwins.size()) {
 		ERR("Invalid window number: %u\n", win_num);
-		ret = -1;
-	} else {
-		mspace *ms = ibwins[win_num]->get_mspace(msid);
-		if (ms == nullptr) {
-			ERR("Failed to find mspace with msid(0x%X)\n", msid);
-			ret = -2;
-		} else {
-			ret = ms->destroy_msubspace(msubid);
-		}
+		return RDMA_INVALID_MS;
 	}
 
-	return ret;
+	auto ms = ibwins[win_num]->get_mspace(msid);
+	if (ms == nullptr) {
+		ERR("Failed to find mspace with msid(0x%X)\n", msid);
+		return RDMA_INVALID_MS;
+	}
+	ibwins_lock.unlock();
+
+	if (ms->destroy_msubspace(msubid)) {
+		ERR("Failed to destroy msubid(0x%X)\n", msubid);
+		return RDMA_MSUB_DESTROY_FAIL;
+	}
+
+	INFO("msub with msid(0x%X), msubid(0x%X) destroyed\n", msid, msubid);
+	return 0;
 } /* destroy_msubspace() */
 
