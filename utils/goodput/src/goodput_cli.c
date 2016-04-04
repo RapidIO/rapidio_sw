@@ -2626,7 +2626,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 {
         int idx;
         int chan;
-        int chan_to;
+        int chan_to = -1;
         int letter = 0;
         int cpu;
         uint32_t buff;

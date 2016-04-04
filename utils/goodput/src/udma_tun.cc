@@ -87,7 +87,7 @@ extern "C" {
   void zero_stats(struct worker *info);
   int migrate_thread_to_cpu(struct thread_cpu *info);
   bool umd_check_cpu_allocation(struct worker *info);
-  bool TakeLock(struct worker* info, const char* module, int instance);
+  bool TakeLock(struct worker* info, const char* module, const int mport, const int instance);
   uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 };
 
@@ -231,6 +231,9 @@ no_post:
 static bool inline umd_dma_tun_process_tun_RX(struct worker *info, DmaChannelInfo_t* dci, DmaPeer* peer, const uint16_t my_destid)
 {
   if (info == NULL || dci == NULL || peer == NULL || my_destid == 0xffff) return false;
+
+  const int tun_fd = peer->get_tun_fd();
+  if (tun_fd < 0) return false; // peer is destroyed
 
   bool ret = false;
   int destid_dpi = -1;
@@ -1180,7 +1183,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
   memset(info->ib_ptr, 0, info->ib_byte_cnt);
 
   if (! umd_check_cpu_allocation(info)) return;
-  if (! TakeLock(info, "DMA", info->umd_chan2)) return;
+  if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan2)) return;
 /* XXX FIX THIS
   for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
     if (! TakeLock(info, "DMA", ch)) goto exit;
@@ -1778,17 +1781,17 @@ void umd_mbox_watch_demo(struct worker *info)
 
   if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
-  if (! TakeLock(info, "MBOX", info->umd_chan)) goto exit;
+  if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) goto exit;
 
   info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 
   if (NULL == info->umd_mch) {
     CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
-            info->umd_chan, info->mp_num, info->mp_h);
+         info->umd_chan, info->mp_num, info->mp_h);
     info->umd_tun_name[0] = '\0';
     close(info->umd_tun_fd); info->umd_tun_fd = -1;
     delete info->umd_lock; info->umd_lock = NULL;
-          goto exit_bomb;
+    goto exit_bomb;
   };
 
   // I only send only 1 MBOX message at a time
@@ -1829,8 +1832,8 @@ void umd_mbox_watch_demo(struct worker *info)
     opt.mbox   = info->umd_chan;
 
     for(int i = 0; i < MBOX_BUFC; i++) {
-    void* b = calloc(1, PAGE_4K);
-    info->umd_mch->add_inb_buffer(b);
+      void* b = calloc(1, PAGE_4K);
+      info->umd_mch->add_inb_buffer(b);
     }
 
     MboxChannel::WorkItem_t wi[MBOX_STS*8]; memset(wi, 0, sizeof(wi));
@@ -1950,7 +1953,8 @@ void umd_mbox_watch_demo(struct worker *info)
             ntohs(pL2->len), ntohs(pL2->destid_src),
             umd_mbox_tx_fd, payload->action);
 
-        if (send(umd_mbox_tx_fd, buf, ntohs(pL2->len), MSG_DONTWAIT) < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
+        if (send(umd_mbox_tx_fd, buf, ntohs(pL2->len), MSG_DONTWAIT) < 0 &&
+            (errno != EAGAIN && errno != EWOULDBLOCK)) {
           CRIT("\n\tsend failed [tx_fd=%d]: %s\n", umd_mbox_tx_fd, strerror(errno));
           goto exit;
         }
@@ -1971,7 +1975,7 @@ exit:
   close(sockp2[0]); close(sockp2[1]);
 
   delete mport;
-  delete info->umd_mch; info->umd_mch = NULL;
+  delete info->umd_mch;  info->umd_mch = NULL;
   delete info->umd_lock; info->umd_lock = NULL;
 
   return;

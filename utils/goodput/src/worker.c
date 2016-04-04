@@ -1949,12 +1949,12 @@ void calibrate_sched_yield(struct worker *info)
  * \param instance Channel number
  * \return true if lock was acquited, false if somebody else is using it
  */
-bool TakeLock(struct worker* info, const char* module, int instance)
+bool TakeLock(struct worker* info, const char* module, const int mport, const int instance)
 {
 	if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
 
 	char lock_name[81] = {0};
-	snprintf(lock_name, 80, "/var/lock/UMD-%s-%d..LCK", module, instance);
+	snprintf(lock_name, 80, "/var/lock/UMD-%s-%d:%d..LCK", module, mport, instance);
 	try {
 		info->umd_lock = new LockFile(lock_name);
 	} catch(std::runtime_error ex) {
@@ -2027,7 +2027,7 @@ void umd_dma_goodput_demo(struct worker *info)
 	int iter = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+	if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan)) return;
 
 	info->owner_func = umd_dma_goodput_demo;
 
@@ -2344,7 +2344,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	uint64_t cnt = 0;
 	int iter = 0;
 
-	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+	if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan)) return;
 
 	//info->owner_func = (void*)umd_dma_goodput_latency_demo;
 
@@ -2515,7 +2515,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 	int iter = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+	if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) return;
 
 	info->owner_func = umd_mbox_goodput_demo;
 
@@ -2674,7 +2674,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 {
 	int iter = 0;
 
-	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+	if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) return;
 
 	info->owner_func = umd_mbox_goodput_latency_demo;
 
@@ -2998,7 +2998,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	int flags = IFF_TUN | IFF_NO_PI;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+	if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) return;
 
 	info->owner_func = umd_mbox_goodput_tun_demo;
 
