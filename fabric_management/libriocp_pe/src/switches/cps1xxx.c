@@ -1885,8 +1885,6 @@ int cps1xxx_get_counters(struct riocp_pe *sw, uint8_t port, riocp_sw_cap_t reg_c
     int ret=0;
     uint32_t cap_idx=0;
 
-    RIOCP_DEBUG("Register capabilities %x\n", reg_cap);
-
     while (reg_cap) {
         uint32_t reg_val, reg_addr;
         uint32_t cap_reg_offset = cps1xxx_cap_offsets[cap_idx];
@@ -1908,7 +1906,6 @@ int cps1xxx_get_counters(struct riocp_pe *sw, uint8_t port, riocp_sw_cap_t reg_c
             RIOCP_ERROR("Failed to read register %x\n", reg_addr);
             return ret;
         }
-        RIOCP_DEBUG("Read register %#x: %#x (%d)\n", reg_addr, reg_val, reg_val);
         counter_val[cap_idx] = reg_val;
         reg_cap = reg_cap >> 1;
         cap_idx++;
