@@ -1,3 +1,0 @@
-cd /home/barryw/test/rapidio_sw/utils/goodput/test/..
-make -q clean
-make -q all

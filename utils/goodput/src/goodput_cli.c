@@ -375,9 +375,12 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
 	uint64_t ib_size;
+	uint64_t ib_rio_addr = RIO_ANY_ADDR;
 
 	idx = getDecParm(argv[0], 0);
 	ib_size = getHex(argv[1], 0);
+	if (argc > 2)
+		ib_rio_addr = getHex(argv[2], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -388,9 +391,20 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
         	logMsg(env);
 		goto exit;
 	};
+	if ((ib_size - 1) & ib_size) {
+		sprintf(env->output, "\nIbwin size must be a power of 2.\n");
+        	logMsg(env);
+		goto exit;
+	};
+	if ((ib_rio_addr != RIO_ANY_ADDR) && ((ib_size - 1) & ib_rio_addr)) {
+		sprintf(env->output, "\nIbwin address not aligned with size\n");
+        	logMsg(env);
+		goto exit;
+	};
 
 	wkr[idx].action = alloc_ibwin;
 	wkr[idx].ib_byte_cnt = ib_size;
+	wkr[idx].ib_rio_addr = ib_rio_addr;
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
@@ -402,9 +416,11 @@ struct cli_cmd IBAlloc = {
 3,
 2,
 "Allocate an inbound window",
-"IBAlloc <idx> <size>\n"
+"IBAlloc <idx> <size> {<addr>}\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
-	"<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n",
+	"<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n"
+	"<addr> is the optional RapidIO address for the inbound window\n"
+	"       NOTE: <addr> must be aligned to <size>\n",
 IBAllocCmd,
 ATTR_NONE
 };

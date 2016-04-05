@@ -1,0 +1,6 @@
+cd HOMEDIR/scripts
+
+screen -S goodput -p 0 -X stuff $'scrp scripts/performance/obwin_lat\r'
+screen -S goodput -p 0 -X stuff $'. SCRIPTNAME\r'
+
+sleep 1

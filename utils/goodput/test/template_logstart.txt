@@ -1,0 +1,3 @@
+echo Starting tests for LOGNAME
+
+screen -S goodput -p 0 -X stuff $'log logs/LOGNAME\r'

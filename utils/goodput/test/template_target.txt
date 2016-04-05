@@ -1,10 +1,17 @@
 cd HOMEDIR/scripts
-./create_start_scripts.sh 345
+./create_start_scripts.sh RIOSOCK
 cd ..
-rm -f logs/start_target.log
+
+rm -f logs/LOGNAME
+
+echo Trying to quit out of OLD goodput screen session.
+screen -S goodput -p 0 -X stuff $'quit\r'
+
+sleep 10
+
 screen -dmS goodput ./goodput
-screen -S goodput -p 0 -X stuff $'log logs/start_target.log\r'
+screen -S goodput -p 0 -X stuff $'log logs/LOGNAME\r'
 screen -S goodput -p 0 -X stuff $'. start_target\r'
 screen -S goodput -p 0 -X stuff $'close\r'
 
-ls logs
+sleep 1

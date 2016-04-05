@@ -1,3 +1,0 @@
-log logs/start_target.log
-. start_target
-close
