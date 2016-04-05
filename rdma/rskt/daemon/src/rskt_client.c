@@ -84,6 +84,8 @@ int main(int argc, char *argv[])
 	unsigned repetitions = 1;
 	unsigned data_length = 512;
 	unsigned tx_test = 0;
+	time_t	cur_time;
+	char	asc_time[26];
 
 	rskt_h	client_socket;
 	struct rskt_sockaddr sock_addr;
@@ -145,8 +147,8 @@ int main(int argc, char *argv[])
 	sock_addr.sn = socket_number;
 
 	char logfilename[FILENAME_MAX];
-	sprintf(logfilename, "rskt%u.log", getpid());
-	log_file = fopen(logfilename, "w");
+	sprintf(logfilename, "/var/log/rdma/rskt_test.log");
+	log_file = fopen(logfilename, "a");
 	assert(log_file);
 
 #if SINGLE_CONNECTION == 1
@@ -242,9 +244,15 @@ retry_read:
 
 	rskt_destroy_socket(&client_socket);
 #endif
+
 	librskt_finish();
 	puts("@@@ Graceful Goodbye! @@@");
-	fprintf(log_file, "@@@ Graceful Goodbye! @@@");
+
+	/* Log the success in log file */
+	time(&cur_time);
+	ctime_r(&cur_time, asc_time);
+	asc_time[strlen(asc_time) - 1] = '\0';
+	fprintf(log_file, "%s @@@ Graceful Goodbye! @@@\n", asc_time);
 	fclose(log_file);
 	return rc;
 
@@ -256,12 +264,16 @@ destroy_client_socket:
 	rskt_destroy_socket(&client_socket);
 
 cleanup_rskt:
-
 	librskt_finish();
 
 exit_main:
 	puts("#### Errorish Goodbye! ###");
-	fprintf(log_file, "#### Errorish Goodbye! ###");
+
+	/* Log the failure in the log file */
+	time(&cur_time);
+	ctime_r(&cur_time, asc_time);
+	asc_time[strlen(asc_time) - 1] = '\0';
+	fprintf(log_file, "%s #### Errorish Goodbye! ###\n", asc_time);
 	fclose(log_file);
 	return rc;
 } /* main() */
