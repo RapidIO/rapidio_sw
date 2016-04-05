@@ -147,10 +147,32 @@ do
 		ssh root@"$client_node" "screen -dmS client1 $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r5000"
 		ssh root@"$client_node" "$RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r10000"
 	done
+	sleep 2
 done
 
 
 # ******************* Kill all processes *******************
+
+# Kill rskt_client tasks still in the screen terminal
+for node in $CLIENT_NODES
+do
+	# Kill bat_server instances
+	for (( ; ; ))
+	do
+		THE_PID=$(ssh root@"$node" pgrep rskt_client)
+		if [ -n "$THE_PID" ]
+			then
+				for proc in $THE_PID
+				do
+					echo "Killing rskt_client on $node, rskt_client PID=$proc"
+					ssh root@"$node" "kill -s $SIGINT $proc"
+					sleep 1
+				done
+			else
+				break
+		fi
+	done
+done
 
 # Kill rskt_servers on the server node(s)
 for node in $SERVER_NODES
