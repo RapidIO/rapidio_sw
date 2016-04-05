@@ -1,0 +1,3 @@
+cd HOMEDIR
+make -q clean
+make -q all

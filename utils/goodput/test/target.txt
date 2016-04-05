@@ -1,0 +1,10 @@
+cd /home/barryw/test/rapidio_sw/utils/goodput/test/../scripts
+./create_start_scripts.sh 345
+cd ..
+rm -f logs/start_target.log
+screen -dmS goodput ./goodput
+screen -S goodput -p 0 -X stuff $'log logs/start_target.log\r'
+screen -S goodput -p 0 -X stuff $'. start_target\r'
+screen -S goodput -p 0 -X stuff $'close\r'
+
+ls logs
