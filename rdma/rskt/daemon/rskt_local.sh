@@ -139,9 +139,13 @@ do
 	do
 		echo "Starting rskt_client on $client_node"
 
-		echo "$RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID"
-		ssh -t root@"$client_node" "$RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID"
-
+		# To test N clients, clients 1 through (N - 1) must run via "screen", and the Nth 
+		# client must run directly and for a repetition high enough to stay alive until
+		# the first (N - 1) clients terminate. 
+		ssh root@"$client_node" "screen -dmS client1 $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r5000"
+		ssh root@"$client_node" "screen -dmS client1 $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r5000"
+		ssh root@"$client_node" "screen -dmS client1 $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r5000"
+		ssh root@"$client_node" "$RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r10000"
 	done
 done
 
