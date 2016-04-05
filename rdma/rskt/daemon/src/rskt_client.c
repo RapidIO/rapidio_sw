@@ -28,6 +28,8 @@
 static uint8_t send_buf[RSKT_DEFAULT_SEND_BUF_SIZE];
 static uint8_t recv_buf[RSKT_DEFAULT_RECV_BUF_SIZE];
 
+static FILE *log_file;
+
 void show_help()
 {
 	printf("rskt_client -d<destid> -s<socket_number> [-h] ");
@@ -142,6 +144,11 @@ int main(int argc, char *argv[])
 	sock_addr.ct = destid;
 	sock_addr.sn = socket_number;
 
+	char logfilename[FILENAME_MAX];
+	sprintf(logfilename, "rskt%u.log", getpid());
+	log_file = fopen(logfilename, "w");
+	assert(log_file);
+
 #if SINGLE_CONNECTION == 1
 	/* Create a client socket */
 	client_socket = rskt_create_socket();
@@ -237,6 +244,8 @@ retry_read:
 #endif
 	librskt_finish();
 	puts("@@@ Graceful Goodbye! @@@");
+	fprintf(log_file, "@@@ Graceful Goodbye! @@@");
+	fclose(log_file);
 	return rc;
 
 	/* Code below is only for handling errors */
@@ -252,5 +261,7 @@ cleanup_rskt:
 
 exit_main:
 	puts("#### Errorish Goodbye! ###");
+	fprintf(log_file, "#### Errorish Goodbye! ###");
+	fclose(log_file);
 	return rc;
 } /* main() */
