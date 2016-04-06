@@ -119,17 +119,11 @@ public:
         uint8_t  msb2;
         uint64_t lsb64;
       } raddr;
-      uint64_t win_handle; ///< populated when queueing for TX
-      uint32_t bd_wp; ///< soft WP at the moment of enqueuing this
-      uint32_t bd_idx; ///< index into buffer ring of buffer used to handle this op
-      uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
-      uint64_t u_data; ///< whatever the user puts in here
+      uint64_t           ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
       uint64_t ticket; ///< ticket issued at enq time
       uint64_t not_before; ///< earliest rdtsc ts when ticket can be checked
       uint64_t not_before_dns; ///< delta nanoseconds wait
-      pid_t    pid; ///< process id of enqueueing process
-      pid_t    tid; ///< thread id of enqueueing thread; this is NOT a pthread id, it is issued by gettid(2)
-      int      cliidx;
+      uint64_t u_data; ///< whatever the user puts in here
   } DmaOptions_t;
 
   static const uint32_t WI_SIG = 0xb00fd00fL;
@@ -137,7 +131,13 @@ public:
     uint32_t valid;
     DmaOptions_t       opt;
     RioMport::DmaMem_t mem;
+    uint32_t           bd_wp; ///< soft WP at the moment of enqueuing this [DOCUMENTATION]
+    uint32_t           bd_idx; ///< index into buffer ring of buffer used to handle this op [DOCUMENTATION]
+    uint32_t           bl_busy_size; ///< How big was the tx q when this was enq'd [DOCUMENTATION]
     // add actions here
+    pid_t              pid; ///< process id of enqueueing process
+    pid_t              tid; ///< thread id of enqueueing thread; this is NOT a pthread id, it is issued by gettid(2)
+    int                cliidx;
     uint8_t  t2_rddata[16]; // DTYPE2 NREAD incoming data
     uint32_t t2_rddata_len;
   } WorkItem_t;
@@ -519,7 +519,7 @@ public:
     pthread_spinlock_t  hw_splock; ///< Serialize access to DMA chan registers
     pthread_spinlock_t  pending_work_splock; ///< Serialize access to DMA pending queue object
     uint32_t            chan;
-    int32_t            bd_num;
+    int32_t             bd_num;
     uint32_t            sts_size;
     volatile uint32_t   dma_wr;      ///< Mirror of Tsi721 write pointer
     int32_t             fifo_rd;
@@ -535,6 +535,8 @@ public:
     pthread_spinlock_t  client_splock; ///< Serialize access to clients' data structures.
     ShmClientCompl_t    client_completion[DMA_SHM_MAX_CLIENTS];
   } DmaChannelState_t;
+
+  uint64_t getAckedSN() { assert(m_state); return m_state->acked_serial_number; }
 
 private:
   DmaChannelState_t*  m_state;
@@ -591,13 +593,13 @@ public:
    */
   inline void getShmPendingData(uint64_t& total, DmaShmPendingData_t& per_client)
   {
-	uint64_t max_mem;
-    if (m_pendingdata_tally) {
-      total = 0;
-      return;
-    }
+    if (m_pendingdata_tally == NULL) { total = 0; return; }
+
     memcpy(&per_client, m_pendingdata_tally, sizeof(DmaShmPendingData_t));
-	max_mem = per_client.data[m_state->chan];
+
+    uint64_t max_mem = per_client.data[m_state->chan];
+    
+    total = 0;
     for(int i = 0; i < DMA_MAX_CHAN; i++)
 	total += (per_client.data[i] < max_mem)?per_client.data[i]:max_mem;
   }

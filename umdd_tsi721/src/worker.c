@@ -416,14 +416,37 @@ void UMD_DD(struct worker* info)
 	if (ab.size() > 0)
 		INFO("\n\tcheckAbort stats: %s\n", ab.c_str());
 
-	DMAChannelSHM::ShmClientCompl_t comp[DMAChannelSHM::DMA_SHM_MAX_CLIENTS];
-	memset(&comp, 0, sizeof(comp));
+	uint64_t total = 0;
+        DMAChannelSHM::DmaShmPendingData_t pdata; memset(&pdata, 0, sizeof(pdata));
+	info->umd_dch->getShmPendingData(total, pdata);
+
+	if (total > 0) {
+		std::stringstream ss;
+		ss << "Total: " << total << "\n";
+		for(int i = 1; i < DMAChannelSHM::DMA_MAX_CHAN; i++) {
+			if(pdata.data[i] == 0) continue;
+			ss << "\tCh" << i <<" pending " << pdata.data[i] << "\n";
+		}
+		INFO("\n\tIn-flight data %s", ss.str().c_str());
+	}
+
+	INFO("\n\tQsize=%d Enqd.WP=%lu HW.{WP=%u RP=%u} FIFOackd=%llu FIFO.{WP=%u RP=%u} AckedSN=%llu\n",
+	     info->umd_dch->queueSize(),
+	     info->umd_dch->getWP(),
+	     info->umd_dch->getWriteCount(), info->umd_dch->getReadCount(),
+	     info->umd_dch->m_tx_cnt,
+	     info->umd_dch->getFIFOReadCount(), info->umd_dch->getFIFOWriteCount(),
+	     info->umd_dch->getAckedSN());
 
 	if (info->umd_fifo_total_ticks_count > 0) {
 		float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
 		INFO("\n\tFIFO Avg TX %f uS cnt=%llu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
 	}
+
+	DMAChannelSHM::ShmClientCompl_t comp[DMAChannelSHM::DMA_SHM_MAX_CLIENTS];
+	memset(&comp, 0, sizeof(comp));
 	info->umd_dch->listClients(&comp[0], sizeof(comp));
+
 	for (int i = 0; i < DMAChannelSHM::DMA_SHM_MAX_CLIENTS; i++) {
 		if (! comp[i].busy) continue;
 		INFO("\n\tpid=%d%s change_cnt=%llu bad_tik.{RP=%llu WP=%llu} NREAD_T2_res.{RP=%llu WP=%llu} EnqBy=%llu TXdBy=%llu\n",
@@ -556,7 +579,7 @@ void umd_shm_goodput_demo(struct worker *info)
                                 break;
                         default:
                                 ERR("\n\tUNKNOWN BD %d bd_wp=%u\n",
-                                        item.opt.dtype, item.opt.bd_wp);
+                                        item.opt.dtype, item.bd_wp);
                                 break;
                         }
 
