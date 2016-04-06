@@ -139,14 +139,11 @@ do
 	do
 		echo "Starting rskt_client on $client_node"
 		# Run a client per node using the 'screen' terminal
-		ssh root@"$client_node" "screen -dmS client1 $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r500"
+		ssh root@"$client_node" "$RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r1000"
 	done
-	# This is a second client on the last node. It is NOT run using the
-	# 'screen' terminal since we want it to block until  all clients have finished
-	ssh root@"$client_node" "$RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r1000"
-	sleep 2
 done
 
+sleep 2
 
 # ******************* Kill all processes *******************
 
