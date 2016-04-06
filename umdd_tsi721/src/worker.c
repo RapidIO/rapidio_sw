@@ -470,20 +470,20 @@ void UMD_Test(const struct worker* wkr)
  * \param instance Channel number
  * \return true if lock was acquited, false if somebody else is using it
  */
-bool TakeLock(struct worker* info, const char* module, int instance)
+bool TakeLock(struct worker* info, const char* module, const int mport, const int instance)
 {
-	if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
+        if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
 
-	char lock_name[81] = {0};
-	snprintf(lock_name, 80, "/var/lock/UMD-%s-%d..LCK", module, instance);
-	try {
-		info->umd_lock = new LockFile(lock_name);
-	} catch(std::runtime_error ex) {
-		CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
-		return false;
-	}
-	// NOT catching std::logic_error
-	return true;
+        char lock_name[81] = {0};
+        snprintf(lock_name, 80, "/var/lock/UMD-%s-%d:%d..LCK", module, mport, instance);
+        try {
+                info->umd_lock = new LockFile(lock_name);
+        } catch(std::runtime_error ex) {
+                CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
+                return false;
+        }
+        // NOT catching std::logic_error
+        return true;
 }
 
 /** \brief Check that the UMD worker and FIFO threads are not stuck to the same (isolcpu) core
@@ -510,7 +510,7 @@ void umd_shm_goodput_demo(struct worker *info)
 	bool fifo_unwork_ACK = false;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+        if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan)) return;
 
 	info->owner_func = umd_shm_goodput_demo;
 
