@@ -1,3 +1,0 @@
-echo STOPPING tests for LOGNAME
-
-screen -S goodput -p 0 -X stuff $'close\r'

@@ -1,3 +1,0 @@
-cd HOMEDIR
-make clean
-make all

@@ -77,7 +77,7 @@ if [ $PRINT_HELP != "0" ]; then
 	echo $'             0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL'
 	echo $'DMA_SYNC   : 0 - blocking, 1 - async, 2 - fire and forget'
 	echo $'DID        : Device ID of target device for performance scripts'
-	echo $'IBA_ADDR   : Hex address of target window on DID'
+	echo $'IBA_ADDR   : RapidIO address of inbound window on DID'
 	echo $'SKT_PREFIX : First 3 digits of 4 digit socket numbers'
 	echo $'\nOptional parameters, if not entered same as DMA_SYNC'
 	echo $'DMA_SYNC2  : 0 - blocking, 1 - async, 2 - fire and forget'
