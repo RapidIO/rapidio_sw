@@ -139,7 +139,6 @@ static int daemon_call(unique_ptr<unix_msg_t> in_msg, unix_msg_t *out_msg)
 	constexpr uint32_t MSG_SEQ_NO_START = 0x0000000A;
 	static rdma_msg_seq_no seq_no = MSG_SEQ_NO_START;
 
-	DBG("ENTER\n");
 	/* First check that engines are still valid */
 	if ((tx_eng == nullptr) || (rx_eng == nullptr)) {
 		CRIT("Connection to daemon severed\n");
@@ -183,12 +182,11 @@ static int daemon_call(unique_ptr<unix_msg_t> in_msg, unix_msg_t *out_msg)
 		}
 	}
 	if (rc == ETIMEDOUT) {
-		rc = RDMA_ERRNO;
+		rc = RDMA_API_TIMEOUT;
 	}
 	/* Now increment seq_no for next call */
 	seq_no++;
-	DBG("EXIT\n");
-	return rc;
+ 	return rc;
 } /* daemon_call() */
 
 int rdmad_kill_daemon()
@@ -472,7 +470,7 @@ __attribute__((constructor)) int lib_init(void)
 	/* Make threads cancellable at some points (e.g. mq_receive) */
 	if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)) {
 		WARN("Failed to set cancel state:%s. Exiting.\n",strerror(errno));
-		exit(RDMA_ERRNO);
+		exit(errno);
 	}
 
 	/* Library initialization */
