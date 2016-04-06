@@ -88,18 +88,18 @@ public:
         uint8_t  msb2;
         uint64_t lsb64;
       } raddr;
-      uint64_t win_handle; ///< populated when queueing for TX
-      uint32_t bd_wp; ///< Soft WP at the moment of enqueuing this
-      uint32_t bd_idx; ///< index into buffer ring of buffer used to handle this op
-      uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
       uint64_t u_data; ///< whatever the user puts in here
   } DmaOptions_t;
 
   static const uint32_t WI_SIG = 0xb00fd00fL;
   typedef struct {
-    uint32_t valid;
+    volatile uint32_t  valid;
     DmaOptions_t       opt;
     RioMport::DmaMem_t mem;
+    uint64_t           ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
+    uint32_t           bd_wp; ///< Soft WP at the moment of enqueuing this BD [DOCUMENTATION]
+    uint32_t           bd_idx; ///< index into buffer ring of buffer used to handle this op BD [DOCUMENTATION]
+    uint32_t           bl_busy_size; ///< How big was the tx q when this was enq'd [DOCUMENTATION]
     // add actions here
     uint8_t  t2_rddata[16]; // DTYPE2 NREAD incoming data
     uint32_t t2_rddata_len;

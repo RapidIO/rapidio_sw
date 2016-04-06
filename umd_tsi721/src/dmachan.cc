@@ -196,56 +196,45 @@ uint32_t DMAChannel::clearIntBits()
  */
 bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t& mem, uint32_t& abort_reason, struct seq_ts *ts_p)
 {
-  struct dmadesc desc;
-  bool queued_T3 = false;
-  WorkItem_t wk_end;
-  WorkItem_t wk;
-  struct hw_dma_desc* bd_hw = NULL;
-
-
   if ((opt.dtype != DTYPE1) && (opt.dtype != DTYPE2))
     return false;
 
   if ((opt.dtype == DTYPE1) && !m_mport->check_dma_buf(mem))
     return false;
 
+  struct dmadesc desc;
+  bool queued_T3 = false;
+
+  WorkItem_t wk_end; memset(&wk_end, 0 , sizeof(wk_end));
+  WorkItem_t wk; memset(&wk, 0, sizeof(wk));
+
   abort_reason = 0;
 
   ts_now_mark(ts_p, 1);
 
+  opt.rtype = rtype;
   dmadesc_setdtype(desc, opt.dtype);
 
-  if(opt.iof)
-    dmadesc_setiof(desc, 1);
-  if(opt.crf)
-    dmadesc_setcrf(desc, 1);
-  if(opt.prio)
-    dmadesc_setprio(desc, opt.prio);
+  if (opt.iof)    dmadesc_setiof(desc, 1);
+  if (opt.crf)    dmadesc_setcrf(desc, 1);
+  if (opt.prio)   dmadesc_setprio(desc, opt.prio);
+  if (opt.tt_16b) dmadesc_set_tt(desc, 1);
 
-  opt.rtype = rtype;
   dmadesc_setrtype(desc, rtype); // NWRITE_R, etc
-
   dmadesc_set_raddr(desc, opt.raddr.msb2, opt.raddr.lsb64);
-
-  if(opt.tt_16b)
-    dmadesc_set_tt(desc, 1);
   dmadesc_setdevid(desc, opt.destid);
 
-  if(opt.dtype == DTYPE1) {
+  if (opt.dtype == DTYPE1) {
     dmadesc_setT1_bufptr(desc, mem.win_handle);
     dmadesc_setT1_buflen(desc, opt.bcount);
-    opt.win_handle = mem.win_handle; // this is good across processes
   } else { // T2
-    if(rtype != NREAD)  { // copy data
-      dmadesc_setT2_data(desc, (const uint8_t*)mem.win_ptr,
-        mem.win_size);
+    if (rtype != NREAD)  { // copy data
+      dmadesc_setT2_data(desc, (const uint8_t*)mem.win_ptr, mem.win_size);
     } else {
       uint8_t ZERO[16] = {0};
       dmadesc_setT2_data(desc, ZERO, mem.win_size);
     }
   }
-
-  memset(&wk_end, 0 , sizeof(wk_end));
 
   // Check if queue full -- as late as possible in view of MT
   if(queueFull()) {
@@ -253,6 +242,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     return false;
   }
   
+  wk.mem = mem;
+
   pthread_spin_lock(&m_bl_splock); 
   if (umdemo_must_die)
     return false;
@@ -262,23 +253,27 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     // If at end of buffer, account for T3 and
     // wrap around to beginning of buffer.
     if ((bd_idx + 1) == m_bd_num) {
-      wk_end.opt.bd_wp = m_dma_wr;
+      wk_end.bd_wp = m_dma_wr;
+      wk_end.ts_start = rdtsc();
 
-      wk_end.opt.ts_start = rdtsc();
       // FIXME: Should this really be FF..E, or should it be FF..F ???
       if (m_dma_wr == 0xFFFFFFFE)
-        m_dma_wr = 0;
-      else
-        m_dma_wr++;
-      setWriteCount(m_dma_wr);
+           m_dma_wr = 0;
+      else m_dma_wr++;
+      ///setWriteCount(m_dma_wr);
+
       queued_T3 = true;
+
+      assert(m_bl_busy_size >= 0);
       m_bl_busy_size++;
+      wk_end.bl_busy_size = m_bl_busy_size;
       bd_idx = 0;
     }
 
     // check-modulo in m_bl_busy[] if bd_idx is still busy!!
     if(m_bl_busy[bd_idx]) {
       pthread_spin_unlock(&m_bl_splock); 
+      assert(m_bl_busy_size >= 0);
 #ifdef DEBUG_BD
       XINFO("\n\tDMA TX queueDmaOpT?: BD %d still busy!\n", bd_idx);
 #endif
@@ -286,43 +281,43 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     }
 
     m_bl_busy[bd_idx] = true;
+    assert(m_bl_busy_size >= 0);
     m_bl_busy_size++;
+    wk.bl_busy_size = m_bl_busy_size;
 
     if (m_bl_busy_histo != NULL) m_bl_busy_histo[m_bl_busy_size]++;
 
-    bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
+    struct hw_dma_desc* bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
     desc.pack(bd_hw);
 
-    opt.bd_wp = m_dma_wr;
-    opt.bd_idx = bd_idx;
+    wk.bd_wp    = m_dma_wr;
+    wk.bd_idx   = bd_idx;
+    wk.ts_start = rdtsc();
 
-    opt.ts_start = rdtsc();
+    pthread_spin_lock(&m_pending_work_splock);
+     wk.opt   = opt;
+     wk.valid = WI_SIG;
+
+     m_pending_work[bd_idx] = wk;
+
+     if(queued_T3) {
+       wk_end.opt.dtype = DTYPE3;
+       wk_end.valid     = WI_SIG;
+       m_pending_work[m_T3_bd_hw] = wk_end;
+     }
+    pthread_spin_unlock(&m_pending_work_splock);
 
     m_dma_wr++;
     setWriteCount(m_dma_wr);
-
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
   }}
+
   pthread_spin_unlock(&m_bl_splock); 
 
   if(m_check_reg && dmaCheckAbort(abort_reason)) {
+    m_pending_work[bd_idx].valid = 0xbeefbaadL;
     return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
   }
-
-  memset(&wk, 0, sizeof(wk));
-  wk.mem = mem;
-  wk.opt = opt;
-  wk.valid = WI_SIG;
-
-  pthread_spin_lock(&m_pending_work_splock);
-  m_pending_work[bd_idx] = wk;
-
-  if(queued_T3) {
-    wk_end.opt.dtype = DTYPE3;
-    wk_end.valid = WI_SIG;
-    m_pending_work[m_T3_bd_hw] = wk_end;
-  }
-  pthread_spin_unlock(&m_pending_work_splock);
 
   ts_now_mark(ts_p, 9);
 
@@ -678,7 +673,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
       const int idx = (compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE; 
 
-      XERR("\n\tFound INVALID completion iten for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+      XERR("\n\tFound INVALID completion item for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           compl_hwbuf[ci].win_handle,
           idx,
           compl_hwbuf[ci].fifo_offset,
@@ -709,10 +704,13 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
       continue;
     }
 
-    if(! m_pending_work[idx].valid) {
+    const uint32_t valid = m_pending_work[idx].valid;
+
+    if(WI_SIG != valid) {
       pthread_spin_unlock(&m_pending_work_splock);
 
-      XERR("\n\tCan't find VALID entry for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+      XERR("\n\tCan't find VALID (invalid sig=0x%x) [bd_idx=%d] entry for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+          valid, idx,
           compl_hwbuf[ci].win_handle,
           compl_hwbuf[ci].fifo_offset,
           getFIFOReadCount(), getFIFOWriteCount());
@@ -734,11 +732,11 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
         getFIFOReadCount(), getFIFOWriteCount());
 #endif
 
-    item.opt.ts_end = compl_hwbuf[ci].ts_end;
+    item.ts_end = compl_hwbuf[ci].ts_end;
 
     if(item.opt.dtype == DTYPE2 && item.opt.rtype == NREAD) {
       const struct hw_dma_desc* bda = (struct hw_dma_desc*)(m_dmadesc.win_ptr);
-      const struct hw_dma_desc* bd = &bda[item.opt.bd_idx];
+      const struct hw_dma_desc* bd = &bda[item.bd_idx];
 
       assert(bd->data >= m_dmadesc.win_ptr);
       assert((uint8_t*)bd->data < (((uint8_t*)m_dmadesc.win_ptr) + m_dmadesc.win_size));
@@ -756,7 +754,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
     if (umdemo_must_die)
       return 0;
-    m_bl_busy[item.opt.bd_idx] = false;
+    m_bl_busy[item.bd_idx] = false;
     m_bl_busy_size--;
     assert(m_bl_busy_size >= 0);
 

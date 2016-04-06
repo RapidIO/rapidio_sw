@@ -1401,16 +1401,15 @@ void *umd_dma_fifo_proc_thr(void *parm)
 			case DTYPE1:
 			case DTYPE2:
 				info->perf_byte_cnt += info->acc_size;
-				if (item.opt.ts_end > item.opt.ts_start) {
-				       info->umd_fifo_total_ticks += item.opt.ts_end - item.opt.ts_start;
+				if (item.ts_end > item.ts_start) {
+				       info->umd_fifo_total_ticks += item.ts_end - item.ts_start;
 				       info->umd_fifo_total_ticks_count++;
 				} 
 				break;
 			case DTYPE3:
 				break;
 			default:
-				ERR("\n\tUNKNOWN BD %d bd_wp=%u\n",
-					item.opt.dtype, item.opt.bd_wp);
+				ERR("\n\tUNKNOWN BD %d bd_wp=%u\n", item.opt.dtype, item.bd_wp);
 				break;
       			}
 
@@ -1478,8 +1477,8 @@ again:
 
                         uint64_t dT  = 0;
                         float    dTf = 0;
-                        if(item.opt.ts_end > item.opt.ts_start) { // Ignore rdtsc wrap-arounds
-                                dT = item.opt.ts_end - item.opt.ts_start;
+                        if(item.ts_end > item.ts_start) { // Ignore rdtsc wrap-arounds
+                                dT = item.ts_end - item.ts_start;
                                 dTf = (float)dT / MHz;
                         }
                         switch (item.opt.dtype) {
@@ -1489,16 +1488,15 @@ again:
                                 if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += info->acc_size; }
                                 DBG("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
                                         item.opt.destid,
-                                        item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
+                                        item.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         case DTYPE5:
                                 DBG("\n\tFinished D5 bd_wp=%u -- FIFO iter %llu dTick %llu (%f uS)u\n",
-                                         item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
+                                         item.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         default:
                                 CRIT("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
-                                         item.opt.dtype, item.opt.bd_wp,
-                                        g_FifoStats[idx].fifo_thr_iter);
+                                         item.opt.dtype, item.bd_wp, g_FifoStats[idx].fifo_thr_iter);
                                 break;
                         }
 			wi[i].valid = 0xdeadabba;
@@ -2574,7 +2572,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 				usleep(1);
 			if (info->stop_req) break;
 
-			opt.ts_end = rx_ts;
+			//opt.ts_end = rx_ts;
 
 			bool rx_buf = false;
 			void* buf = NULL;
@@ -2587,6 +2585,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
 				goto exit_rx;
 			}
+#if 0
 			if (rx_ts && opt.ts_start && rx_ts > opt.ts_start && opt.bcount > 0) { // not overflown
 				const uint64_t dT = rx_ts - opt.ts_start;
 				if (dT > 0) { 
@@ -2595,6 +2594,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 					info->tick_data_total += opt.bcount;
 				}
 			}
+#endif
 		} // END infinite loop
 
 
@@ -2744,7 +2744,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 			while (!info->stop_req && ! info->umd_mch->inb_message_ready(rx_ts)) { ; }
 			if (info->stop_req) break;
 
-			opt.ts_end = rx_ts; 
+			//opt.ts_end = rx_ts; 
 
 			bool rx_buf = false;
 			void* buf = NULL;
@@ -3116,7 +3116,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 				usleep(1);
 			if (info->stop_req) break;
 
-			opt.ts_end = rx_ts;
+			//opt.ts_end = rx_ts;
 
 			bool rx_buf = false;
 			uint8_t* buf = NULL;
@@ -3138,6 +3138,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
 				goto exit;
 			}
+#if 0
 			if (rx_ts && opt.ts_start && rx_ts > opt.ts_start && opt.bcount > 0) { // not overflown
 				const uint64_t dT = rx_ts - opt.ts_start;
 				if (dT > 0) { 
@@ -3146,6 +3147,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 					info->tick_data_total += opt.bcount;
 				}
 			}
+#endif
 		} // END infinite loop
 
 		// Inbound buffers freed in MboxChannel::cleanup

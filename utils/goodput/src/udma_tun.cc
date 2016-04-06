@@ -44,27 +44,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/sem.h>
 #include <fcntl.h>
 
+#include <sched.h>
+
 #include <stdint.h>
 #include <unistd.h>
-#include <dirent.h>
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <unistd.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/ioctl.h>
-//#include <arpa/inet.h>
 #include <sys/select.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
 
-#include <pthread.h>
 #include <sstream>
-
-#include <sched.h>
 
 #include "libcli.h"
 #include "liblog.h"
@@ -870,19 +865,19 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
         switch (item.opt.dtype) {
         case DTYPE1:
         case DTYPE2:
-          if (item.opt.ts_end > item.opt.ts_start) {
-            dch_list[ch]->ticks_total += (item.opt.ts_end - item.opt.ts_start);  
+          if (item.ts_end > item.ts_start) {
+            dch_list[ch]->ticks_total += (item.ts_end - item.ts_start);  
           }
           // These are from read from Tun
-          if (item.opt.u_data != 0 && item.opt.ts_end > item.opt.u_data) {
-            dch_list[ch]->total_ticks_tx += item.opt.ts_end - item.opt.u_data;
+          if (item.opt.u_data != 0 && item.ts_end > item.opt.u_data) {
+            dch_list[ch]->total_ticks_tx += item.ts_end - item.opt.u_data;
           }
           break;
         case DTYPE3:
           break;
         default:
           ERR("\n\tUNKNOWN BD %d bd_wp=%u\n",
-            item.opt.dtype, item.opt.bd_wp);
+            item.opt.dtype, item.bd_wp);
           break;
         }
 

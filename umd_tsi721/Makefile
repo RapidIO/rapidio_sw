@@ -52,13 +52,17 @@ SOURCES = src/crc32.c src/dmachan.cc src/mapfile.cc src/mboxchan.cc \
 	src/mport.cc src/psem.cc src/pshm.cc src/tsi721_dma.c
 
 CXXFLAGS = -I./inc -I$(REGSDIR) -I$(COMMONINC) \
-	 -std=gnu++0x -g -ggdb -DDEBUG \
-	 -O3 -fPIC -Werror -pthread
+	 -std=gnu++0x -D$(DEBUG) \
+	 -Werror -pthread
 
-LIBFLAGS = -shared 
+CXXFLAGS += -ggdb -Ofast -march=native -mfpmath=sse -ffast-math
+#CXXFLAGS += -DDEBUG_BD
+
+LIBFLAGS = -shared -fPIC
 
 #CXXFLAGS+=-pg
 #CXXFLAGS+=-DDEBUG=2
+
 SYSLIBS = -lrt -lpthread -ldl 
 LIBRARIES = -lmport -ltime_utils -lcli
 
@@ -66,7 +70,7 @@ all: libumd.a libumd_nolog.a client server
 
 libumd.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
-	$(CXX) $(CXXFLAGS) $(LIBFLAGS) -DRDMA_LL=$(LOG_LEVEL) $(SOURCES) \
+	$(CXX) $(CXXFLAGS) -DRDMA_LL=$(LOG_LEVEL) $(SOURCES) \
 		-c $(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) -llog
 	$(AR) rcs $@ *.o
 	@rm -f *.o

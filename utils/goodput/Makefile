@@ -46,7 +46,7 @@ export LOG_LEVEL
 
 
 # Kernel-mode flags
-CCFLAGS = -O3 -ggdb -I./inc  -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) \
+CCFLAGS = -I./inc  -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) \
 	-std=gnu++0x \
 	-Wall -Wno-sign-compare \
 	-pthread -DRDMA_LL=7 -I$(LIBMPINCDIR) -I$(REGSDIR)
@@ -65,13 +65,15 @@ CCFLAGS = -O3 -ggdb -I./inc  -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) \
 CCFLAGS+=-DUDMA_TUN_DEBUG_HISTO
 #CCFLAGS+=-rdynamic # use with mutrace
 
+CCFLAGS+=-ggdb -Ofast -march=native -mfpmath=sse -ffast-math
+
 INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 
 # User-mode only flags
 UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
 	 -Wall -Wno-format -Wno-sign-compare -Wno-write-strings \
-	 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
+	 -ggdb -DRDMA_LL=$(LOG_LEVEL)
 	 #-DRIO_ANY_ADDR=0
 
 
@@ -89,7 +91,7 @@ goodput: $(SOURCES) $(INCLUDES)
 	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(COMMONLIB) -L$(UMDDIR) $(LIBRARIES)
 
 clean:
-	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out
+	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out *.log
 
 FORCE:
 
