@@ -10,7 +10,7 @@ wait 6 d
 wait 7 d
 t 0 3 0
 wait 0 2
-IBA 0 bytes
+IBA 0 bytes iba_addr
 wait 0 1
 wait 0 2
 dR 0 did iba_addr acc_size

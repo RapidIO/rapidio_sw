@@ -353,7 +353,7 @@ int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 	errno = 0;
 	*hex_int = strtol(tok, &endptr, 16);
 
-	if ((errno == ERANGE && (*hex_int == UINT32_MAX || *hex_int == 0))
+	if ((errno == ERANGE && (*hex_int == 0xFFFFFFFF || *hex_int == 0))
 		|| ((errno != 0) && (*hex_int == 0)))
 		goto fail;
 
