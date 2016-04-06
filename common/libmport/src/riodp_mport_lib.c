@@ -260,9 +260,11 @@ int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
 	hnd->asyncm.clear();
 
 	close(hnd->fd);
+
 	// Shared channel is not deselected, no ref counting
         if (hnd->umd_chan > 0) riomp_mgmt_mport_umd_deselect_channel(hnd->mport_id, hnd->umd_chan);
 	free(hnd);
+
 	return 0;
 }
 
@@ -348,13 +350,13 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 	/* Get list size */
 	entries = mport_id;
 	if (ioctl(fd, RIO_CM_EP_GET_LIST_SIZE, &entries)) {
-#ifdef DEBUG
+#ifdef MPORT_DEBUG
 		printf("%s ep_get_list_size ioctl failed: %s\n", __func__, strerror(errno));
 #endif
 		ret = errno;
 		goto outfd;
 	}
-#ifdef DEBUG
+#ifdef MPORT_DEBUG
 	printf("RIODP: %s() has %d entries\n", __func__,  entries);
 #endif
 	/* Get list */
@@ -466,7 +468,6 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	if(hnd == NULL)
 		return -EINVAL;
 
-
 	if (hnd->dch != NULL) goto umdd;
 
 	xfer.rioid = destid;
@@ -496,7 +497,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	memset(&opt, 0, sizeof(opt));
 	opt.destid      = destid;
 	opt.bcount      = size;
-	opt.raddr.lsb64 = tgt_addr + offset; // XXX really offset?
+	opt.raddr.lsb64 = tgt_addr + offset;
 	RioMport::DmaMem_t dmamem; memset(&dmamem, 0, sizeof(dmamem));
 
 	dmamem.type       = RioMport::DONOTCHECK;
@@ -606,7 +607,6 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	if(hnd == NULL)
 		return -EINVAL;
 
-
 	if (hnd->dch != NULL) goto umdd;
 
 	xfer.rioid = destid;
@@ -626,15 +626,16 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	return (ret < 0)? -errno: ret;
 
    umdd:
+#ifdef MPORT_DEBUG
 	printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
-
+#endif
 	if (DMAChannelSHM_queueFull(hnd->dch)) return -(errno = EBUSY);
 
 	DMAChannelSHM::DmaOptions_t opt;
 	memset(&opt, 0, sizeof(opt));
 	opt.destid      = destid;
 	opt.bcount      = size;
-	opt.raddr.lsb64 = tgt_addr + offset; // XXX really offset?
+	opt.raddr.lsb64 = tgt_addr + offset;
 
 	RioMport::DmaMem_t dmamem; memset(&dmamem, 0, sizeof(dmamem));
 
@@ -731,7 +732,7 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 
 	opt = it->second;
 
-	hnd->asyncm.erase(it); // XXX This take a lot of time :()
+	hnd->asyncm.erase(it); // XXX This takes a lot of time :()
 
 	uint64_t now = 0;
 	while ((now = rdtsc()) < opt.not_before) {
