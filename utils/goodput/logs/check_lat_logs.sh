@@ -84,16 +84,16 @@ SIZE_STRINGS=( XOutput XProcessing XSIZE
 	"X200000"
 	"X400000" )
 
-SIZE_COUNT=( 11 11 11
+SIZE_COUNT=( 5 5 5
 	1 1 1 1
 	1 1 1 1
 	1 
-	12 12 12 12
-	8  8  8  8
-	8  8  8  8
-	8  8  8  8
-	8  8  8  8
-	8  8  8  )
+	4 4 4 4
+	2  2  2  2
+	2  2  2  2
+	2  2  2  2
+	2  2  2  2
+	2  2  2  )
 
 
 IDX=0

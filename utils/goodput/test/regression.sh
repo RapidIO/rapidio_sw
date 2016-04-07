@@ -279,7 +279,7 @@ for TRANS in ${DMA_TRANS[@]}; do
 
 		echo ' '
 		echo 'EXECUTING ' ${HOMEDIR}/scripts/run_all_perf
-		let "TOT_WAIT = ((300 * ($WAIT_TIME + 1)) / 60) + 1"
+		let "TOT_WAIT = ((450 * ($WAIT_TIME + 1)) / 60) + 1"
 		echo 'ESTIMATING ' $TOT_WAIT ' MINUTES TO COMPLETION...'
 
 # NOTE: DESTIDS[1] below is correct, because the master needs to know
@@ -336,13 +336,18 @@ MAST_OBWIN_LAT_WR
 screen -S goodput -p 0 -X stuff $'close\r'
 MAST_OBWIN_LAT_ST
 
-		SUBDIR=/scripts/performance/dma_lat
-		echo 'EXECUTING ALL SCRIPTS IN ' ${HOMEDIR}${SUBDIR}
+		SUBDIR=scripts/performance/dma_lat
+		echo 'EXECUTING ALL SCRIPTS IN ' ${HOMEDIR}'/'${SUBDIR}
 
 		LOGNAME=dma_lat_write.log
 		ssh -T root@${MAST_NODE} << MAST_DMA_LAT_ST
 screen -S goodput -p 0 -X stuff $'log logs/${LOGNAME}\r'
 MAST_DMA_LAT_ST
+
+		ssh -T root@${SLAVE_NODE} << SLAVE_DMA_LAT_ST
+screen -S goodput -p 0 -X stuff $'log logs/${LOGNAME}\r'
+SLAVE_DMA_LAT_ST
+		let "LONG_WAIT= $WAIT_TIME * 2"
 
 		for SZ in ${DMA_LAT_SZ[@]}; do
 			# Run slave target loop for write latency test 
@@ -352,7 +357,7 @@ MAST_DMA_LAT_ST
 screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
 screen -S goodput -p 0 -X stuff $'. ${SCRIPTNAME}\r'
 SLAVE_DMA_LAT_WR
-			sleep 1
+			sleep 2
 			
 			# Run master loop for write latency test 
 			SCRIPTNAME='dlW'${SZ}'.txt'
@@ -361,17 +366,26 @@ SLAVE_DMA_LAT_WR
 screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
 screen -S goodput -p 0 -X stuff $'. ${SCRIPTNAME}\r'
 MAST_DMA_LAT_WR
-			sleep $WAIT_TIME
+			sleep ${LONG_WAIT}
+
+			ssh -T root@"${MAST_NODE}"  << MAST_DMA_LAT_END
+screen -S goodput -p 0 -X stuff $'kill 0\r'
+screen -S goodput -p 0 -X stuff $'wait 0 d\r'
+MAST_DMA_LAT_END
+			sleep 1
 		done
 
 		ssh -T root@${MAST_NODE} << MAST_DMA_LAT_ST
 screen -S goodput -p 0 -X stuff $'close\r'
 MAST_DMA_LAT_ST
+
+		ssh -T root@${SLAVE_NODE} << SLAVE_DMA_LAT_ST
+screen -S goodput -p 0 -X stuff $'close\r'
+SLAVE_DMA_LAT_ST
 		
 		# Now start analyzing/checking output.
 		
 		ssh -T root@${MAST_NODE} << MAST_LOGS_CHECK
-cd ${HOMEDIR}/logs
 cd ${HOMEDIR}/logs
 ./summ_thru_logs.sh > all_thru.res
 ./summ_lat_logs.sh > all_lat.res
@@ -379,8 +393,25 @@ cd ${HOMEDIR}/logs
 ./check_lat_logs.sh all_lat.res
 MAST_LOGS_CHECK
 
+		# If there was a failure, keep the goodput sessions around
+		# for debug purposes.
+		if -s ${HOMEDIR}/logs/thru_fail.txt; then
+			exit;
+		fi;
+
+		if -s ${HOMEDIR}/logs/lat_fail.txt; then
+			exit;
+		fi;
+
 	done
 done
 
+for node in ${NODES[@]}; do
+	ssh -T root@"$node" <<NODE_STOP
+cd ${HOMEDIR}/scripts
+echo $node " Stopping goodput sessions, if they exist."
+screen -S goodput -p 0 -X stuff $'quit\r'
+sleep 10
+NODE_STOP
 
 exit

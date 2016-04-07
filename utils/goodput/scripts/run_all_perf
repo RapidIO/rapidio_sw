@@ -7,7 +7,7 @@ scrp scripts/performance/
 // UNKNOWN
 . msg_thru_tx
 // UNKNOWN
-. msg_lat_rx
+. msg_lat_tx
 // UNKNOWN
 . obwin_lat_read
 // UNKNOWN

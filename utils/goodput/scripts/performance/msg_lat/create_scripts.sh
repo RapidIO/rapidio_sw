@@ -125,7 +125,7 @@ sed -i -- 's/wait_time/'$WAIT_TIME'/g' $PREFIX*.txt
 
 ## now create the "run all scripts" script files...
 
-DIR=(rx)
+DIR=(tx)
 declare -a file_list
 
 for direction in "${DIR[@]}"

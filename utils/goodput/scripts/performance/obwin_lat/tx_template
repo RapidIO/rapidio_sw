@@ -19,7 +19,7 @@ wait 0 r
 wait 0 h
 DIOT 0 did iba_addr acc_size wr
 wait 0 r
-echo DIOT wr acc_size
+echo DIOT LATENCY acc_size wr TRANSMIT
 sleep wait_time
-echo DIOT wr acc_size
+echo DIOT LATENCY acc_size wr TRANSMIT
 lat

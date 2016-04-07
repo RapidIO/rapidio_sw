@@ -32,10 +32,7 @@ rm -f umsg_thru/m*
 rm -f umsg_thru_tx
 
 rm -f msg_lat/m*
-rm -f msg_lat_rx
-
-rm -f umsg_lat/m*
-rm -f umsg_lat_rx
+rm -f msg_lat_tx
 
 cd ..
 rm -f start_source start_target
