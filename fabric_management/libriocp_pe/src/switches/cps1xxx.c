@@ -1174,14 +1174,16 @@ static int cps1xxx_init_bdc(struct riocp_pe *sw)
 	if (ret < 0)
 		return ret;
 
-	/* enable port-write reporting for configuration errors,
-		this is needed for the repeated port-write workaround */
-	ret = riocp_pe_maint_read(sw, CPS1xxx_CFG_BLK_ERR_RPT, &result);
-	if (ret < 0)
-		return ret;
+	if (!(did == RIO_DID_IDT_CPS1616 || did == RIO_DID_IDT_SPS1616)) {
+		/* enable port-write reporting for configuration errors,
+			this is needed for the repeated port-write workaround */
+		ret = riocp_pe_maint_read(sw, CPS1xxx_CFG_BLK_ERR_RPT, &result);
+		if (ret < 0)
+			return ret;
 
-	ret = riocp_pe_maint_write(sw, CPS1xxx_CFG_BLK_ERR_RPT,
-		result | CPS1xxx_CFG_BLK_ERR_RPT_CFG_PW_EN);
+		ret = riocp_pe_maint_write(sw, CPS1xxx_CFG_BLK_ERR_RPT,
+			result | CPS1xxx_CFG_BLK_ERR_RPT_CFG_PW_EN);
+	}
 
 	return ret;
 }
