@@ -155,7 +155,6 @@ int test_case_a(void)
 	if (!failed) {
 		BAT_EXPECT_PASS(ret);
 	}
-
 	return ret;
 } /* test_case_a() */
 
@@ -1559,6 +1558,13 @@ exit:
 } /* test_case_l() */
 
 /**
+ * Part of test case 'm'
+ */
+static constexpr unsigned M_NUM_CONNECTIONS = 3;
+static int m_accept_rc[M_NUM_CONNECTIONS];
+static int m_connect_rc[M_NUM_CONNECTIONS];
+
+/**
  * Thread function -- part of test_case_m.
  */
 void m_accept_thread_f(unsigned i)
@@ -1597,6 +1603,7 @@ void m_accept_thread_f(unsigned i)
 	rc = destroy_mso_f(bat_connections[i], server_msoh);
 	BAT_EXPECT_RET(rc, 0, exit);
 exit:
+	m_accept_rc[i] = rc;
 	return;
 } /* m_accept_thread_f() */
 
@@ -1639,9 +1646,8 @@ void m_connect_thread_f(uint32_t destid, mso_h client_msoh, unsigned i)
 	/* Disconnect from ms1 on server */
 	rc = rdma_disc_ms_h(connh, server_msh_rb, client_msubh);
 	BAT_EXPECT_RET(rc, 0, exit);
-
-	rc = 0;
 exit:
+	m_connect_rc[i] = rc;
 	return;
 } /* m_connect_thread_f() */
 
@@ -1651,8 +1657,7 @@ exit:
  */
 int test_case_m(uint32_t destid)
 {
-	constexpr unsigned NUM_CONNECTIONS = 3;
-	int rc;
+	int rc, ret;
 
 	/* Create a client mso */
 	mso_h	client_msoh;
@@ -1663,7 +1668,7 @@ int test_case_m(uint32_t destid)
 		threads_list 	accept_threads;
 
 		/* Create threads for creating memory spaces and accepting */
-		for (unsigned i = 0; i < NUM_CONNECTIONS; i++) {
+		for (unsigned i = 0; i < M_NUM_CONNECTIONS; i++) {
 			/* Create threads for handling accepts */
 			auto m_thread = thread(&m_accept_thread_f, i);
 
@@ -1677,7 +1682,7 @@ int test_case_m(uint32_t destid)
 		threads_list connect_threads;
 
 		/* Create threads for connecting to memory spaces */
-		for (unsigned i = 0; i < NUM_CONNECTIONS; i++) {
+		for (unsigned i = 0; i < M_NUM_CONNECTIONS; i++) {
 			/* Create threads for sending connects */
 			auto m_thread = thread(&m_connect_thread_f,
 					       destid,
@@ -1685,21 +1690,27 @@ int test_case_m(uint32_t destid)
 					       i);
 
 			/* Store handle so we can join at the end of the test case */
-			connect_threads.push_back(std::move(m_thread));
+			connect_threads.push_back(move(m_thread));
 		}
 
 		/* Wait for threads to die */
-		for (auto& m_thread : accept_threads) {
-			m_thread.join();
+		for (unsigned i = 0; i < M_NUM_CONNECTIONS; i++) {
+			accept_threads[i].join();
+			if (m_accept_rc[i] != 0)
+				rc = m_accept_rc[i];
 		}
-
 		puts("Accept threads terminated.");
+
 		/* Wait for threads to die */
-		for (auto& m_thread : connect_threads) {
-			m_thread.join();
+		for (unsigned i = 0; i < M_NUM_CONNECTIONS; i++) {
+			connect_threads[i].join();
+			if (m_connect_rc[i] != 0)
+				rc = m_connect_rc[i];
 		}
 		puts("Connect threads terminated.");
 	}
+
+	ret = rc;
 
 	/* Delete the client mso */
 	rc = rdma_destroy_mso_h(client_msoh);
@@ -1707,10 +1718,9 @@ int test_case_m(uint32_t destid)
 	puts("Client mso destroyed with all its children");
 
 exit:
-	if (rc == 0) {
-		BAT_EXPECT_PASS(rc);
-	}
-	return 0;
+	BAT_EXPECT_PASS(ret);
+
+	return ret;
 } /* test_case_m() */
 
 /**
