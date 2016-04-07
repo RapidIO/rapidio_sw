@@ -414,7 +414,7 @@ void UMD_DD(struct worker* info)
 		ab.append(tmp).append(" ");
 	}
 	if (ab.size() > 0)
-		INFO("\n\tcheckAbort stats: %s\n", ab.c_str());
+		printf("\n\tcheckAbort stats: %s\n", ab.c_str());
 
 	uint64_t total = 0;
         DMAChannelSHM::DmaShmPendingData_t pdata; memset(&pdata, 0, sizeof(pdata));
@@ -427,20 +427,20 @@ void UMD_DD(struct worker* info)
 			if(pdata.data[i] == 0) continue;
 			ss << "\tCh" << i <<" pending " << pdata.data[i] << "\n";
 		}
-		INFO("\n\tIn-flight data %s", ss.str().c_str());
+		printf("\tIn-flight data %s", ss.str().c_str());
 	}
 
-	INFO("\n\tQsize=%d Enqd.WP=%lu HW.{WP=%u RP=%u} FIFOackd=%llu FIFO.{WP=%u RP=%u} AckedSN=%llu\n",
-	     info->umd_dch->queueSize(),
-	     info->umd_dch->getWP(),
-	     info->umd_dch->getWriteCount(), info->umd_dch->getReadCount(),
-	     info->umd_dch->m_tx_cnt,
-	     info->umd_dch->getFIFOReadCount(), info->umd_dch->getFIFOWriteCount(),
-	     info->umd_dch->getAckedSN());
+	printf("\tQsize=%d Enqd.WP=%u HW.{WP=%u RP=%u} FIFOackd=%lu FIFO.{WP=%u RP=%u} AckedSN=%lu\n",
+	       info->umd_dch->queueSize(),
+	       info->umd_dch->getWP(),
+	       info->umd_dch->getWriteCount(), info->umd_dch->getReadCount(),
+	       info->umd_dch->m_tx_cnt,
+	       info->umd_dch->getFIFOReadCount(), info->umd_dch->getFIFOWriteCount(),
+	       info->umd_dch->getAckedSN());
 
 	if (info->umd_fifo_total_ticks_count > 0) {
 		float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
-		INFO("\n\tFIFO Avg TX %f uS cnt=%llu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
+		printf("\n\tFIFO Avg TX %f uS cnt=%lu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
 	}
 
 	DMAChannelSHM::ShmClientCompl_t comp[DMAChannelSHM::DMA_SHM_MAX_CLIENTS];
@@ -449,12 +449,12 @@ void UMD_DD(struct worker* info)
 
 	for (int i = 0; i < DMAChannelSHM::DMA_SHM_MAX_CLIENTS; i++) {
 		if (! comp[i].busy) continue;
-		INFO("\n\tpid=%d%s change_cnt=%llu bad_tik.{RP=%llu WP=%llu} NREAD_T2_res.{RP=%llu WP=%llu} EnqBy=%llu TXdBy=%llu\n",
-		     comp[i].owner_pid, (kill(comp[i].owner_pid,0)? " DEAD": ""),
-		     comp[i].change_cnt,
-		     comp[i].bad_tik.RP, comp[i].bad_tik.WP,
-		     comp[i].NREAD_T2_results.RP, comp[i].NREAD_T2_results.WP,
-		     comp[i].bytes_enq, comp[i].bytes_txd);
+		printf("\tpid=%d%s change_cnt=%lu bad_tik.{RP=%lu WP=%lu} NREAD_T2_res.{RP=%lu WP=%lu} EnqBy=%lu TXdBy=%lu\n",
+		       comp[i].owner_pid, (kill(comp[i].owner_pid,0)? " DEAD": ""),
+		       comp[i].change_cnt,
+		       comp[i].bad_tik.RP, comp[i].bad_tik.WP,
+		       comp[i].NREAD_T2_results.RP, comp[i].NREAD_T2_results.WP,
+		       comp[i].bytes_enq, comp[i].bytes_txd);
 	}
 }
 
