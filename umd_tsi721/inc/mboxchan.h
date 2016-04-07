@@ -144,14 +144,14 @@ public:
       bool crf;
       bool tt_16b; // set to 1 if destid is 16 bytes
       uint8_t prio:2;
-      uint32_t bd_wp; ///< Soft WP at the moment of enqueuing this
-      uint32_t bd_idx; ///< index into buffer ring of buffer used to handle this op
-      uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
   } MboxOptions_t;
 
   typedef struct {
     uint32_t       valid;
     MboxOptions_t  opt;
+    uint32_t bd_wp; ///< Soft WP at the moment of enqueuing this BD [DOCUMENTATION]
+    uint32_t bd_idx; ///< index into buffer ring of buffer used to handle this op [DOCUMENTATION]
+    uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO [DOCUMENTATION]
     // add actions here
   } WorkItem_t;
 

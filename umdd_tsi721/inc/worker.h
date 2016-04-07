@@ -225,7 +225,7 @@ struct worker {
 	struct seq_ts fifo_ts;
 	struct seq_ts meas_ts;
 
-	uint64_t check_abort_stats[256];
+	std::map<char, uint64_t> check_abort_stats;
 #endif
 };
 

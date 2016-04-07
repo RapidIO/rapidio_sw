@@ -32,6 +32,7 @@ for p in $PEERS; do
   L=${HOSTNAME}-to-${p}.log
   rm $L &>/dev/null
   LP="-t 3600"
+  LP="-t 43200"
   iperf -fMB $LP -c $p $@ &> $L &
   JOBS[$c]=$!
   let c=c+1

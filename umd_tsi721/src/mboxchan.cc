@@ -630,11 +630,11 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   m_omsg_ring.wr_count++;
   m_omsg_ring.tx_slot++;
 
-  opt.bd_idx = tx_slot;
-  opt.bd_wp  = m_omsg_ring.wr_count;
-
   WorkItem_t wi;     memset(&wi, 0, sizeof(wi));
-  WorkItem_t wi_end; memset(&wi, 0, sizeof(wi_end));
+  WorkItem_t wi_end; memset(&wi_end, 0, sizeof(wi_end));
+
+  wi.bd_idx = tx_slot;
+  wi.bd_wp  = m_omsg_ring.wr_count;
 
   pthread_spin_lock(&m_bltx_splock);
   {{
@@ -649,25 +649,25 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
       /* Move through the ring link descriptor at the end */
       m_omsg_ring.wr_count++;
 
-      opt_end.bd_idx = tx_slot;
-      opt_end.bd_wp  = m_omsg_ring.wr_count;
+      wi_end.bd_idx = tx_slot;
+      wi_end.bd_wp  = m_omsg_ring.wr_count;
 
       m_omsg_ring.tx_slot = 0;
 
       m_omsg_trk.bl_busy[m_num_ob_desc-1]++;
     }
 
-    opt.ts_start = rdtsc();
+    wi.ts_start = rdtsc();
     /* Set new write count value */
     wr32mboxchan(TSI721_OBDMACXDWRCNT(m_mbox), m_omsg_ring.wr_count);
 
     wi.opt = opt;
     wi.valid = WI_SIG;
-    m_omsg_trk.bltx_busy[wi.opt.bd_idx] = wi;
+    m_omsg_trk.bltx_busy[wi.bd_idx] = wi;
     m_omsg_trk.bltx_busy_size++;
 
     if(queued_T5) {
-      opt_end.ts_start = opt.ts_start;
+      wi_end.ts_start = wi.ts_start;
       wi_end.opt = opt_end;
       wi_end.valid = WI_SIG;
       m_omsg_trk.bltx_busy[m_num_ob_desc-1] = wi_end;
@@ -718,10 +718,10 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   if ((! (regi & TSI721_OBDMACXINT_DONE) && (regi & TSI721_OBDMACXINT_ERROR)) || sts_abort) {
     fail_reason = STOP_REG_ERR;
     pthread_spin_lock(&m_bltx_splock);
-    m_omsg_trk.bl_busy[opt.bd_idx] = 0;
-    m_omsg_trk.bltx_busy[wi.opt.bd_idx].valid = 0; m_omsg_trk.bltx_busy_size--;
+    m_omsg_trk.bl_busy[wi.bd_idx] = 0;
+    m_omsg_trk.bltx_busy[wi.bd_idx].valid = 0; m_omsg_trk.bltx_busy_size--;
     if (queued_T5) {
-      m_omsg_trk.bl_busy[opt_end.bd_idx] = 0;
+      m_omsg_trk.bl_busy[wi_end.bd_idx] = 0;
       m_omsg_trk.bltx_busy[m_num_ob_desc-1].valid = 0; m_omsg_trk.bltx_busy_size--;
     }
     pthread_spin_unlock(&m_bltx_splock);
@@ -877,7 +877,7 @@ void* MboxChannel::get_inb_message(MboxOptions_t& opt)
   uint64_t enq_ts = m_imsg_ring.imq_ts[rx_slot].valid?
              m_imsg_ring.imq_ts[rx_slot].enq_ts:
              0;
-  opt.ts_start = enq_ts;
+  //opt.ts_start = enq_ts;
   m_imsg_ring.imq_ts[rx_slot].valid = false;
 
   DDBG("\n\tCopying buffer %p, size = %d from slot %d\n", buf, msg_size, rx_slot);
@@ -1012,8 +1012,8 @@ int MboxChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
           pthread_spin_lock(&m_bltx_splock);
             if (m_omsg_trk.bltx_busy[bd_idx].valid == WI_SIG) {
-              l_wr_count = m_omsg_trk.bltx_busy[bd_idx].opt.bd_wp;
-              m_omsg_trk.bltx_busy[bd_idx].opt.ts_end = ts_end;
+              l_wr_count = m_omsg_trk.bltx_busy[bd_idx].bd_wp;
+              m_omsg_trk.bltx_busy[bd_idx].ts_end = ts_end;
               found = true;
 
               completed_work[fifo_count++] = m_omsg_trk.bltx_busy[bd_idx];
