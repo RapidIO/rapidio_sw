@@ -50,8 +50,8 @@ open(my $fh, ">", $logfilename)
 
 # Test case to run -- if specified
 if (defined($options{t})) {
-	print "sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t$options{t} -o" . $logfilename;
-	system("sudo $directory/bat_client -d" . $destid. " -c" . $channel . " -n3 -t$options{t} -o" . $logfilename);
+	print "$directory/bat_client -d $destid  -c$channel -n3 -t$options{t} -o$logfilename\n";
+	system("$directory/bat_client -d$destid  -c$channel -n3 -t$options{t} -o$logfilename");
 	close($fh);
 	exit;
 }
@@ -92,12 +92,36 @@ my @tests = (
 my $num_bat = scalar@tests;
 print "There are $num_bat tests to run\n";
 
+# Test case return value
+my $rc;
 
 # Run tests, in sequence
 print "******* Running Tests Sequentially *******\n";
 foreach my $bat(@tests) {
 	print "Running $bat at " . localtime() ."\n";
 	system($bat);
+	if ($? == -1) {
+		print "failed to execute: $!\n";
+		$rc = -1;
+		last;
+	} elsif ($? & 127) {
+		printf "child died with signal %d, %s coredump\n",
+	            ($? & 127),  ($? & 128) ? 'with' : 'without';
+		$rc = -1;
+		last;
+	} else {
+		$rc = $? >> 8;
+		if ($rc != 0) {
+			printf "bat_client exit with value %d. ", $rc;
+			last;
+		}
+	}
+}
+
+if ($rc) {
+	print "EXITING test suite!\n";
+	close($fh);
+	exit;
 }
 
 # Run tests, in a random order
@@ -106,6 +130,24 @@ for (my $i = 0; $i < $num_bat; $i++) {
 	my $j = int(rand($num_bat));
 	print "Running $tests[$j] at " . localtime() ."\n";
 	system($tests[$j]);
+	if ($? == -1) {
+		print "failed to execute: $!\n";
+		$rc = -1;
+		last;
+	} elsif ($? & 127) {
+		printf "child died with signal %d, %s coredump\n",
+	            ($? & 127),  ($? & 128) ? 'with' : 'without';
+		$rc = -1;
+		last;
+	} else {
+		$rc = $? >> 8;
+		if ($rc != 0) {
+			printf "bat_client exit with value %d\n", $rc;
+			print "EXITING test suite!\n";
+			last;
+		}
+	}
 }
+
 close($fh);
 
