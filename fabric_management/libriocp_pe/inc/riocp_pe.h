@@ -174,6 +174,9 @@ extern const char *riocp_switch_cap_desc[];
 
 typedef uint32_t riocp_sw_cap_t;
 
+/* External locking callback function */
+typedef int (*riocp_lock_func_t)(int lock);
+
 
 /** Trace filter match will forward packet to trace port */
 #define RIOCP_PE_TRACE_FILTER_FORWARD 1
@@ -299,6 +302,9 @@ const char *riocp_pe_get_vendor_name(riocp_pe_handle pe);
 /* PE managment */
 int RIOCP_WU riocp_pe_announce(riocp_pe_handle pe);
 int RIOCP_WU riocp_pe_revoke(riocp_pe_handle pe);
+
+/* Library synchronization */
+int riocp_lock_register_callback(riocp_lock_func_t callback);
 
 int riocp_log_register_callback(enum riocp_log_level level, riocp_log_output_func_t outputfunc);
 

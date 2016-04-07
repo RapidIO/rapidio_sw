@@ -46,6 +46,35 @@ const char *riocp_switch_cap_desc[] = {
 
 static struct riocp_pe_llist_item _riocp_mport_list_head; /**< List of created mport lists */
 
+static riocp_lock_func_t riocp_lock_func = NULL;
+
+/**
+ * Register a callback function to be called by riocp_pe when it enters
+ *  a critical region.
+ * @param  callback Pointer to the callback function
+ */
+int riocp_lock_register_callback(riocp_lock_func_t callback)
+{
+	riocp_lock_func = callback;
+	return 0;
+}
+
+/**
+ * Enter critical region using externally provided callback, if any.
+ */
+static inline int riocp_lock(void)
+{
+	return riocp_lock_func ? riocp_lock_func(1) : 0;
+}
+
+/**
+ * Exit critical region using externally provided callback, if any.
+ */
+static inline int riocp_unlock(void)
+{
+	return riocp_lock_func ? riocp_lock_func(0) : 0;
+}
+
 /**
  * Search if mport device is available
  * @param  mport Mport number to test availability
@@ -1430,7 +1459,7 @@ int RIOCP_SO_ATTR riocp_pe_set_event_mask(riocp_pe_handle pe,
 int RIOCP_SO_ATTR riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *pe,
 		struct riocp_pe_event *ev, int timeout)
 {
-	int ret;
+	int ret, lock;
 	struct riocp_pe_event _e;
 	struct riomp_mgmt_event revent;
 	uint32_t comptag_nr;
@@ -1459,18 +1488,24 @@ int RIOCP_SO_ATTR riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *p
 	RIOCP_TRACE("pw[2] = 0x%08x\n", revent.u.portwrite.payload[2]);
 	RIOCP_TRACE("pw[3] = 0x%08x\n", revent.u.portwrite.payload[3]);
 
+	if ((lock = riocp_lock())) {
+		RIOCP_ERROR("Failed to acquire external lock (%s)",
+			strerror(lock));
+		return -EBUSY;
+	}
+
 	comptag_nr = RIOCP_PE_COMPTAG_GET_NR(revent.u.portwrite.payload[0]);
 	ret = riocp_pe_comptag_get_slot(mport, comptag_nr, &_pe);
 	if (ret) {
 		RIOCP_ERROR("Failed to retrieve pe for comptag %d\n", comptag_nr);
-		return ret;
+		goto out;
 	}
 
 	ret = riocp_pe_switch_handle_event(_pe, &revent, &_e);
 	if (ret) {
 		RIOCP_ERROR("Handle event on port %u failed (%s)",
 			_e.port, strerror(errno));
-		return ret;
+		goto out;
 	}
 
 	*pe = _pe;
@@ -1478,7 +1513,14 @@ int RIOCP_SO_ATTR riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *p
 	ev->port  = _e.port;
 	ev->event = _e.event;
 
-	return 0;
+out:
+	if ((lock = riocp_unlock())) {
+		RIOCP_ERROR("Failed to release external lock (%s)",
+			strerror(lock));
+		return -EBUSY;
+	}
+
+	return ret;
 }
 
 /**
