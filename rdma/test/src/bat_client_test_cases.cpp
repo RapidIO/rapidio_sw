@@ -528,7 +528,7 @@ exit:
 		BAT_EXPECT_PASS(ret);
 	}
 
-	return 0;
+	return ret;
 } /* test_case_c() */
 
 /**
@@ -703,7 +703,7 @@ exit:
 	if (rc == 0) {
 		BAT_EXPECT_PASS(ret);
 	}
-	return 0;
+	return ret;
 } /* test_case_d() */
 
 /**
@@ -855,7 +855,7 @@ exit:
 	if (rc == 0) {
 		BAT_EXPECT_PASS(ret);
 	}
-	return 0;
+	return ret;
 } /* test_case_e() */
 
 /**
@@ -967,7 +967,7 @@ exit:
 	if (rc == 0) {
 		BAT_EXPECT_PASS(ret);
 	}
-	return 0;
+	return ret;
 } /* test_case_f() */
 
 /**
@@ -1169,7 +1169,7 @@ exit:
 		BAT_EXPECT_PASS(ret);
 	}
 
-	return 0;
+	return ret;
 } /* test_case_g() */
 
 /**
@@ -1291,7 +1291,7 @@ exit:
 	if (ret == 0) {
 		BAT_EXPECT_PASS(rc);
 	}
-	return 0;
+	return rc;
 } /* test_case_h() */
 
 /**
@@ -1469,7 +1469,7 @@ exit:
 				tc, (rc == 0) ? "PASSED" : "FAILED");
 	}
 
-	return 0;
+	return rc;
 } /* test_case_i_j_k() */
 
 int test_case_l()
@@ -1554,7 +1554,7 @@ exit:
 	if (ret == 0) {
 		BAT_EXPECT_PASS(rc);
 	}
-	return 0;
+	return rc;
 } /* test_case_l() */
 
 /**
@@ -1604,7 +1604,6 @@ void m_accept_thread_f(unsigned i)
 	BAT_EXPECT_RET(rc, 0, exit);
 exit:
 	m_accept_rc[i] = rc;
-	return;
 } /* m_accept_thread_f() */
 
 /**
@@ -1648,7 +1647,6 @@ void m_connect_thread_f(uint32_t destid, mso_h client_msoh, unsigned i)
 	BAT_EXPECT_RET(rc, 0, exit);
 exit:
 	m_connect_rc[i] = rc;
-	return;
 } /* m_connect_thread_f() */
 
 /**
@@ -2260,7 +2258,7 @@ int test_case_v_w(char tc, uint32_t destid)
 
 	/* If the remote 'server_msh_rb' is not in the database
 	 * rdma_disc_ms_h() returns 0 which is a pass. If the database
-	 * was nor properly cleared then rdma_disc_ms_h() will fail
+	 * was not properly cleared then rdma_disc_ms_h() will fail
 	 * at another stage.
 	 */
 	ret = rdma_disc_ms_h(connh, server_msh_rb, client_msubh);
@@ -2272,11 +2270,17 @@ int test_case_v_w(char tc, uint32_t destid)
 	ret = rdma_destroy_mso_h(client_msoh);
 	BAT_EXPECT_PASS(ret);
 
+	/* We don't try to delete anything remote since we have either
+	 * killed the remote daemon or the remote app and in both cases
+	 * the remote entities (owner, mspace..etc.) are dead. */
+
 	fprintf(log_fp, "test_case %c %s\n",
 				tc, (rc == 0) ? "PASSED" : "FAILED");
-	return 0;
+	return rc;
 
 free_client_mso:
+	rc = ret;
+
 	/* Delete the client mso */
 	ret = rdma_destroy_mso_h(client_msoh);
 
@@ -2286,7 +2290,7 @@ free_server_mso:
 	BAT_EXPECT_RET(ret, 0, exit);
 
 exit:
-	return 0;
+	return rc;
 } /* test_case_v_w() */
 
 /**
