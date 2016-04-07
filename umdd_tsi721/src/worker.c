@@ -161,7 +161,7 @@ void init_worker_info(struct worker *info, int first_time)
 	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
 	init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 
-	memset(info->check_abort_stats, 0, sizeof(info->check_abort_stats));
+	info->check_abort_stats.clear();
 #endif
 };
 
@@ -405,16 +405,18 @@ void UMD_DD(struct worker* info)
 	const int MHz = getCPUMHz();
 	//const int idx = info->idx;
 
-	std::string ab;
-	for (int i = 0; i < 255; i++) {
-		if (0 == info->check_abort_stats[i]) continue;
+	printf("\tMport %d Chan %d\n", info->mp_num, info->umd_chan);
 
+	std::string ab;
+	for (std::map<char, uint64_t>::iterator it = info->check_abort_stats.begin();
+             it != info->check_abort_stats.end();
+	     it++) {
 		char tmp[257] = {0};
-		snprintf(tmp, 256, "%c=%lu", i, info->check_abort_stats[i]);
+		snprintf(tmp, 256, "%c=%lu", it->first, it->second);
 		ab.append(tmp).append(" ");
 	}
 	if (ab.size() > 0)
-		printf("\n\tcheckAbort stats: %s\n", ab.c_str());
+		printf("\tcheckAbort stats: %s\n", ab.c_str());
 
 	uint64_t total = 0;
         DMAChannelSHM::DmaShmPendingData_t pdata; memset(&pdata, 0, sizeof(pdata));
@@ -430,6 +432,11 @@ void UMD_DD(struct worker* info)
 		printf("\tIn-flight data %s", ss.str().c_str());
 	}
 
+	if (info->umd_fifo_total_ticks_count > 0) {
+		float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
+		printf("\tFIFO Avg TX %f uS cnt=%lu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
+	}
+
 	printf("\tQsize=%d Enqd.WP=%u HW.{WP=%u RP=%u} FIFOackd=%lu FIFO.{WP=%u RP=%u} AckedSN=%lu\n",
 	       info->umd_dch->queueSize(),
 	       info->umd_dch->getWP(),
@@ -437,11 +444,6 @@ void UMD_DD(struct worker* info)
 	       info->umd_dch->m_tx_cnt,
 	       info->umd_dch->getFIFOReadCount(), info->umd_dch->getFIFOWriteCount(),
 	       info->umd_dch->getAckedSN());
-
-	if (info->umd_fifo_total_ticks_count > 0) {
-		float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
-		printf("\n\tFIFO Avg TX %f uS cnt=%lu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
-	}
 
 	DMAChannelSHM::ShmClientCompl_t comp[DMAChannelSHM::DMA_SHM_MAX_CLIENTS];
 	memset(&comp, 0, sizeof(comp));
@@ -592,7 +594,7 @@ void umd_shm_goodput_demo(struct worker *info)
 
 		char check_abort = 0;
 		do {
-			if (info->umd_dch->queueFull()) { check_abort = true; break; }
+			if (info->umd_dch->queueFull()) { check_abort = 'F'; break; }
 
 			struct timespec dT = time_difference(info->iter_end_time, info->iter_st_time);
 			const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
@@ -614,7 +616,8 @@ void umd_shm_goodput_demo(struct worker *info)
 			}
 		} while(0);
 
-		if (check_abort) info->check_abort_stats[(int)check_abort]++;
+		if (check_abort)
+			info->check_abort_stats[check_abort]++;
 //check_abort=0;
 
 		if (check_abort && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) {
