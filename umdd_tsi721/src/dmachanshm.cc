@@ -1102,7 +1102,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     for (; P > 0 && k < m_state->bd_num; i++) {
       assert(i < m_state->bd_num);
       if (i == 0) continue; // T3 BD0 does not get a ticket
-      if (i == (m_state->bd_num-1)) continue; // T3 BD(bufc-1) does not get a ticket
+      if (i == (m_state->bd_num-1)) { i = 0; continue; } // T3 BD(bufc-1) does not get a ticket
       if (m_pending_tickets[i] > 0) break; // still in flight
       k++;
       if (k == P) break; // Upper bound
