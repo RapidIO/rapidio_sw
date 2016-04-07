@@ -33,6 +33,7 @@ static inline void bat_eot(int num_channels)
 /* Static -- local to this module only */
 static bool shutting_down = false;
 static char log_filename[PATH_MAX];
+static 	int rc;
 
 /* Globals - referred to by the test cases */
 FILE *log_fp;	/* Log file */
@@ -54,6 +55,12 @@ static void show_help(void)
 	puts("-h Help");
 } /* show_help() */
 
+static void sig_handler(int sig)
+{
+	(void)sig;
+	exit(rc);
+}
+
 int main(int argc, char *argv[])
 {
 	auto tc = 'a';
@@ -64,6 +71,18 @@ int main(int argc, char *argv[])
 	auto mport_id = BAT_MPORT_ID;
 	uint32_t destid;
 	vector<unique_ptr<bat_connection> > connections;
+
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
+	sigaction(SIGTERM, &sig_action, NULL);
+	sigaction(SIGQUIT, &sig_action, NULL);
+	sigaction(SIGABRT, &sig_action, NULL);
+	sigaction(SIGUSR1, &sig_action, NULL);
+	sigaction(SIGSEGV, &sig_action, NULL);
 
 	/* List and help are special cases */
 	if (argc == 2) {
@@ -182,31 +201,31 @@ int main(int argc, char *argv[])
 	switch(tc) {
 
 	case 'a':
-		test_case_a();
+		rc = test_case_a();
 		bat_eot(1);
 		break;
 	case 'b':
-		test_case_b();
+		rc = test_case_b();
 		bat_eot(1);
 		break;
 	case 'c':
-		test_case_c();
+		rc = test_case_c();
 		bat_eot(1);
 		break;
 	case 'd':
-		test_case_d();
+		rc = test_case_d();
 		/* Local test. No need for bat_eot */
 		break;
 	case 'e':
-		test_case_e();
+		rc = test_case_e();
 		/* Local test. No need for bat_eot */
 		break;
 	case 'f':
-		test_case_f();
+		rc = test_case_f();
 		/* Local test. No need for bat_eot */
 		break;
 	case 'g':
-		test_case_g();
+		rc = test_case_g();
 		/* Local test. No need for bat_eot */
 		break;
 
@@ -218,94 +237,94 @@ int main(int argc, char *argv[])
 	case 'i':
 	case 'j':
 	case 'k':
-		test_case_i_j_k(tc, destid);
+		rc = test_case_i_j_k(tc, destid);
 		bat_eot(1);
 		break;
 
 	case 'l':
-		test_case_l();
+		rc = test_case_l();
 		/* Local test. No need for bat_eot */
 		break;
 
 	case 'm':
-		test_case_m(destid);
+		rc = test_case_m(destid);
 		bat_eot(3);
 		break;
 
 	case 'n':
-		test_case_n();
+		rc = test_case_n();
 		bat_eot(num_channels);
 		break;
 	case 'o':
-		test_case_o(destid);
+		rc = test_case_o(destid);
 		bat_eot(1);
 		break;
 	case 'p':
-		test_case_p(destid);
+		rc = test_case_p(destid);
 		/* Local test. No need for bat_eot */
 		break;
 
 	case 'r':
-		test_case_r(destid);
+		rc = test_case_r(destid);
 		bat_eot(2);
 		break;
 
 	case 't':
 	case 'u':
-		test_case_t_u(tc, destid);
+		rc = test_case_t_u(tc, destid);
 		bat_eot(1);
 		break;
 	case 'v':
 	case 'w':
-		test_case_v_w(tc, destid);
+		rc = test_case_v_w(tc, destid);
 		break;
 	case 'x':
-		test_case_x();
+		rc = test_case_x();
 		/* No BAT_EOT1(). This is a local test */
 		break;
 	case 'y':
-		test_case_y();
+		rc = test_case_y();
 		/* No BAT_EOT1(). This is a local test */
 		break;
 	case '1':
-		test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_sync_chk);
+		rc = test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_sync_chk);
 		bat_eot(1);
 		break;
 	case '2':
-		test_case_dma(tc, destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
+		rc = test_case_dma(tc, destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
 		bat_eot(1);
 		break;
 	case '3':
-		test_case_dma(tc, destid, 0x00, 0x80, 0x00, rdma_sync_chk);
+		rc = test_case_dma(tc, destid, 0x00, 0x80, 0x00, rdma_sync_chk);
 		bat_eot(1);
 		break;
 	case '4':
-		test_case_dma(tc, destid, 0x00, 0x00, 0x40, rdma_sync_chk);
+		rc = test_case_dma(tc, destid, 0x00, 0x00, 0x40, rdma_sync_chk);
 		bat_eot(1);
 		break;
 	case '5':
-		test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_async_chk);
+		rc = test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_async_chk);
 		bat_eot(1);
 		break;
 	case '6':
-		test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_no_wait);
+		rc = test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_no_wait);
 		bat_eot(1);
 		break;
 	case '7':
-		test_case_7(destid);
+		rc = test_case_7(destid);
 		bat_eot(2);
 		break;
 	case '8':
-		test_case_dma_buf(tc, destid, 0x00, rdma_sync_chk);
+		rc = test_case_dma_buf(tc, destid, 0x00, rdma_sync_chk);
 		bat_eot(1);
 		break;
 	case '9':
-		test_case_dma_buf(tc, destid, 0x20, rdma_sync_chk);
+		rc = test_case_dma_buf(tc, destid, 0x20, rdma_sync_chk);
 		bat_eot(1);
 		break;
 
 	case 'A':
-		test_case_dma_buf(tc, destid, 0x00, rdma_no_wait);
+		rc = test_case_dma_buf(tc, destid, 0x00, rdma_no_wait);
 		bat_eot(1);
 		break;
 	case 'z':
@@ -369,7 +388,7 @@ int main(int argc, char *argv[])
 	/* Close log file */
 	fclose(log_fp);
 
-	puts("Goodbye!");
-	return 0;
+	printf("Goodbye!, rc = %d\n", rc);
+	exit(rc);
 }
 
