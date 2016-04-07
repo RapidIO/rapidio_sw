@@ -166,7 +166,7 @@ static int daemon_call(unique_ptr<unix_msg_t> in_msg, unix_msg_t *out_msg)
 					RDMA_CALL, seq_no);
 	struct timespec timeout;
 	clock_gettime(CLOCK_REALTIME, &timeout);
-	timeout.tv_sec += 1;	/* 1 second timeout */
+	timeout.tv_sec += 5;	/* 5 second timeout */
 	rc = sem_timedwait(reply_sem.get(), &timeout);
 	if (rc) {
 		ERR("reply_sem failed: %s\n", strerror(errno));
