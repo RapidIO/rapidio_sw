@@ -20,3 +20,11 @@ scrp scripts/performance/
 . pdma_thru_pd1_read
 // UNKNOWN
 . pdma_thru_pdd_read
+
+// Create log file indicating completion of run_all_dma script
+// to automated regression software.
+
+log logs/run_all_dma_done.log
+st
+close
+

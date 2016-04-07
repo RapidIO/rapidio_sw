@@ -40,6 +40,10 @@ function summarize_thruput_log {
 	cat $OUT_FILE
 }
 
+if ! ls *thru*.log 1> /dev/null 2>&1; then
+	exit
+fi
+
 for f in *thru*.log; do
 	summarize_thruput_log ${f}
 done 

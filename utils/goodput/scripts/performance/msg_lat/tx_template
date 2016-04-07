@@ -16,9 +16,9 @@ mT 0 did skt_prefix9 msg_size
 wait 0 R
 
 la
-echo MSG TRANSMIT LATENCY 0xmsg_size BYTES
+echo MSG LATENCY 0xmsg_size BYTES TRANSMIT
 sleep wait_time
-echo MSG TRANSMIT LATENCY 0xmsg_size BYTES
 wait 0 R
 st
+echo MSG LATENCY 0xmsg_size BYTES TRANSMIT
 la

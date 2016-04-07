@@ -278,10 +278,18 @@ for TRANS in ${DMA_TRANS[@]}; do
 		echo 'SKT_PREFIX : 0x' $SKT_PREFIX
 
 		echo ' '
-		echo 'STARTING PERFORMANCE SCRIPT RUN'
+		echo 'EXECUTING ' ${HOMEDIR}/scripts/run_all_perf
+		let "TOT_WAIT = ((300 * ($WAIT_TIME + 1)) / 60) + 1"
+		echo 'ESTIMATING ' $TOT_WAIT ' MINUTES TO COMPLETION...'
 
 # NOTE: DESTIDS[1] below is correct, because the master needs to know
 #       the destination ID of the slave
+		LOG_FILE_NAME=${HOMEDIR}/logs/
+		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}/*.log
+		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}/*.res
+
+		LOG_FILE_NAME=${HOMEDIR}/logs/run_all_perf_done.log
+
 		ssh -T root@${MAST_NODE} > /dev/null << MAST_SCRIPT_RUN
 cd $HOMEDIR/scripts
 ./create_perf_scripts.sh $WAIT_TIME $TRANS $SYNC ${DESTIDS[1]} $IBA_ADDR $SKT_PREFIX $SYNC2 $SYNC3
@@ -289,7 +297,15 @@ screen -S goodput -p 0 -X stuff $'scrp scripts\r'
 screen -S goodput -p 0 -X stuff $'. run_all_perf\r'
 MAST_SCRIPT_RUN
 
-		echo 'STARTING OBWIN LATENCY RUN'
+		while ( ! ssh -T root@"${MAST_NODE}" test -s ${LOG_FILE_NAME}) 
+		do
+			sleep 60
+			let "TOT_WAIT = $TOT_WAIT - 1"
+			echo 'NOW ' $TOT_WAIT ' MINUTES TO COMPLETION...'
+		done
+
+		SUBDIR=scripts/performance/obwin_lat
+		echo 'EXECUTING ALL SCRIPTS IN ' ${HOMEDIR}'/'${SUBDIR}
 
 		LOGNAME=obwin_lat_write.log
 		ssh -T root@${MAST_NODE} << MAST_OBWIN_LAT_ST
@@ -301,7 +317,7 @@ MAST_OBWIN_LAT_ST
 			SCRIPTNAME='olT'$SZ'.txt'
 			echo ${SLAVE_NODE} ${SCRIPTNAME}
 			ssh -T root@"${SLAVE_NODE}"  << SLAVE_OBWIN_LAT_WR
-screen -S goodput -p 0 -X stuff $'scrp scripts/performance/obwin_lat\r'
+screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
 screen -S goodput -p 0 -X stuff $'. ${SCRIPTNAME}\r'
 SLAVE_OBWIN_LAT_WR
 			sleep 1
@@ -310,7 +326,7 @@ SLAVE_OBWIN_LAT_WR
 			SCRIPTNAME='olW'$SZ'.txt'
 			echo ${MAST_NODE} ${SCRIPTNAME}
 			ssh -T root@"${MAST_NODE}"  << MAST_OBWIN_LAT_WR
-screen -S goodput -p 0 -X stuff $'scrp scripts/performance/obwin_lat\r'
+screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
 screen -S goodput -p 0 -X stuff $'. ${SCRIPTNAME}\r'
 MAST_OBWIN_LAT_WR
 			sleep $WAIT_TIME
@@ -320,7 +336,8 @@ MAST_OBWIN_LAT_WR
 screen -S goodput -p 0 -X stuff $'close\r'
 MAST_OBWIN_LAT_ST
 
-		echo 'STARTING DMA LATENCY RUN'
+		SUBDIR=/scripts/performance/dma_lat
+		echo 'EXECUTING ALL SCRIPTS IN ' ${HOMEDIR}${SUBDIR}
 
 		LOGNAME=dma_lat_write.log
 		ssh -T root@${MAST_NODE} << MAST_DMA_LAT_ST
@@ -332,7 +349,7 @@ MAST_DMA_LAT_ST
 			SCRIPTNAME='dlT'${SZ}'.txt'
 			echo ${SLAVE_NODE} ${SCRIPTNAME}
 			ssh -T root@"${SLAVE_NODE}"  << SLAVE_DMA_LAT_WR
-screen -S goodput -p 0 -X stuff $'scrp scripts/performance/dma_lat\r'
+screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
 screen -S goodput -p 0 -X stuff $'. ${SCRIPTNAME}\r'
 SLAVE_DMA_LAT_WR
 			sleep 1
@@ -341,7 +358,7 @@ SLAVE_DMA_LAT_WR
 			SCRIPTNAME='dlW'${SZ}'.txt'
 			echo ${MAST_NODE} ${SCRIPTNAME}
 			ssh -T root@"${MAST_NODE}"  << MAST_DMA_LAT_WR
-screen -S goodput -p 0 -X stuff $'scrp scripts/performance/dma_lat\r'
+screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
 screen -S goodput -p 0 -X stuff $'. ${SCRIPTNAME}\r'
 MAST_DMA_LAT_WR
 			sleep $WAIT_TIME
@@ -350,6 +367,18 @@ MAST_DMA_LAT_WR
 		ssh -T root@${MAST_NODE} << MAST_DMA_LAT_ST
 screen -S goodput -p 0 -X stuff $'close\r'
 MAST_DMA_LAT_ST
+		
+		# Now start analyzing/checking output.
+		
+		ssh -T root@${MAST_NODE} << MAST_LOGS_CHECK
+cd ${HOMEDIR}/logs
+cd ${HOMEDIR}/logs
+./summ_thru_logs.sh > all_thru.res
+./summ_lat_logs.sh > all_lat.res
+./check_thru_logs.sh all_thru.res
+./check_lat_logs.sh all_lat.res
+MAST_LOGS_CHECK
+
 	done
 done
 
