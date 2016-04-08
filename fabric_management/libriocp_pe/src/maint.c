@@ -60,37 +60,30 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 
 	/* Write ANY_ID route until pe */
 	for (i = 0; i < pe->hopcount; i++) {
-
 		ret = riocp_pe_lock_set(pe->mport, any_id, i);
 		if (ret) {
 			RIOCP_TRACE("Could not set lock at hopcount %u\n",
 				i);
-			ret = -EIO;
+			i--;
 			goto err;
 		}
 
 		/* Program forward route from host */
 		ret = riocp_pe_maint_write_remote(pe->mport, any_id, i,
 			RIO_STD_RTE_CONF_DESTID_SEL_CSR, any_id);
-		if (ret) {
-			ret = -EIO;
+		if (ret)
 			goto err;
-		}
 
 		ret = riocp_pe_maint_write_remote(pe->mport, any_id, i,
 			RIO_STD_RTE_CONF_PORT_SEL_CSR, pe->address[i]);
-		if (ret) {
-			ret = -EIO;
+		if (ret)
 			goto err;
-		}
 
 		/* Wait for entry to be committed */
 		ret = riocp_pe_maint_read_remote(pe->mport, any_id, i,
 			RIO_STD_RTE_CONF_PORT_SEL_CSR, &val);
-		if (ret) {
-			ret = -EIO;
+		if (ret)
 			goto err;
-		}
 
 		RIOCP_TRACE("switch[hop: %d] ANY_ID -> port %d programmed\n",
 			i, pe->address[i]);
@@ -105,14 +98,12 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 err:
 	/* Write ANY_ID route until pe */
 	for (; i >= 0; i--) {
+		int rc = -1;
 
-		ret = riocp_pe_lock_clear(pe->mport, any_id, i);
-		if (ret) {
-			RIOCP_TRACE("Could not clear lock at hopcount %u\n",
-				i);
-			ret = -EIO;
-			goto err;
-		}
+		rc = riocp_pe_lock_clear(pe->mport, any_id, i);
+		if (rc)
+			RIOCP_TRACE("Could not clear lock at hopcount %u - %d\n",
+				i, rc);
 	}
 
 	pe->mport->minfo->any_id_target = NULL;
