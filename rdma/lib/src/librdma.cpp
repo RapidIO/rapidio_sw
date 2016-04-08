@@ -1952,7 +1952,7 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 
 		/* Failed to send disconnect? */
 		if (out_msg.send_disconnect_out.status) {
-			ERR("Failed to send_disconnect in daemon\n, status=0x%X",
+			ERR("Failed to send_disconnect in daemon, status=0x%X",
 					out_msg.send_disconnect_out.status);
 			throw out_msg.send_disconnect_out.status;
 		}

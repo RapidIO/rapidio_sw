@@ -68,59 +68,6 @@ mutex 				connected_to_ms_info_list_mutex;
 
 static cm_client_msg_processor d2d_msg_proc;
 
-/**
- * @brief Awaits a message from the RDMA library. Times out if the
- * 	  message doesn't arrive after 'timeout_in_secs'
- *
- * @param rx_eng Tx engine used to receive messages from an RDMA library/app
- *
- * @param category	Message category
- *
- * @param type		Message type
- *
- * @param seq_no	Sequence number
- *
- * @param timeout_in_secs	Timeout in seconds
- *
- * @param out_msg	Pointer to received message contents
- *
- * @return 0 if successful, non-zero otherwise
- */
-static int await_message(rx_engine<unix_server, unix_msg_t> *rx_eng,
-			rdma_msg_cat category, rdma_msg_type type,
-			rdma_msg_seq_no seq_no, unsigned timeout_in_secs,
-			unix_msg_t *out_msg)
-{
-	int rc;
-
-	/* Prepare for reply */
-	auto reply_sem = make_shared<sem_t>();
-	sem_init(reply_sem.get(), 0, 0);
-
-	rx_eng->set_notify(type, category, seq_no, reply_sem);
-
-	/* Wait for reply */
-	DBG("Notify configured...WAITING...\n");
-	struct timespec timeout;
-	clock_gettime(CLOCK_REALTIME, &timeout);
-	timeout.tv_sec += timeout_in_secs;
-	rc = sem_timedwait(reply_sem.get(), &timeout);
-	if (rc) {
-		ERR("reply_sem failed: %s\n", strerror(errno));
-		if (timeout_in_secs && errno == ETIMEDOUT) {
-			ERR("Timeout occurred\n");
-			rc = ETIMEDOUT;
-		}
-	} else {
-		DBG("Got reply!\n");
-		rc = rx_eng->get_message(type, category, seq_no, out_msg);
-		if (rc) {
-			ERR("Failed to obtain reply message, rc = %d\n", rc);
-		}
-	}
-	return rc;
-} /* await_message() */
-
 int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 				  uint32_t server_msubid,
 				  uint64_t client_to_lib_tx_eng_h)
@@ -130,7 +77,6 @@ int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 	/* Verify that there is an actual connection between one of the client
 	 * apps of this daemon to the specified msid. */
 	lock_guard<mutex> conn_lock(connected_to_ms_info_list_mutex);
-
 	auto it = find_if(
 		begin(connected_to_ms_info_list),
 		end(connected_to_ms_info_list),
@@ -145,35 +91,65 @@ int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 		});
 	if (it == end(connected_to_ms_info_list)) {
 		ERR("No clients connected to memory space!\n");
-		rc = -1;
-	} else {
-		auto in_msg = make_unique<unix_msg_t>();
-		in_msg->type 	= FORCE_DISCONNECT_MS;
-		in_msg->category = RDMA_REQ_RESP;
-		in_msg->seq_no 	= 0;
-		in_msg->force_disconnect_ms_in.server_msid = server_msid;
-		in_msg->force_disconnect_ms_in.server_msubid = server_msubid;
-		it->to_lib_tx_eng->send_message(move(in_msg));
-
-		/* Wait for an ACKnowldegement of the message */
-		unix_msg_t	out_msg;
-		rx_engine<unix_server, unix_msg_t> *rx_eng
-					= it->to_lib_tx_eng->get_rx_eng();
-		rc = await_message(
-			rx_eng, RDMA_CALL, FORCE_DISCONNECT_MS_ACK,
-							0, 1, &out_msg);
-		bool ok = out_msg.force_disconnect_ms_ack_in.server_msid ==
-								server_msid;
-
-		ok &= out_msg.force_disconnect_ms_ack_in.server_msubid ==
-								server_msubid;
-		if (rc) {
-			ERR("Timeout waiting for FORCE_DISCONNECT_MS_ACK\n");
-		} else if (!ok) {
-			ERR("Mismatched FORCE_DISCONNECT_MS_ACK\n");
-		}
+		return -1;
 	}
-	return rc;
+
+	/* Prepare for force disconnect ack notification BEFORE
+	 * sending the force disconnect */
+	rx_engine<unix_server, unix_msg_t> *rx_eng
+					= it->to_lib_tx_eng->get_rx_eng();
+	auto reply_sem = make_shared<sem_t>();
+	sem_init(reply_sem.get(), 0, 0);
+	rx_eng->set_notify(FORCE_DISCONNECT_MS_ACK, RDMA_CALL, 0, reply_sem);
+
+	/* Send the FORCE_DISCONNECT_MS message */
+	auto in_msg = make_unique<unix_msg_t>();
+	in_msg->type 	= FORCE_DISCONNECT_MS;
+	in_msg->category = RDMA_REQ_RESP;
+	in_msg->seq_no 	= 0;
+	in_msg->force_disconnect_ms_in.server_msid = server_msid;
+	in_msg->force_disconnect_ms_in.server_msubid = server_msubid;
+	it->to_lib_tx_eng->send_message(move(in_msg));
+
+	/* Wait for FORCE_DISCONNECT_MS_ACK */
+	unix_msg_t	out_msg;
+	struct timespec timeout;
+	clock_gettime(CLOCK_REALTIME, &timeout);
+	timeout.tv_sec += 1;	/* 1 second timeout */
+	rc = sem_timedwait(reply_sem.get(), &timeout);
+	if (rc) {
+		ERR("reply_sem failed: %s\n", strerror(errno));
+		if (errno == ETIMEDOUT) {
+			ERR("Timeout occurred\n");
+			rc = ETIMEDOUT;
+		}
+		return rc;
+	}
+	INFO("Got FORCE_DISCONNECT_MS_ACK\n");
+
+	/* Read the FORCE_DISCONNECT_MS_ACK message contents */
+	rc = rx_eng->get_message(FORCE_DISCONNECT_MS_ACK, RDMA_CALL, 0, &out_msg);
+	if (rc) {
+		ERR("Failed to obtain reply message, rc = %d\n", rc);
+		return rc;
+	}
+
+	/* Verify that the FORCE_DISCONNECT_MS_ACK message contents match
+	 * what we were expecting */
+	bool ok = out_msg.force_disconnect_ms_ack_in.server_msid == server_msid;
+	ok &= out_msg.force_disconnect_ms_ack_in.server_msubid == server_msubid;
+	if (!ok) {
+		ERR("Mismatched FORCE_DISCONNECT_MS_ACK\n");
+		ERR("Expecting server_msid(0x%X), but got server_msid(0x%X)\n",
+			server_msid,
+			out_msg.force_disconnect_ms_ack_in.server_msid );
+		ERR("Expecting server_msubid(0x%X), but got server_msubid(0x%X)\n",
+			server_msubid,
+			out_msg.force_disconnect_ms_ack_in.server_msubid);
+		return -1;
+	}
+
+	return 0;
 } /* send_force_disconnect_ms_to_lib() */
 
 
