@@ -1503,6 +1503,7 @@ int DMAChannelSHM::cleanupBDQueue(bool multithreaded_fifo)
 DMAChannelSHM::TicketState_t DMAChannelSHM::checkTicket(const DmaOptions_t& opt)
 {
   assert(m_state);
+  if (m_state->hw_ready < 2) return UMDD_DEAD;
 
   if (opt.ticket == 0 || opt.ticket > m_state->serial_number)
     throw std::runtime_error("DMAChannelSHM: Invalid ticket!");
@@ -1544,13 +1545,18 @@ void DMAChannelSHM_destroy(void* dch)
 int DMAChannelSHM_pingMaster(void* dch)
 {
   if (dch != NULL) return ((DMAChannelSHM*)dch)->pingMaster();
-  else return 0;
+  return 0;
+}
+int DMAChannelSHM_checkMasterReady(void* dch)
+{
+  if (dch != NULL) return ((DMAChannelSHM*)dch)->checkMasterReady();
+  return 0;
 }
 
 int DMAChannelSHM_checkPortOK(void* dch)
 {
   if (dch != NULL) return ((DMAChannelSHM*)dch)->checkPortOK();
-  else return 0;
+  return 0;
 }
 int DMAChannelSHM_dmaCheckAbort(void* dch, uint32_t* abort_reason)
 {

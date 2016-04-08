@@ -209,8 +209,6 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	hnd->fd       = fd;
 	hnd->mport_id = mport_id;
 
-	*mport_handle = hnd;
-
 	hnd->asyncm.clear();
 
 	const char* chan_s = getenv("UMDD_CHAN");
@@ -239,13 +237,34 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	} while(0);
 
 	if (chan == 0) {
-		free(hnd);
-		return -(errno = ENOSPC);
+		fprintf(stderr, "%s: Ran out of UMD DMA channels.\n", __func__);
+		errno = ENOSPC; goto error;
 	}
 
-	hnd->dch = DMAChannelSHM_create(mport_id, chan);
+	try { hnd->dch = DMAChannelSHM_create(mport_id, chan); }
+	catch(std::runtime_error ex) { // UMDd not running
+		fprintf(stderr, "%s: Exception: %s\n", __func__, ex.what());
+		errno = ENOTCONN; goto error;
+	}
 
+	if (hnd->dch == NULL) { // Cannot load SO
+		errno = ENOPKG; goto error;
+	}
+
+        if (! DMAChannelSHM_pingMaster(hnd->dch)) { // Ping master process via signal(0)
+		fprintf(stderr, "%s: UMDd master process is dead.\n", __func__);
+		errno = ENOTCONN; goto error;
+	}
+
+	*mport_handle = hnd;
 	return 0;
+
+error:
+	if (hnd->dch != NULL) {	DMAChannelSHM_destroy(hnd->dch); hnd->dch = NULL; }
+	if (hnd->umd_chan > 0) riomp_mgmt_mport_umd_deselect_channel(hnd->mport_id, hnd->umd_chan);
+	close(hnd->fd);
+	free(hnd);
+	return -errno;
 }
 
 int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
@@ -489,6 +508,8 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	return (ret < 0)? -errno: ret;
 
    umdd:
+        if (! DMAChannelSHM_checkMasterReady(hnd->dch)) return -(errno = ENOTCONN);
+
 	if (DMAChannelSHM_queueFull(hnd->dch)) return -(errno = EBUSY);
 
 	// printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
@@ -535,6 +556,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	// Only left RIO_DIRECTIO_TRANSFER_SYNC
 	for (int cnt = 0;; cnt++) {
 		const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannelSHM::UMDD_DEAD) return -(errno = ENOTCONN);
                 if (st == DMAChannelSHM::COMPLETED) break;
                 if (st == DMAChannelSHM::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
@@ -629,6 +651,8 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 #ifdef MPORT_DEBUG
 	printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
 #endif
+        if (! DMAChannelSHM_checkMasterReady(hnd->dch)) return -(errno = ENOTCONN);
+
 	if (DMAChannelSHM_queueFull(hnd->dch)) return -(errno = EBUSY);
 
 	DMAChannelSHM::DmaOptions_t opt;
@@ -663,6 +687,7 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	// Only left RIO_DIRECTIO_TRANSFER_SYNC
 	for (int cnt = 0;; cnt++) {
 		const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannelSHM::UMDD_DEAD) return -(errno = ENOTCONN);
                 if (st == DMAChannelSHM::COMPLETED) break;
                 if (st == DMAChannelSHM::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
@@ -711,6 +736,8 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
    umdd:
 	// printf("UMDD %s: cookie=%u\n", __func__, cookie);
 
+        if (! DMAChannelSHM_checkMasterReady(hnd->dch)) return -(errno = ENOTCONN);
+
 	// Kernel's rio_mport_wait_for_async_dma wants miliseconds of timeout
 
 	assert(cookie <= hnd->cookie_cutter);
@@ -735,6 +762,7 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 
         for (int cnt = 0 ;; cnt++) {
                 const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannelSHM::UMDD_DEAD) return -(errno = ENOTCONN);
                 if (st == DMAChannelSHM::COMPLETED) return 0;
                 if (st == DMAChannelSHM::BORKED) {
                         uint64_t t = 0;
