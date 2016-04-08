@@ -646,20 +646,11 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	bool q_was_full = false;
 	uint32_t dma_abort_reason = 0;
 
-	if (size > 16) {
-		if (! DMAChannelSHM_queueDmaOpT1(hnd->dch, NREAD, &opt, &dmamem,
-				&dma_abort_reason, (seq_ts *)hnd->stats)) {
-			if (q_was_full) return -(errno = ENOSPC);
-			return -(errno = EINVAL);
-		}
-	} else {
-		if (! DMAChannelSHM_queueDmaOpT2(hnd->dch, NREAD, &opt, 
-				(uint8_t *)handle + offset, size, 
-				&dma_abort_reason, (seq_ts *)hnd->stats)) {
-			if (q_was_full) return -(errno = ENOSPC);
-			return -(errno = EINVAL);
-		}
-	};
+	if (! DMAChannelSHM_queueDmaOpT1(hnd->dch, NREAD, &opt, &dmamem,
+			&dma_abort_reason, (seq_ts *)hnd->stats)) {
+		if (q_was_full) return -(errno = ENOSPC);
+		return -(errno = EINVAL);
+	}
 
 	if (sync == RIO_DIRECTIO_TRANSFER_FAF) return 0;
 
