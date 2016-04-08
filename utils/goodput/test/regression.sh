@@ -304,6 +304,8 @@ MAST_SCRIPT_RUN
 			echo 'NOW ' $TOT_WAIT ' MINUTES TO COMPLETION...'
 		done
 
+		let "LONG_WAIT= $WAIT_TIME * 2"
+
 		SUBDIR=scripts/performance/obwin_lat
 		echo 'EXECUTING ALL SCRIPTS IN ' ${HOMEDIR}'/'${SUBDIR}
 
@@ -320,7 +322,7 @@ MAST_OBWIN_LAT_ST
 screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
 screen -S goodput -p 0 -X stuff $'. ${SCRIPTNAME}\r'
 SLAVE_OBWIN_LAT_WR
-			sleep 1
+			sleep 2
 			
 			# Run master loop for write latency test 
 			SCRIPTNAME='olW'$SZ'.txt'
@@ -329,7 +331,7 @@ SLAVE_OBWIN_LAT_WR
 screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
 screen -S goodput -p 0 -X stuff $'. ${SCRIPTNAME}\r'
 MAST_OBWIN_LAT_WR
-			sleep $WAIT_TIME
+			sleep $LONG_WAIT
 		done
 
 		ssh -T root@${MAST_NODE} << MAST_OBWIN_LAT_ST
@@ -347,7 +349,6 @@ MAST_DMA_LAT_ST
 		ssh -T root@${SLAVE_NODE} << SLAVE_DMA_LAT_ST
 screen -S goodput -p 0 -X stuff $'log logs/${LOGNAME}\r'
 SLAVE_DMA_LAT_ST
-		let "LONG_WAIT= $WAIT_TIME * 2"
 
 		for SZ in ${DMA_LAT_SZ[@]}; do
 			# Run slave target loop for write latency test 
