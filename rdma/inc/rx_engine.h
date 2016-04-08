@@ -109,7 +109,7 @@ struct rx_work_thread_info {
 	bool 			*is_dead;
 	bool 			*worker_is_dead;
 	sem_t			*engine_cleanup_sem;
-	pthread_mutex_t		*notify_list_lock;
+	sem_t			*notify_list_sem;
 	vector<notify_param> 	*notify_list;
 	msg_processor<T, M>	&message_processor;
 	tx_engine<T, M>		*tx_eng;
@@ -128,7 +128,7 @@ void *rx_worker_thread_f(void *arg)
 	bool *is_dead			    = wti->is_dead;
 	sem_t		*engine_cleanup_sem = wti->engine_cleanup_sem;
 	bool *worker_is_dead		    = wti->worker_is_dead;
-	pthread_mutex_t *notify_list_lock   = wti->notify_list_lock;
+	sem_t *notify_list_sem   	    = wti->notify_list_sem;
 	vector<notify_param> 	*notify_list= wti->notify_list;
 	msg_processor<T, M> &message_processor = wti->message_processor;
 	tx_engine<T, M>		*tx_eng	    = wti->tx_eng;
@@ -185,7 +185,7 @@ void *rx_worker_thread_f(void *arg)
 			if (msg->category == RDMA_CALL) {
 				/* If there is a notification set for the
 				 * message then act on it. */
-				pthread_mutex_lock(notify_list_lock);
+				sem_wait(notify_list_sem);
 				auto it = find(begin(*notify_list),
 						end(*notify_list),
 						notify_param(msg->type,
@@ -215,7 +215,7 @@ void *rx_worker_thread_f(void *arg)
 							msg->type,
 							msg->seq_no);
 				}
-				pthread_mutex_unlock(notify_list_lock);
+				sem_post(notify_list_sem);
 			} else if (msg->category == RDMA_REQ_RESP) {
 				/* Process request/resp by forwarding to message processor */
 				rc = message_processor.process_msg(msg, tx_eng);
@@ -253,14 +253,13 @@ public:
 		tx_eng(tx_eng), is_dead(false), worker_is_dead(false),
 		stop_worker_thread(false), engine_cleanup_sem(engine_cleanup_sem)
 	{
-		if (pthread_mutex_init(&notify_list_lock, NULL)) {
-			CRIT("'%s': Failed to init notify_list_lock mutex\n",
-									name);
+		if (sem_init(&notify_list_sem, 0, 1)) {
+			CRIT("'%s': Failed to init notify_list_sem\n",name);
 			throw -1;
 		}
+
 		if (pthread_mutex_init(&message_queue_lock, NULL)) {
-			CRIT("'%s': Failed to init message_queue_lock mutex\n",
-									name);
+			CRIT("'%s': Failed to init message_queue_lock\n", name);
 			throw -1;
 		}
 
@@ -282,7 +281,7 @@ public:
 		wti->engine_cleanup_sem = engine_cleanup_sem;
 		wti->worker_is_dead	= &worker_is_dead;
 		wti->notify_list	= &notify_list;
-		wti->notify_list_lock	= &notify_list_lock;
+		wti->notify_list_sem	= &notify_list_sem;
 		wti->tx_eng		= tx_eng;
 
 		auto rc = pthread_create(&rx_work_thread,
@@ -329,7 +328,7 @@ public:
 						shared_ptr<sem_t> notify_sem)
 	{
 
-		pthread_mutex_lock(&notify_list_lock);
+		sem_wait(&notify_list_sem);
 		DBG("'%s': type='%s',0x%X, category='%s',0x%X, seq_no=0x%X\n",
 				name.c_str(),
 				type_name(type),
@@ -350,7 +349,7 @@ public:
 			notify_list.emplace_back(type, category, seq_no,
 								notify_sem);
 		}
-		pthread_mutex_unlock(&notify_list_lock);
+		sem_post(&notify_list_sem);
 	} /* set_notify() */
 
 	/**
@@ -415,7 +414,7 @@ protected:
 	pthread_mutex_t		message_queue_lock;
 	msg_processor<T, M>	&message_processor;
 	vector<notify_param> 	notify_list;
-	pthread_mutex_t		notify_list_lock;
+	sem_t			notify_list_sem;
 	shared_ptr<T>		client;
 	tx_engine<T, M>		*tx_eng;
 	bool			is_dead;
