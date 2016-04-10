@@ -308,7 +308,7 @@ void *tx_loop(void *unused)
 		if (NULL == tx)
 			continue;
 
-		DBG("App Sending Type 0d%d 0x%x swap 0d%d 0x%x",
+		DBG("App Sending Type 0d%d 0x%x swap 0d%d 0x%x\n",
 			tx->msg_type, tx->msg_type,
 			htonl(tx->msg_type), htonl(tx->msg_type));
 		rc = send(lib.fd, (void *)tx, A2RSKTD_SZ, MSG_EOR);
