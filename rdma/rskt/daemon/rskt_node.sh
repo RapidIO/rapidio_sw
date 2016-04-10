@@ -140,8 +140,6 @@ do
 		echo "Starting rskt_client on $client_node"
 		# Run a client per node using the 'screen' terminal
 		ssh root@"$client_node" "screen -dmS client $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r1000"
-		ssh root@"$client_node" "screen -dmS client $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r1000"
-		ssh root@"$client_node" "screen -dmS client $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r1000"
 	done
 	# The purpose of this one is to hold the script until all prior tasks have
 	# finished executing
