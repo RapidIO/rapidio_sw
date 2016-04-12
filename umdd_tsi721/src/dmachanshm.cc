@@ -237,6 +237,8 @@ DMAChannelSHM::DMAChannelSHM(const uint32_t mportid,
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannelSHM: Invalid channel!");
 
+  assert(mp_hd);
+
   m_mp_hd = mp_hd;
   m_mportid = mportid;
 
