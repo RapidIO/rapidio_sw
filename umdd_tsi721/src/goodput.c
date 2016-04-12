@@ -96,6 +96,8 @@ int setup_mport(int mport_num)
 {
 	int rc;
 
+	if (mport_num == mp_h_num) return 0; // No-op
+
 	if (mp_h_valid) {
 		riomp_mgmt_mport_destroy_handle(&mp_h);
 		mp_h_valid = 0;

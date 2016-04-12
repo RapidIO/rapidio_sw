@@ -351,6 +351,37 @@ SleepCmd,
 ATTR_NONE
 };
 
+extern int setup_mport(int mportid);
+
+int MportCmd(struct cli_env *env, int argc, char **argv)
+{
+        const int mportid = GetDecParm(argv[0], 0);
+        if (mportid < 0) {
+                sprintf(env->output, "\nIndex must be > 0\n");
+                logMsg(env);
+                goto exit;
+        }
+
+        if (setup_mport(mportid)) {
+		sprintf(env->output, "\nInvalid mport %d\n", mportid);
+                logMsg(env);
+		return -1;
+	}
+
+   exit:
+        return 0;
+}
+
+struct cli_cmd Mport = {
+"mport",
+2,
+1,
+"Switch Mport instance (if more than one Tsi721 PICe card exits)",
+"mport <mportid>\n"
+        "<mportid> is a worker index, 0-based\n",
+MportCmd,
+ATTR_NONE
+};
 #define FOUR_KB (4*1024)
 #define SIXTEEN_MB (16*1024*1024)
 
@@ -1998,6 +2029,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&Move,
 	&Wait,
 	&Sleep,
+	&Mport,
 	&CPUOccSet,
 	&CPUOccDisplay,
 	&Mpdevs,
