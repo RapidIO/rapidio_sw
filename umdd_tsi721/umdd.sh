@@ -36,4 +36,7 @@ trap "rm -f $RC" 0 1 2 15 # cleanup
 
 awk -f umddconf.awk $conf > $RC
 
+# SHM is a harsh mistress. Cleanup first.
+rm -f /dev/shm/s[eh]m.DMAChannelSHM* &>/dev/null
+
 $dir/umdd 0 --rc "$RC" $@
