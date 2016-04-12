@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# SOURCE_PATH="/opt/rapidio/rapidio_sw"
-SOURCE_PATH="/home/barryw/fmd/rapidio_sw"
+SOURCE_PATH="/opt/rapidio/rapidio_sw"
 CONFIG_PATH="/etc/rapidio"
 SCRIPTS_PATH=$SOURCE_PATH"/install"
 
@@ -134,7 +133,8 @@ done
 
 echo "Installation of configuration files COMPLETED..."
 
-FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh )
+FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh 
+	all_down.sh )
 
 for f in "${FILES[@]}"
 do
