@@ -131,6 +131,16 @@ do
 	ssh root@"$i" sed -i -- 's/MEMSZ/'$MEMSZ'/g' $FILENAME""
 done
 
+
+UMDD_CONF=$CONFIG_PATH/umdd.conf
+
+for $host in $1 $2 $3 $4; do
+  [ "$host" = 'none' ] && continue;
+  echo "copying "$host
+  ssh root@"$host" "mkdir -p $CONFIG_PATH"
+  ssh root@"$host" "cp $SCRIPTS_PATH/umdd.conf $UMDD_CONF"
+done
+
 echo "Installation of configuration files COMPLETED..."
 
 FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh 

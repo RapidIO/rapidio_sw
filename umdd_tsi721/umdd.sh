@@ -1,7 +1,12 @@
 #!/bin/bash
 
-dir=/opt/rapidio/rapidio_sw/umdd
 conf=/etc/rapidio/umdd.conf
+
+if [ -z "$UMDD_PATH" ]; then
+  dir=/opt/rapidio/rapidio_sw/umdd_tsi721
+else
+  dir="$UMDD_PATH"
+fi
 
 if [ -z "$TMP" ]; then
   if [ -d "$HOME/tmp" ]; then
