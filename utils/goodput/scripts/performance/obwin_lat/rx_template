@@ -18,5 +18,8 @@ wait 0 h
 DIOR 0 did iba_addr acc_size
 wait 0 R
 sleep wait_time
+log logs/mport_dir/OBWIN_RXsize_nameDONE.log
 wait 0 R
+st
+close
 st

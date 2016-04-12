@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ## This script creates two files:
-## lat_pass.txt indicates success counts for all lines in the summary file
-## lat_fail.txt indicates information about failures
+## lat_pass.out indicates success counts for all lines in the summary file
+## lat_fail.out indicates information about failures
 ##
-## The script only passes if lat_fail.txt does not exist, and 
-## lat_pass.txt does exist and is non-empty.
+## The script only passes if lat_fail.out does not exist, and 
+## lat_pass.out does exist and is non-empty.
 ##
 ## This script checks that the throughput numbers computed are expected.
 #3 There are four kinds of lines:
@@ -45,8 +45,8 @@ if [ $PRINT_HELP != "0" ]; then
         echo $'           output of summ_lat_logs.sh for all latency'
         echo $'           scripts.\n'
         echo $'Once complete, two files will be present in the directory'
-        echo $'lat_pass.txt: File with all counts which passed.'
-        echo $'lat_fail.txt: File with all counts and lines which failed'
+        echo $'lat_pass.out: File with all counts which passed.'
+        echo $'lat_fail.out: File with all counts and lines which failed'
         exit 1
 fi;
 
@@ -98,8 +98,8 @@ SIZE_COUNT=( 5 5 5
 
 IDX=0
 
-PASS=lat_pass.txt
-FAIL=lat_fail.txt
+PASS=lat_pass.out
+FAIL=lat_fail.out
 
 rm -f $PASS
 rm -f $FAIL
@@ -122,6 +122,8 @@ for SIZE in ${SIZE_STRINGS[@]}; do
 	fi;
 	let "IDX = $IDX + 1"
 done 
+
+rm -f ${FILENAME}.temp
 
 # Check that there are no lines with illegal values
 

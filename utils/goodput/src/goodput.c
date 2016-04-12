@@ -68,7 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-riomp_mport_t mp_h;
+riomp_mport_t mp_h = NULL;
 int mp_h_valid;
 int mp_h_num;
 int mp_h_qresp_valid;

@@ -185,8 +185,6 @@ MPNUM=( "$MAST_MPNUM" "$SLAVE_MPNUM" )
 declare -a DESTIDS
 IDX=0
 
-LOGNAME=start_target.log
-
 for node in ${NODES[@]}; do 
 	if ( ssh -T root@"$node" '[ -d ' $HOMEDIR ' ]' ); then
 		echo $' '
@@ -216,10 +214,10 @@ BUILD_SCRIPT
 
 	echo $node " STARTING GOODPUT"
 
+	LOGNAME=mport${MPNUM[${IDX}]}'/start_target.log'
+
 	ssh -T root@"$node" <<NODE_START
-pwd
 cd ${HOMEDIR}/scripts
-pwd
 ./create_start_scripts.sh ${MPNUM[${IDX}]} ${SKT_PREFIX} ${IBA_ADDR}
 cd ..
 
@@ -310,10 +308,18 @@ for TRANS in ${DMA_TRANS[@]}; do
 		let "TOT_WAIT = ((450 * ($WAIT_TIME + 1)) / 60) + 1"
 		echo 'ESTIMATING ' $TOT_WAIT ' MINUTES TO COMPLETION...'
 
-		LOG_FILE_NAME=${HOMEDIR}/logs/mport${MAST_MPNUM}
-		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}/*.log
-		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}/*.res
+		LOG_FILE_NAME=${HOMEDIR}/logs/mport${SLAVE_MPNUM}
+		ssh -T root@${SLAVE_NODE} rm -f ${LOG_FILE_NAME}'/*.log'
+		ssh -T root@${SLAVE_NODE} rm -f ${LOG_FILE_NAME}'/*.res'
+		ssh -T root@${SLAVE_NODE} rm -f ${LOG_FILE_NAME}'/*.out'
 
+		LOG_FILE_NAME=${HOMEDIR}/logs/mport${MAST_MPNUM}
+		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}'/*.log'
+		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}'/*.res'
+		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}'/*.out'
+
+
+exit
 		LOG_FILE_NAME=${HOMEDIR}/logs/mport${MAST_MPNUM}/run_all_perf_done.log
 
 		ssh -T root@${MAST_NODE} > /dev/null << MAST_SCRIPT_RUN
@@ -344,15 +350,20 @@ screen -S goodput -p 0 -X stuff $'log logs/${LOGNAME}\r'
 MAST_OBWIN_LAT_ST
 
 		for SZ in ${OBWIN_LAT_SZ[@]}; do
+			DONE_LOGNAME=${HOMEDIR}/logs/mport${SLAVE_MPNUM}/OBWIN_RX${SZ}DONE.log
 			# Run slave target loop for write latency test 
 			SCRIPTNAME='olT'${SZ}'.txt'
 			echo ${SLAVE_NODE} ${SCRIPTNAME}
 			ssh -T root@"${SLAVE_NODE}"  << SLAVE_OBWIN_LAT_WR
+rm -f ${DONE_LOGNAME}
 screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
 screen -S goodput -p 0 -X stuff $'. ${SCRIPTNAME}\r'
 SLAVE_OBWIN_LAT_WR
-			sleep 2
-			
+			while ( ! ssh -T root@"${SLAVE_NODE}" test -s ${DONE_LOGNAME}) 
+			do
+				sleep $WAIT_TIME
+			done
+
 			# Run master loop for write latency test 
 			SCRIPTNAME='olW'${SZ}'.txt'
 			echo ${MAST_NODE} ${SCRIPTNAME}
@@ -380,7 +391,6 @@ screen -S goodput -p 0 -X stuff $'log logs/${LOGNAME}\r'
 SLAVE_DMA_LAT_ST
 
 		for SZ in ${DMA_LAT_SZ[@]}; do
-
 			# Run slave target loop for write latency test 
 			SCRIPTNAME='dlT'${SZ}'.txt'
 			SUBDIR=mport${SLAVE_MPNUM}/dma_lat
@@ -428,11 +438,11 @@ MAST_LOGS_CHECK
 
 		# If there was a failure, keep the goodput sessions around
 		# for debug purposes.
-		if [ -s ${HOMEDIR}/logs/mport${MAST_MPNUM}/thru_fail.txt ]; then
+		if [ -s ${HOMEDIR}/logs/mport${MAST_MPNUM}/thru_fail.out ]; then
 			exit;
 		fi;
 
-		if [ -s ${HOMEDIR}/logs/mport${MAST_MPNUM}/lat_fail.txt ]; then
+		if [ -s ${HOMEDIR}/logs/mport${MAST_MPNUM}/lat_fail.out ]; then
 			exit;
 		fi;
 

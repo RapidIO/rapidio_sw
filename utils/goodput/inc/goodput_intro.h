@@ -8,22 +8,26 @@
  *
  * \section fast_start_sec Getting Started
  * \subsection compile_sec Compiling Goodput and UGoodput
+ * Goodput and ugoodput are compiled as part of the software 
+ * installation procedure.  
+ *
  * To compile the goodput tool, complete the following steps:
  * 1. In the "rapidio_sw" directory, type "make all".
  * 2. In the "rapidio_sw/utils/goodput" directory, type "make all".
  * \subsection rapidio_start_sec Starting the RapidIO Interfaces
  *
- * To start the RapidIO interfaces on the demo platforms, complete the
+ * To start the systems RapidIO interfaces, complete the
  * following steps:
  *
- * -# Power up the node marked "IND02".
+ * -# Power up the system switch, if one exists in the system.
+ * -# Power up all slave nodes.
  *    Wait until the Linux interface is displayed on the terminal.
- * -# Power up the node marked "INDO1".
+ * -# Power up the master ("enumerator") node.
  *    Wait until the Linux interface is displayed on the terminal.
  * -# Log in as guest on each node.
  * -# Create terminal sessions on each node.
- * -# On IND01, enter the following command in the terminal:
- *    "/opt/rapidio/all_start.sh".
+ * -# On the master node, enter the following command in the terminal:
+ *    "/opt/rapidio/rapidio_sw/rio_start.sh".
  * 
  * \subsection exec_sec Running Goodput
  * Goodput contains all functionality and commands to verify and measure kernel
@@ -36,8 +40,7 @@
  * Ugoodput has all the commands and functionality of goodput, and includes 
  * commands and functionality to support the Tsi721 demonstration
  * user mode driver.
- * Currently the Tsi721 user mode driver can only be compiled on x86/x64
- * platforms, and is still under development.
+ * Currently the Tsi721 user mode driver can only be compiled on x86/x64.
  *
  * UGoodput must be run as root.
  * To execute UGoodput, type "sudo ./ugoodput" while in the

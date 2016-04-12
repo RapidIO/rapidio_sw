@@ -212,8 +212,10 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	hnd->asyncm.clear();
 
 	const char* chan_s = getenv("UMDD_CHAN");
-	if (chan_s == NULL || (flags & 0xFFFF0000) == UMD_RESERVED)
+	if (chan_s == NULL || (flags & 0xFFFF0000) == UMD_RESERVED) {
+		*mport_handle = hnd;
 		return 0;
+	}
 
 	int chan = 0;
 	do {
