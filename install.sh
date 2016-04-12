@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# SOURCE_PATH="/opt/rapidio/rapidio_sw"
-SOURCE_PATH="/home/barryw/fmd/rapidio_sw"
+SOURCE_PATH="/opt/rapidio/rapidio_sw"
 CONFIG_PATH="/etc/rapidio"
 SCRIPTS_PATH=$SOURCE_PATH"/install"
 
