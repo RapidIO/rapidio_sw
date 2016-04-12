@@ -288,7 +288,7 @@ int cli_script(struct cli_env *env, char *script, int verbose)
 {
 	FILE *fin;
 	int end = FALSE; /* End of command processing loop? */
-	char input[BUFLEN]; /* Input buffer */
+	char input[BUFLEN] = {0}; /* Input buffer */
 
 	unsigned int  errorStat = 0;
 	struct cli_env temp_env = *env;

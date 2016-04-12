@@ -35,7 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMA_LOGGER_H
 
 #define NUM_LOG_LINES	100
-#define LOG_LINE_SIZE	400
+#define LOG_LINE_SIZE	512
 #define DEFAULT_LOG_DIR	 "/var/log/rdma/"
 
 /* Log levels */
@@ -120,7 +120,7 @@ void liblog_bind_cli_cmds();
 extern unsigned g_level;
 extern unsigned g_disp_level;
 
-#define LOG_FMT_DEFAULT 0
+#define LOG_FMT_DEFAULT 1
 #define LOG_FMT_ONE_LINE 1
 
 extern unsigned log_fmt_sel; /* If non-zero, logs are formatted as one line */
