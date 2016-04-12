@@ -42,3 +42,13 @@ do
 	echo "$node rsktd pid=$RSKTD_PID"
 done
 
+# Start UMDD on each node
+for node in $NODES
+do
+        DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
+        echo "Start UMDd/SHM on $node destID=$DESTID"
+        ssh root@"$node" "screen -dmS umdd sh $SOURCE_PATH/umdd_tsi721/umdd.sh"
+        sleep 1
+        UMDD_PID=$(ssh root@"$node" pgrep umdd)
+        echo "$node UMDd/SHM pid=$UMDD_PID"
+done

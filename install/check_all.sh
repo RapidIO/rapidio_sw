@@ -79,6 +79,16 @@ RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 		else
 			echo "   RSKTD running, PID=$RSKTD_PID"
 		fi
+
+                # Check that umdd is running
+                UMD_PID=$(ssh root@"$node" pgrep umdd)
+                if [ -z "$UMD_PID" ]
+                then
+                        echo "   UMDd/SHM          *NOT* running"
+                        OK=0
+                else
+                        echo "   UMDd/SHM running, PID=$UMD_PID"
+                fi
 	done
 
 
