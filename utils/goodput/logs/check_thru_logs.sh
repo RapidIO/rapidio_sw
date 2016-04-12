@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ## This script creates two files:
-## thru_pass.txt indicates success counts for all lines in the summary file
-## thru_fail.txt indicates information about failures
+## thru_pass.out indicates success counts for all lines in the summary file
+## thru_fail.out indicates information about failures
 ##
-## The script only passes if thur_fail.txt does not exist, and 
-## thru_pass.txt does exist and is non-empty.
+## The script only passes if thur_fail.out does not exist, and 
+## thru_pass.out does exist and is non-empty.
 ##
 ## This script checks that the throughput numbers computed are expected.
 #3 There are four kinds of lines:
@@ -45,8 +45,8 @@ if [ $PRINT_HELP != "0" ]; then
         echo $'           output of summ_thru_logs.sh for all throughtput'
         echo $'           scripts.'
         echo $'Once complete, two files will be present in the directory'
-        echo $'thru_pass.txt: File with all counts which passed.'
-        echo $'thru_fail.txt: File with all counts and lines which failed'
+        echo $'thru_pass.out: File with all counts which passed.'
+        echo $'thru_fail.out: File with all counts and lines which failed'
         exit 1
 fi;
 
@@ -98,8 +98,8 @@ SIZE_COUNT=( 11 11 11
 
 IDX=0
 
-PASS=thru_pass.txt
-FAIL=thru_fail.txt
+PASS=thru_pass.out
+FAIL=thru_fail.out
 
 rm -f $PASS
 rm -f $FAIL
@@ -122,6 +122,8 @@ for SIZE in ${SIZE_STRINGS[@]}; do
 	fi;
 	let "IDX = $IDX + 1"
 done 
+
+rm -f ${FILENAME}.temp 
 
 # Check that there are no lines with illegal values
 

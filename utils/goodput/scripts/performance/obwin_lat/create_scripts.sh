@@ -179,6 +179,8 @@ do
 	set_t_filename_t ${SIZE_NAME[idx]}
 	filename=$t_filename
 	cp rx_template $filename
+	sed -i -- 's/size_name/'${SIZE_NAME[idx]}'/g' $filename
+	sed -i -- 's/mport_dir/'${MPORT_DIR}'/g' $filename
 	sed -i -- 's/acc_size/'${SIZE[idx]}'/g' $filename
 	sed -i -- 's/bytes/'${BYTES[idx]}'/g' $filename
 	idx=($idx)+1
@@ -206,8 +208,8 @@ while [ "$idx" -lt "$max_name_idx" ]
 do
 	set_t_filename_r ${SIZE_NAME[idx]}
 
-	echo "kill all"          >> $scriptname
-	echo "sleep "$WAIT_TIME  >> $scriptname
+	echo "kill all" >> $scriptname
+	echo "sleep 1"  >> $scriptname
 	echo ". "$t_filename >> $scriptname
 	idx=($idx)+1
 done
