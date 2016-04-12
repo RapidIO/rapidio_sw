@@ -52,6 +52,8 @@ typedef struct {
   void (*destroy)(void* dch);
 
   int (*pingMaster)(void* dch);
+  int (*checkMasterReady)(void* dch);
+
   int (*checkPortOK)(void* dch);
   int (*dmaCheckAbort)(void* dch, uint32_t* abort_reason);
   uint16_t (*getDestId)(void* dch);
@@ -90,6 +92,7 @@ void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan)
   libp->create          = (void* (*)(uint32_t, uint32_t))dlsym(libp->dlh, "DMAChannelSHM_create"); assert(libp->create);
   libp->destroy         = (void (*)(void*))dlsym(libp->dlh, "DMAChannelSHM_destroy"); assert(libp->destroy);
   libp->pingMaster      = (int (*)(void*))dlsym(libp->dlh, "DMAChannelSHM_pingMaster"); assert(libp->pingMaster);
+  libp->checkMasterReady= (int (*)(void*))dlsym(libp->dlh, "DMAChannelSHM_checkMasterReady"); assert(libp->pingMaster);
   libp->checkPortOK     = (int (*)(void*))dlsym(libp->dlh, "DMAChannelSHM_checkPortOK"); assert(libp->checkPortOK);
   libp->dmaCheckAbort   = (int (*)(void*, uint32_t*))dlsym(libp->dlh, "DMAChannelSHM_dmaCheckAbort"); assert(libp->dmaCheckAbort);
   libp->getDestId       = (uint16_t (*)(void*))dlsym(libp->dlh, "DMAChannelSHM_getDestId"); assert(libp->getDestId);
@@ -134,6 +137,11 @@ int DMAChannelSHM_pingMaster(void* dch)
 {
   assert(((DMAChannelSHMPtr_t*)dch)->sig == SIG);
   return ((DMAChannelSHMPtr_t*)dch)->pingMaster(((DMAChannelSHMPtr_t*)dch)->dch);
+}
+int DMAChannelSHM_checkMasterReady(void* dch)
+{
+  assert(((DMAChannelSHMPtr_t*)dch)->sig == SIG);
+  return ((DMAChannelSHMPtr_t*)dch)->checkMasterReady(((DMAChannelSHMPtr_t*)dch)->dch);
 }
 int DMAChannelSHM_checkPortOK(void* dch)
 {

@@ -581,7 +581,8 @@ private:
 
 public:
   typedef enum {
-    BORKED = -1,
+    UMDD_DEAD  = -42,
+    BORKED     = -1,
     INPROGRESS = 1,
     COMPLETED  = 2
   } TicketState_t;
@@ -609,6 +610,12 @@ public:
     assert(m_state);
     if (m_hw_master) return true; // No-op
     return (kill(m_state->master_pid, 0) == 0);
+  }
+
+  inline bool checkMasterReady() {
+    assert(m_state);
+    if (m_hw_master) return true; // No-op
+    return (m_state->hw_ready == 2);
   }
 
   /** \brief Brutal way of cleaning up dead clients. Locks out ALL clients during the proceedings
@@ -662,6 +669,7 @@ extern "C" {
 void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan);
 void DMAChannelSHM_destroy(void* dch);
 int DMAChannelSHM_pingMaster(void* dch);
+int DMAChannelSHM_checkMasterReady(void* dch);
 int DMAChannelSHM_checkPortOK(void* dch);
 int DMAChannelSHM_dmaCheckAbort(void* dch, uint32_t* abort_reason);
 uint16_t DMAChannelSHM_getDestId(void* dch);
