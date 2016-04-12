@@ -7,7 +7,7 @@
 #  Please note that the master node (one where this script is executed)
 #+ must be last entry in the list of nodes.
 
-NODES="gry10 gry11 gry12 gry09" 
+NODES="node4 node3 node2 node1" 
 
 for node in $NODES
 do
