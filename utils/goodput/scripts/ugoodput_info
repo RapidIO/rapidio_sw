@@ -1,3 +1,4 @@
+scrp MPORT_DIR
 // Script to configure and display DMA target information for UGoodput
 kill all
 wait 0 D

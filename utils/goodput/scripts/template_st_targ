@@ -1,3 +1,4 @@
+scrp MPORT_DIR
 kill all
 wait 0 D
 wait 1 D

@@ -1,6 +1,18 @@
 #!/bin/bash
+MPORT=0
 
-cd performance
+if [ -n "$1" ]; then
+        MPORT=$1
+else
+        echo $'\nScript deletes all performance scripts for an mport.'
+        echo $'mport is a required parameter.'
+	exit
+fi
+
+echo $'Deleting all performance scripts for mport' ${MPORT}
+
+cd ../mport${MPORT}
+
 rm -f dma_thru/d1*
 rm -f dma_thru_read dma_thru_write
 
@@ -33,6 +45,10 @@ rm -f umsg_thru_tx
 
 rm -f msg_lat/m*
 rm -f msg_lat_tx
+
+rm -f umsg_lat/m*.txt
+rm -f umsg_lat_read
+
 
 cd ..
 rm -f start_source start_target

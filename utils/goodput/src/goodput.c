@@ -127,6 +127,7 @@ int main(int argc, char *argv[])
 	int rc = EXIT_FAILURE;
 	int i;
 	int mport_num = 0;
+	char script_path[10];
 
 	signal(SIGINT, sig_handler);
 	signal(SIGHUP, sig_handler);
@@ -155,6 +156,11 @@ int main(int argc, char *argv[])
         cli_init_base(goodput_thread_shutdown);
         bind_goodput_cmds();
 	liblog_bind_cli_cmds();
+
+	memset(script_path, 0, sizeof(script_path));
+	snprintf(script_path, sizeof(script_path), "mport%d", mport_num);
+	set_script_path(script_path);
+
 	splashScreen((char *)"Goodput Evaluation Application");
 
 	console((void *)((char *)"GoodPut> "));

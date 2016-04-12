@@ -47,16 +47,27 @@ if [ -z "$WAIT_TIME" ]; then
         fi
 fi
 
+if [ -z "$MPORT_DIR" ]; then
+        if [ -n "$4" ]; then
+                MPORT_DIR=$4
+        else
+                MPORT_DIR='mport0'
+                LOC_PRINT_HEP=1
+        fi
+fi
+
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript accepts the following parameters:'
         echo $'SKT_PREFIX: first 3 decimal digits of 4 digit socket numbers'
         echo $'DID : Device ID of target device for performance scripts'
         echo $'Wait: Time in seconds to wait before taking perf measurement\n'
+        echo $'DIR : Directory to use as home directory for scripts\n'
 fi
 
 echo 'MSG_THRUPUT SKT_PREFIX = ' $SKT_PREFIX
 echo 'MSG_THRUPUT DID        = ' $DID
 echo 'MSG_THRUPUT WAIT_TIME  = ' $WAIT_TIME
+echo 'MSG_THRUPUT MPORT_DIR  = ' $MPORT_DIR
 
 unset LOC_PRINT_HEP
 
@@ -134,8 +145,8 @@ do
 	scriptname="../"$DIR_NAME"_"$direction 
 
 	echo "// This script runs all "$DIR_NAME $direction" scripts." > $scriptname
-	echo "log logs/"$DIR_NAME"_"$direction".log" >> $scriptname
-	echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
+	echo "log logs/"$MPORT_DIR/$DIR_NAME"_"$direction".log" >> $scriptname
+	echo "scrp ${MPORT_DIR}/$DIR_NAME" >> $scriptname
 
 	idx=0
 	while [ "$idx" -lt "$max_name_idx" ]
@@ -148,7 +159,7 @@ do
 		idx=($idx)+1
 	done
 	echo "close" >> $scriptname
-	echo "scrp scripts/performance/" >> $scriptname
+	echo "scrp ${MPORT_DIR}" >> $scriptname
 done
 
 ls ../$DIR_NAME*

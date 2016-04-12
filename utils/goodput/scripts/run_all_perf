@@ -1,9 +1,7 @@
 echo The start_target script must be run on the target node,
-echo and create_perf_scripts must be run on this node using the information
-echo from the target node, 
-echo before this script can be run!!!
+echo and create_perf_scripts must be run on this node using target nodes
+echo device ID before this script can be run!!!
 
-scrp scripts/performance/
 // UNKNOWN
 . msg_thru_tx
 // UNKNOWN
@@ -36,6 +34,6 @@ scrp scripts/performance/
 // Create log file indicating completion of run_all_perf script
 // to automated regression software.
 
-log logs/run_all_perf_done.log
+log logs/MPORT_DIR/run_all_perf_done.log
 st
 close

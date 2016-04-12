@@ -67,18 +67,29 @@ if [ -z "$WAIT_TIME" ]; then
         fi
 fi
 
+if [ -z "$MPORT_DIR" ]; then
+        if [ -n "$5" ]; then
+                MPORT_DIR=$5
+        else
+                MPORT_DIR='mport0'
+                LOC_PRINT_HEP=1
+        fi
+fi
+
 if [ -n "$LOC_PRINT_HEP" ]; then
-        echo $'\nScript accepts 4 parameters:'
+        echo $'\nScript accepts the following parameters:'
         echo $'IBA_ADDR: Hex address of target window on DID'
         echo $'DID     : Device ID that this device sends to'
         echo $'Trans   : DMA transaction type'
         echo $'Wait    : Time in seconds to wait before showing perf\n'
+        echo $'DIR     : Directory to use as home directory for scripts\n'
 fi
 
 echo 'OBWIN_LATENCY IBA_ADDR = ' $IBA_ADDR
 echo 'OBWIN_LATENCY DID      = ' $DID
 echo 'OBWIN_LATENCY TRANS    = ' $TRANS
 echo 'OBWIN_LATENCY WAIT_TIME= ' $WAIT_TIME
+echo 'OBWIN_LATENCY MPORT_DIR= ' $MPORT_DIR
 
 unset LOC_PRINT_HEP
 
@@ -187,8 +198,8 @@ direction="read"
 scriptname="../"$DIR_NAME"_"$direction 
 
 echo "// This script runs all "$DIR_NAME $direction" scripts." > $scriptname
-echo "log logs/"$DIR_NAME"_"$direction".log" >> $scriptname
-echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
+echo "log logs/"$MPORT_DIR/$DIR_NAME"_"$direction".log" >> $scriptname
+echo "scrp ${MPORT_DIR}/${DIR_NAME}" >> $scriptname
 
 idx=0
 while [ "$idx" -lt "$max_name_idx" ]
@@ -201,6 +212,6 @@ do
 	idx=($idx)+1
 done
 echo "close" >> $scriptname
-echo "scrp scripts/performance/" >> $scriptname
+echo "scrp ${MPORT_DIR}" >> $scriptname
 
 ls ../$DIR_NAME*

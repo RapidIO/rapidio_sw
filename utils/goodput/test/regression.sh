@@ -13,6 +13,9 @@
 MAST_NODE=node1
 SLAVE_NODE=node2
 
+MAST_MPNUM=0
+SLAVE_MPNUM=0
+
 HOMEDIR=$PWD
 PREVDIR=/..
 
@@ -40,6 +43,22 @@ fi
 if [ -n "$2" ]
   then
     SLAVE_NODE=$2
+else
+	PRINT_HELP=1
+fi
+
+if [ -n "$3" ]
+  then
+    MAST_MPNUM=$3
+	shift
+else
+	PRINT_HELP=1
+fi
+
+if [ -n "$3" ]
+  then
+    SLAVE_MPNUM=$3
+	shift
 else
 	PRINT_HELP=1
 fi
@@ -94,8 +113,10 @@ fi
 
 if [ $PRINT_HELP != "0" ]; then
 	echo $'\nScript requires the following parameters:'
-	echo $'MAST       : Name of master node'
-	echo $'SLAVE      : Name of slave node'
+	echo $'MAST       : Name of master node/IP address'
+	echo $'SLAVE      : Name of slave node/IP address'
+	echo $'MAST_MPNUM : Master node mport number (usually 0)'
+	echo $'SLAVE_MPNUM: Slave node mport number (usually 0)'
 	echo $'All parameters after this are optional.  Default values shown.'
 	echo $'DIR        : Directory on both MAST and SLAVE to run tests.'
 	echo $'             Default is ' $HOMEDIR
@@ -110,9 +131,10 @@ if [ $PRINT_HELP != "0" ]; then
 	echo $'             Default is ' $IBA_ADDR
         echo $'SKT_PREFIX : First 3 digits of 4 digit socket numbers'
 	echo $'             Default is ' $SKT_PREFIX
-        echo $'\nOptional parameters, if not entered same as DMA_SYNC'
         echo $'DMA_SYNC2  : 0 - blocking, 1 - async, 2 - fire and forget'
+        echo $'             Default is same as DMA_SYNC'
         echo $'DMA_SYNC3  : 0 - blocking, 1 - async, 2 - fire and forget'
+        echo $'             Default is same as DMA_SYNC'
 	exit 1
 fi;
 
@@ -122,6 +144,8 @@ INTERP_SYNC=(BLOCK ASYNC FAF ALL);
 echo $'\nStarting regression:\n'
 echo 'MAST       :' $MAST_NODE
 echo 'SLAVE      :' $SLAVE_NODE
+echo 'MAST_MPNUM :' $MAST_MPNUM
+echo 'SLAVE_MPNUM:' $SLAVE_MPNUM
 echo 'DIR        :' $HOMEDIR
 echo 'WAIT TIME  :' $WAIT_TIME ' SECONDS'
 echo 'TRANS      :' $TRANS ${INTERP_TRANS[TRANS_IN]}
@@ -157,12 +181,13 @@ fi
 # and demonstrate that each can execute the startup script
 
 NODES=( "$MAST_NODE" "$SLAVE_NODE" )
+MPNUM=( "$MAST_MPNUM" "$SLAVE_MPNUM" )
 declare -a DESTIDS
 IDX=0
 
 LOGNAME=start_target.log
 
-for node in ${NODES[@]}; do
+for node in ${NODES[@]}; do 
 	if ( ssh -T root@"$node" '[ -d ' $HOMEDIR ' ]' ); then
 		echo $' '
 		echo $node " Directory $HOMEDIR exists!"
@@ -192,8 +217,10 @@ BUILD_SCRIPT
 	echo $node " STARTING GOODPUT"
 
 	ssh -T root@"$node" <<NODE_START
+pwd
 cd ${HOMEDIR}/scripts
-./create_start_scripts.sh ${SKT_PREFIX} ${IBA_ADDR}
+pwd
+./create_start_scripts.sh ${MPNUM[${IDX}]} ${SKT_PREFIX} ${IBA_ADDR}
 cd ..
 
 rm -f logs/${LOGNAME}
@@ -222,7 +249,6 @@ NODE_START
 	echo $node " Destination ID is " ${DESTIDS[${IDX}]}
 	echo $' '
 	IDX=${IDX}+1
-
 done
 
 echo GENERATING SCRIPTS ON SLAVE ${SLAVE_NODE}, PARAMETERS ARE
@@ -234,13 +260,14 @@ echo 'SYNC3      : 0 ' ${INTERP_SYNC[0]}
 echo 'DID        :' ${DESTIDS[0]}
 echo 'IBA_ADDR   : 0x' $IBA_ADDR
 echo 'SKT_PREFIX : 0x' $SKT_PREFIX
+echo 'MPORT_NUM  : ' $SLAVE_MPNUM
 
 # NOTE: DESTIDS[0] below is correct, because the slave needs to know
 #       the destination ID of the master.
 
 ssh -T root@${SLAVE_NODE} > /dev/null <<SLAVE_SCRIPT_GEN
 cd $HOMEDIR/scripts
-./create_perf_scripts.sh $WAIT_TIME 0 0 ${DESTIDS[0]} $IBA_ADDR $SKT_PREFIX 0 0
+./create_perf_scripts.sh $WAIT_TIME 0 0 ${DESTIDS[0]} $IBA_ADDR $SKT_PREFIX ${SLAVE_MPNUM} 0 0
 SLAVE_SCRIPT_GEN
 
 ## DMA_LAT_SZ=( 
@@ -276,24 +303,26 @@ for TRANS in ${DMA_TRANS[@]}; do
 		echo 'DID        :' ${DESTIDS[1]}
 		echo 'IBA_ADDR   : 0x' $IBA_ADDR
 		echo 'SKT_PREFIX : 0x' $SKT_PREFIX
+		echo 'MPORT_NUM  : ' $MAST_MPNUM
 
 		echo ' '
-		echo 'EXECUTING ' ${HOMEDIR}/scripts/run_all_perf
+		echo 'EXECUTING ' ${HOMEDIR}/mport${MAST_MPNUM}/run_all_perf
 		let "TOT_WAIT = ((450 * ($WAIT_TIME + 1)) / 60) + 1"
 		echo 'ESTIMATING ' $TOT_WAIT ' MINUTES TO COMPLETION...'
 
-# NOTE: DESTIDS[1] below is correct, because the master needs to know
-#       the destination ID of the slave
-		LOG_FILE_NAME=${HOMEDIR}/logs/
+		LOG_FILE_NAME=${HOMEDIR}/logs/mport${MAST_MPNUM}
 		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}/*.log
 		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}/*.res
 
-		LOG_FILE_NAME=${HOMEDIR}/logs/run_all_perf_done.log
+		LOG_FILE_NAME=${HOMEDIR}/logs/mport${MAST_MPNUM}/run_all_perf_done.log
 
 		ssh -T root@${MAST_NODE} > /dev/null << MAST_SCRIPT_RUN
+rm -f ${LOG_FILE_NAME}
 cd $HOMEDIR/scripts
-./create_perf_scripts.sh $WAIT_TIME $TRANS $SYNC ${DESTIDS[1]} $IBA_ADDR $SKT_PREFIX $SYNC2 $SYNC3
-screen -S goodput -p 0 -X stuff $'scrp scripts\r'
+# NOTE: DESTIDS[1] below is correct, because the master needs to know
+#       the destination ID of the slave
+./create_perf_scripts.sh $WAIT_TIME $TRANS $SYNC ${DESTIDS[1]} $IBA_ADDR $SKT_PREFIX $MAST_MPNUM $SYNC2 $SYNC3
+screen -S goodput -p 0 -X stuff $'scrp mport${MAST_MPNUM}\r'
 screen -S goodput -p 0 -X stuff $'. run_all_perf\r'
 MAST_SCRIPT_RUN
 
@@ -306,17 +335,17 @@ MAST_SCRIPT_RUN
 
 		let "LONG_WAIT= $WAIT_TIME * 2"
 
-		SUBDIR=scripts/performance/obwin_lat
+		SUBDIR=mport${MAST_MPNUM}/obwin_lat
 		echo 'EXECUTING ALL SCRIPTS IN ' ${HOMEDIR}'/'${SUBDIR}
 
-		LOGNAME=obwin_lat_write.log
+		LOGNAME=mport${MAST_MPNUM}/obwin_lat_write.log
 		ssh -T root@${MAST_NODE} << MAST_OBWIN_LAT_ST
 screen -S goodput -p 0 -X stuff $'log logs/${LOGNAME}\r'
 MAST_OBWIN_LAT_ST
 
 		for SZ in ${OBWIN_LAT_SZ[@]}; do
 			# Run slave target loop for write latency test 
-			SCRIPTNAME='olT'$SZ'.txt'
+			SCRIPTNAME='olT'${SZ}'.txt'
 			echo ${SLAVE_NODE} ${SCRIPTNAME}
 			ssh -T root@"${SLAVE_NODE}"  << SLAVE_OBWIN_LAT_WR
 screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
@@ -325,7 +354,7 @@ SLAVE_OBWIN_LAT_WR
 			sleep 2
 			
 			# Run master loop for write latency test 
-			SCRIPTNAME='olW'$SZ'.txt'
+			SCRIPTNAME='olW'${SZ}'.txt'
 			echo ${MAST_NODE} ${SCRIPTNAME}
 			ssh -T root@"${MAST_NODE}"  << MAST_OBWIN_LAT_WR
 screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
@@ -338,10 +367,10 @@ MAST_OBWIN_LAT_WR
 screen -S goodput -p 0 -X stuff $'close\r'
 MAST_OBWIN_LAT_ST
 
-		SUBDIR=scripts/performance/dma_lat
+		SUBDIR=mport${MAST_MPNUM}/dma_lat
 		echo 'EXECUTING ALL SCRIPTS IN ' ${HOMEDIR}'/'${SUBDIR}
 
-		LOGNAME=dma_lat_write.log
+		LOGNAME=mport${MAST_MPNUM}/dma_lat_write.log
 		ssh -T root@${MAST_NODE} << MAST_DMA_LAT_ST
 screen -S goodput -p 0 -X stuff $'log logs/${LOGNAME}\r'
 MAST_DMA_LAT_ST
@@ -351,8 +380,10 @@ screen -S goodput -p 0 -X stuff $'log logs/${LOGNAME}\r'
 SLAVE_DMA_LAT_ST
 
 		for SZ in ${DMA_LAT_SZ[@]}; do
+
 			# Run slave target loop for write latency test 
 			SCRIPTNAME='dlT'${SZ}'.txt'
+			SUBDIR=mport${SLAVE_MPNUM}/dma_lat
 			echo ${SLAVE_NODE} ${SCRIPTNAME}
 			ssh -T root@"${SLAVE_NODE}"  << SLAVE_DMA_LAT_WR
 screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
@@ -362,6 +393,7 @@ SLAVE_DMA_LAT_WR
 			
 			# Run master loop for write latency test 
 			SCRIPTNAME='dlW'${SZ}'.txt'
+			SUBDIR=mport${MAST_MPNUM}/dma_lat
 			echo ${MAST_NODE} ${SCRIPTNAME}
 			ssh -T root@"${MAST_NODE}"  << MAST_DMA_LAT_WR
 screen -S goodput -p 0 -X stuff $'scrp ${SUBDIR}\r'
@@ -373,7 +405,7 @@ MAST_DMA_LAT_WR
 screen -S goodput -p 0 -X stuff $'kill 0\r'
 screen -S goodput -p 0 -X stuff $'wait 0 d\r'
 MAST_DMA_LAT_END
-			sleep 1
+			sleep 2
 		done
 
 		ssh -T root@${MAST_NODE} << MAST_DMA_LAT_ST
@@ -387,7 +419,7 @@ SLAVE_DMA_LAT_ST
 		# Now start analyzing/checking output.
 		
 		ssh -T root@${MAST_NODE} << MAST_LOGS_CHECK
-cd ${HOMEDIR}/logs
+cd ${HOMEDIR}/logs/mport${MAST_MPNUM}
 ./summ_thru_logs.sh > all_thru.res
 ./summ_lat_logs.sh > all_lat.res
 ./check_thru_logs.sh all_thru.res
@@ -396,11 +428,11 @@ MAST_LOGS_CHECK
 
 		# If there was a failure, keep the goodput sessions around
 		# for debug purposes.
-		if -s ${HOMEDIR}/logs/thru_fail.txt; then
+		if [ -s ${HOMEDIR}/logs/mport${MAST_MPNUM}/thru_fail.txt ]; then
 			exit;
 		fi;
 
-		if -s ${HOMEDIR}/logs/lat_fail.txt; then
+		if [ -s ${HOMEDIR}/logs/mport${MAST_MPNUM}/lat_fail.txt ]; then
 			exit;
 		fi;
 

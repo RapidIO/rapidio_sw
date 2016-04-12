@@ -9,6 +9,7 @@ BUFC=100 # UMD: hex number of TX buffers
 STS=100 # UMD: hex size of RX FIFO -- should be > BUFC
 BYTES=400000
 SKT_PREFIX=234
+MPORT=0
 SYNC=0
 SYNC2=$SYNC
 SYNC3=$SYNC
@@ -58,14 +59,19 @@ fi
 
 if [ -n "$7" ]
   then
-    SYNC2=$7
-else
-	SYNC2=$SYNC
+    MPORT=$7
 fi
 
 if [ -n "$8" ]
   then
-    SYNC3=$8
+    SYNC2=$8
+else
+	SYNC2=$SYNC
+fi
+
+if [ -n "$9" ]
+  then
+    SYNC3=$9
 else
 	SYNC3=$SYNC
 fi
@@ -80,6 +86,7 @@ if [ $PRINT_HELP != "0" ]; then
 	echo $'IBA_ADDR   : RapidIO address of inbound window on DID'
 	echo $'SKT_PREFIX : First 3 digits of 4 digit socket numbers'
 	echo $'\nOptional parameters, if not entered same as DMA_SYNC'
+	echo $'MPORT      : Mport number for these scripts, default is 0'
 	echo $'DMA_SYNC2  : 0 - blocking, 1 - async, 2 - fire and forget'
 	echo $'DMA_SYNC3  : 0 - blocking, 1 - async, 2 - fire and forget'
 	exit 1
@@ -88,6 +95,8 @@ fi;
 INTERP_TRANS=(NW SW NW_R SW_R NW_R_ALL);
 INTERP_SYNC=(BLOCK ASYNC FAF);
 
+MPORT_DIR='mport'${MPORT}
+
 echo GENERATING ALL PERFORMANCE SCRIPTS WITH
 echo 'WAIT TIME  :' $WAIT_TIME SECONDS
 echo 'TRANS      :' $TRANS ${INTERP_TRANS[TRANS]}
@@ -95,27 +104,39 @@ echo 'SYNC       :' $SYNC  ${INTERP_SYNC[SYNC]}
 echo 'SYNC2      :' $SYNC2 ${INTERP_SYNC[SYNC2]}
 echo 'SYNC3      :' $SYNC3 ${INTERP_SYNC[SYNC3]}
 echo 'DID        :' $DID
+echo 'MPORT      :' $MPORT
 echo 'IBA_ADDR   :' $IBA_ADDR
 echo 'SKT_PREFIX :' $SKT_PREFIX 
+echo 'MPORT_DIR  :' $MPORT_DIR
 
-cd performance/dma_thru
-source create_scripts.sh $WAIT_TIME $DID $TRANS $IBA_ADDR $SYNC
+cd ..
+pwd
+# Create mport specific directory for log files, include analysis scripts
+mkdir -m 777 -p logs/$MPORT_DIR
+cp logs/*.sh logs/$MPORT_DIR/
+
+# Create mport specific directory for performance scripts,
+# and generate the scripts.
+
+mkdir -m 777 -p $MPORT_DIR
+cp -r scripts/performance/* ${MPORT_DIR}
+
+cd ${MPORT_DIR}/dma_thru
+source create_scripts.sh $WAIT_TIME $DID $TRANS $IBA_ADDR $SYNC $MPORT_DIR
+cd ../pdma_thru
+source create_scripts.sh $WAIT_TIME $DID $TRANS $IBA_ADDR $SYNC $SYNC2 $SYNC3 $MPORT_DIR
+cd ../dma_lat
+source create_scripts.sh $IBA_ADDR $DID $TRANS $WAIT_TIME $MPORT_DIR
+cd ../msg_thru
+source create_scripts.sh $SKT_PREFIX $DID $WAIT_TIME $MPORT_DIR
+cd ../obwin_thru
+source create_scripts.sh $IBA_ADDR $DID $TRANS $WAIT_TIME $MPORT_DIR
+cd ../obwin_lat
+source create_scripts.sh $IBA_ADDR $DID $TRANS $WAIT_TIME $MPORT_DIR
+cd ../msg_lat
+source create_scripts.sh $SKT_PREFIX $DID $WAIT_TIME $MPORT_DIR
 cd ../..
-cd performance/pdma_thru
-source create_scripts.sh $WAIT_TIME $DID $TRANS $IBA_ADDR $SYNC
-cd ../..
-cd performance/dma_lat
-source create_scripts.sh $IBA_ADDR $DID $TRANS $WAIT_TIME
-cd ../..
-cd performance/msg_thru
-source create_scripts.sh $SKT_PREFIX $DID $WAIT_TIME
-cd ../..
-cd performance/obwin_thru
-source create_scripts.sh $IBA_ADDR $DID $TRANS $WAIT_TIME
-cd ../..
-cd performance/obwin_lat
-source create_scripts.sh $IBA_ADDR $DID $TRANS $WAIT_TIME
-cd ../..
-cd performance/msg_lat
-source create_scripts.sh $SKT_PREFIX $DID $WAIT_TIME
-cd ../..
+cp scripts/run_all_dma  ${MPORT_DIR}
+sed -i -- 's/MPORT_DIR/'$MPORT_DIR'/g' ${MPORT_DIR}/run_all_dma
+cp scripts/run_all_perf ${MPORT_DIR}
+sed -i -- 's/MPORT_DIR/'$MPORT_DIR'/g' ${MPORT_DIR}/run_all_perf

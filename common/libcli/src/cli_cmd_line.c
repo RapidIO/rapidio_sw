@@ -501,30 +501,34 @@ CLIScriptCmd,
 ATTR_NONE
 };
 
+int set_script_path(char *path)
+{
+	char endc = '\0';
+	int len = strlen(path);
+
+	if (!('/' == path[len-1]) && !('\\' == path[len-1])) {
+		len++;
+		endc = '/';
+	};
+	if (len > SCRIPT_PATH_LEN)
+		return 1;
+	snprintf(script_path, SCRIPT_PATH_LEN, "%s%c", path, endc);
+	return 0;
+}
+
 int CLIScriptPathCmd(struct cli_env *env, int argc, char **argv)
 {
 	int errorStat = 0;
-	char endc = '\0';
 
 	if (argc) {
-		int len = strlen(argv[0]);
-		
-		if (!('/' == argv[0][len-1]) && !('\\' == argv[0][len-1])) {
-			len++;
-			endc = '/';
-		};
-			
-
-		if (len > SCRIPT_PATH_LEN) {
+		if (set_script_path(argv[0])) {
 			sprintf(env->output,
 			"FAILED: Maximum path length is %d characters\n",
 				SCRIPT_PATH_LEN);
 			logMsg(env);
 			goto exit;
-		}
-
-		snprintf(script_path, SCRIPT_PATH_LEN, "%s%c", argv[0], endc);
-	};
+		};
+	}
 
 	sprintf(env->output, "\tPrefix: \"%s\"\n", script_path);
 	logMsg(env);
@@ -708,7 +712,7 @@ int bind_cli_cmd_line_cmds(void)
 	memset(script_path, 0, SCRIPT_PATH_SIZE);
 	memset(cwd, 0, SCRIPT_PATH_SIZE);
 	if (NULL == getcwd(cwd, sizeof(cwd)))
-		snprintf(script_path, SCRIPT_PATH_LEN, "scriptss/");
+		snprintf(script_path, SCRIPT_PATH_LEN, "scripts/");
 	else 
 		snprintf(script_path, SCRIPT_PATH_LEN, "%s/scripts/", cwd);
 
