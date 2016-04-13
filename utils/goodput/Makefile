@@ -86,6 +86,7 @@ all: goodput ugoodput
 ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) 
 	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
 	$(COMMONLIB) -L$(UMDDIR) $(LIBRARIES) 
+	@ln -s scripts mport0 &>/dev/null
 
 goodput: $(SOURCES) $(INCLUDES)
 	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(COMMONLIB) -L$(UMDDIR) $(LIBRARIES)
