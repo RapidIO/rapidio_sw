@@ -62,8 +62,10 @@ static void respond(int fd, const char* rsp, const int rsp_size)
   }
 
   static const char HDR[] = "HTTP/1.0 200 OK\n" \
+                            "Server: Nosuchsoft-IIS/6.6.6 (UN*X)\n" \
                             "Cache-Control: post-check=0, pre-check=0, no-store, no-cache, must-revalidate\n" \
                             "Expires: -1\n" \
+                            "Connection: close\n" \
                             "Content-type: text/plain\n" \
                             "\n";
 
