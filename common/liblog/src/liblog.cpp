@@ -94,7 +94,7 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 
 	/* Open log file */
 	filename.append(log_filename);
-	log_file = fopen(filename.c_str(), "a");
+	log_file = fopen(filename.c_str(), "ae");
 	if (!log_file) {
 		perror("rdma_log_init: fopen()");
 		return -4;

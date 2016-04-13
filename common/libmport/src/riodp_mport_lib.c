@@ -305,7 +305,7 @@ int riomp_mgmt_get_handle_id(riomp_mport_t mport_handle, int *id)
 
 int riomp_sock_mbox_init(void)
 {
-	return open(RIO_CMDEV_PATH, O_RDWR);
+	return open(RIO_CMDEV_PATH, O_RDWR | O_CLOEXEC);
 }
 
 

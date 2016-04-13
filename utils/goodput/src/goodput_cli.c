@@ -565,32 +565,31 @@ int cpu_occ_set(uint64_t *tot_jifis,
 		uint64_t *proc_kern_jifis,
 		uint64_t *proc_user_jifis)
 {
-	pid_t my_pid = getpid();
-	FILE *stat_fp, *cpu_stat_fp;
-	char filename[256];
-	char file_line[CPUOCC_BUFF_SIZE];
+	FILE *stat_fp = NULL, *cpu_stat_fp = NULL;
+	char filename[256] ={0};
+	char file_line[CPUOCC_BUFF_SIZE] ={0};
 	uint64_t p_user = 1, p_nice = 1, p_system = 1, p_idle = 1;
 	uint64_t p_iowait = 1, p_irq = 1, p_softirq = 1;
 	int rc;
 
-	memset(filename, 0, 256);
+	pid_t my_pid = getpid();
+
 	snprintf(filename, 255, "/proc/%d/stat", my_pid);
 
-	stat_fp = fopen(filename, "r" );
+	stat_fp = fopen(filename, "re" );
 	if (NULL == stat_fp) {
 		ERR( "FAILED: Open proc stat file \"%s\": %d %s\n",
 			filename, errno, strerror(errno));
 		goto exit;
 	};
 
-	cpu_stat_fp = fopen("/proc/stat", "r");
+	cpu_stat_fp = fopen("/proc/stat", "re");
 	if (NULL == cpu_stat_fp) {
 		ERR("FAILED: Open file \"/proc/stat\": %d %s\n",
 			errno, strerror(errno));
 		goto exit;
 	};
 
-	memset(file_line, 0, 1024);
 	fgets(file_line, 1024,  stat_fp);
 
 	cpu_occ_parse_proc_line(file_line, proc_user_jifis, proc_kern_jifis);
@@ -604,11 +603,11 @@ int cpu_occ_set(uint64_t *tot_jifis,
 
 	*tot_jifis = p_user + p_nice + p_system + p_idle +
 			p_iowait + p_irq + p_softirq;
-	fclose(stat_fp);
-	fclose(cpu_stat_fp);
 	
 	rc = 0;
 exit:
+	if (stat_fp != NULL) fclose(stat_fp);
+	if (cpu_stat_fp != NULL) fclose(cpu_stat_fp);
 	return rc;
 };
 

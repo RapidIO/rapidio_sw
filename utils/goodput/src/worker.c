@@ -283,7 +283,7 @@ void shutdown_worker_thread(struct worker *info)
 
 int getCPUCount()
 {
-	FILE* f = fopen("/proc/cpuinfo", "rt");
+	FILE* f = fopen("/proc/cpuinfo", "rte");
 
 	int count = 0;
 	while (! feof(f)) {
