@@ -5,5 +5,8 @@ set LOCKFAIL_QUIT 1
 . epwatch
 // traceability
 set
+st
+st i
 lev 6
 sleep 1
+. www

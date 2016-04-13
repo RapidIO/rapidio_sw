@@ -76,6 +76,7 @@ char *req_type_str[(int)last_action+1] = {
         (char*)"EPWa",
         (char*)"UMSGWa",
         (char*)"AFUWa",
+        (char*)"UDWWW",
 #endif
 	(char *)"LAST"
 };
@@ -1456,30 +1457,40 @@ ATTR_RPT
 };
 
 
-void display_cpu(struct cli_env *env, int cpu)
+static inline void display_cpu_ss(std::stringstream& out, int cpu)
 {
-	if (-1 == cpu)
-		sprintf(env->output, "Any ");
-	else
-		sprintf(env->output, "%3d ", cpu);
+	if (-1 == cpu) {
+		out << "Any ";
+		return;
+	}
+
+	char output[65] = {0};
+	snprintf(output, 64, "%3d ", cpu);
+	out << output;
+}
+
+static inline void display_cpu(struct cli_env *env, int cpu)
+{
+	std::stringstream ss;
+	display_cpu_ss(ss, cpu);
+	sprintf(env->output, "%s", ss.str().c_str());
         logMsg(env);
 };
-		
 
-void display_gen_status(struct cli_env *env)
+extern "C"
+void display_gen_status_ss(std::stringstream& out)
 {
-	int i;
+        out << "\n W STS CPU RUN ACTION  MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H OB IB MB\n";
 
-	sprintf(env->output,
-        "\n W STS CPU RUN ACTION  MODE DID <<<<--ADDR-->>>> ByteCnt AccSize W H OB IB MB\n");
-        logMsg(env);
+	char output[8192+1] = {0};
+	for (int i = 0; i < MAX_WORKERS; i++) {
+		if (wkr[i].stat != 1) continue;
 
-	for (i = 0; i < MAX_WORKERS; i++) {
-		sprintf(env->output, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
-        	logMsg(env);
-		display_cpu(env, wkr[i].wkr_thr.cpu_req);
-		display_cpu(env, wkr[i].wkr_thr.cpu_run);
-		sprintf(env->output,
+		snprintf(output, 8192, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
+        	out << output;
+		display_cpu_ss(out, wkr[i].wkr_thr.cpu_req);
+		display_cpu_ss(out, wkr[i].wkr_thr.cpu_run);
+		snprintf(output, 8192,
 			"%7s %4s %3d %16lx %7lx %7lx %1d %1d %2d %2d %2d\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), wkr[i].did,
@@ -1487,31 +1498,48 @@ void display_gen_status(struct cli_env *env)
 			wkr[i].wr, wkr[i].mp_h_is_mine,
 			wkr[i].ob_valid, wkr[i].ib_valid, 
 			wkr[i].mb_valid);
-        	logMsg(env);
+        	out << output;
 	};
+}
+
+void display_gen_status(struct cli_env *env)
+{
+	std::stringstream ss;
+	display_gen_status_ss(ss);
+	sprintf(env->output, "%s", ss.str().c_str());
+	logMsg(env);
 };
 
-void display_ibwin_status(struct cli_env *env)
+extern "C"
+void display_ibwin_status_ss(std::stringstream& out)
 {
-	int i;
+	out << "\n W STS CPU RUN ACTION  MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>\n";
 
-	sprintf(env->output,
-	"\n W STS CPU RUN ACTION  MODE IB <<<< HANDLE >>>> <<<<RIO ADDR>>>> <<<<  SIZE  >>>\n");
-        logMsg(env);
+	char output[8192+1] = {0};
+	for (int i = 0; i < MAX_WORKERS; i++) {
+		if (wkr[i].stat != 1) continue;
+		if (wkr[i].ib_byte_cnt == 0) continue;
 
-	for (i = 0; i < MAX_WORKERS; i++) {
-		sprintf(env->output, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
-        	logMsg(env);
-		display_cpu(env, wkr[i].wkr_thr.cpu_req);
-		display_cpu(env, wkr[i].wkr_thr.cpu_run);
-		sprintf(env->output,
+		snprintf(output, 8192, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
+		out << output;
+		display_cpu_ss(out, wkr[i].wkr_thr.cpu_req);
+		display_cpu_ss(out, wkr[i].wkr_thr.cpu_run);
+		snprintf(output, 8192,
 			"%7s %4s %2d %16lx %16lx %15lx\n",
 			ACTION_STR(wkr[i].action), 
 			MODE_STR(wkr[i].action_mode), 
 			wkr[i].ib_valid, wkr[i].ib_handle, wkr[i].ib_rio_addr, 
 			wkr[i].ib_byte_cnt);
-        	logMsg(env);
-	};
+		out << output;
+	}
+}
+
+void display_ibwin_status(struct cli_env *env)
+{
+	std::stringstream ss;
+	display_ibwin_status_ss(ss);
+	sprintf(env->output, "%s", ss.str().c_str());
+	logMsg(env);
 };
 
 void display_msg_status(struct cli_env *env)
@@ -2472,6 +2500,57 @@ UMDTestCmd,
 ATTR_NONE
 };
 
+int UMDDDWWWCmd(struct cli_env *env, int argc, char **argv)
+{
+        const int idx = GetDecParm(argv[0], -1);
+        if (idx < 0 || idx >= MAX_WORKERS) {
+                sprintf(env->output, "Bad idx %d\n", idx);
+                logMsg(env);
+                return 0;
+        }
+
+        const int dmatunidx = argc > 0? GetDecParm(argv[1], 0): 0;
+        if (dmatunidx < 0 || dmatunidx >= MAX_WORKERS) {
+                sprintf(env->output, "Bad dmatunidx %d\n", dmatunidx);
+                logMsg(env);
+                return 0;
+        }
+
+	if (idx == dmatunidx) {
+                sprintf(env->output, "Bad dmatunidx %d != idx %d\n", dmatunidx, idx);
+                logMsg(env);
+                return 0;
+        }
+
+        const int port = argc > 1? GetDecParm(argv[2], -1): 8080;
+
+        wkr[idx].action      = umd_www;
+        wkr[idx].action_mode = user_mode_action;
+        wkr[idx].umd_chan_to = dmatunidx; // FUDGE
+        wkr[idx].umd_chan    = port; // FUDGE
+        wkr[idx].wr          = 0;
+        wkr[idx].use_kbuf    = 0;
+
+        wkr[idx].stop_req    = 0;
+
+	sem_post(&wkr[idx].run);
+
+        return 0;
+}
+
+struct cli_cmd UMDD_WWW = {
+"udwww",
+5,
+1,
+"WWW Server for UMD Tun status",
+"<idx> <dmatunidx> <port>\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<dmatunidx> [optional, default=0] is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<port> [optional, default=8080] is a TCP/IP port to listen on\n",
+UMDDDWWWCmd,
+ATTR_RPT
+};
+
 extern void UMD_DDD(const struct worker* wkr);
 
 int UMDDDDDCmd(struct cli_env *env, int argc, char **argv)
@@ -3243,6 +3322,7 @@ struct cli_cmd *goodput_cmds[] = {
 	&UMSGT,
 	&UMDDD,
 	&UMDDDD,
+	&UMDD_WWW,
 	&UMDTest,
 	&EPWatch,
 	&UMSGWATCH,

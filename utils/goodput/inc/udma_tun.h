@@ -61,4 +61,6 @@ typedef struct DMA_MBOX_PAYLOAD_s DMA_MBOX_PAYLOAD_t;
 
 const int DMA_MBOX_PAYLOAD_SIZE = sizeof(DMA_MBOX_PAYLOAD_t);
 
+bool umd_check_dma_tun_thr_running(struct worker* info);
+
 #endif // __UDMA_TUN_H__

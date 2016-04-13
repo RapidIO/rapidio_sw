@@ -3183,6 +3183,28 @@ exit:
         info->umd_tun_name[0] = '\0';
 } // END umd_mbox_goodput_tun_demo
 
+extern "C" void UMD_DD_WWW(struct worker* info, struct worker* udmatun_info, const int PORT);
+
+static inline void umd_umd_mbox_goodput_tun_wwwstats(struct worker* info)
+{
+  const int tundmathreadindex = info->umd_chan_to; // FUDGE
+  if (tundmathreadindex < 0) return;
+
+  if (!umd_check_dma_tun_thr_running(info)) {
+    CRIT("\n\tWorker thread %d (DMA Tun Thr) is not running. Bye!\n", tundmathreadindex);
+    return;
+  }
+
+  const int port = info->umd_chan; // FUDGE
+
+  if (port < 1 || port > 65535) {
+    CRIT("\n\tInvalid TCP port %d. Bye!\n", port);
+    return;
+  }
+
+  UMD_DD_WWW(info, &wkr[tundmathreadindex], port); // FUDGE
+}
+
 #endif // USER_MODE_DRIVER
 
 void *worker_thread(void *parm)
@@ -3267,6 +3289,9 @@ void *worker_thread(void *parm)
 				break;
 		case umd_afu_watch:
 				umd_afu_watch_demo(info);
+				break;
+		case umd_www:
+				umd_umd_mbox_goodput_tun_wwwstats(info);
 				break;
 #endif // USER_MODE_DRIVER
 		

@@ -1224,7 +1224,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
     struct epoll_event event;
     event.data.fd = info->umd_sockp_quit[1];
     event.events = EPOLLIN | EPOLLET;
-          if(epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, info->umd_sockp_quit[1], &event) < 0) goto exit;
+    if(epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, info->umd_sockp_quit[1], &event) < 0) goto exit;
   }}
 
   init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
@@ -1571,7 +1571,7 @@ static void decodeInotifyEvent(const struct inotify_event* i, std::string& str)
 }
 #endif // UDMA_TUN_DEBUG_IN
 
-static inline bool umd_check_dma_tun_thr_running(struct worker* info)
+bool umd_check_dma_tun_thr_running(struct worker* info)
 {
   if (info == NULL) return false;
 
