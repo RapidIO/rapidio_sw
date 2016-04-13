@@ -1956,6 +1956,8 @@ bool TakeLock(struct worker* info, const char* module, const int mport, const in
 		info->umd_lock = new LockFile(lock_name);
 	} catch(std::runtime_error ex) {
 		CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
+		if (GetEnv("LOCKFAIL_QUIT") != NULL)
+			throw ex;
 		return false;
 	}
 	// NOT catching std::logic_error
