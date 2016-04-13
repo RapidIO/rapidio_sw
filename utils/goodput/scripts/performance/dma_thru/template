@@ -11,7 +11,7 @@ wait 8 0
 wait 9 0
 wait 10 0
 wait 11 0
-t 0 3 0
+t 0 -1 0
 wait 0 2
 dma 0 did iba_addr bytes acc_size wr 1 trans sync
 g

@@ -10,7 +10,7 @@ wait 5 0
 wait 6 0
 wait 7 0
 
-t 0 2 0
+t 0 -1 0
 
 wait 0 H
 
