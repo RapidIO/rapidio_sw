@@ -34,7 +34,9 @@
  * mode applications.  
  * The goodput tool must be run as root.
  * To execute goodput, type "sudo ./goodput" while in the
- * "rapidio_sw/utils/goodput" directory.
+ * "rapidio_sw/utils/goodput" directory.  This will start goodput using
+ * the device /dev/rio_mport0.  To change to another mport, use "sudo ./goodput
+ * {mport}, where mport is a digit from 0 to 9.
  *
  * \subsection exec_ugoodput_sec Running UGoodput
  * Ugoodput has all the commands and functionality of goodput, and includes 
@@ -44,7 +46,9 @@
  *
  * UGoodput must be run as root.
  * To execute UGoodput, type "sudo ./ugoodput" while in the
- * "rapidio_sw/utils/goodput" directory.
+ * "rapidio_sw/utils/goodput" directory.  This will start goodput using
+ * the device /dev/rio_mport0.  To change to another mport, use "sudo ./goodput
+ * {mport}, where mport is a digit from 0 to 9.
  *
  * \subsection script_goodput_sec Getting Started with Goodput Performance Measurement Scripts
  * The goodput command line interpreter (CLI) supports an extensive set of
@@ -133,9 +137,9 @@
  *
  * \subsubsection set_cmd_secn Set Command
  *
- * The "set" command lists, sets, or clears environment variables.
- * Environment variables can be used as the parameters to commands.
- * Environment variables are named "$var_name".
+ * The "set" command lists, sets, or clears CLI environment variables.
+ * CLI environment variables can be used as the parameters to commands.
+ * CLI environment variables are named "$var_name".
  *
  * \section threads_secn Goodput Thread Management
  * The goodput CLI manages 12 worker threads.
@@ -175,6 +179,17 @@
  * cpu to another using the "move" command.  A moved thread retains all
  * allocated resources.
  *
+ * \subsection isolcpu_secn IsolCPU Command
+ * The isolcpu command checks the current Linux configuration for CPUs
+ * which have been reserved for user specific tasks.  The isolcpu command
+ * sets CLI environment variables named 'cpu1', 'cpu2', ..., 'cpuN' for 
+ * each CPU found.  For more information on isolcpu configuration in Linux,
+ * please research isolcpu Linux boot command line parameter.
+ * 
+ * NOTE: Isolcpus are not necessary to perform any measurements.  The accuracy
+ * of some measurements is increased when they are executed on a CPU isolated 
+ * from the Linux scheduler.
+ *
  * \subsection stat_secn Status Command
  * The "status" command gives the current state of all threads.  Status has 
  * three variants, with General status as the default:
@@ -203,9 +218,10 @@
  * commanded to perform direct I/O or DMA transactions to Node X inbound
  * window z. 
  *
- * The "IBAlloc" command requests that a thread allocate an inbound window.  Once
- * the thread has finished inbound window allocation, the thread halts and can
- * accept another command.  The location of the inbound window can be 
+ * The "IBAlloc" command requests that a thread allocate an inbound window.  
+ *  Once the thread has finished inbound window allocation, the thread 
+ * halts and can accept another command.  The location of the inbound window 
+ * can be 
  * displayed using the "status i" command, as described in the \ref stat_secn.
  *
  * The "IBDealloc" command can be used 
@@ -269,7 +285,7 @@
  * - Messages - Count of the number of messages, 0 for DMA and 
  *             Direct I/O measurements
  * - Link_Occ - Decimal display of the RapidIO link occupancy, in gigabits per
- *             seconds.  Link occupancy includes RapidIO packet header data.
+ *             second.  Link occupancy includes RapidIO packet header data.
  *
  * \subsection latency_cmd_overview_secn Latency Measurement Display
  *
@@ -313,11 +329,21 @@
  * and IND01 is the source node for the performance scripts.
  *
  * -# On IND02, run the bash script "goodput/scripts/create_start_scripts.sh" 
- *    as shown, where '###' represents the first 3 digits of the socket 
- *    connection numbers used for performance measurement.  Any 3 numbers
- *    can be used:
- *    ./create_start_scripts ###
- * -# On IND02, start "goodput/ugoodput"
+ *    as shown, where
+ *    - mport : is the index of the master port to use, usually 0
+ *    - ### : the first 3 digits of the socket numbers used for 
+ *            performance measurement.  Any 3 numbers can be used
+ *    - IBA_addr: The hexadecimal RapidIO address used as a 
+ *                target for read and write transactions.
+ *
+ *    ./create_start_scripts {mport} {socket} {IBA_addr}
+ *
+ *    For example, './create_start_scripts 0 123 200000000' uses master port
+ *    0, socket numbers 123x, and a RapidIO address of 0x200000000.
+ *
+ * -# On IND02, execute goodput or ugoodput with the same {mport} value used
+ *  for the create_start_scripts.sh script.
+ *
  * -# At the goodput/ugoodput command prompt on IND02, enter:
  *    ". start_target". 
  *
@@ -335,7 +361,7 @@
  * 7 Run Any Any MSG_Rx KRNL  0                0                0                0
  * 8 Run Any Any mR_Lat KRNL  0                0                0                0
  * 9 Hlt Any Any NO_ACT KRNL  0                0                0                0
- *10 Hlt Any Any  IBWIN KRNL  1        AAAAAAAAA        AAAAAAAAA           400000
+ *10 Hlt Any Any  IBWIN KRNL  1    AAAAAAAAAAAAA       {IBA_addr}           400000
  *11 Run Any Any CpuOcc KRNL  0                0                0                0
  * Available 1 local mport(s):
  * +++ mport_id: 0 dest_id: -->> DID <<--
@@ -344,7 +370,7 @@
  * script start_target completed, status 0
  * </pre>
  * -# On IND01 run the bash script "scripts/create_perf_scripts.sh" as follows: 
- *  ./create_perf_scripts.sh 60 0 0 DID AAAAAAAAA ###
+ *  ./create_perf_scripts.sh {mport} {socket} {IBA_addr}.
  *  - DID is the dest_id value displayed on IDN02
  *  - AAAAAAAAA is the address value displayed on IND02
  *  - ### is the same 3 digits entered for create_start_scripts.sh on IND02

@@ -110,10 +110,6 @@ echo 'SKT_PREFIX :' $SKT_PREFIX
 echo 'MPORT_DIR  :' $MPORT_DIR
 
 cd ..
-pwd
-# Create mport specific directory for log files, include analysis scripts
-mkdir -m 777 -p logs/$MPORT_DIR
-cp logs/*.sh logs/$MPORT_DIR/
 
 # Create mport specific directory for performance scripts,
 # and generate the scripts.
@@ -131,6 +127,7 @@ cd ../msg_thru
 source create_scripts.sh $SKT_PREFIX $DID $WAIT_TIME $MPORT_DIR
 cd ../obwin_thru
 source create_scripts.sh $IBA_ADDR $DID $TRANS $WAIT_TIME $MPORT_DIR
+
 cd ../obwin_lat
 source create_scripts.sh $IBA_ADDR $DID $TRANS $WAIT_TIME $MPORT_DIR
 cd ../msg_lat
@@ -140,3 +137,7 @@ cp scripts/run_all_dma  ${MPORT_DIR}
 sed -i -- 's/MPORT_DIR/'$MPORT_DIR'/g' ${MPORT_DIR}/run_all_dma
 cp scripts/run_all_perf ${MPORT_DIR}
 sed -i -- 's/MPORT_DIR/'$MPORT_DIR'/g' ${MPORT_DIR}/run_all_perf
+
+find ${MPORT_DIR} -type f -perm 664 -exec chmod 666 {} \;
+find ${MPORT_DIR} -type f -perm 775 -exec chmod 777 {} \;
+find ${MPORT_DIR} -type d -perm 775 -exec chmod 777 {} \;
