@@ -47,7 +47,7 @@ O?=.
 SOVER?=0.42
 
 ifdef DEBUG
-CFLAGS=-Wall -Wno-sign-compare -fPIC -DMPORT_DEBUG -g
+CFLAGS=-Wall -Wno-sign-compare -fPIC -ggdb # -DMPORT_DEBUG
 else
 CFLAGS=-O2 -Wall -Wno-sign-compare -fPIC -DNDEBUG
 endif
