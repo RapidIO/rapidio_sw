@@ -1,8 +1,9 @@
-set LOCKFAIL_QUIT 1 // Bomb out if cannot take channel locks
+// Bomb out if cannot take channel locks
+set LOCKFAIL_QUIT 1
 . udmatun
 . mboxwatch
 . epwatch
-set // traceability
+// traceability
+set
 lev 6
 sleep 1
-//udd 0
