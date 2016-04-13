@@ -214,7 +214,7 @@ private:
 	    char buf[1024];
 	    int debugger_present = 0;
 
-	    int status_fd = open("/proc/self/status", O_RDONLY);
+	    int status_fd = open("/proc/self/status", O_RDONLY | O_CLOEXEC);
 	    if (status_fd == -1)
 	        return 0;
 
@@ -230,6 +230,8 @@ private:
 	        if (tracer_pid)
 	            debugger_present = !!atoi(tracer_pid + sizeof(TracerPid) - 1);
 	    }
+
+	    close(status_fd);
 
 	    return debugger_present;
 	}

@@ -283,7 +283,7 @@ void shutdown_worker_thread(struct worker *info)
 
 int getCPUCount()
 {
-	FILE* f = fopen("/proc/cpuinfo", "rt");
+	FILE* f = fopen("/proc/cpuinfo", "rte");
 
 	int count = 0;
 	while (! feof(f)) {
@@ -1956,6 +1956,8 @@ bool TakeLock(struct worker* info, const char* module, const int mport, const in
 		info->umd_lock = new LockFile(lock_name);
 	} catch(std::runtime_error ex) {
 		CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
+		if (GetEnv("LOCKFAIL_QUIT") != NULL)
+			throw ex;
 		return false;
 	}
 	// NOT catching std::logic_error
@@ -3053,7 +3055,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
 	system(ifconfig_cmd);
 
-	socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp_quit);
+	socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, info->umd_sockp_quit);
 
 	uint64_t rx_ok = 0;
 

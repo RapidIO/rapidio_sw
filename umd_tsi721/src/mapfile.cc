@@ -69,7 +69,7 @@ MapFile::MapFile(const char* filename)
   m_ptr  = NULL;
   m_filename = filename;
 
-  m_fd = open(filename, O_RDWR | O_SYNC);
+  m_fd = open(filename, O_RDWR | O_SYNC | O_CLOEXEC);
 
   if(m_fd >= 0) return;
 

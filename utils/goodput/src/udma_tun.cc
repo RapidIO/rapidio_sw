@@ -1218,7 +1218,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
   info->umd_epollfd = epoll_create1 (0);
   if (info->umd_epollfd < 0) goto exit;
 
-  socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp_quit);
+  socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, info->umd_sockp_quit);
 
   {{
     struct epoll_event event;
@@ -1800,8 +1800,8 @@ void umd_mbox_watch_demo(struct worker *info)
     goto exit_bomb;
   }
 
-  socketpair(PF_LOCAL, SOCK_DGRAM, 0, sockp1); // SOCK_DGRAM so we have a message delineation
-  socketpair(PF_LOCAL, SOCK_DGRAM, 0, sockp2); // SOCK_DGRAM so we have a message delineation
+  socketpair(PF_LOCAL, SOCK_DGRAM | SOCK_CLOEXEC, 0, sockp1); // SOCK_DGRAM so we have a message delineation
+  socketpair(PF_LOCAL, SOCK_DGRAM | SOCK_CLOEXEC, 0, sockp2); // SOCK_DGRAM so we have a message delineation
 
   umd_mbox_tx_fd = sockp1[0];
   umd_mbox_rx_fd = sockp2[1];

@@ -295,7 +295,7 @@ int cli_script(struct cli_env *env, char *script, int verbose)
 
 	temp_env.script = script;
 
-	fin = fopen(script, "r");
+	fin = fopen(script, "re");
 	if (fin == NULL) {
 		sprintf(&temp_env.output[0],
 			"\t/*Error: cannot open file named \"%s\"/\n", script);
@@ -383,7 +383,7 @@ int CLIOpenLogFileCmd(struct cli_env *env, int argc, char **argv)
 	if (argv[0][strlen(argv[0])-1] == 0xD)
 		argv[0][strlen(argv[0])-1] = '\0';
 
-	env->fout = fopen(argv[0], "w"); /* Open log file for writing */
+	env->fout = fopen(argv[0], "we"); /* Open log file for writing */
 	if (env->fout == NULL) {
 		sprintf(env->output,
 			"\t/*FAILED: Log file \"%s\" could not be opened*/\n",

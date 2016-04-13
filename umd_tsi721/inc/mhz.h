@@ -40,7 +40,7 @@
 static inline int getCPUMHz()
 {
 #ifdef __linux
-  FILE* fcpu = fopen("/proc/cpuinfo", "rt");
+  FILE* fcpu = fopen("/proc/cpuinfo", "rte");
   if(fcpu == NULL) return -1;
 
   int MHz = 0;
