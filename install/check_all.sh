@@ -80,6 +80,8 @@ RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 			echo "   RSKTD running, PID=$RSKTD_PID"
 		fi
 
+		arch | awk -vx=1 '/(x86_64|i[3-6]86|ppc64)/{x=0;}END{exit x;}' || continue;
+
                 # Check that umdd is running
                 UMD_PID=$(ssh root@"$node" pgrep umdd)
                 if [ -z "$UMD_PID" ]
@@ -89,8 +91,32 @@ RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
                 else
                         echo "   UMDd/SHM running, PID=$UMD_PID"
                 fi
-	done
 
+                # Check that DMA Tun is running
+                DMATUN_PID=$(ssh root@"$node" pgrep ugoodput)
+                if [ -z "$DMATUN_PID" ]
+                then
+                        echo "   DMA Tun          *NOT* running"
+                        OK=0
+                else
+			awk -vH=$node -vx=1 'BEGIN {
+                                        srv = "/inet/tcp/0/" H "/webcache";
+                                        print "GET / HTTP/1.1" |& srv;
+                                        while ((srv |& getline) > 0) {
+                                          if(/IBwin mappings/) {x=0; break;}
+                                        }
+                                        close(srv);
+                                      }
+                                      END{exit(x);}' < /dev/null;
+			r=$?;
+			if [ "$r" -eq 0 ]; then
+				echo "   DMA Tun running, PID=$DMATUN_PID"
+			else
+				echo "   DMA Tun *NOT* running, however the is a ugoodput with PID=$DMATUN_PID"
+				OK=0
+			fi
+                fi
+	done
 
 exit 0
 
