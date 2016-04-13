@@ -12,7 +12,7 @@ wait 4 d
 wait 5 d
 wait 6 d
 wait 7 d
-t 0 0 0
+t 0 -1 0
 wait 0 h
 IBA 0 bytes iba_addr
 wait 0 r

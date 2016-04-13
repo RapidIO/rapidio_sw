@@ -44,7 +44,20 @@ echo 'SOCKET_PFX : ' $SKT_PREFIX
 echo 'IBA_ADDR   : ' $IBA_ADDR
 
 cd ..
-mkdir -p $MPORT_DIR
+
+# Create mport specific directory for log files, include analysis scripts
+mkdir -m 777 -p logs
+chmod 777 logs
+mkdir -m 777 -p logs/${MPORT_DIR}
+chmod 777 logs/${MPORT_DIR}
+
+cp logs/*.sh logs/${MPORT_DIR}/
+
+find logs/${MPORT_DIR} -type f -perm 664 -exec chmod 666 {} \;
+find logs/${MPORT_DIR} -type f -perm 775 -exec chmod 777 {} \;
+find logs/${MPORT_DIR} -type d -perm 775 -exec chmod 777 {} \;
+
+mkdir -m 777 -p $MPORT_DIR
 
 cp 'scripts/afu' $MPORT_DIR/afu
 cp 'scripts/dmav' $MPORT_DIR/dmav
@@ -60,7 +73,13 @@ cp 'scripts/udmatun' $MPORT_DIR/udmatun
 cp 'scripts/ugoodput_info' $MPORT_DIR/ugoodput_info
 cp 'scripts/udmatun' $MPORT_DIR/udmatun
 
+find ${MPORT_DIR} -type f -perm 664 -exec chmod 666 {} \;
+find ${MPORT_DIR} -type f -perm 644 -exec chmod 666 {} \;
+find ${MPORT_DIR} -type f -perm 775 -exec chmod 777 {} \;
+find ${MPORT_DIR} -type d -perm 775 -exec chmod 777 {} \;
+
 cd $MPORT_DIR
+
 sed -i -- 's/MPORT_DIR/'$MPORT_DIR'/g' 'start_target'
 sed -i -- 's/skt_prefix/'$SKT_PREFIX'/g' 'start_target'
 sed -i -- 's/iba_addr/'$IBA_ADDR'/g' 'start_target'

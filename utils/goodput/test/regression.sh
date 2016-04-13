@@ -219,6 +219,7 @@ BUILD_SCRIPT
 	ssh -T root@"$node" <<NODE_START
 cd ${HOMEDIR}/scripts
 ./create_start_scripts.sh ${MPNUM[${IDX}]} ${SKT_PREFIX} ${IBA_ADDR}
+
 cd ..
 
 rm -f logs/${LOGNAME}
@@ -319,7 +320,6 @@ for TRANS in ${DMA_TRANS[@]}; do
 		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}'/*.out'
 
 
-exit
 		LOG_FILE_NAME=${HOMEDIR}/logs/mport${MAST_MPNUM}/run_all_perf_done.log
 
 		ssh -T root@${MAST_NODE} > /dev/null << MAST_SCRIPT_RUN
