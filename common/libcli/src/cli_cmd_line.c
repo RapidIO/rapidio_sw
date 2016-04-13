@@ -126,11 +126,11 @@ int process_command(struct cli_env *env, char *input)
 {
 	char *cmd;
 	int rc;
-	struct cli_cmd *cmd_p;
-	int  argc;
-	char *argv[30];
+	struct cli_cmd* cmd_p = NULL;
+	int   argc = 0;
+	char* argv[30] = {NULL};
 	int   exitStat = 0;
-	char *status;
+	char* status = NULL;
 
 	if (env->fout != NULL)
 		fprintf((FILE *) env->fout, "%s", input); /* Log command file */
@@ -288,7 +288,7 @@ int cli_script(struct cli_env *env, char *script, int verbose)
 {
 	FILE *fin;
 	int end = FALSE; /* End of command processing loop? */
-	char input[BUFLEN]; /* Input buffer */
+	char input[BUFLEN] = {0}; /* Input buffer */
 
 	unsigned int  errorStat = 0;
 	struct cli_env temp_env = *env;
@@ -446,7 +446,7 @@ int CLIScriptCmd(struct cli_env *env, int argc, char **argv)
 {
 	int errorStat = 0;
 	int verbose = 0;
-	char full_script_name[2*SCRIPT_PATH_SIZE];
+	char full_script_name[2*SCRIPT_PATH_SIZE] = {0};
 
 	if (argc > 1) {
 		verbose = getHex(argv[0], 0);

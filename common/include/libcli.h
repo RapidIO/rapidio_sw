@@ -111,7 +111,7 @@ char* GetEnv(char* var);
 void SetEnvVar(char* arg);
 char* SubstituteParam(char* arg);
 
-/* parsing support routines that support parameter substitution */
+/* Parsing support routines that support parameter substitution */
 int GetDecParm(char* arg, int dflt);
 uint64_t GetHex(char* arg, int dflt);
 float GetFloatParm(char* arg, float dflt);
@@ -170,6 +170,17 @@ extern int set_script_path(char *path);
  * The cons_parm should be the prompt string to be used.
  */
 void *console(void *cons_parm);
+
+///< Argument (forced to void*) to console_rc
+typedef struct {
+  const char* prompt; ///< CLI prompt
+  const char* script; ///< RC script
+} ConsoleRc_t;
+
+/** \brief Run the console but first execute the RC script
+ * \note cons_parm must be "void" to match up with pthread types
+ */
+void* console_rc(void *cons_parm);
 
 #ifdef __cplusplus
 }

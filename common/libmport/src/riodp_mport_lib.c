@@ -180,7 +180,7 @@ struct rapidio_mport_socket {
 
 int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle)
 {
-	char path[32];
+	char path[32] = {0};
 	int fd, ret;
 	struct rapidio_mport_handle *hnd = NULL;
 

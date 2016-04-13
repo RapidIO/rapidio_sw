@@ -67,7 +67,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "worker.h"
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
-#include "rapidio_mport_sock.h"
 
 #ifdef __cplusplus
 extern "C" {

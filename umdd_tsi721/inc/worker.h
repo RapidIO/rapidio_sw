@@ -66,7 +66,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
-#include "rapidio_mport_sock.h"
 
 #include "libtime_utils.h"
 

@@ -61,7 +61,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "goodput.h"
 #include "goodput_cli.h"
 #include "rapidio_mport_mgmt.h"
-#include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
 
 #ifdef __cplusplus
@@ -70,7 +69,7 @@ extern "C" {
 
 riomp_mport_t mp_h;
 int mp_h_valid;
-int mp_h_num;
+int mp_h_num = -1;
 int mp_h_qresp_valid;
 struct riomp_mgmt_mport_properties qresp;
 
@@ -95,6 +94,8 @@ void goodput_thread_shutdown(struct cli_env *env)
 int setup_mport(int mport_num)
 {
 	int rc;
+
+	if (mport_num == mp_h_num) return 0; // No-op
 
 	if (mp_h_valid) {
 		riomp_mgmt_mport_destroy_handle(&mp_h);
@@ -125,7 +126,9 @@ void sig_handler(int signo)
 int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
-	int i;
+
+	char* rc_script = NULL;
+
 	int mport_num = 0;
 
 	signal(SIGINT, sig_handler);
@@ -138,6 +141,11 @@ int main(int argc, char *argv[])
 
 	for(int n = 2; n < argc; n++) {
 		const char* arg = argv[n];
+		if(! strcmp(arg,"--rc")) {
+			if (n == (argc-1)) continue;
+			rc_script = argv[++n];
+			continue;
+		}
 		if(! strstr(arg,"=")) continue;
 		SetEnvVar((char *)arg);
         }
@@ -148,16 +156,19 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	};
 
-	for (i = 0; i < MAX_WORKERS; i++)
+	for (int i = 0; i < MAX_WORKERS; i++)
 		init_worker_info(&wkr[i], 1);
 
-	riomp_sock_mbox_init();
         cli_init_base(goodput_thread_shutdown);
         bind_goodput_cmds();
 	liblog_bind_cli_cmds();
 	splashScreen((char *)"UMDd/SHM");
 
-	console((void *)((char *)"UMDd> "));
+	ConsoleRc_t crc;
+	crc.prompt = (char *)"UMDd> ";
+	crc.script = rc_script;
+
+	console_rc((void *)&crc);
 
 	goodput_thread_shutdown(NULL);
 
