@@ -144,7 +144,7 @@ void umd_afu_watch_demo(struct worker* info)
 		snprintf(sock_name, PATH_MAX, "%s%d", AFU_PATH, i);
 		unlink(sock_name);
 
-		if ((s = socket (AF_UNIX, SOCK_STREAM, 0)) < 0) {
+		if ((s = socket (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) < 0) {
 		    CRIT("socket error: %s", strerror(errno));
 		    goto exit;
 		}
