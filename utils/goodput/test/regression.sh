@@ -22,7 +22,7 @@ PREVDIR=/..
 HOMEDIR=$HOMEDIR$PREVDIR
 
 WAIT_TIME=30
-TRANS=5
+TRANS_IN=5
 IBA_ADDR=200000000
 ACC_SIZE=40000
 BYTES=400000
@@ -124,9 +124,9 @@ if [ $PRINT_HELP != "0" ]; then
 	echo $'             Default is ' $WAIT_TIME
         echo $'DMA_TRANS  : DMA transaction type'
         echo $'             0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL'
-	echo $'             Default is to loop through all.'
+	echo $'             Default is 0 NW.'
         echo $'DMA_SYNC   : 0 - blocking, 1 - async, 2 - fire and forget'
-	echo $'             Default is to loop through all.'
+	echo $'             Default is 0 blocking.'
         echo $'IBA_ADDR   : RapidIO address of inbound window for both nodes'
 	echo $'             Default is ' $IBA_ADDR
         echo $'SKT_PREFIX : First 3 digits of 4 digit socket numbers'
@@ -138,8 +138,8 @@ if [ $PRINT_HELP != "0" ]; then
 	exit 1
 fi;
 
-INTERP_TRANS=(NW SW NW_R SW_R NW_R_ALL ALL);
-INTERP_SYNC=(BLOCK ASYNC FAF ALL);
+INTERP_TRANS=(NW SW NW_R SW_R NW_R_ALL DEFAULT);
+INTERP_SYNC=(BLOCK ASYNC FAF DEFAULT);
 
 echo $'\nStarting regression:\n'
 echo 'MAST       :' $MAST_NODE
@@ -156,13 +156,13 @@ echo 'IBA_ADDR   :' $IBA_ADDR
 echo 'SKT_PREFIX :' $SKT_PREFIX
 
 if [ "$TRANS_IN" == "5" ]; then
-	DMA_TRANS=( 0 1 2 3 4 )
+	DMA_TRANS=( 0 )
 else
 	DMA_TRANS=( "$TRANS_IN" )
 fi
 
 if [ "$SYNC_IN" == "3" ]; then
-	DMA_SYNC=( 0 1 2 )
+	DMA_SYNC=( 0 )
 else
 	DMA_SYNC=( "${SYNC_IN}" )
 	if [ "$SYNC2_IN" == "3" ]; then
@@ -215,14 +215,17 @@ BUILD_SCRIPT
 	echo $node " STARTING GOODPUT"
 
 	LOGNAME=mport${MPNUM[${IDX}]}'/start_target.log'
+	LOG_FILE_DIR=${HOMEDIR}/logs/mport${MPNUM[${IDX}]}
 
 	ssh -T root@"$node" <<NODE_START
+rm -f ${LOG_FILE_DIR}'/*.log'
+rm -f ${LOG_FILE_DIR}'/*.res'
+rm -f ${LOG_FILE_DIR}'/*.out'
+
 cd ${HOMEDIR}/scripts
 ./create_start_scripts.sh ${MPNUM[${IDX}]} ${SKT_PREFIX} ${IBA_ADDR}
 
 cd ..
-
-rm -f logs/${LOGNAME}
 
 echo $node " Quitting out of OLD goodput screen session, if one exists"
 screen -S goodput -p 0 -X stuff $'quit\r'
@@ -250,16 +253,23 @@ NODE_START
 	IDX=${IDX}+1
 done
 
-echo GENERATING SCRIPTS ON SLAVE ${SLAVE_NODE}, PARAMETERS ARE
-echo 'WAIT TIME  :' $WAIT_TIME ' SECONDS'
-echo 'TRANS      : 0 ' ${INTERP_TRANS[0]}
-echo 'SYNC       : 0 ' ${INTERP_SYNC[0]}
-echo 'SYNC2      : 0 ' ${INTERP_SYNC[0]}
-echo 'SYNC3      : 0 ' ${INTERP_SYNC[0]}
-echo 'DID        :' ${DESTIDS[0]}
-echo 'IBA_ADDR   : 0x' $IBA_ADDR
-echo 'SKT_PREFIX : 0x' $SKT_PREFIX
-echo 'MPORT_NUM  : ' $SLAVE_MPNUM
+LABEL_LOG=${HOMEDIR}/logs/mport${MAST_MPNUM}/label.res
+
+ssh -T root@${MAST_NODE} << LOG_FILE_SLAVE 
+echo 'Test run started ' "$(eval date)" > $LABEL_LOG
+echo 'GENERATING SCRIPTS ON SLAVE ${SLAVE_NODE}, PARAMETERS ARE' >> $LABEL_LOG
+echo 'WAIT TIME  :' $WAIT_TIME ' SECONDS' >> $LABEL_LOG
+echo 'TRANS      : 0 ' ${INTERP_TRANS[0]} >> $LABEL_LOG
+echo 'SYNC       : 0 ' ${INTERP_SYNC[0]} >> $LABEL_LOG
+echo 'SYNC2      : 0 ' ${INTERP_SYNC[0]} >> $LABEL_LOG
+echo 'SYNC3      : 0 ' ${INTERP_SYNC[0]} >> $LABEL_LOG
+echo 'DID        :' ${DESTIDS[0]} >> $LABEL_LOG
+echo 'IBA_ADDR   : 0x' $IBA_ADDR >> $LABEL_LOG
+echo 'SKT_PREFIX : 0x' $SKT_PREFIX >> $LABEL_LOG
+echo 'MPORT_NUM  : ' $SLAVE_MPNUM >> $LABEL_LOG
+LOG_FILE_SLAVE
+
+ssh -T root@${MAST_NODE} cat ${LABEL_LOG}
 
 # NOTE: DESTIDS[0] below is correct, because the slave needs to know
 #       the destination ID of the master.
@@ -278,10 +288,10 @@ DMA_LAT_SZ=(1B 2B 4B 8B 16B 32B 64B 128B 256B 512B
 	1M 2M 4M)
 DMA_LAT_PREFIX=dl
 
-cd ${HOMEDIR}
-
-echo ${DMA_TRANS[0]}
-echo ${DMA_SYNC[0]}
+# NOTE: The original intent of the script was to loop through all
+#       combinations of TRANS and SYNC.  This is just not worthwhile,
+#       as there's no way to check the logs.  As a result, the
+#       current script operates on just one TRANS and SYNC.
 
 for TRANS in ${DMA_TRANS[@]}; do
 	for SYNC in ${DMA_SYNC[@]}; do
@@ -293,32 +303,26 @@ for TRANS in ${DMA_TRANS[@]}; do
 				SYNC3=$SYNC
 			fi
 		fi
-		echo GENERATING SCRIPTS ON MASTER ${MAST_NODE}, PARAMETERS ARE
-		echo 'WAIT TIME  :' $WAIT_TIME ' SECONDS'
-		echo 'TRANS      :' $TRANS ${INTERP_TRANS[TRANS]}
-		echo 'SYNC       :' $SYNC  ${INTERP_SYNC[SYNC]}
-		echo 'SYNC2      :' $SYNC2 ${INTERP_SYNC[SYNC2]}
-		echo 'SYNC3      :' $SYNC3 ${INTERP_SYNC[SYNC3]}
-		echo 'DID        :' ${DESTIDS[1]}
-		echo 'IBA_ADDR   : 0x' $IBA_ADDR
-		echo 'SKT_PREFIX : 0x' $SKT_PREFIX
-		echo 'MPORT_NUM  : ' $MAST_MPNUM
+		LABEL_LOG=${HOMEDIR}/logs/mport${MAST_MPNUM}/label.res
+		ssh -T root@${MAST_NODE} << LOG_FILE_MASTER 
+echo 'GENERATED SCRIPTS ON MASTER '${MAST_NODE}' at '$(eval date) >> $LABEL_LOG
+echo 'MASTER PARAMETERS ARE' >> $LABEL_LOG
+echo 'WAIT TIME  :' $WAIT_TIME ' SECONDS' >> $LABEL_LOG
+echo 'TRANS      :' $TRANS ${INTERP_TRANS[TRANS]} >> $LABEL_LOG
+echo 'SYNC       :' $SYNC  ${INTERP_SYNC[SYNC]} >> $LABEL_LOG
+echo 'SYNC2      :' $SYNC2 ${INTERP_SYNC[SYNC2]} >> $LABEL_LOG
+echo 'SYNC3      :' $SYNC3 ${INTERP_SYNC[SYNC3]} >> $LABEL_LOG
+echo 'DID        :' ${DESTIDS[1]} >> $LABEL_LOG
+echo 'IBA_ADDR   : 0x' $IBA_ADDR >> $LABEL_LOG
+echo 'SKT_PREFIX : 0x' $SKT_PREFIX >> $LABEL_LOG
+echo 'MPORT_NUM  : ' $MAST_MPNUM >> $LABEL_LOG
+LOG_FILE_MASTER
 
-		echo ' '
+		ssh -T root@${MAST_NODE} tail --lines=11 ${LABEL_LOG}
+
 		echo 'EXECUTING ' ${HOMEDIR}/mport${MAST_MPNUM}/run_all_perf
 		let "TOT_WAIT = ((450 * ($WAIT_TIME + 1)) / 60) + 1"
 		echo 'ESTIMATING ' $TOT_WAIT ' MINUTES TO COMPLETION...'
-
-		LOG_FILE_NAME=${HOMEDIR}/logs/mport${SLAVE_MPNUM}
-		ssh -T root@${SLAVE_NODE} rm -f ${LOG_FILE_NAME}'/*.log'
-		ssh -T root@${SLAVE_NODE} rm -f ${LOG_FILE_NAME}'/*.res'
-		ssh -T root@${SLAVE_NODE} rm -f ${LOG_FILE_NAME}'/*.out'
-
-		LOG_FILE_NAME=${HOMEDIR}/logs/mport${MAST_MPNUM}
-		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}'/*.log'
-		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}'/*.res'
-		ssh -T root@${MAST_NODE} rm -f ${LOG_FILE_NAME}'/*.out'
-
 
 		LOG_FILE_NAME=${HOMEDIR}/logs/mport${MAST_MPNUM}/run_all_perf_done.log
 
@@ -420,6 +424,7 @@ MAST_DMA_LAT_END
 
 		ssh -T root@${MAST_NODE} << MAST_DMA_LAT_ST
 screen -S goodput -p 0 -X stuff $'close\r'
+echo 'Test run finished ' "$(eval date)" >> $LABEL_LOG
 MAST_DMA_LAT_ST
 
 		ssh -T root@${SLAVE_NODE} << SLAVE_DMA_LAT_ST
