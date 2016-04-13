@@ -77,7 +77,7 @@ UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
 	 #-DRIO_ANY_ADDR=0
 
 
-UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc src/rdmaopsumd.cc
+UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc src/rdmaopsumd.cc src/httpsrv.cc
 
 LIBRARIES =  -lpthread -ldl -lmport -lcli -ltime_utils -llog -lrt -lumd
 
