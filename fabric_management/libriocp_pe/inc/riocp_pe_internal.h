@@ -98,7 +98,6 @@ struct riocp_pe_mport {
 /** RapidIO Processing element switch driver */
 struct riocp_pe_switch {
 	int lane_count;		/**< number of lanes this switch has */
-	int domain;			/**< switch domain id (init as -1 when not set) */
 	const char *name;	/**< Name of switch */
 	void *private_data;	/**< Switch driver implementation specific private data */
 	struct riocp_pe_device_id *id_table; /**< Driver support for matching DID/VID */
@@ -118,18 +117,18 @@ struct riocp_pe_switch {
 	int (*port_disable)(struct riocp_pe *sw, uint8_t port);
 	int (*set_multicast_mask)(struct riocp_pe *sw, uint8_t lut, uint8_t maskid, uint16_t port_mask, bool clear);
 	int (*set_congest_limit)(struct riocp_pe *sw, uint8_t port, uint16_t limit);
-    int (*get_register_capabilities)(riocp_sw_cap_t *reg_cap);
-    int (*get_counters)(struct riocp_pe *sw, uint8_t port,
-            riocp_sw_cap_t reg_offsets, uint32_t *reg_cap_val, uint32_t reg_cap_val_size);
-    int (*get_trace_filter_capabilities)(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps);
-    int (*set_trace_filter)(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *val, uint32_t *mask);
-    int (*set_trace_port)(struct riocp_pe *sw, uint8_t port, uint32_t flags);
+	int (*get_register_capabilities)(riocp_sw_cap_t *reg_cap);
+	int (*get_counters)(struct riocp_pe *sw, uint8_t port,
+			riocp_sw_cap_t reg_offsets, uint32_t *reg_cap_val, uint32_t reg_cap_val_size);
+	int (*get_trace_filter_capabilities)(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps);
+	int (*set_trace_filter)(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *val, uint32_t *mask);
+	int (*set_trace_port)(struct riocp_pe *sw, uint8_t port, uint32_t flags);
 };
 
 /** RapidIO Processing element */
 struct riocp_pe {
 	uint32_t version;			/**< Internal handle revision */
-	riomp_mport_t mp_hnd;   	/**< mport handle for this PE */
+	riomp_mport_t mp_hnd;   		/**< mport handle for this PE */
 	uint8_t hopcount;			/**< RapidIO hopcount */
 	uint32_t destid;			/**< RapidIO destination ID */
 	uint32_t comptag;			/**< RapidIO component tag */
@@ -139,7 +138,7 @@ struct riocp_pe {
 	uint32_t efptr_phys;			/**< RapidIO Physical extended feature pointer */
 //	uint32_t efptr_em;			/**< RapidIO Error Management feature pointer */
 	riocp_pe_event_mask_t *port_event_mask;	/**< Event mask */
-	//struct rio_pw_filter pwfilter; 		/**< TODO Mport driver port-write filter */
+	//struct rio_pw_filter pwfilter; 	/**< TODO Mport driver port-write filter */
 	struct riocp_pe *mport;			/**< Mport that created this PE */
 	struct riocp_pe_mport *minfo;		/**< Mport information (set when PE is mport) */
 	struct riocp_pe_switch *sw;		/**< Switch specific operations */

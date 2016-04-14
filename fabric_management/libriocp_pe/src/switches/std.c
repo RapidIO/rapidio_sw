@@ -176,7 +176,6 @@ static int std_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_port_s
 
 struct riocp_pe_switch riocp_pe_switch_std = {
 	0,
-	-1,
 	"std",
 	NULL,
 	NULL,

@@ -1561,7 +1561,7 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 		return -EINVAL;
 	}
 
-	if ((destid & 0xff00) == 0 || (int)((destid>>8)&0x0ff) == sw->sw->domain) {
+	if ((destid & 0xff00) == 0 || (destid & 0xff00) == sw->destid) {
 		ret = riocp_pe_maint_write(sw, off_dev, value);
 		if (ret < 0)
 			return ret;
@@ -1647,7 +1647,7 @@ int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 		return -EINVAL;
 	}
 
-	if ((destid >> 8)) {
+	if ((destid && 0xff00) != 0 && (destid & 0xff00) != sw->destid) {
 		ret = riocp_pe_maint_read(sw, off_dm, &_port);
 		if (ret < 0)
 			return ret;
@@ -1767,7 +1767,6 @@ int cps1xxx_clear_lut(struct riocp_pe *sw, uint8_t lut)
 
 int cps1xxx_set_domain(struct riocp_pe *sw, uint8_t domain)
 {
-	sw->sw->domain = domain;
 	return riocp_pe_maint_write(sw, CPS1xxx_RTE_RIO_DOMAIN, domain);
 }
 
@@ -3352,7 +3351,6 @@ struct riocp_pe_device_id cps1848_id_table[] = {
 };
 struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	48,
-	-1,
 	"cps1848",
 	NULL,
 	cps1848_id_table,
@@ -3385,7 +3383,6 @@ struct riocp_pe_device_id cps1432_id_table[] = {
 };
 struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	32,
-	-1,
 	"cps1432",
 	NULL,
 	cps1432_id_table,
@@ -3418,7 +3415,6 @@ struct riocp_pe_device_id cps1616_id_table[] = {
 };
 struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	16,
-	-1,
 	"cps1616",
 	NULL,
 	cps1616_id_table,
@@ -3451,7 +3447,6 @@ struct riocp_pe_device_id sps1616_id_table[] = {
 };
 struct riocp_pe_switch riocp_pe_switch_sps1616 = {
 	16,
-	-1,
 	"sps1616",
 	NULL,
 	sps1616_id_table,
