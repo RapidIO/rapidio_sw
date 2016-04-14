@@ -10,10 +10,12 @@
 SOURCE_PATH="/opt/rapidio/rapidio_sw"
 INSTALL_PATH=$SOURCE_PATH"/install"
 
-NODES=(node1 node2 node3 node4) 
+. /etc/rapidio/nodelist.sh
 
-for node in "${NODES[@]}"
+let c=0;
+for node in $NODES
 do
+	let c=c+1;
 	echo "${node}"
 
 	if [ -z "$1" ]
@@ -23,7 +25,7 @@ do
 		ssh root@"${node}" $INSTALL_PATH/kernel_start.sh noenum
 	fi
 
-	if [ "${node}" == "${NODES[0]}" ]
+	if [ $c -eq 1 ]
 	then
 		sleep 5
 	fi

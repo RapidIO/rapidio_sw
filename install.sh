@@ -125,7 +125,6 @@ for host in  "${ALLNODES[@]}"; do
   ssh root@"$host" "mkdir -p $CONFIG_PATH; cp $SCRIPTS_PATH/umdd.conf $UMDD_CONF"
 done
 
-exit 1
 echo "Installation of configuration files COMPLETED..."
 
 FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh 
@@ -134,12 +133,24 @@ FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh
 for f in "${FILES[@]}"
 do
 	FILENAME=$SOURCE_PATH/$f
-
 	cp $SCRIPTS_PATH/$f $FILENAME
-	sed -i -- 's/node1/'$MASTER'/g' $FILENAME
-	sed -i -- 's/node2/'$NODE2'/g' $FILENAME
-	sed -i -- 's/node3/'$NODE3'/g' $FILENAME
-	sed -i -- 's/node4/'$NODE4'/g' $FILENAME
 done
+
+echo "Installing node list..."
+NODELIST='NODES="'
+for host in  "${ALLNODES[@]}"; do
+  [ "$host" = 'none' ] && continue;
+  NODELIST="$NODELIST $host";
+done
+NODELIST="$NODELIST \"";
+cat > /tmp/nodelist.sh <<EOF
+$NODELIST
+EOF
+for host in  "${ALLNODES[@]}"; do
+  [ "$host" = 'none' ] && continue;
+  (cd /tmp; tar cf - nodelist.sh) |
+    ssh root@"$host" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; tar xvf -";
+done
+rm /tmp/nodelist.sh
 
 echo "Installion complete."

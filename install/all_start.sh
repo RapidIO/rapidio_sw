@@ -3,7 +3,8 @@ SOURCE_PATH=/opt/rapidio/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 # Temporary script to speed up RSKT test apps development.
-NODES="node1 node2 node3 node4"
+
+. /etc/rapidio/nodelist.sh
 
 # Load drivers on each node
 

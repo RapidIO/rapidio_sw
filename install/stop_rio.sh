@@ -5,9 +5,9 @@
 SOURCE_PATH="/opt/rapidio/rapidio_sw"
 INSTALL_PATH=$SOURCE_PATH"/install"
 
-NODES=(node1 node2 node3 node4) 
+. /etc/rapidio/nodelist.sh
 
-for node in "${NODES[@]}"
+for node in $NODES
 do
 	echo "${node}"
 
