@@ -134,7 +134,7 @@ done
 
 UMDD_CONF=$CONFIG_PATH/umdd.conf
 
-for $host in $1 $2 $3 $4; do
+for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
   echo "copying "$host
   ssh root@"$host" "mkdir -p $CONFIG_PATH"

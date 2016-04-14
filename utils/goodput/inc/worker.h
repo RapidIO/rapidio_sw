@@ -64,6 +64,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include <string>
+#include <sstream>
+
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
@@ -71,7 +74,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libtime_utils.h"
 
 #ifdef USER_MODE_DRIVER
-#include <string>
 #include <map>
 
 #include "dmachan.h"
@@ -135,6 +137,7 @@ enum req_type {
 	umd_epwatch,
 	umd_mbox_watch,
 	umd_afu_watch,
+	umd_www,
 #endif
 	last_action
 };
@@ -407,6 +410,10 @@ void start_worker_thread(struct worker *info, int new_mp_h, int cpu);
 
 void shutdown_worker_thread(struct worker *info);
 
+extern "C" {
+	void display_gen_status_ss(std::stringstream& out);
+	void display_ibwin_status_ss(std::stringstream& out);
+};
 #ifdef __cplusplus
 }
 #endif

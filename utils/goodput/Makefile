@@ -77,7 +77,7 @@ UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
 	 #-DRIO_ANY_ADDR=0
 
 
-UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc src/rdmaopsumd.cc
+UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc src/rdmaopsumd.cc src/httpsrv.cc
 
 LIBRARIES =  -lpthread -ldl -lmport -lcli -ltime_utils -llog -lrt -lumd
 
@@ -86,12 +86,13 @@ all: goodput ugoodput
 ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) 
 	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
 	$(COMMONLIB) -L$(UMDDIR) $(LIBRARIES) 
+	@ln -s scripts mport0 &>/dev/null || true
 
 goodput: $(SOURCES) $(INCLUDES)
 	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(COMMONLIB) -L$(UMDDIR) $(LIBRARIES)
 
 clean:
-	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out *.log
+	@rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out *.log
 
 FORCE:
 

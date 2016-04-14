@@ -1224,7 +1224,7 @@ void umd_dma_goodput_tun_demo(struct worker *info)
     struct epoll_event event;
     event.data.fd = info->umd_sockp_quit[1];
     event.events = EPOLLIN | EPOLLET;
-          if(epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, info->umd_sockp_quit[1], &event) < 0) goto exit;
+    if(epoll_ctl (info->umd_epollfd, EPOLL_CTL_ADD, info->umd_sockp_quit[1], &event) < 0) goto exit;
   }}
 
   init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
@@ -1571,7 +1571,7 @@ static void decodeInotifyEvent(const struct inotify_event* i, std::string& str)
 }
 #endif // UDMA_TUN_DEBUG_IN
 
-static inline bool umd_check_dma_tun_thr_running(struct worker* info)
+bool umd_check_dma_tun_thr_running(struct worker* info)
 {
   if (info == NULL) return false;
 
@@ -1980,11 +1980,7 @@ exit_bomb:
   goto exit;
 }
 
-/** \brief Dump UMD DMA Tun status
- * \note This executes within the CLI thread but targets Main Battle Tank thread's data
- */
-extern "C"
-void UMD_DD(struct worker* info)
+void UMD_DD_SS(struct worker* info, std::stringstream& out)
 {
   int q_size[6] = {0};
   bool     port_ok[6] = {0};
@@ -2000,7 +1996,7 @@ void UMD_DD(struct worker* info)
 
   std::string s;
   if (info->umd_peer_ibmap->toString(s) > 0)
-    printf("\tIBwin mappings:\n%s", s.c_str());
+    out << "\tIBwin mappings:\n" << s;
 
   RioMport* mport = new RioMport(info->mp_num, info->mp_h);
 
@@ -2021,7 +2017,7 @@ void UMD_DD(struct worker* info)
                         mport->rd32(TSI721_RXPKT_BRG_CNT), mport->rd32(TSI721_BRG_PKT_ERR_CNT));
     ss << "\t\t" << tmp;
 
-    printf("\tPerf counters:\n%s", ss.str().c_str());
+    out << "\tPerf counters:\n", ss.str();
   }}
 
   const int TX_HISTO_SZ = sizeof(uint64_t) * info->umd_tx_buf_cnt;
@@ -2059,7 +2055,6 @@ void UMD_DD(struct worker* info)
 
       dch_cnt++;
     } // END for umd_chan
-
 
     DMAChannel* dch2 = dynamic_cast<RdmaOpsUMD*>(info->umd_dci_nread->rdma)->getChannel();
     assert(dch2);
@@ -2104,7 +2099,7 @@ void UMD_DD(struct worker* info)
       if (GetEnv("verb") != NULL && ss_histo.str().size() > 0) ss << "\n\t\tTX Histo: " << ss_histo.str();
     }
     if (dch_cnt > 0)
-      printf("\tDMA Channel stats: %s\n", ss.str().c_str());
+      out << "\tDMA Channel stats: " << ss.str() << "\n";
   } // END if dma_method == ACCESS_UMD 
 
   std::vector<DmaPeer>     peer_list;
@@ -2159,7 +2154,9 @@ void UMD_DD(struct worker* info)
                          peer_list_enum[ip].my_rio_addr);
       ss << "\n\t\t" << tmp;
     }
-    printf("\tGot %d enumerated peer(s): %s\n", peer_list_enum.size(), ss.str().c_str());
+    char tmp[65] = {0};
+    snprintf(tmp, 64, "\tGot %d enumerated peer(s): ", peer_list_enum.size());
+    out << tmp << ss.str() << "\n";
   }
 
   if (peer_list.size() > 0) {
@@ -2233,10 +2230,27 @@ void UMD_DD(struct worker* info)
       }
     }
 
-    printf("\tGot %d UP peer(s): %s\n", peer_list.size(), ss.str().c_str());
+    char tmpo[65] = {0};
+    snprintf(tmpo, 64, "\tGot %d UP peer(s): ", peer_list.size());
+    out << tmpo << ss.str() << "\n";
   }
 
   delete mport;
+}
+
+
+/** \brief Dump UMD DMA Tun status
+ * \note This executes within the CLI thread but targets Main Battle Tank thread's data
+ */
+extern "C"
+void UMD_DD(struct worker* info)
+{
+  assert(info);
+  assert(info->umd_dci_nread);
+
+  std::stringstream out;
+  UMD_DD_SS(info, out);
+  printf("%s", out.str().c_str());
 }
 
 extern "C"
@@ -2250,4 +2264,3 @@ void UMD_Test(struct worker* info)
 
   INFO("\n\tNREAD %s did=%d rio_addr=0x%llx => %u\n", (r? "ok": "FAILED"), info->did, info->ib_rio_addr, u4);
 }
-
