@@ -32,7 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 /**
- * \file mbox_sample.c
+ * \file mbox_example.c
  * \brief Example code for the Tsi721 Mailbox User Mode Driver 
  *
  * This file implements an example client and server.  
