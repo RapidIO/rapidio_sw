@@ -108,7 +108,7 @@ private:
 
 	/* Constructor */
 ibwin::ibwin(riomp_mport_t mport_hnd, unsigned win_num, uint64_t size) :
-	mport_hnd(mport_hnd), win_num(win_num), rio_addr(RIO_MAP_ANY_ADDR),
+	mport_hnd(mport_hnd), win_num(win_num), rio_addr(RIOMP_MAP_ANY_ADDR),
 	phys_addr(0), size(size)
 {
 	/* First, obtain an inbound handle from the mport driver */

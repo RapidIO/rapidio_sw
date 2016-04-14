@@ -802,7 +802,7 @@ int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t
 	if(hnd == NULL)
 		return -EINVAL;
 
-	ib.rio_addr = *rio_base;
+	ib.rio_addr = (*rio_base == RIOMP_MAP_ANY_ADDR) ? RIO_MAP_ANY_ADDR : *rio_base;
 	ib.length = size;
 
 	if (ioctl(hnd->fd, RIO_MAP_INBOUND, &ib))
