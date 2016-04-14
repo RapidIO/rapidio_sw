@@ -78,7 +78,7 @@ make clean &>/dev/null; git pull
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
   tar cf - * .git* | \
-  ssh -C root@"$host" "mkdir -p $SOURCE_PATH; pushd $SOURCE_PATH; tar xf -; popd; chown -R root.$GRP $SOURCE_PATH"
+  ssh -C root@"$host" "mkdir -p $SOURCE_PATH; pushd $SOURCE_PATH &>/dev/null; tar xf -; popd &>/dev/null; chown -R root.$GRP $SOURCE_PATH"
 done
 
 for host in  "${ALLNODES[@]}"; do
@@ -113,9 +113,13 @@ done
 awk -vM=$MEMSZ $HOSTL '
 	/MEMSZ/{gsub(/MEMSZ/, M);}
 	/node1/{gsub(/node1/, H1);}
-	/node2/{if(H2 != "") {gsub(/node2/, H2);}}
-	/node3/{if(H3 != "") {gsub(/node3/, H3);}}
-	/node4/{if(H4 != "") {gsub(/node4/, H4);}}
+	/node2/{if(H2 != "") {gsub(/node2/, H2);} else {$0="";}}
+	/node3/{if(H3 != "") {gsub(/node3/, H3);} else {$0="";}}
+	/node4/{if(H4 != "") {gsub(/node4/, H4);} else {$0="";}}
+	/node4/{if(H5 != "") {gsub(/node5/, H5);} else {$0="";}}
+	/node4/{if(H6 != "") {gsub(/node6/, H6);} else {$0="";}}
+	/node4/{if(H7 != "") {gsub(/node7/, H7);} else {$0="";}}
+	/node4/{if(H8 != "") {gsub(/node8/, H8);} else {$0="";}}
 	{print}' install/node-master.conf | \
     ssh root@"$MASTER" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
 
@@ -133,10 +137,11 @@ FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh
 for f in "${FILES[@]}"
 do
 	FILENAME=$SOURCE_PATH/$f
-	cp $SCRIPTS_PATH/$f $FILENAME
+	sudo cp $SCRIPTS_PATH/$f $FILENAME
 done
 
 echo "Installing node list..."
+
 NODELIST='NODES="'
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
@@ -146,11 +151,13 @@ NODELIST="$NODELIST \"";
 cat > /tmp/nodelist.sh <<EOF
 $NODELIST
 EOF
+
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
   (cd /tmp; tar cf - nodelist.sh) |
     ssh root@"$host" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; tar xvf -";
 done
+
 rm /tmp/nodelist.sh
 
 echo "Installion complete."
