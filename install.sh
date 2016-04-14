@@ -73,12 +73,12 @@ done
 
 echo "Beginning installation..."
 
-make clean; git pull
+make clean &>/dev/null; git pull
 
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
   tar cf - * .git* | \
-  ssh -C root@"$host" "mkdir -p $SOURCE_PATH; pushd $SOURCE_PATH; tar xvf -; make clean; make; popd; chown -R root.$GRP $SOURCE_PATH"
+  ssh -C root@"$host" "mkdir -p $SOURCE_PATH; pushd $SOURCE_PATH; tar xf -; popd; chown -R root.$GRP $SOURCE_PATH"
 done
 
 for host in  "${ALLNODES[@]}"; do
@@ -97,6 +97,7 @@ for host in  "${ALLNODES[@]}"; do
   [ $c -eq 1 ] && continue;
   [ "$host" = 'none' ] && continue;
   sed s/NODE_VAR/$host/g install/node-slave.conf | \
+    sed s/MEMSZ/$MEMSZ/g | \
     ssh root@"$host" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
 done
 
@@ -109,7 +110,8 @@ for host in  "${ALLNODES[@]}"; do
 done
 
 # And now the master FMD
-awk $HOSTL '
+awk -vM=$MEMSZ $HOSTL '
+	/MEMSZ/{gsub(/MEMSZ/, M);}
 	/node1/{gsub(/node1/, H1);}
 	/node2/{if(H2 != "") {gsub(/node2/, H2);}}
 	/node3/{if(H3 != "") {gsub(/node3/, H3);}}
