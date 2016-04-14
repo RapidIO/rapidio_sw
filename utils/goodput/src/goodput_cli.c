@@ -1484,7 +1484,7 @@ void display_gen_status_ss(std::stringstream& out)
 
 	char output[8192+1] = {0};
 	for (int i = 0; i < MAX_WORKERS; i++) {
-		if (wkr[i].stat != 1) continue;
+		if (! (wkr[i].stat == 1 || wkr[i].stat == 2)) continue;
 
 		snprintf(output, 8192, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
         	out << output;
@@ -1517,7 +1517,7 @@ void display_ibwin_status_ss(std::stringstream& out)
 
 	char output[8192+1] = {0};
 	for (int i = 0; i < MAX_WORKERS; i++) {
-		if (wkr[i].stat != 1) continue;
+		if (! (wkr[i].stat == 1 || wkr[i].stat == 2)) continue;
 		if (wkr[i].ib_byte_cnt == 0) continue;
 
 		snprintf(output, 8192, "%2d %3s ", i, THREAD_STR(wkr[i].stat));
