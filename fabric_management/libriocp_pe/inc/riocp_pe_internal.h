@@ -146,6 +146,7 @@ struct riocp_pe {
 	struct riocp_pe_peer *peers;		/**< Connected peers (size RIOCP_PE_PORT_COUNT(pe->cap)) */
 	struct riocp_pe_port *port;		/**< Port (peer) info of this PE, used in riocp_pe_get_ports peer field */
 	void *private_data;			/**< PE private data */
+	void *private_driver_data;	/**< PE driver specific data */
 };
 
 /* RapidIO control plane logging facility */

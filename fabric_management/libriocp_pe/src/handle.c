@@ -251,6 +251,7 @@ riocp_pe_handle_cleanup_pe(struct riocp_pe *pe){
   free(pe->address);
   free(pe->port_event_mask);
   free(pe->private_data);
+  free(pe->private_driver_data);
 
   return 0;
 }

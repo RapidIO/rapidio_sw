@@ -1977,7 +1977,7 @@ int cps1xxx_set_retry_limit(struct riocp_pe *sw, uint8_t port, uint16_t limit)
 {
 	int ret;
 	uint32_t port_stat_ctrl, port_impl_err_det;
-	struct switch_priv_t *priv = (struct switch_priv_t *)sw->sw->private_data;
+	struct switch_priv_t *priv = (struct switch_priv_t *)sw->private_driver_data;
 
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_DET(port), &port_impl_err_det);
 	if (ret < 0)
@@ -2824,7 +2824,7 @@ static int cps1xxx_port_event_handler(struct riocp_pe *sw, struct riocp_pe_event
 	uint32_t err_det, err_det_after;
 	uint32_t impl_err_det, impl_err_det_after;
 	uint8_t port;
-	struct switch_priv_t *priv = (struct switch_priv_t *)sw->sw->private_data;
+	struct switch_priv_t *priv = (struct switch_priv_t *)sw->private_driver_data;
 
 	port = event->port;
 
@@ -3338,7 +3338,7 @@ int cps1xxx_init(struct riocp_pe *sw)
 	if (!switch_priv)
 		return -ENOMEM;
 
-	sw->sw->private_data = switch_priv;
+	sw->private_driver_data = switch_priv;
 
 	return 0;
 }
