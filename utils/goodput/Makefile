@@ -34,6 +34,8 @@ DEBUG?=DEBUG
 CC?= $(CROSS_COMPILE)g++
 CXX?= $(CROSS_COMPILE)g++
 
+ARCH := $(shell arch)
+
 config?=NODEBUG
 COMMONDIR=../../common
 UMDDIR=../../umd_tsi721
@@ -65,7 +67,14 @@ CCFLAGS = -I./inc  -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) \
 CCFLAGS+=-DUDMA_TUN_DEBUG_HISTO
 #CCFLAGS+=-rdynamic # use with mutrace
 
-CCFLAGS+=-ggdb -Ofast -march=native -mfpmath=sse -ffast-math
+CCFLAGS+=-ggdb -Ofast
+
+ifeq ($(ARCH), x86_64)
+ CXXFLAGS += -march=native -mfpmath=sse -ffast-math
+endif
+ifeq ($(ARCH), i686)
+ CXXFLAGS += -march=native -mfpmath=sse -ffast-math
+endif
 
 INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/worker.c

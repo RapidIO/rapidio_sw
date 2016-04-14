@@ -34,6 +34,8 @@ DEBUG?=DEBUG
 CXX?= $(CROSS_COMPILE)g++
 AR?=$(CROSS_COMPILE)ar
 
+ARCH := $(shell arch)
+
 config?=NODEBUG
 COMMONDIR=../common
 LIBMPINCDIR=$(COMMONDIR)/libmport/src
@@ -55,7 +57,15 @@ CXXFLAGS = -I./inc -I$(REGSDIR) -I$(COMMONINC) \
 	 -std=gnu++0x -D$(DEBUG) \
 	 -Werror -pthread
 
-CXXFLAGS += -ggdb -Ofast -march=native -mfpmath=sse -ffast-math
+CXXFLAGS += -ggdb -Ofast
+
+ifeq ($(ARCH), x86_64)
+ CXXFLAGS += -march=native -mfpmath=sse -ffast-math
+endif
+ifeq ($(ARCH), i686)
+ CXXFLAGS += -march=native -mfpmath=sse -ffast-math
+endif
+
 #CXXFLAGS += -DDEBUG_BD
 
 LIBFLAGS = -shared -fPIC
