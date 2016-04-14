@@ -98,6 +98,7 @@ struct riocp_pe_mport {
 /** RapidIO Processing element switch driver */
 struct riocp_pe_switch {
 	int port_count;		/**< number of ports this switch has (init as -1 when it needs to be autodetected) */
+	int lane_count;		/**< number of lanes this switch has */
 	int domain;			/**< switch domain id (init as -1 when not set) */
 	const char *name;	/**< Name of switch */
 	void *private_data;	/**< Switch driver implementation specific private data */

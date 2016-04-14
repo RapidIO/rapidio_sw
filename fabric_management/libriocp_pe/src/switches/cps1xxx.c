@@ -118,6 +118,12 @@ extern "C" {
 #define CPS1xxx_LANE_STAT_2_CSR(x)			(0x2018 + 0x020*(x))
 #define CPS1xxx_LANE_STAT_3_CSR(x)			(0x201c + 0x020*(x))
 #define CPS1xxx_LANE_STAT_4_CSR(x)			(0x2020 + 0x020*(x))
+#define CPS1xxx_LANE_STAT_0_PORT_S			(24)
+#define CPS1xxx_LANE_STAT_0_PORT_M			(0xff)
+#define CPS1xxx_LANE_STAT_0_PORT(x)			(((x)>>CPS1xxx_LANE_STAT_0_PORT_S)&CPS1xxx_LANE_STAT_0_PORT_M)
+#define CPS1xxx_LANE_STAT_0_LANE_S			(24)
+#define CPS1xxx_LANE_STAT_0_LANE_M			(0xff)
+#define CPS1xxx_LANE_STAT_0_LANE(x)			(((x)>>CPS1xxx_LANE_STAT_0_LANE_S)&CPS1xxx_LANE_STAT_0_LANE_M)
 #define CPS1xxx_LANE_STAT_3_AMP_PROG_EN		(0x20000000)
 #define CPS1xxx_LANE_STAT_3_NEG1_TAP_S		(6)
 #define CPS1xxx_LANE_STAT_3_NEG1_TAP_M		(0x3f<<CPS1xxx_LANE_STAT_3_NEG1_TAP_S)
@@ -484,10 +490,17 @@ extern "C" {
 
 struct switch_port_priv_t {
 	uint16_t retry_lim;
+	uint8_t first_lane;
+	uint8_t width;
+};
+struct switch_lane_priv_t {
+	uint8_t port;
+	uint8_t lane_in_port;
+	enum riocp_pe_speed speed;
 };
 
 struct switch_priv_t {
-	int dummy;
+	struct switch_lane_priv_t lanes[];
 	struct switch_port_priv_t ports[];
 };
 
@@ -1488,50 +1501,8 @@ static int cps1xxx_init_port(struct riocp_pe *sw, uint8_t port)
 static int cps1xxx_port_get_first_lane(struct riocp_pe *sw,
 		uint8_t port, uint8_t *lane)
 {
-	uint8_t _lane = 0;
-	uint32_t ctl;
-	int ret, map;
-
-	switch (RIOCP_PE_DID(sw->cap)) {
-	case RIO_DID_IDT_SPS1616:
-	case RIO_DID_IDT_CPS1616: /* fall through */
-		if (port <= 15)
-			_lane = port;
-		else
-			return -EINVAL;
-	break;
-	case RIO_DID_IDT_CPS1848:
-	case RIO_DID_IDT_CPS1432:
-
-		ret = riocp_pe_maint_read(sw, CPS1xxx_QUAD_CFG, &ctl);
-		if (ret < 0)
-			return ret;
-
-		RIOCP_DEBUG("[0x%08x:%s:hc %u] Quad cfg 0x%08x for port %u\n",
-				sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, ctl, port);
-
-		for (map=0;map<gen2_portmaps_len;map++) {
-			if (gen2_portmaps[map].did == RIOCP_PE_DID(sw->cap) && gen2_portmaps[map].port == port) {
-				if (gen2_portmaps[map].cfg == ((ctl >> (gen2_portmaps[map].quad * gen2_portmaps[map].quad_shift)) & 3)) {
-					_lane = gen2_portmaps[map].lane0;
-					goto found;
-				}
-			}
-		}
-		/* no valid lane found for that given port according to bootstrap configuration */
-		return -ENOTSUP;
-		break;
-	default:
-		RIOCP_ERROR("Unable to get first lane for DID 0x%04x\n",
-			RIOCP_PE_DID(sw->cap));
-		return -ENOSYS;
-	}
-
-found:
-	RIOCP_DEBUG("[0x%08x:%s:hc %u] Port %u, lane %u\n",
-			sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port, _lane);
-	*lane = _lane;
-
+	struct switch_priv_t *priv = (struct switch_priv_t*)sw->private_driver_data;
+	*lane = priv->ports[port].first_lane;
 	return 0;
 }
 
@@ -2169,11 +2140,8 @@ int cps1xxx_set_trace_port(struct riocp_pe *sw, uint8_t port, uint32_t flags)
 int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_speed *speed)
 {
 	int ret;
-	uint32_t ctl;
-	uint32_t tx_rate, rx_rate;
-	uint32_t pll_div;
-	enum riocp_pe_speed _speed;
 	uint8_t lane = 0;
+	struct switch_priv_t *priv = (struct switch_priv_t*)sw->private_driver_data;
 
 	RIOCP_TRACE("[0x%08x:%s:hc %u] Read port %u\n",
 			sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
@@ -2186,6 +2154,22 @@ int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 		}
 		return ret;
 	}
+
+	*speed = priv->lanes[lane].speed;
+	RIOCP_TRACE("Port %u lane %u speed: %u\n", port, lane, priv->lanes[lane].speed);
+	return ret;
+}
+
+int __cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t lane, enum riocp_pe_speed *speed)
+{
+	int ret;
+	uint32_t ctl;
+	uint32_t tx_rate, rx_rate;
+	uint32_t pll_div;
+	enum riocp_pe_speed _speed;
+
+	RIOCP_TRACE("[0x%08x:%s:hc %u] Read lane %u\n",
+			sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, lane);
 
 	switch (RIOCP_PE_DID(sw->cap)) {
 	case RIO_DID_IDT_SPS1616:
@@ -2200,29 +2184,7 @@ int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 		break;
 	case RIO_DID_IDT_CPS1848:
 	case RIO_DID_IDT_CPS1432: {
-		int map;
-		uint8_t _pll = 255;
-
-		ret = riocp_pe_maint_read(sw, CPS1xxx_QUAD_CFG, &ctl);
-		if (ret < 0)
-			return ret;
-
-		for (map=0;map<gen2_portmaps_len;map++) {
-			if (gen2_portmaps[map].did == RIOCP_PE_DID(sw->cap) && gen2_portmaps[map].port == port) {
-				if (gen2_portmaps[map].cfg == ((ctl >> (gen2_portmaps[map].quad * gen2_portmaps[map].quad_shift)) & 3)) {
-					_pll = gen2_portmaps[map].pll;
-					RIOCP_DEBUG("[0x%08x:%s:hc %u] DID:0x%04x Q:%u C:%u P:%u L0:%u W:%u PLL:%u\n",
-						sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
-						gen2_portmaps[map].did, gen2_portmaps[map].quad, gen2_portmaps[map].cfg,
-						gen2_portmaps[map].port, gen2_portmaps[map].lane0,
-						gen2_portmaps[map].width, gen2_portmaps[map].pll);
-					break;
-				}
-			}
-		}
-
-		if (_pll == 255)
-			return -ENOSYS;
+		uint8_t _pll = lane / 4;
 
 		ret = riocp_pe_maint_read(sw, CPS1xxx_PLL_X_CTL_1(_pll), &ctl);
 		if (ret < 0)
@@ -2267,7 +2229,7 @@ int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 		return -EIO;
 
 	*speed = _speed;
-	RIOCP_TRACE("Port %u lane %u speed: %u\n", port, lane, _speed);
+	RIOCP_TRACE("Lane %u speed: %u\n", lane, _speed);
 	return ret;
 }
 
@@ -2276,10 +2238,16 @@ int cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
  */
 int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 {
+	struct switch_priv_t *priv = (struct switch_priv_t*)sw->private_driver_data;
+	*width = priv->ports[port].width;
+	return 0;
+}
+
+static int __cps1xxx_get_lane_width_and_lane0(struct riocp_pe *sw, uint8_t port, uint8_t *width, uint8_t *lane0)
+{
 	int ret;
 	uint32_t ctl;
-	uint32_t port_cfg;
-	uint8_t _width = 0, map;
+	uint8_t _width = 0, map, _lane0 = 0;
 
 	switch (RIOCP_PE_DID(sw->cap)) {
 	case RIO_DID_IDT_SPS1616:
@@ -2319,6 +2287,7 @@ int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 		default:
 			break;
 		}
+		_lane0 = port;
 		break;
 	}
 	case RIO_DID_IDT_CPS1432:
@@ -2332,6 +2301,7 @@ int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 			if (gen2_portmaps[map].did == RIOCP_PE_DID(sw->cap) && gen2_portmaps[map].port == port) {
 				if (gen2_portmaps[map].cfg == ((ctl >> (gen2_portmaps[map].quad * gen2_portmaps[map].quad_shift)) & 3)) {
 					_width = gen2_portmaps[map].width;
+					_lane0 = gen2_portmaps[map].lane0;
 					goto found;
 				}
 			}
@@ -2339,6 +2309,7 @@ int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 
 		break;
 	default:
+#if 0
 		/*
 		 * FIXME: This regsiter contains only valid port width values when a port_ok is detected
 		 * but needs also supported by ports that have no link.
@@ -2357,9 +2328,13 @@ int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 				port_cfg == CPS1xxx_CTL_INIT_PORT_WIDTH_X1_L2)
 			_width = 1;
 		break;
+#else
+		return -ENOSYS;
+#endif
 	}
 found:
 	*width = _width;
+	*lane0 = _lane0;
 
 	RIOCP_TRACE("ctl(0x%08x): 0x%08x, lane width: %u\n",
 		CPS1xxx_PORT_X_CTL_1_CSR(port), ctl, _width);
@@ -3223,7 +3198,7 @@ errout:
 int cps1xxx_init(struct riocp_pe *sw)
 {
 	int ret;
-	uint8_t port;
+	uint8_t port, lane;
 	uint32_t result;
 	struct switch_priv_t *switch_priv;
 
@@ -3252,6 +3227,15 @@ int cps1xxx_init(struct riocp_pe *sw)
 		if (result & CPS1xxx_I2C_CPS10Q_BAD_IMG_VERSION)
 			RIOCP_WARN("switch %s: EEPROM: bad image version\n");
 
+	switch_priv = (struct switch_priv_t *)calloc(1,
+			sizeof(struct switch_priv_t) +
+			sizeof(struct switch_port_priv_t) * RIOCP_PE_PORT_COUNT(sw->cap) +
+			sizeof(struct switch_lane_priv_t) * sw->sw->lane_count);
+	if (!switch_priv)
+		return -ENOMEM;
+
+	sw->private_driver_data = switch_priv;
+
 	/* init global settings for all ports */
 	cps1xxx_init_bdc(sw);
 
@@ -3272,6 +3256,19 @@ int cps1xxx_init(struct riocp_pe *sw)
 	if (ret < 0)
 		return ret;
 
+	/* initialize lanes */
+	for (lane = 0; lane < sw->sw->lane_count; lane++) {
+		ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_STAT_0_CSR(lane), &result);
+		if (ret < 0)
+			return ret;
+
+		switch_priv->lanes[lane].lane_in_port = CPS1xxx_LANE_STAT_0_LANE(result);
+		switch_priv->lanes[lane].port = CPS1xxx_LANE_STAT_0_PORT(result);
+		ret = __cps1xxx_get_lane_speed(sw, lane, &switch_priv->lanes[lane].speed);
+		if (ret < 0)
+			return ret;
+	}
+
 	/* initialize ports */
 	for (port = 0; port < RIOCP_PE_PORT_COUNT(sw->cap); port++) {
 
@@ -3280,11 +3277,17 @@ int cps1xxx_init(struct riocp_pe *sw)
 		if (ret < 0)
 			return ret;
 
+		/* init driver private port data */
+		ret = __cps1xxx_get_lane_width_and_lane0(sw, port,
+				&switch_priv->ports[port].width,
+				&switch_priv->ports[port].first_lane);
+		if (ret < 0)
+			return ret;
+
 		/* enable event handling for that port */
 		ret = cps1xxx_arm_port(sw, port);
 		if (ret < 0)
 			return ret;
-
 	}
 
 	/* Set packet time-to-live to prevent final buffer deadlock.
@@ -3334,12 +3337,6 @@ int cps1xxx_init(struct riocp_pe *sw)
 //			return ret;
 	}
 
-	switch_priv = (struct switch_priv_t *)calloc(1, sizeof(struct switch_priv_t) + sizeof(struct switch_port_priv_t) * RIOCP_PE_PORT_COUNT(sw->cap));
-	if (!switch_priv)
-		return -ENOMEM;
-
-	sw->private_driver_data = switch_priv;
-
 	return 0;
 }
 
@@ -3355,6 +3352,7 @@ struct riocp_pe_device_id cps1848_id_table[] = {
 };
 struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	18,
+	48,
 	-1,
 	"cps1848",
 	NULL,
@@ -3388,6 +3386,7 @@ struct riocp_pe_device_id cps1432_id_table[] = {
 };
 struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	16,
+	32,
 	-1,
 	"cps1432",
 	NULL,
@@ -3421,6 +3420,7 @@ struct riocp_pe_device_id cps1616_id_table[] = {
 };
 struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	16,
+	16,
 	-1,
 	"cps1616",
 	NULL,
@@ -3453,6 +3453,7 @@ struct riocp_pe_device_id sps1616_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
 };
 struct riocp_pe_switch riocp_pe_switch_sps1616 = {
+	16,
 	16,
 	-1,
 	"sps1616",
