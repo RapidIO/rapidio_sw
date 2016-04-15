@@ -2874,7 +2874,7 @@ skip_port_errors:
 	/* in case both fatal error and link initialized set (slow software)
 	 handle fatal error first, then link initialized */
 	/* PORT_UNINIT can be set sometimes even when port is still operational */
-	if (err_status & (CPS1xxx_ERR_STATUS_PORT_ERR | CPS1xxx_ERR_STATUS_OUTPUT_FAIL) ||
+	if ((err_status & (CPS1xxx_ERR_STATUS_PORT_ERR | CPS1xxx_ERR_STATUS_OUTPUT_FAIL)) ||
 	   (impl_err_det & (CPS1xxx_IMPL_SPEC_ERR_DET_ERR_RATE | CPS1xxx_IMPL_SPEC_ERR_DET_LOA))) {
 		/* check if we got an extra port-write (e.g. input-err then fatal)
 		 see whether we already locked the port */
@@ -3314,8 +3314,14 @@ int cps1xxx_init(struct riocp_pe *sw)
 	if (ret)
 		return ret;
 
+	return 0;
+}
+
+int cps1xxx_init_em(struct riocp_pe *sw)
+{
+	int ret;
+
 	/*
-	 * TODO: Move this to cps1xxx_init_em() and take it into use.
 	 * Set a route towards the enumeration host for the input port
 	 */
 	{
@@ -3337,12 +3343,6 @@ int cps1xxx_init(struct riocp_pe *sw)
 //			return ret;
 	}
 
-	return 0;
-}
-
-int cps1xxx_init_em(struct riocp_pe *sw)
-{
-	sw = sw; /* gcc */
 	return 0;
 }
 
