@@ -72,6 +72,7 @@ cp 'scripts/template_st_src' $MPORT_DIR/start_source
 cp 'scripts/udmatun' $MPORT_DIR/udmatun
 cp 'scripts/ugoodput_info' $MPORT_DIR/ugoodput_info
 cp 'scripts/udmatun' $MPORT_DIR/udmatun
+cp 'scripts/www' $MPORT_DIR/www
 
 find ${MPORT_DIR} -type f -perm 664 -exec chmod 666 {} \;
 find ${MPORT_DIR} -type f -perm 644 -exec chmod 666 {} \;

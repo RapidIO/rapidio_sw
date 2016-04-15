@@ -7,7 +7,7 @@
 #  Please note that the master node (one where this script is executed)
 #+ must be last entry in the list of nodes.
 
-NODES="node4 node3 node2 node1" 
+. /etc/rapidio/nodelist.sh
 
 for node in $NODES
 do

@@ -32,6 +32,8 @@
 CXX ?= $(CROSS_COMPILE)g++
 config?=NODEBUG
 
+ARCH := $(shell arch)
+
 TOP_LEVEL?=..
 COMMONDIR?=$(TOP_LEVEL)/common
 UMDDIR?=$(TOP_LEVEL)/umd_tsi721
@@ -45,7 +47,7 @@ SOVER?=0.42
 
 LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so
 
-CXXFLAGS = -O3 -Wall -g -I./inc -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
+CXXFLAGS = -Wall -I./inc -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
 	-pthread -DRDMA_LL=7 
 
 CXXFLAGS+=-DDEBUG_BD
@@ -55,8 +57,17 @@ SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 
 # User-mode only flags
 # FIXME: Work to remove these as time permits
-UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER -Wall \
-	 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
+UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER -Wall -DRDMA_LL=$(LOG_LEVEL)
+
+UMD_FLAGS += -ggdb -O0
+
+#UMD_FLAGS += -ggdb -Ofast
+#ifeq ($(ARCH), x86_64)
+# UMD_FLAGS += -march=native -mfpmath=sse -ffast-math
+#endif
+#ifeq ($(ARCH), i686)
+# UMD_FLAGS += -march=native -mfpmath=sse -ffast-math
+#endif
 
 UMD_INCLUDES = inc/dmachanshm.h
 

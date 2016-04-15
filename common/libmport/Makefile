@@ -46,6 +46,8 @@ UMDINCDIR=../../umd_tsi721/inc
 O?=.
 SOVER?=0.42
 
+ARCH := $(shell arch)
+
 ifdef DEBUG
 CFLAGS=-Wall -Wno-sign-compare -fPIC -ggdb # -DMPORT_DEBUG
 else
@@ -58,7 +60,11 @@ CFLAGS += -I$(UMDINCDIR)
 
 LIBS=rt	pthread dl
 LDFLAGS?=-static
-INCLUDES=$(INCDIR) $(DRV_INCLUDE_DIR)
+ifeq ($(ARCH), ppc64)
+  INCLUDES=$(INCDIR) $(RIO_DIR)
+else
+  INCLUDES=$(INCDIR) $(DRV_INCLUDE_DIR)
+endif
 LIBPATHS=$(LIBDIR) $(O)
 
 SAMPLES_TARGETS=$(addprefix $(O)/, riodp_test_dma riodp_test_misc \

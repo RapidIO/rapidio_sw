@@ -34,6 +34,8 @@ DEBUG?=DEBUG
 CC?= $(CROSS_COMPILE)g++
 CXX?= $(CROSS_COMPILE)g++
 
+ARCH := $(shell arch)
+
 config?=NODEBUG
 COMMONDIR=../../common
 UMDDIR=../../umd_tsi721
@@ -65,7 +67,14 @@ CCFLAGS = -I./inc  -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) \
 CCFLAGS+=-DUDMA_TUN_DEBUG_HISTO
 #CCFLAGS+=-rdynamic # use with mutrace
 
-CCFLAGS+=-ggdb -Ofast -march=native -mfpmath=sse -ffast-math
+CCFLAGS+=-ggdb -Ofast
+
+ifeq ($(ARCH), x86_64)
+ CXXFLAGS += -march=native -mfpmath=sse -ffast-math
+endif
+ifeq ($(ARCH), i686)
+ CXXFLAGS += -march=native -mfpmath=sse -ffast-math
+endif
 
 INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
@@ -83,10 +92,12 @@ LIBRARIES =  -lpthread -ldl -lmport -lcli -ltime_utils -llog -lrt -lumd
 
 all: goodput ugoodput
 
+scripts:
+	@ln -s scripts mport0 &>/dev/null || true
+
 ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) 
 	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
 	$(COMMONLIB) -L$(UMDDIR) $(LIBRARIES) 
-	@ln -s scripts mport0 &>/dev/null || true
 
 goodput: $(SOURCES) $(INCLUDES)
 	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(COMMONLIB) -L$(UMDDIR) $(LIBRARIES)

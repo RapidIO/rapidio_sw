@@ -73,72 +73,60 @@ done
 
 echo "Beginning installation..."
 
-for i in "${ALLNODES[@]}"
-do
-	echo $i" Compilation and documentation generation starting..."
-	if [ -z "$7" ]; then
-		ssh root@"$i" "cd $SOURCE_PATH; git branch | grep '*' "
-	else
-		ssh root@"$i" "cd $SOURCE_PATH; git checkout $REL "
-	fi
-	ssh root@"$i" "$SCRIPTS_PATH/make_install.sh $SOURCE_PATH $GRP"
-	echo $i" Compilation and documentation generation COMPLETED.."
+make clean &>/dev/null;
+
+for host in  "${ALLNODES[@]}"; do
+  [ "$host" = 'none' ] && continue;
+  tar cf - * .git* | \
+  ssh -C root@"$host" "mkdir -p $SOURCE_PATH; pushd $SOURCE_PATH &>/dev/null; tar xf -; popd &>/dev/null; chown -R root.$GRP $SOURCE_PATH"
+done
+
+for host in  "${ALLNODES[@]}"; do
+  [ "$host" = 'none' ] && continue;
+  ssh root@"$host" "$SCRIPTS_PATH/make_install.sh $SOURCE_PATH $GRP"
 done
 
 echo "Installing configuration files..."
 
 FILENAME=$CONFIG_PATH/fmd.conf
 
-echo "copying "$1
-ssh root@"$1" "mkdir -p $CONFIG_PATH"
-ssh root@"$1" "cp $SCRIPTS_PATH/node1.conf $FILENAME"
-
-if [ $2 != 'none' ]; then
-	echo "copying "$2
-	ssh root@"$2" "mkdir -p $CONFIG_PATH"
-	ssh root@"$2" "cp $SCRIPTS_PATH/node2.conf $FILENAME"
-fi
-if [ $3 != 'none' ]; then
-	echo "copying "$3
-	ssh root@"$3" "mkdir -p $CONFIG_PATH"
-	ssh root@"$3" "cp $SCRIPTS_PATH/node3.conf $FILENAME"
-fi
-if [ $4 != 'none' ]; then
-	echo "copying "$4
-	ssh root@"$4" "mkdir -p $CONFIG_PATH"
-	ssh root@"$4" "cp $SCRIPTS_PATH/node4.conf $FILENAME"
-fi
-
-for i in "${ALLNODES[@]}"
-do
-	echo "Editing "$i
-	ssh root@"$i" sed -i -- 's/node1/'$1'/g' $FILENAME""
-	if [ -n "$NODE2" ]; then
-		ssh root@"$i" sed -i -- 's/node2/'$NODE2'/g' $FILENAME""
-	else
-		ssh root@"$i" sed -i '/node2/d' $FILENAME
-	fi
-	if [ -n "$NODE3" ]; then
-		ssh root@"$i" sed -i -- 's/node3/'$NODE3'/g' $FILENAME""
-	else
-		ssh root@"$i" sed -i '/node3/d' $FILENAME
-	fi
-	if [ -n "$NODE4" ]; then
-		ssh root@"$i" sed -i -- 's/node4/'$NODE4'/g' $FILENAME""
-	else
-		ssh root@"$i" sed -i '/node4/d' $FILENAME
-	fi
-	ssh root@"$i" sed -i -- 's/MEMSZ/'$MEMSZ'/g' $FILENAME""
+# FMD slaves go first
+let c=0;
+for host in  "${ALLNODES[@]}"; do
+  let c=c+1;
+  [ $c -eq 1 ] && continue;
+  [ "$host" = 'none' ] && continue;
+  sed s/NODE_VAR/$host/g install/node-slave.conf | \
+    sed s/MEMSZ/$MEMSZ/g | \
+    ssh root@"$host" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
 done
 
+HOSTL='';
+let c=0;
+for host in  "${ALLNODES[@]}"; do
+  let c=c+1;
+  # We allow none for sake of awk substitution
+  HOSTL="$HOSTL -vH$c=$host";
+done
+
+# And now the master FMD
+awk -vM=$MEMSZ $HOSTL '
+	/MEMSZ/{gsub(/MEMSZ/, M);}
+	/node1/{gsub(/node1/, H1);}
+	/node2/{if(H2 != "") {gsub(/node2/, H2);} else {$0="";}}
+	/node3/{if(H3 != "") {gsub(/node3/, H3);} else {$0="";}}
+	/node4/{if(H4 != "") {gsub(/node4/, H4);} else {$0="";}}
+	/node4/{if(H5 != "") {gsub(/node5/, H5);} else {$0="";}}
+	/node4/{if(H6 != "") {gsub(/node6/, H6);} else {$0="";}}
+	/node4/{if(H7 != "") {gsub(/node7/, H7);} else {$0="";}}
+	/node4/{if(H8 != "") {gsub(/node8/, H8);} else {$0="";}}
+	{print}' install/node-master.conf | \
+    ssh root@"$MASTER" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
 
 UMDD_CONF=$CONFIG_PATH/umdd.conf
-
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
-  echo "copying "$host
-  ssh root@"$host" "mkdir -p $CONFIG_PATH"
-  ssh root@"$host" "cp $SCRIPTS_PATH/umdd.conf $UMDD_CONF"
+  ssh root@"$host" "mkdir -p $CONFIG_PATH; cp $SCRIPTS_PATH/umdd.conf $UMDD_CONF"
 done
 
 echo "Installation of configuration files COMPLETED..."
@@ -149,12 +137,27 @@ FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh
 for f in "${FILES[@]}"
 do
 	FILENAME=$SOURCE_PATH/$f
-
-	cp $SCRIPTS_PATH/$f $FILENAME
-	sed -i -- 's/node1/'$1'/g' $FILENAME
-	sed -i -- 's/node2/'$NODE2'/g' $FILENAME
-	sed -i -- 's/node3/'$NODE3'/g' $FILENAME
-	sed -i -- 's/node4/'$NODE4'/g' $FILENAME
+	sudo cp $SCRIPTS_PATH/$f $FILENAME
 done
+
+echo "Installing node list..."
+
+NODELIST='NODES="'
+for host in  "${ALLNODES[@]}"; do
+  [ "$host" = 'none' ] && continue;
+  NODELIST="$NODELIST $host";
+done
+NODELIST="$NODELIST \"";
+cat > /tmp/nodelist.sh <<EOF
+$NODELIST
+EOF
+
+for host in  "${ALLNODES[@]}"; do
+  [ "$host" = 'none' ] && continue;
+  (cd /tmp; tar cf - nodelist.sh) |
+    ssh root@"$host" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; tar xvf -";
+done
+
+rm /tmp/nodelist.sh
 
 echo "Installion complete."
