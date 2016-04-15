@@ -73,7 +73,7 @@ done
 
 echo "Beginning installation..."
 
-make clean &>/dev/null; git pull
+make clean &>/dev/null;
 
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
