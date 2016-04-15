@@ -551,7 +551,6 @@ struct riocp_pe_device_id tsi57x_id_table[] = {
 };
 
 struct riocp_pe_switch riocp_pe_switch_tsi57x = {
-	-1,
 	0,
 	-1,
 	"tsi57x",

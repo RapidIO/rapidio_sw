@@ -1554,7 +1554,7 @@ int cps1xxx_set_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	if (lut == RIOCP_PE_ANY_PORT) {
 		off_dm = CPS1xxx_RTE_BCAST_DM(0x0ff&(destid>>8));
 		off_dev = CPS1xxx_RTE_BCAST_DEV(0x0ff&destid);
-	} else if (lut < sw->sw->port_count) {
+	} else if (lut < RIOCP_PE_PORT_COUNT(sw->cap)) {
 		off_dm = CPS1xxx_RTE_PORT_DM(lut, 0x0ff&(destid>>8));
 		off_dev = CPS1xxx_RTE_PORT_DEV(lut, 0x0ff&destid);
 	} else {
@@ -1640,7 +1640,7 @@ int cps1xxx_get_route_entry(struct riocp_pe *sw, uint8_t lut, uint32_t destid, u
 	if (lut == RIOCP_PE_ANY_PORT) {
 		off_dm = CPS1xxx_RTE_BCAST_DM(0x0ff&(destid>>8));
 		off_dev = CPS1xxx_RTE_BCAST_DEV(0x0ff&destid);
-	} else if (lut < sw->sw->port_count) {
+	} else if (lut < RIOCP_PE_PORT_COUNT(sw->cap)) {
 		off_dm = CPS1xxx_RTE_PORT_DM(lut, 0x0ff&(destid>>8));
 		off_dev = CPS1xxx_RTE_PORT_DEV(lut, 0x0ff&destid);
 	} else {
@@ -1897,7 +1897,7 @@ int cps1xxx_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid,
 
 	if (lut == RIOCP_PE_ANY_PORT)
 		off = CPS1xxx_BCAST_MCAST_MASK(maskid);
-	else if (lut < sw->sw->port_count)
+	else if (lut < RIOCP_PE_PORT_COUNT(sw->cap))
 		off = CPS1xxx_PORT_MCAST_MASK(lut, maskid);
 	else
 		return -EINVAL;
@@ -3351,7 +3351,6 @@ struct riocp_pe_device_id cps1848_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
 };
 struct riocp_pe_switch riocp_pe_switch_cps1848 = {
-	18,
 	48,
 	-1,
 	"cps1848",
@@ -3385,7 +3384,6 @@ struct riocp_pe_device_id cps1432_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
 };
 struct riocp_pe_switch riocp_pe_switch_cps1432 = {
-	16,
 	32,
 	-1,
 	"cps1432",
@@ -3420,7 +3418,6 @@ struct riocp_pe_device_id cps1616_id_table[] = {
 };
 struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	16,
-	16,
 	-1,
 	"cps1616",
 	NULL,
@@ -3453,7 +3450,6 @@ struct riocp_pe_device_id sps1616_id_table[] = {
 	{RIOCP_PE_PE_DEVICE(0xffff, 0xffff)}
 };
 struct riocp_pe_switch riocp_pe_switch_sps1616 = {
-	16,
 	16,
 	-1,
 	"sps1616",
