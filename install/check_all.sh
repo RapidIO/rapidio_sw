@@ -86,7 +86,7 @@ do
 	UMD_PID=$(ssh root@"$node" pgrep umdd)
 	if [ -z "$UMD_PID" ]
 	then
-		echo "   UMDd/SHM          *NOT* running"
+		echo "   UMDd/SHM       *NOT* running"
 		OK=0
 	else
 		echo "   UMDd/SHM running, PID=$UMD_PID"
@@ -96,7 +96,7 @@ do
 	DMATUN_PID=$(ssh root@"$node" pgrep ugoodput)
 	if [ -z "$DMATUN_PID" ]
 	then
-		echo "   DMA Tun          *NOT* running"
+		echo "   DMA Tun        *NOT* running"
 		OK=0
 	else
 		awk -vH=$node -vx=1 'BEGIN {
