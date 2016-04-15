@@ -92,10 +92,12 @@ LIBRARIES =  -lpthread -ldl -lmport -lcli -ltime_utils -llog -lrt -lumd
 
 all: goodput ugoodput
 
+scripts:
+	@ln -s scripts mport0 &>/dev/null || true
+
 ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) 
 	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
 	$(COMMONLIB) -L$(UMDDIR) $(LIBRARIES) 
-	@ln -s scripts mport0 &>/dev/null || true
 
 goodput: $(SOURCES) $(INCLUDES)
 	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(COMMONLIB) -L$(UMDDIR) $(LIBRARIES)
