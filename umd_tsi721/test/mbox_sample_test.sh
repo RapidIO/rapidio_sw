@@ -24,11 +24,11 @@ echo "Valid node list: $NODE_LIST";
 echo "Valid did  list: $DID_LIST";
 
 screen -dmS mbx_srv 'bash'; sleep 0.2
-screen -r mbx_srv -X stuff "sudo $SOURCE_PATH/umd_tsi721/server -c $MBOX^M"
+screen -r mbx_srv -X stuff "sudo $SOURCE_PATH/umd_tsi721/mbox_server -c $MBOX^M"
 
 for node in $NODE_LIST; do
 	DID=$(printf "%d" $MY_DESTID);
-	ssh root@"$node" "screen -dmS mbx_cli 'bash'; sleep 0.2; screen -r mbx_cli -X stuff \"cd $SOURCE_PATH/umd_tsi721; ./client -d $DID -c $MBOX -C $MBOX^M\""
+	ssh root@"$node" "screen -dmS mbx_cli 'bash'; sleep 0.2; screen -r mbx_cli -X stuff \"cd $SOURCE_PATH/umd_tsi721; ./mbox_client -d $DID -c $MBOX -C $MBOX^M\""
 done
 
 echo -n 'All started. Press ENTER to tear down: '; read FOO

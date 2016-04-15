@@ -76,7 +76,7 @@ LIBFLAGS = -shared -fPIC
 SYSLIBS = -lrt -lpthread -ldl 
 LIBRARIES = -lmport -ltime_utils -lcli
 
-all: libumd.a libumd_nolog.a client server
+all: libumd.a libumd_nolog.a mbox_client mbox_server
 
 libumd.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
@@ -92,13 +92,13 @@ libumd_nolog.a: $(SOURCES) $(INCLUDES)
 	$(AR) rcs $@ *.o
 	@rm -f *.o
 
-client: src/mbox_example.c
+mbox_client: src/mbox_example.c
 	$(CXX) $(CXXFLAGS) \
 		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) -DMBOX_CLIENT \
 		src/mbox_example.c -o $@ \
 		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd
-server: src/mbox_example.c
+mbox_server: src/mbox_example.c
 	$(CXX) $(CXXFLAGS) \
 		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) \
@@ -107,7 +107,7 @@ server: src/mbox_example.c
 
 
 clean:
-	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out client server
+	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out mbox_client mbox_server
 
 FORCE:
 

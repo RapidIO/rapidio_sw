@@ -302,6 +302,9 @@ bool send_mbox_msg(struct worker *info, bool msg_1)
 		info->q_full = true;
 	};
 
+	if (!info->q_full)
+		info->tx_cnt++;
+
 	/* Busy-wait for queue to drain
 	 * There are more efficient alternative implementations.
 	 */
@@ -400,8 +403,8 @@ bool recv_mbox_msg(struct worker *info)
 	}
 
 	if (!rx_cnt) {
-		ERR("\n\tCould not receive message for MBOX%d! cnt=%llu\n",
-			info->mbox, info->tx_cnt);
+		ERR("\n\tCould not receive message for MBOX%d!\n",
+			info->mbox);
 	}
 	info->buf_cnt = rx_cnt;
 	return rx_cnt;
@@ -527,31 +530,13 @@ void mbox_server(struct worker *info)
 			}
 			big_cnt++;
 		}
+		info->rx_cnt += info->buf_cnt;
 	}
 exit:
 	/** - On exit, cleanup the User Mode Driver Mailbox object */
 	delete info->mch;
 	info->mch = NULL;
 }
-
-/**
- * \brief Signal handler
- *
- * \param[in] Signal number received.
- *
- * \retval None.
- *
- * The signal handler is invoked whenever a signal (ie control C) is received
- * by the client or server.  This should cause the client and server to exit. 
- *
- */
-
-static void sig_handler(int signo)
-{
-	info.stop_req = 1; 
-	INFO("\n\tQuitting time (sig=%d)\n", signo);
-}
-
 
 /**
  * \brief Called by main to display parameters/usage information and exit
@@ -629,7 +614,46 @@ int parse_options(struct worker *info, int argc, char* argv[])
 };
 
 /**
- * \brief Starting poitn for both server and client
+ * \brief Signal handler for terminating the client/server
+ *
+ * \param[in] Signal number received.
+ *
+ * \retval None.
+ *
+ * The signal handler is invoked whenever a signal (ie control C) 
+ * other than SIGURS1 is received by the client or server.
+ *
+ * This should cause the client and server to exit. 
+ *
+ */
+
+static void sig_handler_term(int signo)
+{
+	info.stop_req = 1; 
+	INFO("\n\tQuitting time (sig=%d)\n", signo);
+}
+
+/**
+ * \brief Signal handler for USR1 interrupt, prints performance stats
+ *
+ * \param[in] Signal number received.
+ *
+ * \retval None.
+ *
+ * The signal handler is invoked whenever SIGUSR1 is received
+ * by the client or server.  It causes the client and server to display
+ * message counts on stdout.
+ *
+ */
+
+void sig_handler_usr1(int signo)
+{
+	printf("RX_CNT %d TX_CNT %d\n", info.rx_cnt, info.tx_cnt);
+	fflush(stdout);
+};
+
+/**
+ * \brief Starting point for both server and client
  *
  * \param[in] argc Command line parameter count
  * \param[in] argv Array of pointers to command line parameter null terminated
@@ -642,6 +666,9 @@ int parse_options(struct worker *info, int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+	/** - Disable stdout buffering */
+	setvbuf(stdout, NULL, _IONBF, 0);
+
 	/** - Initializes all variables */
 	init_worker_info(&info);
 
@@ -652,8 +679,9 @@ int main(int argc, char* argv[])
 	parse_options(&info, argc, argv);
 
 	/** - Binds signal handlers */
-	signal(SIGINT, sig_handler);
-	signal(SIGTERM, sig_handler);
+	signal(SIGUSR1, sig_handler_usr1);
+	signal(SIGINT, sig_handler_term);
+	signal(SIGTERM, sig_handler_term);
 	
 	/** - Invokes client or server loops */
 	if (CLIENT)
