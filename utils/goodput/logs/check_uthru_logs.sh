@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ## This script creates two files:
-## thru_pass.out indicates success counts for all lines in the summary file
-## thru_fail.out indicates information about failures
+## thru_pass.uout indicates success counts for all lines in the summary file
+## thru_fail.uout indicates information about failures
 ##
-## The script only passes if thru_fail.out does not exist, and 
-## thru_pass.out does exist and is non-empty.
+## The script only passes if thru_fail.uout does not exist, and 
+## thru_pass.uout does exist and is non-empty.
 ##
 ## This script checks that the throughput numbers computed are expected.
 #3 There are four kinds of lines:
@@ -45,26 +45,18 @@ if [ $PRINT_HELP != "0" ]; then
         echo $'           output of summ_thru_logs.sh for all throughtput'
         echo $'           scripts.'
         echo $'Once complete, two files will be present in the directory'
-        echo $'thru_pass.out: File with all counts which passed.'
-        echo $'thru_fail.out: File with all counts and lines which failed'
+        echo $'thru_pass.uout: File with all counts which passed.'
+        echo $'thru_fail.uout: File with all counts and lines which failed'
         exit 1
 fi;
 
 SIZE_STRINGS=( XOutput XProcessing XSIZE
-	"X0x18"  
-	"X0x20"
-	"X0x40"  
-	"X0x80"
-	"X0x100" 
-	"X0x200"
-	"X0x400"
-	"X0x800"
-	"X0x1000"
 	"X1"
 	"X2"
 	"X4"
 	"X8"
 	"X10"
+	"X18"
 	"X20"
 	"X40"
 	"X80"
@@ -84,22 +76,19 @@ SIZE_STRINGS=( XOutput XProcessing XSIZE
 	"X200000"
 	"X400000" )
 
-SIZE_COUNT=( 11 11 11
-	1 1 1 1
-	1 1 1 1
-	1 
-	12 12 12 12
-	8  8  8  8
-	8  8  8  8
-	8  8  8  8
-	8  8  8  8
-	8  8  8  )
+SIZE_COUNT=( 3 3 3
+	2  2  2  2
+	2  1  3  3  3
+	3  3  3  3
+	3  2  2  2
+	2  2  2  2
+	2  2  2  )
 
 
 IDX=0
 
-PASS=thru_pass.out
-FAIL=thru_fail.out
+PASS=thru_pass.uout
+FAIL=thru_fail.uout
 
 rm -f $PASS
 rm -f $FAIL
@@ -139,7 +128,7 @@ if [ "$CNT" -ne "0" ]; then
 	grep "0        0     0.00" ${FILENAME} >> ${FAIL}
 fi
 
-CNT="$( grep -E 'FAILED|Unknown|FAIL|CRIT|ERR' *.log | wc -l )"
+CNT="$( grep -E 'FAILED|Error|Unknown|FAIL|CRIT|ERR' *.log | wc -l )"
 if [ "$CNT" -ne "0" ]; then
 	echo $'\nFAIL: Keywords indicating errors exist in log files\n' >> ${FAIL}
 fi

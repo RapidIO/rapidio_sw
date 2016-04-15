@@ -1,20 +1,20 @@
 #!/bin/bash
 
 ## This script creates two files:
-## thru_pass.out indicates success counts for all lines in the summary file
-## thru_fail.out indicates information about failures
+## lat_pass.uout indicates success counts for all lines in the summary file
+## lat_fail.uout indicates information about failures
 ##
-## The script only passes if thru_fail.out does not exist, and 
-## thru_pass.out does exist and is non-empty.
+## The script only passes if lat_fail.uout does not exist, and 
+## lat_pass.uout does exist and is non-empty.
 ##
 ## This script checks that the throughput numbers computed are expected.
 #3 There are four kinds of lines:
 ##
-## CHECK input file list: Processing throughput for file :
-## - 11 lines, one line for each group of performance figures, 
+## CHECK input file list: Processing latency for file :
+## - 4 lines, one line for each group of performance figures, 
 ##
 ## CHECK output file list: Output filename is             :
-## - 11 lines, one line for each group of performance figures, 
+## - 4 lines, one line for each group of performance figures, 
 ##
 ## CHECK Header: SIZE .. Mbps...
 ## - 11 lines, one line for each group of performance figures, 
@@ -42,29 +42,21 @@ fi
 if [ $PRINT_HELP != "0" ]; then
         echo $'\nScript requires the following parameters:'
         echo $'FILENAME : Name of file in local directory containing'
-        echo $'           output of summ_thru_logs.sh for all throughtput'
-        echo $'           scripts.'
+        echo $'           output of summ_lat_logs.sh for all latency'
+        echo $'           scripts.\n'
         echo $'Once complete, two files will be present in the directory'
-        echo $'thru_pass.out: File with all counts which passed.'
-        echo $'thru_fail.out: File with all counts and lines which failed'
+        echo $'lat_pass.uout: File with all counts which passed.'
+        echo $'lat_fail.uout: File with all counts and lines which failed'
         exit 1
 fi;
 
 SIZE_STRINGS=( XOutput XProcessing XSIZE
-	"X0x18"  
-	"X0x20"
-	"X0x40"  
-	"X0x80"
-	"X0x100" 
-	"X0x200"
-	"X0x400"
-	"X0x800"
-	"X0x1000"
 	"X1"
 	"X2"
 	"X4"
 	"X8"
 	"X10"
+	"X18"
 	"X20"
 	"X40"
 	"X80"
@@ -84,29 +76,26 @@ SIZE_STRINGS=( XOutput XProcessing XSIZE
 	"X200000"
 	"X400000" )
 
-SIZE_COUNT=( 11 11 11
-	1 1 1 1
-	1 1 1 1
-	1 
-	12 12 12 12
-	8  8  8  8
-	8  8  8  8
-	8  8  8  8
-	8  8  8  8
-	8  8  8  )
+SIZE_COUNT=( 2 2 2
+	1  1  1  1
+	1  1  2  2  2
+	2  2  2  2
+	2  1  1  1
+	1  1  1  1
+	1  1  1  )
 
 
 IDX=0
 
-PASS=thru_pass.out
-FAIL=thru_fail.out
+PASS=lat_pass.uout
+FAIL=lat_fail.uout
 
 rm -f $PASS
 rm -f $FAIL
 
 if [ ! -s ${FILENAME} ]; then
-	echo "${FILENAME} is empty or does not exist!" > $FAIL
-	exit
+        echo "${FILENAME} is empty or does not exist!" > $FAIL
+        exit
 fi
 
 sed -e 's/^ *//' ${FILENAME} > ${FILENAME}.temp
@@ -123,23 +112,23 @@ for SIZE in ${SIZE_STRINGS[@]}; do
 	let "IDX = $IDX + 1"
 done 
 
-rm -f ${FILENAME}.temp 
+rm -f ${FILENAME}.temp
 
 # Check that there are no lines with illegal values
 
-CNT="$( grep "0.000    0.000    0.000" ${FILENAME} | wc -l )"
+CNT="$( grep " 0 " ${FILENAME} | wc -l )"
 if [ "$CNT" -ne "0" ]; then
-	echo $'\nFAIL: ZERO MBps, Gbps and Link Occ\n' >> ${FAIL}
-	grep "0.000    0.000    0.000" ${FILENAME} >> ${FAIL}
+	echo $'\nFAIL: ZERO Transfers\n' >> ${FAIL}
+	grep " 0 " ${FILENAME} >> ${FAIL}
 fi;
 
-CNT="$( grep "0        0     0.00" ${FILENAME} | wc -l )"
+CNT="$( grep " 0\.0" ${FILENAME} | wc -l )"
 if [ "$CNT" -ne "0" ]; then
-	echo $'\nFAIL: ZERO Kernel ticks, User  Ticks, and CPU %\n' >> ${FAIL}
-	grep "0        0     0.00" ${FILENAME} >> ${FAIL}
+	echo $'\nFAIL: ZERO Min, Avg, or Max latency\n' >> ${FAIL}
+	grep " 0\.0" ${FILENAME} >> ${FAIL}
 fi
 
-CNT="$( grep -E 'FAILED|Unknown|FAIL|CRIT|ERR' *.log | wc -l )"
+CNT="$( grep -E 'FAILED|Unknown|CRIT|ERR|WARN' *.log | wc -l )"
 if [ "$CNT" -ne "0" ]; then
 	echo $'\nFAIL: Keywords indicating errors exist in log files\n' >> ${FAIL}
 fi

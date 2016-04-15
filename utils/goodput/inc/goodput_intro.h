@@ -7,14 +7,6 @@
  * user mode driver tested on x86/x64 platforms.
  *
  * \section fast_start_sec Getting Started
- * \subsection compile_sec Compiling Goodput and UGoodput
- * Goodput and ugoodput are compiled as part of the software 
- * installation procedure.  
- *
- * To compile the goodput tool, complete the following steps:
- * 1. In the "rapidio_sw" directory, type "make all".
- * 2. In the "rapidio_sw/utils/goodput" directory, type "make all".
- * \subsection rapidio_start_sec Starting the RapidIO Interfaces
  *
  * To start the systems RapidIO interfaces, complete the
  * following steps:
@@ -29,7 +21,10 @@
  * -# On the master node, enter the following command in the terminal:
  *    "/opt/rapidio/rapidio_sw/rio_start.sh".
  * 
- * \subsection exec_sec Goodput Quick Start
+ * The goodput and ugoodput tools are installed at 
+ * /opt/rapidio/rapidio_sw/utils/goodput.  
+ * 
+ * \subsection goodput_exec_sec Goodput Quick Start
  *
  * The Goodput and Ugoodput tools support a rich set of performance measurement
  * capabilities.  Details of these capabilities are found later in this
@@ -38,7 +33,9 @@
  * A standard set of goodput measurements can be performed by executing the 
  * goodput/test/regression.sh script.  The script uses two nodes to 
  * perform all measurements,
- * summarizes those measurements, and checks for errors.  
+ * summarizes those measurements, and checks for errors.  An equivalent script
+ * exists for the user mode driver.  For more information see \ref 
+ * ugoodput_exec_sec.
  *
  * The two nodes must
  * meet the following system requirements:
@@ -74,11 +71,11 @@
  *                Blocking: A DMA transaction must complete before the next
  *                DMA transaction will be started.
  *                Async: Completion of the DMA transaction is checked
- *                separately.  Similar performance to Blocking.  *                Fire-and-forget: DMA transaction completion is not checked.
+ *                separately.  Similar performance to Blocking.  
+ *                Fire-and-forget: DMA transaction completion is not checked.
  *                NOTE: Fire-and-forget can result in a "burst" of
  *                transactions at the start as the DMA transaction queue is
  *                filled.  
- *
  * - IBA_ADDR   : RapidIO address of inbound window for both nodes
  *                Default is hexadecimal 200000000
  * - SKT_PREFIX : First 3 digits of 4 digit socket numbers
@@ -92,12 +89,17 @@
 * All results are found on the MAST node, in the
 * goodput/logs/mport{MAST_MPNUM} directory.
 * This directory contains the following after a successful test:
-* - label.res    : Information about regression parameters and execution time
-* - all_thru.res : Summary of all throughput measurements
-* - all_lat.res  : Summary of all latency measurements
+* - label.res    : Information about regression parameters,
+*                  platform hardware, and execution time
+* - all_thru.res : Summary of all throughput measurementa, as described in
+*                  \ref thru_sum_res.
+* - all_lat.res  : Summary of all latency measurements, as described in
+*                  \ref thru_sum_res.
 * - detailed measurement logs with names ending in ".log".
-*   For more information on the individual measurements,
-*   refer to \ref script_measurement_detail_secn.
+*   For more information on the individual throughput measurements,
+*   refer to \ref goodput_cmd_overview_secn.
+*   For more information on the individual latency measurements,
+*   refer to \ref latency_cmd_overview_secn.
 * - results summary files, ending in ".res", for each detailed
 *   measurement log file.  For information on the latency and
 *   throughput results file data, refer to \ref lat_sum_res and 
@@ -1056,6 +1058,91 @@
  * The correct "top-level" script must be executed on
  * the source and target for measurements to be successful.  For instructions
  * on script execution, see \ref script_ugoodput_gen_execn_sec.
+ *
+ * \subsection ugoodput_exec_sec UGoodput Quick Start
+ *
+ * The Goodput and Ugoodput tools support a rich set of performance measurement
+ * capabilities.  Details of these capabilities are found later in this
+ * documentation.
+ *
+ * A standard set of goodput measurements can be performed by executing the 
+ * goodput/test/umd_regression.sh script.  The script uses two nodes to 
+ * perform all measurements,
+ * summarizes those measurements, and checks for errors.  An equivalent script
+ * exists for the kernel mode driver.  For more information see \ref 
+ * goodput_exec_sec.
+ *
+ * The two nodes must
+ * meet the following system requirements:
+ *
+ * - ssh been configured to allow root access from the node executing 
+ *   the regression.sh script to the two nodes 
+ * - The 'screen' utility has been installed on the two nodes
+ * - The RRMAP software package has been installed using the same directory
+ *   path on the two nodes 
+ * 
+ * The umd_regression.sh script accepts the following parameters:
+ *
+ * - MAST       : Name of master node/IP address
+ * - SLAVE      : Name of slave node/IP address
+ * - MAST_MPNUM : Master node mport number (usually 0)
+ * - SLAVE_MPNUM: Slave node mport number (usually 0)
+ *
+ * All parameters below are optional.  Default values are shown.
+ *
+ * - DIR        : Directory on both MAST and SLAVE to run tests.
+ *                Default is the parent directory of test/regression.sh
+ *                on the node executing test/regression.sh.
+ *                If not exist on both MAST and SLAVE,
+ *                it is not possible to run regression.sh!
+ * - WAIT       : Time in seconds to wait before perf measurement
+ *                Default is  30
+ * - WR_TRANS   : DMA write transaction type
+ *                1 LAST_NW_R, 2 NW, 3 ALL_NW_R
+ *                Default is 2 NW.
+ * - IBA_ADDR   : RapidIO address of inbound window for both nodes
+ *                Default is  200000000
+ * - BUFC       : Number of transmit buffers for MBOX and DMA
+ *                Default is  100
+ * - STS        : Number of transactions completion pointers
+ *                for MBOX and DMA.  Default is  100
+ * - DMA_CHAN   : DMA channel to use for the test, allowed 2-7
+ *                Default is  2
+ * - MBOX_CHAN  : Mailbox channel to use for the test, allowed 2 or 3
+ *                Default is  2
+ * - TX_CPU     : Specific processor core used for transmission.
+ *                -1 means "any core".  Allowed range is specifc
+ *                to the two tested nodes.  Use "lscpu" to learn
+ *                what processors are avaialble.
+ *                Default is  2  or any isolcpu.
+ * - STS_CPU    : Specific processor core used to manage completions.
+ *                -1 means "any core".  Allowed range is specifc
+ *                to the two tested nodes.  Use "lscpu" to learn
+ *                what processors are avaialble.
+ *                Default is  3  or any isolcpu.
+ * - OVERRIDE   : The default for TX_CPU and STS_CPU is to use any
+ *                isolcpu configured on the target platform.
+ *                Entering any value forces TX_CPU and STS_CPU to
+ *                ignore isolcpus and use the TX_CPU and STS_CPU
+ *                values.
+ * All results are found on the MAST node, in the
+ * goodput/logs/mport{MAST_MPNUM} directory.
+ * This directory contains the following after a successful test:
+ * - label.ures    : Information about regression parameters,
+ *                   platform hardware, and execution time
+ * - all_thru.ures : Summary of all throughput measurementa, as described in
+ *                  \ref thru_sum_res.
+ * - all_lat.ures  : Summary of all latency measurements, as described in
+ *                  \ref thru_sum_res.
+ * - detailed measurement logs with names ending in ".ulog".
+ *   For more information on the individual throughput measurements,
+ *   refer to \ref goodput_cmd_overview_secn.
+ *   For more information on the individual latency measurements,
+ *   refer to \ref latency_cmd_overview_secn.
+ * - results summary files, ending in ".ures", for each detailed
+ *   measurement log file.  For information on the latency and
+ *   throughput results file data, refer to \ref lat_sum_res and 
+ *   \ref thru_sum_res.
  *
  * \section script_ugoodput_gen_instr_sec UGoodput Script Generation
  *

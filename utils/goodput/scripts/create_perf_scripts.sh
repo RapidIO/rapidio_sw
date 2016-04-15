@@ -138,6 +138,6 @@ sed -i -- 's/MPORT_DIR/'$MPORT_DIR'/g' ${MPORT_DIR}/run_all_dma
 cp scripts/run_all_perf ${MPORT_DIR}
 sed -i -- 's/MPORT_DIR/'$MPORT_DIR'/g' ${MPORT_DIR}/run_all_perf
 
-find ${MPORT_DIR} -type f -perm 664 -exec chmod 666 {} \;
+find ${MPORT_DIR} -type f -perm 755 -exec chmod 777 {} \;
 find ${MPORT_DIR} -type f -perm 775 -exec chmod 777 {} \;
 find ${MPORT_DIR} -type d -perm 775 -exec chmod 777 {} \;

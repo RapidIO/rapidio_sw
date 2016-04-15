@@ -218,9 +218,9 @@ BUILD_SCRIPT
 	LOG_FILE_DIR=${HOMEDIR}/logs/mport${MPNUM[${IDX}]}
 
 	ssh -T root@"$node" <<NODE_START
-rm -f ${LOG_FILE_DIR}'/*.log'
-rm -f ${LOG_FILE_DIR}'/*.res'
-rm -f ${LOG_FILE_DIR}'/*.out'
+rm -f ${LOG_FILE_DIR}/*.log
+rm -f ${LOG_FILE_DIR}/*.res
+rm -f ${LOG_FILE_DIR}/*.out
 
 cd ${HOMEDIR}/scripts
 ./create_start_scripts.sh ${MPNUM[${IDX}]} ${SKT_PREFIX} ${IBA_ADDR}

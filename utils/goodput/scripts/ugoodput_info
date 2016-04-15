@@ -18,7 +18,7 @@ t 0 -1 0
 
 wait 0 H
 
-IBA 0 400000
+IBA 0 400000 iba_addr
 sleep 1
 wait 0 H
 

@@ -32,10 +32,10 @@ echo at address 0xiba_addr of at least size 0xbytes
 nrudma 0 $cpu2 $chnnel bufc sts $destid iba_addr acc_size
 wait 0 R
 
-echo UDMA NREAD LATENCY bytes acc_size
+echo UDMA bytes acc_size NREAD LATENCY 
 os
 sleep wait_time
-echo UDMA NREAD LATENCY bytes acc_size
+echo UDMA bytes acc_size NREAD LATENCY 
 lat
 od
 st

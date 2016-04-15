@@ -37,7 +37,7 @@ fi;
 
 MPORT_DIR=mport${MPORT}
 
-echo GENERATING GOODPUT START SCRIPTS WITH
+echo GENERATING GOODPUT AND UGOODPUT START SCRIPTS WITH
 echo 'MPORT      : ' $MPORT       
 echo 'MPORT_DIR  : ' $MPORT_DIR
 echo 'SOCKET_PFX : ' $SKT_PREFIX
@@ -86,3 +86,5 @@ sed -i -- 's/iba_addr/'$IBA_ADDR'/g' 'start_target'
 
 sed -i -- 's/MPORT_DIR/'$MPORT_DIR'/g' 'start_source'
 sed -i -- 's/iba_addr/'$IBA_ADDR'/g' 'start_source'
+
+sed -i -- 's/iba_addr/'$IBA_ADDR'/g' 'ugoodput_info'
