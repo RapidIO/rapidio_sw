@@ -5,11 +5,27 @@
 #  Warning:
 #  ======== 
 #  Please note that the master node (one where this script is executed)
-#+ must be last entry in the list of nodes.
+#  must be last entry in the list of nodes.
+
+RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 . /etc/rapidio/nodelist.sh
 
-for node in $NODES
+MY_NODE='';
+MY_DESTID=$(cat $RIO_CLASS_MPORT_DIR/device/port_destid 2>/dev/null);
+
+NODE_LIST='';
+for node in $NODES; do
+        DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid 2>/dev/null")
+        [ $MY_DESTID = $DESTID ] && { MY_NODE="$node"; continue; }
+
+        NODE_LIST="$NODE_LIST $node";
+done
+NODE_LIST="$NODE_LIST $MY_NODE";
+
+echo "Reordered node list: $NODE_LIST";
+
+for node in $NODE_LIST
 do
 	ssh root@"$node" poweroff 
 done
