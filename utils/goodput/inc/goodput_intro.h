@@ -1457,6 +1457,11 @@
  *  - udd 0
  *  Has counters galore that reflect the behavious of DMA Tun
  *
+ *  If started via "s" CLI script or dmatun.sh it will put up a
+ *  HTTP server on port 8080 which reports the same info as "udd 0".
+ *
+ *  The query string should be "/" -- it is ignored.
+ *
  * \subsection tun_dma_parms DMA TUN Command Line Parameters 
  *
  *   - ugoodput 0 buf=100 sts=400 mtu=17000 disable_nread=0 thruput=1 push_rp_thr=16 chan=5 chann_reserve=1
@@ -1483,13 +1488,21 @@
  *         chan=N where N is less than 6
  *     - chann_reserve = Reserve chann (if more than 1) for push RP NWRITEs. 
  *
+ * \subsection tun_dma_ez DMA TUN Startup script
+ *
+ * dmatun.sh has the default values discussed above. Requires installation via install.sh
+ *
+ * install/all_start.sh will start dmatun.sh remotely under screen(1) control.
+ *
+ * If channels 6 and 7 are taken dmatun.sh will stop running. Ditto MBOX channel 3.
+ *
  * \subsection buf_discussion Application Buffer Constraints
  *
  *  Most networked applications are written with TCP in mind and MTU=1500 
  *  Ethernet.  As such their internal buffers are not configurable.  For
  *  example, wget always uses 8KB.  Extending the MTU past 16k offers 
  *  no gain with off-the-shelf software and limits the number of peers as
- *  all buffers are carved off the 16M of CMA memory currently supported
+ *  all buffers are carved off the 64M of CMA memory currently supported
  *  by goodput.
  *
  * \section tun_msg IP Tunnelling with Tsi721 User Mode Driver (MBOX)
