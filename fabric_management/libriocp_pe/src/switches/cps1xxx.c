@@ -2199,15 +2199,15 @@ int __cps1xxx_get_lane_speed(struct riocp_pe *sw, uint8_t lane, enum riocp_pe_sp
 		if (ret < 0)
 			return ret;
 
-		RIOCP_DEBUG("[0x%08x:%s:hc %u] LANE_CTL[%u]:0x%08x\n",
-			sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
-			lane, ctl);
-
 		break;
 	}
 	default:
 		return -ENOSYS;
 	}
+
+	RIOCP_DEBUG("[0x%08x:%s:hc %u] LANE_CTL[%u]:0x%08x\n",
+		sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount,
+		lane, ctl);
 
 	/* sanity check: tx/rx rate must be equal */
 	rx_rate = (ctl & CPS1xxx_LANE_CTL_RX_RATE) >> CPS1xxx_LANE_CTL_RX_RATE_SHIFT;
