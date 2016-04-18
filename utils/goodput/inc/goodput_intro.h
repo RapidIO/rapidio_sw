@@ -1488,6 +1488,10 @@
  *         chan=N where N is less than 6
  *     - chann_reserve = Reserve chann (if more than 1) for push RP NWRITEs. 
  *
+ * \subsection tun_dma_parms_mport DMA TUN Command Line Parameter for kernel/mport DMA
+ * 
+ * If passed the "dma_method=1" parameter it will do DMA via libmport at a lower thruput.
+ *
  * \subsection tun_dma_ez DMA TUN Startup script
  *
  * dmatun.sh has the default values discussed above. Requires installation via install.sh
