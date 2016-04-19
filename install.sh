@@ -17,9 +17,9 @@ fi
 if [ $PRINTHELP = 1 ] ; then
     echo "install.sh <NODE1> <NODE2> <NODE3> <NODE4> <memsz> <group> <rel>"
     echo "<NODE1> Name of master, enumerating node"
-    echo "<NODE2> Name of slave node conncected to Switch Port 2"
-    echo "<NODE3> Name of slave node conncected to Switch Port 3"
-    echo "<NODE4> Name of slave node conncected to Switch Port 4"
+    echo "<NODE2> Name of slave node connected to Switch Port 2"
+    echo "<NODE3> Name of slave node connected to Switch Port 3"
+    echo "<NODE4> Name of slave node connected to Switch Port 4"
     echo "If any of <NODE2> <NODE3> <NODE4> is \"none\", the node is ignored."
     echo "<memsz> RapidIO memory size, one of mem34, mem50, mem66"
     echo "        If any node has more than 8 GB of memory, MUST use mem50"
