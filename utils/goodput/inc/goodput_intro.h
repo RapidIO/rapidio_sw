@@ -1,4 +1,4 @@
-/*! \mainpage Goodput Introduction
+/*! \page goodput_docs Goodput Introduction
  *
  * \section intro_sec Introduction
  * The goodput tool measures goodput (actual data transferred) and latency for 

@@ -47,7 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * repeats forever.  The client display status every 0x100000
  * (1M) messages.  
  *
- * To halt the server or client, use <CTRL>C.
+ * To halt the server or client, use (CTRL)C.
  *
  * See the definitions of HELP_STR below for the parameters accepted
  * by the client and server.
@@ -636,7 +636,7 @@ static void sig_handler_term(int signo)
 /**
  * \brief Signal handler for USR1 interrupt, prints performance stats
  *
- * \param[in] Signal number received.
+ * \param[in] signo Signal number received.
  *
  * \retval None.
  *

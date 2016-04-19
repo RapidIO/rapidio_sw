@@ -43,7 +43,7 @@
  * continues until the client closes connection (or server program is terminated by a signal).  
  *
  * Usage:
- *   ./riodp_test_server <loc_mport> <loc_channel> [debug]
+ *   ./riodp_test_server (loc_mport) (loc_channel) [debug] 
  *
  * Options are:
  * - loc_mport : local mport device index (default=0)

@@ -1,154 +1,186 @@
-/** \mainpage RapidIO Software Stack Documentation
+/** \mainpage RapidIO Remote Memory Access Platform (RRMAP)  Overview
  *
- * The RapidIO Software Stack consists of the following facilities:
+ * The RapidIO Remote Memory Access Platform uses the Linux kernel RapidIO
+ * character mode driver interfaces to provide performance 
+ * optimized, portable high performance communication capabilities for
+ * a heterogenous computing environment.  There are two main facilities:
+ * - Remote Memory Access (RMA), which allows "socket style" connect/accept,
+ *   read/write, and close communication for a shared memory regiont, and
+ * - RMA Sockets, which provides a "socket style" "stream of bytes" interface
+ *   using an RMA bounded buffer.
+ * For applications that require a complete network stack, RRMAP provides 
+ * the DmaTun component to transport IP frames over a
+ * RapidIO network.
  *
- *  \ref fabric_management Fabric Management
- *  - configures the RapidIO network
- *  - allows applications to register and be notified as other applications 
- *    enter an leave the system.
- *  - Refer to the include/libfmdd.h File Reference for interface details.
- *  - Fabric management is supported by the Fabric Management Daemon (fmd)
- *    process.
+ * The RRMAP stack also provides a user mode driver (UMD) for the Tsi721
+ * PCIe-to-RapidIO bridge device. The user mode driver reduces transmission
+ * latency for both messaging and DMA transfers.
  *
- * \ref remote_direct_memory_access Remote Direct Memory Access
- *  - Allows applications to coordinate memory transfers from the memory space
- *    of one node directly into the memory space of another node.
- *  - Refer to the include/librdma.h File Reference for interface details.
- *  - Remote Direct Memory Access is supported by the Remote Direct Memory
- *    Access Daemon (rdmad) process.
- * 
- * \ref rdma_sockets RDMA Sockets
- *  - Presents a socket style interface which implements memory transfer using
- *    bounded RDMA buffers.
- *  - Refer to the include/librskt.h File Reference for interface details.
- *  - RDMA Sockets are supported by the RDMA Sockets Daemon (rsktd) process.
+ * RRMAP provides fabric management capabilities for the
+ * RapidIO network.  Fabric management manages the nodes in the RapidIO 
+ * network, including hot swap and fault handling.  It also manages 
+ * what applications are available on each node, allowing applications to know
+ * when a peer has appeared (or disappeared) in the network.
  *
- * \ref file_transfer_demo File Transfer Demo
- *  - The file transfer demonstration consists of a file transfer server,
- *    and associated client library, for performing file transfers over a
- *    RapidIO network.
- *  - The file transfer demonstration depends only on the kernel character
- *    mode driver. 
+ * Two utilities are also provided:
+ * - Goodput - performance measurement of the RapidIO fabric and UMD
+ * - File Transfer - performs file transfer over a RapidIO network using
+ *   messaging to coordinate DMA transfers between multiple clients and
+ *   servers.
  *
- * \ref goodput_demo Goodput/Ugoodput Demo
- * - The Goodput and UGoodput utilities allow measurement of throughput and
- *   latency.
- * - Measurements use the kernel character mode driver, or the Tsi721 User Mode
- *   Driver.
- * - Messaging, DMA, and Direct I/O can be measured.
+ * Public interfaces are found in rapidio_sw/include.  The libraries associated
+ * with the interfaces are found in rapidio_sw/include/libs_a.
+ * Applications may use
+ * these interfaces to incorporate the RRMAP capabilities listed above.
  *
- * Public interfaces are found in rapidio_sw/include.
- *
- * Private interfaces/utilties are found in rapidio_sw/common.
- *
- * All public and private interfaces are documented.  Refer to the "Files" tab.
- *
- * Implementations are not yet documented.
+ * All public interfaces are documented.
+ * Refer to the "Files" tab for more details.
  *
  * \section install_sec Installation
  *
- * To install the RapidIO Software Stack, perform the following steps:
+ * Automatic installation has been tested on systems with up to four nodes,
+ * and a single switch.  
  *
- * -# Select a node which will be the Fabric Management master node for the
- *    system.  Note that the current Fabric Management functionality supports
- *    a single switch with endpoints connected to the switch.
- * -# Create the file /etc/rapidio/fmd.conf on the Fabric Management master
- *    node, using the rapidio_sw/fabric_management/daemon/cfg/GRY05.cfg 
- *    file as an example.  This file describes the topology of the system
- *    to the Fabric Management functionality, as described in 
- *    \ref fabric_management_details
- *     -# The DEV_DIR and DEV_DIR_MTX lines should not change
- *     -# The MPORT (DestID) may change to reflect the destination ID required
- *        Note that 0 and 255 are illegal destination IDs.
- *     -# The MASTER_INFO (DestID) must match the MPORT (DestID)
- *     -# There should be one ENDPOINT line for each device connected to the
- *         switch.
- *         -# Note that the PORT (parms) are not used today, but will be in 
- *            future.
- *         -# Note that there must be an ENDPOINT for the MPORT/MASTER_INFO,
- *            and the ENDPOINT (DestID) must match the MPORT & MASTER_INFO.
- *         -# The ENDPOINT (DestID) value must be unique.
- *         -# The ENDPOINT (Hopcount) value must be 255 for the 
- *            the MPORT/MASTER_INFO, and 1 for all others.
- *         .
- *     -# The SWITCH has a large number of parameters.
- *         -# The SWITCH is assigned a DestID, which must be unique.
- *         -# There must be one PORT (parms) line for each used port.
- *            The PortNum must be exist on the device.
- *         -# There must be one DESTID line for each ENDPOINT.  The rt_value
- *            must match the switch port that the ENDPOINT is connected to.
- *         .
- *     -# There must be one CONNECT line for each ENDPOINT
- *         -# Typically, CONNECT (switch_name.PortNum) (endpoint_name.0)
- *         -# The endpoint port number will always be 0.
- *         -# The switch_name must match the dev_name in the SWITCH line.
- *         -# The endpoint_name must match the dev_name in and ENDPOINT line.
- *         -# The switch_name (PortNum) must match the DESTID PortNum value
- *            for the connected endpoint.
- *         .
- *     .
- * -# Create the file /etc/rapidio/fmd.conf on all nodes except the  
- *    Fabric Management master node, using the 
- *    rapidio_sw/fabric_management/daemon/cfg/GRY06.cfg 
- *    file as an example.  This file tells the fabric management slave nodes
- *    where to find the fabric management master node.  See 
- *    \ref fabric_management_details for more information.
- *	-# The DEV_DIR and DEV_DIR_MTX lines should not change
- *	-# The MPORT (DestID) must match the DestID value for this node in
- *         the Fabric Management master node fmd.conf file.
- *      -# The MASTER_INFO (DestID) must match the 
- *         Fabric Management master node fmd.conf MPORT (DestID) value.
- *      -# The ENDPOINT (DestID) value must match the 
- *         Fabric Management master node fmd.conf ENDPOINT (DestID) value
- *         for this endpoint.
- *      .
+ * Installation depends upon the following:
  *
- * -# Create a copy of the software source files on all nodes.  The directory
- *    path to the software must be the same on all nodes.
- * -# Compile the software on all nodes by typing "make all" in the rapidio_sw
- *    directory.
- * -# Create a copy of the rapidio_sw/common/scripts/create_gry9-12.sh 
- *    system startup bash script in the /opt/rapidio/ directory.
- *    Use the bash "chmod" command
- *    to allow all users to run the script.  This script assumes that there 
- *    is ssh connectivity over Ethernet to all nodes, which will allow
- *    automated system startup.
- *    -# Change the script RDMA_ROOT_PATH value to be the directory path to the
- *       software.
- *    =# Change the script NODES list to reflect the Ethernet address/node
- *       names used to address each node.
- * -# Start the software by executing the system start up script.
+ * - ssh been configured to allow root access to all four nodes      
+ * - The 'screen' utility has been installed on all four nodes
+ * - The 'doxygen' utility has been installed on all four nodes
  *
- * The system startup script runs each daemon under "screen".  To access the
- * command line interpreter for each daemon, use "sudo screen -r (name)"
- * where (name) is the daemon name (fmd, rdmad, rsktd) of interest.
+ * Installation is a two step process:
+ * -# Unpack the RapidIO software on any of the four nodes.
+ *   - This should create a rapidio_sw directory
+ *
+ * -# Execute the rapidio_sw/install.sh script as follows:
+ *   - install.sh (NODE1) (NODE2) (NODE3) (NODE4) (memsz) (group)
+ *     - (NODE1) Name of master, enumerating node
+ *     - (NODE2) Name of slave node connected to Switch Port 2
+ *     - (NODE3) Name of slave node connected to Switch Port 3
+ *     - (NODE4) Name of slave node connected to Switch Port 4
+ *     - If any of (NODE2) (NODE3) (NODE4) is "none", 
+ *       the node is ignored.
+ *     - (memsz) RapidIO system memory address size
+ *       - Valid values are mem34, mem50, mem66
+ *         - mem34 : all (NODEn) have 8 GB of addressable memory or less
+ *         - mem50 : all (NODEn) have 2 TB of addressable memory or less
+ *         - mem66 : all (NODEn) have 2 PB of addressable memory or less
+ *     - (group) Unix file ownership group which should have access to
+ *       the RapidIO software
+ * 
+ * The installation script creates the following configuration files in
+ * /etc/rapidio:
+ *
+ * - fmd.conf - On the master node, fmd.conf contains configuration information 
+ *              for the entire system, includeing the switch and slave nodes.
+ *              On the slave nodes, fmd.conf contains configuration information
+ *              that allows the slave Fabric Management Daemon to contact the
+ *              master fabric management daemon.  For 
+ *              more information, refer to \ref stack_fmd.
+ * - nodelist.sh - List of nodes in the system.  Used by many scripts to 
+ *              determine what devices are available for demonstrations,
+ *              including the start and stop scripts described in
+ *              \ref execution_sec.
+ * - umdd.conf - Configuration information for Tsi721 User Mode Driver
+ *            DMA and MBOX channels.  For more information, refer to 
+ *            \ref stack_umd_mbox  and \ref stack_umd_dma.
+ *
+ * \section execution_sec Starting and Stopping RRMAP
+ *
+ * Scripts to start and stop RRMAP components are created by the install.sh
+ * script in the /opt/rapidio/rapidio_sw directory on each node.
+ *
+ * RRMAP supports two component configurations:
+ * - Kernel Only: The kernel only configuration supports execution of the 
+ *   Goodput and File Transfer utilties.  The Tsi721 DMA UMD may optionally
+ *   be started to transparently increase DMA performance for both of these
+ *   utilities.
+ * - RRMAP Stack: The RRMAP stack includes \ref stack_fmd Fabric Management, 
+ *   \ref stack_rma RMA,
+ *   \ref stack_rskt RMA Sockets,
+ *   \ref stack_umd_dma Tsi721 DMA UMD, and 
+ *   \ref stack_dma_tun DmaTun 
+ *
+ * Use the check_all.sh script to determine the component status 
+ * of each installed node.
+ *
+ * \subsection kernel_config Kernel Only
+ *
+ * The "kernel only" configuration must be used for the Goodput and
+ * file transfer utilities.  The RRMAP stack is not started, as it would
+ * interfere with the operation of both goodput and file transfer.
+ *
+ * To start the "kernel only" configuration,
+ * execute the rio_start.sh script
+ *
+ * To halt the "kernel only" configuration, use one of the following
+ * scripts:
+ * - ./stop_rio.sh - removes access to DMA and messaging
+ * - ./all_down.sh - powers down all nodes 
+ *
+ * Goodput and file transfer can use the Tsi721 User Mode Driver for DMA
+ * transactions.  To start the Tsi721 User Mode Driver, execute the 
+ * umd721_start.sh script.
+ *
+ * Refer to \ref goodput_docs goodput for information on 
+ * starting the goodput utility.
+ *
+ * The fxfr_start.sh script will start file transfer servers on all nodes
+ * execute demonstration transfers.
+ * The stop_fxfr.sh script halts the file transfer server on all nodes.
+ * 
+ * \subsection rrmap_exec RRMAP Stack
+ *
+ * To start the RRMAP stack, execute the following scripts:
+ * -# ./rio_start.sh noenum
+ * -# ./all_start.sh 
+ *
+ * All_start.sh starts RRMAP fabric management, RMA, and RMA Sockets. If a
+ * Tsi721 device is present, all_start.sh also launches the Tsi721 DMA User Mode
+ * Driver, and the DmaTun IP transport utility.
+ * 
+ * To halt the RRMAP stack configuration, use one of the following
+ * scripts:
+ * - ./stop_all.sh - terminates Fabric Management, RMA, RMA Sockets, 
+ *                   Tsi721 User Mode Driver, and DmaTun.
+ * - ./all_down.sh - powers down all nodes 
+ *
+ * \page stack_fmd RRMAP Fabric Management Overview
  *
  * \section fabric_management Fabric Management 
  *
- * The Fabric Management daemon is required for the RDMA Daemon or the
- * RDMA Sockets Daemon to execute.  The RDMA Daemon and RDMA Sockets Daemon
- * register with the Fabric Management Daemon on startup, and receive events
- * informing them of the appearance and disappearance of daemons on other
- * nodes.
+ * Fabric management is implemented in the Fabric Management Daemon (FMD)
+ * RRMAP stack process.  One FMD must be running on each node in the system.
+ * The master FMD, running on the master node,
+ * is responsible for enumerating and managing the 
+ * RapidIO network.  The slave FMDs, running on all other nodes, inform
+ *  the master FMD when applications register and exit.
  *
- * The Fabric Management Daemon allows applications to be notified when 
- * an application enters or leaves the system.  A slave Fabric Management 
- * Daemon learns that an application has left the system when the AF_UNIX
- * socket connection to the application fails.  The slave Fabric Management
- * Daemon informs the master Fabric Management Daemon of the change.  The
+ * The FMD allows applications to be notified when 
+ * an application enters or leaves the system.  A slave FMD
+ * learns that an application has left the system when the AF_UNIX
+ * connection to the application fails.  The slave FMD
+ * informs the master FMD of the change.  The
  * master Fabric Management Daemon then informs all slave Fabric Management
  * Daemons of the change.  The slave Fabric Management Daemons in turn 
- * notify the connected applications of the change.
+ * notify the local applications of the change.
  *
  * A similar sequence of communication occurs when an application enters the
- * system.
+ * system and incorporates the libfmdd library.
  *
+ * RMA and RMA Sockets are dependent upon the FMD running on their node. 
+ * The RMA Daemon and RMA Sockets applications
+ * register with the FMD on startup, and receive events
+ * informing them of the appearance and disappearance of nodes and
+ * applications on other
+ * nodes.
+ *
+ * Refer to the include/libfmdd.h file reference for interface details.
  * Example code for registering with and managing Fabric Management Daemon
  * events is found in rapidio_sw/rdma/rskt/daemon/src/librsktd_fm.c
  *
  * \subsection fabric_management_details Fabric Management Daemon Details
  *
- * The master Fabric Management Daemon initializes switch routing tables and
+ * The master Fabric Management Daemon initializes switch routing tables 
  * and other switch and endpoint configuration details on startup.  The 
  * slave Fabric Management Daemons use Channelized Messaging (rio_cm kernel
  * module) to connect to the Master Fabric Management Daemons.  Once this
@@ -158,17 +190,34 @@
  * The Slave Fabric Management Daemons will not allow applications to connect
  * to it until it has connected to the Master Fabric Management Daemon.
  * 
- * \section remote_direct_memory_access Remote Direct Memory Access (RDMA)
+ * \page stack_rma RRMAP Remote Memory Access
  *
- * The RDMA Daemon uses three concepts to manage memory:
+ * \section remote_memory_access Remote Memory Access (RMA)
+ *
+ * The Remote Memory Access component is implemented in a Remote Memory Access
+ * Daemon (RMAD) process which runs on each node in the system, and a 
+ * Remote Memory Access library that is bound into each application that 
+ * wants to use its interfaces.  The libary connects to the RMAD for RMAD
+ * services.  The RMAD
+ * is responsible for managing memory on the node, managing connections 
+ * to that memory, and
+ * ensuring that when a connection is closed or broken that all accesses to
+ * the memory are cleaned up before the memory is used by another 
+ * application.
+ *
+ * The include/librdma.h defines the interfaces supported 
+ * by the RMA library.  The RMA library uses three concepts to manage memory:
  * - Memory space owner: A unique identifier for a memory owner
  * - Memory space: A unique identifier for a memory space.  A memory space is
  *   an area of memory that can be written remotely from another node over a 
  *   RapidIO network.  Every memory space is associated with a memory space
  *   owner.
- * - Memory subspace: A portion of a memory space.
+ * - Memory subspace: A portion of a memory space.  There are no rules around
+ *   how a memory subspace is defined, except that it must be wholely
+ *   contained within a single memory space.  Connections are made or broken
+ *   with memory subspaces.
  *
- * The RDMA Daemon is responsible for managing accesses to memory spaces/
+ * The RMA Daemon is responsible for managing accesses to memory spaces/
  * subspaces.  Memory space owner handles and memory space/subspace handles 
  * may be passed between processes.  Typically, an "owner" process is
  * responsible for
@@ -178,14 +227,15 @@
  * implementer.
  * 
  * Two "user" processes can transfer data through memory subspaces after the
- * memory subspaces have been connected.  This is done with the socket-like
+ * memory subspaces have been connected.  Memory space connections are formed
+ * using socket-like semantics with the 
  * interfaces rdma_connect and rdma_accept.
  *
  * Once a connection is made, data can be written to or read from a remote 
  * memory subspace. The source of the written data and the recepticle for the
  * read data can be either a local memory subspace or a local memory buffer.
  *
- * The reads and writes (pulls and pushes) can use threed distinct
+ * The reads and writes (pulls and pushes) can use three distinct
  * synchronization styles:
  * - Synchronous: Execution does not continue until the transfer is completed.
  *   Note that written data may still be in flight through the network after
@@ -195,62 +245,172 @@
  * - Fire and forget: There is no notification when a transfer has completed.
  *   Transfer completion must be detected based on changes in memory.
  *
- * The RDMA Daemon is informed when a process dies, and cleans up
+ * The RMA Daemon is informed when a process dies, and cleans up
  * all memory space/subspace accesses and connections for process.
-
- * Example code for using the RDMA interfaces is found at
+ *
+ * Refer to the include/librdma.h for interface details for
+ * the Remote Memory Access component.
+ * Example code for the RMA interfaces is found at
  * rapidio_sw/rdma/samples/src.
  *
- * \subsection rdma_known_limitations RDMA Limitations
+ * \page stack_rskt RRMAP Remote Memory Access Sockets
  *
- * The known limitations of the RDMA implementation are:
+ * \section rdma_sockets RMA Sockets (RSKT)
  *
- * - Only one memory subspace can be connected per memory space.
- * - Closing memory spaces/subspaces results in unpredictable behavior.
+ * RMA Sockets implements a socket style interface using RMA to manage
+ * bounded buffers.  RMA Sockets are implemented in a RMA Sockets daemon 
+ * process which manages sockets and connections, and a library which can
+ * be integrated into applications.   
  *
- * \section rdma_sockets RDMA Sockets (RSKT)
- *
- * RDMA Sockets implements a socket style interface using RDMA to manage
- * bounded buffers.
+ * RMA Sockets is dependent on the Fabric Management Daemon, and on the 
+ * Remote Memory Access Daemon.  
  *
  * The number and throughput of sockets supported varies with the buffer size
- * and total memory allocated by the RDMA Socket daemon.  These quantities are
- * controlled by the following RDMA Socket daemon command line paramenters:
+ * and total memory allocated by the RMA Socket daemon.  These quantities are
+ * controlled by the following RMA Socket daemon command line parameters:
  *
- * -s (num_spaces): Number of memory spaces to use. Maximum is 64.
- * -S (size): Size in kilobytes of memory spaces to request.  Valid values are
+ * - -s (num_spaces): Number of memory spaces to use. Maximum is 64.
+ * - -S (size): Size in kilobytes of memory spaces to request.  Valid values are
  *            128, 256, 512, 1024, and 2048
- * -k (size): Size of rskt socket buffers in kilobytes.  Valid values are
+ * - -k (size): Size of rskt socket buffers in kilobytes.  Valid values are
  *            2, 4, 8, 16, 32, 64, and 128. Must be less than -s value.
  *
  * Note that the maximum possible single transfer for a socket is 16 bytes 
  * less than half the -k (size) value.
  *
- * For RDMA Sockets code examples, refer to
+ * Refer to the librskt.h for 
+ * interface details.  For RMA Sockets code examples, refer to
  * rapidio_sw/rdma/rskt/daemon/src, rskt_server.c and rskt_client.c.
+ * These two files implement a server with accepts multiple connections,
+ * and a client which repeatedly connects, sends data and receives responses,
+ * and then closes the socket.
  *
- * \subsection rdma_skts_known_limitations RDMA Sockets Limitations
+ * \subsection rdma_skts_known_limitations RMA Sockets Limitations
  *
- * The known limitations of the RDMA Sockets implementation are:
+ * The known limitations of the RMA Sockets implementation are:
  *
- * - The RDMA Sockets implementation leaks memory on all actions except
+ * - The RMA Sockets implementation leaks memory on all actions except
  *   rskt_read and rskt_write.
- * - The RDMA Sockets implementation uses synchronous transfers, which 
+ * - The RMA Sockets implementation uses synchronous transfers, which 
  *   reduces throughput.
  * - The rskt_flush and rskt_recv interfaces are not supported by the current
  *   release.
- * - Closing a socket results in undefined behavior.
  *
- * \section file_transfer_demo File Transfer Demo
+ * \page stack_umd_mbox Tsi721 MBOX User Mode Driver 
  *
- * The file transfer utiltiies are found at rapidio_sw/utilities/file_transfer.
- * They are created and compiled separately from the main software stack.
- * For more information, refer to rapidio_sw/utilities/file_transfer/docs.
-
- * \section goodput_demo Goodput/Ugoodput Demo
+ * The interface for the Tsi721 MBOX user mode driver (UMD) is 
+ * mboxmgr_tsi721.h.  The associated library is 
+ * include/libs_a/libmboxmgr.a.  The Tsi721 MBOX UMD
+ * gives an application dedicated use of Tsi721 messaging channel 2 or 3,
+ * also known as a mailbox.
+ * The format and contents of the messages is completely controlled by the
+ * application.    
  *
- * The Goodput/UGoodput utilties are found at rapidio_sw/utilities/goodput.
- * They are build and documented separately from the main stak.  For more 
- * information, make the documentation with "doxygen doxyconfig" in 
- * rapidio_sw/utilties/goodput.
+ * Example code for the Tsi721 MBOX UMD is found in 
+ * mbox_example.c.  Mbox_example.c implements 
+ * mbox_server and mbox_client executables.  The mbox_server receives
+ * messages and echos them back to the sending client.  The client sends
+ * an endless stream of messages to the target server.  
+ *
+ * The 
+ * libmboxmgr/test/mbox_sample_test.sh script  
+ * executes a multiple client to single server test automatically, based
+ * on the list of installed nodes created by install.sh.  Documentation of
+ * the example code is found at mbox_example.c
+ *
+ * \page stack_umd_dma Tsi721 DMA User Mode Driver 
+ *
+ * The Tsi721 DMA user mode driver (UMD) is implemented as a daemon 
+ * process.  UMD DMA services are provided transparently through:
+ * - rapidio_sw/common/include/rapidio_mport_mgmt.h
+ *   - riomp_mgmt_mport_create_handle
+ *   - riomp_mgmt_mport_destroy_handle
+ * - rapidio_sw/common/include/rapidio_mport_dma.h
+ *   - riomp_dma_write_d
+ *   - riomp_dma_read_d 
+ *   - riomp_dma_wait_async
+ *
+ * Example code for the Tsi721 DMA UMD is found in 
+ * rapidio_sw/common/libmport/samples in the file riodp_test_dma.c.
+ *
+ * \page stack_dma_tun IP Tunnelling over RapidIO
+ *
+ * DmaTun is the name of the RRMAP stack component which transports IP 
+ * frames transparently over a RapidIO network.  No interface exists for the
+ * DmaTun component.  
+ *
+ * The DmaTun is started by the all_start.sh script.  DmaTun may also be 
+ * started without the rest of the RRMAP stack using the dmatun_start.sh 
+ * script.  DmaTun creates a network
+ * tunnel with IP addresses 10.64.12.(destID) on each node, where (destID) is 
+ * is the device ID of the Tsi721 on that node.  Frames address to other
+ * nodes with DMA TUN operating are transported over RapidIO to the target
+ * node.
+ *
+ * The iperfbidi.sh and iperfpeers.sh scripts use the standard "iperf" 
+ * traffic generation and test tool to demonstrate DmaTun performance.
+ *
+ * \page stack_fxfr File Transfer Utility
+ *
+ * The file transfer demonstration is found in the
+ * rapidio_sw/utils/file_transfer directory.  It consists of a server
+ * process which receives transfered files, and a client command which
+ * sends a file to a specified server.
+ * 
+ * The file transfer server is launched on all nodes of the cluster using the
+ * /opt/rapidio/rapidio_sw/fxfr_start.sh script.  The script runs the server
+ * using the "screen" utility, which allows users access to the
+ * server command prompt.  To connect to the server command prompt, execute
+ * the following command on the node where the server is running: 
+ * screen -r fxfr_server
+ * 
+ * The file transfer server process manages up to 8 windows of a
+ * configurable size. 
+ * Each window can support a single file transfer operation.  Multiple windows
+ * can be used at the same time to transfer multiple files in parallel.
+ *
+ * To transfer a file, type the following command  in the
+ * rapidio_sw/utils/file_transfer directory.
+ * Note that depending on your system configuration and privileges,
+ * this command may need to be run as root:
+ *
+ * ./rftp (src_file) (dest_file) (destID) (cm_skt) (mport) (dbg) (kbuf) 
+ * - src_file – Name of the file to be transferred, along with the path to the
+ *              file.
+ * - dest_file – Name of the transferred file on the target machine, along 
+ *               with the path to the file.
+ * - destID – RapidIO destination ID of the target server.
+ *            Execute the “mpdevs” command from the server command
+ *            prompt to confirm the servers destination ID.
+ * 
+ *  Note: all parameters below are optional
+ * 
+ * - cm_skt – RapidIO Channelized Messaging (CM) socket number to connect to.
+ *            The eefault value is 5555, and is used by the fxfr_start.sh 
+ *            script. . Execute the “status” command from the server command
+ *            prompt to display the CM socket number used by that server.
+ * - mport – The index of the mport number on the node executing the ./rftp 
+ *           command to be used to send the request.
+ *           The default mport number is 0. Enter a non-existant (i.e.  0xUA) 
+ *           mport number to display the (mport) values available on the 
+ *           local node, 
+ *           and the (destID) values where servers may be running.
+ * - dbg – A non-zero dbg value displays error/debug/trace messages
+ *            for the file transfer.   This can be useful when learning the
+ *            file transfer implementation.
+ * - kbuf – The rftp command may use user allocated memory, or kernel buffer
+ *          memory, to transfer the files.  Kernel buffers are physically 
+ *          contiguous memory, which support transfers using a single DMA 
+ *          transaction leading to higher performance;
+ *          User allocated memory is not physically contiguous, and so can
+ *          result in many smaller 4K DMA transactions and lower performance.
+ *           Rftp uses kernel memory by default..  
+ *
+ * Entering ./rftp with no parameters displays a message describing the
+ * above syntax.
+ *
+ * The rftp client performs the file transfer and reports
+ * elapsed time for the transfer, along with average throughput.  Note that
+ * throughput is usually constrained by file system performance.
+ *
  */

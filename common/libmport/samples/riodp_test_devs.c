@@ -48,7 +48,7 @@
  * - -D xxxx | --destid xxxx : destination ID of RapidIO device
  * - -H xxxx | --hop xxxx : hop count to RapidIO device (default 0xff)
  * - -T xxxx | --tag xxxx : component tag of RapidIO device
- * - -N <device_name> | --name <device_name> : RapidIO device name
+ * - -N (device_name) | --name (device_name) : RapidIO device name 
  * - --help (or -h)
  */
 
