@@ -38,6 +38,8 @@ trap "let stop_req=1; killall rftp; umount /tmp/rd" 0 1 2 15
 src=/tmp/rd/1G;
 dd if=/dev/zero of=$src bs=1M count=1024
 
+dbg=1
+kbuf=1
 while [ $stop_req -eq 0 ]; do
   for did in $DID_LIST; do
      decdid=$(printf "%d" $did);

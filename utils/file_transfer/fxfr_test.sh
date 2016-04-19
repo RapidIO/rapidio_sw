@@ -30,11 +30,11 @@ echo "Valid did  list: $DID_LIST";
 
 # Startup fxfr_server on all nodes
 screen -dmS fxfr_srv 'bash'; sleep 0.2
-screen -r fxfr_srv -X stuff "cd $SOURCE_PATH/utils/file_transfer; sudo ./fxfr_server -m $MPORT -W $nodec | tee -a /tmp/fxfrsrv-${RND}.log^M"
+screen -r fxfr_srv -X stuff "cd $SOURCE_PATH/utils/file_transfer; sudo ./fxfr_server -m$MPORT -W$nodec | tee -a /tmp/fxfrsrv-${RND}.log^M"
 
 for node in $NODE_LIST; do
   DID=$(printf "%d" $MY_DESTID);
-  ssh root@"$node" "screen -dmS fxfr_srv 'bash'; sleep 0.2; screen -r fxfr_srv -X stuff \"cd $SOURCE_PATH/utils/file_transfer; ./fxfr_server -m $MPORT -W $nodec | tee -a /tmp/fxfrsrv-${RND}.log^M\""
+  ssh root@"$node" "screen -dmS fxfr_srv 'bash'; sleep 0.2; screen -r fxfr_srv -X stuff \"cd $SOURCE_PATH/utils/file_transfer; ./fxfr_server -m$MPORT -W$nodec | tee -a /tmp/fxfrsrv-${RND}.log^M\""
 done
 
 # Startup rftp on all nodes, targetting all nodes but self
