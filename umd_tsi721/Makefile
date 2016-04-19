@@ -92,17 +92,17 @@ libumd_nolog.a: $(SOURCES) $(INCLUDES)
 	$(AR) rcs $@ *.o
 	@rm -f *.o
 
-mbox_client: src/mbox_example.c
+mbox_client: test/mbox_example.c
 	$(CXX) $(CXXFLAGS) \
 		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) -DMBOX_CLIENT \
-		src/mbox_example.c -o $@ \
+		$^ -o $@ \
 		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd
-mbox_server: src/mbox_example.c
+mbox_server: test/mbox_example.c
 	$(CXX) $(CXXFLAGS) \
 		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) \
-		src/mbox_example.c -o $@ \
+		$^ -o $@ \
 		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd
 
 
