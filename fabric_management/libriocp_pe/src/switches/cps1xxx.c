@@ -500,6 +500,7 @@ struct switch_lane_priv_t {
 };
 
 struct switch_priv_t {
+	uint32_t event_counter;
 	struct switch_lane_priv_t lanes[];
 	struct switch_port_priv_t ports[];
 };
@@ -3157,6 +3158,8 @@ int cps1xxx_event_handler(struct riocp_pe *sw, struct riomp_mgmt_event *revent, 
 	uint8_t port;
 	uint8_t event_code;
 
+	struct switch_priv_t *priv = (struct switch_priv_t *)sw->private_driver_data;
+
 	int i;
 	for (i=0;i<4;i++) {
 		RIOCP_INFO("PW[%d]: 0x%08x\n", i, revent->u.portwrite.payload[i]);
@@ -3191,6 +3194,9 @@ errout:
 #ifdef CONFIG_ERROR_LOG_SUPPORT
 	cps1xxx_dump_event_log(sw);
 #endif
+	event->counter = priv->event_counter;
+	priv->event_counter++;
+
 	return ret;
 }
 

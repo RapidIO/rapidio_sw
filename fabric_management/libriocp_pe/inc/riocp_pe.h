@@ -122,6 +122,7 @@ typedef uint32_t riocp_pe_event_mask_t;
 struct riocp_pe_event {
 	uint8_t port;                /* port identifier */
 	riocp_pe_event_mask_t event;    /* bitmask of events */
+	uint32_t counter;			/* event counter */
 };
 
 /** RapidIO control plane loglevels */

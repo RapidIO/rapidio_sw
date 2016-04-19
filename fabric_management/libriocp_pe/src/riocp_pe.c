@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <inttypes.h>
 
 #include <fcntl.h>
 #include <dirent.h>
@@ -1512,6 +1513,10 @@ int RIOCP_SO_ATTR riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *p
 
 	ev->port  = _e.port;
 	ev->event = _e.event;
+	ev->counter = _e.counter;
+
+	RIOCP_DEBUG("New event 0x%08"PRIx32" with number %"PRIu32" from (%s:0x%04x:0x%08x.%u) port %"PRIu8" received",
+			_e.event, _e.counter, riocp_pe_get_device_name(*pe), _pe->destid, _pe->comptag, _pe->hopcount, _e.port);
 
 out:
 	if ((lock = riocp_unlock())) {
