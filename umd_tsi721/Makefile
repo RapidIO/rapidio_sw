@@ -76,20 +76,22 @@ LIBFLAGS = -shared -fPIC
 SYSLIBS = -lrt -lpthread -ldl 
 LIBRARIES = -lmport -ltime_utils -lcli
 
-all: libumd.a libumd_nolog.a mbox_client mbox_server
+all: libumd_tsi721.a libumd_tsi721_nolog.a mbox_client mbox_server
 
-libumd.a: $(SOURCES) $(INCLUDES)
+libumd_tsi721.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
 	$(CXX) $(CXXFLAGS) -DRDMA_LL=$(LOG_LEVEL) $(SOURCES) \
 		-c $(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) -llog
 	$(AR) rcs $@ *.o
+	cp -v $@ $(COMMONDIR)/libs_a
 	@rm -f *.o
 
-libumd_nolog.a: $(SOURCES) $(INCLUDES)
+libumd_tsi721_nolog.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
 	$(CXX) $(CXXFLAGS) $(LIBFLAGS) $(SOURCES) \
 		-c $(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) 
 	$(AR) rcs $@ *.o
+	cp -v $@ $(COMMONDIR)/libs_a
 	@rm -f *.o
 
 mbox_client: test/mbox_example.c
@@ -97,13 +99,14 @@ mbox_client: test/mbox_example.c
 		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) -DMBOX_CLIENT \
 		$^ -o $@ \
-		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd
+		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
+
 mbox_server: test/mbox_example.c
 	$(CXX) $(CXXFLAGS) \
 		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) \
 		$^ -o $@ \
-		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd
+		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
 
 
 clean:

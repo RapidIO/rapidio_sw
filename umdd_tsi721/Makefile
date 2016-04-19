@@ -75,7 +75,7 @@ UMD_SOURCES = src/dmachanshm.cc
 
 UMDDLIB_SOURCES = src/dmachanshm.cc
 
-LIBRARIES =  -lpthread -lcli -lmport -ltime_utils -llog -lrt -lumd
+LIBRARIES =  -lpthread -lcli -lmport -ltime_utils -llog -lrt -lumd_tsi721
 
 all: umdd umddlib
 
@@ -90,7 +90,7 @@ umddlib: $(UMDDLIB_SOURCES)
         -DNODEBUG -DUSER_MODE_DRIVER -Wall -Wno-format \
         $(UMDDLIB_SOURCES) \
         -fPIC -shared -Wl,-soname,libUMDd.so.$(SOVER) -o libUMDd.so.$(SOVER) \
-        -lrt -L$(COMMONLIB) -L$(UMDDIR) $(LIBS_RPATH) -lmport -ltime_utils -lumd_nolog
+        -lrt -L$(COMMONLIB) -L$(UMDDIR) $(LIBS_RPATH) -lmport -ltime_utils -lumd_tsi721_nolog
 
 clean:
 	rm -f *.o umdd libUMDd.so* *~ src/*~ inc/*~ gmon.out 

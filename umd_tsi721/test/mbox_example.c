@@ -63,7 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 
 #include "liblog.h"
-#include "mboxmgr.h"
+#include "mboxmgr_tsi721.h"
 
 #ifdef __cplusplus
 extern "C" {
