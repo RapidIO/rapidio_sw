@@ -73,7 +73,7 @@ void print_client_help(void)
 	printf("	Enter a non-zero <dbg> value to see <mport> and \n");
 	printf("	<destID> values available to this client.\n");
 	printf("<dbg>   : A non-zero <dbg> value displays error/debug/trace\n");
-	printf("	messages for the file transfer.\n\n");
+	printf("	messages for the file transfer. -1 is ultraquiet\n\n");
 	printf("<k_buf> : A zero <k_buf> value means ordinary user space\n");
 	printf("	memory will be used for file transferr. This is\n");
 	printf("	slower than the default kernel mode buffers.\n\n");
@@ -102,7 +102,7 @@ int parse_options(int argc, char *argv[],
 		uint16_t *server_dest,
 		int *xfer_skt,
 		uint8_t *mport_num,
-		uint8_t *debug,
+		int *debug,
 		uint8_t *k_buffs
 	       	)   
 {
@@ -132,7 +132,7 @@ int parse_options(int argc, char *argv[],
 		*mport_num = atoi(argv[5]);
 
 	if (argc > 6)
-		*debug = atoi(argv[6])?1:0;
+		*debug = atoi(argv[6]);
 
 	if (argc > 7)
 		*k_buffs = atoi(argv[7])?1:0;
@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
 	uint8_t mport_num; /* Master port number to use on this node */
 	uint16_t destID; /* DestID where fxfr server is running */
 	int svr_skt; /* Socket fxfr server is accepting requests */
-	uint8_t debug = 0;
+	int debug = 0;
 	uint8_t k_buff = 0;
 	struct timespec req_time, st_time, end_time, duration;
 	uint64_t bytes_sent;
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
 		&svr_skt, &mport_num, &debug, &k_buff))
 		goto exit;
 
-	if (debug) {
+	if (debug > 0) {
 		printf("\nLocal  file: \"%s\"\n", src_name);
 		printf("\nRemote file: \"%s\"\n", rem_name);
 		printf("\nDestID     : %d\n", destID);
@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
 	};
 
         clock_gettime(CLOCK_MONOTONIC, &req_time);
-	rc = send_file(src_name, rem_name, destID, svr_skt, mport_num, debug, 
+	rc = send_file(src_name, rem_name, destID, svr_skt, mport_num, (debug>0? debug: 0), 
 		&st_time, &bytes_sent, k_buff);
         clock_gettime(CLOCK_MONOTONIC, &end_time);
 
@@ -182,24 +182,32 @@ int main(int argc, char *argv[])
 		duration = time_difference(st_time, end_time);
 		float throughput, time, xfer_size;
 		
-		printf("Req   time: %10d sec %10d nsec\n", 
-			(uint32_t)req_time.tv_sec, (uint32_t)req_time.tv_nsec);
-		printf("Start time: %10d sec %10d nsec\n", 
-			(uint32_t)st_time.tv_sec, (uint32_t)st_time.tv_nsec);
-		printf("End   time: %10d sec %10d nsec\n", 
-			(uint32_t)end_time.tv_sec, (uint32_t)end_time.tv_nsec);
-		printf("Duration  : %10d sec %10d nsec\n\n", 
-			(uint32_t)duration.tv_sec, (uint32_t)duration.tv_nsec);
+		if (debug >= 0) {
+			printf("Req   time: %10d sec %10d nsec\n", 
+				(uint32_t)req_time.tv_sec, (uint32_t)req_time.tv_nsec);
+			printf("Start time: %10d sec %10d nsec\n", 
+				(uint32_t)st_time.tv_sec, (uint32_t)st_time.tv_nsec);
+			printf("End   time: %10d sec %10d nsec\n", 
+				(uint32_t)end_time.tv_sec, (uint32_t)end_time.tv_nsec);
+			printf("Duration  : %10d sec %10d nsec\n\n", 
+				(uint32_t)duration.tv_sec, (uint32_t)duration.tv_nsec);
+		}
+
 		time = (float)duration.tv_nsec + 
 			((float)(duration.tv_sec) * 1000000000.0);
 		time = time/1000000000.0;
 		xfer_size = (float)(bytes_sent);
 		throughput = xfer_size/time/(1024.0*1024.0);
 
-		printf("Bytes sent  : %ld\n", (long int)bytes_sent);
+		if (debug >= 0) {
+			printf("Bytes sent  : %ld\n", (long int)bytes_sent);
+			printf("Throughput  : %12.3f Mbps\n", throughput*8.0);
+		}
+
 		printf("Throughput  : %12.3f MBps\n", throughput);
-		printf("Throughput  : %12.3f Mbps\n", throughput*8.0);
-	};
+	} else {
+		return 69;
+	}
 
 exit:
 	exit(EXIT_SUCCESS);

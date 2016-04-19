@@ -82,7 +82,7 @@ remdbg: $(REMDBG_OBJS)
 	-DRDMA_LL=7 \
 	-lfxfr -lcli -llog -lrt -D__CLI_LINUX__ 
 
-all: $(LIB_DEPS) fxfr_server client remdbg
+all: $(LIB_DEPS) libfxfr fxfr_server client remdbg
 
 clean:
 	rm -f *.o *~ *.exe core $(LOCAL_LIBRARY_DIR)/*.a fxfr rftp fxfr_server remdbg libs_a/*
