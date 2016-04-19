@@ -164,7 +164,9 @@ int main(int argc, char *argv[])
 	if (debug > 0) {
 		printf("\nLocal  file: \"%s\"\n", src_name);
 		printf("\nRemote file: \"%s\"\n", rem_name);
-		printf("\nDestID     : %d\n", destID);
+	}
+	printf("\nDestID     : %d\n", destID);
+	if (debug > 0) {
 		printf("\nSocket     : %d\n", svr_skt);
 		printf("\nMport      : %d\n", mport_num);
 		printf("\nDebug      : %d\n", debug);
@@ -176,7 +178,8 @@ int main(int argc, char *argv[])
 		&st_time, &bytes_sent, k_buff);
         clock_gettime(CLOCK_MONOTONIC, &end_time);
 
-	printf("\nFile transfer %s.\n", (rc)?"FAILED":"Passed");
+	if(rc) printf("\nFile transfer FAILED.\n");
+	else if (debug > 0) printf("\nFile transfer Passed.\n");
 
 	if (!rc) {
 		duration = time_difference(st_time, end_time);

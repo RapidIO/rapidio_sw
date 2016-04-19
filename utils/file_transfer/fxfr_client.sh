@@ -22,9 +22,7 @@ for node in $NODES; do
   [ $MY_DESTID = $DESTID ] && continue;
 
   DID_LIST="$DID_LIST $DESTID";
-  NODE_LIST="$NODE_LIST $node";
 done
-echo "Valid node list: $NODE_LIST";
 echo "Valid did  list: $DID_LIST";
 
 [ $(id -u) -gt 0 ] && { echo "Must run as root!" 1>&2; exit 1; }
@@ -36,9 +34,9 @@ let stop_req=0
 trap "let stop_req=1; killall rftp; umount /tmp/rd" 0 1 2 15
 
 src=/tmp/rd/1G;
-dd if=/dev/zero of=$src bs=1M count=1024
+dd if=/dev/zero of=$src bs=1M count=1024 &>/dev/null
 
-dbg=1
+dbg=-1
 kbuf=1
 while [ $stop_req -eq 0 ]; do
   for did in $DID_LIST; do
