@@ -197,7 +197,9 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	if (fd == -1)
 		return -errno;
 
+#ifdef MPORT_DEBUG
 	printf("UMDD %s: mport_id=%d flags=0x%x\n", __func__, mport_id, flags);
+#endif
 
 	hnd = (struct rapidio_mport_handle *)calloc(1, sizeof(struct rapidio_mport_handle));
 	if(!(hnd)) {
