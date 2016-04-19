@@ -67,8 +67,8 @@ libfxfr:
 	cp libfxfr/libfxfr.a $(LOCAL_LIBRARY_DIR)
 	
 
-server: $(SERVER_OBJS) 
-	g++ -o server $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
+fxfr_server: $(SERVER_OBJS) 
+	g++ -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
 	-DRDMA_LL=7 \
 	-lfxfr -lcli -ldl -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
 
@@ -82,8 +82,8 @@ remdbg: $(REMDBG_OBJS)
 	-DRDMA_LL=7 \
 	-lfxfr -lcli -llog -lrt -D__CLI_LINUX__ 
 
-all: $(LIB_DEPS) server client remdbg
+all: $(LIB_DEPS) fxfr_server client remdbg
 
 clean:
-	rm -f *.o *~ *.exe core $(LOCAL_LIBRARY_DIR)/*.a fxfr rftp server remdbg
+	rm -f *.o *~ *.exe core $(LOCAL_LIBRARY_DIR)/*.a fxfr rftp fxfr_server remdbg libs_a/*
 	$(MAKE) clean -C libfxfr
