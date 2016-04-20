@@ -41,6 +41,7 @@ done
 
 # Startup rftp on all nodes, targetting all nodes but self
 
+screen -dmS fxfr_cli$RND 'bash'; sleep 0.2
 screen -r fxfr_cli$RND -X stuff "cd $SOURCE_PATH/utils/file_transfer; sudo ./fxfr_client.sh $MPORT $DID_LIST_ALL | tee -a /tmp/fxfrcli-${RND}.log^M"
 
 for node in $NODE_LIST; do
