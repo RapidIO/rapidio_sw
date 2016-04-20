@@ -459,7 +459,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
 
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
-	xfer.loc_addr = buf;
+	xfer.loc_addr = (uintptr_t)buf;
 	xfer.length = size;
 	xfer.handle = 0;
 	xfer.offset = 0;
@@ -469,7 +469,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
 	tran.count = 1;
-	tran.block = &xfer;
+	tran.block = (uintptr_t)&xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)? -errno: ret;
@@ -495,7 +495,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
-	xfer.loc_addr = NULL;
+	xfer.loc_addr = (uintptr_t)NULL;
 	xfer.length = size;
 	xfer.handle = handle; // According to drivers/rapidio/devices/rio_mport_cdev.c in rio_dma_transfer()
 			      //    baddr = (dma_addr_t)xfer->handle;
@@ -506,7 +506,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
 	tran.count = 1;
-	tran.block = &xfer;
+	tran.block = (uintptr_t)&xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)? -errno: ret;
@@ -603,7 +603,7 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_add
 
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
-	xfer.loc_addr = buf;
+	xfer.loc_addr = (uintptr_t)buf;
 	xfer.length = size;
 	xfer.handle = 0;
 	xfer.offset = 0;
@@ -612,7 +612,7 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_add
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_READ;
 	tran.count = 1;
-	tran.block = &xfer;
+	tran.block = (uintptr_t)&xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)? -errno: ret;
@@ -637,7 +637,7 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
-	xfer.loc_addr = NULL;
+	xfer.loc_addr = (uintptr_t)NULL;
 	xfer.length = size;
 	xfer.handle = handle;
 	xfer.offset = offset;
@@ -646,7 +646,7 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_READ;
 	tran.count = 1;
-	tran.block = &xfer;
+	tran.block = (uintptr_t)&xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)? -errno: ret;
@@ -964,12 +964,12 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t s
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL || data == NULL)
 		return -EINVAL;
 
 	mt.offset = offset;
 	mt.length = size;
-	mt.u.buffer = data;
+	mt.buffer = (uintptr_t)data;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_LOCAL, &mt))
 		return -errno;
@@ -984,13 +984,13 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t 
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	/* size is enforced to match 'data' parameter type */
+	if ((hnd == NULL) || (size != sizeof(uint32_t)))
 		return -EINVAL;
 
 	mt.offset = offset;
 	mt.length = size;
-//		uint32_t __user value; /* when length == 0 */
-	mt.u.buffer = &data;   /* when length != 0 */
+	mt.buffer = (uintptr_t)&data;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_LOCAL, &mt))
 		return -errno;
@@ -1006,14 +1006,14 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t h
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL || data == NULL)
 		return -EINVAL;
 
 	mt.rioid = destid;
 	mt.hopcount = hc;
 	mt.offset = offset;
 	mt.length = size;
-	mt.u.buffer = data;   /* when length != 0 */
+	mt.buffer = (uintptr_t)data;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_REMOTE, &mt))
 		return -errno;
@@ -1030,14 +1030,15 @@ int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t 
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	/* size is enforced to match 'data' parameter type */
+	if ((hnd == NULL) || (size != sizeof(uint32_t)))
 		return -EINVAL;
 
 	mt.rioid = destid;
 	mt.hopcount = hc;
 	mt.offset = offset;
 	mt.length = size;
-	mt.u.buffer = &data;   /* when length != 0 */
+	mt.buffer = (uintptr_t)&data;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_REMOTE, &mt))
 		return -errno;

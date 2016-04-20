@@ -3,7 +3,7 @@
 ## This script grabs the latency figures from a log file.
 ## It also displays the size of the transfer
 
-UFFIX=log
+SUFFIX=log
 O_SUFFIX=res
 
 if [ -n "$1" ]; then

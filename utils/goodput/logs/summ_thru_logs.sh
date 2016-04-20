@@ -4,7 +4,7 @@
 ## It also displays the size of the transfer
 
 SUFFIX=log
-O_SUFFIX=res
+OSUFFIX=res
 
 if [ -n "$1" ]; then
 	SUFFIX=$1
