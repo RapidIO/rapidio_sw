@@ -60,11 +60,8 @@ CFLAGS += -I$(UMDINCDIR)
 
 LIBS=rt	pthread dl
 LDFLAGS?=-static
-ifeq ($(ARCH), ppc64)
-  INCLUDES=$(INCDIR) $(RIO_DIR)
-else
-  INCLUDES=$(INCDIR) $(DRV_INCLUDE_DIR)
-endif
+INCLUDES=$(INCDIR) $(RIO_DIR)
+
 LIBPATHS=$(LIBDIR) $(O)
 
 SAMPLES_TARGETS=$(addprefix $(O)/, riodp_test_dma riodp_test_misc \
