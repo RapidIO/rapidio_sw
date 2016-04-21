@@ -17,7 +17,7 @@
 #include "librdma.h"
 #include "rskts_info.h"
 
-#define SINGLE_CONNECTION	1
+#define SINGLE_CONNECTION	0
 
 #define RSKT_DEFAULT_SEND_BUF_SIZE	4*1024
 #define RSKT_DEFAULT_RECV_BUF_SIZE	4*1024
