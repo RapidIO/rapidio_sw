@@ -1,6 +1,6 @@
 #----------------------------------------------------------------------------*
-#Copyright (c) 2015, Integrated Device Technology Inc.
-#Copyright (c) 2015, RapidIO Trade Association
+#Copyright (c) 2016, Integrated Device Technology Inc.
+#Copyright (c) 2016, RapidIO Trade Association
 #All rights reserved.
 #
 ##Redistribution and use in source and binary forms, with or without modification,
@@ -27,54 +27,59 @@
 #CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 #OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#--------------------------------------------------------------------------***
+#----------------------------------------------------------------------------*
 
-TOPDIR=../..
-include $(TOPDIR)/rules.mk
+ifeq (,$(TOPDIR))
+$(error ************  ERROR: Please define TOPDIR in your Makefile ************)
+endif
+
+CC    =$(CROSS_COMPILE)gcc
+CXX   =$(CROSS_COMPILE)g++
+AR    =$(CROSS_COMPILE)ar
+RANLIB=$(CROSS_COMPILE)ranlib
+STRIP =$(CROSS_COMPILE)strip
+
+export CC
+export CXX
+
+KERNEL_VERSION := $(shell uname -r)
+KERNELDIR = /lib/modules/$(KERNEL_VERSION)/build
+KDIR?=/usr/src/linux
+RIO_DIR?=/usr/src/rapidio
+DRV_INCLUDE_DIR ?= $(KERNELDIR)/include $(RIO_DIR) $(KDIR)/include
+
+ARCH := $(shell arch)
+
+OPTFLAGS = -ggdb -Ofast
+
+ifeq ($(ARCH), x86_64)
+ OPTFLAGS += -march=native -mfpmath=sse -ffast-math
+endif
+ifeq ($(ARCH), i686)
+ OPTFLAGS += -march=native -mfpmath=sse -ffast-math
+endif
+
+SOVER?=0.4
+
+HERE := $(shell pwd)
+
+$(info Building $(HERE) on $(ARCH) release $(SOVER) with optimisations $(OPTFLAGS))
 
 LOG_LEVEL?=7
-DEBUG?=NDEBUG
+export LOG_LEVEL
 
-level=$(LOG_LEVEL)
+COMMONDIR=$(TOPDIR)/common
+COMMONINC=$(COMMONDIR)/include
+COMMONLIB=$(COMMONDIR)/libs_so
+COMMONLIBA=$(COMMONDIR)/libs_a
 
-NAME:=time_utils
-TARGETS:=lib$(NAME).a lib$(NAME).so
-TEST_TARGET:=$(NAME)_test
-HEADERS:=inc/lib$(NAME).h
+UMDDIR?=$(TOPDIR)/umd_tsi721
+UMDINCDIR=$(UMDDIR)/inc
+FMDDIR=$(TOPDIR)/fabric_management
 
-XFLAGS=-Wall -Wextra -fPIC
-XFLAGS+=-D$(DEBUG) -DRDMA_LL=$(level)
-XFLAGS+=-I. -Iinc -Isrc
+COMMONFLAGS=$(OPTFLAGS) -pthread -Werror -I$(TOPDIR)/include -I$(COMMONINC) -L$(COMMONLIB)
 
-CFLAGS += $(XFLAGS)
-CXXFLAGS += $(XFLAGS)
+CFLAGS+=$(COMMONFLAGS)
+CXXFLAGS+=$(COMMONFLAGS) -std=gnu++0x
 
-LDFLAGS+=-L. -l$(NAME)
-LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
-
-OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
-
-TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
-
-all: $(TARGETS)
-
-%.a: $(OBJECTS)
-	$(AR) rcs $@ $^
-
-%.so: $(OBJECTS)
-	$(CXX) $(CXXFLAGS) -o $@.$(SOVER) $(OBJECTS) $(LINK_FLAGS)
-	@ln -s $@.$(SOVER) $@ &>/dev/null
-
-src/%.o: src/%.c $(HEADERS)
-	$(CXX) -c $(CXXFLAGS) $< -o $@
-
-test: all $(TEST_TARGET) 
-
-$(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) -llog -pthread \
-	-L. -L$(COMMONLIBA)
-
-clean:
-	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a lib$(NAME).so*
-
-.PHONY: all clean
+LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so

@@ -29,40 +29,30 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-CC?=$(CROSS_COMPILE)g++
-CXX?=$(CROSS_COMPILE)g++
-AR=$(CROSS_COMPILE)ar
-KERNEL_VERSION := $(shell uname -r)
-KERNELDIR = /lib/modules/$(KERNEL_VERSION)/build
-KDIR?=/usr/src/linux
-RIO_DIR?=/usr/src/rapidio
-DRV_INCLUDE_DIR ?= $(KERNELDIR)/include $(RIO_DIR) $(KDIR)/include
+TOPDIR=../..
+include $(TOPDIR)/rules.mk
+
 LOG_LEVEL ?= 4
 PREFIX?=/usr
 LIBDIR=$(DESTDIR)$(PREFIX)/lib
 BINDIR=$(DESTDIR)$(PREFIX)/bin
-INCDIR=../include
-UMDINCDIR=../../umd_tsi721/inc
+INCDIR=$(COMMONINC)
 O?=.
-SOVER?=0.42
-
-ARCH := $(shell arch)
 
 ifdef DEBUG
-CFLAGS=-Wall -Wno-sign-compare -fPIC -ggdb # -DMPORT_DEBUG
+CXXFLAGS +=-Wall -Wno-sign-compare -fPIC # -DMPORT_DEBUG
 else
-CFLAGS=-O2 -Wall -Wno-sign-compare -fPIC -DNDEBUG
+CXXFLAGS += -Wall -Wno-sign-compare -fPIC -DNDEBUG
 endif
 
-CFLAGS += -ggdb
-CFLAGS += -I../../fabric_management/librio_switch/inc
-CFLAGS += -I$(UMDINCDIR)
+CXXFLAGS += -I$(FMDDIR)/librio_switch/inc
+CXXFLAGS += -I$(UMDINCDIR)
 
 LIBS=rt	pthread dl
-LDFLAGS?=-static
+LDFLAGS+= -L$(COMMONLIB) $(LIBS_RPATH)
 INCLUDES=$(INCDIR) $(RIO_DIR)
 
-LIBPATHS=$(LIBDIR) $(O)
+LIBPATHS=$(LIBDIR) $(O) $(COMMONLIB)
 
 SAMPLES_TARGETS=$(addprefix $(O)/, riodp_test_dma riodp_test_misc \
 		riodp_test_client riodp_test_server riodp_test_buf \
@@ -71,33 +61,33 @@ LIB_TARGETS=$(addprefix $(O)/, libmport.a libmport.so)
 
 .PHONY: all clean libs samples
 
-libs: $(LIB_TARGETS)
+all: $(LIB_TARGETS)
 
-all: $(LIB_TARGETS) $(SAMPLES_TARGETS)
+libs: $(LIB_TARGETS)
 
 samples: $(SAMPLES_TARGETS)
 
 libmport.so: src/riodp_mport_lib.o src/dmachanshm_dl.o
-	$(CXX) -shared -ldl -L../libs_so -ltime_utils -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER) $^
-	@ln -s $@.$(SOVER) $@ &>/dev/null
+	$(CXX) -shared -ldl -L$(COMMONLIB) -ltime_utils $(LIBS_RPATH) -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER) $^
+	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
 libmport.a: src/riodp_mport_lib.o src/dmachanshm_dl.o
 	$(AR) -r $@ $^
 
 umdmporttest: src/riodp_mport_lib.c src/dmachanshm_dl.c
 	$(CXX) -DTEST_UMDD \
-		$(addprefix -I, $(INCLUDES)) -I../../fabric_management/librio_switch/inc -I$(UMDINCDIR) \
-		-Wall -Wno-sign-compare -ggdb \
-		-ldl -L../libs_a -ltime_utils -o $@ $^
+		$(addprefix -I, $(INCLUDES)) -I$(FMDDIR)/librio_switch/inc -I$(UMDINCDIR) \
+		-Wall -Wno-sign-compare \
+		-ldl -L$(COMMONLIBA) -ltime_utils -o $@ $^
 
 $(O)/%: $(O)/samples/%.o libmport.so libmport.a
-	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) libmport.a -L../libtime_utils -ltime_utils
+	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) -ltime_utils -lmport
 
 $(O)/%: $(O)/src/%.o
-	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS))
+	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) -ltime_utils -lmport
 
 $(O)/%.o: %.c
-	$(CXX) -c -o $@ $(addprefix -I, $(INCLUDES)) $(CFLAGS) $<
+	$(CXX) -c -o $@ $(addprefix -I, $(INCLUDES)) $(CXXFLAGS) $<
 
 clean:
 	rm -rf $(SAMPLES_TARGETS) $(LIB_TARGETS) $(O)/src/*.o $(O)/samples/*.o libmport.so* umdmporttest

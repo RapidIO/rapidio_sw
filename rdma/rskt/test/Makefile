@@ -29,12 +29,11 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-LOG_LEVEL=7
-DEBUG?=DEBUG
-CC?=$(CROSS_COMPILE)g++
-CXX?=$(CROSS_COMPILE)g++
+TOPDIR=../../..
+include $(TOPDIR)/rules.mk
 
-TOP_LEVEL = ../../..
+DEBUG?=DEBUG
+
 DAEMON_SRC = ../daemon/src
 RDMA_SRC = fake_librdma
 MPORT_SRC = fake_libmport
@@ -45,28 +44,23 @@ level=$(LOG_LEVEL)
 
 NAME:=rskt
 TEST_TARGET:=$(NAME)_test
-CROSS_COMPILE?=/usr/bin/
 
-AR:=$(CROSS_COMPILE)ar
-
-CFLAGS+=$(addprefix -W,all extra error) -fPIC
+CXXFLAGS+=$(addprefix -W,all extra) -fPIC
 CLFAGS+=
-CFLAGS+=-O2 -D$(DEBUG) -g
-CFLAGS+=-I. -Iinc -Isrc
-CFLAGS+=-I$(TOP_LEVEL)/common/include -I$(TOP_LEVEL)/include 
-CFLAGS+=-I$(TOP_LEVEL)/fabric_management/librio_switch/inc
-CFLAGS+= -I$(TOP_LEVEL)/include 
-CFLAGS+=-I$(MPORT_SRC)
-CFLAGS+=-I$(FAKE_FMDD)
-CFLAGS+=-I../daemon/src -I../inc -I/../lib/src
-CFLAGS+=-DRDMA_LL=$(level)
+CXXFLAGS+=-D$(DEBUG)
+CXXFLAGS+=-I. -Iinc -Isrc
+CXXFLAGS+=-I$(FMDDIR)/librio_switch/inc
+CXXFLAGS+=-I$(MPORT_SRC)
+CXXFLAGS+=-I$(FAKE_FMDD)
+CXXFLAGS+=-I../daemon/src -I../inc -I/../lib/src
+CXXFLAGS+=-DRDMA_LL=$(level)
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(DAEMON_SRC)/librsktd_lib.o $(DAEMON_SRC)/librsktd_cli.o
 OBJECTS+=$(DAEMON_SRC)/librsktd_dmn.o $(DAEMON_SRC)/librsktd_msg_proc.o 
 OBJECTS+=$(DAEMON_SRC)/librsktd_sn.o  $(DAEMON_SRC)/librsktd_fm.o 
 OBJECTS+=$(DAEMON_SRC)/librsktd_speer.o $(DAEMON_SRC)/librsktd_wpeer.o
-HEADERS:=$(wildcard ../daemon/src/*.h) $(TOP_LEVEL)/include/librskt.h 
+HEADERS:=$(wildcard ../daemon/src/*.h) $(TOPDIR)/include/librskt.h 
 
 TEST_HEADERS:=$(wildcard src/*.h) $(wildcard inc/*.h)
 TEST_HEADERS+=$(wildcard $(MPORT_SRC)/*.h) $(wildcard $(FAKE_FMDD)/*.h)
@@ -79,10 +73,10 @@ TEST_OBJECTS+=$(patsubst $(FAKE_FMDD)/%.c,$(FAKE_FMDD)/%.o,$(wildcard $(FAKE_FMD
 all: $(TEST_TARGET)
 
 %.o: %.c $(HEADERS)
-	$(CXX) -c $(CFLAGS) --std=c++11 $< -o $@
+	$(CXX) -c $(CXXFLAGS) --std=c++11 $< -o $@
 
 $(DAEMON_SRC)/%.o: $(DAEMON_SRC)/%.c $(HEADERS)
-	$(CXX) -c $(CFLAGS) --std=c++11 $< -o $@
+	$(CXX) -c $(CXXFLAGS) --std=c++11 $< -o $@
 
 
 test: $(TEST_TARGET) 
@@ -90,7 +84,7 @@ test: $(TEST_TARGET)
 $(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS) $(HEADERS) $(TEST_HEADERS)
 	$(CXX) $(OBJECTS) $(TEST_OBJECTS) -o $(TEST_TARGET) \
 	-llog -lunit_test -ltime_utils -lcli -llist -lrskt -pthread \
-	-L. -L$(TOP_LEVEL)/common/libs_a -L$(TOP_LEVEL)/include/libs_a
+	-L. -L$(COMMONLIBA) -L$(TOPDIR)/include/libs_a
 
 clean:
 	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS)

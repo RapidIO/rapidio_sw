@@ -31,16 +31,16 @@
 # Copyright (c) 2015, Integrated Device Technology
 #
 
+TOPDIR=../..
+include $(TOPDIR)/rules.mk
+
 export LOCAL_LIBRARY_DIR=libs_a
 COMMON_LIBS_DIR?=../../common/libs_a
 
-LOG_LEVEL?=7
 DEBUG?=DEBUG
-CC?= $(CROSS_COMPILE)g++
-CXX?= $(CROSS_COMPILE)g++
 
-CCFLAGS= -c -g -ggdb -fPIC -Wall -Werror -O2 -I. -DRDMA_LL=7\
-	-I../../common/include -I./file_xfer_lib/inc -I./libcdev/inc \
+CXXFLAGS += -fPIC -Wall -I. -DRDMA_LL=$(LOG_LEVEL) \
+	-I./file_xfer_lib/inc -I./libcdev/inc \
 
 REMDBG_DEPS=
 
@@ -59,30 +59,29 @@ LIB_DEPS= libfxfr
 
 
 %.o: %.c $(SERVER_DEPS) $(LIB_DEPS)
-	$(CXX) -o $@ $< $(CCFLAGS) -I./libfxfr/inc
+	$(CXX) -c -o $@ $< $(CXXFLAGS) -I./libfxfr/inc
 
 libfxfr:
 	$(MAKE) all -C libfxfr
-	mkdir -p $(LOCAL_LIBRARY_DIR)
+	@mkdir -p $(LOCAL_LIBRARY_DIR) || true
 	cp libfxfr/libfxfr.a $(LOCAL_LIBRARY_DIR)
 	
-
 fxfr_server: $(SERVER_OBJS) 
-	g++ -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	-DRDMA_LL=7 \
+	$(CXX) $(CXXFLAGS) -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
+	$(LIBS_RPATH) \
 	-lfxfr -lcli -ldl -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
 
-client: $(CLIENT_OBJS) 
-	g++ -o rftp $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	-DRDMA_LL=7 \
+rftp: $(CLIENT_OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
+	$(LIBS_RPATH) \
 	-lfxfr -lcli -ldl -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
 
 remdbg: $(REMDBG_OBJS)
-	g++ -o remdbg $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	-DRDMA_LL=7 \
+	$(CXX) $(CXXFLAGS) -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
+	$(LIBS_RPATH) \
 	-lfxfr -lcli -llog -lrt -D__CLI_LINUX__ 
 
-all: $(LIB_DEPS) libfxfr fxfr_server client remdbg
+all: $(LIB_DEPS) libfxfr fxfr_server rftp remdbg
 
 clean:
 	rm -f *.o *~ *.exe core $(LOCAL_LIBRARY_DIR)/*.a fxfr rftp fxfr_server remdbg libs_a/*

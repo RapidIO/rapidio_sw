@@ -13,7 +13,7 @@ CC:=$(CROSS_COMPILE)gcc
 AR:=$(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
-CFLAGS+=-O2 -DNDEBUG
+CFLAGS+=-DNDEBUG
 CFLAGS+=$(addprefix -I,inc $(INCDIR))
 LDFLAGS+=-L. -l$(NAME)
 

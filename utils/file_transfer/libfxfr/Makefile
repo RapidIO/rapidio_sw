@@ -1,19 +1,14 @@
 # Copyright (c) 2015, Integrated Device Technology
 #
 
+TOPDIR=../../..
+include $(TOPDIR)/rules.mk
+
 NAME:=fxfr
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h
 
-CROSS_COMPILE?=/usr/bin/
-COMMON_INCLUDE_DIR?=../../../common/include
-
-CC:=$(CROSS_COMPILE)gcc
-AR:=$(CROSS_COMPILE)ar
-
-CFLAGS+=-fPIC
-CFLAGS+=-O2 -DNDEBUG -g -I./inc
-CFLAGS+= -I$(COMMON_INCLUDE_DIR)
+CFLAGS+=-fPIC -DNDEBUG -I./inc
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))

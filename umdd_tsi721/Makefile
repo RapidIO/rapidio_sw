@@ -29,26 +29,15 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-CXX ?= $(CROSS_COMPILE)g++
+TOPDIR=..
+include $(TOPDIR)/rules.mk
+
 config?=NODEBUG
 
-ARCH := $(shell arch)
+REGSDIR=$(FMDDIR)/librio_switch/inc
 
-TOP_LEVEL?=..
-COMMONDIR?=$(TOP_LEVEL)/common
-UMDDIR?=$(TOP_LEVEL)/umd_tsi721
-COMMONINC=$(COMMONDIR)/include
-COMMONLIB=$(COMMONDIR)/libs_so
-REGSDIR=../fabric_management/librio_switch/inc
-LOG_LEVEL?=7
-export LOG_LEVEL
-
-SOVER?=0.42
-
-LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so
-
-CXXFLAGS = -Wall -I./inc -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) -std=gnu++0x \
-	-pthread -DRDMA_LL=7 
+CXXFLAGS += -Wall -I./inc -I$(UMDDIR)/inc -D$(config) \
+	-pthread -DRDMA_LL=$(LOG_LEVEL)
 
 CXXFLAGS+=-DDEBUG_BD
 
@@ -86,7 +75,7 @@ umdd: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES)
 umddlib: $(UMDDLIB_SOURCES) 
 	$(CXX) -O3 -Wall -ggdb -pthread -std=gnu++0x \
 	-Iinc -I$(COMMONINC)  -I$(UMDDIR)/inc \
-	-I$(TOP_LEVEL)/fabric_management/librio_switch/inc \
+	-I$(REGSDIR) \
         -DNODEBUG -DUSER_MODE_DRIVER -Wall -Wno-format \
         $(UMDDLIB_SOURCES) \
         -fPIC -shared -Wl,-soname,libUMDd.so.$(SOVER) -o libUMDd.so.$(SOVER) \

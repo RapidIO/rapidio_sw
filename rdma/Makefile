@@ -1,4 +1,4 @@
-#------------------------------------------------------------------------------------------------------------------------------------------------------*
+#------------------------------------------------------------------------------*
 #Copyright (c) 2015, Integrated Device Technology Inc.
 #Copyright (c) 2015, RapidIO Trade Association
 #All rights reserved.
@@ -27,7 +27,10 @@
 #CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 #OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#--------------------------------------------------------------------------------------------------------------------------------------------***
+#------------------------------------------------------------------------------*
+
+TOPDIR=..
+include $(TOPDIR)/rules.mk
 
 # LOG_LEVEL is set by the master Makefile. If this Makefile is run alone, 
 # it can override the loglevel on the command line by specifying 'level=XXX'
@@ -38,37 +41,26 @@ else
 level?=$(LOG_LEVEL)
 endif
 
-CC?=$(CROSS_COMPILE)g++
-CXX?=$(CROSS_COMPILE)g++
-
-TOP_LEVEL?=..
-COMMON_DIR?=$(TOP_LEVEL)/common
-INCLUDE_DIR?=$(TOP_LEVEL)/include
-MPORTLIB_PATH=../common/libmport
-MPORTLIB_INC=../common/include
+INCLUDE_DIR?=$(TOPDIR)/include
+MPORTLIB_PATH=$(TOPDIR)/common/libmport
 MPORTLIB=libmport.so
-MPORTLIB_HEADER=rapidio_mport_dma.h
-LIBLOG_PATH=../common/libs_a
-LIB_DIRS = \
-	-L$(TOP_LEVEL)/fabric_management/libfmdd \
-	-L$(INCLUDE_DIR)/libs_a \
-	-L$(COMMON_DIR)/libs_so \
-	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
-	-L$(TOP_LEVEL)/fabric_management/libdd
-
-LIBS_RPATH?=-Wl,-rpath=$(COMMON_DIR)/libs_so
+MPORTLIB_HEADER=$(COMMONINC)/rapidio_mport_dma.h
+LIBLOG_PATH=$(COMMONLIBA)
+LIB_DIRS = -L$(FMDDIR)/libfmdd -L$(COMMONLIBA) -L$(COMMONLIB) \
+	-L$(FMDDIR)/libriocp_pe \
+	-L$(FMDDIR)/libdd
 
 # Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
+SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC
 
 # Common flags for all applications
-RDMAAPP_CFLAGS = -Wall -Werror -Wextra -g -ggdb -I../../samples/latency/common/ -Iinc/ -O3
+RDMAAPP_CFLAGS = -Wall -Werror -Wextra -I../../samples/latency/common/ -Iinc $(OPTFLAGS)
 
 # RDMA Daemon flags & sources
-RDMAD_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -g -ggdb -O3 \
-		-DRDMA_LL=$(level) -DBE_STRICT -I$(MPORTLIB_INC) \
-		-I../common/libcli/inc \
-		-I../include -Idaemon/inc -Idaemon/src -I. -Isrc -Iinc -I../common/include
+RDMAD_CFLAGS = $(CXXFLAGS) -Wall -Wextra \
+		-DRDMA_LL=$(level) -DBE_STRICT \
+		-I$(COMMONDIR)/libcli/inc \
+		-Idaemon/inc -Idaemon/src -I. -Isrc -Iinc
 
 RDMAD_SOURCES = src/rdma_mq_msg.c \
 		daemon/src/rdmad_main.cpp \
@@ -86,15 +78,15 @@ RDMAD_SOURCES = src/rdma_mq_msg.c \
 REMDBG_SOURCES	= daemon/src/remdbg.c
 
 # RDMA Library flags, sources and objects
-RDMALIB_SHARED_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
+RDMALIB_SHARED_CFLAGS = -Wall -Wextra -std=gnu++0x -c -fPIC $(OPTFLAGS) \
 		-Idaemon/inc \
-		-I$(MPORTLIB_INC) -Iinc -I../include -I../common/include \
-		-DRDMA_LL=$(level) -O3 -rdynamic -lnsl
+		-Iinc -I$(TOPDIR)/include -I$(COMMONINC) \
+		-DRDMA_LL=$(level) $(OPTFLAGS) -rdynamic -lnsl
 
-RDMALIB_STATIC_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb \
+RDMALIB_STATIC_CFLAGS = -Wall -Wextra -std=gnu++0x -c $(OPTFLAGS) \
 		-Idaemon/inc \
-		-I$(MPORTLIB_INC) -Iinc -I../include -I../common/include \
-		-DRDMA_LL=$(level) -O3
+		-Iinc -I$(TOPDIR)/include -I$(COMMONINC) \
+		-DRDMA_LL=$(level) $(OPTFLAGS)
 
 RDMALIB_SOURCES = lib/src/librdma.cpp \
 		lib/src/librdma_db.cpp \
@@ -117,7 +109,7 @@ rsktd: rdmad
 FORCE:
 
 # The RDMA shared library (the RPC client)
-librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
+librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.so ----------
 	$(CXX) $(RDMALIB_SHARED_CFLAGS) $(RDMALIB_SOURCES)
@@ -125,23 +117,23 @@ librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
 	-o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -ldl -lrt -ltime_utils -lmport -llog -pthread -lfmdd -ldd -lriocp_pe
 
 # The RDMA static library
-librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_INC)/$(MPORTLIB_HEADER) \
+librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.a ----------
 	$(CXX) $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES)
 	ar rcs librdma.a $(RDMALIB_OBJS)
-	mkdir -p $(TOP_LEVEL)/include/libs_a
-	cp librdma.a $(TOP_LEVEL)/include/libs_a
+	mkdir -p $(TOPDIR)/include/libs_a
+	cp librdma.a $(TOPDIR)/include/libs_a
 #Generate preprocessor output
-	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I../common/include -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
+	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I$(COMMONINC) -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
 
 # The RDMA daemon (the RPC server)
-rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMON_DIR)/libs_a/* $(INCLUDE_DIR)/libs_a/* \
+#rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMONDIR)/libs_a/* $(INCLUDE_DIR)/libs_a/* 
+rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMONDIR)/libs_a/* \
 	daemon/src/*.h $(INCLUDE_DIR)/*.h
-
 	@echo ---------- Building the RDMA Daemon...
-	$(CXX) -L../common/liblist/ $(LIB_DIRS) -L$(MPORTLIB_PATH) $(LIBS_RPATH) \
-	-Wl,-rpath=$(TOP_LEVEL)/common/liblist \
+	$(CXX) -L$(COMMONDIR)/liblist/ $(LIB_DIRS) -L$(MPORTLIB_PATH) $(LIBS_RPATH) \
+	-Wl,-rpath=$(TOPDIR)/common/liblist \
 	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -llist -ldl -lrt -ltime_utils -lmport -lcli -llog -lfmdd -ldd -lriocp_pe -pthread
 # Building preprocessor output for select files.
 	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_main.cpp > rdmad_main.i
@@ -157,7 +149,7 @@ rrdma:  $(REMDBG_SOURCES)
 	-lcli -lrt -ldl -ltime_utils -lmport -llog -pthread
 
 clean:
-	rm -f rdmad rrdma *.o librdma.so *.i
+	rm -f rdmad rrdma *.o librdma.a librdma.so *.i $(INCLUDE_DIR)/libs_a/librdma.a
 	$(MAKE) clean -C rskt
 	$(MAKE) clean -C samples
 	$(MAKE) clean -C test

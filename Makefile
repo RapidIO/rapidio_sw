@@ -29,25 +29,19 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
+TOPDIR=.
+include $(TOPDIR)/rules.mk
+
 LOG_LEVEL?=7
 export LOG_LEVEL
 
 DEBUG?=DEBUG
 export DEBUG
 
-SOVER?=0.4
-export SOVER
-
-CC = $(CROSS_COMPILE)g++
-export CC
-
-CXX = $(CROSS_COMPILE)g++
-export CXX
-
+# TODO This must go away
 TOP_LEVEL = $(shell pwd)
-export TOP_LEVEL
 
-TARGETS = common umd umdd fabric_management rdma 
+TARGETS = common umd umdd fabric_management rdma goodput file_transfer
 
 all: $(TARGETS)
 
@@ -60,12 +54,18 @@ rdma: common fabric_management FORCE
 umd: FORCE
 	$(MAKE) all -C umd_tsi721
 		
-umdd: FORCE
+umdd: common umd FORCE
 	$(MAKE) all -C umdd_tsi721
 		
 common: FORCE
 	$(MAKE) all -C common 
-		
+	
+goodput: common umd FORCE	
+	$(MAKE) all -C utils/goodput
+
+file_transfer: common FORCE
+	$(MAKE) all -C utils/file_transfer
+
 FORCE:
 
 clean: FORCE
@@ -74,4 +74,6 @@ clean: FORCE
 	$(MAKE) clean -C umdd_tsi721
 	$(MAKE) clean -C rdma
 	$(MAKE) clean -C fabric_management
+	$(MAKE) clean -C utils/goodput
+	$(MAKE) clean -C utils/file_transfer
 	rm -rf include/libs_a/*

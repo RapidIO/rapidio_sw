@@ -29,29 +29,27 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-# Copyright (c) 2015, Integrated Device Technology
-#
+TOPDIR=../../..
+include $(TOPDIR)/rules.mk
 
 LOG_LEVEL?=7
 DEBUG?=DEBUG
-CC?= $(CROSS_COMPILE)g++
-CXX?= $(CROSS_COMPILE)g++
 
 NAME:=rskt
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h inc/lib$(NAME)_private.h src/*.h
 
-CROSS_COMPILE?=/usr/bin/
 INCDIR=$(LINUX_INCLUDE_DIR)
 
-AR=$(CROSS_COMPILE)ar
+XFLAGS+=$(addprefix -W,all extra) -fPIC
+XFLAGS+=-DDEBUG
+XFLAGS+=-I../inc
+XFLAGS+=-DRDMA_LL=$(LOG_LEVEL)
+XFLAGS+=$(addprefix -I,inc $(INCDIR))
 
-CFLAGS+=$(addprefix -W,all extra error) -fPIC
-CFLAGS+=--std=c++11 -O2 -DDEBUG -g
-CFLAGS+=-I../inc -I../../../include 
-CFLAGS+=-I../../../common/include
-CFLAGS+=-DRDMA_LL=7
-CFLAGS+=$(addprefix -I,inc $(INCDIR))
+CXXFLAGS+=$(XFLAGS) --std=c++11
+CFLAGS+=$(XFLAGS)
+
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
@@ -62,7 +60,8 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 src/%.o: src/%.c $(HEADERS)
-	$(CXX) -c $(CFLAGS) $< -o $@
+	echo BUUUU
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a

@@ -29,23 +29,14 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-LOG_LEVEL?=7
+TOPDIR=..
+include $(TOPDIR)/rules.mk
+
 DEBUG?=DEBUG
-CXX?= $(CROSS_COMPILE)g++
-AR?=$(CROSS_COMPILE)ar
-
-ARCH := $(shell arch)
-
 config?=NODEBUG
-COMMONDIR=../common
+
 LIBMPINCDIR=$(COMMONDIR)/libmport/src
-COMMONINC=$(COMMONDIR)/include
-COMMONLIB=$(COMMONDIR)/libs_so
-REGSDIR=../fabric_management/librio_switch/inc
-
-export LOG_LEVEL
-
-LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so
+REGSDIR=$(FMDDIR)/librio_switch/inc
 
 INCLUDES = inc/debug.h inc/dmachan.h inc/dmadesc.h inc/local_endian.h inc/lockfile.h \
 		inc/mapfile.h inc/mboxchan.h inc/mhz.h inc/mport.h inc/pciebar.h \
@@ -53,18 +44,9 @@ INCLUDES = inc/debug.h inc/dmachan.h inc/dmadesc.h inc/local_endian.h inc/lockfi
 SOURCES = src/crc32.c src/dmachan.cc src/mapfile.cc src/mboxchan.cc \
 	src/mport.cc src/psem.cc src/pshm.cc src/tsi721_dma.c
 
-CXXFLAGS = -I./inc -I$(REGSDIR) -I$(COMMONINC) \
-	 -std=gnu++0x -D$(DEBUG) \
-	 -Werror -pthread
-
-CXXFLAGS += -ggdb -Ofast
-
-ifeq ($(ARCH), x86_64)
- CXXFLAGS += -march=native -mfpmath=sse -ffast-math
-endif
-ifeq ($(ARCH), i686)
- CXXFLAGS += -march=native -mfpmath=sse -ffast-math
-endif
+CXXFLAGS += -I./inc -I$(REGSDIR) -I$(COMMONINC) \
+	 -D$(DEBUG) \
+	 -pthread
 
 #CXXFLAGS += -DDEBUG_BD
 
@@ -81,7 +63,7 @@ all: libumd_tsi721.a libumd_tsi721_nolog.a mbox_client mbox_server
 libumd_tsi721.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
 	$(CXX) $(CXXFLAGS) -DRDMA_LL=$(LOG_LEVEL) $(SOURCES) \
-		-c $(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) -llog
+		-c $(SYSLIBS) $(LIBRARIES) -llog
 	$(AR) rcs $@ *.o
 	cp -v $@ $(COMMONDIR)/libs_a
 	@rm -f *.o
@@ -89,25 +71,24 @@ libumd_tsi721.a: $(SOURCES) $(INCLUDES)
 libumd_tsi721_nolog.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
 	$(CXX) $(CXXFLAGS) $(LIBFLAGS) $(SOURCES) \
-		-c $(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) 
+		-c $(SYSLIBS) $(LIBRARIES) 
 	$(AR) rcs $@ *.o
 	cp -v $@ $(COMMONDIR)/libs_a
 	@rm -f *.o
 
-mbox_client: test/mbox_example.c
+mbox_client: test/mbox_example.c libumd_tsi721.a
 	$(CXX) $(CXXFLAGS) \
-		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
+		-Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) -DMBOX_CLIENT \
 		$^ -o $@ \
-		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
+		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
 
-mbox_server: test/mbox_example.c
+mbox_server: test/mbox_example.c libumd_tsi721.a
 	$(CXX) $(CXXFLAGS) \
-		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
+		-Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) \
 		$^ -o $@ \
-		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
-
+		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
 
 clean:
 	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out mbox_client mbox_server

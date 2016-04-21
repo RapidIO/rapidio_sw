@@ -29,11 +29,13 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
+TOPDIR=../..
+include $(TOPDIR)/rules.mk
+
+CC=$(CXX) # XXX very UGGLY switcheroo
+
 LOG_LEVEL?=7
 DEBUG?=DEBUG
-CC = $(CROSS_COMPILE)gcc
-CXX = $(CROSS_COMPILE)g++
-TOP_LEVEL = $(shell pwd)
 
 level=$(LOG_LEVEL)
 
@@ -42,19 +44,14 @@ TARGETS:=lib$(NAME).a
 TEST_TARGET:=$(NAME)_test
 HEADERS:=inc/lib$(NAME).h
 
-CROSS_COMPILE?=/usr/bin/
-
-CC:=$(CROSS_COMPILE)g++
-AR:=$(CROSS_COMPILE)ar
-
-CFLAGS+=$(addprefix -W,all extra error) -fPIC
-CFLAGS+=-O2 -D$(DEBUG) -g
+CFLAGS+=$(addprefix -W,all extra) -fPIC
+CFLAGS+=-D$(DEBUG)
 CFLAGS+=-I. -Iinc -I../inc -Isrc
 CFLAGS+=-I../libriocp_pe/inc -I../libriocp_pe/src
 CFLAGS+=-I../librio_switch/inc
 CFLAGS+=-I../libcfg/inc
-CFLAGS+=-I../../common/include
 CFLAGS+=-DRDMA_LL=$(level)
+
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
@@ -67,6 +64,7 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 src/%.o: src/%.c $(HEADERS)
+	echo KJSHKJSH
 	$(CC) -c $(CFLAGS) $< -o $@
 
 test: all $(TEST_TARGET) 
@@ -74,7 +72,7 @@ test: all $(TEST_TARGET)
 $(TEST_TARGET) : $(OBJECTS) $(TEST_OBJECTS)
 	$(CC) $(OBJECTS) $(TEST_OBJECTS) -o $(TEST_TARGET) -lcli -llog \
 	-lmport -lriocp_pe -lswitch_api -pthread \
-	-L. -L../../common/libs_a -L../libs_a
+	-L. -L$(COMMONLIBA) -L../libs_a
 
 clean:
 	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a

@@ -35,19 +35,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <inttypes.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <errno.h>
 #include <time.h>
 #include <string.h>
 #include <semaphore.h>
-#include <pthread.h>
 #include <signal.h>
 #include <netinet/in.h>
 #include <assert.h>
 
+#define __USE_GNU
+#include <pthread.h>
+
 #define __STDC_FORMAT_MACROS
-#include <cinttypes>
 
 #include "librskt_private.h"
 #include "librskt_test.h"
@@ -602,8 +605,9 @@ exit:
 
 int librskt_init(int rsktd_port, int rsktd_mpnum)
 {
-	struct librskt_app_to_rsktd_msg *req;
-	struct librskt_rsktd_to_app_msg *resp;
+	int rc = 0;
+	struct librskt_app_to_rsktd_msg *req = NULL;
+	struct librskt_rsktd_to_app_msg *resp = NULL;
 
 	/* If library already running successfully, just return */
 	if ((lib.portno == rsktd_port) && (lib.mpnum == rsktd_mpnum) &&
@@ -712,7 +716,7 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 
 	free(resp);
 fail:
-	int rc = -!((lib.init_ok == lib.portno) && (lib.portno));
+	rc = -!((lib.init_ok == lib.portno) && (lib.portno));
 	DBG("EXIT, rc = %d\n", rc);
 	return rc;
 };

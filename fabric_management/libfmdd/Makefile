@@ -29,11 +29,10 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-LOG_LEVEL?=4
+TOPDIR=../..
+include $(TOPDIR)/rules.mk
+
 DEBUG?=DEBUG
-CC = $(CROSS_COMPILE)g++
-CXX = $(CROSS_COMPILE)g++
-TOP_LEVEL = $(shell pwd)
 
 level=$(LOG_LEVEL)
 
@@ -41,18 +40,13 @@ NAME:=fmdd
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h
 
-CROSS_COMPILE?=/usr/bin/
-
-AR:=$(CROSS_COMPILE)ar
-
-CFLAGS+=$(addprefix -W,all extra error) -fPIC
-CFLAGS+=-O2 -D$(DEBUG) -g
+CFLAGS+=$(addprefix -W,all extra) -fPIC
+CFLAGS+=-D$(DEBUG)
 CFLAGS+=-I. -I../inc
 CFLAGS+=-I../libriocp_pe/inc
 CFLAGS+=-I../librio_switch/inc
-CFLAGS+=-I../../common/include
-CFLAGS+=-I../../include
 CFLAGS+=-DRDMA_LL=$(level)
+
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
@@ -63,7 +57,7 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^ 
 
 src/%.o: src/%.c $(HEADERS)
-	$(CXX) -c $(CFLAGS) $< -o $@ -ldd -L../libs_a
+	$(CXX) $(CFLAGS) -c $< -o $@ -ldd -L../libs_a
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a
