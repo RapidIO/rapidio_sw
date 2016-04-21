@@ -90,7 +90,7 @@ static thread *engine_monitoring_thread;
 extern "C" {
 #endif
 
-static unsigned init = 0;	/* Global flag indicating library initialized */
+static auto init = false; /* Global flag indicating library initialization */
 
 /* Unix socket client */
 static shared_ptr<unix_client> client;
@@ -340,7 +340,7 @@ static int open_mport(void)
 } /* open_mport() */
 
 /**
- * FIXME: Rename to something more general.
+ * @brief Engine monitoring thread.
  */
 void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 {
@@ -362,24 +362,24 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 
 		/* Purge database and set state to uninitialized */
 		purge_local_database();
-		init = 0;
+		init = false;
 	}
 } /* engine_monitoring_thread_f() */
 
 /**
  * Initialize RDMA library
  *
- * rdma_lib_init() is automatically called once, when the library is loaded
- * in response to a call to one the RDMA APIs. rdma_lib_init() may be
+ * initialize() is automatically called once, when the library is loaded
+ * in response to a call to one the RDMA APIs. initialize() may be
  * called again whenever an API fails to retry or get a reason code for failure.
  *
  * @return: 0 if successful
  */
-static int rdma_lib_init(void)
+static int initialize(void)
 {
 	auto ret = 0;
 
-	if (init == 1) {
+	if (init) {
 		WARN("RDMA library already initialized\n");
 		return ret;
 	}
@@ -421,7 +421,7 @@ static int rdma_lib_init(void)
 			if (ret == 0) {
 				/* Success */
 				INFO("MPORT successfully opened\n");
-				init = 1;
+				init = true;
 				INFO("RDMA library fully initialized\n ");
 			} else {
 				CRIT("Failed to open mport\n");
@@ -458,27 +458,23 @@ static int rdma_lib_init(void)
 
 	DBG("ret = %d\n", ret);
 	return ret;
-} /* rdma_lib_init() */
+} /* initialize() */
 
 __attribute__((constructor)) int lib_init(void)
 {
-	auto rc = 0;
-
 	/* Initialize the logger */
-	rdma_log_init("librdma.log", 0);
-
-	/* Make threads cancellable at some points (e.g. mq_receive) */
-	if (pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)) {
-		WARN("Failed to set cancel state:%s. Exiting.\n",strerror(errno));
-		exit(errno);
+	if (rdma_log_init("librdma.log", 0)) {
+		CRIT("Failed to initialize the logger.Exiting\n");
+		exit(1);
 	}
 
 	/* Library initialization */
-	if (rdma_lib_init()) {
-		CRIT("Failed to connect to daemon. Exiting.\n");
-		exit(rc);
+	if (initialize()) {
+		CRIT("Failed to initialize library. Exiting.\n");
+		exit(2);
 	}
-	return rc;
+
+	return 0;
 } /* rdma_lib_init() */
 
 /**
@@ -489,7 +485,7 @@ __attribute__((constructor)) int lib_init(void)
  */
 #define LIB_INIT_CHECK(rc) if (!init) { \
 		WARN("RDMA library not initialized, re-initializing\n"); \
-		rc = rdma_lib_init(); \
+		rc = initialize(); \
 		if (rc != 0) { \
 			ERR("Failed to re-initialize RDMA library\n"); \
 			throw RDMA_LIB_INIT_FAIL; \
@@ -1082,7 +1078,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 			throw rc;
 		}
 
-		/* Failed to open ms? */
+		/* Failed to close ms? */
 		if (out_msg.close_ms_out.status) {
 			ERR("Failed to close ms '%s' in daemon, status = 0x%X\n",
 			((loc_ms *)msh)->name.c_str(), out_msg.close_ms_out.status);
@@ -1101,7 +1097,7 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	catch(int e) {
 		rc = e;
 	}
-	DBG("EXIT - success\n");
+	DBG("EXIT\n");
 	return rc;
 } /* rdma_close_ms_h() */
 
@@ -2112,8 +2108,7 @@ constexpr bool PUSH_MODE = true;
 constexpr bool PULL_MODE = false;
 
 /**
- * @brief Common preparation and validation code used by both the push
- * 	  and pulll msub RDMA functions.
+ * @brief Common DMA code used by both the push_ & pull_msub RDMA functions
  */
 static int dma_push_pull_msub(bool is_push,
 			      const struct rdma_xfer_ms_in *in,
@@ -2387,7 +2382,6 @@ int rdma_push_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		  struct rdma_xfer_ms_out *out)
 {
 	int rc;
-	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 	rc = dma_push_pull_buf(PUSH_MODE, buf, num_bytes, rem_msubh, rem_offset,
 		priority, sync_type, out);
@@ -2400,7 +2394,6 @@ int rdma_pull_buf(void *buf, int num_bytes, msub_h rem_msubh, int rem_offset,
 		  struct rdma_xfer_ms_out *out)
 {
 	int rc;
-	DBG("ENTER\n");
 	sem_wait(&rdma_lock);
 	rc = dma_push_pull_buf(PULL_MODE, buf, num_bytes, rem_msubh, rem_offset,
 		priority, sync_type, out);
@@ -2414,6 +2407,11 @@ struct dma_async_wait_param {
 	int err;
 };
 
+/**
+ * @brief Completion thread function. In this thread we wait for DMA
+ *	  completion by calling riomp_dma_wait_sync() which blocks
+ *	  until the DMA transfer is completed or a timeout occurs.
+ */
 void *compl_thread_f(void *arg)
 {
 	dma_async_wait_param	*wait_param = (dma_async_wait_param *)arg;
@@ -2425,7 +2423,7 @@ void *compl_thread_f(void *arg)
 
 	/* Exit the thread; it is no longer needed */
 	pthread_exit(0);
-}
+} /* compl_thread_f() */
 
 int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 			    const struct timespec *wait)

@@ -82,6 +82,15 @@ void cm_hello_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 	}
 } /* cm_hello_disp() */
 
+void cm_hello_ack_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
+{
+	uint32_t destid = be64toh(msg->cm_hello_ack.destid);
+	auto rc = hello_daemon_info_list.set_provisioned(destid, tx_eng);
+	if (rc < 0) {
+		ERR("Failed to provision destid(0x%X)\n", destid);
+	}
+} /* cm_hello_ack_disp() */
+
 /**
  * @brief Send indication to remote daemon that the connect request to
  * 	  the specified memory space was declined, most likley since
@@ -115,7 +124,7 @@ static void send_accept_nack(cm_msg_t *msg,
  * 	  a NACK is sent back to the client daemon. If all goes well
  * 	  then a CONNECT_MS_REQ is sent to the library thus
  * 	  unblocking the call to rdma_accept_ms_h(). rdma_accept_ms_h()
- * 	  in term sends a CONNECT_MS_RESP to the server daemon.
+ * 	  in turn sends a CONNECT_MS_RESP to the server daemon.
  */
 void cm_connect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 {
@@ -211,19 +220,15 @@ void cm_disconnect_ms_disp(cm_msg_t *msg, cm_server_tx_engine *tx_eng)
 		out_msg->category = htobe64(RDMA_REQ_RESP);
 		out_msg->type	 = htobe64(CM_DISCONNECT_MS_ACK);
 		out_msg->seq_no	 = 0;
+		cm_disconnect_ms_ack_msg *disc_ack = &out_msg->cm_disconnect_ms_ack;
 
 		/* The rest of the fields are copied from the CM_DISCONNECT_MS
 		 * message and are already in Big Endian (network) order. */
-		out_msg->cm_disconnect_ms_ack.client_msubid =
-							disc_msg->client_msubid;
-		out_msg->cm_disconnect_ms_ack.client_destid =
-							disc_msg->client_destid;
-		out_msg->cm_disconnect_ms_ack.client_destid_len =
-							disc_msg->client_destid_len;
-		out_msg->cm_disconnect_ms_ack.client_to_lib_tx_eng_h =
-						disc_msg->client_to_lib_tx_eng_h;
-		out_msg->cm_disconnect_ms_ack.server_msid =
-							disc_msg->server_msid;
+		disc_ack->client_msubid = disc_msg->client_msubid;
+		disc_ack->client_destid = disc_msg->client_destid;
+		disc_ack->client_destid_len = disc_msg->client_destid_len;
+		disc_ack->client_to_lib_tx_eng_h = disc_msg->client_to_lib_tx_eng_h;
+		disc_ack->server_msid = disc_msg->server_msid;
 		tx_eng->send_message(move(out_msg));
 	}
 } /* cm_disconnect_ms_disp() */
@@ -256,14 +261,6 @@ void cm_disconnect_ms_ack_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 	to_lib_tx_eng->send_message(move(in_msg));
 } /* cm_disconnect_ms_ack_disp() */
 
-void cm_hello_ack_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
-{
-	uint32_t destid = be64toh(msg->cm_hello_ack.destid);
-	auto rc = hello_daemon_info_list.set_provisioned(destid, tx_eng);
-	if (rc < 0) {
-		ERR("Failed to provision destid(0x%X)\n", destid);
-	}
-} /* cm_hello_ack_disp() */
 
 void cm_accept_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 {
@@ -317,6 +314,7 @@ void cm_accept_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 
 		in_msg->category = RDMA_CALL;
 		in_msg->type	= ACCEPT_FROM_MS_REQ;
+		in_msg->sub_type = ACCEPT_FROM_MS_REQ_ACK;
 		am->server_msid	= be64toh(cm_accept_ms->server_msid);
 		am->server_msubid = be64toh(cm_accept_ms->server_msubid);
 		am->server_msub_bytes = be64toh(cm_accept_ms->server_msub_bytes);
@@ -352,8 +350,8 @@ void cm_accept_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 } /* cm_accept_ms_disp() */
 
 /**
- * @brief Runs at the Client daemon. Receives CM_FORCE_DISCONNECT_MS and responds
- * 	  with CM_FORCE_DISCONNECT_MS_ACK.
+ * @brief Runs at the Client daemon.
+ *
  */
 void cm_force_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 {
@@ -384,7 +382,7 @@ void cm_force_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 	connected_to_ms_info_list.erase (
 		remove_if(begin(connected_to_ms_info_list),
 		  end(connected_to_ms_info_list),
-		  [&](connected_to_ms_info& info) {
+		  [=](connected_to_ms_info& info) {
 			return (info.server_msid == server_msid)
 			&&     (info.server_msubid == server_msubid)
 			&&     ((uint64_t)info.to_lib_tx_eng == client_to_lib_tx_eng_h);
@@ -403,6 +401,11 @@ void cm_force_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 	(void)tx_eng;	/* We're not sending anything back! */
 } /* cm_force_disconnect_ms_disp() */
 
+/**
+ * @brief Called when a client daemon receives CM_SERVER_DISCONNECT_MS
+ * from a server daemon instructing it to notify the client app that
+ * has connected to a memory space that the connection is no longer valid.
+ */
 void cm_server_disconnect_ms_disp(cm_msg_t *msg, cm_client_tx_engine *tx_eng)
 {
 	cm_server_disconnect_ms_msg	*cm_server_disconnect_ms =

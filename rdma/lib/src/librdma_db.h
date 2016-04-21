@@ -57,9 +57,8 @@ using msubp_list = list<loc_msub*>;
 /**
  * @brief Memory space owner
  */
-class loc_mso {
+struct loc_mso {
 
-public:
 	loc_mso(const char *name, uint32_t msoid, bool owned) :
 		name(name), msoid(msoid), owned(owned)
 	{}
@@ -316,9 +315,8 @@ using connection_list = vector<client_connection>;
 /**
  * Memory subspaces.
  */
-class loc_msub
+struct loc_msub
 {
-public:
 	loc_msub(uint32_t msid, uint32_t msubid, uint32_t bytes, uint8_t rio_addr_len,
 		 uint64_t rio_addr_lo, uint8_t	rio_addr_hi, uint64_t paddr) :
 	msid(msid), msubid(msubid), bytes(bytes), rio_addr_len(rio_addr_len),

@@ -47,6 +47,7 @@ static void show_help(void)
 	puts("-d RapidIO destination ID for the node running bot the 'server' and 'user'");
 	puts("-t Test case to run");
 	puts("-r Repetitions to run the tests for (Optional. Default is 1)");
+	puts("-o Log filename for test results");
 	puts("\t If <test_case> is 'z', all tests are run");
 	puts("\t If <test_case> is 'z', <repetitions> is the number of times the tests are run");
 	puts("\t <repetitions> is ignored for all other cases");

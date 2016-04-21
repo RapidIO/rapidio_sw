@@ -50,7 +50,7 @@ using std::find_if;
 /* Max memory space name length */
 #define	UNIX_MS_NAME_MAX_LEN	31
 
-/* Type codes for RDMA_LIB_DAEMON_CALL messages */
+/* Type codes for RDMA_CALL messages */
 #define CREATE_MSO		0x0001
 #define CREATE_MSO_ACK		0x8001
 #define CREATE_MS		0x0002
@@ -94,16 +94,17 @@ using std::find_if;
 #define SERVER_DISCONNECT_MS	0x001F
 #define SERVER_DISCONNECT_MS_ACK	0x801F
 #define RDMAD_KILL_DAEMON	0x0666
-#define DISCONNECT_MS_ACK	0x0020
 
 /* Type codes for RDMA_REQ_RESP messages */
 #define FORCE_CLOSE_MSO		0x1001
 #define FORCE_CLOSE_MS  	0x1002
 #define DISCONNECT_MS   	0x1003
-#define FORCE_DISCONNECT_MS	0x1004
-#define FORCE_DISCONNECT_MS_ACK 0x9004
+#define DISCONNECT_MS_ACK	0x1004
+#define FORCE_DISCONNECT_MS	0x1005
+#define FORCE_DISCONNECT_MS_ACK 0x9005
 
 /* SUB_TYPEs */
+#define ACCEPT_FROM_MS_REQ_ACK  0x01
 #define ACCEPT_FROM_MS_REQ_NACK	0x02
 
 struct type_name_entry {
