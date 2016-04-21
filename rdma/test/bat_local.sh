@@ -40,6 +40,7 @@ CLIENT_NODES="$2"
 # Note the ORDER is IMPORTANT as we MUST start FMD
 # on the SERVER machine first.
 NODES="$SERVER_NODES $CLIENT_NODES"
+echo "NODES=$NODES"
 
 # CM channel starting number. Each client uses 3 successive channel numbers
 # to communicate with 3 bat servers on a server node
@@ -49,6 +50,7 @@ SERVER_CM_CHANNEL=$SERVER_CM_CHANNEL_START
 # Load drivers on each node
 for node in $NODES
 do
+	echo "Loading drivers on $node if necessary"
 	THE_DRIVER=$(ssh root@"$node" lsmod | grep rio_cm)
 	if [ -n "$THE_DRIVER" ]
 		then
