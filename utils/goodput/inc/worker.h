@@ -167,6 +167,7 @@ struct thread_cpu {
 #ifdef USER_MODE_DRIVER
 
 #define SOFT_RESTART	69
+#define QUIT_IN_PROGRESS	42
 
 #define MAX_PEERS		64 ///< Maximum size of cluster
 

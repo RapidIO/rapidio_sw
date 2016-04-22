@@ -1,12 +1,13 @@
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
-#include<unistd.h>
-#include<sys/types.h>
-#include<sys/stat.h>
-#include<sys/socket.h>
-#include<arpa/inet.h>
-#include<fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
 
 #include <sstream>
 
@@ -80,6 +81,27 @@ static void respond(int fd, const char* rsp, const int rsp_size)
 
 extern void UMD_DD_SS(struct worker* info, std::stringstream& out);
 
+static bool collectPeerRoutes(std::string& out)
+{
+  FILE* f = popen("/sbin/ip ro sh | awk '/dev tun[0-9]/{print}'", "re");
+  if(f == NULL) return false;
+
+  while(! feof(f)) {
+    char buf[257] = {0};
+    fgets(buf, 256, f);
+    if(buf[0] == '\0') break;
+
+    int N = strlen(buf);
+    if(buf[N-1] == '\n') buf[--N] = '\0';
+    if(buf[N-1] == '\r') buf[--N] = '\0';
+
+    out.append(buf).append("\n");;
+  }
+  pclose(f);
+
+  return true;
+}
+
 extern "C"
 void UMD_DD_WWW(struct worker* info, struct worker* udmatun_info, const int PORT)
 {
@@ -140,17 +162,35 @@ void UMD_DD_WWW(struct worker* info, struct worker* udmatun_info, const int PORT
 
     if (info->stop_req) break;
 
+    // XXX For some reason I cannot use ss after fork??
     char* rsp = strdup(ss.str().c_str());
-    const int rsp_size = strlen(rsp);
 
-    if (fork() == 0) { // Child
+    pid_t pid = fork();
+    if (pid == 0) { // Child
+      if (fork() > 0) exit(0); // Child-Parent
+
+      // Child #2, now reparented to init
       close(listen_fd);
-      respond(client_fd, rsp, rsp_size);
+
+      std::stringstream ss;
+      ss << rsp; free(rsp); rsp = NULL;
+
+      std::string routes; collectPeerRoutes(routes);
+      if (routes.size() > 0) ss << "\nPeer route/dev(s):\n" << routes;
+
+      char* rsp2 = strdup(ss.str().c_str());
+      const int rsp2_size = strlen(rsp2);
+
+      respond(client_fd, rsp2, rsp2_size);
+
       exit(0);
     }
 
+    // Parent
     free(rsp);
     close(client_fd);
+
+    waitpid(pid, NULL, 0); // Reap zombie
   }
 
   close(listen_fd);
