@@ -13,7 +13,7 @@ CM_BUILD_STRING = $(CXX) $(CXXFLAGS) \
 	-o $@ $(RDMAD_CFLAGS) \
 	 src/$@.cpp -ltime_utils -lmport -llog -lcli -lrt
 
-UNIX_BUILD_STRING = $(CXX) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
+UNIX_BUILD_STRING = $(CXX) $(CXXFLAGS) -L$(LIBLOG_PATH) -L$(LIBCLI_PATH) \
 	$(LIBS_RPATH) \
 	-DRDMA_LL=$(LOG_LEVEL) \
 	-I$(TOPDIR)/rdma/inc -I$(TOPDIR)/include -I$(COMMONINC) -o $@ $(RDMAD_CFLAGS) \
