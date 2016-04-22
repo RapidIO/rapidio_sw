@@ -81,13 +81,13 @@ umdmporttest: src/riodp_mport_lib.c src/dmachanshm_dl.c
 		-ldl -L$(COMMONLIBA) -ltime_utils -o $@ $^
 
 $(O)/%: $(O)/samples/%.o libmport.so libmport.a
-	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) -ltime_utils -lmport
+	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) $(LIBS_RPATH) -ltime_utils -lmport
 
 $(O)/%: $(O)/src/%.o
-	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) -ltime_utils -lmport
+	$(CXX) $(LDFLAGS) -o $@ $(addprefix -L, $(LIBPATHS)) $< $(addprefix -l, $(LIBS)) $(LIBS_RPATH) -ltime_utils -lmport
 
 $(O)/%.o: %.c
-	$(CXX) -c -o $@ $(addprefix -I, $(INCLUDES)) $(CXXFLAGS) $<
+	$(CXX) -c -o $@ $(addprefix -I, $(INCLUDES)) $(CXXFLAGS) $(LIBS_RPATH) $<
 
 clean:
 	rm -rf $(SAMPLES_TARGETS) $(LIB_TARGETS) $(O)/src/*.o $(O)/samples/*.o libmport.so* umdmporttest
