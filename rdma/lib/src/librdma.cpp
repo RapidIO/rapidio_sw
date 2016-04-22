@@ -344,26 +344,26 @@ static int open_mport(void)
  */
 void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 {
-	while(1) {
-		/* Wait until there is a reason to perform cleanup */
-		HIGH("Waiting for engine_cleanup_sem\n");
-		sem_wait(engine_cleanup_sem);
+	/* Wait until there is a reason to perform cleanup */
+	HIGH("Waiting for engine_cleanup_sem\n");
+	sem_wait(engine_cleanup_sem);
 
-		HIGH("Cleaning up dead engines!\n");
-		if (tx_eng->isdead()) {
-			HIGH("Killing tx_eng\n");
-			tx_eng.reset();
-		}
-
-		if (rx_eng->isdead()) {
-			HIGH("Killing rx_eng\n");
-			rx_eng.reset();
-		}
-
-		/* Purge database and set state to uninitialized */
-		purge_local_database();
-		init = false;
+	HIGH("Cleaning up dead engines!\n");
+	if (tx_eng->isdead()) {
+		HIGH("Killing tx_eng\n");
+		tx_eng.reset();
 	}
+
+	if (rx_eng->isdead()) {
+		HIGH("Killing rx_eng\n");
+		rx_eng.reset();
+	}
+
+	/* Purge database and set state to uninitialized */
+	purge_local_database();
+	init = false;
+
+	delete engine_cleanup_sem;
 } /* engine_monitoring_thread_f() */
 
 /**
