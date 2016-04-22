@@ -74,16 +74,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
+#include "riodp_mport_lib.h"
 #include "liblog.h"
 
-#include "time_utils.h"
+#include "libtime_utils.h"
 #include "worker.h"
 #include "goodput.h"
 #include "mhz.h"
 
 #ifdef USER_MODE_DRIVER
 #include "dmachan.h"
-#include "hash.cc"
 #include "lockfile.h"
 #include "tun_ipv4.h"
 #endif
@@ -95,6 +95,9 @@ extern "C" {
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
 void umd_dma_goodput_tun_demo(struct worker *info);
+void umd_epwatch_demo(struct worker *info);
+void umd_mbox_watch_demo(struct worker *info);
+void umd_afu_watch_demo(struct worker *info);
 
 #ifdef __cplusplus
 };
@@ -153,6 +156,7 @@ void init_worker_info(struct worker *info, int first_time)
 	info->dma_sync_type = RIO_DIRECTIO_TRANSFER_SYNC;
 	info->rdma_kbuff = 0;
 	info->rdma_ptr = NULL;
+	info->num_trans = 0;
 
         info-> mb_valid = 0;
         info->acc_skt = NULL;
@@ -163,8 +167,17 @@ void init_worker_info(struct worker *info, int first_time)
         info->sock_tx_buf = NULL;
         info->sock_rx_buf = NULL;
 
+	init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 #ifdef USER_MODE_DRIVER
-	info->umd_chan = 0;
+	info->dma_method = ACCESS_UMD;
+	info->owner_func = NULL;
+	info->umd_set_rx_fd = NULL;
+	info->my_destid = 0xFFFF;
+	info->umd_chan = -1;
+	info->umd_chan_n = -1;
+	info->umd_chan2 = -1;
 	info->umd_dch = NULL;
 	info->umd_tx_rtype = NREAD;
 	info->umd_tx_buf_cnt = 0;
@@ -175,17 +188,34 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_fifo_proc_alive = 0;
 	info->umd_fifo_proc_must_die = 0;
 	info->umd_dma_abort_reason = 0;
-	info->umd_sockp[0] = info->umd_sockp[1] = -1;
-        info->umd_tun_fd = -1;
+	info->umd_sockp_quit[0] = info->umd_sockp_quit[1] = -1;
+	info->umd_epollfd = -1;
+	info->umd_mbox_rx_fd = -1;
+	info->umd_mbox_tx_fd = -1;
+	info->umd_ticks_total_chan2 = 0;
+        info->umd_nread_threshold = 0;
+
+	pthread_mutex_init(&info->umd_dma_did_peer_mutex, NULL);
+
+	memset(&info->umd_dci_list, 0, sizeof(info->umd_dci_list));
+
+	info->umd_peer_ibmap = NULL;
+
+	info->umd_dma_did_peer_list_high_wm = 0;
+	memset(info->umd_dma_did_peer_list, 0, sizeof(info->umd_dma_did_peer_list));
+
+	info->umd_dma_did_peer.clear();
+	info->umd_dma_did_enum_list.clear();
+
+	info->umd_fifo_total_ticks = 0;
+	info->umd_fifo_total_ticks_count = 0;
 
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
-        	sem_init(&info->umd_dma_rio_rx_work, 0, 0);
-		pthread_spin_init(&info->umd_dma_rio_rx_bd_ready_splock, PTHREAD_PROCESS_PRIVATE);
 	//};
-	init_seq_ts(&info->desc_ts);
-	init_seq_ts(&info->fifo_ts);
-	init_seq_ts(&info->meas_ts);
+
+	info->umd_disable_nread = 0;
+	info->umd_push_rp_thr   = 0;
 #endif
 };
 
@@ -253,7 +283,7 @@ void shutdown_worker_thread(struct worker *info)
 
 int getCPUCount()
 {
-	FILE* f = fopen("/proc/cpuinfo", "rt");
+	FILE* f = fopen("/proc/cpuinfo", "rte");
 
 	int count = 0;
 	while (! feof(f)) {
@@ -537,10 +567,7 @@ void direct_io_goodput(struct worker *info)
 		incr_direct_io_data(info);
 	};
 exit:
-	{};
-	/* FIXME: This causes a node to hang if multiple threads free the 
-	* same obwin...  To be fixed in the kernel */
-	// direct_io_obwin_unmap(info);
+	direct_io_obwin_unmap(info);
 };
 					
 void direct_io_tx_latency(struct worker *info)
@@ -729,7 +756,7 @@ int single_dma_access(struct worker *info, uint64_t offset)
 						ADDR_P(info->rdma_ptr, offset),
 						info->acc_size,
 						info->dma_sync_type);
-	} while ((EINTR == dma_rc) || (EBUSY == dma_rc) || (EAGAIN == dma_rc));
+	} while ((EINTR == -dma_rc) || (EBUSY == -dma_rc) || (EAGAIN == -dma_rc));
 
 	return dma_rc;
 };
@@ -787,16 +814,30 @@ void dma_goodput(struct worker *info)
 		*/
 		for (cnt = 0; (cnt < info->byte_cnt) && !info->stop_req;
 							cnt += info->acc_size) {
-			dma_rc = single_dma_access(info, cnt);
+			// FAF transactions go so fast they can overwhelm the
+			// small kernel transmit buffer.  Attempt the 
+			// transaction until the resource is not busy.
+			ts_now_mark(&info->meas_ts, 5);
+			do {
+				dma_rc = single_dma_access(info, cnt);
+				if (dma_rc < 0)
+					sleep(0);
+// FIXME: when libmport is fixed to return negative return codes,
+// this statement should be fixed to check -dma_rc
+			} while  ((EBUSY == dma_rc) && 
+                        (RIO_DIRECTIO_TRANSFER_FAF == info->dma_sync_type));
 
-			if (RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
+			if ((RIO_DIRECTIO_TRANSFER_ASYNC == info->dma_sync_type)
+				&& (dma_rc > 0))
 			{
 				do {
 					dma_rc = riomp_dma_wait_async(
 						info->mp_h, dma_rc, 0);
-				} while ((EINTR == dma_rc) || (EBUSY == dma_rc)
-					|| (EAGAIN == dma_rc));
+				} while ((EINTR == -dma_rc)
+					|| (EBUSY == -dma_rc)
+					|| (EAGAIN == -dma_rc));
 			};
+			ts_now_mark(&info->meas_ts, 555);
 			if (dma_rc) {
 				ERR("FAILED: dma transfer rc %d:%s\n",
 						dma_rc, strerror(errno));
@@ -831,6 +872,51 @@ void dma_goodput(struct worker *info)
 
 	};
 exit:
+	dealloc_dma_tx_buffer(info);
+};
+
+void dma_tx_num_cmd(struct worker *info)
+{
+	int dma_rc;
+	int trans_count;
+
+	if (!info->rio_addr || !info->byte_cnt || !info->acc_size) {
+		ERR("FAILED: rio_addr, byte_cnd or access size is 0!\n");
+		return;
+	};
+
+	if (!info->rdma_buff_size) {
+		ERR("FAILED: rdma_buff_size is 0!\n");
+		return;
+	};
+
+	if (alloc_dma_tx_buffer(info))
+		goto exit;
+
+	riomp_mgmt_mport_set_stats(info->mp_h, &info->meas_ts);
+
+	zero_stats(info);
+
+	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+
+	for (trans_count = 0; trans_count < info->num_trans; trans_count++) {
+		ts_now_mark(&info->meas_ts, 5);
+		dma_rc = single_dma_access(info, 0);
+		if (dma_rc < 0) {
+			ERR("FAILED: dma_rc %d on trans %d!\n",
+				dma_rc, trans_count);
+			return;
+		}
+		ts_now_mark(&info->meas_ts, 555);
+	};
+
+	clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+
+	while (!info->stop_req) {
+		sleep(0);
+	}
+exit:
+	riomp_mgmt_mport_set_stats(info->mp_h, NULL);
 	dealloc_dma_tx_buffer(info);
 };
 	
@@ -882,9 +968,9 @@ void dma_rx_latency(struct worker *info)
 		dma_rc = single_dma_access(info, 0);
 		info->perf_iter_cnt ++;
 		*tx_flag = info->perf_iter_cnt;
-		if (dma_rc) {
+		if (dma_rc < 0) {
 			ERR("FAILED: dma transfer rc %d:%s\n",
-					dma_rc, strerror(errno));
+					-dma_rc, strerror(errno));
 			goto exit;
 		};
 	};
@@ -1201,7 +1287,6 @@ void dma_alloc_ibwin(struct worker *info)
 		return; 
 	};
 
-	info->ib_rio_addr = (uint64_t)(~((uint64_t) 0)); /* RIO_MAP_ANY_ADDR */
 	rc = riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
 					info->ib_byte_cnt, &info->ib_handle);
 	if (rc) {
@@ -1292,23 +1377,21 @@ void *umd_dma_fifo_proc_thr(void *parm)
 
 	migrate_thread_to_cpu(&info->umd_fifo_thr);
 
-	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req)
+	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
+		CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing ou!\n",
+		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
 		goto exit;
+	}
 
 	info->umd_fifo_proc_alive = 1;
 	sem_post(&info->umd_fifo_proc_started); 
 
 	while (!info->umd_fifo_proc_must_die) {
-		// This is a hook to do stuff for IB buffers in isolcpu thread
-		// Note: No relation to TX FIFO/buffers, just CPU sharing
-		if (info->umd_dma_fifo_callback != NULL)
-			info->umd_dma_fifo_callback(info);
-
 		const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
 		if (!cnt) 
 			continue;
 
-		get_seq_ts(&info->fifo_ts);
+		ts_now(&info->fifo_ts);
 
 		for (int i = 0; i < cnt; i++) {
 			DMAChannel::WorkItem_t& item = wi[i];
@@ -1317,12 +1400,15 @@ void *umd_dma_fifo_proc_thr(void *parm)
 			case DTYPE1:
 			case DTYPE2:
 				info->perf_byte_cnt += info->acc_size;
+				if (item.ts_end > item.ts_start) {
+				       info->umd_fifo_total_ticks += item.ts_end - item.ts_start;
+				       info->umd_fifo_total_ticks_count++;
+				} 
 				break;
 			case DTYPE3:
 				break;
 			default:
-				ERR("\n\tUNKNOWN BD %d bd_wp=%u\n",
-					item.opt.dtype, item.opt.bd_wp);
+				ERR("\n\tUNKNOWN BD %d bd_wp=%u\n", item.opt.dtype, item.bd_wp);
 				break;
       			}
 
@@ -1354,7 +1440,11 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 
         migrate_thread_to_cpu(&info->umd_fifo_thr);
 
-        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) goto exit;
+        if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
+		CRIT("\n\tRequested CPU %d does not match migrated cpu %d, bailing ou!\n",
+		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
+		goto exit;
+	}
 
 	idx = info->idx;
 	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));
@@ -1378,7 +1468,7 @@ again:
 			continue;
 		}
 
-		get_seq_ts(&info->fifo_ts);
+		ts_now(&info->fifo_ts);
 
 		const uint64_t tsm1 = rdtsc();
 		for (int i = 0; i < cnt; i++) {
@@ -1386,8 +1476,8 @@ again:
 
                         uint64_t dT  = 0;
                         float    dTf = 0;
-                        if(item.opt.ts_end > item.opt.ts_start) { // Ignore rdtsc wrap-arounds
-                                dT = item.opt.ts_end - item.opt.ts_start;
+                        if(item.ts_end > item.ts_start) { // Ignore rdtsc wrap-arounds
+                                dT = item.ts_end - item.ts_start;
                                 dTf = (float)dT / MHz;
                         }
                         switch (item.opt.dtype) {
@@ -1397,16 +1487,15 @@ again:
                                 if(dT > 0) { info->tick_count++; info->tick_total += dT; info->tick_data_total += info->acc_size; }
                                 DBG("\n\tFIFO D4 did=%d bd_wp=%u FIFO iter %llu dTick %llu (%f uS)\n",
                                         item.opt.destid,
-                                        item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
+                                        item.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         case DTYPE5:
                                 DBG("\n\tFinished D5 bd_wp=%u -- FIFO iter %llu dTick %llu (%f uS)u\n",
-                                         item.opt.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
+                                         item.bd_wp, g_FifoStats[idx].fifo_thr_iter, dT, dTf);
                                 break;
                         default:
                                 CRIT("\n\tUNKNOWN BD %d bd_wp=%u, FIFO iter %llu\n",
-                                         item.opt.dtype, item.opt.bd_wp,
-                                        g_FifoStats[idx].fifo_thr_iter);
+                                         item.opt.dtype, item.bd_wp, g_FifoStats[idx].fifo_thr_iter);
                                 break;
                         }
 			wi[i].valid = 0xdeadabba;
@@ -1439,10 +1528,15 @@ no_post:
 	pthread_exit(parm);
 }
 
-void UMD_DD(const struct worker* info)
+void UMD_DDD(const struct worker* info)
 {
 	const int MHz = getCPUMHz();
 
+	if (info->umd_fifo_total_ticks_count > 0) {
+	       float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
+	       INFO("\n\tFIFO Avg TX %f uS cnt=%llu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
+	}
+#if 0
 	const int idx = info->idx;
 
 	float    avgTf_scanfifo = 0;
@@ -1472,11 +1566,7 @@ void UMD_DD(const struct worker* info)
 		ss<<"\t"<<tmp;
 	}
 	CRIT("%s", ss.str().c_str());
-
-	if (info->evlog.size() == 0) return;
-
-	CRIT("\n\tEvlog:\n", NULL);
-	write(STDOUT_FILENO, info->evlog.c_str(), info->evlog.size());
+#endif
 }
 
 void calibrate_map_performance(struct worker *info)
@@ -1596,64 +1686,6 @@ void calibrate_array_performance(struct worker *info)
 	ts_tot = time_div(ts_tot, max);
 	CRIT("\nARRAY: Avg  per iter %10d %10d\n",
 					ts_tot.tv_sec, ts_tot.tv_nsec);
-	return;
-};
-
-void calibrate_hash_performance(struct worker *info)
-{
-	int i, j, max = info->umd_tx_buf_cnt;
-	ShmHashMap<uint64_t, DMAChannel::WorkItem_t> m_pending_work("DMA Completion Work", max);
-
-	ShmHashMap<int, bool> m_bl_busy("DMA Busy", max);
-	ShmHashMap<int, int> m_bl_outstanding("DMA Outstanding", max);
-	DMAChannel::WorkItem_t wk;
-	bool is_owner = true, parm = true;
-
-	struct timespec st_time; /* Start of the run, for throughput */
-	struct timespec end_time; /* End of the run, for throughput*/
-	struct timespec ts_min, ts_max, ts_tot;
-	uint64_t fake_win_handle = 0x00000040ff800000;
-
-	memset(&wk, 0, sizeof(wk));
-
-	CRIT("\n\nCalibrating HASH performance for %d runs, %d entries\n",
-		info->umd_sts_entries, max);
-	for (i = 0; !info->stop_req && (i < info->umd_sts_entries); i++) {
-        	clock_gettime(CLOCK_MONOTONIC, &st_time);
-
-		for  (j = 0; j < max; j++) {
-			m_bl_busy.insert(j, parm);
-			m_pending_work.insert((uint64_t)(fake_win_handle + (i * 0x20)),  wk);
-			m_bl_outstanding.insert(j, j);
-		};
-			
-		memset(&wk, 0x11, sizeof(wk));
-
-		for  (j = 0; j < max; j++) {
-			DMAChannel::WorkItem_t *m_pending_work_p;
-			bool *m_bl_busy_p;
-			int *m_bl_outstanding_p;
-
-			m_bl_busy_p = m_bl_busy.find(j, is_owner);
-			m_pending_work_p = m_pending_work.find((uint64_t)(fake_win_handle + (i * 0x20)), is_owner);
-			m_bl_outstanding_p = m_bl_outstanding.find(j, is_owner);
-
-			*m_bl_busy_p = false;
-			*m_bl_outstanding_p = max - j;
-			*m_pending_work_p = wk;
-		};
-
-        	clock_gettime(CLOCK_MONOTONIC, &end_time);
-		time_track(i, st_time, end_time, &ts_tot, &ts_min, &ts_max);
-	};
-
-	CRIT("\nHASH: Min %10d %10d\n", ts_min.tv_sec, ts_min.tv_nsec);
-	CRIT("\nHASH: Tot %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
-	ts_tot = time_div(ts_tot, info->umd_sts_entries);
-	CRIT("\nHASH: Avg %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
-	CRIT("\nHASH: Max %10d %10d\n", ts_max.tv_sec, ts_max.tv_nsec);
-	ts_tot = time_div(ts_tot, max);
-	CRIT("\nHASH: Avg  per iter %10d %10d\n", ts_tot.tv_sec, ts_tot.tv_nsec);
 	return;
 };
 
@@ -1914,16 +1946,18 @@ void calibrate_sched_yield(struct worker *info)
  * \param instance Channel number
  * \return true if lock was acquited, false if somebody else is using it
  */
-bool TakeLock(struct worker* info, const char* module, int instance)
+bool TakeLock(struct worker* info, const char* module, const int mport, const int instance)
 {
 	if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
 
 	char lock_name[81] = {0};
-	snprintf(lock_name, 80, "/var/lock/UMD-%s-%d..LCK", module, instance);
+	snprintf(lock_name, 80, "/var/lock/UMD-%s-%d:%d..LCK", module, mport, instance);
 	try {
 		info->umd_lock = new LockFile(lock_name);
 	} catch(std::runtime_error ex) {
 		CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
+		if (GetEnv("LOCKFAIL_QUIT") != NULL)
+			throw ex;
 		return false;
 	}
 	// NOT catching std::logic_error
@@ -1941,9 +1975,6 @@ void umd_dma_calibrate(struct worker *info)
 	calibrate_array_performance(info);
 	if (info->stop_req)
 		goto exit;
-
-	if (info->wr)
-		calibrate_hash_performance(info);
 
 	if (info->stop_req)
 		goto exit;
@@ -1995,7 +2026,9 @@ void umd_dma_goodput_demo(struct worker *info)
 	int iter = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+	if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan)) return;
+
+	info->owner_func = umd_dma_goodput_demo;
 
 	const int Q_THR = (2 * info->umd_tx_buf_cnt) / 3;
 
@@ -2054,9 +2087,9 @@ void umd_dma_goodput_demo(struct worker *info)
 			info->umd_tx_buf_cnt, info->umd_sts_entries);
 	}
 
-	init_seq_ts(&info->desc_ts);
-	init_seq_ts(&info->fifo_ts);
-	init_seq_ts(&info->meas_ts);
+	init_seq_ts(&info->desc_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
+	init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 
         info->umd_fifo_proc_must_die = 0;
         info->umd_fifo_proc_alive = 0;
@@ -2075,7 +2108,6 @@ void umd_dma_goodput_demo(struct worker *info)
 	};
 
 	zero_stats(info);
-	info->evlog.clear();
 
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
@@ -2100,7 +2132,7 @@ void umd_dma_goodput_demo(struct worker *info)
 					info->dmaopt[oi], info->dmamem[oi],
                                         info->umd_dma_abort_reason,
 					&info->meas_ts)) {
-					get_seq_ts(&info->desc_ts);
+					ts_now(&info->desc_ts);
 				} else {
 					q_was_full = true;
 				};
@@ -2155,7 +2187,6 @@ exit_nomsg:
 
         pthread_join(info->umd_fifo_thr.thr, NULL);
 
-	info->umd_dch->get_evlog(info->evlog);
         info->umd_dch->cleanup();
 
 	// Only allocatd one DMA buffer for performance reasons
@@ -2312,7 +2343,9 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	uint64_t cnt = 0;
 	int iter = 0;
 
-	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+	if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan)) return;
+
+	//info->owner_func = (void*)umd_dma_goodput_latency_demo;
 
 	info->umd_dch = new DMAChannel(info->mp_num, info->umd_chan, info->mp_h);
 	if (NULL == info->umd_dch) {
@@ -2326,16 +2359,18 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
                 goto exit;
         }
 
-	if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
-		CRIT("\n\talloc_dmatxdesc failed: bufs %d",
-							info->umd_tx_buf_cnt);
-		goto exit;
-	};
-        if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
-		CRIT("\n\talloc_dmacompldesc failed: entries %d",
-							info->umd_sts_entries);
-		goto exit;
-	};
+	if (info->umd_dch->isMaster()) {
+		if (!info->umd_dch->alloc_dmatxdesc(info->umd_tx_buf_cnt)) {
+			CRIT("\n\talloc_dmatxdesc failed: bufs %d",
+								info->umd_tx_buf_cnt);
+			goto exit;
+		}
+		if (!info->umd_dch->alloc_dmacompldesc(info->umd_sts_entries)) {
+			CRIT("\n\talloc_dmacompldesc failed: entries %d",
+								info->umd_sts_entries);
+			goto exit;
+		}
+	}
 
         memset(info->dmamem, 0, sizeof(info->dmamem));
         memset(info->dmaopt, 0, sizeof(info->dmaopt));
@@ -2363,8 +2398,6 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	};
 
 	zero_stats(info);
-	info->evlog.clear();
-        //info->umd_dch->switch_evlog(true);
 
 	if (GetEnv("verb") != NULL) {
 		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
@@ -2398,11 +2431,45 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			bool q_was_full = false;
 			DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
-                	start_iter_stats(info);
-                	if(! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+			const int N = GetDecParm("$sim", 0) + 1;
+			const int M = GetDecParm("$simw", 0);
 
-			DBG("\n\tPolling FIFO transfer completion destid=%d\n", info->did);
-			while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+                	start_iter_stats(info);
+			if (GetEnv("sim") == NULL) {
+                		if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+			} else {
+				// Can we recover/replay BD at sim+1 ?
+				for (int i = 0; !q_was_full && i < N; i++) {
+					if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
+
+					if (info->stop_req) goto exit;
+
+					for (int j = 0; j < M; j++) {
+						if (info->stop_req) goto exit;
+
+						info->dmaopt[oi].bcount = 0x20;
+
+						info->umd_dch->queueDmaOpT1(LAST_NWRITE_R, info->dmaopt[oi], info->dmamem[oi],
+						                            info->umd_dma_abort_reason, &info->meas_ts);
+
+						// Wrap around, do no overwrite last buffer entry
+						oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
+					}
+
+					if (i != (N-1)) { // Don't advance oi twice
+						// Wrap around, do no overwrite last buffer entry
+						oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
+					}
+				}
+			}
+
+			if (info->umd_dch->isMaster()) {
+				DBG("\n\tPolling FIFO transfer completion destid=%d iter=%llu\n", info->did, cnt);
+				while (!q_was_full && !info->stop_req && info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8) == 0) { ; }
+			}
+
+			// XXX check for errors, nuke faulting BD, do softRestart
+
                 	finish_iter_stats(info);
 
 			if (7 <= g_level) { // DEBUG
@@ -2416,6 +2483,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			}
 			}}
 			break;
+
 		default: CRIT("\n\t: Invalid operation '%c'\n", op); goto exit;
 			break;
 		}
@@ -2423,17 +2491,13 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 		if (info->stop_req) goto exit;
 
 		// Wrap around, do no overwrite last buffer entry
-		oi++;
-		if ((info->umd_tx_buf_cnt - 1) == oi) {
-			oi = 0;
-		};
+		oi++; if ((info->umd_tx_buf_cnt - 1) == oi) { oi = 0; };
 	} // END for infinite transmit
 
 exit:
 	if (info->umd_dch)
 		info->umd_dch->shutdown();
 
-	info->umd_dch->get_evlog(info->evlog);
         info->umd_dch->cleanup();
 
 	// Only allocatd one DMA buffer for performance reasons
@@ -2450,7 +2514,9 @@ void umd_mbox_goodput_demo(struct worker *info)
 	int iter = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+	if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) return;
+
+	info->owner_func = umd_mbox_goodput_demo;
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
         if (NULL == info->umd_mch) {
@@ -2476,6 +2542,7 @@ void umd_mbox_goodput_demo(struct worker *info)
         info->tick_count = info->tick_total = 0;
 
         info->umd_mch->setInitState();
+	info->umd_mch->softRestart();
 
 	if (GetEnv("verb") != NULL) {
 		INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%d #buf=%d #fifo=%d\n",
@@ -2506,7 +2573,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 				usleep(1);
 			if (info->stop_req) break;
 
-			opt.ts_end = rx_ts;
+			//opt.ts_end = rx_ts;
 
 			bool rx_buf = false;
 			void* buf = NULL;
@@ -2519,6 +2586,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
 				goto exit_rx;
 			}
+#if 0
 			if (rx_ts && opt.ts_start && rx_ts > opt.ts_start && opt.bcount > 0) { // not overflown
 				const uint64_t dT = rx_ts - opt.ts_start;
 				if (dT > 0) { 
@@ -2527,6 +2595,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 					info->tick_data_total += opt.bcount;
 				}
 			}
+#endif
 		} // END infinite loop
 
 
@@ -2573,7 +2642,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 				} else { q_was_full = true; }
 		      	} else {
 				tx_ok++;
-				get_seq_ts(&info->desc_ts);
+				ts_now(&info->desc_ts);
 			}
 			if (info->stop_req) break;
 
@@ -2606,7 +2675,9 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 {
 	int iter = 0;
 
-	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+	if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) return;
+
+	info->owner_func = umd_mbox_goodput_latency_demo;
 
         info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
         if (NULL == info->umd_mch) {
@@ -2633,6 +2704,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
         info->tick_count = info->tick_total = 0;
 
         info->umd_mch->setInitState();
+	info->umd_mch->softRestart();
 
 	if (GetEnv("verb") != NULL) {
 		INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
@@ -2673,7 +2745,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 			while (!info->stop_req && ! info->umd_mch->inb_message_ready(rx_ts)) { ; }
 			if (info->stop_req) break;
 
-			opt.ts_end = rx_ts; 
+			//opt.ts_end = rx_ts; 
 
 			bool rx_buf = false;
 			void* buf = NULL;
@@ -2797,22 +2869,6 @@ exit_rx:
 	delete info->umd_lock; info->umd_lock = NULL;
 }
 
-bool send_icmp_host_unreachable(struct worker* info, uint8_t* l3_in, const int l3_in_size)
-{
-	if(info == NULL) return false;
-	if(l3_in == NULL || l3_in_size < 20) return false;
-
-	const int BUFSIZE = 8192;
-	uint8_t buffer_unreach[BUFSIZE] = {0};
-
-	int out_size = BUFSIZE;
-
-	if (! icmp_host_unreachable(l3_in, l3_in_size, buffer_unreach, out_size)) return false;
-
-	cwrite(info->umd_tun_fd, buffer_unreach, out_size);
-	return true;
-}
-
 const int DESTID_TRANSLATE = 1;
 
 std::map <uint16_t, bool> bad_destid;
@@ -2830,7 +2886,7 @@ void* umd_mbox_tun_proc_thr(void *parm)
 
 	{{ 
 	const int tun_fd = info->umd_tun_fd;
-	const int net_fd = info->umd_sockp[1];
+	const int net_fd = info->umd_sockp_quit[1];
 	const int maxfd = (tun_fd > net_fd)?tun_fd:net_fd;
 
         info->umd_mbox_tap_proc_alive = 1;
@@ -2889,7 +2945,7 @@ again:
 #endif
 
 		if (is_bad_destid) {
-			send_icmp_host_unreachable(info, buffer+4, nread);
+			send_icmp_host_unreachable(tun_fd, buffer+4, nread);
 			continue;
 		}
 
@@ -2910,7 +2966,7 @@ again:
 				bad_destid[opt.destid] = true;
 
 				info->stop_req = SOFT_RESTART;
-				send_icmp_host_unreachable(info, buffer+4, nread);
+				send_icmp_host_unreachable(tun_fd, buffer+4, nread);
 				break;
                         } else { goto send_again; } // Succeed or die trying
                 } else {
@@ -2943,7 +2999,9 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	int flags = IFF_TUN | IFF_NO_PI;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "MBOX", info->umd_chan)) return;
+	if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) return;
+
+	info->owner_func = umd_mbox_goodput_tun_demo;
 
 	memset(info->umd_tun_name, 0, sizeof(info->umd_tun_name));
 
@@ -2997,7 +3055,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
 	system(ifconfig_cmd);
 
-	socketpair(PF_LOCAL, SOCK_STREAM, 0, info->umd_sockp);
+	socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, info->umd_sockp_quit);
 
 	uint64_t rx_ok = 0;
 
@@ -3005,6 +3063,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
         info->tick_count = info->tick_total = 0;
 
         info->umd_mch->setInitState();
+	info->umd_mch->softRestart();
 
 	INFO("\n\t%s %s mtu %d on MBOX=%d my_destid=%u #buf=%d #fifo=%d\n",
 	     if_name, TapIPv4Addr, MTU,
@@ -3058,7 +3117,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 				usleep(1);
 			if (info->stop_req) break;
 
-			opt.ts_end = rx_ts;
+			//opt.ts_end = rx_ts;
 
 			bool rx_buf = false;
 			uint8_t* buf = NULL;
@@ -3066,11 +3125,11 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 			      rx_ok++; rx_buf = true;
 			      uint16_t* p = (uint16_t*)buf;
 			      const uint16_t src_devid = htons(p[0]);
-			      const uint16_t src_mbox  = htons(p[1]);
 			      good_destid[src_devid] = true;
-			      const int nwrite = cwrite(info->umd_tun_fd, buf+4, opt.bcount-4);
+			      int nwrite = cwrite(info->umd_tun_fd, buf+4, opt.bcount-4); nwrite += 0;
 			      info->umd_mch->add_inb_buffer(buf); // recycle
 #ifdef MBOX_TUN_DEBUG
+			      const uint16_t src_mbox  = htons(p[1]);
 			      const uint32_t crc = crc32(0, buf, opt.bcount);
 			      DBG("\n\tGot a message of size %d from RIO destid %u mbox %u (L2 CRC32 0x%x) cnt=%llu, wrote %d to %s\n",
 				       opt.bcount, src_devid, src_mbox, crc, rx_ok, nwrite, if_name);
@@ -3080,6 +3139,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
 				goto exit;
 			}
+#if 0
 			if (rx_ts && opt.ts_start && rx_ts > opt.ts_start && opt.bcount > 0) { // not overflown
 				const uint64_t dT = rx_ts - opt.ts_start;
 				if (dT > 0) { 
@@ -3088,6 +3148,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 					info->tick_data_total += opt.bcount;
 				}
 			}
+#endif
 		} // END infinite loop
 
 		// Inbound buffers freed in MboxChannel::cleanup
@@ -3105,15 +3166,15 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	} // END Receiver
 
 exit:
-	write(info->umd_sockp[0], "X", 1); // Signal Tun/Tap thread to eXit
+	write(info->umd_sockp_quit[0], "X", 1); // Signal Tun/Tap thread to eXit
         info->umd_fifo_proc_must_die = 1;
 
         pthread_join(info->umd_fifo_thr.thr, NULL);
         pthread_join(info->umd_mbox_tap_thr.thr, NULL);
 
-	close(info->umd_sockp[0]); close(info->umd_sockp[1]);
+	close(info->umd_sockp_quit[0]); close(info->umd_sockp_quit[1]);
 	close(info->umd_tun_fd);
-	info->umd_sockp[0] = info->umd_sockp[1] = -1;
+	info->umd_sockp_quit[0] = info->umd_sockp_quit[1] = -1;
 	info->umd_tun_fd = -1;
 
         delete info->umd_mch; info->umd_mch = NULL;
@@ -3121,6 +3182,28 @@ exit:
 	info->umd_tun_MTU = 0;
         info->umd_tun_name[0] = '\0';
 } // END umd_mbox_goodput_tun_demo
+
+extern "C" void UMD_DD_WWW(struct worker* info, struct worker* udmatun_info, const int PORT);
+
+static inline void umd_umd_mbox_goodput_tun_wwwstats(struct worker* info)
+{
+  const int tundmathreadindex = info->umd_chan_to; // FUDGE
+  if (tundmathreadindex < 0) return;
+
+  if (!umd_check_dma_tun_thr_running(info)) {
+    CRIT("\n\tWorker thread %d (DMA Tun Thr) is not running. Bye!\n", tundmathreadindex);
+    return;
+  }
+
+  const int port = info->umd_chan; // FUDGE
+
+  if (port < 1 || port > 65535) {
+    CRIT("\n\tInvalid TCP port %d. Bye!\n", port);
+    return;
+  }
+
+  UMD_DD_WWW(info, &wkr[tundmathreadindex], port); // FUDGE
+}
 
 #endif // USER_MODE_DRIVER
 
@@ -3146,6 +3229,9 @@ void *worker_thread(void *parm)
 				break;
         	case dma_tx:	
 			dma_goodput(info);
+			break;
+        	case dma_tx_num:	
+			dma_tx_num_cmd(info);
 			break;
         	case dma_tx_lat:	
 			dma_goodput(info);
@@ -3195,7 +3281,19 @@ void *worker_thread(void *parm)
 		case umd_mbox_tap:
 				umd_mbox_goodput_tun_demo(info);
 				break;
-#endif
+		case umd_epwatch:
+				umd_epwatch_demo(info);
+				break;
+		case umd_mbox_watch:
+				umd_mbox_watch_demo(info);
+				break;
+		case umd_afu_watch:
+				umd_afu_watch_demo(info);
+				break;
+		case umd_www:
+				umd_umd_mbox_goodput_tun_wwwstats(info);
+				break;
+#endif // USER_MODE_DRIVER
 		
         	case shutdown_worker:
 				info->stat = 0;

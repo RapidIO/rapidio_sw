@@ -27,21 +27,23 @@
 # #--------------------------------------------------------------------------***
 # Read values from ones exported in master Makefile. Or, override on the command
 # line if building separately.
-level?=$(LOG_LEVEL)
-debug?=$(DEBUG)
-CC = $(CROSS_COMPILE)g++
-CXX = $(CROSS_COMPILE)g++
 
-AR:=$(CROSS_COMPILE)ar
+TOPDIR=../..
+include $(TOPDIR)/rules.mk
+
+level?=$(LOG_LEVEL)
+DEBUG?=DEBUG
+debug?=$(DEBUG)
+
+NAME:=log
 
 # Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
+SO_LIB_LKFLAGS = -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER) -lnsl -fPIC
 
 # LOG library flags, sources and objects
-LOGLIB_CFLAGS = -Wall -Werror -Wextra -std=gnu++0x -c -g -ggdb -fPIC \
-		-D$(debug) -DRDMA_LL=$(level) -O2 -rdynamic -lnsl \
-		-I../include \
-		-I../../rdma/inc
+LOGLIB_CFLAGS = $(CXXFLAGS) -Wall -Wextra -fPIC \
+		-D$(debug) -DRDMA_LL=$(level) -rdynamic -lnsl \
+		-I$(TOPDIR)/rdma/inc
 
 LOGLIB_SOURCES = src/liblog.cpp src/liblog_cli.c
 
@@ -50,14 +52,15 @@ LOGLIB_OBJS = liblog.o liblog_cli.o
 all: liblog.so liblog.a
 
 # The logger library
-liblog.so: $(LOGLIB_SOURCES) ../include/liblog.h
+liblog.so: $(LOGLIB_SOURCES) $(COMMONINC)/liblog.h
 	@echo ---------- Building liblog.so...
-	$(CXX) $(LOGLIB_CFLAGS) $(LOGLIB_SOURCES)
-	$(CXX) -o $@ $(LOGLIB_OBJS) $(SO_LIB_LKFLAGS)
+	$(CXX) -c $(LOGLIB_CFLAGS) $(LOGLIB_SOURCES)
+	$(CXX) -o $@.$(SOVER) $(LOGLIB_OBJS) $(SO_LIB_LKFLAGS)
+	@ln -s $@.$(SOVER) $@ &>/dev/null
 
 %.a: liblog.so
 	@echo ---------- Building liblog.a...
 	$(AR) rcs $@ $(LOGLIB_OBJS)
 
 clean:
-	@rm -f *.o *~ *.so *.a
+	@rm -f *.o *~ *.so* *.a

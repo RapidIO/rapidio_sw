@@ -56,13 +56,112 @@
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_sock.h>
 
+#include <map>
+
+#include "dmachanshm.h"
+#include "riodp_mport_lib.h"
+
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
+
+#define UMD_SLEEP_NS	1 // Setting this to 0 will compile out nanosleep syscall
+
+#define MAX_MPORT	32
 
 struct rapidio_mport_mailbox {
 	int fd;
 	uint8_t mport_id;
 };
+
+struct rapidio_mport_handle {
+        int     fd;                         /**< posix api compatible fd to be used with poll/select */
+	uint8_t mport_id;
+	uint8_t umd_chan;
+        void*   dch;
+        volatile uint32_t cookie_cutter; // XXX THIS STINKS but the API wants 32-bit!!
+        std::map <uint64_t, DMAChannelSHM::DmaOptions_t> asyncm;
+        void* stats;                    /**< Pointer to statistics gathering back door for driver... */
+};
+
+/** \brief Tsi721 DMA channel availability bitmask vs kernel driver.
+ * \note The kernel uses channel 0. ALWAYS
+ * \note The kernel SHOULD publish this [exclusion bitmask] using a sysfs interface.
+ * \note WARNING Absent sysfs exclusion bitmask we can ony make educated guesses about what DMA channel the kernel is NOT using.
+ */
+static uint8_t DMA_CHAN_MASK = 0xFE;
+
+static pthread_mutex_t inuse_bitmask_mutex = PTHREAD_MUTEX_INITIALIZER;
+static volatile uint8_t inuse_bitmask[MAX_MPORT] = {0};
+
+/** \brief Can we use this channel (i.e. not used by kernel) ?
+ * \note In real life this should be obtained per-mport
+ */
+static inline bool riomp_mgmt_mport_umd_check_chan_mask(const int mport_id, const int chan)
+{
+	const int chanb = 1 << chan;
+	return (chanb & DMA_CHAN_MASK) == chanb;
+}
+
+static inline int riomp_mgmt_mport_umd_is_channel_selected(const int mport_id, const int chan)
+{
+	if (inuse_bitmask[mport_id] == 0) return 0;
+	if (! riomp_mgmt_mport_umd_check_chan_mask(mport_id, chan)) return -2; // in use by kernel
+	
+	const int chanb = 1 << chan;
+	return (inuse_bitmask[mport_id] & chanb) == chanb;
+}
+
+/** \brief Reserve a UMD hw channel
+ * \param chan if -1 pick next available channel, if > 0 pick this channel if available
+ * \return -1 no channel is available, >0 the channel
+ */
+static inline int riomp_mgmt_mport_umd_select_channel(const int mport_id, const int chan)
+{
+	if (inuse_bitmask[mport_id] == DMA_CHAN_MASK) return -1; // ALL channels are taken
+
+	int sel_chan = -1;
+	pthread_mutex_lock(&inuse_bitmask_mutex);
+	do {
+		if (chan > 0) {
+			if (! riomp_mgmt_mport_umd_check_chan_mask(mport_id, chan)) break; // in use by kernel
+			inuse_bitmask[mport_id] |= (1 << chan);
+			sel_chan = chan;
+			break;
+		}
+		for (int i = 1; i < 8; i++) {
+			if (! riomp_mgmt_mport_umd_check_chan_mask(mport_id, i)) continue; // in use by kernel
+			if ((inuse_bitmask[mport_id] & (1 << i)) == 0) {
+				inuse_bitmask[mport_id] |= (1 << i);
+				sel_chan = i;
+				break;
+			}
+		}
+	} while(0);
+	pthread_mutex_unlock(&inuse_bitmask_mutex);
+
+	return sel_chan;
+}
+
+static inline void riomp_mgmt_mport_umd_deselect_channel(const int mport_id, const int chan)
+{
+	if (chan < 1 || chan > 7) return;
+	if (inuse_bitmask[mport_id] == 0) return; // nothing to do
+	pthread_mutex_lock(&inuse_bitmask_mutex);
+	inuse_bitmask[mport_id] &= ~(1 << chan);
+	pthread_mutex_unlock(&inuse_bitmask_mutex);
+}
+
+
+void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd)
+{
+	if (hnd == NULL) return NULL;
+	return hnd->stats;
+}
+void riomp_mgmt_mport_set_stats(struct rapidio_mport_handle* hnd, void* stats)
+{
+	if (hnd == NULL) return;
+	hnd->stats = stats;
+}
 
 struct rio_channel {
 	uint16_t id;
@@ -79,36 +178,97 @@ struct rapidio_mport_socket {
 	uint8_t	*tx_buffer;
 };
 
-/**
- * @brief mport opaque handle structure
- */
-struct rapidio_mport_handle {
-	int fd;				/**< posix api compatible fd to be used with poll/select */
-};
-
 int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *mport_handle)
 {
-	char path[32];
+	char path[32] = {0};
 	int fd, ret;
 	struct rapidio_mport_handle *hnd = NULL;
 
+	if (mport_id >= MAX_MPORT) return -(errno = EINVAL);
+
+	// XXX O_SYNC    = 0x101000 will break this scheme
+	// XXX O_CLOEXEC =  0x80000 will break this scheme
+
+	const int oflags = flags & 0xFFFF;
+
 	snprintf(path, sizeof(path), RIO_MPORT_DEV_PATH "%d", mport_id);
-	fd = open(path, O_RDWR | flags);
+
+	fd = open(path, O_RDWR | O_CLOEXEC | oflags);
 	if (fd == -1)
 		return -errno;
 
-	hnd = (struct rapidio_mport_handle *)malloc(sizeof(struct rapidio_mport_handle));
+#ifdef MPORT_DEBUG
+	printf("UMDD %s: mport_id=%d flags=0x%x\n", __func__, mport_id, flags);
+#endif
+
+	hnd = (struct rapidio_mport_handle *)calloc(1, sizeof(struct rapidio_mport_handle));
 	if(!(hnd)) {
 		ret = -errno;
 		close(fd);
 		return ret;
 	}
 
-	hnd->fd = fd;
+	hnd->fd       = fd;
+	hnd->mport_id = mport_id;
+
+	hnd->asyncm.clear();
+
+	const char* chan_s = getenv("UMDD_CHAN");
+	if (chan_s == NULL || (flags & 0xFFFF0000) == UMD_RESERVED) {
+		*mport_handle = hnd;
+		return 0;
+	}
+
+	int chan = 0;
+	do {
+		// Pick next available channel
+		if ((flags & 0xFFFF0000) == UMD_SELECT_NEXT_CHANNEL) {
+			chan = riomp_mgmt_mport_umd_select_channel(mport_id, 0);
+			hnd->umd_chan = chan;
+			break;
+		}
+
+		// Force sharing of channel $UMDD_CHAN
+		int tmp = atoi(chan_s);
+		if (tmp > 0) {
+			if (riomp_mgmt_mport_umd_is_channel_selected(mport_id, tmp))
+				chan = tmp;
+			else
+				chan = riomp_mgmt_mport_umd_select_channel(mport_id, tmp);
+			hnd->umd_chan = -chan;
+			break;
+		}
+	} while(0);
+
+	if (chan == 0) {
+		fprintf(stderr, "%s: Ran out of UMD DMA channels.\n", __func__);
+		errno = ENOSPC; goto error;
+	}
+
+	try { hnd->dch = DMAChannelSHM_create(mport_id, chan); }
+	catch(std::runtime_error ex) { // UMDd not running
+		fprintf(stderr, "%s: Exception: %s\n", __func__, ex.what());
+		errno = ENOTCONN; goto error;
+	}
+
+	if (hnd->dch == NULL) { // Cannot load SO
+		errno = ENOPKG; goto error;
+	}
+
+        if (! DMAChannelSHM_pingMaster(hnd->dch)) { // Ping master process via signal(0)
+		fprintf(stderr, "%s: UMDd master process is dead.\n", __func__);
+		errno = ENOTCONN; goto error;
+	}
 
 	*mport_handle = hnd;
-
 	return 0;
+
+error:
+	if (hnd->dch != NULL) {	DMAChannelSHM_destroy(hnd->dch); hnd->dch = NULL; }
+	if (hnd->umd_chan > 0) riomp_mgmt_mport_umd_deselect_channel(hnd->mport_id, hnd->umd_chan);
+	close(hnd->fd);
+	free(hnd);
+	return -errno;
 }
 
 int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
@@ -118,8 +278,16 @@ int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
 	if(hnd == NULL)
 		return -EINVAL;
 
+	if (hnd->dch != NULL) { DMAChannelSHM_destroy(hnd->dch); hnd->dch = NULL; }
+
+	hnd->asyncm.clear();
+
 	close(hnd->fd);
+
+	// Shared channel is not deselected, no ref counting
+        if (hnd->umd_chan > 0) riomp_mgmt_mport_umd_deselect_channel(hnd->mport_id, hnd->umd_chan);
 	free(hnd);
+
 	return 0;
 }
 
@@ -139,7 +307,7 @@ int riomp_mgmt_get_handle_id(riomp_mport_t mport_handle, int *id)
 
 int riomp_sock_mbox_init(void)
 {
-	return open(RIO_CMDEV_PATH, O_RDWR);
+	return open(RIO_CMDEV_PATH, O_RDWR | O_CLOEXEC);
 }
 
 
@@ -205,13 +373,13 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 	/* Get list size */
 	entries = mport_id;
 	if (ioctl(fd, RIO_CM_EP_GET_LIST_SIZE, &entries)) {
-#ifdef DEBUG
+#ifdef MPORT_DEBUG
 		printf("%s ep_get_list_size ioctl failed: %s\n", __func__, strerror(errno));
 #endif
 		ret = errno;
 		goto outfd;
 	}
-#ifdef DEBUG
+#ifdef MPORT_DEBUG
 	printf("RIODP: %s() has %d entries\n", __func__,  entries);
 #endif
 	/* Get list */
@@ -291,7 +459,7 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
 
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
-	xfer.loc_addr = buf;
+	xfer.loc_addr = (uintptr_t)buf;
 	xfer.length = size;
 	xfer.handle = 0;
 	xfer.offset = 0;
@@ -301,10 +469,10 @@ int riomp_dma_write(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_ad
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
 	tran.count = 1;
-	tran.block = &xfer;
+	tran.block = (uintptr_t)&xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)? -errno: ret;
 }
 
 /*
@@ -323,11 +491,14 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	if(hnd == NULL)
 		return -EINVAL;
 
+	if (hnd->dch != NULL) goto umdd;
+
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
-	xfer.loc_addr = NULL;
+	xfer.loc_addr = (uintptr_t)NULL;
 	xfer.length = size;
-	xfer.handle = handle;
+	xfer.handle = handle; // According to drivers/rapidio/devices/rio_mport_cdev.c in rio_dma_transfer()
+			      //    baddr = (dma_addr_t)xfer->handle;
 	xfer.offset = offset;
 	xfer.method = convert_directio_type(wr_mode);
 
@@ -335,10 +506,85 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
 	tran.count = 1;
-	tran.block = &xfer;
+	tran.block = (uintptr_t)&xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)? -errno: ret;
+
+   umdd:
+        if (! DMAChannelSHM_checkMasterReady(hnd->dch)) return -(errno = ENOTCONN);
+
+	if (DMAChannelSHM_queueFull(hnd->dch)) return -(errno = EBUSY);
+
+	// printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
+
+	DMAChannelSHM::DmaOptions_t opt;
+	memset(&opt, 0, sizeof(opt));
+	opt.destid      = destid;
+	opt.bcount      = size;
+	opt.raddr.lsb64 = tgt_addr + offset;
+	RioMport::DmaMem_t dmamem; memset(&dmamem, 0, sizeof(dmamem));
+
+	dmamem.type       = RioMport::DONOTCHECK;
+	dmamem.win_handle = handle;
+        dmamem.win_size   = size;
+
+	bool q_was_full = false;
+	uint32_t dma_abort_reason = 0;
+
+	if (size > 16) {
+		if (! DMAChannelSHM_queueDmaOpT1(hnd->dch,
+				DMAChannelSHM::convert_riomp_dma_directio(wr_mode), &opt,
+				&dmamem, &dma_abort_reason, (seq_ts *)hnd->stats)) {
+			if (q_was_full) return -(errno = ENOSPC);
+			return -(errno = EINVAL);
+		}
+	} else {
+		if (! DMAChannelSHM_queueDmaOpT2(hnd->dch,
+				DMAChannelSHM::convert_riomp_dma_directio(wr_mode),
+				&opt, (uint8_t *)handle + offset, size, 
+				&dma_abort_reason, (seq_ts *)hnd->stats)) {
+			if (q_was_full) return -(errno = ENOSPC);
+			return -(errno = EINVAL);
+		}
+	}
+
+	if (sync == RIO_DIRECTIO_TRANSFER_FAF) return 0;
+
+	if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
+		uint32_t cookie = ++hnd->cookie_cutter;
+		hnd->asyncm[cookie] = opt;
+		return cookie;
+	}
+
+	// Only left RIO_DIRECTIO_TRANSFER_SYNC
+	for (int cnt = 0;; cnt++) {
+		const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannelSHM::UMDD_DEAD) return -(errno = ENOTCONN);
+                if (st == DMAChannelSHM::COMPLETED) break;
+                if (st == DMAChannelSHM::INPROGRESS) {
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+			struct timespec sl = {0, UMD_SLEEP_NS};
+			if (cnt == 0) {
+				uint64_t total_data_pending = 0;
+				DMAChannelSHM_getShmPendingData(hnd->dch, &total_data_pending, NULL);
+				if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+			}
+			nanosleep(&sl, NULL);
+#endif
+			continue;
+		}
+                if (st == DMAChannelSHM::BORKED) {
+                        uint64_t t = 0;
+                        const int deq = DMAChannelSHM_dequeueFaultedTicket(hnd->dch, &t);
+			if (deq)
+			     fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+			else fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
+			return -(errno = EIO);
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -357,7 +603,7 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_add
 
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
-	xfer.loc_addr = buf;
+	xfer.loc_addr = (uintptr_t)buf;
 	xfer.length = size;
 	xfer.handle = 0;
 	xfer.offset = 0;
@@ -366,10 +612,10 @@ int riomp_dma_read(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_add
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_READ;
 	tran.count = 1;
-	tran.block = &xfer;
+	tran.block = (uintptr_t)&xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)? -errno: ret;
 }
 
 /*
@@ -387,9 +633,11 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	if(hnd == NULL)
 		return -EINVAL;
 
+	if (hnd->dch != NULL) goto umdd;
+
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
-	xfer.loc_addr = NULL;
+	xfer.loc_addr = (uintptr_t)NULL;
 	xfer.length = size;
 	xfer.handle = handle;
 	xfer.offset = offset;
@@ -398,10 +646,76 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	tran.sync = convert_directio_sync(sync);
 	tran.dir = RIO_TRANSFER_DIR_READ;
 	tran.count = 1;
-	tran.block = &xfer;
+	tran.block = (uintptr_t)&xfer;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
-	return (ret < 0)?errno:ret;
+	return (ret < 0)? -errno: ret;
+
+   umdd:
+#ifdef MPORT_DEBUG
+	printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
+#endif
+        if (! DMAChannelSHM_checkMasterReady(hnd->dch)) return -(errno = ENOTCONN);
+
+	if (DMAChannelSHM_queueFull(hnd->dch)) return -(errno = EBUSY);
+
+	DMAChannelSHM::DmaOptions_t opt;
+	memset(&opt, 0, sizeof(opt));
+	opt.destid      = destid;
+	opt.bcount      = size;
+	opt.raddr.lsb64 = tgt_addr + offset;
+
+	RioMport::DmaMem_t dmamem; memset(&dmamem, 0, sizeof(dmamem));
+
+	dmamem.type       = RioMport::DONOTCHECK;
+	dmamem.win_handle = handle;
+        dmamem.win_size   = size;
+
+	bool q_was_full = false;
+	uint32_t dma_abort_reason = 0;
+
+	if (! DMAChannelSHM_queueDmaOpT1(hnd->dch, NREAD, &opt, &dmamem,
+			&dma_abort_reason, (seq_ts *)hnd->stats)) {
+		if (q_was_full) return -(errno = ENOSPC);
+		return -(errno = EINVAL);
+	}
+
+	if (sync == RIO_DIRECTIO_TRANSFER_FAF) return 0;
+
+	if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
+		uint32_t cookie = ++hnd->cookie_cutter;
+		hnd->asyncm[cookie] = opt;
+		return cookie;
+	}
+
+	// Only left RIO_DIRECTIO_TRANSFER_SYNC
+	for (int cnt = 0;; cnt++) {
+		const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannelSHM::UMDD_DEAD) return -(errno = ENOTCONN);
+                if (st == DMAChannelSHM::COMPLETED) break;
+                if (st == DMAChannelSHM::INPROGRESS) {
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+			struct timespec sl = {0, UMD_SLEEP_NS};
+			if (cnt == 0) {
+				uint64_t total_data_pending = 0;
+				DMAChannelSHM_getShmPendingData(hnd->dch, &total_data_pending, NULL);
+				if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+			}
+			nanosleep(&sl, NULL);
+#endif
+			continue;
+		}
+                if (st == DMAChannelSHM::BORKED) {
+                        uint64_t t = 0;
+                        const int deq = DMAChannelSHM_dequeueFaultedTicket(hnd->dch, &t);
+			if (deq)
+			     fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+			else fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
+			return -(errno = EIO);
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -415,12 +729,66 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 	if(hnd == NULL)
 		return -EINVAL;
 
+	if (hnd->dch != NULL) goto umdd;
+
 	wparam.token = cookie;
 	wparam.timeout = tmo;
 
 	if (ioctl(hnd->fd, RIO_WAIT_FOR_ASYNC, &wparam))
-		return errno;
-	return 0;
+		return -errno;
+
+   umdd:
+	// printf("UMDD %s: cookie=%u\n", __func__, cookie);
+
+        if (! DMAChannelSHM_checkMasterReady(hnd->dch)) return -(errno = ENOTCONN);
+
+	// Kernel's rio_mport_wait_for_async_dma wants miliseconds of timeout
+
+	assert(cookie <= hnd->cookie_cutter);
+
+        DMAChannelSHM::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
+	std::map<uint64_t, DMAChannelSHM::DmaOptions_t>::iterator it = hnd->asyncm.find(cookie);
+
+	if (it == hnd->asyncm.end()) // Tough luck
+		throw std::runtime_error("riomp_dma_wait_async: Requested cookie not found in internal database");
+
+	opt = it->second;
+
+	hnd->asyncm.erase(it); // XXX This takes a lot of time :()
+
+	uint64_t now = 0;
+	while ((now = rdtsc()) < opt.not_before) {
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+		struct timespec sl = {0, UMD_SLEEP_NS};
+		nanosleep(&sl, NULL);
+#endif
+	}
+
+        for (int cnt = 0 ;; cnt++) {
+                const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
+                if (st == DMAChannelSHM::UMDD_DEAD) return -(errno = ENOTCONN);
+                if (st == DMAChannelSHM::COMPLETED) return 0;
+                if (st == DMAChannelSHM::BORKED) {
+                        uint64_t t = 0;
+                        DMAChannelSHM_dequeueFaultedTicket(hnd->dch, &t);
+                        fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+                        return -(errno = EIO);
+                }
+	
+		// Last-ditch wait ??
+                if (st == DMAChannelSHM::INPROGRESS) {
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+			struct timespec sl = {0, UMD_SLEEP_NS};
+			sl.tv_nsec = opt.not_before_dns;
+			nanosleep(&sl, NULL);
+#endif
+			continue;
+		}
+	}
+
+	// Should not reach here
+
+	return -(errno = EINVAL);
 }
 
 
@@ -436,11 +804,11 @@ int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t
 	if(hnd == NULL)
 		return -EINVAL;
 
-	ib.rio_addr = *rio_base;
+	ib.rio_addr = (*rio_base == RIOMP_MAP_ANY_ADDR) ? RIO_MAP_ANY_ADDR : *rio_base;
 	ib.length = size;
 
 	if (ioctl(hnd->fd, RIO_MAP_INBOUND, &ib))
-		return errno;
+		return -errno;
 	*handle = ib.handle;
 	*rio_base = ib.rio_addr;
 	return 0;
@@ -457,7 +825,7 @@ int riomp_dma_ibwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_UNMAP_INBOUND, handle))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -475,7 +843,7 @@ int riomp_dma_obwin_map(riomp_mport_t mport_handle, uint16_t destid, uint64_t ri
 	ob.length = size;
 
 	if (ioctl(hnd->fd, RIO_MAP_OUTBOUND, &ob))
-		return errno;
+		return -errno;
 	*handle = ob.handle;
 	return 0;
 }
@@ -488,7 +856,7 @@ int riomp_dma_obwin_free(riomp_mport_t mport_handle, uint64_t *handle)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_UNMAP_OUTBOUND, handle))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -506,7 +874,7 @@ int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *ha
 	db.length = size;
 
 	if (ioctl(hnd->fd, RIO_ALLOC_DMA, &db))
-		return errno;
+		return -errno;
 	*handle = db.dma_handle;
 	return 0;
 }
@@ -522,7 +890,7 @@ int riomp_dma_dbuf_free(riomp_mport_t mport_handle, uint64_t *handle)
 		return -EINVAL;
 
 	if (ioctl(hnd->fd, RIO_FREE_DMA, handle))
-		return errno;
+		return -errno;
 
 	return 0;
 }
@@ -566,7 +934,7 @@ int riomp_mgmt_query(riomp_mport_t mport_handle, struct riomp_mgmt_mport_propert
 
 	memset(&prop, 0, sizeof(prop));
 	if (ioctl(hnd->fd, RIO_MPORT_GET_PROPERTIES, &prop))
-		return errno;
+		return -errno;
 
 	qresp->hdid               = prop.hdid;
 	qresp->id                 = prop.id;
@@ -596,15 +964,15 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset, uint32_t s
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL || data == NULL)
 		return -EINVAL;
 
 	mt.offset = offset;
 	mt.length = size;
-	mt.u.buffer = data;
+	mt.buffer = (uintptr_t)data;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_LOCAL, &mt))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -616,16 +984,16 @@ int riomp_mgmt_lcfg_write(riomp_mport_t mport_handle, uint32_t offset, uint32_t 
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	/* size is enforced to match 'data' parameter type */
+	if ((hnd == NULL) || (size != sizeof(uint32_t)))
 		return -EINVAL;
 
 	mt.offset = offset;
 	mt.length = size;
-//		uint32_t __user value; /* when length == 0 */
-	mt.u.buffer = &data;   /* when length != 0 */
+	mt.buffer = (uintptr_t)&data;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_LOCAL, &mt))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -638,17 +1006,17 @@ int riomp_mgmt_rcfg_read(riomp_mport_t mport_handle, uint32_t destid, uint32_t h
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if (hnd == NULL || data == NULL)
 		return -EINVAL;
 
 	mt.rioid = destid;
 	mt.hopcount = hc;
 	mt.offset = offset;
 	mt.length = size;
-	mt.u.buffer = data;   /* when length != 0 */
+	mt.buffer = (uintptr_t)data;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_READ_REMOTE, &mt))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -662,17 +1030,18 @@ int riomp_mgmt_rcfg_write(riomp_mport_t mport_handle, uint32_t destid, uint32_t 
 	struct rio_mport_maint_io mt;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	/* size is enforced to match 'data' parameter type */
+	if ((hnd == NULL) || (size != sizeof(uint32_t)))
 		return -EINVAL;
 
 	mt.rioid = destid;
 	mt.hopcount = hc;
 	mt.offset = offset;
 	mt.length = size;
-	mt.u.buffer = &data;   /* when length != 0 */
+	mt.buffer = (uintptr_t)&data;
 
 	if (ioctl(hnd->fd, RIO_MPORT_MAINT_WRITE_REMOTE, &mt))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -692,7 +1061,7 @@ int riomp_mgmt_dbrange_enable(riomp_mport_t mport_handle, uint32_t rioid, uint16
 	dbf.high = end;
 
 	if (ioctl(hnd->fd, RIO_ENABLE_DOORBELL_RANGE, &dbf))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -712,7 +1081,7 @@ int riomp_mgmt_dbrange_disable(riomp_mport_t mport_handle, uint32_t rioid, uint1
 	dbf.high = end;
 
 	if (ioctl(hnd->fd, RIO_DISABLE_DOORBELL_RANGE, &dbf))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -732,7 +1101,7 @@ int riomp_mgmt_pwrange_enable(riomp_mport_t mport_handle, uint32_t mask, uint32_
 	pwf.high = high;
 
 	if (ioctl(hnd->fd, RIO_ENABLE_PORTWRITE_RANGE, &pwf))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -752,7 +1121,7 @@ int riomp_mgmt_pwrange_disable(riomp_mport_t mport_handle, uint32_t mask, uint32
 	pwf.high = high;
 
 	if (ioctl(hnd->fd, RIO_DISABLE_PORTWRITE_RANGE, &pwf))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -770,7 +1139,7 @@ int riomp_mgmt_set_event_mask(riomp_mport_t mport_handle, unsigned int mask)
 	if (mask & RIO_EVENT_DOORBELL) evt_mask |= RIO_DOORBELL;
 	if (mask & RIO_EVENT_PORTWRITE) evt_mask |= RIO_PORTWRITE;
 	if (ioctl(hnd->fd, RIO_SET_EVENT_MASK, evt_mask))
-		return errno;
+		return -errno;
 	return 0;
 }
 
@@ -787,7 +1156,7 @@ int riomp_mgmt_get_event_mask(riomp_mport_t mport_handle, unsigned int *mask)
 
 	if (!mask) return -EINVAL;
 	if (ioctl(hnd->fd, RIO_GET_EVENT_MASK, &evt_mask))
-		return errno;
+		return -errno;
 	*mask = 0;
 	if (evt_mask & RIO_DOORBELL) *mask |= RIO_EVENT_DOORBELL;
 	if (evt_mask & RIO_PORTWRITE) *mask |= RIO_EVENT_PORTWRITE;
@@ -1220,4 +1589,73 @@ void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *attr)
 	printf("\n");
 }
 
+#ifdef TEST_UMDD
 
+int main()
+{
+        const int mport_id = 0;
+
+	int chan = 0;
+
+	chan = riomp_mgmt_mport_umd_select_channel(mport_id, 7);
+	assert(chan == 7);
+	assert(riomp_mgmt_mport_umd_is_channel_selected(mport_id, 7) > 0);
+	riomp_mgmt_mport_umd_deselect_channel(mport_id, 7);
+	assert(riomp_mgmt_mport_umd_is_channel_selected(mport_id, 7) == 0);
+
+	assert(inuse_bitmask[mport_id] == 0);
+
+	for (chan = 1; chan < 8; chan++) {
+		int chan2 = riomp_mgmt_mport_umd_select_channel(mport_id, 0);
+		assert(chan2 > 0);
+	}
+
+	// Full??
+	chan = riomp_mgmt_mport_umd_select_channel(mport_id, 0);
+	assert(chan == -1);
+
+	for (chan = 1; chan < 8; chan++) {
+		riomp_mgmt_mport_umd_deselect_channel(mport_id, chan);
+	}
+
+	assert(inuse_bitmask[mport_id] == 0);
+
+	if (getenv("UMDD_LIB") == NULL) {
+		printf("Cannot find $UMDD_LIB in environment. Test ending.\n");
+		return 0;
+	}
+	if (access(getenv("UMDD_LIB"), R_OK)) {
+		printf("Cannot find file $UMDD_LIB=%s. Test aborted.\n", getenv("UMDD_LIB"));
+                return 1;
+        }
+
+	riomp_mport_t h1 = NULL, h2 = NULL;
+
+	const char* chan_s = getenv("UMDD_CHAN");
+	if (chan_s != NULL) {
+		const int chan = atoi(chan_s);
+		int r = riomp_mgmt_mport_create_handle(mport_id, /*flags*/ 0, &h1);
+		assert(r == 0);
+		assert(h1->umd_chan != -chan);
+		assert(riomp_mgmt_mport_umd_is_channel_selected(mport_id, chan) > 0);
+		riomp_mgmt_mport_destroy_handle(&h1);
+		riomp_mgmt_mport_umd_deselect_channel(mport_id, chan);
+	}
+
+	int r1 = riomp_mgmt_mport_create_handle(mport_id, UMD_SELECT_NEXT_CHANNEL, &h1);
+	assert(r1 == 0);
+	int r2 = riomp_mgmt_mport_create_handle(mport_id, UMD_SELECT_NEXT_CHANNEL, &h2);
+	assert(r2 == 0);
+
+	const int ch1 = h1->umd_chan;
+	const int ch2 = h2->umd_chan;
+	assert(ch1 != ch2);
+	riomp_mgmt_mport_destroy_handle(&h2);
+	riomp_mgmt_mport_destroy_handle(&h1);
+
+	assert(riomp_mgmt_mport_umd_is_channel_selected(mport_id, ch1) == 0);
+	assert(riomp_mgmt_mport_umd_is_channel_selected(mport_id, ch2) == 0);
+
+	return 0;
+}
+#endif

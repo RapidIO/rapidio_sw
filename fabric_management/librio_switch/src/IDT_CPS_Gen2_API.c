@@ -54,13 +54,13 @@ extern "C" {
 #define EM_CREATE_RATE_0      (DAR_FIRST_IMP_SPEC_ERROR+0x12F00)
 
 static DSF_Handle_t cpsgen2_driver_handle;
-static UINT32 num_cpsgen2_driver_instances;
+static uint32_t num_cpsgen2_driver_instances;
 
-STATUS IDT_CPSGEN2_GetPortList ( DAR_DEV_INFO_t  *dev_info ,
+uint32_t IDT_CPSGEN2_GetPortList ( DAR_DEV_INFO_t  *dev_info ,
 		                struct DAR_ptl	*ptl_in,  
 						struct DAR_ptl	*ptl_out )
 {
-	STATUS rc = RIO_ERR_INVALID_PARAMETER;
+	uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     
     if ( IDT_CPS1432_DEV_ID == ( DECODE_DEVICE_ID( dev_info->devID ) ) ) {
 		if ((ptl_in->num_ports > NUM_PORTS(dev_info)) && (ptl_in->num_ports != RIO_ALL_PORTS))
@@ -70,7 +70,7 @@ STATUS IDT_CPSGEN2_GetPortList ( DAR_DEV_INFO_t  *dev_info ,
 			goto exit;
 
 		if (ptl_in->num_ports == RIO_ALL_PORTS) {
-			UINT8 idx;
+			uint8_t idx;
 			ptl_out->num_ports = 14;
 			for (idx = 0; idx < 8; idx++)
 					ptl_out->pnums[idx] = idx;
@@ -79,13 +79,13 @@ STATUS IDT_CPSGEN2_GetPortList ( DAR_DEV_INFO_t  *dev_info ,
 			rc = RIO_SUCCESS;
 			goto exit;
 		} else {
-			BOOL dup_ports[DAR_MAX_PORTS];
-			UINT8 idx;
+			bool dup_ports[DAR_MAX_PORTS];
+			uint8_t idx;
 
 			for (idx = 0; idx < DAR_MAX_PORTS; idx++)
-				dup_ports[idx] = FALSE;
-			dup_ports[8] = TRUE;
-			dup_ports[9] = TRUE;
+				dup_ports[idx] = false;
+			dup_ports[8] = true;
+			dup_ports[9] = true;
 
 			ptl_out->num_ports = ptl_in->num_ports;
 			for (idx = 0; idx < ptl_in->num_ports; idx++) {
@@ -95,7 +95,7 @@ STATUS IDT_CPSGEN2_GetPortList ( DAR_DEV_INFO_t  *dev_info ,
 					rc = RIO_ERR_PORT_ILLEGAL(idx);
 					goto exit;
 				 };
-				 dup_ports[ptl_out->pnums[idx]] = TRUE;
+				 dup_ports[ptl_out->pnums[idx]] = true;
 			};
 		};
 		rc = RIO_SUCCESS;
@@ -106,9 +106,9 @@ exit:
    return rc;
 };
 
-STATUS IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
+uint32_t IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
 {
-    STATUS rc = DAR_DB_NO_DRIVER;
+    uint32_t rc = DAR_DB_NO_DRIVER;
 
     if ( IDT_CPS_VENDOR_ID == ( DECODE_VENDOR_ID( dev_info->devID ) ) )
     {
@@ -239,9 +239,9 @@ STATUS IDT_CPSGEN2_DeviceSupported( DAR_DEV_INFO_t *dev_info )
 }
 
 
-STATUS IDT_CPSGEN2_DeviceRemoved( DAR_DEV_INFO_t *dev_info )
+uint32_t IDT_CPSGEN2_DeviceRemoved( DAR_DEV_INFO_t *dev_info )
 {
-    STATUS rc = RIO_SUCCESS ;
+    uint32_t rc = RIO_SUCCESS ;
 
     num_cpsgen2_driver_instances-- ;
     dev_info->privateData = 0 ;
@@ -253,7 +253,7 @@ STATUS IDT_CPSGEN2_DeviceRemoved( DAR_DEV_INFO_t *dev_info )
     return rc;
 }     
 
-STATUS bind_CPSGEN2_DAR_support( void )
+uint32_t bind_CPSGEN2_DAR_support( void )
 {
     DAR_DB_Driver_t DB_info;
 
@@ -269,7 +269,7 @@ STATUS bind_CPSGEN2_DAR_support( void )
     return RIO_SUCCESS;
 }
 
-UINT32 bind_CPSGEN2_DSF_support( void )
+uint32_t bind_CPSGEN2_DSF_support( void )
 {
     IDT_DSF_DB_t idt_driver;
     

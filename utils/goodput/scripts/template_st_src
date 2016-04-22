@@ -1,3 +1,4 @@
+scrp MPORT_DIR
 kill all
 wait 0 D
 wait 1 D
@@ -14,7 +15,7 @@ wait 10 D
 t 10 -1 0
 wait 10 H
 
-IBA 10 400000
+IBA 10 400000 iba_addr
 os
 sleep 1
 wait 10 H

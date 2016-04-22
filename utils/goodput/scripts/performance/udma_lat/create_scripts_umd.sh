@@ -1,19 +1,32 @@
 #!/bin/bash
 
 cd "$(dirname "$0")"
-printf "\nCreating DMA LATENCY SCRIPTS\n\n"
+printf "\nCreating UMD DMA LATENCY SCRIPTS\n\n"
 
 shopt -s nullglob
 
 DIR_NAME=udma_lat
 PREFIX=udl
 
+unset LOC_PRINT_HEP
+
+if [ -z "$MPORT_DIR" ]; then
+        if [ -n "$1" ]; then
+                MPORT_DIR=$1
+        else
+                MPORT_DIR=mport0
+                LOC_PRINT_HEP=1
+        fi
+fi
+
+shift
+
 if [ -z "$IBA_ADDR" ]; then
         if [ -n "$1" ]; then
                 IBA_ADDR=$1
         else
-                IBA_ADDR=20d800000
-                LOC_PRINT_HEP=1
+                IBA_ADDR=200000000
+                LOC_PRINT_HEP=2
         fi
 fi
 
@@ -24,7 +37,7 @@ if [ -z "$DID" ]; then
                 DID=$1
         else
                 DID=1
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=3
         fi
 fi
 
@@ -35,7 +48,7 @@ if [ -z "$TRANS" ]; then
                 TRANS=$1
         else
                 TRANS=0
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=4
         fi
 fi
 
@@ -46,7 +59,7 @@ if [ -z "$WAIT_TIME" ]; then
                 WAIT_TIME=$1
         else
                 WAIT_TIME=60
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=5
         fi
 fi
 
@@ -57,7 +70,7 @@ if [ -z "$BUFC" ]; then
                 BUFC=$1
         else
                 BUFC=100
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=6
         fi
 fi
 
@@ -68,7 +81,7 @@ if [ -z "$STS" ]; then
                 STS=$1
         else
                 STS=100
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=7
         fi
 fi
 
@@ -79,7 +92,7 @@ if [ -z "$CHAN" ]; then
                 CHAN=$1
         else
                 CHAN=7
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=8
         fi
 fi
 
@@ -90,7 +103,7 @@ if [ -z "$TX_CPU" ]; then
                 TX_CPU=$1
         else
                 TX_CPU=2
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=9
         fi
 fi
 
@@ -101,7 +114,7 @@ if [ -z "$FIFO_CPU" ]; then
                 FIFO_CPU=$1
         else
                 FIFO_CPU=3
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=10
         fi
 fi
 
@@ -118,6 +131,7 @@ fi
 
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript accepts the following parameters:'
+        echo $'MPORT_DIR  : /dev/rio_{MPORT_DIR} device to test'
         echo $'IBA_ADDR   : Hex address of target window on DID'
         echo $'DID        : Device ID that this device sends to'
         echo $'Trans      : DMA transaction type'
@@ -131,16 +145,17 @@ if [ -n "$LOC_PRINT_HEP" ]; then
 	echo $'           Any other value forces TX_CPU and FIFO_CPU\n'
 fi
 
-echo $'\nDMA_LATENCY IBA_ADDR = ' $IBA_ADDR
-echo 'DMA_LATENCY DID      = ' $DID
-echo 'DMA_LATENCY TRANS    = ' $TRANS
-echo 'DMA_LATENCY WAIT_TIME= ' $WAIT_TIME
-echo 'DMA_THRUPUT BUFC     = ' $BUFC
-echo 'DMA_THRUPUT STS      = ' $STS
-echo 'DMA_THRUPUT CHAN     = ' $CHAN
-echo 'DMA_THRUPUT TX_CPU   = ' $TX_CPU
-echo 'DMA_THRUPUT FIFO_CPU = ' $FIFO_CPU
-echo 'DMA_THRUPUT OVERRIDE = ' $OVERRIDE
+echo $'\nUDMA_LATENCY MPORT_DIR= ' $MPORT_DIR
+echo 'UDMA_LATENCY IBA_ADDR = ' $IBA_ADDR
+echo 'UDMA_LATENCY DID      = ' $DID
+echo 'UDMA_LATENCY TRANS    = ' $TRANS
+echo 'UDMA_LATENCY WAIT_TIME= ' $WAIT_TIME
+echo 'UDMA_THRUPUT BUFC     = ' $BUFC
+echo 'UDMA_THRUPUT STS      = ' $STS
+echo 'UDMA_THRUPUT CHAN     = ' $CHAN
+echo 'UDMA_THRUPUT TX_CPU   = ' $TX_CPU
+echo 'UDMA_THRUPUT FIFO_CPU = ' $FIFO_CPU
+echo 'UDMA_THRUPUT OVERRIDE = ' $OVERRIDE
 
 unset LOC_PRINT_HEP
 
@@ -291,10 +306,11 @@ declare -a file_list
 for direction in "${DIR[@]}"
 do
 	scriptname="../"$DIR_NAME"_"$direction 
+	echo $scriptname
 
 	echo "// This script runs all "$DIR_NAME $direction" scripts." > $scriptname
-	echo "log logs/"$DIR_NAME"_"$direction".log" >> $scriptname
-	echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
+	echo "log logs/${MPORT_DIR}/"$DIR_NAME"_"$direction".ulog" >> $scriptname
+	echo "scrp ${MPORT_DIR}/"$DIR_NAME >> $scriptname
 
 	idx=0
 	while [ "$idx" -lt "$max_name_idx" ]
@@ -311,7 +327,7 @@ do
 		idx=($idx)+1
 	done
 	echo "close" >> $scriptname
-	echo "scrp scripts/performance/" >> $scriptname
+	echo "scrp ${MPORT_DIR}" >> $scriptname
 done
 
 ls ../$DIR_NAME*

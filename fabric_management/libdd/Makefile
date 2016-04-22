@@ -29,11 +29,11 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
+TOPDIR=../..
+include $(TOPDIR)/rules.mk
+
 LOG_LEVEL?=4
 DEBUG?=DEBUG
-CC?=$(CROSS_COMPILE)g++
-CXX?=$(CROSS_COMPILE)g++
-TOP_LEVEL = $(shell pwd)
 
 level=$(LOG_LEVEL)
 
@@ -41,18 +41,18 @@ NAME:=dd
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h
 
-CROSS_COMPILE?=/usr/bin/
+XFLAGS=$(addprefix -W,all extra ) -fPIC
+XFLAGS+=-D$(DEBUG)
+XFLAGS+=-I. -I../inc
+XFLAGS+=-I../cli
+XFLAGS+=-I../libriocp_pe/inc
+XFLAGS+=-I../librio_switch/inc
+XFLAGS+=-I../../common/include
+XFLAGS+=-DRDMA_LL=$(level)
 
-AR:=$(CROSS_COMPILE)ar
+CFLAGS += $(XFLAGS)
+CXXFLAGS += $(XFLAGS)
 
-CFLAGS+=$(addprefix -W,all extra error) -fPIC
-CFLAGS+=-O2 -D$(DEBUG) -g
-CFLAGS+=-I. -I../inc
-CFLAGS+=-I../cli
-CFLAGS+=-I../libriocp_pe/inc
-CFLAGS+=-I../librio_switch/inc
-CFLAGS+=-I../../common/include
-CFLAGS+=-DRDMA_LL=$(level)
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
@@ -63,7 +63,7 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 src/%.o: src/%.c $(HEADERS)
-	$(CXX) -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 clean:
 	rm -f $(TARGETS) $(OBJECTS) inc/*~ src/*~ *~ *.a

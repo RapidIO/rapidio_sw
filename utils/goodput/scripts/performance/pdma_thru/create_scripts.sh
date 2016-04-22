@@ -115,17 +115,26 @@ if [ -z "$SYNC3" ]; then
         fi
 fi
 
+if [ -z "$MPORT_DIR" ]; then
+        if [ -n "$8" ]; then
+                MPORT_DIR=$8
+        else
+                MPORT_DIR='mport0'
+                LOC_PRINT_HEP=1
+        fi
+fi
+
 if [ -n "$LOC_PRINT_HEP" ]; then
-        echo $'\nScript accepts 5 parameters:'
-        echo $'WAIT : Time in seconds to wait before taking perf measurement'
-        echo $'DID  : Device ID of target device for performance scripts'
-        echo $'TRANS: DMA transaction type'
-        echo $'       0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL'
+        echo $'\nScript requires the following parameters:'
+        echo $'WAIT    : Time in seconds to wait before taking perf measurement'
+        echo $'DID     : Device ID of target device for performance scripts'
+        echo $'TRANS   : DMA transaction type'
+        echo $'          0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL'
         echo $'IBA_ADDR: Hex address of target window on DID'
-	echo $'DMA_SYNC: 0 - blocking, 1 - async, 2 - fire and forget'
-        echo $'\nOptional parameters, if not entered same as DMA_SYNC'
+	echo $'DMA_SYNC : 0 - blocking, 1 - async, 2 - fire and forget'
         echo $'DMA_SYNC2: 0 - blocking, 1 - async, 2 - fire and forget'
         echo $'DMA_SYNC3: 0 - blocking, 1 - async, 2 - fire and forget\n'
+        echo $'DIR      : Directory to use as home directory for scripts\n'
 fi
 
 echo PDMA_THRUPUT WAIT_TIME= $WAIT_TIME
@@ -135,6 +144,7 @@ echo PDMA_THRUPUT IBA_ADDR = $IBA_ADDR
 echo PDMA_THRUPUT SYNC     = $SYNC
 echo PDMA_THRUPUT SYNC2    = $SYNC2
 echo PDMA_THRUPUT SYNC3    = $SYNC3
+echo PDMA_THRUPUT DIR      = $MPORT_DIR
 
 unset LOC_PRINT_HEP
 
@@ -233,8 +243,8 @@ do
 		scr_name="../"$file_set
 
 		echo "// This script runs all "$file_set" scripts." > $scr_name
-		echo "log logs/"$file_set".log" >> $scr_name
-		echo "scrp scripts/performance/"$DIR_NAME >> $scr_name
+		echo "log logs/"$MPORT_DIR/$file_set".log" >> $scr_name
+		echo "scrp ${MPORT_DIR}/${DIR_NAME}" >> $scr_name
 	
 		idx=0
 		while [ "$idx" -lt "$max_name_idx" ]
@@ -251,7 +261,7 @@ do
 			idx=($idx)+1
 		done
 		echo "close" >> $scr_name
-		echo "scrp scripts/performance/" >> $scr_name
+		echo "scrp ${MPORT_DIR}" >> $scr_name
 	done
 done
 

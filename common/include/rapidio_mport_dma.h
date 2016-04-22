@@ -150,6 +150,8 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
  * @retval 0 on success
  * @retval -errno on error
  */
+#define RIO_ANY_ADDR        (uint64_t)(~((uint64_t) 0))
+
 int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t size, uint64_t *handle);
 
 /**

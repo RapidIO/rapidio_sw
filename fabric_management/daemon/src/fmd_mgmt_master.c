@@ -265,8 +265,8 @@ void master_process_hello_peer(struct fmd_peer *peer)
 	sem_wait(&peer->tx_mtx);
 
 	peer->m2s->msg_type = htonl(FMD_P_RESP_HELLO);
-	memset(peer->m2s->hello_rsp.peer_name, MAX_P_NAME+1, 0);
-	if (NULL == peer_ep) {
+	memset(peer->m2s->hello_rsp.peer_name, 0, MAX_P_NAME+1);
+	if (peer_not_found) {
 		snprintf(peer->m2s->hello_rsp.peer_name, (size_t)MAX_P_NAME,
 			"%s", "REQUEST_DENIED!");
 		peer->m2s->hello_rsp.pid = htonl(0);
@@ -465,6 +465,7 @@ int start_new_peer(riomp_sock_t new_skt)
 	peer->rx_must_die = 0;
 	peer->tx_buff_used = 0;
 	peer->tx_rc = 0;
+	peer->rx_rc = 0;
 	sem_init(&peer->tx_mtx, 0, 1);
 	sem_init(&peer->started, 0, 0);
 	peer->rx_alive = 0;
@@ -620,7 +621,7 @@ int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
 		rc = start_peer_mgmt_master(mast_acc_skt_num, mp_num, mast_did);
 	else
 		rc = start_peer_mgmt_slave(mast_acc_skt_num, mast_did, mp_num, 
-			&fmp.slv, fmd->mp_hnd);
+			&fmp.slv);
 
 	if (rc)
 		shutdown_mgmt();

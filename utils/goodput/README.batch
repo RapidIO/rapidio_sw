@@ -1,8 +1,0 @@
-To capture UDMA results in a batch fashion:
-1. edit mkdma.sh and change destid & other params
-2. run mkdma.sh => will autogen throwaway scripts as scripts/u.{size}
-3. sh rundma.sh | tee out
-4. ./filterout.awk < out > out.csv
-5. import out.csv into OpenOffice (Excel not tested) & have fun!
-
--Vlad

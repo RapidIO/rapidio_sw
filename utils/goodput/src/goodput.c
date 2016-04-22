@@ -68,9 +68,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-riomp_mport_t mp_h;
+riomp_mport_t mp_h = NULL;
 int mp_h_valid;
-int mp_h_num;
+int mp_h_num = -1;
 int mp_h_qresp_valid;
 struct riomp_mgmt_mport_properties qresp;
 
@@ -125,8 +125,9 @@ void sig_handler(int signo)
 int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
-	int i;
 	int mport_num = 0;
+
+	char* rc_script = NULL;
 
 	signal(SIGINT, sig_handler);
 	signal(SIGHUP, sig_handler);
@@ -138,6 +139,11 @@ int main(int argc, char *argv[])
 
 	for(int n = 2; n < argc; n++) {
 		const char* arg = argv[n];
+		if(! strcmp(arg,"--rc")) {
+		       if (n == (argc-1)) continue;
+		       rc_script = argv[++n];
+		       continue;
+		}
 		if(! strstr(arg,"=")) continue;
 		SetEnvVar((char *)arg);
         }
@@ -148,16 +154,25 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	};
 
-	for (i = 0; i < MAX_WORKERS; i++)
+	for (int i = 0; i < MAX_WORKERS; i++)
 		init_worker_info(&wkr[i], 1);
 
 	riomp_sock_mbox_init();
         cli_init_base(goodput_thread_shutdown);
         bind_goodput_cmds();
 	liblog_bind_cli_cmds();
+
+	char script_path[10] = {0};
+	snprintf(script_path, sizeof(script_path), "mport%d", mport_num);
+	set_script_path(script_path);
+
 	splashScreen((char *)"Goodput Evaluation Application");
 
-	console((void *)((char *)"GoodPut> "));
+	ConsoleRc_t crc;
+	crc.prompt = (char *)"GoodPut> ";
+	crc.script = rc_script;
+
+	console_rc((void *)&crc);
 
 	goodput_thread_shutdown(NULL);
 

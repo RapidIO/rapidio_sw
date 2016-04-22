@@ -67,7 +67,7 @@ int tun_alloc(char* dev, int flags)
   struct ifreq ifr;
   int fd, err;
 
-  if( (fd = open("/dev/net/tun", O_RDWR)) < 0 ) {
+  if( (fd = open("/dev/net/tun", O_RDWR | O_CLOEXEC)) < 0 ) {
     perror("Opening /dev/net/tun");
     return fd;
   }
@@ -167,7 +167,7 @@ static inline unsigned short in_cksum(unsigned short *addr, int len)
   return answer;
 }
 
-static inline int max(int a, int b) { return a > b? a: b; }
+static inline int min(int a, int b) { return a < b? a: b; }
 
 int icmp_host_unreachable(uint8_t* l3_in, const int l3_in_size, uint8_t* l3_out, int& l3_out_size)
 {
@@ -176,7 +176,7 @@ int icmp_host_unreachable(uint8_t* l3_in, const int l3_in_size, uint8_t* l3_out,
 
   memcpy(l3_out, l3_in, sizeof(struct iphdr)); // IPv4 header
 
-  const int MAX_COPY = max(l3_in_size, 64); // RFC requires only 8 bytes of original frame
+  const int MAX_COPY = min(l3_in_size, 64); // RFC requires only 8 bytes of original frame
 
   struct iphdr* ip = (struct iphdr*)l3_out;
   ip->tot_len = htons(sizeof(struct iphdr) + sizeof(struct icmphdr) + MAX_COPY);
@@ -200,6 +200,22 @@ int icmp_host_unreachable(uint8_t* l3_in, const int l3_in_size, uint8_t* l3_out,
   l3_out_size = sizeof(struct iphdr) + sizeof(struct icmphdr) + MAX_COPY; // HAAACK adjust length in ip header!!
 
   return 1;
+}
+
+bool send_icmp_host_unreachable(const int tun_fd, uint8_t* l3_in, const int l3_in_size)
+{
+        if(tun_fd < 0) return false;
+        if(l3_in == NULL || l3_in_size < 20) return false;
+
+        const int BUFSIZE = 8192;
+        uint8_t buffer_unreach[BUFSIZE] = {0};
+
+        int out_size = BUFSIZE;
+
+        if (! icmp_host_unreachable(l3_in, l3_in_size, buffer_unreach, out_size)) return false;
+
+        cwrite(tun_fd, buffer_unreach, out_size);
+        return true;
 }
 
 #ifdef __cplusplus

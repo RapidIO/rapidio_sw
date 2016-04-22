@@ -6,7 +6,7 @@ SOURCE_PATH=/opt/rapidio/rapidio_sw
 SCRIPTS_PATH=$SOURCE_PATH/install
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
-NODES="node4 node3 node2 node1"
+. /etc/rapidio/nodelist.sh
 
 for node in $NODES
 do

@@ -29,45 +29,35 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 #
-#
-# Default configurations
+
+TOPDIR=../..
+include $(TOPDIR)/rules.mk
 
 LOG_LEVEL ?= 1
 DEBUG?=DEBUG
-CC = $(CROSS_COMPILE)g++
-CXX = $(CROSS_COMPILE)g++
-
-TOP_LEVEL ?= ../..
 
 # Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -g -ggdb
-A_LIB_LKFLAGS = -lnsl -fPIC -g -ggdb
+SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC
+A_LIB_LKFLAGS = -lnsl -fPIC
 
-CROSS_COMPILE?=/usr/bin/
-
-COMMON_DIR=$(TOP_LEVEL)/common/
-MPORT_DIR=$(TOP_LEVEL)/libmport
+MPORT_DIR=$(COMMONDIR)/libmport
+TU_DIR=$(COMMONDIR)/libtime_utils
 DAEMON=./
 
-LOCAL_LIBRARY_DIR ?= "libs_a"
+LOCAL_LIBRARY_DIR ?= libs_a
 
-LIB_DIRS?=-L$(COMMON_DIR)libs_a -L$(COMMON_DIR)libs_so \
-	-L../$(LOCAL_LIBRARY_DIR) -L$(MPORT_DIR) 
-	
-
-CXX ?= $(CROSS_COMPILE)g++
-AR ?= $(CROSS_COMPILE)ar
+LIB_DIRS?= -L$(COMMONLIB) -L../$(LOCAL_LIBRARY_DIR) $(LIBS_RPATH)
 
 src/%.o: src/%.c
-	$(CXX) -o $@ $< -c -g -ggdb -fPIC -Wall -Werror -O2 \
+	$(CXX) -o $@ $< -c -fPIC -Wall -Werror $(OPTFLAGS) \
 	-I./src -I./inc -I../inc \
-	-I$(COMMON_DIR)/include \
-	-I$(TOP_LEVEL)/include \
+	-I$(COMMONINC) \
+	-I$(TOPDIR)/include \
 	-I../ \
 	-I../librio_switch/inc \
 	-I../libriocp_pe/inc \
 	-I../cli \
-	-DRDMA_LL=7 -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
+	-DRDMA_LL=$(LOG_LEVEL) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
 FMD_SOURCES = src/fmd_app_mgmt.c src/fmd_cfg.c src/fmd.c src/fmd_cfg_cli.c \
 	src/fmd_mgmt_master.c src/fmd_mgmt_slave.c src/fmd_mgmt_cli.c \
@@ -83,8 +73,8 @@ fmd:  $(FMD_OBJECTS) $(FMD_SOURCES) src/*.h
 	@echo ---------- Building fmd...
 	$(CXX) -pthread \
 	-o $@ $(FMD_OBJECTS) $(LIB_DIRS) \
-	-lcli -ldd -llist -lrt -lmport -llog -lriocp_pe \
-	-lswitch_api
+	-lcli -ldd -llist -lrt -ldl -ltime_utils -lmport -llog -lriocp_pe \
+	-lswitch_api -lcfg -lpe_mpdrv
 
 clean:
 	rm -f *.o src/*.o *~ *.exe core fmd

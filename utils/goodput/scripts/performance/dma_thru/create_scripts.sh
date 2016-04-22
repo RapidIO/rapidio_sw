@@ -57,26 +57,37 @@ fi
 
 if [ -z "$SYNC" ]; then
 	if [ -n "$4" ]; then
-		SYNC=$5
+		SYNC=$4
 	else
 		SYNC=0
 		LOC_PRINT_HEP=1
 	fi
 fi
 
+if [ -z "$MPORT_DIR" ]; then
+	if [ -n "$5" ]; then
+		MPORT_DIR=$5
+	else
+		MPORT_DIR='mport0'
+		LOC_PRINT_HEP=1
+	fi
+fi
+
 if [ -n "$LOC_PRINT_HEP" ]; then
-	echo $'\nScript accepts 4 parameters:'
+	echo $'\nScript requires the following parameters:'
         echo $'IBA_ADDR: Hex address of target window on DID'
         echo $'DID : Device ID of target device for performance scripts'
         echo $'Trans: DMA transaction type'
         echo $'Wait: Time in seconds to wait before taking perf measurement\n'
         echo $'Sync: 0 - blocking, 1 - async, 2 - fire and forget\n'
+        echo $'DIR : Directory to use as home directory for scripts\n'
 fi
 
-echo DMA_THRUPUT IBA_ADDR = $IBA_ADDR
-echo DMA_THRUPUT DID      = $DID
-echo DMA_THRUPUT TRANS    = $TRANS
-echo DMA_THRUPUT WAIT_TIME= $WAIT_TIME
+echo $'\nDMA_THRUPUT IBA_ADDR = ' $IBA_ADDR
+echo 'DMA_THRUPUT DID      = ' $DID
+echo 'DMA_THRUPUT TRANS    = ' $TRANS
+echo 'DMA_THRUPUT WAIT_TIME= ' $WAIT_TIME
+echo 'DMA_THRUPUT MPORT_DIR= ' $MPORT_DIR
 
 unset LOC_PRINT_HEP
 
@@ -192,8 +203,8 @@ do
 	scriptname="../"$DIR_NAME"_"$direction 
 
 	echo "// This script runs all "$DIR_NAME $direction" scripts." > $scriptname
-	echo "log logs/"$DIR_NAME"_"$direction".log" >> $scriptname
-	echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
+	echo "log logs/"$MPORT_DIR/$DIR_NAME"_"$direction".log" >> $scriptname
+	echo "scrp ${MPORT_DIR}/$DIR_NAME" >> $scriptname
 
 	idx=0
 	while [ "$idx" -lt "$max_name_idx" ]
@@ -210,7 +221,7 @@ do
 		idx=($idx)+1
 	done
 	echo "close" >> $scriptname
-	echo "scrp scripts/performance/" >> $scriptname
+	echo "scrp ${MPORT_DIR}" >> $scriptname
 done
 
 ls ../$DIR_NAME*

@@ -53,20 +53,20 @@ static int first_free_driver;
 
 
 /* For the local SRIO register access */
-STATUS (*ReadReg ) ( DAR_DEV_INFO_t *dev_info, UINT32 offset,
-                                               UINT32 *readdata );
-STATUS (*WriteReg) ( DAR_DEV_INFO_t *dev_info, UINT32  offset,
-                                               UINT32  writedata );
+uint32_t (*ReadReg ) ( DAR_DEV_INFO_t *dev_info, uint32_t offset,
+                                               uint32_t *readdata );
+uint32_t (*WriteReg) ( DAR_DEV_INFO_t *dev_info, uint32_t  offset,
+                                               uint32_t  writedata );
 
-static VOID update_db_h( DAR_DEV_INFO_t *dev_info, INT32 idx )
+static void update_db_h( DAR_DEV_INFO_t *dev_info, int32_t idx )
 {
     dev_info->db_h = ( VENDOR_ID( dev_info ) << 16 ) + idx ;
 }
 
 
-static STATUS DARDB_ReadRegStub ( DAR_DEV_INFO_t *dev_info,
-                                          UINT32  offset  ,
-                                          UINT32 *readdata )
+static uint32_t DARDB_ReadRegStub ( DAR_DEV_INFO_t *dev_info,
+                                          uint32_t  offset  ,
+                                          uint32_t *readdata )
 {
     if ((NULL == dev_info) || (NULL == readdata))
        return RIO_ERR_NULL_PARM_PTR;
@@ -79,9 +79,9 @@ static STATUS DARDB_ReadRegStub ( DAR_DEV_INFO_t *dev_info,
 }
 
 
-static STATUS DARDB_WriteRegStub ( DAR_DEV_INFO_t *dev_info,
-                                           UINT32  offset  ,
-                                           UINT32  writedata )
+static uint32_t DARDB_WriteRegStub ( DAR_DEV_INFO_t *dev_info,
+                                           uint32_t  offset  ,
+                                           uint32_t  writedata )
 {
     if (NULL == dev_info)
        return RIO_ERR_NULL_PARM_PTR;
@@ -93,17 +93,17 @@ static STATUS DARDB_WriteRegStub ( DAR_DEV_INFO_t *dev_info,
 }
 
 
-STATUS DARDB_ReadReg( DAR_DEV_INFO_t *dev_info,
-                                     UINT32  offset,
-                                     UINT32 *readdata )
+uint32_t DARDB_ReadReg( DAR_DEV_INFO_t *dev_info,
+                                     uint32_t  offset,
+                                     uint32_t *readdata )
 {
     return ReadReg( dev_info, offset, readdata );
 }
 
 
-STATUS DARDB_WriteReg( DAR_DEV_INFO_t *dev_info,
-                                      UINT32  offset,
-                                      UINT32  writedata )
+uint32_t DARDB_WriteReg( DAR_DEV_INFO_t *dev_info,
+                                      uint32_t  offset,
+                                      uint32_t  writedata )
 {
     return WriteReg( dev_info, offset, writedata );
 }
@@ -114,10 +114,10 @@ STATUS DARDB_WriteReg( DAR_DEV_INFO_t *dev_info,
    correctly for devices which are compliant to the RapidIO defined
    register definitions.
 */
-static STATUS DARDB_rioGetNumLocalPorts( DAR_DEV_INFO_t *dev_info,
-                                                 UINT32 *numLocalPorts )
+static uint32_t DARDB_rioGetNumLocalPorts( DAR_DEV_INFO_t *dev_info,
+                                                 uint32_t *numLocalPorts )
 {
-    STATUS rc = DARRegRead( dev_info, RIO_SWITCH_PORT_INF_CAR, numLocalPorts );
+    uint32_t rc = DARRegRead( dev_info, RIO_SW_PORT_INF, numLocalPorts );
 	if (RIO_SUCCESS == rc) 
        *numLocalPorts = RIO_AVAIL_PORTS(*numLocalPorts);
 	else
@@ -126,17 +126,17 @@ static STATUS DARDB_rioGetNumLocalPorts( DAR_DEV_INFO_t *dev_info,
 }
 
 
-static STATUS DARDB_rioGetFeatures( DAR_DEV_INFO_t *dev_info,
-                                            RIO_FEATURES *features )
+static uint32_t DARDB_rioGetFeatures( DAR_DEV_INFO_t *dev_info,
+                                            RIO_PE_FEAT_T *features )
 {
-    return DARRegRead( dev_info, RIO_PROC_ELEM_FEAT_CAR, features );
+    return DARRegRead( dev_info, RIO_PE_FEAT, features );
 }
 
 
-static STATUS DARDB_rioGetSwitchPortInfo(      DAR_DEV_INFO_t *dev_info,
-                                         RIO_SWITCH_PORT_INFO *portinfo  )
+static uint32_t DARDB_rioGetSwitchPortInfo(      DAR_DEV_INFO_t *dev_info,
+                                         RIO_SW_PORT_INF_T *portinfo  )
 {
-    STATUS rc =  DARRegRead( dev_info, RIO_SWITCH_PORT_INF_CAR, portinfo );
+    uint32_t rc =  DARRegRead( dev_info, RIO_SW_PORT_INF, portinfo );
 
     if ( RIO_SUCCESS == rc )
         /* If this is not a switch or a multiport-endpoint, portinfo
@@ -147,7 +147,7 @@ static STATUS DARDB_rioGetSwitchPortInfo(      DAR_DEV_INFO_t *dev_info,
            Otherwise, leave portinfo alone.
         */
         if (   !(dev_info->features &
-                (RIO_PROC_ELEM_FEAT_SW | RIO_PROC_ELEM_FEAT_MULTIP))
+                (RIO_PE_FEAT_SW | RIO_PE_FEAT_MULTIP))
             &&  (! *portinfo ) )
               *portinfo = 0x00000100 ;
 
@@ -155,101 +155,101 @@ static STATUS DARDB_rioGetSwitchPortInfo(      DAR_DEV_INFO_t *dev_info,
 }
 
 
-static STATUS DARDB_rioGetExtFeaturesPtr( DAR_DEV_INFO_t *dev_info,
-                                                  UINT32 *extfptr )
+static uint32_t DARDB_rioGetExtFeaturesPtr( DAR_DEV_INFO_t *dev_info,
+                                                  uint32_t *extfptr )
 {
-    STATUS rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+    uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
 
-    if ( dev_info->features & RIO_PROC_ELEM_FEAT_EXT_FEA )
+    if ( dev_info->features & RIO_PE_FEAT_EFB_VALID )
     {
         rc = RIO_SUCCESS;
-        *extfptr = dev_info->assyInfo & RIO_ASBLY_INFO_EXT_FEAT_PTR;
+        *extfptr = dev_info->assyInfo & RIO_ASSY_INF_EFB_PTR;
     };
 
     return rc;
 }
 
 
-static STATUS DARDB_rioGetNextExtFeaturesPtr( DAR_DEV_INFO_t *dev_info,
-                                                      UINT32  currfptr,
-                                                      UINT32 *extfptr )
+static uint32_t DARDB_rioGetNextExtFeaturesPtr( DAR_DEV_INFO_t *dev_info,
+                                                      uint32_t  currfptr,
+                                                      uint32_t *extfptr )
 {
-    STATUS rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+    uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
 
-    if ( currfptr & ( RIO_STD_EXT_FEATS_PTR >> 16) )
+    if ( currfptr & ( RIO_ASSY_INF_EFB_PTR >> 16) )
     {
         rc = DARRegRead( dev_info, currfptr, extfptr );
-        *extfptr = (*extfptr & RIO_STD_EXT_FEATS_PTR) >> 16;
+        *extfptr = (*extfptr & RIO_ASSY_INF_EFB_PTR) >> 16;
     };
 
     return rc;
 }
 
 
-static STATUS DARDB_rioGetSourceOps( DAR_DEV_INFO_t *dev_info,
-                                     RIO_SOURCE_OPS *srcops )
+static uint32_t DARDB_rioGetSourceOps( DAR_DEV_INFO_t *dev_info,
+                                     RIO_SRC_OPS_T *srcops )
 {
-    return DARRegRead( dev_info, RIO_SRC_OPS_CAR, srcops );
+    return DARRegRead( dev_info, RIO_SRC_OPS, srcops );
 }
 
 
-static STATUS DARDB_rioGetDestOps( DAR_DEV_INFO_t *dev_info,
-                                     RIO_DEST_OPS *dstops )
+static uint32_t DARDB_rioGetDestOps( DAR_DEV_INFO_t *dev_info,
+                                     RIO_DST_OPS_T *dstops )
 {
-    return DARRegRead( dev_info, RIO_DST_OPS_CAR, dstops );
+    return DARRegRead( dev_info, RIO_DST_OPS, dstops );
 }
 
 
-static STATUS DARDB_rioGetAddressMode( DAR_DEV_INFO_t *dev_info,
-                                        RIO_ADDR_MODE *amode )
+static uint32_t DARDB_rioGetAddressMode( DAR_DEV_INFO_t *dev_info,
+                                        RIO_PE_ADDR_T *amode )
 {
-    STATUS rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+    uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
 
-    if ( dev_info->features & RIO_PROC_ELEM_FEAT_EXT_AS )
-        rc = DARRegRead( dev_info, RIO_PE_LLAYER_CONTROL_CSR, amode ) ;
+    if ( dev_info->features & RIO_PE_FEAT_EXT_ADDR )
+        rc = DARRegRead( dev_info, RIO_PE_LL_CTL, amode ) ;
 
     return rc;
 }
 
 
-static STATUS DARDB_rioGetBaseDeviceId( DAR_DEV_INFO_t *dev_info,
-                                                UINT32 *deviceid )
+static uint32_t DARDB_rioGetBaseDeviceId( DAR_DEV_INFO_t *dev_info,
+                                                uint32_t *deviceid )
 {
-    STATUS rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+    uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
 
-    if ( dev_info->features & (RIO_PROC_ELEM_FEAT_PROC |
-                               RIO_PROC_ELEM_FEAT_MEM  |
-                               RIO_PROC_ELEM_FEAT_BRDG ) )
-        rc = DARRegRead( dev_info, RIO_BASE_DEVICE_ID_CSR, deviceid ) ;
+    if ( dev_info->features & (RIO_PE_FEAT_PROC |
+                               RIO_PE_FEAT_MEM  |
+                               RIO_PE_FEAT_BRDG ) )
+        rc = DARRegRead( dev_info, RIO_DEVID, deviceid ) ;
 
     return rc;
 }
 
 
-static STATUS DARDB_rioSetBaseDeviceID( DAR_DEV_INFO_t *dev_info,
-                                                       UINT32  newdeviceid )
+static uint32_t DARDB_rioSetBaseDeviceID( DAR_DEV_INFO_t *dev_info,
+                                                       uint32_t  newdeviceid )
 {
-    STATUS rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+    uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
 
-    if ( dev_info->features & (RIO_PROC_ELEM_FEAT_PROC |
-                               RIO_PROC_ELEM_FEAT_MEM  |
-                               RIO_PROC_ELEM_FEAT_BRDG) )
-        rc = DARRegWrite( dev_info, RIO_BASE_DEVICE_ID_CSR, newdeviceid ) ;
+    if ( dev_info->features & (RIO_PE_FEAT_PROC |
+                               RIO_PE_FEAT_MEM  |
+                               RIO_PE_FEAT_BRDG) )
+        rc = DARRegWrite( dev_info, RIO_DEVID, newdeviceid ) ;
 
     return rc;
 }
 
 
-static STATUS DARDB_rioAcquireDeviceLock( DAR_DEV_INFO_t *dev_info,
-                                                  UINT16  hostdeviceid,
-                                                  UINT16 *hostlockid )
+static uint32_t DARDB_rioAcquireDeviceLock( DAR_DEV_INFO_t *dev_info,
+                                                  uint16_t  hostdeviceid,
+                                                  uint16_t *hostlockid )
 {
-    UINT32 regVal;
+    uint32_t regVal;
 
-    STATUS rc = DARRegRead( dev_info, RIO_HOST_BASE_DEVICE_ID_LOCK_CSR,
+    uint32_t rc = DARRegRead( dev_info, RIO_HOST_LOCK,
                                      &regVal );
 
-    if ((hostdeviceid == RIO_STD_HOST_BASE_ID_LOCK_HOST_BASE_ID) ||
+    if ((hostdeviceid == RIO_HOST_LOCK_DEVID) ||
         ( !hostlockid                                          )) {
         return RIO_ERR_INVALID_PARAMETER;
     };
@@ -257,19 +257,19 @@ static STATUS DARDB_rioAcquireDeviceLock( DAR_DEV_INFO_t *dev_info,
     *hostlockid = hostdeviceid;
 
     // Only do the write if the lock is not already taken...
-    if ((RIO_SUCCESS == rc) && ((UINT16)(regVal) != hostdeviceid)) {
-       rc = DARRegWrite( dev_info, RIO_HOST_BASE_DEVICE_ID_LOCK_CSR,
+    if ((RIO_SUCCESS == rc) && ((uint16_t)(regVal) != hostdeviceid)) {
+       rc = DARRegWrite( dev_info, RIO_HOST_LOCK,
                                        hostdeviceid );
        if (RIO_SUCCESS == rc)
        {
-           rc = DARRegRead(dev_info, RIO_HOST_BASE_DEVICE_ID_LOCK_CSR, &regVal);
+           rc = DARRegRead(dev_info, RIO_HOST_LOCK, &regVal);
            if ( RIO_SUCCESS == rc )
            {
-               regVal &= RIO_STD_HOST_BASE_ID_LOCK_HOST_BASE_ID;
+               regVal &= RIO_HOST_LOCK_DEVID;
                if (regVal != hostdeviceid)
                    rc = RIO_ERR_LOCK;
    
-               *hostlockid = (UINT16)(regVal);
+               *hostlockid = (uint16_t)(regVal);
            }
        }
     }
@@ -278,22 +278,22 @@ static STATUS DARDB_rioAcquireDeviceLock( DAR_DEV_INFO_t *dev_info,
 }
 
 
-static STATUS DARDB_rioReleaseDeviceLock( DAR_DEV_INFO_t *dev_info,
-                                                  UINT16  hostdeviceid,
-                                                  UINT16 *hostlockid )
+static uint32_t DARDB_rioReleaseDeviceLock( DAR_DEV_INFO_t *dev_info,
+                                                  uint16_t  hostdeviceid,
+                                                  uint16_t *hostlockid )
 {
-    UINT32 regVal;
-    STATUS rc = DARRegWrite( dev_info,
-                             RIO_HOST_BASE_DEVICE_ID_LOCK_CSR,
+    uint32_t regVal;
+    uint32_t rc = DARRegWrite( dev_info,
+                             RIO_HOST_LOCK,
                              hostdeviceid );
 
     if ( RIO_SUCCESS == rc )
     {
-        rc = DARRegRead( dev_info, RIO_HOST_BASE_DEVICE_ID_LOCK_CSR, &regVal ) ;
+        rc = DARRegRead( dev_info, RIO_HOST_LOCK, &regVal ) ;
 
         if ( RIO_SUCCESS == rc )
         {
-            *hostlockid = (UINT16)(regVal & RIO_STD_HOST_BASE_ID_LOCK_HOST_BASE_ID);
+            *hostlockid = (uint16_t)(regVal & RIO_HOST_LOCK_DEVID);
             if ( 0xFFFF != *hostlockid )
                 rc = RIO_ERR_LOCK ;
         }
@@ -303,33 +303,46 @@ static STATUS DARDB_rioReleaseDeviceLock( DAR_DEV_INFO_t *dev_info,
 }
 
 
-static STATUS DARDB_rioGetComponentTag( DAR_DEV_INFO_t *dev_info,
-                                                UINT32 *componenttag )
+static uint32_t DARDB_rioGetComponentTag( DAR_DEV_INFO_t *dev_info,
+                                                uint32_t *componenttag )
 {
-    return DARRegRead( dev_info, RIO_COMPONENT_TAG_CSR, componenttag );
+    return DARRegRead( dev_info, RIO_COMPTAG, componenttag );
 }
 
 
-static STATUS DARDB_rioSetComponentTag( DAR_DEV_INFO_t *dev_info,
-                                                UINT32  componenttag )
+static uint32_t DARDB_rioSetComponentTag( DAR_DEV_INFO_t *dev_info,
+                                                uint32_t  componenttag )
 {
-    return DARRegWrite( dev_info, RIO_COMPONENT_TAG_CSR, componenttag );
+    return DARRegWrite( dev_info, RIO_COMPTAG, componenttag );
+}
+
+static uint32_t DARDB_rioGetAddrMode( DAR_DEV_INFO_t *dev_info,
+                                                RIO_PE_ADDR_T  *addr_mode )
+{
+    return DARRegRead( dev_info, RIO_PE_LL_CTL, addr_mode );
 }
 
 
-static STATUS DARDB_rioGetPortErrorStatus( DAR_DEV_INFO_t *dev_info,
-                                                   UINT16  portnum,
-                                    RIO_PORT_ERROR_STATUS *err_status )
+static uint32_t DARDB_rioSetAddrMode( DAR_DEV_INFO_t *dev_info,
+                                                RIO_PE_ADDR_T  addr_mode )
 {
-    STATUS rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+    return DARRegWrite( dev_info, RIO_PE_LL_CTL, addr_mode );
+}
+
+
+static uint32_t DARDB_rioGetPortErrorStatus( DAR_DEV_INFO_t *dev_info,
+                                                   uint16_t  portnum,
+                                    RIO_SPX_ERR_STAT_T *err_status )
+{
+    uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
 
     if ( dev_info->extFPtrForPort )
     {
         if ( ( !portnum ) ||
              (portnum < RIO_AVAIL_PORTS(dev_info->swPortInfo) ) )
             rc = DARRegRead( dev_info,
-                             RIO_PORT_N_ERR_STAT_CSR( dev_info->extFPtrForPort,
-                                                      portnum),
+                             RIO_SPX_ERR_STAT( dev_info->extFPtrForPort,
+				dev_info->extFPtrPortType, portnum),
                              err_status );
         else
             rc = RIO_ERR_INVALID_PARAMETER ;
@@ -338,32 +351,32 @@ static STATUS DARDB_rioGetPortErrorStatus( DAR_DEV_INFO_t *dev_info,
     return rc;
 }
 
-static STATUS DARDB_rioLinkReqNResp( DAR_DEV_INFO_t *dev_info, 
-                                              UINT8  portnum, 
-                               RIO_SPX_LM_LINK_STAT *link_stat )
+static uint32_t DARDB_rioLinkReqNResp( DAR_DEV_INFO_t *dev_info, 
+                                              uint8_t  portnum, 
+                               RIO_SPX_LM_RESP_STAT_T *link_stat )
 {
-    STATUS rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
-	UINT8 attempts;
-	UINT32 err_n_stat;
+    uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+	uint8_t attempts;
+	uint32_t err_n_stat;
 
     if ( dev_info->extFPtrForPort )
     {
         if ( ( !portnum ) ||
              (portnum < RIO_AVAIL_PORTS(dev_info->swPortInfo) ) ) {
 			rc = DARRegRead( dev_info,
-							 RIO_PORT_N_ERR_STAT_CSR( dev_info->extFPtrForPort,
-													   portnum),
+				 RIO_SPX_ERR_STAT( dev_info->extFPtrForPort,
+					dev_info->extFPtrPortType, portnum),
 							 &err_n_stat );
 			 if (RIO_SUCCESS != rc)
 				 goto exit;
-			 if (!IS_RIO_PORT_N_ERR_STAT_PORT_OK(err_n_stat)) {
+			 if (!RIO_PORT_OK(err_n_stat)) {
 				rc = RIO_ERR_PORT_OK_NOT_DETECTED;
 				goto exit;
 			}
 
 			 rc = DARRegWrite( dev_info,
-                               RIO_PORT_N_LINK_MAINT_REQ_CSR( dev_info->extFPtrForPort,
-                                                              portnum),
+                               RIO_SPX_LM_REQ( dev_info->extFPtrForPort,
+                                         dev_info->extFPtrPortType, portnum),
                                RIO_SPX_LM_REQ_CMD_LR_IS );
 			 if (RIO_SUCCESS != rc)
 				 goto exit;
@@ -374,14 +387,15 @@ static STATUS DARDB_rioLinkReqNResp( DAR_DEV_INFO_t *dev_info,
             */
 		   for (attempts = 0; attempts < 10; attempts++) {
 				rc = DARRegRead( dev_info,
-								 RIO_PORT_N_LINK_MAINT_RESP_CSR( dev_info->extFPtrForPort,
-																 portnum),
+			  	RIO_SPX_LM_RESP( dev_info->extFPtrForPort,
+						dev_info->extFPtrPortType, 
+						portnum),
 								 link_stat );
 
 				if (RIO_SUCCESS != rc) 
 					goto exit;
 
-			    if (RIO_PORT_N_LINK_RESP_IS_VALID(*link_stat))
+			    if (RIO_SPX_LM_RESP_IS_VALID(*link_stat))
 					goto exit;
           }
 		   rc = RIO_ERR_NOT_EXPECTED_RETURN_VALUE;
@@ -393,20 +407,20 @@ exit:
     return rc;
 }
 
-static STATUS DARDB_rioStdRouteAddEntry( DAR_DEV_INFO_t *dev_info,
-                                                UINT16  routedestid,
-                                                 UINT8  routeportno  )
+static uint32_t DARDB_rioStdRouteAddEntry( DAR_DEV_INFO_t *dev_info,
+                                                uint16_t  routedestid,
+                                                 uint8_t  routeportno  )
 {
-    STATUS rc = RIO_ERR_NO_SWITCH;
+    uint32_t rc = RIO_ERR_NO_SWITCH;
 
-    if ( dev_info->features & RIO_PROC_ELEM_FEAT_SW )
+    if ( dev_info->features & RIO_PE_FEAT_SW )
     {
         rc = DARRegWrite( dev_info,
-                          RIO_STD_RTE_CONF_DESTID_SEL_CSR,
+                          RIO_DEVID_RTE,
                           routedestid ) ;
         if ( RIO_SUCCESS == rc )
             rc = DARRegWrite( dev_info,
-                              RIO_STD_RTE_CONF_PORT_SEL_CSR,
+                              RIO_RTE,
                               routeportno ) ;
     }
 
@@ -414,24 +428,24 @@ static STATUS DARDB_rioStdRouteAddEntry( DAR_DEV_INFO_t *dev_info,
 }
 
 
-static STATUS DARDB_rioStdRouteGetEntry( DAR_DEV_INFO_t *dev_info,
-                                                 UINT16  routedestid,
-                                                  UINT8 *routeportno )
+static uint32_t DARDB_rioStdRouteGetEntry( DAR_DEV_INFO_t *dev_info,
+                                                 uint16_t  routedestid,
+                                                  uint8_t *routeportno )
 {
-    STATUS rc = RIO_ERR_NO_SWITCH;
-    UINT32 regVal;
+    uint32_t rc = RIO_ERR_NO_SWITCH;
+    uint32_t regVal;
 
-    if ( dev_info->features & RIO_PROC_ELEM_FEAT_SW )
+    if ( dev_info->features & RIO_PE_FEAT_SW )
     {
         rc = DARRegWrite( dev_info,
-                          RIO_STD_RTE_CONF_DESTID_SEL_CSR,
+                          RIO_DEVID_RTE,
                           routedestid ) ;
         if ( RIO_SUCCESS == rc )
         {
             rc = DARRegRead( dev_info,
-                             RIO_STD_RTE_CONF_PORT_SEL_CSR,
+                             RIO_RTE,
                             &regVal ) ;
-            *routeportno = (UINT8)( regVal & RIO_STD_ROUTE_CFG_PORT_PORT0 );
+            *routeportno = (uint8_t)( regVal & RIO_RTE_PORT );
         }
     }
 
@@ -444,14 +458,14 @@ static STATUS DARDB_rioStdRouteGetEntry( DAR_DEV_INFO_t *dev_info,
   
    Device drivers MUST implement their own versions of these routines.
 */
-static STATUS DARDB_rioStdRouteInitAll( DAR_DEV_INFO_t *dev_info,
-                                                 UINT8  routeportno )
+static uint32_t DARDB_rioStdRouteInitAll( DAR_DEV_INFO_t *dev_info,
+                                                 uint8_t  routeportno )
 {
-    STATUS rc = RIO_ERR_NO_SWITCH;
-    INT32 num_dests = ( dev_info->swRtInfo & RIO_RT_INFO_SIZE );
-    INT32 dest_idx;
+    uint32_t rc = RIO_ERR_NO_SWITCH;
+    int32_t num_dests = ( dev_info->swRtInfo & RIO_SW_RT_TBL_LIM_MAX_DESTID );
+    int32_t dest_idx;
 
-    if ( (dev_info->swRtInfo) && (dev_info->features & RIO_PROC_ELEM_FEAT_SW) )
+    if ( (dev_info->swRtInfo) && (dev_info->features & RIO_PE_FEAT_SW) )
     {
         rc = DARrioStdRouteSetDefault( dev_info, routeportno ) ;
         for ( dest_idx = 0; ( (dest_idx <= num_dests) && (RIO_SUCCESS == rc) );
@@ -462,19 +476,19 @@ static STATUS DARDB_rioStdRouteInitAll( DAR_DEV_INFO_t *dev_info,
     return rc;
 }
 
-static STATUS DARDB_rioStdRouteRemoveEntry( DAR_DEV_INFO_t *dev_info,
-                                                    UINT16  routedestid )
+static uint32_t DARDB_rioStdRouteRemoveEntry( DAR_DEV_INFO_t *dev_info,
+                                                    uint16_t  routedestid )
 {
-    STATUS rc = RIO_ERR_NO_SWITCH;
+    uint32_t rc = RIO_ERR_NO_SWITCH;
 
-    if ( dev_info->features & RIO_PROC_ELEM_FEAT_SW )
+    if ( dev_info->features & RIO_PE_FEAT_SW )
     {
         rc = DARRegWrite( dev_info,
-                          RIO_STD_RTE_CONF_DESTID_SEL_CSR,
+                          RIO_DEVID_RTE,
                           routedestid ) ;
         if ( RIO_SUCCESS == rc )
             rc = DARRegWrite( dev_info,
-                              RIO_STD_RTE_CONF_PORT_SEL_CSR,
+                              RIO_RTE,
                               RIO_ALL_PORTS ) ;
     }
 
@@ -482,20 +496,20 @@ static STATUS DARDB_rioStdRouteRemoveEntry( DAR_DEV_INFO_t *dev_info,
 }
 
 
-static STATUS DARDB_rioStdRouteSetDefault( DAR_DEV_INFO_t *dev_info,
-                                                    UINT8  routeportno )
+static uint32_t DARDB_rioStdRouteSetDefault( DAR_DEV_INFO_t *dev_info,
+                                                    uint8_t  routeportno )
 {
-    STATUS rc = RIO_ERR_NO_SWITCH;
+    uint32_t rc = RIO_ERR_NO_SWITCH;
 
-    if ( dev_info->features & RIO_PROC_ELEM_FEAT_SW )
-        rc = DARRegWrite( dev_info, RIO_STD_RTE_DEF_PORT_CSR, routeportno ) ;
+    if ( dev_info->features & RIO_PE_FEAT_SW )
+        rc = DARRegWrite( dev_info, RIO_DFLT_RTE, routeportno ) ;
 
     return rc;
 }
 
-static STATUS DARDB_rioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info, 
-                                               UINT32  AsmblyVendID, 
-                                               UINT16  AsmblyRev    )
+static uint32_t DARDB_rioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info, 
+                                               uint32_t  AsmblyVendID, 
+                                               uint16_t  AsmblyRev    )
 {
     if (NULL == dev_info)
        return RIO_ERR_NULL_PARM_PTR;
@@ -507,30 +521,30 @@ static STATUS DARDB_rioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info,
 }
 
 
-static STATUS DARDB_rioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info, 
-		                                UINT32 *AsmblyVendID,
-				                UINT16 *AsmblyRev)
+static uint32_t DARDB_rioGetAssmblyInfo ( DAR_DEV_INFO_t *dev_info, 
+		                                uint32_t *AsmblyVendID,
+				                uint16_t *AsmblyRev)
 {
-    STATUS rc = DARRegRead( dev_info, RIO_ASBLY_ID_CAR, AsmblyVendID );
+    uint32_t rc = DARRegRead( dev_info, RIO_ASSY_ID, AsmblyVendID );
     if (RIO_SUCCESS == rc) {
-       UINT32 temp;
-       rc = DARRegRead( dev_info, RIO_ASBLY_INFO_CAR, &temp );
+       uint32_t temp;
+       rc = DARRegRead( dev_info, RIO_ASSY_INF, &temp );
        if (RIO_SUCCESS == rc)  {
-          temp = (temp & RIO_ASBLY_INFO_ASBLY_REV) >> 16;
-          *AsmblyRev = (UINT16)(temp);
+          temp = (temp & RIO_ASSY_INF_ASSY_REV) >> 16;
+          *AsmblyRev = (uint16_t)(temp);
        };
     };
 
     return rc;
 }
 
-STATUS DARDB_rioGetPortListDefault ( DAR_DEV_INFO_t  *dev_info ,
+uint32_t DARDB_rioGetPortListDefault ( DAR_DEV_INFO_t  *dev_info ,
 									struct DAR_ptl	*ptl_in,
 									struct DAR_ptl	*ptl_out )
 {
-   UINT8 idx;
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   BOOL dup_port_num[DAR_MAX_PORTS];
+   uint8_t idx;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   bool dup_port_num[DAR_MAX_PORTS];
 
    ptl_out->num_ports = 0;
 
@@ -546,7 +560,7 @@ STATUS DARDB_rioGetPortListDefault ( DAR_DEV_INFO_t  *dev_info ,
          ptl_out->pnums[idx] = idx;
    } else {
       for (idx = 0; idx < DAR_MAX_PORTS; idx++)
-         dup_port_num[idx] = FALSE;
+         dup_port_num[idx] = false;
 
       ptl_out->num_ports = ptl_in->num_ports;
       for (idx = 0; idx < ptl_in->num_ports; idx++) {
@@ -557,7 +571,7 @@ STATUS DARDB_rioGetPortListDefault ( DAR_DEV_INFO_t  *dev_info ,
 			rc = RIO_ERR_PORT_ILLEGAL(idx);
 	        goto exit;
 	     };
-	     dup_port_num[ptl_out->pnums[idx]] = TRUE;
+	     dup_port_num[ptl_out->pnums[idx]] = true;
       };
    };
    rc = RIO_SUCCESS;
@@ -566,14 +580,16 @@ exit:
    return rc;
 };
 
-static STATUS DARDB_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
-                                     struct DAR_ptl *ptl )
+static uint32_t DARDB_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
+                                     struct DAR_ptl *ptl,
+					int enum_bnd_val )
 {
-    STATUS rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
-    UINT32 tempCSR;
+    uint32_t rc = RIO_ERR_FEATURE_NOT_SUPPORTED;
+    uint32_t currCSR, tempCSR;
 	struct DAR_ptl good_ptl;
-	UINT8 idx;
-
+	uint8_t idx;
+    enum_bnd_val = !!enum_bnd_val;
+	
     if ( dev_info->extFPtrForPort )
     {
 		rc = DARrioGetPortList( dev_info, ptl, &good_ptl);
@@ -583,22 +599,25 @@ static STATUS DARDB_rioSetEnumBound( DAR_DEV_INFO_t *dev_info,
         for ( idx = 0; idx < good_ptl.num_ports; idx++) 
         {
             rc = DARRegRead( dev_info,
-                             RIO_PORT_N_CONTROL_CSR( dev_info->extFPtrForPort,
+                             RIO_SPX_CTL( dev_info->extFPtrForPort,
+						dev_info->extFPtrPortType, 
                                                      good_ptl.pnums[idx] ),
                             &tempCSR ) ;
             if ( RIO_SUCCESS == rc )
             {
                 tempCSR |= RIO_SPX_CTL_ENUM_B ;
                 rc = DARRegWrite( dev_info,
-                                  RIO_PORT_N_CONTROL_CSR(
+                                  RIO_SPX_CTL(
                                                       dev_info->extFPtrForPort,
+						dev_info->extFPtrPortType, 
                                                       good_ptl.pnums[idx] ),
                                   tempCSR ) ;
                 if ( RIO_SUCCESS == rc )
                 {
                     rc = DARRegRead( dev_info,
-                                     RIO_PORT_N_CONTROL_CSR(
+                                     RIO_SPX_CTL(
                                                       dev_info->extFPtrForPort,
+						dev_info->extFPtrPortType, 
                                                       good_ptl.pnums[idx] ),
                                     &tempCSR ) ;
                     if ( !(tempCSR & RIO_SPX_CTL_ENUM_B) )
@@ -612,17 +631,17 @@ exit:
 }
 
 
-static STATUS DARDB_rioPortEnable( DAR_DEV_INFO_t *dev_info,
+static uint32_t DARDB_rioPortEnable( DAR_DEV_INFO_t *dev_info,
                                    struct DAR_ptl *ptl, 
-                                            BOOL    port_ena,
-                                            BOOL    port_lkout,
-                                            BOOL    in_out_ena )
+                                            bool    port_ena,
+                                            bool    port_lkout,
+                                            bool    in_out_ena )
 {
-    STATUS rc = RIO_SUCCESS;
-    UINT32 port_n_ctrl1_addr;
-    UINT32 port_n_ctrl1_reg;
+    uint32_t rc = RIO_SUCCESS;
+    uint32_t port_n_ctrl1_addr;
+    uint32_t port_n_ctrl1_reg;
 	struct DAR_ptl good_ptl;
-	UINT8 idx;
+	uint8_t idx;
 
     /* Check whether 'portno' is assigned to a valid port value or not
     */
@@ -632,7 +651,8 @@ static STATUS DARDB_rioPortEnable( DAR_DEV_INFO_t *dev_info,
 
 	for (idx = 0; idx < good_ptl.num_ports; idx++) {
 		port_n_ctrl1_addr = 
-			RIO_PORT_N_CONTROL_CSR( dev_info->extFPtrForPort,
+			RIO_SPX_CTL( dev_info->extFPtrForPort,
+						dev_info->extFPtrPortType, 
 									good_ptl.pnums[idx] ) ; 
 		rc = DARRegRead( dev_info, port_n_ctrl1_addr, &port_n_ctrl1_reg ) ;
 		if ( RIO_SUCCESS != rc )
@@ -644,14 +664,14 @@ static STATUS DARDB_rioPortEnable( DAR_DEV_INFO_t *dev_info,
 			port_n_ctrl1_reg |= RIO_SPX_CTL_PORT_DIS ;
 
 		if ( port_lkout )
-		   port_n_ctrl1_reg |=  RIO_SPX_CTL_PORT_LOCKOUT;
+		   port_n_ctrl1_reg |=  RIO_SPX_CTL_LOCKOUT;
 		else
-		   port_n_ctrl1_reg &= ~RIO_SPX_CTL_PORT_LOCKOUT;
+		   port_n_ctrl1_reg &= ~RIO_SPX_CTL_LOCKOUT;
 
 		if ( in_out_ena )
-			port_n_ctrl1_reg |= RIO_SPX_CTL_INPUT_EN | RIO_SPX_CTL_OUTPUT_EN ;
+			port_n_ctrl1_reg |= RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN ;
 		else
-			port_n_ctrl1_reg &= ~(RIO_SPX_CTL_INPUT_EN | RIO_SPX_CTL_OUTPUT_EN);
+			port_n_ctrl1_reg &= ~(RIO_SPX_CTL_INP_EN | RIO_SPX_CTL_OTP_EN);
 
 		rc = DARRegWrite( dev_info, port_n_ctrl1_addr, port_n_ctrl1_reg );
 	};
@@ -659,24 +679,22 @@ exit:
     return rc;
 }
 
-static STATUS DARDB_rioEmergencyLockout( DAR_DEV_INFO_t *dev_info, UINT8 port_num )
+static uint32_t DARDB_rioEmergencyLockout( DAR_DEV_INFO_t *dev_info, uint8_t port_num )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
-   if (dev_info->extFPtrForPort && 
-      ((RIO_EXT_FEAT_PHYS_EP           == dev_info->extFPtrPortType) ||
-        (RIO_EXT_FEAT_PHYS_EP_SAER      == dev_info->extFPtrPortType) ||
-        (RIO_EXT_FEAT_PHYS_EP_FREE      == dev_info->extFPtrPortType) ||
-        (RIO_EXT_FEAT_PHYS_EP_FREE_SAER == dev_info->extFPtrPortType)) &&
+   if (dev_info->extFPtrForPort && RIO_SP_VLD(dev_info->extFPtrPortType) &&
       (port_num < NUM_PORTS(dev_info))) {
       rc = DARRegWrite( dev_info, 
-		        RIO_PORT_N_CONTROL_CSR(dev_info->extFPtrForPort, port_num), 
-		        dev_info->ctl1_reg[port_num] | RIO_SPX_CTL_PORT_LOCKOUT );
+		        RIO_SPX_CTL(dev_info->extFPtrForPort,
+						dev_info->extFPtrPortType, 
+				port_num), 
+		        dev_info->ctl1_reg[port_num] | RIO_SPX_CTL_LOCKOUT );
    };
    return rc;
 } 
 
-static STATUS DARDB_rioDeviceSupportedStub( DAR_DEV_INFO_t *dev_info )
+static uint32_t DARDB_rioDeviceSupportedStub( DAR_DEV_INFO_t *dev_info )
 {
     if (NULL == dev_info)
        return RIO_ERR_NULL_PARM_PTR;
@@ -698,33 +716,33 @@ static STATUS DARDB_rioDeviceSupportedStub( DAR_DEV_INFO_t *dev_info )
    their DAR_DEV_INFO_t fields are correctly filled in.  Device specific
    fixups can be added after a call to this routine.
 */
-STATUS DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
+uint32_t DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
 {
-    STATUS rc;
+    uint32_t rc;
 
     /* The reading devID should be unnecessary,
        but it should not hurt to do so here.
     */
-    rc = ReadReg( dev_info, RIO_DEV_ID_CAR, &dev_info->devID ) ;
+    rc = ReadReg( dev_info, RIO_DEV_IDENT, &dev_info->devID ) ;
     if ( RIO_SUCCESS != rc )
         return rc;
 
-    rc = ReadReg( dev_info, RIO_DEV_INFO_CAR, &dev_info->devInfo ) ;
+    rc = ReadReg( dev_info, RIO_DEV_INF, &dev_info->devInfo ) ;
     if ( RIO_SUCCESS != rc )
         return rc;
 
-    rc = ReadReg( dev_info, RIO_ASBLY_INFO_CAR, &dev_info->assyInfo ) ;
+    rc = ReadReg( dev_info, RIO_ASSY_INF, &dev_info->assyInfo ) ;
     if ( RIO_SUCCESS != rc )
         return rc;
 
-    rc = ReadReg( dev_info, RIO_PROC_ELEM_FEAT_CAR, &dev_info->features ) ;
+    rc = ReadReg( dev_info, RIO_PE_FEAT, &dev_info->features ) ;
     if ( RIO_SUCCESS != rc )
         return rc;
 
     /* swPortInfo can be supported by endpoints.
        May as well read the register...
     */
-    rc = ReadReg( dev_info, RIO_SWITCH_PORT_INF_CAR, &dev_info->swPortInfo ) ;
+    rc = ReadReg( dev_info, RIO_SW_PORT_INF, &dev_info->swPortInfo ) ;
     if ( RIO_SUCCESS != rc )
         return rc;
 
@@ -732,32 +750,32 @@ STATUS DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
         dev_info->swPortInfo = 0x00000100 ; /* Default for endpoints is 1 port
                                             */
 
-    if ( dev_info->features & RIO_PROC_ELEM_FEAT_SW )
+    if ( dev_info->features & RIO_PE_FEAT_SW )
     {
-        rc = ReadReg( dev_info, RIO_RT_INFO_CAR, &dev_info->swRtInfo ) ;
+        rc = ReadReg( dev_info, RIO_SW_RT_TBL_LIM, &dev_info->swRtInfo ) ;
         if ( RIO_SUCCESS != rc )
             return rc;
     }
 
-    rc = ReadReg( dev_info, RIO_SRC_OPS_CAR, &dev_info->srcOps ) ;
+    rc = ReadReg( dev_info, RIO_SRC_OPS, &dev_info->srcOps ) ;
     if ( RIO_SUCCESS != rc )
         return rc;
 
-    rc = ReadReg( dev_info, RIO_DST_OPS_CAR, &dev_info->dstOps ) ;
+    rc = ReadReg( dev_info, RIO_DST_OPS, &dev_info->dstOps ) ;
     if ( RIO_SUCCESS != rc )
         return rc;
 
-    if (dev_info->features & RIO_PROC_ELEM_FEAT_MC)
+    if (dev_info->features & RIO_PE_FEAT_MC)
     {
-        rc = ReadReg(dev_info, RIO_STD_SW_MC_INFO_CSR, &dev_info->swMcastInfo);
+        rc = ReadReg(dev_info, RIO_SW_RT_TBL_LIM_MAX_DESTID, &dev_info->swMcastInfo);
         if ( RIO_SUCCESS != rc )
             return rc;
     }
 
-    if ( dev_info->features & RIO_PROC_ELEM_FEAT_EXT_FEA )
+    if ( dev_info->features & RIO_PE_FEAT_EFB_VALID )
     {
-        UINT32 curr_ext_feat;
-        UINT32 prev_addr;
+        uint32_t curr_ext_feat;
+        uint32_t prev_addr;
 
         rc = DARDB_rioGetExtFeaturesPtr( dev_info, &prev_addr ) ;
         while ( ( RIO_SUCCESS == rc ) && prev_addr )
@@ -766,30 +784,30 @@ STATUS DARDB_rioDeviceSupportedDefault( DAR_DEV_INFO_t *dev_info )
             if (RIO_SUCCESS != rc)
                 return rc;
 
-            switch( curr_ext_feat & RIO_STD_EXT_FEATS_TYPE )
+            switch( curr_ext_feat & RIO_EFB_T )
             {
-                case RIO_EXT_FEAT_PHYS_EP           :
-                case RIO_EXT_FEAT_PHYS_EP_SAER      :
-                case RIO_EXT_FEAT_PHYS_EP_FREE      :
-                case RIO_EXT_FEAT_PHYS_EP_FREE_SAER :
+                case RIO_EFB_T_SP_EP           :
+                case RIO_EFB_T_SP_EP_SAER      :
+                case RIO_EFB_T_SP_NOEP      :
+                case RIO_EFB_T_SP_NOEP_SAER :
 	            dev_info->extFPtrPortType = curr_ext_feat & 
-			                         RIO_STD_EXT_FEATS_TYPE;
+			                         RIO_EFB_T;
                     dev_info->extFPtrForPort = prev_addr;
                     break;
 
-                case RIO_EXT_FEAT_ERR_RPT :
+                case RIO_EFB_T_EMHS :
                     dev_info->extFPtrForErr = prev_addr;
                     break;
 
-                case RIO_EXT_FEAT_PER_LANE :
+                case RIO_EFB_T_LANE :
                     dev_info->extFPtrForLane = prev_addr;
                     break;
 
-                case RIO_EXT_FEAT_VC:
+                case RIO_EFB_T_VC:
                     dev_info->extFPtrForLane = prev_addr;
                     break;
 
-                case RIO_EXT_FEAT_VC_VOQ:
+                case RIO_EFB_T_V0Q:
                     dev_info->extFPtrForVOQ = prev_addr;
                     break;
 
@@ -809,7 +827,7 @@ DARDB_rioDeviceSupportedDefault_fail:
 }
 
 
-static STATUS DARDB_rioGetDevResetInitStatus( DAR_DEV_INFO_t *dev_info )
+static uint32_t DARDB_rioGetDevResetInitStatus( DAR_DEV_INFO_t *dev_info )
 {
     if (NULL == dev_info)
        return RIO_ERR_NULL_PARM_PTR;
@@ -818,21 +836,21 @@ static STATUS DARDB_rioGetDevResetInitStatus( DAR_DEV_INFO_t *dev_info )
 }
 
 
-STATUS DAR_Find_Driver_for_Device( BOOL    dev_info_devID_valid,
+uint32_t DAR_Find_Driver_for_Device( bool    dev_info_devID_valid,
                            DAR_DEV_INFO_t *dev_info )
 {
-    INT32 driverIdx;
-    STATUS rc = RIO_SUCCESS;
+    int32_t driverIdx;
+    uint32_t rc = RIO_SUCCESS;
 
     strcpy(dev_info->name, "UNKNOWN");
     dev_info->name[NAME_SIZE-1] = '\0';
 
-    /* If dev_info_devID_valid is TRUE, we are using a static devID instead
+    /* If dev_info_devID_valid is true, we are using a static devID instead
          of probing.  Otherwise, we are probing a SRIO device to get a devID
     */
     if ( !dev_info_devID_valid )
     {
-        rc = ReadReg( dev_info, RIO_DEV_ID_CAR, &dev_info->devID ) ;
+        rc = ReadReg( dev_info, RIO_DEV_IDENT, &dev_info->devID ) ;
         if ( RIO_SUCCESS != rc )
 			goto exit;
     };
@@ -860,10 +878,12 @@ STATUS DAR_Find_Driver_for_Device( BOOL    dev_info_devID_valid,
 		// EmergencyLockout call may have unintended consequences.
     
 		if ( dev_info->extFPtrForPort ) {
-		   UINT32 ctl1;
-		   UINT8  idx;
+		   uint32_t ctl1;
+		   uint8_t  idx;
 		   for (idx = 0; idx < NUM_PORTS(dev_info); idx++) {
-			  rc = ReadReg(dev_info, RIO_PORT_N_CONTROL_CSR(dev_info->extFPtrForPort, idx), &ctl1);
+			  rc = ReadReg(dev_info,
+				RIO_SPX_CTL(dev_info->extFPtrForPort, 
+					dev_info->extFPtrPortType, idx), &ctl1);
 			  if ( RIO_SUCCESS != rc )
 				 goto exit;
 			   dev_info->ctl1_reg[idx] = ctl1;
@@ -875,9 +895,9 @@ exit:
 }
 
 
-static STATUS DARDB_rioDeviceRemoved( DAR_DEV_INFO_t *dev_info )
+static uint32_t DARDB_rioDeviceRemoved( DAR_DEV_INFO_t *dev_info )
 {
-    STATUS rc = RIO_SUCCESS;
+    uint32_t rc = RIO_SUCCESS;
 
     if ( NULL != dev_info->privateData )
         rc = DAR_DB_DRIVER_INFO ;
@@ -906,6 +926,8 @@ void init_DAR_driver( DAR_DB_Driver_t *DAR_info )
     DAR_info->rioReleaseDeviceLock     = DARDB_rioReleaseDeviceLock ;
     DAR_info->rioGetComponentTag       = DARDB_rioGetComponentTag ;
     DAR_info->rioSetComponentTag       = DARDB_rioSetComponentTag ;
+    DAR_info->rioGetAddrMode           = DARDB_rioGetAddrMode ;
+    DAR_info->rioSetAddrMode           = DARDB_rioSetAddrMode ;
     DAR_info->rioGetPortErrorStatus    = DARDB_rioGetPortErrorStatus ;
     DAR_info->rioLinkReqNResp          = DARDB_rioLinkReqNResp;
 
@@ -928,9 +950,9 @@ void init_DAR_driver( DAR_DB_Driver_t *DAR_info )
     DAR_info->rioDeviceRemoved         = DARDB_rioDeviceRemoved ;
 }
 
-STATUS DARDB_init()
+uint32_t DARDB_init()
 {
-    INT32 idx;
+    int32_t idx;
 
     ReadReg            = DARDB_ReadRegStub ;
     WriteReg           = DARDB_WriteRegStub ;
@@ -950,7 +972,7 @@ STATUS DARDB_init()
 }
 
 
-VOID DARDB_Init_Device_Info( DAR_DEV_INFO_t *dev_info )
+void DARDB_Init_Device_Info( DAR_DEV_INFO_t *dev_info )
 {
     dev_info->db_h           = 0 ;
     dev_info->privateData    = 0 ;
@@ -965,9 +987,9 @@ VOID DARDB_Init_Device_Info( DAR_DEV_INFO_t *dev_info )
 }
 
 
-STATUS DARDB_Init_Driver_Info( UINT32 VendorID, DAR_DB_Driver_t *DAR_info )
+uint32_t DARDB_Init_Driver_Info( uint32_t VendorID, DAR_DB_Driver_t *DAR_info )
 {
-    STATUS rc = DAR_DB_NO_HANDLES;
+    uint32_t rc = DAR_DB_NO_HANDLES;
 
     /* Preserve the last index for the default device driver */
     if ( first_free_driver < DAR_DB_MAX_INDEX )
@@ -982,7 +1004,7 @@ STATUS DARDB_Init_Driver_Info( UINT32 VendorID, DAR_DB_Driver_t *DAR_info )
 }
 
 
-STATUS DARDB_Bind_Driver( DAR_DB_Driver_t *dev_info )
+uint32_t DARDB_Bind_Driver( DAR_DB_Driver_t *dev_info )
 {
 
     driver_db[DAR_DB_INDEX(dev_info)] = *dev_info; 

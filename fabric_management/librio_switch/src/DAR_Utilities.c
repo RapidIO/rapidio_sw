@@ -44,21 +44,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <DAR_Utilities.h>
 
-VOID (* WaitSec) ( UINT32 delay_nsec, UINT32 delay_sec );
+void (* WaitSec) ( uint32_t delay_nsec, uint32_t delay_sec );
 
-VOID DAR_WaitSec( UINT32 delay_nsec, UINT32 delay_sec )
+void DAR_WaitSec( uint32_t delay_nsec, uint32_t delay_sec )
 {
     if (WaitSec)
         WaitSec( delay_nsec, delay_sec );
 }
 
-STATUS DAR_multi_reg_read( DAR_DEV_INFO_t       *dev_info, 
+uint32_t DAR_multi_reg_read( DAR_DEV_INFO_t       *dev_info, 
                            DAR_read_entry_in_t  *in_parms, 
                            DAR_read_entry_out_t *out_parms, 
-                           UINT32                num_entries)
+                           uint32_t                num_entries)
 {
-  STATUS rc = RIO_SUCCESS;
-  UINT32 index;
+  uint32_t rc = RIO_SUCCESS;
+  uint32_t index;
 
   for (index = 0; index < num_entries; index++)
   {
@@ -72,13 +72,13 @@ STATUS DAR_multi_reg_read( DAR_DEV_INFO_t       *dev_info,
   return rc;
 }
 
-STATUS DAR_multi_reg_acc ( DAR_DEV_INFO_t             *dev_info, 
+uint32_t DAR_multi_reg_acc ( DAR_DEV_INFO_t             *dev_info, 
                            DAR_read_write_entry_in_t  *in_parms,
                            DAR_read_write_entry_out_t *out_parms,
-                           UINT32                      num_entries)
+                           uint32_t                      num_entries)
 {
-  STATUS rc = RIO_SUCCESS;
-  UINT32 index;
+  uint32_t rc = RIO_SUCCESS;
+  uint32_t index;
 
   for (index = 0; index < num_entries; index++)
   {
@@ -126,9 +126,9 @@ STATUS DAR_multi_reg_acc ( DAR_DEV_INFO_t             *dev_info,
 
  #define BAD_FTYPE 0xFFFF
 
-static UINT32 DAR_util_get_ftype( DAR_pkt_type pkt_type )
+static uint32_t DAR_util_get_ftype( DAR_pkt_type pkt_type )
 {
-    UINT32 rc; 
+    uint32_t rc; 
     switch( pkt_type )
     {
         case (pkt_raw): rc = 16;  /* Raw, uninitialized packet */
@@ -200,10 +200,10 @@ static UINT32 DAR_util_get_ftype( DAR_pkt_type pkt_type )
 
 #define BAD_SIZE 0xFFFFFFFF
 
-static void DAR_util_get_rdsize_wdptr( UINT32  addr, 
-                                       UINT32  pkt_bytes, 
-                                       UINT32 *rdsize, 
-                                       UINT32 *wdptr )
+static void DAR_util_get_rdsize_wdptr( uint32_t  addr, 
+                                       uint32_t  pkt_bytes, 
+                                       uint32_t *rdsize, 
+                                       uint32_t *wdptr )
 {
     *rdsize = BAD_SIZE; 
     switch( pkt_bytes )
@@ -302,10 +302,10 @@ static void DAR_util_get_rdsize_wdptr( UINT32  addr,
  *****************************************************************************/
 #define SIZE_RC_FAIL 0xFFFFFFFF
 
-static UINT32 DAR_util_compute_rd_bytes_n_align( UINT32  rdsize, 
-                                                 UINT32  wptr, 
-                                                 UINT32 *num_bytes, 
-                                                 UINT32 *align )
+static uint32_t DAR_util_compute_rd_bytes_n_align( uint32_t  rdsize, 
+                                                 uint32_t  wptr, 
+                                                 uint32_t *num_bytes, 
+                                                 uint32_t *align )
 {
     int rc = 0;
 
@@ -384,10 +384,10 @@ static UINT32 DAR_util_compute_rd_bytes_n_align( UINT32  rdsize,
  *
  *****************************************************************************/
 
-static void DAR_util_get_wrsize_wdptr( UINT32  addr, 
-                                       UINT32  pkt_bytes, 
-                                       UINT32 *wrsize, 
-                                       UINT32 *wdptr )
+static void DAR_util_get_wrsize_wdptr( uint32_t  addr, 
+                                       uint32_t  pkt_bytes, 
+                                       uint32_t *wrsize, 
+                                       uint32_t *wdptr )
 {
     *wrsize = BAD_SIZE; 
     switch( pkt_bytes )
@@ -496,10 +496,10 @@ static void DAR_util_get_wrsize_wdptr( UINT32  addr,
  *
  *****************************************************************************/
 
-static STATUS DAR_util_compute_wr_bytes_n_align( UINT32  wrsize, 
-                                                 UINT32  wptr, 
-                                                 UINT32 *num_bytes, 
-                                                 UINT32 *align )
+static uint32_t DAR_util_compute_wr_bytes_n_align( uint32_t  wrsize, 
+                                                 uint32_t  wptr, 
+                                                 uint32_t *num_bytes, 
+                                                 uint32_t *align )
 {
     int rc = 0;
 
@@ -576,11 +576,11 @@ static STATUS DAR_util_compute_wr_bytes_n_align( UINT32  wrsize,
 
 static void DAR_util_pkt_bytes_init( DAR_pkt_bytes_t *comp_pkt )
 {
-    UINT32 index;
+    uint32_t index;
 
     comp_pkt->num_chars = 0xFFFFFFFF;
     comp_pkt->pkt_addr_size = rio_addr_34;
-    comp_pkt->pkt_has_crc = FALSE;
+    comp_pkt->pkt_has_crc = false;
 
     for (index = 0; index < RIO_MAX_PKT_BYTES; index++)
        comp_pkt->pkt_data[index] = 0;
@@ -601,12 +601,12 @@ static void DAR_util_pkt_bytes_init( DAR_pkt_bytes_t *comp_pkt )
  *
  *****************************************************************************/
 
-static STATUS DAR_add_rw_addr ( rio_addr_size     pkt_addr_size, 
-							    UINT32           *addr, 
-								UINT32            wptr, 
+static uint32_t DAR_add_rw_addr ( rio_addr_size     pkt_addr_size, 
+							    uint32_t           *addr, 
+								uint32_t            wptr, 
                                 DAR_pkt_bytes_t  *bytes_out )
 {
-    UINT32 xaddr_xamsbs = 0, rc = 0;
+    uint32_t xaddr_xamsbs = 0, rc = 0;
 
     /* Add Transaction Address */
 
@@ -614,33 +614,33 @@ static STATUS DAR_add_rw_addr ( rio_addr_size     pkt_addr_size,
     {
         case rio_addr_66: xaddr_xamsbs = addr[2] & 3;
             bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)((addr[1] >> 24) & 0x000000FF);
+                         (uint8_t)((addr[1] >> 24) & 0x000000FF);
             bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)((addr[1] >> 16) & 0x000000FF);
+                         (uint8_t)((addr[1] >> 16) & 0x000000FF);
 
         case rio_addr_50: if (rio_addr_50 == pkt_addr_size)
                                 xaddr_xamsbs = 
-                         (UINT8)((addr[1] >> 16) & 0x00000003);
+                         (uint8_t)((addr[1] >> 16) & 0x00000003);
             bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)((addr[1] >>  8) & 0x000000FF);
+                         (uint8_t)((addr[1] >>  8) & 0x000000FF);
             bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)(addr[1] & 0x000000FF);
+                         (uint8_t)(addr[1] & 0x000000FF);
 
         case rio_addr_34: if (rio_addr_34 == pkt_addr_size)
                               xaddr_xamsbs = 
-                         (UINT8)(addr[1] & 0x00000003);
+                         (uint8_t)(addr[1] & 0x00000003);
 
         case rio_addr_32: 
             bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)((addr[0] >> 24) & 0x000000FF);
+                         (uint8_t)((addr[0] >> 24) & 0x000000FF);
 
         case rio_addr_21: /* Maintenance transaction */
             bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)((addr[0] & 0x00FF0000) >> 16);
+                         (uint8_t)((addr[0] & 0x00FF0000) >> 16);
             bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)((addr[0] & 0x0000FF00) >>  8) ;
+                         (uint8_t)((addr[0] & 0x0000FF00) >>  8) ;
             bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)((addr[0] & 0x000000F8)
+                         (uint8_t)((addr[0] & 0x000000F8)
                               + ((wptr & 1) << 2)
                               + xaddr_xamsbs);
             break;
@@ -672,10 +672,10 @@ static STATUS DAR_add_rw_addr ( rio_addr_size     pkt_addr_size,
 
 int DAR_get_rw_addr ( DAR_pkt_bytes_t  *bytes_in,
                       DAR_pkt_fields_t *fields_out,        
-                      UINT32            bidx      )
+                      uint32_t            bidx      )
 {
     int index;
-    UINT32 lbidx;
+    uint32_t lbidx;
 
     /* Extract Transaction Address from a stream of bytes... */
 
@@ -710,11 +710,11 @@ int DAR_get_rw_addr ( DAR_pkt_bytes_t  *bytes_in,
                                        (bytes_in->pkt_data[lbidx++] << 24 );
 
         case rio_addr_21: fields_out->log_rw.addr[0] |= 
-                                  ((UINT32)(bytes_in->pkt_data[lbidx++]) << 16 );
+                                  ((uint32_t)(bytes_in->pkt_data[lbidx++]) << 16 );
                           fields_out->log_rw.addr[0] |= 
-                                  ((UINT32)(bytes_in->pkt_data[lbidx++]) << 8  );
+                                  ((uint32_t)(bytes_in->pkt_data[lbidx++]) << 8  );
                           fields_out->log_rw.addr[0] |=  
-                                   (UINT32)(bytes_in->pkt_data[lbidx++]) & 0xF8;
+                                   (uint32_t)(bytes_in->pkt_data[lbidx++]) & 0xF8;
             break;
         default: lbidx = DAR_UTIL_BAD_ADDRSIZE;
     };
@@ -774,10 +774,10 @@ int CS_13bit_crc_bit_mask[35] =
    in msbits, and the least 3 bits of the control symbol payload to be in the
    most significant bits of lsbits.
 */
-int compute_13bit_crc( UINT32 msbits, UINT32 lsbits )
+int compute_13bit_crc( uint32_t msbits, uint32_t lsbits )
 {
-    UINT32 crc = 0x1FFF, i;
-    UINT32 bit = 0x80000000;
+    uint32_t crc = 0x1FFF, i;
+    uint32_t bit = 0x80000000;
 
     lsbits &= 0xE0000000;
 
@@ -826,7 +826,7 @@ int count_bits(int val)
    a 24 bit quantity.  This is consistent with the algorithm presented in
    the RapidIO specification.
 */ 
-int compute_5bit_crc( UINT32 small_cs_data )
+int compute_5bit_crc( uint32_t small_cs_data )
 {
     int i, crc = 0;
 
@@ -859,7 +859,7 @@ int compute_5bit_crc( UINT32 small_cs_data )
 #define LONG_CS_VALUE_MS(w,x,y,z) ((w<<24)+(x<<16)+(y<<8)+z)
 #define LONG_CS_VALUE_LS(x) ((x & 0xE0)<<24)
 
-STATUS CS_fields_to_bytes( CS_field_t *fields_in, CS_bytes_t *bytes_out)
+uint32_t CS_fields_to_bytes( CS_field_t *fields_in, CS_bytes_t *bytes_out)
 {
   int large_crc;
   bytes_out->cs_type_valid = fields_in->cs_size;
@@ -876,11 +876,11 @@ STATUS CS_fields_to_bytes( CS_field_t *fields_in, CS_bytes_t *bytes_out)
 
     if ( cs_small == fields_in->cs_size )
     {
-       bytes_out->cs_bytes[1] = (UINT8)((((char)(fields_in->cs_t0) & 7) << 5) 
+       bytes_out->cs_bytes[1] = (uint8_t)((((char)(fields_in->cs_t0) & 7) << 5) 
                                         | (fields_in->parm_0 & 0x1F));
-       bytes_out->cs_bytes[2] = (UINT8)(((fields_in->parm_1 & 0x1F) << 3) 
-                             | ((UINT8)(fields_in->cs_t1) & 7));
-       bytes_out->cs_bytes[3] = (UINT8)((fields_in->cs_t1_cmd & 7) << 5);
+       bytes_out->cs_bytes[2] = (uint8_t)(((fields_in->parm_1 & 0x1F) << 3) 
+                             | ((uint8_t)(fields_in->cs_t1) & 7));
+       bytes_out->cs_bytes[3] = (uint8_t)((fields_in->cs_t1_cmd & 7) << 5);
 
        bytes_out->cs_bytes[3] += compute_5bit_crc( 
                                       SHORT_CS_VALUE(bytes_out->cs_bytes[1],
@@ -889,17 +889,17 @@ STATUS CS_fields_to_bytes( CS_field_t *fields_in, CS_bytes_t *bytes_out)
     }
     else
     {
-       bytes_out->cs_bytes[1] = (UINT8)((((char)(fields_in->cs_t0) & 7) << 5) 
+       bytes_out->cs_bytes[1] = (uint8_t)((((char)(fields_in->cs_t0) & 7) << 5) 
                                              | ((fields_in->parm_0 & 0x3E) >> 1));
-       bytes_out->cs_bytes[2] = (UINT8)( ((       fields_in->parm_0 &    1) << 7) 
+       bytes_out->cs_bytes[2] = (uint8_t)( ((       fields_in->parm_0 &    1) << 7) 
                                        | ((       fields_in->parm_1 & 0x3F) << 1) 
                                        | (((char)(fields_in->cs_t1) & 4   ) >> 2));
-       bytes_out->cs_bytes[3] = (UINT8)( (((char)(fields_in->cs_t1) & 3   ) << 6)
+       bytes_out->cs_bytes[3] = (uint8_t)( (((char)(fields_in->cs_t1) & 3   ) << 6)
                                        | ((       fields_in->cs_t1_cmd & 7) << 3)
                                        | (((char)(fields_in->cs_t2)    & 7)));
 
-       bytes_out->cs_bytes[4] = (UINT8)((fields_in->cs_t2_val & 0x7F8) >> 3);
-       bytes_out->cs_bytes[5] = (UINT8)((fields_in->cs_t2_val &     7) << 5);
+       bytes_out->cs_bytes[4] = (uint8_t)((fields_in->cs_t2_val & 0x7F8) >> 3);
+       bytes_out->cs_bytes[5] = (uint8_t)((fields_in->cs_t2_val &     7) << 5);
 
        large_crc = compute_13bit_crc( LONG_CS_VALUE_MS(
                                                    bytes_out->cs_bytes[1],
@@ -907,8 +907,8 @@ STATUS CS_fields_to_bytes( CS_field_t *fields_in, CS_bytes_t *bytes_out)
                                                    bytes_out->cs_bytes[3], 
                                                    bytes_out->cs_bytes[4]),
                                       LONG_CS_VALUE_LS(bytes_out->cs_bytes[5]) );
-       bytes_out->cs_bytes[6]  = (UINT8)(large_crc & 0x00FF);
-       bytes_out->cs_bytes[5] += (UINT8)((large_crc & 0x1F00) >> 8);
+       bytes_out->cs_bytes[6]  = (uint8_t)(large_crc & 0x00FF);
+       bytes_out->cs_bytes[5] += (uint8_t)((large_crc & 0x1F00) >> 8);
 
        bytes_out->cs_bytes[7] = bytes_out->cs_bytes[0];
     };
@@ -917,9 +917,9 @@ STATUS CS_fields_to_bytes( CS_field_t *fields_in, CS_bytes_t *bytes_out)
   return RIO_SUCCESS;
 }
 
-STATUS CS_bytes_to_fields( CS_bytes_t *bytes_in, CS_field_t *fields_out)
+uint32_t CS_bytes_to_fields( CS_bytes_t *bytes_in, CS_field_t *fields_out)
 {
-  STATUS rc = RIO_SUCCESS;
+  uint32_t rc = RIO_SUCCESS;
   int    byte_offset = 0;
 
   fields_out->cs_size = bytes_in->cs_type_valid;
@@ -1267,7 +1267,7 @@ int bytewise_CRC_bits[16] =
     0x8880  /* 15 */
 };
 
-int crc_comp_bytewise( UINT8 *val, int num_bytes )
+int crc_comp_bytewise( uint8_t *val, int num_bytes )
 {
     int old_crc = 0xFFFF, new_crc = 0, i,j, temp;
 
@@ -1286,7 +1286,7 @@ int crc_comp_bytewise( UINT8 *val, int num_bytes )
     return old_crc;
 }
 
-int compute_pkt_crc( UINT8 *pkt, int num_bytes )
+int compute_pkt_crc( uint8_t *pkt, int num_bytes )
 {
     int temp, i;
 
@@ -1295,19 +1295,19 @@ int compute_pkt_crc( UINT8 *pkt, int num_bytes )
         temp = crc_comp_bytewise( pkt, 80 );
         for (i = num_bytes; i > 79; i--)
             pkt[i+2] = pkt[i];
-        pkt[80] = (UINT8)((temp >> 8) & 0x00ff);
-        pkt[81] = (UINT8) (temp       & 0x00ff);
+        pkt[80] = (uint8_t)((temp >> 8) & 0x00ff);
+        pkt[81] = (uint8_t) (temp       & 0x00ff);
         num_bytes += 2;
     };
 
     temp = crc_comp_bytewise( pkt, num_bytes );
-    pkt[num_bytes  ] = (UINT8)((temp >> 8) & 0x00ff);
-    pkt[num_bytes+1] = (UINT8) (temp       & 0x00ff);
+    pkt[num_bytes  ] = (uint8_t)((temp >> 8) & 0x00ff);
+    pkt[num_bytes+1] = (uint8_t) (temp       & 0x00ff);
 
     return num_bytes + 2;
 }
 
-int add_pkt_crc_mask( UINT8 *pkt, int num_bytes, UINT16 int_mask, UINT16 fin_mask ) 
+int add_pkt_crc_mask( uint8_t *pkt, int num_bytes, uint16_t int_mask, uint16_t fin_mask ) 
 {
     int i;
 
@@ -1315,13 +1315,13 @@ int add_pkt_crc_mask( UINT8 *pkt, int num_bytes, UINT16 int_mask, UINT16 fin_mas
     {
         for (i = num_bytes; i > 79; i--)
             pkt[i+2] = pkt[i];
-        pkt[80] = (UINT8)((int_mask >> 8) & 0x00ff);
-        pkt[81] = (UINT8) (int_mask       & 0x00ff);
+        pkt[80] = (uint8_t)((int_mask >> 8) & 0x00ff);
+        pkt[81] = (uint8_t) (int_mask       & 0x00ff);
         num_bytes += 2;
     };
 
-    pkt[num_bytes  ] = (UINT8)((fin_mask >> 8) & 0x00ff);
-    pkt[num_bytes+1] = (UINT8) (fin_mask       & 0x00ff);
+    pkt[num_bytes  ] = (uint8_t)((fin_mask >> 8) & 0x00ff);
+    pkt[num_bytes+1] = (uint8_t) (fin_mask       & 0x00ff);
 
     return num_bytes + 2;
 }
@@ -1333,8 +1333,8 @@ void update_pkt_crc( DAR_pkt_bytes_t  *bytes_in )
     if (bytes_in->num_chars > 80)
     {
         temp = crc_comp_bytewise( bytes_in->pkt_data, 80 );
-        bytes_in->pkt_data[80] = (UINT8)((temp >> 8) & 0x00ff);
-        bytes_in->pkt_data[81] = (UINT8) (temp       & 0x00ff);
+        bytes_in->pkt_data[80] = (uint8_t)((temp >> 8) & 0x00ff);
+        bytes_in->pkt_data[81] = (uint8_t) (temp       & 0x00ff);
     };
 
     if (bytes_in->pkt_padded) {
@@ -1343,12 +1343,12 @@ void update_pkt_crc( DAR_pkt_bytes_t  *bytes_in )
 
        temp = crc_comp_bytewise(bytes_in->pkt_data, bytes_in->num_chars - 4);
 
-       bytes_in->pkt_data[bytes_in->num_chars - 4] = (UINT8)((temp >> 8) & 0x00ff);
-       bytes_in->pkt_data[bytes_in->num_chars - 3] = (UINT8) (temp       & 0x00ff);
+       bytes_in->pkt_data[bytes_in->num_chars - 4] = (uint8_t)((temp >> 8) & 0x00ff);
+       bytes_in->pkt_data[bytes_in->num_chars - 3] = (uint8_t) (temp       & 0x00ff);
     } else {
        temp = crc_comp_bytewise(bytes_in->pkt_data, bytes_in->num_chars - 2);
-       bytes_in->pkt_data[bytes_in->num_chars - 2] = (UINT8)((temp >> 8) & 0x00ff);
-       bytes_in->pkt_data[bytes_in->num_chars - 1] = (UINT8) (temp       & 0x00ff);
+       bytes_in->pkt_data[bytes_in->num_chars - 2] = (uint8_t)((temp >> 8) & 0x00ff);
+       bytes_in->pkt_data[bytes_in->num_chars - 1] = (uint8_t) (temp       & 0x00ff);
     };
 }
 
@@ -1358,17 +1358,17 @@ void update_pkt_crc( DAR_pkt_bytes_t  *bytes_in )
 *
 ****************************************************************************/
 
-STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in, 
+uint32_t DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in, 
                                  DAR_pkt_bytes_t  *bytes_out )
 {
-  STATUS rc = RIO_SUCCESS;
+  uint32_t rc = RIO_SUCCESS;
 
-    UINT32 i;
-    BOOL add_data = TRUE;
-    UINT32 data_align, data_repeat;
-    UINT32 wdptr, rdsize, wrsize, data_bytes, repeat_data_bytes = 1;
-    UINT32 addr_rc;
-    UINT32 trans_type;
+    uint32_t i;
+    bool add_data = true;
+    uint32_t data_align, data_repeat;
+    uint32_t wdptr, rdsize, wrsize, data_bytes, repeat_data_bytes = 1;
+    uint32_t addr_rc;
+    uint32_t trans_type;
 
     DAR_util_pkt_bytes_init( bytes_out );
 
@@ -1386,10 +1386,10 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
            NOTE: Packets are always composed with an ackID of 0.
         */
 
-        bytes_out->pkt_data[0] = (UINT8)((fields_in->phys.pkt_vc?1:0 << 1) 
+        bytes_out->pkt_data[0] = (uint8_t)((fields_in->phys.pkt_vc?1:0 << 1) 
                                         | fields_in->phys.crf?1:0 );
-        bytes_out->pkt_data[1] = (UINT8)(((fields_in->phys.pkt_prio & 3) << 6)
-                                 + (((UINT8)(fields_in->trans.tt_code)) << 4)
+        bytes_out->pkt_data[1] = (uint8_t)(((fields_in->phys.pkt_prio & 3) << 6)
+                                 + (((uint8_t)(fields_in->trans.tt_code)) << 4)
                                  + (DAR_util_get_ftype( fields_in->pkt_type ) & 0xF));
         bytes_out->num_chars = 2;
 
@@ -1398,19 +1398,19 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
         {
             case (tt_small): 
                 bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                             (UINT8)(fields_in->trans.destID & 0xFF);
+                                             (uint8_t)(fields_in->trans.destID & 0xFF);
                 bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                             (UINT8)(fields_in->trans.srcID & 0xFF);
+                                             (uint8_t)(fields_in->trans.srcID & 0xFF);
                 break;
             case (tt_large):
                 bytes_out->pkt_data[bytes_out->num_chars++] = 
-                               (UINT8)((fields_in->trans.destID >> 8) & 0x00FF);
+                               (uint8_t)((fields_in->trans.destID >> 8) & 0x00FF);
                 bytes_out->pkt_data[bytes_out->num_chars++] = 
-                               (UINT8) (fields_in->trans.destID       & 0x00FF);
+                               (uint8_t) (fields_in->trans.destID       & 0x00FF);
                 bytes_out->pkt_data[bytes_out->num_chars++] = 
-                               (UINT8)((fields_in->trans.srcID >> 8) & 0x00FF) ;
+                               (uint8_t)((fields_in->trans.srcID >> 8) & 0x00FF) ;
                 bytes_out->pkt_data[bytes_out->num_chars++] = 
-                               (UINT8) (fields_in->trans.srcID       & 0x00FF);
+                               (uint8_t) (fields_in->trans.srcID       & 0x00FF);
                 break;
             default: return DAR_UTIL_INVALID_TT;
         };
@@ -1429,7 +1429,7 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
         {
             case 2 : /* NREAD */
                   /* NREADs have no data */
-                  add_data = FALSE;
+                  add_data = false;
 
                   /* Add Packet Transaction Type and Size */
                   switch (fields_in->pkt_type)
@@ -1453,11 +1453,11 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                       return DAR_UTIL_INVALID_RDSIZE;
                   else
                      bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                    (UINT8)((trans_type << 4) + (rdsize & 0xF));
+                                    (uint8_t)((trans_type << 4) + (rdsize & 0xF));
 
                   /* Add Source Transaction ID */
                   bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                    (UINT8)(fields_in->log_rw.tid);
+                                    (uint8_t)(fields_in->log_rw.tid);
 
                   /* Add Address */
                   rc = DAR_add_rw_addr( fields_in->log_rw.pkt_addr_size, fields_in->log_rw.addr, wdptr, bytes_out );
@@ -1506,11 +1506,11 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                       return DAR_UTIL_INVALID_RDSIZE;
                   else
                       bytes_out->pkt_data[bytes_out->num_chars++] = 
-                            (UINT8)((trans_type << 4) + (wrsize & 0xF));
+                            (uint8_t)((trans_type << 4) + (wrsize & 0xF));
 
                   /* Add Source Transaction ID */
                   bytes_out->pkt_data[bytes_out->num_chars++] = 
-                            (UINT8)(fields_in->log_rw.tid);
+                            (uint8_t)(fields_in->log_rw.tid);
 
                   /* Add Address */
                   rc = DAR_add_rw_addr( fields_in->log_rw.pkt_addr_size, fields_in->log_rw.addr, wdptr, bytes_out );
@@ -1529,12 +1529,12 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
 
             case 7 : /* Flow control packet */
                   /* Flow control packets have no data */
-                  add_data = FALSE;
+                  add_data = false;
                   bytes_out->pkt_data[bytes_out->num_chars++] = 
-                          (UINT8)((fields_in->log_fc.fc_xon?0x80:0) | 
+                          (uint8_t)((fields_in->log_fc.fc_xon?0x80:0) | 
                                  ((fields_in->log_fc.fc_fam & 7) << 4));
                   bytes_out->pkt_data[bytes_out->num_chars++] = 
-                          (UINT8)(((fields_in->log_fc.fc_flow & 0x7F) << 1) | 
+                          (uint8_t)(((fields_in->log_fc.fc_flow & 0x7F) << 1) | 
                                    (fields_in->log_fc.fc_soc_is_ep?1:0));
                   break;
 
@@ -1542,8 +1542,8 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                         and port-write */
             
                 {
-                    UINT32  size_rc;
-                    UINT32  mtc_trans_type = (int)(fields_in->pkt_type) - 
+                    uint32_t  size_rc;
+                    uint32_t  mtc_trans_type = (int)(fields_in->pkt_type) - 
                                              (pkt_mr);
                     /* Add Packet Transaction Type and Size */
                     switch (fields_in->pkt_type)
@@ -1556,7 +1556,7 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                          if ((BAD_SIZE == size_rc) || 
                              (fields_in->pkt_bytes > 64))
                              return DAR_UTIL_INVALID_RDSIZE;
-                         add_data = FALSE;
+                         add_data = false;
                          break;
 
                     case pkt_mw :  /* Maintenance Write */
@@ -1584,7 +1584,7 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                          break;
 
                     case pkt_mwr:  /* Maintenance Write Response */
-                         add_data = FALSE;
+                         add_data = false;
                          size_rc  = (int)(fields_in->log_rw.status);
                          fields_in->log_rw.addr[0] = 0;
                          wdptr       = 0;
@@ -1606,13 +1606,13 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                     /* Add transaction type, size, and source TID */
 
                     bytes_out->pkt_data[bytes_out->num_chars++] = 
-                            (UINT8)((mtc_trans_type << 4) + (size_rc & 0xF));
+                            (uint8_t)((mtc_trans_type << 4) + (size_rc & 0xF));
                     bytes_out->pkt_data[bytes_out->num_chars++] = 
-                            (UINT8)(fields_in->log_rw.tid);
+                            (uint8_t)(fields_in->log_rw.tid);
 
                     /* Add Hop Count */
                     bytes_out->pkt_data[bytes_out->num_chars++] = 
-                            (UINT8)(fields_in->trans.hopcount & 0xFF);
+                            (uint8_t)(fields_in->trans.hopcount & 0xFF);
 
                     /* Add Address */
                     if (rio_addr_21 != fields_in->log_rw.pkt_addr_size)
@@ -1629,29 +1629,29 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                    a data streaming packet, since these packets may have
                    a data size that is not a multiple of 8.
                 */
-                add_data = FALSE; 
+                add_data = false; 
                 bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                            (UINT8)(fields_in->log_ds.dstm_COS);
+                                            (uint8_t)(fields_in->log_ds.dstm_COS);
                 if (fields_in->log_ds.dstm_xh_seg)
                 {
                    /* Extended header...
                         Set xh bit
                    */
                    bytes_out->pkt_data[bytes_out->num_chars++] = 
-                          (UINT8)(0x04 | ((fields_in->log_ds.dstm_xh_type & 0x7) << 3)); 
+                          (uint8_t)(0x04 | ((fields_in->log_ds.dstm_xh_type & 0x7) << 3)); 
                    bytes_out->pkt_data[bytes_out->num_chars++] = 
-                          (UINT8)((fields_in->log_ds.dstm_streamid & 0xFF00) >> 8);
+                          (uint8_t)((fields_in->log_ds.dstm_streamid & 0xFF00) >> 8);
                    bytes_out->pkt_data[bytes_out->num_chars++] = 
-                          (UINT8)((fields_in->log_ds.dstm_streamid & 0x00FF));
+                          (uint8_t)((fields_in->log_ds.dstm_streamid & 0x00FF));
                    bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)(((fields_in->log_ds.dstm_xh_tm_op    & 0xF) << 4) +
+                         (uint8_t)(((fields_in->log_ds.dstm_xh_tm_op    & 0xF) << 4) +
                           (fields_in->log_ds.dstm_xh_wildcard & 0x7));
                    bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)(  fields_in->log_ds.dstm_xh_COS_mask & 0xFF);
+                         (uint8_t)(  fields_in->log_ds.dstm_xh_COS_mask & 0xFF);
                    bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)(  fields_in->log_ds.dstm_xh_parm1);
+                         (uint8_t)(  fields_in->log_ds.dstm_xh_parm1);
                    bytes_out->pkt_data[bytes_out->num_chars++] = 
-                         (UINT8)(  fields_in->log_ds.dstm_xh_parm2);
+                         (uint8_t)(  fields_in->log_ds.dstm_xh_parm2);
                 }
                 else
                 {
@@ -1662,21 +1662,21 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                       temp |= 0x40| ((fields_in->log_ds.dstm_odd_data_amt)?2:0)
                                   | ((fields_in->log_ds.dstm_pad_data_amt)?1:0);
                    };
-                   bytes_out->pkt_data[bytes_out->num_chars++] = (UINT8)(temp);
+                   bytes_out->pkt_data[bytes_out->num_chars++] = (uint8_t)(temp);
 
                    if (fields_in->log_ds.dstm_start_seg)
                    {
                       bytes_out->pkt_data[bytes_out->num_chars++] = 
-                              (UINT8)((fields_in->log_ds.dstm_streamid >> 8) & 0x00FF);
+                              (uint8_t)((fields_in->log_ds.dstm_streamid >> 8) & 0x00FF);
                       bytes_out->pkt_data[bytes_out->num_chars++] = 
-                              (UINT8)(fields_in->log_ds.dstm_streamid & 0x00FF);
+                              (uint8_t)(fields_in->log_ds.dstm_streamid & 0x00FF);
                    }
                    else if (fields_in->log_ds.dstm_end_seg)
                    {
                       bytes_out->pkt_data[bytes_out->num_chars++] = 
-                              (UINT8)((fields_in->log_ds.dstm_PDU_len >> 8) & 0x00FF);
+                              (uint8_t)((fields_in->log_ds.dstm_PDU_len >> 8) & 0x00FF);
                       bytes_out->pkt_data[bytes_out->num_chars++] = 
-                              (UINT8)(fields_in->log_ds.dstm_PDU_len & 0x00FF);
+                              (uint8_t)(fields_in->log_ds.dstm_PDU_len & 0x00FF);
                    };
                     
                    for (i = 0; i < fields_in->pkt_bytes; i++)
@@ -1727,7 +1727,7 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                                                     fields_in->pkt_data[0];
                 bytes_out->pkt_data[bytes_out->num_chars++] = 
                                                     fields_in->pkt_data[1];
-                add_data = FALSE;
+                add_data = false;
                 break;
 
             case 11 : /* Message */
@@ -1785,17 +1785,17 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                     };
                 };
                 bytes_out->pkt_data[bytes_out->num_chars++] = 
-                        (UINT8)(((fields_in->log_ms.msg_len & 0xF) << 4) + addr_rc);
+                        (uint8_t)(((fields_in->log_ms.msg_len & 0xF) << 4) + addr_rc);
 
                 /* Now add mailbox fields */
                 if (fields_in->log_ms.msg_len)
                     bytes_out->pkt_data[bytes_out->num_chars++] = 
-                            (UINT8)(((fields_in->log_ms.letter & 3) << 6)
+                            (uint8_t)(((fields_in->log_ms.letter & 3) << 6)
                                   + ((fields_in->log_ms.mbid   & 3) << 4)
                                   +  (fields_in->log_ms.msgseg & 0xF));
                 else
                     bytes_out->pkt_data[bytes_out->num_chars++] = 
-                            (UINT8)(((fields_in->log_ms.letter & 3) << 6)
+                            (uint8_t)(((fields_in->log_ms.letter & 3) << 6)
                                   +  (fields_in->log_ms.mbid   & 0x3F));
                 break;
 
@@ -1806,13 +1806,13 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                     case pkt_msg_resp:
                         /* Message response transaction type + status */
                         bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                (UINT8)((fields_in->log_ms.status & 0xF) | 0x10); 
+                                (uint8_t)((fields_in->log_ms.status & 0xF) | 0x10); 
                         if (fields_in->log_ms.msg_len)
                             /* TID is replaced by MBID, Letter,
                                and message segment
                             */
                             bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                    (UINT8)((fields_in->log_ms.letter << 6 ) |
+                                    (uint8_t)((fields_in->log_ms.letter << 6 ) |
                                             (fields_in->log_ms.mbid   << 4 ) |       
                                             (fields_in->log_ms.msgseg & 0xF));
                         else
@@ -1820,9 +1820,9 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                                and message number;
                             */
                             bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                    (UINT8)((fields_in->log_ms.letter << 6 ) |
+                                    (uint8_t)((fields_in->log_ms.letter << 6 ) |
                                             (fields_in->log_ms.mbid   & 0x3F ));     
-                        add_data = FALSE;
+                        add_data = false;
                         if (fields_in->pkt_bytes)
                             return DAR_UTIL_BAD_RESP_DSIZE;
                         break;
@@ -1831,10 +1831,10 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                         if (fields_in->pkt_bytes)
                             return DAR_UTIL_BAD_RESP_DSIZE;
                         bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                    (UINT8)(fields_in->log_rw.status & 0xF);
+                                    (uint8_t)(fields_in->log_rw.status & 0xF);
                         bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                    (UINT8)(fields_in->log_rw.tid & 0xFF);
-                        add_data = FALSE;
+                                    (uint8_t)(fields_in->log_rw.tid & 0xFF);
+                        add_data = false;
                         break;
                     case pkt_resp_data: /* Response with data */
                         if ((!fields_in->pkt_bytes && 
@@ -1843,10 +1843,10 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
                             return DAR_UTIL_BAD_RESP_DSIZE;
 
                         bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                (UINT8)((fields_in->log_rw.status & 0xF) | 0x80);
+                                (uint8_t)((fields_in->log_rw.status & 0xF) | 0x80);
                         bytes_out->pkt_data[bytes_out->num_chars++] = 
-                                (UINT8)(fields_in->log_rw.tid & 0xFF);
-                        add_data = (fields_in->pkt_bytes?TRUE:FALSE);
+                                (uint8_t)(fields_in->log_rw.tid & 0xFF);
+                        add_data = (fields_in->pkt_bytes?true:false);
                         break;
                     default: return DAR_UTIL_BAD_RESP_DSIZE;
                 };
@@ -1905,7 +1905,7 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
     */
     bytes_out->num_chars   = compute_pkt_crc( bytes_out->pkt_data, 
                                               bytes_out->num_chars );
-    bytes_out->pkt_has_crc = TRUE;
+    bytes_out->pkt_has_crc = true;
 
     /* Make sure packet is a multiple of 4 bytes in size.
     */
@@ -1913,20 +1913,20 @@ STATUS DAR_pkt_fields_to_bytes ( DAR_pkt_fields_t *fields_in,
     {
         bytes_out->pkt_data[bytes_out->num_chars++] = 0;
         bytes_out->pkt_data[bytes_out->num_chars++] = 0;
-	bytes_out->pkt_padded = TRUE;
+	bytes_out->pkt_padded = true;
     } else {
-	bytes_out->pkt_padded = FALSE;
+	bytes_out->pkt_padded = false;
     };
 
     return rc;
 }
 
-STATUS DAR_update_pkt_CRC( DAR_pkt_bytes_t  *bytes_in )
+uint32_t DAR_update_pkt_CRC( DAR_pkt_bytes_t  *bytes_in )
 {
     if ((!bytes_in->pkt_data ) || 
         (!bytes_in->num_chars) || 
 	( bytes_in->num_chars > RIO_MAX_PKT_BYTES) ||
-	( (UINT8)(bytes_in->pkt_addr_size) > (UINT8)(rio_addr_66))) {
+	( (uint8_t)(bytes_in->pkt_addr_size) > (uint8_t)(rio_addr_66))) {
        return RIO_ERR_INVALID_PARAMETER;
     };
 
@@ -1939,20 +1939,20 @@ STATUS DAR_update_pkt_CRC( DAR_pkt_bytes_t  *bytes_in )
     return RIO_SUCCESS;
 };
    
-STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in, 
+uint32_t DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in, 
                                  DAR_pkt_fields_t *fields_out )
 {
-    STATUS rc = RIO_SUCCESS;
-    UINT32  repeat_data_bytes = 1;
-    BOOL get_data       = TRUE;
-    BOOL get_exact_data = FALSE;
-    UINT32  ftype;
-    UINT32  pkt_addr_msbs = 0;
-    UINT32  size_rc, rdsize, i, max_bytes, align_val;
+    uint32_t rc = RIO_SUCCESS;
+    uint32_t  repeat_data_bytes = 1;
+    bool get_data       = true;
+    bool get_exact_data = false;
+    uint32_t  ftype;
+    uint32_t  pkt_addr_msbs = 0;
+    uint32_t  size_rc, rdsize, i, max_bytes, align_val;
 
     /* Start at the head of the packet, and decompose the physical layer header.
     */
-    UINT32 pkt_index = 2;
+    uint32_t pkt_index = 2;
 
     if (bytes_in->num_chars < 8 )
         return DAR_UTIL_BAD_DATA_SIZE;
@@ -1978,10 +1978,10 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
 
         case tt_large:  
                 fields_out->trans.destID = 
-                               ((UINT32)(bytes_in->pkt_data[pkt_index++]) << 8);
+                               ((uint32_t)(bytes_in->pkt_data[pkt_index++]) << 8);
                 fields_out->trans.destID += bytes_in->pkt_data[pkt_index++];
                 fields_out->trans.srcID  = 
-                               ((UINT32)(bytes_in->pkt_data[pkt_index++]) << 8);
+                               ((uint32_t)(bytes_in->pkt_data[pkt_index++]) << 8);
                 fields_out->trans.srcID  += bytes_in->pkt_data[pkt_index++];
                 break;
 
@@ -2027,7 +2027,7 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
 
             fields_out->log_rw.addr[0] |= pkt_addr_msbs;
 
-            get_data = FALSE;
+            get_data = false;
             break;
 
         case 5: /* NWRITE, NWRITE_R, and ATOMIC swap transactions */
@@ -2071,7 +2071,7 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
 
             fields_out->log_rw.addr[0] |= pkt_addr_msbs;
 
-            get_data = TRUE;
+            get_data = true;
             break;
 
         case 6: /* SWRITE */
@@ -2084,22 +2084,22 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
 
             fields_out->pkt_bytes = 256;
 
-            get_data = TRUE;
+            get_data = true;
             break;
 
         case 7: /* Flow Control */
             fields_out->pkt_type = pkt_fc; 
             fields_out->log_fc.fc_xon = 
-                  (bytes_in->pkt_data[pkt_index] & 0x80)?TRUE:FALSE;
+                  (bytes_in->pkt_data[pkt_index] & 0x80)?true:false;
             fields_out->log_fc.fc_fam = 
                   (rio_fc_fam_t)((bytes_in->pkt_data[pkt_index++] & 0x70) >> 4);
             fields_out->log_fc.fc_flow = 
                   (rio_fc_flow_id)((bytes_in->pkt_data[pkt_index] & 0xF7) >> 1);
             fields_out->log_fc.fc_soc_is_ep = 
-                  (bytes_in->pkt_data[pkt_index++] & 0x01)?TRUE:FALSE;
+                  (bytes_in->pkt_data[pkt_index++] & 0x01)?true:false;
             fields_out->log_fc.fc_destID = fields_out->trans.destID;
             fields_out->log_fc.fc_srcID  = fields_out->trans.srcID;
-            get_data = FALSE;
+            get_data = false;
             break;
 
         case 8: /* Maintenance Transaction */
@@ -2134,7 +2134,7 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
                                     &align_val );
                      if (SIZE_RC_FAIL == size_rc)
                         return DAR_UTIL_INVALID_RDSIZE;
-                     get_data = FALSE;
+                     get_data = false;
                      break;
 
                 case pkt_pw:
@@ -2145,17 +2145,17 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
                                     &align_val);
                      if (SIZE_RC_FAIL == size_rc)
                         return DAR_UTIL_INVALID_RDSIZE;
-                     get_data = TRUE;
+                     get_data = true;
                      break;
 
                 case pkt_mwr: 
                      fields_out->pkt_bytes = 0;
-                     get_data = FALSE;
+                     get_data = false;
                      break;
 
                 case pkt_mrr: 
                      fields_out->pkt_bytes = 64;
-                     get_data = TRUE;
+                     get_data = true;
                      break;
                 default: return DAR_UTIL_UNKNOWN_TRANS;    
             };
@@ -2169,11 +2169,11 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
             {
                 /* Extended header bit is set. */
                 fields_out->pkt_bytes = 0;
-                fields_out->log_ds.dstm_xh_seg = TRUE;
+                fields_out->log_ds.dstm_xh_seg = true;
                 fields_out->log_ds.dstm_start_seg    =
                 fields_out->log_ds.dstm_end_seg      =
                 fields_out->log_ds.dstm_odd_data_amt =
-                fields_out->log_ds.dstm_pad_data_amt = FALSE;
+                fields_out->log_ds.dstm_pad_data_amt = false;
                 fields_out->log_ds.dstm_streamid =
                 fields_out->log_ds.dstm_PDU_len  = 0;
 
@@ -2193,12 +2193,12 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
                          bytes_in->pkt_data[pkt_index++];
                 fields_out->log_ds.dstm_xh_parm2    = 
                          bytes_in->pkt_data[pkt_index++];
-                get_data = FALSE;
+                get_data = false;
             }
             else
             {
                 fields_out->pkt_bytes = 256;
-                fields_out->log_ds.dstm_xh_seg = FALSE;
+                fields_out->log_ds.dstm_xh_seg = false;
                 fields_out->log_ds.dstm_xh_type     = 
                 fields_out->log_ds.dstm_xh_tm_op    = 
                 fields_out->log_ds.dstm_xh_wildcard = 
@@ -2207,13 +2207,13 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
                 fields_out->log_ds.dstm_xh_parm2    = 0;
 
                 fields_out->log_ds.dstm_start_seg    = 
-                        (bytes_in->pkt_data[pkt_index  ] & 0x80)?TRUE:FALSE;
+                        (bytes_in->pkt_data[pkt_index  ] & 0x80)?true:false;
                 fields_out->log_ds.dstm_end_seg      = 
-                        (bytes_in->pkt_data[pkt_index  ] & 0x40)?TRUE:FALSE;
+                        (bytes_in->pkt_data[pkt_index  ] & 0x40)?true:false;
                 fields_out->log_ds.dstm_odd_data_amt = 
-                        (bytes_in->pkt_data[pkt_index  ] & 0x02)?TRUE:FALSE;
+                        (bytes_in->pkt_data[pkt_index  ] & 0x02)?true:false;
                 fields_out->log_ds.dstm_pad_data_amt = 
-                        (bytes_in->pkt_data[pkt_index++] & 0x01)?TRUE:FALSE;
+                        (bytes_in->pkt_data[pkt_index++] & 0x01)?true:false;
                 fields_out->log_ds.dstm_streamid =
                 fields_out->log_ds.dstm_PDU_len  = 0;
                 if (fields_out->log_ds.dstm_start_seg)
@@ -2243,7 +2243,7 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
             fields_out->pkt_bytes = 2;
             fields_out->pkt_data[0] = bytes_in->pkt_data[pkt_index++];
             fields_out->pkt_data[1] = bytes_in->pkt_data[pkt_index++];
-            get_data = FALSE;
+            get_data = false;
             break;
 
         case 11: /* Message */
@@ -2280,21 +2280,21 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
                 fields_out->log_ms.msgseg = 0;
                 fields_out->log_ms.mbid   = 
                                     (bytes_in->pkt_data[pkt_index++] & 0x3F);
-                get_exact_data = FALSE;
+                get_exact_data = false;
             };
-            get_data = TRUE;
+            get_data = true;
             break;
 
         case 13: /* Response */
             /* Figure out transaction type, and whether there should be
                data there to get
             */
-            get_data = FALSE;
+            get_data = false;
             switch ((bytes_in->pkt_data[pkt_index] & 0xF0) >> 4)
             {
                 case 8: /* Response with data */
                     fields_out->pkt_type = pkt_resp_data;
-                    get_data = TRUE;
+                    get_data = true;
                     fields_out->pkt_bytes = 256;
                     break;
                 case 0: /* Response without data */
@@ -2320,10 +2320,10 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
                          break;
                 case 3 : fields_out->log_ms.status = 
                          fields_out->log_rw.status = pkt_retry;
-                         get_data = FALSE;
+                         get_data = false;
                          fields_out->pkt_bytes = 0;
                          break;
-                default: return DAR_UTIL_UNKNOWN_STATUS;
+                default: return DAR_UTIL_UNKNOWN_uint32_t;
             };
 
             /* Get TID */
@@ -2344,7 +2344,7 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
 
         default: fields_out->pkt_type = pkt_raw;
              pkt_index = 0;
-             get_data = TRUE;
+             get_data = true;
              fields_out->pkt_bytes = 276;
              break;
     };
@@ -2356,7 +2356,7 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
         max_bytes = fields_out->pkt_bytes;
         if (fields_out->pkt_bytes <= 8)
         {
-            UINT32 j;
+            uint32_t j;
 
             for (j = 0; j < repeat_data_bytes; j++)
             {
@@ -2423,7 +2423,7 @@ STATUS DAR_pkt_bytes_to_fields ( DAR_pkt_bytes_t  *bytes_in,
             */
             if (pkt_dstm == fields_out->pkt_type)
             {
-                   if (TRUE == fields_out->log_ds.dstm_end_seg)
+                   if (true == fields_out->log_ds.dstm_end_seg)
                    {
                       switch ( fields_out->pkt_bytes & 3 )
                       {

@@ -48,23 +48,23 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-UINT32 num_idt_drivers_in_use;
+uint32_t num_idt_drivers_in_use;
 IDT_DSF_DB_t IDT_DB[DAR_DB_MAX_DRIVERS];
 
-STATUS CPS_rioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info, 
-                                      UINT32  AsmblyVendID, 
-                                      UINT16  AsmblyRev    ) 
+uint32_t CPS_rioSetAssmblyInfo( DAR_DEV_INFO_t *dev_info, 
+                                      uint32_t  AsmblyVendID, 
+                                      uint16_t  AsmblyRev    ) 
 {
-   STATUS rc = DARRegWrite( dev_info, CPS1848_ASSY_IDENT_CAR_OVRD, AsmblyVendID );
+   uint32_t rc = DARRegWrite( dev_info, CPS1848_ASSY_IDENT_CAR_OVRD, AsmblyVendID );
 
    if (RIO_SUCCESS == rc) 
-     rc = DARRegWrite(dev_info, CPS1848_ASSY_INF_CAR_OVRD, (UINT32)(AsmblyRev));
+     rc = DARRegWrite(dev_info, CPS1848_ASSY_INF_CAR_OVRD, (uint32_t)(AsmblyRev));
 
    return rc;
 }
 
 /* Default routines */
-STATUS IDT_DSF_rt_initialize( DAR_DEV_INFO_t           *dev_info, 
+uint32_t IDT_DSF_rt_initialize( DAR_DEV_INFO_t           *dev_info, 
                               idt_rt_initialize_in_t   *in_parms, 
                               idt_rt_initialize_out_t  *out_parms )
 {
@@ -73,7 +73,7 @@ STATUS IDT_DSF_rt_initialize( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-STATUS IDT_DSF_rt_probe( DAR_DEV_INFO_t      *dev_info, 
+uint32_t IDT_DSF_rt_probe( DAR_DEV_INFO_t      *dev_info, 
                          idt_rt_probe_in_t   *in_parms, 
                          idt_rt_probe_out_t  *out_parms )
 {
@@ -82,7 +82,7 @@ STATUS IDT_DSF_rt_probe( DAR_DEV_INFO_t      *dev_info,
 }
 
 
-STATUS IDT_DSF_rt_probe_all( DAR_DEV_INFO_t          *dev_info, 
+uint32_t IDT_DSF_rt_probe_all( DAR_DEV_INFO_t          *dev_info, 
                              idt_rt_probe_all_in_t   *in_parms, 
                              idt_rt_probe_all_out_t  *out_parms )
 {
@@ -91,7 +91,7 @@ STATUS IDT_DSF_rt_probe_all( DAR_DEV_INFO_t          *dev_info,
 }
 
 
-STATUS IDT_DSF_rt_set_all( DAR_DEV_INFO_t        *dev_info, 
+uint32_t IDT_DSF_rt_set_all( DAR_DEV_INFO_t        *dev_info, 
                            idt_rt_set_all_in_t   *in_parms, 
                            idt_rt_set_all_out_t  *out_parms )
 {
@@ -100,7 +100,7 @@ STATUS IDT_DSF_rt_set_all( DAR_DEV_INFO_t        *dev_info,
 }
 
 
-STATUS IDT_DSF_rt_set_changed( DAR_DEV_INFO_t            *dev_info, 
+uint32_t IDT_DSF_rt_set_changed( DAR_DEV_INFO_t            *dev_info, 
                                idt_rt_set_changed_in_t   *in_parms, 
                                idt_rt_set_changed_out_t  *out_parms )
 {
@@ -108,12 +108,12 @@ STATUS IDT_DSF_rt_set_changed( DAR_DEV_INFO_t            *dev_info,
     return RIO_STUBBED;
 }
 
-STATUS IDT_DSF_rt_alloc_mc_mask( DAR_DEV_INFO_t              *dev_info, 
+uint32_t IDT_DSF_rt_alloc_mc_mask( DAR_DEV_INFO_t              *dev_info, 
                                  idt_rt_alloc_mc_mask_in_t   *in_parms, 
                                  idt_rt_alloc_mc_mask_out_t  *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8  mc_idx;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t  mc_idx;
 
    NULL_CHECK;
 
@@ -129,7 +129,7 @@ STATUS IDT_DSF_rt_alloc_mc_mask( DAR_DEV_INFO_t              *dev_info,
       {
          out_parms->mc_mask_rte = IDT_DSF_FIRST_MC_MASK + mc_idx;
          out_parms->imp_rc = RIO_SUCCESS;
-         in_parms->rt->mc_masks[mc_idx].allocd = TRUE;
+         in_parms->rt->mc_masks[mc_idx].allocd = true;
          rc = RIO_SUCCESS;
          break;
       };
@@ -145,13 +145,13 @@ IDT_rt_alloc_mc_mask_exit:
    return rc;
 } 
 
-STATUS IDT_DSF_rt_dealloc_mc_mask( DAR_DEV_INFO_t                *dev_info, 
+uint32_t IDT_DSF_rt_dealloc_mc_mask( DAR_DEV_INFO_t                *dev_info, 
                                    idt_rt_dealloc_mc_mask_in_t   *in_parms, 
                                    idt_rt_dealloc_mc_mask_out_t  *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8  mc_idx;
-   UINT16 dev_rte, dom_rte;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t  mc_idx;
+   uint16_t dev_rte, dom_rte;
 
    out_parms->imp_rc = RIO_SUCCESS;
 
@@ -173,21 +173,21 @@ STATUS IDT_DSF_rt_dealloc_mc_mask( DAR_DEV_INFO_t                *dev_info,
 
    for (dev_rte = 0; dev_rte < IDT_DAR_RT_DOM_TABLE_SIZE; dev_rte++) {
       if (in_parms->rt->dev_table[dev_rte].rte_val == in_parms->mc_mask_rte) {
-         in_parms->rt->dev_table[dev_rte].changed = TRUE;
+         in_parms->rt->dev_table[dev_rte].changed = true;
 	 in_parms->rt->dev_table[dev_rte].rte_val = IDT_DSF_RT_NO_ROUTE;
       };
    };
 
    for (dom_rte = 0; dom_rte < IDT_DAR_RT_DOM_TABLE_SIZE; dom_rte++) {
       if (in_parms->rt->dom_table[dom_rte].rte_val == in_parms->mc_mask_rte) {
-         in_parms->rt->dom_table[dom_rte].changed = TRUE;
+         in_parms->rt->dom_table[dom_rte].changed = true;
 	 in_parms->rt->dom_table[dom_rte].rte_val = IDT_DSF_RT_NO_ROUTE;
       };
    };
 
    if (in_parms->rt->mc_masks[mc_idx].in_use) {
       dev_rte = in_parms->rt->mc_masks[mc_idx].mc_destID & 0x00FF;
-      in_parms->rt->dev_table[dev_rte].changed = TRUE;
+      in_parms->rt->dev_table[dev_rte].changed = true;
       in_parms->rt->dev_table[dev_rte].rte_val = IDT_DSF_RT_NO_ROUTE;
    };
 
@@ -195,16 +195,16 @@ STATUS IDT_DSF_rt_dealloc_mc_mask( DAR_DEV_INFO_t                *dev_info,
       in_parms->rt->mc_masks[mc_idx].mc_destID = 0;
       in_parms->rt->mc_masks[mc_idx].tt        = tt_dev8;
       in_parms->rt->mc_masks[mc_idx].mc_mask   = 0;
-      in_parms->rt->mc_masks[mc_idx].in_use    = FALSE;
-      in_parms->rt->mc_masks[mc_idx].allocd    = FALSE;
-      in_parms->rt->mc_masks[mc_idx].changed   = TRUE;
+      in_parms->rt->mc_masks[mc_idx].in_use    = false;
+      in_parms->rt->mc_masks[mc_idx].allocd    = false;
+      in_parms->rt->mc_masks[mc_idx].changed   = true;
    };
 
 IDT_DSF_rt_dealloc_mc_mask_exit:
    return rc;
 }
 
-STATUS IDT_DSF_rt_change_rte( DAR_DEV_INFO_t           *dev_info, 
+uint32_t IDT_DSF_rt_change_rte( DAR_DEV_INFO_t           *dev_info, 
                               idt_rt_change_rte_in_t   *in_parms, 
                               idt_rt_change_rte_out_t  *out_parms )
 {
@@ -212,7 +212,7 @@ STATUS IDT_DSF_rt_change_rte( DAR_DEV_INFO_t           *dev_info,
     return RIO_STUBBED;
 }
 
-STATUS IDT_DSF_rt_change_mc_mask( DAR_DEV_INFO_t                *dev_info, 
+uint32_t IDT_DSF_rt_change_mc_mask( DAR_DEV_INFO_t                *dev_info, 
                                    idt_rt_change_mc_mask_in_t   *in_parms, 
                                    idt_rt_change_mc_mask_out_t  *out_parms )
 {
@@ -225,9 +225,9 @@ void check_multicast_routing ( DAR_DEV_INFO_t     *dev_info,
                                idt_rt_probe_in_t  *in_parms, 
                                idt_rt_probe_out_t *out_parms ) 
 {
-   UINT8  mc_idx, bit;
-   UINT32 mc_mask;
-   BOOL   found = FALSE;
+   uint8_t  mc_idx, bit;
+   uint32_t mc_mask;
+   bool   found = false;
 
    for (mc_idx = 0; mc_idx < NUM_MC_MASKS(dev_info); mc_idx++) {
       if ((in_parms->tt == in_parms->rt->mc_masks[mc_idx].tt    ) &&
@@ -241,19 +241,19 @@ void check_multicast_routing ( DAR_DEV_INFO_t     *dev_info,
          if ((in_parms->destID & mc_mask) == (in_parms->rt->mc_masks[mc_idx].mc_destID & mc_mask)) {
             if (found) {
                out_parms->reason_for_discard = idt_rt_disc_mc_mult_masks;
-               out_parms->valid_route        = FALSE;
+               out_parms->valid_route        = false;
 	       break;
 	    } else {
-	       found = TRUE;
+	       found = true;
                out_parms->routing_table_value = mc_idx + IDT_DSF_FIRST_MC_MASK;
 	       for (bit = 0; bit < NUM_PORTS(dev_info); bit++)
-	          out_parms->mcast_ports[bit] = ((UINT32)(1 << bit) & in_parms->rt->mc_masks[mc_idx].mc_mask)?TRUE:FALSE;
+	          out_parms->mcast_ports[bit] = ((uint32_t)(1 << bit) & in_parms->rt->mc_masks[mc_idx].mc_mask)?true:false;
 	       if (in_parms->rt->mc_masks[mc_idx].mc_mask) {
-                  if ((UINT32)((UINT32)(1) << in_parms->probe_on_port) == in_parms->rt->mc_masks[mc_idx].mc_mask) {
+                  if ((uint32_t)((uint32_t)(1) << in_parms->probe_on_port) == in_parms->rt->mc_masks[mc_idx].mc_mask) {
                      out_parms->reason_for_discard = idt_rt_disc_mc_one_bit;
 	          } else {
                      out_parms->reason_for_discard = idt_rt_disc_not;
-		     out_parms->valid_route        = TRUE;
+		     out_parms->valid_route        = true;
 		  };
 	       } else {
                   out_parms->reason_for_discard     = idt_rt_disc_mc_empty;
@@ -273,37 +273,37 @@ void check_unicast_routing( DAR_DEV_INFO_t     *dev_info,
                             idt_rt_probe_in_t  *in_parms, 
                             idt_rt_probe_out_t *out_parms ) 
 {
-    UINT8 idx, rte = 0;
-    UINT8 phys_rte;
-    BOOL  dflt_pt;
+    uint8_t idx, rte = 0;
+    uint8_t phys_rte;
+    bool  dflt_pt;
 
 	if (NULL == dev_info)
 		return;
 
     if (tt_dev16 == in_parms->tt) {
-       idx = (UINT8)((in_parms->destID & (UINT16)(0xFF00)) >> 8);
+       idx = (uint8_t)((in_parms->destID & (uint16_t)(0xFF00)) >> 8);
        rte = in_parms->rt->dom_table[idx].rte_val;
     };
 
     if ((tt_dev8 == in_parms->tt) || (IDT_DSF_RT_USE_DEVICE_TABLE == rte)) {
-       idx = (UINT8)(in_parms->destID & 0x00FF) ;
+       idx = (uint8_t)(in_parms->destID & 0x00FF) ;
        rte = in_parms->rt->dev_table[idx].rte_val;
     };
 
     out_parms->routing_table_value = rte;
-    out_parms->valid_route         = TRUE;
+    out_parms->valid_route         = true;
     out_parms->reason_for_discard  = idt_rt_disc_not;
-    dflt_pt = (IDT_DSF_RT_USE_DEFAULT_ROUTE == rte)?TRUE:FALSE;
+    dflt_pt = (IDT_DSF_RT_USE_DEFAULT_ROUTE == rte)?true:false;
 
     phys_rte = (dflt_pt)?in_parms->rt->default_route : rte;
 
     if (IDT_DSF_RT_NO_ROUTE == phys_rte) {
-       out_parms->valid_route         = FALSE;
+       out_parms->valid_route         = false;
        out_parms->reason_for_discard  = (dflt_pt)?idt_rt_disc_dflt_pt_deliberately:
 	                                          idt_rt_disc_deliberately;
     } else {
        if (phys_rte >= NUM_PORTS(dev_info)) {
-          out_parms->valid_route         = FALSE;
+          out_parms->valid_route         = false;
           out_parms->reason_for_discard  = (dflt_pt)?idt_rt_disc_dflt_pt_invalid:
 		                                     idt_rt_disc_rt_invalid;
        };
@@ -312,7 +312,7 @@ void check_unicast_routing( DAR_DEV_INFO_t     *dev_info,
     return;
 };
 
-STATUS IDT_DSF_pc_get_config( DAR_DEV_INFO_t           *dev_info, 
+uint32_t IDT_DSF_pc_get_config( DAR_DEV_INFO_t           *dev_info, 
                               idt_pc_get_config_in_t   *in_parms, 
                               idt_pc_get_config_out_t  *out_parms )
 {
@@ -321,7 +321,7 @@ STATUS IDT_DSF_pc_get_config( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-STATUS IDT_DSF_pc_set_config( DAR_DEV_INFO_t           *dev_info, 
+uint32_t IDT_DSF_pc_set_config( DAR_DEV_INFO_t           *dev_info, 
                               idt_pc_set_config_in_t   *in_parms, 
                               idt_pc_set_config_out_t  *out_parms )
 {
@@ -330,7 +330,7 @@ STATUS IDT_DSF_pc_set_config( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-STATUS IDT_DSF_pc_get_status( DAR_DEV_INFO_t           *dev_info, 
+uint32_t IDT_DSF_pc_get_status( DAR_DEV_INFO_t           *dev_info, 
                               idt_pc_get_status_in_t   *in_parms, 
                               idt_pc_get_status_out_t  *out_parms )
 {
@@ -339,7 +339,7 @@ STATUS IDT_DSF_pc_get_status( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-STATUS IDT_DSF_pc_reset_port( DAR_DEV_INFO_t           *dev_info, 
+uint32_t IDT_DSF_pc_reset_port( DAR_DEV_INFO_t           *dev_info, 
                               idt_pc_reset_port_in_t   *in_parms, 
                               idt_pc_reset_port_out_t  *out_parms )
 {
@@ -348,7 +348,7 @@ STATUS IDT_DSF_pc_reset_port( DAR_DEV_INFO_t           *dev_info,
 }
 
 
-STATUS IDT_DSF_pc_reset_link_partner(
+uint32_t IDT_DSF_pc_reset_link_partner(
     DAR_DEV_INFO_t                   *dev_info, 
     idt_pc_reset_link_partner_in_t   *in_parms, 
     idt_pc_reset_link_partner_out_t  *out_parms )
@@ -358,7 +358,7 @@ STATUS IDT_DSF_pc_reset_link_partner(
 }
 
 
-STATUS IDT_DSF_pc_clr_errs( DAR_DEV_INFO_t         *dev_info, 
+uint32_t IDT_DSF_pc_clr_errs( DAR_DEV_INFO_t         *dev_info, 
                             idt_pc_clr_errs_in_t   *in_parms, 
                             idt_pc_clr_errs_out_t  *out_parms )
 {
@@ -367,7 +367,7 @@ STATUS IDT_DSF_pc_clr_errs( DAR_DEV_INFO_t         *dev_info,
 }
 
 
-STATUS IDT_DSF_pc_secure_port( DAR_DEV_INFO_t            *dev_info, 
+uint32_t IDT_DSF_pc_secure_port( DAR_DEV_INFO_t            *dev_info, 
                                idt_pc_secure_port_in_t   *in_parms, 
                                idt_pc_secure_port_out_t  *out_parms )
 {
@@ -376,7 +376,7 @@ STATUS IDT_DSF_pc_secure_port( DAR_DEV_INFO_t            *dev_info,
 }
 
 
-STATUS IDT_DSF_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info, 
+uint32_t IDT_DSF_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info, 
                                     idt_pc_dev_reset_config_in_t   *in_parms, 
                                     idt_pc_dev_reset_config_out_t  *out_parms )
 {
@@ -384,7 +384,7 @@ STATUS IDT_DSF_pc_dev_reset_config( DAR_DEV_INFO_t                 *dev_info,
     return RIO_STUBBED;
 }
 
-STATUS IDT_DSF_pc_probe( DAR_DEV_INFO_t      *dev_info, 
+uint32_t IDT_DSF_pc_probe( DAR_DEV_INFO_t      *dev_info, 
                          idt_pc_probe_in_t   *in_parms, 
                          idt_pc_probe_out_t  *out_parms )
 {
@@ -392,12 +392,12 @@ STATUS IDT_DSF_pc_probe( DAR_DEV_INFO_t      *dev_info,
     return RIO_STUBBED;
 }
 
-STATUS default_idt_pc_probe( DAR_DEV_INFO_t      *dev_info,
+uint32_t default_idt_pc_probe( DAR_DEV_INFO_t      *dev_info,
                              idt_pc_probe_in_t   *in_parms,
                              idt_pc_probe_out_t  *out_parms)
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT32 regVal, regVal2;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t regVal, regVal2;
 
     idt_pc_get_status_in_t  stat_in;
     idt_pc_get_status_out_t stat_out;
@@ -444,30 +444,30 @@ STATUS default_idt_pc_probe( DAR_DEV_INFO_t      *dev_info,
        out_parms->status = port_degr;
     };
 
-    rc = DARRegRead( dev_info, RIO_PORT_N_ERR_STAT_CSR(dev_info->extFPtrForPort, in_parms->port), &regVal );
+    rc = DARRegRead( dev_info, RIO_SPX_ERR_STAT(dev_info->extFPtrForPort, dev_info->extFPtrPortType, in_parms->port), &regVal );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = PC_PROBE(0x19);
        goto default_pc_probe_exit;
     };
 
-    if (regVal & (RIO_SPX_ERR_STATUS_PORT_ERR        |
-                  RIO_SPX_ERR_STATUS_INPUT_ERR_STOP  |
-                  RIO_SPX_ERR_STATUS_INPUT_RS        |
-                  RIO_SPX_ERR_STATUS_OUTPUT_ERR_STOP |
-                  RIO_SPX_ERR_STATUS_OUTPUT_RS        )) {
+    if (regVal & (RIO_SPX_ERR_STAT_ERR        |
+                  RIO_SPX_ERR_STAT_IES  |
+                  RIO_SPX_ERR_STAT_IRS        |
+                  RIO_SPX_ERR_STAT_OES |
+                  RIO_SPX_ERR_STAT_ORS        )) {
        out_parms->imp_rc = PC_PROBE(0x20);
        out_parms->status = port_err;
        goto default_pc_probe_exit;
     };
 
-    if (regVal & (RIO_SPX_ERR_STATUS_OUTPUT_FAIL |
-                  RIO_SPX_ERR_STATUS_OUTPUT_DROP )) {
+    if (regVal & (RIO_SPX_ERR_STAT_FAIL |
+                  RIO_SPX_ERR_STAT_DROP )) {
        out_parms->imp_rc = PC_PROBE(0x30);
        out_parms->status = port_err;
        goto default_pc_probe_exit;
     };
 
-    rc = DARRegRead( dev_info, RIO_PORT_N_LOCAL_ACKID_CSR(dev_info->extFPtrForPort, in_parms->port), &regVal );
+    rc = DARRegRead( dev_info, RIO_SPX_ACKID_ST(dev_info->extFPtrForPort, dev_info->extFPtrPortType, in_parms->port), &regVal );
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = PC_PROBE(0x40);
        goto default_pc_probe_exit;
@@ -477,25 +477,26 @@ STATUS default_idt_pc_probe( DAR_DEV_INFO_t      *dev_info,
     // will cause an output error-stopped condition and a PORT_FAIL condition 
     // on CPS Gen2 devices.
        
-    rc = DARRegWrite( dev_info, RIO_PORT_N_LINK_MAINT_REQ_CSR(dev_info->extFPtrForPort, in_parms->port), RIO_SPX_LM_REQ_CMD_LR_IS);
+    rc = DARRegWrite( dev_info, RIO_SPX_LM_REQ(dev_info->extFPtrForPort, dev_info->extFPtrPortType, in_parms->port),
+													RIO_SPX_LM_REQ_CMD_LR_IS);
     if (RIO_SUCCESS != rc) {
        out_parms->imp_rc = PC_PROBE(0x50);
        goto default_pc_probe_exit;
     };
 
-    rc = DARRegRead( dev_info, RIO_PORT_N_LINK_MAINT_RESP_CSR(dev_info->extFPtrForPort, in_parms->port), &regVal2);
+    rc = DARRegRead( dev_info, RIO_SPX_LM_RESP(dev_info->extFPtrForPort, dev_info->extFPtrPortType, in_parms->port), &regVal2);
     if (RIO_SUCCESS != rc) {
           out_parms->imp_rc = PC_PROBE(0x51);
           goto default_pc_probe_exit;
     };
-    if (!(regVal2 & RIO_PORT_N_LINK_RESP_VALID)) {
+    if (!(regVal2 & RIO_SPX_LM_RESP_VLD)) {
         rc = RIO_ERR_SW_FAILURE;
         out_parms->imp_rc = PC_PROBE(0x52);
         goto default_pc_probe_exit;
     };
 
-    if (((regVal2 & RIO_PORT_N_ACKID_STAT_MASK) >> 5) !=
-         (regVal  & RIO_PORT_N_OUTBOUND_ACKID_MASK  )) {
+    if (((regVal2 & RIO_SPX_LM_RESP_ACK_ID3) >> 5) !=
+         (regVal  & RIO_SPX_ACKID_ST_OUTB  )) {
        out_parms->imp_rc = PC_PROBE(0x70);
        out_parms->status = port_err;
        goto default_pc_probe_exit;
@@ -505,7 +506,7 @@ default_pc_probe_exit:
     return rc;
 }
 
-STATUS IDT_DSF_em_cfg_pw    ( DAR_DEV_INFO_t                *dev_info, 
+uint32_t IDT_DSF_em_cfg_pw    ( DAR_DEV_INFO_t                *dev_info, 
                               idt_em_cfg_pw_in_t            *in_parms, 
                               idt_em_cfg_pw_out_t           *out_parms )
 {
@@ -513,7 +514,7 @@ STATUS IDT_DSF_em_cfg_pw    ( DAR_DEV_INFO_t                *dev_info,
    return RIO_STUBBED;
 };
 
-STATUS IDT_DSF_em_cfg_set    ( DAR_DEV_INFO_t                *dev_info, 
+uint32_t IDT_DSF_em_cfg_set    ( DAR_DEV_INFO_t                *dev_info, 
                                idt_em_cfg_set_in_t           *in_parms, 
                                idt_em_cfg_set_out_t          *out_parms )
 {
@@ -521,7 +522,7 @@ STATUS IDT_DSF_em_cfg_set    ( DAR_DEV_INFO_t                *dev_info,
     return RIO_STUBBED;
 };
 
-STATUS IDT_DSF_em_cfg_get    ( DAR_DEV_INFO_t                *dev_info, 
+uint32_t IDT_DSF_em_cfg_get    ( DAR_DEV_INFO_t                *dev_info, 
                                idt_em_cfg_get_in_t           *in_parms, 
                                idt_em_cfg_get_out_t          *out_parms )
 { 
@@ -529,7 +530,7 @@ STATUS IDT_DSF_em_cfg_get    ( DAR_DEV_INFO_t                *dev_info,
     return RIO_STUBBED;
 };
 
-STATUS IDT_DSF_em_dev_rpt_ctl (DAR_DEV_INFO_t                *dev_info, 
+uint32_t IDT_DSF_em_dev_rpt_ctl (DAR_DEV_INFO_t                *dev_info, 
                                idt_em_dev_rpt_ctl_in_t        *in_parms, 
                                idt_em_dev_rpt_ctl_out_t       *out_parms )
 { 
@@ -537,7 +538,7 @@ STATUS IDT_DSF_em_dev_rpt_ctl (DAR_DEV_INFO_t                *dev_info,
     return RIO_STUBBED;
 };
 
-STATUS IDT_DSF_em_parse_pw   ( DAR_DEV_INFO_t                *dev_info, 
+uint32_t IDT_DSF_em_parse_pw   ( DAR_DEV_INFO_t                *dev_info, 
                                idt_em_parse_pw_in_t          *in_parms, 
                                idt_em_parse_pw_out_t         *out_parms )
 { 
@@ -545,16 +546,16 @@ STATUS IDT_DSF_em_parse_pw   ( DAR_DEV_INFO_t                *dev_info,
     return RIO_STUBBED;
 };
 
-STATUS idt_sc_port_list( DAR_DEV_INFO_t *dev_info ,
-		         STATUS          start_rc ,
-		         UINT8           p_cnt_in ,
-			 UINT8          *p_list_in,
-			 UINT8          *p_cnt_out,
-			 UINT8          *p_list_out) 
+uint32_t idt_sc_port_list( DAR_DEV_INFO_t *dev_info ,
+		         uint32_t          start_rc ,
+		         uint8_t           p_cnt_in ,
+			 uint8_t          *p_list_in,
+			 uint8_t          *p_cnt_out,
+			 uint8_t          *p_list_out) 
 {
-   UINT8 idx;
-   STATUS rc = RIO_SUCCESS;
-   BOOL dup_port_num[IDT_MAX_PORTS];
+   uint8_t idx;
+   uint32_t rc = RIO_SUCCESS;
+   bool dup_port_num[IDT_MAX_PORTS];
 
    if (RIO_ALL_PORTS == p_cnt_in) {
       *p_cnt_out = NUM_PORTS(dev_info);
@@ -562,7 +563,7 @@ STATUS idt_sc_port_list( DAR_DEV_INFO_t *dev_info ,
          p_list_out[idx] = idx;
    } else {
       for (idx = 0; idx < IDT_MAX_PORTS; idx++)
-         dup_port_num[idx] = FALSE;
+         dup_port_num[idx] = false;
 
       *p_cnt_out = p_cnt_in;
       for (idx = 0; idx < p_cnt_in; idx++) {
@@ -572,13 +573,13 @@ STATUS idt_sc_port_list( DAR_DEV_INFO_t *dev_info ,
             rc = start_rc + idx;
 	        break;
 	     };
-	     dup_port_num[p_list_in[idx]] = TRUE;
+	     dup_port_num[p_list_in[idx]] = true;
       };
    };
    return rc;
 };
 
-STATUS IDT_DSF_sc_init_dev_ctrs ( DAR_DEV_INFO_t                *dev_info, 
+uint32_t IDT_DSF_sc_init_dev_ctrs ( DAR_DEV_INFO_t                *dev_info, 
                                   idt_sc_init_dev_ctrs_in_t     *in_parms, 
                                   idt_sc_init_dev_ctrs_out_t    *out_parms )
 { 
@@ -586,7 +587,7 @@ STATUS IDT_DSF_sc_init_dev_ctrs ( DAR_DEV_INFO_t                *dev_info,
     return RIO_STUBBED;
 };
 
-STATUS IDT_DSF_sc_read_ctrs ( DAR_DEV_INFO_t         *dev_info, 
+uint32_t IDT_DSF_sc_read_ctrs ( DAR_DEV_INFO_t         *dev_info, 
                               idt_sc_read_ctrs_in_t  *in_parms, 
                               idt_sc_read_ctrs_out_t *out_parms )
 { 
@@ -596,7 +597,7 @@ STATUS IDT_DSF_sc_read_ctrs ( DAR_DEV_INFO_t         *dev_info,
 
 void add_int_event( idt_em_get_int_stat_in_t   *in_parms, 
                     idt_em_get_int_stat_out_t  *out_parms,
-                    UINT8                       pnum,
+                    uint8_t                       pnum,
                     idt_em_events_t             event ) 
 {
    if (out_parms->num_events < in_parms->num_events) {
@@ -604,11 +605,11 @@ void add_int_event( idt_em_get_int_stat_in_t   *in_parms,
       in_parms->events[out_parms->num_events].port_num = pnum;
       out_parms->num_events++;
    } else {
-      out_parms->too_many = TRUE;
+      out_parms->too_many = true;
    };
 }; 
 
-STATUS IDT_DSF_em_get_int_stat( DAR_DEV_INFO_t                *dev_info, 
+uint32_t IDT_DSF_em_get_int_stat( DAR_DEV_INFO_t                *dev_info, 
                                 idt_em_get_int_stat_in_t      *in_parms, 
                                 idt_em_get_int_stat_out_t     *out_parms )
 { 
@@ -618,7 +619,7 @@ STATUS IDT_DSF_em_get_int_stat( DAR_DEV_INFO_t                *dev_info,
 
 void add_pw_event( idt_em_get_pw_stat_in_t   *in_parms, 
                    idt_em_get_pw_stat_out_t  *out_parms,
-                 UINT8                      pnum,
+                 uint8_t                      pnum,
                  idt_em_events_t            event ) 
 {
    if (out_parms->num_events < in_parms->num_events) {
@@ -626,11 +627,11 @@ void add_pw_event( idt_em_get_pw_stat_in_t   *in_parms,
       in_parms->events[out_parms->num_events].port_num = pnum;
       out_parms->num_events++;
    } else {
-      out_parms->too_many = TRUE;
+      out_parms->too_many = true;
    };
 } 
 
-STATUS IDT_DSF_em_get_pw_stat( DAR_DEV_INFO_t                *dev_info, 
+uint32_t IDT_DSF_em_get_pw_stat( DAR_DEV_INFO_t                *dev_info, 
                                idt_em_get_pw_stat_in_t       *in_parms, 
                                idt_em_get_pw_stat_out_t      *out_parms )
 { 
@@ -638,7 +639,7 @@ STATUS IDT_DSF_em_get_pw_stat( DAR_DEV_INFO_t                *dev_info,
     return RIO_STUBBED;
 };
 
-STATUS IDT_DSF_em_clr_events( DAR_DEV_INFO_t                 *dev_info, 
+uint32_t IDT_DSF_em_clr_events( DAR_DEV_INFO_t                 *dev_info, 
                               idt_em_clr_events_in_t         *in_parms, 
                               idt_em_clr_events_out_t        *out_parms )
 { 
@@ -646,7 +647,7 @@ STATUS IDT_DSF_em_clr_events( DAR_DEV_INFO_t                 *dev_info,
     return RIO_STUBBED;
 };
  
-STATUS IDT_DSF_em_create_events( DAR_DEV_INFO_t              *dev_info,
+uint32_t IDT_DSF_em_create_events( DAR_DEV_INFO_t              *dev_info,
                                  idt_em_create_events_in_t   *in_parms, 
                                  idt_em_create_events_out_t  *out_parms )
 { 
@@ -690,9 +691,9 @@ void IDT_DSF_init_driver( IDT_DSF_DB_t *dsf) {
    dsf->idt_sc_read_ctrs          = IDT_DSF_sc_read_ctrs;
 }
    
-VOID IDT_init_DSF_DB( void )
+void IDT_init_DSF_DB( void )
 {
-    INT32 idx;
+    int32_t idx;
     IDT_DSF_DB_t dsf;
 
     num_idt_drivers_in_use = 0;
@@ -705,16 +706,16 @@ VOID IDT_init_DSF_DB( void )
 }
 
 
-STATUS IDT_DSF_bind_driver( IDT_DSF_DB_t *dsf, UINT32 *dsf_index )
+uint32_t IDT_DSF_bind_driver( IDT_DSF_DB_t *dsf, uint32_t *dsf_index )
 {
-    STATUS rc = DAR_DB_NO_HANDLES;
+    uint32_t rc = DAR_DB_NO_HANDLES;
 
     if ( num_idt_drivers_in_use < DAR_DB_MAX_DRIVERS )
     {
 	    IDT_DB[num_idt_drivers_in_use] = *dsf;
 
         /* Compose the DSF handle... */
-        *dsf_index = ((UINT32)(dsf->dev_type & 0x0000FFFF) << 16) 
+        *dsf_index = ((uint32_t)(dsf->dev_type & 0x0000FFFF) << 16) 
                    + num_idt_drivers_in_use;
 
         num_idt_drivers_in_use++;
@@ -725,15 +726,15 @@ STATUS IDT_DSF_bind_driver( IDT_DSF_DB_t *dsf, UINT32 *dsf_index )
 }
 
 
-STATUS IDT_DSF_bind_DAR_routines( 
-    STATUS (*ReadRegCall )( DAR_DEV_INFO_t *dev_info, 
-                                    UINT32  offset, 
-                                    UINT32 *readdata ),
-    STATUS (*WriteRegCall)( DAR_DEV_INFO_t *dev_info, 
-                                    UINT32  offset, 
-                                    UINT32  writedata ),
-    VOID   (*WaitSecCall) ( UINT32 delay_nsec,
-                            UINT32 delay_sec )
+uint32_t IDT_DSF_bind_DAR_routines( 
+    uint32_t (*ReadRegCall )( DAR_DEV_INFO_t *dev_info, 
+                                    uint32_t  offset, 
+                                    uint32_t *readdata ),
+    uint32_t (*WriteRegCall)( DAR_DEV_INFO_t *dev_info, 
+                                    uint32_t  offset, 
+                                    uint32_t  writedata ),
+    void   (*WaitSecCall) ( uint32_t delay_nsec,
+                            uint32_t delay_sec )
     )
 {
     DARDB_init();

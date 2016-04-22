@@ -64,16 +64,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include <string>
+#include <sstream>
+
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 
-#include "time_utils.h"
+#include "libtime_utils.h"
 
 #ifdef USER_MODE_DRIVER
-#include <string>
+#include <map>
 
 #include "dmachan.h"
+#include "rdmaops.h"
 #include "mboxchan.h"
 #include "debug.h"
 #include "dmadesc.h"
@@ -85,6 +89,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "pshm.h"
 #include "rdtsc.h"
 #include "lockfile.h"
+#include "udma_tun.h"
+#include "ibmap.h"
+#include "umbox_afu.h"
 #endif
 
 #ifdef __cplusplus
@@ -107,6 +114,7 @@ enum req_type {
 	direct_io_tx_lat,
 	direct_io_rx_lat,
 	dma_tx,
+	dma_tx_num,
 	dma_tx_lat,
 	dma_rx_lat,
 	message_tx,
@@ -126,6 +134,10 @@ enum req_type {
 	umd_mbox,
 	umd_mboxl,
 	umd_mbox_tap,
+	umd_epwatch,
+	umd_mbox_watch,
+	umd_afu_watch,
+	umd_www,
 #endif
 	last_action
 };
@@ -134,6 +146,11 @@ enum req_mode {
 	kernel_action,
 	user_mode_action
 };
+
+typedef enum {
+	ACCESS_UMD   = 42,
+	ACCESS_MPORT = -42
+} DMAAccess_t;
 
 #define MIN_RDMA_BUFF_SIZE 0x10000
 
@@ -147,19 +164,43 @@ struct thread_cpu {
 	pthread_t thr; /* Thread being migrated... */
 };
 
+#ifdef USER_MODE_DRIVER
+
 #define SOFT_RESTART	69
 
-#ifdef USER_MODE_DRIVER
-/** \brief This is the L2 header we use for transporting Tun L3 frames over RIO via DMA */
-struct DMA_L2_s {
-	uint8_t  RO;     ///< Reader Owned flag(s), not "read only"
-        uint16_t destid; ///< Destid of sender in network format, network order
-        uint32_t len;    ///< Length of this write, L2+data. Unlike MBOX, DMA is Fu**ed, network order
-	uint8_t  padding;///< Barry dixit "It's much better to have headers be a multiple of 4 bytes for RapidIO purposes"
-} __attribute__ ((packed));
-typedef struct DMA_L2_s DMA_L2_t;
+#define MAX_PEERS		64 ///< Maximum size of cluster
 
-const int DMA_L2_SIZE = sizeof(DMA_L2_t);
+#define MAX_EPOLL_EVENTS	64
+
+typedef struct {
+	int			 chan;
+	int                      oi;
+	int                      tx_buf_cnt; ///< Powers of 2, min 0x20, only (n-2) usable, 1st & last one for T3
+	int			 sts_entries;
+
+	volatile uint64_t        ticks_total;
+	volatile uint64_t        total_ticks_tx; ///< How many ticks (total) between read from Tun and NWRITE FIFO completion
+
+	RdmaOpsIntf*             rdma;
+
+	RioMport::DmaMem_t       dmamem[MAX_UMD_BUF_COUNT];
+	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
+} DmaChannelInfo_t;
+
+/** \brief Stats for the RDMAD-redux */
+typedef struct {
+	uint16_t destid;        ///< Remote peer's destid
+	time_t   on_time;       ///< 1st time it was enumerated by kernel/FMD
+	time_t   ls_time;       ///< last time it sent us stuff
+	uint64_t my_rio_addr;   ///< My RIO address broadcast to this peer
+	int      bcast_cnt_out; ///< How many time we broadcast IBwin mapping to it
+	int      bcast_cnt_in;  ///< How many time we received his broadcasts of IBwin mapping
+} DmaPeerCommsStats_t;
+
+#endif // USER_MODE_DRIVER
+
+#ifdef USER_MODE_DRIVER
+class DmaPeer;
 #endif
 
 struct worker {
@@ -210,6 +251,7 @@ struct worker {
 	uint64_t rdma_kbuff; 
 	uint64_t rdma_buff_size; 
 	void *rdma_ptr; 
+	int num_trans;
 
 	int mb_valid;
 	riomp_mailbox_t mb;
@@ -234,14 +276,23 @@ struct worker {
 	struct timespec min_iter_time; /* Minimum time over all iterations */
 	struct timespec max_iter_time; /* Maximum time over all iterations */
 
+	struct seq_ts desc_ts;
+	struct seq_ts fifo_ts;
+	struct seq_ts meas_ts;
 #ifdef USER_MODE_DRIVER
+	DMAAccess_t     dma_method; // Only for DMA Tun
+
+	void            (*owner_func)(struct worker*);     ///< Who is the owner of this
+	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this
+
+	uint16_t	my_destid;
 	LockFile*	umd_lock;
 	int		umd_chan; ///< Local mailbox OR DMA channel
+	int		umd_chan_n; ///< Local mailbox OR DMA channel, forming a range {chan,...,chan_n}
 	int		umd_chan2; ///< Local mailbox OR DMA channel
 	int		umd_chan_to; ///< Remote mailbox
 	int		umd_letter; ///< Remote mailbox letter
-	DMAChannel 	*umd_dch;
-	DMAChannel 	*umd_dch2; ///< Used for NREAD in DMA Tun
+	DMAChannel      *umd_dch; ///< Used for anything but DMA Tun
 	MboxChannel 	*umd_mch;
 	enum dma_rtype	umd_tx_rtype;
 	int 		umd_tx_buf_cnt;
@@ -251,34 +302,77 @@ struct worker {
 	sem_t		umd_fifo_proc_started;
 	volatile int	umd_fifo_proc_alive;
 	volatile int	umd_fifo_proc_must_die;
-	int		umd_tun_fd;
-	char		umd_tun_name[33];
-	int		umd_tun_MTU;
-	int		umd_sockp[2];
-	void		(*umd_dma_fifo_callback)(struct worker* info);
+
 	struct thread_cpu umd_mbox_tap_thr;
+
+	volatile uint64_t umd_fifo_total_ticks;
+	volatile uint64_t umd_fifo_total_ticks_count;
+
+	void		(*umd_dma_fifo_callback)(struct worker* info);
+
+	// Used only for MBOX Tun
+        int             umd_tun_fd;
+        char            umd_tun_name[33];
+        int             umd_tun_MTU;
+        int             umd_tun_thruput;
+
+	// Used only for DMA Tun
+	int             umd_mbox_tx_fd; // socketpair(2) server for MBOX TX; safer than sharing a MboxChannel instance
+	int             umd_mbox_rx_fd; // socketpair(2) server for MBOX RX; sharing a MboxChannel instance is out of question!
+
+	volatile uint64_t umd_ticks_total_chan2;
+
+	DmaChannelInfo_t* umd_dci_nread; ///< Used for NREAD in DMA Tun
+	DmaChannelInfo_t* umd_dci_list[8]; // Used for round-robin TX. Only 6 usable!
+
+	int		umd_sockp_quit[2]; ///< Used to signal Tun RX thread to quit
+	int             umd_epollfd; ///< Epoll set
 	struct thread_cpu umd_dma_tap_thr;
+
+	pthread_mutex_t umd_dma_did_peer_mutex;
+
+        std::map<uint16_t, DmaPeerCommsStats_t> umd_dma_did_enum_list; ///< This is just a list of destids we broadcast to -- populated by EpWatch
+
+	int             umd_dma_did_peer_list_high_wm; ///< High water mark of list below -- maintained by Main Battle Tank thread
+	DmaPeer*        umd_dma_did_peer_list[MAX_PEERS]; ///< List of currently up peers -- maintained by Main Battle Tank thread
+	std::map<uint16_t, int> umd_dma_did_peer; ///< These are slot into \ref umd_dma_did_peer_list -- maintained by Main Battle Tank thread
+
+	IBwinMap*       umd_peer_ibmap;
+
 	sem_t		umd_mbox_tap_proc_started;
 	volatile int	umd_mbox_tap_proc_alive;
 	sem_t		umd_dma_tap_proc_started;
 	volatile int	umd_dma_tap_proc_alive;
 	uint32_t	umd_dma_abort_reason;
-	sem_t		umd_dma_rio_rx_work;
-	DMA_L2_t**	umd_dma_rio_rx_bd_L2_ptr; ///< Location in mem of all RO bits for IB BDs, per-destid
-        uint32_t*       umd_dma_rio_rx_bd_ready; ///< List of all IB BDs that have fresh data in them, per-destid 
-        volatile int    umd_dma_rio_rx_bd_ready_size;
-	pthread_spinlock_t umd_dma_rio_rx_bd_ready_splock;
-	RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
-	DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
 	volatile uint64_t tick_count, tick_total;
 	volatile uint64_t tick_data_total;
-	std::string	evlog;
 
-	struct seq_ts desc_ts;
-	struct seq_ts fifo_ts;
-	struct seq_ts meas_ts;
+	uint64_t        umd_nread_threshold; ///< Force NREADs (per-peer) if last was warlier than this many rdtsc ticks
+
+	int             umd_dma_bcast_min;	///< Receive "N" bcasts from peer via MBOX before putting up Tun
+	int             umd_dma_bcast_interval; ///< Minimum interval in seconds before our broadcasts on MBOX
+
+	// NOT used for DMA Tun
+        RioMport::DmaMem_t dmamem[MAX_UMD_BUF_COUNT];
+        DMAChannel::DmaOptions_t dmaopt[MAX_UMD_BUF_COUNT];
+
+
+	volatile int umd_disable_nread;
+	volatile int umd_push_rp_thr; ///< Push RP via NWRITE every N packets; 0=after each packet
+	volatile int umd_chann_reserve; ///< Reserve chann (if more than 1) for push RP NWRITE
 #endif
 };
+
+#ifdef USER_MODE_DRIVER
+static inline int BD_PAYLOAD_SIZE(const struct worker* info)
+{
+	if (info == NULL) return -1;
+	return DMA_L2_SIZE + info->umd_tun_MTU;
+}
+
+#include "dmapeer.h"
+
+#endif // USER_MODE_DRIVER
 
 /**
  * @brief Returns number of CPUs as reported in /proc/cpuinfo
@@ -316,6 +410,10 @@ void start_worker_thread(struct worker *info, int new_mp_h, int cpu);
 
 void shutdown_worker_thread(struct worker *info);
 
+extern "C" {
+	void display_gen_status_ss(std::stringstream& out);
+	void display_ibwin_status_ss(std::stringstream& out);
+};
 #ifdef __cplusplus
 }
 #endif

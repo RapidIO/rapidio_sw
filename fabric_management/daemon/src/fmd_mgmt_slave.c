@@ -60,6 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rapidio_mport_mgmt.h>
 #include <rapidio_mport_sock.h>
 
+#include "fmd.h"
 #include "libcli.h"
 #include "liblog.h"
 #include "libfmdd.h"
@@ -67,6 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_mgmt_slave.h"
 #include "fmd_state.h"
 #include "fmd_app_mgmt.h"
+#include "pe_mpdrv_private.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -156,7 +158,7 @@ fail:
 	
 int del_device_from_dd(uint32_t ct, uint32_t did)
 {
-	uint32_t idx, found_idx, found_one = 0;
+	uint32_t idx, found_idx = -1, found_one = 0;
 
 	if ((NULL == fmd->dd) || (NULL == fmd->dd_mtx))
 		goto fail;
@@ -217,7 +219,27 @@ void slave_process_mod(void)
                         INFO("\nFMD: device \"%s\" exists...\n",
                                 slv->m2s->mod_rq.name);
                 } else {
-			rc = riomp_mgmt_device_add(slv->mp_hnd,
+			struct mpsw_drv_pe_acc_info *p_acc;
+			struct mpsw_drv_private_data *p_dat;
+
+			p_dat = (struct mpsw_drv_private_data *)
+				mport_pe->private_data;
+			if (NULL == p_dat) {
+				rc = 1;
+				break;
+			};
+			p_acc = (struct mpsw_drv_pe_acc_info *)
+				p_dat->dev_h.accessInfo;
+			if (NULL == p_acc) {
+				rc = 2;
+				break;
+			};
+			if (NULL == p_acc->maint) {
+				rc = 3;
+				break;
+			};
+
+			rc = riomp_mgmt_device_add(p_acc->maint,
 					ntohl(slv->m2s->mod_rq.did), 
 					ntohl(slv->m2s->mod_rq.hc), 
 					ntohl(slv->m2s->mod_rq.ct),
@@ -374,13 +396,12 @@ fail:
 };
 
 int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
-                        uint32_t  mp_num, struct fmd_slave *slave, riomp_mport_t hnd)
+                        uint32_t  mp_num, struct fmd_slave *slave)
 {
 	int rc = 1;
 	int conn_rc;
 
 	slv = slave;
-	slv->mp_hnd = hnd;
 	sem_init(&slv->started, 0, 0);
 	slv->slave_alive = 0;
 	slv->slave_must_die = 0;

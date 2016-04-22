@@ -53,7 +53,7 @@ extern "C" {
  * RIO-to-local address translation is requested
  * and driver should use direct (one-to-one) address mapping.
  */
-#define RIO_MAP_ANY_ADDR (uint64_t)(~((uint64_t) 0))
+#define RIOMP_MAP_ANY_ADDR (uint64_t)(~((uint64_t) 0))
 
 /** @brief bitmask for doorbell events */
 #define RIO_EVENT_DOORBELL	(1 << 0)
@@ -174,6 +174,11 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
  * @retval -errno on error
  */
 int riomp_mgmt_free_ep_list(uint32_t **destids);
+
+enum {
+  UMD_RESERVED            =  0x6660000, ///< No infinite recursion when libmport calls UMDd/SHM client which calls libmport
+  UMD_SELECT_NEXT_CHANNEL = 0x42420000 ///< Force libmport to use UMDd/SHM client for DMA and cycle thru channels
+};
 
 /**
  * @brief create mport handle

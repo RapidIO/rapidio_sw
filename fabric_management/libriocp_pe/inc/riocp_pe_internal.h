@@ -175,8 +175,6 @@ int riocp_pe_handle_get_list(riocp_pe_handle mport, riocp_pe_handle **pe_list,
 int riocp_pe_handle_get_peer_list(riocp_pe_handle pe,
         riocp_pe_handle **pe_peer_list, size_t *pe_peer_list_size);
 int riocp_pe_handle_free_list(riocp_pe_handle **list);
-int riocp_pe_handle_set_private(riocp_pe_handle pe, void *data);
-int riocp_pe_handle_get_private(riocp_pe_handle pe, void **data);
 
 /* Dot graph */
 int riocp_pe_dot_dump(char *filename, riocp_pe_handle mport);

@@ -1,41 +1,54 @@
 #!/bin/bash
+MPORT=0
 
-cd performance
-rm dma_thru/d1*
-rm dma_thru_read dma_thru_write
+if [ -n "$1" ]; then
+        MPORT=$1
+else
+        echo $'\nScript deletes all performance scripts for an mport.'
+        echo $'mport is a required parameter.'
+	exit
+fi
 
-rm udma_thru/udma*
-rm udma_thru_read udma_thru_write
+echo $'Deleting all performance scripts for mport' ${MPORT}
 
-rm dma_lat/dl*
-rm dma_lat_read
+cd ../mport${MPORT}
 
-rm udma_lat/udl*
-rm udma_lat_read
+rm -f dma_thru/d1*
+rm -f dma_thru_read dma_thru_write
 
-rm pdma_thru/pd*
-rm pdma_thru_*_read pdma_thru_*_write
+rm -f udma_thru/udma*
+rm -f udma_thru_read udma_thru_write
 
-rm obwin_lat/ol*
-rm obwin_lat_read
+rm -f dma_lat/dl*
+rm -f dma_lat_read
 
-rm obwin_thru/o1R*
-rm obwin_thru/o1W*
-rm obwin_thru/o8R*
-rm obwin_thru/o8W*
-rm obwin_thru_read obwin_thru_write
+rm -f udma_lat/udl*
+rm -f udma_lat_read
 
-rm msg_thru/m*
-rm msg_thru_tx
+rm -f pdma_thru/pd*
+rm -f pdma_thru_*_read pdma_thru_*_write
 
-rm umsg_thru/m*
-rm umsg_thru_tx
+rm -f obwin_lat/ol*
+rm -f obwin_lat_read
 
-rm msg_lat/m*
-rm msg_lat_rx
+rm -f obwin_thru/o1R*
+rm -f obwin_thru/o1W*
+rm -f obwin_thru/o8R*
+rm -f obwin_thru/o8W*
+rm -f obwin_thru_read obwin_thru_write
 
-rm umsg_lat/m*
-rm umsg_lat_rx
+rm -f msg_thru/m*
+rm -f msg_thru_tx
+
+rm -f umsg_thru/m*
+rm -f umsg_thru_tx
+
+rm -f msg_lat/m*
+rm -f msg_lat_tx
+
+rm -f umsg_lat/m*.txt
+rm -f umsg_lat_read
+
 
 cd ..
-rm start_source start_target
+rm -f start_source start_target

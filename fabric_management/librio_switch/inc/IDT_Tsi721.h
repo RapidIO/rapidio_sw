@@ -1287,7 +1287,7 @@ extern "C" {
 #define TSI721_RIO_LANEX_STAT1(X)                          (0x3014 + 0x020*(X))
 #define TSI721_RIO_PLM_BH                                          (0x00010000)
 #define TSI721_RIO_PLM_SP_IMP_SPEC_CTL                             (0x00010080)
-#define TSI721_RIO_PLM_SP_STATUS                                   (0x00010090)
+#define TSI721_RIO_PLM_SP_uint32_t                                   (0x00010090)
 #define TSI721_RIO_PLM_SP_INT_ENABLE                               (0x00010094)
 #define TSI721_RIO_PLM_SP_PW_ENABLE                                (0x00010098)
 #define TSI721_RIO_PLM_SP_EVENT_GEN                                (0x0001009c)
@@ -1304,7 +1304,7 @@ extern "C" {
 #define TSI721_RIO_PLM_SP_LONG_CS_TX2                              (0x000100e4)
 #define TSI721_RIO_TLM_BH                                          (0x00010300)
 #define TSI721_RIO_TLM_SP_CONTROL                                  (0x00010380)
-#define TSI721_RIO_TLM_SP_STATUS                                   (0x00010390)
+#define TSI721_RIO_TLM_SP_uint32_t                                   (0x00010390)
 #define TSI721_RIO_TLM_SP_INT_ENABLE                               (0x00010394)
 #define TSI721_RIO_TLM_SP_PW_ENABLE                                (0x00010398)
 #define TSI721_RIO_TLM_SP_EVENT_GEN                                (0x0001039c)
@@ -1313,7 +1313,7 @@ extern "C" {
 #define TSI721_RIO_TLM_SP_FTYPE_FILTER_CTL                         (0x000103e0)
 #define TSI721_RIO_PBM_BH                                          (0x00010600)
 #define TSI721_RIO_PBM_SP_CONTROL                                  (0x00010680)
-#define TSI721_RIO_PBM_SP_STATUS                                   (0x00010690)
+#define TSI721_RIO_PBM_SP_uint32_t                                   (0x00010690)
 #define TSI721_RIO_PBM_SP_INT_ENABLE                               (0x00010694)
 #define TSI721_RIO_PBM_SP_PW_ENABLE                                (0x00010698)
 #define TSI721_RIO_PBM_SP_EVENT_GEN                                (0x0001069c)
@@ -1371,8 +1371,8 @@ extern "C" {
 /******************************************************/
 
 /* TSI721_RIO_DEV_ID : Register Bits Masks Definitions */
-#define TSI721_RIO_DEV_ID_DEV_VEN_ID                               (0x0000ffff)
-#define TSI721_RIO_DEV_ID_DEV_ID                                   (0xffff0000)
+#define TSI721_RIO_DEV_IDENT_VEND                               (0x0000ffff)
+#define TSI721_RIO_DEV_IDENT_DEVI                                   (0xffff0000)
 #define TSI721_RIO_DEVICE_VENDOR (0x00000038)
 #define TSI721_RIO_DEVICE_ID     (0x000080AB)
 
@@ -1384,8 +1384,8 @@ extern "C" {
 #define TSI721_RIO_ASBLY_ID_ASBLY_ID                               (0xffff0000)
 
 /* TSI721_RIO_ASBLY_INFO : Register Bits Masks Definitions */
-#define TSI721_RIO_ASBLY_INFO_EXT_FEAT_PTR                         (0x0000ffff)
-#define TSI721_RIO_ASBLY_INFO_ASBLY_REV                            (0xffff0000)
+#define TSI721_RIO_ASSY_INF_EFB_PTR                         (0x0000ffff)
+#define TSI721_RIO_ASSY_INF_ASSY_REV                            (0xffff0000)
 
 /* TSI721_RIO_PE_FEAT : Register Bits Masks Definitions */
 #define TSI721_RIO_PE_FEAT_EXT_AS                                  (0x00000007)
@@ -1720,19 +1720,19 @@ extern "C" {
 #define TSI721_RIO_PLM_SP_IMP_SPEC_CTL_SWAP_TX_3210                (0x00080000)
 #define TSI721_RIO_PLM_SP_IMP_SPEC_CTL_SWAP_TX_2301                (0x000C0000)
 
-/* TSI721_RIO_PLM_SP_STATUS : Register Bits Masks Definitions */
-#define TSI721_RIO_PLM_SP_STATUS_TLM_INT                           (0x00000400)
-#define TSI721_RIO_PLM_SP_STATUS_PBM_INT                           (0x00000800)
-#define TSI721_RIO_PLM_SP_STATUS_MECS                              (0x00001000)
-#define TSI721_RIO_PLM_SP_STATUS_TLM_PW                            (0x00004000)
-#define TSI721_RIO_PLM_SP_STATUS_PBM_PW                            (0x00008000)
-#define TSI721_RIO_PLM_SP_STATUS_RST_REQ                           (0x00010000)
-#define TSI721_RIO_PLM_SP_STATUS_OUTPUT_DEGR                       (0x01000000)
-#define TSI721_RIO_PLM_SP_STATUS_OUTPUT_FAIL                       (0x02000000)
-#define TSI721_RIO_PLM_SP_STATUS_PORT_ERR                          (0x04000000)
-#define TSI721_RIO_PLM_SP_STATUS_DLT                               (0x08000000)
-#define TSI721_RIO_PLM_SP_STATUS_LINK_INIT                         (0x10000000)
-#define TSI721_RIO_PLM_SP_STATUS_MAX_DENIAL                        (0x80000000)
+/* TSI721_RIO_PLM_SP_uint32_t : Register Bits Masks Definitions */
+#define TSI721_RIO_PLM_SP_uint32_t_TLM_INT                           (0x00000400)
+#define TSI721_RIO_PLM_SP_uint32_t_PBM_INT                           (0x00000800)
+#define TSI721_RIO_PLM_SP_uint32_t_MECS                              (0x00001000)
+#define TSI721_RIO_PLM_SP_uint32_t_TLM_PW                            (0x00004000)
+#define TSI721_RIO_PLM_SP_uint32_t_PBM_PW                            (0x00008000)
+#define TSI721_RIO_PLM_SP_uint32_t_RST_REQ                           (0x00010000)
+#define TSI721_RIO_PLM_SP_uint32_t_OUTPUT_DEGR                       (0x01000000)
+#define TSI721_RIO_PLM_SP_uint32_t_OUTPUT_FAIL                       (0x02000000)
+#define TSI721_RIO_PLM_SP_uint32_t_PORT_ERR                          (0x04000000)
+#define TSI721_RIO_PLM_SP_uint32_t_DLT                               (0x08000000)
+#define TSI721_RIO_PLM_SP_uint32_t_LINK_INIT                         (0x10000000)
+#define TSI721_RIO_PLM_SP_uint32_t_MAX_DENIAL                        (0x80000000)
 
 /* TSI721_RIO_PLM_SP_INT_ENABLE : Register Bits Masks Definitions */
 #define TSI721_RIO_PLM_SP_INT_ENABLE_OUTPUT_DEGR                   (0x01000000)
@@ -1807,11 +1807,11 @@ extern "C" {
 #define TSI721_RIO_PLM_SP_LONG_CS_TX1_STYPE_0                      (0x70000000)
 
 #define TSI721_MAGIC_CS \
-((((UINT32)(stype0_pna     ) << 28) & TSI721_RIO_PLM_SP_LONG_CS_TX1_STYPE_0) | \
- (((UINT32)(0x00000000     ) << 20) & TSI721_RIO_PLM_SP_LONG_CS_TX1_PAR_0  ) | \
- (((UINT32)(PNA_GENERAL_ERR) << 12) & TSI721_RIO_PLM_SP_LONG_CS_TX1_PAR_1  ) | \
- (((UINT32)(stype1_lreq    ) <<  4) & TSI721_RIO_PLM_SP_LONG_CS_TX1_STYPE_1) | \
- (((UINT32)(STYPE1_LREQ_CMD_PORT_STAT)) & TSI721_RIO_PLM_SP_LONG_CS_TX1_CMD))   
+((((uint32_t)(stype0_pna     ) << 28) & TSI721_RIO_PLM_SP_LONG_CS_TX1_STYPE_0) | \
+ (((uint32_t)(0x00000000     ) << 20) & TSI721_RIO_PLM_SP_LONG_CS_TX1_PAR_0  ) | \
+ (((uint32_t)(PNA_GENERAL_ERR) << 12) & TSI721_RIO_PLM_SP_LONG_CS_TX1_PAR_1  ) | \
+ (((uint32_t)(stype1_lreq    ) <<  4) & TSI721_RIO_PLM_SP_LONG_CS_TX1_STYPE_1) | \
+ (((uint32_t)(STYPE1_LREQ_CMD_PORT_STAT)) & TSI721_RIO_PLM_SP_LONG_CS_TX1_CMD))   
 
 /* TSI721_RIO_PLM_SP_LONG_CS_TX2 : Register Bits Masks Definitions */
 #define TSI721_RIO_PLM_SP_LONG_CS_TX2_PARM                         (0x07ff0000)
@@ -1828,9 +1828,9 @@ extern "C" {
 #define TSI721_RIO_TLM_SP_CONTROL_TGT_ID_DIS                       (0x00200000)
 #define TSI721_RIO_TLM_SP_CONTROL_PORTGROUP_SELECT                 (0x40000000)
 
-/* TSI721_RIO_TLM_SP_STATUS : Register Bits Masks Definitions */
-#define TSI721_RIO_TLM_SP_STATUS_IG_BRR_FILTER                     (0x00100000)
-#define TSI721_RIO_TLM_SP_STATUS_IG_BAD_VC                         (0x80000000)
+/* TSI721_RIO_TLM_SP_uint32_t : Register Bits Masks Definitions */
+#define TSI721_RIO_TLM_SP_uint32_t_IG_BRR_FILTER                     (0x00100000)
+#define TSI721_RIO_TLM_SP_uint32_t_IG_BAD_VC                         (0x80000000)
 
 /* TSI721_RIO_TLM_SP_INT_ENABLE : Register Bits Masks Definitions */
 #define TSI721_RIO_TLM_SP_INT_ENABLE_IG_BRR_FILTER                 (0x00100000)
@@ -1894,29 +1894,29 @@ extern "C" {
 #define TSI721_RIO_PBM_SP_CONTROL_EG_REORDER_MODE                  (0x00000030)
 #define TSI721_RIO_PBM_SP_CONTROL_IG_BACKPRESSURE_ON_FATAL         (0x00010000)
 
-/* TSI721_RIO_PBM_SP_STATUS : Register Bits Masks Definitions */
-#define TSI721_RIO_PBM_SP_STATUS_EG_BABBLE_PACKET                  (0x00000001)
-#define TSI721_RIO_PBM_SP_STATUS_EG_BAD_CHANNEL                    (0x00000002)
-#define TSI721_RIO_PBM_SP_STATUS_EG_CRQ_OVERFLOW                   (0x00000008)
-#define TSI721_RIO_PBM_SP_STATUS_EG_DATA_OVERFLOW                  (0x00000010)
-#define TSI721_RIO_PBM_SP_STATUS_EG_DNFL_FATAL                     (0x00000020)
-#define TSI721_RIO_PBM_SP_STATUS_EG_DNFL_COR                       (0x00000040)
-#define TSI721_RIO_PBM_SP_STATUS_EG_DOH_FATAL                      (0x00000080)
-#define TSI721_RIO_PBM_SP_STATUS_EG_DOH_COR                        (0x00000100)
-#define TSI721_RIO_PBM_SP_STATUS_EG_DATA_UNCOR                     (0x00000800)
-#define TSI721_RIO_PBM_SP_STATUS_EG_DATA_COR                       (0x00001000)
-#define TSI721_RIO_PBM_SP_STATUS_EG_EMPTY                          (0x00008000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_EMPTY                          (0x00010000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_DNFL_FATAL                     (0x00400000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_DNFL_COR                       (0x00800000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_DOH_FATAL                      (0x01000000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_DOH_COR                        (0x02000000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_TFL_FATAL                      (0x04000000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_TFL_COR                        (0x08000000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_TAG_FATAL                      (0x10000000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_TAG_COR                        (0x20000000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_DATA_UNCOR                     (0x40000000)
-#define TSI721_RIO_PBM_SP_STATUS_IG_DATA_COR                       (0x80000000)
+/* TSI721_RIO_PBM_SP_uint32_t : Register Bits Masks Definitions */
+#define TSI721_RIO_PBM_SP_uint32_t_EG_BABBLE_PACKET                  (0x00000001)
+#define TSI721_RIO_PBM_SP_uint32_t_EG_BAD_CHANNEL                    (0x00000002)
+#define TSI721_RIO_PBM_SP_uint32_t_EG_CRQ_OVERFLOW                   (0x00000008)
+#define TSI721_RIO_PBM_SP_uint32_t_EG_DATA_OVERFLOW                  (0x00000010)
+#define TSI721_RIO_PBM_SP_uint32_t_EG_DNFL_FATAL                     (0x00000020)
+#define TSI721_RIO_PBM_SP_uint32_t_EG_DNFL_COR                       (0x00000040)
+#define TSI721_RIO_PBM_SP_uint32_t_EG_DOH_FATAL                      (0x00000080)
+#define TSI721_RIO_PBM_SP_uint32_t_EG_DOH_COR                        (0x00000100)
+#define TSI721_RIO_PBM_SP_uint32_t_EG_DATA_UNCOR                     (0x00000800)
+#define TSI721_RIO_PBM_SP_uint32_t_EG_DATA_COR                       (0x00001000)
+#define TSI721_RIO_PBM_SP_uint32_t_EG_EMPTY                          (0x00008000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_EMPTY                          (0x00010000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_DNFL_FATAL                     (0x00400000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_DNFL_COR                       (0x00800000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_DOH_FATAL                      (0x01000000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_DOH_COR                        (0x02000000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_TFL_FATAL                      (0x04000000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_TFL_COR                        (0x08000000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_TAG_FATAL                      (0x10000000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_TAG_COR                        (0x20000000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_DATA_UNCOR                     (0x40000000)
+#define TSI721_RIO_PBM_SP_uint32_t_IG_DATA_COR                       (0x80000000)
 
 /* TSI721_RIO_PBM_SP_INT_ENABLE : Register Bits Masks Definitions */
 #define TSI721_RIO_PBM_SP_INT_ENABLE_EG_BABBLE_PACKET              (0x00000001)
@@ -2768,6 +2768,11 @@ extern "C" {
 #define TSI721_IBDMACXINT_PC_ERROR                                  (0x00000004)
 #define TSI721_IBDMACXINT_SUSPENDED                                 (0x00000008)
 #define TSI721_IBDMACXINT_SRTO                                      (0x00001000)
+#define TSI721_IBDMACXINT_MASK (TSI721_IBDMACXINT_DQ_RCV | \
+				TSI721_IBDMACXINT_FQ_LOW | \
+				TSI721_IBDMACXINT_PC_ERROR | \
+				TSI721_IBDMACXINT_SUSPENDED | \
+				TSI721_IBDMACXINT_SRTO)
 
 /* TSI721_IBDMACXINTSET : Register Bits Masks Definitions */
 #define TSI721_IBDMACXINTSET_DQ_RCV_SET                             (0x00000001)
@@ -3443,6 +3448,54 @@ extern "C" {
 #define TSI721_NUM_WA_REGS            4
 #define TSI721_WA_VAL_5G              0x0000006F
 #define TSI721_WA_VAL_3G              0x0000000F
+
+#define RIO_MAX_MSG_SIZE        0x1000
+
+/******************************************************/
+/* TSI721 : MESSAGE DESCRIPTOR BIT DEFINITIONS        */
+/******************************************************/
+
+#define TSI721_MSG_BUFFER_SIZE          RIO_MAX_MSG_SIZE
+#define TSI721_MSG_MAX_SIZE             RIO_MAX_MSG_SIZE
+#define TSI721_IMSG_MAXCH               8
+#define TSI721_IMSGD_MIN_RING_SIZE      32
+
+#define TSI721_OMSGD_MIN_RING_SIZE      32
+
+/******************************************************/
+/* Inbound Message Descriptors                        */
+/******************************************************/
+
+#define TSI721_IMD_DEVID        0x0000ffff
+#define TSI721_IMD_CRF          0x00010000
+#define TSI721_IMD_PRIO         0x00060000
+#define TSI721_IMD_TT           0x00180000
+#define TSI721_IMD_DTYPE        0xe0000000
+#define TSI721_IMD_BCOUNT       0x00000ff8
+#define TSI721_IMD_SSIZE        0x0000f000
+#define TSI721_IMD_LETER        0x00030000
+#define TSI721_IMD_XMBOX        0x003c0000
+#define TSI721_IMD_MBOX         0x00c00000
+#define TSI721_IMD_CS           0x78000000
+#define TSI721_IMD_HO           0x80000000
+
+/******************************************************/
+/* Outbound Message Descriptors                       */
+/******************************************************/
+
+#define TSI721_OMD_DEVID        0x0000ffff
+#define TSI721_OMD_CRF          0x00010000
+#define TSI721_OMD_PRIO         0x00060000
+#define TSI721_OMD_IOF          0x08000000
+#define TSI721_OMD_DTYPE        0xe0000000
+#define TSI721_OMD_RSRVD        0x17f80000
+
+#define TSI721_OMD_BCOUNT       0x00000ff8
+#define TSI721_OMD_SSIZE        0x0000f000
+#define TSI721_OMD_LETTER       0x00030000
+#define TSI721_OMD_XMBOX        0x003c0000
+#define TSI721_OMD_MBOX         0x00c00000
+#define TSI721_OMD_TT           0x0c000000
 
 #ifdef __cplusplus
 }

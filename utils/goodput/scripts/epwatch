@@ -1,0 +1,4 @@
+thr 2 -1 0
+wait 1 h
+epwatch 2 0
+sleep 0.5

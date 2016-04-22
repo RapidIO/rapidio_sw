@@ -42,12 +42,12 @@ extern "C" {
 /* Routine to bind in all CPS GEN2 specific DAR support routines.
    Supports CPS1848, CPS1616, VPS1616, SPS1616
 */
-STATUS bind_CPSGEN2_DAR_support( void );
+uint32_t bind_CPSGEN2_DAR_support( void );
 
 /* Routine to bind in all CPS GEN2 specific Device Specific Function routines.
    Supports CPS1848, CPS1616, VPS1616, SPS1616
 */
-UINT32 bind_CPSGEN2_DSF_support( void );
+uint32_t bind_CPSGEN2_DSF_support( void );
 
 #ifdef __cplusplus
 }

@@ -41,15 +41,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/sem.h>
 #include <fcntl.h>
 
-#ifdef __WINDOWS__
-#include "stdafx.h"
-#include <io.h>
-#include <windows.h>
-#include "tsi721api.h"
-#include "IDT_Tsi721.h"
-#endif
-
-// #ifdef __LINUX__
 #include <stdint.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -57,7 +48,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <netinet/in.h>
-// #endif
 
 #include "fmd_dd.h"
 #include "fmd_cfg.h"
@@ -144,7 +134,8 @@ struct fmd_cfg_parms *fmd_parse_options(int argc, char *argv[])
 		cfg->mport_info[i].mp_h = NULL;
 		cfg->mport_info[i].ct = 0;
 		cfg->mport_info[i].op_mode = -1;
-		for (j = 0; j < FMD_DEVID_MAX; j++) {
+		cfg->mport_info[i].mem_sz = CFG_MEM_SZ_DEFAULT;
+		for (j = 0; j < CFG_DEVID_MAX; j++) {
 			cfg->mport_info[i].devids[j].devid = 0;
 			cfg->mport_info[i].devids[j].hc = 0xFF;
 			cfg->mport_info[i].devids[j].valid = 0;
@@ -468,7 +459,7 @@ int get_hex_int(struct fmd_cfg_parms *cfg, uint32_t *hex_int)
 	errno = 0;
 	*hex_int = strtol(tok, &endptr, 16);
 
-	if ((errno == ERANGE && (*hex_int == UINT32_MAX || *hex_int == 0))
+	if ((errno == ERANGE && (*hex_int == 0xFFFFFFFF || *hex_int == 0))
 		|| ((errno != 0) && (*hex_int == 0)))
 		goto fail;
 
@@ -755,7 +746,32 @@ fail:
 	return 1;
 };
 
-int parse_ep_devids(struct fmd_cfg_parms *cfg, struct dev_id *devids)
+#define MEM_SZ_TOKENS "mem34 mem50 mem66"
+
+int parse_mport_mem_size(struct int_cfg_parms *cfg, uint8_t *mem_sz)
+{
+	uint32_t idx;
+
+	idx = get_parm_idx(cfg, (char *)MEM_SZ_TOKENS);
+	switch (idx) {
+	case 0: // mem34
+		*mem_sz = CFG_MEM_SZ_34;
+		break;
+	case 1: // mem50
+		*mem_sz = CFG_MEM_SZ_50;
+		break;
+	case 2: // mem66
+		*mem_sz = CFG_MEM_SZ_66;
+		break;
+	default: // Unknown
+		goto fail;
+	}
+	return 0;
+fail:
+	return 1;
+};
+
+int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 {
 	uint32_t devid_sz, done = 0;
 
@@ -871,6 +887,9 @@ int parse_mport_info(struct fmd_cfg_parms *cfg)
 		parse_err(cfg, (char *)"Unknown operating mode.");
 		goto fail;
 	};
+
+	if (parse_mport_mem_size(cfg, &cfg->mport_info[idx].mem_sz))
+		goto fail;
 
 	return parse_ep_devids(cfg, cfg->mport_info[idx].devids);
 fail:
@@ -1385,6 +1404,157 @@ struct fmd_cfg_ep *find_cfg_ep_by_ct(uint32_t ct, struct fmd_cfg_parms *cfg)
 	};
 
 	return ret;
+};
+
+int cfg_find_mport(uint32_t mport, struct cfg_mport_info *mp)
+{
+	unsigned int i;
+
+	for (i = 0; i < cfg->max_mport_info_idx; i++) {
+		if (mport != cfg->mport_info[i].num)
+			continue;
+
+		mp->num = cfg->mport_info[i].num;
+		mp->ct = cfg->mport_info[i].ct;
+		mp->op_mode = cfg->mport_info[i].op_mode;
+		memcpy(mp->devids, cfg->mport_info[i].devids,
+			sizeof(mp->devids));
+		return 0;
+	};
+	return 1;
+};
+
+int cfg_get_mp_mem_sz(uint32_t mport, uint8_t *mem_sz)
+{
+	unsigned int i;
+
+	for (i = 0; i < cfg->max_mport_info_idx; i++) {
+		if (mport != cfg->mport_info[i].num)
+			continue;
+
+		*mem_sz = cfg->mport_info[i].mem_sz;
+		return 0;
+	};
+	return 1;
+};
+
+int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
+{
+	if (!ep->ports[0].valid)
+		goto fail;
+
+	dev->name = ep->name;
+	dev->port_cnt = ep->port_cnt;
+	dev->did_sz = CFG_DEV08;
+	dev->is_sw = 0;
+	dev->ct = ep->ports[0].ct;
+	dev->hc = ep->ports[0].devids[CFG_DEV08].hc;
+	dev->did = ep->ports[0].devids[CFG_DEV08].devid;
+	dev->ep_pt.valid = 1;
+	dev->ep_pt.port = 0;
+	dev->ep_pt.ct = dev->ct;
+	memcpy(dev->ep_pt.devids, ep->ports[0].devids,
+		sizeof(dev->ep_pt.devids));
+
+	return 0;
+fail:
+	return 1;
+};
+
+int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
+{
+	int i;
+
+	dev->name = sw->name;
+	dev->port_cnt = CFG_MAX_SW_PORT;
+	dev->did_sz = CFG_MAX_SW_PORT;
+	dev->did = sw->did;
+	dev->hc = sw->hc;
+	dev->ct = sw->ct;
+	dev->is_sw = 1;
+	dev->sw_info.num_ports = CFG_MAX_SW_PORT;
+	for (i = 0; i < CFG_MAX_SW_PORT; i++) {
+		dev->sw_info.sw_pt[i].valid =
+			sw->ports[i].valid;
+		dev->sw_info.sw_pt[i].port =
+			sw->ports[i].port;
+	};
+	dev->sw_info.rt[CFG_DEV08] = &sw->rt[CFG_DEV08];
+	dev->sw_info.rt[CFG_DEV16] = &sw->rt[CFG_DEV16];
+	dev->sw_info.rt[CFG_DEV32] = &sw->rt[CFG_DEV32];
+
+	return 0;
+};
+
+int cfg_find_dev_by_ct(uint32_t ct, struct cfg_dev *dev)
+{
+	struct int_cfg_ep *ep;
+	struct int_cfg_sw *sw;
+
+	ep = find_cfg_ep_by_ct(ct, cfg);
+
+	if (NULL != ep)
+		return fill_in_dev_from_ep(dev, ep);
+
+	sw = find_cfg_sw_by_ct(ct, cfg);
+
+	if (NULL != sw)
+		return fill_in_dev_from_sw(dev, sw);
+
+	return 1;
+};
+
+extern int cfg_get_conn_dev(uint32_t ct, int pt,
+		struct cfg_dev *dev, int *conn_pt)
+{
+	struct int_cfg_conn *conn = NULL;
+	int conn_end = -1, oe;
+	struct int_cfg_ep *ep;
+
+	ep = find_cfg_ep_by_ct(ct, cfg);
+
+	if (NULL != ep) {
+		if (pt)
+			goto fail;
+		conn = ep->ports[0].conn;
+		conn_end = ep->ports[0].conn_end;
+	}
+
+	if (NULL == ep) {
+		struct int_cfg_sw *sw;
+
+		sw = find_cfg_sw_by_ct(ct, cfg);
+		if (NULL != sw) {
+			if (pt >= CFG_MAX_SW_PORT)
+				goto fail;
+			if (!sw->ports[pt].valid)
+				goto fail;
+			if (sw->ports[pt].port != pt)
+				goto fail;
+			conn = sw->ports[pt].conn;
+			conn_end = sw->ports[pt].conn_end;
+		};
+	};
+
+	if (NULL == conn)
+		goto fail;
+
+	if (!conn->valid)
+		goto fail;
+
+	oe = OTHER_END(conn_end);
+	if (conn_end > 1)
+		goto fail;
+
+	*conn_pt = conn->ends[oe].port_num;
+	if (conn->ends[oe].ep)
+		return fill_in_dev_from_ep(dev, conn->ends[oe].ep_h);
+	else
+		return fill_in_dev_from_sw(dev, conn->ends[oe].sw_h);
+
+fail:
+	return 1;
+	
 };
 
 #ifdef __cplusplus

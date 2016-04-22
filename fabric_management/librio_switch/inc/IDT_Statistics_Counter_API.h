@@ -75,44 +75,44 @@ typedef enum idt_sc_ctr_t_TAG
     idt_sc_last             // Last index for enumerated type
 } idt_sc_ctr_t;
 
-extern char *sc_names[(UINT8)(idt_sc_last)+2];
-#define SC_NAME(x) ((x<=idt_sc_last)?sc_names[x]:sc_names[(UINT8)(idt_sc_last)+1])
+extern char *sc_names[(uint8_t)(idt_sc_last)+2];
+#define SC_NAME(x) ((x<=idt_sc_last)?sc_names[x]:sc_names[(uint8_t)(idt_sc_last)+1])
 
-#define DIR_TX TRUE
+#define DIR_TX true
 #define DIR_RX !DIR_TX
-#define DIR_SRIO TRUE
+#define DIR_SRIO true
 #define DIR_FAB  !DIR_SRIO
 
 typedef struct idt_sc_ctr_val_t_TAG
 {
     long long    total;    // Accumulated counter value since counter was 
                            //   enabled/configured
-    UINT32       last_inc; // Value the counter increased since previous read.
+    uint32_t       last_inc; // Value the counter increased since previous read.
     idt_sc_ctr_t sc;       // What is being counted
                            //    May be modified by device specific configuration routines,
 			   //    as counters are configured/enabled/disabled
 			   //    The fields "total" and "last_inc" are 0 when sc == idt_sc_dir
-    BOOL         tx;       // TRUE : transmitted "sc" are being counted.
-                           // FALSE: received    "sc" are being counted.
-    BOOL         srio;     // TRUE : Counter type reflects information on the RapidIO interface
-                           // FALSE: Counter type reflects information on the internal fabric interface
+    bool         tx;       // true : transmitted "sc" are being counted.
+                           // false: received    "sc" are being counted.
+    bool         srio;     // true : Counter type reflects information on the RapidIO interface
+                           // false: Counter type reflects information on the internal fabric interface
 } idt_sc_ctr_val_t;
 
-#define INIT_IDT_SC_CTR_VAL {0, 0, idt_sc_disabled, FALSE, TRUE} 
+#define INIT_IDT_SC_CTR_VAL {0, 0, idt_sc_disabled, false, true} 
 
 typedef struct idt_sc_p_ctrs_val_t_TAG
 {
-    UINT8        pnum;      // Port number for these counters
-    UINT8        ctrs_cnt;  // Number of valid entries in ctrs
+    uint8_t        pnum;      // Port number for these counters
+    uint8_t        ctrs_cnt;  // Number of valid entries in ctrs
                             //    Device specific.
     idt_sc_ctr_val_t ctrs[IDT_MAX_SC];  // Counter values for the device
 } idt_sc_p_ctrs_val_t;
 
 typedef struct idt_sc_dev_ctrs_t_TAG
 {
-    UINT8                num_p_ctrs;    // Number of allocated entries in p_ctrs[], 
+    uint8_t                num_p_ctrs;    // Number of allocated entries in p_ctrs[], 
                                         //    Maximum value is IDT_MAX_PORTS
-	UINT8                valid_p_ctrs;  // Number of valid entries in p_ctrs[],
+	uint8_t                valid_p_ctrs;  // Number of valid entries in p_ctrs[],
 	                                    //    Maximum value is num_p_ctrs;
 	                                    // Initialized by idt_sc_init_dev_ctrs()...
     idt_sc_p_ctrs_val_t *p_ctrs;        // Location of performance counters structure array
@@ -126,7 +126,7 @@ typedef struct idt_sc_init_dev_ctrs_in_t_TAG
 
 typedef struct idt_sc_init_dev_ctrs_out_t_TAG 
 {
-   UINT32      imp_rc;     // Implementation specific return code information.
+   uint32_t      imp_rc;     // Implementation specific return code information.
 } idt_sc_init_dev_ctrs_out_t;
 
 typedef struct idt_sc_read_ctrs_in_t_TAG
@@ -137,55 +137,55 @@ typedef struct idt_sc_read_ctrs_in_t_TAG
 
 typedef struct idt_sc_read_ctrs_out_t_TAG
 {
-   UINT32      imp_rc;     // Implementation specific return code information.
+   uint32_t      imp_rc;     // Implementation specific return code information.
 } idt_sc_read_ctrs_out_t;
 
 typedef struct idt_sc_cfg_tsi57x_ctr_in_t_TAG 
 {
    struct DAR_ptl         ptl;        // Port list
-   UINT8                  ctr_idx;    // Index of the Tsi57x counter to be configured.  Range 0-5.
-   UINT8                  prio_mask;  // Priority of packets to be counted.  Not used for control symbol counters.
+   uint8_t                  ctr_idx;    // Index of the Tsi57x counter to be configured.  Range 0-5.
+   uint8_t                  prio_mask;  // Priority of packets to be counted.  Not used for control symbol counters.
                                       //    Uses IDT_SC_TSI57X_PRIO_MASK_x constant definitions.
-   BOOL                   tx;         // Determines direction for the counter.  !tx = rx.
+   bool                   tx;         // Determines direction for the counter.  !tx = rx.
    idt_sc_ctr_t           ctr_type;   // Valid counter type, valid range from idt_sc_disabled to idt_sc_uc_4b_data
    idt_sc_dev_ctrs_t     *dev_ctrs;   // Device counters data type, initialized by idt_sc_init_dev_ctrs
 } idt_sc_cfg_tsi57x_ctr_in_t;
 
 typedef struct idt_sc_cfg_tsi57x_ctr_out_t_TAG
 {
-   UINT32      imp_rc;     // Implementation specific return code information.
+   uint32_t      imp_rc;     // Implementation specific return code information.
 } idt_sc_cfg_tsi57x_ctr_out_t;
 
 typedef struct idt_sc_cfg_cps_ctrs_in_t_TAG
 {
    struct DAR_ptl         ptl;       // Port list
-   BOOL                   enable_ctrs; // TRUE - enable all counters, FALSE - disable all counters
+   bool                   enable_ctrs; // true - enable all counters, false - disable all counters
    idt_sc_dev_ctrs_t     *dev_ctrs;    // Device counters data type, initialized by idt_sc_init_dev_ctrs
 } idt_sc_cfg_cps_ctrs_in_t;
 
 typedef struct idt_sc_cfg_cps_ctrs_out_t_TAG
 {
-   UINT32      imp_rc;     // Implementation specific return code information.
+   uint32_t      imp_rc;     // Implementation specific return code information.
 } idt_sc_cfg_cps_ctrs_out_t;
 
 typedef struct idt_sc_cfg_cps_trace_in_t_TAG
 {
   struct DAR_ptl          ptl;       // Port list
-   UINT8                  trace_idx;   // Index of the CPS trace/filter counter to be configured.  Range 0-3.
-   UINT32                 pkt_mask[5]; // Mask of packet fields to be checked.
-   UINT32                 pkt_val[5];  // Packet field values to match.
-   BOOL                   count;       // Count packets which are traced or dropped.      
-                                       //    If FALSE, no action occurs. 
-				       //    If TRUE , all counters will be enabled on the port.
-   BOOL                   trace;       // Send a copy of this packet to the trace port.   
-   BOOL                   drop;        // Drop this packet.  This is independent of trace behavior.
+   uint8_t                  trace_idx;   // Index of the CPS trace/filter counter to be configured.  Range 0-3.
+   uint32_t                 pkt_mask[5]; // Mask of packet fields to be checked.
+   uint32_t                 pkt_val[5];  // Packet field values to match.
+   bool                   count;       // Count packets which are traced or dropped.      
+                                       //    If false, no action occurs. 
+				       //    If true , all counters will be enabled on the port.
+   bool                   trace;       // Send a copy of this packet to the trace port.   
+   bool                   drop;        // Drop this packet.  This is independent of trace behavior.
    idt_sc_dev_ctrs_t     *dev_ctrs;    // Device counters data type, initialized by idt_sc_init_dev_ctrs
                                        //    May be set to NULL if counters are not of interest.
 } idt_sc_cfg_cps_trace_in_t;
 
 typedef struct idt_sc_cfg_cps_trace_out_t_TAG
 {
-   UINT32      imp_rc;     // Implementation specific return code information.
+   uint32_t      imp_rc;     // Implementation specific return code information.
 } idt_sc_cfg_cps_trace_out_t;
 
 
@@ -206,7 +206,7 @@ typedef struct idt_sc_cfg_cps_trace_out_t_TAG
 */
 #define SC_INIT_DEV_CTRS(x) (SC_INIT_DEV_CTRS_0+x)
 
-STATUS idt_sc_init_dev_ctrs (
+uint32_t idt_sc_init_dev_ctrs (
     DAR_DEV_INFO_t             *dev_info,
     idt_sc_init_dev_ctrs_in_t  *in_parms,
     idt_sc_init_dev_ctrs_out_t *out_parms
@@ -216,7 +216,7 @@ STATUS idt_sc_init_dev_ctrs (
 */
 #define SC_READ_CTRS(x) (SC_READ_CTRS_0+x)
 
-STATUS idt_sc_read_ctrs(
+uint32_t idt_sc_read_ctrs(
     DAR_DEV_INFO_t           *dev_info,
     idt_sc_read_ctrs_in_t    *in_parms,
     idt_sc_read_ctrs_out_t   *out_parms
@@ -227,7 +227,7 @@ STATUS idt_sc_read_ctrs(
  */
 
 #define SC_CFG_TSI57X_CTR(x) (SC_CFG_TSI57X_CTR_0+x)
-extern STATUS idt_sc_cfg_tsi57x_ctr (
+extern uint32_t idt_sc_cfg_tsi57x_ctr (
     DAR_DEV_INFO_t              *dev_info,
     idt_sc_cfg_tsi57x_ctr_in_t  *in_parms,
     idt_sc_cfg_tsi57x_ctr_out_t *out_parms
@@ -238,7 +238,7 @@ extern STATUS idt_sc_cfg_tsi57x_ctr (
 */
 #define SC_CFG_CPS_CTRS(x) (SC_CFG_CPS_CTRS_0+x)
 
-extern STATUS idt_sc_cfg_cps_ctrs(
+extern uint32_t idt_sc_cfg_cps_ctrs(
     DAR_DEV_INFO_t            *dev_info,
     idt_sc_cfg_cps_ctrs_in_t  *in_parms,
     idt_sc_cfg_cps_ctrs_out_t *out_parms

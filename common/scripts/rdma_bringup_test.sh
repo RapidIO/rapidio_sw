@@ -4,18 +4,22 @@
 # NOTE:
 # RapidIO RDMA software installation path must be identical on all nodes.
 
-#RDMA_ROOT_PATH=/opt/rapidio/cern/rapidio_sw
-RDMA_ROOT_PATH=/home/barryw/git/rapidio_sw
+RDMA_ROOT_PATH=/opt/rapidio/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
+. /etc/rapidio/nodelist.sh
+
 NUM_ITERATIONS=1000
+
+NODES_REV='';
+for node in $NODES; do
+	NODES_REV="$node $NODES_REV";
+done
 
 for (( i=0; i<NUM_ITERATIONS; i++ ))
 do
 	echo -n "Iteration " $i
 	echo ""
-
-	NODES="gry13 gry14 gry15 gry16"
 
 	# Load all drivers FIRST
 	for node in $NODES
@@ -169,10 +173,8 @@ do
 		echo "	Everything worked. Retrying, but cleaning up first"
 		echo ""
 
-		NODES="gry16 gry15 gry14 gry13"
-
 		# For each node, kill RSKTD RDMAD and FMD
-		for node in $NODES
+		for node in $NODES_REV
 		do
 			# Kill RSKTD
 			THE_PID=$(ssh root@"$node" pgrep rsktd)
@@ -221,10 +223,10 @@ do
 			then
 				echo "fmd killed but still alive with PID=$THE_PID!"
 			fi
-		done
+		done # END for node in $NODES_REV
 
 		# Unload all drivers from all nodes
-		for node in $NODES
+		for node in $NODES_REV
 		do
 			# Unload drivers
 			echo "Unloading drivers on $node "
@@ -232,7 +234,7 @@ do
 			sleep 1
 			ssh root@"$node" "modprobe -r rio_cm"
 			sleep 1
-		done
+		done # END for node in $NODES_REV
 	fi # 	if [ $OK -eq 0 ]
 done #for (( i=0; i<NUM_ITERATIONS; i++ ))
 

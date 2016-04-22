@@ -1,4 +1,4 @@
-/*! \mainpage Goodput Introduction
+/*! \page goodput_docs Goodput Introduction
  *
  * \section intro_sec Introduction
  * The goodput tool measures goodput (actual data transferred) and latency for 
@@ -7,41 +7,178 @@
  * user mode driver tested on x86/x64 platforms.
  *
  * \section fast_start_sec Getting Started
- * \subsection compile_sec Compiling Goodput and UGoodput
- * To compile the goodput tool, complete the following steps:
- * 1. In the "rapidio_sw" directory, type "make all".
- * 2. In the "rapidio_sw/utils/goodput" directory, type "make all".
- * \subsection rapidio_start_sec Starting the RapidIO Interfaces
  *
- * To start the RapidIO interfaces on the demo platforms, complete the
+ * To start the systems RapidIO interfaces, complete the
  * following steps:
  *
- * -# Power up the node marked "IND02".
+ * -# Power up the system switch, if one exists in the system.
+ * -# Power up all slave nodes.
  *    Wait until the Linux interface is displayed on the terminal.
- * -# Power up the node marked "INDO1".
+ * -# Power up the master ("enumerator") node.
  *    Wait until the Linux interface is displayed on the terminal.
  * -# Log in as guest on each node.
  * -# Create terminal sessions on each node.
- * -# On IND01, enter the following command in the terminal:
- *    "/opt/rapidio/all_start.sh".
+ * -# On the master node, enter the following command in the terminal:
+ *    "/opt/rapidio/rapidio_sw/rio_start.sh".
  * 
+ * The goodput and ugoodput tools are installed at 
+ * /opt/rapidio/rapidio_sw/utils/goodput.  
+ * 
+ * \subsection goodput_exec_sec Goodput Quick Start
+ *
+ * The Goodput and Ugoodput tools support a rich set of performance measurement
+ * capabilities.  Details of these capabilities are found later in this
+ * documentation.
+ *
+ * A standard set of goodput measurements can be performed by executing the 
+ * goodput/test/regression.sh script.  The script uses two nodes to 
+ * perform all measurements,
+ * summarizes those measurements, and checks for errors.  An equivalent script
+ * exists for the user mode driver.  For more information see \ref 
+ * ugoodput_exec_sec.
+ *
+ * The two nodes must
+ * meet the following system requirements:
+ *
+ * - ssh been configured to allow root access from the node executing 
+ *   the regression.sh script to the two nodes 
+ * - The 'screen' utility has been installed on the two nodes
+ * - The RRMAP software package has been installed using the same directory
+ *   path on the two nodes 
+ * 
+ * The regression.sh script accepts the following parameters:
+ *
+ * - MAST       : Name of master node/IP address
+ * - SLAVE      : Name of slave node/IP address
+ * - MAST_MPNUM : Master node mport number (usually 0)
+ * - SLAVE_MPNUM: Slave node mport number (usually 0)
+ *
+ * All parameters below are optional.  Default values are shown.
+ *
+ * - DIR        : Directory on both MAST and SLAVE to run tests.
+ *                Default is the absolute directory of test/regression.sh
+ *                on the node executing test/regression.sh.
+ *                If this same directory does not exist on both MAST and SLAVE,
+ *                it is not possible to run regression.sh!
+ * - WAIT       : Time in seconds to wait before perf measurement
+ *                Default is  30.  Each second requires about 8 minutes of 
+ *                execution time i.e. 30 seconds of individual measurements
+ *                result in 4 hours of script execution time.
+ * - DMA_TRANS  : DMA write transaction type
+ *                0 NW, 1 SW, 2 NW_R, 3 SW_R 4 NW_R_ALL
+ *                0 is the default.
+ * - DMA_SYNC   : 0 - blocking, 1 - async, 2 - fire-and-forget
+ *                Blocking: A DMA transaction must complete before the next
+ *                DMA transaction will be started.
+ *                Async: Completion of the DMA transaction is checked
+ *                separately.  Similar performance to Blocking.  
+ *                Fire-and-forget: DMA transaction completion is not checked.
+ *                NOTE: Fire-and-forget can result in a "burst" of
+ *                transactions at the start as the DMA transaction queue is
+ *                filled.  
+ * - IBA_ADDR   : RapidIO address of inbound window for both nodes
+ *                Default is hexadecimal 200000000
+ * - SKT_PREFIX : First 3 digits of 4 digit socket numbers
+ *                Default is  234.
+ *                Used for messaging measurements.
+ * - DMA_SYNC2  : 0 - blocking, 1 - async, 2 - fire and forget
+ *                Default is same as DMA_SYNC
+ * - DMA_SYNC3  : 0 - blocking, 1 - async, 2 - fire and forget
+ *                Default is same as DMA_SYNC
+ *
+* All results are found on the MAST node, in the
+* goodput/logs/mport{MAST_MPNUM} directory.
+* This directory contains the following after a successful test:
+* - label.res    : Information about regression parameters,
+*                  platform hardware, and execution time
+* - all_thru.res : Summary of all throughput measurementa, as described in
+*                  \ref thru_sum_res.
+* - all_lat.res  : Summary of all latency measurements, as described in
+*                  \ref thru_sum_res.
+* - detailed measurement logs with names ending in ".log".
+*   For more information on the individual throughput measurements,
+*   refer to \ref goodput_cmd_overview_secn.
+*   For more information on the individual latency measurements,
+*   refer to \ref latency_cmd_overview_secn.
+* - results summary files, ending in ".res", for each detailed
+*   measurement log file.  For information on the latency and
+*   throughput results file data, refer to \ref lat_sum_res and 
+*   \ref thru_sum_res.
+*
+* \subsubsection lat_sum_res Latency Summary Results
+*
+* Latency results are summarized using the following format:
+* <pre>
+* Processing latency log file :  obwin_lat_read.log
+* Output filename is          :  obwin_lat_read.log.res
+* SIZE     Transfers   Min_Usecs   Avg_Usecs   Max_Usecs
+*        1  15614082       1.779       1.864      31.432
+*        2  15694459       1.780       1.854     569.849
+*        4  15690140       1.781       1.854      76.678
+*        8  15690714       1.784       1.854     124.708
+* </pre>
+*
+* The columns have the following meaning:
+* - SIZE: Hexadecimal size of the transactions, powers of 2 from 1 up to 4 MB
+* - Transfers: Number of transfers used in the latency computation
+* - Min_Usecs: Minimum number of microseconds to complete one transfer
+* - Avg_Usecs: Average number of microseconds to complete one transfer
+* - Max_Usecs: Maximum number of microseconds to complete one transfer
+* Note that Max_Usecs is a measurement of operating system/scheduler latency.
+* Minimum and average latency figures indicate the usual performance for
+* each transaction.
+*
+* \subsubsection thru_sum_res Throughput Summary Results
+*
+* Throughput results are summarized using the following format:
+* <pre>
+* Processing througput log file :  pdma_thru_pdm_write.log
+* Output filename is            :  pdma_thru_pdm_write.log.res
+* SIZE        MBps     Gbps   LinkOcc  AvailCPU  UserCPU  KernCPU CPU OCC %
+*     4000  1547.073   12.377   13.028    10262       71     3217   128.16
+*     8000  1572.036   12.576   13.238    11225       52     1408    52.03
+*    10000  1585.969   12.688   13.356    11615       50      725    26.69
+*    20000  1591.853   12.735   13.405    11818       38      431    15.87
+*    40000  1573.115   12.585   13.247    11850       48      313    12.19
+*    80000  1562.327   12.499   13.156    11880       46      242     9.70
+*   100000  1580.099   12.641   13.306    11920       26      149     5.87
+*   200000  1592.371   12.739   13.409    11947       15       95     3.68
+*   400000  1596.779   12.774   13.447    11968        7       49     1.87
+* </pre>
+*
+* The columns have the following meaning:
+* - SIZE – Hexadecimal size of the transactions, powers of 2 from 1 up to 4 MB
+* - MBps – Goodput, payload data transferred.
+* - GBps – Goodput, MBps * 8
+* - LincOcc – Estimate of amount of bandwidth used on the link by packets
+* - AvailCPU: Ticks of processing time available in the measurement period,
+*             where each tick is 1/100th of a second.
+*             Each processor core contributes 100 ticks per second.
+* - UserCPU: Ticks spent in the measurement process (goodput)
+* - KernCPU – Ticks spent in the kernel
+* - CPU OCC % - Percentage of the CPU used by the measurement process.
+ *
  * \subsection exec_sec Running Goodput
  * Goodput contains all functionality and commands to verify and measure kernel
  * mode applications.  
  * The goodput tool must be run as root.
  * To execute goodput, type "sudo ./goodput" while in the
- * "rapidio_sw/utils/goodput" directory.
+ * "rapidio_sw/utils/goodput" directory.  This will start goodput using
+ * the device /dev/rio_mport0.  To change to another mport, use "sudo ./goodput
+ * {mport}, where mport is a digit from 0 to 9.
  *
  * \subsection exec_ugoodput_sec Running UGoodput
  * Ugoodput has all the commands and functionality of goodput, and includes 
  * commands and functionality to support the Tsi721 demonstration
  * user mode driver.
- * Currently the Tsi721 user mode driver can only be compiled on x86/x64
- * platforms, and is still under development.
+ * Currently the Tsi721 user mode driver can only be compiled on x86/x64.
  *
  * UGoodput must be run as root.
  * To execute UGoodput, type "sudo ./ugoodput" while in the
- * "rapidio_sw/utils/goodput" directory.
+ * "rapidio_sw/utils/goodput" directory.  This will start goodput using
+ * the device /dev/rio_mport{MPNUM}.  To change to another mport, use
+ * "sudo ./goodput
+ * {mport}, where mport is a digit from 0 to 9.
  *
  * \subsection script_goodput_sec Getting Started with Goodput Performance Measurement Scripts
  * The goodput command line interpreter (CLI) supports an extensive set of
@@ -130,9 +267,9 @@
  *
  * \subsubsection set_cmd_secn Set Command
  *
- * The "set" command lists, sets, or clears environment variables.
- * Environment variables can be used as the parameters to commands.
- * Environment variables are named "$var_name".
+ * The "set" command lists, sets, or clears CLI environment variables.
+ * CLI environment variables can be used as the parameters to commands.
+ * CLI environment variables are named "$var_name".
  *
  * \section threads_secn Goodput Thread Management
  * The goodput CLI manages 12 worker threads.
@@ -172,6 +309,17 @@
  * cpu to another using the "move" command.  A moved thread retains all
  * allocated resources.
  *
+ * \subsection isolcpu_secn IsolCPU Command
+ * The isolcpu command checks the current Linux configuration for CPUs
+ * which have been reserved for user specific tasks.  The isolcpu command
+ * sets CLI environment variables named 'cpu1', 'cpu2', ..., 'cpuN' for 
+ * each CPU found.  For more information on isolcpu configuration in Linux,
+ * please research isolcpu Linux boot command line parameter.
+ * 
+ * NOTE: Isolcpus are not necessary to perform any measurements.  The accuracy
+ * of some measurements is increased when they are executed on a CPU isolated 
+ * from the Linux scheduler.
+ *
  * \subsection stat_secn Status Command
  * The "status" command gives the current state of all threads.  Status has 
  * three variants, with General status as the default:
@@ -200,9 +348,10 @@
  * commanded to perform direct I/O or DMA transactions to Node X inbound
  * window z. 
  *
- * The "IBAlloc" command requests that a thread allocate an inbound window.  Once
- * the thread has finished inbound window allocation, the thread halts and can
- * accept another command.  The location of the inbound window can be 
+ * The "IBAlloc" command requests that a thread allocate an inbound window.  
+ *  Once the thread has finished inbound window allocation, the thread 
+ * halts and can accept another command.  The location of the inbound window 
+ * can be 
  * displayed using the "status i" command, as described in the \ref stat_secn.
  *
  * The "IBDealloc" command can be used 
@@ -266,7 +415,7 @@
  * - Messages - Count of the number of messages, 0 for DMA and 
  *             Direct I/O measurements
  * - Link_Occ - Decimal display of the RapidIO link occupancy, in gigabits per
- *             seconds.  Link occupancy includes RapidIO packet header data.
+ *             second.  Link occupancy includes RapidIO packet header data.
  *
  * \subsection latency_cmd_overview_secn Latency Measurement Display
  *
@@ -310,11 +459,27 @@
  * and IND01 is the source node for the performance scripts.
  *
  * -# On IND02, run the bash script "goodput/scripts/create_start_scripts.sh" 
- *    as shown, where '###' represents the first 3 digits of the socket 
- *    connection numbers used for performance measurement.  Any 3 numbers
- *    can be used:
- *    ./create_start_scripts ###
- * -# On IND02, start "goodput/ugoodput"
+ *    as shown below, where
+ *    - mport# : is the index of the master port to use on IND02, usually 0
+ *    - ### : the first 3 digits of the socket numbers used for 
+ *            performance measurement.  Any 3 numbers can be used
+ *    - IBA_addr: The hexadecimal RapidIO address used as a 
+ *                target for read and write transactions.
+ *
+ *    ./create_start_scripts {mport#} {socket} {IBA_addr}
+ *
+ *    For example, './create_start_scripts 0 123 200000000' uses master port
+ *    0, socket numbers 123_, and a RapidIO address of 0x200000000.
+ *
+ *    Create_start_scripts.sh creates two directries:
+ *    - goodput/mport{mport#}, which contains the startup scripts 
+ *      specific to mport#
+ *    - logs/mport{mport#}, used to store any local log files necessary for
+ *      correct script execution.
+ *
+ * -# On IND02, execute goodput or ugoodput with the same {mport} value used
+ *  for the create_start_scripts.sh script.
+ *
  * -# At the goodput/ugoodput command prompt on IND02, enter:
  *    ". start_target". 
  *
@@ -332,7 +497,7 @@
  * 7 Run Any Any MSG_Rx KRNL  0                0                0                0
  * 8 Run Any Any mR_Lat KRNL  0                0                0                0
  * 9 Hlt Any Any NO_ACT KRNL  0                0                0                0
- *10 Hlt Any Any  IBWIN KRNL  1        AAAAAAAAA        AAAAAAAAA           400000
+ *10 Hlt Any Any  IBWIN KRNL  1    AAAAAAAAAAAAA       {IBA_addr}           400000
  *11 Run Any Any CpuOcc KRNL  0                0                0                0
  * Available 1 local mport(s):
  * +++ mport_id: 0 dest_id: -->> DID <<--
@@ -340,16 +505,35 @@
  *        1 Endpoints (dest_ID): 1
  * script start_target completed, status 0
  * </pre>
+ * -# On IND01, run the bash script "goodput/scripts/create_start_scripts.sh" 
+ *    as shown, where
+ *    - mport : is the index of the master port to use on IND01, usually 0
+ *    - ### : the first 3 digits of the socket numbers used for 
+ *            performance measurement.  Any 3 numbers can be used.  These can
+ *            be different numbers than those used for create_start_scripts.sh
+ *            on IND02.
+ *    - IBA_addr: The hexadecimal RapidIO address used as a 
+ *                target for read and write transactions.
+ *
+ *    This command is necessary to create the local mport{MPNUM} and logs/mport{MPNUM}
+ *    directories used by scripts created in the next step.
+ *
  * -# On IND01 run the bash script "scripts/create_perf_scripts.sh" as follows: 
- *  ./create_perf_scripts.sh 60 0 0 DID AAAAAAAAA ###
- *  - DID is the dest_id value displayed on IDN02
- *  - AAAAAAAAA is the address value displayed on IND02
- *  - ### is the same 3 digits entered for create_start_scripts.sh on IND02
+ *  ./create_perf_scripts.sh {WAIT} {DMA_TRANS} {DMA_SYNC} {DID}  {socket} {IBA_addr} {mport#} .
+ *  - {DID} is the DID value displayed by IND02
+ *  - {IBA_addr} is the same address value used for create_start_scripts.sh on 
+ *    IND02
+ *  - {socket} is the same 3 digits entered for create_start_scripts.sh on IND02
+ *  - For a detailed description of the other parameters, refer to \ref
+ *   script_gen_detail_secn 
  *
  * \subsection script_exec_detail_secn Goodput Script Execution
  *
  * All performance measurement scripts are generated by the
- * "create_perf_scripts.sh bash" script.
+ * "create_perf_scripts.sh bash" script.  The scripts are found in the 
+ * goodput/mport{MPNUM} directory, along with subdirectories of scripts for
+ * each type of measurement.
+ *
  * All performance measurement scripts, except DMA write and OBWIN write 
  * latency, are executed by the "scripts/run_all_perf script".
  *
@@ -360,61 +544,100 @@
  *
  * The top-level scripts listed below run all of the performance measurement
  * scripts in the associated directory. The top-level scripts are found
- * in the scripts/performance directory, and are named according to the
+ * in the goodput/mport{MPNUM} directory, and are named according to the
  * directory and function of scripts that will be executed.
  *
  * Each top-level script generates a file in the 
- * rapidio_sw/utils/goodput/logs directory.  The log files are named
+ * rapidio_sw/utils/goodput/logs/mport{MPNUM} directory.  The log files are named
  * "topLevel.log", where "topLevel" is the name of the top-level script that
  * generated the log file.  The log file captures the performance measurements
  * for all of the individual scripts run by the top-level script.
  *
- * The results of all the "*thru*.log" files can be summarized quickly using the
- * summ_thru_logs.sh bash script.  The output of summ_thru_logs.sh bash may be
- * imported by other programs including spreadsheets.
+ * The create_start_scripts.sh bash script also places four analysis scripts
+ * into the logs/mport{MPNUM} directory:
+ * - summ_lat_logs.sh : Summarizes the contents of each latency .log file
+ *   into a corresponding .res file in the current directory.  Displays the
+ *   contents of all latency .res files, so that they can be captured into
+ *   another file.
+ * - check_lat_logs.sh : Accepts the output of the summ_lat_logs.sh scripts,
+ *   and creates two files:
+ *   - lat_pass.out : Contains indications of which sizes of transactions 
+ *     were successfully measured.
+ *   - lat_fail.out : Contains indications of which transactions failed.
+ * - summ_thru_logs.sh : Summarizes the contents of each throughput .log file
+ *   into a corresponding .res file in the current directory.  Displays the
+ *   contents of all throughput .res files, so that they can be captured into
+ *   another file.
+ * - check_thru_logs.sh : Accepts the output of the summ_thru_logs.sh scripts,
+ *   and creates two files:
+ *   - thru_pass.out : Contains indications of which sizes of transactions 
+ *     were successfully measured.
+ *   - thru_fail.out : Contains indications of which transactions failed.
  *
  * Note that the "start_target" script must be running on the target node,
- * and the scripts on the source node must be generated with information on
- * the target node, to successfully execute the "run_all_perf" script or
- * any of the top-level scripts on the source.
+ * and the scripts on the source node must be generated with information 
+ * consistent with the target node, to successfully execute the 
+ * "run_all_perf" script or any of the top-level scripts on the source.
  *
  * The list of top-level scripts includes the following:
  *
- * - msg_lat_rx  - Messaging latency, requires 
- *                 scripts/performance/msg_lat/m_rx.txt to run on target
+ * - msg_lat_tx  - Messaging latency, requires 
+ *                 mport{MPNUM}/msg_lat/m_rx.txt to run on target
  * - msg_thru_tx - Messaging throughput, requires
- *                 scripts/performance/msg_thru/m_rx.txt to run on target
+ *                 mport{MPNUM}/msg_thru/m_rx.txt to run on target
  * - dma_lat_read - Single-thread DMA read latency, 
- *                 requires inbound window allocation on target
+ *                 requires inbound window allocation on target (run
+ *                 mport{MPNUM}/start_target)
  * - dma_thru_read - Single-thread DMA read throughput, 
- *                   requires inbound window allocation on target
- * - dma_thru_write - Single-thread DMA write throughput
+ *                   requires inbound window allocation on target (run
+ *                   mport{MPNUM}/start_target)
+ * - dma_thru_write - Single-thread DMA write throughput,
+ *                 requires inbound window allocation on target (run
+ *                    mport{MPNUM}/start_target)
  * - obwin_thru_write - Outbound window (direct I/O) write throughput
+ *                 requires inbound window allocation on target (run
+ *                    mport{MPNUM}/start_target)
  * - obwin_thru_read - Outbound window (direct I/O) read throughput, 
- *                     requires inbound window allocation on target
+ *                     requires inbound window allocation on target (run
+ *                    mport{MPNUM}/start_target)
  * - obwin_lat_read - Outbound window (direct I/O) read latency,
- *                   requires inbound window allocation on target
+ *                     requires inbound window allocation on target (run
+ *                    mport{MPNUM}/start_target)
  * - pdma_thru_pd1_read - Multi-threaded DMA read throughput, one DMA engine,
- *                        requires inbound window allocation on target
+ *                     requires inbound window allocation on target (run
+ *                    mport{MPNUM}/start_target)
  * - pdma_thru_pd1_write - Multi-threaded DMA write throughput, one DMA engine
+ *                     requires inbound window allocation on target (run
+ *                    mport{MPNUM}/start_target)
  * - pdma_thru_pdd_read - Multi-threaded DMA read throughput,
  *                        one DMA engine per thread,
- *                        requires inbound window allocation on target
+ *                     requires inbound window allocation on target (run
+ *                    mport{MPNUM}/start_target)
  * - pdma_thru_pdd_write - Multi-threaded DMA write throughput,
  *                        one DMA engine per thread
+ *                     requires inbound window allocation on target (run
+ *                    mport{MPNUM}/start_target)
  * - pdma_thru_pdm_read - Multi-threaded DMA read throughput,
  *                        some threads share the same DMA engine,
- *                        some threads have their own DMA engine,
- *                        requires inbound window allocation on target
+ *                     Requires inbound window allocation on target (run
+ *                    mport{MPNUM}/start_target)
  * - pdma_thru_pdm_write - Multi-threaded DMA write throughput,
- *                        some threads share the same DMA engine,
  *                        some threads have their own DMA engine
+ *                     Requires inbound window allocation on target (run
+ *                    mport{MPNUM}/start_target)
  *
  * \subsection script_gen_detail_secn Goodput Script Generation Details
  *
- * The bash script "goodput/scripts/performance/create_perf_scripts.sh" creates
- * a complete set of scripts that can be used to evaluate the performance
- * of a platform. Individual scripts are found in one of the directories listed
+ * The goodput tool set makes use of bash scripts to generate CLI scripts.
+ * Bash scripts are generated from a Linux command prompt.  CLI scripts
+ * are executed by the goodput and ugoodput tools.
+ *
+ * The bash script "goodput/scripts/create_perf_scripts.sh" creates
+ * a complete set of CLI scripts that can be used to evaluate the performance
+ * of a platform. The scripts are specific to a master port device 
+ * (/dev/rio_mport{MPNUM}, and so are found in the goodput/mport{MPNUM} directory.
+ * Individual CLI scripts are found in one of the mport{MPNUM} subdirectories 
+ * listed
  * below. For more information on the other scripts generated, see
  * \ref script_exec_detail_secn.
  *
@@ -426,7 +649,8 @@
  * - obwin_thru - Direct I/O latency measurement with one or multiple threads
  * - obwin_lat - Direct I/O latency measurement
  *
- * Each directory contains a bash script, "create_scripts.sh", and one
+ * Each subdirectory listed above contains a bash script,
+ * "create_scripts.sh", and one
  * or more template files used by the bash script as the basis of the
  * scripts to be created.  Each "create_scripts.sh" file accepts parameters
  * that are used to replace keywords in the template file(s).
@@ -436,18 +660,32 @@
  * - DMA_TRANS - DMA transaction type
  *                0 = NW, 1 = SW, 2 = NW_R, 3 = SW_R 4 = NW_R_ALL
  * - DMA_SYNC   - 0 = blocking, 1 = async, 2 = fire and forget
+ *                NOTE: Fire-and-forget can result in a "burst" of
+ *                transactions as the DMA transaction queue is
+ *                filled when the measurement begins.  It is recommended to
+ *                clear the throughput results with the "goodput clear" CLI
+ *                command before taking measurements for fire-and-forget
+ *                transactions.
  * - DID        - Device ID of target device for performance scripts
  * - IBA_ADDR   - Hexadecimal address of target window on DID
  * - SKT_PREFIX - First 3 digits of 4-digit socket numbers
  * 
  * - Optional parameters, if not entered same as DMA_SYNC
+ *   - MPORT      - Mport number for these scripts, default is 0
  *   - DMA_SYNC2  - 0 = blocking, 1 = async, 2 = fire and forget
+ *                  Same as DMA_SYNC.  Used for threads sharing a DMA engine
+ *                  for "mixed"  parallel DMA measurements.  For more 
+ *                  information, see \ref dma_thruput_scr_secn.
  *   - DMA_SYNC3  - 0 = blocking, 1 = async, 2 = fire and forget
+ *                  Same as DMA_SYNC.  Used for threads with a dedicated
+ *                  DMA engine
+ *                  for "mixed"  parallel DMA measurements.  For more 
+ *                  information, see \ref dma_thruput_scr_secn.
  *
  * These parameters are then passed to the "create_scripts.sh" bash scripts
  * in each subdirectory, as appropriate.  
- * The "create_scripts.sh" scripts can also be run on their own. Each script will describe the
- * parameters it accepts if called without any parameters.
+ * The "create_scripts.sh" scripts can also be run on their own. Each script 
+ * will describe the parameters it accepts if called without any parameters.
  * 
  * \subsection dio_meas_secn Direct I/O Measurement
  * Direct I/O read and write transactions are generally performed 
@@ -472,19 +710,19 @@
  * \subsubsection dio_thruput_scr_secn Direct I/O Goodput Measurement Scripts
  *
  * All direct I/O read measurements can be performed by executing the
- * "scripts/performance/obwin_thru_read" top-level script from the Goodput
+ * "mport{MPNUM}/obwin_thru_read" top-level script from the Goodput
  * command prompt.
  * The performance results are captured in the "obwin_thru_read.log" file,
- * found in the rapidio_sw/utils/goodput directory.
+ * found in the rapidio_sw/utils/goodput/logs/mport{MPNUM} directory.
  *
  * All direct I/O write measurements can be performed by executing the
- * "scripts/performance/obwin_thru_write" top-level script from the Goodput
+ * "mport{MPNUM}/obwin_thru_write" top-level script from the Goodput
  * command prompt.
  * The performance results are captured in the "obwin_thru_write.log" file,
- * found in the rapidio_sw/utils/goodput directory.
+ * found in the rapidio_sw/utils/goodput/logs/mport{MPNUM} directory.
  *
  * Direct I/O goodput measurement scripts are found in the
- * scripts/performance/obwin_thru directory.  The script name format is
+ * mport{0}/obwin_thru directory.  The script name format is
  * oNdSZ.txt, where:
  *
  * - N is the number of threads performaning the access, either 1 or 8
@@ -492,7 +730,7 @@
  * - SZ is the size of the access, consisting of a number of bytes followed by
  *   one of B for bytes, K for kilobytes, or M for megabytes.
  *
- * For example, script "goodput/scripts/performance/obwin_thru/o1W4B.txt"
+ * For example, script "goodput/mport{MPNUM}/obwin_thru/o1W4B.txt"
  * executes a single thread performing 4 byte writes.
  *
  * \subsubsection dio_thruput_secn Direct I/O Goodput Measurement
@@ -509,7 +747,7 @@
  * \subsubsection dio_lat_scr_secn Direct I/O Latency Measurement Scripts
  *
  * Scripts to perform direct I/O latency measurement are found in the
- * "scripts/performance/obwin_lat" directory.  All script names have the 
+ * "mport{0}/obwin_lat" directory.  All script names have the 
  * format olDsz, where:
  *
  * - D is the direction, either R for read, W for write, or T for looping
@@ -517,27 +755,27 @@
  * - sz is the size of the access, consisting of a number of bytes followed by
  *   one of B for bytes, K for kilobytes, or M for megabytes.
  *
- * For example, script "goodput/scripts/performance/obwin_lat/olT2B.txt" is
+ * For example, script "goodput/mport{MPNUM}/obwin_lat/olT2B.txt" is
  * executed on the target to loop back 2 byte writes.
  *
  * To execute all of the read latency scripts, complete the following steps:
- * 1. Execute the script "scripts/start_target" on the target.
- * 2. Execute the script "scripts/performance/obwin_lat_read" command on the
+ * 1. Execute the script "mport{MPNUM}/start_target" on the target.
+ * 2. Execute the script "mport{MPNUM}/obwin_lat_read" command on the
  * source.
  * 
  * All direct I/O read latency measurements are captured in the
- * "rapidio_sw/utils/goodput/obdio_read_lat.log" file.
+ * "rapidio_sw/utils/goodput/logs/mport{MPNUM}/obdio_read_lat.log" file.
  *
  * To execute individual write latency measurements, complete the following
  * steps:
  * -# Kill all workers on the source node with the "kill all" command.
- * -# Execute the "scripts/performance/obwin_lat/olTnB.txt" script on the target.
- * -# Execute the "scripts/performance/obwin_lat/olWnB.txt" script on the source
+ * -# Execute the "mport{MPNUM}/obwin_lat/olTnB.txt" script on the target.
+ * -# Execute the "mport{MPNUM}/obwin_lat/olWnB.txt" script on the source
  *    node that will measure latency.
  *
  * The latency measurement result will be shown in the source node CLI session.
  * All direct I/O write latency measurements cannot be executed 
- * from a top-level script.  
+ * from a top-level CLI script.  
  *
  * \subsubsection dio_lat_secn Direct I/O Latency Measurement CLI Commands
  *
@@ -626,22 +864,26 @@
  * pdma_thru_pdd_read - Multiple DMA engines, single thread per engine, read
  * pdma_thru_pdd_write - Multiple DMA engines, single thread per engine, write
  * pdma_thru_pdm_read - Mix of single and multiple threads per engine, read
+ * 4 threads share a DMA engine, and 4 threads each havir their own DMA
+ * engine.
  * pdma_thru_pdm_write - Mix of single and multiple threads per engine, write
+ * 4 threads share a DMA engine, and 4 threads each havir their own DMA
+ * engine.
  *
  * All DMA read measurements can be performed by executing the
- * "scripts/performance/dma_thru_read" or "pdma_thru_XXX_read" scripts 
+ * "mport{0}/dma_thru_read" or "pdma_thru_XXX_read" scripts 
  * from the Goodput command prompt. The performance results are
  * captured in the "dma_thru_read.log" and "pdma_thru_XXX_read.log" files,
- * found in the rapidio_sw/utils/goodput directory.
+ * found in the rapidio_sw/utils/goodput/logs/mport{MPNUM} directory.
  *
  * All DMA write measurements can be performed by executing the
- * "scripts/performance/dma_thru_write" or "pdma_thru_XXX_write" scripts 
+ * "mport{0}/dma_thru_write" or "pdma_thru_XXX_write" scripts 
  * from the Goodput command prompt. The performance results are
  * captured in the dma_thru_write.log and dma_thru_XXX_write.log files,
- * found in the rapidio_sw/utils/goodput directory.
+ * found in the rapidio_sw/utils/goodput/logs/mport{MPNUM} directory.
  *
  * DMA goodput measurement scripts are found in the
- * scripts/performance/dma_thru and pdma_thru directories.
+ * mport{MPNUM}/dma_thru and pdma_thru directories.
  * The script name format is pfxTsz.txt, where:
  *
  * - pfx indicates the kind of parallelism executing:
@@ -653,7 +895,7 @@
  * - sz is the size of the access, consisting of a number of followed by
  *   one of B for bytes, K for kilobytes, or M for megabytes.
  *
- * For example, the file "goodput/scripts/performance/pdma_thru/pdmR256K.txt"
+ * For example, the file "goodput/mport{MPNUM}/pdma_thru/pdmR256K.txt"
  * indicates that this script measures dma goodput for a
  * mix of single and multiple threads per engine using 256 kilobyte transfers.
  *
@@ -670,7 +912,7 @@
  * \subsubsection dma_lat_scr_secn DMA Latency Measurement Scripts
  *
  * Scripts to perform DMA latency measurement are located in the
- * "scripts/performance/dma_lat" directory.  All script names have the 
+ * "mport{MPNUM}/dma_lat" directory.  All script names have the 
  * format dlDsz, where:
  *
  * - D is the direction, either R for read, W for write, or T for looping
@@ -681,23 +923,23 @@
  *   transfers.
  *
  * To execute all of the read latency scripts, complete the following:
- * -# Execute the script "scripts/start_target" on the target.
- * -# Execute the script "scripts/performance/dma_lat_read" on the source.
+ * -# Execute the script "mport{MPNUM}/start_target" on the target.
+ * -# Execute the script "mport{MPNUM}/dma_lat_read" on the source.
  * 
  * All DMA read latency measurements are captured in the
- * "rapidio_sw/utils/goodput/dma_read_lat.log" file.
+ * "rapidio_sw/utils/goodput/logs/mport{MPNUM}dma_read_lat.log" file.
  *
  * To execute individual write latency measurements, complete the following
  * steps:
  * 1. Kill all workers on the source node with the "kill all" command.
- * 2. Execute the scripts/performance/obwin_lat/dlTnB.txt script on the target.
- * 3. Execute the scripts/performance/obwin_lat/dlWnB.txt script on the source
+ * 2. Execute the goodput/mport{MPNUM}/obwin_lat/dlTnB.txt script on the target.
+ * 3. Execute the goodput/mport{MPNUM}/obwin_lat/dlWnB.txt script on the source
  * node that will measure latency.
  *
  * The latency measurement result will be shown in the source node CLI session.
  *
  * All DMA write latency measurements cannot be executed 
- * from a single script.  
+ * from a single CLI script.  
  *
  * \subsubsection dma_lat_secn DMA Latency Measurement CLI Commands
  *
@@ -747,15 +989,15 @@
  * \subsubsection msg_thruput_scr_secn Messaging Goodput Measurement Scripts
  *
  * Messaging goodput measurement scripts are found in the
- * "scripts/performance/msg_thru" directory.  To execute all messaging
+ * "mport{MPNUM}/msg_thru" directory.  To execute all messaging
  * performance scripts, complete the following steps:
  *
- * -# Execute the "scripts/start_target" script on the target node.
- * -# Execute the "scripts/performance/msg_thru_tx.txt" script on the
+ * -# Execute the "mport{MPNUM}/start_target" script on the target node.
+ * -# Execute the "mport{MPNUM}/msg_thru_tx.txt" script on the
  *    source node.
  *
  * All messaging throughput measurements are captured in the
- * "rapidio_sw/utils/goodput/msg_thru_tx.log" file.
+ * "rapidio_sw/utils/goodput/logs/mport{MPNUM}/msg_thru_tx.log" file.
  *
  * \subsubsection msg_thruput_secn Messaging Goodput Measurement CLI Commands
  *
@@ -772,7 +1014,7 @@
  * \subsubsection msg_thruput_scr_secn Messaging Latency Measurement Scripts
  *
  * Messaging latency measurement scripts are found in the
- * "scripts/performance/msg_lat" directory.  All script names have the 
+ * "mport{MPNUM}/msg_lat" directory.  All script names have the 
  * format mTsz, where:
  *
  * - sz is the size of the access, consisting of a number followed by
@@ -782,8 +1024,8 @@
  *
  * To execute all messaging latency scripts, complete the following stesp:
  *
- * -# Execute the "scripts/start_target" script on the target node.
- * -# Execute the "scripts/performance/msg_lat_rx.txt" script on the
+ * -# Execute the "mport{MPNUM}/start_target" script on the target node.
+ * -# Execute the "mport{MPNUM}/msg_lat_tx.txt" script on the
  *    source node.
  *
  * \subsubsection msg_thruput_secn Messaging Latency Measurement CLI Commands
@@ -817,6 +1059,91 @@
  * the source and target for measurements to be successful.  For instructions
  * on script execution, see \ref script_ugoodput_gen_execn_sec.
  *
+ * \subsection ugoodput_exec_sec UGoodput Quick Start
+ *
+ * The Goodput and Ugoodput tools support a rich set of performance measurement
+ * capabilities.  Details of these capabilities are found later in this
+ * documentation.
+ *
+ * A standard set of goodput measurements can be performed by executing the 
+ * goodput/test/umd_regression.sh script.  The script uses two nodes to 
+ * perform all measurements,
+ * summarizes those measurements, and checks for errors.  An equivalent script
+ * exists for the kernel mode driver.  For more information see \ref 
+ * goodput_exec_sec.
+ *
+ * The two nodes must
+ * meet the following system requirements:
+ *
+ * - ssh been configured to allow root access from the node executing 
+ *   the regression.sh script to the two nodes 
+ * - The 'screen' utility has been installed on the two nodes
+ * - The RRMAP software package has been installed using the same directory
+ *   path on the two nodes 
+ * 
+ * The umd_regression.sh script accepts the following parameters:
+ *
+ * - MAST       : Name of master node/IP address
+ * - SLAVE      : Name of slave node/IP address
+ * - MAST_MPNUM : Master node mport number (usually 0)
+ * - SLAVE_MPNUM: Slave node mport number (usually 0)
+ *
+ * All parameters below are optional.  Default values are shown.
+ *
+ * - DIR        : Directory on both MAST and SLAVE to run tests.
+ *                Default is the parent directory of test/regression.sh
+ *                on the node executing test/regression.sh.
+ *                If not exist on both MAST and SLAVE,
+ *                it is not possible to run regression.sh!
+ * - WAIT       : Time in seconds to wait before perf measurement
+ *                Default is  30
+ * - WR_TRANS   : DMA write transaction type
+ *                1 LAST_NW_R, 2 NW, 3 ALL_NW_R
+ *                Default is 2 NW.
+ * - IBA_ADDR   : RapidIO address of inbound window for both nodes
+ *                Default is  200000000
+ * - BUFC       : Number of transmit buffers for MBOX and DMA
+ *                Default is  100
+ * - STS        : Number of transactions completion pointers
+ *                for MBOX and DMA.  Default is  100
+ * - DMA_CHAN   : DMA channel to use for the test, allowed 2-7
+ *                Default is  2
+ * - MBOX_CHAN  : Mailbox channel to use for the test, allowed 2 or 3
+ *                Default is  2
+ * - TX_CPU     : Specific processor core used for transmission.
+ *                -1 means "any core".  Allowed range is specifc
+ *                to the two tested nodes.  Use "lscpu" to learn
+ *                what processors are avaialble.
+ *                Default is  2  or any isolcpu.
+ * - STS_CPU    : Specific processor core used to manage completions.
+ *                -1 means "any core".  Allowed range is specifc
+ *                to the two tested nodes.  Use "lscpu" to learn
+ *                what processors are avaialble.
+ *                Default is  3  or any isolcpu.
+ * - OVERRIDE   : The default for TX_CPU and STS_CPU is to use any
+ *                isolcpu configured on the target platform.
+ *                Entering any value forces TX_CPU and STS_CPU to
+ *                ignore isolcpus and use the TX_CPU and STS_CPU
+ *                values.
+ * All results are found on the MAST node, in the
+ * goodput/logs/mport{MAST_MPNUM} directory.
+ * This directory contains the following after a successful test:
+ * - label.ures    : Information about regression parameters,
+ *                   platform hardware, and execution time
+ * - all_thru.ures : Summary of all throughput measurementa, as described in
+ *                  \ref thru_sum_res.
+ * - all_lat.ures  : Summary of all latency measurements, as described in
+ *                  \ref thru_sum_res.
+ * - detailed measurement logs with names ending in ".ulog".
+ *   For more information on the individual throughput measurements,
+ *   refer to \ref goodput_cmd_overview_secn.
+ *   For more information on the individual latency measurements,
+ *   refer to \ref latency_cmd_overview_secn.
+ * - results summary files, ending in ".ures", for each detailed
+ *   measurement log file.  For information on the latency and
+ *   throughput results file data, refer to \ref lat_sum_res and 
+ *   \ref thru_sum_res.
+ *
  * \section script_ugoodput_gen_instr_sec UGoodput Script Generation
  *
  * The bash script "create_umd_scripts.sh" generates individual scripts
@@ -828,7 +1155,7 @@
  * following steps:
  *
  * -# Start the ugoodput tool, as described in \ref exec_ugoodput_sec.
- * =# At the ugoodput CLI prompt, type: . ugoodput_info  This should result
+ * -# At the ugoodput CLI prompt, type: . ugoodput_info  This should result
  *    in output of the form similar to the following:
  *
  * <pre>
@@ -851,7 +1178,6 @@
  *         3 Endpoints (dest_ID): 0 2 3
  * </pre>
  *
- * The (AAAAAAAAA) and (DID) 
  * The bash script "scripts/create_umd_scripts.sh" requires the parameters shown
  * in the sample "help" output below.  "Create_umd_scripts.sh" must be run 
  * on both the source and the target nodes.  Parameter values entered must
@@ -1068,5 +1394,139 @@
  *
  * Latency measurements are displayed by the "lat" command, as described
  * in \ref latency_cmd_overview_secn.
+ *
+ * \section tun_dma IP Tunnelling with Tsi721 User Mode Driver (DMA)
+ *
+ * It is beneficial to dedicate 1 or 2 cores to run the IP Tunnelling demo.
+ * GRUB based platforms support the "isolcpu" command line parameter 
+ * to reserve CPUs for specific applications.
+ *
+ * The demonstration is limited to two nodes: server and client.  To run the
+ * demonstration:
+ *
+ * -# On the Server, install thttpd and create a 1 GB random data file.  This 
+ *    step need only be performed once.  This can be accomplished with the 
+ *    following commands:
+ *    - sudo su
+ *    - yum install thttpd
+ *    - mkdir /rd
+ *    - chmod 0755 rd
+ *    - mount none /rd -t tmpfs
+ *    - cd /rd
+ *    - dd if=/dev/urandom of=sample.txt bs=64M count=16
+ *    - chmod 0644 sample.txt
+ * -# The following commands must be executed 
+ *    on the server each time the demo is started. 
+ *    - sudo su
+ *    - killall thttpd
+ *    - iptables -F
+ *    - thttpd -u nobody -d /rd
+ *    - exit
+ *    - cat /rd/sample.txt > /dev/null
+ *
+ * -# Run the following commands on the client each time the demo is started:
+ *   - sudo /sbin/iptables -F
+ *
+ * -# Start ugoodput on the server using the following command:
+ *    - sudo ./ugoodput 0 buf=100 sts=400 mtu=17000 thruput=1
+ *
+ * -# From the server ugoodput command prompt, execute the startup script
+ *    as follows:
+ *    - . s
+ *
+ * -# Start ugoodput on the client using the following command:
+ *    - sudo ./ugoodput 0 buf=100 sts=400 mtu=17000 thruput=1
+ *    
+ * -# From the client ugoodput command prompt, execute the startup script 
+ *    as follows:
+ *    - . s
+ *
+ * -# If the previous commands were successful, executing "ifconfig" at the 
+ *    command prompt should show an IP tunnel with an address of the form
+ *    169.254.0.x,
+ *    where "x" is (Rapidio destination ID + 1) of the client or server.
+ *
+ * -# To perform a file transfer from the client to the server,
+ *    execute the following command on the client:
+ *
+ *   -  wget -O /dev/null http://169.254.0.y/sample.txt
+ *
+ *    where "y" is (RapidIO destination ID + 1) of the server.
+ *
+ * -# DMA Tun status
+ *  - udd 0
+ *  Has counters galore that reflect the behavious of DMA Tun
+ *
+ *  If started via "s" CLI script or dmatun.sh it will put up a
+ *  HTTP server on port 8080 which reports the same info as "udd 0".
+ *
+ *  The query string should be "/" -- it is ignored.
+ *
+ * \subsection tun_dma_parms DMA TUN Command Line Parameters 
+ *
+ *   - ugoodput 0 buf=100 sts=400 mtu=17000 disable_nread=0 thruput=1 push_rp_thr=16 chan=5 chann_reserve=1
+ *
+ *     - 0 = mport ID (one may have more than 1 PCIe card installed)
+ *     - buf = hex number of BDs (min 20)
+ *     - sts = FIFO size, should not be less than buf
+ *     - mtu = MTU of tun interface, max 64K
+ *       - Note1: Kernel's tun.c has a max MTU size of 64K so no
+ *              point going over that
+ *       - Note2: UDP max datagram size is 64K
+ *     - disable_nread = do away with NREADs when we divine that peer's
+ *        IBs are almost full. DEBUG ONLY
+ *     - thruput = optimise tun for thruput (1) or latency (0) 
+ *       (a latency run will yield horrible thruput)
+ *     - push_rp_thr = force NWRITE push of IB RP to peer every NNN packets.
+ *       A value of 16 was found optimal for high throughput bidirectional iperf
+ *       measurements.
+ *
+ *     - chan = N aka "chann"
+ *       - Note1: DMA channel 7 is used by default for NREADs at prio=2
+ *       - Note2: By default chan 6 is used for NWRITEs
+ *       - Note3: One can use multiple channels for NWRITE; specify 
+ *         chan=N where N is less than 6
+ *     - chann_reserve = Reserve chann (if more than 1) for push RP NWRITEs. 
+ *
+ * \subsection tun_dma_parms_mport DMA TUN Command Line Parameter for kernel/mport DMA
+ * 
+ * If passed the "dma_method=1" parameter it will do DMA via libmport at a lower thruput.
+ *
+ * \subsection tun_dma_ez DMA TUN Startup script
+ *
+ * dmatun.sh has the default values discussed above. Requires installation via install.sh
+ *
+ * install/all_start.sh will start dmatun.sh remotely under screen(1) control.
+ *
+ * If channels 6 and 7 are taken dmatun.sh will stop running. Ditto MBOX channel 3.
+ *
+ * \subsection buf_discussion Application Buffer Constraints
+ *
+ *  Most networked applications are written with TCP in mind and MTU=1500 
+ *  Ethernet.  As such their internal buffers are not configurable.  For
+ *  example, wget always uses 8KB.  Extending the MTU past 16k offers 
+ *  no gain with off-the-shelf software and limits the number of peers as
+ *  all buffers are carved off the 64M of CMA memory currently supported
+ *  by goodput.
+ *
+ * \section tun_msg IP Tunnelling with Tsi721 User Mode Driver (MBOX)
+ *
+ * Like DMA transactions, RapidIO messaging packets can also be
+ * used to  transport IP frames.    
+ *
+ * Messaging (MBOX) tunnelling uses the same client/server architecture 
+ * documented in \ref tun_dma.
+ *
+ * UGoodput should be started as follows for messaging based tunnelling:
+ * ugoodput 0 buf=100 sts=400
+ *
+ * Once UGoodput has started, run the umsgtun script as follows:
+ * . umsgtun
+ *
+ * Note: A tunX device will be configured at IP address 169.254.x.y,
+ * where x.y is destid+1.  The message MTU is always 4092 bytes.
+ *
+ * Note: Due in part to larger allowable MTU,  DMA Tunnelling generally 
+ * delivers higher throughput.
  *
  */

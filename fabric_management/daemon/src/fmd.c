@@ -57,7 +57,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "compile_constants.h"
 #include "DAR_DevDriver.h"
-#include "DAR_RegDefs.h"
+#include "rio_standard.h"
+#include "rio_ecosystem.h"
 
 #include "IDT_DSF_DB_Private.h"
 #include "DAR_Utilities.h"
@@ -93,6 +94,7 @@ struct fmd_state *fmd;
 
 void custom_quit(cli_env *env)
 {
+	riocp_pe_destroy_handle(&mport_pe);
 	shutdown_mgmt();
 	halt_app_handler();
 	cleanup_app_handler();
@@ -339,120 +341,93 @@ exit:
 int fmd_traverse_network(riocp_pe_handle mport_pe, int port_num, 
 			struct fmd_cfg_parms *cfg)
 {
-	riocp_pe_handle new_pe, curr_pe, swtch;
-	int port_cnt, rc, pnum;
-	struct riocp_pe_capabilities capabilities;
-	uint32_t comptag, ep_ct, con_end, conn_did, conn_hc;
-	struct fmd_cfg_ep *conn_ep; 
-	char dev_fn[FMD_MAX_DEV_FN];
+	struct l_head_t sw_list;
 
-	/* Initialize master port */
+	riocp_pe_handle new_pe, curr_pe;
+	int port_cnt, conn_pt, rc, pnum;
+	uint32_t comptag;
+	struct cfg_dev curr_dev, conn_dev;
+
+	l_init(&sw_list);
+
+	/* Enumerated device connected to master port */
 	curr_pe = mport_pe;
+	curr_dev = *c_dev;
 
-	rc = riocp_pe_probe(curr_pe, 0, &swtch);
-	if (rc) {
-		if ((-ENODEV != rc) && (-EIO != rc)) {
-			CRIT("Mport probe failed %d\n", rc);
-			goto exit;
-		};
-		INFO("Mport %x Probe NO DEVICE\n", comptag);
-		goto exit;
-	};
-
-	rc = riocp_pe_get_comptag(swtch, &comptag);
-	if (rc) {
-		CRIT("Get switch comptag failed, rc %d\n", rc);
-		goto exit;
-	};
-	INFO("Updating SwitchCompTag %x\n", comptag);
-
-	if (riocp_pe_update_comptag(swtch, &comptag, fmd->cfg->sws[0].did, 0)) {
-		CRIT("\nFailed to update switch component tag\n");
-		exit(EXIT_FAILURE);
-	};
-
-	fmd->cfg->sws[0].ct = comptag;
-	INFO("Initializing Switch %x\n", comptag);
-	if (fmd_init_switch(swtch, &cfg->sws[0])) {
-		CRIT("\nFailed to initialize switch\n");
-		exit(EXIT_FAILURE);
-	};
-
-	rc = riocp_pe_get_capabilities(swtch, &capabilities);
-	if (rc) {
-		CRIT("Get switch capabilities failed, rc %d\n", rc);
-		goto exit;
-	};
-
-	port_cnt = RIOCP_PE_PORT_COUNT(capabilities);
-
-	for (pnum = 0; pnum < port_cnt; pnum++) {
-		new_pe = NULL;
-		rc = riocp_pe_probe(swtch, pnum, &new_pe);
-
-		if (rc) {
-			if ((-ENODEV != rc) && (-EIO != rc)) {
-				CRIT("Port %d probe failed %d\n", pnum, rc);
-				goto exit;
-			};
-			INFO("Switch Port %d NO DEVICE\n", pnum);
-			continue;
-		};
-
-		if (NULL == new_pe)
-			continue;
-
-		rc = riocp_pe_get_comptag(new_pe, &ep_ct);
-		if (rc) {
-			CRIT("Get new comptag failed, rc %d\n", rc);
-			goto exit;
-		};
-		INFO("Switch Port %d Found %x \n", pnum, ep_ct);
-		if (NULL == fmd->cfg->sws[0].ports[pnum].conn) {
-			INFO("Switch Port %d Found Unexpected Endpoint %x \n",
-				pnum, ep_ct);
-			INFO("Switch Port %d Unconfigured!!!\n", pnum);
-			continue;
-		};
-			
-		con_end = OTHER_END(fmd->cfg->sws[0].ports[pnum].conn_end);
-		conn_ep = fmd->cfg->sws[0].ports[pnum].conn->ends[con_end].ep_h;
-		conn_did = conn_ep->ports[0].devids[FMD_DEV08].devid;
-		conn_hc = conn_ep->ports[0].devids[FMD_DEV08].hc;
-
-		rc = riocp_pe_update_comptag(new_pe, &ep_ct, conn_did, 1);
-		if (rc) {
-			CRIT("\nFailed to update EP component tag\n");
-			exit(EXIT_FAILURE);
-		};
-		conn_ep->ep_h = new_pe;
-
-		rc = riocp_pe_get_comptag(new_pe, &ep_ct);
-		if (rc) {
-			CRIT("Get updated comptag failed, rc %d\n", rc);
-			goto exit;
-		};
-
-                memset(dev_fn, 0, FMD_MAX_DEV_FN);
-                snprintf(dev_fn, FMD_MAX_DEV_FN-1, "%s%s",
-                        FMD_DFLT_DEV_DIR, conn_ep->name);
-
-                if (access(dev_fn, F_OK) != -1) {
-                        INFO("\nFMD: device \"%s\" exists...\n",
-                                conn_ep->name);
-                } else {
-			rc = riomp_mgmt_device_add(new_pe->mport->minfo->maint,
-				conn_did, conn_hc, ep_ct, conn_ep->name);
+	do {
+		if (RIOCP_PE_IS_SWITCH(curr_pe->cap)) {
+			rc = config_sw_routing(curr_pe, &curr_dev);
 			if (rc) {
-				CRIT("riomp_mgmt_device_add, rc %d errno %d\n",
-					rc, errno);
-				goto exit;
+				CRIT("Cannot configure switch routing rc %d\n", rc);
+				goto fail;
 			};
 		};
-		conn_ep->ports[0].ct = ep_ct;
-	};
+
+		port_cnt = RIOCP_PE_PORT_COUNT(curr_pe->cap);
+		for (pnum = port_cnt - 1; pnum >= 0 ; pnum--) {
+			new_pe = NULL;
+		
+			if (cfg_get_conn_dev(curr_pe->comptag, pnum, &conn_dev, &conn_pt)) {
+				INFO("Switch Port %d NO CONFIG\n", pnum);
+				continue;
+			};
+
+			rc = riocp_pe_probe(curr_pe, pnum, &new_pe, &conn_dev.ct,
+					(char *)conn_dev.name);
+
+			if (rc) {
+				if ((-ENODEV != rc) && (-EIO != rc)) {
+					CRIT("Port %d probe failed %d\n", pnum, rc);
+					goto fail;
+				};
+				INFO("Switch 0x%x Port %d NO DEVICE\n",
+					curr_pe->comptag, pnum);
+				continue;
+			};
+
+			if (NULL == new_pe)
+				continue;
+
+			rc = riocp_pe_get_comptag(new_pe, &comptag);
+			if (rc) {
+				CRIT("Get new comptag failed, rc %d\n", rc);
+				goto fail;
+			};
+
+			if (comptag != conn_dev.ct) {
+				DBG("Probed ep ct 0x%x != 0x%x config ct port %d\n",
+					comptag, conn_dev.ct, pnum);
+				goto fail;
+			};
+
+			INFO("Device 0x%x Port %d DEVICE %s CT 0x%x DID 0x%x\n",
+				curr_pe->comptag, pnum, 
+				new_pe->name, new_pe->comptag, new_pe->destid);
+
+			if (RIOCP_PE_IS_SWITCH(new_pe->cap)) {
+				void *found;
+				l_item_t *li;
+
+				found = l_find(&sw_list, new_pe->comptag, &li);
+				if (NULL == found) {
+					li = l_add(&sw_list, new_pe->comptag,
+						new_pe);
+				};
+			}
+		} 
+		curr_pe = (riocp_pe_handle)l_pop_head(&sw_list);
+		if (NULL != curr_pe) {
+			rc = cfg_find_dev_by_ct(curr_pe->comptag, &curr_dev);
+			if (rc) {
+				CRIT("cfg_find_dev_by_ct fail, ct 0x%xrc %d\n",
+					curr_pe->comptag, rc);
+				goto fail;
+			};
+		}
+	} while (curr_pe != NULL);
+
 	return 0;
-exit:
+fail:
 	return -1;
 };
 
@@ -462,9 +437,9 @@ int setup_mport_master(int mport)
 	struct fmd_cfg_ep *ep;
 	uint32_t comptag;
 
-	if (riocp_pe_create_host_handle(&mport_pe, mport, 0)) {
-		CRIT("\nCannot create host handle, exiting...\n");
-		exit(EXIT_FAILURE);
+	if (cfg_find_mport(mport, &mp)) {
+		CRIT("\nCannot find configured mport, exiting...\n");
+		return 1;
 	};
 
 	fmd->mp_hnd = mport_pe->mp_hnd;
@@ -474,9 +449,9 @@ int setup_mport_master(int mport)
 		exit(EXIT_FAILURE);
 	};
 
-	if (riocp_pe_get_comptag(mport_pe, &comptag)) {
-		CRIT("\nCannot read mport0 comptag\n");
-		exit(EXIT_FAILURE);
+	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
+		CRIT("\nCannot find configured mport device, exiting...\n");
+		return 1;
 	};
 	if (riocp_pe_update_comptag(mport_pe, &comptag, 
 		fmd->cfg->mport_info[0].devids[FMD_DEV08].devid, 1)) {
@@ -491,11 +466,12 @@ int setup_mport_master(int mport)
 	fmd->cfg->mport_info[0].mp_h = mport_pe;
 	fmd->cfg->mport_info[0].ct = comptag;
 
-		
-	ep = fmd->cfg->mport_info[0].ep;
-	if (NULL == ep) {
-		CRIT("\nNo endpoint defined for master port.\n");
-		exit(EXIT_FAILURE);
+	if (riocp_pe_create_host_handle(&mport_pe, mport, 0, &pe_mpsw_rw_driver,
+			&comptag, (char *)cfg_dev.name)) {
+		CRIT("\nCannot create host handle mport %d, exiting...",
+			mport);
+		riocp_pe_destroy_handle(&mport_pe);
+		return 1;
 	};
 
 	return fmd_traverse_network(mport_pe, 0, fmd->cfg);
@@ -504,80 +480,49 @@ int setup_mport_master(int mport)
 int setup_mport_slave(int mport)
 {
 	uint32_t comptag;
-	struct fmd_cfg_ep *ep;
-	int rc;
-	struct timespec dly = {5, 0}; /* 5 seconds */
-	char slave_mp_fn[FMD_MAX_DEV_FN];
+	struct cfg_mport_info mp;
+	struct cfg_dev cfg_dev;
 	char mast_dev_fn[FMD_MAX_DEV_FN];
 
-	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0)) {
-		CRIT("\nCannot create agent handle, exiting...\n");
-		exit(EXIT_FAILURE);
+	if (cfg_find_mport(mport, &mp)) {
+		CRIT("\nCannot find configured mport, exiting...\n");
+		return 1;
 	};
 
-	fmd->mp_hnd = mport_pe->mp_hnd;
-	fmd->cfg->mport_info[0].mp_h = mport_pe;
-		
-	ep = fmd->cfg->mport_info[0].ep;
-	if (NULL == ep) {
-		CRIT("\nNo endpoint defined for master port.\n");
-		exit(EXIT_FAILURE);
+	comptag = mp.ct;
+
+	if (cfg_find_dev_by_ct(comptag, &cfg_dev)) {
+		CRIT("\nCannot find configured mport device, exiting...\n");
+		return 1;
 	};
 	ep->valid = 1;
 	ep->ep_h = mport_pe;
 
-	/* Write MPORT device ID */
-	rc = riomp_mgmt_destid_set(reg_acc_hnd,
-		(uint16_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid); 
-
-	if (rc) {
-		CRIT("\nriomp_mgmt_destid_set rc: %d %d: %s\n", 
-			rc, errno, strerror(errno));
-	};
-		
-	/* Write MPORT Component Tag */
-	rc = riomp_mgmt_lcfg_read(reg_acc_hnd, 0x6c, 4, &comptag);
-	if (rc) {
-		CRIT("\nriomp_mgmt_lcfg_read 1 rc: %d %d: %s\n", 
-			rc, errno, strerror(errno));
+	if (riocp_pe_create_agent_handle(&mport_pe, mport, 0,
+			&pe_mpsw_rw_driver, &comptag, (char *)cfg_dev.name)) {
+		CRIT("\nCannot create agent handle, exiting...\n");
+		return 1;
 	};
 
-	comptag = (comptag & 0xFFFF0000) | 
-		(uint32_t)fmd->cfg->mport_info[0].devids[FMD_DEV08].devid; 
-
-	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x6c, 4, comptag);
-	if (rc) {
-		CRIT("\nriomp_mgmt_lcfg_write 1 rc: %d %d: %s\n", 
-			rc, errno, strerror(errno));
+	ret = riocp_pe_handle_get_private(mport_pe, (void **)&p_dat);
+	if (ret) {
+		CRIT("\nCannot retrieve mport private data, exiting...\n");
+		return 1;
 	};
 
-	fmd->cfg->mport_info[0].ct = comptag;
-	ep->ports[0].ct = comptag;
+	acc_p = (mpsw_drv_pe_acc_info *)p_dat->dev_h.accessInfo;
+	if ((NULL == acc_p) || !acc_p->maint_valid) {
+		CRIT("\nMport access info is NULL, exiting...\n");
+		return 1;
+	};
 
-	/* Poll to add the mport  and FMD master devices until the master
+	/* Poll to add the FMD master devices until the master
 	* completes network initialization.
 	*/
-	memset(slave_mp_fn, 0, FMD_MAX_DEV_FN);
-	snprintf(slave_mp_fn, FMD_MAX_DEV_FN-1, "%s%s",
-                        FMD_DFLT_DEV_DIR, FMD_SLAVE_MPORT_NAME);
 	memset(mast_dev_fn, 0, FMD_MAX_DEV_FN);
 	snprintf(mast_dev_fn, FMD_MAX_DEV_FN-1, "%s%s",
                         FMD_DFLT_DEV_DIR, FMD_SLAVE_MASTER_NAME);
 	do {
-		if (access(slave_mp_fn, F_OK) != -1) {
-                        rc = 0;
-                } else {
-			rc = riomp_mgmt_device_add(reg_acc_hnd,
-				fmd->cfg->mport_info[0].devids[FMD_DEV08].devid,
-				(uint8_t)0xFF, comptag, FMD_SLAVE_MPORT_NAME);
-		};
-		if (rc) {
-			INFO("\nCannot add mport0 object %d %d: %s\n", 
-				rc, errno, strerror(errno));
-			nanosleep(&dly, NULL);
-			continue;
-		};
-
 		if (access(mast_dev_fn, F_OK) != -1) {
                         rc = 0;
                 } else {
@@ -595,55 +540,22 @@ int setup_mport_slave(int mport)
 
 int do_mport_fixups(void)
 {
-	int rc;
-	uint32_t port_ctl;
+	int rc = 1;
+	int mport = 0;
+	uint32_t dsf_rc;
 
-	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x13c, 4, 0xE0000000);
-	if (rc) {
-		CRIT("\nSet MAST_EN failed rc: %d %d: %s\n", 
-			rc, errno, strerror(errno));
-		goto exit;
-	};
-	
-	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x120, 4, 0x0000FF00);
-	if (rc) {
-		CRIT("\nSet Link response timeout failed rc: %d %d: %s\n", 
-			rc, errno, strerror(errno));
-		goto exit;
-	};
-	
-	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x124, 4, 0x0000FF00);
-	if (rc) {
-		CRIT("\nSet Packet response timeout failed rc: %d %d: %s\n", 
-			rc, errno, strerror(errno));
-		goto exit;
-	};
-	
-	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x10a04, 4, 0x00000000);
-	if (rc) {
-		CRIT("\nSet Port-Write handling mode failed rc: %d %d: %s\n", 
-			rc, errno, strerror(errno));
-	};
+        dsf_rc = IDT_DSF_bind_DAR_routines(SRIO_API_ReadRegFunc,
+                                SRIO_API_WriteRegFunc,
+                                SRIO_API_DelayFunc);
+        if (dsf_rc) {
+                CRIT("\nCannot initialize RapidIO APIs...\n");
+		goto fail;
+        };
 
-	rc = riomp_mgmt_lcfg_read(reg_acc_hnd, 0x15C, 4, &port_ctl);
-	if (rc) {
-		CRIT("\nCannot read Port 0 control CSR: %d %d: %s\n", 
-			rc, errno, strerror(errno));
-	};
-	port_ctl |= 0x00600000;
-	rc = riomp_mgmt_lcfg_write(reg_acc_hnd, 0x15C, 4, port_ctl);
-	if (rc) {
-		CRIT("\nCannot write Port 0 control CSR: %d %d: %s\n", 
-			rc, errno, strerror(errno));
-	};
-exit:
-	return rc;
-};
-void setup_mport(struct fmd_state *fmd)
-{
-	uint8_t *mport_list;
-	int mport, found = 0, rc = 0;
-	size_t mport_cnt, i;
+        if (riocp_bind_driver(&pe_mpsw_driver)) {
+                CRIT("\nFailed to bind riocp driver, exiting...\n");
+		goto fail;
+        };
 
 	fmd->mp_h = &mport_pe;
 
@@ -683,10 +595,12 @@ void setup_mport(struct fmd_state *fmd)
 	if (FMD_SLAVE == fmd->cfg->mast_idx)
 		rc = setup_mport_slave(mport);
 	else
-		rc = setup_mport_master(mport);
-
+		rc = setup_mport_slave(mport, fmd->opts->mast_devid,
+						fmd->opts->mast_cm_port);
+fail:
 	if (rc) {
 		CRIT("\nNetwork initialization failed...\n");
+		riocp_pe_destroy_handle(&mport_pe);
 	};
 }
 

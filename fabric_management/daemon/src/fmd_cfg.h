@@ -86,8 +86,9 @@ struct fmd_mport_info {
 	riocp_pe_handle mp_h;
 	uint32_t ct; /* Updated when MPORT is initialized */
 	int op_mode;
-	struct dev_id devids[FMD_DEVID_MAX];
-	struct fmd_cfg_ep *ep; /* Link to endpoint definition for this MPORT */
+	uint8_t mem_sz;	/* Memory size to use for this network */
+	struct dev_id devids[CFG_DEVID_MAX];
+	struct int_cfg_ep *ep; /* Link to endpoint definition for this MPORT */
 	int ep_pnum; /* EP port number that matches this MPORT */
 };
 

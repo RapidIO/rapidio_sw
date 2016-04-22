@@ -328,7 +328,7 @@ int main(int argc, char** argv)
 	uint32_t mport_id = 0;
 	int option;
 	int buf_mode = 0;
-	uint64_t rio_base = RIO_MAP_ANY_ADDR;
+	uint64_t rio_base = RIOMP_MAP_ANY_ADDR;
 	static const struct option options[] = {
 		{ "size",   required_argument, NULL, 'S' },
 		{ "ibbase", required_argument, NULL, 'R' },

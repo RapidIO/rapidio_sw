@@ -41,6 +41,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using std::shared_ptr;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern uint32_t SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info, uint32_t offset,
+							uint32_t *readdata);
+extern uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info, uint32_t  offset,
+                                			uint32_t  writedata);
+extern void SRIO_API_DelayFunc(uint32_t delay_nsec, uint32_t delay_sec);
+
 class unix_tx_engine : public tx_engine<unix_client, unix_msg_t>
 {
 public:

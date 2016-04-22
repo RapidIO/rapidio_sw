@@ -53,7 +53,7 @@ wait 7 r
 g
 g c
 g
-echo PDMA_ONE THROUGHPUT dma bytes acc_size
+echo PDMA_ONE THROUGHPUT bytes acc_size UNUSED
 os
 sleep wait_time
 wait 0 r
@@ -65,6 +65,6 @@ wait 5 r
 wait 6 r
 wait 7 r
 
-echo PDMA_ONE THROUGHPUT dma bytes acc_size
+echo PDMA_ONE THROUGHPUT bytes acc_size UNUSED
 g
 od

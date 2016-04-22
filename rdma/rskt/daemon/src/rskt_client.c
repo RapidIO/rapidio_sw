@@ -1,3 +1,36 @@
+/*
+****************************************************************************
+Copyright (c) 2015, Integrated Device Technology Inc.
+Copyright (c) 2015, RapidIO Trade Association
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*************************************************************************
+*/
+
 #include <semaphore.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -32,22 +65,15 @@ static FILE *log_file;
 
 void show_help()
 {
-	printf("rskt_client -d<destid> -s<socket_number> [-h] ");
-	printf("[-l<data_length>] [-r<repetitions>] [-t] \n");
-	printf("-d<destid>: Specify destination ID of machine running rskts_test.");
-
-	printf("-s<socket_number>: Specify socket number used by rskts_test ");
-	printf("for listening for connections\n");
-	printf("Default is 1234\n");
-
-	puts("-h:  This help message.");
-
-	printf("-l<data_length>: Specify length of data to send (0 to 8192). ");
-	printf("If omitted default is 512 bytes\n");
-
-	puts("-r<repetitions>: Specify number of repetitions to run for. Default is 1");
-
-	printf("-t:  Use varying data length data. Overrides -l ");
+	printf("rskt_client -d<did> -s<socknum> -h -l<len> -t -r<rpt> \n");
+	printf("-d<did>    : Destination ID of machine running rskt_server.\n");
+	printf("-s<socknum>: Socket number used by rskt_server\n");
+	printf("             Default is 1234\n");
+	printf("-h         : This help message.\n");
+	printf("-l<len>    : Specify length of data to send (0 to 8192).\n");
+	printf("             Default is 512 bytes\n");
+	printf("-t         : Use varying data length data. Overrides -l\n");
+	printf("-r<rpt>    : Repeat test this many times. Default is 1\n");
 } /* show_help() */
 
 unsigned generate_data(unsigned data_length, unsigned tx_test)

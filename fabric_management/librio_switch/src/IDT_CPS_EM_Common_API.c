@@ -55,12 +55,12 @@ extern "C" {
 // Routines to configure port write transmission, 
 // and set/query specific event detection/reporting.
 
-STATUS IDT_CPS_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t IDT_CPS_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info, 
                             idt_em_cfg_pw_in_t   *in_parms, 
                             idt_em_cfg_pw_out_t  *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT32 pw_tgt_devid, pw_ctl = 0, pw_retx;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t pw_tgt_devid, pw_ctl = 0, pw_retx;
 
    if ( in_parms->priority    > 3 ) {
       out_parms->imp_rc = EM_CFG_PW(0x01);
@@ -71,24 +71,24 @@ STATUS IDT_CPS_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
 
    // First, set destination ID for port-writes
    if (tt_dev8 == in_parms->deviceID_tt) {
-      pw_tgt_devid = ((UINT32)(in_parms->port_write_destID) << 16) 
+      pw_tgt_devid = ((uint32_t)(in_parms->port_write_destID) << 16) 
                     & CPS1848_PW_TARGET_DEVICEID_CSR_DESTID;
       if (in_parms->srcID_valid) {
-         pw_ctl       = ((UINT32)(in_parms->port_write_srcID) << 16)
+         pw_ctl       = ((uint32_t)(in_parms->port_write_srcID) << 16)
                        & CPS1848_PW_CTL_SRCID;
       };
    } else {
-      pw_tgt_devid = ((UINT32)(in_parms->port_write_destID) << 16) 
+      pw_tgt_devid = ((uint32_t)(in_parms->port_write_destID) << 16) 
                     & ( CPS1848_PW_TARGET_DEVICEID_CSR_DESTID | 
                         CPS1848_PW_TARGET_DEVICEID_CSR_DESTID_MSB );
       pw_tgt_devid |= CPS1848_PW_TARGET_DEVICEID_CSR_LARGE;
       if (in_parms->srcID_valid) {
-         pw_ctl       = ((UINT32)(in_parms->port_write_srcID) << 16)
+         pw_ctl       = ((uint32_t)(in_parms->port_write_srcID) << 16)
                        & ( CPS1848_PW_CTL_SRCID | CPS1848_PW_CTL_SRCID_MSB);
       };
    };
 
-   pw_ctl |= ((UINT32)(in_parms->priority) << 14) & CPS1848_PW_CTL_PRIO;
+   pw_ctl |= ((uint32_t)(in_parms->priority) << 14) & CPS1848_PW_CTL_PRIO;
    if (in_parms->CRF) {
       pw_ctl  |= CPS1848_PW_CTL_CRF;
    };
@@ -138,26 +138,26 @@ STATUS IDT_CPS_em_cfg_pw  ( DAR_DEV_INFO_t       *dev_info,
 
    if (pw_tgt_devid & CPS1848_PW_TARGET_DEVICEID_CSR_LARGE) {
       out_parms->deviceID_tt       = tt_dev16;
-      out_parms->port_write_destID = (UINT16)((pw_tgt_devid & 
+      out_parms->port_write_destID = (uint16_t)((pw_tgt_devid & 
                                    ( CPS1848_PW_TARGET_DEVICEID_CSR_DESTID | 
                                      CPS1848_PW_TARGET_DEVICEID_CSR_DESTID_MSB )) >> 16);
-      out_parms->port_write_srcID = (UINT16)((pw_ctl & 
+      out_parms->port_write_srcID = (uint16_t)((pw_ctl & 
                                     (CPS1848_PW_CTL_SRCID | 
                                      CPS1848_PW_CTL_SRCID_MSB)) >> 16);
    } else {
       out_parms->deviceID_tt       = tt_dev8;
-      out_parms->port_write_destID = (UINT16)((pw_tgt_devid 
+      out_parms->port_write_destID = (uint16_t)((pw_tgt_devid 
                                     & CPS1848_PW_TARGET_DEVICEID_CSR_DESTID) >> 16);
-      out_parms->port_write_srcID = (UINT16)((pw_ctl & CPS1848_PW_CTL_SRCID ) >> 16);
+      out_parms->port_write_srcID = (uint16_t)((pw_ctl & CPS1848_PW_CTL_SRCID ) >> 16);
    };
 
-   out_parms->srcID_valid = TRUE;
+   out_parms->srcID_valid = true;
 
-   out_parms->priority = (UINT8)((pw_ctl & CPS1848_PW_CTL_PRIO) >> 14);
+   out_parms->priority = (uint8_t)((pw_ctl & CPS1848_PW_CTL_PRIO) >> 14);
    if (pw_ctl & CPS1848_PW_CTL_CRF) {
-      out_parms->CRF = TRUE;
+      out_parms->CRF = true;
    } else {
-      out_parms->CRF = FALSE;
+      out_parms->CRF = false;
    };
 
    if (CPS1616_DEVICE_PW_TIMEOUT_TIMEOUT_DIS == pw_retx) {
@@ -174,44 +174,44 @@ idt_CPS_em_cfg_pw_exit:
 
 // Per port registers to play with when configuring events
 typedef struct idt_event_cfg_reg_values_t_TAG {
-   UINT32 pctl1_csr      ; // CPS1848_PORT_X_CTL_1_CSR(pnum)
-   UINT32 log_en_csr     ; // CPS1848_LT_ERR_EN_CSR
-   UINT32 ttl_csr        ; // CPS1848_PKT_TTL_CSR 
-   UINT32 err_rate_en_csr; // CPS1848_PORT_X_ERR_RATE_EN_CSR(pnum)
-   UINT32 err_rate_csr   ; // CPS1848_PORT_X_ERR_RATE_CSR(pnum)
-   BOOL   wr_err_rate_csr; // TRUE if the err_rate_csr can be written.
-   UINT32 err_thrsh_csr  ; // CPS1848_PORT_X_ERR_RATE_THRESH_CSR(pnum)
-   UINT32 err_rpt        ; // CPS1848_PORT_X_ERR_RPT_EN(pnum)
-   UINT32 imp_err_rpt    ; // CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum)
-   UINT32 imp_err_rate   ; // CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN(pnum)
-   UINT32 retry_lim      ; // CPS1848_PORT_X_RETRY_CNTR(pnum)
-   UINT32 lane_err_rate[IDT_MAX_LANES]; // CPS1848_LANE_X_ERR_RATE_EN(lnum)
-   UINT32 stat_n_ctl     ; // CPS1848_PORT_X_STATUS_AND_CTL(pnum)
-   BOOL   wr_dev_ctl_regs; // TRUE if dev_ctl1, i2c_mast_ctl, aux_port capture 
+   uint32_t pctl1_csr      ; // CPS1848_PORT_X_CTL_1_CSR(pnum)
+   uint32_t log_en_csr     ; // CPS1848_LT_ERR_EN_CSR
+   uint32_t ttl_csr        ; // CPS1848_PKT_TTL_CSR 
+   uint32_t err_rate_en_csr; // CPS1848_PORT_X_ERR_RATE_EN_CSR(pnum)
+   uint32_t err_rate_csr   ; // CPS1848_PORT_X_ERR_RATE_CSR(pnum)
+   bool   wr_err_rate_csr; // true if the err_rate_csr can be written.
+   uint32_t err_thrsh_csr  ; // CPS1848_PORT_X_ERR_RATE_THRESH_CSR(pnum)
+   uint32_t err_rpt        ; // CPS1848_PORT_X_ERR_RPT_EN(pnum)
+   uint32_t imp_err_rpt    ; // CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum)
+   uint32_t imp_err_rate   ; // CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN(pnum)
+   uint32_t retry_lim      ; // CPS1848_PORT_X_RETRY_CNTR(pnum)
+   uint32_t lane_err_rate[IDT_MAX_LANES]; // CPS1848_LANE_X_ERR_RATE_EN(lnum)
+   uint32_t stat_n_ctl     ; // CPS1848_PORT_X_uint32_t_AND_CTL(pnum)
+   bool   wr_dev_ctl_regs; // true if dev_ctl1, i2c_mast_ctl, aux_port capture 
                            //      should be written
-   UINT32 dev_ctl1       ; // CPS1848_DEVICE_CTL_1
-   UINT32 i2c_mast_ctl   ; // CPS1848_I2C_MASTER_CTL
-   UINT32 aux_port_capt  ; // CPS1848_AUX_PORT_ERR_CAPT_EN
-   BOOL   wr_err_det_regs; // TRUE if the registers below this line should be 
+   uint32_t dev_ctl1       ; // CPS1848_DEVICE_CTL_1
+   uint32_t i2c_mast_ctl   ; // CPS1848_I2C_MASTER_CTL
+   uint32_t aux_port_capt  ; // CPS1848_AUX_PORT_ERR_CAPT_EN
+   bool   wr_err_det_regs; // true if the registers below this line should be 
                            //      written.  Note that these registers are 
 			   //      only written to initialize event status 
 			   //      by clearing all events.
-   UINT32 err_det_csr    ; // CPS1848_PORT_X_ERR_DET_CSR(pnum)
-   UINT32 imp_err_det    ; // CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum)
+   uint32_t err_det_csr    ; // CPS1848_PORT_X_ERR_DET_CSR(pnum)
+   uint32_t imp_err_det    ; // CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum)
 } idt_event_cfg_reg_values_t;
 
 #define EM_GET_EC_REGS(x) (EM_GET_EC_REGS_0+x)
 #define EM_SET_EC_REGS(x) (EM_SET_EC_REGS_0+x)
 
-STATUS get_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info, 
-                                UINT8                       pnum, 
-				UINT8                       start_lane,
-				UINT8                       end_lane,
+uint32_t get_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info, 
+                                uint8_t                       pnum, 
+				uint8_t                       start_lane,
+				uint8_t                       end_lane,
 				idt_event_cfg_reg_values_t *vals,
-                                UINT32                     *fail_pt   )
+                                uint32_t                     *fail_pt   )
 {
-  STATUS rc;
-  UINT8 lnum;
+  uint32_t rc;
+  uint8_t lnum;
 
   rc = DARRegRead( dev_info, CPS1848_PORT_X_CTL_1_CSR(pnum), &vals->pctl1_csr );
   if (RIO_SUCCESS != rc) {
@@ -242,7 +242,7 @@ STATUS get_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info,
      *fail_pt = EM_GET_EC_REGS(0x02);
      goto get_event_cfg_reg_vals_exit;
   };
-  vals->wr_err_rate_csr = FALSE;
+  vals->wr_err_rate_csr = false;
   
   rc = DARRegRead( dev_info, CPS1848_PORT_X_ERR_RATE_THRESH_CSR(pnum), &vals->err_thrsh_csr);
   if (RIO_SUCCESS != rc) {
@@ -284,7 +284,7 @@ STATUS get_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info,
       };
    };
   
-      rc = DARRegRead( dev_info, CPS1848_PORT_X_STATUS_AND_CTL(pnum), &vals->stat_n_ctl );
+      rc = DARRegRead( dev_info, CPS1848_PORT_X_uint32_t_AND_CTL(pnum), &vals->stat_n_ctl );
       if (RIO_SUCCESS != rc) {
          *fail_pt = EM_GET_EC_REGS(0x08);
          goto get_event_cfg_reg_vals_exit;
@@ -308,7 +308,7 @@ STATUS get_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info,
          goto get_event_cfg_reg_vals_exit;
       };
 
-  vals->wr_err_det_regs = FALSE;
+  vals->wr_err_det_regs = false;
   vals->err_det_csr = 0;
   vals->imp_err_det = 0;
 
@@ -320,7 +320,7 @@ STATUS get_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info,
   // managed by this code from creating events that can't be handled.
   if ((vals->imp_err_rate & CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_SET_ACKID_EN) ||
       (vals->imp_err_rpt  & CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_SET_ACKID_EN )) {
-     vals->wr_err_det_regs = TRUE;
+     vals->wr_err_det_regs = true;
      vals->imp_err_rate    = 0;
      vals->imp_err_rpt     = 0;
   };
@@ -328,15 +328,15 @@ STATUS get_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info,
 get_event_cfg_reg_vals_exit:
    return rc;
 }   
-STATUS set_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info, 
-                                UINT8                       pnum, 
-				UINT8                       start_lane,
-				UINT8                       end_lane,
+uint32_t set_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info, 
+                                uint8_t                       pnum, 
+				uint8_t                       start_lane,
+				uint8_t                       end_lane,
 				idt_event_cfg_reg_values_t *vals,
-                                UINT32                     *fail_pt   )
+                                uint32_t                     *fail_pt   )
 {
-   STATUS rc;
-   UINT8 lnum;
+   uint32_t rc;
+   uint8_t lnum;
 
    // Hook to manage err_rpt[CPS1848_PORT_X_ERR_RPT_EN_IMP_SPEC_ERR_EN]
    // This function is implemented here as the best place to make a
@@ -417,7 +417,7 @@ STATUS set_event_cfg_reg_vals(  DAR_DEV_INFO_t             *dev_info,
      goto set_event_cfg_reg_vals_exit;
   };
 
-   rc = DARRegWrite( dev_info, CPS1848_PORT_X_STATUS_AND_CTL(pnum), vals->stat_n_ctl );
+   rc = DARRegWrite( dev_info, CPS1848_PORT_X_uint32_t_AND_CTL(pnum), vals->stat_n_ctl );
    if (RIO_SUCCESS != rc) {
       *fail_pt = EM_SET_EC_REGS(0x08);
       goto set_event_cfg_reg_vals_exit;
@@ -474,12 +474,12 @@ set_event_cfg_reg_vals_exit:
 }   
 #define SET_EVENT_EN(x) (EM_SET_EVENT_EN_0+x)
 
-void IDT_CPS_em_f_los_ctl(   UINT8                       first_lane,
-			     UINT8                       last_lane,
+void IDT_CPS_em_f_los_ctl(   uint8_t                       first_lane,
+			     uint8_t                       last_lane,
                              idt_em_cfg_t               *event,
                              idt_event_cfg_reg_values_t *regs)
 {
-   UINT8 lnum;
+   uint8_t lnum;
 
    // Set all of the per-lane enables...
 
@@ -519,8 +519,8 @@ void IDT_CPS_em_f_los_ctl(   UINT8                       first_lane,
    //
    // Always clear counters regardless of enable or disable.
    //
-   regs->wr_err_rate_csr = TRUE;
-   regs->err_rate_csr  &= (RIO_SPX_ERR_RATE_ERR_RR | RIO_SPX_ERR_RATE_ERR_RB);
+   regs->wr_err_rate_csr = true;
+   regs->err_rate_csr  &= (RIO_EMHS_SPX_RATE_RR | RIO_EMHS_SPX_RATE_RB);
 
    // Can turn thresholds on and off if this is the only event contributing to
    // the threshold.  Otherwise, leave the threshold alone. 
@@ -529,8 +529,8 @@ void IDT_CPS_em_f_los_ctl(   UINT8                       first_lane,
          (regs->err_rate_en_csr & ~CPS1848_PORT_X_ERR_RATE_EN_CSR_IMP_SPEC_ERR_EN )) ) {
       // Only LOS events are enabled. 
       if (idt_em_detect_on == event->em_detect) {
-         regs->err_rate_csr  = RIO_SPX_ERR_RATE_ERR_RB_NONE | RIO_SPX_ERR_RATE_ERR_RR_LIM_NONE;
-         regs->err_thrsh_csr = (1 << 24) & RIO_SPX_ERR_THRESH_ERR_RFT;
+         regs->err_rate_csr  = RIO_EMHS_SPX_RATE_RB_NONE | RIO_EMHS_SPX_RATE_RR_LIM_NONE;
+         regs->err_thrsh_csr = (1 << 24) & RIO_EMHS_SPX_THRESH_FAIL;
       } else {
          regs->err_rate_csr  = 0;
          regs->err_thrsh_csr = 0;
@@ -554,15 +554,15 @@ void IDT_CPS_em_f_los_ctl(   UINT8                       first_lane,
 		                           CPS1848_PORT_X_ERR_RATE_EN_CSR_LR_ACKID_ILL_EN )
 
 
-STATUS IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info, 
-                                 UINT8                  pnum, 
-                                 UINT8                  first_lane,
-                                 UINT8                  last_lane,
+uint32_t IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info, 
+                                 uint8_t                  pnum, 
+                                 uint8_t                  first_lane,
+                                 uint8_t                  last_lane,
                                  idt_em_cfg_t          *event,
                             idt_event_cfg_reg_values_t *regs,
-                                 UINT32                *fail_pt )
+                                 uint32_t                *fail_pt )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
    if (( event->em_detect >= idt_em_detect_last ) ||
        ( event->em_event  >= idt_em_last        )) {
@@ -614,12 +614,12 @@ STATUS IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info,
                *fail_pt = SET_EVENT_EN(0x32);
                goto idt_CPS_set_event_en_cfg_exit;
             };
-	    regs->stat_n_ctl |= CPS1848_PORT_X_STATUS_AND_CTL_RETRY_LIM_EN;
+	    regs->stat_n_ctl |= CPS1848_PORT_X_uint32_t_AND_CTL_RETRY_LIM_EN;
          } else {
 	    // Note: Writing 0 to retry_lim will cause a 2 MANY RETRIES event.
             regs->imp_err_rpt &= ~CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_MANY_RETRY_EN;
             regs->retry_lim   = 0xFFFF0000;
-	    regs->stat_n_ctl &= ~CPS1848_PORT_X_STATUS_AND_CTL_RETRY_LIM_EN;
+	    regs->stat_n_ctl &= ~CPS1848_PORT_X_uint32_t_AND_CTL_RETRY_LIM_EN;
          };
          break;
 
@@ -640,13 +640,13 @@ STATUS IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info,
 	   // when no standard error rate events are enabled.
            // Make sure the error threshold register is written, writing it may have
            // been disabled by other events.
-           regs->wr_err_rate_csr = TRUE;
-           regs->err_rate_csr &= (RIO_SPX_ERR_RATE_ERR_RB | RIO_SPX_ERR_RATE_ERR_RR);
+           regs->wr_err_rate_csr = true;
+           regs->err_rate_csr &= (RIO_EMHS_SPX_RATE_RB | RIO_EMHS_SPX_RATE_RR);
 
            if (!(regs->err_rate_en_csr & ~CPSGEN2_ERR_RATE_EVENT_EXCLUSIONS)) {
               if (idt_em_detect_on == event->em_detect) {
                  // Set the RB & RD to defaults, clear error counter.
-                 regs->err_rate_csr = RIO_SPX_ERR_RATE_ERR_RB_NONE | RIO_SPX_ERR_RATE_ERR_RR_LIM_NONE;
+                 regs->err_rate_csr = RIO_EMHS_SPX_RATE_RB_NONE | RIO_EMHS_SPX_RATE_RR_LIM_NONE;
                  // Set the threshold according to em_info
                  regs->err_thrsh_csr &= ~CPS1848_PORT_X_ERR_RATE_THRESH_CSR_FAIL_THRESH;
                  regs->err_thrsh_csr |= (event->em_info << 24) & CPS1848_PORT_X_ERR_RATE_THRESH_CSR_FAIL_THRESH;
@@ -659,11 +659,11 @@ STATUS IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info,
          break;
 
       case idt_em_f_err_rate:
-          { UINT32 rate_en; 
+          { uint32_t rate_en; 
 
 	    // Always clear the counter on enable or disable...
-            regs->wr_err_rate_csr = TRUE;
-            regs->err_rate_csr &= (RIO_SPX_ERR_RATE_ERR_RB | RIO_SPX_ERR_RATE_ERR_RR);
+            regs->wr_err_rate_csr = true;
+            regs->err_rate_csr &= (RIO_EMHS_SPX_RATE_RB | RIO_EMHS_SPX_RATE_RR);
 
             if (event->em_detect == idt_em_detect_on) {
                rc = idt_em_get_f_err_rate_info( event->em_info, &rate_en, &regs->err_rate_csr, &regs->err_thrsh_csr );
@@ -684,7 +684,7 @@ STATUS IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info,
           };
 
       case idt_em_d_ttl:  // TTL is a REPORT event
-          {  UINT32 ttl; 
+          {  uint32_t ttl; 
 
              if (idt_em_detect_on == event->em_detect) {
                 ttl = (((event->em_info + 1599) / 1600) << 16) & CPS1848_PKT_TTL_CSR_TTL;
@@ -718,7 +718,7 @@ STATUS IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info,
              } else {
                 regs->log_en_csr = 0;
              };
-	     regs->wr_dev_ctl_regs = TRUE;
+	     regs->wr_dev_ctl_regs = true;
              break;
 
       case idt_em_i_sig_det:  // This is a REPORT event
@@ -731,7 +731,7 @@ STATUS IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info,
             };
 
             if (!event->em_info) {
-               UINT32 err_stat_csr;
+               uint32_t err_stat_csr;
                // Turn notification on/off for ports that need it.           
 	       // Notification should be turned on for UNINIT ports.
 	       // Notification should be turned off for PORT_OK ports.
@@ -769,7 +769,7 @@ STATUS IDT_CPS_set_event_en_cfg( DAR_DEV_INFO_t        *dev_info,
               regs->i2c_mast_ctl  |=  CPS1848_I2C_MASTER_CTL_CHKSUM_DIS;
               regs->aux_port_capt &= ~CPS1848_AUX_PORT_ERR_CAPT_EN_I2C_CHKSUM_ERR_EN;
            };
-	   regs->wr_dev_ctl_regs = TRUE;
+	   regs->wr_dev_ctl_regs = true;
 	break;
 
       case idt_em_last :  
@@ -786,14 +786,14 @@ idt_CPS_set_event_en_cfg_exit:
 
 #define SET_EVENT_PW(x) (EM_SET_EVENT_PW_0+x)
 
-STATUS IDT_CPS_set_pw_cfg( DAR_DEV_INFO_t       *dev_info, 
+uint32_t IDT_CPS_set_pw_cfg( DAR_DEV_INFO_t       *dev_info, 
                            struct DAR_ptl		*good_ptl,
                            idt_em_notfn_ctl_t    notfn, 
                            cps_port_info_t      *pi,
-                           UINT32               *fail_pt )
+                           uint32_t               *fail_pt )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8 port_idx, pnum;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t port_idx, pnum;
 
    // Validate notfn
    if (idt_em_notfn_last <= notfn) {
@@ -808,9 +808,9 @@ STATUS IDT_CPS_set_pw_cfg( DAR_DEV_INFO_t       *dev_info,
    };
 
    for (port_idx = 0; port_idx < good_ptl->num_ports; port_idx++) {
-      UINT8 quadrant, quad_cfg;
-      UINT8 first_lane, last_lane, lnum;
-      UINT32 lctl, ops;
+      uint8_t quadrant, quad_cfg;
+      uint8_t first_lane, last_lane, lnum;
+      uint32_t lctl, ops;
 
 	  pnum = good_ptl->pnums[port_idx];
       quadrant = pi->cpr[pnum].quadrant;
@@ -876,7 +876,7 @@ STATUS IDT_CPS_set_pw_cfg( DAR_DEV_INFO_t       *dev_info,
 
    // Set up global port write controls if "all ports" were requested...
    if (good_ptl->num_ports > 1) {
-      UINT32 dev1, i2c_ctl;
+      uint32_t dev1, i2c_ctl;
 
       rc = DARRegRead( dev_info, CPS1848_DEVICE_CTL_1, &dev1 );
       if (RIO_SUCCESS != rc) {
@@ -923,14 +923,14 @@ idt_CPS_set_pw_cfg_exit:
 
 #define SET_EVENT_INT(x) (EM_SET_EVENT_INT_0+x)
 
-STATUS IDT_CPS_set_int_cfg( DAR_DEV_INFO_t       *dev_info, 
+uint32_t IDT_CPS_set_int_cfg( DAR_DEV_INFO_t       *dev_info, 
                             struct DAR_ptl		 *good_ptl,
                             idt_em_notfn_ctl_t    notfn, 
                             cps_port_info_t      *pi,
-                            UINT32               *fail_pt )
+                            uint32_t               *fail_pt )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8 port_idx, pnum;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t port_idx, pnum;
 
    // Validate notfn
    if (idt_em_notfn_last <= notfn) {
@@ -945,9 +945,9 @@ STATUS IDT_CPS_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
    };
 
    for (port_idx = 0; port_idx < good_ptl->num_ports; port_idx++) {
-      UINT8 quadrant, quad_cfg;
-      UINT8 first_lane, last_lane, lnum;
-      UINT32 lctl, ops;
+      uint8_t quadrant, quad_cfg;
+      uint8_t first_lane, last_lane, lnum;
+      uint32_t lctl, ops;
 
 	  pnum = good_ptl->pnums[port_idx];
       quadrant = pi->cpr[pnum].quadrant;
@@ -1013,7 +1013,7 @@ STATUS IDT_CPS_set_int_cfg( DAR_DEV_INFO_t       *dev_info,
 
    // Set up global interrupt controls if "all ports" were requested...
    if (good_ptl->num_ports > 1) {
-      UINT32 dev1, i2c_ctl;
+      uint32_t dev1, i2c_ctl;
 
       rc = DARRegRead( dev_info, CPS1848_DEVICE_CTL_1, &dev1 );
       if (RIO_SUCCESS != rc) {
@@ -1058,21 +1058,21 @@ idt_CPS_set_int_cfg_exit:
    return rc;
 }
 
-STATUS CPS_em_determine_notfn( DAR_DEV_INFO_t     *dev_info, 
+uint32_t CPS_em_determine_notfn( DAR_DEV_INFO_t     *dev_info, 
                                idt_em_notfn_ctl_t *notfn, 
                                struct DAR_ptl	  *good_ptl, 
                                cps_port_info_t    *pi,
-                               UINT32             *fail_pt )
+                               uint32_t             *fail_pt )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8  pnum, port_idx;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t  pnum, port_idx;
  
 
    *notfn = idt_em_notfn_last;
 
    for (port_idx = 0; port_idx <= good_ptl->num_ports; port_idx++) {
-      UINT8 quadrant, quad_cfg;
-      UINT32 ops;
+      uint8_t quadrant, quad_cfg;
+      uint32_t ops;
       idt_em_notfn_ctl_t t_notfn;
 
 	  pnum = good_ptl->pnums[port_idx];
@@ -1116,13 +1116,13 @@ CPS_em_determine_notfn_exit:
    return rc;
 };
 
-STATUS IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info, 
+uint32_t IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info, 
                              idt_em_cfg_set_in_t   *in_parms, 
                              idt_em_cfg_set_out_t  *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT16 idx;
-   UINT8 e_idx, pnum;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint16_t idx;
+   uint8_t e_idx, pnum;
    idt_pc_get_config_in_t  cfg_in;
    idt_pc_get_config_out_t cfg_out;
    idt_event_cfg_reg_values_t regs;
@@ -1134,7 +1134,7 @@ STATUS IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
    out_parms->fail_idx      = idt_em_last;
    out_parms->notfn         = idt_em_notfn_0delta;
 
-   if ( (in_parms->num_events > (UINT8)(idt_em_last)) ||
+   if ( (in_parms->num_events > (uint8_t)(idt_em_last)) ||
         ( NULL == in_parms->events                  )) {
       out_parms->imp_rc = EM_CFG_SET(0x11);
       goto idt_CPS_em_cfg_set_exit;
@@ -1167,7 +1167,7 @@ STATUS IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
    }
 
    for (idx = 0; idx < cfg_out.num_ports; idx++) {
-      UINT8 quadrant, quad_cfg, first_lane, last_lane;
+      uint8_t quadrant, quad_cfg, first_lane, last_lane;
       if ( cfg_out.pc[idx].port_available && cfg_out.pc[idx].powered_up ) {
          pnum = cfg_out.pc[idx].pnum;
 	 quadrant = pi.cpr[pnum].quadrant;
@@ -1185,7 +1185,7 @@ STATUS IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
 
 	 // Disable all events first, then enable events
          for (e_idx = 0; (e_idx < in_parms->num_events) && 
-                         (e_idx < (UINT8)(idt_em_last))   ; e_idx++) {
+                         (e_idx < (uint8_t)(idt_em_last))   ; e_idx++) {
             out_parms->fail_idx      = e_idx;
 	    out_parms->fail_port_num = pnum;
             // Failure points 0x20-0x80
@@ -1199,7 +1199,7 @@ STATUS IDT_CPS_em_cfg_set  ( DAR_DEV_INFO_t        *dev_info,
 
 	 // Disable all events first, then enable events
          for (e_idx = 0; (e_idx < in_parms->num_events) && 
-                         (e_idx < (UINT8)(idt_em_last))   ; e_idx++) {
+                         (e_idx < (uint8_t)(idt_em_last))   ; e_idx++) {
             out_parms->fail_idx      = e_idx;
 	    out_parms->fail_port_num = pnum;
             // Failure points 0x20-0x80
@@ -1239,15 +1239,15 @@ idt_CPS_em_cfg_set_exit:
    return rc;
 };
 
-STATUS IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info, 
+uint32_t IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info, 
                              idt_em_cfg_get_in_t   *in_parms, 
                              idt_em_cfg_get_out_t  *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    cps_port_info_t pi;
-   UINT32 err_rpt, imp_err_rpt, imp_err_rate, lctl;
-   UINT8 pnum, quadrant, quad_cfg, first_lane; 
-   UINT8 e_idx;
+   uint32_t err_rpt, imp_err_rpt, imp_err_rate, lctl;
+   uint8_t pnum, quadrant, quad_cfg, first_lane; 
+   uint8_t e_idx;
    idt_pc_get_config_in_t  cfg_in;
    idt_pc_get_config_out_t cfg_out;
 
@@ -1263,7 +1263,7 @@ STATUS IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
 	  cfg_in.ptl.pnums[0] = in_parms->port_num;
    };
 
-   if ((in_parms->num_events > (UINT8)(idt_em_last)) ||
+   if ((in_parms->num_events > (uint8_t)(idt_em_last)) ||
        (NULL == in_parms->event_list               ) ||
        (NULL == in_parms->events                   )) {
       out_parms->imp_rc = EM_CFG_GET(0x02);
@@ -1323,7 +1323,7 @@ STATUS IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
       goto idt_CPS_em_cfg_get_exit;
    };
 
-   for (e_idx = 0; ((e_idx < in_parms->num_events) && (e_idx < (UINT8)(idt_em_last))); e_idx++) {
+   for (e_idx = 0; ((e_idx < in_parms->num_events) && (e_idx < (uint8_t)(idt_em_last))); e_idx++) {
       // Initialize event such that event is disabled.
       out_parms->fail_idx = e_idx;
       in_parms->events[e_idx].em_event  = in_parms->event_list[e_idx];
@@ -1348,7 +1348,7 @@ STATUS IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
 
          case idt_em_f_2many_retx:
                             if ( imp_err_rpt & CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_MANY_RETRY_EN ) {
-                               UINT32 retry_lim;
+                               uint32_t retry_lim;
                                in_parms->events[e_idx].em_detect = idt_em_detect_on;
 
                                rc = DARRegRead( dev_info, CPS1848_PORT_X_RETRY_CNTR(pnum), &retry_lim );
@@ -1363,7 +1363,7 @@ STATUS IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
 
          case idt_em_f_2many_pna: 
                               if ( imp_err_rate & CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_PNA_EN ) {
-                                 UINT32 thresh;
+                                 uint32_t thresh;
 
                                  in_parms->events[e_idx].em_detect = idt_em_detect_on;
                                  rc = DARRegRead( dev_info, CPS1848_PORT_X_ERR_RATE_THRESH_CSR(pnum), &thresh );
@@ -1377,7 +1377,7 @@ STATUS IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
                               break;
 
          case idt_em_f_err_rate: 
-                              { UINT32 rate_en, rate, thresh;
+                              { uint32_t rate_en, rate, thresh;
 
                                 rc = DARRegRead(dev_info, CPS1848_PORT_X_ERR_RATE_EN_CSR(pnum), &rate_en);
                                 if (RIO_SUCCESS != rc) {
@@ -1411,7 +1411,7 @@ STATUS IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
 
          case idt_em_d_ttl:
                          if (imp_err_rpt & CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_TTL_EVENT_EN) {
-                            UINT32 ttl;
+                            uint32_t ttl;
                             in_parms->events[e_idx].em_detect = idt_em_detect_on;
                             rc = DARRegRead( dev_info, CPS1848_PKT_TTL_CSR, &ttl );
                             if (RIO_SUCCESS != rc) {
@@ -1430,7 +1430,7 @@ STATUS IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
                          break;
 
          case idt_em_d_log: 
-                         { UINT32 log_en;
+                         { uint32_t log_en;
                            rc = DARRegRead( dev_info, CPS1848_LT_ERR_EN_CSR, &log_en );
                            if (RIO_SUCCESS != rc) {
                               out_parms->imp_rc = EM_CFG_GET(0x80);
@@ -1456,7 +1456,7 @@ STATUS IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
 
          case idt_em_i_init_fail:  // Notification for I2C Initialization failures
                          {
-                           UINT32 mast_ctl;
+                           uint32_t mast_ctl;
                            rc = DARRegRead( dev_info, CPS1848_I2C_MASTER_CTL, &mast_ctl );
                            if (RIO_SUCCESS != rc) {
                               out_parms->imp_rc = EM_CFG_GET(0x90);
@@ -1476,7 +1476,7 @@ STATUS IDT_CPS_em_cfg_get  ( DAR_DEV_INFO_t        *dev_info,
       };
    };
 
-   out_parms->fail_idx      = (UINT8)(idt_em_last); 
+   out_parms->fail_idx      = (uint8_t)(idt_em_last); 
 
    // Now figure out the current notification setting for this port.
    rc = CPS_em_determine_notfn( dev_info, &out_parms->notfn, &cfg_in.ptl, &pi, &out_parms->imp_rc);
@@ -1488,11 +1488,11 @@ idt_CPS_em_cfg_get_exit:
 // Routines to query and control port-write and interrupt
 // reporting configuration for a port/device.
 
-STATUS IDT_CPS_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t IDT_CPS_em_dev_rpt_ctl  ( DAR_DEV_INFO_t            *dev_info, 
                                  idt_em_dev_rpt_ctl_in_t   *in_parms, 
                                  idt_em_dev_rpt_ctl_out_t  *out_parms )
 {
-    STATUS rc = RIO_ERR_INVALID_PARAMETER;
+    uint32_t rc = RIO_ERR_INVALID_PARAMETER;
     cps_port_info_t pi;
 	struct DAR_ptl good_ptl;
 
@@ -1533,18 +1533,18 @@ idt_CPS_em_dev_rpt_ctl_exit:
 // and to query a port/device and return a list of asserted events 
 // which are reported via interrupt or port-write, 
 
-#define PW_PORT_NUM_MASK  (UINT32)(0x000000FF)
-#define PW_ES_MASK        (UINT32)(0x0000FF00)
-#define PW_EC_MASK        (UINT32)(0x000000FF)
-#define PW_LANE_ES_MASK   (UINT32)(0x00000008)
-#define PW_LANE_ES_VAL    (UINT32)(0x00000008)
-#define PW_LANE_IMP_SPEC  (UINT32)(0x00000008)
+#define PW_PORT_NUM_MASK  (uint32_t)(0x000000FF)
+#define PW_ES_MASK        (uint32_t)(0x0000FF00)
+#define PW_EC_MASK        (uint32_t)(0x000000FF)
+#define PW_LANE_ES_MASK   (uint32_t)(0x00000008)
+#define PW_LANE_ES_VAL    (uint32_t)(0x00000008)
+#define PW_LANE_IMP_SPEC  (uint32_t)(0x00000008)
 
 // Parse port-write with a format compliant to the RapidIO Standard, Part 8
 //
 
 typedef struct CPS_known_events_t_TAG {
-   UINT8           error_code;
+   uint8_t           error_code;
    idt_em_events_t event;
 } CPS_known_events_t;
 
@@ -1575,19 +1575,19 @@ const CPS_known_events_t i2c_err_codes[] = {
    { 0x00, idt_em_last        }, // End of list
 };
 
-BOOL CPS_find_event_code( idt_em_parse_pw_in_t   *in_parms, 
+bool CPS_find_event_code( idt_em_parse_pw_in_t   *in_parms, 
                           idt_em_parse_pw_out_t  *out_parms,
-                          UINT8                   code_val,
+                          uint8_t                   code_val,
                     const CPS_known_events_t     *err_codes )
 {
-   UINT8 code_idx = 0;
-   BOOL  found_one = FALSE;
+   uint8_t code_idx = 0;
+   bool  found_one = false;
 
    while (idt_em_last != err_codes[code_idx].event) {
       if (err_codes[code_idx].error_code == code_val) {
          in_parms->events[out_parms->num_events].event = err_codes[code_idx].event;
          out_parms->num_events++;
-         found_one = TRUE;
+         found_one = true;
          break;
       };
       code_idx++;
@@ -1599,8 +1599,8 @@ BOOL CPS_find_event_code( idt_em_parse_pw_in_t   *in_parms,
 void CPS_parse_std_pw  ( idt_em_parse_pw_in_t   *in_parms, 
                          idt_em_parse_pw_out_t  *out_parms )
 {
-   UINT32 imp_spec = (in_parms->pw[IDT_EM_PW_IMP_SPEC_IDX] & IDT_EM_PW_IMP_SPEC_MASK) >> 8;
-   in_parms->events[0].port_num = (UINT8)(in_parms->pw[IDT_EM_PW_IMP_SPEC_IDX] & IDT_EM_PW_IMP_SPEC_PORT_MASK);
+   uint32_t imp_spec = (in_parms->pw[IDT_EM_PW_IMP_SPEC_IDX] & IDT_EM_PW_IMP_SPEC_MASK) >> 8;
+   in_parms->events[0].port_num = (uint8_t)(in_parms->pw[IDT_EM_PW_IMP_SPEC_IDX] & IDT_EM_PW_IMP_SPEC_PORT_MASK);
 
    // Logical layer error check...
    if (in_parms->pw[IDT_EM_PW_L_ERR_DET_IDX]) {
@@ -1619,13 +1619,13 @@ void CPS_parse_std_pw  ( idt_em_parse_pw_in_t   *in_parms,
             out_parms->num_events = 1;
          };
          if (~CPS1848_PORT_X_ERR_DET_CSR_LR_ACKID_ILL & in_parms->pw[IDT_EM_PW_P_ERR_DET_IDX])
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
 
          return;
       };
  
       if ( !CPS_find_event_code( in_parms, out_parms, imp_spec & PW_EC_MASK, port_err_codes ))
-         out_parms->other_events = TRUE;
+         out_parms->other_events = true;
 
       return;
    };
@@ -1635,7 +1635,7 @@ void CPS_parse_std_pw  ( idt_em_parse_pw_in_t   *in_parms,
    // just note "other events" 
    
    if (!((in_parms->pw[IDT_EM_PW_IMP_SPEC_IDX] & IDT_EM_PW_IMP_SPEC_MASK) >> 12)) {
-      out_parms->other_events = TRUE;
+      out_parms->other_events = true;
       return;
    };
 
@@ -1644,7 +1644,7 @@ void CPS_parse_std_pw  ( idt_em_parse_pw_in_t   *in_parms,
                  if ( CPS_find_event_code( in_parms, out_parms, imp_spec & PW_EC_MASK, i2c_err_codes )) {
 		    in_parms->events[0].port_num = RIO_ALL_PORTS;
 		 } else {
-                    out_parms->other_events = TRUE;
+                    out_parms->other_events = true;
 		 };
                  break;
 
@@ -1656,19 +1656,19 @@ void CPS_parse_std_pw  ( idt_em_parse_pw_in_t   *in_parms,
                  if ( CPS_find_event_code( in_parms, out_parms, imp_spec & PW_EC_MASK, lane_err_codes )) {
 		    in_parms->events[0].port_num = RIO_ALL_PORTS;
 		 } else {
-                    out_parms->other_events = TRUE;
+                    out_parms->other_events = true;
 		 };
                  break;
 
                  // Intentionally fall through
-         default: out_parms->other_events = TRUE;
+         default: out_parms->other_events = true;
    };
 };
 
 typedef struct CPS_known_error_sources_t_TAG {
-         UINT8    begin_error_source;
-         UINT8    end_error_source;
-         UINT8    port_num;
+         uint8_t    begin_error_source;
+         uint8_t    end_error_source;
+         uint8_t    port_num;
   const CPS_known_events_t * const errs;
 } CPS_known_error_sources_t;
 
@@ -1707,10 +1707,10 @@ const CPS_known_error_sources_t CPS_err_sources[] =
 void CPS_parse_el_pw  ( idt_em_parse_pw_in_t   *in_parms, 
                         idt_em_parse_pw_out_t  *out_parms )
 {
-   UINT8 e_src = (UINT8)((in_parms->pw[CPS_ELPW_ERR_SRC_IDX] & CPS_ELPW_ERR_SRC_MASK) >> 24);   
-   UINT8 e_cd = (UINT8)((in_parms->pw[CPS_ELPW_ERR_CODE_IDX] & CPS_ELPW_ERR_CODE_MASK) >> 16);   
-   UINT8 src_idx = 0;
-   BOOL  found_cd = FALSE;
+   uint8_t e_src = (uint8_t)((in_parms->pw[CPS_ELPW_ERR_SRC_IDX] & CPS_ELPW_ERR_SRC_MASK) >> 24);   
+   uint8_t e_cd = (uint8_t)((in_parms->pw[CPS_ELPW_ERR_CODE_IDX] & CPS_ELPW_ERR_CODE_MASK) >> 16);   
+   uint8_t src_idx = 0;
+   bool  found_cd = false;
 
    in_parms->events[out_parms->num_events].port_num = RIO_ALL_PORTS;
 
@@ -1722,25 +1722,25 @@ void CPS_parse_el_pw  ( idt_em_parse_pw_in_t   *in_parms,
          };
          found_cd = CPS_find_event_code( in_parms, out_parms, e_cd, CPS_err_sources[src_idx].errs );
          if (!found_cd)
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          break;
       };
       src_idx++;
    };
 }
 
-STATUS IDT_CPS_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info, 
+uint32_t IDT_CPS_em_parse_pw  ( DAR_DEV_INFO_t       *dev_info, 
                               idt_em_parse_pw_in_t   *in_parms, 
                               idt_em_parse_pw_out_t  *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
 
    out_parms->num_events   = 0;
-   out_parms->too_many     = FALSE;
-   out_parms->other_events = FALSE;
+   out_parms->too_many     = false;
+   out_parms->other_events = false;
 
    if (( !in_parms->num_events                        ) 
-      || (in_parms->num_events > (UINT8)(idt_em_last) )
+      || (in_parms->num_events > (uint8_t)(idt_em_last) )
       || !in_parms->events                             
 	  || (NULL == dev_info                            )) {
       out_parms->imp_rc = EM_PARSE_PW(1);
@@ -1766,25 +1766,25 @@ idt_CPS_em_parse_pw_exit:
 
 #define EM_GET_INT_STAT(x) (EM_GET_INT_STAT_0+x)
 
-STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info, 
+uint32_t IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info, 
                                   idt_em_get_int_stat_in_t   *in_parms, 
                                   idt_em_get_int_stat_out_t  *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8 pnum; 
-   UINT8 idx;
-   UINT32 dev_ctl1, i2c_err_det, i2c_capt_en, i2c_mast_ctl;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t pnum; 
+   uint8_t idx;
+   uint32_t dev_ctl1, i2c_err_det, i2c_capt_en, i2c_mast_ctl;
    idt_pc_get_config_in_t  cfg_in;
    idt_pc_get_config_out_t cfg_out;
-   UINT32                  log_err_det, log_err_en;
+   uint32_t                  log_err_det, log_err_en;
    cps_port_info_t         pi;
-   BOOL   got_los;
-   UINT32 imp_spec_chkd = 0;
+   bool   got_los;
+   uint32_t imp_spec_chkd = 0;
     
    out_parms->imp_rc       = RIO_SUCCESS;
    out_parms->num_events   = 0;
-   out_parms->too_many     = FALSE;
-   out_parms->other_events = FALSE;
+   out_parms->too_many     = false;
+   out_parms->other_events = false;
 
    if (( !in_parms->num_events                          ) 
       || (in_parms->num_events > EM_MAX_EVENT_LIST_SIZE )
@@ -1838,7 +1838,7 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
      if ( log_err_en ) {
         add_int_event( in_parms, out_parms, RIO_ALL_PORTS, idt_em_d_log );
       } else {
-         out_parms->other_events = TRUE;
+         out_parms->other_events = true;
       }
    }
 
@@ -1865,16 +1865,16 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
      if (i2c_capt_en  & CPS1848_AUX_PORT_ERR_CAPT_EN_I2C_CHKSUM_ERR_EN) {
         add_int_event( in_parms, out_parms, RIO_ALL_PORTS, idt_em_i_init_fail );
       } else {
-         out_parms->other_events = TRUE;
+         out_parms->other_events = true;
       }
    }
 
    for (idx = 0; idx < cfg_out.num_ports; idx++) {
-      UINT32 err_n_stat, err_det, err_rate, imp_spec_det, err_rpt_en, err_rate_en;
-      UINT32 l_err_det, l_err_rate, t_lane;
-      UINT8 first_lane, last_lane, lnum;
-      UINT32 ops;
-      got_los = FALSE;
+      uint32_t err_n_stat, err_det, err_rate, imp_spec_det, err_rpt_en, err_rate_en;
+      uint32_t l_err_det, l_err_rate, t_lane;
+      uint8_t first_lane, last_lane, lnum;
+      uint32_t ops;
+      got_los = false;
 
       if (!( cfg_out.pc[idx].port_available && cfg_out.pc[idx].powered_up ))
          continue;
@@ -1957,9 +1957,9 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
             // Note, only need to check l_err_rate, as err_rpt_en is always set when l_err_rate is set.
             if ((CPS1848_LANE_X_ERR_RATE_EN_LANE_SYNC_EN | CPS1848_LANE_X_ERR_RATE_EN_LANE_RDY_EN) & l_err_rate) {
                add_int_event(in_parms, out_parms, pnum,  idt_em_f_los);
-               got_los = TRUE;
+               got_los = true;
             } else {
-               out_parms->other_events = TRUE;
+               out_parms->other_events = true;
             };
          };
 
@@ -1968,7 +1968,7 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
             if (~CPSGEN2_ERR_RATE_EVENT_EXCLUSIONS & err_rate) {
                add_int_event(in_parms, out_parms, pnum,  idt_em_f_err_rate);
             } else {
-               out_parms->other_events = TRUE;
+               out_parms->other_events = true;
             };
          };
 
@@ -1977,7 +1977,7 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
             if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_PNA_EN & err_rate_en)  {
                add_int_event(in_parms, out_parms, pnum,  idt_em_f_2many_pna);
             } else {
-               out_parms->other_events = TRUE;
+               out_parms->other_events = true;
             };
          };
       };
@@ -1987,7 +1987,7 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
             if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_LOA_EN & err_rate_en) {
                add_int_event(in_parms, out_parms, pnum,  idt_em_f_los);
             } else {
-                out_parms->other_events = TRUE;
+                out_parms->other_events = true;
             };
          };
       };
@@ -2000,7 +2000,7 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
          if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_FATAL_TO_EN & err_rpt_en) {
             add_int_event(in_parms, out_parms, pnum,  idt_em_f_port_err);
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          };
       };
             
@@ -2010,7 +2010,7 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
          if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_MANY_RETRY_EN & err_rpt_en) {
             add_int_event(in_parms, out_parms, pnum,  idt_em_f_2many_retx);
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          };
       };
 
@@ -2020,7 +2020,7 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
          if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_TTL_EVENT_EN & err_rpt_en) {
             add_int_event(in_parms, out_parms, pnum,  idt_em_d_ttl);
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          };
       };
 
@@ -2030,7 +2030,7 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
          if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_RTE_ISSUE_EN & err_rpt_en) {
             add_int_event(in_parms, out_parms, pnum,  idt_em_d_rte);
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          };
       };
 
@@ -2040,7 +2040,7 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
          if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_PORT_INIT_EN & err_rpt_en) {
             add_int_event(in_parms, out_parms, pnum,  idt_em_i_sig_det);
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          };
       };
 
@@ -2048,7 +2048,7 @@ STATUS IDT_CPS_em_get_int_stat  ( DAR_DEV_INFO_t             *dev_info,
       // which are enabled for reporting or counting.
       if ((~imp_spec_chkd & imp_spec_det & err_rpt_en) ||
           (~imp_spec_chkd & imp_spec_det & err_rate_en)) {
-         out_parms->other_events = TRUE;
+         out_parms->other_events = true;
       };
    };
 
@@ -2060,26 +2060,26 @@ idt_CPS_em_get_int_stat_exit:
 
 #define EM_EM_GET_PW_STAT(x) (EM_EM_GET_PW_STAT_0+x)
 
-STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info, 
+uint32_t IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info, 
                                  idt_em_get_pw_stat_in_t   *in_parms, 
                                  idt_em_get_pw_stat_out_t  *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-   UINT8 pnum; 
-   UINT8 idx;
-   UINT32 start_idx;
-   UINT32 dev_ctl1, i2c_err_det, i2c_capt_en, i2c_mast_ctl;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+   uint8_t pnum; 
+   uint8_t idx;
+   uint32_t start_idx;
+   uint32_t dev_ctl1, i2c_err_det, i2c_capt_en, i2c_mast_ctl;
    idt_pc_get_config_in_t  cfg_in;
    idt_pc_get_config_out_t cfg_out;
-   UINT32 log_err_det, log_err_en;
-   BOOL   got_los;
-   UINT32 imp_spec_chkd = 0;
+   uint32_t log_err_det, log_err_en;
+   bool   got_los;
+   uint32_t imp_spec_chkd = 0;
    cps_port_info_t         pi;
     
    out_parms->imp_rc       = RIO_SUCCESS;
    out_parms->num_events   = 0;
-   out_parms->too_many     = FALSE;
-   out_parms->other_events = FALSE;
+   out_parms->too_many     = false;
+   out_parms->other_events = false;
 
    if (( !in_parms->num_events                          ) 
       || (in_parms->num_events > EM_MAX_EVENT_LIST_SIZE )
@@ -2139,7 +2139,7 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
      if ( log_err_en ) {
         add_pw_event( in_parms, out_parms, RIO_ALL_PORTS, idt_em_d_log );
       } else {
-         out_parms->other_events = TRUE;
+         out_parms->other_events = true;
       }
    }
 
@@ -2166,16 +2166,16 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
      if ( i2c_capt_en  & CPS1848_AUX_PORT_ERR_CAPT_EN_I2C_CHKSUM_ERR_EN) {
         add_pw_event( in_parms, out_parms, RIO_ALL_PORTS, idt_em_i_init_fail );
       } else {
-         out_parms->other_events = TRUE;
+         out_parms->other_events = true;
       }
    }
 
    for (idx = 0; idx < cfg_out.num_ports; idx++) {
-      UINT32 err_n_stat, err_det, err_rate, imp_spec_det, err_rpt_en, err_rate_en;
-      UINT32 l_err_det = 0, l_err_rate, t_lane;
-      UINT32 ops;
-      UINT8 first_lane, last_lane, lnum;
-      got_los = FALSE;
+      uint32_t err_n_stat, err_det, err_rate, imp_spec_det, err_rpt_en, err_rate_en;
+      uint32_t l_err_det = 0, l_err_rate, t_lane;
+      uint32_t ops;
+      uint8_t first_lane, last_lane, lnum;
+      got_los = false;
 
       if (!( cfg_out.pc[idx].port_available && cfg_out.pc[idx].powered_up ))
          continue;
@@ -2258,9 +2258,9 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
             // Note, only need to check l_err_rate, as err_rpt_en is always set when l_err_rate is set.
             if ((CPS1848_LANE_X_ERR_RATE_EN_LANE_SYNC_EN | CPS1848_LANE_X_ERR_RATE_EN_LANE_RDY_EN) & l_err_rate) {
                add_pw_event(in_parms, out_parms, pnum,  idt_em_f_los);
-               got_los = TRUE;
+               got_los = true;
             } else {
-               out_parms->other_events = TRUE;
+               out_parms->other_events = true;
             };
          };
 
@@ -2269,7 +2269,7 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
             if (~CPSGEN2_ERR_RATE_EVENT_EXCLUSIONS & err_rate) {
                add_pw_event(in_parms, out_parms, pnum,  idt_em_f_err_rate);
             } else {
-               out_parms->other_events = TRUE;
+               out_parms->other_events = true;
             };
          };
 
@@ -2278,7 +2278,7 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
             if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_PNA_EN & err_rate_en) {
                add_pw_event(in_parms, out_parms, pnum,  idt_em_f_2many_pna);
             } else {
-               out_parms->other_events = TRUE;
+               out_parms->other_events = true;
             };
          };
       };
@@ -2288,7 +2288,7 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
             if (CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN_LOA_EN & err_rate_en) {
                add_pw_event(in_parms, out_parms, pnum,  idt_em_f_los);
             } else {
-                out_parms->other_events = TRUE;
+                out_parms->other_events = true;
             };
          };
       };
@@ -2301,7 +2301,7 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
          if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_FATAL_TO_EN & err_rpt_en) {
             add_pw_event(in_parms, out_parms, pnum,  idt_em_f_port_err);
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          };
       };
             
@@ -2311,7 +2311,7 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
          if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_MANY_RETRY_EN & err_rpt_en) {
             add_pw_event(in_parms, out_parms, pnum,  idt_em_f_2many_retx);
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          };
       };
 
@@ -2321,7 +2321,7 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
          if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_TTL_EVENT_EN & err_rpt_en) {
             add_pw_event(in_parms, out_parms, pnum,  idt_em_d_ttl);
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          };
       };
 
@@ -2331,7 +2331,7 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
          if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_RTE_ISSUE_EN & err_rpt_en) {
             add_pw_event(in_parms, out_parms, pnum,  idt_em_d_rte);
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          };
       };
 
@@ -2341,7 +2341,7 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
          if (CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN_PORT_INIT_EN & err_rpt_en) {
             add_pw_event(in_parms, out_parms, pnum,  idt_em_i_sig_det);
          } else {
-            out_parms->other_events = TRUE;
+            out_parms->other_events = true;
          };
       };
 
@@ -2349,7 +2349,7 @@ STATUS IDT_CPS_em_get_pw_stat  ( DAR_DEV_INFO_t            *dev_info,
       // which are enabled for reporting or counting.
       if ((~imp_spec_chkd & imp_spec_det & err_rpt_en) ||
           (~imp_spec_chkd & imp_spec_det & err_rate_en)) {
-         out_parms->other_events = TRUE;
+         out_parms->other_events = true;
       };
 
       if ((start_idx != out_parms->num_events             ) || 
@@ -2364,14 +2364,14 @@ idt_CPS_em_get_pw_stat_exit:
    return rc;
 };
 
-STATUS clr_bits( DAR_DEV_INFO_t           *dev_info, 
-                 UINT32                    reg_addr,
-                 UINT32                    mask_val,
-                 UINT32                    fail_pt_val,
-                 UINT32                   *fail_pt_addr ) 
+uint32_t clr_bits( DAR_DEV_INFO_t           *dev_info, 
+                 uint32_t                    reg_addr,
+                 uint32_t                    mask_val,
+                 uint32_t                    fail_pt_val,
+                 uint32_t                   *fail_pt_addr ) 
 {
-   STATUS rc;
-   UINT32 regData;
+   uint32_t rc;
+   uint32_t regData;
 
    rc = DARRegRead( dev_info, reg_addr, &regData );
    if (RIO_SUCCESS != rc) {
@@ -2388,29 +2388,29 @@ clr_bits_exit:
 };
 
 typedef struct clr_err_info_t_TAG {
-   UINT32      err_det; // CPS1848_PORT_X_ERR_DET_CSR(pnum) 
-   UINT32  imp_err_det; // CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum) 
-   BOOL    write_err_rate_n_stat;
-   BOOL    clr_pwpnd;
-   UINT32  err_rate_csr; // CPS1848_PORT_X_ERR_RATE_CSR(pnum) 
-   UINT32  err_stat_csr; // CPS1848_PORT_X_ERR_STAT_CSR(pnum), 
-   BOOL    clr_ackids;
+   uint32_t      err_det; // CPS1848_PORT_X_ERR_DET_CSR(pnum) 
+   uint32_t  imp_err_det; // CPS1848_PORT_X_IMPL_SPEC_ERR_DET(pnum) 
+   bool    write_err_rate_n_stat;
+   bool    clr_pwpnd;
+   uint32_t  err_rate_csr; // CPS1848_PORT_X_ERR_RATE_CSR(pnum) 
+   uint32_t  err_stat_csr; // CPS1848_PORT_X_ERR_STAT_CSR(pnum), 
+   bool    clr_ackids;
 } clr_err_info_t;
 
-STATUS read_err_info( DAR_DEV_INFO_t   *dev_info, 
+uint32_t read_err_info( DAR_DEV_INFO_t   *dev_info, 
                       cps_port_info_t  *pi      ,
 		      clr_err_info_t   *info    ,
-	              UINT32           *fail_pt	) 
+	              uint32_t           *fail_pt	) 
 {
-   STATUS rc = RIO_SUCCESS;
-   UINT8 pnum, quadrant, quad_cfg;
+   uint32_t rc = RIO_SUCCESS;
+   uint8_t pnum, quadrant, quad_cfg;
 
    for (pnum = 0; pnum < NUM_PORTS(dev_info); pnum++) {
       quadrant = pi->cpr[pnum].quadrant;
       quad_cfg = pi->quad_cfg_val[quadrant];
 
-      info[pnum].write_err_rate_n_stat = FALSE;
-      info[pnum].clr_pwpnd             = FALSE;
+      info[pnum].write_err_rate_n_stat = false;
+      info[pnum].clr_pwpnd             = false;
 
       if (!pi->cpr[pnum].cfg[quad_cfg].lane_count)
          continue;
@@ -2437,20 +2437,20 @@ STATUS read_err_info( DAR_DEV_INFO_t   *dev_info,
 	 *fail_pt = EM_CLR_EVENTS(0xF3);
          goto read_err_info_exit;
       }
-      info[pnum].clr_ackids = FALSE;
+      info[pnum].clr_ackids = false;
    };
 read_err_info_exit:
    return rc;
 };
       
-STATUS write_err_info( DAR_DEV_INFO_t   *dev_info, 
+uint32_t write_err_info( DAR_DEV_INFO_t   *dev_info, 
                        cps_port_info_t  *pi      ,
 	 	       clr_err_info_t   *orig    ,
 	 	       clr_err_info_t   *info    ,
-	               UINT32           *fail_pt	) 
+	               uint32_t           *fail_pt	) 
 {
-   STATUS rc = RIO_SUCCESS;
-   UINT8 pnum, quadrant, quad_cfg;
+   uint32_t rc = RIO_SUCCESS;
+   uint8_t pnum, quadrant, quad_cfg;
 
    for (pnum = 0; pnum < NUM_PORTS(dev_info); pnum++) {
       quadrant = pi->cpr[pnum].quadrant;
@@ -2516,23 +2516,23 @@ write_err_info_exit:
 // Routine to clear events, and a routine to create events
 // for software testing purposes.
 
-STATUS IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
+uint32_t IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info, 
                                  idt_em_clr_events_in_t   *in_parms, 
                                  idt_em_clr_events_out_t  *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
    int pnum; 
    int idx;
-   UINT8 lnum, quadrant, quad_cfg;
-   BOOL clear_port_fail = FALSE;
+   uint8_t lnum, quadrant, quad_cfg;
+   bool clear_port_fail = false;
    cps_port_info_t       pi;
    clr_err_info_t   regs[IDT_MAX_PORTS];
    clr_err_info_t   orig[IDT_MAX_PORTS];
     
    out_parms->imp_rc            = RIO_SUCCESS;
    out_parms->failure_idx       = 0;
-   out_parms->pw_events_remain  = FALSE;
-   out_parms->int_events_remain = FALSE;
+   out_parms->pw_events_remain  = false;
+   out_parms->int_events_remain = false;
 
    if (( !in_parms->num_events                          ) 
       || (in_parms->num_events > EM_MAX_EVENT_LIST_SIZE )
@@ -2589,33 +2589,33 @@ STATUS IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
                };
 	       regs[pnum].imp_err_det &= ~(CPS1848_PORT_X_IMPL_SPEC_ERR_DET_LOA | 
 			                   CPS1848_PORT_X_IMPL_SPEC_ERR_DET_ERR_RATE);
-               clear_port_fail = TRUE;
+               clear_port_fail = true;
                break;
 
           case idt_em_f_port_err  : // PORT_ERR occurs due to multiple causes,
                                     // all handled by idt_CPS_clr_errs.
 	       regs[pnum].imp_err_det = 0;
 	       regs[pnum].err_det     = 0;
-               clear_port_fail = TRUE;
+               clear_port_fail = true;
                break;
 
           case idt_em_f_2many_retx: 
-	       { UINT32 temp;
+	       { uint32_t temp;
 	       regs[pnum].imp_err_det &= ~( CPS1848_PORT_X_IMPL_SPEC_ERR_DET_MANY_RETRY);
 
-               rc = DARRegRead( dev_info, CPS1848_PORT_X_STATUS_AND_CTL(pnum), &temp );
+               rc = DARRegRead( dev_info, CPS1848_PORT_X_uint32_t_AND_CTL(pnum), &temp );
                if (RIO_SUCCESS != rc) {
 		  out_parms->imp_rc = EM_CLR_EVENTS(0x21);
                   goto idt_CPS_em_clr_events_exit;
                }
-	       temp |= CPS1848_PORT_X_STATUS_AND_CTL_CLR_MANY_RETRY;
-               rc = DARRegWrite( dev_info, CPS1848_PORT_X_STATUS_AND_CTL(pnum), temp );
+	       temp |= CPS1848_PORT_X_uint32_t_AND_CTL_CLR_MANY_RETRY;
+               rc = DARRegWrite( dev_info, CPS1848_PORT_X_uint32_t_AND_CTL(pnum), temp );
                if (RIO_SUCCESS != rc) {
 		  out_parms->imp_rc = EM_CLR_EVENTS(0x22);
                   goto idt_CPS_em_clr_events_exit;
                }
 	       }
-               clear_port_fail = TRUE;
+               clear_port_fail = true;
                break;
 
          case idt_em_i_init_fail :
@@ -2638,14 +2638,14 @@ STATUS IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
 
          case idt_em_f_2many_pna :
 	      regs[pnum].imp_err_det &= ~( CPS1848_PORT_X_IMPL_SPEC_ERR_DET_PNA );
-              clear_port_fail = TRUE;
+              clear_port_fail = true;
               break;
 
          case idt_em_f_err_rate  :
               // Clear all events that contribute to the fatal error rate event
 	      // This line is correct - we want to clear all bits that are not exclusions.
 	      regs[pnum].err_det &= CPSGEN2_ERR_RATE_EVENT_EXCLUSIONS;
-              clear_port_fail = TRUE;
+              clear_port_fail = true;
               break;
                                      
          case idt_em_d_log       : // Clear all logical layer errors, must write 0
@@ -2675,7 +2675,7 @@ STATUS IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
               break;
 
          case idt_em_a_clr_pwpnd  :
-	      regs[pnum].clr_pwpnd = TRUE;
+	      regs[pnum].clr_pwpnd = true;
               break;
 
          case idt_em_a_no_event  :
@@ -2694,8 +2694,8 @@ STATUS IDT_CPS_em_clr_events   ( DAR_DEV_INFO_t           *dev_info,
 	  regs[pnum].err_rate_csr &= (CPS1848_PORT_X_ERR_RATE_CSR_ERR_RATE_REC | 
 			              CPS1848_PORT_X_ERR_RATE_CSR_ERR_RATE_BIAS);
 	  regs[pnum].err_stat_csr &= ~CPS1848_PORT_X_ERR_STAT_CSR_PW_PNDG;
-	  regs[pnum].write_err_rate_n_stat = TRUE;
-	  regs[pnum].clr_ackids            = TRUE;
+	  regs[pnum].write_err_rate_n_stat = true;
+	  regs[pnum].clr_ackids            = true;
        };
     };
 
@@ -2712,15 +2712,15 @@ idt_CPS_em_clr_events_exit:
 
 #define CREATE_RATE(x) (EM_CREATE_RATE_0+x)
 
-STATUS cps_create_rate_event( DAR_DEV_INFO_t             *dev_info    , 
-                              UINT8                       pnum        , 
-                              UINT32                      err_det_val ,
-                              UINT32                      err_det_addr,
-                              UINT32                      rate_en_addr,
-                              UINT32                     *imp_err     )
+uint32_t cps_create_rate_event( DAR_DEV_INFO_t             *dev_info    , 
+                              uint8_t                       pnum        , 
+                              uint32_t                      err_det_val ,
+                              uint32_t                      err_det_addr,
+                              uint32_t                      rate_en_addr,
+                              uint32_t                     *imp_err     )
 {
-    STATUS rc;
-    UINT32 regVal, limit, idx;
+    uint32_t rc;
+    uint32_t regVal, limit, idx;
 
     rc = DARRegRead( dev_info, rate_en_addr, &regVal );
     if (RIO_SUCCESS != rc) {
@@ -2771,13 +2771,13 @@ cps_create_rate_event_exit:
 
 };
 
-STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info, 
+uint32_t IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info, 
                                   idt_em_create_events_in_t   *in_parms, 
                                   idt_em_create_events_out_t  *out_parms )
 {
-   STATUS rc = RIO_ERR_INVALID_PARAMETER;
-    UINT8  pnum; 
-    UINT8  idx;
+   uint32_t rc = RIO_ERR_INVALID_PARAMETER;
+    uint8_t  pnum; 
+    uint8_t  idx;
     idt_pc_get_config_in_t  cfg_in;
     idt_pc_get_config_out_t cfg_out;
    cps_port_info_t       pi;
@@ -2859,7 +2859,7 @@ STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
                                                          CPS1848_PORT_X_IMPL_SPEC_ERR_RATE_EN(pnum), 
                                                          &out_parms->imp_rc );
                } else {
-                  UINT8 quadrant, quad_cfg;
+                  uint8_t quadrant, quad_cfg;
                   quadrant = pi.cpr[pnum].quadrant;
                   quad_cfg = pi.quad_cfg_val[quadrant];
                   rc = cps_create_rate_event(dev_info, pnum, (CPS1848_LANE_X_ERR_DET_LANE_SYNC|CPS1848_LANE_X_ERR_DET_LANE_RDY),
@@ -2873,7 +2873,7 @@ STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
               break;
 
           case idt_em_f_port_err  :  
-	      { UINT32 temp;
+	      { uint32_t temp;
 		// Check that port_err detection is enabled.
                 rc = DARRegRead( dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum), &temp );
                 if (RIO_SUCCESS != rc) {
@@ -2889,7 +2889,7 @@ STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
 	       };
 
 	       // Invert the next expected ackID, then issue a link request...
-	      { UINT32 ackID, imp_spec_det, cmd = RIO_SPX_LM_REQ_CMD_LR_IS;
+	      { uint32_t ackID, imp_spec_det, cmd = RIO_SPX_LM_REQ_CMD_LR_IS;
 
                   rc = DARRegRead( dev_info, CPS1848_PORT_X_LOCAL_ACKID_CSR(pnum), &ackID );
                   if (RIO_SUCCESS != rc) {
@@ -2946,7 +2946,7 @@ STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
 
          case idt_em_f_2many_retx: 
 	      // No need to create a rate event - just write the register...
-	      { UINT32 err_rpt, impl_err_det;
+	      { uint32_t err_rpt, impl_err_det;
 
                 rc = DARRegRead( dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum), &err_rpt );
                 if (RIO_SUCCESS != rc) {
@@ -2998,7 +2998,7 @@ STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
 
          case idt_em_d_ttl       : 
 
-	     { UINT32 temp;
+	     { uint32_t temp;
                rc = DARRegRead( dev_info, CPS1848_PKT_TTL_CSR, &temp );
                if (RIO_SUCCESS != rc) {
                   out_parms->imp_rc = EM_CREATE_EVENTS(0x30);
@@ -3020,7 +3020,7 @@ STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
               break;
 
          case idt_em_d_rte       :
-	      { UINT32 temp;
+	      { uint32_t temp;
                 rc = DARRegRead( dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum), &temp );
                 if (RIO_SUCCESS != rc) {
                    out_parms->imp_rc = EM_CREATE_EVENTS(0x40);
@@ -3042,7 +3042,7 @@ STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
               break;
 
          case idt_em_d_log       : // Set all logical layer errors
-	      { UINT32 temp;
+	      { uint32_t temp;
                 rc = DARRegRead( dev_info, CPS1848_LT_ERR_EN_CSR, &temp );
                 if (RIO_SUCCESS != rc) {
                    out_parms->imp_rc = EM_CREATE_EVENTS(0x50);
@@ -3064,7 +3064,7 @@ STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
               break;
 
          case idt_em_i_sig_det   :
-	      { UINT32 temp;
+	      { uint32_t temp;
                 rc = DARRegRead( dev_info, CPS1848_PORT_X_IMPL_SPEC_ERR_RPT_EN(pnum), &temp );
                 if (RIO_SUCCESS != rc) {
                    out_parms->imp_rc = EM_CREATE_EVENTS(0x61);
@@ -3092,7 +3092,7 @@ STATUS IDT_CPS_em_create_events ( DAR_DEV_INFO_t              *dev_info,
               break;
 
          case idt_em_i_init_fail :
-	      { UINT32 temp;
+	      { uint32_t temp;
                 rc = DARRegRead( dev_info, CPS1848_I2C_MASTER_CTL, &temp );
                 if (RIO_SUCCESS != rc) {
                    out_parms->imp_rc = EM_CREATE_EVENTS(0x71);

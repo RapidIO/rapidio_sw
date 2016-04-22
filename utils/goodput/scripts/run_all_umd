@@ -1,0 +1,17 @@
+echo The start_target script must be run on the target node,
+echo and create_perf_scripts must be run on this node using target nodes
+echo device ID before this script can be run!!!
+
+// UNKNOWN
+. udma_thru_read
+// UNKNOWN
+. udma_thru_write
+// UNKNOWN
+. udma_lat_read 
+
+// Create log file indicating completion of run_all_umd script
+// to automated regression software.
+
+log logs/MPORT_DIR/run_all_umd_done.ulog
+st
+close

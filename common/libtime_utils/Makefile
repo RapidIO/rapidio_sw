@@ -29,11 +29,11 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
+TOPDIR=../..
+include $(TOPDIR)/rules.mk
+
 LOG_LEVEL?=7
-DEBUG?=DEBUG
-CC?=$(CROSS_COMPILE)g++
-CXX?=$(CROSS_COMPILE)g++
-TOP_LEVEL = $(shell pwd)
+DEBUG?=NDEBUG
 
 level=$(LOG_LEVEL)
 
@@ -42,17 +42,15 @@ TARGETS:=lib$(NAME).a lib$(NAME).so
 TEST_TARGET:=$(NAME)_test
 HEADERS:=inc/lib$(NAME).h
 
-CROSS_COMPILE?=/usr/bin/
+XFLAGS=-Wall -Wextra -fPIC
+XFLAGS+=-D$(DEBUG) -DRDMA_LL=$(level)
+XFLAGS+=-I. -Iinc -Isrc
 
-AR:=$(CROSS_COMPILE)ar
+CFLAGS += $(XFLAGS)
+CXXFLAGS += $(XFLAGS)
 
-CFLAGS+=$(addprefix -W,all extra error) -fPIC
-CFLAGS+=-O2 -D$(DEBUG) -g
-CFLAGS+=-I. -Iinc -Isrc
-CFLAGS+=-I../../common/include
-CFLAGS+=-DRDMA_LL=$(level)
 LDFLAGS+=-L. -l$(NAME)
-LINK_FLAGS+= -rdynamic -shared
+LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
@@ -64,18 +62,19 @@ all: $(TARGETS)
 	$(AR) rcs $@ $^
 
 %.so: $(OBJECTS)
-	$(CXX) -o $@ $(OBJECTS) $(LINK_FLAGS)
+	$(CXX) $(CXXFLAGS) -o $@.$(SOVER) $(OBJECTS) $(LINK_FLAGS)
+	@ln -s $@.$(SOVER) $@ &>/dev/null
 
 src/%.o: src/%.c $(HEADERS)
-	$(CXX) -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 test: all $(TEST_TARGET) 
 
 $(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS)
-	$(CXX) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) -llog -pthread \
-	-L. -L../../common/libs_a
+	$(CXX) $(CXXFLAGS) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) -llog -pthread \
+	-L. -L$(COMMONLIBA)
 
 clean:
-	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a
+	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a lib$(NAME).so*
 
 .PHONY: all clean
