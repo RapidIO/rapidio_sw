@@ -54,10 +54,15 @@ struct riocp_pe_capabilities {
 typedef struct riocp_pe *riocp_pe_handle;
 
 /* RapidIO port and status */
-#define RIOCP_PE_PORT_STATE_UNINITIALIZED	(1<<0) /* Port uninitialized */
-#define RIOCP_PE_PORT_STATE_OK			(1<<1) /* Port OK */
-#define RIOCP_PE_PORT_STATE_ERROR		(1<<2) /* Port in error */
-typedef uint32_t riocp_pe_port_state_t;
+
+struct riocp_pe_port_state_t
+{
+	int port_ok; /** 0 - port not initialized, 1 - port initialized */
+	int port_max_width; /** Maximum number of lanes for the port */
+	int port_cur_width; /** Current operating width of the port */
+	int port_lane_speed; /** Lane speed in Mbps */
+	int link_errs; /** 0 - Can exchange packets, 1 - errors stop exchange */
+};
 
 /* Structure describing a RapidIO port and its status */
 struct riocp_pe_port {
@@ -67,9 +72,9 @@ struct riocp_pe_port {
 	struct riocp_pe_port_state_t state;	/* Port state */
 };
 
+
 /*
- * Enumeration describing default routing action for inbound packets
- * that are not matched in LUT
+ * Device Driver Functions
  */
 
 #define ALL_PE_PORTS ((uint8_t)(0xFF))
@@ -129,17 +134,23 @@ struct riocp_pe_driver {
 			pe_rt_val rt_val, uint32_t port_mask);
 };
 
-/* Port based management events */
-#define RIOCP_PE_EVENT_NONE             0      /* no event */
-#define RIOCP_PE_EVENT_LINK_UP          (1<<0) /* link up event */
-#define RIOCP_PE_EVENT_LINK_DOWN        (1<<1) /* link down event */
-
-typedef uint32_t riocp_pe_event_mask_t;
-
-struct riocp_pe_event {
-	uint8_t port;                /* port identifier */
-	riocp_pe_event_mask_t event;    /* bitmask of events */
+struct riocp_reg_rw_driver {
+	int RIOCP_WU (* reg_rd)(struct riocp_pe *pe,
+			uint32_t offset, uint32_t *val);
+	int RIOCP_WU (* reg_wr)(struct riocp_pe *pe,
+			uint32_t offset, uint32_t val);
+	int RIOCP_WU (* raw_reg_rd)(struct riocp_pe *pe, 
+			uint32_t did, uint8_t hc,
+			uint32_t addr, uint32_t *val);
+	int RIOCP_WU (* raw_reg_wr)(struct riocp_pe *pe,
+			uint32_t did, uint8_t hc,
+			uint32_t addr, uint32_t val);
 };
+
+int RIOCP_WU riocp_bind_driver(struct riocp_pe_driver *driver);
+
+int RIOCP_WU riocp_pe_handle_set_private(riocp_pe_handle pe, void *data);
+int RIOCP_WU riocp_pe_handle_get_private(riocp_pe_handle pe, void **data);
 
 /*
  * API functions
@@ -175,6 +186,8 @@ int RIOCP_WU riocp_pe_set_destid(riocp_pe_handle pe, uint32_t destid);
 int RIOCP_WU riocp_pe_get_comptag(riocp_pe_handle pe, uint32_t *comptag);
 int RIOCP_WU riocp_pe_update_comptag(riocp_pe_handle pe, uint32_t *comptag,
 					uint32_t did, uint32_t wr_did);
+
+int RIOCP_WU riocp_pe_clear_enumerated(struct riocp_pe *pe);
 
 /* Routing */
 int RIOCP_WU riocp_sw_get_route_entry(riocp_pe_handle sw, pe_port_t port,

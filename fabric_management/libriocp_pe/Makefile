@@ -23,7 +23,7 @@ CFLAGS+=-I./src
 CFLAGS+=-DRDMA_LL=$(level) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 LDFLAGS+=-L. -l$(NAME)
 
-OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) $(patsubst src/switches/%.c,src/switches/%.o,$(wildcard src/switches/*.c))
+OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) 
 
 src/%.o: src/%.c $(HEADERS)
 	$(CC) -c $(CFLAGS) $< -o $@

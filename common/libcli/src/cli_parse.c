@@ -176,6 +176,31 @@ float GetFloatParm(char* arg, float dflt)
         return getFloatParm((char*)SubstituteParam(arg), dflt);
 };
 
+void update_string(char **target, char *new_str, int len)
+{
+        if (NULL != *target)
+                free(*target);
+        *target = (char *)malloc(len+1);
+        (*target)[len] = 0;
+        memcpy(*target, new_str, len);
+};
+
+int get_v_str(char **target, char *parm, int chk_slash)
+{
+        int len;
+
+        if (NULL == parm)
+                return 1;
+        len = strlen(parm);
+
+        if (len < 2)
+                return 1;
+        if (chk_slash && ((parm[0] != '/') || (parm[1] == '/')))
+                return 1;
+        update_string(target, parm, len);
+        return 0;
+};
+
 #ifdef __cplusplus
 }
 #endif

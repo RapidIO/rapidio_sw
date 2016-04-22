@@ -64,7 +64,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fmd_mgmt_master.h"
 #include "fmd_mgmt_slave.h"
 #include "fmd.h"
-#include "fmd_cfg.h"
+#include "cfg.h"
 #include "liblog.h"
 #include "fmd_dd.h"
 #include "fmd_app_mgmt.h"
@@ -243,8 +243,9 @@ void send_peer_removal_messages(struct fmd_peer *del_peer)
 
 void master_process_hello_peer(struct fmd_peer *peer)
 {
-	struct fmd_cfg_ep *peer_ep;
+	struct cfg_dev peer_ep;
 	int add_to_list = 0;
+	int peer_not_found;
 
 	INFO("Peer(%x) RX HELLO Req %s 0x%x 0x%x 0x%x 0x%x 0x%x\n",
 		peer->p_ct, peer->s2m->hello_rq.peer_name,
@@ -261,7 +262,11 @@ void master_process_hello_peer(struct fmd_peer *peer)
 	peer->p_hc = ntohl(peer->s2m->hello_rq.hc);
 	memcpy(peer->peer_name, peer->s2m->hello_rq.peer_name, MAX_P_NAME+1);
 
-	peer_ep = find_cfg_ep_by_ct(peer->p_ct, fmd->cfg);
+	peer_not_found = cfg_find_dev_by_ct(peer->p_ct, &peer_ep);
+
+	if (peer_not_found)
+		DBG("Could not find configured peer ct 0x%x\n", peer->p_ct);
+
 	sem_wait(&peer->tx_mtx);
 
 	peer->m2s->msg_type = htonl(FMD_P_RESP_HELLO);
@@ -275,17 +280,15 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->m2s->hello_rsp.ct = htonl(0);
 		peer->m2s->hello_rsp.hc = htonl(0);
 	} else {
-		struct fmd_mport_info *mpi = &fmd->cfg->mport_info[
-							fmd->cfg->mast_idx];
-		strncpy(peer->m2s->hello_rsp.peer_name, mpi->ep->name, 
+		strncpy(peer->m2s->hello_rsp.peer_name, peer_ep.name, 
 			MAX_P_NAME);
 		peer->m2s->hello_rsp.pid = htonl(getpid());
-		peer->m2s->hello_rsp.did = htonl(fmd->cfg->mast_devid);
-		peer->m2s->hello_rsp.did_sz = htonl(fmd->cfg->mast_devid_sz);
-		peer->m2s->hello_rsp.ct = htonl(mpi->ep->ports[0].ct);
+		peer->m2s->hello_rsp.did = htonl(fmd->opts->mast_devid);
+		peer->m2s->hello_rsp.did_sz = htonl(fmd->opts->mast_devid_sz);
+		peer->m2s->hello_rsp.ct = htonl(peer_ep.ct);
 		peer->m2s->hello_rsp.hc = htonl(0);
 		add_to_list = 1;
-		peer->p_hc = peer_ep->ports[0].devids[FMD_DEV08].hc;
+		peer->p_hc = peer_ep.hc;
 	};
 	peer->tx_buff_used = 1;
 	peer->tx_rc = riomp_sock_send(peer->cm_skt_h, peer->tx_buff,
@@ -300,7 +303,7 @@ void master_process_hello_peer(struct fmd_peer *peer)
 		peer->li = l_add(&fmp.peers, peer->p_did, peer);
 		sem_post(&fmp.peers_mtx);
 		add_device_to_dd(peer->p_ct, peer->p_did, peer->p_did_sz,
-			peer->p_hc, 0, FMDD_FLAG_OK, peer_ep->name);
+			peer->p_hc, 0, FMDD_FLAG_OK, (char *)peer_ep.name);
 		HIGH("New Peer %x: Updating all dd and flags\n", peer->p_ct);
 		update_all_peer_dd_and_flags(1);
 	};
@@ -507,6 +510,14 @@ void *mast_acc(void *unused)
 {
 	int rc = 1;
 	riomp_sock_t new_skt = NULL;
+
+        char my_name[16];
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "MAST_PEER_ACC");
+        pthread_setname_np(fmp.acc.acc, my_name);
+
+        pthread_detach(fmp.acc.acc);
 
 	fmp.acc.mb_valid = 0;
 	fmp.acc.cm_acc_valid = 0;

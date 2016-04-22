@@ -49,7 +49,7 @@ CCFLAGS= $(CXXFLAGS) -fPIC -Wall -I. \
 	-I./libriocp_pe/src \
 	-DRDMA_LL=$(level)
 
-LIB_DEPS= libriocp_pe libcli libswitch_api libdd
+LIB_DEPS= libriocp_pe libcli libswitch_api libdd libcfg libpe_mpdrv
 .PHONY: $(LIB_DEPS)
 
 all: daemon libfmdd
@@ -57,20 +57,30 @@ all: daemon libfmdd
 %.o: %.c $(CLI_DEPS) $(DAEMON_DEPS) $(LIB_DEPS)
 	$(CXX) -o $@ -c $< $(CCFLAGS)
 
-libriocp_pe:
+libriocp_pe: FORCE
 	$(MAKE) all -C libriocp_pe
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libriocp_pe/libriocp_pe.a $(LOCAL_LIBRARY_DIR)
 
-libswitch_api:
+libswitch_api: FORCE
 	$(MAKE) all -C librio_switch
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp librio_switch/libswitch_api.a $(LOCAL_LIBRARY_DIR)
 
-libdd:
+libdd: FORCE
 	$(MAKE) all -C libdd
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libdd/libdd.a $(LOCAL_LIBRARY_DIR)
+	
+libcfg: FORCE
+	$(MAKE) all -C libcfg
+	mkdir -p $(LOCAL_LIBRARY_DIR)
+	cp libcfg/libcfg.a $(LOCAL_LIBRARY_DIR)
+	
+libpe_mpdrv: FORCE
+	$(MAKE) all -C libpe_mpdrv
+	mkdir -p $(LOCAL_LIBRARY_DIR)
+	cp libpe_mpdrv/libpe_mpdrv.a $(LOCAL_LIBRARY_DIR)
 	
 libfmdd: FORCE
 	$(MAKE) all -C libfmdd
@@ -91,3 +101,5 @@ clean:
 	$(MAKE) clean -C daemon
 	$(MAKE) clean -C libfmdd
 	$(MAKE) clean -C libdd
+	$(MAKE) clean -C libcfg
+	$(MAKE) clean -C libpe_mpdrv

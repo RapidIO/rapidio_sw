@@ -1,3 +1,5 @@
+/* libriocp_pe register read/write driver based on librio_switch and libmport */
+/* libriocp_pe PE driver based on librio_switch.                              */
 /*
 ****************************************************************************
 Copyright (c) 2015, Integrated Device Technology Inc.
@@ -30,35 +32,29 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef LIBRDMA_TX_ENGINE_H
-#define LIBRDMA_TX_ENGINE_H
 
-#include <memory>
-#include <stdint.h>
+#include "riocp_pe.h"
+#include "DAR_DevDriver.h"
 
-#include "unix_sock.h"
-#include "rdmad_unix_msg.h"
-#include "tx_engine.h"
-
-using std::shared_ptr;
+#ifndef __PE_MPDRV_H__
+#define __PE_MPDRV_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-class unix_tx_engine : public tx_engine<unix_client, unix_msg_t>
-{
-public:
-	unix_tx_engine(const char *name,
-		       shared_ptr<unix_client> client,
-		       sem_t *engine_cleanup_sem) :
-	tx_engine<unix_client, unix_msg_t>(name, client, engine_cleanup_sem)
-	{}
+extern uint32_t SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info, uint32_t offset,
+							uint32_t *readdata);
+extern uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info, uint32_t  offset,
+                                			uint32_t  writedata);
+extern void SRIO_API_DelayFunc(uint32_t delay_nsec, uint32_t delay_sec);
 
-}; /* unix_tx_engine */
+extern struct riocp_pe_driver pe_mpsw_driver;
+extern struct riocp_reg_rw_driver pe_mpsw_rw_driver;
+
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif /* __PE_MPDRV_H__ */
