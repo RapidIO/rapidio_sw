@@ -38,15 +38,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdlib.h>
 
-
 //#include "riocp_pe_internal.h"
+#include "fmd.h"
 #include "fmd_dev_rw_cli.h"
 #include "liblog.h"
 #include "libcli.h"
-//#include <rapidio_mport_mgmt.h>
-//#include <rapidio_mport_rdma.h>
-//#include <rapidio_mport_sock.h>
-#include "fmd_state.h"
+#include "riocp_pe_internal.h"
+#include "pe_mpdrv_private.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -90,35 +88,129 @@ void failedWrite(struct cli_env *env, uint32_t address, uint32_t data, uint32_t 
 
 int mport_read(riocp_pe_handle pe_h, uint32_t offset, uint32_t *data)
 {
-	uint32_t temp;
-	int rc = 0;
+	int rc;
+	uint32_t temp_data;
 
-	if (RIOCP_PE_IS_MPORT(pe_h))
-		rc = riomp_mgmt_lcfg_read(pe_h->minfo->maint, offset, sizeof(temp), &temp)?1:0;
-	else {
-		INFO("MTC READ: DID %x HC %X O %x\n",
-					pe_h->destid, pe_h->hopcount, offset);
-		rc = riomp_mgmt_rcfg_read(pe_h->mport->minfo->maint,
-					pe_h->destid, pe_h->hopcount, offset,
-				 	sizeof(temp), &temp)?1:0;
-	}
+	rc = pe_h->mport->minfo->reg_acc.reg_rd(pe_h, offset, &temp_data);
 
 	if (!rc)
-		*data = temp;
+		*data = temp_data;
 	return rc;
 };
 
 int mport_write(riocp_pe_handle pe_h, uint32_t offset, uint32_t data)
 {
 	int rc = 0;
+	rc = pe_h->mport->minfo->reg_acc.reg_wr(pe_h, offset, data);
 
-        if (RIOCP_PE_IS_MPORT(pe_h))
-        	rc = riomp_mgmt_lcfg_write(pe_h->minfo->maint, offset, sizeof(data), data)?1:0;
-        else
-        	rc = riomp_mgmt_rcfg_write(pe_h->mport->minfo->maint, pe_h->destid, pe_h->hopcount, offset,
-        			      sizeof(data), data)?1:0;
 	return rc;
 };
+
+int CLIDevSelCmd(struct cli_env *env, int argc, char **argv)
+{
+	uint32_t comptag, pe_ct;
+	riocp_pe_handle *pes = NULL;
+	size_t pes_count, i;
+	int rc;
+	struct riocp_pe_capabilities caps;
+	const char *dev_name, *vend_name;
+	struct cfg_dev cfg_dev;
+	const char *no_name = "NO_NAME";
+
+	rc = riocp_mport_get_pe_list(mport_pe, &pes_count, &pes);
+	if (rc) {
+		sprintf(env->output, "\nCould not get PE list\n");
+		logMsg(env);
+		goto exit;
+	}
+
+	if (argc) {
+		comptag = getHex(argv[0], 0);
+
+		for (i = 0; i < pes_count; i++) {
+			rc = riocp_pe_get_comptag(pes[i], &pe_ct);
+			if (rc) {
+				sprintf(env->output,
+					"\nFailed reading CT: %d\n", rc);
+				logMsg(env);
+				goto exit;
+			}
+			if (comptag == pe_ct) {
+				env->h = pes[i];
+				set_prompt(env);
+				sprintf(env->output, 
+					"\nFound device for CT 0x%08x\n",
+					pe_ct);
+				logMsg(env);
+				goto exit;
+			};
+		};
+	};
+
+	if (NULL != env->h) {
+		rc = riocp_pe_get_comptag((riocp_pe_handle)env->h, &comptag);
+		if (rc) {
+			sprintf(env->output, "\nFailed reading CT: %d\n", rc);
+			logMsg(env);
+			goto exit;
+		}
+	}
+
+	if (!pes_count) {
+		sprintf(env->output, "\nNo PEs discovered!\n");
+		logMsg(env);
+		goto exit;
+	}
+	
+	sprintf(env->output,
+	"\n  CompTag -->Sysfs Name<-- ----------->> Vendor <<-------------------  Device\n");
+	logMsg(env);
+	for (i = 0; i < pes_count; i++) {
+		rc = riocp_pe_get_comptag(pes[i], &pe_ct);
+		if (rc) {
+			sprintf(env->output, "\nFailed reading CT: %d\n", rc);
+			logMsg(env);
+			goto exit;
+		}
+		rc = riocp_pe_get_capabilities(pes[i], &caps);
+		if (rc) {
+			sprintf(env->output,
+				"\nFailed reading capabilities: %d\n", rc);
+			logMsg(env);
+			goto exit;
+		}
+
+		if (cfg_find_dev_by_ct(pe_ct, &cfg_dev))
+			cfg_dev.name = no_name;
+		dev_name = riocp_pe_get_device_name(pes[i]);
+		vend_name = riocp_pe_get_vendor_name(pes[i]);
+
+		sprintf(env->output, "%s%08x %16s %42s %10s\n",
+			(pe_ct == comptag)?"*":" ",
+			pe_ct, cfg_dev.name, vend_name, dev_name);
+		logMsg(env);
+	}
+exit:
+	rc = riocp_mport_free_pe_list(&pes);
+	if (rc) {
+		sprintf(env->output, "\nFailed freeing PE list %d\n", rc);
+		logMsg(env);
+	}
+	return 0;
+}
+
+struct cli_cmd CLIDevSel = {
+(char *)"devsel",
+3,
+0,
+(char *)"display available devices or select a device",
+(char *)"{<comptag>}\n"
+	"<comptag> : Optional parameter, used to select a device as\n"
+	"            the target for register reads and writes.\n",
+CLIDevSelCmd,
+ATTR_RPT
+};
+
 
 /* If the structure or syntax of this command changes,
  * please update the Help structure following the procedure.
@@ -616,12 +708,8 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	for (i = 0; i < numReads; i++) {
-		if (0xFF == hc) {
-			rc = riomp_mgmt_lcfg_read(fmd->mp_hnd, address, 4, &data);
-		} else {
-			rc = riomp_mgmt_rcfg_read(fmd->mp_hnd, did, hc,
-				address, 4, &data);
-		};
+		rc = riocp_pe_maint_read(
+				(riocp_pe_handle)env->h, address, &data);
 
 		if (rc) {
 			failedReading(env, address, rc);
@@ -698,24 +786,16 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	/* Command arguments are syntactically correct - do write */
 
-	if (0xFF == hc) {
-		rc = riomp_mgmt_lcfg_write(fmd->mp_hnd, address, 4, data);
-	} else {
-		rc = riomp_mgmt_rcfg_write(fmd->mp_hnd, did, hc,
-				address, 4, data);
-	};
+	rc = riocp_pe_maint_write((riocp_pe_handle)env->h, address, data);
+
 	if (0 != rc) {
 		failedWrite(env, address, data, rc);
 		goto exit;
 	}
 
 	/* read data back */
-	if (0xFF == hc) {
-		rc = riomp_mgmt_lcfg_read(fmd->mp_hnd, address, 4, &data);
-	} else {
-		rc = riomp_mgmt_rcfg_read(fmd->mp_hnd, did, hc,
-			address, 4, &data);
-	};
+	rc = riocp_pe_maint_read((riocp_pe_handle)env->h, address, &data);
+
 	if (0 != rc) {
 		failedReading(env, address, rc);
 		goto exit;
@@ -754,7 +834,8 @@ struct cli_cmd *reg_cmd_list[] = {
 &CLIRegExpectNot,
 &CLIRegDump,
 &CLIMRegRead,
-&CLIMRegWrite
+&CLIMRegWrite,
+&CLIDevSel 
 };
 
 void fmd_bind_dev_rw_cmds(void)

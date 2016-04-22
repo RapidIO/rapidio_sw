@@ -58,7 +58,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // #include "IDT_Port_Config_API.h"
 #include "riocp_pe_internal.h"
 #include "fmd_dd.h"
-#include "fmd_cfg.h"
+#include "cfg.h"
+#include "fmd_opts.h"
+#include "rapidio_mport_mgmt.h"
 
 #ifndef _FMD_STATE_H_
 #define _FMD_STATE_H_
@@ -77,7 +79,7 @@ struct app_state {
 
 struct fmd_state {
 	riocp_pe_handle *mp_h;
-	struct fmd_cfg_parms *cfg;
+	struct fmd_opt_vals *opts;
 	int fmd_rw;
 	char *app_name;
 	char *dd_fn;

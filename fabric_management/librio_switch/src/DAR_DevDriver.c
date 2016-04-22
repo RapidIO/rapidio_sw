@@ -427,7 +427,7 @@ uint32_t DARrioSetEnumBound( DAR_DEV_INFO_t *dev_info, struct DAR_ptl *ptl,
 
    if ( VALIDATE_DEV_INFO( dev_info ) )
        rc = driver_db[DAR_DB_INDEX(dev_info)].rioSetEnumBound( dev_info,
-                                                                ptl );
+                                                          ptl, enum_bnd_val );
    return rc;
 }
 

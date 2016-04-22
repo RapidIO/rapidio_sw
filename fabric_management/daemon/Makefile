@@ -56,16 +56,18 @@ src/%.o: src/%.c
 	-I../ \
 	-I../librio_switch/inc \
 	-I../libriocp_pe/inc \
+        -I../libpe_mpdrv/inc \
+        -I../libcfg/inc \
 	-I../cli \
 	-DRDMA_LL=$(LOG_LEVEL) -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
-FMD_SOURCES = src/fmd_app_mgmt.c src/fmd_cfg.c src/fmd.c src/fmd_cfg_cli.c \
+FMD_SOURCES = src/fmd_app_mgmt.c src/fmd.c \
 	src/fmd_mgmt_master.c src/fmd_mgmt_slave.c src/fmd_mgmt_cli.c \
-	src/fmd_dev_rw_cli.c 
+	src/fmd_dev_rw_cli.c src/fmd_opts.c 
 
-FMD_OBJECTS = src/fmd_app_mgmt.o src/fmd_cfg.o src/fmd.o src/fmd_cfg_cli.o \
+FMD_OBJECTS = src/fmd_app_mgmt.o src/fmd.o \
 	src/fmd_mgmt_master.o src/fmd_mgmt_slave.o src/fmd_mgmt_cli.o \
-	src/fmd_dev_rw_cli.o 
+	src/fmd_dev_rw_cli.o src/fmd_opts.o 
 all: fmd
 
 # The Fabric Management Daemon
