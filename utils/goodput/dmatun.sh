@@ -1,6 +1,9 @@
 #!/bin/bash
 
 mport=0
+
+ulimit -c 0
+
 if [ -z "$DMATUN_PATH" ]; then
   dir=/opt/rapidio/rapidio_sw/utils/goodput
 else
