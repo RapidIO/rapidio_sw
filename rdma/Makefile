@@ -43,21 +43,21 @@ endif
 
 INCLUDE_DIR?=$(TOPDIR)/include
 MPORTLIB_PATH=$(TOPDIR)/common/libmport
-MPORTLIB=libmport.so
+MPORTLIB=libmport.a
 MPORTLIB_HEADER=$(COMMONINC)/rapidio_mport_dma.h
 LIBLOG_PATH=$(COMMONLIBA)
-LIB_DIRS = -L$(FMDDIR)/libfmdd -L$(COMMONLIBA) -L$(COMMONLIB) \
+LIB_DIRS = -L$(FMDDIR)/libfmdd \
+	-L$(COMMONLIBA) \
+	-L$(COMMONLIB) \
 	-L$(FMDDIR)/libriocp_pe \
 	-L$(FMDDIR)/libdd
-
-# Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC
 
 # Common flags for all applications
 RDMAAPP_CFLAGS = -Wall -Werror -Wextra -I../../samples/latency/common/ -Iinc $(OPTFLAGS)
 
 # RDMA Daemon flags & sources
 RDMAD_CFLAGS = $(CXXFLAGS) -Wall -Wextra \
+		-flto \
 		-DRDMA_LL=$(level) -DBE_STRICT \
 		-I$(COMMONDIR)/libcli/inc \
 		-Idaemon/inc -Idaemon/src -I. -Isrc -Iinc
@@ -79,11 +79,6 @@ RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
 REMDBG_SOURCES	= daemon/src/remdbg.c
 
 # RDMA Library flags, sources and objects
-RDMALIB_SHARED_CFLAGS = -Wall -Wextra -std=gnu++0x -c -fPIC $(OPTFLAGS) \
-		-Idaemon/inc \
-		-Iinc -I$(TOPDIR)/include -I$(COMMONINC) \
-		-DRDMA_LL=$(level) $(OPTFLAGS) -rdynamic -lnsl
-
 RDMALIB_STATIC_CFLAGS = -Wall -Wextra -std=gnu++0x -c $(OPTFLAGS) \
 		-Idaemon/inc \
 		-Iinc -I$(TOPDIR)/include -I$(COMMONINC) \
@@ -109,14 +104,6 @@ rsktd: rdmad
 
 FORCE:
 
-# The RDMA shared library (the RPC client)
-librdma.so: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_HEADER) \
-	lib/src/*.h $(LIBLOG_PATH)/liblog.a
-	@echo ---------- Building librdma.so ----------
-	$(CXX) $(RDMALIB_SHARED_CFLAGS) $(RDMALIB_SOURCES)
-	$(CXX) -L$(MPORTLIB_PATH) -L$(LIBLOG_PATH) $(LIBS_RPATH) \
-	-o $@ $(RDMALIB_OBJS) $(SO_LIB_LKFLAGS) -ldl -lrt -ltime_utils -lmport -llog -pthread -lfmdd -ldd -lriocp_pe
-
 # The RDMA static library
 librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
@@ -125,21 +112,13 @@ librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_HEADER) \
 	ar rcs librdma.a $(RDMALIB_OBJS)
 	mkdir -p $(TOPDIR)/include/libs_a
 	cp librdma.a $(TOPDIR)/include/libs_a
-#Generate preprocessor output
-	$(CXX) $(RDMALIB_STATIC_CFLAGS) -I$(COMMONINC) -I$(MPORTLIB_INC) -E lib/src/librdma.cpp > librdma.i
 
-# The RDMA daemon (the RPC server)
-#rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMONDIR)/libs_a/* $(INCLUDE_DIR)/libs_a/* 
+# The RDMA daemon
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMONDIR)/libs_a/* \
 	daemon/src/*.h $(INCLUDE_DIR)/*.h
 	@echo ---------- Building the RDMA Daemon...
-	$(CXX) -L$(COMMONDIR)/liblist/ $(LIB_DIRS) -L$(MPORTLIB_PATH) $(LIBS_RPATH) \
-	-Wl,-rpath=$(TOPDIR)/common/liblist \
+	$(CXX) $(LIB_DIRS) $(LIBS_RPATH) \
 	-o $@ $(RDMAD_CFLAGS) $(RDMAD_SOURCES) -llist -ldl -lrt -ltime_utils -lmport -lcli -llog -lfmdd -ldd -lriocp_pe -pthread
-# Building preprocessor output for select files.
-	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_main.cpp > rdmad_main.i
-	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_srvr_threads.cpp > rdmad_srvr_threads.i
-	$(CXX) $(RDMAD_CFLAGS) -E daemon/src/rdmad_clnt_threads.cpp > rdmad_clnt_threads.i
 
 # Remote debug
 rrdma:  $(REMDBG_SOURCES)
