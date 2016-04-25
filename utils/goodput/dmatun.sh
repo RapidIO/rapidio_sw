@@ -1,5 +1,9 @@
 #!/bin/bash
 
+mport=0
+
+ulimit -c 0
+
 if [ -z "$DMATUN_PATH" ]; then
   dir=/opt/rapidio/rapidio_sw/utils/goodput
 else
@@ -13,4 +17,8 @@ cd $dir || { echo "Cannot chdir to $dir" 1>&2; exit 1; }
 ulimit -c unlimited
 
 # dma_method=1 is libmport/kernel
-./ugoodput 0 buf=100 sts=400 mtu=17000 disable_nread=0 thruput=1 push_rp_thr=16 dma_method=0 --rc scripts/s
+./ugoodput $mport \
+	buf=100 sts=400 mtu=17000 \
+	disable_nread=0 thruput=1 push_rp_thr=16 \
+	dma_method=0 \
+	--rc mport${mport}/s

@@ -352,6 +352,7 @@ public:
       const int rr = system(ifconfig_cmd);
       if(rr >> 8) {
         m_tun_name[0] = '\0';
+        CRIT("system() failed with error %d\n", rr);
         // No need to remove from epoll set, close does that as it isn't dup(2)'ed
         close(m_tun_fd); m_tun_fd = -1;
         goto error;

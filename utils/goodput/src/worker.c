@@ -210,6 +210,8 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_fifo_total_ticks = 0;
 	info->umd_fifo_total_ticks_count = 0;
 
+	memset(&info->umd_lock, 0, sizeof(info->umd_lock));
+
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
 	//};
@@ -1950,10 +1952,16 @@ bool TakeLock(struct worker* info, const char* module, const int mport, const in
 {
 	if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
 
+	int slot = -1;
+	for (int i = 0; i < UMD_NUM_LOCKS; i++) if (info->umd_lock[i] == NULL) { slot = i; break; }
+
+	if (slot == -1)
+		throw std::runtime_error("TakeLock: Out of locking slots!");
+
 	char lock_name[81] = {0};
 	snprintf(lock_name, 80, "/var/lock/UMD-%s-%d:%d..LCK", module, mport, instance);
 	try {
-		info->umd_lock = new LockFile(lock_name);
+		info->umd_lock[slot] = new LockFile(lock_name);
 	} catch(std::runtime_error ex) {
 		CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
 		if (GetEnv("LOCKFAIL_QUIT") != NULL)
@@ -1992,7 +2000,6 @@ void umd_dma_calibrate(struct worker *info)
 exit:
         info->umd_dch->cleanup();
         delete info->umd_dch;
-	delete info->umd_lock; info->umd_lock = NULL;
 	info->umd_dch = NULL;
 };
 
@@ -2194,7 +2201,7 @@ exit_nomsg:
                 info->umd_dch->free_dmamem(info->dmamem[0]);
 
         delete info->umd_dch; info->umd_dch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
+	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
 static inline bool queueDmaOp(struct worker* info, const int oi, const int cnt, bool& q_was_full)
@@ -2505,7 +2512,7 @@ exit:
                 info->umd_dch->free_dmamem(info->dmamem[0]);
 
         delete info->umd_dch; info->umd_dch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
+        delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
 void umd_mbox_goodput_demo(struct worker *info)
@@ -2522,14 +2529,14 @@ void umd_mbox_goodput_demo(struct worker *info)
         if (NULL == info->umd_mch) {
                 CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan, info->mp_num, info->mp_h);
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock [0]= NULL;
                 return;
         };
 
 	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
 		delete info->umd_mch;
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock [0]= NULL;
 		return;
 	}
 
@@ -2666,7 +2673,7 @@ exit:
 
 exit_rx:
         delete info->umd_mch; info->umd_mch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
+        delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
 static inline int MIN(int a, int b) { return a < b? a: b; }
@@ -2683,14 +2690,14 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
         if (NULL == info->umd_mch) {
                 CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan, info->mp_num, info->mp_h);
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
                 return;
         };
 
 	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
 		delete info->umd_mch;
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 		return;
 	}
 
@@ -2866,7 +2873,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 exit:
 exit_rx:
         delete info->umd_mch; info->umd_mch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
+        delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
 const int DESTID_TRANSLATE = 1;
@@ -3008,7 +3015,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	// Initialize tun/tap interface
 	if ((info->umd_tun_fd = tun_alloc(if_name, flags)) < 0) {
 		CRIT("Error connecting to tun/tap interface %s!\n", if_name);
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 		return;
 	}
 
@@ -3021,7 +3028,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
                         info->umd_chan, info->mp_num, info->mp_h);
         	info->umd_tun_name[0] = '\0';
 		close(info->umd_tun_fd); info->umd_tun_fd = -1;
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
                 return;
         };
 
@@ -3030,7 +3037,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
         	info->umd_tun_name[0] = '\0';
 		close(info->umd_tun_fd); info->umd_tun_fd = -1;
 		delete info->umd_mch; info->umd_mch = NULL;
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 		return;
 	}
 
@@ -3048,7 +3055,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
         	info->umd_tun_name[0] = '\0';
 		close(info->umd_tun_fd); info->umd_tun_fd = -1;
 		delete info->umd_mch; info->umd_mch = NULL;
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 		return;
 	}
 
@@ -3178,7 +3185,7 @@ exit:
 	info->umd_tun_fd = -1;
 
         delete info->umd_mch; info->umd_mch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
+        delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 	info->umd_tun_MTU = 0;
         info->umd_tun_name[0] = '\0';
 } // END umd_mbox_goodput_tun_demo
