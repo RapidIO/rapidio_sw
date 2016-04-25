@@ -39,20 +39,20 @@ NODE4=""
 
 if [ $2 != 'none' ]; then
 	NODE2=$2
-	SLAVES[2]=$2
-	ALLNODES[2]=$2
+	SLAVES[1]=$2
+	ALLNODES[1]=$2
 fi
 
 if [ $3 != 'none' ]; then
 	NODE3=$3
-	SLAVES[3]=$3
-	ALLNODES[3]=$3
+	SLAVES[2]=$3
+	ALLNODES[2]=$3
 fi
 
 if [ $4 != 'none' ]; then
 	NODE4=$4
-	SLAVES[4]=$4
-	ALLNODES[4]=$4
+	SLAVES[3]=$4
+	ALLNODES[3]=$4
 fi
 
 MEMSZ=$5
@@ -69,7 +69,6 @@ do
 		echo $i "accessible."
 	fi
 done
-
 
 echo "Beginning installation..."
 
@@ -88,16 +87,22 @@ done
 
 echo "Installing configuration files..."
 
+destids=($(grep ENDPOINT install/node-master.conf | grep PORT | awk '{print $12}'))
+
+comptags=($(grep ENDPOINT install/node-master.conf | grep PORT | awk '{print $5}'))
+
 FILENAME=$CONFIG_PATH/fmd.conf
+MASTDEST=${destids[0]}
 
 # FMD slaves go first
-let c=0;
-for host in  "${ALLNODES[@]}"; do
-  let c=c+1;
-  [ $c -eq 1 ] && continue;
+for c in $(seq 1 3); do
+  host=${ALLNODES[c]};
+  DID=${destids[c]};
+  COMPTAG=${comptags[c]};
   [ "$host" = 'none' ] && continue;
   sed s/NODE_VAR/$host/g install/node-slave.conf | \
-    sed s/MEMSZ/$MEMSZ/g | \
+    sed s/MEMSZ/$MEMSZ/g | sed s/DID/${DID}/g | sed s/MASTDEST/${MASTDEST}/g | \
+    sed s/COMPTAG/$COMPTAG/g | \
     ssh root@"$host" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
 done
 
