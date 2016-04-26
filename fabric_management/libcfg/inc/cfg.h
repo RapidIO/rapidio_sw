@@ -56,7 +56,7 @@ extern "C" {
 #define CFG_DEV32 2
 #define CFG_DEVID_MAX (CFG_DEV32+1)
 
-#define CFG_MAX_SW_PORT 18
+#define CFG_MAX_SW_PORT 24
 
 #define CFG_DFLT_DD_FN "/RIO_SM_DEV_DIR"
 #define CFG_DFLT_DD_MTX_FN "/RIO_SM_DEV_DIR_MUTEX"
@@ -96,6 +96,7 @@ struct cfg_sw_port {
 	idt_pc_pw_t max_pw;
 	idt_pc_pw_t op_pw;
 	idt_pc_ls_t ls;
+	idt_rt_state_t *rt[CFG_DEVID_MAX]; 
 };
 
 struct cfg_sw {

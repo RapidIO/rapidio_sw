@@ -54,6 +54,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cfg_private.h"
 #include "libcli.h"
 #include "liblog.h"
+#include "rio_standard.h"
+#include "rio_ecosystem.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,106 +64,70 @@ extern "C" {
 struct int_cfg_parms *cfg;
 FILE *cfg_fd;
 
+void init_rt(idt_rt_state_t *rt)
+{ 
+	int k;
+
+	memset(rt, 0, sizeof(idt_rt_state_t));
+	rt->default_route = RIO_RTE_DROP;
+	for (k = 0; k < IDT_DAR_RT_DEV_TABLE_SIZE; k++) {
+		rt->dev_table[k].rte_val = RIO_RTE_DROP;
+		rt->dom_table[k].rte_val = RIO_RTE_DROP;
+	};
+	for (k = 0; k < IDT_DSF_MAX_MC_MASK; k++) {
+		rt->mc_masks[k].mc_destID = 0xFF;
+		rt->mc_masks[k].tt = tt_dev8;
+	};
+};
+
 int init_cfg_ptr(void)
 {
 	int i, j;
 
-	cfg = (struct int_cfg_parms *)malloc(sizeof(struct int_cfg_parms));
+	cfg = (struct int_cfg_parms *)calloc(1, sizeof(struct int_cfg_parms));
 
 	if (cfg == NULL)
 		return 1;
 	
-	memset(cfg, 0, sizeof(struct int_cfg_parms));
-	cfg->dd_mtx_fn = NULL;
-	cfg->dd_fn = NULL;
-
-	cfg->init_err = 0;
 	cfg->mast_idx = CFG_SLAVE;
-	cfg->max_mport_info_idx = 0;
 
 	for (i = 0; i < CFG_MAX_MPORTS; i++) {
 		cfg->mport_info[i].num = -1;
-		cfg->mport_info[i].mp_h = NULL;
-		cfg->mport_info[i].ct = 0;
 		cfg->mport_info[i].op_mode = -1;
 		cfg->mport_info[i].mem_sz = CFG_MEM_SZ_DEFAULT;
 		for (j = 0; j < CFG_DEVID_MAX; j++) {
-			cfg->mport_info[i].devids[j].devid = 0;
 			cfg->mport_info[i].devids[j].hc = 0xFF;
-			cfg->mport_info[i].devids[j].valid = 0;
 		};
-		cfg->mport_info[i].ep = NULL;
 		cfg->mport_info[i].ep_pnum = -1;
 	};
 	cfg->mast_devid_sz = CFG_DFLT_MAST_DEVID_SZ;
 	cfg->mast_devid = CFG_DFLT_MAST_DEVID;
 	cfg->mast_cm_port = CFG_DFLT_MAST_CM_PORT;
-	cfg->ep_cnt = 0;;
 
 	for (i = 0; i < CFG_MAX_EP; i++) {
-		cfg->eps[i].valid = 0;
-		cfg->eps[i].ep_h = NULL;
-		cfg->eps[i].name = NULL;
-		cfg->eps[i].port_cnt = 0;
 		for (j = 0; j < CFG_MAX_EP_PORT; j++) {
 			int k;
-			cfg->eps[i].ports[j].valid = 0;
-			cfg->eps[i].ports[j].port = 0;
-			cfg->eps[i].ports[j].ct = 0;
 			cfg->eps[i].ports[j].rio.max_pw = idt_pc_pw_last;
 			cfg->eps[i].ports[j].rio.op_pw = idt_pc_pw_last;
 			cfg->eps[i].ports[j].rio.ls = idt_pc_ls_last;
-			cfg->eps[i].ports[j].rio.idle2 = 0;
-			cfg->eps[i].ports[j].rio.em = 0;
 			for (k = 0; k < CFG_DEVID_MAX; k++) {
 				cfg->eps[i].ports[j].devids[k].hc = 0xff;
-				cfg->eps[i].ports[j].devids[k].devid = 0;
-				cfg->eps[i].ports[j].devids[k].valid = 0;
 			}
-			cfg->eps[i].ports[j].conn = NULL;
 			cfg->eps[i].ports[j].conn_end = -1;
 		};
 	};
 
 	for (i = 0; i < CFG_MAX_SW; i++) {
-		cfg->sws[i].valid = 0;
-		cfg->sws[i].sw_h = NULL;
-		cfg->sws[i].name = NULL;
-		cfg->sws[i].dev_type = NULL;
-		cfg->sws[i].did_sz = 0;
-		cfg->sws[i].did = 0;
-		cfg->sws[i].hc = 0;
-		cfg->sws[i].ct = 0;
-		cfg->sws[i].traversed = 0;
 		for (j = 0; j < CFG_MAX_SW_PORT; j++) {
-			cfg->sws[i].ports[j].valid = 0;
 			cfg->sws[i].ports[j].rio.max_pw = idt_pc_pw_last;
 			cfg->sws[i].ports[j].rio.op_pw = idt_pc_pw_last;
 			cfg->sws[i].ports[j].rio.ls = idt_pc_ls_last;
-			cfg->sws[i].ports[j].rio.idle2 = 0;
-			cfg->sws[i].ports[j].rio.em = 0;
-			cfg->sws[i].ports[j].conn = NULL;
 			cfg->sws[i].ports[j].conn_end = -1;
 		};
 		for (j = 0; j < CFG_DEVID_MAX; j++) {
-			int k;
-			cfg->sws[i].rt[j].default_route = 0xDF;
-			for (k = 0; k < IDT_DAR_RT_DEV_TABLE_SIZE; k++) {
-				cfg->sws[i].rt[j].dev_table[k].rte_val =
-							IDT_DSF_RT_NO_ROUTE;
-				cfg->sws[i].rt[j].dev_table[k].changed = 0;
-				cfg->sws[i].rt[j].dom_table[k].rte_val =
-							IDT_DSF_RT_NO_ROUTE;
-				cfg->sws[i].rt[j].dom_table[k].changed = 0;
-			};
-			for (k = 0; k < IDT_DSF_MAX_MC_MASK; k++) {
-				cfg->sws[i].rt[j].mc_masks[k].mc_destID = 0xFF;
-				cfg->sws[i].rt[j].mc_masks[k].tt = tt_dev8;
-				cfg->sws[i].rt[j].mc_masks[k].mc_mask = 0;
-				cfg->sws[i].rt[j].mc_masks[k].in_use = 0;
-				cfg->sws[i].rt[j].mc_masks[k].allocd = 0;
-				cfg->sws[i].rt[j].mc_masks[k].changed = 0;
-			};
+			init_rt(&cfg->sws[i].rt[j]);
+			for (int k = 0; k < CFG_MAX_SW_PORT; k++)
+				init_rt(&cfg->sws[i].ports[k].rt[j]);
 		};
 	};
 
@@ -171,7 +137,6 @@ int init_cfg_ptr(void)
 		for (e = 0; e < 2; e++) {
 			cfg->cons[i].ends[e].port_num = -1;
 			cfg->cons[i].ends[e].ep = -1;
-			cfg->cons[i].ends[e].sw_h = NULL;
 		};
 	};
 
@@ -353,7 +318,7 @@ int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 	errno = 0;
 	*hex_int = strtol(tok, &endptr, 16);
 
-	if ((errno == ERANGE && (*hex_int == UINT32_MAX || *hex_int == 0))
+	if ((errno == ERANGE && (*hex_int == 0xFFFFFFFF || *hex_int == 0))
 		|| ((errno != 0) && (*hex_int == 0)))
 		goto fail;
 
@@ -370,7 +335,7 @@ int get_port_num(struct int_cfg_parms *cfg, uint32_t *pnum)
 	if (get_dec_int(cfg, pnum))
 		return 1;
 
-	if (*pnum > 17) {
+	if (RIO_BAD_PORT_NUM(*pnum)) {
 		parse_err(cfg, (char *)"Illegal portnum.");
 		goto fail;
 	};
@@ -401,32 +366,39 @@ int get_string(struct int_cfg_parms *cfg, char **parm)
 
 int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 {
-	char *tok;
+	char *tok, *endptr;
+	pe_rt_val val = 0;
 
 	if (get_next_token(cfg, &tok))
 		goto fail;
 	switch (parm_idx(tok, (char *)"MC NEXT_BYTE DEFAULT DROP")) {
 	case 0: // MC
-		if (get_dec_int(cfg, rt_val))
+		if (get_dec_int(cfg, &val))
 			goto fail;
-		if (*rt_val >= IDT_DSF_MAX_MC_MASK) {
+		*rt_val = RIO_RTV_MC_MSK(val);
+		if (RIO_RTE_BAD == *rt_val) {
 			parse_err(cfg, (char *)"Illegal MC Mask number.");
 			goto fail;
 		};
-		*rt_val = *rt_val + IDT_DSF_FIRST_MC_MASK;
 		break;
 	case 1: // NEXT_BYTE
-		*rt_val = IDT_DSF_RT_USE_DEVICE_TABLE;
+		*rt_val = RIO_RTV_LVL_GRP(0);
 		break;
 	case 2: // DEFAULT
-		*rt_val = IDT_DSF_RT_USE_DEFAULT_ROUTE;
+		*rt_val = RIO_RTE_DFLT_PORT;
 		break;
 	case 3: // DROP
-		*rt_val = IDT_DSF_RT_NO_ROUTE;
+		*rt_val = RIO_RTE_DROP;
 		break;
 	default:
-		*rt_val = atoi(tok);
-		if (*rt_val >= IDT_DSF_FIRST_MC_MASK) {
+		val = strtol(tok, &endptr, 0);
+		if ((errno == ERANGE && (val == 0xFFFFFFFF || val == 0))
+			|| ((errno != 0) && (val == 0)))
+			goto fail;
+		if (endptr == tok)
+			goto fail;
+		*rt_val = RIO_RTV_PORT(val);
+		if (RIO_RTE_BAD == *rt_val) {
 			parse_err(cfg, (char *)"Illegal port number.");
 			goto fail;
 		};
@@ -590,7 +562,7 @@ fail:
 int get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
 {
 	int port = 0;
-	char *tok;
+	char *tok, *endptr;
 	struct int_cfg_ep *ep;
 
 	if (get_next_token(cfg, &tok))
@@ -599,9 +571,16 @@ int get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
 	if (find_ep_and_port(cfg, tok, &ep, &port)) {
 		if (cfg->init_err)
 			goto fail;
-		*destid = atoi(tok);
+		*destid = strtol(tok, &endptr, 16);
+		if ((errno == ERANGE && (*destid == 0xFFFFFFFF 
+			|| *destid == 0)) || 
+			((errno != 0) && (*destid == 0)))
+			goto fail;
+		if (endptr == tok)
+			goto fail;
 		return 0;
 	};
+
 
 	if (!ep->ports[port].devids[devid_sz].valid) {
 		parse_err(cfg, (char *)"Unconfigured devid selected.");
@@ -682,7 +661,7 @@ int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 			case 0: // dev08
 			case 1: // dev16
 			case 2: // dev32
-				if (get_dec_int(cfg, &devids[devid_sz].devid))
+				if (get_hex_int(cfg, &devids[devid_sz].devid))
 					goto fail;
 				if (get_dec_int(cfg, &devids[devid_sz].hc))
 					goto fail;
@@ -945,15 +924,15 @@ fail:
 	return 1;
 };
 
-int assign_rt_v(int rt_sz, int st_destid, int end_destid, int rtv, 
+int assign_rt_v(int rt_sz, int st_destid, int end_destid, pe_rt_val rtv, 
 			idt_rt_state_t *rt, struct int_cfg_parms *cfg)
 {
 	int i;
 
 	switch (rt_sz) {
 	case 0: // dev08
-		if ((st_destid >= IDT_DAR_RT_DEV_TABLE_SIZE) ||
-			(end_destid >= IDT_DAR_RT_DEV_TABLE_SIZE)) {
+		if ((st_destid > RIO_LAST_DEV8) ||
+			(end_destid > RIO_LAST_DEV8)) {
 			parse_err(cfg, (char *)"DestID value too large.");
 			goto fail;
 		};
@@ -1079,6 +1058,7 @@ int parse_switch(struct int_cfg_parms *cfg)
 	uint32_t rt_sz = 0;
 	uint32_t destid, destid1;
 	uint32_t rtv;
+	idt_rt_state_t *rt = NULL;
 
 	if (cfg->sw_cnt >= CFG_MAX_SW) {
 		parse_err(cfg, (char *)"Too many switches.");
@@ -1107,24 +1087,43 @@ int parse_switch(struct int_cfg_parms *cfg)
 				goto fail;
 			break;
 		case 1: // ROUTING_TABLE
+			char *token;
 			rt_sz = get_parm_idx(cfg, (char *)DEVID_SZ_TOKENS);
 			if (rt_sz > 2) {
 				parse_err(cfg, (char *)"Unknown devID size.");
 				goto fail;
 			};
+			if (get_next_token(cfg, &token))
+				goto fail;
+			switch ( parm_idx(token, (char *)"GLOBAL")) {
+			case 0: rt = &cfg->sws[i].rt[rt_sz];
+				cfg->sws[i].rt_valid[rt_sz] = true;
+				break;
+			default: uint32_t  port = atoi(token);
+				if (RIO_BAD_PORT_NUM(port)) {
+					parse_err(cfg, (char *)"Illegal port.");
+					goto fail;
+				};
+				rt = &cfg->sws[i].ports[port].rt[rt_sz];
+				cfg->sws[i].ports[port].rt_valid[rt_sz] = true;
+				if (cfg->sws[i].rt_valid[rt_sz])
+					memcpy(rt, &cfg->sws[i].rt[rt_sz],
+						sizeof(idt_rt_state_t));
+				break;
+			};
+				
 			break;
 		case 2: // DFLTPORT
 			if (get_rt_v(cfg, &rtv))
 				goto fail;
-			cfg->sws[i].rt[rt_sz].default_route = rtv;
+			rt->default_route = rtv;
 			break;
 		case 3: // DESTID
 			if (get_destid(cfg, &destid, rt_sz))
 				goto fail;
 			if (get_rt_v(cfg, &rtv))
 				goto fail;
-			if (assign_rt_v(rt_sz, destid, destid, rtv, 
-					&cfg->sws[i].rt[rt_sz], cfg)) {
+			if (assign_rt_v(rt_sz, destid, destid, rtv, rt, cfg)) {
 				parse_err(cfg, (char *)"Illegal destID/rtv.");
 				goto fail;
 			};
@@ -1136,14 +1135,13 @@ int parse_switch(struct int_cfg_parms *cfg)
 				goto fail;
 			if (get_rt_v(cfg, &rtv))
 				goto fail;
-			if (assign_rt_v(rt_sz, destid, destid1, rtv, 
-					&cfg->sws[i].rt[rt_sz], cfg)) {
+			if (assign_rt_v(rt_sz, destid, destid1, rtv, rt, cfg)) {
 				parse_err(cfg, (char *)"Illegal destID/rtv.");
 				goto fail;
 			};
 			break;
 		case 5: // MCMASK
-			if (parse_mc_mask(cfg, cfg->sws[i].rt[rt_sz].mc_masks))
+			if (parse_mc_mask(cfg, rt->mc_masks))
 				goto fail;
 			break;
 		case 6: // END
@@ -1369,6 +1367,7 @@ int fill_in_dev_from_ep(struct cfg_dev *dev, struct int_cfg_ep *ep)
 	if (!ep->ports[0].valid)
 		goto fail;
 
+	memset(dev, 0, sizeof(struct cfg_dev));
 	dev->name = ep->name;
 	dev->port_cnt = ep->port_cnt;
 	dev->did_sz = CFG_DEV08;
@@ -1394,6 +1393,8 @@ int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 {
 	int i;
 
+	memset(dev, 0, sizeof(struct cfg_dev));
+
 	dev->name = sw->name;
 	dev->port_cnt = CFG_MAX_SW_PORT;
 	dev->did_sz = CFG_MAX_SW_PORT;
@@ -1413,10 +1414,20 @@ int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 			sw->ports[i].rio.op_pw;
 		dev->sw_info.sw_pt[i].ls =
 			sw->ports[i].rio.ls;
+		for (int sz = 0; sz < CFG_DEVID_MAX; sz++) {
+			if (sw->ports[i].rt_valid[sz])
+				dev->sw_info.sw_pt[i].rt[sz] =
+					&sw->ports[i].rt[sz];
+			else
+				dev->sw_info.sw_pt[i].rt[sz] = NULL;
+		};
 	};
-	dev->sw_info.rt[CFG_DEV08] = &sw->rt[CFG_DEV08];
-	dev->sw_info.rt[CFG_DEV16] = &sw->rt[CFG_DEV16];
-	dev->sw_info.rt[CFG_DEV32] = &sw->rt[CFG_DEV32];
+	for (int sz = 0; sz < CFG_DEVID_MAX; sz++) {
+		if (sw->rt_valid[sz])
+			dev->sw_info.rt[sz] = &sw->rt[sz];
+		else
+			dev->sw_info.rt[sz] = NULL;
+	};
 
 	return 0;
 };

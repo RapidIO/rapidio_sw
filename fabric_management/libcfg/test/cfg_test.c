@@ -66,12 +66,13 @@ extern "C" {
 
 #define MASTER_SUCCESS (char *)("test/master_success.cfg")
 #define SLAVE_SUCCESS (char *)("test/slave_success.cfg")
+#define TOR_SUCCESS   (char *)("test/tor_success.cfg")
 
 int test_case_1(void)
 {
-	char *dd_mtx_fn, *dd_fn;
+	char *dd_mtx_fn = NULL, *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)CFG_DFLT_DD_MTX_FN;
-	char *test_dd_fn = (char *)CFG_DFLT_DD_FN;
+	char *test_dd_fn  = (char *)CFG_DFLT_DD_FN;
 	uint8_t mem_sz;
 
 	uint32_t m_did, m_cm_port, m_mode;
@@ -126,7 +127,7 @@ int test_case_2(void)
 	uint32_t m_did, m_cm_port, m_mode;
 	
 
-	for (i = 0; (i < 6) && rc; i++) {
+	for (i = 0; (i < 10) && rc; i++) {
 		snprintf(fn, 90, "test/parse_fail_%d.cfg", i);
 	
 		rc = cfg_parse_file(fn, &dd_mtx_fn, &dd_fn, &m_did,
@@ -149,6 +150,7 @@ int test_case_3(void)
 	char *dd_mtx_fn = NULL, *dd_fn = NULL;
 	uint32_t m_did, m_cm_port, m_mode;
 
+	memset(&dev, 0, sizeof(dev));
 	if (cfg_parse_file(MASTER_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode))
 		goto fail;
@@ -320,6 +322,93 @@ fail:
 	return 1;
 };
 	
+int test_case_5(void)
+{
+	struct cfg_mport_info mp;
+	struct cfg_dev dev;
+	char *dd_mtx_fn = NULL, *dd_fn = NULL;
+	char *test_dd_mtx_fn = (char *)CFG_DFLT_DD_MTX_FN;
+	char *test_dd_fn = (char *)CFG_DFLT_DD_FN;
+	uint32_t m_did, m_cm_port, m_mode;
+	int p_idx, idx;
+	int pnums[6] = {2, 3, 5, 6, 10, 11};
+	uint8_t chk_pnum[6] = {0, 1, 4, 7, 8, 9};
+
+	if (cfg_parse_file(TOR_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
+			&m_cm_port, &m_mode))
+		goto fail;
+
+	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)))
+		goto fail;
+
+	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)))
+		goto fail;
+
+	if (5 != m_did)
+		goto fail;
+
+	if (CFG_DFLT_MAST_CM_PORT != m_cm_port)
+		goto fail;
+
+	if (!m_mode)
+		goto fail;
+
+	if (cfg_find_mport(0, &mp))
+		goto fail;
+
+	if (!cfg_find_mport(3, &mp))
+		goto fail;
+
+	if (cfg_find_dev_by_ct(0x20013, &dev))
+		goto fail;
+
+	if (cfg_find_dev_by_ct(0x70000, &dev))
+		goto fail;
+
+	/* Check out the switch routing table parsing in detail. */
+	if (cfg_find_dev_by_ct(0x10000, &dev))
+		goto fail;
+
+	if (!dev.is_sw)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->default_route != RIO_RTE_DROP)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x12].rte_val  != 2)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x13].rte_val  != 3)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x15].rte_val  != 5)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x16].rte_val  != 6)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x1A].rte_val  != 10)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x1B].rte_val  != 11)
+		goto fail;
+
+	for (p_idx = 0; p_idx < 6; p_idx++) {
+		int pnum = pnums[p_idx];
+		for (idx = 0; idx <= RIO_LAST_DEV8; idx++) {
+			if (dev.sw_info.sw_pt[pnum].rt[CFG_DEV08]->dev_table[idx].rte_val  != chk_pnum[p_idx]) {
+				if ((2 == pnum) && ((idx >= 0xf7) && (idx <= 0xfc))) 
+					continue;
+				goto fail;
+			};
+		};
+	};
+
+	return 0;
+fail:
+	return 1;
+};
+	
 int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
@@ -356,6 +445,13 @@ int main(int argc, char *argv[])
 		goto fail;
 	};
 	printf("\nTest_case_4 passed.");
+	free(cfg);
+
+	if (test_case_5()) {
+		printf("\nTest_case_5 FAILED.");
+		goto fail;
+	};
+	printf("\nTest_case_5 passed.");
 	free(cfg);
 
 	rc = EXIT_SUCCESS;

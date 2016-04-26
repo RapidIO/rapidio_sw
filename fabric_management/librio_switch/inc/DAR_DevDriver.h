@@ -30,6 +30,10 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+
+#include "rio_standard.h"
+#include "rio_ecosystem.h"
+
 #ifndef __DAR_DEVDRIVER_H__
 #define __DAR_DEVDRIVER_H__ 
 
@@ -256,9 +260,6 @@ uint32_t DARrioLinkReqNResp ( DAR_DEV_INFO_t *dev_info,
 *  Because this API is aimed at system bring up, there is no support 
 *      for multicast.
 */
-/* Use RIO_ALL_PORTS to cause packets with that routedestid to be discarded.
-*/
-#define RIO_ALL_PORTS ((uint8_t)(0xFF))
 
 uint32_t DARrioStdRouteAddEntry ( DAR_DEV_INFO_t *dev_info, 
                                         uint16_t  routedestid, 

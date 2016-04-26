@@ -158,7 +158,7 @@ typedef struct idt_rt_mc_info_t_TAG
 
 typedef struct idt_rt_uc_info_t_TAG
 {
-    uint8_t  rte_val;  // Routing table entry value.
+    pe_rt_val  rte_val;  // Routing table entry value.
     bool   changed;  // true if the rte_val value has changed.
 } idt_rt_uc_info_t;
 
@@ -168,7 +168,7 @@ typedef struct idt_rt_uc_info_t_TAG
 
 typedef struct idt_rt_state_t_TAG
 {
-    uint8_t                 default_route;             // The 'default route' for ports routed using IDT_DAR_RT_USE_DEFAULT_ROUTE
+    pe_rt_val               default_route;             // The 'default route' for ports routed using IDT_DAR_RT_USE_DEFAULT_ROUTE
     idt_rt_uc_info_t      dev_table[IDT_DAR_RT_DEV_TABLE_SIZE]; // Encoded routing table value, should never be IDT_DAR_RT_USE_DEVICE_TABLE
     idt_rt_uc_info_t      dom_table[IDT_DAR_RT_DOM_TABLE_SIZE]; // Encoded routing table value read, should never be DAR_RT_FIRST_MC_MASK
     idt_rt_mc_info_t      mc_masks[IDT_DSF_MAX_MC_MASK];

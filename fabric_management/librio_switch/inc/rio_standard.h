@@ -120,14 +120,6 @@ typedef uint32_t RIO_SW_PORT_INF_T;
 #define RIO_AVAIL_PORTS(i) ((i & RIO_SW_PORT_INF_TOT) >> 8)
 #define RIO_PORT_IS_VALID(p,i) (p < RIO_AVAIL_PORTS(i)) 
 
-#define RIO_SW_PORT_INF_PORT_MAX 24
-#define RIO_SW_PORT_INF_LANE_MAX 48
-
-#define RIO_ANY_PORT        0xFF        
-#define RIO_MAX_PORT        RIO_SW_PORT_INF_PORT_MAX
-#define RIO_MAX_LANES       4
-#define RIO_MAX_DEV_LANES   RIO_SW_PORT_INF_LANE_MAX
-
 /* RIO_SRC_OPS : Register Bits Masks Definitions */
 typedef uint32_t RIO_SRC_OPS_T;
 #define RIO_SRC_OPS_PORT_WR       (0x00000004)
@@ -245,6 +237,8 @@ typedef uint32_t RIO_DST_OPS_T;
 #define RIO_RTE_IMP_SPEC (0xF0000000)
 #define RIO_RTE_VAL      (0x000003FF)
 
+typedef uint32_t pe_rt_val;
+
 #define RIO_RTE_PT_0             (0x00000000)
 #define RIO_RTE_PT_LAST          (0x000000FF)
 #define RIO_RTE_MC_0             (0x00000100)
@@ -255,9 +249,16 @@ typedef uint32_t RIO_DST_OPS_T;
 #define RIO_RTE_DFLT_PORT        (0x00000301)
 #define RIO_RTE_BAD              (0x0FFFFFFF)
 
-#define RIO_RTV_PORT(n) ((pe_rt_val)(RTE_FIRST_PORT + ((n) & 0xff)))
-#define RIO_RTV_MC_MSK(n) ((pe_rt_val)(RTE_FIRST_MC + ((n) & 0xff)))
-#define RIO_RTV_LVL_GRP(n) ((pe_rt_val)(RTE_FIRST_NEXT_LVL + ((n) & 0xff)))
+#define RIO_LAST_DEV8 (0xFF)
+#define RIO_LAST_DEV16 (0xFFFF)
+#define RIO_LVL_GRP_SZ 0x100
+
+#define RIO_RTV_PORT(n) ((pe_rt_val)((n >= 0xFF)?RIO_RTE_BAD: \
+				(RIO_RTE_PT_0 + ((n) & 0xff))))
+#define RIO_RTV_MC_MSK(n) ((pe_rt_val)((n > 0xFF)?RIO_RTE_BAD: \
+				(RIO_RTE_MC_0 + ((n) & 0xff))))
+#define RIO_RTV_LVL_GRP(n) ((pe_rt_val)((n > 0xFF)?RIO_RTE_BAD: \
+				(RIO_RTE_LVL_G0 + ((n) & 0xff))))
 
 #define RIO_RTV_IS_PORT(n)    ((n) <= RIO_RTE_PT_LAST)
 #define RIO_RTV_IS_MC_MSK(n) ((n) >= RIO_RTE_MC_0 && (n) <= RIO_RTE_MC_LAST)
