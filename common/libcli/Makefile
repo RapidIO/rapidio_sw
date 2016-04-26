@@ -26,7 +26,7 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-TOPDIR=../..
+TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
 level?=$(LOG_LEVEL)

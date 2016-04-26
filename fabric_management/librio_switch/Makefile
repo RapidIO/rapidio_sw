@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-TOPDIR=../..
+TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
 NAME:=switch_api

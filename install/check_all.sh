@@ -10,25 +10,23 @@ RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
 OK=1	# Set OK to true before the checks
 
+echo ' '
+
 #For each node check that all is well
 for node in $NODES
 do
-	# Display note name
-	echo "+++ $node +++"
-
 	# Check that the node was properly enumerated
 	RIODEVS=$(ssh root@"$node" "ls /sys/bus/rapidio/devices/")
 	if [ -z "$RIODEVS" ]
 	then
-		echo "   not enumerated"
+		RIODEVS="NOT ENUMERATED!"
 		OK=0
 	else
-		echo "   RIO devices: "$RIODEVS""
+		RIODEVS="Devices: "$RIODEVS
 	fi
-
-	# Display the 'destid' for the node
+	# Display node name, and the 'destid' for the node
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid 2>/dev/null")
-	echo "   mport destID=$DESTID"
+	echo "+++ $node +++   DestID:" $DESTID $RIODEVS
 
 	# Check that rio_mport_cdev was loaded
 	RIO_MPORT_CDEV=$(ssh root@"$node" "lsmod | grep rio_mport_cdev")
@@ -37,7 +35,7 @@ do
 		echo "   rio_mport_cdev *NOT* loaded"
 		OK=0
 	else
-		echo "   rio_mport_cdev loaded"
+		echo "   rio_mport_cdev       loaded"
 	fi
 
 	# Check that rio_cm was loaded
@@ -47,7 +45,7 @@ do
 		echo "   rio_cm         *NOT* loaded"
 		OK=0
 	else
-		echo "   rio_cm         loaded"
+		echo "   rio_cm               loaded"
 	fi
 
 	# Check that fmd is running
@@ -57,7 +55,7 @@ do
 		echo "   FMD            *NOT* running"
 		OK=0
 	else
-		echo "   FMD   running, PID=$FMD_PID"
+		echo "   FMD                  running, PID=$FMD_PID"
 	fi
 
 	# Check that rdmad is running
@@ -67,7 +65,7 @@ do
 		echo "   RDMAD          *NOT* running"
 		OK=0
 	else
-		echo "   RDMAD running, PID=$RDMAD_PID"
+		echo "   RDMAD                running, PID=$RDMAD_PID"
 	fi
 
 	# Check that rsktd is running
@@ -77,7 +75,7 @@ do
 		echo "   RSKTD          *NOT* running"
 		OK=0
 	else
-		echo "   RSKTD running, PID=$RSKTD_PID"
+		echo "   RSKTD                running, PID=$RSKTD_PID"
 	fi
 
 	arch | awk -vx=1 '/(x86_64|i[3-6]86|ppc64)/{x=0;}END{exit x;}' || continue;
@@ -89,7 +87,7 @@ do
 		echo "   UMDd/SHM       *NOT* running"
 		OK=0
 	else
-		echo "   UMDd/SHM running, PID=$UMD_PID"
+		echo "   UMDd/SHM             running, PID=$UMD_PID"
 	fi
 
 	# Check that DMA Tun is running
@@ -110,12 +108,13 @@ do
                                       END{exit(x);}' < /dev/null;
 		r=$?;
 		if [ "$r" -eq 0 ]; then
-			echo "   DMA Tun running, PID=$DMATUN_PID"
+			echo "   DMA Tun              running, PID=$DMATUN_PID"
 		else
-			echo "   DMA Tun *NOT* running, however the is a ugoodput with PID=$DMATUN_PID"
+			echo "   DMA Tun        *NOT* running, however the is a ugoodput with PID=$DMATUN_PID"
 			OK=0
 		fi
 	fi # DMA TUN
+	echo ' '
 done
 
 exit 0

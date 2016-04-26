@@ -15,13 +15,13 @@ for node in $NODES
 do
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 	echo "Starting fmd on $node destID=$DESTID"
-	ssh root@"$node" "screen -dmS fmd $SOURCE_PATH/fabric_management/daemon/fmd -l7"
+	ssh root@"$node" screen -dmS fmd $SOURCE_PATH/fabric_management/daemon/fmd -l7
 	sleep 1
 	FMD_PID=$(ssh root@"$node" pgrep fmd)
 	echo "$node fmd pid=$FMD_PID"
 done
 
-# Start SOURCE_PATH on each node
+# Start RDMAD on each node
 for node in $NODES
 do
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
@@ -37,7 +37,7 @@ for node in $NODES
 do
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 	echo "Start rsktd on $node destID=$DESTID"
-	ssh root@"$node" "screen -dmS rsktd $SOURCE_PATH/rdma/rskt/daemon/rsktd -l7 -s 32"
+	ssh root@"$node" "screen -dmS rsktd $SOURCE_PATH/rdma/rskt/daemon/rsktd -l7"
 	sleep 1
 	RSKTD_PID=$(ssh root@"$node" pgrep rsktd)
 	echo "$node rsktd pid=$RSKTD_PID"
