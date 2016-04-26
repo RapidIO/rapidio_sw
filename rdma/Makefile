@@ -42,7 +42,7 @@ level?=$(LOG_LEVEL)
 endif
 
 INCLUDE_DIR?=$(TOPDIR)/include
-MPORTLIB_PATH=$(TOPDIR)/common/libmport
+MPORTLIB_PATH=$(TOPDIR)/common/libs_a
 MPORTLIB=libmport.a
 MPORTLIB_HEADER=$(COMMONINC)/rapidio_mport_dma.h
 LIBLOG_PATH=$(COMMONLIBA)
@@ -79,10 +79,12 @@ RDMAD_SOURCES = daemon/src/rdmad_main.cpp \
 REMDBG_SOURCES	= daemon/src/remdbg.c
 
 # RDMA Library flags, sources and objects
-RDMALIB_STATIC_CFLAGS = -Wall -Wextra -std=gnu++0x -c $(OPTFLAGS) \
+RDMALIB_STATIC_CFLAGS = -Wall -Wextra -std=c++11 -c $(OPTFLAGS) \
 		-Idaemon/inc \
 		-Iinc -I$(TOPDIR)/include -I$(COMMONINC) \
-		-DRDMA_LL=$(level) $(OPTFLAGS)
+		-DRDMA_LL=$(level) $(OPTFLAGS) \
+		$(LIB_DIRS) \
+		-llog -lmport
 
 RDMALIB_SOURCES = lib/src/librdma.cpp \
 		lib/src/librdma_db.cpp \
@@ -108,10 +110,10 @@ FORCE:
 librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.a ----------
-	$(CXX) $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES)
+	$(CXX) $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES) -L$(COMMONLIBA)
 	ar rcs librdma.a $(RDMALIB_OBJS)
 	mkdir -p $(TOPDIR)/include/libs_a
-	cp librdma.a $(TOPDIR)/include/libs_a
+	cp librdma.a $(COMMONLIBA)
 
 # The RDMA daemon
 rdmad: $(MPORTLIB_PATH)/$(MPORTLIB) $(RDMAD_SOURCES) daemon/inc/*.h $(COMMONDIR)/libs_a/* \

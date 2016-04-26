@@ -34,8 +34,7 @@ DEBUG?=DEBUG
 CC?= $(CROSS_COMPILE)g++
 CXX?= $(CROSS_COMPILE)g++
 
-LIBRDMA_PATH=..
-LIBMPORT_PATH=../../common/libs_so
+LIBMPORT_PATH=../../common/libs_a
 COMMON_LIBS_PATH=../../common/libs_a
 TOP_LEVEL=../..
 # LOG_LEVEL is set by the master Makefile. If this Makefile is run alone, 
@@ -48,24 +47,22 @@ level?=$(LOG_LEVEL)
 endif
 
 # Common flags for all applications
-RDMAAPP_CFLAGS = --std=gnu++0x -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
+RDMAAPP_CFLAGS = --std=c++11 -Wall -Werror -Wextra -g -ggdb -DRDMA_LL=$(level) \
 		-I$(TOP_LEVEL)/include \
 		-I$(TOP_LEVEL)/common/include \
 		-I$(TOP_LEVEL)/rdma/lib/src \
 		-I$(TOP_LEVEL)/rdma/inc \
 		-D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
-BAT_DEPS = $(LIBMPORT_PATH)/libmport.so $(LIBRDMA_PATH)/librdma.a \
+BAT_DEPS = $(COMMON_LIBS_PATH)/libmport.a $(COMMON_LIBS_PATH)/librdma.a \
 	../inc/* ../daemon/src/* ../daemon/inc/*
-# ../src/* \
 
-BAT_BUILD_STRING = $(CXX) -L$(LIBRDMA_PATH) -L$(LIBMPORT_PATH) -L$(COMMON_LIBS_PATH) \
+BAT_BUILD_STRING = $(CXX) -L$(COMMON_LIBS_PATH) \
 	-L$(TOP_LEVEL)/fabric_management/libfmdd \
 	-L$(TOP_LEVEL)/fabric_management/libriocp_pe \
 	-L$(TOP_LEVEL)/fabric_management/libdd \
-	-Wl,-rpath=$(LIBMPORT_PATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
-	$($@_SRC) -lrt -llist -llog -lmport -lrdma -lcli -pthread -lfmdd -ldd -lriocp_pe
+	$($@_SRC) -lrt -lmport -llist -ldl -llog -lrdma -lcli -pthread -lfmdd -ldd -lriocp_pe
 
 bat_server_SRC = src/bat_server.cpp
 
@@ -74,7 +71,7 @@ bat_client_SRC = src/bat_client.cpp src/bat_client_rdma_api.cpp src/bat_client_t
 bat_child_SRC = src/bat_child.cpp
 
 
-all: bat_server bat_client bat_child
+all: bat_server bat_client
 
 # Batch Automated Test (BAT)
 bat_server: $(BAT_DEPS) $(bat_server_SRC)
