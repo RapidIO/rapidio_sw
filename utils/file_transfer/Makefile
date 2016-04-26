@@ -31,7 +31,8 @@
 # Copyright (c) 2015, Integrated Device Technology
 #
 
-TOPDIR=../..
+TOPDIR?=$(shell pwd)/../..
+
 include $(TOPDIR)/rules.mk
 
 export LOCAL_LIBRARY_DIR=libs_a

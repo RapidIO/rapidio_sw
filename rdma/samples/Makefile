@@ -30,7 +30,7 @@
 #--------------------------------------------------------------------------***
 # Paths to libraries
 # 
-TOPDIR=../..
+TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
 LOG_LEVEL?=0

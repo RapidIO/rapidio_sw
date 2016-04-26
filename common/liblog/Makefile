@@ -28,7 +28,7 @@
 # Read values from ones exported in master Makefile. Or, override on the command
 # line if building separately.
 
-TOPDIR=../..
+TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
 level?=$(LOG_LEVEL)

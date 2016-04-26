@@ -7,7 +7,7 @@ INSTALL_PATH=$SOURCE_PATH"/install"
 
 . /etc/rapidio/nodelist.sh
 
-for node in $NODES
+for node in $REVNODES
 do
 	echo "${node}"
 

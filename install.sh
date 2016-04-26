@@ -148,13 +148,17 @@ done
 echo "Installing node list..."
 
 NODELIST='NODES="'
+REVNODELIST=" \"";
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
   NODELIST="$NODELIST $host";
+  REVNODELIST="$host $REVNODELIST";
 done
 NODELIST="$NODELIST \"";
+REVNODELIST='REVNODES='"\" ${REVNODELIST}"
 cat > /tmp/nodelist.sh <<EOF
 $NODELIST
+$REVNODELIST
 EOF
 
 for host in  "${ALLNODES[@]}"; do
@@ -164,5 +168,7 @@ for host in  "${ALLNODES[@]}"; do
 done
 
 rm /tmp/nodelist.sh
+
+exit
 
 echo "Installion complete."
