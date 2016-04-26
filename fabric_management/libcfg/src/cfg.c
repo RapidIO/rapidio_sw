@@ -224,7 +224,8 @@ void parse_err(struct int_cfg_parms *cfg, char *err_msg)
 	
 	if (0)
 		err_msg[0] = 0;
-	ERR("\n%s\n", err_msg);
+	if (!cfg->init_err)
+		ERR("\n%s\n", err_msg);
 	cfg->init_err = 1;
 };
 
@@ -294,6 +295,7 @@ int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz)
 
 	return 0;
 fail:
+	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
 };
 
@@ -306,6 +308,7 @@ int get_dec_int(struct int_cfg_parms *cfg, uint32_t *dec_int)
 	*dec_int = atoi(tok);
 	return 0;
 fail:
+	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
 };
 
@@ -327,6 +330,7 @@ int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 
 	return 0;
 fail:
+	parse_err(cfg, (char *)"get_hex_int error.");
 	return 1;
 };
 
@@ -341,6 +345,7 @@ int get_port_num(struct int_cfg_parms *cfg, uint32_t *pnum)
 	};
 	return 0;
 fail:
+	parse_err(cfg, (char *)"get_port_num error.");
 	return 1;
 };
 
@@ -350,6 +355,7 @@ int get_parm_idx(struct int_cfg_parms *cfg, char *parm_list)
 
 	if (!get_next_token(cfg, &tok))
 		return parm_idx(tok, parm_list);
+	parse_err(cfg, (char *)"Premature EOF.");
 	return -1;
 };
 
@@ -361,6 +367,7 @@ int get_string(struct int_cfg_parms *cfg, char **parm)
 		update_string(parm, tok, strlen(tok));
 		return 0;
 	}
+	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
 };
 
@@ -405,6 +412,7 @@ int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 	};
 	return 0;
 fail:
+	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
 };
 
@@ -448,7 +456,7 @@ int find_ep_and_port(struct int_cfg_parms *cfg, char *tok,
 
 	temp = strchr(tok, '.');
 	if (NULL == temp)
-		return 1;
+		goto fail;
 
 	if ('.' == temp[0]) {
 		temp[0] = '\0';
@@ -498,6 +506,7 @@ int find_sw_and_port(struct int_cfg_parms *cfg, char *tok,
 	};
 	return 0;
 fail:
+	parse_err(cfg, (char *)"find_sw_and_port error.");
 	return 1;
 };
 
@@ -508,6 +517,7 @@ int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *conn,
 
 	conn->ends[idx].port_num = 0;
 	conn->ends[idx].ep_h = NULL;
+	conn->ends[idx].sw_h = NULL;
 
 	if (get_next_token(cfg, &tok))
 		goto fail;
@@ -555,7 +565,9 @@ int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *conn,
 			= idx;
 		return 0;
 	};
+	parse_err(cfg, (char *)"Unknown device.");
 fail:
+	parse_err(cfg, (char *)"Premature EOF.");
 	return 1;
 };
 
@@ -589,6 +601,7 @@ int get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
 	*destid = ep->ports[port].devids[devid_sz].devid;
 	return 0;
 fail:
+	parse_err(cfg, (char *)"get_destid error.");
 	return 1;
 };
 
@@ -617,6 +630,7 @@ int parse_devid_sizes(struct int_cfg_parms *cfg, int *dev_id_szs)
 	};
 	return 0;
 fail:
+	parse_err(cfg, (char *)"parse_devid_sizes error.");
 	return 1;
 };
 
@@ -642,6 +656,7 @@ int parse_mport_mem_size(struct int_cfg_parms *cfg, uint8_t *mem_sz)
 	}
 	return 0;
 fail:
+	parse_err(cfg, (char *)"parse_mport_mem_size error.");
 	return 1;
 };
 
@@ -676,6 +691,7 @@ int parse_ep_devids(struct int_cfg_parms *cfg, struct dev_id *devids)
 	};
 	return 0;
 fail:
+	parse_err(cfg, (char *)"parse_ep_devids error.");
 	return 1;
 };
 
@@ -768,6 +784,7 @@ int parse_mport_info(struct int_cfg_parms *cfg)
 
 	return parse_ep_devids(cfg, cfg->mport_info[idx].devids);
 fail:
+	parse_err(cfg, (char *)"parse_mport_info error.");
 	return 1;
 };
 
@@ -776,7 +793,7 @@ int parse_master_info(struct int_cfg_parms *cfg)
 	if (get_devid_sz(cfg, &cfg->mast_devid_sz))
 		goto fail;
 
-	if (get_dec_int(cfg, &cfg->mast_devid))
+	if (get_hex_int(cfg, &cfg->mast_devid))
 		goto fail;
 
 	if (get_dec_int(cfg, &cfg->mast_cm_port))
@@ -784,6 +801,7 @@ int parse_master_info(struct int_cfg_parms *cfg)
 
 	return 0;
 fail:
+	parse_err(cfg, (char *)"parse_master_info error.");
 	return 1;
 };
 
@@ -826,6 +844,7 @@ int parse_mc_mask(struct int_cfg_parms *cfg, idt_rt_mc_info_t *mc_info)
 	mc_info[mc_mask_idx].changed = 1;
 	return 0;
 fail:
+	parse_err(cfg, (char *)"parse_mc_mask error.");
 	return 1;
 };
 

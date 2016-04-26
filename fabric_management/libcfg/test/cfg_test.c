@@ -344,7 +344,7 @@ int test_case_5(void)
 	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)))
 		goto fail;
 
-	if (5 != m_did)
+	if (0x12 != m_did)
 		goto fail;
 
 	if (CFG_DFLT_MAST_CM_PORT != m_cm_port)
@@ -403,6 +403,55 @@ int test_case_5(void)
 			};
 		};
 	};
+
+	/* Check out connection parsing between endpoints & switches,
+	* and between switches.
+	*/
+
+	for (int idx = 0; idx < 4; idx++) {
+		struct cfg_dev ep, sw, rev_ep;
+		int sw_pt, rev_pt;
+		uint32_t ct = 0x10012 + (0x10000 * idx) + idx + ((idx > 1)?1:0); 
+
+		if (cfg_find_dev_by_ct(ct, &ep))
+			goto fail;
+
+		if (cfg_get_conn_dev(ct, 0, &sw, &sw_pt))
+			goto fail;
+
+		if (cfg_get_conn_dev(sw.ct, sw_pt, &rev_ep, &rev_pt))
+			goto fail;
+
+		if (memcmp(&ep, &rev_ep, sizeof(ep)))
+			goto fail;
+		if (0 != rev_pt)
+			goto fail;
+	};
+
+	for (int sw = 1; sw < 7; sw++) {
+		struct cfg_dev l0_sw, l1_sw, rev_dev;
+		uint32_t ct = 0x10000 * sw;
+		int port_list[6] = {0, 1, 4, 7, 8, 9};
+		int pt_idx;
+		int l0_pt, l1_pt, rev_pt;
+
+		if (cfg_find_dev_by_ct(ct, &l0_sw))
+			goto fail;
+		for (pt_idx = 0; pt_idx < 6; pt_idx++) {
+			l0_pt = port_list[pt_idx];
+
+			if (cfg_get_conn_dev(ct, l0_pt, &l1_sw, &l1_pt))
+				goto fail;
+
+			if (cfg_get_conn_dev(l1_sw.ct, l1_pt, &rev_dev, &rev_pt))
+				goto fail;
+			if (memcmp(&l0_sw, &rev_dev, sizeof(l0_sw)))
+				goto fail;
+			if (rev_pt != l0_pt)
+				goto fail;
+		};
+	};
+
 
 	return 0;
 fail:
