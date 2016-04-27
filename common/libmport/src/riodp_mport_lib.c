@@ -486,8 +486,6 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	if(hnd == NULL)
 		return -EINVAL;
 
-	if (hnd->dch != NULL) goto umdd;
-
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
 	xfer.loc_addr = (uintptr_t)NULL;
