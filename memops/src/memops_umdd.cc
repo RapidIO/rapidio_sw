@@ -41,7 +41,7 @@ RIOMemOpsUMDd::~RIOMemOpsUMDd()
   //riomp_mgmt_mport_destroy_handle(&m_mp_h); // XXX destroyed by ~RIOMemOpsMport
 }
 
-bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
+bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 {
   dmaopt.ticket = 0;
 
@@ -67,7 +67,7 @@ bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 
   dmamem.type       = RioMport::DONOTCHECK;
   dmamem.win_handle = dmaopt.mem.win_handle + dmaopt.mem.offset;
-  dmamem.win_size   = dmaopt.win_size;
+  dmamem.win_size   = dmaopt.mem.win_size;
 
   bool q_was_full = false;
   uint32_t dma_abort_reason = 0;
@@ -124,12 +124,79 @@ bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   return true;
 }
 
-bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
+bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 {
   dmaopt.ticket = 0;
 
   if (dmaopt.mem.type != CMAMEM) 
     throw std::runtime_error("RIOMemOpsUMDd::nwrite_mem: Unsupported memory type!");
+
+#ifdef MPORT_DEBUG
+  printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
+#endif
+
+  if (! DMAChannelSHM_checkMasterReady(m_dch)) { m_errno = ENOTCONN; return false; }
+
+  if (DMAChannelSHM_queueFull(m_dch)) { m_errno = EBUSY; return false; }
+
+  DMAChannelSHM::DmaOptions_t opt;
+  memset(&opt, 0, sizeof(opt));
+  opt.destid      = dmaopt.destid;
+  opt.tt_16b      = (bool)dmaopt.tt_16b;
+  opt.prio        = dmaopt.prio;
+  opt.crf         = dmaopt.crf;
+  opt.bcount      = dmaopt.bcount;
+  opt.raddr.lsb64 = dmaopt.raddr.lsb64;
+  opt.raddr.msb2  = dmaopt.raddr.msb2;
+
+  RioMport::DmaMem_t dmamem; memset(&dmamem, 0, sizeof(dmamem));
+
+  dmamem.type       = RioMport::DONOTCHECK;
+  dmamem.win_handle = dmaopt.mem.win_handle + dmaopt.mem.offset;
+  dmamem.win_size   = dmaopt.bcount;
+
+  bool q_was_full = false;
+  uint32_t dma_abort_reason = 0;
+
+  if (! DMAChannelSHM_queueDmaOpT1(m_dch, NREAD, &opt, &dmamem, &dma_abort_reason, &m_stats)) {
+    if (q_was_full) { m_errno = ENOSPC; return false; }
+    m_errno = EINVAL; return false;
+  }
+
+  if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_FAF) return true;
+
+  if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
+    uint32_t cookie = ++m_cookie_cutter;
+    m_asyncm[cookie] = opt;
+    return cookie;
+  }
+
+  // Only left RIO_DIRECTIO_TRANSFER_SYNC
+  for (int cnt = 0;; cnt++) {
+    const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(m_dch, &opt);
+    if (st == DMAChannelSHM::UMDD_DEAD) return -(errno = ENOTCONN);
+    if (st == DMAChannelSHM::COMPLETED) break;
+    if (st == DMAChannelSHM::INPROGRESS) {
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+      struct timespec sl = {0, UMD_SLEEP_NS};
+      if (cnt == 0) {
+        uint64_t total_data_pending = 0;
+        DMAChannelSHM_getShmPendingData(m_dch, &total_data_pending, NULL);
+        if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+      }
+      nanosleep(&sl, NULL);
+#endif
+      continue;
+    }
+    if (st == DMAChannelSHM::BORKED) {
+      uint64_t t = 0;
+      const int deq = DMAChannelSHM_dequeueFaultedTicket(m_dch, &t);
+      if (deq)
+           fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+      else fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
+      m_errno = EIO; return false;
+    }
+  }
 
   return true;
 }

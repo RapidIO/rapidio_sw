@@ -12,6 +12,8 @@ class RIOMemOpsUMDd : public RIOMemOpsMport {
 public:
   RIOMemOpsUMDd(const int mport, const int chan);
   virtual ~RIOMemOpsUMDd();
+  
+  virtual bool queueFull() { return DMAChannelSHM_checkMasterReady(m_dch); }
 
   virtual bool nread_mem(MEMOPSRequest_t& dmaopt /*inout*/);
   virtual bool nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/);
