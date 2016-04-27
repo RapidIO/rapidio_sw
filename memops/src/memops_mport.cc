@@ -1,10 +1,10 @@
 #include <stdio.h> // snprintf
 
-#include "rdma_mport.h"
+#include "memops_mport.h"
 
 #define XCRIT(fmt, ...)
 
-RIORdmaOpsMport::RIORdmaOpsMport(const int mport_id)
+RIOMemOpsMport::RIOMemOpsMport(const int mport_id)
 {
   m_errno = 0;
 
@@ -12,16 +12,16 @@ RIORdmaOpsMport::RIORdmaOpsMport(const int mport_id)
   if (rc == 0) return;
 
   static char tmp[129] = {0};
-  snprintf(tmp, 128, "RIORdmaOpsMport: riomp_mgmt_mport_create_handle barfed with error %d (%d)", rc, strerror(rc));
+  snprintf(tmp, 128, "RIOMemOpsMport: riomp_mgmt_mport_create_handle barfed with error %d (%d)", rc, strerror(rc));
 
   throw std::runtime_error(tmp);
 }
-RIORdmaOpsMport::~RIORdmaOpsMport()
+RIOMemOpsMport::~RIOMemOpsMport()
 {
   riomp_mgmt_mport_destroy_handle(&m_mp_h);
 }
 
-bool RIORdmaOpsMport::nread_mem(RDMARequest_t& dmaopt /*inout*/)
+bool RIOMemOpsMport::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 {
   dmaopt.ticket = 0;
 
@@ -39,7 +39,7 @@ bool RIORdmaOpsMport::nread_mem(RDMARequest_t& dmaopt /*inout*/)
   return true;
 }
 
-bool RIORdmaOpsMport::nwrite_mem(RDMARequest_t& dmaopt /*inout*/)
+bool RIOMemOpsMport::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 {
   dmaopt.ticket = 0;
 
@@ -57,7 +57,7 @@ bool RIORdmaOpsMport::nwrite_mem(RDMARequest_t& dmaopt /*inout*/)
   return true;
 }
 
-bool RIORdmaOpsMport::wait_async(RDMARequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking*/)
+bool RIOMemOpsMport::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking*/)
 {
   m_errno = 0;
   if (dmaopt.ticket <= 0) return false;
@@ -65,7 +65,7 @@ bool RIORdmaOpsMport::wait_async(RDMARequest_t& dmaopt /*only if async flagged*/
   return 0 == riomp_dma_wait_async(m_mp_h, timeout, dmaopt.ticket);
 }
 
-bool RIORdmaOpsMport::alloc_cmawin(DmaMem_t& mem /*out*/, const int _size)
+bool RIOMemOpsMport::alloc_cmawin(DmaMem_t& mem /*out*/, const int _size)
 {
   int size = _size;
 
@@ -95,7 +95,7 @@ bool RIORdmaOpsMport::alloc_cmawin(DmaMem_t& mem /*out*/, const int _size)
   return true;
 }
 
-bool RIORdmaOpsMport::alloc_ibwin(DmaMem_t& ibwin /*out*/, const int size)
+bool RIOMemOpsMport::alloc_ibwin(DmaMem_t& ibwin /*out*/, const int size)
 {
   /* First, obtain an inbound handle from the mport driver */
   int ret = riomp_dma_ibwin_map(m_mp_h, &ibwin.rio_address, size, &ibwin.win_handle);
@@ -118,7 +118,7 @@ bool RIORdmaOpsMport::alloc_ibwin(DmaMem_t& ibwin /*out*/, const int size)
   return true;
 }
 
-bool RIORdmaOpsMport::alloc_obwin(DmaMem_t& obwin /*out*/, const uint16_t destid, const int size)
+bool RIOMemOpsMport::alloc_obwin(DmaMem_t& obwin /*out*/, const uint16_t destid, const int size)
 {
   /* First, obtain an outbound handle from the mport driver */
   int ret = riomp_dma_obwin_map(m_mp_h, destid, obwin.rio_address, size, &obwin.win_handle);
@@ -141,7 +141,7 @@ bool RIORdmaOpsMport::alloc_obwin(DmaMem_t& obwin /*out*/, const uint16_t destid
   return true;
 }
 
-bool RIORdmaOpsMport::free_cmawin(DmaMem_t& mem)
+bool RIOMemOpsMport::free_cmawin(DmaMem_t& mem)
 {
   bool ret = true;
 
@@ -163,7 +163,7 @@ bool RIORdmaOpsMport::free_cmawin(DmaMem_t& mem)
   return ret;
 }
 
-bool RIORdmaOpsMport::free_ibwin(DmaMem_t& ibwin)
+bool RIOMemOpsMport::free_ibwin(DmaMem_t& ibwin)
 {
   bool ret = true;
 
@@ -191,7 +191,7 @@ bool RIORdmaOpsMport::free_ibwin(DmaMem_t& ibwin)
   return ret;
 }
 
-bool RIORdmaOpsMport::free_obwin(DmaMem_t& obwin)
+bool RIOMemOpsMport::free_obwin(DmaMem_t& obwin)
 {
   bool ret = true;
 

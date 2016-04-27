@@ -60,6 +60,9 @@ umdd: common umd FORCE
 common: FORCE
 	$(MAKE) all -C common 
 	
+memops: FORCE
+	$(MAKE) all -C memops
+	
 goodput: common umd FORCE	
 	$(MAKE) all -C utils/goodput
 
@@ -69,6 +72,7 @@ file_transfer: common FORCE
 FORCE:
 
 clean: FORCE
+	$(MAKE) clean -C memops
 	$(MAKE) clean -C common
 	$(MAKE) clean -C umd_tsi721
 	$(MAKE) clean -C umdd_tsi721

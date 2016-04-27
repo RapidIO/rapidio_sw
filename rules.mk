@@ -73,9 +73,13 @@ COMMONINC=$(COMMONDIR)/include
 COMMONLIB=$(COMMONDIR)/libs_so
 COMMONLIBA=$(COMMONDIR)/libs_a
 
+FMDDIR=$(TOPDIR)/fabric_management
+
 UMDDIR?=$(TOPDIR)/umd_tsi721
 UMDINCDIR=$(UMDDIR)/inc
-FMDDIR=$(TOPDIR)/fabric_management
+
+UMDDDIR?=$(TOPDIR)/umdd_tsi721
+UMDDINCDIR=$(UMDDDIR)/inc
 
 COMMONFLAGS=$(OPTFLAGS) -pthread -Werror -I$(TOPDIR)/include -I$(COMMONINC) -L$(COMMONLIB)
 

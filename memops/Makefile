@@ -29,19 +29,24 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-TOPDIR=../..
+TOPDIR=..
 include $(TOPDIR)/rules.mk
 
 .PHONY: all clean
 
-all: librdma_intf.so librdma_intf.a
+INCLUDES = -Iinc -I$(TOPDIR)/include -I$(COMMONINC) -I$(UMDINCDIR) -I$(FMDDIR)/librio_switch/inc
 
-librdma_intf.a: src/rdma_factory.cc src/rdma_mport.cc
-	$(CXX) -c -Iinc -I$(TOPDIR)/include -I$(COMMONINC) $^ -L$(COMMONLIB) -lmport $(LIBS_RPATH)
+SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memops_umdd.cc
+
+all: libmemops_intf.so libmemops_intf.a
+
+libmemops_intf.a: $(SOURCES)
+	$(CXX) -c $(INCLUDES) -I$(UMDDINCDIR) $^ -L$(COMMONLIB) -lmport $(LIBS_RPATH)
 	$(AR) rcs $@ *.o
 
-librdma_intf.so: src/rdma_factory.cc src/rdma_mport.cc
-	$(CXX) -Iinc -I$(TOPDIR)/include -I$(COMMONINC) $^ -shared -fPIC -ldl -L$(COMMONLIB) -lmport $(LIBS_RPATH) -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
+libmemops_intf.so: $(SOURCES)
+	$(CXX) $(INCLUDES) $^ \
+		-shared -fPIC -ldl -L$(COMMONLIB) -lmport $(LIBS_RPATH) -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
 clean:

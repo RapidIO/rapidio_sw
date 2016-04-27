@@ -1,19 +1,19 @@
-#ifndef __RDMA_MPORT_H__
-#define __RDMA_MPORT_H__
+#ifndef __MEMOPS_MPORT_H__
+#define __MEMOPS_MPORT_H__
 
 #include <errno.h>
 
-#include <rdma.h>
+#include <memops.h>
 
-class RIORdmaOpsMport : public RIORdmaOpsIntf {
+class RIOMemOpsMport : public RIOMemOpsIntf {
 public:
-  RIORdmaOpsMport(const int mport);
-  virtual ~RIORdmaOpsMport();
+  RIOMemOpsMport(const int mport);
+  virtual ~RIOMemOpsMport();
 
-  virtual bool nread_mem(RDMARequest_t& dmaopt /*inout*/);
-  virtual bool nwrite_mem(RDMARequest_t& dmaopt /*inout*/);
+  virtual bool nread_mem(MEMOPSRequest_t& dmaopt /*inout*/);
+  virtual bool nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/);
 
-  virtual bool wait_async(RDMARequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking*/);
+  virtual bool wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking*/);
 
   virtual bool alloc_cmawin(DmaMem_t& mem /*out*/, const int size);
   virtual bool alloc_ibwin(DmaMem_t& mem /*out*/, const int size);
@@ -33,4 +33,4 @@ private:
   int           m_errno;
 };
 
-#endif //__RDMA_MPORT_H__
+#endif //__MEMOPS_MPORT_H__

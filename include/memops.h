@@ -1,5 +1,5 @@
-#ifndef __RDMA_H__
-#define __RDMA_H__
+#ifndef __MEMOPS_H__
+#define __MEMOPS_H__
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -11,10 +11,10 @@
 #include "rapidio_mport_dma.h"
 
 typedef enum {
-  RDMA_MPORT = 1, ///< Use libmport/krenel interfaces
-  RDMA_UMDD,      ///< Use UMDd/SHM implementation
-  RDMA_UMD        ///< Use UMD (monolithic, in-app) implementation
-} RDMAAccess_t;
+  MEMOPS_MPORT = 1, ///< Use libmport/krenel interfaces
+  MEMOPS_UMDD,      ///< Use UMDd/SHM implementation
+  MEMOPS_UMD        ///< Use UMD (monolithic, in-app) implementation
+} MEMOPSAccess_t;
 
 typedef enum { INVALID = 0, IBWIN = 1, OBWIN = 2, CMAMEM = 3, MALLOC = 4, DONOTCHECK = 42 } DmaMemType_t;
 
@@ -51,22 +51,22 @@ typedef struct {
   enum riomp_dma_directio_transfer_sync sync;
 
   uint64_t ticket; ///< For async this is the ticket (UMD) [u64] or kernel cookie [u32]
-} RDMARequest_t;
+} MEMOPSRequest_t;
 
 /** \bried Wrapper Interface for NREAD/NWRITE code */
-class RIORdmaOpsIntf {
+class RIOMemOpsIntf {
 public:
-  virtual ~RIORdmaOpsIntf() {;}
+  virtual ~RIOMemOpsIntf() {;}
 
   virtual bool canRestart() { return false; }
   virtual bool restartChannel() { throw std::runtime_error("restartChannel: Operation not supported."); }
 
   virtual bool queueFull() { return false; } ///< Impl which do not support this SHALL return false
 
-  virtual bool nread_mem(RDMARequest_t& dmaopt /*inout*/) = 0;
-  virtual bool nwrite_mem(RDMARequest_t& dmaopt /*inout*/) = 0;
+  virtual bool nread_mem(MEMOPSRequest_t& dmaopt /*inout*/) = 0;
+  virtual bool nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/) = 0;
 
-  virtual bool wait_async(RDMARequest_t& dmaopt /*only if async flagged*/, int timeout = 0 /*0=blocking*/) = 0;
+  virtual bool wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout = 0 /*0=blocking*/) = 0;
 
   virtual bool alloc_cmawin(DmaMem_t& mem /*out*/, const int size) = 0;
   virtual bool alloc_ibwin(DmaMem_t& mem /*out*/, const int size) = 0;
@@ -102,5 +102,5 @@ private:
   virtual bool freelloc_obwin(DmaMem_t& mem) = 0;
 };
 
-RIORdmaOpsIntf* RIORdmaOps_classFactory(const RDMAAccess_t type, const int mport, const int channel = -1);
-#endif // __RDMA_H__
+RIOMemOpsIntf* RIOMemOps_classFactory(const MEMOPSAccess_t type, const int mport, const int channel = -1);
+#endif // __MEMOPS_H__

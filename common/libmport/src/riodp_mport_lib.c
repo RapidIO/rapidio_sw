@@ -77,9 +77,6 @@ struct rapidio_mport_handle {
         int     fd;                         /**< posix api compatible fd to be used with poll/select */
 	uint8_t mport_id;
 	uint8_t umd_chan;
-        void*   dch;
-        volatile uint32_t cookie_cutter; // XXX THIS STINKS but the API wants 32-bit!!
-        std::map <uint64_t, DMAChannelSHM::DmaOptions_t> asyncm;
         void* stats;                    /**< Pointer to statistics gathering back door for driver... */
 };
 
@@ -211,64 +208,7 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	hnd->fd       = fd;
 	hnd->mport_id = mport_id;
 
-	hnd->asyncm.clear();
-
-	const char* chan_s = getenv("UMDD_CHAN");
-	if (chan_s == NULL || (flags & 0xFFFF0000) == UMD_RESERVED) {
-		*mport_handle = hnd;
-		return 0;
-	}
-
-	int chan = 0;
-	do {
-		// Pick next available channel
-		if ((flags & 0xFFFF0000) == UMD_SELECT_NEXT_CHANNEL) {
-			chan = riomp_mgmt_mport_umd_select_channel(mport_id, 0);
-			hnd->umd_chan = chan;
-			break;
-		}
-
-		// Force sharing of channel $UMDD_CHAN
-		int tmp = atoi(chan_s);
-		if (tmp > 0) {
-			if (riomp_mgmt_mport_umd_is_channel_selected(mport_id, tmp))
-				chan = tmp;
-			else
-				chan = riomp_mgmt_mport_umd_select_channel(mport_id, tmp);
-			hnd->umd_chan = -chan;
-			break;
-		}
-	} while(0);
-
-	if (chan == 0) {
-		fprintf(stderr, "%s: Ran out of UMD DMA channels.\n", __func__);
-		errno = ENOSPC; goto error;
-	}
-
-	try { hnd->dch = DMAChannelSHM_create(mport_id, chan); }
-	catch(std::runtime_error ex) { // UMDd not running
-		fprintf(stderr, "%s: Exception: %s\n", __func__, ex.what());
-		errno = ENOTCONN; goto error;
-	}
-
-	if (hnd->dch == NULL) { // Cannot load SO
-		errno = ENOPKG; goto error;
-	}
-
-        if (! DMAChannelSHM_pingMaster(hnd->dch)) { // Ping master process via signal(0)
-		fprintf(stderr, "%s: UMDd master process is dead.\n", __func__);
-		errno = ENOTCONN; goto error;
-	}
-
-	*mport_handle = hnd;
-	return 0;
-
-error:
-	if (hnd->dch != NULL) {	DMAChannelSHM_destroy(hnd->dch); hnd->dch = NULL; }
-	if (hnd->umd_chan > 0) riomp_mgmt_mport_umd_deselect_channel(hnd->mport_id, hnd->umd_chan);
-	close(hnd->fd);
-	free(hnd);
-	return -errno;
+        return 0;
 }
 
 int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
@@ -277,16 +217,6 @@ int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
 
 	if(hnd == NULL)
 		return -EINVAL;
-
-	if (hnd->dch != NULL) { DMAChannelSHM_destroy(hnd->dch); hnd->dch = NULL; }
-
-	hnd->asyncm.clear();
-
-	close(hnd->fd);
-
-	// Shared channel is not deselected, no ref counting
-        if (hnd->umd_chan > 0) riomp_mgmt_mport_umd_deselect_channel(hnd->mport_id, hnd->umd_chan);
-	free(hnd);
 
 	return 0;
 }
@@ -491,8 +421,6 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	if(hnd == NULL)
 		return -EINVAL;
 
-	if (hnd->dch != NULL) goto umdd;
-
 	xfer.rioid = destid;
 	xfer.rio_addr = tgt_addr;
 	xfer.loc_addr = (uintptr_t)NULL;
@@ -510,81 +438,6 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)? -errno: ret;
-
-   umdd:
-        if (! DMAChannelSHM_checkMasterReady(hnd->dch)) return -(errno = ENOTCONN);
-
-	if (DMAChannelSHM_queueFull(hnd->dch)) return -(errno = EBUSY);
-
-	// printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
-
-	DMAChannelSHM::DmaOptions_t opt;
-	memset(&opt, 0, sizeof(opt));
-	opt.destid      = destid;
-	opt.bcount      = size;
-	opt.raddr.lsb64 = tgt_addr + offset;
-	RioMport::DmaMem_t dmamem; memset(&dmamem, 0, sizeof(dmamem));
-
-	dmamem.type       = RioMport::DONOTCHECK;
-	dmamem.win_handle = handle;
-        dmamem.win_size   = size;
-
-	bool q_was_full = false;
-	uint32_t dma_abort_reason = 0;
-
-	if (size > 16) {
-		if (! DMAChannelSHM_queueDmaOpT1(hnd->dch,
-				DMAChannelSHM::convert_riomp_dma_directio(wr_mode), &opt,
-				&dmamem, &dma_abort_reason, (seq_ts *)hnd->stats)) {
-			if (q_was_full) return -(errno = ENOSPC);
-			return -(errno = EINVAL);
-		}
-	} else {
-		if (! DMAChannelSHM_queueDmaOpT2(hnd->dch,
-				DMAChannelSHM::convert_riomp_dma_directio(wr_mode),
-				&opt, (uint8_t *)handle + offset, size, 
-				&dma_abort_reason, (seq_ts *)hnd->stats)) {
-			if (q_was_full) return -(errno = ENOSPC);
-			return -(errno = EINVAL);
-		}
-	}
-
-	if (sync == RIO_DIRECTIO_TRANSFER_FAF) return 0;
-
-	if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
-		uint32_t cookie = ++hnd->cookie_cutter;
-		hnd->asyncm[cookie] = opt;
-		return cookie;
-	}
-
-	// Only left RIO_DIRECTIO_TRANSFER_SYNC
-	for (int cnt = 0;; cnt++) {
-		const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
-                if (st == DMAChannelSHM::UMDD_DEAD) return -(errno = ENOTCONN);
-                if (st == DMAChannelSHM::COMPLETED) break;
-                if (st == DMAChannelSHM::INPROGRESS) {
-#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
-			struct timespec sl = {0, UMD_SLEEP_NS};
-			if (cnt == 0) {
-				uint64_t total_data_pending = 0;
-				DMAChannelSHM_getShmPendingData(hnd->dch, &total_data_pending, NULL);
-				if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
-			}
-			nanosleep(&sl, NULL);
-#endif
-			continue;
-		}
-                if (st == DMAChannelSHM::BORKED) {
-                        uint64_t t = 0;
-                        const int deq = DMAChannelSHM_dequeueFaultedTicket(hnd->dch, &t);
-			if (deq)
-			     fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
-			else fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
-			return -(errno = EIO);
-		}
-	}
-
-	return 0;
 }
 
 /*
@@ -729,68 +582,14 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 	if(hnd == NULL)
 		return -EINVAL;
 
-	if (hnd->dch != NULL) goto umdd;
-
 	wparam.token = cookie;
 	wparam.timeout = tmo;
 
 	if (ioctl(hnd->fd, RIO_WAIT_FOR_ASYNC, &wparam))
 		return -errno;
 
-   umdd:
-	// printf("UMDD %s: cookie=%u\n", __func__, cookie);
-
-        if (! DMAChannelSHM_checkMasterReady(hnd->dch)) return -(errno = ENOTCONN);
-
-	// Kernel's rio_mport_wait_for_async_dma wants miliseconds of timeout
-
-	assert(cookie <= hnd->cookie_cutter);
-
-        DMAChannelSHM::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
-	std::map<uint64_t, DMAChannelSHM::DmaOptions_t>::iterator it = hnd->asyncm.find(cookie);
-
-	if (it == hnd->asyncm.end()) // Tough luck
-		throw std::runtime_error("riomp_dma_wait_async: Requested cookie not found in internal database");
-
-	opt = it->second;
-
-	hnd->asyncm.erase(it); // XXX This takes a lot of time :()
-
-	uint64_t now = 0;
-	while ((now = rdtsc()) < opt.not_before) {
-#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
-		struct timespec sl = {0, UMD_SLEEP_NS};
-		nanosleep(&sl, NULL);
-#endif
-	}
-
-        for (int cnt = 0 ;; cnt++) {
-                const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(hnd->dch, &opt);
-                if (st == DMAChannelSHM::UMDD_DEAD) return -(errno = ENOTCONN);
-                if (st == DMAChannelSHM::COMPLETED) return 0;
-                if (st == DMAChannelSHM::BORKED) {
-                        uint64_t t = 0;
-                        DMAChannelSHM_dequeueFaultedTicket(hnd->dch, &t);
-                        fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
-                        return -(errno = EIO);
-                }
-	
-		// Last-ditch wait ??
-                if (st == DMAChannelSHM::INPROGRESS) {
-#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
-			struct timespec sl = {0, UMD_SLEEP_NS};
-			sl.tv_nsec = opt.not_before_dns;
-			nanosleep(&sl, NULL);
-#endif
-			continue;
-		}
-	}
-
-	// Should not reach here
-
-	return -(errno = EINVAL);
+	return 0;
 }
-
 
 /*
  * Allocate and map into RapidIO space a local kernel space data buffer

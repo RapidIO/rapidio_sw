@@ -37,7 +37,7 @@ DEBUG ?= DEBUG
 export DEBUG
 endif
 
-all: libcli liblist liblog libtime_utils libmport librdma_intf libunit_test samples
+all: libcli liblist liblog libtime_utils libmport libunit_test samples
 
 libcli: FORCE
 	$(MAKE) all -C libcli
@@ -82,14 +82,6 @@ libmport: FORCE libtime_utils
 	(cd libmport; tar cf - libmport.so*) | (cd libs_so; tar xvf -)
 	$(MAKE) LDFLAGS= -C libmport samples
 
-librdma_intf: FORCE libmport
-	$(MAKE) all LDFLAGS= -C librdma_intf
-	mkdir -p libs_a
-	mkdir -p libs_so
-	cp librdma_intf/librdma_intf.a libs_a/
-	(cd librdma_intf; tar cf - librdma_intf.so*) | (cd libs_so; tar xvf -)
-	$(MAKE) LDFLAGS= -C libmport samples
-
 samples: FORCE
 	$(MAKE) -C samples
 
@@ -102,7 +94,6 @@ clean:
 	$(MAKE) clean -C libtime_utils
 	$(MAKE) clean -C libunit_test
 	$(MAKE) clean -C libmport
-	$(MAKE) clean -C librdma_intf
 	$(MAKE) clean -C samples
 	rm -f libs_a/*
 	rm -f libs_so/*
