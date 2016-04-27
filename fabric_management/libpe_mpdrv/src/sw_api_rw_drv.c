@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "riocp_pe_internal.h"
 #include "IDT_DSF_DB_Private.h"
 #include "DAR_Utilities.h"
+#include "liblog.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -68,15 +69,23 @@ uint32_t SRIO_API_ReadRegFunc(DAR_DEV_INFO_t *d_info,
 		acc_p = (struct mpsw_drv_pe_acc_info *)(d_info->accessInfo);
 	};
 
-	if (RIOCP_PE_IS_MPORT(pe_h))
+	if (RIOCP_PE_IS_MPORT(pe_h)) {
+		DBG("O=0x%x\n", offset);
 		rc = riomp_mgmt_lcfg_read(acc_p->maint, offset, sizeof(x), &x)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
-	else
+	} else {
+		DBG("O=0x%x D=0x%x H=0x%x\n",
+			offset, pe_h->destid, pe_h->hopcount);
 		rc = riomp_mgmt_rcfg_read(acc_p->maint, pe_h->destid,
 			pe_h->hopcount, offset, sizeof(x), &x)?
 				RIO_ERR_ACCESS:RIO_SUCCESS;
-	if (RIO_SUCCESS == rc)
+	};
+	if (RIO_SUCCESS == rc) {
 		*readdata = x;
+		DBG("V=0x%8x\n", x);
+	} else {
+		DBG("FAILED\n");
+	};
 exit:
 	return rc;
 };
@@ -107,13 +116,23 @@ uint32_t SRIO_API_WriteRegFunc(DAR_DEV_INFO_t *d_info,
 		acc_p = (struct mpsw_drv_pe_acc_info *)(d_info->accessInfo);
 	};
 
-	if (RIOCP_PE_IS_MPORT(pe_h))
+	if (RIOCP_PE_IS_MPORT(pe_h)) {
+		DBG("O=0x%x V=0x%08x\n", offset, writedata);
 		rc = riomp_mgmt_lcfg_write(acc_p->maint, offset, sizeof(writedata), writedata)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
-	else
+	} else {
+		DBG("O=0x%x D=0x%x H=0x%x V=0x%08x\n",
+			offset, pe_h->destid, pe_h->hopcount, writedata);
 		rc = riomp_mgmt_rcfg_write(acc_p->maint, pe_h->destid, pe_h->hopcount, offset,
 				      sizeof(writedata), writedata)?
 						RIO_ERR_ACCESS:RIO_SUCCESS;
+	};
+
+	if (RIO_SUCCESS == rc) {
+		DBG("SUCCESS\n");
+	} else {
+		DBG("FAILED\n");
+	}
 exit:
 	return rc;
 };

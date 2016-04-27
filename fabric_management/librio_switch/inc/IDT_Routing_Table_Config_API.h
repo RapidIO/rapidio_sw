@@ -96,9 +96,9 @@ extern "C" {
 #define IDT_DAR_RT_DEV_TABLE_SIZE                   256
 #define IDT_DAR_RT_DOM_TABLE_SIZE                   256
 
-#define IDT_DSF_RT_USE_DEVICE_TABLE                 0xDD
-#define IDT_DSF_RT_USE_DEFAULT_ROUTE                0xDE
-#define IDT_DSF_RT_NO_ROUTE                         0xDF
+#define IDT_DSF_RT_USE_DEVICE_TABLE                 RIO_RTE_LVL_G0
+#define IDT_DSF_RT_USE_DEFAULT_ROUTE                RIO_RTE_DFLT_PORT
+#define IDT_DSF_RT_NO_ROUTE                         RIO_RTE_DROP
 
 #define IDT_DSF_FIRST_MC_MASK                       0x40
 #define IDT_DSF_MAX_MC_MASK                         0x28
@@ -181,10 +181,10 @@ typedef struct idt_rt_initialize_in_t_TAG
                            //   this function also clears all multicast masks and removes all
                            //   associations between multicast masks and ports.
 
-    uint8_t     default_route; // Routing control for IDT_DSF_RT_DEFAULT_ROUTE routing table value.
+    pe_rt_val     default_route; // Routing control for IDT_DSF_RT_DEFAULT_ROUTE routing table value.
                              //    Must be a valid port number, or IDT_DSF_RT_NO_ROUTE
 
-    uint8_t     default_route_table_port; // Select the default routing for every destination ID in the routing table
+    pe_rt_val     default_route_table_port; // Select the default routing for every destination ID in the routing table
                                         // Can be one of: a valid port number, IDT_DSF_RT_NO_ROUTE, or
                                         //   IDT_DSF_RT_USE_DEFAULT_ROUTE
     bool      update_hw;  // true : Update hardware state
@@ -218,8 +218,8 @@ typedef struct idt_rt_probe_out_t_TAG
                          //        defined by the routing_table_value.
                          // false: Packets will be discarded as 
                          //        indicated by reason_for_discard.
-    uint8_t  routing_table_value; // Encoded routing table value read
-    uint8_t  default_route;       // When routing_table_value is 
+    pe_rt_val  routing_table_value; // Encoded routing table value read
+    pe_rt_val  default_route;       // When routing_table_value is 
                                 //    IDT_DSF_RT_USE_DEFAULT_ROUTE,
                                 //    this field contains the value of 
 				//    the default route register.
@@ -308,7 +308,7 @@ typedef struct idt_rt_change_rte_in_t_TAG
     bool            dom_entry;  // true  if domain routing table entry is being updated 
                                 // false if device routing table entry is being update
     uint8_t           idx;        // Index of routing table entry to be updated
-    uint8_t           rte_value;  // Value for the routing table entry
+    pe_rt_val         rte_value;  // Value for the routing table entry
                                 //  - Note that if the requested routing table entry
                                 //    matches the routing table entry value in *rt,
                                 //    the routing table entry status is "no change"

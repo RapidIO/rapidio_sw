@@ -535,6 +535,18 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	RIOCP_TRACE("Probe on PE 0x%08x (hopcount %u, port %u)\n",
 		pe->comptag, hopcount, port);
 
+	if (pe->peers != NULL) {
+		if (NULL != pe->peers[port].peer) {
+			RIOCP_TRACE(
+				"Probe PE 0x%08x (hopcount %u, port %u)"
+				" Peer Exists! Comptag 0x%08x\n",
+				pe->comptag, hopcount, port,
+				pe->peers[port].peer->comptag);
+			*peer = NULL;
+			return 0;
+		};
+	};
+
 	/* Prepare probe (setup route, test if port is active on PE) */
 	ret = riocp_pe_probe_prepare(pe, port);
 	if (ret)

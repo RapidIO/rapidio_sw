@@ -333,6 +333,7 @@ int test_case_5(void)
 	int p_idx, idx;
 	int pnums[6] = {2, 3, 5, 6, 10, 11};
 	uint8_t chk_pnum[6] = {0, 1, 4, 7, 8, 9};
+	int x = 1;
 
 	if (cfg_parse_file(TOR_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode))
@@ -344,7 +345,7 @@ int test_case_5(void)
 	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)))
 		goto fail;
 
-	if (0x12 != m_did)
+	if (0x1A != m_did)
 		goto fail;
 
 	if (CFG_DFLT_MAST_CM_PORT != m_cm_port)
@@ -359,14 +360,14 @@ int test_case_5(void)
 	if (!cfg_find_mport(3, &mp))
 		goto fail;
 
-	if (cfg_find_dev_by_ct(0x20013, &dev))
+	if (cfg_find_dev_by_ct(0x21001A, &dev))
 		goto fail;
 
-	if (cfg_find_dev_by_ct(0x70000, &dev))
+	if (cfg_find_dev_by_ct(0x700F7, &dev))
 		goto fail;
 
 	/* Check out the switch routing table parsing in detail. */
-	if (cfg_find_dev_by_ct(0x10000, &dev))
+	if (cfg_find_dev_by_ct(0x10010, &dev))
 		goto fail;
 
 	if (!dev.is_sw)
@@ -411,26 +412,36 @@ int test_case_5(void)
 	for (int idx = 0; idx < 4; idx++) {
 		struct cfg_dev ep, sw, rev_ep;
 		int sw_pt, rev_pt;
-		uint32_t ct = 0x10012 + (0x10000 * idx) + idx + ((idx > 1)?1:0); 
+		uint32_t ct[4] = { 0x21001A, 0x220015, 0x230012, 0x240013 };
 
-		if (cfg_find_dev_by_ct(ct, &ep))
+		if (cfg_find_dev_by_ct(ct[idx], &ep)) {
+			x = 5;
 			goto fail;
+		}
 
-		if (cfg_get_conn_dev(ct, 0, &sw, &sw_pt))
+		if (cfg_get_conn_dev(ct[idx], 0, &sw, &sw_pt)) {
+			x = 6;
 			goto fail;
+		}
 
-		if (cfg_get_conn_dev(sw.ct, sw_pt, &rev_ep, &rev_pt))
+		if (cfg_get_conn_dev(sw.ct, sw_pt, &rev_ep, &rev_pt)) {
+			x = 7;
 			goto fail;
+		}
 
-		if (memcmp(&ep, &rev_ep, sizeof(ep)))
+		if (memcmp(&ep, &rev_ep, sizeof(ep))) {
+			x = 8;
 			goto fail;
-		if (0 != rev_pt)
+		}
+		if (0 != rev_pt) {
+			x = 9;
 			goto fail;
+		}
 	};
 
 	for (int sw = 1; sw < 7; sw++) {
 		struct cfg_dev l0_sw, l1_sw, rev_dev;
-		uint32_t ct = 0x10000 * sw;
+		uint32_t ct = 0x10010 * sw;
 		int port_list[6] = {0, 1, 4, 7, 8, 9};
 		int pt_idx;
 		int l0_pt, l1_pt, rev_pt;
@@ -455,7 +466,7 @@ int test_case_5(void)
 
 	return 0;
 fail:
-	return 1;
+	return x;
 };
 	
 int main(int argc, char *argv[])

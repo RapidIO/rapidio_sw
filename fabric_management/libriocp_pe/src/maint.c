@@ -58,6 +58,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 	if (pe == pe->mport->minfo->any_id_target)
 		return 0;
 
+	memset(pes, 0, sizeof(pes));
 	RIOCP_TRACE("Programming ANY_ID route to PE 0x%08x\n", pe->comptag);
 
 	/* Write ANY_ID route until pe */
