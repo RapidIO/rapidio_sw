@@ -56,15 +56,10 @@
 #include <rapidio_mport_dma.h>
 #include <rapidio_mport_sock.h>
 
-#include <map>
-
-#include "dmachanshm.h"
 #include "riodp_mport_lib.h"
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
 #define RIO_CMDEV_PATH "/dev/rio_cm"
-
-#define UMD_SLEEP_NS	1 // Setting this to 0 will compile out nanosleep syscall
 
 #define MAX_MPORT	32
 
@@ -79,75 +74,6 @@ struct rapidio_mport_handle {
 	uint8_t umd_chan;
         void* stats;                    /**< Pointer to statistics gathering back door for driver... */
 };
-
-/** \brief Tsi721 DMA channel availability bitmask vs kernel driver.
- * \note The kernel uses channel 0. ALWAYS
- * \note The kernel SHOULD publish this [exclusion bitmask] using a sysfs interface.
- * \note WARNING Absent sysfs exclusion bitmask we can ony make educated guesses about what DMA channel the kernel is NOT using.
- */
-static uint8_t DMA_CHAN_MASK = 0xFE;
-
-static pthread_mutex_t inuse_bitmask_mutex = PTHREAD_MUTEX_INITIALIZER;
-static volatile uint8_t inuse_bitmask[MAX_MPORT] = {0};
-
-/** \brief Can we use this channel (i.e. not used by kernel) ?
- * \note In real life this should be obtained per-mport
- */
-static inline bool riomp_mgmt_mport_umd_check_chan_mask(const int mport_id, const int chan)
-{
-	const int chanb = 1 << chan;
-	return (chanb & DMA_CHAN_MASK) == chanb;
-}
-
-static inline int riomp_mgmt_mport_umd_is_channel_selected(const int mport_id, const int chan)
-{
-	if (inuse_bitmask[mport_id] == 0) return 0;
-	if (! riomp_mgmt_mport_umd_check_chan_mask(mport_id, chan)) return -2; // in use by kernel
-	
-	const int chanb = 1 << chan;
-	return (inuse_bitmask[mport_id] & chanb) == chanb;
-}
-
-/** \brief Reserve a UMD hw channel
- * \param chan if -1 pick next available channel, if > 0 pick this channel if available
- * \return -1 no channel is available, >0 the channel
- */
-static inline int riomp_mgmt_mport_umd_select_channel(const int mport_id, const int chan)
-{
-	if (inuse_bitmask[mport_id] == DMA_CHAN_MASK) return -1; // ALL channels are taken
-
-	int sel_chan = -1;
-	pthread_mutex_lock(&inuse_bitmask_mutex);
-	do {
-		if (chan > 0) {
-			if (! riomp_mgmt_mport_umd_check_chan_mask(mport_id, chan)) break; // in use by kernel
-			inuse_bitmask[mport_id] |= (1 << chan);
-			sel_chan = chan;
-			break;
-		}
-		for (int i = 1; i < 8; i++) {
-			if (! riomp_mgmt_mport_umd_check_chan_mask(mport_id, i)) continue; // in use by kernel
-			if ((inuse_bitmask[mport_id] & (1 << i)) == 0) {
-				inuse_bitmask[mport_id] |= (1 << i);
-				sel_chan = i;
-				break;
-			}
-		}
-	} while(0);
-	pthread_mutex_unlock(&inuse_bitmask_mutex);
-
-	return sel_chan;
-}
-
-static inline void riomp_mgmt_mport_umd_deselect_channel(const int mport_id, const int chan)
-{
-	if (chan < 1 || chan > 7) return;
-	if (inuse_bitmask[mport_id] == 0) return; // nothing to do
-	pthread_mutex_lock(&inuse_bitmask_mutex);
-	inuse_bitmask[mport_id] &= ~(1 << chan);
-	pthread_mutex_unlock(&inuse_bitmask_mutex);
-}
-
 
 void* riomp_mgmt_mport_get_stats(struct rapidio_mport_handle* hnd)
 {
@@ -184,7 +110,6 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	if (mport_id >= MAX_MPORT) return -(errno = EINVAL);
 
 	// XXX O_SYNC    = 0x101000 will break this scheme
-	// XXX O_CLOEXEC =  0x80000 will break this scheme
 
 	const int oflags = flags & 0xFFFF;
 
@@ -193,10 +118,6 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	fd = open(path, O_RDWR | O_CLOEXEC | oflags);
 	if (fd == -1)
 		return -errno;
-
-#ifdef MPORT_DEBUG
-	printf("UMDD %s: mport_id=%d flags=0x%x\n", __func__, mport_id, flags);
-#endif
 
 	hnd = (struct rapidio_mport_handle *)calloc(1, sizeof(struct rapidio_mport_handle));
 	if(!(hnd)) {
@@ -1319,74 +1240,3 @@ void riomp_mgmt_display_info(struct riomp_mgmt_mport_properties *attr)
 		printf("No DMA support\n");
 	printf("\n");
 }
-
-#ifdef TEST_UMDD
-
-int main()
-{
-        const int mport_id = 0;
-
-	int chan = 0;
-
-	chan = riomp_mgmt_mport_umd_select_channel(mport_id, 7);
-	assert(chan == 7);
-	assert(riomp_mgmt_mport_umd_is_channel_selected(mport_id, 7) > 0);
-	riomp_mgmt_mport_umd_deselect_channel(mport_id, 7);
-	assert(riomp_mgmt_mport_umd_is_channel_selected(mport_id, 7) == 0);
-
-	assert(inuse_bitmask[mport_id] == 0);
-
-	for (chan = 1; chan < 8; chan++) {
-		int chan2 = riomp_mgmt_mport_umd_select_channel(mport_id, 0);
-		assert(chan2 > 0);
-	}
-
-	// Full??
-	chan = riomp_mgmt_mport_umd_select_channel(mport_id, 0);
-	assert(chan == -1);
-
-	for (chan = 1; chan < 8; chan++) {
-		riomp_mgmt_mport_umd_deselect_channel(mport_id, chan);
-	}
-
-	assert(inuse_bitmask[mport_id] == 0);
-
-	if (getenv("UMDD_LIB") == NULL) {
-		printf("Cannot find $UMDD_LIB in environment. Test ending.\n");
-		return 0;
-	}
-	if (access(getenv("UMDD_LIB"), R_OK)) {
-		printf("Cannot find file $UMDD_LIB=%s. Test aborted.\n", getenv("UMDD_LIB"));
-                return 1;
-        }
-
-	riomp_mport_t h1 = NULL, h2 = NULL;
-
-	const char* chan_s = getenv("UMDD_CHAN");
-	if (chan_s != NULL) {
-		const int chan = atoi(chan_s);
-		int r = riomp_mgmt_mport_create_handle(mport_id, /*flags*/ 0, &h1);
-		assert(r == 0);
-		assert(h1->umd_chan != -chan);
-		assert(riomp_mgmt_mport_umd_is_channel_selected(mport_id, chan) > 0);
-		riomp_mgmt_mport_destroy_handle(&h1);
-		riomp_mgmt_mport_umd_deselect_channel(mport_id, chan);
-	}
-
-	int r1 = riomp_mgmt_mport_create_handle(mport_id, UMD_SELECT_NEXT_CHANNEL, &h1);
-	assert(r1 == 0);
-	int r2 = riomp_mgmt_mport_create_handle(mport_id, UMD_SELECT_NEXT_CHANNEL, &h2);
-	assert(r2 == 0);
-
-	const int ch1 = h1->umd_chan;
-	const int ch2 = h2->umd_chan;
-	assert(ch1 != ch2);
-	riomp_mgmt_mport_destroy_handle(&h2);
-	riomp_mgmt_mport_destroy_handle(&h1);
-
-	assert(riomp_mgmt_mport_umd_is_channel_selected(mport_id, ch1) == 0);
-	assert(riomp_mgmt_mport_umd_is_channel_selected(mport_id, ch2) == 0);
-
-	return 0;
-}
-#endif
