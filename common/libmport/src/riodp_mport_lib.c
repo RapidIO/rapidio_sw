@@ -737,6 +737,8 @@ int riomp_dma_wait_async(riomp_mport_t mport_handle, uint32_t cookie, uint32_t t
 	if (ioctl(hnd->fd, RIO_WAIT_FOR_ASYNC, &wparam))
 		return -errno;
 
+	return 0;
+
    umdd:
 	// printf("UMDD %s: cookie=%u\n", __func__, cookie);
 
