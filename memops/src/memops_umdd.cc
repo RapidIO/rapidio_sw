@@ -60,21 +60,21 @@ bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   opt.prio        = dmaopt.prio;
   opt.crf         = dmaopt.crf;
   opt.bcount      = dmaopt.bcount;
-  opt.raddr.lsb64 = dmaopt.raddr.lsb64 + dmaopt.mem.offset;
+  opt.raddr.lsb64 = dmaopt.raddr.lsb64;
   opt.raddr.msb2  = dmaopt.raddr.msb2;
 
   RioMport::DmaMem_t dmamem; memset(&dmamem, 0, sizeof(dmamem));
 
   dmamem.type       = RioMport::DONOTCHECK;
-  dmamem.win_handle = dmaopt.mem.win_handle;
-  dmamem.win_size   = dmaopt.bcount;
+  dmamem.win_handle = dmaopt.mem.win_handle + dmaopt.mem.offset;
+  dmamem.win_size   = dmaopt.win_size;
 
   bool q_was_full = false;
   uint32_t dma_abort_reason = 0;
 
   if (dmaopt.bcount > 16) {
-    if (! DMAChannelSHM_queueDmaOpT1(m_dch, DMAChannelSHM::convert_riomp_dma_directio(dmaopt.wr_mode), &opt,
-                                     &dmamem, &dma_abort_reason, &m_stats)) {
+    if (! DMAChannelSHM_queueDmaOpT1(m_dch, DMAChannelSHM::convert_riomp_dma_directio(dmaopt.wr_mode),
+                                     &opt, &dmamem, &dma_abort_reason, &m_stats)) {
       if (q_was_full) { m_errno = ENOSPC; return false; }
       m_errno = EINVAL; return false;
     }
