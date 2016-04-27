@@ -143,7 +143,7 @@ do
 	done
 	# The purpose of this one is to hold the script until all prior tasks have
 	# finished executing
-	ssh root@"$client_node" "$RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r5000"
+	ssh root@"$client_node" "$RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r2000"
 done
 
 sleep 2
