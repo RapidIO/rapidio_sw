@@ -34,7 +34,11 @@ include $(TOPDIR)/rules.mk
 
 .PHONY: all clean
 
-all: librdma_intf.so
+all: librdma_intf.so librdma_intf.a
+
+librdma_intf.a: src/rdma_factory.cc src/rdma_mport.cc
+	$(CXX) -c -Iinc -I$(TOPDIR)/include -I$(COMMONINC) $^ -L$(COMMONLIB) -lmport $(LIBS_RPATH)
+	$(AR) rcs $@ *.o
 
 librdma_intf.so: src/rdma_factory.cc src/rdma_mport.cc
 	$(CXX) -Iinc -I$(TOPDIR)/include -I$(COMMONINC) $^ -shared -fPIC -ldl -L$(COMMONLIB) -lmport $(LIBS_RPATH) -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)

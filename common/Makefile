@@ -37,7 +37,7 @@ DEBUG ?= DEBUG
 export DEBUG
 endif
 
-all: libcli liblist liblog libtime_utils libmport libunit_test samples
+all: libcli liblist liblog libtime_utils libmport librdma_intf libunit_test samples
 
 libcli: FORCE
 	$(MAKE) all -C libcli
