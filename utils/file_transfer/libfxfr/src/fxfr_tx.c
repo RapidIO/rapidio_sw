@@ -443,7 +443,7 @@ int init_server_connect(struct fxfr_tx_state *info,
 
 	info->destID = destID;
         rc = riomp_sock_connect(info->req_skt, info->destID, 
-							0, info->svr_skt);
+							info->svr_skt);
         if (rc) {
                 printf("riomp_sock_connect ERR %d\n", rc);
                 goto fail;

@@ -166,7 +166,6 @@ void riomp_mgmt_mport_set_stats(struct rapidio_mport_handle* hnd, void* stats)
 struct rio_channel {
 	uint16_t id;
 	uint32_t remote_destid;
-	uint32_t remote_mbox;
 	uint16_t remote_channel;
 	uint8_t mport_id;
 };
@@ -1481,7 +1480,7 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn,
 }
 
 int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
-			 uint8_t remote_mbox, uint16_t remote_channel)
+			uint16_t remote_channel)
 {
 	struct rapidio_mport_socket *handle = socket_handle;
 	uint16_t ch_num = 0;
@@ -1496,11 +1495,9 @@ int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
 
 	/* Configure and Send Connect IOCTL */
 	handle->ch.remote_destid  = remote_destid;
-	handle->ch.remote_mbox    = remote_mbox;
 	handle->ch.remote_channel = remote_channel;
 	handle->ch.mport_id = handle->mbox->mport_id;
 	cdev.remote_destid  = remote_destid;
-	cdev.remote_mbox    = remote_mbox;
 	cdev.remote_channel = remote_channel;
 	cdev.mport_id = handle->mbox->mport_id;
 	cdev.id = handle->ch.id;

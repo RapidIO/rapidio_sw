@@ -748,7 +748,7 @@ fail:
 }
 
 int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
-			uint8_t remote_mbox, uint16_t remote_channel)
+			uint16_t remote_channel)
 {
 	struct rskt_test_info *test;
 
