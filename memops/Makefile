@@ -38,16 +38,22 @@ INCLUDES = -Iinc -I$(TOPDIR)/include -I$(COMMONINC) -I$(UMDINCDIR) -I$(FMDDIR)/l
 
 SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memops_umdd.cc src/dmachanmgr.cc
 
-all: libmemops_intf.so libmemops_intf.a
+all: libmemops_intf.so libmemops_intf.a memops_test
 
 libmemops_intf.a: $(SOURCES)
-	$(CXX) -c $(INCLUDES) -I$(UMDDINCDIR) $^ -L$(COMMONLIB) -lmport $(LIBS_RPATH)
+	$(CXX) -c $(INCLUDES) $(OPTFLAGS) -I$(UMDDINCDIR) $^ -L$(COMMONLIB) -lmport $(LIBS_RPATH)
 	$(AR) rcs $@ *.o
 
 libmemops_intf.so: $(SOURCES)
-	$(CXX) $(INCLUDES) $^ \
+	$(CXX) $(INCLUDES) $(OPTFLAGS) $^ \
 		-shared -fPIC -ldl -L$(COMMONLIB) -lmport $(LIBS_RPATH) -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
+memops_test: $(SOURCES) src/memops_test.cc
+	$(CXX) -ggdb -O0 src/memops_test.cc \
+		-I$(TOPDIR)/include -I$(COMMONINC) -Iinc \
+		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
+		-ltime_utils -lmport -lmemops_intf -o $@
+
 clean:
-	rm -f *.[ao] *.so*
+	rm -f *.[ao] *.so* a.out memops_test
