@@ -1,5 +1,7 @@
 #include <stdio.h> // snprintf
 
+#include <vector>
+
 #include "memops_mport.h"
 
 #define XCRIT(fmt, ...)
@@ -19,6 +21,18 @@ RIOMemOpsMport::RIOMemOpsMport(const int mport_id)
 RIOMemOpsMport::~RIOMemOpsMport()
 {
   riomp_mgmt_mport_destroy_handle(&m_mp_h);
+  
+  if (m_memreg.empty()) return;
+
+  // Have to collect the map keys here as free_xxx will delete from map
+  // and deleting-while-iterating is a BAD idea.
+  std::vector<uint64_t> handle_vec;
+
+  std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.begin();
+  for (; it != m_memreg.end(); it++) handle_vec.push_back(it->first);
+
+  std::vector<uint64_t>::iterator itv = handle_vec.begin();
+  for (; itv != handle_vec.end(); itv++) free_xwin(*m_memreg[*itv]);
 }
 
 bool RIOMemOpsMport::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
@@ -92,6 +106,8 @@ bool RIOMemOpsMport::alloc_dmawin(DmaMem_t& mem /*out*/, const int _size)
   mem.type = DMAMEM;
   mem.win_size = size;
 
+  m_memreg[mem.win_handle] = &mem;
+
   return true;
 }
 
@@ -115,6 +131,8 @@ bool RIOMemOpsMport::alloc_ibwin(DmaMem_t& ibwin /*out*/, const int size)
   ibwin.type = IBWIN;
   ibwin.win_size = size;
 
+  m_memreg[ibwin.win_handle] = &ibwin;
+
   return true;
 }
 
@@ -124,6 +142,11 @@ bool RIOMemOpsMport::free_dmawin(DmaMem_t& mem)
 
   if(mem.type != DMAMEM)
     throw std::runtime_error("RioMport: Invalid type for DMA buffer!");
+
+  m_memreg[mem.win_handle] = &mem;
+
+  std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.find(mem.win_handle);
+  if (it != m_memreg.end()) m_memreg.erase(it);
 
   int rc = riomp_dma_unmap_memory(m_mp_h, mem.win_size, mem.win_ptr);
   if (rc) {
@@ -146,6 +169,9 @@ bool RIOMemOpsMport::free_ibwin(DmaMem_t& ibwin)
 
   if(ibwin.type != IBWIN)
     throw std::runtime_error("RioMport: Invalid type for ibwin!");
+
+  std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.find(ibwin.win_handle);
+  if (it != m_memreg.end()) m_memreg.erase(it);
 
   /* Memory-unmap the inbound window's virtual pointer */
   int rc = riomp_dma_unmap_memory(m_mp_h, ibwin.win_size, ibwin.win_ptr);

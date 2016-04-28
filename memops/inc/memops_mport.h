@@ -3,7 +3,9 @@
 
 #include <errno.h>
 
-#include <memops.h>
+#include <map>
+
+#include "memops.h"
 
 class RIOMemOpsMport : public RIOMemOpsIntf {
 public:
@@ -22,12 +24,13 @@ public:
   virtual const char* abortReasonToStr(const int dma_abort_reason) { return strerror(m_errno); }
 
 private:
-  virtual bool free_dmawin(DmaMem_t& mem /*out*/);
-  virtual bool free_ibwin(DmaMem_t& mem /*out*/);
+  virtual bool free_dmawin(DmaMem_t& mem);
+  virtual bool free_ibwin(DmaMem_t& mem);
 
 private:
   riomp_mport_t m_mp_h;
   int           m_errno;
+  std::map<uint64_t, DmaMem_t*> m_memreg;
 };
 
 #endif //__MEMOPS_MPORT_H__
