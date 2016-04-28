@@ -59,6 +59,10 @@ ifeq ($(ARCH), i686)
  OPTFLAGS += -march=native -mfpmath=sse -ffast-math
 endif
 
+ifeq ($(DEBUG), y)
+ OPTFLAGS = -ggdb -O0
+endif
+
 SOVER?=0.4
 
 HERE := $(shell pwd)
