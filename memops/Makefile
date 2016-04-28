@@ -36,7 +36,7 @@ include $(TOPDIR)/rules.mk
 
 INCLUDES = -Iinc -I$(TOPDIR)/include -I$(COMMONINC) -I$(UMDINCDIR) -I$(FMDDIR)/librio_switch/inc
 
-SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memops_umdd.cc
+SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memops_umdd.cc src/dmachanmgr.cc
 
 all: libmemops_intf.so libmemops_intf.a
 
