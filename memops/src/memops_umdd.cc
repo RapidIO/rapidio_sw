@@ -45,7 +45,7 @@ bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 {
   dmaopt.ticket = 0;
 
-  if (dmaopt.mem.type != CMAMEM) 
+  if (dmaopt.mem.type != DMAMEM) 
     throw std::runtime_error("RIOMemOpsUMDd::nwrite_mem: Unsupported memory type!");
   
   if (! DMAChannelSHM_checkMasterReady(m_dch)) { m_errno = ENOTCONN; return false; }
@@ -128,7 +128,7 @@ bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 {
   dmaopt.ticket = 0;
 
-  if (dmaopt.mem.type != CMAMEM) 
+  if (dmaopt.mem.type != DMAMEM) 
     throw std::runtime_error("RIOMemOpsUMDd::nwrite_mem: Unsupported memory type!");
 
 #ifdef MPORT_DEBUG

@@ -65,7 +65,7 @@ bool RIOMemOpsMport::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*
   return 0 == riomp_dma_wait_async(m_mp_h, timeout, dmaopt.ticket);
 }
 
-bool RIOMemOpsMport::alloc_cmawin(DmaMem_t& mem /*out*/, const int _size)
+bool RIOMemOpsMport::alloc_dmawin(DmaMem_t& mem /*out*/, const int _size)
 {
   int size = _size;
 
@@ -89,7 +89,7 @@ bool RIOMemOpsMport::alloc_cmawin(DmaMem_t& mem /*out*/, const int _size)
     return false;
   };
 
-  mem.type = CMAMEM;
+  mem.type = DMAMEM;
   mem.win_size = size;
 
   return true;
@@ -118,34 +118,11 @@ bool RIOMemOpsMport::alloc_ibwin(DmaMem_t& ibwin /*out*/, const int size)
   return true;
 }
 
-bool RIOMemOpsMport::alloc_obwin(DmaMem_t& obwin /*out*/, const uint16_t destid, const int size)
-{
-  /* First, obtain an outbound handle from the mport driver */
-  int ret = riomp_dma_obwin_map(m_mp_h, destid, obwin.rio_address, size, &obwin.win_handle);
-  if (ret) {
-    XCRIT("Failed to map obwin %d:%s", ret, strerror(errno));
-    return false;
-  };
-
-  /* Memory-map the outbound window */
-  ret = riomp_dma_map_memory(m_mp_h, size, obwin.win_handle, &obwin.win_ptr);
-  if (ret) {
-    riomp_dma_obwin_free(m_mp_h, &obwin.win_handle);
-    XCRIT("Failed to memory map obwin %d:%s", ret, strerror(errno));
-    return false;
-  };
-
-  obwin.type = OBWIN;
-  obwin.win_size = size;
-
-  return true;
-}
-
-bool RIOMemOpsMport::free_cmawin(DmaMem_t& mem)
+bool RIOMemOpsMport::free_dmawin(DmaMem_t& mem)
 {
   bool ret = true;
 
-  if(mem.type != CMAMEM)
+  if(mem.type != DMAMEM)
     throw std::runtime_error("RioMport: Invalid type for DMA buffer!");
 
   int rc = riomp_dma_unmap_memory(m_mp_h, mem.win_size, mem.win_ptr);
@@ -191,30 +168,3 @@ bool RIOMemOpsMport::free_ibwin(DmaMem_t& ibwin)
   return ret;
 }
 
-bool RIOMemOpsMport::free_obwin(DmaMem_t& obwin)
-{
-  bool ret = true;
-
-  if(obwin.type != OBWIN)
-    throw std::runtime_error("RioMport: Invalid type for obwin!");
-
-  /* Memory-unmap the inbound window's virtual pointer */
-  int rc = riomp_dma_unmap_memory(m_mp_h, obwin.win_size, obwin.win_ptr);
-  if (rc) {
-    XCRIT("Failed to unmap outbound memory: @%p %d:%s\n",
-          obwin.win_ptr, ret, strerror(ret));
-    /* Don't return; still try to free the inbound window */
-    ret = false;
-  }
-
-  /* Free the outbound window via the mport driver */
-  rc = riomp_dma_obwin_free(m_mp_h, &obwin.win_handle);
-  if (rc) {
-    XCRIT("Failed to free outbound memory: %d:%s\n",
-           ret, strerror(ret));
-    /* Don't return; still try to free the inbound window */
-    ret = false;
-  }
-
-  return ret;
-}
