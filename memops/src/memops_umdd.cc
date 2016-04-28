@@ -254,3 +254,10 @@ bool RIOMemOpsUMDd::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/
   return false;
 }
 
+const char* RIOMemOpsUMDd::abortReasonToStr(int)
+{
+}
+
+int RIOMemOpsUMDd::getAbortReason()
+{
+}
