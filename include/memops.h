@@ -16,13 +16,13 @@ typedef enum {
   MEMOPS_UMD        ///< Use UMD (monolithic, in-app) implementation
 } MEMOPSAccess_t;
 
-typedef enum { INVALID = 0, IBWIN = 1, OBWIN = 2, CMAMEM = 3, MALLOC = 4, DONOTCHECK = 42 } DmaMemType_t;
+typedef enum { INVALID = 0, IBWIN = 1, DMAMEM = 2, MALLOC = 3 } DmaMemType_t;
 
 /** \brief Wrapper for all local memory bits of data */
 typedef struct {
   DmaMemType_t type;
   uint64_t     rio_address;
-  uint64_t     win_handle; ///< Physical mem address, also handle used by kernel to refer to this CMA chunk
+  uint64_t     win_handle; ///< Physical mem address, also handle used by kernel to refer to this DMA chunk
                            ///< If 0 this is user memory and NOT dma-able by kernel (directly) or UMD
                            ///< If 0 this cannot be used with UMD
   void*        win_ptr;    ///< Mmaped mem address
@@ -68,9 +68,8 @@ public:
 
   virtual bool wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout = 0 /*0=blocking*/) = 0;
 
-  virtual bool alloc_cmawin(DmaMem_t& mem /*out*/, const int size) = 0;
+  virtual bool alloc_dmawin(DmaMem_t& mem /*out*/, const int size) = 0;
   virtual bool alloc_ibwin(DmaMem_t& mem /*out*/, const int size) = 0;
-  virtual bool alloc_obwin(DmaMem_t& mem /*out*/, const uint16_t destid, const int size) = 0;
 
   // TODO: UMD impl will overload alloc_mem and throw an error
   virtual bool alloc_umem(DmaMem_t& mem /*out*/, const int size) {
@@ -83,9 +82,8 @@ public:
 
   virtual void free_xwin(DmaMem_t& mem) {
     switch (mem.type) {
-      case CMAMEM: free_cmawin(mem); break;
+      case DMAMEM: free_dmawin(mem); break;
       case IBWIN:  free_ibwin(mem); break;
-      case OBWIN:  free_obwin(mem); break;
       case MALLOC: free(mem.win_ptr); break;
       default: throw std::runtime_error("free_xwin: Invalid type!"); break;
     }
@@ -96,10 +94,8 @@ public:
   virtual const char* abortReasonToStr(const int dma_abort_reason) = 0;
 
 private:
-  virtual bool free_cmawin(DmaMem_t& mem) = 0;
+  virtual bool free_dmawin(DmaMem_t& mem) = 0;
   virtual bool free_ibwin(DmaMem_t& mem) = 0;
-  virtual bool free_obwin(DmaMem_t& mem) = 0;
-  virtual bool freelloc_obwin(DmaMem_t& mem) = 0;
 };
 
 RIOMemOpsIntf* RIOMemOps_classFactory(const MEMOPSAccess_t type, const int mport, const int channel = -1);
