@@ -161,8 +161,10 @@ int rdma_log(unsigned level,
 		log_buf.push_back(log_line);
 	fputs(log_line.c_str(), log_file);
 #ifdef DEBUG
-	if (level <= g_disp_level)
-		printf("%s", log_line.c_str());
+	if (level <= g_disp_level) {
+		fprintf(stdout, "%s", log_line.c_str());
+		fflush(stdout);
+	};
 #else
 	(void)level;	/* Disable error on unused variable */
 #endif
