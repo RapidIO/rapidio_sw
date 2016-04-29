@@ -12,6 +12,7 @@ RIOMemOpsUMDd::RIOMemOpsUMDd(const int mport_id, const int chan) : RIOMemOpsMpor
 
   m_errno = 0;
   m_cookie_cutter = 0;
+
   memset(&m_stats, 0, sizeof(m_stats));
 
   m_dch = DMAChannelSHM_create(mport_id, chan); // Will throw on error
@@ -38,11 +39,12 @@ RIOMemOpsUMDd::~RIOMemOpsUMDd()
 {
   m_asyncm.clear();
   DMAChannelSHM_destroy(m_dch);
-  //riomp_mgmt_mport_destroy_handle(&m_mp_h); // XXX destroyed by ~RIOMemOpsMport
+  // Note: m_mp_h destroyed by ~RIOMemOpsMport
 }
 
 bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 {
+  m_errno = 0;
   dmaopt.ticket = 0;
 
   if (dmaopt.mem.type != DMAMEM) 
@@ -50,7 +52,7 @@ bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   
   if (! DMAChannelSHM_checkMasterReady(m_dch)) { m_errno = ENOTCONN; return false; }
 
-  if (DMAChannelSHM_queueFull(m_dch)) { m_errno = EBUSY; return false; }
+  if (DMAChannelSHM_queueFull(m_dch)) { m_errno = ENOSPC; return false; }
 
   // printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
 
@@ -91,6 +93,7 @@ bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
     uint32_t cookie = ++m_cookie_cutter;
     m_asyncm[cookie] = opt;
+    dmaopt.ticket = cookie;
     return cookie;
   }
 
@@ -126,6 +129,7 @@ bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 
 bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 {
+  m_errno = 0;
   dmaopt.ticket = 0;
 
   if (dmaopt.mem.type != DMAMEM) 
@@ -137,7 +141,7 @@ bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 
   if (! DMAChannelSHM_checkMasterReady(m_dch)) { m_errno = ENOTCONN; return false; }
 
-  if (DMAChannelSHM_queueFull(m_dch)) { m_errno = EBUSY; return false; }
+  if (DMAChannelSHM_queueFull(m_dch)) { m_errno = ENOSPC; return false; }
 
   DMAChannelSHM::DmaOptions_t opt;
   memset(&opt, 0, sizeof(opt));
@@ -168,13 +172,14 @@ bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
     uint32_t cookie = ++m_cookie_cutter;
     m_asyncm[cookie] = opt;
+    dmaopt.ticket = cookie;
     return cookie;
   }
 
   // Only left RIO_DIRECTIO_TRANSFER_SYNC
   for (int cnt = 0;; cnt++) {
     const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(m_dch, &opt);
-    if (st == DMAChannelSHM::UMDD_DEAD) return -(errno = ENOTCONN);
+    if (st == DMAChannelSHM::UMDD_DEAD) { m_errno = ENOTCONN; return false; }
     if (st == DMAChannelSHM::COMPLETED) break;
     if (st == DMAChannelSHM::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
@@ -207,7 +212,7 @@ bool RIOMemOpsUMDd::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/
 
   if (dmaopt.ticket <= 0) return false;
 
-  if (! DMAChannelSHM_checkMasterReady(m_dch)) { errno = ENOTCONN; return false; }
+  if (! DMAChannelSHM_checkMasterReady(m_dch)) { m_errno = ENOTCONN; return false; }
 
   DMAChannelSHM::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
   std::map<uint64_t, DMAChannelSHM::DmaOptions_t>::iterator it = m_asyncm.find(dmaopt.ticket);
@@ -254,10 +259,9 @@ bool RIOMemOpsUMDd::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/
   return false;
 }
 
-const char* RIOMemOpsUMDd::abortReasonToStr(int)
+const char* RIOMemOpsUMDd::abortReasonToStr(int abort_reason)
 {
+  return strerror(m_errno);
 }
 
-int RIOMemOpsUMDd::getAbortReason()
-{
-}
+int RIOMemOpsUMDd::getAbortReason() { return m_errno; }
