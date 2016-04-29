@@ -14,6 +14,7 @@ int main(int argc, char* argv[])
 {
   if (argc < 4) usage(argv[0]);
 
+  int ret = 0;
   int n = 1;
 
   int m = atoi(argv[n++]);
@@ -33,22 +34,48 @@ int main(int argc, char* argv[])
   mops->alloc_dmawin(ibmem, 40960);
   printf("IBWin RIO addr @0x%lx size 0x%x\n", ibmem.win_handle, ibmem.win_size);
 
+  const int TR_SZ = 256;
+
   MEMOPSRequest_t req; memset(&req, 0, sizeof(req));
   req.destid = did;
-  req.bcount = 256;
+  req.bcount = TR_SZ;
   req.raddr.lsb64 = rio_addr;
   req.mem.rio_address = RIO_ANY_ADDR;
   mops->alloc_dmawin(req.mem, 40960);
-  req.mem.offset = 256;
+  req.mem.offset = TR_SZ;
   req.sync       = RIO_DIRECTIO_TRANSFER_SYNC;
   req.wr_mode    = RIO_DIRECTIO_TYPE_NWRITE_R;
+
+  uint8_t* p = (uint8_t*)req.mem.win_ptr;
+  p[TR_SZ] = 0xdb;
+  p[TR_SZ+1] = 0xae;
 
   if (! mops->nwrite_mem(req)) {
     int abort = mops->getAbortReason();
     fprintf(stderr, "NWRITE_R failed with reason %d (%s)\n", abort, mops->abortReasonToStr(abort));
+    ret = 1;
+    goto done;
   }
+ 
+  req.raddr.lsb64 = rio_addr + 256; 
+  req.mem.offset = 0;
 
+  if (! mops->nread_mem(req)) {
+    int abort = mops->getAbortReason();
+    fprintf(stderr, "NWRITE_R failed with reason %d (%s)\n", abort, mops->abortReasonToStr(abort));
+    ret = 1;
+    goto done;
+  } 
+
+  printf("Mem-in:\n");
+  for (int i = 0; i < TR_SZ; i++) {
+    printf("%02x ", p[i]);
+    if (0 == ((i+1) % 32)) printf("\n");
+  }
+  printf("\n");
+
+done:
   delete mops;
 
-  return 0;
+  return ret;
 }
