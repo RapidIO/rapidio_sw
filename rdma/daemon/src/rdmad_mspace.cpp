@@ -848,10 +848,11 @@ int mspace::close(tx_engine<unix_server, unix_msg_t> *app_tx_eng)
 					      it->client_to_lib_tx_eng_h,
 					      (uint64_t)app_tx_eng);
 	if (rc) {
-		ERR("Failed to send disconnection to remote daemon\n");
+		WARN("Failed to send disconnection to remote daemon\n");
 		/* I think we should proceed with closing the connection even
 		 * if we cannot notify the remote daemon. So no error here.*/
 	}
+	rc = 0;
 
 	/* Erase user element */
 	users.erase(it);
