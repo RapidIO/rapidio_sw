@@ -74,7 +74,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef USER_MODE_DRIVER
 #include "dmachanshm.h"
-#include "lockfile.h"
+#include "chanlock.h"
 #endif
 
 #ifdef __cplusplus
@@ -464,30 +464,6 @@ void UMD_Test(const struct worker* wkr)
 {
 }
 
-/** \brief Lock other processes out of this UMD module/channel
- * \note Due to POSIX locking semantics this has no effect on the current process
- * \note Using the same channel twice in this process will NOT be prevented
- * \parm[out] info info->umd_lock will be populated on success
- * \param[in] module DMA or Mbox, ASCII string
- * \param instance Channel number
- * \return true if lock was acquited, false if somebody else is using it
- */
-bool TakeLock(struct worker* info, const char* module, const int mport, const int instance)
-{
-        if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
-
-        char lock_name[81] = {0};
-        snprintf(lock_name, 80, "/var/lock/UMD-%s-%d:%d..LCK", module, mport, instance);
-        try {
-                info->umd_lock = new LockFile(lock_name);
-        } catch(std::runtime_error ex) {
-                CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
-                return false;
-        }
-        // NOT catching std::logic_error
-        return true;
-}
-
 /** \brief Check that the UMD worker and FIFO threads are not stuck to the same (isolcpu) core
  */
 bool umd_check_cpu_allocation(struct worker *info)
@@ -512,7 +488,8 @@ void umd_shm_goodput_demo(struct worker *info)
 	bool fifo_unwork_ACK = false;
 
 	if (! umd_check_cpu_allocation(info)) return;
-        if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan)) return;
+
+        info->umd_lock = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_shm_goodput_demo;
 

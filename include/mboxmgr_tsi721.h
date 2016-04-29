@@ -2,7 +2,7 @@
 #define __MBOXMGR_H__
 
 #include "mboxchan.h"
-#include "lockfile.h"
+#include "chanlock.h"
 
 class MboxChannelMgr {
 private:
@@ -18,13 +18,11 @@ private:
    */
   inline void init()
   {
-    char lock_name[81] = { 0 };
-    snprintf(lock_name, 80, "/var/lock/UMD-MBOX-%d:%d..LCK", m_mportid, m_mbox);
     try {
-      m_lock = new LockFile(lock_name);
+      m_lock = ChannelLock::TakeLock("MBOX", m_mportid, m_mbox);
     } catch(std::runtime_error ex) {
       delete m_super;
-      CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
+      CRIT("\n\tTaking lock %s failed: %s\n", ex.what());
       throw ex;
     }
   }

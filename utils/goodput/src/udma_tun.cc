@@ -73,7 +73,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rdmaops.h"
 #include "rdmaopsumd.h"
 #include "rdmaopsmport.h"
-#include "lockfile.h"
+#include "chanlock.h"
 #include "tun_ipv4.h"
 
 #include "dmapeer.h" // This encapsulates in inlined code the IB window logic
@@ -82,7 +82,6 @@ extern "C" {
   void zero_stats(struct worker *info);
   int migrate_thread_to_cpu(struct thread_cpu *info);
   bool umd_check_cpu_allocation(struct worker *info);
-  bool TakeLock(struct worker* info, const char* module, const int mport, const int instance);
   uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 };
 
@@ -1192,7 +1191,9 @@ void umd_dma_goodput_tun_demo(struct worker *info)
   memset(info->ib_ptr, 0, info->ib_byte_cnt);
 
   if (! umd_check_cpu_allocation(info)) return;
-  if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan2)) return;
+
+  info->umd_lock = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan2);
+
 /* XXX FIX THIS
   for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
     if (! TakeLock(info, "DMA", ch)) goto exit;
@@ -1796,7 +1797,7 @@ void umd_mbox_watch_demo(struct worker *info)
 
   if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
-  if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) goto exit;
+  info->umd_lock = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
 
   info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 
