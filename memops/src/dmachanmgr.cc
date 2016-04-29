@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "chanlock.h"
+
 /** \brief Tsi721 DMA channel availability bitmask vs kernel driver.
  * \note The kernel uses channel 0. ALWAYS
  * \note The kernel SHOULD publish this [exclusion bitmask] using a sysfs interface.

@@ -54,7 +54,9 @@ bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 
   if (DMAChannelSHM_queueFull(m_dch)) { m_errno = ENOSPC; return false; }
 
-  // printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
+#ifdef MEMOPS_DEBUG
+  printf("UMDD %s: destid=%u handle=0x%lx rio_addr=0x%lx+0x%x bcount=%d op=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, wr_mode, sync);
+#endif
 
   DMAChannelSHM::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
   opt.destid      = dmaopt.destid;
@@ -135,7 +137,7 @@ bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   if (dmaopt.mem.type != DMAMEM) 
     throw std::runtime_error("RIOMemOpsUMDd::nwrite_mem: Unsupported memory type!");
 
-#ifdef MPORT_DEBUG
+#ifdef MEMOPS_DEBUG
   printf("UMDD %s: destid=%u handle=0x%lx  rio_addr=0x%lx+0x%x\n bcount=%d sync=%d\n", __func__, destid, handle, tgt_addr, offset, size, sync);
 #endif
 

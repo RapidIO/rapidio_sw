@@ -36,7 +36,7 @@ include $(TOPDIR)/rules.mk
 
 INCLUDES = -Iinc -I$(TOPDIR)/include -I$(COMMONINC) -I$(UMDINCDIR) -I$(FMDDIR)/librio_switch/inc
 
-SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memops_umdd.cc src/dmachanmgr.cc
+SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memops_umdd.cc src/memops_umd.cc src/dmachanmgr.cc
 
 all: libmemops_intf.so libmemops_intf.a memops_test
 
@@ -53,7 +53,7 @@ memops_test: $(SOURCES) src/memops_test.cc
 	$(CXX) -ggdb -O0 src/memops_test.cc \
 		-I$(TOPDIR)/include -I$(COMMONINC) -Iinc \
 		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
-		-ltime_utils -lmport -lmemops_intf -o $@
+		-ltime_utils -lmport -lmemops_intf -L$(COMMONLIBA) -lumd_tsi721_nolog -o $@
 
 clean:
 	rm -f *.[ao] *.so* a.out memops_test
