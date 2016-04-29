@@ -217,7 +217,7 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 		rc = riomp_sock_socket(dmn.mb, &w->cm_skt_h);
 		sem_post(&dmn.mb_mtx);
 
-        	conn_rc = riomp_sock_connect(w->cm_skt_h, w->ct, 0, w->cm_skt);
+		conn_rc = riomp_sock_connect(w->cm_skt_h, w->ct, w->cm_skt);
 
                 if (!conn_rc) {
                 	HIGH("ct %d connected\n", ct);

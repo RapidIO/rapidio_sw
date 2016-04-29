@@ -695,7 +695,7 @@ int test_speer_connect(struct worker *info)
 	if (riomp_sock_socket(mbox, &sock_h))
 		goto fail;
 
-	if (riomp_sock_connect(sock_h, info->idx, 0, 1))
+	if (riomp_sock_connect(sock_h, info->idx, 1))
 		goto fail;
 
 	sleep(1);
@@ -1854,7 +1854,7 @@ int test_case_6(void)
 	if (riomp_sock_socket(mbox, &sock_h))
 		goto fail;
 
-	if (riomp_sock_connect(sock_h, idx, 0, 1))
+	if (riomp_sock_connect(sock_h, idx, 1))
 		goto fail;
 
 	sleep(1);

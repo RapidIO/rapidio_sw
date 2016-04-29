@@ -1214,7 +1214,7 @@ void msg_tx_goodput(struct worker *info)
 
 	info->con_skt_valid = 1;
 
-        rc = riomp_sock_connect(info->con_skt, info->did, 0, info->sock_num);
+        rc = riomp_sock_connect(info->con_skt, info->did, info->sock_num);
 	if (rc) {
 		ERR("FAILED: riomp_sock_connect rc %d:%s\n",
 			rc, strerror(errno));

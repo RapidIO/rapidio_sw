@@ -182,13 +182,12 @@ int riomp_sock_accept(riomp_sock_t socket_handle, riomp_sock_t *conn, uint32_t t
  *
  * @param[in] socket_handle valid socket handle
  * @param[in] remote_destid peer destination ID
- * @param[in] remote_mbox peer mailbox
  * @param[in] remote_channel peer channel number
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
  */
-int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid, uint8_t remote_mbox, uint16_t remote_channel);
+int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid, uint16_t remote_channel);
 
 /**
  * @brief allocate send buffer
