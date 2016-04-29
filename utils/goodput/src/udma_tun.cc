@@ -1192,13 +1192,13 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
   if (! umd_check_cpu_allocation(info)) return;
 
-  info->umd_lock = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan2);
+  int nlock = 0;
 
-/* XXX FIX THIS
+  info->umd_lock[nlock++] = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan2);
+
   for (int ch = info->umd_chan; ch <= info->umd_chan_n; ch++) {
-    if (! TakeLock(info, "DMA", ch)) goto exit;
+    info->umd_lock[nlock++] = ChannelLock::TakeLock("DMA", info->mp_num, ch);
   }
-*/
 
   {{ // Clear on read
     RioMport* mport = new RioMport(info->mp_num, info->mp_h);
@@ -1399,7 +1399,11 @@ exit:
   }
   delete info->umd_dci_nread->rdma;
   free(info->umd_dci_nread); info->umd_dci_nread = NULL;
-  delete info->umd_lock; info->umd_lock = NULL;
+
+  for (int i = 0; i < UMD_NUM_LOCKS; i++) {
+    if (info->umd_lock[i] == NULL) continue;
+    delete info->umd_lock[i]; info->umd_lock[i] = NULL;
+  }
   info->umd_tun_name[0] = '\0';
 
   // Do NOT close these as are manipulated from another thread!
@@ -1797,7 +1801,7 @@ void umd_mbox_watch_demo(struct worker *info)
 
   if (!umd_check_dma_tun_thr_running(info)) goto exit_bomb;
 
-  info->umd_lock = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
+  info->umd_lock[0] = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
 
   info->umd_mch = new MboxChannel(info->mp_num, info->umd_chan, info->mp_h);
 
@@ -1806,7 +1810,7 @@ void umd_mbox_watch_demo(struct worker *info)
          info->umd_chan, info->mp_num, info->mp_h);
     info->umd_tun_name[0] = '\0';
     close(info->umd_tun_fd); info->umd_tun_fd = -1;
-    delete info->umd_lock; info->umd_lock = NULL;
+    delete info->umd_lock[0]; info->umd_lock[0] = NULL;
     goto exit_bomb;
   };
 
@@ -1817,7 +1821,7 @@ void umd_mbox_watch_demo(struct worker *info)
     info->umd_tun_name[0] = '\0';
     close(info->umd_tun_fd); info->umd_tun_fd = -1;
     delete info->umd_mch; info->umd_mch = NULL;
-    delete info->umd_lock; info->umd_lock = NULL;
+    delete info->umd_lock[0]; info->umd_lock[0] = NULL;
     goto exit_bomb;
   }
 
@@ -1992,7 +1996,7 @@ exit:
 
   delete mport;
   delete info->umd_mch;  info->umd_mch = NULL;
-  delete info->umd_lock; info->umd_lock = NULL;
+  delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 
   CRIT("STOPped running! stop_req=%d\n", info->stop_req);
   return;

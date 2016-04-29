@@ -287,7 +287,10 @@ struct worker {
 	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this
 
 	uint16_t	my_destid;
-	LockFile*	umd_lock;
+
+        #define UMD_NUM_LOCKS   9 // 2 x MBOX + 7 x DMA channels available to UMD
+        LockFile*       umd_lock[UMD_NUM_LOCKS];
+
 	int		umd_chan; ///< Local mailbox OR DMA channel
 	int		umd_chan_n; ///< Local mailbox OR DMA channel, forming a range {chan,...,chan_n}
 	int		umd_chan2; ///< Local mailbox OR DMA channel

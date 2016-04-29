@@ -210,6 +210,8 @@ void init_worker_info(struct worker *info, int first_time)
 	info->umd_fifo_total_ticks = 0;
 	info->umd_fifo_total_ticks_count = 0;
 
+	memset(&info->umd_lock, 0, sizeof(info->umd_lock));
+
 	//if (first_time) {
         	sem_init(&info->umd_fifo_proc_started, 0, 0);
 	//};
@@ -1966,7 +1968,7 @@ void umd_dma_calibrate(struct worker *info)
 exit:
         info->umd_dch->cleanup();
         delete info->umd_dch;
-	delete info->umd_lock; info->umd_lock = NULL;
+	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 	info->umd_dch = NULL;
 };
 
@@ -2000,7 +2002,8 @@ void umd_dma_goodput_demo(struct worker *info)
 	int iter = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	info->umd_lock = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan);
+
+	info->umd_lock[0] = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_dma_goodput_demo;
 
@@ -2168,7 +2171,7 @@ exit_nomsg:
                 info->umd_dch->free_dmamem(info->dmamem[0]);
 
         delete info->umd_dch; info->umd_dch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
+	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
 static inline bool queueDmaOp(struct worker* info, const int oi, const int cnt, bool& q_was_full)
@@ -2317,7 +2320,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	uint64_t cnt = 0;
 	int iter = 0;
 
-	info->umd_lock = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan);
+	info->umd_lock[0] = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan);
 
 	//info->owner_func = (void*)umd_dma_goodput_latency_demo;
 
@@ -2479,7 +2482,7 @@ exit:
                 info->umd_dch->free_dmamem(info->dmamem[0]);
 
         delete info->umd_dch; info->umd_dch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
+	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
 void umd_mbox_goodput_demo(struct worker *info)
@@ -2489,7 +2492,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 
 	if (! umd_check_cpu_allocation(info)) return;
 
-	info->umd_lock = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
+	info->umd_lock[0] = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_mbox_goodput_demo;
 
@@ -2497,14 +2500,14 @@ void umd_mbox_goodput_demo(struct worker *info)
         if (NULL == info->umd_mch) {
                 CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan, info->mp_num, info->mp_h);
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
                 return;
         };
 
 	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
 		delete info->umd_mch;
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 		return;
 	}
 
@@ -2641,7 +2644,7 @@ exit:
 
 exit_rx:
         delete info->umd_mch; info->umd_mch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
+	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
 static inline int MIN(int a, int b) { return a < b? a: b; }
@@ -2650,7 +2653,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 {
 	int iter = 0;
 
-	info->umd_lock = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
+	info->umd_lock[0] = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_mbox_goodput_latency_demo;
 
@@ -2658,14 +2661,14 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
         if (NULL == info->umd_mch) {
                 CRIT("\n\tMboxChannel alloc FAIL: chan %d mp_num %d hnd %x",
                         info->umd_chan, info->mp_num, info->mp_h);
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
                 return;
         };
 
 	if (! info->umd_mch->open_mbox(info->umd_tx_buf_cnt, info->umd_sts_entries)) {
                 CRIT("\n\tMboxChannel: Failed to open mbox!");
 		delete info->umd_mch;
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 		return;
 	}
 
@@ -2841,7 +2844,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 exit:
 exit_rx:
         delete info->umd_mch; info->umd_mch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
+	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
 const int DESTID_TRANSLATE = 1;
@@ -2975,7 +2978,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 
 	if (! umd_check_cpu_allocation(info)) return;
 
-	info->umd_lock = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
+	info->umd_lock[0] = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_mbox_goodput_tun_demo;
 
@@ -2984,7 +2987,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	// Initialize tun/tap interface
 	if ((info->umd_tun_fd = tun_alloc(if_name, flags)) < 0) {
 		CRIT("Error connecting to tun/tap interface %s!\n", if_name);
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 		return;
 	}
 
@@ -2997,7 +3000,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
                         info->umd_chan, info->mp_num, info->mp_h);
         	info->umd_tun_name[0] = '\0';
 		close(info->umd_tun_fd); info->umd_tun_fd = -1;
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
                 return;
         };
 
@@ -3006,7 +3009,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
         	info->umd_tun_name[0] = '\0';
 		close(info->umd_tun_fd); info->umd_tun_fd = -1;
 		delete info->umd_mch; info->umd_mch = NULL;
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 		return;
 	}
 
@@ -3024,7 +3027,7 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
         	info->umd_tun_name[0] = '\0';
 		close(info->umd_tun_fd); info->umd_tun_fd = -1;
 		delete info->umd_mch; info->umd_mch = NULL;
-		delete info->umd_lock; info->umd_lock = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 		return;
 	}
 
@@ -3154,7 +3157,7 @@ exit:
 	info->umd_tun_fd = -1;
 
         delete info->umd_mch; info->umd_mch = NULL;
-	delete info->umd_lock; info->umd_lock = NULL;
+	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 	info->umd_tun_MTU = 0;
         info->umd_tun_name[0] = '\0';
 } // END umd_mbox_goodput_tun_demo
