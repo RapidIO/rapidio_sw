@@ -672,7 +672,7 @@ int rdma_close_mso_h(mso_h msoh)
 		/* For each one of the memory spaces in this mso, close */
 		bool	ok =  true;
 		for_each(begin(ms_list),
-			 begin(ms_list),
+			 end(ms_list),
 			[&ok, msoh](loc_ms *ms)
 			{
 				if (rdma_close_ms_h(msoh, ms_h(ms))) {

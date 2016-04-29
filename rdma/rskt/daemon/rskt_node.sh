@@ -11,7 +11,7 @@ if [ "$#" -lt 2 ]; then
 fi
 
 # Location of binaries
-RDMA_ROOT_PATH=/home/sherif/git/rapidio_sw
+RDMA_ROOT_PATH=/opt/rapidio/rapidio_sw
 
 # Location of RIO mport infor (e.g. destid)
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0

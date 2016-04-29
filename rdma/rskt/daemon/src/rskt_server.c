@@ -317,16 +317,6 @@ int main(int argc, char *argv[])
 		} else {
 
 		}
-		/* Save a copy of the thread id to use in pthread_join */
-		pthread_t	slave_thread = slave_params->slave_thread;
-
-		/* Wait for thread to start */
-		sem_wait(&slave_params->started);
-
-#if SINGLE_CONNECTION == 0
-		/* Wait for thread to exit. FIXME: Temporary only */
-		pthread_join(slave_thread, NULL);
-#endif
 	} /* while */
 
 destroy_accept_socket:
