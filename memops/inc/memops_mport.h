@@ -27,9 +27,11 @@ private:
   virtual bool free_dmawin(DmaMem_t& mem);
   virtual bool free_ibwin(DmaMem_t& mem);
 
-private:
+protected:
   riomp_mport_t m_mp_h;
   int           m_errno;
+
+private:
   std::map<uint64_t, DmaMem_t*> m_memreg;
 };
 

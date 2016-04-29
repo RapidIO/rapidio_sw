@@ -29,8 +29,6 @@ public:
 
 private:
   void*         m_dch;
-  riomp_mport_t m_mp_h;
-  int           m_errno;
   uint32_t      m_cookie_cutter;
   struct seq_ts m_stats;
   std::map<uint64_t, DMAChannelSHM::DmaOptions_t> m_asyncm;
