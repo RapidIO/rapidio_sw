@@ -125,7 +125,7 @@ int librskt_wait_for_sem(sem_t *sema, int err_code)
 
 	do {
 		rc = sem_wait(sema);
-	} while (rc && (EINTR == errno) && !lib.all_must_die);
+	} while (rc && (EINTR == -errno) && !lib.all_must_die);
 
 	if (rc) {
 		ERR("Failed in sem_wait()\n");
