@@ -26,9 +26,12 @@ int main(int argc, char* argv[])
   uint64_t rio_addr = 0;
   sscanf(argv[n++], "%llx", &rio_addr);
 
-  printf("Method=%d destid=%u rio_addr=0x%llx\n", m, did, rio_addr);
+  int chan = 7;
+  if (getenv("UMD_CHAN") != NULL) chan = atoi(getenv("UMD_CHAN"));
 
-  RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, 7);
+  printf("Method=%d destid=%u rio_addr=0x%llx [chan=%d]\n", m, did, rio_addr, chan);
+
+  RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, chan);
 
   if (met[m] == MEMOPS_UMD) {
     RIOMemOpsUMD* mops_umd = dynamic_cast<RIOMemOpsUMD*>(mops);
@@ -52,7 +55,7 @@ int main(int argc, char* argv[])
   req.mem.rio_address = RIO_ANY_ADDR;
   mops->alloc_dmawin(req.mem, 40960);
   req.mem.offset = TR_SZ;
-  req.sync       = RIO_DIRECTIO_TRANSFER_SYNC;
+  req.sync       = mops->canSync()? RIO_DIRECTIO_TRANSFER_SYNC: RIO_DIRECTIO_TRANSFER_FAF;
   req.wr_mode    = RIO_DIRECTIO_TYPE_NWRITE_R;
 
   uint8_t* p = (uint8_t*)req.mem.win_ptr;
