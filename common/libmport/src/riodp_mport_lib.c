@@ -129,6 +129,8 @@ int riomp_mgmt_mport_create_handle(uint32_t mport_id, int flags, riomp_mport_t *
 	hnd->fd       = fd;
 	hnd->mport_id = mport_id;
 
+        *mport_handle = hnd;
+
         return 0;
 }
 
