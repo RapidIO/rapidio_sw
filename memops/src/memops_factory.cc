@@ -1,6 +1,7 @@
 #include <memops.h>
 #include <memops_mport.h>
 #include <memops_umdd.h>
+#include <memops_umd.h>
 
 RIOMemOpsIntf* RIOMemOps_classFactory(const MEMOPSAccess_t type, const int mport, const int channel)
 {
@@ -12,7 +13,7 @@ RIOMemOpsIntf* RIOMemOps_classFactory(const MEMOPSAccess_t type, const int mport
                       throw std::runtime_error("RIOMemOps_classFactory: Invalid channel!");
                     return new RIOMemOpsUMDd(mport, channel);
                     break;
-    case MEMOPS_UMD: /*return new RIOMemOpsUMD(mport, channel);*/ break;
+    case MEMOPS_UMD: return new RIOMemOpsUMD(mport, channel); break;
     default: throw std::runtime_error("RIOMemOps_classFactory: Invalid access type!"); break;
   }
 

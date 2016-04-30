@@ -51,7 +51,7 @@ libmemops_intf.so: $(SOURCES)
 
 memops_test: $(SOURCES) src/memops_test.cc
 	$(CXX) -ggdb -O0 src/memops_test.cc \
-		-I$(TOPDIR)/include -I$(COMMONINC) -Iinc \
+		$(INCLUDES) \
 		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
 		-ltime_utils -lmport -lmemops_intf -L$(COMMONLIBA) -lumd_tsi721_nolog -o $@
 

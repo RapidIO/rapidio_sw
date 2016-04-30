@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "memops.h"
+#include "memops_umd.h"
 
 void usage(const char* name)
 {
@@ -28,6 +29,14 @@ int main(int argc, char* argv[])
   printf("Method=%d destid=%u rio_addr=0x%llx\n", m, did, rio_addr);
 
   RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, 7);
+
+  if (met[m] == MEMOPS_UMD) {
+    RIOMemOpsUMD* mops_umd = dynamic_cast<RIOMemOpsUMD*>(mops);
+    bool r = mops_umd->setup_channel(0x100 /*bufc*/, 0x400 /*sts aka FIFO*/);
+    assert(r);
+    r = mops_umd->start_fifo_thr(-1 /*isolcpu*/);
+    assert(r);
+  }
 
   DmaMem_t ibmem; memset(&ibmem, 0, sizeof(ibmem));
   ibmem.rio_address = RIO_ANY_ADDR;
