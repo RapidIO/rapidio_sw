@@ -33,7 +33,9 @@ public:
   inline int bind(uint16_t lport) {
     if (!m_open) return -(errno=EINVAL);
     if (m_connected) return -(errno=EISCONN);
-    return riomp_sock_bind(m_sock, lport);
+    int rc = riomp_sock_bind(m_sock, lport);
+    if (rc == 0) m_bound = true;
+    return rc;
   }
 
   inline int listen() {
@@ -44,6 +46,7 @@ public:
 
   inline int accept(CMSocket*& clisock /*out*/, uint32_t timeout = 0) {
     if (!m_open) return -(errno=EINVAL);
+    if (!m_bound) return -(errno=EINVAL);
     if (m_connected) return -(errno=EISCONN);
     CMSocket* cli = new CMSocket(m_mportid, m_mboxid);
     int rc = riomp_sock_accept(m_sock, &cli->m_sock, timeout);
@@ -80,6 +83,7 @@ private:
   int             m_mportid;
   int             m_mboxid;
   bool            m_open;
+  bool            m_bound; ///< This socket has passed bind()
   bool            m_connected; ///< This socket has passed connect() or accept()
   riomp_mailbox_t m_mbox;
   riomp_sock_t    m_sock;
