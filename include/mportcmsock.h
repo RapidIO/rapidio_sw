@@ -31,8 +31,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef __CMSOCK_H__
-#define __CMSOCK_H__
+#ifndef __MPORTCMSOCK_H__
+#define __MPORTCMSOCK_H__
 
 #include <stdint.h>
 #include <string.h>
@@ -42,26 +42,26 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rapidio_mport_sock.h"
 
-class CMSocket {
+class MportCMSocket {
 public:
-  CMSocket(int mport_id, int mbox) : 
+  MportCMSocket(int mport_id, int mbox) : 
     m_mportid(mport_id), m_mboxid(mbox)
   {
     memset(&m_mbox, 0, sizeof(m_mbox));
     memset(&m_sock, 0, sizeof(m_sock));
 
     if (riomp_sock_mbox_create_handle(mport_id, mbox, &m_mbox))
-       throw std::runtime_error("CMSocket: Cannot create mailbox!");
+       throw std::runtime_error("MportCMSocket: Cannot create mailbox!");
 
     if (riomp_sock_socket(m_mbox, &m_sock)) {
        riomp_sock_mbox_destroy_handle(&m_mbox);
-       throw std::runtime_error("CMSocket: Cannot create socket!");
+       throw std::runtime_error("MportCMSocket: Cannot create socket!");
     }
     
     m_open = true;
     m_connected = false;
   }
-  ~CMSocket() { this->close(); riomp_sock_mbox_destroy_handle(&m_mbox); };
+  ~MportCMSocket() { this->close(); riomp_sock_mbox_destroy_handle(&m_mbox); };
 
   inline int bind(uint16_t lport) {
     if (!m_open) return -(errno=EINVAL);
@@ -77,11 +77,11 @@ public:
     return riomp_sock_listen(m_sock);
   }
 
-  inline int accept(CMSocket*& clisock /*out*/, uint32_t timeout = 0) {
+  inline int accept(MportCMSocket*& clisock /*out*/, uint32_t timeout = 0) {
     if (!m_open) return -(errno=EINVAL);
     if (!m_bound) return -(errno=EINVAL);
     if (m_connected) return -(errno=EISCONN);
-    CMSocket* cli = new CMSocket(m_mportid, m_mboxid);
+    MportCMSocket* cli = new MportCMSocket(m_mportid, m_mboxid);
     int rc = riomp_sock_accept(m_sock, &cli->m_sock, timeout);
     if (rc != 0) { delete cli; return rc; }
     cli->m_connected = true;
@@ -122,4 +122,4 @@ private:
   riomp_sock_t    m_sock;
 };
 
-#endif // __CMSOCK_H__
+#endif // __MPORTCMSOCK_H__
