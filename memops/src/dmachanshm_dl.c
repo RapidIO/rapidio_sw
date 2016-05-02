@@ -30,4 +30,4 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#include "../../../umdd_tsi721/src/dmachanshm_dl.c"
+#include "../../umdd_tsi721/src/dmachanshm_dl.c"

@@ -136,4 +136,22 @@ private:
 };
 
 RIOMemOpsIntf* RIOMemOps_classFactory(const MEMOPSAccess_t type, const int mport, const int channel = -1);
+
+#define ANY_CHANNEL	-1
+
+/** \brief Create a RIOMemOpsIntf, if possible
+ * \note Channel 0 is always used by kernel for maint read/write. Using it will throw
+ * \verbatim
+Following combinations are valid:
+ - Shared + ANY_CHANNEL:    => don’t care about performance, want to use malloc’ed buffers, so mport
+ - !shared + CHAN# - UMD    => care a lot about performance, so no malloc’d buffers and UMD
+ - Shared + CHAN# - ShM UMD => want guaranteed performance for an application/facility, so no malloc’ed buffers and ShM UMD
+\endverbatim
+ * \param mport_id Mport id; use \ref MportMgmt::get_mport_list to discover valid ids
+ * \param shared is application willing to share channel?
+ * \param channel ANY_CHANNEL or 1..7
+ * \return NULL if UMD channel in use OR UMDd/SHM not running for channel, an instace of \ref RIOMemOpsIntf otherwise
+ */
+RIOMemOpsIntf* RIOMemOpsChanMgr(int mport_id, bool shared, int channel);
+
 #endif // __MEMOPS_H__
