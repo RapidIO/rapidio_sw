@@ -70,22 +70,52 @@ typedef struct {
 
   void (*getShmPendingData)(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client);
 
+  bool (*has_state)(uint32_t mport_it, uint32_t channel);
+
 } DMAChannelSHMPtr_t;
 
-void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan)
+bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel)
 {
-  const char* LIB_UMDD = getenv("UMDD_LIB");
+  const char* UMDD_LIB = getenv("UMDD_LIB");
 
-  assert(LIB_UMDD);
-  assert(access(LIB_UMDD, R_OK) != -1);
+  assert(UMDD_LIB);
+  assert(access(UMDD_LIB, R_OK) != -1);
 
   DMAChannelSHMPtr_t* libp = (DMAChannelSHMPtr_t*)calloc(1, sizeof(DMAChannelSHMPtr_t));
 
   dlerror();
 
-  libp->dlh = dlopen(LIB_UMDD, RTLD_LAZY);
+  libp->dlh = dlopen(UMDD_LIB, RTLD_LAZY);
   if (libp->dlh == NULL) {
-    fprintf(stderr, "%s: Cannot dlopen %s: %s\n", __func__, LIB_UMDD, dlerror());
+    fprintf(stderr, "%s: Cannot dlopen %s: %s\n", __func__, UMDD_LIB, dlerror());
+    assert(libp->dlh);
+  }
+
+  libp->has_state = (bool (*)(uint32_t, uint32_t))dlsym(libp->dlh, "DMAChannelSHM_has_state");
+  assert(libp->has_state);
+
+  bool ret = libp->has_state(mport_id, channel);
+
+  dlclose(libp->dlh);
+  free(libp);
+
+  return ret;
+}
+
+void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan)
+{
+  const char* UMDD_LIB = getenv("UMDD_LIB");
+
+  assert(UMDD_LIB);
+  assert(access(UMDD_LIB, R_OK) != -1);
+
+  DMAChannelSHMPtr_t* libp = (DMAChannelSHMPtr_t*)calloc(1, sizeof(DMAChannelSHMPtr_t));
+
+  dlerror();
+
+  libp->dlh = dlopen(UMDD_LIB, RTLD_LAZY);
+  if (libp->dlh == NULL) {
+    fprintf(stderr, "%s: Cannot dlopen %s: %s\n", __func__, UMDD_LIB, dlerror());
     assert(libp->dlh);
   }
 
@@ -114,6 +144,9 @@ void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan)
 
   libp->getShmPendingData = (void (*)(void*, uint64_t*, DMAChannelSHM::DmaShmPendingData_t*))dlsym(libp->dlh, "DMAChannelSHM_getShmPendingData");
   assert(libp->getShmPendingData);
+
+  libp->has_state = (bool (*)(uint32_t, uint32_t))dlsym(libp->dlh, "DMAChannelSHM_has_state");
+  assert(libp->has_state);
 
   libp->dch = libp->create(mportid, chan);
   assert(libp->dch);

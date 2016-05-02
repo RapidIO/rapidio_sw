@@ -410,6 +410,8 @@ public:
   /** \brief Returns the number of BDs submitted to DMA engine */
   inline uint32_t getWP() { return m_state->dma_wr; }
 
+  static bool has_state(const uint32_t mport_id, const uint32_t chan);
+
 private:
   int umdemo_must_die;
   uint64_t            MHz;
@@ -685,6 +687,8 @@ int DMAChannelSHM_queueDmaOpT1(void* dch, enum dma_rtype rtype, DMAChannelSHM::D
 int DMAChannelSHM_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannelSHM::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
 
 void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client);
+
+bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel);
 
 #ifdef __cplusplus
 }; // END extern "C"

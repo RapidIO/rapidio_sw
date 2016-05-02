@@ -96,6 +96,31 @@ void DMAChannelSHM::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
   //n += (m_state->bd_num+1)*sizeof(uint64_t);
 }
 
+bool DMAChannelSHM::has_state(const uint32_t mport_id, const uint32_t chan)
+{
+  char path[129] = {0};
+
+  strncpy(path, "/dev/shm/", 128);
+  const int N = strlen(path);
+  snprintf(path+N, 128-N, DMA_SHM_STATE_NAME, mport_id, chan);
+
+  if (access(path, F_OK)) return false;
+
+  DmaChannelState_t st; memset(&st, 0, sizeof(st));
+
+  int fd = open(path, O_RDONLY);
+  if (fd < 0) return false;
+  int nr = read(fd, &st, sizeof(st));
+  close(fd);
+
+  if (nr < 0 || nr != sizeof(st)) return false;
+
+  if (st.master_pid < 1) return false;
+  if (st.hw_ready < 2) return false;
+
+  return 0 == kill(st.master_pid, 0);
+}
+
 void DMAChannelSHM::init(const uint32_t chan)
 {
   umdemo_must_die = 0;
@@ -1650,6 +1675,11 @@ void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::
   ((DMAChannelSHM*)dch)->getShmPendingData(*total, perc);
 
   if (per_client != NULL) *per_client = perc;
+}
+
+bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel)
+{
+  return DMAChannelSHM::has_state(mport_id, channel);
 }
 
 }; // END extern "C"
