@@ -35,36 +35,111 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __CHANLLOCK_H__
 
 #include <stdio.h>
+#include <pthread.h>
+
+#include <map>
 #include <stdexcept>
 
 #include "lockfile.h"
 
+class ChannelLock;
 
-/** \brief Lock other processes out of this UMD module/channel */
+class LockChannel {
+private:
+  friend class ChannelLock;
+  LockChannel(LockFile* lockf, const char* module, uint32_t mportid, uint32_t instance) :
+    m_lockf(lockf), m_module(module), m_mportid(mportid), m_instance(instance)
+  {}
+
+public:
+  ~LockChannel(); // Not coded here to keep g++/ld happy!
+
+private:
+  LockFile*   m_lockf;
+  std::string m_module;
+  uint32_t    m_mportid;
+  uint32_t    m_instance;
+};
+
+/** \brief Lock other processes out of this UMD module/channel
+ * \note This is a process-singleton
+ */
 class ChannelLock {
 public:
   /** \brief Static locker function
-   * \note Due to POSIX locking semantics this has no effect on the current process
-   * \note Using the same channel twice in this process will NOT be prevented
+   * \note Due to POSIX locking semantics it has no effect on the current process
+   * \note Using the same channel twice in this process will be prevented via singleton registry apparatus
    * \param[in] module DMA or Mbox, ASCII string
    * \param instance Channel number
    * \return a pointer to LockFile, will throw std::runtime_error, std::logic_error on error
    */
-  static inline LockFile* TakeLock(const char* module, const int mport, const int instance)
+  static inline LockChannel* TakeLock(const char* module, const uint32_t mport,  const uint32_t instance)
   {
     if (module == NULL || module[0] == '\0' || mport < 0 || instance < 0)
       throw std::runtime_error("ChannelLock::TakeLock: Invalid parameter!");
 
-    LockFile* lock = NULL;
-    char lock_name[81] = {0};
-    snprintf(lock_name, 80, "/var/lock/UMD-%s-%d:%d..LCK", module, mport, instance);
-
-    lock = new LockFile(lock_name);
-
+    ChannelLock::getInstance()->TakeLockInproc(module, mport, instance);
     // NOT catching std::logic_error
 
-    return lock;
+    LockFile* lock = NULL;
+    char lock_name[81] = {0};
+    snprintf(lock_name, 80, "/var/lock/UMD-%s-%u:%u..LCK", module, mport, instance);
+
+    try { lock = new LockFile(lock_name); }
+    catch(std::logic_error ex) {
+      ChannelLock::getInstance()->ReleaseLockInproc(module, mport, instance);
+      throw ex;
+    }
+    // NOT catching std::logic_error
+
+    return new LockChannel(lock, module, mport, instance);
   }
+
+private:
+  inline void mutexInit()
+  {
+    pthread_mutexattr_t mutex_attr;
+    memset(&mutex_attr, 0, sizeof(mutex_attr));
+
+    pthread_mutexattr_init(&mutex_attr);
+    pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_RECURSIVE);
+
+    memset(&m_mutex, 0, sizeof(m_mutex));
+    pthread_mutex_init(&m_mutex, &mutex_attr);
+  }
+
+  friend class LockChannel;
+
+  inline void TakeLockInproc(const char* module, const uint32_t mport,  const uint32_t instance) {
+    char key[33] = {0};
+    snprintf(key, 32, "%s:%u:%u", module, mport, instance);
+    pthread_mutex_lock(&m_mutex);
+      std::map<char*, bool>::iterator it = m_registry.find(key);
+      if (it != m_registry.end()) {
+        pthread_mutex_unlock(&m_mutex);
+        throw std::logic_error("ChannelLock::TakeLockInproc: Channel already used in this process!");
+      }
+      m_registry[key] = true;
+    pthread_mutex_unlock(&m_mutex);
+  }
+
+  inline void ReleaseLockInproc(const char* module, const uint32_t mport,  const uint32_t instance) {
+    char key[33] = {0};
+    snprintf(key, 32, "%s:%u:%u", module, mport, instance);
+    pthread_mutex_lock(&m_mutex);
+      std::map<char*, bool>::iterator it = m_registry.find(key);
+      if (it != m_registry.end()) m_registry.erase(it);
+    pthread_mutex_unlock(&m_mutex);
+  }
+
+  ChannelLock() {}; // Keep this private so class cannot be new'ed
+
+  static ChannelLock* getInstance(); // Keep this private so class cannot be instantiated
+
+private:
+  static ChannelLock*   m_instance;
+  pthread_mutex_t       m_mutex; ///< Registry aaccess, not singleton mutex
+  std::map<char*, bool> m_registry;
 };
 
 #endif // __CHANLLOCK_H__

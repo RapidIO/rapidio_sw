@@ -42,7 +42,8 @@ INCLUDES = inc/debug.h inc/dmachan.h inc/dmadesc.h inc/local_endian.h inc/lockfi
 		inc/mapfile.h inc/mboxchan.h inc/mhz.h inc/mport.h inc/pciebar.h \
 		inc/psem.h inc/pshm.h inc/rdtsc.h
 SOURCES = src/crc32.c src/dmachan.cc src/mapfile.cc src/mboxchan.cc \
-	src/mport.cc src/psem.cc src/pshm.cc src/tsi721_dma.c
+	src/mport.cc src/psem.cc src/pshm.cc src/tsi721_dma.c \
+	src/chanlock.cc
 
 CXXFLAGS += -I./inc -I$(REGSDIR) -I$(COMMONINC) \
 	 -D$(DEBUG) \

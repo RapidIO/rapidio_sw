@@ -88,7 +88,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "psem.h"
 #include "pshm.h"
 #include "rdtsc.h"
-#include "lockfile.h"
+#include "chanlock.h"
 #include "udma_tun.h"
 #include "ibmap.h"
 #include "umbox_afu.h"
@@ -289,7 +289,7 @@ struct worker {
 	uint16_t	my_destid;
 
         #define UMD_NUM_LOCKS   9 // 2 x MBOX + 7 x DMA channels available to UMD
-        LockFile*       umd_lock[UMD_NUM_LOCKS];
+        LockChannel*       umd_lock[UMD_NUM_LOCKS];
 
 	int		umd_chan; ///< Local mailbox OR DMA channel
 	int		umd_chan_n; ///< Local mailbox OR DMA channel, forming a range {chan,...,chan_n}

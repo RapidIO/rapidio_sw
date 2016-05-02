@@ -83,7 +83,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "psem.h"
 #include "pshm.h"
 #include "rdtsc.h"
-#include "lockfile.h"
+#include "chanlock.h"
 #endif
 
 #ifdef __cplusplus
@@ -197,7 +197,7 @@ struct worker {
 	void            (*owner_func)(struct worker*);     ///< Who is the owner of this
 	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this
 	uint16_t	my_destid;
-	LockFile*	umd_lock;
+	LockChannel*	umd_lock;
 	int		umd_chan; ///< Local mailbox OR DMA channel
 	DMAChannelSHM 	*umd_dch; ///< Used for anything but DMA Tun
 	enum dma_rtype	umd_tx_rtype;

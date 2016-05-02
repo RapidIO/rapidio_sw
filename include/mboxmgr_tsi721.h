@@ -40,7 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 class MboxChannelMgr {
 private:
   MboxChannel* m_super;
-  LockFile*    m_lock;
+  LockChannel* m_lock;
   uint32_t     m_mportid;
   uint32_t     m_mbox;
 
