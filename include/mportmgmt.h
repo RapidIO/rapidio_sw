@@ -102,30 +102,6 @@ public:
 
   inline bool get_ep_list(std::vector<uint32_t>& epids) { return get_ep_list(m_mportid, epids); }
 
-  inline int destid_set(uint16_t destid) { return riomp_mgmt_destid_set(m_handle, destid); }
-
-  inline int lcfg_read(uint32_t offset, uint32_t size, uint32_t* data) {
-    return riomp_mgmt_lcfg_read(m_handle, offset, size, data);
-  }
-  inline int lcfg_write(uint32_t offset, uint32_t size, uint32_t data) {
-    return riomp_mgmt_lcfg_write(m_handle, offset, size, data);
-  }
-
-  inline int rcfg_read(uint32_t destid, uint32_t hc, uint32_t offset, uint32_t size, uint32_t* data) {
-    return riomp_mgmt_rcfg_read(m_handle, destid, hc, offset, size, data);
-  }
-  inline int rcfg_write(uint32_t destid, uint32_t hc, uint32_t offset, uint32_t size, uint32_t data) {
-    return riomp_mgmt_rcfg_write(m_handle, destid, hc, offset, size, data);
-  }
-
-  // FMD specials
-  inline int device_add(uint16_t destid, uint8_t hc, uint32_t ctag, const char *name) {
-    return riomp_mgmt_device_add(m_handle, destid, hc, ctag, name);
-  }
-  inline int device_del(uint16_t destid, uint8_t hc, uint32_t ctag, const char *name) {
-    return riomp_mgmt_device_del(m_handle, destid, hc, ctag, name);
-  }
-
 private:
   int           m_mportid;
   riomp_mport_t m_handle;
