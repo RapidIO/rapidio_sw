@@ -110,11 +110,21 @@ private:
 
   friend class LockChannel;
 
-  inline void TakeLockInproc(const char* module, const uint32_t mport,  const uint32_t instance) {
+  typedef std::string RegistryKey_t;
+
+  static inline RegistryKey_t MakeKey(const char* module, const uint32_t mport,  const uint32_t instance) {
     char key[33] = {0};
     snprintf(key, 32, "%s:%u:%u", module, mport, instance);
+    std::string KEY(key);
+    return KEY;
+  }
+  
+  inline void TakeLockInproc(const char* module, const uint32_t mport,  const uint32_t instance) {
+    return TakeLockInproc(MakeKey(module, mport, instance));
+  }
+  inline void TakeLockInproc(const RegistryKey_t& key) {
     pthread_mutex_lock(&m_mutex);
-      std::map<char*, bool>::iterator it = m_registry.find(key);
+      std::map<RegistryKey_t, bool>::iterator it = m_registry.find(key);
       if (it != m_registry.end()) {
         pthread_mutex_unlock(&m_mutex);
         throw std::logic_error("ChannelLock::TakeLockInproc: Channel already used in this process!");
@@ -124,10 +134,11 @@ private:
   }
 
   inline void ReleaseLockInproc(const char* module, const uint32_t mport,  const uint32_t instance) {
-    char key[33] = {0};
-    snprintf(key, 32, "%s:%u:%u", module, mport, instance);
+    return ReleaseLockInproc(MakeKey(module, mport, instance));
+  }
+  inline void ReleaseLockInproc(const RegistryKey_t& key) {
     pthread_mutex_lock(&m_mutex);
-      std::map<char*, bool>::iterator it = m_registry.find(key);
+      std::map<RegistryKey_t, bool>::iterator it = m_registry.find(key);
       if (it != m_registry.end()) m_registry.erase(it);
     pthread_mutex_unlock(&m_mutex);
   }
@@ -137,9 +148,9 @@ private:
   static ChannelLock* getInstance(); // Keep this private so class cannot be instantiated
 
 private:
-  static ChannelLock*   m_instance;
-  pthread_mutex_t       m_mutex; ///< Registry aaccess, not singleton mutex
-  std::map<char*, bool> m_registry;
+  static ChannelLock*           m_instance;
+  pthread_mutex_t               m_mutex; ///< Registry aaccess, not singleton mutex
+  std::map<RegistryKey_t, bool> m_registry;
 };
 
 #endif // __CHANLLOCK_H__
