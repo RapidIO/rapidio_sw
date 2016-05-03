@@ -112,7 +112,7 @@ private:
   void          (*m_dma_fifo_callback)(void*);
   void*         m_dma_fifo_callback_arg;
 
-  LockFile*     m_lock;
+  LockChannel*  m_lock;
 };
 
 #endif //__MEMOPS_UMD_H__

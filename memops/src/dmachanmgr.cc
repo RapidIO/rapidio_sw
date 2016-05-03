@@ -36,14 +36,10 @@ RIOMemOpsIntf* RIOMemOpsChanMgr(uint32_t mport_id, bool shared, int channel)
 
 // UMD monolithic
   if (! shared) {
-    LockFile* lock = NULL;
-    try { lock = ChannelLock::TakeLock("DMA", mport_id, channel); }
-    catch(std::runtime_error ex) {
+    try { return RIOMemOps_classFactory(MEMOPS_UMD, mport_id, channel); }
+    catch(std::logic_error ex) {
       return NULL;
     }
-    delete lock; lock = NULL;
-    // small race condition here -- alternative is double-lock the same file extent?
-    return RIOMemOps_classFactory(MEMOPS_UMD, mport_id, channel);
   }
 
 // UMDd/SHM
