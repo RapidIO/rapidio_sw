@@ -44,9 +44,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_dma.h"
 
 typedef enum {
-  MEMOPS_MPORT = 1, ///< Use libmport/krenel interfaces
-  MEMOPS_UMDD,      ///< Use UMDd/SHM implementation
-  MEMOPS_UMD        ///< Use UMD (monolithic, in-app) implementation
+  MEMOPS_MPORT = 1, ///< Use libmport/kernel interfaces
+  MEMOPS_UMDD,      ///< Use UMDd/SHM implementation -- SHARED use of a channel
+  MEMOPS_UMD        ///< Use UMD (monolithic, in-process implementation -- EXCLUSIVE use of a channel
 } MEMOPSAccess_t;
 
 typedef enum { INVALID = 0, IBWIN = 1, DMAMEM = 2, MALLOC = 3 } DmaMemType_t;
@@ -73,6 +73,7 @@ typedef struct {
   TT_t     tt_16b; ///< Set to 1 if destid is 16 bytes
   uint8_t  prio:2;
   uint32_t bcount; ///< Size of transfer from \ref mem area
+
   struct raddr_s {
     uint8_t  msb2;
     uint64_t lsb64;
