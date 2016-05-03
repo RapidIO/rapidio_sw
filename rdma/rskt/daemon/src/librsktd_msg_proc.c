@@ -205,7 +205,14 @@ void rsktd_areq_bind(struct librsktd_unified_msg *msg)
 
 	/* Check for NULL pointer */
 	if (req == NULL) {
-		ERR("&msg->rx->a_rq.msg.bind is NULL\n");
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s"
+		"&msg->rx->a_rq.msg.bind is NULL\n",
+			UMSG_W_OR_S(msg),
+			UMSG_CT(msg),
+			msg->msg_type,
+			UMSG_TYPE_TO_STR(msg),
+			UMSG_PROC_TO_STR(msg),
+			UMSG_STAGE_TO_STR(msg));
 		return;
 	}
 
@@ -213,11 +220,25 @@ void rsktd_areq_bind(struct librsktd_unified_msg *msg)
 
 	stat = rsktd_sn_get(sn);
 	if ((rskt_uninit == stat) || (rskt_closed == stat)) {
-		DBG("sn Not initialized. Calling rsktd_sn_set()\n");
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d\n"
+		"sn Not initialized. Calling rsktd_sn_set()\n",
+			UMSG_W_OR_S(msg),
+			UMSG_CT(msg),
+			msg->msg_type,
+			UMSG_TYPE_TO_STR(msg),
+			UMSG_PROC_TO_STR(msg),
+			UMSG_STAGE_TO_STR(msg), req->sn);
 		rsktd_sn_set(sn, rskt_alloced);
 		msg->tx->a_rsp.err = 0;
 	} else {
-		DBG("sn is busy(!?)\n");
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d\n"
+		"sn is busy(!?)\n",
+			UMSG_W_OR_S(msg),
+			UMSG_CT(msg),
+			msg->msg_type,
+			UMSG_TYPE_TO_STR(msg),
+			UMSG_PROC_TO_STR(msg),
+			UMSG_STAGE_TO_STR(msg), req->sn);
 		msg->tx->a_rsp.err = EBUSY;
 	}
 };
@@ -231,7 +252,14 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 	struct l_item_t *li;
 
 	if (rskt_alloced != rsktd_sn_get(sn)) {
-		ERR("rskt of sn(%d) not allocated\n", sn);
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d\n"
+		"rskt of sn(%d) not allocated\n", 
+			UMSG_W_OR_S(msg),
+			UMSG_CT(msg),
+			msg->msg_type,
+			UMSG_TYPE_TO_STR(msg),
+			UMSG_PROC_TO_STR(msg),
+			UMSG_STAGE_TO_STR(msg), sn);
 		msg->tx->a_rsp.err = EBUSY;
 		return;
 	};
@@ -240,7 +268,14 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 	
 	new_skt = (struct acc_skts *)malloc(sizeof(struct acc_skts));
 	if (new_skt == NULL) {
-		CRIT("Failed to allocate new_skt\n");
+		CRIT("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s\n"
+		"Failed to allocate new_skt\n",
+			UMSG_W_OR_S(msg),
+			UMSG_CT(msg),
+			msg->msg_type,
+			UMSG_TYPE_TO_STR(msg),
+			UMSG_PROC_TO_STR(msg),
+			UMSG_STAGE_TO_STR(msg));
 		return;
 	}
 	new_skt->app = msg->app;
@@ -273,7 +308,7 @@ struct rskt_dmn_wpeer **find_wpeer_by_ct(uint32_t ct)
 		if (dmn.wpeers[i].wpeer_alive && !dmn.wpeers[i].i_must_die &&
 				(dmn.wpeers[i].ct == ct)) {
 			if (wp) {
-				ERR(">=2 WPEERs with ct of 0x%x", ct);
+				CRIT(">=2 WPEERs with ct of 0x%x", ct);
 			};
 			wp = dmn.wpeers[i].self_ref;
 		};
@@ -397,8 +432,24 @@ int rsktd_areq_accept(struct librsktd_unified_msg *msg)
 	struct l_item_t *li;
 	uint32_t send_resp_now = 1;
 
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(msg),
+		UMSG_CT(msg),
+		msg->msg_type,
+		UMSG_TYPE_TO_STR(msg),
+		UMSG_PROC_TO_STR(msg),
+		UMSG_STAGE_TO_STR(msg));
+
 	if (rskt_listening != rsktd_sn_get(sn)) {
-		ERR("Socket not listening for sn(%d)\n", sn);
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d"
+		" Socket not listening\n",
+			UMSG_W_OR_S(msg),
+			UMSG_CT(msg),
+			msg->msg_type,
+			UMSG_TYPE_TO_STR(msg),
+			UMSG_PROC_TO_STR(msg),
+			UMSG_STAGE_TO_STR(msg), sn);
+
 		resp->err = htonl(ECONNREFUSED);
 		return send_resp_now;
 	};
@@ -406,7 +457,14 @@ int rsktd_areq_accept(struct librsktd_unified_msg *msg)
 	acc_skt = (struct acc_skts *)l_find(&lib_st.acc, sn, &li);
 	if ((NULL == acc_skt) || (NULL != acc_skt->acc_req) ||
 		(acc_skt->app != msg->app)) {
-		ERR("Not found or invalid acc_skt for sn(%d)\n", sn);
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d"
+		"Not found or invalid acc_skt",
+			UMSG_W_OR_S(msg),
+			UMSG_CT(msg),
+			msg->msg_type,
+			UMSG_TYPE_TO_STR(msg),
+			UMSG_PROC_TO_STR(msg),
+			UMSG_STAGE_TO_STR(msg), sn);
 		resp->err = htonl(ECONNREFUSED);
 		return send_resp_now;
 	};
@@ -429,6 +487,14 @@ void rsktd_areq_hello(struct librsktd_unified_msg *msg)
 	struct librskt_resp *resp = &msg->tx->a_rsp;
 	char app_name[16];
 
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(msg),
+		UMSG_CT(msg),
+		msg->msg_type,
+		UMSG_TYPE_TO_STR(msg),
+		UMSG_PROC_TO_STR(msg),
+		UMSG_STAGE_TO_STR(msg));
+
 	memcpy((*msg->app)->app_name, req->app_name, MAX_APP_NAME);
 	(*msg->app)->proc_num = ntohl(req->proc_num);
 	resp->err = 0;
@@ -447,28 +513,38 @@ void msg_q_handle_areq(struct librsktd_unified_msg *msg)
 {
 	uint32_t send_resp_now = 1;
 
-	DBG("ENTER\n");
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(msg),
+		UMSG_CT(msg),
+		msg->msg_type,
+		UMSG_TYPE_TO_STR(msg),
+		UMSG_PROC_TO_STR(msg),
+		UMSG_STAGE_TO_STR(msg));
+
 	switch (msg->proc_stage) {
 	case RSKTD_AREQ_SEQ_AREQ:
 		switch (msg->msg_type) {
 		case LIBRSKTD_BIND:
-				DBG("LIBRSKTD_BIND\n");
 				rsktd_areq_bind(msg);
 				break;
 		case LIBRSKTD_LISTEN:
-				DBG("LIBRSKTD_LISTEN\n");
 				rsktd_areq_listen(msg);
 				break;
 		case LIBRSKTD_ACCEPT:
-				DBG("LIBRSKTD_ACCEPT\n");
 				send_resp_now = rsktd_areq_accept(msg);
 				break;
 		case LIBRSKTD_HELLO:
-				DBG("LIBRSKTD_HELLO\n");
 				rsktd_areq_hello(msg);
 				break;
 		default:
-			CRIT("AREQ Rx UNKNOWN Msg Type: 0d%d 0x%x\n",
+			CRIT("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s"
+			"AREQ Rx UNKNOWN Msg Type %d 0x%x",
+				UMSG_W_OR_S(msg),
+				UMSG_CT(msg),
+				msg->msg_type,
+				UMSG_TYPE_TO_STR(msg),
+				UMSG_PROC_TO_STR(msg),
+				UMSG_STAGE_TO_STR(msg),
 				htonl(msg->msg_type),
 				htonl(msg->msg_type));
 			msg->tx->msg_type |= htonl(LIBRSKTD_FAIL);
@@ -509,15 +585,41 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	/* If can't find peer by component tag, fail */
 	r->wp = find_wpeer_by_ct(ct);
 	if (NULL == r->wp) {
-		ERR("Could not find wpeer with CT(%d) in wpeers\n", ct);
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		"Could not find wpeer with CT(%d) in wpeers\n",
+			UMSG_W_OR_S(r),
+			UMSG_CT(r),
+			r->msg_type,
+			UMSG_TYPE_TO_STR(r),
+			UMSG_PROC_TO_STR(r),
+			UMSG_STAGE_TO_STR(r),
+			htonl(r->msg_type),
+			htonl(r->msg_type), ct);
 		err = ENODEV;
 		goto fail;
 	};
 
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r));
+
 	w = *(r->wp);
 
 	if ((NULL == w) || (w->i_must_die)) {
-		CRIT("Either r->wp is NULL or w->i_must_die is true\n");
+		CRIT("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s"
+		"Either r->wp is NULL or w->i_must_die is true",
+			UMSG_W_OR_S(r),
+			UMSG_CT(r),
+			r->msg_type,
+			UMSG_TYPE_TO_STR(r),
+			UMSG_PROC_TO_STR(r),
+			UMSG_STAGE_TO_STR(r),
+			htonl(r->msg_type),
+			htonl(r->msg_type));
 		err = ENETDOWN;
 		goto fail;
 	};
@@ -532,14 +634,32 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	};
 
 	if (NULL == r->loc_ms) {
-		ERR("No available memory spaces for this request!\n");
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s"
+		"No available memory spaces for this request!",
+			UMSG_W_OR_S(r),
+			UMSG_CT(r),
+			r->msg_type,
+			UMSG_TYPE_TO_STR(r),
+			UMSG_PROC_TO_STR(r),
+			UMSG_STAGE_TO_STR(r),
+			htonl(r->msg_type),
+			htonl(r->msg_type));
 		err = ENOMEM;
 		goto fail;
 	};
 
 	/* If there aren't any free socket numbers available, fail */
 	if (RSKTD_INVALID_SKT == new_sn) {
-		ERR("No free socket numbers available\n");
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s"
+		"No free socket numbers available",
+			UMSG_W_OR_S(r),
+			UMSG_CT(r),
+			r->msg_type,
+			UMSG_TYPE_TO_STR(r),
+			UMSG_PROC_TO_STR(r),
+			UMSG_STAGE_TO_STR(r),
+			htonl(r->msg_type),
+			htonl(r->msg_type));
 		err = EADDRNOTAVAIL;
 		goto fail;
 	};
@@ -560,10 +680,17 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	r->proc_stage = RSKTD_A2W_SEQ_DREQ;
 
 	/* Message contents */
-	DBG("msg_type = RDKTD_CONNECT_REQ, msg_seq = 0\n");
-	DBG("dst_sn = %d, dst_ct = 0x%X, src_sn = %d\n", sn, ct, new_sn);
-	DBG("src_mso = %s, src_ms = %s\n", d_con->src_mso, d_con->src_ms);
-
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s\n"
+		"dst_sn = %d, dst_ct = 0x%X, src_sn = %d\n"
+		"src_mso = %s, src_ms = %s\n", 
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r),
+		sn, ct, new_sn,
+		d_con->src_mso, d_con->src_ms);
 fail:
 	r->tx->a_rsp.err = htonl(err);
 	return err;
@@ -580,6 +707,14 @@ void rsktd_a2w_connect_resp(struct librsktd_unified_msg *r)
 
 	if (r->dresp->err)
 		goto fail;
+
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r));
 
 	/* Pass con_resp info into a_rsp */
 	a_rsp->new_sn = d_req->src_sn;
@@ -653,6 +788,14 @@ uint32_t terminate_connected_socket(struct librsktd_unified_msg *msg,
 	if ((NULL == *con->app) || (NULL == *con->w))
 		goto done;
 
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(msg),
+		UMSG_CT(msg),
+		msg->msg_type,
+		UMSG_TYPE_TO_STR(msg),
+		UMSG_PROC_TO_STR(msg),
+		UMSG_STAGE_TO_STR(msg));
+
 	/* There are two flavous of this routine:
 	 * s2a: Request that application close the local socket
 	 * a2w: Request that remote peer close the local socket
@@ -687,7 +830,15 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 
 	r->tx->a_rsp.err = 0;
 
-	DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s SN %d ST %d", 
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r),
+		sn,
+		rsktd_sn_get(sn));
 
 	switch (rsktd_sn_get(sn)) {
 	case rskt_uninit:
@@ -709,17 +860,23 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 	case rskt_listening:
 	case rskt_accepting:
 		/* Listening, clean up any pending connection requests */
-		DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
 		rsktd_sn_set(sn, rskt_closing);
 		terminate_accept_and_conn_reqs(sn);
-		DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
+		DBG("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s SN %d ST %d", 
+			UMSG_W_OR_S(r),
+			UMSG_CT(r),
+			r->msg_type,
+			UMSG_TYPE_TO_STR(r),
+			UMSG_PROC_TO_STR(r),
+			UMSG_STAGE_TO_STR(r),
+			sn,
+			rsktd_sn_get(sn));
 		rsktd_sn_set(sn, rskt_closed);
 		break;
 
 	case rskt_connecting:
 	case rskt_connected:
 		/* Tell the wpeer to close the socket */
-		DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
 		rsktd_sn_set(sn, rskt_closing);
 		r->dreq->msg_type = htonl(RSKTD_CLOSE_REQ);
 		r->dresp->msg_type = r->dreq->msg_type | htonl(RSKTD_RESP_FLAG);
@@ -739,6 +896,14 @@ uint32_t rsktd_a2w_close_req(struct librsktd_unified_msg *r)
 void rsktd_a2w_hello_resp(struct librsktd_unified_msg *r)
 {
 	struct rskt_dmn_wpeer *w = *r->wp;
+
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r));
 
 	if ((NULL != w) && (NULL != r->dresp)) {
 		char name[16];
@@ -762,7 +927,15 @@ void rsktd_a2w_close_resp(struct librsktd_unified_msg *r)
 	/* App has confirmed that socket is closed. */
 	/* Free up local resources associated with the socket */
 
-	DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s SN %d ST %d", 
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r),
+		sn,
+		rsktd_sn_get(sn));
 
 	r->closing_skt->loc_ms->state = 0;
 	rsktd_sn_set(sn, rskt_closed);
@@ -777,6 +950,14 @@ void rsktd_a2w_close_resp(struct librsktd_unified_msg *r)
 void msg_q_handle_a2w(struct librsktd_unified_msg *r)
 {
 	int send_app_resp = 1;
+
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r));
 
 	switch (r->proc_stage) {
 	case RSKTD_A2W_SEQ_AREQ:
@@ -840,6 +1021,14 @@ void rsktd_sreq_hello_req(struct librsktd_unified_msg *r)
 		return;
 	};
 
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r));
+
 	sp->ct = ntohl(dreq->msg.hello.ct);
 	sp->cm_skt_num = ntohl(dreq->msg.hello.cm_skt);
 	sp->cm_mp = ntohl(dreq->msg.hello.cm_mp);
@@ -865,6 +1054,14 @@ uint32_t rsktd_sreq_connect_req(struct librsktd_unified_msg *r)
 	int l_sz = 0;
 	struct rsktd_req_msg *dreq = r->dreq;
 	struct rsktd_resp_msg *dresp = r->dresp;
+
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r));
 
 	dresp->msg.con.acc_sn = 0;
         dresp->msg.con.dst_sn = htonl(dreq->msg.con.dst_sn);
@@ -906,6 +1103,14 @@ exit:
 void msg_q_handle_sreq(struct librsktd_unified_msg *msg)
 {
 	uint32_t send_resp_now = 1;
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(msg),
+		UMSG_CT(msg),
+		msg->msg_type,
+		UMSG_TYPE_TO_STR(msg),
+		UMSG_PROC_TO_STR(msg),
+		UMSG_STAGE_TO_STR(msg));
+
 	switch (msg->proc_stage) {
 	case RSKTD_SPEER_SEQ_DREQ:
 		switch(msg->msg_type) {
@@ -934,7 +1139,15 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 	struct rsktd_resp_msg *dresp = r->dresp;
 	uint32_t sn = ntohl(dreq->msg.clos.loc_sn);
 
-	DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s SN %d ST %d",
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r),
+		sn,
+		rsktd_sn_get(sn));
 
 	dresp->err = 0;
 
@@ -965,7 +1178,6 @@ uint32_t rsktd_s2a_close_req(struct librsktd_unified_msg *r)
 	case rskt_connecting:
 	case rskt_connected:
 		/* Tell the app to close the socket */
-		DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
 		rsktd_sn_set(sn, rskt_closing);
 		send_resp_now = terminate_connected_socket(r, sn);
 		break;
@@ -980,7 +1192,15 @@ void rsktd_s2a_close_resp(struct librsktd_unified_msg *r)
 	struct l_item_t *li;
 	struct con_skts *con = (struct con_skts *)l_find(&lib_st.con, sn, &li);
 
-	DBG("SN %d ST %d", sn, rsktd_sn_get(sn));
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s SN %d ST %d",
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r),
+		sn,
+		rsktd_sn_get(sn));
 
 	/* App has confirmed that socket is closed. */
 	/* Free up local resources associated with the socket */
@@ -1000,6 +1220,14 @@ void rsktd_s2a_close_resp(struct librsktd_unified_msg *r)
 void msg_q_handle_s2a(struct librsktd_unified_msg *msg)
 {
 	uint32_t send_resp_now = 1;
+
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(msg),
+		UMSG_CT(msg),
+		msg->msg_type,
+		UMSG_TYPE_TO_STR(msg),
+		UMSG_PROC_TO_STR(msg),
+		UMSG_STAGE_TO_STR(msg));
 
 	switch (msg->proc_stage) {
 	case RSKTD_S2A_SEQ_DREQ:
@@ -1039,6 +1267,14 @@ void msg_q_handle_s2a(struct librsktd_unified_msg *msg)
 
 void enqueue_mproc_msg(struct librsktd_unified_msg *msg) 
 {
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(msg),
+		UMSG_CT(msg),
+		msg->msg_type,
+		UMSG_TYPE_TO_STR(msg),
+		UMSG_PROC_TO_STR(msg),
+		UMSG_STAGE_TO_STR(msg));
+
 	sem_wait(&mproc.msg_q_mutex);
 	l_push_tail(&mproc.msg_q, msg);
 	sem_post(&mproc.msg_q_mutex);
@@ -1074,6 +1310,14 @@ void *msg_q_loop(void *unused)
 			WARN("msg == NULL. Exiting loop\n");
 			break;
 		}
+
+		INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+			UMSG_W_OR_S(msg),
+			UMSG_CT(msg),
+			msg->msg_type,
+			UMSG_TYPE_TO_STR(msg),
+			UMSG_PROC_TO_STR(msg),
+			UMSG_STAGE_TO_STR(msg));
 
 		switch (msg->proc_type) {
 		case RSKTD_PROC_AREQ:

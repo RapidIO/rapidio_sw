@@ -163,6 +163,8 @@ int rdma_log(unsigned level,
 #ifdef DEBUG
 	if (level <= g_disp_level) {
 		fprintf(stdout, "%s", log_line.c_str());
+		if ('\n' != log_line.c_str()[strlen(log_line.c_str())-1])
+			fprintf(stdout, "\n");
 		fflush(stdout);
 	};
 #else

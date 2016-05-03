@@ -188,12 +188,13 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 
 int rdma_accept_ms_h(ms_h msh,
 		     msub_h loc_msubh,
+		     conn_h *connh,
 		     msub_h *rem_msubh,
 		     uint32_t *rem_msub_len,
 		     uint64_t timeout_secs)
 {
-	if (0) { 
-		if (NULL == rem_msubh)
+	if (0)  { 
+		if ((NULL == rem_msubh) || (NULL == connh))
 			*rem_msub_len = msh * loc_msubh * timeout_secs;
 	};
 	return 0;
@@ -203,13 +204,14 @@ int rdma_conn_ms_h(uint8_t destid_len,
 		   uint32_t destid,
 		   const char *rem_msname,
 		   msub_h loc_msubh,
+		   conn_h *connh,
 		   msub_h *rem_msubh,
 		   uint32_t *rem_msub_len,
 		   ms_h	  *rem_msh,
 		   uint64_t timeout_secs)
 {
 	if (0) { 
-		if (NULL == rem_msubh)
+		if ((NULL == rem_msubh) || (NULL == connh))
 			*rem_msub_len = destid_len * destid * loc_msubh
 					* timeout_secs;
 		if ((NULL == rem_msname) || (NULL == rem_msh))
@@ -218,9 +220,9 @@ int rdma_conn_ms_h(uint8_t destid_len,
 	return 0;
 };
 
-int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh)
+int rdma_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 {
-	return rem_msh * loc_msubh * 0;
+	return connh * server_msh * client_msubh * 0;
 };
 
 int rdma_push_msub(const struct rdma_xfer_ms_in *in,

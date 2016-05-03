@@ -92,7 +92,7 @@ int speer_rx_req(struct rskt_dmn_speer *speer)
 		((errno == EINTR) || (errno == ETIME) || (errno == EAGAIN)));
 
 	if (rc) {
-		CRIT("SPEER %d: riomp_sock_receive: %d (%d:%s)\n",
+		ERR("SPEER %d: riomp_sock_receive: %d (%d:%s)\n",
 			speer->ct, rc, errno, strerror(errno));
 		speer->i_must_die = 1;
 	} else {
@@ -514,7 +514,7 @@ void *speer_conn(void *unused)
 			continue;
 
 		if (rc) {
-			CRIT("speer_conn: riodp_accept() ERR %d %d:%s\n",
+			ERR("speer_conn: riodp_accept() RC %d errno %d:%s\n",
 				rc, errno, strerror(errno));
 			break;
 		}
