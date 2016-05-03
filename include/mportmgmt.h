@@ -60,7 +60,6 @@ public:
 
   /** \brief Query Mport properties */
   inline int query(struct riomp_mgmt_mport_properties& qresp) {
-    if (qresp == NULL) return -(errno = EINVAL);
     return riomp_mgmt_query(m_handle, &qresp);
   }
 
