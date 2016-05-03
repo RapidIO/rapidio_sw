@@ -44,6 +44,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class ChannelLock;
 
+/** \brief This is a sub-class of \ref ChannelLock
+ * \note Unlike Java this must be declared side-by side
+ */
 class LockChannel {
 private:
   friend class ChannelLock;
