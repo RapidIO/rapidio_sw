@@ -46,6 +46,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern char* speed_to_string(int);
 extern char* width_to_string(int);
 
+/** \brief Wrapper class for Mport management functions
+ * \note Some functions in this class are static and cand be use without class instantiation.
+ */
 class MportMgmt {
 public:
   MportMgmt(int mport_id) : m_mportid(mport_id)
@@ -55,11 +58,13 @@ public:
   }
   ~MportMgmt() { riomp_mgmt_mport_destroy_handle(&m_handle); }
 
-  inline int query(struct riomp_mgmt_mport_properties* qresp) {
+  /** \brief Query Mport properties */
+  inline int query(struct riomp_mgmt_mport_properties& qresp) {
     if (qresp == NULL) return -(errno = EINVAL);
-    return riomp_mgmt_query(m_handle, qresp);
+    return riomp_mgmt_query(m_handle, &qresp);
   }
 
+  /** \brief Convert Mport properties to human readable */
   static inline std::string toString(struct riomp_mgmt_mport_properties& attr) {
     std::string out;
     char tmp[129] = {0};
@@ -82,6 +87,7 @@ public:
     return out;
   }
 
+  /** \brief Enumerate installed Mports (aka Tsi721 PCIe cards for x86). Static. */
   static inline bool get_mport_list(std::vector<uint32_t>& devids) {
     uint8_t   np = 0;
     uint32_t* dev_ids = NULL;
@@ -91,6 +97,7 @@ public:
     return true;
   }
 
+  /** \brief Enumerate RapidIO endpoints known to the RapidIO kernel driver. Static. */
   static inline bool get_ep_list(int mport_id, std::vector<uint32_t>& epids) {
     uint32_t  nep = 0;
     uint32_t* ep_ids = NULL;
@@ -100,6 +107,7 @@ public:
     return true;
   }
 
+  /** \brief Enumerate RapidIO endpoints known to the RapidIO kernel driver */
   inline bool get_ep_list(std::vector<uint32_t>& epids) { return get_ep_list(m_mportid, epids); }
 
 private:
