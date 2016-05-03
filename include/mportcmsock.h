@@ -42,6 +42,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "rapidio_mport_sock.h"
 
+/** \brief Wrapper class for Mport CM sockets
+ * \note CM stands for Channelised Messagings
+ * \note Unlike BSD sockets the CM cariety does not support select
+ * \note read can be used in polling mode with a short timeout
+ */
 class MportCMSocket {
 public:
   MportCMSocket(int mport_id, int mbox) : 
