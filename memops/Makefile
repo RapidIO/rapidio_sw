@@ -46,7 +46,7 @@ libmemops_intf.a: $(SOURCES)
 
 libmemops_intf.so: $(SOURCES)
 	$(CXX) $(INCLUDES) $(OPTFLAGS) $^ \
-		-shared -fPIC -ldl -L$(COMMONLIB) -lmport $(LIBS_RPATH) -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
+		-shared -fPIC -ldl -L$(COMMONLIB) -lmport $(LIBS_RPATH) $(UMDDIR)/libumd_tsi721_nolog.a -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
 memops_test: $(SOURCES) src/memops_test.cc

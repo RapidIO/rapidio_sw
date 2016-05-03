@@ -153,6 +153,6 @@ Following combinations are valid:
  * \param channel ANY_CHANNEL or 1..7
  * \return NULL if UMD channel in use OR UMDd/SHM not running for channel, an instace of \ref RIOMemOpsIntf otherwise
  */
-RIOMemOpsIntf* RIOMemOpsChanMgr(int mport_id, bool shared, int channel);
+RIOMemOpsIntf* RIOMemOpsChanMgr(uint32_t mport_id, bool shared, int channel);
 
 #endif // __MEMOPS_H__

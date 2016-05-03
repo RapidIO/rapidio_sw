@@ -41,7 +41,7 @@ export DEBUG
 # TODO This must go away
 TOP_LEVEL = $(shell pwd)
 
-TARGETS = common umd umdd fabric_management rdma goodput file_transfer
+TARGETS = common memops umd umdd fabric_management rdma goodput file_transfer
 
 all: $(TARGETS)
 
@@ -62,6 +62,8 @@ common: FORCE
 	
 memops: FORCE
 	$(MAKE) all -C memops
+	@cp memops/*.a common/libs_a || true
+	(cd memops; tar cf - libmemops_intf.so*) | (cd common/libs_so; tar xvf -)
 	
 goodput: common umd FORCE	
 	$(MAKE) all -C utils/goodput
