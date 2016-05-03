@@ -74,7 +74,7 @@ public:
    * \note Using the same channel twice in this process will be prevented via singleton registry apparatus
    * \param[in] module DMA or Mbox, ASCII string
    * \param instance Channel number
-   * \return a pointer to LockFile, will throw std::runtime_error, std::logic_error on error
+   * \return a pointer to LockFile, will throw std::runtime_error on error
    */
   static inline LockChannel* TakeLock(const char* module, const uint32_t mport,  const uint32_t instance)
   {
@@ -82,14 +82,14 @@ public:
       throw std::runtime_error("ChannelLock::TakeLock: Invalid parameter!");
 
     ChannelLock::getInstance()->TakeLockInproc(module, mport, instance);
-    // NOT catching std::logic_error
+    // NOT catching std::runtime_error
 
     LockFile* lock = NULL;
     char lock_name[81] = {0};
     snprintf(lock_name, 80, "/var/lock/UMD-%s-%u:%u..LCK", module, mport, instance);
 
     try { lock = new LockFile(lock_name); }
-    catch(std::logic_error ex) {
+    catch(std::runtime_error ex) {
       ChannelLock::getInstance()->ReleaseLockInproc(module, mport, instance);
       throw ex;
     }
@@ -130,7 +130,7 @@ private:
       std::map<RegistryKey_t, bool>::iterator it = m_registry.find(key);
       if (it != m_registry.end()) {
         pthread_mutex_unlock(&m_mutex);
-        throw std::logic_error("ChannelLock::TakeLockInproc: Channel already used in this process!");
+        throw std::runtime_error("ChannelLock::TakeLockInproc: Channel already used in this process!");
       }
       m_registry[key] = true;
     pthread_mutex_unlock(&m_mutex);
