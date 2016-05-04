@@ -53,7 +53,7 @@ class MportMgmt {
 public:
   MportMgmt(int mport_id) : m_mportid(mport_id)
   {
-    if (!riomp_mgmt_mport_create_handle(m_mportid, 0, &m_handle))
+    if (riomp_mgmt_mport_create_handle(m_mportid, 0, &m_handle))
       throw std::runtime_error("MportMgmt: Failed to create mport handle!");
   }
   ~MportMgmt() { riomp_mgmt_mport_destroy_handle(&m_handle); }
