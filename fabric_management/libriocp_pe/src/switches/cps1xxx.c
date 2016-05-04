@@ -3454,8 +3454,10 @@ errout:
 #ifdef CONFIG_ERROR_LOG_SUPPORT
 	cps1xxx_dump_event_log(sw);
 #endif
-	event->counter = priv->event_counter;
-	priv->event_counter++;
+	if(priv) {
+		event->counter = priv->event_counter;
+		priv->event_counter++;
+	}
 
 	return ret;
 }
