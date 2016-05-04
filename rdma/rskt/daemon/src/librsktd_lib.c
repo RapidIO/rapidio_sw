@@ -57,6 +57,14 @@ struct librsktd_connect_globals lib_st;
 
 void enqueue_app_msg(struct librsktd_unified_msg *msg)
 {
+        INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s con_req",
+                UMSG_W_OR_S(msg),
+                UMSG_CT(msg),
+                msg->msg_type,
+                UMSG_TYPE_TO_STR(msg),
+                UMSG_PROC_TO_STR(msg),
+                UMSG_STAGE_TO_STR(msg));
+
 	sem_wait(&dmn.app_tx_mutex);
 	l_push_tail(&dmn.app_tx_q, msg);
 	sem_post(&dmn.app_tx_mutex);
@@ -186,9 +194,16 @@ void handle_app_msg(struct librskt_app *app,
 
 		if ((msg->proc_type != RSKTD_PROC_S2A) || 
 			(msg->proc_stage != RSKTD_S2A_SEQ_ARESP)) {
-			ERR("Resp wrong state Proc Type 0x%x Stage 0x%x Type 0x%x Seq 0x%x\n",
-				msg->proc_type, msg->proc_stage,
-				ntohl(rxed->msg_type), seq_num);
+        		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s "
+			"Rxed Type 0x%x seq 0x%x RESP WRONG STATE",
+                		UMSG_W_OR_S(msg),
+                		UMSG_CT(msg),
+                		msg->msg_type,
+                		UMSG_TYPE_TO_STR(msg),
+                		UMSG_PROC_TO_STR(msg),
+                		UMSG_STAGE_TO_STR(msg),
+				ntohl(rxed->msg_type), 
+				seq_num);
 			free(rxed);
 			dealloc_msg(msg);
 			return;
@@ -233,8 +248,13 @@ void handle_app_msg(struct librskt_app *app,
 		msg->tx->a_rsp.err = 0xFFFFFFFF;
 		app->rx_req_num = ntohl(rxed->a_rq.app_seq_num);
 	};
-	DBG("Rx Msg 0x%x Type %d Stage 0x%x from app %d",
-		msg->msg_type, msg->proc_type, msg->proc_stage, app->proc_num);
+        ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+                UMSG_W_OR_S(msg),
+                UMSG_CT(msg),
+                msg->msg_type,
+                UMSG_TYPE_TO_STR(msg),
+                UMSG_PROC_TO_STR(msg),
+                UMSG_STAGE_TO_STR(msg));
 	enqueue_mproc_msg(msg);
 };
 
@@ -346,7 +366,7 @@ void *app_rx_loop(void *ip)
 	};
 
 	if (app->app_fd > 0) {
-		DBG("Closing socket\n");
+		DBG("Closing app socket\n");
 		close(app->app_fd);
 		app->app_fd = 0;
 	};

@@ -187,11 +187,15 @@ void *wpeer_rx_loop(void *p_i)
 			w->resp->msg_type,
 			w->resp->msg_seq,
 			w->resp->err);
-		DBG("WPeer %d Rx Enqueue: Type %x Proc %x Stage %x\n",
-			w->ct,
+		INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s Seq %x err %x",
+			UMSG_W_OR_S(msg),
+			UMSG_CT(msg),
 			msg->msg_type,
-			msg->proc_type,
-			msg->proc_stage);
+			UMSG_TYPE_TO_STR(msg),
+			UMSG_PROC_TO_STR(msg),
+			UMSG_STAGE_TO_STR(msg),
+			w->resp->msg_seq,
+			w->resp->err);
 		enqueue_mproc_msg(msg);
 	};
 
@@ -309,10 +313,18 @@ int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers)
 
 void enqueue_wpeer_msg(struct librsktd_unified_msg *msg)
 {
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+		UMSG_W_OR_S(msg),
+		UMSG_CT(msg),
+		msg->msg_type,
+		UMSG_TYPE_TO_STR(msg),
+		UMSG_PROC_TO_STR(msg),
+		UMSG_STAGE_TO_STR(msg));
 	sem_wait(&dmn.wpeer_tx_mutex);
 	l_push_tail(&dmn.wpeer_tx_q, msg);
 	sem_post(&dmn.wpeer_tx_mutex);
 	sem_post(&dmn.wpeer_tx_cnt);
+	INFO("EXIT");
 };
 
 void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
@@ -436,6 +448,13 @@ void *wpeer_tx_loop(void *unused)
 			if (NULL != msg->tx)
 				msg->tx->a_rsp.err = htonl(ENETUNREACH);
 			msg->proc_stage = RSKTD_A2W_SEQ_DRESP;
+			INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s ERROR - NO WP!",
+				UMSG_W_OR_S(msg),
+				UMSG_CT(msg),
+				msg->msg_type,
+				UMSG_TYPE_TO_STR(msg),
+				UMSG_PROC_TO_STR(msg),
+				UMSG_STAGE_TO_STR(msg));
 			enqueue_mproc_msg(msg);
 		} else {
 			/* Enqueue response, send request to wpeer */
@@ -448,6 +467,13 @@ void *wpeer_tx_loop(void *unused)
 			memcpy((void *)w->tx_buff, (void *)msg->dreq,
 				DMN_REQ_SZ);
         		w->tx_buff_used = 1;
+			INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s Sent to WP!",
+				UMSG_W_OR_S(msg),
+				UMSG_CT(msg),
+				msg->msg_type,
+				UMSG_TYPE_TO_STR(msg),
+				UMSG_PROC_TO_STR(msg),
+				UMSG_STAGE_TO_STR(msg));
         		w->tx_rc = riomp_sock_send(w->cm_skt_h, w->tx_buff,
 						DMN_REQ_SZ);
 			if (w->tx_rc)

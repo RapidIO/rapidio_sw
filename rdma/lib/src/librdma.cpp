@@ -276,6 +276,8 @@ int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint32_t *bytes)
  */
 static bool rdmad_is_alive()
 {
+	return true;
+/*
 	auto in_msg = make_unique<unix_msg_t>();
 
 	in_msg->type = RDMAD_IS_ALIVE;
@@ -284,6 +286,7 @@ static bool rdmad_is_alive()
 
 	unix_msg_t  out_msg;
 	return daemon_call(move(in_msg), &out_msg) != RDMA_DAEMON_UNREACHABLE;
+*/
 } /* rdmad_is_alive() */
 
 static int open_mport(void)
@@ -1326,6 +1329,7 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 
 		/* Check the daemon hasn't died since we established
 		 * its socket connection */
+
 		if (!rdmad_is_alive()) {
 			WARN("Local RDMA daemon has died.\n");
 		}
@@ -2150,6 +2154,7 @@ static int dma_push_pull_msub(bool is_push,
 		}
 
 		/* Check if local daemon is alive */
+
 		DBG("Check if local daemon is alive\n");
 		if (!rdmad_is_alive()) {
 			ERR("Local RDMA daemon is dead. Exiting\n");
@@ -2157,12 +2162,14 @@ static int dma_push_pull_msub(bool is_push,
 		}
 
 		/* Check if remote daemon is alive */
+		/*
 		DBG("Check if remote daemon is alive\n");
 		if (fm_alive && (dd_h != NULL))
 			if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
 				ERR("Remote destination daemon NOT running!\n");
 				throw RDMA_REMOTE_UNREACHABLE;
 			}
+		*/
 
 		/* Determine sync type */
 		enum riomp_dma_directio_transfer_sync rd_sync;

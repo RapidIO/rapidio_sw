@@ -345,6 +345,21 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	dreq = &con_req->dreq->msg.con;
 	dresp = &con_req->dresp->msg.con;
 
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s con_req",
+		UMSG_W_OR_S(con_req),
+		UMSG_CT(con_req),
+		con_req->msg_type,
+		UMSG_TYPE_TO_STR(con_req),
+		UMSG_PROC_TO_STR(con_req),
+		UMSG_STAGE_TO_STR(con_req));
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s acc_req",
+		UMSG_W_OR_S(acc_req),
+		UMSG_CT(acc_req),
+		acc_req->msg_type,
+		UMSG_TYPE_TO_STR(acc_req),
+		UMSG_PROC_TO_STR(acc_req),
+		UMSG_STAGE_TO_STR(acc_req));
+
 	/* Find a free memory space on this RSKTD to rdma_connect to */
 	for (i = dmn.mso.next_ms; i < dmn.mso.num_ms; i++) {
 		if (dmn.mso.ms[i].valid && !dmn.mso.ms[i].state) {
@@ -1079,6 +1094,13 @@ uint32_t rsktd_sreq_connect_req(struct librsktd_unified_msg *r)
         		dresp->err = htonl(ECONNREFUSED);
 			goto exit;
 		};
+		INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s Added to lib_st.creq",
+			UMSG_W_OR_S(r),
+			UMSG_CT(r),
+			r->msg_type,
+			UMSG_TYPE_TO_STR(r),
+			UMSG_PROC_TO_STR(r),
+			UMSG_STAGE_TO_STR(r));
 		l_add(&lib_st.creq, ntohl(dreq->msg.con.dst_sn), (void *)r);
 		send_resp_msg = 0;
 		goto exit;
@@ -1090,6 +1112,15 @@ uint32_t rsktd_sreq_connect_req(struct librsktd_unified_msg *r)
 		goto exit;
 	}
 
+	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s\n\tAdded to acc.creq for app %s skt %d",
+		UMSG_W_OR_S(r),
+		UMSG_CT(r),
+		r->msg_type,
+		UMSG_TYPE_TO_STR(r),
+		UMSG_PROC_TO_STR(r),
+		UMSG_STAGE_TO_STR(r),
+		(*acc->app)->app_name,
+		acc->skt_num);
 	l_push_tail(&acc->conn_req, r);
 
 	send_resp_msg = 0;

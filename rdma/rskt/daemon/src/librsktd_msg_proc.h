@@ -101,9 +101,12 @@ struct librsktd_unified_msg {
 };
 
 #define UMSG_W_OR_S(x) ((NULL != x->sp)?"Slave": \
-			(NULL != x->wp)?"WORKER":"UNKNOWN")
+			(NULL != x->wp)?"WORKER": \
+			(NULL != x->app)?(*x->app)->app_name:"UNKNOWN")
+
 #define UMSG_CT(x) ((NULL != x->sp)?(*x->sp)->ct: \
 			(NULL != x->wp)?(*x->wp)->ct:-1)
+
 #define UMSG_TYPE_TO_STR(x) ( \
 	(LIBRSKTD_BIND == x->msg_type  )?"APP_BIND":  \
 	(LIBRSKTD_LISTEN == x->msg_type)?"APP_LIST":  \
