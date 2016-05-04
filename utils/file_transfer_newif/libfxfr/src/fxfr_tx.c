@@ -159,8 +159,7 @@ void rx_msg_from_server(struct fxfr_tx_state *info)
 {
 	int ret = info->req_skt->read(&info->msg_rx, info->msg_buff_size, 0);
 	if (ret) {
-		printf("File TX: riomp_sock_receive() ERR %d (%d)\n",
-			ret, errno);
+		printf("File TX: riomp_sock_receive() ERR %d (%s)\n", ret, strerror(ret));
 		info->fail_abort = 1;
 	       	info->rxed_msg->fail_abort = 1;
 		goto fail;
@@ -446,7 +445,7 @@ int init_server_connect(struct fxfr_tx_state *info,
 	info->destID = destID;
         rc = info->req_skt->connect(info->destID, 0, info->svr_skt);
         if (rc) {
-                printf("riomp_sock_connect ERR %d\n", rc);
+                printf("riomp_sock_connect ERR %d (%s)\n", rc, strerror(rc));
                 goto fail;
         }
 

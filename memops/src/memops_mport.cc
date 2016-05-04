@@ -47,7 +47,7 @@ RIOMemOpsMport::RIOMemOpsMport(const int mport_id)
   if (rc == 0) return;
 
   static char tmp[129] = {0};
-  snprintf(tmp, 128, "RIOMemOpsMport: riomp_mgmt_mport_create_handle barfed with error %d (%d)", rc, strerror(rc));
+  snprintf(tmp, 128, "RIOMemOpsMport: riomp_mgmt_mport_create_handle barfed with error %d (%s)", rc, strerror(-rc));
 
   throw std::runtime_error(tmp);
 }
