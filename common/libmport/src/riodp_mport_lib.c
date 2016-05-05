@@ -227,7 +227,7 @@ int riomp_mgmt_get_ep_list(uint8_t mport_id, uint32_t **destids, uint32_t *numbe
 	entries = mport_id;
 	if (ioctl(fd, RIO_CM_EP_GET_LIST_SIZE, &entries)) {
 #ifdef MPORT_DEBUG
-		printf("%s ep_get_list_size ioctl failed: %s\n", __func__, strerror(errno));
+		fprintf(stderr, "%s ep_get_list_size ioctl failed: %s\n", __func__, strerror(errno));
 #endif
 		ret = errno;
 		goto outfd;
@@ -984,7 +984,7 @@ int riomp_sock_socket(riomp_mailbox_t mailbox, riomp_sock_t *socket_handle)
 	/* Create handle */
 	handle = (struct rapidio_mport_socket *)calloc(1, sizeof(struct rapidio_mport_socket));
 	if(!handle) {
-		printf("error in calloc\n");
+		fprintf(stderr, "error in calloc\n");
 		return -1;
 	}
 
@@ -1047,7 +1047,7 @@ int riomp_sock_close(riomp_sock_t *socket_handle)
 	ch_num = handle->ch.id;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_CLOSE, &ch_num);
 	if (ret < 0) {
-		printf("CLOSE IOCTL: returned %d for ch_num=%d (errno=%d)\n", ret, (*socket_handle)->ch.id, errno);
+		fprintf(stderr, "CLOSE IOCTL: returned %d for ch_num=%d (errno=%d, %s)\n", ret, (*socket_handle)->ch.id, errno, strerror(errno));
 		ret = errno;
 	}
 
