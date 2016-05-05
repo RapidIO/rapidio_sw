@@ -738,7 +738,8 @@ int mspace::accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
 	lock_guard<mutex> users_lock(users_mutex);
 	auto it = find(begin(users), end(users), app_tx_eng);
 	if (it == end(users)) {
-		ERR("Could not find a user matching app_tx_eng\n");
+		ERR("%s Could not find a user matching app_tx_eng\n",
+			name.c_str());
 		return RDMA_ACCEPT_FAIL;
 	}
 

@@ -163,10 +163,6 @@ struct librsktd_connect_globals {
 	struct l_head_t con; /* List of connected sockets */
 				/* Items are struct con_skts */
 				/* Key is local socket number */
-	struct l_head_t creq; /* List of connect requests waiting */
-				/* for socket to accept. */
-				/* Items are struct librsktd_unified_msg */
-				/* Key is local socket number */
 };
 
 extern struct librsktd_connect_globals lib_st;

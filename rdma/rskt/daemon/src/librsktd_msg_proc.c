@@ -248,8 +248,6 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 	struct librskt_listen_req *req = &msg->rx->a_rq.msg.listen;
 	uint32_t sn = ntohl(req->sn);
 	struct acc_skts *new_skt;
-	struct librsktd_unified_msg *creq;
-	struct l_item_t *li;
 
 	if (rskt_alloced != rsktd_sn_get(sn)) {
 		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d\n"
@@ -285,18 +283,6 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 	new_skt->acc_req = NULL;
 
 	l_add(&lib_st.acc, sn, (void *)new_skt);
-
-	/* Socket is now listening, process any outstanding
-	 * connect requests for this socket number.
-	 */
-
-	creq = (struct librsktd_unified_msg *)l_find(&lib_st.creq, sn, &li);
-	while (NULL != creq) {
-		enqueue_mproc_msg(creq);
-		l_lremove(&lib_st.creq, li);
-		creq = (struct librsktd_unified_msg *)
-			l_find(&lib_st.creq, sn, &li);
-	};
 };
 
 struct rskt_dmn_wpeer **find_wpeer_by_ct(uint32_t ct)
@@ -1090,19 +1076,7 @@ uint32_t rsktd_sreq_connect_req(struct librsktd_unified_msg *r)
 				ntohl(dreq->msg.con.dst_sn), &li);
 
 	if (NULL == acc) {
-		if (dmn.all_must_die || !dmn.app_tx_alive) {
-        		dresp->err = htonl(ECONNREFUSED);
-			goto exit;
-		};
-		INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s Added to lib_st.creq",
-			UMSG_W_OR_S(r),
-			UMSG_CT(r),
-			r->msg_type,
-			UMSG_TYPE_TO_STR(r),
-			UMSG_PROC_TO_STR(r),
-			UMSG_STAGE_TO_STR(r));
-		l_add(&lib_st.creq, ntohl(dreq->msg.con.dst_sn), (void *)r);
-		send_resp_msg = 0;
+        	dresp->err = htonl(ECONNREFUSED);
 		goto exit;
 	};
 

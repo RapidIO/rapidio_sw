@@ -641,6 +641,8 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	return rc;
 } /* rdma_open_mso_h() */
 
+int rdma_close_ms_h_locked(mso_h msoh, ms_h msh);
+
 int rdma_close_mso_h(mso_h msoh)
 {
 	auto rc = 0;
@@ -678,8 +680,8 @@ int rdma_close_mso_h(mso_h msoh)
 			 end(ms_list),
 			[&ok, msoh](loc_ms *ms)
 			{
-				if (rdma_close_ms_h(msoh, ms_h(ms))) {
-					WARN("rdma_close_ms_h failed: msoh = 0x%"
+				if (rdma_close_ms_h_locked(msoh, ms_h(ms))) {
+					WARN("rdma_close_ms_h_locked failed: msoh = 0x%"
 						PRIx64 ", msh = 0x%" PRIx64 "\n",
 								msoh, ms_h(ms));
 					ok = false;	/* Modify on error only */
@@ -736,6 +738,8 @@ int rdma_close_mso_h(mso_h msoh)
 	return rc;
 } /* rdma_close_mso_h() */
 
+int rdma_destroy_ms_h_locked(mso_h msoh, ms_h msh);
+
 int rdma_destroy_mso_h(mso_h msoh)
 {
 	auto rc = 0;
@@ -769,8 +773,8 @@ int rdma_destroy_mso_h(mso_h msoh)
 		for_each(begin(ms_list),end(ms_list),
 			[&ok, msoh](loc_ms *ms)
 			{
-				if (rdma_destroy_ms_h(msoh, ms_h(ms))) {
-					WARN("rdma_destroy_ms_h failed: msoh = 0x%"
+				if (rdma_destroy_ms_h_locked(msoh, ms_h(ms))) {
+					WARN("rdma_destroy_ms_h_locked failed: msoh = 0x%"
 						PRIx64 ", msh = 0x%" PRIx64 "\n",
 						msoh, ms_h(ms));
 					ok = false;
@@ -917,6 +921,8 @@ int rdma_create_ms_h(const char *ms_name,
 	return rc;
 } /* rdma_create_ms_h() */
 
+int rdma_destroy_msub_h_locked(ms_h msh, msub_h msubh);
+
 int destroy_msubs_in_msh(ms_h msh)
 {
 	int rc;
@@ -933,8 +939,8 @@ int destroy_msubs_in_msh(ms_h msh)
 	for_each(msub_list.begin(), msub_list.end(),
 		[&ok, msh](loc_msub * msub)
 		{
-			if (rdma_destroy_msub_h(msh, msub_h(msub))) {
-				WARN("rdma_destroy_msub_h failed: msh=0x%"
+			if (rdma_destroy_msub_h_locked(msh, msub_h(msub))) {
+				WARN("rdma_destroy_msub_h_locked failed: msh=0x%"
 					PRIx64 ", msubh=0x%" PRIx64 "\n",
 							msh, msub_h(msub));
 				ok = false;
@@ -1035,7 +1041,7 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 	return rc;
 } /* rdma_open_ms_h() */
 
-int rdma_close_ms_h(mso_h msoh, ms_h msh)
+int rdma_close_ms_h_locked(mso_h msoh, ms_h msh)
 {
 	auto rc = 0;
 	DBG("ENTER with msoh=0x%" PRIx64 ", msh = 0x%" PRIx64 "\n", msoh, msh);
@@ -1102,9 +1108,18 @@ int rdma_close_ms_h(mso_h msoh, ms_h msh)
 	}
 	DBG("EXIT\n");
 	return rc;
-} /* rdma_close_ms_h() */
+} /* rdma_close_ms_h_locked() */
 
-int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
+int rdma_close_ms_h(mso_h msoh, ms_h msh)
+{
+	sem_wait(&rdma_lock);
+	auto rc = rdma_close_ms_h_locked(msoh, msh);
+	sem_post(&rdma_lock);
+
+	return rc;
+};
+
+int rdma_destroy_ms_h_locked(mso_h msoh, ms_h msh)
 {
 	auto rc = 0;
 
@@ -1164,7 +1179,16 @@ int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 		rc = e;
 	}
 	return rc;
-} /* rdma_destroy_ms_h() */
+} /* rdma_destroy_ms_h_locked() */
+
+int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
+{
+	sem_wait(&rdma_lock);
+	auto rc = rdma_destroy_ms_h_locked(msoh, msh);
+	sem_post(&rdma_lock);
+
+	return rc;
+};
 
 int rdma_create_msub_h(ms_h	msh,
 		       uint32_t	offset,
@@ -1251,7 +1275,7 @@ int rdma_create_msub_h(ms_h	msh,
 	return rc;
 } /* rdma_create_msub_h() */
 
-int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
+int rdma_destroy_msub_h_locked(ms_h msh, msub_h msubh)
 {
 	int rc;
 
@@ -1307,7 +1331,16 @@ int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 		rc = e;
 	}
 	return rc;
-} /* rdma_destroy_msub() */
+} /* rdma_destroy_msub_h_locked() */
+
+int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
+{
+	sem_wait(&rdma_lock);
+	auto rc = rdma_destroy_msub_h_locked(msh, msubh);
+	sem_post(&rdma_lock);
+
+	return rc;
+};
 
 int rdma_mmap_msub(msub_h msubh, void **vaddr)
 {

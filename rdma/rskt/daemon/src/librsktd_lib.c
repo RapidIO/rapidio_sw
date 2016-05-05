@@ -535,7 +535,6 @@ int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog)
 
         l_init(&lib_st.acc);
         l_init(&lib_st.con);
-        l_init(&lib_st.creq);
 
 	dmn.app_tx_alive = 0;
         sem_init(&dmn.app_tx_loop_started, 0, 0);
@@ -570,7 +569,6 @@ int lib_handler_dead(void)
 
 void halt_lib_handler(void)
 {
-	struct librsktd_unified_msg *msg;
 	int i;
 
 	DBG("ENTER\n");
@@ -608,12 +606,6 @@ void halt_lib_handler(void)
 			ERR("ERROR on l_conn unlink: %s\n", strerror(errno));
 		}
 		lib_st.addr.sun_path[0] = 0;
-	};
-
-	msg = (struct librsktd_unified_msg *)l_pop_head(&lib_st.creq);
-	while (NULL != msg) {
-		enqueue_mproc_msg(msg);
-		msg = (struct librsktd_unified_msg *)l_pop_head(&lib_st.creq);
 	};
 
         sem_post(&dmn.app_tx_cnt);
