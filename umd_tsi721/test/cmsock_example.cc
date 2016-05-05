@@ -1,8 +1,11 @@
 #include <unistd.h>
 #include <signal.h>
 
+#include <string>
+
 #include "mportcmsock.h"
 
+#define DATA_SZ	   16
 #define CM_PORT    666
 
 #define abs(x) ((x>=0)? (x): (-x))
@@ -17,8 +20,21 @@ void usage(const char* name)
 
 static void sig_term(int signo) { stop_req = 1; }
 
-const char bufA[256] = {'A'};
-const char bufB[256] = {'B'};
+const char bufA[DATA_SZ] = {'A'};
+const char bufB[DATA_SZ] = {'B'};
+
+inline std::string hexdump(uint8_t* data, const int len)
+{
+  std::string out;
+  for (int i = 0; i < len; i++) {
+    char tmp[9] = {0};
+    snprintf(tmp, 8, "%02x", data[i]);
+    out.append(tmp).append(" ");
+  }
+  return out;
+}
+
+inline std::string hexdump(const char* data, const int len) { return hexdump((uint8_t*)data, len); }
 
 int main(int argc, char* argv[])
 {
@@ -60,13 +76,13 @@ int main(int argc, char* argv[])
 
       if (rc) { fprintf(stderr, "accept error %d: %s\n", rc, strerror(abs(rc))); ret = 3; goto exit; }
 
-      uint8_t buf[257] = {0};
-      rc = cli_cms->read(buf, 256, 1000);
-      if (rc) { fprintf(stderr, "read error %d: %s\n", rc, strerror(abs(rc))); goto next; }
-      if (!memcmp(buf, bufA, 256)) {
-        rc = cli_cms->write(bufB, 256);
+      uint8_t buf[DATA_SZ+1] = {0};
+      rc = cli_cms->read(buf, DATA_SZ, 1000);
+      if (rc) { fprintf(stderr, "read error %d: %s got [%s]\n", rc, strerror(abs(rc)), hexdump(buf, DATA_SZ).c_str()); goto next; }
+      if (!memcmp(buf, bufA, DATA_SZ)) {
+        rc = cli_cms->write(bufB, DATA_SZ);
         if (rc) { fprintf(stderr, "write error %d: %s\n", rc, strerror(abs(rc))); goto next; }
-      } else fprintf(stderr, "Invalid data read from client!\n");
+      } else fprintf(stderr, "Invalid data read from client! got=[%s]\n", hexdump(buf, DATA_SZ).c_str());
  next:
       delete cli_cms;
     }
@@ -78,12 +94,12 @@ int main(int argc, char* argv[])
   rc = cms->connect(destid, 0, CM_PORT);
   if (rc) { fprintf(stderr, "connect error %d: %s\n", rc, strerror(abs(rc))); ret = 1; goto exit; }
   {{
-    char buf[256] = {0};
-    rc = cms->write(bufA, 256);
+    char buf[DATA_SZ] = {0};
+    rc = cms->write(bufA, DATA_SZ);
     if (rc) { fprintf(stderr, "write error %d: %s\n", rc, strerror(abs(rc))); ret = 2; goto exit; }
-    rc = cms->read(buf, 256, 1000);
-    if (rc) { fprintf(stderr, "read error %d: %s\n", rc, strerror(abs(rc))); ret = 3; goto exit; }
-    if (memcmp(buf, bufB, 256)) fprintf(stderr, "Invalid data read from server!\n");
+    rc = cms->read(buf, DATA_SZ, 1000);
+    if (rc) { fprintf(stderr, "read error %d: %s got [%s]\n", rc, strerror(abs(rc)), hexdump(buf, DATA_SZ).c_str()); ret = 3; goto exit; }
+    if (memcmp(buf, bufB, DATA_SZ)) fprintf(stderr, "Invalid data read from server!\n");
   }}
 
 exit:

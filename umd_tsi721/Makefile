@@ -91,8 +91,14 @@ mbox_server: test/mbox_example.c libumd_tsi721.a
 		$^ -o $@ \
 		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
 
+cmsock_ex: test/cmsock_example.cc
+	$(CXX) $(CXXFLAGS) \
+		-I../include \
+		$^ -o $@ \
+		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog 
+
 clean:
-	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out mbox_client mbox_server
+	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out mbox_client mbox_server cmsock_ex
 
 FORCE:
 
