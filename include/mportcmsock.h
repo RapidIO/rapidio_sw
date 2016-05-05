@@ -102,10 +102,12 @@ public:
     return rc;
   }
  
+  /** \note Unlike the libc counterpart this returns 0 on succress, errno on error */
   inline int write(const void* data, const int data_len) {
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
     return riomp_sock_send(m_sock, (void*)data, data_len);
   }
+  /** \note Unlike the libc counterpart this returns 0 on succress, errno on error */
   inline int read(void* data_in, const int data_max_len, uint32_t timeout = 0) {
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
     return riomp_sock_receive(m_sock, &data_in, data_max_len, timeout);
