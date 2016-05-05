@@ -102,9 +102,9 @@ public:
     return rc;
   }
  
-  inline int write(void* data, const int data_len) {
+  inline int write(const void* data, const int data_len) {
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
-    return riomp_sock_send(m_sock, data, data_len);
+    return riomp_sock_send(m_sock, (void*)data, data_len);
   }
   inline int read(void* data_in, const int data_max_len, uint32_t timeout = 0) {
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
