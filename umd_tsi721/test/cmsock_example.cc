@@ -20,8 +20,8 @@ void usage(const char* name)
 
 static void sig_term(int signo) { stop_req = 1; }
 
-const char bufA[DATA_SZ] = {'A'};
-const char bufB[DATA_SZ] = {'B'};
+char bufA[DATA_SZ];
+char bufB[DATA_SZ];
 
 inline std::string hexdump(uint8_t* data, const int len)
 {
@@ -43,6 +43,9 @@ int main(int argc, char* argv[])
   uint16_t destid = 0xFFFF;
   int mportid = 0;
   int rc = 0;
+
+  memset(bufA, 'A', sizeof(bufA));
+  memset(bufB, 'B', sizeof(bufA));
 
   int c = 0;
   while ((c = getopt (argc, argv, "hsc:")) != -1) {
