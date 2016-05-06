@@ -1,3 +1,48 @@
+/*
+****************************************************************************
+Copyright (c) 2016, Integrated Device Technology Inc.
+Copyright (c) 2016, RapidIO Trade Association
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*************************************************************************
+*/
+
+/**
+ * \file cmsock_example.cc
+ *
+ * \brief Example code for CM Socket Wrapper (RapidIO MBOX-based API).
+ *
+ * \note Do not use this API for high-thruput messaging.
+ *
+ * \note Max data to be transmitted is (4096-20) bytes.
+ *
+ * This file implements an example client and server.
+ */
+
 #include <unistd.h>
 #include <signal.h>
 
@@ -5,12 +50,14 @@
 
 #include "mportcmsock.h"
 
-#define DATA_SZ	   16
+#define DATA_SZ	   32
+
 #define CM_PORT    666
 
 #define abs(x) ((x>=0)? (x): (-x))
 
 volatile int stop_req = 0;
+static void sig_term(int signo) { stop_req = 1; }
 
 void usage(const char* name)
 {
@@ -18,10 +65,7 @@ void usage(const char* name)
   exit(0);
 }
 
-static void sig_term(int signo) { stop_req = 1; }
-
-char bufA[DATA_SZ];
-char bufB[DATA_SZ];
+char bufA[DATA_SZ], bufB[DATA_SZ];
 
 inline std::string hexdump(uint8_t* data, const int len)
 {
@@ -53,7 +97,7 @@ int main(int argc, char* argv[])
       case 'h': usage(argv[0]); break;
       case 's': server = 1; break;
       case 'c': server = 0; destid = atoi(optarg); break;
-      default: exit(69); break;
+      default: exit(2); break;
     }
   }
 
@@ -107,5 +151,6 @@ int main(int argc, char* argv[])
 
 exit:
   delete cms;
+
   return ret;
 }

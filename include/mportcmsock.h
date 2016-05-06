@@ -48,6 +48,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * \note read can be used in polling mode with a short timeout
  */
 class MportCMSocket {
+  static const int CM_FUDGE_OFFSET = 20;
+
 public:
   MportCMSocket(int mport_id, int mbox) : 
     m_mportid(mport_id), m_mboxid(mbox)
@@ -102,10 +104,10 @@ public:
     return rc;
   }
 
-  static const int CM_FUDGE_OFFSET = 20;
- 
   /** \note Unlike the libc counterpart this returns 0 on success, errno on error */
   inline int write(const void* data, const int data_len) {
+    if (data_len > (4096-CM_FUDGE_OFFSET))
+      throw std::runtime_error("MportCMSocket::write: Data are too large!");
     uint8_t buffer[4096+CM_FUDGE_OFFSET] = {0};
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
     memcpy(buffer+CM_FUDGE_OFFSET, data, data_len);
@@ -114,6 +116,8 @@ public:
 
   /** \note Unlike the libc counterpart this returns 0 on success, errno on error */
   inline int read(void* data_in, const int data_max_len, uint32_t timeout = 0) {
+    if (data_max_len > (4096-CM_FUDGE_OFFSET))
+      throw std::runtime_error("MportCMSocket::read: Data are too large!");
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
     uint8_t buffer[4096+CM_FUDGE_OFFSET] = {0};
     void* p666 = (void*)buffer;
@@ -125,7 +129,7 @@ public:
 
   inline void close() {
     if (!m_open) return;
-    m_open = false; m_connected = false;
+    m_open = false; m_connected = false; m_bound = false;
     riomp_sock_close(&m_sock);
   }
 
