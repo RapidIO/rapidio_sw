@@ -106,6 +106,8 @@ public:
 
   /** \note Unlike the libc counterpart this returns 0 on success, errno on error */
   inline int write(const void* data, const int data_len) {
+    if (data == NULL)
+      throw std::runtime_error("MportCMSocket::write: NULL data!");
     if (data_len > (4096-CM_FUDGE_OFFSET))
       throw std::runtime_error("MportCMSocket::write: Data are too large!");
     uint8_t buffer[4096+CM_FUDGE_OFFSET] = {0};
@@ -116,6 +118,8 @@ public:
 
   /** \note Unlike the libc counterpart this returns 0 on success, errno on error */
   inline int read(void* data_in, const int data_max_len, uint32_t timeout = 0) {
+    if (data_in == NULL)
+      throw std::runtime_error("MportCMSocket::read: NULL data!");
     if (data_max_len > (4096-CM_FUDGE_OFFSET))
       throw std::runtime_error("MportCMSocket::read: Data are too large!");
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
