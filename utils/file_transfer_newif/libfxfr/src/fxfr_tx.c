@@ -56,6 +56,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include <stdexcept>
+
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "memops.h"
@@ -73,35 +75,39 @@ extern "C" {
 
 struct fxfr_tx_state {
 	uint8_t fail_abort; 	/* 0 - Proceed with transfer.
-				* 1 - Abort transfer
-				*/
-	uint8_t done; 	/* 0 - Transfer continuing
-			* 1 - Transfer successful completion
-			*/
+				 * 1 - Abort transfer
+				 */
+	uint8_t done; 		/* 0 - Transfer continuing
+				 * 1 - Transfer successful completion
+				 */
 	uint8_t debug;
+
 	/* MPORT selection and data */
-	uint8_t mport_num;
+	uint8_t         mport_num;
 	RIOMemOpsIntf*  mops;
 	MEMOPSRequest_t mops_req;
-        int   mp_h_valid;
+        int             mp_h_valid;
+
 	/* Mailbox data */
 	MportCMSocket* req_skt;
-	int svr_skt;
-	void *msg_rx;
-	void *msg_tx;
-	struct fxfr_svr_to_client_msg *rxed_msg;
-	struct fxfr_client_to_svr_msg *tx_msg;
-	int msg_buff_size;
+	int      svr_skt;
+	void*    msg_rx;
+	void*    msg_tx;
+	struct   fxfr_svr_to_client_msg *rxed_msg;
+	struct   fxfr_client_to_svr_msg *tx_msg;
+	int      msg_buff_size;
+
 	/* File name data */
-	char src_name[MAX_FILE_NAME+1];
-	int src_fd;
-	char dest_name[MAX_FILE_NAME+1];
-	uint8_t end_of_file;
+	char     src_name[MAX_FILE_NAME+1];
+	int      src_fd;
+	char     dest_name[MAX_FILE_NAME+1];
+	uint8_t  end_of_file;
+
 	/* RapidIO target/rx data */
 	uint16_t destID; /* DestID of fxfr server */
-	uint8_t use_kbuf; /* 1 => Use kernel buffers, 0 => use malloc/free */
-	uint8_t *buffers[MAX_TX_SEGMENTS]; /* Data to DMA to fxfr server */
-	int next_buff_idx;
+	uint8_t  use_kbuf; /* 1 => Use kernel buffers, 0 => use malloc/free */
+	uint8_t* buffers[MAX_TX_SEGMENTS]; /* Data to DMA to fxfr server */
+	int      next_buff_idx;
 	uint64_t bytes_txed; /* Bytes transmitted by this message */
 	uint64_t tot_bytes_txed; /* Total bytes transmitted so far */
 	uint64_t bytes_rxed; /* Bytes received/acknowledged by this message */
@@ -123,8 +129,11 @@ void process_msg_from_server(struct fxfr_tx_state *info)
 		if ((info->rxed_msg->tot_bytes_rx > info->tot_bytes_txed) ||
 	     		!(info->rxed_msg->tot_bytes_rx) ||
 			strncmp(info->rxed_msg->rx_file_name, 
-				info->dest_name, MAX_FILE_NAME))
+				info->dest_name, MAX_FILE_NAME)) {
+			if(info->debug) printf("Server msg: incorrect param(s)\n");
+
 			goto fail;
+		}
 
 		info->tot_bytes_rxed = info->rxed_msg->tot_bytes_rx;
 
@@ -137,8 +146,13 @@ void process_msg_from_server(struct fxfr_tx_state *info)
 		 */
 		if (!info->rxed_msg->rapidio_addr || 
 		    !info->rxed_msg->rapidio_size ||
-		     info->rxed_msg->fail_abort)
+		     info->rxed_msg->fail_abort) {
+			if(info->debug)
+				printf("Server msg has incorrect field(s) [rio_addr=%llx size=%x] fail_abort=%d\n",
+					info->rxed_msg->rapidio_addr, info->rxed_msg->rapidio_size,
+					info->rxed_msg->fail_abort);
 			goto fail;
+		}
 
 		info->rx_rapidio_addr = info->rxed_msg->rapidio_addr;
 		if (info->rxed_msg->rapidio_size > 
@@ -157,7 +171,7 @@ fail:
 
 void rx_msg_from_server(struct fxfr_tx_state *info)
 {
-	int ret = info->req_skt->read(&info->msg_rx, info->msg_buff_size, 0);
+	int ret = info->req_skt->read(info->msg_rx, info->msg_buff_size, 0);
 	if (ret) {
 		printf("File TX: riomp_sock_receive() ERR %d (%s)\n", ret, strerror(ret));
 		info->fail_abort = 1;
@@ -190,8 +204,20 @@ fail:
 
 void fill_dma_buffer(struct fxfr_tx_state *info, int idx)
 {
-	info->bytes_txed = read(info->src_fd, 
-				info->buffers[idx], info->rx_rapidio_size);
+	if (info->src_fd < 0)
+		throw std::logic_error("fill_dma_buffer: Invalid file descriptor!");
+
+	if (info->buffers[idx] == NULL)
+		throw std::logic_error("fill_dma_buffer: NULL file buffer!");
+
+	const int nread = read(info->src_fd, info->buffers[idx], info->rx_rapidio_size);
+	if (nread < 0) {
+		printf("%s: read from fd %d (buf=%p) returned error %d (%s)\n", __func__, info->src_fd, info->buffers[idx], errno, strerror(errno));
+		fflush(NULL);
+		throw std::logic_error("fill_dma_buffer: Invalid readfile!");
+	}
+
+	info->bytes_txed = nread;
 	if (info->bytes_txed < info->rx_rapidio_size)
 		info->end_of_file = 1;
 };
@@ -235,6 +261,11 @@ void send_dma_buffer(struct fxfr_tx_state *info, int idx)
 	};
 	if (!rc) {
 		info->fail_abort = 1;
+		if(info->debug)
+			 printf("File TX: DMA op failed with %d (%s)\n",
+				info->mops->getAbortReason(),
+				info->mops->abortReasonToStr(info->mops->getAbortReason()));
+
 		info->bytes_txed = 0;
 	} else {
 		info->tot_bytes_txed += info->bytes_txed;
@@ -313,41 +344,15 @@ void send_msgs_to_server(struct fxfr_tx_state *info, struct timespec *st_time)
 
 int init_info_vals(struct fxfr_tx_state *info)
 {	
-	int i;
+	memset(info, 0, sizeof(*info));
 
-	info->fail_abort = 0;
-	info->done = 0;
-	info->debug = 0;
-
-	/* MPORT data */
 	info->mport_num = -1;
-	info->mops = NULL;
 
-	/* Mailbox data */
-	info->req_skt = NULL;
-	info->svr_skt = 0;
-	info->msg_rx = NULL;
-	info->msg_tx = NULL;
-	info->rxed_msg = NULL;
-	info->tx_msg = NULL;
-	info->msg_buff_size = 0;
-	/* File name data */
-	bzero(info->src_name, MAX_FILE_NAME);
-	bzero(info->dest_name, MAX_FILE_NAME);
 	info->src_fd = -1;
-	info->end_of_file = 0;
-	/* RapidIO target/rx data */
-	info->use_kbuf = 1;
+
 	info->destID = -1;
-	for (i = 0; i < MAX_TX_SEGMENTS; i++) 
-		info->buffers[i] = NULL; 
-	info->next_buff_idx = 0;
-	info->bytes_txed = 0;
-	info->tot_bytes_txed = 0; /* Total bytes transmitted so far */
-	info->bytes_rxed = 0; /* Bytes received/acknowledged by this message */
-	info->tot_bytes_rxed = 0; /* Total bytes rxed by fxfr server */
-	info->rx_rapidio_addr = 0; /* Base address of fxfr server window */
-	info->rx_rapidio_size = 0; /* Size of fxfr server window */
+
+	info->use_kbuf = 1;
 
 	return 0;
 };
@@ -458,6 +463,8 @@ int init_server_connect(struct fxfr_tx_state *info,
 			printf("riomp_dbuf_free failed err=%d\n", rc);
 		goto fail;
 	} else {
+		info->buffers[0] = (uint8_t*)info->mops_req.mem.win_ptr;
+
 		for (i = 1; i < MAX_TX_SEGMENTS; i++) {
 			info->buffers[i] = info->buffers[0] +
 				(i * MAX_TX_BUFF_SIZE);

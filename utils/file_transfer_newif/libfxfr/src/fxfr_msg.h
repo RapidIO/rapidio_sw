@@ -47,8 +47,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_dma.h"
 #include "libfxfr_private.h"
 
-#define FXFR_MSG_OFFSET 20
-#define MAX_MSG_SIZE 0x1000
+#define MAX_MSG_SIZE 0x1000-20
 
 #ifdef __cplusplus
 extern "C" {

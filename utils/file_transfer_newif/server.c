@@ -820,8 +820,10 @@ int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size,
 		if (!rc) goto close_ibwin;
 
 		ibwins[i].handle = ibwins[i].mem.win_handle;
+		ibwins[i].rio_base = ibwins[i].handle; // XXX really?
 		ibwins[i].ib_mem = (char*)ibwins[i].mem.win_ptr;
 		ibwins[i].length = win_size;
+		ibwins[i].debug  = debug;
 
 		ibwins[i].valid = 1;
 	};

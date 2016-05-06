@@ -173,10 +173,10 @@ int send_server_msg(struct ibwin_info *info, int fail_abort, int abort_flag)
 
 int receive_client_msg(struct ibwin_info *info)
 {
-	int ret = info->req_skt->read(&info->msg_rx, info->msg_buff_size, 0);
+	int ret = info->req_skt->read(info->msg_rx, info->msg_buff_size, 0);
 	if (ret) {
-		printf("File RX: riomp_socket_receive() ERR %d (%d)\n",
-			ret, errno);
+		printf("File RX: riomp_socket_receive() ERR %d (%s)\n",
+			ret, strerror(ret));
 		return ret;
 	}
 
@@ -238,9 +238,10 @@ int rx_file(struct ibwin_info *info, int *abort_flag)
 		if (ret)
 			break;
 
-		if (info->rxed_msg->fail_abort)
+		if (info->rxed_msg->fail_abort) {
 			fail_abort = 1;
-		else
+			if (info->debug) printf("File RX: client requested abort!\n");
+		} else
 			end_of_file = process_rxed_msg(info, &fail_abort);
         }
 
@@ -251,7 +252,7 @@ int rx_file(struct ibwin_info *info, int *abort_flag)
 	};
 
         if (ret)
-                printf("File RX: riomp_socket_close() ERR %d\n", ret);
+                printf("File RX: riomp_socket_close() ERR %d (%s)\n", ret, strerror(ret));
 	return ret;
 };
 
