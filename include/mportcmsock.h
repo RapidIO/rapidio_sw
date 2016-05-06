@@ -102,7 +102,7 @@ public:
     return rc;
   }
 
-  const int CM_FUDGE_OFFSET = 20;
+  static const int CM_FUDGE_OFFSET = 20;
  
   /** \note Unlike the libc counterpart this returns 0 on success, errno on error */
   inline int write(const void* data, const int data_len) {
