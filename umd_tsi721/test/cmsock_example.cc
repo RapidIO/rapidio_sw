@@ -38,6 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * \note Do not use this API for high-thruput messaging.
  *
+ * \note Unlike BSD sockets this API is fixed (and known-in-advance) size reads.
+ *
  * \note Max data to be transmitted is (4096-20) bytes.
  *
  * This file implements an example client and server.
