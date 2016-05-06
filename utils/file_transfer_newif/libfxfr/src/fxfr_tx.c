@@ -390,9 +390,9 @@ int init_message_buffers(struct fxfr_tx_state *info, int buf_size)
         };
 
 	info->rxed_msg = (struct fxfr_svr_to_client_msg *)
-		(&(((char *)(info->msg_rx))[FXFR_MSG_OFFSET]));
+		(&(((char *)(info->msg_rx))[0]));
 	info->tx_msg = (struct fxfr_client_to_svr_msg *)
-		(&(((char *)(info->msg_tx))[FXFR_MSG_OFFSET]));
+		(&(((char *)(info->msg_tx))[0]));
 
 	return 0;
 };
