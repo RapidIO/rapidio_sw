@@ -109,14 +109,15 @@ public:
     uint8_t buffer[4096+CM_FUDGE_OFFSET] = {0};
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
     memcpy(buffer+CM_FUDGE_OFFSET, data, data_len);
-    return riomp_sock_send(m_sock, (void*)buffer, data_len);
+    return riomp_sock_send(m_sock, (void*)buffer, data_len + CM_FUDGE_OFFSET);
   }
+
   /** \note Unlike the libc counterpart this returns 0 on success, errno on error */
   inline int read(void* data_in, const int data_max_len, uint32_t timeout = 0) {
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
     uint8_t buffer[4096+CM_FUDGE_OFFSET] = {0};
     void* p666 = (void*)buffer;
-    int rc = riomp_sock_receive(m_sock, &p666, data_max_len, timeout);
+    int rc = riomp_sock_receive(m_sock, &p666, data_max_len + CM_FUDGE_OFFSET, timeout);
     if (rc) return rc;
     memcpy(data_in, buffer+CM_FUDGE_OFFSET, data_max_len);
     return 0;
