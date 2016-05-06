@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
       case 'h': usage(argv[0]); break;
       case 's': server = 1; break;
       case 'c': server = 0; destid = atoi(optarg); break;
-      default: exit(2); break;
+      default: exit(9); break;
     }
   }
 
@@ -118,7 +118,7 @@ int main(int argc, char* argv[])
     rc = cms->listen();
     if (rc) { fprintf(stderr, "listen error %d: %s\n", rc, strerror(abs(rc))); ret = 2; goto exit; }
 
-    for(; !stop_req;) {
+    for (; !stop_req;) {
       MportCMSocket* cli_cms = NULL;
 
       rc = cms->accept(cli_cms, ACCEPT_TO);
