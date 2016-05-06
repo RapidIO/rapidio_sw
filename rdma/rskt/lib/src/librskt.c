@@ -464,33 +464,23 @@ void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt)
 			DBG("skt->msub_p is NULL\n");
 		}
 		if (skt_rdma_connector == skt->connector) {
-			DBG("skt->connector == skt_rdma_connector\n");
+			DBG("skt->connector == skt_rdma_connector, disconnecting msubh 0x%lx\n", skt->msubh);
 			rdma_disc_ms_h(skt->connh, skt->con_msh, skt->msubh);
+		}
+		DBG("skt->connector != skt_rdma_connector\n");
+		if (skt->msubh_valid) {
+			DBG("skt->msubh_valid is true. Closing skt->msubh 0x%lx\n", skt->msubh);
+			rdma_destroy_msub_h(skt->msh, skt->msubh);
 			skt->msubh_valid = 0;
+		} else {
+			WARN("skt->msubh_valid is false\n");
+		}
+		if (skt->msh_valid) {
+			DBG("skt->msh_valid is true. Closing skt->msh\n", skt->msh);
+			rdma_close_ms_h(skt->msoh, skt->msh);
 			skt->msh_valid = 0;
 		} else {
-			DBG("skt->connector != skt_rdma_connector\n");
-			if (skt->msubh_valid) {
-				DBG("skt->msubh_valid is true. Closing skt->msubh\n");
-				rdma_destroy_msub_h(skt->msh, skt->msubh);
-				skt->msubh_valid = 0;
-			} else {
-				WARN("skt->msubh_valid is false\n");
-			}
-			if (skt->msh_valid) {
-				DBG("skt->msh_valid is true. Closing skt->msh\n");
-				rdma_close_ms_h(skt->msoh, skt->msh);
-				skt->msh_valid = 0;
-			} else {
-				WARN("skt->msh_valid is false\n");
-			}
-		}
-		if (skt->msoh_valid) {
-			DBG("skt->msoh_valid is true. Closing msoh\n");
-			rdma_close_mso_h(skt->msoh);
-			skt->msoh_valid = 0;
-		} else {
-			WARN("skt->msoh_valid is false\n");
+			WARN("skt->msh_valid is false\n");
 		}
 	} else {
 		DBG("skt->connector == skt_rmda_uninit\n");
@@ -1244,7 +1234,9 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 
 	l_skt_h->st = rskt_listening;
 
+	DBG("ACCEPT OPEN_MSO %s", skt->msoh_name);
 	rc = rdma_open_mso_h((const char *)skt->msoh_name, (mso_h *)&skt->msoh);
+	DBG("ACCEPT OPEN_MSO %s DONE", skt->msoh_name);
 	if (rc) {
 		if (rc == RDMA_ALREADY_OPEN) {
 			INFO("MSO was already open, got back the same handle\n");
@@ -1255,23 +1247,28 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	}
 	skt->msoh_valid = 1;
 
+	DBG("ACCEPT OPEN_MS %s", skt->msh_name);
 	rc = rdma_open_ms_h((const char *)skt->msh_name, skt->msoh, 0, 
 			&skt->msub_sz, (ms_h *)&skt->msh);
+	DBG("ACCEPT OPEN_MS %s DONE", skt->msh_name);
 	if (rc) {
-		ERR("Failed to open ms(%s)\n", skt->msh_name);
+		ERR("Failed to open ms(%s) rc %x\n", skt->msh_name, rc);
 		goto close2;
 	}
 	skt->msh_valid = 1;
 
+	DBG("ACCEPT CREATE_MSUB");
 	rc = rdma_create_msub_h(skt->msh, 0,
 				skt->msub_sz, 0, (msub_h *)&skt->msubh);
+	DBG("ACCEPT CREATE_MSUB 0x%lx", skt->msubh);
 	if (rc) {
-		ERR("Failed to create msub\n");
+		ERR("Failed to create msub rc %d\n", rc);
 		goto close2;
 	}
 	skt->msub_p = NULL;
 	skt->msubh_valid = 1;
 
+	DBG("ACCEPT MMAP_MSUB");
 	rc = rdma_mmap_msub(skt->msubh, (void **)&skt->msub_p);
 	if (rc) {
 		ERR("Failed to mmap msub\n");

@@ -93,6 +93,7 @@ void *slave_thread_f(void *arg)
 	memset(my_name, 0, 16);
         snprintf(my_name, 15, "ACC_L%5d", accept_socket->sa.sn);
         pthread_setname_np(slave_params->slave_thread, my_name);
+
 	pthread_detach(slave_params->slave_thread);
 
 	num_threads++;	/* Increment threads */
@@ -159,7 +160,9 @@ slave_thread_f_exit:
 	if (slave_params != NULL)
 		free(slave_params);
 
-	/* FIXME: Close and destroy the accept socket */
+	rskt_close(accept_socket);
+	rskt_destroy_socket(&accept_socket);
+
 	pthread_exit(0);
 } /* slave_thread_f() */
 
@@ -299,7 +302,8 @@ int main(int argc, char *argv[])
 			goto destroy_accept_socket;
 		}
 
-		/* Create a thread for handling transmit/receive on new socket */
+		/* Create a thread for handling transmit/receive on new socket
+ 		*/
 		slave_params = (struct slave_thread_params *)
 				malloc(sizeof(struct slave_thread_params));
 		slave_params->accept_socket = accept_socket;
@@ -311,11 +315,10 @@ int main(int argc, char *argv[])
 		if (rc) {
 			CRIT("slave_thread failed, rc %d\n : %s",
 							errno, strerror(errno));
-			/* We failed. But don't exit so we can maintain the other
-			 * successful connections we may already have. */
+			/* We failed. But don't exit so we can maintain 
+			 * the other successful connections we may already have.
+			 */
 			continue;
-		} else {
-
 		}
 	} /* while */
 

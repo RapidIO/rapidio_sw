@@ -65,12 +65,14 @@ static FILE *log_file;
 
 void show_help()
 {
-	printf("rskt_client -d<did> -s<socknum> -h -l<len> -t -r<rpt> \n");
+	printf("rskt_client -d<did> -s<socknum> -h -l <log level> -L<len>"
+							" -t -r<rpt> \n");
 	printf("-d<did>    : Destination ID of machine running rskt_server.\n");
 	printf("-s<socknum>: Socket number used by rskt_server\n");
 	printf("             Default is 1234\n");
 	printf("-h         : This help message.\n");
-	printf("-l<len>    : Specify length of data to send (0 to 8192).\n");
+	printf("-l<log level>    : Log severity to display and capture\n");
+	printf("-L<len>    : Specify length of data to send (0 to 8192).\n");
 	printf("             Default is 512 bytes\n");
 	printf("-t         : Use varying data length data. Overrides -l\n");
 	printf("-r<rpt>    : Repeat test this many times. Default is 1\n");
@@ -125,7 +127,7 @@ int main(int argc, char *argv[])
 		goto exit_main;
 	}
 
-	while ((c = getopt(argc, argv, "htd:l:r:s:")) != -1)
+	while ((c = getopt(argc, argv, "htd:l:L:r:s:")) != -1)
 		switch (c) {
 
 		case 'd':
@@ -136,6 +138,10 @@ int main(int argc, char *argv[])
 			exit(1);
 			break;
 		case 'l':
+			g_level = atoi(optarg);
+			g_disp_level = g_level;
+			break;
+		case 'L':
 			data_length = atoi(optarg);
 			break;
 		case 'r':

@@ -1094,7 +1094,7 @@ int rdma_close_ms_h_locked(mso_h msoh, ms_h msh)
 			throw out_msg.close_ms_out.status;
 		}
 
-		INFO("Opened '%s' in the daemon\n", ((loc_ms *)msh)->name.c_str());
+		INFO("Closed '%s' in the daemon\n", ((loc_ms *)msh)->name.c_str());
 
 		/* Take it out of databse */
 		if (remove_loc_ms(msh) < 0) {
