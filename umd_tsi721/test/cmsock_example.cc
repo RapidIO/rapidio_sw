@@ -54,6 +54,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define CM_PORT    666
 
+#define ACCEPT_TO  60*1000 ///< 60s, 0=wait forever
+#define READ_TO    1000    ///< 1000=1s, 0=wait forever
+
 #define abs(x) ((x>=0)? (x): (-x))
 
 volatile int stop_req = 0;
@@ -117,14 +120,15 @@ int main(int argc, char* argv[])
 
     for(; !stop_req;) {
       MportCMSocket* cli_cms = NULL;
-      rc = cms->accept(cli_cms, 60*1000);
+
+      rc = cms->accept(cli_cms, ACCEPT_TO);
       if (rc == ETIME) continue;
       if (rc == EINTR) break;
 
       if (rc) { fprintf(stderr, "accept error %d: %s\n", rc, strerror(abs(rc))); ret = 3; goto exit; }
 
       uint8_t buf[DATA_SZ+1] = {0};
-      rc = cli_cms->read(buf, DATA_SZ, 1000);
+      rc = cli_cms->read(buf, DATA_SZ, READ_TO);
       if (rc) { fprintf(stderr, "read error %d: %s got [%s]\n", rc, strerror(abs(rc)), hexdump(buf, DATA_SZ).c_str()); goto next; }
       if (!memcmp(buf, bufA, DATA_SZ)) {
         rc = cli_cms->write(bufB, DATA_SZ);
@@ -144,7 +148,7 @@ int main(int argc, char* argv[])
     char buf[DATA_SZ] = {0};
     rc = cms->write(bufA, DATA_SZ);
     if (rc) { fprintf(stderr, "write error %d: %s\n", rc, strerror(abs(rc))); ret = 2; goto exit; }
-    rc = cms->read(buf, DATA_SZ, 1000);
+    rc = cms->read(buf, DATA_SZ, READ_TO);
     if (rc) { fprintf(stderr, "read error %d: %s got [%s]\n", rc, strerror(abs(rc)), hexdump(buf, DATA_SZ).c_str()); ret = 3; goto exit; }
     if (memcmp(buf, bufB, DATA_SZ)) fprintf(stderr, "Invalid data read from server!\n");
   }}
