@@ -101,16 +101,25 @@ public:
     if (rc == 0) m_connected = true;
     return rc;
   }
+
+  const int CM_FUDGE_OFFSET = 20;
  
-  /** \note Unlike the libc counterpart this returns 0 on succress, errno on error */
+  /** \note Unlike the libc counterpart this returns 0 on success, errno on error */
   inline int write(const void* data, const int data_len) {
+    uint8_t buffer[4096+CM_FUDGE_OFFSET] = {0};
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
-    return riomp_sock_send(m_sock, (void*)data, data_len);
+    memcpy(buffer+CM_FUDGE_OFFSET, data, data_len);
+    return riomp_sock_send(m_sock, (void*)buffer, data_len);
   }
-  /** \note Unlike the libc counterpart this returns 0 on succress, errno on error */
+  /** \note Unlike the libc counterpart this returns 0 on success, errno on error */
   inline int read(void* data_in, const int data_max_len, uint32_t timeout = 0) {
     if (!m_open || !m_connected) return -(errno=ENOTCONN);
-    return riomp_sock_receive(m_sock, &data_in, data_max_len, timeout);
+    uint8_t buffer[4096+CM_FUDGE_OFFSET] = {0};
+    void* p666 = (void*)buffer;
+    int rc = riomp_sock_receive(m_sock, &p666, data_max_len, timeout);
+    if (rc) return rc;
+    memcpy(data_in, buffer+CM_FUDGE_OFFSET, data_max_len);
+    return 0;
   }
 
   inline void close() {
