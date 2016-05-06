@@ -59,7 +59,7 @@ LIBFLAGS = -shared -fPIC
 SYSLIBS = -lrt -lpthread -ldl 
 LIBRARIES = -lmport -ltime_utils -lcli
 
-all: libumd_tsi721.a libumd_tsi721_nolog.a mbox_client mbox_server
+all: libumd_tsi721.a libumd_tsi721_nolog.a mbox_client mbox_server cmsock_ex
 
 libumd_tsi721.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
