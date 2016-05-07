@@ -45,6 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /** \brief Wrapper class for Mport CM sockets
  * \note CM stands for Channelised Messagings
  * \note Unlike BSD sockets the CM cariety does not support select
+ * \note CM sockets have no flow control so high thruput cannot be expected.
  * \note read can be used in polling mode with a short timeout
  */
 class MportCMSocket {
@@ -131,10 +132,10 @@ public:
     return 0;
   }
 
-  inline void close() {
-    if (!m_open) return;
+  inline int close() {
+    if (!m_open) return -(errno=ENOTCONN);
     m_open = false; m_connected = false; m_bound = false;
-    riomp_sock_close(&m_sock);
+    return riomp_sock_close(&m_sock);
   }
 
 private:
