@@ -248,6 +248,7 @@ int rx_file(struct ibwin_info *info, int *abort_flag)
 	if (info->req_skt) {
         	free(info->msg_rx);   info->msg_rx = NULL;
         	free(info->msg_tx);   info->msg_tx = NULL;
+		ret = info->req_skt->close();
         	delete info->req_skt; info->req_skt = NULL;
 	};
 
