@@ -253,7 +253,7 @@ bool RIOMemOpsUMDd::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/
   std::map<uint64_t, DMAChannelSHM::DmaOptions_t>::iterator it = m_asyncm.find(dmaopt.ticket);
 
   if (it == m_asyncm.end()) // Tough luck
-    throw std::runtime_error("riomp_dma_wait_async: Requested cookie not found in internal database");
+    throw std::runtime_error("RIOMemOpsUMDd::wait_async: Requested cookie not found in internal database");
 
   opt = it->second;
 
