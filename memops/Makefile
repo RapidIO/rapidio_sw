@@ -41,11 +41,11 @@ SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memo
 all: libmemops_intf.so libmemops_intf.a memops_test
 
 libmemops_intf.a: $(SOURCES)
-	$(CXX) -c $(INCLUDES) $(OPTFLAGS) -I$(UMDDINCDIR) $^ -L$(COMMONLIB) -lmport $(LIBS_RPATH)
+	$(CXX) -std=gnu++0x -c $(INCLUDES) $(OPTFLAGS) -I$(UMDDINCDIR) $^ -L$(COMMONLIB) -lmport $(LIBS_RPATH)
 	$(AR) rcs $@ *.o
 
 libmemops_intf.so: $(SOURCES)
-	$(CXX) $(INCLUDES) $(OPTFLAGS) $^ \
+	$(CXX) -std=gnu++0x $(INCLUDES) $(OPTFLAGS) $^ \
 		-shared -fPIC -ldl -L$(COMMONLIB) -lmport $(LIBS_RPATH) $(UMDDIR)/libumd_tsi721_nolog.a -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
