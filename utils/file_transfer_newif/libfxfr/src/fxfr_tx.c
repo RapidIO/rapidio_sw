@@ -224,7 +224,7 @@ void fill_dma_buffer(struct fxfr_tx_state *info, int idx)
 
 void send_dma_buffer(struct fxfr_tx_state *info, int idx)
 {
-	bool rc = false;
+	bool rc = true;
        
 	if (info->bytes_txed) {
 		MEMOPSRequest_t& req = info->mops_req;
@@ -262,7 +262,8 @@ void send_dma_buffer(struct fxfr_tx_state *info, int idx)
 	if (!rc) {
 		info->fail_abort = 1;
 		if(info->debug)
-			 printf("File TX: DMA op failed with %d (%s)\n",
+			 printf("File TX: DMA op failed with rc=%d reason=%d (%s)\n",
+				rc,
 				info->mops->getAbortReason(),
 				info->mops->abortReasonToStr(info->mops->getAbortReason()));
 
