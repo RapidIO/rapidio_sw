@@ -85,9 +85,16 @@ void DMAChannel::init()
   m_restart_pending = 0;
   m_sts_log_two   = 0;
   m_bl_busy_histo = NULL;
+
+#ifdef DHACHAN_TICKETED
+  initTicketed();
+#endif
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
+#ifdef DHACHAN_TICKETED
+  : DMAShmPendingData(mportid)
+#endif
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannel: Invalid channel!");
@@ -99,9 +106,10 @@ DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
   init();
 }
 
-DMAChannel::DMAChannel(const uint32_t mportid,
-                       const uint32_t chan,
-                       riomp_mport_t mp_hd)
+DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_hd)
+#ifdef DHACHAN_TICKETED
+  : DMAShmPendingData(mportid)
+#endif
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannel: Invalid channel!");
@@ -294,6 +302,13 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     wk.bd_idx   = bd_idx;
     wk.ts_start = rdtsc();
 
+#ifdef DHACHAN_TICKETED
+    opt.ts_start = wk.ts_start;
+    opt.ticket   = ++m_serial_number;
+
+    computeNotBefore(opt);
+#endif
+
     pthread_spin_lock(&m_pending_work_splock);
      wk.opt   = opt;
      wk.valid = WI_SIG;
@@ -310,6 +325,16 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     m_dma_wr++;
     setWriteCount(m_dma_wr);
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
+
+#ifdef DHACHAN_TICKETED
+    assert(m_pending_tickets[bd_idx] == 0);
+    m_pending_tickets[bd_idx] = opt.ticket;
+
+    if (m_pendingdata_tally != NULL) {
+      assert(m_pendingdata_tally->data[m_chan] >= 0);
+      m_pendingdata_tally->data[m_chan] += opt.bcount;
+    }
+#endif
   }}
 
   pthread_spin_unlock(&m_bl_splock); 
@@ -377,6 +402,10 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 
   m_pending_work = (WorkItem_t*)calloc(m_bd_num+1, sizeof(WorkItem_t)); // +1 to have a guard, NOT used
 
+#ifdef DHACHAN_TICKETED
+  m_pending_tickets = (uint64_t*)calloc((m_bd_num+1), sizeof(uint64_t));
+#endif
+
   memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
 
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
@@ -408,6 +437,10 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 void DMAChannel::free_dmatxdesc()
 {
   m_mport->unmap_dma_buf(m_dmadesc);
+
+#ifdef DHACHAN_TICKETED
+  free(m_pending_tickets); m_pending_tickets = NULL;
+#endif
 }
 
 static inline bool is_pow_of_two(const uint32_t n)
@@ -758,6 +791,52 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     m_bl_busy_size--;
     assert(m_bl_busy_size >= 0);
 
+#ifdef DHACHAN_TICKETED
+    if (item.opt.dtype == DTYPE3 || idx == (m_bd_num-1)) goto unlock;
+
+    {{
+
+    if (m_pendingdata_tally != NULL) {
+      assert(m_pendingdata_tally->data[m_chan] >= 0);
+      m_pendingdata_tally->data[m_chan] -= item.opt.bcount;
+    }
+
+///    if (item.opt.ticket > m_state->acked_serial_number) m_state->acked_serial_number = item.opt.ticket;
+
+    assert(m_pending_tickets_RP <= m_serial_number);
+
+    const int P = m_serial_number - m_pending_tickets_RP; // Pending issued tickets
+    //assert(P); // If we're here it cannot be 0
+
+    assert(m_pending_tickets[item.bd_idx] > 0);
+    assert(m_pending_tickets[item.bd_idx] == item.opt.ticket);
+
+    m_pending_tickets[item.bd_idx] = 0; // cancel ticket
+
+    int k = 0;
+    int i = m_pending_tickets_RP % m_bd_num;
+    for (; P > 0 && k < m_bd_num; i++) {
+      assert(i < m_bd_num);
+      if (i == 0) continue; // T3 BD0 does not get a ticket
+      if (i == (m_bd_num-1)) { i = 0; continue; } // T3 BD(bufc-1) does not get a ticket
+      if (m_pending_tickets[i] > 0) break; // still in flight
+      k++;
+      if (k == P) break; // Upper bound
+    }
+#ifdef DEBUG_BD
+    XDBG("\n\tDMA bd_idx=%d rtype=%d Ticket=%llu S/N=%llu Pending=%d pending_tickets_RP=%llu => k=%d\n",
+         item.bd_idx, item.opt.rtype, item.opt.ticket, m_state->serial_number, P, m_pending_tickets_RP, k);
+#endif
+    if (k > 0) {
+      m_pending_tickets_RP += k;
+      assert(m_pending_tickets_RP <= m_serial_number);
+      m_acked_serial_number = m_pending_tickets_RP; // XXX Perhaps +1?
+    }
+
+    }}
+unlock:
+#endif // DHACHAN_TICKETED
+
     pthread_spin_unlock(&m_bl_splock); 
   } // END for compl_size
 
@@ -785,6 +864,10 @@ void DMAChannel::softRestart(const bool nuke_bds)
     m_bl_busy_size = 0;
 
     memset(m_pending_work, 0, (m_bd_num+1) * sizeof(WorkItem_t));
+
+#ifdef DHACHAN_TICKETED
+    memset(m_pending_tickets, 0, (m_bd_num+1)*sizeof(uint64_t));
+#endif
   }
 
   struct hw_dma_desc* end_bd_p = (struct hw_dma_desc*)
