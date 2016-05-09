@@ -79,7 +79,7 @@ libumd_tsi721_nolog.a: $(SOURCES) $(INCLUDES)
 
 libumd_tsi721_nolog_tik.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
-	$(CXX) $(CXXFLAGS) -DDHACHAN_TICKETED -I$(UMDDINCDIR) $(LIBFLAGS) $(SOURCES) \
+	$(CXX) $(CXXFLAGS) -DDMACHAN_TICKETED -I$(UMDDINCDIR) $(LIBFLAGS) $(SOURCES) \
 		-c $(SYSLIBS) $(LIBRARIES) 
 	$(AR) rcs $@ *.o
 	cp -v $@ $(COMMONDIR)/libs_a
