@@ -90,8 +90,8 @@ int send_force_disconnect_ms_to_lib(uint32_t server_msid,
 			       info.connected;
 		});
 	if (it == end(connected_to_ms_info_list)) {
-		ERR("No clients connected to memory space!\n");
-		return -1;
+		WARN("No clients connected to memory space!\n");
+		return 0;
 	}
 
 	/* Prepare for force disconnect ack notification BEFORE

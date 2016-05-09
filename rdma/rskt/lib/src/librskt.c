@@ -65,7 +65,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-#define RDMA_CONN_TO_SECS 30
+#define RDMA_CONN_TO_SECS 5
+#define RDMA_CONN_POLL_USECS 50
 #define RDMA_ACC_TO_SECS  30
 
 struct librskt_globals lib;
@@ -85,31 +86,10 @@ char *rskt_state_strs[rskt_max_state] = {
 	(char *)"CLOSED"
 };
 
-void rskt_clear_skt(struct rskt_socket_t *skt) 
+void rskt_clear_skt(volatile struct rskt_socket_t *skt) 
 {
-        skt->debug = 0;
-        skt->max_backlog = 0;
-        skt->sai.sa.ct = 0;
-        skt->sai.sa.sn = 0;
         skt->sai.rtID = 0xFFFFFFFF;
-        skt->sai.rtstat = 0;
 	skt->connector = skt_rmda_uninit;
-	memset((void *)skt->msoh_name, 0, MAX_MS_NAME);
-	skt->msoh_valid = 0;
-	memset((void *)skt->msh_name, 0, MAX_MS_NAME);
-	skt->msh_valid = 0;
-	skt->msubh_valid = 0;
-        skt->msub_sz = 0;
-	skt->msub_p = NULL;
-	skt->tx_buf = NULL;
-	skt->rx_buf = NULL;
-	skt->buf_sz = 0;
-	memset((void *)skt->con_msh_name, 0, MAX_MS_NAME);
-        skt->con_sz = 0;
-	skt->stats.tx_bytes = 0;
-	skt->stats.rx_bytes = 0;
-	skt->stats.tx_trans = 0;
-	skt->stats.rx_trans = 0;
 }; /* rskt_clear_skt() */
 
 struct rsvp_li {
@@ -139,8 +119,7 @@ struct librskt_app_to_rsktd_msg *alloc_app2d(void)
 {
 	struct librskt_app_to_rsktd_msg *ptr;
 	assert(A2RSKTD_SZ >= sizeof(struct librskt_app_to_rsktd_msg)); 
-	ptr = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
-	memset(ptr, 0, A2RSKTD_SZ);
+	ptr = (struct librskt_app_to_rsktd_msg *)calloc(1, A2RSKTD_SZ);
 	ptr->in_use = 1;
 
 	return ptr;
@@ -160,8 +139,7 @@ struct librskt_rsktd_to_app_msg *alloc_d2app(void)
 {
 	struct librskt_rsktd_to_app_msg *ptr;
 	assert(RSKTD2A_SZ >= sizeof(struct librskt_rsktd_to_app_msg));
-	ptr = (struct librskt_rsktd_to_app_msg *)malloc(RSKTD2A_SZ);
-	memset(ptr, 0, RSKTD2A_SZ);
+	ptr = (struct librskt_rsktd_to_app_msg *)calloc(1, RSKTD2A_SZ);
 	ptr->in_use = 1;
 	return ptr;
 };
@@ -180,7 +158,7 @@ fail:
 struct rsvp_li *alloc_rsvp(void)
 {
 	return (struct rsvp_li *)
-		malloc(sizeof(struct rsvp_li));
+		calloc(1, sizeof(struct rsvp_li));
 };
 
 int free_rsvp(struct rsvp_li *ptr)
@@ -312,9 +290,9 @@ void *tx_loop(void *unused)
 		if (NULL == tx)
 			continue;
 
-		DBG("App Sending Type 0d%d 0x%x swap 0d%d 0x%x\n",
-			tx->msg_type, tx->msg_type,
-			htonl(tx->msg_type), htonl(tx->msg_type));
+		DBG("App Sending %s Seq %d\n",
+			LIBRSKT_APP_MSG_TO_STR(htonl(tx->msg_type)),
+			LIBRSKT_APP_2_DMN_MSG_SEQ_NO(tx, htonl(tx->msg_type)) );
 		rc = send(lib.fd, (void *)tx, A2RSKTD_SZ, MSG_EOR);
 		if (rc < 0) {
 			lib.all_must_die = 3;
@@ -342,6 +320,9 @@ void rsvp_loop_resp(struct librskt_rsktd_to_app_msg *rxd)
 	dlyd = (struct rsvp_li *)
 		l_find(&lib.rsvp, ntohl(rxd->a_rsp.req.app_seq_num), &li);
 	if (NULL != dlyd) {
+		DBG("Response thread found for %s Seq %d",
+			LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
+			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
 		memcpy((void *)&dlyd->resp->a_rsp.msg, (void *)&rxd->a_rsp.msg, 
 					sizeof(union librskt_resp_u));
 		dlyd->resp->a_rsp.err = rxd->a_rsp.err;
@@ -349,7 +330,9 @@ void rsvp_loop_resp(struct librskt_rsktd_to_app_msg *rxd)
 		DBG("Calling l_lremove\n");
 		l_lremove(&lib.rsvp, li);
 	} else {
-		DBG("dlyd is NULL\n");
+		DBG("%s Seq %d Discard, dlyd is NULL",
+			LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
+			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
 	}
 exit:
 	sem_post(&lib.rsvp_mtx);
@@ -358,6 +341,9 @@ exit:
 void rsvp_loop_req(struct librskt_rsktd_to_app_msg *rxd)
 {
 	if (htonl(LIBRSKT_CLOSE_CMD) == rxd->msg_type) {
+		DBG("%s Seq %d Add to lib.req",
+			LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
+			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
 		if (librskt_wait_for_sem(&lib.req_mtx, 0x1040)) {
 			WARN("lib.all_must_die = 30");
 			lib.all_must_die = 30;
@@ -367,8 +353,14 @@ void rsvp_loop_req(struct librskt_rsktd_to_app_msg *rxd)
 		l_push_tail(&lib.req, (void *)rxd);
 		sem_post(&lib.req_mtx);
 		sem_post(&lib.req_cnt);
+		DBG("%s Seq %d Added to lib.req",
+			LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
+			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
 		return;
 	};
+	DBG("Discarding %s Seq %d\n",
+		LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
+		LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
 	free(rxd);
 };
 
@@ -410,13 +402,25 @@ void *rsvp_loop(void *unused)
 		};
 		if (lib.all_must_die)
 			goto exit;
+
+		DBG("Received %d bytes max %d, %s Seq %d", rc, 
+			sizeof(struct librskt_rsktd_to_app_msg),
+			LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
+			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
+
 		if (rxd->msg_type & htonl(LIBRSKTD_RESP | LIBRSKTD_FAIL)) {
+			DBG("%s Seq %d Calling rsvp_loop_resp",
+				LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
+			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
 			rsvp_loop_resp(rxd);
 		} else {
+			DBG("%s Seq %d Calling rsvp_loop_req",
+				LIBRSKT_APP_MSG_TO_STR(htonl(rxd->msg_type)),
+			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(rxd, htonl(rxd->msg_type)) );
 			rsvp_loop_req(rxd);
 			rxd = alloc_d2app();
 			if (rxd == NULL) {
-				CRIT("Failed to allocate librskt_rsktd_to_app_msg\n");
+				CRIT("Failed to allocate librskt_rsktd_to_app_msg");
 			}
 		};
 	};
@@ -449,11 +453,11 @@ void lib_rem_skt_from_list(rskt_h skt_h);
 
 void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt)
 {
-	DBG("ENTER with skt->connector = %d\n", skt->connector);
+	DBG("sn %d ENTER with skt->connector = %d", skt_h->sa.sn, skt->connector);
 	if (skt_rmda_uninit != skt->connector) { 
-		DBG("skt->connector != skt_rdma_uninit\n");
+		DBG("sn %d skt->connector != skt_rdma_uninit", skt_h->sa.sn);
 		if (skt->msub_p != NULL)  {
-			DBG("Unmapping skt->msub_p(%p)\n", skt->msub_p);
+			DBG("Unmapping skt->msub_p(%p)", skt->msub_p);
 			rdma_munmap_msub(skt->msubh, (void *)skt->msub_p);
 			skt->msub_p = NULL;
 			skt->rx_buf = NULL;
@@ -461,29 +465,29 @@ void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt)
 			skt->con_sz = 0;
 			skt->msub_sz = 0;
 		} else {
-			DBG("skt->msub_p is NULL\n");
+			DBG("sn %d skt->msub_p is NULL", skt_h->sa.sn);
 		}
 		if (skt_rdma_connector == skt->connector) {
-			DBG("skt->connector == skt_rdma_connector, disconnecting msubh 0x%lx\n", skt->msubh);
+			DBG("sn %d skt->connector == skt_rdma_connector, disconnecting msubh 0x%lx", skt_h->sa.sn, skt->msubh);
 			rdma_disc_ms_h(skt->connh, skt->con_msh, skt->msubh);
 		}
-		DBG("skt->connector != skt_rdma_connector\n");
+		DBG("sn %d skt->connector != skt_rdma_connector", skt_h->sa.sn);
 		if (skt->msubh_valid) {
-			DBG("skt->msubh_valid is true. Closing skt->msubh 0x%lx\n", skt->msubh);
+			DBG("sn %d skt->msubh_valid is true. Closing skt->msubh 0x%lx\n", skt_h->sa.sn, skt->msubh);
 			rdma_destroy_msub_h(skt->msh, skt->msubh);
 			skt->msubh_valid = 0;
 		} else {
-			WARN("skt->msubh_valid is false\n");
+			WARN("sn %d skt->msubh_valid is false", skt_h->sa.sn);
 		}
 		if (skt->msh_valid) {
-			DBG("skt->msh_valid is true. Closing skt->msh\n", skt->msh);
+			DBG("sn %d skt->msh_valid is true. Closing skt->msh", skt_h->sa.sn, skt->msh);
 			rdma_close_ms_h(skt->msoh, skt->msh);
 			skt->msh_valid = 0;
 		} else {
-			WARN("skt->msh_valid is false\n");
+			WARN("sn %d skt->msh_valid is false", skt_h->sa.sn);
 		}
 	} else {
-		DBG("skt->connector == skt_rmda_uninit\n");
+		DBG("sn %d skt->connector == skt_rmda_uninit", skt_h->sa.sn);
 	}
 	lib_rem_skt_from_list(skt_h);
 	free((void *)skt);
@@ -497,7 +501,7 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
 
 	DBG("ENTER\n");
 	if (NULL == skt_h) {
-		WARN("skt_h is NULL...returning\n");
+		WARN("skt_h is NULL...returning");
 		return;
 	}
 
@@ -505,15 +509,16 @@ void lib_handle_dmn_close_req(rskt_h skt_h)
 
 	skt = skt_h->skt;
 	if (skt == NULL) {
+		DBG("skt_h->sa.sn = %d already closed", skt_h->sa.sn);
  		sem_post(&skt_h->mtx);
 		return;
 	}
-	DBG("skt_h->sa.sn = %d skt->sai.sn = %d\n", skt_h->sa.sn,
+	DBG("skt_h->sa.sn = %d skt->sai.sn = %d", skt_h->sa.sn,
 							skt->sai.sa.sn);
 	cleanup_skt(skt_h, skt);
 
 	sem_post(&skt_h->mtx);
-	DBG("EXIT\n");
+	DBG("EXIT");
 };
 
 /* Request Processing Thread */
@@ -535,19 +540,19 @@ void *req_loop(void *unused)
 			resp = alloc_app2d();
 
 			if (resp == NULL) {
-				ERR("Failed to allocate 'resp'\n");
+				ERR("Failed to allocate 'resp'");
 				return NULL;
 			}
 		}
 
 		if (librskt_wait_for_sem(&lib.req_cnt, 0x1060)) {
-			ERR("librskt_wait_for_sem() failed. Exiting\n");
+			ERR("librskt_wait_for_sem() failed. Exiting");
 			goto exit;
 		}
 		if (lib.all_must_die)
 			goto exit;
 		if (librskt_wait_for_sem(&lib.req_mtx, 0x1061)) {
-			ERR("librskt_wait_for_sem() failed. Exiting\n");
+			ERR("librskt_wait_for_sem() failed. Exiting");
 			goto exit;
 		}
 		if (lib.all_must_die)
@@ -555,9 +560,14 @@ void *req_loop(void *unused)
 		req = (struct librskt_rsktd_to_app_msg *)l_pop_head(&lib.req);
 		sem_post(&lib.req_mtx);
 
-		if (NULL == req)
+		if (NULL == req) {
+			DBG("Popped a NULL request???");
 			continue;
+		}
 
+		DBG("%s Seq %d Processing",
+			LIBRSKT_APP_MSG_TO_STR(htonl(req->msg_type)),
+			LIBRSKT_DMN_2_APP_MSG_SEQ_NO(req, htonl(req->msg_type)) );
 		prep_response(req, resp);
 
 		switch (ntohl(req->msg_type)) {
@@ -566,9 +576,9 @@ void *req_loop(void *unused)
 			* Send response when are sure that app can't use this
 			* socket any more.
 			*/
-			INFO("Received LIBRSKT_CLOSE_CMD from RSKTD\n");
+			INFO("Received LIBRSKT_CLOSE_CMD from RSKTD");
 			if (librskt_wait_for_sem(&lib.skts_mtx, 0x1062)) {
-				ERR("librskt_wait_for_sem() failed. Exiting\n");
+				ERR("librskt_wait_for_sem() failed. Exiting");
 				goto exit;
 			}
 			skt_h = (rskt_h)l_find(&lib.skts,
@@ -576,9 +586,15 @@ void *req_loop(void *unused)
 			sem_post(&lib.skts_mtx);
 
 			if (NULL == skt_h) {
-				WARN("skt_h is NULL\n");
+				WARN("%s Seq %d No socket found",
+					LIBRSKT_APP_MSG_TO_STR(htonl(req->msg_type)),
+					LIBRSKT_DMN_2_APP_MSG_SEQ_NO(req, htonl(req->msg_type)) );
 				break;
 			}
+			DBG("%s Seq %d SN %d",
+				LIBRSKT_APP_MSG_TO_STR(htonl(req->msg_type)),
+				LIBRSKT_DMN_2_APP_MSG_SEQ_NO(req, htonl(req->msg_type)),
+				skt_h->sa.sn );
 			lib_handle_dmn_close_req(skt_h);
 			break;
 		default: resp->msg_type |= htonl(LIBRSKTD_FAIL);
@@ -678,13 +694,13 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	/* Socket appears to be open, say hello to RSKTD */
 	req = alloc_app2d();
 	if (req == NULL) {
-		CRIT("Failed to malloc 'req'\n");
+		CRIT("Failed to calloc 'req'\n");
 		goto fail;
 	}
 
 	resp = alloc_d2app();
 	if (resp == NULL) {
-		CRIT("Failed to malloc 'resp'\n");
+		CRIT("Failed to calloc 'resp'\n");
 		free(req);
 		goto fail;
 	}
@@ -775,15 +791,13 @@ int rskt_alloc_skt(rskt_h skt_h)
 	int rc = 1;
 
        	skt_h->skt = (struct rskt_socket_t *)
-		malloc(sizeof(struct rskt_socket_t));
+		calloc(1, sizeof(struct rskt_socket_t));
 	if (NULL == skt_h->skt) {
-		CRIT("Failed to malloc skt_h->skt\n");
+		CRIT("Failed to calloc skt_h->skt\n");
 		goto fail;
 	};
 
 	rskt_clear_skt(skt_h->skt);
-        skt_h->sa.ct = 0;
-        skt_h->sa.sn = 0;
 	skt_h->st = rskt_alloced; /* Don't need mutex, socket just alloc'ed */
 	rc = 0;
 	errno = 0;
@@ -793,10 +807,10 @@ fail:
 
 rskt_h rskt_create_socket(void) 
 {
-	rskt_h skt_h = (rskt_h)malloc(sizeof(struct rskt_handle_t));
+	rskt_h skt_h = (rskt_h)calloc(1, sizeof(struct rskt_handle_t));
 
 	if (NULL == skt_h) {
-		ERR("Failed to malloc skt_h\n: %s\n", strerror(errno));
+		ERR("Failed to calloc skt_h: %s\n", strerror(errno));
 		goto fail;
 	}
 
@@ -1154,7 +1168,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 {
 	struct librskt_app_to_rsktd_msg *tx = NULL;
 	struct librskt_rsktd_to_app_msg *rx = NULL;
-	struct rskt_socket_t *l_skt, *skt;
+	struct rskt_socket_t * volatile l_skt, * volatile skt;
 	int rc = -1;
 
 	DBG("ENTER\n");
@@ -1192,7 +1206,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 			goto close2;
 		}
 	}
-	skt = skt_h->skt;
+	skt = (struct rskt_socket_t *)skt_h->skt;
 
 	if (rskt_listening != l_skt_h->st) {
 		ERR("rskt_listening != l_skt->st..exiting\n");
@@ -1249,7 +1263,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 
 	DBG("ACCEPT OPEN_MS %s", skt->msh_name);
 	rc = rdma_open_ms_h((const char *)skt->msh_name, skt->msoh, 0, 
-			&skt->msub_sz, (ms_h *)&skt->msh);
+			(uint32_t *)&skt->msub_sz, (ms_h *)&skt->msh);
 	DBG("ACCEPT OPEN_MS %s DONE", skt->msh_name);
 	if (rc) {
 		ERR("Failed to open ms(%s) rc %x\n", skt->msh_name, rc);
@@ -1284,7 +1298,7 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 
 	do {
 		rc = rdma_accept_ms_h(skt->msh, skt->msubh,
-				&skt->connh,
+				(conn_h *)&skt->connh,
 				(msub_h *)&skt->con_msubh,
 				(uint32_t *)&skt->con_sz, RDMA_ACC_TO_SECS);
 	} while (rc == RDMA_ACCEPT_TIMEOUT);
@@ -1325,10 +1339,10 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 {
 	struct librskt_app_to_rsktd_msg *tx = NULL;
 	struct librskt_rsktd_to_app_msg *rx = NULL;
-	struct rskt_socket_t *skt;
+	struct rskt_socket_t * volatile skt;
 	int temp_errno;
 	int rc = -1;
-	int conn_retries = 5;
+	int conn_retries = RDMA_CONN_TO_SECS * 1000000 / RDMA_CONN_POLL_USECS;
 
 	DBG("ENTER\n");
 	if (lib_uninit()) {
@@ -1354,7 +1368,7 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 			goto close;
 		}
 	}
-	skt = skt_h->skt;
+	skt = (struct rskt_socket_t *)skt_h->skt;
 
 	if ((rskt_uninit == skt_h->st) ||
 	(rskt_bound == skt_h->st) ||
@@ -1456,8 +1470,18 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 
 	rc = 0;
 	do {
-		if (RDMA_CONNECT_FAIL == rc)
-			sleep(1);
+		if (RDMA_CONNECT_FAIL == rc) {
+			struct timespec req = {0, RDMA_CONN_POLL_USECS * 1000};
+			struct timespec rem = {0, 0};
+			int rc = 0;
+	
+			errno = 0;
+			do {
+				if (rc && (EINTR == errno))
+					req = rem;
+				rc = (nanosleep(&req, &rem));
+			} while (rc && (EINTR == errno));
+		}
 
 		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
 				skt->con_msh_name, skt->msubh,
@@ -1531,7 +1555,7 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 			struct rdma_xfer_ms_in *hdr_in, int inited) {
 	struct rdma_xfer_ms_out hdr_out;
 	uint32_t dma_rd_offset, dma_wr_offset;
-	struct rskt_socket_t *skt = skt_h->skt;
+	volatile struct rskt_socket_t * volatile skt = skt_h->skt;
 
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
 		ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
@@ -1571,7 +1595,8 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	return 0;
 }; /* send_bytes */
 
-int update_remote_hdr(struct rskt_socket_t *skt, struct rdma_xfer_ms_in *hdr_in)
+int update_remote_hdr(struct rskt_socket_t * volatile skt,
+			struct rdma_xfer_ms_in *hdr_in)
 {
 	struct rdma_xfer_ms_out hdr_out;
 	int rc;
@@ -1601,7 +1626,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	uint32_t free_bytes = 0; 
 	struct timespec unused;
 	struct rdma_xfer_ms_in hdr_in;
-	struct rskt_socket_t *skt;
+	struct rskt_socket_t * volatile skt;
 
 	DBG("ENTER\n");
 
@@ -1625,7 +1650,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	/* If skt_h->sk is NULL, the socket was closed while we were waiting
 	 * on skt_h->mtx.
 	 */
-	skt = skt_h->skt;
+	skt = (struct rskt_socket_t *)skt_h->skt;
 	if (NULL == skt) {
 		ERR("skt_h->skt is NULL\n");
 		goto skt_ok;
@@ -1656,7 +1681,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 			ERR("librskt_wait_for_sem failed...exiting\n");
 			goto fail;
 		}
-		skt = skt_h->skt;
+		skt = (struct rskt_socket_t *)skt_h->skt;
 		if ((NULL == skt) || errno) {
 			DBG("skt is NULL\n");
 			errno = ECONNRESET;
@@ -1773,7 +1798,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	struct timespec unused;
 	struct rdma_xfer_ms_in hdr_in;
 	uint32_t first_offset;
-	struct rskt_socket_t *skt;
+	struct rskt_socket_t * volatile skt;
 	int	rc;
 
 	DBG("ENTER\n");
@@ -1797,7 +1822,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	/* If skt_h->skt is NULL, the socket was closed while we were waiting
 	 * for the semaphore. Just exit.
 	 */
-	skt = skt_h->skt;
+	skt = (struct rskt_socket_t *)skt_h->skt;
 	if (NULL == skt) {
 		DBG("skt is NULL\n");
 		errno = ECONNRESET;
@@ -1840,7 +1865,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 			ERR("librskt_wait_for_sem failed...exiting\n");
 			goto fail;
 		}
-		skt = skt_h->skt;
+		skt = (struct rskt_socket_t *)skt_h->skt;
 		if (NULL == skt) {
 			DBG("skt is NULL\n");
 			errno = ECONNRESET;
@@ -1914,7 +1939,7 @@ skt_ok:
 
 int rskt_recv( rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 {
-	struct rskt_socket_t *skt;
+	volatile struct rskt_socket_t * volatile skt;
 
 	if (lib_uninit()) {
 		ERR("lib_uninit() failed\n");
@@ -1945,7 +1970,7 @@ int rskt_recv( rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 
 int rskt_flush(rskt_h skt_h, struct timespec timeout)
 {
-	struct rskt_socket_t *skt;
+	volatile struct rskt_socket_t * volatile skt;
 
 	DBG("ENTER");
 	if (lib_uninit()) {
@@ -2002,10 +2027,10 @@ int rskt_close(rskt_h skt_h)
 {
 	struct librskt_app_to_rsktd_msg *tx;
 	struct librskt_rsktd_to_app_msg *rx;
-	struct rskt_socket_t *skt;
+	volatile struct rskt_socket_t * volatile skt;
 	struct rdma_xfer_ms_in hdr_in;
 
-	DBG("ENTER\n");
+	DBG("ENTER SN %d", skt_h->sa.sn);
 	if (lib_uninit()) {
 		ERR("%s\n", strerror(errno));
 		return -errno;
@@ -2029,7 +2054,7 @@ int rskt_close(rskt_h skt_h)
 		skt = skt_h->skt;
 
 		if (NULL == skt) {
-			ERR("skt is NULL\n");
+			ERR("sn %d skt is NULL", skt_h->sa.sn);
 			sem_post(&skt_h->mtx);
 			return 0;
 		}
@@ -2042,7 +2067,7 @@ int rskt_close(rskt_h skt_h)
 		hdr_in.rem_msubh = skt->con_msubh;
 		hdr_in.priority = 0;
 		hdr_in.sync_type = rdma_sync_chk;
-		if (update_remote_hdr(skt, &hdr_in)) {
+		if (update_remote_hdr((struct rskt_socket_t *)skt, &hdr_in)) {
 			skt->hdr->loc_tx_wr_flags |=
 					htonl(RSKT_BUF_HDR_FLAG_ERROR);
 			skt->hdr->loc_rx_rd_flags |=
@@ -2080,7 +2105,7 @@ int rskt_close(rskt_h skt_h)
 	skt_h->st = rskt_closed;
 
 	if (NULL == skt) {
-		ERR("skt is NULL\n");
+		ERR("sn %d skt is NULL", skt_h->sa.sn);
 		sem_post(&skt_h->mtx);
 		return 0;
 	}

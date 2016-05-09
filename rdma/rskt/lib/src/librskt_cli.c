@@ -53,7 +53,10 @@ extern "C" {
 void librskt_display_skt(struct cli_env *env, struct rskt_handle_t *skt_h,
                         int row, int header)
 {
-	struct rskt_socket_t *skt = skt_h->skt;
+	struct rskt_socket_t *skt;
+
+	sem_wait(&skt_h->mtx);
+	skt = (struct rskt_socket_t *)skt_h->skt;
 
 	if (!row) {
 /*
@@ -78,7 +81,8 @@ con msub:    01234567                                   F 0x01234567
         		logMsg(env);
 		};
 		if (NULL == skt)
-			return;
+			goto exit;
+
 		sprintf(env->output, 
 			"State    : %2d %8s         Bytes      Trans   Ptr\n",
 			skt_h->st, SKT_STATE_STR(skt_h->st));
@@ -163,11 +167,11 @@ con msub:    01234567                                   F 0x01234567
 			(NULL == skt->hdr)?0:ntohl(skt->hdr->rem_tx_rd_flags));
 		logMsg(env);
 
-		return;
+		goto exit;
 	};
 
 	if (NULL == skt)
-		return;
+		goto exit;
 
 	if (header)
         	sprintf(env->output, "State  CT  SN   Size  BuffSize  REM MS NAME  Size\n");
@@ -178,6 +182,9 @@ con msub:    01234567                                   F 0x01234567
 			skt->msub_sz, skt->buf_sz,
 			skt->con_msh_name, skt->con_sz);
         logMsg(env);
+
+exit:
+	sem_post(&skt_h->mtx);
 };
 			
 extern struct cli_cmd RSKTLStatus;
@@ -492,7 +499,7 @@ int RSKTDataDumpCmd(struct cli_env *env, int argc, char **argv)
 	if (argc)
 		goto print_help;
 
-	skt = t_skt_h->skt;
+	skt = (struct rskt_socket_t *)t_skt_h->skt;
 	sprintf(env->output, "State : %d - \"%s\"\n", 
 			t_skt_h->st, SKT_STATE_STR(t_skt_h->st)); 
 	logMsg(env);

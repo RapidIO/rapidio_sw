@@ -65,6 +65,50 @@ extern "C" {
 
 #define MAX_APP_NAME 48
 
+#define LIBRSKT_APP_MSG_TO_STR(x) ( \
+        (LIBRSKTD_BIND == x)?           "BIND   ": \
+        (LIBRSKTD_BIND_RESP == x)?      "BINDRSP": \
+        (LIBRSKTD_LISTEN == x)?         "LIST   ": \
+        (LIBRSKTD_LISTEN_RESP == x)?    "LISTRSP": \
+        (LIBRSKTD_ACCEPT == x)?         "ACC    ": \
+        (LIBRSKTD_ACCEPT_RESP == x)?    "ACC RSP": \
+        (LIBRSKTD_CONN == x)?           "CON    ": \
+        (LIBRSKTD_CONN_RESP == x)?      "CON RSP": \
+        (LIBRSKTD_CLOSE == x)?          "CLOS   ": \
+        (LIBRSKTD_CLOSE_RESP == x)?     "CLOS   ": \
+        (LIBRSKTD_HELLO == x)?          "HELO   ": \
+        (LIBRSKTD_HELLO_RESP == x)?     "HELORSP": \
+        (LIBRSKT_CLOSE_CMD == x)?       "LCLS   ": \
+        (LIBRSKT_CLOSE_CMD_RESP == x)?  "LCLSRSP":"UNKNOWN")
+
+#define LIBRSKT_APP_2_DMN_MSG_SEQ_NO(x, y) (( \
+        (LIBRSKTD_BIND == y) || \
+        (LIBRSKTD_LISTEN == y) || \
+        (LIBRSKTD_ACCEPT == y) || \
+        (LIBRSKTD_CONN == y) || \
+        (LIBRSKTD_CLOSE == y) || \
+        (LIBRSKTD_HELLO == y)|| \
+        (LIBRSKT_CLOSE_CMD == y))? ntohl(x->a_rq.app_seq_num): \
+        ((LIBRSKTD_BIND_RESP == y) || \
+        (LIBRSKTD_LISTEN_RESP == y) || \
+        (LIBRSKTD_ACCEPT_RESP == y) || \
+        (LIBRSKTD_CONN_RESP == y) || \
+        (LIBRSKTD_CLOSE_RESP == y) || \
+        (LIBRSKTD_HELLO_RESP == y) || \
+        (LIBRSKT_CLOSE_CMD_RESP == y))?ntohl(x->rsp_a.req_a.rsktd_seq_num): \
+        0xFFFFFFFF)
+
+#define LIBRSKT_DMN_2_APP_MSG_SEQ_NO(x, y) (( \
+        (LIBRSKT_CLOSE_CMD == y))? ntohl(x->rq_a.rsktd_seq_num): \
+        ((LIBRSKTD_BIND_RESP == y) || \
+        (LIBRSKTD_LISTEN_RESP == y) || \
+        (LIBRSKTD_ACCEPT_RESP == y) || \
+        (LIBRSKTD_CONN_RESP == y) || \
+        (LIBRSKTD_CLOSE_RESP == y) || \
+        (LIBRSKTD_HELLO_RESP == y) || \
+        (LIBRSKT_CLOSE_CMD_RESP == y))?ntohl(x->a_rsp.req.app_seq_num): \
+        0xFFFFFFFF)
+
 /* Requests sent from library to RSKTD */
 
 struct librskt_hello_req {

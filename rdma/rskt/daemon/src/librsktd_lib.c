@@ -57,7 +57,7 @@ struct librsktd_connect_globals lib_st;
 
 void enqueue_app_msg(struct librsktd_unified_msg *msg)
 {
-        INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s con_req",
+        INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
                 UMSG_W_OR_S(msg),
                 UMSG_CT(msg),
                 msg->msg_type,
@@ -151,6 +151,8 @@ void *app_tx_loop(void *unused)
 
 		/* Send message to application */
 		if (valid_flag) {
+			DBG("Sending %s Seq %d", LIBRSKT_APP_MSG_TO_STR(ntohl(msg->tx->msg_type)), 
+				LIBRSKT_DMN_2_APP_MSG_SEQ_NO(msg->tx, ntohl(msg->tx->msg_type)));
 			if (send((*msg->app)->app_fd, (void *)msg->tx, 
 					RSKTD2A_SZ, MSG_EOR) != RSKTD2A_SZ){
 				(*msg->app)->i_must_die = 33;
@@ -172,6 +174,9 @@ void handle_app_msg(struct librskt_app *app,
 	struct librsktd_unified_msg *msg;
 	struct l_item_t *li;
 	uint32_t seq_num;
+
+	DBG("Received %s Seq %d", LIBRSKT_APP_MSG_TO_STR(ntohl(rxed->msg_type)), 
+		LIBRSKT_APP_2_DMN_MSG_SEQ_NO(rxed, ntohl(rxed->msg_type)));
 
 	if (rxed->msg_type & htonl(LIBRSKTD_RESP)) {
 		/* Have a valid response for a SPEER to APP request. */
@@ -320,7 +325,8 @@ void *app_rx_loop(void *ip)
 
                 if ((rc <= 0) || app->i_must_die || dmn.all_must_die) {
                 	if (rc <= 0)
-                		HIGH("App has died!\n");
+                		HIGH("App has died! rc %d errno %d %s\n",
+					rc, errno, strerror(errno));
                         break;
                 }
 		handle_app_msg(app, rxed);

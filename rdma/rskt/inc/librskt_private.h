@@ -189,10 +189,10 @@ struct rskt_handle_t {
 	enum rskt_state st; /* Must own mtx to change st */
 	struct rskt_sockaddr sa; /* address of local socket,
 				  *must own mtx before changing */
-	struct rskt_socket_t * volatile skt;
+	volatile struct rskt_socket_t * volatile skt;
 };
 
-extern void rskt_clear_skt(struct rskt_socket_t *skt);
+extern void rskt_clear_skt(volatile struct rskt_socket_t * volatile skt);
 
 void librskt_bind_cli_cmds(void);
 

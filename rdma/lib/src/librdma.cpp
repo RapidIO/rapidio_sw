@@ -352,12 +352,12 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 	sem_wait(engine_cleanup_sem);
 
 	HIGH("Cleaning up dead engines!\n");
-	if (tx_eng->isdead()) {
+	if ((tx_eng != nullptr) && tx_eng->isdead()) {
 		HIGH("Killing tx_eng\n");
 		tx_eng.reset();
 	}
 
-	if (rx_eng->isdead()) {
+	if ((rx_eng != nullptr) && rx_eng->isdead()) {
 		HIGH("Killing rx_eng\n");
 		rx_eng.reset();
 	}
@@ -1183,9 +1183,11 @@ int rdma_destroy_ms_h_locked(mso_h msoh, ms_h msh)
 
 int rdma_destroy_ms_h(mso_h msoh, ms_h msh)
 {
+	DBG("ENTER");
 	sem_wait(&rdma_lock);
 	auto rc = rdma_destroy_ms_h_locked(msoh, msh);
 	sem_post(&rdma_lock);
+	DBG("EXIT");
 
 	return rc;
 };
@@ -1335,9 +1337,11 @@ int rdma_destroy_msub_h_locked(ms_h msh, msub_h msubh)
 
 int rdma_destroy_msub_h(ms_h msh, msub_h msubh)
 {
+	DBG("ENTER");
 	sem_wait(&rdma_lock);
 	auto rc = rdma_destroy_msub_h_locked(msh, msubh);
 	sem_post(&rdma_lock);
+	DBG("EXIT");
 
 	return rc;
 };
@@ -2238,7 +2242,8 @@ static int dma_push_pull_msub(bool is_push,
 				rmsub->rio_addr_lo + in->rem_offset,
 				lmsub->paddr);
 
-			rc = riomp_dma_write_d(peer.mport_hnd,
+			do {
+				rc = riomp_dma_write_d(peer.mport_hnd,
 				    (uint16_t)rmsub->destid,
 				    rmsub->rio_addr_lo + in->rem_offset,
 				    lmsub->paddr,
@@ -2246,6 +2251,8 @@ static int dma_push_pull_msub(bool is_push,
 				    in->num_bytes,
 					RIO_DIRECTIO_TYPE_NWRITE_R,
 				    rd_sync);
+			} while (rc && ((EINTR == errno) || (EBUSY == errno)));
+
 			if (rc < 0) {
 				ERR("riomp_dma_write_d() failed:(%d) %s\n",
 						rc, strerror(errno));
@@ -2258,13 +2265,16 @@ static int dma_push_pull_msub(bool is_push,
 						rmsub->rio_addr_lo + in->rem_offset,
 						lmsub->paddr);
 
-			rc = riomp_dma_read_d(peer.mport_hnd,
+			do {
+				rc = riomp_dma_read_d(peer.mport_hnd,
 					(uint16_t)rmsub->destid,
 					rmsub->rio_addr_lo + in->rem_offset,
 					lmsub->paddr,
 					in->loc_offset,
 					in->num_bytes,
 					rd_sync);
+			} while (rc && ((EINTR == errno) || (EBUSY == errno)));
+
 			if (rc < 0) {
 				ERR("riomp_dma_read_d() failed:(%d) %s\n",
 						rc, strerror(rc));
