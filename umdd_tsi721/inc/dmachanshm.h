@@ -49,6 +49,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mport.h"
 #include "pshm.h"
 #include "dmadesc.h"
+#include "dmashmpdata.h"
 #include "rdtsc.h"
 #include "debug.h"
 #include "libtime_utils.h"
@@ -84,7 +85,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
-class DMAChannelSHM {
+class DMAChannelSHM : public DMAShmPendingData {
 public:
   static const int DMA_MAX_CHAN = 8;
 
@@ -92,12 +93,6 @@ public:
 
   static const int DMA_SHM_MAX_CLIENTS = 64;
   static const int DMA_SHM_MAX_ITEMS_PER_CLIENT = 1024;
-
-
-  /** \brief Track in-flight pending bytes for all channels. This lives in SHM. */
-  typedef struct {
-    volatile uint64_t data[DMA_MAX_CHAN];
-  } DmaShmPendingData_t;
 
   enum {
     SIM_INJECT_TIMEOUT = 1,
@@ -434,10 +429,6 @@ private:
 
   POSIXShm*           m_shm_bl;
   char                m_shm_bl_name[129];
-
-  POSIXShm*           m_shm_pendingdata;
-  char                m_shm_pendingdata_name[129];
-  DmaShmPendingData_t*m_pendingdata_tally;
 
   // These two live in m_shm_bl back-to-back
   bool*               m_bl_busy;

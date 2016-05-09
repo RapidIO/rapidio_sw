@@ -68,7 +68,7 @@ typedef struct {
   int (*queueDmaOpT1)(void* dch, enum dma_rtype rtype, DMAChannelSHM::DmaOptions_t* opt, RioMport::DmaMem_t* mem, uint32_t* abort_reason, struct seq_ts* ts_p);
   int (*queueDmaOpT2)(void* dch, enum dma_rtype rtype, DMAChannelSHM::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
 
-  void (*getShmPendingData)(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client);
+  void (*getShmPendingData)(void* dch, uint64_t* total, DMAShmPendingData::DmaShmPendingData_t* per_client);
 
   bool (*has_state)(uint32_t mport_it, uint32_t channel);
 
@@ -142,7 +142,7 @@ void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan)
   libp->queueDmaOpT2 = (int (*)(void*, enum dma_rtype, DMAChannelSHM::DmaOptions_t*, uint8_t*, int, uint32_t*, seq_ts*))dlsym(libp->dlh, "DMAChannelSHM_queueDmaOpT2");
   assert(libp->queueDmaOpT2);
 
-  libp->getShmPendingData = (void (*)(void*, uint64_t*, DMAChannelSHM::DmaShmPendingData_t*))dlsym(libp->dlh, "DMAChannelSHM_getShmPendingData");
+  libp->getShmPendingData = (void (*)(void*, uint64_t*, DMAShmPendingData::DmaShmPendingData_t*))dlsym(libp->dlh, "DMAChannelSHM_getShmPendingData");
   assert(libp->getShmPendingData);
 
   libp->has_state = (bool (*)(uint32_t, uint32_t))dlsym(libp->dlh, "DMAChannelSHM_has_state");
@@ -238,7 +238,7 @@ int DMAChannelSHM_queueDmaOpT2(void* dch, dma_rtype rtype, DMAChannelSHM::DmaOpt
   return ((DMAChannelSHMPtr_t*)dch)->queueDmaOpT2(((DMAChannelSHMPtr_t*)dch)->dch, rtype, opt, data, data_len, abort_reason, ts_p);
 }
 
-void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client)
+void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAShmPendingData::DmaShmPendingData_t* per_client)
 {
   assert(((DMAChannelSHMPtr_t*)dch)->sig == SIG);
   ((DMAChannelSHMPtr_t*)dch)->getShmPendingData(((DMAChannelSHMPtr_t*)dch)->dch, total, per_client);

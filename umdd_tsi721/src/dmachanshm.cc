@@ -61,8 +61,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DMA_SHM_TXDESC_NAME	"DMAChannelSHM-txdesc:%d:%d"
 #define DMA_SHM_TXDESC_SIZE	((m_state->bd_num+1)*sizeof(bool) + (m_state->bd_num+1)*sizeof(WorkItem_t) + (m_state->bd_num+1)*sizeof(uint64_t))
 
-#define DMA_SHM_PENDINGDATA_NAME "DMAChannelSHM-pendingdata:%d"
-
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
 /** \brief Private gettid(2) implementation */
@@ -132,7 +130,6 @@ void DMAChannelSHM::init(const uint32_t chan)
   }
   memset(m_shm_bl_name, 0, sizeof(m_shm_bl_name));
   memset(m_shm_state_name, 0, sizeof(m_shm_state_name));
-  memset(m_shm_pendingdata_name, 0, sizeof(m_shm_pendingdata_name));
 
   MHz = getCPUMHz();
 
@@ -156,11 +153,6 @@ void DMAChannelSHM::init(const uint32_t chan)
   m_sim_abort_reason = 0;
   m_sim_err_stat = 0;
 
-
-  bool first_opener_pdata = true;
-  snprintf(m_shm_pendingdata_name, 128, DMA_SHM_PENDINGDATA_NAME, m_mportid);
-  m_shm_pendingdata = new POSIXShm(m_shm_pendingdata_name, sizeof(DmaShmPendingData_t), first_opener_pdata);
-  m_pendingdata_tally = (DmaShmPendingData_t*)m_shm_pendingdata->getMem();
 
   bool first_opener = true;
   const int shm_size = sizeof(DmaChannelState_t);
@@ -240,7 +232,8 @@ void DMAChannelSHM::init(const uint32_t chan)
   memset(m_state->client_completion, 0, sizeof(m_state->client_completion));
 }
 
-DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan) : m_state(NULL)
+DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan) :
+  DMAShmPendingData(mportid), m_state(NULL)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannelSHM: Invalid channel!");
@@ -255,9 +248,8 @@ DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan) : m_st
   m_state->chan  = chan;
 }
 
-DMAChannelSHM::DMAChannelSHM(const uint32_t mportid,
-                       const uint32_t chan,
-                       riomp_mport_t mp_hd) : m_state(NULL)
+DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_hd) :
+  DMAShmPendingData(mportid), m_state(NULL)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannelSHM: Invalid channel!");
@@ -1667,11 +1659,11 @@ int DMAChannelSHM_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannelSHM::D
   return r;
 }
 
-void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client)
+void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAShmPendingData::DmaShmPendingData_t* per_client)
 {
   if (dch == NULL || total == NULL) return;
 
-  DMAChannelSHM::DmaShmPendingData_t perc;
+  DMAShmPendingData::DmaShmPendingData_t perc;
   ((DMAChannelSHM*)dch)->getShmPendingData(*total, perc);
 
   if (per_client != NULL) *per_client = perc;
