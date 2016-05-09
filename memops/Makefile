@@ -40,20 +40,22 @@ SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memo
 
 all: libmemops_intf.so libmemops_intf.a memops_test
 
+LFLAGS = -std=gnu++0x -DDMACHAN_TICKETED $(OPTFLAGS)
+
 libmemops_intf.a: $(SOURCES)
-	$(CXX) -std=gnu++0x -c $(INCLUDES) $(OPTFLAGS) -I$(UMDDINCDIR) $^ -L$(COMMONLIB) -lmport $(LIBS_RPATH)
+	$(CXX) $(LFLAGS) -c $(INCLUDES) -I$(UMDDINCDIR) $^ -L$(COMMONLIB) -lmport $(LIBS_RPATH)
 	$(AR) rcs $@ *.o
 
 libmemops_intf.so: $(SOURCES)
-	$(CXX) -std=gnu++0x $(INCLUDES) $(OPTFLAGS) $^ \
-		-shared -fPIC -ldl -L$(COMMONLIB) -lmport $(LIBS_RPATH) $(UMDDIR)/libumd_tsi721_nolog.a -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
+	$(CXX) $(LFLAGS) $(INCLUDES) $^ \
+		-shared -fPIC -ldl -L$(COMMONLIB) -lmport $(LIBS_RPATH) $(UMDDIR)/libumd_tsi721_nolog_tik.a -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
 memops_test: $(SOURCES) src/memops_test.cc
-	$(CXX) -ggdb -O0 src/memops_test.cc \
+	$(CXX) -ggdb -O0 -DDMACHAN_TICKETED src/memops_test.cc \
 		$(INCLUDES) \
 		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
-		-ltime_utils -lmport -lmemops_intf -L$(COMMONLIBA) -lumd_tsi721_nolog -o $@
+		-ltime_utils -lmport -lmemops_intf -L$(COMMONLIBA) -lumd_tsi721_nolog_tik -o $@
 
 clean:
 	rm -f *.[ao] *.so* a.out memops_test
