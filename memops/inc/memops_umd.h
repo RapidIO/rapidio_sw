@@ -52,17 +52,12 @@ public:
   virtual bool queueFull() { return m_dch->queueFull(); }
   virtual bool canRestart() { return true; }
 
-  virtual bool canSync() { return false; }
-  virtual bool canAsync() { return false; }
-
   virtual bool restartChannel() { m_dch->softRestart(); return true; }
 
   virtual bool nread_mem(MEMOPSRequest_t& dmaopt /*inout*/);
   virtual bool nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/);
 
-  virtual bool wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking*/) {
-    throw std::runtime_error("RIOMemOpsUMD::wait_async: Operation not supported! Use FAF.");
-  }
+  virtual bool wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking*/);
 
   virtual bool alloc_umem(DmaMem_t& mem /*out*/, const int size) {
     throw std::runtime_error("RIOMemOpsUMD::alloc_umem: Unsupported memory type!");
@@ -113,6 +108,9 @@ private:
   void*         m_dma_fifo_callback_arg;
 
   LockChannel*  m_lock;
+
+  uint32_t      m_cookie_cutter;
+  std::map<uint64_t, DMAChannel::DmaOptions_t> m_asyncm;
 };
 
 #endif //__MEMOPS_UMD_H__

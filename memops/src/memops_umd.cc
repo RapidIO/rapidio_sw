@@ -41,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "dmachanshm.h"
 
+#define UMD_SLEEP_NS    1 // Setting this to 0 will compile out nanosleep syscall
 
 static int getCPUCount()
 {
@@ -136,6 +137,8 @@ RIOMemOpsUMD::RIOMemOpsUMD(const int mport_id, const int chan) : RIOMemOpsMport(
 
   m_dch = new DMAChannel(mport_id, chan, m_mp_h); // Will throw on error
   m_chan = chan;
+
+  m_cookie_cutter = 0;
 }
 
 RIOMemOpsUMD::~RIOMemOpsUMD()
@@ -149,7 +152,9 @@ RIOMemOpsUMD::~RIOMemOpsUMD()
   }
 
   delete m_dch;
+
   // Note: m_mp_h destroyed by ~RIOMemOpsMport
+ 
   delete m_lock; 
 }
 
@@ -316,6 +321,42 @@ bool RIOMemOpsUMD::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
     }
   }
 
+  if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_FAF) return true;
+
+  if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
+    uint32_t cookie = ++m_cookie_cutter;
+    m_asyncm[cookie] = opt;
+    dmaopt.ticket = cookie;
+    return cookie;
+  }
+
+  // Only left RIO_DIRECTIO_TRANSFER_SYNC
+  for (int cnt = 0;; cnt++) {
+    const DMAChannel::TicketState_t st = m_dch->checkTicket(opt);
+    if (st == DMAChannel::COMPLETED) break;
+    if (st == DMAChannel::INPROGRESS) {
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+      struct timespec sl = {0, UMD_SLEEP_NS};
+      if (cnt == 0) {
+        uint64_t total_data_pending = 0;
+        DMAShmPendingData::DmaShmPendingData_t perc;
+        m_dch->getShmPendingData(total_data_pending, perc);
+        if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+      }
+      nanosleep(&sl, NULL);
+#endif
+      continue;
+    }
+    if (st == DMAChannel::BORKED) {
+      uint64_t t = 0;
+      const int deq = m_dch->dequeueFaultedTicket(t);
+      if (deq)
+           fprintf(stderr, "UMD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+      else fprintf(stderr, "UMD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
+      m_errno = EIO; return false;
+    }
+  }
+
   return true;
 }
 
@@ -368,7 +409,93 @@ bool RIOMemOpsUMD::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
     return false;
   }
 
+  if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_FAF) return true;
+
+  if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
+    uint32_t cookie = ++m_cookie_cutter;
+    m_asyncm[cookie] = opt;
+    dmaopt.ticket = cookie;
+    return cookie;
+  }
+
+  // Only left RIO_DIRECTIO_TRANSFER_SYNC
+  for (int cnt = 0;; cnt++) {
+    const DMAChannel::TicketState_t st = m_dch->checkTicket(opt);
+    if (st == DMAChannel::COMPLETED) break;
+    if (st == DMAChannel::INPROGRESS) {
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+      struct timespec sl = {0, UMD_SLEEP_NS};
+      if (cnt == 0) {
+        uint64_t total_data_pending = 0;
+        DMAShmPendingData::DmaShmPendingData_t perc;
+        m_dch->getShmPendingData(total_data_pending, perc);
+        if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
+      }
+      nanosleep(&sl, NULL);
+#endif
+      continue;
+    }
+    if (st == DMAChannel::BORKED) {
+      uint64_t t = 0;
+      const int deq = m_dch->dequeueFaultedTicket(t);
+      if (deq)
+           fprintf(stderr, "UMD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+      else fprintf(stderr, "UMD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
+      m_errno = EIO; return false;
+    }
+  }
+
   return true;
+}
+
+bool RIOMemOpsUMD::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking*/)
+{
+  m_errno = 0;
+
+  if (dmaopt.ticket <= 0) return false;
+
+  DMAChannel::DmaOptions_t opt; memset(&opt, 0, sizeof(opt));
+  std::map<uint64_t, DMAChannel::DmaOptions_t>::iterator it = m_asyncm.find(dmaopt.ticket);
+
+  if (it == m_asyncm.end()) // Tough luck
+    throw std::runtime_error("RIOMemOpsUMD::wait_async: Requested cookie not found in internal database");
+
+  opt = it->second;
+
+  m_asyncm.erase(it); // XXX This takes a lot of time :()
+
+  uint64_t now = 0;
+  while ((now = rdtsc()) < opt.not_before) {
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+    struct timespec sl = {0, UMD_SLEEP_NS};
+    nanosleep(&sl, NULL);
+#endif
+  }
+
+  for (int cnt = 0 ;; cnt++) {
+    const DMAChannel::TicketState_t st = m_dch->checkTicket(opt);
+    if (st == DMAChannel::COMPLETED) return true;
+    if (st == DMAChannel::BORKED) {
+      uint64_t t = 0;
+      m_dch->dequeueFaultedTicket(t);
+      fprintf(stderr, "UMD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+      m_errno = EIO; return false;
+    }
+
+    // Last-ditch wait ??
+    if (st == DMAChannel::INPROGRESS) {
+#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
+      struct timespec sl = {0, UMD_SLEEP_NS};
+      sl.tv_nsec = opt.not_before_dns;
+      nanosleep(&sl, NULL);
+#endif
+      continue;
+    }
+  }
+
+  // Should not reach here
+  m_errno = EINVAL;
+  return false;
 }
 
 const char* RIOMemOpsUMD::abortReasonToStr(int abort_reason)

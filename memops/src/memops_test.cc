@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
   req.mem.rio_address = RIO_ANY_ADDR;
   mops->alloc_dmawin(req.mem, 40960);
   req.mem.offset = TR_SZ;
-  req.sync       = mops->canSync()? RIO_DIRECTIO_TRANSFER_SYNC: RIO_DIRECTIO_TRANSFER_FAF;
+  req.sync       = RIO_DIRECTIO_TRANSFER_SYNC;
   req.wr_mode    = RIO_DIRECTIO_TYPE_NWRITE_R;
 
   uint8_t* p = (uint8_t*)req.mem.win_ptr;
