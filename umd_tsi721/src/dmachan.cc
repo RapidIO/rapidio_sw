@@ -86,13 +86,13 @@ void DMAChannel::init()
   m_sts_log_two   = 0;
   m_bl_busy_histo = NULL;
 
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
   initTicketed();
 #endif
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
   : DMAShmPendingData(mportid)
 #endif
 {
@@ -107,7 +107,7 @@ DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan)
 }
 
 DMAChannel::DMAChannel(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_hd)
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
   : DMAShmPendingData(mportid)
 #endif
 {
@@ -302,7 +302,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     wk.bd_idx   = bd_idx;
     wk.ts_start = rdtsc();
 
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
     opt.ts_start = wk.ts_start;
     opt.ticket   = ++m_serial_number;
 
@@ -326,7 +326,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     setWriteCount(m_dma_wr);
     if(m_dma_wr == 0xFFFFFFFE) m_dma_wr = 0;
 
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
     assert(m_pending_tickets[bd_idx] == 0);
     m_pending_tickets[bd_idx] = opt.ticket;
 
@@ -402,7 +402,7 @@ bool DMAChannel::alloc_dmatxdesc(const uint32_t bd_cnt)
 
   m_pending_work = (WorkItem_t*)calloc(m_bd_num+1, sizeof(WorkItem_t)); // +1 to have a guard, NOT used
 
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
   m_pending_tickets = (uint64_t*)calloc((m_bd_num+1), sizeof(uint64_t));
 #endif
 
@@ -438,7 +438,7 @@ void DMAChannel::free_dmatxdesc()
 {
   m_mport->unmap_dma_buf(m_dmadesc);
 
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
   free(m_pending_tickets); m_pending_tickets = NULL;
 #endif
 }
@@ -791,7 +791,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     m_bl_busy_size--;
     assert(m_bl_busy_size >= 0);
 
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
     if (item.opt.dtype == DTYPE3 || idx == (m_bd_num-1)) goto unlock;
 
     {{
@@ -835,7 +835,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
 
     }}
 unlock:
-#endif // DHACHAN_TICKETED
+#endif // DMACHAN_TICKETED
 
     pthread_spin_unlock(&m_bl_splock); 
   } // END for compl_size
@@ -856,6 +856,23 @@ void DMAChannel::softRestart(const bool nuke_bds)
   memset(m_dmacompl.win_ptr, 0, m_dmacompl.win_size);
   m_fifo_rd = 0;
 
+#ifdef DMACHAN_TICKETED
+  if (nuke_bds) { // Declare ALL tickets toast
+    pthread_spin_lock(&m_fault_splock);
+    for (int idx = 1; idx < (m_bd_num - 1); idx++) {
+      if (! m_bl_busy[idx]) continue;
+
+      const uint64_t ticket = m_pending_work[idx].opt.ticket;
+
+      m_bad_tik.enq(ticket);
+    }
+    pthread_spin_unlock(&m_fault_splock);
+
+    // FUUDGE
+    m_acked_serial_number = m_serial_number;
+  }
+#endif // DMACHAN_TICKETED
+
   if (nuke_bds) {
     // Clear BDs
     memset(m_dmadesc.win_ptr, 0, m_dmadesc.win_size);
@@ -865,7 +882,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
 
     memset(m_pending_work, 0, (m_bd_num+1) * sizeof(WorkItem_t));
 
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
     memset(m_pending_tickets, 0, (m_bd_num+1)*sizeof(uint64_t));
 #endif
   }

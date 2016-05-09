@@ -51,7 +51,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "debug.h"
 #include "libtime_utils.h"
 
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
  #include "dmashmpdata.h"
 #endif
 
@@ -71,7 +71,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
 class DMAChannel 
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
   : public DMAShmPendingData
 #endif
 {
@@ -97,7 +97,7 @@ public:
         uint8_t  msb2;
         uint64_t lsb64;
       } raddr;
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
       uint64_t ts_start;
       uint64_t ticket; ///< ticket issued at enq time
       uint64_t not_before; ///< earliest rdtsc ts when ticket can be checked
@@ -337,7 +337,7 @@ public:
 	wr32dmachan_nolock(offset, val);
   };
 
-#ifdef DHACHAN_TICKETED
+#ifdef DMACHAN_TICKETED
 private:
   // EVIL PLAN: Keep WP, RP as 64-bit and use them modulo DMA_SHM_MAX_ITEMS
   static const int DMA_SHM_MAX_ITEMS = 1024;
@@ -373,6 +373,7 @@ private:
   uint64_t            m_pending_tickets_RP;
   volatile uint64_t   m_serial_number;
   volatile uint64_t   m_acked_serial_number; ///< Arriere-garde of completed tickets
+  pthread_spinlock_t  m_fault_splock;
 
   inline void initTicketed()
   {
@@ -383,6 +384,8 @@ private:
     m_pending_tickets_RP = 0;
     m_serial_number      = 0;
     m_acked_serial_number= 0;
+
+    pthread_spin_init(&m_fault_splock, PTHREAD_PROCESS_PRIVATE);
   }
 
   inline void computeNotBefore(DmaOptions_t& opt)
@@ -420,11 +423,22 @@ private:
 
 public:
   typedef enum {
-    UMDD_DEAD  = -42,
     BORKED     = -1,
     INPROGRESS = 1,
     COMPLETED  = 2
   } TicketState_t;
+
+  /** \brief Dequeue 1st available faulted ticket
+   * \return true if something was dequeued
+   */
+  inline bool dequeueFaultedTicket(uint64_t& res)
+  {
+    pthread_spin_lock(&m_fault_splock);
+    const bool r = m_bad_tik.deq(res);
+    pthread_spin_unlock(&m_fault_splock);
+
+    return r;
+  }
 
   /** \brief Check whether the transaction associated with this ticket has completed
    * \note It could be completed or in error, true is returned anyways
@@ -439,12 +453,14 @@ public:
     bool found_bad = false;
 
     if (m_bad_tik.queueSize() > 0) {
+      pthread_spin_lock(&m_fault_splock);
       for (uint64_t idx = m_bad_tik.RP; idx < m_bad_tik.WP; idx++) {
         if (opt.ticket == m_bad_tik.tickets[idx % DMA_SHM_MAX_ITEMS]) {
           found_bad = true;
           break;
         }
       }
+      pthread_spin_unlock(&m_fault_splock);
     }
 
     if (found_bad) return BORKED;
@@ -456,7 +472,23 @@ public:
   }
 
   inline uint64_t getAckedSN() { return m_acked_serial_number; }
-#endif // DHACHAN_TICKETED
+
+  /** \brief Tally up all pending data across all channels managed
+   * \note Kernel may have in-flight data fighting for the same bandwidth. We cannot account for that.
+   */
+  inline void getShmPendingData(uint64_t& total, DmaShmPendingData_t& per_client)
+  {
+    if (m_pendingdata_tally == NULL) { total = 0; return; }
+
+    memcpy(&per_client, m_pendingdata_tally, sizeof(DmaShmPendingData_t));
+
+    uint64_t max_mem = per_client.data[m_chan];
+
+    total = 0;
+    for(int i = 0; i < DMA_MAX_CHAN; i++)
+      total += (per_client.data[i] < max_mem)?per_client.data[i]:max_mem;
+  }
+#endif // DMACHAN_TICKETED
 };
 
 #endif /* __DMACHAN_H__ */
