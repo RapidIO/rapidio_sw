@@ -61,10 +61,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #ifdef RDMA_LL
-  #define XDBG		DBG
-  #define XINFO		INFO
-  #define XCRIT		CRIT
-  #define XERR		ERR
+  #define XDBG    DBG
+  #define XINFO   INFO
+  #define XCRIT   CRIT
+  #define XERR    ERR
 #else
   #define XDBG(format, ...) 
   #define XINFO(format, ...) 
@@ -204,8 +204,7 @@ public:
   }
   inline bool queueDmaOpT2(enum dma_rtype  rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
-    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16))
-	return false;
+    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16)) return false;
   
     RioMport::DmaMem_t lmem; memset(&lmem, 0, sizeof(lmem));
   
@@ -553,14 +552,14 @@ private:
     uint64_t ns = 0;
 
     if (m_pendingdata_tally != NULL) {
-	uint64_t max_data = m_pendingdata_tally->data[m_state->chan];
+      uint64_t max_data = m_pendingdata_tally->data[m_state->chan];
       for(int i = 1 /*Kern uses 0 for maint*/; i < DMA_MAX_CHAN; i++) {
-	if (m_pendingdata_tally->data[i] < max_data)
-		ns += m_pendingdata_tally->data[i];
-	else
-		ns += max_data;
-	};
-	ns = ns/2;
+        if (m_pendingdata_tally->data[i] < max_data)
+          ns += m_pendingdata_tally->data[i];
+        else
+          ns += max_data;
+      }
+      ns = ns/2;
     } else { // Fall back to information at hand
       switch(opt.rtype) {
         case NREAD:         ns = opt.bcount; break;
@@ -604,7 +603,7 @@ public:
     
     total = 0;
     for(int i = 0; i < DMA_MAX_CHAN; i++)
-	total += (per_client.data[i] < max_mem)?per_client.data[i]:max_mem;
+      total += (per_client.data[i] < max_mem)?per_client.data[i]:max_mem;
   }
 
   /** \brief Crude Seventh Edition-style check for SHM Master liveliness */
@@ -658,7 +657,7 @@ public:
 
   inline void trace_dmachan(uint32_t offset, uint32_t val)
   {
-	wr32dmachan_nolock(offset, val);
+    wr32dmachan_nolock(offset, val);
   };
 };
 
