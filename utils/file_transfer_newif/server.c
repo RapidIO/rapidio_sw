@@ -681,14 +681,14 @@ void *conn_loop(void *ret)
 	rc = conn_skt->bind(xfer_skt_num);
 	if (rc) {
 		if (debug)
-			printf("conn_loop: riomp_sock_bind() ERR %d\n", rc);
+			printf("conn_loop: riomp_sock_bind() ERR %d (%s)\n", rc, strerror(errno));
 		goto close_skt;
 	}
 
 	rc = conn_skt->listen();
 	if (rc) {
 		if (debug)
-			printf("conn_loop: riomp_sock_listen() ERR %d\n", rc);
+			printf("conn_loop: riomp_sock_listen() ERR %d (%s)\n", rc, strerror(errno));
 		goto close_skt;
 	}
 
@@ -704,8 +704,7 @@ void *conn_loop(void *ret)
 			if ((errno == ETIME) || (errno == EINTR))
 				continue;
 			if (debug)
-				printf("conn_loop: riomp_accept() ERR %d\n",
-					rc);
+				printf("conn_loop: riomp_accept() ERR %d (%s)\n", rc, strerror(errno));
 			break;
 		}
 
