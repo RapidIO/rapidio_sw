@@ -97,10 +97,6 @@ public:
 
   virtual bool queueFull() { return false; } ///< Impl which do not support this SHALL return false
 
-  virtual bool canFaf() { return true; }
-  virtual bool canSync() { return true; }
-  virtual bool canAsync() { return true; }
-
   virtual bool nread_mem(MEMOPSRequest_t& dmaopt /*inout*/) = 0;
   virtual bool nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/) = 0;
 
