@@ -109,7 +109,11 @@ bool RIOMemOpsMport::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*
   m_errno = 0;
   if (dmaopt.ticket <= 0) return false;
 
-  return 0 == riomp_dma_wait_async(m_mp_h, dmaopt.ticket, timeout);
+  int rc = riomp_dma_wait_async(m_mp_h, dmaopt.ticket, timeout);
+  if (!rc) return true;
+
+  m_errno = rc;
+  return false;
 }
 
 bool RIOMemOpsMport::alloc_dmawin(DmaMem_t& mem /*out*/, const int _size)
