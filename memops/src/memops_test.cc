@@ -51,10 +51,13 @@ void usage(const char* name)
 
 MEMOPSAccess_t met[] = { MEMOPS_MPORT, MEMOPS_UMDD, MEMOPS_UMD };
 
+const char* met_str[] = { "mport", "UMDd/SHM", "UMD" };
+
 int main(int argc, char* argv[])
 {
   if (argc < 4) usage(argv[0]);
 
+  const char* sync_str = "SYNC";
   enum riomp_dma_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
 
   int ret = 0;
@@ -64,9 +67,9 @@ int main(int argc, char* argv[])
     if (argc < 5 || strlen(argv[n]) < 2) usage(argv[0]);
 
     switch(argv[n][1]) {
-      case 'A': sync = RIO_DIRECTIO_TRANSFER_ASYNC; timeout = 0; break;
-      case 'a': sync = RIO_DIRECTIO_TRANSFER_ASYNC; break;
-      case 'F': sync = RIO_DIRECTIO_TRANSFER_FAF; break;
+      case 'A': sync = RIO_DIRECTIO_TRANSFER_ASYNC; timeout = 0; sync_str = "ASYNC(inft)"; break;
+      case 'a': sync = RIO_DIRECTIO_TRANSFER_ASYNC; sync_str = "ASYNC(tmout)"; break;
+      case 'F': sync = RIO_DIRECTIO_TRANSFER_FAF; sync_str = "FAF"; break;
       default: fprintf(stderr, "%s: Invalid option %s\n", argv[0], argv[n]);
                usage(argv[0]);
                break;
@@ -84,7 +87,7 @@ int main(int argc, char* argv[])
   int chan = 7;
   if (getenv("UMD_CHAN") != NULL) chan = atoi(getenv("UMD_CHAN"));
 
-  printf("Method=%d destid=%u rio_addr=0x%llx [chan=%d]\n", m, did, rio_addr, chan);
+  printf("HW access method=%s %s destid=%u rio_addr=0x%llx [chan=%d]\n", met_str[m], sync_str, did, rio_addr, chan);
 
   RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, chan);
 
@@ -129,7 +132,7 @@ int main(int argc, char* argv[])
     bool r = mops->wait_async(req, timeout);
     if (!r) {
       int abort = mops->getAbortReason();
-      fprintf(stderr, "%s NWRITE_R async wait failed after %dms with reason %d (%s)\n", argv[0], timeout,  abort, mops->abortReasonToStr(abort));
+      fprintf(stderr, "NWRITE_R async wait failed after %dms with reason %d (%s)\n", timeout, abort, mops->abortReasonToStr(abort));
       ret = 42; goto done;
     }
   }
@@ -149,7 +152,7 @@ int main(int argc, char* argv[])
     bool r = mops->wait_async(req, timeout);
     if (!r) {
       int abort = mops->getAbortReason();
-      fprintf(stderr, "%s NREAD async wait failed after %dms with reason %d (%s)\n", argv[0], timeout,  abort, mops->abortReasonToStr(abort));
+      fprintf(stderr, "NREAD async wait failed after %dms with reason %d (%s)\n", timeout, abort, mops->abortReasonToStr(abort));
       ret = 42; goto done;
     }
   }
