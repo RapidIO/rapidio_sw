@@ -36,9 +36,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "memops.h"
 #include "memops_umd.h"
 
+int timeout = 1000; // miliseconds
+
 void usage(const char* name)
 {
-  fprintf(stderr, "usage: %s <method> <destid> <hexrioaddr>\n", name);
+  fprintf(stderr, "usage: %s [-A|-a|-F] <method> <destid> <hexrioaddr>\n" \
+                  "\t\t-A async transaction, blocking forever\n" \
+                  "\t\t-a async transaction, blocking %dms\n" \
+                  "\t\t-F faf transaction\n" \
+                  "\t\tNote: default is sync\n" \
+                  "\t\tMethod: 0=mport, 1=UMDd/SHM, 2=UMD\n", name, timeout);
   exit(0);
 }
 
@@ -48,9 +55,24 @@ int main(int argc, char* argv[])
 {
   if (argc < 4) usage(argv[0]);
 
+  enum riomp_dma_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
+
   int ret = 0;
   int n = 1;
 
+  if (argv[n][0] == '-') {
+    if (argc < 5 || strlen(argv[n]) < 2) usage(argv[0]);
+
+    switch(argv[n][1]) {
+      case 'A': sync = RIO_DIRECTIO_TRANSFER_ASYNC; timeout = 0; break;
+      case 'a': sync = RIO_DIRECTIO_TRANSFER_ASYNC; break;
+      case 'F': sync = RIO_DIRECTIO_TRANSFER_FAF; break;
+      default: fprintf(stderr, "%s: Invalid option %s\n", argv[0], argv[n]);
+               usage(argv[0]);
+               break;
+    }
+    n++;
+  }
   int m = atoi(argv[n++]);
   if (m < 0 || m > 2) return 1;
   
@@ -88,9 +110,10 @@ int main(int argc, char* argv[])
   req.mem.rio_address = RIO_ANY_ADDR;
   mops->alloc_dmawin(req.mem, 40960);
   req.mem.offset = TR_SZ;
-  req.sync       = RIO_DIRECTIO_TRANSFER_SYNC;
+  req.sync       = sync;
   req.wr_mode    = RIO_DIRECTIO_TYPE_NWRITE_R;
 
+// NWRITE_R
   uint8_t* p = (uint8_t*)req.mem.win_ptr;
   p[TR_SZ] = 0xdb;
   p[TR_SZ+1] = 0xae;
@@ -102,6 +125,16 @@ int main(int argc, char* argv[])
     goto done;
   }
  
+  if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
+    bool r = mops->wait_async(req, timeout);
+    if (!r) {
+      int abort = mops->getAbortReason();
+      fprintf(stderr, "%s NWRITE_R async wait failed after %dms with reason %d (%s)\n", argv[0], timeout,  abort, mops->abortReasonToStr(abort));
+      ret = 42; goto done;
+    }
+  }
+
+// NREAD
   req.raddr.lsb64 = rio_addr + 256; 
   req.mem.offset = 0;
 
@@ -111,6 +144,15 @@ int main(int argc, char* argv[])
     ret = 1;
     goto done;
   } 
+
+  if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
+    bool r = mops->wait_async(req, timeout);
+    if (!r) {
+      int abort = mops->getAbortReason();
+      fprintf(stderr, "%s NREAD async wait failed after %dms with reason %d (%s)\n", argv[0], timeout,  abort, mops->abortReasonToStr(abort));
+      ret = 42; goto done;
+    }
+  }
 
   printf("Mem-in:\n");
   for (int i = 0; i < TR_SZ; i++) {

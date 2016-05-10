@@ -55,7 +55,7 @@ memops_test: $(SOURCES) src/memops_test.cc
 	$(CXX) -ggdb -O0 -std=gnu++0x -DDMACHAN_TICKETED src/memops_test.cc \
 		$(INCLUDES) \
 		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
-		-ltime_utils -lmport -lmemops_intf -L$(COMMONLIBA) -lumd_tsi721_nolog_tik -lpthread -lrt -o $@
+		-ltime_utils -lmport -lmemops_intf -lcli -llog -L$(COMMONLIBA) -lumd_tsi721_tik -lpthread -lrt -o $@
 
 clean:
 	rm -f *.[ao] *.so* a.out memops_test
