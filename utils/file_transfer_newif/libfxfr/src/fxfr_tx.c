@@ -172,6 +172,8 @@ fail:
 void rx_msg_from_server(struct fxfr_tx_state *info)
 {
 	int ret = info->req_skt->read(info->msg_rx, info->msg_buff_size, 0);
+	if (ret == ECONNRESET && info->end_of_file == 1)
+		return;
 	if (ret) {
 		printf("File TX: riomp_sock_receive() ERR %d (%s)\n", ret, strerror(ret));
 		info->fail_abort = 1;
