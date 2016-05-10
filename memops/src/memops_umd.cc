@@ -271,9 +271,6 @@ bool RIOMemOpsUMD::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   if (dmaopt.mem.type != DMAMEM) 
     throw std::runtime_error("RIOMemOpsUMD::nwrite_mem: Unsupported memory type!");
 
-  if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_ASYNC || dmaopt.sync == RIO_DIRECTIO_TRANSFER_SYNC)
-    throw std::runtime_error("RIOMemOpsUMD::nwrite_mem: Operation not supported! Use FAF.");
-
   m_errno = 0;
   dmaopt.ticket = 0;
 
@@ -362,9 +359,6 @@ bool RIOMemOpsUMD::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 
 bool RIOMemOpsUMD::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
 {
-  if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_ASYNC || dmaopt.sync == RIO_DIRECTIO_TRANSFER_SYNC)
-    throw std::runtime_error("RIOMemOpsUMD::nwrite_mem: Operation not supported! Use FAF.");
-
   if (dmaopt.mem.type != DMAMEM) 
     throw std::runtime_error("RIOMemOpsUMD::nwrite_mem: Unsupported memory type!");
 
