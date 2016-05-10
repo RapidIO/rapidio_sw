@@ -185,7 +185,6 @@ struct rskt_socket_t {
 };
 
 struct rskt_handle_t {
-	sem_t mtx;
 	enum rskt_state st; /* Must own mtx to change st */
 	struct rskt_sockaddr sa; /* address of local socket,
 				  *must own mtx before changing */
@@ -195,6 +194,8 @@ struct rskt_handle_t {
 extern void rskt_clear_skt(volatile struct rskt_socket_t * volatile skt);
 
 void librskt_bind_cli_cmds(void);
+
+#define RSKT_NUM_SKTS 0x10000
 
 struct librskt_globals {
         int portno;	/* RSKTD port number to connect to */
@@ -227,7 +228,7 @@ struct librskt_globals {
 	uint32_t test;		/* Messaging in test mode */
 
 	sem_t skts_mtx;		/* Mutex for access to skts list */
-	struct l_head_t skts;	/* List of sockets in use by this app */
+	struct l_head_t skts;   /* List of sockets in use by this app */
 				/* Data is **rskt_socket_t */
 };
 

@@ -230,7 +230,7 @@ retry_read:
 		if (memcmp(send_buf, recv_buf, data_length)) {
 			printf("!!! Iteration %u Data did not compare. FAILED.\n", i);
 		} else {
-			if (g_level >= 2) {
+			if (g_level > 2) {
 				printf("*** Iteration %u, DATA COMPARED OK ***\n", i);
 			} else {
 				if (i && !(i % 100))

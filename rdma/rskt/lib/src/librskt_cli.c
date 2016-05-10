@@ -55,7 +55,7 @@ void librskt_display_skt(struct cli_env *env, struct rskt_handle_t *skt_h,
 {
 	struct rskt_socket_t *skt;
 
-	sem_wait(&skt_h->mtx);
+	sem_wait(&lib.skts_mtx);
 	skt = (struct rskt_socket_t *)skt_h->skt;
 
 	if (!row) {
@@ -184,7 +184,7 @@ con msub:    01234567                                   F 0x01234567
         logMsg(env);
 
 exit:
-	sem_post(&skt_h->mtx);
+	sem_post(&lib.skts_mtx);
 };
 			
 extern struct cli_cmd RSKTLStatus;

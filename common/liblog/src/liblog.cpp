@@ -122,7 +122,7 @@ int rdma_log(unsigned level,
 	     const char *format,
 	     ...)
 {
-	char buffer[LOG_LINE_SIZE];
+	char buffer[LOG_LINE_SIZE] = {0};
 	va_list	args;
 	int	n, p;
 	time_t	cur_time;
