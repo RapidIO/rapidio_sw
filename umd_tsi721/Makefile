@@ -59,7 +59,7 @@ LIBFLAGS = -shared -fPIC
 SYSLIBS = -lrt -lpthread -ldl 
 LIBRARIES = -lmport -ltime_utils -lcli
 
-all: libumd_tsi721.a libumd_tsi721_nolog.a libumd_tsi721_nolog_tik.a mbox_client mbox_server cmsock_ex
+all: libumd_tsi721.a libumd_tsi721_nolog.a libumd_tsi721_tik.a libumd_tsi721_nolog_tik.a mbox_client mbox_server cmsock_ex
 
 libumd_tsi721.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
@@ -72,6 +72,14 @@ libumd_tsi721.a: $(SOURCES) $(INCLUDES)
 libumd_tsi721_nolog.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
 	$(CXX) $(CXXFLAGS) $(LIBFLAGS) $(SOURCES) \
+		-c $(SYSLIBS) $(LIBRARIES) 
+	$(AR) rcs $@ *.o
+	cp -v $@ $(COMMONDIR)/libs_a
+	@rm -f *.o
+
+libumd_tsi721_tik.a: $(SOURCES) $(INCLUDES)
+	@rm -f *.o
+	$(CXX) $(CXXFLAGS) -DRDMA_LL=$(LOG_LEVEL) -DDMACHAN_TICKETED -I$(UMDDINCDIR) $(LIBFLAGS) $(SOURCES) \
 		-c $(SYSLIBS) $(LIBRARIES) 
 	$(AR) rcs $@ *.o
 	cp -v $@ $(COMMONDIR)/libs_a
