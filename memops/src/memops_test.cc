@@ -57,6 +57,13 @@ int main(int argc, char* argv[])
 {
   if (argc < 4) usage(argv[0]);
 
+ /* UMD and UMDd/SHM require a HW channel set in the shell env like so
+  *   export UMD_CHAN=5
+  *
+  * UMDd/SHM needs access to a .so, provded that this program is executed in ~/rapidio_sw/memops
+  *   export UMDD_LIB=../umdd_tsi721/libUMDd.so.0.4
+  */
+
   const char* sync_str = "SYNC";
   enum riomp_dma_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
 
