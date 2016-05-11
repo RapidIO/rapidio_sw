@@ -87,8 +87,11 @@ typedef struct {
   uint64_t ticket; ///< For async this is the ticket (UMD) [u64] or kernel cookie [u32]
 } MEMOPSRequest_t;
 
-/** \bried Wrapper Interface for NREAD/NWRITE code */
+/** \brief Wrapper Interface for NREAD/NWRITE code */
 class RIOMemOpsIntf {
+public:
+  static const int MAX_TIMEOUT = 6100; // 6.1 sec
+
 public:
   virtual ~RIOMemOpsIntf() {;}
 
