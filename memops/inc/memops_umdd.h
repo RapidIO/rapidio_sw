@@ -51,7 +51,7 @@ public:
   virtual bool nread_mem(MEMOPSRequest_t& dmaopt /*inout*/);
   virtual bool nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/);
 
-  virtual bool wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking*/);
+  virtual bool wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking, milisec*/);
 
   virtual bool alloc_umem(DmaMem_t& mem /*out*/, const int size) {
     throw std::runtime_error("RIOMemOpsUMDd::alloc_umem: Unsupported memory type!");
@@ -59,6 +59,9 @@ public:
 
   virtual int getAbortReason();
   virtual const char* abortReasonToStr(const int dma_abort_reason);
+
+private:
+  bool poll_ticket(DMAChannelSHM::DmaOptions_t& opt, int timeout /*0=blocking, milisec*/);
 
 private:
   void*         m_dch;

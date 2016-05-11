@@ -133,33 +133,7 @@ bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   }
 
   // Only left RIO_DIRECTIO_TRANSFER_SYNC
-  for (int cnt = 0;; cnt++) {
-    const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(m_dch, &opt);
-    if (st == DMAChannelSHM::UMDD_DEAD) { m_errno = ENOTCONN; return false; }
-    if (st == DMAChannelSHM::COMPLETED) break;
-    if (st == DMAChannelSHM::INPROGRESS) {
-#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
-      struct timespec sl = {0, UMD_SLEEP_NS};
-      if (cnt == 0) {
-        uint64_t total_data_pending = 0;
-        DMAChannelSHM_getShmPendingData(m_dch, &total_data_pending, NULL);
-        if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
-      }
-      nanosleep(&sl, NULL);
-#endif
-      continue;
-    }
-    if (st == DMAChannelSHM::BORKED) {
-      uint64_t t = 0;
-      const int deq = DMAChannelSHM_dequeueFaultedTicket(m_dch, &t);
-      if (deq)
-           fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
-      else fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
-      m_errno = EIO; return false;
-    }
-  }
-
-  return true;
+  return poll_ticket(opt, MAX_TIMEOUT);
 }
 
 bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
@@ -212,33 +186,64 @@ bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   }
 
   // Only left RIO_DIRECTIO_TRANSFER_SYNC
-  for (int cnt = 0;; cnt++) {
+  return poll_ticket(opt, MAX_TIMEOUT);
+}
+
+bool RIOMemOpsUMDd::poll_ticket(DMAChannelSHM::DmaOptions_t& opt, int timeout /*0=blocking, milisec*/)
+{
+  m_errno = 0;
+
+  if (opt.ticket == 0)
+    throw std::runtime_error("RIOMemOpsUMD::poll_ticket: No ticket to ckeck!");
+
+  struct timespec st_time; memset(&st_time, 0, sizeof(st_time));
+
+  if (timeout > 0) {
+    clock_gettime(CLOCK_MONOTONIC, &st_time);
+    timeout *= 1000 * 1000; // make it nsec
+  }
+
+  for (int cnt = 0 ;; cnt++) {
     const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(m_dch, &opt);
     if (st == DMAChannelSHM::UMDD_DEAD) { m_errno = ENOTCONN; return false; }
-    if (st == DMAChannelSHM::COMPLETED) break;
+
+    if (st == DMAChannelSHM::COMPLETED) return true;
+
+    if (st == DMAChannelSHM::BORKED) {
+      uint64_t t = 0;
+      DMAChannelSHM_dequeueFaultedTicket(m_dch, &t);
+      fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
+      m_errno = EIO; return false;
+    }
+
+    // Last-ditch wait ??
     if (st == DMAChannelSHM::INPROGRESS) {
 #if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
       struct timespec sl = {0, UMD_SLEEP_NS};
-      if (cnt == 0) {
-        uint64_t total_data_pending = 0;
-        DMAChannelSHM_getShmPendingData(m_dch, &total_data_pending, NULL);
-        if (total_data_pending > UMD_SLEEP_NS) sl.tv_nsec = total_data_pending;
-      }
+      sl.tv_nsec = opt.not_before_dns;
       nanosleep(&sl, NULL);
 #endif
-      continue;
+      goto next;
     }
-    if (st == DMAChannelSHM::BORKED) {
-      uint64_t t = 0;
-      const int deq = DMAChannelSHM_dequeueFaultedTicket(m_dch, &t);
-      if (deq)
-           fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
-      else fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d)\n", __func__, opt.ticket, st);
-      m_errno = EIO; return false;
+
+next:
+    if (timeout == 0) continue; // XXX No protection here against infinite loops, unlike UMD/monolithic
+
+    // Enforce the timeout
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
+    struct timespec dT = time_difference(st_time, now);
+    const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
+    if (nsec > timeout) {
+      fprintf(stderr, "UMDD %s: Ticket %lu timed out in %llu nsec\n", __func__, opt.ticket, nsec);
+      m_errno = ETIMEDOUT; return false;
     }
   }
 
-  return true;
+  // Should not reach here
+  m_errno = EINVAL;
+  return false;
 }
 
 bool RIOMemOpsUMDd::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking*/)
@@ -266,31 +271,7 @@ bool RIOMemOpsUMDd::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/
 #endif
   }
 
-  for (int cnt = 0 ;; cnt++) {
-    const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(m_dch, &opt);
-    if (st == DMAChannelSHM::UMDD_DEAD) { m_errno = ENOTCONN; return false; }
-    if (st == DMAChannelSHM::COMPLETED) return true;
-    if (st == DMAChannelSHM::BORKED) {
-      uint64_t t = 0;
-      DMAChannelSHM_dequeueFaultedTicket(m_dch, &t);
-      fprintf(stderr, "UMDD %s: Ticket %lu status BORKED (%d) dequeued faulted ticket %lu\n", __func__, opt.ticket, st, t);
-      m_errno = EIO; return false;
-    }
-
-    // Last-ditch wait ??
-    if (st == DMAChannelSHM::INPROGRESS) {
-#if defined(UMD_SLEEP_NS) && UMD_SLEEP_NS > 0
-      struct timespec sl = {0, UMD_SLEEP_NS};
-      sl.tv_nsec = opt.not_before_dns;
-      nanosleep(&sl, NULL);
-#endif
-      continue;
-    }
-  }
-
-  // Should not reach here
-  m_errno = EINVAL;
-  return false;
+  return poll_ticket(opt, timeout);
 }
 
 const char* RIOMemOpsUMDd::abortReasonToStr(int abort_reason)
