@@ -158,6 +158,8 @@ RIOMemOpsUMD::~RIOMemOpsUMD()
   // Note: m_mp_h destroyed by ~RIOMemOpsMport
  
   delete m_lock; 
+
+  pthread_mutex_destroy(&m_asyncm_mutex);
 }
 
 void* RIOMemOpsUMD_fifo_proc_thr(void* arg)

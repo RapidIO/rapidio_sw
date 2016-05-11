@@ -75,6 +75,7 @@ RIOMemOpsUMDd::~RIOMemOpsUMDd()
   m_asyncm.clear();
   DMAChannelSHM_destroy(m_dch);
   // Note: m_mp_h destroyed by ~RIOMemOpsMport
+  pthread_mutex_destroy(&m_asyncm_mutex);
 }
 
 bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
