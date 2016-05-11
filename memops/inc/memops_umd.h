@@ -48,9 +48,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class RIOMemOpsUMD : public RIOMemOpsMport {
 public:
-  static const int MAX_TIMEOUT = 6100; // 6.1 sec
-
-public:
   RIOMemOpsUMD(const int mport, const int chan);
   virtual ~RIOMemOpsUMD();
   
