@@ -816,6 +816,8 @@ void DMAChannelSHM::cleanup()
   memset(&m_dmadesc, 0, sizeof(m_dmadesc));
   memset(&m_dmacompl, 0, sizeof(m_dmacompl));
   
+  if (m_pendingdata_tally != NULL) m_pendingdata_tally->data[m_state->chan] = 0;
+
   if (m_pending_work != NULL) {
     assert(m_pending_work[m_state->bd_num].valid == 0);
     m_pending_work = NULL;
@@ -1199,6 +1201,8 @@ void DMAChannelSHM::softRestart(const bool nuke_bds)
     memset(m_pending_work, 0, (m_state->bd_num+1) * sizeof(WorkItem_t));
 
     memset(m_pending_tickets, 0, (m_state->bd_num+1)*sizeof(uint64_t));
+
+    if (m_pendingdata_tally != NULL) m_pendingdata_tally->data[m_state->chan] = 0;
   }
 
   // Just be paranoid about wrap-around descriptor

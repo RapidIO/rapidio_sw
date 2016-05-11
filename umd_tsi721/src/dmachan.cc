@@ -603,6 +603,10 @@ void DMAChannel::cleanup()
     free(m_pending_work); m_pending_work = NULL;
   }
 
+#ifdef DMACHAN_TICKETED
+  if (m_pendingdata_tally != NULL) m_pendingdata_tally->data[m_chan] = 0;
+#endif
+
   if(m_bl_busy != NULL) {
     free(m_bl_busy); m_bl_busy = NULL;
     m_bl_busy_size = -1;
@@ -884,6 +888,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
 
 #ifdef DMACHAN_TICKETED
     memset(m_pending_tickets, 0, (m_bd_num+1)*sizeof(uint64_t));
+    if (m_pendingdata_tally != NULL) m_pendingdata_tally->data[m_chan] = 0;
 #endif
   }
 

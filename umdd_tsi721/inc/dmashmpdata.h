@@ -27,6 +27,8 @@ protected:
     m_pendingdata_tally = (DmaShmPendingData_t*)m_shm_pendingdata->getMem();
   }
 
+  ~DMAShmPendingData() { delete m_shm_pendingdata; }
+
 protected:
   POSIXShm*           m_shm_pendingdata;
   char                m_shm_pendingdata_name[129];
