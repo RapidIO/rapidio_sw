@@ -38,6 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <semaphore.h>
 
+#include "libtime_utils.h"
+
 #include "memops.h"
 #include "memops_mport.h"
 
@@ -45,6 +47,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "chanlock.h"
 
 class RIOMemOpsUMD : public RIOMemOpsMport {
+public:
+  static const int MAX_TIMEOUT = 6100; // 6.1 sec
+
 public:
   RIOMemOpsUMD(const int mport, const int chan);
   virtual ~RIOMemOpsUMD();
@@ -67,7 +72,7 @@ public:
   virtual bool nread_mem(MEMOPSRequest_t& dmaopt /*inout*/);
   virtual bool nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/);
 
-  virtual bool wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking*/);
+  virtual bool wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/, int timeout /*0=blocking, milisec*/);
 
   virtual bool alloc_umem(DmaMem_t& mem /*out*/, const int size) {
     throw std::runtime_error("RIOMemOpsUMD::alloc_umem: Unsupported memory type!");
@@ -106,6 +111,8 @@ private:
       default: m_errno = EHWPOISON; /*PCIe error*/; break;
     }
   }
+
+  bool poll_ticket(DMAChannel::DmaOptions_t& opt, int timeout /*0=blocking, milisec*/);
 
 private:
   DMAChannel*   m_dch;

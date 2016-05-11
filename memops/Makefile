@@ -43,12 +43,14 @@ all: libmemops_intf.so libmemops_intf.a memops_test
 LFLAGS = -std=gnu++0x -DDMACHAN_TICKETED $(OPTFLAGS)
 
 libmemops_intf.a: $(SOURCES)
-	$(CXX) $(LFLAGS) -c $(INCLUDES) -I$(UMDDINCDIR) $^ -L$(COMMONLIB) -lmport $(LIBS_RPATH)
+	$(CXX) $(LFLAGS) -c $(INCLUDES) -I$(UMDDINCDIR) $^ 
 	$(AR) rcs $@ *.o
 
 libmemops_intf.so: $(SOURCES)
 	$(CXX) $(LFLAGS) $(INCLUDES) $^ \
-		-shared -fPIC -ldl -L$(COMMONLIB) -lmport $(LIBS_RPATH) $(UMDDIR)/libumd_tsi721_nolog_tik.a -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
+		-shared -fPIC -ldl \
+		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport $(UMDDIR)/libumd_tsi721_nolog_tik.a \
+		-Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
 memops_test: $(SOURCES) src/memops_test.cc
