@@ -573,7 +573,7 @@ void umd_shm_goodput_demo(struct worker *info)
 		do {
 			if (info->umd_dch->queueFull()) { check_abort = 'F'; break; }
 
-			struct timespec dT = time_difference(info->iter_end_time, info->iter_st_time);
+			struct timespec dT = time_difference(info->iter_st_time, info->iter_end_time);
 			const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
 			if (nsec > 10 * 1000000) { // Every 10 ms
 				info->iter_st_time = info->iter_end_time;
@@ -584,7 +584,7 @@ void umd_shm_goodput_demo(struct worker *info)
 			if (cnt) break;
 			if (fifo_unwork_ACK) break; // No sense polling PCIe sensessly
 
-			struct timespec dT_FIFO = time_difference(info->iter_end_time, info->fifo_work_time);
+			struct timespec dT_FIFO = time_differenceinfo->fifo_work_time, info->iter_end_time);
 			const uint64_t nsec_FIFO = dT_FIFO.tv_nsec + (dT_FIFO.tv_sec * 1000000000);
 			if (nsec_FIFO > 1000 * 1000) { // Nothing popped in FIFO in the last 1000 microsec
 				fifo_unwork_ACK = true;
