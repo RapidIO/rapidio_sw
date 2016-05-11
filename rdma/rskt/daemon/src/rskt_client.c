@@ -115,7 +115,7 @@ unsigned tx_test = 0;
 
 void *parallel_client(void *parms)
 {
-	int i, rc;
+	int i, j, rc;
 	uint8_t send_buf[RSKT_DEFAULT_SEND_BUF_SIZE];
 	uint8_t recv_buf[RSKT_DEFAULT_RECV_BUF_SIZE];
 	int *client_num = (int *)parms;
@@ -140,7 +140,7 @@ void *parallel_client(void *parms)
 		client_socket = rskt_create_socket();
 
 		if (!client_socket) {
-			CRIT("Client %d: Create socket failed, rc = %d: %s",
+			ERR("Client %d: Create socket failed, rc = %d: %s",
 				*client_num, rc, strerror(errno));
 			goto cleanup_rskt;
 		}
@@ -148,48 +148,49 @@ void *parallel_client(void *parms)
 		/* Connect to server */
 		rc = rskt_connect(client_socket, &sock_addr);
 		if (rc) {
-			CRIT("Client %d: Connect to %u on %u failed",
+			ERR("Client %d: Connect to %u on %u failed",
 				*client_num, destid, socket_number);
 			goto close_client_socket;
 		}
 
-		/* Generate data to send to server */
-		data_length = generate_data(data_length, tx_test,
+		for (j = 0; j < 100; j ++) {
+			/* Generate data to send to server */
+			data_length = generate_data(data_length, tx_test,
 					send_buf, recv_buf);
 
-		/* Send the data */
-		rc = rskt_write(client_socket, send_buf, data_length);
-		if (rc) {
-			CRIT("Client %d: rskt_write failed, rc = %d: %s",
-				*client_num, rc, strerror(errno));
-			goto close_client_socket;
-		}
-
-		/* Read data echoed back from the server */
-retry_read:
-		rc = rskt_read(client_socket, recv_buf, RSKT_DEFAULT_RECV_BUF_SIZE);
-		if (rc < 0) {
-			if (rc == -ETIMEDOUT) {
-				ERR("Client %d: rskt_read() timedout. Retry!",
-					*client_num);
-				goto retry_read;
+			/* Send the data */
+			rc = rskt_write(client_socket, send_buf, data_length);
+			if (rc) {
+				ERR("Client %d: iter %d %d  write fail %d: %s",
+					*client_num, i, j, rc, strerror(errno));
+				goto close_client_socket;
 			}
-			CRIT("Client %d: rskt_read failed, rc=%d: %s",
-				*client_num, rc, strerror(errno));
-			goto close_client_socket;
-		}
-		if (rc != data_length) {
-			ERR("Client %d: Sent %u bytes but received %u bytes\n",
-				*client_num, data_length, rc);
-		}
 
-		/* Compare with the original data that we'd sent */
-		if (memcmp(send_buf, recv_buf, data_length)) {
-			ERR("Client %d: !!! Iteration %u Compare FAILED.\n",
-				*client_num, i);
-		} else {
-			HIGH("Client %d: *** Iteration %u, DATA OK ***\n",
-				*client_num, i);
+			/* Read data echoed back from the server */
+
+			do {
+				rc = rskt_read(client_socket, recv_buf,
+						RSKT_DEFAULT_RECV_BUF_SIZE);
+			} while (rc == -ETIMEDOUT);
+
+			if (rc <= 0) {
+				ERR("Client %d: iter %d read fail %d: %s",
+					*client_num, i, j, rc, strerror(errno));
+				goto close_client_socket;
+			}
+			if (rc != data_length) {
+				ERR("Client %d: iter %x %x Byte %u Got %u ",
+					*client_num, i, j, data_length, rc);
+			}
+
+			/* Compare with the original data that we'd sent */
+			if (memcmp(send_buf, recv_buf, data_length)) {
+				ERR("Client %d: !!! Iter %d %d Compare FAILED.",
+					*client_num, i, j);
+			} else {
+				INFO("Client %d: *** Iter %d %d DATA OK ***",
+					*client_num, i, j);
+			}
 		}
 
 		/* Close the socket and destroy it */
