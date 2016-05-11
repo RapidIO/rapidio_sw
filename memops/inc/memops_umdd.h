@@ -41,7 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "dmachanshm.h"
 
-/** \bried UMDd/SHM plugin for RIOMemOpsMport */
+/** \brief UMDd/SHM plugin for RIOMemOpsMport */
 class RIOMemOpsUMDd : public RIOMemOpsMport {
 public:
   RIOMemOpsUMDd(const int mport, const int chan);

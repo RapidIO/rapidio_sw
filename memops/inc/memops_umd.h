@@ -46,7 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dmachan.h"
 #include "chanlock.h"
 
-/** \bried UMD/monolithic plugin for RIOMemOpsMport
+/** \brief UMD/monolithic plugin for RIOMemOpsMport
  * \note This class will spawn a thread to service the channel FIFO
  */
 class RIOMemOpsUMD : public RIOMemOpsMport {
