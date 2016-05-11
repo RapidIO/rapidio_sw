@@ -30,18 +30,64 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+#ifndef LIBRDMA_MSG_PROCESSOR_H
+#define LIBRDMA_MSG_PROCESSOR_H
 
-#include <mqueue.h>
-#include "rdma_mq_msg.h"
+#include <cassert>
 
-/* Message queue attributes */
-struct mq_attr	attr;
+#include "rdma_msg.h"
+#include "librdma_tx_engine.h"
+#include "msg_processor.h"
+#include "liblog.h"
+#include "librdma_db.h"
+#include "librdma_dispatch.h"
 
-void init_mq_attribs()
+class unix_tx_engine;
+class unix_client;
+
+struct unix_msg_t;
+
+class unix_msg_processor : public msg_processor<unix_client, unix_msg_t>
 {
-	attr.mq_flags	= 0;
-	attr.mq_maxmsg	= 1;	/* one message at a time */ 
-	attr.mq_msgsize	= MQ_MSG_SIZE;
-	attr.mq_curmsgs	= 0;
-} /* init_mq_attribs() */
+public:
+	int process_msg(void *vmsg, void *vtx_eng)
+	{
+		unix_msg_t *msg = static_cast<unix_msg_t *>(vmsg);
+		unix_tx_engine *tx_eng = static_cast<unix_tx_engine *>(vtx_eng);
+
+		auto rc = 0;
+
+		DBG("Got message type: '%s',0x%X cat:'%s',0x%X\n",
+			type_name(msg->type), msg->type,
+			cat_name(msg->category), msg->category);
+
+		switch(msg->type) {
+
+		case FORCE_CLOSE_MSO:
+			force_close_mso_disp(msg, tx_eng);
+		break;
+
+		case FORCE_CLOSE_MS:
+			force_close_ms_disp(msg, tx_eng);
+		break;
+
+		case DISCONNECT_MS:
+			disconnect_ms_disp(msg, tx_eng);
+		break;
+
+		case FORCE_DISCONNECT_MS:
+			force_disconnect_ms_disp(msg, tx_eng);
+		break;
+
+		default:
+			CRIT("Unhandled message type: '%s',0x%X cat:'%s',0x%X\n",
+				type_name(msg->type), msg->type,
+				cat_name(msg->category), msg->category);
+			assert(!"Unhandled message");
+		}
+		return rc;
+	}
+};
+#endif
+
 

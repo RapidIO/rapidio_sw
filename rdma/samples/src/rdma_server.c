@@ -169,6 +169,7 @@ void test_case_f()
 	ms_h	msh;
 	msub_h	loc_msubh;
 	msub_h	rem_msubh;
+	conn_h	connh;
 	uint32_t rem_msub_len;
 	int	status;
 
@@ -190,14 +191,14 @@ void test_case_f()
 	CHECK_AND_GOTO(status, "rdma_create_msub_h", destroy_msoh);
 
 	/* Accept connection from client */
-	status = rdma_accept_ms_h(msh, loc_msubh, &rem_msubh, &rem_msub_len, 3);
+	status = rdma_accept_ms_h(msh, loc_msubh, &connh, &rem_msubh, &rem_msub_len, 3);
 	CHECK_AND_GOTO(status, "rdma_accept_ms_h", destroy_msoh);
 
 	puts("press ENTER to ACCEPT AGAIN\n");
 	getchar();
 
 	/* Accept connection from client */
-	status = rdma_accept_ms_h(msh, loc_msubh, &rem_msubh, &rem_msub_len, 0);
+	status = rdma_accept_ms_h(msh, loc_msubh, &connh, &rem_msubh, &rem_msub_len, 0);
 	CHECK_AND_GOTO(status, "rdma_accept_ms_h", destroy_msoh);
 
 	puts("press ENTER to destroy the msoh");
@@ -218,6 +219,7 @@ void test_case_h()
 	ms_h	msh;
 	msub_h	loc_msubh;
 	msub_h	rem_msubh;
+	conn_h	connh;
 	uint32_t rem_msub_len;
 	int	status;
 
@@ -235,7 +237,7 @@ void test_case_h()
 	puts("Connect remote app to ms");
 
 	/* Accept connection from client */
-	status = rdma_accept_ms_h(msh, loc_msubh, &rem_msubh, &rem_msub_len, 0);
+	status = rdma_accept_ms_h(msh, loc_msubh, &connh, &rem_msubh, &rem_msub_len, 0);
 	CHECK_AND_GOTO(status, "rdma_accept_ms_h", destroy_msoh);
 
 	puts("Exit all OTHER applications then shutdown computer\n");
@@ -344,6 +346,7 @@ void test_case1(uint32_t msub_ofs)
 	ms_h	msh1;
 	msub_h	loc_msubh;
 	msub_h	rem_msubh;
+	conn_h	connh;
 	uint32_t rem_msub_len;
 	int	status;
 	void	*vaddr;
@@ -369,7 +372,7 @@ void test_case1(uint32_t msub_ofs)
 	puts("Accepting connections..");
 
 	/* Accept connection from client */
-	status = rdma_accept_ms_h(msh1, loc_msubh, &rem_msubh, &rem_msub_len, 0);
+	status = rdma_accept_ms_h(msh1, loc_msubh, &connh, &rem_msubh, &rem_msub_len, 0);
 	CHECK_AND_GOTO(status, "rdma_accept_ms_h", unmap_msub);
 
 	puts("Connected!\nPress ENTER to display received DMA data");
@@ -405,6 +408,7 @@ void test_case5(void)
 	ms_h	msh1;
 	msub_h	loc_msubh;
 	msub_h	rem_msubh;
+	conn_h	connh;
 	uint32_t rem_msub_len;
 	int	status;
 
@@ -419,7 +423,7 @@ void test_case5(void)
 
 	puts("Waiting for client to connect...");
 
-	status = rdma_accept_ms_h(msh1, loc_msubh, &rem_msubh, &rem_msub_len, 0);
+	status = rdma_accept_ms_h(msh1, loc_msubh, &connh, &rem_msubh, &rem_msub_len, 0);
 	CHECK_AND_GOTO(status, "rdma_accept_ms_h", destroy_msoh);
 
 	/* Now destroy memory space and observe that everything cleans up OK */

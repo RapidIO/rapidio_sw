@@ -37,10 +37,10 @@ void *rpc_thread_f(void *arg)
 	puts("Creating other server object...");
 	unix_server *other_server;
 	try {
-		other_server = new unix_server("other_server", ti->accept_socket);
+		other_server = new unix_server("other_server", nullptr, ti->accept_socket);
 	}
 	catch(unix_sock_exception e) {
-		cout << e.err << endl;
+		cout << e.what() << endl;
 		sem_post(&ti->started);
 		pthread_exit(0);
 	}
@@ -57,7 +57,7 @@ void *rpc_thread_f(void *arg)
 			pthread_exit(0);
 		}
 		if (received_len > 0) {
-			printf("receveived_len = %d\n", received_len);
+			printf("received_len = %u\n", (unsigned)received_len);
 
 			/* Get & display the data */
 			void *recv_buf;
@@ -97,7 +97,7 @@ int run_rpc_alternative()
 		server = new unix_server("main_server");
 	}
 	catch(unix_sock_exception e) {
-		cout << e.err << endl;
+		cout << e.what() << endl;
 		return 1;
 	}
 
@@ -138,7 +138,7 @@ int run_rpc_alternative()
 	} /* while */
 } /* run_rpc_alternative() */
 
-int main(int argc, char *argv[])
+int main()
 {
 	signal(SIGQUIT, sig_handler);
 	signal(SIGINT, sig_handler);

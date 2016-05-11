@@ -31,54 +31,162 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef MS_OWNERS_H
-#define MS_OWNERS_H
+#ifndef RDMAD_MS_OWNERS_H
+#define RDMAD_MS_OWNERS_H
 
-#include <string>
 #include <vector>
-#include <algorithm>
+#include <exception>
+#include <mutex>
+#include <memory>
 
 #include "rdmad_ms_owner.h"
-
+#include "rdmad_unix_msg.h"
+#include "tx_engine.h"
 #include "libcli.h"
 #include "liblog.h"
-#include "unix_sock.h"
 
 using std::vector;
-using std::string;
+using std::exception;
+using std::mutex;
+using std::unique_ptr;
 
-/* Owners are 12-bits */
-#define MSOID_MAX	0xFFF
+/* Reference class declarations */
+class ms_owner;
+
+/**
+ * @brief Exception thrown by ms_owners on error during construction
+ */
+class ms_owners_exception : public exception {
+public:
+	ms_owners_exception(const char *msg) : err(msg) {}
+	const char *what() { return err; }
+private:
+	const char *err;
+};
 
 class ms_owners
 {
 public:
+	/**
+	 * @brief Constructor
+	 */
 	ms_owners();
 
-	~ms_owners();
+	/**
+	 * @brief	Default destructor
+	 */
+	~ms_owners() = default;
 
+	/**
+	 * @brief Debug function to display info about memory space owners
+	 * 	  to the CLI console.
+	 *
+	 * @param env	CLI console environment object
+	 */
 	void dump_info(struct cli_env *env);
 
+	/**
+	 * @brief	Create a memory space owner
+	 *
+	 * @param name	Memory space owner name
+	 *
+	 * @param tx_eng Tx engine used to connect daemon to app creating
+	 * 		 the memory space owner
+	 *
+	 * @param msoid	Memory space identifier assigned to the memory space
+	 * 		owner and returned to caller
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int create_mso(const char *name,
+			tx_engine<unix_server, unix_msg_t> *tx_eng,
+			uint32_t *msoid);
 
-	int create_mso(const char *name, unix_server *other_server, uint32_t *msoid);
-	
-	int open_mso(const char *name, uint32_t *msoid, uint32_t *mso_conn_id,
-			unix_server *user_server);
+	/**
+	 * @brief	Open a memory space owner
+	 *
+	 * @param name	Memory space owner name
+	 *
+	 * @param tx_eng Tx engine used to connect daemon to app opening
+	 * 		 the memory space owner
+	 *
+	 * @param msoid	Memory space owner identifier returned to caller
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int open_mso(const char *name,
+			tx_engine<unix_server, unix_msg_t> *tx_eng,
+			 uint32_t *msoid);
 
-	int close_mso(uint32_t msoid, uint32_t mso_conn_id);
-
-	void close_mso(unix_server *other_server);
-
-	int destroy_mso(unix_server *other_server);
-
-	int destroy_mso(uint32_t msoid);
-
+	/**
+	 * @brief	Select a memory space owner by msoid
+	 *
+	 * @param msoid	Memory space owner identifier
+	 *
+	 * @return Pointer to mso if found, nullptr if not found
+	 */
 	ms_owner* operator[](uint32_t msoid);
 
+	/**
+	 * @brief	Close the specific connection (identified by tx_eng)
+	 * 		of an open mso having a specified msoid.
+	 *
+	 * @param msoid	Memory space owner identifier
+	 *
+	 * @param tx_eng Tx engine used to connect daemon to app opening
+	 * 		 the memory space owner
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int close_mso(uint32_t msoid, tx_engine<unix_server, unix_msg_t> *tx_eng);
+
+	/**
+	 * @brief	Close connections to ALL memory space owners from
+	 * 		the app connected to the daemon via tx_eng
+	 *
+	 * @param tx_eng Tx engine used to connect daemon to one ore more app
+	 * 		 opening the memory space owner
+	 */
+	void close_mso(tx_engine<unix_server, unix_msg_t> *tx_eng);
+
+	/**
+	 * @brief	Destroy mso having a connection specified by tx_eng
+	 *
+	 * @param tx_eng Tx engine used to connect daemon to app that has
+	 * 		 created the memory space owner
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int destroy_mso(tx_engine<unix_server, unix_msg_t> *tx_eng);
+
+	/**
+	 * @brief	Destroy mso having a connection specified by msoid
+	 *
+	 * @param msoid	Memory space owner identifier
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int destroy_mso(uint32_t msoid);
+
 private:
+	/**
+	 * @brief	Copy constructor unimplemented.
+	 */
+	ms_owners(const ms_owners&) = delete;
+
+	/**
+	 * @brief	Assignment operator unimplemented.
+	 */
+	ms_owners& operator=(const ms_owners&) = delete;
+
+	using owner_list = vector<unique_ptr<ms_owner>>;
+
+	/* Constants */
+	static constexpr uint32_t MSOID_MAX = 0xFFF; /* Owners are 12-bits */
+
 	bool msoid_free_list[MSOID_MAX+1];
-	vector<ms_owner *>	owners;
-	pthread_mutex_t		lock;
+	owner_list		owners;
+	mutex			owners_mutex;
 };
 
 

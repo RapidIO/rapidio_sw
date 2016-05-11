@@ -155,6 +155,8 @@ void l_lremove(struct l_head_t *l, struct l_item_t *li)
 		CRIT("NEVER: li == NULL\n");
 		rdma_log_close();
 	};
+	if (!l->cnt)
+		CRIT("NEVER:(l->cnt == 0)\n");
 	assert(l->cnt);
 
 	if (1 == l->cnt) {

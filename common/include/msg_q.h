@@ -40,19 +40,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstring>
 #include <string>
 
-#include "rdma_mq_msg.h"
 #include "liblog.h"
 
-/* TODO: Copy from rdma_mq_msg.h */
+#define MQ_RCV_BUF_SIZE		4*1024
 #define MQ_SEND_BUF_SIZE	MQ_RCV_BUF_SIZE
+#define	MQ_MSG_SIZE		128
 
 using std::string;
 using std::stringstream;
 
-const unsigned MSG_Q_RECV_ERR = -1;
-const unsigned MSG_Q_SEND_ERR = -2;
-const unsigned MSG_Q_TIMED_RECV_ERR = -3;
-const unsigned MSG_Q_DATA_TOO_LARGE = -4;
+const int MSG_Q_RECV_ERR = -1;
+const int MSG_Q_SEND_ERR = -2;
+const int MSG_Q_TIMED_RECV_ERR = -3;
+const int MSG_Q_DATA_TOO_LARGE = -4;
 
 
 class msg_q_exception {

@@ -246,7 +246,7 @@ int init_mport_and_mso_ms(void)
 	memset(dmn.mso.msoh_name, 0, MAX_MS_NAME+1);
 	for (i = 0; i < MAX_DMN_NUM_MS; i++) {
 		dmn.mso.ms[i].valid = 0;
-		dmn.mso.ms[i].state = 0;
+		dmn.mso.ms[i].state = rsktd_ms_free;
 		memset(dmn.mso.ms[i].ms_name, 0, MAX_MS_NAME+1);
 		dmn.mso.ms[i].ms_size = 0;
 		rskt_clear_skt(&dmn.mso.ms[i].skt); 

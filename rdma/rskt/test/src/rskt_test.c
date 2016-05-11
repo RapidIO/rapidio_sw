@@ -530,9 +530,7 @@ int test_bind_listen_accept_and_close(struct worker *info)
 
 	acc_skt = rskt_create_socket();
 	test->rc = 1;
-	l_skts = (rskt_h *)malloc( sizeof(rskt_h)*(num_skts));
-	for (sn = test->start_sn; sn <= test->end_sn; sn++) {
-	};
+	l_skts = (rskt_h *)malloc(num_skts * sizeof(rskt_h));
 
 	test->skts = l_skts;
 
@@ -658,7 +656,9 @@ int test_buddy(struct worker *info)
 				nanosleep(&ten_usecs, NULL);
 			};
 			if ((skts[sn] == rskt_accepting)) {
-				int rc = rskt_close(bud->skts[skt_idx]);
+				int rc;
+				DBG("Closing skts[ %d ] idx %d", sn, skt_idx);
+				rc = rskt_close(bud->skts[skt_idx]);
 				if (rc)
 					goto fail;
 			};
@@ -1803,8 +1803,11 @@ int test_case_5(void)
 	if (lib_st.apps[0].alive)
 		goto fail;
 
+	// Wait for RSKTD Daemon to clean up socket state. 
+	sleep(5);
 	for (idx = 0; idx < max_wkrs; idx++) {
 		if (skts[idx + 1] != rskt_uninit) {
+			CRIT("skts[ %d ]  is %d not %d", idx+1, skts[idx + 1], int(rskt_uninit));
 			fail_pt = 40+idx;
 			goto fail;
 		};

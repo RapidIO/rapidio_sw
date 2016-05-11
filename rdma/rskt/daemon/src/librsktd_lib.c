@@ -57,6 +57,14 @@ struct librsktd_connect_globals lib_st;
 
 void enqueue_app_msg(struct librsktd_unified_msg *msg)
 {
+        INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+                UMSG_W_OR_S(msg),
+                UMSG_CT(msg),
+                msg->msg_type,
+                UMSG_TYPE_TO_STR(msg),
+                UMSG_PROC_TO_STR(msg),
+                UMSG_STAGE_TO_STR(msg));
+
 	sem_wait(&dmn.app_tx_mutex);
 	l_push_tail(&dmn.app_tx_q, msg);
 	sem_post(&dmn.app_tx_mutex);
@@ -143,6 +151,8 @@ void *app_tx_loop(void *unused)
 
 		/* Send message to application */
 		if (valid_flag) {
+			DBG("Sending %s Seq %d", LIBRSKT_APP_MSG_TO_STR(ntohl(msg->tx->msg_type)), 
+				LIBRSKT_DMN_2_APP_MSG_SEQ_NO(msg->tx, ntohl(msg->tx->msg_type)));
 			if (send((*msg->app)->app_fd, (void *)msg->tx, 
 					RSKTD2A_SZ, MSG_EOR) != RSKTD2A_SZ){
 				(*msg->app)->i_must_die = 33;
@@ -165,6 +175,9 @@ void handle_app_msg(struct librskt_app *app,
 	struct l_item_t *li;
 	uint32_t seq_num;
 
+	DBG("Received %s Seq %d", LIBRSKT_APP_MSG_TO_STR(ntohl(rxed->msg_type)), 
+		LIBRSKT_APP_2_DMN_MSG_SEQ_NO(rxed, ntohl(rxed->msg_type)));
+
 	if (rxed->msg_type & htonl(LIBRSKTD_RESP)) {
 		/* Have a valid response for a SPEER to APP request. */
 		/* Update msg with rxed, and post for processing */
@@ -186,9 +199,16 @@ void handle_app_msg(struct librskt_app *app,
 
 		if ((msg->proc_type != RSKTD_PROC_S2A) || 
 			(msg->proc_stage != RSKTD_S2A_SEQ_ARESP)) {
-			ERR("Resp wrong state Proc Type 0x%x Stage 0x%x Type 0x%x Seq 0x%x\n",
-				msg->proc_type, msg->proc_stage,
-				ntohl(rxed->msg_type), seq_num);
+        		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s "
+			"Rxed Type 0x%x seq 0x%x RESP WRONG STATE",
+                		UMSG_W_OR_S(msg),
+                		UMSG_CT(msg),
+                		msg->msg_type,
+                		UMSG_TYPE_TO_STR(msg),
+                		UMSG_PROC_TO_STR(msg),
+                		UMSG_STAGE_TO_STR(msg),
+				ntohl(rxed->msg_type), 
+				seq_num);
 			free(rxed);
 			dealloc_msg(msg);
 			return;
@@ -207,6 +227,7 @@ void handle_app_msg(struct librskt_app *app,
 		case LIBRSKTD_LISTEN:
 		case LIBRSKTD_ACCEPT:
 		case LIBRSKTD_HELLO:
+		case LIBRSKTD_RELEASE:
 			proc_type = RSKTD_PROC_AREQ;
 			proc_stage = RSKTD_AREQ_SEQ_AREQ;
 			break;
@@ -233,8 +254,13 @@ void handle_app_msg(struct librskt_app *app,
 		msg->tx->a_rsp.err = 0xFFFFFFFF;
 		app->rx_req_num = ntohl(rxed->a_rq.app_seq_num);
 	};
-	DBG("Rx Msg 0x%x Type %d Stage 0x%x from app %d",
-		msg->msg_type, msg->proc_type, msg->proc_stage, app->proc_num);
+        INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+                UMSG_W_OR_S(msg),
+                UMSG_CT(msg),
+                msg->msg_type,
+                UMSG_TYPE_TO_STR(msg),
+                UMSG_PROC_TO_STR(msg),
+                UMSG_STAGE_TO_STR(msg));
 	enqueue_mproc_msg(msg);
 };
 
@@ -300,7 +326,8 @@ void *app_rx_loop(void *ip)
 
                 if ((rc <= 0) || app->i_must_die || dmn.all_must_die) {
                 	if (rc <= 0)
-                		HIGH("App has died!\n");
+                		HIGH("App has died! rc %d errno %d %s\n",
+					rc, errno, strerror(errno));
                         break;
                 }
 		handle_app_msg(app, rxed);
@@ -337,7 +364,7 @@ void *app_rx_loop(void *ip)
 		
 		if (*con->app == NULL) {
 			DBG("*con->app == NULL\n");
-			con->loc_ms->state = 0;
+			con->loc_ms->state = rsktd_ms_free;
 			rsktd_sn_set(con->loc_sn, rskt_uninit);
 			l_remove(&lib_st.con, li);
 		};
@@ -346,7 +373,7 @@ void *app_rx_loop(void *ip)
 	};
 
 	if (app->app_fd > 0) {
-		DBG("Closing socket\n");
+		DBG("Closing app socket\n");
 		close(app->app_fd);
 		app->app_fd = 0;
 	};
@@ -515,7 +542,6 @@ int start_lib_handler(uint32_t port, uint32_t mpnum, uint32_t backlog)
 
         l_init(&lib_st.acc);
         l_init(&lib_st.con);
-        l_init(&lib_st.creq);
 
 	dmn.app_tx_alive = 0;
         sem_init(&dmn.app_tx_loop_started, 0, 0);
@@ -550,7 +576,6 @@ int lib_handler_dead(void)
 
 void halt_lib_handler(void)
 {
-	struct librsktd_unified_msg *msg;
 	int i;
 
 	DBG("ENTER\n");
@@ -588,12 +613,6 @@ void halt_lib_handler(void)
 			ERR("ERROR on l_conn unlink: %s\n", strerror(errno));
 		}
 		lib_st.addr.sun_path[0] = 0;
-	};
-
-	msg = (struct librsktd_unified_msg *)l_pop_head(&lib_st.creq);
-	while (NULL != msg) {
-		enqueue_mproc_msg(msg);
-		msg = (struct librsktd_unified_msg *)l_pop_head(&lib_st.creq);
 	};
 
         sem_post(&dmn.app_tx_cnt);

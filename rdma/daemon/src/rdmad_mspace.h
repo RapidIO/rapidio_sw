@@ -35,162 +35,553 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MSPACE_H
 
 #include <stdint.h>
-#include <mqueue.h>
 #include <unistd.h>
 #include <semaphore.h>
-
-#include <cstdio>
 
 #include <string>
 #include <vector>
 #include <set>
+#include <exception>
+#include <mutex>
 
-#include "libcli.h"
-
-#include "unix_sock.h"
-#include "rdmad_msubspace.h"
-#include "prov_daemon_info.h"
-#include "msg_q.h"
+#include "tx_engine.h"
+#include "rdmad_cm.h"
 
 using std::set;
 using std::string;
 using std::vector;
+using std::exception;
+using std::mutex;
 
-#define MS_CONN_ID_START	0x1
+/* Global constants */
+constexpr uint32_t MSID_WIN_SHIFT 	= 28;
+constexpr uint32_t MSID_WIN_MASK  	= 0xF0000000;
+constexpr uint32_t MSID_MSINDEX_MASK 	= 0x0000FFFF;
+constexpr uint32_t MSID_MSOID_MASK 	= 0x0FFF000;
+constexpr uint32_t MSID_MSOID_SHIFT 	= 16;
+constexpr uint32_t MSINDEX_MAX 		= 0xFFFF;
+constexpr uint32_t MSUBINDEX_MAX 	= 0xFFFF;
 
-#define MSID_WIN_SHIFT  28
-#define MSID_WIN_MASK	0xF0000000
-#define MSID_MSINDEX_MASK 0x0000FFFF
-#define MSID_MSOID_MASK 0x0FFF000
-#define MSID_MSOID_SHIFT 16
+/* Referenced classes declarations */
+class unix_server;
+class unix_msg_t;
+class cm_server;
+class msubspace;
+class ms_owners;
 
-#define MSINDEX_MAX 0xFFFF
-
-#define MSUBINDEX_MAX 0xFFFF
-
-struct mspace_exception {
+/**
+ * @brief Exception thrown by mspace on error during construction
+ */
+class mspace_exception : public exception {
+public:
 	mspace_exception(const char *msg) : err(msg) {}
-
+	const char *what() { return err; }
+private:
 	const char *err;
 };
 
-class ms_user
+class mspace
 {
-public:
-	ms_user(unix_server *server,
-		uint32_t ms_conn_id,
-		msg_q<mq_close_ms_msg> *close_mq) :
-	server(server), ms_conn_id(ms_conn_id), close_mq(close_mq)
-	{}
-
-	msg_q<mq_close_ms_msg> *get_mq() { return close_mq; }
-	uint32_t get_ms_conn_id() const { return ms_conn_id; }
-	bool operator ==(uint32_t ms_conn_id) { return ms_conn_id == this->ms_conn_id; }
-	bool operator ==(unix_server *server) { return server == this->server; }
-
-private:
-	unix_server *server;
-	uint32_t ms_conn_id;
-	msg_q<mq_close_ms_msg> *close_mq;
-};
-
-struct remote_connection
-{
-	remote_connection(uint16_t client_destid, uint32_t client_msubid) :
-		client_destid(client_destid), client_msubid(client_msubid)
-	{}
-
-	bool operator==(uint16_t client_destid)
+	class ms_user
 	{
-		return this->client_destid == client_destid;
-	}
+		friend class mspace;
+	public:
+		/**
+		 *  @brief Construct ms_user from specified parameters
+		 */
+		ms_user(tx_engine<unix_server, unix_msg_t> *tx_eng) :
+			tx_eng(tx_eng),
+			accepting(false),
+			connected_to(false),
+			server_msubid(0),
+			client_destid(0xFFFF),
+			client_msubid(NULL_MSUBID),
+			client_to_lib_tx_eng_h(0)
+		{
+		} /* Constructor */
 
-	bool operator==(uint32_t client_msubid)
-	{
-		return this->client_msubid == client_msubid;
-	}
+		/**
+		 * @brief Copy constructor
+		 */
+		ms_user(const ms_user&) = default;
 
-	uint16_t client_destid;
-	uint32_t client_msubid;
-};
+		/**
+		 * @brief Assignment operator
+		 */
+		ms_user& operator=(const ms_user&) = default;
 
-class mspace 
-{
+		/**
+		 * @brief Tells whether this ms is connected to specified client destid
+		 *
+		 * @param client_destid Destination ID of client daemon
+		 */
+		bool operator==(const uint32_t client_destid)
+		{
+			return this->client_destid == client_destid;
+		} /* operator == */
+
+		/**
+		 * @brief Tells whether the daemon is connected to this user
+		 * 	  via the specified tx engine
+		 *
+		 * @param Tx engine between daemon and user app/library
+		 */
+		bool operator==(tx_engine<unix_server, unix_msg_t> *tx_eng)
+		{
+			return tx_eng == this->tx_eng;
+		} /* operator == */
+
+	private:
+		tx_engine<unix_server, unix_msg_t> *tx_eng;
+		bool	accepting;		 /* Set when 'accept' is called */
+		bool	connected_to;		 /* Set when connected */
+		uint32_t server_msubid;		 /* Assigned upon accepting */
+		uint16_t client_destid;		 /* Assigned When connected */
+		uint32_t client_msubid;		 /* Assigned When connected */
+		uint64_t client_to_lib_tx_eng_h; /* Assigned When connected */
+	}; /* ms_user */
+
 public:
 	/* Constructor */
-	mspace(const char *name, uint32_t msid, uint64_t rio_addr,
-	       uint64_t phys_addr, uint64_t size);
+	mspace(const char *name, uint32_t msid,
+		uint64_t rio_addr, uint64_t phys_addr, uint64_t size,
+		ms_owners& owners);
 
 	/* Destructor */
 	~mspace();
 
+	/**
+	 * @brief Destroys the memory space parameters and turns it into
+	 * 	  a free memory space. Merges with continguous memory spaces
+	 * 	  if possible.
+	 */
 	int destroy();
 
 	/* Accessors */
 	uint64_t get_size() const { return size; }
+
 	uint64_t get_rio_addr() const { return rio_addr; }
+
 	uint64_t get_phys_addr() const { return phys_addr; }
+
 	uint32_t get_msid() const { return msid; }
-	uint16_t get_msindex() const { return msid & 0xFFFF; }
+
+	uint16_t get_msindex() const { return msid & MSID_MSINDEX_MASK; }
+
 	uint32_t get_msoid() const { return msoid; }
+
 	bool is_free() const { return free;}
+
 	const char* get_name() const { return name.c_str(); }
-	bool is_accepted() const { return accepted;}
+
+	bool is_connected_to() const { return connected_to;}
+
+	bool is_accepting() const { return accepting; }
+
 
 	/* Mutators */
 	void set_size(uint64_t size) { this->size = size; }
+
 	void set_msid(uint32_t msid) { this->msid = msid;}
+
 	void set_used() { free = false; }
+
 	void set_free() { free = true; }
+
 	void set_msoid(uint32_t msoid) {
 		this->msoid = msoid;
 		this->msid &= ~MSID_MSOID_MASK;	/* Clear previous owner */
 		this->msid |= ((msoid << MSID_MSOID_SHIFT) & MSID_MSOID_MASK);
 	}
+
 	void set_name(const char *name) { this->name = name; }
-	void set_accepted(bool accepted) { this->accepted = accepted; }
 
-	/* Connections by clients that have connected to this memory space */
-	void add_rem_connection(uint16_t client_destid, uint32_t client_msubid);
-	int remove_rem_connection(uint16_t destid, uint32_t client_msubid);
+	void set_connected_to(bool connected_to)
+					{ this->connected_to = connected_to; }
 
-	set<uint16_t> get_rem_destids();
+	void set_accepting(bool accepting) { this->accepting = accepting; }
+
+	void set_creator_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *creator_tx_eng)
+	{
+		this->creator_tx_eng = creator_tx_eng;
+	}
+
+	/**
+	 * @brief Upon having a remote connection from a client app to this
+	 * 	  memory space, store information about that client.
+	 *
+	 * @param client_destid	DestID of node on which client app resides
+	 *
+	 * @param client_msubid Memory subspace identifier provided by client
+	 * 			in rdma_conn_ms_h(). May be NULL_MSUB.
+	 *
+	 * @param client_to_lib_tx_eng_h Handle of the client-daemon to
+	 *  				 client-app Tx engine
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int  add_rem_connection(uint16_t client_destid,
+				uint32_t client_msubid,
+				uint64_t client_to_lib_tx_eng_h);
+
+	/**
+	 * @brief When this memory space is disconnected from a remote client
+	 * 	  app, remote relevant information.
+	 *
+	 * @param client_destid	DestID of node on which client app resides
+	 *
+	 * @param client_msubid Memory subspace identifier provided by client
+	 * 			in rdma_conn_ms_h(). May be NULL_MSUB.
+	 *
+	 * @param client_to_lib_tx_eng_h Handle of the client-daemon to
+	 *  				 client-app Tx engine
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int remove_rem_connection(uint16_t client_destid,
+				  uint32_t client_msubid,
+				  uint64_t client_to_lib_tx_eng_h);
 
 	/* Debugging */
+	/**
+	 * @brief Dumps infor about memory space such as name, size, free
+	 * 	  status, and so on.
+	 *
+	 * @param env CLI console environment object
+	 */
 	void dump_info(struct cli_env *env);
+
+	/**
+	 * @brief Dumps information about the memory subspaces contained
+	 * 	  within this memory space.
+	 *
+	 * @param env CLI console environment object
+	 */
 	void dump_info_msubs_only(struct cli_env *env);
+
+
+	/**
+	 * @brief Dumps infor about memory space such as name, size, free
+	 * 	  status..etc. as well as information about the memory
+	 * 	  subspaces contained within this memory space.
+	 *
+	 * @param env CLI console environment object
+	 */
 	void dump_info_with_msubs(struct cli_env *env);
 
-	/* For finding a memory space by its msid */
+	/**
+	 * @brief Equality operator for matching the memory space by
+	 * 	  a memory space identifier (msid)
+	 *
+	 * @param msid	Memory space identifier to compare with
+	 *
+	 * @return true if matching, false if not
+	 */
 	bool operator==(uint32_t msid) { return this->msid == msid; }
 
-	/* For finding a memory space by its name */
+	/**
+	 * @brief Equality operator for matching the memory space by
+	 * 	  a memory space name.
+	 *
+	 * @param name	Memory space name to compare with
+	 *
+	 * @return true if matching, false if not
+	 */
 	bool operator==(const char *name) { return this->name == name; }
 
-	int open(uint32_t *msid, unix_server *user_server,
-					uint32_t *ms_conn_id, uint32_t *bytes);
+	/**
+	 * @brief Opens memory space and associates it with a tx_eng
+	 *
+	 * @param user_tx_eng	Tx engine used by the daemon to communicate
+	 * 			with the user app which opened the memory space
+	 *
+	 */
+	int open(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
-	bool has_user_with_user_server(unix_server *server, uint32_t *ms_conn_id);
+	/**
+	 * @brief Returns the tx_eng either of the owner of the ms, or of
+	 * 	  one of its users, whoever happens to be in the 'accepting'
+	 * 	  state (and there can only be one at a single time).
+	 *
+	 * @return Tx engine used by the daemon to communicate with the owner
+	 * 	   or the user, which happens to be in 'accepting' state.
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	tx_engine<unix_server, unix_msg_t> *get_accepting_tx_eng();
 
+	/**
+	 * @brief Place this ms in accepting state by either its owner
+	 * 	  or by one of its user apps.
+	 *
+	 * @param app_tx_eng Tx engine used by the daemon to communicate with
+	 * 		     either the owner or one of its users, whoever
+	 * 		     called rdma_accept_ms_h()
+	 *
+	 * @param server_msubid A memory subspace identifier specifying
+	 * 			the memory subspace provided by the app
+	 * 			that called rdma_accept_ms_h()
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng,
+			uint32_t server_msubid);
+
+	/**
+	 * @brief Clears previous accept request, most likely due
+	 * 	  to a failure detected at the RDMA library side.
+	 *
+	 * @param  app_tx_eng Tx engine used by the daemon to communicate with
+	 * 		     either the owner or one of its users, whoever
+	 * 		     tried to undo the previous 'accept' request
+	 */
+	int undo_accept(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
+
+	/**
+	 * @brief Determines whether mspace was created by app connected
+	 * 	  to the daemon via specified Tx engine
+	 *
+	 * @param app_tx_eng Tx engine
+	 *
+	 * @return true if matching, false if not
+	 */
+	bool created_using_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *app_tx_eng)
+	{
+		return this->creator_tx_eng == app_tx_eng;
+	}
+
+	/**
+	 * @brief Determines whether mspace was opened by app connected
+	 * 	  to the daemon via specified Tx engine
+	 *
+	 * @param app_tx_eng Tx engine
+	 *
+	 * @return true if matching, false if not
+	 */
+	bool has_user_with_user_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng);
+
+	/**
+	 * @brief Determines whether mspace has a remote connection with
+	 * 	  a client on a node having the specified destid
+	 *
+	 * @param destid Destination ID of remote node to check
+	 *
+	 * @return true if matching, false if not
+	 */
 	bool connected_by_destid(uint16_t destid);
 
-	int close(uint32_t ms_conn_id);
+	/**
+	 * @brief Close memory space by user app specified by app_tx_eng
+	 *
+	 * @param app_tx_eng  Tx engine used by daemon to connect to app
+	 * 		      requesting memory space closure
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int close(tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
-	/* For creating a memory sub-space */
+	/**
+	 * @brief Create a memory subspace a specified offset with requested
+	 * 	  size
+	 *
+	 * @param offset Subspace offset within memory space
+	 *
+	 * @param size Requested subspace size
+	 *
+	 * @param msubid  Memory subspace identifier assigned to subspace
+	 *
+	 * @param rio_addr RapidIO address of the first byte of the subspace
+	 *
+	 * @param phys_addr Physical address of the first byte of the subspace
+	 * 		    (same as RapidIO address if directly mapped)
+	 * @param tx_eng  Tx engine used by daemon to communicate with either
+	 * 		  the memory space creator or whichever user that
+	 * 		  has created the memory subspace
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int create_msubspace(uint32_t offset,
-			     uint32_t req_size,
-			     uint32_t *size,
+			     uint32_t size,
 			     uint32_t *msubid,
 			     uint64_t *rio_addr,
-			     uint64_t *phys_addr);
+			     uint64_t *phys_addr,
+			     const tx_engine<unix_server, unix_msg_t> *tx_eng);
 
+	/**
+	 * @brief Destroys subspace denoted by msubid
+	 *
+	 * @param Memory subspace identifier
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int destroy_msubspace(uint32_t msubid);
-	int disconnect(uint32_t client_msubid);
-	int disconnect_from_destid(uint16_t client_destid);
+
+	/**
+	 * @brief Client-initiated disconnection from memory space
+	 *
+	 * @param client_msubid Client memory subspace identifier.
+	 * 			Can be NULL_MSUB.
+	 *
+	 * @param client_to_lib_tx_eng_h Handle of Tx engine between
+	 * 				 client daemon and client app
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int client_disconnect(uint32_t client_msubid,
+			      uint64_t client_to_lib_tx_eng_h);
+
+	/**
+	 * @brief Server-initiated disconnection from memory space
+	 *
+	 * @param client_msubid Client memory subspace identifier.
+	 * 			Can be NULL_MSUB.
+	 *
+	 * @param client_to_lib_tx_eng_h Handle of Tx engine between
+	 * 				 client daemon and client app
+	 *
+	 * @param server_to_lib_tx_eng_h Handle of Tx engine between
+	 * 				 server daemon and server app
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int server_disconnect(uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h,
+		       uint64_t server_to_lib_tx_eng_h);
+
+	/**
+	 * @brief Disconnect memory space from specified destid
+	 * 	  Used when a remote node dies and we need to tell
+	 * 	  apps that had connections with that remote node
+	 * 	  to clear their databases of corresponding connections.
+	 *
+	 * @param Remote (client) node destination ID.
+	 */
+	void disconnect_from_destid(uint16_t client_destid);
 
 private:
-	int notify_remote_clients();
-	int close_connections();
+	/**
+	 *@brief Copy constructor unimplemented
+	 */
+	mspace(const mspace&) = delete;
+
+	/**
+	 *@brief Assignment operator unimplemented
+	 */
+	mspace& operator=(const mspace&) = delete;
+
+	/**
+	 * @brief Return a set of remote destination IDs that have active
+	 * 	  connections with this mspace. Used for displaying info about
+	 * 	  this memory space from the CLI commands.
+	 */
+	set<uint16_t> get_rem_destids();
+
+	/**
+	 * @brief Sends CM_FORCE_DISCONNECT_MS to the client of an ms.
+	 *
+	 * @param tx_eng  Tx engine from server to client daemons
+	 *
+	 * @param server_msubid  ID of msub provided by server during 'accept'
+	 *
+	 * @param client_to_lib_tx_eng Tx engine handle between the client
+	 *                             daemon and the client app
+	 */
+	void send_cm_force_disconnect_ms(tx_engine<cm_server, cm_msg_t>* tx_eng,
+					uint32_t server_msubid,
+					uint64_t client_to_lib_tx_eng_h);
+
+	/**
+	 * @brief Sends CM_SERVER_DISCONNECT_MS to the client of an ms.
+	 *
+	 * @param tx_eng  Tx engine from server to client daemons
+	 *
+	 * @param server_msubid  ID of msub provided by server during 'accept'
+	 *
+	 * @param client_to_lib_tx_eng Tx engine handle between the client
+	 *                             daemon and the client app
+	 *
+	 * @param server_to_lib_tx_eng_h Tx engine handle between the server
+	 * 				 daemon and the server app
+	 */
+	void send_cm_server_disconnect_ms(tx_engine<cm_server, cm_msg_t>* tx_eng,
+					uint32_t server_msubid,
+					uint64_t client_to_lib_tx_eng_h,
+					uint64_t server_to_lib_tx_eng_h);
+
+	/**
+	 * @brief Disconnect this memory space from a particular client
+	 *
+	 * @param is_client true if called by client, false if by server
+	 *
+	 * @param client_msubid the msubid provided by client during connect
+	 * 			request, maybe NULL_MSUBID.
+	 *
+	 * @param client_to_lib_tx_eng_h Tx engine handle between the client
+	 * 				 daemon and the client app
+	 *
+	 * @param server_to_lib_tx_eng_h Tx engine handle between the server
+	 * 				 daemon and the server app
+	 */
+	int disconnect(bool is_client,
+		       uint32_t client_msubid,
+		       uint64_t client_to_lib_tx_eng_h,
+		       uint64_t server_to_lib_tx_eng_h);
+
+	/**
+	 * @brief Looks up a connection to the ms by client parameters
+	 * then calls send_cm_force_disconnect_ms() with the correct
+	 * server parameter to send CM_SERVER_DISCONNECT_MS
+	 *
+	 * @param client_msubid the msubid provided by client during connect
+	 * 			request, maybe NULL_MSUBID.
+	 *
+	 * @param client_to_lib_tx_eng_h Tx engine handle between the client
+	 * 				 daemon and the client app
+	 *
+	 * @param server_to_lib_tx_eng_h Tx engine handle between the server
+	 * 				 daemon and the server app
+	 */
+	int send_disconnect_to_remote_daemon(uint32_t client_msubid,
+					     uint64_t client_to_lib_tx_eng_h,
+					     uint64_t server_to_lib_tx_eng_h);
+
+	/**
+	 * @brief Calls send_cm_force_disconnect_ms for ALL connections
+	 * to this ms. Called from destroy()
+	 */
+	void notify_remote_clients();
+
+	/**
+	 * @brief Closes connections with applications that have called
+	 * rdma_open_ms_h(). Called from destroy().
+	 */
+	void close_connections();
+
+	/**
+	 * @brief Sends message to server library telling it that
+	 * a specific connection to the ms has dropped and the library
+	 * needs to clean the database. Typically called from
+	 * disconnect_from_destid() which is called when a remote daemon dies.
+	 *
+	 * @param client_msubid	Client msubid. Could be NULL_MSUB
+	 *
+	 * @param server_msubid Server msubid provided during accept
+	 *
+	 * @param client_to_lib_tx_eng_h Client daemon-to-library tx engine
+	 *
+	 * @param tx_eng Server daemon to library tx engine used to relay
+	 * 		 the disconnection message.
+	 */
+	void send_disconnect_to_lib(uint32_t client_msubid,
+				    uint32_t server_msubid,
+				    uint64_t client_to_lib_tx_eng_h,
+				    tx_engine<unix_server, unix_msg_t> *tx_eng);
+
+	using ms_user_list   = vector<ms_user>;
+	using msubspace_list = vector<msubspace>;
 
 	string		name;
 	uint32_t	msid;
@@ -199,24 +590,29 @@ private:
 	uint32_t	size;
 	uint32_t	msoid;
 	bool		free;
-	uint32_t	current_ms_conn_id;
-	bool		accepted;
+	ms_owners&	owners;
+
+	/* Data members specific to the mspace creator */
+	bool		connected_to;	/* Has a connection from a remote client
+					   to the 'accepting' CREATOR */
+	bool		accepting;	/* Has called accept from the CREATOR */
+	uint32_t	server_msubid;	/* Used when accepting from the CREATOR */
+	tx_engine<unix_server, unix_msg_t> *creator_tx_eng;
+	uint16_t 	client_destid;	/* When creator is 'connected_to' */
+	uint32_t 	client_msubid;		/* Ditto */
+	uint64_t 	client_to_lib_tx_eng_h; /* Ditto */
 
 	/* Info about users that have opened the ms */
-	vector<ms_user>		users;
-	sem_t			users_sem;
+	ms_user_list	users;
+	mutex		users_mutex;
 
 	/* Memory sub-space indexes */
-	bool msubindex_free_list[MSUBINDEX_MAX+1];	/* List of memory sub-space IDs */
-	sem_t 			msubindex_free_list_sem;
+	bool 		msubindex_free_list[MSUBINDEX_MAX+1];
+	mutex 		msubindex_free_list_mutex;
 
 	/* Memory subspaces */
-	vector<msubspace>	msubspaces;
-	sem_t			msubspaces_sem;
-
-	/* List of connections to remote clients of this memory space */
-	vector<remote_connection>	rem_connections;
-	sem_t				rem_connections_sem;
+	msubspace_list	msubspaces;
+	mutex		msubspaces_mutex;
 }; /* mspace */
 
 

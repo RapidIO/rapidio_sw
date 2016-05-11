@@ -100,6 +100,67 @@ struct librsktd_unified_msg {
 	struct con_skts *closing_skt; /* Connected socket being closed */
 };
 
+#define UMSG_W_OR_S(x) ((NULL != x->sp)?"Slave": \
+			(NULL != x->wp)?"WORKER": \
+			(NULL != x->app)?(*x->app)->app_name:"UNKNOWN")
+
+#define UMSG_CT(x) ((NULL != x->sp)?(*x->sp)->ct: \
+			(NULL != x->wp)?(*x->wp)->ct:-1)
+
+#define UMSG_TYPE_TO_STR(x) ( \
+	(LIBRSKTD_BIND == x->msg_type  )?"APP_BIND":  \
+	(LIBRSKTD_LISTEN == x->msg_type)?"APP_LIST":  \
+	(LIBRSKTD_ACCEPT == x->msg_type)?"APP_ACC ":  \
+	(LIBRSKTD_CONN == x->msg_type  )?"APP_CONN":  \
+	(LIBRSKTD_CLOSE == x->msg_type )?"APP_CLOS":  \
+	(LIBRSKTD_HELLO == x->msg_type )?"APP_HELO":  \
+	(LIBRSKTD_RELEASE == x->msg_type )?"APP_REL ":  \
+	(LIBRSKT_CLOSE_CMD == x->msg_type)?"D2A_CLOS":  \
+	(RSKTD_HELLO_REQ == x->msg_type  )?"DMN_HELO":  \
+	(RSKTD_CONNECT_REQ == x->msg_type)?"DMN_CONN":  \
+	(RSKTD_CLOSE_REQ == x->msg_type  )?"DMN_CLOS":  \
+	"*UNKNOWN")
+
+#define UMSG_PROC_TO_STR(x) ( \
+	(RSKTD_PROC_AREQ == x->proc_type  )?"A_REQ":  \
+	(RSKTD_PROC_A2W  == x->proc_type  )?"A2WKR":  \
+	(RSKTD_PROC_SREQ == x->proc_type  )?"S_REQ":  \
+	(RSKTD_PROC_S2A  == x->proc_type  )?"S2APP":  \
+	"*BAD*")
+
+#define UMSG_STAGE_TO_STR(x) ( \
+	(RSKTD_AREQ_SEQ_AREQ == x->proc_stage )?"A_REQ ":  \
+	(RSKTD_AREQ_SEQ_ARESP == x->proc_stage)?"A_RESP":  \
+	(RSKTD_A2W_SEQ_AREQ  == x->proc_stage )?"A2D_AREQ ":  \
+	(RSKTD_A2W_SEQ_DREQ  == x->proc_stage )?"A2D_DREQ ":  \
+	(RSKTD_A2W_SEQ_DRESP == x->proc_stage )?"A2D_DRESP":  \
+	(RSKTD_A2W_SEQ_ARESP == x->proc_stage )?"A2D_ARESP":  \
+	(RSKTD_SPEER_SEQ_DREQ == x->proc_stage )?"S_REQ   ":  \
+	(RSKTD_SPEER_SEQ_DRESP == x->proc_stage)?"S_RESP   ":  \
+	(RSKTD_S2A_SEQ_DREQ  == x->proc_stage )?"S2A_SREQ ":  \
+	(RSKTD_S2A_SEQ_AREQ  == x->proc_stage )?"S2A_AREQ ":  \
+	(RSKTD_S2A_SEQ_ARESP == x->proc_stage )?"S2A_ARESP":  \
+	(RSKTD_S2A_SEQ_DRESP == x->proc_stage )?"S2A_SRESP":  \
+	"*BAD*")
+
+#define RSKTD_AREQ_SEQ_AREQ 0x10
+#define RSKTD_AREQ_SEQ_ARESP 0x11
+
+#define RSKTD_PROC_A2W 2
+#define RSKTD_A2W_SEQ_AREQ  0x21
+#define RSKTD_A2W_SEQ_DREQ  0x22
+#define RSKTD_A2W_SEQ_DRESP 0x23
+#define RSKTD_A2W_SEQ_ARESP 0x24
+
+#define RSKTD_PROC_SREQ 3
+#define RSKTD_SPEER_SEQ_DREQ 0x31
+#define RSKTD_SPEER_SEQ_DRESP 0x32
+
+#define RSKTD_PROC_S2A 4
+#define RSKTD_S2A_SEQ_DREQ 0x41
+#define RSKTD_S2A_SEQ_AREQ 0x42
+#define RSKTD_S2A_SEQ_ARESP 0x43
+#define RSKTD_S2A_SEQ_DRESP 0x44
 #define MAX_MSG 100
 
 struct librsktd_msg_proc_info {

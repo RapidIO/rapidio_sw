@@ -42,6 +42,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
 
+#include "liblog.h"
 #include "rapidio_mport_mgmt.h"
 #include "librskt_private.h"
 #include "librsktd_private.h"
@@ -50,7 +51,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rskts_info.h"
 #include "liblog.h"
 
-#define SINGLE_CONNECTION	1
+#define SINGLE_CONNECTION	0
 
 #define RSKT_DEFAULT_SEND_BUF_SIZE	4*1024
 #define RSKT_DEFAULT_RECV_BUF_SIZE	4*1024
@@ -82,7 +83,7 @@ void *slave_thread_f(void *arg)
 
 	/* Extract parameters and free the params struct */
 	if (arg == NULL) {
-		fprintf(stderr, "NULL argument. Exiting\n");
+		CRIT("NULL argument. Exiting\n");
 		goto slave_thread_f_exit;
 	}
 	slave_params = (struct slave_thread_params *)arg;
@@ -92,26 +93,25 @@ void *slave_thread_f(void *arg)
 	memset(my_name, 0, 16);
         snprintf(my_name, 15, "ACC_L%5d", accept_socket->sa.sn);
         pthread_setname_np(slave_params->slave_thread, my_name);
+
 	pthread_detach(slave_params->slave_thread);
 
 	num_threads++;	/* Increment threads */
 
 	sem_post(&slave_params->started);
 
-	printf("*** Started %s with thread id = 0x%" PRIx64 "\n",
+	INFO("*** Started %s with thread id = 0x%" PRIx64 "\n",
 						__func__, slave_thread);
 
 	/* Allocate send and receive buffers */
 	send_buf = malloc(RSKT_DEFAULT_SEND_BUF_SIZE);
 	if (send_buf == NULL) {
-		fprintf(stderr, "Failed to alloc send_buf: %s\n",
-							strerror(errno));
+		CRIT("Failed to alloc send_buf: %s\n", strerror(errno));
 		goto slave_thread_f_exit;
 	}
 	recv_buf = malloc(RSKT_DEFAULT_RECV_BUF_SIZE);
 	if (recv_buf == NULL) {
-		fprintf(stderr, "Failed to alloc recv_buf: %s\n",
-							strerror(errno));
+		CRIT("Failed to alloc recv_buf: %s\n", strerror(errno));
 		goto slave_thread_f_exit;
 	}
 	while(1)  {
@@ -120,15 +120,14 @@ void *slave_thread_f(void *arg)
 			       RSKT_DEFAULT_RECV_BUF_SIZE);
 		if (rc < 0) {
 			if (errno == ETIMEDOUT) {
-				fprintf(stderr, "rskt_read() timed out. Retry\n");
+				ERR("rskt_read() timed out. Retry\n");
 				continue;
 			}
-			fprintf(stderr, "Receive failed, rc=%d: %s\n",
-							rc, strerror(errno));
+			ERR("Receive failed, rc=%d:%s\n", rc, strerror(errno));
 			/* Client closed the connection. Die! */
 			break;
 		} else
-			printf("Received %d bytes\n", rc);
+			INFO("Received %d bytes\n", rc);
 
 		data_size = rc;
 
@@ -137,10 +136,10 @@ void *slave_thread_f(void *arg)
 		rc = rskt_write(accept_socket, send_buf, data_size);
 		if (rc != 0) {
 			if (errno == ETIMEDOUT) {
-				fprintf(stderr, "rskt-write() timed out. Retrying!\n");
+				ERR("rskt-write() timed out. Retrying!\n");
 				continue;
 			}
-			fprintf(stderr, "Failed to send data, rc = %d: %s\n",
+			ERR("Failed to send data, rc = %d: %s\n",
 							rc, strerror(rc));
 			/* Client closed the connection. Die! */
 			break;
@@ -150,7 +149,7 @@ void *slave_thread_f(void *arg)
 slave_thread_f_exit:
 	num_threads--;	/* For tracking state upon crash */
 
-	printf("Exiting %s, thread id=0x%X, socket=0x%X, %u threads active\n",
+	INFO("Exiting %s, thread id=0x%X, socket=0x%X, %u threads active\n",
 			__func__, slave_thread, accept_socket, num_threads);
 
 	/* Free send/receive buffers */
@@ -161,7 +160,9 @@ slave_thread_f_exit:
 	if (slave_params != NULL)
 		free(slave_params);
 
-	/* FIXME: Close and destroy the accept socket */
+	rskt_close(accept_socket);
+	rskt_destroy_socket(&accept_socket);
+
 	pthread_exit(0);
 } /* slave_thread_f() */
 
@@ -251,14 +252,14 @@ int main(int argc, char *argv[])
 
 	rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
 	if (rc) {
-		fprintf(stderr, "Failed in librskt_init, rc = %d: %s\n", 
+		CRIT("Failed in librskt_init, rc = %d: %s\n",
 							rc, strerror(errno));
 		goto exit_main;
 	}
 
 	listen_socket = rskt_create_socket();
 	if (!listen_socket) {
-		fprintf(stderr, "Failed to create listen socket, rc = %d: %s\n",
+		CRIT("Failed to create listen socket, rc = %d: %s\n",
 							rc, strerror(errno));
 		goto exit_main;
 	}
@@ -268,14 +269,14 @@ int main(int argc, char *argv[])
 
 	rc = rskt_bind(listen_socket, &sock_addr);
 	if (rc) {
-		fprintf(stderr, "Failed to bind listen socket, rc = %d: %s\n",
+		CRIT("Failed to bind listen socket, rc = %d: %s\n",
 							rc, strerror(errno));
 		goto free_listen_socket;
 	}
 
 	rc = rskt_listen(listen_socket, RSKT_DEFAULT_MAX_BACKLOG);
 	if (rc) {
-		fprintf(stderr, "Failed to listen & set max backlog, rc = %d: %s\n",
+		CRIT("Failed to listen & set max backlog, rc = %d: %s\n",
 							rc, strerror(errno));
 		goto free_listen_socket;
 
@@ -287,21 +288,22 @@ int main(int argc, char *argv[])
 		/* Create a new accept socket for the next connection */
 		accept_socket = rskt_create_socket();
 		if (!accept_socket) {
-			fprintf(stderr, "Cannot create accept socket, rc = %d: %s\n",
+			CRIT("Cannot create accept socket, rc = %d: %s\n",
 							rc, strerror(errno));
 			goto free_listen_socket;
 		}		
 
 		/* Await connect requests from RSKT clients */
-		printf("%u threads active, accepting connections\n", num_threads);
+		INFO("%u threads active, accepting connections\n", num_threads);
 		rc = rskt_accept(listen_socket, accept_socket, &sock_addr);
 		if (rc) {
-			fprintf(stderr, "Failed in rskt_accept, rc = %d: %s\n",
-							rc, strerror(errno));
+			CRIT("Failed in rskt_accept, rc = 0x%X, errno=%d: %s\n",
+					rc, errno, strerror(errno));
 			goto destroy_accept_socket;
 		}
 
-		/* Create a thread for handling transmit/receive on new socket */
+		/* Create a thread for handling transmit/receive on new socket
+ 		*/
 		slave_params = (struct slave_thread_params *)
 				malloc(sizeof(struct slave_thread_params));
 		slave_params->accept_socket = accept_socket;
@@ -311,24 +313,13 @@ int main(int argc, char *argv[])
 				    slave_thread_f,
 				    slave_params);
 		if (rc) {
-			fprintf(stderr, "slave_thread failed, rc %d\n : %s",
-						errno, strerror(errno));
-			/* We failed. But don't exit so we can maintain the other
-			 * successful connections we may already have. */
+			CRIT("slave_thread failed, rc %d\n : %s",
+							errno, strerror(errno));
+			/* We failed. But don't exit so we can maintain 
+			 * the other successful connections we may already have.
+			 */
 			continue;
-		} else {
-
 		}
-		/* Save a copy of the thread id to use in pthread_join */
-		pthread_t	slave_thread = slave_params->slave_thread;
-
-		/* Wait for thread to start */
-		sem_wait(&slave_params->started);
-
-#if SINGLE_CONNECTION == 0
-		/* Wait for thread to exit. FIXME: Temporary only */
-		pthread_join(slave_thread, NULL);
-#endif
 	} /* while */
 
 destroy_accept_socket:
@@ -340,7 +331,6 @@ free_listen_socket:
 
 exit_main:
 	/* The server never exits */
-	fprintf(stderr, "**** EXITING DUE TO FAILURE ****, num_threads = %u\n",
-							num_threads);
+	CRIT("** EXITING DUE TO FAILURE **, num_threads = %u\n", num_threads);
 	return rc;
 }

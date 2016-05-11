@@ -39,10 +39,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
  * Error codes
  */
+#define RDMA_SUCCESS			0x0000
 #define RDMA_DAEMON_UNREACHABLE		0x1000
 #define RDMA_MALLOC_FAIL		0x1001
 #define RDMA_MPORT_OPEN_FAIL		0x1002
-#define RDMA_ERRNO			0x1003 /* Caller to check errno */
+#define RDMA_API_TIMEOUT		0x1003
 #define RDMA_NOT_SUPPORTED		0x1004
 #define RDMA_DUPLICATE_MSO		0x1005
 #define RDMA_NAME_TOO_LONG		0x1006
@@ -68,6 +69,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RDMA_INVALID_RIO_ADDR		0x101A
 #define RDMA_INVALID_SYNC_TYPE		0x101B
 #define RDMA_REMOTE_UNREACHABLE		0x101C
+#define RDMA_LIB_INIT_FAIL		0x101D
+#define RDMA_CANNOT_OPEN_MSO		0x101E
+#define RDMA_NO_ROOM_FOR_MS		0x101F
+#define RDMA_MAP_ERROR			0x1020
+#define RDMA_DISCONNECT_TIMEOUT		0x1021
+#define RDMA_MSUB_CREATE_FAIL		0x1022
 
 /*
 * mso_h - A memory space owner handle. This is a globally unique value within
@@ -93,5 +100,10 @@ typedef uint64_t ms_h;
 */
 typedef uint64_t msub_h;
 
+/*
+ * conn_h - Connection handle to a memory space. This identifies a single
+ * connection between a single client and a memory space on a server application.
+ */
+typedef uint64_t conn_h;
 
 #endif /* __RDMA_TYPES_H__ */

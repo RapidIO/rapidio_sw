@@ -34,40 +34,48 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CM_SOCK_H
 
 #include <stdint.h>
-#include <errno.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+#include <cinttypes>
+#include <cerrno>
 #include <cstring>
-#include <iostream>
-#include <iomanip>
-#include <iterator>
+#include <cstdlib>
+#include <cstdio>
 
-#include <rapidio_mport_mgmt.h>
-#include <rapidio_mport_sock.h>
+#include <exception>
+
+#include "rapidio_mport_mgmt.h"
+#include "rapidio_mport_sock.h"
 #include "liblog.h"
 
-#define	CM_MSG_OFFSET 20
-#define	CM_BUF_SIZE	4096
+constexpr auto CM_MSG_OFFSET = 20;
+constexpr auto CM_BUF_SIZE   = 4*1024;
+constexpr auto CM_PAYLOAD_SIZE = CM_BUF_SIZE - CM_MSG_OFFSET;
 
-using std::iterator;
-using std::cout;
-using std::endl;
-using std::ostream_iterator;
-using std::setfill;
-using std::hex;
-using std::setw;
+using std::exception;
 
-struct cm_exception {
+class cm_exception : public exception {
+public:
 	cm_exception(const char *msg) : err(msg) {}
-
+	virtual const char *what() const throw()
+	{
+		return err;
+	}
+private:
 	const char *err;
 };
 
 class cm_base {
 
 public:
+	virtual int send(size_t len = CM_BUF_SIZE) = 0;
+
+	virtual int receive(size_t *rcvd_len = nullptr) = 0;
+
 	/* Return pointer to pre-allocated send buffer */
 	void get_send_buffer(void **buf)
 	{
@@ -82,12 +90,12 @@ public:
 
 	void flush_send_buffer()
 	{
-		memset(send_buf + CM_MSG_OFFSET, 0, CM_BUF_SIZE - CM_MSG_OFFSET);
+		memset(send_buf + CM_MSG_OFFSET, 0, CM_PAYLOAD_SIZE);
 	}
 
 	void flush_recv_buffer()
 	{
-		memset(recv_buf + CM_MSG_OFFSET, 0, CM_BUF_SIZE - CM_MSG_OFFSET);
+		memset(recv_buf + CM_MSG_OFFSET, 0, CM_PAYLOAD_SIZE);
 	}
 
 	void dump_send_buffer()
@@ -100,10 +108,8 @@ public:
 		dump_buffer(recv_buf);
 	}
 
-private:
 	void dump_buffer(uint8_t *buffer)
 	{
-#ifdef EXTRA_DEBUG
 		unsigned row, col;
 		const uint8_t numbers_per_line = 32;
 		const uint8_t max_rows = 4;
@@ -114,9 +120,6 @@ private:
 			}
 			printf("0x%02X\n", *(buffer + CM_MSG_OFFSET + row*numbers_per_line + col));
 		}
-#else
-		(void)buffer;
-#endif
 	}
 
 protected:
@@ -134,7 +137,7 @@ protected:
 		gdb = is_debugger_present();
 	}
 
-	~cm_base()
+	virtual ~cm_base()
 	{
 		/* Delete send buffer */
 		if (send_buf)
@@ -157,33 +160,58 @@ protected:
 		return riomp_sock_mbox_destroy_handle(&mailbox);
 	}
 
-	/* Send CM_BUF_SIZE bytes from 'send_buf' on specified socket */
-	int send(riomp_sock_t socket)
+	/* Uses specified buffer and length */
+	int send_buffer(riomp_sock_t socket, void *buffer, size_t len)
 	{
 		int rc;
-		rc = riomp_sock_send(socket, (void *)send_buf, CM_BUF_SIZE);
-		if (rc) {
-			ERR("riomp_sock_send failed for '%s': %s\n", name, strerror(rc));
-			return -1;
+		if (len > CM_PAYLOAD_SIZE) {
+			ERR("'%s' failed in send() due to large message size(%d)\n",
+								name, len);
+			rc = -1;
+		} else {
+			/* Buffer was specified, copy contents after CM header */
+			if (buffer != nullptr)
+				memcpy(send_buf + CM_MSG_OFFSET, buffer, len);
+			/* else the message is at CM_MSG_OFFSET in recv_buf */
+			rc = riomp_sock_send(socket, send_buf, CM_BUF_SIZE);
+			if (rc) {
+				ERR("riomp_sock_send failed for '%s': %s\n",
+								name, strerror(rc));
+			}
 		}
-		return 0;
+		return rc;
+	} /* send_buffer() */
+
+	/* Send CM_BUF_SIZE bytes from 'send_buf' on specified socket */
+	int send(riomp_sock_t socket, size_t len)
+	{
+		/* Must pass nullptr as the buffer */
+		return send_buffer(socket, nullptr, len);
 	} /* send() */
 
 	/* Receive bytes to 'recv_buf' on specified socket */
-	int receive(riomp_sock_t socket)
+	int receive(riomp_sock_t socket, size_t *rcvd_len)
 	{
-		return timed_receive(socket, 0);
+		/* Passing nullptr means use 'recv_buf' */
+		return receive_buffer(socket, nullptr, rcvd_len);
 	} /* receive() */
+
+	/* Receive bytes to 'buffer' on specified socket */
+	int receive_buffer(riomp_sock_t socket, void *buffer, size_t *rcvd_len)
+	{
+		return timed_receive_buffer(socket, 0, buffer, rcvd_len);
+	} /* receive_buffer() */
 
 	/* If returns ETIME then it timed out. 0 means success,
 	 * EINTR means thread was killed (if not in gdb mode AND the)
 	 * shutting_down flag is set) anything else is an error. */
-	int timed_receive(riomp_sock_t socket, uint32_t timeout_ms)
+	int timed_receive_buffer(riomp_sock_t socket, uint32_t timeout_ms,
+			void *buffer, size_t *rcvd_len)
 	{
-		int rc = 0;
+		int rc;
+
 		do {
-			rc = riomp_sock_receive(socket,
-					(void **)&recv_buf, CM_BUF_SIZE,
+			rc = riomp_sock_receive(socket, (void **)&recv_buf, CM_BUF_SIZE,
 					timeout_ms);
 		} while (rc && (errno==EINTR) && gdb && !*shutting_down);
 		if (rc) {
@@ -196,7 +224,34 @@ protected:
 						name, errno, strerror(errno));
 			}
 		}
+
+		/* riomp_sock_receive(0 doesn't return actual bytes read, so
+		 * the bytes read are considedered to be the max payload size */
+		if (rcvd_len != nullptr)
+			*rcvd_len = CM_PAYLOAD_SIZE;
+
+		/* Only show buffer contents if we actually receive */
+		if (rc == 0) {
+#ifdef EXTRA_DEBUG
+			DBG("recv_buf[0] = 0x%" PRIx64 "\n", *(uint64_t *)recv_buf);
+			DBG("recv_buf[1] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 8));
+			DBG("recv_buf[2] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 16));
+			DBG("recv_buf[3] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 24));
+			DBG("recv_buf[4] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 32));
+			DBG("recv_buf[5] = 0x%" PRIx64 "\n", *(uint64_t *)((uint8_t *)recv_buf + 40));
+#endif
+		}
+
+		/* A buffer was provided, copy the data to it */
+		if (buffer != nullptr)
+			memcpy(buffer, recv_buf + CM_MSG_OFFSET, CM_PAYLOAD_SIZE);
+
 		return rc;
+	} /* timed_receive_buffer() */
+
+	int timed_receive(riomp_sock_t socket, uint32_t timeout)
+	{
+		return timed_receive_buffer(socket, timeout, nullptr, nullptr);
 	} /* timed_receive() */
 
 	const char *name;
@@ -300,25 +355,26 @@ public:
 	cm_server(const char *name, riomp_sock_t accept_socket,
 		  bool *shutting_down) :
 		cm_base(name, 0, 0, 0, shutting_down),
-		accept_socket(accept_socket)
+		listen_socket(0), accept_socket(accept_socket), accepted(false)
 	{
+		DBG("'%s': accept_socket = 0x%X\n", name, accept_socket);
 	}
 
 	~cm_server()
 	{
-		/* Close accept socket, if open */
-		DBG("'%s': accept_socket = 0x%X\n", name, accept_socket);
+		DBG("%s called for '%s'\n", __func__, name);
+
+		/* Close socket, if open */
 		if (accept_socket && accepted)
 			if (riomp_sock_close(&accept_socket)) {
-				WARN("Failed to close accept socket for '%s': %s\n",
+				ERR("Failed to close accept socket for '%s': %s\n",
 							name, strerror(errno));
 			}
 
 		/* Close listen socket, opened during construction */
-		DBG("'%s': Closing listen_socket = 0x%X\n", name, listen_socket);
 		if (listen_socket)
 			if (riomp_sock_close(&listen_socket)) {
-				WARN("Failed to close listen socket: for '%s': %s\n",
+				ERR("Failed to close listen socket: for '%s': %s\n",
 							name, strerror(errno));
 			}
 
@@ -326,7 +382,7 @@ public:
 		if (mailbox) {
 			DBG("'%s': Destroying mailbox\n", name);
 			if (close_mailbox()) {
-				WARN("Failed to close mailbox for '%s'\n", name);
+				ERR("Failed to close mailbox for '%s'\n", name);
 			}
 		}
 	} /* ~cm_server() */
@@ -379,10 +435,16 @@ public:
 	} /* accept() */
 
 	/* Receive bytes to 'recv_buf' */
-	int receive()
+	int receive(size_t *rcvd_len = nullptr)
 	{
-		return cm_base::receive(accept_socket);
+		return cm_base::receive(accept_socket, rcvd_len);
 	} /* receive() */
+
+	int send_buffer(void *buffer, size_t len = CM_PAYLOAD_SIZE)
+	{
+		DBG("Called\n");
+		return cm_base::send_buffer(accept_socket, buffer, len);
+	} /* send_buffer() */
 
 	/* Receive bytes to 'recv_buf' with timeout */
 	int timed_receive(uint32_t timeout_ms)
@@ -391,9 +453,9 @@ public:
 	} /* receive() */
 
 	/* Send bytes from 'send_buf' */
-	int send()
+	int send(size_t len = CM_PAYLOAD_SIZE)
 	{
-		return cm_base::send(accept_socket);
+		return cm_base::send(accept_socket, len);
 	} /* send() */
 
 private:
@@ -408,7 +470,7 @@ public:
 	cm_client(const char *name, int mport_id, uint8_t mbox_id,
 		  uint16_t channel, bool *shutting_down) :
 		cm_base(name, mport_id, mbox_id, channel, shutting_down),
-		client_socket(0)
+		server_destid(0xFFFF), client_socket(0)
 	{
 		/* Create mailbox, throw exception if failed */
 		DBG("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
@@ -430,7 +492,8 @@ public:
 
 	/* construct from client socket only */
 	cm_client(const char *name, riomp_sock_t socket, bool *shutting_down) :
-		cm_base(name, 0, 0, 0, shutting_down), client_socket(socket)
+		cm_base(name, 0, 0, 0, shutting_down),
+		server_destid(0xFFFF), client_socket(socket)
 	{
 	}
 
@@ -438,18 +501,19 @@ public:
 
 	~cm_client()
 	{
+		DBG("%s called for '%s'\n", __func__, name);
+
 		/* Close client socket */
-		DBG("client_socket = 0x%X\n", client_socket);
 		if (riomp_sock_close(&client_socket)) {
 			WARN("Failed to close client socket for '%s': %s\n",
 							name, strerror(errno));
 		}
-		DBG("Client socket closed\n");
+
 		/* Destroy mailbox handle, opened during construction */
 		if (close_mailbox()) {
 			WARN("Failed to close mailbox for '%s'\n", name);
 		}
-		DBG("Mailbox destroyed\n");
+
 	} /* Destructor */
 
 	/* Connect to server specified by RapidIO destination ID */
@@ -482,15 +546,22 @@ public:
 	} /* connect() */
 
 	/* Send bytes from 'send_buf' */
-	int send()
+	int send(size_t len = CM_PAYLOAD_SIZE)
 	{
-		return cm_base::send(client_socket);
+		return cm_base::send(client_socket, len);
 	} /* send() */
 
-	/* Receive bytes to 'recv_buf' */
-	int receive()
+	/* Send from 'buffer' */
+	int send_buffer(void *buffer, size_t len = CM_PAYLOAD_SIZE)
 	{
-		return cm_base::receive(client_socket);
+		DBG("Calling cm_base::send_buffer\n");
+		return cm_base::send_buffer(client_socket, buffer, len);
+	} /* send_buffer() */
+
+	/* Receive bytes to 'recv_buf' */
+	int receive(size_t *rcvd_len = nullptr)
+	{
+		return cm_base::receive(client_socket, rcvd_len);
 	} /* receive() */
 
 	/* Receive bytes to 'recv_buf' with timeout */

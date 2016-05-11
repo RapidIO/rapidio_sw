@@ -27,6 +27,7 @@ void test_case_d(void)
 	uint32_t msh_size;
 	msub_h	loc_msubh;
 	msub_h	rem_msubh;
+	conn_h	connh;
 	uint32_t rem_msub_len;
 
 	/* Open owner */
@@ -47,7 +48,7 @@ void test_case_d(void)
 	getchar();
 
 	/* Accept connection from client */
-	status = rdma_accept_ms_h(msh, loc_msubh, &rem_msubh, &rem_msub_len, 0);
+	status = rdma_accept_ms_h(msh, loc_msubh, &connh, &rem_msubh, &rem_msub_len, 0);
 	CHECK_AND_GOTO(status, "rdma_accept_ms_h", close_msh);
 
 	puts("ENTER to close msh...");

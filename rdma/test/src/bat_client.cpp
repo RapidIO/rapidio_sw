@@ -5,131 +5,85 @@
 #include <unistd.h>
 #include <linux/limits.h>
 
+#include <memory>
+#include <string>
+#include <sstream>
+#include <vector>
+
 #include <cstdlib>
 #include <cstdio>
 #include <inttypes.h>
 
+#include "memory_supp.h"
 #include "librdma.h"
-#include "cm_sock.h"
 #include "bat_common.h"
+#include "bat_connection.h"
 #include "bat_client_private.h"
 #include "bat_client_test_cases.h"
 
+using namespace std;
 
-/* Signal end-of-test to server */
-#define BAT_EOT() { \
-	bm_first_tx->type = BAT_END; \
-	bat_first_client->send(); \
+static inline void bat_eot(int num_channels)
+{
+	for (auto i = 0; i < num_channels; i++) {
+		bat_connections[i]->send_eot();
+	}
 }
 
+/* Static -- local to this module only */
 static bool shutting_down = false;
-
-/* Log file, name and handle */
 static char log_filename[PATH_MAX];
-FILE *log_fp;
+static 	int rc;
 
-/* First client, buffers, message structs..etc. */
-cm_client *bat_first_client;
-bat_msg_t *bm_first_tx;
-bat_msg_t *bm_first_rx;
-
-/* Second client, buffers, message structs..etc. */
-/* FIXME: Probably not needed. We can spawn off users from the server */
-#if 0
-static cm_client *bat_second_client;
-static bat_msg_t *bm_second_tx;
-static bat_msg_t *bm_second_rx;
-#endif
-/* Connection information */
-static uint32_t destid;
-static int first_channel;
-static int second_channel;
-char first_channel_str[5];	/* 0001 to 9999 + '\0' */
-
-static unsigned repetitions = 1;	/* Default is once */
+/* Globals - referred to by the test cases */
+FILE *log_fp;	/* Log file */
+vector<bat_connection *>	bat_connections; /* Connections to BAT servers */
 
 static void show_help(void)
 {
-	// TODO: mport_id should be a command-line parameter
-	puts("bat_client -c<channel> -d<destid> -t<test_case> -n<repetitions> -o<output-file> [-l] [-h]");
+	puts("bat_client -c<first_channel> -n<num of channels> -d<destid> -t<test_case> -o<output-file> [-r<repetitions>] [-l] [-h]");
+	puts("-c First CM channel number by server app (creates/destroys..etc.)");
+	puts("-n Total number of CM channels used by server+user apps (opens/closes/accepts..etc.)");
+	puts("-d RapidIO destination ID for the node running bot the 'server' and 'user'");
+	puts("-t Test case to run");
+	puts("-r Repetitions to run the tests for (Optional. Default is 1)");
+	puts("-o Log filename for test results");
+	puts("\t If <test_case> is 'z', all tests are run");
+	puts("\t If <test_case> is 'z', <repetitions> is the number of times the tests are run");
+	puts("\t <repetitions> is ignored for all other cases");
 	puts("-l List all test cases");
+	puts("-m mport_id");
 	puts("-h Help");
-	puts("if <test_case> is 'z', all tests are run");
-	puts("if <test_case> is 'z', <repetitions> is the number of times the tests are run");
-	puts("<repetitions> is ignored for all other cases");
+} /* show_help() */
+
+static void sig_handler(int sig)
+{
+	(void)sig;
+	exit(rc);
 }
-
-int connect_to_channel(int channel,
-		       const char *name,
-		       cm_client **bat_client,
-		       bat_msg_t **bm_tx,
-		       bat_msg_t **bm_rx)
-{
-	void *buf_rx, *buf_tx;
-
-	printf("%s: Creating client on channel %d\n", __func__, channel);
-	try {
-		*bat_client = new cm_client(name,
-					    BAT_MPORT_ID,
-					    BAT_MBOX_ID,
-					    channel,
-					    &shutting_down);
-	}
-	catch(cm_exception& e) {
-		fprintf(stderr, "%s: %s\n", name, e.err);
-		return -1;
-	}
-
-	/* Set up buffers for BAT messages */
-	(*bat_client)->get_recv_buffer(&buf_rx);
-	(*bat_client)->get_send_buffer(&buf_tx);
-	*bm_rx = (bat_msg_t *)buf_rx;
-	*bm_tx = (bat_msg_t *)buf_tx;
-
-	if ((*bat_client)->connect(destid)) {
-		fprintf(stderr, "bat_client->connect() failed\n");
-		delete *bat_client;
-		return -2;
-	}
-	printf("Connected to channel %d\n", channel);
-
-	return 0;
-} /* connect_to_channel() */
-
-void init_names(void)
-{
-	/* For the local names, they are not shared so any randomness
-	 * would work. Let's use the PID */
-	int my_pid;
-	char pid_str[10];
-
-	memset(pid_str, 0, sizeof(pid_str));
-
-	my_pid = getpid();
-	sprintf(pid_str, "%d", my_pid);
-
-	/* Local names */
-	strcpy(loc_mso_name, "MSO_NAME");
-	strcat(loc_mso_name, pid_str);
-	strcpy(loc_ms_name, "MS_NAME");
-	strcat(loc_ms_name, pid_str);
-
-	/* For remote names we append the channel number */
-	strcpy(rem_mso_name, "MSO_NAME");
-	strcat(rem_mso_name, first_channel_str);
-	strcpy(rem_ms_name1, "MS_NAME1");
-	strcat(rem_ms_name1, first_channel_str);
-	strcpy(rem_ms_name2, "MS_NAME2");
-	strcat(rem_ms_name2, first_channel_str);
-	strcpy(rem_ms_name3, "MS_NAME3");
-	strcat(rem_ms_name3, first_channel_str);
-} /* init_names() */
 
 int main(int argc, char *argv[])
 {
-	char tc = 'a';
+	auto tc = 'a';
 	int c;
+	auto first_channel = 2224;
+	auto num_channels  = 1;
+	auto repetitions   = 1;
+	auto mport_id = BAT_MPORT_ID;
+	uint32_t destid;
+	vector<unique_ptr<bat_connection> > connections;
 
+	/* Register signal handler */
+	struct sigaction sig_action;
+	sig_action.sa_handler = sig_handler;
+	sigemptyset(&sig_action.sa_mask);
+	sig_action.sa_flags = 0;
+	sigaction(SIGINT, &sig_action, NULL);
+	sigaction(SIGTERM, &sig_action, NULL);
+	sigaction(SIGQUIT, &sig_action, NULL);
+	sigaction(SIGABRT, &sig_action, NULL);
+	sigaction(SIGUSR1, &sig_action, NULL);
+	sigaction(SIGSEGV, &sig_action, NULL);
 
 	/* List and help are special cases */
 	if (argc == 2) {
@@ -149,10 +103,12 @@ int main(int argc, char *argv[])
 			puts("'k' Connect/destroy(remote first) with 3 memory spaces");
 			puts("'l' Test coalescing of random equal memory spaces");
 			puts("'m' Test concurrent creation of ms, msub, accept, connect, disconnect");
+			puts("'n' Create mso/ms on server, open mso/ms on user, close, then destroy");
+			puts("'o' Test server-side disconnection with 0 client msub");
+			puts("'p' Connect without Accept returns connection failure (not timeout)");
 
-			/* Old test cases */
-			puts("'t' Accept/Connect/Disconnect test");
-			puts("'u' Accept/Connect/Destroy test");
+			puts("'t' Accept/Connect/Disconnect test with 0 client msub");
+			puts("'u' Accept/Connect/Destroy test with 0 client msub");
 			puts("'v' Accept/Connect then kill remote app");
 			puts("'w' Accept/Connect then kill remote daemon");
 			puts("'x' Create local mso, die, then try to open");
@@ -162,7 +118,9 @@ int main(int argc, char *argv[])
 			puts("'3' As '1' but data offset in loc_msub");
 			puts("'4' As '1' but data offset in rem_msub");
 			puts("'5' As '1' but async mode");
-			puts("'6' Create mso+ms on one, open and DMA on another");
+			puts("'6' As '1' but FAF (rdma_no-wait) mode");
+			puts("'7' Create mso+ms on one, open and DMA on another");
+			puts("'8' As 1 but use a buffer instead of loc_msub");
 			puts("'z' RUN ALL TESTS (with some exceptions)");
 			exit(1);
 		}
@@ -171,44 +129,40 @@ int main(int argc, char *argv[])
 	}
 
 	/* Parse command-line parameters */
-	if (argc < 4) {
+	if (argc < 6) {
 		show_help();
 		exit(1);
 	}
 
-
-	while ((c = getopt(argc, argv, "hlc:d:o:t:n:")) != -1)
+	while ((c = getopt(argc, argv, "hld:o:c:t:n:r:")) != -1)
 		switch (c) {
 		case 'c':
 			first_channel = atoi(optarg);
-			if (strlen(optarg) <= (sizeof(first_channel_str)-1)) {
-				strcpy(first_channel_str, optarg);
-			}
-			if (first_channel < 1 || first_channel > 9999 ){
-				printf("Invalid channel number: %s. ", optarg);
-				printf("Enter a value between 1 and 9999\n");
-				exit(1);
-			}
-			second_channel = first_channel + 1;
 			break;
 		case 'd':
 			destid = atoi(optarg);
-			break;
-		case 'l':
-			break;
-		case 'o':
-			strcpy(log_filename, optarg);
-			break;
-		case 't':
-			tc = optarg[0];
 			break;
 		case 'h':
 			show_help();
 			exit(1);
 			break;
+		case 'l':
+			break;
+		case 'm':
+			mport_id = atoi(optarg);
+			break;
 		case 'n':
+			num_channels = atoi(optarg);
+			break;
+		case 'o':
+			strcpy(log_filename, optarg);
+			break;
+		case 'r':
 			repetitions = atoi(optarg);
 			printf("Tests will be run %d times!\n", repetitions);
+			break;
+		case 't':	/* test case */
+			tc = optarg[0];
 			break;
 		case '?':
 			/* Invalid command line option */
@@ -218,10 +172,25 @@ int main(int argc, char *argv[])
 			abort();
 		}
 
-	int ret = connect_to_channel(first_channel, "first_channel",
-				&bat_first_client, &bm_first_tx, &bm_first_rx);
-	if (ret)
+	/* Connect to servers */
+	try {
+		for (auto i = 0 ; i < num_channels; i++ ) {
+			stringstream conn_name;
+			conn_name << "conn_" << i;
+
+			connections.push_back(make_unique<bat_connection>(
+							mport_id,
+							destid,
+							first_channel + i,
+							conn_name.str().c_str(),
+							&shutting_down));
+			bat_connections.push_back(connections[i].get());
+		}
+	}
+	catch(...) {
+		fprintf(stderr, "Failed to connect to CM channel\n");
 		return 1;
+	}
 
 	/* Open log file for 'append'. Create if non-existent. */
 	log_fp = fopen(log_filename, "a");
@@ -230,107 +199,138 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
-	/* Prep the memory space and owner names */
-	init_names();
-
 	switch(tc) {
 
 	case 'a':
-		test_case_a();
-		BAT_EOT();
+		rc = test_case_a();
+		bat_eot(1);
 		break;
 	case 'b':
-		test_case_b();
-		BAT_EOT();
+		rc = test_case_b();
+		bat_eot(1);
 		break;
 	case 'c':
-		test_case_c();
-		BAT_EOT();
+		rc = test_case_c();
+		bat_eot(1);
 		break;
 	case 'd':
-		test_case_d();
-		/* Local test. No need for BAT_EOT */
+		rc = test_case_d();
+		/* Local test. No need for bat_eot */
 		break;
 	case 'e':
-		test_case_e();
-		/* Local test. No need for BAT_EOT */
+		rc = test_case_e();
+		/* Local test. No need for bat_eot */
 		break;
 	case 'f':
-		test_case_f();
-		/* Local test. No need for BAT_EOT */
+		rc = test_case_f();
+		/* Local test. No need for bat_eot */
 		break;
 	case 'g':
-		test_case_g();
-		/* Local test. No need for BAT_EOT */
+		rc = test_case_g();
+		/* Local test. No need for bat_eot */
 		break;
 
 	case 'h':
 		test_case_h(destid);
-		BAT_EOT();
+		bat_eot(1);
 		break;
 
 	case 'i':
 	case 'j':
 	case 'k':
-		test_case_i_j_k(tc, destid);
-		BAT_EOT();
+		rc = test_case_i_j_k(tc, destid);
+		bat_eot(1);
 		break;
 
 	case 'l':
-		test_case_l();
-		/* Local test. No need for BAT_EOT */
+		rc = test_case_l();
+		/* Local test. No need for bat_eot */
 		break;
 
 	case 'm':
-		test_case_m(destid);
-		BAT_EOT();
+		rc = test_case_m(destid);
+		bat_eot(3);
 		break;
 
-		/* Old test cases */
+	case 'n':
+		rc = test_case_n();
+		bat_eot(num_channels);
+		break;
+	case 'o':
+		rc = test_case_o(destid);
+		bat_eot(1);
+		break;
+	case 'p':
+		rc = test_case_p(destid);
+		/* Local test. No need for bat_eot */
+		break;
+
+	case 'r':
+		rc = test_case_r(destid);
+		bat_eot(2);
+		break;
+
 	case 't':
 	case 'u':
-		test_case_t_u(tc, destid);
-		BAT_EOT();
+		rc = test_case_t_u(tc, destid);
+		bat_eot(1);
 		break;
 	case 'v':
 	case 'w':
-		test_case_v_w(tc, destid);
+		rc = test_case_v_w(tc, destid);
 		break;
 	case 'x':
-		test_case_x();
-		/* No BAT_EOT(). This is a local test */
+		rc = test_case_x();
+		/* No BAT_EOT1(). This is a local test */
 		break;
 	case 'y':
-		test_case_y();
-		/* No BAT_EOT(). This is a local test */
+		rc = test_case_y();
+		/* No BAT_EOT1(). This is a local test */
 		break;
 	case '1':
-		test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_sync_chk);
-		BAT_EOT();
+		rc = test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_sync_chk);
+		bat_eot(1);
 		break;
 	case '2':
-		test_case_dma(tc, destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
-		BAT_EOT();
+		rc = test_case_dma(tc, destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
+		bat_eot(1);
 		break;
 	case '3':
-		test_case_dma(tc, destid, 0x00, 0x80, 0x00, rdma_sync_chk);
-		BAT_EOT();
+		rc = test_case_dma(tc, destid, 0x00, 0x80, 0x00, rdma_sync_chk);
+		bat_eot(1);
 		break;
 	case '4':
-		test_case_dma(tc, destid, 0x00, 0x00, 0x40, rdma_sync_chk);
-		BAT_EOT();
+		rc = test_case_dma(tc, destid, 0x00, 0x00, 0x40, rdma_sync_chk);
+		bat_eot(1);
 		break;
 	case '5':
-		test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_async_chk);
-		BAT_EOT();
+		rc = test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_async_chk);
+		bat_eot(1);
 		break;
 	case '6':
-		test_case_6();
-		BAT_EOT();
+		rc = test_case_dma(tc, destid, 0x00, 0x00, 0x00, rdma_no_wait);
+		bat_eot(1);
+		break;
+	case '7':
+		rc = test_case_7(destid);
+		bat_eot(2);
+		break;
+	case '8':
+		rc = test_case_dma_buf(tc, destid, 0x00, rdma_sync_chk);
+		bat_eot(1);
+		break;
+	case '9':
+		rc = test_case_dma_buf(tc, destid, 0x20, rdma_sync_chk);
+		bat_eot(1);
+		break;
+
+	case 'A':
+		rc = test_case_dma_buf(tc, destid, 0x00, rdma_no_wait);
+		bat_eot(1);
 		break;
 	case 'z':
-		for (unsigned i = 0; i < repetitions; i++) {
-			/* New test cases */
+		for (auto i = 0; i < repetitions; i++) {
+			/* Sequential test cases */
 			test_case_a();
 			test_case_b();
 			test_case_c();
@@ -344,8 +344,12 @@ int main(int argc, char *argv[])
 			test_case_i_j_k('k', destid);
 			test_case_l();
 			test_case_m(destid);
+			test_case_n();
+			test_case_o(destid);
+			test_case_p(destid);
 
-			/* Old test cases */
+			test_case_r(destid);
+
 			test_case_t_u('t', destid);
 			test_case_t_u('u', destid);
 
@@ -353,20 +357,25 @@ int main(int argc, char *argv[])
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
 			test_case_dma('3', destid, 0x00, 0x80, 0x00, rdma_sync_chk);
 			test_case_dma('4', destid, 0x00, 0x00, 0x40, rdma_sync_chk);
-#if 0
 			test_case_dma('5', destid, 0x00, 0x00, 0x00, rdma_async_chk);
-#endif
+			test_case_dma('6', destid, 0x00, 0x00, 0x00, rdma_no_wait);
+			test_case_7(destid);
+			test_case_dma_buf('8', destid, 0x00, rdma_sync_chk);
+			test_case_dma_buf('9', destid, 0x20, rdma_sync_chk);
+			test_case_dma_buf('A', destid, 0x00, rdma_no_wait);
+
+			/* Randomized test cases */
 			test_case_b();
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
 			test_case_t_u('t', destid);
-#if 0
 			test_case_dma('5', destid, 0x00, 0x00, 0x00, rdma_async_chk);
-#endif
 			test_case_dma('3', destid, 0x00, 0x80, 0x00, rdma_sync_chk);
 			test_case_c();
 			test_case_dma('4', destid, 0x00, 0x00, 0x40, rdma_sync_chk);
 			test_case_t_u('u', destid);
 			test_case_dma('2', destid, 4*1024, 0x00, 0x00, rdma_sync_chk);
+
+			bat_eot(3);
 		}
 		break;
 	default:
@@ -374,16 +383,13 @@ int main(int argc, char *argv[])
 		break;
 	}
 
-	/* For test cases that kill the bat_server, no point in sending BAT_EOT */
-	if(tc != 'j') {
-		BAT_EOT();
-	}
-
 	shutting_down = true;
-	delete bat_first_client;
+	sleep(1);	/* Let sockets process the 'shutting_down=true' */
 
+	/* Close log file */
 	fclose(log_fp);
-	puts("Goodbye!");
-	return 0;
+
+	printf("Goodbye!, rc = %d\n", rc);
+	exit(rc);
 }
 

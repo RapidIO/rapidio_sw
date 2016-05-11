@@ -149,26 +149,6 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt);
  */
 int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt); /* Stream */
 
-/** @brief Future: Record oriented read
- *
- * @param[in] skt_h RDMA socket handle
- * @param[in] data User buffer for reception of data          
- * @param[in] max_byte_cnt maximum number of bytes that will fit in *data buffer
- * @return 0 if successful, -1 if not, errno is set appropriately
- *
- * Reads up to max_byte_cnt bytes from a single corresponding write call.
- */
-int rskt_recv(rskt_h skt_h, void *data, uint32_t max_byte_cnt); /* Record */
-
-/** @brief Push all data from this side to the far side
- *
- * @param[in] skt_h RDMA socket handle
- * @param[in] timeout Maximum time to wait for data to be pushed
- * @return 0 if successful, -1 if not, errno is set appropriately
- */
-int rskt_flush(rskt_h skt_h, struct timespec timeout);
-
-
 /** @brief Push all data in both directions on the socket, then close
  *
  * @param[in] skt_h RDMA socket handle

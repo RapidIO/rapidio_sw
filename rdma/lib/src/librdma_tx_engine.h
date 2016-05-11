@@ -30,24 +30,35 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef PROV_DAEMON_INFO_H_
-#define PROV_DAEMON_INFO_H_
+#ifndef LIBRDMA_TX_ENGINE_H
+#define LIBRDMA_TX_ENGINE_H
 
+#include <memory>
 #include <stdint.h>
-#include <pthread.h>
 
-#include "cm_sock.h"
+#include "unix_sock.h"
+#include "rdmad_unix_msg.h"
+#include "tx_engine.h"
 
+using std::shared_ptr;
 
-/**
- * Info for remote daemons provisined by the provisioning thread
- * (i.e. by receiving a HELLO message).
- */
-struct prov_daemon_info {
-	uint32_t 	destid;
-	cm_server	*conn_disc_server;
-	pthread_t	tid;
-	bool operator==(uint32_t destid) { return this->destid == destid; }
-};
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+class unix_tx_engine : public tx_engine<unix_client, unix_msg_t>
+{
+public:
+	unix_tx_engine(const char *name,
+		       shared_ptr<unix_client> client,
+		       sem_t *engine_cleanup_sem) :
+	tx_engine<unix_client, unix_msg_t>(name, client, engine_cleanup_sem)
+	{}
+
+}; /* unix_tx_engine */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

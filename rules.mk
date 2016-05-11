@@ -84,6 +84,6 @@ FMDDIR=$(TOPDIR)/fabric_management
 COMMONFLAGS=$(OPTFLAGS) -pthread -Werror -I$(TOPDIR)/include -I$(COMMONINC) -L$(COMMONLIB)
 
 CFLAGS+=$(COMMONFLAGS)
-CXXFLAGS+=$(COMMONFLAGS) -std=gnu++0x
+CXXFLAGS+=$(COMMONFLAGS) -std=c++11
 
 LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so

@@ -46,7 +46,7 @@ RDMAAPP_CFLAGS = $(CXXFLAGS) -Wall -Wextra -DRDMA_LL=$(level) \
 	-D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS
 
 # Common dependencies
-RDMA_APP_DEPS= $(LIBRDMA_PATH)/librdma.a ../src/* \
+RDMA_APP_DEPS= $(LIBRDMA_PATH)/librdma.a \
 	../inc/* ../daemon/src/* ../daemon/inc/*
 
 # Common build strings

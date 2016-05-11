@@ -38,38 +38,92 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#include "rdma_types.h"
 #include "liblog.h"
 #include "libcli.h"
+#include "tx_engine.h"
 
+class unix_server;
+class unix_msg_t;
 
 class msubspace
 {
 public:
-	/* Constructor */
-	msubspace(uint32_t msid, uint64_t rio_addr, uint64_t phys_addr,
-					uint32_t size, uint32_t msubid) :
+	/**
+	 *  @brief Constructor
+	 *
+	 *  @param msid		Memory space identifier
+	 *
+	 *  @param rio_addr	RapidIO address
+	 *
+	 *  @param phys_addr	PCIe address. Same as RapidIO if direct mapped
+	 *
+	 *  @param size		Size of subspace in bytes
+	 *
+	 *  @param msubid	Memory subspace identifier
+	 *
+	 *  @param tx_eng	Tx engine used to communicate with library
+	 */
+	msubspace(uint32_t msid,
+		  uint64_t rio_addr,
+		  uint64_t phys_addr,
+		  uint32_t size,
+		  uint32_t msubid,
+		  const tx_engine<unix_server, unix_msg_t> *tx_eng) :
 		msid(msid),
 		rio_addr(rio_addr),
 		phys_addr(phys_addr),
 		size(size),
-		msubid(msubid)
+		msubid(msubid),
+		tx_eng(tx_eng)
 	{
 		INFO("msid = 0x%X, rio_addr = 0x%" PRIx64 ", size = 0x%08X\n",
 							msid, rio_addr, size);
-		INFO("msubid = 0x%X, phys_addr = 0x%" PRIx64 "\n", msubid, phys_addr);
-	}
+		INFO("msubid = 0x%X, phys_addr = 0x%" PRIx64 "\n",
+							msubid, phys_addr);
+	} /* ctor */
 
-	/* For finding a memory sub-space by its msubid */
+	/**
+	 * @brief Copy constructor
+	 */
+	msubspace(const msubspace& other) = default; /* Use default */
+
+	/**
+	 * @brief Assignment operator
+	 */
+	msubspace& operator=(const msubspace&) = default; /* Use default */
+
+	/**
+	 * @brief Equality operator for finding a memory subspace by its msubid
+	 *
+	 * @param msubid	Memory subspace identifier
+	 *
+	 * @return true if matching, false if not
+	 */
 	bool operator==(uint32_t msubid) {
 		return this->msubid == msubid;
 	}
 
+	/**
+	 * @brief Equality operator for finding a memory subspace by Tx engine
+	 *
+	 * @param tx_eng	Tx engine connecting the daemon to the app
+	 * 			that created this memory subspace
+	 *
+	 * @return true if maching, false if not
+	 */
+	bool operator==(const tx_engine<unix_server, unix_msg_t> *tx_eng)
+		{ return this->tx_eng == tx_eng; }
+
+	/**
+	 * @brief Dumps information about this msub to the CLI console
+	 *
+	 * @env	  CLI console environment object
+	 */
 	void dump_info(struct cli_env *env) {
-		sprintf(env->output, "%08X %016" PRIx64 " %08X %08X %016" PRIx64 "\n", msubid, rio_addr, size,
-							msid, phys_addr);
+		sprintf(env->output, "%08X %016" PRIx64 " %08X %08X %016" PRIx64
+				"\n", msubid, rio_addr, size, msid, phys_addr);
 		logMsg(env);
-	}
+	} /* dump_info() */
 
 private:
 	uint32_t	msid;
@@ -77,8 +131,7 @@ private:
 	uint64_t	phys_addr;
 	uint32_t	size;
 	uint32_t	msubid;
+	const tx_engine<unix_server, unix_msg_t> *tx_eng;
 };
 
 #endif
-
-

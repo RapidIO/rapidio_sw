@@ -83,7 +83,7 @@ int speer_rx_req(struct rskt_dmn_speer *speer)
 	int rc = 0;
 
 	speer->rx_buff_used = 1;
-	DBG("\n\tSPEER %d: Waiting for request\n", speer->ct);
+	DBG("SPEER %d: Waiting for request", speer->ct);
 
 	do {
 		rc = riomp_sock_receive(speer->cm_skt_h, 
@@ -92,14 +92,13 @@ int speer_rx_req(struct rskt_dmn_speer *speer)
 		((errno == EINTR) || (errno == ETIME) || (errno == EAGAIN)));
 
 	if (rc) {
-		CRIT("SPEER %d: riomp_sock_receive: %d (%d:%s)\n",
+		ERR("SPEER %d: riomp_sock_receive: %d (%d:%s)",
 			speer->ct, rc, errno, strerror(errno));
 		speer->i_must_die = 1;
 	} else {
-		DBG("\n\tSPEER %d: riomp_sock_receive: TYPE %3x %s SEQ %3x\n",
-			speer->ct, speer->req->msg_type,
-			RSKTD_REQ_STR(ntohl(speer->req->msg_type)),
-			speer->req->msg_seq);
+		DBG("SPEER %d: riomp_sock_receive: %s SEQ %d",
+			speer->ct, RSKTD_REQ_STR(ntohl(speer->req->msg_type)),
+			ntohl(speer->req->msg_seq));
 	};
 
 	return rc;
@@ -192,10 +191,9 @@ void *speer_rx_loop(void *p_i)
 
 		rsktd_prep_resp(msg);
 
-		DBG("\n\tSPEER %d: Rx Req %x %s Seq %x \n", speer->ct,
-			speer->req->msg_type,
+		DBG("SPEER %d: Req %s Seq %x", speer->ct,
 			RSKTD_REQ_STR(ntohl(speer->req->msg_type)), 
-			speer->req->msg_seq);
+			ntohl(speer->req->msg_seq));
 		switch (msg->msg_type) {
 		case RSKTD_HELLO_REQ:
 		case RSKTD_CONNECT_REQ:
@@ -208,14 +206,13 @@ void *speer_rx_loop(void *p_i)
 			msg->proc_stage = RSKTD_S2A_SEQ_DREQ;
 			break;
 		};
-		DBG( "\n\tSPEER %d: enqueue : REQ %3x %s RESP %3x %s SEQ %3x\n\t\tPROC %x STAGE %x\n",
-			speer->ct, msg->msg_type,
-			RSKTD_REQ_STR(msg->msg_type),
-        		msg->dresp->msg_type,
+		DBG( "SPEER %d: enqueue : REQ %s RESP %s SEQ %d "
+				"PROC %s STAGE %s",
+			speer->ct, RSKTD_REQ_STR(msg->msg_type),
 			RSKTD_RESP_STR(ntohl(msg->dresp->msg_type)),
-        		msg->dresp->msg_seq,
-			msg->proc_type,
-			msg->proc_stage);
+        		ntohl(msg->dresp->msg_seq),
+			UMSG_TYPE_TO_STR(msg),
+			UMSG_PROC_TO_STR(msg));
 		enqueue_mproc_msg(msg);
 	};
 
@@ -514,7 +511,7 @@ void *speer_conn(void *unused)
 			continue;
 
 		if (rc) {
-			CRIT("speer_conn: riodp_accept() ERR %d %d:%s\n",
+			ERR("speer_conn: riodp_accept() RC %d errno %d:%s\n",
 				rc, errno, strerror(errno));
 			break;
 		}

@@ -65,6 +65,7 @@ void test_case1(uint16_t destid,
 	ms_h	rem_msh;
 	msub_h  rem_msubh;
 	uint32_t rem_msub_len;
+	conn_h	connh;
 	unsigned i, j;
 	int status;
 	struct rdma_xfer_ms_in	 in;
@@ -90,8 +91,8 @@ void test_case1(uint16_t destid,
 
 	/* Connect to server */
 	clock_gettime(CLOCK_MONOTONIC, &before);
-	status = rdma_conn_ms_h(16, destid, "sspace1", msubh1, &rem_msubh,
-						&rem_msub_len, &rem_msh, 0);
+	status = rdma_conn_ms_h(16, destid, "sspace1", msubh1, &connh,
+			&rem_msubh, &rem_msub_len, &rem_msh, 0);
 	clock_gettime(CLOCK_MONOTONIC, &after);
 	CHECK_AND_GOTO(status, "rdma_conn_ms_h", unmap_subspace1);
 	diff = time_difference(before, after);
@@ -193,7 +194,7 @@ void test_case1(uint16_t destid,
 
 disconnect_rem_msh:
 	clock_gettime(CLOCK_MONOTONIC, &before);
-	status = rdma_disc_ms_h(rem_msh, msubh1);
+	status = rdma_disc_ms_h(connh, rem_msh, msubh1);
 	clock_gettime(CLOCK_MONOTONIC, &after);
 	diff = time_difference(before, after);
 	printf("Send disconnect: %ld seconds, %ld nanoseconds\n",
@@ -224,6 +225,7 @@ void test_case5(uint16_t destid)
 	ms_h	rem_msh;
 	msub_h	loc_msubh;
 	msub_h	rem_msubh;
+	conn_h	connh;
 	uint32_t rem_msub_len;
 	int	status;
 
@@ -239,7 +241,8 @@ void test_case5(uint16_t destid)
 	puts("Press ENTER to connect to server");
 	getchar();
 
-	status = rdma_conn_ms_h(16, destid, "sspace1", loc_msubh, &rem_msubh, &rem_msub_len, &rem_msh, 0);
+	status = rdma_conn_ms_h(16, destid, "sspace1", loc_msubh,
+			&connh, &rem_msubh, &rem_msub_len, &rem_msh, 0);
 	CHECK_AND_GOTO(status, "rdma_conn_ms_h", destroy_msoh);
 	puts("CONNECTED");
 
@@ -258,6 +261,7 @@ void test_case_h(uint16_t destid)
 	ms_h	rem_msh;
 	msub_h	loc_msubh;
 	msub_h	rem_msubh;
+	conn_h	connh;
 	uint32_t rem_msub_len;
 	int	status;
 
@@ -273,14 +277,15 @@ void test_case_h(uint16_t destid)
 	puts("Press ENTER to connect to server");
 	getchar();
 
-	status = rdma_conn_ms_h(16, destid, "sspace1", loc_msubh, &rem_msubh, &rem_msub_len, &rem_msh, 0);
+	status = rdma_conn_ms_h(16, destid, "sspace1", loc_msubh,
+			&connh, &rem_msubh, &rem_msub_len, &rem_msh, 0);
 	CHECK_AND_GOTO(status, "rdma_conn_ms_h", exit);
 	puts("CONNECTED");
 
 	puts("Shutdown the computer running the server. Press ENTER when done");
 	getchar();
 
-	status = rdma_disc_ms_h(rem_msh, loc_msubh);
+	status = rdma_disc_ms_h(connh, rem_msh, loc_msubh);
 exit:
 	return;
 } /* test_case_h() */
@@ -294,13 +299,11 @@ void sig_handler(int sig)
 	case SIGTERM:	/* kill <pid> */
 	break;
 
-	break;
-
 	default:
 		puts("UNKNOWN SIGNAL");
 	}
 	exit(0);
-}
+} /* sig_handler() */
 
 int main(int argc, char *argv[])
 {
@@ -400,8 +403,7 @@ int main(int argc, char *argv[])
 		default:
 			printf("Invalid option: %c\n", ch);
 		};
-
 	}
 
 	return 0;
-}
+} /* main() */
