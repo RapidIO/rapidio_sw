@@ -183,6 +183,12 @@ void *rx_worker_thread_f(void *arg)
 							cat_name(msg->category));
 
 			if (msg->category == RDMA_CALL) {
+				/* There is never a notification set for 
+				 * SERVER_DISCONNECT_MS_ACK responses.
+				 */
+				if ((SERVER_DISCONNECT_MS_ACK == msg->type)
+					&& !msg->seq_no) 
+					continue;
 				/* If there is a notification set for the
 				 * message then act on it. */
 				sem_wait(notify_list_sem);

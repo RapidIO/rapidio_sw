@@ -31,7 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#include <semaphore.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,6 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ctype.h>
 #include <errno.h>
 #include <assert.h>
+#include <semaphore.h>
+#include <pthread.h>
 
 #include "liblog.h"
 #include "rapidio_mport_mgmt.h"
@@ -56,14 +57,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define RSKT_DEFAULT_SOCKET_NUMBER	1234
 
-static uint8_t send_buf[RSKT_DEFAULT_SEND_BUF_SIZE];
-static uint8_t recv_buf[RSKT_DEFAULT_RECV_BUF_SIZE];
 
 static FILE *log_file;
 
 void show_help()
 {
-	printf("rskt_client -d<did> -s<socknum> -h -l <log level> -L<len>"
+	printf("rskt_client -d<did> -s<socknum> -h -l <log level> -L<len> -s <skts>"
 							" -t -r<rpt> \n");
 	printf("-d<did>    : Destination ID of machine running rskt_server.\n");
 	printf("-s<socknum>: Socket number used by rskt_server\n");
@@ -74,20 +73,24 @@ void show_help()
 	printf("             Default is 512 bytes\n");
 	printf("-t         : Use varying data length data. Overrides -l\n");
 	printf("-r<rpt>    : Repeat test this many times. Default is 1\n");
+	printf("-p<skts>   : Number of sockets to execute in parallel.\n");
+	printf("             Default is 1.\n");
 } /* show_help() */
 
-unsigned generate_data(unsigned data_length, unsigned tx_test)
+unsigned generate_data(unsigned data_len, unsigned tx_test, 
+			uint8_t *send_buf, uint8_t *recv_buf)
 {
 	static unsigned index = 0;
-	static unsigned data_lengths[] = { 128, 2048, 1024, 512, 4096, 256, 32, 1536 };
+	static unsigned data_lens[] = {128, 2048, 1024, 512,
+					4096, 256, 32, 1536};
 	unsigned j;
 	unsigned length;
 
 	if (tx_test) {
-		length = data_lengths[index];
-		index = (index + 1) & (sizeof(data_lengths)/sizeof(unsigned) - 1);
+		length = data_lens[index];
+		index = (index + 1) & (sizeof(data_lens)/sizeof(unsigned) - 1);
 	} else {
-		length = data_length;
+		length = data_len;
 	}
 
 	/* Data to be sent */
@@ -97,24 +100,134 @@ unsigned generate_data(unsigned data_length, unsigned tx_test)
 	/* Fill receive buffer with 0xAA */
 	memset(recv_buf, 0xAA, length);
 
-	printf("Generated %u bytes\n", length);
+	INFO("Generated %u bytes", length);
 	return length;
 } /* generate_data() */
+
+unsigned repetitions = 1;
+uint16_t destid = 0xFFFF;
+int socket_number = RSKT_DEFAULT_SOCKET_NUMBER;
+unsigned data_length = 512;
+sem_t client_done;
+int errorish_goodbye;
+pthread_t clients[25];
+unsigned tx_test = 0;
+
+void *parallel_client(void *parms)
+{
+	int i, rc;
+	uint8_t send_buf[RSKT_DEFAULT_SEND_BUF_SIZE];
+	uint8_t recv_buf[RSKT_DEFAULT_RECV_BUF_SIZE];
+	int *client_num = (int *)parms;
+	char my_name[16];
+	struct rskt_sockaddr sock_addr;
+	rskt_h	client_socket;
+
+	sock_addr.ct = destid;
+	sock_addr.sn = socket_number;
+
+        memset(my_name, 0, 16);
+        snprintf(my_name, 15, "CLIENT_%d", *client_num);
+        pthread_setname_np(pthread_self(), my_name);
+
+        rc = pthread_detach(pthread_self());
+        if (rc) {
+                WARN("Client %d pthread_detach rc %d", *client_num, rc);
+        };
+
+	for (i = 0; i < repetitions; i++) {
+		/* Create a client socket */
+		client_socket = rskt_create_socket();
+
+		if (!client_socket) {
+			CRIT("Client %d: Create socket failed, rc = %d: %s",
+				*client_num, rc, strerror(errno));
+			goto cleanup_rskt;
+		}
+
+		/* Connect to server */
+		rc = rskt_connect(client_socket, &sock_addr);
+		if (rc) {
+			CRIT("Client %d: Connect to %u on %u failed",
+				*client_num, destid, socket_number);
+			goto close_client_socket;
+		}
+
+		/* Generate data to send to server */
+		data_length = generate_data(data_length, tx_test,
+					send_buf, recv_buf);
+
+		/* Send the data */
+		rc = rskt_write(client_socket, send_buf, data_length);
+		if (rc) {
+			CRIT("Client %d: rskt_write failed, rc = %d: %s",
+				*client_num, rc, strerror(errno));
+			goto close_client_socket;
+		}
+
+		/* Read data echoed back from the server */
+retry_read:
+		rc = rskt_read(client_socket, recv_buf, RSKT_DEFAULT_RECV_BUF_SIZE);
+		if (rc < 0) {
+			if (rc == -ETIMEDOUT) {
+				ERR("Client %d: rskt_read() timedout. Retry!",
+					*client_num);
+				goto retry_read;
+			}
+			CRIT("Client %d: rskt_read failed, rc=%d: %s",
+				*client_num, rc, strerror(errno));
+			goto close_client_socket;
+		}
+		if (rc != data_length) {
+			ERR("Client %d: Sent %u bytes but received %u bytes\n",
+				*client_num, data_length, rc);
+		}
+
+		/* Compare with the original data that we'd sent */
+		if (memcmp(send_buf, recv_buf, data_length)) {
+			ERR("Client %d: !!! Iteration %u Compare FAILED.\n",
+				*client_num, i);
+		} else {
+			HIGH("Client %d: *** Iteration %u, DATA OK ***\n",
+				*client_num, i);
+		}
+
+		/* Close the socket and destroy it */
+		INFO("Closing socket and destroying it.");
+		rc = rskt_close(client_socket);
+		if (rc) {
+			CRIT("Client %d: Failed to close socket, rc=%d: %s\n",
+				*client_num, rc, strerror(errno));
+			goto destroy_client_socket;
+		}
+
+		rskt_destroy_socket(&client_socket);
+
+	} /* for() */
+	HIGH("Client %d: DONE!", *client_num);
+	sem_post(&client_done);
+	pthread_exit(NULL);
+
+cleanup_rskt:
+close_client_socket:
+	rskt_close(client_socket);
+
+destroy_client_socket:
+	rskt_destroy_socket(&client_socket);
+	errorish_goodbye = 1;
+	CRIT("Client %d: FAILED!", *client_num);
+	sem_post(&client_done);
+	pthread_exit(NULL);
+};
 
 int main(int argc, char *argv[])
 {
 	char c;
 
-	uint16_t destid = 0xFFFF;
-	int socket_number = RSKT_DEFAULT_SOCKET_NUMBER;
-	unsigned repetitions = 1;
-	unsigned data_length = 512;
-	unsigned tx_test = 0;
 	time_t	cur_time;
 	char	asc_time[26];
+	int parallel = 1;
 
-	rskt_h	client_socket;
-	struct rskt_sockaddr sock_addr;
 	unsigned i;
 	int rc = 0;
 
@@ -125,7 +238,7 @@ int main(int argc, char *argv[])
 		goto exit_main;
 	}
 
-	while ((c = getopt(argc, argv, "htd:l:L:r:s:")) != -1)
+	while ((c = getopt(argc, argv, "htd:l:L:r:s:p:")) != -1)
 		switch (c) {
 
 		case 'd':
@@ -141,6 +254,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'L':
 			data_length = atoi(optarg);
+			break;
+		case 'p':
+			parallel = atoi(optarg);
 			break;
 		case 'r':
 			repetitions = atoi(optarg);
@@ -173,115 +289,49 @@ int main(int argc, char *argv[])
 		goto exit_main;
 	}
 
-	sock_addr.ct = destid;
-	sock_addr.sn = socket_number;
-
 	char logfilename[FILENAME_MAX];
 	sprintf(logfilename, "/var/log/rdma/rskt_test.log");
 	log_file = fopen(logfilename, "a");
 	assert(log_file);
+	sem_init(&client_done, 0, 0);
+	errorish_goodbye = 0;
 
-	for (i = 0; i < repetitions; i++) {
-		/* Create a client socket */
-		client_socket = rskt_create_socket();
+	for (i = 0; i < parallel; i++) {
+		int *parm;
+		int ret;
+		pthread_t *pt;
+	
+		parm = (int *)malloc(sizeof(int));
+		pt = (pthread_t *)malloc(sizeof(pthread_t));
+		*parm = i;
+        	ret = pthread_create(pt, NULL, parallel_client, (void *)(parm));
+        	if (ret) {
+                	ERR("Could not start client %d. EXITING", i);
+			errorish_goodbye = 1;
+                	goto cleanup_rskt;
+        	};
+		CRIT("Client %d started.", i);
+	};
 
-		if (!client_socket) {
-			CRIT("Create client socket failed, rc = %d: %s\n",
-							rc, strerror(errno));
-			goto cleanup_rskt;
-		}
-
-		/* Connect to server */
-		rc = rskt_connect(client_socket, &sock_addr);
-		if (rc) {
-			CRIT("Connect to %u on %u failed\n",
-							destid, socket_number);
-			goto close_client_socket;
-		}
-
-		/* Generate data to send to server */
-		data_length = generate_data(data_length, tx_test);
-
-		/* Send the data */
-		rc = rskt_write(client_socket, send_buf, data_length);
-		if (rc) {
-			CRIT("rskt_write failed, rc = %d: %s\n",
-							rc, strerror(errno));
-			goto close_client_socket;
-		}
-
-		/* Read data echoed back from the server */
-retry_read:
-		rc = rskt_read(client_socket, recv_buf, RSKT_DEFAULT_RECV_BUF_SIZE);
-		if (rc < 0) {
-			if (rc == -ETIMEDOUT) {
-				ERR("rskt_read() timedout. Retrying!\n");
-				goto retry_read;
-			}
-			CRIT("rskt_read failed, rc=%d: %s\n", rc, strerror(errno));
-			goto close_client_socket;
-		}
-		if (rc != data_length) {
-			ERR("Sent %u bytes but received %u bytes\n",
-							data_length, rc);
-		}
-
-		/* Compare with the original data that we'd sent */
-		if (memcmp(send_buf, recv_buf, data_length)) {
-			printf("!!! Iteration %u Data did not compare. FAILED.\n", i);
-		} else {
-			if (g_level > 2) {
-				printf("*** Iteration %u, DATA COMPARED OK ***\n", i);
-			} else {
-				if (i && !(i % 100))
-					printf("*** Iteration %u to %u, "
-						"DATA COMPARED OK ***\n", i-100, i);
-			};
-		}
-
-		/* Close the socket and destroy it */
-		if (g_level > 2) 
-			puts("Closing socket and destroying it.");
-		rc = rskt_close(client_socket);
-		if (rc) {
-			CRIT("Failed to close client socket, rc=%d: %s\n",
-							rc, strerror(errno));
-			goto destroy_client_socket;
-		}
-
-		rskt_destroy_socket(&client_socket);
-
-	} /* for() */
+	for (i = 0; i < parallel; i++) {
+		sem_wait(&client_done);
+		CRIT("%d clients done.", i+1);
+	};
 
 	librskt_finish();
-	puts("@@@ Graceful Goodbye! @@@");
 
-	/* Log the success in log file */
-	time(&cur_time);
-	ctime_r(&cur_time, asc_time);
-	asc_time[strlen(asc_time) - 1] = '\0';
-	fprintf(log_file, "%s @@@ Graceful Goodbye! @@@\n", asc_time);
-	fclose(log_file);
-	return rc;
-
-	/* Code below is only for handling errors */
-close_client_socket:
-	rskt_close(client_socket);
-
-destroy_client_socket:
-	rskt_destroy_socket(&client_socket);
-
+	/* Log the status in log file */
 cleanup_rskt:
-	librskt_finish();
-
-exit_main:
-	puts("#### Errorish Goodbye! ###");
-
-	/* Log the failure in the log file */
 	time(&cur_time);
 	ctime_r(&cur_time, asc_time);
 	asc_time[strlen(asc_time) - 1] = '\0';
-	fprintf(log_file, "%s #### Errorish Goodbye! ###\n", asc_time);
+exit_main:
+	if (!errorish_goodbye) {
+		CRIT("%s @@@ Graceful Goodbye! @@@", asc_time);
+	} else {
+		CRIT("#### Errorish Goodbye! ###");
+	};
 	fclose(log_file);
-	return rc;
+	return errorish_goodbye;
+
 } /* main() */
