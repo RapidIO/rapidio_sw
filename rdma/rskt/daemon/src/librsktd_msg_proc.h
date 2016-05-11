@@ -114,6 +114,7 @@ struct librsktd_unified_msg {
 	(LIBRSKTD_CONN == x->msg_type  )?"APP_CONN":  \
 	(LIBRSKTD_CLOSE == x->msg_type )?"APP_CLOS":  \
 	(LIBRSKTD_HELLO == x->msg_type )?"APP_HELO":  \
+	(LIBRSKTD_RELEASE == x->msg_type )?"APP_REL ":  \
 	(LIBRSKT_CLOSE_CMD == x->msg_type)?"D2A_CLOS":  \
 	(RSKTD_HELLO_REQ == x->msg_type  )?"DMN_HELO":  \
 	(RSKTD_CONNECT_REQ == x->msg_type)?"DMN_CONN":  \

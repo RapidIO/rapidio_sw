@@ -327,9 +327,9 @@ cleanup_rskt:
 	asc_time[strlen(asc_time) - 1] = '\0';
 exit_main:
 	if (!errorish_goodbye) {
-		CRIT("%s @@@ Graceful Goodbye! @@@", asc_time);
+		CRIT("\n%s @@@ Graceful Goodbye! @@@\n\n", asc_time);
 	} else {
-		CRIT("#### Errorish Goodbye! ###");
+		CRIT("\n#### Errorish Goodbye! ###\n\n");
 	};
 	fclose(log_file);
 	return errorish_goodbye;

@@ -46,6 +46,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 #include <netinet/in.h>
 #include <assert.h>
+#include <stdbool.h>
 
 #define __USE_GNU
 #include <pthread.h>
@@ -1927,6 +1928,8 @@ int rskt_close_locked(rskt_h skt_h)
 	struct rdma_xfer_ms_in hdr_in;
 	struct l_item_t *li;
 	rskt_h l_skt_h;
+	bool ms_name_valid = false;
+	char ms_name[MAX_MS_NAME+1] = {0};
 
 	DBG("ENTER SN %d", skt_h->sa.sn);
 	if (lib_uninit()) {
@@ -1998,10 +2001,37 @@ int rskt_close_locked(rskt_h skt_h)
 		ERR("sn %d skt is NULL", skt_h->sa.sn);
 		return 0;
 	}
+	if (skt->msh_valid) {
+		ms_name_valid = true;
+		memcpy(ms_name, (void *)skt->msh_name, MAX_MS_NAME);
+	};
+
 	cleanup_skt(skt_h, skt, li);
+
+	/* Confirm to Daemon that memory space has been closed */
+	if (ms_name_valid) {
+		struct librskt_rsktd_to_app_msg *resp;
+
+		tx = alloc_app2d();
+		rx = alloc_d2app();
+	
+		tx->msg_type = LIBRSKTD_RELEASE;
+		tx->a_rq.msg.release.sn = htonl(skt_h->sa.sn);
+		memcpy(tx->a_rq.msg.release.ms_name, ms_name, MAX_MS_NAME+1);
+		
+		librskt_dmsg_req_resp(tx, rx);
+		resp = (struct librskt_rsktd_to_app_msg *)rx;
+		if (resp->a_rsp.err) 
+			CRIT("SN %d MS %s LIBRSKTD_RELEASE Error %d %s", 
+				skt_h->sa.sn, 
+				resp->a_rsp.req.msg.release.ms_name,
+				ntohl(resp->a_rsp.err),
+				strerror(ntohl(resp->a_rsp.err)));
+		free(rx);
+	};
 exit:
 	return -errno;
-}; /* rskt_close() */
+}; /* rskt_close_locked() */
 
 int rskt_close(rskt_h skt_h)
 {

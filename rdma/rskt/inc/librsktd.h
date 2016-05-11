@@ -58,6 +58,8 @@ extern "C" {
 #define LIBRSKTD_CLOSE_RESP (LIBRSKTD_CLOSE|LIBRSKTD_RESP)
 #define LIBRSKTD_HELLO 6
 #define LIBRSKTD_HELLO_RESP (LIBRSKTD_HELLO|LIBRSKTD_RESP)
+#define LIBRSKTD_RELEASE 7
+#define LIBRSKTD_RELEASE_RESP (LIBRSKTD_RELEASE|LIBRSKTD_RESP)
 #define LIBRSKTD_LAST_MSG_TYPE 0x10;
 
 #define LIBRSKT_CLOSE_CMD 0x111
@@ -78,6 +80,8 @@ extern "C" {
         (LIBRSKTD_CLOSE_RESP == x)?     "CLOS   ": \
         (LIBRSKTD_HELLO == x)?          "HELO   ": \
         (LIBRSKTD_HELLO_RESP == x)?     "HELORSP": \
+        (LIBRSKTD_RELEASE == x)?        "REL    ": \
+        (LIBRSKTD_RELEASE_RESP == x)?   "RELRESP": \
         (LIBRSKT_CLOSE_CMD == x)?       "LCLS   ": \
         (LIBRSKT_CLOSE_CMD_RESP == x)?  "LCLSRSP":"UNKNOWN")
 
@@ -88,13 +92,14 @@ extern "C" {
         (LIBRSKTD_CONN == y) || \
         (LIBRSKTD_CLOSE == y) || \
         (LIBRSKTD_HELLO == y)|| \
+        (LIBRSKTD_RELEASE == y)|| \
         (LIBRSKT_CLOSE_CMD == y))? ntohl(x->a_rq.app_seq_num): \
         ((LIBRSKTD_BIND_RESP == y) || \
         (LIBRSKTD_LISTEN_RESP == y) || \
         (LIBRSKTD_ACCEPT_RESP == y) || \
         (LIBRSKTD_CONN_RESP == y) || \
         (LIBRSKTD_CLOSE_RESP == y) || \
-        (LIBRSKTD_HELLO_RESP == y) || \
+        (LIBRSKTD_RELEASE_RESP == y) || \
         (LIBRSKT_CLOSE_CMD_RESP == y))?ntohl(x->rsp_a.req_a.rsktd_seq_num): \
         0xFFFFFFFF)
 
@@ -106,6 +111,7 @@ extern "C" {
         (LIBRSKTD_CONN_RESP == y) || \
         (LIBRSKTD_CLOSE_RESP == y) || \
         (LIBRSKTD_HELLO_RESP == y) || \
+        (LIBRSKTD_RELEASE_RESP == y) || \
         (LIBRSKT_CLOSE_CMD_RESP == y))?ntohl(x->a_rsp.req.app_seq_num): \
         0xFFFFFFFF)
 
@@ -139,6 +145,11 @@ struct librskt_close_req {
 	uint32_t sn;
 };
 
+struct librskt_release_req {
+	uint32_t sn;
+	char ms_name[MAX_MS_NAME+1];
+};
+
 struct librskt_cli_req {
 	char cmd_line[MAX_MS_NAME*3];
 };
@@ -150,6 +161,7 @@ union librskt_req_u {
 	struct librskt_accept_req	accept;
 	struct librskt_connect_req	conn;
 	struct librskt_close_req	close;
+	struct librskt_release_req	release;
 	struct librskt_cli_req		cli;
 };
 

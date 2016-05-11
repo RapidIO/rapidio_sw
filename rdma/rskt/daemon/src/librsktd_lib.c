@@ -227,6 +227,7 @@ void handle_app_msg(struct librskt_app *app,
 		case LIBRSKTD_LISTEN:
 		case LIBRSKTD_ACCEPT:
 		case LIBRSKTD_HELLO:
+		case LIBRSKTD_RELEASE:
 			proc_type = RSKTD_PROC_AREQ;
 			proc_stage = RSKTD_AREQ_SEQ_AREQ;
 			break;
@@ -253,7 +254,7 @@ void handle_app_msg(struct librskt_app *app,
 		msg->tx->a_rsp.err = 0xFFFFFFFF;
 		app->rx_req_num = ntohl(rxed->a_rq.app_seq_num);
 	};
-        ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
+        INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
                 UMSG_W_OR_S(msg),
                 UMSG_CT(msg),
                 msg->msg_type,
@@ -363,7 +364,7 @@ void *app_rx_loop(void *ip)
 		
 		if (*con->app == NULL) {
 			DBG("*con->app == NULL\n");
-			con->loc_ms->state = 0;
+			con->loc_ms->state = rsktd_ms_free;
 			rsktd_sn_set(con->loc_sn, rskt_uninit);
 			l_remove(&lib_st.con, li);
 		};

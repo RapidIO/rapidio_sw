@@ -71,9 +71,22 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+typedef enum {
+	rsktd_ms_free = 0,
+	rsktd_ms_used,
+	rsktd_ms_rsvd,
+	rsktd_ms_flux
+} rsktd_ms_state;
+
+#define RSKTD_MS_STATE_TO_STR(x) ( \
+	(rsktd_ms_free == x)?"FREE": \
+	(rsktd_ms_used == x)?"USED": \
+	(rsktd_ms_rsvd == x)?"RSVD": \
+	(rsktd_ms_flux == x)?"FLUX": "UNKN")
+
 struct ms_info {
 	int	valid;
-	int	state; /* 0 - free, 1 - used, 2 - temp reserved */
+	rsktd_ms_state	state; 
 	char	ms_name[MAX_MS_NAME+1];
 	ms_h	ms;
 	int	ms_size;
