@@ -34,12 +34,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __MEMOPS_MPORT_H__
 #define __MEMOPS_MPORT_H__
 
+#include <pthread.h>
 #include <errno.h>
 
 #include <map>
 
 #include "memops.h"
 
+/** \brief Libmport implementation of RIOMemOpsIntf */
 class RIOMemOpsMport : public RIOMemOpsIntf {
 public:
   RIOMemOpsMport(const int mport);
@@ -66,6 +68,7 @@ protected:
 
 private:
   std::map<uint64_t, DmaMem_t*> m_memreg;
+  pthread_mutex_t               m_memreg_mutex;
 };
 
 #endif //__MEMOPS_MPORT_H__

@@ -43,6 +43,10 @@ RIOMemOpsMport::RIOMemOpsMport(const int mport_id)
 {
   m_errno = 0;
 
+  pthread_mutexattr_t mattr; pthread_mutexattr_init(&mattr);
+  pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_RECURSIVE);
+  pthread_mutex_init(&m_memreg_mutex, &mattr);
+
   int rc = riomp_mgmt_mport_create_handle(mport_id, 0 /*flags*/, &m_mp_h);
   if (rc == 0) return;
 
@@ -61,11 +65,16 @@ RIOMemOpsMport::~RIOMemOpsMport()
   // and deleting-while-iterating is a BAD idea.
   std::vector<uint64_t> handle_vec;
 
+  // NO unlock (recursive mutex) -- shut out other threads
+  pthread_mutex_lock(&m_memreg_mutex);
+
   std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.begin();
   for (; it != m_memreg.end(); it++) handle_vec.push_back(it->first);
 
   std::vector<uint64_t>::iterator itv = handle_vec.begin();
   for (; itv != handle_vec.end(); itv++) free_xwin(*m_memreg[*itv]);
+
+  // XXX Don't destroy m_memreg_mutex (cannot do it while locked)
 }
 
 bool RIOMemOpsMport::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
@@ -143,7 +152,9 @@ bool RIOMemOpsMport::alloc_dmawin(DmaMem_t& mem /*out*/, const int _size)
   mem.type = DMAMEM;
   mem.win_size = size;
 
-  m_memreg[mem.win_handle] = &mem;
+  pthread_mutex_lock(&m_memreg_mutex);
+    m_memreg[mem.win_handle] = &mem;
+  pthread_mutex_unlock(&m_memreg_mutex);
 
   return true;
 }
@@ -168,7 +179,9 @@ bool RIOMemOpsMport::alloc_ibwin(DmaMem_t& ibwin /*out*/, const int size)
   ibwin.type = IBWIN;
   ibwin.win_size = size;
 
-  m_memreg[ibwin.win_handle] = &ibwin;
+  pthread_mutex_lock(&m_memreg_mutex);
+    m_memreg[ibwin.win_handle] = &ibwin;
+  pthread_mutex_unlock(&m_memreg_mutex);
 
   return true;
 }
@@ -180,10 +193,10 @@ bool RIOMemOpsMport::free_dmawin(DmaMem_t& mem)
   if(mem.type != DMAMEM)
     throw std::runtime_error("RioMport: Invalid type for DMA buffer!");
 
-  m_memreg[mem.win_handle] = &mem;
-
-  std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.find(mem.win_handle);
-  if (it != m_memreg.end()) m_memreg.erase(it);
+  pthread_mutex_lock(&m_memreg_mutex);
+    std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.find(mem.win_handle);
+    if (it != m_memreg.end()) m_memreg.erase(it);
+  pthread_mutex_unlock(&m_memreg_mutex);
 
   int rc = riomp_dma_unmap_memory(m_mp_h, mem.win_size, mem.win_ptr);
   if (rc) {
@@ -207,8 +220,10 @@ bool RIOMemOpsMport::free_ibwin(DmaMem_t& ibwin)
   if(ibwin.type != IBWIN)
     throw std::runtime_error("RioMport: Invalid type for ibwin!");
 
-  std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.find(ibwin.win_handle);
-  if (it != m_memreg.end()) m_memreg.erase(it);
+  pthread_mutex_lock(&m_memreg_mutex);
+    std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.find(ibwin.win_handle);
+    if (it != m_memreg.end()) m_memreg.erase(it);
+  pthread_mutex_unlock(&m_memreg_mutex);
 
   /* Memory-unmap the inbound window's virtual pointer */
   int rc = riomp_dma_unmap_memory(m_mp_h, ibwin.win_size, ibwin.win_ptr);
