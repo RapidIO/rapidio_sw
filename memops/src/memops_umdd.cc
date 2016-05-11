@@ -48,6 +48,8 @@ RIOMemOpsUMDd::RIOMemOpsUMDd(const int mport_id, const int chan) : RIOMemOpsMpor
 
   memset(&m_stats, 0, sizeof(m_stats));
 
+  pthread_mutex_init(&m_asyncm_mutex, NULL);
+
   m_dch = DMAChannelSHM_create(mport_id, chan); // Will throw on error
 
   if (m_dch == NULL) { // Cannot load SO
@@ -126,9 +128,11 @@ bool RIOMemOpsUMDd::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_FAF) return true;
 
   if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
-    uint32_t cookie = ++m_cookie_cutter;
-    m_asyncm[cookie] = opt;
-    dmaopt.ticket = cookie;
+    pthread_mutex_lock(&m_asyncm_mutex);
+      uint32_t cookie = ++m_cookie_cutter;
+      m_asyncm[cookie] = opt;
+      dmaopt.ticket = cookie;
+    pthread_mutex_unlock(&m_asyncm_mutex);
     return cookie;
   }
 
@@ -179,9 +183,11 @@ bool RIOMemOpsUMDd::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_FAF) return true;
 
   if (dmaopt.sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
-    uint32_t cookie = ++m_cookie_cutter;
-    m_asyncm[cookie] = opt;
-    dmaopt.ticket = cookie;
+    pthread_mutex_lock(&m_asyncm_mutex);
+      uint32_t cookie = ++m_cookie_cutter;
+      m_asyncm[cookie] = opt;
+      dmaopt.ticket = cookie;
+    pthread_mutex_unlock(&m_asyncm_mutex);
     return cookie;
   }
 
@@ -254,14 +260,18 @@ bool RIOMemOpsUMDd::wait_async(MEMOPSRequest_t& dmaopt /*only if async flagged*/
 
   if (! DMAChannelSHM_checkMasterReady(m_dch)) { m_errno = ENOTCONN; return false; }
 
-  std::map<uint64_t, DMAChannelSHM::DmaOptions_t>::iterator it = m_asyncm.find(dmaopt.ticket);
+  pthread_mutex_lock(&m_asyncm_mutex);
+    std::map<uint64_t, DMAChannelSHM::DmaOptions_t>::iterator it = m_asyncm.find(dmaopt.ticket);
 
-  if (it == m_asyncm.end()) // Tough luck
-    throw std::runtime_error("RIOMemOpsUMDd::wait_async: Requested cookie not found in internal database");
+    if (it == m_asyncm.end()) { // Tough luck
+      pthread_mutex_unlock(&m_asyncm_mutex);
+      throw std::runtime_error("RIOMemOpsUMDd::wait_async: Requested cookie not found in internal database");
+    }
 
-  DMAChannelSHM::DmaOptions_t opt = it->second;
+    DMAChannelSHM::DmaOptions_t opt = it->second;
 
-  m_asyncm.erase(it); // XXX This takes a lot of time :()
+    m_asyncm.erase(it); // XXX This takes a lot of time :()
+  pthread_mutex_unlock(&m_asyncm_mutex);
 
   uint64_t now = 0;
   while ((now = rdtsc()) < opt.not_before) {

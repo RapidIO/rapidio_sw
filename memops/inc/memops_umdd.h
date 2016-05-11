@@ -41,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "dmachanshm.h"
 
+/** \bried UMDd/SHM plugin for RIOMemOpsMport */
 class RIOMemOpsUMDd : public RIOMemOpsMport {
 public:
   RIOMemOpsUMDd(const int mport, const int chan);
@@ -65,9 +66,11 @@ private:
 
 private:
   void*         m_dch;
-  uint32_t      m_cookie_cutter;
   struct seq_ts m_stats;
+
+  volatile uint32_t                               m_cookie_cutter;
   std::map<uint64_t, DMAChannelSHM::DmaOptions_t> m_asyncm;
+  pthread_mutex_t                                 m_asyncm_mutex;
 };
 
 #endif //__MEMOPS_UMDD_H__

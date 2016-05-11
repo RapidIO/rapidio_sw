@@ -46,6 +46,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "dmachan.h"
 #include "chanlock.h"
 
+/** \bried UMD/monolithic plugin for RIOMemOpsMport
+ * \note This class will spawn a thread to service the channel FIFO
+ */
 class RIOMemOpsUMD : public RIOMemOpsMport {
 public:
   RIOMemOpsUMD(const int mport, const int chan);
@@ -131,10 +134,11 @@ private:
   void          (*m_dma_fifo_callback)(void*);
   void*         m_dma_fifo_callback_arg;
 
-  LockChannel*  m_lock;
+  LockChannel*  m_lock; ///< On-disk channel lock
 
-  uint32_t      m_cookie_cutter;
+  volatile uint32_t                            m_cookie_cutter;
   std::map<uint64_t, DMAChannel::DmaOptions_t> m_asyncm;
+  pthread_mutex_t                              m_asyncm_mutex;
 };
 
 #endif //__MEMOPS_UMD_H__
