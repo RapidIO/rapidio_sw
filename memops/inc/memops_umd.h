@@ -50,9 +50,19 @@ public:
   virtual ~RIOMemOpsUMD();
   
   virtual bool queueFull() { return m_dch->queueFull(); }
-  virtual bool canRestart() { return true; }
 
+  virtual bool canRestart() { return true; }
   virtual bool restartChannel() { m_dch->softRestart(); return true; }
+
+  /** \brief Check whether channel has aborted
+   * \return true on abort, false otherwise
+   */
+  virtual bool checkAbort() {
+    uint32_t abort_reason = 0;
+    if (! m_dch->dmaCheckAbort(abort_reason)) return false;
+    abortReasonToErrno(abort_reason);
+    return true;
+  }
 
   virtual bool nread_mem(MEMOPSRequest_t& dmaopt /*inout*/);
   virtual bool nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/);
@@ -86,6 +96,16 @@ private:
   void run_fifo_thr();
   bool _start_fifo_thr();
   friend void* RIOMemOpsUMD_fifo_proc_thr(void* arg); // libpthread helper, cannot be member
+
+  void inline abortReasonToErrno(const uint32_t dma_abort_reason) {
+    switch (dma_abort_reason) {
+      case 0:  m_errno = 0; break;  /*No error*/
+      case 5:  m_errno = ETIMEDOUT; /*S-RIO response timeout*/; break;
+      case 6:  m_errno = EIO;       /*S-RIO I/O ERROR response*/; break;
+      case 7:  m_errno = ENXIO;     /*S-RIO implementation specific error*/; break;
+      default: m_errno = EHWPOISON; /*PCIe error*/; break;
+    }
+  }
 
 private:
   DMAChannel*   m_dch;

@@ -128,6 +128,13 @@ int main(int argc, char* argv[])
     goto done;
   }
  
+  if (mops->canRestart() && mops->checkAbort()) {
+      int abort = mops->getAbortReason();
+      fprintf(stderr, "NWRITE_R ABORTed with reason %d (%s)\n", abort, mops->abortReasonToStr(abort));
+      mops->restartChannel();
+      ret = 41; goto done;
+  }
+
   if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
     bool r = mops->wait_async(req, timeout);
     if (!r) {
@@ -143,10 +150,17 @@ int main(int argc, char* argv[])
 
   if (! mops->nread_mem(req)) {
     int abort = mops->getAbortReason();
-    fprintf(stderr, "NWRITE_R failed with reason %d (%s)\n", abort, mops->abortReasonToStr(abort));
+    fprintf(stderr, "NREAD failed with reason %d (%s)\n", abort, mops->abortReasonToStr(abort));
     ret = 1;
     goto done;
   } 
+
+  if (mops->canRestart() && mops->checkAbort()) {
+      int abort = mops->getAbortReason();
+      fprintf(stderr, "NREAD ABORTed with reason %d (%s)\n", abort, mops->abortReasonToStr(abort));
+      mops->restartChannel();
+      ret = 41; goto done;
+  }
 
   if (sync == RIO_DIRECTIO_TRANSFER_ASYNC) {
     bool r = mops->wait_async(req, timeout);

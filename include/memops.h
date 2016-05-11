@@ -94,6 +94,7 @@ public:
 
   virtual bool canRestart() { return false; }
   virtual bool restartChannel() { throw std::runtime_error("restartChannel: Operation not supported."); }
+  virtual bool checkAbort() { throw std::runtime_error("checkAbort: Operation not supported."); }
 
   virtual bool queueFull() { return false; } ///< Impl which do not support this SHALL return false
 

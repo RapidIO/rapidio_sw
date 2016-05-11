@@ -301,12 +301,7 @@ bool RIOMemOpsUMD::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
                               opt, dmamem, dma_abort_reason, &m_stats)) {
       if (q_was_full) { m_errno = ENOSPC; return false; }
 
-      switch (dma_abort_reason) {
-        case 5:  m_errno = ETIMEDOUT; /*S-RIO response timeout*/; break;
-        case 6:  m_errno = EIO;       /*S-RIO I/O ERROR response*/; break;
-        case 7:  m_errno = ENXIO;     /*S-RIO implementation specific error*/; break;
-        default: m_errno = EHWPOISON; /*PCIe error*/; break;
-      }
+      abortReasonToErrno(dma_abort_reason);
 
       return false;
     }
@@ -314,7 +309,10 @@ bool RIOMemOpsUMD::nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/)
     if (! m_dch->queueDmaOpT2((int)DMAChannelSHM::convert_riomp_dma_directio(dmaopt.wr_mode),
                               opt, (uint8_t *)dmaopt.mem.win_handle + dmaopt.mem.offset, dmaopt.bcount, dma_abort_reason, &m_stats)) {
       if (q_was_full) { m_errno = ENOSPC; return false; }
-      m_errno = EINVAL; return false;
+
+      abortReasonToErrno(dma_abort_reason);
+
+      return false;
     }
   }
 
@@ -393,12 +391,7 @@ bool RIOMemOpsUMD::nread_mem(MEMOPSRequest_t& dmaopt /*inout*/)
   if (! m_dch->queueDmaOpT1(NREAD, opt, dmamem, dma_abort_reason, &m_stats)) {
     if (q_was_full) { m_errno = ENOSPC; return false; }
 
-    switch (dma_abort_reason) {
-      case 5:  m_errno = ETIMEDOUT; /*S-RIO response timeout*/; break;
-      case 6:  m_errno = EIO;       /*S-RIO I/O ERROR response*/; break;
-      case 7:  m_errno = ENXIO;     /*S-RIO implementation specific error*/; break;
-      default: m_errno = EHWPOISON; /*PCIe error*/; break;
-    }
+    abortReasonToErrno(dma_abort_reason);
 
     return false;
   }
