@@ -8,8 +8,9 @@ END{
   print "////";
 
   th=-1;
-  for(a in A) {
-    $0 = A[a];
+  n=i;
+  for(i=0; i<n; i++) {
+    $0 = A[i];
     if(tolower($1) == "end") { break; }
     if(tolower($1) == "mport") { print "mport " $2; print "////"; continue; }
     if(tolower($1) == "chan") {
