@@ -205,10 +205,12 @@ bool RIOMemOpsUMDd::poll_ticket(DMAChannelSHM::DmaOptions_t& opt, int timeout /*
 
   struct timespec st_time; memset(&st_time, 0, sizeof(st_time));
 
-  if (timeout > 0) {
-    clock_gettime(CLOCK_MONOTONIC, &st_time);
-    timeout *= 1000 * 1000; // make it nsec
-  }
+  const bool wait_forever = !timeout;
+
+  clock_gettime(CLOCK_MONOTONIC, &st_time);
+
+  if (! timeout) timeout = MAX_TIMEOUT;
+  timeout *= 1000 * 1000; // make it nsec
 
   for (int cnt = 0 ;; cnt++) {
     const DMAChannelSHM::TicketState_t st = (DMAChannelSHM::TicketState_t)DMAChannelSHM_checkTicket(m_dch, &opt);
@@ -234,8 +236,6 @@ bool RIOMemOpsUMDd::poll_ticket(DMAChannelSHM::DmaOptions_t& opt, int timeout /*
     }
 
 next:
-    if (timeout == 0) continue; // XXX No protection here against infinite loops, unlike UMD/monolithic
-
     // Enforce the timeout
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -244,6 +244,8 @@ next:
     const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
     if (nsec > timeout) {
       fprintf(stderr, "UMDD %s: Ticket %lu timed out in %llu nsec\n", __func__, opt.ticket, nsec);
+      if (wait_forever)
+        throw std::logic_error("RIOMemOpsUMDd::poll_ticket BUG in DMAChannelSHM::checkTicket!");
       m_errno = ETIMEDOUT; return false;
     }
   }
