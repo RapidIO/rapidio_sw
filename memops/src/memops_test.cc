@@ -33,6 +33,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdio.h>
 
+#ifdef RDMA_LL
+  #include "liblog.h"
+#endif
+
 #include "memops.h"
 #include "memops_umd.h"
 
@@ -95,6 +99,10 @@ int main(int argc, char* argv[])
   if (getenv("UMD_CHAN") != NULL) chan = atoi(getenv("UMD_CHAN"));
 
   printf("HW access method=%s %s destid=%u rio_addr=0x%llx [chan=%d]\n", met_str[m], sync_str, did, rio_addr, chan);
+
+#ifdef RDMA_LL
+  rdma_log_init("memops_test_log.txt", 1);
+#endif
 
   RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, chan);
 
@@ -187,6 +195,10 @@ int main(int argc, char* argv[])
 
 done:
   delete mops;
+
+#ifdef RDMA_LL
+  rdma_log_close();
+#endif
 
   return ret;
 }

@@ -53,11 +53,13 @@ libmemops_intf.so: $(SOURCES)
 		-Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
-memops_test: $(SOURCES) src/memops_test.cc
+memops_test: $(SOURCES) libmemops_intf.a src/memops_test.cc
 	$(CXX) -ggdb -O0 -std=gnu++0x -DDMACHAN_TICKETED src/memops_test.cc \
 		$(INCLUDES) \
+		-DRDMA_LL=$(LOG_LEVEL) \
+		-lpthread -lrt -ldl \
 		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
-		-ltime_utils -lmport -lmemops_intf -lcli -llog -L$(COMMONLIBA) -lumd_tsi721_tik -lpthread -lrt -o $@
+		-ltime_utils -lmport -lcli -llog -L$(COMMONLIBA) libmemops_intf.a -lumd_tsi721_tik -o $@
 
 clean:
 	rm -f *.[ao] *.so* a.out memops_test
