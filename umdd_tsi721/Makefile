@@ -48,16 +48,6 @@ SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 # FIXME: Work to remove these as time permits
 UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER -Wall -DRDMA_LL=$(LOG_LEVEL)
 
-UMD_FLAGS += -ggdb -O0
-
-#UMD_FLAGS += -ggdb -Ofast
-#ifeq ($(ARCH), x86_64)
-# UMD_FLAGS += -march=native -mfpmath=sse -ffast-math
-#endif
-#ifeq ($(ARCH), i686)
-# UMD_FLAGS += -march=native -mfpmath=sse -ffast-math
-#endif
-
 UMD_INCLUDES = inc/dmachanshm.h
 
 UMD_SOURCES = src/dmachanshm.cc
@@ -84,6 +74,7 @@ umddlib: $(UMDDLIB_SOURCES)
 umddlib_log: $(UMDDLIB_SOURCES) 
 	$(CXX) $(OPTFLAGS) -Wall -Wno-format -pthread -std=gnu++0x \
 		-Iinc -I$(COMMONINC) -I$(UMDDIR)/inc -I$(REGSDIR) \
+		-DDEBUG_BD \
 		-DRDMA_LL=$(LOG_LEVEL) \
 		-DNODEBUG -DUSER_MODE_DRIVER \
 		$(UMDDLIB_SOURCES) \
