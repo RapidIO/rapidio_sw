@@ -58,7 +58,7 @@ memops_test: $(SOURCES) libmemops_intf.a src/memops_test.cc
 		$(INCLUDES) \
 		-lpthread -lrt -ldl \
 		-L$(COMMONLIB) $(LIBS_RPATH) -L. -Wl,-rpath=. \
-		-ltime_utils -lmport -lcli -llog -L$(COMMONLIBA) -lmemops_intf -o $@
+		-ltime_utils -lmport -L$(COMMONLIBA) -lmemops_intf -o $@
 
 memops_test_log: $(SOURCES) libmemops_intf.a src/memops_test.cc
 	$(CXX) $(LFLAGS) src/memops_test.cc \
