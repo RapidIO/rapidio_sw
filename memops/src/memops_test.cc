@@ -66,6 +66,11 @@ int main(int argc, char* argv[])
   *
   * UMDd/SHM needs access to a .so, provded that this program is executed in ~/rapidio_sw/memops
   *   export UMDD_LIB=../umdd_tsi721/libUMDd.so.0.4
+  *
+  * Iff using logged version of this program (memops_test_log) then use the logged version:
+  *   export UMDD_LIB=../umdd_tsi721/libUMDd_log.so.0.4
+  *
+  * Note: Using libUMDd_log with non-logged version(memops_test) will cause a sema hang in rdma_log.
   */
 
   const char* sync_str = "SYNC";
