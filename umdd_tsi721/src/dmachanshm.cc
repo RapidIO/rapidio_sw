@@ -1678,4 +1678,13 @@ bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel)
   return DMAChannelSHM::has_state(mport_id, channel);
 }
 
+bool DMAChannelSHM_has_logging()
+{
+#ifdef RDMA_LL
+  return true;
+#else
+  return false;
+#endif
+}
+
 }; // END extern "C"

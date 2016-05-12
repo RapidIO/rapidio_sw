@@ -40,6 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "memops.h"
 #include "memops_umd.h"
 
+extern "C" bool DMAChannelSHM_has_logging();
+
 int timeout = 1000; // miliseconds
 
 void usage(const char* name)
@@ -100,16 +102,21 @@ int main(int argc, char* argv[])
   uint64_t rio_addr = 0;
   sscanf(argv[n++], "%llx", &rio_addr);
 
+#ifdef RDMA_LL
+  rdma_log_init("memops_test_log.txt", 1);
+#else
+  if (DMAChannelSHM_has_logging()) {
+    fprintf(stderr, "Selected version of UMDD_LIB (%s) has logging compiled ON and is called in a logging OFF binary!\n", getenv("UMDD_LIB"));
+    return 69;
+  }
+#endif
+
   int chan = 7;
   if (getenv("UMD_CHAN") != NULL) chan = atoi(getenv("UMD_CHAN"));
 
-  printf("HW access method=%s %s destid=%u rio_addr=0x%llx [chan=%d]\n", met_str[m], sync_str, did, rio_addr, chan);
-
-#ifdef RDMA_LL
-  rdma_log_init("memops_test_log.txt", 1);
-#endif
-
   RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, chan);
+
+  printf("HW access method=%s %s destid=%u rio_addr=0x%llx [chan=%d]\n", met_str[m], sync_str, did, rio_addr, chan);
 
   if (met[m] == MEMOPS_UMD) {
     RIOMemOpsUMD* mops_umd = dynamic_cast<RIOMemOpsUMD*>(mops);

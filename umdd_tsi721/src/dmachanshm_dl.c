@@ -43,6 +43,8 @@ extern "C" {
 
 #define SIG 0xF00DB00L
 
+static const char* UMDD_LIB_ENV = "UMDD_LIB";
+
 typedef struct {
   uint32_t sig;
   void* dlh; ///< dlopen-returned handle
@@ -71,12 +73,13 @@ typedef struct {
   void (*getShmPendingData)(void* dch, uint64_t* total, DMAShmPendingData::DmaShmPendingData_t* per_client);
 
   bool (*has_state)(uint32_t mport_it, uint32_t channel);
+  bool (*has_logging)();
 
 } DMAChannelSHMPtr_t;
 
 bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel)
 {
-  const char* UMDD_LIB = getenv("UMDD_LIB");
+  const char* UMDD_LIB = getenv(UMDD_LIB_ENV);
 
   assert(UMDD_LIB);
   assert(access(UMDD_LIB, R_OK) != -1);
@@ -102,9 +105,37 @@ bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel)
   return ret;
 }
 
+bool DMAChannelSHM_has_logging()
+{
+  const char* UMDD_LIB = getenv(UMDD_LIB_ENV);
+
+  assert(UMDD_LIB);
+  assert(access(UMDD_LIB, R_OK) != -1);
+
+  DMAChannelSHMPtr_t* libp = (DMAChannelSHMPtr_t*)calloc(1, sizeof(DMAChannelSHMPtr_t));
+
+  dlerror();
+
+  libp->dlh = dlopen(UMDD_LIB, RTLD_LAZY);
+  if (libp->dlh == NULL) {
+    fprintf(stderr, "%s: Cannot dlopen %s: %s\n", __func__, UMDD_LIB, dlerror());
+    assert(libp->dlh);
+  }
+
+  libp->has_logging = (bool (*)())dlsym(libp->dlh, "DMAChannelSHM_has_logging");
+  assert(libp->has_logging);
+
+  bool ret = libp->has_logging();
+
+  dlclose(libp->dlh);
+  free(libp);
+
+  return ret;
+}
+
 void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan)
 {
-  const char* UMDD_LIB = getenv("UMDD_LIB");
+  const char* UMDD_LIB = getenv(UMDD_LIB_ENV);
 
   assert(UMDD_LIB);
   assert(access(UMDD_LIB, R_OK) != -1);
@@ -147,6 +178,9 @@ void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan)
 
   libp->has_state = (bool (*)(uint32_t, uint32_t))dlsym(libp->dlh, "DMAChannelSHM_has_state");
   assert(libp->has_state);
+
+  libp->has_logging = (bool (*)())dlsym(libp->dlh, "DMAChannelSHM_has_logging");
+  assert(libp->has_logging);
 
   libp->dch = libp->create(mportid, chan);
   assert(libp->dch);

@@ -680,6 +680,8 @@ void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::
 
 bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel);
 
+bool DMAChannelSHM_has_logging();
+
 #ifdef __cplusplus
 }; // END extern "C"
 #endif
