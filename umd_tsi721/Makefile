@@ -77,9 +77,14 @@ libumd_tsi721_nolog.a: $(SOURCES) $(INCLUDES)
 	cp -v $@ $(COMMONDIR)/libs_a
 	@rm -f *.o
 
+# Ticketed UMD with logging ON
 libumd_tsi721_tik.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
-	$(CXX) $(CXXFLAGS) -DRDMA_LL=$(LOG_LEVEL) -DDMACHAN_TICKETED -I$(UMDDINCDIR) $(LIBFLAGS) $(SOURCES) \
+	$(CXX) $(CXXFLAGS) \
+		-DRDMA_LL=$(LOG_LEVEL) \
+		-DDMACHAN_TICKETED \
+		-DDEBUG_BD \
+		-I$(UMDDINCDIR) $(LIBFLAGS) $(SOURCES) \
 		-c $(SYSLIBS) $(LIBRARIES) 
 	$(AR) rcs $@ *.o
 	cp -v $@ $(COMMONDIR)/libs_a

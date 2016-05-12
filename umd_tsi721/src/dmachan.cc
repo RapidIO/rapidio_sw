@@ -256,6 +256,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   if (umdemo_must_die)
     return false;
 
+  struct hw_dma_desc* bd_hw = NULL;
   int bd_idx = m_dma_wr % m_bd_num;
   {{
     // If at end of buffer, account for T3 and
@@ -295,7 +296,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
 
     if (m_bl_busy_histo != NULL) m_bl_busy_histo[m_bl_busy_size]++;
 
-    struct hw_dma_desc* bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
+    bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
     desc.pack(bd_hw);
 
     wk.bd_wp    = m_dma_wr;
@@ -350,10 +351,10 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
   XDBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n",
-      wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.opt.bd_wp);
+      wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.bd_wp);
 
   if(queued_T3)
-     XDBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_T3_bd_hw, wk_end.opt.bd_wp);
+     XDBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_T3_bd_hw, wk_end.bd_wp);
 #endif
 
   return true;
@@ -829,7 +830,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     }
 #ifdef DEBUG_BD
     XDBG("\n\tDMA bd_idx=%d rtype=%d Ticket=%llu S/N=%llu Pending=%d pending_tickets_RP=%llu => k=%d\n",
-         item.bd_idx, item.opt.rtype, item.opt.ticket, m_state->serial_number, P, m_pending_tickets_RP, k);
+         item.bd_idx, item.opt.rtype, item.opt.ticket, m_serial_number, P, m_pending_tickets_RP, k);
 #endif
     if (k > 0) {
       m_pending_tickets_RP += k;
