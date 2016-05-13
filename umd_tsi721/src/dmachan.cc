@@ -874,7 +874,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
     pthread_spin_unlock(&m_fault_splock);
 
     // FUUDGE
-    m_acked_serial_number = m_serial_number;
+    m_pending_tickets_RP = m_acked_serial_number = m_serial_number;
   }
 #endif // DMACHAN_TICKETED
 

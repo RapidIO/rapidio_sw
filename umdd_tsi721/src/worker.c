@@ -566,8 +566,9 @@ void umd_shm_goodput_demo(struct worker *info)
                 } // END for WorkItem_t vector
 
 	next:
-                if (!cnt) clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
-                else      info->iter_end_time = info->fifo_work_time;
+                clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
+                //if (!cnt) clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
+                //else      info->iter_end_time = info->fifo_work_time;
 
 		char check_abort = 0;
 		do {
@@ -575,7 +576,7 @@ void umd_shm_goodput_demo(struct worker *info)
 
 			struct timespec dT = time_difference(info->iter_st_time, info->iter_end_time);
 			const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
-			if (nsec > 10 * 1000000) { // Every 10 ms
+			if (nsec > 100 * 1000000) { // Every 100 ms
 				info->iter_st_time = info->iter_end_time;
 				check_abort = 'T';
 				break;
@@ -595,10 +596,11 @@ void umd_shm_goodput_demo(struct worker *info)
 
 		if (check_abort)
 			info->check_abort_stats[check_abort]++;
-//check_abort=0;
 
 		if (check_abort && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) {
-			CRIT("\n\tDMA abort 0x%x: %s. SOFT RESTART\n", info->umd_dma_abort_reason,
+			CRIT("\n\tDMA abort {%c} 0x%x: %s. SOFT RESTART\n",
+			     check_abort,
+			     info->umd_dma_abort_reason,
 			     DMAChannelSHM::abortReasonToStr(info->umd_dma_abort_reason));
 			info->umd_dch->softRestart(true);
 		}

@@ -309,7 +309,7 @@ void DMAChannelSHM::resetHw()
   m_sim_fifo_wp      = 0;
   m_sim_dma_rp       = 0;
 
-  m_state->dma_wr = 1; // BD0 is T3
+  m_state->dma_wr = 0; // BD0 is T3, but we need to clear WP in hw
  
   if (m_sim) return;
 
@@ -324,7 +324,16 @@ void DMAChannelSHM::resetHw()
   wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_INIT);
   wr32dmachan(TSI721_DMAC_INT, TSI721_DMAC_INT_ALL);
   usleep(10);
+
+  uint32_t abortReason = 0;
+  if (dmaCheckAbort(abortReason))
+    throw std::logic_error("DMAChannelSHM: ABORT still asserted after TSI721_DMAC_CTL_INIT/TSI721_DMAC_INT_ALL!");
+
   wr32dmachan(TSI721_DMAC_DWRCNT, m_state->dma_wr);
+
+  abortReason = 0;
+  if (dmaCheckAbort(abortReason))
+    throw std::logic_error("DMAChannelSHM: ABORT still asserted after WP:=1 (jump BD0/T3)!");
 }
 
 void DMAChannelSHM::setInbound()
@@ -1187,6 +1196,7 @@ void DMAChannelSHM::softRestart(const bool nuke_bds)
 
     // FUUDGE
     m_state->acked_serial_number = m_state->serial_number;
+    m_pending_tickets_RP = m_state->serial_number;
   }
 
   if (nuke_bds) {
@@ -1236,6 +1246,11 @@ done:
   setWriteCount(m_state->dma_wr); // knows about sim
 
   pthread_spin_unlock(&m_state->bl_splock);
+
+  uint32_t abortReason = 0;
+  if (dmaCheckAbort(abortReason))
+    throw std::logic_error("DMAChannelSHM: ABORT still asserted after softRestart!");
+
   m_state->restart_pending = 0;
 
   XINFO("dT = %llu TICKS; DMA WP := %d%s\n", (rdtsc() - ts_s), DMA_WP, (nuke_bds? "; NUKED BDs": ""));
