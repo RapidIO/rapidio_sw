@@ -46,12 +46,12 @@ int timeout = 1000; // miliseconds
 
 void usage(const char* name)
 {
-  fprintf(stderr, "usage: %s [-A|-a|-F] <method> <destid> <hexrioaddr>\n" \
+  fprintf(stderr, "usage: %s [-A|-a|-F] -m<method> <destid> <hexrioaddr>\n" \
                   "\t\t-A async transaction, blocking forever\n" \
                   "\t\t-a async transaction, blocking %dms\n" \
                   "\t\t-F faf transaction\n" \
                   "\t\tNote: default is sync\n" \
-                  "\t\tMethod: 0=mport, 1=UMDd/SHM, 2=UMD\n", name, timeout);
+                  "\t\tMethod: m=mport, s=UMDd/SHM, u=UMD\n", name, timeout);
   exit(0);
 }
 
@@ -94,9 +94,23 @@ int main(int argc, char* argv[])
     }
     n++;
   }
-  int m = atoi(argv[n++]);
-  if (m < 0 || m > 2) return 1;
-  
+
+  int m = -1;
+  if (argv[n][0] == '-') {
+    if (strlen(argv[n]) < 3 || argv[n][1] != 'm') usage(argv[0]);
+    switch(argv[n][2]) {
+      case 'm': m = 0; break;
+      case 's': m = 1; break;
+      case 'u': m = 2; break;
+      default: fprintf(stderr, "%s: Invalid HW access method %s\n", argv[0], argv[n]);
+               usage(argv[0]);
+               break;
+    }
+    n++;
+  }
+
+  if (m < 0 || m > 2) usage(argv[0]);
+
   uint16_t did = atoi(argv[n++]);
 
   uint64_t rio_addr = 0;
