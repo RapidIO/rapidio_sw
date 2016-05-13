@@ -63,7 +63,8 @@ unsigned g_disp_level 	= RDMA_LL; /* Default log level from build */
 static circ_buf<string,NUM_LOG_LINES>	log_buf;
 static unsigned circ_buf_en = 0;
 static sem_t log_buf_sem;
-static FILE *log_file;
+
+static FILE* log_file = NULL;
 
 int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 {
@@ -103,9 +104,9 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 
 void rdma_log_close()
 {
-	if (log_file)
-		fclose(log_file);
-	else
+	if (log_file) {
+		fclose(log_file); log_file = NULL;
+	} else
 		puts("rdma_log_close(): log_file is NULL");
 } /* rdma_log_close() */
 
@@ -127,7 +128,7 @@ int rdma_log(unsigned level,
 	int	n, p;
 	time_t	cur_time;
 	struct timeval tv;
-	char	asc_time[26];
+	char	asc_time[26] = {0};
 
 	char *oneline_fmt = (char *)"%4s %s.%06ldus tid=%ld %s:%4d %s(): ";
 	
