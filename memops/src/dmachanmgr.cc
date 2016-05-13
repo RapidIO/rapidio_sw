@@ -30,7 +30,7 @@ In /sys/module/tsi721_mport/parameters/
  * \note The kernel SHOULD publish this [exclusion bitmask] using a sysfs interface.
  * \note WARNING Absent sysfs exclusion bitmask we can ony make educated guesses about what DMA channel the kernel is NOT using.
  */
-static uint8_t DMA_CHAN_MASK_DEFAULT = 0x7F;
+#define DMA_CHAN_MASK_DEFAULT 0x7F
 
 static inline uint8_t DmaChanMask()
 {
@@ -52,7 +52,7 @@ done:
   return (ret & 0xFF);
 }
 
-static bool check_chan_mask(int chan)
+static inline bool check_chan_mask_dma(int chan)
 {
   const int chanb = 1 << chan;
   return (chanb & DmaChanMask()) == chanb;
@@ -67,7 +67,7 @@ RIOMemOpsIntf* RIOMemOpsChanMgr(uint32_t mport_id, bool shared, int channel)
   if (shared && channel == ANY_CHANNEL)
     return RIOMemOps_classFactory(MEMOPS_MPORT, mport_id, channel);
 
-  if (!check_chan_mask(channel))
+  if (!check_chan_mask_dma(channel))
     throw std::runtime_error("RIOMemOpsChanMgr: Channel is in use by kernel!");
 
   if (channel < 0 || channel > 6) 

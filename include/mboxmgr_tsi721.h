@@ -34,8 +34,62 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __MBOXMGR_H__
 #define __MBOXMGR_H__
 
+#include <stdexcept>
+
 #include "mboxchan.h"
 #include "chanlock.h"
+
+
+/**
+ * \verbatim
+In /sys/module/tsi721_mport/parameters/
+
+- 'MBOX_sel' - DMA channel selection mask. Bitmask that defines which hardware
+        DMA channels (0 ... 6) will be registered with DmaEngine core.
+        If bit is set to 1, the corresponding DMA channel will be registered.
+        DMA channels not selected by this mask will not be used by this device
+        driver. Default value is 0x7f (use all channels).
+
+
+- 'mbox_sel' - RIO messaging MBOX selection mask. This is a bitmask that defines
+        messaging MBOXes are managed by this device driver. Mask bits 0 - 3
+        correspond to MBOX0 - MBOX3. MBOX is under driver's control if the
+        corresponding bit is set to '1'. Default value is 0x0f (= all).
+\endverbatim
+ */
+
+/** \brief Tsi721 MBOX channel availability bitmask vs kernel driver.
+ * \note The kernel uses channels 0 & 1. ALWAYS
+ * \note The kernel SHOULD publish this [exclusion bitmask] using a sysfs interface.
+ * \note WARNING Absent sysfs exclusion bitmask we can ony make educated guesses about what DMA channel the kernel is NOT using.
+ */
+#define MBOX_CHAN_MASK_DEFAULT 0x0C
+
+static inline uint8_t MboxChanMask()
+{
+  char buf[257] = {0};
+  uint32_t ret = MBOX_CHAN_MASK_DEFAULT;
+
+  FILE* fp = fopen("/sys/module/tsi721_mport/parameters/mbox_sel", "r");
+  if (fp == NULL) goto done;
+  fgets(buf, 256, fp);
+  fclose(fp);
+
+  if (buf[0] != '\0') {
+    if (sscanf(buf, "%x", &ret) != 1) goto done;
+    ret &= 0xFF;
+    ret = ~ret;
+  }
+
+done:
+  return (ret & 0xFF);
+}
+
+static inline bool check_chan_mask_mbox(int chan)
+{
+  const int chanb = 1 << chan;
+  return (chanb & MboxChanMask()) == chanb;
+}
 
 class MboxChannelMgr {
 private:
@@ -66,12 +120,16 @@ public:
   MboxChannelMgr(const uint32_t mportid, const uint32_t mbox) :
     m_mportid(mportid), m_mbox(mbox)
   {
+    if (!check_chan_mask_mbox(mbox))
+      throw std::runtime_error("MboxChannelMgr: Invalid mailbox!");
     m_super = new MboxChannel(mportid, mbox);
     init();
   }
   MboxChannelMgr(const uint32_t mportid, const uint32_t mbox, riomp_mport_t mp_h) :
     m_mportid(mportid), m_mbox(mbox)
   {
+    if (!check_chan_mask_mbox(mbox))
+      throw std::runtime_error("MboxChannelMgr: Invalid mailbox!");
     m_super = new MboxChannel(mportid, mbox, mp_h);
     init();
   }
