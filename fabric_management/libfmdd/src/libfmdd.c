@@ -224,7 +224,7 @@ int update_devid_status(void)
 
 void notify_app_of_events(void)
 {
-	struct fml_wait_4_chg *wt;	
+	struct fml_wait_4_chg* wt = NULL;	
 
 	sem_wait(&fml.pend_waits_mtx);
 	wt = (struct fml_wait_4_chg *)l_pop_head(&fml.pend_waits);
@@ -232,7 +232,7 @@ void notify_app_of_events(void)
 		DBG("wt == NULL\n");
 	}
 	while (NULL != wt) {
-		sem_post(&wt->sema);
+		sem_post(&wt->sema); // XXX this might have been feed!
 		wt = (struct fml_wait_4_chg *)l_pop_head(&fml.pend_waits);
 	};
 	sem_post(&fml.pend_waits_mtx);
@@ -365,7 +365,7 @@ fail:
 int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 {
 	uint32_t i, cnt = 0, idx = 0;
-	uint8_t flag;
+	uint8_t flag = 0;
 
 	DBG("Fetching DID list\n");
 	if (h != &fml) {
@@ -419,8 +419,8 @@ fail:
 
 int fmdd_wait_for_dd_change(fmdd_h h)
 {
-	struct fml_wait_4_chg *chg_sem;
-	int rc;
+	struct fml_wait_4_chg* chg_sem = NULL;
+	int rc = 0;
 
 	if ((h != &fml) || fml.mon_must_die || !fml.mon_alive) {
 		ERR("Bad handle, mon not alive or mon must die\n");
@@ -440,7 +440,7 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 	rc = sem_wait(&chg_sem->sema);
 
 	/* Note: The notification process removes all items from the list. */
-	free(chg_sem);
+	free(chg_sem); // XXX BUG: used after FREE in notify_app_of_events 
 	
 	DBG("Waking up after change to device database\n");
 	if (fml.mon_must_die || !fml.mon_alive || rc) {
