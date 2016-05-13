@@ -28,8 +28,21 @@
  *   messaging to coordinate DMA transfers between multiple clients and
  *   servers.
  *
- * Public interfaces are found in rapidio_sw/include.  The libraries associated
- * with the interfaces are found in rapidio_sw/include/libs_a.
+ * Public interfaces are found in rapidio_sw/include:
+ * - libfmdd.h : Interfaces for the fabric management daemon.  Use these to
+ *               confirm what nodes are available in the system, and what
+ *               facilities (Remote Memory Access, RMA Sockets) are available
+ *               on each node.
+ * - librdma.h : Interfaces for Remote Memory Access
+ * - rdma_types.h : Type definitions for librdma.h
+ * - librskt.h : RMA Sockets implementation of socket-style (stream of bytes)
+ *               transfers.
+ * - mboxmgr_tsi721.h : Tsi721 User mode driver for dedicated messaging
+ *                      resources.
+ *
+ * Precompiled libraries associated with the interfaces are found in:
+ * - Static linking: /opts/rapidio/rapidio_sw/include/libs_a 
+ * - Shared library: /opts/rapidio/include/libs_so
  * Applications may use
  * these interfaces to incorporate the RRMAP capabilities listed above.
  *
@@ -46,6 +59,8 @@
  * - ssh been configured to allow root access to all four nodes      
  * - The 'screen' utility has been installed on all four nodes
  * - The 'doxygen' utility has been installed on all four nodes
+ * - The 'gcc-c++' package has been installed on all four nodes.
+ *   Requires version 4.7 or later.
  *
  * Installation is a two step process:
  * -# Unpack the RapidIO software on any of the four nodes.
@@ -143,6 +158,12 @@
  * - ./stop_all.sh - terminates Fabric Management, RMA, RMA Sockets, 
  *                   Tsi721 User Mode Driver, and DmaTun.
  * - ./all_down.sh - powers down all nodes 
+ *
+ * \section uninstall_sec Uninstall RRMAP Software
+ *
+ * To remove the RRMAP software from a node, execute the 
+ * /opt/rapidio/rapidio_sw/uninstall.sh script.  This will delete the
+ * /opt/rapidio/rapidio_sw and /etc/rapidio directories.
  *
  * \page stack_fmd RRMAP Fabric Management Overview
  *
@@ -312,11 +333,53 @@
  * messages and echos them back to the sending client.  The client sends
  * an endless stream of messages to the target server.  
  *
- * The 
- * libmboxmgr/test/mbox_sample_test.sh script  
- * executes a multiple client to single server test automatically, based
- * on the list of installed nodes created by install.sh.  Documentation of
- * the example code is found at mbox_example.c
+ * To execute the demo, first start the server, then the client.
+ * To start the server, use the following syntax:
+ *
+ * sudo ./server -m (mp) -c (ch) -b (tx) -f (fin)
+ * - mp  - MPORT aka device index -- usually 0
+ * - ch  - MBOX channel for mp, values of 2 (default) or 3
+ * - tx  - Maximum messages pending for TX/RX, minimum 32.
+ * 	More messages means more throughput
+ * - fin - Maximum number of messages finished TX/RX.
+ * 	Minimum 32, must be a power of 2, maximum is 4096
+ *
+ * For example: sudo ./mbox_server -m 0 -c 2 -b 256 -f 256
+ *
+ * To check throughput on the server, use the following command:
+ *
+ * sudo pkill -SIGUSR1 mbox_server
+ *
+ * This should result in the following output from the mbox_server:
+ *
+ * RX_CNT 113412 TX_CNT 113412
+ *
+ * When the server starts, a number of logs are displayed.  The last log has
+ * the form of:
+ *
+ * INFO Fri May 13 12:34:17 2016.336965us tid=10135 test/mbox_example.c: 198 setup_mailbox():
+ *
+ *       SERVER my_did=5 my_mbox=2 tgt_did=4294967295 tgt_mbox=2
+ *        msg_sz=4096 #buf=256 #fifo=256
+ * 
+ * The my_did parameter is used when starting the client.
+ * To start the client, use the following syntax:
+ *
+ * sudo ./mbox_client -m (mp) -d (did) -c (ch) -C (CH) -s (sz) -b (tx) -f (fin)
+ * - mp  - MPORT aka device index -- usually 0
+ * - did - RapidIO destid (8-bit) where the server is running
+ *       Taken from the my_did log value above.
+ * - ch  - MBOX channel for mp, use 2 (default) or 3
+ * - CH  - MBOX channel for the server, use 2 (default) or 3
+ * - sz  - Size of messages exchanged, minimum 24, maximum 4096
+ * - tx  - Maximum messages pending for TX/RX, minimum 32.
+ *       Must be a power of 2, maximum is 4096
+ * - fin - Maximum number of messages finished TX/RX.
+ *       Minimum 32, Must be a power of 2, maximum is 4096
+ *
+ * For example: sudo ./mbox_client -m 0 -d 5 -c 2 -C 2 -b 256 -f 256
+ *
+ * To halt the mbox_client or mbox_client, use (CTRL)c.
  *
  * \page stack_umd_dma Tsi721 DMA User Mode Driver 
  *

@@ -232,7 +232,7 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr);
  *
  * @param[in] msh: Handle for memory space 
  * @param[in] loc_msubh: Handle to created local memory subspace in database
- * @param[out] conn_h: Connection handle
+ * @param[out] connh: Connection handle
  * @param[out] rem_msubh: Handle to received remote memory subspace in database
  * @param[out] rem_msub_len: Length in bytes of remote memory subspace
  * @param[in] timeout_secs: timeout in seconds after which function returns
@@ -258,7 +258,7 @@ int rdma_accept_ms_h(ms_h msh,
  *
  * @param[in] destid_len: Size of destination ID of node hosting the memory space
  * @param[in] destid: Destination ID of node hosting the memory space msh
- * @param[out] conn_h: Connection handle
+ * @param[out] connh: Connection handle
  * @param[in] rem_msname: Remote memory space name
  * @param[in] loc_msubh: Handle to created local memory subspace,
  * 			 0 if not provided
@@ -290,7 +290,7 @@ int rdma_conn_ms_h(uint8_t destid_len,
  *
  * @param[in] connh		Connection handle
  * @param[in] server_msh	Server memory space to disconnect from
- * @param[in] loc_msubh		Client memory subspace provided during
+ * @param[in] client_msubh	Client memory subspace provided during
  * 				connection request, 0 if not provided.
  *
  * @return 0 if successful

@@ -1904,22 +1904,6 @@ exit:
 	return -1;
 }; /* rskt_read() */
 
-int rskt_shutdown(rskt_h skt_h)
-{
-	if (lib_uninit()) {
-		ERR("%s\n", strerror(errno));
-		return -errno;
-	}
-
-	/* FIXME: Need to implement proper shutdown */
-	WARN("NEED TO IMPLEMENT PROPER SHUTDOWN\n");
-	if (rskt_connected == skt_h->st)
-		skt_h->st = rskt_shutting_down;
-
-	return 0;
-};
-	
-
 int rskt_close_locked(rskt_h skt_h)
 {
 	struct librskt_app_to_rsktd_msg *tx;

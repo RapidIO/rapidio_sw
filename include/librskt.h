@@ -149,13 +149,6 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt);
  */
 int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt); /* Stream */
 
-/** @brief Push all data in both directions on the socket, then close
- *
- * @param[in] skt_h RDMA socket handle
- * @return 0 if successful, -1 if not, errno is set appropriately
- */
-int rskt_shutdown(rskt_h skt_h);
-
 /** @brief Close the socket immediately, data in flight may be lost
  *
  * @param[in] skt_h RDMA socket handle
