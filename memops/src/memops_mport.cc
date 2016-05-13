@@ -57,23 +57,23 @@ RIOMemOpsMport::RIOMemOpsMport(const int mport_id)
 }
 RIOMemOpsMport::~RIOMemOpsMport()
 {
+  if (! m_memreg.empty()) {
+    // Have to collect the map keys here as free_xxx will delete from map
+    // and deleting-while-iterating is a BAD idea.
+    std::vector<uint64_t> handle_vec;
+
+    // NO unlock (recursive mutex) -- shut out other threads
+    pthread_mutex_lock(&m_memreg_mutex);
+
+    std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.begin();
+    for (; it != m_memreg.end(); it++) handle_vec.push_back(it->first);
+
+    std::vector<uint64_t>::iterator itv = handle_vec.begin();
+    for (; itv != handle_vec.end(); itv++) free_xwin(*m_memreg[*itv]);
+  }
+
   riomp_mgmt_mport_destroy_handle(&m_mp_h);
   
-  if (m_memreg.empty()) return;
-
-  // Have to collect the map keys here as free_xxx will delete from map
-  // and deleting-while-iterating is a BAD idea.
-  std::vector<uint64_t> handle_vec;
-
-  // NO unlock (recursive mutex) -- shut out other threads
-  pthread_mutex_lock(&m_memreg_mutex);
-
-  std::map<uint64_t, DmaMem_t*>::iterator it = m_memreg.begin();
-  for (; it != m_memreg.end(); it++) handle_vec.push_back(it->first);
-
-  std::vector<uint64_t>::iterator itv = handle_vec.begin();
-  for (; itv != handle_vec.end(); itv++) free_xwin(*m_memreg[*itv]);
-
   // XXX Don't destroy m_memreg_mutex (cannot do it while locked)
 }
 

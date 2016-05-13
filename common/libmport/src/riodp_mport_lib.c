@@ -141,6 +141,9 @@ int riomp_mgmt_mport_destroy_handle(riomp_mport_t *mport_handle)
 	if(hnd == NULL)
 		return -EINVAL;
 
+	close(hnd->fd);
+	free(hnd);
+
 	return 0;
 }
 
