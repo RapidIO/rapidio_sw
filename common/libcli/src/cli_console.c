@@ -65,7 +65,7 @@ void *console(void *cons_parm)
 
 	*ret = rc;
 
-	pthread_exit((void *)ret);
+	pthread_exit((void *)ret); // XXX small memleak
 } /* console */
 
 void* console_rc(void* cons_parm_v)

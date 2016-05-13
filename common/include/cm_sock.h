@@ -420,6 +420,9 @@ public:
 				ERR("Failed to accept connections for '%s' (0x%X)\n",
 								name, accept_socket);
 			}
+
+			riomp_sock_close(&accept_socket);
+			memset(&accept_socket, 0, sizeof(accept_socket));
 		} else {
 			if (acc_socket)
 				*acc_socket = accept_socket;

@@ -222,6 +222,8 @@ void *fm_loop(void *unused)
 			} else {
 				ERR("Failed in fmdd_wait_for_dd_change(). Exiting\n");
 			}
+			if (new_did_list != NULL)
+				fmdd_free_did_list(dd_h, &new_did_list);
 			break;
 		}
 	}

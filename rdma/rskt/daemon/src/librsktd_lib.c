@@ -245,7 +245,7 @@ void handle_app_msg(struct librskt_app *app,
 
 		msg = alloc_msg(msg_type, proc_type, proc_stage);
 		msg->app = app->self_ptr;
-		msg->rx = rxed;
+		msg->rx = rxed; // XXX memleak
 		msg->tx = alloc_tx();
 		memset(msg->tx, 0, RSKTD2A_SZ);
 		msg->tx->msg_type = rxed->msg_type | htonl(LIBRSKTD_RESP);
@@ -331,6 +331,7 @@ void *app_rx_loop(void *ip)
                         break;
                 }
 		handle_app_msg(app, rxed);
+		// free_rx(rxed); rxed = NULL;
 	}
 
 	app->alive = 0;
