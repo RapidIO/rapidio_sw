@@ -1458,7 +1458,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		 * will not be providing an msub then it can pass NULL here */
 		if (!loc_msh || !loc_msubh) {
 			ERR("loc_msh=0x%" PRIx64 ",loc_msubh=0x%" PRIx64 "\n",
-				loc_msh, loc_msubh, rem_msubh, rem_msub_len);
+				loc_msh, loc_msubh);
 			throw RDMA_NULL_PARAM;
 		}
 

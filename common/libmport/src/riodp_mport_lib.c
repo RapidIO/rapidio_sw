@@ -506,6 +506,7 @@ int riomp_dma_write_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_
 	tran.dir = RIO_TRANSFER_DIR_WRITE;
 	tran.count = 1;
 	tran.block = (uintptr_t)&xfer;
+	tran.pad0 = 0;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)? -errno: ret;
@@ -646,6 +647,7 @@ int riomp_dma_read_d(riomp_mport_t mport_handle, uint16_t destid, uint64_t tgt_a
 	tran.dir = RIO_TRANSFER_DIR_READ;
 	tran.count = 1;
 	tran.block = (uintptr_t)&xfer;
+	tran.pad0 = 0;
 
 	ret = ioctl(hnd->fd, RIO_TRANSFER, &tran);
 	return (ret < 0)? -errno: ret;

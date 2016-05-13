@@ -220,25 +220,25 @@ void rsktd_areq_bind(struct librsktd_unified_msg *msg)
 
 	stat = rsktd_sn_get(sn);
 	if ((rskt_uninit == stat) || (rskt_closed == stat)) {
-		WARN("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d"
-		"sn Not initialized. Calling rsktd_sn_set()",
+		INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d %s",
 			UMSG_W_OR_S(msg),
 			UMSG_CT(msg),
 			msg->msg_type,
 			UMSG_TYPE_TO_STR(msg),
 			UMSG_PROC_TO_STR(msg),
-			UMSG_STAGE_TO_STR(msg), ntohl(req->sn));
+			UMSG_STAGE_TO_STR(msg), 
+			sn, SKT_STATE_STR(stat));
 		rsktd_sn_set(sn, rskt_alloced);
 		msg->tx->a_rsp.err = htonl(0);
 	} else {
-		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d"
-		"sn is busy(!?)",
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d %s",
 			UMSG_W_OR_S(msg),
 			UMSG_CT(msg),
 			msg->msg_type,
 			UMSG_TYPE_TO_STR(msg),
 			UMSG_PROC_TO_STR(msg),
-			UMSG_STAGE_TO_STR(msg), ntohl(req->sn));
+			UMSG_STAGE_TO_STR(msg),
+			sn, SKT_STATE_STR(stat));
 		msg->tx->a_rsp.err = htonl(EBUSY);
 	}
 };

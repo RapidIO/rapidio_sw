@@ -1548,12 +1548,12 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 		ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
 	if (!inited) {
 		DBG("!inited, assigning hdr values from skt\n");
-		DBG("hdr_in->loc_msubh = %016"PRIx64" ", hdr_in->loc_msubh);
-		DBG("hdr_in->rem_msubh = %016"PRIx64" ", hdr_in->rem_msubh);
 		hdr_in->loc_msubh = skt->msubh;
 		hdr_in->rem_msubh = skt->con_msubh;
 		hdr_in->priority = 0;
 		hdr_in->sync_type = rdma_sync_chk;
+		DBG("hdr_in->loc_msubh = %016"PRIx64" ", hdr_in->loc_msubh);
+		DBG("hdr_in->rem_msubh = %016"PRIx64" ", hdr_in->rem_msubh);
 	};
 
 	hdr_in->loc_offset = dma_rd_offset;
@@ -1944,7 +1944,9 @@ int rskt_close_locked(rskt_h skt_h)
 	}
 
 	l_skt_h = (rskt_h)l_find(&lib.skts, skt_h->sa.sn, &li);
-	if (l_skt_h != skt_h) {
+	if (NULL == l_skt_h) {
+		WARN("l_skt_h null in one spot");
+	} else if (l_skt_h->skt != skt_h->skt) {
 		ERR("Different socket handle pointers?");
 		return -ENOSYS;
 	};
@@ -1998,7 +2000,7 @@ int rskt_close_locked(rskt_h skt_h)
 	skt_h->st = rskt_closed;
 
 	if (NULL == skt) {
-		ERR("sn %d skt is NULL", skt_h->sa.sn);
+		HIGH("sn %d skt is NULL", skt_h->sa.sn);
 		return 0;
 	}
 	if (skt->msh_valid) {
