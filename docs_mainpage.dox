@@ -300,11 +300,9 @@
  * less than half the -k (size) value.
  *
  * Refer to the librskt.h for 
- * interface details.  For RMA Sockets code examples, refer to
- * rapidio_sw/rdma/rskt/daemon/src, rskt_server.c and rskt_client.c.
- * These two files implement a server with accepts multiple connections,
- * and a client which repeatedly connects, sends data and receives responses,
- * and then closes the socket.
+ * interface details.  For RMA Sockets code examples, refer to the
+ * rapidio_sw/rdma/rskt/samples directory, rskt_server.c and rskt_client.c.
+ * These two files implement example multi-threaded server and client processes.
  *
  * \subsection rdma_skts_known_limitations RMA Sockets Limitations
  *
@@ -314,8 +312,6 @@
  *   rskt_read and rskt_write.
  * - The RMA Sockets implementation uses synchronous transfers, which 
  *   reduces throughput.
- * - The rskt_flush and rskt_recv interfaces are not supported by the current
- *   release.
  *
  * \page stack_umd_mbox Tsi721 MBOX User Mode Driver 
  *

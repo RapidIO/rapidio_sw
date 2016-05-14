@@ -758,6 +758,7 @@ WARN_LOGFILE           =
 INPUT                  = docs_mainpage.dox include common/include \
 			common/libmport/samples \
 			umd_tsi721/test/mbox_example.c \
+			rdma/rskt/samples \
 			utils/goodput/inc/goodput_intro.h
 
 # This tag can be used to specify the character encoding of the source files

@@ -53,57 +53,42 @@ LIB_DIRS?=-L$(COMMONLIBA) -L$(COMMONLIB) \
 	-L$(FMDDIR)/libfmdd \
 	-L$(TOPDIR)/rdma
 
-DAEMON_OBJS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
-
-src/%.o: src/%.c
+%.o: %.c
 	$(CXX) $(CXXFLAGS) -o $@ -c $< -Wall \
-	-I./src -I./inc -I../inc \
+	-I.-I../inc \
 	-I$(COMMONDIR)/liblist/inc \
 	-I../../lib/src \
 	-I$(TOPDIR)/rdma/inc \
 	-DRDMA_LL=$(LOG_LEVEL)
 
-RSKTLIB_SOURCES = src/librsktd_dmn.c src/librsktd_lib.c \
-	src/librsktd_msg_proc.c src/librsktd_sn.c src/librsktd_speer.c  \
-	src/librsktd_wpeer.c
 
-RSKTLIB_OBJECTS = src/librsktd_dmn.o src/librsktd_lib.o \
-	src/librsktd_msg_proc.o src/librsktd_sn.o src/librsktd_speer.o  \
-	src/librsktd_wpeer.o src/librsktd_fm.o
+RSKT_SERVER_SOURCE = rskt_server.c
+RSKT_SERVER_OBJECTS = rskt_server.o
 
-RSKTD_SOURCE = src/rsktd.c src/librsktd_cli.c 
-RSKTD_OBJECTS = src/rsktd.o src/librsktd_cli.o 
-
-RSKTS_SOURCE = src/rskts.c
-RSKTS_OBJECTS = src/rskts.o
-
-REMDBG_SOURCE = src/remdbg.c
-REMDBG_OBJECTS = src/remdbg.o
+RSKT_CLIENT_SOURCE = rskt_client.c
+RSKT_CLIENT_OBJECTS = rskt_client.o
 
 LIBRARIES = -lrskt -lcli -lrt -ldl -lmport \
 	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
 
-all: rsktd rskts remdbg 
+all: rskt_client rskt_server
 
-# The RDMA Sockets Daemon
-rsktd:  $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) src/*.h
-	@echo ---------- Building rsktd...
-	$(CXX) $(CXXFLAGS) $(LIBS_RPATH) \
-	-o $@ $(RSKTLIB_OBJECTS) $(RSKTD_OBJECTS) $(LIB_DIRS) $(LIBRARIES)
 
-# The RDMA Sockets Test Server
-rskts:  $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) src/*.h
-	@echo ---------- Building rskt test server...
+rskt_server:  $(RSKT_SERVER_SOURCE) $(COMMONDIR)/include/*.h
+	@echo ---------- Building rskt_server
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
+	-I./src -I./inc -I../inc \
+	-DRDMA_LL=$(LOG_LEVEL) \
 	$(LIBS_RPATH) \
-	-o $@ $(RSKTLIB_OBJECTS) $(RSKTS_OBJECTS) $(LIB_DIRS) $(LIBRARIES)
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_SERVER_SOURCE) $(LIB_DIRS) $(LIBRARIES)
 
-# The Remote Debug shellsrc/librsktd_cli.c 
-remdbg:  $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) src/*.h
-	@echo ---------- Building remote debug CLI ...
+rskt_client:  $(RSKT_CLIENT_SOURCE) $(COMMONDIR)/include/*.h
+	@echo ---------- Building rskt_client
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
+	-I./inc -I../inc \
+	-DRDMA_LL=$(LOG_LEVEL) \
 	$(LIBS_RPATH) \
-	-o $@ $(RSKTLIB_OBJECTS) $(REMDBG_OBJECTS) $(LIB_DIRS) $(LIBRARIES)
+	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) $(LIB_DIRS) $(LIBRARIES)
 
 clean:
-	rm -f *.o src/*.o *~ *.exe core rsktd remdbg rskts rskt_server rskt_client
+	rm -f *.o *.o *~ *.exe core rskt_server rskt_client 

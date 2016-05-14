@@ -60,23 +60,75 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 static FILE *log_file;
 
-void show_help()
+/**
+ * \file
+ *\brief Example multi threaded client application for RMA Sockets library
+ *
+ * The program starts a specified number of threads, assigning a unique 
+ * identifying integer to each one. Each thread then repeatedly connects
+ * to the server, performws write and read data transfer operations,
+ * closes the socket,  and reconnects.
+ * 
+ * Usage:
+ *
+ * rskt_client -d(did) -s(socknum) -h -l (loglevel) -L(len) -p (skts)
+ *
+ * - did : Destination ID of node running rskt_server.
+ * - socknum : Socket number the server is listening to, 1 to 65535.
+ * Default is 1234.
+ * - loglevel : Log severity to display and capture. Values are:
+ * - 1 - No logs
+ * - 2 - critical
+ * - 3 - Errors and above
+ * - 4 - Warnings and above
+ * - 5 - High priority info and above
+ * - 6 - Information logs and above
+ * - 7 - Debug information and above
+ * - len - Specify length of data to send (0 to 8192).
+ *       Default is 512 bytes\
+ * - -t : Use varying data length data. Overrides option -L (len)
+ * - rpt : Repeat test this many times. Default is 1
+ * - rpt : Repeat test this many times. Default is 1
+ * - skts : Numbeer of sockets to execute in parallel
+ * - -h   Display usage information and exit.
+ */
+
+/** 
+ * \brief display usage information for the RSKT client
+ */
+void usage()
 {
-	printf("rskt_client -d<did> -s<socknum> -h -l <log level> -L<len> -s <skts>"
+	printf("rskt_client -d<did> -s<socknum> -h -l <log level> -L<len> -p <threads>"
 							" -t -r<rpt> \n");
-	printf("-d<did>    : Destination ID of machine running rskt_server.\n");
+	printf("-d<did>    : Destination ID of node running rskt_server.\n");
 	printf("-s<socknum>: Socket number used by rskt_server\n");
 	printf("             Default is 1234\n");
-	printf("-h         : This help message.\n");
-	printf("-l<log level>    : Log severity to display and capture\n");
+	printf("-h         : Display this help message and exit.\n");
+        printf("-l<log level>    : Log severity to display and capture\n");
+        printf("                   1 - No logs\n");
+        printf("                   2 - critical\n");
+        printf("                   3 - Errors and above\n");
+        printf("                   4 - Warnings and above\n");
+        printf("                   5 - High priority info and above\n");
+        printf("                   6 - Information logs and above\n");
+        printf("                   7 - Debug information and above\n");
 	printf("-L<len>    : Specify length of data to send (0 to 8192).\n");
 	printf("             Default is 512 bytes\n");
 	printf("-t         : Use varying data length data. Overrides -l\n");
 	printf("-r<rpt>    : Repeat test this many times. Default is 1\n");
 	printf("-p<skts>   : Number of sockets to execute in parallel.\n");
 	printf("             Default is 1.\n");
-} /* show_help() */
+} /* usage() */
 
+/**
+ * \brief Generate random data for each send/receive cycle for each 
+ * client thread.
+ *
+ * \param[in] data_len Number of bytes to generate.
+ * \param[in] tx_test  Vary the number of bytes sent with each transaction
+ * \param[in] send_buf  Buffer to fill with data
+ * \param[in] recv_buf  Buffer to initialize
+ */
 unsigned generate_data(unsigned data_len, unsigned tx_test, 
 			uint8_t *send_buf, uint8_t *recv_buf)
 {
@@ -93,26 +145,38 @@ unsigned generate_data(unsigned data_len, unsigned tx_test,
 		length = data_len;
 	}
 
-	/* Data to be sent */
 	for (j = 0; j < length; j++)
 		send_buf[j] = j;
 
-	/* Fill receive buffer with 0xAA */
 	memset(recv_buf, 0xAA, length);
 
 	INFO("Generated %u bytes", length);
 	return length;
 } /* generate_data() */
 
-unsigned repetitions = 1;
-uint16_t destid = 0xFFFF;
-int socket_number = RSKT_DEFAULT_SOCKET_NUMBER;
-unsigned data_length = 512;
-sem_t client_done;
-int errorish_goodbye;
-pthread_t clients[25];
-unsigned tx_test = 0;
+unsigned repetitions = 1; /** Each thread send and receives this 
+			* number of times
+			*/
+uint16_t destid = 0xFFFF; /** Destid of the the server */
+int socket_number = RSKT_DEFAULT_SOCKET_NUMBER;  /** rskt_server socket number */
+unsigned tx_test = 0; /** 0 - send constant data, 1 - vary transmit data length
+			*/
+unsigned data_length = 512;	/** Length of data if tx_test is 0 */
+sem_t client_done;		/** Accounting for exiting client threads */
+int errorish_goodbye;	/** 0 if successful, 1 if an error was detected */
 
+/**
+ * \brief This is the body of the client thread which sends data to the
+ *        server, reads the data back, and checks that what was received
+ *        matches what was sent.
+ *
+ * \param[in] parms Points to integer client identifier
+ *
+ * \return None.
+ *
+ * Sets the errorish_goodbye variable to 1 if an error has occurred.
+ * Performs the following steps:
+ */
 void *parallel_client(void *parms)
 {
 	int i, j, rc;
@@ -126,17 +190,20 @@ void *parallel_client(void *parms)
 	sock_addr.ct = destid;
 	sock_addr.sn = socket_number;
 
+	/** Set thread name based on client  number */
         memset(my_name, 0, 16);
         snprintf(my_name, 15, "CLIENT_%d", *client_num);
         pthread_setname_np(pthread_self(), my_name);
 
+	/** Detach thread to allow easy process exit */
         rc = pthread_detach(pthread_self());
         if (rc) {
                 WARN("Client %d pthread_detach rc %d", *client_num, rc);
         };
 
+	/** For each repetition, do */
 	for (i = 0; i < repetitions; i++) {
-		/* Create a client socket */
+		/** - Create a client socket */
 		client_socket = rskt_create_socket();
 
 		if (!client_socket) {
@@ -145,7 +212,7 @@ void *parallel_client(void *parms)
 			goto cleanup_rskt;
 		}
 
-		/* Connect to server */
+		/** - Connect to server */
 		rc = rskt_connect(client_socket, &sock_addr);
 		if (rc) {
 			ERR("Client %d: Connect to %u on %u failed",
@@ -153,8 +220,8 @@ void *parallel_client(void *parms)
 			goto close_client_socket;
 		}
 
+		/** - Send, receive and check data 100 times */
 		for (j = 0; j < 100; j ++) {
-			/* Generate data to send to server */
 			data_length = generate_data(data_length, tx_test,
 					send_buf, recv_buf);
 
@@ -193,7 +260,7 @@ void *parallel_client(void *parms)
 			}
 		}
 
-		/* Close the socket and destroy it */
+		/** -  Close the connected socket */
 		INFO("Closing socket and destroying it.");
 		rc = rskt_close(client_socket);
 		if (rc) {
@@ -202,24 +269,40 @@ void *parallel_client(void *parms)
 			goto destroy_client_socket;
 		}
 
+		/** - Destroy the connected socket */
 		rskt_destroy_socket(&client_socket);
 
 	} /* for() */
+
+	/** Do accounting for thread exit */
 	HIGH("Client %d: DONE!", *client_num);
 	sem_post(&client_done);
 	pthread_exit(NULL);
 
 cleanup_rskt:
 close_client_socket:
+	/** Ensure client socket is closed before exiting */
 	rskt_close(client_socket);
 
 destroy_client_socket:
 	rskt_destroy_socket(&client_socket);
+	/** Ensure client socket is destroyed before exiting */
 	errorish_goodbye = 1;
 	CRIT("Client %d: FAILED!", *client_num);
 	sem_post(&client_done);
 	pthread_exit(NULL);
 };
+
+/**
+ * \brief This is the entry point for the RSKT client example.
+ *
+ * \param[in] argc count of number of entries in argv
+ * \param[in] argv Pointers to parameter strings
+ *
+ * \return 0.
+ *
+ * Performs the following steps:
+ */
 
 int main(int argc, char *argv[])
 {
@@ -232,10 +315,10 @@ int main(int argc, char *argv[])
 	unsigned i;
 	int rc = 0;
 
-	/* Must specify at least 1 argument (the destid) */
+        /** Parse command line parameters */
 	if (argc < 2) {
 		puts("Insufficient arguments. Must specify <destid>");
-		show_help();
+		usage();
 		goto exit_main;
 	}
 
@@ -245,8 +328,9 @@ int main(int argc, char *argv[])
 		case 'd':
 			destid = atoi(optarg);
 			break;
+		default :
 		case 'h':
-			show_help();
+			usage();
 			exit(1);
 			break;
 		case 'l':
@@ -268,28 +352,23 @@ int main(int argc, char *argv[])
 		case 't':
 			tx_test = 1;
 			break;
-		case '?':
-			/* Invalid command line option */
-			show_help();
-			exit(1);
-			break;
-		default:
-			abort();
 		}
 
-	/* Must specify destid */
+	/** Check entered parameters */
 	if (destid == 0xFFFF) {
 		puts("Error. Must specify <destid>");
-		show_help();
+		usage();
 		exit(1);
 	}
 
+        /** Initialize RSKT library */
 	rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
 	if (rc) {
 		CRIT("librskt_init failed, rc=%d: %s\n", rc, strerror(errno));
 		goto exit_main;
 	}
 
+	/** Open log file for debug, initialize status variables */
 	char logfilename[FILENAME_MAX];
 	sprintf(logfilename, "/var/log/rdma/rskt_test.log");
 	log_file = fopen(logfilename, "a");
@@ -297,6 +376,9 @@ int main(int argc, char *argv[])
 	sem_init(&client_done, 0, 0);
 	errorish_goodbye = 0;
 
+	/** For each thread requested, start the thread with a 
+	 * unique identifying number.
+	 */
 	for (i = 0; i < parallel; i++) {
 		int *parm;
 		int ret;
@@ -314,14 +396,16 @@ int main(int argc, char *argv[])
 		CRIT("Client %d started.", i);
 	};
 
+	/** Wait for all threads to exit, print a message as each finishes */
 	for (i = 0; i < parallel; i++) {
 		sem_wait(&client_done);
 		CRIT("%d clients done.", i+1);
 	};
 
+	/** Close the RSKT library exit */
 	librskt_finish();
 
-	/* Log the status in log file */
+	/** Log the status in log file */
 cleanup_rskt:
 	time(&cur_time);
 	ctime_r(&cur_time, asc_time);
@@ -332,6 +416,7 @@ exit_main:
 	} else {
 		CRIT("\n#### Errorish Goodbye! ###\n\n");
 	};
+	/** Close the log file */
 	fclose(log_file);
 	return errorish_goodbye;
 

@@ -34,10 +34,15 @@ include $(TOPDIR)/rules.mk
 
 DEBUG ?= DEBUG
 
-TARGETS = librskt rsktd
+TARGETS = librskt rsktd samples
 
 all: $(TARGETS)
 
+samples: FORCE
+	$(MAKE) all -C samples
+	cp samples/rskt_server .
+	cp samples/rskt_client .
+		
 librskt: FORCE
 	$(MAKE) all -C lib
 	mkdir -p $(COMMONLIBA)
@@ -52,4 +57,5 @@ FORCE:
 clean:
 	$(MAKE) clean -C lib
 	$(MAKE) clean -C daemon
+	rm -f rskt_server rskt_client
 
