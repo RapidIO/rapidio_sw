@@ -461,7 +461,7 @@ fail:
 	prc = (int *)malloc(sizeof(int));
 	if (prc)
 		*prc = cli.cli_portno;
-	pthread_exit(prc);
+	pthread_exit(prc); // XXX small memleak
 } /* cli_session() */
 
 void spawn_threads(void)
