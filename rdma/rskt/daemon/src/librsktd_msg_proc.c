@@ -108,7 +108,7 @@ struct librskt_app_to_rsktd_msg *alloc_rx(void)
 	struct librskt_app_to_rsktd_msg *ret_p = NULL;
 
 	ret_p = (struct librskt_app_to_rsktd_msg *)
-		malloc(sizeof(struct librskt_app_to_rsktd_msg));
+		calloc(1, sizeof(struct librskt_app_to_rsktd_msg));
 	ret_p->in_use = 1;
 
 	if (NULL == ret_p)
@@ -132,7 +132,7 @@ struct librskt_rsktd_to_app_msg *alloc_tx(void)
 	struct librskt_rsktd_to_app_msg *ret_p = NULL;
 
 	ret_p = (struct librskt_rsktd_to_app_msg *)
-		malloc(sizeof(struct librskt_rsktd_to_app_msg));
+		calloc(1, sizeof(struct librskt_rsktd_to_app_msg));
 	return ret_p;
 };
 	
