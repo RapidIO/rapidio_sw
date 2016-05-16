@@ -270,7 +270,7 @@ void start_new_speer(riomp_sock_t new_socket)
 	sem_init(&speer->started, 0, 0);
 	speer->alive = 0;
 	speer->rx_buff_used = 0;
-	speer->rx_buff = malloc(4*1024);
+	speer->rx_buff = calloc(1, 4*1024);
 	speer->tx_buff_used = 0;
 
 	if (riomp_sock_request_send_buffer(new_socket, &speer->tx_buff)) {
@@ -316,10 +316,10 @@ void halt_speer_tx_loop(void)
 /* Sends responses to all speers */
 void *speer_tx_loop(void *unused)
 {
-	struct librsktd_unified_msg *msg;
-	struct rskt_dmn_speer *s;
+	struct librsktd_unified_msg *msg = NULL;
+	struct rskt_dmn_speer *s = NULL;
         struct sigaction sigh;
-        char my_name[16];
+        char my_name[16] = {0};
 
         memset(my_name, 0, 16);
         snprintf(my_name, 15, "SPEER_TX_LOOP");
@@ -473,7 +473,7 @@ void *speer_conn(void *unused)
 {
 	int rc = 1;
 	riomp_sock_t new_socket = NULL;
-	char my_name[16];
+	char my_name[16] = {0};
         struct sigaction sigh;
 	
 	dmn.speer_conn_alive = 0;

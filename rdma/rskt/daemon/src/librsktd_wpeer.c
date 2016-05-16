@@ -209,7 +209,7 @@ void *wpeer_rx_loop(void *p_i)
 int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 {
 	int rc;
-	struct rskt_dmn_wpeer *w;
+	struct rskt_dmn_wpeer *w = NULL;
 	int conn_rc;
 
 	w = alloc_wpeer(ct, cm_skt);
@@ -253,7 +253,7 @@ int init_wpeer(struct rskt_dmn_wpeer **wp, uint32_t ct, uint32_t cm_skt)
 		goto exit;
         }
 
-	w->rx_buff = malloc(RSKTD_CM_MSG_SIZE);
+	w->rx_buff = calloc(1, RSKTD_CM_MSG_SIZE);
 
 	DBG("Creating wpeer_rx_loop\n");
         rc = pthread_create(&w->w_rx, NULL, wpeer_rx_loop, (void*)w);
@@ -271,7 +271,7 @@ exit:
 
 void send_hello_to_wpeer(struct rskt_dmn_wpeer *w)
 {
-	struct librsktd_unified_msg *msg;
+	struct librsktd_unified_msg *msg = NULL;
 
 	DBG("Sending hello to wpeer\n");
 	msg = alloc_msg(RSKTD_HELLO_REQ, RSKTD_PROC_A2W, RSKTD_A2W_SEQ_DREQ);
@@ -292,7 +292,7 @@ void send_hello_to_wpeer(struct rskt_dmn_wpeer *w)
 int open_wpeers_for_requests(int num_peers, struct peer_rsktd_addr *peers)
 {
 	int i;
-	struct rskt_dmn_wpeer *w;
+	struct rskt_dmn_wpeer *w = NULL;
 
 	if (!dmn.mb_valid || !dmn.speer_conn_alive) {
 		ERR("Mailbox invalid or no speer connection thread'\n");
@@ -329,7 +329,7 @@ void enqueue_wpeer_msg(struct librsktd_unified_msg *msg)
 
 void cleanup_wpeer(struct rskt_dmn_wpeer *wpeer)
 {
-	struct librsktd_unified_msg *msg;
+	struct librsktd_unified_msg *msg = NULL;
 
 	*wpeer->self_ref = NULL;
 	wpeer->wpeer_alive = 0;
@@ -397,11 +397,11 @@ void halt_wpeer_tx_loop(void)
 
 void *wpeer_tx_loop(void *unused)
 {
-	struct librsktd_unified_msg *msg;
-	struct rskt_dmn_wpeer *w;
+	struct librsktd_unified_msg *msg = NULL;
+	struct rskt_dmn_wpeer *w = NULL;
 	uint32_t seq_num;
         struct sigaction sigh;
-        char my_name[16];
+        char my_name[16] = {0};
 
         memset(my_name, 0, 16);
         snprintf(my_name, 15, "WPEER_TX_LOOP");

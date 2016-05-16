@@ -65,7 +65,7 @@ struct rsktd_req_msg *alloc_dreq(void)
 {
 	struct rsktd_req_msg *ret_p = NULL;
 
-	ret_p = (struct rsktd_req_msg *)malloc(DMN_REQ_SZ);
+	ret_p = (struct rsktd_req_msg *)calloc(1, DMN_REQ_SZ);
 	ret_p->in_use = 1;
 	return ret_p;
 };
@@ -86,7 +86,7 @@ struct rsktd_resp_msg *alloc_dresp(void)
 {
 	struct rsktd_resp_msg *ret_p = NULL;
 
-	ret_p = (struct rsktd_resp_msg *)malloc(DMN_RESP_SZ);
+	ret_p = (struct rsktd_resp_msg *)calloc(1, DMN_RESP_SZ);
 	ret_p->in_use = 1;
 	return ret_p;
 };
@@ -154,7 +154,7 @@ struct librsktd_unified_msg *alloc_msg(uint32_t msg_type,
 {
 	struct librsktd_unified_msg *lum = NULL;
 	lum = (struct librsktd_unified_msg *)
-			malloc(sizeof(struct librsktd_unified_msg));
+			calloc(1, sizeof(struct librsktd_unified_msg));
 	if (NULL == lum) {
 		CRIT("Exhausted mproc.u_msg pool! %d entries", MAX_MSG);
 		goto exit;
@@ -192,7 +192,7 @@ fail:
 
 void rsktd_areq_bind(struct librsktd_unified_msg *msg)
 {
-	struct librskt_bind_req *req;
+	struct librskt_bind_req *req = NULL;
 	enum rskt_state stat;
 
 	/* Check for NULL pointer */
@@ -326,7 +326,7 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 {
 	struct librskt_listen_req *req = &msg->rx->a_rq.msg.listen;
 	uint32_t sn = ntohl(req->sn);
-	struct acc_skts *new_skt;
+	struct acc_skts* new_skt = NULL;
 
 	if (rskt_alloced != rsktd_sn_get(sn)) {
 		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s sn %d"
@@ -343,7 +343,7 @@ void rsktd_areq_listen(struct librsktd_unified_msg *msg)
 	rsktd_sn_set(sn, rskt_listening);
 	msg->tx->a_rsp.err = htonl(0); 
 	
-	new_skt = (struct acc_skts *)malloc(sizeof(struct acc_skts));
+	new_skt = (struct acc_skts *)calloc(1, sizeof(struct acc_skts));
 	if (new_skt == NULL) {
 		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s"
 		"Failed to allocate new_skt",
@@ -386,12 +386,12 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	int i;
 	int err = 0;
 	struct ms_info *loc_ms_info = NULL;
-	struct librsktd_unified_msg *acc_req;
-	struct librskt_accept_resp *a_resp;
-	struct librsktd_unified_msg *con_req;
-	struct librsktd_connect_req *dreq;
-	struct librsktd_connect_resp *dresp;
-	struct con_skts *con;
+	struct librsktd_unified_msg *acc_req = NULL;
+	struct librskt_accept_resp *a_resp = NULL;
+	struct librsktd_unified_msg *con_req = NULL;
+	struct librsktd_connect_req *dreq = NULL;
+	struct librsktd_connect_resp *dresp = NULL;
+	struct con_skts *con = NULL;
 
 	if ((NULL == acc->acc_req) || !l_size(&acc->conn_req)) {
 		ERR("NULL parameter or list member size");
@@ -487,7 +487,7 @@ void rsktd_connect_accept(struct acc_skts *acc)
 	memcpy(dresp->dst_ms, loc_ms_info->ms_name, MAX_MS_NAME);
 
 	/* Add connected socket to list */
-	con = (struct con_skts *)malloc(sizeof(struct con_skts));
+	con = (struct con_skts *)calloc(1, sizeof(struct con_skts));
 	con->app = acc_req->app;
 	con->loc_sn = ntohl(a_resp->new_sn);
 	con->loc_ms = loc_ms_info;
@@ -511,8 +511,8 @@ int rsktd_areq_accept(struct librsktd_unified_msg *msg)
 	struct librskt_resp *resp = &msg->tx->a_rsp;
 	uint32_t sn = ntohl(req->sn);
 
-	struct acc_skts *acc_skt;
-	struct l_item_t *li;
+	struct acc_skts *acc_skt = NULL;
+	struct l_item_t *li = NULL;
 	uint32_t send_resp_now = 1;
 
 	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
@@ -568,7 +568,7 @@ void rsktd_areq_hello(struct librsktd_unified_msg *msg)
 {
 	struct librskt_hello_req *req = &msg->rx->a_rq.msg.hello;
 	struct librskt_resp *resp = &msg->tx->a_rsp;
-	char app_name[16];
+	char app_name[16] = {0};
 
 	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
 		UMSG_W_OR_S(msg),
@@ -787,7 +787,7 @@ void rsktd_a2w_connect_resp(struct librsktd_unified_msg *r)
 	struct librskt_connect_resp *a_rsp = &r->tx->a_rsp.msg.conn;
 	struct librsktd_connect_req *d_req = &r->dreq->msg.con;
 	struct librsktd_connect_resp *d_resp = &r->dresp->msg.con;
-	struct con_skts *con;
+	struct con_skts *con = NULL;
 
 	r->tx->a_rsp.err = r->dresp->err;
 
@@ -814,7 +814,7 @@ void rsktd_a2w_connect_resp(struct librsktd_unified_msg *r)
 	r->tx->a_rsp.err = htonl(0);
 
 	/* Add connected socket to list */
-	con = (struct con_skts *)malloc(sizeof(struct con_skts));
+	con = (struct con_skts *)calloc(1, sizeof(struct con_skts));
 	con->app = r->app;
 	con->loc_sn = ntohl(d_req->src_sn);
 	con->loc_ms = r->loc_ms;
@@ -834,7 +834,7 @@ fail:
 
 void terminate_accept_and_conn_reqs(uint32_t sn)
 {
-	struct l_item_t *li;
+	struct l_item_t *li = NULL;
 	struct acc_skts *acc = (struct acc_skts *)l_find(&lib_st.acc, sn, &li);
 	struct librsktd_unified_msg *con_req;
 
@@ -862,7 +862,7 @@ uint32_t terminate_connected_socket(struct librsktd_unified_msg *msg,
 					int sn)
 {
 	uint32_t send_resp_now = 1;
-	struct l_item_t *li;
+	struct l_item_t *li = NULL;
 	struct con_skts *con = (struct con_skts *)l_find(&lib_st.con, sn, &li);
 
 	if (NULL == con)
@@ -1040,7 +1040,7 @@ void rsktd_a2w_close_resp(struct librsktd_unified_msg *r)
 {
 	struct rsktd_req_msg *dreq = r->dreq;
 	uint32_t sn = ntohl(dreq->msg.clos.rem_sn);
-	struct l_item_t *li;
+	struct l_item_t *li = NULL;
 	struct con_skts *con = (struct con_skts *)l_find(&lib_st.con, sn, &li);
 
 	/* App has confirmed that socket is closed. */
@@ -1081,8 +1081,8 @@ void msg_q_handle_a2w(struct librsktd_unified_msg *r)
 
 	switch (r->proc_stage) {
 	case RSKTD_A2W_SEQ_AREQ:
-		r->dreq = (struct rsktd_req_msg *)malloc(DMN_REQ_SZ);
-		r->dresp = (struct rsktd_resp_msg *)malloc(DMN_RESP_SZ);
+		r->dreq = (struct rsktd_req_msg *)calloc(1, DMN_REQ_SZ);
+		r->dresp = (struct rsktd_resp_msg *)calloc(1, DMN_RESP_SZ);
 		r->dresp->err = 0;
 
 		switch(r->msg_type) {
@@ -1134,7 +1134,7 @@ void rsktd_sreq_hello_req(struct librsktd_unified_msg *r)
 	struct rsktd_req_msg *dreq = r->dreq;
 	struct rsktd_resp_msg *dresp = r->dresp;
 	struct rskt_dmn_speer *sp = *r->sp;
-        char sp_name[16];
+        char sp_name[16] = {0};
 
 	if (NULL == sp) {
 		dresp->err = htonl(ECONNREFUSED);
@@ -1313,7 +1313,7 @@ void rsktd_s2a_close_resp(struct librsktd_unified_msg *r)
 {
 	struct rsktd_req_msg *dreq = r->dreq;
 	uint32_t sn = ntohl(dreq->msg.clos.loc_sn);
-	struct l_item_t *li;
+	struct l_item_t *li = NULL;
 	struct con_skts *con = (struct con_skts *)l_find(&lib_st.con, sn, &li);
 
 	INFO("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s SN %d ST %d",
@@ -1357,8 +1357,8 @@ void msg_q_handle_s2a(struct librsktd_unified_msg *msg)
 
 	switch (msg->proc_stage) {
 	case RSKTD_S2A_SEQ_DREQ:
-		msg->rx = (struct librskt_app_to_rsktd_msg *)malloc(A2RSKTD_SZ);
-		msg->tx = (struct librskt_rsktd_to_app_msg *)malloc(RSKTD2A_SZ);
+		msg->rx = (struct librskt_app_to_rsktd_msg *)calloc(1, A2RSKTD_SZ);
+		msg->tx = (struct librskt_rsktd_to_app_msg *)calloc(1, RSKTD2A_SZ);
 		msg->dresp->err = 0; 
 		switch(msg->msg_type) {
 		case RSKTD_CLOSE_REQ:
@@ -1409,8 +1409,8 @@ void enqueue_mproc_msg(struct librsktd_unified_msg *msg)
 
 void *msg_q_loop(void *unused)
 {
-	struct librsktd_unified_msg *msg;
-	char my_name[16];
+	struct librsktd_unified_msg *msg = NULL;
+	char my_name[16] = {0};
 
 	DBG("ENTER");
 	mproc.msg_proc_alive = 1;

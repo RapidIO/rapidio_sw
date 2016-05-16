@@ -387,7 +387,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 		goto exit;
 	};
 
-	*did_list = (uint32_t *)malloc(sizeof(uint32_t) * cnt);
+	*did_list = (uint32_t *)calloc(cnt, sizeof(uint32_t));
 	for (i = 0; i < FML_MAX_DESTIDS; i++) {
 		flag = fmdd_check_did(h, i, FMDD_FLAG_OK_MP);
 		if (flag && (FMDD_FLAG_OK_MP != flag)) {
@@ -419,7 +419,7 @@ fail:
 
 int fmdd_wait_for_dd_change(fmdd_h h)
 {
-	sem_t *chg_sem = (sem_t *)malloc(sizeof(sem_t));
+	sem_t *chg_sem = (sem_t *)calloc(1, sizeof(sem_t));
 	int rc = 0;
 
 	if ((h != &fml) || fml.mon_must_die || !fml.mon_alive) {

@@ -819,7 +819,7 @@ uint8_t rskt_wr_data;
 extern struct cli_cmd RSKTWrite;
 int RSKTWriteCmd(struct cli_env *env, int argc, char **argv)
 {
-	uint8_t *data_buf, value;
+	uint8_t *data_buf = NULL, value;
 	uint32_t i, rc;
 	uint32_t repeat = 1;
 
@@ -835,7 +835,7 @@ int RSKTWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	value = rskt_wr_data;
 
-	data_buf = (uint8_t *)malloc(rskt_wr_cnt);
+	data_buf = (uint8_t *)calloc(1, rskt_wr_cnt);
 
 	for (i = 0; i < rskt_wr_cnt; i++)
 		data_buf[i] = value--;
@@ -884,7 +884,7 @@ uint32_t rskt_rd_cnt;
 extern struct cli_cmd RSKTRead;
 int RSKTReadCmd(struct cli_env *env, int argc, char **argv)
 {
-        uint8_t *data_buf;
+        uint8_t *data_buf = NULL;
         int i, rc;
         uint32_t repeat = 1, r;
 
@@ -901,7 +901,7 @@ int RSKTReadCmd(struct cli_env *env, int argc, char **argv)
 
         sprintf(env->output, "Byte Cnt: %x\n", rskt_rd_cnt);
         logMsg(env);
-        data_buf = (uint8_t *)malloc(rskt_rd_cnt);
+        data_buf = (uint8_t *)calloc(1, rskt_rd_cnt);
         for (r = 0; r < repeat; r++) {
                 do {
                         rc = rskt_read(t_skt_h, data_buf, rskt_rd_cnt);
@@ -953,7 +953,7 @@ extern struct cli_cmd RSKTTxTest;
 #define TEST_BUFF_SIZE 4096
 int RSKTTxTestCmd(struct cli_env *env, int argc, char **argv)
 {
-	uint8_t data_buf[TEST_BUFF_SIZE], rx_data_buf[TEST_BUFF_SIZE];
+	uint8_t data_buf[TEST_BUFF_SIZE] = {0}, rx_data_buf[TEST_BUFF_SIZE] = {0};
 	uint32_t repeat = 1, r, s, sz;
 	int check = 1, rc;
 

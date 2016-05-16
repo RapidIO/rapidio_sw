@@ -89,10 +89,10 @@ extern "C" {
 #endif
 
 riocp_pe_handle mport_pe;
-DAR_DEV_INFO_t *dev_h;
+DAR_DEV_INFO_t *dev_h = NULL;
 
-struct fmd_opt_vals *opts;
-struct fmd_state *fmd;
+struct fmd_opt_vals *opts = NULL;
+struct fmd_state *fmd = NULL;
 
 void custom_quit(cli_env *env)
 {
@@ -150,7 +150,7 @@ void *poll_loop( void *poll_interval )
 {
 	int wait_time = ((int *)(poll_interval))[0];
 	int console = ((int*)(poll_interval))[1];
-        char my_name[16];
+        char my_name[16] = {0};
 	free(poll_interval);
 
 	INFO("RIO_DEMON: Poll interval %d seconds\n", wait_time);
@@ -175,14 +175,13 @@ void *cli_session( void *sock_num )
 {
      int sockfd, newsockfd = -1, portno;
      socklen_t clilen;
-     char buffer[256];
+     char buffer[256] ={0};
      struct sockaddr_in serv_addr, cli_addr;
      int n;
      int one = 1;
 	int session_num = 0;
-        char my_name[16];
+        char my_name[16] = {0};
 
-        memset(my_name, 0, 16);
         snprintf(my_name, 15, "ETH_CLI_SESS");
         pthread_setname_np(cli_session_thread, my_name);
 
@@ -250,7 +249,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 //int poll_interval, int sock_num, int run_cons)
 {
 	int  poll_ret, cli_ret, cons_ret;
-	int *pass_sock_num, *pass_poll_interval, *pass_cons_ret;
+	int *pass_sock_num = NULL, *pass_poll_interval = NULL, *pass_cons_ret = NULL;
 	int ret;
 
 	sem_init(&cons_owner, 0, 0);
@@ -466,9 +465,9 @@ int setup_mport_slave(int mport, uint32_t m_did, uint32_t m_cm_port)
 	uint32_t comptag;
 	struct cfg_mport_info mp;
 	struct cfg_dev cfg_dev;
-	char mast_dev_fn[FMD_MAX_DEV_FN];
-	struct mpsw_drv_private_data *p_dat;
-	struct mpsw_drv_pe_acc_info *acc_p;
+	char mast_dev_fn[FMD_MAX_DEV_FN] = {0};
+	struct mpsw_drv_private_data *p_dat = NULL;
+	struct mpsw_drv_pe_acc_info *acc_p = NULL;
 
 	if (cfg_find_mport(mport, &mp)) {
 		CRIT("\nCannot find configured mport, exiting...\n");
@@ -601,7 +600,7 @@ int main(int argc, char *argv[])
 	g_level = opts->log_level;
 	if ((opts->init_and_quit) && (opts->print_help))
 		goto fail;
-        fmd = (fmd_state *)malloc(sizeof(struct fmd_state));
+        fmd = (fmd_state *)calloc(1, sizeof(struct fmd_state));
         fmd->opts = opts;
         fmd->fmd_rw = 1;
 

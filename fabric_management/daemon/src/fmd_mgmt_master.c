@@ -186,10 +186,12 @@ void send_del_dev_msg(struct fmd_peer *peer, struct fmd_peer *del_peer)
 void update_all_peer_dd_and_flags(uint32_t add_dev)
 {
 	uint32_t src, tgt;
-	struct fmd_peer *t_peer;
-	struct l_item_t *li;
+	struct fmd_peer *t_peer = NULL;
+	struct l_item_t *li = NULL;
 	uint32_t num_devs;
+
 	struct fmd_dd_dev_info devs[FMD_MAX_DEVS];
+	memset(devs, 0, sizeof(devs));
 
 	if (0 >= fmd_dd_atomic_copy(fmd->dd, fmd->dd_mtx, &num_devs, devs,
 				FMD_MAX_DEVS))
@@ -227,8 +229,8 @@ void update_all_peer_dd_and_flags(uint32_t add_dev)
 /* Assumes that peer has already been removed from fmp.peers... */
 void send_peer_removal_messages(struct fmd_peer *del_peer)
 {
-	struct fmd_peer *t_peer;
-	struct l_item_t *li;
+	struct fmd_peer *t_peer = NULL;
+	struct l_item_t *li = NULL;
 
 	sem_wait(&fmp.peers_mtx);
 
@@ -449,9 +451,9 @@ void *peer_rx_loop(void *p_i)
 int start_new_peer(riomp_sock_t new_skt)
 {
 	int rc;
-	struct fmd_peer *peer;
+	struct fmd_peer *peer = NULL;
 
-	peer = (struct fmd_peer *) malloc(sizeof(struct fmd_peer));
+	peer = (struct fmd_peer *) calloc(1, sizeof(struct fmd_peer));
 
 	peer->p_pid = 0;
 	peer->p_did = 0;
@@ -473,7 +475,7 @@ int start_new_peer(riomp_sock_t new_skt)
 	sem_init(&peer->started, 0, 0);
 	peer->rx_alive = 0;
 	peer->rx_buff_used = 0;
-	peer->rx_buff = malloc(4096);
+	peer->rx_buff = calloc(1, 4096);
 
 	if (riomp_sock_request_send_buffer(new_skt, &peer->tx_buff)) {
 		riomp_sock_close(&new_skt);
@@ -511,9 +513,8 @@ void *mast_acc(void *unused)
 	int rc = 1;
 	riomp_sock_t new_skt = NULL;
 
-        char my_name[16];
+        char my_name[16] = {0};
 
-        memset(my_name, 0, 16);
         snprintf(my_name, 15, "MAST_PEER_ACC");
         pthread_setname_np(fmp.acc.acc, my_name);
 
@@ -641,8 +642,8 @@ int start_peer_mgmt(uint32_t mast_acc_skt_num, uint32_t mp_num,
 		
 void shutdown_master_mgmt(void)
 {
-	struct fmd_peer *peer;
-	void *unused;
+	struct fmd_peer *peer = NULL;
+	void *unused = NULL;
 
 	/* Shut down accept thread first... */
 	if (fmp.acc.acc_alive) {

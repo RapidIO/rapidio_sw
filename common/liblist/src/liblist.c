@@ -50,7 +50,7 @@ void l_init(struct l_head_t *l)
 void l_push_tail(struct l_head_t *l, void *item)
 {
 	struct l_item_t *li = (struct l_item_t *)
-				malloc(sizeof(struct l_item_t));
+				calloc(1, sizeof(struct l_item_t));
 
 	li->key = 0;
 	li->item = item;
@@ -92,8 +92,8 @@ void *l_pop_head(struct l_head_t *l)
 struct l_item_t *l_add(struct l_head_t *l, uint32_t key, void *item)
 {
 	struct l_item_t *new_li = (struct l_item_t *)
-					malloc(sizeof(struct l_item_t));
-	struct l_item_t *li;
+					calloc(1, sizeof(struct l_item_t));
+	struct l_item_t *li = NULL;
 
 	new_li->next = new_li->prev = NULL;
 	new_li->key = key;

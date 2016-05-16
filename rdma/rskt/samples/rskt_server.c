@@ -129,14 +129,14 @@ static unsigned num_threads = 0;
  */
 void *slave_thread_f(void *arg)
 {
-	struct slave_thread_params	*slave_params;
+	struct slave_thread_params *slave_params = NULL;
 	pthread_t slave_thread;
 	rskt_h accept_socket;
 	uint32_t data_size;
-	void *send_buf;
-	void *recv_buf;
+	void *send_buf = NULL;
+	void *recv_buf = NULL;
 	int rc;
-        char my_name[16];
+        char my_name[16] = {0};
 
 	/** Copy parameters to local variables */
 	if (arg == NULL) {
@@ -148,7 +148,6 @@ void *slave_thread_f(void *arg)
 	slave_thread  = slave_params->slave_thread;
 
 	/** Set thread name based on unique socket number */
-	memset(my_name, 0, 16);
         snprintf(my_name, 15, "ACC_L%5d", accept_socket->sa.sn);
         pthread_setname_np(slave_params->slave_thread, my_name);
 
@@ -161,12 +160,12 @@ void *slave_thread_f(void *arg)
 						__func__, slave_thread);
 
 	/* Allocate send and receive buffers */
-	send_buf = malloc(RSKT_DEFAULT_SEND_BUF_SIZE);
+	send_buf = calloc(1, RSKT_DEFAULT_SEND_BUF_SIZE);
 	if (send_buf == NULL) {
 		CRIT("Failed to alloc send_buf: %s\n", strerror(errno));
 		goto slave_thread_f_exit;
 	}
-	recv_buf = malloc(RSKT_DEFAULT_RECV_BUF_SIZE);
+	recv_buf = calloc(1, RSKT_DEFAULT_RECV_BUF_SIZE);
 	if (recv_buf == NULL) {
 		CRIT("Failed to alloc recv_buf: %s\n", strerror(errno));
 		goto slave_thread_f_exit;
@@ -378,7 +377,7 @@ int main(int argc, char *argv[])
 		*      new socket
  		*/
 		slave_params = (struct slave_thread_params *)
-				malloc(sizeof(struct slave_thread_params));
+				calloc(1, sizeof(struct slave_thread_params));
 		slave_params->accept_socket = accept_socket;
 		rc = pthread_create(&slave_params->slave_thread,
 				    NULL,

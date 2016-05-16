@@ -52,12 +52,12 @@ static struct riocp_pe_llist_item _riocp_mport_list_head; /**< List of created m
 static int riocp_pe_mport_list(size_t *count, uint8_t **list)
 {
 	int ret;
-	DIR *dev_dir;
+	DIR *dev_dir = NULL;
 	struct dirent *dev_ent = NULL;
 	unsigned int _mport;
 	unsigned int i = 0;
 	size_t _count = 0;
-	uint8_t *_list;
+	uint8_t *_list = NULL;
 
 	dev_dir = opendir(RIOCP_PE_DEV_DIR);
 	if (dev_dir == NULL) {
@@ -77,7 +77,7 @@ static int riocp_pe_mport_list(size_t *count, uint8_t **list)
 
 	rewinddir(dev_dir);
 
-	_list = (uint8_t *)malloc(_count * sizeof(*_list));
+	_list = (uint8_t *)calloc(_count, sizeof(*_list));
 
 	/* Iteration 2, get the devices */
 	while ((dev_ent = readdir(dev_dir)) != NULL) {
@@ -164,10 +164,10 @@ int RIOCP_SO_ATTR riocp_mport_get_pe_list(riocp_pe_handle mport, size_t *count, 
 {
 	int ret = 0;
 	size_t handle_counter = 0;
-	riocp_pe_handle *_pe_list;
+	riocp_pe_handle *_pe_list = NULL;
 	size_t n;
-	struct riocp_pe *p;
-	struct riocp_pe_llist_item *item;
+	struct riocp_pe *p = NULL;
+	struct riocp_pe_llist_item *item = NULL;
 
 	if (count == NULL) {
 		RIOCP_ERROR("Invalid count argument\n");
@@ -281,7 +281,7 @@ static int riocp_pe_create_mport_handle(riocp_pe_handle *handle,
 	uint32_t *comptag,
 	char *name)
 {
-	struct riocp_pe *pe;
+	struct riocp_pe *pe = NULL;
 
 	if (handle == NULL)
 		return -EINVAL;
@@ -352,7 +352,7 @@ int RIOCP_SO_ATTR riocp_pe_discover(riocp_pe_handle pe,
 	uint8_t port,
 	riocp_pe_handle *peer, char *name)
 {
-	struct riocp_pe *p;
+	struct riocp_pe *p = NULL;
 	uint8_t hopcount = 0;
 	uint32_t comptag = 0;
 	uint32_t destid;
@@ -515,7 +515,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	char *name)
 {
 	uint32_t val;
-	struct riocp_pe *p;
+	struct riocp_pe *p = NULL;
 	uint8_t hopcount = 0;
 	uint32_t comptag = 0;
 	uint8_t sw_port = 0;
@@ -540,7 +540,7 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	if (ret)
 		return -EIO;
 
-	p = (struct riocp_pe *)malloc(sizeof(struct riocp_pe));
+	p = (struct riocp_pe *)calloc(1, sizeof(struct riocp_pe));
 	*p = *pe;
 	p->hopcount = hopcount;
 	p->destid = ANY_ID;
@@ -702,7 +702,7 @@ int RIOCP_SO_ATTR riocp_pe_get_peer_list(riocp_pe_handle pe,
 {
 	int ret = 0;
 	unsigned int i;
-	riocp_pe_handle *_peer_list;
+	riocp_pe_handle *_peer_list = NULL;
 
 	ret = riocp_pe_handle_check(pe);
 	if (ret) {
@@ -833,7 +833,7 @@ int RIOCP_SO_ATTR riocp_pe_get_capabilities(riocp_pe_handle pe,
  */
 static int riocp_pe_get_ports_add_peer(struct riocp_pe *pe, uint8_t port, struct riocp_pe_port ports[])
 {
-	struct riocp_pe *peer;
+	struct riocp_pe *peer = NULL;
 
 	peer = pe->peers[port].peer;
 
@@ -866,7 +866,7 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 {
 	int ret;
 	unsigned int i;
-	struct riocp_pe *sw;
+	struct riocp_pe *sw = NULL;
 
 
 	if (ports == NULL)

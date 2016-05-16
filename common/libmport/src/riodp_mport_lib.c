@@ -1516,7 +1516,7 @@ int riomp_sock_request_send_buffer(riomp_sock_t socket_handle,
 {
 	/* socket_handle won't be used for now */
 
-	*buf = malloc(0x1000); /* Always allocate maximum size buffers */
+	*buf = calloc(1, 0x1000); /* Always allocate maximum size buffers */
 	if (*buf == NULL)
 		return -1;
 
