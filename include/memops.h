@@ -134,18 +134,28 @@ public:
 public:
 	virtual ~RIOMemOpsIntf() {;}
 
+	/** \brief MEMOPS_MPORT cannot be restarted by the application, they are
+	 * restarted automatically by the kernel.
+	 */
 	virtual bool canRestart() { return false; }
+
+	/** \brief non-MEMOPS_MPORT can be restarted by the application. */
 	virtual bool restartChannel() { 
 		throw std::runtime_error("restartChannel: "
 					"Operation not supported.");
 	}
+
+	/** \brief non-MEMOPS_MPORT can be checked for access failures by the application
+	*/
 	virtual bool checkAbort() {
 		throw std::runtime_error("checkAbort: "
 					"Operation not supported.");
 	}
 
+	/** \brief Check to see if the transmit transaction queue is full. */
 	virtual bool queueFull() { return false; } 
 
+	/** Read and write memory remotely */
 	virtual bool nread_mem(MEMOPSRequest_t& dmaopt /*inout*/) = 0;
 	virtual bool nwrite_mem(MEMOPSRequest_t& dmaopt /*inout*/) = 0;
 
@@ -176,9 +186,24 @@ public:
 	 * 	  	Check errno to determine reason for failure.
 	 */
 	virtual bool alloc_dmawin(DmaMem_t& mem, const int size) = 0;
+
+	/** \brief Used to allocate a local memory buffer and map it to a RapidIO
+	* address.  This memory is accessible from other nodes using nread_mem and
+	* nwrite_mem.
+	*
+	* @param[in] mem Parameters used to request memory te_mem.
+	* @param[in] size number of bytes to allocate. 0 is illegal.
+	*                 Will be rounded up to at least the next power of
+	*                 2.
+	* return false - memory allocated successfully.
+	* 	  true - memory could not be allocated.
+	* 	  	Check errno to determine reason for failure.
+	*/
 	virtual bool alloc_ibwin(DmaMem_t& mem /*out*/, const int size) = 0;
 
 	// TODO: UMD impl will overload alloc_mem and throw an error
+	/** \brief allocate buffer in virtual memory.  Memory allocated with this routine
+	 * can be used by MEMOPS_MPORT but not by other drivers. */
 	virtual bool alloc_umem(DmaMem_t& mem /*out*/, const int size) {
 		if (size < 1) return false;
 		memset(&mem, 0, sizeof(mem));
@@ -187,6 +212,8 @@ public:
 		return true;
 	}
 
+	/** \brief All buffer types are release/freed by this routine.
+	 */
 	virtual void free_xwin(DmaMem_t& mem) {
 		switch (mem.type) {
 			case DMAMEM: free_dmawin(mem); break;
@@ -197,6 +224,7 @@ public:
 		mem.type = INVALID;
 	}
 
+	/** \brief Returns generic abort reason. */
 	virtual int getAbortReason() = 0;
 	virtual const char* abortReasonToStr(const int dma_abort_reason) = 0;
 
@@ -210,16 +238,16 @@ RIOMemOpsIntf* RIOMemOps_classFactory(const MEMOPSAccess_t type, const int mport
 #define ANY_CHANNEL	-1
 
 /** \brief Create a RIOMemOpsIntf, if possible
- * \note Channel 0 is always used by kernel for maint read/write. Using it will throw
+ * \note Channel 7 is reserved for use by the kernel. Attempting to use it will throw
  * \verbatim
 Following combinations are valid:
- - Shared + ANY_CHANNEL:		=> don’t care about performance, want to use malloc’ed buffers, so mport
- - !shared + CHAN# - UMD		=> care a lot about performance, so no malloc’d buffers and UMD
+- !shared + CHAN# - UMD	=> care a lot about performance, so no malloc’d buffers and UMD
+ - Shared + ANY_CHANNEL: 
  - Shared + CHAN# - ShM UMD => want guaranteed performance for an application/facility, so no malloc’ed buffers and ShM UMD
 \endverbatim
- * \param mport_id Mport id; use \ref MportMgmt::get_mport_list to discover valid ids
- * \param shared is application willing to share channel?
- * \param channel ANY_CHANNEL or 1..7
+ * \param[in] mport_id Mport id; use \ref MportMgmt::get_mport_list to discover valid ids
+ * \param[in] shared is application willing to share channel?
+ * \param[in] channel ANY_CHANNEL or 1..7
  * \return NULL if UMD channel in use OR UMDd/SHM not running for channel, an instace of \ref RIOMemOpsIntf otherwise
  */
 RIOMemOpsIntf* RIOMemOpsChanMgr(uint32_t mport_id, bool shared, int channel);

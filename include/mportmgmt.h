@@ -51,6 +51,14 @@ extern char* width_to_string(int);
  */
 class MportMgmt {
 public:
+	/** \brief Create a handle for the /dev/rio_mportX device. A list of available
+	* device indexes is returned by get_mport_list.
+	*
+	* @param[in] mport_id : Index of /devs/rio_mportX device to use.  For a list
+	*					of available mports, use mportmgmt.h::get_mport_list.
+	*
+	* @return MportMgmt object, or thrown exception.
+	*/
   MportMgmt(int mport_id) : m_mportid(mport_id)
   {
     if (riomp_mgmt_mport_create_handle(m_mportid, 0, &m_handle))
@@ -63,7 +71,7 @@ public:
     return riomp_mgmt_query(m_handle, &qresp);
   }
 
-  /** \brief Convert Mport properties to human readable */
+  /** \brief Convert Mport properties to human readable string */
   static inline std::string toString(struct riomp_mgmt_mport_properties& attr) {
     std::string out;
     char tmp[129] = {0};
@@ -96,7 +104,14 @@ public:
     return true;
   }
 
-  /** \brief Enumerate RapidIO endpoints known to the RapidIO kernel driver. Static. */
+  /** \brief Enumerate RapidIO destination IDs known to the RapidIO kernel driver and
+   * associated with the specific mport_id. A list of available
+  * device indexes is returned by get_mport_list.
+   * 
+   * All destination IDs are dev8 (8 bit) in size.
+   *
+   * Static.
+   */
   static inline bool get_ep_list(int mport_id, std::vector<uint32_t>& epids) {
     uint32_t  nep = 0;
     uint32_t* ep_ids = NULL;
@@ -106,7 +121,13 @@ public:
     return true;
   }
 
-  /** \brief Enumerate RapidIO endpoints known to the RapidIO kernel driver */
+  /** \brief Enumerate RapidIO destination IDs known to the RapidIO kernel driver and
+  * associated with this handle.
+  *
+  * All destination IDs are dev8 (8 bit) in size.
+  *
+  * Static.
+  */
   inline bool get_ep_list(std::vector<uint32_t>& epids) { return get_ep_list(m_mportid, epids); }
 
 private:
