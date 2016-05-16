@@ -506,9 +506,9 @@ struct switch_lane_priv_t {
 struct switch_priv_t {
 	uint32_t event_counter;
 #ifdef CONFIG_SETUP_CACHE_ENABLE
-	struct switch_lane_priv_t lanes[];
+	struct switch_lane_priv_t lanes[48];  /* CPS1848 is the maximum we support here */
 #endif
-	struct switch_port_priv_t ports[];
+	struct switch_port_priv_t ports[18];  /* CPS1848 is the maximum we support here */
 };
 
 struct portmap {
@@ -3494,13 +3494,7 @@ int cps1xxx_init(struct riocp_pe *sw)
 		if (result & CPS1xxx_I2C_CPS10Q_BAD_IMG_VERSION)
 			RIOCP_WARN("switch %s: EEPROM: bad image version\n");
 
-	switch_priv = (struct switch_priv_t *)calloc(1,
-			sizeof(struct switch_priv_t)
-#ifdef CONFIG_SETUP_CACHE_ENABLE
-			+ sizeof(struct switch_port_priv_t) * RIOCP_PE_PORT_COUNT(sw->cap)
-			+ sizeof(struct switch_lane_priv_t) * sw->sw->lane_count
-#endif
-			);
+	switch_priv = (struct switch_priv_t *)calloc(1,	sizeof(struct switch_priv_t));
 	if (!switch_priv)
 		return -ENOMEM;
 
