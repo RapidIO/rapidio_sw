@@ -57,5 +57,6 @@ FORCE:
 clean:
 	$(MAKE) clean -C lib
 	$(MAKE) clean -C daemon
+	$(MAKE) clean -C samples
 	rm -f rskt_server rskt_client
 

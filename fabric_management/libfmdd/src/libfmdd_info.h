@@ -61,10 +61,6 @@ extern "C" {
 #define FMD_DEFAULT_PORT 4545
 #define FML_MAX_DESTIDS 256
 
-struct fml_wait_4_chg {
-	sem_t sema;
-};
-
 struct fml_globals {
         int portno;     /* FMD port number to connect to */
         int init_ok;    /* Equal to portno when initialization is successful */

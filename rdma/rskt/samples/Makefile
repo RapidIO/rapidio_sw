@@ -40,25 +40,13 @@ include $(TOPDIR)/rules.mk
 LOG_LEVEL?=7
 DEBUG?=DEBUG
 
-# Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC
-A_LIB_LKFLAGS = -lnsl -fPIC
-
 RSKT_DIR=../lib
 INCLUDE_DIR?=$(TOPDIR)/include
 
-LIB_DIRS?=-L$(COMMONLIBA) -L$(COMMONLIB) \
-	-L$(FMDDIR)/libriocp_pe \
-	-L$(FMDDIR)/libdd \
-	-L$(FMDDIR)/libfmdd \
-	-L$(TOPDIR)/rdma
+LIB_DIRS?=-L$(COMMONLIB) -L$(COMMONLIBA)
 
 %.o: %.c
 	$(CXX) $(CXXFLAGS) -o $@ -c $< -Wall \
-	-I.-I../inc \
-	-I$(COMMONDIR)/liblist/inc \
-	-I../../lib/src \
-	-I$(TOPDIR)/rdma/inc \
 	-DRDMA_LL=$(LOG_LEVEL)
 
 
@@ -69,7 +57,7 @@ RSKT_CLIENT_SOURCE = rskt_client.c
 RSKT_CLIENT_OBJECTS = rskt_client.o
 
 LIBRARIES = -lrskt -lcli -lrt -ldl -lmport \
-	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
+	-llist -llog -lrdma -lfmdd 
 
 all: rskt_client rskt_server
 

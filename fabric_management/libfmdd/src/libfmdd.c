@@ -224,16 +224,16 @@ int update_devid_status(void)
 
 void notify_app_of_events(void)
 {
-	struct fml_wait_4_chg* wt = NULL;	
+	sem_t *wt = NULL;	
 
 	sem_wait(&fml.pend_waits_mtx);
-	wt = (struct fml_wait_4_chg *)l_pop_head(&fml.pend_waits);
+	wt = (sem_t *)l_pop_head(&fml.pend_waits);
 	if (wt == NULL) {
 		DBG("wt == NULL\n");
 	}
 	while (NULL != wt) {
-		sem_post(&wt->sema); // XXX this might have been feed!
-		wt = (struct fml_wait_4_chg *)l_pop_head(&fml.pend_waits);
+		sem_post(wt); 
+		wt = (sem_t *)l_pop_head(&fml.pend_waits);
 	};
 	sem_post(&fml.pend_waits_mtx);
 };
@@ -419,7 +419,7 @@ fail:
 
 int fmdd_wait_for_dd_change(fmdd_h h)
 {
-	struct fml_wait_4_chg* chg_sem = NULL;
+	sem_t *chg_sem = (sem_t *)malloc(sizeof(sem_t));
 	int rc = 0;
 
 	if ((h != &fml) || fml.mon_must_die || !fml.mon_alive) {
@@ -427,26 +427,23 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 		goto fail;
 	}
 
-	chg_sem = (struct fml_wait_4_chg *)
-			malloc(sizeof(struct fml_wait_4_chg));
-
-	sem_init(&chg_sem->sema, 0, 0);
+	sem_init(chg_sem, 0, 0);
 
 	sem_wait(&fml.pend_waits_mtx);
 	l_push_tail(&fml.pend_waits, (void *)chg_sem);
 	sem_post(&fml.pend_waits_mtx);
 
 	DBG("Waiting for change to device database\n");
-	rc = sem_wait(&chg_sem->sema);
+	rc = sem_wait(chg_sem);
 
-	/* Note: The notification process removes all items from the list. */
-	free(chg_sem); // XXX BUG: used after FREE in notify_app_of_events 
-	
 	DBG("Waking up after change to device database\n");
 	if (fml.mon_must_die || !fml.mon_alive || rc) {
 		ERR("mon_must_die, !mon_alive or sem_wait() failed\n");
 		goto fail;
 	}
+
+	// MEMORY LEAK: Every event results in one sem_t worth of memory
+	// being wasted.  Fix in future.
 
 	return 0;
 fail:

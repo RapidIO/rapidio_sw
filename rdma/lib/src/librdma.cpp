@@ -141,7 +141,7 @@ static int daemon_call(unique_ptr<unix_msg_t> in_msg, unix_msg_t *out_msg)
 
 	/* First check that engines are still valid */
 	if ((tx_eng == nullptr) || (rx_eng == nullptr)) {
-		CRIT("Connection to daemon severed\n");
+		CRIT("Connection to daemon severed");
 		return RDMA_DAEMON_UNREACHABLE;
 	}
 
@@ -155,13 +155,13 @@ static int daemon_call(unique_ptr<unix_msg_t> in_msg, unix_msg_t *out_msg)
 
 	/* Send message */
 	in_msg->seq_no = seq_no;
-	DBG("Queuing for sending: type='%s',0x%X, cat='%s',0x%X, seq_no = 0x%X\n",
+	DBG("Queuing for sending: type='%s',0x%X, cat='%s',0x%X, seq_no = 0x%X",
 		type_name(in_msg->type), in_msg->type, cat_name(in_msg->category),
 		in_msg->category, in_msg->seq_no);
 	tx_eng->send_message(move(in_msg));
 
 	/* Wait for reply */
-	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)\n",
+	DBG("Waiting for notification (type='%s',0x%X, cat='%s',0x%X, seq_no=0x%X)",
 		type_name(reply_type), reply_type, cat_name(RDMA_CALL),
 					RDMA_CALL, seq_no);
 	struct timespec timeout;
@@ -169,16 +169,16 @@ static int daemon_call(unique_ptr<unix_msg_t> in_msg, unix_msg_t *out_msg)
 	timeout.tv_sec += 5;	/* 5 second timeout */
 	rc = sem_timedwait(reply_sem.get(), &timeout);
 	if (rc) {
-		ERR("reply_sem failed: %s\n", strerror(errno));
+		ERR("reply_sem failed: %s", strerror(errno));
 		if (errno == ETIMEDOUT) {
-			ERR("Timeout occurred\n");
+			ERR("Timeout occurred");
 			rc = ETIMEDOUT;
 		}
 	} else {
-		DBG("Got reply!\n");
+		DBG("Got reply!");
 		rc = rx_eng->get_message(reply_type, reply_cat, seq_no, out_msg);
 		if (rc) {
-			ERR("Failed to obtain reply message, rc = %d\n", rc);
+			ERR("Failed to obtain reply message, rc = %d", rc);
 		}
 	}
 	if (rc == ETIMEDOUT) {
@@ -202,7 +202,7 @@ int rdmad_kill_daemon()
 	unix_msg_t  	out_msg;
 	rc = daemon_call(move(in_msg), &out_msg);
 	if (rc ) {
-		ERR("Failed in daemon call to get kill daemon\n");
+		ERR("Failed in daemon call to get kill daemon");
 	}
 
 	/* The daemon dies. It cannot send us back a reply */
@@ -227,16 +227,16 @@ int rdma_get_ibwin_properties(unsigned *num_ibwins, uint32_t *ibwin_size)
 		unix_msg_t  	out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
-			ERR("Failed in daemon call to get ibwin props\n");
+			ERR("Failed in daemon call to get ibwin props");
 			throw rc;
 		}
 
 		if (out_msg.get_ibwin_properties_out.status) {
-			ERR("Failed to get ibwin props from daemon\n");
+			ERR("Failed to get ibwin props from daemon");
 			throw out_msg.get_ibwin_properties_out.status;
 		}
 
-		DBG("num_ibwins = %u, ibwin_size = %uKB\n",
+		DBG("num_ibwins = %u, ibwin_size = %uKB",
 			out_msg.get_ibwin_properties_out.num_ibwins,
 			out_msg.get_ibwin_properties_out.ibwin_size/1024);
 
@@ -258,7 +258,7 @@ int rdma_get_msh_properties(ms_h msh, uint64_t *rio_addr, uint32_t *bytes)
 	auto rc = 0;
 
 	if (!msh || !rio_addr || !bytes) {
-		ERR("NULL parameter.\n");
+		ERR("NULL parameter.");
 		rc = -1;
 	} else {
 		loc_ms *msp = (loc_ms *)msh;
@@ -292,7 +292,7 @@ static bool rdmad_is_alive()
 static int open_mport(void)
 {
 	auto rc = 0;
-	DBG("ENTER\n");
+	DBG("ENTER");
 
 	/* Set up Unix message parameters */
 	auto in_msg = make_unique<unix_msg_t>();
@@ -304,21 +304,21 @@ static int open_mport(void)
 
 	rc = daemon_call(move(in_msg), &out_msg);
 	if (rc ) {
-		ERR("Failed to obtain mport ID\n");
+		ERR("Failed to obtain mport ID");
 		return rc;
 	}
 
 	/* Get the mport ID */
 	peer.mport_id = out_msg.get_mport_id_out.mport_id;
-	INFO("Using mport_id = %d\n", peer.mport_id);
+	INFO("Using mport_id = %d", peer.mport_id);
 
 	/* Now open the port */
 	auto flags = 0;
 	rc = riomp_mgmt_mport_create_handle(peer.mport_id, flags,
 							&peer.mport_hnd);
 	if (rc) {
-		CRIT("riomp_mgmt_mport_create_handle(): %s\n", strerror(errno));
-		CRIT("Cannot open mport%d, is rio_mport_cdev loaded?\n",
+		CRIT("riomp_mgmt_mport_create_handle(): %s", strerror(errno));
+		CRIT("Cannot open mport%d, is rio_mport_cdev loaded?",
 								peer.mport_id);
 		return RDMA_MPORT_OPEN_FAIL;
 	}
@@ -328,16 +328,16 @@ static int open_mport(void)
 	if (!riomp_mgmt_query(peer.mport_hnd, &prop)) {
 		riomp_mgmt_display_info(&prop);
 		if (prop.flags &RIO_MPORT_DMA) {
-			INFO("DMA is ENABLED\n");
+			INFO("DMA is ENABLED");
 		} else {
-			CRIT("DMA capability DISABLED\n");
+			CRIT("DMA capability DISABLED");
 			riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
 			return RDMA_NOT_SUPPORTED;
 		}
 		peer.destid = prop.hdid;
 	} else {
 		/* Unlikely we fail on reading properties, but warn! */
-		WARN("%s: Error reading properties from mport!\n");
+		WARN("Error reading properties from mport%d", peer.mport_id);
 	}
 	return 0;
 } /* open_mport() */
@@ -348,17 +348,17 @@ static int open_mport(void)
 void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 {
 	/* Wait until there is a reason to perform cleanup */
-	HIGH("Waiting for engine_cleanup_sem\n");
+	HIGH("Waiting for engine_cleanup_sem");
 	sem_wait(engine_cleanup_sem);
 
-	HIGH("Cleaning up dead engines!\n");
+	HIGH("Cleaning up dead engines!");
 	if ((tx_eng != nullptr) && tx_eng->isdead()) {
-		HIGH("Killing tx_eng\n");
+		HIGH("Killing tx_eng");
 		tx_eng.reset();
 	}
 
 	if ((rx_eng != nullptr) && rx_eng->isdead()) {
-		HIGH("Killing rx_eng\n");
+		HIGH("Killing rx_eng");
 		rx_eng.reset();
 	}
 
@@ -383,20 +383,20 @@ static int initialize(void)
 	auto ret = 0;
 
 	if (init) {
-		WARN("RDMA library already initialized\n");
+		WARN("RDMA library already initialized");
 		return ret;
 	}
 
 	sem_init(&rdma_lock, 0, 1);
 
 	/* Create a client */
-	DBG("Creating client object...\n");
+	DBG("Creating client object...");
 	try {
 		client = make_shared<unix_client>("librdma", nullptr);
 
 		/* Connect to server */
 		if (client->connect() == 0) {
-			INFO("Successfully connected to RDMA daemon\n");
+			INFO("Successfully connected to RDMA daemon");
 
 			/* Engine cleanup semaphore. Posted by engines that die
 			 * so we can clean up after them. */
@@ -423,25 +423,25 @@ static int initialize(void)
 			ret = open_mport();
 			if (ret == 0) {
 				/* Success */
-				INFO("MPORT successfully opened\n");
+				INFO("MPORT successfully opened");
 				init = true;
-				INFO("RDMA library fully initialized\n ");
+				INFO("RDMA library fully initialized ");
 			} else {
-				CRIT("Failed to open mport\n");
+				CRIT("Failed to open mport");
 				throw RDMA_MPORT_OPEN_FAIL;
 			}
 		} else {
-			CRIT("Connect failed. Daemon running?\n");
+			CRIT("Connect failed. Daemon running?");
 			throw RDMA_DAEMON_UNREACHABLE;
 		}
 	} /* try */
 	catch(unix_sock_exception& e) {
-		CRIT("%s\n", e.what());
+		CRIT("%s", e.what());
 		client = nullptr;
 		ret = RDMA_MALLOC_FAIL;
 	}
 	catch(exception& e) {
-		ERR("Failed to create Tx/Rx engines: %s\n", e.what());
+		ERR("Failed to create Tx/Rx engines: %s", e.what());
 		client.reset();
 		ret = RDMA_MALLOC_FAIL;
 	}
@@ -459,7 +459,7 @@ static int initialize(void)
 		client.reset();
 	}
 
-	DBG("ret = %d\n", ret);
+	DBG("ret = %d", ret);
 	return ret;
 } /* initialize() */
 
@@ -467,13 +467,13 @@ __attribute__((constructor)) int lib_init(void)
 {
 	/* Initialize the logger */
 	if (rdma_log_init("librdma.log", 0)) {
-		CRIT("Failed to initialize the logger.Exiting\n");
+		CRIT("Failed to initialize the logger.Exiting");
 		exit(1);
 	}
 
 	/* Library initialization */
 	if (initialize()) {
-		CRIT("Failed to initialize library. Exiting.\n");
+		CRIT("Failed to initialize library. Exiting.");
 		exit(2);
 	}
 
@@ -487,10 +487,10 @@ __attribute__((constructor)) int lib_init(void)
  * are killed to indicate the need for re-init.
  */
 #define LIB_INIT_CHECK(rc) if (!init) { \
-		WARN("RDMA library not initialized, re-initializing\n"); \
+		WARN("RDMA library not initialized, re-initializing"); \
 		rc = initialize(); \
 		if (rc != 0) { \
-			ERR("Failed to re-initialize RDMA library\n"); \
+			ERR("Failed to re-initialize RDMA library"); \
 			throw RDMA_LIB_INIT_FAIL; \
 		} \
 	}
@@ -512,21 +512,21 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 
 		/* Check for NULL parameters */
 		if (!owner_name || !msoh) {
-			ERR("NULL param: owner_name=%p, msoh=%p\n",
+			ERR("NULL param: owner_name=%p, msoh=%p",
 							owner_name, msoh);
 			throw RDMA_NULL_PARAM;
 		}
 
 		/* Check that owner does not already exist */
 		if (find_mso_by_name(owner_name)) {
-			ERR("Cannot create another owner named '%s'\n", owner_name);
+			ERR("Cannot create another owner named '%s'", owner_name);
 			throw RDMA_DUPLICATE_MSO;
 		}
 
 		/* Prevent buffer overflow due to very long name */
 		size_t len = strlen(owner_name);
 		if (len > UNIX_MS_NAME_MAX_LEN) {
-			ERR("String 'owner_name' is too long (%d)\n", len);
+			ERR("String 'owner_name' is too long (%d)", len);
 			throw RDMA_NAME_TOO_LONG;
 		}
 
@@ -540,13 +540,13 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 		/* Call into daemon */
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
-			ERR("Failed in CREATE_MSO daemon_call, rc = %d\n", rc);
+			ERR("Failed in CREATE_MSO daemon_call, rc = %d", rc);
 			throw rc;
 		}
 
 		/* Failed to create mso? */
 		if (out_msg.create_mso_out.status) {
-			ERR("Failed to create mso '%s' in daemon, status = 0x%X\n",
+			ERR("Failed to create mso '%s' in daemon, status = 0x%X",
 				owner_name, out_msg.create_mso_out.status);
 			throw out_msg.create_mso_out.status;
 		}
@@ -554,7 +554,7 @@ int rdma_create_mso_h(const char *owner_name, mso_h *msoh)
 		/* Store in database, with owned = true */
 		*msoh = add_loc_mso(owner_name, out_msg.create_mso_out.msoid, true);
 		if (!*msoh) {
-			WARN("add_loc_mso() failed, msoid = 0x%X\n",
+			WARN("add_loc_mso() failed, msoid = 0x%X",
 						out_msg.create_mso_out.msoid);
 			throw RDMA_DB_ADD_FAIL;
 		}
@@ -571,7 +571,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 {
 	auto rc = 0;
 
-	DBG("ENTER\n");
+	DBG("ENTER");
 	sem_wait(&rdma_lock);
 
 	try {
@@ -580,7 +580,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 
 		/* Check for NULL parameters */
 		if (!owner_name || !msoh) {
-			ERR("NULL param: owner_name=%p, msoh=%p\n",
+			ERR("NULL param: owner_name=%p, msoh=%p",
 							owner_name, msoh);
 			throw RDMA_NULL_PARAM;
 		}
@@ -591,12 +591,12 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 			loc_mso *mso = (loc_mso *)(*msoh);
 			/* Don't allow opening from the same app that created the mso */
 			if (mso->owned) {
-				ERR("Cannot open mso '%s' from creator app\n",
+				ERR("Cannot open mso '%s' from creator app",
 								owner_name);
 				throw RDMA_CANNOT_OPEN_MSO;
 			} else {
 				/* Already open, just return the handle */
-				WARN("%s is already open!\n", owner_name);
+				WARN("%s is already open!", owner_name);
 				throw RDMA_SUCCESS; /* Not an error */
 			}
 		}
@@ -611,13 +611,13 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc) {
-			ERR("Failed in OPEN_MSO daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in OPEN_MSO daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed to open mso? */
 		if (out_msg.open_mso_out.status) {
-			ERR("Failed to open mso '%s', status = 0x%X\n",
+			ERR("Failed to open mso '%s', status = 0x%X",
 				owner_name, out_msg.open_mso_out.status);
 			throw out_msg.open_mso_out.status;
 		}
@@ -627,7 +627,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 			    out_msg.open_mso_out.msoid,
 			    /* owned is */false);
 		if (!*msoh) {
-			WARN("add_loc_mso() failed, msoid = 0x%X\n",
+			WARN("add_loc_mso() failed, msoid = 0x%X",
 					out_msg.open_mso_out.msoid);
 			throw RDMA_DB_ADD_FAIL;
 		}
@@ -636,7 +636,7 @@ int rdma_open_mso_h(const char *owner_name, mso_h *msoh)
 	catch(int e) {
 		rc = e;
 	}
-	DBG("EXIT\n");
+	DBG("EXIT");
 	sem_post(&rdma_lock);
 	return rc;
 } /* rdma_open_mso_h() */
@@ -647,7 +647,7 @@ int rdma_close_mso_h(mso_h msoh)
 {
 	auto rc = 0;
 
-	DBG("ENTER\n");
+	DBG("ENTER");
 	sem_wait(&rdma_lock);
 
 	try {
@@ -656,7 +656,7 @@ int rdma_close_mso_h(mso_h msoh)
 
 		/* Check for NULL msoh */
 		if (!msoh) {
-			WARN("msoh is NULL\n");
+			WARN("msoh is NULL");
 			throw RDMA_NULL_PARAM;
 		}
 
@@ -664,7 +664,7 @@ int rdma_close_mso_h(mso_h msoh)
 		 *  owner destroying, the owner dying, the daemon dying..etc.)
 		 *  or has already been closed once before. */
 		if (!mso_h_exists(msoh)) {
-			WARN("msoh no longer exists\n");
+			WARN("msoh no longer exists");
 			throw RDMA_SUCCESS;
 		}
 
@@ -672,7 +672,7 @@ int rdma_close_mso_h(mso_h msoh)
 		list<loc_ms *>	ms_list(get_num_ms_by_msoh(msoh));
 		get_list_msh_by_msoh(msoh, ms_list);
 
-		DBG("ms_list now has %d elements\n", ms_list.size());
+		DBG("ms_list now has %d elements", ms_list.size());
 
 		/* For each one of the memory spaces in this mso, close */
 		bool	ok =  true;
@@ -682,18 +682,18 @@ int rdma_close_mso_h(mso_h msoh)
 			{
 				if (rdma_close_ms_h_locked(msoh, ms_h(ms))) {
 					WARN("rdma_close_ms_h_locked failed: msoh = 0x%"
-						PRIx64 ", msh = 0x%" PRIx64 "\n",
+						PRIx64 ", msh = 0x%" PRIx64 "",
 								msoh, ms_h(ms));
 					ok = false;	/* Modify on error only */
 				} else {
 					INFO("msh(0x%" PRIx64 ") owned by msoh(0x%"
-						PRIx64 ") closed\n", ms_h(ms), msoh);
+						PRIx64 ") closed", ms_h(ms), msoh);
 				}
 			});
 
 		/* Fail on error. We can't close an mso if there are ms's open */
 		if (!ok) {
-			ERR("Failed to close one or more mem spaces\n");
+			ERR("Failed to close one or more mem spaces");
 			throw RDMA_MS_CLOSE_FAIL;
 		}
 
@@ -708,13 +708,13 @@ int rdma_close_mso_h(mso_h msoh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc) {
-			ERR("Failed in CLOSE_MSO daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in CLOSE_MSO daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Check status returned by command on the daemon side */
 		if (out_msg.close_mso_out.status != 0) {
-			ERR("Failed to close mso(0x%X) in daemon, status = 0x%X\n",
+			ERR("Failed to close mso(0x%X) in daemon, status = 0x%X",
 						((loc_mso *)msoh)->msoid,
 						out_msg.close_mso_out.status);
 			throw out_msg.close_mso_out.status;
@@ -722,17 +722,17 @@ int rdma_close_mso_h(mso_h msoh)
 
 		/* Take it out of database */
 		if (remove_loc_mso(msoh) < 0) {
-			WARN("Failed to find 0x%" PRIx64 " in db\n", msoh);
+			WARN("Failed to find 0x%" PRIx64 " in db", msoh);
 			throw RDMA_DB_REM_FAIL;
 		}
 
-		INFO("msoh(0x%" PRIx64 ") removed from local database\n", msoh);
+		INFO("msoh(0x%" PRIx64 ") removed from local database", msoh);
 	} /* try */
 	catch(int e) {
 		rc = e;
 	} /* catch */
 
-	DBG("EXIT\n");
+	DBG("EXIT");
 	sem_post(&rdma_lock);
 
 	return rc;
@@ -752,13 +752,13 @@ int rdma_destroy_mso_h(mso_h msoh)
 
 		/* Check for NULL msoh */
 		if (!msoh) {
-			WARN("msoh is NULL\n");
+			WARN("msoh is NULL");
 			throw RDMA_NULL_PARAM;
 		}
 
 		/* Check if msoh has already been destroyed. If so, success */
 		if (!mso_h_exists(msoh)) {
-			WARN("msoh no longer exists\n");
+			WARN("msoh no longer exists");
 			throw RDMA_SUCCESS;
 		}
 
@@ -766,7 +766,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 		list<loc_ms *>	ms_list(get_num_ms_by_msoh(msoh));
 		get_list_msh_by_msoh(msoh, ms_list);
 
-		INFO("ms_list now has %d elements\n", ms_list.size());
+		INFO("ms_list now has %d elements", ms_list.size());
 
 		/* For each one of the memory spaces, call destroy */
 		bool	ok = true;
@@ -775,12 +775,12 @@ int rdma_destroy_mso_h(mso_h msoh)
 			{
 				if (rdma_destroy_ms_h_locked(msoh, ms_h(ms))) {
 					WARN("rdma_destroy_ms_h_locked failed: msoh = 0x%"
-						PRIx64 ", msh = 0x%" PRIx64 "\n",
+						PRIx64 ", msh = 0x%" PRIx64 "",
 						msoh, ms_h(ms));
 					ok = false;
 				} else {
 					DBG("msh(0x%" PRIx64 ") owned by msoh(0x%"
-							PRIx64 ") destroyed\n",
+							PRIx64 ") destroyed",
 							ms_h(ms), msoh);
 				}
 			}
@@ -788,7 +788,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 
 		/* Fail on any error */
 		if (!ok) {
-			ERR("Failed in destroy\n");
+			ERR("Failed in destroy");
 			throw RDMA_MS_DESTROY_FAIL;
 		}
 
@@ -802,13 +802,13 @@ int rdma_destroy_mso_h(mso_h msoh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc) {
-			ERR("Failed in DESTROY_MSO daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in DESTROY_MSO daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed to destroy mso? */
 		if (out_msg.destroy_mso_out.status) {
-			ERR("Failed to destroy msoid(0x%X), status = 0x%X\n",
+			ERR("Failed to destroy msoid(0x%X), status = 0x%X",
 					((loc_mso *)msoh)->msoid,
 					out_msg.destroy_mso_out.status);
 			throw out_msg.destroy_mso_out.status;
@@ -816,7 +816,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 
 		/* Remove from database */
 		if (remove_loc_mso(msoh)) {
-			CRIT("Failed to remove mso from database\n");
+			CRIT("Failed to remove mso from database");
 			throw RDMA_DB_REM_FAIL;
 		}
 	} /* try */
@@ -824,7 +824,7 @@ int rdma_destroy_mso_h(mso_h msoh)
 		rc = e;
 	}
 	sem_post(&rdma_lock);
-	DBG("EXIT\n");
+	DBG("EXIT");
 	return rc;
 } /* rdma_destroy_mso_h() */
 
@@ -837,7 +837,7 @@ int rdma_create_ms_h(const char *ms_name,
 {
 	auto rc = 0;
 
-	DBG("ENTER with ms_name = '%s'\n", ms_name);
+	DBG("ENTER with ms_name = '%s'", ms_name);
 	sem_wait(&rdma_lock);
 
 	try {
@@ -854,13 +854,13 @@ int rdma_create_ms_h(const char *ms_name,
 		/* Prevent buffer overflow due to very long name */
 		size_t len = strlen(ms_name);
 		if (len > UNIX_MS_NAME_MAX_LEN) {
-			ERR("String 'ms_name' is too long (%d)\n", len);
+			ERR("String 'ms_name' is too long (%d)", len);
 			throw RDMA_NAME_TOO_LONG;
 		}
 
 		/* Disallow creating a duplicate ms name */
 		if (find_loc_ms_by_name(ms_name)) {
-			WARN("A memory space named '%s' exists\n", ms_name);
+			WARN("A memory space named '%s' exists", ms_name);
 			throw RDMA_DUPLICATE_MS;
 		}
 
@@ -886,13 +886,13 @@ int rdma_create_ms_h(const char *ms_name,
 		/* Call into daemon */
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
-			ERR("Failed in CREATE_MS daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in CREATE_MS daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed to create mso? */
 		if (out_msg.create_ms_out.status) {
-			ERR("Failed to create ms '%s' in daemon, status = 0x%X\n",
+			ERR("Failed to create ms '%s' in daemon, status = 0x%X",
 				ms_name, out_msg.create_ms_out.status);
 			throw out_msg.create_ms_out.status;
 		}
@@ -906,10 +906,10 @@ int rdma_create_ms_h(const char *ms_name,
 				out_msg.create_ms_out.rio_addr,
 				true);
 		if (!*msh) {
-			ERR("Failed to store ms in database\n");
+			ERR("Failed to store ms in database");
 			throw RDMA_DB_ADD_FAIL;
 		}
-		INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")\n",
+		INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")",
 								ms_name, *msh);
 	} /* try */
 	catch(int e) {
@@ -932,7 +932,7 @@ int destroy_msubs_in_msh(ms_h msh)
 	list<struct loc_msub *>	msub_list(get_num_loc_msub_in_ms(msid));
 	get_list_loc_msub_in_msid(msid, msub_list);
 
-	DBG("%d msub(s) in msh(0x%" PRIx64 "):\n", msub_list.size(), msh);
+	DBG("%d msub(s) in msh(0x%" PRIx64 "):", msub_list.size(), msh);
 
 	/* For each one of the memory sub-spaces, call destroy */
 	bool	ok = true;
@@ -941,7 +941,7 @@ int destroy_msubs_in_msh(ms_h msh)
 		{
 			if (rdma_destroy_msub_h_locked(msh, msub_h(msub))) {
 				WARN("rdma_destroy_msub_h_locked failed: msh=0x%"
-					PRIx64 ", msubh=0x%" PRIx64 "\n",
+					PRIx64 ", msubh=0x%" PRIx64 "",
 							msh, msub_h(msub));
 				ok = false;
 			}
@@ -949,7 +949,7 @@ int destroy_msubs_in_msh(ms_h msh)
 
 	/* Fail on any error */
 	if (!ok) {
-		ERR("Failure during destroying one of the msubs\n");
+		ERR("Failure during destroying one of the msubs");
 		rc = RDMA_MSUB_DESTROY_FAIL;
 	} else {
 		rc = 0;
@@ -963,7 +963,7 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 {
 	auto rc = 0;
 
-	DBG("ENTER, ms_name = %s\n", ms_name);
+	DBG("ENTER, ms_name = %s", ms_name);
 	sem_wait(&rdma_lock);
 
 	try {
@@ -980,7 +980,7 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 		/* Prevent buffer overflow due to very long name */
 		size_t len = strlen(ms_name);
 		if (len > UNIX_MS_NAME_MAX_LEN) {
-			ERR("String 'ms_name' is too long (%d)\n", len);
+			ERR("String 'ms_name' is too long (%d)", len);
 
 			throw RDMA_NAME_TOO_LONG;
 		}
@@ -988,7 +988,7 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 		/* If already open, just return the handle, and the size */
 		*msh = find_loc_ms_by_name(ms_name);
 		if (*msh != (ms_h)NULL) {
-			INFO("'%s' already open by this app\n", ms_name);
+			INFO("'%s' already open by this app", ms_name);
 			*bytes = ((loc_ms *)msh)->bytes;
 			throw 0;	/* Not an error */
 		}
@@ -1005,18 +1005,18 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 		unix_msg_t	out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
-			ERR("Failed in OPEN_MS daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in OPEN_MS daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed to open ms? */
 		if (out_msg.open_ms_out.status) {
-			ERR("Failed to open ms '%s' in daemon, status = 0x%X\n",
+			ERR("Failed to open ms '%s' in daemon, status = 0x%X",
 				ms_name, out_msg.open_ms_out.status);
 			throw out_msg.open_ms_out.status;
 		}
 
-		INFO("Opened '%s' in the daemon\n", ms_name);
+		INFO("Opened '%s' in the daemon", ms_name);
 
 		/* Store memory space info in database */
 		*msh = add_loc_ms(ms_name,
@@ -1027,10 +1027,10 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 				out_msg.open_ms_out.rio_addr,
 				false);
 		if (!*msh) {
-			CRIT("Failed to store ms in database\n");
+			CRIT("Failed to store ms in database");
 			throw RDMA_DB_ADD_FAIL;
 		}
-		INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")\n",
+		INFO("Stored info about '%s' in database as msh(0x%" PRIx64 ")",
 								ms_name, *msh);
 		*bytes = out_msg.open_ms_out.bytes;
 	}
@@ -1044,7 +1044,7 @@ int rdma_open_ms_h(const char *ms_name, mso_h msoh, uint32_t flags,
 int rdma_close_ms_h_locked(mso_h msoh, ms_h msh)
 {
 	auto rc = 0;
-	DBG("ENTER with msoh=0x%" PRIx64 ", msh = 0x%" PRIx64 "\n", msoh, msh);
+	DBG("ENTER with msoh=0x%" PRIx64 ", msh = 0x%" PRIx64 "", msoh, msh);
 
 	try {
 		/* Check that library has been initialized */
@@ -1052,7 +1052,7 @@ int rdma_close_ms_h_locked(mso_h msoh, ms_h msh)
 
 		/* Check for NULL parameters */
 		if (!msoh || !msh) {
-			ERR("Invalid param(s). Failing.\n");
+			ERR("Invalid param(s). Failing.");
 			throw RDMA_NULL_PARAM;
 		}
 
@@ -1062,13 +1062,13 @@ int rdma_close_ms_h_locked(mso_h msoh, ms_h msh)
 			/* This is NOT an error; the memory space was destroyed
 			 * by its owner. Consider it closed by just warning and
 			 * returning a success code */
-			WARN("msh no longer exists\n");
+			WARN("msh no longer exists");
 			throw 0;
 		}
 
 		/* Destroy msubs opened under this msh */
 		if (destroy_msubs_in_msh(msh)) {
-			ERR("Failed to destroy msubs of msh(0x%" PRIx64 ")\n",
+			ERR("Failed to destroy msubs of msh(0x%" PRIx64 ")",
 									msh);
 			throw RDMA_MSUB_DESTROY_FAIL;
 		}
@@ -1083,30 +1083,30 @@ int rdma_close_ms_h_locked(mso_h msoh, ms_h msh)
 		unix_msg_t	out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
-			ERR("Failed in CLOSE_MS daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in CLOSE_MS daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed to close ms? */
 		if (out_msg.close_ms_out.status) {
-			ERR("Failed to close ms '%s' in daemon, status = 0x%X\n",
+			ERR("Failed to close ms '%s' in daemon, status = 0x%X",
 			((loc_ms *)msh)->name.c_str(), out_msg.close_ms_out.status);
 			throw out_msg.close_ms_out.status;
 		}
 
-		INFO("Closed '%s' in the daemon\n", ((loc_ms *)msh)->name.c_str());
+		INFO("Closed '%s' in the daemon", ((loc_ms *)msh)->name.c_str());
 
 		/* Take it out of databse */
 		if (remove_loc_ms(msh) < 0) {
-			ERR("Failed to find msh(0x%" PRIx64 ") in db\n", msh);
+			ERR("Failed to find msh(0x%" PRIx64 ") in db", msh);
 			throw RDMA_DB_REM_FAIL;
 		}
-		INFO("msh(0x%" PRIx64 ") removed from local database\n", msh);
+		INFO("msh(0x%" PRIx64 ") removed from local database", msh);
 	}
 	catch(int e) {
 		rc = e;
 	}
-	DBG("EXIT\n");
+	DBG("EXIT");
 	return rc;
 } /* rdma_close_ms_h_locked() */
 
@@ -1130,16 +1130,16 @@ int rdma_destroy_ms_h_locked(mso_h msoh, ms_h msh)
 		/* Check for NULL parameters */
 		if (!msoh || !msh) {
 			ERR("Invalid param(s): msoh=0x%" PRIx64 ", msh=0x%" PRIx64
-								"\n", msoh, msh);
+								"", msoh, msh);
 			return RDMA_NULL_PARAM;
 		}
 
 		loc_ms *ms = (loc_ms *)msh;
-		DBG("msid = 0x%X, ms_name = '%s', msh = 0x%" PRIx64 "\n",
+		DBG("msid = 0x%X, ms_name = '%s', msh = 0x%" PRIx64 "",
 						ms->msid, ms->name.c_str(), msh);
 		/* Destroy msubs in this msh */
 		if (destroy_msubs_in_msh(msh)) {
-			ERR("Failed to destroy msubs belonging to msh(0x%" PRIx64 ")\n",
+			ERR("Failed to destroy msubs belonging to msh(0x%" PRIx64 ")",
 										msh);
 			throw RDMA_MSUB_DESTROY_FAIL;
 		}
@@ -1155,25 +1155,25 @@ int rdma_destroy_ms_h_locked(mso_h msoh, ms_h msh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
-			ERR("Failed in DESTROY_MS daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in DESTROY_MS daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed to destroy ms? */
 		if (out_msg.destroy_ms_out.status) {
-			ERR("Failed to destroy ms '%s' in daemon, status = 0x%X\n",
+			ERR("Failed to destroy ms '%s' in daemon, status = 0x%X",
 				ms->name.c_str(), out_msg.destroy_ms_out.status);
 			throw out_msg.destroy_ms_out.status;
 		}
 
 		/* Memory space removed in daemon, remove from database as well */
 		if (remove_loc_ms(msh) < 0) {
-			WARN("Failed to remove 0x%" PRIx64 " from database\n", msh);
+			WARN("Failed to remove 0x%" PRIx64 " from database", msh);
 			dump_loc_ms();
 			throw RDMA_DB_REM_FAIL;
 		}
 
-		INFO("msh(0x%" PRIx64 ") removed from local database\n", msh);
+		INFO("msh(0x%" PRIx64 ") removed from local database", msh);
 	}
 	catch(int e) {
 		rc = e;
@@ -1209,7 +1209,7 @@ int rdma_create_msub_h(ms_h	msh,
 
 		/* Check for NULL */
 		if (!msh || !msubh) {
-			ERR("NULL param: msh=0x%" PRIx64 ", msubh=%p\n",
+			ERR("NULL param: msh=0x%" PRIx64 ", msubh=%p",
 								msh, msubh);
 			throw RDMA_NULL_PARAM;
 		}
@@ -1219,7 +1219,7 @@ int rdma_create_msub_h(ms_h	msh,
 		 * must have a size that is a multiple of 4K, and the offset
 		 * of the msub within the mspace must be a multiple of 4K. */
 		if (!aligned_at_4k(offset) || !aligned_at_4k(size)) {
-			ERR("Offset & size must be multiples of 4K\n");
+			ERR("Offset & size must be multiples of 4K");
 			throw RDMA_ALIGN_ERROR;
 		}
 
@@ -1230,7 +1230,7 @@ int rdma_create_msub_h(ms_h	msh,
 		in_msg->create_msub_in.msid 	= ((loc_ms *)msh)->msid;
 		in_msg->create_msub_in.offset	= offset;
 		in_msg->create_msub_in.size 	= size;
-		DBG("msid = 0x%X, offset = 0x%X, req_bytes = 0x%x\n",
+		DBG("msid = 0x%X, offset = 0x%X, req_bytes = 0x%x",
 						in_msg->create_msub_in.msid,
 						in_msg->create_msub_in.offset,
 						in_msg->create_msub_in.size);
@@ -1238,18 +1238,18 @@ int rdma_create_msub_h(ms_h	msh,
 		unix_msg_t  out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
-			ERR("Failed in CREATE_MSUB daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in CREATE_MSUB daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed to create msub? */
 		if (out_msg.create_msub_out.status) {
-			ERR("Failed to create_msub in daemon, status = 0x%X\n",
+			ERR("Failed to create_msub in daemon, status = 0x%X",
 				out_msg.create_msub_out.status);
 			throw out_msg.create_msub_out.status;
 		}
 
-		INFO("out.phys_addr=0x%016" PRIx64 ", out.rio_addr=0x%016" PRIx64 "\n",
+		INFO("out.phys_addr=0x%016" PRIx64 ", out.rio_addr=0x%016" PRIx64 "",
 					out_msg.create_msub_out.phys_addr,
 					out_msg.create_msub_out.rio_addr);
 
@@ -1264,11 +1264,11 @@ int rdma_create_msub_h(ms_h	msh,
 
 		/* Adding to database should never fail, but just in case... */
 		if (!*msubh) {
-			WARN("Failed to add msub to database\n");
+			WARN("Failed to add msub to database");
 			throw RDMA_DB_ADD_FAIL;
 		}
 	
-		DBG("msubh = 0x%" PRIx64 "\n", msubh);
+		DBG("msubh = 0x%" PRIx64 "", msubh);
 	} /* try */
 	catch(int e) {
 		rc = e;
@@ -1287,12 +1287,12 @@ int rdma_destroy_msub_h_locked(ms_h msh, msub_h msubh)
 
 		/* Check for NULL handles */
 		if (!msh || !msubh) {
-			ERR("Invalid param(s):msh=0x%" PRIx64 ",msubh=0x%" PRIx64 "\n",
+			ERR("Invalid param(s):msh=0x%" PRIx64 ",msubh=0x%" PRIx64 "",
 								msh, msubh);
 			throw RDMA_NULL_PARAM;
 		}
 
-		DBG("msubh = 0x%" PRIx64 "\n", msubh);
+		DBG("msubh = 0x%" PRIx64 "", msubh);
 
 		/* Set up input parameters */
 		auto in_msg = make_unique<unix_msg_t>();
@@ -1301,7 +1301,7 @@ int rdma_destroy_msub_h_locked(ms_h msh, msub_h msubh)
 		in_msg->category = RDMA_REQ_RESP;
 		in_msg->destroy_msub_in.msid = ((loc_ms *)msh)->msid;
 		in_msg->destroy_msub_in.msubid = ((loc_msub *)msubh)->msubid;
-		DBG("Attempting to destroy msubid(0x%X) in msid(0x%X)\n",
+		DBG("Attempting to destroy msubid(0x%X) in msid(0x%X)",
 					in_msg->destroy_msub_in.msid,
 					in_msg->destroy_msub_in.msubid);
 
@@ -1309,25 +1309,25 @@ int rdma_destroy_msub_h_locked(ms_h msh, msub_h msubh)
 		unix_msg_t  out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
-			ERR("Failed in DESTROY_MSUB daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in DESTROY_MSUB daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed to destroy msub? */
 		if (out_msg.destroy_msub_out.status) {
-			ERR("Failed to destroy_msub_out in daemon, status = 0x%X\n",
+			ERR("Failed to destroy_msub_out in daemon, status = 0x%X",
 				out_msg.destroy_msub_out.status);
 			throw out_msg.destroy_msub_out.status;
 		}
 
 		/* Remove msub from database */
 		if (remove_loc_msub(msubh) < 0) {
-			WARN("Failed to remove %p from database\n", msubh);
+			WARN("Failed to remove %p from database", msubh);
 			throw RDMA_DB_REM_FAIL;
 		}
 
 		DBG("Destroyed msub in msh = 0x%" PRIx64 ", msubh = 0x%"
-						PRIx64 "\n", msh, msubh);
+						PRIx64 "", msh, msubh);
 	}
 	catch(int e) {
 		rc = e;
@@ -1355,12 +1355,12 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 
 	try {
 		if (!pmsub) {
-			ERR("msubh is NULL\n");
+			ERR("msubh is NULL");
 			throw RDMA_NULL_PARAM;
 		}
 
 		if (!vaddr) {
-			ERR("vaddr is NULL\n");
+			ERR("vaddr is NULL");
 			throw RDMA_NULL_PARAM;
 		}
 
@@ -1368,7 +1368,7 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 		 * its socket connection */
 
 		if (!rdmad_is_alive()) {
-			WARN("Local RDMA daemon has died.\n");
+			WARN("Local RDMA daemon has died.");
 		}
 
 		/* Check that library has been initialized */
@@ -1379,11 +1379,11 @@ int rdma_mmap_msub(msub_h msubh, void **vaddr)
 					  pmsub->paddr,
 					  vaddr);
 		if (rc) {
-			ERR("map(0x%" PRIx64 ") failed: %s\n",
+			ERR("map(0x%" PRIx64 ") failed: %s",
 						pmsub->paddr, strerror(-rc));
 			throw rc;
 		}
-		INFO("phys_addr = 0x%" PRIx64 ", virt_addr = %p, size = 0x%x\n",
+		INFO("phys_addr = 0x%" PRIx64 ", virt_addr = %p, size = 0x%x",
 						pmsub->paddr, *vaddr, pmsub->bytes);
 	} /* try */
 	catch(int e) {
@@ -1401,29 +1401,29 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr)
 	sem_wait(&rdma_lock);
 	try {
 		if (!pmsub) {
-			ERR("msubh is NULL\n");
+			ERR("msubh is NULL");
 			throw RDMA_NULL_PARAM;
 		}
 
 		if (!vaddr) {
-			ERR("vaddr is NULL\n");
+			ERR("vaddr is NULL");
 			throw RDMA_NULL_PARAM;
 		}
 
 		/* Check the daemon hasn't died since connection established */
 		if (!rdmad_is_alive()) {
-			WARN("Local RDMA daemon has died.\n");
+			WARN("Local RDMA daemon has died.");
 		}
 
 		/* Check that library has been initialized */
 		LIB_INIT_CHECK(rc);
 
 		if (munmap(vaddr, pmsub->bytes) == -1) {
-			ERR("munmap(): %s\n", strerror(errno));
+			ERR("munmap(): %s", strerror(errno));
 			throw RDMA_UNMAP_ERROR;
 		}
 
-		INFO("Unmapped vaddr(%p), of size %u\n", vaddr, pmsub->bytes);
+		INFO("Unmapped vaddr(%p), of size %u", vaddr, pmsub->bytes);
 		rc = 0;
 	}
 	catch(int e) {
@@ -1446,7 +1446,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 {
 	int rc;
 
-	DBG("ENTER with timeout = %u\n", (unsigned)timeout_secs);
+	DBG("ENTER with timeout = %u", (unsigned)timeout_secs);
 	sem_wait(&rdma_lock);
 
 	try {
@@ -1457,14 +1457,14 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		 * and rem_msub_len to be NULL. If the server knows the client
 		 * will not be providing an msub then it can pass NULL here */
 		if (!loc_msh || !loc_msubh) {
-			ERR("loc_msh=0x%" PRIx64 ",loc_msubh=0x%" PRIx64 "\n",
+			ERR("loc_msh=0x%" PRIx64 ",loc_msubh=0x%" PRIx64 "",
 				loc_msh, loc_msubh);
 			throw RDMA_NULL_PARAM;
 		}
 
 		/* Ensure timeout is > 0 or things will fail */
 		if (timeout_secs == 0) {
-			ERR("Timeout cannot be 0\n");
+			ERR("Timeout cannot be 0");
 			throw RDMA_NULL_PARAM;
 		}
 
@@ -1480,7 +1480,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		accept_in_msg->accept_in.server_msubid
 						= server_msub->msubid;
 
-		DBG("name = '%s'\n", server_ms->name.c_str());
+		DBG("name = '%s'", server_ms->name.c_str());
 
 		/* Set notification for CONNECT_MS_REQ */
 		auto reply_sem = make_shared<sem_t>();
@@ -1491,13 +1491,13 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		unix_msg_t  accept_out_msg;
 		rc = daemon_call(move(accept_in_msg), &accept_out_msg);
 		if (rc ) {
-			ERR("Failed in ACCEPT_MS daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in ACCEPT_MS daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed in daemon? */
 		if (accept_out_msg.accept_out.status) {
-			ERR("Failed to accept (ms) in daemon, status = 0x%X\n",
+			ERR("Failed to accept (ms) in daemon, status = 0x%X",
 				accept_out_msg.accept_out.status);
 			throw accept_out_msg.accept_out.status;
 		}
@@ -1508,13 +1508,13 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		timeout.tv_sec += timeout_secs;
 		rc = sem_timedwait(reply_sem.get(), &timeout);
 		if (rc) {
-			ERR("reply_sem failed: %s\n", strerror(errno));
+			ERR("reply_sem failed: %s", strerror(errno));
 			if (timeout_secs && errno == ETIMEDOUT) {
-				ERR("Timeout occurred\n");
+				ERR("Timeout occurred");
 			} else {
-				ERR("UNKNOWN ERROR\n");
+				ERR("UNKNOWN ERROR");
 			}
-			ERR("Failed to receive CONNECT_MS_REQ for '%s'\n",
+			ERR("Failed to receive CONNECT_MS_REQ for '%s'",
 					server_ms->name.c_str());
 
 			/* Switch back the ms to non-accepting mode */
@@ -1527,13 +1527,13 @@ int rdma_accept_ms_h(ms_h loc_msh,
 			unix_msg_t  undo_accept_out_msg;
 			rc = daemon_call(move(undo_accept_in_msg), &undo_accept_out_msg);
 			if (rc ) {
-				ERR("Failed in UNDO_ACCEPT daemon_call, rc = 0x%X\n", rc);
+				ERR("Failed in UNDO_ACCEPT daemon_call, rc = 0x%X", rc);
 				throw rc;
 			}
 
 			/* Failed in daemon? */
 			if (undo_accept_out_msg.undo_accept_out.status) {
-				ERR("Failed to undo accept in daemon, status = 0x%X\n",
+				ERR("Failed to undo accept in daemon, status = 0x%X",
 					undo_accept_out_msg.undo_accept_out.status);
 				throw undo_accept_out_msg.undo_accept_out.status;
 			}
@@ -1548,7 +1548,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 				   0,
 				   &connect_ms_req_msg);
 		if (rc) {
-			CRIT("Message disappeared after notification!!!\n");
+			CRIT("Message disappeared after notification!!!");
 			throw RDMA_ACCEPT_FAIL;
 		}
 
@@ -1556,7 +1556,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		connect_to_ms_req_input *conn_req_msg
 					= &connect_ms_req_msg.connect_to_ms_req;
 
-		DBG("CONNECT_MS_REQ message received from daemon:\n");
+		DBG("CONNECT_MS_REQ message received from daemon:");
 		conn_req_msg->dump();
 		*connh = conn_req_msg->connh;	/* Conn. handle sent by client */
 
@@ -1581,26 +1581,26 @@ int rdma_accept_ms_h(ms_h loc_msh,
 		conn_to_ms_resp->client_to_lib_tx_eng_h =
 					conn_req_msg->client_to_lib_tx_eng_h;
 
-		DBG("CONNECT_MS_RESP to server daemon\n");
+		DBG("CONNECT_MS_RESP to server daemon");
 		conn_to_ms_resp->dump();
 
 		/* Call into daemon */
 		unix_msg_t connect_ms_resp_out_msg;
 		rc = daemon_call(move(connect_ms_resp_in_msg), &connect_ms_resp_out_msg);
 		if (rc ) {
-			ERR("Failed in CONNECT_MS_RESP daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in CONNECT_MS_RESP daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed in daemon? */
 		if (connect_ms_resp_out_msg.connect_to_ms_resp_out.status) {
-			ERR("Failed to CONNECT_MS_RESP (ms) in daemon, status = 0x%X\n",
+			ERR("Failed to CONNECT_MS_RESP (ms) in daemon, status = 0x%X",
 				connect_ms_resp_out_msg.connect_to_ms_resp_out.status);
 			throw connect_ms_resp_out_msg.connect_to_ms_resp_out.status;
 		}
 
 		/* Store connection handle with server_msub */
-		DBG("Storing connh = 0x%" PRIx64 ", in server_msub's database entry\n",
+		DBG("Storing connh = 0x%" PRIx64 ", in server_msub's database entry",
 								*connh);
 		server_msub->connections.emplace_back(*connh,
 					conn_req_msg->client_to_lib_tx_eng_h);
@@ -1610,7 +1610,7 @@ int rdma_accept_ms_h(ms_h loc_msh,
 
 		if (conn_req_msg->client_msubid != NULL_MSUBID) {
 			if (!rem_msubh || !rem_msub_len) {
-				ERR("Client provided an msub, but rem_msubh and/or rem_msub_len is NULL\n");
+				ERR("Client provided an msub, but rem_msubh and/or rem_msub_len is NULL");
 				throw RDMA_NULL_PARAM;
 			}
 			*rem_msubh = (msub_h)add_rem_msub(
@@ -1624,10 +1624,10 @@ int rdma_accept_ms_h(ms_h loc_msh,
 					  conn_req_msg->client_destid,
 					  loc_msh);
 			if (*rem_msubh == (msub_h)NULL) {
-				WARN("Failed to add rem_msub to database\n");
+				WARN("Failed to add rem_msub to database");
 				throw RDMA_DB_ADD_FAIL;
 			}
-			INFO("rem_bytes = %d, rio_addr = 0x%" PRIx64 "\n",
+			INFO("rem_bytes = %d, rio_addr = 0x%" PRIx64 "",
 					conn_req_msg->client_msub_bytes,
 					conn_req_msg->client_rio_addr_lo);
 
@@ -1679,7 +1679,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	static uint32_t seq_num = 0x1234;
 	int rc;
 
-	DBG("ENTER\n");
+	DBG("ENTER");
 	sem_wait(&rdma_lock);
 
 	try {
@@ -1688,32 +1688,32 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 		/* Check for null parameters */
 		if (!rem_msubh || !rem_msname || !rem_msub_len || !rem_msh) {
-			ERR("NULL parameter(s) passed.\n");
-			ERR("rem_msubh=%p,rem_msname=%p,rem_msub_len=%p,rem_msh=%p\n",
+			ERR("NULL parameter(s) passed.");
+			ERR("rem_msubh=%p,rem_msname=%p,rem_msub_len=%p,rem_msh=%p",
 				rem_msubh, rem_msname, rem_msub_len, rem_msh);
 			throw RDMA_NULL_PARAM;
 		}
 
 		/* Ensure timeout is > 0 or things will fail */
 		if (timeout_secs == 0) {
-			ERR("Timeout cannot be 0\n");
+			ERR("Timeout cannot be 0");
 			throw RDMA_NULL_PARAM;
 		}
 
 		/* Check for invalid destid */
 		if (rem_destid_len == 16 && rem_destid==0xFFFF) {
-			WARN("Invalid destid 0x%X\n", rem_destid);
+			WARN("Invalid destid 0x%X", rem_destid);
 			throw RDMA_INVALID_DESTID;
 		}
 
 		/* Prevent buffer overflow due to very long name */
 		size_t len = strlen(rem_msname);
 		if (len > UNIX_MS_NAME_MAX_LEN) {
-			ERR("String 'ms_name' is too long (%d)\n", len);
+			ERR("String 'ms_name' is too long (%d)", len);
 			throw RDMA_NAME_TOO_LONG;
 		}
 
-		INFO("Connecting to '%s' on destid(0x%X)\n", rem_msname, rem_destid);
+		INFO("Connecting to '%s' on destid(0x%X)", rem_msname, rem_destid);
 
 		/* Use the client LIBRDMA tx_eng as the connection handle to the ms */
 		*connh = (conn_h)tx_eng.get();
@@ -1743,7 +1743,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			connect_msg->client_rio_addr_lo  = client_msub->rio_addr_lo;
 			connect_msg->client_rio_addr_hi  = client_msub->rio_addr_hi;
 		} else {
-			HIGH("Client has provided a 0 msubh\n");
+			HIGH("Client has provided a 0 msubh");
 			connect_msg->client_msubid = NULL_MSUBID;
 			/* Populate the fields with 0s instead of garbage */
 			connect_msg->client_msid = 0;
@@ -1753,7 +1753,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			connect_msg->client_rio_addr_hi = 0;
 		}
 
-		DBG("Contents of SEND_CONNECT message to daemon:\n");
+		DBG("Contents of SEND_CONNECT message to daemon:");
 		connect_msg->dump();
 
 		struct timespec	before, after, rtt;
@@ -1772,44 +1772,44 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		unix_msg_t  out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
-			ERR("Failed in SEND_CONNECT daemon_call, rc = 0x%X\n", rc);
+			ERR("Failed in SEND_CONNECT daemon_call, rc = 0x%X", rc);
 			throw rc;
 		}
 
 		/* Failed to send connect? */
 		if (out_msg.send_connect_out.status) {
-			ERR("Failed to connect in daemon, status = 0x%X\n",
+			ERR("Failed to connect in daemon, status = 0x%X",
 					out_msg.send_connect_out.status);
 			throw out_msg.send_connect_out.status;
 		}
 
-		INFO(" Waiting for connect response (accept) message...\n");
+		INFO(" Waiting for connect response (accept) message...");
 		struct timespec timeout;
 		clock_gettime(CLOCK_REALTIME, &timeout);
 		timeout.tv_sec += timeout_secs;
 		rc = sem_timedwait(reply_sem.get(), &timeout);
 		if (rc) {
-			ERR("reply_sem failed: %s\n", strerror(errno));
+			ERR("reply_sem failed: %s", strerror(errno));
 			if (timeout_secs && errno == ETIMEDOUT) {
-				ERR("Timeout occurred\n");
+				ERR("Timeout occurred");
 				rc = ETIMEDOUT;
 			}
 		} else {
-			DBG("Got reply!\n");
+			DBG("Got reply!");
 			rc = rx_eng->get_message(ACCEPT_FROM_MS_REQ, RDMA_CALL, 0, &out_msg);
 			if (rc) {
-				ERR("Failed to obtain reply message, rc = %d\n", rc);
+				ERR("Failed to obtain reply message, rc = %d", rc);
 			}
 		}
 		if (rc || out_msg.sub_type == ACCEPT_FROM_MS_REQ_NACK) {
 			if (rc == ETIMEDOUT) {
-				ERR("Timeout before getting response to 'connect'\n");
+				ERR("Timeout before getting response to 'connect'");
 				rc = RDMA_CONNECT_TIMEOUT;
 			} else if(out_msg.sub_type == ACCEPT_FROM_MS_REQ_NACK) {
-				ERR("Connection rejected by remote daemon/server\n");
+				ERR("Connection rejected by remote daemon/server");
 				rc = RDMA_CONNECT_FAIL;
 			} else {
-				ERR("Unknown failure\n");
+				ERR("Unknown failure");
 			}
 			/* We failed out, so undo the accept */
 			auto undo_in_msg = make_unique<unix_msg_t>();
@@ -1820,13 +1820,13 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 			auto temp_rc = rc;	/* Save 'rc' */
 			rc = daemon_call(move(undo_in_msg), &out_msg);
 			if (rc ) {
-				ERR("Failed in UNDO_CONNECT daemon_call, rc = %d\n", rc);
+				ERR("Failed in UNDO_CONNECT daemon_call, rc = %d", rc);
 				throw rc;
 			}
 
 			/* Failed to undo the accept */
 			if (out_msg.undo_connect_out.status) {
-				ERR("Failed to undo acceptin daemon, status=0x%X\n",
+				ERR("Failed to undo acceptin daemon, status=0x%X",
 					out_msg.undo_connect_out.status);
 				throw out_msg.undo_connect_out.status;
 			}
@@ -1840,7 +1840,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		clock_gettime(CLOCK_MONOTONIC, &after);
 		__sync_synchronize();
 		rtt = time_difference(before, after);
-		HIGH("Round-trip-time for accept/connect = %u seconds and %u microseconds\n",
+		HIGH("Round-trip-time for accept/connect = %u seconds and %u microseconds",
 							rtt.tv_sec, rtt.tv_nsec/1000);
 
 		/* Point to the accept message */
@@ -1848,7 +1848,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 
 		/* Some validation of the 'accept' (response-to-connect) message */
 		if (accept_msg->server_destid != rem_destid) {
-			WARN("WRONG destid(0x%X) in accept message!\n",
+			WARN("WRONG destid(0x%X) in accept message!",
 							accept_msg->server_destid);
 		}
 
@@ -1871,9 +1871,9 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		if (*rem_msubh == (msub_h)NULL) {
 			throw RDMA_DB_ADD_FAIL;
 		}
-		INFO("Remote msubh has size %d, rio_addr = 0x%016" PRIx64 "\n",
+		INFO("Remote msubh has size %d, rio_addr = 0x%016" PRIx64 "",
 			accept_msg->server_msub_bytes, accept_msg->server_rio_addr_lo);
-		INFO("rem_msub has destid = 0x%X, destid_len = 0x%X\n",
+		INFO("rem_msub has destid = 0x%X, destid_len = 0x%X",
 			accept_msg->server_destid, accept_msg->server_destid_len);
 
 		/* Remote memory subspace length */
@@ -1885,18 +1885,18 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 		/* Remote memory space handle */
 		*rem_msh = (ms_h)add_rem_ms(rem_msname, server_msid);
 		if (*rem_msh == (ms_h)NULL) {
-			ERR("Failed to store rem_ms in database\n");
+			ERR("Failed to store rem_ms in database");
 			throw RDMA_DB_ADD_FAIL;
 		} else {
-			DBG("Entry for '%s' stored in DB, handle = 0x%016" PRIx64 "\n",
+			DBG("Entry for '%s' stored in DB, handle = 0x%016" PRIx64 "",
 							rem_msname, *rem_msh);
 		}
 	} /* try */
 	catch(int e) {
 		rc = e;
-		ERR("Exiting due to failure. rc = 0x%X\n", rc);
+		ERR("Exiting due to failure. rc = 0x%X", rc);
 	}
-	INFO("EXIT\n");
+	INFO("EXIT");
 	sem_post(&rdma_lock);
 	return rc;
 } /* rdma_conn_ms_h() */
@@ -1907,7 +1907,7 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 	int rc;
 
 	(void)connh;
-	DBG("ENTER\n");
+	DBG("ENTER");
 	sem_wait(&rdma_lock);
 
 	try {
@@ -1916,18 +1916,18 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 
 		/* Check that server_msh is not NULL. (client_msubh CAN be NULL) */
 		if (!server_msh) {
-			ERR("server_msh is NULL\n");
+			ERR("server_msh is NULL");
 			throw RDMA_NULL_PARAM;
 		}
 
 		/* If not in database, so it was destroyed. Not an error */
 		if (!rem_ms_exists(server_msh)) {
-			WARN("rem_msh(0x%" PRIx64 ") not in database.\n", server_msh);
+			WARN("rem_msh(0x%" PRIx64 ") not in database.", server_msh);
 			throw 0;	/* Not an error */
 		}
 
 		rem_ms *server_ms = (rem_ms *)server_msh;
-		DBG("rem_msh exists and has msid(0x%X), rem_msh(%" PRIx64 ")\n",
+		DBG("rem_msh exists and has msid(0x%X), rem_msh(%" PRIx64 ")",
 						server_ms->msid, server_msh);
 
 		/* Check that we indeed have remote msubs belonging to that server_msh.
@@ -1941,7 +1941,7 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 		rem_msub *msubp =
 			(rem_msub *)find_any_rem_msub_in_ms(server_ms->msid);
 		if (!msubp) {
-			CRIT("No msubs for server_msh(0x%" PRIx64 "). IMPOSSIBLE\n",
+			CRIT("No msubs for server_msh(0x%" PRIx64 "). IMPOSSIBLE",
 									server_msh);
 			throw RDMA_INVALID_MS;
 		}
@@ -1982,7 +1982,7 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 		unix_msg_t  out_msg;
 		rc = daemon_call(move(in_msg), &out_msg);
 		if (rc ) {
-			ERR("Failed in SEND_DISCONNECT daemon_call, rc=0x%X\n",
+			ERR("Failed in SEND_DISCONNECT daemon_call, rc=0x%X",
 									rc);
 			throw rc;
 		}
@@ -1999,9 +1999,9 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 		timeout.tv_sec += timeout_secs;
 		rc = sem_timedwait(reply_sem.get(), &timeout);
 		if (rc) {
-			ERR("reply_sem failed: %s\n", strerror(errno));
+			ERR("reply_sem failed: %s", strerror(errno));
 			if (errno == ETIMEDOUT) {
-				ERR("Timeout occurred\n");
+				ERR("Timeout occurred");
 				/* Don't throw an exception here since we
 				 * still need to clean up the database. */
 				rc = RDMA_DISCONNECT_TIMEOUT;
@@ -2011,11 +2011,11 @@ int client_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh,
 		/* Remove all remote msubs belonging to 'rem_msh'. At this point,
 		 * "there can be only one". */
 		remove_rem_msubs_in_ms(server_ms->msid);
-		DBG("Removed msub(s) connected to msid(0x%X)\n", server_ms->msid);
+		DBG("Removed msub(s) connected to msid(0x%X)", server_ms->msid);
 
 		/* Remove entry for the remote memory space from the database */
 		if (remove_rem_ms(server_msh)) {
-			ERR("Failed to remove remote msid(0x%X) from database\n",
+			ERR("Failed to remove remote msid(0x%X) from database",
 								server_ms->msid);
 			/* If we already had an RDMA_DISCONNECT_TIMEOUT error, then
 			 * don't throw anything since rc == RDMA_DISCONNECT_TIMEOUT
@@ -2036,7 +2036,7 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 {
 	int rc;
 
-	DBG("ENTER\n");
+	DBG("ENTER");
 	sem_wait(&rdma_lock);
 
 	try {
@@ -2045,7 +2045,7 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 
 		/* Check that server_msh is not NULL. (client_msubh CAN be NULL) */
 		if (!server_msh) {
-			ERR("server_msh is NULL\n");
+			ERR("server_msh is NULL");
 			throw RDMA_NULL_PARAM;
 		}
 
@@ -2062,7 +2062,7 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		msub_h server_msubh = find_loc_msub_by_connh(connh);
 		if (!server_msubh) {
 			ERR("Invalid connh: %" PRIx64
-				". No related server msubs\n", connh);
+				". No related server msubs", connh);
 			throw -1;
 		}
 		loc_msub *server_msub = (loc_msub *)server_msubh;
@@ -2074,7 +2074,7 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 				 	     [connh](client_connection& c)
 				 	     { return c.connh == connh; });
 		if (connection_it == end(server_msub->connections)) {
-			ERR("Invalid connh. Not found in server_msub\n");
+			ERR("Invalid connh. Not found in server_msub");
 			throw -2;
 		}
 
@@ -2097,19 +2097,19 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		tx_eng->send_message(move(in_msg));
 
 		/* Now wait for a SERVER_DISCONNECT_MS_ACK */
-		INFO(" Waiting for SERVER_DISCONNECT_MS_ACK ...\n");
+		INFO(" Waiting for SERVER_DISCONNECT_MS_ACK ...");
 		struct timespec timeout;
 		clock_gettime(CLOCK_REALTIME, &timeout);
 		timeout.tv_sec += 5;	/* 5 second timeout */
 		rc = sem_timedwait(reply_sem.get(), &timeout);
 		if (rc) {
-			ERR("reply_sem failed: %s\n", strerror(errno));
+			ERR("reply_sem failed: %s", strerror(errno));
 			if (errno == ETIMEDOUT) {
-				ERR("Timeout occurred\n");
+				ERR("Timeout occurred");
 				throw RDMA_DISCONNECT_TIMEOUT;
 			}
 		} else {
-			DBG("Got SERVER_DISCONNECT_MS_ACK\n");
+			DBG("Got SERVER_DISCONNECT_MS_ACK");
 		}
 
 		/* Remove connection from server msub database entry */
@@ -2118,7 +2118,7 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		/* Remove client msub from database, if applicable */
 		if (client_msubh) {
 			if (remove_rem_msub(client_msubh) != 0) {
-				ERR("Failed to remove client msub\n");
+				ERR("Failed to remove client msub");
 				throw RDMA_DB_REM_FAIL;
 			}
 		}
@@ -2127,7 +2127,7 @@ int server_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 		rc = e;
 	}
 	sem_post(&rdma_lock);
-	DBG("EXIT\n");
+	DBG("EXIT");
 
 	return rc;
 } /* server_disc_ms_h() */
@@ -2136,10 +2136,10 @@ int rdma_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh)
 {
 	int rc;
 	if (connh == (conn_h)tx_eng.get()) {
-		HIGH("CLIENT DISCONNECTING\n");
+		HIGH("CLIENT DISCONNECTING");
 		rc = client_disc_ms_h(connh, server_msh, client_msubh, 5);
 	} else {
-		HIGH("SERVER DISCONNECTING\n");
+		HIGH("SERVER DISCONNECTING");
 		rc = server_disc_ms_h(connh, server_msh, client_msubh);
 	}
 	return rc;
@@ -2163,7 +2163,7 @@ static int dma_push_pull_msub(bool is_push,
 	try {
 		/* Check for NULL pointers */
 		if (!in || !out) {
-			ERR("%s: NULL. in=%p, out=%p\n", in, out);
+			ERR("%s: NULL. in=%p, out=%p", in, out);
 			out->in_param_ok = RDMA_NULL_PARAM;
 			throw RDMA_NULL_PARAM;
 		}
@@ -2171,39 +2171,39 @@ static int dma_push_pull_msub(bool is_push,
 		lmsub = (loc_msub *)in->loc_msubh;
 		rmsub = (rem_msub *)in->rem_msubh;
 		if (!lmsub || !rmsub) {
-			ERR("%s: NULL. lmsub=%p, rmsub=%p\n", lmsub, rmsub);
+			ERR("%s: NULL. lmsub=%p, rmsub=%p", lmsub, rmsub);
 			out->in_param_ok = RDMA_NULL_PARAM;
 			throw RDMA_NULL_PARAM;
 		}
 
 		/* Check for destid > 16 */
 		if (rmsub->destid_len > 16) {
-			ERR("destid_len=%u unsupported\n", rmsub->destid_len);
+			ERR("destid_len=%u unsupported", rmsub->destid_len);
 			out->in_param_ok = RDMA_INVALID_DESTID;
 			throw RDMA_INVALID_DESTID;
 		}
 
 		/* Check for RIO address > 64-bits */
 		if (rmsub->rio_addr_len > 64) {
-			ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
+			ERR("rio_addr_len=%u unsupported", rmsub->rio_addr_len);
 			out->in_param_ok = RDMA_INVALID_RIO_ADDR;
 			throw RDMA_INVALID_RIO_ADDR;
 		}
 
 		/* Check if local daemon is alive */
 
-		DBG("Check if local daemon is alive\n");
+		DBG("Check if local daemon is alive");
 		if (!rdmad_is_alive()) {
-			ERR("Local RDMA daemon is dead. Exiting\n");
+			ERR("Local RDMA daemon is dead. Exiting");
 			throw RDMA_DAEMON_UNREACHABLE;
 		}
 
 		/* Check if remote daemon is alive */
 		/*
-		DBG("Check if remote daemon is alive\n");
+		DBG("Check if remote daemon is alive");
 		if (fm_alive && (dd_h != NULL))
 			if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
-				ERR("Remote destination daemon NOT running!\n");
+				ERR("Remote destination daemon NOT running!");
 				throw RDMA_REMOTE_UNREACHABLE;
 			}
 		*/
@@ -2214,18 +2214,18 @@ static int dma_push_pull_msub(bool is_push,
 
 		case rdma_no_wait:
 			rd_sync = RIO_DIRECTIO_TRANSFER_FAF;
-			INFO("RIO_DIRECTIO_TRANSFER_FAF\n");
+			INFO("RIO_DIRECTIO_TRANSFER_FAF");
 		break;
 		case rdma_sync_chk:
 			rd_sync = RIO_DIRECTIO_TRANSFER_SYNC;
-			INFO("RIO_DIRECTIO_TRANSFER_SYNC\n");
+			INFO("RIO_DIRECTIO_TRANSFER_SYNC");
 		break;
 		case rdma_async_chk:
 			rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
-			INFO("RIO_DIRECTIO_TRANSFER_ASYNC\n");
+			INFO("RIO_DIRECTIO_TRANSFER_ASYNC");
 		break;
 		default:
-			ERR("Invalid sync_type\n", in->sync_type);
+			ERR("Invalid sync_type", in->sync_type);
 			out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
 			throw RDMA_INVALID_SYNC_TYPE;
 		}
@@ -2235,10 +2235,10 @@ static int dma_push_pull_msub(bool is_push,
 
 		if (is_push) {
 			/* Echo parameters for debugging */
-			INFO("Sending %u bytes over DMA to destid=0x%X\n",
+			INFO("Sending %u bytes over DMA to destid=0x%X",
 						in->num_bytes, rmsub->destid);
 			INFO("Dest RIO addr =  %016" PRIx64
-					", lmsub->paddr = %016" PRIx64 "\n",
+					", lmsub->paddr = %016" PRIx64 "",
 				rmsub->rio_addr_lo + in->rem_offset,
 				lmsub->paddr);
 
@@ -2254,14 +2254,14 @@ static int dma_push_pull_msub(bool is_push,
 			} while (rc && ((EINTR == errno) || (EBUSY == errno)));
 
 			if (rc < 0) {
-				ERR("riomp_dma_write_d() failed:(%d) %s\n",
+				ERR("riomp_dma_write_d() failed:(%d) %s",
 						rc, strerror(errno));
 			}
 		} else { /* is pull */
 
-			INFO("Receiving %u bytes over DMA from destid=0x%X\n",
+			INFO("Receiving %u bytes over DMA from destid=0x%X",
 						in->num_bytes, rmsub->destid);
-			INFO("Source RIO addr = 0x%X, lmsub->paddr = 0x%" PRIx64 "\n",
+			INFO("Source RIO addr = 0x%X, lmsub->paddr = 0x%" PRIx64 "",
 						rmsub->rio_addr_lo + in->rem_offset,
 						lmsub->paddr);
 
@@ -2276,7 +2276,7 @@ static int dma_push_pull_msub(bool is_push,
 			} while (rc && ((EINTR == errno) || (EBUSY == errno)));
 
 			if (rc < 0) {
-				ERR("riomp_dma_read_d() failed:(%d) %s\n",
+				ERR("riomp_dma_read_d() failed:(%d) %s",
 						rc, strerror(rc));
 			}
 		}
@@ -2301,7 +2301,7 @@ static int dma_push_pull_msub(bool is_push,
 int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 		   struct rdma_xfer_ms_out *out)
 {
-	DBG("ENTER\n");
+	DBG("ENTER");
 	sem_wait(&rdma_lock);
 	int rc =  dma_push_pull_msub(PUSH_MODE, in, out);;
 	sem_post(&rdma_lock);
@@ -2311,7 +2311,7 @@ int rdma_push_msub(const struct rdma_xfer_ms_in *in,
 int rdma_pull_msub(const struct rdma_xfer_ms_in *in,
 		   struct rdma_xfer_ms_out *out)
 {
-	DBG("ENTER\n");
+	DBG("ENTER");
 	sem_wait(&rdma_lock);
 	int rc =  dma_push_pull_msub(PULL_MODE, in, out);;
 	sem_post(&rdma_lock);
@@ -2329,7 +2329,7 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 	try {
 		/* Check for NULL pointer */
 		if (!buf || !out || !rem_msubh) {
-			ERR("NULL param(s). buf=%p, out=%p, rem_msubh = %u\n",
+			ERR("NULL param(s). buf=%p, out=%p, rem_msubh = %u",
 							buf, out, rem_msubh);
 			out->in_param_ok = RDMA_NULL_PARAM;
 			throw RDMA_NULL_PARAM;
@@ -2338,14 +2338,14 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 
 		/* Check for destid > 16 */
 		if (rmsub->destid_len > 16) {
-			ERR("destid_len=%u unsupported\n", rmsub->destid_len);
+			ERR("destid_len=%u unsupported", rmsub->destid_len);
 			out->in_param_ok = RDMA_NULL_PARAM;
 			throw RDMA_INVALID_DESTID;
 		}
 
 		/* Check for RIO address > 64-bits */
 		if (rmsub->rio_addr_len > 64) {
-			ERR("rio_addr_len=%u unsupported\n", rmsub->rio_addr_len);
+			ERR("rio_addr_len=%u unsupported", rmsub->rio_addr_len);
 			out->in_param_ok = RDMA_INVALID_RIO_ADDR;
 			throw RDMA_INVALID_RIO_ADDR;
 		}
@@ -2353,7 +2353,7 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 		/* Check if remote daemon is alive */
 		if (fm_alive && (dd_h != NULL))
 			if (!fmdd_check_did(dd_h, rmsub->destid, FMDD_RDMA_FLAG)) {
-				ERR("Remote destination daemon NOT running!\n");
+				ERR("Remote destination daemon NOT running!");
 				throw RDMA_REMOTE_UNREACHABLE;
 			}
 
@@ -2372,7 +2372,7 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 			rd_sync = RIO_DIRECTIO_TRANSFER_ASYNC;
 		break;
 		default:
-			ERR("Invalid sync_type: %d\n", sync_type);
+			ERR("Invalid sync_type: %d", sync_type);
 			out->in_param_ok = RDMA_INVALID_SYNC_TYPE;
 			throw RDMA_INVALID_SYNC_TYPE;
 		}
@@ -2381,7 +2381,7 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 		out->in_param_ok = 0;
 
 		if (is_push) {
-			INFO("Sending %u bytes over DMA to destid=0x%X, rio_addr = 0x%X\n",
+			INFO("Sending %u bytes over DMA to destid=0x%X, rio_addr = 0x%X",
 				num_bytes,
 				rmsub->destid,
 				rmsub->rio_addr_lo + rem_offset);
@@ -2394,10 +2394,10 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 				  RIO_DIRECTIO_TYPE_NWRITE_R,
 				  rd_sync);
 			if (rc < 0) {
-				ERR("riomp_dma_write() failed:(%d) %s\n", rc, strerror(rc));
+				ERR("riomp_dma_write() failed:(%d) %s", rc, strerror(rc));
 			}
 		} else {
-			INFO("Receiving %u DMA bytes from destid=0x%X, RIO addr = 0x%X\n",
+			INFO("Receiving %u DMA bytes from destid=0x%X, RIO addr = 0x%X",
 							num_bytes,
 							rmsub->destid,
 							rmsub->rio_addr_lo + rem_offset);
@@ -2409,7 +2409,7 @@ static int dma_push_pull_buf(bool is_push, void *buf, int num_bytes,
 						 num_bytes,
 						 rd_sync);
 			if (rc < 0) {
-				ERR("riomp_dma_read() failed:(%d) %s\n", rc, strerror(rc));
+				ERR("riomp_dma_read() failed:(%d) %s", rc, strerror(rc));
 			}
 		}
 		/* If synchronous, the return value is the xfer status. If async,
@@ -2481,20 +2481,20 @@ int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 	dma_async_wait_param	wait_param;
 	int rc;
 
-	DBG("ENTER\n");
+	DBG("ENTER");
 	sem_wait(&rdma_lock);
 
 	try {
 		/* Make sure handle is valid */
 		if (!chk_handle) {
-			ERR("Invalid chk_handle(%d)\n", chk_handle);
+			ERR("Invalid chk_handle(%d)", chk_handle);
 			throw RDMA_NULL_PARAM;
 		}
 
 		/* Check for NULL or 0 wait times */
 		if (!wait || !(wait->tv_sec | wait->tv_nsec)) {
 			wait_param.timeout = 0;
-			WARN("Timeout not specified, using default value\n");
+			WARN("Timeout not specified, using default value");
 			/* as indicated in rio_mport_cdev.h (rio_async_tx_wait) */
 		} else {
 			/* Timeout is specified as a timespec. The mport library
@@ -2507,13 +2507,13 @@ int rdma_sync_chk_push_pull(rdma_chk_handle chk_handle,
 		/* Now create a thread for checking the DMA transfer completion */
 		pthread_t compl_thread;
 		if (pthread_create(&compl_thread, NULL, compl_thread_f, (void *)&wait_param)) {
-			ERR("pthread_create(): %s\n", strerror(errno));
+			ERR("pthread_create(): %s", strerror(errno));
 			throw RDMA_PTHREAD_FAIL;
 		}
 
 		/* Wait for transfer completion or timeout in thread */
 		if (pthread_join(compl_thread, NULL)) {
-			ERR("pthread_join(): %s\n", strerror(errno));
+			ERR("pthread_join(): %s", strerror(errno));
 			throw RDMA_PTHREAD_FAIL;
 		}
 		rc = wait_param.err;
