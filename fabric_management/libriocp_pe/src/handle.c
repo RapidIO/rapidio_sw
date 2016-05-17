@@ -441,13 +441,22 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
     RIOCP_ERROR("Features could not be read\n");
     goto err;
   }
-
+#if 0
   ret = riocp_pe_comptag_read(h, &h->comptag);
   if (ret) {
     RIOCP_ERROR("Could not read comptag\n");
     ret = -EIO;
     goto err;
   }
+#else
+  h->comptag = 0;
+  RIOCP_WARN("%s(): Reset comptag for destid 0x%x to force device reinit.\n", __func__, destid);
+  ret = riocp_pe_comptag_write(h, h->comptag);
+  if (ret) {
+    RIOCP_ERROR("Could not clear comptag\n");
+    goto err;
+  }
+#endif
 
   /* Decide if the host needs to initialize comptag/destid the PE based
     on comptag unique number */
