@@ -44,8 +44,19 @@ export CXX
 
 KERNEL_VERSION := $(shell uname -r)
 KERNELDIR = /lib/modules/$(KERNEL_VERSION)/build
+
+ifdef KLOKWORK
+KDIR=$(TOPDIR)/include/test
+else
 KDIR?=/usr/src/linux
+endif
+
+ifdef KLOKWORK
+RIODIR=$(TOPDIR)/include/test
+else
 RIO_DIR?=/usr/src/rapidio
+endif
+
 DRV_INCLUDE_DIR ?= $(KERNELDIR)/include $(RIO_DIR) $(KDIR)/include
 
 ARCH := $(shell arch)
