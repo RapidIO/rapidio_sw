@@ -499,11 +499,13 @@ void cleanup_acc_handler(void)
 	fmp.acc.acc_alive = 0;
 	if (fmp.acc.cm_acc_valid) {
 		riomp_sock_close(&fmp.acc.cm_acc_h);
+		memset(&fmp.acc.cm_acc_h, 0, sizeof(fmp.acc.cm_acc_h));
 		fmp.acc.cm_acc_valid = 0;
 	};
 
 	if (fmp.acc.mb_valid) {
 		riomp_sock_mbox_destroy_handle(&fmp.acc.mb);
+		memset(&fmp.acc.mb, 0, sizeof(fmp.acc.mb));
 		fmp.acc.mb_valid = 0;
 	};
 };
