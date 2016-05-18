@@ -206,10 +206,13 @@ void *fm_loop(void *unused)
 		validate_remote_daemons(&new_did_list_size, new_did_list);
 
 		/* Save a copy of the current list for comparison next time */
-		if (old_did_list != NULL)	/* Delete if ncessary */
-			delete old_did_list;
+		if (old_did_list != NULL) {	/* Delete if ncessary */
+			free(old_did_list); old_did_list = NULL;
+		}
+
 		old_did_list_size = new_did_list_size;	/* Same size */
-		old_did_list = new uint32_t[old_did_list_size];
+		old_did_list = (uint32_t*)calloc(old_did_list_size, sizeof(uint32_t));
+
 		copy(new_did_list, new_did_list + new_did_list_size, old_did_list);
 		sort(old_did_list, old_did_list + old_did_list_size);
 		DBG("old_did_list_size = %u\n", old_did_list_size);
@@ -229,8 +232,10 @@ void *fm_loop(void *unused)
 	}
 
 	/* Clean up */
-	if (old_did_list != NULL)
-		delete old_did_list;
+	if (old_did_list != NULL) {
+		free(old_did_list); old_did_list = NULL;
+	}
+
         if (new_did_list != NULL)
         	fmdd_free_did_list(dd_h, &new_did_list);
 
