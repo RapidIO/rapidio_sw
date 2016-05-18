@@ -61,10 +61,12 @@ public:
 					   engine_cleanup_sem)
 	{}
 
-	 void cleanup()
-	 {
-		 HIGH("Cleaning up from rdmad's unix_rx_engine\n");
-	 }
+	virtual ~unix_rx_engine() {};
+
+	virtual void cleanup()
+	{
+		HIGH("Cleaning up from rdmad's unix_rx_engine\n");
+	}
 };
 
 class cm_server_rx_engine : public rx_engine<cm_server, cm_msg_t>
@@ -80,6 +82,8 @@ public:
 				       tx_eng,
 				       engine_cleanup_sem)
 	{}
+
+	virtual ~cm_server_rx_engine() {};
 };
 
 class cm_client_rx_engine : public rx_engine<cm_client, cm_msg_t>
@@ -95,6 +99,8 @@ public:
 				       tx_eng,
 				       engine_cleanup_sem)
 	{}
+
+	virtual ~cm_client_rx_engine() {};
 };
 
 #endif

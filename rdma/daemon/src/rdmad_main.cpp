@@ -281,7 +281,14 @@ void shutdown()
 	INFO("Mport %d closed\n", peer.mport_id);
 	app_conn_server.reset();
 
+	sem_destroy(unix_engine_cleanup_sem);
+	unix_engine_cleanup_sem = NULL;
+
+	sem_destroy(cm_engine_cleanup_sem);
+	cm_engine_cleanup_sem = NULL;
+
 	rdma_log_close();
+
 	exit(1);
 } /* shutdown() */
 
@@ -474,7 +481,7 @@ int main (int argc, char **argv)
 
 		/* CM Engine cleanup semaphore. Posted by engines that die
 		 * so we can clean up after them. */
-		cm_engine_cleanup_sem = new sem_t();
+		cm_engine_cleanup_sem = (sem_t*)calloc(1, sizeof(sem_t));
 		sem_init(cm_engine_cleanup_sem, 0, 0);
 
 		/* Create and detach engine monitoring thread */
@@ -499,7 +506,7 @@ int main (int argc, char **argv)
 
 		/* Engine cleanup semaphore. Posted by engines that die
 		 * so we can clean up after them. */
-		unix_engine_cleanup_sem = new sem_t();
+		unix_engine_cleanup_sem = (sem_t*)calloc(1, sizeof(sem_t));
 		sem_init(unix_engine_cleanup_sem, 0, 0);
 
 		/* Create, start, and detach Unix engine monitoring thread */

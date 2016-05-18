@@ -56,6 +56,8 @@ public:
 					   tx_eng,
 					   engine_cleanup_sem)
 	{}
+
+	virtual ~unix_rx_engine() {}
 };
 #endif
 

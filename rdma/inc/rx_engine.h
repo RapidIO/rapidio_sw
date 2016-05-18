@@ -102,7 +102,7 @@ struct rx_work_thread_info {
 	{}
 
 	string			name;
-	bool 			*stop_worker_thread;
+	volatile bool 		*stop_worker_thread;
 	pthread_mutex_t		*message_queue_lock;
 	vector<M>		*message_queue;
 	T			*client;
@@ -121,7 +121,7 @@ void *rx_worker_thread_f(void *arg)
 	rx_work_thread_info<T,M> *wti = (rx_work_thread_info<T,M> *)arg;
 
 	string name			    = wti->name;
-	bool *stop_worker_thread 	    = wti->stop_worker_thread;
+	volatile bool *stop_worker_thread   = wti->stop_worker_thread;
 	pthread_mutex_t	*message_queue_lock = wti->message_queue_lock;
 	vector<M> 	*message_queue 	    = wti->message_queue;
 	T* client 			    = wti->client;
@@ -133,7 +133,7 @@ void *rx_worker_thread_f(void *arg)
 	msg_processor<T, M> &message_processor = wti->message_processor;
 	tx_engine<T, M>		*tx_eng	    = wti->tx_eng;
 
-	M	*msg;
+	M	*msg = NULL;
 	client->get_recv_buffer((void **)&msg);
 
 	DBG("'%s': Started rx_worker_thread_f()\n", name.c_str());
@@ -322,6 +322,13 @@ public:
 			pthread_join(rx_work_thread, NULL);
 			DBG("'%s': rx_work_thread terminated.\n", name.c_str());
 		}
+
+		// Just in case there is a junk pointer to this object after destruction
+	
+		tx_eng = NULL;
+		engine_cleanup_sem = NULL;
+		wti.reset();
+		sem_destroy(&notify_list_sem);
 	} /* dtor */
 
 	bool isdead() const { return is_dead; }
@@ -422,12 +429,12 @@ protected:
 	vector<notify_param> 	notify_list;
 	sem_t			notify_list_sem;
 	shared_ptr<T>		client;
-	tx_engine<T, M>		*tx_eng;
+	volatile tx_engine<T, M>*tx_eng;
 	bool			is_dead;
 	pthread_t		rx_work_thread;
 	bool			worker_is_dead;
 	bool			stop_worker_thread;
-	sem_t			*engine_cleanup_sem;
+	volatile sem_t		*engine_cleanup_sem;
 }; /* rx_engine */
 
 #endif
