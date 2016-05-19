@@ -442,8 +442,7 @@ int fmdd_wait_for_dd_change(fmdd_h h)
 		goto fail;
 	}
 
-	// MEMORY LEAK: Every event results in one sem_t worth of memory
-	// being wasted.  Fix in future.
+	/// \todo MEMORY LEAK: Every event results in one sem_t worth of memory being wasted.
 
 	return 0;
 fail:
