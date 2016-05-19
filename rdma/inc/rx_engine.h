@@ -303,6 +303,8 @@ public:
 
 	virtual ~rx_engine()
 	{
+		if (this == NULL) return; // Avoid __run_exit_handlers/~unique_ptr problems
+
 		/**
 		 * @brief There are two possiblities:
 		 * 1. The worker thread detected an error, it self exited, set the

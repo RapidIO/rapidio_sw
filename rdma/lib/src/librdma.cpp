@@ -367,7 +367,8 @@ void engine_monitoring_thread_f(sem_t *engine_cleanup_sem)
 	purge_local_database();
 	init = false;
 
-	delete engine_cleanup_sem;
+	sem_destroy(engine_cleanup_sem);
+	free(engine_cleanup_sem);
 } /* engine_monitoring_thread_f() */
 
 /**
@@ -401,7 +402,7 @@ static int initialize(void)
 
 			/* Engine cleanup semaphore. Posted by engines that die
 			 * so we can clean up after them. */
-			auto engine_cleanup_sem = new sem_t();
+			sem_t* engine_cleanup_sem = (sem_t*)calloc(1, sizeof(sem_t));
 			sem_init(engine_cleanup_sem, 0, 0);
 
 			/* Create Tx and Rx engines */
