@@ -61,8 +61,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DMA_SHM_TXDESC_NAME	"DMAChannelSHM-txdesc:%d:%d"
 #define DMA_SHM_TXDESC_SIZE	((m_state->bd_num+1)*sizeof(bool) + (m_state->bd_num+1)*sizeof(WorkItem_t) + (m_state->bd_num+1)*sizeof(uint64_t))
 
-#define DMA_SHM_PENDINGDATA_NAME "DMAChannelSHM-pendingdata:%d"
-
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
 /** \brief Private gettid(2) implementation */
@@ -96,18 +94,42 @@ void DMAChannelSHM::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
   //n += (m_state->bd_num+1)*sizeof(uint64_t);
 }
 
+bool DMAChannelSHM::has_state(const uint32_t mport_id, const uint32_t chan)
+{
+  char path[129] = {0};
+
+  strncpy(path, "/dev/shm/", 128);
+  const int N = strlen(path);
+  snprintf(path+N, 128-N, DMA_SHM_STATE_NAME, mport_id, chan);
+
+  if (access(path, F_OK)) return false;
+
+  DmaChannelState_t st; memset(&st, 0, sizeof(st));
+
+  int fd = open(path, O_RDONLY);
+  if (fd < 0) return false;
+  int nr = read(fd, &st, sizeof(st));
+  close(fd);
+
+  if (nr < 0 || nr != sizeof(st)) return false;
+
+  if (st.master_pid < 1) return false;
+  if (st.hw_ready < 2) return false;
+
+  return 0 == kill(st.master_pid, 0);
+}
+
 void DMAChannelSHM::init(const uint32_t chan)
 {
   umdemo_must_die = 0;
 
-  if (chan == 0 || chan >= DMA_MAX_CHAN) { // DMA CHAN 0 reserved by kernel for main writes
+  if (chan == 7 || chan >= DMA_MAX_CHAN) { // DMA CHAN 7 reserved by kernel for main writes
     static char tmp[67] = {0};
     snprintf(tmp, 128, "DMAChannelSHM: Init called with invalid channel %u\n", chan);
     throw std::runtime_error(tmp);
   }
   memset(m_shm_bl_name, 0, sizeof(m_shm_bl_name));
   memset(m_shm_state_name, 0, sizeof(m_shm_state_name));
-  memset(m_shm_pendingdata_name, 0, sizeof(m_shm_pendingdata_name));
 
   MHz = getCPUMHz();
 
@@ -131,11 +153,6 @@ void DMAChannelSHM::init(const uint32_t chan)
   m_sim_abort_reason = 0;
   m_sim_err_stat = 0;
 
-
-  bool first_opener_pdata = true;
-  snprintf(m_shm_pendingdata_name, 128, DMA_SHM_PENDINGDATA_NAME, m_mportid);
-  m_shm_pendingdata = new POSIXShm(m_shm_pendingdata_name, sizeof(DmaShmPendingData_t), first_opener_pdata);
-  m_pendingdata_tally = (DmaShmPendingData_t*)m_shm_pendingdata->getMem();
 
   bool first_opener = true;
   const int shm_size = sizeof(DmaChannelState_t);
@@ -215,7 +232,8 @@ void DMAChannelSHM::init(const uint32_t chan)
   memset(m_state->client_completion, 0, sizeof(m_state->client_completion));
 }
 
-DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan) : m_state(NULL)
+DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan) :
+  DMAShmPendingData(mportid), m_state(NULL)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannelSHM: Invalid channel!");
@@ -230,9 +248,8 @@ DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan) : m_st
   m_state->chan  = chan;
 }
 
-DMAChannelSHM::DMAChannelSHM(const uint32_t mportid,
-                       const uint32_t chan,
-                       riomp_mport_t mp_hd) : m_state(NULL)
+DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_hd) :
+  DMAShmPendingData(mportid), m_state(NULL)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannelSHM: Invalid channel!");
@@ -292,7 +309,7 @@ void DMAChannelSHM::resetHw()
   m_sim_fifo_wp      = 0;
   m_sim_dma_rp       = 0;
 
-  m_state->dma_wr = 1; // BD0 is T3
+  m_state->dma_wr = 0; // BD0 is T3, but we need to clear WP in hw
  
   if (m_sim) return;
 
@@ -307,7 +324,16 @@ void DMAChannelSHM::resetHw()
   wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_INIT);
   wr32dmachan(TSI721_DMAC_INT, TSI721_DMAC_INT_ALL);
   usleep(10);
+
+  uint32_t abortReason = 0;
+  if (dmaCheckAbort(abortReason))
+    throw std::logic_error("DMAChannelSHM: ABORT still asserted after TSI721_DMAC_CTL_INIT/TSI721_DMAC_INT_ALL!");
+
   wr32dmachan(TSI721_DMAC_DWRCNT, m_state->dma_wr);
+
+  abortReason = 0;
+  if (dmaCheckAbort(abortReason))
+    throw std::logic_error("DMAChannelSHM: ABORT still asserted after WP:=1 (jump BD0/T3)!");
 }
 
 void DMAChannelSHM::setInbound()
@@ -799,6 +825,8 @@ void DMAChannelSHM::cleanup()
   memset(&m_dmadesc, 0, sizeof(m_dmadesc));
   memset(&m_dmacompl, 0, sizeof(m_dmacompl));
   
+  if (m_pendingdata_tally != NULL) m_pendingdata_tally->data[m_state->chan] = 0;
+
   if (m_pending_work != NULL) {
     assert(m_pending_work[m_state->bd_num].valid == 0);
     m_pending_work = NULL;
@@ -1168,6 +1196,7 @@ void DMAChannelSHM::softRestart(const bool nuke_bds)
 
     // FUUDGE
     m_state->acked_serial_number = m_state->serial_number;
+    m_pending_tickets_RP = m_state->serial_number;
   }
 
   if (nuke_bds) {
@@ -1182,6 +1211,8 @@ void DMAChannelSHM::softRestart(const bool nuke_bds)
     memset(m_pending_work, 0, (m_state->bd_num+1) * sizeof(WorkItem_t));
 
     memset(m_pending_tickets, 0, (m_state->bd_num+1)*sizeof(uint64_t));
+
+    if (m_pendingdata_tally != NULL) m_pendingdata_tally->data[m_state->chan] = 0;
   }
 
   // Just be paranoid about wrap-around descriptor
@@ -1215,6 +1246,11 @@ done:
   setWriteCount(m_state->dma_wr); // knows about sim
 
   pthread_spin_unlock(&m_state->bl_splock);
+
+  uint32_t abortReason = 0;
+  if (dmaCheckAbort(abortReason))
+    throw std::logic_error("DMAChannelSHM: ABORT still asserted after softRestart!");
+
   m_state->restart_pending = 0;
 
   XINFO("dT = %llu TICKS; DMA WP := %d%s\n", (rdtsc() - ts_s), DMA_WP, (nuke_bds? "; NUKED BDs": ""));
@@ -1642,14 +1678,28 @@ int DMAChannelSHM_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannelSHM::D
   return r;
 }
 
-void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client)
+void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAShmPendingData::DmaShmPendingData_t* per_client)
 {
   if (dch == NULL || total == NULL) return;
 
-  DMAChannelSHM::DmaShmPendingData_t perc;
+  DMAShmPendingData::DmaShmPendingData_t perc;
   ((DMAChannelSHM*)dch)->getShmPendingData(*total, perc);
 
   if (per_client != NULL) *per_client = perc;
+}
+
+bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel)
+{
+  return DMAChannelSHM::has_state(mport_id, channel);
+}
+
+bool DMAChannelSHM_has_logging()
+{
+#ifdef RDMA_LL
+  return true;
+#else
+  return false;
+#endif
 }
 
 }; // END extern "C"

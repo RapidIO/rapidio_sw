@@ -80,7 +80,6 @@ extern "C" {
         void zero_stats(struct worker *info);
         int migrate_thread_to_cpu(struct thread_cpu *info);
         bool umd_check_cpu_allocation(struct worker *info);
-        bool TakeLock(struct worker* info, const char* module, int instance);
         uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 };
 

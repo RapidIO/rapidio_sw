@@ -44,11 +44,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "IDT_Tsi721.h"
 
+#include "mhz.h"
 #include "mport.h"
 #include "dmadesc.h"
 #include "rdtsc.h"
 #include "debug.h"
 #include "libtime_utils.h"
+
+#ifdef DMACHAN_TICKETED
+ #include "dmashmpdata.h"
+#endif
 
 #ifndef __DMACHAN_H__
 #define __DMACHAN_H__
@@ -65,7 +70,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
-class DMAChannel {
+class DMAChannel 
+#ifdef DMACHAN_TICKETED
+  : public DMAShmPendingData
+#endif
+{
 public:
   static const int DMA_BUFF_DESCR_SIZE = 32;
 
@@ -88,6 +97,12 @@ public:
         uint8_t  msb2;
         uint64_t lsb64;
       } raddr;
+#ifdef DMACHAN_TICKETED
+      uint64_t ts_start;
+      uint64_t ticket; ///< ticket issued at enq time
+      uint64_t not_before; ///< earliest rdtsc ts when ticket can be checked
+      uint64_t not_before_dns; ///< delta nanoseconds wait
+#endif
       uint64_t u_data; ///< whatever the user puts in here
   } DmaOptions_t;
 
@@ -321,6 +336,159 @@ public:
   {
 	wr32dmachan_nolock(offset, val);
   };
+
+#ifdef DMACHAN_TICKETED
+private:
+  // EVIL PLAN: Keep WP, RP as 64-bit and use them modulo DMA_SHM_MAX_ITEMS
+  static const int DMA_SHM_MAX_ITEMS = 1024;
+
+  typedef struct { ///< All per-client bad transactions reported here
+    volatile uint64_t WP;
+    volatile uint64_t RP;
+    uint64_t tickets[DMA_SHM_MAX_ITEMS];
+
+    inline uint64_t queueSize() {
+      assert(RP <= WP);
+      return WP-RP;
+    }
+
+    // Call following in splocked context!
+    inline bool enq(const uint64_t tik) {
+      if ((WP-RP) >= DMA_SHM_MAX_ITEMS) return false; // FULL
+      tickets[(WP++ % DMA_SHM_MAX_ITEMS)] = tik;
+      return true;
+    }
+    inline bool deq(uint64_t& tik) {
+      assert(RP <= WP);
+      if (WP == RP) return false; // empty
+      tik = tickets[(RP++ % DMA_SHM_MAX_ITEMS)];
+      return true;
+    }
+  } Faulted_Ticket_t;
+
+  uint64_t            MHz;
+
+  Faulted_Ticket_t    m_bad_tik;
+  uint64_t*           m_pending_tickets;
+  uint64_t            m_pending_tickets_RP;
+  volatile uint64_t   m_serial_number;
+  volatile uint64_t   m_acked_serial_number; ///< Arriere-garde of completed tickets
+  pthread_spinlock_t  m_fault_splock;
+
+  inline void initTicketed()
+  {
+    MHz = getCPUMHz();
+
+    memset(&m_bad_tik, 0, sizeof(m_bad_tik));
+    m_pending_tickets    = NULL;
+    m_pending_tickets_RP = 0;
+    m_serial_number      = 0;
+    m_acked_serial_number= 0;
+
+    pthread_spin_init(&m_fault_splock, PTHREAD_PROCESS_PRIVATE);
+  }
+
+  inline void computeNotBefore(DmaOptions_t& opt)
+  {
+    uint64_t ns = 0;
+
+    if (m_pendingdata_tally != NULL) {
+      uint64_t max_data = m_pendingdata_tally->data[m_chan];
+      for(int i = 1 /*Kern uses 0 for maint*/; i < DMA_MAX_CHAN; i++) {
+        if (m_pendingdata_tally->data[i] < max_data)
+                ns += m_pendingdata_tally->data[i];
+        else
+                ns += max_data;
+      }
+      ns = ns/2;
+    } else { // Fall back to information at hand
+      switch(opt.rtype) {
+        case NREAD:         ns = opt.bcount; break;
+        case LAST_NWRITE_R: ns = opt.bcount/2; break;
+        case ALL_NWRITE:    ns = opt.bcount/2; break;
+        case ALL_NWRITE_R:  ns = opt.bcount; break;
+        case MAINT_RD:
+        case MAINT_WR:
+             throw std::runtime_error("DMAChannel: Maint operations not supported!");
+             break;
+        default: assert(0); break;
+      }
+    }
+
+    // Eq: (rdtsc * 1000) / MHz = nsec <=> rdtsc = (nsec * MHz) / 1000
+    opt.not_before_dns = ns;
+    //opt.not_before     = opt.ts_start + (ns * 1000 / MHz); // convert to microseconds, then to rdtsc units
+    opt.not_before     = opt.ts_start + (ns * MHz / 1000); // convert to microseconds, then to rdtsc units
+  }
+
+public:
+  typedef enum {
+    BORKED     = -1,
+    INPROGRESS = 1,
+    COMPLETED  = 2
+  } TicketState_t;
+
+  /** \brief Dequeue 1st available faulted ticket
+   * \return true if something was dequeued
+   */
+  inline bool dequeueFaultedTicket(uint64_t& res)
+  {
+    pthread_spin_lock(&m_fault_splock);
+    const bool r = m_bad_tik.deq(res);
+    pthread_spin_unlock(&m_fault_splock);
+
+    return r;
+  }
+
+  /** \brief Check whether the transaction associated with this ticket has completed
+   * \note It could be completed or in error, true is returned anyways
+   */
+  inline TicketState_t checkTicket(const DmaOptions_t& opt)
+  {
+    if (opt.ticket == 0 || opt.ticket > m_serial_number)
+      throw std::runtime_error("DMAChannel: Invalid ticket!");
+
+    if (rdtsc() < opt.not_before) return INPROGRESS;
+
+    bool found_bad = false;
+
+    if (m_bad_tik.queueSize() > 0) {
+      pthread_spin_lock(&m_fault_splock);
+      for (uint64_t idx = m_bad_tik.RP; idx < m_bad_tik.WP; idx++) {
+        if (opt.ticket == m_bad_tik.tickets[idx % DMA_SHM_MAX_ITEMS]) {
+          found_bad = true;
+          break;
+        }
+      }
+      pthread_spin_unlock(&m_fault_splock);
+    }
+
+    if (found_bad) return BORKED;
+
+    if (m_acked_serial_number >= opt.ticket) return COMPLETED;
+
+    // Should never get here
+    return INPROGRESS;
+  }
+
+  inline uint64_t getAckedSN() { return m_acked_serial_number; }
+
+  /** \brief Tally up all pending data across all channels managed
+   * \note Kernel may have in-flight data fighting for the same bandwidth. We cannot account for that.
+   */
+  inline void getShmPendingData(uint64_t& total, DmaShmPendingData_t& per_client)
+  {
+    if (m_pendingdata_tally == NULL) { total = 0; return; }
+
+    memcpy(&per_client, m_pendingdata_tally, sizeof(DmaShmPendingData_t));
+
+    uint64_t max_mem = per_client.data[m_chan];
+
+    total = 0;
+    for(int i = 0; i < DMA_MAX_CHAN; i++)
+      total += (per_client.data[i] < max_mem)?per_client.data[i]:max_mem;
+  }
+#endif // DMACHAN_TICKETED
 };
 
 #endif /* __DMACHAN_H__ */

@@ -67,14 +67,14 @@ libs: $(LIB_TARGETS)
 
 samples: $(SAMPLES_TARGETS)
 
-libmport.so: src/riodp_mport_lib.o src/dmachanshm_dl.o
+libmport.so: src/riodp_mport_lib.o
 	$(CXX) -shared -ldl -L$(COMMONLIB) -ltime_utils $(LIBS_RPATH) -Wl,-soname,$@.$(SOVER) -o $@.$(SOVER) $^
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
-libmport.a: src/riodp_mport_lib.o src/dmachanshm_dl.o
+libmport.a: src/riodp_mport_lib.o
 	$(AR) -r $@ $^
 
-umdmporttest: src/riodp_mport_lib.c src/dmachanshm_dl.c
+umdmporttest: src/riodp_mport_lib.c
 	$(CXX) -DTEST_UMDD \
 		$(addprefix -I, $(INCLUDES)) -I$(FMDDIR)/librio_switch/inc -I$(UMDINCDIR) \
 		-Wall -Wno-sign-compare \

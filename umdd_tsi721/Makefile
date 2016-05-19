@@ -48,16 +48,6 @@ SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 # FIXME: Work to remove these as time permits
 UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER -Wall -DRDMA_LL=$(LOG_LEVEL)
 
-UMD_FLAGS += -ggdb -O0
-
-#UMD_FLAGS += -ggdb -Ofast
-#ifeq ($(ARCH), x86_64)
-# UMD_FLAGS += -march=native -mfpmath=sse -ffast-math
-#endif
-#ifeq ($(ARCH), i686)
-# UMD_FLAGS += -march=native -mfpmath=sse -ffast-math
-#endif
-
 UMD_INCLUDES = inc/dmachanshm.h
 
 UMD_SOURCES = src/dmachanshm.cc
@@ -66,21 +56,31 @@ UMDDLIB_SOURCES = src/dmachanshm.cc
 
 LIBRARIES =  -lpthread -lcli -lmport -ltime_utils -llog -lrt -lumd_tsi721
 
-all: umdd umddlib
+all: umdd umddlib umddlib_log
 
 umdd: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) $(UMD_INCLUDES) 
 	$(CXX) $(CXXFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
 	$(LIBRARIES) -L$(COMMONLIB) -L$(UMDDIR) $(LIBS_RPATH)
 
 umddlib: $(UMDDLIB_SOURCES) 
-	$(CXX) -O3 -Wall -ggdb -pthread -std=gnu++0x \
-	-Iinc -I$(COMMONINC)  -I$(UMDDIR)/inc \
-	-I$(REGSDIR) \
-        -DNODEBUG -DUSER_MODE_DRIVER -Wall -Wno-format \
-        $(UMDDLIB_SOURCES) \
-        -fPIC -shared -Wl,-soname,libUMDd.so.$(SOVER) -o libUMDd.so.$(SOVER) \
-        -lrt -L$(COMMONLIB) -L$(UMDDIR) $(LIBS_RPATH) -lmport -ltime_utils -lumd_tsi721_nolog
+	$(CXX) $(OPTFLAGS) -Wall -Wno-format -pthread -std=gnu++0x \
+		-Iinc -I$(COMMONINC) -I$(UMDDIR)/inc -I$(REGSDIR) \
+		-DNODEBUG -DUSER_MODE_DRIVER \
+		$(UMDDLIB_SOURCES) \
+		-lrt -lpthread \
+		-fPIC -shared -Wl,-soname,libUMDd.so.$(SOVER) -o libUMDd.so.$(SOVER) \
+		-L$(COMMONLIB) -L$(UMDDIR) $(LIBS_RPATH) -lmport -ltime_utils -lumd_tsi721_nolog
 
+umddlib_log: $(UMDDLIB_SOURCES) 
+	$(CXX) $(OPTFLAGS) -Wall -Wno-format -pthread -std=gnu++0x \
+		-Iinc -I$(COMMONINC) -I$(UMDDIR)/inc -I$(REGSDIR) \
+		-DDEBUG_BD \
+		-DRDMA_LL=$(LOG_LEVEL) \
+		-DNODEBUG -DUSER_MODE_DRIVER \
+		$(UMDDLIB_SOURCES) \
+		-lrt -lpthread \
+		-fPIC -shared -Wl,-soname,libUMDd_log.so.$(SOVER) -o libUMDd_log.so.$(SOVER) \
+		-L$(COMMONLIB) -L$(UMDDIR) $(LIBS_RPATH) -llog -lmport -ltime_utils -lumd_tsi721_nolog
 clean:
 	rm -f *.o umdd libUMDd.so* *~ src/*~ inc/*~ gmon.out 
 

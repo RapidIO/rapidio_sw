@@ -42,7 +42,8 @@ INCLUDES = inc/debug.h inc/dmachan.h inc/dmadesc.h inc/local_endian.h inc/lockfi
 		inc/mapfile.h inc/mboxchan.h inc/mhz.h inc/mport.h inc/pciebar.h \
 		inc/psem.h inc/pshm.h inc/rdtsc.h
 SOURCES = src/crc32.c src/dmachan.cc src/mapfile.cc src/mboxchan.cc \
-	src/mport.cc src/psem.cc src/pshm.cc src/tsi721_dma.c
+	src/mport.cc src/psem.cc src/pshm.cc src/tsi721_dma.c \
+	src/chanlock.cc
 
 CXXFLAGS += -I./inc -I$(REGSDIR) -I$(COMMONINC) \
 	 -D$(DEBUG) \
@@ -58,7 +59,7 @@ LIBFLAGS = -shared -fPIC
 SYSLIBS = -lrt -lpthread -ldl 
 LIBRARIES = -lmport -ltime_utils -lcli
 
-all: libumd_tsi721.a libumd_tsi721_nolog.a mbox_client mbox_server
+all: libumd_tsi721.a libumd_tsi721_nolog.a libumd_tsi721_tik.a libumd_tsi721_nolog_tik.a mbox_client mbox_server cmsock_ex
 
 libumd_tsi721.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
@@ -71,6 +72,27 @@ libumd_tsi721.a: $(SOURCES) $(INCLUDES)
 libumd_tsi721_nolog.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
 	$(CXX) $(CXXFLAGS) $(LIBFLAGS) $(SOURCES) \
+		-c $(SYSLIBS) $(LIBRARIES) 
+	$(AR) rcs $@ *.o
+	cp -v $@ $(COMMONDIR)/libs_a
+	@rm -f *.o
+
+# Ticketed UMD with logging ON
+libumd_tsi721_tik.a: $(SOURCES) $(INCLUDES)
+	@rm -f *.o
+	$(CXX) $(CXXFLAGS) \
+		-DRDMA_LL=$(LOG_LEVEL) \
+		-DDMACHAN_TICKETED \
+		-DDEBUG_BD \
+		-I$(UMDDINCDIR) $(LIBFLAGS) $(SOURCES) \
+		-c $(SYSLIBS) $(LIBRARIES) 
+	$(AR) rcs $@ *.o
+	cp -v $@ $(COMMONDIR)/libs_a
+	@rm -f *.o
+
+libumd_tsi721_nolog_tik.a: $(SOURCES) $(INCLUDES)
+	@rm -f *.o
+	$(CXX) $(CXXFLAGS) -DDMACHAN_TICKETED -I$(UMDDINCDIR) $(LIBFLAGS) $(SOURCES) \
 		-c $(SYSLIBS) $(LIBRARIES) 
 	$(AR) rcs $@ *.o
 	cp -v $@ $(COMMONDIR)/libs_a
@@ -90,8 +112,14 @@ mbox_server: test/mbox_example.c libumd_tsi721.a
 		$^ -o $@ \
 		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
 
+cmsock_ex: test/cmsock_example.cc
+	$(CXX) $(CXXFLAGS) \
+		-I../include \
+		$^ -o $@ \
+		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog 
+
 clean:
-	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out mbox_client mbox_server
+	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out mbox_client mbox_server cmsock_ex
 
 FORCE:
 

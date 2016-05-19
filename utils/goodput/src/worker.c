@@ -84,7 +84,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef USER_MODE_DRIVER
 #include "dmachan.h"
-#include "lockfile.h"
+#include "chanlock.h"
 #include "tun_ipv4.h"
 #endif
 
@@ -1940,38 +1940,6 @@ void calibrate_sched_yield(struct worker *info)
 		ts_max.tv_sec, ts_max.tv_nsec);
 };
 
-/** \brief Lock other processes out of this UMD module/channel
- * \note Due to POSIX locking semantics this has no effect on the current process
- * \note Using the same channel twice in this process will NOT be prevented
- * \parm[out] info info->umd_lock will be populated on success
- * \param[in] module DMA or Mbox, ASCII string
- * \param instance Channel number
- * \return true if lock was acquited, false if somebody else is using it
- */
-bool TakeLock(struct worker* info, const char* module, const int mport, const int instance)
-{
-	if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
-
-	int slot = -1;
-	for (int i = 0; i < UMD_NUM_LOCKS; i++) if (info->umd_lock[i] == NULL) { slot = i; break; }
-
-	if (slot == -1)
-		throw std::runtime_error("TakeLock: Out of locking slots!");
-
-	char lock_name[81] = {0};
-	snprintf(lock_name, 80, "/var/lock/UMD-%s-%d:%d..LCK", module, mport, instance);
-	try {
-		info->umd_lock[slot] = new LockFile(lock_name);
-	} catch(std::runtime_error ex) {
-		CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
-		if (GetEnv("LOCKFAIL_QUIT") != NULL)
-			throw ex;
-		return false;
-	}
-	// NOT catching std::logic_error
-	return true;
-}
-
 void umd_dma_calibrate(struct worker *info)
 {
 	info->umd_dch =
@@ -2033,7 +2001,8 @@ void umd_dma_goodput_demo(struct worker *info)
 	int iter = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan)) return;
+
+	info->umd_lock[0] = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_dma_goodput_demo;
 
@@ -2350,7 +2319,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 	uint64_t cnt = 0;
 	int iter = 0;
 
-	if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan)) return;
+	info->umd_lock[0] = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan);
 
 	//info->owner_func = (void*)umd_dma_goodput_latency_demo;
 
@@ -2512,7 +2481,7 @@ exit:
                 info->umd_dch->free_dmamem(info->dmamem[0]);
 
         delete info->umd_dch; info->umd_dch = NULL;
-        delete info->umd_lock[0]; info->umd_lock[0] = NULL;
+	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
 void umd_mbox_goodput_demo(struct worker *info)
@@ -2521,7 +2490,8 @@ void umd_mbox_goodput_demo(struct worker *info)
 	int iter = 0;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) return;
+
+	info->umd_lock[0] = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_mbox_goodput_demo;
 
@@ -2673,7 +2643,7 @@ exit:
 
 exit_rx:
         delete info->umd_mch; info->umd_mch = NULL;
-        delete info->umd_lock[0]; info->umd_lock[0] = NULL;
+	delete info->umd_lock[0]; info->umd_lock[0] = NULL;
 }
 
 static inline int MIN(int a, int b) { return a < b? a: b; }
@@ -2682,7 +2652,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 {
 	int iter = 0;
 
-	if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) return;
+	info->umd_lock[0] = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_mbox_goodput_latency_demo;
 
@@ -3006,7 +2976,8 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	int flags = IFF_TUN | IFF_NO_PI;
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "MBOX", info->mp_num, info->umd_chan)) return;
+
+	info->umd_lock[0] = ChannelLock::TakeLock("MBOX", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_mbox_goodput_tun_demo;
 

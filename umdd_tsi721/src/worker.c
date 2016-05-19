@@ -74,7 +74,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef USER_MODE_DRIVER
 #include "dmachanshm.h"
-#include "lockfile.h"
+#include "chanlock.h"
 #endif
 
 #ifdef __cplusplus
@@ -464,30 +464,6 @@ void UMD_Test(const struct worker* wkr)
 {
 }
 
-/** \brief Lock other processes out of this UMD module/channel
- * \note Due to POSIX locking semantics this has no effect on the current process
- * \note Using the same channel twice in this process will NOT be prevented
- * \parm[out] info info->umd_lock will be populated on success
- * \param[in] module DMA or Mbox, ASCII string
- * \param instance Channel number
- * \return true if lock was acquited, false if somebody else is using it
- */
-bool TakeLock(struct worker* info, const char* module, const int mport, const int instance)
-{
-        if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
-
-        char lock_name[81] = {0};
-        snprintf(lock_name, 80, "/var/lock/UMD-%s-%d:%d..LCK", module, mport, instance);
-        try {
-                info->umd_lock = new LockFile(lock_name);
-        } catch(std::runtime_error ex) {
-                CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
-                return false;
-        }
-        // NOT catching std::logic_error
-        return true;
-}
-
 /** \brief Check that the UMD worker and FIFO threads are not stuck to the same (isolcpu) core
  */
 bool umd_check_cpu_allocation(struct worker *info)
@@ -512,7 +488,8 @@ void umd_shm_goodput_demo(struct worker *info)
 	bool fifo_unwork_ACK = false;
 
 	if (! umd_check_cpu_allocation(info)) return;
-        if (! TakeLock(info, "DMA", info->mp_num, info->umd_chan)) return;
+
+        info->umd_lock = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_shm_goodput_demo;
 
@@ -589,16 +566,17 @@ void umd_shm_goodput_demo(struct worker *info)
                 } // END for WorkItem_t vector
 
 	next:
-                if (!cnt) clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
-                else      info->iter_end_time = info->fifo_work_time;
+                clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
+                //if (!cnt) clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
+                //else      info->iter_end_time = info->fifo_work_time;
 
 		char check_abort = 0;
 		do {
 			if (info->umd_dch->queueFull()) { check_abort = 'F'; break; }
 
-			struct timespec dT = time_difference(info->iter_end_time, info->iter_st_time);
+			struct timespec dT = time_difference(info->iter_st_time, info->iter_end_time);
 			const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
-			if (nsec > 10 * 1000000) { // Every 10 ms
+			if (nsec > 100 * 1000000) { // Every 100 ms
 				info->iter_st_time = info->iter_end_time;
 				check_abort = 'T';
 				break;
@@ -607,7 +585,7 @@ void umd_shm_goodput_demo(struct worker *info)
 			if (cnt) break;
 			if (fifo_unwork_ACK) break; // No sense polling PCIe sensessly
 
-			struct timespec dT_FIFO = time_difference(info->iter_end_time, info->fifo_work_time);
+			struct timespec dT_FIFO = time_difference(info->fifo_work_time, info->iter_end_time);
 			const uint64_t nsec_FIFO = dT_FIFO.tv_nsec + (dT_FIFO.tv_sec * 1000000000);
 			if (nsec_FIFO > 1000 * 1000) { // Nothing popped in FIFO in the last 1000 microsec
 				fifo_unwork_ACK = true;
@@ -618,10 +596,11 @@ void umd_shm_goodput_demo(struct worker *info)
 
 		if (check_abort)
 			info->check_abort_stats[check_abort]++;
-//check_abort=0;
 
 		if (check_abort && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) {
-			CRIT("\n\tDMA abort 0x%x: %s. SOFT RESTART\n", info->umd_dma_abort_reason,
+			CRIT("\n\tDMA abort {%c} 0x%x: %s. SOFT RESTART\n",
+			     check_abort,
+			     info->umd_dma_abort_reason,
 			     DMAChannelSHM::abortReasonToStr(info->umd_dma_abort_reason));
 			info->umd_dch->softRestart(true);
 		}

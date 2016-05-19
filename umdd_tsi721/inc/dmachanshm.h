@@ -49,6 +49,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mport.h"
 #include "pshm.h"
 #include "dmadesc.h"
+#include "dmashmpdata.h"
 #include "rdtsc.h"
 #include "debug.h"
 #include "libtime_utils.h"
@@ -61,10 +62,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #ifdef RDMA_LL
-  #define XDBG		DBG
-  #define XINFO		INFO
-  #define XCRIT		CRIT
-  #define XERR		ERR
+  #define XDBG    DBG
+  #define XINFO   INFO
+  #define XCRIT   CRIT
+  #define XERR    ERR
 #else
   #define XDBG(format, ...) 
   #define XINFO(format, ...) 
@@ -84,7 +85,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
-class DMAChannelSHM {
+class DMAChannelSHM : public DMAShmPendingData {
 public:
   static const int DMA_MAX_CHAN = 8;
 
@@ -92,12 +93,6 @@ public:
 
   static const int DMA_SHM_MAX_CLIENTS = 64;
   static const int DMA_SHM_MAX_ITEMS_PER_CLIENT = 1024;
-
-
-  /** \brief Track in-flight pending bytes for all channels. This lives in SHM. */
-  typedef struct {
-    volatile uint64_t data[DMA_MAX_CHAN];
-  } DmaShmPendingData_t;
 
   enum {
     SIM_INJECT_TIMEOUT = 1,
@@ -204,8 +199,7 @@ public:
   }
   inline bool queueDmaOpT2(enum dma_rtype  rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
-    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16))
-	return false;
+    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16)) return false;
   
     RioMport::DmaMem_t lmem; memset(&lmem, 0, sizeof(lmem));
   
@@ -410,6 +404,8 @@ public:
   /** \brief Returns the number of BDs submitted to DMA engine */
   inline uint32_t getWP() { return m_state->dma_wr; }
 
+  static bool has_state(const uint32_t mport_id, const uint32_t chan);
+
 private:
   int umdemo_must_die;
   uint64_t            MHz;
@@ -433,10 +429,6 @@ private:
 
   POSIXShm*           m_shm_bl;
   char                m_shm_bl_name[129];
-
-  POSIXShm*           m_shm_pendingdata;
-  char                m_shm_pendingdata_name[129];
-  DmaShmPendingData_t*m_pendingdata_tally;
 
   // These two live in m_shm_bl back-to-back
   bool*               m_bl_busy;
@@ -551,14 +543,14 @@ private:
     uint64_t ns = 0;
 
     if (m_pendingdata_tally != NULL) {
-	uint64_t max_data = m_pendingdata_tally->data[m_state->chan];
+      uint64_t max_data = m_pendingdata_tally->data[m_state->chan];
       for(int i = 1 /*Kern uses 0 for maint*/; i < DMA_MAX_CHAN; i++) {
-	if (m_pendingdata_tally->data[i] < max_data)
-		ns += m_pendingdata_tally->data[i];
-	else
-		ns += max_data;
-	};
-	ns = ns/2;
+        if (m_pendingdata_tally->data[i] < max_data)
+          ns += m_pendingdata_tally->data[i];
+        else
+          ns += max_data;
+      }
+      ns = ns/2;
     } else { // Fall back to information at hand
       switch(opt.rtype) {
         case NREAD:         ns = opt.bcount; break;
@@ -602,7 +594,7 @@ public:
     
     total = 0;
     for(int i = 0; i < DMA_MAX_CHAN; i++)
-	total += (per_client.data[i] < max_mem)?per_client.data[i]:max_mem;
+      total += (per_client.data[i] < max_mem)?per_client.data[i]:max_mem;
   }
 
   /** \brief Crude Seventh Edition-style check for SHM Master liveliness */
@@ -656,7 +648,7 @@ public:
 
   inline void trace_dmachan(uint32_t offset, uint32_t val)
   {
-	wr32dmachan_nolock(offset, val);
+    wr32dmachan_nolock(offset, val);
   };
 };
 
@@ -685,6 +677,10 @@ int DMAChannelSHM_queueDmaOpT1(void* dch, enum dma_rtype rtype, DMAChannelSHM::D
 int DMAChannelSHM_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannelSHM::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
 
 void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client);
+
+bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel);
+
+bool DMAChannelSHM_has_logging();
 
 #ifdef __cplusplus
 }; // END extern "C"

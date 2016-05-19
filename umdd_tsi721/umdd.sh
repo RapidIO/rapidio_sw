@@ -39,4 +39,6 @@ awk -f umddconf.awk $conf > $RC
 # SHM is a harsh mistress. Cleanup first.
 rm -f /dev/shm/s[eh]m.DMAChannelSHM* &>/dev/null
 
-$dir/umdd 0 --rc "$RC" $@
+GDB='';
+[ "$1" = "-g" ] && GDB='gdb --args';
+$GDB $dir/umdd 0 --rc "$RC" $@
