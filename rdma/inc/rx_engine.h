@@ -127,10 +127,8 @@ void *rx_worker_thread_f(void *arg)
 	T* client 			    = wti->client;
 	bool *is_dead			    = wti->is_dead;
 	bool *worker_is_dead		    = wti->worker_is_dead;
-	sem_t *notify_list_sem   	    = wti->notify_list_sem;
 	vector<notify_param> 	*notify_list= wti->notify_list;
 	msg_processor<T, M> &message_processor = wti->message_processor;
-	tx_engine<T, M>		*tx_eng	    = wti->tx_eng;
 
 	M	*msg = NULL;
 	client->get_recv_buffer((void **)&msg);
@@ -190,7 +188,7 @@ void *rx_worker_thread_f(void *arg)
 					continue;
 				/* If there is a notification set for the
 				 * message then act on it. */
-				sem_wait(notify_list_sem);
+				sem_wait(wti->notify_list_sem);
 				auto it = find(begin(*notify_list),
 						end(*notify_list),
 						notify_param(msg->type,
@@ -220,10 +218,10 @@ void *rx_worker_thread_f(void *arg)
 							msg->type,
 							msg->seq_no);
 				}
-				sem_post(notify_list_sem);
+				sem_post(wti->notify_list_sem);
 			} else if (msg->category == RDMA_REQ_RESP) {
 				/* Process request/resp by forwarding to message processor */
-				rc = message_processor.process_msg(msg, tx_eng);
+				rc = message_processor.process_msg(msg, wti->tx_eng);
 				if (rc) {
 					ERR("'%s': Failed to process message, rc = 0x%X\n",
 									name.c_str(), rc);
@@ -242,7 +240,7 @@ void *rx_worker_thread_f(void *arg)
 
 	*worker_is_dead = true;
 	*is_dead = true;
-	tx_eng->set_isdead();	// Kill corresponding tx_engine too
+	wti->tx_eng->set_isdead();	// Kill corresponding tx_engine too
 	sem_post(wti->engine_cleanup_sem);
 	DBG("'%s': Exiting %s\n", name.c_str(), __func__);
 	pthread_exit(0);
@@ -325,10 +323,16 @@ public:
 
 		// Just in case there is a junk pointer to this object after destruction
 	
-		tx_eng = NULL;
 		engine_cleanup_sem = NULL;
 		wti->engine_cleanup_sem = NULL;
+
+		wti->notify_list_sem	= NULL;
+
+		tx_eng = NULL;
+		wti->tx_eng		= NULL;
+
 		wti.reset();
+
 		sem_destroy(&notify_list_sem);
 	} /* dtor */
 

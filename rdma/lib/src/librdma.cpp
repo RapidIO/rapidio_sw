@@ -332,6 +332,7 @@ static int open_mport(void)
 		} else {
 			CRIT("DMA capability DISABLED");
 			riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
+			memset(&peer.mport_hnd, 0, sizeof(peer.mport_hnd));
 			return RDMA_NOT_SUPPORTED;
 		}
 		peer.destid = prop.hdid;

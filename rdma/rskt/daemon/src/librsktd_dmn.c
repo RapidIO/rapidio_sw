@@ -306,12 +306,14 @@ int cleanup_dmn(void)
 	if (dmn.mb_valid) {
 		dmn.mb_valid = 0;
 		rc = riomp_sock_mbox_destroy_handle(&dmn.mb);
+		memset(&dmn.mb, 0, sizeof(dmn.mb));
 		if (rc)
 			CRIT("speer_conn: riodp_mbox_shutdown ERR: %d\n", rc);
 	};
 
 	if (dmn.mp_hnd) {
-				riomp_mgmt_mport_destroy_handle(&dmn.mp_hnd);
+		riomp_mgmt_mport_destroy_handle(&dmn.mp_hnd);
+		memset(&dmn.mp_hnd, 0, sizeof(dmn.mp_hnd));
                 dmn.mp_hnd = 0;
         };
 
