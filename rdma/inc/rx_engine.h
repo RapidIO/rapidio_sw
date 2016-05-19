@@ -126,7 +126,6 @@ void *rx_worker_thread_f(void *arg)
 	vector<M> 	*message_queue 	    = wti->message_queue;
 	T* client 			    = wti->client;
 	bool *is_dead			    = wti->is_dead;
-	sem_t		*engine_cleanup_sem = wti->engine_cleanup_sem;
 	bool *worker_is_dead		    = wti->worker_is_dead;
 	sem_t *notify_list_sem   	    = wti->notify_list_sem;
 	vector<notify_param> 	*notify_list= wti->notify_list;
@@ -239,11 +238,12 @@ void *rx_worker_thread_f(void *arg)
 				abort();
 			}
 		}
-	}
+	} // END while(1)
+
 	*worker_is_dead = true;
 	*is_dead = true;
 	tx_eng->set_isdead();	// Kill corresponding tx_engine too
-	sem_post(engine_cleanup_sem);
+	sem_post(wti->engine_cleanup_sem);
 	DBG("'%s': Exiting %s\n", name.c_str(), __func__);
 	pthread_exit(0);
 }
@@ -327,6 +327,7 @@ public:
 	
 		tx_eng = NULL;
 		engine_cleanup_sem = NULL;
+		wti->engine_cleanup_sem = NULL;
 		wti.reset();
 		sem_destroy(&notify_list_sem);
 	} /* dtor */
