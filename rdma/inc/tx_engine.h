@@ -88,16 +88,14 @@ void *tx_worker_thread_f(void *arg)
 	queue<unique_ptr<M>> *message_queue = wti->message_queue;
 	T* client 			    = wti->client;
 	bool *is_dead			    = wti->is_dead;
-	sem_t		*engine_cleanup_sem = wti->engine_cleanup_sem;
 	bool *worker_is_dead		    = wti->worker_is_dead;
-	sem_t 	    *messages_waiting_sem   = wti->messages_waiting_sem;
 
 	DBG("'%s': Started tx_worker_thread_f\n", name.c_str());
 
 	while(1) {
 		/* Wait until a message is enqueued for transmission or the
 		 * destructor posts the semaphore to terminate the thread */
-		sem_wait(messages_waiting_sem);
+		sem_wait(wti->messages_waiting_sem);
 
 		/* This happens when we are trying to exit the thread
 		 * from the destructor: stop_worker_thread is set to true
@@ -121,7 +119,7 @@ void *tx_worker_thread_f(void *arg)
 			ERR("'%s': Failed to send, rc = %d: %s\n",
 					name.c_str(), rc, strerror(errno));
 			*is_dead = true;
-			sem_post(engine_cleanup_sem);
+			sem_post(wti->engine_cleanup_sem);
 			break;
 		} else {
 			/* Remove message from queue */
@@ -200,6 +198,18 @@ public:
 						name.c_str(), strerror(errno));
 			}
 		}
+
+                // Just in case there is a junk pointer to this object after destruction
+		rx_eng = NULL;
+
+                engine_cleanup_sem = NULL;
+                wti->engine_cleanup_sem = NULL;
+
+                wti->messages_waiting_sem = NULL;
+
+                wti.reset();
+
+                sem_destroy(&messages_waiting_sem);
 	} /* dtor */
 
 	bool isdead() const { return is_dead; }
@@ -237,7 +247,7 @@ protected:
 	bool		stop_worker_thread;
 	bool		worker_is_dead;
 	bool		is_dead;
-	sem_t		*engine_cleanup_sem;
+	volatile sem_t	*engine_cleanup_sem;
 }; /* tx_engine */
 
 #endif
