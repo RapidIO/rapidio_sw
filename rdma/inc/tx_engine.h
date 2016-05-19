@@ -203,11 +203,12 @@ public:
 
                 // Just in case there is a junk pointer to this object after destruction
 		rx_eng = NULL;
-
                 engine_cleanup_sem = NULL;
-                wti->engine_cleanup_sem = NULL;
 
-                wti->messages_waiting_sem = NULL;
+		if (wti.get() != NULL) {
+			wti->engine_cleanup_sem = NULL;
+			wti->messages_waiting_sem = NULL;
+		}
 
                 wti.reset();
 

@@ -325,13 +325,13 @@ public:
 
 		// Just in case there is a junk pointer to this object after destruction
 	
-		engine_cleanup_sem = NULL;
-		wti->engine_cleanup_sem = NULL;
-
-		wti->notify_list_sem	= NULL;
-
 		tx_eng = NULL;
-		wti->tx_eng		= NULL;
+		engine_cleanup_sem = NULL;
+		if (wti.get() != NULL) {
+			wti->engine_cleanup_sem = NULL;
+			wti->notify_list_sem	= NULL;
+			wti->tx_eng		= NULL;
+		}
 
 		wti.reset();
 
