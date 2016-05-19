@@ -757,6 +757,7 @@ WARN_LOGFILE           =
 
 INPUT                  = docs_mainpage.dox include common/include \
 			common/libmport/samples \
+			memops/samples/memops_demo.cc \
 			umd_tsi721/test/mbox_example.c \
 			utils/goodput/inc/goodput_intro.h
 

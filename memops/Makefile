@@ -38,7 +38,7 @@ INCLUDES = -Iinc -I$(TOPDIR)/include -I$(COMMONINC) -I$(UMDINCDIR) -I$(UMDDINCDI
 
 SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memops_umdd.cc src/memops_umd.cc src/dmachanmgr.cc
 
-all: libmemops_intf.so libmemops_intf.a memops_test memops_test_log
+all: libmemops_intf.so libmemops_intf.a memops_demo memops_demo_log
 
 LFLAGS = -std=gnu++0x -DDMACHAN_TICKETED $(OPTFLAGS)
 
@@ -53,15 +53,15 @@ libmemops_intf.so: $(SOURCES)
 		-Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
-memops_test: $(SOURCES) libmemops_intf.a src/memops_test.cc
-	$(CXX) $(LFLAGS) src/memops_test.cc \
+memops_demo: $(SOURCES) libmemops_intf.a samples/memops_demo.cc
+	$(CXX) $(LFLAGS) samples/memops_demo.cc \
 		$(INCLUDES) \
 		-lpthread -lrt -ldl \
 		-L$(COMMONLIB) $(LIBS_RPATH) -L. -Wl,-rpath=. \
 		-ltime_utils -lmport -L$(COMMONLIBA) -lmemops_intf -o $@
 
-memops_test_log: $(SOURCES) libmemops_intf.a src/memops_test.cc
-	$(CXX) $(LFLAGS) src/memops_test.cc \
+memops_demo_log: $(SOURCES) libmemops_intf.a samples/memops_demo.cc
+	$(CXX) $(LFLAGS) samples/memops_demo.cc \
 		$(INCLUDES) \
 		-DRDMA_LL=$(LOG_LEVEL) \
 		-lpthread -lrt -ldl \
@@ -69,4 +69,4 @@ memops_test_log: $(SOURCES) libmemops_intf.a src/memops_test.cc
 		-ltime_utils -lmport -lcli -llog -L$(COMMONLIBA) libmemops_intf.a -lumd_tsi721_tik -o $@
 
 clean:
-	rm -f *.[ao] *.so* a.out memops_test*
+	rm -f *.[ao] *.so* a.out memops_demo*

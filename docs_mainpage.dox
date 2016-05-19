@@ -28,8 +28,21 @@
  *   messaging to coordinate DMA transfers between multiple clients and
  *   servers.
  *
- * Public interfaces are found in rapidio_sw/include.  The libraries associated
- * with the interfaces are found in rapidio_sw/include/libs_a.
+ * Public interfaces are found in rapidio_sw/include:
+ * - libfmdd.h : Interfaces for the fabric management daemon.  Use these to
+ *               confirm what nodes are available in the system, and what
+ *               facilities (Remote Memory Access, RMA Sockets) are available
+ *               on each node.
+ * - librdma.h : Interfaces for Remote Memory Access
+ * - rdma_types.h : Type definitions for librdma.h
+ * - librskt.h : RMA Sockets implementation of socket-style (stream of bytes)
+ *               transfers.
+ * - mboxmgr_tsi721.h : Tsi721 User mode driver for dedicated messaging
+ *                      resources.
+ *
+ * Precompiled libraries associated with the interfaces are found in:
+ * - Static linking: /opts/rapidio/rapidio_sw/include/libs_a 
+ * - Shared library: /opts/rapidio/include/libs_so
  * Applications may use
  * these interfaces to incorporate the RRMAP capabilities listed above.
  *
@@ -46,6 +59,8 @@
  * - ssh been configured to allow root access to all four nodes      
  * - The 'screen' utility has been installed on all four nodes
  * - The 'doxygen' utility has been installed on all four nodes
+ * - The 'gcc-c++' package has been installed on all four nodes.
+ *   Requires version 4.7 or later.
  *
  * Installation is a two step process:
  * -# Unpack the RapidIO software on any of the four nodes.
