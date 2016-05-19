@@ -255,7 +255,7 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 	sem_init(&cons_owner, 0, 0);
 	pass_sock_num = (int *)(malloc(sizeof(int)));
 	pass_poll_interval = (int *)(malloc(2*sizeof(int)));
-	pass_cons_ret = (int *)(malloc(sizeof(int)));
+	pass_cons_ret = (int *)(malloc(sizeof(int))); /// \todo MEMLEAK
 	*pass_sock_num = cfg->cli_port_num;
 	pass_poll_interval[0] = cfg->mast_interval;
 	pass_poll_interval[1] = cfg->run_cons;

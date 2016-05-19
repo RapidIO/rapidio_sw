@@ -385,7 +385,7 @@ int main(int argc, char *argv[])
 		pthread_t *pt;
 	
 		parm = (int *)malloc(sizeof(int));
-		pt = (pthread_t *)malloc(sizeof(pthread_t));
+		pt = (pthread_t *)malloc(sizeof(pthread_t)); /// \todo MEMLEAK: track and free
 		*parm = i;
         	ret = pthread_create(pt, NULL, parallel_client, (void *)(parm));
         	if (ret) {
