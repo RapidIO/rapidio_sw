@@ -73,7 +73,8 @@ public:
    * \note Due to POSIX locking semantics it has no effect on the current process
    * \note Using the same channel twice in this process will be prevented via singleton registry apparatus
    * \param[in] module DMA or Mbox, ASCII string
-   * \param instance Channel number
+   * \param[in] mport index of /sys/bus/rapidio/devices/rio_mportX sysfs file
+   * \param[in] instance Channel number
    * \return a pointer to LockFile, will throw std::runtime_error on error
    */
   static inline LockChannel* TakeLock(const char* module, const uint32_t mport,  const uint32_t instance)

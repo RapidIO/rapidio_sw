@@ -44,7 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /** \brief Wrapper class for Mport CM sockets
  * \note CM stands for Channelised Messagings
- * \note Unlike BSD sockets the CM cariety does not support select
+ * \note Unlike BSD sockets the CM variety does not support select
  * \note CM sockets have no flow control so high thruput cannot be expected.
  * \note read can be used in polling mode with a short timeout
  */
@@ -52,6 +52,14 @@ class MportCMSocket {
   static const int CM_FUDGE_OFFSET = 20;
 
 public:
+	/** \brief Create a mailbox (handle) for sending and receiving messages
+	 *
+	 * @param[in] mport_id : Index of /devs/rio_mportX device to use.  For a list
+	 *					of available mports, use mportmgmt.h::get_mport_list.
+	 * @param[in] mbox: Not used.
+	 *
+	 * @return MportCMSocket handle on success, NULL on failure.
+	 */
   MportCMSocket(int mport_id, int mbox) : 
     m_mportid(mport_id), m_mboxid(mbox)
   {
@@ -71,6 +79,7 @@ public:
   }
   ~MportCMSocket() { this->close(); riomp_sock_mbox_destroy_handle(&m_mbox); };
 
+  /** \brief bind socket handle to a particular local channelized messaging port */
   inline int bind(uint16_t lport) {
     if (!m_open) return -(errno=EINVAL);
     if (m_connected) return -(errno=EISCONN);
@@ -79,12 +88,14 @@ public:
     return rc;
   }
 
+  /** \brief Set bound socket to listen to connect() requests from other nodes */
   inline int listen() {
     if (!m_open) return -(errno=EINVAL);
     if (m_connected) return -(errno=EISCONN);
     return riomp_sock_listen(m_sock);
   }
 
+  /** Block waiting for a remote connect request, or a timeout */
   inline int accept(MportCMSocket*& clisock /*out*/, uint32_t timeout = 0) {
     if (!m_open) return -(errno=EINVAL);
     if (!m_bound) return -(errno=EINVAL);
@@ -97,6 +108,13 @@ public:
     return 0;
   }
 
+  /** \brief Connect to a remote channelized messaging socket.
+   * 
+   * param[in] ddestid 8 bit device ID hosting the remote socket
+   * param[in] dmbox Not used.
+   * param[in] dport Must be the same value used by the remote bind() call.
+   *
+   */
   inline int connect(uint16_t ddestid, uint16_t dmbox, uint16_t dport) {
     if (!m_open) return -(errno=EINVAL);
     if (m_connected) return -(errno=EISCONN);
@@ -105,7 +123,16 @@ public:
     return rc;
   }
 
-  /** \note Unlike the libc counterpart this returns 0 on success, errno on error */
+  /** \brief Send data to a connected channelized messaging socket.
+   * @param[in] data Pointer to data to be sent.
+   * @param[in] data_len Number of bytes to be sent.  Maximum 4076 bytes.
+   *
+   * returns int Indication of success or failure.  write() always sends all bytes.
+   * return 0 Success, message sent.
+   * return !0 Failure, check errno for reason.
+   *
+   * \note Unlike the libc counterpart this returns 0 on success, errno on error
+   */
   inline int write(const void* data, const int data_len) {
     if (data == NULL)
       throw std::runtime_error("MportCMSocket::write: NULL data!");
@@ -117,7 +144,19 @@ public:
     return riomp_sock_send(m_sock, (void*)buffer, data_len + CM_FUDGE_OFFSET);
   }
 
-  /** \note Unlike the libc counterpart this returns 0 on success, errno on error */
+  /** \brief Receive data from a connected channelized messaging socket.
+  * @param[in] data_in Pointer to data to be sent.
+  * @param[in] data_max_len Maximum number of bytes that can be received.
+  *			Will never receive more than 4KB (4096 bytes).
+  * @param[in] timeout Number of seconds to wait for data.
+  *
+  * returns int Indication of success or failure.  write() always sends all bytes.
+  * return 0 Success, message sent.
+  * return !0 Failure, check errno for reason.
+  *
+  * \note Unlike the libc counterpart this returns 0 on success, errno on error.
+  * An implication is that the message format must include the message size.
+  */
   inline int read(void* data_in, const int data_max_len, uint32_t timeout = 0) {
     if (data_in == NULL)
       throw std::runtime_error("MportCMSocket::read: NULL data!");
@@ -131,6 +170,15 @@ public:
     memcpy(data_in, buffer+CM_FUDGE_OFFSET, data_max_len);
     return 0;
   }
+
+  /** \brief Close connected/bound/listening/accepting socket.  This is an empty
+  * operation for sockets in other states.
+  *
+  * returns int Indication of success or failure.  write() always sends all bytes.
+  * return 0 Success, message sent.
+  * return !0 Failure, check errno for reason.
+  *
+  */
 
   inline int close() {
     if (!m_open) return -(errno=ENOTCONN);

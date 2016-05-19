@@ -62,6 +62,9 @@ endif
 ifeq ($(DEBUG), y)
  OPTFLAGS = -ggdb -O0
 endif
+ifeq ($(DEBUG), yes)
+ OPTFLAGS = -ggdb -O0
+endif
 
 SOVER?=0.4
 

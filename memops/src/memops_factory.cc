@@ -42,7 +42,7 @@ RIOMemOpsIntf* RIOMemOps_classFactory(const MEMOPSAccess_t type, const int mport
 
   switch (type) {
     case MEMOPS_MPORT: return new RIOMemOpsMport(mport); break;
-    case MEMOPS_UMDD: if (channel < 2 || channel > 7) // Chan 0 used by kern
+    case MEMOPS_UMDD: if (channel < 0 || channel > 6) // Chan 7 used by kern
                       throw std::runtime_error("RIOMemOps_classFactory: Invalid channel!");
                     return new RIOMemOpsUMDd(mport, channel);
                     break;

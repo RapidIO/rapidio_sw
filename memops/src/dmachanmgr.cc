@@ -1,4 +1,5 @@
 #include <pthread.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 
@@ -6,17 +7,55 @@
 #include "memops.h"
 #include "dmachanshm.h"
 
+/**
+ * \verbatim
+In /sys/module/tsi721_mport/parameters/
+
+- 'dma_sel' - DMA channel selection mask. Bitmask that defines which hardware
+        DMA channels (0 ... 6) will be registered with DmaEngine core.
+        If bit is set to 1, the corresponding DMA channel will be registered.
+        DMA channels not selected by this mask will not be used by this device
+        driver. Default value is 0x7f (use all channels).
+
+
+- 'mbox_sel' - RIO messaging MBOX selection mask. This is a bitmask that defines
+        messaging MBOXes are managed by this device driver. Mask bits 0 - 3
+        correspond to MBOX0 - MBOX3. MBOX is under driver's control if the
+        corresponding bit is set to '1'. Default value is 0x0f (= all).
+\endverbatim
+ */
+
 /** \brief Tsi721 DMA channel availability bitmask vs kernel driver.
- * \note The kernel uses channel 0. ALWAYS
+ * \note The kernel uses channel 7. ALWAYS
  * \note The kernel SHOULD publish this [exclusion bitmask] using a sysfs interface.
  * \note WARNING Absent sysfs exclusion bitmask we can ony make educated guesses about what DMA channel the kernel is NOT using.
  */
-static uint8_t DMA_CHAN_MASK = 0xFE;
+#define DMA_CHAN_MASK_DEFAULT 0x7F
 
-static bool check_chan_mask(int chan)
+static inline uint8_t DmaChanMask()
+{
+  char buf[257] = {0};
+  uint32_t ret = DMA_CHAN_MASK_DEFAULT;
+
+  FILE* fp = fopen("/sys/module/tsi721_mport/parameters/dma_sel", "r");
+  if (fp == NULL) goto done;
+  fgets(buf, 256, fp);
+  fclose(fp);
+
+  if (buf[0] != '\0') {
+    if (sscanf(buf, "%x", &ret) != 1) goto done;
+    ret &= 0xFF;
+    ret = ~ret;
+  }
+
+done:
+  return (ret & 0xFF);
+}
+
+static inline bool check_chan_mask_dma(int chan)
 {
   const int chanb = 1 << chan;
-  return (chanb & DMA_CHAN_MASK) == chanb;
+  return (chanb & DmaChanMask()) == chanb;
 }
 
 RIOMemOpsIntf* RIOMemOpsChanMgr(uint32_t mport_id, bool shared, int channel)
@@ -28,10 +67,10 @@ RIOMemOpsIntf* RIOMemOpsChanMgr(uint32_t mport_id, bool shared, int channel)
   if (shared && channel == ANY_CHANNEL)
     return RIOMemOps_classFactory(MEMOPS_MPORT, mport_id, channel);
 
-  if (!check_chan_mask(channel))
+  if (!check_chan_mask_dma(channel))
     throw std::runtime_error("RIOMemOpsChanMgr: Channel is in use by kernel!");
 
-  if (channel < 1 || channel > 7) 
+  if (channel < 0 || channel > 6) 
     throw std::runtime_error("RIOMemOpsChanMgr: Invalid channel!");
 
 // UMD monolithic

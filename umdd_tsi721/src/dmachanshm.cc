@@ -123,7 +123,7 @@ void DMAChannelSHM::init(const uint32_t chan)
 {
   umdemo_must_die = 0;
 
-  if (chan == 0 || chan >= DMA_MAX_CHAN) { // DMA CHAN 0 reserved by kernel for main writes
+  if (chan == 7 || chan >= DMA_MAX_CHAN) { // DMA CHAN 7 reserved by kernel for main writes
     static char tmp[67] = {0};
     snprintf(tmp, 128, "DMAChannelSHM: Init called with invalid channel %u\n", chan);
     throw std::runtime_error(tmp);
