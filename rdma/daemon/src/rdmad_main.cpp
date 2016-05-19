@@ -277,6 +277,7 @@ void shutdown()
 	if (peer.mport_hnd != 0) {
 		INFO("Closing mport\n");
 		riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
+		memset(&peer.mport_hnd, 0, sizeof(peer.mport_hnd));
 	}
 	INFO("Mport %d closed\n", peer.mport_id);
 	app_conn_server.reset();
@@ -539,6 +540,7 @@ int main (int argc, char **argv)
 
 		case OUT_CLOSE_PORT:
 			riomp_mgmt_mport_destroy_handle(&peer.mport_hnd);
+			memset(&peer.mport_hnd, 0, sizeof(peer.mport_hnd));
 
 		case OUT_KILL_CONSOLE_THREAD:
 			pthread_kill(console_thread, SIGUSR1);

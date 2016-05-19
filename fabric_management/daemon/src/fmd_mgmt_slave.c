@@ -342,6 +342,7 @@ void cleanup_slave(void)
 
 	if (slv->mb_valid) {
 		riomp_sock_mbox_destroy_handle(&slv->mb);
+		memset(&slv->mb, 0, sizeof(slv->mb));
 		slv->mb_valid = 0;
 	};
 };
