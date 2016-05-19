@@ -283,10 +283,10 @@ void shutdown()
 	app_conn_server.reset();
 
 	sem_destroy(unix_engine_cleanup_sem);
-	unix_engine_cleanup_sem = NULL;
+	free(unix_engine_cleanup_sem); unix_engine_cleanup_sem = NULL;
 
 	sem_destroy(cm_engine_cleanup_sem);
-	cm_engine_cleanup_sem = NULL;
+	free(cm_engine_cleanup_sem); cm_engine_cleanup_sem = NULL;
 
 	rdma_log_close();
 
