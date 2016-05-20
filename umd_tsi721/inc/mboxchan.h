@@ -207,7 +207,8 @@ public:
   }
   inline bool queueTxFull()
   {
-    return m_omsg_trk.bltx_busy_size >= (m_num_ob_desc - 1); // Ignore D5 as it pops up very fast
+	// Ignore D5 as it pops up very fast
+    return (uint32_t)(m_omsg_trk.bltx_busy_size) >= (m_num_ob_desc - 1); 
   }
 
   inline int queueTxSize()

@@ -161,7 +161,7 @@ uint16_t destid = 0xFFFF; /** Destid of the the server */
 int socket_number = RSKT_DEFAULT_SOCKET_NUMBER;  /** rskt_server socket number */
 unsigned tx_test = 0; /** 0 - send constant data, 1 - vary transmit data length
 			*/
-unsigned data_length = 512;	/** Length of data if tx_test is 0 */
+int data_length = 512;	/** Length of data if tx_test is 0 */
 sem_t client_done;		/** Accounting for exiting client threads */
 int errorish_goodbye;	/** 0 if successful, 1 if an error was detected */
 
@@ -179,7 +179,8 @@ int errorish_goodbye;	/** 0 if successful, 1 if an error was detected */
  */
 void *parallel_client(void *parms)
 {
-	int i, j, rc;
+	unsigned i;
+	int rc, j;
 	uint8_t send_buf[RSKT_DEFAULT_SEND_BUF_SIZE];
 	uint8_t recv_buf[RSKT_DEFAULT_RECV_BUF_SIZE];
 	int *client_num = (int *)parms;
@@ -310,7 +311,7 @@ int main(int argc, char *argv[])
 
 	time_t	cur_time;
 	char	asc_time[26];
-	int parallel = 1;
+	unsigned parallel = 1;
 
 	unsigned i;
 	int rc = 0;

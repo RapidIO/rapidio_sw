@@ -151,7 +151,8 @@ void DMAChannel::resetHw()
     wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_SUSP);
 
     for(int i = 0; i < 1000; i++) {
-      if(! rd32dmachan(TSI721_DMAC_CTL) & TSI721_DMAC_CTL_SUSP) break;
+      if(!(rd32dmachan(TSI721_DMAC_CTL) & TSI721_DMAC_CTL_SUSP))
+	 break;
     }
   }
 
@@ -257,7 +258,7 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
     return false;
 
   struct hw_dma_desc* bd_hw = NULL;
-  int bd_idx = m_dma_wr % m_bd_num;
+  uint32_t bd_idx = m_dma_wr % m_bd_num;
   {{
     // If at end of buffer, account for T3 and
     // wrap around to beginning of buffer.
@@ -631,7 +632,7 @@ static inline bool hexdump64bit(const void* p, int len)
   uint64_t* q = (uint64_t*)p; len /= 8;
   for(int i=0; i<len; i++) {
     if(! q[i]) continue;
-    snprintf(tmp, 256, " 0x%04x/%d(d) = 0x%llx\n", i, i, q[i]); ss << tmp;
+    snprintf(tmp, 256, " 0x%04x/%d(d) = 0x%lx\n", i, i, q[i]); ss << tmp;
     empty = false;
   }
   if(empty) return false;
@@ -709,11 +710,11 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     if(compl_hwbuf[ci].valid != COMPL_SIG) {
       pthread_spin_unlock(&m_pending_work_splock);
 
-      const int idx = (compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE; 
 
       XERR("\n\tFound INVALID completion item for BD HW @0x%lx bd_idx=%d FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
           compl_hwbuf[ci].win_handle,
-          idx,
+      	  (compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) /
+							DMA_BUFF_DESCR_SIZE, 
           compl_hwbuf[ci].fifo_offset,
           getFIFOReadCount(), getFIFOWriteCount());
       continue;
@@ -731,7 +732,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     // This should be optimised by g++
     const int idx = (compl_hwbuf[ci].win_handle - m_dmadesc.win_handle) / DMA_BUFF_DESCR_SIZE; 
 
-    if(idx < 0 || idx >= m_bd_num) {
+    if(idx < 0 || (uint32_t)idx >= m_bd_num) {
       pthread_spin_unlock(&m_pending_work_splock);
 
       XERR("\n\tCan't find bd_idx=%d IN RANGE for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
@@ -797,7 +798,7 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     assert(m_bl_busy_size >= 0);
 
 #ifdef DMACHAN_TICKETED
-    if (item.opt.dtype == DTYPE3 || idx == (m_bd_num-1)) goto unlock;
+    if (item.opt.dtype == DTYPE3 || (uint32_t)idx == (m_bd_num-1)) goto unlock;
 
     {{
 
@@ -819,9 +820,9 @@ int DMAChannel::scanFIFO(WorkItem_t* completed_work, const int max_work)
     m_pending_tickets[item.bd_idx] = 0; // cancel ticket
 
     int k = 0;
-    int i = m_pending_tickets_RP % m_bd_num;
-    for (; P > 0 && k < m_bd_num; i++) {
-      assert(i < m_bd_num);
+    uint32_t i = m_pending_tickets_RP % m_bd_num;
+    for (; P > 0 && (uint32_t)k < m_bd_num; i++) {
+      assert(i < (uint32_t)m_bd_num);
       if (i == 0) continue; // T3 BD0 does not get a ticket
       if (i == (m_bd_num-1)) { i = 0; continue; } // T3 BD(bufc-1) does not get a ticket
       if (m_pending_tickets[i] > 0) break; // still in flight
@@ -857,6 +858,9 @@ void DMAChannel::softRestart(const bool nuke_bds)
   const uint64_t ts_s = rdtsc();
   m_restart_pending = 1;
 
+  if (0)
+	m_fifo_rd = ts_s;
+
   // Clear FIFO for good measure
   memset(m_dmacompl.win_ptr, 0, m_dmacompl.win_size);
   m_fifo_rd = 0;
@@ -864,7 +868,7 @@ void DMAChannel::softRestart(const bool nuke_bds)
 #ifdef DMACHAN_TICKETED
   if (nuke_bds) { // Declare ALL tickets toast
     pthread_spin_lock(&m_fault_splock);
-    for (int idx = 1; idx < (m_bd_num - 1); idx++) {
+    for (uint32_t idx = 1; idx < (m_bd_num - 1); idx++) {
       if (! m_bl_busy[idx]) continue;
 
       const uint64_t ticket = m_pending_work[idx].opt.ticket;
@@ -915,7 +919,6 @@ void DMAChannel::softRestart(const bool nuke_bds)
   wr32dmachan(TSI721_DMAC_DSSZ, m_sts_log_two);
 
   m_restart_pending = 0;
-  const uint64_t ts_e = rdtsc();
 
-  XINFO("dT = %llu TICKS\n", (ts_e - ts_s));
+  XINFO("dT = %llu TICKS\n", (rdtsc() - ts_s));
 }

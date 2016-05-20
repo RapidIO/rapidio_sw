@@ -217,7 +217,7 @@ bool setup_mailbox(struct worker *info)
 void format_tx_msg(struct worker *info, uint32_t seq)
 {
 	snprintf(info->tx_msg, MIN_MSG_SIZE, MSG_FORMAT, info->mch->getDestId(),
-		info->mbox, seq, info->msg_sz);
+		info->mbox, seq, (uint32_t)info->msg_sz);
 	memset(&info->tx_msg[MIN_MSG_SIZE], (char)seq, FOUR_KB_1-MIN_MSG_SIZE);
 };
 
@@ -236,7 +236,7 @@ void format_tx_msg(struct worker *info, uint32_t seq)
 
 bool  check_server_resp(struct worker *info) 
 {
-	uint8_t rx_did, rx_mbox;
+	int rx_did, rx_mbox;
 	uint32_t rx_seq, msg_sz;
 	int parms;
 	bool matched = true;
@@ -248,7 +248,7 @@ bool  check_server_resp(struct worker *info)
 					&rx_did, &rx_mbox, &rx_seq, &msg_sz);
 		if (4 != parms)
 			matched = false;
-		if (info->mch->getDestId() != rx_did)
+		if (info->mch->getDestId() != (uint32_t)rx_did)
 			matched = false;
 		if (info->mbox != rx_mbox)
 			matched = false;
@@ -386,7 +386,6 @@ bool recv_mbox_msg(struct worker *info)
 {
 	uint64_t rx_ts = 0;
 	int  rx_cnt = 0;
-	void *buf = NULL;
 
 	// Busy wait until at least one message is ready
 	while (!info->stop_req && !info->mch->inb_message_ready(rx_ts)) {
@@ -425,8 +424,6 @@ bool recv_mbox_msg(struct worker *info)
 
 void mbox_client(struct worker *info)
 {
-	uint64_t rx_ok = 0, tx_ok = 0;
-
 	/** - Initialize User Mode Driver Mailbox object */
 	if (setup_mailbox(info))
 		return;
@@ -440,10 +437,7 @@ void mbox_client(struct worker *info)
 
 	/** - Loop forever */
 	for (uint64_t cnt = 0; !info->stop_req; cnt++) {
-		bool q_full = false;
 		bool msg_1 = !cnt;
-		uint64_t dlay;
-		bool tx_ok;
 	/** - Format and send the next message in sequence. */
 
 		format_tx_msg(info, cnt + 1);
@@ -489,9 +483,7 @@ exit:
 
 void mbox_server(struct worker *info)
 {
-	uint64_t rx_ok = 0, tx_ok = 0, big_cnt = 0;
-
-	const int Q_THR = (2 * info->tx_buf_cnt) / 3;
+	uint64_t big_cnt = 0;
 
 	/** - Initialize User Mode Driver Mailbox object */
 	if (setup_mailbox(info))
@@ -500,8 +492,6 @@ void mbox_server(struct worker *info)
 	/** - Loop forever */
 	while (!info->stop_req) {
 		bool msg_1 = !big_cnt;
-		uint64_t dlay;
-		bool tx_ok;
 
 		info->q_full = false;
 		info->abort_reason = 0;
@@ -567,7 +557,7 @@ static void usage_and_exit()
  *
  */
 
-int parse_options(struct worker *info, int argc, char* argv[])
+void parse_options(struct worker *info, int argc, char* argv[])
 {
 	int c;
 	opterr = 0;
@@ -648,7 +638,7 @@ static void sig_handler_term(int signo)
 
 void sig_handler_usr1(int signo)
 {
-	printf("RX_CNT %d TX_CNT %d\n", info.rx_cnt, info.tx_cnt);
+	printf("RX_CNT %d TX_CNT %d\n", (int)info.rx_cnt, (int)info.tx_cnt);
 	fflush(stdout);
 };
 

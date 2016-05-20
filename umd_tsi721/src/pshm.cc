@@ -94,7 +94,8 @@ POSIXShm::POSIXShm(const char* name, const uint64_t size, bool& first_opener)
   if (m_shm_fd < 0) {
     if (EEXIST != errno) {
       static char shmerr[256] = {0}; // YUCK for throwing exceptions
-      snprintf(shmerr, sizeof(shmerr)-1, "POSIXShm: shm_open error: %s", sys_errlist[errno]);
+      snprintf(shmerr, sizeof(shmerr)-1, "POSIXShm: shm_open error: %s",
+		strerror(errno));
       throw std::runtime_error(shmerr);
     }
 
@@ -110,7 +111,8 @@ POSIXShm::POSIXShm(const char* name, const uint64_t size, bool& first_opener)
   if(ftruncate(m_shm_fd, MAP_SIZE) < 0) {
     shm_unlink(m_shm_name.c_str());
     static char shmerr[256] = {0}; // YUCK for throwing exceptions
-    snprintf(shmerr, sizeof(shmerr)-1, "POSIXShm: ftruncate error: %s", sys_errlist[errno]);
+    snprintf(shmerr, sizeof(shmerr)-1, "POSIXShm: ftruncate error: %s",
+		strerror(errno));
     throw std::runtime_error(shmerr);
     exit(1);
   };

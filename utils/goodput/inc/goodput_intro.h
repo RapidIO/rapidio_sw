@@ -1011,7 +1011,7 @@
  *
  * msgTx 7 5 1234 4096
  *
- * \subsubsection msg_thruput_scr_secn Messaging Latency Measurement Scripts
+ * \subsubsection msg_latency_scr_secn Messaging Latency Measurement Scripts
  *
  * Messaging latency measurement scripts are found in the
  * "mport{MPNUM}/msg_lat" directory.  All script names have the 
@@ -1028,7 +1028,7 @@
  * -# Execute the "mport{MPNUM}/msg_lat_tx.txt" script on the
  *    source node.
  *
- * \subsubsection msg_thruput_secn Messaging Latency Measurement CLI Commands
+ * \subsubsection msg_latency_secn Messaging Latency Measurement CLI Commands
  *
  * First, use receive thread 3 on the node with destID 5 and socket number 1234
  * to send back 2048 byte messages to the source.  The "mRxLat" command looks 

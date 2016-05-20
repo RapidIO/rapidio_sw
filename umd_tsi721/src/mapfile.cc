@@ -74,7 +74,8 @@ MapFile::MapFile(const char* filename)
   if(m_fd >= 0) return;
 
   static char tmp[257] = {0};
-  snprintf(tmp, 256, "MapFile: Failed to open BAR file %s: %s", filename, sys_errlist[errno]);
+  snprintf(tmp, 256, "MapFile: Failed to open BAR file %s: %s", filename,
+	strerror(errno));
 
   throw std::runtime_error(tmp);
 }
@@ -101,7 +102,8 @@ void* MapFile::map_file(uint64_t size)
     struct stat st;
     if(fstat(m_fd, &st) < 0) {
       static char tmp[257] = {0};
-      snprintf(tmp, 256, "MapFile: Failed to stat %s: %s", m_filename.c_str(), sys_errlist[errno]);
+      snprintf(tmp, 256, "MapFile: Failed to stat %s: %s", m_filename.c_str(),
+		strerror(errno));
 
       throw std::runtime_error(tmp);
     }
@@ -120,7 +122,7 @@ void* MapFile::map_file(uint64_t size)
     m_size = 0;
 
     static char tmp[257] = {0};
-    snprintf(tmp, 256, "MapFile: Failed to mmap: %s", sys_errlist[errno]);
+    snprintf(tmp, 256, "MapFile: Failed to mmap: %s", strerror(errno));
 
     throw std::runtime_error(tmp);
   }
@@ -139,7 +141,7 @@ void MapFile::unmap_file()
   }
 
   static char tmp[257] = {0};
-  snprintf(tmp, 256, "MapFile: Failed to unmap: %s", sys_errlist[errno]);
+  snprintf(tmp, 256, "MapFile: Failed to unmap: %s", strerror(errno));
 
   throw std::runtime_error(tmp);
 }

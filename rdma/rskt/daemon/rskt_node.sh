@@ -126,8 +126,8 @@ do
 	echo "Start rskt_server on $server_node destID=$SERVER_DESTID"
 
 	# Create server on current node
-	echo "screen -dmS server1 $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_server"
-	ssh root@"$server_node" "screen -dmS server1 $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_server"
+	echo "screen -dmS server1 $RDMA_ROOT_PATH/rdma/rskt/rskt_server"
+	ssh root@"$server_node" "screen -dmS server1 $RDMA_ROOT_PATH/rdma/rskt/rskt_server"
 
 	# Display PIDs for verification
 	sleep 1
@@ -139,11 +139,11 @@ do
 	do
 		echo "Starting rskt_client on $client_node"
 		# Run a client per node using the 'screen' terminal
-		ssh root@"$client_node" "screen -dmS client $RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r1000"
+		ssh root@"$client_node" "screen -dmS client $RDMA_ROOT_PATH/rdma/rskt/rskt_client -d$SERVER_DESTID -r1000"
 	done
 	# The purpose of this one is to hold the script until all prior tasks have
 	# finished executing
-	ssh root@"$client_node" "$RDMA_ROOT_PATH/rdma/rskt/daemon/rskt_client -d$SERVER_DESTID -r2000"
+	ssh root@"$client_node" "$RDMA_ROOT_PATH/rdma/rskt/rskt_client -d$SERVER_DESTID -r2000"
 done
 
 sleep 2

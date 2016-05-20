@@ -72,7 +72,7 @@ int main()
 
 		/* Receive data from server */
 		void *recv_buf;
-		size_t	received_len;
+		size_t	received_len = 0;
 		client->get_recv_buffer(&recv_buf);
 		if (client->receive(&received_len)) {
 			puts("Failed to receive from server");

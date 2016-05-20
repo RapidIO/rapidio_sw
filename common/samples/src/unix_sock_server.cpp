@@ -50,7 +50,7 @@ void *rpc_thread_f(void *arg)
 	while (1) {
 		/* Wait for data from clients */
 		puts("Waiting to receive from client...");
-		size_t	received_len;
+		size_t	received_len = 0;
 		if (other_server->receive(&received_len)) {
 			puts("Failed to receive");
 			delete other_server;

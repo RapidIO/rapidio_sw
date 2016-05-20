@@ -138,6 +138,8 @@ void *slave_thread_f(void *arg)
 	int rc;
         char my_name[16] = {0};
 
+	memset(&slave_thread, 0, sizeof(slave_thread));
+
 	/** Copy parameters to local variables */
 	if (arg == NULL) {
 		CRIT("NULL argument. Exiting\n");
