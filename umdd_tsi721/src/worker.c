@@ -83,14 +83,6 @@ extern "C" {
 
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 
-#ifdef __cplusplus
-};
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void dma_free_ibwin(struct worker *info);
 
 void init_worker_info(struct worker *info, int first_time)
@@ -486,6 +478,9 @@ bool umd_check_cpu_allocation(struct worker *info)
 void umd_shm_goodput_demo(struct worker *info)
 {
 	bool fifo_unwork_ACK = false;
+        DMAChannelSHM::WorkItem_t wi[info->umd_sts_entries*8];
+        memset(wi, 0, sizeof(wi));
+
 
 	if (! umd_check_cpu_allocation(info)) return;
 
@@ -529,9 +524,6 @@ void umd_shm_goodput_demo(struct worker *info)
 	INFO("\n\tUMDd/SHM my_destid=%u #buf=%d #fifo=%d\n",
 		info->umd_dch->getDestId(),
 		info->umd_tx_buf_cnt, info->umd_sts_entries);
-
-        DMAChannelSHM::WorkItem_t wi[info->umd_sts_entries*8];
-        memset(wi, 0, sizeof(wi));
 
 	clock_gettime(CLOCK_MONOTONIC, &info->iter_st_time);
         while (!info->stop_req) {

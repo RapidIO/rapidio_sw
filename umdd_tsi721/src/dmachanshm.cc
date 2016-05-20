@@ -317,7 +317,8 @@ void DMAChannelSHM::resetHw()
     wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_SUSP);
 
     for(int i = 0; i < 1000; i++) {
-      if(! rd32dmachan(TSI721_DMAC_CTL) & TSI721_DMAC_CTL_SUSP) break;
+      if(!(rd32dmachan(TSI721_DMAC_CTL) & TSI721_DMAC_CTL_SUSP))
+	 break;
     }
   }
 

@@ -1366,6 +1366,8 @@ extern char* dma_rtype_str[];
 void *umd_dma_fifo_proc_thr(void *parm)
 {
 	struct worker* info = NULL;
+	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; 
+	memset(wi, 0, sizeof(wi));
 
 	if (NULL == parm)
 		goto exit;
@@ -1374,9 +1376,6 @@ void *umd_dma_fifo_proc_thr(void *parm)
 	if (NULL == info->umd_dch)
 		goto exit;
 	
-	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; 
-	memset(wi, 0, sizeof(wi));
-
 	migrate_thread_to_cpu(&info->umd_fifo_thr);
 
 	if (info->umd_fifo_thr.cpu_req != info->umd_fifo_thr.cpu_req) {
@@ -1434,6 +1433,9 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 	int idx = -1;
 	uint64_t tsF1 = 0, tsF2 = 0;
         const int MHz = getCPUMHz();
+	MboxChannel::WorkItem_t wi[info->umd_sts_entries*8];
+
+	memset(wi, 0, sizeof(wi));
 
         if (NULL == parm) goto exit;
 
@@ -1451,7 +1453,6 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 	idx = info->idx;
 	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));
 
-	MboxChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
         info->umd_fifo_proc_alive = 1;
         sem_post(&info->umd_fifo_proc_started);
