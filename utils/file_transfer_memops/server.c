@@ -380,85 +380,56 @@ ATTR_NONE
 
 int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
 {
-        uint32_t *mport_list = NULL;
-        uint32_t *ep_list = NULL;
-        uint32_t *list_ptr;
-        uint32_t number_of_eps = 0;
-        uint8_t  number_of_mports = RIODP_MAX_MPORTS;
-        uint32_t ep = 0;
-        int i;
-        int mport_id;
-        int ret = 0;
-
 	if (argc) {
                 sprintf(env->output,
 			"FAILED: Extra parameters ignored: %s\n", argv[0]);
 		logMsg(env);
 	};
 
-        ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
-        if (ret) {
+        std::vector<uint32_t> mport_list;
+        if (! MportMgmt::get_mport_list(mport_list)) {
                 sprintf(env->output,
-			"ERR: riomp_mport_get_mport_list() ERR %d\n", ret);
+			"ERR: riomp_mport_get_mport_list() ERR\n");
 		logMsg(env);
                 return 0;
-       }
+	}
+
+	const int number_of_mports = mport_list.size();
 
         printf("\nAvailable %d local mport(s):\n", number_of_mports);
-        if (number_of_mports > RIODP_MAX_MPORTS) {
-                sprintf(env->output,
-                	"WARNING: Only %d out of %d have been retrieved\n",
-                        RIODP_MAX_MPORTS, number_of_mports);
-		logMsg(env);
-        }
 
-        list_ptr = mport_list;
-        for (i = 0; i < number_of_mports; i++, list_ptr++) {
-                mport_id = *list_ptr >> 16;
-                sprintf(env->output, "+++ mport_id: %u dest_id: %u\n",
-                                mport_id, *list_ptr & 0xffff);
+        for (int i = 0; i < number_of_mports; i++) {
+                const int mport_id = mport_list[i];
+
+                sprintf(env->output, "+++ mport_id: %u\n", mport_id);
 		logMsg(env);
 
                 /* Display EPs for this MPORT */
 
-                ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, 
-						&number_of_eps);
-                if (ret) {
+		std::vector<uint32_t> ep_list;
+                if (! MportMgmt::get_ep_list(mport_id, ep_list)) {
                 	sprintf(env->output,
-                        	"ERR: riomp_ep_get_list() ERR %d\n", ret);
+                        	"ERR: riomp_ep_get_list() ERR\n");
 			logMsg(env);
                         break;
                 }
 
+		const int number_of_eps = ep_list.size();
+
                 sprintf(env->output, "\t%u Endpoints (dest_ID): ", 
 			number_of_eps);
 		logMsg(env);
-                for (ep = 0; ep < number_of_eps; ep++) {
-                	sprintf(env->output, "%u ", *(ep_list + ep));
+                for (int ep = 0; ep < number_of_eps; ep++) {
+                	sprintf(env->output, "%u ", ep_list[i]);
 			logMsg(env);
-		};
+		}
 
                 sprintf(env->output, "\n");
 		logMsg(env);
-
-                ret = riomp_mgmt_free_ep_list(&ep_list);
-                if (ret) {
-                	sprintf(env->output,
-                        	"ERR: riomp_ep_free_list() ERR %d\n", ret);
-			logMsg(env);
-		};
-
         }
 
 	sprintf(env->output, "\n");
 	logMsg(env);
-
-        ret = riomp_mgmt_free_mport_list(&mport_list);
-        if (ret) {
-		sprintf(env->output,
-                	"ERR: riomp_ep_free_list() ERR %d\n", ret);
-		logMsg(env);
-	};
 
 	return 0;
 }
@@ -644,7 +615,6 @@ void *xfer_loop(void *ibwin_idx)
 		};
 	};
 
-//YYY	info->mops->free_xwin(info->mops_req);
 	info->thr_valid = 0;
 	info->valid = 0;
 
