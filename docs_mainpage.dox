@@ -3,24 +3,22 @@
  * The RapidIO Remote Memory Access Platform uses the Linux kernel RapidIO
  * character mode driver interfaces to provide performance 
  * optimized, portable high performance communication capabilities for
- * a heterogenous computing environment.  There are two main facilities:
+ * a heterogenous computing environment.  The interfaces provided are all 
+ * found in the rapidio_sw/include directory.  They are:
+ * - RapidIO master port (MPORT) management, DMA, and channelized messaging
+ *   character mode driver interfaces
+ * - RapidIO raw messaging implemented with the Tsi721 user mode driver
+ * - Fabric management to support system enumeration based on a
+ *   configuration file, and to manage software applications using the fabric
  * - Remote Memory Access (RMA), which allows "socket style" connect/accept,
- *   read/write, and close communication for a shared memory regiont, and
+ *   read/write, and close communication for a shared memory regions, and
  * - RMA Sockets, which provides a "socket style" "stream of bytes" interface
  *   using an RMA bounded buffer.
+ *
  * For applications that require a complete network stack, RRMAP provides 
  * the DmaTun component to transport IP frames over a
- * RapidIO network.
- *
- * The RRMAP stack also provides a user mode driver (UMD) for the Tsi721
- * PCIe-to-RapidIO bridge device. The user mode driver reduces transmission
- * latency for both messaging and DMA transfers.
- *
- * RRMAP provides fabric management capabilities for the
- * RapidIO network.  Fabric management manages the nodes in the RapidIO 
- * network, including hot swap and fault handling.  It also manages 
- * what applications are available on each node, allowing applications to know
- * when a peer has appeared (or disappeared) in the network.
+ * RapidIO network.  This open source, application level implementation 
+ * leverages the Tsi721 user mode driver.
  *
  * Two utilities are also provided:
  * - Goodput - performance measurement of the RapidIO fabric and UMD
@@ -37,12 +35,19 @@
  * - rdma_types.h : Type definitions for librdma.h
  * - librskt.h : RMA Sockets implementation of socket-style (stream of bytes)
  *               transfers.
- * - mboxmgr_tsi721.h : Tsi721 User mode driver for dedicated messaging
- *                      resources.
+ * - mboxmgr_tsi721.h : Raw messaging capability based on the Tsi721 
+ *			User mode driver.
+ * - mportmgmt.h : RapidIO "master port" discovery, capabilities, and 
+ *                 handle management.
+ * - mportcmsock.h : "Channelized Messaging" socket-like capability for 
+ *                 sharing the use of a single messaging resource with 
+ *                 multiple applications.
+ * - memops.h : Mport DMA interface, including memory management and 
+ *           DMA engine access and allocation.  User can specify kernel or
+ *           Tsi721 User Mode Driver implementation.
  *
  * Precompiled libraries associated with the interfaces are found in:
  * - Static linking: /opts/rapidio/rapidio_sw/include/libs_a 
- * - Shared library: /opts/rapidio/include/libs_so
  * Applications may use
  * these interfaces to incorporate the RRMAP capabilities listed above.
  *
@@ -52,13 +57,14 @@
  * \section install_sec Installation
  *
  * Automatic installation has been tested on systems with up to four nodes,
- * and a single switch.  
+ * and a single StarBridge RapidIO switch applicance.  
  *
  * Installation depends upon the following:
  *
  * - ssh been configured to allow root access to all four nodes      
  * - The 'screen' utility has been installed on all four nodes
  * - The 'doxygen' utility has been installed on all four nodes
+ * - The 'sysfsutils' package has been installed on all four nodes
  * - The 'gcc-c++' package has been installed on all four nodes.
  *   Requires version 4.7 or later.
  *
@@ -68,11 +74,11 @@
  *
  * -# Execute the rapidio_sw/install.sh script as follows:
  *   - install.sh (NODE1) (NODE2) (NODE3) (NODE4) (memsz) (group)
- *     - (NODE1) Name of master, enumerating node
+ *     - (NODE1) Name of master, enumerating node, connected to Switch Port 1
  *     - (NODE2) Name of slave node connected to Switch Port 2
  *     - (NODE3) Name of slave node connected to Switch Port 3
  *     - (NODE4) Name of slave node connected to Switch Port 4
- *     - If any of (NODE2) (NODE3) (NODE4) is "none", 
+ *     - If the value of any of (NODE2) (NODE3) (NODE4) is "none", 
  *       the node is ignored.
  *     - (memsz) RapidIO system memory address size
  *       - Valid values are mem34, mem50, mem66
@@ -103,20 +109,24 @@
  *
  * Scripts to start and stop RRMAP components are created by the install.sh
  * script in the /opt/rapidio/rapidio_sw directory on each node.
+
+ * Use the check_all.sh script to determine the component status 
+ * of each installed node.
  *
- * RRMAP supports two component configurations:
- * - Kernel Only: The kernel only configuration supports execution of the 
+ * RRMAP supports two component configurations.  Both configurations support
+ * the MPORT management, DMA, channelized messaging, and raw messaging 
+ * interfaces.  For information about these interfaces, refer to 
+ * \ref stack_umd_mbox  and \ref stack_umd_dma.
+ *
+ * - Kernel Only: The kernel only configuration must be used for the 
  *   Goodput and File Transfer utilties.  The Tsi721 DMA UMD may optionally
  *   be started to transparently increase DMA performance for both of these
  *   utilities.
- * - RRMAP Stack: The RRMAP stack includes \ref stack_fmd Fabric Management, 
- *   \ref stack_rma RMA,
- *   \ref stack_rskt RMA Sockets,
- *   \ref stack_umd_dma Tsi721 DMA UMD, and 
- *   \ref stack_dma_tun DmaTun 
- *
- * Use the check_all.sh script to determine the component status 
- * of each installed node.
+ * - RRMAP Stack: The RRMAP stack includes
+ *   - \ref stack_fmd Fabric Management, 
+ *   - \ref stack_rma RMA,
+ *   - \ref stack_rskt RMA Sockets,
+ *   - \ref stack_dma_tun DmaTun 
  *
  * \subsection kernel_config Kernel Only
  *
@@ -139,31 +149,22 @@
  * Refer to \ref goodput_docs goodput for information on 
  * starting the goodput utility.
  *
- * The fxfr_start.sh script will start file transfer servers on all nodes
- * execute demonstration transfers.
- * The stop_fxfr.sh script halts the file transfer server on all nodes.
- * 
  * \subsection rrmap_exec RRMAP Stack
  *
- * To start the RRMAP stack, execute the following scripts:
- * -# ./rio_start.sh noenum
- * -# ./all_start.sh 
+ * To start the RRMAP stack, execute the following script:
+ * - ./all_start.sh 
  *
  * All_start.sh starts RRMAP fabric management, RMA, and RMA Sockets. If a
  * Tsi721 device is present, all_start.sh also launches the Tsi721 DMA User Mode
- * Driver, and the DmaTun IP transport utility.
+ * Driver.  
+ *
+ * The DMATun facility may be started with the dmatun_start.sh script.
  * 
  * To halt the RRMAP stack configuration, use one of the following
  * scripts:
  * - ./stop_all.sh - terminates Fabric Management, RMA, RMA Sockets, 
  *                   Tsi721 User Mode Driver, and DmaTun.
  * - ./all_down.sh - powers down all nodes 
- *
- * \section uninstall_sec Uninstall RRMAP Software
- *
- * To remove the RRMAP software from a node, execute the 
- * /opt/rapidio/rapidio_sw/uninstall.sh script.  This will delete the
- * /opt/rapidio/rapidio_sw and /etc/rapidio directories.
  *
  * \page stack_fmd RRMAP Fabric Management Overview
  *
@@ -266,8 +267,8 @@
  * - Fire and forget: There is no notification when a transfer has completed.
  *   Transfer completion must be detected based on changes in memory.
  *
- * The RMA Daemon is informed when a process dies, and cleans up
- * all memory space/subspace accesses and connections for process.
+ * The RMA Daemon is informed when an application using the Daemon terminates,
+ * and cleans up all memory space/subspace accesses and connections for process.
  *
  * Refer to the include/librdma.h for interface details for
  * the Remote Memory Access component.
@@ -300,9 +301,11 @@
  * less than half the -k (size) value.
  *
  * Refer to the librskt.h for 
- * interface details.  For RMA Sockets code examples, refer to the
- * rapidio_sw/rdma/rskt/samples directory, rskt_server.c and rskt_client.c.
- * These two files implement example multi-threaded server and client processes.
+ * interface details.  For RMA Sockets code examples, refer to
+ * rapidio_sw/rdma/rskt/daemon/src, rskt_server.c and rskt_client.c.
+ * These two files implement a server with accepts multiple connections,
+ * and a client which repeatedly connects, sends data and receives responses,
+ * and then closes the socket.
  *
  * \subsection rdma_skts_known_limitations RMA Sockets Limitations
  *
@@ -313,9 +316,9 @@
  * - The RMA Sockets implementation uses synchronous transfers, which 
  *   reduces throughput.
  *
- * \page stack_umd_mbox Tsi721 MBOX User Mode Driver 
+ * \page stack_umd_mbox Tsi721 Raw Messaging User Mode Driver 
  *
- * The interface for the Tsi721 MBOX user mode driver (UMD) is 
+ * The interface for the Tsi721 Raw Messaging user mode driver (UMD) is 
  * mboxmgr_tsi721.h.  The associated library is 
  * include/libs_a/libmboxmgr.a.  The Tsi721 MBOX UMD
  * gives an application dedicated use of Tsi721 messaging channel 2 or 3,
@@ -329,68 +332,113 @@
  * messages and echos them back to the sending client.  The client sends
  * an endless stream of messages to the target server.  
  *
- * To execute the demo, first start the server, then the client.
- * To start the server, use the following syntax:
+ * The 
+ * libmboxmgr/test/mbox_sample_test.sh script  
+ * executes a multiple client to single server test automatically, based
+ * on the list of installed nodes created by install.sh.  Documentation of
+ * the example code is found at mbox_example.c
  *
- * sudo ./server -m (mp) -c (ch) -b (tx) -f (fin)
- * - mp  - MPORT aka device index -- usually 0
- * - ch  - MBOX channel for mp, values of 2 (default) or 3
- * - tx  - Maximum messages pending for TX/RX, minimum 32.
- * 	More messages means more throughput
- * - fin - Maximum number of messages finished TX/RX.
- * 	Minimum 32, must be a power of 2, maximum is 4096
+ * \page stack_umd_dma RapidIO Master Port Interfaces
  *
- * For example: sudo ./mbox_server -m 0 -c 2 -b 256 -f 256
+ * There are three master port interfaces,  all found in the include directory:
+ * - mportmgmt.h : Query existance of RapidIO master ports, and manage 
+ *   mport handles used by other interfaces.
+ * - memops.h : RapidIO DMA inteface to send and receive memory reads/writes 
+ *   across a RapidIO network.
+ * - mportcmsock.h: Channelized Messaging "sockets" interface.  Presents a 
+ *   socket style interface to allow a single
+ *   RapidIO messaging resource to be shared among multiple processes. 
  *
- * To check throughput on the server, use the following command:
+ * Applications are strongly encouraged to use these intefaces, as they
+ * have the following positive attributes:
+ * - encapsulation of the information required by the interfaces, leading
+ *   to smaller and simpler application code
+ * - forward compatibility with new/other RapidIO devices 
+ * - complete support for the full variety of memory management, DMA, and
+ *   messaging operations 
+ * - "safety" checks that are immediately visible for debugging
+ * - removal of risky (i.e. register access) routines that are supported by
+ *   the libmport interface, but that should not be available to users
+ *   or necessary for application development outside of the RRMAP stack.
+ * - use the inheritance and function override capabilities of C++ to 
+ *   create custom behaviors for individual applications.
  *
- * sudo pkill -SIGUSR1 mbox_server
+ * Individual demonstration software for each interface is documented below.
+ * A file transfer application, with identical semantics to the file 
+ * transfer demonstration found in rapidio_sw/utils/file_transefer, is found
+ * in rapidio_sw/utils/file_transfer_memops.  For more information, see
+ * \ref stack_fxfr.
  *
- * This should result in the following output from the mbox_server:
+ * \section mport_mgmt RapidIO Master Port Management
  *
- * RX_CNT 113412 TX_CNT 113412
+ * The master port management interface is used by the RapidIO DMA interface
+ * and the channelized messaging interface.  For more information on the 
+ * management interface, refer to the file documentation for mportmgmt.h.
  *
- * When the server starts, a number of logs are displayed.  The last log has
- * the form of:
+ * \section mport_cmsock RapidIO Channelized Messaging Socket-style Interface
  *
- * INFO Fri May 13 12:34:17 2016.336965us tid=10135 test/mbox_example.c: 198 setup_mailbox():
+ * The RapidIO Channelized Messaging Socket-style interface has the
+ * create, bind, listen, accept, connect, read, write, and close calls that
+ * are the main features of socket programming.  For more information on 
+ * the specific procedures, refer to the file documentation for mportcmsock.h.
  *
- *       SERVER my_did=5 my_mbox=2 tgt_did=4294967295 tgt_mbox=2
- *        msg_sz=4096 #buf=256 #fifo=256
+ * The file umd_tsi721/cmsock_example.cc is the demonstration code for the
+ * Channelized Messaging interface.  Refer to the file documentation for
+ * usage.  The binary for the cmsock_example.cc is umd_tsi721/cmsock_ex.
+ *
+ * \section mport_dma RapidIO DMA Interface
+ *
+ * The RapidIO DMA Interface allows users to choose from three different 
+ * drivers:
+ * - MEMOPS_UMD: Tsi721 Shared DMA user mode driver.  A Tsi721 device must
+ *   be present.  The usual channel for the shared DMA user mode driver is 5.
+ * - MEMOPS_UMDD: Tsi721 Dedicated DMA user mode driver.  A Tsi721 device 
+ *   must be present, and a free channel must be available.  
+ * - MEMOPS_MPORT: Kernel mode driver, as implemented in common/libmport.
+ *   This option is completely portable across RapidIO implementations.
+ *
+ * The guidance for channel usage is:
+ * - Use MEMOPS_MPORT for code which must be portable across different
+ *   RapidIO enabled platforms, or that must support user allocated buffers
+ * - Use MEMOPS_UMDD for applications with the following attributes:
+ *   - can share DMA bandwidth with other applications 
+ *   - only use kernel allocated DMA-able memory
+ *   - always run on platforms with a Tsi721 device.
+ * - Use MEMOPS_UMD for applications
+ *   - must get their own fair share of DMA bandwidth, regardless of the
+ *     behavior of other applications
+ *   - for applications whose DMA traffic is higher (or lower) priority
+ *     than those of other applications
+ *   - always run on platforms with a Tsi721 device
+ *
+ * The Tsi721 channels available to users are generally 0 through 5, 
+ * Channels 6 and 7 are used by the kernel. 
  * 
- * The my_did parameter is used when starting the client.
- * To start the client, use the following syntax:
+ * RIOMemOps_classFactory creates a RIOMmeOpsIntf (RapidIO Memory
+ * Operations Interface) object for a specified driver type and mport instance.
+ * The operation of the interface is also dependent on two environment
+ * variables:
+ * - UMD_CHAN : This is the specific channel requested for the RIOMmeOpsIntf
+ *              object.  A value of -1 allows the driver to select the first
+ *              free DMA channel of the requested type.  For those who 
+ *		are attempting performance optimization, it is possible to 
+ *		indicate a specific channel.  
+ *		- UMD_CHAN must be set to match the Tsi721 User Mode Driver
+ *		daemon channel number (usually 5) for MEMOPS_UMDD.
+ *		- UMD_CHAN must be different from the Tsi721 User Mode Driver
+ *		daemon channel number (usually 5) for MEMOPS_UMD.
+ * - UMD_LIB : This is the specific user mode driver library revision that 
+ *		should be used.  Typically, this variable should be set to
+ *		/opt/rapidio/rapidio_sw/umdd_tsi721/libUMDd.so.0.4.
  *
- * sudo ./mbox_client -m (mp) -d (did) -c (ch) -C (CH) -s (sz) -b (tx) -f (fin)
- * - mp  - MPORT aka device index -- usually 0
- * - did - RapidIO destid (8-bit) where the server is running
- *       Taken from the my_did log value above.
- * - ch  - MBOX channel for mp, use 2 (default) or 3
- * - CH  - MBOX channel for the server, use 2 (default) or 3
- * - sz  - Size of messages exchanged, minimum 24, maximum 4096
- * - tx  - Maximum messages pending for TX/RX, minimum 32.
- *       Must be a power of 2, maximum is 4096
- * - fin - Maximum number of messages finished TX/RX.
- *       Minimum 32, Must be a power of 2, maximum is 4096
- *
- * For example: sudo ./mbox_client -m 0 -d 5 -c 2 -C 2 -b 256 -f 256
- *
- * To halt the mbox_client or mbox_client, use (CTRL)c.
- *
- * \page stack_umd_dma Tsi721 DMA User Mode Driver 
- *
- * The Tsi721 DMA user mode driver (UMD) is implemented as a daemon 
- * process.  UMD DMA services are provided transparently through:
- * - rapidio_sw/common/include/rapidio_mport_mgmt.h
- *   - riomp_mgmt_mport_create_handle
- *   - riomp_mgmt_mport_destroy_handle
- * - rapidio_sw/common/include/rapidio_mport_dma.h
- *   - riomp_dma_write_d
- *   - riomp_dma_read_d 
- *   - riomp_dma_wait_async
- *
- * Example code for the Tsi721 DMA UMD is found in 
- * rapidio_sw/common/libmport/samples in the file riodp_test_dma.c.
+ * Example code for the RapidIO DMA Interface is found in 
+ * memops/samples/memops_demo.cc.  This code is compiled into the
+ * memops/memops_demo binary.  The demo requires that a memory window 
+ * should be available on another node to act as a target for reads and 
+ * writes performed by memops_demo.  Typically, this can be done by 
+ * executing the start_target script on the goodput utility.  
+ * For more information, refer to \ref goodput_docs.
+ * Refer to the memops_demo.cc file documentation for syntax and usage.
  *
  * \page stack_dma_tun IP Tunnelling over RapidIO
  *
@@ -398,15 +446,17 @@
  * frames transparently over a RapidIO network.  No interface exists for the
  * DmaTun component.  
  *
- * The DmaTun is started by the all_start.sh script.  DmaTun may also be 
- * started without the rest of the RRMAP stack using the dmatun_start.sh 
+ * The DmaTun is not started by the all_start.sh script.  
+ * DmaTun must be
+ * started using the dmatun_start.sh 
  * script.  DmaTun creates a network
  * tunnel with IP addresses 10.64.12.(destID) on each node, where (destID) is 
- * is the device ID of the Tsi721 on that node.  Frames address to other
+ * is the device ID of the Tsi721 on that node.  Frames addressed to other
  * nodes with DMA TUN operating are transported over RapidIO to the target
  * node.
  *
- * The iperfbidi.sh and iperfpeers.sh scripts use the standard "iperf" 
+ * The utils/goodput/iperfbidi.sh and iperfpeers.sh scripts use the 
+ * standard "iperf" 
  * traffic generation and test tool to demonstrate DmaTun performance.
  *
  * \page stack_fxfr File Transfer Utility
@@ -417,7 +467,7 @@
  * sends a file to a specified server.
  * 
  * The file transfer server is launched on all nodes of the cluster using the
- * /opt/rapidio/rapidio_sw/fxfr_start.sh script.  The script runs the server
+ * file_transfer/fxfr_test.sh script.  The script runs the server
  * using the "screen" utility, which allows users access to the
  * server command prompt.  To connect to the server command prompt, execute
  * the following command on the node where the server is running: 

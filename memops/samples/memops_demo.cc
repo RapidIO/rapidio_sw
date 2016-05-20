@@ -83,6 +83,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  *	 export UMDD_LIB=../umdd_tsi721/libUMDd_log.so.0.4
  *
+ * Note that memops_sample requires an inbound memory window on another node
+ * to act as a target for read and write transactions.  The inbound memory 
+ * window can be created by using the start_target script in the goodput
+ * utility.  For more information, refer to documentation of the goodput
+ * utility.
+ *
  */
 
 #include <stdio.h>

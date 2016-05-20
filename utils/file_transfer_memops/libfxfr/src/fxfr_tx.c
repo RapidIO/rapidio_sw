@@ -451,7 +451,7 @@ int init_server_connect(struct fxfr_tx_state *info,
         info->req_skt = new MportCMSocket(info->mport_num, 0);
 
 	info->destID = destID;
-        rc = info->req_skt->connect(info->destID, 0, info->svr_skt);
+        rc = info->req_skt->connect(info->destID, info->svr_skt);
         if (rc) {
                 printf("riomp_sock_connect ERR %d (%s)\n", rc, strerror(rc));
                 goto fail;

@@ -98,21 +98,21 @@ libumd_tsi721_nolog_tik.a: $(SOURCES) $(INCLUDES)
 	cp -v $@ $(COMMONDIR)/libs_a
 	@rm -f *.o
 
-mbox_client: test/mbox_example.c libumd_tsi721.a
+mbox_client: samples/mbox_example.c libumd_tsi721.a
 	$(CXX) $(CXXFLAGS) \
 		-Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) -DMBOX_CLIENT \
 		$^ -o $@ \
 		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
 
-mbox_server: test/mbox_example.c libumd_tsi721.a
+mbox_server: samples/mbox_example.c libumd_tsi721.a
 	$(CXX) $(CXXFLAGS) \
 		-Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) \
 		$^ -o $@ \
 		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
 
-cmsock_ex: test/cmsock_example.cc
+cmsock_ex: samples/cmsock_example.cc
 	$(CXX) $(CXXFLAGS) \
 		-I../include \
 		$^ -o $@ \
