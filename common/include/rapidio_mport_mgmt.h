@@ -140,6 +140,9 @@ typedef struct rapidio_mport_handle *riomp_mport_t;
  * @return status of the function call
  * @retval 0 on success
  * @retval -errno on error
+ * \note dev_ids is an array of values that combine mport id and the mport's 
+ *      destination ID, like so: ((mport_id << 16) | destid)
+ * \note Free dev_ids via riomp_mgmt_free_mport_list.
  */
 int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports);
 

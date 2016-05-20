@@ -165,12 +165,13 @@ int riomp_sock_mbox_init(void)
 	return open(RIO_CMDEV_PATH, O_RDWR | O_CLOEXEC);
 }
 
-/** \bried Get the list of Mports installed
+/** \brief Get the list of Mports installed
+ *
  * \param[out] dev_ids List of Mports installed (See Notes)
  * \param[in, out] number_of_mports Just set it to RIODP_MAX_MPORTS
  * \note dev_ids is an array of ((mport_id << 16) | destid)
  * \note Free dev_ids via riomp_mgmt_free_mport_list.
- * \return 0 if OK, negative on error
+ * \returns 0 if OK, negative on error
  */
 int riomp_mgmt_get_mport_list(uint32_t **dev_ids, uint8_t *number_of_mports)
 {
