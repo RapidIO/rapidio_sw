@@ -226,7 +226,7 @@ int main(int argc, char* argv[])
 		ret = 1;
 		goto exit;
 	}
-	/** - Loop forever sending messages and receiving responses */
+	/** - Sending one message and receive response */
 	{{
 		char buf[DATA_SZ] = {0};
 		/** - Send a  message to teh server */
