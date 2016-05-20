@@ -372,21 +372,24 @@ int main (int argc, char **argv)
 		peer.run_cons = 0;
 
 	/* Parse command-line parameters */
-	while ((c = getopt(argc, argv, "hnc:m:")) != -1)
+	while ((c = getopt(argc, argv, "hnl:c:m:")) != -1)
 		switch (c) {
 		case 'c':
 			peer.cons_skt = atoi(optarg);
 		break;
 		case 'h':
-			puts("rdmad -h -m<port> -c<socket num>|-n");
-			puts("-h		Display this help message");
-			puts("-m<mport>		Use specified master port number");
-			puts("-c<sock num>	Use specified socket number for console");
-			puts("-n		Do not run console (background operation");
+			puts("rdmad -h -m<port> -l<loglv> -c<socket num>|-n");
+			puts("-h           Display this help message");
+			puts("-l<loglv>    Logging level, 0 means none");
+			puts("-m<mport>    Use specified master port number");
+			puts("-c<sock num> Socket number for remote console");
+			puts("-n	   Do not run console (background)");
 			exit(1);
 		break;
 		case 'm':
 			peer.mport_id = atoi(optarg);
+		case 'l':
+			g_level = atoi(optarg);
 		break;
 		case 'n':	/* Same as doing "rdmad &" */
 			peer.run_cons = 0;
