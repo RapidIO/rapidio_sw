@@ -125,8 +125,6 @@ public:
   * associated with this handle.
   *
   * All destination IDs are dev8 (8 bit) in size.
-  *
-  * Static.
   */
   inline bool get_ep_list(std::vector<uint32_t>& epids) { return get_ep_list(m_mportid, epids); }
 
