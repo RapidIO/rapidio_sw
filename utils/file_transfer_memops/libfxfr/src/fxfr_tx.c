@@ -148,9 +148,10 @@ void process_msg_from_server(struct fxfr_tx_state *info)
 		    !info->rxed_msg->rapidio_size ||
 		     info->rxed_msg->fail_abort) {
 			if(info->debug)
-				printf("Server msg has incorrect field(s) [rio_addr=%llx size=%x] fail_abort=%d\n",
-					info->rxed_msg->rapidio_addr, info->rxed_msg->rapidio_size,
-					info->rxed_msg->fail_abort);
+				printf("Server msg has incorrect field(s) [rio_addr=%lx size=%lx] fail_abort=%d\n",
+					info->rxed_msg->rapidio_addr,
+					info->rxed_msg->rapidio_size,
+					(int)info->rxed_msg->fail_abort);
 			goto fail;
 		}
 
@@ -481,8 +482,6 @@ fail:
 
 void cleanup_server_connect(struct fxfr_tx_state *info)
 {
-	int i, rc;
-
 	if (info->buffers[0])
 		info->mops->free_xwin(info->mops_req.mem);
 

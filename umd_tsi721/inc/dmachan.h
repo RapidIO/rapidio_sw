@@ -256,7 +256,7 @@ public:
     //     that should come from the completion FIFO but for now we brute-force it!
   
     //return SZ == (m_bd_num+1); // account for T3 BD as well
-    return (m_bl_busy_size + 2 >= m_bd_num); // account for T3 BD as well
+    return ((uint32_t)(m_bl_busy_size + 2) >= m_bd_num); // account for T3 BD as well
   }
   
   inline bool dmaCheckAbort(uint32_t& abort_reason)

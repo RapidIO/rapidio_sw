@@ -221,6 +221,10 @@ bool RioMport::check_ibwin_reg()
         goto fail;
 
       ib_win = ((uint64_t)(regval2) << 32) + regval;
+	
+	// Avoide compiler warning when logging is disabled.
+	if (0)
+		found_one = ib_win;
       XCRIT("Tsi721: IBWIN %d RIOADDR 0x%lx\n", i, ib_win);
       if (found_one)
         XCRIT("Tsi721: Multiple ib win!\n");

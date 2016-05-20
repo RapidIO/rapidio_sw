@@ -32,8 +32,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <semaphore.h>
-#include <stdio.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -41,7 +39,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <stdio.h>
 #include <errno.h>
+#include <cstring>
 
 #include <string>
 #include <sstream>
@@ -74,7 +74,8 @@ POSIXSem::POSIXSem(const char* name)
 
   if ((m_sem = sem_open(m_semaname.c_str(), O_CREAT, 0644, 1)) == SEM_FAILED) {
     static char semaerr[256] = {0}; // YUCK for throwing exceptions
-    snprintf(semaerr, sizeof(semaerr)-1, "POSIXSem: semaphore initilization error: %s", sys_errlist[errno]);
+    snprintf(semaerr, sizeof(semaerr)-1,
+	"POSIXSem: semaphore initilization error: %s", std::strerror(errno));
     throw std::runtime_error(semaerr);
   }
 }

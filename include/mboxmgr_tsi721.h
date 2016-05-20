@@ -145,7 +145,7 @@ public:
     m_super->setInitState();
     m_super->softRestart();
 
-    for (int i = 0; i < entries; i++) {
+    for (uint32_t i = 0; i < entries; i++) {
       void *b = calloc(1, PAGE_4K);
       m_super->add_inb_buffer(b);
     }

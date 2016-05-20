@@ -61,7 +61,7 @@ DRV_INCLUDE_DIR ?= $(KERNELDIR)/include $(RIO_DIR) $(KDIR)/include
 
 ARCH := $(shell arch)
 
-OPTFLAGS = -ggdb -Ofast
+OPTFLAGS = -ggdb -Ofast -fno-strict-overflow
 
 ifeq ($(ARCH), x86_64)
  OPTFLAGS += -march=native -mfpmath=sse -ffast-math
@@ -96,7 +96,7 @@ UMDINCDIR=$(UMDDIR)/inc
 UMDDDIR?=$(TOPDIR)/umdd_tsi721
 UMDDINCDIR=$(UMDDDIR)/inc
 
-COMMONFLAGS=$(OPTFLAGS) -pthread -Werror -I$(TOPDIR)/include -I$(COMMONINC) -L$(COMMONLIB)
+COMMONFLAGS=$(OPTFLAGS) -pthread -Wall -Werror -I$(TOPDIR)/include -I$(COMMONINC) -L$(COMMONLIB)
 
 CFLAGS+=$(COMMONFLAGS)
 CXXFLAGS+=$(COMMONFLAGS) -std=c++11

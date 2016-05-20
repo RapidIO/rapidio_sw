@@ -259,10 +259,10 @@ int MboxChannel::open_inb_mbox(const uint32_t entries)
   }
   memset(m_imsg_ring.buf.win_ptr, 0, m_imsg_ring.buf.win_size);
   {
-    RioMport::DmaMem_t& mem = m_imsg_ring.buf;
     XDBG("\n\t%s: Allocated buffers for incoming messages #buf"
 	"\n\t- IB MBOX%d size=%d phys=0x%lx virt=%p\n", __FUNCTION__,
-            m_mbox, mem.win_size, mem.win_handle, mem.win_ptr);
+            m_mbox, m_imsg_ring.buf.win_size,
+		m_imsg_ring.buf.win_handle, m_imsg_ring.buf.win_ptr);
   }
 
   /* Allocate memory for circular free list -- rounded up to 4K by RioMport */
@@ -273,10 +273,10 @@ int MboxChannel::open_inb_mbox(const uint32_t entries)
   }
   memset(m_imsg_ring.imfq.win_ptr, 0, m_imsg_ring.imfq.win_size);
   {
-    RioMport::DmaMem_t& mem = m_imsg_ring.imfq;
     XDBG("\n\t%s: Allocated memory for circular free list #imfq"
 	"\n\t- IB MBOX%d size=%d phys=0x%lx virt=%p\n", __FUNCTION__,
-            m_mbox, mem.win_size, mem.win_handle, mem.win_ptr);
+            m_mbox, m_imsg_ring.imfq.win_size,
+		m_imsg_ring.imfq.win_handle, m_imsg_ring.imfq.win_ptr);
   }
 
   /* Allocate memory for Inbound message descriptors -- rounded up to 4K by RioMport */
@@ -288,10 +288,10 @@ int MboxChannel::open_inb_mbox(const uint32_t entries)
   }
   memset(m_imsg_ring.imd.win_ptr, 0, m_imsg_ring.imd.win_size);
   {
-    RioMport::DmaMem_t& mem = m_imsg_ring.imd;
     XDBG("\n\t%s: Allocated memory for inbound message descriptors #imd"
 	"\n\t- IB MBOX%d size=%d phys=0x%lx virt=%p\n", __FUNCTION__,
-            m_mbox, mem.win_size, mem.win_handle, mem.win_ptr);
+            m_mbox, m_imsg_ring.imd.win_size,
+		m_imsg_ring.imd.win_handle, m_imsg_ring.imd.win_ptr);
   }
 
   /* Fill free buffer pointer list */
@@ -353,13 +353,12 @@ void MboxChannel::set_inb_mbox_hwregs(const uint32_t fq_wrptr)
 #define CHECK_END_BD() \
   {{ \
     const hw_omsg_desc* bd_ptr = (hw_omsg_desc*)m_omsg_ring.omd.win_ptr; \
-    assert(bd_ptr[m_num_ob_desc-1].type_id == (DTYPE5 << 29)); \
+    assert(bd_ptr[m_num_ob_desc-1].type_id == (uint32_t)(DTYPE5 << 29)); \
   }}
 
 int MboxChannel::open_outb_mbox(const uint32_t entries, const uint32_t sts_entries)
 {
   int rc = 0;
-  uint32_t num_desc = 0;
 
   if(m_omsg_init) return -EAGAIN;
 
@@ -377,7 +376,7 @@ int MboxChannel::open_outb_mbox(const uint32_t entries, const uint32_t sts_entri
   m_omsg_ring.sts_rdptr = 0;
 
   /* Outbound Msg Buffer allocation */
-  for (int i = 0; i < entries; i++) {
+  for (uint32_t i = 0; i < entries; i++) {
     RioMport::DmaMem_t tmp; memset(&tmp, 0, sizeof(RioMport::DmaMem_t));
 
     /* 4K for each entry. For the demo it is 1 entry */
@@ -407,8 +406,7 @@ int MboxChannel::open_outb_mbox(const uint32_t entries, const uint32_t sts_entri
 
   /* Number of descriptors */
   m_num_ob_desc = entries;
-  num_desc      = entries;
-  XDBG("\n\t%s: There are %u outbound descriptors\n", __FUNCTION__, num_desc);
+  XDBG("\n\t%s: There are %u outbound descriptors\n", __FUNCTION__, entries);
 
   m_omsg_ring.sts_size = sts_entries;
 
@@ -435,9 +433,9 @@ out_desc:
 
 out_buf:
   /* Free allocated message buffers */
-  for (int i = 0; i < m_omsg_ring.size; i++) {
+  for (uint32_t i = 0; i < m_omsg_ring.size; i++) {
     m_mport->unmap_dma_buf(m_omsg_ring.omq[i]);
-    memset(&m_omsg_ring.omq[i], sizeof(m_omsg_ring.omq[i]), 0);
+    memset(&m_omsg_ring.omq[i], 0, sizeof(m_omsg_ring.omq[i]));
   }
 
   return rc;
@@ -495,10 +493,10 @@ void MboxChannel::cleanup()
 
   if(m_omsg_init) {
     m_mport->unmap_dma_buf(m_omsg_ring.omd);
-    for (int i = 0; i < m_omsg_ring.size; i++)
+    for (uint32_t i = 0; i < m_omsg_ring.size; i++)
       m_mport->unmap_dma_buf(m_omsg_ring.omq[i]);
   }
-  for(int i = 0; i < m_imsg_ring.imq_base.size(); i++) {
+  for(uint32_t i = 0; i < m_imsg_ring.imq_base.size(); i++) {
     if(m_imsg_ring.imq_base[i] == NULL) continue;
     free(m_imsg_ring.imq_base[i]);
   }
@@ -593,7 +591,7 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
   }
  
   /* Adjust length (round up to multiple of 8 bytes) */
-  int len8 = 0;
+  uint32_t len8 = 0;
   {
     int k = len/8;
     if(len%8 != 0) k++; 
@@ -602,7 +600,8 @@ bool MboxChannel::send_message(MboxOptions_t& opt, const void* data, const size_
 
   uint8_t* dest = (uint8_t*)m_omsg_ring.omq[tx_slot].win_ptr;
   memcpy(dest, data, len); // ONLY copy original length else SEGFAULT
-  if (len8 > len) memset(dest + len, 0, len8 - len); // do not TX junk padding
+  if (len8 > len)
+	memset(dest + len, 0, len8 - len); // do not TX junk padding
   CHECK_END_BD();
 
   /* Build descriptor associated with buffer */
@@ -874,10 +873,12 @@ void* MboxChannel::get_inb_message(MboxOptions_t& opt)
   opt.dtype = DTYPE6;
   opt.bcount = msg_size;
 
+  /* Uncomment for timestamp tracking...
   uint64_t enq_ts = m_imsg_ring.imq_ts[rx_slot].valid?
              m_imsg_ring.imq_ts[rx_slot].enq_ts:
              0;
-  //opt.ts_start = enq_ts;
+  opt.ts_start = enq_ts;
+  */
   m_imsg_ring.imq_ts[rx_slot].valid = false;
 
   DDBG("\n\tCopying buffer %p, size = %d from slot %d\n", buf, msg_size, rx_slot);
@@ -1074,6 +1075,9 @@ void MboxChannel::softRestart(const bool nuke_bds)
   const uint64_t ts_s = rdtsc();
   m_restart_pending = 1;
 
+  if (0)
+	m_restart_pending = ts_s;
+
 /* Initialize mbox channel */
 
   m_omsg_ring.tx_slot = 0;
@@ -1103,9 +1107,8 @@ void MboxChannel::softRestart(const bool nuke_bds)
   pthread_spin_init(&m_bltx_splock, PTHREAD_PROCESS_PRIVATE);
 
   m_restart_pending = 0;
-  const uint64_t ts_e = rdtsc();
 
-  XINFO("dT = %llu TICKS\n", (ts_e - ts_s));
+  XINFO("dT = %llu TICKS\n", (rdtsc() - ts_s));
 }
 
 void MboxChannel::dumpBL()
