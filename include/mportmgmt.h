@@ -99,7 +99,8 @@ public:
     uint8_t   np = 0;
     uint32_t* dev_ids = NULL;
     if (0 != riomp_mgmt_get_mport_list(&dev_ids, &np)) return false;
-    for (int i = 0; i < np; i++) devids.push_back(dev_ids[i]);
+    for (int i = 0; i < np; i++)
+      devids.push_back(dev_ids[i] >> 16); /// \todo UNDOCUMENTED: Lower nibble has destid, ignored
     riomp_mgmt_free_mport_list(&dev_ids);
     return true;
   }
@@ -125,8 +126,6 @@ public:
   * associated with this handle.
   *
   * All destination IDs are dev8 (8 bit) in size.
-  *
-  * Static.
   */
   inline bool get_ep_list(std::vector<uint32_t>& epids) { return get_ep_list(m_mportid, epids); }
 
