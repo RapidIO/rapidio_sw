@@ -24,7 +24,7 @@ extern "C" {
 #define CONFIG_PRINT_LANE_STATUS_ON_EVENT 1
 #define CONFIG_ERROR_LOG_SUPPORT 1
 #define CONFIG_ERROR_LOG_STOP_THRESHOLD 100
-//#define CONFIG_SETUP_CACHE_ENABLE 1
+#define CONFIG_SETUP_CACHE_ENABLE 1
 
 #define CPS1xxx_DEBUG_INT_STATUS 1
 
@@ -2802,6 +2802,7 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 	enum riocp_pe_speed _speed = RIOCP_SPEED_UNKNOWN;
 	uint8_t lane = 0, width = 0, current_lane;
 	char serdes_str[9][4];
+	struct switch_priv_t *priv = (struct switch_priv_t*)sw->private_driver_data;
 
 	RIOCP_TRACE("[0x%08x:%s:hc %u] Set port %u speed\n",
 			sw->comptag, RIOCP_SW_DRV_NAME(sw), sw->hopcount, port);
@@ -2883,6 +2884,8 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
 			}
+
+			priv->lanes[current_lane].speed = speed;
 
 			if(serdes) {
 				ret = cps1xxx_set_tx_serdes(sw, current_lane, &serdes->val[current_lane-lane].idtgen2.tx);
@@ -3026,6 +3029,8 @@ int cps1xxx_set_lane_speed(struct riocp_pe *sw, uint8_t port, enum riocp_pe_spee
 				cps1xxx_clear_port_error(sw, port);
 				return ret;
 			}
+
+			priv->lanes[current_lane].speed = speed;
 
 			if(serdes) {
 				ret = cps1xxx_set_tx_serdes(sw, current_lane, &serdes->val[current_lane-lane].idtgen2.tx);
