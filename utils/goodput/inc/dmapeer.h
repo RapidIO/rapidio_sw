@@ -61,6 +61,7 @@ private:
   pthread_mutex_t    m_mutex;
   uint16_t           m_destid; ///< RIO destid of peer
   uint64_t           m_rio_addr; ///< Peer's IBwin mapping (REMOTE)
+  uint32_t           m_ibwin_size;; ///< Peer's IBwin mapping size (REMOTE)  
 
   void*              m_ib_ptr; ///< Pointer to some place in LOCAL IBwin
 
@@ -99,6 +100,7 @@ public:
     stop_req(0),
     m_ib_histo(NULL),
     m_rio_addr(0),
+    m_ibwin_size(0),
     m_ib_ptr(NULL),
     m_tun_fd(-1), m_tun_MTU(0),
     m_pRP(NULL),
@@ -128,6 +130,7 @@ private:
     stop_req   = other.stop_req;
     m_destid   = other.m_destid;
     m_rio_addr = other.m_rio_addr;
+    m_ibwin_size= other.m_ibwin_size;
     m_ib_ptr   = other.m_ib_ptr;
     m_tun_fd   = -1;
     m_tun_MTU  = other.m_tun_MTU;
@@ -159,9 +162,9 @@ public:
   inline void*    get_ib_ptr() { return m_ib_ptr; }
   inline int      get_rio_rx_bd_ready_size() { return m_rio_rx_bd_ready_size; }
   inline int      get_tun_fd() { return m_tun_fd; }
-  inline uint32_t get_WP() { return m_WP; }  
-  inline uint32_t set_WP(const uint32_t wp) { return m_WP=wp; }  
-  inline uint32_t inc_WP() { return ++m_WP; }  
+  inline uint32_t get_WP() { ASSERT_BUFC(m_WP); return m_WP; }  
+  inline uint32_t set_WP(const uint32_t wp) { ASSERT_BUFC(wp); return m_WP=wp; }  
+  inline uint32_t inc_WP() { ++m_WP; ASSERT_BUFC(m_WP-1); return m_WP; }  
 
   inline uint32_t set_RP(const uint32_t rp)
   {
@@ -195,6 +198,8 @@ public:
 
   inline uint64_t get_rio_addr() { return m_rio_addr; }
   inline uint64_t set_rio_addr(const uint64_t rio_addr) { return m_rio_addr=rio_addr; }
+  inline uint32_t get_ibwin_size() { return m_ibwin_size; }
+  inline uint32_t set_ibwin_size(const uint32_t ibwin_size) { return m_ibwin_size=ibwin_size; }
 
   inline void rx_work_sem_post() { sem_post(&m_rio_rx_work); }
   inline void rx_work_sem_wait() { sem_wait(&m_rio_rx_work); }
@@ -347,6 +352,7 @@ public:
       const int rr = system(ifconfig_cmd);
       if(rr >> 8) {
         m_tun_name[0] = '\0';
+        CRIT("system() failed with error %d\n", rr);
         // No need to remove from epoll set, close does that as it isn't dup(2)'ed
         close(m_tun_fd); m_tun_fd = -1;
         goto error;
@@ -471,15 +477,19 @@ error:
     const uint32_t saved_RP = k;
 #endif
     for (int i = 0; i < (m_info->umd_tx_buf_cnt-1); i++) {
-      if (m_info->stop_req) break;
-      if (stop_req) continue;
+      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+      assert(sig == PEER_SIG_UP);
 
       update_RP_LastSeen();
       if (idx >= (m_info->umd_tx_buf_cnt-1)) break;
 
+      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
       assert(sig == PEER_SIG_UP);
 
       if(0 != m_rio_rx_bd_L2_ptr[k]->RO) {
+        if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+        assert(sig == PEER_SIG_UP);
+
         if (42 == m_rio_rx_bd_L2_ptr[k]->RO) goto next; // Not yet cleared by "bottom half"
 
         const uint64_t now = rdtsc();
@@ -503,6 +513,8 @@ error:
       k++; if(k == (m_info->umd_tx_buf_cnt-1)) k = 0; // RP wrap-around
       ASSERT_BUFC(k);
     }
+
+    if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
 
     if (cnt > 0) {
       assert(cnt <= (m_info->umd_tx_buf_cnt-1)); // XXX Cannot exceed that!
@@ -539,6 +551,10 @@ error:
 
     rx_work_sem_post();
     return cnt;
+
+  stop_req:
+    spunlock();
+    return -1;
   }
 
   /** \brief Process all IB "BDs" identified by \ref scan_RO
@@ -556,6 +572,9 @@ error:
     int cnt = 0;
     int ready_bd_list[m_info->umd_tx_buf_cnt]; memset(ready_bd_list, 0xff, sizeof(ready_bd_list));
 
+    if (stop_req || (m_info != NULL && m_info->stop_req)) return -1;
+    assert(sig == PEER_SIG_UP);
+
     splock();
     // Make this quick & sweet so we don't hose the FIFO thread for long
     for (int i = 0; i < m_rio_rx_bd_ready_size; i++) {
@@ -567,6 +586,9 @@ error:
 
     if (cnt == 0) return 0;
 
+    if (stop_req || (m_info != NULL && m_info->stop_req)) return -1;
+    assert(sig == PEER_SIG_UP);
+
     m_stats.rio_rx_pass++;
 
 #ifdef UDMA_TUN_DEBUG_IB
@@ -575,15 +597,15 @@ error:
 
     bool last_pkt_acked = false;
 
-    if (m_info->stop_req || stop_req) goto stop_req;
+    if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
     assert(sig == PEER_SIG_UP);
 
-    for (int i = 0; i < cnt && !m_info->stop_req; i++) {
+    for (int i = 0; i < cnt && !stop_req && m_info != NULL && !m_info->stop_req; i++) {
       int rp = ready_bd_list[i];
       assert(rp >= 0);
       ASSERT_BUFC(rp);
 
-      if (m_info->stop_req || stop_req) goto stop_req;
+      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
       assert(sig == PEER_SIG_UP);
 
       DMA_L2_t* pL2 = m_rio_rx_bd_L2_ptr[rp];
@@ -605,7 +627,7 @@ error:
          ntohl(pL2->len), ntohs(pL2->destid), crc, rx_ok, nwrite, m_tun_name, rp);
 #endif
 
-      if (m_info->stop_req || stop_req) goto stop_req;
+      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
       assert(sig == PEER_SIG_UP);
 
       if (nwrite == payload_size) {
@@ -624,6 +646,9 @@ error:
       DBG("\n\tUpdating old RP %d to %d\n", pRP->RP, rp);
 #endif
 
+      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+      assert(sig == PEER_SIG_UP);
+
       m_pRP->RP = rp;
 
       bool force_rp_push = false;
@@ -635,6 +660,9 @@ error:
         }
       }
       last_ts = now;
+
+      if (stop_req || (m_info != NULL && m_info->stop_req)) goto stop_req;
+      assert(sig == PEER_SIG_UP);
 
       // THIS is gasping at straws!
       if (force_rp_push || m_info->umd_push_rp_thr == 0 || \
@@ -651,7 +679,7 @@ error:
 stop_req:
     do {
       if (last_pkt_acked) break;
-      if (m_info->stop_req || stop_req) break;
+      if (stop_req || (m_info != NULL && m_info->stop_req)) break;
       assert(m_pRP->sig == DMAPEER_SIG);
       umd_dma_tun_update_peer_RP(m_info, this); m_stats.push_rp_cnt++;
       assert(m_pRP->sig == DMAPEER_SIG);
@@ -661,6 +689,7 @@ stop_req:
 
   inline void ASSERT_BUFC(const int n)
   {
+    if(m_copy) return;
     assert(m_pRP->sig == DMAPEER_SIG);
     assert(n < (m_info->umd_tx_buf_cnt-1));
   }

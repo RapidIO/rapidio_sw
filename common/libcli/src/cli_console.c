@@ -65,9 +65,34 @@ void *console(void *cons_parm)
 
 	*ret = rc;
 
-	pthread_exit((void *)ret);
+	pthread_exit((void *)ret); // XXX small memleak
 } /* console */
 
+void* console_rc(void* cons_parm_v)
+{
+	if (cons_parm_v == NULL) return NULL;
+
+        ConsoleRc_t* cons_parm = (ConsoleRc_t*)cons_parm_v;
+
+	struct cli_env cons_env; memset(&cons_env, 0, sizeof(cons_env));
+
+	int *ret = (int *)malloc(sizeof(int));
+
+	cons_env.sess_socket = -1;
+	if (NULL == cons_parm->prompt)
+		strcpy(cons_env.prompt, "PROMPT> ");
+	else
+		strcpy(cons_env.prompt, (char *)cons_parm->prompt);
+
+	if (cons_parm->script != NULL)
+		cli_script(&cons_env, (char *)cons_parm->script, 1);
+
+	const int rc = cli_terminal(&cons_env);
+
+	*ret = rc;
+
+	pthread_exit((void *)ret);
+} /* console_rc */
 #ifdef __cplusplus
 }
 #endif

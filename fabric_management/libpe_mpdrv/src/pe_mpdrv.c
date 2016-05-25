@@ -91,8 +91,7 @@ int mpsw_drv_reg_rd(struct riocp_pe  *pe, uint32_t offset, uint32_t *val)
 int mpsw_drv_reg_wr(struct riocp_pe  *pe, uint32_t offset, uint32_t val)
 {
 	int ret;
-	struct mpsw_drv_private_data *priv_ptr;
-	
+	struct mpsw_drv_private_data *priv_ptr = NULL;
 
 	DBG("ENTRY: offset 0x%x val 0x%x\n", offset, val);
 
@@ -127,7 +126,7 @@ int mpsw_drv_raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 				uint32_t addr, uint32_t val)
 {
 	int rc;
-	struct mpsw_drv_pe_acc_info *p_acc;
+	struct mpsw_drv_pe_acc_info *p_acc = NULL;
 
 	if (!RIOCP_PE_IS_HOST(pe))
 		return -ENOSYS;
@@ -149,7 +148,7 @@ int mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 				uint32_t addr, uint32_t *val)
 {
 	int rc;
-	struct mpsw_drv_pe_acc_info *p_acc;
+	struct mpsw_drv_pe_acc_info *p_acc = NULL;
 
 	p_acc = (struct mpsw_drv_pe_acc_info *)
 			pe->mport->minfo->private_data;
@@ -171,9 +170,9 @@ int mpsw_drv_raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
 int mpsw_mport_dev_add(struct riocp_pe *pe, char *name)
 {
 	int rc = 0;
-	struct mpsw_drv_pe_acc_info *p_acc;
-	struct mpsw_drv_private_data *p_dat;
-	char dev_fn[MPSW_MAX_DEV_FN];
+	struct mpsw_drv_pe_acc_info *p_acc = NULL;
+	struct mpsw_drv_private_data *p_dat = NULL;
+	char dev_fn[MPSW_MAX_DEV_FN] = {0};
 
 	if (RIOCP_PE_IS_MPORT(pe))
 		return 0;
@@ -213,12 +212,12 @@ int mpsw_destroy_priv_data(struct riocp_pe *pe);
 int mpsw_alloc_priv_data(struct riocp_pe *pe, void **p_dat,
 			struct riocp_pe *peer)
 {
-	struct mpsw_drv_private_data *priv_ptr;
+	struct mpsw_drv_private_data *priv_ptr = NULL;
 	int ret = 1;
 
 	DBG("ENTRY\n");
 
-	*p_dat = malloc(sizeof(struct mpsw_drv_private_data));
+	*p_dat = calloc(1, sizeof(struct mpsw_drv_private_data));
 	if (NULL == *p_dat) {
 		CRIT("Unable to allocate mpsw_drv_private_data\n");
 		ret = -ENOMEM;
@@ -237,7 +236,7 @@ int mpsw_alloc_priv_data(struct riocp_pe *pe, void **p_dat,
 		struct mpsw_drv_pe_acc_info *acc_p;
 
 		priv_ptr->dev_h.accessInfo =
-			malloc(sizeof(struct mpsw_drv_pe_acc_info));
+			calloc(1, sizeof(struct mpsw_drv_pe_acc_info));
 		if (NULL == priv_ptr->dev_h.accessInfo) {
 			CRIT("Unable to allocate mpsw_drv_pe_acc_info\n");
 			ret = ENOMEM;
@@ -285,7 +284,7 @@ exit:
 
 int mpsw_destroy_priv_data(struct riocp_pe *pe)
 {
-	struct mpsw_drv_private_data *priv_ptr;
+	struct mpsw_drv_private_data *priv_ptr = NULL;
 
 	if (NULL == pe->private_data)
 		return 0;
@@ -310,8 +309,8 @@ int mpsw_destroy_priv_data(struct riocp_pe *pe)
 
 int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 {
-	struct mpsw_drv_private_data *priv;
-	DAR_DEV_INFO_t *dev_h;
+	struct mpsw_drv_private_data *priv = NULL;
+	DAR_DEV_INFO_t *dev_h = NULL;
         struct DAR_ptl ptl;
         idt_pc_dev_reset_config_in_t    rst_in = {idt_pc_rst_port};
         idt_pc_dev_reset_config_out_t   rst_out;
@@ -458,7 +457,7 @@ int mpsw_drv_reg_rd(struct riocp_pe  *pe, uint32_t offset, uint32_t *val);
 int RIOCP_WU mpsw_drv_init_pe(struct riocp_pe *pe, uint32_t *ct, 
 				struct riocp_pe *peer, char *name)
 {
-	struct mpsw_drv_private_data *p_dat;
+	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret = 1;
 	uint32_t temp_devid;
 	uint32_t gen_ctl;
@@ -573,7 +572,7 @@ int RIOCP_WU mpsw_drv_destroy_pe(struct riocp_pe *pe)
 int RIOCP_WU mpsw_drv_recover_port(struct riocp_pe *pe, pe_port_t port,
 		pe_port_t lp_port)
 {
-	struct mpsw_drv_private_data *p_dat;
+	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
 	idt_pc_clr_errs_in_t clr_errs_in;
 	idt_pc_clr_errs_out_t clr_errs_out;
@@ -615,7 +614,7 @@ fail:
 int mpsw_drv_get_route_entry(struct riocp_pe  *pe, pe_port_t port,
 					uint32_t did, pe_rt_val *rt_val)
 {
-	struct mpsw_drv_private_data *p_dat;
+	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
 	idt_rt_probe_in_t probe_in;
 	idt_rt_probe_out_t probe_out;
@@ -657,7 +656,7 @@ fail:
 int mpsw_drv_set_route_entry(struct riocp_pe  *pe,
                        pe_port_t port, uint32_t did, pe_rt_val rt_val)
 {
-	struct mpsw_drv_private_data *p_dat;
+	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
 	idt_rt_change_rte_in_t chg_in;
 	idt_rt_change_rte_out_t chg_out;
@@ -712,7 +711,7 @@ fail:
 int mpsw_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
                         pe_rt_val *rt_val, int32_t port_mask)
 {
-	struct mpsw_drv_private_data *p_dat;
+	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
 	idt_rt_alloc_mc_mask_in_t alloc_in;
 	idt_rt_alloc_mc_mask_out_t alloc_out;
@@ -790,7 +789,7 @@ fail:
 int mpsw_drv_free_mcast_mask(struct riocp_pe *sw, pe_port_t port,
                         pe_rt_val rt_val)
 {
-	struct mpsw_drv_private_data *p_dat;
+	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
 	idt_rt_dealloc_mc_mask_in_t free_in;
 	idt_rt_dealloc_mc_mask_out_t free_out;
@@ -840,7 +839,7 @@ fail:
 int mpsw_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
                         pe_rt_val rt_val, uint32_t port_mask)
 {
-	struct mpsw_drv_private_data *p_dat;
+	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
 	idt_rt_change_mc_mask_in_t chg_in;
 	idt_rt_change_mc_mask_out_t chg_out;
@@ -904,7 +903,7 @@ fail:
 
 int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 {
-	struct mpsw_drv_private_data *p_dat;
+	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
 	int recover_ret = 0;
 	idt_pc_get_status_in_t st_in;
@@ -996,7 +995,7 @@ fail:
 
 int mpsw_drv_port_stop(struct riocp_pe  *pe, pe_port_t port)
 {
-	struct mpsw_drv_private_data *p_dat;
+	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
 	idt_pc_set_config_in_t cfg_in;
 
@@ -1042,7 +1041,7 @@ fail:
 int mpsw_drv_get_port_state(struct riocp_pe  *pe, pe_port_t port,
 			struct riocp_pe_port_state_t *state)
 {
-	struct mpsw_drv_private_data *p_dat;
+	struct mpsw_drv_private_data *p_dat = NULL;
 	int ret;
 	idt_pc_get_status_in_t st_in;
 

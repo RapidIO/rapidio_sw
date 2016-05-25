@@ -61,8 +61,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define DMA_SHM_TXDESC_NAME	"DMAChannelSHM-txdesc:%d:%d"
 #define DMA_SHM_TXDESC_SIZE	((m_state->bd_num+1)*sizeof(bool) + (m_state->bd_num+1)*sizeof(WorkItem_t) + (m_state->bd_num+1)*sizeof(uint64_t))
 
-#define DMA_SHM_PENDINGDATA_NAME "DMAChannelSHM-pendingdata:%d"
-
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
 /** \brief Private gettid(2) implementation */
@@ -96,18 +94,42 @@ void DMAChannelSHM::open_txdesc_shm(const uint32_t mportid, const uint32_t chan)
   //n += (m_state->bd_num+1)*sizeof(uint64_t);
 }
 
+bool DMAChannelSHM::has_state(const uint32_t mport_id, const uint32_t chan)
+{
+  char path[129] = {0};
+
+  strncpy(path, "/dev/shm/", 128);
+  const int N = strlen(path);
+  snprintf(path+N, 128-N, DMA_SHM_STATE_NAME, mport_id, chan);
+
+  if (access(path, F_OK)) return false;
+
+  DmaChannelState_t st; memset(&st, 0, sizeof(st));
+
+  int fd = open(path, O_RDONLY);
+  if (fd < 0) return false;
+  int nr = read(fd, &st, sizeof(st));
+  close(fd);
+
+  if (nr < 0 || nr != sizeof(st)) return false;
+
+  if (st.master_pid < 1) return false;
+  if (st.hw_ready < 2) return false;
+
+  return 0 == kill(st.master_pid, 0);
+}
+
 void DMAChannelSHM::init(const uint32_t chan)
 {
   umdemo_must_die = 0;
 
-  if (chan == 0 || chan >= DMA_MAX_CHAN) { // DMA CHAN 0 reserved by kernel for main writes
+  if (chan == 7 || chan >= DMA_MAX_CHAN) { // DMA CHAN 7 reserved by kernel for main writes
     static char tmp[67] = {0};
     snprintf(tmp, 128, "DMAChannelSHM: Init called with invalid channel %u\n", chan);
     throw std::runtime_error(tmp);
   }
   memset(m_shm_bl_name, 0, sizeof(m_shm_bl_name));
   memset(m_shm_state_name, 0, sizeof(m_shm_state_name));
-  memset(m_shm_pendingdata_name, 0, sizeof(m_shm_pendingdata_name));
 
   MHz = getCPUMHz();
 
@@ -131,11 +153,6 @@ void DMAChannelSHM::init(const uint32_t chan)
   m_sim_abort_reason = 0;
   m_sim_err_stat = 0;
 
-
-  bool first_opener_pdata = true;
-  snprintf(m_shm_pendingdata_name, 128, DMA_SHM_PENDINGDATA_NAME, m_mportid);
-  m_shm_pendingdata = new POSIXShm(m_shm_pendingdata_name, sizeof(DmaShmPendingData_t), first_opener_pdata);
-  m_pendingdata_tally = (DmaShmPendingData_t*)m_shm_pendingdata->getMem();
 
   bool first_opener = true;
   const int shm_size = sizeof(DmaChannelState_t);
@@ -215,7 +232,8 @@ void DMAChannelSHM::init(const uint32_t chan)
   memset(m_state->client_completion, 0, sizeof(m_state->client_completion));
 }
 
-DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan) : m_state(NULL)
+DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan) :
+  DMAShmPendingData(mportid), m_state(NULL)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannelSHM: Invalid channel!");
@@ -230,12 +248,13 @@ DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan) : m_st
   m_state->chan  = chan;
 }
 
-DMAChannelSHM::DMAChannelSHM(const uint32_t mportid,
-                       const uint32_t chan,
-                       riomp_mport_t mp_hd) : m_state(NULL)
+DMAChannelSHM::DMAChannelSHM(const uint32_t mportid, const uint32_t chan, riomp_mport_t mp_hd) :
+  DMAShmPendingData(mportid), m_state(NULL)
 {
   if(chan >= RioMport::DMA_CHAN_COUNT)
     throw std::runtime_error("DMAChannelSHM: Invalid channel!");
+
+  assert(mp_hd);
 
   m_mp_hd = mp_hd;
   m_mportid = mportid;
@@ -290,7 +309,7 @@ void DMAChannelSHM::resetHw()
   m_sim_fifo_wp      = 0;
   m_sim_dma_rp       = 0;
 
-  m_state->dma_wr = 1; // BD0 is T3
+  m_state->dma_wr = 0; // BD0 is T3, but we need to clear WP in hw
  
   if (m_sim) return;
 
@@ -298,14 +317,24 @@ void DMAChannelSHM::resetHw()
     wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_SUSP);
 
     for(int i = 0; i < 1000; i++) {
-      if(! rd32dmachan(TSI721_DMAC_CTL) & TSI721_DMAC_CTL_SUSP) break;
+      if(!(rd32dmachan(TSI721_DMAC_CTL) & TSI721_DMAC_CTL_SUSP))
+	 break;
     }
   }
 
   wr32dmachan(TSI721_DMAC_CTL, TSI721_DMAC_CTL_INIT);
   wr32dmachan(TSI721_DMAC_INT, TSI721_DMAC_INT_ALL);
   usleep(10);
+
+  uint32_t abortReason = 0;
+  if (dmaCheckAbort(abortReason))
+    throw std::logic_error("DMAChannelSHM: ABORT still asserted after TSI721_DMAC_CTL_INIT/TSI721_DMAC_INT_ALL!");
+
   wr32dmachan(TSI721_DMAC_DWRCNT, m_state->dma_wr);
+
+  abortReason = 0;
+  if (dmaCheckAbort(abortReason))
+    throw std::logic_error("DMAChannelSHM: ABORT still asserted after WP:=1 (jump BD0/T3)!");
 }
 
 void DMAChannelSHM::setInbound()
@@ -356,44 +385,42 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
 
   if (m_state->restart_pending) return false;
 
-  struct dmadesc desc;
-  bool queued_T3 = false;
-  WorkItem_t wk_end, wk_0;
-  WorkItem_t wk;
-  struct hw_dma_desc* bd_hw = NULL;
-
   if ((opt.dtype != DTYPE1) && (opt.dtype != DTYPE2))
     return false;
 
   if ((opt.dtype == DTYPE1) && !m_mport->check_dma_buf(mem))
     return false;
 
+  struct dmadesc desc;
+  struct hw_dma_desc* bd_hw = NULL;
+  bool queued_T3 = false;
+
+  WorkItem_t wk_end, wk_0;
+  memset(&wk_end, 0, sizeof(wk_end));
+  memset(&wk_0, 0, sizeof(wk_0));
+  WorkItem_t wk;
+  memset(&wk, 0, sizeof(wk));
+
   abort_reason = 0;
 
   if (ts_p != NULL) ts_now_mark(ts_p, 1);
 
+  opt.rtype = (int)rtype;
   dmadesc_setdtype(desc, opt.dtype);
 
-  if(opt.iof)
-    dmadesc_setiof(desc, 1);
-  if(opt.crf)
-    dmadesc_setcrf(desc, 1);
-  if(opt.prio)
-    dmadesc_setprio(desc, opt.prio);
+  if (opt.iof)  dmadesc_setiof(desc, 1);
+  if (opt.crf)  dmadesc_setcrf(desc, 1);
+  if (opt.prio) dmadesc_setprio(desc, opt.prio);
 
-  opt.rtype = (int)rtype;
   dmadesc_setrtype(desc, (int)rtype); // NWRITE_R, etc
-
   dmadesc_set_raddr(desc, opt.raddr.msb2, opt.raddr.lsb64);
 
-  if(opt.tt_16b)
-    dmadesc_set_tt(desc, 1);
+  if (opt.tt_16b) dmadesc_set_tt(desc, 1);
   dmadesc_setdevid(desc, opt.destid);
 
   if(opt.dtype == DTYPE1) {
     dmadesc_setT1_bufptr(desc, mem.win_handle);
     dmadesc_setT1_buflen(desc, opt.bcount);
-    opt.win_handle = mem.win_handle; // this is good across processes
   } else { // T2
     if(rtype != NREAD)  { // copy data
       dmadesc_setT2_data(desc, (const uint8_t*)mem.win_ptr,
@@ -403,9 +430,6 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
       dmadesc_setT2_data(desc, ZERO, mem.win_size);
     }
   }
-
-  memset(&wk_end, 0 , sizeof(wk_end));
-  memset(&wk_0, 0 , sizeof(wk_0));
 
   // Check if queue full -- as late as possible in view of MT
   if(queueFull()) {
@@ -417,16 +441,18 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
   if (umdemo_must_die)
     return false;
 
+  wk.mem = mem;
+
   int bd_idx = m_state->dma_wr % m_state->bd_num;
   {{
     // If at end of buffer, account for T3 and
     // wrap around to beginning of buffer.
     if ((bd_idx + 1) == m_state->bd_num) {
-      wk_end.opt.bd_wp = m_state->dma_wr;
+      wk_end.bd_wp = m_state->dma_wr;
       wk_end.opt.dtype = DTYPE3;
 
-      wk_0.opt.bd_wp   = m_state->dma_wr+1;
-      wk_0.opt.dtype   = DTYPE3;
+      wk_0.bd_wp     = m_state->dma_wr+1;
+      wk_0.opt.dtype = DTYPE3;
 
       wk_end.opt.ts_start = wk_0.opt.ts_start = rdtsc();
       // FIXME: Should this really be FF..E, or should it be FF..F ???
@@ -438,7 +464,10 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
       memcpy((uint8_t*)m_dmadesc.win_ptr, &m_state->BD0_T3_saved, DMA_BUFF_DESCR_SIZE); // Reset BD0 as jump+1
 
       setWriteCount(m_state->dma_wr);
+
       queued_T3 = true;
+      wk_end.bl_busy_size = m_state->bl_busy_size + 1;
+      wk_0.bl_busy_size   = m_state->bl_busy_size + 2;
       m_state->bl_busy_size += 2; // XXX BUG??
       bd_idx = 1; // Skip BD0 which is a T3
     }
@@ -458,22 +487,40 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
     bd_hw = (struct hw_dma_desc*)(m_dmadesc.win_ptr) + bd_idx;
     desc.pack(bd_hw);
 
-    opt.bd_wp = m_state->dma_wr;
-    opt.bd_idx = bd_idx;
-
     m_state->serial_number++;
 
     opt.ts_start = rdtsc();
     opt.ticket   = m_state->serial_number;
-    opt.pid      = m_pid;
+
+    computeNotBefore(opt);
+
+    wk.opt       = opt;
+    wk.bd_wp     = m_state->dma_wr;
+    wk.bd_idx    = bd_idx;
+    wk.bl_busy_size = m_state->bl_busy_size;
+    wk.pid       = m_pid;
     // XXX NOTE: If this func is used from multiple threads this will be incorrect.
     //           However a trip into kernel for gettid(2) at each enq is unreasonable.
-    opt.tid      = m_tid;
-    opt.cliidx   = m_cliidx;
+    wk.tid       = m_tid;
+    wk.cliidx    = m_cliidx;
+
+    wk.valid = WI_SIG;
+
+    pthread_spin_lock(&m_state->pending_work_splock);
+      m_pending_work[bd_idx] = wk;
+
+      if(queued_T3) {
+        wk_end.opt.dtype = DTYPE3;
+        wk_end.valid = WI_SIG;
+        m_pending_work[m_state->T3_bd_hw] = wk_end;
+        wk_0.opt.dtype = DTYPE3;
+        wk_0.valid = WI_SIG;
+        m_pending_work[0] = wk_0; // BD0 is T3
+      }
+    pthread_spin_unlock(&m_state->pending_work_splock);
 
     m_state->dma_wr++;
     setWriteCount(m_state->dma_wr);
-
     if(m_state->dma_wr == 0xFFFFFFFE) m_state->dma_wr = 1; // Process BD0 which is a T3
 
     assert(m_pending_tickets[bd_idx] == 0);
@@ -487,31 +534,12 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
   pthread_spin_unlock(&m_state->bl_splock); 
 
   if(m_check_reg && dmaCheckAbort(abort_reason)) {
+    m_pending_work[bd_idx].valid = 0xbeefbaadL;
     return false; // XXX maybe not, Barry says reading from PCIe is dog-slow
   }
 
   // Not in locked context
   if (m_cliidx >= 0) m_state->client_completion[m_cliidx].bytes_enq += opt.bcount;
-
-  computeNotBefore(opt);
-
-  memset(&wk, 0, sizeof(wk));
-  wk.mem = mem;
-  wk.opt = opt;
-  wk.valid = WI_SIG;
-
-  pthread_spin_lock(&m_state->pending_work_splock);
-  m_pending_work[bd_idx] = wk;
-
-  if(queued_T3) {
-    wk_end.opt.dtype = DTYPE3;
-    wk_end.valid = WI_SIG;
-    m_pending_work[m_state->T3_bd_hw] = wk_end;
-    wk_0.opt.dtype = DTYPE3;
-    wk_0.valid = WI_SIG;
-    m_pending_work[0] = wk_0; // BD0 is T3
-  }
-  pthread_spin_unlock(&m_state->pending_work_splock);
 
   if (ts_p != NULL) ts_now_mark(ts_p, 9);
 
@@ -519,10 +547,10 @@ bool DMAChannelSHM::queueDmaOpT12(enum dma_rtype rtype, DmaOptions_t& opt, RioMp
   const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
 
   XDBG("\n\tQueued DTYPE%d op=%s did=0x%x as BD HW @0x%lx bd_wp=%d pid=%d  ticket=%llu cliidx=%d\n",
-      wk.opt.dtype, dma_rtype_str[rtype], wk.opt.destid, m_dmadesc.win_handle + offset, wk.opt.bd_wp, m_pid, opt.ticket, m_cliidx);
+      wk.opt.dtype, dma_rtype_str[rtype], wk.opt.destid, m_dmadesc.win_handle + offset, wk.bd_wp, m_pid, opt.ticket, m_cliidx);
 
   if(queued_T3)
-     XDBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_state->T3_bd_hw, wk_end.opt.bd_wp);
+     XDBG("\n\tQueued DTYPE%d as BD HW @0x%lx bd_wp=%d\n", wk_end.opt.dtype, m_dmadesc.win_handle + m_state->T3_bd_hw, wk_end.bd_wp);
 #endif
 
   return true;
@@ -798,6 +826,8 @@ void DMAChannelSHM::cleanup()
   memset(&m_dmadesc, 0, sizeof(m_dmadesc));
   memset(&m_dmacompl, 0, sizeof(m_dmacompl));
   
+  if (m_pendingdata_tally != NULL) m_pendingdata_tally->data[m_state->chan] = 0;
+
   if (m_pending_work != NULL) {
     assert(m_pending_work[m_state->bd_num].valid == 0);
     m_pending_work = NULL;
@@ -970,16 +1000,19 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
       continue;
     }
 
-    if(! m_pending_work[idx].valid) {
+    const uint32_t valid = m_pending_work[idx].valid;
+    if (WI_SIG != valid) {
       pthread_spin_unlock(&m_state->pending_work_splock);
 
-      XERR("\n\tCan't find VALID entry for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
-          compl_hwbuf[ci].win_handle,
-          compl_hwbuf[ci].fifo_offset,
-          getFIFOReadCount(), getFIFOWriteCount());
+      XERR("\n\tCan't find VALID (invalid sig=0x%x) [bd_idx=%d] entry for HW @0x%lx FIFO offset 0x%x in m_pending_work -- FIFO hw RP=%u WP=%u\n",
+           valid, idx,
+           compl_hwbuf[ci].win_handle,
+           compl_hwbuf[ci].fifo_offset,
+           getFIFOReadCount(), getFIFOWriteCount());
       continue;
     }
 
+    // XXX This may be borked
     if(m_pending_work[idx].valid == 0xdeaddeedL) { // cleaned by cleanup?
       pthread_spin_unlock(&m_state->pending_work_splock);
       continue;
@@ -1004,7 +1037,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
 
     if(item.opt.dtype == DTYPE2 && item.opt.rtype == NREAD) {
       const struct hw_dma_desc* bda = (struct hw_dma_desc*)(m_dmadesc.win_ptr);
-      const struct hw_dma_desc* bd = &bda[item.opt.bd_idx];
+      const struct hw_dma_desc* bd = &bda[item.bd_idx];
 
       assert(bd->data >= m_dmadesc.win_ptr);
       assert((uint8_t*)bd->data < (((uint8_t*)m_dmadesc.win_ptr) + m_dmadesc.win_size));
@@ -1013,13 +1046,13 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
       item.t2_rddata_len = le32(bd->bcount & 0xf);
 
       do {
-        if (item.opt.cliidx < 0) break;
+        if (item.cliidx < 0) break;
 
-        assert(item.opt.cliidx < DMA_SHM_MAX_CLIENTS);
+        assert(item.cliidx < DMA_SHM_MAX_CLIENTS);
         
-        if (!m_state->client_completion[item.opt.cliidx].busy || m_state->client_completion[item.opt.cliidx].owner_pid < 2) {
+        if (!m_state->client_completion[item.cliidx].busy || m_state->client_completion[item.cliidx].owner_pid < 2) {
           XCRIT("\n\tGot a NREAD/T2 completion for a deadbeat client at idx=%d pid?=%d\n",
-               item.opt.cliidx, m_state->client_completion[item.opt.cliidx].owner_pid);
+               item.cliidx, m_state->client_completion[item.cliidx].owner_pid);
           break;
         }
 
@@ -1029,13 +1062,13 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
         memcpy(nr_t2_res.data, bd->data, 16);
 
         pthread_spin_lock(&m_state->client_splock); 
-        const bool r = m_state->client_completion[item.opt.cliidx].NREAD_T2_results.enq(nr_t2_res);
-        if (r) m_state->client_completion[item.opt.cliidx].change_cnt++;
+        const bool r = m_state->client_completion[item.cliidx].NREAD_T2_results.enq(nr_t2_res);
+        if (r) m_state->client_completion[item.cliidx].change_cnt++;
         pthread_spin_unlock(&m_state->client_splock); 
 
         if (!r)
           XCRIT("\n\tFailed to enqueue a NREAD/T2 completion for client idx=%d pid=%d Queue FULL?\n",
-               item.opt.cliidx, m_state->client_completion[item.opt.cliidx].owner_pid);
+               item.cliidx, m_state->client_completion[item.cliidx].owner_pid);
       } while(0);
     }
 
@@ -1047,7 +1080,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     if ((m_state->bl_busy_size == 0 || m_pending_work[idx].opt.dtype > 3) && 7 <= g_level) { // DEBUG
       std::string s;
       dumpBDs(s);
-      XDBG("\n\tAt 0BUG point idx=%d bd_idx=%d WP=%u RP=%u BD map: %s\n", idx, item.opt.bd_idx, m_state->dma_wr, (m_sim? m_sim_dma_rp: getReadCount()), s.c_str());
+      XDBG("\n\tAt 0BUG point idx=%d bd_idx=%d WP=%u RP=%u BD map: %s\n", idx, item.bd_idx, m_state->dma_wr, (m_sim? m_sim_dma_rp: getReadCount()), s.c_str());
     }
 #endif
 
@@ -1068,7 +1101,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
 
     if (umdemo_must_die) return 0;
 
-    m_bl_busy[item.opt.bd_idx] = false;
+    m_bl_busy[item.bd_idx] = false;
     m_state->bl_busy_size--;
     assert(m_state->bl_busy_size >= 0);
 
@@ -1076,7 +1109,7 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
 
     {{ 
 
-    if (item.opt.cliidx >= 0) m_state->client_completion[item.opt.cliidx].bytes_txd += item.opt.bcount;
+    if (item.cliidx >= 0) m_state->client_completion[item.cliidx].bytes_txd += item.opt.bcount;
 
     if (m_pendingdata_tally != NULL) {
       assert(m_pendingdata_tally->data[m_state->chan] >= 0);
@@ -1090,24 +1123,24 @@ int DMAChannelSHM::scanFIFO(WorkItem_t* completed_work, const int max_work, cons
     const int P = m_state->serial_number - m_pending_tickets_RP; // Pending issued tickets
     //assert(P); // If we're here it cannot be 0
 
-    assert(m_pending_tickets[item.opt.bd_idx] > 0);
-    assert(m_pending_tickets[item.opt.bd_idx] == item.opt.ticket);
+    assert(m_pending_tickets[item.bd_idx] > 0);
+    assert(m_pending_tickets[item.bd_idx] == item.opt.ticket);
 
-    m_pending_tickets[item.opt.bd_idx] = 0; // cancel ticket
+    m_pending_tickets[item.bd_idx] = 0; // cancel ticket
 
     int k = 0;
     int i = m_pending_tickets_RP % m_state->bd_num;
     for (; P > 0 && k < m_state->bd_num; i++) {
       assert(i < m_state->bd_num);
       if (i == 0) continue; // T3 BD0 does not get a ticket
-      if (i == (m_state->bd_num-1)) continue; // T3 BD(bufc-1) does not get a ticket
+      if (i == (m_state->bd_num-1)) { i = 0; continue; } // T3 BD(bufc-1) does not get a ticket
       if (m_pending_tickets[i] > 0) break; // still in flight
       k++;
       if (k == P) break; // Upper bound
     }
 #ifdef DEBUG_BD
     XDBG("\n\tDMA bd_idx=%d rtype=%d Ticket=%llu S/N=%llu Pending=%d pending_tickets_RP=%llu => k=%d\n",
-         item.opt.bd_idx, item.opt.rtype, item.opt.ticket, m_state->serial_number, P, m_pending_tickets_RP, k);
+         item.bd_idx, item.opt.rtype, item.opt.ticket, m_state->serial_number, P, m_pending_tickets_RP, k);
 #endif
     if (k > 0) {
       m_pending_tickets_RP += k;
@@ -1155,7 +1188,7 @@ void DMAChannelSHM::softRestart(const bool nuke_bds)
       if (! m_bl_busy[idx]) continue;
 
       const uint64_t ticket = m_pending_work[idx].opt.ticket;
-      const int cliidx      = m_pending_work[idx].opt.cliidx;
+      const int cliidx      = m_pending_work[idx].cliidx;
 
       m_state->client_completion[cliidx].bad_tik.enq(ticket);
       m_state->client_completion[cliidx].change_cnt++;
@@ -1164,6 +1197,7 @@ void DMAChannelSHM::softRestart(const bool nuke_bds)
 
     // FUUDGE
     m_state->acked_serial_number = m_state->serial_number;
+    m_pending_tickets_RP = m_state->serial_number;
   }
 
   if (nuke_bds) {
@@ -1178,6 +1212,8 @@ void DMAChannelSHM::softRestart(const bool nuke_bds)
     memset(m_pending_work, 0, (m_state->bd_num+1) * sizeof(WorkItem_t));
 
     memset(m_pending_tickets, 0, (m_state->bd_num+1)*sizeof(uint64_t));
+
+    if (m_pendingdata_tally != NULL) m_pendingdata_tally->data[m_state->chan] = 0;
   }
 
   // Just be paranoid about wrap-around descriptor
@@ -1211,6 +1247,11 @@ done:
   setWriteCount(m_state->dma_wr); // knows about sim
 
   pthread_spin_unlock(&m_state->bl_splock);
+
+  uint32_t abortReason = 0;
+  if (dmaCheckAbort(abortReason))
+    throw std::logic_error("DMAChannelSHM: ABORT still asserted after softRestart!");
+
   m_state->restart_pending = 0;
 
   XINFO("dT = %llu TICKS; DMA WP := %d%s\n", (rdtsc() - ts_s), DMA_WP, (nuke_bds? "; NUKED BDs": ""));
@@ -1501,6 +1542,7 @@ int DMAChannelSHM::cleanupBDQueue(bool multithreaded_fifo)
 DMAChannelSHM::TicketState_t DMAChannelSHM::checkTicket(const DmaOptions_t& opt)
 {
   assert(m_state);
+  if (m_state->hw_ready < 2) return UMDD_DEAD;
 
   if (opt.ticket == 0 || opt.ticket > m_state->serial_number)
     throw std::runtime_error("DMAChannelSHM: Invalid ticket!");
@@ -1542,13 +1584,18 @@ void DMAChannelSHM_destroy(void* dch)
 int DMAChannelSHM_pingMaster(void* dch)
 {
   if (dch != NULL) return ((DMAChannelSHM*)dch)->pingMaster();
-  else return 0;
+  return 0;
+}
+int DMAChannelSHM_checkMasterReady(void* dch)
+{
+  if (dch != NULL) return ((DMAChannelSHM*)dch)->checkMasterReady();
+  return 0;
 }
 
 int DMAChannelSHM_checkPortOK(void* dch)
 {
   if (dch != NULL) return ((DMAChannelSHM*)dch)->checkPortOK();
-  else return 0;
+  return 0;
 }
 int DMAChannelSHM_dmaCheckAbort(void* dch, uint32_t* abort_reason)
 {
@@ -1632,14 +1679,28 @@ int DMAChannelSHM_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannelSHM::D
   return r;
 }
 
-void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client)
+void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAShmPendingData::DmaShmPendingData_t* per_client)
 {
   if (dch == NULL || total == NULL) return;
 
-  DMAChannelSHM::DmaShmPendingData_t perc;
+  DMAShmPendingData::DmaShmPendingData_t perc;
   ((DMAChannelSHM*)dch)->getShmPendingData(*total, perc);
 
   if (per_client != NULL) *per_client = perc;
+}
+
+bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel)
+{
+  return DMAChannelSHM::has_state(mport_id, channel);
+}
+
+bool DMAChannelSHM_has_logging()
+{
+#ifdef RDMA_LL
+  return true;
+#else
+  return false;
+#endif
 }
 
 }; // END extern "C"

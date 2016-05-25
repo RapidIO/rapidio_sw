@@ -37,6 +37,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iostream>
 #include <string>
 #include <array>
+using namespace std;
 
 using std::string;
 using std::array;
@@ -85,6 +86,9 @@ public:
 		/* Start at head and print everything up to the tail */
 		while(head != tail) {
 			cout << buffer[head];
+			if ('\n' != 
+			buffer[head].c_str()[strlen(buffer[head].c_str())-1])
+				cout << endl;
 			inc_head();
 		}
 

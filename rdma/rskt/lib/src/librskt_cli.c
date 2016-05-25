@@ -53,7 +53,10 @@ extern "C" {
 void librskt_display_skt(struct cli_env *env, struct rskt_handle_t *skt_h,
                         int row, int header)
 {
-	struct rskt_socket_t *skt = skt_h->skt;
+	struct rskt_socket_t *skt;
+
+	sem_wait(&lib.skts_mtx);
+	skt = (struct rskt_socket_t *)skt_h->skt;
 
 	if (!row) {
 /*
@@ -78,7 +81,8 @@ con msub:    01234567                                   F 0x01234567
         		logMsg(env);
 		};
 		if (NULL == skt)
-			return;
+			goto exit;
+
 		sprintf(env->output, 
 			"State    : %2d %8s         Bytes      Trans   Ptr\n",
 			skt_h->st, SKT_STATE_STR(skt_h->st));
@@ -163,11 +167,11 @@ con msub:    01234567                                   F 0x01234567
 			(NULL == skt->hdr)?0:ntohl(skt->hdr->rem_tx_rd_flags));
 		logMsg(env);
 
-		return;
+		goto exit;
 	};
 
 	if (NULL == skt)
-		return;
+		goto exit;
 
 	if (header)
         	sprintf(env->output, "State  CT  SN   Size  BuffSize  REM MS NAME  Size\n");
@@ -178,6 +182,9 @@ con msub:    01234567                                   F 0x01234567
 			skt->msub_sz, skt->buf_sz,
 			skt->con_msh_name, skt->con_sz);
         logMsg(env);
+
+exit:
+	sem_post(&lib.skts_mtx);
 };
 			
 extern struct cli_cmd RSKTLStatus;
@@ -492,7 +499,7 @@ int RSKTDataDumpCmd(struct cli_env *env, int argc, char **argv)
 	if (argc)
 		goto print_help;
 
-	skt = t_skt_h->skt;
+	skt = (struct rskt_socket_t *)t_skt_h->skt;
 	sprintf(env->output, "State : %d - \"%s\"\n", 
 			t_skt_h->st, SKT_STATE_STR(t_skt_h->st)); 
 	logMsg(env);
@@ -812,7 +819,7 @@ uint8_t rskt_wr_data;
 extern struct cli_cmd RSKTWrite;
 int RSKTWriteCmd(struct cli_env *env, int argc, char **argv)
 {
-	uint8_t *data_buf, value;
+	uint8_t *data_buf = NULL, value;
 	uint32_t i, rc;
 	uint32_t repeat = 1;
 
@@ -828,7 +835,7 @@ int RSKTWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	value = rskt_wr_data;
 
-	data_buf = (uint8_t *)malloc(rskt_wr_cnt);
+	data_buf = (uint8_t *)calloc(1, rskt_wr_cnt);
 
 	for (i = 0; i < rskt_wr_cnt; i++)
 		data_buf[i] = value--;
@@ -877,7 +884,7 @@ uint32_t rskt_rd_cnt;
 extern struct cli_cmd RSKTRead;
 int RSKTReadCmd(struct cli_env *env, int argc, char **argv)
 {
-        uint8_t *data_buf;
+        uint8_t *data_buf = NULL;
         int i, rc;
         uint32_t repeat = 1, r;
 
@@ -894,7 +901,7 @@ int RSKTReadCmd(struct cli_env *env, int argc, char **argv)
 
         sprintf(env->output, "Byte Cnt: %x\n", rskt_rd_cnt);
         logMsg(env);
-        data_buf = (uint8_t *)malloc(rskt_rd_cnt);
+        data_buf = (uint8_t *)calloc(1, rskt_rd_cnt);
         for (r = 0; r < repeat; r++) {
                 do {
                         rc = rskt_read(t_skt_h, data_buf, rskt_rd_cnt);
@@ -946,7 +953,7 @@ extern struct cli_cmd RSKTTxTest;
 #define TEST_BUFF_SIZE 4096
 int RSKTTxTestCmd(struct cli_env *env, int argc, char **argv)
 {
-	uint8_t data_buf[TEST_BUFF_SIZE], rx_data_buf[TEST_BUFF_SIZE];
+	uint8_t data_buf[TEST_BUFF_SIZE] = {0}, rx_data_buf[TEST_BUFF_SIZE] = {0};
 	uint32_t repeat = 1, r, s, sz;
 	int check = 1, rc;
 

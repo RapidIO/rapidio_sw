@@ -177,19 +177,18 @@ void print_ms_status(struct cli_env *env, int start_ms, int end_ms)
 		if (mso->ms[ms_idx].valid) {
 			if (!got_one) {
 				sprintf(env->output, 
-					"\nMS V   Name                     MSSize   State     LocSN RemSN RemCt\n"); 
+					"\nMS V   Name                     MSSize   State LocSN RemSN   RemCt\n"); 
         			logMsg(env);
 				got_one = 1;
 			};
 			int state = mso->ms[ms_idx].state;
 			sprintf(env->output,
-				"%2d %1d %26s %8x %6s %5d %5d 0x%8x\n",
+				"%2d %1d %26s %8x %5s %5d %5d 0x%8x\n",
 				ms_idx,
 				mso->ms[ms_idx].valid,
 				mso->ms[ms_idx].ms_name,
 				mso->ms[ms_idx].ms_size,
-				(!state)?"unused":(1 == state)?"IN USE":
-					(2 == state)?" RSVD ":"!INVL!",
+				RSKTD_MS_STATE_TO_STR(state),
 				mso->ms[ms_idx].loc_sn,
 				mso->ms[ms_idx].rem_sn,
 				mso->ms[ms_idx].rem_ct);
@@ -781,17 +780,17 @@ void display_speers_list(struct cli_env *env)
 
 		if (!found_one) {
 			sprintf(env->output,
-			"\nSPEERS\nComp_Tag CM_Sockt A Req Seq Resp Seq\n");
+			"\nSPEERS\nComp_Tag CM_Sockt A   Req   Seq   Resp    Seq\n");
 			found_one = 1;
         		logMsg(env);
 		};
 		
-		sprintf(env->output, "%8d %8d %1d %3x %3d %4x %3d\n", 
+		sprintf(env->output, "%8d %8d %1d %8s %3d %8s %3d\n", 
 			dmn.speers[i].ct, dmn.speers[i].cm_skt_num,
 			dmn.speers[i].alive && dmn.speers[i].got_hello,
-			ntohl(dmn.speers[i].req->msg_type),
+			RSKTD_REQ_STR(ntohl(dmn.speers[i].req->msg_type)),
 			ntohl(dmn.speers[i].req->msg_seq),
-			ntohl(dmn.speers[i].resp->msg_type),
+			RSKTD_RESP_STR(ntohl(dmn.speers[i].resp->msg_type)),
 			ntohl(dmn.speers[i].resp->msg_seq));
         	logMsg(env);
 	};

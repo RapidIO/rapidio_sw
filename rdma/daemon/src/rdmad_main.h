@@ -33,25 +33,23 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMAD_MAIN_H
 #define RDMAD_MAIN_H
 
-#include "ts_map.h"
-#include "ts_vector.h"
+#include <semaphore.h>
 
-#include "rdmad_peer_utils.h"
-#include "rdmad_inbound.h"
-#include "rdmad_ms_owners.h"
-#include "rdmad_cm.h"
+#include <memory>
 
-void shutdown(struct peer_info *peer);
-int send_disc_ms_cm(uint32_t server_destid,
-		    uint32_t server_msid,
-		    uint32_t client_msubid);
+using std::unique_ptr;
 
-extern struct peer_info	peer;
-extern inbound *the_inbound;
-extern ms_owners owners;
+/**
+ * @brief Shut down RDMA daemon
+ */
+void shutdown();
+
+class inbound;
+
+extern unique_ptr<inbound> the_inbound;
+
 extern bool shutting_down;
-extern ts_map<string, cm_accept_msg> accept_msg_map;
-extern ts_vector<string> wait_accept_mq_names;
+extern sem_t  *cm_engine_cleanup_sem;
 
 #endif
 

@@ -3,11 +3,3 @@ rrdma
 remdbg
 
 *.i
-
-# auto generated files
-rdmad.h
-rdmad_rpc.c
-rdmad_xdr.b
-rdmad_xdr.c
-rdmalib_rpc.c
-

@@ -690,7 +690,7 @@ int main(int argc, char** argv)
 	int kbuf_mode = 0; /* 0 - user space buffer, 1 = kernel contiguous buffer */
 	int verify = 1;
 	unsigned int repeat = 1;
-	uint64_t rio_base = RIO_MAP_ANY_ADDR;
+	uint64_t rio_base = RIOMP_MAP_ANY_ADDR;
 	enum riomp_dma_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
 	static const struct option options[] = {
 		{ "destid", required_argument, NULL, 'D' },

@@ -63,12 +63,12 @@ public:
 
     if (tun_MTU < 580) throw std::runtime_error("IBwinMap: Invalid tun_MTU!");
 
-    if (ib_size < (sizeof(DmaPeerRP_t) + sizeof(DMA_L2_SIZE) + tun_MTU))
+    if (ib_size < (sizeof(DmaPeerRP_t) + DMA_L2_SIZE + tun_MTU))
       throw std::runtime_error("IBwinMap: Invalid ib_size!");
 
     if (bufc < (0x20-1)) throw std::runtime_error("IBwinMap: Invalid bufc!");
 
-    PEER_IBWIN_SIZE = sizeof(DmaPeerRP_t) + bufc * (sizeof(DMA_L2_SIZE) + tun_MTU);
+    PEER_IBWIN_SIZE = sizeof(DmaPeerRP_t) + bufc * (DMA_L2_SIZE + tun_MTU);
     MAX_PEERS = ib_size / PEER_IBWIN_SIZE;
 
     assert(MAX_PEERS);
@@ -198,6 +198,8 @@ done:
 
     return cnt;
   }
+
+  inline uint32_t getIBwinSize() { return PEER_IBWIN_SIZE; }
 
 private:
   uint64_t  m_rio_addr;

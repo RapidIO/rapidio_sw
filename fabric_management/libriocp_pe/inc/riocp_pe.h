@@ -70,7 +70,7 @@ struct riocp_pe_port {
 	riocp_pe_handle pe;		/* Owner of this port */
 	struct riocp_pe_port *peer;	/* Peer port of this port (NULL=no peer) */
 	uint8_t id;			/* Physical port number */
-	riocp_pe_port_state_t state;	/* Port state */
+	struct riocp_pe_port_state_t state;	/* Port state */
 };
 
 

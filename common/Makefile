@@ -29,25 +29,13 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-# Paths specified by parent Makefile as environment variables, but can be
-# overriden on the command line, and are also provided with default values
-TOP_LEVEL ?= $(shell pwd)
-
-# Specified in master Makefile. Note that DEBUG is only relevant to 'liblog'
-# Override on the command line if building 'common' by itself.
-ifndef LOG_LEVEL
-LOG_LEVEL ?= 7
-export LOG_LEVEL
-endif
+TOPDIR?=$(shell pwd)/..
+include $(TOPDIR)/rules.mk
 
 ifndef DEBUG
 DEBUG ?= DEBUG
 export DEBUG
 endif
-
-SOVER?=0.4
-export SOVER
-
 
 all: libcli liblist liblog libtime_utils libmport libunit_test samples
 
@@ -92,6 +80,7 @@ libmport: FORCE libtime_utils
 	mkdir -p libs_so
 	cp libmport/libmport.a libs_a/
 	(cd libmport; tar cf - libmport.so*) | (cd libs_so; tar xvf -)
+	$(MAKE) LDFLAGS= -C libmport samples
 
 samples: FORCE
 	$(MAKE) -C samples

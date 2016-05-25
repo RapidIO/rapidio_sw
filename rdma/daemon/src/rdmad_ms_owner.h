@@ -35,107 +35,173 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MS_OWNER_H
 
 #include <stdint.h>
-#include <errno.h>
 
-#include <cstdio>
-#include <cstring>
-
-#include <sstream>
-#include <utility>
-#include <vector>
 #include <string>
-#include <algorithm>
+#include <vector>
+#include <exception>
+#include <mutex>
 
-#include "msg_q.h"
-#include "unix_sock.h"
-#include "rdma_types.h"
-#include "liblog.h"
-#include "libcli.h"
-
+#include "tx_engine.h"
 #include "rdmad_mspace.h"
-#define MSO_CONN_ID_START	0x1
 
 using std::vector;
 using std::string;
+using std::exception;
+using std::mutex;
+using std::lock_guard;
 
-class mso_user
-{
+/* Referenced class declarations */
+class unix_msg_t;
+class unix_server;
+
+/**
+ * @brief Inbound window mapping exception
+ */
+class ms_owner_exception : public exception {
 public:
-	mso_user(uint32_t mso_conn_id,
-		 unix_server *user_server, msg_q<mq_close_mso_msg> *mq) :
-		mso_conn_id(mso_conn_id), user_server(user_server), mq(mq) {}
-	bool operator==(uint32_t mso_conn_id) {
-		return this->mso_conn_id == mso_conn_id;
-	}
-	bool operator==(unix_server *user_server) {
-		return this->user_server == user_server;
+	ms_owner_exception(const char *msg) : err(msg)
+	{
 	}
 
-	msg_q<mq_close_mso_msg> *get_mq() { return mq; }
-	unix_server *get_server() { return user_server; }
-
+	const char *what() { return err; }
 private:
-	uint32_t	mso_conn_id;
-	unix_server 	*user_server;
-	msg_q<mq_close_mso_msg>	*mq;
+	const char *err;
 };
 
 class ms_owner
 {
-public:
-	/* Constructor */
-	ms_owner(const char *owner_name, unix_server *owner_server, uint32_t msoid);
+	friend class ms_owners;
 
-	/* Destructor */
+public:
+	/**
+	 * @brief Constructor
+	 *
+	 * @param owner_name	Owner name
+	 *
+	 * @param tx_eng	Daemon-to-app Tx engine
+	 *
+	 * @param msoid		Memory space owner identifier
+	 *
+	 * @throws ms_owner_exception
+	 */
+	ms_owner(const char *owner_name,
+		 tx_engine<unix_server, unix_msg_t> *tx_eng, uint32_t msoid);
+
+	/**
+	 * @brief Destructor
+	 */
 	~ms_owner();
 
-	/* Accessor */
+	/* Accessors */
 	uint32_t get_msoid() const { return msoid; }
 
 	const char *get_mso_name() const { return name.c_str(); }
 
-	/* For finding an ms_owner by its msoid */
+	/**
+	 * @brief Equality operator fr finding an ms_owner by its msoid
+	 */
 	bool operator ==(uint32_t msoid) { return this->msoid == msoid; }
 
-	/* For finding an ms_owner by its name */
-	bool operator ==(const char *owner_name) { return this->name == owner_name; }
+	/**
+	 * @brief Equality operator fr finding an ms_owner by its name
+	 */
+	bool operator ==(const char *owner_name) const
+	{
+		return this->name == owner_name;
+	} /* operator ==() */
 
-	/* Stores handle of memory spaces currently owned by owner */
-	void add_ms(mspace *ms);
+	/**
+	 * @brief Stores memory space in list of owned spaces
+	 *
+	 * @param ms	Pointer to memory space
+	 */
+	void add_ms(mspace *ms)
+	{
+		lock_guard<mutex> ms_list_lock(ms_list_mutex);
 
-	/* Removes handle of memory space from list of owned spaces */
+		INFO("Adding msid(0x%X) to msoid(0x%X)\n", ms->get_msid(), msoid);
+		ms_list.push_back(ms);
+	} /* add_ms() */
+
+	/**
+	 * @brief Removes memory space from list of owned spaces
+	 *
+	 * @param ms	Pointer to memory space
+	 *
+	 * @return 0 if successful, non-zer otherwise
+	 */
 	int remove_ms(mspace* ms);
 
-	/* Returns whether this owner sill owns some memory spaces */
-	bool owns_mspaces() { return ms_list.size() != 0; }
-
-	void dump_info(struct cli_env *env);
-
-	int open(uint32_t *msoid, uint32_t *mso_conn_id, unix_server *user_server);
-
-	int close(uint32_t mso_conn_id);
-
-	int close(unix_server *other_server);
-
-	unix_server *get_owner_server() const { return owner_server; }
-
-	bool has_user_server(unix_server *server)
+	/**
+	 * @brief Returns whether this owner still owns memory spaces
+	 *
+	 * @return true if still owns, false otherwise
+	 */
+	bool owns_mspaces()
 	{
-		auto it = find(begin(users), end(users), server);
-		return (it != end(users));
+		lock_guard<mutex> ms_list_lock(ms_list_mutex);
+		return !ms_list.empty();
 	}
 
+	/**
+	 * @brief Dumps memory space owner information to CLI console
+	 *
+	 * @param env	CLI console environment object
+	 */
+	void dump_info(struct cli_env *env);
+
+	/**
+	 * @brief Opens the memory space owner and associates it with the Tx
+	 * 	  engine that connects the daemon with the app that called
+	 * 	  rdma_ms_open_mso_h()
+	 *
+	 * @param user_tx_eng Tx engine connecting the daemon to the app
+	 * 		      that called rdma_open_mso_h()
+	 *
+	 * @return 0 if successful, non-zer otherwise
+	 */
+	int open(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
+
+	/**
+	 * @brief Closes the instance of the memory space owner associated
+	 * 	  with the specified Tx engine
+	 *
+	 * @param user_tx_eng Tx engine connecting the daemon to the app
+	 * 		      that called rdma_close_mso_h()
+	 *
+	 * @return 0 if successful, non-zer otherwise
+	 */
+	int close(tx_engine<unix_server, unix_msg_t> *user_tx_eng);
+
+	/**
+	 * @brief Indicates whether a user with the specified Tx engine
+	 * 	  currently opens this memory space owner
+	 *
+	 * @param tx_eng Tx engine to be checked
+	 */
+	bool has_user_tx_eng(tx_engine<unix_server, unix_msg_t> *tx_eng)
+	{
+		auto it = find(begin(users_tx_eng), end(users_tx_eng), tx_eng);
+		return (it != end(users_tx_eng));
+	} /* has_user_tx_eng() */
+
 private:
-	int close_connections();
+	using mspace_list 	= vector<mspace *>;
+	using user_tx_eng	= tx_engine<unix_server, unix_msg_t>;
+	using user_tx_eng_list  = vector<user_tx_eng *>;
 
-	string			name;
-	unix_server		*owner_server;
-	uint32_t		msoid;
-	vector<mspace *>	ms_list;
-	vector<mso_user>	users;
-	uint32_t		mso_conn_id;	// Next available mso_conn_id
+	void close_connections();
+
+	string		name;
+	tx_engine<unix_server, unix_msg_t> *tx_eng;
+	uint32_t	msoid;
+
+	mspace_list	ms_list;
+	mutex		ms_list_mutex;
+
+	user_tx_eng_list   users_tx_eng;
+	mutex		   users_tx_eng_mutex;
 };
-
 
 #endif
 

@@ -35,67 +35,223 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define CM_RDMA_H
 
 #include <stdint.h>
-#include <endian.h>
-#include "rdma_types.h"
 
-#define	CM_MS_NAME_MAX_LEN	31
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
 
-#define	CM_CONNECT_MS	1
-#define	CM_ACCEPT_MS	2
-#define	CM_DISCONNECT_MS	3
-#define	CM_DESTROY_MS	4
-#define CM_DESTROY_ACK_MS	5
+#include <cstring>
 
-struct hello_msg_t {
+#include "liblog.h"
+#include "rdma_msg.h"
+
+constexpr auto CM_MS_NAME_MAX_LEN 			= 31;
+
+/* Message types */
+constexpr rdma_msg_type CM_HELLO 	 		= 0x1111111111111111;
+constexpr rdma_msg_type CM_HELLO_ACK	 		= 0x2222222222222222;
+constexpr rdma_msg_type CM_CONNECT_MS 			= 0x3333333333333333;
+constexpr rdma_msg_type CM_ACCEPT_MS	 		= 0x4444444444444444;
+constexpr rdma_msg_type CM_DISCONNECT_MS		= 0x5555555555555555;
+constexpr rdma_msg_type CM_DISCONNECT_MS_ACK		= 0x6666666666666666;
+constexpr rdma_msg_type CM_FORCE_DISCONNECT_MS 		= 0x7777777777777777;
+constexpr rdma_msg_type CM_SERVER_DISCONNECT_MS		= 0x8888888888888888;
+constexpr rdma_msg_type CM_SERVER_DISCONNECT_MS_ACK	= 0x9999999999999999;
+
+/**
+ * @brief HELLO message exchanged between daemons during provisioning
+ */
+struct cm_hello_msg_t {
 	uint64_t destid;
 };
 
-struct cm_connect_msg {
-	uint64_t	type;
+struct cm_hello_ack_msg_t {
+	uint64_t destid;
+};
+
+/**
+ * @brief Sent from client daemon to server daemon requesting connection
+ * 	  to a server memory space
+ */
+struct cm_connect_ms_msg {
 	uint64_t	client_msid;	  /* Client msid */
 	uint64_t	client_msubid;	  /* Client msub ID */
 	uint64_t	client_bytes;	  /* Client msub length in bytes */
 	uint64_t	client_rio_addr_len; /* Client length of RIO address */
 	uint64_t	client_rio_addr_lo;  /* Client RIO address lo 64-bits */
-	uint64_t	client_rio_addr_hi;  /* Client lpper RIO address */
+	uint64_t	client_rio_addr_hi;  /* Client upper RIO address */
+	uint64_t	client_to_lib_tx_eng_h;
 	uint64_t	seq_num;
+	uint64_t	connh;
 	char		server_msname[CM_MS_NAME_MAX_LEN+1];
 	/* Populated by daemon */
 	uint64_t	client_destid_len;  /* Client length of destid */
 	uint64_t	client_destid;	  /* Client node destination ID */
+
+	void dump()
+	{
+		DBG("client_msid = 0x%" PRIx64 "\n", be64toh(client_msid));
+		DBG("client_msubsid = 0x%" PRIx64 "\n",be64toh(client_msubid));
+		DBG("client_bytes = 0x%" PRIx64 "\n", be64toh(client_bytes));
+		DBG("client_rio_addr_len = 0x%" PRIx64 "\n",
+						be64toh(client_rio_addr_len));
+		DBG("client_rio_addr_lo = 0x%016" PRIx64 "\n",
+						be64toh(client_rio_addr_lo));
+		DBG("client_rio_addr_hi = 0x%016" PRIx64 "\n",
+						be64toh(client_rio_addr_hi));
+		DBG("client_destid_len = 0x%" PRIx64 "\n",
+						be64toh(client_destid_len));
+		DBG("client_destid = 0x%" PRIx64 "\n", be64toh(client_destid));
+		DBG("seq_num = 0x%016" PRIx64 "\n", be64toh(seq_num));
+		DBG("connh = 0x%016" PRIx64 "\n", be64toh(connh));
+		DBG("client_to_lib_tx_eng_h = 0x%" PRIx64 "\n",
+					be64toh(client_to_lib_tx_eng_h));
+	}
 };
 
-struct cm_accept_msg {
-	uint64_t	type;
+/* CM_ACCEPT_MS subtypes */
+constexpr uint32_t CM_ACCEPT_MS_ACK  = 0x01;
+constexpr uint32_t CM_ACCEPT_MS_NACK = 0x02;
+
+/**
+ * @brief Sent from server daemon to client daemon indicating connection
+ * 	  request to memory space was accepted.
+ */
+struct cm_accept_ms_msg {
+	uint64_t	sub_type;
 	char		server_ms_name[CM_MS_NAME_MAX_LEN+1];
-	uint64_t	server_msid;	/* Server msid */
+	uint64_t	server_msid;
 	uint64_t	server_msubid;
-	uint64_t	server_bytes;	/* Length of msubh local to server */
+	uint64_t	server_msub_bytes;
 	uint64_t	server_rio_addr_len;
 	uint64_t	server_rio_addr_lo;
 	uint64_t	server_rio_addr_hi;
 	uint64_t	server_destid_len;
 	uint64_t	server_destid;
+	uint64_t	client_msid;
+	uint64_t	client_msubid;
+	uint64_t	client_to_lib_tx_eng_h;
 };
 
-struct cm_disconnect_msg {
-	uint64_t	type;
+/**
+ * @brief Sent from client daemon to server daemon requesting disconnection
+ * 	  from specified memory space
+ */
+struct cm_disconnect_ms_msg {
 	uint64_t 	client_msubid;
 	uint64_t 	client_destid;
 	uint64_t 	client_destid_len;
+	uint64_t	client_to_lib_tx_eng_h;
 	uint64_t 	server_msid;
 };
 
-struct cm_destroy_msg {
-	uint64_t	type;
-	char server_msname[CM_MS_NAME_MAX_LEN+1];
-	uint64_t server_msid;
+/**
+ * @brief Sent from server daemon to client daemon acknowledging that
+ * 	  disconnection from memory space was successful.
+ * 	  TODO: Do we need all fields?
+ */
+struct cm_disconnect_ms_ack_msg {
+	uint64_t 	client_msubid;
+	uint64_t 	client_destid;
+	uint64_t 	client_destid_len;
+	uint64_t	client_to_lib_tx_eng_h;
+	uint64_t 	server_msid;
 };
 
-struct cm_destroy_ack_msg {
-	uint64_t	type;
-	char server_msname[CM_MS_NAME_MAX_LEN+1];
-	uint64_t server_msid;
+/**
+ * @brief Sent from server daemon to client daemon to force disconnection
+ * 	  from specified memory space because the server has closed/destroyed
+ * 	  the memory space.
+ */
+struct cm_force_disconnect_ms_msg {
+	char 		server_msname[CM_MS_NAME_MAX_LEN+1];
+	uint64_t	server_msid;
+	uint64_t	server_msubid;
+	uint64_t 	client_to_lib_tx_eng_h;
 };
 
+/**
+ * @brief Sent from server daemon to client daemon to force disconnection
+ * 	  from specified memory space because the server has closed/destroyed
+ * 	  the memory space.
+ */
+struct cm_server_disconnect_ms_msg {
+	char 		server_msname[CM_MS_NAME_MAX_LEN+1];
+	uint64_t	server_msid;
+	uint64_t	server_msubid;
+	uint64_t 	client_to_lib_tx_eng_h;
+	uint64_t	server_to_lib_tx_eng_h;
+};
+
+/**
+ * @brief Acknowledge server disconnection
+ */
+struct cm_server_disconnect_ms_ack_msg {
+	char server_msname[CM_MS_NAME_MAX_LEN+1];
+	uint64_t server_msid;
+	uint64_t client_to_lib_tx_eng_h;
+	uint64_t	server_to_lib_tx_eng_h;
+};
+
+/**
+ * @brief Main struct that encapsulates all CM messages.
+ */
+struct cm_msg_t {
+	uint64_t	type;
+	uint64_t	category;
+	uint64_t	seq_no;
+	union {
+		cm_hello_msg_t			cm_hello;
+		cm_hello_ack_msg_t		cm_hello_ack;
+		cm_connect_ms_msg		cm_connect_ms;
+		cm_accept_ms_msg		cm_accept_ms;
+		cm_disconnect_ms_msg 		cm_disconnect_ms;
+		cm_disconnect_ms_ack_msg	cm_disconnect_ms_ack;
+		cm_force_disconnect_ms_msg	cm_force_disconnect_ms;
+		cm_server_disconnect_ms_msg	cm_server_disconnect_ms;
+		cm_server_disconnect_ms_ack_msg	cm_server_disconnect_ms_ack;
+	};
+
+	cm_msg_t() {}
+
+	cm_msg_t(const cm_msg_t& other) :
+		type(other.type),
+		category(other.category),
+		seq_no(other.seq_no)
+	{
+		DBG("######### COPY CTOR CALLED #########");
+		switch(type) {
+		case CM_HELLO:
+			cm_hello = other.cm_hello;
+		break;
+		case CM_HELLO_ACK:
+			cm_hello_ack = other.cm_hello_ack;
+		break;
+
+		case CM_CONNECT_MS:
+			cm_connect_ms = other.cm_connect_ms;
+		break;
+
+		case CM_DISCONNECT_MS:
+			cm_disconnect_ms = other.cm_disconnect_ms;
+		break;
+
+		case CM_FORCE_DISCONNECT_MS:
+			cm_force_disconnect_ms = other.cm_force_disconnect_ms;
+		break;
+
+		case CM_SERVER_DISCONNECT_MS:
+			cm_server_disconnect_ms =
+					other.cm_server_disconnect_ms;
+		break;
+
+		case CM_SERVER_DISCONNECT_MS_ACK:
+			cm_server_disconnect_ms_ack =
+					other.cm_server_disconnect_ms_ack;
+		break;
+
+		default:
+			abort();
+		}
+	}
+};
 #endif

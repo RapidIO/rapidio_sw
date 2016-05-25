@@ -49,6 +49,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mport.h"
 #include "pshm.h"
 #include "dmadesc.h"
+#include "dmashmpdata.h"
 #include "rdtsc.h"
 #include "debug.h"
 #include "libtime_utils.h"
@@ -61,10 +62,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #ifdef RDMA_LL
-  #define XDBG		DBG
-  #define XINFO		INFO
-  #define XCRIT		CRIT
-  #define XERR		ERR
+  #define XDBG    DBG
+  #define XINFO   INFO
+  #define XCRIT   CRIT
+  #define XERR    ERR
 #else
   #define XDBG(format, ...) 
   #define XINFO(format, ...) 
@@ -84,7 +85,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 void hexdump4byte(const char* msg, uint8_t* d, int len);
 
-class DMAChannelSHM {
+class DMAChannelSHM : public DMAShmPendingData {
 public:
   static const int DMA_MAX_CHAN = 8;
 
@@ -92,12 +93,6 @@ public:
 
   static const int DMA_SHM_MAX_CLIENTS = 64;
   static const int DMA_SHM_MAX_ITEMS_PER_CLIENT = 1024;
-
-
-  /** \brief Track in-flight pending bytes for all channels. This lives in SHM. */
-  typedef struct {
-    volatile uint64_t data[DMA_MAX_CHAN];
-  } DmaShmPendingData_t;
 
   enum {
     SIM_INJECT_TIMEOUT = 1,
@@ -119,17 +114,11 @@ public:
         uint8_t  msb2;
         uint64_t lsb64;
       } raddr;
-      uint64_t win_handle; ///< populated when queueing for TX
-      uint32_t bd_wp; ///< soft WP at the moment of enqueuing this
-      uint32_t bd_idx; ///< index into buffer ring of buffer used to handle this op
-      uint64_t ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
-      uint64_t u_data; ///< whatever the user puts in here
+      uint64_t           ts_start, ts_end; ///< rdtsc timestamps for enq and popping up in FIFO
       uint64_t ticket; ///< ticket issued at enq time
       uint64_t not_before; ///< earliest rdtsc ts when ticket can be checked
       uint64_t not_before_dns; ///< delta nanoseconds wait
-      pid_t    pid; ///< process id of enqueueing process
-      pid_t    tid; ///< thread id of enqueueing thread; this is NOT a pthread id, it is issued by gettid(2)
-      int      cliidx;
+      uint64_t u_data; ///< whatever the user puts in here
   } DmaOptions_t;
 
   static const uint32_t WI_SIG = 0xb00fd00fL;
@@ -137,7 +126,13 @@ public:
     uint32_t valid;
     DmaOptions_t       opt;
     RioMport::DmaMem_t mem;
+    uint32_t           bd_wp; ///< soft WP at the moment of enqueuing this [DOCUMENTATION]
+    uint32_t           bd_idx; ///< index into buffer ring of buffer used to handle this op [DOCUMENTATION]
+    uint32_t           bl_busy_size; ///< How big was the tx q when this was enq'd [DOCUMENTATION]
     // add actions here
+    pid_t              pid; ///< process id of enqueueing process
+    pid_t              tid; ///< thread id of enqueueing thread; this is NOT a pthread id, it is issued by gettid(2)
+    int                cliidx;
     uint8_t  t2_rddata[16]; // DTYPE2 NREAD incoming data
     uint32_t t2_rddata_len;
   } WorkItem_t;
@@ -204,8 +199,7 @@ public:
   }
   inline bool queueDmaOpT2(enum dma_rtype  rtype, DmaOptions_t& opt, uint8_t* data, const int data_len, uint32_t& abort_reason, struct seq_ts *ts_p)
   {
-    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16))
-	return false;
+    if(rtype != NREAD && (data == NULL || data_len < 1 || data_len > 16)) return false;
   
     RioMport::DmaMem_t lmem; memset(&lmem, 0, sizeof(lmem));
   
@@ -410,6 +404,8 @@ public:
   /** \brief Returns the number of BDs submitted to DMA engine */
   inline uint32_t getWP() { return m_state->dma_wr; }
 
+  static bool has_state(const uint32_t mport_id, const uint32_t chan);
+
 private:
   int umdemo_must_die;
   uint64_t            MHz;
@@ -433,10 +429,6 @@ private:
 
   POSIXShm*           m_shm_bl;
   char                m_shm_bl_name[129];
-
-  POSIXShm*           m_shm_pendingdata;
-  char                m_shm_pendingdata_name[129];
-  DmaShmPendingData_t*m_pendingdata_tally;
 
   // These two live in m_shm_bl back-to-back
   bool*               m_bl_busy;
@@ -519,7 +511,7 @@ public:
     pthread_spinlock_t  hw_splock; ///< Serialize access to DMA chan registers
     pthread_spinlock_t  pending_work_splock; ///< Serialize access to DMA pending queue object
     uint32_t            chan;
-    int32_t            bd_num;
+    int32_t             bd_num;
     uint32_t            sts_size;
     volatile uint32_t   dma_wr;      ///< Mirror of Tsi721 write pointer
     int32_t             fifo_rd;
@@ -536,6 +528,8 @@ public:
     ShmClientCompl_t    client_completion[DMA_SHM_MAX_CLIENTS];
   } DmaChannelState_t;
 
+  uint64_t getAckedSN() { assert(m_state); return m_state->acked_serial_number; }
+
 private:
   DmaChannelState_t*  m_state;
 
@@ -549,14 +543,14 @@ private:
     uint64_t ns = 0;
 
     if (m_pendingdata_tally != NULL) {
-	uint64_t max_data = m_pendingdata_tally->data[m_state->chan];
+      uint64_t max_data = m_pendingdata_tally->data[m_state->chan];
       for(int i = 1 /*Kern uses 0 for maint*/; i < DMA_MAX_CHAN; i++) {
-	if (m_pendingdata_tally->data[i] < max_data)
-		ns += m_pendingdata_tally->data[i];
-	else
-		ns += max_data;
-	};
-	ns = ns/2;
+        if (m_pendingdata_tally->data[i] < max_data)
+          ns += m_pendingdata_tally->data[i];
+        else
+          ns += max_data;
+      }
+      ns = ns/2;
     } else { // Fall back to information at hand
       switch(opt.rtype) {
         case NREAD:         ns = opt.bcount; break;
@@ -579,7 +573,8 @@ private:
 
 public:
   typedef enum {
-    BORKED = -1,
+    UMDD_DEAD  = -42,
+    BORKED     = -1,
     INPROGRESS = 1,
     COMPLETED  = 2
   } TicketState_t;
@@ -591,15 +586,15 @@ public:
    */
   inline void getShmPendingData(uint64_t& total, DmaShmPendingData_t& per_client)
   {
-	uint64_t max_mem;
-    if (m_pendingdata_tally) {
-      total = 0;
-      return;
-    }
+    if (m_pendingdata_tally == NULL) { total = 0; return; }
+
     memcpy(&per_client, m_pendingdata_tally, sizeof(DmaShmPendingData_t));
-	max_mem = per_client.data[m_state->chan];
+
+    uint64_t max_mem = per_client.data[m_state->chan];
+    
+    total = 0;
     for(int i = 0; i < DMA_MAX_CHAN; i++)
-	total += (per_client.data[i] < max_mem)?per_client.data[i]:max_mem;
+      total += (per_client.data[i] < max_mem)?per_client.data[i]:max_mem;
   }
 
   /** \brief Crude Seventh Edition-style check for SHM Master liveliness */
@@ -607,6 +602,12 @@ public:
     assert(m_state);
     if (m_hw_master) return true; // No-op
     return (kill(m_state->master_pid, 0) == 0);
+  }
+
+  inline bool checkMasterReady() {
+    assert(m_state);
+    if (m_hw_master) return true; // No-op
+    return (m_state->hw_ready == 2);
   }
 
   /** \brief Brutal way of cleaning up dead clients. Locks out ALL clients during the proceedings
@@ -647,7 +648,7 @@ public:
 
   inline void trace_dmachan(uint32_t offset, uint32_t val)
   {
-	wr32dmachan_nolock(offset, val);
+    wr32dmachan_nolock(offset, val);
   };
 };
 
@@ -660,6 +661,7 @@ extern "C" {
 void* DMAChannelSHM_create(const uint32_t mportid, const uint32_t chan);
 void DMAChannelSHM_destroy(void* dch);
 int DMAChannelSHM_pingMaster(void* dch);
+int DMAChannelSHM_checkMasterReady(void* dch);
 int DMAChannelSHM_checkPortOK(void* dch);
 int DMAChannelSHM_dmaCheckAbort(void* dch, uint32_t* abort_reason);
 uint16_t DMAChannelSHM_getDestId(void* dch);
@@ -675,6 +677,10 @@ int DMAChannelSHM_queueDmaOpT1(void* dch, enum dma_rtype rtype, DMAChannelSHM::D
 int DMAChannelSHM_queueDmaOpT2(void* dch, enum dma_rtype rtype, DMAChannelSHM::DmaOptions_t* opt, uint8_t* data, const int data_len, uint32_t* abort_reason, struct seq_ts* ts_p);
 
 void DMAChannelSHM_getShmPendingData(void* dch, uint64_t* total, DMAChannelSHM::DmaShmPendingData_t* per_client);
+
+bool DMAChannelSHM_has_state(uint32_t mport_id, uint32_t channel);
+
+bool DMAChannelSHM_has_logging();
 
 #ifdef __cplusplus
 }; // END extern "C"

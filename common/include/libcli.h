@@ -111,7 +111,7 @@ char* GetEnv(char* var);
 void SetEnvVar(char* arg);
 char* SubstituteParam(char* arg);
 
-/* parsing support routines that support parameter substitution */
+/* Parsing support routines that support parameter substitution */
 int GetDecParm(char* arg, int dflt);
 uint64_t GetHex(char* arg, int dflt);
 float GetFloatParm(char* arg, float dflt);
@@ -157,17 +157,30 @@ extern int send_cmd(struct cli_env *env, int argc, char **argv,
  * console runs cli_terminal in a separate thread, accepting commands from
  *          stdin, until "quit" is entered.
  * cli_script executes a script file passed in based on the the environment.
+ * set_script_path sets the file system path prepended to any script name.
  */
 extern int process_command(struct cli_env *env, char *input);
 
 extern int cli_terminal(struct cli_env *env);
 
 extern int cli_script(struct cli_env *env, char *script, int verbose);
+extern int set_script_path(char *path);
 
 /* cons_parm must be "void" to match up with pthread types.
  * The cons_parm should be the prompt string to be used.
  */
 void *console(void *cons_parm);
+
+///< Argument (forced to void*) to console_rc
+typedef struct {
+  const char* prompt; ///< CLI prompt
+  const char* script; ///< RC script
+} ConsoleRc_t;
+
+/** \brief Run the console but first execute the RC script
+ * \note cons_parm must be "void" to match up with pthread types
+ */
+void* console_rc(void *cons_parm);
 
 #ifdef __cplusplus
 }

@@ -107,7 +107,7 @@ int fmd_dd_open_rw(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
                 goto exit;
         };
 
-        *dd = (fmd_dd *)
+        *dd = (struct fmd_dd *)
 		mmap(NULL, sizeof(struct fmd_dd), PROT_READ|PROT_WRITE,
                 MAP_SHARED, *dd_fd, 0);
 
@@ -136,7 +136,7 @@ int fmd_dd_open_ro(char *dd_fn, int *dd_fd, struct fmd_dd **dd,
                 goto exit;
 	}
 
-        *dd = (fmd_dd *)mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
+        *dd = (struct fmd_dd *)mmap(NULL, sizeof(struct fmd_dd), PROT_READ,
                 MAP_SHARED, *dd_fd, 0);
 
         if (MAP_FAILED == *dd) {
@@ -184,7 +184,7 @@ int fmd_dd_mtx_open(char *dd_mtx_fn, int *dd_mtx_fd, struct fmd_dd_mtx **dd_mtx)
                 goto fail;
         };
 
-        *dd_mtx = (fmd_dd_mtx *)mmap(NULL, sizeof(struct fmd_dd_mtx), 
+        *dd_mtx = (struct fmd_dd_mtx *)mmap(NULL, sizeof(struct fmd_dd_mtx), 
 			PROT_READ|PROT_WRITE, MAP_SHARED, *dd_mtx_fd, 0);
 
         if (MAP_FAILED == *dd_mtx) {

@@ -32,474 +32,219 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #include <stdint.h>
 
-#include <mqueue.h>
-#include <semaphore.h>
-#include <pthread.h>
-#include <signal.h>
+#define __STDC_FORMAT_MACROS
+#include <cinttypes>
 
-#include "rdma_mq_msg.h"
+#include <mutex>
+#include <memory>
+#include "memory_supp.h"
+
+#include <cassert>
+
+#include "rdma_types.h"
 #include "liblog.h"
 #include "cm_sock.h"
-#include "rdmad_cm.h"
 #include "rdmad_main.h"
+#include "rdmad_inbound.h"
 #include "rdmad_clnt_threads.h"
+#include "rdmad_tx_engine.h"
+#include "rdmad_rx_engine.h"
+#include "rdmad_msg_processor.h"
+#include "rdmad_peer_utils.h"
+#include "daemon_info.h"
+
+using std::unique_ptr;
+using std::move;
+using std::make_shared;
+using std::shared_ptr;
+using std::mutex;
+using std::lock_guard;
 
 /* List of destids provisioned via the HELLO command/message */
-vector<hello_daemon_info>	hello_daemon_info_list;
-sem_t	hello_daemon_info_list_sem;
+daemon_list<cm_client>	hello_daemon_info_list;
 
 vector<connected_to_ms_info>	connected_to_ms_info_list;
-sem_t 				connected_to_ms_info_list_sem;
-static int send_destroy_ms_to_lib(const char *server_ms_name,
-			   uint32_t server_msid);
+mutex 				connected_to_ms_info_list_mutex;
 
-struct wait_accept_destroy_thread_info {
-	cm_client	*hello_client;
-	pthread_t	tid;
-	sem_t		started;
-	uint32_t	destid;
-};
+static cm_client_msg_processor d2d_msg_proc;
 
-int send_destroy_ms_for_did(uint32_t did)
+int send_force_disconnect_ms_to_lib(uint32_t server_msid,
+				  uint32_t server_msubid,
+				  uint64_t client_to_lib_tx_eng_h)
 {
-	int ret = 0;
+	int rc;
 
-	sem_wait(&connected_to_ms_info_list_sem);
+	/* Verify that there is an actual connection between one of the client
+	 * apps of this daemon to the specified msid. */
+	lock_guard<mutex> conn_lock(connected_to_ms_info_list_mutex);
+	auto it = find_if(
+		begin(connected_to_ms_info_list),
+		end(connected_to_ms_info_list),
+		[server_msid, server_msubid, client_to_lib_tx_eng_h]
+		(connected_to_ms_info& info)
+		{
+			uint64_t to_lib_tx_eng = (uint64_t)info.to_lib_tx_eng;
+			return (info.server_msid == server_msid) &&
+			       (info.server_msubid == server_msubid) &&
+			       (to_lib_tx_eng == client_to_lib_tx_eng_h) &&
+			       info.connected;
+		});
+	if (it == end(connected_to_ms_info_list)) {
+		WARN("No clients connected to memory space!\n");
+		return 0;
+	}
+
+	/* Prepare for force disconnect ack notification BEFORE
+	 * sending the force disconnect */
+	rx_engine<unix_server, unix_msg_t> *rx_eng
+					= it->to_lib_tx_eng->get_rx_eng();
+	auto reply_sem = make_shared<sem_t>();
+	sem_init(reply_sem.get(), 0, 0);
+	rx_eng->set_notify(FORCE_DISCONNECT_MS_ACK, RDMA_CALL, 0, reply_sem);
+
+	/* Send the FORCE_DISCONNECT_MS message */
+	auto in_msg = make_unique<unix_msg_t>();
+	in_msg->type 	= FORCE_DISCONNECT_MS;
+	in_msg->category = RDMA_REQ_RESP;
+	in_msg->seq_no 	= 0;
+	in_msg->force_disconnect_ms_in.server_msid = server_msid;
+	in_msg->force_disconnect_ms_in.server_msubid = server_msubid;
+	it->to_lib_tx_eng->send_message(move(in_msg));
+
+	/* Wait for FORCE_DISCONNECT_MS_ACK */
+	unix_msg_t	out_msg;
+	struct timespec timeout;
+	clock_gettime(CLOCK_REALTIME, &timeout);
+	timeout.tv_sec += 1;	/* 1 second timeout */
+	rc = sem_timedwait(reply_sem.get(), &timeout);
+	if (rc) {
+		ERR("reply_sem failed: %s\n", strerror(errno));
+		if (errno == ETIMEDOUT) {
+			ERR("Timeout occurred\n");
+			rc = ETIMEDOUT;
+		}
+		return rc;
+	}
+	INFO("Got FORCE_DISCONNECT_MS_ACK\n");
+
+	/* Read the FORCE_DISCONNECT_MS_ACK message contents */
+	rc = rx_eng->get_message(FORCE_DISCONNECT_MS_ACK, RDMA_CALL, 0, &out_msg);
+	if (rc) {
+		ERR("Failed to obtain reply message, rc = %d\n", rc);
+		return rc;
+	}
+
+	/* Verify that the FORCE_DISCONNECT_MS_ACK message contents match
+	 * what we were expecting */
+	bool ok = out_msg.force_disconnect_ms_ack_in.server_msid == server_msid;
+	ok &= out_msg.force_disconnect_ms_ack_in.server_msubid == server_msubid;
+	if (!ok) {
+		ERR("Mismatched FORCE_DISCONNECT_MS_ACK\n");
+		ERR("Expecting server_msid(0x%X), but got server_msid(0x%X)\n",
+			server_msid,
+			out_msg.force_disconnect_ms_ack_in.server_msid );
+		ERR("Expecting server_msubid(0x%X), but got server_msubid(0x%X)\n",
+			server_msubid,
+			out_msg.force_disconnect_ms_ack_in.server_msubid);
+		return -1;
+	}
+
+	return 0;
+} /* send_force_disconnect_ms_to_lib() */
+
+
+int send_force_disconnect_ms_to_lib_for_did(uint32_t did)
+{
+	int ret = 0;	/* The list could be empty */
+
+	lock_guard<mutex> conn_lock(connected_to_ms_info_list_mutex);
 	for (auto& conn_to_ms : connected_to_ms_info_list) {
 		if ((conn_to_ms == did) && conn_to_ms.connected) {
-			int ret = send_destroy_ms_to_lib(
-					conn_to_ms.server_msname.c_str(),
-					conn_to_ms.server_msid);
+			ret = send_force_disconnect_ms_to_lib(
+					conn_to_ms.server_msid,
+					conn_to_ms.server_msubid,
+					(uint64_t)conn_to_ms.to_lib_tx_eng);
 			if (ret) {
-				ERR("Failed to send destroy for '%s'\n",
+				ERR("Failed in send_force_disconnect_ms_to_lib '%s'\n",
 					conn_to_ms.server_msname.c_str());
 			}
 		}
 	}
-	remove(begin(connected_to_ms_info_list),
-	       end(connected_to_ms_info_list),
-	       did);
-	sem_post(&connected_to_ms_info_list_sem);
 
+	/* Now remove all entries delonging to 'did' from the
+	 * connected_to_ms_info_list */
+	connected_to_ms_info_list.erase(
+			remove(begin(connected_to_ms_info_list),
+			       end(connected_to_ms_info_list),
+			       did),
+			end(connected_to_ms_info_list));
 	return ret;
-} /* send_destroy_ms_for_did() */
+} /* send_force_disconnect_ms_to_lib_for_did() */
 
-static int send_destroy_ms_to_lib(
-		const char *server_ms_name,
-		uint32_t server_msid)
-{
-	int ret = 0;
-
-	/* Prepare POSIX message queue name */
-	char	mq_name[CM_MS_NAME_MAX_LEN+2];
-	strcpy(&mq_name[0], "/dest-");
-	strcpy(&mq_name[6], server_ms_name);
-
-	/* Open destroy/destroy-ack message queue */
-	msg_q<mq_destroy_msg>	*destroy_mq;
-	try {
-		destroy_mq = new msg_q<mq_destroy_msg>(mq_name, MQ_OPEN);
-	}
-	catch(msg_q_exception& e) {
-		ERR("Failed to open 'destroy' POSIX queue (%s): %s\n",
-					mq_name, e.msg.c_str());
-		ret = -1;
-		goto exit_func;
-	}
-
-	/* Send 'destroy' POSIX message to the RDMA library */
-	mq_destroy_msg	*dest_msg;
-	destroy_mq->get_send_buffer(&dest_msg);
-	dest_msg->server_msid = server_msid;
-	if (destroy_mq->send()) {
-		ERR("Failed to send 'destroy' message to client.\n");
-		ret = -2;
-		goto exit_destroy_mq;
-	}
-
-	/* Message buffer for receiving destroy ack message */
-	mq_destroy_msg *destroy_ack_msg;
-	destroy_mq->get_recv_buffer(&destroy_ack_msg);
-
-	/* Wait for 'destroy_ack', but with timeout; we cannot be
-	 * stuck here if the library fails to send the 'destroy_ack' */
-	struct timespec tm;
-	clock_gettime(CLOCK_REALTIME, &tm);
-	tm.tv_sec += 5;
-	if (destroy_mq->timed_receive(&tm)) {
-		/* The server daemon will timeout on the destory-ack
-		 * reception since it is now using a timed receive CM call.
-		 */
-		HIGH("Timed out without receiving ACK to destroy\n");
-		ret = -3;
-	} else {
-		HIGH("POSIX destroy_ack received for %s\n",
-					server_ms_name);
-		ret = 0;
-	}
-
-	/* Done with the destroy POSIX message queue */
-exit_destroy_mq:
-	delete destroy_mq;
-exit_func:
-	return ret;
-} /* send_destroy_ms_to_lib() */
-
-/**
- * Functor for matching a memory space on both server_destid and
- * server_msid.
- */
-struct match_ms {
-	match_ms(uint16_t server_destid, uint32_t server_msid) :
-		server_destid(server_destid), server_msid(server_msid)
-	{}
-
-	bool operator()(connected_to_ms_info& cmi)
-	{
-		return (cmi.server_msid == this->server_msid) &&
-		       (cmi.server_destid == this->server_destid);
-	}
-
-	uint16_t server_destid;
-	uint32_t server_msid;
-};
-
-/**
- * Request for handling requests such as RDMA connection request, and
- * RDMA disconnection requests.
- */
-void *wait_accept_destroy_thread_f(void *arg)
-{
-	DBG("ENTER\n");
-	if (!arg) {
-		CRIT("NULL argument. Exiting\n");
-		pthread_exit(0);
-	}
-
-
-	wait_accept_destroy_thread_info *wadti =
-			(wait_accept_destroy_thread_info *)arg;
-	uint32_t destid = wadti->destid;
-
-	/* Obtain pointer to hello_client */
-	if (!wadti->hello_client) {
-		CRIT("NULL argument. Exiting\n");
-		free(wadti);
-		pthread_exit(0);
-	}
-
-	/* Create a new cm_client based on the hello client socket */
-	riomp_sock_t	client_socket = wadti->hello_client->get_socket();
-	cm_client *accept_destroy_client;
-	try {
-		accept_destroy_client = new cm_client("accept_destroy_client",
-						      client_socket,
-						      &shutting_down);
-	}
-	catch(cm_exception& e) {
-		CRIT("Failed to create rx_conn_disc_server: %s\n", e.err);
-		delete wadti->hello_client;
-		free(wadti);
-		pthread_exit(0);
-	}
-
-	/* Send HELLO message containing our destid */
-	hello_msg_t	*hm;
-	accept_destroy_client->get_send_buffer((void **)&hm);
-	hm->destid = htobe64(peer.destid);
-	if (accept_destroy_client->send()) {
-		ERR("Failed to send HELLO to destid(0x%X)\n", destid);
-		delete wadti->hello_client;
-		free(wadti);
-		pthread_exit(0);
-	}
-	HIGH("HELLO message successfully sent to destid(0x%X)\n", destid);
-
-	/* Receive HELLO (ack) message back with remote destid */
-	hello_msg_t 	*ham;	/* HELLO-ACK message */
-	accept_destroy_client->get_recv_buffer((void **)&ham);
-	if (accept_destroy_client->timed_receive(5000)) {
-		ERR("Failed to receive HELLO ACK from destid(0x%X)\n", destid);
-		delete wadti->hello_client;
-		free(wadti);
-		pthread_exit(0);
-	}
-	if (be64toh(ham->destid) != destid) {
-		WARN("hello-ack destid(0x%X) != destid(0x%X)\n", be64toh(ham->destid), destid);
-	}
-	HIGH("HELLO ACK successfully received from destid(0x%X)\n", destid);
-
-	/* Create and initialize hello_daemon_info struct */
-	hello_daemon_info *hdi = new hello_daemon_info(destid,
-							accept_destroy_client,
-							wadti->tid);
-	if (!hdi) {
-		CRIT("Failed to allocate hello_daemon_info\n");
-		delete wadti->hello_client;
-		free(wadti);
-		pthread_exit(0);
-	}
-
-	/* Store remote daemon info in the 'hello' daemon list */
-	sem_wait(&hello_daemon_info_list_sem);
-	hello_daemon_info_list.push_back(*hdi);
-	HIGH("Stored info for destid(0x%X) in hello_daemon_info_list\n", hdi->destid);
-	sem_post(&hello_daemon_info_list_sem);
-
-	delete hdi;	/* Copied into hello_daemon_info_list */
-
-	/* Post semaphore to caller to indicate thread is up */
-	sem_post(&wadti->started);
-
-	while(1) {
-		int	ret;
-		/* Receive ACCEPT_MS, or DESTROY_MS message */
-		DBG("Waiting for ACCEPT_MS or DESTROY_MS\n");
-		ret = accept_destroy_client->receive();
-		if (ret) {
-			if (ret == EINTR) {
-				WARN("pthread_kill() called\n");
-			} else {
-				CRIT("Failed to receive on hello_client: %s\n",
-								strerror(ret));
-			}
-
-			/* Free the cm_client object */
-			delete accept_destroy_client;
-
-			/* If we just failed to receive() then we should also
-			 * clear the entry in hello_daemon_info_list. If we are
-			 * shutting down, the shutdown function would be accessing
-			 * the list so we should NOT erase an element from it.
-			 */
-			if (!shutting_down) {
-				/* Remove entry from hello_daemon_info_list */
-				WARN("Removing entry from hello_daemon_info_list\n");
-				sem_wait(&hello_daemon_info_list_sem);
-				auto it = find(begin(hello_daemon_info_list),
-					       end(hello_daemon_info_list),
-					       destid);
-				if (it != end(hello_daemon_info_list))
-					hello_daemon_info_list.erase(it);
-				sem_post(&hello_daemon_info_list_sem);
-			}
-			CRIT("Exiting thread\n");
-			pthread_exit(0);
-		}
-
-		/* Read all messages as ACCEPT_MS first, then if the
-		 * type is different then cast message buffer accordingly. */
-		cm_accept_msg	*accept_cm_msg;
-		accept_destroy_client->get_recv_buffer((void **)&accept_cm_msg);
-		if (be64toh(accept_cm_msg->type) == CM_ACCEPT_MS) {
-			HIGH("Received ACCEPT_MS from %s\n",
-						accept_cm_msg->server_ms_name);
-
-			/* Form message queue name from memory space name */
-			char mq_name[CM_MS_NAME_MAX_LEN+2];
-			mq_name[0] = '/';
-			strcpy(&mq_name[1], accept_cm_msg->server_ms_name);
-			string mq_str(mq_name);
-
-			/* Is the message queue name in wait_accept_mq_names? */
-			/* Not found. Ignore message since no one is waiting for it */
-			if (!wait_accept_mq_names.contains(mq_str)) {
-				WARN("Ignoring message from ms('%s')!\n",
-						accept_cm_msg->server_ms_name);
-				continue;
-			}
-
-			/* All is good, and we need to relay the message back
-			 * to rdma_conn_ms_h() via POSIX messaging */
-			/* Open message queue */
-			msg_q<mq_accept_msg>	*accept_mq;
-			try {
-				accept_mq =
-				    new msg_q<mq_accept_msg>(mq_name, MQ_OPEN);
-			}
-			catch(msg_q_exception& e) {
-				ERR("Failed to open POSIX queue '%s': %s\n",
-						mq_name, e.msg.c_str());
-				continue;
-			}
-			DBG("Opened POSIX queue '%s'\n", mq_name);
-
-			/* POSIX accept message preparation */
-			mq_accept_msg	*accept_mq_msg;
-			accept_mq->get_send_buffer(&accept_mq_msg);
-			accept_mq_msg->server_msubid		= be64toh(accept_cm_msg->server_msubid);
-			accept_mq_msg->server_msid		= be64toh(accept_cm_msg->server_msid);
-			accept_mq_msg->server_bytes		= be64toh(accept_cm_msg->server_bytes);
-			accept_mq_msg->server_rio_addr_len	= be64toh(accept_cm_msg->server_rio_addr_len);
-			accept_mq_msg->server_rio_addr_lo	= be64toh(accept_cm_msg->server_rio_addr_lo);
-			accept_mq_msg->server_rio_addr_hi	= be64toh(accept_cm_msg->server_rio_addr_hi);
-			accept_mq_msg->server_destid_len	= be64toh(accept_cm_msg->server_destid_len);
-			accept_mq_msg->server_destid		= be64toh(accept_cm_msg->server_destid);
-			DBG("CM Accept: msubid=0x%X msid=0x%X destid=0x%X, destid_len=0x%X, rio=0x%lX\n",
-							be64toh(accept_cm_msg->server_msubid),
-							be64toh(accept_cm_msg->server_msid),
-							be64toh(accept_cm_msg->server_destid),
-							be64toh(accept_cm_msg->server_destid_len),
-							be64toh(accept_cm_msg->server_rio_addr_lo));
-			DBG("CM Accept: bytes = %u, rio_addr_len = %u\n",
-							be64toh(accept_cm_msg->server_bytes),
-							be64toh(accept_cm_msg->server_rio_addr_len));
-			DBG("MQ Accept: msubid=0x%X msid= 0x%X destid=0x%X destid_len=0x%X, rio=0x%lX\n",
-								accept_mq_msg->server_msubid,
-								accept_mq_msg->server_msid,
-								accept_mq_msg->server_destid,
-								accept_mq_msg->server_destid_len,
-								accept_mq_msg->server_rio_addr_lo);
-			DBG("MQ Accept: bytes = %u, rio_addr_len = %u\n",
-								accept_mq_msg->server_bytes,
-								accept_mq_msg->server_rio_addr_len);
-			/* Send POSIX accept back to conn_ms_h() */
-			if (accept_mq->send()) {
-				WARN("Failed to send accept_msg on '%s': %s\n", strerror(errno));
-				delete accept_mq;
-				continue;
-			}
-
-			/* Delete the accept message queue object */
-			delete accept_mq;
-
-			/* All is good. Just remove the processed mq_name from the
-			 * wait_accept_mq_names list and go back and wait for the
-			 * next accept message */
-			wait_accept_mq_names.remove(mq_str);
-
-			/* Update the corresponding element of connected_to_ms_info_list */
-			sem_wait(&connected_to_ms_info_list_sem);
-			auto it = find(begin(connected_to_ms_info_list),
-				       end(connected_to_ms_info_list),
-				       accept_cm_msg->server_ms_name);
-			if (it == end(connected_to_ms_info_list)) {
-				ERR("Cannot find '%s' in connected_to_ms_info_list\n",
-						accept_cm_msg->server_ms_name);
-			} else {
-				it->connected = true;
-				it->server_msid = be64toh(accept_cm_msg->server_msid);
-				DBG("Setting '%s' to 'connected\n",
-						accept_cm_msg->server_ms_name);
-			}
-			sem_post(&connected_to_ms_info_list_sem);
-
-		} else if (be64toh(accept_cm_msg->type) == CM_DESTROY_MS) {
-			cm_destroy_msg	*destroy_msg;
-			accept_destroy_client->get_recv_buffer((void **)&destroy_msg);
-
-			HIGH("Received CM destroy  containing '%s'\n",
-								destroy_msg->server_msname);
-
-			/* Relay to library and get ACK back */
-			if (send_destroy_ms_to_lib(destroy_msg->server_msname, be64toh(destroy_msg->server_msid))) {
-				ERR("Failed to send destroy message to library or get ack\n");
-				/* Don't exit; there maybe a problem with that memory space
-				 * but not with others */
-				continue;
-			}
-
-			/* Remove the entry relating to the destroy ms. Note that it has to match both
-			 * the server_destid and server_msid since multiple daemons can allocate the same
-			 * msid to different memory spaces and they are distinct only by the servers DID (destid)
-			 */
-			match_ms	mms(accept_destroy_client->server_destid,
-					be64toh(destroy_msg->server_msid));
-			sem_wait(&connected_to_ms_info_list_sem);
-			remove_if(begin(connected_to_ms_info_list), end(connected_to_ms_info_list), mms);
-			sem_post(&connected_to_ms_info_list_sem);
-
-			cm_destroy_ack_msg *dam;
-
-			/* Flush CM send buffer of previous message */
-			accept_destroy_client->get_send_buffer((void **) &dam);
-			accept_destroy_client->flush_send_buffer();
-
-			/* Now send back a destroy_ack CM message */
-			dam->type	= htobe64(CM_DESTROY_ACK_MS);
-			strcpy(dam->server_msname, destroy_msg->server_msname);
-			dam->server_msid = destroy_msg->server_msid; /* Both are BE */
-			if (accept_destroy_client->send()) {
-				WARN("Failed to send destroy_ack to server daemon\n");
-			} else {
-				HIGH("Sent destroy_ack to server daemon\n");
-			}
-		} else {
-			CRIT("Got an unknown message code (0x%X)\n",
-					accept_cm_msg->type);
-		}
-	} /* while(1) */
-	pthread_exit(0);
-} /* wait_accept_destroy_thread_f() */
-
-/**
- * Provision a remote daemon by sending a HELLO message.
- */
 int provision_rdaemon(uint32_t destid)
 {
-	/* Create provision client to connect to remote daemon's provisioning thread */
-	cm_client	*hello_client;
+	int rc;
 
-	/* If the 'destid' is already known, kill its thread */
-	sem_wait(&hello_daemon_info_list_sem);
-	auto it = find(begin(hello_daemon_info_list), end(hello_daemon_info_list),
-			destid);
-	if (it != end(hello_daemon_info_list)) {
-		WARN("destid(0x%X) is already known\n", destid);
-		pthread_kill(it->tid, SIGUSR1);
-	}
-	sem_post(&hello_daemon_info_list_sem);
-
+	DBG("ENTER\n");
 	try {
-		hello_client = new cm_client("hello_client",
-						peer.mport_id,
-						peer.prov_mbox_id,
-						peer.prov_channel,
-						&shutting_down);
+		/* Create Client to connect to remote daemon */
+		peer_info &peer = the_inbound->get_peer();
+		shared_ptr<cm_client> the_client = make_shared<cm_client>
+					   ("the_client",
+					    peer.mport_id,
+					    peer.prov_mbox_id,
+					    peer.prov_channel,
+					    &shutting_down);
+
+		/* Connect to remote daemon */
+		rc = the_client->connect(destid);
+		if (rc < 0) {
+			CRIT("Failed to connect to destid(0x%X)\n", destid);
+			throw RDMA_DAEMON_UNREACHABLE;
+		}
+		DBG("Connected to remote daemon at destid(0x%X)\n", destid);
+
+		/* Now create a Tx and Rx engines for communicating
+		 * with remote client. */
+		auto cm_tx_eng = make_unique<cm_client_tx_engine>(
+				"hello_tx_eng",
+				the_client,
+				cm_engine_cleanup_sem);
+
+		auto cm_rx_eng = make_unique<cm_client_rx_engine>(
+				"hello_rx_eng",
+				the_client,
+				d2d_msg_proc,
+				cm_tx_eng.get(),
+				cm_engine_cleanup_sem);
+
+		/* Send HELLO message containing our destid */
+		auto in_msg = make_unique<cm_msg_t>();
+		in_msg->type = htobe64(CM_HELLO);
+		in_msg->category = htobe64(RDMA_REQ_RESP);
+		in_msg->seq_no = htobe64(0);
+		in_msg->cm_hello.destid = htobe64(the_inbound->get_peer().destid);
+		cm_tx_eng->send_message(move(in_msg));
+		HIGH("HELLO message sent to destid(0x%X)\n", destid);
+
+		/* Create entry for remote daemon */
+		hello_daemon_info_list.add_daemon(move(cm_tx_eng),
+						  move(cm_rx_eng),
+						  destid);
+		DBG("Created daemon entry in hello_damon_info_list\n");
 	}
-	catch(cm_exception& e) {
-		CRIT("Failed to create hello_client %s\n", e.err);
-		return -1;
+	catch(exception& e) {
+		CRIT("Failed to create hello_client %s\n", e.what());
+		rc = RDMA_MALLOC_FAIL;
 	}
-
-	/* Connect to remote daemon */
-	int ret = hello_client->connect(destid);
-	if (ret) {
-		CRIT("Failed to connect to destid(0x%X)\n", destid);
-		delete hello_client;
-		return -2;
+	catch(int e) {
+		rc = e;
 	}
-	HIGH("Connected to remote daemon on destid(0x%X)\n", destid);
-
-	wait_accept_destroy_thread_info *wadti =
-	(wait_accept_destroy_thread_info *)malloc(sizeof(wait_accept_destroy_thread_info));
-	if (!wadti) {
-		CRIT("Failed to allocate wadti\n");
-		delete hello_client;
-		return -3;
+	catch(...) {
+		CRIT("Other exception\n");
+		rc = -1;
 	}
-	wadti->hello_client = hello_client;
-	wadti->destid	    = destid;
-	sem_init(&wadti->started, 0, 0);
-
-	DBG("Creating wait_accept_destroy_thread\n");
-	ret = pthread_create(&wadti->tid,
-			     NULL,
-			     wait_accept_destroy_thread_f,
-			     wadti);
-	if (ret) {
-		CRIT("Failed to create wait_accept_destroy_thread\n");
-		delete hello_client;
-		delete wadti;
-		return -6;
-	}
-
-	sem_wait(&wadti->started);
-
-	/* Free the wadti struct */
-	free(wadti);
-
-	DBG("wait_accept_destroy_thread started successully\n");
-	return 0;
+	DBG("EXIT\n");
+	return rc;
 } /* provision_rdaemon() */
 

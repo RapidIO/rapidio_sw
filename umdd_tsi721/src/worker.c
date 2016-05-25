@@ -74,7 +74,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef USER_MODE_DRIVER
 #include "dmachanshm.h"
-#include "lockfile.h"
+#include "chanlock.h"
 #endif
 
 #ifdef __cplusplus
@@ -82,14 +82,6 @@ extern "C" {
 #endif
 
 uint32_t crc32(uint32_t crc, const void *buf, size_t size);
-
-#ifdef __cplusplus
-};
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 void dma_free_ibwin(struct worker *info);
 
@@ -161,7 +153,7 @@ void init_worker_info(struct worker *info, int first_time)
 	init_seq_ts(&info->fifo_ts, MAX_TIMESTAMPS);
 	init_seq_ts(&info->meas_ts, MAX_TIMESTAMPS);
 
-	memset(info->check_abort_stats, 0, sizeof(info->check_abort_stats));
+	info->check_abort_stats.clear();
 #endif
 };
 
@@ -214,7 +206,7 @@ void shutdown_worker_thread(struct worker *info)
 
 int getCPUCount()
 {
-	FILE* f = fopen("/proc/cpuinfo", "rt");
+	FILE* f = fopen("/proc/cpuinfo", "rte");
 
 	int count = 0;
 	while (! feof(f)) {
@@ -331,7 +323,7 @@ void dma_alloc_ibwin(struct worker *info)
 		return; 
 	};
 
-	info->ib_rio_addr = (uint64_t)(~((uint64_t) 0)); /* RIO_MAP_ANY_ADDR */
+	info->ib_rio_addr = (uint64_t)(~((uint64_t) 0)); /* RIOMP_MAP_ANY_ADDR */
 	rc = riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
 					info->ib_byte_cnt, &info->ib_handle);
 	if (rc) {
@@ -405,62 +397,63 @@ void UMD_DD(struct worker* info)
 	const int MHz = getCPUMHz();
 	//const int idx = info->idx;
 
-	std::string ab;
-	for (int i = 0; i < 255; i++) {
-		if (0 == info->check_abort_stats[i]) continue;
+	printf("\tMport %d Chan %d\n", info->mp_num, info->umd_chan);
 
+	std::string ab;
+	for (std::map<char, uint64_t>::iterator it = info->check_abort_stats.begin();
+             it != info->check_abort_stats.end();
+	     it++) {
 		char tmp[257] = {0};
-		snprintf(tmp, 256, "%c=%lu", i, info->check_abort_stats[i]);
+		snprintf(tmp, 256, "%c=%lu", it->first, it->second);
 		ab.append(tmp).append(" ");
 	}
 	if (ab.size() > 0)
-		INFO("\n\tcheckAbort stats: %s\n", ab.c_str());
+		printf("\tcheckAbort stats: %s\n", ab.c_str());
 
-	DMAChannelSHM::ShmClientCompl_t comp[DMAChannelSHM::DMA_SHM_MAX_CLIENTS];
-	memset(&comp, 0, sizeof(comp));
+	uint64_t total = 0;
+        DMAChannelSHM::DmaShmPendingData_t pdata; memset(&pdata, 0, sizeof(pdata));
+	info->umd_dch->getShmPendingData(total, pdata);
+
+	if (total > 0) {
+		std::stringstream ss;
+		ss << "Total: " << total << "\n";
+		for(int i = 1; i < DMAChannelSHM::DMA_MAX_CHAN; i++) {
+			if(pdata.data[i] == 0) continue;
+			ss << "\tCh" << i <<" pending " << pdata.data[i] << "\n";
+		}
+		printf("\tIn-flight data %s", ss.str().c_str());
+	}
 
 	if (info->umd_fifo_total_ticks_count > 0) {
 		float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
-		INFO("\n\tFIFO Avg TX %f uS cnt=%llu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
+		printf("\tFIFO Avg TX %f uS cnt=%lu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
 	}
+
+	printf("\tQsize=%d Enqd.WP=%u HW.{WP=%u RP=%u} FIFOackd=%lu FIFO.{WP=%u RP=%u} AckedSN=%lu\n",
+	       info->umd_dch->queueSize(),
+	       info->umd_dch->getWP(),
+	       info->umd_dch->getWriteCount(), info->umd_dch->getReadCount(),
+	       info->umd_dch->m_tx_cnt,
+	       info->umd_dch->getFIFOReadCount(), info->umd_dch->getFIFOWriteCount(),
+	       info->umd_dch->getAckedSN());
+
+	DMAChannelSHM::ShmClientCompl_t comp[DMAChannelSHM::DMA_SHM_MAX_CLIENTS];
+	memset(&comp, 0, sizeof(comp));
 	info->umd_dch->listClients(&comp[0], sizeof(comp));
+
 	for (int i = 0; i < DMAChannelSHM::DMA_SHM_MAX_CLIENTS; i++) {
 		if (! comp[i].busy) continue;
-		INFO("\n\tpid=%d%s change_cnt=%llu bad_tik.{RP=%llu WP=%llu} NREAD_T2_res.{RP=%llu WP=%llu} EnqBy=%llu TXdBy=%llu\n",
-		     comp[i].owner_pid, (kill(comp[i].owner_pid,0)? " DEAD": ""),
-		     comp[i].change_cnt,
-		     comp[i].bad_tik.RP, comp[i].bad_tik.WP,
-		     comp[i].NREAD_T2_results.RP, comp[i].NREAD_T2_results.WP,
-		     comp[i].bytes_enq, comp[i].bytes_txd);
+		printf("\tpid=%d%s change_cnt=%lu bad_tik.{RP=%lu WP=%lu} NREAD_T2_res.{RP=%lu WP=%lu} EnqBy=%lu TXdBy=%lu\n",
+		       comp[i].owner_pid, (kill(comp[i].owner_pid,0)? " DEAD": ""),
+		       comp[i].change_cnt,
+		       comp[i].bad_tik.RP, comp[i].bad_tik.WP,
+		       comp[i].NREAD_T2_results.RP, comp[i].NREAD_T2_results.WP,
+		       comp[i].bytes_enq, comp[i].bytes_txd);
 	}
 }
 
 void UMD_Test(const struct worker* wkr)
 {
-}
-
-/** \brief Lock other processes out of this UMD module/channel
- * \note Due to POSIX locking semantics this has no effect on the current process
- * \note Using the same channel twice in this process will NOT be prevented
- * \parm[out] info info->umd_lock will be populated on success
- * \param[in] module DMA or Mbox, ASCII string
- * \param instance Channel number
- * \return true if lock was acquited, false if somebody else is using it
- */
-bool TakeLock(struct worker* info, const char* module, int instance)
-{
-	if (info == NULL || module == NULL || module[0] == '\0' || instance < 0) return false;
-
-	char lock_name[81] = {0};
-	snprintf(lock_name, 80, "/var/lock/UMD-%s-%d..LCK", module, instance);
-	try {
-		info->umd_lock = new LockFile(lock_name);
-	} catch(std::runtime_error ex) {
-		CRIT("\n\tTaking lock %s failed: %s\n", lock_name, ex.what());
-		return false;
-	}
-	// NOT catching std::logic_error
-	return true;
 }
 
 /** \brief Check that the UMD worker and FIFO threads are not stuck to the same (isolcpu) core
@@ -485,9 +478,13 @@ bool umd_check_cpu_allocation(struct worker *info)
 void umd_shm_goodput_demo(struct worker *info)
 {
 	bool fifo_unwork_ACK = false;
+        DMAChannelSHM::WorkItem_t wi[info->umd_sts_entries*8];
+        memset(wi, 0, sizeof(wi));
+
 
 	if (! umd_check_cpu_allocation(info)) return;
-	if (! TakeLock(info, "DMA", info->umd_chan)) return;
+
+        info->umd_lock = ChannelLock::TakeLock("DMA", info->mp_num, info->umd_chan);
 
 	info->owner_func = umd_shm_goodput_demo;
 
@@ -528,9 +525,6 @@ void umd_shm_goodput_demo(struct worker *info)
 		info->umd_dch->getDestId(),
 		info->umd_tx_buf_cnt, info->umd_sts_entries);
 
-        DMAChannelSHM::WorkItem_t wi[info->umd_sts_entries*8];
-        memset(wi, 0, sizeof(wi));
-
 	clock_gettime(CLOCK_MONOTONIC, &info->iter_st_time);
         while (!info->stop_req) {
                 const int cnt = info->umd_dch->scanFIFO(wi, info->umd_sts_entries*8);
@@ -556,7 +550,7 @@ void umd_shm_goodput_demo(struct worker *info)
                                 break;
                         default:
                                 ERR("\n\tUNKNOWN BD %d bd_wp=%u\n",
-                                        item.opt.dtype, item.opt.bd_wp);
+                                        item.opt.dtype, item.bd_wp);
                                 break;
                         }
 
@@ -564,16 +558,17 @@ void umd_shm_goodput_demo(struct worker *info)
                 } // END for WorkItem_t vector
 
 	next:
-                if (!cnt) clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
-                else      info->iter_end_time = info->fifo_work_time;
+                clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
+                //if (!cnt) clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
+                //else      info->iter_end_time = info->fifo_work_time;
 
 		char check_abort = 0;
 		do {
-			if (info->umd_dch->queueFull()) { check_abort = true; break; }
+			if (info->umd_dch->queueFull()) { check_abort = 'F'; break; }
 
-			struct timespec dT = time_difference(info->iter_end_time, info->iter_st_time);
+			struct timespec dT = time_difference(info->iter_st_time, info->iter_end_time);
 			const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
-			if (nsec > 10 * 1000000) { // Every 10 ms
+			if (nsec > 100 * 1000000) { // Every 100 ms
 				info->iter_st_time = info->iter_end_time;
 				check_abort = 'T';
 				break;
@@ -582,7 +577,7 @@ void umd_shm_goodput_demo(struct worker *info)
 			if (cnt) break;
 			if (fifo_unwork_ACK) break; // No sense polling PCIe sensessly
 
-			struct timespec dT_FIFO = time_difference(info->iter_end_time, info->fifo_work_time);
+			struct timespec dT_FIFO = time_difference(info->fifo_work_time, info->iter_end_time);
 			const uint64_t nsec_FIFO = dT_FIFO.tv_nsec + (dT_FIFO.tv_sec * 1000000000);
 			if (nsec_FIFO > 1000 * 1000) { // Nothing popped in FIFO in the last 1000 microsec
 				fifo_unwork_ACK = true;
@@ -591,11 +586,13 @@ void umd_shm_goodput_demo(struct worker *info)
 			}
 		} while(0);
 
-		if (check_abort) info->check_abort_stats[(int)check_abort]++;
-//check_abort=0;
+		if (check_abort)
+			info->check_abort_stats[check_abort]++;
 
 		if (check_abort && info->umd_dch->dmaCheckAbort(info->umd_dma_abort_reason)) {
-			CRIT("\n\tDMA abort 0x%x: %s. SOFT RESTART\n", info->umd_dma_abort_reason,
+			CRIT("\n\tDMA abort {%c} 0x%x: %s. SOFT RESTART\n",
+			     check_abort,
+			     info->umd_dma_abort_reason,
 			     DMAChannelSHM::abortReasonToStr(info->umd_dma_abort_reason));
 			info->umd_dch->softRestart(true);
 		}

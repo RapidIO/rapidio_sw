@@ -110,28 +110,31 @@ int CLIStatusCmd(struct cli_env *env, int argc, char **argv)
 	if (0)
 		argv[0][0] = argc;
 
-	sprintf(env->output, "\nThread   A D Conn\n");
-	logMsg(env);
 	for (i = 0; i < FMD_MAX_APPS; i++) {
 		if (app_st.apps[i].alloced)
 			app_cnt++;
 	};
-	sprintf(env->output, "AppMgmt  %1d %1d %4d\n", app_st.loop_alive, 
-			app_st.all_must_die, app_cnt);
+	sprintf(env->output,
+		"AppMgmt Alive: %1d Exit: %1d  NumApps: %4d Skt: %5d\n",
+		app_st.loop_alive, app_st.all_must_die, app_cnt, app_st.port);
+	logMsg(env);
+	sprintf(env->output, "\nThread   A D Conn\n");
 	logMsg(env);
 	display_apps_dd(env);
 
 	if (!fmp.mode) {
-		sprintf(env->output, "PeerMgmt %1d %1d      SLAVE %s\n", 
+		sprintf(env->output, "PeerMgmt Alive: %1d Exit: %1d SLAVE %5d %s\n", 
 			fmp.slv.slave_alive, fmp.slv.slave_must_die,
+			fmp.slv.mast_skt_num,
 			fmp.slv.m_h_resp_valid?"OK":"No Hello Rsp");
 		logMsg(env);
 		goto exit;
 	};
 
-	sprintf(env->output, "PeerMgmt %1d %1d %4d MASTER\n",
+	sprintf(env->output,
+		"PeerMgmt Alive %1d Exit %1d PeerCnt %4d MASTER %5d\n",
 		fmp.acc.acc_alive, fmp.acc.acc_must_die, 
-		l_size(&fmp.peers));
+		l_size(&fmp.peers), fmp.acc.cm_skt_num);
 	logMsg(env);
 
 	if (!l_size(&fmp.peers)) {

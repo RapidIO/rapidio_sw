@@ -3,9 +3,10 @@
 /var/log/rdma/rdmad.log {
 	missingok
 	notifempty
-	size 32k
+	size 2M
 	copytruncate
 	daily
-	rotate 12
+	rotate 3
+	compress
 	create 0600 root root
 }

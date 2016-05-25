@@ -29,11 +29,10 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-LOG_LEVEL?=7
+TOPDIR?=$(shell pwd)/../..
+include $(TOPDIR)/rules.mk
+
 DEBUG?=DEBUG
-CC = $(CROSS_COMPILE)gcc
-CXX = $(CROSS_COMPILE)g++
-TOP_LEVEL = $(shell pwd)
 
 level=$(LOG_LEVEL)
 
@@ -47,12 +46,11 @@ CROSS_COMPILE?=/usr/bin/
 CC:=$(CROSS_COMPILE)g++
 AR:=$(CROSS_COMPILE)ar
 
-CFLAGS+=$(addprefix -W,all extra error) -fPIC
-CFLAGS+=-O2 -D$(DEBUG) -g
+CFLAGS+=$(addprefix -W,all extra) -fPIC
+CFLAGS+=-D$(DEBUG)
 CFLAGS+=-I. -Iinc -I../inc -Isrc
 CFLAGS+=-I../libriocp_pe/inc
 CFLAGS+=-I../librio_switch/inc
-CFLAGS+=-I../../common/include
 CFLAGS+=-DRDMA_LL=$(level)
 LDFLAGS+=-L. -l$(NAME)
 
@@ -72,7 +70,7 @@ test: all $(TEST_TARGET)
 
 $(TEST_TARGET) : $(TEST_OBJECTS)
 	$(CC) $(TEST_OBJECTS) -o $(TEST_TARGET) -lcfg -lcli -llog -pthread \
-	-L. -L../../common/libs_a
+	-L. -L$(COMMONLIBA)
 
 clean:
 	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a

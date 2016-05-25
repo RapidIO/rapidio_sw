@@ -29,41 +29,33 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-LOG_LEVEL?=7
+TOPDIR?=$(shell pwd)/../..
+include $(TOPDIR)/rules.mk
+
 DEBUG?=DEBUG
-CC?= $(CROSS_COMPILE)g++
-CXX?= $(CROSS_COMPILE)g++
 
 config?=NODEBUG
-COMMONDIR=../../common
-UMDDIR=../../umd_tsi721
 LIBMPINCDIR=$(COMMONDIR)/libmport/src
-COMMONINC=$(COMMONDIR)/include
-COMMONLIB=-Wl,-rpath=$(COMMONDIR)/libs_so -L$(COMMONDIR)/libs_so
-REGSDIR=../../fabric_management/librio_switch/inc
-LOG_LEVEL?=7
-export LOG_LEVEL
-
+REGSDIR=$(FMDDIR)/librio_switch/inc
 
 # Kernel-mode flags
-CCFLAGS = -O3 -ggdb -I./inc  -I$(UMDDIR)/inc -I$(COMMONINC) -D$(config) \
-	-std=gnu++0x \
+CXXFLAGS += -I./inc  -I$(UMDDIR)/inc -D$(config) \
 	-Wall -Wno-sign-compare \
-	-pthread -DRDMA_LL=7 -I$(LIBMPINCDIR) -I$(REGSDIR)
+	-pthread -DRDMA_LL=$(LOG_LEVEL) -I$(LIBMPINCDIR) -I$(REGSDIR)
 
-#CCFLAGS+=-pg
-#CCFLAGS+=-DDEBUG_BD
-#CCFLAGS+=-DDEBUG=2
-#CCFLAGS+=-DMBOX_TUN_DEBUG
-#CCFLAGS+=-DUDMA_TUN_DEBUG
-#CCFLAGS+=-DUDMA_TUN_DEBUG_IB
-#CCFLAGS+=-DUDMA_TUN_DEBUG_IB_BD
-#CCFLAGS+=-DUDMA_TUN_DEBUG_NREAD
-#CCFLAGS+=-DUDMA_TUN_DEBUG_IN
-#CCFLAGS+=-DUDMA_TUN_DEBUG_SPLOCK
-#CCFLAGS+=-DUDMA_TUN_DEBUG_NWRITE_CH2
-CCFLAGS+=-DUDMA_TUN_DEBUG_HISTO
-#CCFLAGS+=-rdynamic # use with mutrace
+#CXXFLAGS+=-pg
+#CXXFLAGS+=-DDEBUG_BD
+#CXXFLAGS+=-DDEBUG=2
+#CXXFLAGS+=-DMBOX_TUN_DEBUG
+#CXXFLAGS+=-DUDMA_TUN_DEBUG
+#CXXFLAGS+=-DUDMA_TUN_DEBUG_IB
+#CXXFLAGS+=-DUDMA_TUN_DEBUG_IB_BD
+#CXXFLAGS+=-DUDMA_TUN_DEBUG_NREAD
+#CXXFLAGS+=-DUDMA_TUN_DEBUG_IN
+#CXXFLAGS+=-DUDMA_TUN_DEBUG_SPLOCK
+#CXXFLAGS+=-DUDMA_TUN_DEBUG_NWRITE_CH2
+CXXFLAGS+=-DUDMA_TUN_DEBUG_HISTO
+#CXXFLAGS+=-rdynamic # use with mutrace
 
 INCLUDES = inc/worker.h inc/goodput.h inc/goodput_cli.h
 SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
@@ -71,24 +63,26 @@ SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 # User-mode only flags
 UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
 	 -Wall -Wno-format -Wno-sign-compare -Wno-write-strings \
-	 -DRIO_ANY_ADDR=0 -ggdb -O0 -DRDMA_LL=$(LOG_LEVEL)
+	 -DRDMA_LL=$(LOG_LEVEL)
 
+UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc src/rdmaopsumd.cc src/httpsrv.cc
 
-UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc src/rdmaopsumd.cc
-
-LIBRARIES =  -lpthread -ldl -lmport -lcli -ltime_utils -llog -lrt -lumd
+LIBRARIES =  -lpthread -ldl -lmport -lcli -ltime_utils -llog -lrt -lumd_tsi721
 
 all: goodput ugoodput
 
+scripts:
+	@ln -s scripts mport0 &>/dev/null || true
+
 ugoodput: $(SOURCES) $(INCLUDES) $(UMD_SOURCES) 
-	$(CXX) $(CCFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
-	$(COMMONLIB) -L$(UMDDIR) $(LIBRARIES) 
+	$(CXX) $(CXXFLAGS) $(UMD_FLAGS) $(SOURCES) $(UMD_SOURCES) -o $@ \
+	-L$(UMDDIR) $(LIBS_RPATH) $(LIBRARIES) 
 
 goodput: $(SOURCES) $(INCLUDES)
-	$(CXX) $(CCFLAGS) $(SOURCES) -o $@ $(COMMONLIB) -L$(UMDDIR) $(LIBRARIES)
+	$(CXX) $(CXXFLAGS) $(SOURCES) -o $@ -L$(UMDDIR) $(LIBS_RPATH) $(LIBRARIES)
 
 clean:
-	rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out
+	@rm -f *.o goodput ugoodput *~ src/*~ inc/*~ gmon.out *.log
 
 FORCE:
 

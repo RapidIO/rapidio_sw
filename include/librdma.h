@@ -231,9 +231,10 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr);
  * Accept a connection to memory space
  *
  * @param[in] msh: Handle for memory space 
- * @param[in] loc_msubh: [OUT] Handle to created local memory subspace in database
- * @param[in] rem_msubh: [OUT] Handle to received remote memory subspace in database
- * @param[in] rem_msub_len: [OUT] Length in bytes of remote memory subspace
+ * @param[in] loc_msubh: Handle to created local memory subspace in database
+ * @param[out] connh: Connection handle
+ * @param[out] rem_msubh: Handle to received remote memory subspace in database
+ * @param[out] rem_msub_len: Length in bytes of remote memory subspace
  * @param[in] timeout_secs: timeout in seconds after which function returns
  * regardless of success
  *
@@ -241,6 +242,7 @@ int rdma_munmap_msub(msub_h msubh, void *vaddr);
  */
 int rdma_accept_ms_h(ms_h msh,
 		     msub_h loc_msubh,
+		     conn_h *connh,
 		     msub_h *rem_msubh,
 		     uint32_t *rem_msub_len,
 		     uint64_t timeout_secs);
@@ -254,14 +256,16 @@ int rdma_accept_ms_h(ms_h msh,
  * Receives remote msubh information including length & rio_addr, 
  * also via a CM, as well as the remote memory space handle.
  *
- * @param[in] destid_len Size of destination ID of node hosting the memory space 
- * @param[in] destid	Destination ID of node hosting the memory space msh
- * @param[in] rem_msname remote memory space name
- * @param[in] loc_msubh Handle to created local memory subspace
- * @param[out] rem_msubh [OUT] Handle to remote memory subspace provided by server
- * @param[out] rem_msub_len [OUT] Remote memory subspace length in bytes
- * @param[out] rem_msh [OUT] Handle to remote memory space provided by server
- * @param[in] timeout_secs timeout in seconds, after which connection has failed
+ * @param[in] destid_len: Size of destination ID of node hosting the memory space
+ * @param[in] destid: Destination ID of node hosting the memory space msh
+ * @param[out] connh: Connection handle
+ * @param[in] rem_msname: Remote memory space name
+ * @param[in] loc_msubh: Handle to created local memory subspace,
+ * 			 0 if not provided
+ * @param[out] rem_msubh: Handle to remote memory subspace provided by server
+ * @param[out] rem_msub_len: Remote memory subspace length in bytes
+ * @param[out] rem_msh: Handle to remote memory space provided by server
+ * @param[in] timeout_secs: Timeout in seconds, after which connection has failed
  *
  * @return 0 if successful
  */
@@ -269,26 +273,29 @@ int rdma_conn_ms_h(uint8_t destid_len,
 		   uint32_t destid,
 		   const char *rem_msname,
 		   msub_h loc_msubh,
+		   conn_h *connh,
 		   msub_h *rem_msubh,
 		   uint32_t *rem_msub_len,
 		   ms_h	  *rem_msh,
 		   uint64_t timeout_secs);
 
 /**
- * Disconnect from a remote memory space
+ * Disconnect [from] a remote memory space
  *
  * Requests that this process/thread, should no longer have access to 
- * the remote memory space identified by rem_msh.
- * The local database is cleared of all the remote subspaces
- * belonging to rem_msh, and further transactions to those sub-spaces
+ * the server memory space identified by server_msh.
+ * The client database is cleared of all the server subspaces
+ * belonging to server_msh, and further transactions to those subspaces
  * will fail.
  *
- * @param[in] rem_msh	Remote memory space to disconnect from
- * @param[in] loc_msubh	Local memory subspace provided to remote server. 0 if none.
+ * @param[in] connh		Connection handle
+ * @param[in] server_msh	Server memory space to disconnect from
+ * @param[in] client_msubh	Client memory subspace provided during
+ * 				connection request, 0 if not provided.
  *
  * @return 0 if successful
  */
-int rdma_disc_ms_h(ms_h rem_msh, msub_h loc_msubh);
+int rdma_disc_ms_h(conn_h connh, ms_h server_msh, msub_h client_msubh);
 
 /* DMA transfer synchronization types */
 typedef enum {

@@ -201,7 +201,7 @@ fail:
 void slave_process_mod(void)
 {
 	uint32_t rc = 0xFFFFFFFF;
-	char dev_fn[FMD_MAX_DEV_FN];
+	char dev_fn[FMD_MAX_DEV_FN] = {0};
 
 	sem_wait(&slv->tx_mtx);
 
@@ -342,6 +342,7 @@ void cleanup_slave(void)
 
 	if (slv->mb_valid) {
 		riomp_sock_mbox_destroy_handle(&slv->mb);
+		memset(&slv->mb, 0, sizeof(slv->mb));
 		slv->mb_valid = 0;
 	};
 };
@@ -439,7 +440,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
 			goto fail;
 		};
 
-		conn_rc = riomp_sock_connect(slv->skt_h, slv->mast_did, 0,
+		conn_rc = riomp_sock_connect(slv->skt_h, slv->mast_did,
 					fmd->opts->mast_cm_port);
 		if (!conn_rc)
 			break;
@@ -477,7 +478,7 @@ int start_peer_mgmt_slave(uint32_t mast_acc_skt_num, uint32_t mast_did,
                 riomp_sock_close(&slv->skt_h);
                 goto fail;
         };
-	slv->rx_buff = malloc(4096);
+	slv->rx_buff = calloc(1, 4096);
 
         rc = pthread_create(&slv->slave_thr, NULL, mgmt_slave, NULL);
 	if (rc) {

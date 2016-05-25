@@ -15,8 +15,6 @@ function atexit()
   let exitflag=1
 }
 
-PEERS=$(/sbin/ip ro sh |awk '/dev tun/{print $1}');
-
 if [ -f IPERFBARR ]; then
   echo Please remove IPERFBARR barrier file. The folder $PWD should be exported via sshfs too all nodes of cluster.
   while [ -f IPERFBARR ]; do
@@ -25,11 +23,17 @@ if [ -f IPERFBARR ]; then
   done
 fi
 
+PEERS=$(/sbin/ip ro sh |awk '/dev tun/{print $1}');
+
+echo Barrier met. Blasting $PEERS
+
 let c=0;
 for p in $PEERS; do
   L=${HOSTNAME}-to-${p}.log
   rm $L &>/dev/null
-  iperf -fMB -c $p $1 &> $L &
+  LP="-t 3600"
+  LP="-t 43200"
+  iperf -fMB $LP -c $p $@ &> $L &
   JOBS[$c]=$!
   let c=c+1
 done

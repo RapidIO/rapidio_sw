@@ -60,12 +60,11 @@ extern "C" {
 unsigned g_level 	= RDMA_LL; /* Default log level from build */
 unsigned g_disp_level 	= RDMA_LL; /* Default log level from build */
 
-unsigned log_fmt_sel = LOG_FMT_DEFAULT;
-
 static circ_buf<string,NUM_LOG_LINES>	log_buf;
-static unsigned circ_buf_en = 1;
+static unsigned circ_buf_en = 0;
 static sem_t log_buf_sem;
-static FILE *log_file;
+
+static FILE* log_file = NULL;
 
 int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 {
@@ -94,7 +93,7 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 
 	/* Open log file */
 	filename.append(log_filename);
-	log_file = fopen(filename.c_str(), "a");
+	log_file = fopen(filename.c_str(), "ae");
 	if (!log_file) {
 		perror("rdma_log_init: fopen()");
 		return -4;
@@ -105,9 +104,9 @@ int rdma_log_init(const char *log_filename, unsigned circ_buf_en)
 
 void rdma_log_close()
 {
-	if (log_file)
-		fclose(log_file);
-	else
+	if (log_file) {
+		fclose(log_file); log_file = NULL;
+	} else
 		puts("rdma_log_close(): log_file is NULL");
 } /* rdma_log_close() */
 
@@ -124,14 +123,13 @@ int rdma_log(unsigned level,
 	     const char *format,
 	     ...)
 {
-	char buffer[LOG_LINE_SIZE];
+	char buffer[LOG_LINE_SIZE] = {0};
 	va_list	args;
 	int	n, p;
 	time_t	cur_time;
 	struct timeval tv;
-	char	asc_time[26];
+	char	asc_time[26] = {0};
 
-	char *default_fmt = (char *)"%4s %s.%06ldus tid=%ld %s:%4d\n\t%s(): ";
 	char *oneline_fmt = (char *)"%4s %s.%06ldus tid=%ld %s:%4d %s(): ";
 	
 	/* Prefix with level_str, timestamp, filename, line no., and func */
@@ -139,7 +137,7 @@ int rdma_log(unsigned level,
 	ctime_r(&cur_time, asc_time);
 	asc_time[strlen(asc_time) - 1] = '\0';
 	gettimeofday(&tv, NULL);
-	n = sprintf(buffer, (const char *)(log_fmt_sel?oneline_fmt:default_fmt),
+	n = sprintf(buffer, (const char *)(oneline_fmt),
 		level_str,
 		asc_time,
 		tv.tv_usec,
@@ -152,17 +150,24 @@ int rdma_log(unsigned level,
 	va_start(args, format);
 	p = vsnprintf(buffer + n, sizeof(buffer)-n, format, args);
 	va_end(args);
-	snprintf(buffer + n + p, sizeof(buffer)-n-p, log_fmt_sel?"":"\n");
 
 	/* Push log line into circular log buffer and log file */
 	string log_line(buffer);
 	sem_wait(&log_buf_sem);
 	if (circ_buf_en)
 		log_buf.push_back(log_line);
-	fputs(log_line.c_str(), log_file);
+	if (log_file) 
+		fputs(log_line.c_str(), log_file);
 #ifdef DEBUG
-	if (level <= g_disp_level)
-		printf("%s", log_line.c_str());
+	if (level <= g_disp_level) {
+		fprintf(stdout, "%s", log_line.c_str());
+		if ('\n' != buffer[n+p-1])
+			fprintf(stdout, "\n");
+		fflush(stdout);
+	};
+#else
+	(void)level;	/* Disable error on unused variable */
+	(void)p;
 #endif
 	sem_post(&log_buf_sem);
 

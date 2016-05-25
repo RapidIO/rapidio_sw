@@ -80,7 +80,6 @@ extern "C" {
         void zero_stats(struct worker *info);
         int migrate_thread_to_cpu(struct thread_cpu *info);
         bool umd_check_cpu_allocation(struct worker *info);
-        bool TakeLock(struct worker* info, const char* module, int instance);
         uint32_t crc32(uint32_t crc, const void *buf, size_t size);
 };
 
@@ -144,7 +143,7 @@ void umd_afu_watch_demo(struct worker* info)
 		snprintf(sock_name, PATH_MAX, "%s%d", AFU_PATH, i);
 		unlink(sock_name);
 
-		if ((s = socket (AF_UNIX, SOCK_STREAM, 0)) < 0) {
+		if ((s = socket (AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) < 0) {
 		    CRIT("socket error: %s", strerror(errno));
 		    goto exit;
 		}

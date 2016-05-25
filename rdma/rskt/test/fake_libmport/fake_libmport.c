@@ -40,9 +40,9 @@
 #include <stdint.h>
 #include <sched.h>
 #include "fake_libmport.h"
-#include "DAR_RegDefs.h"
 #include "libunit_test.h"
 #include "rskt_worker.h"
+#include "rio_standard.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -338,7 +338,7 @@ int riomp_mgmt_lcfg_read(riomp_mport_t mport_handle, uint32_t offset,
 	};
 
 	switch (offset) {
-	case RIO_COMPONENT_TAG_CSR: *data = FAKE_LIBMPORT_CT;
+	case RIO_COMPTAG: *data = FAKE_LIBMPORT_CT;
 	default: *data = 0;
 	};
 
@@ -748,7 +748,7 @@ fail:
 }
 
 int riomp_sock_connect(riomp_sock_t socket_handle, uint32_t remote_destid,
-			uint8_t remote_mbox, uint16_t remote_channel)
+			uint16_t remote_channel)
 {
 	struct rskt_test_info *test;
 

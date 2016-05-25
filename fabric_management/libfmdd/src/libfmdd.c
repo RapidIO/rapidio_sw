@@ -224,16 +224,16 @@ int update_devid_status(void)
 
 void notify_app_of_events(void)
 {
-	struct fml_wait_4_chg *wt;	
+	sem_t *wt = NULL;	
 
 	sem_wait(&fml.pend_waits_mtx);
-	wt = (struct fml_wait_4_chg *)l_pop_head(&fml.pend_waits);
+	wt = (sem_t *)l_pop_head(&fml.pend_waits);
 	if (wt == NULL) {
 		DBG("wt == NULL\n");
 	}
 	while (NULL != wt) {
-		sem_post(&wt->sema);
-		wt = (struct fml_wait_4_chg *)l_pop_head(&fml.pend_waits);
+		sem_post(wt); 
+		wt = (sem_t *)l_pop_head(&fml.pend_waits);
 	};
 	sem_post(&fml.pend_waits_mtx);
 };
@@ -365,7 +365,7 @@ fail:
 int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 {
 	uint32_t i, cnt = 0, idx = 0;
-	uint8_t flag;
+	uint8_t flag = 0;
 
 	DBG("Fetching DID list\n");
 	if (h != &fml) {
@@ -387,7 +387,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 		goto exit;
 	};
 
-	*did_list = (uint32_t *)malloc(sizeof(uint32_t) * cnt);
+	*did_list = (uint32_t *)calloc(cnt, sizeof(uint32_t));
 	for (i = 0; i < FML_MAX_DESTIDS; i++) {
 		flag = fmdd_check_did(h, i, FMDD_FLAG_OK_MP);
 		if (flag && (FMDD_FLAG_OK_MP != flag)) {
@@ -419,34 +419,30 @@ fail:
 
 int fmdd_wait_for_dd_change(fmdd_h h)
 {
-	struct fml_wait_4_chg *chg_sem;
-	int rc;
+	sem_t *chg_sem = (sem_t *)calloc(1, sizeof(sem_t));
+	int rc = 0;
 
 	if ((h != &fml) || fml.mon_must_die || !fml.mon_alive) {
 		ERR("Bad handle, mon not alive or mon must die\n");
 		goto fail;
 	}
 
-	chg_sem = (struct fml_wait_4_chg *)
-			malloc(sizeof(struct fml_wait_4_chg));
-
-	sem_init(&chg_sem->sema, 0, 0);
+	sem_init(chg_sem, 0, 0);
 
 	sem_wait(&fml.pend_waits_mtx);
 	l_push_tail(&fml.pend_waits, (void *)chg_sem);
 	sem_post(&fml.pend_waits_mtx);
 
 	DBG("Waiting for change to device database\n");
-	rc = sem_wait(&chg_sem->sema);
+	rc = sem_wait(chg_sem);
 
-	/* Note: The notification process removes all items from the list. */
-	free(chg_sem);
-	
 	DBG("Waking up after change to device database\n");
 	if (fml.mon_must_die || !fml.mon_alive || rc) {
 		ERR("mon_must_die, !mon_alive or sem_wait() failed\n");
 		goto fail;
 	}
+
+	/// \todo MEMORY LEAK: Every event results in one sem_t worth of memory being wasted.
 
 	return 0;
 fail:

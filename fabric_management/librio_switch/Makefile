@@ -3,21 +3,18 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+TOPDIR?=$(shell pwd)/../..
+include $(TOPDIR)/rules.mk
+
 NAME:=switch_api
 TARGETS:=lib$(NAME).a
 HEADERS:=inc
 
 LOG_LEVEL?=4
 DEBUG?=DEBUG
-TOP_LEVEL = $(shell pwd)
 
-CROSS_COMPILE ?= /usr/bin/
-
-CXX ?= $(CROSS_COMPILE)g++
-AR ?= $(CROSS_COMPILE)ar
-
-CFLAGS+=$(addprefix -W,all extra error) -fPIC
-CFLAGS+=-O2 -DNDEBUG -g -DIDT_TSI721_SUPPORT
+CFLAGS+=$(addprefix -W,all extra) -fPIC
+CFLAGS+=-DNDEBUG -DIDT_TSI721_SUPPORT
 CFLAGS+=-I./inc
 LDFLAGS+=-L. -l$(NAME)
 

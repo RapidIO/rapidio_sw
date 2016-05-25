@@ -104,7 +104,7 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 	char *dflt_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	struct fmd_opt_vals *opts;
 
-	opts = (struct fmd_opt_vals *)malloc(sizeof(struct fmd_opt_vals));
+	opts = (struct fmd_opt_vals *)calloc(1, sizeof(struct fmd_opt_vals));
 	opts->init_err = 0;
 	opts->init_and_quit = 0;
 	opts->simple_init = 0;

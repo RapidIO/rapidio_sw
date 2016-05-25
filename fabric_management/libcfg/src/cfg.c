@@ -59,14 +59,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-struct int_cfg_parms *cfg;
-FILE *cfg_fd;
+struct int_cfg_parms *cfg = NULL;
+FILE *cfg_fd = NULL;
 
 int init_cfg_ptr(void)
 {
 	int i, j;
 
-	cfg = (struct int_cfg_parms *)malloc(sizeof(struct int_cfg_parms));
+	cfg = (struct int_cfg_parms *)calloc(1, sizeof(struct int_cfg_parms));
 
 	if (cfg == NULL)
 		return 1;
@@ -180,7 +180,7 @@ int init_cfg_ptr(void)
 
 void strip_crlf(char *tok)
 {
-	char *temp;
+	char *temp = NULL;
 
 	if (NULL == tok)
 		return;
@@ -193,7 +193,7 @@ void strip_crlf(char *tok)
 };
 
 const char *delim = " 	";
-char *save_ptr;
+char *save_ptr = NULL;
 
 void flush_comment(char *tok)
 {
@@ -217,7 +217,7 @@ char *try_get_next_token(struct int_cfg_parms *cfg)
 		goto fail;
 
 	if (NULL == line) {
-		line = (char *)malloc(LINE_SIZE);
+		line = (char *)calloc(1, LINE_SIZE);
 		rc = NULL;
 	} else {
 		rc = strtok_r(NULL, delim, &save_ptr);
@@ -305,7 +305,7 @@ int parm_idx(char *token, char *token_list)
 
 int get_devid_sz(struct int_cfg_parms *cfg, uint32_t *devID_sz)
 {
-	char *tok;
+	char *tok = NULL;
 
 	if (cfg->init_err)
 		goto fail;
@@ -334,7 +334,7 @@ fail:
 
 int get_dec_int(struct int_cfg_parms *cfg, uint32_t *dec_int)
 {
-	char *tok;
+	char *tok = NULL;
 
 	if (cfg->init_err || get_next_token(cfg, &tok))
 		goto fail;
@@ -346,14 +346,14 @@ fail:
 
 int get_hex_int(struct int_cfg_parms *cfg, uint32_t *hex_int)
 {
-	char *tok, *endptr;
+	char *tok = NULL, *endptr = NULL;
 
 	if (cfg->init_err || get_next_token(cfg, &tok))
 		goto fail;
 	errno = 0;
 	*hex_int = strtol(tok, &endptr, 16);
 
-	if ((errno == ERANGE && (*hex_int == UINT32_MAX || *hex_int == 0))
+	if ((errno == ERANGE && (*hex_int == 0xFFFFFFFF || *hex_int == 0))
 		|| ((errno != 0) && (*hex_int == 0)))
 		goto fail;
 
@@ -381,7 +381,7 @@ fail:
 
 int get_parm_idx(struct int_cfg_parms *cfg, char *parm_list)
 {
-	char *tok;
+	char *tok = NULL;
 
 	if (!get_next_token(cfg, &tok))
 		return parm_idx(tok, parm_list);
@@ -390,7 +390,7 @@ int get_parm_idx(struct int_cfg_parms *cfg, char *parm_list)
 
 int get_string(struct int_cfg_parms *cfg, char **parm)
 {
-	char *tok;
+	char *tok = NULL;
 
 	if (!get_next_token(cfg, &tok)) {
 		update_string(parm, tok, strlen(tok));
@@ -401,7 +401,7 @@ int get_string(struct int_cfg_parms *cfg, char **parm)
 
 int get_rt_v(struct int_cfg_parms *cfg, uint32_t *rt_val)
 {
-	char *tok;
+	char *tok = NULL;
 
 	if (get_next_token(cfg, &tok))
 		goto fail;
@@ -469,7 +469,7 @@ int find_sw_name(struct int_cfg_parms *cfg, char *name, struct int_cfg_sw **sw)
 int find_ep_and_port(struct int_cfg_parms *cfg, char *tok, 
 			struct int_cfg_ep **ep, int *port)
 {
-	char *temp;
+	char *temp = NULL;
 
 	*port = 0;
 	*ep = NULL;
@@ -502,7 +502,7 @@ fail:
 int find_sw_and_port(struct int_cfg_parms *cfg, char *tok, 
 			struct int_cfg_sw **sw, int *port)
 {
-	char *temp;
+	char *temp = NULL;
 
 	*port = 0;
 	*sw = NULL;
@@ -532,7 +532,7 @@ fail:
 int get_ep_sw_and_port(struct int_cfg_parms *cfg, struct int_cfg_conn *conn, 
 			int idx)
 {
-	char *temp, *tok;
+	char *temp = NULL, *tok = NULL;
 
 	conn->ends[idx].port_num = 0;
 	conn->ends[idx].ep_h = NULL;
@@ -590,8 +590,8 @@ fail:
 int get_destid(struct int_cfg_parms *cfg, uint32_t *destid, uint32_t devid_sz)
 {
 	int port = 0;
-	char *tok;
-	struct int_cfg_ep *ep;
+	char *tok = NULL;
+	struct int_cfg_ep *ep = NULL;
 
 	if (get_next_token(cfg, &tok))
 		goto fail;
@@ -730,7 +730,7 @@ int match_ep_to_mports(struct int_cfg_parms *cfg, struct int_cfg_ep_port *ep_p,
 			int pt_i, struct int_cfg_ep *ep)
 {
 	uint32_t mp_i, did_sz;
-	struct dev_id *mp_did;
+	struct dev_id *mp_did = NULL;
 	struct dev_id *ep_did = ep_p->devids;
 
 	for (mp_i = 0; mp_i < cfg->max_mport_info_idx; mp_i++) {
@@ -811,7 +811,7 @@ fail:
 int parse_mc_mask(struct int_cfg_parms *cfg, idt_rt_mc_info_t *mc_info)
 {
 	uint32_t mc_mask_idx, done = 0, pnum;
-	char *tok;
+	char *tok = NULL;
 
 	if (get_dec_int(cfg, &mc_mask_idx))
 		goto fail;
@@ -1183,7 +1183,7 @@ fail:
 
 int fmd_parse_cfg(struct int_cfg_parms *cfg)
 {
-	char *tok;
+	char *tok = NULL;
 	// size_t byte_cnt = LINE_SIZE;
 
 	tok = try_get_next_token(cfg);
@@ -1423,8 +1423,8 @@ int fill_in_dev_from_sw(struct cfg_dev *dev, struct int_cfg_sw *sw)
 
 int cfg_find_dev_by_ct(uint32_t ct, struct cfg_dev *dev)
 {
-	struct int_cfg_ep *ep;
-	struct int_cfg_sw *sw;
+	struct int_cfg_ep *ep = NULL;
+	struct int_cfg_sw *sw = NULL;
 
 	ep = find_cfg_ep_by_ct(ct, cfg);
 
@@ -1444,7 +1444,7 @@ extern int cfg_get_conn_dev(uint32_t ct, int pt,
 {
 	struct int_cfg_conn *conn = NULL;
 	int conn_end = -1, oe;
-	struct int_cfg_ep *ep;
+	struct int_cfg_ep *ep = NULL;
 
 	ep = find_cfg_ep_by_ct(ct, cfg);
 

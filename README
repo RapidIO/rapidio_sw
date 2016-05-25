@@ -31,13 +31,30 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-RapidIO Software Stack distribution, including
+RapidIO Software Stack distribution Revision 4
 - Fabric Management
-- Remote Direct Memory Access 
-- Sockets implemented with Remote Direct Memory Access
+- Remote Memory Access, with socket style semantics and named memory spaces
+- Socket interface implemented with Remote Direct Memory Access
+- Raw RapidIO interfaces 
+	- management - handles for RapidIO devices (master ports)
+	- memops - DMA interface for master ports
+		- Optional use of Tsi721 shared or dedicated DMA user mode
+		driver for low latency
+	- channelized messaging - share single Messaging resource among
+	  multiple applications with socket-style semantics.
+	- raw messaging - dedicated use of a messaging channel for an
+	  application, for Tsi721 User Mode Driver
+- Ethernet Frame Tunnelling
+	- DMATUN - transport Ethernet frames over RapidIO fabric transparently
+		using DMA (higher throughput)
+	- MSG TUN - transport Ethernet frames over RapidIO fabric  transparently
+		using Messaging (lower throughtput)
 - Utilities
-	- File transfer
+	- File transfer kernel interfaces
+	- File transfer with Raw RapidIO Interfaces
 	- Goodput (performance analysis)
 
-Create the documentation by executing "doxygen doxyconfig" in this directory.
+Create the detailed documentation by executing "doxygen doxyconfig"
+in this directory.
 
+Open documentation using "firefox html/index.html"

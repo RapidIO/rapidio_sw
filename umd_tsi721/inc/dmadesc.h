@@ -57,146 +57,140 @@ But to show the big endian values in the little endian descriptor, it's necessar
 
 #if 0
 enum dma_dtype {
-	DTYPE1 = 1, /* Data Transfer DMA Descriptor */
-	DTYPE2 = 2, /* Immediate Data Transfer DMA Descriptor */
-	DTYPE3 = 3, /* Block Pointer DMA Descriptor */
-	DTYPE4 = 4, /* Outbound Msg DMA Descriptor */
-	DTYPE5 = 5, /* OB Messaging Block Pointer Descriptor */
-	DTYPE6 = 6  /* Inbound Messaging Descriptor */
-};
+  DTYPE1 = 1, /* Data Transfer DMA Descriptor */
+  DTYPE2 = 2, /* Immediate Data Transfer DMA Descriptor */
+  DTYPE3 = 3, /* Block Pointer DMA Descriptor */
+  DTYPE4 = 4, /* Outbound Msg DMA Descriptor */
+  DTYPE5 = 5, /* OB Messaging Block Pointer Descriptor */
+  DTYPE6 = 6  /* Inbound Messaging Descriptor */
+}
 
 enum dma_rtype {
-	NREAD = 0,
-	LAST_NWRITE_R = 1,
-	ALL_NWRITE = 2,
-	ALL_NWRITE_R = 3,
-	MAINT_RD = 4,
-	MAINT_WR = 5
-};
+  NREAD = 0,
+  LAST_NWRITE_R = 1,
+  ALL_NWRITE = 2,
+  ALL_NWRITE_R = 3,
+  MAINT_RD = 4,
+  MAINT_WR = 5
+}
 #endif
 
 struct hw_dma_desc {
-	uint32_t type_id;
-	uint32_t bcount;
-	union {
-		uint32_t raddr_lo;	   /* if DTYPE == (1 || 2) */
-		uint32_t next_lo;		   /* if DTYPE == 3 */
-	};
-	union {
-		uint32_t raddr_hi;	   /* if DTYPE == (1 || 2) */
-		uint32_t next_hi;		   /* if DTYPE == 3 */
-	};
-	union {
-		struct {		   /* if DTYPE == 1 */
-			uint32_t bufptr_lo;
-			uint32_t bufptr_hi;
-			uint32_t s_dist;
-			uint32_t s_size;
-		} t1;
-		uint32_t data[4];		/* if DTYPE == 2 */
-		uint32_t reserved[4];		/* if DTYPE == 3 */
-	};
+  uint32_t type_id;
+  uint32_t bcount;
+  union {
+    uint32_t raddr_lo;     /* if DTYPE == (1 || 2) */
+    uint32_t next_lo;      /* if DTYPE == 3 */
+  };
+  union {
+    uint32_t raddr_hi;     /* if DTYPE == (1 || 2) */
+    uint32_t next_hi;      /* if DTYPE == 3 */
+  };
+  union {
+    struct {               /* if DTYPE == 1 */
+      uint32_t bufptr_lo;
+      uint32_t bufptr_hi;
+      uint32_t s_dist;
+      uint32_t s_size;
+    } t1;
+    uint32_t data[4];      /* if DTYPE == 2 */
+    uint32_t reserved[4];  /* if DTYPE == 3 */
+  };
 } __attribute__((aligned(32)));
 
-class dmadesc {
-public:
-	dmadesc() {
-		memset(this, 0, sizeof(*this));
-	}
-//	int pack(hw_dma_desc* desc);
-int pack(hw_dma_desc* bd_ptr)
-{
-	struct dmadesc* desc;
-	uint64_t rio_addr;
-	uint32_t flags;
+struct dmadesc {
+  dmadesc() { memset(this, 0, sizeof(*this)); }
 
-	if (NULL == bd_ptr)
-		return -1;
+  inline int pack(hw_dma_desc* bd_ptr)
+  {
+    uint64_t rio_addr;
+    uint32_t flags;
 
-	desc = this;
-	memset(bd_ptr, 0, sizeof(*bd_ptr));
+    if (NULL == bd_ptr) return -1;
 
-	switch (dtype) {
-	case 3:
-		bd_ptr->type_id = le32(desc->dtype << 29);
-		bd_ptr->next_lo = le32(
-				desc->next_ptr & TSI721_DMAC_DPTRL_MASK);
-		bd_ptr->next_hi = le32(desc->next_ptr >> 32);
-		break;
-	case 1:
-		flags = (desc->crf << 16) | (desc->prio << 17) |
-			(desc->iof << 27);
-		bd_ptr->type_id = le32((desc->dtype << 29) |
-				(desc->rtype << 19) | desc->devid | flags);
+    struct dmadesc* desc = this;
+    memset(bd_ptr, 0, sizeof(*bd_ptr));
 
-		bd_ptr->bcount = le32(((desc->raddr_lsb64 & 0x3) << 30) |
-				(desc->tt << 26) | desc->bcount);
+    switch (dtype) {
+      case 3:
+        bd_ptr->type_id = le32(desc->dtype << 29);
+        bd_ptr->next_lo = le32(desc->next_ptr & TSI721_DMAC_DPTRL_MASK);
+        bd_ptr->next_hi = le32(desc->next_ptr >> 32);
+        break;
 
-		rio_addr = (desc->raddr_lsb64 >> 2) |
-				((uint64_t)(desc->raddr_msb2 & 0x3) << 62);
-    
-		bd_ptr->raddr_lo = le32(rio_addr & 0xffffffff);
-		bd_ptr->raddr_hi = le32(rio_addr >> 32);
-		bd_ptr->t1.bufptr_lo = le32(desc->buffer_ptr & 0xffffffff);
-		bd_ptr->t1.bufptr_hi = le32(desc->buffer_ptr >> 32);
-		break;
+      case 1:
+        flags = (desc->crf << 16) | (desc->prio << 17) | (desc->iof << 27);
 
-	case 2:
-    		flags = (desc->crf << 16) | (desc->prio << 17) |
-			(desc->iof << 27);
-		bd_ptr->type_id = le32((desc->dtype << 29) |
-				(desc->rtype << 19) | desc->devid | flags);
+        bd_ptr->type_id = le32((desc->dtype << 29) |
+                          (desc->rtype << 19) | desc->devid | flags);
 
-		bd_ptr->bcount = le32(((desc->raddr_lsb64 & 0x3) << 30) |
-				(desc->tt << 26) | (desc->bcount & 0xf));
+        bd_ptr->bcount = le32(((desc->raddr_lsb64 & 0x3) << 30) |
+                         (desc->tt << 26) | desc->bcount);
 
-		rio_addr = (desc->raddr_lsb64 >> 2) |
-				((uint64_t)(desc->raddr_msb2 & 0x3) << 62);
+        rio_addr = (desc->raddr_lsb64 >> 2) |
+                   ((uint64_t)(desc->raddr_msb2 & 0x3) << 62);
+      
+        bd_ptr->raddr_lo = le32(rio_addr & 0xffffffff);
+        bd_ptr->raddr_hi = le32(rio_addr >> 32);
+        bd_ptr->t1.bufptr_lo = le32(desc->buffer_ptr & 0xffffffff);
+        bd_ptr->t1.bufptr_hi = le32(desc->buffer_ptr >> 32);
+        break;
 
-		bd_ptr->raddr_lo = le32(rio_addr & 0xffffffff);
-		bd_ptr->raddr_hi = le32(rio_addr >> 32);
+      case 2:
+        flags = (desc->crf << 16) | (desc->prio << 17) | (desc->iof << 27);
 
-		if (desc->rtype != 0 /*NREAD*/ && desc->rtype != 4 /*MAINT_RD*/)
-			memcpy(bd_ptr->data, desc->t2_data, 16);
-		break;
-	default:
-		return -1;
-	}
+        bd_ptr->type_id = le32((desc->dtype << 29) |
+                          (desc->rtype << 19) | desc->devid | flags);
 
-	return sizeof(*bd_ptr);
-};
+        bd_ptr->bcount = le32(((desc->raddr_lsb64 & 0x3) << 30) |
+                         (desc->tt << 26) | (desc->bcount & 0xf));
+
+        rio_addr = (desc->raddr_lsb64 >> 2) |
+                   ((uint64_t)(desc->raddr_msb2 & 0x3) << 62);
+
+        bd_ptr->raddr_lo = le32(rio_addr & 0xffffffff);
+        bd_ptr->raddr_hi = le32(rio_addr >> 32);
+
+        if (desc->rtype != 0 /*NREAD*/ && desc->rtype != 4 /*MAINT_RD*/)
+          memcpy(bd_ptr->data, desc->t2_data, 16);
+        break;
+
+      default: assert(0); break;
+    }
+
+    return sizeof(*bd_ptr);
+  }
   
-	uint16_t devid;
-	uint8_t	crf, prio, rtype, dtype, iof, tt;
-	uint32_t bcount;
-	uint8_t	raddr_msb2;
-	uint64_t raddr_lsb64;
-	
-	// T1
-	uint64_t buffer_ptr;
+  uint16_t devid;
+  uint8_t  crf, prio, rtype, dtype, iof, tt;
+  uint32_t bcount;
+  uint8_t  raddr_msb2;
+  uint64_t raddr_lsb64;
+  
+  // T1
+  uint64_t buffer_ptr;
 
-	// T2	
-	uint32_t t2_data_len;
-	uint8_t	t2_data[16];
+  // T2  
+  uint32_t t2_data_len;
+  uint8_t  t2_data[16];
 
-	// T3
-	uint64_t next_ptr;
+  // T3
+  uint64_t next_ptr;
 };
 
 #ifndef TSI721_DMAC_DPTRL_MASK
-  #define TSI721_DMAC_DPTRL_MASK	0xffffffe0
+  #define TSI721_DMAC_DPTRL_MASK  0xffffffe0
 #endif
-
 
 static inline void dmadesc_setdevid(struct dmadesc& desc, const uint16_t devid)
 {
   desc.devid = devid;
-};
+}
 
 static inline void dmadesc_setdtype(struct dmadesc& desc, const uint8_t type)
 {
   desc.dtype = type & 0x7;
-};
+}
 
 static inline void dmadesc_setiof(struct dmadesc& desc, const uint8_t iof)
 {
@@ -254,14 +248,12 @@ static inline void dmadesc_setT2_data(struct dmadesc& desc, const uint8_t* data,
 }
 
 /// T3
-static inline void dmadesc_setT3_nextptr(struct dmadesc& desc,
-					const uint64_t next)
+static inline void dmadesc_setT3_nextptr(struct dmadesc& desc, const uint64_t next)
 {
-	if (!next)
-    		throw std::runtime_error("dmadesc_setT3_nextptr: 0 pointer!");
+  if (!next)
+        throw std::runtime_error("dmadesc_setT3_nextptr: 0 pointer!");
 
-	desc.next_ptr = next;
+  desc.next_ptr = next;
 }
 
 #endif // __DMADESC_H__
-

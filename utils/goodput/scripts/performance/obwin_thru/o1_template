@@ -12,7 +12,7 @@ wait 9 d
 wait 10 d
 wait 11 d
 
-t 0 2 0
+t 0 -1 0
 wait 0 h
 
 OBDIO 0 did iba_addr bytes acc_size wr

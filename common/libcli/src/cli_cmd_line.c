@@ -126,11 +126,11 @@ int process_command(struct cli_env *env, char *input)
 {
 	char *cmd;
 	int rc;
-	struct cli_cmd *cmd_p;
-	int  argc;
-	char *argv[30];
+	struct cli_cmd* cmd_p = NULL;
+	int   argc = 0;
+	char* argv[30] = {NULL};
 	int   exitStat = 0;
-	char *status;
+	char* status = NULL;
 
 	if (env->fout != NULL)
 		fprintf((FILE *) env->fout, "%s", input); /* Log command file */
@@ -288,14 +288,14 @@ int cli_script(struct cli_env *env, char *script, int verbose)
 {
 	FILE *fin;
 	int end = FALSE; /* End of command processing loop? */
-	char input[BUFLEN]; /* Input buffer */
+	char input[BUFLEN] = {0}; /* Input buffer */
 
 	unsigned int  errorStat = 0;
 	struct cli_env temp_env = *env;
 
 	temp_env.script = script;
 
-	fin = fopen(script, "r");
+	fin = fopen(script, "re");
 	if (fin == NULL) {
 		sprintf(&temp_env.output[0],
 			"\t/*Error: cannot open file named \"%s\"/\n", script);
@@ -383,7 +383,7 @@ int CLIOpenLogFileCmd(struct cli_env *env, int argc, char **argv)
 	if (argv[0][strlen(argv[0])-1] == 0xD)
 		argv[0][strlen(argv[0])-1] = '\0';
 
-	env->fout = fopen(argv[0], "w"); /* Open log file for writing */
+	env->fout = fopen(argv[0], "we"); /* Open log file for writing */
 	if (env->fout == NULL) {
 		sprintf(env->output,
 			"\t/*FAILED: Log file \"%s\" could not be opened*/\n",
@@ -446,7 +446,7 @@ int CLIScriptCmd(struct cli_env *env, int argc, char **argv)
 {
 	int errorStat = 0;
 	int verbose = 0;
-	char full_script_name[2*SCRIPT_PATH_SIZE];
+	char full_script_name[2*SCRIPT_PATH_SIZE] = {0};
 
 	if (argc > 1) {
 		verbose = getHex(argv[0], 0);
@@ -501,30 +501,34 @@ CLIScriptCmd,
 ATTR_NONE
 };
 
+int set_script_path(char *path)
+{
+	char endc = '\0';
+	int len = strlen(path);
+
+	if (!('/' == path[len-1]) && !('\\' == path[len-1])) {
+		len++;
+		endc = '/';
+	};
+	if (len > SCRIPT_PATH_LEN)
+		return 1;
+	snprintf(script_path, SCRIPT_PATH_LEN, "%s%c", path, endc);
+	return 0;
+}
+
 int CLIScriptPathCmd(struct cli_env *env, int argc, char **argv)
 {
 	int errorStat = 0;
-	char endc = '\0';
 
 	if (argc) {
-		int len = strlen(argv[0]);
-		
-		if (!('/' == argv[0][len-1]) && !('\\' == argv[0][len-1])) {
-			len++;
-			endc = '/';
-		};
-			
-
-		if (len > SCRIPT_PATH_LEN) {
+		if (set_script_path(argv[0])) {
 			sprintf(env->output,
 			"FAILED: Maximum path length is %d characters\n",
 				SCRIPT_PATH_LEN);
 			logMsg(env);
 			goto exit;
-		}
-
-		snprintf(script_path, SCRIPT_PATH_LEN, "%s%c", argv[0], endc);
-	};
+		};
+	}
 
 	sprintf(env->output, "\tPrefix: \"%s\"\n", script_path);
 	logMsg(env);
@@ -708,7 +712,7 @@ int bind_cli_cmd_line_cmds(void)
 	memset(script_path, 0, SCRIPT_PATH_SIZE);
 	memset(cwd, 0, SCRIPT_PATH_SIZE);
 	if (NULL == getcwd(cwd, sizeof(cwd)))
-		snprintf(script_path, SCRIPT_PATH_LEN, "scriptss/");
+		snprintf(script_path, SCRIPT_PATH_LEN, "scripts/");
 	else 
 		snprintf(script_path, SCRIPT_PATH_LEN, "%s/scripts/", cwd);
 

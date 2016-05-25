@@ -29,21 +29,24 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-LOG_LEVEL ?= 6
+TOPDIR?=$(shell pwd)/../..
+include $(TOPDIR)/rules.mk
+
 DEBUG ?= DEBUG
-CC?= $(CROSS_COMPILE)g++
-CXX?= $(CROSS_COMPILE)g++
 
-TOP_LEVEL ?= ../..
-
-TARGETS = librskt rsktd
+TARGETS = librskt rsktd samples
 
 all: $(TARGETS)
 
+samples: FORCE
+	$(MAKE) all -C samples
+	cp samples/rskt_server .
+	cp samples/rskt_client .
+		
 librskt: FORCE
 	$(MAKE) all -C lib
-	mkdir -p $(TOP_LEVEL)/include/libs_a
-	cp lib/librskt.a $(TOP_LEVEL)/include/libs_a
+	mkdir -p $(COMMONLIBA)
+	cp lib/librskt.a $(COMMONLIBA)
 		
 rsktd: librskt FORCE
 	$(MAKE) all -C daemon
@@ -54,4 +57,6 @@ FORCE:
 clean:
 	$(MAKE) clean -C lib
 	$(MAKE) clean -C daemon
+	$(MAKE) clean -C samples
+	rm -f rskt_server rskt_client
 

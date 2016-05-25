@@ -3,6 +3,16 @@
 ## This script grabs the goodput figures from a file, along with CPU occupancy
 ## It also displays the size of the transfer
 
+SUFFIX=log
+OSUFFIX=res
+
+if [ -n "$1" ]; then
+	SUFFIX=$1
+fi
+
+if [ -n "$2" ]; then
+	OSUFFIX=$2
+fi
 
 function summarize_thruput_log {
 	IN_FILE=$1
@@ -10,7 +20,7 @@ function summarize_thruput_log {
 	TEMP_FILE1=$1'.temp1'
 	TEMP_FILE2=$1'.temp2'
 	TEMP_FILE3=$1'.temp3'
-	OUT_FILE=$1'.res'
+	OUT_FILE=$1'.'$OSUFFIX
 
 	echo $'\nProcessing througput log file : ' $IN_FILE 
 	echo $'Output filename is            : ' $OUT_FILE 
@@ -40,6 +50,12 @@ function summarize_thruput_log {
 	cat $OUT_FILE
 }
 
-for f in *thru*.log; do
-	summarize_thruput_log ${f}
-done 
+dir_list="$(ls *thru_*.${SUFFIX} | grep -v done)"
+
+if [ ${#dir_list[@]} -eq 0 ]; then
+        exit
+fi
+
+for f in ${dir_list[@]}; do
+        summarize_thruput_log ${f}
+done

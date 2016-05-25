@@ -29,71 +29,97 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-LOG_LEVEL?=7
+TOPDIR?=$(shell pwd)/..
+include $(TOPDIR)/rules.mk
+
 DEBUG?=DEBUG
-CXX?= $(CROSS_COMPILE)g++
-AR?=$(CROSS_COMPILE)ar
-
 config?=NODEBUG
-COMMONDIR=../common
+
 LIBMPINCDIR=$(COMMONDIR)/libmport/src
-COMMONINC=$(COMMONDIR)/include
-COMMONLIB=$(COMMONDIR)/libs_so
-REGSDIR=../fabric_management/librio_switch/inc
-
-export LOG_LEVEL
-
-LIBS_RPATH?=-Wl,-rpath=$(COMMONDIR)/libs_so
+REGSDIR=$(FMDDIR)/librio_switch/inc
 
 INCLUDES = inc/debug.h inc/dmachan.h inc/dmadesc.h inc/local_endian.h inc/lockfile.h \
 		inc/mapfile.h inc/mboxchan.h inc/mhz.h inc/mport.h inc/pciebar.h \
 		inc/psem.h inc/pshm.h inc/rdtsc.h
 SOURCES = src/crc32.c src/dmachan.cc src/mapfile.cc src/mboxchan.cc \
-	src/mport.cc src/psem.cc src/pshm.cc src/tsi721_dma.c
+	src/mport.cc src/psem.cc src/pshm.cc src/tsi721_dma.c \
+	src/chanlock.cc
 
-CXXFLAGS = -I./inc -I$(REGSDIR) -I$(COMMONINC) \
-	 -std=gnu++0x -g -ggdb -DDEBUG \
-	 -O3 -fPIC -Werror -pthread
+CXXFLAGS += -I./inc -I$(REGSDIR) -I$(COMMONINC) \
+	 -D$(DEBUG) \
+	 -pthread
 
-LIBFLAGS = -shared 
+#CXXFLAGS += -DDEBUG_BD
+
+LIBFLAGS = -shared -fPIC
 
 #CXXFLAGS+=-pg
 #CXXFLAGS+=-DDEBUG=2
+
 SYSLIBS = -lrt -lpthread -ldl 
 LIBRARIES = -lmport -ltime_utils -lcli
 
-all: libumd.a libumd_nolog.a client server
+all: libumd_tsi721.a libumd_tsi721_nolog.a libumd_tsi721_tik.a libumd_tsi721_nolog_tik.a mbox_client mbox_server cmsock_ex
 
-libumd.a: $(SOURCES) $(INCLUDES)
+libumd_tsi721.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
-	$(CXX) $(CXXFLAGS) $(LIBFLAGS) -DRDMA_LL=$(LOG_LEVEL) $(SOURCES) \
-		-c $(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) -llog
+	$(CXX) $(CXXFLAGS) -DRDMA_LL=$(LOG_LEVEL) $(SOURCES) \
+		-c $(SYSLIBS) $(LIBRARIES) -llog
 	$(AR) rcs $@ *.o
+	cp -v $@ $(COMMONDIR)/libs_a
 	@rm -f *.o
 
-libumd_nolog.a: $(SOURCES) $(INCLUDES)
+libumd_tsi721_nolog.a: $(SOURCES) $(INCLUDES)
 	@rm -f *.o
 	$(CXX) $(CXXFLAGS) $(LIBFLAGS) $(SOURCES) \
-		-c $(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) 
+		-c $(SYSLIBS) $(LIBRARIES) 
 	$(AR) rcs $@ *.o
+	cp -v $@ $(COMMONDIR)/libs_a
 	@rm -f *.o
 
-client: src/mbox_example.c
+# Ticketed UMD with logging ON
+libumd_tsi721_tik.a: $(SOURCES) $(INCLUDES)
+	@rm -f *.o
 	$(CXX) $(CXXFLAGS) \
-		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
-		-DRDMA_LL=$(LOG_LEVEL) -DMBOX_CLIENT \
-		src/mbox_example.c -o $@ \
-		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd
-server: src/mbox_example.c
-	$(CXX) $(CXXFLAGS) \
-		-I$(COMMONINC) -Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) \
-		src/mbox_example.c -o $@ \
-		$(SYSLIBS) -L$(COMMONLIB) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd
+		-DDMACHAN_TICKETED \
+		-DDEBUG_BD \
+		-I$(UMDDINCDIR) $(LIBFLAGS) $(SOURCES) \
+		-c $(SYSLIBS) $(LIBRARIES) 
+	$(AR) rcs $@ *.o
+	cp -v $@ $(COMMONDIR)/libs_a
+	@rm -f *.o
 
+libumd_tsi721_nolog_tik.a: $(SOURCES) $(INCLUDES)
+	@rm -f *.o
+	$(CXX) $(CXXFLAGS) -DDMACHAN_TICKETED -I$(UMDDINCDIR) $(LIBFLAGS) $(SOURCES) \
+		-c $(SYSLIBS) $(LIBRARIES) 
+	$(AR) rcs $@ *.o
+	cp -v $@ $(COMMONDIR)/libs_a
+	@rm -f *.o
+
+mbox_client: samples/mbox_example.c libumd_tsi721.a
+	$(CXX) $(CXXFLAGS) \
+		-Iinc -I$(REGSDIR) -I../include \
+		-DRDMA_LL=$(LOG_LEVEL) -DMBOX_CLIENT \
+		$^ -o $@ \
+		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
+
+mbox_server: samples/mbox_example.c libumd_tsi721.a
+	$(CXX) $(CXXFLAGS) \
+		-Iinc -I$(REGSDIR) -I../include \
+		-DRDMA_LL=$(LOG_LEVEL) \
+		$^ -o $@ \
+		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
+
+cmsock_ex: samples/cmsock_example.cc
+	$(CXX) $(CXXFLAGS) \
+		-I../include \
+		$^ -o $@ \
+		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog 
 
 clean:
-	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out client server
+	rm -f *.o *.a *~ src/*~ inc/*~ gmon.out mbox_client mbox_server cmsock_ex
 
 FORCE:
 

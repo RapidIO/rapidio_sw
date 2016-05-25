@@ -29,25 +29,20 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
+TOPDIR=$(shell pwd)
+include $(TOPDIR)/rules.mk
+
 LOG_LEVEL?=7
 export LOG_LEVEL
 
 DEBUG?=DEBUG
 export DEBUG
 
-SOVER?=0.4
-export SOVER
-
-CC = $(CROSS_COMPILE)g++
-export CC
-
-CXX = $(CROSS_COMPILE)g++
-export CXX
-
+# TODO This must go away
 TOP_LEVEL = $(shell pwd)
-export TOP_LEVEL
 
-TARGETS = common umd umdd fabric_management rdma 
+TARGETS = common umd memops umdd fabric_management rdma goodput \
+	file_transfer file_transfer_memops
 
 all: $(TARGETS)
 
@@ -60,18 +55,36 @@ rdma: common fabric_management FORCE
 umd: FORCE
 	$(MAKE) all -C umd_tsi721
 		
-umdd: FORCE
+umdd: common umd FORCE
 	$(MAKE) all -C umdd_tsi721
 		
 common: FORCE
 	$(MAKE) all -C common 
-		
+	
+memops: FORCE common umd
+	$(MAKE) all -C memops
+	@cp memops/*.a common/libs_a || true
+	(cd memops; tar cf - libmemops_intf.so*) | (cd common/libs_so; tar xvf -)
+	
+goodput: common umd FORCE	
+	$(MAKE) all -C utils/goodput
+
+file_transfer: common FORCE
+	$(MAKE) all -C utils/file_transfer
+
+file_transfer_memops: memops common FORCE
+	$(MAKE) all -C utils/file_transfer_memops
+
 FORCE:
 
 clean: FORCE
+	$(MAKE) clean -C memops
 	$(MAKE) clean -C common
 	$(MAKE) clean -C umd_tsi721
 	$(MAKE) clean -C umdd_tsi721
 	$(MAKE) clean -C rdma
 	$(MAKE) clean -C fabric_management
+	$(MAKE) clean -C utils/goodput
+	$(MAKE) clean -C utils/file_transfer
+	$(MAKE) clean -C utils/file_transfer_memops
 	rm -rf include/libs_a/*

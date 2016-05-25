@@ -36,7 +36,7 @@ extern int rdmad_kill_daemon();
 
 typedef std::vector<std::thread> thread_list;
 
-thread_list	accept_thread_list;
+static thread_list	accept_thread_list;
 
 cm_server	*bat_server;
 bool shutting_down = false;
@@ -61,14 +61,15 @@ void accept_thread_f(uint64_t server_msh, uint64_t server_msubh)
 {
 	uint32_t dummy_client_msub_len;
 	msub_h	 dummy_client_msubh;
+	conn_h	 connh;
 
-	rdma_accept_ms_h(server_msh, server_msubh, &dummy_client_msubh,
-				   &dummy_client_msub_len, 30);
+	rdma_accept_ms_h(server_msh, server_msubh, &connh,
+			&dummy_client_msubh, &dummy_client_msub_len, 30);
 } /* accept_thread_f() */
 
 int main(int argc, char *argv[])
 {
-	int channel = BAT_CM_CHANNEL;
+	uint16_t channel;
 	int c;
 
 	signal(SIGINT, sig_handler);
@@ -107,8 +108,8 @@ int main(int argc, char *argv[])
 					channel,
 					&shutting_down);
 		}
-		catch(cm_exception& e) {
-			fprintf(stderr, "bat_server: %s\n", e.err);
+		catch(exception& e) {
+			fprintf(stderr, "bat_server: %s\n", e.what());
 			return 1;
 		}
 
@@ -118,6 +119,8 @@ int main(int argc, char *argv[])
 		bat_server->get_send_buffer(&buf_tx);
 		bat_msg_t *bm_rx = (bat_msg_t *)buf_rx;
 		bat_msg_t *bm_tx = (bat_msg_t *)buf_tx;
+
+		conn_h   connh;	/* LAST connection from an RDMA client */
 
 		puts("Accepting connections...");
 		if (bat_server->accept()) {
@@ -227,9 +230,11 @@ int main(int argc, char *argv[])
 				/* This call is blocking. */
 				int ret = rdma_accept_ms_h(bm_rx->accept_ms.server_msh,
 							 bm_rx->accept_ms.server_msubh,
+							 &connh,
 							 &dummy_client_msubh,
 							 &dummy_client_msub_len,
 							 30);
+				printf("connh = %" PRIx64 "\n", connh);
 				CHECK_BROKEN_PIPE(ret);
 			}
 			break;
@@ -241,9 +246,25 @@ int main(int argc, char *argv[])
 						&accept_thread_f,
 						bm_rx->accept_ms.server_msh,
 						bm_rx->accept_ms.server_msubh);
-
+				printf("*** bm_rx->accept_ms>server_msh = %" PRIx64 "\n",
+						bm_rx->accept_ms.server_msh);
 				/* Store handle so we can join at the end of the test case */
 				accept_thread_list.push_back(std::move(accept_thread));
+			}
+			break;
+
+			case SERVER_DISCONNECT_MS:
+			{
+				bm_tx->server_disconnect_ms_ack.ret =
+					rdma_disc_ms_h(
+					connh,	/* Written in ACCEPT_MS */
+					bm_rx->server_disconnect_ms.server_msh,
+					bm_rx->server_disconnect_ms.client_msubh);
+				printf("*** bm_rx->server_disconnect_ms.server_msh = %" PRIx64 "\n",
+						bm_rx->server_disconnect_ms.server_msh);
+				CHECK_BROKEN_PIPE(bm_tx->server_disconnect_ms_ack.ret);
+				bm_tx->type = SERVER_DISCONNECT_MS_ACK;
+				BAT_SEND();
 			}
 			break;
 
@@ -261,7 +282,7 @@ int main(int argc, char *argv[])
 				break;
 
 			case BAT_END:
-				/* If there are threads still running, wait for them */
+				/* If there are threads still running,join */
 				for_each(begin(accept_thread_list),
 					 end(accept_thread_list),
 					 [](std::thread& th)
@@ -273,7 +294,8 @@ int main(int argc, char *argv[])
 				goto free_bat_server;
 
 			default:
-				fprintf(stderr, "Message type 0x%" PRIu64 " ignored\n", bm_rx->type);
+				fprintf(stderr, "Message type 0x%" PRIu64
+						" ignored\n", bm_rx->type);
 				break;
 			}
 		} /* while .. within test case */

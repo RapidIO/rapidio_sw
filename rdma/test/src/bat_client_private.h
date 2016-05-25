@@ -6,62 +6,55 @@
 #endif
 #include <cinttypes>
 
+#include <vector>
+
 #include "cm_sock.h"
 #include "librdma.h"
+#include "bat_connection.h"
 
-#define BAT_SEND(bat_client) if (bat_client->send()) { \
-			fprintf(stderr, "bat_client->send() failed\n"); \
-			fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
-			return -1; \
-		   }
-
-#define BAT_RECEIVE(bat_client) if (bat_client->receive()) { \
-			fprintf(stderr, "bat_client->receive() failed\n"); \
-			fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
-			return -2; \
-		   }
-
-#define BAT_CHECK_RX_TYPE(bm_rx, bat_type) if (bm_rx->type != bat_type) { \
-			fprintf(stderr, "Receive message with wrong type 0x%" PRIu64 "\n", bm_rx->type); \
-			fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
-			return -3; \
-		   }
 
 #define BAT_EXPECT_RET(ret, value, label) if (ret != value) { \
 			fprintf(log_fp, "%s FAILED, line %d, ret = 0x%X\n", __func__, __LINE__, ret); \
+			fflush(log_fp); \
 			goto label; \
 		   }
 
 #define BAT_EXPECT_FAIL(ret) if (ret) { \
 				fprintf(log_fp, "%s PASSED\n", __func__); \
+				fflush(log_fp); \
 			     } else { \
 				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
+				fflush(log_fp); \
 			     }
 
 #define BAT_EXPECT_PASS(ret) if (!ret) { \
 				fprintf(log_fp, "%s PASSED\n", __func__); \
+				fprintf(stdout, "%s PASSED\n", __func__); \
+				fflush(log_fp); \
 			     } else { \
 				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
+				fprintf(stdout, "%s FAILED, line %d\n", __func__, __LINE__); \
+				fflush(log_fp); \
 			     }
 
 #define BAT_EXPECT(cond, label) if (!(cond)) { \
 				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
+				fflush(log_fp); \
 				goto label; \
 			     }
 
 #define BAT_EXPECT_NOT(cond, label) if (cond) { \
 				fprintf(log_fp, "%s FAILED, line %d\n", __func__, __LINE__); \
+				fflush(log_fp); \
 				goto label; \
 			     }
 
 #define LOG(fmt, args...)    fprintf(log_fp, fmt, ## args)
 
-extern FILE *log_fp;
+using namespace std;
 
-/* First client, buffers, message structs..etc. */
-extern cm_client *bat_first_client;
-extern bat_msg_t *bm_first_tx;
-extern bat_msg_t *bm_first_rx;
+extern FILE *log_fp;
+extern vector<bat_connection *>	bat_connections;
 
 /* Functions in LIBRDMA but NOT published in LIBRDMA.H since they are
  * for testing only. */
@@ -75,75 +68,52 @@ extern "C" int rdma_get_msh_properties(ms_h msh,
 /**
  * Create an mso on the server.
  */
-int create_mso_f(cm_client *bat_client,
-			bat_msg_t *bm_tx,
-			bat_msg_t *bm_rx,
-			const char *name,
-			mso_h *msoh);
+int create_mso_f(bat_connection *bat_conn, const char *name, mso_h *msoh);
 
 /**
  * Destroy an mso on the server.
  */
-int destroy_mso_f(cm_client *bat_client,
-			 bat_msg_t *bm_tx,
-			 bat_msg_t *bm_rx,
-			 mso_h msoh);
+int destroy_mso_f(bat_connection *bat_conn, mso_h msoh);
 
 /**
  * Open an mso on the 'user' app
  */
-int open_mso_f(cm_client *bat_client,
-		      bat_msg_t *bm_tx,
-		      bat_msg_t *bm_rx,
-		      const char *name,
-		      mso_h *msoh);
+int open_mso_f(bat_connection *bat_conn, const char *name, mso_h *msoh);
 
 /**
  * Close an mso on the server.
  */
-int close_mso_f(cm_client *bat_client,
-		       bat_msg_t *bm_tx,
-		       bat_msg_t *bm_rx,
-		       mso_h msoh);
+int close_mso_f(bat_connection *bat_conn, mso_h msoh);
 
 /**
  * Create an ms on the server.
  */
-int create_ms_f(cm_client *bat_client,
-		       bat_msg_t *bm_tx,
-		       bat_msg_t *bm_rx,
-		       const char *name, mso_h msoh, uint32_t req_size,
-		       uint32_t flags, ms_h *msh, uint32_t *size);
+int create_ms_f(bat_connection *bat_conn, const char *name, mso_h msoh,
+		uint32_t req_size, uint32_t flags, ms_h *msh, uint32_t *size);
 
 /**
  * Open an ms on the server.
  */
-int open_ms_f(cm_client *bat_client,
-		     bat_msg_t *bm_tx,
-		     bat_msg_t *bm_rx,
-		     const char *name, mso_h msoh,
-		     uint32_t flags, uint32_t *size, ms_h *msh);
+int open_ms_f(bat_connection *bat_conn, const char *name, mso_h msoh,
+				uint32_t flags, uint32_t *size, ms_h *msh);
 
 /**
  * Create msub on server/user
  */
-int create_msub_f(cm_client *bat_client,
-		  bat_msg_t *bm_tx,
-		  bat_msg_t *bm_rx,
-		  ms_h msh, uint32_t offset, int32_t req_size,
-		  uint32_t flags, msub_h *msubh);
+int create_msub_f(bat_connection *bat_conn, ms_h msh, uint32_t offset,
+			int32_t req_size, uint32_t flags, msub_h *msubh);
 
-int accept_ms_f(cm_client *bat_client,
-		bat_msg_t *bm_tx,
-		ms_h server_msh, msub_h server_msubh);
+int accept_ms_f(bat_connection *bat_conn, ms_h server_msh, msub_h server_msubh);
 
-int accept_ms_thread_f(cm_client *bat_client,
-		       bat_msg_t *bm_tx,
-		       ms_h server_msh, msub_h server_msubh);
+int accept_ms_thread_f(bat_connection *bat_conn, ms_h server_msh,
+							msub_h server_msubh);
 
-int kill_remote_app(cm_client *bat_client, bat_msg_t *bm_tx);
+int server_disconnect_ms(bat_connection *bat_conn,
+		 	 	 	 ms_h server_msh, msub_h client_msubh);
 
-int kill_remote_daemon(cm_client *bat_client, bat_msg_t *bm_tx);
+int kill_remote_app(bat_connection *bat_conn);
+
+int kill_remote_daemon(bat_connection *bat_conn);
 
 #endif
 

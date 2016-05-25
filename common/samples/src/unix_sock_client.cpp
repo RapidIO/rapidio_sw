@@ -23,7 +23,7 @@ void sig_handler(int sig)
 	exit(1);
 }
 
-int main(int argc, char *argv[])
+int main()
 {
 	signal(SIGQUIT, sig_handler);
 	signal(SIGINT, sig_handler);
@@ -32,10 +32,10 @@ int main(int argc, char *argv[])
 	/* Create a client */
 	puts("Creating client object...");
 	try {
-		client = new unix_client();
+		client = new unix_client("sample", nullptr);
 	}
 	catch(unix_sock_exception e) {
-		cout << e.err << endl;
+		cout << e.what() << endl;
 		return 1;
 	}
 
@@ -72,14 +72,14 @@ int main(int argc, char *argv[])
 
 		/* Receive data from server */
 		void *recv_buf;
-		size_t	received_len;
+		size_t	received_len = 0;
 		client->get_recv_buffer(&recv_buf);
 		if (client->receive(&received_len)) {
 			puts("Failed to receive from server");
 			break;
 		}
 
-		printf("%u characters received: ", received_len);
+		printf("%u characters received: ", (unsigned)received_len);
 		puts((char *)recv_buf);
 	}
 	delete client;

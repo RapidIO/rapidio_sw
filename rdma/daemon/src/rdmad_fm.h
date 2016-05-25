@@ -38,8 +38,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+/**
+ * @brief Starts fabric management thread in this daemon
+ *
+ * @return 0 if successful, non-zero otherwise
+ */
 int start_fm_thread(void);
 
+/**
+ * @brief Kills fabric management thread in this daemon
+ */
 void halt_fm_thread(void);
 
 #ifdef __cplusplus

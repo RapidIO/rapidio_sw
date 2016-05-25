@@ -192,7 +192,7 @@ typedef struct idt_pc_one_port_status_t_TAG
     bool        output_stopped; /* true if the port is attempting
                                      error recovery with the link partner.                                                                              
                                 */
-    bool        num_lanes;      /* Number of lanes connected to the port.
+    uint8_t     num_lanes;      /* Number of lanes connected to the port.
 				   0 means that the port is unavailable, powered 
 				   down, or both.
                                 */

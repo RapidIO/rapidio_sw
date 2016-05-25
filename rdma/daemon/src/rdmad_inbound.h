@@ -35,96 +35,270 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define INBOUND_H
 
 #include <stdint.h>
-#include <semaphore.h>
 
-#include <iostream>
+#include <exception>
+#include <vector>
+#include <mutex>
+#include <memory>
 
 #include "libcli.h"
 
+#include "tx_engine.h"
 #include "rdmad_mspace.h"
 #include "rdmad_ibwin.h"
 
-struct inbound_exception {
-	inbound_exception(const char *msg) : err(msg) {}
 
+using std::vector;
+using std::mutex;
+using std::unique_ptr;
+
+
+class inbound_exception : public exception {
+public:
+	inbound_exception(const char *msg) : err(msg) {}
+	~inbound_exception() throw() {}
+	const char *what() throw() { return err; }
+private:
 	const char *err;
 };
+
+class unix_msg_t;
+class unix_server;
+class ms_owners;
+struct peer_info;
 
 class inbound
 {
 public:
-	/* Constructor */
-	inbound(riomp_mport_t mport_hnd,
+	/**
+	 * @brief Constructor
+	 *
+	 * @param owners	Memory space owners object
+	 *
+	 * @param mport_hand	Master port handle
+	 *
+	 * @param num_wins	Number of inbound windows to create
+	 *
+	 * @param win_size	Size of each inbound window, in bytes
+	 */
+	inbound(peer_info &peer,
+		ms_owners &owners,
+		riomp_mport_t mport_hnd,
 		unsigned num_wins,
 		uint32_t win_size);
 
-	/* Destructor */
+	/**
+	 * @brief Destructor
+	 */
 	~inbound();
 
-	/* Dump inbound info */
+	/**
+	 * @brief Copy constructor - unimplemented
+	 */
+	inbound(const inbound&) = delete;
+
+	/**
+	 * @brief Assignment operator - unimplemented
+	 */
+	inbound& operator=(const inbound&) = delete;
+
+	/**
+	 * @brief Dump inbound info to CLI console
+	 *
+	 * @param env	CLI console environment object
+	 */
 	void dump_info(struct cli_env *env);
 
-	unsigned get_num_ibwins() {
-		return ibwins.size();
-	}
+	/**
+	 * Accessors
+	 */
+	unsigned get_num_ibwins() { return ibwins.size(); }
 	uint64_t get_ibwin_size() { return ibwin_size; }
+	ms_owners &get_owners() { return owners; }
+	peer_info &get_peer() { return peer; }
 
-	/* get_mspace by name */
+	/**
+	 * @brief Searches for and returns a memory space given its name
+	 *
+	 * @param name	Memory space name
+	 *
+	 * @return pointer to memory space, nullptr if not found
+	 */
 	mspace  *get_mspace(const char *name);
 
-	/* get_mspace by msid */
+	/**
+	 * @brief Searches for and returns a memory space given its msid
+	 *
+	 * @param msid	Memory space identifier
+	 *
+	 * @return pointer to memory space, nullptr if not found
+	 */
 	mspace *get_mspace(uint32_t msid);
 
-	/* get_mspace by msoid, msid */
+	/**
+	 * @brief Searches for and returns a memory space given its msid & msoid
+	 *
+	 * @param msoid Memory space owner identifier
+	 *
+	 * @param msid	Memory space identifier
+	 *
+	 * @return pointer to memory space, nullptr if not found
+	 */
 	mspace *get_mspace(uint32_t msoid, uint32_t msid);
 
-	mspace* get_mspace_open_by_server(unix_server *user_server, uint32_t *ms_conn_id);
+	/**
+	 * @brief Searches for and returns a list of memory spaces that have
+	 * 	  remote connections from client(s) on a node having
+	 * 	  a specified destination ID
+	 *
+	 * @param destid Destination ID of remote node
+	 *
+	 * @param mspaces  Empty list for holding the resulting memory spaces
+	 */
+	void get_mspaces_connected_by_destid(
+				uint32_t destid, mspace_list& mspaces);
 
-	int get_mspaces_connected_by_destid(uint32_t destid, vector<mspace *>& mspaces);
+	/**
+	 * @brief Close and destroy memory spaces using a specific Tx engine
+	 * 	  (used when connection from apps using that tx_eng drops)
+	 *
+	 * @param app_tx_eng Daemon to library Tx engine
+	 */
+	void close_and_destroy_mspaces_using_tx_eng(
+			tx_engine<unix_server, unix_msg_t> *app_tx_eng);
 
-	/* Dump memory space info for a memory space specified by name */
-	int dump_mspace_info(struct cli_env *env, const char *name);
+	/**
+	 * @brief Dump memory space info for a memory space specified by name
+	 * 	  to the CLI console
+	 *
+	 * @param env CLI console environment object
+	 */
+	void dump_mspace_info(struct cli_env *env, const char *name);
 
-	/* Dump memory space info for all memory spaces */
+	/**
+	 * @brief Dump memory space info for all  memory spaces
+	 * 	  to the CLI console
+	 *
+	 * @param env CLI console environment object
+	 */
 	void dump_all_mspace_info(struct cli_env *env);
 
-	/* Dump memory space info for all memory spaces and their msubs */
+	/**
+	 * @brief Dump memory space info for all memory spaces and their msubs
+	 * 	  to the CLI console
+	 *
+	 * @param env CLI console environment object
+	 */
 	void dump_all_mspace_with_msubs_info(struct cli_env *env);
 
-	/* Create a memory space within a window that has enough space */
+	/**
+	 * @brief Create a memory space within a window that has enough space
+	 *
+	 * @param name	  Memory space name
+	 *
+	 * @param size	  Desired memory space name, in bytes
+	 *
+	 * @param msoid  Memory space owner identifier
+	 *
+	 * @param ms	  Pointer for holding the created memory space
+	 *
+	 * @param tx_eng Tx engine used by the daemon to communicate with
+	 *		 the app that created the memory space
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int create_mspace(const char *name,
 			  uint64_t size,
 			  uint32_t msoid,
-			  uint32_t *msid,
-			  mspace **ms);
+			  mspace **ms,
+			  tx_engine<unix_server, unix_msg_t> *creator_tx_eng);
 
-	/* Open memory space */
+	/**
+	 * @brief Open a memory space
+	 *
+	 * @param user_tx_eng Tx engine used by the daemon to communicate with
+	 *		      the app that opened the memory space
+	 *
+	 * @param msid	  Memory space identifier
+	 *
+	 * @param phys_addr	Physical (PCIe) address of memory space
+	 *
+	 * @param rio_addr	RapidIO address of memory space (same as
+	 *  			phys_addr if directly mapped)
+	 *
+	 * @param size  Memory space size, in bytes
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int open_mspace(const char *name,
-			unix_server *user_server,
+			tx_engine<unix_server, unix_msg_t> *user_tx_eng,
 			uint32_t *msid,
 			uint64_t *phys_addr,
 			uint64_t *rio_addr,
-			uint32_t *ms_conn_id,
-			uint32_t *bytes);
+			uint32_t *size);
 
-	/* Destroy memory space */
+	/**
+	 * @brief Destroy specified memory space
+	 *
+	 * @param msoid	Memory space owner identifier
+	 *
+	 * @param msid	Memory space identifier
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int destroy_mspace(uint32_t msoid, uint32_t msid);
 
-	/* Create a memory subspace */
-	int create_msubspace(uint32_t msid, uint32_t offset, uint32_t req_bytes,
-			     uint32_t *size, uint32_t *msubid, uint64_t *rio_addr,
-			     uint64_t *phys_addr);
+	/**
+	 * @brief Create a memory subspace in a specified memory space
+	 *
+	 * @param msid	Memory space identifier
+	 *
+	 * @param offset  Subspace offset within the memory space,
+	 * 		  must be a multiple of page size (4K)
+	 *
+	 * @param size  Requested subspace size, must be a multiple of
+	 * 		    page size (4K)
+	 *
+	 * @param msubid  Created memory subspace identifier
+	 *
+	 * @param rio_addr   Created memory subspace RapidIO address (same
+	 * 		     as physical address if directly mapped)
+	 *
+	 * @param phys_addr  Created memory subspace physical (PCIe) address
+	 *
+	 * @param user_tx_eng  Tx engine used by daemon to communicate with
+	 * 		       app that requested the subspace creation
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
+	int create_msubspace(uint32_t msid,
+			     uint32_t offset,
+			     uint32_t size,
+			     uint32_t *msubid,
+			     uint64_t *rio_addr,
+			     uint64_t *phys_addr,
+			     const tx_engine<unix_server, unix_msg_t> *user_tx_eng);
 
-	/* Destroy a memory subspace */
+	/**
+	 *  @brief Destroy a memory subspace given its msid and msubid
+	 *
+	 * @param msid	Memory space identifier
+	 *
+	 * @param msubid  Memory subspace identifier
+	 *
+	 * @return 0 if successful, non-zero otherwise
+	 */
 	int destroy_msubspace(uint32_t msid, uint32_t msubid);
 
 private:
+	using ibwin_list = vector<unique_ptr<ibwin>>;
+
+	peer_info	&peer;
+	ms_owners	&owners;
 	uint32_t 	ibwin_size;
-	vector<ibwin>	ibwins;
-	sem_t		ibwins_sem;
+	ibwin_list	ibwins;
+	mutex		ibwins_mutex;
 	riomp_mport_t	mport_hnd;
 }; /* inbound */
 
 #endif
-
-

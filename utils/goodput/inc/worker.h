@@ -64,6 +64,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 #include <pthread.h>
 
+#include <string>
+#include <sstream>
+
 #include "rapidio_mport_dma.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
@@ -71,7 +74,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "libtime_utils.h"
 
 #ifdef USER_MODE_DRIVER
-#include <string>
 #include <map>
 
 #include "dmachan.h"
@@ -86,7 +88,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "psem.h"
 #include "pshm.h"
 #include "rdtsc.h"
-#include "lockfile.h"
+#include "chanlock.h"
 #include "udma_tun.h"
 #include "ibmap.h"
 #include "umbox_afu.h"
@@ -135,6 +137,7 @@ enum req_type {
 	umd_epwatch,
 	umd_mbox_watch,
 	umd_afu_watch,
+	umd_www,
 #endif
 	last_action
 };
@@ -164,6 +167,7 @@ struct thread_cpu {
 #ifdef USER_MODE_DRIVER
 
 #define SOFT_RESTART	69
+#define QUIT_IN_PROGRESS	42
 
 #define MAX_PEERS		64 ///< Maximum size of cluster
 
@@ -283,7 +287,10 @@ struct worker {
 	void            (*umd_set_rx_fd)(struct worker*, const int);     ///< Who is the owner of this
 
 	uint16_t	my_destid;
-	LockFile*	umd_lock;
+
+        #define UMD_NUM_LOCKS   9 // 2 x MBOX + 7 x DMA channels available to UMD
+        LockChannel*       umd_lock[UMD_NUM_LOCKS];
+
 	int		umd_chan; ///< Local mailbox OR DMA channel
 	int		umd_chan_n; ///< Local mailbox OR DMA channel, forming a range {chan,...,chan_n}
 	int		umd_chan2; ///< Local mailbox OR DMA channel
@@ -407,6 +414,10 @@ void start_worker_thread(struct worker *info, int new_mp_h, int cpu);
 
 void shutdown_worker_thread(struct worker *info);
 
+extern "C" {
+	void display_gen_status_ss(std::stringstream& out);
+	void display_ibwin_status_ss(std::stringstream& out);
+};
 #ifdef __cplusplus
 }
 #endif

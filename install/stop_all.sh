@@ -6,9 +6,9 @@ SOURCE_PATH=/opt/rapidio/rapidio_sw
 SCRIPTS_PATH=$SOURCE_PATH/install
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
-NODES="node4 node3 node2 node1"
+. /etc/rapidio/nodelist.sh
 
-for node in $NODES
+for node in $REVNODES
 do
 	# Kill RSKTD
 	THE_PID=$(ssh root@"$node" pgrep rsktd)
@@ -32,6 +32,14 @@ do
 	for proc in $THE_PID
 	do
 		ssh root@"$node" "kill -s 2 $proc"
+	done
+
+	# Kill ShM UMD
+	THE_PID=$(ssh root@"$node" pgrep umdd)
+	echo "Killing umdd- on $node UMDD  PID=$THE_PID"
+	for proc in $THE_PID
+	do
+		ssh root@"$node" screen -S umdd -p 0 -X stuff $'quit\r'
 	done
 
 	sleep 2

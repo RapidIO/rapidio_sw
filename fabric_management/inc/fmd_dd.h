@@ -38,6 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <riocp_pe.h>
 
+// #include "fmd_state.h"
+
 #ifndef _FMD_DD_H_
 #define _FMD_DD_H_
 
@@ -109,6 +111,8 @@ extern uint32_t fmd_dd_atomic_copy(struct fmd_dd *dd,
 
 extern void fmd_dd_incr_chg_idx(struct fmd_dd *dd, int dd_rw);
 extern uint32_t fmd_dd_get_chg_idx(struct fmd_dd *dd);
+
+struct fmd_state;
 extern int fmd_dd_change_notfn(struct fmd_state *st);
 
 extern void bind_dd_cmds(struct fmd_dd *dd, struct fmd_dd_mtx *dd_mtx,

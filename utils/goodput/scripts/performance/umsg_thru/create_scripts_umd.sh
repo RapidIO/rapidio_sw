@@ -12,7 +12,7 @@
 #  
 
 cd "$(dirname "$0")"
-printf "\nCreating MESSAGING THROUGHPUT SCRIPTS\n\n"
+printf "\nCreating UMD MESSAGING THROUGHPUT SCRIPTS\n\n"
 
 shopt -s nullglob
 
@@ -20,12 +20,23 @@ DIR_NAME=umsg_thru
 
 PREFIX=m
 
+unset LOC_PRINT_HEP
+
+if [ -z "$MPORT_DIR" ]; then
+        if [ -n "$1" ]; then
+                MPORT_DIR=$1
+        else
+                MPORT_DIR=mport0
+                LOC_PRINT_HEP=1
+        fi
+fi
+
 if [ -z "$DID" ]; then
         if [ -n "$1" ]; then
                 DID=$1
         else
                 DID=0
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=2
         fi
 fi
 
@@ -34,7 +45,7 @@ if [ -z "$MBOX" ]; then
                 MBOX=$2
         else
                 MBOX=3
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=3
         fi
 fi
 
@@ -43,7 +54,7 @@ if [ -z "$WAIT_TIME" ]; then
                 WAIT_TIME=$3
         else
                 WAIT_TIME=60
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=4
         fi
 fi
 
@@ -52,7 +63,7 @@ if [ -z "$BUFC" ]; then
                 BUFC=$4
         else
                 BUFC=100
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=5
         fi
 fi
 
@@ -61,7 +72,7 @@ if [ -z "$STS" ]; then
                 STS=$5
         else
                 STS=100
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=6
         fi
 fi
 
@@ -70,7 +81,7 @@ if [ -z "$TX_CPU" ]; then
                 TX_CPU=$6
         else
                 TX_CPU=2
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=7
         fi
 fi
 
@@ -79,7 +90,7 @@ if [ -z "$FIFO_CPU" ]; then
                 FIFO_CPU=$7
         else
                 FIFO_CPU=3
-                LOC_PRINT_HEP=1
+                LOC_PRINT_HEP=8
         fi
 fi
 
@@ -93,6 +104,7 @@ fi
 
 if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'\nScript accepts the following parameters:'
+        echo $'MPORT_DIR: /dev/rio_{MPORT_DIR} device used for test.'
         echo $'DID      : Device ID of target device for performance scripts'
         echo $'MBOX     : Channel 2 or 3'
         echo $'Wait     : Time in seconds to wait before taking perf measurement\n'
@@ -104,12 +116,13 @@ if [ -n "$LOC_PRINT_HEP" ]; then
         echo $'           Any other value forces TX_CPU and FIFO_CPU\n'
 fi
 
-echo 'MSG_THRUPUT DID        = ' $DID
-echo 'MSG_THRUPUT MBOX       = ' $MBOX
-echo 'MSG_THRUPUT WAIT_TIME  = ' $WAIT_TIME
-echo 'MSG_THRUPUT TX_CPU     = ' $TX_CPU
-echo 'MSG_THRUPUT FIFO_CPU   = ' $FIFO_CPU
-echo 'MSG_THRUPUT OVERRIDE   = ' $OVERRIDE
+echo 'UMSG_THRUPUT MPORT_DIR  = ' $MPORT_DIR
+echo 'UMSG_THRUPUT DID        = ' $DID
+echo 'UMSG_THRUPUT MBOX       = ' $MBOX
+echo 'UMSG_THRUPUT WAIT_TIME  = ' $WAIT_TIME
+echo 'UMSG_THRUPUT TX_CPU     = ' $TX_CPU
+echo 'UMSG_THRUPUT FIFO_CPU   = ' $FIFO_CPU
+echo 'UMSG_THRUPUT OVERRIDE   = ' $OVERRIDE
 
 unset LOC_PRINT_HEP
 
@@ -195,8 +208,8 @@ do
 	scriptname="../"$DIR_NAME"_"$direction 
 
 	echo "// This script runs all "$DIR_NAME $direction" scripts." > $scriptname
-	echo "log logs/"$DIR_NAME"_"$direction".log" >> $scriptname
-	echo "scrp scripts/performance/"$DIR_NAME >> $scriptname
+	echo "log logs/${MPORT_DIR}/"$DIR_NAME"_"$direction".ulog" >> $scriptname
+	echo "scrp ${MPORT_DIR}/"$DIR_NAME >> $scriptname
 
 	idx=0
 	while [ "$idx" -lt "$max_name_idx" ]
@@ -209,7 +222,12 @@ do
 		idx=($idx)+1
 	done
 	echo "close" >> $scriptname
-	echo "scrp scripts/performance/" >> $scriptname
+
+	echo "log logs/${MPORT_DIR}/${DIR_NAME}_${direction}_done.ulog" >> $scriptname
+	echo "st" >> $scriptname
+	echo "close" >> $scriptname
+
+	echo "scrp ${MPORT_DIR}" >> $scriptname
 done
 
 ls ../$DIR_NAME*

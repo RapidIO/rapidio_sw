@@ -124,8 +124,9 @@ int run_test(uint32_t destid, unsigned ms_number, unsigned count)
 	/* Connect to memory space on server */
 	ms_h rem_msh;
 	msub_h	rem_msubh;
+	conn_h  connh;
 	uint32_t rem_msub_len;
-	ret = rdma_conn_ms_h(16, destid, ms_name, msubh, &rem_msubh,
+	ret = rdma_conn_ms_h(16, destid, ms_name, msubh, &rem_msubh, &connh,
 					&rem_msub_len, &rem_msh, 0);
 	if (ret) {
 		printf("Failed to connect to '%s' on destid(0x%X), ret = %d\n",

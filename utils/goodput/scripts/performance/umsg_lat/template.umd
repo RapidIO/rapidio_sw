@@ -29,10 +29,10 @@ wait 0 h
 lumsg 0 $cpu2 mbox bufc sts $destid msg_size $ma
 wait 0 R
 la
-echo UMSG LATENCY master (Master=1, Slave=0) 0xmsg_size BYTES -- n/a for RX
+echo UMSG LATENCY master (Master=1, Slave=0) msg_size BYTES -- n/a for RX
 os
 sleep wait_time
-echo UMSG LATENCY master 0xmsg_size UNUSED
+echo UMSG LATENCY msg_size master UNUSED
 la
 od
 wait 0 R

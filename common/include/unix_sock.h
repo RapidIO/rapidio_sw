@@ -44,6 +44,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iterator>
 #include <iostream>
 #include <iomanip>
+#include <exception>
 
 #include "liblog.h"
 
@@ -59,10 +60,16 @@ using std::endl;
 using std::setfill;
 using std::setw;
 using std::hex;
+using std::exception;
 
-struct unix_sock_exception {
+class unix_sock_exception : public exception {
+public:
 	unix_sock_exception(const char *msg) : err(msg) {}
-
+	virtual const char *what() const throw()
+	{
+		return err;
+	}
+private:
 	const char *err;
 };
 
@@ -98,6 +105,22 @@ public:
 		pthread_mutex_unlock(&recv_buf_mutex);
 	}
 
+	void dump_buffer(uint8_t *buffer)
+	{
+		unsigned offset = 0;
+		const uint8_t chars_per_line = 32;
+
+		cout << hex << setfill('0') << setw(2);
+
+		for (unsigned i = 0; i < 4; i++, offset += chars_per_line) {
+			copy(buffer + offset,
+			     buffer + offset + chars_per_line,
+			     ostream_iterator<int>(cout, "-"));
+
+			cout << endl;
+		}
+	}
+
 	void dump_send_buffer()
 	{
 		pthread_mutex_lock(&send_buf_mutex);
@@ -111,6 +134,7 @@ public:
 		dump_buffer(recv_buf);
 		pthread_mutex_unlock(&recv_buf_mutex);
 	}
+
 
 protected:
 	unix_base(const char *name, const char *sun_path) :
@@ -187,41 +211,64 @@ protected:
 			close(the_socket);
 	}
 
+	/* Uses specified buffer */
+	int send_buffer(int sock, void *buffer, size_t len)
+	{
+		int rc = 0;
+
+		if (len > UNIX_SOCK_DEFAULT_BUFFER_SIZE) {
+			ERR("'%s' failed in send() due to large message size\n", name);
+			rc = -1;
+		} else if (::send(sock, buffer, len, MSG_EOR) == -1) {
+			ERR("Failed in send(): %s, errno=%d\n", strerror(errno), errno);
+			rc = errno;
+		}
+
+		return rc;
+	}
+
+	/* Uses internal buffer */
 	int send(int sock, size_t len)
 	{
 		int rc = 0;
 
 		pthread_mutex_lock(&send_buf_mutex);
-		if (len > UNIX_SOCK_DEFAULT_BUFFER_SIZE) {
-			ERR("'%s' failed in send() due to large message size\n", name);
-			rc = -1;
-		} else if (::send(sock, send_buf, len, MSG_EOR) == -1) {
-			ERR("Failed in send(): %s, errno=%d\n", strerror(errno), errno);
-			rc = errno;
-		}
+		rc = send_buffer(sock, send_buf, len);
 		pthread_mutex_unlock(&send_buf_mutex);
+
+		return rc;
+	}
+
+	int receive_buffer(int sock, void *buffer, size_t *rcvd_len)
+	{
+		int rc = 0;
+
+		rc = ::recv(sock, buffer, UNIX_SOCK_DEFAULT_BUFFER_SIZE, 0);
+		if (rc < 0) {
+			ERR("'%s': failed in recv(): %s, errno = %d\n",
+					name, strerror(errno), errno);
+			rc = errno;
+		} else {
+			DBG("Received %u bytes\n", rc);
+			*rcvd_len = rc;
+			rc = 0;
+		}
 
 		return rc;
 	}
 
 	int receive(int sock, size_t *rcvd_len)
 	{
-		int rc;
+		int rc = 0;
 
 		pthread_mutex_lock(&recv_buf_mutex);
-		rc = ::recv(sock, recv_buf, UNIX_SOCK_DEFAULT_BUFFER_SIZE, 0);
-		if (rc < 0) {
-			ERR("'%s': failed in recv(): %s, errno = %d\n",
-					name, strerror(errno), errno);
-			rc = errno;
-		} else {
-			*rcvd_len = rc;
-			rc = 0;
-		}
+		rc = receive_buffer(sock, recv_buf, rcvd_len);
 		pthread_mutex_unlock(&recv_buf_mutex);
 
 		return rc;
 	}
+
+
 
 	int		the_socket;	/* listen or client socket */
 	const char 	*name;
@@ -231,21 +278,7 @@ protected:
 	pthread_mutex_t recv_buf_mutex;
 
 private:
-	void dump_buffer(uint8_t *buffer)
-	{
-		unsigned offset = 0;
-		const uint8_t chars_per_line = 32;
 
-		cout << hex << setfill('0') << setw(2);
-
-		for (unsigned i = 0; i < 4; i++, offset += chars_per_line) {
-			copy(buffer + offset,
-			     buffer + offset + chars_per_line,
-			     ostream_iterator<int>(cout, "-"));
-
-			cout << endl;
-		}
-	}
 
 	uint8_t *send_buf;
 	uint8_t *recv_buf;
@@ -255,9 +288,13 @@ class unix_server : public unix_base
 {
 public:
 	unix_server(const char *name,
+		    bool *shutting_down = nullptr,
 		    const char *sun_path = UNIX_PATH_RDMA,
 		    int backlog = UNIX_SOCK_DEFAULT_BACKLOG)
-	try : unix_base(name, sun_path), accept_socket(0), can_accept(true)
+	try : unix_base(name, sun_path),
+		accept_socket(0),
+		can_accept(true),
+		shutting_down(shutting_down)
 	{
 		/* If file exists, delete it before binding */
 		struct stat st;
@@ -292,8 +329,11 @@ public:
 	 * accept new connections. Deleting those objects does NOT kill
 	 * the base class socket ('the_socket').
 	 */
-	unix_server(const char *name, int accept_socket)
-	try : unix_base(name), accept_socket(accept_socket), can_accept(false)
+	unix_server(const char *name, bool *shutting_down, int accept_socket)
+	try : unix_base(name),
+	accept_socket(accept_socket),
+	can_accept(false),
+	shutting_down(shutting_down)
 	{
 	}
 	catch(...)	/* Catch failures in unix_base::unix_base() */
@@ -303,6 +343,11 @@ public:
 
 	~unix_server()
 	{
+		if ((shutting_down != nullptr) && !*shutting_down) {
+			HIGH("dtor\n");
+		} else {
+			printf("~unix_server called for '%s'\n", name);
+		}
 		close(accept_socket);
 	}
 
@@ -340,17 +385,29 @@ public:
 		return unix_base::receive(accept_socket, rcvd_len);
 	}
 
+	int send_buffer(void *buffer, size_t len)
+	{
+		return unix_base::send_buffer(accept_socket, buffer, len);
+	}
+
+	int receive_buffer(void *buffer, size_t *rcvd_len)
+	{
+		return unix_base::receive_buffer(accept_socket, buffer, rcvd_len);
+	}
 private:
 	int	accept_socket;
 	bool	can_accept;	/* Objects created with the minimal constructor can't */
+	bool	*shutting_down;
 };
 
 class unix_client : public unix_base
 {
 public:
-	unix_client(const char *name = "client",
+	unix_client(const char *name,
+		    bool *shutting_down,
 		    const char *sun_path = UNIX_PATH_RDMA)
-	try : unix_base(name, sun_path)
+	try : unix_base(name, sun_path),
+	shutting_down(shutting_down)
 	{
 	}
 	catch(...)	/* Catch failures in unix_base::unix_base() */
@@ -360,6 +417,11 @@ public:
 
 	~unix_client()
 	{
+		if ((shutting_down) != nullptr && !*shutting_down) {
+			HIGH("dtor for %s\n", name);
+		} else {
+			puts(__func__);
+		}
 	}
 
 	int connect()
@@ -380,6 +442,18 @@ public:
 	{
 		return unix_base::receive(the_socket, rcvd_len);
 	}
+
+	int send_buffer(void *buffer, size_t len)
+	{
+		return unix_base::send_buffer(the_socket, buffer, len);
+	}
+
+	int receive_buffer(void *buffer, size_t *rcvd_len)
+	{
+		return unix_base::receive_buffer(the_socket, buffer, rcvd_len);
+	}
+private:
+	bool *shutting_down;
 };
 
 #endif
