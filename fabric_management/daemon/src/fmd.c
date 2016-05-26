@@ -65,7 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libcli.h"
 #include "riocp_pe.h"
-#include "riocp_pe_internal.h"
+#include "riocp_pe.h"
 #include "DAR_DevDriver.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"

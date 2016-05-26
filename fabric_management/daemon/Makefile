@@ -87,7 +87,7 @@ fmd:  $(FMD_OBJECTS) $(FMD_SOURCES) src/*.h
 	$(CXX) -pthread \
 	-o $@ $(FMD_OBJECTS) $(LIB_DIRS) \
 	-lcli -ldd -llist -lrt -ldl -ltime_utils -lmport -llog -lriocp_pe \
-	-lswitch_api -lcfg -lpe_mpdrv
+	-lswitch_api -lcfg -lpe_mpdrv -lctdrv
 
 clean:
 	rm -f *.o src/*.o *~ *.exe core fmd

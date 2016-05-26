@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "pe_mpdrv_private.h"
-#include "riocp_pe_internal.h"
+#include "riocp_pe.h"
 #include "IDT_DSF_DB_Private.h"
 #include "DAR_Utilities.h"
 #include "liblog.h"

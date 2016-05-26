@@ -12,8 +12,7 @@
 
 #include <stdint.h>
 
-#include "inc/riocp_pe.h"
-#include "inc/riocp_pe_internal.h"
+#include "riocp_pe.h"
 
 #ifdef __cplusplus
 extern "C" {

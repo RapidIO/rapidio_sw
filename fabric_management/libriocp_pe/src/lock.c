@@ -9,8 +9,6 @@
  */
 #include <stdint.h>
 
-#include "inc/riocp_pe_internal.h"
-
 #include "driver.h"
 #include "rio_regs.h"
 
