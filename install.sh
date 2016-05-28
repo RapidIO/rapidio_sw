@@ -100,6 +100,7 @@ for c in $(seq 1 3); do
   DID=${destids[c]};
   COMPTAG=${comptags[c]};
   [ "$host" = 'none' ] && continue;
+  [ -z "$host" ] && continue;
   sed s/NODE_VAR/$host/g install/node-slave.conf | \
     sed s/MEMSZ/$MEMSZ/g | sed s/DID/${DID}/g | sed s/MASTDEST/${MASTDEST}/g | \
     sed s/COMPTAG/$COMPTAG/g | \

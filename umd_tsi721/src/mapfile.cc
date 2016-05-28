@@ -118,7 +118,7 @@ void* MapFile::map_file(uint64_t size)
                m_fd,                   /* File descriptor */
                0);                    
 
-  if(m_ptr == NULL) {
+  if (MAP_FAILED == m_ptr) {
     m_size = 0;
 
     static char tmp[257] = {0};
