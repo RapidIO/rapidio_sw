@@ -116,7 +116,8 @@ struct riocp_pe_driver {
 				struct riocp_pe *peer, char *name);
 	int RIOCP_WU (* destroy_pe)(struct riocp_pe *pe);
 
-	int RIOCP_WU (* recover_port)(struct riocp_pe *pe, uint8_t port);
+	int RIOCP_WU (* recover_port)(struct riocp_pe *pe, uint8_t port,
+								uint8_t lp_port);
 	int RIOCP_WU (* get_port_state)(struct riocp_pe *pe,
 			uint8_t port, struct riocp_pe_port_state_t *state);
 	int RIOCP_WU (* port_start)(struct riocp_pe *pe, uint8_t port);

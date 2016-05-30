@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-#define RIOCP_PE_COMPTAG_POOL_REALLOC_SIZE 32 /**< Amount of elements to grow the pool */
+#define RIOCP_PE_COMPTAG_POOL_REALLOC_SIZE 256 /**< Amount of elements to grow the pool */
 
 /**
  * Grow the size of component tag pool with amount of elements
@@ -210,7 +210,7 @@ int riocp_pe_comptag_write(struct riocp_pe *pe, uint32_t comptag)
 	if (ret < 0)
 		return ret;
 
-	return 0;
+	return riocp_pe_comptag_set_slot(pe, RIOCP_PE_COMPTAG_GET_NR(comptag));
 }
 
 /**

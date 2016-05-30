@@ -56,7 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include "IDT_Routing_Table_Config_API.h"
 #include "IDT_Port_Config_API.h"
-#include "riocp_pe_internal.h"
+#include "riocp_pe.h"
 #include "fmd_dd.h"
 
 #ifndef _CFG_PRIVATE_H_
@@ -98,11 +98,10 @@ struct int_mport_info {
 #define CFG_INVALID_CT 0
 #define CFG_MAX_EP 4
 #define CFG_MAX_EP_PORT 1
-#define CFG_MAX_SW 1
-#define CFG_MAX_SW_PORT 18
-#define CFG_MAX_CONN 10
-#define CFG_MAX_CONN_PORT 18
-#define CFG_MAX_DEVS 20
+#define CFG_MAX_SW 20
+#define CFG_MAX_CONN_PORT 24
+#define CFG_MAX_CONN (CFG_MAX_SW*CFG_MAX_CONN_PORT)
+#define CFG_MAX_DEVS (CFG_MAX_SW+CFG_MAX_CONN)
 
 #define CFG_DFLT_DEV_DIR "/sys/bus/rapidio/devices/"
 #define CFG_MAX_DEV_FN 256
@@ -143,6 +142,8 @@ struct int_cfg_sw_port {
 	struct int_cfg_rapidio rio;
 	struct int_cfg_conn *conn;
 	int conn_end; /* index of *conn for this switch */
+	bool rt_valid[CFG_DEVID_MAX];
+	idt_rt_state_t rt[CFG_DEVID_MAX];
 };
 
 struct int_cfg_sw {
@@ -157,6 +158,7 @@ struct int_cfg_sw {
 	uint32_t traversed;
 	struct int_cfg_sw_port ports[CFG_MAX_SW_PORT];
 	// One routing table for each devID size
+	bool rt_valid[CFG_DEVID_MAX]; 
 	idt_rt_state_t rt[CFG_DEVID_MAX]; 
 };
 

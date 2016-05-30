@@ -708,8 +708,8 @@ int CLIMRegReadCmd(struct cli_env *env, int argc, char **argv)
 	};
 
 	for (i = 0; i < numReads; i++) {
-		rc = riocp_pe_maint_read(
-				(riocp_pe_handle)env->h, address, &data);
+		rc = pe_mpsw_rw_driver.raw_reg_rd((riocp_pe_handle)env->h,
+			did, hc, address, &data);
 
 		if (rc) {
 			failedReading(env, address, rc);
@@ -786,7 +786,8 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 
 	/* Command arguments are syntactically correct - do write */
 
-	rc = riocp_pe_maint_write((riocp_pe_handle)env->h, address, data);
+	rc = pe_mpsw_rw_driver.raw_reg_wr((riocp_pe_handle)env->h,
+		did, hc, address, data);
 
 	if (0 != rc) {
 		failedWrite(env, address, data, rc);
@@ -794,7 +795,8 @@ int CLIMRegWriteCmd(struct cli_env *env, int argc, char **argv)
 	}
 
 	/* read data back */
-	rc = riocp_pe_maint_read((riocp_pe_handle)env->h, address, &data);
+	rc = pe_mpsw_rw_driver.raw_reg_rd((riocp_pe_handle)env->h,
+		did, hc, address, &data);
 
 	if (0 != rc) {
 		failedReading(env, address, rc);

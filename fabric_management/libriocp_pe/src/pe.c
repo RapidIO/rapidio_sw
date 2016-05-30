@@ -423,7 +423,7 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 		peer->hopcount, peer->comptag, port);
 
 	/* Reset the component tag for alternative route */
-	ret = riocp_drv_raw_reg_wr(pe->mport, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, 0);
+	ret = riocp_drv_raw_reg_wr(pe, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, 0);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", ANY_ID, hopcount_alt);
 		return -EIO;
@@ -431,7 +431,7 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 
 	/* read same comptag again to make sure write has been performed
 		(we read pe comptag from potentially (shorter) different path) */
-	ret = riocp_drv_raw_reg_rd(pe->mport, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, &comptag_alt);
+	ret = riocp_drv_raw_reg_rd(pe, ANY_ID, hopcount_alt, RIO_COMPONENT_TAG_CSR, &comptag_alt);
 	if (ret) {
 		RIOCP_ERROR("Error reading comptag from d: %u, hc: %u\n", ANY_ID, hopcount_alt);
 		return -EIO;
@@ -453,6 +453,9 @@ int riocp_pe_probe_verify_found(struct riocp_pe *pe, uint8_t port, struct riocp_
 		if (ret)
 			return -EIO;
 		RIOCP_DEBUG("Same device different route\n");
+		ret = riocp_pe_probe_prepare(pe, port);
+		if (ret)
+			return ret;
 		return 1;
 	}
 

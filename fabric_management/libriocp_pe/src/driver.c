@@ -183,10 +183,10 @@ int RIOCP_WU riocp_drv_destroy_pe(struct riocp_pe *pe)
 * If errors are present, the routine may invoke local and remote resets and
 * other severe measures to recover the port.
 */
-int RIOCP_WU riocp_drv_recover_port(struct riocp_pe *pe, uint8_t port)
+int RIOCP_WU riocp_drv_recover_port(struct riocp_pe *pe, uint8_t port, uint8_t lp_port)
 {
 	if(drvr.recover_port && drvr_ok)
-		return drvr.recover_port(pe, port);
+		return drvr.recover_port(pe, port, lp_port);
 	else
 		return -ENOSYS;
 }

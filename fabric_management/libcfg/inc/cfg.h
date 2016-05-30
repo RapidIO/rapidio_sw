@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <dirent.h>
 #include <errno.h>
 #include "IDT_Routing_Table_Config_API.h"
+#include "IDT_Port_Config_API.h"
 
 #ifndef _CFG_H_
 #define _CFG_H_ 
@@ -83,12 +84,19 @@ struct cfg_ep_port {
 	int valid;
 	uint32_t port;
 	uint32_t ct;
+	idt_pc_pw_t max_pw;
+	idt_pc_pw_t op_pw;
+	idt_pc_ls_t ls;
 	struct dev_id devids[CFG_DEVID_MAX];
 };
 
 struct cfg_sw_port {
 	int valid;
 	int port;
+        idt_pc_pw_t max_pw;
+        idt_pc_pw_t op_pw;
+        idt_pc_ls_t ls;
+        idt_rt_state_t *rt[CFG_DEVID_MAX];
 };
 
 struct cfg_sw {
