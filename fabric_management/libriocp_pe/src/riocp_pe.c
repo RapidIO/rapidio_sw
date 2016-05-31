@@ -2167,8 +2167,8 @@ int RIOCP_SO_ATTR riocp_sw_set_congestion_limit(riocp_pe_handle sw,
  * @param reg_cap           Capability bit field that specifies the counter
  *                          registers that this switch offers
  */
-int RIOCP_SO_ATTR riocp_pe_get_sw_counter_capabilites(riocp_pe_handle sw,
-        riocp_sw_cap_t *reg_cap)
+int RIOCP_SO_ATTR riocp_pe_get_sw_counter_capabilites(struct riocp_pe *sw,
+        uint8_t port, cap_if_t *caps)
 {
     if (riocp_pe_handle_check(sw))
         return -EINVAL;
@@ -2176,7 +2176,7 @@ int RIOCP_SO_ATTR riocp_pe_get_sw_counter_capabilites(riocp_pe_handle sw,
         return -EPERM;
     if (!RIOCP_PE_IS_SWITCH(sw->cap))
         return -ENOSYS;
-    return riocp_pe_switch_get_counter_capabilites(sw, reg_cap);
+    return riocp_pe_switch_get_counter_capabilites(sw, port, caps);
 }
 
 /**
@@ -2188,8 +2188,8 @@ int RIOCP_SO_ATTR riocp_pe_get_sw_counter_capabilites(riocp_pe_handle sw,
  * @param counter_val       Container to hold the counter register values
  * @param counter_val_size  Size of container for counter values
  */
-int RIOCP_SO_ATTR riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port,
-        riocp_sw_cap_t reg_cap, uint32_t *reg_values, uint32_t reg_cnt)
+int RIOCP_SO_ATTR riocp_pe_get_sw_counters(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val,
+        uint32_t counter_val_size, cap_if_t *caps, uint32_t caps_cnt)
 {
     if (riocp_pe_handle_check(sw))
         return -EINVAL;
@@ -2198,7 +2198,7 @@ int RIOCP_SO_ATTR riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port,
     if (!RIOCP_PE_IS_SWITCH(sw->cap))
         return -ENOSYS;
 
-    return riocp_pe_switch_get_counters(sw, port, reg_cap, reg_values, reg_cnt);
+    return riocp_pe_switch_get_counters(sw, port, counter_val, counter_val_size, caps, caps_cnt);
 }
 
 /**

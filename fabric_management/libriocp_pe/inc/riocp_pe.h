@@ -163,6 +163,11 @@ typedef int (*riocp_log_output_func_t)(enum riocp_log_level, const char *);
     CAPABILITY(PORT_X_FIL_MATCH_1) \
     CAPABILITY(PORT_X_FIL_MATCH_2) \
     CAPABILITY(PORT_X_FIL_MATCH_3) \
+    CAPABILITY(PORT_X_LANE_0_ERR_8B10B) \
+    CAPABILITY(PORT_X_LANE_1_ERR_8B10B) \
+    CAPABILITY(PORT_X_LANE_2_ERR_8B10B) \
+    CAPABILITY(PORT_X_LANE_3_ERR_8B10B) \
+    CAPABILITY(LAST_CAPABILITY) \
 
 #define CREATE_CAP_ENUM(CAP_ENUM) CAP_ENUM,
 #define CREATE_CAP_STRING(CAP_STRING) #CAP_STRING,
@@ -171,9 +176,16 @@ typedef enum riocp_switch_capabilities {
     ALL_CAPABILITIES(CREATE_CAP_ENUM)
 } riocp_switch_capabilities_t;
 
-extern const char *riocp_switch_cap_desc[];
+typedef struct cap_if
+{
+        riocp_switch_capabilities_t idx;
+        int (*get_counter)(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val);
+} cap_if_t;
 
-typedef uint32_t riocp_sw_cap_t;
+#define CREATE_CAP_STRUCT(CAP_STRUCT) \
+        {CAP_STRUCT, NULL}, \
+
+extern const char *riocp_switch_cap_desc[];
 
 /* External locking callback function */
 typedef int (*riocp_lock_func_t)(int lock);
@@ -278,9 +290,10 @@ int RIOCP_WU riocp_sw_set_multicast_mask(riocp_pe_handle sw, uint8_t lut, uint8_
 int RIOCP_WU riocp_sw_set_congestion_limit(riocp_pe_handle sw, uint8_t port, uint16_t limit);
 
 /* Counters */
-int RIOCP_WU riocp_pe_get_sw_counter_capabilites(riocp_pe_handle sw, riocp_sw_cap_t *reg_cap);
-int RIOCP_WU riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port,
-        riocp_sw_cap_t reg_offsets, uint32_t *reg_values, uint32_t reg_cnt);
+int RIOCP_WU riocp_pe_get_sw_counter_capabilites(struct riocp_pe *sw,
+        uint8_t port, cap_if_t *caps);
+int RIOCP_WU riocp_pe_get_sw_counters(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val,
+        uint32_t counter_val_size, cap_if_t *caps, uint32_t caps_cnt);
 
 /* Trace and Filters */
 int RIOCP_WU riocp_pe_get_sw_trace_filter_caps(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps);

@@ -125,6 +125,8 @@ extern "C" {
 #define CPS1xxx_LANE_STAT_0_LANE_S			(24)
 #define CPS1xxx_LANE_STAT_0_LANE_M			(0xff)
 #define CPS1xxx_LANE_STAT_0_LANE(x)			(((x)>>CPS1xxx_LANE_STAT_0_LANE_S)&CPS1xxx_LANE_STAT_0_LANE_M)
+#define CPS1xxx_LANE_STAT_0_ERR_8B10B       (0x00000780)
+#define CPS1xxx_LANE_STAT_0_ERR_8B10B_S     (7)
 #define CPS1xxx_LANE_STAT_3_AMP_PROG_EN		(0x20000000)
 #define CPS1xxx_LANE_STAT_3_NEG1_TAP_S		(6)
 #define CPS1xxx_LANE_STAT_3_NEG1_TAP_M		(0x3f<<CPS1xxx_LANE_STAT_3_NEG1_TAP_S)
@@ -495,19 +497,19 @@ struct switch_port_priv_t {
 	uint8_t width;
 #endif
 };
-#ifdef CONFIG_SETUP_CACHE_ENABLE
+
 struct switch_lane_priv_t {
-	uint8_t port;
-	uint8_t lane_in_port;
+#ifdef CONFIG_SETUP_CACHE_ENABLE
+    uint8_t port;
+    uint8_t lane_in_port;
 	enum riocp_pe_speed speed;
-};
 #endif
+    uint32_t err_8b10b;
+};
 
 struct switch_priv_t {
 	uint32_t event_counter;
-#ifdef CONFIG_SETUP_CACHE_ENABLE
 	struct switch_lane_priv_t lanes[48];  /* CPS1848 is the maximum we support here */
-#endif
 	struct switch_port_priv_t ports[18];  /* CPS1848 is the maximum we support here */
 };
 
@@ -918,6 +920,47 @@ static void cps1xxx_dump_event_log(struct riocp_pe *sw)
 }
 #endif
 
+/* Reading the 8b10b error counter */
+static int cps1xxx_get_switch_lane_8b10b(struct riocp_pe *sw, uint8_t lane, uint32_t *value)
+{
+    int ret;
+    uint32_t reg_val;
+    struct switch_priv_t *priv = (struct switch_priv_t *)sw->private_driver_data;
+
+    RIOCP_INFO("Get 8b10b error counter of lane %d in switch %#x", lane, sw->destid);
+
+    ret = cps1xxx_read_lane_stat_0_csr(sw, lane, &reg_val);
+    if (ret < 0)
+        return ret;
+
+    // return cached value
+    *value = priv->lanes[lane].err_8b10b;
+    //clear cached value after read
+    priv->lanes[lane].err_8b10b = 0;
+
+    return 0;
+}
+
+/* Reading the 8b10b error counter of a port specific lane */
+static int cps1xxx_get_port_lane_8b10b(struct riocp_pe *sw, uint8_t port,
+        uint8_t lane_in_port, uint32_t *lane_8b10b)
+{
+    int ret;
+    uint8_t first_lane;
+
+    RIOCP_INFO("Get 8b10b error counter of lane %d in port %d", lane_in_port, port);
+
+    ret = cps1xxx_port_get_first_lane(sw, port, &first_lane);
+    if (ret < 0) {
+        RIOCP_ERROR("Could net get first lane of port %u (ret = %d, %s)\n",
+            port, ret, strerror(-ret));
+        return ret;
+    }
+    cps1xxx_get_switch_lane_8b10b(sw, first_lane+lane_in_port, lane_8b10b);
+
+    return 0;
+}
+
 /*
  * This function is for reading the lane status 0 CSR. It is caching the 8b10b error counter
  * which is a clear on read value.
@@ -925,17 +968,35 @@ static void cps1xxx_dump_event_log(struct riocp_pe *sw)
 static int cps1xxx_read_lane_stat_0_csr(struct riocp_pe *sw, uint8_t lane, uint32_t *value)
 {
 	int ret;
-	uint32_t result;
+	uint32_t status_0_csr, _err8b10b;
+	struct switch_priv_t *priv = (struct switch_priv_t *)sw->private_driver_data;
 
-	ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_STAT_0_CSR(lane), &result);
+	ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_STAT_0_CSR(lane), &status_0_csr);
 	if (ret < 0)
 		return ret;
 
-	/* TODO: Add 8b10b caching here. */
+	/* 8b10b decoding error caching */
+	_err8b10b = status_0_csr & CPS1xxx_LANE_STAT_0_ERR_8B10B;
+	_err8b10b = _err8b10b >> CPS1xxx_LANE_STAT_0_ERR_8B10B_S;
+	RIOCP_INFO("Cache 8b10b decoding error count: %d", _err8b10b);
+	priv->lanes[lane].err_8b10b += _err8b10b;
+    RIOCP_INFO("Aggregated 8b10b decoding error count: %d", priv->lanes[lane].err_8b10b);
 
-	*value = result;
+	*value = status_0_csr;
 	return 0;
 }
+
+#define LANE_READ(LANE_IN_PORT) \
+    int cps1xxx_get_port_err8b10b_lane_##LANE_IN_PORT(struct riocp_pe *sw, uint8_t port, \
+            uint32_t *lane_8b10b) \
+    { \
+        return cps1xxx_get_port_lane_8b10b(sw, port, LANE_IN_PORT, lane_8b10b); \
+    } \
+
+LANE_READ(0)
+LANE_READ(1)
+LANE_READ(2)
+LANE_READ(3)
 
 /*
  * The following function checks if a port went to PORT_OK during arming of the port.
@@ -1027,6 +1088,7 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 	uint32_t result;
 	int ret;
 	uint8_t first_lane = 0, lane_count = 0, lane;
+    uint32_t err8b10b;
 
 	ret = cps1xxx_port_get_first_lane(sw, port, &first_lane);
 	if (ret < 0)
@@ -1061,6 +1123,18 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 		if (ret < 0)
 			return ret;
 	}
+
+	/* Before the link is up and settles down, there are naturally 8b10b errors.
+	 * We read them before the link is up and discard them.
+	 */
+    RIOCP_INFO("Read and discard 8b10b error counters before link is up\n");
+    for (lane=first_lane; lane<first_lane+lane_count; lane++) {
+        ret = cps1xxx_get_switch_lane_8b10b(sw, lane, &err8b10b);
+        if (ret)
+            return ret;
+        RIOCP_INFO("Read 8b10b error counter for lane %d: %d\n",
+                first_lane+lane_count, err8b10b);
+    }
 
 	/* enable port-writes and interrupts for port events */
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_OPS(port), &result);
@@ -1829,101 +1903,91 @@ int cps1xxx_set_domain(struct riocp_pe *sw, uint8_t domain)
 	return riocp_pe_maint_write(sw, CPS1xxx_RTE_RIO_DOMAIN, domain);
 }
 
-/*
- * Defining a bit field that describes the capabilities of this switch
- * (i.e. the registers). The interface to this data structure is given in
- * enum riocp_switch_capabilities
- */
-static int cps1xxx_get_capabilities(riocp_sw_cap_t *reg_cap)
-{
-    uint32_t register_cap = 0;
-    register_cap |= (1 << PORT_X_VC0_PA_TX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_NACK_TX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_RTRY_TX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_PKT_TX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_PA_RX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_NACK_RX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_RTRY_RX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_PKT_RX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_CPB_TX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_PKT_DROP_RX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_PKT_DROP_TX_CNTR);
-    register_cap |= (1 << PORT_X_VC0_TTL_DROP_CNTR);
-    register_cap |= (1 << PORT_X_VC0_CRC_LIMIT_DROP_CNTR);
-    register_cap |= (1 << PORT_X_TRC_MATCH_0);
-    register_cap |= (1 << PORT_X_TRC_MATCH_1);
-    register_cap |= (1 << PORT_X_TRC_MATCH_2);
-    register_cap |= (1 << PORT_X_TRC_MATCH_3);
-    register_cap |= (1 << PORT_X_FIL_MATCH_0);
-    register_cap |= (1 << PORT_X_FIL_MATCH_1);
-    register_cap |= (1 << PORT_X_FIL_MATCH_2);
-    register_cap |= (1 << PORT_X_FIL_MATCH_3);
+/* split capabilities into
+    - those that are fixed by specification (known at build time)
+    - those that are configured (known at run time)
+*/
 
-    *reg_cap = register_cap;
-    return 0;
+#define READ_CNTR(CNTR_REG) \
+    int cps1xxx_read_##CNTR_REG(struct riocp_pe *sw, uint8_t port, uint32_t *counter) \
+    { \
+        uint32_t reg_addr = CNTR_REG+0x100*port; \
+        return riocp_pe_maint_read(sw, reg_addr, counter); \
+    } \
+
+READ_CNTR(CPS1xxx_PORT_X_VC0_PA_TX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_NACK_TX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_RTRY_TX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_PKT_TX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_PA_RX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_NACK_RX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_RTRY_RX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_PKT_RX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_CPB_TX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_PKT_DROP_RX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_PKT_DROP_TX_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_TTL_DROP_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_VC0_CRC_LIMIT_DROP_CNTR)
+READ_CNTR(CPS1xxx_PORT_X_TRC_MATCH_0)
+READ_CNTR(CPS1xxx_PORT_X_TRC_MATCH_1)
+READ_CNTR(CPS1xxx_PORT_X_TRC_MATCH_2)
+READ_CNTR(CPS1xxx_PORT_X_TRC_MATCH_3)
+READ_CNTR(CPS1xxx_PORT_X_FIL_MATCH_0)
+READ_CNTR(CPS1xxx_PORT_X_FIL_MATCH_1)
+READ_CNTR(CPS1xxx_PORT_X_FIL_MATCH_2)
+READ_CNTR(CPS1xxx_PORT_X_FIL_MATCH_3)
+
+static int cps1xxx_get_capabilities(struct riocp_pe *sw, uint8_t port, cap_if_t *caps)
+{
+    int ret, i;
+    uint8_t width;
+
+    caps[PORT_X_VC0_PA_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PA_TX_CNTR;
+    caps[PORT_X_VC0_PA_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_NACK_TX_CNTR;
+    caps[PORT_X_VC0_RTRY_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_RTRY_TX_CNTR;
+    caps[PORT_X_VC0_PKT_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_TX_CNTR;
+    caps[PORT_X_VC0_PA_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PA_RX_CNTR;
+    caps[PORT_X_VC0_NACK_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_NACK_RX_CNTR;
+    caps[PORT_X_VC0_RTRY_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_RTRY_RX_CNTR;
+    caps[PORT_X_VC0_PKT_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_RX_CNTR;
+    caps[PORT_X_VC0_CPB_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_CPB_TX_CNTR;
+    caps[PORT_X_VC0_PKT_DROP_RX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_DROP_RX_CNTR;
+    caps[PORT_X_VC0_PKT_DROP_TX_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_PKT_DROP_TX_CNTR;
+    caps[PORT_X_VC0_TTL_DROP_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_TTL_DROP_CNTR;
+    caps[PORT_X_VC0_CRC_LIMIT_DROP_CNTR].get_counter = cps1xxx_read_CPS1xxx_PORT_X_VC0_CRC_LIMIT_DROP_CNTR;
+    caps[PORT_X_TRC_MATCH_0].get_counter = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_0;
+    caps[PORT_X_TRC_MATCH_1].get_counter = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_1;
+    caps[PORT_X_TRC_MATCH_2].get_counter = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_2;
+    caps[PORT_X_TRC_MATCH_3].get_counter = cps1xxx_read_CPS1xxx_PORT_X_TRC_MATCH_3;
+    caps[PORT_X_FIL_MATCH_0].get_counter = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_0;
+    caps[PORT_X_FIL_MATCH_1].get_counter = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_1;
+    caps[PORT_X_FIL_MATCH_2].get_counter = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_2;
+    caps[PORT_X_FIL_MATCH_3].get_counter = cps1xxx_read_CPS1xxx_PORT_X_FIL_MATCH_3;
+
+    // preinitialize with dedicated functions to read counters
+    caps[PORT_X_LANE_0_ERR_8B10B].get_counter = cps1xxx_get_port_err8b10b_lane_0;
+    caps[PORT_X_LANE_1_ERR_8B10B].get_counter = cps1xxx_get_port_err8b10b_lane_1;
+    caps[PORT_X_LANE_2_ERR_8B10B].get_counter = cps1xxx_get_port_err8b10b_lane_2;
+    caps[PORT_X_LANE_3_ERR_8B10B].get_counter = cps1xxx_get_port_err8b10b_lane_3;
+
+    // clear function pointers for unassigned lanes
+    ret = cps1xxx_get_lane_width(sw, port, &width);
+    for (i=width; i<4; ++i) {
+        caps[PORT_X_LANE_0_ERR_8B10B+i].get_counter = NULL;
+    }
+
+    return ret;
 }
 
-/* Map cps1xxx register offsets to the capability interface (which is
- * actually defined in riocp.h)
- * The intention is that the enum riocp_switch_capabilities defined in riocp_pe.h
- * specifies all available capabilities across all switches there may be.
- * A specific switch (like this one, the cps1xxx) needs to define an array of
- * register addresses that includes its register addresses for each capability.
- * So technically, there is an address at an index which equals to some enum value.
- * Or 0, if there is no such capability (i.e. register).
- *
- * TODO This is quite a loose binding between the interface and the implementation.
- * There might be a better design.
- */
-#define CPS1xxx_NOT_DEFINED 0
-
-static uint32_t cps1xxx_cap_offsets [] = {
-        CPS1xxx_PORT_X_VC0_PA_TX_CNTR,
-        CPS1xxx_PORT_X_VC0_NACK_TX_CNTR,
-        CPS1xxx_PORT_X_VC0_RTRY_TX_CNTR,
-        CPS1xxx_PORT_X_VC0_PKT_TX_CNTR,
-        CPS1xxx_PORT_X_VC0_PA_RX_CNTR,
-        CPS1xxx_PORT_X_VC0_NACK_RX_CNTR,
-        CPS1xxx_PORT_X_VC0_RTRY_RX_CNTR,
-        CPS1xxx_PORT_X_VC0_PKT_RX_CNTR,
-        CPS1xxx_PORT_X_VC0_CPB_TX_CNTR,
-        CPS1xxx_PORT_X_VC0_PKT_DROP_RX_CNTR,
-        CPS1xxx_PORT_X_VC0_PKT_DROP_TX_CNTR,
-        CPS1xxx_PORT_X_VC0_TTL_DROP_CNTR,
-        CPS1xxx_PORT_X_VC0_CRC_LIMIT_DROP_CNTR,
-        CPS1xxx_PORT_X_TRC_MATCH_0,
-        CPS1xxx_PORT_X_TRC_MATCH_1,
-        CPS1xxx_PORT_X_TRC_MATCH_2,
-        CPS1xxx_PORT_X_TRC_MATCH_3,
-        CPS1xxx_PORT_X_FIL_MATCH_0,
-        CPS1xxx_PORT_X_FIL_MATCH_1,
-        CPS1xxx_PORT_X_FIL_MATCH_2,
-        CPS1xxx_PORT_X_FIL_MATCH_3
-};
-
-/**
- * Read port counter values from switch.
- * @param sw                Target switch
- * @param port              Port ID
- * @param reg_cap           Capability bit field that specifies the counter
- *                          registers that this switch offers
- * @param counter_val       Container to hold the counter register values
- * @param counter_val_size  Size of container for counter values
- */
-int cps1xxx_get_counters(struct riocp_pe *sw, uint8_t port, riocp_sw_cap_t reg_cap,
-        uint32_t *counter_val, uint32_t counter_val_size)
+int cps1xxx_get_counters(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val,
+        uint32_t counter_val_size, cap_if_t *caps, uint32_t caps_cnt)
 {
-    int ret=0;
-    uint32_t cap_idx=0;
+    uint32_t cap_idx, ret = 0;
+    uint32_t reg_val;
 
-    while (reg_cap) {
-        uint32_t reg_val, reg_addr;
-        uint32_t cap_reg_offset = cps1xxx_cap_offsets[cap_idx];
-
-        if ((reg_cap & 1) == 0) {
-            RIOCP_DEBUG("Ignore capability, not set %x\n", reg_cap);
+    for (cap_idx=0; cap_idx<caps_cnt; ++cap_idx) {
+        if (caps[cap_idx].get_counter == NULL)
             continue;
-        }
 
         if (cap_idx >= counter_val_size) {
             RIOCP_ERROR("No space left in register result array (index %d vs %d)",
@@ -1931,16 +1995,10 @@ int cps1xxx_get_counters(struct riocp_pe *sw, uint8_t port, riocp_sw_cap_t reg_c
             return -ENOMEM;
         }
 
-        reg_addr = cap_reg_offset+0x100*port;
-        ret = riocp_pe_maint_read(sw, reg_addr, &reg_val);
-        if (ret) {
-            RIOCP_ERROR("Failed to read register %x\n", reg_addr);
-            return ret;
-        }
+        ret = caps[cap_idx].get_counter(sw, port, &reg_val);
         counter_val[cap_idx] = reg_val;
-        reg_cap = reg_cap >> 1;
-        cap_idx++;
     }
+
     return ret;
 }
 
@@ -2511,7 +2569,7 @@ found:
 int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 {
 	int ret;
-	uint32_t ctl;
+	uint32_t quad_cfg;
 	uint32_t port_cfg;
 	uint8_t _width = 0, map;
 
@@ -2521,14 +2579,14 @@ int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 		int quad = port / 4;
 		int port_in_quad = port - (quad*4);
 
-		ret = riocp_pe_maint_read(sw, CPS1xxx_QUAD_CFG, &ctl);
+		ret = riocp_pe_maint_read(sw, CPS1xxx_QUAD_CFG, &quad_cfg);
 		if (ret < 0)
 			return ret;
 
-		ctl >>= (quad * 4);
-		ctl &= 3;
+		quad_cfg >>= (quad * 4);
+		quad_cfg &= 3;
 
-		switch (ctl) {
+		switch (quad_cfg) {
 		case 0:
 			/* 1 4x */
 			if (port_in_quad == 0)
@@ -2558,13 +2616,13 @@ int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 	case RIO_DID_IDT_CPS1432:
 	case RIO_DID_IDT_CPS1848:
 
-		ret = riocp_pe_maint_read(sw, CPS1xxx_QUAD_CFG, &ctl);
+		ret = riocp_pe_maint_read(sw, CPS1xxx_QUAD_CFG, &quad_cfg);
 		if (ret < 0)
 			return ret;
 
 		for (map=0;map<gen2_portmaps_len;map++) {
 			if (gen2_portmaps[map].did == RIOCP_PE_DID(sw->cap) && gen2_portmaps[map].port == port) {
-				if (gen2_portmaps[map].cfg == ((ctl >> (gen2_portmaps[map].quad * gen2_portmaps[map].quad_shift)) & 3)) {
+				if (gen2_portmaps[map].cfg == ((quad_cfg >> (gen2_portmaps[map].quad * gen2_portmaps[map].quad_shift)) & 3)) {
 					_width = gen2_portmaps[map].width;
 					goto found;
 				}
@@ -2577,11 +2635,11 @@ int cps1xxx_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *width)
 		 * FIXME: This regsiter contains only valid port width values when a port_ok is detected
 		 * but needs also supported by ports that have no link.
 		 */
-		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &ctl);
+		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &quad_cfg);
 		if (ret < 0)
 			return ret;
 
-		port_cfg = CPS1xxx_CTL_INIT_PORT_WIDTH(ctl);
+		port_cfg = CPS1xxx_CTL_INIT_PORT_WIDTH(quad_cfg);
 
 		if (port_cfg == CPS1xxx_CTL_INIT_PORT_WIDTH_X4)
 			_width = 4;
@@ -2596,7 +2654,7 @@ found:
 	*width = _width;
 
 	RIOCP_TRACE("ctl(0x%08x): 0x%08x, lane width: %u\n",
-		CPS1xxx_PORT_X_CTL_1_CSR(port), ctl, _width);
+		CPS1xxx_PORT_X_CTL_1_CSR(port), quad_cfg, _width);
 
 	return 0;
 }
