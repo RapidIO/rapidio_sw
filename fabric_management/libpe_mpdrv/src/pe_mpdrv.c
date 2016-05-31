@@ -55,8 +55,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "liblog.h"
 #include "pe_mpdrv_private.h"
-#include "riocp_pe_internal.h"
-#include "comptag.h"
+#include "riocp_pe.h"
+#include "ctdrv.h"
 #include "IDT_Statistics_Counter_API.h"
 #include "cfg.h"
 
@@ -387,7 +387,10 @@ int generic_device_init(struct riocp_pe *pe, uint32_t *ct)
 		/* FIXME: Assumes comptag and destID is passed in, not
  		* administered by riocp_pe.
  		*/
-		uint32_t did = RIOCP_PE_COMPTAG_DESTID(*ct);
+/** TODO: Fix linkage between component tag and destID.
+ */
+#define FIXME(X) X
+		uint32_t did = FIXME(*ct);
 		rc = riocp_pe_update_comptag(pe, ct, did, 1);
 		if (rc) {
 			ERR("Could not update comptag\n");

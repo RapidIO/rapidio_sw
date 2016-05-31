@@ -12,10 +12,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "inc/riocp_pe_internal.h"
+#include "riocp_pe.h"
 
 #include "maint.h"
-#include "comptag.h"
+#include "ctdrv.h"
 #include "rio_regs.h"
 
 #ifdef __cplusplus
@@ -210,7 +210,7 @@ int riocp_pe_comptag_write(struct riocp_pe *pe, uint32_t comptag)
 	if (ret < 0)
 		return ret;
 
-	return  riocp_pe_comptag_set_slot(pe, RIOCP_PE_COMPTAG_GET_NR(comptag));
+	return  riocp_pe_comptag_set_slot(pe, CTDRV_GET_NR(comptag));
 }
 
 /**
@@ -240,8 +240,11 @@ int riocp_pe_comptag_init(struct riocp_pe *pe)
 		}
 	}
 
-	comptag = RIOCP_PE_COMPTAG_DESTID(pe->mport->destid);
-	comptag |= RIOCP_PE_COMPTAG_NR(_comptag_nr);
+/** TODO: fix linkage between comptag and destid
+ */
+#define FIXME(x) x
+	comptag = FIXME(pe->mport->destid);
+	comptag |= CTDRV_GET_NR(_comptag_nr);
 
 	ret = riocp_pe_comptag_write(pe, comptag);
 	if (ret) {

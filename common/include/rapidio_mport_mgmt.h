@@ -53,7 +53,7 @@ extern "C" {
  * RIO-to-local address translation is requested
  * and driver should use direct (one-to-one) address mapping.
  */
-#define RIO_MAP_ANY_ADDR (uint64_t)(~((uint64_t) 0))
+#define RIOMP_MAP_ANY_ADDR (uint64_t)(~((uint64_t) 0))
 
 /** @brief bitmask for doorbell events */
 #define RIO_EVENT_DOORBELL	(1 << 0)

@@ -20,8 +20,7 @@
 
 #include <rapidio_mport_mgmt.h>
 
-#include "inc/riocp_pe.h"
-#include "inc/riocp_pe_internal.h"
+#include "riocp_pe.h"
 
 #include "lock.h"
 #include "maint.h"

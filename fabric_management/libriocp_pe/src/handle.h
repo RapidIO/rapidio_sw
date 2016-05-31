@@ -17,7 +17,7 @@
  * The handle is written to the standard component tag register of
  * all processing elements.
  */
-#include "inc/riocp_pe.h"
+#include "riocp_pe.h"
 
 #ifdef __cplusplus
 extern "C" {

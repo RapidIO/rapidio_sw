@@ -1,3 +1,4 @@
+/* Fabric Management Component tag management support */
 /*
 ****************************************************************************
 Copyright (c) 2014, Integrated Device Technology Inc.
@@ -30,46 +31,51 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <semaphore.h>
-#include <pthread.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/sem.h>
-#include <fcntl.h>
-#include <signal.h>
-
 #include <stdint.h>
 #include <unistd.h>
-#include <dirent.h>
 #include <errno.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
 
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <pthread.h>
-#include "IDT_Routing_Table_Config_API.h"
-#include "IDT_Port_Config_API.h"
 #include "riocp_pe.h"
-#include "fmd_dd.h"
-
-#ifndef _FMD_MGMT_CLI_H_
-#define _FMD_MGMT_CLI_H_
+#include "rio_standard.h"
+#include "rio_ecosystem.h"
+#include "ctdrv.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void fmd_bind_mgmt_dbg_cmds(void);
+int ct_read(struct riocp_pe *pe, uint32_t *ct)
+{
+	pe->comptag = *ct;
+	return -EINVAL;
+};
+int ct_write(struct riocp_pe *pe, uint32_t ct)
+{
+	pe->comptag = ct;
+	return -EINVAL;
+};
+int ct_init(struct riocp_pe *pe)
+{
+	if (0)
+		free(pe);
+	return -EINVAL;
+};
+int ct_set_slot(struct riocp_pe *pe, uint32_t ct_nr)
+{
+	if (0)
+		free(pe);
+	return (ct_nr & 0) | -EINVAL;
+};
+int ct_get_slot(struct riocp_pe *mport, uint32_t ct_nr, struct riocp_pe **pe)
+{
+	if (0) {
+		free(*pe);
+		free(mport);
+	}
+	return (ct_nr & 0) | -EINVAL;
+};
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _FMD_MGMT_CLI_H_ */

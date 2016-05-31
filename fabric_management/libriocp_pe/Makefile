@@ -4,7 +4,7 @@
 
 NAME:=riocp_pe
 TARGETS:=lib$(NAME).a
-HEADERS:=inc/lib$(NAME).h
+HEADERS:=inc/lib$(NAME).h ../inc/lib$(NAME).h 
 
 CROSS_COMPILE?=/usr/bin/
 LOG_LEVEL?=4
@@ -20,7 +20,7 @@ AR = $(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
 CFLAGS+=-O2 -DNDEBUG -g
-CFLAGS+=-I. -I./inc
+CFLAGS+=-I. -I./inc -I../inc
 CFLAGS+=-I./src
 CFLAGS+=-I$(TOP_LEVEL)/include
 CFLAGS+=-I../../common/include
