@@ -1287,7 +1287,7 @@ extern "C" {
 #define TSI721_RIO_LANEX_STAT1(X)                          (0x3014 + 0x020*(X))
 #define TSI721_RIO_PLM_BH                                          (0x00010000)
 #define TSI721_RIO_PLM_SP_IMP_SPEC_CTL                             (0x00010080)
-#define TSI721_RIO_PLM_SP_uint32_t                                   (0x00010090)
+#define TSI721_RIO_PLM_SP_STATUS                                   (0x00010090)
 #define TSI721_RIO_PLM_SP_INT_ENABLE                               (0x00010094)
 #define TSI721_RIO_PLM_SP_PW_ENABLE                                (0x00010098)
 #define TSI721_RIO_PLM_SP_EVENT_GEN                                (0x0001009c)

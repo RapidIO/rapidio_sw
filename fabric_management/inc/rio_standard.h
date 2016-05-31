@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __RIO_STANDARD_H__
 #define __RIO_STANDARD_H__
 
-/* rio_regdefs.h contains definitons for all RapidIO Standard Registers
+/* rio_standard.h contains definitons for all RapidIO Standard Registers
 */
 
 #ifdef __cplusplus
@@ -106,10 +106,11 @@ typedef uint32_t RIO_PE_ADDR_T;
 #define RIO_PE_FEAT_MEM                             (0x40000000)
 #define RIO_PE_FEAT_BRDG                            (0x80000000)
 
-#define PE_IS_SW(x)            (x & RIO_PE_FEAT_SW)
-#define PE_IS_PROC(x)          (x & RIO_PE_FEAT_PROC)
-#define PE_IS_MEM(x)           (x & RIO_PE_FEAT_MEM)
-#define PE_IS_BRIDGE(x)        (x & RIO_PE_FEAT_BRDG)
+#define RIO_PE_IS_MP(x)	(x & RIO_PE_FEAT_MULTIP)
+#define RIO_PE_IS_SW(x)	(x & RIO_PE_FEAT_SW)
+#define RIO_PE_IS_PROC(x)	(x & RIO_PE_FEAT_PROC)
+#define RIO_PE_IS_MEM(x)	(x & RIO_PE_FEAT_MEM)
+#define RIO_PE_IS_BRIDGE(x)	(x & RIO_PE_FEAT_BRDG)
 
 /* RIO_SW_PORT_INF : Register Bits Masks Definitions */
 typedef uint32_t RIO_SW_PORT_INF_T;
@@ -923,7 +924,15 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_RT_BC_MC_MASK_PTR        (0x00fffc00)
 #define RIO_RT_BC_MC_MASK_CNT        (0xff000000)
 
-#define RIO_RT_BC_MC_MASK(ptr,s,p) (ptr+
+#define RIO_RT_SZ_TO_BYTES(s) ( \
+	(RIO_RT_BC_CTL_MC_MASK_SZ8 == s)?8: \
+	(RIO_RT_BC_CTL_MC_MASK_SZ16 == s)?16: \
+	(RIO_RT_BC_CTL_MC_MASK_SZ32 == s)?32: \
+	(RIO_RT_BC_CTL_MC_MASK_SZ64 == s)?64:0);
+
+#define RIO_RT_BC_MC_MASK_SET(ptr,s,p) (ptr+RIO_RT_SZ_TO_BYTES(s)*p)
+#define RIO_RT_BC_MC_MASK_CLR(ptr,s,p) (ptr+RIO_RT_SZ_TO_BYTES(s)*p + \
+					RIO_RT_SZ_TO_BYTES(s)/2)
 
 /* RIO_RT_BC_LVL0 : Register Bits Masks Definitions */
 #define RIO_RT_BC_LVL0_PTR (0x00fffc00)

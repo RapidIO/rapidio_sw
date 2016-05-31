@@ -38,6 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "rio_standard.h"
+#include "rio_ecosystem.h"
 
 #ifndef __REGRW_H__
 #define __REGRW_H__
@@ -47,24 +49,24 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-int reg_rd(struct riocp_pe *pe, uint32_t offset, uint32_t *val);
-int reg_wr(struct riocp_pe *pe, uint32_t offset, uint32_t val);
-int raw_reg_rd(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int reg_rd(struct rio_car_csr *rcc, uint32_t offset, uint32_t *val);
+int reg_wr(struct rio_car_csr *rcc, uint32_t offset, uint32_t val);
+int raw_reg_rd(struct rio_car_csr *rcc, tt_t tt, uint32_t did, uint8_t hc,
 		uint32_t addr, uint32_t *val);
-int raw_reg_wr(struct riocp_pe *pe, uint32_t did, uint8_t hc,
+int raw_reg_wr(struct rio_car_csr *rcc, tt_t tt, uint32_t did, uint8_t hc,
 		uint32_t addr, uint32_t val);
 
 struct riocp_reg_rw_driver {
-        int RIOCP_WU (* reg_rd)(struct riocp_pe *pe,
+        int (* reg_rd)(struct rio_car_csr *rcc,
                         uint32_t offset, uint32_t *val);
-        int RIOCP_WU (* reg_wr)(struct riocp_pe *pe,
+        int (* reg_wr)(struct rio_car_csr *rcc,
                         uint32_t offset, uint32_t val);
-        int RIOCP_WU (* raw_reg_rd)(struct riocp_pe *pe,
-                        uint32_t did, uint8_t hc,
-                        uint32_t addr, uint32_t *val);
-        int RIOCP_WU (* raw_reg_wr)(struct riocp_pe *pe,
-                        uint32_t did, uint8_t hc,
-                        uint32_t addr, uint32_t val);
+        int (* raw_reg_rd)(struct rio_car_csr *rcc,
+                        tt_t tt, uint32_t did, uint8_t hc,
+                        uint32_t offset, uint32_t *val);
+        int (* raw_reg_wr)(struct rio_car_csr *rcc,
+                        tt_t tt, uint32_t did, uint8_t hc,
+                        uint32_t offset, uint32_t val);
 };
 
 /* To override functions above, pass in structure with new function.
