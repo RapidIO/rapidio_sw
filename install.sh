@@ -6,16 +6,19 @@ SCRIPTS_PATH=$SOURCE_PATH"/install"
 
 PRINTHELP=0
 
-if [ "$#" -lt 6 ]; then
-	echo $'\ninstall.sh requires 6 parameters.\n'
+if [ "$#" -lt 7 ]; then
+	echo $'\ninstall.sh requires 7 parameters.\n'
 	PRINTHELP=1
 elif [ $5 != 'mem34' -a $5 != 'mem50' -a $5 != 'mem66' ] ; then
 	echo $'\nmemsz parameter must be mem34, mem50, or mem66.\n'
 	PRINTHELP=1
+elif [ $6 != 'PD_tor' -a $6 != 'SB_re' ] ; then
+	echo $'\nsw parameter must be pd_tor or sf_re\n'
+	PRINTHELP=1
 fi
 
 if [ $PRINTHELP = 1 ] ; then
-    echo "install.sh <NODE1> <NODE2> <NODE3> <NODE4> <memsz> <group> <rel>"
+    echo "install.sh <NODE1> <NODE2> <NODE3> <NODE4> <memsz> <sw> <group> <rel>"
     echo "<NODE1> Name of master, enumerating node"
     echo "<NODE2> Name of slave node connected to Switch Port 2"
     echo "<NODE3> Name of slave node connected to Switch Port 3"
@@ -23,6 +26,9 @@ if [ $PRINTHELP = 1 ] ; then
     echo "If any of <NODE2> <NODE3> <NODE4> is \"none\", the node is ignored."
     echo "<memsz> RapidIO memory size, one of mem34, mem50, mem66"
     echo "        If any node has more than 8 GB of memory, MUST use mem50"
+    echo "<sw>    Type of switch the four nodes are connecte to."
+    echo "        PD_tor - Prodrive Technologies Top of Rack Switch"
+    echo "        SB_re  - StarBridge Inc RapidExpress Switch"
     echo "<group> Unix file ownership group which should have access to"
     echo "        the RapidIO software"
     echo "<rel> is the software release/version to install."
@@ -56,8 +62,9 @@ if [ $4 != 'none' ]; then
 fi
 
 MEMSZ=$5
-GRP=$6
-REL=$7
+SW_TYPE=$6
+GRP=$7
+REL=$8
 
 for i in "${ALLNODES[@]}"
 do
@@ -87,9 +94,14 @@ done
 
 echo "Installing configuration files..."
 
-destids=($(grep ENDPOINT install/node-master.conf | grep PORT | awk '{print $12}'))
+if [ "$SW_TYPE" = 'SB_re' ]; then
+	MASTER_CONFIG_FILE=install/node-master.conf;
+else
+	MASTER_CONFIG_FILE=install/tor-master.conf;
+fi
 
-comptags=($(grep ENDPOINT install/node-master.conf | grep PORT | awk '{print $5}'))
+destids=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $12}'))
+comptags=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $5}'))
 
 FILENAME=$CONFIG_PATH/fmd.conf
 MASTDEST=${destids[0]}
@@ -126,7 +138,7 @@ awk -vM=$MEMSZ $HOSTL '
 	/node4/{if(H6 != "") {gsub(/node6/, H6);} else {$0="";}}
 	/node4/{if(H7 != "") {gsub(/node7/, H7);} else {$0="";}}
 	/node4/{if(H8 != "") {gsub(/node8/, H8);} else {$0="";}}
-	{print}' install/node-master.conf | \
+	{print}' $MASTER_CONFIG_FILE | \
     ssh root@"$MASTER" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
 
 UMDD_CONF=$CONFIG_PATH/umdd.conf
