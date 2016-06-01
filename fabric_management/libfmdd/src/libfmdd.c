@@ -194,9 +194,14 @@ int update_devid_status(void)
         uint32_t i, j, found;
 	uint32_t changed = 0;
 
-        for (i = 0; i < FMD_MAX_DEVS; i++) {
+        for (i = 0; i <= FMD_MAX_DEVID; i++) {
                 found = 0;
                 for (j = 0; j < fml.num_devs; j++) {
+                        if (fml.devs[j].destID > FMD_MAX_DEVID) {
+                                CRIT("Devid 0x%x, out of range, MAX is 0x%x",
+                                        fml.devs[j].destID, FMD_MAX_DEVID);
+                                continue;
+                        };
                         if (fml.devs[j].destID == i) {
 				uint8_t temp_flag = FMDD_FLAG_OK;
 				temp_flag |= fml.devs[j].flag;
@@ -353,7 +358,7 @@ uint8_t fmdd_check_did(fmdd_h h, uint32_t did, uint8_t flag)
 		goto fail;
 	}
 
-	if (did >= FMD_MAX_DEVS) {
+	if (did > FMD_MAX_DEVID) {
 		goto fail;
 	}
 
@@ -373,7 +378,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 		goto fail;
 	}
 
-	for (i = 0; i < FML_MAX_DESTIDS; i++) {
+	for (i = 0; i < FMD_MAX_DEVID; i++) {
 		flag = fmdd_check_did(h, i, FMDD_FLAG_OK_MP);
 		if (flag && (FMDD_FLAG_OK_MP != flag))
 			cnt++;
@@ -388,7 +393,7 @@ int fmdd_get_did_list(fmdd_h h, uint32_t *did_list_sz, uint32_t **did_list)
 	};
 
 	*did_list = (uint32_t *)calloc(cnt, sizeof(uint32_t));
-	for (i = 0; i < FML_MAX_DESTIDS; i++) {
+	for (i = 0; i <= FMD_MAX_DEVID; i++) {
 		flag = fmdd_check_did(h, i, FMDD_FLAG_OK_MP);
 		if (flag && (FMDD_FLAG_OK_MP != flag)) {
 			DBG("Adding did %d index %d\n", i, idx);

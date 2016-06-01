@@ -138,8 +138,10 @@ int add_device_to_dd(uint32_t ct, uint32_t did, uint32_t did_sz, uint32_t hc,
 	if (found_one)
 		goto exit;
 
-	if (fmd->dd->num_devs >= FMD_MAX_DEVS)
+	if (fmd->dd->num_devs >= FMD_MAX_DEVS) {
+		CRIT("More than 0x%x devices, increase FMD_MAX_DEVS.");
 		goto fail;
+	};
 
 	idx = fmd->dd->num_devs;
 	memset(&fmd->dd->devs[idx], 0, sizeof(fmd->dd->devs[0]));
