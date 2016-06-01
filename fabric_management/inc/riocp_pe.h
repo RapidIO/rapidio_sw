@@ -21,23 +21,6 @@ extern "C" {
 #define RIOCP_PE_LIB_REV 0
 #define RIOCP_WU __attribute__((warn_unused_result))
 
-/* Processing element features */
-#define RIOCP_PE_PEF_STD_RT            (1<<8)      /* Standard routing */
-#define RIOCP_PE_PEF_EXT_RT            (1<<9)      /* Extended routing */
-#define RIOCP_PE_PEF_SWITCH            (1<<28)
-#define RIOCP_PE_PEF_PROCESSOR         (1<<29)
-#define RIOCP_PE_PEF_MEMORY            (1<<30)
-#define RIOCP_PE_PEF_BRIDGE            (1<<31)
-#define RIOCP_PE_IS_SWITCH(cap)        ((cap).pe_feat & RIOCP_PE_PEF_SWITCH)
-#define RIOCP_PE_IS_PROCESSOR(cap)     ((cap).pe_feat & RIOCP_PE_PEF_PROCESSOR)
-#define RIOCP_PE_IS_MEMORY(cap)        ((cap).pe_feat & RIOCP_PE_PEF_MEMORY)
-#define RIOCP_PE_IS_BRIDGE(cap)        ((cap).pe_feat & RIOCP_PE_PEF_BRIDGE)
-#define RIOCP_PE_PORT_COUNT(cap) \
-	(RIOCP_PE_IS_SWITCH(cap) ? (cap).sw_port >> 8 & 0xff : 1)
-#define RIOCP_PE_VID(cap)              ((cap).dev_id & 0xffff)
-#define RIOCP_PE_DID(cap)              (((cap).dev_id >> 16) & 0xffff)
-#define RIOCP_PE_SW_PORT(cap)          ((cap).sw_port & 0xff)
-
 /* Flags */
 #define RIOCP_PE_FLAG_FORCE  (1<<0)  /* Force operation */
 
