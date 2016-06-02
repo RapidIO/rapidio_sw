@@ -927,8 +927,6 @@ static int cps1xxx_get_switch_lane_8b10b(struct riocp_pe *sw, uint8_t lane, uint
     uint32_t reg_val;
     struct switch_priv_t *priv = (struct switch_priv_t *)sw->private_driver_data;
 
-    RIOCP_INFO("Get 8b10b error counter of lane %d in switch %#x", lane, sw->destid);
-
     ret = cps1xxx_read_lane_stat_0_csr(sw, lane, &reg_val);
     if (ret < 0)
         return ret;
@@ -947,8 +945,6 @@ static int cps1xxx_get_port_lane_8b10b(struct riocp_pe *sw, uint8_t port,
 {
     int ret;
     uint8_t first_lane;
-
-    RIOCP_INFO("Get 8b10b error counter of lane %d in port %d", lane_in_port, port);
 
     ret = cps1xxx_port_get_first_lane(sw, port, &first_lane);
     if (ret < 0) {
@@ -978,9 +974,7 @@ static int cps1xxx_read_lane_stat_0_csr(struct riocp_pe *sw, uint8_t lane, uint3
 	/* 8b10b decoding error caching */
 	_err8b10b = status_0_csr & CPS1xxx_LANE_STAT_0_ERR_8B10B;
 	_err8b10b = _err8b10b >> CPS1xxx_LANE_STAT_0_ERR_8B10B_S;
-	RIOCP_INFO("Cache 8b10b decoding error count: %d", _err8b10b);
 	priv->lanes[lane].err_8b10b += _err8b10b;
-    RIOCP_INFO("Aggregated 8b10b decoding error count: %d", priv->lanes[lane].err_8b10b);
 
 	*value = status_0_csr;
 	return 0;
