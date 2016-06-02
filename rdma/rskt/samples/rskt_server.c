@@ -285,8 +285,8 @@ int main(int argc, char *argv[])
 	rskt_h	accept_socket;
 	int	socket_number = RSKT_DEFAULT_SOCKET_NUMBER;
 	struct rskt_sockaddr sock_addr;
-	char	c;
-	int rc;
+	int	c;
+	int	rc;
 
 	/** Parse command line parameters */
 	while ((c = getopt(argc, argv, "hsl:")) != -1)

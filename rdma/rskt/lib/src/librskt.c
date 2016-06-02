@@ -495,6 +495,8 @@ void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 	} else {
 		DBG("sn %d skt->connector == skt_rmda_uninit", skt_h->sa.sn);
 	}
+	// li can be null if we're closing a socket before it has been
+	// connected.
 	l_lremove(&lib.skts, li); /* Do not deallocate socket */
 	free((void *)skt);
 	skt_h->skt = NULL;
