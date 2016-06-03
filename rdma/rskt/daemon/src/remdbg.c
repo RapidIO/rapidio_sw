@@ -115,7 +115,10 @@ int CLIConnectCmd(struct cli_env *env, int argc, char **argv)
 	while (rx_buffer[n-2] != '\n') {
 		printf("%s", rx_buffer);
 		bzero((char *) &tx_buffer, sizeof(tx_buffer));
-		fgets(tx_buffer,255,stdin);
+		if (NULL == fgets(tx_buffer,255,stdin)) {
+			printf("\nFile closed, closing connection...\n");
+			goto cleanup;
+		};
 		if (!strncmp(tx_buffer, "quit", 4))
 			session_over = 1;
 

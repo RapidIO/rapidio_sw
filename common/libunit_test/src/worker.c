@@ -109,8 +109,10 @@ int getCPUCount()
 	int count = 0;
 	while (! feof(f)) {
 		char buf[257] = {0};
-		fgets(buf, 256, f);
-		if (buf[0] == '\0') break;
+		if (NULL == fgets(buf, 256, f))
+			break;
+		if (buf[0] == '\0')
+			break;
 		if (strstr(buf, "processor\t:")) count++;
 	}
 

@@ -88,7 +88,8 @@ static bool collectPeerRoutes(std::string& out)
 
   while(! feof(f)) {
     char buf[257] = {0};
-    fgets(buf, 256, f);
+    if (NULL == fgets(buf, 256, f))
+	break;
     if(buf[0] == '\0') break;
 
     int N = strlen(buf);

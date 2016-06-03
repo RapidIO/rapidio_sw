@@ -588,13 +588,19 @@ int cpu_occ_set(uint64_t *tot_jifis,
 		goto exit;
 	};
 
-	fgets(file_line, 1024,  stat_fp);
+	if (NULL == fgets(file_line, 1024,  stat_fp)) {
+		ERR("Unexpected EOF 1 : %d %s\n", errno, strerror(errno));
+		goto exit;
+	};
 
 	cpu_occ_parse_proc_line(file_line, proc_user_jifis, proc_kern_jifis);
 
 		
 	memset(file_line, 0, 1024);
-	fgets(file_line, 1024,  cpu_stat_fp);
+	if (NULL == fgets(file_line, 1024,  cpu_stat_fp)) {
+		ERR("Unexpected EOF 1 : %d %s\n", errno, strerror(errno));
+		goto exit;
+	};
 
 	cpu_occ_parse_stat_line(file_line, &p_user, &p_nice, &p_system,
 			&p_idle, &p_iowait, &p_irq, &p_softirq);
@@ -1953,7 +1959,8 @@ int getIsolCPU(std::vector<std::string>& cpus)
   int count = 0;
   while(! feof(f)) {
     char buf[257] = {0};
-    fgets(buf, 256, f);
+    if (NULL == fgets(buf, 256, f))
+	break;
     if(buf[0] == '\0') break;
 
     int N = strlen(buf);

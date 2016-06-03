@@ -343,8 +343,10 @@ int getIsolCPU(std::vector<std::string>& cpus)
   int count = 0;
   while(! feof(f)) {
     char buf[257] = {0};
-    fgets(buf, 256, f);
-    if(buf[0] == '\0') break;
+    if (NULL == fgets(buf, 256, f))
+	break;
+    if(buf[0] == '\0')
+	break;
 
     int N = strlen(buf);
     if(buf[N-1] == '\n') buf[--N] = '\0';
