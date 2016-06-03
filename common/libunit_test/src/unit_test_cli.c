@@ -550,13 +550,21 @@ int cpu_occ_set(uint64_t *tot_jifis,
 	};
 
 	memset(file_line, 0, 1024);
-	fgets(file_line, 1024,  stat_fp);
+	if (NULL == fgets(file_line, 1024,  stat_fp)) {
+		ERR("FAILED: reading line 1 returned NULL, errno %d: %s",
+			errno, strerror(errno));
+		goto exit;
+	};
 
 	cpu_occ_parse_proc_line(file_line, proc_user_jifis, proc_kern_jifis);
 
 		
 	memset(file_line, 0, 1024);
-	fgets(file_line, 1024,  cpu_stat_fp);
+	if (NULL == fgets(file_line, 1024,  cpu_stat_fp)) {
+		ERR("FAILED: reading line 2 returned NULL, errno %d: %s",
+			errno, strerror(errno));
+		goto exit;
+	};
 
 	cpu_occ_parse_stat_line(file_line, &p_user, &p_nice, &p_system,
 			&p_idle, &p_iowait, &p_irq, &p_softirq);
