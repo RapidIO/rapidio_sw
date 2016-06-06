@@ -19,6 +19,7 @@
 #include "maint.h"
 #include "event.h"
 #include "handle.h"
+#include "llist.h"
 #include "switch.h"
 #include "comptag.h"
 #include "rio_regs.h"
@@ -89,119 +90,33 @@ int riocp_pe_read_capabilities(struct riocp_pe *pe)
 	return 0;
 }
 
-/**
- * Get pointer to next extended features block
- * @param pe    Target PE
- * @param from  Offset of current Extended Feature block header
- *  (if 0 starts from ExtFeaturePtr)
- * @param value Value read at offset
- */
-static int RIOCP_WU riocp_pe_get_efb(struct riocp_pe *pe, uint32_t from, uint32_t *value)
-{
-	int ret;
-	uint32_t val;
-
-	if (from == 0) {
-		ret = riocp_pe_maint_read(pe, RIO_ASM_INFO_CAR, &val);
-		if (ret)
-			return ret;
-		val = val & RIO_EXT_FTR_PTR_MASK;
-	} else {
-		ret = riocp_pe_maint_read(pe, from, &val);
-		if (ret)
-			return ret;
-		val = RIO_GET_BLOCK_ID(val);
-	}
-
-	*value = val;
-
-	return ret;
-}
-
-/**
- * Get RapidIO Physical extended feature pointer
+/*
+ * Get the extended feature pointer for a specific extended feature block id
+ *
+ * @note: The pe should have already the features read
  * @param pe Target PE
- * @param[out] efptr Extended feature pointer
+ * @param block_id Extended feature block id
+ * @param ef_ptr Extended feature block pointer
+ * @retval -EINVAL Invalid parameter(s), -ENOENT Feature not found, 0 success
  */
-static int riocp_pe_get_efptr_phys(struct riocp_pe *pe, uint32_t *efptr)
+int riocp_pe_get_efb(struct riocp_pe *pe, uint32_t block_id, uint32_t *ef_ptr)
 {
-	int ret;
-	uint32_t _efptr;
-	uint32_t _efptr_hdr;
+	struct riocp_pe_llist_item *item;
+	uint32_t data;
 
-	ret = riocp_pe_get_efb(pe, 0, &_efptr);
-	if (ret)
-		return ret;
+	if (!pe || !ef_ptr)
+		return -EINVAL;
 
-	while (_efptr) {
-		ret = riocp_pe_maint_read(pe, _efptr, &_efptr_hdr);
-		if (ret)
-			return ret;
-
-		_efptr_hdr = RIO_GET_BLOCK_ID(_efptr_hdr);
-		switch (_efptr_hdr) {
-		case RIO_EFB_SER_EP_ID_V13P:
-		case RIO_EFB_SER_EP_REC_ID_V13P:
-		case RIO_EFB_SER_EP_FREE_ID_V13P:
-		case RIO_EFB_SER_EP_ID:
-		case RIO_EFB_SER_EP_REC_ID:
-		case RIO_EFB_SER_EP_FREE_ID:
-		case RIO_EFB_SER_EP_FREC_ID:
-			*efptr = _efptr;
-			return 0;
-		default:
-			break;
-		}
-
-		ret = riocp_pe_get_efb(pe, RIO_GET_BLOCK_PTR(_efptr), &_efptr);
-		if (ret)
-			return ret;
-	}
-
-	return -EIO;
-}
-
-#if 0
-/**
- * Get PE extended feature
- * @note The PE should already have efptr attribute initialized
- * @param pe      Target PE
- * @param feature Extended feature code
- * @param value   Value read for requested feature
- * @retval -ENOENT Could not find feature
- * @retval -EIO Error in maintenance access
- */
-static int riocp_pe_get_ef(struct riocp_pe *pe, uint32_t feature, uint32_t *value)
-{
-	int ret;
-	uint32_t efptr = pe->efptr;
-	uint32_t efptr_hdr;
-
-	while (efptr) {
-		ret = riocp_pe_maint_read(pe, efptr, &efptr_hdr);
-		if (ret) {
-			RIOCP_ERROR("Error reading efptr_hdr\n");
-			return ret;
-		}
-
-		if (feature == RIO_GET_BLOCK_ID(efptr_hdr)) {
-			RIOCP_DEBUG("Feature[0x%08x] found with value 0x%08x\n",
-				feature, *value);
-			*value = efptr;
+	riocp_pe_llist_foreach(item, &pe->ef_list) {
+		data = (uint32_t)item->data;
+		if (RIO_GET_BLOCK_ID(data) == block_id) {
+			*ef_ptr = RIO_GET_BLOCK_PTR(data);
 			return 0;
 		}
-
-		efptr = RIO_GET_BLOCK_PTR(efptr_hdr);
-		if (!efptr)
-			break;
 	}
-
-	RIOCP_DEBUG("Feature[0x%08x] found with value 0x%08x\n",
-		feature, *value);
 
 	return -ENOENT;
 }
-#endif
 
 /**
  * Read and initialize handle extended feature pointers when available
@@ -211,25 +126,54 @@ static int riocp_pe_get_ef(struct riocp_pe *pe, uint32_t feature, uint32_t *valu
  */
 int riocp_pe_read_features(struct riocp_pe *pe)
 {
+	uint32_t _efptr;
+	uint32_t _efptr_hdr;
 	int ret = 0;
 
 	/* Get extended feature pointers when available */
-	if (pe->cap.pe_feat & RIO_PEF_EXT_FEATURES) {
-		pe->efptr      = pe->cap.asbly_info & RIO_EXT_FTR_PTR_MASK;
+	if (!(pe->cap.pe_feat & RIO_PEF_EXT_FEATURES))
+		return 0;
 
-		ret = riocp_pe_get_efptr_phys(pe, &pe->efptr_phys);
-		if (ret)
+	pe->efptr = pe->cap.asbly_info & RIO_EXT_FTR_PTR_MASK;
+	pe->efptr_phys = 0;
+
+	RIOCP_TRACE("PE (ct: 0x%08x) has extended features\n", pe->comptag);
+	RIOCP_TRACE(" - p->efptr      = 0x%04x\n", pe->efptr);
+
+	for (_efptr = pe->efptr; _efptr; _efptr = RIO_GET_BLOCK_PTR(_efptr_hdr)) {
+		ret = riocp_pe_maint_read(pe, _efptr, &_efptr_hdr);
+		if (ret) {
+			RIOCP_ERROR("Unable to read from EF ptr: 0x%08x: %d\n", _efptr, ret);
 			return ret;
+		}
 
-//		ret = riocp_pe_get_ef(pe, RIO_EFB_ERR_MGMNT, &pe->efptr_em);
-//		if (ret)
-//			return ret;
+		ret = riocp_pe_llist_add(&pe->ef_list,
+				(void *)(_efptr << 16 | RIO_GET_BLOCK_ID(_efptr_hdr)));
+		if (ret) {
+			RIOCP_ERROR("Failed to add EF 0x%08x to list: %d\n",
+					RIO_GET_BLOCK_ID(_efptr_hdr), ret);
+			return ret;
+		}
 
-		RIOCP_TRACE("PE has extended features\n");
-		RIOCP_TRACE(" - p->efptr      = 0x%04x\n", pe->efptr);
-		RIOCP_TRACE(" - p->efptr_phys = 0x%08x\n", pe->efptr_phys);
-//		RIOCP_TRACE(" - p->efptr_em   = 0x%08x\n", pe->efptr_em);
+		RIOCP_TRACE(" - feature 0x%08x, efptr 0x%08x\n",
+				RIO_GET_BLOCK_ID(_efptr_hdr), _efptr);
+		if (pe->efptr_phys)
+			continue;
+
+		switch (RIO_GET_BLOCK_ID(_efptr_hdr)) {
+		case RIO_EFB_SER_EP_ID_V13P:
+		case RIO_EFB_SER_EP_REC_ID_V13P:
+		case RIO_EFB_SER_EP_FREE_ID_V13P:
+		case RIO_EFB_SER_EP_ID:
+		case RIO_EFB_SER_EP_REC_ID:
+		case RIO_EFB_SER_EP_FREE_ID:
+		case RIO_EFB_SER_EP_FREC_ID:
+			pe->efptr_phys = _efptr;
+			break;
+		}
 	}
+
+	RIOCP_TRACE(" - p->efptr_phys = 0x%08x\n", pe->efptr_phys);
 
 	return ret;
 }

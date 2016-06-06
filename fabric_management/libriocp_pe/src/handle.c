@@ -277,6 +277,7 @@ riocp_pe_handle_destroy(struct riocp_pe **handle){
 
   pe = *handle;
   mp = pe->mport->minfo;
+  riocp_pe_llist_free(pe->ef_list.next);
 
   if(RIOCP_PE_IS_MPORT(pe)){
     /* pe is mport, free everything */

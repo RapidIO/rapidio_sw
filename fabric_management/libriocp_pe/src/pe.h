@@ -33,6 +33,7 @@ struct riocp_pe_device_id {
 
 int RIOCP_WU riocp_pe_read_capabilities(struct riocp_pe *pe);
 int RIOCP_WU riocp_pe_read_features(struct riocp_pe *pe);
+int RIOCP_WU riocp_pe_get_efb(struct riocp_pe *pe, uint32_t block_id, uint32_t *ef_ptr);
 int RIOCP_WU riocp_pe_is_port_active(struct riocp_pe *pe, uint32_t port);
 int RIOCP_WU riocp_pe_is_discovered(struct riocp_pe *pe);
 int RIOCP_WU riocp_pe_set_discovered(struct riocp_pe *pe);
