@@ -794,15 +794,19 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
 {
   struct worker* info = NULL;
 
+  int wi_size = 0;
+  DMAChannel::WorkItem_t* wi = NULL;
+
   int dch_cnt = 0;
   DmaChannelInfo_t* dch_list[6] = {0};
-  DMAChannel::WorkItem_t wi[info->umd_sts_entries*8];
-
-  memset(wi, 0, sizeof(wi));
 
   if (NULL == parm) goto exit;
 
   info = (struct worker *)parm;
+
+  wi_size = info->umd_sts_entries * 8 * sizeof(DMAChannel::WorkItem_t);
+
+  wi = (DMAChannel::WorkItem_t*)alloca(wi_size); memset(wi, 0, wi_size);
 
   if (info->dma_method == ACCESS_UMD) {
     if (NULL == info->umd_dci_list[info->umd_chan]) goto exit;
