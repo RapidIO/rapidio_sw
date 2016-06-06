@@ -346,9 +346,9 @@ public:
          (my_destid_tun >> 8) & 0xFF,   my_destid_tun & 0xFF,
          (peer_destid_tun >> 8) & 0xFF, peer_destid_tun & 0xFF);
 
-      char ifconfig_cmd[257] = {0};
-      snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s %s mtu %d up",
-                  if_name, Tap_Ifconfig_Cmd, m_info->umd_tun_MTU);
+      char ifconfig_cmd[513] = {0};
+      snprintf(ifconfig_cmd, 512, "/sbin/ifconfig %s %s mtu %d up; echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6",
+                  if_name, Tap_Ifconfig_Cmd, m_info->umd_tun_MTU, if_name);
       const int rr = system(ifconfig_cmd);
       if(rr >> 8) {
         m_tun_name[0] = '\0';
