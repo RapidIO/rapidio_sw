@@ -72,7 +72,7 @@ struct ibwin_info {
         riomp_sock_t *req_skt; /* Socket from successfule connect request */
         char file_name[MAX_FILE_NAME+1]; /* Name of local file */
         int fd; /* File descriptor for received file */
-        uint8_t completed; /* 0 - currently processing request.
+        volatile uint8_t completed; /* 0 - currently processing request.
                            * 1 - processing complete, waiting on request_avail
 			   */
         int rc;       /* return code, 0 means OK, others are stderr codes */
