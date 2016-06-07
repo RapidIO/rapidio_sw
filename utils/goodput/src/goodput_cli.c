@@ -31,11 +31,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#include <inttypes.h>
+
 #include <map>
 #include <string>
 #include <iostream>
 #include <sstream>
 #include <vector>
+
 #include "goodput_cli.h"
 #include "libtime_utils.h"
 #include "mhz.h"
@@ -481,7 +484,7 @@ int IBCheckCmd(struct cli_env *env, int argc, char **argv)
 	}
 
 	if (wkr[idx].ib_byte_cnt != ib_size) {
-                sprintf(env->output, "\nIbwin of thread %d of size 0x%x does not match requested size 0x%x\n",
+                sprintf(env->output, "\nIbwin of thread %d of size 0x%lx does not match requested size 0x%lx\n",
 			idx, wkr[idx].ib_byte_cnt, ib_size);
                 logMsg(env);
                 abort();
