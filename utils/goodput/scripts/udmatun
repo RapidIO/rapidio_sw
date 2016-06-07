@@ -7,9 +7,9 @@ thread 0 -1 0
 wait 0 h
 sleep 0.5
 IBAlloc 0 4000000
+sleep 0.5
 st i
-//XXX When using Mport only 4M can be used here
-//IBAlloc 0 400000
+IBCheck 0 4000000
 sleep 0.5
 // Kernel drivers/net/tun.c has 64k as upper bound in mainline
 set mtu ? 8000

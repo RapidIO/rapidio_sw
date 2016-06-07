@@ -378,10 +378,10 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	uint64_t ib_size;
 	uint64_t ib_rio_addr = RIO_ANY_ADDR;
 
-	idx = getDecParm(argv[0], 0);
-	ib_size = getHex(argv[1], 0);
+	idx = GetDecParm(argv[0], 0);
+	ib_size = GetHex(argv[1], 0);
 	if (argc > 2)
-		ib_rio_addr = getHex(argv[2], 0);
+		ib_rio_addr = GetHex(argv[2], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -408,6 +408,7 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].ib_rio_addr = ib_rio_addr;
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
+
 exit:
         return 0;
 };
@@ -430,7 +431,7 @@ int IBDeallocCmd(struct cli_env *env, int argc, char **argv)
 {
 	int idx;
 
-	idx = getDecParm(argv[0], 0);
+	idx = GetDecParm(argv[0], 0);
 
 	if (check_idx(env, idx, 1))
 		goto exit;
@@ -453,6 +454,68 @@ IBDeallocCmd,
 ATTR_NONE
 };
 
+int IBCheckCmd(struct cli_env *env, int argc, char **argv)
+{
+        int idx = GetDecParm(argv[0], 0);
+        uint64_t ib_size = GetHex(argv[1], 0);
+
+        if (check_idx(env, idx, 1))
+                goto exit;
+
+        if ((ib_size < FOUR_KB) || (ib_size > 4*SIXTEEN_MB)) {
+                sprintf(env->output, "\nIbwin size range: 0x%x to 0x%x\n",
+                        FOUR_KB, 4*SIXTEEN_MB);
+                logMsg(env);
+                goto exit;
+        }
+        if ((ib_size - 1) & ib_size) {
+                sprintf(env->output, "\nIbwin size must be a power of 2.\n");
+                logMsg(env);
+                goto exit;
+        }
+
+	if (! (wkr[idx].stat == 1 || wkr[idx].stat == 2)) {
+		sprintf(env->output, "\nThread %d not halted or running.\n", idx);
+        	logMsg(env);
+		goto exit;
+	}
+
+	if (wkr[idx].ib_byte_cnt != ib_size) {
+                sprintf(env->output, "\nIbwin of thread %d of size 0x%x does not match requested size 0x%x\n",
+			idx, wkr[idx].ib_byte_cnt, ib_size);
+                logMsg(env);
+                abort();
+	}
+	if (!wkr[idx].ib_valid) {
+                sprintf(env->output, "\nIbwin of thread %d is NOT valid.\n", idx);
+                logMsg(env);
+                abort();
+	}
+	if (wkr[idx].ib_ptr == NULL) {
+                sprintf(env->output, "\nIbwin of thread %d has NULL ib_ptr.\n", idx);
+                logMsg(env);
+                abort();
+	}
+
+	wkr[idx].action = no_action;
+	sem_post(&wkr[idx].run);
+
+exit:
+        return 0;
+};
+
+struct cli_cmd IBCheck = {
+"IBCheck",
+3,
+2,
+"Check if an inbound window was allocated",
+"IBAlloc <idx> <size>\n"
+        "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+        "<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n"
+        "Note: This will abort execution on failure.",
+IBCheckCmd,
+ATTR_NONE
+};
 
 #define PROC_STAT_PFMT "\nTot CPU Jiffies %lu %lu %lu %lu %lu %lu %lu\n"
 
@@ -3290,6 +3353,7 @@ ATTR_NONE
 struct cli_cmd *goodput_cmds[] = {
 	&IBAlloc,
 	&IBDealloc,
+	&IBCheck,
 	&Dump,
 	&Fill,
 	&OBDIO,

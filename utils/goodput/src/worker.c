@@ -1280,14 +1280,14 @@ exit:
 
 };
 
-void dma_alloc_ibwin(struct worker *info)
+bool dma_alloc_ibwin(struct worker *info)
 {
 	uint64_t i;
 	int rc;
 
 	if (!info->ib_byte_cnt || info->ib_valid) {
 		ERR("FAILED: window size of 0 or ibwin already exists\n");
-		return; 
+		return true; 
 	};
 
 	rc = riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
@@ -1295,15 +1295,27 @@ void dma_alloc_ibwin(struct worker *info)
 	if (rc) {
 		ERR("FAILED: riomp_dma_ibwin_map rc %d:%s\n",
 					rc, strerror(errno));
-		return;
+		return false;
+	};
+	if (info->ib_handle == 0) {
+		ERR("FAILED: riomp_dma_ibwin_map failed silently with info->ib_handle==0!\n");
+		return false;
 	};
 
+
+	info->ib_ptr = NULL;
 	rc = riomp_dma_map_memory(info->mp_h, info->ib_byte_cnt, 
 					info->ib_handle, &info->ib_ptr);
 	if (rc) {
-		ERR("FAILED: riomp_dma_ibwin_map rc %d:%s\n",
+		riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+		ERR("FAILED: riomp_dma_map_memory rc %d:%s\n",
 					rc, strerror(errno));
-		return;
+		return false;
+	};
+	if (info->ib_ptr == NULL) {
+		riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+		ERR("FAILED: riomp_dma_map_memory failed silently with ib_ptr==NULL!\n");
+		return false;
 	};
 
 	for (i = 0; i < info->ib_byte_cnt; i += 8) {
@@ -1314,6 +1326,7 @@ void dma_alloc_ibwin(struct worker *info)
 	};
 
 	info->ib_valid = 1;
+	return false;
 };
 
 void dma_free_ibwin(struct worker *info)
