@@ -512,7 +512,7 @@ struct cli_cmd IBCheck = {
 3,
 2,
 "Check if an inbound window was allocated",
-"IBAlloc <idx> <size>\n"
+"IBCheck <idx> <size>\n"
         "<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
         "<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n"
         "Note: This will abort execution on failure.",
