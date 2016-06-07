@@ -196,6 +196,7 @@ typedef struct {
 	uint64_t my_rio_addr;   ///< My RIO address broadcast to this peer
 	int      bcast_cnt_out; ///< How many time we broadcast IBwin mapping to it
 	int      bcast_cnt_in;  ///< How many time we received his broadcasts of IBwin mapping
+	char*    state;         ///< Documentation, debug-only
 } DmaPeerCommsStats_t;
 
 #endif // USER_MODE_DRIVER
