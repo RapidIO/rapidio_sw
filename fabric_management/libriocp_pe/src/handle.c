@@ -549,7 +549,7 @@ int riocp_pe_handle_create_pe(struct riocp_pe *pe, struct riocp_pe **handle, uin
 
   *handle = h;
 
-  RIOCP_DEBUG("Created new pe handle (h: %d, dev_id: %08x, ct: 0x%08x, destid: %u (0x%08x), addr: %s) handle %p\n",
+  RIOCP_DEBUG("Created new pe handle (h: %d, dev_id: %08x, ct: 0x%08x, destid: %u (0x%08x), addr: %p) handle %p\n",
     h->hopcount, h->cap.dev_id, h->comptag, h->destid, h->destid, h, riocp_pe_handle_addr_ntoa(h->address, h->hopcount));
 
   return 0;
