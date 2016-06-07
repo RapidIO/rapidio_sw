@@ -3,7 +3,7 @@
 PRINTHELP=0
 
 if [ "$#" -lt 4 ]; then
-        echo $'\ninstall.sh requires 7 parameters.\n'
+        echo $'\ninstall.sh requires 4 parameters.\n'
         PRINTHELP=1
 fi
 
