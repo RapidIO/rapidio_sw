@@ -186,6 +186,7 @@ struct riocp_pe_switch riocp_pe_switch_std = {
 	std_clear_lut,
 	NULL,
 	std_get_lane_width,
+	NULL,
 	std_get_port_state,
 	NULL,
 	NULL,

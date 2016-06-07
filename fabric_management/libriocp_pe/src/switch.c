@@ -286,6 +286,14 @@ int riocp_pe_switch_get_lane_width(struct riocp_pe *sw, uint8_t port, uint8_t *w
 		return -ENOSYS;
 }
 
+int riocp_pe_switch_get_port_supported_speeds(struct riocp_pe *sw, uint8_t port, uint8_t *speeds)
+{
+	if (sw->sw->get_port_supported_speeds)
+		return sw->sw->get_port_supported_speeds(sw, port, speeds);
+	else
+		return -ENOSYS;
+}
+
 int riocp_pe_switch_get_port_state(struct riocp_pe *sw, uint8_t port, riocp_pe_port_state_t *state)
 {
 	if (sw->sw->get_port_state)

@@ -127,7 +127,12 @@ extern "C" {
 #define CPS1xxx_LANE_STAT_0_LANE(x)			(((x)>>CPS1xxx_LANE_STAT_0_LANE_S)&CPS1xxx_LANE_STAT_0_LANE_M)
 #define CPS1xxx_LANE_STAT_0_ERR_8B10B       (0x00000780)
 #define CPS1xxx_LANE_STAT_0_ERR_8B10B_S     (7)
+#define CPS1xxx_LANE_STAT_0_STAT_1_IMPL         (0x00000008)
+#define CPS1xxx_LANE_STAT_0_STAT_2_7_MASK       (0x00000007)
+#define CPS1xxx_LANE_STAT_0_STAT_N_IMPL(st0, n) (((st0) & CPS1xxx_LANE_STAT_0_STAT_2_7_MASK) >= ((n) - 1))
 #define CPS1xxx_LANE_STAT_3_AMP_PROG_EN		(0x20000000)
+#define CPS1xxx_LANE_STAT_3_GBAUD_BITS		(24)
+#define CPS1xxx_LANE_STAT_3_GBAUD_MASK		(0x1f)
 #define CPS1xxx_LANE_STAT_3_NEG1_TAP_S		(6)
 #define CPS1xxx_LANE_STAT_3_NEG1_TAP_M		(0x3f<<CPS1xxx_LANE_STAT_3_NEG1_TAP_S)
 #define CPS1xxx_LANE_STAT_3_NEG1_TAP(x)		(((x)<<CPS1xxx_LANE_STAT_3_NEG1_TAP_S)&CPS1xxx_LANE_STAT_3_NEG1_TAP_M)
@@ -2654,6 +2659,37 @@ found:
 }
 #endif
 
+static int cps1xxx_get_port_supported_speeds(struct riocp_pe *sw, uint8_t port, uint8_t *speeds)
+{
+	uint32_t val;
+	uint8_t lane;
+	int ret;
+
+	ret = cps1xxx_port_get_first_lane(sw, port, &lane);
+	if (ret < 0) {
+		RIOCP_ERROR("Could not get first lane of port %u (ret = %d, %s)\n",
+				port, ret, strerror(-ret));
+		return ret;
+	}
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_STAT_0_CSR(lane), &val);
+	if (ret < 0)
+		return ret;
+
+	/* Check if LANE_STATUS_3 register is implemented or not */
+	if (!CPS1xxx_LANE_STAT_0_STAT_N_IMPL(val, 3))
+		return 0;
+
+	ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_STAT_3_CSR(lane), &val);
+	if (ret < 0)
+		return ret;
+
+
+	*speeds = (val >> CPS1xxx_LANE_STAT_3_GBAUD_BITS) & CPS1xxx_LANE_STAT_3_GBAUD_MASK;
+
+	return 0;
+}
+
 /*
  * program RX serdes data
  */
@@ -3687,6 +3723,7 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	cps1xxx_clear_lut,
 	cps1xxx_get_lane_speed,
 	cps1xxx_get_lane_width,
+	cps1xxx_get_port_supported_speeds,
 	cps1xxx_get_port_state,
 	cps1xxx_event_handler,
 	NULL,
@@ -3719,6 +3756,7 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	cps1xxx_clear_lut,
 	cps1xxx_get_lane_speed,
 	cps1xxx_get_lane_width,
+	cps1xxx_get_port_supported_speeds,
 	cps1xxx_get_port_state,
 	cps1xxx_event_handler,
 	NULL,
@@ -3751,6 +3789,7 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	cps1xxx_clear_lut,
 	cps1xxx_get_lane_speed,
 	cps1xxx_get_lane_width,
+	cps1xxx_get_port_supported_speeds,
 	cps1xxx_get_port_state,
 	cps1xxx_event_handler,
 	NULL,
@@ -3783,6 +3822,7 @@ struct riocp_pe_switch riocp_pe_switch_sps1616 = {
 	cps1xxx_clear_lut,
 	cps1xxx_get_lane_speed,
 	cps1xxx_get_lane_width,
+	cps1xxx_get_port_supported_speeds,
 	cps1xxx_get_port_state,
 	cps1xxx_event_handler,
 	NULL,

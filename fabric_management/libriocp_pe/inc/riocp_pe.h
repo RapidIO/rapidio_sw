@@ -92,6 +92,14 @@ enum riocp_pe_speed {
 	RIOCP_SPEED_6_25G = 6250	/* 6.25 GBaud */
 };
 
+/* Supported port speeds  */
+#define RIOCP_SUPPORTED_SPEED_UNKNOWN  (0x0000)
+#define RIOCP_SUPPORTED_SPEED_6_25G    (0x0001)
+#define RIOCP_SUPPORTED_SPEED_5_0G     (0x0002)
+#define RIOCP_SUPPORTED_SPEED_3_125G   (0x0004)
+#define RIOCP_SUPPORTED_SPEED_2_5G     (0x0008)
+#define RIOCP_SUPPORTED_SPEED_1_25G    (0x0010)
+
 /* Structure describing a RapidIO port and its status */
 struct riocp_pe_port {
 	riocp_pe_handle pe;		/* Owner of this port */
@@ -268,6 +276,7 @@ int riocp_pe_destroy_handle(riocp_pe_handle *pe);
 int RIOCP_WU riocp_pe_get_capabilities(riocp_pe_handle pe,
 	struct riocp_pe_capabilities *capabilities);
 int RIOCP_WU riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port ports[]);
+int RIOCP_WU riocp_pe_get_port_supported_speeds(riocp_pe_handle pe, uint8_t port, uint8_t *speeds);
 int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum riocp_pe_speed speed, struct riocp_pe_serdes *serdes);
 int RIOCP_WU riocp_pe_lock(riocp_pe_handle pe, int flags);
 int RIOCP_WU riocp_pe_unlock(riocp_pe_handle pe);

@@ -221,6 +221,7 @@ extern "C" {
 #define RIO_EFB_SER_EP_FREE_ID	0x0006	/* [VI] LP/Serial EP Free Devices */
 #define RIO_EFB_SER_EP_FREC_ID	0x0009  /* [VI] LP/Serial EP Free Recovery Devices */
 #define RIO_EFB_ERR_MGMNT	0x0007  /* [VIII] Error Management Extensions */
+#define RIO_EFB_LANE_STATUS_ID	0x000D	/* [VI] LP/Serial Lane Extended Features Block */
 
 /*
  * Physical 8/16 LP-LVDS

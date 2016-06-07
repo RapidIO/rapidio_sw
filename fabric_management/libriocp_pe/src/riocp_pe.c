@@ -1020,6 +1020,43 @@ int RIOCP_SO_ATTR riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port po
 	return 0;
 }
 
+/*
+ * Return a bitmask of speeds supported by a PE port
+ *
+ * @param pe Target PE
+ * @param port Target port
+ * @param speeds Output bitmask with the port supported speeds
+ *
+ * @returns
+ *	-EINVAL invalid input parameters
+ *	-ENOSYS function not implemented
+ *	0 success
+ */
+int RIOCP_SO_ATTR riocp_pe_get_port_supported_speeds(riocp_pe_handle pe, uint8_t port, uint8_t *speeds)
+{
+	uint32_t ef_ptr;
+	int ret;
+
+	if (riocp_pe_handle_check(pe))
+		return -EINVAL;
+
+	if (!speeds)
+		return -EINVAL;
+
+	*speeds = RIOCP_SUPPORTED_SPEED_UNKNOWN;
+
+	/* Functionality currently implemented only for switches */
+	if (!RIOCP_PE_IS_SWITCH(pe->cap))
+		return 0;
+
+	/* Check if the extended feature block is implemented */
+	ret = riocp_pe_get_efb(pe, RIO_EFB_LANE_STATUS_ID, &ef_ptr);
+	if (ret)
+		return ret == -ENOENT ? 0 : ret;
+
+	return riocp_pe_switch_get_port_supported_speeds(pe, port, speeds);
+}
+
 /**
  * Lock the given PE. Locking is achieved by writing the destination ID of this
  *  device into its Host Base Device ID Lock CSR.

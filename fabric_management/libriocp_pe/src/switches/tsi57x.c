@@ -562,6 +562,7 @@ struct riocp_pe_switch riocp_pe_switch_tsi57x = {
 	tsi57x_clear_lut,
 	tsi57x_get_lane_speed,
 	tsi57x_get_lane_width,
+	NULL,
 	tsi57x_get_port_state,
 	tsi57x_event_handler,
 	NULL,
