@@ -58,14 +58,15 @@ for node in "${ALLNODES[@]}"
 do
 	echo "${node}"
 
-	ssh root@"${node}" "useradd -m -G ${GRP} $NEW_USER"
-	ssh root@"${node}" "usermod -a -G wheel $NEW_USER"
+	ssh root@"${node}" "useradd -m -G ${GRP} ${NEW_USER}"
+	ssh root@"${node}" "usermod -a -G wheel ${NEW_USER}"
 	ssh root@"${node}" "echo $NEW_USER:$PASS | chpasswd"
 
 done
 
 sudo -u $NEW_USER sh -c "cd /home/$NEW_USER; pwd; mkdir -p .ssh; ssh-keygen -t rsa -N \"\" -f .ssh/id_rsa"
 cd /home/$NEW_USER
+chmod 700 .ssh
 pwd
 
 echo "Register as root on nodes:"
@@ -73,7 +74,6 @@ echo "Register as root on nodes:"
 for node in "${ALLNODES[@]}"
 do
 	echo "${node}"
-	cat .ssh/id_rsa.pub | ssh root@"${node}" 'cat >> .ssh/authorized_keys'
-	ssh ${NEW_USER}@"${node}" "chmod 700 .ssh; chmod 640 .ssh/authorized_keys"
+	cat .ssh/id_rsa.pub | ssh root@${node} 'cat >> .ssh/authorized_keys'
 done
 

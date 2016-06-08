@@ -38,6 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
+#include <signal.h>
 
 #include "libfxfr.h"
 #include "rapidio_mport_sock.h"
@@ -144,6 +145,15 @@ print_help:
 	return 1;
 }
 
+void sig_handler(int signo)
+{
+        printf("\nRx Signal %x\n", signo);
+        if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
+                printf("Shutting down\n");
+                exit(0);
+        };
+};
+
 int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
@@ -156,6 +166,11 @@ int main(int argc, char *argv[])
 	uint8_t k_buff = 0;
 	struct timespec req_time, st_time, end_time, duration;
 	uint64_t bytes_sent;
+
+        signal(SIGINT, sig_handler);
+        signal(SIGHUP, sig_handler);
+        signal(SIGTERM, sig_handler);
+        signal(SIGUSR1, sig_handler);
 
 	if (parse_options(argc, argv, &src_name, &rem_name, &destID, 
 		&svr_skt, &mport_num, &debug, &k_buff))

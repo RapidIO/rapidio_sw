@@ -4,7 +4,7 @@ PRINTHELP=0
 re='^[0-9]+$'
 
 if [ "$#" -lt 4 ]; then
-	echo $'\ntest.sh requires 3 parameters.\n'
+	echo $'\ntest.sh requires 4 parameters.\n'
 	PRINTHELP=1
 elif [ ! -f $1 ]; then
 	echo $'\nSource file '$1'does not exist.\n'

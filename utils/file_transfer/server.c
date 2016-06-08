@@ -1195,6 +1195,7 @@ void sig_handler(int signo)
 	printf("\nRx Signal %x\n", signo);
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		printf("Shutting down\n");
+		exit(0);
 		fxfr_server_shutdown();
 	};
 };

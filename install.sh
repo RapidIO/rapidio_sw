@@ -13,7 +13,7 @@ elif [ $5 != 'mem34' -a $5 != 'mem50' -a $5 != 'mem66' ] ; then
 	echo $'\nmemsz parameter must be mem34, mem50, or mem66.\n'
 	PRINTHELP=1
 elif [ $6 != 'PD_tor' -a $6 != 'SB_re' ] ; then
-	echo $'\nsw parameter must be pd_tor or sf_re\n'
+	echo $'\nsw parameter must be PD_tor or SB_re\n'
 	PRINTHELP=1
 fi
 
