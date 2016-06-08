@@ -64,7 +64,7 @@ int riocp_pe_maint_set_anyid_route(struct riocp_pe *pe)
 	for (i = 0; i < pe->hopcount; i++) {
 		pes[i] = ith_pe;
 
-		ret = riocp_pe_lock_set(ith_pe, ANY_ID, i);
+		ret = riocp_pe_lock_set(ith_pe->mport, ANY_ID, i);
 		if (ret) {
 			RIOCP_TRACE("Could not set lock at hopcount %u\n",
 				i);

@@ -415,6 +415,8 @@ void start_worker_thread(struct worker *info, int new_mp_h, int cpu);
 
 void shutdown_worker_thread(struct worker *info);
 
+bool dma_alloc_ibwin(struct worker *info);
+
 extern "C" {
 	void display_gen_status_ss(std::stringstream& out);
 	void display_ibwin_status_ss(std::stringstream& out);
