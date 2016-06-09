@@ -62,7 +62,7 @@ Note that the script parameters have been left out for brevity.
 1) sudo admin_init_root_key.sh to get SSH root access to all four nodes.
 2) sudo admin_user_add.sh to create as many users as required
 3) admin_init_root_key.sh for each user to get SSH root access to all four nodes
-4) admin_init_dr.sh to create the directories on all four nodes
+4) admin_init_dir.sh to create the directories on all four nodes
 
 ******* INSTALLING THE RRMAP SOFTWARE *******
 
