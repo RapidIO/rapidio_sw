@@ -156,8 +156,62 @@ struct timespec time_div(struct timespec time, uint32_t divisor)
 }
 
 /**
- * @brief Divides the time in a timespec by a divisor, and returns 
- * a timespec containing the quotient.
+ * @brief Given a start time and end time, track minimum, maximum and total time
+ *        Limit the maximum time difference to lim.
+ *
+ * @param[in] i  0 - initialize totaltime/mintime/maxtime, 1 - don't init
+ * @param[in] limit - Maximum legal time difference expected. 
+ * @param[in] starttime - starting time for time interval to track
+ * @param[in] endtime - end time for time interval to track
+ * @param[inout] totaltime - on return, totaltime += endtime-starttime
+ * @param[inout] mintime - on return, updated if endtime-starttime < mintime
+ * @param[inout] maxtime - on return, updated if endtime-starttime > maxtime
+ *
+ */
+const struct timespec no_lim = {0xFFFFFFFF, 0xFFFFFFFF};
+
+void time_track_lim(int i, const struct timespec *lim,
+		struct timespec *starttime, struct timespec *endtime,
+		struct timespec *totaltime, struct timespec *mintime,
+		struct timespec *maxtime)
+{
+	struct timespec dta = time_difference(*starttime, *endtime);
+
+	if (!i) {
+		totaltime->tv_nsec = totaltime->tv_sec = 0;
+		mintime->tv_nsec = mintime->tv_sec = 0xFFFFFFFF;
+		maxtime->tv_nsec = maxtime->tv_sec = 0;
+	};
+
+	if ((dta.tv_sec < 0) || (dta.tv_nsec < 0))
+		return;
+
+	if ((dta.tv_sec > lim->tv_sec) ||
+		((dta.tv_sec == lim->tv_sec) && (dta.tv_nsec > lim->tv_nsec)))
+		return;
+
+	if (i) {
+		*totaltime = time_add(*totaltime, dta);
+
+		if ((mintime->tv_sec > dta.tv_sec) ||
+		   ((mintime->tv_sec == dta.tv_sec) && 
+		    (mintime->tv_nsec > dta.tv_nsec))) {
+		   *mintime = dta;
+		};
+
+		if ((maxtime->tv_sec < dta.tv_sec) ||
+		   ((maxtime->tv_sec == dta.tv_sec) && 
+		    (maxtime->tv_nsec < dta.tv_nsec))) {
+		   *maxtime = dta;
+		};
+	} else {
+		*totaltime = *mintime = *maxtime = dta;
+	};
+};
+
+/**
+ * @brief Given a start time and end time, track minimum, maximum and total time
+ *        Do not limit the maximum time difference tracked.
  *
  * @param[in] i  0 - initialize totaltime/mintime/maxtime, 1 - don't init
  * @param[in] starttime - starting time for time interval to track
@@ -171,28 +225,8 @@ void time_track(int i, struct timespec starttime, struct timespec endtime,
 		struct timespec *totaltime, struct timespec *mintime,
 		struct timespec *maxtime)
 {
-	struct timespec delta = time_difference(starttime, endtime);
-
-	if ((delta.tv_sec < 0) || (delta.tv_nsec < 0))
-		return;
-
-	if (i) {
-		*totaltime = time_add(*totaltime, delta);
-
-		if ((mintime->tv_sec > delta.tv_sec) ||
-		   ((mintime->tv_sec == delta.tv_sec) && 
-		    (mintime->tv_nsec > delta.tv_nsec))) {
-		   *mintime = delta;
-		};
-
-		if ((maxtime->tv_sec < delta.tv_sec) ||
-		   ((maxtime->tv_sec == delta.tv_sec) && 
-		    (maxtime->tv_nsec < delta.tv_nsec))) {
-		   *maxtime = delta;
-		};
-	} else {
-		*totaltime = *mintime = *maxtime = delta;
-	};
+	time_track_lim(i, &no_lim, &starttime, &endtime,
+			totaltime, mintime, maxtime);
 };
 
 #ifdef __cplusplus

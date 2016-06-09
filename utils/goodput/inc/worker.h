@@ -277,6 +277,8 @@ struct worker {
 	struct timespec tot_iter_time; /* Total time for all iterations */
 	struct timespec min_iter_time; /* Minimum time over all iterations */
 	struct timespec max_iter_time; /* Maximum time over all iterations */
+	struct timespec iter_time_lim; /* Maximum time for an iteration. */
+					/* Drop all times above this limit */
 
 	struct seq_ts desc_ts;
 	struct seq_ts fifo_ts;

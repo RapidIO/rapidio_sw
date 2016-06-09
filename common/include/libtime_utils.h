@@ -67,6 +67,11 @@ void time_track(int i, struct timespec starttime, struct timespec enddtime,
 		struct timespec *totaltime, struct timespec *mintime,
 		struct timespec *maxtime);
 
+void time_track_lim(int i, const struct timespec *limit,
+		struct timespec *starttime, struct timespec *enddtime,
+		struct timespec *totaltime, struct timespec *mintime,
+		struct timespec *maxtime);
+
 #ifdef __cplusplus
 }
 #endif

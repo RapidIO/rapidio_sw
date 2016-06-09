@@ -363,6 +363,7 @@ void zero_stats(struct worker *info)
 	info->min_iter_time = {0,0};
 	info->tot_iter_time = {0,0};
 	info->max_iter_time = {0,0};
+	info->iter_time_lim = {0xFFFFFFFF,0xFFFFFFFF};
 
         info->data8_tx = 0x12;
         info->data16_tx= 0x3456;
@@ -383,8 +384,8 @@ void start_iter_stats(struct worker *info)
 void finish_iter_stats(struct worker *info)
 {
 	clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
-	time_track(info->perf_iter_cnt, 
-		info->iter_st_time, info->iter_end_time,
+	time_track_lim(info->perf_iter_cnt, &info->iter_time_lim,
+		&info->iter_st_time, &info->iter_end_time,
 		&info->tot_iter_time, &info->min_iter_time,
 		&info->max_iter_time);
 	info->perf_iter_cnt++;	
@@ -599,6 +600,8 @@ void direct_io_tx_latency(struct worker *info)
 		goto exit;
 
 	zero_stats(info);
+	/* Set maximum latency time to 5 microseconds */
+	info->iter_time_lim = {0, 5000};
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	while (!info->stop_req) {
