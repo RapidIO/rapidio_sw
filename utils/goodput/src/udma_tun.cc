@@ -826,8 +826,12 @@ void* umd_dma_tun_fifo_proc_thr(void* parm)
   info = (struct worker *)parm;
 
   wi_size = info->umd_sts_entries * 8 * sizeof(DMAChannel::WorkItem_t);
-
-  wi = (DMAChannel::WorkItem_t*)alloca(wi_size); memset(wi, 0, wi_size);
+  wi = (DMAChannel::WorkItem_t*)alloca(wi_size);
+  if (wi == NULL) {
+    CRIT("Cannot allocate stack'ed DMAChannel::WorkItem_t, bailing out!\n");
+    goto exit;
+  }
+  memset(wi, 0, wi_size);
 
   if (info->dma_method == ACCESS_UMD) {
     if (NULL == info->umd_dci_list[info->umd_chan]) goto exit;

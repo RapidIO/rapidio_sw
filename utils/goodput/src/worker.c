@@ -1383,8 +1383,8 @@ extern char* dma_rtype_str[];
 void *umd_dma_fifo_proc_thr(void *parm)
 {
 	struct worker* info = NULL;
-	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; 
-	memset(wi, 0, sizeof(wi));
+	int wi_size = 0;
+	DMAChannel::WorkItem_t* wi = NULL;
 
 	if (NULL == parm)
 		goto exit;
@@ -1400,6 +1400,14 @@ void *umd_dma_fifo_proc_thr(void *parm)
 		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
 		goto exit;
 	}
+
+	wi_size = info->umd_sts_entries * 8 * sizeof(DMAChannel::WorkItem_t);
+	wi = (DMAChannel::WorkItem_t*)alloca(wi_size);
+	if (wi == NULL) {
+		CRIT("Cannot allocate stack'ed DMAChannel::WorkItem_t, bailing out!\n");
+		goto exit;
+	}
+	memset(wi, 0, wi_size);
 
 	info->umd_fifo_proc_alive = 1;
 	sem_post(&info->umd_fifo_proc_started); 
@@ -1449,10 +1457,10 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 
 	int idx = -1;
 	uint64_t tsF1 = 0, tsF2 = 0;
-        const int MHz = getCPUMHz();
-	MboxChannel::WorkItem_t wi[info->umd_sts_entries*8];
+	int wi_size = 0;
+	MboxChannel::WorkItem_t* wi = NULL;
 
-	memset(wi, 0, sizeof(wi));
+        const int MHz = getCPUMHz();
 
         if (NULL == parm) goto exit;
 
@@ -1466,6 +1474,14 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
 		goto exit;
 	}
+
+	wi_size = info->umd_sts_entries * 8 * sizeof(MboxChannel::WorkItem_t);
+	wi = (MboxChannel::WorkItem_t*)alloca(wi_size);
+	if (wi == NULL) {
+		CRIT("Cannot allocate stack'ed MboxChannel::WorkItem_t, bailing out!\n");
+		goto exit;
+	}
+	memset(wi, 0, wi_size);
 
 	idx = info->idx;
 	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));
