@@ -71,6 +71,8 @@ libdd: FORCE
 	$(MAKE) all -C libdd
 	mkdir -p $(LOCAL_LIBRARY_DIR)
 	cp libdd/libdd.a $(LOCAL_LIBRARY_DIR)
+	mkdir -p $(COMMONLIBA)
+	cp libdd/libdd.a $(COMMONLIBA)
 	
 libcfg: FORCE
 	$(MAKE) all -C libcfg

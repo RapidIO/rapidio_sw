@@ -57,7 +57,7 @@ RSKT_CLIENT_SOURCE = rskt_client.c
 RSKT_CLIENT_OBJECTS = rskt_client.o
 
 LIBRARIES = -lrskt -lcli -lrt -ldl -lmport \
-	-llist -llog -lrdma -lfmdd 
+	-llist -llog -lrdma -lfmdd -ldd
 
 all: rskt_client rskt_server
 
