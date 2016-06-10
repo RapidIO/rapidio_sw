@@ -240,6 +240,11 @@ struct riocp_pe_serdes {
 	union riocp_pe_serdes_values val[RIOCP_PE_PORT_MAX_WIDTH];
 };
 
+/** port write data */
+struct riocp_pe_pw_data {
+	uint32_t pw[4];
+};
+
 
 /*
  * API functions
@@ -306,6 +311,9 @@ int RIOCP_WU riocp_pe_set_event_mask(riocp_pe_handle pe, uint8_t port, riocp_pe_
 int RIOCP_WU riocp_pe_receive_event(riocp_pe_handle pe, struct riocp_pe_event *e);
 int RIOCP_WU riocp_pe_event_mport(riocp_pe_handle mport, riocp_pe_handle *pe,
 		struct riocp_pe_event *ev, int timeout);
+int RIOCP_WU riocp_pe_get_pw_event_mport(riocp_pe_handle mport, struct riocp_pe_pw_data *pw_ev, int timeout);
+int RIOCP_WU riocp_pe_pw_event_to_pe(riocp_pe_handle mport, struct riocp_pe_pw_data *pw_ev, riocp_pe_handle *pe);
+int RIOCP_WU riocp_pe_handle_pw_event(struct riocp_pe_pw_data *pw_ev, riocp_pe_handle pe, struct riocp_pe_event *ev);
 
 /* Debug functions */
 int riocp_pe_maint_read(riocp_pe_handle pe, uint32_t offset, uint32_t *val);

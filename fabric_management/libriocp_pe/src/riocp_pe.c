@@ -1529,6 +1529,114 @@ out:
 }
 
 /**
+ * Read a port write event from a dedicated mport
+ * @param mport mport handle
+ * @param pw_ev pointer to port write data
+ * @param timeout in milliseconds
+ */
+int RIOCP_SO_ATTR riocp_pe_get_pw_event_mport(riocp_pe_handle mport, struct riocp_pe_pw_data *pw_ev, int timeout)
+{
+	int ret, i;
+	struct riomp_mgmt_event revent;
+
+	if (!pw_ev)
+		return -EINVAL;
+	if (riocp_pe_handle_check(mport))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_MPORT(mport))
+		return -EINVAL;
+
+	ret = riomp_mgmt_get_event(mport->mp_hnd, &revent, timeout);
+	if (ret < 0)
+		return ret;
+	if (revent.header != RIO_EVENT_PORTWRITE) {
+		RIOCP_ERROR("Event not of type RIO_EVENT_PORTWRITE\n");
+		return -ENOMSG;
+	}
+
+	for(i=0;i<4;i++) {
+		RIOCP_TRACE("pw[%d] = 0x%08x\n", i, revent.u.portwrite.payload[i]);
+		pw_ev->pw[i] = revent.u.portwrite.payload[i];
+	}
+
+	return 0;
+}
+
+/**
+ * Find PE handle by port write data
+ * @param mport mport handle
+ * @param pw_ev pointer to port write data
+ * @param pe PE pointer upated by the function with the PE related to pw data
+ */
+int RIOCP_SO_ATTR riocp_pe_pw_event_to_pe(riocp_pe_handle mport, struct riocp_pe_pw_data *pw_ev, riocp_pe_handle *pe)
+{
+	int ret;
+	uint32_t comptag_nr;
+	struct riocp_pe *_pe;
+
+	if (!pw_ev || !pe)
+		return -EINVAL;
+	if (riocp_pe_handle_check(mport))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_MPORT(mport))
+		return -EINVAL;
+
+	comptag_nr = RIOCP_PE_COMPTAG_GET_NR(pw_ev->pw[0]);
+	ret = riocp_pe_comptag_get_slot(mport, comptag_nr, &_pe);
+	if (ret) {
+		RIOCP_ERROR("Failed to retrieve pe for comptag %d\n", comptag_nr);
+		return ret;
+	}
+	*pe = _pe;
+
+	return ret;
+}
+
+/**
+ * Handle and parse port write data
+ * @param pw_ev pointer to port write data
+ * @param pe PE pointer with the PE related to pw data
+ * @param ev pointer to return event data
+ */
+int RIOCP_SO_ATTR riocp_pe_handle_pw_event(struct riocp_pe_pw_data *pw_ev, riocp_pe_handle pe, struct riocp_pe_event *ev)
+{
+	int ret;
+	struct riomp_mgmt_event revent;
+	struct riocp_pe_event _e;
+	struct riocp_pe *_pe = pe;
+
+	if (!pw_ev || !ev)
+		return -EINVAL;
+	if (riocp_pe_handle_check(pe))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_SWITCH(pe->cap))
+		return -ENOSYS;
+
+	_e.port  = 0;
+	_e.event = 0;
+
+	memset(&revent, 0, sizeof(revent));
+	memcpy(revent.u.portwrite.payload, pw_ev->pw, sizeof(pw_ev->pw));
+	revent.header = RIO_EVENT_PORTWRITE;
+
+	ret = riocp_pe_switch_handle_event(_pe, &revent, &_e);
+	if (ret) {
+		RIOCP_ERROR("Handle event on port %u failed (%s)\n",
+			_e.port, strerror(-ret));
+		return ret;
+	}
+
+	ev->port  = _e.port;
+	ev->event = _e.event;
+	ev->counter = _e.counter;
+
+	RIOCP_DEBUG("New event 0x%08"PRIx32" with number %"PRIu32" from (%s:0x%04x:0x%08x.%u) port %"PRIu8" received\n",
+			_e.event, _e.counter, riocp_pe_get_device_name(pe), _pe->destid, _pe->comptag, _pe->hopcount, _e.port);
+
+	return ret;
+}
+
+/**
  * Read an event off the event queue for the given PE.
  * @param pe This host or any switch
  * @param e  Event received from this device
