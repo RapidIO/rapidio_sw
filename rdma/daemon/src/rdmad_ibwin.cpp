@@ -412,7 +412,8 @@ void ibwin::close_mspaces_using_tx_eng(
 			INFO("Closing connection to '%s'\n", ms->get_name());
 			ms->close(user_tx_eng);
 		} else {
-			DBG("Skipping '%s' since it doesn't use app_tx_eng\n");
+			DBG("Skipping '%s' since it doesn't use app_tx_eng\n",
+				ms->get_name());
 		}
 	}
 } /* close_mspaces_using_tx_eng() */
