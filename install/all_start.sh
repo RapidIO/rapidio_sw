@@ -72,6 +72,7 @@ fi
 if [ "$START_RDMAD" = 'y' ]; then
 	for node in $NODES; do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
+		[ "$DESTID" = '0xffffffff' ] && { echo "Node $node not enumerated skipping RDMAD"; continue; }
 		echo "Start rdmad on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rdmad $SOURCE_PATH/rdma/rdmad -l3"
 		sleep 1
@@ -84,6 +85,7 @@ fi
 if [ "$START_RSKTD" = 'y' ]; then
 	for node in $NODES; do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
+		[ "$DESTID" = '0xffffffff' ] && { echo "Node $node not enumerated skipping RSKTD"; continue; }
 		echo "Start rsktd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rsktd $SOURCE_PATH/rdma/rskt/daemon/rsktd -l3"
 		sleep 1
