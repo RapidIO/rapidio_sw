@@ -1355,7 +1355,10 @@ exit:
 
   //if (!info->stop_req) info->stop_req = 1; // Maybe we got here on a local error
 
-  write(info->umd_sockp_quit[0], "X", 1); // Signal Tun/Tap RX thread to eXit
+  // Signal Tun/Tap RX thread to eXit
+  if (write(info->umd_sockp_quit[0], "X", 1) < 0) {
+	// too bad...
+  };
   info->umd_fifo_proc_must_die = 1;
 
   usleep(500 * 1000); // let detached threads quit

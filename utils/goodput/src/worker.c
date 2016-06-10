@@ -3178,7 +3178,10 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	} // END Receiver
 
 exit:
-	write(info->umd_sockp_quit[0], "X", 1); // Signal Tun/Tap thread to eXit
+	// Signal Tun/Tap thread to eXit
+	if (write(info->umd_sockp_quit[0], "X", 1) < 0) {
+		// too bad...
+	}
         info->umd_fifo_proc_must_die = 1;
 
         pthread_join(info->umd_fifo_thr.thr, NULL);
