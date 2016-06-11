@@ -21,9 +21,29 @@ arch | awk -vx=1 '/(x86_64|i[3-6]86|ppc64)/{x=0;}END{exit x;}' || { # not i686, 
   START_DMATUN=n;
 }
 
-set | grep ^START_
+# set | grep ^START_
 
 . /etc/rapidio/nodelist.sh
+
+echo $'\nStarting the following daemons on all system nodes.'
+echo "Enable/disable daemons by entering named keywords."
+echo $'\nFabric Management Daemon       (always started    )'
+
+if [ "$START_UMDD" = 'y' ]; then
+	echo "Shared Tsi721 User Mode Driver (noumdd  to disable)"
+fi
+if [ "$START_DMATUN" = 'y' ]; then
+	echo "Ethernet Tunnelling"
+fi
+if [ "$START_RDMAD" = 'y' ]; then
+	echo "Remote Memory Access Daemon    (nordmad to disable)"
+fi
+if [ "$START_RSKTD" = 'y' ]; then
+	echo "RMA Sockets Daemon             (norsktd to disable)"
+fi
+if [ "$START_DMATUN" = 'n' ]; then
+	echo $'\nEthernet Tunnelling available  (dmatun  to ENABLE )'
+fi
 
 # Load drivers on each node
 
@@ -35,12 +55,10 @@ do
 	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 	echo "Starting fmd on $node destID=$DESTID"
 	ssh root@"$node" screen -dmS fmd $SOURCE_PATH/fabric_management/daemon/fmd -l3
-	sleep 1
+	sleep 3
 	FMD_PID=$(ssh root@"$node" pgrep fmd)
 	echo "$node fmd pid=$FMD_PID"
 done
-
-sleep 1; # Allow FMD to enumerate nodes
 
 # Start DMA Tun on each node. It is important to start first
 # to be able to grab from kernel a size-aligned CMA IBwin.
@@ -50,7 +68,7 @@ if [ "$START_DMATUN" = 'y' ]; then
 		[ "$DESTID" = '0xffffffff' ] && { echo "Node $node not enumerated skipping DMA Tun"; continue; }
 		echo "Start DMA Tun on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS dmatun sh $SOURCE_PATH/utils/goodput/dmatun.sh"
-		sleep 1
+		sleep 3
 		DMATUN_PID=$(ssh root@"$node" pgrep ugoodput)
 		echo "$node DMA Tun pid=$DMATUN_PID"
 	done
@@ -62,7 +80,7 @@ if [ "$START_UMDD" = 'y' ]; then
 		[ "$DESTID" = '0xffffffff' ] && { echo "Node $node not enumerated skipping UMDD"; continue; }
 		echo "Start UMDd/SHM on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS umdd sh $SOURCE_PATH/umdd_tsi721/umdd.sh"
-		sleep 1
+		sleep 3
 		UMDD_PID=$(ssh root@"$node" pgrep umdd)
 		echo "$node UMDd/SHM pid=$UMDD_PID"
 	done
@@ -75,7 +93,7 @@ if [ "$START_RDMAD" = 'y' ]; then
 		[ "$DESTID" = '0xffffffff' ] && { echo "Node $node not enumerated skipping RDMAD"; continue; }
 		echo "Start rdmad on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rdmad $SOURCE_PATH/rdma/rdmad -l3"
-		sleep 1
+		sleep 3
 		RDMA_PID=$(ssh root@"$node" pgrep rdmad)
 		echo "$node rdmad pid=$RDMA_PID"
 	done
@@ -88,7 +106,7 @@ if [ "$START_RSKTD" = 'y' ]; then
 		[ "$DESTID" = '0xffffffff' ] && { echo "Node $node not enumerated skipping RSKTD"; continue; }
 		echo "Start rsktd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rsktd $SOURCE_PATH/rdma/rskt/daemon/rsktd -l3"
-		sleep 1
+		sleep 3
 		RSKTD_PID=$(ssh root@"$node" pgrep rsktd)
 		echo "$node rsktd pid=$RSKTD_PID"
 	done
