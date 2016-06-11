@@ -289,7 +289,7 @@ int main(int argc, char *argv[])
 	int	rc;
 
 	/** Parse command line parameters */
-	while ((c = getopt(argc, argv, "hsl:")) != -1)
+	while ((c = getopt(argc, argv, "hs:l:")) != -1)
 		switch (c) {
 
 		default:
