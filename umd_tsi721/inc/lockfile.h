@@ -44,7 +44,7 @@ public:
     snprintf(tmp, 80, "Locker pid %d tid %d", getpid(), gettid());
     rc = write(m_fd, tmp, strlen(tmp));
     if (strlen(tmp) != (unsigned)rc)
-      throw std::runtime_error("LockFile: write returned unexpeced value!");
+      throw std::runtime_error("LockFile: write returned unexpected value!");
   }
 };
 
