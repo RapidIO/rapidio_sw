@@ -254,7 +254,8 @@ public:
       }
 #ifdef UDMA_TUN_DEBUG_IB
       DBG("\n\tL2 acceleration array (base=%p, size=%d):\n", info->ib_ptr, info->umd_tx_buf_cnt-1);
-      write(STDOUT_FILENO, ss.str().c_str(), ss.str().size());
+      if (write(STDOUT_FILENO, ss.str().c_str(), ss.str().size()) < 0) {
+	};
 #endif // UDMA_TUN_DEBUG_IB
     }}
 

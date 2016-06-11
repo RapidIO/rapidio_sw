@@ -54,7 +54,8 @@ int main(int argc, char* argv[])
         strncpy(pData, "Snow pants first, then your boots. Mittens last", 4096-sizeof(DMA_MBOX_L3_t));
         const int N = sizeof(DMA_MBOX_L3_t) + strlen(pData);
 
-        write(sock, buffer, N);
+        if (write(sock, buffer, N) < 0)
+        	perror("Could not write to socket");
 
         for(;;) {
 	   memset(buffer, 0, sizeof(buffer));

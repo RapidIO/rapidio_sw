@@ -99,18 +99,21 @@ int main(int argc, char* argv[])
     POSIXSem s("/"); // only this throws
   } catch(std::runtime_error e) { fprintf(stderr, "Exception: %s\n", e.what()); }
 
-  write(STDOUT_FILENO, "LOCK?\n", 6);
+  if (write(STDOUT_FILENO, "LOCK?\n", 6) < 0)
+	fprintf(stderr, "write to STDOUT_FILENO failed.");
 
   try {
     POSIXSem s("bubba"); // only this throws
     s.lock();
-    write(STDOUT_FILENO, "Enter:", 6);
+    if (write(STDOUT_FILENO, "Enter:", 6) < 0)
+	fprintf(stderr, "write to STDOUT_FILENO failed.");
     int c;
     read(STDIN_FILENO, &c, 1);
     s.unlock();
   } catch(std::runtime_error e) { fprintf(stderr, "Exception: %s\n", e.what()); }
 
-  write(STDOUT_FILENO, "UNLOCK\n", 7);
+  if (write(STDOUT_FILENO, "UNLOCK\n", 7) < 0)
+	fprintf(stderr, "write to STDOUT_FILENO failed.");
   return 0;
 }
 #endif
