@@ -3,11 +3,13 @@
 SOURCE_PATH=/opt/rapidio/rapidio_sw
 RIO_CLASS_MPORT_DIR=/sys/class/rio_mport/rio_mport0
 
+START_FMD=y
 START_DMATUN=n
 START_UMDD=y
 START_RDMAD=y
 START_RSKTD=y
 
+echo "$@" | grep -q nofmd  && START_FMD=n;
 echo "$@" | grep -qw dmatun &&  START_DMATUN=y;
 echo "$@" | grep -q noumdd  && START_UMDD=n;
 echo "$@" | grep -q nordmad && {
@@ -29,36 +31,28 @@ echo $'\nStarting the following daemons on all system nodes.'
 echo "Enable/disable daemons by entering named keywords."
 echo $'\nFabric Management Daemon       (always started    )'
 
-if [ "$START_UMDD" = 'y' ]; then
-	echo "Shared Tsi721 User Mode Driver (noumdd  to disable)"
-fi
-if [ "$START_DMATUN" = 'y' ]; then
-	echo "Ethernet Tunnelling"
-fi
-if [ "$START_RDMAD" = 'y' ]; then
-	echo "Remote Memory Access Daemon    (nordmad to disable)"
-fi
-if [ "$START_RSKTD" = 'y' ]; then
-	echo "RMA Sockets Daemon             (norsktd to disable)"
-fi
-if [ "$START_DMATUN" = 'n' ]; then
-	echo $'\nEthernet Tunnelling available  (dmatun  to ENABLE )'
-fi
+[ "$START_FMD" = 'y' ]    && echo "FMD and no kernel enum         (nofmd   to disable)"
+[ "$START_FMD" = 'n' ]    && echo "RapidIO kernel enum required -- has $SOURCE_PATH/rio_start.sh been run?"
+[ "$START_DMATUN" = 'y' ] && echo "IPv4 Tunnelling over DMA"
+[ "$START_DMATUN" = 'n' ] && echo "IPv4 Tunnelling over DMA       (dmatun  to ENABLE )"
+[ "$START_UMDD" = 'y' ]   && echo "Shared Tsi721 User Mode Driver (noumdd  to disable)"
+[ "$START_RDMAD" = 'y' ]  && echo "Remote Memory Access Daemon    (nordmad to disable)"
+[ "$START_RSKTD" = 'y' ]  && echo "RMA Sockets Daemon             (norsktd to disable)"
 
-# Load drivers on each node
+# Load drivers on each node -- unless nofmd specified
+if [ "$START_FMD" = 'y' ]; then
+	$SOURCE_PATH/rio_start.sh noenum
 
-$SOURCE_PATH/rio_start.sh noenum
-
-# Start Fabric Management Daemon on each node
-for node in $NODES
-do
-	DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
-	echo "Starting fmd on $node destID=$DESTID"
-	ssh root@"$node" screen -dmS fmd $SOURCE_PATH/fabric_management/daemon/fmd -l3
-	sleep 3
-	FMD_PID=$(ssh root@"$node" pgrep fmd)
-	echo "$node fmd pid=$FMD_PID"
-done
+        for node in $NODES; do
+                DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
+                echo "Starting fmd on $node destID=$DESTID"
+                ssh root@"$node" screen -dmS fmd $SOURCE_PATH/fabric_management/daemon/fmd -l3
+                sleep 1
+                FMD_PID=$(ssh root@"$node" pgrep fmd)
+                echo "$node fmd pid=$FMD_PID"
+        sleep 1; # Allow FMD to enumerate nodes
+        done
+fi
 
 # Start DMA Tun on each node. It is important to start first
 # to be able to grab from kernel a size-aligned CMA IBwin.
