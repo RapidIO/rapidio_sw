@@ -29,7 +29,6 @@ arch | awk -vx=1 '/(x86_64|i[3-6]86|ppc64)/{x=0;}END{exit x;}' || { # not i686, 
 
 echo $'\nStarting the following daemons on all system nodes.'
 echo "Enable/disable daemons by entering named keywords."
-echo $'\nFabric Management Daemon       (always started    )'
 
 [ "$START_FMD" = 'y' ]    && echo "FMD and no kernel enum         (nofmd   to disable)"
 [ "$START_FMD" = 'n' ]    && echo "RapidIO kernel enum required -- has $SOURCE_PATH/rio_start.sh been run?"
