@@ -495,6 +495,9 @@ extern "C" {
 #define CPS1xxx_TRACE_FILTER_VALUE_BC(u, w) (0xe4f000 + 0x28 * (u) + 4 * (w))
 #define CPS1xxx_TRACE_FILTER_MASK_BC(u, w)  (0xe4f014 + 0x28 * (u) + 4 * (w))
 
+#define CPS1xxx_SUPPORTED_SPEEDS_CACHED			(0x8000)
+#define CPS1xxx_SUPPORTED_SPEEDS_MASK			(0x7fff)
+
 struct switch_port_priv_t {
 	uint16_t retry_lim;
 #ifdef CONFIG_SETUP_CACHE_ENABLE
@@ -507,7 +510,8 @@ struct switch_lane_priv_t {
 #ifdef CONFIG_SETUP_CACHE_ENABLE
     uint8_t port;
     uint8_t lane_in_port;
-	enum riocp_pe_speed speed;
+    uint8_t supported_speeds;
+    enum riocp_pe_speed speed;
 #endif
     uint32_t err_8b10b;
 };
@@ -2659,8 +2663,12 @@ found:
 }
 #endif
 
+
 static int cps1xxx_get_port_supported_speeds(struct riocp_pe *sw, uint8_t port, uint8_t *speeds)
 {
+#ifdef CONFIG_SETUP_CACHE_ENABLE
+	struct switch_priv_t *priv = (struct switch_priv_t *)sw->private_driver_data;
+#endif
 	uint32_t val;
 	uint8_t lane;
 	int ret;
@@ -2672,13 +2680,22 @@ static int cps1xxx_get_port_supported_speeds(struct riocp_pe *sw, uint8_t port, 
 		return ret;
 	}
 
+#ifdef CONFIG_SETUP_CACHE_ENABLE
+	if (priv->lanes[lane].supported_speeds & CPS1xxx_SUPPORTED_SPEEDS_CACHED) {
+		*speeds = priv->lanes[lane].supported_speeds & CPS1xxx_SUPPORTED_SPEEDS_MASK;
+		return 0;
+	}
+#endif
+
 	ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_STAT_0_CSR(lane), &val);
 	if (ret < 0)
 		return ret;
 
 	/* Check if LANE_STATUS_3 register is implemented or not */
-	if (!CPS1xxx_LANE_STAT_0_STAT_N_IMPL(val, 3))
-		return 0;
+	if (!CPS1xxx_LANE_STAT_0_STAT_N_IMPL(val, 3)) {
+		*speeds = RIOCP_SUPPORTED_SPEED_UNKNOWN;
+		goto out_update_cache;
+	}
 
 	ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_STAT_3_CSR(lane), &val);
 	if (ret < 0)
@@ -2686,6 +2703,11 @@ static int cps1xxx_get_port_supported_speeds(struct riocp_pe *sw, uint8_t port, 
 
 
 	*speeds = (val >> CPS1xxx_LANE_STAT_3_GBAUD_BITS) & CPS1xxx_LANE_STAT_3_GBAUD_MASK;
+
+out_update_cache:
+#ifdef CONFIG_SETUP_CACHE_ENABLE
+	priv->lanes[lane].supported_speeds = *speeds | CPS1xxx_SUPPORTED_SPEEDS_CACHED;
+#endif
 
 	return 0;
 }
