@@ -37,7 +37,7 @@ do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		echo "Starting fmd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS fmd $RDMA_ROOT_PATH/fabric_management/daemon/fmd -l7"
-		sleep 1
+		sleep 3
 		FMD_PID=$(ssh root@"$node" pgrep fmd)
 		echo "$node fmd pid=$FMD_PID"
 	done
@@ -53,7 +53,7 @@ do
 			if [ -z "$RIODEVS" ]
 			then
 				echo "   not enumerated. Waiting and checking again"
-				sleep 1
+				sleep 3
 				(( ENUM_FAIL_RETRY++ ))
 			else
 				echo "   RIO devices: "$RIODEVS""
@@ -72,7 +72,7 @@ do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		echo "Start rdmad on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rdmad $RDMA_ROOT_PATH/rdma/rdmad"
-		sleep 1
+		sleep 3
 		RDMAD_PID=$(ssh root@"$node" pgrep rdmad)
 		echo "$node rdmad pid=$RDMAD_PID"
 	done
@@ -83,7 +83,7 @@ do
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		echo "Start rsktd on $node destID=$DESTID"
 		ssh root@"$node" "screen -dmS rsktd $RDMA_ROOT_PATH/rdma/rskt/daemon/rsktd -l7"
-		sleep 1
+		sleep 3
 		RSKTD_PID=$(ssh root@"$node" pgrep rsktd)
 		echo "$node rsktd pid=$RSKTD_PID"
 	done
@@ -185,7 +185,7 @@ do
 			done
 
 			# Check that rsktd was successfully killed
-			sleep 1
+			sleep 3
 			THE_PID=$(ssh root@"$node" pgrep rsktd)
 			if [ ! -z "$THE_PID" ]
 			then
@@ -201,7 +201,7 @@ do
 			done
 
 			# Check that rdmad was successfully killed
-			sleep 1
+			sleep 3
 			THE_PID=$(ssh root@"$node" pgrep rdmad)
 			if [ ! -z "$THE_PID" ]
 			then
@@ -217,7 +217,7 @@ do
 			done
 
 			# Check that fmd was successfully killed
-			sleep 1
+			sleep 3
 			THE_PID=$(ssh root@"$node" pgrep fmd)
 			if [ ! -z "$THE_PID" ]
 			then
