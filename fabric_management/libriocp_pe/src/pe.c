@@ -108,7 +108,7 @@ int riocp_pe_get_efb(struct riocp_pe *pe, uint32_t block_id, uint32_t *ef_ptr)
 		return -EINVAL;
 
 	riocp_pe_llist_foreach(item, &pe->ef_list) {
-		data = (uint32_t)item->data;
+		data = (uint32_t)(uintptr_t)item->data;
 		if (RIO_GET_BLOCK_ID(data) == block_id) {
 			*ef_ptr = RIO_GET_BLOCK_PTR(data);
 			return 0;
@@ -148,7 +148,7 @@ int riocp_pe_read_features(struct riocp_pe *pe)
 		}
 
 		ret = riocp_pe_llist_add(&pe->ef_list,
-				(void *)(_efptr << 16 | RIO_GET_BLOCK_ID(_efptr_hdr)));
+				(void *)(uintptr_t)(_efptr << 16 | RIO_GET_BLOCK_ID(_efptr_hdr)));
 		if (ret) {
 			RIOCP_ERROR("Failed to add EF 0x%08x to list: %d\n",
 					RIO_GET_BLOCK_ID(_efptr_hdr), ret);
