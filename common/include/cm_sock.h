@@ -455,15 +455,14 @@ public:
 	{
 		int rc = riomp_sock_connect(client_socket,
 					      destid,
-					      mbox_id,
 					      channel);
 		if (rc == EADDRINUSE) {
 			INFO("Requested channel already in use, reusing..");
 		} else if (rc) {
 			ERR("riomp_sock_connect failed for '%s':  %s\n",
 							name, strerror(errno));
-			ERR("channel = %d, mailbox = %d, destid = 0x%X\n",
-						channel, mbox_id, destid);
+			ERR("channel = %d, destid = 0x%X\n",
+						channel, destid);
 			return -1;
 		}
 		/* Return the socket, now that we know it works */

@@ -1,9 +1,10 @@
-/* Register read/write interface
+/*
+ * Default, mport based, register read/write functions declarations
  */
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,58 +34,36 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef __REGRW_H__
-#define __REGRW_H__
+#ifndef __REGRW_MPORT_H__
+#define __REGRW_MPORT_H__
 
 #include <stdint.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stddef.h>
+#include "rio_car_csr.h"
+#include "regrw.h"
+#include "regrw_log.h"
+#include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define HC_LOCAL 0x100
+extern bool mport_init;
+extern riomp_mport_t mport_handle;
 
-int reg_rd(struct rio_car_csr *rcc, uint32_t offset, uint32_t *val);
-int reg_wr(struct rio_car_csr *rcc, uint32_t offset, uint32_t val);
-int raw_reg_rd(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
+extern struct regrw_driver regrw_dflt_drv;
+
+int mport_init_driver(void);
+
+int mport_reg_rd(struct rio_car_csr *rcc, uint32_t offset, uint32_t *val);
+int mport_reg_wr(struct rio_car_csr *rcc, uint32_t offset, uint32_t val);
+int mport_raw_reg_rd(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
 		uint32_t addr, uint32_t *val);
-int raw_reg_wr(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
+int mport_raw_reg_wr(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
 		uint32_t addr, uint32_t val);
-int init_rcc_driver(struct rio_car_csr *rcc);
-int override_rcc_drvr(struct rio_car_csr *rcc, struct regrw_driver *drv);
-
-struct regrw_driver {
-        int (* reg_rd)(struct rio_car_csr *rcc,
-                        uint32_t offset, uint32_t *val);
-        int (* reg_wr)(struct rio_car_csr *rcc,
-			uint32_t offset, uint32_t val);
-	int (* raw_reg_rd)(struct rio_car_csr *rcc,
-                        uint32_t did, uint16_t hc,
-                        uint32_t offset, uint32_t *val);
-        int (* raw_reg_wr)(struct rio_car_csr *rcc,
-                        uint32_t did, uint16_t hc,
-                        uint32_t offset, uint32_t val);
-	uint64_t drv_data;
-};
-
-/* Initialize default register read/write functions to use specified MPORT
- * value,
- */
-int override_regrw_drv(struct regrw_driver *drv);
-
-/* RapidIO control plane logging facility */
-int regrw_set_log_level(int level);
-int regrw_get_log_level();
-
-/* RapidIO Register Read/Write CLI commands */
-void regrw_bind_cli_cmds(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __REGRW_H__ */
+#endif

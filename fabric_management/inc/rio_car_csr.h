@@ -35,12 +35,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#ifndef __RIO_CAR_CSR_H__
+#define __RIO_CAR_CSR_H__
+
 #include <stdint.h>
 #include "rio_standard.h"
 #include "rio_ecosystem.h"
-
-#ifndef __RIO_CAR_CSR_H__
-#define __RIO_CAR_CSR_H__
+#include "regrw.h"
 
 /* rio_regdefs.h contains definitons for all RapidIO Standard Registers
 */
@@ -125,6 +126,8 @@ struct rio_car_csr {
 	uint16_t hc; /* Hopcount used to access the device with mtc transactions
 			* hc = HC_LOCAL means local device.
 			*/
+	/** \brief Register access driver handle */
+	struct regrw_driver regrw;
 };
 
 /** \brief Macros to extract/check common fields/values

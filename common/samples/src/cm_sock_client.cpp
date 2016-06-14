@@ -73,8 +73,8 @@ int main(int argc, char *argv[])
 		client = new cm_client("client", mport_id, mbox_id, channel,
 				&shutting_down);
 	}
-	catch(cm_exception e) {
-		cout << e.err << endl;
+	catch(exception& e) {
+		cout << e.what() << endl;
 		return 1;
 	}
 

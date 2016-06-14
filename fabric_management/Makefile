@@ -51,18 +51,13 @@ CCFLAGS= -c -g -ggdb -fPIC -Wall -Werror -O2 -I. \
 	-I./libriocp_pe/src \
 	-I../common/include -DRDMA_LL=$(level)
 
-LIB_DEPS= libriocp_pe libcli libswitch_api libdd libcfg libpe_mpdrv libctdrv
+LIB_DEPS= libcli libdd libcfg libregrw
 .PHONY: $(LIB_DEPS)
 
 all: daemon libfmdd
 
 %.o: %.c $(CLI_DEPS) $(DAEMON_DEPS) $(LIB_DEPS)
 	$(CXX) -o $@ $< $(CCFLAGS)
-
-libriocp_pe: FORCE
-	$(MAKE) all -C libriocp_pe
-	mkdir -p $(LOCAL_LIBRARY_DIR)
-	cp libriocp_pe/libriocp_pe.a $(LOCAL_LIBRARY_DIR)
 
 libswitch_api: FORCE
 	$(MAKE) all -C librio_switch

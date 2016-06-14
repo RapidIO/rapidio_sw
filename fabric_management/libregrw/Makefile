@@ -29,40 +29,50 @@
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #--------------------------------------------------------------------------***
 
-LOG_LEVEL?=7
-export LOG_LEVEL
+TOPDIR?=$(shell pwd)/../..
+include $(TOPDIR)/rules.mk
 
 DEBUG?=DEBUG
-export DEBUG
 
-SOVER?=0.4
-export SOVER
+level=$(LOG_LEVEL)
 
-CC = $(CROSS_COMPILE)g++
-export CC
+NAME:=regrw
+TARGETS:=lib$(NAME).a
+TEST_TARGET:=$(NAME)_test
+HEADERS:=inc/lib$(NAME).h
 
-CXX = $(CROSS_COMPILE)g++
-export CXX
+CROSS_COMPILE?=/usr/bin/
 
-TOP_LEVEL = $(shell pwd)
-export TOP_LEVEL
+CC:=$(CROSS_COMPILE)g++
+AR:=$(CROSS_COMPILE)ar
 
-TARGETS = common fabric_management 
+CFLAGS+=$(addprefix -W,all extra) -fPIC
+CFLAGS+=-D$(DEBUG)
+CFLAGS+=-I. -Iinc -I../inc -Isrc
+CFLAGS+=-I../librio_switch/inc
+CFLAGS+=-DREGRW_LL=$(LOG_LEVEL)
+LDFLAGS+=-L. -l$(NAME)
+
+OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
+
+TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
 all: $(TARGETS)
 
-fabric_management: common FORCE
-	$(MAKE) all -C fabric_management
-		
-common: FORCE
-	$(MAKE) all -C common 
-		
-FORCE:
+%.a: $(OBJECTS)
+	$(AR) rcs $@ $^
 
-clean: FORCE
-	$(MAKE) clean -C common
-	$(MAKE) clean -C umd_tsi721
-	$(MAKE) clean -C umdd_tsi721
-	$(MAKE) clean -C rdma
-	$(MAKE) clean -C fabric_management
-	rm -rf include/libs_a/*
+src/%.o: src/%.c $(HEADERS)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+test: all $(TEST_TARGET) 
+
+$(TEST_TARGET) : $(OBJECTS) $(TEST_OBJECTS)
+	$(CC) $(OBJECTS) $(TEST_OBJECTS) -o $(TEST_TARGET) \
+	-lmport -lcli -llog -pthread \
+	-L. -L../../common/libs_a -L../libs_a
+
+clean:
+	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a
+
+.PHONY: all clean

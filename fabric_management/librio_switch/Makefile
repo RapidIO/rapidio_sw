@@ -18,7 +18,7 @@ AR ?= $(CROSS_COMPILE)ar
 
 CFLAGS+=$(addprefix -W,all extra error) -fPIC
 CFLAGS+=-O2 -DNDEBUG -g -DIDT_TSI721_SUPPORT
-CFLAGS+=-I./inc
+CFLAGS+=-I./inc -I../inc
 LDFLAGS+=-L. -l$(NAME)
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c)) 

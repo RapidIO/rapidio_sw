@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 	for (unsigned i = 0; i < n; i++) {
 		clock_gettime(CLOCK_REALTIME, &tm);
 		tm.tv_sec += 1;
-		int ret = q1->timed_receive(&tm);
+		uint32_t ret = q1->timed_receive(&tm);
 		if (ret == MSG_Q_TIMED_RECV_ERR)
 			continue;
 		printf("%s", msg->s);

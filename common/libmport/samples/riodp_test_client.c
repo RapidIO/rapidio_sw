@@ -42,7 +42,7 @@
  * and verifies response.
  *
  * Usage:
- *   ./riodp_test_client <loc_mport> <rem_destid> <rem_ch> <rep_num>
+ *   ./riodp_test_client (loc_mport) (rem_destid) (rem_ch) (rep_num) 
  *
  * Options are:
  * - loc_mport : local mport device index (default=0)
@@ -241,8 +241,7 @@ int main(int argc, char** argv)
 		goto out;
 	}
 
-	ret = riomp_sock_connect(socket, arg.remote_destid, 0,
-				   arg.remote_channel);
+	ret = riomp_sock_connect(socket, arg.remote_destid, arg.remote_channel);
 	if (ret == EADDRINUSE)
 		printf("riomp_sock_connect: Requested channel already in use, reusing...\n");
 	else if (ret) {

@@ -1,9 +1,10 @@
-/* Register read/write interface
+/*
+ * Register read/write functions
  */
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,58 +34,94 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef __REGRW_H__
-#define __REGRW_H__
-
 #include <stdint.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stddef.h>
+#include "regrw.h"
+#include "rio_car_csr.h"
+#include "regrw_log.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define HC_LOCAL 0x100
+int reg_rd(struct rio_car_csr *rcc, uint32_t offset, uint32_t *val)
+{
+	if ((NULL == rcc) || (NULL == rcc->regrw.reg_rd)) {
+		ERR("Driver is NULL!");
+		return EINVAL;
+	};
 
-int reg_rd(struct rio_car_csr *rcc, uint32_t offset, uint32_t *val);
-int reg_wr(struct rio_car_csr *rcc, uint32_t offset, uint32_t val);
-int raw_reg_rd(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
-		uint32_t addr, uint32_t *val);
-int raw_reg_wr(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
-		uint32_t addr, uint32_t val);
-int init_rcc_driver(struct rio_car_csr *rcc);
-int override_rcc_drvr(struct rio_car_csr *rcc, struct regrw_driver *drv);
-
-struct regrw_driver {
-        int (* reg_rd)(struct rio_car_csr *rcc,
-                        uint32_t offset, uint32_t *val);
-        int (* reg_wr)(struct rio_car_csr *rcc,
-			uint32_t offset, uint32_t val);
-	int (* raw_reg_rd)(struct rio_car_csr *rcc,
-                        uint32_t did, uint16_t hc,
-                        uint32_t offset, uint32_t *val);
-        int (* raw_reg_wr)(struct rio_car_csr *rcc,
-                        uint32_t did, uint16_t hc,
-                        uint32_t offset, uint32_t val);
-	uint64_t drv_data;
+	return rcc->regrw.reg_rd(rcc, offset, val);
 };
 
-/* Initialize default register read/write functions to use specified MPORT
- * value,
+int reg_wr(struct rio_car_csr *rcc, uint32_t offset, uint32_t val)
+{
+	if ((NULL == rcc) || (NULL == rcc->regrw.reg_wr)) {
+		ERR("Driver is NULL!");
+		return EINVAL;
+	};
+
+	return rcc->regrw.reg_wr(rcc, offset, val);
+};
+
+int raw_reg_rd(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
+		uint32_t addr, uint32_t *val)
+{
+	if ((NULL == rcc) || (NULL == rcc->regrw.raw_reg_rd)) {
+		ERR("Driver is NULL!");
+		return EINVAL;
+	};
+	return rcc->regrw.raw_reg_rd(rcc, did, hc, addr, val);
+};
+
+int raw_reg_wr(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
+		uint32_t addr, uint32_t val)
+{
+	if ((NULL == rcc) || (NULL == rcc->regrw.raw_reg_wr)) {
+		ERR("Driver is NULL!");
+		return EINVAL;
+	};
+
+	return rcc->regrw.raw_reg_wr(rcc, did, hc, addr, val);
+};
+
+/* To override functions above, pass in structure with new function.
+ * If the existing function should be unchanged, pass in NULL.
  */
-int override_regrw_drv(struct regrw_driver *drv);
+extern struct regrw_driver regrw_dflt_drv;
 
-/* RapidIO control plane logging facility */
-int regrw_set_log_level(int level);
-int regrw_get_log_level();
+int init_rcc_driver(struct rio_car_csr *rcc)
+{
+	if (NULL == rcc) {
+		ERR("Driver is NULL!");
+		return EINVAL;
+	};
 
-/* RapidIO Register Read/Write CLI commands */
-void regrw_bind_cli_cmds(void);
+	memcpy(&rcc->regrw, &regrw_dflt_drv, sizeof(struct regrw_driver));
+	return 0;
+};
+	
+int override_rcc_drvr(struct rio_car_csr *rcc, struct regrw_driver *drv)
+{
+	if ((NULL == rcc) || (NULL == drv)) {
+		ERR("Driver is NULL!");
+		return EINVAL;
+	};
 
+	memcpy(&rcc->regrw, &drv, sizeof(struct regrw_driver));
+	return 0;
+};
+
+int override_regrw_drv(struct regrw_driver *drv)
+{
+	if (NULL == drv) {
+		ERR("Driver is NULL!");
+		return EINVAL;
+	};
+
+	memcpy(&regrw_dflt_drv, drv, sizeof(struct regrw_driver));
+	return 0;
+};
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __REGRW_H__ */
