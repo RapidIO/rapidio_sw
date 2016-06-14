@@ -445,7 +445,7 @@ next:
     clock_gettime(CLOCK_MONOTONIC, &now);
 
     struct timespec dT = time_difference(st_time, now);
-    const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
+    const int64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
     if (nsec > timeout) { 
       int abort = 0;
       if (checkAbort())

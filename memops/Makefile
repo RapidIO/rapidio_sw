@@ -40,7 +40,7 @@ SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memo
 
 all: libmemops_intf.so libmemops_intf.a memops_demo memops_demo_log memops_test_cf
 
-LFLAGS = -std=gnu++0x -DDMACHAN_TICKETED $(OPTFLAGS)
+LFLAGS = -std=gnu++0x -DDMACHAN_TICKETED $(COMMONFLAGS)
 
 libmemops_intf.a: $(SOURCES)
 	$(CXX) $(LFLAGS) -c $(INCLUDES) -I$(UMDDINCDIR) $^ 
@@ -57,16 +57,19 @@ memops_demo: $(SOURCES) libmemops_intf.a samples/memops_demo.cc
 	$(CXX) $(LFLAGS) samples/memops_demo.cc \
 		$(INCLUDES) \
 		-lpthread -lrt -ldl \
-		-L$(COMMONLIB) $(LIBS_RPATH) -L. -Wl,-rpath=. \
-		-ltime_utils -lmport -L$(COMMONLIBA) -lmemops_intf -o $@
+		-L. -Wl,-rpath=. -lmemops_intf \
+		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport \
+		-o $@
 
 memops_demo_log: $(SOURCES) libmemops_intf.a samples/memops_demo.cc
 	$(CXX) $(LFLAGS) samples/memops_demo.cc \
 		$(INCLUDES) \
 		-DRDMA_LL=$(LOG_LEVEL) \
 		-lpthread -lrt -ldl \
-		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
-		-ltime_utils -lmport -lcli -llog -L$(COMMONLIBA) libmemops_intf.a -lumd_tsi721_tik -o $@
+		-L. -Wl,-rpath=. -lmemops_intf \
+ 		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport -lcli -llog \
+		-L$(COMMONLIBA) -lumd_tsi721_tik \
+		-o $@
 
 memops_test_cf: $(SOURCES) libmemops_intf.so src/memops_test_cf.cc
 	$(CXX) $(LFLAGS) src/memops_test_cf.cc \
