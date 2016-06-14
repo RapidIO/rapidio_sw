@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <sched.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #include "memops.h"
 #include "memops_mport.h"
@@ -451,7 +452,7 @@ next:
            abort = getAbortReason();
       else m_errno = ETIMEDOUT;
 
-      fprintf(stderr, "UMD %s: Ticket %lu timed out in %llu nsec with code %d (%s)\n", __func__, opt.ticket, nsec, abort, abortReasonToStr(abort));
+      fprintf(stderr, "UMD %s: Ticket %lu timed out in %" PRId64 " nsec with code %d (%s)\n", __func__, opt.ticket, nsec, abort, abortReasonToStr(abort));
       return false;
     }
   } // END infinite for

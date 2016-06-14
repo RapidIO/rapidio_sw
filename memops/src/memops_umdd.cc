@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h> // snprintf
+#include <inttypes.h> // PRIx64
 
 #include "memops.h"
 #include "memops_mport.h"
@@ -243,7 +244,8 @@ next:
     struct timespec dT = time_difference(st_time, now);
     const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
     if (nsec > timeout) {
-      fprintf(stderr, "UMDD %s: Ticket %lu timed out in %llu nsec\n", __func__, opt.ticket, nsec);
+      fprintf(stderr, "UMDD %s: Ticket %lu timed out in %" PRId64 "nsec\n",
+		__func__, opt.ticket, nsec);
       if (wait_forever)
         throw std::logic_error("RIOMemOpsUMDd::poll_ticket BUG in DMAChannelSHM::checkTicket!");
       m_errno = ETIMEDOUT; return false;
