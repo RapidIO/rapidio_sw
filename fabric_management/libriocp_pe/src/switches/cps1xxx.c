@@ -1310,21 +1310,9 @@ static int cps1xxx_lock_port(struct riocp_pe *sw, uint8_t port)
  */
 static int cps1xxx_disable_port(struct riocp_pe *sw, uint8_t port)
 {
-	int ret;
+	int ret, i;
 	uint32_t val;
 	uint8_t lane = 0, width = 0, current_lane;
-
-	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &val);
-	if (ret < 0)
-		return ret;
-
-	/* disable port logic */
-	val |= CPS1xxx_CTL_PORT_DIS;
-
-
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), val);
-	if (ret < 0)
-		return ret;
 
 	/* obtain port width and lane configuration */
 	ret = cps1xxx_get_lane_width(sw, port, &width);
@@ -1339,18 +1327,52 @@ static int cps1xxx_disable_port(struct riocp_pe *sw, uint8_t port)
 	if (ret < 0)
 		return ret;
 
+	/* trigger los */
 	for(current_lane = lane; current_lane < (lane+width); current_lane++) {
 		ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(current_lane), &val);
 		if (ret < 0)
 			return ret;
 
-		/* disable lanes */
+		val ^= 0x14;
+
+		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(current_lane), val);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* wait some time for link down */
+	for(i=0;i<50;i++) {
+		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &val);
+		if (ret < 0)
+			return ret;
+		if(!(val & CPS1xxx_ERR_STATUS_PORT_OK))
+			break;
+	}
+
+	/* disable port logic */
+	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &val);
+	if (ret < 0)
+		return ret;
+
+	val |= CPS1xxx_CTL_PORT_DIS;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), val);
+	if (ret < 0)
+		return ret;
+
+	/* disable lanes */
+	for(current_lane = lane; current_lane < (lane+width); current_lane++) {
+		ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(current_lane), &val);
+		if (ret < 0)
+			return ret;
+
 		val |= CPS1xxx_LANE_CTL_LANE_DIS;
 
 		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(current_lane), val);
 		if (ret < 0)
 			return ret;
 	}
+
 	return 0;
 }
 
