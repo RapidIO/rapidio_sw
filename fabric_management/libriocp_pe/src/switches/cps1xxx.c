@@ -1566,16 +1566,6 @@ static int cps1xxx_init_port(struct riocp_pe *sw, uint8_t port)
 		status | CPS1xxx_ERR_STATUS_CLEAR);
 	if (ret < 0)
 		return ret;
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_DET(port), 0);
-	if (ret < 0)
-		return ret;
-
-#ifdef CONFIG_PORTWRITE_ENABLE
-	/* port write basic configuration */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_TRACE_PW_CTL(port), CPS1xxx_PORT_TRACE_PW_DIS);
-	if (ret < 0)
-		return ret;
-#endif
 
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), &result);
 	if (ret < 0)
@@ -3640,13 +3630,6 @@ int cps1xxx_init(struct riocp_pe *sw)
 	/* init global settings for all ports */
 	cps1xxx_init_bdc(sw);
 
-#ifdef CONFIG_PORTWRITE_ENABLE
-	/* Set Port-Write info CSR: PRIO=3 and CRF=1 */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PW_CTL, CPS1xxx_PW_INFO_PRIO3_CRF1 | CPS1xxx_PW_INFO_SRCID(sw->destid));
-	if (ret < 0)
-		return ret;
-#endif
-
 	/* clear lut table */
 	ret = cps1xxx_clear_lut(sw, RIOCP_PE_ANY_PORT);
 	if (ret)
@@ -3688,11 +3671,6 @@ int cps1xxx_init(struct riocp_pe *sw)
 		if (ret < 0)
 			return ret;
 #endif
-
-		/* enable event handling for that port */
-		ret = cps1xxx_arm_port(sw, port);
-		if (ret < 0)
-			return ret;
 	}
 
 	/* Set packet time-to-live to prevent final buffer deadlock.
@@ -3701,30 +3679,13 @@ int cps1xxx_init(struct riocp_pe *sw)
 		use maximum value of approximate 110 ms */
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PKT_TTL_CSR, CPS1xxx_PKT_TTL_CSR_TTL_OFF);
 
-	/* Clear configuration errors */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_CFG_ERR_DET, 0);
-	if (ret)
-		return ret;
-
-	/* Clear lane/port errors using broadcast registers */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_LANE_ERR_DET, 0);
-	if (ret)
-		return ret;
-
-	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_PORT_IMPL_SPEC_ERR_DET, 0);
-	if (ret)
-		return ret;
-
-	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_PORT_ERR_DET, 0);
-	if (ret)
-		return ret;
-
-	return 0;
+	return ret;
 }
 
 int cps1xxx_init_em(struct riocp_pe *sw)
 {
 	int ret;
+	uint8_t port;
 
 	/*
 	 * Set a route towards the enumeration host for the input port
@@ -3746,6 +3707,47 @@ int cps1xxx_init_em(struct riocp_pe *sw)
 //		ret = cps1xxx_set_route_entry(sw, RIOCP_PE_ANY_PORT, sw->mport->destid, (uint8_t)port_info);
 //		if (ret)
 //			return ret;
+	}
+
+	/* Clear configuration errors */
+	ret = riocp_pe_maint_write(sw, CPS1xxx_CFG_ERR_DET, 0);
+	if (ret)
+		return ret;
+
+	/* Clear lane/port errors using broadcast registers */
+	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_LANE_ERR_DET, 0);
+	if (ret)
+		return ret;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_PORT_IMPL_SPEC_ERR_DET, 0);
+	if (ret)
+		return ret;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_PORT_ERR_DET, 0);
+	if (ret)
+		return ret;
+
+#ifdef CONFIG_PORTWRITE_ENABLE
+	/* Set Port-Write info CSR: PRIO=3 and CRF=1 */
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PW_CTL, CPS1xxx_PW_INFO_PRIO3_CRF1 | CPS1xxx_PW_INFO_SRCID(sw->destid));
+	if (ret < 0)
+		return ret;
+#endif
+
+
+	for (port = 0; port < RIOCP_PE_PORT_COUNT(sw->cap); port++) {
+
+#ifdef CONFIG_PORTWRITE_ENABLE
+		/* port write basic configuration */
+		ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_TRACE_PW_CTL(port), CPS1xxx_PORT_TRACE_PW_DIS);
+		if (ret < 0)
+			return ret;
+#endif
+
+		/* enable event handling for that port */
+		ret = cps1xxx_arm_port(sw, port);
+		if (ret < 0)
+			return ret;
 	}
 
 	return 0;
