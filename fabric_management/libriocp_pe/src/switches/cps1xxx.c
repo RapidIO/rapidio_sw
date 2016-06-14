@@ -1367,6 +1367,7 @@ static int cps1xxx_disable_port(struct riocp_pe *sw, uint8_t port)
 			return ret;
 
 		val |= CPS1xxx_LANE_CTL_LANE_DIS;
+		val ^= 0x14;
 
 		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(current_lane), val);
 		if (ret < 0)
