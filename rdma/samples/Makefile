@@ -49,6 +49,8 @@ RDMAAPP_CFLAGS = $(CXXFLAGS) -Wall -Wextra -DRDMA_LL=$(level) \
 RDMA_APP_DEPS= $(LIBRDMA_PATH)/librdma.a \
 	../inc/* ../daemon/src/* ../daemon/inc/*
 
+LIBRARIES=-lrdma -lriocp_pe -lfmdd -ldd -lmport -llist -llog -lcli -pthread -lrt
+
 # Common build strings
 # For C apps
 BUILD_STRING_C = $(CXX) $(CXXFLAGS) -L$(LIBRDMA_PATH) -L$(COMMONLIB) \
@@ -57,7 +59,7 @@ BUILD_STRING_C = $(CXX) $(CXXFLAGS) -L$(LIBRDMA_PATH) -L$(COMMONLIB) \
 	-L$(FMDDIR)/libdd \
 	$(LIBS_RPATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
-	src/$@.c -lrt -lcli -llist -llog -lmport -lrdma -pthread -lfmdd -ldd -lriocp_pe
+	src/$@.c $(LIBRARIES)
 
 # For C++ apps
 BUILD_STRING_CPP = $(CXX) -L$(LIBRDMA_PATH) -L$(COMMONLIB) \
@@ -66,7 +68,7 @@ BUILD_STRING_CPP = $(CXX) -L$(LIBRDMA_PATH) -L$(COMMONLIB) \
 	-L$(FMDDIR)/libdd \
 	$(LIBS_RPATH) \
 	-o $@ $(RDMAAPP_CFLAGS) \
-	src/$@.cpp -lrt -lcli -llist -llog -lmport -lrdma -pthread -lfmdd -ldd -lriocp_pe
+	src/$@.cpp $(LIBRARIES)
 
 all: rdma_server rdma_client rdma_user multi_ms_server multi_ms_client create_and_die
 
