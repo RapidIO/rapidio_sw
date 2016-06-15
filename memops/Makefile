@@ -57,19 +57,16 @@ memops_demo: $(SOURCES) libmemops_intf.a samples/memops_demo.cc
 	$(CXX) $(LFLAGS) samples/memops_demo.cc \
 		$(INCLUDES) \
 		-lpthread -lrt -ldl \
-		-L. -Wl,-rpath=. -lmemops_intf \
-		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport \
-		-o $@
+		-L$(COMMONLIB) $(LIBS_RPATH) -L. -Wl,-rpath=. \
+		-ltime_utils -lmport -L$(COMMONLIBA) -lmemops_intf -o $@
 
 memops_demo_log: $(SOURCES) libmemops_intf.a samples/memops_demo.cc
 	$(CXX) $(LFLAGS) samples/memops_demo.cc \
 		$(INCLUDES) \
 		-DRDMA_LL=$(LOG_LEVEL) \
 		-lpthread -lrt -ldl \
-		-L. -Wl,-rpath=. -lmemops_intf \
- 		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport -lcli -llog \
-		-L$(COMMONLIBA) -lumd_tsi721_tik \
-		-o $@
+		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
+		-ltime_utils -lmport -lcli -llog -L$(COMMONLIBA) libmemops_intf.a -lumd_tsi721_tik -o $@
 
 memops_test_cf: $(SOURCES) libmemops_intf.so src/memops_test_cf.cc
 	$(CXX) $(LFLAGS) src/memops_test_cf.cc \
