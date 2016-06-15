@@ -2234,7 +2234,7 @@ int UDMACmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].use_kbuf = 1;
 
 	wkr[idx].stop_req = 0;
-	wkr[idx].max_iter = GetDecParm("$maxit", -1);
+	wkr[idx].max_iter = GetDecParm((char *)"$maxit", -1);
 
 	sem_post(&wkr[idx].run);
 exit:
@@ -2341,7 +2341,7 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 		goto exit;
 	}
 	if (wkr[idx].ib_byte_cnt < acc_sz) {
-		sprintf(env->output, "IBwin too small (0x%x) must be at least 0x%x\n", wkr[idx].ib_byte_cnt, acc_sz);
+		sprintf(env->output, "IBwin too small (0x%" PRIx64 ") must be at least 0x%" PRIx32 "\n", wkr[idx].ib_byte_cnt, acc_sz);
 		logMsg(env);
 		goto exit;
 	}
@@ -2362,7 +2362,7 @@ int UDMALatTxRxCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 	wkr[idx].use_kbuf = 1;
 
 	wkr[idx].stop_req = 0;
-	wkr[idx].max_iter = GetDecParm("$maxit", -1);
+	wkr[idx].max_iter = GetDecParm((char *)"$maxit", -1);
 
 	sem_post(&wkr[idx].run);
 exit:
@@ -2486,7 +2486,7 @@ int UDMALatNREAD(struct cli_env *env, int argc, char **argv)
 	wkr[idx].use_kbuf = 1;
 
 	wkr[idx].stop_req = 0;
-	wkr[idx].max_iter = GetDecParm("$maxit", -1);
+	wkr[idx].max_iter = GetDecParm((char *)"$maxit", -1);
 
 	sem_post(&wkr[idx].run);
 exit:
@@ -2869,7 +2869,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
 	}
 
         if (mp_h_qresp_valid && (qresp.hdid == did) && txrx &&
-			(GetEnv("FORCE_DESTID") == NULL)) {
+			(GetEnv((char *)"FORCE_DESTID") == NULL)) {
                 sprintf(env->output,
                 	"\n\tERROR: Testing against own desitd=%d."
                         "Set env FORCE_DESTID to disable this check.\n",
@@ -2896,7 +2896,7 @@ int UMSGCmd(const char cmd, struct cli_env *env, int argc, char **argv)
         wkr[idx].use_kbuf = 1;
 
         wkr[idx].stop_req = 0;
-        wkr[idx].max_iter = GetDecParm("$maxit", -1);
+        wkr[idx].max_iter = GetDecParm((char *)"$maxit", -1);
 
         sem_post(&wkr[idx].run);
 exit:

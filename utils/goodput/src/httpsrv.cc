@@ -54,7 +54,7 @@ static void respond(int fd, const char* rsp, const int rsp_size)
   int rcvd = recv(fd, mesg, sizeof(mesg)-1 , 0);
 
   if (rcvd < 0) {		// receive error
-    fprintf(stderr, "\n\trecv() error: %d\n", strerror(errno));
+    fprintf(stderr, "\n\trecv() error: %d %s\n", errno, strerror(errno));
     return;
   }
   if (rcvd == 0) {		// receive socket closed

@@ -501,7 +501,7 @@ void umd_dma_goodput_tun_callback(struct worker *info)
     int ret = peer->scan_RO(); ret += 0;
 
 #ifdef UDMA_TUN_DEBUG_IB
-    DBG("\n\tFound %d ready buffers at iter %llu\n", ret, cbk_iter);
+    DBG("\n\tFound %d ready buffers at iter %" PRIx64 "\n", ret, cbk_iter);
 #endif
   } // END for each peer
 
@@ -685,7 +685,7 @@ void* umd_dma_tun_TX_proc_thr(void* arg)
   struct thread_cpu myself; memset(&myself, 0, sizeof(myself));
 
   myself.thr = pthread_self();
-  myself.cpu_req = GetDecParm("$cpu2", -1);
+  myself.cpu_req = GetDecParm((char *)"$cpu2", -1);
 
   migrate_thread_to_cpu(&myself);
 
@@ -1019,7 +1019,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
         pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
         info->umd_dma_did_enum_list[destid].bcast_cnt_out++; // ADDEP?
         info->umd_dma_did_enum_list[destid].my_rio_addr = rio_addr;
-        info->umd_dma_did_enum_list[destid].state = "TX";
+        info->umd_dma_did_enum_list[destid].state = (char *)"TX";
         pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
       } else {
         ERR("\n\tSend to MboxWatch thread failed [tx_fd=%d]: %s\n", strerror(errno), info->umd_mbox_tx_fd);
@@ -1076,7 +1076,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
         info->umd_dma_did_enum_list[from_destid].ls_time = now; // ADDEP?
         info->umd_dma_did_enum_list[from_destid].bcast_cnt_in++;
 
-        info->umd_dma_did_enum_list[from_destid].state   = "RX";
+        info->umd_dma_did_enum_list[from_destid].state = (char *)"RX";
 
         std::map<uint16_t, int>::iterator itp = info->umd_dma_did_peer.find(from_destid);
         if (itp != info->umd_dma_did_peer.end()) {
@@ -1170,7 +1170,7 @@ void umd_dma_goodput_tun_RDMAD(struct worker *info, const int min_bcasts, const 
         }}
         pthread_mutex_unlock(&info->umd_dma_did_peer_mutex);
 
-        DBG("\n\tGot info [rx_fd=%d] for NEW destid %u peer.{base_rio_addr=0x%llx base_size=%lu rio_addr=0x%llx bufc=%u MTU=%lu} allocated rio_addr=%llu ib_ptr=%p bcast_cnt=%d\n",
+        DBG("\n\tGot info [rx_fd=%d] for NEW destid %u peer.{base_rio_addr=0x%llx base_size=%lu rio_addr=0x%llx bufc=%u MTU=%lu} allocated rio_addr=%" PRIx64 " ib_ptr=%p bcast_cnt=%d\n",
             info->umd_mbox_rx_fd,
             from_destid, from_info.base_rio_addr, from_info.base_size, from_info.rio_addr, from_info.bufc, from_info.MTU,
             rio_addr, peer_ib_ptr, bcast_cnt);
@@ -1290,9 +1290,9 @@ void umd_dma_goodput_tun_demo(struct worker *info)
   info->umd_fifo_proc_must_die = 0;
   info->umd_fifo_proc_alive = 0;
 
-  info->umd_disable_nread  = GetDecParm("$disable_nread", 0);
-  info->umd_push_rp_thr    = GetDecParm("$push_rp_thr", 0);
-  info->umd_chann_reserve  = GetDecParm("$chann_reserve", 0);
+  info->umd_disable_nread  = GetDecParm((char *)"$disable_nread", 0);
+  info->umd_push_rp_thr    = GetDecParm((char *)"$push_rp_thr", 0);
+  info->umd_chann_reserve  = GetDecParm((char *)"$chann_reserve", 0);
 
   rc = pthread_create(&info->umd_fifo_thr.thr, NULL,
                       umd_dma_tun_fifo_proc_thr, (void *)info);
@@ -1338,8 +1338,8 @@ void umd_dma_goodput_tun_demo(struct worker *info)
 
 again:
   umd_dma_goodput_tun_RDMAD(info,
-                            (info->umd_dma_bcast_min = GetDecParm("$bcast_min", 3)) /* min_bcasts */,
-                            (info->umd_dma_bcast_interval = GetDecParm("$bcast_interval", 10)) /* bcast_interval, in sec */);
+                            (info->umd_dma_bcast_min = GetDecParm((char *)"$bcast_min", 3)) /* min_bcasts */,
+                            (info->umd_dma_bcast_interval = GetDecParm((char *)"$bcast_interval", 10)) /* bcast_interval, in sec */);
 
   if (info->stop_req == SOFT_RESTART) {
     CRIT("\n\tSoft restart requested, nuking MBOX hardware!\n");
@@ -1473,7 +1473,7 @@ void umd_dma_goodput_tun_add_ep(struct worker* info, const uint32_t destid)
   DmaPeerCommsStats_t tmp; memset(&tmp, 0, sizeof(tmp));
   tmp.destid    = destid;
   tmp.on_time   = now;
-  tmp.state     = "NEW";
+  tmp.state     = (char *)"NEW";
 
   pthread_mutex_lock(&info->umd_dma_did_peer_mutex);
   {{
@@ -1487,7 +1487,9 @@ void umd_dma_goodput_tun_dump_ep(const DmaPeerCommsStats_t& ep, std::string& out
   time_t now = time(NULL);
 
   char tmp[257] = {0};
-  snprintf(tmp, 256, "Did %u Age %ds LS %ds bcast_cnt {out=%d in=%d} RIO addr sent 0x%llx state:%s",
+  snprintf(tmp, 256, "Did %" PRId16 " Age %" PRId64 "s LS %" PRId64
+	"s bcast_cnt {out=%" PRId32 " in=%" PRId32 "} RIO addr sent 0x%"
+	PRIx64 " state:%s",
                      ep.destid,
                      (ep.on_time > 0)? now-ep.on_time: -1,
                      (ep.ls_time > 0)? now-ep.ls_time: -1,
@@ -1568,13 +1570,13 @@ void umd_dma_goodput_tun_del_ep(struct worker* info, const uint32_t destid, bool
     //
     // NO! If both peers nuke each other they shall never talk again.
 
-    if (GetDecParm("$ignore_deadbeats", -1) != -1)
+    if (GetDecParm((char *)"$ignore_deadbeats", -1) != -1)
       info->umd_dma_did_enum_list.erase(destid);
     else {
       info->umd_dma_did_enum_list[destid].ls_time       = 0; // ADDEP?
       info->umd_dma_did_enum_list[destid].bcast_cnt_in  = 0;
       info->umd_dma_did_enum_list[destid].bcast_cnt_out = 0;
-      info->umd_dma_did_enum_list[destid].state         = "DEAD";
+      info->umd_dma_did_enum_list[destid].state         = (char *)"DEAD";
     }
 
     std::map <uint16_t, int>::iterator itp = info->umd_dma_did_peer.find(destid);
@@ -2183,7 +2185,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
         ss_histo << i << "->" << tx_histo[i] << " ";
       }
 
-      if (GetEnv("verb") != NULL && ss_histo.str().size() > 0) ss << "\n\tTX Histo: " << ss_histo.str();
+      if (GetEnv((char *)"verb") != NULL && ss_histo.str().size() > 0) ss << "\n\tTX Histo: " << ss_histo.str();
     }
     if (dch_cnt > 0)
       out << "DMA Channel stats: " << ss.str() << "\n";
@@ -2239,7 +2241,8 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
       ss << "\n\t" << s;
     }
     char tmp[65] = {0};
-    snprintf(tmp, 64, "Got %d enumerated peer(s): ", peer_list_enum.size());
+    snprintf(tmp, 64, "Got %" PRId64 " enumerated peer(s): ",
+							peer_list_enum.size());
     out << tmp << ss.str() << "\n";
   }
 
@@ -2258,7 +2261,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
       }
 
       char tmp[257] = {0};
-      snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%llx/0x%x tx.WP=%u tx.RP~%u tx.rpUC=%u tx.rpLS=%fmS\n\t\ttx.RIO=%llu rx.RIO=%llu\n\t\tTun.rx=%llu Tun.tx=%llu Tun.txerr=%llu\n\t\ttx.peer_full=%llu", 
+      snprintf(tmp, 256, "Did %u %s peer.rio_addr=0x%" PRIx64 " %" PRIx32 "tx.WP=%" PRId32 " tx.RP~%" PRId32 " tx.rpUC=%" PRId32 " tx.rpLS=%fmS\n\t\ttx.RIO=%" PRIx64 " rx.RIO=%" PRIx64 "\n\t\tTun.rx=%" PRIx64 " Tun.tx=%" PRIx64 " Tun.txerr=%" PRIx64 "\n\t\ttx.peer_full=%" PRIx64, 
          peer.get_destid(), peer.get_tun_name(),
          peer.get_rio_addr(), peer.get_ibwin_size(),
          peer.get_WP(), peer.get_RP(), peer.get_RP_serial(), dT_RP,
@@ -2268,7 +2271,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
         );
       ss << "\n\t" << tmp;
 
-      snprintf(tmp, 256, "\n\t\tpushRP=%llu pushForceRP=%llu",
+      snprintf(tmp, 256, "\n\t\tpushRP=%" PRIx64 " pushForceRP=%" PRIx64,
                          peer.m_stats.push_rp_cnt, peer.m_stats.push_rp_force_cnt);
       ss << tmp;
 
@@ -2276,7 +2279,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
       assert(pRP);
 
       float TotalTimeSpentFull = (float)peer.m_stats.rio_rx_peer_full_ticks_total / MHz;
-      snprintf(tmp, 256, "\n\t\trx.RP=%u #IBBdRO=%d IBBdReady=%d #IsolIBPass=%llu #IsolIBPassAdd=%llu #IBPass=%llu IBBDFullTotal=%fuS",
+      snprintf(tmp, 256, "\n\t\trx.RP=%u #IBBdRO=%d IBBdReady=%d #IsolIBPass=%" PRIx64 " #IsolIBPassAdd=%" PRIx64 " #IBPass=%" PRIx64 " IBBDFullTotal=%fuS",
                          pRP->RP, rocnt, peer.get_rio_rx_bd_ready_size(),
                          peer.m_stats.rio_isol_rx_pass, 
                          peer.m_stats.rio_isol_rx_pass_add, 
@@ -2294,7 +2297,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
       if (peer.m_stats.rio_isol_rx_pass_spl > 0) {
         float AvgTck = ((float)peer.m_stats.rio_isol_rx_pass_spl_ts / peer.m_stats.rio_isol_rx_pass_spl);
         char tmp[65] = {0};
-        snprintf(tmp, 64, "\n\t\tAvgTckSplock=%f (%fuS) MaxTckSplock=%llu", AvgTck, AvgTck/MHz,
+        snprintf(tmp, 64, "\n\t\tAvgTckSplock=%f (%fuS) MaxTckSplock=%" PRIx64 "", AvgTck, AvgTck/MHz,
                           peer.m_stats.rio_isol_rx_pass_spl_ts_max);
         ss << tmp;
       }
@@ -2306,7 +2309,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
         ss_histo << i << "->" << rx_histo[i] << " ";
       }
 
-      if (GetEnv("verb") != NULL && ss_histo.str().size() > 0) ss << "\n\tRX Histo: " << ss_histo.str();
+      if (GetEnv((char *)"verb") != NULL && ss_histo.str().size() > 0) ss << "\n\tRX Histo: " << ss_histo.str();
 
       if (peer.get_mutex().__data.__lock) {
         snprintf(tmp, 256, "\n\t\tlocker.tid=0x%x", peer.get_mutex().__data.__owner);
@@ -2315,7 +2318,7 @@ void UMD_DD_SS(struct worker* info, std::stringstream& out)
     }
 
     char tmpo[65] = {0};
-    snprintf(tmpo, 64, "Got %d UP peer(s): ", peer_list.size());
+    snprintf(tmpo, 64, "Got %" PRId64 " UP peer(s): ", peer_list.size());
     out << tmpo << ss.str() << "\n";
   }
 

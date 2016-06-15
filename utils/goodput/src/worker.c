@@ -2011,7 +2011,7 @@ bool umd_check_cpu_allocation(struct worker *info)
 {
 	assert(info);
 
-	if (GetEnv("IGNORE_CPUALLOC") != NULL) return true;
+	if (GetEnv((char *)"IGNORE_CPUALLOC") != NULL) return true;
 
 	if (info->wkr_thr.cpu_req != info->umd_fifo_thr.cpu_req) return true;
 
@@ -2049,7 +2049,8 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
-	if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+	if(info->umd_dch->getDestId() == info->did && 
+				GetEnv((char *)"FORCE_DESTID") == NULL) {
 		CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
 		goto exit;
 	}
@@ -2090,7 +2091,7 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
-        if (GetEnv("verb") != NULL) {
+        if (GetEnv((char *)"verb") != NULL) {
 	        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
 			info->umd_dch->getDestId(),
 			info->did, info->rio_addr, info->acc_size,
@@ -2364,7 +2365,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 		goto exit;
 	};
 
-        if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+        if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
                 goto exit;
         }
@@ -2409,7 +2410,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 	zero_stats(info);
 
-	if (GetEnv("verb") != NULL) {
+	if (GetEnv((char *)"verb") != NULL) {
 		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
 		     info->umd_dch->getDestId(),
 		     info->did, info->rio_addr, info->acc_size,
@@ -2441,11 +2442,11 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			bool q_was_full = false;
 			DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
-			const int N = GetDecParm("$sim", 0) + 1;
-			const int M = GetDecParm("$simw", 0);
+			const int N = GetDecParm((char *)"$sim", 0) + 1;
+			const int M = GetDecParm((char *)"$simw", 0);
 
                 	start_iter_stats(info);
-			if (GetEnv("sim") == NULL) {
+			if (GetEnv((char *)"sim") == NULL) {
                 		if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
 			} else {
 				// Can we recover/replay BD at sim+1 ?
@@ -2555,7 +2556,7 @@ void umd_mbox_goodput_demo(struct worker *info)
         info->umd_mch->setInitState();
 	info->umd_mch->softRestart();
 
-	if (GetEnv("verb") != NULL) {
+	if (GetEnv((char *)"verb") != NULL) {
 		INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%d #buf=%d #fifo=%d\n",
 		     info->umd_chan,
 		     info->umd_mch->getDestId(),
@@ -2645,7 +2646,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 			bool q_was_full = false;
 			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
 
-			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
+			snprintf(str, 128, "Mary had a little lamb iter %d", cnt);
 		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, !cnt, fail_reason)) {
 				if (fail_reason == MboxChannel::STOP_REG_ERR) {
 					ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
@@ -2717,7 +2718,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
         info->umd_mch->setInitState();
 	info->umd_mch->softRestart();
 
-	if (GetEnv("verb") != NULL) {
+	if (GetEnv((char *)"verb") != NULL) {
 		INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
 		     info->umd_mch->getDestId(),
 		     info->did, info->acc_size,
@@ -2772,7 +2773,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 			}
 			if (! rx_buf) {
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
-				if (GetEnv("DEBUG_MBOX")) { for (;;) { ; } } // WEDGE CPU
+				if (GetEnv((char *)"DEBUG_MBOX")) { for (;;) { ; } } // WEDGE CPU
 				goto exit_rx;
 			}
 
@@ -2823,7 +2824,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 			bool q_was_full = false;
 			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
 
-			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
+			snprintf(str, 128, "Mary had a little lamb iter %d", cnt);
 
 			const bool first_message = !big_cnt;
 
@@ -2863,8 +2864,8 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
                               info->umd_mch->add_inb_buffer(buf); // recycle
                         }
                         if (! rx_buf) {
-                                ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);
-				if (GetEnv("DEBUG_MBOX")) { for (;;) { ; } } // WEDGE CPU
+                                ERR("\n\tRX ring in unholy state for MBOX%d! cnt=" PRIx64 "\n", info->umd_chan, tx_ok);
+				if (GetEnv((char *)"DEBUG_MBOX")) { for (;;) { ; } } // WEDGE CPU
                                 goto exit_rx;
                         }
 			if (! first_message) finish_iter_stats(info);
