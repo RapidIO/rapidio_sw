@@ -980,7 +980,7 @@ int mpsw_drv_port_start(struct riocp_pe  *pe, pe_port_t port)
 	cfg_in.oob_reg_acc = false;
 	cfg_in.reg_acc_port = RIOCP_PE_SW_PORT(pe->cap);
 	cfg_in.num_ports = p_dat->st.pc.num_ports;
-	memcpy(&cfg_in.pc, &p_dat->st.pc, sizeof(p_dat->st.pc));
+	memcpy(&cfg_in.pc, &p_dat->st.pc.pc, sizeof(p_dat->st.pc.pc));
 
 	cfg_in.pc[port].port_available = true;
 	cfg_in.pc[port].powered_up = true;
@@ -1068,7 +1068,7 @@ int mpsw_drv_port_stop(struct riocp_pe  *pe, pe_port_t port)
 	cfg_in.oob_reg_acc = false;
 	cfg_in.reg_acc_port = RIOCP_PE_SW_PORT(pe->cap);
 	cfg_in.num_ports = p_dat->st.pc.num_ports;
-	memcpy(cfg_in.pc, p_dat->st.pc.pc, sizeof(p_dat->st.pc));
+	memcpy(cfg_in.pc, p_dat->st.pc.pc, sizeof(p_dat->st.pc.pc));
 
 	cfg_in.pc[port].powered_up = false;
 
