@@ -40,46 +40,46 @@ SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memo
 
 all: libmemops_intf.so libmemops_intf.a memops_demo memops_demo_log memops_test_cf
 
-LFLAGS = -std=gnu++0x -lrt -DDMACHAN_TICKETED $(COMMONFLAGS)
+LFLAGS = -std=gnu++0x -DDMACHAN_TICKETED $(COMMONFLAGS)
 
 libmemops_intf.a: $(SOURCES)
 	$(CXX) $(LFLAGS) -c $(INCLUDES) -I$(UMDDINCDIR) $^ 
 	$(AR) rcs $@ *.o
 
 libmemops_intf.so: $(SOURCES)
-	$(CXX) $(LFLAGS) $(INCLUDES) $^ \
-		-shared -fPIC -ldl \
+	$(CXX) $(LFLAGS) $(INCLUDES) -shared -fPIC $^  -o $@.$(SOVER) \
+		-Wl,-soname,$@.$(SOVER) \
+		\
 		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport \
-		$(COMMONLIBA)/libumd_tsi721_nolog_tik.a \
-		-Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
+		$(COMMONLIBA)/libumd_tsi721_nolog_tik.a -lrt -ldl 
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
 ## libmemops_intf.so is the version without logging and debugging.
 ## The .so library must be bound into memops_demo.
 memops_demo: $(SOURCES) libmemops_intf.so samples/memops_demo.cc
-	$(CXX) $(LFLAGS) samples/memops_demo.cc \
-		$(INCLUDES) \
+	$(CXX) $(LFLAGS) $(INCLUDES) samples/memops_demo.cc \
+		-o $@ \
 		-lpthread -lrt -ldl \
 		-L$(COMMONLIB) $(LIBS_RPATH) -L. -Wl,-rpath=. \
-		-ltime_utils -lmport -lmemops_intf -o $@
+		-ltime_utils -lmport -lmemops_intf -lrt 
 
 ## libmemops_intf.a is the version without logging and debugging.
 ## The .a library must be bound into memops_demo_log.
 memops_demo_log: $(SOURCES) libmemops_intf.a samples/memops_demo.cc
-	$(CXX) $(LFLAGS) samples/memops_demo.cc \
-		$(INCLUDES) \
+	$(CXX) $(LFLAGS) $(INCLUDES) samples/memops_demo.cc \
+ 		-o $@ \
 		-DRDMA_LL=$(LOG_LEVEL) \
-		-lpthread -lrt -ldl \
 		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
 		-ltime_utils -lmport -lcli -llog libmemops_intf.a \
-		-L$(COMMONLIBA) -lumd_tsi721_tik -o $@
+		-L$(COMMONLIBA) -lumd_tsi721_tik \
+		-lpthread -lrt -ldl 
 
 memops_test_cf: $(SOURCES) libmemops_intf.so src/memops_test_cf.cc
-	$(CXX) $(LFLAGS) src/memops_test_cf.cc \
-		$(INCLUDES) \
-		-lpthread -lrt -ldl \
-		-L$(COMMONLIB) $(LIBS_RPATH) -L. -Wl,-rpath=. \
-		-ltime_utils -lmport -L$(COMMONLIBA) -lmemops_intf -o $@
+	$(CXX) $(LFLAGS) src/memops_test_cf.cc $(INCLUDES) \
+		-o $@ \
+		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport  \
+		-L$(COMMONLIBA) -lmemops_intf -L. -Wl,-rpath=. \
+		-lpthread -lrt -ldl 
 
 clean:
 	rm -f *.[ao] *.so* a.out memops_demo*
