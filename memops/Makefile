@@ -40,7 +40,7 @@ SOURCES = src/memops_factory.cc src/memops_mport.cc src/dmachanshm_dl.c src/memo
 
 all: libmemops_intf.so libmemops_intf.a memops_demo memops_demo_log memops_test_cf
 
-LFLAGS = -std=gnu++0x -DDMACHAN_TICKETED $(COMMONFLAGS)
+LFLAGS = -std=gnu++0x -lrt -DDMACHAN_TICKETED $(COMMONFLAGS)
 
 libmemops_intf.a: $(SOURCES)
 	$(CXX) $(LFLAGS) -c $(INCLUDES) -I$(UMDDINCDIR) $^ 
@@ -49,7 +49,8 @@ libmemops_intf.a: $(SOURCES)
 libmemops_intf.so: $(SOURCES)
 	$(CXX) $(LFLAGS) $(INCLUDES) $^ \
 		-shared -fPIC -ldl \
-		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport $(UMDDIR)/libumd_tsi721_nolog_tik.a \
+		-L$(COMMONLIB) $(LIBS_RPATH) -ltime_utils -lmport \
+		$(COMMONLIBA)/libumd_tsi721_nolog_tik.a \
 		-Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
