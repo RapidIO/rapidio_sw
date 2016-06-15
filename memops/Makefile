@@ -53,20 +53,25 @@ libmemops_intf.so: $(SOURCES)
 		-Wl,-soname,$@.$(SOVER) -o $@.$(SOVER)
 	@ln -s $@.$(SOVER) $@ &>/dev/null || true
 
-memops_demo: $(SOURCES) libmemops_intf.a samples/memops_demo.cc
+## libmemops_intf.so is the version without logging and debugging.
+## The .so library must be bound into memops_demo.
+memops_demo: $(SOURCES) libmemops_intf.so samples/memops_demo.cc
 	$(CXX) $(LFLAGS) samples/memops_demo.cc \
 		$(INCLUDES) \
 		-lpthread -lrt -ldl \
 		-L$(COMMONLIB) $(LIBS_RPATH) -L. -Wl,-rpath=. \
-		-ltime_utils -lmport -L$(COMMONLIBA) -lmemops_intf -o $@
+		-ltime_utils -lmport -lmemops_intf -o $@
 
+## libmemops_intf.a is the version without logging and debugging.
+## The .a library must be bound into memops_demo_log.
 memops_demo_log: $(SOURCES) libmemops_intf.a samples/memops_demo.cc
 	$(CXX) $(LFLAGS) samples/memops_demo.cc \
 		$(INCLUDES) \
 		-DRDMA_LL=$(LOG_LEVEL) \
 		-lpthread -lrt -ldl \
 		-L$(COMMONLIB) -L. $(LIBS_RPATH) -Wl,-rpath=. \
-		-ltime_utils -lmport -lcli -llog -L$(COMMONLIBA) libmemops_intf.a -lumd_tsi721_tik -o $@
+		-ltime_utils -lmport -lcli -llog libmemops_intf.a \
+		-L$(COMMONLIBA) -lumd_tsi721_tik -o $@
 
 memops_test_cf: $(SOURCES) libmemops_intf.so src/memops_test_cf.cc
 	$(CXX) $(LFLAGS) src/memops_test_cf.cc \
