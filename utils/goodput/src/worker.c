@@ -3066,7 +3066,14 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	}
 
 	snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
-	system(ifconfig_cmd);
+	if (system(ifconfig_cmd) < 0) {
+                CRIT("MboxChlannel: Failed to execute ifconfig!");
+        	info->umd_tun_name[0] = '\0';
+		close(info->umd_tun_fd); info->umd_tun_fd = -1;
+		delete info->umd_mch; info->umd_mch = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
+		return;
+	};
 
 	socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, info->umd_sockp_quit);
 

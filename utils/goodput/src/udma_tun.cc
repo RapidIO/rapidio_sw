@@ -181,7 +181,9 @@ again:
       if (events[epi].data.fd == info->umd_sockp_quit[1]) {
         INFO("\n\tSocketpair said quit!\n");
         char c = 0;
-        read(events[epi].data.fd, &c, 1);
+        if (read(events[epi].data.fd, &c, 1)) {
+        	INFO("\n\tSocketpair read returned non-zero.");
+	}
         goto exit; // Time to quit!
       }
 

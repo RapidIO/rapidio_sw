@@ -360,7 +360,13 @@ public:
       }
 
       snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
-      system(ifconfig_cmd);
+	int tret =system(ifconfig_cmd);
+      if (tret < 0) {
+        CRIT("system() ifconfig failed with error %d\n", tret);
+        // No need to remove from epoll set, close does that as it isn't dup(2)'ed
+        close(m_tun_fd); m_tun_fd = -1;
+        goto error;
+	}
     }}
 
     sig = PEER_SIG_UP;

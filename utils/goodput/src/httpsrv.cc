@@ -76,7 +76,10 @@ static void respond(int fd, const char* rsp, const int rsp_size)
   iov[1].iov_base = (void*)rsp;
   iov[1].iov_len  = rsp_size;
 
-  writev(fd, (struct iovec*)&iov, 2);
+  int sent = writev(fd, (struct iovec*)&iov, 2);
+  if (sent < 0) {
+    fprintf(stderr, "\n\twritev() error: %d %s\n", errno, strerror(errno));
+  };
 }
 
 extern void UMD_DD_SS(struct worker* info, std::stringstream& out);
