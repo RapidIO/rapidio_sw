@@ -1025,7 +1025,7 @@ static int cps1xxx_check_link_init(struct riocp_pe *sw, uint8_t port)
 			if (ret)
 				return ret;
 
-			RIOCP_DEBUG("link req on 0x%x:%u (0x%x) port %u (atttempt %u)\n", sw->destid, sw->hopcount, sw->comptag, port, attempts);
+			RIOCP_DEBUG("link req on 0x%x:%u (0x%x) port %u (attempt %u)\n", sw->destid, sw->hopcount, sw->comptag, port, attempts);
 
 			for(i=0;i<3;i++) {
 				/* read link response */
@@ -1060,6 +1060,9 @@ static int cps1xxx_check_link_init(struct riocp_pe *sw, uint8_t port)
 		error to force a port-write with the PORT_INIT as implementation specific error */
 	if ((status & CPS1xxx_ERR_STATUS_PORT_OK) && (control & CPS1xxx_CTL_PORT_LOCKOUT)) {
 		/* Toggle link init if missed */
+
+		RIOCP_DEBUG("toggle link init on 0x%x:%u (0x%x) port %u\n", sw->destid, sw->hopcount, sw->comptag, port);
+
 		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_DET(port), &result);
 		if (ret < 0)
 			return ret;
@@ -1089,7 +1092,7 @@ static int cps1xxx_check_link_init(struct riocp_pe *sw, uint8_t port)
 static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 {
 	uint32_t result;
-	int ret;
+	int ret, lane_err_detected = 0;
 	uint8_t first_lane = 0, lane_count = 0, lane;
     uint32_t err8b10b;
 
@@ -1118,6 +1121,19 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 
 	/* enable los of lane trigger for all lanes on the current port */
 	for (lane = 0; lane < lane_count; lane++) {
+
+		/* Before the link is up and settles down, there are naturally 8b10b errors.
+		 * We read them before the link is up and discard them.
+		 */
+        ret = cps1xxx_get_switch_lane_8b10b(sw, lane + first_lane, &err8b10b);
+        if (ret)
+            return ret;
+        RIOCP_INFO("Read and discard 8b10b error counter for lane %d: %d\n",
+        		lane + first_lane, err8b10b);
+        if(err8b10b) {
+        	lane_err_detected++;
+        }
+
 		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_ERR_DET(lane + first_lane), 0);
 		if (ret < 0)
 			return ret;
@@ -1126,18 +1142,24 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 		if (ret < 0)
 			return ret;
 	}
+	if(lane_err_detected) {
+		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &result);
+		if (ret < 0)
+			return ret;
+		RIOCP_INFO("PORT%d_ERR_STAT: 0x%08x\n", port, result);
+		ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), result);
+		if (ret < 0)
+			return ret;
 
-	/* Before the link is up and settles down, there are naturally 8b10b errors.
-	 * We read them before the link is up and discard them.
-	 */
-    RIOCP_INFO("Read and discard 8b10b error counters before link is up\n");
-    for (lane=first_lane; lane<first_lane+lane_count; lane++) {
-        ret = cps1xxx_get_switch_lane_8b10b(sw, lane, &err8b10b);
-        if (ret)
-            return ret;
-        RIOCP_INFO("Read 8b10b error counter for lane %d: %d\n",
-                first_lane+lane_count, err8b10b);
-    }
+		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_DET(port), &result);
+		if (ret < 0)
+			return ret;
+		RIOCP_INFO("PORT%d_IMP_SPEC_ERR_DET: 0x%08x\n", port, result);
+		ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_DET(port),
+			result & ~CPS1xxx_IMPL_SPEC_ERR_DET_PORT_INIT);
+		if (ret < 0)
+			return ret;
+	}
 
 	/* enable port-writes and interrupts for port events */
 	ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_OPS(port), &result);
@@ -1183,7 +1205,7 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 
 	/*
 	 * port write trigger events setup:
-	 * - port fatal timeout is used to handle "PORT_OK may indicate indirect status" errata.
+	 * - port fatal timeout is used to handle "PORT_OK may indicate incorrect status" errata.
 	 */
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_IMPL_SPEC_ERR_RPT_EN(port),
 		CPS1xxx_IMPL_SPEC_ERR_DET_ERR_RATE |
@@ -1199,88 +1221,6 @@ static int cps1xxx_arm_port(struct riocp_pe *sw, uint8_t port)
 #ifdef CONFIG_ERROR_LOG_SUPPORT
 	cps1xxx_dump_event_log(sw);
 #endif
-
-	return ret;
-}
-
-/**
- * The following function will apply global settings to the switch.
- * It configures:
- *	- port-write destination
- *	- link time-out
- *	- enable error reporting
- *
- * Reporting for every error is enabled in ERR_DET is enabled except for UNEXP_ACKID.
- * this error is unreliable see CPS1848 or CPS1616 errata: false unexpected ackid reporting
- * for more information.
- */
-static int cps1xxx_init_bdc(struct riocp_pe *sw)
-{
-	uint32_t result;
-	int ret;
-	uint32_t val;
-	uint16_t did = RIOCP_PE_DID(sw->cap);
-
-	/* use repeated port-write sending for CPS1616.*/
-	/* For the CPS1848 a work-around is used. See pw_workaround for more information */
-	if (did == RIO_DID_IDT_CPS1616 || did == RIO_DID_IDT_SPS1616) {
-		ret = riocp_pe_maint_write(sw, CPS1616_DEVICE_PW_TIMEOUT, CPS1616_PW_TIMER);
-		if (ret < 0)
-			return ret;
-	}
-
-	/* Set the Port-Write Target Device ID CSR to the host */
-	val = CPS1xxx_RIO_SET_PW_DESTID(sw->mport->destid);
-	if (sw->mport->minfo->prop.sys_size == RIO_SYS_SIZE_16)
-		val |= CPS1xxx_RIO_PW_LARGE_DESTID;
-	ret = riocp_pe_maint_write(sw, CPS1xxx_RIO_PW_DESTID_CSR, val);
-	if (ret)
-		return ret;
-
-	/* configure link time out */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_LINK_TO_CTL_CSR,
-		CPS1xxx_RIO_LINK_TIMEOUT_DEFAULT);
-	if (ret < 0)
-		return ret;
-
-	/* implementation specific errors are only enabled for ERR_RATE errors
-		and PORT_INIT errors. The preparing a port for hot swapping procedure
-		lists that other errors might lead to unexpected events. */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_PORT_IMPL_SPEC_ERR_RPT_EN,
-		CPS1xxx_IMPL_SPEC_ERR_RPT_DEFAULT);
-	if (ret < 0)
-		return ret;
-
-	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_PORT_ERR_RPT_EN,
-		CPS1xxx_ERR_RPT_DEFAULT);
-	if (ret < 0)
-		return ret;
-
-	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_LANE_ERR_RPT_EN,
-		0xFFFFFFFF);
-	if (ret < 0)
-		return ret;
-
-	ret = riocp_pe_maint_write(sw, CPS1xxx_CFG_ERR_CAPT_EN, 0xFFFFFFFF);
-	if (ret < 0)
-		return ret;
-
-	/* Enable reporting of loss of lane sync errors for hot swapping */
-	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_LANE_ERR_RATE_EN,
-		CPS1xxx_LANE_ERR_RATE_EN_LOSS);
-	if (ret < 0)
-		return ret;
-
-	if (!(did == RIO_DID_IDT_CPS1616 || did == RIO_DID_IDT_SPS1616)) {
-		/* enable port-write reporting for configuration errors,
-			this is needed for the repeated port-write workaround */
-		ret = riocp_pe_maint_read(sw, CPS1xxx_CFG_BLK_ERR_RPT, &result);
-		if (ret < 0)
-			return ret;
-
-		ret = riocp_pe_maint_write(sw, CPS1xxx_CFG_BLK_ERR_RPT,
-			result | CPS1xxx_CFG_BLK_ERR_RPT_CFG_PW_EN);
-	}
 
 	return ret;
 }
@@ -3628,8 +3568,11 @@ int cps1xxx_init(struct riocp_pe *sw)
 
 	sw->private_driver_data = switch_priv;
 
-	/* init global settings for all ports */
-	cps1xxx_init_bdc(sw);
+	/* configure link time out */
+	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_LINK_TO_CTL_CSR,
+		CPS1xxx_RIO_LINK_TIMEOUT_DEFAULT);
+	if (ret < 0)
+		return ret;
 
 	/* clear lut table */
 	ret = cps1xxx_clear_lut(sw, RIOCP_PE_ANY_PORT);
@@ -3638,6 +3581,12 @@ int cps1xxx_init(struct riocp_pe *sw)
 
 	/* set default route to drop */
 	ret = riocp_pe_maint_write(sw, RIO_STD_RTE_DEFAULT_PORT, CPS1xxx_NO_ROUTE);
+	if (ret < 0)
+		return ret;
+
+	/* Enable reporting of loss of lane sync errors for hot swapping */
+	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_LANE_ERR_RATE_EN,
+		CPS1xxx_LANE_ERR_RATE_EN_LOSS);
 	if (ret < 0)
 		return ret;
 
@@ -3687,6 +3636,10 @@ int cps1xxx_init_em(struct riocp_pe *sw)
 {
 	int ret;
 	uint8_t port;
+#ifdef CONFIG_PORTWRITE_ENABLE
+	uint16_t did = RIOCP_PE_DID(sw->cap);
+	uint32_t val, result;
+#endif
 
 	/*
 	 * Set a route towards the enumeration host for the input port
@@ -3728,11 +3681,60 @@ int cps1xxx_init_em(struct riocp_pe *sw)
 	if (ret)
 		return ret;
 
+	/* implementation specific errors are only enabled for ERR_RATE errors
+		and PORT_INIT errors. The preparing a port for hot swapping procedure
+		lists that other errors might lead to unexpected events. */
+	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_PORT_IMPL_SPEC_ERR_RPT_EN,
+		CPS1xxx_IMPL_SPEC_ERR_RPT_DEFAULT);
+	if (ret < 0)
+		return ret;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_PORT_ERR_RPT_EN,
+		CPS1xxx_ERR_RPT_DEFAULT);
+	if (ret < 0)
+		return ret;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_BCAST_LANE_ERR_RPT_EN,
+		0xFFFFFFFF);
+	if (ret < 0)
+		return ret;
+
+	ret = riocp_pe_maint_write(sw, CPS1xxx_CFG_ERR_CAPT_EN, 0xFFFFFFFF);
+	if (ret < 0)
+		return ret;
+
 #ifdef CONFIG_PORTWRITE_ENABLE
+	/* use repeated port-write sending for CPS1616.*/
+	/* For the CPS1848 a work-around is used. See pw_workaround for more information */
+	if (did == RIO_DID_IDT_CPS1616 || did == RIO_DID_IDT_SPS1616) {
+		ret = riocp_pe_maint_write(sw, CPS1616_DEVICE_PW_TIMEOUT, CPS1616_PW_TIMER);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* Set the Port-Write Target Device ID CSR to the host */
+	val = CPS1xxx_RIO_SET_PW_DESTID(sw->mport->destid);
+	if (sw->mport->minfo->prop.sys_size == RIO_SYS_SIZE_16)
+		val |= CPS1xxx_RIO_PW_LARGE_DESTID;
+	ret = riocp_pe_maint_write(sw, CPS1xxx_RIO_PW_DESTID_CSR, val);
+	if (ret)
+		return ret;
+
 	/* Set Port-Write info CSR: PRIO=3 and CRF=1 */
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PW_CTL, CPS1xxx_PW_INFO_PRIO3_CRF1 | CPS1xxx_PW_INFO_SRCID(sw->destid));
 	if (ret < 0)
 		return ret;
+
+	if (!(did == RIO_DID_IDT_CPS1616 || did == RIO_DID_IDT_SPS1616)) {
+		/* enable port-write reporting for configuration errors,
+			this is needed for the repeated port-write workaround */
+		ret = riocp_pe_maint_read(sw, CPS1xxx_CFG_BLK_ERR_RPT, &result);
+		if (ret < 0)
+			return ret;
+
+		ret = riocp_pe_maint_write(sw, CPS1xxx_CFG_BLK_ERR_RPT,
+			result | CPS1xxx_CFG_BLK_ERR_RPT_CFG_PW_EN);
+	}
 #endif
 
 
