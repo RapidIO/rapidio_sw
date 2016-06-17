@@ -80,8 +80,8 @@ RSKTS_OBJECTS = src/rskts.o
 REMDBG_SOURCE = src/remdbg.c
 REMDBG_OBJECTS = src/remdbg.o
 
-LIBRARIES = -lrskt -lcli -lrt -ldl -lmport \
-	-llist -llog -lrdma -lfmdd -ldd -lriocp_pe
+LIBRARIES = -lrskt -lrdma -lriocp_pe -lmport \
+	-llist -llog -lfmdd -ldd -lcli -lrt -ldl 
 
 all: rsktd rskts remdbg 
 

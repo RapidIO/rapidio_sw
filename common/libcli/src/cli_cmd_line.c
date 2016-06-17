@@ -45,7 +45,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <netinet/tcp.h>
 
 #include "cli_cmd_db.h"
-#include "liblog.h"
 #include "cli_cmd_line.h"
 
 #ifdef __cplusplus
@@ -572,7 +571,8 @@ int CLIQuitCmd(struct cli_env *env, int argc, char **argv)
 	};
 	if ((-1 == env->sess_socket) && (NULL != cons_cleanup))
 		(*cons_cleanup)(env);
-	return 1;
+	_exit(0);
+	//return 1;
 exit:
 	return 0;
 }
@@ -637,7 +637,7 @@ int SetCmd(struct cli_env *env, int argc, char **argv)
 		std::map<std::string, std::string>::iterator it
 					= SET_VARS.find(argv[0]);
                 if (it == SET_VARS.end()) {
-			INFO("\n\tNo such env var '%s'\n", argv[0]);
+			fprintf(stderr, "No such env var '%s'\n", argv[0]);
 			return 0;
 		}
                 SET_VARS.erase(it);

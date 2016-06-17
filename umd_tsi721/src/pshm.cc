@@ -270,7 +270,9 @@ int main()
     std::string s;
     shm.dumpRegistry(s);
     puts(s.c_str());
-    write(STDOUT_FILENO, "Enter:", 6);
+    if (write(STDOUT_FILENO, "Enter:", 6) < 0) {
+	// Too bad
+    };
     int c;
     read(STDIN_FILENO, &c, 1);
   } catch(std::runtime_error e) { fprintf(stderr, "Exception: %s\n", e.what()); }

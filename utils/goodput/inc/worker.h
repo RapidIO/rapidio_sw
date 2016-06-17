@@ -196,6 +196,7 @@ typedef struct {
 	uint64_t my_rio_addr;   ///< My RIO address broadcast to this peer
 	int      bcast_cnt_out; ///< How many time we broadcast IBwin mapping to it
 	int      bcast_cnt_in;  ///< How many time we received his broadcasts of IBwin mapping
+	char*    state;         ///< Documentation, debug-only
 } DmaPeerCommsStats_t;
 
 #endif // USER_MODE_DRIVER
@@ -276,6 +277,8 @@ struct worker {
 	struct timespec tot_iter_time; /* Total time for all iterations */
 	struct timespec min_iter_time; /* Minimum time over all iterations */
 	struct timespec max_iter_time; /* Maximum time over all iterations */
+	struct timespec iter_time_lim; /* Maximum time for an iteration. */
+					/* Drop all times above this limit */
 
 	struct seq_ts desc_ts;
 	struct seq_ts fifo_ts;
@@ -413,6 +416,8 @@ void start_worker_thread(struct worker *info, int new_mp_h, int cpu);
  */
 
 void shutdown_worker_thread(struct worker *info);
+
+bool dma_alloc_ibwin(struct worker *info);
 
 extern "C" {
 	void display_gen_status_ss(std::stringstream& out);

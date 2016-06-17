@@ -62,12 +62,11 @@ SOURCES = src/goodput.c src/goodput_cli.c src/worker.c
 
 # User-mode only flags
 UMD_FLAGS = -I$(REGSDIR) -DUSER_MODE_DRIVER \
-	 -Wall -Wno-format -Wno-sign-compare -Wno-write-strings \
 	 -DRDMA_LL=$(LOG_LEVEL)
 
 UMD_SOURCES = src/udma_tun.cc src/tun_ipv4.c src/umbox_afu.cc src/rdmaopsumd.cc src/httpsrv.cc
 
-LIBRARIES =  -lpthread -ldl -lmport -lcli -ltime_utils -llog -lrt -lumd_tsi721
+LIBRARIES =  -lumd_tsi721 -lmport -ltime_utils -llog -lcli -lpthread -ldl -lrt 
 
 all: goodput ugoodput
 

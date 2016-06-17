@@ -1013,7 +1013,7 @@ int riomp_sock_send(riomp_sock_t socket_handle, void *buf, uint32_t size)
 
 	msg.ch_num = handle->ch.id;
 	msg.size = size;
-	msg.msg = buf;
+	msg.msg = (__u64)buf;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_SEND, &msg);
 	if (ret)
 		return errno;
@@ -1030,7 +1030,7 @@ int riomp_sock_receive(riomp_sock_t socket_handle, void **buf,
 
 	msg.ch_num = handle->ch.id;
 	msg.size = size;
-	msg.msg = *buf;
+	msg.msg = (__u64)*buf;
 	msg.rxto = timeout;
 	ret = ioctl(handle->mbox->fd, RIO_CM_CHAN_RECEIVE, &msg);
 	if (ret)

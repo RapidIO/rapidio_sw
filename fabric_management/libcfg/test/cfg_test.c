@@ -66,12 +66,13 @@ extern "C" {
 
 #define MASTER_SUCCESS (char *)("test/master_success.cfg")
 #define SLAVE_SUCCESS (char *)("test/slave_success.cfg")
+#define TOR_SUCCESS   (char *)("test/tor_success.cfg")
 
 int test_case_1(void)
 {
-	char *dd_mtx_fn, *dd_fn;
+	char *dd_mtx_fn = NULL, *dd_fn = NULL;
 	char *test_dd_mtx_fn = (char *)CFG_DFLT_DD_MTX_FN;
-	char *test_dd_fn = (char *)CFG_DFLT_DD_FN;
+	char *test_dd_fn  = (char *)CFG_DFLT_DD_FN;
 	uint8_t mem_sz;
 
 	uint32_t m_did, m_cm_port, m_mode;
@@ -126,7 +127,7 @@ int test_case_2(void)
 	uint32_t m_did, m_cm_port, m_mode;
 	
 
-	for (i = 0; (i < 6) && rc; i++) {
+	for (i = 0; (i < 10) && rc; i++) {
 		snprintf(fn, 90, "test/parse_fail_%d.cfg", i);
 	
 		rc = cfg_parse_file(fn, &dd_mtx_fn, &dd_fn, &m_did,
@@ -149,6 +150,7 @@ int test_case_3(void)
 	char *dd_mtx_fn = NULL, *dd_fn = NULL;
 	uint32_t m_did, m_cm_port, m_mode;
 
+	memset(&dev, 0, sizeof(dev));
 	if (cfg_parse_file(MASTER_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
 			&m_cm_port, &m_mode))
 		goto fail;
@@ -320,6 +322,153 @@ fail:
 	return 1;
 };
 	
+int test_case_5(void)
+{
+	struct cfg_mport_info mp;
+	struct cfg_dev dev;
+	char *dd_mtx_fn = NULL, *dd_fn = NULL;
+	char *test_dd_mtx_fn = (char *)CFG_DFLT_DD_MTX_FN;
+	char *test_dd_fn = (char *)CFG_DFLT_DD_FN;
+	uint32_t m_did, m_cm_port, m_mode;
+	int p_idx, idx;
+	int pnums[6] = {2, 3, 5, 6, 10, 11};
+	uint8_t chk_pnum[6] = {0, 1, 4, 7, 8, 9};
+	int x = 1;
+
+	if (cfg_parse_file(TOR_SUCCESS, &dd_mtx_fn, &dd_fn, &m_did,
+			&m_cm_port, &m_mode))
+		goto fail;
+
+	if (strncmp(dd_mtx_fn, test_dd_mtx_fn, strlen(dd_mtx_fn)))
+		goto fail;
+
+	if (strncmp(dd_fn, test_dd_fn, strlen(test_dd_fn)))
+		goto fail;
+
+	if (0x1A != m_did)
+		goto fail;
+
+	if (CFG_DFLT_MAST_CM_PORT != m_cm_port)
+		goto fail;
+
+	if (!m_mode)
+		goto fail;
+
+	if (cfg_find_mport(0, &mp))
+		goto fail;
+
+	if (!cfg_find_mport(3, &mp))
+		goto fail;
+
+	if (cfg_find_dev_by_ct(0x21001A, &dev))
+		goto fail;
+
+	if (cfg_find_dev_by_ct(0x700F7, &dev))
+		goto fail;
+
+	/* Check out the switch routing table parsing in detail. */
+	if (cfg_find_dev_by_ct(0x10010, &dev))
+		goto fail;
+
+	if (!dev.is_sw)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->default_route != IDT_DSF_RT_NO_ROUTE)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x12].rte_val  != 2)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x13].rte_val  != 3)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x15].rte_val  != 5)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x16].rte_val  != 6)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x1A].rte_val  != 10)
+		goto fail;
+
+	if (dev.sw_info.rt[CFG_DEV08]->dev_table[0x1B].rte_val  != 11)
+		goto fail;
+
+	for (p_idx = 0; p_idx < 6; p_idx++) {
+		int pnum = pnums[p_idx];
+		for (idx = 0; idx <= RIO_LAST_DEV8; idx++) {
+			if (dev.sw_info.sw_pt[pnum].rt[CFG_DEV08]->dev_table[idx].rte_val  != chk_pnum[p_idx]) {
+				if ((2 == pnum) && ((idx >= 0xf7) && (idx <= 0xfc))) 
+					continue;
+				goto fail;
+			};
+		};
+	};
+
+	/* Check out connection parsing between endpoints & switches,
+	* and between switches.
+	*/
+
+	for (int idx = 0; idx < 4; idx++) {
+		struct cfg_dev ep, sw, rev_ep;
+		int sw_pt, rev_pt;
+		uint32_t ct[4] = { 0x21001A, 0x220015, 0x230012, 0x240013 };
+
+		if (cfg_find_dev_by_ct(ct[idx], &ep)) {
+			x = 5;
+			goto fail;
+		}
+
+		if (cfg_get_conn_dev(ct[idx], 0, &sw, &sw_pt)) {
+			x = 6;
+			goto fail;
+		}
+
+		if (cfg_get_conn_dev(sw.ct, sw_pt, &rev_ep, &rev_pt)) {
+			x = 7;
+			goto fail;
+		}
+
+		if (memcmp(&ep, &rev_ep, sizeof(ep))) {
+			x = 8;
+			goto fail;
+		}
+		if (0 != rev_pt) {
+			x = 9;
+			goto fail;
+		}
+	};
+
+	for (int sw = 1; sw < 7; sw++) {
+		struct cfg_dev l0_sw, l1_sw, rev_dev;
+		uint32_t ct = 0x10010 * sw;
+		int port_list[6] = {0, 1, 4, 7, 8, 9};
+		int pt_idx;
+		int l0_pt, l1_pt, rev_pt;
+
+		if (cfg_find_dev_by_ct(ct, &l0_sw))
+			goto fail;
+		for (pt_idx = 0; pt_idx < 6; pt_idx++) {
+			l0_pt = port_list[pt_idx];
+
+			if (cfg_get_conn_dev(ct, l0_pt, &l1_sw, &l1_pt))
+				goto fail;
+
+			if (cfg_get_conn_dev(l1_sw.ct, l1_pt, &rev_dev, &rev_pt))
+				goto fail;
+			if (memcmp(&l0_sw, &rev_dev, sizeof(l0_sw)))
+				goto fail;
+			if (rev_pt != l0_pt)
+				goto fail;
+		};
+	};
+
+
+	return 0;
+fail:
+	return x;
+};
+	
 int main(int argc, char *argv[])
 {
 	int rc = EXIT_FAILURE;
@@ -356,6 +505,13 @@ int main(int argc, char *argv[])
 		goto fail;
 	};
 	printf("\nTest_case_4 passed.");
+	free(cfg);
+
+	if (test_case_5()) {
+		printf("\nTest_case_5 FAILED.");
+		goto fail;
+	};
+	printf("\nTest_case_5 passed.");
 	free(cfg);
 
 	rc = EXIT_SUCCESS;

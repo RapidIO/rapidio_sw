@@ -27,6 +27,7 @@ echo "Reordered node list: $NODE_LIST";
 
 for node in $NODE_LIST
 do
+	echo Shutdown $node
 	ssh root@"$node" poweroff 
 done
 

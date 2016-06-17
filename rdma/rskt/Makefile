@@ -38,15 +38,15 @@ TARGETS = librskt rsktd samples
 
 all: $(TARGETS)
 
-samples: FORCE
-	$(MAKE) all -C samples
-	cp samples/rskt_server .
-	cp samples/rskt_client .
-		
 librskt: FORCE
 	$(MAKE) all -C lib
 	mkdir -p $(COMMONLIBA)
 	cp lib/librskt.a $(COMMONLIBA)
+		
+samples: librskt FORCE 
+	$(MAKE) all -C samples
+	cp samples/rskt_server .
+	cp samples/rskt_client .
 		
 rsktd: librskt FORCE
 	$(MAKE) all -C daemon

@@ -70,9 +70,10 @@ src/%.o: src/%.c $(HEADERS)
 
 test: all $(TEST_TARGET) 
 
-$(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) -llog -pthread \
-	-L. -L$(COMMONLIBA)
+$(TEST_TARGET): $(TEST_OBJECTS) $(OBJECTS)
+	$(CXX) $(CXXFLAGS) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) \
+	-L. -L$(COMMONLIBA) \
+	-lcli -llog -pthread
 
 clean:
 	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a lib$(NAME).so*

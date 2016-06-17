@@ -54,7 +54,7 @@ static void respond(int fd, const char* rsp, const int rsp_size)
   int rcvd = recv(fd, mesg, sizeof(mesg)-1 , 0);
 
   if (rcvd < 0) {		// receive error
-    fprintf(stderr, "\n\trecv() error: %d\n", strerror(errno));
+    fprintf(stderr, "\n\trecv() error: %d %s\n", errno, strerror(errno));
     return;
   }
   if (rcvd == 0) {		// receive socket closed
@@ -76,7 +76,10 @@ static void respond(int fd, const char* rsp, const int rsp_size)
   iov[1].iov_base = (void*)rsp;
   iov[1].iov_len  = rsp_size;
 
-  writev(fd, (struct iovec*)&iov, 2);
+  int sent = writev(fd, (struct iovec*)&iov, 2);
+  if (sent < 0) {
+    fprintf(stderr, "\n\twritev() error: %d %s\n", errno, strerror(errno));
+  };
 }
 
 extern void UMD_DD_SS(struct worker* info, std::stringstream& out);
@@ -88,7 +91,8 @@ static bool collectPeerRoutes(std::string& out)
 
   while(! feof(f)) {
     char buf[257] = {0};
-    fgets(buf, 256, f);
+    if (NULL == fgets(buf, 256, f))
+	break;
     if(buf[0] == '\0') break;
 
     int N = strlen(buf);

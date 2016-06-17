@@ -58,6 +58,8 @@ SERVER_OBJS= server.o
 LIB_DEPS= libfxfr
 .PHONY: $(LIB_DEPS)
 
+LIBRARIES=-lfxfr -lmport -llog -lcli -ldl -lrt
+
 
 %.o: %.c $(SERVER_DEPS) $(LIB_DEPS)
 	$(CXX) -c -o $@ $< $(CXXFLAGS) -I./libfxfr/inc
@@ -69,18 +71,18 @@ libfxfr:
 	
 fxfr_server: $(SERVER_OBJS) 
 	$(CXX) $(CXXFLAGS) -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	$(LIBS_RPATH) \
-	-lfxfr -lcli -ldl -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
+	$(LIBS_RPATH) $(LIBRARIES) \
+	-D__CLI_LINUX__ -I./libfxfr/inc
 
 rftp: $(CLIENT_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	$(LIBS_RPATH) \
-	-lfxfr -lcli -ldl -lmport -llog -lrt -D__CLI_LINUX__ -I./libfxfr/inc
+	$(LIBS_RPATH) $(LIBRARIES) \
+	-D__CLI_LINUX__ -I./libfxfr/inc
 
 remdbg: $(REMDBG_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ -pthread -L$(LOCAL_LIBRARY_DIR) -L$(COMMON_LIBS_DIR) \
-	$(LIBS_RPATH) \
-	-lfxfr -lcli -llog -lrt -D__CLI_LINUX__ 
+	$(LIBS_RPATH) -lfxfr -lcli -llog -lrt \
+	-D__CLI_LINUX__ 
 
 all: $(LIB_DEPS) libfxfr fxfr_server rftp remdbg
 

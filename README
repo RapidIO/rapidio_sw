@@ -31,7 +31,46 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-RapidIO Software Stack distribution Revision 4
+--->>> RAPIDIO REMOTE MEMORY ACCESS PLATFORM REVISION 4.2 <<<---
+
+****** GENERAL NOTES ABOUT THE SCRIPTS *******
+
+- If invoked without parameters, all scripts will respond with the
+  list of parameters required by the script.
+
+- A node name of "none" for nodes 2, 3, and 4 is ignored by the scripts.
+
+******* PREPARING TO INSTALL RRMAP *******
+
+Note that the scripts below may have already been used to install the 
+Linux kernel package.  If so, skip this step.
+
+The installation script requires SSH password-less root access to the four nodes
+of the cluster.  The scripts below can be used to simplify this setup.
+
+- admin_init_root.sh configures passwordless access for a specified user
+        on the four nodes entered.
+- admin_init_dir.sh creates the directories used by the driver install as well
+        as the RRMAP software
+- admin_user_add.sh creates the named user account with specified password
+        and Linux group on the four nodes specified.
+- admin_user_del.sh removes the named user account on the four nodes specified.
+
+To prepare the system for the software install, execute the following sequence.
+Note that the script parameters have been left out for brevity.
+
+1) sudo admin_init_root_key.sh to get SSH root access to all four nodes.
+2) sudo admin_user_add.sh to create as many users as required
+3) admin_init_root_key.sh for each user to get SSH root access to all four nodes
+4) admin_init_dir.sh to create the directories on all four nodes
+
+******* INSTALLING THE RRMAP SOFTWARE *******
+
+To install the RRMAP, invoke install.sh with the required parameters.
+
+******* INSTALLING THE RRMAP SOFTWARE *******
+
+The RRMAP software stack consists of the following functionality:
 - Fabric Management
 - Remote Memory Access, with socket style semantics and named memory spaces
 - Socket interface implemented with Remote Direct Memory Access

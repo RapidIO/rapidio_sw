@@ -307,8 +307,7 @@ destroy_client_socket:
 
 int main(int argc, char *argv[])
 {
-	char c;
-
+	int c;
 	time_t	cur_time;
 	char	asc_time[26];
 	unsigned parallel = 1;

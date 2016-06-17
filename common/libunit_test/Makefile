@@ -48,6 +48,7 @@ CXXFLAGS+=-D$(DEBUG)
 CXXFLAGS+=-I. -Iinc -Isrc
 CXXFLAGS+=-DRDMA_LL=$(level)
 LDFLAGS+=-L. -l$(NAME)
+
 SO_LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER) -lnsl -fPIC -g -ggdb
 
 OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
@@ -64,6 +65,9 @@ all: $(TARGETS)
 	@ln -s $@.$(SOVER) $@ &>/dev/null
 
 src/%.o: src/%.c $(HEADERS)
+	$(CXX) -c $(CXXFLAGS) $< -o $@
+
+test/%.o: test/%.c $(HEADERS)
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 test: all $(TEST_TARGET) 

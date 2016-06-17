@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "libtime_utils.h"
+#include "libcli.h"
 #include "liblog.h"
 
 #ifdef __cplusplus
@@ -329,6 +330,117 @@ int test_case_7(void)
 fail:
 	return 1;
 };
+/** @brief Test correct operation of time_track_lim
+ * @return int, 0 for success, 1 for failure
+ */
+int test_case_8(void)
+{
+	struct timespec start_ts, end_ts, lim;
+	struct timespec test_total_time = {0, 0}, test_mintime, test_maxtime;
+	
+	// Test start condition, end ts < start ts
+	start_ts = (struct timespec){1, 0};
+	end_ts = (struct timespec){0, 500000};
+	lim  = (struct timespec){0, 3000};
+	test_mintime = (struct timespec){5, 5};
+	test_maxtime = (struct timespec){6, 6};
+	test_total_time = (struct timespec){7, 7};
+
+	time_track_lim(0, &lim, &start_ts, &end_ts,
+		&test_total_time, &test_mintime, &test_maxtime);
+
+	if ((test_mintime.tv_sec != 0xFFFFFFFF) ||
+		(test_mintime.tv_nsec != 0xFFFFFFFF) ||
+		(test_maxtime.tv_sec != 0) ||
+		(test_maxtime.tv_nsec != 0) ||
+		(test_total_time.tv_sec != 0) ||
+		(test_total_time.tv_nsec != 0)) {
+		goto fail;
+	};
+
+	// Test start condition, delta > limit condition 1
+	end_ts = (struct timespec){1, 0};
+	start_ts = (struct timespec){0, 500000};
+	lim  = (struct timespec){0, 3000};
+	test_mintime = (struct timespec){5, 5};
+	test_maxtime = (struct timespec){6, 6};
+	test_total_time = (struct timespec){7, 7};
+
+	time_track_lim(0, &lim, &start_ts, &end_ts,
+		&test_total_time, &test_mintime, &test_maxtime);
+
+	if ((test_mintime.tv_sec != 0xFFFFFFFF) ||
+		(test_mintime.tv_nsec != 0xFFFFFFFF) ||
+		(test_maxtime.tv_sec != 0) ||
+		(test_maxtime.tv_nsec != 0) ||
+		(test_total_time.tv_sec != 0) ||
+		(test_total_time.tv_nsec != 0)) {
+		goto fail;
+	};
+
+
+	// Test start condition, delta > limit condition 2
+	end_ts = (struct timespec){2, 0};
+	start_ts = (struct timespec){0, 500000};
+	lim  = (struct timespec){0, 3000};
+	test_mintime = (struct timespec){5, 5};
+	test_maxtime = (struct timespec){6, 6};
+	test_total_time = (struct timespec){7, 7};
+
+	time_track_lim(0, &lim, &start_ts, &end_ts,
+		&test_total_time, &test_mintime, &test_maxtime);
+
+	if ((test_mintime.tv_sec != 0xFFFFFFFF) ||
+		(test_mintime.tv_nsec != 0xFFFFFFFF) ||
+		(test_maxtime.tv_sec != 0) ||
+		(test_maxtime.tv_nsec != 0) ||
+		(test_total_time.tv_sec != 0) ||
+		(test_total_time.tv_nsec != 0)) {
+		goto fail;
+	};
+
+
+	// Test start condition, success
+	end_ts = (struct timespec){1, 0};
+	start_ts = (struct timespec){0, 500000000};
+	lim  = (struct timespec){0, 500000000};
+	test_mintime = (struct timespec){5, 5};
+	test_maxtime = (struct timespec){6, 6};
+	test_total_time = (struct timespec){7, 7};
+
+	time_track_lim(0, &lim, &start_ts, &end_ts,
+		&test_total_time, &test_mintime, &test_maxtime);
+
+	if ((test_mintime.tv_sec != 0) ||
+		(test_mintime.tv_nsec != 500000000) ||
+		(test_maxtime.tv_sec != 0) ||
+		(test_maxtime.tv_nsec != 500000000) ||
+		(test_total_time.tv_sec != 0) ||
+		(test_total_time.tv_nsec != 500000000)) {
+		goto fail;
+	};
+
+	// Test tracking
+	end_ts = (struct timespec){0, 500000001};
+	start_ts = (struct timespec){0, 500000000};
+	lim  = (struct timespec){0, 500000000};
+
+	time_track_lim(1, &lim, &start_ts, &end_ts,
+		&test_total_time, &test_mintime, &test_maxtime);
+
+	if ((test_mintime.tv_sec != 0) ||
+		(test_mintime.tv_nsec != 1) ||
+		(test_maxtime.tv_sec != 0) ||
+		(test_maxtime.tv_nsec != 500000000) ||
+		(test_total_time.tv_sec != 0) ||
+		(test_total_time.tv_nsec != 500000001)) {
+		goto fail;
+	};
+
+	return 0;
+fail:
+	return 1;
+};
 	
 int main(int argc, char *argv[])
 {
@@ -382,6 +494,12 @@ int main(int argc, char *argv[])
 		goto fail;
 	};
 	printf("\nTest_case_7 passed.");
+
+	if (test_case_8()) {
+		printf("\nTest_case_8 FAILED.");
+		goto fail;
+	};
+	printf("\nTest_case_8 passed.");
 
 	rc = EXIT_SUCCESS;
 fail:

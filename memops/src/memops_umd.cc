@@ -34,6 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <sched.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #include "memops.h"
 #include "memops_mport.h"
@@ -50,7 +51,8 @@ static int getCPUCount()
   int count = 0;
   while (! feof(f)) {
     char buf[257] = {0};
-    fgets(buf, 256, f);
+    if (NULL == fgets(buf, 256, f))
+	break;
     if (buf[0] == '\0') break;
     if (strstr(buf, "processor\t:")) count++;
   }
@@ -443,14 +445,14 @@ next:
     clock_gettime(CLOCK_MONOTONIC, &now);
 
     struct timespec dT = time_difference(st_time, now);
-    const uint64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
+    const int64_t nsec = dT.tv_nsec + (dT.tv_sec * 1000000000);
     if (nsec > timeout) { 
       int abort = 0;
       if (checkAbort())
            abort = getAbortReason();
       else m_errno = ETIMEDOUT;
 
-      fprintf(stderr, "UMD %s: Ticket %lu timed out in %llu nsec with code %d (%s)\n", __func__, opt.ticket, nsec, abort, abortReasonToStr(abort));
+      fprintf(stderr, "UMD %s: Ticket %lu timed out in %" PRId64 " nsec with code %d (%s)\n", __func__, opt.ticket, nsec, abort, abortReasonToStr(abort));
       return false;
     }
   } // END infinite for

@@ -123,10 +123,10 @@ void parse_options(int argc, char *argv[],
 		int *print_help,
 		uint8_t *mport_num,
 		int *run_cons,
-		int *win_size,      
+		int *win_size,
 		int *num_win, 
 		int *xfer_skt,
-	       	uint64_t *ibwin_base )   
+		uint64_t *ibwin_base )   
 {
 	int idx;
 
@@ -239,9 +239,9 @@ sem_t cons_owner;
 
 void set_prompt(struct cli_env *e)
 {
-        if (e != NULL) {
-                strncpy(e->prompt, "FXServer> ", PROMPTLEN);
-        };
+	if (e != NULL) {
+		strncpy(e->prompt, "FXServer> ", PROMPTLEN);
+	};
 };
 
 uint8_t mp_h_mport_num;
@@ -284,16 +284,16 @@ uint8_t last_ibwin; /* 0-7 means next window to be cleared */
 
 int FXIbwinCmd(struct cli_env *env, int argc, char **argv)
 {
-        uint8_t idx;
+	uint8_t idx;
 	int rc;
 
 	if (!mp_h_valid) {
 		rc = riomp_mgmt_mport_create_handle(mp_h_mport_num, 0, &mp_h);
 		if (rc) {
-                        sprintf(env->output, 
+			sprintf(env->output, 
 				"\nFAILED: Unable to open mport %d...\n",
 				mp_h_mport_num );
-                        logMsg(env);
+			logMsg(env);
 			return 0;
 		};
 		mp_h_valid = 1;
@@ -314,13 +314,13 @@ int FXIbwinCmd(struct cli_env *env, int argc, char **argv)
 		rc |= riomp_mgmt_lcfg_write(mp_h, IBWIN_TLA(idx), 4, 0);
 		rc |= riomp_mgmt_lcfg_write(mp_h, IBWIN_TUA(idx), 4, 0);
 		if (rc) {
-                        sprintf(env->output, 
+			sprintf(env->output, 
 				"\nFAILED: Could not clear ibwin %d\n", idx);
-                        logMsg(env);
+			logMsg(env);
 		} else {
-                        sprintf(env->output, 
+			sprintf(env->output, 
 				"\nPASSED: Cleared ibwin %d\n", idx);
-                        logMsg(env);
+			logMsg(env);
 		};
 	};
 
@@ -355,7 +355,7 @@ struct cli_cmd FXIbwin = {
 0,
 "Tsi721 Inbound Window command.",
 "{<win>}\n"
-        "<win> Window index to be cleared.\n",
+	"<win> Window index to be cleared.\n",
 FXIbwinCmd,
 ATTR_RPT
 };
@@ -367,7 +367,7 @@ extern struct cli_cmd FXStatus;
 
 int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 {
-        int        idx, st_idx = 0, max_idx = MAX_IBWIN;
+	int	idx, st_idx = 0, max_idx = MAX_IBWIN;
 
 	if (argc) {
 		st_idx = getDecParm(argv[0], 0);
@@ -381,7 +381,7 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 	
 	sprintf(env->output, 
 	"\nWin V   RapidIO Addr    Size    Memory Space PHYS TV D C RC\n");
-        logMsg(env);
+	logMsg(env);
 	for (idx = st_idx; idx < max_idx; idx++) {
 		sprintf(env->output, 
 			"%2d  %1d %16lx %8lx  %16lx  %1d %1d %1d %8x\n",
@@ -397,28 +397,28 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 		logMsg(env);
 	}
 	sprintf(env->output, "\nall_must_die status : %d\n", all_must_die);
-        logMsg(env);
+	logMsg(env);
 	sprintf(env->output, "XFER Socket #       : %d\n", conn_skt_num);
-        logMsg(env);
+	logMsg(env);
 	sprintf(env->output, "XFER conn_loop_alive: %d\n", conn_loop_alive);
-        logMsg(env);
+	logMsg(env);
 	sprintf(env->output, "Pending conn reqs   : %s\n", 
 			(conn_reqs.head)?"AVAILABLE":"None");
-        logMsg(env);
+	logMsg(env);
 	sprintf(env->output, "\nCLI Sessions Alive : %d\n", cli_session_alive);
-        logMsg(env);
+	logMsg(env);
 	sprintf(env->output, "CLI Socket #       : %d\n", cli_session_portno);
-        logMsg(env);
+	logMsg(env);
 	sprintf(env->output, "\nServer mport       : %d\n", mp_h_mport_num);
-        logMsg(env);
+	logMsg(env);
 	sprintf(env->output, "Server destID      : %x\n", qresp.hdid);
-        logMsg(env);
+	logMsg(env);
 
 	return 0;
 
 show_help:
 	sprintf(env->output, "\nFAILED: Extra parms or invalid values\n");
-        logMsg(env);
+	logMsg(env);
 	cli_print_help(env, &FXStatus);
 
 	return 0;
@@ -430,7 +430,7 @@ struct cli_cmd FXStatus = {
 0,
 "File transfer status command.",
 "{IDX {DBG}}\n" 
-        "Dumps the status of the file transfer state database.\n"
+	"Dumps the status of the file transfer state database.\n"
 	"<IDX> : 0-7, Optionally limits display to a single process.\n"
 	"<DBG> : 0|1  Disables (0) or enables (1) debug statements.\n",
 FXStatusCmd,
@@ -454,90 +454,90 @@ struct cli_cmd FXShutdown = {
 0,
 "Shutdown server.",
 "No Parameters\n" 
-        "Shuts down all threads, including CLI.\n",
+	"Shuts down all threads, including CLI.\n",
 FXShutdownCmd,
 ATTR_NONE
 };
 
 int FXMpdevsCmd(struct cli_env *env, int argc, char **argv)
 {
-        uint32_t *mport_list = NULL;
-        uint32_t *ep_list = NULL;
-        uint32_t *list_ptr;
-        uint32_t number_of_eps = 0;
-        uint8_t  number_of_mports = RIODP_MAX_MPORTS;
-        uint32_t ep = 0;
-        int i;
-        int mport_id;
-        int ret = 0;
+	uint32_t *mport_list = NULL;
+	uint32_t *ep_list = NULL;
+	uint32_t *list_ptr;
+	uint32_t number_of_eps = 0;
+	uint8_t  number_of_mports = RIODP_MAX_MPORTS;
+	uint32_t ep = 0;
+	int i;
+	int mport_id;
+	int ret = 0;
 
 	if (argc) {
-                sprintf(env->output,
+		sprintf(env->output,
 			"FAILED: Extra parameters ignored: %s\n", argv[0]);
 		logMsg(env);
 	};
 
-        ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
-        if (ret) {
-                sprintf(env->output,
+	ret = riomp_mgmt_get_mport_list(&mport_list, &number_of_mports);
+	if (ret) {
+		sprintf(env->output,
 			"ERR: riomp_mport_get_mport_list() ERR %d\n", ret);
 		logMsg(env);
-                return 0;
-       }
+		return 0;
+	}
 
-        printf("\nAvailable %d local mport(s):\n", number_of_mports);
-        if (number_of_mports > RIODP_MAX_MPORTS) {
-                sprintf(env->output,
-                	"WARNING: Only %d out of %d have been retrieved\n",
-                        RIODP_MAX_MPORTS, number_of_mports);
+	printf("\nAvailable %d local mport(s):\n", number_of_mports);
+	if (number_of_mports > RIODP_MAX_MPORTS) {
+		sprintf(env->output,
+			"WARNING: Only %d out of %d have been retrieved\n",
+			RIODP_MAX_MPORTS, number_of_mports);
 		logMsg(env);
-        }
+	}
 
-        list_ptr = mport_list;
-        for (i = 0; i < number_of_mports; i++, list_ptr++) {
-                mport_id = *list_ptr >> 16;
-                sprintf(env->output, "+++ mport_id: %u dest_id: %u\n",
-                                mport_id, *list_ptr & 0xffff);
+	list_ptr = mport_list;
+	for (i = 0; i < number_of_mports; i++, list_ptr++) {
+		mport_id = *list_ptr >> 16;
+		sprintf(env->output, "+++ mport_id: %u dest_id: %u\n",
+				mport_id, *list_ptr & 0xffff);
 		logMsg(env);
 
-                /* Display EPs for this MPORT */
+		/* Display EPs for this MPORT */
 
-                ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, 
+		ret = riomp_mgmt_get_ep_list(mport_id, &ep_list, 
 						&number_of_eps);
-                if (ret) {
-                	sprintf(env->output,
-                        	"ERR: riomp_ep_get_list() ERR %d\n", ret);
+		if (ret) {
+			sprintf(env->output,
+				"ERR: riomp_ep_get_list() ERR %d\n", ret);
 			logMsg(env);
-                        break;
-                }
+			break;
+		}
 
-                sprintf(env->output, "\t%u Endpoints (dest_ID): ", 
+		sprintf(env->output, "\t%u Endpoints (dest_ID): ", 
 			number_of_eps);
 		logMsg(env);
-                for (ep = 0; ep < number_of_eps; ep++) {
-                	sprintf(env->output, "%u ", *(ep_list + ep));
+		for (ep = 0; ep < number_of_eps; ep++) {
+			sprintf(env->output, "%u ", *(ep_list + ep));
 			logMsg(env);
 		};
 
-                sprintf(env->output, "\n");
+		sprintf(env->output, "\n");
 		logMsg(env);
 
-                ret = riomp_mgmt_free_ep_list(&ep_list);
-                if (ret) {
-                	sprintf(env->output,
-                        	"ERR: riomp_ep_free_list() ERR %d\n", ret);
+		ret = riomp_mgmt_free_ep_list(&ep_list);
+		if (ret) {
+			sprintf(env->output,
+				"ERR: riomp_ep_free_list() ERR %d\n", ret);
 			logMsg(env);
 		};
 
-        }
+	}
 
 	sprintf(env->output, "\n");
 	logMsg(env);
 
-        ret = riomp_mgmt_free_mport_list(&mport_list);
-        if (ret) {
+	ret = riomp_mgmt_free_mport_list(&mport_list);
+	if (ret) {
 		sprintf(env->output,
-                	"ERR: riomp_ep_free_list() ERR %d\n", ret);
+			"ERR: riomp_ep_free_list() ERR %d\n", ret);
 		logMsg(env);
 	};
 
@@ -550,7 +550,7 @@ struct cli_cmd FXMpdevs = {
 0,
 "Query mport info.",
 "No Parameters\n" 
-        "Displays available mports, and associated target destigation IDs.\n",
+	"Displays available mports, and associated target destigation IDs.\n",
 FXMpdevsCmd,
 ATTR_NONE
 };
@@ -619,8 +619,8 @@ struct cli_cmd FXPause = {
 "pause {<PAUSE> {<NUMREQS>}}\n"
 	"PAUSE is either 0 (Transfer files) or 1 (Halt file transfers).\n"
 	"NUMREQS: 0-255, maximum number of requests pending before PAUSE is\n"
-	"         set back to 0.\n"
-	"         Default value is 8 when PAUSE is set to 1.\n",
+	"	 set back to 0.\n"
+	"	 Default value is 8 when PAUSE is set to 1.\n",
 FXPauseCmd,
 ATTR_NONE
 };
@@ -640,10 +640,10 @@ void bind_server_cmds(void)
 	num_conn_reqs = 0;
 	pause_file_xfer_conn = 0;
 	max_file_xfer_queue = 0;
-        add_commands_to_cmd_db(sizeof(server_cmds)/sizeof(server_cmds[0]), 
+	add_commands_to_cmd_db(sizeof(server_cmds)/sizeof(server_cmds[0]), 
 				server_cmds);
 
-        return;
+	return;
 };
 
 #define RIO_MPORT_DEV_PATH "/dev/rio_mport"
@@ -692,8 +692,12 @@ void *xfer_loop(void *ibwin_idx)
 {
 	struct ibwin_info *info;
 	int idx = *(int *)(ibwin_idx);
+	char thr_name[16] = {0};
 
 	info = &ibwins[idx];
+
+	snprintf(thr_name, 15, "XFER_%02x", idx);
+	pthread_setname_np(ibwins[idx].xfer_thread, thr_name);
 
 	info->req_skt = NULL;
 	info->completed = 1;
@@ -749,6 +753,7 @@ void *conn_loop(void *ret)
 	uint8_t found_one = 0;
 	int i;
 	int xfer_skt_num;
+	char thr_name[16] = {0};
 	
 	conn_loop_alive = 0;
 
@@ -794,6 +799,9 @@ void *conn_loop(void *ret)
 			xfer_skt_num);
 	conn_loop_alive = 1;
 	sem_post(&conn_loop_started);
+
+	snprintf(thr_name, 15, "CONN_MGR");
+	pthread_setname_np(conn_thread, thr_name);
 
 	while (!all_must_die) {
 		if (NULL == new_socket) {
@@ -939,10 +947,10 @@ int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size,
 
 		rc = riomp_dma_map_memory(mp_h, ibwins[i].length,
 				ibwins[i].handle, (void **)&ibwins[i].ib_mem);
-        	if (rc) {
-                	CRIT("riomp_dma_map_memory");
-                	goto close_ibwin;
-        	}
+		if (rc) {
+			CRIT("riomp_dma_map_memory");
+			goto close_ibwin;
+		}
 
 		ibwins[i].valid = 1;
 	};
@@ -978,6 +986,10 @@ void *cli_session( void *sock_num )
 	char buffer[256];
 	int one = 1;
 	int session_num = 0;
+	char thr_name[16] = {0};
+
+	snprintf(thr_name, 15, "CLI_SESS");
+	pthread_setname_np(cli_session_thread, thr_name);
 
 	portno = *(int *)(sock_num);
 	cli_session_portno = portno;
@@ -986,7 +998,7 @@ void *cli_session( void *sock_num )
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0) {
-        	CRIT("ERROR opening socket");
+		CRIT("ERROR opening socket");
 		goto fail;
 	}
 	bzero((char *) &serv_addr, sizeof(serv_addr));
@@ -996,7 +1008,7 @@ void *cli_session( void *sock_num )
 	setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof (one));
 	setsockopt (sockfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof (one));
 	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))<0) {
-        	CRIT("ERROR on binding port %d", cli_session_portno);
+		CRIT("ERROR on binding port %d", cli_session_portno);
 		goto fail;
 	}
 
@@ -1069,6 +1081,8 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 
 	/* Prepare and start console thread */
 	if (run_cons) {
+		char thr_name[16] = {0};
+
 		pass_cons_ret = (int *)(malloc(sizeof(int)));
 		*pass_cons_ret = 0;
 		splashScreen((char *)
@@ -1080,6 +1094,9 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 			printf("\nError cons_thread rc: %d\n", cons_ret);
 			exit(EXIT_FAILURE);
 		}
+
+		snprintf(thr_name, 15, "CONSOLE");
+		pthread_setname_np(console_thread, thr_name);
 	};
 
 	/* Prepare and start CM connection handling thread */
@@ -1178,6 +1195,7 @@ void sig_handler(int signo)
 	printf("\nRx Signal %x\n", signo);
 	if ((signo == SIGINT) || (signo == SIGHUP) || (signo == SIGTERM)) {
 		printf("Shutting down\n");
+		exit(0);
 		fxfr_server_shutdown();
 	};
 };

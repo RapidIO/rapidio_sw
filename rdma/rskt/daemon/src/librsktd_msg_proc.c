@@ -671,8 +671,8 @@ int rsktd_a2w_connect_req(struct librsktd_unified_msg *r)
 	/* If can't find peer by component tag, fail */
 	r->wp = find_wpeer_by_ct(ct);
 	if (NULL == r->wp) {
-		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s",
-		"Could not find wpeer with CT(%d) in wpeers",
+		ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s"
+		" Could not find wpeer with CT(%d) in wpeers",
 			UMSG_W_OR_S(r),
 			UMSG_CT(r),
 			r->msg_type,

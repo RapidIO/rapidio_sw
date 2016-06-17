@@ -688,7 +688,7 @@ uint32_t idt_CPS_rt_set_common( DAR_DEV_INFO_t        *dev_info,
         goto idt_CPS_rt_set_common_exit;
     }
 
-    if (( NUM_PORTS(dev_info) <= in_parms->rt->default_route) &&
+    if (!(NUM_PORTS(dev_info) <= in_parms->rt->default_route) &&
         !(IDT_DSF_RT_NO_ROUTE == in_parms->rt->default_route))   {
         out_parms->imp_rc = RTE_SET_COMMON(2);
         goto idt_CPS_rt_set_common_exit;

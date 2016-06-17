@@ -65,7 +65,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "libcli.h"
 #include "riocp_pe.h"
-#include "riocp_pe_internal.h"
+#include "riocp_pe.h"
 #include "DAR_DevDriver.h"
 #include "fmd_dd.h"
 #include "fmd_app_msg.h"
@@ -175,7 +175,7 @@ void *cli_session( void *sock_num )
 {
      int sockfd, newsockfd = -1, portno;
      socklen_t clilen;
-     char buffer[256] ={0};
+     char buffer[256] = {0};
      struct sockaddr_in serv_addr, cli_addr;
      int n;
      int one = 1;
@@ -249,13 +249,14 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 //int poll_interval, int sock_num, int run_cons)
 {
 	int  poll_ret, cli_ret, cons_ret;
-	int *pass_sock_num = NULL, *pass_poll_interval = NULL, *pass_cons_ret = NULL;
+	int *pass_sock_num = NULL, *pass_poll_interval = NULL;
+	int *pass_cons_ret = NULL;
 	int ret;
 
 	sem_init(&cons_owner, 0, 0);
-	pass_sock_num = (int *)(malloc(sizeof(int)));
-	pass_poll_interval = (int *)(malloc(2*sizeof(int)));
-	pass_cons_ret = (int *)(malloc(sizeof(int))); /// \todo MEMLEAK
+	pass_sock_num = (int *)(calloc(1, sizeof(int)));
+	pass_poll_interval = (int *)(calloc(2, sizeof(int)));
+	pass_cons_ret = (int *)(calloc(1, sizeof(int))); /// \todo MEMLEAK
 	*pass_sock_num = cfg->cli_port_num;
 	pass_poll_interval[0] = cfg->mast_interval;
 	pass_poll_interval[1] = cfg->run_cons;
@@ -312,37 +313,14 @@ void spawn_threads(struct fmd_opt_vals *cfg)
 		exit(EXIT_FAILURE);
 	}
 }
- 
-/* FIXME: Currently limited to supporting probe of mport, one switch, and
- * connected endpoints.
- */
-
-int config_sw_routing(riocp_pe_handle swtch, struct cfg_dev *conn_sw)
-{
-	int i, rc= 0;
-
-	for (i = 0; i < IDT_DAR_RT_DEV_TABLE_SIZE && !rc; i++) {
-		int rt_val =
-			conn_sw->sw_info.rt[CFG_DEV08]->dev_table[i].rte_val;
-
-		if (rt_val >= IDT_DSF_FIRST_MC_MASK)
-			rt_val = 0xDE;
-		if (ANY_ID != i) {
-			rc = riocp_sw_set_route_entry(swtch, RIO_ALL_PORTS, i,
-				rt_val);
-		};
-		DBG("idx %d rc %d\n", i, rc);
-	};
-
-	return rc;
-};
 
 int fmd_traverse_network(int mport_num, riocp_pe_handle mport_pe, struct cfg_dev *c_dev)
 {
 	struct l_head_t sw_list;
 
 	riocp_pe_handle new_pe, curr_pe;
-	int port_cnt, conn_pt, rc, pnum;
+	int port_cnt, conn_pt, rc;
+	rio_port_t pnum;
 	uint32_t comptag;
 	struct cfg_dev curr_dev, conn_dev;
 
@@ -353,20 +331,12 @@ int fmd_traverse_network(int mport_num, riocp_pe_handle mport_pe, struct cfg_dev
 	curr_dev = *c_dev;
 
 	do {
-		if (RIOCP_PE_IS_SWITCH(curr_pe->cap)) {
-			rc = config_sw_routing(curr_pe, &curr_dev);
-			if (rc) {
-				CRIT("Cannot configure switch routing rc %d\n", rc);
-				goto fail;
-			};
-		};
-
 		port_cnt = RIOCP_PE_PORT_COUNT(curr_pe->cap);
-		for (pnum = port_cnt - 1; pnum >= 0 ; pnum--) {
+		for (pnum = 0; pnum < port_cnt; pnum++) {
 			new_pe = NULL;
 		
 			if (cfg_get_conn_dev(curr_pe->comptag, pnum, &conn_dev, &conn_pt)) {
-				INFO("Switch Port %d NO CONFIG\n", pnum);
+				HIGH("PE 0x%0x Port %d NO CONFIG\n", curr_pe->comptag, pnum);
 				continue;
 			};
 
@@ -375,16 +345,20 @@ int fmd_traverse_network(int mport_num, riocp_pe_handle mport_pe, struct cfg_dev
 
 			if (rc) {
 				if ((-ENODEV != rc) && (-EIO != rc)) {
-					CRIT("Port %d probe failed %d\n", pnum, rc);
+					CRIT("PE 0x%0x Port %d probe failed %d\n", 
+						curr_pe->comptag, pnum, rc);
 					goto fail;
 				};
-				INFO("Switch 0x%x Port %d NO DEVICE\n",
-					curr_pe->comptag, pnum);
+				HIGH("PE 0x%x Port %d NO DEVICE, expected %x\n",
+					curr_pe->comptag, pnum, conn_dev.ct);
 				continue;
 			};
 
-			if (NULL == new_pe)
+			if (NULL == new_pe) {
+				HIGH("PE 0x%x Port %d ALREADY CONNECTED\n",
+					curr_pe->comptag, pnum);
 				continue;
+			}
 
 			rc = riocp_pe_get_comptag(new_pe, &comptag);
 			if (rc) {
@@ -398,18 +372,28 @@ int fmd_traverse_network(int mport_num, riocp_pe_handle mport_pe, struct cfg_dev
 				goto fail;
 			};
 
-			INFO("Device 0x%x Port %d DEVICE %s CT 0x%x DID 0x%x\n",
+			HIGH("PE 0x%x Port %d Connected: DEVICE %s CT 0x%x DID 0x%x\n",
 				curr_pe->comptag, pnum, 
 				new_pe->name, new_pe->comptag, new_pe->destid);
 
 			if (RIOCP_PE_IS_SWITCH(new_pe->cap)) {
-				void *found;
+				void *pe;
 				l_item_t *li;
+				bool found = false;
 
-				found = l_find(&sw_list, new_pe->comptag, &li);
-				if (NULL == found) {
-					li = l_add(&sw_list, new_pe->comptag,
-						new_pe);
+				pe = l_head(&sw_list, &li);
+				while (NULL != pe && !found) {
+					if (((struct riocp_pe *)pe)->comptag
+						== new_pe->comptag) {
+						found = true;	
+						continue;
+					}
+					pe = l_next(&li);
+				};
+				if (!found) {
+					HIGH("Adding PE 0x%08x to search\n",
+						new_pe->comptag);
+					l_push_tail(&sw_list, (void *)new_pe);
 				};
 			}
 		} 
@@ -421,6 +405,7 @@ int fmd_traverse_network(int mport_num, riocp_pe_handle mport_pe, struct cfg_dev
 					curr_pe->comptag, rc);
 				goto fail;
 			};
+			HIGH("Now probing PE CT 0x%08x\n", curr_pe->comptag);
 		}
 	} while (curr_pe != NULL);
 

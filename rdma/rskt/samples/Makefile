@@ -43,7 +43,7 @@ DEBUG?=DEBUG
 RSKT_DIR=../lib
 INCLUDE_DIR?=$(TOPDIR)/include
 
-LIB_DIRS?=-L$(COMMONLIB) -L$(COMMONLIBA)
+LIB_DIRS?=-L$(COMMONLIB) -L$(COMMONLIBA) -L$(FMDDIR)/libriocp_pe
 
 %.o: %.c
 	$(CXX) $(CXXFLAGS) -o $@ -c $< -Wall \
@@ -56,8 +56,8 @@ RSKT_SERVER_OBJECTS = rskt_server.o
 RSKT_CLIENT_SOURCE = rskt_client.c
 RSKT_CLIENT_OBJECTS = rskt_client.o
 
-LIBRARIES = -lrskt -lcli -lrt -ldl -lmport \
-	-llist -llog -lrdma -lfmdd 
+LIBRARIES = -lrskt -lrdma -lriocp_pe -lmport \
+        -llist -llog -lfmdd -ldd -lcli -lrt -ldl
 
 all: rskt_client rskt_server
 

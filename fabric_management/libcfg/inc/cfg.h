@@ -96,6 +96,7 @@ struct cfg_sw_port {
 	idt_pc_pw_t max_pw;
 	idt_pc_pw_t op_pw;
 	idt_pc_ls_t ls;
+	idt_rt_state_t *rt[CFG_DEVID_MAX];
 };
 
 struct cfg_sw {

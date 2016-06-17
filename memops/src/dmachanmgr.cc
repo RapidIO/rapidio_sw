@@ -38,8 +38,10 @@ static inline uint8_t DmaChanMask()
   uint32_t ret = DMA_CHAN_MASK_DEFAULT;
 
   FILE* fp = fopen("/sys/module/tsi721_mport/parameters/dma_sel", "r");
-  if (fp == NULL) goto done;
-  fgets(buf, 256, fp);
+  if (fp == NULL)
+	goto done;
+  if (NULL == fgets(buf, 256, fp))
+	goto done;
   fclose(fp);
 
   if (buf[0] != '\0') {

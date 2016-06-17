@@ -254,7 +254,8 @@ public:
       }
 #ifdef UDMA_TUN_DEBUG_IB
       DBG("\n\tL2 acceleration array (base=%p, size=%d):\n", info->ib_ptr, info->umd_tx_buf_cnt-1);
-      write(STDOUT_FILENO, ss.str().c_str(), ss.str().size());
+      if (write(STDOUT_FILENO, ss.str().c_str(), ss.str().size()) < 0) {
+	};
 #endif // UDMA_TUN_DEBUG_IB
     }}
 
@@ -346,9 +347,9 @@ public:
          (my_destid_tun >> 8) & 0xFF,   my_destid_tun & 0xFF,
          (peer_destid_tun >> 8) & 0xFF, peer_destid_tun & 0xFF);
 
-      char ifconfig_cmd[257] = {0};
-      snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s %s mtu %d up",
-                  if_name, Tap_Ifconfig_Cmd, m_info->umd_tun_MTU);
+      char ifconfig_cmd[513] = {0};
+      snprintf(ifconfig_cmd, 512, "/sbin/ifconfig %s %s mtu %d up; echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6",
+                  if_name, Tap_Ifconfig_Cmd, m_info->umd_tun_MTU, if_name);
       const int rr = system(ifconfig_cmd);
       if(rr >> 8) {
         m_tun_name[0] = '\0';
@@ -359,7 +360,13 @@ public:
       }
 
       snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
-      system(ifconfig_cmd);
+	int tret =system(ifconfig_cmd);
+      if (tret < 0) {
+        CRIT("system() ifconfig failed with error %d\n", tret);
+        // No need to remove from epoll set, close does that as it isn't dup(2)'ed
+        close(m_tun_fd); m_tun_fd = -1;
+        goto error;
+	}
     }}
 
     sig = PEER_SIG_UP;

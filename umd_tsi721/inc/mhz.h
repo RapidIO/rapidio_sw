@@ -46,7 +46,8 @@ static inline int getCPUMHz()
   int MHz = 0;
   while(! feof(fcpu)) {
     char buffer[33] = {0};
-    fgets(buffer, 32, fcpu);
+    if (NULL == fgets(buffer, 32, fcpu))
+	break;
     if(buffer[0] == '\0') break;
 
     if(strncmp(buffer, "cpu MHz", 7)) continue;

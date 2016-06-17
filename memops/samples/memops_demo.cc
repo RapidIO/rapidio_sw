@@ -93,6 +93,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdio.h>
 #include <getopt.h>
+#include <inttypes.h>
 
 #ifdef RDMA_LL
 	#include "liblog.h"
@@ -233,7 +234,7 @@ int main(int argc, char* argv[])
 	/** - Create memory operation object */
 	RIOMemOpsIntf* mops = RIOMemOps_classFactory(met[m], 0, chan);
 
-	printf("HW access method=%s %s destid=%u rio_addr=0x%llx [chan=%d]\n",
+	printf("HW access method=%s %s destid=%u rio_addr=0x%" PRIx64 " [chan=%d]\n",
 		met_str[m], sync_str, did, rio_addr, chan);
 
 	/** - Set up the hardware, and create hardware management thread */

@@ -290,7 +290,8 @@ int getCPUCount()
 	int count = 0;
 	while (! feof(f)) {
 		char buf[257] = {0};
-		fgets(buf, 256, f);
+		if (NULL == fgets(buf, 256, f))
+			break;
 		if (buf[0] == '\0') break;
 		if (strstr(buf, "processor\t:")) count++;
 	}
@@ -362,6 +363,7 @@ void zero_stats(struct worker *info)
 	info->min_iter_time = {0,0};
 	info->tot_iter_time = {0,0};
 	info->max_iter_time = {0,0};
+	info->iter_time_lim = {0xFFFFFFFF,0xFFFFFFFF};
 
         info->data8_tx = 0x12;
         info->data16_tx= 0x3456;
@@ -382,8 +384,8 @@ void start_iter_stats(struct worker *info)
 void finish_iter_stats(struct worker *info)
 {
 	clock_gettime(CLOCK_MONOTONIC, &info->iter_end_time);
-	time_track(info->perf_iter_cnt, 
-		info->iter_st_time, info->iter_end_time,
+	time_track_lim(info->perf_iter_cnt, &info->iter_time_lim,
+		&info->iter_st_time, &info->iter_end_time,
 		&info->tot_iter_time, &info->min_iter_time,
 		&info->max_iter_time);
 	info->perf_iter_cnt++;	
@@ -598,6 +600,8 @@ void direct_io_tx_latency(struct worker *info)
 		goto exit;
 
 	zero_stats(info);
+	/* Set maximum latency time to 5 microseconds */
+	info->iter_time_lim = {0, 5000};
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	while (!info->stop_req) {
@@ -1279,14 +1283,14 @@ exit:
 
 };
 
-void dma_alloc_ibwin(struct worker *info)
+bool dma_alloc_ibwin(struct worker *info)
 {
 	uint64_t i;
 	int rc;
 
 	if (!info->ib_byte_cnt || info->ib_valid) {
 		ERR("FAILED: window size of 0 or ibwin already exists\n");
-		return; 
+		return true; 
 	};
 
 	rc = riomp_dma_ibwin_map(info->mp_h, &info->ib_rio_addr,
@@ -1294,15 +1298,27 @@ void dma_alloc_ibwin(struct worker *info)
 	if (rc) {
 		ERR("FAILED: riomp_dma_ibwin_map rc %d:%s\n",
 					rc, strerror(errno));
-		return;
+		return false;
+	};
+	if (info->ib_handle == 0) {
+		ERR("FAILED: riomp_dma_ibwin_map failed silently with info->ib_handle==0!\n");
+		return false;
 	};
 
+
+	info->ib_ptr = NULL;
 	rc = riomp_dma_map_memory(info->mp_h, info->ib_byte_cnt, 
 					info->ib_handle, &info->ib_ptr);
 	if (rc) {
-		ERR("FAILED: riomp_dma_ibwin_map rc %d:%s\n",
+		riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+		ERR("FAILED: riomp_dma_map_memory rc %d:%s\n",
 					rc, strerror(errno));
-		return;
+		return false;
+	};
+	if (info->ib_ptr == NULL) {
+		riomp_dma_ibwin_free(info->mp_h, &info->ib_handle);
+		ERR("FAILED: riomp_dma_map_memory failed silently with ib_ptr==NULL!\n");
+		return false;
 	};
 
 	for (i = 0; i < info->ib_byte_cnt; i += 8) {
@@ -1313,6 +1329,7 @@ void dma_alloc_ibwin(struct worker *info)
 	};
 
 	info->ib_valid = 1;
+	return false;
 };
 
 void dma_free_ibwin(struct worker *info)
@@ -1366,8 +1383,8 @@ extern char* dma_rtype_str[];
 void *umd_dma_fifo_proc_thr(void *parm)
 {
 	struct worker* info = NULL;
-	DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; 
-	memset(wi, 0, sizeof(wi));
+	int wi_size = 0;
+	DMAChannel::WorkItem_t* wi = NULL;
 
 	if (NULL == parm)
 		goto exit;
@@ -1383,6 +1400,14 @@ void *umd_dma_fifo_proc_thr(void *parm)
 		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
 		goto exit;
 	}
+
+	wi_size = info->umd_sts_entries * 8 * sizeof(DMAChannel::WorkItem_t);
+	wi = (DMAChannel::WorkItem_t*)alloca(wi_size);
+	if (wi == NULL) {
+		CRIT("Cannot allocate stack'ed DMAChannel::WorkItem_t, bailing out!\n");
+		goto exit;
+	}
+	memset(wi, 0, wi_size);
 
 	info->umd_fifo_proc_alive = 1;
 	sem_post(&info->umd_fifo_proc_started); 
@@ -1432,10 +1457,10 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 
 	int idx = -1;
 	uint64_t tsF1 = 0, tsF2 = 0;
-        const int MHz = getCPUMHz();
-	MboxChannel::WorkItem_t wi[info->umd_sts_entries*8];
+	int wi_size = 0;
+	MboxChannel::WorkItem_t* wi = NULL;
 
-	memset(wi, 0, sizeof(wi));
+        const int MHz = getCPUMHz();
 
         if (NULL == parm) goto exit;
 
@@ -1449,6 +1474,14 @@ void* umd_mbox_fifo_proc_thr(void *parm)
 		     info->umd_fifo_thr.cpu_req, info->umd_fifo_thr.cpu_req);
 		goto exit;
 	}
+
+	wi_size = info->umd_sts_entries * 8 * sizeof(MboxChannel::WorkItem_t);
+	wi = (MboxChannel::WorkItem_t*)alloca(wi_size);
+	if (wi == NULL) {
+		CRIT("Cannot allocate stack'ed MboxChannel::WorkItem_t, bailing out!\n");
+		goto exit;
+	}
+	memset(wi, 0, wi_size);
 
 	idx = info->idx;
 	memset(&g_FifoStats[idx], 0, sizeof(g_FifoStats[idx]));
@@ -1978,7 +2011,7 @@ bool umd_check_cpu_allocation(struct worker *info)
 {
 	assert(info);
 
-	if (GetEnv("IGNORE_CPUALLOC") != NULL) return true;
+	if (GetEnv((char *)"IGNORE_CPUALLOC") != NULL) return true;
 
 	if (info->wkr_thr.cpu_req != info->umd_fifo_thr.cpu_req) return true;
 
@@ -2016,7 +2049,8 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
-	if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+	if(info->umd_dch->getDestId() == info->did && 
+				GetEnv((char *)"FORCE_DESTID") == NULL) {
 		CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
 		goto exit;
 	}
@@ -2057,7 +2091,7 @@ void umd_dma_goodput_demo(struct worker *info)
 		goto exit;
 	};
 
-        if (GetEnv("verb") != NULL) {
+        if (GetEnv((char *)"verb") != NULL) {
 	        INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%x bcount=%d #buf=%d #fifo=%d\n",
 			info->umd_dch->getDestId(),
 			info->did, info->rio_addr, info->acc_size,
@@ -2331,7 +2365,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 		goto exit;
 	};
 
-        if(info->umd_dch->getDestId() == info->did && GetEnv("FORCE_DESTID") == NULL) {
+        if(info->umd_dch->getDestId() == info->did && GetEnv((char *)"FORCE_DESTID") == NULL) {
                 CRIT("\n\tERROR: Testing against own desitd=%d. Set env FORCE_DESTID to disable this check.\n", info->did);
                 goto exit;
         }
@@ -2376,7 +2410,7 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 
 	zero_stats(info);
 
-	if (GetEnv("verb") != NULL) {
+	if (GetEnv((char *)"verb") != NULL) {
 		INFO("\n\tUDMA my_destid=%u destid=%u rioaddr=0x%lx bcount=%d #buf=%d #fifo=%d\n",
 		     info->umd_dch->getDestId(),
 		     info->did, info->rio_addr, info->acc_size,
@@ -2408,11 +2442,11 @@ void umd_dma_goodput_latency_demo(struct worker* info, const char op)
 			bool q_was_full = false;
 			DMAChannel::WorkItem_t wi[info->umd_sts_entries*8]; memset(wi, 0, sizeof(wi));
 
-			const int N = GetDecParm("$sim", 0) + 1;
-			const int M = GetDecParm("$simw", 0);
+			const int N = GetDecParm((char *)"$sim", 0) + 1;
+			const int M = GetDecParm((char *)"$simw", 0);
 
                 	start_iter_stats(info);
-			if (GetEnv("sim") == NULL) {
+			if (GetEnv((char *)"sim") == NULL) {
                 		if (! queueDmaOp(info, oi, cnt, q_was_full)) goto exit;
 			} else {
 				// Can we recover/replay BD at sim+1 ?
@@ -2522,7 +2556,7 @@ void umd_mbox_goodput_demo(struct worker *info)
         info->umd_mch->setInitState();
 	info->umd_mch->softRestart();
 
-	if (GetEnv("verb") != NULL) {
+	if (GetEnv((char *)"verb") != NULL) {
 		INFO("\n\tMBOX=%d my_destid=%u destid=%u (dest MBOX=%d letter=%d) acc_size=%d #buf=%d #fifo=%d\n",
 		     info->umd_chan,
 		     info->umd_mch->getDestId(),
@@ -2612,7 +2646,7 @@ void umd_mbox_goodput_demo(struct worker *info)
 			bool q_was_full = false;
 			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
 
-			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
+			snprintf(str, 128, "Mary had a little lamb iter %d", cnt);
 		      	if (! info->umd_mch->send_message(opt, str, info->acc_size, !cnt, fail_reason)) {
 				if (fail_reason == MboxChannel::STOP_REG_ERR) {
 					ERR("\n\tsend_message FAILED! TX q size = %d\n", info->umd_mch->queueTxSize());
@@ -2684,7 +2718,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
         info->umd_mch->setInitState();
 	info->umd_mch->softRestart();
 
-	if (GetEnv("verb") != NULL) {
+	if (GetEnv((char *)"verb") != NULL) {
 		INFO("\n\tMBOX my_destid=%u destid=%u acc_size=%d #buf=%d #fifo=%d\n",
 		     info->umd_mch->getDestId(),
 		     info->did, info->acc_size,
@@ -2739,7 +2773,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 			}
 			if (! rx_buf) {
 				ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, rx_ok);
-				if (GetEnv("DEBUG_MBOX")) { for (;;) { ; } } // WEDGE CPU
+				if (GetEnv((char *)"DEBUG_MBOX")) { for (;;) { ; } } // WEDGE CPU
 				goto exit_rx;
 			}
 
@@ -2790,7 +2824,7 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
 			bool q_was_full = false;
 			MboxChannel::StopTx_t fail_reason = MboxChannel::STOP_OK;
 
-			snprintf(str, 128, "Mary had a little lamb iter %d\x0", cnt);
+			snprintf(str, 128, "Mary had a little lamb iter %d", cnt);
 
 			const bool first_message = !big_cnt;
 
@@ -2830,8 +2864,8 @@ void umd_mbox_goodput_latency_demo(struct worker *info)
                               info->umd_mch->add_inb_buffer(buf); // recycle
                         }
                         if (! rx_buf) {
-                                ERR("\n\tRX ring in unholy state for MBOX%d! cnt=%llu\n", info->umd_chan, tx_ok);
-				if (GetEnv("DEBUG_MBOX")) { for (;;) { ; } } // WEDGE CPU
+                                ERR("\n\tRX ring in unholy state for MBOX%d! cnt=" PRIx64 "\n", info->umd_chan, tx_ok);
+				if (GetEnv((char *)"DEBUG_MBOX")) { for (;;) { ; } } // WEDGE CPU
                                 goto exit_rx;
                         }
 			if (! first_message) finish_iter_stats(info);
@@ -3032,7 +3066,14 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	}
 
 	snprintf(ifconfig_cmd, 256, "/sbin/ifconfig %s -multicast", if_name);
-	system(ifconfig_cmd);
+	if (system(ifconfig_cmd) < 0) {
+                CRIT("MboxChlannel: Failed to execute ifconfig!");
+        	info->umd_tun_name[0] = '\0';
+		close(info->umd_tun_fd); info->umd_tun_fd = -1;
+		delete info->umd_mch; info->umd_mch = NULL;
+		delete info->umd_lock[0]; info->umd_lock[0] = NULL;
+		return;
+	};
 
 	socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, info->umd_sockp_quit);
 
@@ -3145,7 +3186,10 @@ void umd_mbox_goodput_tun_demo(struct worker *info)
 	} // END Receiver
 
 exit:
-	write(info->umd_sockp_quit[0], "X", 1); // Signal Tun/Tap thread to eXit
+	// Signal Tun/Tap thread to eXit
+	if (write(info->umd_sockp_quit[0], "X", 1) < 0) {
+		// too bad...
+	}
         info->umd_fifo_proc_must_die = 1;
 
         pthread_join(info->umd_fifo_thr.thr, NULL);

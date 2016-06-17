@@ -535,6 +535,17 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 	RIOCP_TRACE("Probe on PE 0x%08x (hopcount %u, port %u)\n",
 		pe->comptag, hopcount, port);
 
+	if (pe->peers != NULL) {
+		if (NULL != pe->peers[port].peer) {
+			RIOCP_TRACE(
+				"Probe PE 0x%08x (hopcount %u, port %u)"
+				" Peer Exists! Comptag 0x%08x\n",
+				pe->comptag, hopcount, port,
+				pe->peers[port].peer->comptag);
+			*peer = NULL;
+			return 0;
+		};
+	};
 	/* Prepare probe (setup route, test if port is active on PE) */
 	ret = riocp_pe_probe_prepare(pe, port);
 	if (ret)
@@ -591,15 +602,19 @@ int RIOCP_SO_ATTR riocp_pe_probe(riocp_pe_handle pe,
 create_pe:
 		/* Create peer handle */
 		free(p);
-		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, ANY_ID, port, comptag_in, name);
+		ret = riocp_pe_handle_create_pe(pe, &p, hopcount, ANY_ID, port,
+				comptag_in, name);
 		if (ret) {
-			RIOCP_ERROR("Could not create handle for peer on port %d of ct 0x%08x: %s\n",
-				port, pe->comptag, strerror(-ret));
+			RIOCP_ERROR(
+			"Create peer failed for ct 0x%08x on port %d of %s\n",
+				pe->comptag, port, strerror(-ret));
 			goto err_out;
 		}
 
-		RIOCP_DEBUG("Created PE hop %d, port %d, didvid 0x%08x, devinfo 0x%08x, comptag 0x%08x\n",
-			p->hopcount, port, p->cap.dev_id, p->cap.dev_info, p->comptag);
+		RIOCP_DEBUG("Created PE hop %d p %d vid 0x%08x"
+				" devinfo 0x%08x, ct 0x%08x\n",
+			p->hopcount, port, p->cap.dev_id, p->cap.dev_info,
+			p->comptag);
 
 	} else if (ret == 1) {
 
@@ -612,8 +627,10 @@ create_pe:
 				goto err;
 		}
 
-		RIOCP_DEBUG("Peer found, h: %d, port %d, didvid 0x%08x, devinfo 0x%08x, comptag 0x%08x\n",
-			p->hopcount, port, p->cap.dev_id, p->cap.dev_info, p->comptag);
+		RIOCP_DEBUG("Peer found h: %d p %d vid 0x%08x devinfo 0x%08x"
+				" ct 0x%08x\n",
+			p->hopcount, port, p->cap.dev_id, p->cap.dev_info,
+			p->comptag);
 
 		/* Peer handle already in list, add PE to peer for network graph */
 		if (RIOCP_PE_IS_SWITCH(p->cap)) {

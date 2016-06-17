@@ -101,7 +101,7 @@ test: rdmad librdma.a
 samples: rdmad librdma.a
 	$(MAKE) all -C samples
 
-rsktd: rdmad
+rsktd: rdmad librdma.a
 	$(MAKE) all -C rskt
 
 FORCE:

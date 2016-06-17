@@ -35,6 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __IBMAP_H__
 
 #include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
@@ -190,7 +191,7 @@ done:
       const int      slot   = itm->second;
       const uint64_t rio_addr = m_rio_addr + slot * PEER_IBWIN_SIZE;
       const void*    ib_ptr   = m_ib_ptr   + slot * PEER_IBWIN_SIZE;
-      snprintf(tmp, 256, "\tdestid %u slot=%d rio_addr=0x%llx ib_ptr=%p\n", destid, slot, rio_addr, ib_ptr);
+      snprintf(tmp, 256, "\tdestid %u slot=%d rio_addr=0x%" PRIx64 " ib_ptr=%p\n", destid, slot, rio_addr, ib_ptr);
       s.append(tmp);
       cnt++;
     }

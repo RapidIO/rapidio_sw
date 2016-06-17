@@ -126,6 +126,9 @@ void process_msg_from_server(struct fxfr_tx_state *info)
 
 		info->tot_bytes_rxed = info->rxed_msg->tot_bytes_rx;
 
+		// Note: This clause is never true, as the server closes
+		// the connection on receipt of a message with "end_of_file"
+		// set.
 		if ((info->tot_bytes_txed == info->rxed_msg->tot_bytes_rx) && 
 		     info->end_of_file)
 			info->done = 1;
@@ -158,10 +161,14 @@ void rx_msg_from_server(struct fxfr_tx_state *info)
 	int ret = riomp_sock_receive(info->req_skt, &info->msg_rx, 
 					info->msg_buff_size, 0);
 	if (ret) {
-		printf("File TX: riomp_sock_receive() ERR %d (%d)\n",
-			ret, errno);
-		info->fail_abort = 1;
-	       	info->rxed_msg->fail_abort = 1;
+		if (info->tx_msg->end_of_file) {
+			info->done = 1;
+		} else {
+			printf("File TX: riomp_sock_receive() ERR %d (%d)\n",
+				ret, errno);
+			info->fail_abort = 1;
+	       		info->rxed_msg->fail_abort = 1;
+		};
 		goto fail;
 	};
 
@@ -599,8 +606,6 @@ extern int send_file( char *src_file, /* Local source file name */
 
 	while (!srv_exit && !info.fail_abort && !info.done) {
 		rx_msg_from_server(&info);
-		if (info.end_of_file)
-			break;
 		send_msgs_to_server(&info, st_time);
 		st_time = NULL;
 	};

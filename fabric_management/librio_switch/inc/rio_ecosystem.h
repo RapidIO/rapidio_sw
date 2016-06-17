@@ -20,7 +20,7 @@ and/or other materials provided with the distribution.
 may be used to endorse or promote products derived from this software without
 specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+THIS SOFTWARE IS PROVENDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
 DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
@@ -32,49 +32,74 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+/* Definitions for the RapidIO ecosystem, including vendors/devices and 
+ * device port/lane limits.
+ */
+
+#include <stdint.h>
+#include "rio_standard.h"
 
 #ifndef __RIO_ECOSYSTEM_H__
 #define __RIO_ECOSYSTEM_H__
-
-/* rio_regdefs.h contains definitons for all RapidIO Standard Registers
-*/
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* RIO_DEV_IDENT : Register Bits Masks Definitions */
+typedef uint8_t rio_port_t;
+typedef uint8_t rio_lane_t;
 
-/* VIDs & DIDs */
-#define RIO_VID_RESERVED        0xffff
-#define RIO_DID_RESERVED        0xffff
+typedef uint16_t rio_dev16_t; /* Also supports dev8 */
+typedef uint32_t rio_dev32_t; /* Also supports dev8 & dev16 */
 
-#define RIO_VID_FREESCALE      0x0002
-#define RIO_VID_TUNDRA         0x000d
-#define RIO_DID_TSI500         0x0500
-#define RIO_DID_TSI568         0x0568
-#define RIO_DID_TSI572         0x0572
-#define RIO_DID_TSI574         0x0574
-#define RIO_DID_TSI576         0x0578 /* Same ID as Tsi578 */
-#define RIO_DID_TSI577         0x0577
-#define RIO_DID_TSI578         0x0578
-#define RIO_VID_TI             0x0030
-#define RIO_VID_IDT            0x0038
-#define RIO_DID_IDT_70K200     0x0310
-#define RIO_DID_IDT_CPS8       0x035c
-#define RIO_DID_IDT_CPS12      0x035d
-#define RIO_DID_IDT_CPS16      0x035b
-#define RIO_DID_IDT_CPS6Q      0x035f
-#define RIO_DID_IDT_CPS10Q     0x035e
-#define RIO_DID_IDT_CPS1848    0x0374
-#define RIO_DID_IDT_CPS1432    0x0375
-#define RIO_DID_IDT_CPS1616    0x0379
-#define RIO_DID_IDT_VPS1616    0x0377
-#define RIO_DID_IDT_SPS1616    0x0378
-#define RIO_DID_IDT_TSI721     0x80ab
-#define RIO_DID_IDT_RXS2448    0x80E6
-#define RIO_DID_IDT_RXS1632    0x80E5
-#define RIO_VID_PRODRIVE       0x00a4
+typedef uint32_t rio_mc_mask_t; /* Biggest mask available */
+
+#define RIO_SW_PORT_INF_PORT_MAX ((RIO_SW_PORT_INF_T)(24))
+#define RIO_SW_PORT_INF_LANE_MAX ((RIO_SW_PORT_INF_T)(48))
+
+#define RIO_BAD_PORT_NUM(x) (x >= RIO_SW_PORT_INF_PORT_MAX)
+
+// #define RIO_ALL_PORTS       ((rio_port_t)(0xFF))
+#define RIO_MAX_DEV_PORT    ((rio_port_t)(RIO_SW_PORT_INF_PORT_MAX))
+#define RIO_MAX_PORT_LANES  ((rio_lane_t)(4))
+#define RIO_MAX_DEV_LANES   ((rio_lane_t)(RIO_SW_PORT_INF_LANE_MAX))
+#define RIO_MAX_MC_MASKS    RIO_RT_GRP_SIZE
+
+/* RIO_DEV_IDENT : RIO_DEV_IDENT_VEND and RIO_DEV_IDENT_DEVI Values */
+
+#define RIO_VEND_RESERVED        0xffff
+#define RIO_DEVI_RESERVED        0xffff
+
+#define RIO_VEND_FREESCALE      0x0002
+#define RIO_VEND_TUNDRA         0x000d
+#define RIO_DEVI_TSI500         0x0500
+#define RIO_DEVI_TSI568         0x0568
+#define RIO_DEVI_TSI572         0x0572
+#define RIO_DEVI_TSI574         0x0574
+#define RIO_DEVI_TSI576         0x0578 /* Same ID as Tsi578 */
+#define RIO_DEVI_TSI577         0x0577
+#define RIO_DEVI_TSI578         0x0578
+
+#define RIO_VEND_TI             0x0030
+
+#define RIO_VEND_IDT            0x0038
+#define RIO_DEVI_IDT_70K200     0x0310
+#define RIO_DEVI_IDT_CPS8       0x035c
+#define RIO_DEVI_IDT_CPS12      0x035d
+#define RIO_DEVI_IDT_CPS16      0x035b
+#define RIO_DEVI_IDT_CPS6Q      0x035f
+#define RIO_DEVI_IDT_CPS10Q     0x035e
+#define RIO_DEVI_IDT_CPS1848    0x0374
+#define RIO_DEVI_IDT_CPS1432    0x0375
+#define RIO_DEVI_IDT_CPS1616    0x0379
+#define RIO_DEVI_IDT_VPS1616    0x0377
+#define RIO_DEVI_IDT_SPS1616    0x0378
+
+#define RIO_DEVI_IDT_TSI721     0x80ab
+#define RIO_DEVI_IDT_RXS2448    0x80E6
+#define RIO_DEVI_IDT_RXS1632    0x80E5
+
+#define RIO_VEND_PRODRIVE       0x00a4
 
 struct riocp_pe_vendor {
         uint16_t vid;
@@ -90,7 +115,7 @@ struct riocp_pe_dev_id {
 static const struct riocp_pe_vendor riocp_pe_vendors[] = {
         {0x0000,                "Reserved"},
         {0x0001,                "Mercury Computer Systems"},
-        {RIO_VID_FREESCALE,     "Freescale"},
+        {RIO_VEND_FREESCALE,     "Freescale"},
         {0x0003,                "Alcatel Corporation"},
         {0x0005,                "EMC Corporation"},
         {0x0006,                "Ericsson"},
@@ -99,15 +124,15 @@ static const struct riocp_pe_vendor riocp_pe_vendors[] = {
         {0x0009,                "Altera"},
         {0x000a,                "LSA Corporation"},
         {0x000b,                "Rydal Research"},
-        {RIO_VID_TUNDRA,        "Tundra Semiconductor"},
+        {RIO_VEND_TUNDRA,        "Tundra Semiconductor"},
         {0x000e,                "Xilinx"},
         {0x0019,                "Curtiss-Wright Controls Embedded Computing"},
         {0x001f,                "Raytheon Company"},
         {0x0028,                "VMetro"},
-        {RIO_VID_TI,            "Texas Instruments"},
+        {RIO_VEND_TI,            "Texas Instruments"},
         {0x0035,                "Cypress Semiconductor"},
         {0x0037,                "Cadence Design Systems"},
-        {RIO_VID_IDT,           "Integrated Device Technology"},
+        {RIO_VEND_IDT,           "Integrated Device Technology"},
         {0x003d,                "Thales Computer"},
         {0x003f,                "Praesum Communications"},
         {0x0040,                "Lattice Semiconductor"},
@@ -135,7 +160,7 @@ static const struct riocp_pe_vendor riocp_pe_vendors[] = {
         {0x009a,                "Sandia National Laboratories"},
         {0x009e,                "HCL Technologies, Ltd."},
         {0x00a2,                "ASML"},
-        {RIO_VID_PRODRIVE,      "Prodrive Technologies"},
+        {RIO_VEND_PRODRIVE,      "Prodrive Technologies"},
         {0x00a6,                "BAE Systems"},
         {0x00a8,                "Broadcom"},
         {0x00aa,                "Mobiveil, Inc."},
@@ -153,55 +178,55 @@ static const struct riocp_pe_dev_id riocp_pe_device_ids[] = {
         {0x0000, 0x534d, "SMA"},
 
         /* Freescale*/
-        {RIO_VID_FREESCALE, 0x0012, "MPC8548E"},
-        {RIO_VID_FREESCALE, 0x0013, "MPC8548"},
-        {RIO_VID_FREESCALE, 0x0014, "MPC8543E"},
-        {RIO_VID_FREESCALE, 0x0015, "MPC8543"},
-        {RIO_VID_FREESCALE, 0x0018, "MPC8547E"},
-        {RIO_VID_FREESCALE, 0x0019, "MPC8545E"},
-        {RIO_VID_FREESCALE, 0x001a, "MPC8545"},
-        {RIO_VID_FREESCALE, 0x0400, "P4080E"},
-        {RIO_VID_FREESCALE, 0x0401, "P4080"},
-        {RIO_VID_FREESCALE, 0x0408, "P4040E"},
-        {RIO_VID_FREESCALE, 0x0409, "P4040"},
-        {RIO_VID_FREESCALE, 0x0420, "P5020E"},
-        {RIO_VID_FREESCALE, 0x1810, "MSC8151, MSC8152, MSC8154, MSC8251, MSC8252 or MSC8254"},
-        {RIO_VID_FREESCALE, 0x1812, "MSC8154E"},
-        {RIO_VID_FREESCALE, 0x1818, "MSC8156 or MSC8256"},
-        {RIO_VID_FREESCALE, 0x181a, "MSC8156E"},
+        {RIO_VEND_FREESCALE, 0x0012, "MPC8548E"},
+        {RIO_VEND_FREESCALE, 0x0013, "MPC8548"},
+        {RIO_VEND_FREESCALE, 0x0014, "MPC8543E"},
+        {RIO_VEND_FREESCALE, 0x0015, "MPC8543"},
+        {RIO_VEND_FREESCALE, 0x0018, "MPC8547E"},
+        {RIO_VEND_FREESCALE, 0x0019, "MPC8545E"},
+        {RIO_VEND_FREESCALE, 0x001a, "MPC8545"},
+        {RIO_VEND_FREESCALE, 0x0400, "P4080E"},
+        {RIO_VEND_FREESCALE, 0x0401, "P4080"},
+        {RIO_VEND_FREESCALE, 0x0408, "P4040E"},
+        {RIO_VEND_FREESCALE, 0x0409, "P4040"},
+        {RIO_VEND_FREESCALE, 0x0420, "P5020E"},
+        {RIO_VEND_FREESCALE, 0x1810, "MSC8151, MSC8152, MSC8154, MSC8251, MSC8252 or MSC8254"},
+        {RIO_VEND_FREESCALE, 0x1812, "MSC8154E"},
+        {RIO_VEND_FREESCALE, 0x1818, "MSC8156 or MSC8256"},
+        {RIO_VEND_FREESCALE, 0x181a, "MSC8156E"},
 
         /* Tundra */
-        {RIO_VID_TUNDRA, RIO_DID_TSI500,        "Tsi500"},
-        {RIO_VID_TUNDRA, RIO_DID_TSI568,        "Tsi568"},
-        {RIO_VID_TUNDRA, RIO_DID_TSI572,        "Tsi572"},
-        {RIO_VID_TUNDRA, RIO_DID_TSI574,        "Tsi574"},
-        {RIO_VID_TUNDRA, RIO_DID_TSI577,        "Tsi577"},
-        {RIO_VID_TUNDRA, RIO_DID_TSI576,        "Tsi576"},
-        {RIO_VID_TUNDRA, RIO_DID_TSI578,        "Tsi578"},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI500,        "Tsi500"},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI568,        "Tsi568"},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI572,        "Tsi572"},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI574,        "Tsi574"},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI577,        "Tsi577"},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI576,        "Tsi576"},
+        {RIO_VEND_TUNDRA, RIO_DEVI_TSI578,        "Tsi578"},
 
         /* IDT */
-        {RIO_VID_IDT, RIO_DID_IDT_70K200,       "70K200"},
-        {RIO_VID_IDT, RIO_DID_IDT_CPS8,         "CPS8"},
-        {RIO_VID_IDT, RIO_DID_IDT_CPS12,        "CPS12"},
-        {RIO_VID_IDT, RIO_DID_IDT_CPS16,        "CPS16"},
-        {RIO_VID_IDT, RIO_DID_IDT_CPS6Q,        "CPS6Q"},
-        {RIO_VID_IDT, RIO_DID_IDT_CPS10Q,       "CPS10Q"},
-        {RIO_VID_IDT, RIO_DID_IDT_CPS1432,      "CPS1432"},
-        {RIO_VID_IDT, RIO_DID_IDT_CPS1848,      "CPS1848"},
-        {RIO_VID_IDT, RIO_DID_IDT_CPS1616,      "CPS1616"},
-        {RIO_VID_IDT, RIO_DID_IDT_SPS1616,      "SPS1616"},
-        {RIO_VID_IDT, RIO_DID_IDT_VPS1616,      "VPS1616"},
-        {RIO_VID_IDT, RIO_DID_IDT_TSI721,       "Tsi721"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_70K200,       "70K200"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS8,         "CPS8"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS12,        "CPS12"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS16,        "CPS16"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS6Q,        "CPS6Q"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS10Q,       "CPS10Q"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1432,      "CPS1432"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1848,      "CPS1848"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_CPS1616,      "CPS1616"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_SPS1616,      "SPS1616"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_VPS1616,      "VPS1616"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_TSI721,       "Tsi721"},
 
-        {RIO_VID_IDT, RIO_DID_IDT_RXS2448,      "RXS2448"},
-        {RIO_VID_IDT, RIO_DID_IDT_RXS1632,      "RXS1632"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_RXS2448,      "RXS2448"},
+        {RIO_VEND_IDT, RIO_DEVI_IDT_RXS1632,      "RXS1632"},
 
         /* Texas Instruments */
-        {RIO_VID_TI, 0x009e, "TMS320C6678"},
-        {RIO_VID_TI, 0xb981, "66AK2H12/06"},
+        {RIO_VEND_TI, 0x009e, "TMS320C6678"},
+        {RIO_VEND_TI, 0xb981, "66AK2H12/06"},
 
         /* End of list */
-        {RIO_VID_RESERVED, RIO_DID_RESERVED, "Unknown"},
+        {RIO_VEND_RESERVED, RIO_DEVI_RESERVED, "Unknown"},
 };
 
 #ifdef __cplusplus

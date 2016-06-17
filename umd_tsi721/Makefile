@@ -103,14 +103,14 @@ mbox_client: samples/mbox_example.c libumd_tsi721.a
 		-Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) -DMBOX_CLIENT \
 		$^ -o $@ \
-		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
+		$(SYSLIBS)  -llog $(LIBRARIES) $(LIBS_RPATH) -L. -lumd_tsi721
 
 mbox_server: samples/mbox_example.c libumd_tsi721.a
 	$(CXX) $(CXXFLAGS) \
 		-Iinc -I$(REGSDIR) -I../include \
 		-DRDMA_LL=$(LOG_LEVEL) \
 		$^ -o $@ \
-		$(SYSLIBS) $(LIBRARIES) $(LIBS_RPATH) -llog -L. -lumd_tsi721
+		$(SYSLIBS) -llog $(LIBRARIES) $(LIBS_RPATH) -L. -lumd_tsi721
 
 cmsock_ex: samples/cmsock_example.cc
 	$(CXX) $(CXXFLAGS) \

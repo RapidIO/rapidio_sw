@@ -13,6 +13,7 @@
 class LockFile {
 private:
   int m_fd;
+	int rc;
 
   /** \brief Private gettid(2) implementation */
   static inline pid_t gettid() { return syscall(__NR_gettid); }
@@ -41,7 +42,9 @@ public:
 
     char tmp[81] = {0};
     snprintf(tmp, 80, "Locker pid %d tid %d", getpid(), gettid());
-    write(m_fd, tmp, strlen(tmp));
+    rc = write(m_fd, tmp, strlen(tmp));
+    if (strlen(tmp) != (unsigned)rc)
+      throw std::runtime_error("LockFile: write returned unexpected value!");
   }
 };
 
