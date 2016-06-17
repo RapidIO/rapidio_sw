@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,7 +61,8 @@ struct riocp_pe_port_state_t
 	int port_ok; /** 0 - port not initialized, 1 - port initialized */
 	int port_max_width; /** Maximum number of lanes for the port */
 	int port_cur_width; /** Current operating width of the port */
-	int port_lane_speed; /** Lane speed in Mbps */
+	int port_lane_speed; /** Lane speed in Mbaud*/
+				/** Values: 1250, 2500, 3125, 5000, 6250 */
 	int link_errs; /** 0 - Can exchange packets, 1 - errors stop exchange */
 };
 
@@ -114,12 +116,16 @@ typedef uint8_t pe_port_t;
 struct riocp_pe_driver {
 	int RIOCP_WU (* init_pe)(struct riocp_pe *pe, uint32_t *ct,
 				struct riocp_pe *peer, char *name);
+	int RIOCP_WU (* init_pe_em)(struct riocp_pe *pe, bool en_em);
 	int RIOCP_WU (* destroy_pe)(struct riocp_pe *pe);
 
-	int RIOCP_WU (* recover_port)(struct riocp_pe *pe, uint8_t port,
-								uint8_t lp_port);
+	int RIOCP_WU (* recover_port)(struct riocp_pe *pe, pe_port_t port,
+				pe_port_t lp_port);
+	int RIOCP_WU (* set_port_speed)(struct riocp_pe *pe,
+				pe_port_t port, uint32_t lane_speed);
 	int RIOCP_WU (* get_port_state)(struct riocp_pe *pe,
-			uint8_t port, struct riocp_pe_port_state_t *state);
+				pe_port_t port,
+				struct riocp_pe_port_state_t *state);
 	int RIOCP_WU (* port_start)(struct riocp_pe *pe, uint8_t port);
 	int RIOCP_WU (* port_stop)(struct riocp_pe *pe, uint8_t port);
 

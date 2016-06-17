@@ -114,13 +114,15 @@ uint32_t drvr_ok = 0;
 struct riocp_pe_driver drvr =
 { NULL,
 NULL,
-NULL, 
-NULL, 
-NULL, 
-NULL, 
-NULL, 
-NULL, 
 NULL,
+NULL,
+NULL,
+NULL, 
+NULL, 
+NULL, 
+NULL, 
+NULL, 
+NULL, 
 NULL,
 NULL };
 
@@ -176,6 +178,7 @@ int RIOCP_WU riocp_drv_destroy_pe(struct riocp_pe *pe)
 *
 * @param[in] pe Processing element to be initialized.
 * @param[in] port Port number on the pe to be initialized.
+* @param[in] lp_port Port number on the link partner to be recovered
 *
 * It should be possible to exchange packets with the link partner
 * after this routine has been called.
@@ -183,7 +186,8 @@ int RIOCP_WU riocp_drv_destroy_pe(struct riocp_pe *pe)
 * If errors are present, the routine may invoke local and remote resets and
 * other severe measures to recover the port.
 */
-int RIOCP_WU riocp_drv_recover_port(struct riocp_pe *pe, uint8_t port, uint8_t lp_port)
+int RIOCP_WU riocp_drv_recover_port(struct riocp_pe *pe, pe_port_t port,
+				pe_port_t lp_port)
 {
 	if(drvr.recover_port && drvr_ok)
 		return drvr.recover_port(pe, port, lp_port);
@@ -202,7 +206,7 @@ int RIOCP_WU riocp_drv_recover_port(struct riocp_pe *pe, uint8_t port, uint8_t l
 *
 */
 int RIOCP_WU riocp_drv_get_port_state(struct riocp_pe *pe,
-                        uint8_t port, struct riocp_pe_port_state_t *state)
+                        pe_port_t port, struct riocp_pe_port_state_t *state)
 {
 	if (drvr.get_port_state && drvr_ok)
 		return drvr.get_port_state(pe, port, state);
@@ -217,7 +221,7 @@ int RIOCP_WU riocp_drv_get_port_state(struct riocp_pe *pe,
 * @param[in] port Port number on the pe to be started.
 *
 */
-int RIOCP_WU riocp_drv_port_start(struct riocp_pe *pe, uint8_t port)
+int RIOCP_WU riocp_drv_port_start(struct riocp_pe *pe, pe_port_t port)
 {
 	if (drvr.port_start && drvr_ok)
 		return drvr.port_start(pe, port);
@@ -232,7 +236,7 @@ int RIOCP_WU riocp_drv_port_start(struct riocp_pe *pe, uint8_t port)
 * @param[in] port Stop this port number
 *
 */
-int RIOCP_WU riocp_drv_port_stop(struct riocp_pe *pe, uint8_t port)
+int RIOCP_WU riocp_drv_port_stop(struct riocp_pe *pe, pe_port_t port)
 {
 	if (drvr.port_start && drvr_ok)
 		return drvr.port_start(pe, port);
@@ -251,7 +255,7 @@ int RIOCP_WU riocp_drv_port_stop(struct riocp_pe *pe, uint8_t port)
 *
 */
 int RIOCP_WU riocp_drv_set_route_entry(struct riocp_pe *pe,
-                        uint8_t port, uint32_t did, pe_rt_val rt_val)
+                        pe_port_t port, uint32_t did, pe_rt_val rt_val)
 {
 	if (drvr.set_route_entry && drvr_ok)
 		return drvr.set_route_entry(pe, port, did, rt_val);
@@ -270,7 +274,7 @@ int RIOCP_WU riocp_drv_set_route_entry(struct riocp_pe *pe,
 *
 */
 int RIOCP_WU riocp_drv_get_route_entry(struct riocp_pe *pe,
-                        uint8_t port, uint32_t did, pe_rt_val *rt_val)
+                        pe_port_t port, uint32_t did, pe_rt_val *rt_val)
 {
 	if (drvr.get_route_entry && drvr_ok)
 		return drvr.get_route_entry(pe, port, did, rt_val);
@@ -287,11 +291,11 @@ int RIOCP_WU riocp_drv_get_route_entry(struct riocp_pe *pe,
 *                    to be freed.
 *
 */
-int RIOCP_WU riocp_drv_alloc_mcast_mask(struct riocp_pe *sw, uint8_t lut,
+int RIOCP_WU riocp_drv_alloc_mcast_mask(struct riocp_pe *sw, pe_port_t port,
                         pe_rt_val *rt_val, uint32_t port_mask)
 {
 	if (drvr.alloc_mcast_mask && drvr_ok)
-		return drvr.alloc_mcast_mask(sw, lut, rt_val, port_mask);
+		return drvr.alloc_mcast_mask(sw, port, rt_val, port_mask);
 	else
 		return -ENOSYS;
 }
@@ -305,11 +309,11 @@ int RIOCP_WU riocp_drv_alloc_mcast_mask(struct riocp_pe *sw, uint8_t lut,
 *                    to be freed.
 *
 */
-int RIOCP_WU riocp_drv_free_mcast_mask(struct riocp_pe *sw, uint8_t lut,
+int RIOCP_WU riocp_drv_free_mcast_mask(struct riocp_pe *sw, pe_port_t port,
                         		pe_rt_val rt_val)
 {
 	if (drvr.free_mcast_mask && drvr_ok)
-		return drvr.free_mcast_mask(sw, lut, rt_val);
+		return drvr.free_mcast_mask(sw, port, rt_val);
 	else
 		return -ENOSYS;
 }
@@ -324,11 +328,11 @@ int RIOCP_WU riocp_drv_free_mcast_mask(struct riocp_pe *sw, uint8_t lut,
 *                    Only valid on success.
 *
 */
-int RIOCP_WU riocp_drv_change_mcast_mask(struct riocp_pe *sw, uint8_t lut,
+int RIOCP_WU riocp_drv_change_mcast_mask(struct riocp_pe *sw, pe_port_t port,
                         pe_rt_val rt_val, uint32_t port_mask)
 {
 	if (drvr.change_mcast_mask && drvr_ok)
-		return drvr.change_mcast_mask(sw, lut, rt_val, port_mask);
+		return drvr.change_mcast_mask(sw, port, rt_val, port_mask);
 	else
 		return -ENOSYS;
 }

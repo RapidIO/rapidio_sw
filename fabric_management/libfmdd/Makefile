@@ -40,6 +40,8 @@ NAME:=fmdd
 TARGETS:=lib$(NAME).a
 HEADERS:=inc/lib$(NAME).h
 
+CC := $(CXX)
+
 CFLAGS+=$(addprefix -W,all extra) -fPIC
 CFLAGS+=-D$(DEBUG)
 CFLAGS+=-I. -I../inc
