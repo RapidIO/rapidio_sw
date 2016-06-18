@@ -78,5 +78,16 @@ rskt_client:  $(RSKT_CLIENT_SOURCE) $(COMMONDIR)/include/*.h
 	$(LIBS_RPATH) \
 	-o $@ $(RSKTLIB_OBJECTS) $(RSKT_CLIENT_SOURCE) $(LIB_DIRS) $(LIBRARIES)
 
+rskt_tun: rskt_tun.c $(COMMONDIR)/include/*.h
+	@echo ---------- Building rskt_tun
+	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
+	-I./inc -I../inc \
+	-I$(TOPDIR)/utils/goodput/inc \
+	-DRDMA_LL=$(LOG_LEVEL) \
+	$(RSKTLIB_OBJECTS) rskt_tun.c $(TOPDIR)/utils/goodput/src/tun_ipv4.c \
+	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lrt -lpthread \
+	$(LIBS_RPATH) \
+	-o $@
+
 clean:
-	rm -f *.o *.o *~ *.exe core rskt_server rskt_client 
+	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun
