@@ -85,6 +85,8 @@ extern "C" {
 #define CPS1xxx_LANE_ERR_SYNC_EN			0x00000001
 #define CPS1xxx_LANE_ERR_RDY_EN				0x00000002
 #define CPS1xxx_LANE_X_ERR_DET(x)			(0xff800c + 0x100*(x))
+#define CPS1xxx_LANE_ERR_SYNC				0x00000001
+#define CPS1xxx_LANE_ERR_RDY				0x00000002
 #define CPS1xxx_LANE_X_DFE1(x)				(0xff8028 + 0x100*(x))
 #define CPS1xxx_LANE_DFE1_RX_DFE_DIS		(0x00040000)
 #define CPS1xxx_LANE_DFE1_TAP_OFFS_SEL		(0x00020000)
@@ -1269,24 +1271,37 @@ static int cps1xxx_disable_port(struct riocp_pe *sw, uint8_t port)
 
 	/* trigger los */
 	for(current_lane = lane; current_lane < (lane+width); current_lane++) {
-		ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(current_lane), &val);
+		ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_ERR_DET(current_lane), &val);
 		if (ret < 0)
 			return ret;
 
-		val ^= 0x14;
+		val |= (CPS1xxx_LANE_ERR_SYNC | CPS1xxx_LANE_ERR_RDY);
 
-		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(current_lane), val);
+		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_ERR_DET(current_lane), val);
 		if (ret < 0)
 			return ret;
 	}
 
-	/* wait some time for link down */
+	/* wait some time for port write pending */
 	for(i=0;i<50;i++) {
 		ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_ERR_STAT_CSR(port), &val);
 		if (ret < 0)
 			return ret;
-		if(!(val & CPS1xxx_ERR_STATUS_PORT_OK))
+		if(val & CPS1xxx_ERR_STATUS_PORT_W_PEND)
 			break;
+	}
+
+	/* disable lanes */
+	for(current_lane = lane; current_lane < (lane+width); current_lane++) {
+		ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(current_lane), &val);
+		if (ret < 0)
+			return ret;
+
+		val |= CPS1xxx_LANE_CTL_LANE_DIS;
+
+		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(current_lane), val);
+		if (ret < 0)
+			return ret;
 	}
 
 	/* disable port logic */
@@ -1299,20 +1314,6 @@ static int cps1xxx_disable_port(struct riocp_pe *sw, uint8_t port)
 	ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_CTL_1_CSR(port), val);
 	if (ret < 0)
 		return ret;
-
-	/* disable lanes */
-	for(current_lane = lane; current_lane < (lane+width); current_lane++) {
-		ret = riocp_pe_maint_read(sw, CPS1xxx_LANE_X_CTL(current_lane), &val);
-		if (ret < 0)
-			return ret;
-
-		val |= CPS1xxx_LANE_CTL_LANE_DIS;
-		val ^= 0x14;
-
-		ret = riocp_pe_maint_write(sw, CPS1xxx_LANE_X_CTL(current_lane), val);
-		if (ret < 0)
-			return ret;
-	}
 
 	return 0;
 }
