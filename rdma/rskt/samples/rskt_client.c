@@ -93,6 +93,8 @@ static FILE *log_file;
  * - -h   Display usage information and exit.
  */
 
+int g_random = 0; ///< Use random size r/w
+
 /** 
  * \brief display usage information for the RSKT client
  */
@@ -115,6 +117,7 @@ void usage()
 	printf("-L<len>    : Specify length of data to send (0 to 8192).\n");
 	printf("             Default is 512 bytes\n");
 	printf("-t         : Use varying data length data. Overrides -l\n");
+	printf("-R         : Use random size writes. Don't mix with -t\n");
 	printf("-r<rpt>    : Repeat test this many times. Default is 1\n");
 	printf("-p<skts>   : Number of sockets to execute in parallel.\n");
 	printf("             Default is 1.\n");
@@ -226,8 +229,11 @@ void *parallel_client(void *parms)
 			data_length = generate_data(data_length, tx_test,
 					send_buf, recv_buf);
 
+			int data_size = data_length;
+			if (g_random) { data_size = 1 + (random() % data_length); }
+
 			/* Send the data */
-			rc = rskt_write(client_socket, send_buf, data_length);
+			rc = rskt_write(client_socket, send_buf, data_size);
 			if (rc) {
 				ERR("Client %d: iter %d %d  write fail %d: %s",
 					*client_num, i, j, rc, strerror(errno));
@@ -333,6 +339,7 @@ int main(int argc, char *argv[])
 			usage();
 			exit(1);
 			break;
+		case 'R': g_random = 1; srand(getpid() + getppid() + time(NULL)); break;
 		case 'l':
 			g_level = atoi(optarg);
 			g_disp_level = g_level;

@@ -85,12 +85,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * - -h Display usage inforamtion and exit.
  */
 
+int g_random = 0; ///< Use random size r/w
+
 /**
  * \brief Display usage inforamtion for rskt_server
  */
 void usage()
 {
-	printf("rskt_server [-s<socket_number>] [-l<loglevel>] [-h]\n");
+	printf("rskt_server [-s<socket_number>] [-l<loglevel>] [-r] [-h]\n");
 	printf("-s<socket_number>: Socket number for clients to connect on\n");
 	printf("                   Default is 1234\n");
 	printf("-l<log level>    : Log severity to display and capture\n");
@@ -101,7 +103,8 @@ void usage()
  	printf("                   5 - High priority info and above\n");
  	printf("                   6 - Information logs and above\n");
  	printf("                   7 - Debug information and above\n");
-	printf("-h  Display this help message and exit.\n");
+	printf("-R               : Use random size writes.\n");
+	printf("-h               : Display this help message and exit.\n");
 };
 
 /**
@@ -194,6 +197,8 @@ void *slave_thread_f(void *arg)
 
 		/** - Copy data to transmit buffer */
 		memcpy(send_buf, recv_buf, data_size);
+
+		if (g_random) { data_size = 1 + (random() % data_size); }
 
 		/** - Send data back to client */
 		rc = rskt_write(accept_socket, send_buf, data_size);
@@ -289,14 +294,14 @@ int main(int argc, char *argv[])
 	int	rc;
 
 	/** Parse command line parameters */
-	while ((c = getopt(argc, argv, "hs:l:")) != -1)
+	while ((c = getopt(argc, argv, "rhs:l:")) != -1)
 		switch (c) {
-
 		default:
 		case 'h':
 			usage();
 			exit(1);
 			break;
+		case 'R': g_random = 1; srand(getpid() + getppid() + time(NULL)); break;
 		case 's':
 			socket_number = atoi(optarg);
 			break;
