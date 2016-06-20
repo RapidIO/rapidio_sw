@@ -31,6 +31,23 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+/*
+ * This is a simplistic point-to-point IP bridging over RapidIO+RSKT.
+ *
+ * One endpoint is "server" [-S]. The other is "client".
+ * Both endpoints must be told what is the destid of peer.
+ * This example does NOT attempt to connect to all endpoints reported by libmport.
+ *
+ * To use with iperf on endpoints 5 & 6:
+ *   ep5# ./rskt_tun -d 6 -S
+ *   ## Local tun IP address is (autonconfigured) as 169.254.1.5
+ *   ep6# ./rskt_tun -d 5
+ *   ## Local tun IP address is (autonconfigured) as 169.254.1.6
+ * In a new window:
+ *   ep5# iperf -fMB -d -s
+ *   ep6# iperf -fMB -c 169.254.1.5
+ */
+
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
