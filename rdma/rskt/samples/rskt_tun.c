@@ -66,11 +66,27 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define RSKT_DEFAULT_MAX_BACKLOG          50
 
+static int RSKT_PORT = 666;
+
+volatile int  g_quit = 0;
 static sem_t  g_start_sem;
 static int    g_tun_fd = -1;
 static int    g_epoll_fd = -1;
 static rskt_h g_comm_sock;
 static rskt_h g_listen_sock;
+
+enum { // powers of 2
+  TUN_QUIT = 2,
+  RIO_QUIT = 4,
+};
+
+struct {
+  volatile uint64_t tun_rx_pkt_cnt;
+  volatile uint64_t tun_rx_pkt_bytes;
+  volatile uint64_t rio_rx_pkt_cnt;
+  volatile uint64_t rio_rx_pkt_bytes;
+  volatile uint64_t rio_rx_pkt_byte_sizes[MTU_SIZE+1];
+} g_stats;
 
 static uint16_t g_my_destid = 0xFFFF;
 
@@ -142,7 +158,7 @@ error:
 
 void* tun_read_thr(void* arg)
 {
-  uint8_t send_buf[MTU_SIZE];
+  uint8_t send_buf[MTU_SIZE + 0x10];
 
   struct epoll_event* events = NULL;
   const int events_sz = MAX_EPOLL_EVENTS * sizeof(struct epoll_event);
@@ -153,7 +169,7 @@ void* tun_read_thr(void* arg)
 
   sem_wait(&g_start_sem);
 
-  for(; g_epoll_fd >= 0;) {
+  for(; !g_quit && g_epoll_fd >= 0;) {
     const int epoll_cnt = epoll_wait (g_epoll_fd, events, MAX_EPOLL_EVENTS, -1);
     if (epoll_cnt < 0 && errno == EINTR) continue;
 
@@ -175,18 +191,25 @@ void* tun_read_thr(void* arg)
       }
 
       //printf("TUNRX %d bytes\n", nread);
+      g_stats.tun_rx_pkt_cnt++;
+      g_stats.tun_rx_pkt_bytes += nread;
 
       /* Send the data */
       assert(g_comm_sock);
+      assert(g_comm_sock->skt);
       int rc = rskt_write(g_comm_sock, send_buf, nread);
       if (rc) {
-        fprintf(stderr, "rskt_write %d bytes failed %d: %s", nread, rc, strerror(errno));
+        fprintf(stderr, "rskt_write %d bytes failed %d: %s\n", nread, rc, strerror(errno));
         goto exit;
       }
     } // END for epi
   } // END for infinite for
 
 exit:
+  g_quit |= TUN_QUIT;
+
+  fprintf(stderr, "%s: QUIT\n", __func__);
+
   return NULL;
 }
 
@@ -195,10 +218,11 @@ exit:
  */
 void usage()
 {
-  printf("rskt_tun [-S] -d<did> -h\n");
+  printf("rskt_tun [-S] -d<did> [-p <port>] [-l <lev>] -h\n");
   printf("-S         : Run as rskt_server.\n");
   printf("-d<did>    : Destination ID of node running rskt_server.\n");
-  printf("-s<socknum>: Socket number used by rskt_server\n");
+  printf("-p<port>   : Destination RSKT port of rskt_server.\n");
+  printf("-l<lev>    : Debug level\n");
   printf("             Default is 1234\n");
   printf("-h         : Display this help message and exit.\n");
 } /* usage() */
@@ -210,18 +234,18 @@ int setup_rskt_cli(uint16_t destid)
   assert(destid != 0xFFFF);
 
   if (!g_comm_sock) {
-    fprintf(stderr, "Create socket failed: %s", strerror(errno));
+    fprintf(stderr, "Create socket failed: %s\n", strerror(errno));
     return 0;
   }
 
   struct rskt_sockaddr sock_addr;
 
   sock_addr.ct = destid;
-  sock_addr.sn = 666;
+  sock_addr.sn = RSKT_PORT;
 
   int rc = rskt_connect(g_comm_sock, &sock_addr);
   if (rc) {
-    fprintf(stderr, "Connect to %u on %u failed", destid, 666);
+    fprintf(stderr, "Connect to %u on %u failed\n", destid, RSKT_PORT);
     rskt_close(g_comm_sock);
     return 0;
   }
@@ -240,7 +264,7 @@ int setup_rskt_srv(uint16_t* destid)
   struct rskt_sockaddr sock_addr;
 
   sock_addr.ct = 0;
-  sock_addr.sn = 666;
+  sock_addr.sn = RSKT_PORT;
 
   int rc = rskt_bind(g_listen_sock, &sock_addr);
   if (rc) {
@@ -287,34 +311,43 @@ int setup_rskt_srv(uint16_t* destid)
   return 0;
 }
 
-// Not really a thread
 void* rskt_read_thr(void* arg)
 {
-  uint8_t recv_buf[MTU_SIZE];
+  uint8_t recv_buf[MTU_SIZE + 0x10];
 
   pthread_setname_np(pthread_self(), "TUN_TX");
 
-  for(;;) {
+  sem_wait(&g_start_sem);
+
+  for(;! g_quit && g_tun_fd >=0 ;) {
     int rc = 0;
 
     do {
       assert(g_comm_sock);
+      assert(g_comm_sock->skt);
       rc = rskt_read(g_comm_sock, recv_buf, MTU_SIZE);
     } while (rc == -ETIMEDOUT);
 
     if (rc < 0) {
-      fprintf(stderr, "rskt_read failed %d: %s", rc, strerror(errno));
+      fprintf(stderr, "rskt_read failed %d: %s\n", rc, strerror(errno));
       break;
     } 
 
     //printf("TUNTX %d bytes\n", rc);
+    g_stats.rio_rx_pkt_cnt++;
+    g_stats.rio_rx_pkt_bytes += rc;
+    if (rc >= 0 && rc <= MTU_SIZE) g_stats.rio_rx_pkt_byte_sizes[rc]++;
 
     int nwrite = write(g_tun_fd, recv_buf, rc);
     if (nwrite < 0) {
-      fprintf(stderr, "write of %d bytes failed %d: %s", rc, nwrite, strerror(errno));
+      fprintf(stderr, "write of %d bytes failed %d: %s\n", rc, nwrite, strerror(errno));
       break;
     }
   } // END for infinite
+
+  g_quit |= RIO_QUIT;
+
+  fprintf(stderr, "%s: QUIT\n", __func__);
 
   return NULL;
 }
@@ -330,14 +363,29 @@ int main(int argc, char *argv[])
     return 0;
   }
 
+#ifdef RDMA_LL
+  rdma_log_init("rskt_tun.txt", 1);
+#endif
+
   uint16_t destid = 0xFFFF;
 
   int c;
-  while ((c = getopt(argc, argv, "Shd:")) != -1) {
+  while ((c = getopt(argc, argv, "Shd:p:l:")) != -1) {
     switch (c) {
       case 'd': destid = atoi(optarg); break;
+      case 'p': RSKT_PORT = atoi(optarg); break;
       case 'S': server = 1; break;
       case 'h': usage(); exit(0); break;
+      case 'l':
+#ifdef RDMA_LL
+                {{
+                int temp = atoi(optarg);
+                if (temp < RDMA_LL_CRIT) temp = RDMA_LL_CRIT - 1;
+                if (temp > RDMA_LL)      temp = RDMA_LL;
+                g_level = temp;
+                }}
+#endif
+                break;
       default: usage(); exit(0); break;
     }
   }
@@ -366,10 +414,6 @@ int main(int argc, char *argv[])
 
   g_epoll_fd = epoll_create1 (0);
 
-#ifdef RDMA_LL
-  rdma_log_init("rskt_tun.txt", 1);
-#endif
-
   /** Initialize RSKT library */
   rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
   if (rc) {
@@ -387,8 +431,14 @@ int main(int argc, char *argv[])
 
   sem_init(&g_start_sem, 0, 0);
 
-  pthread_t pt;
-  if (pthread_create(&pt, NULL, tun_read_thr, NULL) < 0) {
+  pthread_t pt_tun;
+  if (pthread_create(&pt_tun, NULL, tun_read_thr, NULL) < 0) {
+    fprintf(stderr, "pthread_create failed: %s\n", strerror(errno));
+    return 4;
+  }
+
+  pthread_t pt_rio;
+  if (pthread_create(&pt_rio, NULL, rskt_read_thr, NULL) < 0) {
     fprintf(stderr, "pthread_create failed: %s\n", strerror(errno));
     return 4;
   }
@@ -396,11 +446,16 @@ int main(int argc, char *argv[])
   if ((g_tun_fd = setup_TUN(g_my_destid, destid, 0x100)) < 0) { rc = 5; goto done; }
 
   sem_post(&g_start_sem);
-  rskt_read_thr(NULL);
+  sem_post(&g_start_sem);
+
+  while (! g_quit) usleep(1000);
+
+  if ((g_quit & TUN_QUIT) != TUN_QUIT) pthread_kill(pt_tun, SIGUSR1);
+  if ((g_quit & RIO_QUIT) != RIO_QUIT) pthread_kill(pt_rio, SIGUSR1);
 
 done:
   if (server) rskt_close(g_listen_sock);
-  rskt_close(g_comm_sock);
+  if (g_comm_sock != NULL) rskt_close(g_comm_sock);
   close(g_epoll_fd);
   close(g_tun_fd);
 

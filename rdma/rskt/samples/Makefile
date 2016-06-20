@@ -59,7 +59,7 @@ RSKT_CLIENT_OBJECTS = rskt_client.o
 LIBRARIES = -lrskt -lrdma -lriocp_pe -lmport \
         -llist -llog -lfmdd -ldd -lcli -lrt -ldl
 
-all: rskt_client rskt_server
+all: rskt_client rskt_server rskt_tun
 
 
 rskt_server:  $(RSKT_SERVER_SOURCE) $(COMMONDIR)/include/*.h
