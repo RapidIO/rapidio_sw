@@ -223,7 +223,13 @@ void usage()
   printf("-d<did>    : Destination ID of node running rskt_server.\n");
   printf("-p<port>   : Destination RSKT port of rskt_server.\n");
   printf("-l<lev>    : Debug level\n");
-  printf("             Default is 1234\n");
+  printf("               1 - No logs\n");
+  printf("               2 - critical\n");
+  printf("               3 - Errors and above\n");
+  printf("               4 - Warnings and above\n");
+  printf("               5 - High priority info and above\n");
+  printf("               6 - Information logs and above\n");
+  printf("               7 - Debug information and above\n");
   printf("-h         : Display this help message and exit.\n");
 } /* usage() */
 
