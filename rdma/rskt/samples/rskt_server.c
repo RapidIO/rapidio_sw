@@ -85,7 +85,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * - -h Display usage inforamtion and exit.
  */
 
-int g_random = 0; ///< Use random size r/w
+int g_random = 0; ///< Use random size writes
 
 /**
  * \brief Display usage inforamtion for rskt_server

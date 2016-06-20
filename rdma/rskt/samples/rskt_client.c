@@ -93,7 +93,7 @@ static FILE *log_file;
  * - -h   Display usage information and exit.
  */
 
-int g_random = 0; ///< Use random size r/w
+int g_random = 0; ///< Use random size writes
 
 /** 
  * \brief display usage information for the RSKT client
