@@ -294,7 +294,7 @@ int main(int argc, char *argv[])
 	int	rc;
 
 	/** Parse command line parameters */
-	while ((c = getopt(argc, argv, "rhs:l:")) != -1)
+	while ((c = getopt(argc, argv, "Rhs:l:")) != -1)
 		switch (c) {
 		default:
 		case 'h':

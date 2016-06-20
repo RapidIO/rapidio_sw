@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
 		goto exit_main;
 	}
 
-	while ((c = getopt(argc, argv, "htd:l:L:r:s:p:")) != -1)
+	while ((c = getopt(argc, argv, "Rhtd:l:L:r:s:p:")) != -1)
 		switch (c) {
 
 		case 'd':
