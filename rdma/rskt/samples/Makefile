@@ -89,5 +89,8 @@ rskt_tun: rskt_tun.c $(COMMONDIR)/include/*.h
 	$(LIBS_RPATH) \
 	-o $@
 
+rskt_shim.so: rskt_shim.cc
+	$(CXX) $^ -shared -fPIC -pthread  -ldl -lpthread -o $@
+
 clean:
 	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun
