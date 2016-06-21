@@ -17,7 +17,8 @@ static pthread_mutex_t g_rskt_shim_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t g_map_mutex = PTHREAD_MUTEX_INITIALIZER; 
 
 typedef struct {
-  int  sockp[2];
+  int                sockp[2];
+  int                nonblock;
   struct sockaddr_in laddr;
   struct sockaddr_in daddr;
 } SocketTracker_t;
@@ -143,10 +144,14 @@ int socket(int socket_family, int socket_type, int protocol)
 {
   int tmp_sock = glibc_socket(socket_family, socket_type, protocol);
 
-  if (tmp_sock >= 0 && socket_family == AF_INET && socket_type == SOCK_STREAM && protocol == IPPROTO_TCP) { // only TCPv4
+  if (tmp_sock >= 0 &&
+      socket_family == AF_INET &&
+      ((socket_type & SOCK_STREAM) == SOCK_STREAM) &&
+      protocol == IPPROTO_TCP) { // only TCPv4
     printf("TCPv4 sock %d STORE\n", tmp_sock);
     pthread_mutex_lock(&g_map_mutex);
     g_sock_map[tmp_sock] = ZERO_SOCK;
+    if (socket_type & SOCK_NONBLOCK) g_sock_map[tmp_sock].nonblock++;
     pthread_mutex_unlock(&g_map_mutex);
   }
 
