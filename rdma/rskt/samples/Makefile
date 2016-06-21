@@ -90,7 +90,7 @@ rskt_tun: rskt_tun.c $(COMMONDIR)/include/*.h
 	-o $@
 
 rskt_shim.so: rskt_shim.cc
-	$(CXX) $^ -shared -fPIC -pthread  -ldl -lpthread -o $@
+	$(CXX) $^ -shared -fPIC -pthread -ldl -lpthread -o $@ -O0 -ggdb
 
 clean:
 	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun

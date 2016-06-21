@@ -170,3 +170,67 @@ int close(int fd)
 
   glibc_close(fd);
 }
+
+int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
+{
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(sockfd);
+  if (it != g_sock_map.end()) do {
+    if (addrlen != sizeof(struct sockaddr_in)) break;
+
+    const struct sockaddr_in* addr_v4 = (struct sockaddr_in*)addr;
+    if (addr_v4->sin_family != AF_INET) break;
+
+    union {
+      uint32_t saddr;
+      uint8_t  bytes[4];
+    } u;
+
+    u.saddr = ntohl(addr_v4->sin_addr.s_addr);
+    if (u.bytes[3] != 0 || u.bytes[2] != 0) break; // We want 0.0.x.y
+
+    printf("TCPv4 sock %d bind to RIO addr\n", sockfd);
+  } while(0);
+  pthread_mutex_unlock(&g_map_mutex);
+
+  // TODO
+  // 1. make a socketpair
+  // 2. dup2 sockfd->sockp[0]
+  // 3. make a RSKT and put it in g_sock_map[sockfd]
+  // 4. bind RSKT to ntohs(addr_v4->sin_port)
+  return glibc_bind(sockfd, addr, addrlen); // temporary
+}
+
+int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
+{
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(sockfd);
+  if (it != g_sock_map.end()) do {
+    if (addrlen != sizeof(struct sockaddr_in)) break;
+
+    const struct sockaddr_in* addr_v4 = (struct sockaddr_in*)addr;
+    if (addr_v4->sin_family != AF_INET) break;
+
+    union {
+      uint32_t saddr;
+      uint8_t  bytes[4];
+    } u;
+
+    u.saddr = ntohl(addr_v4->sin_addr.s_addr);
+    if (u.bytes[3] != 0 || u.bytes[2] != 0) break; // We want 0.0.x.y
+
+    printf("TCPv4 sock %d connect to RIO addr\n", sockfd);
+  } while(0);
+  pthread_mutex_unlock(&g_map_mutex);
+
+  // TODO
+  // 1. make a socketpair
+  // 2. dup2 sockfd->sockp[0]
+  // 3. make a RSKT and put it in g_sock_map[sockfd]
+  // 4. connect RSKT to destid=(u.saddr & 0xFFFF) port ntohs(addr_v4->sin_port)
+  // 5. if socket marked nonblocking by socket/ioctl/fcntl then
+  // 6. ... ??crickets?? ... rskt_connect is blocking but should return fast
+  return glibc_connect(sockfd, addr, addrlen); // temporary
+}
+
+/// XXX thttpd does socket/bind/poll....accept
