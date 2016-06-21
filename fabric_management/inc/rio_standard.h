@@ -70,6 +70,7 @@ extern "C" {
 #define RIO_MC_CON_OP       (0x88)
 
 /* RIO_DEV_IDENT : Register Bits Masks Definitions */
+typedef uint32_t RIO_DEV_IDENT_T;
 #define RIO_DEV_IDENT_VEND                               (0x0000ffff)
 #define RIO_DEV_IDENT_DEVI                               (0xffff0000)
 
@@ -333,6 +334,7 @@ typedef uint32_t pe_rt_val;
 #define RIO_EFB_T_MISC  (0x0010)  /* Miscellaneous Register Block */
 
 #define RIO_EFB_GET_NEXT(x) ((x & RIO_EFB_NEXT) >> 16)
+#define RIO_EFB_GET_EFB_T(x) (x & RIO_EFB_T)
 
 /* LP-Serial Port Extended Features Block Register Addresses
  * 

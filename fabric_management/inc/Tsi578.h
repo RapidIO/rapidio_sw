@@ -274,6 +274,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_RIO_ASSY_INF_ASSY_REV                            (0xffff0000)
 
 /* Tsi578_RIO_PE_FEAT : Register Bits Masks Definitions */
+#define Tsi578_PE_FEAT_VAL 0x1000051F
 #define Tsi578_RIO_PE_FEAT_EXT_AS                                  (0x00000007)
 #define Tsi578_RIO_PE_FEAT_EXT_FEA                                 (0x00000008)
 #define Tsi578_RIO_PE_FEAT_CTLS                                    (0x00000010)
@@ -289,6 +290,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_RIO_SW_PORT_PORT_TOTAL                              (0x0000ff00)
 
 /* Tsi578_RIO_SRC_OP : Register Bits Masks Definitions */
+#define Tsi578_SRC_OP_VAL 0x00000004
 #define Tsi578_RIO_SRC_OP_PORT_WR                                  (0x00000004)
 #define Tsi578_RIO_SRC_OP_A_CLEAR                                  (0x00000010)
 #define Tsi578_RIO_SRC_OP_A_SET                                    (0x00000020)
@@ -304,12 +306,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_RIO_SRC_OP_IMPLEMENT_DEF                            (0x00030000)
 
 /* Tsi578_RIO_PE_MC_FEAT : Register Bits Masks Definitions */
+#define Tsi578_MC_FEAT_VAL 0x00000000
 #define Tsi578_RIO_PE_MC_FEAT_SIMP                                 (0x80000000)
 
 /* Tsi578_RIO_LUT_SIZE : Register Bits Masks Definitions */
+#define Tsi578_RIO_LUT_SIZE_VAL 0x000001FF
 #define Tsi578_RIO_LUT_SIZE_LUT_SIZE                               (0x0000ffff)
 
 /* Tsi578_RIO_SW_MC_INFO : Register Bits Masks Definitions */
+#define Tsi578_SW_MC_INFO_VAL 0x00000008
 #define Tsi578_RIO_SW_MC_INFO_MAX_MASKS                            (0x0000ffff)
 #define Tsi578_RIO_SW_MC_INFO_MAX_DESTID_ASSOC                     (0x3fff0000)
 #define Tsi578_RIO_SW_MC_INFO_ASSOC_SCOPE                          (0x40000000)
@@ -350,6 +355,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define Tsi578_RIO_MC_DESTID_ASSOC_ASSOC_BLK_SIZE                  (0xffff0000)
 
 /* Tsi578_RIO_SW_MB_HEAD : Register Bits Masks Definitions */
+#define Tsi578_RIO_SW_MB_ID_VAL 
 #define Tsi578_RIO_SW_MB_HEAD_EF_ID                                (0x0000ffff)
 #define Tsi578_RIO_SW_MB_HEAD_EF_PTR                               (0xffff0000)
 

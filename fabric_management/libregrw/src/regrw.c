@@ -44,7 +44,193 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-int reg_rd(struct rio_car_csr *rcc, uint32_t offset, uint32_t *val)
+struct regrw_driver dflt_driver;
+
+#ifndef REGRW_USE_MALLOC
+struct regrw_i regrw_hndl[REGRW_NUM_HANDLES];
+struct regrw_sw regrw_sw_hndl[REGRW_NUM_SWITCHES];
+
+bool hdnl_use[REGRW_NUM_HANDLES] = {false};
+bool sw_use[REGRW_NUM_SWITCHES] = {false};
+#endif
+
+int regrw_get_handle(regrw_h *h)
+{
+	regrw_i *hnd;
+	errno = 0;
+#ifdef REGRW_USE_MALLOC
+	hnd = (regrw_h)calloc(1, sizeof(struct regrw_i));
+	if (NULL == hnd) {
+		return -1;
+	*h = (void *)hnd;
+	memcpy((*h)->regrw, &dflt_driver, sizeof(struct regrw_driver));
+	return 0;
+#else
+	bool found_one = false;
+	*h = NULL;
+
+	for (int srch_i = 0; srch_i < REGRW_NUM_HANDLES; srch_i++) {
+		if (!hdnl_use[srch_i]) {
+			hdnl_use[srch_i] = true;
+			memset(&regrw_hndl[srch_i], 0, sizeof(struct regrw_i));
+			memcpy(&regrw_hndl[srch_i], &dflt_driver,
+						sizeof(struct regrw_driver));
+			*h = &regrw_hndl[srch_i];
+			found_one = true;
+			break;
+		};
+	};
+	if (found_one)
+		return 0;
+	
+	errno = ENOMEM;
+	return -1;
+#endif;
+};
+
+int regrw_destroy_handle(regrw_h *h)
+{
+#ifdef REGRW_USE_MALLOC
+	errno = 0;
+	free(*h);
+	*h = NULL;
+	return 0;
+#else
+	bool found_one = false;
+	uint idx;
+	struct regrw_i *hndl = (struct regrw_i *)h;
+
+	errno = 0;
+	if (NULL == h)
+		goto fail;
+
+	if (NULL == *h)
+		return 0;
+
+ 	idx = ((uint64_t)*h - (uint64_t)&regrw_hndl[0]) /
+			sizeof(regrw_hndl[0]);
+	if (idx >= REGRW_NUM_HANDLES) {
+		goto fail;
+	};
+
+	if (hndl->sw_info) {
+		uint sw_idx = (((uint64_t)hndl->sw_info -
+				(uint64_t)&regrw_sw_hndl[0]) /
+				sizeof(regrw_sw_hndl[0]);
+		if (sw_idx >= REGRW_NUM_SWITCHES)
+			goto fail;
+
+		sw_use[sw_idx] = false;
+		memset(&regrw_sw_hndl[sw_idx], 0, sizeof(regrw_sw_hndl[0]));
+	};
+
+	hndl_use[idx] = false;
+	memset(&regrw_hndl[idx], 0, sizeof(regrw_hndl[0]));
+		
+	*h = NULL;
+
+	return 0;
+fail:
+	errno = EINVAL;
+	return -1;
+
+#endif;
+};
+
+int regrw_init_handle(regrw_h h, uint32_t did, rio_hc_t hc)
+{
+	uint32_t vend_devi;
+	int rc;
+	struct regrw_i *hnd = (regrw_i *)h;
+
+	errno = 0;
+	if (NULL == hnd) {
+		errno = EINVAL;
+		goto fail;
+	}
+
+	if (regrw_raw_read(h, did, hc, RIO_DEV_IDENT, &vend_devi))
+		goto fail;
+
+	if (regrw_set_path(h, did, hc))
+		goto fail;
+
+/* FIXME: Allocate switch information here */
+
+	if (regrw_fill_in_handle(hnd, vend_devi);
+		goto fail;
+
+	return 0;
+fail:
+	return -1;
+};
+
+int regrw_set_path(regrw_h h, uint32_t did, rio_hc_t hc);
+{
+	struct regrw_i *hnd = (regrw_i *)h;
+
+	errno = 0;
+	if ((NULL == hnd) || (hc > HC_LOCAL))
+		goto fail;
+
+	hnd->dest_id = did;
+	hnd->tt = tt_dev8;
+	hnd->hc = hc;
+
+	return 0;
+fail:
+	errno = EINVAL;
+	return -1;
+};
+
+int regrw_get_path(regrw_h h, uint32_t *did, rio_hc_t hc);
+{
+	struct regrw_i *hnd = (regrw_i *)h;
+
+	errno = 0;
+	if ((NULL == hnd) || (hnd->tt == tt_uninit) || (hnd->tt >= tt_last) ||
+			(hnd->hc > HC_LOCAL))
+		goto fail;
+
+	*did = hnd->dest_id;
+	*hc = hnd->hc;
+
+	return 0;
+fail:
+	errno = EINVAL;
+	return -1;
+};
+
+
+int regrw_vend_name(regrw_h h, const char **name)
+{
+	struct regrw_i *hnd = (regrw_i *)h;
+
+	if (NULL == hnd) {
+		*name = NULL;
+		errno = EINVAL;
+		return -1;
+	};
+
+	*name = h->vend_name;
+	return 0;
+};
+
+int regrw_dev_t_name(regrw_h h, const char **name)
+{
+	struct regrw_i *hnd = (regrw_i *)h;
+
+	if (NULL == hnd) {
+		*name = NULL;
+		errno = EINVAL;
+		return -1;
+	};
+
+	*name = h->dev_t_name;
+	return 0;
+};
+
+int regrw_rd(struct rio_car_csr *rcc, uint32_t offset, uint32_t *val)
 {
 	if ((NULL == rcc) || (NULL == rcc->regrw.reg_rd)) {
 		ERR("Driver is NULL!");
@@ -54,7 +240,7 @@ int reg_rd(struct rio_car_csr *rcc, uint32_t offset, uint32_t *val)
 	return rcc->regrw.reg_rd(rcc, offset, val);
 };
 
-int reg_wr(struct rio_car_csr *rcc, uint32_t offset, uint32_t val)
+int regrw_wr(struct rio_car_csr *rcc, uint32_t offset, uint32_t val)
 {
 	if ((NULL == rcc) || (NULL == rcc->regrw.reg_wr)) {
 		ERR("Driver is NULL!");
@@ -64,7 +250,7 @@ int reg_wr(struct rio_car_csr *rcc, uint32_t offset, uint32_t val)
 	return rcc->regrw.reg_wr(rcc, offset, val);
 };
 
-int raw_reg_rd(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
+int regrw_raw_rd(struct rio_car_csr *rcc, uint32_t did, rio_hc_t hc,
 		uint32_t addr, uint32_t *val)
 {
 	if ((NULL == rcc) || (NULL == rcc->regrw.raw_reg_rd)) {
@@ -74,7 +260,7 @@ int raw_reg_rd(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
 	return rcc->regrw.raw_reg_rd(rcc, did, hc, addr, val);
 };
 
-int raw_reg_wr(struct rio_car_csr *rcc, uint32_t did, uint16_t hc,
+int regrw_raw_wr(struct rio_car_csr *rcc, uint32_t did, rio_hc_t hc,
 		uint32_t addr, uint32_t val)
 {
 	if ((NULL == rcc) || (NULL == rcc->regrw.raw_reg_wr)) {

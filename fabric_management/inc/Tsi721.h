@@ -1388,6 +1388,7 @@ extern "C" {
 #define TSI721_RIO_ASSY_INF_ASSY_REV                            (0xffff0000)
 
 /* TSI721_RIO_PE_FEAT : Register Bits Masks Definitions */
+#define TSI721_PE_FEAT_VAL 0xC000003F
 #define TSI721_RIO_PE_FEAT_EXT_AS                                  (0x00000007)
 #define TSI721_RIO_PE_FEAT_EXT_FEA                                 (0x00000008)
 #define TSI721_RIO_PE_FEAT_CTLS                                    (0x00000010)
@@ -1404,6 +1405,7 @@ extern "C" {
 #define TSI721_RIO_PE_FEAT_BRDG                                    (0x80000000)
 
 /* TSI721_RIO_SRC_OP : Register Bits Masks Definitions */
+#define TSI721_SRC_OP_VAL 0x0000FC04
 #define TSI721_RIO_SRC_OP_IMPLEMENT_DEF2                           (0x00000003)
 #define TSI721_RIO_SRC_OP_PORT_WR                                  (0x00000004)
 #define TSI721_RIO_SRC_OP_A_SWAP                                   (0x00000008)
@@ -1436,6 +1438,7 @@ extern "C" {
 #define TSI721_RIO_SRC_OP_G_READ                                   (0x80000000)
 
 /* TSI721_RIO_DEST_OP : Register Bits Masks Definitions */
+#define TSI721_DST_OP_VAL 0x0000FC04
 #define TSI721_RIO_DEST_OP_IMPLEMENT_DEF2                          (0x00000003)
 #define TSI721_RIO_DEST_OP_PORT_WR                                 (0x00000004)
 #define TSI721_RIO_DEST_OP_A_SWAP                                  (0x00000008)

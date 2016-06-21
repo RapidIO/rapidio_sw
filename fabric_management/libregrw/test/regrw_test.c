@@ -1,5 +1,5 @@
 /*
- * Register read/write functions
+ * Unit test register read/write functions
  */
 /*
 ****************************************************************************
