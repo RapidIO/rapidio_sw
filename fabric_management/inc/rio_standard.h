@@ -902,11 +902,11 @@ typedef uint32_t RIO_SPX_ERR_STAT_T;
 #define RIO_RT_BC_LVL0(b)    (b+0x030)
 #define RIO_RT_BC_LVL1(b)    (b+0x034)
 #define RIO_RT_BC_LVL2(b)    (b+0x038)
-#define RIO_RT_SPX_CTL(b,p)      (b+0x040 + 0x020*(p))
-#define RIO_RT_SPX_MC(b,p)       (b+0x048 + 0x020*(p))
-#define RIO_RT_SPX_LVL0(b,p)     (b+0x050 + 0x020*(p))
-#define RIO_RT_SPX_LVL1(b,p)     (b+0x054 + 0x020*(p))
-#define RIO_RT_SPX_LVL2(b,p)     (b+0x058 + 0x020*(p))
+#define RIO_RT_CTL(b,p)      (b+0x040 + 0x020*(p))
+#define RIO_RT_MC(b,p)       (b+0x048 + 0x020*(p))
+#define RIO_RT_LVL0(b,p)     (b+0x050 + 0x020*(p))
+#define RIO_RT_LVL1(b,p)     (b+0x054 + 0x020*(p))
+#define RIO_RT_LVL2(b,p)     (b+0x058 + 0x020*(p))
 
 /* RIO_RT_EFB_HEAD : Register Bits Masks Definitions */
 #define RIO_RT_EFB_HEAD_TYPE     RIO_EFB_T
