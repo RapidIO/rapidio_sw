@@ -89,8 +89,28 @@ rskt_tun: rskt_tun.c $(COMMONDIR)/include/*.h
 	$(LIBS_RPATH) \
 	-o $@
 
+rskt_wwwserver: rskt_wwwserver.cc $(COMMONDIR)/include/*.h
+	@echo ---------- Building rskt_tun
+	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
+	-I./inc -I../inc \
+	-DRDMA_LL=$(LOG_LEVEL) \
+	$(RSKTLIB_OBJECTS) rskt_wwwserver.cc \
+	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lrt -lpthread \
+	$(LIBS_RPATH) \
+	-o $@
+
+rskt_wwwclient: rskt_wwwclient.cc $(COMMONDIR)/include/*.h
+	@echo ---------- Building rskt_tun
+	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
+	-I./inc -I../inc \
+	-DRDMA_LL=$(LOG_LEVEL) \
+	$(RSKTLIB_OBJECTS) rskt_wwwclient.cc \
+	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lrt -lpthread \
+	$(LIBS_RPATH) \
+	-o $@
+
 rskt_shim.so: rskt_shim.cc
 	$(CXX) $^ -shared -fPIC -pthread -ldl -lpthread -o $@ -O0 -ggdb
 
 clean:
-	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun
+	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun rskt_wwwserver rskt_wwwclient rskt_shim.so
