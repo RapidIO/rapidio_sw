@@ -51,6 +51,7 @@ int RIOCP_WU riocp_pe_switch_set_domain(struct riocp_pe *sw, uint8_t domain);
 int RIOCP_WU riocp_pe_switch_port_enable(struct riocp_pe *sw, uint8_t port);
 int RIOCP_WU riocp_pe_switch_port_disable(struct riocp_pe *sw, uint8_t port);
 int RIOCP_WU riocp_pe_switch_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid, uint16_t port_mask, bool clear);
+int RIOCP_WU riocp_pe_switch_set_port_self_mcast(riocp_pe_handle sw, uint8_t port, bool enable);
 int RIOCP_WU riocp_pe_switch_set_congestion_limit(struct riocp_pe *sw, uint8_t port, uint16_t limit);
 int RIOCP_WU riocp_pe_switch_get_counter_capabilites(struct riocp_pe *sw, uint8_t port, cap_if_t *caps);
 int RIOCP_WU riocp_pe_switch_get_counters(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val,

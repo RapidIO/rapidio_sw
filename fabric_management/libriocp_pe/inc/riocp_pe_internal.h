@@ -117,6 +117,7 @@ struct riocp_pe_switch {
 	int (*port_enable)(struct riocp_pe *sw, uint8_t port);
 	int (*port_disable)(struct riocp_pe *sw, uint8_t port);
 	int (*set_multicast_mask)(struct riocp_pe *sw, uint8_t lut, uint8_t maskid, uint16_t port_mask, bool clear);
+	int (*set_self_mcast)(struct riocp_pe *sw, uint8_t port, bool state);
 	int (*set_congest_limit)(struct riocp_pe *sw, uint8_t port, uint16_t limit);
 	int (*get_register_capabilities)(struct riocp_pe *sw, uint8_t port, cap_if_t *caps);
 	int (*get_counters)(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val,

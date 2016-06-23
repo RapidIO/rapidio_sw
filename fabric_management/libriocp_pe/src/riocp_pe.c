@@ -2307,6 +2307,31 @@ int RIOCP_SO_ATTR riocp_sw_set_congestion_limit(riocp_pe_handle sw,
 }
 
 /**
+ * Enable or disable the self multicast feature of a port on a switch
+ *
+ * If this port is included in any multicast mask, multicast
+ * packets received on this port will be multicast back out this port. If
+ * this bit is set, software must handle multicast back to itself. Note
+ * that multicasting packets back to the port that the packet was
+ * received on is contrary to the RapidIO Specification (Rev. 2.1).
+ *
+ * @param sw        Target switch
+ * @param port      Target port
+ * @param enable    True for enable the feature, false for disable the feature
+ */
+int RIOCP_SO_ATTR riocp_sw_set_port_self_mcast(riocp_pe_handle sw, uint8_t port, bool enable)
+{
+	if (riocp_pe_handle_check(sw))
+		return -EINVAL;
+	if (!RIOCP_PE_IS_HOST(sw))
+		return -EPERM;
+	if (!RIOCP_PE_IS_SWITCH(sw->cap))
+		return -ENOSYS;
+
+	return riocp_pe_switch_set_port_self_mcast(sw, port, enable);
+}
+
+/**
  * Read switch capabilities
  * @param sw                Target switch
  * @param reg_cap           Capability bit field that specifies the counter

@@ -2014,6 +2014,28 @@ int cps1xxx_set_multicast_mask(struct riocp_pe *sw, uint8_t lut, uint8_t maskid,
 	return 0;
 }
 
+static int cps1xxx_set_self_mcast(struct riocp_pe *sw, uint8_t port, bool state)
+{
+    uint32_t result;
+    int ret;
+
+    /* enable port-writes and interrupts for port events */
+    ret = riocp_pe_maint_read(sw, CPS1xxx_PORT_X_OPS(port), &result);
+    if (ret < 0)
+        return ret;
+
+    if (state)
+	    result |= CPS1xxx_OPS_SELF_MCAST_EN;
+    else
+	    result &= ~CPS1xxx_OPS_SELF_MCAST_EN;
+
+    ret = riocp_pe_maint_write(sw, CPS1xxx_PORT_X_OPS(port), result);
+    if (ret < 0)
+        return ret;
+
+    return 0;
+}
+
 /*
  * set the retry limit per port
  */
@@ -3782,6 +3804,7 @@ struct riocp_pe_switch riocp_pe_switch_cps1848 = {
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
 	cps1xxx_set_multicast_mask,
+	cps1xxx_set_self_mcast,
 	cps1xxx_set_retry_limit,
     cps1xxx_get_capabilities,
     cps1xxx_get_counters,
@@ -3815,6 +3838,7 @@ struct riocp_pe_switch riocp_pe_switch_cps1432 = {
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
 	cps1xxx_set_multicast_mask,
+	cps1xxx_set_self_mcast,
 	cps1xxx_set_retry_limit,
     cps1xxx_get_capabilities,
     cps1xxx_get_counters,
@@ -3848,6 +3872,7 @@ struct riocp_pe_switch riocp_pe_switch_cps1616 = {
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
 	cps1xxx_set_multicast_mask,
+	cps1xxx_set_self_mcast,
 	cps1xxx_set_retry_limit,
     cps1xxx_get_capabilities,
     cps1xxx_get_counters,
@@ -3881,6 +3906,7 @@ struct riocp_pe_switch riocp_pe_switch_sps1616 = {
 	cps1xxx_enable_port,
 	cps1xxx_disable_port,
 	cps1xxx_set_multicast_mask,
+	cps1xxx_set_self_mcast,
 	cps1xxx_set_retry_limit,
     cps1xxx_get_capabilities,
     cps1xxx_get_counters,

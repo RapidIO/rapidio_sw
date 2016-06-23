@@ -301,6 +301,7 @@ int RIOCP_WU riocp_pe_set_sw_domain(riocp_pe_handle sw, uint8_t domain);
 int RIOCP_WU riocp_sw_set_port_enable(riocp_pe_handle sw, uint8_t port, bool enable);
 int RIOCP_WU riocp_sw_set_multicast_mask(riocp_pe_handle sw, uint8_t lut, uint8_t maskid,
 		uint16_t port_mask, bool clear);
+int RIOCP_WU riocp_sw_set_port_self_mcast(riocp_pe_handle sw, uint8_t port, bool enable);
 int RIOCP_WU riocp_sw_set_congestion_limit(riocp_pe_handle sw, uint8_t port, uint16_t limit);
 
 /* Counters */
