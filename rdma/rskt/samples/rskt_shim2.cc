@@ -136,6 +136,16 @@ int shim_rskt_read(void* sock, void* data, const int data_len)
   return rc;
 }
 
+extern uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr, uint32_t buf_sz);
+
+int shim_rskt_get_avail_bytes(void* sock)
+{
+  assert(sock);
+  rskt_h r_sock = (rskt_h)sock;
+  struct rskt_socket_t* skt = (struct rskt_socket_t*)r_sock->skt;
+  return get_avail_bytes(skt->hdr, skt->buf_sz);
+}
+
 int shim_rskt_write(void* sock, void* data, const int data_len)
 {
   assert(sock);
