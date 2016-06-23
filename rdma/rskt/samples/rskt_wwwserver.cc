@@ -163,6 +163,8 @@ void* www_read_thr(void* arg)
     return NULL;
   } 
 
+  fprintf(stderr, "%s: REQ %d bytes.\n", __func__, rc);
+
   // Ignore request for now
   char resp[] = "Content/type: text/plain\r\n\r\nTest text from RSKT server.\r\n";
 
@@ -170,7 +172,7 @@ void* www_read_thr(void* arg)
 
   rskt_close(comm_sock);
 
-  fprintf(stderr, "%s: QUIT\n", __func__);
+  fprintf(stderr, "%s: QUIT -- sent %lu bytes\n", __func__, strlen(resp));
 
   return NULL;
 }
