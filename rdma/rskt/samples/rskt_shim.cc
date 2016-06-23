@@ -18,6 +18,8 @@ static pthread_mutex_t g_rskt_shim_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_mutex_t g_map_mutex = PTHREAD_MUTEX_INITIALIZER; 
 
+static uint16_t g_my_destid = 0xFFFF;
+
 typedef struct {
   int                sockp[2];
   int                nonblock;
@@ -30,6 +32,7 @@ typedef struct {
 static SocketTracker_t ZERO_SOCK;
 
 static std::map<int, SocketTracker_t> g_sock_map;
+
 #define UNDERSCORE // "_"
 
 #define DECLARE(name, ret, args) static ret (*glibc_##name) args
@@ -72,7 +75,8 @@ DECLARE(dup2, int, (int, int)); // TBI
 
 DECLARE(sendfile, ssize_t, (int, int, off_t *, size_t)); // TBI
 
-static inline void errx(const char* msg) { if(msg) fprintf(stderr, "%s\n", msg); _exit(42); }
+static inline void errx(const char* msg)
+{ if (msg) throw std::runtime_error(msg); _exit(42); }
 
 #define DLSYMCAST(name, ret, args)  do { \
 	if ((glibc_##name = (ret (*) args) dlsym(dh, UNDERSCORE #name)) == NULL)		\
@@ -138,13 +142,16 @@ void rskt_shim_main()
 
   g_sock_map.clear();
 
+  rskt_shim_initialised = 0xf00ff00d;
+
   memset(&ZERO_SOCK, 0, sizeof(ZERO_SOCK));
   ZERO_SOCK.sockp[0] = -1;
   ZERO_SOCK.sockp[1] = -1;
   ZERO_SOCK.can_read = true;
   ZERO_SOCK.can_write= true;
+  ZERO_SOCK.laddr.sin_family     = AF_INET;
+  //ZERO_SOCK.laddr.in_addr.s_addr = htonl(g_my_destid);
 
-  rskt_shim_initialised = 0xf00ff00d;
   pthread_mutex_unlock(&g_rskt_shim_mutex);
 }
 
@@ -281,12 +288,12 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
     if (0 != socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, sockp)) {
       close(sockp[0]); close(sockp[1]);
       pthread_mutex_unlock(&g_map_mutex);
-      throw std::runtime_error("RSKT shim: socketpair failed!");
+      throw std::runtime_error("RSKt Shim: socketpair failed!");
     }
     if (0 != glibc_dup2(sockp[0], sockfd)) {
       close(sockp[0]); close(sockp[1]);
       pthread_mutex_unlock(&g_map_mutex);
-      throw std::runtime_error("RSKT shim: dup2 failed!");
+      throw std::runtime_error("RSKt Shim: dup2 failed!");
     }
 
     SocketTracker_t& sock_tr = g_sock_map[sockfd];
