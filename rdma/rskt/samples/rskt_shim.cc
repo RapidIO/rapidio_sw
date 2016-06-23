@@ -243,8 +243,8 @@ int close(int fd)
   if (it != g_sock_map.end()) {
     printf("TCPv4 sock %d ERASE\n", fd);
 
-    if (it->second.sockp[0] != -1) close(it->second.sockp[0]);
-    if (it->second.sockp[1] != -1) close(it->second.sockp[1]);
+    if (it->second.sockp[0] != -1) glibc_close(it->second.sockp[0]);
+    if (it->second.sockp[1] != -1) glibc_close(it->second.sockp[1]);
     if (it->second.rsock != NULL) RSKT_shim_rskt_close(it->second.rsock);
     g_sock_map.erase(it);
 
@@ -363,13 +363,13 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
     int sockp[2] = { -1, -1 };
     if (0 != socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, sockp)) {
       RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = NULL;
-      close(sockp[0]); close(sockp[1]);
+      glibc_close(sockp[0]); glibc_close(sockp[1]);
       pthread_mutex_unlock(&g_map_mutex);
       throw std::runtime_error("RSKt Shim: socketpair failed!");
     }
     if (0 != glibc_dup2(sockp[0], sockfd)) {
       RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = NULL;
-      close(sockp[0]); close(sockp[1]);
+      glibc_close(sockp[0]); glibc_close(sockp[1]);
       pthread_mutex_unlock(&g_map_mutex);
       throw std::runtime_error("RSKt Shim: dup2 failed!");
     }
@@ -406,4 +406,34 @@ int shutdown(int sockfd, int how)
   pthread_mutex_unlock(&g_map_mutex);
 
   return glibc_shutdown(sockfd, how);
+}
+
+ssize_t write(int fd, const void *buf, size_t count)
+{
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
+  if (it != g_sock_map.end()) {
+    printf("TCPv4 sock %d write %d bytes.\n", fd, count);
+    int rc = RSKT_shim_rskt_write(it->second.rsock, (void*)buf, count);
+    pthread_mutex_unlock(&g_map_mutex);
+    return !rc? count: -1;
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+
+  return glibc_write(fd, buf, count);
+}
+
+ssize_t read(int fd, void *buf, size_t count)
+{
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
+  if (it != g_sock_map.end()) {
+    printf("TCPv4 sock %d read %d bytes.\n", fd, count);
+    int rc = RSKT_shim_rskt_read(it->second.rsock, (void*)buf, count);
+    pthread_mutex_unlock(&g_map_mutex);
+    return rc >= 0? rc: -1;
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+
+  return glibc_read(fd, buf, count);
 }
