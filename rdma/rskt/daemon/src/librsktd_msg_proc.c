@@ -582,6 +582,7 @@ void rsktd_areq_hello(struct librsktd_unified_msg *msg)
 	(*msg->app)->proc_num = ntohl(req->proc_num);
 	resp->err = 0;
 	resp->msg.hello.ct = htonl(dmn.qresp.hdid);
+	resp->msg.hello.use_mport = htonl((uint32_t)dmn.use_mport);
 
         memset(app_name, 0, 16);
         snprintf(app_name, 15, "AppRx_%8s", (*msg->app)->app_name);

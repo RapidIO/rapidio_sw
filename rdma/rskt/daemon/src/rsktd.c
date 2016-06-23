@@ -86,6 +86,7 @@ void print_daemon_help(void)
 	printf("-t	 : Library connection test mode, no socket conn\n");
 	printf("-T	 : RSKTD peer conn test mode, no cm socket conn\n");
 	printf("-B	 : Run blindly, without a console\n");
+	printf("-Q	 : do not use RDMA, directly allocate memory\n");
 	printf("-e <e_skt> : Remote console connectivity over Ethernet"
 							" uses <e_skt>.\n");
 	printf("	 The default <e_skt> value is %d.\n", 
@@ -157,6 +158,7 @@ void parse_options(int argc, char *argv[])
 	ctrls.rsktd_cskt_tst = 0;
 	ctrls.rsktd_cskt = DFLT_DMN_CM_CONN_SKT;
 	ctrls.rsktd_c_mp = DFLT_DMN_CM_CONN_MPORT;
+	ctrls.use_mport = false;
 	ctrls.num_peers = 0;
 
 	for (idx = 0; (idx < argc) && !ctrls.print_help; idx++) {
@@ -178,6 +180,8 @@ void parse_options(int argc, char *argv[])
 			case 'T': ctrls.rsktd_cskt_tst = 1;
 				break;
 			case 'N': ctrls.init_ms = 0;
+				break;
+			case 'Q': ctrls.use_mport = true;
 				break;
 			case 'B': ctrls.run_cons = 0;
 				break;
