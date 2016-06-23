@@ -35,13 +35,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __LIBRSKT_PRIVATE_H__
 #define __LIBRSKT_PRIVATE_H__
 
+#include <stdbool.h>
+#include <sys/un.h>
+#include <semaphore.h>
 #include "rdma_types.h"
 #include "librdma.h"
 #include "librskt.h"
 #include "libcli.h"
 #include "liblist.h"
-#include <sys/un.h>
-#include <semaphore.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -206,6 +207,10 @@ struct librskt_globals {
         struct sockaddr_un addr; /* RSKTD Linux socket address */
         int addr_sz;	/* size of addr */
         int fd;		/* Connection to RSKTD */
+	bool use_mport; /* TRUE if sockets library & daemon use mport,
+			* FALSE if they use rdma.
+			* Set by HELLO response from RSKT daemon.
+			*/
 
 	int all_must_die; /* When non-zero, all threads exit immediately */
 			/* RSKTD must cleanup */

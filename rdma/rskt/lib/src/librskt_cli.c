@@ -197,11 +197,11 @@ int RSKTLStatusCmd(struct cli_env *env, int argc, char **argv)
 
 	if (argc)
 		goto show_help;
-        sprintf(env->output, "\nRSKTD  PortNo  MpNum  InitOk   Fd Addr\n");
+        sprintf(env->output, "\nRSKTD  PortNo  MpNum  InitOk   MP Fd Addr\n");
         logMsg(env);
-        sprintf(env->output,   "      %8d %5d %8d %3d %s\n",
-		lib.portno, lib.mpnum, lib.init_ok, lib.fd,
-		lib.addr.sun_path);
+        sprintf(env->output,   "      %8d %5d %8d %2s %2d %s\n",
+		lib.portno, lib.mpnum, lib.init_ok, lib.use_mport?"Y":"N", 
+		lib.fd, lib.addr.sun_path);
         logMsg(env);
 
 	skt_h = (rskt_h)l_head(&lib.skts, &li);

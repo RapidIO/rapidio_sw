@@ -89,6 +89,9 @@ struct ms_info {
 	rsktd_ms_state	state; 
 	char	ms_name[MAX_MS_NAME+1];
 	ms_h	ms;
+	void *virt_addr;
+	void *phy_addr;
+	void *rio_addr;
 	int	ms_size;
 	struct rskt_socket_t skt;
 	int	loc_sn;
@@ -113,6 +116,8 @@ struct dmn_globals {
 	uint32_t skip_ms;
 	uint32_t num_ms;
 	uint32_t ms_size;
+	bool use_mport; /* TRUE if daemon uses RDMA, false if uses MPORT. */
+			/* Default is TRUE */
 
 	riomp_mport_t mp_hnd;
 	struct riomp_mgmt_mport_properties qresp;

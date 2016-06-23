@@ -173,7 +173,7 @@ void print_ms_status(struct cli_env *env, int start_ms, int end_ms)
 	struct mso_info *mso = &dmn.mso;
 	int got_one = 0;
 
-	for (ms_idx = start_ms; ms_idx < end_ms; ms_idx++) {
+	for (ms_idx = start_ms; ms_idx < end_ms && !dmn.use_mport; ms_idx++) {
 		if (mso->ms[ms_idx].valid) {
 			if (!got_one) {
 				sprintf(env->output, 
@@ -187,6 +187,29 @@ void print_ms_status(struct cli_env *env, int start_ms, int end_ms)
 				ms_idx,
 				mso->ms[ms_idx].valid,
 				mso->ms[ms_idx].ms_name,
+				mso->ms[ms_idx].ms_size,
+				RSKTD_MS_STATE_TO_STR(state),
+				mso->ms[ms_idx].loc_sn,
+				mso->ms[ms_idx].rem_sn,
+				mso->ms[ms_idx].rem_ct);
+			logMsg(env);
+		}
+	}
+	for (ms_idx = start_ms; ms_idx < end_ms && dmn.use_mport; ms_idx++) {
+		if (mso->ms[ms_idx].valid) {
+			if (!got_one) {
+				sprintf(env->output, 
+					"\nMS V   --->>>PADDR<<<--   --->>>VADDR<<<--     Size  State LocSN RemSN   RemCt\n"); 
+        			logMsg(env);
+				got_one = 1;
+			};
+			int state = mso->ms[ms_idx].state;
+			sprintf(env->output,
+			"%2d %1d 0x%16lx 0x%16lx %8x %5s %5d %5d 0x%8x\n",
+				ms_idx,
+				mso->ms[ms_idx].valid,
+				(uint64_t)mso->ms[ms_idx].phy_addr,
+				(uint64_t)mso->ms[ms_idx].rio_addr,
 				mso->ms[ms_idx].ms_size,
 				RSKTD_MS_STATE_TO_STR(state),
 				mso->ms[ms_idx].loc_sn,

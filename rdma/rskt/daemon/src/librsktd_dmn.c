@@ -182,6 +182,40 @@ int d_rdma_get_msub_h(struct ms_info *msi, int size,
         return rc;
 }
 
+int init_mport_memory(int num_ms, int ms_size)
+{
+	int rc = -1;
+	int i;
+	uint64_t tot_size = num_ms * ms_size;
+	uint32_t ibwin_size = 0x10000; /* Minimum window size) */
+	uint64_t rio_addr = RIO_ANY_ADDR;
+	uint64_t phys_addr = 0;
+
+	while ((ibwin_size < tot_size) && (ibwin_size < 0x10000000))
+		ibwin_size = ibwin_size << 1;
+
+	rc = riomp_dma_ibwin_map(dmn.mp_hnd, &rio_addr, ibwin_size, &phys_addr);
+	if (rc) {
+                CRIT("Cannot map inbound memory rc %d %d %s\n", rc, errno,
+							strerror(errno));
+		goto fail;
+	}
+
+	dmn.mso.valid = true;
+	dmn.mso.num_ms = num_ms;
+
+	for (i = 0; i < num_ms; i++) {
+		dmn.mso.ms[i].valid = true;
+		dmn.mso.ms[i].ms_size = ms_size;
+		dmn.mso.ms[i].rio_addr = (void *)(rio_addr + (ms_size * i));
+		dmn.mso.ms[i].phy_addr = (void *)(phys_addr + (ms_size * i));
+	};
+	
+	rc = 0;
+fail:
+	return rc;
+};
+
 int init_mport_and_mso_ms(void)
 {
 	int rc = -1;
@@ -254,6 +288,14 @@ int init_mport_and_mso_ms(void)
 		
 	if (dmn.skip_ms) {
 		rc = 0;
+		goto exit;
+	};
+
+	if (dmn.use_mport) {
+		rc = init_mport_memory(dmn.num_ms, dmn.ms_size);
+		if (rc) {
+			CRIT("Could not allocate mport memory. Exiting...\n");
+		};
 		goto exit;
 	};
 
@@ -342,6 +384,7 @@ int spawn_daemon_threads(struct control_list *ctrls)
 	};
 	DBG("start_msg_proc_q_thread successful.\n");
 
+	dmn.use_mport = ctrls->use_mport;
         if (start_speer_handler( ctrls->rsktd_cskt, ctrls->rsktd_c_mp,
 			ctrls->num_ms, ctrls->ms_size, !ctrls->init_ms)) {
                 CRIT("start_speer_handler failed");

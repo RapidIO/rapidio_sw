@@ -273,6 +273,32 @@ void sig_handler(int sig)
 	exit(1);
 } 
 
+struct console_globals {
+        int all_must_die;
+        /* Globals for console run by RSKT Daemon */
+        pthread_t cons_thread;
+        sem_t cons_owner;
+        int cons_alive;
+
+        /* Globals for remote CLI sessions */
+        int cli_alive;
+        pthread_t cli_thread;
+        int cli_portno;
+        int cli_sess_num;
+
+        int cli_fd;
+        int cli_sess_fd;
+};
+
+struct console_globals cli;
+
+void quit_command_customization(struct cli_env *env)
+{
+	if (0)
+		memset(env, 0, sizeof(cli_env));
+        return;
+};
+
 /**
  * \brief This is the entry point for the RSKT server example.
  *
@@ -330,6 +356,31 @@ int main(int argc, char *argv[])
 							rc, strerror(errno));
 		goto exit_main;
 	}
+
+	/** Start up CLI thread */
+
+	cli.cli_portno = 0;
+        cli.cli_alive = 0;
+        cli.cons_alive = 0;
+
+        DBG("ENTER\n");
+
+        /* Prepare and start console thread */
+        cli_init_base(quit_command_customization);
+        librskt_bind_cli_cmds();
+        liblog_bind_cli_cmds();
+
+	splashScreen((char *)"RSKT Server Console");
+	rc = pthread_create( &cli.cons_thread, NULL,
+					console,
+				(void *)((char *)"RSKTD > "));
+	if(rc) {
+		CRIT("Failed to create console_thread: %s\n", strerror(rc));
+		exit(EXIT_FAILURE);
+	};
+
+	INFO("Console thread started\n");
+	pthread_detach(cli.cons_thread);
 
 	/** Allocate socket handle */
 	listen_socket = rskt_create_socket();

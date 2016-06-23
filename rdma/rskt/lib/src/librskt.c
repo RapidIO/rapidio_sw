@@ -632,6 +632,8 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 		return 1;
 
 	DBG("ENTER\n");
+	memset(&lib, 0, sizeof(struct librskt_globals));
+
 	lib.fd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 	if (-1 == lib.fd) {
 		ERR("ERROR on librskt_init socket(): %s\n", strerror(errno));
@@ -725,6 +727,7 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 
 	lib.init_ok = rsktd_port;
 	lib.ct = ntohl(resp->a_rsp.msg.hello.ct);
+	lib.use_mport = !!(ntohl(resp->a_rsp.msg.hello.use_mport));
 
 	free(resp);
 fail:

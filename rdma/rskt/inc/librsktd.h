@@ -174,14 +174,20 @@ struct librskt_req {
 
 struct librskt_hello_resp {
 	int32_t ct; /* Component tag for host port device */
+	int32_t use_mport; /* if zoro, daemon uses RDMA.  
+			* If non-zero, daemon uses mport memory allocation */
 };
 
 struct librskt_accept_resp {
 	uint32_t new_sn;
-	uint32_t new_ct;
+	uint32_t new_ct; /* destID of target */
 	struct rskt_sockaddr peer_sa;
 	/* Local mos/ms/msub to allocate for RDMA connect operation */
 	uint32_t ms_size;
+	uint32_t use_addr; /* If non-zero, use address and peer_sa.
+			* If zero, use mso/ms and rdma.
+			*/
+	uint32_t addr;
 	char mso_name[MAX_MS_NAME]; 
 	char ms_name[MAX_MS_NAME];
 };
@@ -189,6 +195,11 @@ struct librskt_accept_resp {
 struct librskt_connect_resp {
 	uint32_t new_sn; /* Local socket number allocated for connection */
 	uint32_t new_ct; /* Local Component Tag value */
+	uint32_t use_addr; /* If non-zero, use address and peer_sa.
+			* If zero, use mso/ms and rdma.
+			*/
+	uint32_t addr; /* Local physical layer address of memory block to use.*/
+	uint32_t rem_addr; /* Remote rapidio address of memory block */
 	char mso[MAX_MS_NAME];  /* Local mso to open() for ms */
 	char ms[MAX_MS_NAME]; /* Local ms to open() for msub */
 	char rem_ms[MAX_MS_NAME]; /* Remote ms for RDMA connect operation */

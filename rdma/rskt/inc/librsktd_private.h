@@ -77,6 +77,7 @@ struct control_list {
         int ms_size; /* -S Size of each memory space */
         int rskt_buff_size; /* -k Size of each rskt buffer */
         int init_ms; /* -N If true, try to allocate memory spaces */
+	int use_mport; /* false use RDMA, true use MPORT.  Default is false */
         int rsktd_uskt_tst; /* -t Test uskt mode */
         int rsktd_uskt; /* -u RSKTD AF_LOCAL socket for rskt library conns */
         int rsktd_u_mp; /* -m Local mport of RSKTD for rskt library conns */

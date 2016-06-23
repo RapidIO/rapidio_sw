@@ -88,6 +88,7 @@ struct rskts_control_list {
 	int rsktd_u_bklg; /* -L Maximum backlog of connect requests */
 	int rsktd_cskt; /* -C CM socket for RSKTD peer connections */
 	int rsktd_c_mp; /* -M Local mport of RSKTD peer connections */
+	int rsktd_use_mport; /* -Q If set, do not use RDMA */
 	int num_peers; /* Max valid index of peer rskt daemons */
 	struct rsktd_peer peers[MAX_DMN_PEERS]; /* -P */
 };
