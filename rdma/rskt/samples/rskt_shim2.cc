@@ -25,6 +25,14 @@ void shim_rskt_init()
   rdma_log_init("rskt_shim2.txt", 1);
 #endif
 
+  const char* cRDMA_LL = getenv("RDMA_LL");
+  if (cRDMA_LL != NULL) {
+    int temp = atoi(cRDMA_LL);
+    if (temp < RDMA_LL_CRIT) temp = RDMA_LL_CRIT - 1;
+    if (temp > RDMA_LL)      temp = RDMA_LL;
+    g_level = temp;
+  }
+
   int rc = 0;
   {{
     uint8_t   np = 8;
