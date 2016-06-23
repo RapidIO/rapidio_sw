@@ -110,7 +110,7 @@ FORCE:
 librdma.a: $(LIBMPORT) $(RDMALIB_SOURCES) $(MPORTLIB_HEADER) \
 	lib/src/*.h $(LIBLOG_PATH)/liblog.a
 	@echo ---------- Building librdma.a ----------
-	$(CXX) $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES) -L$(COMMONLIBA)
+	$(CXX) -fPIC $(RDMALIB_STATIC_CFLAGS) $(RDMALIB_SOURCES) -L$(COMMONLIBA)
 	ar rcs librdma.a $(RDMALIB_OBJS)
 	mkdir -p $(TOPDIR)/include/libs_a
 	cp librdma.a $(COMMONLIBA)
