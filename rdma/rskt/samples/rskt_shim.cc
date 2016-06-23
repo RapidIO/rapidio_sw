@@ -19,6 +19,8 @@ static pthread_mutex_t g_map_mutex = PTHREAD_MUTEX_INITIALIZER;
 typedef struct {
   int                sockp[2];
   int                nonblock;
+  bool               can_read;
+  bool               can_write;
   struct sockaddr_in laddr;
   struct sockaddr_in daddr;
 } SocketTracker_t;
@@ -37,6 +39,7 @@ DECLARE(accept, int, (int, struct sockaddr*, socklen_t*));
 DECLARE(accept4, int,(int, struct sockaddr*, socklen_t*, int));
 DECLARE(connect, int, (int, const struct sockaddr*, socklen_t));
          
+DECLARE(shutdown, int, (int, int));
 DECLARE(close, int, (int));
 
 DECLARE(setsockopt, int, (int, int, int, const void*, socklen_t));
@@ -100,6 +103,7 @@ void rskt_shim_main()
   DLSYMCAST(accept4, int,(int, struct sockaddr*, socklen_t*, int));
   DLSYMCAST(connect, int, (int, const struct sockaddr*, socklen_t));
 
+  DLSYMCAST(shutdown, int, (int, int));
   DLSYMCAST(close, int, (int));
 
   DLSYMCAST(setsockopt, int, (int, int, int, const void*, socklen_t));
@@ -135,6 +139,8 @@ void rskt_shim_main()
   memset(&ZERO_SOCK, 0, sizeof(ZERO_SOCK));
   ZERO_SOCK.sockp[0] = -1;
   ZERO_SOCK.sockp[1] = -1;
+  ZERO_SOCK.can_read = true;
+  ZERO_SOCK.can_write= true;
 
   rskt_shim_initialised = 0xf00ff00d;
   pthread_mutex_unlock(&g_rskt_shim_mutex);
@@ -144,16 +150,19 @@ int socket(int socket_family, int socket_type, int protocol)
 {
   int tmp_sock = glibc_socket(socket_family, socket_type, protocol);
 
-  if (tmp_sock >= 0 &&
-      socket_family == AF_INET &&
-      ((socket_type & SOCK_STREAM) == SOCK_STREAM) &&
-      protocol == IPPROTO_TCP) { // only TCPv4
+  do {
+    if (tmp_sock < 0) break;
+    if (socket_family != AF_INET) break;
+    if (protocol != IPPROTO_TCP) break;
+    if ((socket_type & SOCK_STREAM) == 0) break;
+
     printf("TCPv4 sock %d STORE\n", tmp_sock);
+
     pthread_mutex_lock(&g_map_mutex);
     g_sock_map[tmp_sock] = ZERO_SOCK;
     if (socket_type & SOCK_NONBLOCK) g_sock_map[tmp_sock].nonblock++;
     pthread_mutex_unlock(&g_map_mutex);
-  }
+  } while(0);
 
   return tmp_sock;
 }
@@ -234,3 +243,17 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
 }
 
 /// XXX thttpd does socket/bind/poll....accept
+
+// This seems for documentation purposes for RSKT... Hmm
+int shutdown(int sockfd, int how)
+{
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(sockfd);
+  if (it != g_sock_map.end()) {
+    if (how == SHUT_WR) it->second.can_write = false;
+    if (how == SHUT_RD) it->second.can_read  = false;
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+
+  return glibc_shutdown(sockfd, how);
+}
