@@ -365,13 +365,16 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
       RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = NULL;
       glibc_close(sockp[0]); glibc_close(sockp[1]);
       pthread_mutex_unlock(&g_map_mutex);
-      throw std::runtime_error("RSKt Shim: socketpair failed!");
+      throw std::runtime_error("RSKT Shim: socketpair failed!");
     }
-    if (0 != glibc_dup2(sockp[0], sockfd)) {
+    if (-1 == glibc_dup2(sockp[0], sockfd)) {
+      static char tmp[129] = {0};
+      const int saved_errno = errno;
       RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = NULL;
       glibc_close(sockp[0]); glibc_close(sockp[1]);
       pthread_mutex_unlock(&g_map_mutex);
-      throw std::runtime_error("RSKt Shim: dup2 failed!");
+      snprintf(tmp, 128, "RSKT Shim: dup2 failed: %s", strerror(saved_errno));
+      throw std::runtime_error(tmp);
     }
 
     SocketTracker_t& sock_tr = g_sock_map[sockfd];
