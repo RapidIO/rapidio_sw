@@ -2,6 +2,7 @@
 #define __RSKT_SHIM2_H__
 
 extern "C" {
+
 void shim_rskt_init();
 
 uint16_t shim_rskt_get_my_destid();
@@ -18,6 +19,8 @@ int shim_rskt_close(void* sock);
 
 int shim_rskt_read(void* sock, void* data, const int data_len);
 int shim_rskt_get_avail_bytes(void* sock);
+
 int shim_rskt_write(void* sock, void* data, const int data_len);
+
 };
 #endif // __RSKT_SHIM2_H__

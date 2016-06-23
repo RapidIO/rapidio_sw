@@ -26,8 +26,10 @@ static pthread_mutex_t g_map_mutex = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t g_my_destid = 0xFFFF;
 
 typedef struct {
+  int                fd; ///< For documentation purposes
   int                sockp[2];
   int                nonblock;
+  bool               borked; ///< Closed from beneath us by librskt
   bool               can_read;
   bool               can_write;
   volatile int       stop_req;
@@ -208,6 +210,7 @@ void rskt_shim_main()
   rskt_shim_initialised = 0xf00ff00d;
 
   memset(&ZERO_SOCK, 0, sizeof(ZERO_SOCK));
+  ZERO_SOCK.fd       = -1;
   ZERO_SOCK.sockp[0] = -1;
   ZERO_SOCK.sockp[1] = -1;
   ZERO_SOCK.can_read = true;
@@ -216,7 +219,7 @@ void rskt_shim_main()
 
   rskt_shim_init_RSKT();
   g_my_destid = htonl(RSKT_shim_rskt_get_my_destid());
-  ZERO_SOCK.laddr.sin_addr.s_addr = g_my_destid;
+  ZERO_SOCK.laddr.sin_addr.s_addr = ntohs(g_my_destid);
 
   pthread_mutex_unlock(&g_rskt_shim_mutex);
 }
@@ -235,6 +238,7 @@ int socket(int socket_family, int socket_type, int protocol)
 
     pthread_mutex_lock(&g_map_mutex);
     g_sock_map[tmp_sock] = ZERO_SOCK;
+    g_sock_map[tmp_sock].fd = tmp_sock;
     if (socket_type & SOCK_NONBLOCK) g_sock_map[tmp_sock].nonblock++;
     pthread_mutex_unlock(&g_map_mutex);
   } while(0);
@@ -422,8 +426,13 @@ ssize_t write(int fd, const void *buf, size_t count)
   pthread_mutex_lock(&g_map_mutex);
   std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
   if (it != g_sock_map.end()) {
-    printf("TCPv4 sock %d write %d bytes.\n", fd, count);
-    int rc = RSKT_shim_rskt_write(it->second.rsock, (void*)buf, count);
+    int rc = 0;
+    printf("TCPv4 sock %d write %d bytes.%s\n", fd, count, it->second.borked? " BORKED" :"");
+    if (it->second.borked) {
+      errno = EINVAL;
+      rc = -1;
+    } else
+      rc = RSKT_shim_rskt_write(it->second.rsock, (void*)buf, count);
     pthread_mutex_unlock(&g_map_mutex);
     return !rc? count: -1;
   }
@@ -437,8 +446,15 @@ ssize_t read(int fd, void *buf, size_t count)
   pthread_mutex_lock(&g_map_mutex);
   std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
   if (it != g_sock_map.end()) {
-    printf("TCPv4 sock %d read %d bytes.\n", fd, count);
-    int rc = RSKT_shim_rskt_read(it->second.rsock, (void*)buf, count);
+    int rc = 0;
+    printf("TCPv4 sock %d read buffer=%d bytes.%s\n", fd, count, it->second.borked? " BORKED" :"");
+    if (it->second.borked) {
+      errno = EINVAL;
+      rc = -1;
+    } else {
+      rc = RSKT_shim_rskt_read(it->second.rsock, (void*)buf, count);
+      printf("TCPv4 sock %d rskt_read %d bytes: %s.\n", fd, rc, strerror(errno));
+    }
     pthread_mutex_unlock(&g_map_mutex);
     return rc >= 0? rc: -1;
   }
@@ -452,9 +468,13 @@ static void* select_thr(void* arg)
   assert(arg);
   SocketTracker_t* sock_tr = (SocketTracker_t*)arg;
 
+  printf("TCPv4 sock %d SELECT minder thread.\n", sock_tr->fd);
+
   while (!sock_tr->stop_req) {
-    if (RSKT_shim_rskt_get_avail_bytes(sock_tr->rsock) > 0) {
-      glibc_write(sock_tr->sockp[1], "r", 1);
+    const int r = RSKT_shim_rskt_get_avail_bytes(sock_tr->rsock);
+    if (r != 0) {
+      printf("TCPv4 sock %d SELECT minder thread avail_bytes=%d.\n", sock_tr->fd, r);
+      glibc_write(sock_tr->sockp[1], (r > 0? "r" : "q"), 1);
       break;
     }
     struct timespec tv = { 0, 1};
@@ -524,6 +544,7 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
     if (!FD_ISSET(known_fds[i].fd, readfds)) continue;
     char c = 0;
     glibc_read(known_fds[i].sock_tr->sockp[0], &c, 1);
+    if (c == 'e') known_fds[i].sock_tr->borked = 1;
   }
 
   for (int i = 0; i < known_fds.size(); i++) {
