@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -11,7 +12,9 @@
 #include <map>
 #include <stdexcept>
 
-volatile int rskt_shim_initialised = 0;
+volatile uint32_t rskt_shim_initialised = 0;
+volatile uint32_t rskt_shim_RSKT_initialised = 0;
+
 void rskt_shim_main() __attribute__ ((constructor));
 
 static pthread_mutex_t g_rskt_shim_mutex = PTHREAD_MUTEX_INITIALIZER; 
@@ -27,6 +30,7 @@ typedef struct {
   bool               can_write;
   struct sockaddr_in laddr;
   struct sockaddr_in daddr;
+  void*              rsock;
 } SocketTracker_t;
 
 static SocketTracker_t ZERO_SOCK;
@@ -83,7 +87,60 @@ static inline void errx(const char* msg)
 		errx("RSKT Shim: Failed to get " #name "() address");	\
 } while(0);
 
+#define RSKT_DECLARE(name, ret, args) static ret (*RSKT_##name) args
+
+#define RSKT_DLSYMCAST(name, ret, args)  do { \
+	if ((RSKT_##name = (ret (*) args) dlsym(dh, UNDERSCORE #name)) == NULL)		\
+		errx("RSKT Shim: Failed to get " #name "() address");	\
+} while(0);
+
+
+RSKT_DECLARE(shim_rskt_init, void, (void));
+RSKT_DECLARE(shim_rskt_get_my_destid, uint16_t, (void));
+RSKT_DECLARE(shim_rskt_socket, void*, (void));
+
+RSKT_DECLARE(shim_rskt_connect, int, (void*, uint16_t, uint16_t));
+
+RSKT_DECLARE(shim_rskt_listen, int, (void*, int));
+RSKT_DECLARE(shim_rskt_bind, int, (void*, uint16_t, uint16_t));
+RSKT_DECLARE(shim_rskt_accept, int, (void*, void*, uint16_t*, uint16_t*));
+
+RSKT_DECLARE(shim_rskt_close, int, (void*));
+
+RSKT_DECLARE(shim_rskt_read, int, (void*, void*, int));
+RSKT_DECLARE(shim_rskt_write, int, (void*, void*, int));
+
 void rskt_shim_main() __attribute__ ((constructor));
+
+void rskt_shim_init_RSKT()
+{
+  void* dh = NULL;
+
+  if (rskt_shim_RSKT_initialised) return;
+
+  const char* rskt2_path = "./rskt_shim2.so";
+  if ((dh = dlopen(rskt2_path, RTLD_LAZY)) == NULL)
+	errx("RSKT Shim: Failed to open shim2");
+
+  RSKT_DLSYMCAST(shim_rskt_init, void, (void));
+  RSKT_DLSYMCAST(shim_rskt_get_my_destid, uint16_t, (void));
+  RSKT_DLSYMCAST(shim_rskt_socket, void*, (void));
+
+  RSKT_DLSYMCAST(shim_rskt_connect, int, (void*, uint16_t, uint16_t));
+
+  RSKT_DLSYMCAST(shim_rskt_listen, int, (void*, int));
+  RSKT_DLSYMCAST(shim_rskt_bind, int, (void*, uint16_t, uint16_t));
+  RSKT_DLSYMCAST(shim_rskt_accept, int, (void*, void*, uint16_t*, uint16_t*));
+
+  RSKT_DLSYMCAST(shim_rskt_close, int, (void*));
+
+  RSKT_DLSYMCAST(shim_rskt_read, int, (void*, void*, int));
+  RSKT_DLSYMCAST(shim_rskt_write, int, (void*, void*, int));
+
+  RSKT_shim_rskt_init();
+
+  rskt_shim_RSKT_initialised = 0xfeedbabaL;
+}
 
 void rskt_shim_main()
 {
@@ -150,7 +207,10 @@ void rskt_shim_main()
   ZERO_SOCK.can_read = true;
   ZERO_SOCK.can_write= true;
   ZERO_SOCK.laddr.sin_family     = AF_INET;
-  //ZERO_SOCK.laddr.in_addr.s_addr = htonl(g_my_destid);
+
+  rskt_shim_init_RSKT();
+  g_my_destid = htonl(RSKT_shim_rskt_get_my_destid());
+  ZERO_SOCK.laddr.sin_addr.s_addr = g_my_destid;
 
   pthread_mutex_unlock(&g_rskt_shim_mutex);
 }
@@ -182,13 +242,18 @@ int close(int fd)
   std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
   if (it != g_sock_map.end()) {
     printf("TCPv4 sock %d ERASE\n", fd);
+
     if (it->second.sockp[0] != -1) close(it->second.sockp[0]);
     if (it->second.sockp[1] != -1) close(it->second.sockp[1]);
+    if (it->second.rsock != NULL) RSKT_shim_rskt_close(it->second.rsock);
     g_sock_map.erase(it);
+
+    pthread_mutex_unlock(&g_map_mutex);
+    return 0;
   }
   pthread_mutex_unlock(&g_map_mutex);
 
-  glibc_close(fd);
+  return glibc_close(fd);
 }
 
 int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
@@ -231,7 +296,7 @@ int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
   pthread_mutex_lock(&g_map_mutex);
   std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(sockfd);
   if (it != g_sock_map.end()) {
-    *addrlen == sizeof(struct sockaddr_in);
+    *addrlen = sizeof(struct sockaddr_in);
     memcpy(addr, &it->second.daddr, sizeof(struct sockaddr_in));
     
     pthread_mutex_unlock(&g_map_mutex);
@@ -250,7 +315,7 @@ int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
   pthread_mutex_lock(&g_map_mutex);
   std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(sockfd);
   if (it != g_sock_map.end()) {
-    *addrlen == sizeof(struct sockaddr_in);
+    *addrlen = sizeof(struct sockaddr_in);
     memcpy(addr, &it->second.laddr, sizeof(struct sockaddr_in));
     
     pthread_mutex_unlock(&g_map_mutex);
@@ -284,13 +349,26 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
     uint16_t destid = u.bytes[1] << 8 | u.bytes[0];
     printf("TCPv4 sock %d connect to RIO destid %u port %d\n", sockfd, destid, ntohs(addr_v4->sin_port));
 
+    it->second.rsock = RSKT_shim_rskt_socket();
+    assert(it->second.rsock);
+
+    int rc = RSKT_shim_rskt_connect(it->second.rsock, destid, ntohs(addr_v4->sin_port));
+    if (rc) {
+      RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = NULL;
+      pthread_mutex_unlock(&g_map_mutex);
+      errno = ECONNREFUSED;
+      return -1;
+    }
+
     int sockp[2] = { -1, -1 };
     if (0 != socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, sockp)) {
+      RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = NULL;
       close(sockp[0]); close(sockp[1]);
       pthread_mutex_unlock(&g_map_mutex);
       throw std::runtime_error("RSKt Shim: socketpair failed!");
     }
     if (0 != glibc_dup2(sockp[0], sockfd)) {
+      RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = NULL;
       close(sockp[0]); close(sockp[1]);
       pthread_mutex_unlock(&g_map_mutex);
       throw std::runtime_error("RSKt Shim: dup2 failed!");
