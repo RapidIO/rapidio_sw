@@ -90,7 +90,7 @@ rskt_tun: rskt_tun.c $(COMMONDIR)/include/*.h
 	-o $@
 
 rskt_wwwserver: rskt_wwwserver.cc $(COMMONDIR)/include/*.h
-	@echo ---------- Building rskt_tun
+	@echo ---------- Building rskt_wwwserver
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
 	-I./inc -I../inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
@@ -100,7 +100,7 @@ rskt_wwwserver: rskt_wwwserver.cc $(COMMONDIR)/include/*.h
 	-o $@
 
 rskt_wwwclient: rskt_wwwclient.cc $(COMMONDIR)/include/*.h
-	@echo ---------- Building rskt_tun
+	@echo ---------- Building rskt_wwwclient
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
 	-I./inc -I../inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
@@ -112,5 +112,17 @@ rskt_wwwclient: rskt_wwwclient.cc $(COMMONDIR)/include/*.h
 rskt_shim.so: rskt_shim.cc
 	$(CXX) $^ -shared -fPIC -pthread -ldl -lpthread -o $@ -O0 -ggdb
 
+rskt_shim2.so: rskt_shim2.cc $(COMMONDIR)/include/*.h
+	@echo ---------- Building rskt_shim
+	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
+	-I./inc -I../inc \
+	-DRDMA_LL=$(LOG_LEVEL) \
+	$(RSKTLIB_OBJECTS) rskt_shim2.cc \
+	$(LIB_DIRS) -lrskt -lrdma -lfmdd -ldd -llist -lcli -llog -lmport -lrt -lpthread \
+	$(LIBS_RPATH) \
+	-shared -fPIC -ldl \
+	-O0 -ggdb \
+	-o $@
+
 clean:
-	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun rskt_wwwserver rskt_wwwclient rskt_shim.so
+	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun rskt_wwwserver rskt_wwwclient rskt_shim*.so
