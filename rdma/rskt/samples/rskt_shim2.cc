@@ -90,7 +90,7 @@ int shim_rskt_bind(void* sock, const uint16_t destid /*=0*/, const uint16_t port
   return rskt_bind(r_sock, &sock_addr);
 }
 
-int shim_rskt_accept(void* listen_sock, void* accept_socket, uint16_t& remote_destid, uint16_t& remote_port)
+int shim_rskt_accept(void* listen_sock, void* accept_socket, uint16_t* remote_destid, uint16_t* remote_port)
 {
   assert(listen_sock);
   assert(accept_socket);
@@ -101,8 +101,8 @@ int shim_rskt_accept(void* listen_sock, void* accept_socket, uint16_t& remote_de
   int rc = rskt_accept(l_sock, a_socket, &sock_addr);
   if (rc) return rc;
 
-  remote_destid = sock_addr.ct;
-  remote_port   = sock_addr.sn;
+  if (remote_destid != NULL) *remote_destid = sock_addr.ct;
+  if (remote_port != NULL)   *remote_port   = sock_addr.sn;
   return 0;
 }
 

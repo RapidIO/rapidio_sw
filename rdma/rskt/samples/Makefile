@@ -113,7 +113,7 @@ rskt_shim.so: rskt_shim.cc
 	$(CXX) $^ -shared -fPIC -pthread -ldl -lpthread -o $@ -O0 -ggdb
 
 rskt_shim2.so: rskt_shim2.cc $(COMMONDIR)/include/*.h
-	@echo ---------- Building rskt_shim
+	@echo ---------- Building rskt_shim2
 	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
 	-I./inc -I../inc \
 	-DRDMA_LL=$(LOG_LEVEL) \
