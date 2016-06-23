@@ -5,11 +5,13 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <signal.h>
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
 #include <netinet/in.h>
 
 #include <map>
+#include <vector>
 #include <stdexcept>
 
 volatile uint32_t rskt_shim_initialised = 0;
@@ -28,6 +30,7 @@ typedef struct {
   int                nonblock;
   bool               can_read;
   bool               can_write;
+  volatile int       stop_req;
   struct sockaddr_in laddr;
   struct sockaddr_in daddr;
   void*              rsock;
@@ -108,6 +111,8 @@ RSKT_DECLARE(shim_rskt_accept, int, (void*, void*, uint16_t*, uint16_t*));
 RSKT_DECLARE(shim_rskt_close, int, (void*));
 
 RSKT_DECLARE(shim_rskt_read, int, (void*, void*, int));
+RSKT_DECLARE(shim_rskt_get_avail_bytes, int, (void*));
+
 RSKT_DECLARE(shim_rskt_write, int, (void*, void*, int));
 
 void rskt_shim_main() __attribute__ ((constructor));
@@ -135,6 +140,7 @@ void rskt_shim_init_RSKT()
   RSKT_DLSYMCAST(shim_rskt_close, int, (void*));
 
   RSKT_DLSYMCAST(shim_rskt_read, int, (void*, void*, int));
+  RSKT_DLSYMCAST(shim_rskt_get_avail_bytes, int, (void*));
   RSKT_DLSYMCAST(shim_rskt_write, int, (void*, void*, int));
 
   RSKT_shim_rskt_init();
@@ -439,4 +445,90 @@ ssize_t read(int fd, void *buf, size_t count)
   pthread_mutex_unlock(&g_map_mutex);
 
   return glibc_read(fd, buf, count);
+}
+
+static void* select_thr(void* arg)
+{
+  assert(arg);
+  SocketTracker_t* sock_tr = (SocketTracker_t*)arg;
+
+  while (!sock_tr->stop_req) {
+    if (RSKT_shim_rskt_get_avail_bytes(sock_tr->rsock) > 0) {
+      glibc_write(sock_tr->sockp[1], "r", 1);
+      break;
+    }
+    struct timespec tv = { 0, 1};
+    nanosleep(&tv, NULL);
+  }
+  
+  return NULL;
+}
+
+typedef struct {
+  int              fd;
+  pthread_t        wkr;
+  SocketTracker_t* sock_tr;
+} KnownFd_t;
+
+int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
+{
+  if (readfds == NULL) // We can only do readable sockets!
+    return glibc_select(nfds, readfds, writefds, exceptfds, timeout);
+
+  int max_known_fd = -1;
+
+  std::vector<KnownFd_t> known_fds;
+
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.begin();
+  for(; it != g_sock_map.end(); it++) {
+    if (it->second.sockp[0] == -1) continue;
+    if (it->first > max_known_fd) max_known_fd = it->first;
+    if (! FD_ISSET(it->first, readfds)) continue;
+
+    KnownFd_t tmp;
+    tmp.fd      = it->first;
+    tmp.sock_tr = &it->second;
+    known_fds.push_back(tmp);
+  }
+
+  int min_known_fd = max_known_fd + 1;
+  for (int i = 0; i < known_fds.size(); i++) {
+    if (min_known_fd > known_fds[i].fd) min_known_fd = known_fds[i].fd;
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+
+  if (min_known_fd >= nfds || known_fds.size() == 0) // All our sockets are too "high" or none in common
+    return glibc_select(nfds, readfds, writefds, exceptfds, timeout);
+
+  pthread_mutex_lock(&g_map_mutex);
+  for (int i = 0; i < known_fds.size(); i++) {
+    known_fds[i].sock_tr->stop_req = 0;
+
+    if (pthread_create(&known_fds[i].wkr, NULL, select_thr, known_fds[i].sock_tr) < 0) {
+      static char tmp[129] = {0};
+      snprintf(tmp, 128, "RSKT Shim: pthread_create failed: %s", strerror(errno));
+      throw std::runtime_error(tmp);
+    }
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+
+  int nselect = glibc_select(nfds, readfds, writefds, exceptfds, timeout);
+
+  for (int i = 0; i < known_fds.size(); i++) known_fds[i].sock_tr->stop_req = 1;
+
+  usleep(1);
+
+  // Suck standin from socketpair
+  for (int i = 0; i < known_fds.size(); i++) {
+    if (!FD_ISSET(known_fds[i].fd, readfds)) continue;
+    char c = 0;
+    glibc_read(known_fds[i].sock_tr->sockp[0], &c, 1);
+  }
+
+  for (int i = 0; i < known_fds.size(); i++) {
+    pthread_kill(known_fds[i].wkr, SIGUSR1);
+  }
+
+  return nselect;
 }
