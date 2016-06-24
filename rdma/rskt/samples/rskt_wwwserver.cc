@@ -64,12 +64,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 static int RSKT_PORT = 80;
 
+static int g_wait = 0;
+
 static uint16_t g_my_destid = 0xFFFF;
 
 void usage()
 {
   printf("rskt_tun [-p <port>] [-l <lev>] -h\n");
   printf("-p<port>   : Destination RSKT port of rskt_server.\n");
+  printf("-w         : Wait 1 sec before calling rskt_close.\n");
   printf("-l<lev>    : Debug level\n");
   printf("               1 - No logs\n");
   printf("               2 - critical\n");
@@ -170,6 +173,8 @@ void* www_read_thr(void* arg)
 
   rskt_write(comm_sock, resp, strlen(resp));
 
+  if (g_wait) sleep(1);
+
   rskt_close(comm_sock);
 
   fprintf(stderr, "%s: QUIT -- sent %lu bytes\n", __func__, strlen(resp));
@@ -186,10 +191,11 @@ int main(int argc, char *argv[])
 #endif
 
   int c;
-  while ((c = getopt(argc, argv, "hp:l:")) != -1) {
+  while ((c = getopt(argc, argv, "whp:l:")) != -1) {
     switch (c) {
       case 'p': RSKT_PORT = atoi(optarg); break;
       case 'h': usage(); exit(0); break;
+      case 'w': g_wait = 1; break;
       case 'l':
 #ifdef RDMA_LL
                 {{
