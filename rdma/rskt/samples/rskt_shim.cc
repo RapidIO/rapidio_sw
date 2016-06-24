@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -13,6 +14,8 @@
 #include <map>
 #include <vector>
 #include <stdexcept>
+
+#define Dprintf(fmt, ...) { if (g_debug) printf(fmt, __VA_ARGS__); }
 
 volatile uint32_t rskt_shim_initialised = 0;
 volatile uint32_t rskt_shim_RSKT_initialised = 0;
@@ -23,6 +26,7 @@ static pthread_mutex_t g_rskt_shim_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_mutex_t g_map_mutex = PTHREAD_MUTEX_INITIALIZER; 
 
+static int g_debug = 0;
 static uint16_t g_my_destid = 0xFFFF;
 
 typedef struct {
@@ -221,6 +225,9 @@ void rskt_shim_main()
   g_my_destid = htonl(RSKT_shim_rskt_get_my_destid());
   ZERO_SOCK.laddr.sin_addr.s_addr = ntohs(g_my_destid);
 
+  char* cRDMA_LL = getenv("RDMA_LL");
+  if (cRDMA_LL != NULL && atoi(cRDMA_LL) > 6) g_debug = 1;
+
   pthread_mutex_unlock(&g_rskt_shim_mutex);
 }
 
@@ -234,7 +241,7 @@ int socket(int socket_family, int socket_type, int protocol)
     if (protocol != IPPROTO_TCP) break;
     if ((socket_type & SOCK_STREAM) == 0) break;
 
-    printf("TCPv4 sock %d STORE\n", tmp_sock);
+    Dprintf("TCPv4 sock %d STORE\n", tmp_sock);
 
     pthread_mutex_lock(&g_map_mutex);
     g_sock_map[tmp_sock] = ZERO_SOCK;
@@ -251,7 +258,7 @@ int close(int fd)
   pthread_mutex_lock(&g_map_mutex);
   std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
   if (it != g_sock_map.end()) {
-    printf("TCPv4 sock %d ERASE\n", fd);
+    Dprintf("TCPv4 sock %d ERASE\n", fd);
 
     if (it->second.sockp[0] != -1) glibc_close(it->second.sockp[0]);
     if (it->second.sockp[1] != -1) glibc_close(it->second.sockp[1]);
@@ -286,7 +293,7 @@ int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
     if (u.bytes[3] != 0 || u.bytes[2] != 0) break; // We want 0.0.x.y
     if (((uint16_t)u.bytes[1] + (uint16_t)u.bytes[0]) == 0) break; // We want 0.0.x.y
 
-    printf("TCPv4 sock %d bind to RIO addr\n", sockfd);
+    Dprintf("TCPv4 sock %d bind to RIO addr\n", sockfd);
   } while(0);
   pthread_mutex_unlock(&g_map_mutex);
 
@@ -357,7 +364,7 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
     if (((uint16_t)u.bytes[1] + (uint16_t)u.bytes[0]) == 0) break; // We want 0.0.x.y
 
     uint16_t destid = u.bytes[1] << 8 | u.bytes[0];
-    printf("TCPv4 sock %d connect to RIO destid %u port %d\n", sockfd, destid, ntohs(addr_v4->sin_port));
+    Dprintf("TCPv4 sock %d connect to RIO destid %u port %d\n", sockfd, destid, ntohs(addr_v4->sin_port));
 
     it->second.rsock = RSKT_shim_rskt_socket();
     assert(it->second.rsock);
@@ -427,13 +434,14 @@ ssize_t write(int fd, const void *buf, size_t count)
   std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
   if (it != g_sock_map.end()) {
     int rc = 0;
-    printf("TCPv4 sock %d write %d bytes.%s\n", fd, count, it->second.borked? " BORKED" :"");
+    Dprintf("TCPv4 sock %d write %d bytes.%s\n", fd, count, it->second.borked? " BORKED" :"");
     if (it->second.borked) {
-      errno = EINVAL;
+      errno = EPIPE;
       rc = -1;
     } else
       rc = RSKT_shim_rskt_write(it->second.rsock, (void*)buf, count);
     pthread_mutex_unlock(&g_map_mutex);
+    if (rc < 0) errno = EPIPE;
     return !rc? count: -1;
   }
   pthread_mutex_unlock(&g_map_mutex);
@@ -447,16 +455,16 @@ ssize_t read(int fd, void *buf, size_t count)
   std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
   if (it != g_sock_map.end()) {
     int rc = 0;
-    printf("TCPv4 sock %d read buffer=%d bytes.%s\n", fd, count, it->second.borked? " BORKED" :"");
+    Dprintf("TCPv4 sock %d read buffer=%d bytes.%s\n", fd, count, it->second.borked? " BORKED" :"");
     if (it->second.borked) {
       errno = EINVAL;
       rc = -1;
     } else {
       rc = RSKT_shim_rskt_read(it->second.rsock, (void*)buf, count);
-      printf("TCPv4 sock %d rskt_read %d bytes: %s.\n", fd, rc, strerror(errno));
+      Dprintf("TCPv4 sock %d rskt_read %d bytes: %s.\n", fd, rc, strerror(errno));
     }
     pthread_mutex_unlock(&g_map_mutex);
-    return rc >= 0? rc: -1;
+    return rc >= 0? rc: 0; // 0 = read fron closed socket
   }
   pthread_mutex_unlock(&g_map_mutex);
 
@@ -468,12 +476,12 @@ static void* select_thr(void* arg)
   assert(arg);
   SocketTracker_t* sock_tr = (SocketTracker_t*)arg;
 
-  printf("TCPv4 sock %d SELECT minder thread.\n", sock_tr->fd);
+  Dprintf("TCPv4 sock %d SELECT minder thread.\n", sock_tr->fd);
 
   while (!sock_tr->stop_req) {
     const int r = RSKT_shim_rskt_get_avail_bytes(sock_tr->rsock);
     if (r != 0) {
-      printf("TCPv4 sock %d SELECT minder thread avail_bytes=%d.\n", sock_tr->fd, r);
+      Dprintf("TCPv4 sock %d SELECT minder thread avail_bytes=%d.\n", sock_tr->fd, r);
       glibc_write(sock_tr->sockp[1], (r > 0? "r" : "q"), 1);
       break;
     }
@@ -550,6 +558,8 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
   for (int i = 0; i < known_fds.size(); i++) {
     pthread_kill(known_fds[i].wkr, SIGUSR1);
   }
+
+  Dprintf("TCPv4 select %d hijacked fd(s) END => %d\n", known_fds.size(), nselect);
 
   return nselect;
 }
