@@ -7,7 +7,10 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <sys/types.h>          /* See NOTES */
+#include <stdarg.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
@@ -88,6 +91,9 @@ DECLARE(dup2, int, (int, int)); // TBI
 
 DECLARE(sendfile, ssize_t, (int, int, off_t *, size_t)); // TBI
 
+DECLARE(ioctl, int, (int fd, unsigned long, ...)); // TBI
+DECLARE(fcntl, int, (int, int, ...)); // TBI
+
 static inline void errx(const char* msg)
 { if (msg) throw std::runtime_error(msg); _exit(42); }
 
@@ -123,7 +129,7 @@ RSKT_DECLARE(shim_rskt_write, int, (void*, void*, int));
 
 void rskt_shim_main() __attribute__ ((constructor));
 
-void rskt_shim_init_RSKT()
+static void rskt_shim_init_RSKT()
 {
   void* dh = NULL;
 
@@ -209,6 +215,9 @@ void rskt_shim_main()
 
   DLSYMCAST(sendfile, ssize_t, (int, int, off_t *, size_t));
 
+  DLSYMCAST(ioctl, int, (int fd, unsigned long, ...));
+  DLSYMCAST(fcntl, int, (int, int, ...));
+
   g_sock_map.clear();
 
   rskt_shim_initialised = 0xf00ff00d;
@@ -231,6 +240,7 @@ void rskt_shim_main()
   pthread_mutex_unlock(&g_rskt_shim_mutex);
 }
 
+extern "C"
 int socket(int socket_family, int socket_type, int protocol)
 {
   int tmp_sock = glibc_socket(socket_family, socket_type, protocol);
@@ -253,6 +263,7 @@ int socket(int socket_family, int socket_type, int protocol)
   return tmp_sock;
 }
 
+extern "C"
 int close(int fd)
 {
   pthread_mutex_lock(&g_map_mutex);
@@ -273,6 +284,7 @@ int close(int fd)
   return glibc_close(fd);
 }
 
+extern "C"
 int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
 {
   assert(addr);
@@ -305,6 +317,7 @@ int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
   return glibc_bind(sockfd, addr, addrlen); // temporary
 }
 
+extern "C"
 int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
   assert(addr);
@@ -324,6 +337,7 @@ int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
   return glibc_getpeername(sockfd, addr, addrlen);
 }
 
+extern "C"
 int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
   assert(addr);
@@ -343,6 +357,7 @@ int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
   return glibc_getpeername(sockfd, addr, addrlen);
 }
 
+extern "C"
 int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
 {
   assert(addr);
@@ -415,6 +430,7 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
 /// XXX thttpd does socket/bind/poll....accept
 
 // This seems for documentation purposes for RSKT... Hmm
+extern "C"
 int shutdown(int sockfd, int how)
 {
   pthread_mutex_lock(&g_map_mutex);
@@ -428,6 +444,7 @@ int shutdown(int sockfd, int how)
   return glibc_shutdown(sockfd, how);
 }
 
+extern "C"
 ssize_t write(int fd, const void *buf, size_t count)
 {
   pthread_mutex_lock(&g_map_mutex);
@@ -449,6 +466,7 @@ ssize_t write(int fd, const void *buf, size_t count)
   return glibc_write(fd, buf, count);
 }
 
+extern "C"
 ssize_t read(int fd, void *buf, size_t count)
 {
   pthread_mutex_lock(&g_map_mutex);
@@ -498,6 +516,7 @@ typedef struct {
   SocketTracker_t* sock_tr;
 } KnownFd_t;
 
+extern "C"
 int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
 {
   if (readfds == NULL) // We can only do readable sockets!
@@ -562,4 +581,65 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
   Dprintf("TCPv4 select %d hijacked fd(s) END => %d\n", known_fds.size(), nselect);
 
   return nselect;
+}
+
+// Use cases for nonblock:
+//   int flags = fcntl(fd, F_GETFL, 0);
+//   fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+// or
+//   int opt = 1;
+//   ioctl(fd, FIONBIO, &opt);
+
+extern "C"
+int ioctl(int fd, unsigned long request, ...)
+{
+  int ret = 0;
+
+  va_list argp;
+  va_start(argp, request);
+
+  bool my_fd = false;
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
+  if (it != g_sock_map.end()) {
+    my_fd = true;
+    if (request == FIONBIO) {
+      int opt = va_arg (argp, int);
+      it->second.nonblock = !!opt;
+    }
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+  
+  if (!my_fd) ret = glibc_ioctl(fd, request, argp);
+
+  va_end(argp);
+
+  return ret;
+}
+
+extern "C"
+int fcntl(int fd, int cmd, ... /* arg */ )
+{
+  int ret = 0;
+
+  va_list argp;
+  va_start(argp, cmd);
+
+  bool my_fd = false;
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
+  if (it != g_sock_map.end()) {
+    my_fd = true;
+    if (cmd == F_SETFL) {
+      int flags = va_arg (argp, int);
+      if (flags & O_NONBLOCK) it->second.nonblock = 1;
+    }
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+  
+  if (!my_fd) ret = glibc_fcntl(fd, cmd, argp);
+
+  va_end(argp);
+
+  return ret;
 }
