@@ -5,12 +5,20 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
-#include <sys/types.h>          /* See NOTES */
+#include <signal.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
 #include <map>
+#include <vector>
 #include <stdexcept>
+
+#define Dprintf(fmt, ...) { if (g_debug) printf(fmt, __VA_ARGS__); }
 
 volatile uint32_t rskt_shim_initialised = 0;
 volatile uint32_t rskt_shim_RSKT_initialised = 0;
@@ -21,13 +29,17 @@ static pthread_mutex_t g_rskt_shim_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_mutex_t g_map_mutex = PTHREAD_MUTEX_INITIALIZER; 
 
+static int g_debug = 0;
 static uint16_t g_my_destid = 0xFFFF;
 
 typedef struct {
+  int                fd; ///< For documentation purposes
   int                sockp[2];
   int                nonblock;
+  bool               borked; ///< Closed from beneath us by librskt
   bool               can_read;
   bool               can_write;
+  volatile int       stop_req;
   struct sockaddr_in laddr;
   struct sockaddr_in daddr;
   void*              rsock;
@@ -79,6 +91,9 @@ DECLARE(dup2, int, (int, int)); // TBI
 
 DECLARE(sendfile, ssize_t, (int, int, off_t *, size_t)); // TBI
 
+DECLARE(ioctl, int, (int fd, unsigned long, ...)); // TBI
+DECLARE(fcntl, int, (int, int, ...)); // TBI
+
 static inline void errx(const char* msg)
 { if (msg) throw std::runtime_error(msg); _exit(42); }
 
@@ -108,11 +123,13 @@ RSKT_DECLARE(shim_rskt_accept, int, (void*, void*, uint16_t*, uint16_t*));
 RSKT_DECLARE(shim_rskt_close, int, (void*));
 
 RSKT_DECLARE(shim_rskt_read, int, (void*, void*, int));
+RSKT_DECLARE(shim_rskt_get_avail_bytes, int, (void*));
+
 RSKT_DECLARE(shim_rskt_write, int, (void*, void*, int));
 
 void rskt_shim_main() __attribute__ ((constructor));
 
-void rskt_shim_init_RSKT()
+static void rskt_shim_init_RSKT()
 {
   void* dh = NULL;
 
@@ -135,6 +152,7 @@ void rskt_shim_init_RSKT()
   RSKT_DLSYMCAST(shim_rskt_close, int, (void*));
 
   RSKT_DLSYMCAST(shim_rskt_read, int, (void*, void*, int));
+  RSKT_DLSYMCAST(shim_rskt_get_avail_bytes, int, (void*));
   RSKT_DLSYMCAST(shim_rskt_write, int, (void*, void*, int));
 
   RSKT_shim_rskt_init();
@@ -197,11 +215,15 @@ void rskt_shim_main()
 
   DLSYMCAST(sendfile, ssize_t, (int, int, off_t *, size_t));
 
+  DLSYMCAST(ioctl, int, (int fd, unsigned long, ...));
+  DLSYMCAST(fcntl, int, (int, int, ...));
+
   g_sock_map.clear();
 
   rskt_shim_initialised = 0xf00ff00d;
 
   memset(&ZERO_SOCK, 0, sizeof(ZERO_SOCK));
+  ZERO_SOCK.fd       = -1;
   ZERO_SOCK.sockp[0] = -1;
   ZERO_SOCK.sockp[1] = -1;
   ZERO_SOCK.can_read = true;
@@ -210,11 +232,15 @@ void rskt_shim_main()
 
   rskt_shim_init_RSKT();
   g_my_destid = htonl(RSKT_shim_rskt_get_my_destid());
-  ZERO_SOCK.laddr.sin_addr.s_addr = g_my_destid;
+  ZERO_SOCK.laddr.sin_addr.s_addr = ntohs(g_my_destid);
+
+  char* cRDMA_LL = getenv("RDMA_LL");
+  if (cRDMA_LL != NULL && atoi(cRDMA_LL) > 6) g_debug = 1;
 
   pthread_mutex_unlock(&g_rskt_shim_mutex);
 }
 
+extern "C"
 int socket(int socket_family, int socket_type, int protocol)
 {
   int tmp_sock = glibc_socket(socket_family, socket_type, protocol);
@@ -225,10 +251,11 @@ int socket(int socket_family, int socket_type, int protocol)
     if (protocol != IPPROTO_TCP) break;
     if ((socket_type & SOCK_STREAM) == 0) break;
 
-    printf("TCPv4 sock %d STORE\n", tmp_sock);
+    Dprintf("TCPv4 sock %d STORE\n", tmp_sock);
 
     pthread_mutex_lock(&g_map_mutex);
     g_sock_map[tmp_sock] = ZERO_SOCK;
+    g_sock_map[tmp_sock].fd = tmp_sock;
     if (socket_type & SOCK_NONBLOCK) g_sock_map[tmp_sock].nonblock++;
     pthread_mutex_unlock(&g_map_mutex);
   } while(0);
@@ -236,15 +263,16 @@ int socket(int socket_family, int socket_type, int protocol)
   return tmp_sock;
 }
 
+extern "C"
 int close(int fd)
 {
   pthread_mutex_lock(&g_map_mutex);
   std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
   if (it != g_sock_map.end()) {
-    printf("TCPv4 sock %d ERASE\n", fd);
+    Dprintf("TCPv4 sock %d ERASE\n", fd);
 
-    if (it->second.sockp[0] != -1) close(it->second.sockp[0]);
-    if (it->second.sockp[1] != -1) close(it->second.sockp[1]);
+    if (it->second.sockp[0] != -1) glibc_close(it->second.sockp[0]);
+    if (it->second.sockp[1] != -1) glibc_close(it->second.sockp[1]);
     if (it->second.rsock != NULL) RSKT_shim_rskt_close(it->second.rsock);
     g_sock_map.erase(it);
 
@@ -256,6 +284,7 @@ int close(int fd)
   return glibc_close(fd);
 }
 
+extern "C"
 int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
 {
   assert(addr);
@@ -276,7 +305,7 @@ int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
     if (u.bytes[3] != 0 || u.bytes[2] != 0) break; // We want 0.0.x.y
     if (((uint16_t)u.bytes[1] + (uint16_t)u.bytes[0]) == 0) break; // We want 0.0.x.y
 
-    printf("TCPv4 sock %d bind to RIO addr\n", sockfd);
+    Dprintf("TCPv4 sock %d bind to RIO addr\n", sockfd);
   } while(0);
   pthread_mutex_unlock(&g_map_mutex);
 
@@ -288,6 +317,7 @@ int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
   return glibc_bind(sockfd, addr, addrlen); // temporary
 }
 
+extern "C"
 int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
   assert(addr);
@@ -307,6 +337,7 @@ int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
   return glibc_getpeername(sockfd, addr, addrlen);
 }
 
+extern "C"
 int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
   assert(addr);
@@ -326,6 +357,7 @@ int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
   return glibc_getpeername(sockfd, addr, addrlen);
 }
 
+extern "C"
 int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
 {
   assert(addr);
@@ -347,7 +379,7 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
     if (((uint16_t)u.bytes[1] + (uint16_t)u.bytes[0]) == 0) break; // We want 0.0.x.y
 
     uint16_t destid = u.bytes[1] << 8 | u.bytes[0];
-    printf("TCPv4 sock %d connect to RIO destid %u port %d\n", sockfd, destid, ntohs(addr_v4->sin_port));
+    Dprintf("TCPv4 sock %d connect to RIO destid %u port %d\n", sockfd, destid, ntohs(addr_v4->sin_port));
 
     it->second.rsock = RSKT_shim_rskt_socket();
     assert(it->second.rsock);
@@ -363,15 +395,18 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
     int sockp[2] = { -1, -1 };
     if (0 != socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, sockp)) {
       RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = NULL;
-      close(sockp[0]); close(sockp[1]);
+      glibc_close(sockp[0]); glibc_close(sockp[1]);
       pthread_mutex_unlock(&g_map_mutex);
-      throw std::runtime_error("RSKt Shim: socketpair failed!");
+      throw std::runtime_error("RSKT Shim: socketpair failed!");
     }
-    if (0 != glibc_dup2(sockp[0], sockfd)) {
+    if (-1 == glibc_dup2(sockp[0], sockfd)) {
+      static char tmp[129] = {0};
+      const int saved_errno = errno;
       RSKT_shim_rskt_close(it->second.rsock); it->second.rsock = NULL;
-      close(sockp[0]); close(sockp[1]);
+      glibc_close(sockp[0]); glibc_close(sockp[1]);
       pthread_mutex_unlock(&g_map_mutex);
-      throw std::runtime_error("RSKt Shim: dup2 failed!");
+      snprintf(tmp, 128, "RSKT Shim: dup2 failed: %s", strerror(saved_errno));
+      throw std::runtime_error(tmp);
     }
 
     SocketTracker_t& sock_tr = g_sock_map[sockfd];
@@ -395,6 +430,7 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
 /// XXX thttpd does socket/bind/poll....accept
 
 // This seems for documentation purposes for RSKT... Hmm
+extern "C"
 int shutdown(int sockfd, int how)
 {
   pthread_mutex_lock(&g_map_mutex);
@@ -406,4 +442,204 @@ int shutdown(int sockfd, int how)
   pthread_mutex_unlock(&g_map_mutex);
 
   return glibc_shutdown(sockfd, how);
+}
+
+extern "C"
+ssize_t write(int fd, const void *buf, size_t count)
+{
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
+  if (it != g_sock_map.end()) {
+    int rc = 0;
+    Dprintf("TCPv4 sock %d write %d bytes.%s\n", fd, count, it->second.borked? " BORKED" :"");
+    if (it->second.borked) {
+      errno = EPIPE;
+      rc = -1;
+    } else
+      rc = RSKT_shim_rskt_write(it->second.rsock, (void*)buf, count);
+    pthread_mutex_unlock(&g_map_mutex);
+    if (rc < 0) errno = EPIPE;
+    return !rc? count: -1;
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+
+  return glibc_write(fd, buf, count);
+}
+
+extern "C"
+ssize_t read(int fd, void *buf, size_t count)
+{
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
+  if (it != g_sock_map.end()) {
+    int rc = 0;
+    Dprintf("TCPv4 sock %d read buffer=%d bytes.%s\n", fd, count, it->second.borked? " BORKED" :"");
+    if (it->second.borked) {
+      errno = EINVAL;
+      rc = -1;
+    } else {
+      rc = RSKT_shim_rskt_read(it->second.rsock, (void*)buf, count);
+      Dprintf("TCPv4 sock %d rskt_read %d bytes: %s.\n", fd, rc, strerror(errno));
+    }
+    pthread_mutex_unlock(&g_map_mutex);
+    return rc >= 0? rc: 0; // 0 = read fron closed socket
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+
+  return glibc_read(fd, buf, count);
+}
+
+static void* select_thr(void* arg)
+{
+  assert(arg);
+  SocketTracker_t* sock_tr = (SocketTracker_t*)arg;
+
+  Dprintf("TCPv4 sock %d SELECT minder thread.\n", sock_tr->fd);
+
+  while (!sock_tr->stop_req) {
+    const int r = RSKT_shim_rskt_get_avail_bytes(sock_tr->rsock);
+    if (r != 0) {
+      Dprintf("TCPv4 sock %d SELECT minder thread avail_bytes=%d.\n", sock_tr->fd, r);
+      glibc_write(sock_tr->sockp[1], (r > 0? "r" : "q"), 1);
+      break;
+    }
+    struct timespec tv = { 0, 1};
+    nanosleep(&tv, NULL);
+  }
+  
+  return NULL;
+}
+
+typedef struct {
+  int              fd;
+  pthread_t        wkr;
+  SocketTracker_t* sock_tr;
+} KnownFd_t;
+
+extern "C"
+int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
+{
+  if (readfds == NULL) // We can only do readable sockets!
+    return glibc_select(nfds, readfds, writefds, exceptfds, timeout);
+
+  int max_known_fd = -1;
+
+  std::vector<KnownFd_t> known_fds;
+
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.begin();
+  for(; it != g_sock_map.end(); it++) {
+    if (it->second.sockp[0] == -1) continue;
+    if (it->first > max_known_fd) max_known_fd = it->first;
+    if (! FD_ISSET(it->first, readfds)) continue;
+
+    KnownFd_t tmp;
+    tmp.fd      = it->first;
+    tmp.sock_tr = &it->second;
+    known_fds.push_back(tmp);
+  }
+
+  int min_known_fd = max_known_fd + 1;
+  for (int i = 0; i < known_fds.size(); i++) {
+    if (min_known_fd > known_fds[i].fd) min_known_fd = known_fds[i].fd;
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+
+  if (min_known_fd >= nfds || known_fds.size() == 0) // All our sockets are too "high" or none in common
+    return glibc_select(nfds, readfds, writefds, exceptfds, timeout);
+
+  pthread_mutex_lock(&g_map_mutex);
+  for (int i = 0; i < known_fds.size(); i++) {
+    known_fds[i].sock_tr->stop_req = 0;
+
+    if (pthread_create(&known_fds[i].wkr, NULL, select_thr, known_fds[i].sock_tr) < 0) {
+      static char tmp[129] = {0};
+      snprintf(tmp, 128, "RSKT Shim: pthread_create failed: %s", strerror(errno));
+      throw std::runtime_error(tmp);
+    }
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+
+  int nselect = glibc_select(nfds, readfds, writefds, exceptfds, timeout);
+
+  for (int i = 0; i < known_fds.size(); i++) known_fds[i].sock_tr->stop_req = 1;
+
+  usleep(1);
+
+  // Suck standin from socketpair
+  for (int i = 0; i < known_fds.size(); i++) {
+    if (!FD_ISSET(known_fds[i].fd, readfds)) continue;
+    char c = 0;
+    glibc_read(known_fds[i].sock_tr->sockp[0], &c, 1);
+    if (c == 'e') known_fds[i].sock_tr->borked = 1;
+  }
+
+  for (int i = 0; i < known_fds.size(); i++) {
+    pthread_kill(known_fds[i].wkr, SIGUSR1);
+  }
+
+  Dprintf("TCPv4 select %d hijacked fd(s) END => %d\n", known_fds.size(), nselect);
+
+  return nselect;
+}
+
+// Use cases for nonblock:
+//   int flags = fcntl(fd, F_GETFL, 0);
+//   fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+// or
+//   int opt = 1;
+//   ioctl(fd, FIONBIO, &opt);
+
+extern "C"
+int ioctl(int fd, unsigned long request, ...)
+{
+  int ret = 0;
+
+  va_list argp;
+  va_start(argp, request);
+
+  bool my_fd = false;
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
+  if (it != g_sock_map.end()) {
+    my_fd = true;
+    if (request == FIONBIO) {
+      int opt = va_arg (argp, int);
+      it->second.nonblock = !!opt;
+    }
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+  
+  if (!my_fd) ret = glibc_ioctl(fd, request, argp);
+
+  va_end(argp);
+
+  return ret;
+}
+
+extern "C"
+int fcntl(int fd, int cmd, ... /* arg */ )
+{
+  int ret = 0;
+
+  va_list argp;
+  va_start(argp, cmd);
+
+  bool my_fd = false;
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
+  if (it != g_sock_map.end()) {
+    my_fd = true;
+    if (cmd == F_SETFL) {
+      int flags = va_arg (argp, int);
+      if (flags & O_NONBLOCK) it->second.nonblock = 1;
+    }
+  }
+  pthread_mutex_unlock(&g_map_mutex);
+  
+  if (!my_fd) ret = glibc_fcntl(fd, cmd, argp);
+
+  va_end(argp);
+
+  return ret;
 }

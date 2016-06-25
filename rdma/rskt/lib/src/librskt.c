@@ -1866,7 +1866,7 @@ exit:
 	return -1;
 }; /* rskt_write() */
 
-static inline
+//static inline
 uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 					uint32_t buf_sz)
 {

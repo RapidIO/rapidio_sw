@@ -25,6 +25,14 @@ void shim_rskt_init()
   rdma_log_init("rskt_shim2.txt", 1);
 #endif
 
+  const char* cRDMA_LL = getenv("RDMA_LL");
+  if (cRDMA_LL != NULL) {
+    int temp = atoi(cRDMA_LL);
+    if (temp < RDMA_LL_CRIT) temp = RDMA_LL_CRIT - 1;
+    if (temp > RDMA_LL)      temp = RDMA_LL;
+    g_level = temp;
+  }
+
   int rc = 0;
   {{
     uint8_t   np = 8;
@@ -118,7 +126,11 @@ int shim_rskt_read(void* sock, void* data, const int data_len)
   assert(sock);
   assert(data);
   rskt_h r_sock = (rskt_h)sock;
-  assert(r_sock->skt);
+
+  if (r_sock->skt == NULL) {
+    errno = EINVAL;
+    return -1;
+  }
 
   int rc = 0;
   do {
@@ -128,12 +140,31 @@ int shim_rskt_read(void* sock, void* data, const int data_len)
   return rc;
 }
 
+extern "C" uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr, uint32_t buf_sz);
+
+int shim_rskt_get_avail_bytes(void* sock)
+{
+  assert(sock);
+  rskt_h r_sock = (rskt_h)sock;
+  struct rskt_socket_t* skt = (struct rskt_socket_t*)r_sock->skt;
+
+  if (skt == NULL) // socket closed?
+    return -1;
+
+  return get_avail_bytes(skt->hdr, skt->buf_sz);
+}
+
 int shim_rskt_write(void* sock, void* data, const int data_len)
 {
   assert(sock);
   assert(data);
   rskt_h r_sock = (rskt_h)sock;
-  assert(r_sock->skt);
+
+  if (r_sock->skt == NULL) {
+    errno = EINVAL;
+    return -1;
+  }
+
 
   return rskt_write(r_sock, data, data_len);
 }
