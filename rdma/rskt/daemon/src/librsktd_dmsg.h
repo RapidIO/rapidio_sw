@@ -64,6 +64,7 @@ struct librsktd_hello_req {
 	uint32_t ct; /* Peer component tag */
 	uint32_t cm_skt; /* Peer cm socket number for connecting to */
 	uint32_t cm_mp; /* Peer cm MPORT number */
+	uint32_t use_mport; /* If true, this Daemon uses libmport */
 };
 
 struct librsktd_hello_resp {
@@ -74,11 +75,14 @@ struct librsktd_connect_req {
 	uint32_t dst_sn; /* Socket should be listening/accepting */
 	uint32_t dst_ct; /* Thought we're sending here */
 	uint32_t src_sn; /* Connecting socket number */
+	uint32_t use_addr; /* If non-zero, use r_addr.  If 0, use mso/ms. */
 	/* Local mso/ms/msub to allocate for RDMA connect operation */
 	char src_mso[MAX_MS_NAME];  /* Client mso name */
 	char src_ms[MAX_MS_NAME]; /* Client ms name */
 	uint32_t src_msub_o; /* Client msub offset within ms */
-	uint32_t src_msub_s; /* Client msub size in bytes */
+	uint32_t src_msub_s; /* Client msub/mport memory size in bytes */
+	uint32_t r_addr_u; /* 4 MSBs of Connectors RapidIO address */
+	uint32_t r_addr_l; /* 4 LSBs of Connectors RapidIO address */
 };
 
 struct librsktd_connect_resp {
@@ -86,9 +90,14 @@ struct librsktd_connect_resp {
 	uint32_t dst_sn; /* Socket that was listening/accepting */
 	uint32_t dst_ct; /* Request component tag */
 	uint32_t dst_dmn_cm_skt; /* Request cm skt number*/
+	uint32_t use_addr; /* If non-zero, use r_addr + msub_sz.
+			*  If 0, use mso/ms.
+			*/
 	/* Local mso/ms/msub to allocate for RDMA connect operation */
 	char dst_ms[MAX_MS_NAME]; /* Server ms name */
-	uint32_t msub_sz; /* Size of msub allocated */
+	uint32_t msub_sz; /* Size of msub/memory window allocated */
+	uint32_t acc_r_addr_u; /* 4 MSBs of Connectors RapidIO address */
+	uint32_t acc_r_addr_l; /* 4 LSBs of Connectors RapidIO address */
 };
 
 struct librsktd_close_req {

@@ -98,7 +98,7 @@ if [ "$START_RSKTD" = 'y' ]; then
 		DESTID=$(ssh root@"$node" "cat $RIO_CLASS_MPORT_DIR/device/port_destid")
 		[ "$DESTID" = '0xffffffff' ] && { echo "Node $node not enumerated skipping RSKTD"; continue; }
 		echo "Start rsktd on $node destID=$DESTID"
-		ssh root@"$node" "screen -dmS rsktd $SOURCE_PATH/rdma/rskt/daemon/rsktd -l3"
+		ssh root@"$node" "screen -dmS rsktd $SOURCE_PATH/rdma/rskt/daemon/rsktd -l3 -Q"
 		sleep 3
 		RSKTD_PID=$(ssh root@"$node" pgrep rsktd)
 		echo "$node rsktd pid=$RSKTD_PID"

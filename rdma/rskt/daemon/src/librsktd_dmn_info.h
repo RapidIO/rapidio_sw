@@ -89,9 +89,8 @@ struct ms_info {
 	rsktd_ms_state	state; 
 	char	ms_name[MAX_MS_NAME+1];
 	ms_h	ms;
-	void *virt_addr;
-	void *phy_addr;
-	void *rio_addr;
+	uint64_t phy_addr;
+	uint64_t rio_addr;
 	int	ms_size;
 	struct rskt_socket_t skt;
 	int	loc_sn;

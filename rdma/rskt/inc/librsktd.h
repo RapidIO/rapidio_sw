@@ -115,6 +115,13 @@ extern "C" {
         (LIBRSKT_CLOSE_CMD_RESP == y))?ntohl(x->a_rsp.req.app_seq_num): \
         0xFFFFFFFF)
 
+#define PACK_PTR(x,u,l) \
+	u = htonl((uint32_t)(x >> 32)); \
+	l = htonl((uint32_t)(x & 0xFFFFFFFF));
+
+#define UNPACK_PTR(u,l,x) \
+	x = ((((uint64_t)ntohl(u)) << 32) + (uint64_t)ntohl(l))
+
 /* Requests sent from library to RSKTD */
 
 struct librskt_hello_req {
@@ -147,6 +154,11 @@ struct librskt_close_req {
 
 struct librskt_release_req {
 	uint32_t sn;
+	uint32_t use_addr; /* If non-zero, use address and peer_sa.
+			* If zero, use mso/ms and rdma.
+			*/
+	uint32_t p_addr_u; /* 4 MSBs of Physical address for local buffer. */
+	uint32_t p_addr_l; /* 4 LSBs of Physical address for local buffer. */
 	char ms_name[MAX_MS_NAME+1];
 };
 
@@ -187,7 +199,10 @@ struct librskt_accept_resp {
 	uint32_t use_addr; /* If non-zero, use address and peer_sa.
 			* If zero, use mso/ms and rdma.
 			*/
-	uint32_t addr;
+	uint32_t p_addr_u; /* 4 MSBs of Physical address for local buffer. */
+	uint32_t p_addr_l; /* 4 LSBs of Physical address for local buffer. */
+	uint32_t r_addr_u; /* 4 MSBs of RapidIO address for connectors buffer */
+	uint32_t r_addr_l; /* 4 LSBs of RapidIO address for connectors buffer */
 	char mso_name[MAX_MS_NAME]; 
 	char ms_name[MAX_MS_NAME];
 };
@@ -198,8 +213,10 @@ struct librskt_connect_resp {
 	uint32_t use_addr; /* If non-zero, use address and peer_sa.
 			* If zero, use mso/ms and rdma.
 			*/
-	uint32_t addr; /* Local physical layer address of memory block to use.*/
-	uint32_t rem_addr; /* Remote rapidio address of memory block */
+	uint32_t p_addr_u; /* 4 MSBs of Physical address for local buffer. */
+	uint32_t p_addr_l; /* 4 LSBs of Physical address for local buffer. */
+	uint32_t r_addr_u; /* 4 MSBs of RapidIO address for local buffer. */
+	uint32_t r_addr_l; /* 4 LSBs of RapidIO address for local buffer. */
 	char mso[MAX_MS_NAME];  /* Local mso to open() for ms */
 	char ms[MAX_MS_NAME]; /* Local ms to open() for msub */
 	char rem_ms[MAX_MS_NAME]; /* Remote ms for RDMA connect operation */
