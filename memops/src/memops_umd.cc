@@ -34,6 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <sched.h>
 #include <assert.h>
+#define __STDC_FORMAT_MACROS 1
+#include <stdint.h>
 #include <inttypes.h>
 
 #include "memops.h"
