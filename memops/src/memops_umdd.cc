@@ -32,6 +32,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdio.h> // snprintf
+#define __STDC_FORMAT_MACROS 1
+#include <stdint.h>
 #include <inttypes.h> // PRIx64
 
 #include "memops.h"

@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librskt.h"
 #include "libcli.h"
 #include "liblist.h"
+#include "rapidio_mport_mgmt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -176,6 +177,10 @@ struct rskt_socket_t {
 	volatile uint8_t *tx_buf; /* TX data buffer pointer */
 	volatile uint8_t *rx_buf; /* RX data buffer pointer */
 	uint32_t buf_sz; /* Size of TX and RX data buffers */
+	uint64_t rio_addr; /* RapidIO address of remote buffer,
+				valid if lib.use_mport is asserted */
+	uint64_t phy_addr; /* Physical address of local buffer,
+				valid if lib.use_mport is asserted */
 	/* Connected MS */
 	char con_msh_name[MAX_MS_NAME];
 	conn_h connh;	/* Connection handle - for use in disconnection */
@@ -211,6 +216,7 @@ struct librskt_globals {
 			* FALSE if they use rdma.
 			* Set by HELLO response from RSKT daemon.
 			*/
+	riomp_mport_t mp_h;
 
 	int all_must_die; /* When non-zero, all threads exit immediately */
 			/* RSKTD must cleanup */

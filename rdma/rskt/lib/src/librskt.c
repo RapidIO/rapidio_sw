@@ -59,6 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "librsktd_private.h"
 #include "liblist.h"
 #include "libcli.h"
+#include "rapidio_mport_dma.h"
 
 #include "liblog.h"
 
@@ -455,8 +456,7 @@ void prep_response(struct librskt_rsktd_to_app_msg *req,
 	resp->rsp_a.req_a = req->rq_a;
 };
 
-void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
-		struct l_item_t *li)
+void cleanup_skt_rdma(rskt_h skt_h, volatile struct rskt_socket_t *skt)
 {
 	DBG("sn %d ENTER with skt->connector = %d",
 		skt_h->sa.sn, skt->connector);
@@ -497,6 +497,24 @@ void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
 	}
 	// li can be null if we're closing a socket before it has been
 	// connected.
+};
+
+void cleanup_skt(rskt_h skt_h, volatile struct rskt_socket_t *skt,
+		struct l_item_t *li)
+{
+	if (lib.use_mport) {
+		if (NULL != skt->msub_p) {
+			int rc = riomp_dma_unmap_memory(lib.mp_h, skt->msub_sz, 
+						(void *)skt->msub_p);
+			if (rc) {
+				ERR("sn %d failed to unmap memory",
+					skt_h->sa.sn);
+			}
+		};
+	} else {
+		cleanup_skt_rdma(skt_h, skt);
+	};
+
 	l_lremove(&lib.skts, li); /* Do not deallocate socket */
 	free((void *)skt);
 	skt_h->skt = NULL;
@@ -730,6 +748,15 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 	lib.use_mport = !!(ntohl(resp->a_rsp.msg.hello.use_mport));
 
 	free(resp);
+
+	if (lib.use_mport) {
+		rc = riomp_mgmt_mport_create_handle(lib.mpnum, 0, &lib.mp_h);
+		if (rc) {
+			ERR("Could no topen mport %d\n", lib.mpnum);
+			lib.init_ok = 0;
+			goto fail;
+		};
+	};
 fail:
 	rc = -!((lib.init_ok == lib.portno) && (lib.portno));
 	DBG("EXIT, rc = %d\n", rc);
@@ -1153,6 +1180,72 @@ exit_setup_skt_ptrs:
 	return rc;
 }; /* setup_skt_ptrs() */
 
+int rskt_accept_rdma_open(struct rskt_socket_t * volatile skt)
+{
+	int rc;
+
+	DBG("ACCEPT OPEN_MSO %s", skt->msoh_name);
+	rc = rdma_open_mso_h((const char *)skt->msoh_name, (mso_h *)&skt->msoh);
+	DBG("ACCEPT OPEN_MSO %s DONE", skt->msoh_name);
+	if (rc) {
+		if (rc == RDMA_ALREADY_OPEN) {
+			INFO("MSO was already open, got back the same handle\n");
+		} else {
+			ERR("Failed to open ms(%s)\n", skt->msh_name);
+			goto fail;
+		}
+	}
+	skt->msoh_valid = 1;
+
+	DBG("ACCEPT OPEN_MS %s", skt->msh_name);
+	rc = rdma_open_ms_h((const char *)skt->msh_name, skt->msoh, 0, 
+			(uint32_t *)&skt->msub_sz, (ms_h *)&skt->msh);
+	DBG("ACCEPT OPEN_MS %s DONE", skt->msh_name);
+	if (rc) {
+		ERR("Failed to open ms(%s) rc %x\n", skt->msh_name, rc);
+		goto fail;
+	}
+	skt->msh_valid = 1;
+
+	DBG("ACCEPT CREATE_MSUB");
+	rc = rdma_create_msub_h(skt->msh, 0,
+				skt->msub_sz, 0, (msub_h *)&skt->msubh);
+	DBG("ACCEPT CREATE_MSUB 0x%lx", skt->msubh);
+	if (rc) {
+		ERR("Failed to create msub rc %d\n", rc);
+		goto fail;
+	}
+	skt->msub_p = NULL;
+	skt->msubh_valid = 1;
+
+	DBG("ACCEPT MMAP_MSUB");
+	rc = rdma_mmap_msub(skt->msubh, (void **)&skt->msub_p);
+	if (rc) {
+		ERR("Failed to mmap msub\n");
+		goto fail;
+	}
+
+	DBG("ACCEPT: MSOH %p MSH %p MSUBH %p PTR %p",
+		skt->msoh, skt->msh, skt->msubh, skt->msub_p);
+	/* Zero the entire msub (we can do that because we'll initialize
+	 * all pointers below).
+	 */
+	memset((void *)skt->msub_p, 0, skt->msub_sz);
+
+	do {
+		rc = rdma_accept_ms_h(skt->msh, skt->msubh,
+				(conn_h *)&skt->connh,
+				(msub_h *)&skt->con_msubh,
+				(uint32_t *)&skt->con_sz, RDMA_ACC_TO_SECS);
+	} while (rc == RDMA_ACCEPT_TIMEOUT);
+	if (rc) {
+		ERR("Failed in rdma_accept_ms_h()\n");
+		goto fail;
+	}
+fail:
+	return rc;
+};
+
 int rskt_accept(rskt_h l_skt_h, rskt_h skt_h, 
 		struct rskt_sockaddr *sktaddr)
 {
@@ -1225,73 +1318,51 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 	skt_h->sa.ct = ntohl(rx->a_rsp.msg.accept.new_ct);
 	skt->sai.sa.ct = ntohl(rx->a_rsp.msg.accept.peer_sa.ct);
 	skt->sai.sa.sn = ntohl(rx->a_rsp.msg.accept.peer_sa.sn);
+	UNPACK_PTR(rx->a_rsp.msg.accept.r_addr_u, rx->a_rsp.msg.accept.r_addr_l,
+		skt->rio_addr);
 	memcpy((void *)skt->msoh_name, rx->a_rsp.msg.accept.mso_name, MAX_MS_NAME);
 	memcpy((void *)skt->msh_name, rx->a_rsp.msg.accept.ms_name, MAX_MS_NAME);
-	DBG("ACCEPT: SN %d CT %d REM SN %d CT %d MSOH \"%s\" MSH \"%s\"", 
-		skt_h->sa.sn, skt_h->sa.ct, skt->sai.sa.sn, skt->sai.sa.ct,
-		skt->msoh_name, skt->msh_name);
+	if (lib.use_mport) {
+		DBG("ACCEPT: SN %d CT %d REM SN %d CT %d p_u 0x%x p_l 0x%x r_u 0x%x r_l 0x%x",
+			skt_h->sa.sn, skt_h->sa.ct, skt->sai.sa.sn,
+			skt->sai.sa.ct, rx->a_rsp.msg.accept.p_addr_u,
+			rx->a_rsp.msg.accept.p_addr_l,
+			rx->a_rsp.msg.accept.r_addr_u,
+			rx->a_rsp.msg.accept.r_addr_l);
+	} else {
+		DBG("ACCEPT: SN %d CT %d REM SN %d CT %d MSOH \"%s\" MSH \"%s\"", 
+			skt_h->sa.sn, skt_h->sa.ct, skt->sai.sa.sn, 
+			skt->sai.sa.ct, skt->msoh_name, skt->msh_name);
+	};
 	skt->msub_sz = ntohl(rx->a_rsp.msg.accept.ms_size);
 
 	l_skt_h->st = rskt_listening;
 
-	DBG("ACCEPT OPEN_MSO %s", skt->msoh_name);
-	rc = rdma_open_mso_h((const char *)skt->msoh_name, (mso_h *)&skt->msoh);
-	DBG("ACCEPT OPEN_MSO %s DONE", skt->msoh_name);
-	if (rc) {
-		if (rc == RDMA_ALREADY_OPEN) {
-			INFO("MSO was already open, got back the same handle\n");
-		} else {
-			ERR("Failed to open ms(%s)\n", skt->msh_name);
+	if (lib.use_mport != !!rx->a_rsp.msg.accept.use_addr) {
+		CRIT("ACCEPT response lib.use_mport %d use_addr %d",
+			lib.use_mport, !!rx->a_rsp.msg.accept.use_addr);
+		goto unlock;
+	};
+
+	if (lib.use_mport) {
+		UNPACK_PTR(rx->a_rsp.msg.accept.p_addr_u,
+				rx->a_rsp.msg.accept.p_addr_l,
+				skt->phy_addr);
+		skt->con_sz = ntohl(rx->a_rsp.msg.accept.ms_size);
+		rc = riomp_dma_map_memory(lib.mp_h, skt->con_sz, skt->phy_addr,
+				(void **)&skt->msub_p);
+		if (rc) {
+			CRIT("Failed to map 0x%lx size 0x%x",
+				skt->phy_addr, skt->msub_sz);
 			goto unlock;
 		}
-	}
-	skt->msoh_valid = 1;
-
-	DBG("ACCEPT OPEN_MS %s", skt->msh_name);
-	rc = rdma_open_ms_h((const char *)skt->msh_name, skt->msoh, 0, 
-			(uint32_t *)&skt->msub_sz, (ms_h *)&skt->msh);
-	DBG("ACCEPT OPEN_MS %s DONE", skt->msh_name);
-	if (rc) {
-		ERR("Failed to open ms(%s) rc %x\n", skt->msh_name, rc);
+		memset((void *)skt->msub_p, 0, skt->msub_sz);
+		skt->msh_valid = 1;
+	} else {
+		rc = rskt_accept_rdma_open(skt);
+	};
+	if (rc)
 		goto unlock;
-	}
-	skt->msh_valid = 1;
-
-	DBG("ACCEPT CREATE_MSUB");
-	rc = rdma_create_msub_h(skt->msh, 0,
-				skt->msub_sz, 0, (msub_h *)&skt->msubh);
-	DBG("ACCEPT CREATE_MSUB 0x%lx", skt->msubh);
-	if (rc) {
-		ERR("Failed to create msub rc %d\n", rc);
-		goto unlock;
-	}
-	skt->msub_p = NULL;
-	skt->msubh_valid = 1;
-
-	DBG("ACCEPT MMAP_MSUB");
-	rc = rdma_mmap_msub(skt->msubh, (void **)&skt->msub_p);
-	if (rc) {
-		ERR("Failed to mmap msub\n");
-		goto unlock;
-	}
-
-	DBG("ACCEPT: MSOH %p MSH %p MSUBH %p PTR %p",
-		skt->msoh, skt->msh, skt->msubh, skt->msub_p);
-	/* Zero the entire msub (we can do that because we'll initialize
-	 * all pointers below).
-	 */
-	memset((void *)skt->msub_p, 0, skt->msub_sz);
-
-	do {
-		rc = rdma_accept_ms_h(skt->msh, skt->msubh,
-				(conn_h *)&skt->connh,
-				(msub_h *)&skt->con_msubh,
-				(uint32_t *)&skt->con_sz, RDMA_ACC_TO_SECS);
-	} while (rc == RDMA_ACCEPT_TIMEOUT);
-	if (rc) {
-		ERR("Failed in rdma_accept_ms_h()\n");
-		goto unlock;
-	}
 
 	skt_h->st = rskt_connected;
 	rc = setup_skt_ptrs(skt);
@@ -1318,6 +1389,86 @@ exit:
 	return rc;
 }; /* rskt_accept() */
 
+int rskt_connect_rdma_open(struct rskt_socket_t * volatile skt)
+{
+	int conn_retries = RDMA_CONN_TO_SECS * 1000000 / RDMA_CONN_POLL_USECS;
+	int rc = rdma_open_mso_h(skt->msoh_name, &skt->msoh);
+
+	if (rc) {
+		ERR("rdma_open_mso_h() failed msoh_name(%s)..closing\n",
+								skt->msoh_name);
+		goto fail;
+	}
+	skt->msoh_valid = 1;
+
+	if (lib.all_must_die)
+		goto fail;
+
+	rc = rdma_open_ms_h(skt->msh_name, skt->msoh, 0, 
+			&skt->msub_sz, &skt->msh);
+	if (rc || !skt->msub_sz) {
+		ERR("rdma_open_ms_h() failed msh_name(%s)..closing\n",
+								skt->msh_name);
+		goto fail;
+	}
+	skt->msh_valid = 1;
+
+	if (lib.all_must_die)
+		goto fail;
+
+	rc = rdma_create_msub_h(skt->msh, 0,
+				skt->msub_sz, 0, &skt->msubh);
+	if (rc) {
+		ERR("rdma_create_msub() failed..closing\n");
+		goto fail;
+	}
+	skt->msubh_valid = 1;
+
+	if (lib.all_must_die)
+		goto fail;
+
+	rc = rdma_mmap_msub(skt->msubh, (void **)&skt->msub_p);
+	if (rc) {
+		ERR("rdma_mmap_msub() failed..closing\n");
+	}
+
+	memset((void *)skt->msub_p, 0, skt->msub_sz);
+
+	if (lib.all_must_die)
+		goto fail;
+
+	rc = 0;
+	do {
+		if (RDMA_CONNECT_FAIL == rc) {
+			struct timespec req = {0, RDMA_CONN_POLL_USECS * 1000};
+			struct timespec rem = {0, 0};
+			int rc = 0;
+	
+			errno = 0;
+			do {
+				if (rc && (EINTR == errno))
+					req = rem;
+				rc = (nanosleep(&req, &rem));
+			} while (rc && (EINTR == errno));
+		}
+
+		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
+				skt->con_msh_name, skt->msubh,
+				&skt->connh,
+				&skt->con_msubh, &skt->con_sz,
+				&skt->con_msh, RDMA_CONN_TO_SECS);
+	} while ((rc == RDMA_CONNECT_FAIL) && conn_retries-- && !lib.all_must_die);
+
+	if (rc) {
+		ERR("rdma_conn_ms_h() failed, retries = %d, rc = 0x%X..closing\n",
+				rc, conn_retries);
+		goto fail;
+	}
+	HIGH("CONNECTED, skt->con_msh = 0x%" PRIx64 "\n", skt->con_msh);
+fail:
+	return rc;
+};
+
 int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 {
 	struct librskt_app_to_rsktd_msg *tx = NULL;
@@ -1325,7 +1476,6 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	struct rskt_socket_t * volatile skt;
 	int temp_errno;
 	int rc = -1;
-	int conn_retries = RDMA_CONN_TO_SECS * 1000000 / RDMA_CONN_POLL_USECS;
 
 	DBG("ENTER\n");
 	if (lib_uninit()) {
@@ -1385,17 +1535,33 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 		goto unlock;
 	}
 
+	if (!!rx->a_rsp.msg.conn.use_addr != lib.use_mport) {
+		CRIT("Received reply with use_addr %d lib.use_mport %d",
+			(int)rx->a_rsp.msg.conn.use_addr, (int)lib.use_mport);
+		goto unlock;
+	};
+
 	DBG("Received reply to LIBRSKTD_CONN containing:\n");
-	DBG("mso = %s, ms = %s, msub_sz = %d\n",
+	if (rx->a_rsp.msg.conn.use_addr) {
+		DBG("p_u 0x%x p_l 0x%x r_u 0x%x r_l 0x%x",
+			rx->a_rsp.msg.conn.p_addr_u,
+			rx->a_rsp.msg.conn.p_addr_l,
+			rx->a_rsp.msg.conn.r_addr_u,
+			rx->a_rsp.msg.conn.r_addr_l);
+	} else {
+		DBG("mso = %s, ms = %s, msub_sz = %d\n",
 			rx->a_rsp.msg.conn.mso,
 			rx->a_rsp.msg.conn.ms,
 			rx->a_rsp.msg.conn.msub_sz)
+	};
 	skt_h->st = rskt_connecting;
 	skt->connector = skt_rdma_connector;
 	skt_h->sa.ct = ntohl(rx->a_rsp.msg.conn.new_ct);
 	skt_h->sa.sn = ntohl(rx->a_rsp.msg.conn.new_sn);
 	skt->sai.sa.sn = ntohl(rx->a_rsp.msg.conn.rem_sn);
 	skt->sai.sa.ct = ntohl(rx->a_rsp.req.msg.conn.ct);
+	UNPACK_PTR(rx->a_rsp.msg.conn.r_addr_u, rx->a_rsp.msg.conn.r_addr_l,
+			skt->rio_addr);
 	memcpy(skt->msoh_name, rx->a_rsp.msg.conn.mso, MAX_MS_NAME);
 	memcpy(skt->msh_name, rx->a_rsp.msg.conn.ms, MAX_MS_NAME);
 	memcpy(skt->con_msh_name, rx->a_rsp.msg.conn.rem_ms, MAX_MS_NAME);
@@ -1405,81 +1571,29 @@ int rskt_connect(rskt_h skt_h, struct rskt_sockaddr *sock_addr )
 	if (lib.all_must_die)
 		goto unlock;
 
-	rc = rdma_open_mso_h(skt->msoh_name, &skt->msoh);
-	if (rc) {
-		ERR("rdma_open_mso_h() failed msoh_name(%s)..closing\n", skt->msoh_name);
-		goto unlock;
-	}
-	skt->msoh_valid = 1;
-
-	if (lib.all_must_die)
-		goto unlock;
-
-	rc = rdma_open_ms_h(skt->msh_name, skt->msoh, 0, 
-			&skt->msub_sz, &skt->msh);
-	if (rc || !skt->msub_sz) {
-		ERR("rdma_open_ms_h() failed msh_name(%s)..closing\n", skt->msh_name);
-		goto unlock;
-	}
-	skt->msh_valid = 1;
-
-	if (lib.all_must_die)
-		goto unlock;
-
-	rc = rdma_create_msub_h(skt->msh, 0,
-				skt->msub_sz, 0, &skt->msubh);
-	if (rc) {
-		ERR("rdma_create_msub() failed..closing\n");
-		goto unlock;
-	}
-	skt->msubh_valid = 1;
-
-	if (lib.all_must_die)
-		goto unlock;
-
-	rc = rdma_mmap_msub(skt->msubh, (void **)&skt->msub_p);
-	if (rc) {
-		ERR("rdma_mmap_msub() failed..closing\n");
-		goto unlock;
-	}
-
-	/* Zero the entire msub (we can do that because we'll initialize
-	 * all pointers below).
-	 */
-	memset((void *)skt->msub_p, 0, skt->msub_sz);
-
-	if (lib.all_must_die)
-		goto unlock;
-
-	rc = 0;
-	do {
-		if (RDMA_CONNECT_FAIL == rc) {
-			struct timespec req = {0, RDMA_CONN_POLL_USECS * 1000};
-			struct timespec rem = {0, 0};
-			int rc = 0;
-	
-			errno = 0;
-			do {
-				if (rc && (EINTR == errno))
-					req = rem;
-				rc = (nanosleep(&req, &rem));
-			} while (rc && (EINTR == errno));
+	if (lib.use_mport) {
+		UNPACK_PTR(rx->a_rsp.msg.conn.p_addr_u,
+				rx->a_rsp.msg.conn.p_addr_l,
+				skt->phy_addr);
+		skt->con_sz = ntohl(rx->a_rsp.msg.conn.msub_sz);
+		rc = riomp_dma_map_memory(lib.mp_h, skt->con_sz, skt->phy_addr,
+				(void **)&skt->msub_p);
+		if (rc) {
+			CRIT("Failed to map 0x%lx size 0x%x",
+				skt->phy_addr, skt->msub_sz);
+			goto unlock;
 		}
-
-		rc = rdma_conn_ms_h(16, skt->sai.sa.ct,
-				skt->con_msh_name, skt->msubh,
-				&skt->connh,
-				&skt->con_msubh, &skt->con_sz,
-				&skt->con_msh, RDMA_CONN_TO_SECS);
-	} while ((rc == RDMA_CONNECT_FAIL) && conn_retries-- && !lib.all_must_die);
-
-	if (rc) {
-		ERR("rdma_conn_ms_h() failed, retries = %d, rc = 0x%X..closing\n",
-				rc, conn_retries);
-		goto unlock;
+		memset((void *)skt->msub_p, 0, skt->msub_sz);
+		skt->msh_valid = 1;
 	} else {
-		HIGH("CONNECTED, skt->con_msh = 0x%" PRIx64 "\n", skt->con_msh);
-	}
+		rc = rskt_connect_rdma_open(skt);
+	};
+	if (rc)
+		goto unlock;
+
+	/* At this point the local buffer is mapped and zeroed.
+	 * We will initialize the buffer pointers below.
+	 */
 
 	skt_h->st = rskt_connected;
 	if (lib.all_must_die)
@@ -1551,26 +1665,42 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	INC_PTR(skt->hdr->loc_tx_wr_ptr, byte_cnt, skt->buf_sz);
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
 		ntohl(skt->hdr->loc_tx_wr_ptr), ntohl(skt->hdr->loc_rx_rd_ptr));
-	if (!inited) {
-		DBG("!inited, assigning hdr values from skt\n");
-		hdr_in->loc_msubh = skt->msubh;
-		hdr_in->rem_msubh = skt->con_msubh;
-		hdr_in->priority = 0;
-		hdr_in->sync_type = rdma_sync_chk;
-		DBG("hdr_in->loc_msubh = %016"PRIx64" ", hdr_in->loc_msubh);
-		DBG("hdr_in->rem_msubh = %016"PRIx64" ", hdr_in->rem_msubh);
-	};
+	if (lib.use_mport) {
+		int dma_err;
+		DBG("riomp_dma_write_d \n");
+		dma_err = riomp_dma_write_d(lib.mp_h, skt->sai.sa.ct,
+			skt->rio_addr + dma_wr_offset, skt->phy_addr,
+			dma_rd_offset, byte_cnt, RIO_DIRECTIO_TYPE_NWRITE,
+			RIO_DIRECTIO_TRANSFER_SYNC);
+		if (dma_err) {
+			ERR("riomp_dma_write_d rc %d %d %s",
+				dma_err, errno, strerror(errno));
+			return -1;
+		};
+	} else {
+		if (!inited) {
+			DBG("!inited, assigning hdr values from skt\n");
+			hdr_in->loc_msubh = skt->msubh;
+			hdr_in->rem_msubh = skt->con_msubh;
+			hdr_in->priority = 0;
+			hdr_in->sync_type = rdma_sync_chk;
+			DBG("hdr_in->loc_msubh = %016"PRIx64" ",
+							hdr_in->loc_msubh);
+			DBG("hdr_in->rem_msubh = %016"PRIx64" ",
+							hdr_in->rem_msubh);
+		};
 
-	hdr_in->loc_offset = dma_rd_offset;
-	hdr_in->num_bytes = byte_cnt;
-	hdr_in->rem_offset = dma_wr_offset;
+		hdr_in->loc_offset = dma_rd_offset;
+		hdr_in->num_bytes = byte_cnt;
+		hdr_in->rem_offset = dma_wr_offset;
 
-	DBG("Calling push_msub\n");
-	if (rdma_push_msub(hdr_in, &hdr_out)) {
-		skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_ERROR);
-		skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_ERROR);
-		ERR("Failed in rdma_push_msub()..exiting\n");
-		return -1;
+		DBG("Calling push_msub\n");
+		if (rdma_push_msub(hdr_in, &hdr_out)) {
+			skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_ERROR);
+			skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_ERROR);
+			ERR("Failed in rdma_push_msub()..exiting\n");
+			return -1;
+		};
 	};
 	skt->stats.tx_bytes += byte_cnt;
 	skt->stats.tx_trans++;
@@ -1584,22 +1714,34 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
 	struct rdma_xfer_ms_out hdr_out;
 	int rc;
 
-	/* NOTE: Assumes that hdr_in->loc-msubh, rem_msubh, 
-	 * 	priority and sync_type have been filled in already!
-	 */
-	hdr_in->loc_offset = RSKT_LOC_TX_WR_PTR_OFFSET;
-	hdr_in->rem_offset = RSKT_REM_RX_WR_PTR_OFFSET;
-	hdr_in->num_bytes = RSKT_LOC_HDR_SIZE;
-	DBG("loc_offset = 0x%X, rem_offset = 0x%X, num_bytes = %d\n",
-		hdr_in->loc_offset, hdr_in->rem_offset, hdr_in->num_bytes);
-	DBG("Calling rdma_push_msub\n");
-	rc = rdma_push_msub(hdr_in, &hdr_out);
-	if (rc) {
-		ERR("Failed to push update to remote header\n");
-		skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_ERROR);
-		skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_ERROR);
+	if (lib.use_mport) {
+		rc = riomp_dma_write_d(lib.mp_h, skt->sai.sa.ct,
+			skt->rio_addr + RSKT_REM_RX_WR_PTR_OFFSET,
+			skt->phy_addr,
+			RSKT_LOC_TX_WR_PTR_OFFSET, RSKT_LOC_HDR_SIZE,
+			RIO_DIRECTIO_TYPE_NWRITE, RIO_DIRECTIO_TRANSFER_SYNC);
+		if (rc) {
+			ERR("riomp_dma_write_d rc %d %d %s",
+				rc, errno, strerror(errno));
+		};
+	} else {
+		/* NOTE: Assumes that hdr_in->loc-msubh, rem_msubh, 
+	 	* 	priority and sync_type have been filled in already!
+	 	*/
+		hdr_in->loc_offset = RSKT_LOC_TX_WR_PTR_OFFSET;
+		hdr_in->rem_offset = RSKT_REM_RX_WR_PTR_OFFSET;
+		hdr_in->num_bytes = RSKT_LOC_HDR_SIZE;
+		DBG("loc_offset = 0x%X, rem_offset = 0x%X, num_bytes = %d\n",
+			hdr_in->loc_offset, hdr_in->rem_offset, hdr_in->num_bytes);
+		DBG("Calling rdma_push_msub\n");
+		rc = rdma_push_msub(hdr_in, &hdr_out);
+		if (rc) {
+			ERR("Failed to push update to remote header\n");
+			skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_ERROR);
+			skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_ERROR);
+		};
 	};
-
+	
 	return rc;
 }; /* update_remote_hdr() */
 
@@ -1919,6 +2061,7 @@ int rskt_close_locked(rskt_h skt_h)
 	rskt_h l_skt_h;
 	bool ms_name_valid = false;
 	char ms_name[MAX_MS_NAME+1] = {0};
+	uint64_t phy_addr = 0;
 
 	DBG("ENTER SN %d", skt_h->sa.sn);
 	if (lib_uninit()) {
@@ -1994,6 +2137,7 @@ int rskt_close_locked(rskt_h skt_h)
 	}
 	if (skt->msh_valid) {
 		ms_name_valid = true;
+		phy_addr = skt->phy_addr;
 		memcpy(ms_name, (void *)skt->msh_name, MAX_MS_NAME);
 	};
 
@@ -2008,6 +2152,9 @@ int rskt_close_locked(rskt_h skt_h)
 	
 		tx->msg_type = LIBRSKTD_RELEASE;
 		tx->a_rq.msg.release.sn = htonl(skt_h->sa.sn);
+		tx->a_rq.msg.release.use_addr = htonl((uint32_t)lib.use_mport);
+		PACK_PTR(phy_addr, tx->a_rq.msg.release.p_addr_u,
+				tx->a_rq.msg.release.p_addr_l);
 		memcpy(tx->a_rq.msg.release.ms_name, ms_name, MAX_MS_NAME+1);
 		
 		librskt_dmsg_req_resp(tx, rx);

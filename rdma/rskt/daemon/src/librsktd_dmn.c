@@ -207,8 +207,8 @@ int init_mport_memory(int num_ms, int ms_size)
 	for (i = 0; i < num_ms; i++) {
 		dmn.mso.ms[i].valid = true;
 		dmn.mso.ms[i].ms_size = ms_size;
-		dmn.mso.ms[i].rio_addr = (void *)(rio_addr + (ms_size * i));
-		dmn.mso.ms[i].phy_addr = (void *)(phys_addr + (ms_size * i));
+		dmn.mso.ms[i].rio_addr = rio_addr + (ms_size * i);
+		dmn.mso.ms[i].phy_addr = phys_addr + (ms_size * i);
 	};
 	
 	rc = 0;
