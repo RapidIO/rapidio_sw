@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -66,9 +67,9 @@ static std::map<int, SocketTracker_t> g_sock_map;
 
 DECLARE(socket, int, (int, int, int));
 DECLARE(bind, int, (int, const struct sockaddr*, socklen_t));
-DECLARE(listen, int, (int, int)); // TBI
-DECLARE(accept, int, (int, struct sockaddr*, socklen_t*)); // TBI
-DECLARE(accept4, int,(int, struct sockaddr*, socklen_t*, int)); // TBI
+DECLARE(listen, int, (int, int));
+DECLARE(accept, int, (int, struct sockaddr*, socklen_t*));
+DECLARE(accept4, int,(int, struct sockaddr*, socklen_t*, int));
 DECLARE(connect, int, (int, const struct sockaddr*, socklen_t));
          
 DECLARE(shutdown, int, (int, int));
@@ -90,9 +91,11 @@ DECLARE(pwrite, ssize_t, (int, const void *, size_t, off_t)); // TBI
 DECLARE(send, ssize_t, (int, const void *, size_t, int)); // TBI
 DECLARE(writev, ssize_t, (int, const struct iovec *, int)); // TBI
 
-DECLARE(select, int, (int, fd_set *, fd_set *, fd_set *, struct timeval*)); // TBI
+DECLARE(select, int, (int, fd_set *, fd_set *, fd_set *, struct timeval*));
 DECLARE(pselect, int, (int, fd_set *, fd_set *, fd_set *, struct timespec*, const sigset_t*)); // TBI
-DECLARE(poll, int, (struct pollfd *, int, int)); // TBI
+
+DECLARE(poll, int, (struct pollfd *, int, int));
+DECLARE(ppoll, int, (struct pollfd *, int, int, const struct timespec*, const sigset_t*)); // TBI
 
 DECLARE(epoll_wait, int, (int, struct epoll_event*, int, int)); // TBI
 DECLARE(epoll_pwait, int, (int, struct epoll_event*, int, int, const sigset_t*)); // TBI
@@ -217,6 +220,7 @@ void rskt_shim_main()
   DLSYMCAST(select, int, (int, fd_set *, fd_set *, fd_set *, struct timeval*));
   DLSYMCAST(pselect, int, (int, fd_set *, fd_set *, fd_set *, struct timespec*, const sigset_t*));
   DLSYMCAST(poll, int, (struct pollfd *, int, int));
+  DLSYMCAST(ppoll, int, (struct pollfd *, int, int, const struct timespec*, const sigset_t*)); // TBI
 
   DLSYMCAST(epoll_wait, int, (int, struct epoll_event*, int, int));
   DLSYMCAST(epoll_pwait, int, (int, struct epoll_event*, int, int, const sigset_t*));
@@ -561,7 +565,7 @@ static void* select_thr(void* arg)
     const int r = RSKT_shim_rskt_get_avail_bytes(sock_tr->rsock);
     if (r != 0) {
       Dprintf("TCPv4 sock %d SELECT minder thread avail_bytes=%d.\n", sock_tr->fd, r);
-      glibc_write(sock_tr->sockp[1], (r > 0? "r" : "q"), 1);
+      glibc_write(sock_tr->sockp[1], (r > 0? "r" : "e"), 1);
       break;
     }
     struct timespec tv = { 0, 1};
@@ -573,6 +577,7 @@ static void* select_thr(void* arg)
 
 typedef struct {
   int              fd;
+  bool             listening;
   pthread_t        wkr;
   SocketTracker_t* sock_tr;
 } KnownFd_t;
@@ -595,8 +600,10 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
     if (! FD_ISSET(it->first, readfds)) continue;
 
     KnownFd_t tmp;
-    tmp.fd      = it->first;
-    tmp.sock_tr = &it->second;
+    tmp.wkr       = 0;
+    tmp.fd        = it->first;
+    tmp.listening = it->second.listening;
+    tmp.sock_tr   = &it->second;
     known_fds.push_back(tmp);
   }
 
@@ -604,23 +611,28 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
   for (int i = 0; i < known_fds.size(); i++) {
     if (min_known_fd > known_fds[i].fd) min_known_fd = known_fds[i].fd;
   }
-  pthread_mutex_unlock(&g_map_mutex);
 
-  if (min_known_fd >= nfds || known_fds.size() == 0) // All our sockets are too "high" or none in common
+  if (min_known_fd >= nfds || known_fds.size() == 0) { // All our sockets are too "high" or none in common
+    pthread_mutex_unlock(&g_map_mutex);
     return glibc_select(nfds, readfds, writefds, exceptfds, timeout);
+  }
 
-  pthread_mutex_lock(&g_map_mutex);
   for (int i = 0; i < known_fds.size(); i++) {
     known_fds[i].sock_tr->stop_req = 0;
 
+    if (known_fds[i].listening) {
+      spawn_accept_minder_thr(known_fds[i].fd);
+      continue;
+    }
+ 
     if (pthread_create(&known_fds[i].wkr, NULL, select_thr, known_fds[i].sock_tr) < 0) {
       static char tmp[129] = {0};
       snprintf(tmp, 128, "RSKT Shim: pthread_create failed: %s", strerror(errno));
       throw std::runtime_error(tmp);
     }
 
-    spawn_accept_minder_thr(known_fds[i].fd); // just in case it's listening
-  }
+  } // END for known_fds
+
   pthread_mutex_unlock(&g_map_mutex);
 
   int nselect = glibc_select(nfds, readfds, writefds, exceptfds, timeout);
@@ -638,12 +650,88 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
   }
 
   for (int i = 0; i < known_fds.size(); i++) {
-    pthread_kill(known_fds[i].wkr, SIGUSR1);
+    if (known_fds[i].wkr) pthread_kill(known_fds[i].wkr, SIGUSR1);
   }
 
   Dprintf("TCPv4 select %d hijacked fd(s) END => %d\n", known_fds.size(), nselect);
 
   return nselect;
+}
+
+extern "C"
+int poll(struct pollfd *fds, nfds_t nfds, int timeout)
+{
+  assert(fds);
+
+  std::vector<KnownFd_t> known_fds;
+
+  pthread_mutex_lock(&g_map_mutex);
+  std::map<int, SocketTracker_t>::iterator it = g_sock_map.begin();
+  for(; it != g_sock_map.end(); it++) {
+    if (it->second.sockp[0] == -1) continue;
+
+    for (int i = 0; i < nfds; i++) {
+      if (fds[i].fd != it->second.fd) continue;
+      KnownFd_t tmp;
+      tmp.wkr       = 0;
+      tmp.fd        = it->first;
+      tmp.listening = it->second.listening;
+      tmp.sock_tr   = &it->second;
+      known_fds.push_back(tmp);
+      break;
+    }
+  }
+
+  if (known_fds.size() == 0) {
+    pthread_mutex_unlock(&g_map_mutex);
+    return glibc_poll(fds, nfds, timeout);
+  }
+
+  for (int i = 0; i < known_fds.size(); i++) {
+    known_fds[i].sock_tr->stop_req = 0;
+
+    if (known_fds[i].listening) {
+      spawn_accept_minder_thr(known_fds[i].fd);
+      continue;
+    }
+
+    if (pthread_create(&known_fds[i].wkr, NULL, select_thr, known_fds[i].sock_tr) < 0) {
+      static char tmp[129] = {0};
+      snprintf(tmp, 128, "RSKT Shim: pthread_create failed: %s", strerror(errno));
+      throw std::runtime_error(tmp);
+    }
+  } // END for known_fds
+
+  pthread_mutex_unlock(&g_map_mutex);
+
+  int npoll = glibc_poll(fds, nfds, timeout);
+
+  for (int i = 0; i < known_fds.size(); i++) known_fds[i].sock_tr->stop_req = 1;
+
+  usleep(1);
+
+  // Suck standin from socketpair
+  for (int i = 0; i < known_fds.size(); i++) {
+    bool data_ready = false;
+    for (int j = 0; i < nfds; j++) {
+      if (fds[j].fd != known_fds[i].fd) continue;
+      if (fds[j].revents & POLLIN != POLLIN) continue;
+      data_ready = true;
+      break;
+    }
+
+    if (!data_ready) continue;
+
+    char c = 0;
+    glibc_read(known_fds[i].sock_tr->sockp[0], &c, 1);
+    if (c == 'e') known_fds[i].sock_tr->borked = 1;
+  }
+
+  for (int i = 0; i < known_fds.size(); i++) {
+    if (known_fds[i].wkr) pthread_kill(known_fds[i].wkr, SIGUSR1);
+  }
+
+  return npoll;
 }
 
 // Use cases for nonblock:
@@ -955,6 +1043,8 @@ _accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, bool nonblocking 
     errno = EINVAL;
     return -1;
   }
+
+  assert(remote_destid != 0xFFFF);
 
   // OK, we have a connection....
   int sockp[2] = { -1, -1 };
