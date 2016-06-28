@@ -67,8 +67,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static int RSKT_PORT = 80;
 
 static rskt_h g_comm_sock;
-static rskt_h g_listen_sock;
 
+static int g_wait = 0;
 static uint16_t g_my_destid = 0xFFFF;
 
 /** 
@@ -76,9 +76,10 @@ static uint16_t g_my_destid = 0xFFFF;
  */
 void usage()
 {
-  printf("rskt_tun [-S] -d<did> [-p <port>] [-l <lev>] -h\n");
+  printf("rskt_tun [-S] -d<did> [-w] [-p <port>] [-l <lev>] -h\n");
   printf("-d<did>    : Destination ID of node running rskt_wwwserver.\n");
   printf("-p<port>   : Destination RSKT port of rskt_wwwserver.\n");
+  printf("-w         : Add 1s delay before calling rskt_close.\n");
   printf("-l<lev>    : Debug level\n");
   printf("               1 - No logs\n");
   printf("               2 - critical\n");
@@ -119,7 +120,6 @@ int setup_rskt_cli(uint16_t destid)
 int main(int argc, char *argv[])
 {
   int rc = 0;
-  int server = 0;
 
   if (argc < 2) {
     puts("Insufficient arguments. Must specify <destid>");
@@ -134,10 +134,11 @@ int main(int argc, char *argv[])
   uint16_t destid = 0xFFFF;
 
   int c;
-  while ((c = getopt(argc, argv, "hd:p:l:")) != -1) {
+  while ((c = getopt(argc, argv, "whd:p:l:")) != -1) {
     switch (c) {
       case 'd': destid = atoi(optarg); break;
       case 'p': RSKT_PORT = atoi(optarg); break;
+      case 'w': g_wait = 1; break;
       case 'h': usage(); exit(0); break;
       case 'l':
 #ifdef RDMA_LL
@@ -202,8 +203,10 @@ int main(int argc, char *argv[])
   }}
 
 done:
-  if (server) rskt_close(g_listen_sock);
-  if (g_comm_sock != NULL) rskt_close(g_comm_sock);
+  if (g_comm_sock != NULL) {
+    if (g_wait) sleep(1);
+    rskt_close(g_comm_sock);
+  }
 
   librskt_finish();
 
