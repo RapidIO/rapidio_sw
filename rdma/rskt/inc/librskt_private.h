@@ -127,10 +127,12 @@ enum rskt_state {
 	rskt_connecting = 6,
 	rskt_connected = 7,
 	rskt_shutting_down = 8,
-	rskt_closing = 9,
-	rskt_shut_down = 10,
-	rskt_closed = 11,
-	rskt_max_state = 12
+	rskt_close_by_local = 9,
+	rskt_close_by_remote = 10,
+	rskt_closing = 11,
+	rskt_shut_down = 12,
+	rskt_closed = 13,
+	rskt_max_state = 14
 };
 
 extern char *rskt_state_strs[rskt_max_state];

@@ -83,7 +83,8 @@ char *rskt_state_strs[rskt_max_state] = {
 	(char *)"Coning",
 	(char *)"CONNED",
 	(char *)"Shutng",
-	(char *)"Closng",
+	(char *)"ClsLoc",
+	(char *)"ClsRem",
 	(char *)"SHTDWN",
 	(char *)"CLOSED"
 };
@@ -1668,10 +1669,13 @@ int send_bytes(rskt_h skt_h, void *data, int byte_cnt,
 	if (lib.use_mport) {
 		int dma_err;
 		DBG("riomp_dma_write_d \n");
-		dma_err = riomp_dma_write_d(lib.mp_h, skt->sai.sa.ct,
-			skt->rio_addr + dma_wr_offset, skt->phy_addr,
-			dma_rd_offset, byte_cnt, RIO_DIRECTIO_TYPE_NWRITE,
-			RIO_DIRECTIO_TRANSFER_SYNC);
+		do {
+			dma_err = riomp_dma_write_d(lib.mp_h, skt->sai.sa.ct,
+				skt->rio_addr + dma_wr_offset, skt->phy_addr,
+				dma_rd_offset, byte_cnt,
+				RIO_DIRECTIO_TYPE_NWRITE,
+				RIO_DIRECTIO_TRANSFER_SYNC);
+		} while (dma_err && ((EINTR == errno) || (EAGAIN == errno)));
 		if (dma_err) {
 			ERR("riomp_dma_write_d rc %d %d %s",
 				dma_err, errno, strerror(errno));
@@ -1715,11 +1719,15 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
 	int rc;
 
 	if (lib.use_mport) {
-		rc = riomp_dma_write_d(lib.mp_h, skt->sai.sa.ct,
-			skt->rio_addr + RSKT_REM_RX_WR_PTR_OFFSET,
-			skt->phy_addr,
-			RSKT_LOC_TX_WR_PTR_OFFSET, RSKT_LOC_HDR_SIZE,
-			RIO_DIRECTIO_TYPE_NWRITE, RIO_DIRECTIO_TRANSFER_SYNC);
+		do {
+			rc = riomp_dma_write_d(lib.mp_h, skt->sai.sa.ct,
+				skt->rio_addr + RSKT_REM_RX_WR_PTR_OFFSET,
+				skt->phy_addr,
+				RSKT_LOC_TX_WR_PTR_OFFSET, RSKT_LOC_HDR_SIZE,
+				RIO_DIRECTIO_TYPE_NWRITE,
+				RIO_DIRECTIO_TRANSFER_SYNC);
+		} while (rc && ((EINTR == errno) || (EAGAIN == errno)));
+
 		if (rc) {
 			ERR("riomp_dma_write_d rc %d %d %s",
 				rc, errno, strerror(errno));
@@ -1744,6 +1752,11 @@ int update_remote_hdr(struct rskt_socket_t * volatile skt,
 	
 	return rc;
 }; /* update_remote_hdr() */
+
+#define WR_SKT_CLOSED(x) (x->hdr->loc_tx_wr_flags & htonl(RSKT_FLAG_CLOSING))
+#define RD_SKT_CLOSING(x) (x->hdr->rem_rx_wr_flags & htonl(RSKT_FLAG_CLOSING))
+#define SKT_CONNECTED(x) ((rskt_connected == x->st) || (rskt_closing == x->st))
+#define DMA_FLUSHED(x) (RD_SKT_CLOSING(x) && WR_SKT_CLOSED(x))
 
 int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 {
@@ -1778,10 +1791,16 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	DBG("rem_tx_rd_ptr = 0x%X, rem_rx_wr_ptr = 0x%X\n",
 			ntohl(skt->hdr->rem_tx_rd_ptr), ntohl(skt->hdr->rem_rx_wr_ptr));
 
-	if (rskt_connected != skt_h->st) {
+	if (!SKT_CONNECTED(skt_h)) {
 		ERR("skt_h->st is NOT skt_connected\n");
 		goto unlock;
 	}
+
+	if (WR_SKT_CLOSED(skt)) {
+		errno = EPIPE;
+		ERR("Writing to closed socket.");
+		goto unlock;
+	};
 
 	errno = 0;
 	free_bytes = get_free_bytes(skt->hdr, skt->buf_sz);
@@ -1801,17 +1820,20 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 			goto fail;
 		}
 
-		if (rskt_connected != skt_h->st) {
+		if (!SKT_CONNECTED(skt_h)) {
 			WARN("Not connected");
 			errno = ENOTCONN;
-			goto exit;
+		};
+
+		if (WR_SKT_CLOSED(skt)) {
+			errno = EPIPE;
+			ERR("Writing to closed socket.");
 		};
 		free_bytes = get_free_bytes(skt->hdr, skt->buf_sz);
 	}
 
 	if (errno) {
 		WARN("Errno = %d", errno);
-		errno = ENOTCONN;
 		goto exit;
 	};
 		
@@ -1824,7 +1846,9 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 		rc = send_bytes(skt_h, data, byte_cnt, &hdr_in, 0);
 		if (rc) {
 			ERR("send_bytes failed\n");
-		}
+			goto fail;
+		};
+		rc = byte_cnt;
 	} else {
 		uint32_t first_bytes = skt->buf_sz - 
 					ntohl(skt->hdr->loc_tx_wr_ptr);
@@ -1844,6 +1868,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 			ERR("send_bytes failed..exiting\n");
 			goto fail;
 		}
+		rc = byte_cnt;
 	};
 	DBG("@@@@ Updating remote header\n");
 	DBG("loc_tx_wr_ptr = 0x%X, loc_rx_rd_ptr = 0x%X\n",
@@ -1856,7 +1881,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	}
 	sem_post(&lib.skts_mtx);
 	DBG("EXIT with success\n");
-	return 0;
+	return rc;
 fail:
 	WARN("Closing skt_t due to failure condition\n");
 	rskt_close_locked(skt_h);
@@ -1880,11 +1905,6 @@ uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 	uint32_t lrr = ntohl(hdr->loc_rx_rd_ptr);
 
 	errno = 0;
-	if (hdr->rem_rx_wr_flags & htonl(RSKT_FLAG_CLOS_CHK)) {
-		errno = ECONNRESET;
-		ERR("%s\n", strerror(errno));
-		return 0;
-	};
 	
 	if (!(hdr->rem_rx_wr_flags & htonl(RSKT_FLAG_INIT))) {
 		/* Not an error; just means there are no bytes available */
@@ -1946,7 +1966,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	}
 	DBG("skt = %p\n", skt);
 
-	if (rskt_connected != skt_h->st) {
+	if (!SKT_CONNECTED(skt_h)) {
 		WARN("Not connected");
 		errno = ENOTCONN;
 		goto unlock;
@@ -1971,7 +1991,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	errno = 0;
 	avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
 	
-	while (!avail_bytes && !errno) {
+	while (!avail_bytes && !errno && !RD_SKT_CLOSING(skt)) {
 		sem_post(&lib.skts_mtx);
 		sleep(0);
 		if (librskt_wait_for_sem(&lib.skts_mtx, 0x9333)) {
@@ -1985,7 +2005,7 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 			goto unlock;
 		}
 
-		if (rskt_connected != skt_h->st) {
+		if (!SKT_CONNECTED(skt_h)) {
 			WARN("Not connected");
 			errno = ENOTCONN;
 			goto unlock;
@@ -2021,17 +2041,24 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	skt->stats.rx_bytes += avail_bytes;
 	skt->stats.rx_trans++;
 
-	hdr_in.loc_msubh = skt->msubh;
-	hdr_in.rem_msubh = skt->con_msubh;
-	hdr_in.priority = 0;
-	hdr_in.sync_type = rdma_sync_chk;
-	if (update_remote_hdr(skt, &hdr_in)) {
-		skt->hdr->loc_tx_wr_flags |= 
+	/* Only update remote header if bytes were read. */
+	if (avail_bytes) {
+		hdr_in.loc_msubh = skt->msubh;
+		hdr_in.rem_msubh = skt->con_msubh;
+		hdr_in.priority = 0;
+		hdr_in.sync_type = rdma_sync_chk;
+		if (update_remote_hdr(skt, &hdr_in)) {
+			skt->hdr->loc_tx_wr_flags |= 
 					htonl(RSKT_BUF_HDR_FLAG_ERROR);
-	       	skt->hdr->loc_rx_rd_flags |= 
+	       		skt->hdr->loc_rx_rd_flags |= 
 					htonl(RSKT_BUF_HDR_FLAG_ERROR);
-		ERR("Failed in update_remote_hdr\n");
-		goto fail;
+			ERR("Failed in update_remote_hdr\n");
+			goto fail;
+		};
+	} else {
+		if (DMA_FLUSHED(skt)) {
+			rskt_close_locked(skt_h);
+		}
 	};
 	sem_post(&lib.skts_mtx);
 	return avail_bytes;
@@ -2085,36 +2112,87 @@ int rskt_close_locked(rskt_h skt_h)
 
 	switch(skt_h->st) {
         case rskt_connected:
-		skt_h->st = rskt_closing;
+		/* Check to see if we're the end that initiateed closure,
+		* or if the other end has closed transmission.
+		*/
 		skt = skt_h->skt;
-
 		if (NULL == skt) {
 			ERR("sn %d skt is NULL", skt_h->sa.sn);
 			return 0;
 		}
 
-		/* Indicate to remote side that the connection was closed. 
-		 * This should translate to rskt_read() returning ECONNRESET. */
+		INFO("Flags Loc 0x%x Rem 0x%x",
+			ntohl(skt->hdr->loc_tx_wr_flags),
+			ntohl(skt->hdr->rem_rx_wr_flags));
+		if (RD_SKT_CLOSING(skt)) {
+			/* Other side already set the flag */
+			skt_h->st = rskt_close_by_remote;
+		} else {
+			skt_h->st = rskt_close_by_local;
+		};
+
+		if (skt->hdr->loc_tx_wr_flags & htonl(RSKT_FLAG_CLOSING)) {
+			/* Something stupid happenned - we're connected, but
+			* our flags are set to indicate closure. Print an
+			* error log and cleanup.
+			*/
+
+			ERR("SN %d connected but close flag already set?");
+			goto cleanup;
+		};
+
+		/* Indicate to remote side that the connection is closing.
+		* This should translate to rskt_read()
+		* returning 0 bytes read, and rskt_write returning 
+		* -EPIPE, or allow rskt_close_locked to continue to completion.
+		*/
 		skt->hdr->loc_tx_wr_flags |= htonl(RSKT_FLAG_CLOSING);
 		skt->hdr->loc_rx_rd_flags |= htonl(RSKT_FLAG_CLOSING);
 		hdr_in.loc_msubh = skt->msubh;
 		hdr_in.rem_msubh = skt->con_msubh;
 		hdr_in.priority = 0;
 		hdr_in.sync_type = rdma_sync_chk;
-		if (update_remote_hdr((struct rskt_socket_t *)skt, &hdr_in)) {
+		if (update_remote_hdr((struct rskt_socket_t *)skt,
+							&hdr_in)) {
 			skt->hdr->loc_tx_wr_flags |=
 					htonl(RSKT_BUF_HDR_FLAG_ERROR);
 			skt->hdr->loc_rx_rd_flags |=
 					htonl(RSKT_BUF_HDR_FLAG_ERROR);
 			ERR("Failed in update_remote_hdr\n");
-			goto exit;
+			goto cleanup;
 		}
+
+		if (rskt_close_by_remote == skt_h->st)
+			goto exit;
+
+		/* Already set our own flag.  If remote is not done, continue.*/
+        case rskt_shutting_down:
+	case rskt_close_by_local:
+		/* We're the side that initiated socket closure. Wait until the
+		* other side sets the close flag, then cleanup.
+		*/
+		while (1) {
+			if (RD_SKT_CLOSING(skt)) {
+				break;
+			};
+			sem_post(&lib.skts_mtx);
+			sleep(0);
+			librskt_wait_for_sem(&lib.skts_mtx, 0xB099);
+
+			l_skt_h = (rskt_h)l_find(&lib.skts, skt_h->sa.sn, &li);
+			if (NULL == l_skt_h) {
+				WARN("l_skt_h null in another spot");
+			} else if (l_skt_h->skt != skt_h->skt) {
+				ERR("Different socket handle pointers?");
+				return -ENOSYS;
+			};
+		};
+
         case rskt_bound  :
         case rskt_listening:
         case rskt_accepting:
         case rskt_connecting:
-        case rskt_shutting_down:
-        case rskt_closing:
+cleanup:
 		tx = alloc_app2d();
 		rx = alloc_d2app();
 	

@@ -336,6 +336,9 @@ int rsktd_areq_release(struct librsktd_unified_msg *msg)
 	if (sn != dmn.mso.ms[i].rem_sn)
 		goto exit; 
 
+	/* MS is being released by the end that did not initiate the close. */
+	dmn.mso.ms[i].state = rsktd_ms_free;
+/*
 	msg->tx->a_rsp.err = htonl(EBADFD);
 	ERR("Msg %s 0x%x Type 0x%x %s Proc %s Stage %s MS %s State %d %s "
 		"ILLEGAL MS SN %d REQ SN %d",
@@ -348,6 +351,7 @@ int rsktd_areq_release(struct librsktd_unified_msg *msg)
 			req->ms_name, dmn.mso.ms[i].state,
 			RSKTD_MS_STATE_TO_STR(dmn.mso.ms[i].state),
 			dmn.mso.ms[i].rem_sn, sn);
+*/
 
 exit:
 	return 1;

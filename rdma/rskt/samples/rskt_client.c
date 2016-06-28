@@ -234,7 +234,7 @@ void *parallel_client(void *parms)
 
 			/* Send the data */
 			rc = rskt_write(client_socket, send_buf, data_size);
-			if (rc) {
+			if (rc < 0) {
 				ERR("Client %d: iter %d %d  write fail %d: %s",
 					*client_num, i, j, rc, strerror(errno));
 				goto close_client_socket;
@@ -245,7 +245,7 @@ void *parallel_client(void *parms)
 			do {
 				rc = rskt_read(client_socket, recv_buf,
 						RSKT_DEFAULT_RECV_BUF_SIZE);
-			} while (rc == -ETIMEDOUT);
+			} while (!rc && (errno == -ETIMEDOUT));
 
 			if (rc <= 0) {
 				ERR("Client %d: iter %d read fail %d: %s",

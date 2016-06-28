@@ -190,19 +190,26 @@ void *slave_thread_f(void *arg)
 			ERR("Receive failed, rc=%d:%s\n", rc, strerror(errno));
 			/* Client closed the connection. Die! */
 			break;
-		} else
+		} else {
 			INFO("Received %d bytes\n", rc);
+		};
+
+		if (!rc) {
+			break;
+		};
 
 		data_size = rc;
 
 		/** - Copy data to transmit buffer */
 		memcpy(send_buf, recv_buf, data_size);
 
-		if (g_random) { data_size = 1 + (random() % data_size); }
+		if (g_random) {
+			data_size = 1 + (random() % data_size);
+		}
 
 		/** - Send data back to client */
 		rc = rskt_write(accept_socket, send_buf, data_size);
-		if (rc != 0) {
+		if (rc < 0) {
 			if (errno == ETIMEDOUT) {
 				ERR("rskt-write() timed out. Retrying!\n");
 				continue;

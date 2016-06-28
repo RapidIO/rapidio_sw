@@ -1808,7 +1808,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 				ERR("Timeout before getting response to 'connect'");
 				rc = RDMA_CONNECT_TIMEOUT;
 			} else if(out_msg.sub_type == ACCEPT_FROM_MS_REQ_NACK) {
-				ERR("Connection rejected by remote daemon/server");
+				WARN("Connection rejected by remote daemon/server");
 				rc = RDMA_CONNECT_FAIL;
 			} else {
 				ERR("Unknown failure");
@@ -1896,7 +1896,7 @@ int rdma_conn_ms_h(uint8_t rem_destid_len,
 	} /* try */
 	catch(int e) {
 		rc = e;
-		ERR("Exiting due to failure. rc = 0x%X", rc);
+		WARN("Exiting due to failure. rc = 0x%X", rc);
 	}
 	INFO("EXIT");
 	sem_post(&rdma_lock);
