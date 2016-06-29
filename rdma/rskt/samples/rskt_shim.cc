@@ -59,6 +59,15 @@ typedef struct {
 
 static SocketTracker_t ZERO_SOCK;
 
+static inline void init_SocketTracker(SocketTracker_t &st)
+{
+  st = ZERO_SOCK;
+
+  st.acc_list.clear();
+  st.acc_thr_list.clear();
+  pthread_mutex_init(&st.acc_mutex, NULL);
+}
+
 static std::map<int, SocketTracker_t> g_sock_map;
 
 #define UNDERSCORE // "_"
@@ -270,13 +279,9 @@ int socket(int socket_family, int socket_type, int protocol)
 
     Dprintf("TCPv4 sock %d STORE\n", tmp_sock);
 
-    SocketTracker_t sock_tr = ZERO_SOCK;
+    SocketTracker_t sock_tr; init_SocketTracker(sock_tr);
 
     sock_tr.fd = tmp_sock;
-    sock_tr.acc_list.clear();
-    sock_tr.acc_thr_list.clear();
-    pthread_mutex_init(&sock_tr.acc_mutex, NULL);
-
     if (socket_type & SOCK_NONBLOCK) sock_tr.nonblock++;
 
     pthread_mutex_lock(&g_map_mutex);
@@ -1000,10 +1005,9 @@ _accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, bool nonblocking 
       // OK, we have a connection....
       int sockp[2] = { -1, -1 };
       make_sockpair(-1, sockp); // will throw!
-      SocketTracker_t sock_tr_new = ZERO_SOCK;
-      sock_tr_new.acc_list.clear();
-      sock_tr_new.acc_thr_list.clear();
-      pthread_mutex_init(&sock_tr_new.acc_mutex, NULL);
+
+      SocketTracker_t sock_tr_new = ZERO_SOCK; init_SocketTracker(sock_tr_new);
+
       sock_tr_new.fd = dup(sockp[0]);
       sock_tr_new.sockp[0] = sockp[0]; sock_tr.sockp[1] = sockp[1];
       sock_tr_new.rsock = res.rsock;
