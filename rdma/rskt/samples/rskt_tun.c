@@ -62,7 +62,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pthread.h>
 #include <sys/epoll.h>
 #include <net/if.h>
-//#include <linux/if.h>
 #include <linux/if_tun.h>
 
 #ifdef RDMA_LL
@@ -85,12 +84,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 static int RSKT_PORT = 666;
 
-volatile int  g_quit = 0;
-static sem_t  g_start_sem;
-static int    g_tun_fd = -1;
-static int    g_epoll_fd = -1;
-static rskt_h g_comm_sock;
-static rskt_h g_listen_sock;
+static volatile int  g_quit = 0;
+static sem_t         g_start_sem;
+static volatile int  g_tun_fd = -1;
+static volatile int  g_epoll_fd = -1;
+static rskt_h        g_comm_sock;
+static rskt_h        g_listen_sock;
 
 enum { // powers of 2
   TUN_QUIT = 2,
@@ -201,10 +200,16 @@ void* tun_read_thr(void* arg)
         continue;
       }
 
+      assert(g_tun_fd != -1);
       const int nread = read(events[epi].data.fd, send_buf, MTU_SIZE);
       if (nread <= 0) {
         fprintf(stderr, "epoll error for data.ptr=%p: %s\n", events[epi].data.ptr, strerror(errno));
         goto exit;
+      }
+
+      if (nread == 0) {
+        fprintf(stderr, "read(2) from Tun device returned 0 errno=%d %s. Aborting.\n", errno, strerror(errno)); fflush(stderr);
+        abort(nread);
       }
 
       //printf("TUNRX %d bytes\n", nread);
@@ -361,9 +366,10 @@ void* rskt_read_thr(void* arg)
     g_stats.rio_rx_pkt_bytes += rc;
     if (rc >= 0 && rc <= MTU_SIZE) g_stats.rio_rx_pkt_byte_sizes[rc]++;
 
+    assert(g_tun_fd != -1);
     int nwrite = write(g_tun_fd, recv_buf, rc);
     if (nwrite < 0) {
-      fprintf(stderr, "write of %d bytes failed %d: %s\n", rc, nwrite, strerror(errno));
+      fprintf(stderr, "write of %d bytes [obtained from rskt_read] failed ret=%d: %s\n", rc, nwrite, strerror(errno));
       break;
     }
   } // END for infinite
@@ -480,8 +486,8 @@ int main(int argc, char *argv[])
 done:
   if (server) rskt_close(g_listen_sock);
   if (g_comm_sock != NULL) rskt_close(g_comm_sock);
-  close(g_epoll_fd);
-  close(g_tun_fd);
+  close(g_tun_fd);   g_tun_fd = -1;
+  close(g_epoll_fd); g_epoll_fd = -1;
 
   librskt_finish();
 
