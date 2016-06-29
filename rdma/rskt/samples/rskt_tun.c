@@ -414,7 +414,7 @@ int main(int argc, char *argv[])
   }
 
   /** Check entered parameters */
-  if (destid == 0xFFFF) {
+  if (!server && destid == 0xFFFF) {
     puts("Error. Must specify <destid>");
     usage();
     return 1;
@@ -433,7 +433,8 @@ int main(int argc, char *argv[])
     riomp_mgmt_free_mport_list(&dev_ids);
   }}
 
-  printf("my_destid=%u remote_destid=%u\n", g_my_destid, destid);
+  if (server) printf("SRV: my_destid=%u\n", g_my_destid);
+  else        printf("CLI: my_destid=%u remote_destid=%u\n", g_my_destid, destid);
 
   g_epoll_fd = epoll_create1 (0);
 
