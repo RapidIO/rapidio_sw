@@ -73,7 +73,7 @@
  *   - This should create a rapidio_sw directory
  *
  * -# Execute the rapidio_sw/install.sh script as follows:
- *   - install.sh (NODE1) (NODE2) (NODE3) (NODE4) (memsz) (group)
+ *   - install.sh (NODE1) (NODE2) (NODE3) (NODE4) (memsz) (sw_type) (group)
  *     - (NODE1) Name of master, enumerating node, connected to Switch Port 1
  *     - (NODE2) Name of slave node connected to Switch Port 2
  *     - (NODE3) Name of slave node connected to Switch Port 3
@@ -85,6 +85,21 @@
  *         - mem34 : all (NODEn) have 8 GB of addressable memory or less
  *         - mem50 : all (NODEn) have 2 TB of addressable memory or less
  *         - mem66 : all (NODEn) have 2 PB of addressable memory or less
+ *     - (sw_type)
+ *       - PD_tor: Prodrive Top of Rack switch.  The devices must be
+ *                 connected as follows.  All locations are described from
+ *                 the perspective of facing the front of the switch:
+ *                 - NODE1: Far lower left QSFP connector
+ *                 - NODE2: The QSFP immediately to the right of node1
+ *                 - NODE3: Far upper left QSFP connector
+ *                 - NODE4: The QSFP immediately to the right of node3
+ *       - SB_re: StarBridge Inc RapidExpress Switch.  The devices must
+ *                 be connected as follows.  All locations are described
+ *                 from the perspective of facing the front of the switch:
+ *                 - NODE1: QSFP labelled Port 1
+ *                 - NODE2: QSFP labelled Port 2
+ *                 - NODE3: QSFP labelled Port 3
+ *                 - NODE4: QSFP labelled Port 4
  *     - (group) Unix file ownership group which should have access to
  *       the RapidIO software
  * 
