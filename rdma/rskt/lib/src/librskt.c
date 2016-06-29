@@ -1371,8 +1371,8 @@ int rskt_accept(rskt_h l_skt_h, rskt_h skt_h,
 		ERR("Failed in setup_skt_ptrs\n");
 		goto unlock;
 	}
-	sktaddr->sn = skt_h->sa.sn;
-	sktaddr->ct = skt_h->sa.ct;
+	sktaddr->sn = skt_h->skt->sai.sa.sn;
+	sktaddr->ct = skt_h->skt->sai.sa.ct;
 	l_add(&lib.skts, skt_h->sa.sn, (void *)skt_h);
 	sem_post(&lib.skts_mtx);
 	free(rx);
