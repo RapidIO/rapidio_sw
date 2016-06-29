@@ -127,8 +127,6 @@ int setup_TUN(const uint16_t my_destid, const uint16_t destid, const int DESTID_
     fcntl(tun_fd, F_SETFL, flags | O_NONBLOCK);
   }}
 
-  printf("%s: my_destid=%u destid=%u DESTID_TRANSLATE=%d if_name=%s\n", __func__, my_destid, destid, DESTID_TRANSLATE, if_name);
-
   // Configure tun/tap interface for pointo-to-point IPv4, L2, no ARP, no multicast
   {{
     const uint16_t my_destid_tun   = my_destid + DESTID_TRANSLATE;
@@ -163,6 +161,8 @@ int setup_TUN(const uint16_t my_destid, const uint16_t destid, const int DESTID_
       goto error;
     }
   }}
+
+  printf("%s: my_destid=%u destid=%u DESTID_TRANSLATE=%d if_name=%s tun_fd=%d\n", __func__, my_destid, destid, DESTID_TRANSLATE, if_name, tun_fd);
 
   return tun_fd;
 
@@ -208,7 +208,8 @@ void* tun_read_thr(void* arg)
       }
 
       if (nread == 0) {
-        fprintf(stderr, "read(2) from Tun device returned 0 errno=%d %s. Aborting.\n", errno, strerror(errno)); fflush(stderr);
+        fprintf(stderr, "read(fd=%d) from Tun device returned 0 errno=%d %s. Aborting.\n",
+                        events[epi].data.fd, errno, strerror(errno)); fflush(stderr);
         assert(nread);
       }
 
@@ -369,7 +370,7 @@ void* rskt_read_thr(void* arg)
     assert(g_tun_fd != -1);
     int nwrite = write(g_tun_fd, recv_buf, rc);
     if (nwrite < 0) {
-      fprintf(stderr, "write of %d bytes [obtained from rskt_read] failed ret=%d: %s\n", rc, nwrite, strerror(errno));
+      fprintf(stderr, "write(fd=%d) of %d bytes [obtained from rskt_read] failed ret=%d: %s\n", g_tun_fd, rc, nwrite, strerror(errno));
       break;
     }
   } // END for infinite
