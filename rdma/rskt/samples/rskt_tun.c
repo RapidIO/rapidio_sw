@@ -354,6 +354,7 @@ void* rskt_read_thr(void* arg)
     do {
       assert(g_comm_sock);
       assert(g_comm_sock->skt);
+      errno = 0;
       rc = rskt_read(g_comm_sock, recv_buf, MTU_SIZE);
     } while (rc == -ETIMEDOUT);
 
@@ -367,6 +368,8 @@ void* rskt_read_thr(void* arg)
     g_stats.rio_rx_pkt_bytes += rc;
     if (rc >= 0 && rc <= MTU_SIZE) g_stats.rio_rx_pkt_byte_sizes[rc]++;
 
+    assert(errno == 0);
+    
     assert(g_tun_fd != -1);
     int nwrite = write(g_tun_fd, recv_buf, rc);
     if (nwrite < 0) {
