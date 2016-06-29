@@ -209,7 +209,7 @@ void* tun_read_thr(void* arg)
 
       if (nread == 0) {
         fprintf(stderr, "read(2) from Tun device returned 0 errno=%d %s. Aborting.\n", errno, strerror(errno)); fflush(stderr);
-        abort(nread);
+        assert(nread);
       }
 
       //printf("TUNRX %d bytes\n", nread);
