@@ -371,6 +371,10 @@ void* rskt_read_thr(void* arg)
     int nwrite = write(g_tun_fd, recv_buf, rc);
     if (nwrite < 0) {
       fprintf(stderr, "write(fd=%d) of %d bytes [obtained from rskt_read] failed ret=%d: %s\n", g_tun_fd, rc, nwrite, strerror(errno));
+      fprintf(stderr, "My file descriptors:\n"); fflush(stderr);
+      char cmd[129] = {0};
+      snprintf(cmd, 128, "lsof -p %d 1>&2", getpid());
+      system(cmd);
       break;
     }
   } // END for infinite
