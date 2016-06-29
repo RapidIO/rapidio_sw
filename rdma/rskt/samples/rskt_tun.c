@@ -39,7 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * This example does NOT attempt to connect to all endpoints reported by libmport.
  *
  * To use with iperf on endpoints 5 & 6:
- *   ep5# ./rskt_tun -d 6 -S
+ *   ep5# ./rskt_tun -S
  *   ## Local tun IP address is (autonconfigured) as 169.254.1.5
  *   ep6# ./rskt_tun -d 5
  *   ## Local tun IP address is (autonconfigured) as 169.254.1.6
@@ -85,6 +85,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static int RSKT_PORT = 666;
 
 static volatile int  g_quit = 0;
+static volatile int  g_debug = 0;
 static sem_t         g_start_sem;
 static volatile int  g_tun_fd = -1;
 static volatile int  g_epoll_fd = -1;
@@ -98,13 +99,57 @@ enum { // powers of 2
 
 struct {
   volatile uint64_t tun_rx_pkt_cnt;
+  volatile uint64_t tun_rx_pkt_cnt_junk; ///< Read from Tun a L3 frame which is neither IPV4 or IPv6
   volatile uint64_t tun_rx_pkt_bytes;
+
   volatile uint64_t rio_rx_pkt_cnt;
+  volatile uint64_t rio_rx_pkt_cnt_junk; ///< Read from RSKT a L3 frame which is neither IPV4 or IPv6
   volatile uint64_t rio_rx_pkt_bytes;
   volatile uint64_t rio_rx_pkt_byte_sizes[MTU_SIZE+1];
 } g_stats;
 
 static uint16_t g_my_destid = 0xFFFF;
+
+static void dump_stats(char* buf, const int buf_len)
+{
+  if(buf == NULL || buf_len < 1) return;
+
+  int i;
+  char tmp[129] = {0};
+
+  #define DUMP_STAT(st) { snprintf(tmp, 129, "\t" #st " = %lu\n", g_stats.st); strncat(buf, tmp, buf_len); }
+  DUMP_STAT(tun_rx_pkt_cnt);
+  DUMP_STAT(tun_rx_pkt_cnt_junk);
+  DUMP_STAT(tun_rx_pkt_bytes);
+  DUMP_STAT(rio_rx_pkt_cnt);
+  DUMP_STAT(rio_rx_pkt_cnt_junk);
+  DUMP_STAT(rio_rx_pkt_bytes);
+  #undef DUMP_STAT
+
+  strncat(buf, "\trio_rx_pkt_byte_sizes[] = {", buf_len);
+  for (i=0; i <= MTU_SIZE; i++) { 
+    if (g_stats.rio_rx_pkt_byte_sizes[i] == 0) continue;
+    snprintf(tmp, 129, "%d=>%lu ", i, g_stats.rio_rx_pkt_byte_sizes[i]);
+    strncat(buf, tmp, buf_len);
+  }
+  strncat(buf, "}\n", buf_len);
+}
+
+inline void hexdump(uint8_t* data, const int len, char* buf, const int buf_len)
+{
+  if (data == NULL || buf == NULL || buf_len < 1) return;
+
+  int last_nl = 0;
+  strncat(buf, "\t", buf_len);
+  for (int i = 0; i < len; i++) {
+    char tmp[9] = {0};
+    snprintf(tmp, 8, "%02x ", data[i]);
+    strncat(buf, tmp, buf_len);
+    if (((i+1) % 16) == 0) { strncat(buf, "\n\t", buf_len); last_nl = 1; }
+    else { last_nl = 0; }
+  }
+  if (last_nl == 0) strncat(buf, "\n", buf_len);
+}
 
 int setup_TUN(const uint16_t my_destid, const uint16_t destid, const int DESTID_TRANSLATE)
 {
@@ -213,6 +258,12 @@ void* tun_read_thr(void* arg)
         assert(nread);
       }
 
+      const uint8_t IPver = send_buf[0] >> 4;
+      if (IPver != 4 && IPver != 6) {
+        g_stats.tun_rx_pkt_cnt_junk++;
+        continue;
+      }
+
       //printf("TUNRX %d bytes\n", nread);
       g_stats.tun_rx_pkt_cnt++;
       g_stats.tun_rx_pkt_bytes += nread;
@@ -241,8 +292,9 @@ exit:
  */
 void usage()
 {
-  printf("rskt_tun [-S] -d<did> [-p <port>] [-l <lev>] -h\n");
+  printf("rskt_tun [-S] -d<did> [-p <port>] [-l <lev>] [-g] -h\n");
   printf("-S         : Run as rskt_server.\n");
+  printf("-g         : DEBUG: Verbose dump of info.\n");
   printf("-d<did>    : Destination ID of node running rskt_server.\n");
   printf("-p<port>   : Destination RSKT port of rskt_server.\n");
   printf("-l<lev>    : Debug level\n");
@@ -340,6 +392,8 @@ int setup_rskt_srv(uint16_t* destid)
   return 0;
 }
 
+static inline int min(int a, int b) { return a < b? a: b; }
+
 void* rskt_read_thr(void* arg)
 {
   uint8_t recv_buf[MTU_SIZE + 0x10];
@@ -350,6 +404,8 @@ void* rskt_read_thr(void* arg)
 
   for(;! g_quit && g_tun_fd >=0 ;) {
     int rc = 0;
+
+    if (g_debug) memset(recv_buf, 0, sizeof(recv_buf));
 
     do {
       assert(g_comm_sock);
@@ -369,17 +425,43 @@ void* rskt_read_thr(void* arg)
     if (rc >= 0 && rc <= MTU_SIZE) g_stats.rio_rx_pkt_byte_sizes[rc]++;
 
     assert(errno == 0);
-    
+
+    const uint8_t IPver = recv_buf[0] >> 4;
+    if (IPver != 4 && IPver != 6) {
+      g_stats.rio_rx_pkt_cnt_junk++;
+
+      if (!g_debug) continue;
+
+      char l3_dump[8193] = {0};
+      hexdump(recv_buf, min(rc, 128), l3_dump, 8192);
+      printf("Garbage L3 frame from RSKT [size=%d, snip to 128 bytes]:\n%s\n", rc, l3_dump);
+
+      char stats_buf[8193] = {0};
+      dump_stats(stats_buf, 8192);
+      printf("Activity stats:\n%s\n", stats_buf);
+
+      continue;
+    }
+
     assert(g_tun_fd != -1);
     int nwrite = write(g_tun_fd, recv_buf, rc);
     if (nwrite < 0) {
       fprintf(stderr, "write(fd=%d) of %d bytes [obtained from rskt_read] failed ret=%d: %s\n", g_tun_fd, rc, nwrite, strerror(errno));
-      fprintf(stderr, "My file descriptors:\n"); fflush(stderr);
-      char cmd[129] = {0};
-      snprintf(cmd, 128, "lsof -p %d 1>&2", getpid());
-      system(cmd);
-      break;
-    }
+
+      if (g_debug) {
+        fprintf(stderr, "My file descriptors:\n"); fflush(stderr);
+        char cmd[129] = {0};
+        snprintf(cmd, 128, "lsof -p %d 1>&2", getpid());
+        system(cmd);
+
+        char stats_buf[8193] = {0};
+        dump_stats(stats_buf, 8192);
+        printf("Activity stats: %s\n", stats_buf);
+      }
+
+      if (-1 == fcntl(g_tun_fd, F_GETFL)) break;
+      // else g_tun_fd still good and we're in business
+    } // END if nwrite < 0
   } // END for infinite
 
   g_quit |= RIO_QUIT;
@@ -407,11 +489,12 @@ int main(int argc, char *argv[])
   uint16_t destid = 0xFFFF;
 
   int c;
-  while ((c = getopt(argc, argv, "Shd:p:l:")) != -1) {
+  while ((c = getopt(argc, argv, "gShd:p:l:")) != -1) {
     switch (c) {
       case 'd': destid = atoi(optarg); break;
       case 'p': RSKT_PORT = atoi(optarg); break;
       case 'S': server = 1; break;
+      case 'g': g_debug++; break;
       case 'h': usage(); exit(0); break;
       case 'l':
 #ifdef RDMA_LL
@@ -498,6 +581,10 @@ done:
   close(g_epoll_fd); g_epoll_fd = -1;
 
   librskt_finish();
+
+  char stats_buf[8193] = {0};
+  dump_stats(stats_buf, 8192);
+  printf("Activity stats:\n%s\n", stats_buf);
 
   _exit(rc);
 } 
