@@ -447,8 +447,8 @@ int main(int argc, char *argv[])
   if (! server) { // rskt_client
     if (! setup_rskt_cli(destid)) { rc = 3; goto done; }
   } else {
-    //XXX BUG if (! setup_rskt_srv(&destid)) { rc = 3; goto done; }
-    if (! setup_rskt_srv(NULL)) { rc = 3; goto done; }
+    if (! setup_rskt_srv(&destid)) { rc = 3; goto done; }
+    //if (! setup_rskt_srv(NULL)) { rc = 3; goto done; } // XX work-around for fmr rskt_accept BUG
     printf("my_destid=%u connect from remote_destid=%u\n", g_my_destid, destid);
   }
 
