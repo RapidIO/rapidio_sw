@@ -202,7 +202,7 @@ void* tun_read_thr(void* arg)
       }
 
       const int nread = read(events[epi].data.fd, send_buf, MTU_SIZE);
-      if (nread < 0) {
+      if (nread <= 0) {
         fprintf(stderr, "epoll error for data.ptr=%p: %s\n", events[epi].data.ptr, strerror(errno));
         goto exit;
       }
@@ -215,7 +215,7 @@ void* tun_read_thr(void* arg)
       assert(g_comm_sock);
       assert(g_comm_sock->skt);
       int rc = rskt_write(g_comm_sock, send_buf, nread);
-      if (rc) {
+      if (nread != rc) {
         fprintf(stderr, "rskt_write %d bytes failed %d: %s\n", nread, rc, strerror(errno));
         goto exit;
       }
@@ -351,7 +351,7 @@ void* rskt_read_thr(void* arg)
       rc = rskt_read(g_comm_sock, recv_buf, MTU_SIZE);
     } while (rc == -ETIMEDOUT);
 
-    if (rc < 0) {
+    if (rc <= 0) {
       fprintf(stderr, "rskt_read failed %d: %s\n", rc, strerror(errno));
       break;
     } 

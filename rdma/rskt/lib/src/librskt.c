@@ -2017,7 +2017,6 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 
 	/* Check if the connection has dropped (errno set) */
 	if (errno) {
-		errno = ECONNRESET;
 		ERR("Socket %d Err %s\n", skt_h->sa.sn, strerror(errno));
 		goto fail;
 	};
