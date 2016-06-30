@@ -48,6 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *   ep6# iperf -fMB -c 169.254.1.5
  */
 
+#include <pthread.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -59,7 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <assert.h>
 #include <semaphore.h>
-#include <pthread.h>
+#include <signal.h>
 #include <sys/epoll.h>
 #include <net/if.h>
 #include <linux/if_tun.h>
@@ -87,6 +88,7 @@ static int RSKT_PORT = 666;
 
 static volatile int  g_quit = 0;
 static volatile int  g_debug = 0;
+static volatile int  g_show_stats = 0;
 static sem_t         g_start_sem;
 static volatile int  g_tun_fd = -1;
 static volatile int  g_epoll_fd = -1;
@@ -105,6 +107,7 @@ struct {
 
   volatile uint64_t rio_rx_pkt_cnt;
   volatile uint64_t rio_rx_pkt_cnt_junk; ///< Read from RSKT a L3 frame which is neither IPV4 or IPv6
+  volatile uint64_t rio_rx_bad_l2; ///< Read from RSKT an invalud length in L2
   volatile uint64_t rio_rx_pkt_bytes;
   volatile uint64_t rio_rx_pkt_byte_sizes[MTU_SIZE+1];
 } g_stats;
@@ -121,6 +124,7 @@ static void dump_stats(char* buf, const int buf_len)
   #define DUMP_STAT(st) { snprintf(tmp, 129, "\t" #st " = %lu\n", g_stats.st); strncat(buf, tmp, buf_len); }
   DUMP_STAT(tun_rx_pkt_cnt);
   DUMP_STAT(tun_rx_pkt_cnt_junk);
+  DUMP_STAT(rio_rx_bad_l2);
   DUMP_STAT(tun_rx_pkt_bytes);
   DUMP_STAT(rio_rx_pkt_cnt);
   DUMP_STAT(rio_rx_pkt_cnt_junk);
@@ -216,7 +220,7 @@ error:
   return -1;
 }
 
-#define MAX_EPOLL_EVENTS	8
+#define MAX_EPOLL_EVENTS    8
 
 void* tun_read_thr(void* arg)
 {
@@ -246,8 +250,10 @@ void* tun_read_thr(void* arg)
         continue;
       }
 
+      uint8_t* pL3Buf = send_buf + sizeof(uint32_t);
+
       assert(g_tun_fd != -1);
-      const int nread = read(events[epi].data.fd, send_buf, MTU_SIZE);
+      const int nread = read(events[epi].data.fd, pL3Buf, MTU_SIZE);
       if (nread <= 0) {
         fprintf(stderr, "epoll error for data.ptr=%p: %s\n", events[epi].data.ptr, strerror(errno));
         goto exit;
@@ -259,29 +265,27 @@ void* tun_read_thr(void* arg)
         assert(nread);
       }
 
-      const uint8_t IPver = send_buf[0] >> 4;
+      const uint8_t IPver = pL3Buf[0] >> 4;
       if (IPver != 4 && IPver != 6) {
         g_stats.tun_rx_pkt_cnt_junk++;
         continue;
       }
 
-      //printf("TUNRX %d bytes\n", nread);
+      if (g_debug) printf("TUNRX %d bytes\n", nread);
+
       g_stats.tun_rx_pkt_cnt++;
       g_stats.tun_rx_pkt_bytes += nread;
 
-      /* Send the data */
       assert(g_comm_sock);
       assert(g_comm_sock->skt);
-	uint32_t hdr = htonl((uint32_t)nread);
-      int rc = rskt_write(g_comm_sock, (void *)&hdr, 4);
-      if (4 != rc) {
-        fprintf(stderr, "rskt_write hdr %d bytes failed %d: %s\n",
-					4, rc, strerror(errno));
-        goto exit;
-      }
-      rc = rskt_write(g_comm_sock, send_buf, nread);
-      if (nread != rc) {
-        fprintf(stderr, "rskt_write %d bytes failed %d: %s\n", nread, rc, strerror(errno));
+
+      uint32_t* pL2Hdr = (uint32_t*)send_buf;
+      *pL2Hdr = htonl((uint32_t)nread);
+
+      // Send the data over RSKT
+      const int rc = rskt_write(g_comm_sock, send_buf, nread + sizeof(uint32_t));
+      if ((int)(nread + sizeof(uint32_t)) != rc) {
+        fprintf(stderr, "rskt_write %lu bytes failed %d: %s\n", (nread + sizeof(uint32_t)), rc, strerror(errno));
         goto exit;
       }
     } // END for epi
@@ -412,7 +416,7 @@ void* rskt_read_thr(void* arg)
 
   for(;! g_quit && g_tun_fd >=0 ;) {
     int rc = 0;
-	uint32_t hdr, temp;
+    uint32_t temp = 0;
 
     if (g_debug) memset(recv_buf, 0, sizeof(recv_buf));
 
@@ -420,34 +424,35 @@ void* rskt_read_thr(void* arg)
       assert(g_comm_sock);
       assert(g_comm_sock->skt);
       errno = 0;
-      rc = rskt_read(g_comm_sock, (void *)&temp, 4);
+      rc = rskt_read(g_comm_sock, (void *)&temp, sizeof(uint32_t));
     } while (rc == -ETIMEDOUT);
 
-    if (4 != rc) {
-      fprintf(stderr, "rskt_read hdr failed %d: %s\n", rc, strerror(errno));
+    if (sizeof(uint32_t) != rc) {
+      fprintf(stderr, "rskt_read L2 header failed %d: %s\n", rc, strerror(errno));
       break;
     } 
 
-	hdr = ntohl(temp);
-	if (hdr > MTU_SIZE) {
-      		fprintf(stderr, "rskt_read hdr bad size, MAX %d got %d\n",
-			hdr, MTU_SIZE);
-      		break;
-    	}; 
+    const uint32_t l2Len = ntohl(temp);
+    if (l2Len > MTU_SIZE) {
+      fprintf(stderr, "rskt_read hdr bad size, MAX %d got %d\n", l2Len, MTU_SIZE);
+      g_stats.rio_rx_bad_l2++;
+      break;
+    } 
+
     do {
       assert(g_comm_sock);
       assert(g_comm_sock->skt);
       errno = 0;
-      rc = rskt_read(g_comm_sock, recv_buf, hdr);
+      rc = rskt_read(g_comm_sock, recv_buf, l2Len);
     } while (rc == -ETIMEDOUT);
 
-    if ((rc <= 0) || ((uint32_t)rc != hdr)) {
-      fprintf(stderr, "rskt_read failed %d: %d %d %s\n", rc, hdr,
-						errno, strerror(errno));
+    if ((rc <= 0) || ((uint32_t)rc != l2Len)) {
+      fprintf(stderr, "rskt_read failed %d: %d %d %s\n", rc, l2Len, errno, strerror(errno));
       break;
     } 
 
-    //printf("TUNTX %d bytes\n", rc);
+    if (g_debug) printf("TUNTX l2Len=%d (rskt_read => %d bytes)\n", l2Len, rc);
+
     g_stats.rio_rx_pkt_cnt++;
     g_stats.rio_rx_pkt_bytes += rc;
     if (rc >= 0 && rc <= MTU_SIZE) g_stats.rio_rx_pkt_byte_sizes[rc]++;
@@ -484,7 +489,7 @@ void* rskt_read_thr(void* arg)
 
         char stats_buf[8193] = {0};
         dump_stats(stats_buf, 8192);
-        printf("Activity stats: %s\n", stats_buf);
+        printf("Activity stats:\n%s\n", stats_buf);
       }
 
       if (-1 == fcntl(g_tun_fd, F_GETFL)) break;
@@ -498,6 +503,8 @@ void* rskt_read_thr(void* arg)
 
   return NULL;
 }
+
+void sig_handler(int sig) { g_show_stats = 1; }
 
 int main(int argc, char *argv[])
 {
@@ -513,6 +520,8 @@ int main(int argc, char *argv[])
 #ifdef RDMA_LL
   rdma_log_init("rskt_tun.txt", 1);
 #endif
+
+  signal(SIGINT, sig_handler);
 
   uint16_t destid = 0xFFFF;
 
@@ -597,7 +606,16 @@ int main(int argc, char *argv[])
   sem_post(&g_start_sem);
   sem_post(&g_start_sem);
 
-  while (! g_quit) usleep(1000);
+  while (! g_quit) {
+    usleep(1000);
+
+    if (! g_show_stats) continue;
+    g_show_stats = 0;
+
+    char stats_buf[8193] = {0};
+    dump_stats(stats_buf, 8192);
+    printf("Activity stats:\n%s\n", stats_buf);
+  }
 
   if ((g_quit & TUN_QUIT) != TUN_QUIT) pthread_kill(pt_tun, SIGUSR1);
   if ((g_quit & RIO_QUIT) != RIO_QUIT) pthread_kill(pt_rio, SIGUSR1);
