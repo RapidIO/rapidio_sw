@@ -44,6 +44,7 @@
  * Options common for both modes:
  * - -M mport_id | --mport mport_id : local mport device index (default=0)
  * - -v : turn off buffer data verification
+ * - -L xxxx | --laddr xxxx : physical address of reserved local memory
  * - --debug (or -d)
  * - --help (or -h)
  *
@@ -252,6 +253,8 @@ void *dmatest_buf_alloc(riomp_mport_t mport_hnd, uint32_t size, uint64_t *handle
 	int ret;
 
 	if (handle) {
+		h = *handle;
+
 		ret = riomp_dma_dbuf_alloc(mport_hnd, size, &h);
 		if (ret) {
 			if (debug)
@@ -316,6 +319,7 @@ void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size,
  * \param[in] mport_id Local mport device ID (index)
  * \param[in] rio_base Base RapidIO address for inbound window
  * \param[in] ib_size Inbound window and buffer size in bytes
+ * \param[in] loc_addr Physical address in reserved memory range
  * \param[in] verify Flag to enable/disable data verification on exit
  *
  * \return 0 if successful or error code returned by mport API.
@@ -323,11 +327,11 @@ void dmatest_buf_free(riomp_mport_t mport_hnd, void *buf, uint32_t size,
  * Performs the following steps:
  *
  */
-int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
+int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size, uint64_t loc_addr,
 		  int verify)
 {
 	int ret;
-	uint64_t ib_handle;
+	uint64_t ib_handle = loc_addr;
 	void *ibmap;
 
 	/** - Request mport's inbound window mapping */ 
@@ -342,6 +346,8 @@ int do_ibwin_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 		perror("mmap");
 		goto out;
 	}
+	
+	memset(ibmap, 0, ib_size);
 
 	printf("\tSuccessfully allocated/mapped IB buffer (rio_base=0x%x_%08x)\n",
 	       (uint32_t)(rio_base >> 32), (uint32_t)(rio_base & 0xffffffff));
@@ -392,19 +398,20 @@ static void *dma_async_wait(void *arg)
  * \param[in] verify Flag to enable/disable data verification for each write-read cycle
  * \param[in] loop_count Number of write-read cycles to perform
  * \param[in] sync DMA transfer synchronization mode
+ * \param[in] loc_addr Physical address in reserved memory range
  *
  * \return 0 if successful or error code returned by mport API.
  *
  * Performs the following steps:
  */
 int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
-		enum riomp_dma_directio_transfer_sync sync)
+		enum riomp_dma_directio_transfer_sync sync, uint64_t loc_addr)
 {
 	void *buf_src = NULL;
 	void *buf_dst = NULL;
 	unsigned int src_off, dst_off, len;
-	uint64_t src_handle = 0;
-	uint64_t dst_handle = 0;
+	uint64_t src_handle = RIOMP_MAP_ANY_ADDR;
+	uint64_t dst_handle = RIOMP_MAP_ANY_ADDR;
 	int i, ret = 0;
 	uint32_t max_hw_size; /* max DMA transfer size supported by HW */
 	enum riomp_dma_directio_transfer_sync rd_sync;
@@ -441,18 +448,24 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 		printf("\tdma_size=%d offset=0x%x\n", dma_size, offset);
 
 	/** * Allocate source and destination buffers in specified space (kernel or user) */
+
+	if (kbuf_mode && loc_addr != RIOMP_MAP_ANY_ADDR) {
+		src_handle = loc_addr;
+		dst_handle = loc_addr + tbuf_size;
+	}
+
 	buf_src = dmatest_buf_alloc(mport_hnd, tbuf_size, kbuf_mode?&src_handle:NULL);
 	if (buf_src == NULL) {
 		printf("DMA Test: error allocating SRC buffer\n");
 		ret = -1;
-		goto out;
+		goto out_src;
 	}
 
 	buf_dst = dmatest_buf_alloc(mport_hnd, tbuf_size, kbuf_mode?&dst_handle:NULL);
 	if (buf_dst == NULL) {
 		printf("DMA Test: error allocating DST buffer\n");
 		ret = -1;
-		goto out;
+		goto out_dst;
 	}
 
 	for (i = 1; i <= loop_count; i++) { /// * Enter write-read cycle
@@ -616,10 +629,12 @@ int do_dma_test(int random, int kbuf_mode, int verify, int loop_count,
 	} /// - Repeat if loop_count > 1
 out:
 	/** * Free source and destination buffers */
-	dmatest_buf_free(mport_hnd, buf_src, tbuf_size,
-				kbuf_mode?&src_handle:NULL);
 	dmatest_buf_free(mport_hnd, buf_dst, tbuf_size,
 				kbuf_mode?&dst_handle:NULL);
+out_dst:
+	dmatest_buf_free(mport_hnd, buf_src, tbuf_size,
+				kbuf_mode?&src_handle:NULL);
+out_src:
 	return ret;
 }
 
@@ -633,6 +648,9 @@ static void display_help(char *program)
 	printf("  -M mport_id\n");
 	printf("  --mport mport_id\n");
 	printf("    local mport device index (default=0)\n");
+	printf("  -L xxxx\n");
+	printf("  --laddr xxxx\n");
+	printf("    physical address of reserved local memory to use\n");
 	printf("  -v turn off buffer data verification\n");
 	printf("  --debug (or -d)\n");
 	printf("  --help (or -h)\n");
@@ -691,6 +709,7 @@ int main(int argc, char** argv)
 	int verify = 1;
 	unsigned int repeat = 1;
 	uint64_t rio_base = RIOMP_MAP_ANY_ADDR;
+	uint64_t loc_addr = RIOMP_MAP_ANY_ADDR;
 	enum riomp_dma_directio_transfer_sync sync = RIO_DIRECTIO_TRANSFER_SYNC;
 	static const struct option options[] = {
 		{ "destid", required_argument, NULL, 'D' },
@@ -702,6 +721,7 @@ int main(int argc, char** argv)
 		{ "ibwin",  required_argument, NULL, 'I' },
 		{ "ibbase", required_argument, NULL, 'R' },
 		{ "mport",  required_argument, NULL, 'M' },
+		{ "laddr",  required_argument, NULL, 'L' },
 		{ "faf",    no_argument, NULL, 'F' },
 		{ "async",  no_argument, NULL, 'Y' },
 		{ "debug",  no_argument, NULL, 'd' },
@@ -716,13 +736,16 @@ int main(int argc, char** argv)
 
 	while (1) {
 		option = getopt_long_only(argc, argv,
-				"rvwdhika:A:D:I:O:M:R:S:T:B:", options, NULL);
+				"rvwdhika:A:D:I:O:M:R:S:T:B:L:", options, NULL);
 		if (option == -1)
 			break;
 		switch (option) {
 			/* DMA Data Transfer Mode options*/
 		case 'A':
 			tgt_addr = strtoull(optarg, NULL, 0);
+			break;
+		case 'L':
+			loc_addr = strtoull(optarg, NULL, 0);
 			break;
 		case 'a':
 			align = strtol(optarg, NULL, 0);
@@ -812,16 +835,20 @@ int main(int argc, char** argv)
 		printf("+++ RapidIO Inbound Window Mode +++\n");
 		printf("\tmport%d ib_size=0x%x PID:%d\n",
 			mport_id, ibwin_size, (int)getpid());
+		if (loc_addr != RIOMP_MAP_ANY_ADDR)
+			printf("\tloc_addr=0x%llx\n", (unsigned long long)loc_addr);
 
-		do_ibwin_test(mport_id, rio_base, ibwin_size, verify);
+		do_ibwin_test(mport_id, rio_base, ibwin_size, loc_addr, verify);
 	} else if (has_dma) {
 		printf("+++ RapidIO DMA Test +++\n");
 		printf("\tmport%d destID=%d rio_addr=0x%llx align=%d repeat=%d PID:%d\n",
 			mport_id, tgt_destid, (unsigned long long)tgt_addr, align, repeat, (int)getpid());
 		printf("\tsync=%d (%s)\n", sync,
 			(sync == RIO_DIRECTIO_TRANSFER_SYNC)?"SYNC":(sync == RIO_DIRECTIO_TRANSFER_FAF)?"FAF":"ASYNC");
+		if (loc_addr != RIOMP_MAP_ANY_ADDR)
+			printf("\tloc_addr=0x%llx\n", (unsigned long long)loc_addr);
 
-		if (do_dma_test(do_rand, kbuf_mode, verify, repeat, sync)) {
+		if (do_dma_test(do_rand, kbuf_mode, verify, repeat, sync, loc_addr)) {
 		    printf("DMA test FAILED\n\n");
 		    rc = EXIT_FAILURE;
 		}
