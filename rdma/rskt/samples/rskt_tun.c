@@ -273,10 +273,10 @@ void* tun_read_thr(void* arg)
       assert(g_comm_sock);
       assert(g_comm_sock->skt);
 	uint32_t hdr = htonl((uint32_t)nread);
-      int rc = rskt_write(g_comm_sock, (void *)&hdr, sizeof(hdr));
-      if (sizeof(hdr) != rc) {
-        fprintf(stderr, "rskt_write hdr %ld bytes failed %d: %s\n",
-					sizeof(hdr), rc, strerror(errno));
+      int rc = rskt_write(g_comm_sock, (void *)&hdr, 4);
+      if (4 != rc) {
+        fprintf(stderr, "rskt_write hdr %d bytes failed %d: %s\n",
+					4, rc, strerror(errno));
         goto exit;
       }
       rc = rskt_write(g_comm_sock, send_buf, nread);
@@ -412,7 +412,7 @@ void* rskt_read_thr(void* arg)
 
   for(;! g_quit && g_tun_fd >=0 ;) {
     int rc = 0;
-	uint32_t hdr;
+	uint32_t hdr, temp;
 
     if (g_debug) memset(recv_buf, 0, sizeof(recv_buf));
 
@@ -420,15 +420,15 @@ void* rskt_read_thr(void* arg)
       assert(g_comm_sock);
       assert(g_comm_sock->skt);
       errno = 0;
-      rc = rskt_read(g_comm_sock, (void *)&hdr, sizeof(hdr));
+      rc = rskt_read(g_comm_sock, (void *)&temp, 4);
     } while (rc == -ETIMEDOUT);
 
-    if (rc <= 0) {
+    if (4 != rc) {
       fprintf(stderr, "rskt_read hdr failed %d: %s\n", rc, strerror(errno));
       break;
     } 
 
-	hdr = ntohl(hdr);
+	hdr = ntohl(temp);
 	if (hdr > MTU_SIZE) {
       		fprintf(stderr, "rskt_read hdr bad size, MAX %d got %d\n",
 			hdr, MTU_SIZE);
