@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
   int rc = 0;
 
 #ifdef RDMA_LL
-  rdma_log_init("rskt_wwwserver..txt", 1);
+  rdma_log_init("rskt_wwwserver.txt", 1);
 #endif
 
   int c;
