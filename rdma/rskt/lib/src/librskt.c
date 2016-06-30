@@ -230,7 +230,7 @@ int librskt_dmsg_req_resp(struct librskt_app_to_rsktd_msg *tx,
 	};
 
 	if (free_rsvp(rsvp))
-		ERR("ERR freeing rsvp");
+		{ ERR("ERR freeing rsvp"); }
 	DBG("Returning!\n");
 	librskt_wait_for_sem(&lib.skts_mtx, 0x1333);
 	
@@ -459,6 +459,9 @@ void prep_response(struct librskt_rsktd_to_app_msg *req,
 
 void cleanup_skt_rdma(rskt_h skt_h, volatile struct rskt_socket_t *skt)
 {
+#if defined(RDMA_LL) // avoid stupid compiler unused param warning
+	if(RDMA_LL < RDMA_LL_DBG) { skt_h += 0; }
+#endif
 	DBG("sn %d ENTER with skt->connector = %d",
 		skt_h->sa.sn, skt->connector);
 	if (skt_rmda_uninit != skt->connector) { 

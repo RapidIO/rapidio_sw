@@ -349,7 +349,8 @@ bool DMAChannel::queueDmaOpT12(int rtype, DmaOptions_t& opt, RioMport::DmaMem_t&
   ts_now_mark(ts_p, 9);
 
 #ifdef DEBUG_BD
-  const uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
+  uint64_t offset = (uint8_t*)bd_hw - (uint8_t*)m_dmadesc.win_ptr;
+  offset += 0;
 
   XDBG("\n\tQueued DTYPE%d op=%s as BD HW @0x%lx bd_wp=%d\n",
       wk.opt.dtype, dma_rtype_str[rtype] , m_dmadesc.win_handle + offset, wk.bd_wp);

@@ -724,6 +724,7 @@ stop_req:
   // XXX clean up this dead peer
 
 exit:
+  pRP += 0;
   return arg;
 }
 
@@ -2002,6 +2003,8 @@ void umd_mbox_watch_demo(struct worker *info)
 
         // Hmm go and lock a mutex unprovoked. Despicable
         umd_epwatch_timeout_ep(&wkr[tundmathreadindex], opt.destid);
+
+        payload += 0;
       } // END if FD_ISSET
 
   receive:
@@ -2046,6 +2049,8 @@ void umd_mbox_watch_demo(struct worker *info)
         
         info->umd_mch->add_inb_buffer(buf); // recycle
         rx_ok++;
+
+        payload += 0;
       } // END while get_inb_message
     } // END while !stop_req
   }}
@@ -2352,4 +2357,6 @@ void UMD_Test(struct worker* info)
   bool r = udma_nread_mem(info->umd_dci_nread->rdma, info->did, info->ib_rio_addr, sizeof(u4), (uint8_t*)&u4);
 
   INFO("\n\tNREAD %s did=%d rio_addr=0x%llx => %u\n", (r? "ok": "FAILED"), info->did, info->ib_rio_addr, u4);
+
+  r = !!r;
 }

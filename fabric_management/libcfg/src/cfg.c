@@ -223,7 +223,7 @@ void parse_err(struct int_cfg_parms *cfg, char *err_msg)
 	if (0)
 		err_msg[0] = 0;
 	if (!cfg->init_err)
-		ERR("\n%s\n", err_msg);
+		{ ERR("\n%s\n", err_msg); }
 	cfg->init_err = 1;
 };
 

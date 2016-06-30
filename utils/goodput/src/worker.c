@@ -853,6 +853,7 @@ void dma_goodput(struct worker *info)
 		if (dma_tx_lat == info->action) {
 			uint64_t dly = 1000000000;
 			uint64_t st_dlay = dly;
+			st_dlay += 0;
 			uint8_t iter_cnt_as_byte = info->perf_iter_cnt;
 
 			if (info->wr) {
@@ -1516,6 +1517,7 @@ again:
                                 dT = item.ts_end - item.ts_start;
                                 dTf = (float)dT / MHz;
                         }
+			dTf += 0;
                         switch (item.opt.dtype) {
                         case DTYPE4:
                                 info->perf_byte_cnt += info->acc_size;
@@ -1571,6 +1573,7 @@ void UMD_DDD(const struct worker* info)
 	if (info->umd_fifo_total_ticks_count > 0) {
 	       float avgTick_uS = ((float)info->umd_fifo_total_ticks / info->umd_fifo_total_ticks_count) / MHz;
 	       INFO("\n\tFIFO Avg TX %f uS cnt=%llu\n", avgTick_uS, info->umd_fifo_total_ticks_count);
+	       avgTick_uS += 0;
 	}
 #if 0
 	const int idx = info->idx;

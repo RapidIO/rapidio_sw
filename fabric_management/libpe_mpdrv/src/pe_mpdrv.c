@@ -317,8 +317,7 @@ int mpdrv_init_rt(uint32_t ct, DAR_DEV_INFO_t *dh)
 
         if (cfg_find_dev_by_ct(ct, &sw)) {
                 if (!sw.is_sw)
-                        WARN("libriocp_pe libcfg conflict: is CT 0x%x"
-                                " a switch?", ct);
+                        { WARN("libriocp_pe libcfg conflict: is CT 0x%x a switch?", ct); }
         };
 
         if (NULL != sw.sw_info.rt[CFG_DEV08]) {
