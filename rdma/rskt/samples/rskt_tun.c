@@ -63,6 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/epoll.h>
 #include <net/if.h>
 #include <linux/if_tun.h>
+#include <arpa/inet.h>
 
 #ifdef RDMA_LL
   #include "liblog.h"
@@ -271,7 +272,14 @@ void* tun_read_thr(void* arg)
       /* Send the data */
       assert(g_comm_sock);
       assert(g_comm_sock->skt);
-      int rc = rskt_write(g_comm_sock, send_buf, nread);
+	uint32_t hdr = htonl((uint32_t)nread);
+      int rc = rskt_write(g_comm_sock, (void *)&hdr, sizeof(hdr));
+      if (sizeof(hdr) != rc) {
+        fprintf(stderr, "rskt_write hdr %ld bytes failed %d: %s\n",
+					sizeof(hdr), rc, strerror(errno));
+        goto exit;
+      }
+      rc = rskt_write(g_comm_sock, send_buf, nread);
       if (nread != rc) {
         fprintf(stderr, "rskt_write %d bytes failed %d: %s\n", nread, rc, strerror(errno));
         goto exit;
@@ -404,6 +412,7 @@ void* rskt_read_thr(void* arg)
 
   for(;! g_quit && g_tun_fd >=0 ;) {
     int rc = 0;
+	uint32_t hdr;
 
     if (g_debug) memset(recv_buf, 0, sizeof(recv_buf));
 
@@ -411,11 +420,30 @@ void* rskt_read_thr(void* arg)
       assert(g_comm_sock);
       assert(g_comm_sock->skt);
       errno = 0;
-      rc = rskt_read(g_comm_sock, recv_buf, MTU_SIZE);
+      rc = rskt_read(g_comm_sock, (void *)&hdr, sizeof(hdr));
     } while (rc == -ETIMEDOUT);
 
     if (rc <= 0) {
-      fprintf(stderr, "rskt_read failed %d: %s\n", rc, strerror(errno));
+      fprintf(stderr, "rskt_read hdr failed %d: %s\n", rc, strerror(errno));
+      break;
+    } 
+
+	hdr = ntohl(hdr);
+	if (hdr > MTU_SIZE) {
+      		fprintf(stderr, "rskt_read hdr bad size, MAX %d got %d\n",
+			hdr, MTU_SIZE);
+      		break;
+    	}; 
+    do {
+      assert(g_comm_sock);
+      assert(g_comm_sock->skt);
+      errno = 0;
+      rc = rskt_read(g_comm_sock, recv_buf, hdr);
+    } while (rc == -ETIMEDOUT);
+
+    if ((rc <= 0) || ((uint32_t)rc != hdr)) {
+      fprintf(stderr, "rskt_read failed %d: %d %d %s\n", rc, hdr,
+						errno, strerror(errno));
       break;
     } 
 
