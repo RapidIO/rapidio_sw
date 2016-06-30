@@ -254,8 +254,10 @@ void rskt_shim_main()
   ZERO_SOCK.can_write= true;
   ZERO_SOCK.laddr.sin_family     = AF_INET;
 
-  rskt_shim_init_RSKT();
-  g_my_destid = htonl(RSKT_shim_rskt_get_my_destid());
+  if (getenv("NO_RSKT_INIT") == NULL) {
+    rskt_shim_init_RSKT();
+    g_my_destid = htonl(RSKT_shim_rskt_get_my_destid());
+  }
   ZERO_SOCK.laddr.sin_addr.s_addr = ntohs(g_my_destid);
 
   char* cRDMA_LL = getenv("RDMA_LL");
@@ -529,7 +531,8 @@ ssize_t write(int fd, const void *buf, size_t count)
       rc = RSKT_shim_rskt_write(it->second.rsock, (void*)buf, count);
     pthread_mutex_unlock(&g_map_mutex);
     if (rc < 0) errno = EPIPE;
-    return !rc? count: -1;
+    assert(rc != count);
+    return rc >=0? rc : -1;
   }
   pthread_mutex_unlock(&g_map_mutex);
 
