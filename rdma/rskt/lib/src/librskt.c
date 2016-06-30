@@ -1642,7 +1642,7 @@ int rskt_write(rskt_h skt_h, void *data, uint32_t byte_cnt)
 	free_bytes = get_free_bytes(skt->hdr, skt->buf_sz);
 
 	DBG("byte_cnt=0x%X, free_bytes=0x%X\n", byte_cnt, free_bytes);
-	while (!free_bytes && !errno) {
+	while ((free_bytes < byte_cnt) && !errno) {
 		sem_post(&lib.skts_mtx);
 		sleep(0);
 		if (librskt_wait_for_sem(&lib.skts_mtx, 0x8333)) {
