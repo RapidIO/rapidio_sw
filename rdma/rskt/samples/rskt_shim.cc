@@ -491,8 +491,6 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
   } while(0);
   pthread_mutex_unlock(&g_map_mutex);
 
-  // TODO
-  // 3. make a RSKT and put it in g_sock_map[sockfd]
   // 4. connect RSKT to destid=(u.raddr & 0xFFFF) port ntohs(addr_v4->sin_port)
   // 5. if socket marked nonblocking by socket/ioctl/fcntl then
   // 6. ... ??crickets?? ... rskt_connect is blocking but should return fast
@@ -752,10 +750,10 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 extern "C"
 int ioctl(int fd, unsigned long request, ...)
 {
-  int ret = 0;
-
   va_list argp;
   va_start(argp, request);
+
+  int ret = 0;
 
   bool my_fd = false;
   pthread_mutex_lock(&g_map_mutex);
@@ -780,11 +778,12 @@ int ioctl(int fd, unsigned long request, ...)
 extern "C"
 int fcntl(int fd, int cmd, ... /* arg */ )
 {
-  int ret = 0;
-
   va_list argp;
   va_start(argp, cmd);
 
+  int ret = 0;
+
+  Dprintf("TCPv4 sock %d fcntl(0x%08x)\n", fd, cmd);
   bool my_fd = false;
   pthread_mutex_lock(&g_map_mutex);
   std::map<int, SocketTracker_t>::iterator it = g_sock_map.find(fd);
