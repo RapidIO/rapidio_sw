@@ -21,11 +21,13 @@
 
 #define Dprintf(fmt, ...) { if (g_debug) printf(fmt, __VA_ARGS__); }
 
+static volatile uint32_t g_onload_initialised = 0;
 volatile uint32_t rskt_shim_initialised = 0;
 volatile uint32_t rskt_shim_RSKT_initialised = 0;
 
-void rskt_shim_main() __attribute__ ((constructor));
+void rskt_shim_onload() __attribute__ ((constructor));
 
+static pthread_mutex_t g_onload_mutex = PTHREAD_MUTEX_INITIALIZER; 
 static pthread_mutex_t g_rskt_shim_mutex = PTHREAD_MUTEX_INITIALIZER; 
 
 static pthread_mutex_t g_map_mutex = PTHREAD_MUTEX_INITIALIZER; 
@@ -134,7 +136,6 @@ static inline void errx(const char* msg)
 
 
 RSKT_DECLARE(shim_rskt_init, void, (void));
-RSKT_DECLARE(shim_rskt_get_my_destid, uint16_t, (void));
 RSKT_DECLARE(shim_rskt_socket, void*, (void));
 
 RSKT_DECLARE(shim_rskt_connect, int, (void*, uint16_t, uint16_t));
@@ -158,8 +159,6 @@ RSKT_DECLARE(shim_rskt_write, int, (void*, void*, int));
 } while(0);
 
 MPORT_DECLARE(mport_my_destid, uint16_t, (void));
-
-void rskt_shim_main() __attribute__ ((constructor));
 
 static inline uint16_t mport_my_destid()
 {
@@ -188,7 +187,6 @@ static void rskt_shim_init_RSKT()
 	errx("RSKT Shim: Failed to open shim2");
 
   RSKT_DLSYMCAST(shim_rskt_init, void, (void));
-  RSKT_DLSYMCAST(shim_rskt_get_my_destid, uint16_t, (void));
   RSKT_DLSYMCAST(shim_rskt_socket, void*, (void));
 
   RSKT_DLSYMCAST(shim_rskt_connect, int, (void*, uint16_t, uint16_t));
@@ -208,13 +206,16 @@ static void rskt_shim_init_RSKT()
   rskt_shim_RSKT_initialised = 0xfeedbabaL;
 }
 
-void rskt_shim_main()
+static void rskt_shim_init();
+
+void rskt_shim_onload()
 {
   void* dh = NULL;
 
-  pthread_mutex_lock(&g_rskt_shim_mutex);
-  if (rskt_shim_initialised == 0xf00ff00d) {
-    pthread_mutex_unlock(&g_rskt_shim_mutex);
+  pthread_mutex_unlock(&g_onload_mutex);
+
+  if (g_onload_initialised == 0xf00ff00d) {
+    pthread_mutex_unlock(&g_onload_mutex);
     return;
   }
 
@@ -268,8 +269,20 @@ void rskt_shim_main()
   DLSYMCAST(fcntl, int, (int, int, ...));
 
   g_sock_map.clear();
+  g_onload_initialised = 0xf00ff00d;
 
-  rskt_shim_initialised = 0xf00ff00d;
+  pthread_mutex_unlock(&g_onload_mutex);
+
+  rskt_shim_init();
+}
+
+static void rskt_shim_init()
+{
+  pthread_mutex_lock(&g_rskt_shim_mutex);
+  if (rskt_shim_initialised == 0xf00ff00d) {
+    pthread_mutex_unlock(&g_rskt_shim_mutex);
+    return;
+  }
 
   memset(&ZERO_SOCK, 0, sizeof(ZERO_SOCK));
   ZERO_SOCK.fd       = -1;
@@ -279,15 +292,17 @@ void rskt_shim_main()
   ZERO_SOCK.can_write= true;
   ZERO_SOCK.laddr.sin_family     = AF_INET;
 
+  char* cRDMA_LL = getenv("RDMA_LL");
+  if (cRDMA_LL != NULL && atoi(cRDMA_LL) > 6) g_debug = 1;
+
   g_my_destid = htonl(mport_my_destid());
+  ZERO_SOCK.laddr.sin_addr.s_addr = ntohs(g_my_destid);
 
   if (getenv("NO_RSKT_INIT") == NULL) {
     rskt_shim_init_RSKT();
   }
-  ZERO_SOCK.laddr.sin_addr.s_addr = ntohs(g_my_destid);
 
-  char* cRDMA_LL = getenv("RDMA_LL");
-  if (cRDMA_LL != NULL && atoi(cRDMA_LL) > 6) g_debug = 1;
+  rskt_shim_initialised = 0xf00ff00d;
 
   pthread_mutex_unlock(&g_rskt_shim_mutex);
 }
@@ -297,6 +312,8 @@ static void spawn_accept_minder_thr(const int sockfd);
 extern "C"
 int socket(int socket_family, int socket_type, int protocol)
 {
+  if (!g_onload_initialised) rskt_shim_onload();
+
   int tmp_sock = glibc_socket(socket_family, socket_type, protocol);
 
   do {
@@ -794,7 +811,10 @@ int ioctl(int fd, unsigned long request, ...)
   }
   pthread_mutex_unlock(&g_map_mutex);
   
-  if (!my_fd) ret = glibc_ioctl(fd, request, argp);
+  if (!my_fd) {
+    unsigned long arg = va_arg (argp, unsigned long); // linux/syscalls.h sez so
+    ret = glibc_ioctl(fd, request, arg);
+  }
 
   va_end(argp);
 
@@ -823,7 +843,10 @@ int fcntl(int fd, int cmd, ... /* arg */ )
   }
   pthread_mutex_unlock(&g_map_mutex);
   
-  if (!my_fd) ret = glibc_fcntl(fd, cmd, argp);
+  if (!my_fd) {
+    unsigned long arg = va_arg (argp, unsigned long); // linux/syscalls.h sez so
+    ret = glibc_fcntl(fd, cmd, arg);
+  }
 
   va_end(argp);
 
