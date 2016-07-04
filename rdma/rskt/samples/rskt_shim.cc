@@ -150,7 +150,32 @@ RSKT_DECLARE(shim_rskt_get_avail_bytes, int, (void*));
 
 RSKT_DECLARE(shim_rskt_write, int, (void*, void*, int));
 
+#define MPORT_DECLARE(name, ret, args) static ret (*MPORT_##name) args
+
+#define MPORT_DLSYMCAST(name, ret, args)  do { \
+	if ((MPORT_##name = (ret (*) args) dlsym(dh, UNDERSCORE #name)) == NULL)		\
+		errx("RSKT Shim: Failed to get " #name "() address");	\
+} while(0);
+
+MPORT_DECLARE(mport_my_destid, uint16_t, (void));
+
 void rskt_shim_main() __attribute__ ((constructor));
+
+static inline uint16_t mport_my_destid()
+{
+  void* dh = NULL;
+  uint16_t did = 0xFFFF;
+
+  const char* mport_shim_path = "./mport_shim.so";
+  if ((dh = dlopen(mport_shim_path, RTLD_LAZY)) == NULL)
+	errx("RSKT Shim: Failed to open mport_shim");
+
+  MPORT_DLSYMCAST(mport_my_destid, uint16_t, (void));
+  did = MPORT_mport_my_destid();
+
+  dlclose(dh);
+  return did;
+}
 
 static void rskt_shim_init_RSKT()
 {
@@ -254,9 +279,10 @@ void rskt_shim_main()
   ZERO_SOCK.can_write= true;
   ZERO_SOCK.laddr.sin_family     = AF_INET;
 
+  g_my_destid = htonl(mport_my_destid());
+
   if (getenv("NO_RSKT_INIT") == NULL) {
     rskt_shim_init_RSKT();
-    g_my_destid = htonl(RSKT_shim_rskt_get_my_destid());
   }
   ZERO_SOCK.laddr.sin_addr.s_addr = ntohs(g_my_destid);
 

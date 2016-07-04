@@ -17,8 +17,6 @@
 
 #define RSKT_DEFAULT_DAEMON_SOCKET      3333
 
-static uint16_t g_my_destid = 0xFFFF;
-
 void shim_rskt_init()
 {
 #ifdef RDMA_LL
@@ -33,34 +31,13 @@ void shim_rskt_init()
     g_level = temp;
   }
 
-  int rc = 0;
-  {{
-    uint8_t   np = 8;
-    uint32_t* dev_ids = NULL;
-    if ((rc = riomp_mgmt_get_mport_list(&dev_ids, &np))) {
-      char tmp[129] = {0};
-      snprintf(tmp, 128, "RSKt Shim: riomp_mgmt_get_mport_list failed %d: %s\n", rc, strerror(errno));
-      throw std::runtime_error(tmp);
-    }
-    /// \todo UNDOCUMENTED: Lower nibble has destid
-    if (np == 0) {
-      char tmp[129] = {0};
-      snprintf(tmp, 128, "RSKt Shim: No mport instances found.\n");
-      throw std::runtime_error(tmp);
-    }
-    g_my_destid = dev_ids[0] & 0xFFFF;
-    riomp_mgmt_free_mport_list(&dev_ids);
-  }}
-
-  rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
+  int rc = librskt_init(RSKT_DEFAULT_DAEMON_SOCKET, 0);
   if (rc) {
     static char tmp[129] = {0};
-    snprintf(tmp, 128, "RSKt Shim: librskt_init failed, rc=%d: %s\n", rc, strerror(errno));
+    snprintf(tmp, 128, "RSKT Shim: librskt_init failed, rc=%d: %s\n", rc, strerror(errno));
     throw std::runtime_error(tmp);
   }
 }
-
-uint16_t shim_rskt_get_my_destid() { return g_my_destid; }
 
 void* shim_rskt_socket()
 {

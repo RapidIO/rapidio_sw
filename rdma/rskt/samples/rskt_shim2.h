@@ -1,6 +1,8 @@
 #ifndef __RSKT_SHIM2_H__
 #define __RSKT_SHIM2_H__
 
+#include <stdint.h>
+
 extern "C" {
 
 void shim_rskt_init();

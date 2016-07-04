@@ -59,7 +59,7 @@ RSKT_CLIENT_OBJECTS = rskt_client.o
 LIBRARIES = -lrskt -lrdma -lriocp_pe -lmport \
         -llist -llog -lfmdd -ldd -lcli -lrt -ldl
 
-all: rskt_client rskt_server rskt_tun
+all: rskt_client rskt_server rskt_tun rskt_shim.so rskt_wwwserver rskt_wwwclient
 
 
 rskt_server:  $(RSKT_SERVER_SOURCE) $(COMMONDIR)/include/*.h
@@ -109,7 +109,7 @@ rskt_wwwclient: rskt_wwwclient.cc $(COMMONDIR)/include/*.h
 	$(LIBS_RPATH) \
 	-o $@
 
-rskt_shim.so: rskt_shim.cc
+rskt_shim.so: rskt_shim.cc mport_shim.so rskt_shim2.so
 	$(CXX) $^ -shared -fPIC -pthread -ldl -lpthread -o $@ -O0 -ggdb
 
 rskt_shim2.so: rskt_shim2.cc $(COMMONDIR)/include/*.h
@@ -124,5 +124,16 @@ rskt_shim2.so: rskt_shim2.cc $(COMMONDIR)/include/*.h
 	-O0 -ggdb \
 	-o $@
 
+mport_shim.so: mport_shim.cc $(COMMONDIR)/include/*.h
+	@echo ---------- Building mport_shim.so
+	$(CXX) $(CXXFLAGS) -L$(COMMONLIB) \
+	-I./inc -I../inc \
+	-DRDMA_LL=$(LOG_LEVEL) \
+	$(RSKTLIB_OBJECTS) mport_shim.cc \
+	$(LIB_DIRS) -lmport -lrt -lpthread \
+	$(LIBS_RPATH) \
+	-shared -fPIC \
+	-o $@
+
 clean:
-	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun rskt_wwwserver rskt_wwwclient rskt_shim*.so
+	rm -f *.o *.o *~ *.exe core rskt_server rskt_client rskt_tun rskt_wwwserver rskt_wwwclient rskt_shim*.so mport_shim.so
