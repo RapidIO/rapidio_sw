@@ -7,8 +7,6 @@ extern "C" {
 
 void shim_rskt_init();
 
-uint16_t shim_rskt_get_my_destid();
-
 void* shim_rskt_socket();
 
 int shim_rskt_connect(void* sock, uint16_t destid, uint16_t port);
