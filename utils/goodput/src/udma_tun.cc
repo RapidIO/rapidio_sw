@@ -46,7 +46,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <sched.h>
 
+#define __STDC_FORMAT_MACROS
 #include <stdint.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>
