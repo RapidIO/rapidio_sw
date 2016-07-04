@@ -2337,7 +2337,7 @@ int RIOCP_SO_ATTR riocp_sw_set_port_self_mcast(riocp_pe_handle sw, uint8_t port,
  * @param reg_cap           Capability bit field that specifies the counter
  *                          registers that this switch offers
  */
-int RIOCP_SO_ATTR riocp_pe_get_sw_counter_capabilites(struct riocp_pe *sw,
+int RIOCP_SO_ATTR riocp_pe_get_sw_counter_capabilites(riocp_pe_handle sw,
         uint8_t port, cap_if_t *caps)
 {
     if (riocp_pe_handle_check(sw))
@@ -2358,7 +2358,7 @@ int RIOCP_SO_ATTR riocp_pe_get_sw_counter_capabilites(struct riocp_pe *sw,
  * @param counter_val       Container to hold the counter register values
  * @param counter_val_size  Size of container for counter values
  */
-int RIOCP_SO_ATTR riocp_pe_get_sw_counters(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val,
+int RIOCP_SO_ATTR riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port, uint32_t *counter_val,
         uint32_t counter_val_size, cap_if_t *caps, uint32_t caps_cnt)
 {
     if (riocp_pe_handle_check(sw))
@@ -2376,7 +2376,7 @@ int RIOCP_SO_ATTR riocp_pe_get_sw_counters(struct riocp_pe *sw, uint8_t port, ui
  * @param sw   Target switch
  * @param caps pointer to trace filter capability structure
  */
-int RIOCP_SO_ATTR riocp_pe_get_sw_trace_filter_caps(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps)
+int RIOCP_SO_ATTR riocp_pe_get_sw_trace_filter_caps(riocp_pe_handle sw, struct riocp_pe_trace_filter_caps *caps)
 {
     if (riocp_pe_handle_check(sw))
         return -EINVAL;
@@ -2408,7 +2408,7 @@ int RIOCP_SO_ATTR riocp_pe_get_sw_trace_filter_caps(struct riocp_pe *sw, struct 
  * ports to the same values, but the flags will not be udpated.
  * The flags need to be modified dedicated per port.
  */
-int RIOCP_SO_ATTR riocp_pe_set_sw_trace_filter(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *match_val, uint32_t *match_mask)
+int RIOCP_SO_ATTR riocp_pe_set_sw_trace_filter(riocp_pe_handle sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *match_val, uint32_t *match_mask)
 {
     if (riocp_pe_handle_check(sw))
         return -EINVAL;
@@ -2426,7 +2426,7 @@ int RIOCP_SO_ATTR riocp_pe_set_sw_trace_filter(struct riocp_pe *sw, uint8_t port
  * @param port   Trace destination port
  * @param flags  Trace port configuration flags
  */
-int RIOCP_SO_ATTR riocp_pe_set_sw_trace_port(struct riocp_pe *sw, uint8_t port, uint32_t flags)
+int RIOCP_SO_ATTR riocp_pe_set_sw_trace_port(riocp_pe_handle sw, uint8_t port, uint32_t flags)
 {
     if (riocp_pe_handle_check(sw))
         return -EINVAL;

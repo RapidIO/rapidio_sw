@@ -305,15 +305,15 @@ int RIOCP_WU riocp_sw_set_port_self_mcast(riocp_pe_handle sw, uint8_t port, bool
 int RIOCP_WU riocp_sw_set_congestion_limit(riocp_pe_handle sw, uint8_t port, uint16_t limit);
 
 /* Counters */
-int RIOCP_WU riocp_pe_get_sw_counter_capabilites(struct riocp_pe *sw,
+int RIOCP_WU riocp_pe_get_sw_counter_capabilites(riocp_pe_handle sw,
         uint8_t port, cap_if_t *caps);
-int RIOCP_WU riocp_pe_get_sw_counters(struct riocp_pe *sw, uint8_t port, uint32_t *counter_val,
+int RIOCP_WU riocp_pe_get_sw_counters(riocp_pe_handle sw, uint8_t port, uint32_t *counter_val,
         uint32_t counter_val_size, cap_if_t *caps, uint32_t caps_cnt);
 
 /* Trace and Filters */
-int RIOCP_WU riocp_pe_get_sw_trace_filter_caps(struct riocp_pe *sw, struct riocp_pe_trace_filter_caps *caps);
-int RIOCP_WU riocp_pe_set_sw_trace_filter(struct riocp_pe *sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *match_val, uint32_t *match_mask);
-int RIOCP_WU riocp_pe_set_sw_trace_port(struct riocp_pe *sw, uint8_t port, uint32_t flags);
+int RIOCP_WU riocp_pe_get_sw_trace_filter_caps(riocp_pe_handle sw, struct riocp_pe_trace_filter_caps *caps);
+int RIOCP_WU riocp_pe_set_sw_trace_filter(riocp_pe_handle sw, uint8_t port, uint8_t filter, uint32_t flags, uint32_t *match_val, uint32_t *match_mask);
+int RIOCP_WU riocp_pe_set_sw_trace_port(riocp_pe_handle sw, uint8_t port, uint32_t flags);
 
 /* Event management functions */
 int RIOCP_WU riocp_pe_get_event_mask(riocp_pe_handle pe, uint8_t port, riocp_pe_event_mask_t *mask);
