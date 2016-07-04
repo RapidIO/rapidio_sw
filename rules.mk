@@ -15,7 +15,7 @@
 #
 ##3. Neither the name of the copyright holder nor the names of its contributors
 #may be used to endorse or promote products derived from this software without
-#specific prior written permission.
+#specific prior written permisson.
 #
 ##THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 #ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -54,10 +54,10 @@ endif
 ifdef KLOKWORK
 RIODIR=$(TOPDIR)/include/test
 else
-RIO_DIR?=/usr/src/rapidio
+RIODIR?=/usr/src/rapidio
 endif
 
-DRV_INCLUDE_DIR ?= $(KERNELDIR)/include $(RIO_DIR) $(KDIR)/include
+DRV_INCLUDE_DIR ?= $(KERNELDIR)/include $(RIODIR) $(KDIR)/include
 
 ARCH := $(shell arch)
 
