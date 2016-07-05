@@ -100,7 +100,7 @@ int init_cfg_ptr(void)
 	};
 	cfg->mast_devid_sz = CFG_DFLT_MAST_DEVID_SZ;
 	cfg->mast_devid = CFG_DFLT_MAST_DEVID;
-	cfg->mast_cm_port = CFG_DFLT_MAST_CM_PORT;
+	cfg->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
 
 	for (i = 0; i < CFG_MAX_EP; i++) {
 		for (j = 0; j < CFG_MAX_EP_PORT; j++) {

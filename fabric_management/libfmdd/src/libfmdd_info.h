@@ -50,6 +50,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "liblist.h"
 #include "libfmdd.h"
+#include "rrmap_config.h"
 
 #ifndef __LIBFMDD_INFO_H__
 #define __LIBFMDD_INFO_H__
@@ -57,8 +58,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define FMD_DEFAULT_PORT 4545
 
 struct fml_globals {
         int portno;     /* FMD port number to connect to */

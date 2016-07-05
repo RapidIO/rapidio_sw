@@ -12,10 +12,9 @@
 
 using namespace std;
 
-static int channel;
-static int mbox_id;
-static int mport_id;
-static uint16_t destid;
+static int channel = CM_SOCK_DFLT_SVR_CM_PORT;
+static int mport_id = 0;
+static uint16_t destid = 0;
 static cm_client *client;
 static bool shutting_down = false;
 
@@ -30,47 +29,42 @@ int main(int argc, char *argv[])
 {
 	char c;
 
-	if (argc < 5) {
-		printf("%s -b<mbox_id> -c<channel> -d<destid> -m<mport_id\n",
-								argv[0]);
-		return 1;
+	if (argc < 2) {
+		goto print_help;
 	}
 
 	signal(SIGQUIT, sig_handler);
 	signal(SIGINT, sig_handler);
 	signal(SIGABRT, sig_handler);
 
-	while ((c = getopt(argc, argv, "b:c:d:hm:")) != -1)
+	while ((c = getopt(argc, argv, "c:d:hm:")) != -1) {
 		switch (c) {
-
-		case 'b':
-			mbox_id = atoi(optarg);
-			break;
 		case 'c':
 			channel = atoi(optarg);
 			break;
 		case 'd':
 			destid = atoi(optarg);
 			break;
-		case 'h':
-			printf("%s -b<mbox_id> -c<channel> -d<destid> -m<mport_id\n",
-									argv[0]);
-			return 1;
 		case 'm':
 			mport_id = atoi(optarg);
 			break;
-		case '?':
-			/* Invalid command line option */
-			exit(1);
-			break;
+		case 'h':
 		default:
-			abort();
+			goto print_help;
 		}
+	}
+
+	if (!destid) {
+		printf("\nMust specify destid!\n");
+		goto print_help;
+	};
+
+	rdma_log_init("cm_sock_client", false);
 
 	/* Create a client */
 	puts("Creating client object...");
 	try {
-		client = new cm_client("client", mport_id, mbox_id, channel,
+		client = new cm_client("client", mport_id, channel,
 				&shutting_down);
 	}
 	catch(exception& e) {
@@ -112,7 +106,11 @@ int main(int argc, char *argv[])
 	getchar();
 
 out:
+	rdma_log_close();
 	delete client;
-
 	return 0;
+
+print_help:
+	printf("%s -c<channel> -d<destid> -m<mport_id\n", argv[0]);
+	return 1;
 }

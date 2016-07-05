@@ -124,8 +124,8 @@ public:
 
 protected:
 	cm_base(const char *name, int mport_id,
-		uint8_t mbox_id, uint16_t channel, bool *shutting_down) :
-		name(name), mport_id(mport_id), mbox_id(mbox_id), channel(channel),
+		uint16_t channel, bool *shutting_down) :
+		name(name), mport_id(mport_id), channel(channel),
 		shutting_down(shutting_down), mailbox(0),
 		send_buf(new uint8_t[CM_BUF_SIZE]),
 		recv_buf(new uint8_t[CM_BUF_SIZE])
@@ -151,7 +151,7 @@ protected:
 	/* Returns 0 if successful, < 0 otherwise */
 	int create_mailbox()
 	{
-		return riomp_sock_mbox_create_handle(mport_id, mbox_id, &mailbox);
+		return riomp_sock_mbox_create_handle(mport_id, 0, &mailbox);
 	}
 
 	/* Returns 0 if successful, < 0 otherwise */
@@ -256,7 +256,6 @@ protected:
 
 	const char *name;
 	int mport_id;
-	uint8_t mbox_id;
 	uint16_t channel;
 	bool	*shutting_down;
 	riomp_mailbox_t mailbox;
@@ -298,16 +297,16 @@ private:
 class cm_server : public cm_base {
 
 public:
-	cm_server(const char *name, int mport_id, uint8_t mbox_id, uint16_t channel,
+	cm_server(const char *name, int mport_id, uint16_t channel,
 		  bool *shutting_down) :
-		cm_base(name, mport_id, mbox_id, channel, shutting_down),
+		cm_base(name, mport_id, channel, shutting_down),
 		listen_socket(0), accept_socket(0), accepted(false)
 	{
 		int rc;
 
 		/* Create mailbox, throw exception if failed */
-		DBG("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
-			name, mport_id, mbox_id, channel);
+		DBG("name = %s, mport_id = %d, channel = %u\n",
+			name, mport_id, channel);
 		rc = create_mailbox();
 		if (rc) {
 			CRIT("Failed to create mailbox for '%s'\n", name);
@@ -354,7 +353,7 @@ public:
 	/* Construct from accept socket. Other attributes are unused */
 	cm_server(const char *name, riomp_sock_t accept_socket,
 		  bool *shutting_down) :
-		cm_base(name, 0, 0, 0, shutting_down),
+		cm_base(name, 0, 0, shutting_down),
 		listen_socket(0), accept_socket(accept_socket), accepted(false)
 	{
 		DBG("'%s': accept_socket = 0x%X\n", name, accept_socket);
@@ -470,14 +469,14 @@ private:
 class cm_client : public cm_base {
 
 public:
-	cm_client(const char *name, int mport_id, uint8_t mbox_id,
+	cm_client(const char *name, int mport_id, 
 		  uint16_t channel, bool *shutting_down) :
-		cm_base(name, mport_id, mbox_id, channel, shutting_down),
+		cm_base(name, mport_id, channel, shutting_down),
 		server_destid(0xFFFF), client_socket(0)
 	{
 		/* Create mailbox, throw exception if failed */
-		DBG("name = %s, mport_id = %d, mbox_id = %u, channel = %u\n",
-					name, mport_id, mbox_id, channel);
+		DBG("name = %s, mport_id = %d, channel = %u\n",
+					name, mport_id, channel);
 
 		if (create_mailbox()) {
 			CRIT("Failed to create mailbox for '%s'\n", name);
@@ -495,7 +494,7 @@ public:
 
 	/* construct from client socket only */
 	cm_client(const char *name, riomp_sock_t socket, bool *shutting_down) :
-		cm_base(name, 0, 0, 0, shutting_down),
+		cm_base(name, 0, 0, shutting_down),
 		server_destid(0xFFFF), client_socket(socket)
 	{
 	}
@@ -530,7 +529,7 @@ public:
 		} else if (rc) {
 			ERR("riomp_sock_connect failed for '%s':  %s\n",
 							name, strerror(errno));
-			ERR("channel = %d, mailbox = %d, destid = 0x%X\n",
+			ERR("channel = %d, destid = 0x%X\n",
 						channel, destid);
 			return -1;
 		}

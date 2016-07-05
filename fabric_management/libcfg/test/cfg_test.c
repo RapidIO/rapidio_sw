@@ -71,7 +71,7 @@ extern "C" {
 int test_case_1(void)
 {
 	char *dd_mtx_fn = NULL, *dd_fn = NULL;
-	char *test_dd_mtx_fn = (char *)CFG_DFLT_DD_MTX_FN;
+	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn  = (char *)CFG_DFLT_DD_FN;
 	uint8_t mem_sz;
 
@@ -90,7 +90,7 @@ int test_case_1(void)
 	if (5 != m_did)
 		goto fail;
 
-	if (CFG_DFLT_MAST_CM_PORT != m_cm_port)
+	if (FMD_DFLT_MAST_CM_PORT != m_cm_port)
 		goto fail;
 
 	if (cfg_get_mp_mem_sz(0, &mem_sz))
@@ -282,7 +282,7 @@ int test_case_4(void)
 	struct cfg_mport_info mp;
 	struct cfg_dev dev;
 	char *dd_mtx_fn = NULL, *dd_fn = NULL;
-	char *test_dd_mtx_fn = (char *)CFG_DFLT_DD_MTX_FN;
+	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn = (char *)CFG_DFLT_DD_FN;
 	uint32_t m_did, m_cm_port, m_mode;
 
@@ -299,7 +299,7 @@ int test_case_4(void)
 	if (5 != m_did)
 		goto fail;
 
-	if (CFG_DFLT_MAST_CM_PORT != m_cm_port)
+	if (FMD_DFLT_MAST_CM_PORT != m_cm_port)
 		goto fail;
 
 	if (m_mode)
@@ -327,7 +327,7 @@ int test_case_5(void)
 	struct cfg_mport_info mp;
 	struct cfg_dev dev;
 	char *dd_mtx_fn = NULL, *dd_fn = NULL;
-	char *test_dd_mtx_fn = (char *)CFG_DFLT_DD_MTX_FN;
+	char *test_dd_mtx_fn = (char *)FMD_DFLT_DD_MTX_FN;
 	char *test_dd_fn = (char *)CFG_DFLT_DD_FN;
 	uint32_t m_did, m_cm_port, m_mode;
 	int p_idx, idx;
@@ -348,7 +348,7 @@ int test_case_5(void)
 	if (0x1A != m_did)
 		goto fail;
 
-	if (CFG_DFLT_MAST_CM_PORT != m_cm_port)
+	if (FMD_DFLT_MAST_CM_PORT != m_cm_port)
 		goto fail;
 
 	if (!m_mode)

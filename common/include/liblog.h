@@ -34,9 +34,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef RDMA_LOGGER_H
 #define RDMA_LOGGER_H
 
+#include "rrmap_config.h"
+
 #define NUM_LOG_LINES	100
 #define LOG_LINE_SIZE	512
-#define DEFAULT_LOG_DIR	 "/var/log/rdma/"
 
 /* Log levels */
 #define RDMA_LL_CRIT	 2

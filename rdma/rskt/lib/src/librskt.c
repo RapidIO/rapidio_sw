@@ -649,7 +649,7 @@ int librskt_init(int rsktd_port, int rsktd_mpnum)
 
 	lib.addr.sun_family = AF_UNIX;
 	snprintf(lib.addr.sun_path, sizeof(lib.addr.sun_path) - 1,
-		LIBRSKTD_SKT_FMT, rsktd_port, rsktd_mpnum);
+		RSKT_APP_MSG_SKT_FMT, rsktd_port, rsktd_mpnum);
 	DBG("Attempting to connect to RSKTD via Unix sockets\n");
 	if (connect(lib.fd, (struct sockaddr *) &lib.addr, 
 				lib.addr_sz)) {

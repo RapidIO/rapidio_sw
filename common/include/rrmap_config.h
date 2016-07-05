@@ -1,7 +1,8 @@
+
 /*
 ****************************************************************************
-Copyright (c) 2015, Integrated Device Technology Inc.
-Copyright (c) 2015, RapidIO Trade Association
+Copyright (c) 2014, Integrated Device Technology Inc.
+Copyright (c) 2014, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -30,48 +31,48 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
+#ifndef __RRMAP_CONFIG_H__
+#define __RRMAP_CONFIG_H__
 
-#ifndef PEER_UTILS_H
-#define PEER_UTILS_H
-
-#include <stdint.h>
-
-#include "rrmap_config.h"
-#include "rapidio_mport_dma.h"
-
-constexpr uint16_t DEFAULT_PROV_CHANNEL = 10;
-constexpr auto	   DEFAULT_CONSOLE_SKT  = 4444;
-constexpr auto	   DEFAULT_RUN_CONS	= 1;
-
-struct peer_info
-{
-	/**
-	 * @brief Constructor
-	 */
-	peer_info(uint8_t destid_len, uint32_t destid, int mport_id,
-		  riomp_mport_t mport_hnd, uint16_t prov_channel,
-		  int cons_skt, int run_cons)
-	: destid_len(destid_len), destid(destid), mport_id(mport_id),
-	  mport_hnd(mport_hnd), prov_channel(prov_channel),
-	  cons_skt(cons_skt), run_cons(run_cons)
-	{
-	}
-
-	/* Device ID */
-	uint8_t	destid_len;
-	uint32_t destid;
-
-	/* MPORT */
-	int mport_id;
-	riomp_mport_t mport_hnd;
-
-	/* Provisioning channel and mailbox */
-	uint16_t	prov_channel;
-
-	/* Daemon CLI connection */
-	int	cons_skt;	/* Console socket number, default 4444 */
-	int	run_cons;	/* Run console on Daemon? */
-};
-
+#ifdef __cplusplus
+extern "C" {
 #endif
 
+/** \brief TCP/IP POSIX Socket Numbers, remotely connect to Daemon CLIs */
+#define FMD_DFLT_CLI_SKT 2222
+#define RDMA_DFLT_CLI_SKT 2224
+#define RSKT_DFLT_CLI_SKT 2226
+
+#define DEFAULT_LOG_DIR  "/var/log/rdma/"
+
+/** \brief Location of configuration files and sysfs files for LINUX */
+#define FMD_DFLT_CFG_FN "/etc/rapidio/fmd.conf"
+#define FMD_DFLT_DEV_DIR "/sys/bus/rapidio/devices/"
+
+/** \brief libmport CM Socket Numbers to connect daemon to daemon */
+#define FMD_DFLT_MAST_CM_PORT 3434
+#define RDMA_DFLT_DMN_CM_PORT 5544
+#define RSKT_DFLT_DMN_CM_PORT 4455
+
+/** \brief File transfer and CM_SOCK demo default CM ports */
+#define FXFR_DFLT_SVR_CM_PORT 5555
+#define CM_SOCK_DFLT_SVR_CM_PORT 5556
+
+/** \brief AF_UNIX socket definitions for FMD */
+#define FMD_DFLT_APP_PORT_NUM 3434
+#define FMD_APP_MSG_SKT_FMT "/var/tmp/FMD%04d"
+#define FMD_DFLT_DD_FN "/RIO_SM_DEV_DIR"
+#define FMD_DFLT_DD_MTX_FN "/RIO_SM_DEV_DIR_MUTEX"
+
+/** \brief AF_UNIX socket definitions for RDMAD */
+#define RDMA_PATH_APP_SKT  "/var/tmp/rdma"
+
+/** \brief AF_UNIX socket definitions for RSKTD */
+#define RSKT_DFLT_APP_PORT_NUM 3333
+#define RSKT_APP_MSG_SKT_FMT "/var/tmp/RSKTD%04d.%1d"
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __RRMAP_CONFIG_H__ */

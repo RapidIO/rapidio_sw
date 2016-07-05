@@ -58,6 +58,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_dma.h"
+#include "rrmap_config.h"
 #include "libcli.h"
 #include "liblog.h"
 #include "libfxfr_private.h"
@@ -112,7 +113,7 @@ void print_server_help(void)
 	printf("	 at least one inbound RDMA window.\n");
 	printf("-X <cm_skt>: The server listens for file transfer requests\n");
 	printf("	 on RapidIO Channel Manager socket <cm_skt>.\n");
-	printf("	 The default value is 5555.\n");
+	printf("	 The default value is 0x%x.\n", FXFR_DFLT_SVR_CM_PORT);
 	printf("	 The cm_skt and mport value must be correct to\n");
 	printf("	 successfully connect .\n");
 	printf("	 Note: There must be a space between -X and"
@@ -136,7 +137,7 @@ void parse_options(int argc, char *argv[],
 	*run_cons = 1;
 	*win_size = TOTAL_TX_BUFF_SIZE/1024;
 	*num_win = 1;
-	*xfer_skt = 5555;
+	*xfer_skt = FXFR_DFLT_SVR_CM_PORT;
 	*ibwin_base = TOTAL_TX_BUFF_SIZE;
 
 	for (idx = 0; (idx < argc) && !*print_help; idx++) {

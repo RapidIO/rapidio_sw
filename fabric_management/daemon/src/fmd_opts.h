@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
+#include "rrmap_config.h"
 #include "cfg.h"
 #include "liblog.h"
 
@@ -50,19 +51,12 @@ extern "C" {
 #endif
 
 #define FMD_DFLT_INIT_DD 0
-#define FMD_DFLT_CLI_PORT_NUM 2222
-#define FMD_DFLT_APP_PORT_NUM 3434
 #define FMD_DFLT_RUN_CONS 1
 #define FMD_DFLT_LOG_LEVEL ((RDMA_LL_WARN < RDMA_LL)?RDMA_LL_WARN:RDMA_LL)
-#define FMD_DFLT_MAST_CM_PORT CFG_DFLT_MAST_CM_PORT 
 #define FMD_DFLT_MAST_INTERVAL 5
 #define FMD_DFLT_MAST_DEVID_SZ FMD_DEV08
 #define FMD_DFLT_MAST_DEVID 1
-#define FMD_DFLT_CFG_FN "/etc/rapidio/fmd.conf"
-#define FMD_DFLT_DD_FN CFG_DFLT_DD_FN
-#define FMD_DFLT_DD_MTX_FN CFG_DFLT_DD_MTX_FN
 
-#define FMD_DFLT_DEV_DIR "/sys/bus/rapidio/devices/"
 #define FMD_MAX_DEV_FN 256
 
 struct fmd_opt_vals {

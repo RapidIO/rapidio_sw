@@ -72,7 +72,6 @@ daemon_list<cm_server>	prov_daemon_info_list;
  *
  * @param mport_id Master port identifier
  *
- * @param prov_mbox_id	Mailbox ID to be used by the provisioning CM socket
  *
  * @param prov_channel	Channel to be used by the provisioning CM socket
  */
@@ -88,7 +87,6 @@ void *prov_thread_f(void *arg)
 		unique_ptr<cm_server> prov_server = make_unique<cm_server>(
 				"prov_server",
 				peer->mport_id,
-				peer->prov_mbox_id,
 				peer->prov_channel,
 				&shutting_down);
 		while(1) {

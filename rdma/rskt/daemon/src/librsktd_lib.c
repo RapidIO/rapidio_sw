@@ -404,7 +404,7 @@ int open_lib_conn_socket(void )
 
 	snprintf(lib_st.addr.sun_path, 
 		sizeof(lib_st.addr.sun_path) - 1,
-		LIBRSKTD_SKT_FMT, lib_st.port, lib_st.mpnum);
+		RSKT_APP_MSG_SKT_FMT, lib_st.port, lib_st.mpnum);
 
 	if (remove(lib_st.addr.sun_path)) {
 		if (ENOENT != errno) {
@@ -414,7 +414,7 @@ int open_lib_conn_socket(void )
 
 	snprintf(lib_st.addr.sun_path, 
 		sizeof(lib_st.addr.sun_path) - 1,
-		DMN_LSKT_FMT, lib_st.port, lib_st.mpnum);
+		RSKT_APP_MSG_SKT_FMT, lib_st.port, lib_st.mpnum);
 
 	if (-1 == bind(lib_st.fd, (struct sockaddr *) &lib_st.addr, 
 			sizeof(struct sockaddr_un))) {

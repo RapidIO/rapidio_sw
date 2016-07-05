@@ -283,8 +283,9 @@ fmdd_h fmdd_get_handle(char *my_name, uint8_t flag)
 {
 	DBG("ENTER with my_name = %s, flag = 0x%X\n", my_name, flag);
 	if (!fml.portno) {
-		INFO("No portno specified, using default of %d\n", FMD_DEFAULT_SKT);
-		fml.portno = FMD_DEFAULT_SKT;
+		INFO("No portno specified, using default of %d\n",
+							FMD_DFLT_APP_PORT_NUM);
+		fml.portno = FMD_DFLT_APP_PORT_NUM;
 		strncpy(fml.app_name, my_name, MAX_APP_NAME+1);
 	} else {
 		INFO("fml.portno = %d\n", fml.portno);

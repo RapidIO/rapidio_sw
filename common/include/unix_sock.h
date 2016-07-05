@@ -46,10 +46,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iomanip>
 #include <exception>
 
+#include "rrmap_config.h"
 #include "liblog.h"
 
 /* Default paramters for RDMA */
-#define UNIX_PATH_RDMA	"/var/tmp/rdma"
 #define UNIX_SOCK_DEFAULT_BUFFER_SIZE	512
 #define UNIX_SOCK_DEFAULT_BACKLOG	5
 
@@ -289,7 +289,7 @@ class unix_server : public unix_base
 public:
 	unix_server(const char *name,
 		    bool *shutting_down = nullptr,
-		    const char *sun_path = UNIX_PATH_RDMA,
+		    const char *sun_path = RDMA_PATH_APP_SKT,
 		    int backlog = UNIX_SOCK_DEFAULT_BACKLOG)
 	try : unix_base(name, sun_path),
 		accept_socket(0),
@@ -298,7 +298,7 @@ public:
 	{
 		/* If file exists, delete it before binding */
 		struct stat st;
-		if (stat(UNIX_PATH_RDMA, &st) >= 0) {
+		if (stat(RDMA_PATH_APP_SKT, &st) >= 0) {
 			if (unlink(addr.sun_path) == -1) {
 				WARN("'%s' failed to unlink '%s': '%s'\n",
 						name, addr.sun_path, strerror(errno));
@@ -405,7 +405,7 @@ class unix_client : public unix_base
 public:
 	unix_client(const char *name,
 		    bool *shutting_down,
-		    const char *sun_path = UNIX_PATH_RDMA)
+		    const char *sun_path = RDMA_PATH_APP_SKT)
 	try : unix_base(name, sun_path),
 	shutting_down(shutting_down)
 	{
