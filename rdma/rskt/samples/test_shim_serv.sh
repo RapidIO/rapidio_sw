@@ -3,7 +3,8 @@
 killall -9 thttpd
 ulimit -c unlimited
 
-export LD_DEBUG=symbols
+#export LD_DEBUG=symbols
+export LD_LIBRARY_PATH=.
 
 #LD_PRELOAD=./rskt_shim.so exec wget -O /dev/null http://8.8.8.8
 #LD_PRELOAD=./rskt_shim.so exec wget -O /dev/null http://ipchicken.com

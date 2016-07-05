@@ -300,7 +300,7 @@ static void rskt_shim_init()
   char* cRDMA_LL = getenv("RDMA_LL");
   if (cRDMA_LL != NULL && atoi(cRDMA_LL) > 6) g_debug = 1;
 
-  g_my_destid = htonl(mport_my_destid());
+  g_my_destid = mport_my_destid();
   ZERO_SOCK.laddr.sin_addr.s_addr = ntohs(g_my_destid);
 
   if (getenv("NO_RSKT_INIT") == NULL) {
@@ -324,7 +324,7 @@ int socket(int socket_family, int socket_type, int protocol)
   do {
     if (tmp_sock < 0) break;
     if (socket_family != AF_INET) break;
-    if (protocol != IPPROTO_TCP) break;
+    if (!(protocol == IPPROTO_TCP || protocol == IPPROTO_IP)) break; // IPPROTO_IP is a dummy for TCP :(
     if ((socket_type & SOCK_STREAM) == 0) break;
 
     Dprintf("TCPv4 sock %d STORE\n", tmp_sock);
@@ -373,7 +373,32 @@ int close(int fd)
   return glibc_close(fd);
 }
 
-// int shim_rskt_bind(void* listen_sock, const uint16_t destid /*=0*/, const uint16_t port);
+static inline void make_sockpair(const int sockfd, int sockp[2]) throw()
+{
+  if (0 != socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, sockp)) {
+    glibc_close(sockp[0]); glibc_close(sockp[1]);
+    throw std::runtime_error("RSKT Shim: socketpair failed!");
+  }
+
+  if (sockfd >=0 && -1 == glibc_dup2(sockp[0], sockfd)) {
+    static char tmp[129] = {0};
+    const int saved_errno = errno;
+    glibc_close(sockp[0]); glibc_close(sockp[1]);
+    snprintf(tmp, 128, "RSKT Shim: dup2 failed: %s", strerror(saved_errno));
+    throw std::runtime_error(tmp);
+  }
+
+  if (glibc_fcntl(sockp[0], F_SETFL, glibc_fcntl(sockp[0], F_GETFL, 0) | O_NONBLOCK) ||
+      glibc_fcntl(sockp[1], F_SETFL, glibc_fcntl(sockp[1], F_GETFL, 0) | O_NONBLOCK)) {
+    static char tmp[129] = {0};
+    const int saved_errno = errno;
+    glibc_close(sockp[0]); glibc_close(sockp[1]);
+    snprintf(tmp, 128, "RSKT Shim: fcntl(socketpair, O_NONBLOCK) failed: %s", strerror(saved_errno));
+    throw std::runtime_error(tmp);
+  }
+}
+
+///< \note This will ONLY connect to 0.0.x.y, all other addresses passthru
 
 ///< \note This will ONLY bind to 0.0.x.y, all other addresses passthru
 extern "C"
@@ -399,14 +424,30 @@ int bind(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
     if (u.bytes[3] != 0 || u.bytes[2] != 0) break; // We want 0.0.x.y
     if (((uint16_t)u.bytes[1] + (uint16_t)u.bytes[0]) == 0) break; // We want 0.0.x.y
 
-    Dprintf("TCPv4 sock %d bind to RIO addr\n", sockfd);
+    Dprintf("TCPv4 sock %d bind to RIO addr (destid=%u, port=%u)\n", sockfd, g_my_destid, ntohs(addr_v4->sin_port));
+
+    it->second.rsock = RSKT_shim_rskt_socket();
+    assert(it->second.rsock);
 
     int rc = RSKT_shim_rskt_bind(it->second.rsock, g_my_destid, ntohs(addr_v4->sin_port));
     if (rc) {
       errno = EINVAL;
       ret = -1;
-    } else
-      it->second.laddr = *addr_v4;
+    } else {
+      SocketTracker_t& sock_tr = it->second;
+
+      int sockp[2] = { -1, -1 };
+      try { make_sockpair(sockfd, sockp); }
+      catch(std::runtime_error ex) {
+        pthread_mutex_unlock(&g_map_mutex);
+        throw ex;
+      }
+
+      sock_tr.laddr = *addr_v4;
+
+      sock_tr.sockp[0] = sockp[0]; sock_tr.sockp[1] = sockp[1];
+      memcpy(&sock_tr.raddr, addr_v4, sizeof(sock_tr.raddr));
+    }
 
     pthread_mutex_unlock(&g_map_mutex);
     return ret;
@@ -461,32 +502,6 @@ int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
   return glibc_getpeername(sockfd, addr, addrlen);
 }
 
-static void make_sockpair(const int sockfd, int sockp[2]) throw()
-{
-  if (0 != socketpair(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, sockp)) {
-    glibc_close(sockp[0]); glibc_close(sockp[1]);
-    throw std::runtime_error("RSKT Shim: socketpair failed!");
-  }
-
-  if (sockfd >=0 && -1 == glibc_dup2(sockp[0], sockfd)) {
-    static char tmp[129] = {0};
-    const int saved_errno = errno;
-    glibc_close(sockp[0]); glibc_close(sockp[1]);
-    snprintf(tmp, 128, "RSKT Shim: dup2 failed: %s", strerror(saved_errno));
-    throw std::runtime_error(tmp);
-  }
-
-  if (glibc_fcntl(sockp[0], F_SETFL, glibc_fcntl(sockp[0], F_GETFL, 0) | O_NONBLOCK) ||
-      glibc_fcntl(sockp[1], F_SETFL, glibc_fcntl(sockp[1], F_GETFL, 0) | O_NONBLOCK)) {
-    static char tmp[129] = {0};
-    const int saved_errno = errno;
-    glibc_close(sockp[0]); glibc_close(sockp[1]);
-    snprintf(tmp, 128, "RSKT Shim: fcntl(socketpair, O_NONBLOCK) failed: %s", strerror(saved_errno));
-    throw std::runtime_error(tmp);
-  }
-}
-
-///< \note This will ONLY connect to 0.0.x.y, all other addresses passthru
 extern "C"
 int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen)
 {
@@ -612,6 +627,8 @@ static void* select_thr(void* arg)
 {
   assert(arg);
   SocketTracker_t* sock_tr = (SocketTracker_t*)arg;
+  
+  pthread_setname_np(pthread_self(), "select/poll_minder");
 
   Dprintf("TCPv4 sock %d SELECT minder thread.\n", sock_tr->fd);
 
@@ -767,7 +784,7 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout)
   // Suck standin from socketpair
   for (int i = 0; i < known_fds.size(); i++) {
     bool data_ready = false;
-    for (int j = 0; i < nfds; j++) {
+    for (int j = 0; j < nfds; j++) {
       if (fds[j].fd != known_fds[i].fd) continue;
       if (fds[j].revents & POLLIN != POLLIN) continue;
       data_ready = true;
@@ -778,6 +795,9 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 
     char c = 0;
     glibc_read(known_fds[i].sock_tr->sockp[0], &c, 1);
+
+    Dprintf("TCPv4 sock %d POLL ready c=%c\n", known_fds[i].sock_tr->fd, c);
+
     if (c == 'e') known_fds[i].sock_tr->borked = 1;
   }
 
@@ -872,7 +892,7 @@ int listen(int sockfd, int backlog)
     }
     it->second.listening = true;
     pthread_mutex_unlock(&g_map_mutex);
-    Dprintf("TCPv4 sock %d listening\n", listen);
+    Dprintf("TCPv4 sock %d listening\n", sockfd);
     return ret;
   }
   pthread_mutex_unlock(&g_map_mutex);
@@ -920,6 +940,8 @@ static void* accept_thr(void* arg)
 {
   assert(arg);
 
+  pthread_setname_np(pthread_self(), "accept_minder");
+
   SocketTracker_t* sock_tr = (SocketTracker_t*)arg;
 
   const int sockfd = sock_tr->fd;
@@ -950,6 +972,7 @@ static void* accept_thr(void* arg)
         }
       pthread_mutex_unlock(&g_map_mutex);
 
+      Dprintf("TCPv4 sock %d ACCEPT minder => error rc=%d.\n", sockfd, rc);
       assert(sockp1 != -1);
       glibc_write(sockp1, "e", 1);
       break;
@@ -960,6 +983,8 @@ static void* accept_thr(void* arg)
     res.rsock    = arsock;
     res.r_destid = remote_destid;
     res.r_port   = remote_port;
+
+    Dprintf("TCPv4 sock %d ACCEPT minder accepted from (destid=%u port=%u).\n", sockfd, remote_destid, remote_port);
 
     int sockp1 = -1;
     pthread_mutex_lock(&g_map_mutex);
@@ -975,6 +1000,8 @@ static void* accept_thr(void* arg)
     assert(sockp1 != -1);
     glibc_write(sockp1, "r", 1);
   }
+
+  Dprintf("TCPv4 sock %d ACCEPT minder thread END.\n", sockfd);
 
   return NULL;
 }
@@ -1031,6 +1058,7 @@ _accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, bool nonblocking 
   const bool nonblock = it->second.nonblock;
 
   const int sockp0 = it->second.sockp[0];
+  assert(sockp0 != -1);
 
   if (nonblock) {
     Accepted_t res;
@@ -1050,9 +1078,9 @@ _accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, bool nonblocking 
       char c = '\0';
       glibc_read(sockp0, &c, 1);
 
-      if (c == 0) {
-        errno = res.rskt_errno?: EINVAL; return -1;
-      }
+      //if (c == 0) {
+      //  errno = res.rskt_errno?: EINVAL; return -1;
+      //}
 
       if (res.rskt_errno) { // Bizarre... glibc_read might have not returned anything
         errno = res.rskt_errno; return -1;
@@ -1073,7 +1101,12 @@ _accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, bool nonblocking 
       sock_tr_new.raddr.sin_addr.s_addr = htonl(res.r_destid);
 
       // XXX sock_tr_new.laddr.sin_port = ??? // local port of accepted RSKT?
+
+      if (addr != NULL) memcpy(addr, &sock_tr_new.raddr, sizeof(sock_tr_new.raddr));
+      if (addrlen != NULL) *addrlen = sizeof(sock_tr_new.raddr);
  
+      Dprintf("TCPv4 sock %d ACCEPTed async as new sockfd=%d.\n", sockfd, sock_tr_new.fd);
+
       pthread_mutex_lock(&g_map_mutex);
         g_sock_map[sock_tr_new.fd] = sock_tr_new;
       pthread_mutex_unlock(&g_map_mutex);
@@ -1123,6 +1156,9 @@ _accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen, bool nonblocking 
 
   // XXX sock_tr_new.laddr.sin_port = ??? // local port of accepted RSKT?
 
+  if (addr != NULL) memcpy(addr, &sock_tr_new.raddr, sizeof(sock_tr_new.raddr));
+  if (addrlen != NULL) *addrlen = sizeof(sock_tr_new.raddr);
+ 
   pthread_mutex_lock(&g_map_mutex);
     g_sock_map[sock_tr_new.fd] = sock_tr_new;
   pthread_mutex_unlock(&g_map_mutex);
