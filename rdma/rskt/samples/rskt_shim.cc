@@ -30,7 +30,7 @@ void rskt_shim_onload() __attribute__ ((constructor));
 static pthread_mutex_t g_onload_mutex = PTHREAD_MUTEX_INITIALIZER; 
 static pthread_mutex_t g_rskt_shim_mutex = PTHREAD_MUTEX_INITIALIZER; 
 
-static pthread_mutex_t g_map_mutex = PTHREAD_MUTEX_INITIALIZER; 
+static pthread_mutex_t g_map_mutex; // Initialised later to PTHREAD_MUTEX_RECURSIVE
 
 static int g_debug = 0;
 static uint16_t g_my_destid = 0xFFFF;
@@ -270,6 +270,11 @@ void rskt_shim_onload()
 
   g_sock_map.clear();
   g_onload_initialised = 0xf00ff00d;
+
+  pthread_mutexattr_t   mta;
+  pthread_mutexattr_init(&mta);
+  pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE);
+  pthread_mutex_init(&g_map_mutex, &mta);
 
   pthread_mutex_unlock(&g_onload_mutex);
 
@@ -572,7 +577,7 @@ ssize_t write(int fd, const void *buf, size_t count)
       rc = RSKT_shim_rskt_write(it->second.rsock, (void*)buf, count);
     pthread_mutex_unlock(&g_map_mutex);
     if (rc < 0) errno = EPIPE;
-    assert(rc != count);
+    assert(rc == count);
     return rc >=0? rc : -1;
   }
   pthread_mutex_unlock(&g_map_mutex);
