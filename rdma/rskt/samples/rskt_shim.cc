@@ -717,7 +717,10 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
     if (!FD_ISSET(known_fds[i].fd, readfds)) continue;
     char c = 0;
     glibc_read(known_fds[i].sock_tr->sockp[0], &c, 1);
-    if (c == 'e') known_fds[i].sock_tr->borked = 1;
+    if (c == 'e') {
+      Dprintf("TCPv4 select %d borked END.\n", known_fds.size());
+      known_fds[i].sock_tr->borked = 1;
+    }
   }
 
   for (int i = 0; i < known_fds.size(); i++) {
