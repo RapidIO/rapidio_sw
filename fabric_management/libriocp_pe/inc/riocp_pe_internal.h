@@ -69,6 +69,9 @@ extern "C" {
 #define riocp_pe_llist_foreach_safe(item, next, list) \
 	for (item = list, next = item->next; item->next != NULL; item = next, next = item->next)
 
+/** pointer to the user get port counter function used into the riod dump command */
+typedef int (*riocp_get_user_port_counters_t)(struct riocp_pe *sw, uint8_t port, char *port_info_to_dump, size_t size_max, int *color);
+
 /** Linked list item */
 struct riocp_pe_llist_item {
 	void *data; /**< Item opaque data */
@@ -138,7 +141,7 @@ struct riocp_pe {
 	struct riocp_pe_capabilities cap;	/**< RapidIO Capabilities */
 	uint16_t efptr;				/**< RapidIO extended feature pointer */
 	uint32_t efptr_phys;			/**< RapidIO Physical extended feature pointer */
-	riocp_pe_llist_item ef_list;		/**< RapidIO Extended feature list */
+	struct riocp_pe_llist_item ef_list;	/**< RapidIO Extended feature list */
 	riocp_pe_event_mask_t *port_event_mask;	/**< Event mask */
 	//struct rio_pw_filter pwfilter; 	/**< TODO Mport driver port-write filter */
 	struct riocp_pe *mport;			/**< Mport that created this PE */
@@ -176,7 +179,7 @@ int riocp_pe_handle_set_private(riocp_pe_handle pe, void *data);
 int riocp_pe_handle_get_private(riocp_pe_handle pe, void **data);
 
 /* Dot graph */
-int riocp_pe_dot_dump(char *filename, riocp_pe_handle mport);
+int riocp_pe_dot_dump(char *filename, riocp_pe_handle mport, riocp_get_user_port_counters_t riocp_get_user_port_counters);
 
 #ifdef __cplusplus
 }

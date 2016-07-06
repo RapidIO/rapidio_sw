@@ -276,6 +276,7 @@ int riocp_pe_destroy_handle(riocp_pe_handle *pe);
 int RIOCP_WU riocp_pe_get_capabilities(riocp_pe_handle pe,
 	struct riocp_pe_capabilities *capabilities);
 int RIOCP_WU riocp_pe_get_ports(riocp_pe_handle pe, struct riocp_pe_port ports[]);
+int riocp_pe_get_ports_add_peer(struct riocp_pe *pe, uint8_t port, struct riocp_pe_port ports[]);
 int RIOCP_WU riocp_pe_get_port_supported_speeds(riocp_pe_handle pe, uint8_t port, uint8_t *speeds);
 int RIOCP_WU riocp_pe_set_port_speed(riocp_pe_handle pe, uint8_t port, enum riocp_pe_speed speed, struct riocp_pe_serdes *serdes);
 int RIOCP_WU riocp_pe_lock(riocp_pe_handle pe, int flags);

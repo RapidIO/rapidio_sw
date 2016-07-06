@@ -887,7 +887,7 @@ int RIOCP_SO_ATTR riocp_pe_get_capabilities(riocp_pe_handle pe,
  * @param port Port index for ports argument
  * @param ports Ports info list
  */
-static int riocp_pe_get_ports_add_peer(struct riocp_pe *pe, uint8_t port, struct riocp_pe_port ports[])
+int riocp_pe_get_ports_add_peer(struct riocp_pe *pe, uint8_t port, struct riocp_pe_port ports[])
 {
 	struct riocp_pe *peer;
 
@@ -896,12 +896,14 @@ static int riocp_pe_get_ports_add_peer(struct riocp_pe *pe, uint8_t port, struct
 	ports[port].id = port;
 	ports[port].pe = pe;
 
-	if (peer) {
+	if ((peer) && !(RIOCP_PE_IS_SWITCH(pe->cap) && (pe->port->id == port) && (RIOCP_PE_IS_SWITCH(peer->cap)))) {
+	// here exclude when the PE is a switch, the port from which the PE was created if the peer is also a switch
 		ports[port].peer        = peer->port;
 		ports[port].peer->pe    = peer;
 		ports[port].peer->id    = pe->peers[port].remote_port;
 		ports[port].peer->width = ports[port].width;
 		ports[port].peer->speed = ports[port].speed;
+		RIOCP_WARN("The peer handle 0x%08x have been updating from the PE 0x%08x for port %u, width=%u speed=%u\n", peer, pe, port, ports[port].peer->width, ports[port].peer->speed);
 	} else {
 		ports[port].peer = NULL;
 	}
