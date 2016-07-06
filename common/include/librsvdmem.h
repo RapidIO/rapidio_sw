@@ -1,18 +1,17 @@
-
 /*
 ****************************************************************************
-Copyright (c) 2014, Integrated Device Technology Inc.
-Copyright (c) 2014, RapidIO Trade Association
+Copyright (c) 2015, Integrated Device Technology Inc.
+Copyright (c) 2015, RapidIO Trade Association
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer.
+l of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation
+this l of conditions and the following disclaimer in the documentation
 and/or other materials provided with the distribution.
 
 3. Neither the name of the copyright holder nor the names of its contributors
@@ -31,50 +30,26 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
-#ifndef __RRMAP_CONFIG_H__
-#define __RRMAP_CONFIG_H__
+
+#ifndef __LIBRSVDMEM_H__
+#define __LIBRSVDMEM_H__
+
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** \brief TCP/IP POSIX Socket Numbers, remotely connect to Daemon CLIs */
-#define FMD_DFLT_CLI_SKT 2222
-#define RDMA_DFLT_CLI_SKT 2224
-#define RSKT_DFLT_CLI_SKT 2226
+#define RSVD_PHYS_MEM		(char *)"PHYS_MEM"
+#define RSVD_PHYS_MEM_RSKTD	(char *)"RSKTD"
+#define RSVD_PHYS_MEM_RDMAD	(char *)"RDMAD"
+#define RSVD_PHYS_MEM_FXFR	(char *)"FXFR"
+#define RSVD_PHYS_MEM_DMA_TUN	(char *)"DMATUN"
 
-/** \brief Location of configuration files and sysfs files for LINUX */
-#define FMD_DFLT_CFG_FN "/etc/rapidio/fmd.conf"
-#define MEM_CFG_DFLT_FN "/etc/rapidio/rsvd_phys_mem.conf"
-#define MEM_CFG_MAX_LINE_LEN 255
-#define DEFAULT_LOG_DIR  "/var/log/rdma/"
-
-#define FMD_DFLT_DEV_DIR "/sys/bus/rapidio/devices/"
-
-/** \brief libmport CM Socket Numbers to connect daemon to daemon */
-#define FMD_DFLT_MAST_CM_PORT 3434
-#define RDMA_DFLT_DMN_CM_PORT 5544
-#define RSKT_DFLT_DMN_CM_PORT 4455
-
-/** \brief File transfer and CM_SOCK demo default CM ports */
-#define FXFR_DFLT_SVR_CM_PORT 5555
-#define CM_SOCK_DFLT_SVR_CM_PORT 5556
-
-/** \brief AF_UNIX socket definitions for FMD */
-#define FMD_DFLT_APP_PORT_NUM 3434
-#define FMD_APP_MSG_SKT_FMT "/var/tmp/FMD%04d"
-#define FMD_DFLT_DD_FN "/RIO_SM_DEV_DIR"
-#define FMD_DFLT_DD_MTX_FN "/RIO_SM_DEV_DIR_MUTEX"
-
-/** \brief AF_UNIX socket definitions for RDMAD */
-#define RDMA_PATH_APP_SKT  "/var/tmp/rdma"
-
-/** \brief AF_UNIX socket definitions for RSKTD */
-#define RSKT_DFLT_APP_PORT_NUM 3333
-#define RSKT_APP_MSG_SKT_FMT "/var/tmp/RSKTD%04d.%1d"
+int get_rsvd_phys_mem(char *parm_name, uint64_t *start_addr, uint64_t *size);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __RRMAP_CONFIG_H__ */
+#endif /* __LIBRSVDMEM_H__ */

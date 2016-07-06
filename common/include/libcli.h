@@ -105,6 +105,7 @@ extern uint64_t getHexParm(char *dollarParameters[],
 extern unsigned long getHex(char *token, unsigned long defaultData);
 int getDecParm(char *token, int defaultData);
 float getFloatParm(char *token, float defaultData);
+int parm_idx(char *token, char *token_list);
 
 /* Routines to manage environment variables within the CLI */
 char* GetEnv(char* var);
