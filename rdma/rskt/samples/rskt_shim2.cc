@@ -119,6 +119,8 @@ int shim_rskt_read(void* sock, void* data, const int data_len)
 
 extern "C" uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr, uint32_t buf_sz);
 
+#define SKT_CONNECTED(x) ((rskt_connected == x->st) || (rskt_closing == x->st))
+
 int shim_rskt_get_avail_bytes(void* sock)
 {
   assert(sock);
@@ -128,7 +130,11 @@ int shim_rskt_get_avail_bytes(void* sock)
   if (skt == NULL) // socket closed?
     return -1;
 
-  return get_avail_bytes(skt->hdr, skt->buf_sz);
+  int avail_bytes = get_avail_bytes(skt->hdr, skt->buf_sz);
+
+  if (avail_bytes < 1 && !SKT_CONNECTED(r_sock)) return -1;
+
+  return avail_bytes;
 }
 
 int shim_rskt_write(void* sock, void* data, const int data_len)
