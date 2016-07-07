@@ -31,6 +31,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#define __STDC_FORMAT_MACROS
+#include <stdint.h>
 #include <inttypes.h>
 
 #include <map>
@@ -61,8 +63,10 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"dR_Lat",
 	(char *)"MSG_Tx",
 	(char *)"mT_Lat",
+	(char *)"mTx_Oh",
 	(char *)"MSG_Rx",
 	(char *)"mR_Lat",
+	(char *)"mRx_Oh",
 	(char *)" IBWIN",
 	(char *)"~IBWIN",
 	(char *)"SHTDWN",
@@ -1253,7 +1257,7 @@ struct cli_cmd msgTxLat = {
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
-	"<size> bytes per message hex. Must be a multiple of 8."
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
         "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: mTxLat must be sending to a node running mRxLat!\n"
 	"NOTE: mRxLat must be run before mTxLat!\n",
@@ -1307,7 +1311,7 @@ struct cli_cmd msgRxLat = {
 "mRxLat <idx> <sock_num> <size>\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
-	"<size> bytes per message hex. Must be a multiple of 8."
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
         "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: All parameters are decimal numbers.\n"
 	"NOTE: mRxLat must be run before mTxLat!\n",
@@ -1371,7 +1375,7 @@ struct cli_cmd msgTxOh = {
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
-	"<size> bytes per message hex. Must be a multiple of 8."
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
 	"       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: mTxOh must be sending to a node running mRxOh!\n"
 	"NOTE: mRxOh must be run before mTxOh!\n",
@@ -1392,7 +1396,7 @@ struct cli_cmd msgRxOh = {
 "mRxOh <idx> <sock_num> <size>\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
-	"<size> bytes per message hex. Must be a multiple of 8."
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
 	"       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: All parameters are decimal numbers.\n"
 	"NOTE: mRxOh must be run before mTxOh!\n",

@@ -31,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#define __STDC_FORMAT_MACROS
+#include <stdint.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -1171,10 +1174,11 @@ void msg_rx_goodput(struct worker *info)
                         	break;
                 	};
 			info->perf_msg_cnt++;
-			if (message_rx_lat == info->action)
+			if ((message_rx_lat == info->action) ||
+			   		(message_rx_oh == info->action)) {
 				if (send_resp_msg(info))
 					break;
-
+			}
 			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 		};
 		msg_cleanup_con_skt(info);
@@ -1307,20 +1311,21 @@ void msg_tx_overhead(struct worker *info)
 
 	info->mb_valid = 1;
 
-	rc = riomp_sock_socket(info->mb, &info->con_skt);
-	if (rc) {
-		ERR("FAILED: riomp_sock_socket rc %d:%s\n",
-			rc, strerror(errno));
-		return;
-	};
-
-	info->con_skt_valid = 1;
 	rc = alloc_msg_tx_rx_buffs(info);
 
 	zero_stats(info);
 	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
 
 	while (!info->stop_req) {
+		rc = riomp_sock_socket(info->mb, &info->con_skt);
+		if (rc) {
+			ERR("FAILED: riomp_sock_socket rc %d:%s\n",
+				rc, strerror(errno));
+			return;
+		};
+		start_iter_stats(info);
+
+		info->con_skt_valid = 1;
 		rc = riomp_sock_connect(info->con_skt, info->did, info->sock_num);
 		if (rc) {
 			ERR("FAILED: riomp_sock_connect rc %d:%s\n",
@@ -1328,7 +1333,6 @@ void msg_tx_overhead(struct worker *info)
 			return;
 		};
 		info->con_skt_valid = 2;
-		start_iter_stats(info);
 
 		rc = 1;
 		while (rc && !info->stop_req) {
