@@ -29,32 +29,54 @@
 TOPDIR?=$(shell pwd)/../..
 include $(TOPDIR)/rules.mk
 
-level?=7
+LOG_LEVEL?=7
 debug?=DEBUG
 
+level?=$(LOG_LEVEL)
+
 NAME:=list
+TARGETS:=lib$(NAME).a lib$(NAME).so
+TEST_TARGET:=$(NAME)_test
 
-# Common link flags for all shared libraries
-SO_LIB_LKFLAGS = -rdynamic -shared -lnsl -fPIC -Wl,-soname,lib$(NAME).so.$(SOVER)
+XFLAGS=-Wall -Wextra -fPIC
+XFLAGS+=-D$(DEBUG) -DRDMA_LL=$(level)
+XFLAGS+=-I. -Iinc -Isrc
 
-# LIST library flags, sources and objects
-LISTLIB_CFLAGS = $(CXXFLAGS) -Wall -Wextra -fPIC \
-		-D$(debug) -DRDMA_LL=$(level) -rdynamic -lnsl \
-		-I./inc 
+CFLAGS += $(XFLAGS)
+CXXFLAGS += $(XFLAGS)
 
-LISTLIB_OBJS = liblist.o liblist_test.o
+LDFLAGS+=-L. -l$(NAME)
+LINK_FLAGS+= -rdynamic -shared -Wl,-soname,lib$(NAME).so.$(SOVER)
 
-all: liblist.so liblist.a
+OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
-# The list library
-liblist.so: 
-	@echo ---------- Building liblist.so...
-	$(CXX) -c $(LISTLIB_CFLAGS) src/liblist.c
-	$(CXX) -c $(LISTLIB_CFLAGS) src/liblist_test.c
-	$(CXX) -o $@.$(SOVER) $(LISTLIB_OBJS) $(SO_LIB_LKFLAGS)
+TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
+
+ifndef TEST
+all: $(TARGETS)
+else
+all: $(TARGETS) $(TEST_TARGET)
+endif
+
+%.a: $(OBJECTS)
+	$(AR) rcs $@ $^
+
+%.so: $(OBJECTS)
+	$(CXX) $(CXXFLAGS) -o $@.$(SOVER) $(OBJECTS) $(LINK_FLAGS)
 	@ln -s $@.$(SOVER) $@ &>/dev/null
 
-%.a: liblist.so
-	$(AR) rcs $@ $(LISTLIB_OBJS)
+src/%.o: src/%.c
+	$(CXX) -c $(CXXFLAGS) $< -o $@
+
+test: $(TARGETS) $(TEST_TARGET) 
+
+$(TEST_TARGET): $(TEST_OBJECTS) $(OBJECTS)
+	$(CXX) $(CXXFLAGS) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) \
+	-L. -L$(COMMONLIBA) \
+	-llog -lcli -pthread
+
 clean:
-	@rm -f *.o *~ liblist.so* liblist.a
+	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~ *.a lib$(NAME).so*
+	
+.PHONY: all clean
+	

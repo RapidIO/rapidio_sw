@@ -56,7 +56,11 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
+ifndef TEST
 all: $(TARGETS)
+else
+all: $(TARGETS) $(TEST_TARGET)
+endif
 
 %.a: $(OBJECTS)
 	$(AR) rcs $@ $^
@@ -68,14 +72,14 @@ all: $(TARGETS)
 src/%.o: src/%.c $(HEADERS)
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
-test: all $(TEST_TARGET) 
+test: $(TARGETS) $(TEST_TARGET) 
 
 $(TEST_TARGET): $(TEST_OBJECTS) $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(TEST_OBJECTS) $(OBJECTS) -o $(TEST_TARGET) \
 	-L. -L$(COMMONLIBA) \
-	-lcli -llog -pthread
+	-llog -lcli -pthread
 
 clean:
-	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a lib$(NAME).so*
+	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~ *.a lib$(NAME).so*
 
 .PHONY: all clean

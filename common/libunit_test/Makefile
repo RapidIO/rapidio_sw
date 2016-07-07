@@ -55,7 +55,11 @@ OBJECTS:=$(patsubst src/%.c,src/%.o,$(wildcard src/*.c))
 
 TEST_OBJECTS:=$(patsubst test/%.c,test/%.o,$(wildcard test/*.c))
 
+ifndef TEST
 all: $(TARGETS)
+else
+all: $(TARGETS) $(TEST_TARGET)
+endif
 
 %.a: $(OBJECTS)
 	$(AR) rcs $@ $^
@@ -70,7 +74,7 @@ src/%.o: src/%.c $(HEADERS)
 test/%.o: test/%.c $(HEADERS)
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
-test: all $(TEST_TARGET) 
+test: $(TARGETS) $(TEST_TARGET) 
 
 $(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS) $(HEADERS) $(TEST_HEADERS)
 	$(CXX) $(OBJECTS) $(TEST_OBJECTS) -o $(TEST_TARGET) \
@@ -78,6 +82,6 @@ $(TEST_TARGET) : $(TEST_OBJECTS) $(OBJECTS) $(HEADERS) $(TEST_HEADERS)
 	-L. -L$(COMMONLIBA)
 
 clean:
-	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) inc/*~ src/*~ *~ *.a *.so*
+	rm -f $(TARGETS) $(TEST_TARGET) $(OBJECTS) $(TEST_OBJECTS) inc/*~ src/*~ *~ *.a *.so*
 
 .PHONY: all clean

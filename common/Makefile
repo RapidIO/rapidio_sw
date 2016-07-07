@@ -39,14 +39,14 @@ endif
 
 all: libcli liblist liblog libtime_utils libmport libunit_test samples
 
-libcli: FORCE
+libcli: FORCE liblog
 	$(MAKE) all -C libcli
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libcli/libcli.a libs_a/
 	(cd libcli; tar cf - libcli.so*) | (cd libs_so; tar xvf -)
 		
-liblist: FORCE
+liblist: FORCE liblog libcli
 	$(MAKE) all -C liblist
 	mkdir -p libs_a
 	mkdir -p libs_so
@@ -60,14 +60,14 @@ liblog: FORCE
 	cp liblog/liblog.a libs_a/
 	(cd liblog; tar cf - liblog.so*) | (cd libs_so; tar xvf -)
 		
-libtime_utils: FORCE
+libtime_utils: FORCE liblog libcli
 	$(MAKE) all -C libtime_utils
 	mkdir -p libs_a
 	mkdir -p libs_so
 	cp libtime_utils/libtime_utils.a libs_a/
 	(cd libtime_utils; tar cf - libtime_utils.so*) | (cd libs_so; tar xvf -)
 		
-libunit_test: FORCE
+libunit_test: FORCE liblog libcli libtime_utils
 	$(MAKE) all -C libunit_test
 	mkdir -p libs_a
 	mkdir -p libs_so
@@ -82,7 +82,7 @@ libmport: FORCE libtime_utils
 	(cd libmport; tar cf - libmport.so*) | (cd libs_so; tar xvf -)
 	$(MAKE) LDFLAGS= -C libmport samples
 
-samples: FORCE
+samples: FORCE liblog libcli
 	$(MAKE) -C samples
 
 FORCE:
