@@ -91,9 +91,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
+#define __STDC_FORMAT_MACROS
+#include <stdint.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <inttypes.h>
 
 #ifdef RDMA_LL
 	#include "liblog.h"

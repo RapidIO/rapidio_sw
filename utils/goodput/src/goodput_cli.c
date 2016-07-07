@@ -31,6 +31,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#define __STDC_FORMAT_MACROS
+#include <stdint.h>
 #include <inttypes.h>
 
 #include <map>
@@ -61,8 +63,10 @@ char *req_type_str[(int)last_action+1] = {
 	(char *)"dR_Lat",
 	(char *)"MSG_Tx",
 	(char *)"mT_Lat",
+	(char *)"mTx_Oh",
 	(char *)"MSG_Rx",
 	(char *)"mR_Lat",
+	(char *)"mRx_Oh",
 	(char *)" IBWIN",
 	(char *)"~IBWIN",
 	(char *)"SHTDWN",
@@ -1253,7 +1257,7 @@ struct cli_cmd msgTxLat = {
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<did> target device ID\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
-	"<size> bytes per message hex. Must be a multiple of 8."
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
         "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: mTxLat must be sending to a node running mRxLat!\n"
 	"NOTE: mRxLat must be run before mTxLat!\n",
@@ -1261,7 +1265,7 @@ msgTxLatCmd,
 ATTR_NONE
 };
 
-int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
+int msgRxCmdExt(struct cli_env *env, int argc, char **argv, req_type action)
 {
 	int idx;
 	int sock_num;
@@ -1276,13 +1280,13 @@ int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 
 	if (!sock_num) {
 		sprintf(env->output, "\nSock_num must not be 0.\n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
 	roundoff_message_size(&bytes);
 
-	wkr[idx].action = message_rx_lat;
+	wkr[idx].action = action;
 	wkr[idx].action_mode = kernel_action;
 	wkr[idx].did = 0;
 	wkr[idx].sock_num = sock_num;
@@ -1291,7 +1295,12 @@ int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
+};
+
+int msgRxLatCmd(struct cli_env *env, int argc, char **argv)
+{
+	return msgRxCmdExt(env, argc, argv, message_rx_lat);
 };
 
 struct cli_cmd msgRxLat = {
@@ -1302,7 +1311,7 @@ struct cli_cmd msgRxLat = {
 "mRxLat <idx> <sock_num> <size>\n"
 	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
 	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
-	"<size> bytes per message hex. Must be a multiple of 8."
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
         "       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
 	"NOTE: All parameters are decimal numbers.\n"
 	"NOTE: mRxLat must be run before mTxLat!\n",
@@ -1323,7 +1332,7 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 
 	if (!sock_num) {
 		sprintf(env->output, "\nSock_num must not be 0.\n");
-        	logMsg(env);
+		logMsg(env);
 		goto exit;
 	};
 
@@ -1335,7 +1344,7 @@ int msgRxCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 exit:
-        return 0;
+	return 0;
 };
 
 struct cli_cmd msgRx = {
@@ -1348,6 +1357,50 @@ struct cli_cmd msgRx = {
 	"<sock_num> Target socket number for connections from msgTx command\n"
 	"NOTE: msgRx must be running before msgTx!\n",
 msgRxCmd,
+ATTR_NONE
+};
+
+int msgTxOhCmd(struct cli_env *env, int argc, char **argv)
+{
+	msg_tx_cmd(env, argc, argv, message_tx_oh);
+	return 0;
+};
+
+struct cli_cmd msgTxOh = {
+"mTxOh",
+4,
+4,
+"Measures overhead of channelized messages",
+"mTxOh <idx> <did> <sock_num> <size>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<did> target device ID\n"
+	"<sock_num> RapidIO Channelized Messaging channel number to connect\n"
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
+	"       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
+	"NOTE: mTxOh must be sending to a node running mRxOh!\n"
+	"NOTE: mRxOh must be run before mTxOh!\n",
+msgTxOhCmd,
+ATTR_NONE
+};
+
+int msgRxOhCmd(struct cli_env *env, int argc, char **argv)
+{
+	return msgRxCmdExt(env, argc, argv, message_rx_oh);
+};
+
+struct cli_cmd msgRxOh = {
+"mRxOh",
+4,
+3,
+"Loops back received messages to mTxOh sender",
+"mRxOh <idx> <sock_num> <size>\n"
+	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+	"<sock_num> RapidIO Channelized Messaging channel number to accept\n"
+	"<size> bytes per message hex. Must be a multiple of 8.\n"
+	"       Minimum 0x18, maximum 0x1000 (24 through 4096).\n"
+	"NOTE: All parameters are decimal numbers.\n"
+	"NOTE: mRxOh must be run before mTxOh!\n",
+msgRxOhCmd,
 ATTR_NONE
 };
 
@@ -3370,6 +3423,8 @@ struct cli_cmd *goodput_cmds[] = {
 	&msgRx,
 	&msgTxLat,
 	&msgRxLat,
+	&msgTxOh,
+	&msgRxOh,
 	&Goodput,
 	&Lat,
 	&Status,

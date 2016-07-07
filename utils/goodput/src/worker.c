@@ -31,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
+#define __STDC_FORMAT_MACROS
+#include <stdint.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -1171,10 +1174,11 @@ void msg_rx_goodput(struct worker *info)
                         	break;
                 	};
 			info->perf_msg_cnt++;
-			if (message_rx_lat == info->action)
+			if ((message_rx_lat == info->action) ||
+			   		(message_rx_oh == info->action)) {
 				if (send_resp_msg(info))
 					break;
-
+			}
 			clock_gettime(CLOCK_MONOTONIC, &info->end_time);
 		};
 		msg_cleanup_con_skt(info);
@@ -1272,6 +1276,108 @@ void msg_tx_goodput(struct worker *info)
                 	};
 			finish_iter_stats(info);
 		};
+
+		info->perf_msg_cnt++;
+		info->perf_byte_cnt += info->msg_size;
+		clock_gettime(CLOCK_MONOTONIC, &info->end_time);
+	};
+exit:
+	msg_cleanup_con_skt(info);
+	msg_cleanup_mb(info);
+
+};
+
+
+void msg_tx_overhead(struct worker *info)
+{
+	int rc;
+
+	if (info->mb_valid || info->acc_skt_valid || info->con_skt_valid) {
+		ERR("FAILED: mailbox, access socket, or con socket in use.\n");
+		return;
+	};
+
+	if (!info->sock_num) {
+		ERR("FAILED: Socket number cannot be 0.\n");
+		return;
+	};
+
+	rc = riomp_sock_mbox_create_handle(mp_h_num, 0, &info->mb);
+	if (rc) {
+		ERR("FAILED: riomp_sock_mbox_create_handle rc %d:%s\n",
+			rc, strerror(errno));
+		return;
+	};
+
+	info->mb_valid = 1;
+
+	rc = alloc_msg_tx_rx_buffs(info);
+
+	zero_stats(info);
+	clock_gettime(CLOCK_MONOTONIC, &info->st_time);
+
+	while (!info->stop_req) {
+		rc = riomp_sock_socket(info->mb, &info->con_skt);
+		if (rc) {
+			ERR("FAILED: riomp_sock_socket rc %d:%s\n",
+				rc, strerror(errno));
+			return;
+		};
+		start_iter_stats(info);
+
+		info->con_skt_valid = 1;
+		rc = riomp_sock_connect(info->con_skt, info->did, info->sock_num);
+		if (rc) {
+			ERR("FAILED: riomp_sock_connect rc %d:%s\n",
+				rc, strerror(errno));
+			return;
+		};
+		info->con_skt_valid = 2;
+
+		rc = 1;
+		while (rc && !info->stop_req) {
+			rc = riomp_sock_send(info->con_skt,
+					info->sock_tx_buf, info->msg_size);
+
+			if (rc) {
+				if ((errno == ETIME) || (errno == EINTR))
+					continue;
+				if (errno == EBUSY) {
+					const struct timespec ten_usec = {0, 10 * 1000};
+					nanosleep(&ten_usec, NULL);
+					continue;
+				};
+				ERR("FAILED: riomp_sock_send rc %d:%s\n",
+					rc, strerror(errno));
+				goto exit;
+			};
+			break;
+		};
+
+		rc = 1;
+		while (rc && !info->stop_req) {
+			rc = riomp_sock_receive(info->con_skt,
+				&info->sock_rx_buf, FOUR_KB, 1000);
+
+			if (rc) {
+				if ((errno == ETIME) ||
+						(errno == EINTR)) {
+					continue;
+				};
+				ERR(
+				"FAILED: riomp_sock_receive rc %d:%s\n",
+					rc, strerror(errno));
+				goto exit;
+			};
+		};
+
+		rc = riomp_sock_close(&info->con_skt);
+		info->con_skt_valid = 0;
+		if (rc) {
+			ERR("riomp_sock_close rc con_skt %d:%s\n",
+					rc, strerror(errno));
+		};
+		finish_iter_stats(info);
 
 		info->perf_msg_cnt++;
 		info->perf_byte_cnt += info->msg_size;
@@ -3262,14 +3368,18 @@ void *worker_thread(void *parm)
         	case dma_rx_lat:	
 			dma_rx_latency(info);
 			break;
-        	case message_tx:
-        	case message_tx_lat:
-				msg_tx_goodput(info);
-				break;
-        	case message_rx:
-        	case message_rx_lat:
-				msg_rx_goodput(info);
-				break;
+		case message_tx:
+		case message_tx_lat:
+			msg_tx_goodput(info);
+			break;
+		case message_rx:
+		case message_rx_lat:
+		case message_rx_oh:
+			msg_rx_goodput(info);
+			break;
+		case message_tx_oh:
+			msg_tx_overhead(info);
+			break;
         	case alloc_ibwin:
 				dma_alloc_ibwin(info);
 				break;
