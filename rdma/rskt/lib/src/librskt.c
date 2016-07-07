@@ -1895,7 +1895,7 @@ exit:
 }; /* rskt_write() */
 
 //static inline
-uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
+int  get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 					uint32_t buf_sz)
 {
 	uint32_t avail_bytes = 0;
@@ -1909,6 +1909,8 @@ uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 
 	errno = 0;
 	
+	INFO("rem_rx_wr_flags 0x%8x loc_rx_rd_flags 0x%8x",
+		htonl(hdr->rem_rx_wr_flags), htonl(hdr->loc_rx_rd_flags));
 	if (!(hdr->rem_rx_wr_flags & htonl(RSKT_FLAG_INIT))) {
 		/* Not an error; just means there are no bytes available */
 		return 0;
@@ -1917,6 +1919,12 @@ uint32_t get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 	avail_bytes = rrw - lrr - 1;
 	if (rrw < lrr)
 		avail_bytes = buf_sz - lrr + rrw - 1;
+
+	if (!avail_bytes) {
+		if (!(hdr->rem_rx_wr_flags & htonl(RSKT_FLAG_CLOSING))) {
+			avail_bytes = -1;
+		};
+	};
 
 	return avail_bytes;
 }; /* get_avail_bytes() */
@@ -1931,7 +1939,7 @@ void read_bytes(struct rskt_socket_t *skt, void *data, uint32_t byte_cnt)
 
 int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 {
-	uint32_t avail_bytes = 0;
+	int avail_bytes = 0;
 	struct rdma_xfer_ms_in hdr_in;
 	uint32_t first_offset;
 	struct rskt_socket_t * volatile skt;
@@ -2024,7 +2032,14 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 		goto fail;
 	};
 
-	if (avail_bytes > max_byte_cnt)
+	if (-1 == avail_bytes) {
+		if (DMA_FLUSHED(skt)) {
+			rskt_close_locked(skt_h);
+		}
+		goto done;
+	};
+
+	if (avail_bytes > (int)max_byte_cnt)
 		avail_bytes = max_byte_cnt;
 	DBG("avail_bytes = %d\n", avail_bytes);
 	first_offset = (ntohl(skt->hdr->loc_rx_rd_ptr) + 1) % skt->buf_sz;
@@ -2044,24 +2059,19 @@ int rskt_read(rskt_h skt_h, void *data, uint32_t max_byte_cnt)
 	skt->stats.rx_trans++;
 
 	/* Only update remote header if bytes were read. */
-	if (avail_bytes) {
-		hdr_in.loc_msubh = skt->msubh;
-		hdr_in.rem_msubh = skt->con_msubh;
-		hdr_in.priority = 0;
-		hdr_in.sync_type = rdma_sync_chk;
-		if (update_remote_hdr(skt, &hdr_in)) {
-			skt->hdr->loc_tx_wr_flags |= 
-					htonl(RSKT_BUF_HDR_FLAG_ERROR);
-	       		skt->hdr->loc_rx_rd_flags |= 
-					htonl(RSKT_BUF_HDR_FLAG_ERROR);
-			ERR("Failed in update_remote_hdr\n");
-			goto fail;
-		};
-	} else {
-		if (DMA_FLUSHED(skt)) {
-			rskt_close_locked(skt_h);
-		}
+	hdr_in.loc_msubh = skt->msubh;
+	hdr_in.rem_msubh = skt->con_msubh;
+	hdr_in.priority = 0;
+	hdr_in.sync_type = rdma_sync_chk;
+	if (update_remote_hdr(skt, &hdr_in)) {
+		skt->hdr->loc_tx_wr_flags |= 
+				htonl(RSKT_BUF_HDR_FLAG_ERROR);
+	       	skt->hdr->loc_rx_rd_flags |= 
+				htonl(RSKT_BUF_HDR_FLAG_ERROR);
+		ERR("Failed in update_remote_hdr\n");
+		goto fail;
 	};
+done:
 	sem_post(&lib.skts_mtx);
 	return avail_bytes;
 fail:
