@@ -58,7 +58,7 @@ SERVER_OBJS= server.o
 LIB_DEPS= libfxfr
 .PHONY: $(LIB_DEPS)
 
-LIBRARIES=-lfxfr -lmport -llog -lcli -ldl -lrt
+LIBRARIES=-lfxfr -lmport -lrsvdmem -llog -lcli -ldl -lrt
 
 
 %.o: %.c $(SERVER_DEPS) $(LIB_DEPS)

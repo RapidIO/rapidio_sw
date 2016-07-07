@@ -68,7 +68,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-int init_message_buffers(struct ibwin_info *info)
+int init_message_buffers(struct buffer_info *info)
 {
 	info->msg_buff_size = MAX_MSG_SIZE;
         info->msg_rx = malloc(MAX_MSG_SIZE); 
@@ -93,7 +93,7 @@ fail:
 	return 1;
 };
 
-int process_rxed_msg(struct ibwin_info *info, int *abort_flag)
+int process_rxed_msg(struct buffer_info *info, int *abort_flag)
 {
 	if (info->rxed_msg->fail_abort)
 		goto fail;
@@ -137,7 +137,7 @@ fail:
 	return 1;
 };
 				
-int send_server_msg(struct ibwin_info *info, int fail_abort, int abort_flag)
+int send_server_msg(struct buffer_info *info, int fail_abort, int abort_flag)
 { 
 	/* Server sends first message to client */
 
@@ -171,7 +171,7 @@ int send_server_msg(struct ibwin_info *info, int fail_abort, int abort_flag)
 			info->msg_tx, info->msg_buff_size);
 };
 
-int receive_client_msg(struct ibwin_info *info)
+int receive_client_msg(struct buffer_info *info)
 {
 	int ret = riomp_sock_receive(*info->req_skt, 
 					&info->msg_rx, info->msg_buff_size, 0);
@@ -206,7 +206,7 @@ int receive_client_msg(struct ibwin_info *info)
 	return ret;
 };
 
-int rx_file(struct ibwin_info *info, int *abort_flag)
+int rx_file(struct buffer_info *info, int *abort_flag)
 {
         int ret = 0;
 	int end_of_file = 0;
