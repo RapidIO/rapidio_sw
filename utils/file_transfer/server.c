@@ -290,7 +290,7 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 	if (argc) {
 		st_idx = getDecParm(argv[0], 0);
 		max_idx = st_idx+1;
-		if ((st_idx >= MAX_IBWIN) || (argc > 2))
+		if ((st_idx >= buff_cnt) || (argc > 2))
 			goto show_help;
 		if (argc > 1)
 			rx_bufs[st_idx].debug = getDecParm(argv[1], 0)?1:0;
@@ -497,7 +497,7 @@ void batch_start_connections(void)
 
 	pause_file_xfer_conn = 0;
 
-	for (i = 0; (i < MAX_IBWIN) && num_conn_reqs; i++) {
+	for (i = 0; (i < buff_cnt) && num_conn_reqs; i++) {
 		if (rx_bufs[i].valid && rx_bufs[i].completed) {
 			rx_bufs[i].req_skt = pop_conn_req(&conn_reqs);
 			rx_bufs[i].completed = 0;
@@ -754,7 +754,7 @@ void *conn_loop(void *ret)
 		};
 
 		found_one = 0;
-		for (i = 0; (i < MAX_IBWIN) && !pause_file_xfer_conn; i++) {
+		for (i = 0; (i < buff_cnt) && !pause_file_xfer_conn; i++) {
 			if (rx_bufs[i].valid && rx_bufs[i].completed) {
 				rx_bufs[i].req_skt = new_socket;
 				rx_bufs[i].completed = 0;
@@ -808,13 +808,15 @@ exit:
 	pthread_exit(ret);
 };
 
-int setup_ibwins(uint8_t num_buffs, uint32_t buff_size, uint64_t ibwin_base)
+int setup_ibwins(int num_buffs, uint32_t buff_size, uint64_t ibwin_base)
 {
 	int i, rc;
 
 	if (num_buffs > MAX_IBWIN) {
 		num_buffs = MAX_IBWIN;
 	};
+
+	buff_cnt = num_buffs;
 
         for (i = 0; i < num_buffs; i++) {
                 rx_bufs[i].rio_base = ibwin_base + (buff_size * i);
@@ -840,7 +842,7 @@ int setup_ibwins(uint8_t num_buffs, uint32_t buff_size, uint64_t ibwin_base)
         return 0;
 
 close_ibwin:
-        for (i = 0; i < MAX_IBWIN; i++) {
+        for (i = 0; i < buff_cnt; i++) {
                 if (rx_bufs[i].length) {
                         if (rx_bufs[i].ib_mem != MAP_FAILED) {
                                 riomp_dma_unmap_memory(mp_h, rx_bufs[i].length,
@@ -854,7 +856,7 @@ close_ibwin:
 	return rc;
 };
 
-int setup_buffers(uint8_t num_buffs, uint32_t buff_size, uint64_t ibwin_base)
+int setup_buffers(int num_buffs, uint32_t buff_size, uint64_t ibwin_base)
 {
 	int i;
 	int rc;
@@ -883,6 +885,8 @@ int setup_buffers(uint8_t num_buffs, uint32_t buff_size, uint64_t ibwin_base)
 		rc = -1;
 		goto exit;
 	};
+
+	buff_cnt = num_buffs;
 
 	rx_bufs[0].rio_base = RIO_ANY_ADDR;
 	rx_bufs[0].handle = rsvd_addr;
@@ -919,7 +923,7 @@ exit:
 	
 };
 
-int setup_mport(uint8_t mport_num, uint8_t num_buffs, uint32_t win_size, 
+int setup_mport(uint8_t mport_num, int num_buffs, uint32_t win_size, 
 		uint64_t ibwin_base)
 {
 	int rc = -1;
@@ -1097,7 +1101,7 @@ void spawn_threads(int cons_skt, int xfer_skt, int run_cons)
 		exit(EXIT_FAILURE);
 	}
  
-	for (i = 0; i < MAX_IBWIN; i++) {
+	for (i = 0; i < buff_cnt; i++) {
 		int *pass_idx;
 		int ibwin_ret;
 
@@ -1153,7 +1157,7 @@ void fxfr_server_shutdown(void) {
 	all_must_die = 1;
 	
 	/* Make sure all request processing threads die... */
-	for (idx = 0; (idx < MAX_IBWIN) && spawned_threads; idx++) {
+	for (idx = 0; (idx < buff_cnt) && spawned_threads; idx++) {
 		sem_post(&conn_reqs_mutex);
 		if (rx_bufs[idx].valid) {
 			if (rx_bufs[idx].thr_valid) {
@@ -1219,7 +1223,7 @@ int main(int argc, char *argv[])
 		fxfr_server_shutdown();
 
 	pthread_join(conn_thread, NULL);
-	for (i = 0; i < MAX_IBWIN; i++) {
+	for (i = 0; i < num_buffs; i++) {
 		if (rx_bufs[i].thr_valid)
 			pthread_join(rx_bufs[i].xfer_thread, NULL);
 	};
