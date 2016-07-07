@@ -81,7 +81,7 @@ void print_server_help(void)
 	printf("-D	 : Displays debug/trace/error messages\n");
 	printf("-c <skt> : Supports remote console connectivity using"
 							" <skt>.\n");
-	printf("	 The default <skt> value is 4444.\n");
+	printf("	 The default <skt> value is %d.\n", FXFR_DFLT_CLI_SKT);
 	printf("	 Note: There must be a space between \"-c\""
 							" and <skt>.\n");
 	printf("-i <rio_ibwin_base>: Use <rio_ibwin_base> as the starting\n");
@@ -104,13 +104,13 @@ void print_server_help(void)
 	printf("	The default value is %d.\n", TOTAL_TX_BUFF_SIZE/1024);
 	printf("	The larger the window, the faster the transfer.\n");
 
-	printf("-W<ibwin_cnt>: Attempts to get <ibwin_cnt> inbound RDMA"
-						" windows.\n");
+	printf("-W<buffers>: Attempts to create <buffers> separate "
+					" buffers/file receive threads.\n");
 	printf("	 The default value is 1.\n");
 	printf("	 The maximum number of parallel file transfers is\n");
-	printf("	 equal to the number of inbound RDMA windows. The\n");
+	printf("	 equal to the number of buffers. The\n");
 	printf("	 server will continue to operate as long as it has\n");
-	printf("	 at least one inbound RDMA window.\n");
+	printf("	 at least one buffer.\n");
 	printf("-X <cm_skt>: The server listens for file transfer requests\n");
 	printf("	 on RapidIO Channel Manager socket <cm_skt>.\n");
 	printf("	 The default value is 0x%x.\n", FXFR_DFLT_SVR_CM_PORT);
@@ -131,7 +131,7 @@ void parse_options(int argc, char *argv[],
 {
 	int idx;
 
-	*cons_skt = 8754;
+	*cons_skt = FXFR_DFLT_CLI_SKT;
 	*print_help = 0;
 	*mport_num = 0;
 	*run_cons = 1;
@@ -920,19 +920,9 @@ int setup_mport(uint8_t mport_num, uint8_t num_win, uint32_t win_size,
 	};
 
 	for (i = 0; i < MAX_IBWIN; i++) {
-		ibwins[i].valid = FALSE;
-		ibwins[i].thr_valid = FALSE;
+		memset((void *)&ibwins[i], 0, sizeof(ibwins[0]));
 		sem_init(&ibwins[i].req_avail, 0, 0);
-		ibwins[i].handle = 0;
-		ibwins[i].length = 0;
 		ibwins[i].ib_mem = (char *)MAP_FAILED;
-		ibwins[i].msg_rx = NULL;
-		ibwins[i].msg_tx = NULL;
-		ibwins[i].rxed_msg = NULL;
-		ibwins[i].tx_msg = NULL;
-		ibwins[i].msg_buff_size = 0;
-		ibwins[i].debug = 0;
-		ibwins[i].bytes_rxed = 0;
 	};
 
 	for (i = 0; i < num_win; i++) {

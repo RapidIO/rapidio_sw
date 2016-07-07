@@ -42,6 +42,7 @@ extern "C" {
 #define FMD_DFLT_CLI_SKT 2222
 #define RDMA_DFLT_CLI_SKT 2224
 #define RSKT_DFLT_CLI_SKT 2226
+#define FXFR_DFLT_CLI_SKT 2228
 
 /** \brief Location of configuration files and sysfs files for LINUX */
 #define FMD_DFLT_CFG_FN "/etc/rapidio/fmd.conf"
