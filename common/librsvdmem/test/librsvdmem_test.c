@@ -222,6 +222,15 @@ int test_3(void)
 		goto fail;
 	};
 
+	rc = get_phys_mem((const char *)test_file3, (char *)"STUFF_BEFORE",
+							&st_addr, &size);
+	if (rc) {
+		goto fail;
+	};
+	if ((0x1800000000000000 != st_addr) || (0x010000000000000 != size)) {
+		goto fail;
+	};
+
 	for (i = 1; i <= 3; i++) {
 		char keyword[30];
 		memset(keyword, 0, 30);
