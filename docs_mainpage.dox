@@ -56,8 +56,12 @@
  *
  * \section install_sec Installation
  *
- * Automatic installation has been tested on systems with up to four nodes,
- * and a single StarBridge RapidIO switch applicance.  
+ * Automatic installation has been tested on systems with up to four nodes.
+ * Two switch types are supported:
+ * - StarBridge RapidIO 8 port switch applicance
+ * - Prodrive Technologies 38 port Top-of-Rack switch
+ * Note that the endpoints MUST be connected to the switch 
+ * ports described below.
  *
  * Installation depends upon the following:
  *
@@ -180,6 +184,16 @@
  * - ./stop_all.sh - terminates Fabric Management, RMA, RMA Sockets, 
  *                   Tsi721 User Mode Driver, and DmaTun.
  * - ./all_down.sh - powers down all nodes 
+ *
+ * \section centaurus_execution_sec Starting and Stopping Centaurus RIOSocket
+ *
+ * Centaurus Software's "RIOSocket" kernel module may optionally be installed.
+ * Scripts have been provided to start and stop RIOSocket independent of the
+ * rest of the RRMAP stack.  RIOSocket can be executed in Kernel Only and 
+ * with the rest of the RRMAP stack.
+ *
+ * To start RIOSocket, execute "centaurus_start.sh".
+ * To halt  RIOSocket, execute "stop_centaurus.sh".
  *
  * \page stack_fmd RRMAP Fabric Management Overview
  *
