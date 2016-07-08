@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "goodput_cli.h"
 #include "libtime_utils.h"
+#include "librsvdmem.h"
 #include "mhz.h"
 #include "liblog.h"
 #include "assert.h"
@@ -382,16 +383,32 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	int idx;
 	uint64_t ib_size;
 	uint64_t ib_rio_addr = RIO_ANY_ADDR;
+	uint64_t ib_phys_addr= RIO_ANY_ADDR;
+	bool check = true;
 
 	idx = GetDecParm(argv[0], 0);
 	ib_size = GetHex(argv[1], 0);
-	if (argc > 2)
+
+	/* Note: RSVD overrides rio_addr... */
+	if (argc > 3) {
+		int rc;
+		rc = get_rsvd_phys_mem(argv[3], &ib_phys_addr, &ib_size);
+		if (rc) {
+			sprintf(env->output,
+				"\nNo rerved memory found for keyword %s",
+				argv[3]);
+        		logMsg(env);
+			goto exit;
+		};
+		check = false;
+	} else if (argc > 2) {
 		ib_rio_addr = GetHex(argv[2], 0);
+	};
 
 	if (check_idx(env, idx, 1))
 		goto exit;
 
-	if ((ib_size < FOUR_KB) || (ib_size > 4*SIXTEEN_MB)) {
+	if (check && ((ib_size < FOUR_KB) || (ib_size > 4*SIXTEEN_MB))) {
 		sprintf(env->output, "\nIbwin size range: 0x%x to 0x%x\n",
 			FOUR_KB, 4*SIXTEEN_MB);
         	logMsg(env);
@@ -411,6 +428,7 @@ int IBAllocCmd(struct cli_env *env, int argc, char **argv)
 	wkr[idx].action = alloc_ibwin;
 	wkr[idx].ib_byte_cnt = ib_size;
 	wkr[idx].ib_rio_addr = ib_rio_addr;
+	wkr[idx].ib_handle = ib_phys_addr;
 	wkr[idx].stop_req = 0;
 	sem_post(&wkr[idx].run);
 
@@ -423,11 +441,12 @@ struct cli_cmd IBAlloc = {
 3,
 2,
 "Allocate an inbound window",
-"IBAlloc <idx> <size> {<addr>}\n"
-	"<idx> is a worker index from 0 to " STR(MAX_WORKER_IDX) "\n"
+"IBAlloc <idx> <size> {<addr> {<RSVD>}}\n"
 	"<size> is a hexadecimal power of two from 0x1000 to 0x01000000\n"
 	"<addr> is the optional RapidIO address for the inbound window\n"
-	"       NOTE: <addr> must be aligned to <size>\n",
+	"       NOTE: <addr> must be aligned to <size>\n"
+	"<RSVD> is a keyword for reserved memory area.\n"
+	"       NOTE: If <RSVD> is specified, <addr> is ignored.\n",
 IBAllocCmd,
 ATTR_NONE
 };
