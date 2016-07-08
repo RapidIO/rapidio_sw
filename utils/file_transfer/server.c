@@ -85,11 +85,6 @@ void print_server_help(void)
 	printf("	 The default <skt> value is %d.\n", FXFR_DFLT_CLI_SKT);
 	printf("	 Note: There must be a space between \"-c\""
 							" and <skt>.\n");
-	printf("-i <rio_ibwin_base>: Use <rio_ibwin_base> as the starting\n");
-	printf("	 RapidIO address for inbound RDMA windows.\n");
-	
-	printf("	 The default value is 0x%x.\n", TOTAL_TX_BUFF_SIZE); 
-	printf("	 Note: There must be a space between -i and \n");
 	printf("-m<mport>: Accept requests on <mport>. 0-9 is the range of\n");
 	printf("	 valid mport values.\n");
 	printf("	 The default mport value is 0. \n");
@@ -127,8 +122,7 @@ void parse_options(int argc, char *argv[],
 		int *run_cons,
 		int *win_size,
 		int *num_buffs, 
-		int *xfer_skt,
-		uint64_t *ibwin_base )   
+		int *xfer_skt)
 {
 	int idx;
 
@@ -139,7 +133,6 @@ void parse_options(int argc, char *argv[],
 	*win_size = TOTAL_TX_BUFF_SIZE/1024;
 	*num_buffs = 1;
 	*xfer_skt = FXFR_DFLT_SVR_CM_PORT;
-	*ibwin_base = TOTAL_TX_BUFF_SIZE;
 
 	for (idx = 0; (idx < argc) && !*print_help; idx++) {
 		if (strnlen(argv[idx], 4) < 2)
@@ -165,16 +158,6 @@ void parse_options(int argc, char *argv[],
 			case 'h': 
 			case 'H': *print_help = 1;
 				  break;
-			case 'i': 
-			case 'I': if (argc < (idx+1)) {
-					  printf("\n<base> not specified\n");
-					  *print_help = 1;
-					  goto exit;
-				} else {
-					idx++;
-					*ibwin_base = atoi(argv[idx]);
-				};
-				break;
 			case 'm': 
 			case 'M': 
 				if ((argv[idx][2] >= '0') && 
@@ -206,7 +189,7 @@ void parse_options(int argc, char *argv[],
 			case 'w':
 			case 'W': if ((argv[idx][2] >= '0') && 
 				    (argv[idx][2] <= '9')) {
-					*num_buffs = argv[idx][2] - '0';
+					*num_buffs = atoi(&argv[idx][2]);
 				} else {
 					printf("\n<buffers> invalid\n");
 					*print_help = 1;
@@ -298,7 +281,7 @@ int FXStatusCmd(struct cli_env *env, int argc, char **argv)
 
 	
 	sprintf(env->output, 
-	"\nWin V   RapidIO Addr    Size    Memory Space PHYS TV D C RC I\n");
+	"\nWin V   RapidIO Addr    Size    Memory Space PHYS TV D C       RC I\n");
 	logMsg(env);
 	for (idx = st_idx; idx < max_idx; idx++) {
 		sprintf(env->output, 
@@ -808,18 +791,21 @@ exit:
 	pthread_exit(ret);
 };
 
-int setup_ibwins(int num_buffs, uint32_t buff_size, uint64_t ibwin_base)
+int setup_ibwins(int num_buffs, uint32_t buff_size)
 {
 	int i, rc;
 
 	if (num_buffs > MAX_IBWIN) {
+		WARN("Only %d windows created, %d requested.",
+							MAX_IBWIN, num_buffs);
 		num_buffs = MAX_IBWIN;
 	};
 
 	buff_cnt = num_buffs;
 
         for (i = 0; i < num_buffs; i++) {
-                rx_bufs[i].rio_base = ibwin_base + (buff_size * i);
+                rx_bufs[i].rio_base = RIO_ANY_ADDR;
+                rx_bufs[i].handle = RIO_ANY_ADDR;
                 rx_bufs[i].length = buff_size;
                 if (riomp_dma_ibwin_map(mp_h, &rx_bufs[i].rio_base,
 				rx_bufs[i].length, &rx_bufs[i].handle)) {
@@ -856,7 +842,7 @@ close_ibwin:
 	return rc;
 };
 
-int setup_buffers(int num_buffs, uint32_t buff_size, uint64_t ibwin_base)
+int setup_buffers(int num_buffs, uint32_t buff_size)
 {
 	int i;
 	int rc;
@@ -871,17 +857,20 @@ int setup_buffers(int num_buffs, uint32_t buff_size, uint64_t ibwin_base)
 
 	rc = get_rsvd_phys_mem(RSVD_PHYS_MEM_FXFR, &rsvd_addr, &rsvd_size);
 	if (rc) {
-		rc = setup_ibwins(num_buffs, buff_size, ibwin_base);
+		rc = setup_ibwins(num_buffs, buff_size);
 		goto exit;
 	};
 	
 	/* Reserved memory exists, so map it... */
 
 	if (rsvd_size < req_size) {
-		num_buffs = rsvd_size / buff_size;
+		int new_num_buffs = rsvd_size / buff_size;
+		WARN("Only %d buffers created, %d requested.",
+						new_num_buffs, num_buffs);
+		num_buffs = new_num_buffs;
 	};
 	if (!num_buffs) {
-		printf("\nRsvd memory size less than one buffer! Exiting\n");
+		CRIT("\nRsvd memory size less than one buffer! Exiting\n");
 		rc = -1;
 		goto exit;
 	};
@@ -912,6 +901,7 @@ int setup_buffers(int num_buffs, uint32_t buff_size, uint64_t ibwin_base)
 	for (i = 0; i < num_buffs; i++) {
 		rx_bufs[i].rio_base = rx_bufs[0].rio_base + (buff_size * i);
 		rx_bufs[i].ib_mem = rx_bufs[0].ib_mem + (buff_size * i);
+		rx_bufs[i].handle = rsvd_addr + (buff_size * i);
 		rx_bufs[i].length = buff_size;
 		rx_bufs[i].is_an_ibwin = true;
 		rx_bufs[i].valid = 1;
@@ -923,8 +913,7 @@ exit:
 	
 };
 
-int setup_mport(uint8_t mport_num, int num_buffs, uint32_t win_size, 
-		uint64_t ibwin_base)
+int setup_mport(uint8_t mport_num, int num_buffs, uint32_t win_size)
 {
 	int rc = -1;
 
@@ -951,7 +940,7 @@ int setup_mport(uint8_t mport_num, int num_buffs, uint32_t win_size,
 		goto close_mport;
 	};
 
-	rc = setup_buffers(num_buffs, win_size, ibwin_base);
+	rc = setup_buffers(num_buffs, win_size);
 	if (!rc) {
 		return 0;
 	};
@@ -1193,7 +1182,6 @@ int main(int argc, char *argv[])
 	int rc = EXIT_FAILURE;
 	int i;
 	int run_cons, win_size, num_buffs, xfer_skt;
-	uint64_t rio_base;
 
 	debug = 0;
 
@@ -1203,7 +1191,7 @@ int main(int argc, char *argv[])
 	signal(SIGUSR1, sig_handler);
 
 	parse_options(argc, argv, &cons_skt, &print_help, &mport_num, &run_cons,
-		&win_size, &num_buffs, &xfer_skt, &rio_base);   
+		&win_size, &num_buffs, &xfer_skt);   
 	
 	if (print_help) {
 		print_server_help();
@@ -1211,7 +1199,7 @@ int main(int argc, char *argv[])
 	};
 
 	rdma_log_init("fxfr_server.log", 1);
-	if (setup_mport(mport_num, num_buffs, win_size, rio_base)) {
+	if (setup_mport(mport_num, num_buffs, win_size)) {
 		goto exit;
 	};
 
