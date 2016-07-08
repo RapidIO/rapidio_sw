@@ -89,7 +89,7 @@ void fmd_print_help(void)
 	printf("       Default is \"%s\"\n", FMD_DFLT_DD_MTX_FN);
 	printf("-n, -N: Do not start console CLI.\n");
 	printf("-p<port>: POSIX Ethernet socket for remote CLI.\n");
-	printf("       Default is %d\n", FMD_DFLT_CLI_PORT_NUM);
+	printf("       Default is %d\n", FMD_DFLT_CLI_SKT);
 	printf("-s, -S: Simple initialization, do not populate device dir.\n");
 	printf("       Default is %d\n", FMD_DFLT_INIT_DD);
 	printf("-x, -X: Initialize and then immediately exit.\n");
@@ -109,7 +109,7 @@ struct fmd_opt_vals *fmd_parse_options(int argc, char *argv[])
 	opts->init_and_quit = 0;
 	opts->simple_init = 0;
 	opts->print_help = 0;
-	opts->cli_port_num = FMD_DFLT_CLI_PORT_NUM;
+	opts->cli_port_num = FMD_DFLT_CLI_SKT;
 	opts->app_port_num = FMD_DFLT_APP_PORT_NUM;
 	opts->run_cons = 1;
 	opts->log_level = FMD_DFLT_LOG_LEVEL;

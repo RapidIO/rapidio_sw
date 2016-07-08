@@ -457,6 +457,7 @@ int init_server_connect(struct fxfr_tx_state *info,
         }
 
 	if (info->use_kbuf) {
+		info->buf_h = RIO_ANY_ADDR;
                 rc = riomp_dma_dbuf_alloc(info->mp_h, TOTAL_TX_BUFF_SIZE,
 				&info->buf_h);
                 if (rc) {

@@ -104,7 +104,6 @@ int main(int argc, char *argv[])
 		try {
 			bat_server = new cm_server("bat_server",
 					BAT_MPORT_ID,
-					BAT_MBOX_ID,
 					channel,
 					&shutting_down);
 		}

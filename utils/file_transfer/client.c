@@ -40,6 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/time.h>
 #include <signal.h>
 
+#include "rrmap_config.h"
 #include "libfxfr.h"
 #include "rapidio_mport_sock.h"
 #include "rapidio_mport_mgmt.h"
@@ -65,7 +66,7 @@ void print_client_help(void)
 	printf("	to determine the available mports and destination IDs.\n");
 	printf("<cm_skt>: RapidIO Channelized Messaging (CM) socket number\n");
 	printf("	to connect to.\n");
-	printf("	Default value is 5555.\n");
+	printf("	Default value is 0x%x.\n", FXFR_DFLT_SVR_CM_PORT);
 	printf("	Execute the \"status\" command on the target server\n");
 	printf("	to display the CM socket number used by that server.\n");
 	printf("<mport> : The index of the mport number to be used to send\n");
@@ -112,7 +113,7 @@ int parse_options(int argc, char *argv[],
 	*src_name = src_fs;
 	*rem_name = rem_fs;
 	*server_dest = 0;
-	*xfer_skt = 5555;
+	*xfer_skt = FXFR_DFLT_SVR_CM_PORT;
 	*mport_num = 0;
 	*debug = 0;
 	*k_buffs = 1;

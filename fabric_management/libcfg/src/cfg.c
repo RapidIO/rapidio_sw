@@ -100,7 +100,7 @@ int init_cfg_ptr(void)
 	};
 	cfg->mast_devid_sz = CFG_DFLT_MAST_DEVID_SZ;
 	cfg->mast_devid = CFG_DFLT_MAST_DEVID;
-	cfg->mast_cm_port = CFG_DFLT_MAST_CM_PORT;
+	cfg->mast_cm_port = FMD_DFLT_MAST_CM_PORT;
 
 	for (i = 0; i < CFG_MAX_EP; i++) {
 		for (j = 0; j < CFG_MAX_EP_PORT; j++) {
@@ -240,28 +240,6 @@ int get_next_token(struct int_cfg_parms *cfg, char **token)
 		parse_err(cfg, (char *)"Unexpected end of file.");
 
 	return (NULL == *token);
-};
-
-int parm_idx(char *token, char *token_list)
-{
-	int rc = 0;
-	int len;
-       
-	if (NULL == token)
-		return -1;
-
-	len = strlen(token);
-
-	while (NULL != token_list) {
-		if (!strncmp(token, token_list, len))
-			if ((' ' == token_list[len]) || (0 == token_list[len]))
-				break;
-		rc++;
-		token_list = strchr(token_list, ' ');
-		if (NULL != token_list)
-			token_list = &token_list[1];
-	}
-	return rc;
 };
 
 #define DEVID_SZ_TOKENS "dev08 dev16 dev32"

@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <stdint.h>
+#include "rrmap_config.h"
 #include "librskt.h"
 #include "librskt_private.h"
 
@@ -259,8 +260,6 @@ struct librskt_rsktd_to_app_msg {
 #define MSG_SZ(x) ((x+7)&0xff8)
 #define A2RSKTD_SZ MSG_SZ(sizeof(struct librskt_app_to_rsktd_msg))
 #define RSKTD2A_SZ MSG_SZ(sizeof(struct librskt_rsktd_to_app_msg))
-
-#define LIBRSKTD_SKT_FMT "/var/tmp/RSKTD%04d.%1d"
 
 #ifdef __cplusplus
 }

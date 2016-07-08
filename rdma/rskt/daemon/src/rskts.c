@@ -109,7 +109,7 @@ void print_server_help(void)
         printf("-D       : Displays debug/trace/error messages\n");
         printf("-t       : Run the library in test mode - no connections\n");
 	printf("-u <u_num>: AF_LOCAL <u_skt> socket for rskt library calls\n");
-        printf("           The default value is %d.\n", DFLT_DMN_LSKT_SKT);
+        printf("           The default value is %d.\n", RSKT_DFLT_APP_PORT_NUM);
         printf("           The u_skt and Umport value must be correct for\n");
         printf("           the rskt library to operate correctly.\n");
         printf("           Note: There must be a space between -u and"
@@ -133,7 +133,7 @@ int parse_options(int argc, char *argv[], struct server_controls *ctrls)
 
 	ctrls->test = 0;
 	ctrls->rsktlib_mp = DFLT_DMN_LSKT_MPORT;
-	ctrls->rsktlib_portno = DFLT_DMN_LSKT_SKT;
+	ctrls->rsktlib_portno = RSKT_DFLT_APP_PORT_NUM;
 	ctrls->remcli_portno = DFLT_SVR_E_CLI_SKT;
 	rskts.debug = 1;
 	ctrls->print_help = 0;

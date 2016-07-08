@@ -38,6 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <semaphore.h>
 #include <riocp_pe.h>
 
+#include <rrmap_config.h>
+
 // #include "fmd_state.h"
 
 #ifndef _FMD_DD_H_
@@ -46,8 +48,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define FMD_DEFAULT_SKT 3434
 
 #define FMD_DEV08 0
 #define FMD_DEV16 1

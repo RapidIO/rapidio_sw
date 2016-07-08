@@ -392,7 +392,7 @@ int RSKTLibInitCmd(struct cli_env *env, int argc, char **argv)
 	int mp;
 	int test;
 
-	portno = getDecParm(argv[0], DFLT_DMN_LSKT_SKT);
+	portno = getDecParm(argv[0], RSKT_DFLT_APP_PORT_NUM);
 	mp = getDecParm(argv[1], DFLT_DMN_LSKT_MPORT);
 	test = getDecParm(argv[2], 0);
 

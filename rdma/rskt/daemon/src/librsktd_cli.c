@@ -78,93 +78,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-uint8_t last_ibwin; /* 0-7 means next window to be cleared */
-
-#define MAX_IBWIN 8
-#define IBWIN_LB(X) (0x29000+(0x20*X))
-#define IBWIN_UB(X) (0x29004+(0x20*X))
-#define IBWIN_SZ(X) (0x29008+(0x20*X))
-#define IBWIN_TLA(X) (0x2900C+(0x20*X))
-#define IBWIN_TUA(X) (0x29010+(0x20*X))
-
-int RSKTIbwinCmd(struct cli_env *env, int argc, char **argv)
-{
-        uint8_t idx;
-	int rc;
-
-//	if (dmn.mp_hnd == 0) {
-		rc = riomp_mgmt_mport_create_handle(dmn.mpnum, RIO_MPORT_DMA, &dmn.mp_hnd);
-		if (rc < 0) {
-                        sprintf(env->output, 
-				"\nFAILED: Unable to open mport %d...\n",
-				dmn.mpnum );
-                        logMsg(env);
-			return 0;
-		};
-//	};
-
-
-	if (argc)
-		idx = getHex(argv[0], 0);
-	else
-		idx = last_ibwin;
-	last_ibwin = idx;
-
-	if (idx < MAX_IBWIN) {
-		int rc;
-		uint32_t data = 0;
-		rc = riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_LB(idx), 4, data);
-		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_UB(idx), 4, data);
-		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_SZ(idx), 4, data);
-		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_TLA(idx), 4, data);
-		rc |= riomp_mgmt_lcfg_write(dmn.mp_hnd, IBWIN_TUA(idx), 4, data);
-		if (rc) {
-                        sprintf(env->output, 
-				"\nFAILED: Could not clear ibwin %d\n", idx);
-                        logMsg(env);
-		} else {
-                        sprintf(env->output, 
-				"\nPASSED: Cleared ibwin %d\n", idx);
-                        logMsg(env);
-		};
-	};
-
-	last_ibwin = (last_ibwin >= MAX_IBWIN)?(MAX_IBWIN):(idx + 1);
-
-	sprintf(env->output, 
-		"\nWin    LA       UA       SZ      TLA       TUA\n");
-	logMsg(env);
-
-	for (idx = 0; idx < MAX_IBWIN; idx++) {
-		uint32_t la, ua, sz, tla, tua;
-		rc = riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_LB(idx), 4, &la);
-		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_UB(idx), 4, &ua);
-		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_SZ(idx), 4, &sz);
-		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_TLA(idx), 4, &tla);
-		rc |= riomp_mgmt_lcfg_read(dmn.mp_hnd, IBWIN_TUA(idx), 4, &tua);
-		if (rc)
-			sprintf(env->output, 
-				"\nFAILED: Could not read bwin %d\n", idx);
-		else
-			sprintf(env->output, "%d %8x %8x %8x %8x %8x\n",
-				idx, la, ua, sz, tla, tua);
-		logMsg(env);
-	}
-
-	return 0;
-};
-
-struct cli_cmd RSKTIbwin = {
-"ibwin",
-1,
-0,
-"Tsi721 Inbound Window command.",
-"{<win>}\n"
-        "<win> Window index to be cleared.\n",
-RSKTIbwinCmd,
-ATTR_RPT
-};
-
 extern struct cli_cmd RSKTStatus;
 
 void print_ms_status(struct cli_env *env, int start_ms, int end_ms)
@@ -1603,8 +1516,7 @@ ATTR_NONE
 };
 
 struct cli_cmd *daemon_cmds[] = 
-	{ &RSKTIbwin,
-	  &RSKTMs,
+	{ &RSKTMs,
 	  &RSKTMsoh,
 	  &RSKTMsub,
 	  &RSKTStatus,
@@ -1619,8 +1531,6 @@ struct cli_cmd *daemon_cmds[] =
 
 void librsktd_bind_cli_cmds(void)
 {
-	last_ibwin = -1;
-
         add_commands_to_cmd_db(sizeof(daemon_cmds)/sizeof(daemon_cmds[0]), 
 				daemon_cmds);
 	librsktd_bind_sn_cli_cmds();

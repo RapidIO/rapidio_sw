@@ -8,10 +8,10 @@ Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer.
+l of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation
+this l of conditions and the following disclaimer in the documentation
 and/or other materials provided with the distribution.
 
 3. Neither the name of the copyright holder nor the names of its contributors
@@ -31,47 +31,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *************************************************************************
 */
 
-#ifndef PEER_UTILS_H
-#define PEER_UTILS_H
+#ifndef __LIBRSVDMEM_H__
+#define __LIBRSVDMEM_H__
 
 #include <stdint.h>
 
-#include "rrmap_config.h"
-#include "rapidio_mport_dma.h"
-
-constexpr uint16_t DEFAULT_PROV_CHANNEL = 10;
-constexpr auto	   DEFAULT_CONSOLE_SKT  = 4444;
-constexpr auto	   DEFAULT_RUN_CONS	= 1;
-
-struct peer_info
-{
-	/**
-	 * @brief Constructor
-	 */
-	peer_info(uint8_t destid_len, uint32_t destid, int mport_id,
-		  riomp_mport_t mport_hnd, uint16_t prov_channel,
-		  int cons_skt, int run_cons)
-	: destid_len(destid_len), destid(destid), mport_id(mport_id),
-	  mport_hnd(mport_hnd), prov_channel(prov_channel),
-	  cons_skt(cons_skt), run_cons(run_cons)
-	{
-	}
-
-	/* Device ID */
-	uint8_t	destid_len;
-	uint32_t destid;
-
-	/* MPORT */
-	int mport_id;
-	riomp_mport_t mport_hnd;
-
-	/* Provisioning channel and mailbox */
-	uint16_t	prov_channel;
-
-	/* Daemon CLI connection */
-	int	cons_skt;	/* Console socket number, default 4444 */
-	int	run_cons;	/* Run console on Daemon? */
-};
-
+#ifdef __cplusplus
+extern "C" {
 #endif
 
+#define RSVD_PHYS_MEM		(char *)"PHYS_MEM"
+#define RSVD_PHYS_MEM_RSKTD	(char *)"RSKTD"
+#define RSVD_PHYS_MEM_RDMAD	(char *)"RDMAD"
+#define RSVD_PHYS_MEM_FXFR	(char *)"FXFR"
+#define RSVD_PHYS_MEM_DMA_TUN	(char *)"DMATUN"
+
+int get_rsvd_phys_mem(char *parm_name, uint64_t *start_addr, uint64_t *size);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __LIBRSVDMEM_H__ */

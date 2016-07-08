@@ -48,7 +48,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 #include <time.h>
 
+#define __STDC_FORMAT_MACROS
 #include <stdint.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>

@@ -37,7 +37,7 @@ DEBUG ?= DEBUG
 export DEBUG
 endif
 
-all: libcli liblist liblog libtime_utils libmport libunit_test samples
+all: libcli liblist liblog libtime_utils libmport libunit_test librsvdmem samples
 
 libcli: FORCE liblog
 	$(MAKE) all -C libcli
@@ -74,6 +74,13 @@ libunit_test: FORCE liblog libcli libtime_utils
 	cp libunit_test/libunit_test.a libs_a/
 	(cd libunit_test; tar cf - libunit_test.so*) | (cd libs_so; tar xvf -)
 		
+librsvdmem: FORCE libcli
+	$(MAKE) all -C librsvdmem
+	mkdir -p libs_a
+	mkdir -p libs_so
+	cp librsvdmem/librsvdmem.a libs_a/
+	(cd librsvdmem; tar cf - librsvdmem.so*) | (cd libs_so; tar xvf -)
+		
 libmport: FORCE libtime_utils
 	$(MAKE) all LDFLAGS= -C libmport
 	mkdir -p libs_a
@@ -94,6 +101,7 @@ clean:
 	$(MAKE) clean -C libtime_utils
 	$(MAKE) clean -C libunit_test
 	$(MAKE) clean -C libmport
+	$(MAKE) clean -C librsvdmem
 	$(MAKE) clean -C samples
 	rm -f libs_a/*
 	rm -f libs_so/*

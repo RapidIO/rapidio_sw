@@ -192,7 +192,6 @@ int provision_rdaemon(uint32_t destid)
 		shared_ptr<cm_client> the_client = make_shared<cm_client>
 					   ("the_client",
 					    peer.mport_id,
-					    peer.prov_mbox_id,
 					    peer.prov_channel,
 					    &shutting_down);
 

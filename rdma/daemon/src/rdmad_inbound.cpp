@@ -43,6 +43,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "liblog.h"
 #include "rapidio_mport_mgmt.h"
 #include "rapidio_mport_dma.h"
+#include "librsvdmem.h"
 
 #include "rdmad_msubspace.h"
 #include "rdmad_mspace.h"
@@ -63,10 +64,27 @@ inbound::inbound(peer_info &peer,
 				      ibwin_size(win_size),
 				      mport_hnd(mport_hnd)
 {
+	uint64_t rsvd_phys_addr = RIO_ANY_ADDR;
+	uint64_t rsvd_phys_size = 0;
+	uint64_t rsvd_rio_addr = RIO_ANY_ADDR;
+	int rc;
+
+	rc = get_rsvd_phys_mem(RSVD_PHYS_MEM_RDMAD,
+					&rsvd_phys_addr, &rsvd_phys_size);
+
+	if (rc) {
+		rsvd_phys_addr = RIO_ANY_ADDR;
+		rsvd_rio_addr = RIO_ANY_ADDR;
+	} else {
+		num_wins = 1;
+		win_size = rsvd_phys_size;
+	};
+	
 	/* Initialize inbound windows */
 	for (unsigned i = 0; i < num_wins; i++) {
 		try {
-			auto win = make_unique<ibwin>(owners, mport_hnd, i, win_size);
+			auto win = make_unique<ibwin>(owners, mport_hnd, i,
+				rsvd_phys_addr, rsvd_rio_addr, win_size);
 			ibwins.push_back(move(win));
 		}
 		catch(ibwin_map_exception& e) {

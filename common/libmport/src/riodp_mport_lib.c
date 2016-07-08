@@ -466,11 +466,12 @@ int riomp_dma_ibwin_map(riomp_mport_t mport_handle, uint64_t *rio_base, uint32_t
 	struct rio_mmap ib;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if(hnd == NULL || rio_base == NULL || handle == NULL)
 		return -EINVAL;
 
 	ib.rio_addr = (*rio_base == RIOMP_MAP_ANY_ADDR) ? RIO_MAP_ANY_ADDR : *rio_base;
 	ib.length = size;
+	ib.address = (*handle == RIOMP_MAP_ANY_ADDR) ? RIO_MAP_ANY_ADDR : *handle;
 
 	if (ioctl(hnd->fd, RIO_MAP_INBOUND, &ib))
 		return -errno;
@@ -533,10 +534,11 @@ int riomp_dma_dbuf_alloc(riomp_mport_t mport_handle, uint32_t size, uint64_t *ha
 	struct rio_dma_mem db;
 	struct rapidio_mport_handle *hnd = mport_handle;
 
-	if(hnd == NULL)
+	if(hnd == NULL || handle == NULL)
 		return -EINVAL;
 
 	db.length = size;
+	db.address = (*handle == RIOMP_MAP_ANY_ADDR) ? RIO_MAP_ANY_ADDR : *handle;
 
 	if (ioctl(hnd->fd, RIO_ALLOC_DMA, &db))
 		return -errno;

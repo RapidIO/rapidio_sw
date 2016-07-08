@@ -37,6 +37,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __LIBRSKTD_PRIVATE_H__
 #define __LIBRSKTD_PRIVATE_H__
 
+#include "rrmap_config.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,15 +46,10 @@ extern "C" {
 #define DFLT_DMN_MPORT 0
 #define MAX_DMN_MPORT 7
 
-#define DMN_LSKT_FMT "/var/tmp/RSKTD%04d.%1d"
-#define DFLT_DMN_LSKT_SKT 3333
 #define DFLT_DMN_LSKT_MPORT DFLT_DMN_MPORT
 #define DFLT_DMN_LSKT_BACKLOG 50
 
-#define DFLT_DMN_CM_CONN_SKT 4455
 #define DFLT_DMN_CM_CONN_MPORT 0
-
-#define DFLT_DMN_E_CLI_SKT 4343
 
 #define MAX_DMN_PEERS 16
 

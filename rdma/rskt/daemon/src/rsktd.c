@@ -89,7 +89,7 @@ void print_daemon_help(void)
 	printf("-e <e_skt> : Remote console connectivity over Ethernet"
 							" uses <e_skt>.\n");
 	printf("	 The default <e_skt> value is %d.\n", 
-							DFLT_DMN_E_CLI_SKT);
+							RSKT_DFLT_CLI_SKT);
 	printf("	 Note: There must be a space between \"-c\""
 							" and <e_skt>.\n");
 	printf("-s <num_spaces>: Number of memory spaces to use\n");
@@ -104,7 +104,7 @@ void print_daemon_help(void)
        	printf("	Must be less than -s value\n");
 	printf("	The larger the buffer, the faster the transfer.\n");
 	printf("-u <u_skt>: AF_LOCAL <u_skt> socket for rskt library calls\n");
-	printf("	 The default value is %d.\n", DFLT_DMN_LSKT_SKT);
+	printf("	 The default value is %d.\n", RSKT_DFLT_APP_PORT_NUM);
 	printf("	 The u_skt and Umport value must be correct for\n");
 	printf("	 the rskt library to operate correctly.\n");
 	printf("	 Note: There must be a space between -u and"
@@ -122,7 +122,7 @@ void print_daemon_help(void)
 	printf("	   Current default value is %d\n", RDMA_LL);
 	printf("-C <cm_skt>: The RSKT daemon listens for connect requests\n");
 	printf("	 on RapidIO Channel Manager socket <cm_skt>.\n");
-	printf("	 The default value is %d.\n", DFLT_DMN_CM_CONN_SKT);
+	printf("	 The default value is %d.\n", RSKT_DFLT_DMN_CM_PORT);
 	printf("	 The cm_skt and mport value must be correct to\n");
 	printf("	 successfully connect.\n");
 	printf("	 Note: There must be a space between -X and"
@@ -145,17 +145,17 @@ void parse_options(int argc, char *argv[])
 	ctrls.print_help = 0;
 	ctrls.run_cons = 1;
 	ctrls.log_level = RDMA_LL;
-	ctrls.e_cli_skt = DFLT_DMN_E_CLI_SKT;
+	ctrls.e_cli_skt = RSKT_DFLT_CLI_SKT;
 	ctrls.num_ms = DFLT_DMN_NUM_MS;
 	ctrls.ms_size = DFLT_DMN_MS_SIZE;
 	ctrls.rskt_buff_size = DFLT_DMN_SBUF_SIZE;
 	ctrls.init_ms = DFLT_DMN_INIT;
 	ctrls.rsktd_uskt_tst = 0;
-	ctrls.rsktd_uskt = DFLT_DMN_LSKT_SKT;
+	ctrls.rsktd_uskt = RSKT_DFLT_APP_PORT_NUM;
 	ctrls.rsktd_u_mp = DFLT_DMN_LSKT_MPORT;
 	ctrls.rsktd_u_bklg = DFLT_DMN_LSKT_BACKLOG;
 	ctrls.rsktd_cskt_tst = 0;
-	ctrls.rsktd_cskt = DFLT_DMN_CM_CONN_SKT;
+	ctrls.rsktd_cskt = RSKT_DFLT_DMN_CM_PORT;
 	ctrls.rsktd_c_mp = DFLT_DMN_CM_CONN_MPORT;
 	ctrls.num_peers = 0;
 

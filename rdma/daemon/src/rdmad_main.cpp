@@ -76,8 +76,8 @@ static rx_engines_list	unix_rx_eng_list;
 static unique_ptr<thread> unix_engine_monitoring_thread;
 static sem_t  *unix_engine_cleanup_sem = nullptr;
 
-static peer_info peer(16, 0xFFFF, 0, 0, DEFAULT_PROV_CHANNEL,
-		DEFAULT_PROV_MBOX_ID, DEFAULT_CONSOLE_SKT, DEFAULT_RUN_CONS);
+static peer_info peer(16, 0xFFFF, 0, 0, RDMA_DFLT_DMN_CM_PORT,
+		RDMA_DFLT_CLI_SKT, DEFAULT_RUN_CONS);
 
 /* Memory Space Owner data */
 static ms_owners owners;

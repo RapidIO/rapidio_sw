@@ -41,6 +41,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "libfxfr.h"
 #include "rapidio_mport_sock.h"
@@ -55,10 +56,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-struct ibwin_info {
+struct buffer_info {
         uint8_t valid; /* 0 - info is not valid, window not in use.
                         * 1 - info is valid, window available
                         */
+	bool is_an_ibwin; /* If an inbound window was allocated for this buffer,
+			* then this is true.  The inbound window should be
+			* unmapped when the file transfer server exits.
+			*/
         uint64_t rio_base; /* RapidIO inbound base address */
         uint64_t length; /* Size of inbound window/memory in bytes */
         uint64_t handle; /* Handle to use for mport */
@@ -85,7 +90,7 @@ struct ibwin_info {
 	uint64_t bytes_rxed;
 };
 
-extern int rx_file(struct ibwin_info *info, int *abort_flag);
+extern int rx_file(struct buffer_info *info, int *abort_flag);
 
 #ifdef __cplusplus
 }

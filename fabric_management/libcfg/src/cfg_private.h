@@ -88,12 +88,9 @@ struct int_mport_info {
 
 #define CFG_MAX_MPORTS 4
 #define CFG_DFLT_INIT_DD 0
-#define CFG_DFLT_CLI_PORT_NUM 2222
-#define CFG_DFLT_APP_PORT_NUM 3434
 #define CFG_DFLT_RUN_CONS 1
 #define CFG_DFLT_MAST_DEVID_SZ FMD_DEV08
 #define CFG_DFLT_MAST_DEVID 1
-#define CFG_DFLT_MAST_CM_PORT 3434
 #define CFG_DFLT_MAST_INTERVAL 5
 #define CFG_INVALID_CT 0
 #define CFG_MAX_EP 4
@@ -103,7 +100,6 @@ struct int_mport_info {
 #define CFG_MAX_CONN (CFG_MAX_SW*CFG_MAX_CONN_PORT)
 #define CFG_MAX_DEVS (CFG_MAX_SW+CFG_MAX_CONN)
 
-#define CFG_DFLT_DEV_DIR "/sys/bus/rapidio/devices/"
 #define CFG_MAX_DEV_FN 256
 
 #define OTHER_END(x) ((1 == x)?0:((0==x)?1:2))

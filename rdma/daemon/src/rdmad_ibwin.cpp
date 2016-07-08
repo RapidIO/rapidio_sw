@@ -120,9 +120,12 @@ private:
 };
 
 ibwin::ibwin(ms_owners &owners, riomp_mport_t mport_hnd,
-				unsigned win_num, uint64_t size) :
+				unsigned win_num, 
+				uint64_t phys_addr_in,
+				uint64_t rio_addr_in,
+				uint64_t size_in) :
 	owners(owners), mport_hnd(mport_hnd), win_num(win_num),
-	rio_addr(RIOMP_MAP_ANY_ADDR), phys_addr(0), size(size)
+	rio_addr(rio_addr_in), phys_addr(phys_addr_in), size(size_in)
 {
 	/* First, obtain an inbound handle from the mport driver */
 	if (riomp_dma_ibwin_map(mport_hnd, &rio_addr, size, &phys_addr)) {

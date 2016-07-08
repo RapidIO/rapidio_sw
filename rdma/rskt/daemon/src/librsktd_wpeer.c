@@ -550,7 +550,7 @@ void update_wpeer_list(uint32_t destid_cnt, uint32_t *destids)
 		}
 
 		new_wpeer.ct = destids[i];
-		new_wpeer.cm_skt = DFLT_DMN_CM_CONN_SKT;
+		new_wpeer.cm_skt = RSKT_DFLT_DMN_CM_PORT;
 		
 		DBG("new_wpeer.ct = %d, new_wpeer.cm_skt = %d\n",
 				new_wpeer.ct, new_wpeer.cm_skt);

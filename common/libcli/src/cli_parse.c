@@ -121,6 +121,28 @@ uint64_t getHex(char *token, unsigned long defaultData)
 	return data;
 }
 
+int parm_idx(char *token, char *token_list)
+{
+        int rc = 0;
+        int len;
+
+        if (NULL == token)
+                return -1;
+
+        len = strlen(token);
+
+        while (NULL != token_list) {
+                if (!strncmp(token, token_list, len))
+                        if ((' ' == token_list[len]) || (0 == token_list[len]))
+                                break;
+                rc++;
+                token_list = strchr(token_list, ' ');
+                if (NULL != token_list)
+                        token_list = &token_list[1];
+        }
+        return rc;
+};
+
 char* GetEnv(char* var)
 {
         if (var == NULL || var[0] == '\0') return NULL;

@@ -251,9 +251,10 @@ bool RioMport::map_dma_buf(uint32_t size, DmaMem_t& mem)
     size = k * 4096;
   }
 
+  mem.win_handle = RIO_ANY_ADDR;
   ret = riomp_dma_dbuf_alloc(mp_h, size, &mem.win_handle);
   if (ret) {
-        XCRIT("riodp_dbuf_alloc failed: %d:%s\n", ret, strerror(ret));
+        XCRIT("riodp_dbuf_alloc failed: %d:%s\n", ret, strerror(-ret));
     return false;
   }
 

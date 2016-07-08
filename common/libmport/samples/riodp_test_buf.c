@@ -149,6 +149,7 @@ out:
  * \param[in] rio_base RapidIO base address of inbound window
  * \param[in] ib_size  Inbound window size
  * \param[in] buf_mode Buffer allocation mode 0-IBW, 1-DMA
+ * \param[in] loc_addr Physical address in reserved memory range
  *
  * \retval 0 means success
  * \retval Not 0 means failure
@@ -157,10 +158,10 @@ out:
  *
  */
 int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
-			 int buf_mode)
+			 int buf_mode, uint64_t loc_addr)
 {
 	int ret;
-	uint64_t ib_handle;
+	uint64_t ib_handle = RIOMP_MAP_ANY_ADDR;
 	uint64_t seg_handle;
 	uint32_t seg_size;
 	void *ibmap;
@@ -175,6 +176,10 @@ int do_buf_test(uint32_t mport_id, uint64_t rio_base, uint32_t ib_size,
 	 *   - A kernel buffer can be the target or source of data for DMA
 	 *     transfers
 	 */
+
+	if (loc_addr != RIOMP_MAP_ANY_ADDR)
+		ib_handle = loc_addr;
+
 	if (buf_mode)
 		ret = riomp_dma_ibwin_map(mport_hnd, &rio_base, ib_size, &ib_handle);
 	else
@@ -311,6 +316,9 @@ void display_help(char *program)
 	printf("  -R xxxx\n");
 	printf("  --ibbase xxxx\n");
 	printf("    inbound window base address in RapidIO address space\n");
+	printf("  -L xxxx\n");
+	printf("  --laddr xxxx\n");
+	printf("    physical address of reserved local memory to use\n");
 	printf("\n");
 }
 
@@ -329,10 +337,12 @@ int main(int argc, char** argv)
 	int option;
 	int buf_mode = 0;
 	uint64_t rio_base = RIOMP_MAP_ANY_ADDR;
+	uint64_t loc_addr = RIOMP_MAP_ANY_ADDR;
 	static const struct option options[] = {
 		{ "size",   required_argument, NULL, 'S' },
 		{ "ibbase", required_argument, NULL, 'R' },
 		{ "mport",  required_argument, NULL, 'M' },
+		{ "laddr",  required_argument, NULL, 'L' },
 		{ "help",   no_argument, NULL, 'h' },
 		{ }
 	};
@@ -342,7 +352,7 @@ int main(int argc, char** argv)
 	/** - Parse command line options, if any */
 	while (1) {
 		option = getopt_long_only(argc, argv,
-				"hiM:R:S:", options, NULL);
+				"hiM:R:S:L:", options, NULL);
 		if (option == -1)
 			break;
 		switch (option) {
@@ -357,6 +367,9 @@ int main(int argc, char** argv)
 			rio_base = strtoull(optarg, NULL, 0);
 			break;
 			/* Options common for all modes */
+		case 'L':
+			loc_addr = strtoull(optarg, NULL, 0);
+			break;
 		case 'M':
 			mport_id = strtol(optarg, NULL, 0);
 			break;
@@ -380,10 +393,12 @@ int main(int argc, char** argv)
 	printf("\tmport%d ib_size=0x%x rio_base=0x%x_%x PID:%d\n",
 		mport_id, ibwin_size, (uint32_t)(rio_base >> 32),
 		(uint32_t)(rio_base & 0xffffffff), (int)getpid());
+	if (loc_addr != RIOMP_MAP_ANY_ADDR)
+		printf("\tloc_addr=0x%llx\n", (unsigned long long)loc_addr);
 
 	/** - Run the buffer test */
 
-	do_buf_test(mport_id, rio_base, ibwin_size, buf_mode);
+	do_buf_test(mport_id, rio_base, ibwin_size, buf_mode, loc_addr);
 	
 	/** - Close the mport handle */
 

@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
+#include "rrmap_config.h"
 #include "IDT_Routing_Table_Config_API.h"
 #include "IDT_Port_Config_API.h"
 
@@ -57,10 +58,6 @@ extern "C" {
 #define CFG_DEVID_MAX (CFG_DEV32+1)
 
 #define CFG_MAX_SW_PORT 18
-
-#define CFG_DFLT_DD_FN "/RIO_SM_DEV_DIR"
-#define CFG_DFLT_DD_MTX_FN "/RIO_SM_DEV_DIR_MUTEX"
-#define CFG_DFLT_MAST_CM_PORT 3434
 
 #define CFG_MEM_SZ_34 (uint8_t)(34)
 #define CFG_MEM_SZ_50 (uint8_t)(50)

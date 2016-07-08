@@ -13,9 +13,8 @@
 
 using namespace std;
 
-static int channel;
-static int mbox_id;
-static int mport_id;
+static int channel = CM_SOCK_DFLT_SVR_CM_PORT;
+static int mport_id = 0;
 static cm_server *server;
 static cm_server *other_server;
 static bool shutting_down = false;
@@ -35,38 +34,27 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sig_handler);
 	signal(SIGABRT, sig_handler);
 
-	if (argc < 4) {
-		printf("%s -b<mbox_id> -c<channel> -m<mport_id\n", argv[0]);
-		return 1;
-	}
-
-	while ((c = getopt(argc, argv, "hb:c:m:")) != -1)
+	while ((c = getopt(argc, argv, "hc:m:")) != -1) {
 		switch (c) {
 
-		case 'b':
-			mbox_id = atoi(optarg);
-			break;
 		case 'c':
 			channel = atoi(optarg);
 			break;
-		case 'h':
-			printf("%s -b<mbox_id> -c<channel> -m<mport_id\n", argv[0]);
-			return 1;
 		case 'm':
 			mport_id = atoi(optarg);
 			break;
-		case '?':
-			/* Invalid command line option */
-			exit(1);
-			break;
+		case 'h':
 		default:
-			abort();
+			goto print_help;
 		}
+	}
+
+	rdma_log_init("cm_sock_server", false);
 
 	/* Create a server */
 	puts("Creating server object...");
 	try {
-		server = new cm_server("server", mport_id, mbox_id, channel,
+		server = new cm_server("server", mport_id, channel,
 				&shutting_down);
 	}
 
@@ -118,8 +106,13 @@ int main(int argc, char *argv[])
 	puts("Press ENTER to exit");
 	getchar();
 out:	
+	rdma_log_close();
 	delete server;
 	delete other_server;
 
 	return 0;
+
+print_help:
+	printf("%s -c<channel> -m<mport_id\n", argv[0]);
+	return 1;
 }
