@@ -88,7 +88,8 @@ public:
 	 * @throws integer exception if failed during mutex initialization
 	 */
 	ibwin(ms_owners &owners, riomp_mport_t mport_hnd, unsigned win_num,
-								uint64_t size);
+				uint64_t phys_addr_in, uint64_t rio_addr_in,
+                                uint64_t size_in);
 
 	/**
 	 * @brief	Copy constructor deleted
