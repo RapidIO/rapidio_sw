@@ -74,7 +74,7 @@ ifeq ($(DEBUG), y)
  OPTFLAGS = -ggdb -O0
 endif
 
-SOVER?=0.4
+SOVER?=0.5
 
 HERE := $(shell pwd)
 
