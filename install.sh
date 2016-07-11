@@ -134,17 +134,19 @@ awk -vM=$MEMSZ $HOSTL '
 	/node2/{if(H2 != "") {gsub(/node2/, H2);} else {$0="";}}
 	/node3/{if(H3 != "") {gsub(/node3/, H3);} else {$0="";}}
 	/node4/{if(H4 != "") {gsub(/node4/, H4);} else {$0="";}}
-	/node4/{if(H5 != "") {gsub(/node5/, H5);} else {$0="";}}
-	/node4/{if(H6 != "") {gsub(/node6/, H6);} else {$0="";}}
-	/node4/{if(H7 != "") {gsub(/node7/, H7);} else {$0="";}}
-	/node4/{if(H8 != "") {gsub(/node8/, H8);} else {$0="";}}
+	/node5/{if(H5 != "") {gsub(/node5/, H5);} else {$0="";}}
+	/node6/{if(H6 != "") {gsub(/node6/, H6);} else {$0="";}}
+	/node7/{if(H7 != "") {gsub(/node7/, H7);} else {$0="";}}
+	/node8/{if(H8 != "") {gsub(/node8/, H8);} else {$0="";}}
 	{print}' $MASTER_CONFIG_FILE | \
     ssh root@"$MASTER" "mkdir -p $CONFIG_PATH; cd $CONFIG_PATH; cat > $FILENAME";
 
+
 UMDD_CONF=$CONFIG_PATH/umdd.conf
+RSRV_CONF=$CONFIG_PATH/rsvd_phys_mem.conf
 for host in  "${ALLNODES[@]}"; do
   [ "$host" = 'none' ] && continue;
-  ssh root@"$host" "mkdir -p $CONFIG_PATH; cp $SCRIPTS_PATH/umdd.conf $UMDD_CONF"
+  ssh root@"$host" "mkdir -p $CONFIG_PATH; cp $SCRIPTS_PATH/umdd.conf $UMDD_CONF; cp $SCRIPTS_PATH/rsvd_phys_mem.conf $RSRV_CONF"
 done
 
 echo "Installation of configuration files COMPLETED..."
