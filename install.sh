@@ -152,7 +152,9 @@ done
 echo "Installation of configuration files COMPLETED..."
 
 FILES=( rio_start.sh stop_rio.sh all_start.sh stop_all.sh check_all.sh 
-	centaurus_start.sh stop_centaurus.sh all_down.sh )
+	centaurus_start.sh stop_centaurus.sh 
+	rsock0_start.sh
+	all_down.sh )
 
 for f in "${FILES[@]}"
 do
