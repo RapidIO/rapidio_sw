@@ -189,7 +189,7 @@ int init_mport_memory(int num_ms, int ms_size)
 	uint64_t tot_size = num_ms * ms_size;
 	uint32_t ibwin_size = 0x10000; /* Minimum window size) */
 	uint64_t rio_addr = RIO_ANY_ADDR;
-	uint64_t phys_addr = 0;
+	uint64_t phys_addr = RIO_ANY_ADDR;
 
 	while ((ibwin_size < tot_size) && (ibwin_size < 0x10000000))
 		ibwin_size = ibwin_size << 1;
