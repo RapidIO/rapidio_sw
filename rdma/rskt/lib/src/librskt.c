@@ -1909,7 +1909,7 @@ int  get_avail_bytes(struct rskt_buf_hdr volatile *hdr,
 
 	errno = 0;
 	
-	INFO("rem_rx_wr_flags 0x%8x loc_rx_rd_flags 0x%8x",
+	INFO("rem_rx_wr_flags 0x%8x loc_rx_rd_flags 0x%8x\n",
 		htonl(hdr->rem_rx_wr_flags), htonl(hdr->loc_rx_rd_flags));
 	if (!(hdr->rem_rx_wr_flags & htonl(RSKT_FLAG_INIT))) {
 		/* Not an error; just means there are no bytes available */
@@ -2102,7 +2102,7 @@ int rskt_close_locked(rskt_h skt_h)
 	char ms_name[MAX_MS_NAME+1] = {0};
 	uint64_t phy_addr = 0;
 
-	DBG("ENTER SN %d", skt_h->sa.sn);
+	DBG("ENTER SN %d\n", skt_h->sa.sn);
 	if (lib_uninit()) {
 		ERR("%s\n", strerror(errno));
 		return -errno;
