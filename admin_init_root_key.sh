@@ -42,7 +42,7 @@ cd ~
 echo "Generate SSH key for $_user"
 echo "Working in $PWD directory"
 
-if [ ! -d ./.ssh ]
+if [ ! -d ./.ssh -o ! -f ./.ssh/id_rsa.pub ]
 then
 	echo "Missing local .ssh key. Creating one now"
 	mkdir -p .ssh
