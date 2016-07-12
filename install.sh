@@ -12,8 +12,8 @@ if [ "$#" -lt 7 ]; then
 elif [ $5 != 'mem34' -a $5 != 'mem50' -a $5 != 'mem66' ] ; then
 	echo $'\nmemsz parameter must be mem34, mem50, or mem66.\n'
 	PRINTHELP=1
-elif [ $6 != 'PD_tor' -a $6 != 'SB_re' ] ; then
-	echo $'\nsw parameter must be PD_tor or SB_re\n'
+elif [ $6 != 'PD_tor' -a $6 != 'SB_re' -a $6 != 'NO_SW' ] ; then
+	echo $'\nsw parameter must be PD_tor, SB_re, or NO_SW\n'
 	PRINTHELP=1
 fi
 
@@ -29,6 +29,7 @@ if [ $PRINTHELP = 1 ] ; then
     echo "<sw>    Type of switch the four nodes are connecte to."
     echo "        PD_tor - Prodrive Technologies Top of Rack Switch"
     echo "        SB_re  - StarBridge Inc RapidExpress Switch"
+    echo "        NO_SW  - Two endpoints are directly connected"
     echo "<group> Unix file ownership group which should have access to"
     echo "        the RapidIO software"
     echo "<rel> is the software release/version to install."
@@ -96,8 +97,14 @@ echo "Installing configuration files..."
 
 if [ "$SW_TYPE" = 'SB_re' ]; then
 	MASTER_CONFIG_FILE=install/node-master.conf;
-else
+fi
+
+if [ "$SW_TYPE" = 'PD_tor' ]; then
 	MASTER_CONFIG_FILE=install/tor-master.conf;
+fi
+
+if [ "$SW_TYPE" = 'NO_SW' ]; then
+	MASTER_CONFIG_FILE=install/no_sw-master.conf;
 fi
 
 destids=($(grep ENDPOINT $MASTER_CONFIG_FILE | grep PORT | awk '{print $12}'))

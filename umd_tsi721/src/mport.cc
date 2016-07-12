@@ -126,7 +126,10 @@ RioMport::RioMport(const int mportid, riomp_mport_t mp_h_in)
 bool RioMport::map_ibwin(const uint32_t size, DmaMem_t& ibwin)
 {
   /* First, obtain an inbound handle from the mport driver */
-  int ret = riomp_dma_ibwin_map(mp_h, &ibwin.rio_address, size, &ibwin.win_handle);
+  int ret;
+	ibwin.rio_address = RIO_ANY_ADDR;
+	ibwin.win_handle = RIO_ANY_ADDR;
+ret  = riomp_dma_ibwin_map(mp_h, &ibwin.rio_address, size, &ibwin.win_handle);
   if (ret) {
     XCRIT("Failed to map ibwin %d:%s", ret, strerror(errno));
     return false;
