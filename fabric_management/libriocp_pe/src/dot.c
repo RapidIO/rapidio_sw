@@ -106,7 +106,7 @@ static int riocp_pe_dot_dump_foreach(FILE *file, struct riocp_pe_llist_item *lis
 			}
 
 			if (RIOCP_PE_IS_SWITCH(peer->cap) && (pt_get_user_port_counters != NULL)) {
-				ret = pt_get_user_port_counters(peer, n, buf_peer_counters, sizeof(buf_peer_counters), &edge_color_peer);
+				ret = pt_get_user_port_counters(peer, pe->peers[n].remote_port, buf_peer_counters, sizeof(buf_peer_counters), &edge_color_peer);
 				if (ret)
 					return(ret);
 			}
